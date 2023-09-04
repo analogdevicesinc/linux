@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9081-FMC-EBZ
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ * https://wiki.analog.com/resources/eval/user-guides/ad9081_fmca_ebz/ad9081_fmca_ebz_hdl
+ *
+ * hdl_project: <ad9081_fmca_ebz/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2019-2020 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
+
+&i2c1 {
+	i2c-mux@75 {
+		i2c@0 { /* HPC0 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			/* HPC0_IIC */
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+		};
+	};
+};
+
+/ {
+	clocks {
+		ref_clk: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <31250000>;
+		};
+	};
+   
+	fpga_axi: fpga-axi@0 {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		dac_tx_dma: tx-dmac@0x84A30000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84A30000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;  /* 13(HDL) + 96 */
+			clocks = <&zynqmp_clk 71>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <32>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <32>;
+					adi,destination-bus-type = <1>;
+				};
+			};
+		};
+
+
+		axi_ad3552r: axi-ad3552r@84A70000 {
+			compatible = "adi,axi-ad3552r";
+			reg = <0x84A70000 0x1000>;
+
+    		reset-gpios = <&gpio 120 GPIO_ACTIVE_LOW>;
+			clocks = <&ref_clk>;
+
+    		dmas = <&dac_tx_dma 0>;
+			dma-names = "tx";
+		};
+	};
+};
+

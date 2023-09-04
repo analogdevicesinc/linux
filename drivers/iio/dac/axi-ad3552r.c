@@ -199,8 +199,6 @@ static void axi_ad3552r_update_bits(struct axi_ad3552r_state *st, u32 reg,
 static void axi_ad3552r_spi_write(struct axi_ad3552r_state *st, u32 reg, u32 val,
 				  u32 transfer_params)
 {
-	struct reg_addr_poll addr;
-	u32 check;
 
 	if (transfer_params & AXI_MSK_SYMB_8B)
 		axi_ad3552r_write(st, AXI_REG_CNTRL_DATA_WR, CNTRL_DATA_WR_8(val));
@@ -211,20 +209,25 @@ static void axi_ad3552r_spi_write(struct axi_ad3552r_state *st, u32 reg, u32 val
 
 	axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AXI_MSK_ADDRESS,
 				CNTRL_CSTM_ADDR(reg));
+	
 	axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AXI_MSK_TRANSFER_DATA,
 				AXI_MSK_TRANSFER_DATA);
-	addr.st = st;
-	addr.reg = AXI_REG_UI_STATUS;
-	readx_poll_timeout(axi_ad3552r_read_wrapper, &addr, check,
-			   check == AXI_MSK_BUSY, 10, 100);
-
+    mdelay(100);
 	axi_ad3552r_update_bits(st, AXI_REG_CNTRL_CSTM, AXI_MSK_TRANSFER_DATA, 0);
 }
 
 static u32 axi_ad3552r_spi_read(struct axi_ad3552r_state *st, u32 reg,
 				u32 transfer_params)
 {
+	struct reg_addr_poll addr;
+	u32 check;
+
 	axi_ad3552r_spi_write(st, RD_ADDR(reg), 0x00, transfer_params);
+	addr.st = st;
+	addr.reg = AXI_REG_UI_STATUS;
+	readx_poll_timeout(axi_ad3552r_read_wrapper, &addr, check,
+			   check == AXI_MSK_BUSY, 10, 100);
+
 	return axi_ad3552r_read(st, AXI_REG_CNTRL_DATA_RD);
 }
 
@@ -584,7 +587,9 @@ static int axi_ad3552r_setup(struct axi_ad3552r_state *st)
 				   AD3552R_TFER_8BIT_SDR);
 
 	if (val != AD3552R_SCRATCH_PAD_TEST_VAL)
-		return -EINVAL;
+		dev_err(st->dev,
+		"SCRATCH_PAD_TEST mismatch. Expected 0x%x, Reported 0x%x\n",
+		AD3552R_SCRATCH_PAD_TEST_VAL, val);
 
 	val = axi_ad3552r_spi_read(st, AD3552R_REG_PRODUCT_ID_L,
 				   AD3552R_TFER_8BIT_SDR);
