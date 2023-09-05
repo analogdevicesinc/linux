@@ -35,6 +35,7 @@ static const char fec_uio_version[] = "FEC UIO driver v1.0";
 dma_addr_t bd_dma;
 int bd_size;
 struct bufdesc *cbd_base;
+resource_size_t size;
 
 #define NAME_LENGTH		30
 #define DRIVER_NAME		"fec-uio"
@@ -1212,10 +1213,12 @@ static int __init fec_uio_init(struct fec_dev *fec_dev)
 	fec_uio_info->uio_info.priv = fec_dev;
 
 	ret = uio_register_device(fec_dev->dev, &fec_uio_info->uio_info);
-	if (ret == -517)
-		return ret;
 	if (ret) {
-		dev_err(fec_dev->dev, "fec_uio: UIO registration failed\n");
+		if (ret == -EPROBE_DEFER)
+			pr_info("UIO is not initialized, enetfec probe deferred");
+		else
+			dev_err(fec_dev->dev, "fec_uio: UIO registration failed\n");
+
 		return ret;
 	}
 	return 0;
@@ -1279,13 +1282,6 @@ enet_fec_probe(struct platform_device *pdev)
 	bool reset_again;
 	int ret = 0;
 
-	/* Checking UIO framework is initialized or not */
-	ret = uio_register_device(NULL, NULL);
-	if (ret == -EPROBE_DEFER) {
-		pr_info("UIO is not initialized, enetfec probe deferred");
-		return ret;
-	}
-
 	/* Init network device */
 	ndev = alloc_etherdev_mq(sizeof(struct fec_enet_private) +
 			FEC_PRIV_SIZE, FEC_MAX_Q);
@@ -1310,15 +1306,16 @@ enet_fec_probe(struct platform_device *pdev)
 
 	/* allocate memory for uio structure */
 	fec_dev = kzalloc(sizeof(*fec_dev), GFP_KERNEL);
-	if (!fec_dev)
-		return -ENOMEM;
-
+	if (!fec_dev) {
+		ret = -ENOMEM;
+		goto failed_kzalloc;
+	}
 	snprintf(fec_dev->info.name, sizeof(fec_dev->info.name) - 1,
 			"%s", uio_device_name);
 
 	fec_dev->dev = &pdev->dev;
-
 	fec_dev->res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	size = resource_size(fec_dev->res);
 	fep->hwp = devm_ioremap_resource(&pdev->dev, fec_dev->res);
 	if (IS_ERR(fep->hwp)) {
 		ret = PTR_ERR(fep->hwp);
@@ -1334,28 +1331,32 @@ enet_fec_probe(struct platform_device *pdev)
 	fep->clk_ipg = devm_clk_get(&pdev->dev, "ipg");
 	if (IS_ERR(fep->clk_ipg)) {
 		ret = PTR_ERR(fep->clk_ipg);
-		goto failed_clk;
+		goto failed_clk_ipg_res_release;
 	}
 
 	fep->clk_ahb = devm_clk_get(&pdev->dev, "ahb");
 	if (IS_ERR(fep->clk_ahb)) {
 		ret = PTR_ERR(fep->clk_ahb);
-		goto failed_clk;
+		goto failed_clk_ahb_res_release;
 	}
 
 	/* enet_out is optional, depends on board */
-	fep->clk_enet_out = devm_clk_get(&pdev->dev, "enet_out");
-	if (IS_ERR(fep->clk_enet_out))
-		fep->clk_enet_out = NULL;
+	fep->clk_enet_out = devm_clk_get_optional(&pdev->dev, "enet_out");
+	if (IS_ERR(fep->clk_enet_out)) {
+		ret = PTR_ERR(fep->clk_enet_out);
+		goto failed_clk_enet_out_res_release;
+	}
 
 	/* clk_ref is optional, depends on board */
-	fep->clk_ref = devm_clk_get(&pdev->dev, "enet_clk_ref");
-	if (IS_ERR(fep->clk_ref))
-		fep->clk_ref = NULL;
+	fep->clk_ref = devm_clk_get_optional(&pdev->dev, "enet_clk_ref");
+	if (IS_ERR(fep->clk_ref)) {
+		ret = PTR_ERR(fep->clk_ref);
+		goto failed_clk_ref_res_release;
+	}
 
 	ret = clk_prepare_enable(fep->clk_enet_out);
 	if (ret)
-		return ret;
+		goto failed_clk;
 
 	ret = clk_prepare_enable(fep->clk_ref);
 	if (ret)
@@ -1389,26 +1390,28 @@ enet_fec_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 	ret = fec_enet_uio_reset_phy(pdev);
-	if (ret)
+	if (ret) {
+		dev_err(&pdev->dev, "fec-uio reset phy FAILED %d\n", ret);
 		goto failed_reset;
-
+	}
 	ret = fec_enet_uio_init(ndev);
-	if (ret)
+	if (ret) {
+		dev_err(&pdev->dev, "fec-uio init FAILED %d\n", ret);
 		goto failed_init;
+	}
 
 	/* Register UIO */
 	ret = fec_uio_init(fec_dev);
 	if (ret) {
-		if (ret == -517) {
+		if (ret == -EPROBE_DEFER)
 			dev_info(&pdev->dev,
 					"Driver request probe retry: %s\n", __func__);
-			goto out_unmap;
-		} else {
+		else
 			dev_err(&pdev->dev, "UIO init Failed\n");
-			goto abort;
-		}
+
+		goto failed_uio_init;
 	}
-	dev_info(fec_dev->dev, "UIO device full name %s initialized\n",
+	dev_info(fec_dev->dev, "UIO device \"%s\" initialized\n",
 			fec_dev->info.name);
 
 	if (fep->quirks & FEC_QUIRK_ENET_MAC) {
@@ -1422,9 +1425,10 @@ enet_fec_probe(struct platform_device *pdev)
 	writel(ecntl, fep->hwp + FEC_ECNTRL);
 
 	ret = fec_enet_uio_mii_init(pdev);
-	if (ret)
+	if (ret) {
+		dev_err(&pdev->dev, "fec-uio mii_init FAILED %d\n", ret);
 		goto failed_mii_init;
-
+	}
 	pm_runtime_get_sync(&fep->pdev->dev);
 	if (ndev->phydev && ndev->phydev->drv)
 		reset_again = false;
@@ -1434,42 +1438,77 @@ enet_fec_probe(struct platform_device *pdev)
 	return 0;
 
 failed_mii_init:
+	fec_enet_uio_mii_remove(fep);
+failed_uio_init:
+	uio_unregister_device(&fec_dev->info.uio_info);
 failed_init:
+	if (cbd_base)
+		dma_free_coherent(&fep->pdev->dev, bd_size, cbd_base, bd_dma);
 failed_reset:
 	pm_runtime_disable(&pdev->dev);
 	if (fep->reg_phy)
 		regulator_disable(fep->reg_phy);
-failed_clk_ref:
-	clk_disable_unprepare(fep->clk_enet_out);
 failed_regulator:
 	clk_disable_unprepare(fep->clk_ahb);
 failed_clk_ahb:
 	clk_disable_unprepare(fep->clk_ipg);
 failed_clk_ipg:
-	clk_disable_unprepare(fep->clk_enet_out);
 	clk_disable_unprepare(fep->clk_ref);
+failed_clk_ref:
+	clk_disable_unprepare(fep->clk_enet_out);
 failed_clk:
+	devm_clk_put(&pdev->dev, fep->clk_ref);
+failed_clk_ref_res_release:
+	devm_clk_put(&pdev->dev, fep->clk_enet_out);
+failed_clk_enet_out_res_release:
+	devm_clk_put(&pdev->dev, fep->clk_ahb);
+failed_clk_ahb_res_release:
+	devm_clk_put(&pdev->dev, fep->clk_ipg);
+failed_clk_ipg_res_release:
 	release_bus_freq(BUS_FREQ_HIGH);
 	dev_id--;
 failed_ioremap:
+	kfree(fec_dev);
+	if (fep->hwp)
+		devm_release_mem_region(&pdev->dev, fec_dev->res->start, size);
+failed_kzalloc:
 	free_netdev(ndev);
 
 	return ret;
-out_unmap:
-	dev_id--;
-	kfree(fec_dev);
-	iounmap(fep->hwp);
+}
+
+static int
+fec_enet_uio_remove(struct platform_device *pdev)
+{
+	struct net_device *ndev = platform_get_drvdata(pdev);
+	struct fec_enet_private *fep = netdev_priv(ndev);
+
+	fec_enet_uio_mii_remove(fep);
+	uio_unregister_device(&fec_dev->info.uio_info);
 	dma_free_coherent(&fep->pdev->dev, bd_size, cbd_base, bd_dma);
-	free_netdev(ndev);
+
+	if (fep->hwp)
+		devm_release_mem_region(&pdev->dev, fec_dev->res->start, size);
+	if (fep->reg_phy)
+		regulator_disable(fep->reg_phy);
+
 	clk_disable_unprepare(fep->clk_ahb);
 	clk_disable_unprepare(fep->clk_ipg);
-	clk_disable_unprepare(fep->clk_enet_out);
 	clk_disable_unprepare(fep->clk_ref);
+	clk_disable_unprepare(fep->clk_enet_out);
+	devm_clk_put(&pdev->dev, fep->clk_ref);
+	devm_clk_put(&pdev->dev, fep->clk_enet_out);
+	devm_clk_put(&pdev->dev, fep->clk_ahb);
+	devm_clk_put(&pdev->dev, fep->clk_ipg);
 	pm_runtime_disable(&pdev->dev);
+	release_bus_freq(BUS_FREQ_HIGH);
+	fep->dev_id--;
+	kfree(fec_dev);
+	free_netdev(ndev);
+	dev_info(fec_dev->dev, "\"%s\" successfully removed \n",
+		 fec_dev->info.name);
 
-	return -EPROBE_DEFER;
-abort:
-	return ret;
+	return 0;
 }
 
 static int
@@ -1493,32 +1532,6 @@ fec_enet_uio_probe(struct platform_device *pdev)
 	}
 
 	return ret;
-}
-
-
-static int
-fec_enet_uio_remove(struct platform_device *pdev)
-{
-	struct net_device *ndev = platform_get_drvdata(pdev);
-	struct fec_enet_private *fep = netdev_priv(ndev);
-
-	kfree(fec_dev);
-	iounmap(fep->hwp);
-	dma_free_coherent(&fep->pdev->dev, bd_size, cbd_base, bd_dma);
-
-	uio_unregister_device(&fec_dev->info.uio_info);
-
-	fec_enet_uio_mii_remove(fep);
-	if (fep->reg_phy)
-		regulator_disable(fep->reg_phy);
-
-	free_netdev(ndev);
-
-	clk_disable_unprepare(fep->clk_ahb);
-	clk_disable_unprepare(fep->clk_ipg);
-	pm_runtime_disable(&pdev->dev);
-
-	return 0;
 }
 
 static struct platform_driver fec_enet_uio_driver = {
