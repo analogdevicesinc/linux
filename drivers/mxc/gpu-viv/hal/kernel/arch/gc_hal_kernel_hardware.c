@@ -5507,7 +5507,7 @@ _PmClockControl(IN gckHARDWARE Hardware, IN gceCHIPPOWERSTATE State)
 
         if (Hardware->powerOnShaderFscaleVal != ~0U &&
             Hardware->powerOnShaderFscaleVal > 0 &&
-            Hardware->powerOnShaderFscaleVal <= 64) {
+            Hardware->powerOnShaderFscaleVal < 64) {
             needUpdateShaderClock = gcvTRUE;
             shaderClock =   ((((gctUINT32) (0)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 16:16) - (0 ? 16:16) + 1) ==
  32) ? ~0U : (~(~0U << ((1 ? 16:16) - (0 ? 16:16) + 1))))))) << (0 ? 16:16))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ? 16:16) - (0 ? 16:16) + 1) ==
