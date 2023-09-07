@@ -27,7 +27,7 @@
 		dpu1 = &dpu2;
 		ldb1 = &ldb2;
 		dphy1 = &mipi1_dphy;
-		mipi_dsi1 = &mipi1_dsi_host;
+		mipi-dsi1 = &mipi1_dsi_host;
 	};
 
 	cpus: cpus {

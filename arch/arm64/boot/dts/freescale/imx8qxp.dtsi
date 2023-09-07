@@ -59,10 +59,10 @@
 		i2c13 = &i2c_rpbus_13;
 		i2c14 = &i2c_rpbus_14;
 		i2c15 = &i2c_rpbus_15;
-		mipi_dsi0 = &mipi0_dsi_host;
-		mipi_dsi1 = &mipi1_dsi_host;
-		vpu_core0 = &vpu_core0;
-		vpu_core1 = &vpu_core1;
+		mipi-dsi0 = &mipi0_dsi_host;
+		mipi-dsi1 = &mipi1_dsi_host;
+		vpu-core0 = &vpu_core0;
+		vpu-core1 = &vpu_core1;
 	};
 
 	cpus: cpus {

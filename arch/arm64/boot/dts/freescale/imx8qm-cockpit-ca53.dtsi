@@ -33,7 +33,7 @@
 		i2c0 = &i2c_rpbus_0;
 		i2c1 = &i2c_rpbus_1;
 		dphy0 = &mipi0_dphy;
-		mipi_dsi0 = &mipi0_dsi_host;
+		mipi-dsi0 = &mipi0_dsi_host;
 	};
 
 	cpus: cpus {

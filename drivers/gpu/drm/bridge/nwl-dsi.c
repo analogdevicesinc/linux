@@ -1277,7 +1277,7 @@ static int nwl_dsi_parse_dt(struct nwl_dsi *dsi)
 		return ret;
 	}
 
-	id = of_alias_get_id(np, "mipi_dsi");
+	id = of_alias_get_id(np, "mipi-dsi");
 	if (id > 0) {
 		if (id > dsi->pdata->max_instances - 1) {
 			dev_err(dsi->dev,
