@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2023 Analog Devices Inc.
+ */
+
+#if defined(SER_INDEX)
+#define SER_LABEL CONCAT(serializer_, SER_INDEX)
+#endif
+
+#if !defined(SER_LABEL)
+#error
+#endif
+
+#define SER_MFP2_RESET_LABEL CONCAT(SER_LABEL, _mfp2_reset)
+
+SER_MFP2_RESET_LABEL {
+	gpio-hog;
+	output-low;
+	gpios = <2 0>;
+	label = STRINGIFY(SER_MFP2_RESET_LABEL);
+};
+
+#undef SER_MFP2_RESET_LABEL
+
+#undef SER_INDEX
+#undef SER_LABEL

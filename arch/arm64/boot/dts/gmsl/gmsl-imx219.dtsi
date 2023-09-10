@@ -1,0 +1,318 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2023 Analog Devices Inc.
+ */
+
+#include <dt-bindings/media/camera.h>
+
+#if defined(CAM_INDEX)
+#define CAM_VC_ID		CAM_INDEX
+#define CAM_SER_INDEX		CAM_INDEX
+#define CAM_SER_LABEL		CONCAT(serializer_, CAM_SER_INDEX)
+#define CAM_PWDN_LABEL		CONCAT(CAM_SER_LABEL, _mfp0_pwdn)
+#define CAM_RCLK_LABEL		CONCAT(CAM_SER_LABEL, _mfp4_rclk)
+#define CAM_OUT_LABEL		CONCAT(cam_out, CAM_INDEX)
+#define CAM_IN_LABEL		CONCAT(ser_in, CAM_INDEX)
+#define CAM_LABEL		CONCAT(camera, CAM_INDEX)
+#endif
+
+#if !defined(CAM_HEX_REG)
+#error
+#endif
+
+#if !defined(CAM_VC_ID)
+#error
+#endif
+
+#if !defined(CAM_SER_LABEL)
+#error
+#endif
+
+#if !defined(CAM_PWDN_LABEL)
+#error
+#endif
+
+#if !defined(CAM_RCLK_LABEL)
+#error
+#endif
+
+#if !defined(CAM_OUT_LABEL)
+#error
+#endif
+
+#if !defined(CAM_IN_LABEL)
+#error
+#endif
+
+#if !defined(CAM_LABEL)
+#error
+#endif
+
+CAM_LABEL: imx219@CAM_HEX_REG {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	compatible = "sony,imx219";
+	reg = <CAM_HEX_REG>;
+
+	label = STRINGIFY(CAM_LABEL);
+
+	reset-gpios = <&CAM_SER_LABEL 2 GPIO_ACTIVE_HIGH>;
+
+	physical_w = "3.680";
+	physical_h = "2.760";
+
+	sensor_model = "imx219";
+
+	use_sensor_mode_id = "true";
+
+	mode0 { /* IMX219_MODE_3280x2464_21FPS */
+		mclk_khz = "24000";
+		num_lanes = STRINGIFY(GMSL_DESER_PHY_NUM_LANES);
+		tegra_sinterface = GMSL_TEGRA_PORT_SERIAL;
+		vc_id = STRINGIFY(CAM_VC_ID);
+		phy_mode = "DPHY";
+		discontinuous_clk = "yes";
+		dpcm_enable = "false";
+		cil_settletime = "0";
+#ifdef GMSL_TEGRA_LANE_POLARITY_SWAP
+		lane_polarity = "6";
+#endif
+
+		active_w = "3280";
+		active_h = "2464";
+		mode_type = "bayer";
+		pixel_phase = "rggb";
+		csi_pixel_bit_depth = "10";
+		readout_orientation = "90";
+		line_length = "3448";
+		inherent_gain = "1";
+		mclk_multiplier = "9.33";
+		pix_clk_hz = "182400000";
+
+		gain_factor = "16";
+		framerate_factor = "1000000";
+		exposure_factor = "1000000";
+		min_gain_val = "16"; /* 1.00x */
+		max_gain_val = "170"; /* 10.66x */
+		step_gain_val = "1";
+		default_gain = "16"; /* 1.00x */
+		min_hdr_ratio = "1";
+		max_hdr_ratio = "1";
+		min_framerate = "2000000"; /* 2.0 fps */
+		max_framerate = "21000000"; /* 21.0 fps */
+		step_framerate = "1";
+		default_framerate = "21000000"; /* 21.0 fps */
+		min_exp_time = "13"; /* us */
+		max_exp_time = "683709"; /* us */
+		step_exp_time = "1";
+		default_exp_time = "2495"; /* us */
+
+		embedded_metadata_height = "2";
+	};
+
+	mode1 { /* IMX219_MODE_3280x1848_28FPS */
+		mclk_khz = "24000";
+		num_lanes = STRINGIFY(GMSL_DESER_PHY_NUM_LANES);
+		tegra_sinterface = GMSL_TEGRA_PORT_SERIAL;
+		vc_id = STRINGIFY(CAM_VC_ID);
+		phy_mode = "DPHY";
+		discontinuous_clk = "yes";
+		dpcm_enable = "false";
+		cil_settletime = "0";
+#ifdef GMSL_TEGRA_LANE_POLARITY_SWAP
+		lane_polarity = "6";
+#endif
+
+		active_w = "3280";
+		active_h = "1848";
+		mode_type = "bayer";
+		pixel_phase = "rggb";
+		csi_pixel_bit_depth = "10";
+		readout_orientation = "90";
+		line_length = "3448";
+		inherent_gain = "1";
+		mclk_multiplier = "9.33";
+		pix_clk_hz = "182400000";
+
+		gain_factor = "16";
+		framerate_factor = "1000000";
+		exposure_factor = "1000000";
+		min_gain_val = "16"; /* 1.00x */
+		max_gain_val = "170"; /* 10.66x */
+		step_gain_val = "1";
+		default_gain = "16"; /* 1.00x */
+		min_hdr_ratio = "1";
+		max_hdr_ratio = "1";
+		min_framerate = "2000000"; /* 2.0 fps */
+		max_framerate = "28000000"; /* 28.0 fps */
+		step_framerate = "1";
+		default_framerate = "28000000"; /* 28.0 fps */
+		min_exp_time = "13"; /* us */
+		max_exp_time = "683709"; /* us */
+		step_exp_time = "1";
+		default_exp_time = "2495"; /* us */
+
+		embedded_metadata_height = "2";
+	};
+
+	mode2 { /* IMX219_MODE_1920x1080_30FPS */
+		mclk_khz = "24000";
+		num_lanes = STRINGIFY(GMSL_DESER_PHY_NUM_LANES);
+		tegra_sinterface = GMSL_TEGRA_PORT_SERIAL;
+		vc_id = STRINGIFY(CAM_VC_ID);
+		phy_mode = "DPHY";
+		discontinuous_clk = "yes";
+		dpcm_enable = "false";
+		cil_settletime = "0";
+#ifdef GMSL_TEGRA_LANE_POLARITY_SWAP
+		lane_polarity = "6";
+#endif
+
+		active_w = "1920";
+		active_h = "1080";
+		mode_type = "bayer";
+		pixel_phase = "rggb";
+		csi_pixel_bit_depth = "10";
+		readout_orientation = "90";
+		line_length = "3448";
+		inherent_gain = "1";
+		mclk_multiplier = "9.33";
+		pix_clk_hz = "182400000";
+
+		gain_factor = "16";
+		framerate_factor = "1000000";
+		exposure_factor = "1000000";
+		min_gain_val = "16"; /* 1.00x */
+		max_gain_val = "170"; /* 10.66x */
+		step_gain_val = "1";
+		default_gain = "16"; /* 1.00x */
+		min_hdr_ratio = "1";
+		max_hdr_ratio = "1";
+		min_framerate = "2000000"; /* 2.0 fps */
+		max_framerate = "30000000"; /* 30.0 fps */
+		step_framerate = "1";
+		default_framerate = "30000000"; /* 30.0 fps */
+		min_exp_time = "13"; /* us */
+		max_exp_time = "683709"; /* us */
+		step_exp_time = "1";
+		default_exp_time = "2495"; /* us */
+
+		embedded_metadata_height = "2";
+	};
+
+	mode3 { /* IMX219_MODE_1640x1232_30FPS */
+		mclk_khz = "24000";
+		num_lanes = STRINGIFY(GMSL_DESER_PHY_NUM_LANES);
+		tegra_sinterface = GMSL_TEGRA_PORT_SERIAL;
+		vc_id = STRINGIFY(CAM_VC_ID);
+		phy_mode = "DPHY";
+		discontinuous_clk = "yes";
+		dpcm_enable = "false";
+		cil_settletime = "0";
+#ifdef GMSL_TEGRA_LANE_POLARITY_SWAP
+		lane_polarity = "6";
+#endif
+
+		active_w = "1640";
+		active_h = "1232";
+		mode_type = "bayer";
+		pixel_phase = "rggb";
+		csi_pixel_bit_depth = "10";
+		readout_orientation = "90";
+		line_length = "3448";
+		inherent_gain = "1";
+		mclk_multiplier = "9.33";
+		pix_clk_hz = "182400000";
+
+		gain_factor = "16";
+		framerate_factor = "1000000";
+		exposure_factor = "1000000";
+		min_gain_val = "16"; /* 1.00x */
+		max_gain_val = "170"; /* 10.66x */
+		step_gain_val = "1";
+		default_gain = "16"; /* 1.00x */
+		min_hdr_ratio = "1";
+		max_hdr_ratio = "1";
+		min_framerate = "2000000"; /* 2.0 fps */
+		max_framerate = "30000000"; /* 60.0 fps */
+		step_framerate = "1";
+		default_framerate = "30000000"; /* 60.0 fps */
+		min_exp_time = "13"; /* us */
+		max_exp_time = "683709"; /* us */
+		step_exp_time = "1";
+		default_exp_time = "2495"; /* us */
+
+		embedded_metadata_height = "2";
+	};
+
+	mode4 { /* IMX219_MODE_1280x720_60FPS */
+		mclk_khz = "24000";
+		num_lanes = STRINGIFY(GMSL_DESER_PHY_NUM_LANES);
+		tegra_sinterface = GMSL_TEGRA_PORT_SERIAL;
+		vc_id = STRINGIFY(CAM_VC_ID);
+		phy_mode = "DPHY";
+		discontinuous_clk = "yes";
+		dpcm_enable = "false";
+		cil_settletime = "0";
+#ifdef GMSL_TEGRA_LANE_POLARITY_SWAP
+		lane_polarity = "6";
+#endif
+
+		active_w = "1280";
+		active_h = "720";
+		mode_type = "bayer";
+		pixel_phase = "rggb";
+		csi_pixel_bit_depth = "10";
+		readout_orientation = "90";
+		line_length = "3448";
+		inherent_gain = "1";
+		mclk_multiplier = "9.33";
+		pix_clk_hz = "182400000";
+
+		gain_factor = "16";
+		framerate_factor = "1000000";
+		exposure_factor = "1000000";
+		min_gain_val = "16"; /* 1.00x */
+		max_gain_val = "170"; /* 10.66x */
+		step_gain_val = "1";
+		default_gain = "16"; /* 1.00x */
+		min_hdr_ratio = "1";
+		max_hdr_ratio = "1";
+		min_framerate = "2000000"; /* 2.0 fps */
+		max_framerate = "60000000"; /* 60.0 fps */
+		step_framerate = "1";
+		default_framerate = "60000000"; /* 60.0 fps */
+		min_exp_time = "13"; /* us */
+		max_exp_time = "683709"; /* us */
+		step_exp_time = "1";
+		default_exp_time = "2495"; /* us */
+
+		embedded_metadata_height = "2";
+	};
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+
+			CAM_OUT_LABEL: endpoint {
+				port-index = <GMSL_TEGRA_PORT>;
+				bus-width = <GMSL_DESER_PHY_NUM_LANES>;
+				remote-endpoint = <&CAM_IN_LABEL>;
+			};
+		};
+	};
+};
+
+#undef CAM_HEX_REG
+#undef CAM_INDEX
+#undef CAM_SER_INDEX
+#undef CAM_SER_LABEL
+#undef CAM_VC_ID
+#undef CAM_PWDN_LABEL
+#undef CAM_RCLK_LABEL
+#undef CAM_LABEL
+#undef CAM_OUT_LABEL
+#undef CAM_IN_LABEL
