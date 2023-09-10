@@ -750,7 +750,7 @@ int max_ser_wait_for_multiple(struct i2c_client *client, struct regmap *regmap,
 	unsigned int i, j, val;
 	int ret;
 
-	for (i = 0; i < 100; i++) {
+	for (i = 0; i < 10; i++) {
 		for (j = 0; j < num_addrs; j++) {
 			client->addr = addrs[j];
 
@@ -759,7 +759,7 @@ int max_ser_wait_for_multiple(struct i2c_client *client, struct regmap *regmap,
 				return 0;
 		}
 
-		msleep(10);
+		msleep(100);
 
 		dev_err(&client->dev, "Retry %u waiting for serializer: %d\n", i, ret);
 	}

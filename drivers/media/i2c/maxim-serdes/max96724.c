@@ -70,12 +70,12 @@ static int max96724_wait_for_device(struct max96724_priv *priv)
 	unsigned int i;
 	int ret;
 
-	for (i = 0; i < 100; i++) {
+	for (i = 0; i < 10; i++) {
 		ret = max96724_read(priv, 0x0);
 		if (ret >= 0)
 			return 0;
 
-		msleep(10);
+		msleep(100);
 
 		dev_err(priv->dev, "Retry %u waiting for deserializer: %d\n", i, ret);
 	}
