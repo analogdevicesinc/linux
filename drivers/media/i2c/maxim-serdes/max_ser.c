@@ -540,6 +540,7 @@ static int max_ser_parse_sink_dt_endpoint(struct max_ser_subdev_priv *sd_priv,
 	struct v4l2_fwnode_endpoint v4l2_ep = {
 		.bus_type = V4L2_MBUS_CSI2_DPHY
 	};
+	struct v4l2_mbus_config_mipi_csi2 *mipi = &v4l2_ep.bus.mipi_csi2;
 	struct fwnode_handle *ep, *remote_ep;
 	int ret;
 
@@ -563,6 +564,12 @@ static int max_ser_parse_sink_dt_endpoint(struct max_ser_subdev_priv *sd_priv,
 		return ret;
 	}
 
+	if (mipi->flags & V4L2_MBUS_CSI2_NONCONTINUOUS_CLOCK &&
+	    !priv->ops->supports_noncontinuous_clock) {
+		dev_err(priv->dev, "Clock non-continuous mode is not supported\n");
+		return -EINVAL;
+	}
+
 	if (!phy->bus_config_parsed) {
 		phy->mipi = v4l2_ep.bus.mipi_csi2;
 		phy->bus_config_parsed = true;
@@ -572,6 +579,12 @@ static int max_ser_parse_sink_dt_endpoint(struct max_ser_subdev_priv *sd_priv,
 
 	if (phy->mipi.num_data_lanes != v4l2_ep.bus.mipi_csi2.num_data_lanes) {
 		dev_err(priv->dev, "PHY configured with differing number of data lanes\n");
+		return -EINVAL;
+	}
+
+	if ((phy->mipi.flags & V4L2_MBUS_CSI2_NONCONTINUOUS_CLOCK) !=
+	    (mipi->flags & V4L2_MBUS_CSI2_NONCONTINUOUS_CLOCK)) {
+		dev_err(priv->dev, "PHY configured with differing clock continuity\n");
 		return -EINVAL;
 	}
 
