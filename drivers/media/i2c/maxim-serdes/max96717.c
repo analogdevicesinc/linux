@@ -604,14 +604,6 @@ static void max96717_gpio_set(struct gpio_chip *gc, unsigned int offset, int val
 			offset, ret);
 }
 
-static int max96717_gpio_add_pin_ranges(struct gpio_chip *gc)
-{
-	struct max96717_priv *priv = gpiochip_get_data(gc);
-	const char *name = dev_name(priv->dev);
-
-	return gpiochip_add_pin_range(gc, name, 0, 0, gc->ngpio);
-}
-
 static unsigned int max96717_pipe_id(struct max96717_priv *priv,
 				     struct max_ser_pipe *pipe)
 {
@@ -1174,7 +1166,6 @@ static int max96717_probe(struct i2c_client *client)
 		.direction_output = max96717_gpio_direction_output,
 		.get = max96717_gpio_get,
 		.set = max96717_gpio_set,
-		.add_pin_ranges = max96717_gpio_add_pin_ranges,
 	};
 
 	ret = devm_gpiochip_add_data(dev, &priv->gc, priv);
