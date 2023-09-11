@@ -879,8 +879,13 @@ static int max96717_init_pipe(struct max_ser_priv *ser_priv,
 static int _max96717_set_tunnel_mode(struct max96717_priv *priv, bool enable)
 {
 	unsigned int mask = BIT(7);
+	int ret;
 
-	return max96717_update_bits(priv, 0x383, mask, enable ? mask : 0x00);
+	ret = max96717_update_bits(priv, 0x383, mask, enable ? mask : 0x00);
+	if (ret)
+		return 0;
+
+	return max96717_update_bits(priv, 0x315, mask, enable ? 0x00 : mask);
 }
 
 static int max96717_init_pipes_stream_ids(struct max96717_priv *priv)
