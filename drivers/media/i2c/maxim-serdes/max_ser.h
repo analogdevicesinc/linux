@@ -68,6 +68,7 @@ struct max_ser_ops {
 	unsigned int num_phys;
 	unsigned int num_i2c_xlates;
 	bool supports_tunnel_mode;
+	bool supports_noncontinuous_clock;
 
 	int (*set_pipe_enable)(struct max_ser_priv *priv, struct max_ser_pipe *pipe, bool enable);
 	int (*update_pipe_dts)(struct max_ser_priv *priv, struct max_ser_pipe *pipe);
