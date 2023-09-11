@@ -38,7 +38,8 @@ enum max96717_part {
 };
 
 struct max96717_chip_info {
-	bool has_tunnel_mode;
+	bool supports_tunnel_mode;
+	bool supports_noncontinuous_clock;
 	unsigned int num_pipes;
 	unsigned int num_dts_per_pipe;
 	unsigned int pipe_hw_ids[MAX96717_PIPES_NUM];
@@ -839,6 +840,17 @@ static int max96717_init_phy(struct max_ser_priv *ser_priv,
 	if (ret)
 		return ret;
 
+	if (priv->info->supports_noncontinuous_clock) {
+		mask = BIT(6);
+
+		ret = max96717_update_bits(priv, 0x330, mask,
+					   phy->mipi.flags &
+					   V4L2_MBUS_CSI2_NONCONTINUOUS_CLOCK
+					   ? mask : 0x00);
+		if (ret)
+			return ret;
+	}
+
 	/* Enable PHY. */
 	shift = 4;
 	mask = BIT(index) << shift;
@@ -1132,9 +1144,8 @@ static int max96717_probe(struct i2c_client *client)
 
 	*ops = max96717_ops;
 
-	if (!priv->info->has_tunnel_mode)
-		ops->set_tunnel_mode = NULL;
-
+	ops->supports_tunnel_mode = priv->info->supports_tunnel_mode;
+	ops->supports_noncontinuous_clock = priv->info->supports_noncontinuous_clock;
 	ops->num_pipes = priv->info->num_pipes;
 	ops->num_dts_per_pipe = priv->info->num_dts_per_pipe;
 	ops->num_phys = priv->info->num_phys;
@@ -1201,7 +1212,8 @@ static void max96717_remove(struct i2c_client *client)
 }
 
 static const struct max96717_chip_info max96717_info = {
-	.has_tunnel_mode = true,
+	.supports_tunnel_mode = true,
+	.supports_noncontinuous_clock = true,
 	.num_pipes = 1,
 	.num_dts_per_pipe = 8,
 	.pipe_hw_ids = { 2 },
@@ -1220,7 +1232,8 @@ static const struct max96717_chip_info max96717_info = {
 };
 
 static const struct max96717_chip_info max9295a_info = {
-	.has_tunnel_mode = false,
+	.supports_tunnel_mode = false,
+	.supports_noncontinuous_clock = false,
 	.num_pipes = 4,
 	.num_dts_per_pipe = 6,
 	.pipe_hw_ids = { 0, 1, 2, 3 },
