@@ -739,8 +739,8 @@ static int max_des_parse_dt(struct max_des_priv *priv)
 			continue;
 		}
 
-		if (index >= priv->ops->num_pipes) {
-			dev_err(priv->dev, "Invalid phy %u\n", index);
+		if (index >= priv->ops->num_phys) {
+			dev_err(priv->dev, "Invalid PHY %u\n", index);
 			return -EINVAL;
 		}
 
