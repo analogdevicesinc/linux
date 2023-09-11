@@ -66,6 +66,7 @@ CAM_LABEL: imx219@CAM_HEX_REG {
 
 	use_sensor_mode_id = "true";
 
+#if 0
 	mode0 { /* IMX219_MODE_3280x2464_21FPS */
 		mclk_khz = "24000";
 		num_lanes = STRINGIFY(GMSL_DESER_PHY_NUM_LANES);
@@ -157,6 +158,9 @@ CAM_LABEL: imx219@CAM_HEX_REG {
 	};
 
 	mode2 { /* IMX219_MODE_1920x1080_30FPS */
+#else
+	mode0 {
+#endif
 		mclk_khz = "24000";
 		num_lanes = STRINGIFY(GMSL_DESER_PHY_NUM_LANES);
 		tegra_sinterface = GMSL_TEGRA_PORT_SERIAL;
@@ -201,6 +205,7 @@ CAM_LABEL: imx219@CAM_HEX_REG {
 		embedded_metadata_height = "2";
 	};
 
+#if 0
 	mode3 { /* IMX219_MODE_1640x1232_30FPS */
 		mclk_khz = "24000";
 		num_lanes = STRINGIFY(GMSL_DESER_PHY_NUM_LANES);
@@ -290,6 +295,7 @@ CAM_LABEL: imx219@CAM_HEX_REG {
 
 		embedded_metadata_height = "2";
 	};
+#endif
 
 	ports {
 		#address-cells = <1>;
