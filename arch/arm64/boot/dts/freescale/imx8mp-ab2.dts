@@ -451,6 +451,7 @@
 	clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3", "pll8k", "pll11k";
 	fsl,sai-multi-lane;
 	fsl,dataline = <2 0xff 0xff>;
+	fsl,sai-mclk-direction-output;
 	dmas = <&sdma2 0 25 0>, <&sdma2 1 25 0>;
 	status = "okay";
 };
@@ -468,6 +469,7 @@
 		<&clk IMX8MP_AUDIO_PLL2_OUT>;
 	clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3", "pll8k", "pll11k";
 	fsl,sai-asynchronous;
+	fsl,sai-mclk-direction-output;
 	status = "okay";
 };
 
