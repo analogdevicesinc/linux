@@ -57,6 +57,7 @@ SER_LABEL: gmsl-serializer@SER_HEX_REG {
 
 	gpio-controller;
 	#gpio-cells = <2>;
+	gpio-ranges = <&SER_LABEL 0 0 11>;
 
 	i2c-alias-pool = <SER_I2C_ADDR_POOL_0>;
 
