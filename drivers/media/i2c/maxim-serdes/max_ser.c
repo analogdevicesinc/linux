@@ -136,6 +136,9 @@ static int max_ser_update_pipe_dts(struct max_ser_priv *priv,
 	struct max_ser_subdev_priv *sd_priv;
 	pipe->num_dts = 0;
 
+	if (priv->tunnel_mode)
+		return 0;
+
 	for_each_subdev(priv, sd_priv) {
 		if (sd_priv->pipe_id != pipe->index)
 			continue;
