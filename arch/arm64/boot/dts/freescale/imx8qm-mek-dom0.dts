@@ -37,7 +37,7 @@
 		 */
 		#address-cells = <1>;
 		#size-cells = <0>;
-		doma {
+		doma@0 {
 			compatible = "xen,domu";
 			/*
 			 * The name entry in VM configuration file
@@ -310,17 +310,18 @@
 
 	/* Interrupt 33 is not used, use it virtual PL031 */
 	rtc0: rtc@23000000 {
+		reg = <0x0 0x23000000 0x0 0x10000>;
 		interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
 		xen,passthrough;
 	};
 
-	gpio4_dummy: gpio4_dummy@0{
+	gpio4_dummy: gpio4_dummy {
 		/* Passthrough gpio4 interrupt to DomU */
 		interrupts = <GIC_SPI 140 IRQ_TYPE_LEVEL_HIGH>;
 		xen,passthrough;
 	};
 
-	gpio1_dummy: gpio1_dummy@0{
+	gpio1_dummy: gpio1_dummy {
 		/* Passthrough gpio1 interrupt to DomU */
 		interrupts = <GIC_SPI 137 IRQ_TYPE_LEVEL_HIGH>;
 		xen,passthrough;

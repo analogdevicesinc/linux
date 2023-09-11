@@ -116,7 +116,11 @@
 	assigned-clock-rates = <0>, <24000000>, <711000000>;
 	interrupts = <GIC_SPI 18 IRQ_TYPE_LEVEL_HIGH>;
 
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	port@0 {
+		reg = <0>;
 		lcdif_out: endpoint {
 			remote-endpoint = <&panel_in>;
 		};

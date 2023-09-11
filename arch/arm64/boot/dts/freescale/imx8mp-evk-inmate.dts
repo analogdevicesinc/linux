@@ -80,7 +80,7 @@
 		clock-frequency = <8333333>;
 	};
 
-	clk_dummy: clock@7 {
+	clk_dummy: clock-dummy {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <0>;
@@ -88,21 +88,21 @@
 	};
 
 	/* The clocks are configured by 1st OS */
-	clk_400m: clock@8 {
+	clk_400m: clock-400m {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <200000000>;
 		clock-output-names = "200m";
 	};
 
-	clk_266m: clock@9 {
+	clk_266m: clock-266m {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <266000000>;
 		clock-output-names = "266m";
 	};
 
-	osc_24m: clock@1 {
+	osc_24m: clock-24m {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <24000000>;

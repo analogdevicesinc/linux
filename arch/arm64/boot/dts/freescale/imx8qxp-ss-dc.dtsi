@@ -9,36 +9,47 @@
 
 	dpu_disp0: port@0 {
 		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
 
 		dpu_disp0_ldb1_ch0: endpoint@0 {
+			reg = <0>;
 			remote-endpoint = <&ldb1_ch0>;
 		};
 
 		dpu_disp0_ldb1_ch1: endpoint@1 {
+			reg = <1>;
 			remote-endpoint = <&ldb1_ch1>;
 		};
 
 		dpu_disp0_mipi_dsi: endpoint@2 {
+			reg = <2>;
 			remote-endpoint = <&mipi0_dsi_in>;
 		};
 	};
 
 	dpu_disp1: port@1 {
 		reg = <1>;
+		#address-cells = <1>;
+		#size-cells = <0>;
 
 		dpu_disp1_ldb2_ch0: endpoint@0 {
+			reg = <0>;
 			remote-endpoint = <&ldb2_ch0>;
 		};
 
 		dpu_disp1_ldb2_ch1: endpoint@1 {
+			reg = <1>;
 			remote-endpoint = <&ldb2_ch1>;
 		};
 
 		dpu_disp1_mipi_dsi: endpoint@2 {
+			reg = <2>;
 			remote-endpoint = <&mipi1_dsi_in>;
 		};
 
 		dpu_disp1_lcdif: endpoint@3 {
+			reg = <3>;
 		};
 	};
 };

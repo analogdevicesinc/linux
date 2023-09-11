@@ -10,7 +10,7 @@
 };
 
 &gpu1_subsys {
-	imx8_gpu_ss: imx8_gpu1_ss {
+	imx8_gpu_ss: imx8_gpu1_ss@80000000 {
 		compatible = "fsl,imx8qm-gpu", "fsl,imx8-gpu-ss";
 		cores = <&gpu_3d0>, <&gpu_3d1>;
 		reg = <0x80000000 0x80000000>, <0x0 0x10000000>;

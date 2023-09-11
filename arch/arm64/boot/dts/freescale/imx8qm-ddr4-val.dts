@@ -12,7 +12,7 @@
 	model = "Freescale i.MX8QM DDR4 VALIDATION";
 	compatible = "fsl,imx8qm-val", "fsl,imx8qm";
 
-	bcmdhd_wlan_0: bcmdhd_wlan@0 {
+	bcmdhd_wlan_0: bcmdhd_wlan {
 		compatible = "android,bcmdhd_wlan";
 		bcmdhd_fw = "/lib/firmware/bcm/1FD_BCM89359/fw_bcmdhd.bin";
 		bcmdhd_nv = "/lib/firmware/bcm/1FD_BCM89359/bcmdhd.cal";
@@ -123,7 +123,7 @@
 			enable-active-high;
 		};
 
-		epdev_on: fixedregulator@100 {
+		epdev_on: fixedregulator-100 {
 			compatible = "regulator-fixed";
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3300000>;

@@ -1872,7 +1872,12 @@
 				assigned-clock-rates = <133000000>, <500000000>, <24000000>;
 				status = "disabled";
 
+				#address-cells = <1>;
+				#size-cells = <0>;
+
 				port@0 {
+					reg = <0>;
+
 					hdmi_from_lcdif3: endpoint {
 						remote-endpoint = <&lcdif3_to_hdmi>;
 					};
@@ -1894,7 +1899,7 @@
 				status = "disabled";
 			};
 
-			ldb: ldb@32ec005c {
+			ldb: ldb-display-controller {
 				#address-cells = <1>;
 				#size-cells = <0>;
 				compatible = "fsl,imx8mp-ldb";
@@ -1941,7 +1946,7 @@
 				};
 			};
 
-			ldb_phy: phy@32ec0128 {
+			ldb_phy: phy-lvds {
 				compatible = "fsl,imx8mp-lvds-phy";
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -2488,7 +2493,7 @@
 		status = "disabled";
 	};
 
-	mix_gpu_ml: mix_gpu_ml {
+	mix_gpu_ml: mix_gpu_ml@40000000 {
 		compatible = "fsl,imx8mp-gpu", "fsl,imx8-gpu-ss";
 		cores = <&gpu_3d>, <&ml_vipsi>, <&gpu_2d>;
 		reg = <0x0 0x40000000 0x0 0xC0000000>, <0x0 0x0 0x0 0x10000000>;

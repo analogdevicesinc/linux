@@ -93,7 +93,7 @@
 		enable-active-high;
 	};
 
-	reg_audio: fixedregulator@2 {
+	reg_audio: fixedregulator-2 {
 		compatible = "regulator-fixed";
 		regulator-name = "cs42888_supply";
 		regulator-min-microvolt = <3300000>;

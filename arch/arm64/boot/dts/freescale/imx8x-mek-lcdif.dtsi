@@ -97,7 +97,11 @@
 	pinctrl-0 = <&pinctrl_lcdif>;
 	status = "okay";
 
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	port@0 {
+		reg = <0>;
 		lcdif_out: endpoint {
 			remote-endpoint = <&adapter_in>;
 		};

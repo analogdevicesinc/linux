@@ -297,7 +297,7 @@
 		};
 	};
 
-	rpmsg0: rpmsg0{
+	rpmsg0: rpmsg@90000000 {
 		compatible = "fsl,imx8qm-rpmsg";
 		/* up to now, the following channels are used in imx rpmsg
 		 * - tx1/rx1: messages channel.
@@ -312,7 +312,7 @@
 		status = "disabled";
 	};
 
-	rpmsg1: rpmsg1{
+	rpmsg1: rpmsg@90100000 {
 		compatible = "fsl,imx8qm-rpmsg";
 		/* up to now, the following channels are used in imx rpmsg
 		 * - tx1/rx1: messages channel.

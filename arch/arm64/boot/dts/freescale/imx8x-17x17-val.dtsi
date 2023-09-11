@@ -17,7 +17,7 @@
 	};
 
 	regulators {
-		epdev_on: fixedregulator@100 {
+		epdev_on: fixedregulator-100 {
 			compatible = "regulator-fixed";
 			regulator-min-microvolt = <3300000>;
 			regulator-max-microvolt = <3300000>;

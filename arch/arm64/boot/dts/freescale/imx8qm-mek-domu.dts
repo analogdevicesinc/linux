@@ -284,7 +284,7 @@
 			pinctrl-2 = <&pinctrl_wifi>;
 		};
 
-		lvds_backlight0: lvds_backlight@0 {
+		lvds_backlight0: lvds_backlight-0 {
 			compatible = "pwm-backlight";
 			pwms = <&pwm_lvds0 0 100000 0>;
 
@@ -316,7 +316,7 @@
 		xen,passthrough;
 	};
 
-	reg_audio: fixedregulator@2 {
+	reg_audio: fixedregulator-audio {
 		compatible = "regulator-fixed";
 		regulator-name = "cs42888_supply";
 		regulator-min-microvolt = <3300000>;
@@ -325,7 +325,7 @@
 		xen,passthrough;
 	};
 
-	epdev_on: fixedregulator@100 {
+	epdev_on: fixedregulator-epdev {
 		compatible = "regulator-fixed";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&pinctrl_wlreg_on>;
@@ -360,14 +360,14 @@
 		xen,passthrough;
 	};
 
-	xen_i2c0: xen_i2c@0 {
+	xen_i2c0: xen_i2c-0 {
 		compatible = "xen,i2c";
 		be-adapter = "5a800000.i2c";
 		status = "okay";
 		xen,passthrough;
 	};
 
-	xen_i2c1: xen_i2c@1 {
+	xen_i2c1: xen_i2c-1 {
 		compatible = "xen,i2c";
 		be-adapter = "3b230000.i2c";
 		xen,passthrough;

@@ -17,7 +17,7 @@
 		pinctrl-2 = <&pinctrl_wifi>;
 	};
 
-	lvds_backlight0: lvds_backlight@0 {
+	lvds_backlight0: lvds-backlight-0 {
 		compatible = "pwm-backlight";
 		pwms = <&pwm_mipi_lvds0 0 100000 0>;
 
@@ -35,7 +35,7 @@
 		default-brightness-level = <80>;
 	};
 
-	lvds_backlight1: lvds_backlight@1 {
+	lvds_backlight1: lvds-backlight-1 {
 		compatible = "pwm-backlight";
 		pwms = <&pwm_mipi_lvds1 0 100000 0>;
 
@@ -188,7 +188,7 @@
 		enable-active-high;
 	};
 
-	reg_audio: fixedregulator@2 {
+	reg_audio: regulator-reg-audio {
 		compatible = "regulator-fixed";
 		regulator-name = "cs42888_supply";
 		regulator-min-microvolt = <3300000>;
@@ -282,7 +282,7 @@
 		#size-cells = <0>;
 		compatible = "simple-bus";
 
-		imx8x_cm4: imx8x_cm4@0 {
+		imx8x_cm4: imx8x-cm4-0 {
 			compatible = "fsl,imx8qxp-cm4";
 			rsc-da = <0x90000000>;
 			mbox-names = "tx", "rx", "rxdb";
@@ -329,7 +329,7 @@
 			no-map;
 		};
 
-		vdevbuffer: vdevbuffer {
+		vdevbuffer: vdevbuffer@90400000 {
                         compatible = "shared-dma-pool";
 			reg = <0 0x90400000 0 0x100000>;
 			no-map;

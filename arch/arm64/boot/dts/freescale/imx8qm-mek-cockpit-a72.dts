@@ -30,7 +30,7 @@
 		pinctrl-2 = <&pinctrl_wifi>;
 	};
 
-	lvds_backlight0: lvds_backlight@0 {
+	lvds_backlight0: lvds_backlight-0 {
 		compatible = "pwm-backlight";
 		pwms = <&pwm_lvds0 0 100000 0>;
 
@@ -49,7 +49,7 @@
 		status = "disabled";
 	};
 
-	lvds_backlight1: lvds_backlight@1 {
+	lvds_backlight1: lvds_backlight-1 {
 		compatible = "pwm-backlight";
 		pwms = <&pwm_lvds1 0 100000 0>;
 
@@ -151,7 +151,7 @@
 
 	};
 
-	epdev_on: fixedregulator@100 {
+	epdev_on: fixedregulator-epdev {
 		compatible = "regulator-fixed";
 		pinctrl-names = "default", "sleep";
 		pinctrl-0 = <&pinctrl_wlreg_on>;
@@ -244,7 +244,7 @@
 		regulator-max-microvolt = <1800000>;
 	};
 
-	reg_audio: fixedregulator@2 {
+	reg_audio: fixedregulator-audio {
 		compatible = "regulator-fixed";
 		regulator-name = "cs42888_supply";
 		regulator-min-microvolt = <3300000>;

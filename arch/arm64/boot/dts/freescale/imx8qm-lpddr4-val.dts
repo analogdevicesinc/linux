@@ -21,7 +21,7 @@
 		reg = <0x00000000 0x80000000 0 0x40000000>;
 	};
 
-	lvds_backlight0: lvds_backlight@0 {
+	lvds_backlight0: lvds-backlight-0 {
 		compatible = "pwm-backlight";
 		pwms = <&pwm_lvds0 0 100000 0>;
 
@@ -39,7 +39,7 @@
 		default-brightness-level = <80>;
 	};
 
-	lvds_backlight1: lvds_backlight@1 {
+	lvds_backlight1: lvds-backlight-1 {
 		compatible = "pwm-backlight";
 		pwms = <&pwm_lvds1 0 100000 0>;
 
@@ -156,7 +156,7 @@
 		enable-active-high;
 	};
 
-	reg_audio: regulator@0 {
+	reg_audio: regulator-reg-audio {
 		compatible = "regulator-fixed";
 		regulator-name = "cs42888_supply";
 		regulator-min-microvolt = <3300000>;

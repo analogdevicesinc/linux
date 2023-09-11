@@ -1497,7 +1497,7 @@
 			};
 		};
 
-		ldb: ldb@4ac10020 {
+		ldb: ldb-display-controller {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "fsl,imx93-ldb";
@@ -1527,7 +1527,7 @@
 			};
 		};
 
-		ldb_phy: phy@4ac10024 {
+		ldb_phy: ldb-phy {
 			compatible = "fsl,imx93-lvds-phy";
 			#address-cells = <1>;
 			#size-cells = <0>;

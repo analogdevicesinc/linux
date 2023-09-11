@@ -1243,6 +1243,8 @@
 	status = "okay";
 
 	port@0 {
+		reg = <0>;
+
 		dcss_out: endpoint {
 			  remote-endpoint = <&hdmi_in>;
 		};
@@ -1254,7 +1256,12 @@
 	lane-mapping = <0xe4>;
 	hdcp-config = <0x3>;
 	status = "okay";
+
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	port@1 {
+		reg = <1>;
 		hdmi_in: endpoint {
 			remote-endpoint = <&dcss_out>;
 		};

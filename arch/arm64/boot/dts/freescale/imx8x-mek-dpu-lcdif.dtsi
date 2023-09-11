@@ -16,7 +16,7 @@
 		};
 	};
 
-	display@disp1 {
+	display-mux {
 		compatible = "fsl,imx-lcdif-mux-display";
 		#address-cells = <1>;
 		#size-cells = <0>;

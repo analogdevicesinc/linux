@@ -12,7 +12,7 @@
 /delete-node/ &adv_bridge1;
 
 / {
-	mipi_backlight0: mipi_backlight@0 {
+	mipi_backlight0: mipi_backlight-0 {
 		compatible = "pwm-backlight";
 		pwms = <&pwm_mipi0 0 100000 0>;
 
@@ -30,7 +30,7 @@
 		default-brightness-level = <80>;
 	};
 
-	mipi_backlight1: mipi_backlight@1 {
+	mipi_backlight1: mipi_backlight-1 {
 		compatible = "pwm-backlight";
 		pwms = <&pwm_mipi1 0 10000000 0>;
 

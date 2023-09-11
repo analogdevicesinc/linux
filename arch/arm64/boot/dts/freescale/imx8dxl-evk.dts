@@ -83,7 +83,7 @@
 			no-map;
 		};
 
-		vdevbuffer: vdevbuffer {
+		vdevbuffer: vdevbuffer@90400000 {
 			compatible = "shared-dma-pool";
 			reg = <0 0x90400000 0 0x100000>;
 			no-map;
@@ -97,7 +97,7 @@
 		#reset-cells = <0>;
 	};
 
-	reg_pcieb: fixedregulator@100 {
+	reg_pcieb: fixedregulator-100 {
 		compatible = "regulator-fixed";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
@@ -107,7 +107,7 @@
 		regulator-always-on;
 	};
 
-	m2_uart1_sel: fixedregulator@101 {
+	m2_uart1_sel: fixedregulator-101 {
 		compatible = "regulator-fixed";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
@@ -117,7 +117,7 @@
 		regulator-always-on;
 	};
 
-	m2_spi0_sel: fixedregulator@102 {
+	m2_spi0_sel: fixedregulator-102 {
 		compatible = "regulator-fixed";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
@@ -136,7 +136,7 @@
 		regulator-always-on;
 	};
 
-	pcie_clk_sel_ext: fixedregulator@103 {
+	pcie_clk_sel_ext: fixedregulator-103 {
 		compatible = "regulator-fixed";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;

@@ -106,7 +106,7 @@
 			};
 		};
 
-		ldb1: ldb@562410e0 {
+		ldb1: ldb1-display-controller {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "fsl,imx8qm-ldb";
@@ -297,7 +297,7 @@
 			};
 		};
 
-		ldb2: ldb@572410e0 {
+		ldb2: ldb2-display-controller {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "fsl,imx8qm-ldb";

@@ -123,73 +123,73 @@
 		#size-cells = <0>;
 		compatible = "nxp,pca9955b";
 		reg = <0x07>;
-		led0 {
+		led@0 {
 			label = "green0";
 			linux,default-trigger = "none";
 			reg = <0>;
 		};
 
-		led1 {
+		led@1 {
 			label = "blue0";
 			linux,default-trigger = "none";
 			reg = <1>;
 		};
 
-		led2 {
+		led@2 {
 			label = "red0";
 			linux,default-trigger = "none";
 			reg = <2>;
 		};
 
-		led3 {
+		led@3 {
 			label = "green1";
 			linux,default-trigger = "none";
 			reg = <3>;
 		};
 
-		led4 {
+		led@4 {
 			label = "blue1";
 			linux,default-trigger = "none";
 			reg = <4>;
 		};
 
-		led5 {
+		led@5 {
 			label = "red1";
 			linux,default-trigger = "none";
 			reg = <5>;
 		};
 
-		led6 {
+		led@6 {
 			label = "green2";
 			linux,default-trigger = "none";
 			reg = <6>;
 		};
 
-		led7 {
+		led@7 {
 			label = "blue2";
 			linux,default-trigger = "none";
 			reg = <7>;
 		};
 
-		led8 {
+		led@8 {
 			label = "red2";
 			linux,default-trigger = "none";
 			reg = <8>;
 		};
 
-		led9 {
+		led@9 {
 			label = "green3";
 			linux,default-trigger = "none";
 			reg = <9>;
 		};
 
-		led10 {
+		led@10 {
 			label = "blue3";
 			linux,default-trigger = "none";
 			reg = <10>;
 		};
 
-		led11 {
+		led@11 {
 			label = "red3";
 			linux,default-trigger = "none";
 			reg = <11>;

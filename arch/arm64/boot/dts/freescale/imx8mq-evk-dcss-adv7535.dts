@@ -54,7 +54,12 @@
 &adv_bridge {
 	status = "okay";
 
+	#address-cells = <1>;
+	#size-cells = <0>;
+
 	port@0 {
+		reg = <0>;
+
 		adv7535_in: endpoint {
 			remote-endpoint = <&mipi_dsi_out>;
 		};

@@ -95,7 +95,7 @@
 			enable-active-high;
 		};
 
-		reg_pcieb: fixedregulator@100 {
+		reg_pcieb: fixedregulator-pcieb {
 			compatible = "regulator-fixed";
 			pinctrl-names = "default", "sleep";
 			pinctrl-0 = <&pinctrl_wlreg_on>;
