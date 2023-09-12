@@ -581,13 +581,18 @@ static int max_des_parse_pipe_dt(struct max_des_priv *priv,
 	}
 	pipe->phy_id = val;
 
-	/* TODO: implement auto select stream. */
 	val = pipe->stream_id;
-	fwnode_property_read_u32(fwnode, "maxim,stream-id", &val);
+	ret = fwnode_property_read_u32(fwnode, "maxim,stream-id", &val);
+	if (!ret && priv->pipe_stream_autoselect) {
+		dev_err(priv->dev, "Cannot select stream when using autoselect\n");
+		return -EINVAL;
+	}
+
 	if (val >= MAX_SERDES_STREAMS_NUM) {
 		dev_err(priv->dev, "Invalid stream %u\n", val);
 		return -EINVAL;
 	}
+
 	pipe->stream_id = val;
 
 	ret = max_des_parse_pipe_link_remap_dt(priv, pipe, fwnode);
@@ -707,7 +712,15 @@ static int max_des_parse_dt(struct max_des_priv *priv)
 	struct max_des_phy *phy;
 	unsigned int i;
 	u32 index;
+	u32 val;
 	int ret;
+
+	val = device_property_read_bool(priv->dev, "maxim,pipe-stream-autoselect");
+	if (val && !priv->ops->supports_pipe_stream_autoselect) {
+		dev_err(priv->dev, "Pipe stream autoselect is not supported\n");
+		return -EINVAL;
+	}
+	priv->pipe_stream_autoselect = val;
 
 	for (i = 0; i < priv->ops->num_phys; i++) {
 		phy = &priv->phys[i];

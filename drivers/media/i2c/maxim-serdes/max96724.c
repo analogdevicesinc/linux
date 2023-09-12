@@ -204,8 +204,9 @@ static int max96724_init(struct max_des_priv *des_priv)
 	if (ret)
 		return ret;
 
-	/* Disable automatic stream select. */
-	ret = max96724_update_bits(priv, 0xf4, BIT(4), 0x00);
+	ret = max96724_update_bits(priv, 0xf4, BIT(4),
+				   des_priv->pipe_stream_autoselect
+				   ? BIT(4) : 0x00);
 	if (ret)
 		return ret;
 
@@ -424,13 +425,15 @@ static int max96724_init_pipe(struct max_des_priv *des_priv,
 	if (ret)
 		return ret;
 
-	/* Set source stream. */
-	reg = 0xf0 + index / 2;
-	shift = 4 * (index % 2);
-	ret = max96724_update_bits(priv, reg, GENMASK(1, 0) << shift,
-				   pipe->stream_id << shift);
-	if (ret)
-		return ret;
+	if (!des_priv->pipe_stream_autoselect) {
+		/* Set source stream. */
+		reg = 0xf0 + index / 2;
+		shift = 4 * (index % 2);
+		ret = max96724_update_bits(priv, reg, GENMASK(1, 0) << shift,
+					   pipe->stream_id << shift);
+		if (ret)
+			return ret;
+	}
 
 	/* Set source link. */
 	shift += 2;
@@ -462,6 +465,7 @@ static const struct max_des_ops max96724_ops = {
 	.num_pipes = 4,
 	.num_links = 4,
 	.supports_pipe_link_remap = true,
+	.supports_pipe_stream_autoselect = true,
 	.mipi_enable = max96724_mipi_enable,
 	.init = max96724_init,
 	.init_phy = max96724_init_phy,

@@ -89,6 +89,7 @@ struct max_des_ops {
 	unsigned int num_links;
 	bool fix_tx_ids;
 	bool supports_pipe_link_remap;
+	bool supports_pipe_stream_autoselect;
 
 	int (*mipi_enable)(struct max_des_priv *priv, bool enable);
 	int (*init)(struct max_des_priv *priv);
@@ -112,6 +113,7 @@ struct max_des_priv {
 	struct mutex lock;
 	bool active;
 
+	bool pipe_stream_autoselect;
 	struct max_des_phy *phys;
 	struct max_des_pipe *pipes;
 	struct max_des_link *links;
