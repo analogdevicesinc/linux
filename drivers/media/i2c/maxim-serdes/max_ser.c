@@ -134,6 +134,7 @@ static int max_ser_update_pipe_dts(struct max_ser_priv *priv,
 				   struct max_ser_pipe *pipe)
 {
 	struct max_ser_subdev_priv *sd_priv;
+
 	pipe->num_dts = 0;
 
 	if (priv->tunnel_mode)
