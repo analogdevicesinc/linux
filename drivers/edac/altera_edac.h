@@ -354,8 +354,11 @@ struct altr_sdram_mc_data {
 #define S10_COLD_RESET_MASK               0x30002
 #define S10_WARM_RESET_WFI_FLAG           BIT(31)
 
-struct altr_edac_device_dev;
+/* Single Event Upset Defines */
+#define SEU_SAFE_INJECT_SB_CE			0x50000
+#define SEU_SAFE_INJECT_DB_UE			0x002000030001
 
+struct altr_edac_device_dev;
 struct edac_device_prv_data {
 	int (*setup)(struct altr_edac_device_dev *device);
 	int ce_clear_mask;
@@ -386,6 +389,10 @@ struct altr_edac_device_dev {
 	struct edac_device_ctl_info *edac_dev;
 	struct device ddev;
 	int edac_idx;
+	int sdm_qspi_sb_irq;
+	int sdm_qspi_db_irq;
+	u32 sdm_qspi_addr;
+	int seu_irq;
 };
 
 struct altr_arria10_edac {
@@ -397,6 +404,8 @@ struct altr_arria10_edac {
 	struct irq_chip		irq_chip;
 	struct list_head	a10_ecc_devices;
 	struct notifier_block	panic_notifier;
+	int sdm_qspi_sb_irq;
+	int sdm_qspi_db_irq;
 };
 
 #endif	/* #ifndef _ALTERA_EDAC_H */
