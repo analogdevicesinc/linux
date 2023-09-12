@@ -44,6 +44,16 @@ properties:
       '#size-cells':
         const: 0
 
+      maxim,pipe-stream-autoselect:
+        type: boolean
+        description: |
+          Automatically select active streams for each pipe.
+          If not specified, each pipe will receive a default stream id
+          which can be overriden if needed.
+          If specified, each pipe will receive data from all stream ids
+          on its link, and the stream id cannot be overriden.
+          Some chips might not support using this.
+
     patternProperties:
       '^i2c@[0-9a-f]+$':
         unevaluatedProperties: false
