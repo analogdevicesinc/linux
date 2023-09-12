@@ -61,6 +61,7 @@ struct max_des_link {
 	bool enabled;
 	struct max_i2c_xlate ser_xlate;
 	bool ser_xlate_enabled;
+	bool tunnel_mode;
 };
 
 struct max_des_pipe {
@@ -90,6 +91,7 @@ struct max_des_ops {
 	bool fix_tx_ids;
 	bool supports_pipe_link_remap;
 	bool supports_pipe_stream_autoselect;
+	bool supports_tunnel_mode;
 
 	int (*mipi_enable)(struct max_des_priv *priv, bool enable);
 	int (*init)(struct max_des_priv *priv);

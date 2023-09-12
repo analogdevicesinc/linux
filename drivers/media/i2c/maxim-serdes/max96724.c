@@ -466,6 +466,7 @@ static const struct max_des_ops max96724_ops = {
 	.num_links = 4,
 	.supports_pipe_link_remap = true,
 	.supports_pipe_stream_autoselect = true,
+	.supports_tunnel_mode = true,
 	.mipi_enable = max96724_mipi_enable,
 	.init = max96724_init,
 	.init_phy = max96724_init_phy,

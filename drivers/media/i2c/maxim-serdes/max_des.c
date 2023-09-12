@@ -92,10 +92,14 @@ exit:
 static int max_des_update_pipe_remaps(struct max_des_priv *priv,
 				      struct max_des_pipe *pipe)
 {
+	struct max_des_link *link = &priv->links[pipe->link_id];
 	struct max_des_subdev_priv *sd_priv;
 	unsigned int i;
 
 	pipe->num_remaps = 0;
+
+	if (link->tunnel_mode)
+		return 0;
 
 	for_each_subdev(priv, sd_priv) {
 		if (sd_priv->pipe_id != pipe->index)
@@ -658,6 +662,46 @@ static int max_des_parse_ch_dt(struct max_des_subdev_priv *sd_priv,
 	return 0;
 }
 
+static int max_des_parse_sink_dt_endpoint(struct max_des_subdev_priv *sd_priv,
+					  struct fwnode_handle *fwnode)
+{
+	struct max_des_priv *priv = sd_priv->priv;
+	struct max_des_pipe *pipe = &priv->pipes[sd_priv->pipe_id];
+	struct max_des_link *link = &priv->links[pipe->link_id];
+	struct fwnode_handle *ep, *channel_fwnode, *device_fwnode;
+	u32 val;
+
+	ep = fwnode_graph_get_endpoint_by_id(fwnode, MAX_DES_SINK_PAD, 0, 0);
+	if (!ep) {
+		dev_err(priv->dev, "Not connected to subdevice\n");
+		return -EINVAL;
+	}
+
+	channel_fwnode = fwnode_graph_get_remote_port_parent(ep);
+	fwnode_handle_put(ep);
+	if (!channel_fwnode) {
+		dev_err(priv->dev, "Not connected to remote subdevice\n");
+		return -EINVAL;
+	}
+
+	device_fwnode = fwnode_get_parent(channel_fwnode);
+	fwnode_handle_put(channel_fwnode);
+	if (!device_fwnode) {
+		dev_err(priv->dev, "Not connected to remote subdevice\n");
+		return -EINVAL;
+	}
+
+	val = fwnode_property_read_bool(device_fwnode, "maxim,tunnel-mode");
+	fwnode_handle_put(device_fwnode);
+	if (val && !priv->ops->supports_tunnel_mode) {
+		dev_err(priv->dev, "Tunnel mode is not supported\n");
+		return -EINVAL;
+	}
+	link->tunnel_mode = val;
+
+	return 0;
+}
+
 static int max_des_parse_src_dt_endpoint(struct max_des_subdev_priv *sd_priv,
 					 struct fwnode_handle *fwnode)
 {
@@ -832,6 +876,10 @@ static int max_des_parse_dt(struct max_des_priv *priv)
 		sd_priv->pipe_id = index;
 
 		ret = max_des_parse_ch_dt(sd_priv, fwnode);
+		if (ret)
+			return ret;
+
+		ret = max_des_parse_sink_dt_endpoint(sd_priv, fwnode);
 		if (ret)
 			return ret;
 
