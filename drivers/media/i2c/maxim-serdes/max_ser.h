@@ -66,13 +66,13 @@ struct max_ser_ops {
 	unsigned int num_dts_per_pipe;
 	unsigned int num_phys;
 	unsigned int num_i2c_xlates;
+	bool supports_tunnel_mode;
 
 	int (*set_pipe_enable)(struct max_ser_priv *priv, struct max_ser_pipe *pipe, bool enable);
 	int (*update_pipe_dts)(struct max_ser_priv *priv, struct max_ser_pipe *pipe);
 	int (*update_pipe_vcs)(struct max_ser_priv *priv, struct max_ser_pipe *pipe);
 	int (*init)(struct max_ser_priv *priv);
 	int (*init_i2c_xlate)(struct max_ser_priv *priv);
-	int (*set_tunnel_mode)(struct max_ser_priv *priv);
 	int (*init_phy)(struct max_ser_priv *priv, struct max_ser_phy *phy);
 	int (*init_pipe)(struct max_ser_priv *priv, struct max_ser_pipe *pipe);
 	int (*post_init)(struct max_ser_priv *priv);

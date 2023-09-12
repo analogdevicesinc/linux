@@ -357,12 +357,6 @@ static int max_ser_init(struct max_ser_priv *priv)
 	if (ret)
 		return ret;
 
-	if (priv->ops->set_tunnel_mode && priv->tunnel_mode) {
-		ret = priv->ops->set_tunnel_mode(priv);
-		if (ret)
-			return ret;
-	}
-
 	for (i = 0; i < priv->ops->num_phys; i++) {
 		struct max_ser_phy *phy = &priv->phys[i];
 
@@ -568,10 +562,15 @@ static int max_ser_parse_dt(struct max_ser_priv *priv)
 	struct max_ser_phy *phy;
 	unsigned int i;
 	u32 index;
+	u32 val;
 	int ret;
 
-	if (priv->ops->set_tunnel_mode)
-		priv->tunnel_mode = device_property_read_bool(priv->dev, "maxim,tunnel-mode");
+	val = device_property_read_bool(priv->dev, "maxim,tunnel-mode");
+	if (val && !priv->ops->supports_tunnel_mode) {
+		dev_err(priv->dev, "Tunnel mode is not supported\n");
+		return -EINVAL;
+	}
+	priv->tunnel_mode = val;
 
 	for (i = 0; i < priv->ops->num_phys; i++) {
 		phy = &priv->phys[i];

@@ -35,7 +35,7 @@ struct max96717_priv {
 };
 
 struct max96717_chip_info {
-	bool has_tunnel_mode;
+	bool supports_tunnel_mode;
 	unsigned int num_pipes;
 	unsigned int num_dts_per_pipe;
 	unsigned int pipe_hw_ids[MAX96717_PIPES_NUM];
@@ -876,18 +876,6 @@ static int max96717_init_pipe(struct max_ser_priv *ser_priv,
 	return 0;
 }
 
-static int _max96717_set_tunnel_mode(struct max96717_priv *priv, bool enable)
-{
-	unsigned int mask = BIT(7);
-	int ret;
-
-	ret = max96717_update_bits(priv, 0x383, mask, enable ? mask : 0x00);
-	if (ret)
-		return 0;
-
-	return max96717_update_bits(priv, 0x315, mask, enable ? 0x00 : mask);
-}
-
 static int max96717_init_pipes_stream_ids(struct max96717_priv *priv)
 {
 	struct max_ser_priv *ser_priv = &priv->ser_priv;
@@ -998,6 +986,7 @@ static int max96717_init_i2c_xlate(struct max_ser_priv *ser_priv)
 static int max96717_init(struct max_ser_priv *ser_priv)
 {
 	struct max96717_priv *priv = ser_to_priv(ser_priv);
+	unsigned int mask;
 	int ret;
 
 	/*
@@ -1008,9 +997,21 @@ static int max96717_init(struct max_ser_priv *ser_priv)
 	if (ret)
 		return ret;
 
-	ret = _max96717_set_tunnel_mode(priv, false);
-	if (ret)
-		return ret;
+	if (priv->info->supports_tunnel_mode) {
+		mask = BIT(7);
+
+		ret = max96717_update_bits(priv, 0x383, mask,
+					   ser_priv->tunnel_mode
+					   ? mask : 0x00);
+		if (ret)
+			return ret;
+
+		ret = max96717_update_bits(priv, 0x315, mask,
+					   ser_priv->tunnel_mode
+					   ? 0x00 : mask);
+		if (ret)
+			return ret;
+	}
 
 	/* Disable ports. */
 	ret = max96717_update_bits(priv, 0x308, GENMASK(5, 4), 0x00);
@@ -1032,13 +1033,6 @@ static int max96717_init(struct max_ser_priv *ser_priv)
 		return ret;
 
 	return 0;
-}
-
-static int max96717_set_tunnel_mode(struct max_ser_priv *ser_priv)
-{
-	struct max96717_priv *priv = ser_to_priv(ser_priv);
-
-	return _max96717_set_tunnel_mode(priv, true);
 }
 
 static int max96717_post_init(struct max_ser_priv *ser_priv)
@@ -1083,7 +1077,6 @@ static const struct max_ser_ops max96717_ops = {
 	.update_pipe_vcs = max96717_update_pipe_vcs,
 	.init = max96717_init,
 	.init_i2c_xlate = max96717_init_i2c_xlate,
-	.set_tunnel_mode = max96717_set_tunnel_mode,
 	.init_phy = max96717_init_phy,
 	.init_pipe = max96717_init_pipe,
 	.post_init = max96717_post_init,
@@ -1120,9 +1113,7 @@ static int max96717_probe(struct i2c_client *client)
 
 	*ops = max96717_ops;
 
-	if (!priv->info->has_tunnel_mode)
-		ops->set_tunnel_mode = NULL;
-
+	ops->supports_tunnel_mode = priv->info->supports_tunnel_mode;
 	ops->num_pipes = priv->info->num_pipes;
 	ops->num_dts_per_pipe = priv->info->num_dts_per_pipe;
 	ops->num_phys = priv->info->num_phys;
@@ -1188,7 +1179,7 @@ static int max96717_remove(struct i2c_client *client)
 }
 
 static const struct max96717_chip_info max96717_info = {
-	.has_tunnel_mode = true,
+	.supports_tunnel_mode = true,
 	.num_pipes = 1,
 	.num_dts_per_pipe = 4,
 	.pipe_hw_ids = { 2 },
@@ -1206,7 +1197,6 @@ static const struct max96717_chip_info max96717_info = {
 };
 
 static const struct max96717_chip_info max9295a_info = {
-	.has_tunnel_mode = false,
 	.num_pipes = 4,
 	.num_dts_per_pipe = 2,
 	.pipe_hw_ids = { 0, 1, 2, 3 },
