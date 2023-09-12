@@ -8,12 +8,12 @@
 #if defined(CAM_INDEX)
 #define CAM_VC_ID		CAM_INDEX
 #define CAM_SER_INDEX		CAM_INDEX
-#define CAM_SER_LABEL		CONCAT(serializer_, CAM_SER_INDEX)
+#define CAM_SER_LABEL		CONCAT(ser_, CAM_SER_INDEX)
 #define CAM_PWDN_LABEL		CONCAT(CAM_SER_LABEL, _mfp0_pwdn)
 #define CAM_RCLK_LABEL		CONCAT(CAM_SER_LABEL, _mfp4_rclk)
 #define CAM_OUT_LABEL		CONCAT(cam_out, CAM_INDEX)
 #define CAM_IN_LABEL		CONCAT(ser_in, CAM_INDEX)
-#define CAM_LABEL		CONCAT(camera, CAM_INDEX)
+#define CAM_LABEL		CONCAT(cam_, CAM_INDEX)
 #endif
 
 #if !defined(CAM_HEX_REG)
@@ -558,7 +558,7 @@ CAM_LABEL: ox03a@CAM_HEX_REG {
 #endif
 
 		mclk_khz = "25000";
-		num_lanes = STRINGIFY(GMSL_DESER_PHY_NUM_LANES);
+		num_lanes = STRINGIFY(GMSL_DES_PHY_NUM_LANES);
 		tegra_sinterface = GMSL_TEGRA_PORT_SERIAL;
 		vc_id = STRINGIFY(CAM_VC_ID);
 		phy_mode = "DPHY";
@@ -620,7 +620,7 @@ CAM_LABEL: ox03a@CAM_HEX_REG {
 
 			CAM_OUT_LABEL: endpoint {
 				port-index = <GMSL_TEGRA_PORT>;
-				bus-width = <GMSL_DESER_PHY_NUM_LANES>;
+				bus-width = <GMSL_DES_PHY_NUM_LANES>;
 				remote-endpoint = <&CAM_IN_LABEL>;
 			};
 		};

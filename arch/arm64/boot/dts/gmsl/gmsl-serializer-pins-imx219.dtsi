@@ -4,7 +4,7 @@
  */
 
 #if defined(SER_INDEX)
-#define SER_LABEL CONCAT(serializer_, SER_INDEX)
+#define SER_LABEL CONCAT(ser_, SER_INDEX)
 #endif
 
 #if !defined(SER_LABEL)

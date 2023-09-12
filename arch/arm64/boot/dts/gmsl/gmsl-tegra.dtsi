@@ -44,7 +44,7 @@
 				vi_in0: endpoint {
 					vc-id = <0>;
 					port-index = <GMSL_TEGRA_PORT>;
-					bus-width = <GMSL_DESER_PHY_NUM_LANES>;
+					bus-width = <GMSL_DES_PHY_NUM_LANES>;
 					remote-endpoint = <&csi_out0>;
 				};
 			};
@@ -57,7 +57,7 @@
 				vi_in1: endpoint {
 					vc-id = <1>;
 					port-index = <GMSL_TEGRA_PORT>;
-					bus-width = <GMSL_DESER_PHY_NUM_LANES>;
+					bus-width = <GMSL_DES_PHY_NUM_LANES>;
 					remote-endpoint = <&csi_out1>;
 				};
 			};
@@ -70,7 +70,7 @@
 				vi_in2: endpoint {
 					vc-id = <2>;
 					port-index = <GMSL_TEGRA_PORT>;
-					bus-width = <GMSL_DESER_PHY_NUM_LANES>;
+					bus-width = <GMSL_DES_PHY_NUM_LANES>;
 					remote-endpoint = <&csi_out2>;
 				};
 			};
@@ -83,7 +83,7 @@
 				vi_in3: endpoint {
 					vc-id = <3>;
 					port-index = <GMSL_TEGRA_PORT>;
-					bus-width = <GMSL_DESER_PHY_NUM_LANES>;
+					bus-width = <GMSL_DES_PHY_NUM_LANES>;
 					remote-endpoint = <&csi_out3>;
 				};
 			};
@@ -151,7 +151,7 @@
 		* isp_bw_margin_pct = <>;
 		* Isp bandwidth margin in percentage
 		*/
-		num_csi_lanes = <GMSL_DESER_PHY_NUM_LANES>;
+		num_csi_lanes = <GMSL_DES_PHY_NUM_LANES>;
 		max_lane_speed = <4000000>;
 		min_bits_per_pixel = <10>;
 		vi_peak_byte_per_pixel = <2>;
@@ -161,15 +161,33 @@
 		isp_bw_margin_pct = <25>;
 
 		nv,proc-device-tree-paths =
-			"camera0",
-			"camera1",
-			"camera2",
-			"camera3";
+#if defined(GMSL_CAMERA_0)
+			"cam_0"
+#endif
+#if defined(GMSL_CAMERA_1)
+			, "cam_1"
+#endif
+#if defined(GMSL_CAMERA_2)
+			, "cam_2"
+#endif
+#if defined(GMSL_CAMERA_3)
+			, "cam_3"
+#endif
+			;
 		nv,proc-device-tree-targets = <
-			&camera0
-			&camera1
-			&camera2
-			&camera3>;
+#if defined(GMSL_CAMERA_0)
+			&cam_0
+#endif
+#if defined(GMSL_CAMERA_1)
+			&cam_1
+#endif
+#if defined(GMSL_CAMERA_2)
+			&cam_2
+#endif
+#if defined(GMSL_CAMERA_3)
+			&cam_3
+#endif
+			>;
 
 		/**
 		 * The general guideline for naming badge_info contains 3 parts, and is as follows,
@@ -187,8 +205,8 @@
 				orientation = "1";
 				drivernode0 {
 					pcl_id = "v4l2_sensor";
-					devname = "camera0";
-					proc-device-tree = "/proc/device-tree/tegra-camera-platform/camera0";
+					devname = "cam_0";
+					proc-device-tree = "/proc/device-tree/tegra-camera-platform/cam_0";
 				};
 			};
 #endif
@@ -200,8 +218,8 @@
 				orientation = "1";
 				drivernode0 {
 					pcl_id = "v4l2_sensor";
-					devname = "camera1";
-					proc-device-tree = "/proc/device-tree/tegra-camera-platform/camera1";
+					devname = "cam_1";
+					proc-device-tree = "/proc/device-tree/tegra-camera-platform/cam_1";
 				};
 			};
 #endif
@@ -213,8 +231,8 @@
 				orientation = "1";
 				drivernode0 {
 					pcl_id = "v4l2_sensor";
-					devname = "camera2";
-					proc-device-tree = "/proc/device-tree/tegra-camera-platform/camera2";
+					devname = "cam_2";
+					proc-device-tree = "/proc/device-tree/tegra-camera-platform/cam_2";
 				};
 			};
 #endif
@@ -226,8 +244,8 @@
 				orientation = "1";
 				drivernode0 {
 					pcl_id = "v4l2_sensor";
-					devname = "camera3";
-					proc-device-tree = "/proc/device-tree/tegra-camera-platform/camera3";
+					devname = "cam_3";
+					proc-device-tree = "/proc/device-tree/tegra-camera-platform/cam_3";
 				};
 			};
 #endif

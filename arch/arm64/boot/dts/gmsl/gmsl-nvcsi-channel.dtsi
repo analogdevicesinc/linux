@@ -9,7 +9,7 @@
 #define NVCSI_CH_OUT_LABEL CONCAT(csi_out, NVCSI_CH_INDEX)
 #define NVCSI_CH_IN_LABEL CONCAT(csi_in, NVCSI_CH_INDEX)
 #define NVCSI_CH_OUT_REMOTE_LABEL CONCAT(vi_in, NVCSI_CH_INDEX)
-#define NVCSI_CH_IN_REMOTE_LABEL CONCAT(deser_out, NVCSI_CH_INDEX)
+#define NVCSI_CH_IN_REMOTE_LABEL CONCAT(des_out, NVCSI_CH_INDEX)
 #endif
 
 #if !defined(NVCSI_CH_REG)
@@ -50,7 +50,7 @@ channel@NVCSI_CH_REG {
 			NVCSI_CH_IN_LABEL: endpoint {
 				remote-endpoint = <&NVCSI_CH_IN_REMOTE_LABEL>;
 				port-index = <GMSL_TEGRA_PORT>;
-				bus-width = <GMSL_DESER_PHY_NUM_LANES>;
+				bus-width = <GMSL_DES_PHY_NUM_LANES>;
 			};
 		};
 

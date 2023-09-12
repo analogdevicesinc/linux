@@ -4,11 +4,11 @@
  */
 
 #if defined(SER_INDEX)
-#define SER_LABEL CONCAT(serializer_, SER_INDEX)
+#define SER_LABEL CONCAT(ser_, SER_INDEX)
 #define SER_I2C_LABEL CONCAT(SER_LABEL, _i2c_0)
 #define SER_OUT_LABEL CONCAT(ser_out, SER_INDEX)
 #define SER_IN_LABEL CONCAT(ser_in, SER_INDEX)
-#define SER_OUT_REMOTE_LABEL CONCAT(deser_in, SER_INDEX)
+#define SER_OUT_REMOTE_LABEL CONCAT(des_in, SER_INDEX)
 #define SER_IN_REMOTE_LABEL CONCAT(cam_out, SER_INDEX)
 #endif
 
