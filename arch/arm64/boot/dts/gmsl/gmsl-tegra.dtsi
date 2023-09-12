@@ -7,6 +7,7 @@
 #error
 #endif
 
+#if !defined(GMSL_TEGRA_PORT_SERIAL)
 #if GMSL_TEGRA_PORT == 0
 #define GMSL_TEGRA_PORT_SERIAL	"serial_a"
 #elif GMSL_TEGRA_PORT == 1
@@ -25,6 +26,7 @@
 #define GMSL_TEGRA_PORT_SERIAL	"serial_h"
 #else
 #error
+#endif
 #endif
 
 / {
