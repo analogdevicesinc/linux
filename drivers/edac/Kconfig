@@ -474,6 +474,17 @@ config EDAC_ALTERA_QSPI
 	  Support for error detection and correction on the
 	  Altera QSPI FIFO Memory for Altera SoCs.
 
+config EDAC_ALTERA_SDM_QSPI
+	bool "Altera SDM QSPI FIFO ECC"
+	depends on EDAC_ALTERA=y && ARM64 && SPI_CADENCE_QUADSPI
+	help
+	  Support for error detection and correction on the
+	  Secure Device Manager (SDM) QSPI FIFO Memory that HPS
+	  access on Agilex5 onwards platform.
+
+	  SDM QSPI ECC is always in secure mode, so access to register
+	  is thru ATF using ARM Secure Monitor Call(SMC).
+
 config EDAC_ALTERA_SDMMC
 	bool "Altera SDMMC FIFO ECC"
 	depends on EDAC_ALTERA=y && MMC_DW

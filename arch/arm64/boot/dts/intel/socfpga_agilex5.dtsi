@@ -1076,6 +1076,17 @@
 				interrupts = <120 IRQ_TYPE_EDGE_RISING>;
 				status = "disabled";
 			};
+
+			sdm-qspi-ecc@10a22000 {
+				compatible = "altr,socfpga-sdm-qspi-ecc";
+				reg = <0x10a22000 0x100>;
+				interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+			};
+
+			cram-seu@0 {
+				compatible = "altr,socfpga-cram-seu";
+				reg = <0x0 0x0>;
+			};
 		};
 
 		watchdog0: watchdog@10d00200 {
