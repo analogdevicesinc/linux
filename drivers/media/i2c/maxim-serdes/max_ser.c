@@ -376,6 +376,10 @@ static int max_ser_init(struct max_ser_priv *priv)
 		ret = priv->ops->init_pipe(priv, pipe);
 		if (ret)
 			return ret;
+
+		ret = max_ser_update_pipe_vcs(priv, pipe);
+		if (ret)
+			return ret;
 	}
 
 	ret = priv->ops->post_init(priv);
@@ -647,17 +651,6 @@ static int max_ser_parse_dt(struct max_ser_priv *priv)
 			return ret;
 
 		ret = max_ser_parse_src_dt_endpoint(sd_priv, fwnode);
-		if (ret)
-			return ret;
-	}
-
-	for (i = 0; i < priv->ops->num_pipes; i++) {
-		pipe = &priv->pipes[i];
-
-		if (!pipe->enabled)
-			continue;
-
-		ret = max_ser_update_pipe_vcs(priv, pipe);
 		if (ret)
 			return ret;
 	}
