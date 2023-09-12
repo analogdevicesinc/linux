@@ -159,7 +159,11 @@ static int max_ser_update_pipe_vcs(struct max_ser_priv *priv,
 				   struct max_ser_pipe *pipe)
 {
 	struct max_ser_subdev_priv *sd_priv;
+
 	pipe->vcs = 0;
+
+	if (priv->tunnel_mode)
+		return 0;
 
 	for_each_subdev(priv, sd_priv) {
 		if (sd_priv->pipe_id != pipe->index)
