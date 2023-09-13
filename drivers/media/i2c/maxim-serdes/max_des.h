@@ -80,6 +80,7 @@ struct max_des_phy {
 	bool alt_mem_map8;
 	bool alt_mem_map10;
 	bool alt_mem_map12;
+	bool bus_config_parsed;
 	bool enabled;
 };
 
