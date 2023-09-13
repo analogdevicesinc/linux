@@ -825,7 +825,7 @@ static int max_des_parse_dt(struct max_des_priv *priv)
 		pipe = &priv->pipes[i];
 		pipe->index = i;
 		pipe->phy_id = i % priv->ops->num_phys;
-		pipe->stream_id = i;
+		pipe->stream_id = i % MAX_SERDES_STREAMS_NUM;
 		pipe->link_id = i;
 	}
 
@@ -922,8 +922,8 @@ static int max_des_parse_dt(struct max_des_priv *priv)
 		sd_priv->priv = priv;
 		sd_priv->index = index;
 		sd_priv->src_vc_id = 0;
-		sd_priv->dst_vc_id = index;
-		sd_priv->pipe_id = index;
+		sd_priv->dst_vc_id = index % MAX_SERDES_VC_ID_NUM;
+		sd_priv->pipe_id = index % priv->ops->num_pipes;
 
 		ret = max_des_parse_ch_dt(sd_priv, fwnode);
 		if (ret)

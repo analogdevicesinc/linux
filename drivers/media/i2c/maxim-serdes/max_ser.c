@@ -496,7 +496,7 @@ static int max_ser_parse_ch_dt(struct max_ser_subdev_priv *sd_priv,
 	struct max_ser_phy *phy;
 	u32 val;
 
-	val = sd_priv->index;
+	val = sd_priv->pipe_id;
 	fwnode_property_read_u32(fwnode, "maxim,pipe-id", &val);
 	if (val >= priv->ops->num_pipes) {
 		dev_err(priv->dev, "Invalid pipe %u\n", val);
@@ -613,7 +613,7 @@ static int max_ser_parse_dt(struct max_ser_priv *priv)
 		pipe = &priv->pipes[i];
 		pipe->index = i;
 		pipe->phy_id = i % priv->ops->num_phys;
-		pipe->stream_id = i;
+		pipe->stream_id = i % MAX_SERDES_STREAMS_NUM;
 	}
 
 	device_for_each_child_node(priv->dev, fwnode) {
@@ -679,6 +679,7 @@ static int max_ser_parse_dt(struct max_ser_priv *priv)
 		sd_priv->fwnode = fwnode;
 		sd_priv->priv = priv;
 		sd_priv->index = index;
+		sd_priv->pipe_id = index % priv->ops->num_pipes;
 
 		ret = max_ser_parse_ch_dt(sd_priv, fwnode);
 		if (ret)
