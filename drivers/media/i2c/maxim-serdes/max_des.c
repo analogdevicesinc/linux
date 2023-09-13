@@ -111,6 +111,9 @@ static int max_des_update_pipe_remaps(struct max_des_priv *priv,
 		if (sd_priv->pipe_id != pipe->index)
 			continue;
 
+		if (!sd_priv->dt)
+			continue;
+
 		if (sd_priv->dt == MAX_DT_EMB8)
 			num_remaps = 1;
 		else
