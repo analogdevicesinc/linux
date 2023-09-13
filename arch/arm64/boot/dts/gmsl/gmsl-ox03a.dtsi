@@ -623,6 +623,8 @@ CAM_LABEL: ox03a@CAM_HEX_REG {
 				port-index = <GMSL_TEGRA_PORT>;
 				bus-width = <GMSL_DES_PHY_NUM_LANES>;
 				remote-endpoint = <&CAM_IN_LABEL>;
+				data-lanes = <1 2 3 4>;
+				clock-lanes = <0>;
 			};
 		};
 	};

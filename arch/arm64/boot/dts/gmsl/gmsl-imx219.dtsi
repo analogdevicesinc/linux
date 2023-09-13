@@ -312,6 +312,9 @@ CAM_LABEL: imx219@CAM_HEX_REG {
 				port-index = <GMSL_TEGRA_PORT>;
 				bus-width = <GMSL_DES_PHY_NUM_LANES>;
 				remote-endpoint = <&CAM_IN_LABEL>;
+				data-lanes = <1 2>;
+				clock-lanes = <0>;
+				clock-noncontinuous;
 			};
 		};
 	};
