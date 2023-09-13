@@ -39,6 +39,10 @@
 #error
 #endif
 
+#if !defined(DES_CH_PHY_LANE_RATE)
+#error
+#endif
+
 #if !defined(DES_CH_PHY_CLOCK_LANE)
 #if defined(GMSL_DES_PHY_1_2_LANE_MODE_IN_4_LANES) && DES_CH_PHY == 1
 #define DES_CH_PHY_CLOCK_LANE 3
@@ -69,6 +73,7 @@ channel@DES_CH_REG {
 #else
 #error
 #endif
+				link-frequencies = /bits/ 64 <DES_CH_PHY_LANE_RATE>;
 			};
 		};
 

@@ -579,6 +579,7 @@ CAM_LABEL: ox03a@CAM_HEX_REG {
 		inherent_gain = "1";
 		mclk_multiplier = "10";
 		pix_clk_hz = "250000000";
+		serdes_lane_rate = STRINGIFY(GMSL_DES_LANE_RATE);
 
 #if defined(CAM_USE_AD_GAIN)
 		gain_factor = "16384";

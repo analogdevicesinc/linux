@@ -21,6 +21,7 @@ Configuration parameters:
 
 #define GMSL_CAMERA_NUM			4
 #define GMSL_DES_INDEX			0
+#define GMSL_DES_LANE_RATE		1500
 #define GMSL_DES_PHY
 #define GMSL_DES_PHY_NUM_LANES		2
 #define GMSL_DES_PHY_1_2_LANE_MODE_IN_4_LANES
@@ -150,6 +151,10 @@ Configuration parameters:
 #else
 #error
 #endif
+#endif
+
+#if !defined(GMSL_DES_LANE_RATE)
+#define GMSL_DES_LANE_RATE		1500000000
 #endif
 
 #if !defined(GMSL_DES_HEX_ADDR)
@@ -512,6 +517,7 @@ Configuration parameters:
 	#define DES_CH_INDEX 0
 	#define DES_CH_PHY GMSL_DES_PHY
 	#define DES_CH_PHY_NUM_LANES GMSL_DES_PHY_NUM_LANES
+	#define DES_CH_PHY_LANE_RATE GMSL_DES_LANE_RATE
 	#include "gmsl-deserializer-channel.dtsi"
 #endif
 
@@ -519,6 +525,7 @@ Configuration parameters:
 	#define DES_CH_INDEX 1
 	#define DES_CH_PHY GMSL_DES_PHY
 	#define DES_CH_PHY_NUM_LANES GMSL_DES_PHY_NUM_LANES
+	#define DES_CH_PHY_LANE_RATE GMSL_DES_LANE_RATE
 	#include "gmsl-deserializer-channel.dtsi"
 #endif
 
@@ -526,6 +533,7 @@ Configuration parameters:
 	#define DES_CH_INDEX 2
 	#define DES_CH_PHY GMSL_DES_PHY
 	#define DES_CH_PHY_NUM_LANES GMSL_DES_PHY_NUM_LANES
+	#define DES_CH_PHY_LANE_RATE GMSL_DES_LANE_RATE
 	#include "gmsl-deserializer-channel.dtsi"
 #endif
 
@@ -533,6 +541,7 @@ Configuration parameters:
 	#define DES_CH_INDEX 3
 	#define DES_CH_PHY GMSL_DES_PHY
 	#define DES_CH_PHY_NUM_LANES GMSL_DES_PHY_NUM_LANES
+	#define DES_CH_PHY_LANE_RATE GMSL_DES_LANE_RATE
 	#include "gmsl-deserializer-channel.dtsi"
 #endif
 };

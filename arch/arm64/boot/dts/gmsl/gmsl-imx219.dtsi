@@ -90,6 +90,7 @@ CAM_LABEL: imx219@CAM_HEX_REG {
 		inherent_gain = "1";
 		mclk_multiplier = "9.33";
 		pix_clk_hz = "182400000";
+		serdes_lane_rate = STRINGIFY(GMSL_DES_LANE_RATE);
 
 		gain_factor = "16";
 		framerate_factor = "1000000";
@@ -135,6 +136,7 @@ CAM_LABEL: imx219@CAM_HEX_REG {
 		inherent_gain = "1";
 		mclk_multiplier = "9.33";
 		pix_clk_hz = "182400000";
+		serdes_lane_rate = STRINGIFY(GMSL_DES_LANE_RATE);
 
 		gain_factor = "16";
 		framerate_factor = "1000000";
@@ -183,6 +185,7 @@ CAM_LABEL: imx219@CAM_HEX_REG {
 		inherent_gain = "1";
 		mclk_multiplier = "9.33";
 		pix_clk_hz = "182400000";
+		serdes_lane_rate = STRINGIFY(GMSL_DES_LANE_RATE);
 
 		gain_factor = "16";
 		framerate_factor = "1000000";
@@ -229,6 +232,7 @@ CAM_LABEL: imx219@CAM_HEX_REG {
 		inherent_gain = "1";
 		mclk_multiplier = "9.33";
 		pix_clk_hz = "182400000";
+		serdes_lane_rate = STRINGIFY(GMSL_DES_LANE_RATE);
 
 		gain_factor = "16";
 		framerate_factor = "1000000";
@@ -274,6 +278,7 @@ CAM_LABEL: imx219@CAM_HEX_REG {
 		inherent_gain = "1";
 		mclk_multiplier = "9.33";
 		pix_clk_hz = "182400000";
+		serdes_lane_rate = STRINGIFY(GMSL_DES_LANE_RATE);
 
 		gain_factor = "16";
 		framerate_factor = "1000000";
