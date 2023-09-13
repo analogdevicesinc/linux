@@ -20,10 +20,6 @@
 #error
 #endif
 
-#if !defined(SER_NUM_LANES)
-#error
-#endif
-
 #if !defined(SER_LABEL)
 #error
 #endif
@@ -91,13 +87,6 @@ SER_LABEL: gmsl-serializer@SER_HEX_REG {
 
 				SER_OUT_LABEL: endpoint {
 					remote-endpoint = <&SER_OUT_REMOTE_LABEL>;
-#if SER_NUM_LANES == 2
-				data-lanes = <1 2>;
-#elif SER_NUM_LANES == 4
-				data-lanes = <1 2 3 4>;
-#else
-#error
-#endif
 				};
 			};
 
@@ -114,7 +103,6 @@ SER_LABEL: gmsl-serializer@SER_HEX_REG {
 
 #undef SER_COMPAT
 #undef SER_HEX_REG
-#undef SER_NUM_LANES
 #undef SER_INDEX
 #undef SER_LABEL
 #undef SER_OUT_LABEL

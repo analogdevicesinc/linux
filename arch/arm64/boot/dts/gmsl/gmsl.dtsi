@@ -74,11 +74,6 @@ Configuration parameters:
 #define GMSL_CAM_2_HEX_ADDR		0x39
 #define GMSL_CAM_3_HEX_ADDR		0x3a
 
-#define GMSL_CAM_0_NUM_LANES		4
-#define GMSL_CAM_1_NUM_LANES		4
-#define GMSL_CAM_2_NUM_LANES		4
-#define GMSL_CAM_3_NUM_LANES		4
-
 #define GMSL_CAM_0_DEFAULT_HEX_ADDR	0x36
 #define GMSL_CAM_1_DEFAULT_HEX_ADDR	0x36
 #define GMSL_CAM_2_DEFAULT_HEX_ADDR	0x36
@@ -235,16 +230,6 @@ Configuration parameters:
 
 #endif // GMSL_CAMERA_0
 
-#if !defined(GMSL_CAM_0_NUM_LANES)
-#if defined(GMSL_CAM_0_TEGRA_OX03A)
-#define GMSL_CAM_0_NUM_LANES		4
-#elif defined(GMSL_CAM_0_TEGRA_IMX219)
-#define GMSL_CAM_0_NUM_LANES		2
-#else
-#error
-#endif
-#endif
-
 #if defined(GMSL_CAMERA_1)
 
 #if !defined(GMSL_SER_1_COMPATIBLE)
@@ -298,16 +283,6 @@ Configuration parameters:
 #define GMSL_CAM_1_PINS_INCLUDE		GMSL_SER_PINS_OX03A_INCLUDE
 #elif defined(GMSL_CAM_1_TEGRA_IMX219)
 #define GMSL_CAM_1_PINS_INCLUDE		GMSL_SER_PINS_IMX219_INCLUDE
-#endif
-#endif
-
-#if !defined(GMSL_CAM_1_NUM_LANES)
-#if defined(GMSL_CAM_1_TEGRA_OX03A)
-#define GMSL_CAM_1_NUM_LANES		4
-#elif defined(GMSL_CAM_0_TEGRA_IMX219)
-#define GMSL_CAM_1_NUM_LANES		2
-#else
-#error
 #endif
 #endif
 
@@ -369,16 +344,6 @@ Configuration parameters:
 #endif
 #endif
 
-#if !defined(GMSL_CAM_2_NUM_LANES)
-#if defined(GMSL_CAM_2_TEGRA_OX03A)
-#define GMSL_CAM_2_NUM_LANES		4
-#elif defined(GMSL_CAM_2_TEGRA_IMX219)
-#define GMSL_CAM_2_NUM_LANES		2
-#else
-#error
-#endif
-#endif
-
 #endif // GMSL_CAMERA_2
 
 #if defined(GMSL_CAMERA_3)
@@ -434,16 +399,6 @@ Configuration parameters:
 #define GMSL_CAM_3_PINS_INCLUDE		GMSL_SER_PINS_OX03A_INCLUDE
 #elif defined(GMSL_CAM_3_TEGRA_IMX219)
 #define GMSL_CAM_3_PINS_INCLUDE		GMSL_SER_PINS_IMX219_INCLUDE
-#endif
-#endif
-
-#if !defined(GMSL_CAM_3_NUM_LANES)
-#if defined(GMSL_CAM_3_TEGRA_OX03A)
-#define GMSL_CAM_3_NUM_LANES		4
-#elif defined(GMSL_CAM_2_TEGRA_IMX219)
-#define GMSL_CAM_3_NUM_LANES		2
-#else
-#error
 #endif
 #endif
 
@@ -623,7 +578,6 @@ ser_3_i2c_bus: &des_i2c_3 {};
 	#define SER_COMPAT GMSL_SER_0_COMPATIBLE
 	#define SER_HEX_REG GMSL_SER_0_DEFAULT_HEX_ADDR
 	#define SER_I2C_ADDR_POOL_0 GMSL_CAM_0_HEX_ADDR
-	#define SER_NUM_LANES GMSL_CAM_0_NUM_LANES
 	#include "gmsl-serializer.dtsi"
 };
 #endif
@@ -634,7 +588,6 @@ ser_3_i2c_bus: &des_i2c_3 {};
 	#define SER_COMPAT GMSL_SER_1_COMPATIBLE
 	#define SER_HEX_REG GMSL_SER_1_DEFAULT_HEX_ADDR
 	#define SER_I2C_ADDR_POOL_0 GMSL_CAM_1_HEX_ADDR
-	#define SER_NUM_LANES GMSL_CAM_1_NUM_LANES
 	#include "gmsl-serializer.dtsi"
 };
 #endif
@@ -645,7 +598,6 @@ ser_3_i2c_bus: &des_i2c_3 {};
 	#define SER_COMPAT GMSL_SER_2_COMPATIBLE
 	#define SER_HEX_REG GMSL_SER_2_DEFAULT_HEX_ADDR
 	#define SER_I2C_ADDR_POOL_0 GMSL_CAM_2_HEX_ADDR
-	#define SER_NUM_LANES GMSL_CAM_2_NUM_LANES
 	#include "gmsl-serializer.dtsi"
 };
 #endif
@@ -656,7 +608,6 @@ ser_3_i2c_bus: &des_i2c_3 {};
 	#define SER_COMPAT GMSL_SER_3_COMPATIBLE
 	#define SER_HEX_REG GMSL_SER_3_DEFAULT_HEX_ADDR
 	#define SER_I2C_ADDR_POOL_0 GMSL_CAM_3_HEX_ADDR
-	#define SER_NUM_LANES GMSL_CAM_3_NUM_LANES
 	#include "gmsl-serializer.dtsi"
 };
 #endif
@@ -791,11 +742,6 @@ cam_3_i2c_bus: &ser_3_i2c_0 {};
 #undef GMSL_CAM_1_HEX_ADDR
 #undef GMSL_CAM_2_HEX_ADDR
 #undef GMSL_CAM_3_HEX_ADDR
-
-#undef GMSL_CAM_0_NUM_LANES
-#undef GMSL_CAM_1_NUM_LANES
-#undef GMSL_CAM_2_NUM_LANES
-#undef GMSL_CAM_3_NUM_LANES
 
 #undef GMSL_CAM_0_DEFAULT_HEX_ADDR
 #undef GMSL_CAM_1_DEFAULT_HEX_ADDR
