@@ -247,6 +247,10 @@ static int max_des_init(struct max_des_priv *priv)
 		ret = priv->ops->init_pipe(priv, pipe);
 		if (ret)
 			return ret;
+
+		ret = max_des_update_pipe_remaps(priv, pipe);
+		if (ret)
+			return ret;
 	}
 
 	return 0;
