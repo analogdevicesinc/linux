@@ -12,7 +12,6 @@
 
 #include "max_des.h"
 
-#define MAX96724_DPLL_FREQ		2500
 #define MAX96724_PHYS_NUM		4
 
 struct max96724_priv {
@@ -285,6 +284,28 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 	if (ret)
 		return ret;
 
+	if (phy->link_frequency > 1500000000ull) {
+		/* Enable initial deskew with 2 x 32k UI. */
+		ret = max96724_write(priv, 0x903 + 0x40 * index, 0x81);
+		if (ret)
+			return ret;
+
+		/* Disable periodic deskew with 2 x 1k UI.. */
+		ret = max96724_write(priv, 0x904 + 0x40 * index, 0x81);
+		if (ret)
+			return ret;
+	} else {
+		/* Disable initial deskew. */
+		ret = max96724_write(priv, 0x903 + 0x40 * index, 0x07);
+		if (ret)
+			return ret;
+
+		/* Disable periodic deskew. */
+		ret = max96724_write(priv, 0x904 + 0x40 * index, 0x01);
+		if (ret)
+			return ret;
+	}
+
 	/* Put DPLL block into reset. */
 	ret = max96724_update_bits(priv, 0x1c00 + 0x100 * index, BIT(0), 0x00);
 	if (ret)
@@ -293,7 +314,7 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 	/* Set DPLL frequency. */
 	reg = 0x415 + 0x3 * index;
 	ret = max96724_update_bits(priv, reg, GENMASK(4, 0),
-				   MAX96724_DPLL_FREQ / 100);
+				   div_u64(phy->link_frequency, 100000000));
 	if (ret)
 		return ret;
 
@@ -304,16 +325,6 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 
 	/* Pull DPLL block out of reset. */
 	ret = max96724_update_bits(priv, 0x1c00 + 0x100 * index, BIT(0), 0x01);
-	if (ret)
-		return ret;
-
-	/* Disable initial deskew. */
-	ret = max96724_write(priv, 0x903 + 0x40 * index, 0x07);
-	if (ret)
-		return ret;
-
-	/* Disable periodic deskew. */
-	ret = max96724_write(priv, 0x904 + 0x40 * index, 0x01);
 	if (ret)
 		return ret;
 

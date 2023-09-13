@@ -14,6 +14,10 @@
 #include "max_ser.h"
 #include "max_serdes.h"
 
+#define MAX_DES_LINK_FREQUENCY_MIN		200000000ull
+#define MAX_DES_LINK_FREQUENCY_DEFAULT		1500000000ull
+#define MAX_DES_LINK_FREQUENCY_MAX		2500000000ull
+
 const struct regmap_config max_des_i2c_regmap = {
 	.reg_bits = 16,
 	.val_bits = 8,
@@ -711,6 +715,7 @@ static int max_des_parse_src_dt_endpoint(struct max_des_subdev_priv *sd_priv,
 		.bus_type = V4L2_MBUS_CSI2_DPHY
 	};
 	struct fwnode_handle *ep;
+	u64 link_frequency;
 	int ret;
 
 	ep = fwnode_graph_get_endpoint_by_id(fwnode, MAX_DES_SOURCE_PAD, 0, 0);
@@ -719,18 +724,45 @@ static int max_des_parse_src_dt_endpoint(struct max_des_subdev_priv *sd_priv,
 		return -EINVAL;
 	}
 
-	ret = v4l2_fwnode_endpoint_parse(ep, &v4l2_ep);
+	ret = v4l2_fwnode_endpoint_alloc_parse(ep, &v4l2_ep);
 	fwnode_handle_put(ep);
 	if (ret) {
 		dev_err(priv->dev, "Could not parse v4l2 endpoint\n");
 		return ret;
 	}
 
+	ret = 0;
+	if (v4l2_ep.nr_of_link_frequencies == 0)
+		link_frequency = MAX_DES_LINK_FREQUENCY_DEFAULT;
+	else if (v4l2_ep.nr_of_link_frequencies == 1)
+		link_frequency = v4l2_ep.link_frequencies[0];
+	else
+		ret = -EINVAL;
+
+	v4l2_fwnode_endpoint_free(&v4l2_ep);
+
+	if (ret) {
+		dev_err(priv->dev, "PHY configured with invalid number of link frequencies\n");
+		return -EINVAL;
+	}
+
+	if (link_frequency < MAX_DES_LINK_FREQUENCY_MIN ||
+	    link_frequency > MAX_DES_LINK_FREQUENCY_MAX) {
+		dev_err(priv->dev, "PHY configured with out of range link frequency\n");
+		return -EINVAL;
+	}
+
 	if (!phy->bus_config_parsed) {
 		phy->mipi = v4l2_ep.bus.mipi_csi2;
+		phy->link_frequency = link_frequency;
 		phy->bus_config_parsed = true;
 
 		return 0;
+	}
+
+	if (phy->link_frequency != link_frequency) {
+		dev_err(priv->dev, "PHY configured with differing link frequency\n");
+		return -EINVAL;
 	}
 
 	if (phy->mipi.num_data_lanes != v4l2_ep.bus.mipi_csi2.num_data_lanes) {
