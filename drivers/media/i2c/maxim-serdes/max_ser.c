@@ -387,6 +387,10 @@ static int max_ser_init(struct max_ser_priv *priv)
 		ret = max_ser_update_pipe_vcs(priv, pipe);
 		if (ret)
 			return ret;
+
+		ret = max_ser_update_pipe_dts(priv, pipe);
+		if (ret)
+			return ret;
 	}
 
 	ret = priv->ops->post_init(priv);
