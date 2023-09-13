@@ -149,6 +149,9 @@ static int max_ser_update_pipe_dts(struct max_ser_priv *priv,
 			return -EINVAL;
 		}
 
+		if (!sd_priv->dt)
+			continue;
+
 		/* TODO: optimize by checking for existing filters. */
 		pipe->dts[pipe->num_dts++] = sd_priv->dt;
 	}
