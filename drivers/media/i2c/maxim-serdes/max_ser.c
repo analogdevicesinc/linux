@@ -364,6 +364,11 @@ static int max_ser_init(struct max_ser_priv *priv)
 		if (!phy->enabled)
 			continue;
 
+		if (!phy->bus_config_parsed) {
+			dev_err(priv->dev, "Cannot turn on unconfigured PHY\n");
+			return -EINVAL;
+		}
+
 		ret = priv->ops->init_phy(priv, phy);
 		if (ret)
 			return ret;
@@ -534,8 +539,8 @@ static int max_ser_parse_sink_dt_endpoint(struct max_ser_subdev_priv *sd_priv,
 
 	ep = fwnode_graph_get_endpoint_by_id(fwnode, MAX_SER_SINK_PAD, 0, 0);
 	if (!ep) {
-		dev_err(priv->dev, "Not connected to subdevice\n");
-		return -EINVAL;
+		fwnode_handle_put(ep);
+		return 0;
 	}
 
 	remote_ep = fwnode_graph_get_remote_endpoint(ep);
