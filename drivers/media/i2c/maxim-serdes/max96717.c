@@ -640,7 +640,7 @@ static int max96717_set_pipe_dt_en(struct max96717_priv *priv,
 	} else {
 		i -= 2;
 
-		reg = 0x3dc + index * 2 + i;
+		reg = 0x3dc + i;
 		mask = BIT(6);
 	}
 
@@ -660,7 +660,7 @@ static int max96717_set_pipe_dt(struct max96717_priv *priv,
 	} else {
 		i -= 2;
 
-		reg = 0x3dc + index * 2 + i;
+		reg = 0x3dc + i;
 	}
 
 	return max96717_update_bits(priv, reg, GENMASK(5, 0), dt);
