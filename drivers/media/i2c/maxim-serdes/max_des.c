@@ -726,20 +726,22 @@ static int max_des_parse_src_dt_endpoint(struct max_des_subdev_priv *sd_priv,
 		return ret;
 	}
 
-	if (phy->bus_config_parsed && phy->mipi.num_data_lanes !=
-	    v4l2_ep.bus.mipi_csi2.num_data_lanes) {
+	if (!phy->bus_config_parsed) {
+		phy->mipi = v4l2_ep.bus.mipi_csi2;
+		phy->bus_config_parsed = true;
+
+		return 0;
+	}
+
+	if (phy->mipi.num_data_lanes != v4l2_ep.bus.mipi_csi2.num_data_lanes) {
 		dev_err(priv->dev, "PHY configured with differing number of data lanes\n");
 		return -EINVAL;
 	}
 
-	if (phy->bus_config_parsed && phy->mipi.clock_lane !=
-	    v4l2_ep.bus.mipi_csi2.clock_lane) {
+	if (phy->mipi.clock_lane != v4l2_ep.bus.mipi_csi2.clock_lane) {
 		dev_err(priv->dev, "PHY configured with differing clock lane\n");
 		return -EINVAL;
 	}
-
-	phy->mipi = v4l2_ep.bus.mipi_csi2;
-	phy->bus_config_parsed = true;
 
 	return 0;
 }

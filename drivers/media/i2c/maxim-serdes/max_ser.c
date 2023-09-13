@@ -541,14 +541,17 @@ static int max_ser_parse_src_dt_endpoint(struct max_ser_subdev_priv *sd_priv,
 		return ret;
 	}
 
-	/* TODO: check the rest of the MIPI configuration. */
-	if (phy->mipi.num_data_lanes && phy->mipi.num_data_lanes !=
-	    v4l2_ep.bus.mipi_csi2.num_data_lanes) {
+	if (!phy->bus_config_parsed) {
+		phy->mipi = v4l2_ep.bus.mipi_csi2;
+		phy->bus_config_parsed = true;
+
+		return 0;
+	}
+
+	if (phy->mipi.num_data_lanes != v4l2_ep.bus.mipi_csi2.num_data_lanes) {
 		dev_err(priv->dev, "PHY configured with differing number of data lanes\n");
 		return -EINVAL;
 	}
-
-	phy->mipi = v4l2_ep.bus.mipi_csi2;
 
 	return 0;
 }
