@@ -106,10 +106,17 @@ static int max_des_update_pipe_remaps(struct max_des_priv *priv,
 		return 0;
 
 	for_each_subdev(priv, sd_priv) {
+		unsigned int num_remaps;
+
 		if (sd_priv->pipe_id != pipe->index)
 			continue;
 
-		for (i = 0; i < 3; i++) {
+		if (sd_priv->dt == MAX_DT_EMB8)
+			num_remaps = 1;
+		else
+			num_remaps = 3;
+
+		for (i = 0; i < num_remaps; i++) {
 			struct max_des_dt_vc_remap *remap;
 			unsigned int dt;
 
@@ -656,6 +663,9 @@ static int max_des_parse_ch_dt(struct max_des_subdev_priv *sd_priv,
 		return -EINVAL;
 	}
 	sd_priv->phy_id = val;
+
+	if (fwnode_property_read_bool(fwnode, "maxim,embedded-data"))
+		sd_priv->dt = MAX_DT_EMB8;
 
 	phy = &priv->phys[val];
 	phy->enabled = true;

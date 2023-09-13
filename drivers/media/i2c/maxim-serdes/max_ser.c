@@ -507,6 +507,9 @@ static int max_ser_parse_ch_dt(struct max_ser_subdev_priv *sd_priv,
 	}
 	sd_priv->vc_id = val;
 
+	if (fwnode_property_read_bool(fwnode, "maxim,embedded-data"))
+		sd_priv->dt = MAX_DT_EMB8;
+
 	pipe = &priv->pipes[val];
 	pipe->enabled = true;
 
