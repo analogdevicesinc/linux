@@ -228,6 +228,11 @@ static int max_des_init(struct max_des_priv *priv)
 		if (!phy->enabled)
 			continue;
 
+		if (!phy->bus_config_parsed) {
+			dev_err(priv->dev, "Cannot turn on unconfigured PHY\n");
+			return -EINVAL;
+		}
+
 		ret = priv->ops->init_phy(priv, phy);
 		if (ret)
 			return ret;
@@ -731,8 +736,8 @@ static int max_des_parse_src_dt_endpoint(struct max_des_subdev_priv *sd_priv,
 
 	ep = fwnode_graph_get_endpoint_by_id(fwnode, MAX_DES_SOURCE_PAD, 0, 0);
 	if (!ep) {
-		dev_err(priv->dev, "Not connected to subdevice\n");
-		return -EINVAL;
+		fwnode_handle_put(ep);
+		return 0;
 	}
 
 	ret = v4l2_fwnode_endpoint_alloc_parse(ep, &v4l2_ep);
