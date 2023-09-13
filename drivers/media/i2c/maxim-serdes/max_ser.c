@@ -516,8 +516,8 @@ static int max_ser_parse_ch_dt(struct max_ser_subdev_priv *sd_priv,
 	return 0;
 }
 
-static int max_ser_parse_src_dt_endpoint(struct max_ser_subdev_priv *sd_priv,
-					 struct fwnode_handle *fwnode)
+static int max_ser_parse_sink_dt_endpoint(struct max_ser_subdev_priv *sd_priv,
+					  struct fwnode_handle *fwnode)
 {
 	struct max_ser_priv *priv = sd_priv->priv;
 	struct max_ser_pipe *pipe = max_ser_ch_pipe(sd_priv);
@@ -526,17 +526,24 @@ static int max_ser_parse_src_dt_endpoint(struct max_ser_subdev_priv *sd_priv,
 		.bus_type = V4L2_MBUS_CSI2_DPHY
 	};
 	struct v4l2_fwnode_bus_mipi_csi2 *mipi = &v4l2_ep.bus.mipi_csi2;
-	struct fwnode_handle *ep;
+	struct fwnode_handle *ep, *remote_ep;
 	int ret;
 
-	ep = fwnode_graph_get_endpoint_by_id(fwnode, MAX_SER_SOURCE_PAD, 0, 0);
+	ep = fwnode_graph_get_endpoint_by_id(fwnode, MAX_SER_SINK_PAD, 0, 0);
 	if (!ep) {
 		dev_err(priv->dev, "Not connected to subdevice\n");
 		return -EINVAL;
 	}
 
-	ret = v4l2_fwnode_endpoint_parse(ep, &v4l2_ep);
+	remote_ep = fwnode_graph_get_remote_endpoint(ep);
 	fwnode_handle_put(ep);
+	if (!remote_ep) {
+		dev_err(priv->dev, "Not connected to subdevice\n");
+		return -EINVAL;
+	}
+
+	ret = v4l2_fwnode_endpoint_parse(remote_ep, &v4l2_ep);
+	fwnode_handle_put(remote_ep);
 	if (ret) {
 		dev_err(priv->dev, "Could not parse v4l2 endpoint\n");
 		return ret;
@@ -673,7 +680,7 @@ static int max_ser_parse_dt(struct max_ser_priv *priv)
 		if (ret)
 			return ret;
 
-		ret = max_ser_parse_src_dt_endpoint(sd_priv, fwnode);
+		ret = max_ser_parse_sink_dt_endpoint(sd_priv, fwnode);
 		if (ret)
 			return ret;
 	}
