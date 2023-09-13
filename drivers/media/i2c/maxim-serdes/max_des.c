@@ -809,7 +809,7 @@ static int max_des_parse_dt(struct max_des_priv *priv)
 	for (i = 0; i < priv->ops->num_pipes; i++) {
 		pipe = &priv->pipes[i];
 		pipe->index = i;
-		pipe->phy_id = i;
+		pipe->phy_id = i % priv->ops->num_phys;
 		pipe->stream_id = i;
 		pipe->link_id = i;
 	}

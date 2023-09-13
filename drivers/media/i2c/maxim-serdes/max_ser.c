@@ -604,11 +604,7 @@ static int max_ser_parse_dt(struct max_ser_priv *priv)
 	for (i = 0; i < priv->ops->num_pipes; i++) {
 		pipe = &priv->pipes[i];
 		pipe->index = i;
-		/*
-		 * Serializer chips usually have more pipes than PHYs,
-		 * make sure each pipe gets a valid PHY.
-		 */
-		pipe->phy_id = i / priv->ops->num_phys;
+		pipe->phy_id = i % priv->ops->num_phys;
 		pipe->stream_id = i;
 	}
 
