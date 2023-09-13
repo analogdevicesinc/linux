@@ -87,6 +87,29 @@
 	};
 };
 
+&flexcan1 {
+	fsl,clk-source = /bits/ 8 <1>;
+};
+
+&flexcan2 {
+	clocks = <&can1_lpcg 1>,
+		 <&can1_lpcg 0>;
+	assigned-clocks = <&clk IMX_SC_R_CAN_1 IMX_SC_PM_CLK_PER>;
+	fsl,clk-source = /bits/ 8 <1>;
+};
+
+&flexcan3 {
+	clocks = <&can2_lpcg 1>,
+		 <&can2_lpcg 0>;
+	assigned-clocks = <&clk IMX_SC_R_CAN_2 IMX_SC_PM_CLK_PER>;
+	fsl,clk-source = /bits/ 8 <1>;
+};
+
+&lpspi2 {
+	compatible = "fsl,imx8qm-lpspi", "fsl,imx7ulp-spi";
+};
+
+/* edma0 called in imx8qm RM with the same address in edma2 of imx8qxp */
 &edma2 {
 	reg = <0x5a1f0000 0x170000>;
 	#dma-cells = <3>;
@@ -139,125 +162,39 @@
 	status = "okay";
 };
 
-&flexcan1 {
-	fsl,clk-source = /bits/ 8 <1>;
-};
-
-&flexcan2 {
-	clocks = <&can1_lpcg 1>,
-		 <&can1_lpcg 0>;
-	assigned-clocks = <&clk IMX_SC_R_CAN_1 IMX_SC_PM_CLK_PER>;
-	fsl,clk-source = /bits/ 8 <1>;
-};
-
-&flexcan3 {
-	clocks = <&can2_lpcg 1>,
-		 <&can2_lpcg 0>;
-	assigned-clocks = <&clk IMX_SC_R_CAN_2 IMX_SC_PM_CLK_PER>;
-	fsl,clk-source = /bits/ 8 <1>;
-};
-
-&lpspi2 {
-	compatible = "fsl,imx8qm-lpspi", "fsl,imx7ulp-spi";
-};
-
-/* edma0 called in imx8qm RM with the same address in edma2 of imx8qxp */
-&edma2 {
-	reg = <0x5a200000 0x10000>, /* channel0 LPSPI0 rx */
-	      <0x5a210000 0x10000>, /* channel1 LPSPI0 tx */
-	      <0x5a220000 0x10000>, /* channel2 LPSPI1 rx */
-	      <0x5a230000 0x10000>, /* channel3 LPSPI1 tx */
-	      <0x5a240000 0x10000>, /* channel4 LPSPI2 rx */
-	      <0x5a250000 0x10000>, /* channel5 LPSPI2 tx */
-	      <0x5a260000 0x10000>, /* channel6 LPSPI3 rx */
-	      <0x5a270000 0x10000>, /* channel7 LPSPI3 tx */
-	      <0x5a2c0000 0x10000>, /* channel12 UART0 rx */
-	      <0x5a2d0000 0x10000>, /* channel13 UART0 tx */
-	      <0x5a2e0000 0x10000>, /* channel14 UART1 rx */
-	      <0x5a2f0000 0x10000>, /* channel15 UART1 tx */
-	      <0x5a300000 0x10000>, /* channel16 UART2 rx */
-	      <0x5a310000 0x10000>, /* channel17 UART2 tx */
-	      <0x5a320000 0x10000>, /* channel18 UART3 rx */
-	      <0x5a330000 0x10000>, /* channel19 UART3 tx */
-	      <0x5a340000 0x10000>, /* channel20 UART4 rx */
-	      <0x5a350000 0x10000>; /* channel21 UART4 tx */
-	#dma-cells = <3>;
-	dma-channels = <18>;
-	interrupts = <GIC_SPI 416 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 417 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 418 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 419 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 420 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 421 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 422 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 423 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 434 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 435 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 436 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 437 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 438 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 439 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 440 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 441 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 442 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 443 IRQ_TYPE_LEVEL_HIGH>;
-	interrupt-names = "edma0-chan0-rx", "edma0-chan1-tx",
-			  "edma0-chan2-rx", "edma0-chan3-tx",
-			  "edma0-chan4-rx", "edma0-chan5-tx",
-			  "edma0-chan6-rx", "edma0-chan7-tx",
-			  "edma0-chan12-rx", "edma0-chan13-tx",
-			  "edma0-chan14-rx", "edma0-chan15-tx",
-			  "edma0-chan16-rx", "edma0-chan17-tx",
-			  "edma0-chan18-rx", "edma0-chan19-tx",
-			  "edma0-chan20-rx", "edma0-chan21-tx";
-	power-domains = <&pd IMX_SC_R_DMA_0_CH0>,
-			<&pd IMX_SC_R_DMA_0_CH1>,
-			<&pd IMX_SC_R_DMA_0_CH2>,
-			<&pd IMX_SC_R_DMA_0_CH3>,
-			<&pd IMX_SC_R_DMA_0_CH4>,
-			<&pd IMX_SC_R_DMA_0_CH5>,
-			<&pd IMX_SC_R_DMA_0_CH6>,
-			<&pd IMX_SC_R_DMA_0_CH7>,
-			<&pd IMX_SC_R_DMA_0_CH12>,
-			<&pd IMX_SC_R_DMA_0_CH13>,
-			<&pd IMX_SC_R_DMA_0_CH14>,
-			<&pd IMX_SC_R_DMA_0_CH15>,
-			<&pd IMX_SC_R_DMA_0_CH16>,
-			<&pd IMX_SC_R_DMA_0_CH17>,
-			<&pd IMX_SC_R_DMA_0_CH18>,
-			<&pd IMX_SC_R_DMA_0_CH19>,
-			<&pd IMX_SC_R_DMA_0_CH20>,
-			<&pd IMX_SC_R_DMA_0_CH21>;
-	power-domain-names = "edma0-chan0", "edma0-chan1",
-			     "edma0-chan2", "edma0-chan3",
-			     "edma0-chan4", "edma0-chan5",
-			     "edma0-chan6", "edma0-chan7",
-			     "edma0-chan12", "edma0-chan13",
-			     "edma0-chan14", "edma0-chan15",
-			     "edma0-chan16", "edma0-chan17",
-			     "edma0-chan18", "edma0-chan19",
-			     "edma0-chan20", "edma0-chan21";
-	status = "okay";
+&edma3 {
+	power-domains = <&pd IMX_SC_R_DMA_1_CH0>,
+		     <&pd IMX_SC_R_DMA_1_CH1>,
+		     <&pd IMX_SC_R_DMA_1_CH2>,
+		     <&pd IMX_SC_R_DMA_1_CH3>,
+		     <&pd IMX_SC_R_DMA_1_CH4>,
+		     <&pd IMX_SC_R_DMA_1_CH5>,
+		     <&pd IMX_SC_R_DMA_1_CH6>,
+		     <&pd IMX_SC_R_DMA_1_CH7>;
 };
 
 &lpuart0 {
 	compatible = "fsl,imx8qm-lpuart", "fsl,imx8qxp-lpuart";
-	dmas = <&edma2 13 0 0>, <&edma2 12 0 1>;
+	dmas = <&edma2 12 0 1>, <&edma2 13 0 0>;
+	dma-names = "rx","tx";
 };
 
 &lpuart1 {
 	compatible = "fsl,imx8qm-lpuart", "fsl,imx8qxp-lpuart";
-	dmas = <&edma2 15 0 0>, <&edma2 14 0 1>;
+	dmas = <&edma2 14 0 1>, <&edma2 15 0 0>;
+	dma-names = "rx","tx";
 };
 
 &lpuart2 {
 	compatible = "fsl,imx8qm-lpuart", "fsl,imx8qxp-lpuart";
-	dmas = <&edma2 17 0 0>, <&edma2 16 0 1>;
+	dmas = <&edma2 16 0 1>, <&edma2 17 0 0>;
+	dma-names = "rx","tx";
 };
 
 &lpuart3 {
 	compatible = "fsl,imx8qm-lpuart", "fsl,imx8qxp-lpuart";
-	dmas = <&edma2 19 0 0>, <&edma2 18 0 1>;
+	dmas = <&edma2 18 0 1>, <&edma2 19 0 0>;
+	dma-names = "rx","tx";
 };
 
 &i2c0 {

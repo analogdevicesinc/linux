@@ -77,38 +77,57 @@
 };
 
 &edma0 {
-	compatible = "fsl,imx8qm-edma";
-	reg = <0x591f0000 0x10000>,
-		<0x59280000 0x10000>, /* spdif0 rx */
-		<0x59290000 0x10000>, /* spdif0 tx */
-		<0x592c0000 0x10000>, /* sai0 rx */
-		<0x592d0000 0x10000>, /* sai0 tx */
-		<0x59350000 0x10000>,
-		<0x59370000 0x10000>;
-	#dma-cells = <3>;
-	shared-interrupt;
-	dma-channels = <6>;
-	interrupts = <GIC_SPI 457 IRQ_TYPE_LEVEL_HIGH>, /* spdif0 */
+	reg = <0x591f0000 0x190000>;
+	dma-channels = <24>;
+	dma-channel-mask = <0x5fccff>;
+	interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 457 IRQ_TYPE_LEVEL_HIGH>, /* spdif0 */
 			<GIC_SPI 459 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
 			<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>, /* sai0 */
 			<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 391 IRQ_TYPE_LEVEL_HIGH>,
-			<GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>;
-	interrupt-names = "edma2-chan8-rx", "edma2-chan9-tx", /* spdif0 */
-			"edma2-chan12-rx", "edma2-chan13-tx", /* sai0 */
-			"edma2-chan21-tx",		/* gpt5 */
-			"edma2-chan23-rx";		/* gpt7 */
-
-	power-domains = <&pd IMX_SC_R_DMA_2_CH8>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 391 IRQ_TYPE_LEVEL_HIGH>, /* 21 gpt5 */
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>; /* 23 gpt7 */
+	power-domains = <&pd IMX_SC_R_DMA_2_CH0>,
+			<&pd IMX_SC_R_DMA_2_CH1>,
+			<&pd IMX_SC_R_DMA_2_CH2>,
+			<&pd IMX_SC_R_DMA_2_CH3>,
+			<&pd IMX_SC_R_DMA_2_CH4>,
+			<&pd IMX_SC_R_DMA_2_CH5>,
+			<&pd IMX_SC_R_DMA_2_CH6>,
+			<&pd IMX_SC_R_DMA_2_CH7>,
+			<&pd IMX_SC_R_DMA_2_CH8>,
 			<&pd IMX_SC_R_DMA_2_CH9>,
+			<&pd IMX_SC_R_DMA_2_CH10>,
+			<&pd IMX_SC_R_DMA_2_CH11>,
 			<&pd IMX_SC_R_DMA_2_CH12>,
 			<&pd IMX_SC_R_DMA_2_CH13>,
+			<&pd IMX_SC_R_DMA_2_CH14>,
+			<&pd IMX_SC_R_DMA_2_CH15>,
+			<&pd IMX_SC_R_DMA_2_CH16>,
+			<&pd IMX_SC_R_DMA_2_CH17>,
+			<&pd IMX_SC_R_DMA_2_CH18>,
+			<&pd IMX_SC_R_DMA_2_CH19>,
+			<&pd IMX_SC_R_DMA_2_CH20>,
 			<&pd IMX_SC_R_DMA_2_CH21>,
+			<&pd IMX_SC_R_DMA_2_CH22>,
 			<&pd IMX_SC_R_DMA_2_CH23>;
-	power-domain-names = "edma2-chan8", "edma2-chan9",
-			"edma2-chan12", "edma2-chan13",
-			"edma2-chan21", "edma2-chan23";
-	status = "okay";
 };
 
 &dsp {
