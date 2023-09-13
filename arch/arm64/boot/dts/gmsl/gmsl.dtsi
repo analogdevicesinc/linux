@@ -133,21 +133,6 @@ Configuration parameters:
 #error
 #endif
 
-/*
- * Default to PHY 2.
- * MAX9296A only has two PHYs, but configuring PHY 1 in two lane mode
- * results in the same configuration as MAX96724.
- */
-#if !defined(GMSL_DES_PHY)
-#if defined(GMSL_DES_MAX9296A)
-#define GMSL_DES_PHY		0x1
-#elif defined(GMSL_DES_MAX96724)
-#define GMSL_DES_PHY		0x2
-#else
-#error
-#endif
-#endif
-
 #if !defined(GMSL_DES_LANE_RATE)
 #define GMSL_DES_LANE_RATE		1500000000
 #endif
