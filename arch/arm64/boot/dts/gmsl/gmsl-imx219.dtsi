@@ -73,7 +73,7 @@ CAM_LABEL: imx219@CAM_HEX_REG {
 		tegra_sinterface = GMSL_TEGRA_PORT_SERIAL;
 		vc_id = STRINGIFY(CAM_VC_ID);
 		phy_mode = "DPHY";
-		discontinuous_clk = "yes";
+		discontinuous_clk = "no";
 		dpcm_enable = "false";
 		cil_settletime = "0";
 #ifdef GMSL_TEGRA_LANE_POLARITY_SWAP
@@ -118,7 +118,7 @@ CAM_LABEL: imx219@CAM_HEX_REG {
 		tegra_sinterface = GMSL_TEGRA_PORT_SERIAL;
 		vc_id = STRINGIFY(CAM_VC_ID);
 		phy_mode = "DPHY";
-		discontinuous_clk = "yes";
+		discontinuous_clk = "no";
 		dpcm_enable = "false";
 		cil_settletime = "0";
 #ifdef GMSL_TEGRA_LANE_POLARITY_SWAP
@@ -166,7 +166,7 @@ CAM_LABEL: imx219@CAM_HEX_REG {
 		tegra_sinterface = GMSL_TEGRA_PORT_SERIAL;
 		vc_id = STRINGIFY(CAM_VC_ID);
 		phy_mode = "DPHY";
-		discontinuous_clk = "yes";
+		discontinuous_clk = "no";
 		dpcm_enable = "false";
 		cil_settletime = "0";
 #ifdef GMSL_TEGRA_LANE_POLARITY_SWAP
@@ -212,7 +212,7 @@ CAM_LABEL: imx219@CAM_HEX_REG {
 		tegra_sinterface = GMSL_TEGRA_PORT_SERIAL;
 		vc_id = STRINGIFY(CAM_VC_ID);
 		phy_mode = "DPHY";
-		discontinuous_clk = "yes";
+		discontinuous_clk = "no";
 		dpcm_enable = "false";
 		cil_settletime = "0";
 #ifdef GMSL_TEGRA_LANE_POLARITY_SWAP
@@ -257,7 +257,7 @@ CAM_LABEL: imx219@CAM_HEX_REG {
 		tegra_sinterface = GMSL_TEGRA_PORT_SERIAL;
 		vc_id = STRINGIFY(CAM_VC_ID);
 		phy_mode = "DPHY";
-		discontinuous_clk = "yes";
+		discontinuous_clk = "no";
 		dpcm_enable = "false";
 		cil_settletime = "0";
 #ifdef GMSL_TEGRA_LANE_POLARITY_SWAP
