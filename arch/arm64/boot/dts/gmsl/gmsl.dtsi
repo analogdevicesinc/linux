@@ -20,7 +20,6 @@ Configuration parameters:
 #define GMSL_TEGRA_PORT_SERIAL		serial_a
 
 #define GMSL_CAMERA_NUM			4
-#define GMSL_DES_INDEX			0
 #define GMSL_DES_LANE_RATE		1500
 #define GMSL_DES_PHY
 #define GMSL_DES_PHY_NUM_LANES		2
