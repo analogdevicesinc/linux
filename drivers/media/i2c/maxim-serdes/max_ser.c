@@ -525,6 +525,7 @@ static int max_ser_parse_src_dt_endpoint(struct max_ser_subdev_priv *sd_priv,
 	struct v4l2_fwnode_endpoint v4l2_ep = {
 		.bus_type = V4L2_MBUS_CSI2_DPHY
 	};
+	struct v4l2_fwnode_bus_mipi_csi2 *mipi = &v4l2_ep.bus.mipi_csi2;
 	struct fwnode_handle *ep;
 	int ret;
 
@@ -548,7 +549,7 @@ static int max_ser_parse_src_dt_endpoint(struct max_ser_subdev_priv *sd_priv,
 		return 0;
 	}
 
-	if (phy->mipi.num_data_lanes != v4l2_ep.bus.mipi_csi2.num_data_lanes) {
+	if (phy->mipi.num_data_lanes != mipi->num_data_lanes) {
 		dev_err(priv->dev, "PHY configured with differing number of data lanes\n");
 		return -EINVAL;
 	}
