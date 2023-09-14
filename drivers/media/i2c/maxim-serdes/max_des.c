@@ -625,6 +625,13 @@ static int max_des_parse_pipe_dt(struct max_des_priv *priv,
 
 	pipe->stream_id = val;
 
+	pipe->dbl8 = fwnode_property_read_bool(fwnode, "maxim,dbl8");
+	pipe->dbl10 = fwnode_property_read_bool(fwnode, "maxim,dbl10");
+	pipe->dbl12 = fwnode_property_read_bool(fwnode, "maxim,dbl12");
+
+	pipe->dbl8mode = fwnode_property_read_bool(fwnode, "maxim,dbl8-mode");
+	pipe->dbl10mode = fwnode_property_read_bool(fwnode, "maxim,dbl10-mode");
+
 	ret = max_des_parse_pipe_link_remap_dt(priv, pipe, fwnode);
 	if (ret)
 		return ret;

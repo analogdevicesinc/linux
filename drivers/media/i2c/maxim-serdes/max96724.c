@@ -417,7 +417,7 @@ static int max96724_init_pipe(struct max_des_priv *des_priv,
 {
 	struct max96724_priv *priv = des_to_priv(des_priv);
 	unsigned int index = pipe->index;
-	unsigned int reg, shift;
+	unsigned int reg, shift, mask;
 	int ret;
 
 	/* Set destination PHY. */
@@ -453,6 +453,45 @@ static int max96724_init_pipe(struct max_des_priv *des_priv,
 	shift += 2;
 	ret = max96724_update_bits(priv, reg, GENMASK(1, 0) << shift,
 				   pipe->link_id << shift);
+	if (ret)
+		return ret;
+
+	/* Set 8bit double mode. */
+	mask = BIT(index) << 4;
+	ret = max96724_update_bits(priv, 0x414, mask, pipe->dbl8 ? mask : 0);
+	if (ret)
+		return ret;
+
+	mask = BIT(index) << 4;
+	ret = max96724_update_bits(priv, 0x417, mask, pipe->dbl8mode ? mask : 0);
+	if (ret)
+		return ret;
+
+	/* Set 10bit double mode. */
+	if (index == 3) {
+		reg = 0x41d;
+		mask = BIT(4);
+	} else if (index == 2) {
+		reg = 0x41e;
+		mask = BIT(6);
+	} else if (index == 1) {
+		reg = 0x41f;
+		mask = BIT(6);
+	} else {
+		reg = 0x41f;
+		mask = BIT(4);
+	}
+
+	ret = max96724_update_bits(priv, reg,
+				   mask | (mask << 1),
+				   (pipe->dbl10 ? mask : 0) |
+				   (pipe->dbl10mode ? (mask << 1) : 0));
+	if (ret)
+		return ret;
+
+	/* Set 12bit double mode. */
+	mask = BIT(index);
+	ret = max96724_update_bits(priv, 0x41f, mask, pipe->dbl12 ? mask : 0);
 	if (ret)
 		return ret;
 

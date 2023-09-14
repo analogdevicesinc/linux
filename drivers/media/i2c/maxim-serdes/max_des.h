@@ -71,6 +71,11 @@ struct max_des_pipe {
 	unsigned int link_id;
 	struct max_des_dt_vc_remap remaps[MAX_DES_REMAPS_NUM];
 	unsigned int num_remaps;
+	bool dbl8;
+	bool dbl10;
+	bool dbl12;
+	bool dbl8mode;
+	bool dbl10mode;
 	bool enabled;
 };
 
