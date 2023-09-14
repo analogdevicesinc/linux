@@ -54,9 +54,7 @@
 #include <linux/proc_fs.h>
 #include <linux/smp.h>
 #include <linux/of.h>
-#ifdef CONFIG_FMAN_ARM
 #include <linux/irqdomain.h>
-#endif
 
 #include <linux/workqueue.h>
 
