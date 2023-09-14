@@ -1,0 +1,64 @@
+#ifndef IMX219_HEX_REG
+#define IMX219_HEX_REG 0x10
+#endif
+
+#ifdef IMX219_INDEX
+#define IMX219_SER_INDEX  IMX219_INDEX
+#define IMX219_SER_LABEL  CONCAT(serializer_, IMX219_SER_INDEX)
+#define IMX219_OUT_LABEL CONCAT(cam_out, IMX219_INDEX)
+#define IMX219_IN_LABEL CONCAT(ser_in, IMX219_INDEX)
+#define IMX219_LABEL CONCAT(camera, IMX219_INDEX)
+#endif
+
+#if !defined(IMX219_SER_LABEL)
+#error
+#endif
+
+#if !defined(IMX219_OUT_LABEL)
+#error
+#endif
+
+#if !defined(IMX219_IN_LABEL)
+#error
+#endif
+
+#if !defined(IMX219_LABEL)
+#error
+#endif
+
+IMX219_LABEL: imx219@IMX219_HEX_REG {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	compatible = "sony,imx219";
+	reg = <IMX219_HEX_REG>;
+	clocks = <&cam_clk>;
+	clock-names = "xclk";
+	VDDL-supply = <&cam_vdig>;
+	VANA-supply = <&cam1_reg>;
+	VDIG-supply = <&cam_vddio>;
+	reset-gpios = <&IMX219_SER_LABEL 2 GPIO_ACTIVE_HIGH>;
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+
+			IMX219_OUT_LABEL: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				clock-noncontinuous;
+				link-frequencies =
+					/bits/ 64 <456000000>;
+				remote-endpoint = <&IMX219_IN_LABEL>;
+			};
+		};
+	};
+};
+
+#undef IMX219_HEX_REG
+#undef IMX219_INDEX
+#undef IMX219_SER_INDEX
+#undef IMX219_SER_LABEL
+#undef IMX219_LABEL
+#undef IMX219_OUT_LABEL
+#undef IMX219_IN_LABEL
