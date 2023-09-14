@@ -333,6 +333,8 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 	val |= phy->alt_mem_map8 ? BIT(1) : 0;
 	val |= phy->alt_mem_map10 ? BIT(2) : 0;
 	ret = max96724_update_bits(priv, 0x933 + 0x40 * index, GENMASK(2, 0), val);
+	if (ret)
+		return ret;
 
 	if (num_hw_data_lanes == 4)
 		mask = 0x3 << (index / 2 + 4);
