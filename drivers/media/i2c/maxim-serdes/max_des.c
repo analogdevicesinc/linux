@@ -505,6 +505,7 @@ static int max_des_v4l2_register_sd(struct max_des_subdev_priv *sd_priv)
 	sd_priv->sd.entity.ops = &max_des_media_ops;
 	sd_priv->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	sd_priv->sd.fwnode = sd_priv->fwnode;
+	fwnode_handle_get(sd_priv->sd.fwnode);
 
 	sd_priv->pads[MAX_DES_SOURCE_PAD].flags = MEDIA_PAD_FL_SOURCE;
 	sd_priv->pads[MAX_DES_SINK_PAD].flags = MEDIA_PAD_FL_SINK;
