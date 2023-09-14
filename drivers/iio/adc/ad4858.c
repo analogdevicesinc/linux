@@ -355,8 +355,6 @@ static int axi_crc_control_set(struct iio_dev *indio_dev,
 		axi_reg = axiadc_read(st, ADI_REG_CHAN_STATUS(0));
 		axiadc_write(st, ADI_REG_CHAN_STATUS(0), axi_reg);
 	} else {
-		axiadc_write(st, 0x4c, 0x100);
-
 		axi_reg = axiadc_read(st, AD4858_AXI_REG_CNTRL_3);
 		axi_reg &= ~AD4858_AXI_CRC_EN;
 		axi_reg |= FIELD_PREP(AD4858_AXI_CRC_EN, item);
