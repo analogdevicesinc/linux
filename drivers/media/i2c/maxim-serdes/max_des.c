@@ -515,7 +515,11 @@ static int max_des_v4l2_register_sd(struct max_des_subdev_priv *sd_priv)
 	if (ret)
 		goto error;
 
-	return v4l2_async_register_subdev(&sd_priv->sd);
+	ret = v4l2_async_register_subdev(&sd_priv->sd);
+	if (ret)
+		goto error;
+
+	return 0;
 
 error:
 	media_entity_cleanup(&sd_priv->sd.entity);
