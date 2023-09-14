@@ -509,11 +509,11 @@ static int max_des_v4l2_register_sd(struct max_des_subdev_priv *sd_priv)
 	sd_priv->pads[MAX_DES_SOURCE_PAD].flags = MEDIA_PAD_FL_SOURCE;
 	sd_priv->pads[MAX_DES_SINK_PAD].flags = MEDIA_PAD_FL_SINK;
 
+	v4l2_set_subdevdata(&sd_priv->sd, sd_priv);
+
 	ret = media_entity_pads_init(&sd_priv->sd.entity, MAX_DES_PAD_NUM, sd_priv->pads);
 	if (ret)
 		goto error;
-
-	v4l2_set_subdevdata(&sd_priv->sd, sd_priv);
 
 	return v4l2_async_register_subdev(&sd_priv->sd);
 
