@@ -498,6 +498,14 @@ static int max_ser_parse_pipe_dt(struct max_ser_priv *priv,
 	}
 	pipe->soft_bpp = val;
 
+	val = 0;
+	fwnode_property_read_u32(fwnode, "maxim,bpp", &val);
+	if (val > 24) {
+		dev_err(priv->dev, "Invalid bpp %u\n", val);
+		return -EINVAL;
+	}
+	pipe->bpp = val;
+
 	pipe->dbl8 = fwnode_property_read_bool(fwnode, "maxim,dbl8");
 	pipe->dbl10 = fwnode_property_read_bool(fwnode, "maxim,dbl10");
 	pipe->dbl12 = fwnode_property_read_bool(fwnode, "maxim,dbl12");
