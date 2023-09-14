@@ -1021,7 +1021,7 @@ static int ovx03a_probe(struct i2c_client *client)
 
 	ret = ox03a_check_id(sensor);
 	if (ret < 0)
-		return ret;
+		goto err_power;
 
 	/* Initialize the V4L2 subdev. */
 	ret = ovx03a_subdev_init(sensor);
