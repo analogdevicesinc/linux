@@ -58,6 +58,10 @@ struct max_ser_pipe {
 	unsigned int *dts;
 	unsigned int num_dts;
 	unsigned int vcs;
+	unsigned int soft_bpp;
+	bool dbl8;
+	bool dbl10;
+	bool dbl12;
 	bool enabled;
 	bool active;
 };
