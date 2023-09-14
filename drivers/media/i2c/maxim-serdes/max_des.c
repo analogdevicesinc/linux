@@ -850,14 +850,17 @@ static int max_des_parse_dt(struct max_des_priv *priv)
 
 		if (index >= priv->ops->num_phys) {
 			dev_err(priv->dev, "Invalid PHY %u\n", index);
+			fwnode_handle_put(fwnode);
 			return -EINVAL;
 		}
 
 		phy = &priv->phys[index];
 
 		ret = max_des_parse_phy_dt(priv, phy, fwnode);
-		if (ret)
+		if (ret) {
+			fwnode_handle_put(fwnode);
 			return ret;
+		}
 	}
 
 	device_for_each_child_node(priv->dev, fwnode) {
@@ -874,14 +877,17 @@ static int max_des_parse_dt(struct max_des_priv *priv)
 
 		if (index >= priv->ops->num_pipes) {
 			dev_err(priv->dev, "Invalid pipe %u\n", index);
+			fwnode_handle_put(fwnode);
 			return -EINVAL;
 		}
 
 		pipe = &priv->pipes[index];
 
 		ret = max_des_parse_pipe_dt(priv, pipe, fwnode);
-		if (ret)
+		if (ret) {
+			fwnode_handle_put(fwnode);
 			return ret;
+		}
 	}
 
 	device_for_each_child_node(priv->dev, fwnode) {
@@ -926,16 +932,22 @@ static int max_des_parse_dt(struct max_des_priv *priv)
 		sd_priv->pipe_id = index % priv->ops->num_pipes;
 
 		ret = max_des_parse_ch_dt(sd_priv, fwnode);
-		if (ret)
+		if (ret) {
+			fwnode_handle_put(fwnode);
 			return ret;
+		}
 
 		ret = max_des_parse_sink_dt_endpoint(sd_priv, fwnode);
-		if (ret)
+		if (ret) {
+			fwnode_handle_put(fwnode);
 			return ret;
+		}
 
 		ret = max_des_parse_src_dt_endpoint(sd_priv, fwnode);
-		if (ret)
+		if (ret) {
+			fwnode_handle_put(fwnode);
 			return ret;
+		}
 	}
 
 	return 0;
