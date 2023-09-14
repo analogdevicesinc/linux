@@ -39,11 +39,6 @@ static struct max_ser_subdev_priv *next_subdev(struct max_ser_priv *priv,
 #define for_each_subdev(priv, sd_priv) \
 	for ((sd_priv) = NULL; ((sd_priv) = next_subdev((priv), (sd_priv))); )
 
-static inline struct max_ser_asd *to_max_ser_asd(struct v4l2_async_subdev *asd)
-{
-	return container_of(asd, struct max_ser_asd, base);
-}
-
 static inline struct max_ser_subdev_priv *sd_to_max_ser(struct v4l2_subdev *sd)
 {
 	return container_of(sd, struct max_ser_subdev_priv, sd);
