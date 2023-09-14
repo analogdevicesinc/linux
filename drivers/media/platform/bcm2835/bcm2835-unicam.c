@@ -545,10 +545,23 @@ struct unicam_device {
 	bool mc_api;
 };
 
+struct unicam_graph_entity {
+	struct v4l2_async_subdev asd; /* must be first */
+	struct media_entity *entity;
+	struct v4l2_subdev *subdev;
+	bool streaming;
+};
+
 static inline struct unicam_device *
 to_unicam_device(struct v4l2_device *v4l2_dev)
 {
 	return container_of(v4l2_dev, struct unicam_device, v4l2_dev);
+}
+
+static inline struct unicam_graph_entity *
+to_unicam_entity(struct v4l2_async_subdev *asd)
+{
+	return container_of(asd, struct unicam_graph_entity, asd);
 }
 
 /* Hardware access */
@@ -2513,6 +2526,163 @@ static void unicam_return_buffers(struct unicam_node *node,
 	spin_unlock_irqrestore(&node->dma_queue_lock, flags);
 }
 
+static struct unicam_graph_entity *
+unicam_graph_find_entity_from_media(struct unicam_device *dev,
+				  struct media_entity *entity)
+{
+	struct unicam_graph_entity *unicam_entity;
+	struct v4l2_async_subdev *asd;
+
+	list_for_each_entry(asd, &dev->notifier.asd_list, asd_list) {
+		unicam_entity = to_unicam_entity(asd);
+		if (unicam_entity->entity == entity)
+			return unicam_entity;
+	}
+
+	return NULL;
+}
+
+static bool unicam_graph_entity_set_streaming(struct unicam_device *dev,
+					    struct unicam_graph_entity *entity,
+					    bool enable)
+{
+	bool status = entity->streaming;
+
+	entity->streaming = enable;
+	return status;
+}
+
+static int
+unicam_graph_entity_start_stop_subdev(struct unicam_device *dev,
+				    struct unicam_graph_entity *entity, bool on)
+{
+	struct v4l2_subdev *subdev;
+	int ret = 0;
+
+	unicam_dbg(3, dev, "%s entity %s\n",
+		on ? "Starting" : "Stopping", entity->entity->name);
+	subdev = media_entity_to_v4l2_subdev(entity->entity);
+
+	/*
+	 * start or stop the subdev only once in case if they are
+	 * shared between sub-graphs
+	 */
+	if (on) {
+		/* power-on subdevice */
+		ret = v4l2_subdev_call(subdev, core, s_power, 1);
+		if (ret < 0 && ret != -ENOIOCTLCMD) {
+			unicam_err(dev,
+				"s_power on failed on subdev\n");
+			unicam_graph_entity_set_streaming(dev, entity, 0);
+			return ret;
+		}
+
+		/* stream-on subdevice */
+		ret = v4l2_subdev_call(subdev, video, s_stream, 1);
+		if (ret < 0 && ret != -ENOIOCTLCMD) {
+			unicam_err(dev,
+				"s_stream on failed on subdev\n");
+			v4l2_subdev_call(subdev, core, s_power, 0);
+			unicam_graph_entity_set_streaming(dev, entity, 0);
+		}
+	} else {
+		/* stream-off subdevice */
+		ret = v4l2_subdev_call(subdev, video, s_stream, 0);
+		if (ret < 0 && ret != -ENOIOCTLCMD) {
+			unicam_err(dev,
+				"s_stream off failed on subdev\n");
+			unicam_graph_entity_set_streaming(dev, entity, 1);
+		}
+
+		/* power-off subdevice */
+		ret = v4l2_subdev_call(subdev, core, s_power, 0);
+		if (ret < 0 && ret != -ENOIOCTLCMD)
+			unicam_err(dev,
+				"s_power off failed on subdev\n");
+	}
+
+	if (ret == -ENOIOCTLCMD)
+		ret = 0;
+
+	return ret;
+}
+
+static bool unicam_graph_entity_start_stop(struct unicam_device *dev,
+					 struct unicam_graph_entity *entity,
+					 bool on)
+{
+	unsigned long pad_flag = on ? MEDIA_PAD_FL_SOURCE : MEDIA_PAD_FL_SINK;
+	unsigned int i;
+	bool state;
+	int ret;
+
+	if (entity->streaming == on)
+		return true;
+
+	for (i = 0; i < entity->entity->num_pads; i++) {
+		struct unicam_graph_entity *remote;
+		struct media_pad *pad;
+
+		if (!(entity->entity->pads[i].flags & pad_flag))
+			continue;
+
+		/* skipping not connected pads */
+		pad = media_pad_remote_pad_first(&entity->entity->pads[i]);
+		if (!pad || !pad->entity)
+			continue;
+
+		/*
+		 * Skip if there is no remote. This entity is at the end,
+		 * such as DMA, sensor, or other type.
+		 */
+		remote = unicam_graph_find_entity_from_media(dev, pad->entity);
+		if (!remote)
+			continue;
+
+		/* the dependency state doesn't meet */
+		if (remote->streaming != on) {
+			state = unicam_graph_entity_start_stop(dev, remote, on);
+			if (!state)
+				return state;
+		}
+	}
+
+	/* set state and report if state is changed or not */
+	state = unicam_graph_entity_set_streaming(dev, entity, on);
+	/* This shouldn't happen as check is already above */
+	if (state == on) {
+		WARN(1, "Should never get here\n");
+		return true;
+	}
+
+	ret = unicam_graph_entity_start_stop_subdev(dev, entity, on);
+	if (ret < 0) {
+		unicam_err(dev, "ret = %d for entity %s\n",
+			ret, entity->entity->name);
+		return false;
+	}
+
+	return true;
+}
+
+int unicam_graph_pipeline_start_stop(struct unicam_device *dev, bool on)
+{
+	struct v4l2_async_subdev *asd;
+
+	list_for_each_entry(asd, &dev->notifier.asd_list, asd_list) {
+		struct unicam_graph_entity *entity;
+		bool state;
+
+		entity = to_unicam_entity(asd);
+
+		state = unicam_graph_entity_start_stop(dev, entity, on);
+		if (!state)
+			return -EPIPE;
+	}
+
+	return 0;
+}
+
 static int unicam_start_streaming(struct vb2_queue *vq, unsigned int count)
 {
 	struct unicam_node *node = vb2_get_drv_priv(vq);
@@ -2620,11 +2790,9 @@ static int unicam_start_streaming(struct vb2_queue *vq, unsigned int count)
 	dev->frame_started = false;
 	unicam_start_rx(dev, buffer_addr);
 
-	ret = v4l2_subdev_call(dev->sensor, video, s_stream, 1);
-	if (ret < 0) {
-		unicam_err(dev, "stream on failed in subdev\n");
+	ret = unicam_graph_pipeline_start_stop(dev, true);
+	if (ret)
 		goto err_disable_unicam;
-	}
 
 	dev->clocks_enabled = true;
 	return 0;
@@ -2656,13 +2824,7 @@ static void unicam_stop_streaming(struct vb2_queue *vq)
 	node->streaming = false;
 
 	if (node->pad_id == IMAGE_PAD) {
-		/*
-		 * Stop streaming the sensor and disable the peripheral.
-		 * We cannot continue streaming embedded data with the
-		 * image pad disabled.
-		 */
-		if (v4l2_subdev_call(dev->sensor, video, s_stream, 0) < 0)
-			unicam_err(dev, "stream off failed in subdev\n");
+		unicam_graph_pipeline_start_stop(dev, false);
 
 		unicam_disable(dev);
 
@@ -2777,20 +2939,35 @@ static const struct v4l2_file_operations unicam_fops = {
 static int
 unicam_async_bound(struct v4l2_async_notifier *notifier,
 		   struct v4l2_subdev *subdev,
-		   struct v4l2_async_subdev *asd)
+		   struct v4l2_async_subdev *unused)
 {
 	struct unicam_device *unicam = to_unicam_device(notifier->v4l2_dev);
+	struct unicam_graph_entity *entity;
+	struct v4l2_async_subdev *asd;
 
-	if (unicam->sensor) {
-		unicam_info(unicam, "Rejecting subdev %s (Already set!!)",
-			    subdev->name);
+	/* Locate the entity corresponding to the bound subdev and store the
+	 * subdev pointer.
+	 */
+	list_for_each_entry(asd, &unicam->notifier.asd_list, asd_list) {
+		entity = to_unicam_entity(asd);
+
+		if (entity->asd.match.fwnode != subdev->fwnode)
+			continue;
+
+		if (entity->subdev) {
+			unicam_err(unicam, "duplicate subdev for node %p\n",
+				entity->asd.match.fwnode);
+			return -EINVAL;
+		}
+
+		unicam_dbg(3, unicam, "subdev %s bound\n", subdev->name);
+		entity->entity = &subdev->entity;
+		entity->subdev = subdev;
 		return 0;
 	}
 
-	unicam->sensor = subdev;
-	unicam_dbg(1, unicam, "Using sensor %s for capture\n", subdev->name);
-
-	return 0;
+	unicam_err(unicam, "no entity for subdev %s\n", subdev->name);
+	return -EINVAL;
 }
 
 static void unicam_release(struct kref *kref)
@@ -3140,10 +3317,15 @@ static int unicam_async_complete(struct v4l2_async_notifier *notifier)
 	static struct lock_class_key key;
 	struct unicam_device *unicam = to_unicam_device(notifier->v4l2_dev);
 	unsigned int i, source_pads = 0;
+	struct v4l2_async_subdev *asd;
+	struct unicam_graph_entity *entity;
 	int ret;
 
 	unicam->v4l2_dev.notify = unicam_notify;
+	asd = list_last_entry(&unicam->notifier.asd_list, struct v4l2_async_subdev, asd_list);
+	entity = to_unicam_entity(asd);
 
+	unicam->sensor = entity->subdev;
 	unicam->sensor_state = __v4l2_subdev_state_alloc(unicam->sensor,
 							 "unicam:async->lock", &key);
 	if (!unicam->sensor_state)
@@ -3210,6 +3392,124 @@ static const struct v4l2_async_notifier_operations unicam_async_ops = {
 	.bound = unicam_async_bound,
 	.complete = unicam_async_complete,
 };
+
+static struct unicam_graph_entity *
+unicam_graph_find_entity(struct unicam_device *dev,
+		       const struct fwnode_handle *fwnode)
+{
+	struct unicam_graph_entity *entity;
+	struct v4l2_async_subdev *asd;
+
+	list_for_each_entry(asd, &dev->notifier.asd_list, asd_list) {
+		entity = to_unicam_entity(asd);
+		if (entity->asd.match.fwnode == fwnode)
+			return entity;
+	}
+
+	return NULL;
+}
+
+static int unicam_graph_parse_one(struct unicam_device *dev,
+				struct fwnode_handle *fwnode)
+{
+	struct fwnode_handle *remote;
+	struct fwnode_handle *ep = NULL;
+	struct platform_device *pdev = dev->pdev;
+	int ret = 0;
+
+	unicam_dbg(3, dev, "parsing node %p\n", fwnode);
+
+	while (1) {
+		struct unicam_graph_entity *uge;
+
+		ep = fwnode_graph_get_next_endpoint(fwnode, ep);
+		if (ep == NULL)
+			break;
+
+		unicam_dbg(3, dev, "handling endpoint %p\n", ep);
+
+		remote = fwnode_graph_get_remote_port_parent(ep);
+		if (remote == NULL) {
+			ret = -EINVAL;
+			goto err_notifier_cleanup;
+		}
+
+		fwnode_handle_put(ep);
+
+		/* Skip entities that we have already processed. */
+		if (remote == of_fwnode_handle(pdev->dev.of_node) ||
+		    unicam_graph_find_entity(dev, remote)) {
+			fwnode_handle_put(remote);
+			continue;
+		}
+
+		uge = v4l2_async_nf_add_fwnode(&dev->notifier, remote,
+					       struct unicam_graph_entity);
+		fwnode_handle_put(remote);
+		if (IS_ERR(uge)) {
+			ret = PTR_ERR(uge);
+			goto err_notifier_cleanup;
+		}
+	}
+
+	return 0;
+
+err_notifier_cleanup:
+	v4l2_async_nf_cleanup(&dev->notifier);
+	fwnode_handle_put(ep);
+	return ret;
+}
+
+static int unicam_graph_parse(struct unicam_device *dev)
+{
+	struct unicam_graph_entity *entity;
+	struct v4l2_async_subdev *asd;
+	struct platform_device *pdev = dev->pdev;
+	int ret;
+
+	ret = unicam_graph_parse_one(dev, of_fwnode_handle(pdev->dev.of_node));
+	if (ret < 0)
+		return 0;
+
+	list_for_each_entry(asd, &dev->notifier.asd_list, asd_list) {
+		entity = to_unicam_entity(asd);
+		ret = unicam_graph_parse_one(dev, entity->asd.match.fwnode);
+		if (ret < 0) {
+			v4l2_async_nf_cleanup(&dev->notifier);
+			break;
+		}
+	}
+
+	return ret;
+}
+
+static int unicam_graph_init(struct unicam_device *dev)
+{
+	int ret;
+
+	/* Parse the graph to extract a list of subdevice DT nodes. */
+	ret = unicam_graph_parse(dev);
+	if (ret < 0) {
+		unicam_err(dev, "graph parsing failed\n");
+		goto done;
+	}
+
+	if (list_empty(&dev->notifier.asd_list)) {
+		unicam_err(dev, "no subdev found in graph\n");
+		ret = -ENOENT;
+		goto done;
+	}
+
+	ret = 0;
+
+done:
+	if (ret < 0) {
+		v4l2_async_nf_unregister(&dev->notifier);
+		v4l2_async_nf_cleanup(&dev->notifier);
+	}
+
+	return ret;
+}
 
 static int of_unicam_connect_subdevs(struct unicam_device *dev)
 {
@@ -3313,11 +3613,9 @@ static int of_unicam_connect_subdevs(struct unicam_device *dev)
 	v4l2_async_nf_init(&dev->notifier);
 	dev->notifier.ops = &unicam_async_ops;
 
-	dev->asd.match_type = V4L2_ASYNC_MATCH_FWNODE;
-	dev->asd.match.fwnode = fwnode_graph_get_remote_endpoint(of_fwnode_handle(ep_node));
-	ret = __v4l2_async_nf_add_subdev(&dev->notifier, &dev->asd);
-	if (ret) {
-		unicam_err(dev, "Error adding subdevice: %d\n", ret);
+	ret = unicam_graph_init(dev);
+	if (ret < 0) {
+		unicam_err(dev, "Error graph init failed: %d\n", ret);
 		goto cleanup_exit;
 	}
 
