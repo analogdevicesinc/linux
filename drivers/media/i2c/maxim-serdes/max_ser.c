@@ -230,8 +230,10 @@ static int max_ser_get_fmt(struct v4l2_subdev *sd,
 	struct max_ser_subdev_priv *sd_priv = v4l2_get_subdevdata(sd);
 	const struct max_format *fmt;
 
-	if (format->pad != MAX_SER_SOURCE_PAD)
-		return -EINVAL;
+	if (format->pad == MAX_SER_SOURCE_PAD) {
+		format->format.code = MEDIA_BUS_FMT_FIXED;
+		return 0;
+	}
 
 	fmt = max_format_by_dt(sd_priv->dt);
 	if (!fmt)
@@ -252,7 +254,7 @@ static int max_ser_set_fmt(struct v4l2_subdev *sd,
 	const struct max_format *fmt;
 	int ret;
 
-	if (format->pad != MAX_SER_SOURCE_PAD)
+	if (format->pad != MAX_SER_SINK_PAD)
 		return -EINVAL;
 
 	fmt = max_format_by_code(format->format.code);
@@ -276,7 +278,7 @@ static int max_ser_enum_mbus_code(struct v4l2_subdev *sd,
 {
 	const struct max_format *fmt;
 
-	if (code->pad != MAX_SER_SOURCE_PAD)
+	if (code->pad != MAX_SER_SINK_PAD)
 		return -EINVAL;
 
 	fmt = max_format_by_index(code->index);

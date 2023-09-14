@@ -373,8 +373,10 @@ static int max_des_get_fmt(struct v4l2_subdev *sd,
 	struct max_des_subdev_priv *sd_priv = v4l2_get_subdevdata(sd);
 	const struct max_format *fmt;
 
-	if (format->pad != MAX_DES_SOURCE_PAD)
-		return -EINVAL;
+	if (format->pad == MAX_SER_SINK_PAD) {
+		format->format.code = MEDIA_BUS_FMT_FIXED;
+		return 0;
+	}
 
 	fmt = max_format_by_dt(sd_priv->dt);
 	if (!fmt)
