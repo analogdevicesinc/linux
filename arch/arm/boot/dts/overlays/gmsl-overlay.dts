@@ -13,24 +13,12 @@
 #define GMSL_CAMERA_0
 #endif
 #if (GMSL_CAMERA_NUM >= 2)
-#define GMSL_CAMERA_1
-#endif
-#if (GMSL_CAMERA_NUM >= 3)
-#define GMSL_CAMERA_2
-#endif
-#if (GMSL_CAMERA_NUM >= 4)
-#define GMSL_CAMERA_3
+#error RPI does not support VC so only one camera can be used for now
 #endif
 
 #define GMSL_SER_0_HEX_ADDR	0x40
-#define GMSL_SER_1_HEX_ADDR	0x42
-#define GMSL_SER_2_HEX_ADDR	0x60
-#define GMSL_SER_3_HEX_ADDR	0x62
 
 #define GMSL_CAM_0_HEX_ADDR	0x36
-#define GMSL_CAM_1_HEX_ADDR	0x38
-#define GMSL_CAM_2_HEX_ADDR	0x48
-#define GMSL_CAM_3_HEX_ADDR	0x50
 
 #define _CONCAT(a, b) a ## b
 #define CONCAT(a, b) _CONCAT(a, b)
@@ -118,33 +106,6 @@
 					};
 				};
 #endif
-#if defined (GMSL_CAMERA_1)
-				port@1 {
-					reg = <1>;
-					csi_in1: endpoint {
-						remote-endpoint = <&deser_out1>;
-						data-lanes = <1 2>;
-					};
-				};
-#endif
-#if defined (GMSL_CAMERA_2)
-				port@2 {
-					reg = <2>;
-					csi_in2: endpoint {
-						remote-endpoint = <&deser_out2>;
-						data-lanes = <1 2>;
-					};
-				};
-#endif
-#if defined (GMSL_CAMERA_3)
-				port@3 {
-					reg = <3>;
-					csi_in3: endpoint {
-						remote-endpoint = <&deser_out3>;
-						data-lanes = <1 2>;
-					};
-				};
-#endif
 				port@1 {
 					reg = <1>;
 					aggr_out0: endpoint {
@@ -184,21 +145,6 @@
 			#define DESER_CH_INDEX 0
 			#include "gmsl-deserializer-channel.dtsi"
 #endif
-
-#if defined(GMSL_CAMERA_1)
-			#define DESER_CH_INDEX 1
-			#include "gmsl-deserializer-channel.dtsi"
-#endif
-
-#if defined(GMSL_CAMERA_2)
-			#define DESER_CH_INDEX 2
-			#include "gmsl-deserializer-channel.dtsi"
-#endif
-
-#if defined(GMSL_CAMERA_3)
-			#define DESER_CH_INDEX 3
-			#include "gmsl-deserializer-channel.dtsi"
-#endif
 		};
 	};
 
@@ -207,9 +153,6 @@
 		__overlay__ {
 			i2c-alias-pool = <
 				GMSL_SER_0_HEX_ADDR
-				GMSL_SER_1_HEX_ADDR
-				GMSL_SER_2_HEX_ADDR
-				GMSL_SER_3_HEX_ADDR
 			>;
 
 			i2c-atr {
@@ -224,33 +167,6 @@
 					reg = <0>;
 				};
 #endif
-
-#if defined(GMSL_CAMERA_1)
-				deserializer_i2c_1: i2c@1 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-
-					reg = <1>;
-				};
-#endif
-
-#if defined(GMSL_CAMERA_2)
-				deserializer_i2c_2: i2c@2 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-
-					reg = <2>;
-				};
-#endif
-
-#if defined(GMSL_CAMERA_3)
-				deserializer_i2c_3: i2c@3 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-
-					reg = <3>;
-				};
-#endif
 			};
 		};
 	};
@@ -262,15 +178,6 @@
 #if defined(GMSL_CAMERA_0)
 			serializer_0_i2c_bus: &deserializer_i2c_0 {};
 #endif
-#if defined(GMSL_CAMERA_1)
-			serializer_1_i2c_bus: &deserializer_i2c_1 {};
-#endif
-#if defined(GMSL_CAMERA_2)
-			serializer_2_i2c_bus: &deserializer_i2c_2 {};
-#endif
-#if defined(GMSL_CAMERA_3)
-			serializer_3_i2c_bus: &deserializer_i2c_3 {};
-#endif
 
 #if defined(GMSL_CAMERA_0)
 			&serializer_0_i2c_bus {
@@ -280,67 +187,13 @@
 			};
 #endif
 
-#if defined(GMSL_CAMERA_1)
-			&serializer_1_i2c_bus {
-				#define SER_INDEX 1
-				#define SER_I2C_ADDR_POLL_0 GMSL_CAM_1_HEX_ADDR
-				#include "gmsl-serializer.dtsi"
-			};
-#endif
-
-#if defined(GMSL_CAMERA_2)
-			&serializer_2_i2c_bus {
-				#define SER_INDEX 2
-				#define SER_I2C_ADDR_POLL_0 GMSL_CAM_2_HEX_ADDR
-				#include "gmsl-serializer.dtsi"
-			};
-#endif
-
-#if defined(GMSL_CAMERA_3)
-			&serializer_3_i2c_bus {
-				#define SER_INDEX 3
-				#define SER_I2C_ADDR_POLL_0 GMSL_CAM_3_HEX_ADDR
-				#include "gmsl-serializer.dtsi"
-			};
-#endif
-
 #if defined(GMSL_CAMERA_0)
 			camera_0_i2c_bus: &serializer_0_i2c_0 {};
-#endif
-#if defined(GMSL_CAMERA_1)
-			camera_1_i2c_bus: &serializer_1_i2c_0 {};
-#endif
-#if defined(GMSL_CAMERA_2)
-			camera_2_i2c_bus: &serializer_2_i2c_0 {};
-#endif
-#if defined(GMSL_CAMERA_3)
-			camera_3_i2c_bus: &serializer_3_i2c_0 {};
 #endif
 
 #if defined(GMSL_CAMERA_0)
 			&camera_0_i2c_bus {
 				#define OVX03A_INDEX 0
-				#include "gmsl-ovx03a.dtsi"
-			};
-#endif
-
-#if defined(GMSL_CAMERA_1)
-			&camera_1_i2c_bus {
-				#define OVX03A_INDEX 1
-				#include "gmsl-ovx03a.dtsi"
-			};
-#endif
-
-#if defined(GMSL_CAMERA_2)
-			&camera_2_i2c_bus {
-				#define OVX03A_INDEX 2
-				#include "gmsl-ovx03a.dtsi"
-			};
-#endif
-
-#if defined(GMSL_CAMERA_3)
-			&camera_3_i2c_bus {
-				#define OVX03A_INDEX 3
 				#include "gmsl-ovx03a.dtsi"
 			};
 #endif
