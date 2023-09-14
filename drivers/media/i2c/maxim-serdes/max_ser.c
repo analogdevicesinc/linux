@@ -144,11 +144,11 @@ static int max_ser_update_pipe_dts(struct max_ser_priv *priv,
 			return -EINVAL;
 		}
 
-		if (!sd_priv->dt)
+		if (!sd_priv->fmt)
 			continue;
 
 		/* TODO: optimize by checking for existing filters. */
-		pipe->dts[pipe->num_dts++] = sd_priv->dt;
+		pipe->dts[pipe->num_dts++] = sd_priv->fmt->dt;
 	}
 
 	return priv->ops->update_pipe_dts(priv, pipe);
@@ -228,18 +228,16 @@ static int max_ser_get_fmt(struct v4l2_subdev *sd,
 			   struct v4l2_subdev_format *format)
 {
 	struct max_ser_subdev_priv *sd_priv = v4l2_get_subdevdata(sd);
-	const struct max_format *fmt;
 
 	if (format->pad == MAX_SER_SOURCE_PAD) {
 		format->format.code = MEDIA_BUS_FMT_FIXED;
 		return 0;
 	}
 
-	fmt = max_format_by_dt(sd_priv->dt);
-	if (!fmt)
+	if (!sd_priv->fmt)
 		return -EINVAL;
 
-	format->format.code = fmt->code;
+	format->format.code = sd_priv->fmt->code;
 
 	return 0;
 }
@@ -261,7 +259,7 @@ static int max_ser_set_fmt(struct v4l2_subdev *sd,
 	if (!fmt)
 		return -EINVAL;
 
-	sd_priv->dt = fmt->dt;
+	sd_priv->fmt = fmt;
 
 	mutex_lock(&priv->lock);
 
@@ -538,7 +536,7 @@ static int max_ser_parse_ch_dt(struct max_ser_subdev_priv *sd_priv,
 	sd_priv->vc_id = val;
 
 	if (fwnode_property_read_bool(fwnode, "maxim,embedded-data"))
-		sd_priv->dt = MAX_DT_EMB8;
+		sd_priv->fmt = max_format_by_dt(MAX_DT_EMB8);
 
 	pipe = &priv->pipes[val];
 	pipe->enabled = true;

@@ -35,13 +35,13 @@ struct max_ser_subdev_priv {
 	struct fwnode_handle *fwnode;
 
 	struct max_ser_priv *priv;
+	const struct max_format *fmt;
 
 	struct media_pad pads[MAX_SER_PAD_NUM];
 
 	bool active;
 	unsigned int pipe_id;
 	unsigned int vc_id;
-	unsigned int dt;
 };
 
 struct max_ser_phy {

@@ -43,6 +43,7 @@ struct max_des_subdev_priv {
 	struct fwnode_handle *fwnode;
 
 	struct max_des_priv *priv;
+	const struct max_format *fmt;
 
 	struct media_pad pads[MAX_DES_PAD_NUM];
 
@@ -53,7 +54,6 @@ struct max_des_subdev_priv {
 	unsigned int src_vc_id;
 	unsigned int dst_vc_id;
 	unsigned int num_remaps;
-	unsigned int dt;
 };
 
 struct max_des_link {
