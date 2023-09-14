@@ -50,9 +50,9 @@ int qbman_init_private_mem(struct device *dev, int idx, const char *compat,
 	__be32 *res_array;
 	u32 qbman_vals[4];
 	u32 *pr_value;
-	int len, err;
 	int val_cnt;
 	u32 val[2];
+	int err;
 
 	if (is_of_node(dev->fwnode)) {
 		mem_node = of_parse_phandle(dev->of_node, "memory-region", idx);
