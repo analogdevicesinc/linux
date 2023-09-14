@@ -699,9 +699,13 @@ static int max96717_update_pipe_vcs(struct max_ser_priv *ser_priv,
 	struct max96717_priv *priv = ser_to_priv(ser_priv);
 	unsigned int index = max96717_pipe_id(priv, pipe);
 	unsigned int reg = 0x309 + 0x2 * index;
+	int ret;
 
-	/* TODO: implement extended Virtual Channel. */
-	return max96717_update_bits(priv, reg, GENMASK(3, 0), pipe->vcs);
+	ret = max96717_write(priv, reg, (pipe->vcs >> 0) & 0xff);
+	if (ret)
+		return ret;
+
+	return max96717_write(priv, reg + 0x1, (pipe->vcs >> 8) & 0xff);
 }
 
 static int max96717_init_phy(struct max_ser_priv *ser_priv,
