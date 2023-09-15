@@ -1276,15 +1276,17 @@ static int spi_imx_setupxfer(struct spi_device *spi,
 	if (!t)
 		return 0;
 
-	if (!t->speed_hz) {
-		if (!spi->max_speed_hz) {
-			dev_err(&spi->dev, "no speed_hz provided!\n");
-			return -EINVAL;
-		}
-		dev_dbg(&spi->dev, "using spi->max_speed_hz!\n");
-		spi_imx->spi_bus_clk = spi->max_speed_hz;
-	} else
-		spi_imx->spi_bus_clk = t->speed_hz;
+	if (!spi_imx->target_mode) {
+		if (!t->speed_hz) {
+			if (!spi->max_speed_hz) {
+				dev_err(&spi->dev, "no speed_hz provided!\n");
+				return -EINVAL;
+			}
+            dev_dbg(&spi->dev, "using spi->max_speed_hz!\n");
+			spi_imx->spi_bus_clk = spi->max_speed_hz;
+		} else
+			spi_imx->spi_bus_clk = t->speed_hz;
+	}
 
 	spi_imx->bits_per_word = t->bits_per_word;
 	spi_imx->count = t->len;
