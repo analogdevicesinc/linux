@@ -24,7 +24,7 @@
 /delete-node/ &spdif1_lpcg;
 
 &acm {
-	compatible = "nxp,imx8dxl-acm";
+	compatible = "fsl,imx8dxl-acm";
 	power-domains = <&pd IMX_SC_R_AUDIO_CLK_0>,
 			<&pd IMX_SC_R_AUDIO_CLK_1>,
 			<&pd IMX_SC_R_MCLK_OUT_0>,

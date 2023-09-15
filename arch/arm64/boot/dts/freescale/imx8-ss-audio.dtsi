@@ -133,7 +133,7 @@ audio_subsys: bus@59000000 {
 	};
 
 	acm: acm@59e00000 {
-		compatible = "nxp,imx8qxp-acm";
+		compatible = "fsl,imx8qxp-acm";
 		reg = <0x59e00000 0x1D0000>;
 		#clock-cells = <1>;
 		power-domains = <&pd IMX_SC_R_AUDIO_CLK_0>,
@@ -153,6 +153,14 @@ audio_subsys: bus@59000000 {
 				<&pd IMX_SC_R_SAI_5>,
 				<&pd IMX_SC_R_SPDIF_0>,
 				<&pd IMX_SC_R_MQS_0>;
+		clocks = <&aud_rec0_lpcg IMX_LPCG_CLK_0>,
+			 <&aud_rec1_lpcg IMX_LPCG_CLK_0>,
+			 <&aud_pll_div0_lpcg IMX_LPCG_CLK_0>,
+			 <&aud_pll_div1_lpcg IMX_LPCG_CLK_0>;
+		clock-names = "aud_rec_clk0_lpcg_clk",
+			      "aud_rec_clk1_lpcg_clk",
+			      "aud_pll_div_clk0_lpcg_clk",
+			      "aud_pll_div_clk1_lpcg_clk";
 	};
 
 	asrc0: asrc@59000000 {
