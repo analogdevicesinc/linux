@@ -15,7 +15,7 @@
 
 //GMSL defines
 #define GMSL_CAMERA_NUM	2
-#define GMSL_PHY	0x1
+#define GMSL_PHY	0x2
 
 #if (GMSL_CAMERA_NUM >= 1)
 #define GMSL_CAMERA_0
@@ -444,11 +444,11 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <2>;
-			deserializer: gmsl-deserializer@48 {
+			deserializer: gmsl-deserializer@27 {
 				#address-cells = <1>;
 				#size-cells = <0>;
-				compatible = "maxim,max9296a";
-				reg = <0x48>;
+				compatible = "maxim,max96724";
+				reg = <0x27>;
 			};
 		};
 	};
