@@ -18,7 +18,7 @@
 
 #define GMSL_SER_0_HEX_ADDR	0x40
 
-#define GMSL_CAM_0_HEX_ADDR	0x36
+#define GMSL_CAM_0_HEX_ADDR	0x10
 
 #define _CONCAT(a, b) a ## b
 #define CONCAT(a, b) _CONCAT(a, b)
@@ -49,13 +49,13 @@
 		target = <&csi1>;
 		__overlay__ {
 			status = "okay";
+			brcm,media-controller;
 
 			port {
-				csi1_ep: endpoint {
-					remote-endpoint = <&aggr_out0>;
+				csi_in0: endpoint {
+					remote-endpoint = <&deser_out0>;
 					clock-lanes = <0>;
 					data-lanes = <1 2>;
-					clock-noncontinuous;
 				};
 			};
 		};
@@ -89,31 +89,6 @@
 				#clock-cells = <0>;
 				clock-frequency = <24000000>;
 			};
-
-			gmsl_aggregator_0: gmsl_aggregator@0 {
-			compatible = "maxim,aggregator";
-			max,num-sink-slots = <GMSL_CAMERA_NUM>;
-			max,num-source-slots = <1>;
-			ports {
-				#address-cells = <1>;
-				#size-cells = <0>;
-#if defined (GMSL_CAMERA_0)
-				port@0 {
-					reg = <0>;
-					csi_in0: endpoint {
-						remote-endpoint = <&deser_out0>;
-						data-lanes = <1 2>;
-					};
-				};
-#endif
-				port@1 {
-					reg = <1>;
-					aggr_out0: endpoint {
-						remote-endpoint = <&csi1_ep>;
-					};
-				};
-			};
-		};
 		};
 	};
 
@@ -193,7 +168,7 @@
 
 #if defined(GMSL_CAMERA_0)
 			&camera_0_i2c_bus {
-				#define OVX03A_INDEX 0
-				#include "gmsl-ovx03a.dtsi"
+				#define IMX219_INDEX 0
+				#include "gmsl-imx219.dtsi"
 			};
 #endif
