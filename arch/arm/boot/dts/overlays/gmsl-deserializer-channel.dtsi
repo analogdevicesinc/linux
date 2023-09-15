@@ -40,6 +40,9 @@ channel@DESER_CH_REG {
 
 			DESER_CH_OUT_LABEL: endpoint {
 				remote-endpoint = <&DESER_CH_OUT_REMOTE_LABEL>;
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				link-frequencies = /bits/ 64 <1500000000>;
 			};
 		};
 
