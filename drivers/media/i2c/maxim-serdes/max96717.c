@@ -735,7 +735,7 @@ static int max96717_update_pipe_dts(struct max_ser_priv *ser_priv,
 		 * TODO: implement algorithm to decide if double mode should be
 		 * used based on all the DTs. Might need to be done in deserializer also.
 		 */
-		ret = max96717_set_pipe_dbl(priv, pipe, i, true);
+		ret = max96717_set_pipe_dbl(priv, pipe, i, false);
 		if (ret)
 			return ret;
 
