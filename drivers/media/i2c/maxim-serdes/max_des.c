@@ -655,7 +655,6 @@ static int max_des_parse_ch_dt(struct max_des_subdev_priv *sd_priv,
 	struct max_des_pipe *pipe;
 	struct max_des_link *link;
 	struct max_des_phy *phy;
-
 	u32 val;
 
 	fwnode_property_read_string(fwnode, "label", &sd_priv->label);
