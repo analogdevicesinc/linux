@@ -127,18 +127,13 @@
 			#size-cells = <1>;
 
 			qspi_boot: partition@0 {
-				label = "fw";
-				reg = <0x0 0x02000000>;
+				label = "u-boot";
+				reg = <0x0 0x04200000>;
 			};
 
-			qspi_uboot: partition@2000000 {
-				label = "uboot";
-				reg = <0x02000000 0x00200000>;
-			};
-
-			qspi_rootfs: partition@2200000 {
+			root: partition@4200000 {
 				label = "root";
-				reg = <0x02200000 0x0DC00000>;
+				reg = <0x04200000 0x0BE00000>;
 			};
 		};
 	};
