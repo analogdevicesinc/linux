@@ -242,6 +242,21 @@
 			};
 		};
 
+		mmc: mmc0@10808000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			compatible = "cdns,sd4hc";
+			reg = <0x10808000 0x1000>;
+			interrupts = <GIC_SPI 96 IRQ_TYPE_LEVEL_HIGH>;
+			fifo-depth = <0x800>;
+			resets = <&rst SDMMC_RESET>;
+			reset-names = "reset";
+			clocks = <&clkmgr AGILEX5_L4_MP_CLK>, <&clkmgr AGILEX5_SDMCLK>;
+			clock-names = "biu", "ciu";
+			/*iommus = <&smmu 5>;*/
+			status = "disabled";
+		};
+
 		nand: nand-controller@10b80000 {
 			compatible = "cdns,hp-nfc";
 			reg = <0x10b80000 0x10000>,
