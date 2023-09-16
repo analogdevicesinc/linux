@@ -18,6 +18,7 @@
 
 /* HRS - Host Register Set (specific to Cadence) */
 #define SDHCI_CDNS_HRS04		0x10		/* PHY access port */
+#define SDHCI_CDNS_HRS05        0x14        /* PHY data access port */
 #define   SDHCI_CDNS_HRS04_ACK			BIT(26)
 #define   SDHCI_CDNS_HRS04_RD			BIT(25)
 #define   SDHCI_CDNS_HRS04_WR			BIT(24)
@@ -36,8 +37,43 @@
 #define   SDHCI_CDNS_HRS06_MODE_MMC_HS400	0x5
 #define   SDHCI_CDNS_HRS06_MODE_MMC_HS400ES	0x6
 
+/* PHY specific register */
+/* HRS register to set after SDMMC reset */
+#define SDHCI_CDNS_HRS00	0x0
+#define SDHCI_CDNS_HRS07	0x1C        /* IO_DELAY_INFO_REG */
+#define SDHCI_CDNS_HRS07_RW_COMPENSATE  GENMASK(20, 16) /* RW_COMPENSATE */
+#define SDHCI_CDNS_HRS07_IDELAY_VAL     GENMASK(4, 0)   /* IDELAY_VAL */
+/* TODO: check DV dfi_init val=9 */
+#define SDHCI_CDNS_HRS07_RW_COMPENSATE_DATA 0x9
+/* TODO: check DV dfi_init val=8 ; DDR Mode */
+#define SDHCI_CDNS_HRS07_RW_COMPENSATE_DATA_DDR 0x8
+#define SDHCI_CDNS_HRS07_IDELAY_VAL_DATA    0x0
+
+#define SDHCI_CDNS_HRS09	0x024
+#define SDHCI_CDNS_HRS09_PHY_SW_RESET       BIT(0)  /* PHY_SW_RESET */
+#define SDHCI_CDNS_HRS09_PHY_INIT_COMPLETE  BIT(1)  /* PHY_INIT_COMPLETE */
+#define SDHCI_CDNS_HRS09_RDDATA_EN  BIT(16) /* RDDATA_EN */
+#define SDHCI_CDNS_HRS09_RDCMD_EN   BIT(15) /* RDCMD_EN */
+#define SDHCI_CDNS_HRS09_EXTENDED_WR_MODE   BIT(3)  /* EXTENDED_WR_MODE */
+#define SDHCI_CDNS_HRS09_EXTENDED_RD_MODE   BIT(2)  /* EXTENDED_RD_MODE */
+
+#define SDHCI_CDNS_HRS10        0x28        /* PHY reset port */
+#define SDHCI_CDNS_HRS10_HCSDCLKADJ     GENMASK(19, 16) /* HCSDCLKADJ */
+#define SDHCI_CDNS_HRS10_HCSDCLKADJ_DATA    0x0         /* HCSDCLKADJ DATA */
+/* HCSDCLKADJ DATA; DDR Mode */
+#define SDHCI_CDNS_HRS10_HCSDCLKADJ_DATA_DDR    0x2
+#define SDHCI_CDNS_HRS16        0x40        /* CMD_DATA_OUTPUT */
+
 /* SRS - Slot Register Set (SDHCI-compatible) */
-#define SDHCI_CDNS_SRS_BASE		0x200
+#define SDHCI_CDNS_SRS_BASE	0x200
+#define SDHCI_CDNS_SRS09	0x224
+#define SDHCI_CDNS_SRS10	0x228
+#define SDHCI_CDNS_SRS11	0x22c
+#define SDHCI_CDNS_SRS12	0x230
+#define SDHCI_CDNS_SRS13	0x234
+#define SDHCI_CDNS_SRS09_CI	BIT(16)
+#define SDHCI_CDNS_SRS13_DATA	0xffffffff
+#define SD_HOST_CLK 200000000
 
 /* PHY */
 #define SDHCI_CDNS_PHY_DLY_SD_HS	0x00
@@ -52,6 +88,51 @@
 #define SDHCI_CDNS_PHY_DLY_SDCLK	0x0b
 #define SDHCI_CDNS_PHY_DLY_HSMMC	0x0c
 #define SDHCI_CDNS_PHY_DLY_STROBE	0x0d
+/* PHY register values */
+#define PHY_DQ_TIMING_REG					0x2000
+#define PHY_DQS_TIMING_REG					0x2004
+#define PHY_GATE_LPBK_CTRL_REG				0x2008
+#define PHY_DLL_MASTER_CTRL_REG				0x200C
+#define PHY_DLL_SLAVE_CTRL_REG				0x2010
+#define PHY_CTRL_REG						0x2080
+#define USE_EXT_LPBK_DQS					BIT(22)
+#define USE_LPBK_DQS						BIT(21)
+#define USE_PHONY_DQS						BIT(20)
+#define USE_PHONY_DQS_CMD					BIT(19)
+#define SYNC_METHOD							BIT(31)
+#define SW_HALF_CYCLE_SHIFT					BIT(28)
+#define RD_DEL_SEL							GENMASK(24, 19)
+#define RD_DEL_SEL_DATA						0x34
+#define GATE_CFG_ALWAYS_ON					BIT(6)
+#define UNDERRUN_SUPPRESS					BIT(18)
+#define PARAM_DLL_BYPASS_MODE				BIT(23)
+#define PARAM_PHASE_DETECT_SEL				GENMASK(22, 20)
+#define PARAM_DLL_START_POINT				GENMASK(7, 0)
+#define PARAM_PHASE_DETECT_SEL_DATA			0x2
+#define PARAM_DLL_START_POINT_DATA			0x4
+#define PARAM_DLL_START_POINT_DATA_SDR50	254
+
+#define READ_DQS_CMD_DELAY		GENMASK(31, 24)
+#define CLK_WRDQS_DELAY			GENMASK(23, 16)
+#define CLK_WR_DELAY			GENMASK(15, 8)
+#define READ_DQS_DELAY			GENMASK(7, 0)
+#define READ_DQS_CMD_DELAY_DATA	0x0
+#define CLK_WRDQS_DELAY_DATA	0x0
+#define CLK_WR_DELAY_DATA		0x0
+#define READ_DQS_DELAY_DATA		0x0
+
+#define PHONY_DQS_TIMING		GENMASK(9, 4)
+#define PHONY_DQS_TIMING_DATA	0x0
+
+#define IO_MASK_ALWAYS_ON		BIT(31)
+#define IO_MASK_END				GENMASK(29, 27)
+#define IO_MASK_START			GENMASK(26, 24)
+#define DATA_SELECT_OE_END		GENMASK(2, 0)
+#define IO_MASK_END_DATA		0x5
+/* DDR Mode */
+#define IO_MASK_END_DATA_DDR	0x2
+#define IO_MASK_START_DATA		0x0
+#define DATA_SELECT_OE_END_DATA 0x1
 
 /*
  * The tuned val register is 6 bit-wide, but not the whole of the range is
@@ -61,8 +142,9 @@
 #define SDHCI_CDNS_MAX_TUNING_LOOP	40
 
 struct sdhci_cdns_phy_param {
-	u8 addr;
-	u8 data;
+	u32 addr;
+	u32 data;
+	u32 offset;
 };
 
 struct sdhci_cdns_priv {
@@ -78,7 +160,8 @@ struct sdhci_cdns_priv {
 
 struct sdhci_cdns_phy_cfg {
 	const char *property;
-	u8 addr;
+	u32 addr;
+	u32 offset;
 };
 
 struct sdhci_cdns_drv_data {
@@ -98,6 +181,42 @@ static const struct sdhci_cdns_phy_cfg sdhci_cdns_phy_cfgs[] = {
 	{ "cdns,phy-dll-delay-sdclk", SDHCI_CDNS_PHY_DLY_SDCLK, },
 	{ "cdns,phy-dll-delay-sdclk-hsmmc", SDHCI_CDNS_PHY_DLY_HSMMC, },
 	{ "cdns,phy-dll-delay-strobe", SDHCI_CDNS_PHY_DLY_STROBE, },
+	{ "cdns,phy-use-ext-lpbk-dqs", PHY_DQS_TIMING_REG, 22,},
+	{ "cdns,phy-use-lpbk-dqs", PHY_DQS_TIMING_REG, 21,},
+	{ "cdns,phy-use-phony-dqs", PHY_DQS_TIMING_REG, 20,},
+	{ "cdns,phy-use-phony-dqs-cmd", PHY_DQS_TIMING_REG, 19,},
+	{ "cdns,phy-io-mask-always-on", PHY_DQ_TIMING_REG, 31,},
+	{ "cdns,phy-io-mask-end", PHY_DQ_TIMING_REG, 27,},
+	{ "cdns,phy-io-mask-start", PHY_DQ_TIMING_REG, 24,},
+	{ "cdns,phy-data-select-oe-end", PHY_DQ_TIMING_REG, 0,},
+	{ "cdns,phy-sync-method", PHY_GATE_LPBK_CTRL_REG, 31,},
+	{ "cdns,phy-sw-half-cycle-shift", PHY_GATE_LPBK_CTRL_REG, 28,},
+	{ "cdns,phy-rd-del-sel", PHY_GATE_LPBK_CTRL_REG, 19,},
+	{ "cdns,phy-underrun-suppress", PHY_GATE_LPBK_CTRL_REG, 18,},
+	{ "cdns,phy-gate-cfg-always-on", PHY_GATE_LPBK_CTRL_REG, 6,},
+	{ "cdns,phy-param-dll-bypass-mode", PHY_DLL_MASTER_CTRL_REG, 23,},
+	{ "cdns,phy-param-phase-detect-sel", PHY_DLL_MASTER_CTRL_REG, 20,},
+	{ "cdns,phy-param-dll-start-point", PHY_DLL_MASTER_CTRL_REG, 0,},
+	{ "cdns,phy-read-dqs-cmd-delay", PHY_DLL_SLAVE_CTRL_REG, 24,},
+	{ "cdns,phy-clk-wrdqs-delay", PHY_DLL_SLAVE_CTRL_REG, 16,},
+	{ "cdns,phy-clk-wr-delay", PHY_DLL_SLAVE_CTRL_REG, 8,},
+	{ "cdns,phy-read-dqs-delay", PHY_DLL_SLAVE_CTRL_REG, 0,},
+	{ "cdns,phy-phony-dqs-timing", PHY_CTRL_REG, 4,},
+	{ "cdns,hrs09-rddata-en", SDHCI_CDNS_HRS09, 16,},
+	{ "cdns,hrs09-rdcmd-en", SDHCI_CDNS_HRS09, 15,},
+	{ "cdns,hrs09-extended-wr-mode", SDHCI_CDNS_HRS09, 3,},
+	{ "cdns,hrs09-extended-rd-mode", SDHCI_CDNS_HRS09, 2,},
+	{ "cdns,hrs10-hcsdclkadj", SDHCI_CDNS_HRS10, 16,},
+	{ "cdns,hrs16-wrdata1-sdclk-dly", SDHCI_CDNS_HRS16, 28,},
+	{ "cdns,hrs16-wrdata0-sdclk-dly", SDHCI_CDNS_HRS16, 24,},
+	{ "cdns,hrs16-wrcmd1-sdclk-dly", SDHCI_CDNS_HRS16, 20,},
+	{ "cdns,hrs16-wrcmd0-sdclk-dly", SDHCI_CDNS_HRS16, 16,},
+	{ "cdns,hrs16-wrdata1-dly", SDHCI_CDNS_HRS16, 12,},
+	{ "cdns,hrs16-wrdata0-dly", SDHCI_CDNS_HRS16, 8,},
+	{ "cdns,hrs16-wrcmd1-dly", SDHCI_CDNS_HRS16, 4,},
+	{ "cdns,hrs16-wrcmd0-dly", SDHCI_CDNS_HRS16, 0,},
+	{ "cdns,hrs07-rw-compensate", SDHCI_CDNS_HRS07, 16,},
+	{ "cdns,hrs07-idelay-val", SDHCI_CDNS_HRS07, 0,},
 };
 
 static inline void cdns_writel(struct sdhci_cdns_priv *priv, u32 val,
@@ -138,6 +257,229 @@ static int sdhci_cdns_write_phy_reg(struct sdhci_cdns_priv *priv,
 	return ret;
 }
 
+static int sdhci_cdns_write_phy_reg_mask(struct sdhci_cdns_priv *priv,
+			u32 addr, u32 data, u32 mask)
+{
+	u32 tmp;
+
+	tmp = addr;
+
+	/* get PHY address */
+	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS04);
+	pr_info("%s: register = 0x%x\n", __func__, readl(priv->hrs_addr +
+		SDHCI_CDNS_HRS04));
+
+	/* read current PHY register value, before write */
+	tmp = readl(priv->hrs_addr + SDHCI_CDNS_HRS05);
+	pr_info("%s: value = 0x%x\n", __func__, readl(priv->hrs_addr +
+		SDHCI_CDNS_HRS05));
+
+	tmp &= ~mask;
+	tmp |= data;
+
+	/* write operation */
+	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS05);
+
+	/* re-read PHY address */
+	writel(addr, priv->hrs_addr + SDHCI_CDNS_HRS04);
+
+	/* re-read current PHY register value, check */
+	tmp = readl(priv->hrs_addr + SDHCI_CDNS_HRS05);
+	pr_info("%s: check reg: 0x%08x, value: 0x%08x, mask: 0x%08x\n", __func__,
+		addr, tmp, mask);
+
+	return 0;
+}
+
+static u32 sdhci_cdns_read_phy_reg(struct sdhci_cdns_priv *priv,
+			u32 addr)
+{
+	u32 tmp;
+
+	tmp = addr;
+
+	/* get PHY address */
+	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS04);
+
+	/* read current PHY register value, before write */
+	tmp = readl(priv->hrs_addr + SDHCI_CDNS_HRS05);
+
+	pr_info("%s: check reg: 0x%08x, value: 0x%8x\n", __func__, addr, tmp);
+	return tmp;
+}
+
+static int sdhci_cdns_dfi_phy_val(struct sdhci_cdns_priv *priv, u32 reg)
+{
+	int i;
+	u32 tmp;
+
+	tmp = 0;
+
+	for (i = 0; i < priv->nr_phy_params; i++) {
+		if (priv->phy_params[i].addr == reg)
+			tmp |= priv->phy_params[i].data << priv->phy_params[i].offset;
+
+		pr_info("%s: p->addr: %02x, p->data: %02x, p->offset: %02x\n", __func__,
+				priv->phy_params[i].addr, priv->phy_params[i].data,
+				priv->phy_params[i].offset);
+	}
+
+	return tmp;
+}
+
+static int sdhci_cdns_combophy_init_sd_dfi_init(struct sdhci_cdns_priv *priv)
+{
+	int ret = 0;
+	u32 mask = 0x0;
+	u32 tmp = 0;
+
+	writel(0x0, priv->hrs_addr + SDHCI_CDNS_SRS11);
+	writel(1<<0, priv->hrs_addr + SDHCI_CDNS_HRS00);
+	while ((readl(priv->hrs_addr + SDHCI_CDNS_HRS00) & 1<<0) == 1)
+
+	tmp = readl(priv->hrs_addr + SDHCI_CDNS_HRS09) & ~1;
+	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS09);
+
+	tmp = (1 << 22) | (1 << 21) | (1 << 20) | (1 << 19);
+	ret = sdhci_cdns_write_phy_reg_mask(priv, PHY_DQS_TIMING_REG, tmp, tmp);
+
+	tmp = (1 << 31) | (0 << 28) | (52 << 19) | (1 << 18) | (1 << 6);
+	mask = SYNC_METHOD | SW_HALF_CYCLE_SHIFT | RD_DEL_SEL | UNDERRUN_SUPPRESS |
+			GATE_CFG_ALWAYS_ON;
+	ret = sdhci_cdns_write_phy_reg_mask(priv, PHY_GATE_LPBK_CTRL_REG, tmp,
+			mask);
+
+	tmp = (1 << 23) | (2 << 20) | (4 << 0);
+	mask = PARAM_DLL_BYPASS_MODE | PARAM_PHASE_DETECT_SEL |
+			PARAM_DLL_START_POINT;
+	ret = sdhci_cdns_write_phy_reg_mask(priv, PHY_DLL_MASTER_CTRL_REG, tmp,
+			mask);
+
+	tmp = (0 << 24) | (0 << 16) | (0 << 8) | (0 << 0);
+	mask = READ_DQS_CMD_DELAY | CLK_WRDQS_DELAY | CLK_WR_DELAY | READ_DQS_DELAY;
+	ret = sdhci_cdns_write_phy_reg_mask(priv, PHY_DLL_SLAVE_CTRL_REG, tmp,
+			mask);
+
+	writel(0x2080, priv->hrs_addr + SDHCI_CDNS_HRS04);
+	tmp &= ~(0x3f << 4);
+	mask = PHONY_DQS_TIMING;
+	ret = sdhci_cdns_write_phy_reg_mask(priv, PHY_CTRL_REG, tmp, mask);
+
+	tmp = readl(priv->hrs_addr + SDHCI_CDNS_HRS09) | 1;
+	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS09);
+
+	while (~readl(priv->hrs_addr + SDHCI_CDNS_HRS09) & (1 << 1))
+
+	tmp = sdhci_cdns_read_phy_reg(priv, PHY_DQ_TIMING_REG) & 0x07FFFF8;
+	tmp |= (0 << 31) | (0 << 27) | (0 << 24) | (1 << 0);
+	mask = IO_MASK_ALWAYS_ON | IO_MASK_END | IO_MASK_START | DATA_SELECT_OE_END;
+
+	ret = sdhci_cdns_write_phy_reg_mask(priv, PHY_DQ_TIMING_REG, tmp, mask);
+
+	tmp = readl(priv->hrs_addr + SDHCI_CDNS_HRS09) & 0xFFFE7FF3;
+
+	tmp |= (1 << 16) | (1 << 15) | (1 << 3) | (1 << 2);
+	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS09);
+
+	tmp = readl(priv->hrs_addr + SDHCI_CDNS_HRS10) & 0xFFF0FFFF;
+
+	tmp |= (0 << 16);
+	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS10);
+
+	tmp = (0 << 28) | (0 << 24) | (0 << 20) | (0 << 16) | (0 << 12) | (1 << 8) |
+			(0 << 4) | (1 << 0);
+	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS16);
+
+	tmp = (9 << 16) | (0 << 0);
+	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS07);
+
+	return ret;
+}
+
+static int sdhci_cdns_combophy_init_sd_gen(struct sdhci_cdns_priv *priv)
+{
+	u32 tmp;
+	int ret = 0;
+	u32 mask = 0x0;
+
+	/* step 1, switch on DLL_RESET */
+	tmp = readl(priv->hrs_addr + SDHCI_CDNS_HRS09) & ~1;
+	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS09);
+
+	/* step 2, program PHY_DQS_TIMING_REG */
+	tmp = sdhci_cdns_dfi_phy_val(priv, PHY_DQS_TIMING_REG);
+	ret = sdhci_cdns_write_phy_reg_mask(priv, PHY_DQS_TIMING_REG, tmp, tmp);
+
+	/* step 3, program PHY_GATE_LPBK_CTRL_REG */
+	tmp = sdhci_cdns_dfi_phy_val(priv, PHY_GATE_LPBK_CTRL_REG);
+	mask = SYNC_METHOD | SW_HALF_CYCLE_SHIFT | RD_DEL_SEL | UNDERRUN_SUPPRESS |
+	GATE_CFG_ALWAYS_ON;
+	ret = sdhci_cdns_write_phy_reg_mask(priv, PHY_GATE_LPBK_CTRL_REG, tmp,
+	mask);
+
+	/* step 4, program PHY_DLL_MASTER_CTRL_REG */
+	tmp = sdhci_cdns_dfi_phy_val(priv, PHY_DLL_MASTER_CTRL_REG);
+	mask = PARAM_DLL_BYPASS_MODE | PARAM_PHASE_DETECT_SEL |
+	PARAM_DLL_START_POINT;
+	ret = sdhci_cdns_write_phy_reg_mask(priv, PHY_DLL_MASTER_CTRL_REG, tmp,
+	mask);
+
+	/* step 5, program PHY_DLL_SLAVE_CTRL_REG */
+	tmp = sdhci_cdns_dfi_phy_val(priv, PHY_DLL_SLAVE_CTRL_REG);
+	mask = READ_DQS_CMD_DELAY | CLK_WRDQS_DELAY | CLK_WR_DELAY | READ_DQS_DELAY;
+	ret = sdhci_cdns_write_phy_reg_mask(priv, PHY_DLL_SLAVE_CTRL_REG, tmp,
+	mask);
+
+	/* step 6, skip program PHONY_DQS_TIMING for clock switch */
+	pr_info("%s: skip PHONY_DQS_TIMING\n", __func__);
+
+	/* step 7, switch off DLL_RESET */
+	tmp = readl(priv->hrs_addr + SDHCI_CDNS_HRS09) | 1;
+	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS09);
+
+	/* step 8, polling PHY_INIT_COMPLETE */
+	while (~readl(priv->hrs_addr + SDHCI_CDNS_HRS09) & (1 << 1))
+	/* polling for PHY_INIT_COMPLETE bit */
+
+	/* step 9, program PHY_DQ_TIMING_REG */
+	tmp = sdhci_cdns_read_phy_reg(priv, PHY_DQ_TIMING_REG) & 0x07FFFF8;
+	tmp |= sdhci_cdns_dfi_phy_val(priv, PHY_DQ_TIMING_REG);
+	mask = IO_MASK_ALWAYS_ON | IO_MASK_END | IO_MASK_START | DATA_SELECT_OE_END;
+	ret = sdhci_cdns_write_phy_reg_mask(priv, PHY_DQ_TIMING_REG, tmp, mask);
+
+	/* step 10, program HRS09, register 42 */
+	tmp = readl(priv->hrs_addr + SDHCI_CDNS_HRS09) & 0xFFFE7FF3;
+	pr_info("%s: step 10 register HRS09 = 0x%08x\n", __func__, tmp);
+
+	tmp |= sdhci_cdns_dfi_phy_val(priv, SDHCI_CDNS_HRS09);
+	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS09);
+	pr_info("%s: register HRS09 = 0x%x\n", __func__, readl(priv->hrs_addr +
+			SDHCI_CDNS_HRS09));
+
+	/* step 11, program HRS10, register 43 */
+	tmp = readl(priv->hrs_addr + SDHCI_CDNS_HRS10) & 0xFFF0FFFF;
+	tmp |= sdhci_cdns_dfi_phy_val(priv, SDHCI_CDNS_HRS10);
+	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS10);
+	pr_info("%s: register HRS10 = 0x%x\n", __func__, readl(priv->hrs_addr +
+	SDHCI_CDNS_HRS10));
+
+	/* step 12, program HRS16, register 48 */
+	tmp = sdhci_cdns_dfi_phy_val(priv, SDHCI_CDNS_HRS16);
+	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS16);
+	pr_info("%s: register HRS16  = 0x%x\n", __func__, readl(priv->hrs_addr +
+		SDHCI_CDNS_HRS16));
+
+	/* step 13, program HRS07, register 40 */
+	tmp = sdhci_cdns_dfi_phy_val(priv, SDHCI_CDNS_HRS07);
+	writel(tmp, priv->hrs_addr + SDHCI_CDNS_HRS07);
+	pr_info("%s: register HRS07 = 0x%x\n", __func__, readl(priv->hrs_addr +
+		SDHCI_CDNS_HRS07));
+	/* end of combophy init */
+
+	return ret;
+}
+
+
 static unsigned int sdhci_cdns_phy_param_count(struct device_node *np)
 {
 	unsigned int count = 0;
@@ -165,6 +507,9 @@ static void sdhci_cdns_phy_param_parse(struct device_node *np,
 
 		p->addr = sdhci_cdns_phy_cfgs[i].addr;
 		p->data = val;
+		p->offset = sdhci_cdns_phy_cfgs[i].offset;
+		pr_info("%s: p->addr: %02x, p->data: %02x, p->offset: %02x\n",
+			__func__, p->addr, p->data, p->offset);
 		p++;
 	}
 }
@@ -174,8 +519,13 @@ static int sdhci_cdns_phy_init(struct sdhci_cdns_priv *priv)
 	int ret, i;
 
 	for (i = 0; i < priv->nr_phy_params; i++) {
+		if (priv->phy_params[i].offset)
+			break;
+
 		ret = sdhci_cdns_write_phy_reg(priv, priv->phy_params[i].addr,
 					       priv->phy_params[i].data);
+		pr_info("%s: p->addr: %02x, p->data: %02x\n", __func__,
+			priv->phy_params[i].addr, priv->phy_params[i].data);
 		if (ret)
 			return ret;
 	}
@@ -410,8 +760,22 @@ static int elba_drv_init(struct platform_device *pdev)
 	return 0;
 }
 
+static void sdhci_cdns_set_clock(struct sdhci_host *host, unsigned int clock)
+{
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct sdhci_cdns_priv *priv = sdhci_pltfm_priv(pltfm_host);
+	int ret;
+
+	if (host->mmc->actual_clock == 200000000)
+		ret = sdhci_cdns_combophy_init_sd_gen(priv);
+	else
+		pr_info("%s: skip setting HRS regs.\n", __func__);
+
+	sdhci_set_clock(host, clock);
+}
+
 static const struct sdhci_ops sdhci_cdns_ops = {
-	.set_clock = sdhci_set_clock,
+	.set_clock = sdhci_cdns_set_clock,
 	.get_timeout_clock = sdhci_cdns_get_timeout_clock,
 	.set_bus_width = sdhci_set_bus_width,
 	.reset = sdhci_reset,
@@ -542,6 +906,10 @@ static int sdhci_cdns_probe(struct platform_device *pdev)
 		if (priv->rst_hw)
 			host->mmc_host_ops.card_hw_reset = sdhci_cdns_mmc_hw_reset;
 	}
+
+	ret = sdhci_cdns_combophy_init_sd_dfi_init(priv);
+	if (ret)
+		goto free;
 
 	ret = sdhci_add_host(host);
 	if (ret)
