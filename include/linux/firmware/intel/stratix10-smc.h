@@ -1608,6 +1608,25 @@ INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_FPGA_CONFIG_COMPLETED_WRITE)
 	INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_HWMON_READTEMP)
 
 /**
+ * Request INTEL_SIP_SMC_SEU_ERR_STATUS
+ * Sync call to get previous Double Bit ECC error information.
+ *
+ * Call register usage:
+ * a0 INTEL_SIP_SMC_SEU_ERR_STATUS
+ * a1-7 not used
+ *
+ * Return status:
+ * a0 INTEL_SIP_SMC_STATUS_OK, INTEL_SIP_SMC_STATUS_NOT_SUPPORTED or
+ *    INTEL_SIP_SMC_STATUS_ERROR
+ * a1 error count of response data
+ * a2 sector address of response data
+ * a3 error information
+ */
+#define INTEL_SIP_SMC_FUNCID_SEU_ERR_STATUS 153
+#define INTEL_SIP_SMC_SEU_ERR_STATUS \
+		INTEL_SIP_SMC_FAST_CALL_VAL(INTEL_SIP_SMC_FUNCID_SEU_ERR_STATUS)
+
+/**
  * Request INTEL_SIP_SMC_HWMON_READVOLT
  * Sync call to request voltage
  *
