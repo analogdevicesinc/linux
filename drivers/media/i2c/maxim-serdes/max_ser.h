@@ -36,6 +36,7 @@ struct max_ser_subdev_priv {
 
 	struct max_ser_priv *priv;
 	const struct max_format *fmt;
+	const char *label;
 
 	struct media_pad pads[MAX_SER_PAD_NUM];
 

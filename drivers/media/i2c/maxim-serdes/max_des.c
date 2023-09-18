@@ -490,17 +490,28 @@ static const struct media_entity_operations max_des_media_ops = {
 	.link_validate = v4l2_subdev_link_validate,
 };
 
+static void max_des_set_sd_name(struct max_des_subdev_priv *sd_priv)
+{
+	struct max_des_priv *priv = sd_priv->priv;
+	struct i2c_client *client = priv->client;
+
+	if (sd_priv->label) {
+		strscpy(sd_priv->sd.name, sd_priv->label, sizeof(sd_priv->sd.name));
+		return;
+	}
+
+	snprintf(sd_priv->sd.name, sizeof(sd_priv->sd.name), "%s %d-%04x:%u",
+		 client->dev.driver->name, i2c_adapter_id(client->adapter),
+		 client->addr, sd_priv->index);
+}
+
 static int max_des_v4l2_register_sd(struct max_des_subdev_priv *sd_priv)
 {
 	struct max_des_priv *priv = sd_priv->priv;
-	unsigned int index = sd_priv->index;
-	char postfix[3];
 	int ret;
 
-	snprintf(postfix, sizeof(postfix), ":%d", index);
-
 	v4l2_i2c_subdev_init(&sd_priv->sd, priv->client, &max_des_subdev_ops);
-	v4l2_i2c_subdev_set_name(&sd_priv->sd, priv->client, NULL, postfix);
+	max_des_set_sd_name(sd_priv);
 	sd_priv->sd.entity.function = MEDIA_ENT_F_VID_IF_BRIDGE;
 	sd_priv->sd.entity.ops = &max_des_media_ops;
 	sd_priv->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
@@ -646,6 +657,8 @@ static int max_des_parse_ch_dt(struct max_des_subdev_priv *sd_priv,
 	struct max_des_phy *phy;
 
 	u32 val;
+
+	fwnode_property_read_string(fwnode, "label", &sd_priv->label);
 
 	/* TODO: implement extended Virtual Channel. */
 	val = sd_priv->src_vc_id;

@@ -44,6 +44,7 @@ struct max_des_subdev_priv {
 
 	struct max_des_priv *priv;
 	const struct max_format *fmt;
+	const char *label;
 
 	struct media_pad pads[MAX_DES_PAD_NUM];
 

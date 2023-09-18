@@ -398,17 +398,28 @@ static int max_ser_init(struct max_ser_priv *priv)
 	return 0;
 }
 
+static void max_ser_set_sd_name(struct max_ser_subdev_priv *sd_priv)
+{
+	struct max_ser_priv *priv = sd_priv->priv;
+	struct i2c_client *client = priv->client;
+
+	if (sd_priv->label) {
+		strscpy(sd_priv->sd.name, sd_priv->label, sizeof(sd_priv->sd.name));
+		return;
+	}
+
+	snprintf(sd_priv->sd.name, sizeof(sd_priv->sd.name), "%s %d-%04x:%u",
+		 client->dev.driver->name, i2c_adapter_id(client->adapter),
+		 client->addr, sd_priv->index);
+}
+
 static int max_ser_v4l2_register_sd(struct max_ser_subdev_priv *sd_priv)
 {
 	struct max_ser_priv *priv = sd_priv->priv;
-	unsigned int index = sd_priv->index;
-	char postfix[3];
 	int ret;
 
-	snprintf(postfix, sizeof(postfix), ":%d", index);
-
 	v4l2_i2c_subdev_init(&sd_priv->sd, priv->client, &max_ser_subdev_ops);
-	v4l2_i2c_subdev_set_name(&sd_priv->sd, priv->client, NULL, postfix);
+	max_ser_set_sd_name(sd_priv);
 	sd_priv->sd.entity.function = MEDIA_ENT_F_VID_IF_BRIDGE;
 	sd_priv->sd.entity.ops = &max_ser_media_ops;
 	sd_priv->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
@@ -518,6 +529,8 @@ static int max_ser_parse_ch_dt(struct max_ser_subdev_priv *sd_priv,
 	struct max_ser_pipe *pipe;
 	struct max_ser_phy *phy;
 	u32 val;
+
+	fwnode_property_read_string(fwnode, "label", &sd_priv->label);
 
 	val = sd_priv->pipe_id;
 	fwnode_property_read_u32(fwnode, "maxim,pipe-id", &val);
