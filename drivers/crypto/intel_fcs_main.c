@@ -3821,12 +3821,12 @@ static int fcs_driver_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(dev, "can't register on minor=%d\n",
 			MISC_DYNAMIC_MINOR);
-		return ret;
+		goto release_channel;
 	}
 
 	priv->p_data = of_device_get_match_data(dev);
 	if (!priv->p_data)
-		goto -ENODEV;
+		goto cleanup;
 
 	/* only register the HW RNG if the platform supports it! */
 	if (priv->p_data->have_hwrng) {
@@ -3847,7 +3847,7 @@ static int fcs_driver_probe(struct platform_device *pdev)
 	ret = of_property_read_string(dev->of_node, "platform", &platform);
 	if (ret) {
 		dev_err(dev, "can't find platform");
-		return -ENODEV;
+		goto cleanup;
 	}
 
 	/* Proceed only if platform is agilex as
@@ -3918,6 +3918,12 @@ static int fcs_driver_probe(struct platform_device *pdev)
 	}
 
 	return 0;
+
+cleanup:
+	misc_deregister(&priv->miscdev);
+release_channel:
+	stratix10_svc_free_channel(priv->chan);
+	return -ENODEV;
 }
 
 static int fcs_driver_remove(struct platform_device *pdev)
