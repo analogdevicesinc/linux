@@ -24,12 +24,14 @@
 #include <linux/uaccess.h>
 
 #include <uapi/linux/intel_fcs-ioctl.h>
+#include "intel_fcs_smmu.h"
 
 #define RANDOM_NUMBER_SIZE	32
 #define RANDOM_NUMBER_EXT_SIZE	4080
 #define RANDOM_NUMBER_EXT_OFFSET 12
 #define FILE_NAME_SIZE		32
 #define PS_BUF_SIZE		64
+#define SMMU_BUF_SIZE		76
 #define SHA384_SIZE		48
 #define INVALID_STATUS		0xFFFFFFFF
 #define INVALID_ID		0xFFFFFFFF
@@ -53,38 +55,74 @@
 #define CRYPTO_ECC_DIGEST_SZ_OFFSET 4
 
 #define AES_CRYPT_CMD_MAX_SZ	SZ_4M /* set 4 Mb for now */
+#define AES_BUFFER_CMD_MAX_SZ	0xE600000 /* set 230 Mb */
+#define HMAC_CMD_MAX_SZ			0x1D600000 /* set 470 Mb */
+#define ECDSA_CMD_MAX_SZ		0x1D600000 /* set 470 Mb */
+#define SMMU_MAX_ALLOC_SZ		0x1E000000 /* set 480 Mb */
 #define AES_CRYPT_MODE_ECB	0
 #define AES_CRYPT_MODE_CBC	1
 #define AES_CRYPT_MODE_CTR	2
 #define AES_CRYPT_PARAM_SIZE_ECB	12
 #define AES_CRYPT_PARAM_SIZE_CBC_CTR	28
 
+#define FCS_REQUEST_TIMEOUT (msecs_to_jiffies(SVC_FCS_REQUEST_TIMEOUT_MS))
+#define FCS_COMPLETED_TIMEOUT (msecs_to_jiffies(SVC_COMPLETED_TIMEOUT_MS))
 #define SIGMA_SESSION_ID_ONE	0x1
 #define SIGMA_UNKNOWN_SESSION	0xffffffff
 
-#define FCS_REQUEST_TIMEOUT (msecs_to_jiffies(SVC_FCS_REQUEST_TIMEOUT_MS))
-#define FCS_COMPLETED_TIMEOUT (msecs_to_jiffies(SVC_COMPLETED_TIMEOUT_MS))
+#define SRC_BUFFER_STARTING_L2_IDX	17
+#define get_buffer_addr(a)(a*2*1024*1024)
+
+#define SDM_SMMU_FW_MIN_VER		0x2722C
+#define ATF_SMMU_FW_MAJOR_VER		0x2
+#define ATF_SMMU_FW_MIN_VER		0x1
+#define AGILEX_PLATFORM			"agilex"
+#define AGILEX_PLATFORM_STR_LEN		6
 
 /*SDM required minimun 8 bytes of data for crypto service*/
 #define CRYPTO_SERVICE_MIN_DATA_SIZE	8
 
+static char *source_ptr;
+
 typedef void (*fcs_callback)(struct stratix10_svc_client *client,
 			     struct stratix10_svc_cb_data *data);
 
-struct intel_fcs_priv {
-	struct stratix10_svc_chan *chan;
-	struct stratix10_svc_client client;
-	struct completion completion;
-	struct mutex lock;
-	struct miscdevice miscdev;
-	unsigned int status;
-	void *kbuf;
-	unsigned int size;
-	unsigned int cid_low;
-	unsigned int cid_high;
-	unsigned int sid;
-	struct hwrng rng;
-};
+static void fcs_atf_version_smmu_check_callback(struct stratix10_svc_client *client,
+			      struct stratix10_svc_cb_data *data)
+{
+	struct intel_fcs_priv *priv = client->priv;
+
+	priv->status = data->status;
+	if (data->status == BIT(SVC_STATUS_OK)) {
+		if ((*((unsigned int *)data->kaddr1) >= ATF_SMMU_FW_MAJOR_VER) &&
+			(*((unsigned int *)data->kaddr2) >= ATF_SMMU_FW_MIN_VER))
+			priv->status = 0;
+		else
+			priv->status = -1;
+	} else if (data->status == BIT(SVC_STATUS_ERROR)) {
+		priv->status = *((unsigned int *)data->kaddr1);
+		dev_err(client->dev, "mbox_error=0x%x\n", priv->status);
+	}
+
+	complete(&priv->completion);
+}
+
+static void fcs_fw_version_callback(struct stratix10_svc_client *client,
+				    struct stratix10_svc_cb_data *data)
+{
+	struct intel_fcs_priv *priv = client->priv;
+
+	priv->status = -1;
+	if (data->status == BIT(SVC_STATUS_OK)) {
+		if (*((unsigned int *)data->kaddr1) > SDM_SMMU_FW_MIN_VER)
+			priv->status = 0;
+	} else {
+		dev_err(client->dev, "Failed to get FW version %lu\n",
+			BIT(data->status));
+	}
+
+	complete(&priv->completion);
+}
 
 static void fcs_data_callback(struct stratix10_svc_client *client,
 			      struct stratix10_svc_cb_data *data)
@@ -308,6 +346,8 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 	int ret = 0;
 	int i;
 	int timeout;
+	phys_addr_t src_addr;
+	phys_addr_t dst_addr;
 
 	priv = container_of(file->private_data, struct intel_fcs_priv, miscdev);
 	dev = priv->client.dev;
@@ -631,7 +671,7 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 					break;
 				}
 				timeout--;
-				mdelay(100);
+				mdelay(500);
 			}
 		} else {
 			data->com_paras.gp_data.addr = NULL;
@@ -2879,6 +2919,643 @@ static long fcs_ioctl(struct file *file, unsigned int cmd,
 		fcs_close_services(priv, s_buf, d_buf);
 		break;
 
+	case INTEL_FCS_DEV_CHECK_SMMU_ENABLED:
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			dev_err(dev, "failure on copy_from_user\n");
+			mutex_unlock(&priv->lock);
+			return -EFAULT;
+		}
+
+		msg->command = COMMAND_SMC_SVC_VERSION;
+		priv->client.receive_cb = fcs_atf_version_smmu_check_callback;
+
+		ret = fcs_request_service(priv, (void *)msg,
+					  FCS_REQUEST_TIMEOUT);
+
+		if (!ret && !priv->status)
+			data->status = -1;
+		else
+			return -EFAULT;
+
+		data->status = priv->status;
+
+		msg->command = COMMAND_FIRMWARE_VERSION;
+		priv->client.receive_cb = fcs_fw_version_callback;
+
+		ret = fcs_request_service(priv, (void *)msg,
+					  FCS_REQUEST_TIMEOUT);
+
+		data->status = priv->status;
+
+		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			dev_err(dev, "failure on copy_to_user\n");
+			ret = -EFAULT;
+		}
+
+		fcs_close_services(priv, NULL, NULL);
+		break;
+
+	case INTEL_FCS_DEV_CRYPTO_AES_CRYPT_SMMU:
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			dev_err(dev, "failure on copy_from_user data\n");
+			mutex_unlock(&priv->lock);
+			return -EFAULT;
+		}
+
+		iv_field_buf = stratix10_svc_allocate_memory(priv->chan, 28);
+		if (!iv_field_buf) {
+			dev_err(dev, "failed allocate iv_field buf\n");
+			mutex_unlock(&priv->lock);
+			return -ENOMEM;
+		}
+
+		sid = data->com_paras.a_crypt.sid;
+		cid = data->com_paras.a_crypt.cid;
+		kuid = data->com_paras.a_crypt.kuid;
+
+		memcpy(iv_field_buf, &data->com_paras.a_crypt.cpara.bmode, 1);
+		memcpy(iv_field_buf + 1, &data->com_paras.a_crypt.cpara.aes_mode, 1);
+		memcpy(iv_field_buf + 12, data->com_paras.a_crypt.cpara.iv_field, 16);
+
+		msg->command = COMMAND_FCS_CRYPTO_AES_CRYPT_INIT;
+		msg->payload = iv_field_buf;
+		msg->payload_length = data->com_paras.a_crypt.cpara_size;
+		msg->payload_output = NULL;
+		msg->payload_length_output = 0;
+		msg->arg[0] = sid;
+		msg->arg[1] = cid;
+		msg->arg[2] = kuid;
+
+		priv->client.receive_cb = fcs_vab_callback;
+
+		if (data->com_paras.a_crypt.init == true) {
+			ret = fcs_request_service(priv, (void *)msg,
+						FCS_REQUEST_TIMEOUT);
+			if (ret || priv->status) {
+				dev_err(dev, "failed to send the cmd=%d,ret=%d\n",
+					COMMAND_FCS_CRYPTO_AES_CRYPT_INIT,
+					ret);
+				fcs_close_services(priv, iv_field_buf, NULL);
+				return -EFAULT;
+			}
+		}
+		fcs_free_memory(priv, iv_field_buf, NULL, NULL);
+
+		remaining_size = data->com_paras.a_crypt.src_size;
+
+		ps_buf = stratix10_svc_allocate_memory(priv->chan, PS_BUF_SIZE);
+		if (!ps_buf) {
+			dev_err(dev, "failed to allocate p-status buf\n");
+			fcs_close_services(priv, NULL, NULL);
+			return -ENOMEM;
+		}
+
+		if (remaining_size > AES_BUFFER_CMD_MAX_SZ) {
+			msg->command = COMMAND_FCS_CRYPTO_AES_CRYPT_UPDATE_SMMU;
+			data_size = AES_BUFFER_CMD_MAX_SZ;
+			dev_dbg(dev, "AES crypt update. data_size=%d\n", data_size);
+		} else {
+			msg->command = COMMAND_FCS_CRYPTO_AES_CRYPT_FINALIZE_SMMU;
+			data_size = remaining_size;
+			dev_dbg(dev, "AES crypt finalize. data_size=%d\n", data_size);
+		}
+
+		src_addr = get_buffer_addr(SRC_BUFFER_STARTING_L2_IDX);
+		dst_addr = get_buffer_addr((SRC_BUFFER_STARTING_L2_IDX +
+					data->com_paras.a_crypt.buffer_offset));
+
+		msg->arg[0] = sid;
+		msg->arg[1] = cid;
+		msg->payload = &src_addr;
+		msg->payload_length = data_size;
+		msg->payload_output = &dst_addr;
+		msg->payload_length_output = data_size;
+		priv->client.receive_cb = fcs_attestation_callback;
+
+		ret = fcs_request_service(priv, (void *)msg,
+					   FCS_REQUEST_TIMEOUT);
+		if (!ret && !priv->status) {
+			/* to query the complete status */
+			msg->payload = ps_buf;
+			msg->payload_length = PS_BUF_SIZE;
+			msg->command = COMMAND_POLL_SERVICE_STATUS;
+			priv->client.receive_cb = fcs_data_callback;
+
+			ret = fcs_request_service(priv, (void *)msg,
+						  FCS_COMPLETED_TIMEOUT);
+			if (!ret && !priv->status) {
+				if (!priv->kbuf || priv->size != 16) {
+					dev_err(dev, "unregconize response\n");
+					fcs_close_services(priv, ps_buf, NULL);
+					return -EFAULT;
+				}
+			}
+		} else {
+			data->com_paras.a_crypt.dst = NULL;
+			data->com_paras.a_crypt.dst_size = 0;
+			dev_err(dev, "unregconize response. ret=%d. status=%d\n",
+					ret, priv->status);
+			fcs_close_services(priv, ps_buf, NULL);
+			return -EFAULT;
+		}
+
+		invalidate_smmu_tlb_entries(priv);
+
+		data->status = priv->status;
+
+		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			dev_err(dev, "failure on copy_to_user\n");
+			ret = -EFAULT;
+		}
+
+		fcs_close_services(priv, ps_buf, NULL);
+		break;
+
+	case INTEL_FCS_DEV_CRYPTO_GET_DIGEST_SMMU:
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			dev_err(dev, "failure on copy_from_user\n");
+			mutex_unlock(&priv->lock);
+			return -EFAULT;
+		}
+
+		sid = data->com_paras.s_mac_data.sid;
+		cid = data->com_paras.s_mac_data.cid;
+		kuid = data->com_paras.s_mac_data.kuid;
+
+		msg->command = COMMAND_FCS_CRYPTO_GET_DIGEST_INIT;
+		msg->arg[0] = sid;
+		msg->arg[1] = cid;
+		msg->arg[2] = kuid;
+		msg->arg[3] = CRYPTO_ECC_PARAM_SZ;
+		msg->arg[4] = data->com_paras.s_mac_data.sha_op_mode |
+			       (data->com_paras.s_mac_data.sha_digest_sz <<
+			       CRYPTO_ECC_DIGEST_SZ_OFFSET);
+
+		priv->client.receive_cb = fcs_vab_callback;
+		if (data->com_paras.s_mac_data.init == true) {
+			ret = fcs_request_service(priv, (void *)msg,
+				   FCS_REQUEST_TIMEOUT);
+			if (ret || priv->status) {
+				dev_err(dev, "failed to send the cmd=%d,ret=%d, status=%d\n",
+				COMMAND_FCS_CRYPTO_GET_DIGEST_INIT, ret, priv->status);
+				fcs_close_services(priv, NULL, NULL);
+				return -EFAULT;
+			}
+		}
+
+		remaining_size = data->com_paras.s_mac_data.src_size;
+
+		d_buf = stratix10_svc_allocate_memory(priv->chan,
+						       AES_CRYPT_CMD_MAX_SZ);
+		if (!d_buf) {
+			dev_err(dev, "failed allocate destation buf\n");
+			fcs_close_services(priv, NULL, NULL);
+			return -ENOMEM;
+		}
+
+		ps_buf = stratix10_svc_allocate_memory(priv->chan, SMMU_BUF_SIZE);
+		if (!ps_buf) {
+			dev_err(dev, "failed to allocate p-status buf\n");
+			fcs_close_services(priv, d_buf, NULL);
+			return -ENOMEM;
+		}
+
+		if (remaining_size > HMAC_CMD_MAX_SZ) {
+			msg->command = COMMAND_FCS_CRYPTO_GET_DIGEST_UPDATE_SMMU;
+			data_size = HMAC_CMD_MAX_SZ;
+			dev_dbg(dev, "Crypto get digest update. data_size=%d\n",
+					data_size);
+		} else {
+			msg->command = COMMAND_FCS_CRYPTO_GET_DIGEST_FINALIZE_SMMU;
+			data_size = remaining_size;
+			dev_dbg(dev, "Crypto get digest finalize. data_size=%d\n",
+					data_size);
+		}
+
+		src_addr = get_buffer_addr(SRC_BUFFER_STARTING_L2_IDX);
+
+		msg->arg[0] = sid;
+		msg->arg[1] = cid;
+		msg->payload = &src_addr;
+		msg->payload_length = data_size;
+		msg->payload_output = d_buf;
+		msg->payload_length_output = AES_CRYPT_CMD_MAX_SZ;
+		priv->client.receive_cb = fcs_attestation_callback;
+
+		ret = fcs_request_service(priv, (void *)msg,
+					10 * FCS_REQUEST_TIMEOUT);
+		if (!ret && !priv->status) {
+			/* to query the complete status */
+			msg->payload = ps_buf;
+			msg->payload_length = SMMU_BUF_SIZE;
+			msg->command = COMMAND_POLL_SERVICE_STATUS;
+			priv->client.receive_cb = fcs_data_callback;
+
+			ret = fcs_request_service(priv, (void *)msg,
+						  FCS_COMPLETED_TIMEOUT);
+			if (!ret && !priv->status) {
+				if (!priv->kbuf) {
+					dev_err(dev, "unregconize response\n");
+					fcs_close_services(priv, d_buf, ps_buf);
+					return -EFAULT;
+				}
+			}
+		} else {
+			data->com_paras.s_mac_data.dst = NULL;
+			data->com_paras.s_mac_data.dst_size = 0;
+			dev_err(dev, "unregconize response. ret=%d. status=%d\n",
+					ret, priv->status);
+			fcs_close_services(priv, d_buf, ps_buf);
+			return -EFAULT;
+		}
+
+		remaining_size -= data_size;
+		if (remaining_size == 0) {
+			dev_dbg(dev, "Crypto get digest finish sending\n");
+			memcpy(data->com_paras.s_mac_data.dst, priv->kbuf, priv->size);
+			data->com_paras.s_mac_data.dst_size = priv->size;
+		}
+
+		invalidate_smmu_tlb_entries(priv);
+
+		data->status = priv->status;
+
+		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			dev_err(dev, "failure on copy_to_user\n");
+			ret = -EFAULT;
+		}
+
+		fcs_close_services(priv, ps_buf, d_buf);
+		break;
+
+	case INTEL_FCS_DEV_CRYPTO_MAC_VERIFY_SMMU:
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			dev_err(dev, "failure on copy_from_user\n");
+			mutex_unlock(&priv->lock);
+			return -EFAULT;
+		}
+
+		sid = data->com_paras.s_mac_data.sid;
+		cid = data->com_paras.s_mac_data.cid;
+		kuid = data->com_paras.s_mac_data.kuid;
+		out_sz = data->com_paras.s_mac_data.dst_size;
+		ud_sz = data->com_paras.s_mac_data.userdata_sz;
+
+		msg->command = COMMAND_FCS_CRYPTO_MAC_VERIFY_INIT;
+		msg->arg[0] = sid;
+		msg->arg[1] = cid;
+		msg->arg[2] = kuid;
+		msg->arg[3] = CRYPTO_ECC_PARAM_SZ;
+		msg->arg[4] = data->com_paras.s_mac_data.sha_op_mode |
+			       (data->com_paras.s_mac_data.sha_digest_sz <<
+			       CRYPTO_ECC_DIGEST_SZ_OFFSET);
+		priv->client.receive_cb = fcs_vab_callback;
+
+		if (data->com_paras.s_mac_data.init == true) {
+			ret = fcs_request_service(priv, (void *)msg,
+						FCS_REQUEST_TIMEOUT);
+			if (ret || priv->status) {
+				dev_err(dev, "failed to send the cmd=%d,ret=%d, status=%d\n",
+					COMMAND_FCS_CRYPTO_MAC_VERIFY_INIT, ret, priv->status);
+				fcs_close_services(priv, NULL, NULL);
+				return -EFAULT;
+			}
+		}
+
+		remaining_size = data->com_paras.s_mac_data.src_size;
+
+		d_buf = stratix10_svc_allocate_memory(priv->chan, out_sz);
+		if (!d_buf) {
+			dev_err(dev, "failed allocate destation buf\n");
+			fcs_close_services(priv, NULL, NULL);
+			return -ENOMEM;
+		}
+
+		ps_buf = stratix10_svc_allocate_memory(priv->chan, SMMU_BUF_SIZE);
+		if (!ps_buf) {
+			dev_err(dev, "failed to allocate p-status buf\n");
+			fcs_close_services(priv, d_buf, NULL);
+			return -ENOMEM;
+		}
+
+		if (remaining_size > HMAC_CMD_MAX_SZ) {
+			if (data->com_paras.s_mac_data.userdata_sz >= HMAC_CMD_MAX_SZ) {
+				data_size = HMAC_CMD_MAX_SZ;
+				ud_sz = HMAC_CMD_MAX_SZ;
+			} else {
+				data_size = data->com_paras.s_mac_data.userdata_sz;
+				ud_sz = data->com_paras.s_mac_data.userdata_sz;
+			}
+			msg->command = COMMAND_FCS_CRYPTO_MAC_VERIFY_UPDATE_SMMU;
+		} else {
+			data_size = remaining_size;
+			ud_sz = data->com_paras.s_mac_data.userdata_sz;
+			memcpy(d_buf, (source_ptr+ud_sz), (remaining_size-ud_sz));
+			msg->command = COMMAND_FCS_CRYPTO_MAC_VERIFY_FINALIZE_SMMU;
+			dev_dbg(dev, "Finalize. data_size=%d, ud_sz=%ld\n", data_size,
+					ud_sz);
+
+		}
+
+		src_addr = get_buffer_addr(SRC_BUFFER_STARTING_L2_IDX);
+
+		msg->arg[0] = sid;
+		msg->arg[1] = cid;
+		msg->arg[2] = ud_sz;
+		msg->payload = &src_addr;
+		msg->payload_length = data_size;
+		msg->payload_output = d_buf;
+		msg->payload_length_output = out_sz;
+		priv->client.receive_cb = fcs_attestation_callback;
+
+		ret = fcs_request_service(priv, (void *)msg,
+					10 * FCS_REQUEST_TIMEOUT);
+		if (!ret && !priv->status) {
+			/* to query the complete status */
+			msg->payload = ps_buf;
+			msg->payload_length = SMMU_BUF_SIZE;
+			msg->command = COMMAND_POLL_SERVICE_STATUS;
+			priv->client.receive_cb = fcs_data_callback;
+
+			ret = fcs_request_service(priv, (void *)msg,
+						  FCS_COMPLETED_TIMEOUT);
+			if (!ret && !priv->status) {
+				if (!priv->kbuf) {
+					dev_err(dev, "unregconize response\n");
+					fcs_close_services(priv, d_buf, ps_buf);
+					return -EFAULT;
+				}
+			}
+		} else {
+			data->com_paras.s_mac_data.dst = NULL;
+			data->com_paras.s_mac_data.dst_size = 0;
+			dev_err(dev, "unregconize response. ret=%d. status=%d\n",
+					ret, priv->status);
+			fcs_close_services(priv, ps_buf, d_buf);
+			return -EFAULT;
+		}
+
+		remaining_size -= data_size;
+		if (remaining_size == 0) {
+			dev_dbg(dev, "Crypto get verify finish sending\n");
+			memcpy(data->com_paras.s_mac_data.dst, priv->kbuf, priv->size);
+			data->com_paras.s_mac_data.dst_size = priv->size;
+		}
+
+		invalidate_smmu_tlb_entries(priv);
+		data->status = priv->status;
+
+		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			dev_err(dev, "failure on copy_to_user\n");
+			ret = -EFAULT;
+		}
+
+		fcs_close_services(priv, ps_buf, d_buf);
+		break;
+
+	case INTEL_FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_SIGNING_SMMU:
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			dev_err(dev, "failure on copy_from_user\n");
+			mutex_unlock(&priv->lock);
+			return -EFAULT;
+		}
+
+		sid = data->com_paras.ecdsa_data.sid;
+		cid = data->com_paras.ecdsa_data.cid;
+		kuid = data->com_paras.ecdsa_data.kuid;
+		in_sz = data->com_paras.ecdsa_data.src_size;
+		out_sz = data->com_paras.ecdsa_data.dst_size;
+
+		msg->command = COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_INIT;
+		msg->arg[0] = sid;
+		msg->arg[1] = cid;
+		msg->arg[2] = kuid;
+		msg->arg[3] = CRYPTO_ECC_PARAM_SZ;
+		msg->arg[4] = data->com_paras.ecdsa_data.ecc_algorithm & 0xF;
+		priv->client.receive_cb = fcs_vab_callback;
+
+		if (data->com_paras.ecdsa_data.init == true) {
+			ret = fcs_request_service(priv, (void *)msg,
+				   FCS_REQUEST_TIMEOUT);
+			if (ret || priv->status) {
+				dev_err(dev, "failed to send the cmd=%d,ret=%d, status=%d\n",
+					COMMAND_FCS_CRYPTO_ECDSA_HASH_SIGNING_INIT,
+					ret, priv->status);
+				fcs_close_services(priv, NULL, NULL);
+				return -EFAULT;
+			}
+		}
+
+		remaining_size = data->com_paras.ecdsa_data.src_size;
+
+		d_buf = stratix10_svc_allocate_memory(priv->chan, out_sz);
+		if (!d_buf) {
+			dev_err(dev, "failed allocate destation buf\n");
+			fcs_close_services(priv, NULL, NULL);
+			return -ENOMEM;
+		}
+
+		ps_buf = stratix10_svc_allocate_memory(priv->chan, SMMU_BUF_SIZE);
+		if (!ps_buf) {
+			dev_err(dev, "failed to allocate p-status buf\n");
+			fcs_close_services(priv, d_buf, NULL);
+			return -ENOMEM;
+		}
+
+		if (remaining_size > ECDSA_CMD_MAX_SZ) {
+			msg->command =
+				COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_UPDATE_SMMU;
+			data_size = ECDSA_CMD_MAX_SZ;
+			dev_dbg(dev, "ECDSA data sign update stage. data_size=%d\n",
+					data_size);
+		} else {
+			msg->command =
+				COMMAND_FCS_CRYPTO_ECDSA_SHA2_DATA_SIGNING_FINALIZE_SMMU;
+			data_size = remaining_size;
+			dev_dbg(dev, "ECDSA data sign finalize stage. data_size=%d\n",
+					data_size);
+		}
+
+		src_addr = get_buffer_addr(SRC_BUFFER_STARTING_L2_IDX);
+
+		msg->arg[0] = sid;
+		msg->arg[1] = cid;
+		msg->payload = &src_addr;
+		msg->payload_length = data_size;
+		msg->payload_output = d_buf;
+		msg->payload_length_output = out_sz;
+		priv->client.receive_cb = fcs_attestation_callback;
+
+		ret = fcs_request_service(priv, (void *)msg,
+					10 * FCS_REQUEST_TIMEOUT);
+		if (!ret && !priv->status) {
+			msg->payload = ps_buf;
+			msg->payload_length = SMMU_BUF_SIZE;
+			msg->command = COMMAND_POLL_SERVICE_STATUS;
+			priv->client.receive_cb = fcs_data_callback;
+
+			ret = fcs_request_service(priv, (void *)msg,
+						  FCS_COMPLETED_TIMEOUT);
+			if (!ret && !priv->status) {
+				if (!priv->kbuf) {
+					dev_err(dev, "unregconize response\n");
+					fcs_close_services(priv, d_buf, ps_buf);
+					return -EFAULT;
+				}
+			}
+		} else {
+			data->com_paras.ecdsa_data.dst = NULL;
+			data->com_paras.ecdsa_data.dst_size = 0;
+			dev_err(dev, "unregconize response. ret=%d. status=%d\n",
+				ret, priv->status);
+			fcs_close_services(priv, d_buf, ps_buf);
+			return -EFAULT;
+		}
+
+		remaining_size -= data_size;
+		if (remaining_size == 0) {
+			dev_dbg(dev, "ECDSA data sign finish sending\n");
+			memcpy(data->com_paras.ecdsa_data.dst, priv->kbuf, priv->size);
+			data->com_paras.ecdsa_data.dst_size = priv->size;
+		}
+
+		invalidate_smmu_tlb_entries(priv);
+
+		data->status = priv->status;
+
+		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			dev_err(dev, "failure on copy_to_user\n");
+			ret = -EFAULT;
+		}
+
+		fcs_close_services(priv, ps_buf, d_buf);
+		break;
+
+	case INTEL_FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_VERIFY_SMMU:
+		if (copy_from_user(data, (void __user *)arg, sizeof(*data))) {
+			dev_err(dev, "failure on copy_from_user\n");
+			mutex_unlock(&priv->lock);
+			return -EFAULT;
+		}
+
+		sid = data->com_paras.ecdsa_sha2_data.sid;
+		cid = data->com_paras.ecdsa_sha2_data.cid;
+		kuid = data->com_paras.ecdsa_sha2_data.kuid;
+		in_sz = data->com_paras.ecdsa_sha2_data.src_size;
+		out_sz = data->com_paras.ecdsa_sha2_data.dst_size;
+		ud_sz = data->com_paras.ecdsa_sha2_data.userdata_sz;
+
+		msg->command = COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_INIT;
+		msg->arg[0] = sid;
+		msg->arg[1] = cid;
+		msg->arg[2] = kuid;
+		msg->arg[3] = CRYPTO_ECC_PARAM_SZ;
+		msg->arg[4] = data->com_paras.ecdsa_sha2_data.ecc_algorithm & 0xF;
+		priv->client.receive_cb = fcs_vab_callback;
+
+		if (data->com_paras.ecdsa_sha2_data.init == true) {
+			ret = fcs_request_service(priv, (void *)msg,
+				   FCS_REQUEST_TIMEOUT);
+			if (ret || priv->status) {
+				dev_err(dev, "failed to send the cmd=%d,ret=%d, status=%d\n",
+					COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_INIT,
+					ret, priv->status);
+				fcs_close_services(priv, NULL, NULL);
+				return -EFAULT;
+			}
+		}
+
+		remaining_size = data->com_paras.ecdsa_sha2_data.src_size;
+
+		d_buf = stratix10_svc_allocate_memory(priv->chan, SMMU_BUF_SIZE);
+		if (!d_buf) {
+			dev_err(dev, "failed allocate destation buf\n");
+			fcs_close_services(priv, NULL, NULL);
+			return -ENOMEM;
+		}
+
+		ps_buf = stratix10_svc_allocate_memory(priv->chan, SMMU_BUF_SIZE);
+		if (!ps_buf) {
+			dev_err(dev, "failed to allocate p-status buf\n");
+			fcs_close_services(priv, d_buf, NULL);
+			return -ENOMEM;
+		}
+
+		if (remaining_size > ECDSA_CMD_MAX_SZ) {
+			if (data->com_paras.s_mac_data.userdata_sz >= ECDSA_CMD_MAX_SZ) {
+				data_size = ECDSA_CMD_MAX_SZ;
+				ud_sz = ECDSA_CMD_MAX_SZ;
+			} else {
+				data_size = data->com_paras.ecdsa_sha2_data.userdata_sz;
+				ud_sz = data->com_paras.ecdsa_sha2_data.userdata_sz;
+			}
+			msg->command = COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_UPDATE_SMMU;
+		} else {
+			data_size = remaining_size;
+			ud_sz = data->com_paras.ecdsa_sha2_data.userdata_sz;
+			memcpy(d_buf, (source_ptr+ud_sz), (remaining_size-ud_sz));
+			msg->command = COMMAND_FCS_CRYPTO_ECDSA_SHA2_VERIFY_FINALIZE_SMMU;
+			dev_dbg(dev, "Finalize. data_size=%d, ud_sz=%ld\n", data_size,
+					ud_sz);
+		}
+
+		src_addr = get_buffer_addr(SRC_BUFFER_STARTING_L2_IDX);
+
+		msg->arg[0] = sid;
+		msg->arg[1] = cid;
+		msg->arg[2] = ud_sz;
+		msg->payload = &src_addr;
+		msg->payload_length = data_size;
+		msg->payload_output = d_buf;
+		msg->payload_length_output = out_sz;
+		priv->client.receive_cb = fcs_attestation_callback;
+
+		ret = fcs_request_service(priv, (void *)msg,
+					10 * FCS_REQUEST_TIMEOUT);
+		if (!ret && !priv->status) {
+			/* to query the complete status */
+			msg->payload = ps_buf;
+			msg->payload_length = SMMU_BUF_SIZE;
+			msg->command = COMMAND_POLL_SERVICE_STATUS;
+			priv->client.receive_cb = fcs_data_callback;
+
+			ret = fcs_request_service(priv, (void *)msg,
+						  FCS_COMPLETED_TIMEOUT);
+			if (!ret && !priv->status) {
+				if (!priv->kbuf) {
+					dev_err(dev, "unregconize response\n");
+					fcs_close_services(priv, d_buf, ps_buf);
+					return -EFAULT;
+				}
+			}
+		} else {
+			data->com_paras.ecdsa_sha2_data.dst = NULL;
+			data->com_paras.ecdsa_sha2_data.dst_size = 0;
+			dev_err(dev, "unregconize response. ret=%d. status=%d\n",
+					ret, priv->status);
+			fcs_close_services(priv, d_buf, ps_buf);
+			return -EFAULT;
+		}
+
+		remaining_size -= data_size;
+		if (remaining_size == 0) {
+			dev_dbg(dev, "ECDSA data verify finish sending\n");
+			memcpy(data->com_paras.ecdsa_sha2_data.dst, priv->kbuf,
+					priv->size);
+			data->com_paras.ecdsa_sha2_data.dst_size = priv->size;
+		}
+
+		invalidate_smmu_tlb_entries(priv);
+		data->status = priv->status;
+
+		if (copy_to_user((void __user *)arg, data, sizeof(*data))) {
+			dev_err(dev, "failure on copy_to_user\n");
+			ret = -EFAULT;
+		}
+
+		fcs_close_services(priv, d_buf, ps_buf);
+		break;
+
 	default:
 		dev_warn(dev, "shouldn't be here [0x%x]\n", cmd);
 		break;
@@ -2955,18 +3632,51 @@ static int fcs_rng_read(struct hwrng *rng, void *buf, size_t max, bool wait)
 	return size;
 }
 
+static int fcs_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+	unsigned long size, off;
+	struct page *page;
+
+	if (!source_ptr) {
+		pr_err("vmalloc failed mmap %s", __func__);
+		return -ENOMEM;
+	}
+
+	size = vma->vm_end - vma->vm_start;
+
+	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+	vma->vm_flags |= VM_DONTEXPAND;
+	for (off = 0; off < size; off += PAGE_SIZE) {
+		page = vmalloc_to_page(source_ptr + off);
+		if (vm_insert_page(vma, vma->vm_start + off, page))
+			pr_err("vm_insert_page() failed");
+
+	}
+
+	return 0;
+}
+
 static const struct file_operations fcs_fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl = fcs_ioctl,
 	.open = fcs_open,
 	.release = fcs_close,
+	.mmap = fcs_mmap
 };
 
 static int fcs_driver_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct intel_fcs_priv *priv;
-	int ret;
+	int ret, i;
+	const char *platform;
+	struct stratix10_svc_client_msg msg;
+	unsigned long off;
+	int l2_idx = SRC_BUFFER_STARTING_L2_IDX;
+	int l3_idx = 0;
+	uint64_t phys;
+	unsigned long pfn;
+	struct page *page;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -3017,12 +3727,106 @@ static int fcs_driver_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, priv);
 
+	of_property_read_string(dev->of_node, "platform", &platform);
+
+	/* Proceed only if platform is agilex as
+	 * register addresses are platform specific
+	 */
+	if (!strncmp(platform, AGILEX_PLATFORM, AGILEX_PLATFORM_STR_LEN)) {
+
+		msg.command = COMMAND_SMC_SVC_VERSION;
+		priv->client.receive_cb = fcs_atf_version_smmu_check_callback;
+
+		ret = stratix10_svc_send(priv->chan, &msg);
+
+		ret = wait_for_completion_timeout(&priv->completion,
+							FCS_REQUEST_TIMEOUT);
+
+		/* Program registers only if ATF support programming
+		 * SMMU secure register addresses
+		 */
+		if (priv->status == 0) {
+			l1_table = kmalloc((sizeof(uint64_t)*512), GFP_KERNEL);
+			if (!l1_table)
+				return -ENOMEM;
+			l2_table = kmalloc((sizeof(uint64_t)*512), GFP_KERNEL);
+			if (!l2_table)
+				return -ENOMEM;
+
+			memcpy(l1_table, smmu_sdm_el3_l1_table, (sizeof(uint64_t)*512));
+			memcpy(l2_table, smmu_sdm_el3_l2_table, (sizeof(uint64_t)*512));
+
+			for (i = 0; i < 512; i++) {
+				l3_tables[i] = kmalloc((sizeof(uint64_t)*512), GFP_KERNEL);
+				if (!l3_tables[i])
+					return -ENOMEM;
+				memcpy(l3_tables[i], smmu_sdm_l3_def_table, (sizeof(uint64_t)*512));
+			}
+
+			if (source_ptr)
+				vfree(source_ptr);
+
+			source_ptr = vmalloc_user(SMMU_MAX_ALLOC_SZ);
+			if (!source_ptr) {
+				pr_err("vmalloc failed probe %s", __func__);
+				return -ENOMEM;
+			}
+
+			for (off = 0; off < SMMU_MAX_ALLOC_SZ; off += PAGE_SIZE) {
+				page = vmalloc_to_page(source_ptr + off);
+				pfn = page_to_pfn(page);
+				phys = __pa(pfn_to_kaddr(pfn)) + offset_in_page(source_ptr + off);
+
+				if (l3_idx >= 512) {
+					l2_idx++;
+					l3_idx = 0;
+				}
+				fill_l3_table(phys, l2_idx, l3_idx);
+				l3_idx++;
+			}
+
+			intel_fcs_smmu_init(priv);
+		}
+	}
+
 	return 0;
 }
 
 static int fcs_driver_remove(struct platform_device *pdev)
 {
+	struct device *dev = &pdev->dev;
 	struct intel_fcs_priv *priv = platform_get_drvdata(pdev);
+	struct stratix10_svc_client_msg msg;
+	int i, ret;
+	const char *platform;
+
+	of_property_read_string(dev->of_node, "platform", &platform);
+
+	if (!strncmp(platform, AGILEX_PLATFORM, AGILEX_PLATFORM_STR_LEN)) {
+		msg.command = COMMAND_SMC_SVC_VERSION;
+		priv->client.receive_cb = fcs_atf_version_smmu_check_callback;
+
+		ret = stratix10_svc_send(priv->chan, &msg);
+
+		ret = wait_for_completion_timeout(&priv->completion,
+							FCS_REQUEST_TIMEOUT);
+
+		/* Program registers only if ATF support programming
+		 * SMMU secure register addresses
+		 */
+		if (priv->status == 0) {
+			kfree(l1_table);
+			kfree(l2_table);
+
+			for (i = 0; i < 512; i++)
+				kfree(l3_tables[i]);
+
+			if (source_ptr)
+				vfree(source_ptr);
+
+			context_bank_disable(priv);
+		}
+	}
 
 	hwrng_unregister(&priv->rng);
 	misc_deregister(&priv->miscdev);
