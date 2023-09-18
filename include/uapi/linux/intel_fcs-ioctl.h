@@ -311,6 +311,8 @@ struct fcs_aes_crypt {
 	uint32_t dst_size;
 	int cpara_size;
 	struct fcs_acs_crypt_parameter cpara;
+	bool init;
+	uint32_t buffer_offset;
 };
 
 /**
@@ -336,6 +338,7 @@ struct fcs_sha2_mac_data {
 	int sha_op_mode;
 	int sha_digest_sz;
 	uint32_t userdata_sz;
+	bool init;
 };
 
 /**
@@ -358,6 +361,7 @@ struct fcs_ecdsa_data {
 	void *dst;
 	uint32_t dst_size;
 	int ecc_algorithm;
+	bool init;
 };
 
 /**
@@ -373,15 +377,16 @@ struct fcs_ecdsa_data {
  * @userdata_sz: size of user data
  */
 struct fcs_ecdsa_sha2_data {
-       uint32_t sid;
-       uint32_t cid;
-       uint32_t kuid;
-       void *src;
-       uint32_t src_size;
-       void *dst;
-       uint32_t dst_size;
-       int ecc_algorithm;
-       uint32_t userdata_sz;
+	uint32_t sid;
+	uint32_t cid;
+	uint32_t kuid;
+	void *src;
+	uint32_t src_size;
+	void *dst;
+	uint32_t dst_size;
+	int ecc_algorithm;
+	uint32_t userdata_sz;
+	bool init;
 };
 
 /**
@@ -536,6 +541,12 @@ enum intel_fcs_command_code {
 	INTEL_FCS_DEV_CRYPTO_ECDH_REQUEST_CMD,
 	INTEL_FCS_DEV_RANDOM_NUMBER_GEN_EXT_CMD,
 	INTEL_FCS_DEV_SDOS_DATA_EXT_CMD,
+	INTEL_FCS_DEV_CRYPTO_AES_CRYPT_SMMU_CMD,
+	INTEL_FCS_DEV_CRYPTO_GET_DIGEST_SMMU_CMD,
+	INTEL_FCS_DEV_CRYPTO_MAC_VERIFY_SMMU_CMD,
+	INTEL_FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_SIGNING_SMMU_CMD,
+	INTEL_FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_VERIFY_SMMU_CMD,
+	INTEL_FCS_DEV_CHECK_SMMU_ENABLED_CMD,
 };
 
 #define INTEL_FCS_DEV_VERSION_REQUEST \
@@ -669,6 +680,30 @@ enum intel_fcs_command_code {
 #define INTEL_FCS_DEV_SDOS_DATA_EXT \
 	_IOWR(INTEL_FCS_IOCTL, \
 	      INTEL_FCS_DEV_SDOS_DATA_EXT_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_CHECK_SMMU_ENABLED \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_CHECK_SMMU_ENABLED_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_CRYPTO_AES_CRYPT_SMMU \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_CRYPTO_AES_CRYPT_SMMU_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_CRYPTO_GET_DIGEST_SMMU \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_CRYPTO_GET_DIGEST_SMMU_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_CRYPTO_MAC_VERIFY_SMMU \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_CRYPTO_MAC_VERIFY_SMMU_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_SIGNING_SMMU \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_SIGNING_SMMU_CMD, struct intel_fcs_dev_ioctl)
+
+#define INTEL_FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_VERIFY_SMMU \
+	_IOWR(INTEL_FCS_IOCTL, \
+	      INTEL_FCS_DEV_CRYPTO_ECDSA_SHA2_DATA_VERIFY_SMMU_CMD, struct intel_fcs_dev_ioctl)
 
 #endif
 
