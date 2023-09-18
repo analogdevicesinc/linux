@@ -763,6 +763,11 @@ static const struct sdhci_cdns_drv_data sdhci_cdns_uniphier_drv_data = {
 	},
 };
 
+static const struct sdhci_pltfm_data sdhci_cdns_pltfm_data = {
+	.ops = &sdhci_cdns_ops,
+	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
+};
+
 static const struct sdhci_cdns_drv_data sdhci_elba_drv_data = {
 	.init = elba_drv_init,
 	.pltfm_data = {
