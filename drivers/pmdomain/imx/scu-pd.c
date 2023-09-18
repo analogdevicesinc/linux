@@ -139,7 +139,6 @@ static const struct imx_sc_pd_range imx8qxp_scu_pd_ranges[] = {
 	{ "sdhc", IMX_SC_R_SDHC_0, 3, true, 0 },
 	{ "enet", IMX_SC_R_ENET_0, 2, true, 0 },
 	{ "nand", IMX_SC_R_NAND, 1, false, 0 },
-	{ "mlb", IMX_SC_R_MLB_0, 1, true, 0 },
 
 	/* AUDIO SS */
 	{ "audio-pll0", IMX_SC_R_AUDIO_PLL_0, 1, false, 0 },
