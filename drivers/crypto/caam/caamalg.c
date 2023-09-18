@@ -1975,7 +1975,7 @@ static struct caam_skcipher_alg driver_algs[] = {
 	},
 #ifdef CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API
 	{
-		.skcipher = {
+		.skcipher.base = {
 			.base = {
 				.cra_name = "tk(cbc(aes))",
 				.cra_driver_name = "tk-cbc-aes-caam",
@@ -1987,6 +1987,9 @@ static struct caam_skcipher_alg driver_algs[] = {
 			.min_keysize = TAG_MIN_SIZE,
 			.max_keysize = CAAM_MAX_KEY_SIZE,
 			.ivsize = AES_BLOCK_SIZE,
+		},
+		.skcipher.op = {
+			.do_one_request = skcipher_do_one_req,
 		},
 		.caam.class1_alg_type = OP_ALG_ALGSEL_AES | OP_ALG_AAI_CBC,
 		.caam.support_tagged_key = true,
@@ -2135,7 +2138,7 @@ static struct caam_skcipher_alg driver_algs[] = {
 	},
 #ifdef CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API
 	{
-		.skcipher = {
+		.skcipher.base = {
 			.base = {
 				.cra_name = "tk(ecb(aes))",
 				.cra_driver_name = "tk-ecb-aes-caam",
@@ -2146,6 +2149,9 @@ static struct caam_skcipher_alg driver_algs[] = {
 			.decrypt = skcipher_decrypt,
 			.min_keysize = TAG_MIN_SIZE,
 			.max_keysize = CAAM_MAX_KEY_SIZE,
+		},
+		.skcipher.op = {
+			.do_one_request = skcipher_do_one_req,
 		},
 		.caam.class1_alg_type = OP_ALG_ALGSEL_AES | OP_ALG_AAI_ECB,
 		.caam.support_tagged_key = true,
