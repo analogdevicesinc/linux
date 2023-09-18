@@ -5,6 +5,7 @@
 
 #ifdef DES_CH_INDEX
 #define DES_CH_REG DES_CH_INDEX
+#define DES_CH_LABEL CONCAT(des_ch_, DES_CH_INDEX)
 #define DES_CH_OUT_LABEL CONCAT(des_out, DES_CH_INDEX)
 #define DES_CH_IN_LABEL CONCAT(des_in, DES_CH_INDEX)
 #define DES_CH_OUT_REMOTE_LABEL CONCAT(csi_in, DES_CH_INDEX)
@@ -53,6 +54,8 @@
 
 channel@DES_CH_REG {
 	reg = <DES_CH_REG>;
+
+	label = STRINGIFY(DES_CH_LABEL);
 
 	maxim,phy-id = <DES_CH_PHY>;
 

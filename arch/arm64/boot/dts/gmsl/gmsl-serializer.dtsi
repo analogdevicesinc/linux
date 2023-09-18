@@ -5,6 +5,8 @@
 
 #if defined(SER_INDEX)
 #define SER_LABEL CONCAT(ser_, SER_INDEX)
+#define SER_CH_LABEL	CONCAT(SER_LABEL, _ch_)
+#define SER_CH_LABEL_X(x) CONCAT(SER_CH_LABEL, x)
 #define SER_I2C_LABEL CONCAT(SER_LABEL, _i2c_0)
 #define SER_OUT_LABEL CONCAT(ser_out, SER_INDEX)
 #define SER_IN_LABEL CONCAT(ser_in, SER_INDEX)
@@ -77,6 +79,8 @@ SER_LABEL: gmsl-serializer@SER_HEX_REG {
 
 	channel@0 {
 		reg = <0>;
+
+		label = STRINGIFY(SER_CH_LABEL_X(0));
 
 		ports {
 			#address-cells = <1>;
