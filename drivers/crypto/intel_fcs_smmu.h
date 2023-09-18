@@ -51,6 +51,7 @@ struct intel_fcs_priv {
 	unsigned int cid_high;
 	unsigned int sid;
 	struct hwrng rng;
+	const struct socfpga_fcs_data *p_data;
 };
 
 int smmu_program_reg(struct intel_fcs_priv *priv, uint32_t reg_add, uint32_t reg_value);

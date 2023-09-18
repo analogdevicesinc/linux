@@ -85,6 +85,14 @@
 /*SDM required minimun 8 bytes of data for crypto service*/
 #define CRYPTO_SERVICE_MIN_DATA_SIZE	8
 
+/**
+ * struct socfpga_fcs_data - FCS platform data structure.
+ * @hwrng		Flag to indicate support for HW random number generator.
+ */
+struct socfpga_fcs_data {
+	bool have_hwrng;
+};
+
 static char *source_ptr;
 
 typedef void (*fcs_callback)(struct stratix10_svc_client *client,
@@ -3816,15 +3824,22 @@ static int fcs_driver_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	/* register hwrng device */
-	priv->rng.name = "intel-rng";
-	priv->rng.read = fcs_rng_read;
-	priv->rng.priv = (unsigned long)priv;
+	priv->p_data = of_device_get_match_data(dev);
+	if (!priv->p_data)
+		goto -ENODEV;
 
-	ret = hwrng_register(&priv->rng);
-	if (ret) {
-		dev_err(dev, "can't register RNG device (%d)\n", ret);
-		return ret;
+	/* only register the HW RNG if the platform supports it! */
+	if (priv->p_data->have_hwrng) {
+		/* register hwrng device */
+		priv->rng.name = "intel-rng";
+		priv->rng.read = fcs_rng_read;
+		priv->rng.priv = (unsigned long)priv;
+
+		ret = hwrng_register(&priv->rng);
+		if (ret) {
+			dev_err(dev, "can't register RNG device (%d)\n", ret);
+			return ret;
+		}
 	}
 
 	platform_set_drvdata(pdev, priv);
@@ -3937,16 +3952,36 @@ static int fcs_driver_remove(struct platform_device *pdev)
 		}
 	}
 
-	hwrng_unregister(&priv->rng);
+	if (priv->p_data->have_hwrng)
+		hwrng_unregister(&priv->rng);
 	misc_deregister(&priv->miscdev);
 	stratix10_svc_free_channel(priv->chan);
 
 	return 0;
 }
 
+static const struct socfpga_fcs_data agilex_fcs_data = {
+	.have_hwrng	= false,
+};
+
+static const struct socfpga_fcs_data n5x_fcs_data = {
+	.have_hwrng	= true,
+};
+
+static const struct socfpga_fcs_data s10_fcs_data = {
+	.have_hwrng	= true,
+};
+
 static const struct of_device_id fcs_of_match[] = {
-	{.compatible = "intel,stratix10-soc-fcs"},
-	{.compatible = "intel,agilex-soc-fcs"},
+	{.compatible = "intel,stratix10-soc-fcs",
+	 .data = &s10_fcs_data
+	},
+	{.compatible = "intel,agilex-soc-fcs",
+	 .data = &agilex_fcs_data
+	},
+	{.compatible = "intel,n5x-soc-fcs",
+	 .data = &n5x_fcs_data
+	},
 	{},
 };
 
