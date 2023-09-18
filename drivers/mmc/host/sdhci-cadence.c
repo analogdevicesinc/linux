@@ -776,6 +776,11 @@ static const struct sdhci_cdns_drv_data sdhci_cdns_drv_data = {
 	},
 };
 
+static const struct sdhci_pltfm_data sdhci_cdns_agilex5_pltfm_data = {
+	.ops = &sdhci_cdns_ops,
+	.quirks2 = SDHCI_QUIRK2_40_BIT_DMA_MASK,
+};
+
 static void sdhci_cdns_hs400_enhanced_strobe(struct mmc_host *mmc,
 					     struct mmc_ios *ios)
 {
@@ -937,6 +942,10 @@ static const struct of_device_id sdhci_cdns_match[] = {
 		.data = &sdhci_elba_drv_data,
 	},
 	{ .compatible = "cdns,sd4hc" },
+	{
+		.compatible = "intel,agilex5-sd4hc",
+		.data = &sdhci_cdns_agilex5_pltfm_data,
+	},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, sdhci_cdns_match);
