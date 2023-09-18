@@ -87,7 +87,7 @@
 			};
 		};
 
-		base_fpga_region {
+		base_fpga_region: base-fpga-region {
 			compatible = "fpga-region";
 			fpga-mgr = <&fpgamgr0>;
 
