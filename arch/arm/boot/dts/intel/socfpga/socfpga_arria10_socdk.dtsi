@@ -158,6 +158,11 @@
 		reg = <0x68>;
 	};
 
+	max@4c {
+		compatible = "max1619";
+		reg = <0x4c>;
+	};
+
 	ltc@5c {
 		compatible = "ltc2977";
 		reg = <0x5c>;
