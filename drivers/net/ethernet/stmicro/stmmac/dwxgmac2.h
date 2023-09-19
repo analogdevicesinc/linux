@@ -69,7 +69,7 @@
 #define XGMAC_VLAN_CT			BIT(1)
 #define XGMAC_VLAN_OB			BIT(0)
 #define XGMAC_VLAN_HASH_TABLE		0x00000058
-#define XGMAC_VLAN_VLHT			GENMASK(15,0)
+#define XGMAC_VLAN_VLHT			GENMASK(15, 0)
 #define XGMAC_VLAN_INCL			0x00000060
 #define XGMAC_VLAN_VLTI			BIT(20)
 #define XGMAC_VLAN_CSVL			BIT(19)
@@ -100,8 +100,8 @@
 #define XGMAC_PSRQ(x)			GENMASK((x) * 8 + 7, (x) * 8)
 #define XGMAC_PSRQ_SHIFT(x)		((x) * 8)
 #define XGMAC_RXQ_CTRL4			0x00000094
-/* VFFQ mask might vary and depending on how many RX Q enabled */
-#define XGMAC_RXQCTRL_VFFQ_MASK		GENMASK(19, 17);
+/* VFFQ MASK is 19, 17 because it has 8 RX Q enabled */
+#define XGMAC_RXQCTRL_VFFQ_MASK		GENMASK(19, 17)
 #define XGMAC_RXQCTRL_VFFQ_SHIFT	17
 #define XGMAC_RXQCTRL_VFFQE		BIT(16)
 #define XGMAC_INT_STATUS		0x000000b0
@@ -529,7 +529,7 @@
 #define XGMAC_RDES3_TSA			BIT(4)
 
 /* RDES0 (write back format) */
-#define XGMAC_RDES0_VLAN_TAG_MASK	GENMASK(15,0)
+#define XGMAC_RDES0_VLAN_TAG_MASK	GENMASK(15, 0)
 
 /* MAC VLAN Tag Control and VLAN Tag Data */
 #define XGMAC_VLAN_TAG_CTRL		0x00000050
