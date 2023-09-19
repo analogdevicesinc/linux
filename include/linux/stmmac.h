@@ -175,6 +175,7 @@ enum stmmac_fpe_task_state_t {
 struct stmmac_fpe_cfg {
 	bool enable;				/* FPE enable */
 	bool hs_enable;				/* FPE handshake enable */
+	u32 txqpec;				/* Preemption classification */
 	enum stmmac_fpe_state lp_fpe_state;	/* Link Partner FPE state */
 	enum stmmac_fpe_state lo_fpe_state;	/* Local station FPE state */
 	u32 fpe_csr;				/* MAC_FPE_CTRL_STS reg cache */
