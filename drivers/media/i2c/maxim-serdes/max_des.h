@@ -51,10 +51,8 @@ struct max_des_subdev_priv {
 	bool active;
 	unsigned int pipe_id;
 	unsigned int phy_id;
-	struct max_des_dt_vc_remap remaps[MAX_DES_REMAPS_NUM];
 	unsigned int src_vc_id;
 	unsigned int dst_vc_id;
-	unsigned int num_remaps;
 };
 
 struct max_des_link {
