@@ -103,6 +103,55 @@ static int max96724_reset(struct max96724_priv *priv)
 	return 0;
 }
 
+static int max96724_log_pipe_status(struct max_des_priv *des_priv,
+				    struct max_des_pipe *pipe, const char *name)
+{
+	struct max96724_priv *priv = des_to_priv(des_priv);
+	unsigned int index = pipe->index;
+	unsigned int reg, mask;
+	int ret;
+
+	reg = 0x1dc + index * 0x20;
+	mask = BIT(0);
+	ret = max96724_read(priv, reg);
+	if (ret < 0)
+		return ret;
+
+	ret = ret & mask;
+	pr_info("%s: \tvideo_lock: %u\n", name, ret);
+
+	return 0;
+}
+
+static int max96724_log_phy_status(struct max_des_priv *des_priv,
+				   struct max_des_phy *phy, const char *name)
+{
+	struct max96724_priv *priv = des_to_priv(des_priv);
+	unsigned int index = phy->index;
+	unsigned int reg, mask, shift;
+	int ret;
+
+	reg = 0x8d0 + index / 2;
+	shift = 4 * (index % 2);
+	mask = GENMASK(3, 0);
+	ret = max96724_read(priv, reg);
+	if (ret < 0)
+		return ret;
+
+	ret = (ret >> shift) & mask;
+	pr_info("%s: \tcsi2_pkt_cnt: %u\n", name, ret);
+
+	reg += 2;
+	ret = max96724_read(priv, reg);
+	if (ret < 0)
+		return ret;
+
+	ret = (ret >> shift) & mask;
+	pr_info("%s: \tphy_pkt_cnt: %u\n", name, ret);
+
+	return 0;
+}
+
 static int max96724_mipi_enable(struct max_des_priv *des_priv, bool enable)
 {
 	struct max96724_priv *priv = des_to_priv(des_priv);
@@ -520,6 +569,8 @@ static const struct max_des_ops max96724_ops = {
 	.supports_pipe_link_remap = true,
 	.supports_pipe_stream_autoselect = true,
 	.supports_tunnel_mode = true,
+	.log_pipe_status = max96724_log_pipe_status,
+	.log_phy_status = max96724_log_phy_status,
 	.mipi_enable = max96724_mipi_enable,
 	.init = max96724_init,
 	.init_phy = max96724_init_phy,

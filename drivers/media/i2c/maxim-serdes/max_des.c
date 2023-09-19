@@ -431,6 +431,101 @@ static int max_des_enum_mbus_code(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int max_des_log_status(struct v4l2_subdev *sd)
+{
+	struct max_des_subdev_priv *sd_priv = v4l2_get_subdevdata(sd);
+	struct max_des_priv *priv = sd_priv->priv;
+	unsigned int i, j;
+	int ret;
+
+	v4l2_info(sd, "active: %u\n", priv->active);
+	v4l2_info(sd, "pipe_stream_autoselect: %u\n", priv->pipe_stream_autoselect);
+	if (priv->ops->log_status) {
+		ret = priv->ops->log_status(priv, sd->name);
+		if (ret)
+			return ret;
+	}
+	v4l2_info(sd, "\n");
+
+	for (i = 0; i < priv->ops->num_links; i++) {
+		struct max_des_link *link = &priv->links[i];
+
+		v4l2_info(sd, "link: %u\n", link->index);
+		v4l2_info(sd, "\tenabled: %u\n", link->enabled);
+		v4l2_info(sd, "\ttunnel_mode: %u\n", link->tunnel_mode);
+		v4l2_info(sd, "\tser_xlate_enabled: %u\n", link->ser_xlate_enabled);
+		v4l2_info(sd, "\tser_xlate: src: 0x%02x dst: 0x%02x\n",
+			  link->ser_xlate.src, link->ser_xlate.dst);
+		v4l2_info(sd, "\n");
+	}
+
+	for_each_subdev(priv, sd_priv) {
+		v4l2_info(sd, "channel: %u\n", sd_priv->index);
+		v4l2_info(sd, "\tfwnode: %pfw\n", sd_priv->fwnode);
+		v4l2_info(sd, "\tlabel: %s\n", sd_priv->label);
+		v4l2_info(sd, "\tactive: %u\n", sd_priv->active);
+		v4l2_info(sd, "\tfmt: %s\n", sd_priv->fmt ? sd_priv->fmt->name : NULL);
+		v4l2_info(sd, "\tdt: 0x%02x\n", sd_priv->fmt ? sd_priv->fmt->dt : 0);
+		v4l2_info(sd, "\tpipe_id: %u\n", sd_priv->pipe_id);
+		v4l2_info(sd, "\tphy_id: %u\n", sd_priv->phy_id);
+		v4l2_info(sd, "\tsrc_vc_id: %u\n", sd_priv->src_vc_id);
+		v4l2_info(sd, "\tdst_vc_id: %u\n", sd_priv->dst_vc_id);
+		v4l2_info(sd, "\n");
+	}
+
+	for (i = 0; i < priv->ops->num_pipes; i++) {
+		struct max_des_pipe *pipe = &priv->pipes[i];
+
+		v4l2_info(sd, "pipe: %u\n", pipe->index);
+		v4l2_info(sd, "\tenabled: %u\n", pipe->enabled);
+		v4l2_info(sd, "\tphy_id: %u\n", pipe->phy_id);
+		v4l2_info(sd, "\tstream_id: %u\n", pipe->stream_id);
+		v4l2_info(sd, "\tlink_id: %u\n", pipe->link_id);
+		v4l2_info(sd, "\tdbl8: %u\n", pipe->dbl8);
+		v4l2_info(sd, "\tdbl8mode: %u\n", pipe->dbl8mode);
+		v4l2_info(sd, "\tdbl10: %u\n", pipe->dbl10);
+		v4l2_info(sd, "\tdbl10mode: %u\n", pipe->dbl10mode);
+		v4l2_info(sd, "\tdbl12: %u\n", pipe->dbl12);
+		v4l2_info(sd, "\tremaps: %u\n", pipe->num_remaps);
+		for (j = 0; j < pipe->num_remaps; j++) {
+			struct max_des_dt_vc_remap *remap = &pipe->remaps[j];
+
+			v4l2_info(sd, "\t\tremap: from: vc: %u, dt: 0x%02x\n",
+				  remap->from_vc, remap->from_dt);
+			v4l2_info(sd, "\t\t       to:   vc: %u, dt: 0x%02x, phy: %u\n",
+				  remap->to_vc, remap->to_dt, remap->phy);
+		}
+		if (priv->ops->log_pipe_status) {
+			ret = priv->ops->log_pipe_status(priv, pipe, sd->name);
+			if (ret)
+				return ret;
+		}
+		v4l2_info(sd, "\n");
+	}
+
+	for (i = 0; i < priv->ops->num_phys; i++) {
+		struct max_des_phy *phy = &priv->phys[i];
+
+		v4l2_info(sd, "phy: %u\n", phy->index);
+		v4l2_info(sd, "\tenabled: %u\n", phy->enabled);
+		v4l2_info(sd, "\tlink_frequency: %llu\n", phy->link_frequency);
+		v4l2_info(sd, "\tnum_data_lanes: %u\n", phy->mipi.num_data_lanes);
+		v4l2_info(sd, "\tclock_lane: %u\n", phy->mipi.clock_lane);
+		v4l2_info(sd, "\talt_mem_map8: %u\n", phy->alt_mem_map8);
+		v4l2_info(sd, "\talt2_mem_map8: %u\n", phy->alt2_mem_map8);
+		v4l2_info(sd, "\talt_mem_map10: %u\n", phy->alt_mem_map10);
+		v4l2_info(sd, "\talt_mem_map12: %u\n", phy->alt_mem_map12);
+		if (priv->ops->log_phy_status) {
+			ret = priv->ops->log_phy_status(priv, phy, sd->name);
+			if (ret)
+				return ret;
+		}
+		v4l2_info(sd, "\n");
+	}
+
+	return 0;
+}
+
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 static int max_des_g_register(struct v4l2_subdev *sd, struct v4l2_dbg_register *reg)
 {
@@ -464,6 +559,7 @@ static int max_des_s_register(struct v4l2_subdev *sd, const struct v4l2_dbg_regi
 #endif
 
 static const struct v4l2_subdev_core_ops max_des_core_ops = {
+	.log_status = max_des_log_status,
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 	.g_register = max_des_g_register,
 	.s_register = max_des_s_register,

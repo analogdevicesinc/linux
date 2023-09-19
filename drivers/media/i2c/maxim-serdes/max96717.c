@@ -37,6 +37,7 @@ struct max96717_priv {
 struct max96717_chip_info {
 	bool supports_tunnel_mode;
 	bool supports_noncontinuous_clock;
+	bool supports_pkt_cnt;
 	unsigned int num_pipes;
 	unsigned int num_dts_per_pipe;
 	unsigned int pipe_hw_ids[MAX96717_PIPES_NUM];
@@ -708,6 +709,71 @@ static int max96717_update_pipe_vcs(struct max_ser_priv *ser_priv,
 	return max96717_write(priv, reg + 0x1, (pipe->vcs >> 8) & 0xff);
 }
 
+static int max96717_log_status(struct max_ser_priv *ser_priv, const char *name)
+{
+	struct max96717_priv *priv = ser_to_priv(ser_priv);
+	int ret;
+
+	if (!priv->info->supports_tunnel_mode)
+		return 0;
+
+	ret = max96717_read(priv, 0x38f);
+	if (ret < 0)
+		return ret;
+
+	pr_info("%s: \t\ttun_pkt_cnt: %u\n", name, ret);
+
+	return 0;
+}
+
+static int max96717_log_pipe_status(struct max_ser_priv *ser_priv,
+				    struct max_ser_pipe *pipe,
+				    const char *name)
+{
+	struct max96717_priv *priv = ser_to_priv(ser_priv);
+	unsigned int index = max96717_pipe_id(priv, pipe);
+	int ret;
+
+	ret = max96717_read(priv, 0x102 + 0x8 * index);
+	if (ret < 0)
+		return ret;
+
+	pr_info("%s: \tpclkdet: %u\n", name, !!(ret & BIT(7)));
+
+	return 0;
+}
+
+static int max96717_log_phy_status(struct max_ser_priv *ser_priv,
+				   struct max_ser_phy *phy,
+				   const char *name)
+{
+	struct max96717_priv *priv = ser_to_priv(ser_priv);
+	int ret;
+
+	if (!priv->info->supports_pkt_cnt)
+		return 0;
+
+	ret = max96717_read(priv, 0x38d);
+	if (ret < 0)
+		return ret;
+
+	pr_info("%s: \tphy_pkt_cnt: %u\n", name, ret);
+
+	ret = max96717_read(priv, 0x38e);
+	if (ret < 0)
+		return ret;
+
+	pr_info("%s: \tcsi_pkt_cnt: %u\n", name, ret);
+
+	ret = max96717_read(priv, 0x390);
+	if (ret < 0)
+		return ret;
+
+	pr_info("%s: \tphy_clk_cnt: %u\n", name, ret);
+
+	return 0;
+}
+
 static int max96717_init_phy(struct max_ser_priv *ser_priv,
 			     struct max_ser_phy *phy)
 {
@@ -1067,6 +1133,9 @@ static const struct pinmux_ops max96717_mux_ops = {
 
 static const struct max_ser_ops max96717_ops = {
 	.num_i2c_xlates = 2,
+	.log_status = max96717_log_status,
+	.log_pipe_status = max96717_log_pipe_status,
+	.log_phy_status = max96717_log_phy_status,
 	.set_pipe_enable = max96717_set_pipe_enable,
 	.update_pipe_dts = max96717_update_pipe_dts,
 	.update_pipe_vcs = max96717_update_pipe_vcs,
@@ -1175,6 +1244,7 @@ static int max96717_remove(struct i2c_client *client)
 }
 
 static const struct max96717_chip_info max96717_info = {
+	.supports_pkt_cnt = true,
 	.supports_tunnel_mode = true,
 	.supports_noncontinuous_clock = true,
 	.num_pipes = 1,

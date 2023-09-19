@@ -288,6 +288,82 @@ static int max_ser_enum_mbus_code(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int max_ser_log_status(struct v4l2_subdev *sd)
+{
+	struct max_ser_subdev_priv *sd_priv = v4l2_get_subdevdata(sd);
+	struct max_ser_priv *priv = sd_priv->priv;
+	unsigned int i, j;
+	int ret;
+
+	v4l2_info(sd, "tunnel_mode: %u\n", priv->tunnel_mode);
+	v4l2_info(sd, "i2c_xlates: %u\n", priv->num_i2c_xlates);
+	for (i = 0; i < priv->num_i2c_xlates; i++)
+		v4l2_info(sd, "\tsrc: 0x%02x dst: 0x%02x\n",
+			  priv->i2c_xlates[i].src, priv->i2c_xlates[i].dst);
+	if (priv->ops->log_status) {
+		ret = priv->ops->log_status(priv, sd->name);
+		if (ret)
+			return ret;
+	}
+	v4l2_info(sd, "\n");
+
+	for_each_subdev(priv, sd_priv) {
+		v4l2_info(sd, "channel: %u\n", sd_priv->index);
+		v4l2_info(sd, "\tfwnode: %pfw\n", sd_priv->fwnode);
+		v4l2_info(sd, "\tlabel: %s\n", sd_priv->label);
+		v4l2_info(sd, "\tactive: %u\n", sd_priv->active);
+		v4l2_info(sd, "\tfmt: %s\n", sd_priv->fmt ? sd_priv->fmt->name : NULL);
+		v4l2_info(sd, "\tdt: 0x%02x\n", sd_priv->fmt ? sd_priv->fmt->dt : 0);
+		v4l2_info(sd, "\tpipe_id: %u\n", sd_priv->pipe_id);
+		v4l2_info(sd, "\tvc_id: %u\n", sd_priv->vc_id);
+		v4l2_info(sd, "\n");
+	}
+
+	for (i = 0; i < priv->ops->num_pipes; i++) {
+		struct max_ser_pipe *pipe = &priv->pipes[i];
+
+		v4l2_info(sd, "pipe: %u\n", pipe->index);
+		v4l2_info(sd, "\tenabled: %u\n", pipe->enabled);
+		v4l2_info(sd, "\tactive: %u\n", pipe->enabled);
+		v4l2_info(sd, "\tphy_id: %u\n", pipe->phy_id);
+		v4l2_info(sd, "\tstream_id: %u\n", pipe->stream_id);
+		v4l2_info(sd, "\tdts: %u\n", pipe->num_dts);
+		for (j = 0; j < pipe->num_dts; j++)
+			v4l2_info(sd, "\t\tdt: 0x%02x\n", pipe->dts[j]);
+		v4l2_info(sd, "\tvcs: 0x%08x\n", pipe->vcs);
+		v4l2_info(sd, "\tdbl8: %u\n", pipe->dbl8);
+		v4l2_info(sd, "\tdbl10: %u\n", pipe->dbl10);
+		v4l2_info(sd, "\tdbl12: %u\n", pipe->dbl12);
+		v4l2_info(sd, "\tsoft_bpp: %u\n", pipe->soft_bpp);
+		v4l2_info(sd, "\tbpp: %u\n", pipe->bpp);
+		if (priv->ops->log_pipe_status) {
+			ret = priv->ops->log_pipe_status(priv, pipe, sd->name);
+			if (ret)
+				return ret;
+		}
+		v4l2_info(sd, "\n");
+	}
+
+	for (i = 0; i < priv->ops->num_phys; i++) {
+		struct max_ser_phy *phy = &priv->phys[i];
+
+		v4l2_info(sd, "phy: %u\n", phy->index);
+		v4l2_info(sd, "\tenabled: %u\n", phy->enabled);
+		v4l2_info(sd, "\tnum_data_lanes: %u\n", phy->mipi.num_data_lanes);
+		v4l2_info(sd, "\tclock_lane: %u\n", phy->mipi.clock_lane);
+		v4l2_info(sd, "\tnoncontinuous_clock: %u\n",
+			  !!(phy->mipi.flags & V4L2_MBUS_CSI2_NONCONTINUOUS_CLOCK));
+		if (priv->ops->log_phy_status) {
+			ret = priv->ops->log_phy_status(priv, phy, sd->name);
+			if (ret)
+				return ret;
+		}
+		v4l2_info(sd, "\n");
+	}
+
+	return 0;
+}
+
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 static int max_ser_g_register(struct v4l2_subdev *sd, struct v4l2_dbg_register *reg)
 {
@@ -321,6 +397,7 @@ static int max_ser_s_register(struct v4l2_subdev *sd, const struct v4l2_dbg_regi
 #endif
 
 static const struct v4l2_subdev_core_ops max_ser_core_ops = {
+	.log_status = max_ser_log_status,
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 	.g_register = max_ser_g_register,
 	.s_register = max_ser_s_register,

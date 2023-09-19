@@ -99,6 +99,11 @@ struct max_des_ops {
 	bool supports_pipe_stream_autoselect;
 	bool supports_tunnel_mode;
 
+	int (*log_status)(struct max_des_priv *priv, const char *name);
+	int (*log_pipe_status)(struct max_des_priv *priv, struct max_des_pipe *pipe,
+			       const char *name);
+	int (*log_phy_status)(struct max_des_priv *priv, struct max_des_phy *phy,
+			      const char *name);
 	int (*mipi_enable)(struct max_des_priv *priv, bool enable);
 	int (*init)(struct max_des_priv *priv);
 	int (*init_phy)(struct max_des_priv *priv, struct max_des_phy *phy);
