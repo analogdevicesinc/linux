@@ -990,12 +990,16 @@ struct timespec64 stmmac_calc_tas_basetime(ktime_t old_base_time,
 	return time;
 }
 
+#define FPE_FMT	"If both EST and FPE are enabled, TxQ0 must not be express "\
+		"queue. So, changing TxQ0 setting to preemptible queue.\n"
 static int tc_setup_taprio(struct stmmac_priv *priv,
 			   struct tc_taprio_qopt_offload *qopt)
 {
 	u32 size, wid = priv->dma_cap.estwid, dep = priv->dma_cap.estdep;
+	u32 txqmask = (1 << priv->dma_cap.number_tx_queues) - 1;
 	struct plat_stmmacenet_data *plat = priv->plat;
 	struct timespec64 time, current_time, qopt_time;
+	u32 txqpec = priv->plat->fpe_cfg->txqpec;
 	ktime_t current_time_ns;
 	bool fpe = false;
 	int i, ret = 0;
@@ -1123,6 +1127,32 @@ static int tc_setup_taprio(struct stmmac_priv *priv,
 		return -EOPNOTSUPP;
 	}
 
+	if (fpe) {
+		if (!txqpec) {
+			netdev_err(priv->dev, "FPE preempt must not all 0s!\n");
+			mutex_unlock(&priv->plat->est->lock);
+			return -EINVAL;
+		}
+
+		/* Check PEC is within TxQ range */
+		if (txqpec & ~txqmask) {
+			netdev_err(priv->dev, "FPE preempt is out-of-bound.\n");
+			mutex_unlock(&priv->plat->est->lock);
+			return -EINVAL;
+		}
+
+		/* When EST and FPE are both enabled, TxQ0 is always preemptible
+		 * queue. If FPE is enabled, we expect at least lsb is set.
+		 */
+		if (txqpec && !(txqpec & BIT(0))) {
+			netdev_warn(priv->dev, FPE_FMT);
+			priv->plat->fpe_cfg->txqpec |= BIT(0);
+		}
+
+		netdev_info(priv->dev, "FPE: TxQ PEC = 0x%X\n",
+			    priv->plat->fpe_cfg->txqpec);
+	}
+
 	/* Actual FPE register configuration will be done after FPE handshake
 	 * is success.
 	 */
@@ -1159,7 +1189,7 @@ disable:
 			     priv->plat->fpe_cfg,
 			     priv->plat->tx_queues_to_use,
 			     priv->plat->rx_queues_to_use,
-			     false);
+			     0, false);
 	netdev_info(priv->dev, "disabled FPE\n");
 
 	stmmac_fpe_handshake(priv, false);
@@ -1207,6 +1237,13 @@ static int tc_query_caps(struct stmmac_priv *priv,
 	}
 }
 
+static int tc_setup_preempt(struct stmmac_priv *priv,
+			    struct tc_preempt_qopt_offload *qopt)
+{
+	priv->plat->fpe_cfg->txqpec = qopt->preemptible_queues;
+	return 0;
+}
+
 const struct stmmac_tc_ops dwmac510_tc_ops = {
 	.init = tc_init,
 	.setup_cls_u32 = tc_setup_cls_u32,
@@ -1214,5 +1251,6 @@ const struct stmmac_tc_ops dwmac510_tc_ops = {
 	.setup_cls = tc_setup_cls,
 	.setup_taprio = tc_setup_taprio,
 	.setup_etf = tc_setup_etf,
+	.setup_preempt = tc_setup_preempt,
 	.query_caps = tc_query_caps,
 };
