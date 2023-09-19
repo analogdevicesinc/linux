@@ -4,6 +4,7 @@
  * Adopted from dwmac-sti.c
  */
 
+#include <linux/clocksource.h>
 #include <linux/mfd/altera-sysmgr.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
@@ -17,6 +18,10 @@
 
 #include "stmmac.h"
 #include "stmmac_platform.h"
+#include "stmmac_ptp.h"
+
+#include "altr_tse_pcs.h"
+#include "dwxgmac2.h"
 
 #define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_GMII_MII 0x0
 #define SYSMGR_EMACGRP_CTRL_PHYSEL_ENUM_RGMII 0x1
@@ -40,6 +45,17 @@
 #define SGMII_ADAPTER_CTRL_REG		0x00
 #define SGMII_ADAPTER_ENABLE		0x0000
 #define SGMII_ADAPTER_DISABLE		0x0001
+
+#define SMTG_HUB_ADDR          0x15
+#define SMTG_REG_0xC           0xC
+#define SMTG_REG_0xD           0xD
+#define SMTG_REG_0xE           0xE
+#define SMTG_REG_0xF           0xF
+#define SMTG_REG_0x10          0x10
+#define SMTG_REG_0x11          0x11
+#define SMTG_REG_0x12          0x12
+#define SMTG_REG_0x13          0x13
+#define SMTG_TIME_SHIFT        16
 
 struct socfpga_dwmac;
 struct socfpga_dwmac_ops {
@@ -98,6 +114,122 @@ static void socfpga_dwmac_fix_mac_speed(void *priv, unsigned int speed, unsigned
 	if (phy_dev && sgmii_adapter_base)
 		writew(SGMII_ADAPTER_ENABLE,
 		       sgmii_adapter_base + SGMII_ADAPTER_CTRL_REG);
+}
+
+static void get_smtgtime(struct mii_bus *mii, int smtg_addr,
+			  u64 *smtg_time_ctr0, u64 *smtg_time_ctr1)
+{
+	u64 ns;
+
+	ns = mdiobus_read(mii, smtg_addr, SMTG_REG_0xF);
+	ns <<= SMTG_TIME_SHIFT;
+	ns |= mdiobus_read(mii, smtg_addr, SMTG_REG_0xE);
+	ns <<= SMTG_TIME_SHIFT;
+	ns |= mdiobus_read(mii, smtg_addr, SMTG_REG_0xD);
+	ns <<= SMTG_TIME_SHIFT;
+	ns |= mdiobus_read(mii, smtg_addr, SMTG_REG_0xC);
+
+	*smtg_time_ctr0 = ns;
+
+	ns = mdiobus_read(mii, smtg_addr, SMTG_REG_0x13);
+	ns <<= SMTG_TIME_SHIFT;
+	ns |= mdiobus_read(mii, smtg_addr, SMTG_REG_0x12);
+	ns <<= SMTG_TIME_SHIFT;
+	ns |= mdiobus_read(mii, smtg_addr, SMTG_REG_0x11);
+	ns <<= SMTG_TIME_SHIFT;
+	ns |= mdiobus_read(mii, smtg_addr, SMTG_REG_0x10);
+
+	*smtg_time_ctr1 = ns;
+}
+
+static int smtg_crosststamp(ktime_t *device, struct system_counterval_t *system,
+			    void *ctx)
+{
+	struct stmmac_priv *priv = (struct stmmac_priv *)ctx;
+	void __iomem *ptpaddr = priv->ptpaddr;
+	void __iomem *ioaddr = priv->hw->pcsr;
+	unsigned long flags;
+	u64 smtg_time_ctr0 = 0;
+	u64 smtg_time_ctr1 = 0;
+	u64 ptp_time = 0;
+	u32 num_snapshot;
+	u32 gpio_value;
+	u32 acr_value;
+	int ret;
+	u32 v;
+	int i;
+
+	/* Both internal crosstimestamping and external triggered event
+	 * timestamping cannot be run concurrently.
+	 */
+	if (priv->plat->ext_snapshot_en)
+		return -EBUSY;
+
+	mutex_lock(&priv->aux_ts_lock);
+	/* Enable Internal snapshot trigger */
+	acr_value = readl(ptpaddr + PTP_ACR);
+	acr_value &= ~PTP_ACR_MASK;
+	switch (priv->plat->int_snapshot_num) {
+	case AUX_SNAPSHOT0:
+		acr_value |= PTP_ACR_ATSEN0;
+		break;
+	case AUX_SNAPSHOT1:
+		acr_value |= PTP_ACR_ATSEN1;
+		break;
+	case AUX_SNAPSHOT2:
+		acr_value |= PTP_ACR_ATSEN2;
+		break;
+	case AUX_SNAPSHOT3:
+		acr_value |= PTP_ACR_ATSEN3;
+		break;
+	default:
+		mutex_unlock(&priv->aux_ts_lock);
+		return -EINVAL;
+	}
+	writel(acr_value, ptpaddr + PTP_ACR);
+
+	/* Clear FIFO */
+	acr_value = readl(ptpaddr + PTP_ACR);
+	acr_value |= PTP_ACR_ATSFC;
+	writel(acr_value, ptpaddr + PTP_ACR);
+	/* Release the mutex */
+	mutex_unlock(&priv->aux_ts_lock);
+
+	/* Trigger Internal snapshot signal
+	 * Create a rising edge by just toggle the GPO0 to low
+	 * and back to high.
+	 */
+	gpio_value = readl(ioaddr + XGMAC_GPIO_STATUS);
+	gpio_value &= ~XGMAC_GPIO_GPO0;
+	writel(gpio_value, ioaddr + XGMAC_GPIO_STATUS);
+	gpio_value |= XGMAC_GPIO_GPO0;
+	writel(gpio_value, ioaddr + XGMAC_GPIO_STATUS);
+
+	/* Poll for time sync operation done */
+	ret = readl_poll_timeout(priv->ioaddr + XGMAC_INT_STATUS, v,
+				 (v & XGMAC_INT_TSIS), 100, 10000);
+
+	if (ret == -ETIMEDOUT) {
+		pr_err("%s: Wait for time sync operation timeout\n", __func__);
+		return ret;
+	}
+
+	num_snapshot = (readl(ioaddr + XGMAC_TIMESTAMP_STATUS) &
+			XGMAC_TIMESTAMP_ATSNS_MASK) >>
+			XGMAC_TIMESTAMP_ATSNS_SHIFT;
+
+	/* Repeat until the timestamps are from the FIFO last segment */
+	for (i = 0; i < num_snapshot; i++) {
+		read_lock_irqsave(&priv->ptp_lock, flags);
+		stmmac_get_ptptime(priv, ptpaddr, &ptp_time);
+		*device = ns_to_ktime(ptp_time);
+		read_unlock_irqrestore(&priv->ptp_lock, flags);
+	}
+
+	get_smtgtime(priv->mii, SMTG_HUB_ADDR, &smtg_time_ctr0, &smtg_time_ctr1);
+	system->cs = get_clocksource();
+	system->cycles = smtg_time_ctr0;
+	return 0;
 }
 
 static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *dev)
@@ -428,6 +560,13 @@ static int socfpga_dwmac_probe(struct platform_device *pdev)
 	dwmac->ops = ops;
 	plat_dat->bsp_priv = dwmac;
 	plat_dat->fix_mac_speed = socfpga_dwmac_fix_mac_speed;
+
+	/* Cross Timestamp support for SMTG Hub */
+	if (of_property_read_bool(pdev->dev.of_node, "altr,smtg-hub")) {
+		dev_info(dev, "SMTG Hub Cross Timestamp supported\n");
+		plat_dat->int_snapshot_num = AUX_SNAPSHOT0;
+		plat_dat->crosststamp = smtg_crosststamp;
+	}
 
 	ret = stmmac_dvr_probe(&pdev->dev, plat_dat, &stmmac_res);
 	if (ret)
