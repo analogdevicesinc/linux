@@ -282,9 +282,19 @@
 #define LYNX_28G_LNaPSS_TYPE_XFI		0x28
 #define LYNX_28G_LNaPSS_TYPE_25G		0x68
 
+/* MDEV_PORT is at the same bitfield address for all protocol converters */
+#define LYNX_28G_MDEV_PORT_MSK			GENMASK(31, 27)
+#define LYNX_28G_MDEV_PORT_X(x)			(((x) & LYNX_28G_MDEV_PORT_MSK) >> 27)
+
 #define LYNX_28G_SGMIIaCR1(lane)		(0x1804 + (lane) * 0x10)
 #define LYNX_28G_SGMIIaCR1_SGPCS_EN		BIT(11)
 #define LYNX_28G_SGMIIaCR1_SGPCS_MSK		BIT(11)
+
+#define LYNX_28G_ANLTaCR1(lane)			(0x1a04 + (lane) * 0x10)
+
+#define LYNX_28G_SXGMIIaCR1(lane)		(0x1a84 + (lane) * 0x10)
+
+#define LYNX_28G_E25GaCR1(lane)			(0x1b04 + (lane) * 0x10)
 
 #define LYNX_28G_CDR_SLEEP_US			50
 #define LYNX_28G_CDR_TIMEOUT_US			500
@@ -1197,12 +1207,68 @@ static void lynx_28g_check_cdr_lock(struct phy *phy,
 	cdr->cdr_locked = lynx_28g_cdr_lock_check(lane);
 }
 
+static void lynx_28g_get_pcvt_addr(struct phy *phy,
+				   struct phy_status_opts_pcvt *pcvt)
+{
+	struct lynx_28g_lane *lane = phy_get_drvdata(phy);
+	enum lynx_28g_lane_mode lane_mode = lane->mode;
+	u32 cr1;
+
+	switch (pcvt->type) {
+	case PHY_PCVT_ETHERNET_PCS:
+		switch (lane_mode) {
+		case LANE_MODE_1000BASEX_SGMII:
+		case LANE_MODE_1000BASEKX:
+			cr1 = lynx_28g_lane_read(lane, SGMIIaCR1);
+			pcvt->addr.mdio = LYNX_28G_MDEV_PORT_X(cr1);
+			break;
+		case LANE_MODE_10GBASER:
+		case LANE_MODE_USXGMII:
+		case LANE_MODE_10GBASEKR:
+			cr1 = lynx_28g_lane_read(lane, SXGMIIaCR1);
+			pcvt->addr.mdio = LYNX_28G_MDEV_PORT_X(cr1);
+			break;
+		case LANE_MODE_25GBASER:
+		case LANE_MODE_25GBASEKR:
+			cr1 = lynx_28g_lane_read(lane, E25GaCR1);
+			pcvt->addr.mdio = LYNX_28G_MDEV_PORT_X(cr1);
+			break;
+		default:
+			break;
+		}
+		break;
+	case PHY_PCVT_ETHERNET_ANLT:
+		switch (lane_mode) {
+		case LANE_MODE_1000BASEKX:
+			cr1 = lynx_28g_lane_read(lane, SGMIIaCR1);
+			pcvt->addr.mdio = LYNX_28G_MDEV_PORT_X(cr1);
+			break;
+		case LANE_MODE_10GBASEKR:
+			cr1 = lynx_28g_lane_read(lane, SXGMIIaCR1);
+			pcvt->addr.mdio = LYNX_28G_MDEV_PORT_X(cr1);
+			break;
+		case LANE_MODE_25GBASEKR:
+			cr1 = lynx_28g_lane_read(lane, ANLTaCR1);
+			pcvt->addr.mdio = LYNX_28G_MDEV_PORT_X(cr1);
+			break;
+		default:
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+}
+
 static int lynx_28g_get_status(struct phy *phy, enum phy_status_type type,
 			       union phy_status_opts *opts)
 {
 	switch (type) {
 	case PHY_STATUS_CDR_LOCK:
 		lynx_28g_check_cdr_lock(phy, &opts->cdr);
+		break;
+	case PHY_STATUS_PCVT_ADDR:
+		lynx_28g_get_pcvt_addr(phy, &opts->pcvt);
 		break;
 	default:
 		return -EOPNOTSUPP;
