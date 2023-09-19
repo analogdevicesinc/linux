@@ -57,6 +57,7 @@ struct max_i2c_xlate {
 };
 
 struct max_format {
+	const char *name;
 	u32 code;
 	u8 dt;
 	u8 bpp;
