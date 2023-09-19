@@ -915,7 +915,7 @@ static int max96717_init_pipe(struct max_ser_priv *ser_priv,
 		return ret;
 
 	/* Set override BPP. */
-	reg = 0x100 + 0x80 * index;
+	reg = 0x100 + 0x8 * index;
 	mask = BIT(3);
 	ret = max96717_update_bits(priv, reg, mask, pipe->bpp ? mask : 0);
 	if (ret)
