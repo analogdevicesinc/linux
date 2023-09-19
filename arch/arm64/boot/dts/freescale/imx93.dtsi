@@ -685,6 +685,7 @@
 				interrupts = <GIC_SPI 79 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clk IMX93_CLK_WDOG3_GATE>;
 				timeout-sec = <40>;
+				fsl,ext-reset-output;
 				status = "disabled";
 			};
 
