@@ -4648,8 +4648,8 @@ static void stmmac_rx_vlan(struct net_device *dev, struct sk_buff *skb)
 	__be16 vlan_proto = veth->h_vlan_proto;
 	u16 vlanid;
 
-	if ((vlan_proto == htons(ETH_P_8021Q)) ||
-	    (vlan_proto == htons(ETH_P_8021AD))) {
+	if (vlan_proto == htons(ETH_P_8021Q) ||
+	    vlan_proto == htons(ETH_P_8021AD)) {
 		/* pop the vlan tag */
 		vlanid = ntohs(veth->h_vlan_TCI);
 		memmove(skb->data + VLAN_HLEN, veth, ETH_ALEN * 2);
@@ -5518,7 +5518,7 @@ drain_data:
 		stmmac_get_rx_hwtstamp(priv, p, np, skb);
 
 		/* Switch between rx_hw_vlan or rx_vlan */
-		if(priv->plat->use_hw_vlan)
+		if (priv->plat->use_hw_vlan)
 			stmmac_rx_hw_vlan(priv, priv->dev,
 					  priv->hw, p, skb);
 		else
@@ -5823,7 +5823,7 @@ static int stmmac_set_features(struct net_device *netdev,
 			stmmac_enable_sph(priv, priv->ioaddr, sph_en, chan);
 	}
 
-	if(changed & NETIF_F_HW_VLAN_CTAG_RX) {
+	if (changed & NETIF_F_HW_VLAN_CTAG_RX) {
 		stmmac_set_hw_vlan_mode(priv, priv->ioaddr, features);
 		priv->plat->use_hw_vlan = features & NETIF_F_HW_VLAN_CTAG_RX;
 	}

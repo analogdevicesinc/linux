@@ -121,9 +121,9 @@ struct stmmac_desc_ops {
 	stmmac_do_void_callback(__priv, desc, set_tx_ic, __args)
 #define stmmac_get_tx_ls(__priv, __args...) \
 	stmmac_do_callback(__priv, desc, get_tx_ls, __args)
-#define stmmac_get_rx_vlan_tci(__priv,__args...) \
+#define stmmac_get_rx_vlan_tci(__priv, __args...) \
 	stmmac_do_callback(__priv, desc, get_tx_vlan_tci, __args)
-#define stmmac_get_rx_vlan_valid(__priv,__args...) \
+#define stmmac_get_rx_vlan_valid(__priv, __args...) \
 	stmmac_do_callback(__priv, desc, get_tx_vlan_valid, __args)
 #define stmmac_tx_status(__priv, __args...) \
 	stmmac_do_callback(__priv, desc, tx_status, __args)
