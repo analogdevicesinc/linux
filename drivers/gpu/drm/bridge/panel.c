@@ -68,9 +68,6 @@ static int panel_bridge_attach(struct drm_bridge *bridge,
 	struct drm_device *drm_dev = bridge->dev;
 	int ret;
 
-	if (flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR)
-		return 0;
-
 	panel_bridge->link = device_link_add(drm_dev->dev, panel->dev,
 					     DL_FLAG_STATELESS);
 	if (!panel_bridge->link) {
@@ -78,6 +75,9 @@ static int panel_bridge_attach(struct drm_bridge *bridge,
 			  dev_name(drm_dev->dev), dev_name(panel->dev));
 		return -EINVAL;
 	}
+
+	if (flags & DRM_BRIDGE_ATTACH_NO_CONNECTOR)
+		return 0;
 
 	drm_connector_helper_add(connector,
 				 &panel_bridge_connector_helper_funcs);
