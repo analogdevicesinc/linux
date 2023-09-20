@@ -281,7 +281,7 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 	unsigned int i;
 	int ret;
 
-	if (phy->index == 1 && phy->mipi.clock_lane == 3 &&
+	if (index == 1 && phy->mipi.clock_lane == 3 &&
 	    phy->mipi.num_data_lanes == 2)
 		num_hw_data_lanes = 4;
 	else
