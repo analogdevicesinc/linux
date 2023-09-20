@@ -289,8 +289,11 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 
 	/* Configure a lane count. */
 	/* TODO: Add support CPHY mode. */
-	ret = max96724_update_bits(priv, 0x90a + 0x40 * index, GENMASK(7, 6),
-				   FIELD_PREP(GENMASK(7, 6), num_data_lanes - 1));
+	reg = 0x90a + 0x40 * index;
+	shift = 6;
+	mask = GENMASK(1, 0);
+	val = num_data_lanes - 1;
+	ret = max96724_update_bits(priv, reg, mask << shift, val << shift);
 	if (ret)
 		return ret;
 
