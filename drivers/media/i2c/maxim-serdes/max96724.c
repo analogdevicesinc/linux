@@ -13,6 +13,7 @@
 #include "max_des.h"
 
 #define MAX96724_PHYS_NUM		4
+#define MAX96724_PHY1_ALT_CLOCK		5
 
 struct max96724_priv {
 	struct max_des_priv des_priv;
@@ -190,9 +191,10 @@ static const struct max96724_lane_config max96724_lane_configs[] = {
 	 * PHY 1 can be in 4-lane mode (combining lanes of PHY 0 and PHY 1)
 	 * but only use the data lanes of PHY0, while continuing to use the
 	 * clock lane of PHY 1.
+	 * Specifying clock-lanes as 5 turns on alternate clocking mode.
 	 */
-	{ { 0, 2, 4, 0 }, { 0, 3, 0, 0 }, BIT(2) },
-	{ { 0, 2, 2, 2 }, { 0, 3, 0, 0 }, BIT(3) },
+	{ { 0, 2, 4, 0 }, { 0, MAX96724_PHY1_ALT_CLOCK, 0, 0 }, BIT(2) },
+	{ { 0, 2, 2, 2 }, { 0, MAX96724_PHY1_ALT_CLOCK, 0, 0 }, BIT(3) },
 
 	{ { 2, 2, 2, 2 }, { 0, 0, 0, 0 }, BIT(0) },
 	{ { 0, 4, 4, 0 }, { 0, 0, 0, 0 }, BIT(2) },
@@ -283,7 +285,7 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 
 	/* Configure a lane count. */
 	/* TODO: Add support CPHY mode. */
-	if (index == 1 && phy->mipi.clock_lane == 3 &&
+	if (index == 1 && phy->mipi.clock_lane == MAX96724_PHY1_ALT_CLOCK &&
 	    phy->mipi.num_data_lanes == 2)
 		num_hw_data_lanes = 4;
 	else
