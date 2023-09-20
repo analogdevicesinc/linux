@@ -281,14 +281,14 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 	unsigned int i;
 	int ret;
 
+	/* Configure a lane count. */
+	/* TODO: Add support CPHY mode. */
 	if (index == 1 && phy->mipi.clock_lane == 3 &&
 	    phy->mipi.num_data_lanes == 2)
 		num_hw_data_lanes = 4;
 	else
 		num_hw_data_lanes = phy->mipi.num_data_lanes;
 
-	/* Configure a lane count. */
-	/* TODO: Add support CPHY mode. */
 	reg = 0x90a + 0x40 * index;
 	shift = 6;
 	mask = GENMASK(1, 0);
@@ -297,6 +297,8 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 	if (ret)
 		return ret;
 
+	/* Configure lane mapping. */
+	/* TODO: Add support for lane swapping. */
 	if (num_hw_data_lanes == 4) {
 		mask = 0xff;
 		val = 0xe4;
@@ -309,12 +311,11 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 
 	reg = 0x8a3 + index / 2;
 
-	/* Configure lane mapping. */
-	/* TODO: Add support for lane swapping. */
 	ret = max96724_update_bits(priv, reg, mask << shift, val << shift);
 	if (ret)
 		return ret;
 
+	/* Configure lane polarity. */
 	if (num_hw_data_lanes == 4) {
 		mask = 0x3f;
 		clk_bit = 5;
@@ -327,7 +328,6 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 
 	reg = 0x8a5 + index / 2;
 
-	/* Configure lane polarity. */
 	val = 0;
 	for (i = 0; i < num_data_lanes + 1; i++)
 		if (phy->mipi.lane_polarities[i])
@@ -389,12 +389,12 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 	if (ret)
 		return ret;
 
+	/* Enable PHY. */
 	if (num_hw_data_lanes == 4)
 		mask = 0x3 << (index / 2 + 4);
 	else
 		mask = 0x1 << (index + 4);
 
-	/* Enable PHY. */
 	ret = max96724_update_bits(priv, 0x8a2, mask, mask);
 	if (ret)
 		return ret;
