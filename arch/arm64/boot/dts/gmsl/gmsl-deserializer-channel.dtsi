@@ -46,7 +46,7 @@
 
 #if !defined(DES_CH_PHY_CLOCK_LANE)
 #if defined(GMSL_DES_PHY_1_2_LANE_MODE_IN_4_LANES) && DES_CH_PHY == 1
-#define DES_CH_PHY_CLOCK_LANE 3
+#define DES_CH_PHY_CLOCK_LANE 5
 #else
 #define DES_CH_PHY_CLOCK_LANE 0
 #endif
