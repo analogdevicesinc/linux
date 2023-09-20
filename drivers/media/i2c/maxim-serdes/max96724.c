@@ -376,7 +376,8 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 		return ret;
 
 	/* Pull DPLL block out of reset. */
-	ret = max96724_update_bits(priv, 0x1c00 + 0x100 * index, BIT(0), 0x01);
+	reg = 0x1c00 + 0x100 * index;
+	ret = max96724_update_bits(priv, reg, BIT(0), 0x01);
 	if (ret)
 		return ret;
 
@@ -385,7 +386,8 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 	val |= phy->alt_mem_map8 ? BIT(1) : 0;
 	val |= phy->alt_mem_map10 ? BIT(2) : 0;
 	val |= phy->alt2_mem_map8 ? BIT(4) : 0;
-	ret = max96724_update_bits(priv, 0x933 + 0x40 * index, GENMASK(2, 0), val);
+	reg = 0x933 + 0x40 * index;
+	ret = max96724_update_bits(priv, reg, GENMASK(2, 0), val);
 	if (ret)
 		return ret;
 
