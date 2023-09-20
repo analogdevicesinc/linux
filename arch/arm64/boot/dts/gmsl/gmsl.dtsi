@@ -26,8 +26,6 @@ Configuration parameters:
 #define GMSL_DES_PHY_NUM_LANES		2
 #define GMSL_DES_PHY_1_2_LANE_MODE_IN_4_LANES
 #define GMSL_DES_I2C_LABEL		cam_i2c_0
-#define GMSL_DES_PHY_ALT_MEM_MAP12
-#define GMSL_DES_PHY_ALT_MEM_MAP10
 
 #define GMSL_DES_MAX9296A
 #define GMSL_DES_MAX96724
@@ -443,14 +441,6 @@ Configuration parameters:
 &des {
 	phy@GMSL_DES_PHY {
 		reg = <GMSL_DES_PHY>;
-
-#if defined(GMSL_DES_PHY_ALT_MEM_MAP12)
-		maxim,alt-mem-map12;
-#endif
-
-#if defined(GMSL_DES_PHY_ALT_MEM_MAP10)
-		maxim,alt-mem-map10;
-#endif
 	};
 
 #if defined(GMSL_CAMERA_0)
@@ -680,8 +670,6 @@ cam_3_i2c_bus: &ser_3_i2c_0 {};
 #undef GMSL_DES_PHY_NUM_LANES
 #undef GMSL_DES_PHY_1_2_LANE_MODE_IN_4_LANES
 #undef GMSL_DES_I2C_LABEL
-#undef GMSL_DES_PHY_ALT_MEM_MAP12
-#undef GMSL_DES_PHY_ALT_MEM_MAP10
 
 #undef GMSL_DES_MAX9296A
 #undef GMSL_DES_MAX96724
