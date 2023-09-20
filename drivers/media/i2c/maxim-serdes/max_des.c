@@ -892,6 +892,13 @@ static int max_des_parse_src_dt_endpoint(struct max_des_subdev_priv *sd_priv,
 		return -EINVAL;
 	}
 
+	for (i = 0; i < mipi->num_data_lanes; i++) {
+		if (mipi->data_lanes[i] > mipi->num_data_lanes) {
+			dev_err(priv->dev, "PHY configured with data lanes out of range\n");
+			return -EINVAL;
+		}
+	}
+
 	if (!phy->bus_config_parsed) {
 		phy->mipi = v4l2_ep.bus.mipi_csi2;
 		phy->link_frequency = link_frequency;
