@@ -392,10 +392,13 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 		return ret;
 
 	/* Enable PHY. */
+	shift = 4;
 	if (num_hw_data_lanes == 4)
-		mask = 0x3 << (index / 2 + 4);
+		/* PHY 1 -> bits [1:0] */
+		/* PHY 2 -> bits [3:2] */
+		mask = 0x3 << ((index / 2) * 2 + shift);
 	else
-		mask = 0x1 << (index + 4);
+		mask = 0x1 << (index + shift);
 
 	ret = max96724_update_bits(priv, 0x8a2, mask, mask);
 	if (ret)
