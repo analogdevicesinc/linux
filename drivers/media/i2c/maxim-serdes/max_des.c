@@ -855,6 +855,7 @@ static int max_des_parse_src_dt_endpoint(struct max_des_subdev_priv *sd_priv,
 	struct v4l2_fwnode_bus_mipi_csi2 *mipi = &v4l2_ep.bus.mipi_csi2;
 	struct fwnode_handle *ep;
 	u64 link_frequency;
+	unsigned int i;
 	int ret;
 
 	ep = fwnode_graph_get_endpoint_by_id(fwnode, MAX_DES_SOURCE_PAD, 0, 0);
@@ -907,6 +908,13 @@ static int max_des_parse_src_dt_endpoint(struct max_des_subdev_priv *sd_priv,
 	if (phy->mipi.num_data_lanes != mipi->num_data_lanes) {
 		dev_err(priv->dev, "PHY configured with differing number of data lanes\n");
 		return -EINVAL;
+	}
+
+	for (i = 0; i < mipi->num_data_lanes; i++) {
+		if (phy->mipi.data_lanes[i] != mipi->data_lanes[i]) {
+			dev_err(priv->dev, "PHY configured with differing data lanes\n");
+			return -EINVAL;
+		}
 	}
 
 	if (phy->mipi.clock_lane != mipi->clock_lane) {
