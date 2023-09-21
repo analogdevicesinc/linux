@@ -86,3 +86,18 @@ config FSL_ENETC_QOS
 	  enable/disable from user space via Qos commands(tc). In the kernel
 	  side, it can be loaded by Qos driver. Currently, it is only support
 	  taprio(802.1Qbv) and Credit Based Shaper(802.1Qbu).
+
+config FSL_NTMP
+	bool "NETC NTMP driver"
+	help
+	  Some NETC functionality is controlled using control messages
+	  sent to the hardware using BD ring interface with 32 bytes
+	  descriptors similar to the packet Transmit BD ring used on
+	  ENETC. This BD ring interface is referred to as the command
+	  BD ring. This is used to configure functionality where the
+	  underlying resources may be shared between different entities
+	  or being too large to configure using direct registers.
+	  Hence, a messaging protocol called the NETC Table Management
+	  Protocol (NTMP) is provided for exchanging configuration and
+	  management information between the software and the hardware
+	  using the command BD ring interface.
