@@ -79,10 +79,13 @@ static enum dpmac_eth_if dpmac_eth_if_mode(phy_interface_t if_mode)
 	case PHY_INTERFACE_MODE_SGMII:
 		return DPMAC_ETH_IF_SGMII;
 	case PHY_INTERFACE_MODE_10GBASER:
+	case PHY_INTERFACE_MODE_10GKR:
+	case PHY_INTERFACE_MODE_40GKR4:
 		return DPMAC_ETH_IF_XFI;
 	case PHY_INTERFACE_MODE_1000BASEX:
 		return DPMAC_ETH_IF_1000BASEX;
 	case PHY_INTERFACE_MODE_25GBASER:
+	case PHY_INTERFACE_MODE_25GKR:
 		return DPMAC_ETH_IF_CAUI;
 	default:
 		return DPMAC_ETH_IF_MII;
@@ -136,11 +139,20 @@ static int dpaa2_mac_get_if_mode(struct fwnode_handle *dpmac_node,
 				 struct dpmac_attr attr)
 {
 	phy_interface_t if_mode;
+	const char *managed;
 	int err;
 
 	err = fwnode_get_phy_mode(dpmac_node);
 	if (err > 0)
 		return err;
+
+	/* Let phylink select state->interface, ignoring the dpmac eth_if value
+	 * provided by the MC firmware. That is even slightly bogus
+	 * (for 40G-KR4, the MC firmware returns DPMAC_ETH_IF_XFI)
+	 */
+	if (fwnode_property_read_string(dpmac_node, "managed", &managed) == 0 &&
+	    strcmp(managed, "c73") == 0)
+		return PHY_INTERFACE_MODE_NA;
 
 	err = phy_mode(attr.eth_if, &if_mode);
 	if (!err)
@@ -177,14 +189,15 @@ static void dpaa2_mac_config(struct phylink_config *config, unsigned int mode,
 		netdev_err(mac->net_dev, "%s: dpmac_set_link_state() = %d\n",
 			   __func__, err);
 
-	if (!mac->num_phys)
+	if (!mac->num_phys || phylink_autoneg_c73(mode))
 		return;
 
 	/* This happens only if we support changing of protocol at runtime */
 	err = dpmac_set_protocol(mac->mc_io, 0, mac->mc_dev->mc_handle,
 				 dpmac_eth_if_mode(state->interface));
 	if (err)
-		netdev_err(mac->net_dev,  "dpmac_set_protocol() = %d\n", err);
+		netdev_err(mac->net_dev, "dpmac_set_protocol(%s) = %pe\n",
+			   phy_modes(state->interface), ERR_PTR(err));
 
 	/* Configure any optional retimers for the current interface mode */
 	for (i = mac->num_lanes; i < mac->num_phys; i++)
@@ -226,6 +239,20 @@ static void dpaa2_mac_link_up(struct phylink_config *config,
 	if (err)
 		netdev_err(mac->net_dev, "%s: dpmac_set_link_state() = %d\n",
 			   __func__, err);
+
+	/* The resolved C73 interface is only known at mac_link_up() time.
+	 * It is not necessary to configure any retimers here, since they
+	 * are incompatible with C73 and thus will be absent in any real life
+	 * backplane setup (they block the transmission of DME base pages).
+	 */
+	if (phylink_autoneg_c73(mode)) {
+		err = dpmac_set_protocol(mac->mc_io, 0, mac->mc_dev->mc_handle,
+					 dpmac_eth_if_mode(interface));
+		if (err) {
+			netdev_err(mac->net_dev, "dpmac_set_protocol(%s) = %pe\n",
+				   phy_modes(interface), ERR_PTR(err));
+		}
+	}
 }
 
 static void dpaa2_mac_link_down(struct phylink_config *config,
@@ -435,7 +462,7 @@ int dpaa2_mac_connect(struct dpaa2_mac *mac)
 
 	mac->phylink_config.mac_capabilities = MAC_SYM_PAUSE | MAC_ASYM_PAUSE |
 		MAC_10FD | MAC_100FD | MAC_1000FD | MAC_2500FD | MAC_5000FD |
-		MAC_10000FD | MAC_25000FD;
+		MAC_10000FD | MAC_25000FD | MAC_40000FD | MAC_100000FD;
 
 	dpaa2_mac_set_supported_interfaces(mac);
 
