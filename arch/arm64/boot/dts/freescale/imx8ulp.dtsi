@@ -274,23 +274,7 @@
 
 			edma1: dma-controller@29010000 {
 				compatible = "fsl,imx8ulp-edma";
-				reg = <0x29010000 0x10000>,
-				      <0x29020000 0x10000>, <0x29030000 0x10000>,
-				      <0x29040000 0x10000>, <0x29050000 0x10000>,
-				      <0x29060000 0x10000>, <0x29070000 0x10000>,
-				      <0x29080000 0x10000>, <0x29090000 0x10000>,
-				      <0x290a0000 0x10000>, <0x290b0000 0x10000>,
-				      <0x290c0000 0x10000>, <0x290d0000 0x10000>,
-				      <0x290e0000 0x10000>, <0x290f0000 0x10000>,
-				      <0x29100000 0x10000>, <0x29110000 0x10000>,
-				      <0x29120000 0x10000>, <0x29130000 0x10000>,
-				      <0x29140000 0x10000>, <0x29150000 0x10000>,
-				      <0x29160000 0x10000>, <0x29170000 0x10000>,
-				      <0x29180000 0x10000>, <0x29190000 0x10000>,
-				      <0x291a0000 0x10000>, <0x291b0000 0x10000>,
-				      <0x291c0000 0x10000>, <0x291d0000 0x10000>,
-				      <0x291e0000 0x10000>, <0x291f0000 0x10000>,
-				      <0x29200000 0x10000>, <0x29210000 0x10000>;
+				reg = <0x29010000 0x210000>;
 				#dma-cells = <3>;
 				dma-channels = <32>;
 				interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>,
@@ -325,22 +309,6 @@
 					     <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>,
 					     <GIC_SPI 30 IRQ_TYPE_LEVEL_HIGH>,
 					     <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
-				interrupt-names = "edma1-chan0-tx", "edma1-chan1-tx",
-						  "edma1-chan2-tx", "edma1-chan3-tx",
-						  "edma1-chan4-tx", "edma1-chan5-tx",
-						  "edma1-chan6-tx", "edma1-chan7-tx",
-						  "edma1-chan8-tx", "edma1-chan9-tx",
-						  "edma1-chan10-tx", "edma1-chan11-tx",
-						  "edma1-chan12-tx", "edma1-chan13-tx",
-						  "edma1-chan14-tx", "edma1-chan15-tx",
-						  "edma1-chan16-tx", "edma1-chan17-tx",
-						  "edma1-chan18-tx", "edma1-chan19-tx",
-						  "edma1-chan20-tx", "edma1-chan21-tx",
-						  "edma1-chan22-tx", "edma1-chan23-tx",
-						  "edma1-chan24-tx", "edma1-chan25-tx",
-						  "edma1-chan26-tx", "edma1-chan27-tx",
-						  "edma1-chan28-tx", "edma1-chan29-tx",
-						  "edma1-chan30-tx", "edma1-chan31-tx";
 				clocks = <&pcc3 IMX8ULP_CLK_DMA1_MP>,
 					<&pcc3 IMX8ULP_CLK_DMA1_CH0>, <&pcc3 IMX8ULP_CLK_DMA1_CH1>,
 					<&pcc3 IMX8ULP_CLK_DMA1_CH2>, <&pcc3 IMX8ULP_CLK_DMA1_CH3>,
@@ -358,23 +326,14 @@
 					<&pcc3 IMX8ULP_CLK_DMA1_CH26>, <&pcc3 IMX8ULP_CLK_DMA1_CH27>,
 					<&pcc3 IMX8ULP_CLK_DMA1_CH28>, <&pcc3 IMX8ULP_CLK_DMA1_CH29>,
 					<&pcc3 IMX8ULP_CLK_DMA1_CH30>, <&pcc3 IMX8ULP_CLK_DMA1_CH31>;
-				clock-names = "edma-mp-clk",
-						"edma1-chan0-clk", "edma1-chan1-clk",
-						"edma1-chan2-clk", "edma1-chan3-clk",
-						"edma1-chan4-clk", "edma1-chan5-clk",
-						"edma1-chan6-clk", "edma1-chan7-clk",
-						"edma1-chan8-clk", "edma1-chan9-clk",
-						"edma1-chan10-clk", "edma1-chan11-clk",
-						"edma1-chan12-clk", "edma1-chan13-clk",
-						"edma1-chan14-clk", "edma1-chan15-clk",
-						"edma1-chan16-clk", "edma1-chan17-clk",
-						"edma1-chan18-clk", "edma1-chan19-clk",
-						"edma1-chan20-clk", "edma1-chan21-clk",
-						"edma1-chan22-clk", "edma1-chan23-clk",
-						"edma1-chan24-clk", "edma1-chan25-clk",
-						"edma1-chan26-clk", "edma1-chan27-clk",
-						"edma1-chan28-clk", "edma1-chan29-clk",
-						"edma1-chan30-clk", "edma1-chan31-clk";
+				clock-names = "dma", "ch00","ch01", "ch02", "ch03",
+						"ch04", "ch05", "ch06", "ch07",
+						"ch08", "ch09", "ch10", "ch11",
+						"ch12", "ch13", "ch14", "ch15",
+						"ch16", "ch17", "ch18", "ch19",
+						"ch20", "ch21", "ch22", "ch23",
+						"ch24", "ch25", "ch26", "ch27",
+						"ch28", "ch29", "ch30", "ch31";
 				status = "okay";
 			};
 
@@ -884,23 +843,7 @@
 
 			edma2: dma-controller@2d800000 {
 				compatible = "fsl,imx8ulp-edma";
-				reg = <0x2d800000 0x10000>,
-				      <0x2d810000 0x10000>, <0x2d820000 0x10000>,
-				      <0x2d830000 0x10000>, <0x2d840000 0x10000>,
-				      <0x2d850000 0x10000>, <0x2d860000 0x10000>,
-				      <0x2d870000 0x10000>, <0x2d880000 0x10000>,
-				      <0x2d890000 0x10000>, <0x2d8a0000 0x10000>,
-				      <0x2d8b0000 0x10000>, <0x2d8c0000 0x10000>,
-				      <0x2d8d0000 0x10000>, <0x2d8e0000 0x10000>,
-				      <0x2d8f0000 0x10000>, <0x2d900000 0x10000>,
-				      <0x2d910000 0x10000>, <0x2d920000 0x10000>,
-				      <0x2d930000 0x10000>, <0x2d940000 0x10000>,
-				      <0x2d950000 0x10000>, <0x2d960000 0x10000>,
-				      <0x2d970000 0x10000>, <0x2d980000 0x10000>,
-				      <0x2d990000 0x10000>, <0x2d9a0000 0x10000>,
-				      <0x2d9b0000 0x10000>, <0x2d9c0000 0x10000>,
-				      <0x2d9d0000 0x10000>, <0x2d9e0000 0x10000>,
-				      <0x2d9f0000 0x10000>, <0x2da00000 0x10000>;
+				reg = <0x2d800000 0x210000>;
 				#dma-cells = <3>;
 				dma-channels = <32>;
 				interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>,
@@ -935,22 +878,6 @@
 					     <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>,
 					     <GIC_SPI 62 IRQ_TYPE_LEVEL_HIGH>,
 					     <GIC_SPI 63 IRQ_TYPE_LEVEL_HIGH>;
-				interrupt-names = "edma2-chan0-tx", "edma2-chan1-tx",
-						  "edma2-chan2-tx", "edma2-chan3-tx",
-						  "edma2-chan4-tx", "edma2-chan5-tx",
-						  "edma2-chan6-tx", "edma2-chan7-tx",
-						  "edma2-chan8-tx", "edma2-chan9-tx",
-						  "edma2-chan10-tx", "edma2-chan11-tx",
-						  "edma2-chan12-tx", "edma2-chan13-tx",
-						  "edma2-chan14-tx", "edma2-chan15-tx",
-						  "edma2-chan16-tx", "edma2-chan17-tx",
-						  "edma2-chan18-tx", "edma2-chan19-tx",
-						  "edma2-chan20-tx", "edma2-chan21-tx",
-						  "edma2-chan22-tx", "edma2-chan23-tx",
-						  "edma2-chan24-tx", "edma2-chan25-tx",
-						  "edma2-chan26-tx", "edma2-chan27-tx",
-						  "edma2-chan28-tx", "edma2-chan29-tx",
-						  "edma2-chan30-tx", "edma2-chan31-tx";
 				clocks = <&pcc5 IMX8ULP_CLK_DMA2_MP>,
 					<&pcc5 IMX8ULP_CLK_DMA2_CH0>, <&pcc5 IMX8ULP_CLK_DMA2_CH1>,
 					<&pcc5 IMX8ULP_CLK_DMA2_CH2>, <&pcc5 IMX8ULP_CLK_DMA2_CH3>,
@@ -968,23 +895,14 @@
 					<&pcc5 IMX8ULP_CLK_DMA2_CH26>, <&pcc5 IMX8ULP_CLK_DMA2_CH27>,
 					<&pcc5 IMX8ULP_CLK_DMA2_CH28>, <&pcc5 IMX8ULP_CLK_DMA2_CH29>,
 					<&pcc5 IMX8ULP_CLK_DMA2_CH30>, <&pcc5 IMX8ULP_CLK_DMA2_CH31>;
-				clock-names = "edma-mp-clk",
-						"edma2-chan0-clk", "edma2-chan1-clk",
-						"edma2-chan2-clk", "edma2-chan3-clk",
-						"edma2-chan4-clk", "edma2-chan5-clk",
-						"edma2-chan6-clk", "edma2-chan7-clk",
-						"edma2-chan8-clk", "edma2-chan9-clk",
-						"edma2-chan10-clk", "edma2-chan11-clk",
-						"edma2-chan12-clk", "edma2-chan13-clk",
-						"edma2-chan14-clk", "edma2-chan15-clk",
-						"edma2-chan16-clk", "edma2-chan17-clk",
-						"edma2-chan18-clk", "edma2-chan19-clk",
-						"edma2-chan20-clk", "edma2-chan21-clk",
-						"edma2-chan22-clk", "edma2-chan23-clk",
-						"edma2-chan24-clk", "edma2-chan25-clk",
-						"edma2-chan26-clk", "edma2-chan27-clk",
-						"edma2-chan28-clk", "edma2-chan29-clk",
-						"edma2-chan30-clk", "edma2-chan31-clk";
+				clock-names = "dma", "ch00","ch01", "ch02", "ch03",
+						"ch04", "ch05", "ch06", "ch07",
+						"ch08", "ch09", "ch10", "ch11",
+						"ch12", "ch13", "ch14", "ch15",
+						"ch16", "ch17", "ch18", "ch19",
+						"ch20", "ch21", "ch22", "ch23",
+						"ch24", "ch25", "ch26", "ch27",
+						"ch28", "ch29", "ch30", "ch31";
 				status = "okay";
 			};
 
