@@ -755,7 +755,9 @@ Status: feature not supported
                 }
             }
 
-            err = FM_PCD_SetException(p_LnxWrpFmDev->h_PcdDev, param->exception, param->enable);
+			err = FM_PCD_SetException(p_LnxWrpFmDev->h_PcdDev,
+					(e_FmPcdExceptions)param->exception,
+					param->enable);
 
             XX_Free(param);
             break;
@@ -3572,7 +3574,9 @@ t_Error LnxwrpFmIOCTL(t_LnxWrpFmDev *p_LnxWrpFmDev, unsigned int cmd, unsigned l
                 }
             }
 
-            err = FM_ModifyCounter(p_LnxWrpFmDev->h_Dev, param->cnt, param->val);
+			err = FM_ModifyCounter(p_LnxWrpFmDev->h_Dev,
+					       (e_FmCounters)param->cnt,
+					       param->val);
 
             XX_Free(param);
             break;
@@ -3607,7 +3611,8 @@ t_Error LnxwrpFmIOCTL(t_LnxWrpFmDev *p_LnxWrpFmDev, unsigned int cmd, unsigned l
                 }
             }
 
-            param->val = FM_GetCounter(p_LnxWrpFmDev->h_Dev, param->cnt);
+			param->val = FM_GetCounter(p_LnxWrpFmDev->h_Dev,
+						   (e_FmCounters)param->cnt);
 
 #if defined(CONFIG_COMPAT)
             if (compat)

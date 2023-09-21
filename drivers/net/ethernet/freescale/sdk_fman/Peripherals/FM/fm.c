@@ -3450,7 +3450,8 @@ t_Handle FM_Config(t_FmParams *p_FmParam)
 
 #ifdef FM_AID_MODE_NO_TNUM_SW005
     if (p_Fm->p_FmStateStruct->revInfo.majorRev >= 6)
-        p_Fm->p_FmDriverParam->dma_aid_mode = e_FM_DMA_AID_OUT_PORT_ID;
+		p_Fm->p_FmDriverParam->dma_aid_mode =
+			(enum fman_dma_aid_mode)e_FM_DMA_AID_OUT_PORT_ID;
 #endif /* FM_AID_MODE_NO_TNUM_SW005 */
 #ifndef FM_QMI_NO_DEQ_OPTIONS_SUPPORT
    if (p_Fm->p_FmStateStruct->revInfo.majorRev != 4)

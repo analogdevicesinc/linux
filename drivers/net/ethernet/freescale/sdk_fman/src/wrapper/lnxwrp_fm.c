@@ -2309,7 +2309,7 @@ int fm_macsec_config_unknown_sci_frame_treatment(struct fm_macsec_dev
 	int _errno;
 
 	err = FM_MACSEC_ConfigUnknownSciFrameTreatment(fm_macsec_dev,
-		treat_mode);
+		(e_FmMacsecUnknownSciFrameTreatment)treat_mode);
 	_errno = -GET_ERROR_TYPE(err);
 	if (unlikely(_errno < 0))
 		pr_err("FM_MACSEC_ConfigUnknownSciFrameTreatmen() = 0x%08x\n", err);
@@ -2356,7 +2356,8 @@ int fm_macsec_config_untag_frame_treatment(struct fm_macsec_dev *fm_macsec_dev,
 	int err;
 	int _errno;
 
-	err = FM_MACSEC_ConfigUntagFrameTreatment(fm_macsec_dev, treat_mode);
+	err = FM_MACSEC_ConfigUntagFrameTreatment(fm_macsec_dev,
+				(e_FmMacsecUntagFrameTreatment)treat_mode);
 	_errno = -GET_ERROR_TYPE(err);
 	if (unlikely(_errno < 0))
 		pr_err("FM_MACSEC_ConfigUntagFrameTreatment() = 0x%08x\n", err);
@@ -2414,7 +2415,8 @@ int fm_macsec_config_exception(struct fm_macsec_dev *fm_macsec_dev,
 	int err;
 	int _errno;
 
-	err = FM_MACSEC_ConfigException(fm_macsec_dev, exception, enable);
+	err = FM_MACSEC_ConfigException(fm_macsec_dev,
+				(e_FmMacsecExceptions)exception, enable);
 	_errno = -GET_ERROR_TYPE(err);
 	if (unlikely(_errno < 0))
 		pr_err("FM_MACSEC_ConfigException() = 0x%08x\n", err);
@@ -2472,7 +2474,8 @@ int fm_macsec_set_exception(struct fm_macsec_dev *fm_macsec_dev,
 	int err;
 	int _errno;
 
-	err = FM_MACSEC_SetException(fm_macsec_dev, exception, enable);
+	err = FM_MACSEC_SetException(fm_macsec_dev,
+			(e_FmMacsecExceptions)exception, enable);
 	_errno = -GET_ERROR_TYPE(err);
 	if (unlikely(_errno < 0))
 		pr_err("FM_MACSEC_SetException() = 0x%08x\n", err);
@@ -2529,7 +2532,7 @@ int fm_macsec_secy_config_sci_insertion_mode(struct fm_macsec_secy_dev *fm_macse
 	int _errno;
 
 	err = FM_MACSEC_SECY_ConfigSciInsertionMode(fm_macsec_secy_dev,
-					sci_insertion_mode);
+			    (e_FmMacsecSciInsertionMode)sci_insertion_mode);
 	_errno = -GET_ERROR_TYPE(err);
 	if (unlikely(_errno < 0))
 		pr_err("FM_MACSEC_SECY_ConfigSciInsertionMode() = 0x%08x\n", err);
@@ -2577,7 +2580,7 @@ int fm_macsec_secy_config_validation_mode(struct fm_macsec_secy_dev *fm_macsec_s
 	int _errno;
 
 	err = FM_MACSEC_SECY_ConfigValidationMode(fm_macsec_secy_dev,
-						    validate_frames);
+				(e_FmMacsecValidFrameBehavior)validate_frames);
 	_errno = -GET_ERROR_TYPE(err);
 	if (unlikely(_errno < 0))
 		pr_err("FM_MACSEC_SECY_ConfigValidationMode() = 0x%08x\n", err);
@@ -2627,8 +2630,8 @@ int fm_macsec_secy_config_exception(struct fm_macsec_secy_dev *fm_macsec_secy_de
 	int err;
 	int _errno;
 
-	err = FM_MACSEC_SECY_ConfigException(fm_macsec_secy_dev, exception,
-					    enable);
+	err = FM_MACSEC_SECY_ConfigException(fm_macsec_secy_dev,
+				(e_FmMacsecSecYExceptions)exception, enable);
 	_errno = -GET_ERROR_TYPE(err);
 	if (unlikely(_errno < 0))
 		pr_err("FM_MACSEC_SECY_ConfigException() = 0x%08x\n",
@@ -2645,7 +2648,8 @@ int fm_macsec_secy_config_event(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
 	int err;
 	int _errno;
 
-	err = FM_MACSEC_SECY_ConfigEvent(fm_macsec_secy_dev, event, enable);
+	err = FM_MACSEC_SECY_ConfigEvent(fm_macsec_secy_dev,
+					 (e_FmMacsecSecYEvents)event, enable);
 	_errno = -GET_ERROR_TYPE(err);
 	if (unlikely(_errno < 0))
 		pr_err("FM_MACSEC_SECY_ConfigEvent() = 0x%08x\n",
