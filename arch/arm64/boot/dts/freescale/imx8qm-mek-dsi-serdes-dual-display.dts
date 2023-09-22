@@ -44,9 +44,6 @@
 		maxim,gmsl2-link-speed = <6>;
 
 		max96789_dsi_bridge@0 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
 			reg = <0>;
 
 			compatible = "maxim,max96789-dsi";
@@ -71,9 +68,6 @@
 		};
 
 		max96789_dsi_bridge@1 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
 			reg = <1>;
 
 			compatible = "maxim,max96789-dsi";
@@ -109,9 +103,6 @@
 				reg = <0>;
 
 				max96752_1: mipi_dsi_deserializer@48 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-
 					compatible = "maxim,max96752";
 					reg = <0x48>;
 					status = "okay";
@@ -119,9 +110,6 @@
 					maxim,gmsl2-link-speed = <6>;
 
 					max96752_lvds_bridge {
-						#address-cells = <1>;
-						#size-cells = <0>;
-
 						compatible = "maxim,max96752-lvds";
 
 						port {
@@ -168,9 +156,6 @@
 				reg = <1>;
 
 				max96752_2: mipi_dsi_deserializer@48 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-
 					compatible = "maxim,max96752";
 					reg = <0x48>, <0x49>;
 					status = "okay";
@@ -178,9 +163,6 @@
 					maxim,gmsl2-link-speed = <6>;
 
 					max96752_lvds_bridge {
-						#address-cells = <1>;
-						#size-cells = <0>;
-
 						compatible = "maxim,max96752-lvds";
 
 						port {

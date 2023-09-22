@@ -1071,8 +1071,6 @@
 			};
 
 			flexio1: flexio@425c0000 {
-				#address-cells = <1>;
-				#size-cells = <1>;
 				compatible = "nxp,imx-flexio";
 				reg = <0x425c0000 0x10000>;
 				interrupts = <GIC_SPI 53 IRQ_TYPE_LEVEL_HIGH>;

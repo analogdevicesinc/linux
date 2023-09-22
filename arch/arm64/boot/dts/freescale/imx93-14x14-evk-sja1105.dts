@@ -89,8 +89,6 @@
 		spi-cpha;
 		clocks = <&clock_sja1105>;
 		pinctrl-assert-gpios = <&max7322 0 GPIO_ACTIVE_LOW>;
-		#address-cells = <1>;
-		#size-cells = <0>;
 
 		ports {
 			#address-cells = <1>;

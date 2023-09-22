@@ -52,6 +52,8 @@
 };
 
 &mipi_csi_1 {
+	/delete-property/ #address-cells;
+	/delete-property/ #size-cells;
 	/delete-node/port@1;
 };
 

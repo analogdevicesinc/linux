@@ -166,8 +166,6 @@
 		};
 
 		mipi0_dsi_host: dsi_host@56228000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			compatible = "fsl,imx8qm-nwl-dsi";
 			reg = <0x56228000 0x300>;
 			clocks = <&clk IMX_SC_R_MIPI_0 IMX_SC_PM_CLK_PER>,
@@ -360,8 +358,6 @@
 		};
 
 		mipi1_dsi_host: dsi_host@57228000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			compatible = "fsl,imx8qm-nwl-dsi";
 			reg = <0x57228000 0x300>;
 			clocks = <&clk IMX_SC_R_MIPI_1 IMX_SC_PM_CLK_PER>,

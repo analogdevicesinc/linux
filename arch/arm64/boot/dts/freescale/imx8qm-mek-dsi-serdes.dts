@@ -84,9 +84,6 @@
 
 		/* DSI port 0 */
 		max96789_dsi_bridge@0 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
 			reg = <0>;
 
 			compatible = "maxim,max96789-dsi";
@@ -115,9 +112,6 @@
 			#size-cells = <0>;
 
 			port@b {
-				#address-cells = <1>;
-				#size-cells = <0>;
-
 				reg = <11>;
 
 				/* input, pull-down, 1Mohm */
@@ -141,9 +135,6 @@
 				reg = <0>;
 
 				max96752_1: mipi_dsi_deserializer@48 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-
 					compatible = "maxim,max96752";
 					reg = <0x48>;
 					status = "okay";
@@ -152,9 +143,6 @@
 					maxim,gmsl2-dual-link;
 
 					max96752_lvds_bridge {
-						#address-cells = <1>;
-						#size-cells = <0>;
-
 						compatible = "maxim,max96752-lvds";
 						maxim,dual-channel;
 
@@ -181,9 +169,6 @@
 						#size-cells = <0>;
 
 						port@d {
-							#address-cells = <1>;
-							#size-cells = <0>;
-
 							reg = <13>;
 
 							/* output, no pull up/down */
@@ -245,9 +230,6 @@
 
 		/* DSI port 0 */
 		max96789_dsi_bridge@0 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
 			reg = <0>;
 
 			compatible = "maxim,max96789-dsi";
@@ -283,9 +265,6 @@
 				reg = <0>;
 
 				max96752_2: mipi_dsi_deserializer@48 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-
 					compatible = "maxim,max96752";
 					reg = <0x48>;
 					status = "okay";
@@ -294,9 +273,6 @@
 					maxim,gmsl2-dual-link;
 
 					max96752_lvds_bridge {
-						#address-cells = <1>;
-						#size-cells = <0>;
-
 						compatible = "maxim,max96752-lvds";
 
 						port {

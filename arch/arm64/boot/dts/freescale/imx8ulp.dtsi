@@ -430,8 +430,6 @@
 			};
 
 			flexio1: flexio@29350000 {
-				#address-cells = <1>;
-				#size-cells = <1>;
 				compatible = "nxp,imx-flexio";
 				reg = <0x29350000 0x10000>;
 				interrupts = <GIC_SPI 91 IRQ_TYPE_LEVEL_HIGH>;
@@ -1054,8 +1052,6 @@
 			dsi: dsi@2db00000 {
 				compatible = "fsl,imx8ulp-nwl-dsi";
 				reg = <0x2db00000 0x300>;
-				#address-cells = <1>;
-				#size-cells = <0>;
 				clocks = <&cgc2 IMX8ULP_CLK_LPAV_BUS_DIV>,
 					 <&pcc5 IMX8ULP_CLK_DSI>,
 					 <&pcc5 IMX8ULP_CLK_DSI_TX_ESC>,
