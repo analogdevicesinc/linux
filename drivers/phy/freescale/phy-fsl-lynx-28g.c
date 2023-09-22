@@ -462,6 +462,25 @@ static void lynx_28g_cleanup_lane(struct lynx_28g_lane *lane)
 	}
 }
 
+static bool lynx_28g_cdr_lock_check(struct lynx_28g_lane *lane)
+{
+	u32 rrstctl = lynx_28g_lane_read(lane, LNaRRSTCTL);
+
+	if (rrstctl & LYNX_28G_LNaRRSTCTL_CDR_LOCK)
+		return true;
+
+	dev_dbg(&lane->phy->dev, "CDR unlocked, resetting lane receiver...\n");
+
+	lynx_28g_lane_rmw(lane, LNaRRSTCTL,
+			  LYNX_28G_LNaRRSTCTL_RST_REQ,
+			  LYNX_28G_LNaRRSTCTL_RST_REQ);
+	do {
+		rrstctl = lynx_28g_lane_read(lane, LNaRRSTCTL);
+	} while (!(rrstctl & LYNX_28G_LNaRRSTCTL_RST_DONE));
+
+	return !!(rrstctl & LYNX_28G_LNaRRSTCTL_CDR_LOCK);
+}
+
 static void lynx_28g_lane_set_sgmii(struct lynx_28g_lane *lane)
 {
 	struct lynx_28g_priv *priv = lane->priv;
@@ -744,7 +763,8 @@ static int lynx_28g_set_mode(struct phy *phy, enum phy_mode mode, int submode)
 		lynx_28g_lane_set_25gbaser(lane);
 		break;
 	default:
-		err = -EOPNOTSUPP;
+		if (lane_mode != lane->mode)
+			err = -EOPNOTSUPP;
 		goto out;
 	}
 
@@ -797,10 +817,8 @@ static void lynx_28g_check_cdr_lock(struct phy *phy,
 				    struct phy_status_opts_cdr *cdr)
 {
 	struct lynx_28g_lane *lane = phy_get_drvdata(phy);
-	u32 rrstctl;
 
-	rrstctl = lynx_28g_lane_read(lane, LNaRRSTCTL);
-	cdr->cdr_locked = !!(rrstctl & LYNX_28G_LNaRRSTCTL_CDR_LOCK);
+	cdr->cdr_locked = lynx_28g_cdr_lock_check(lane);
 }
 
 static int lynx_28g_get_status(struct phy *phy, enum phy_status_type type,
@@ -868,11 +886,10 @@ static void lynx_28g_pll_read_configuration(struct lynx_28g_priv *priv)
 
 #define work_to_lynx(w) container_of((w), struct lynx_28g_priv, cdr_check.work)
 
-static void lynx_28g_cdr_lock_check(struct work_struct *work)
+static void lynx_28g_cdr_lock_check_work(struct work_struct *work)
 {
 	struct lynx_28g_priv *priv = work_to_lynx(work);
 	struct lynx_28g_lane *lane;
-	u32 rrstctl;
 	int i;
 
 	for (i = 0; i < LYNX_28G_NUM_LANE; i++) {
@@ -885,18 +902,7 @@ static void lynx_28g_cdr_lock_check(struct work_struct *work)
 			continue;
 		}
 
-		rrstctl = lynx_28g_lane_read(lane, LNaRRSTCTL);
-		if (!(rrstctl & LYNX_28G_LNaRRSTCTL_CDR_LOCK)) {
-			dev_dbg(&lane->phy->dev,
-				"CDR unlocked, resetting lane receiver...\n");
-
-			lynx_28g_lane_rmw(lane, LNaRRSTCTL,
-					  LYNX_28G_LNaRRSTCTL_RST_REQ,
-					  LYNX_28G_LNaRRSTCTL_RST_REQ);
-			do {
-				rrstctl = lynx_28g_lane_read(lane, LNaRRSTCTL);
-			} while (!(rrstctl & LYNX_28G_LNaRRSTCTL_RST_DONE));
-		}
+		lynx_28g_cdr_lock_check(lane);
 
 		mutex_unlock(&lane->phy->mutex);
 	}
@@ -980,7 +986,7 @@ static int lynx_28g_probe(struct platform_device *pdev)
 	dev_set_drvdata(dev, priv);
 
 	spin_lock_init(&priv->pcc_lock);
-	INIT_DELAYED_WORK(&priv->cdr_check, lynx_28g_cdr_lock_check);
+	INIT_DELAYED_WORK(&priv->cdr_check, lynx_28g_cdr_lock_check_work);
 
 	queue_delayed_work(system_power_efficient_wq, &priv->cdr_check,
 			   msecs_to_jiffies(1000));
