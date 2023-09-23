@@ -39,6 +39,7 @@ enum phy_mode {
 	PHY_MODE_UFS_HS_B,
 	PHY_MODE_PCIE,
 	PHY_MODE_ETHERNET,
+	PHY_MODE_ETHERNET_LINKMODE,
 	PHY_MODE_MIPI_DPHY,
 	PHY_MODE_SATA,
 	PHY_MODE_LVDS,
@@ -52,7 +53,7 @@ enum phy_media {
 };
 
 enum phy_status_type {
-	/* Valid for PHY_MODE_ETHERNET */
+	/* Valid for PHY_MODE_ETHERNET and PHY_MODE_ETHERNET_LINKMODE */
 	PHY_STATUS_CDR_LOCK,
 };
 
