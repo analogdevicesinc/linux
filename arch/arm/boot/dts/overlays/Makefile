@@ -193,6 +193,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	ramoops.dtbo \
 	ramoops-pi4.dtbo \
 	rotary-encoder.dtbo \
+	rpi-ad242x.dtbo \
 	rpi-backlight.dtbo \
 	rpi-codeczero.dtbo \
 	rpi-dacplus.dtbo \
@@ -204,7 +205,6 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-sense.dtbo \
 	rpi-sense-v2.dtbo \
 	rpi-tv.dtbo \
-	rpi-ad242x.dtbo \
 	rra-digidac1-wm8741-audio.dtbo \
 	sainsmart18.dtbo \
 	sc16is750-i2c.dtbo \
