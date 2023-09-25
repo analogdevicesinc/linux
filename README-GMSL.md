@@ -55,11 +55,11 @@ For build instructions [check the wiki](https://wiki.analog.com/resources/tools-
 | gmsl/xilinx_v6.1_LTS 	| [Serializer][doc-3]        	|
 | gmsl/xilinx_v6.1_LTS 	| [Deserializer][doc-4]      	|
 
-[doc-0]: https://github.com/analogdevicesinc/nvidia/blob/gmsl/jetson_35.3.1/kernel_kernel-5.10/Documentation/devicetree/bindings/media/i2c/maxim%2Cmax96717.yaml
-[doc-1]: https://github.com/analogdevicesinc/nvidia/blob/gmsl/jetson_35.3.1/kernel_kernel-5.10/Documentation/devicetree/bindings/media/i2c/maxim%2Cmax96724.yaml
-[doc-2]: https://github.com/analogdevicesinc/nvidia/blob/gmsl/jetson_35.3.1/kernel_kernel-5.10/Documentation/devicetree/bindings/media/i2c/maxim%2Cmax9296a.yaml
-[doc-3]: https://github.com/analogdevicesinc/nvidia/blob/gmsl/jetson_35.3.1/kernel_kernel-5.10/Documentation/devicetree/bindings/media/i2c/maxim-serializer.yaml
-[doc-4]: https://github.com/analogdevicesinc/nvidia/blob/gmsl/jetson_35.3.1/kernel_kernel-5.10/Documentation/devicetree/bindings/media/i2c/maxim-deserializer.yaml
+[doc-0]: https://github.com/analogdevicesinc/linux/blob/gmsl/xilinx_v6.1_LTS/Documentation/devicetree/bindings/media/i2c/maxim%2Cmax96717.yaml
+[doc-1]: https://github.com/analogdevicesinc/linux/blob/gmsl/xilinx_v6.1_LTS/Documentation/devicetree/bindings/media/i2c/maxim%2Cmax96724.yaml
+[doc-2]: https://github.com/analogdevicesinc/linux/blob/gmsl/xilinx_v6.1_LTS/Documentation/devicetree/bindings/media/i2c/maxim%2Cmax9296a.yaml
+[doc-3]: https://github.com/analogdevicesinc/linux/blob/gmsl/xilinx_v6.1_LTS/Documentation/devicetree/bindings/media/i2c/maxim-serializer.yaml
+[doc-4]: https://github.com/analogdevicesinc/linux/blob/gmsl/xilinx_v6.1_LTS/Documentation/devicetree/bindings/media/i2c/maxim-deserializer.yaml
 
 
 ## Hardware configuration
