@@ -255,6 +255,12 @@ struct cf_axi_converter {
 	int		temp_calib;
 	unsigned	temp_calib_code;
 	int		temp_slope;
+	/*
+	 * shared lock between the converter and axi_dds to sync
+	 * accesses/configurations to/with the IP core. The axi_dds driver is
+	 * responsible to initialize this lock.
+	 */
+	struct mutex	lock;
 	int		(*read)(struct spi_device *spi, unsigned reg);
 	int		(*write)(struct spi_device *spi,
 				 unsigned reg, unsigned val);

@@ -2,12 +2,14 @@ trigger:
 - rpi-4.19.y
 - rpi-5.4.y
 - rpi-5.10.y
+- rpi-5.15.y
 - staging-rpi/*
 
 pr:
 - rpi-4.19.y
 - rpi-5.4.y
 - rpi-5.10.y
+- rpi-5.15.y
 
 stages:
 - stage: Builds
@@ -80,15 +82,13 @@ stages:
     KEY_FILE: $(key.secureFilePath)
   jobs:
   - job: Push_to_SWDownloads
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.10.y'))
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.15.y'))
     pool:
       vmImage: 'ubuntu-latest'
     steps:
       - task: DownloadPipelineArtifact@2
         inputs:
           path: $(Build.SourcesDirectory)/bin
-      - bash: ./ci/travis/prepare_artifacts.sh structure
-        displayName: 'Prepare the folder structure'
       - task: DownloadSecureFile@1
         name: key
         displayName: 'Download rsa key'
@@ -99,17 +99,15 @@ stages:
           DEST_SERVER: $(SERVER_ADDRESS)
         displayName: "Push to SWDownloads"
   - job: Push_to_Artifactory
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.10.y'))
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.15.y'))
     pool:
       name: Default
       demands:
-        - agent.name -equals lab2_b5
+        - agent.name -equals linux-rpi
     steps:
       - task: DownloadPipelineArtifact@2
         inputs:
           path: $(Build.SourcesDirectory)/bin
-      - bash: ./ci/travis/prepare_artifacts.sh structure
-        displayName: 'Prepare the folder structure'
       - bash: ./ci/travis/prepare_artifacts.sh artifactory
         env:
           ARTIFACTORY_PATH: $(PATH)

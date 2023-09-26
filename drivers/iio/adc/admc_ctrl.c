@@ -52,6 +52,8 @@
 #define MC_CONTROL_GPO(x)		(((x) & 0x7FF) << 20)
 
 struct axiadc_state {
+	/* protect against device accesses */
+	struct mutex			lock;
 	void __iomem			*regs;
 };
 
@@ -72,12 +74,12 @@ static int mc_ctrl_reg_access(struct iio_dev *indio_dev,
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	if (readval == NULL)
 		axiadc_write(st, reg & 0xFFFF, writeval);
 	else
 		*readval = axiadc_read(st, reg & 0xFFFF);
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return 0;
 }
@@ -114,7 +116,7 @@ static ssize_t mc_ctrl_show(struct device *dev,
 	u32 reg_val;
 	u32 setting2;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	switch ((u32)this_attr->address) {
 	case MC_RUN:
 		reg_val = axiadc_read(st, MC_REG_CONTROL);
@@ -195,7 +197,7 @@ static ssize_t mc_ctrl_show(struct device *dev,
 	default:
 		ret = -EINVAL;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret;
 }
@@ -212,7 +214,7 @@ static ssize_t mc_ctrl_store(struct device *dev,
 	u32 reg_val;
 	u32 setting2;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	switch ((u32)this_attr->address) {
 	case MC_RUN:
 		ret = strtobool(buf, &setting);
@@ -345,7 +347,7 @@ static ssize_t mc_ctrl_store(struct device *dev,
 	default:
 		ret = -EINVAL;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return ret ? ret : len;
 }
@@ -493,6 +495,8 @@ static int mc_ctrl_probe(struct platform_device *pdev)
 	/* Reset all HDL Cores */
 	axiadc_write(st, ADI_REG_RSTN, 0);
 	axiadc_write(st, ADI_REG_RSTN, ADI_RSTN);
+
+	mutex_init(&st->lock);
 
 	ret = iio_device_register(indio_dev);
 

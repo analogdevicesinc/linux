@@ -75,7 +75,7 @@
 
 		spi-max-frequency = <1000000>;
 
-		txen-gpios = <&fmc_gpio (fmc_gpio_base + 0) 0>, <&fmc_gpio (fmc_gpio_base + 1) 0>;
+		txen-gpios = <&fmc_gpio (fmc_gpio_base + 0) 0>, <&fmc_gpio (fmc_gpio_base + 3) 0>;
 
 		clocks = <&jesd204_link>, <&ad9516 1>, <&ad9516 6>;
 		clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";

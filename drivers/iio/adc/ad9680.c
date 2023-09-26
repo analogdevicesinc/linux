@@ -297,12 +297,12 @@ static int ad9680_read_thresh(struct iio_dev *indio_dev,
 	struct spi_device *spi = conv->spi;
 	u16 low, high;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	low = (ad9680_spi_read(spi, AD9680_REG_THRESH_LOW_MSB) << 8) |
 		ad9680_spi_read(spi, AD9680_REG_THRESH_LOW_LSB);
 	high = (ad9680_spi_read(spi, AD9680_REG_THRESH_HI_MSB) << 8) |
 		ad9680_spi_read(spi, AD9680_REG_THRESH_HI_LSB);
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	switch (info) {
 	case IIO_EV_INFO_HYSTERESIS:
@@ -343,7 +343,7 @@ static int ad9680_write_thresh(struct iio_dev *indio_dev,
 	int ret = 0;
 	int low, high;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	high = (ad9680_spi_read(spi, AD9680_REG_THRESH_HI_MSB) << 8) |
 		ad9680_spi_read(spi, AD9680_REG_THRESH_HI_LSB);
 
@@ -383,7 +383,7 @@ static int ad9680_write_thresh(struct iio_dev *indio_dev,
 	ad9680_spi_write(spi, AD9680_REG_THRESH_LOW_LSB, low & 0xFF);
 
 unlock:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 	return ret;
 }
 
@@ -395,7 +395,7 @@ static int ad9680_write_thresh_en(struct iio_dev *indio_dev,
 	struct spi_device *spi = conv->spi;
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 
 	ret = ad9680_spi_read(spi, AD9680_REG_CHIP_PIN_CTRL);
 	if (ret < 0)
@@ -408,7 +408,7 @@ static int ad9680_write_thresh_en(struct iio_dev *indio_dev,
 
 	ret = ad9680_spi_write(spi, AD9680_REG_CHIP_PIN_CTRL, ret);
 err_unlock:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 	return ret;
 }
 
@@ -526,11 +526,12 @@ static int ad9680_testmode_read(struct iio_dev *indio_dev,
 static int ad9680_testmode_write(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, unsigned int item)
 {
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	ret = ad9680_testmode_set(indio_dev, chan->channel, item);
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret;
 }

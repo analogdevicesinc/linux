@@ -56,7 +56,7 @@ adjust_kcflags_against_gcc() {
 	export KCFLAGS
 }
 
-APT_LIST="make bc u-boot-tools flex bison libssl-dev tar kmod"
+APT_LIST="make bc u-boot-tools flex bison libssl-dev tar kmod xz-utils"
 
 if [ "$ARCH" = "arm64" ] ; then
 	if [ -z "$CROSS_COMPILE" ] ; then
@@ -85,6 +85,11 @@ __get_all_c_files() {
 	git grep -i "$@" | cut -d: -f1 | sort | uniq  | grep "\.c"
 }
 
+__exceptions_file() {
+	[ ! -f "$1" ] && return 1
+	grep -q "$2" "$1" && return 0 || return 1
+}
+
 check_all_adi_files_have_been_built() {
 	# Collect all .c files that contain the 'Analog Devices' string/name
 	local c_files=$(__get_all_c_files "Analog Devices")
@@ -98,11 +103,10 @@ check_all_adi_files_have_been_built() {
 	# Convert them to .o files via sed, and extract only the filenames
 	for file in $c_files ; do
 		file1=$(echo $file | sed 's/\.c/\.o/g')
-		if [ -f "$exceptions_file" ] ; then
-			if grep -q "$file1" "$exceptions_file" ; then
-				continue
-			fi
+		if __exceptions_file "$exceptions_file" "$file1"; then
+			continue
 		fi
+
 		if [ ! -f "$file1" ] ; then
 			if [ "$ret" = "0" ] ; then
 				echo
@@ -372,11 +376,11 @@ build_dtb_build_test() {
 		if [ "$arch" != "arm" ] && [ "$arch" != "arm64" ] ; then
 			continue
 		fi
-		if [ -f "$exceptions_file" ] ; then
-			if grep -q "$file" "$exceptions_file" ; then
-				continue
-			fi
+
+		if __exceptions_file "$exceptions_file" "$file"; then
+			continue
 		fi
+
 		if ! grep -q "hdl_project:" $file ; then
 			echo_red "'$file' doesn't contain an 'hdl_project:' tag"
 			err=1
@@ -384,7 +388,22 @@ build_dtb_build_test() {
 		fi
 	done
 
+	if [ "$hdl_project_tag_err" = "1" ] ; then
+		echo
+		echo
+		echo_green "Some DTs have been found that do not contain an 'hdl_project:' tag"
+		echo_green "   Either:"
+		echo_green "     1. Create a 'hdl_project' tag for it"
+		echo_green "     OR"
+		echo_green "     1. add it in file '$exceptions_file'"
+		return 1
+	fi
+
 	for file in $DTS_FILES; do
+		if __exceptions_file "$exceptions_file" "$file"; then
+			continue
+		fi
+
 		dtb_file=$(echo $file | sed 's/dts\//=/g' | cut -d'=' -f2 | sed 's\dts\dtb\g')
 		arch=$(echo $file |  cut -d'/' -f2)
 		if [ "$last_arch" != "$arch" ] ; then
@@ -402,16 +421,6 @@ build_dtb_build_test() {
 	if [ "$err" = "0" ] ; then
 		echo_green "DTB build tests passed"
 		return 0
-	fi
-
-	if [ "$hdl_project_tag_err" = "1" ] ; then
-		echo
-		echo
-		echo_green "Some DTs have been found that do not contain an 'hdl_project:' tag"
-		echo_green "   Either:"
-		echo_green "     1. Create a 'hdl_project' tag for it"
-		echo_green "     OR"
-		echo_green "     1. add it in file '$exceptions_file'"
 	fi
 
 	return $err

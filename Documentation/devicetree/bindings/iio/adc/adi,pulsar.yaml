@@ -1,0 +1,229 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/adi,pulsar.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices PulSAR Analog to Digital Converters
+
+maintainers:
+  - Ciprian Hegbeli <ciprian.hegbeli@analog.com>
+
+description: |
+  Analog Devices PulSAR family Analog to Digital Converters with SPI support
+    https://www.analog.com/en/products/ad7988-5.html
+    https://www.analog.com/en/products/ad7988-1.html
+    https://www.analog.com/en/products/ad7984.html
+    https://www.analog.com/en/products/ad7983.html
+    https://www.analog.com/en/products/ad7982.html
+    https://www.analog.com/en/products/ad7980.html
+    https://www.analog.com/en/products/ad7949.html
+    https://www.analog.com/en/products/ad7946.html
+    https://www.analog.com/en/products/ad7942.html
+    https://www.analog.com/en/products/ad7699.html
+    https://www.analog.com/en/products/ad7693.html
+    https://www.analog.com/en/products/ad7691.html
+    https://www.analog.com/en/products/ad7690.html
+    https://www.analog.com/en/products/ad7689.html
+    https://www.analog.com/en/products/ad7688.html
+    https://www.analog.com/en/products/ad7687.html
+    https://www.analog.com/en/products/ad7686.html
+    https://www.analog.com/en/products/ad7685.html
+    https://www.analog.com/en/products/ad7682.html
+    https://www.analog.com/en/products/ad4022.html
+    https://www.analog.com/en/products/ad4021.html
+    https://www.analog.com/en/products/ad4020.html
+    https://www.analog.com/en/products/ad4011.html
+    https://www.analog.com/en/products/ad4007.html
+    https://www.analog.com/en/products/ad4003.html
+    https://www.analog.com/en/products/adaq4003.html
+
+$ref: /schemas/spi/spi-peripheral-props.yaml#
+
+properties:
+  compatible:
+    enum:
+      - adi,pulsar,ad7988-5
+      - adi,pulsar,ad7988-1
+      - adi,pulsar,ad7984
+      - adi,pulsar,ad7983
+      - adi,pulsar,ad7982
+      - adi,pulsar,ad7980
+      - adi,pulsar,ad7949
+      - adi,pulsar,ad7946
+      - adi,pulsar,ad7942
+      - adi,pulsar,ad7699
+      - adi,pulsar,ad7693
+      - adi,pulsar,ad7691
+      - adi,pulsar,ad7690
+      - adi,pulsar,ad7689
+      - adi,pulsar,ad7688
+      - adi,pulsar,ad7687
+      - adi,pulsar,ad7686
+      - adi,pulsar,ad7685
+      - adi,pulsar,ad7682
+      - adi,pulsar,ad4022
+      - adi,pulsar,ad4021
+      - adi,pulsar,ad4020
+      - adi,pulsar,ad4011
+      - adi,pulsar,ad4007
+      - adi,pulsar,ad4003
+      - adi,pulsar,adaq4003
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+  reg: true
+  spi-max-frequency: true
+
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    const: ref_clk
+    description: PulSAR reference clock name.
+
+  dmas:
+    maxItems: 1
+
+  dma-names:
+    const: rx
+
+  pwms:
+    description: |
+      PWM used as trigger source for the SPI engine, also represents the
+      acquisition rate for the samples.
+    maxItems: 1
+
+  pwm-names:
+    const: cnv
+
+  vref-supply:
+    description: Voltage regulator for the reference voltage.
+
+patternProperties:
+  "^channel@([0-8])$":
+    type: object
+    description: Configurations of the ADC Channels
+
+    unevaluatedProperties: false
+
+    properties:
+      reg: true
+
+      adi,temp-sensor:
+        description: Sets the channel to be configured as a temperature sensor.
+        type: boolean
+
+      diff-channels:
+        description: see Documentation/devicetree/bindings/iio/adc/adc.yaml
+        maxItems: 1
+
+      adi,single-channel:
+        description: The channel number representing the ADC input channel.
+        $ref: /schemas/types.yaml#/definitions/uint32
+
+      bipolar:
+        description: see Documentation/devicetree/bindings/iio/adc/adc.yaml
+        type: boolean
+
+    required:
+      - reg
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - adi,pulsar,ad7949
+              - adi,pulsar,ad7699
+              - adi,pulsar,ad7689
+              - adi,pulsar,ad7682
+
+    then:
+      patternProperties:
+        "^channel@([0-8])$":
+
+          oneOf:
+            # Only one property can be used at a time per channel
+            - required:
+                - adi,single-channel
+
+            - required:
+                - diff-channels
+
+            - required:
+                - adi,temp-sensor
+
+    else:
+      patternProperties:
+        "^channel@([0-8])$":
+          required:
+            - adi,single-channel
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+  - dmas
+  - dma-names
+  - pwms
+  - pwm-names
+  - vref-supply
+
+additionalProperties: false
+
+examples:
+  - |
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        adc@0 {
+                #address-cells = <1>;
+                #size-cells = <0>;
+                compatible = "adi,pulsar,ad7689";
+                reg = <0>;
+                spi-max-frequency = <80000000>;
+                clocks = <&spi_clk>;
+                clock-names = "ref_clk";
+                dmas = <&rx_dma 0>;
+                dma-names = "rx";
+                pwms = <&adc_trigger 0 0>;
+                pwm-names = "cnv";
+                vref-supply = <&vref>;
+                channel@0 {
+                        reg = <0>;
+                        diff-channels = <0 1>;
+                };
+                channel@1 {
+                        reg = <1>;
+                        diff-channels = <2 3>;
+                };
+                channel@2 {
+                        reg = <2>;
+                        adi,single-channel = <4>;
+                };
+                channel@3 {
+                        reg = <3>;
+                        adi,single-channel = <5>;
+                };
+                channel@4 {
+                        reg = <4>;
+                        adi,single-channel = <6>;
+                };
+                channel@5 {
+                        reg = <5>;
+                        adi,single-channel = <7>;
+                };
+                channel@6 {
+                        reg = <6>;
+                        adi,temp-sensor;
+                };
+        };
+    };
+...

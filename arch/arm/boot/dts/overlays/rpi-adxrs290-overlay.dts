@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2836", "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			adxrs290@0 {
+				compatible = "adi,adxrs290";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+				spi-cpha;
+				spi-cpol;
+				interrupts = <19 1>;
+				interrupt-parent = <&gpio>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+};

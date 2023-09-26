@@ -33,7 +33,6 @@ struct iio_chan_spec;
 #define ADRV_ADDRESS_CHAN(addr)		((addr) & 0xFF)
 #define ADRV9002_FH_HOP_SIGNALS_NR	2
 #define ADRV9002_FH_TABLES_NR		2
-#define ADRV9002_FH_BIN_ATTRS_CNT	(ADRV9002_FH_HOP_SIGNALS_NR * ADRV9002_FH_TABLES_NR)
 #define ADRV9002_RX_MIN_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MIN
 #define ADRV9002_RX_MAX_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MAX
 
@@ -148,6 +147,8 @@ struct adrv9002_clock {
 
 struct adrv9002_chan {
 	struct clk *clk;
+	struct gpio_desc *mux_ctl;
+	struct gpio_desc *mux_ctl_2;
 	struct adrv9002_ext_lo *ext_lo;
 	/*
 	 * These values are in nanoseconds. They need to be converted with
@@ -192,8 +193,12 @@ struct adrv9002_gpio {
 };
 
 struct adrv9002_fh_bin_table {
-	/* page size should be more than enough for a max of 64 entries! */
-	u8 bin_table[PAGE_SIZE];
+	/*
+	 * page size should be more than enough for a max of 64 entries!
+	 * +1 so we the table can be properly NULL terminated.
+	 */
+	u8 bin_table[PAGE_SIZE + 1];
+	adi_adrv9001_FhHopFrame_t hop_tbl[ADI_ADRV9001_FH_MAX_HOP_TABLE_SIZE];
 };
 
 #define to_clk_priv(_hw) container_of(_hw, struct adrv9002_clock, hw)
@@ -220,6 +225,7 @@ struct adrv9002_rf_phy {
 	struct iio_dev			*indio_dev;
 	struct gpio_desc		*reset_gpio;
 	struct gpio_desc		*ssi_sync;
+	struct iio_chan_spec		*iio_chan;
 	/* Protect against concurrent accesses to the device */
 	struct mutex			lock;
 	struct clk			*clks[NUM_ADRV9002_CLKS];
@@ -232,7 +238,7 @@ struct adrv9002_rf_phy {
 	char				*bin_attr_buf;
 	u8				*stream_buf;
 	u16				stream_size;
-	struct adrv9002_fh_bin_table	fh_table_bin_attr[ADRV9002_FH_BIN_ATTRS_CNT];
+	struct adrv9002_fh_bin_table	fh_table_bin_attr;
 	adi_adrv9001_FhCfg_t		fh;
 	struct adrv9002_rx_chan		rx_channels[ADRV9002_CHANN_MAX];
 	struct adrv9002_tx_chan		tx_channels[ADRV9002_CHANN_MAX];

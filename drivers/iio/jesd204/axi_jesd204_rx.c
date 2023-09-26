@@ -86,6 +86,7 @@ struct axi_jesd204_rx {
 	struct clk *device_clk;
 	struct clk *link_clk;
 	struct clk *conv2_clk;
+	struct clk *sysref_clk;
 
 	struct jesd204_dev *jdev;
 
@@ -441,6 +442,14 @@ JESD_LANE(12);
 JESD_LANE(13);
 JESD_LANE(14);
 JESD_LANE(15);
+JESD_LANE(16);
+JESD_LANE(17);
+JESD_LANE(18);
+JESD_LANE(19);
+JESD_LANE(20);
+JESD_LANE(21);
+JESD_LANE(22);
+JESD_LANE(23);
 
 static const struct device_attribute *jesd204_rx_lane_devattrs[] = {
 	&dev_attr_lane0_info,
@@ -459,6 +468,14 @@ static const struct device_attribute *jesd204_rx_lane_devattrs[] = {
 	&dev_attr_lane13_info,
 	&dev_attr_lane14_info,
 	&dev_attr_lane15_info,
+	&dev_attr_lane16_info,
+	&dev_attr_lane17_info,
+	&dev_attr_lane18_info,
+	&dev_attr_lane19_info,
+	&dev_attr_lane20_info,
+	&dev_attr_lane21_info,
+	&dev_attr_lane22_info,
+	&dev_attr_lane23_info,
 };
 
 static irqreturn_t axi_jesd204_rx_irq(int irq, void *devid)
@@ -928,12 +945,16 @@ static int axi_jesd204_rx_jesd204_clks_enable(struct jesd204_dev *jdev,
 	case JESD204_STATE_OP_REASON_INIT:
 		break;
 	case JESD204_STATE_OP_REASON_UNINIT:
-		if (__clk_is_enabled(jesd->device_clk))
-			clk_disable_unprepare(jesd->device_clk);
 		if (!IS_ERR_OR_NULL(jesd->link_clk)) {
 			if (__clk_is_enabled(jesd->link_clk))
 				clk_disable_unprepare(jesd->link_clk);
 		}
+		if (!IS_ERR_OR_NULL(jesd->sysref_clk)) {
+			if (__clk_is_enabled(jesd->sysref_clk))
+				clk_disable_unprepare(jesd->sysref_clk);
+		}
+		if (__clk_is_enabled(jesd->device_clk))
+			clk_disable_unprepare(jesd->device_clk);
 		return JESD204_STATE_CHANGE_DONE;
 	default:
 		return JESD204_STATE_CHANGE_DONE;
@@ -944,6 +965,15 @@ static int axi_jesd204_rx_jesd204_clks_enable(struct jesd204_dev *jdev,
 		dev_err(dev, "%s: Link%u enable device clock failed (%d)\n",
 			__func__, lnk->link_id, ret);
 		return ret;
+	}
+
+	if (!IS_ERR_OR_NULL(jesd->sysref_clk)) {
+		ret = clk_prepare_enable(jesd->sysref_clk);
+		if (ret) {
+			dev_err(dev, "%s: Link%u enable sysref clock failed (%d)\n",
+				__func__, lnk->link_id, ret);
+			return ret;
+		}
 	}
 
 	if (!IS_ERR_OR_NULL(jesd->link_clk)) {
@@ -1081,7 +1111,7 @@ static void axi_jesd204_rx_create_remove_devattrs(struct device *dev,
 						  bool create)
 {
 	const struct device_attribute *dattr;
-	unsigned int i;
+	unsigned int i, lanes;
 
 	if (create) {
 		device_create_file(dev, &dev_attr_status);
@@ -1091,22 +1121,20 @@ static void axi_jesd204_rx_create_remove_devattrs(struct device *dev,
 		device_remove_file(dev, &dev_attr_encoder);
 	}
 
-	switch (jesd->num_lanes) {
-	case 16:
-	case 8:
-	case 4:
-	case 2:
-	case 1:
-		for (i = 0; i < jesd->num_lanes; i++) {
-			dattr = jesd204_rx_lane_devattrs[i];
-			if (create)
-				device_create_file(dev, dattr);
-			else
-				device_remove_file(dev, dattr);
-		}
-		break;
-	default:
-		break;
+	if (jesd->num_lanes > 24) {
+		dev_err(dev, "%s: Number of Lanes %u exceed max 24\n",
+			__func__, jesd->num_lanes);
+		lanes = 24;
+	} else {
+		lanes = jesd->num_lanes;
+	}
+
+	for (i = 0; i < lanes; i++) {
+		dattr = jesd204_rx_lane_devattrs[i];
+		if (create)
+			device_create_file(dev, dattr);
+		else
+			device_remove_file(dev, dattr);
 	}
 }
 
@@ -1175,6 +1203,10 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 	jesd->link_clk = devm_clk_get_optional(&pdev->dev, "link_clk");
 	if (IS_ERR(jesd->link_clk))
 		return PTR_ERR(jesd->link_clk);
+
+	jesd->sysref_clk = devm_clk_get_optional(&pdev->dev, "sysref_clk");
+	if (IS_ERR(jesd->sysref_clk))
+		return PTR_ERR(jesd->sysref_clk);
 
 	ret = clk_prepare_enable(jesd->axi_clk);
 	if (ret)

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * dts file for Analog Devices, Inc. Pluto NG
+ * dts file for Analog Devices, Inc. Jupiter SDR
  *
- * hdl_project: <pluto_ng>
+ * hdl_project: <jupiter_sdr>
  * board_revision: <>
  *
  * Copyright (C) 2021 Analog Devices Inc.
@@ -18,10 +18,10 @@
 #include <dt-bindings/pinctrl/pinctrl-zynqmp.h>
 #include <dt-bindings/phy/phy.h>
 
-#undef PLUTO_NG_USB_ROLE_SW
+#undef JUPITER_SDR_USB_ROLE_SW
 
 / {
-	model = "Analog Devices, Inc. Pluto NG";
+	model = "Analog Devices, Inc. Jupiter SDR";
 	compatible = "xlnx,zynqmp";
 
 	aliases {
@@ -225,6 +225,9 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gem3_default>;
 
+	nvmem-cells = <&eth0_addr>;
+	nvmem-cell-names = "mac-address";
+
 	phy0: phy@f {
 		reg = <0xf>;
 	};
@@ -248,6 +251,18 @@
 		reg = <0x6a>;
 	};
 
+	eeprom_i2c: eeprom@50 {
+		compatible = "atmel,24c16";
+		pagesize = <16>;
+		reg = <0x50>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		eth0_addr: eth-mac-addr@B {
+			reg = <0xB 0x06>;
+		};
+	};
+
 	typec_pd: usb-pd@38 {
 		compatible = "ti,tps6598x";
 		reg = <0x38>;
@@ -255,7 +270,7 @@
 		interrupts = <31 IRQ_TYPE_LEVEL_LOW>;
 		interrupt-names = "irq";
 
-#ifdef PLUTO_NG_USB_ROLE_SW
+#ifdef JUPITER_SDR_USB_ROLE_SW
 		typec_con: connector {
 			compatible = "usb-c-connector";
 			label = "USB-C";
@@ -280,7 +295,8 @@
 &zynqmp_dpsub {
 	status = "okay";
 	phy-names = "dp-phy0";
-	phys = <&psgtr 1 PHY_TYPE_DP 0 1>;
+	phys = <&psgtr 3 PHY_TYPE_DP 0 1>,
+		<&psgtr 2 PHY_TYPE_DP 1 1>;
 };
 
 &zynqmp_dp_snd_codec0 {
@@ -314,7 +330,7 @@
 	ceva,p1-burst-params = /bits/ 8 <0x13 0x08 0x4A 0x06>;
 	ceva,p1-retry-params = /bits/ 16 <0x96A4 0x3FFC>;
 	phy-names = "sata-phy";
-	phys = <&psgtr 3 PHY_TYPE_SATA 1 2>;
+	phys = <&psgtr 1 PHY_TYPE_SATA 1 2>;
 };
 
 &usb0 {
@@ -329,7 +345,7 @@
 	phy-names = "usb3-phy";
 	phys = <&psgtr 0 PHY_TYPE_USB3 0 0>;
 	maximum-speed = "super-speed";
-#ifdef PLUTO_NG_USB_ROLE_SW
+#ifdef JUPITER_SDR_USB_ROLE_SW
 	usb-role-switch;
 	role-switch-default-mode = "device";
 
@@ -348,65 +364,30 @@
 
 	usb_reset {
 		gpio-hog;
-		gpios = <13 0>;
+		gpios = <13 GPIO_ACTIVE_HIGH>;
 		output-high;
 		line-name = "usb-reset";
 	};
 
 	adrv9002_clksrc {
 		gpio-hog;
-		gpios = <79 0>;
+		gpios = <79 GPIO_ACTIVE_HIGH>;
 		output-high;
 		line-name = "adrv9002-clksrc";
 	};
 
-	rf_rx1a_mux_ctl {
+	fan_en {
 		gpio-hog;
-		gpios = <86 0>;
+		gpios = <144 GPIO_ACTIVE_HIGH>;
 		output-high;
-		line-name = "rf_rx1a_mux_ctl";
+		line-name = "fan-en";
 	};
-	rf_rx1b_mux_ctl {
+
+	fan_ctl {
 		gpio-hog;
-		gpios = <87 0>;
-		output-high;
-		line-name = "rf_rx1b_mux_ctl";
-	};
-	rf_rx2a_mux_ctl {
-		gpio-hog;
-		gpios = <88 0>;
-		output-high;
-		line-name = "rf_rx2a_mux_ctl";
-	};
-	rf_rx2b_mux_ctl {
-		gpio-hog;
-		gpios = <89 0>;
-		output-high;
-		line-name = "rf_rx2b_mux_ctl";
-	};
-	rf_tx1_mux_ctl1 {
-		gpio-hog;
-		gpios = <90 0>;
-		output-high;
-		line-name = "rf_tx1_mux_ctl1";
-	};
-	rf_tx1_mux_ctl2 {
-		gpio-hog;
-		gpios = <91 0>;
+		gpios = <145 GPIO_ACTIVE_HIGH>;
 		output-low;
-		line-name = "rf_tx1_mux_ctl2";
-	};
-	rf_tx2_mux_ctl1 {
-		gpio-hog;
-		gpios = <92 0>;
-		output-low;
-		line-name = "rf_tx2_mux_ctl1";
-	};
-	rf_tx2_mux_ctl2 {
-		gpio-hog;
-		gpios = <93 0>;
-		output-high;
-		line-name = "rf_tx2_mux_ctl2";
+		line-name = "fan-ctl";
 	};
 };
 
@@ -594,4 +575,26 @@
 &adc0_adrv9002 {
 	reset-gpios = <&gpio 81 GPIO_ACTIVE_LOW>;
 	interrupts = <78 IRQ_TYPE_EDGE_RISING>;
+
+	adi,channels {
+		rx@0 {
+			mux-ctl-gpios = <&gpio 86 GPIO_ACTIVE_HIGH>;
+			mux-ctl2-gpios = <&gpio 87 GPIO_ACTIVE_LOW>;
+		};
+
+		rx@1 {
+			mux-ctl-gpios = <&gpio 88 GPIO_ACTIVE_HIGH>;
+			mux-ctl2-gpios = <&gpio 89 GPIO_ACTIVE_LOW>;
+		};
+
+		tx@0 {
+			mux-ctl-gpios = <&gpio 90 GPIO_ACTIVE_HIGH>;
+			mux-ctl2-gpios = <&gpio 91 GPIO_ACTIVE_LOW>;
+		};
+
+		tx@1 {
+			mux-ctl-gpios = <&gpio 92 GPIO_ACTIVE_LOW>;
+			mux-ctl2-gpios = <&gpio 93 GPIO_ACTIVE_HIGH>;
+		};
+	};
 };

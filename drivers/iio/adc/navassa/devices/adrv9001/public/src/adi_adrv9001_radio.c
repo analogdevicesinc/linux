@@ -1497,3 +1497,61 @@ int32_t adi_adrv9001_Radio_RfLogenDivider_Get(adi_adrv9001_Device_t *adrv9001, a
 
 	ADI_API_RETURN(adrv9001);
 }
+
+static __maybe_unused int32_t adi_adrv9001_Radio_PfirWbNbCompChFilter_Set_Validate(adi_adrv9001_Device_t *adrv9001,
+	                                                                 const adi_adrv9001_PfirWbNbBuffer_t *pfirCoeff,
+	                                                                 adi_common_Port_e port,
+	                                                                 adi_common_ChannelNumber_e channel,
+	                                                                 adi_adrv9001_PfirBank_e bankSel)
+{
+	/* Check input pointers are not null */
+	ADI_ENTRY_PTR_EXPECT(adrv9001, pfirCoeff);
+
+	ADI_EXPECT(adi_adrv9001_Port_Validate, adrv9001, port);
+	ADI_EXPECT(adi_adrv9001_Channel_Validate, adrv9001, channel);
+
+	ADI_RANGE_CHECK(adrv9001, bankSel, ADI_ADRV9001_PFIR_BANK_A, ADI_ADRV9001_PFIR_BANK_D);
+
+	ADI_API_RETURN(adrv9001);
+}
+
+int32_t adi_adrv9001_Radio_PfirWbNbCompChFilter_Set(adi_adrv9001_Device_t *adrv9001,
+	                                                const adi_adrv9001_PfirWbNbBuffer_t *pfirCoeff,
+	                                                adi_adrv9001_PfirBank_e bankSel,
+	                                                adi_common_Port_e port,
+	                                                adi_common_ChannelNumber_e channel)
+{
+	uint8_t PfirWbNbCoeffSelModeEnable = 1;
+	adi_adrv9001_PfirTypeId_e pfirType = ADI_ADRV9001_PFIR_TYPE_RX_WB_NB_COMP;
+
+	ADI_PERFORM_VALIDATION(adi_adrv9001_Radio_PfirWbNbCompChFilter_Set_Validate, adrv9001, pfirCoeff, port, channel, bankSel);
+
+	if (((channel == ADI_CHANNEL_1) && ((bankSel == ADI_ADRV9001_PFIR_BANK_A) ||
+		(bankSel == ADI_ADRV9001_PFIR_BANK_B))) || ((channel == ADI_CHANNEL_2) &&
+		((bankSel == ADI_ADRV9001_PFIR_BANK_C) || (bankSel == ADI_ADRV9001_PFIR_BANK_D))))
+	{
+		if (port == ADI_TX)
+		{
+			pfirType = ADI_ADRV9001_PFIR_TYPE_TX_WB_NB_COMP;
+		}
+		else if (port == ADI_RX)
+		{
+			pfirType = ADI_ADRV9001_PFIR_TYPE_RX_WB_NB_COMP;
+		}
+	}
+
+	/* Load coefficients */
+	adrv9001_Radio_PfirWbNbCompCoeffBankSelMode_Set(adrv9001, bankSel, PfirWbNbCoeffSelModeEnable, port);
+	adrv9001_Radio_Pfir_Write(adrv9001, pfirCoeff, pfirType, port, channel);
+	adrv9001_Radio_PfirWbNbCompCoeffBankSelMode_Set(adrv9001, bankSel, !(PfirWbNbCoeffSelModeEnable), port);
+
+	/* Load symmetric, taps, gain */
+	adrv9001_Radio_PfirWbNbCompSymmetric_Set(adrv9001, bankSel, pfirCoeff->symmetricSel, port);
+	adrv9001_Radio_PfirWbNbCompTaps_Set(adrv9001, bankSel, pfirCoeff->tapsSel, port);
+	adrv9001_Radio_PfirWbNbCompGain_Set(adrv9001, bankSel, pfirCoeff->gainSel, port);
+
+	ADI_API_RETURN(adrv9001);
+}
+
+
+

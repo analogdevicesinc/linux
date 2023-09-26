@@ -887,7 +887,6 @@ static int jesd204_dev_init_links_data(struct device *parent,
 	 * or a link init op/callback which should do JESD204 link init.
 	 */
 	if (!init->links &&
-	    !init->state_ops &&
 	    !init->state_ops[JESD204_OP_LINK_INIT].per_link) {
 		jesd204_err(jdev,
 			    "num_links is non-zero, but no links data provided\n");

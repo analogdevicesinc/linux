@@ -462,6 +462,21 @@ of_en_delay_put:
 	return ret;
 }
 
+/* there's no optional variant for this, so we need to check for -ENOENT */
+static struct gpio_desc *devm_fwnode_gpiod_get_optional(struct device *dev,
+							struct device_node *node,
+							const char *con_id,
+							enum gpiod_flags flags, const char *label)
+{
+	struct gpio_desc *desc;
+
+	desc = devm_fwnode_gpiod_get(dev, of_fwnode_handle(node), con_id, flags, label);
+	if (IS_ERR(desc) && PTR_ERR(desc) == -ENOENT)
+		return NULL;
+
+	return desc;
+}
+
 static int adrv9002_parse_tx_pin_dt(const struct adrv9002_rf_phy *phy,
 				    struct device_node *node,
 				    struct adrv9002_tx_chan *tx)
@@ -504,6 +519,8 @@ of_pinctrl_put:
 static int adrv9002_parse_tx_dt(struct adrv9002_rf_phy *phy,
 				struct device_node *node, const int channel)
 {
+	const char *mux_label_2 = channel ? "tx2-mux-ctl2" : "tx1-mux-ctl2";
+	const char *mux_label = channel ? "tx2-mux-ctl" : "tx1-mux-ctl";
 	struct adrv9002_tx_chan *tx = &phy->tx_channels[channel];
 	int ret;
 
@@ -518,6 +535,16 @@ static int adrv9002_parse_tx_dt(struct adrv9002_rf_phy *phy,
 	ret = adrv9002_parse_en_delays(phy, node, &tx->channel);
 	if (ret)
 		return ret;
+
+	tx->channel.mux_ctl = devm_fwnode_gpiod_get_optional(&phy->spi->dev, node, "mux-ctl",
+							     GPIOD_OUT_HIGH, mux_label);
+	if (IS_ERR(tx->channel.mux_ctl))
+		return PTR_ERR(tx->channel.mux_ctl);
+
+	tx->channel.mux_ctl_2 = devm_fwnode_gpiod_get_optional(&phy->spi->dev, node, "mux-ctl2",
+							       GPIOD_OUT_HIGH, mux_label_2);
+	if (IS_ERR(tx->channel.mux_ctl_2))
+		return PTR_ERR(tx->channel.mux_ctl_2);
 
 	return adrv9002_parse_tx_pin_dt(phy, node, tx);
 }
@@ -799,6 +826,9 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 				struct device_node *node,
 				const int channel)
 {
+	const char *rxb_mux_label = channel ? "rx2b-mux-ctl" : "rx1b-mux-ctl";
+	const char *mux_label = channel ? "rx2a-mux-ctl" : "rx1a-mux-ctl";
+	const char *gpio_label = channel ? "orx2" : "orx1";
 	struct adrv9002_rx_chan *rx = &phy->rx_channels[channel];
 	int ret;
 	u32 min_gain, max_gain;
@@ -840,15 +870,20 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 	}
 
 	/* there's no optional variant for this, so we need to check for -ENOENT */
-	rx->orx_gpio = devm_fwnode_get_index_gpiod_from_child(&phy->spi->dev, "orx", 0,
-							      of_fwnode_handle(node),
-							      GPIOD_OUT_LOW, NULL);
-	if (IS_ERR(rx->orx_gpio)) {
-		if (PTR_ERR(rx->orx_gpio) != -ENOENT)
-			return PTR_ERR(rx->orx_gpio);
+	rx->orx_gpio = devm_fwnode_gpiod_get_optional(&phy->spi->dev, node, "orx", GPIOD_OUT_LOW,
+						      gpio_label);
+	if (IS_ERR(rx->orx_gpio))
+		return PTR_ERR(rx->orx_gpio);
 
-		rx->orx_gpio = NULL;
-	}
+	rx->channel.mux_ctl = devm_fwnode_gpiod_get_optional(&phy->spi->dev, node, "mux-ctl",
+							     GPIOD_OUT_HIGH, mux_label);
+	if (IS_ERR(rx->channel.mux_ctl))
+		return PTR_ERR(rx->channel.mux_ctl);
+
+	rx->channel.mux_ctl_2 = devm_fwnode_gpiod_get_optional(&phy->spi->dev, node, "mux-ctl2",
+							       GPIOD_OUT_HIGH, rxb_mux_label);
+	if (IS_ERR(rx->channel.mux_ctl_2))
+		return PTR_ERR(rx->channel.mux_ctl_2);
 
 	return 0;
 }

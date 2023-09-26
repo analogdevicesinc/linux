@@ -7,6 +7,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/mutex.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -294,12 +295,16 @@ static int ad6676_set_clk_synth(struct axiadc_converter *conv, u32 refin_Hz, u32
 	} else if (refin_Hz < 320000000UL) {
 		f_pfd = refin_Hz / 4;
 		div_val = R_DIV(2);
-	} else
+	} else {
+		dev_err(&spi->dev, "Error REFin frequency %u Hz out of range\n", freq);
 		return -EINVAL;
-
+	}
 	/* Compute N val */
 
-	freq = clamp_t(u32, freq, MIN_FADC_INT_SYNTH, MAX_FADC);
+	if (freq > MAX_FADC || freq < MIN_FADC_INT_SYNTH) {
+		dev_err(&spi->dev, "Error ADC frequency %u Hz out of range\n", freq);
+		return -EINVAL;
+	}
 
 	reg_val = freq / (f_pfd / 2);
 	ret = ad6676_set_splitreg(spi, AD6676_CLKSYN_INT_N_LSB, reg_val); /* 2A0 */
@@ -515,30 +520,64 @@ static int ad6676_setup(struct axiadc_converter *conv)
 		return ret;
 
 	if (!pdata->base.use_extclk)
-		ad6676_set_clk_synth(conv, phy->ref_clk, pdata->base.f_adc_hz);
+		ret = ad6676_set_clk_synth(conv, phy->ref_clk, pdata->base.f_adc_hz);
 	else
-		ad6676_set_extclk_cntl(conv, pdata->base.f_adc_hz);
+		ret = ad6676_set_extclk_cntl(conv, pdata->base.f_adc_hz);
 
-	ad6676_jesd_setup(conv, &phy->pdata->jesd);
+	if (ret)
+		return ret;
 
-	ad6676_set_fadc(conv, pdata->base.f_adc_hz);
-	ad6676_set_fif(conv, pdata->base.f_if_hz);
-	ad6676_set_bw(conv, pdata->base.bw_hz);
+	ret = ad6676_jesd_setup(conv, &phy->pdata->jesd);
+	if (ret)
+		return ret;
 
+	ret = ad6676_set_fadc(conv, pdata->base.f_adc_hz);
+	if (ret)
+		return ret;
 
-	ret |= ad6676_spi_write(spi, AD6676_LEXT, pdata->base.ext_l);
-	ret |= ad6676_spi_write(spi, AD6676_MRGN_L, pdata->base.bw_margin_low_mhz);
-	ret |= ad6676_spi_write(spi, AD6676_MRGN_U, pdata->base.bw_margin_high_mhz);
-	ret |= ad6676_spi_write(spi, AD6676_MRGN_IF, pdata->base.bw_margin_if_mhz);
-	ret |= ad6676_spi_write(spi, AD6676_XSCALE_1, pdata->base.scale);
+	ret = ad6676_set_fif(conv, pdata->base.f_if_hz);
+	if (ret)
+		return ret;
 
-	ad6676_set_decimation(conv, 32);
+	ret = ad6676_set_bw(conv, pdata->base.bw_hz);
+	if (ret)
+		return ret;
+
+	ret = ad6676_spi_write(spi, AD6676_LEXT, pdata->base.ext_l);
+	if (ret)
+		return ret;
+
+	ret = ad6676_spi_write(spi, AD6676_MRGN_L, pdata->base.bw_margin_low_mhz);
+	if (ret)
+		return ret;
+
+	ret = ad6676_spi_write(spi, AD6676_MRGN_U, pdata->base.bw_margin_high_mhz);
+	if (ret)
+		return ret;
+
+	ret = ad6676_spi_write(spi, AD6676_MRGN_IF, pdata->base.bw_margin_if_mhz);
+	if (ret)
+		return ret;
+
+	ret = ad6676_spi_write(spi, AD6676_XSCALE_1, pdata->base.scale);
+	if (ret)
+		return ret;
+
+	ret = ad6676_set_decimation(conv, 32);
+	if (ret)
+		return ret;
 
 	ret = ad6676_calibrate(conv, RESON1_CAL | INIT_ADC);
+	if (ret)
+		return ret;
 
-	ad6676_set_decimation(conv, pdata->base.decimation);
+	ret = ad6676_set_decimation(conv, pdata->base.decimation);
+	if (ret)
+		return ret;
 
 	ret = ad6676_calibrate(conv, XCMD0 | XCMD1 | INIT_ADC | TUNE_ADC | FLASH_CAL);
+	if (ret)
+		return ret;
 
 // 	ad6676_spi_write(spi, 0x118, 0x00);
 // 	ad6676_spi_write(spi, 0x115, 0x00);
@@ -705,9 +744,9 @@ static ssize_t axiadc_testmode_write(struct iio_dev *indio_dev,
 		}
 	}
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	ret = ad6676_testmode_set(indio_dev, chan->channel, mode);
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret ? ret : len;
 }
@@ -730,7 +769,7 @@ static ssize_t ad6676_extinfo_write(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	switch ((u32)private) {
 	case AD6676_ATTR_FADC:
 		if (pdata->base.fadc_fixed) {
@@ -768,7 +807,7 @@ static ssize_t ad6676_extinfo_write(struct iio_dev *indio_dev,
 	if (update)
 		ret = ad6676_update(conv, pdata);
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret ? ret : len;
 }
@@ -785,7 +824,7 @@ static ssize_t ad6676_extinfo_read(struct iio_dev *indio_dev,
 	int val;
 	int ret = 0;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 
 	switch ((u32)private) {
 	case AD6676_ATTR_FADC:
@@ -805,7 +844,7 @@ static ssize_t ad6676_extinfo_read(struct iio_dev *indio_dev,
 		break;
 	case AD6676_ATTR_MRGN_IF:
 		val = pdata->base.bw_margin_if_mhz;
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&conv->lock);
 		return sprintf(buf, "%d\n", val);
 	case AD6676_ATTR_SHUF_TH:
 		val = pdata->shuffler.shuffle_thresh;
@@ -814,7 +853,7 @@ static ssize_t ad6676_extinfo_read(struct iio_dev *indio_dev,
 		ret = -EINVAL;
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret < 0 ? ret : sprintf(buf, "%u\n", val);
 }

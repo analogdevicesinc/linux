@@ -1314,6 +1314,17 @@ S:	Supported
 F:	drivers/iio/gyro/adxrs290.c
 F:	Documentation/devicetree/bindings/iio/gyroscope/adi,adxrs290.yaml
 
+ANALOG DEVICES INC AD_PULSAR DRIVER
+M:	Marcelo Schmitt <marcelo.schmitt@analog.com>
+M:	Jorge Marques <jorge.marques@analog.com>
+M:	Ciprian Hegbeli <ciprian.hegbeli@analog.com>
+M:	Sergiu Cuciurean <sergiu.cuciurean@analog.com>
+L:	linux-iio@vger.kernel.org
+S:	Supported
+W:	http://ez.analog.com/community/linux-device-drivers
+F:	Documentation/devicetree/bindings/iio/adc/adi,pulsar.yaml
+F:	drivers/iio/adc/ad_pulsar.c
+
 ANALOG DEVICES INC ASOC CODEC DRIVERS
 M:	Lars-Peter Clausen <lars@metafoo.de>
 M:	Nuno Sá <nuno.sa@analog.com>
@@ -11590,6 +11601,15 @@ F:	Documentation/devicetree/bindings/media/i2c/max2175.txt
 F:	Documentation/userspace-api/media/drivers/max2175.rst
 F:	drivers/media/i2c/max2175*
 F:	include/uapi/linux/max2175.h
+
+MAX31827 TEMPERATURE SWITCH DRIVER
+M:	Daniel Matyas <daniel.matyas@analog.com>
+L:	linux-hwmon@vger.kernel.org
+S:	Supported
+W:	http://ez.analog.com/community/linux-device-drivers
+F:	Documentation/devicetree/bindings/hwmon/adi,max31827.yaml
+F:	Documentation/hwmon/max31827.rst
+F:	drivers/hwmon/max31827.c
 
 MAX6650 HARDWARE MONITOR AND FAN CONTROLLER DRIVER
 L:	linux-hwmon@vger.kernel.org

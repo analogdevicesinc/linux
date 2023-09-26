@@ -1,0 +1,217 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Overlay for the XMW TX Platform, controlled by RPI4
+ *
+ * Edit config.txt in the boot partition of your SD card as follows to
+ * enable spi0 and spi1 (SPI1 and SPI2 on XMW Bridge Board) with 1 and 2
+ * CS pins respectively.
+ *
+ * Uncomment this line to turn on the SPI interface:
+ * dtparam=spi=on
+ *
+ * Add these lines under [all] at the end of the file to enable overlays:
+ *
+ * [all]
+ * dtoverlay=rpi-xmw-tx
+ * dtoverlay=spi0-1cs
+ * dtoverlay=spi1-2cs
+ *
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2711";
+};
+
+&{/clocks} {
+	admv8818_rfin: clock@0 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+
+		clock-frequency = <100000000>; // 100 MHz
+		clock-output-names = "rf_in";
+	};
+
+	adf4371_clkin: clock@1 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+
+		clock-freqency = <100000000>; // 100 MHz
+		clock-output-names = "clkin";
+	};
+};
+
+&{/} {
+	/* 1-bit switch controlled with GPIO pin 4 on the RPI */
+	adrf5020_1_bit_switch: adrf5020_control@0 {
+		label = "adrf5020_1_bit_switch";
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		out-gpios = <&gpio 0x04 0>;
+
+		channel@0 {
+			reg = <0>;
+			label = "SW1_CTL_IN";
+		};
+	};
+
+	/* 6-bit DSA controlled with GPIO pins 14, 15, 27, 22, 23, 24 on the RPI */
+	adrf5730_6_bit_DSA: adrf5730_control@0 {
+		label = "adrf5730_6_bit_DSA";
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		out-gpios = <&gpio  0x0e 0>, <&gpio  0x0f 0>, <&gpio  0x1b 0>, <&gpio  0x16 0>, <&gpio  0x17 0>, <&gpio  0x18 0>;
+
+		channel@0 {
+			reg = <0>;
+			label = "DSA1_D0";
+		};
+		channel@1 {
+			reg = <1>;
+			label = "DSA1_D1";
+		};
+		channel@2 {
+			reg = <2>;
+			label = "DSA1_D2";
+		};
+		channel@3 {
+			reg = <3>;
+			label = "DSA1_D3";
+		};
+		channel@4 {
+			reg = <4>;
+			label = "DSA1_D4";
+		};
+		channel@5 {
+			reg = <5>;
+			label = "DSA1_D5";
+		};
+	};
+}
+
+&spidev0 {
+	status = "disabled";
+};
+
+/* Defining GPIO pin 8 as CS0 pin for spi0 (SPI1 on XMW Bridge Board) */
+&spi0_cs_pins {
+	brcm,pins = <8>;
+	brcm,function = <1>; //output
+};
+
+/* SPI1 on XMW Bridge Board */
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	cs-gpios = <&gpio 8 1>;
+
+	admv8818_tunable_BPF: admv8818@0 {
+		compatible = "adi,admv8818";
+		reg = <0>; // CS0 on SPI1
+		spi-max-freqency = <10000000>; // 10 MHz
+
+		clocks = <&admv8818_rfin>;
+		clock-scales = <1 50>;
+		clock-names = "rf_in";
+		adi,bw-hz = /bits/ 64 <600000000>; // 600 MHz
+	};
+};
+
+&spidev1 {
+	status = "disabled";
+};
+
+/* Defining GPIO pins 18, 17 as CS0 and CS1 pins for spi1 (SPI2 on XMW Bridge Board) */
+&spi1_cs_pins {
+	brcm,pins = <18 17>;
+	brcm,function = <1>; //output
+};
+
+/* SPI2 on XMW Bridge Board */
+&spi1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	cs-gpios = <&gpio 18 1>, <&gpio 17 1>;
+
+	/* Power-up frequencies for all channels should be in sync with each other */
+	adf4371_fixed_PLL: adf4371@0 {
+		label = "adf4371_fixed_PLL";
+		compatible = "adi,adf4371";
+		reg = <0>; // CS0 on SPI2
+		spi-max-frequency = <1000000>; // 1 MHz
+		adi,spi-3wire-enable;
+
+		clocks = <&adf4371_clkin>;
+		clock-names = "clkin";
+		clock-scales = <1 10>;
+
+		RF8: channel@0 {
+			reg = <0>;
+			adi,output-enable;
+			adi,power-up-frequency = /bits/ 64 <8000000000>; // 8 GHz
+		};
+
+		RF8_AUX: channel@1 {
+			reg = <1>;
+			adi,output-enable;
+		};
+
+		RF16: channel@2 {
+			reg = <2>;
+			adi,output-enable;
+			adi,power-up-frequency = /bits/ 64 <16000000000>; // 16 GHz
+		};
+
+		RF32: channel@3 {
+			reg = <3>;
+			adi,output-enable;
+			adi,power-up-frequency = /bits/ 64 <32000000000>; // 32 GHz
+		};
+	};
+
+	/* Power-up frequencies for all channels should be in sync with each other */
+	adf4371_tunable_PLL: adf4371@1 {
+		label = "adf4371_tunable_PLL";
+		compatible = "adi,adf4371";
+		reg = <1>; // CS1 on SPI2
+		spi-max-frequency = <1000000>; // 1 MHz
+		adi,spi-3wire-enable;
+
+		clocks = <&adf4371_clkin>;
+		clock-names = "clkin";
+		clock-scales = <1 10>;
+
+		RF8: channel@0 {
+			reg = <0>;
+			adi,output-enable;
+			adi,power-up-frequency = /bits/ 64 <8000000000>; // 8 GHz
+		};
+
+		RF8_AUX: channel@1 {
+			reg = <1>;
+			adi,output-enable;
+		};
+
+		RF16: channel@2 {
+			reg = <2>;
+			adi,output-enable;
+			adi,power-up-frequency = /bits/ 64 <16000000000>; // 16 GHz
+		};
+
+		RF32: channel@3 {
+			reg = <3>;
+			adi,output-enable;
+			adi,power-up-frequency = /bits/ 64 <32000000000>; // 32 GHz
+		};
+	};
+};

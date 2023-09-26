@@ -79,6 +79,46 @@ arch/arm64/boot/dts/xilinx/zynqmp-vpk120-revA.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev1.1.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu670-revA.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu670-revB.dts
+arch/arm64/boot/dts/xilinx/versal-net-emu-rev1.9.dts
+arch/arm64/boot/dts/xilinx/versal-net-ipp-rev1.9.dts
+arch/arm64/boot/dts/xilinx/versal-net-ipp-rev1.9-ospi.dts
+arch/arm64/boot/dts/xilinx/versal-v350-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vck190-rev1.1.dts
+arch/arm64/boot/dts/xilinx/versal-vck190-rev1.1-x-ebm-01-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vck190-rev1.1-x-ebm-02-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vck190-rev1.1-x-ebm-03-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vck190-reva.dts
+arch/arm64/boot/dts/xilinx/versal-vck190-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vck190-revA-x-ebm-01-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vck190-revA-x-ebm-02-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vck190-revA-x-ebm-03-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vck5000-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vc-p-a2197-00-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vc-p-a2197-00-revA-x-prc-01-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vc-p-a2197-00-revA-x-prc-01-revA-ospi.dts
+arch/arm64/boot/dts/xilinx/versal-vc-p-a2197-00-revA-x-prc-02-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vc-p-a2197-00-revA-x-prc-03-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vc-p-a2197-00-revA-x-prc-04-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vc-p-a2197-00-revA-x-prc-04-revA-ospi.dts
+arch/arm64/boot/dts/xilinx/versal-vc-p-a2197-00-revA-x-prc-05-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vek280-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vhk158-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vmk180-rev1.1.dts
+arch/arm64/boot/dts/xilinx/versal-vmk180-rev1.1-x-ebm-01-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vmk180-rev1.1-x-ebm-02-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vmk180-rev1.1-x-ebm-03-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vmk180-reva.dts
+arch/arm64/boot/dts/xilinx/versal-vmk180-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vmk180-revA-x-ebm-01-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vmk180-revA-x-ebm-02-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vmk180-revA-x-ebm-03-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vpk120-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vpk120-revB.dts
+arch/arm64/boot/dts/xilinx/versal-vpk180-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vp-x-a2785-00-revA.dts
+arch/arm64/boot/dts/xilinx/versal-x-ebm-01-revA.dts
+arch/arm64/boot/dts/xilinx/versal-x-ebm-02-revA.dts
+arch/arm64/boot/dts/xilinx/versal-x-ebm-03-revA.dts
 
 # Anything belonging to ADI, goes here
 
@@ -94,7 +134,6 @@ arch/arm/boot/dts/zynq-microzed-cn0363.dts
 arch/arm/boot/dts/zynq-coraz7s.dts
 arch/arm/boot/dts/zynq-zc702-adv7511-adrv9363.dts
 arch/arm/boot/dts/zynq-zc702-adv7511-fmcomms1.dts
-arch/arm/boot/dts/zynq-zc706-adv7511-ad9136-fmc-ebz.dts
 arch/arm/boot/dts/zynq-zc706-adv7511-adrv9363.dts
 arch/arm/boot/dts/zynq-zc706-adv7511-fmcadc4.dts
 arch/arm/boot/dts/zynq-zc706-adv7511-fmcdaq1.dts

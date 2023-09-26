@@ -2,7 +2,7 @@
 /*
  * Driver for LTC6952 ultralow jitter, JESD204B/C clock generation IC.
  *
- * Copyright 2019 Analog Devices Inc.
+ * Copyright 2019-2023 Analog Devices Inc.
  */
 
 #include <linux/bitfield.h>
@@ -18,6 +18,7 @@
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+#include <linux/jesd204/jesd204.h>
 
 /* Register address macro */
 #define LTC6952_REG(x)		(x)
@@ -197,6 +198,7 @@ struct ltc6952_chan_spec {
 	unsigned int		analog_delay;
 	unsigned int		sysref_mode;
 	unsigned int		power_down_mode;
+	bool			sync_disable;
 	const char		*extended_name;
 };
 
@@ -206,7 +208,10 @@ struct ltc6952_state {
 	u32				ref_freq;
 	u32				vco_freq;
 	bool				follower;
+	bool				is_controller;
+	bool				filtv_enable;
 	u32				cp_current;
+	u32				sysct;
 	const char			*clk_out_names[LTC6952_NUM_CHAN];
 	unsigned int			num_channels;
 	struct ltc6952_chan_spec	*channels;
@@ -214,6 +219,8 @@ struct ltc6952_state {
 	struct ltc6952_output		outputs[LTC6952_NUM_CHAN];
 	struct clk			*clks[LTC6952_NUM_CHAN];
 	struct clk_onecell_data		clk_data;
+	struct jesd204_dev		*jdev;
+	struct clk			*clkin;
 };
 
 #define to_output(_hw) container_of(_hw, struct ltc6952_output, hw)
@@ -586,6 +593,13 @@ static int ltc6952_clk_register(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static void ltc6952_clk_disable_unprepare(void *data)
+{
+	struct clk *clk = data;
+
+	clk_disable_unprepare(clk);
+}
+
 static int ltc6952_setup(struct iio_dev *indio_dev)
 {
 	struct ltc6952_state *st = iio_priv(indio_dev);
@@ -601,6 +615,12 @@ static int ltc6952_setup(struct iio_dev *indio_dev)
 	/* Resets all registers to default values */
 	ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x02),
 				 LTC6952_POR_MSK, LTC6952_POR(1));
+	if (ret < 0)
+		goto err_unlock;
+
+	ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x02),
+				 LTC6952_FILTV_MSK,
+				 LTC6952_FILTV(st->filtv_enable));
 	if (ret < 0)
 		goto err_unlock;
 
@@ -677,7 +697,7 @@ follower:
 		ret |= ltc6952_write_mask(indio_dev, LTC6952_REG(0x0D) +
 					  LTC6952_CH_OFFSET(chan->num),
 					  LTC6952_SRQEN_MSK,
-					  LTC6952_SRQEN(1));
+					  LTC6952_SRQEN(!chan->sync_disable));
 
 		/* Set channel delay */
 		ret |= ltc6952_write_mask(indio_dev, LTC6952_REG(0x0D) +
@@ -688,9 +708,15 @@ follower:
 		ret |= ltc6952_write(indio_dev, LTC6952_REG(0x0E) +
 				     LTC6952_CH_OFFSET(chan->num),
 				     LTC6952_DDEL_LOW(chan->digital_delay));
+
 		ret |= ltc6952_write(indio_dev, LTC6952_REG(0x0F) +
 				     LTC6952_CH_OFFSET(chan->num),
 				     LTC6952_ADEL(chan->analog_delay));
+
+		ret |= ltc6952_write_mask(indio_dev, LTC6952_REG(0x0D) +
+					  LTC6952_CH_OFFSET(chan->num),
+					  LTC6952_MODE_MSK,
+					  LTC6952_MODE(chan->sysref_mode));
 		if (ret < 0)
 			goto err_unlock;
 
@@ -704,6 +730,9 @@ follower:
 			BIT(IIO_CHAN_INFO_FREQUENCY) |
 			BIT(IIO_CHAN_INFO_PHASE);
 	}
+
+	ret |= ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
+				  LTC6952_SYSCT_MSK, LTC6952_SYSCT(st->sysct));
 
 	/* Phase Syncronization */
 	ret |= ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
@@ -746,17 +775,25 @@ static int ltc6952_parse_dt(struct device *dev,
 	unsigned int cnt = 0;
 	int ret;
 
+	if (!st->follower)
+		st->follower = of_property_read_bool(np, "adi,follower-mode-enable");
+
+	st->is_controller = !of_property_read_bool(np, "adi,sync-via-ezs-srq-enable");
+
+	st->filtv_enable = of_property_read_bool(np, "adi,input-buffer-filt-enable");
+
 	ret = of_property_read_u32(np, "adi,ref-frequency-hz",
 			     &st->ref_freq);
-	if (ret < 0)
+	if (ret < 0 && !st->follower && !st->clkin)
 		return ret;
 
 	ret = of_property_read_u32(np, "adi,vco-frequency-hz",
 				   &st->vco_freq);
-	if (ret < 0)
+	if (ret < 0 && !st->clkin)
 		return ret;
 
-	st->follower = of_property_read_bool(np, "adi,follower-mode-enable");
+	of_property_read_u32(np, "adi,pulse-generator-mode",
+			     &st->sysct);
 
 	ret = of_property_read_u32(np, "adi,charge-pump-microamp",
 				   &st->cp_current);
@@ -799,6 +836,11 @@ static int ltc6952_parse_dt(struct device *dev,
 		of_property_read_string(chan_np, "adi,extended-name",
 					&st->channels[cnt].extended_name);
 
+		of_property_read_u32(chan_np, "adi,sysref-mode",
+			&st->channels[cnt].sysref_mode);
+
+		st->channels[cnt].sync_disable = of_property_read_bool(np, "adi,sync-disable");
+
 		cnt++;
 	}
 
@@ -811,12 +853,12 @@ static int ltc6952_status_show(struct seq_file *file, void *offset)
 	int ret;
 	u32 status;
 
-	ret = ltc6952_read(indio_dev, 0x00, &status);
+	ret = ltc6952_read(indio_dev, LTC6952_REG(0x00), &status);
 	if (ret < 0)
 		return ret;
 
 	seq_printf(file,
-		   "SYSREF Status:\t%s\nVCO Status:\t%s\nLock Status:\t%s\n",
+		   "REF Status:\t%s\nVCO Status:\t%s\nLock Status:\t%s\n",
 		   status & LTC6952_REFOK_MSK ?
 		   "Valid" : "Invalid",
 		   status & LTC6952_VCOOK_MSK ?
@@ -827,11 +869,129 @@ static int ltc6952_status_show(struct seq_file *file, void *offset)
 	return 0;
 }
 
+static int ltc6952_jesd204_sysref(struct jesd204_dev *jdev)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	int ret;
+
+	ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
+				  LTC6952_SSRQ_MSK, LTC6952_SSRQ(1));
+	if (ret)
+		return ret;
+
+	fsleep(1000); /* sleep > 1000us */
+
+	return ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
+				  LTC6952_SSRQ_MSK, LTC6952_SSRQ(0));
+}
+
+static int ltc6952_jesd204_clks_sync1(struct jesd204_dev *jdev,
+				      enum jesd204_state_op_reason reason)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct ltc6952_state *st = iio_priv(indio_dev);
+	int ret;
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__,
+		jesd204_state_op_reason_str(reason));
+
+	ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
+				LTC6952_SSRQ_MSK | LTC6952_EZMD_MSK,
+				LTC6952_SSRQ(0) | LTC6952_EZMD(!st->is_controller));
+	if (ret)
+		return ret;
+
+	ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
+				LTC6952_SRQMD_MSK, LTC6952_SRQMD(0));
+	if (ret)
+		return ret;
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int ltc6952_jesd204_clks_sync2(struct jesd204_dev *jdev,
+				      enum jesd204_state_op_reason reason)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct ltc6952_state *st = iio_priv(indio_dev);
+	int ret;
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__,
+		jesd204_state_op_reason_str(reason));
+
+	if (st->is_controller) {
+		/* Toggle SSRQ to enable SYNC */
+		ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
+					LTC6952_SSRQ_MSK, LTC6952_SSRQ(1));
+		if (ret)
+			return ret;
+
+		fsleep(1000); /* sleep > 1000us */
+
+		ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
+					LTC6952_SSRQ_MSK, LTC6952_SSRQ(0));
+		if (ret)
+			return ret;
+	}
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static int ltc6952_jesd204_clks_sync3(struct jesd204_dev *jdev,
+				      enum jesd204_state_op_reason reason)
+{
+	struct device *dev = jesd204_dev_to_device(jdev);
+	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	int ret;
+
+	if (reason != JESD204_STATE_OP_REASON_INIT)
+		return JESD204_STATE_CHANGE_DONE;
+
+	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__,
+		jesd204_state_op_reason_str(reason));
+
+	/* SSRQMD = 1 issue SYSREF on SYNC */
+	ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
+				  LTC6952_SRQMD_MSK, LTC6952_SRQMD(1));
+	if (ret)
+		return ret;
+
+	return JESD204_STATE_CHANGE_DONE;
+}
+
+static const struct jesd204_dev_data ltc6952_jesd204_data = {
+	.sysref_cb = ltc6952_jesd204_sysref,
+	.state_ops = {
+		[JESD204_OP_CLK_SYNC_STAGE1] = {
+			.per_device = ltc6952_jesd204_clks_sync1,
+			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
+		},
+		[JESD204_OP_CLK_SYNC_STAGE2] = {
+			.per_device = ltc6952_jesd204_clks_sync2,
+			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
+		},
+		[JESD204_OP_CLK_SYNC_STAGE3] = {
+			.per_device = ltc6952_jesd204_clks_sync3,
+			.mode = JESD204_STATE_OP_MODE_PER_DEVICE,
+		},
+	},
+};
+
 static int ltc6952_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct ltc6952_state *st;
 	int ret;
+	u32 status;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
@@ -839,15 +999,41 @@ static int ltc6952_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 
+	st->clkin = devm_clk_get_optional(&spi->dev, "clkin");
+	if (IS_ERR(st->clkin))
+		return dev_err_probe(&spi->dev, PTR_ERR(st->clkin), "failed to get clkin\n");
+
+	st->jdev = devm_jesd204_dev_register(&spi->dev, &ltc6952_jesd204_data);
+	if (IS_ERR(st->jdev))
+		return PTR_ERR(st->jdev);
+
 	mutex_init(&st->lock);
 
 	spi_set_drvdata(spi, indio_dev);
 
 	st->spi = spi;
 
+	if (spi_get_device_id(spi)->driver_data == 6953)
+		st->follower = true;
+
 	ret = ltc6952_parse_dt(&spi->dev, st);
 	if (ret < 0)
 		return ret;
+
+	if (st->clkin) {
+		ret = clk_prepare_enable(st->clkin);
+		if (ret < 0)
+			return ret;
+
+		if (st->follower)
+			st->vco_freq = clk_get_rate(st->clkin);
+		else
+			st->ref_freq = clk_get_rate(st->clkin);
+
+		ret = devm_add_action_or_reset(&spi->dev, ltc6952_clk_disable_unprepare, st->clkin);
+		if (ret)
+			return ret;
+	}
 
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = spi->dev.of_node->name;
@@ -866,13 +1052,31 @@ static int ltc6952_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	if (iio_get_debugfs_dentry(indio_dev)) {
+	if (iio_get_debugfs_dentry(indio_dev))
 		debugfs_create_devm_seqfile(&spi->dev, "status",
-					    iio_get_debugfs_dentry(indio_dev),
-					    ltc6952_status_show);
-	}
+					iio_get_debugfs_dentry(indio_dev),
+					ltc6952_status_show);
 
-	return ret;
+	ret = ltc6952_read(indio_dev, LTC6952_REG(0x00), &status);
+	if (ret < 0)
+		return ret;
+
+	if (st->follower)
+		dev_info(&spi->dev, "CLKIN: %u.%06u MHz Status: %s %s\n",
+			st->vco_freq  / 1000000, st->vco_freq  % 1000000,
+			status & LTC6952_VCOOK_MSK ? "Valid" : "Invalid",
+			st->jdev ? "(jesd204-fsm)" : "");
+	else
+		dev_info(&spi->dev,
+			"CLKIN: %u.%06u MHz REFIN: %u.%06u MHz REF: %s VCO: %s PLL: %s %s\n",
+			st->vco_freq  / 1000000, st->vco_freq  % 1000000,
+			st->ref_freq  / 1000000, st->ref_freq  % 1000000,
+			status & LTC6952_REFOK_MSK ? "Valid" : "Invalid",
+			status & LTC6952_VCOOK_MSK ? "Valid" : "Invalid",
+			status & LTC6952_LOCK_MSK ? "Locked" : "Unlocked",
+			st->jdev ? "(jesd204-fsm)" : "");
+
+	return jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
 }
 
 static int ltc6952_remove(struct spi_device *spi)
@@ -887,13 +1091,15 @@ static int ltc6952_remove(struct spi_device *spi)
 }
 
 static const struct spi_device_id ltc6952_id[] = {
-	{"ltc6952", 0},
+	{"ltc6952", 6952},
+	{"ltc6953", 6953},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ltc6952_id);
 
 static const struct of_device_id ltc6952_of_match[] = {
 	{ .compatible = "adi,ltc6952" },
+	{ .compatible = "adi,ltc6953" },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, ltc6952_of_match);

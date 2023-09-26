@@ -66,6 +66,8 @@ struct axiadc_chip_info {
 
 struct axiadc_state {
 	struct iio_info			iio_info;
+	/* protect against device accesses */
+	struct mutex			lock;
 	void __iomem			*regs;
 	unsigned int			pcore_version;
 };
@@ -126,12 +128,12 @@ static int axiadc_reg_access(struct iio_dev *indio_dev,
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	if (readval == NULL)
 		axiadc_write(st, reg & 0xFFFF, writeval);
 	else
 		*readval = axiadc_read(st, reg & 0xFFFF);
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 
 	return 0;
 }
@@ -225,6 +227,8 @@ static int axiadc_probe(struct platform_device *pdev)
 	ret = axiadc_configure_ring_stream(indio_dev, "ad-mc-speed-dma");
 	if (ret < 0)
 		return ret;
+
+	mutex_init(&st->lock);
 
 	ret = devm_iio_device_register(&pdev->dev, indio_dev);
 	if (ret)

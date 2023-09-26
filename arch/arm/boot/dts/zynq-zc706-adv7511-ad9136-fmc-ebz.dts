@@ -1,3 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9136-FMC-EBZ
+ *
+ * hdl_project: <dac_fmc_ebz/zc706>
+ * board_revision: <>
+ *
+ * HDL Synthesis Parameter:
+ *	make ADI_DAC_DEVICE=AD9136 ADI_DAC_MODE=11
+ *
+ * Copyright (C) 2018-2023 Analog Devices Inc.
+ */
 /dts-v1/;
 
 #include "zynq-zc706.dtsi"
@@ -21,8 +33,21 @@
 #define axi_clk clkc 16
 #define fpga_device_clk ad9516 9
 
-#define fmc_gpio_base 86
+#define fmc_gpio_base 75
 #define fmc_gpio gpio0
 
 #include "adi-xilinx-dac-fmc-ebz.dtsi"
 #include "adi-ad9136-fmc-ebz.dtsi"
+
+&dac {
+	adi,subclass = <1>;
+	adi,interpolation = <2>;
+	adi,sysref-mode = <1>;
+	adi,jesd-link-mode = <11>;
+
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-top-device = <0>; /* This is the TOP device */
+	jesd204-link-ids = <0>;
+	jesd204-inputs = <&jesd204_transport 0 0>;
+};

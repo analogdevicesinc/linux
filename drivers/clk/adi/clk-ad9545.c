@@ -2,7 +2,7 @@
 /*
  * AD9545 Network Clock Generator/Synchronizer
  *
- * Copyright 2020 Analog Devices Inc.
+ * Copyright (C) 2020-2023 Analog Devices Inc.
  */
 
 #include <linux/bitfield.h>
@@ -30,7 +30,7 @@
 #define AD9545_SYS_CLK_FB_DIV		0x0200
 #define AD9545_SYS_CLK_INPUT		0x0201
 #define AD9545_SYS_CLK_REF_FREQ		0x0202
-#define AD9545_SYS_STABILITY_T		0x0207
+#define AD9545_STABILITY_TIMER		0x0207
 #define AD9545_COMPENSATE_TDCS		0x0280
 #define AD9545_COMPENSATE_NCOS		0x0281
 #define AD9545_COMPENSATE_DPLL		0x0282
@@ -94,7 +94,14 @@
 #define AD9545_DPLL0_MODE		0x2105
 #define AD9545_DPLL0_FAST_MODE		0x2106
 #define AD9545_DIV_OPS_Q1A		0x2202
-#define AD9545_NCO0_FREQ		0x2805
+#define AD9545_NCO0_CENTER_FREQ		0x2800
+#define AD9545_NCO0_OFFSET_FREQ		0x2807
+#define AD9545_NCO0_TAG_RATIO		0x280B
+#define AD9545_NCO0_TAG_DELTA		0x280D
+#define AD9545_NCO0_TYPE_ADJUST		0x280F
+#define AD9545_NCO0_DELTA_RATE_LIMIT	0x2810
+#define AD9545_NCO0_DELTA_ADJUST	0x2814
+#define AD9545_NCO0_CYCLE_ADJUST	0x2819
 #define AD9545_TDC0_DIV			0x2A00
 #define AD9545_TDC0_PERIOD		0x2A01
 #define AD9545_PLL_STATUS		0x3001
@@ -103,6 +110,8 @@
 #define AD9545_REFA_STATUS		0x3005
 #define AD9545_PLL0_STATUS		0x3100
 #define AD9545_PLL0_OPERATION		0x3101
+
+#define AD9545_SYS_CLK_STABILITY_PERIOD_MASK	GENMASK(19, 0)
 
 #define AD9545_REF_CTRL_DIF_MSK			GENMASK(3, 2)
 #define AD9545_REF_CTRL_REFA_MSK		GENMASK(5, 4)
@@ -188,7 +197,53 @@
 #define AD9545_PROFILE_SEL_MODE_MSK		GENMASK(3, 2)
 #define AD9545_PROFILE_SEL_MODE(x)		FIELD_PREP(AD9545_PROFILE_SEL_MODE_MSK, x)
 
-#define AD9545_NCOX_FREQ(x)			(AD9545_NCO0_FREQ + ((x) * 0x40))
+#define AD9545_NCOX_CENTER_FREQ(x)		(AD9545_NCO0_CENTER_FREQ + ((x) * 0x40))
+#define AD9545_NCOX_OFFSET_FREQ(x)		(AD9545_NCO0_OFFSET_FREQ + ((x) * 0x40))
+#define AD9545_NCOX_TAG_RATIO(x)		(AD9545_NCO0_TAG_RATIO + ((x) * 0x40))
+#define AD9545_NCOX_TAG_DELTA(x)		(AD9545_NCO0_TAG_DELTA + ((x) * 0x40))
+#define AD9545_NCOX_TYPE_ADJUST(x)		(AD9545_NCO0_TYPE_ADJUST + ((x) * 0x40))
+#define AD9545_NCOX_DELTA_RATE_LIMIT(x)		(AD9545_NCO0_DELTA_RATE_LIMIT + ((x) * 0x40))
+#define AD9545_NCOX_DELTA_ADJUST(x)		(AD9545_NCO0_DELTA_ADJUST + ((x) * 0x40))
+#define AD9545_NCOX_CYCLE_ADJUST(x)		(AD9545_NCO0_CYCLE_ADJUST + ((x) * 0x40))
+
+/*
+ * AD9545 AUX NCO center frequency register has 16-bit integer part and
+ * 40-bit fractional part.
+ */
+#define AD9545_NCO_CENTER_FREQ_INT_WIDTH	16
+#define AD9545_NCO_CENTER_FREQ_FRAC_WIDTH	40
+#define AD9545_NCO_CENTER_FREQ_WIDTH		(AD9545_NCO_CENTER_FREQ_INT_WIDTH + \
+						 AD9545_NCO_CENTER_FREQ_FRAC_WIDTH)
+
+#define AD9545_NCO_CENTER_FREQ_MSK		GENMASK_ULL(AD9545_NCO_CENTER_FREQ_WIDTH - 1, 0)
+#define AD9545_NCO_CENTER_FREQ_INT_MSK		GENMASK_ULL(AD9545_NCO_CENTER_FREQ_WIDTH - 1, \
+							    AD9545_NCO_CENTER_FREQ_FRAC_WIDTH)
+#define AD9545_NCO_CENTER_FREQ_FRAC_MSK		GENMASK_ULL(AD9545_NCO_CENTER_FREQ_FRAC_WIDTH - 1, 0)
+
+#define AD9545_NCO_CENTER_FREQ_MAX		FIELD_MAX(AD9545_NCO_CENTER_FREQ_MSK)
+#define AD9545_NCO_CENTER_FREQ_INT_MAX		FIELD_MAX(AD9545_NCO_CENTER_FREQ_INT_MSK)
+#define AD9545_NCO_CENTER_FREQ_FRAC_MAX		FIELD_MAX(AD9545_NCO_CENTER_FREQ_FRAC_MSK)
+
+/*
+ * AD9545 AUX NCO offset frequency register has 8-bit integer part and
+ * 24-bit fractional part.
+ */
+#define AD9545_NCO_OFFSET_FREQ_INT_WIDTH	8
+#define AD9545_NCO_OFFSET_FREQ_FRAC_WIDTH	24
+#define AD9545_NCO_OFFSET_FREQ_WIDTH		(AD9545_NCO_OFFSET_FREQ_INT_WIDTH + \
+						 AD9545_NCO_OFFSET_FREQ_FRAC_WIDTH)
+
+#define AD9545_NCO_OFFSET_FREQ_MSK		GENMASK_ULL(AD9545_NCO_OFFSET_FREQ_WIDTH - 1, 0)
+#define AD9545_NCO_OFFSET_FREQ_INT_MSK		GENMASK_ULL(AD9545_NCO_OFFSET_FREQ_WIDTH - 1, \
+							    AD9545_NCO_OFFSET_FREQ_FRAC_WIDTH)
+#define AD9545_NCO_OFFSET_FREQ_FRAC_MSK		GENMASK_ULL(AD9545_NCO_OFFSET_FREQ_FRAC_WIDTH - 1, 0)
+
+#define AD9545_NCO_OFFSET_FREQ_MAX		FIELD_MAX(AD9545_NCO_OFFSET_FREQ_MSK)
+#define AD9545_NCO_OFFSET_FREQ_INT_MAX		FIELD_MAX(AD9545_NCO_OFFSET_FREQ_INT_MSK)
+#define AD9545_NCO_OFFSET_FREQ_FRAC_MAX		FIELD_MAX(AD9545_NCO_OFFSET_FREQ_FRAC_MSK)
+
+#define AD9545_NCO_FREQ_INT_MAX			(AD9545_NCO_CENTER_FREQ_INT_MAX + \
+						 AD9545_NCO_OFFSET_FREQ_INT_MAX)
 
 #define AD9545_TDCX_DIV(x)			(AD9545_TDC0_DIV + ((x) * 0x9))
 #define AD9545_TDCX_PERIOD(x)			(AD9545_TDC0_PERIOD + ((x) * 0x9))
@@ -276,30 +331,30 @@
 
 #define AD9545_SYS_CLK_STABILITY_MS	50
 
+#define AD9545_R_DIV_MSK		GENMASK(29, 0)
 #define AD9545_R_DIV_MAX		0x40000000
 #define AD9545_IN_MAX_TDC_FREQ_HZ	200000
 
 #define AD9545_MAX_REFS			4
 
-#define AD9545_APLL_M_DIV_MIN		14
+#define AD9545_APLL_M_DIV_MIN		1
 #define AD9545_APLL_M_DIV_MAX		255
 
 #define AD9545_DPLL_MAX_N		1073741823
-#define AD9545_DPLL_MAX_FRAC		116777215
-#define AD9545_DPLL_MAX_MOD		116777215
+#define AD9545_DPLL_MAX_FRAC		16777215
+#define AD9545_DPLL_MAX_MOD		16777215
 #define AD9545_MAX_DPLL_PROFILES	6
 
 #define AD9545_MAX_NSHOT_PULSES		63
 
-#define AD9545_NCO_MAX_FREQ		65535
 #define AD9545_MAX_ZERO_DELAY_RATE	200000000
 
 static const unsigned int ad9545_apll_rate_ranges_hz[2][2] = {
-	{2400000000U, 3200000000U}, {3200000000U, 4000000000U}
+	{2424000000U, 3232000000U}, {3232000000U, 4040000000U}
 };
 
 static const unsigned int ad9545_apll_pfd_rate_ranges_hz[2] = {
-	162000000U, 300000000U
+	162000000U, 350000000U
 };
 
 static const unsigned short ad9545_vco_calibration_op[][2] = {
@@ -774,7 +829,7 @@ static int ad9545_parse_dt_pll_profiles(struct ad9545_state *st, const struct fw
 
 		ret = fwnode_property_read_u32(profile_node, "adi,pll-source", &val);
 		if (ret < 0) {
-			dev_err(st->dev, "Could not read Profile %d, pll-loop-bandwidth.",
+			dev_err(st->dev, "Could not read Profile %d, pll-source.",
 				profile_addr);
 			goto out_fail;
 		}
@@ -1266,7 +1321,9 @@ static void ad9545_pll_debug_init(struct clk_hw *hw, struct dentry *dentry)
 static int ad9545_sys_clk_setup(struct ad9545_state *st)
 {
 	u64 ref_freq_milihz;
+	u32 stability_timer;
 	__le64 regval64;
+	__le32 regval;
 	u8 div_ratio;
 	u32 fosc;
 	int ret;
@@ -1328,7 +1385,11 @@ static int ad9545_sys_clk_setup(struct ad9545_state *st)
 	if (ret < 0)
 		return ret;
 
-	return regmap_write(st->regmap, AD9545_SYS_STABILITY_T, AD9545_SYS_CLK_STABILITY_MS);
+	stability_timer = FIELD_PREP(AD9545_SYS_CLK_STABILITY_PERIOD_MASK,
+				     AD9545_SYS_CLK_STABILITY_MS);
+	regval = cpu_to_le32(stability_timer);
+	return regmap_bulk_write(st->regmap, AD9545_STABILITY_TIMER,
+				 &regval, 3);
 }
 
 static int ad9545_get_q_div(struct ad9545_state *st, int addr, u32 *q_div)
@@ -1358,7 +1419,7 @@ static int ad9545_set_q_div(struct ad9545_state *st, int addr, u32 q_div)
 	return ad9545_io_update(st);
 }
 
-static unsigned long ad95452_out_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+static unsigned long ad9545_out_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
 	struct ad9545_out_clk *clk = to_out_clk(hw);
 	u32 qdiv;
@@ -1628,7 +1689,7 @@ static const struct clk_ops ad9545_out_clk_ops = {
 	.enable = ad9545_out_clk_enable,
 	.disable = ad9545_out_clk_disable,
 	.is_enabled = ad9545_out_clk_is_enabled,
-	.recalc_rate = ad95452_out_clk_recalc_rate,
+	.recalc_rate = ad9545_out_clk_recalc_rate,
 	.round_rate = ad9545_out_clk_round_rate,
 	.set_rate = ad9545_out_clk_set_rate,
 	.set_phase = ad9545_out_clk_set_phase,
@@ -1654,7 +1715,7 @@ static int ad9545_outputs_setup(struct ad9545_state *st)
 
 		if (st->out_clks[i * 2].output_used)
 			out_i = i * 2;
-		else if (st->out_clks[i * 2].output_used)
+		else if (st->out_clks[i * 2 + 1].output_used)
 			out_i = i * 2 + 1;
 		else
 			continue;
@@ -1737,49 +1798,44 @@ static int ad9545_outputs_setup(struct ad9545_state *st)
 
 static int ad9545_set_r_div(struct ad9545_state *st, u32 div, int addr)
 {
+	__le32 regval;
+	u32 val;
 	int ret;
-	u8 reg;
-	int i;
 
-	if (div > AD9545_R_DIV_MAX)
+	if (div > AD9545_R_DIV_MAX || div == 0)
 		return -EINVAL;
 
 	/* r-div ratios are mapped from 0 onward */
 	div -= 1;
-	for (i = 0; i < 4; i++) {
-		reg = (div >> (i * 8)) & 0xFF;
 
-		ret = regmap_write(st->regmap, AD9545_REF_X_RDIV(addr) + i, reg);
-		if (ret < 0)
-			return ret;
-	}
+	val = FIELD_PREP(AD9545_R_DIV_MSK, div);
+	regval = cpu_to_le32(val);
+	ret = regmap_bulk_write(st->regmap, AD9545_REF_X_RDIV(addr), &regval, 4);
+	if (ret < 0)
+		return ret;
 
 	return ad9545_io_update(st);
 }
 
 static int ad9545_get_r_div(struct ad9545_state *st, int addr, u32 *r_div)
 {
+	__le32 regval;
+	u32 val, div;
 	int ret;
-	u32 div;
-	u32 reg;
-	int i;
 
-	div = 0;
-	for (i = 0; i < 4; i++) {
-		ret = regmap_read(st->regmap, AD9545_REF_X_RDIV(addr) + i, &reg);
-		if (ret < 0)
-			return ret;
-
-		div += (reg << (i * 8));
-	}
+	ret = regmap_bulk_read(st->regmap, AD9545_REF_X_RDIV(addr), &regval, 4);
+	if (ret < 0)
+		return ret;
+	val = le32_to_cpu(regval);
+	div = FIELD_GET(AD9545_R_DIV_MSK, val);
 
 	/* r-div ratios are mapped from 0 onward */
-	*r_div = ++div;
+	*r_div = div + 1;
 
 	return 0;
 }
 
-static unsigned long ad95452_in_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+static unsigned long ad9545_in_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
 	struct ad9545_ref_in_clk *clk = to_ref_in_clk(hw);
 	u32 div;
@@ -1795,7 +1851,7 @@ static unsigned long ad95452_in_clk_recalc_rate(struct clk_hw *hw, unsigned long
 }
 
 static const struct clk_ops ad9545_in_clk_ops = {
-	.recalc_rate = ad95452_in_clk_recalc_rate,
+	.recalc_rate = ad9545_in_clk_recalc_rate,
 	.debug_init = ad9545_in_clk_debug_init,
 };
 
@@ -2351,6 +2407,10 @@ static int ad9545_pll_set_rate(struct clk_hw *hw, unsigned long rate, unsigned l
 	 * When setting a PLL rate, precalculate params for all enabled profiles.
 	 * At this point there may or may not be a valid reference.
 	 */
+
+	if (!rate)
+		return -EINVAL;
+
 	for (i = 0; i < clk->num_parents; i++) {
 		parent_rate = clk_hw_get_rate(clk->parents[i]);
 
@@ -2603,39 +2663,146 @@ static int ad9545_plls_setup(struct ad9545_state *st)
 	return 0;
 }
 
-static int ad9545_get_nco_freq(struct ad9545_state *st, int addr, u32 *freq)
+static int ad9545_get_nco_center_freq(struct ad9545_state *st, int addr, u64 *freq)
 {
-	__le16 regval;
+	__le64 regval64;
 	int ret;
 
-	ret = regmap_bulk_read(st->regmap, AD9545_NCOX_FREQ(addr), &regval, 2);
+	regval64 = 0;
+	ret = regmap_bulk_read(st->regmap, AD9545_NCOX_CENTER_FREQ(addr), &regval64, 7);
 	if (ret < 0)
 		return ret;
 
-	*freq = le16_to_cpu(regval);
+	*freq = le64_to_cpu(regval64);
+
 	return 0;
 }
 
-static int ad9545_set_nco_freq(struct ad9545_state *st, int addr, u32 freq)
+static int ad9545_set_nco_center_freq(struct ad9545_state *st, int addr, u64 freq)
+{
+	__le64 regval64;
+
+	if (freq > AD9545_NCO_CENTER_FREQ_MAX)
+		return -EINVAL;
+
+	regval64 = cpu_to_le64(freq);
+
+	return regmap_bulk_write(st->regmap, AD9545_NCOX_CENTER_FREQ(addr), &regval64, 7);
+}
+
+static int ad9545_get_nco_offset_freq(struct ad9545_state *st, int addr, u32 *freq)
 {
 	__le32 regval;
 	int ret;
 
+	ret = regmap_bulk_read(st->regmap, AD9545_NCOX_OFFSET_FREQ(addr), &regval, 4);
+	if (ret < 0)
+		return ret;
+
+	*freq = le32_to_cpu(regval);
+
+	return 0;
+}
+
+static int ad9545_set_nco_offset_freq(struct ad9545_state *st, int addr, u32 freq)
+{
+	__le32 regval;
+
 	regval = cpu_to_le32(freq);
-	ret = regmap_bulk_write(st->regmap, AD9545_NCOX_FREQ(addr), &regval, 2);
+
+	return regmap_bulk_write(st->regmap, AD9545_NCOX_OFFSET_FREQ(addr), &regval, 4);
+}
+
+static int ad9545_get_nco_freq(struct ad9545_state *st, int addr, u64 *freq)
+{
+	u64 center_freq;
+	u32 offset_freq;
+	int shift;
+	int ret;
+
+	ret = ad9545_get_nco_center_freq(st, addr, &center_freq);
+	if (ret < 0)
+		return ret;
+
+	ret = ad9545_get_nco_offset_freq(st, addr, &offset_freq);
+	if (ret < 0)
+		return ret;
+
+	/* align center frequency and offset frequency, and then add */
+	shift = AD9545_NCO_CENTER_FREQ_FRAC_WIDTH - AD9545_NCO_OFFSET_FREQ_FRAC_WIDTH;
+	*freq = center_freq + ((u64)offset_freq << shift);
+
+	return 0;
+}
+
+static int ad9545_get_nco_freq_hz(struct ad9545_state *st, int addr, u32 *freq)
+{
+	u64 val64;
+	u32 freq_int;
+	int ret;
+
+	ret = ad9545_get_nco_freq(st, addr, &val64);
+	if (ret < 0)
+		return ret;
+
+	freq_int = val64 >> AD9545_NCO_CENTER_FREQ_FRAC_WIDTH;
+
+	if (val64 & BIT_ULL(AD9545_NCO_CENTER_FREQ_FRAC_WIDTH - 1))
+		freq_int++;
+
+	*freq = freq_int;
+
+	return 0;
+}
+
+static int ad9545_set_nco_freq_hz(struct ad9545_state *st, int addr, u32 freq)
+{
+	u64 center_freq;
+	u32 center_freq_int, offset_freq, offset_freq_int;
+	bool use_fractional;
+	int ret;
+
+	if (freq > AD9545_NCO_FREQ_INT_MAX + 1)
+		return -EINVAL;
+
+	use_fractional = (freq == AD9545_NCO_FREQ_INT_MAX + 1);
+	if (use_fractional)
+		freq--;
+
+	if (freq <= AD9545_NCO_CENTER_FREQ_INT_MAX) {
+		center_freq_int = freq;
+		offset_freq_int = 0;
+	} else {
+		center_freq_int = AD9545_NCO_CENTER_FREQ_INT_MAX;
+		offset_freq_int = freq - center_freq_int;
+	}
+
+	center_freq = FIELD_PREP(AD9545_NCO_CENTER_FREQ_INT_MSK, center_freq_int);
+	if (use_fractional)
+		center_freq |= BIT_ULL(AD9545_NCO_CENTER_FREQ_FRAC_WIDTH - 1);
+
+	ret = ad9545_set_nco_center_freq(st, addr, center_freq);
+	if (ret < 0)
+		return ret;
+
+	offset_freq = FIELD_PREP(AD9545_NCO_OFFSET_FREQ_INT_MSK, offset_freq_int);
+	if (use_fractional)
+		offset_freq |= BIT(AD9545_NCO_OFFSET_FREQ_FRAC_WIDTH - 1);
+
+	ret = ad9545_set_nco_offset_freq(st, addr, offset_freq);
 	if (ret < 0)
 		return ret;
 
 	return ad9545_io_update(st);
 }
 
-static unsigned long ad95452_nco_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
+static unsigned long ad9545_nco_clk_recalc_rate(struct clk_hw *hw, unsigned long parent_rate)
 {
 	struct ad9545_aux_nco_clk *clk = to_nco_clk(hw);
 	u32 rate;
 	int ret;
 
-	ret = ad9545_get_nco_freq(clk->st, clk->address, &rate);
+	ret = ad9545_get_nco_freq_hz(clk->st, clk->address, &rate);
 	if (ret < 0) {
 		dev_err(clk->st->dev, "Could not read NCO freq.");
 		return 0;
@@ -2647,18 +2814,18 @@ static unsigned long ad95452_nco_clk_recalc_rate(struct clk_hw *hw, unsigned lon
 static long ad9545_nco_clk_round_rate(struct clk_hw *hw, unsigned long rate,
 				      unsigned long *parent_rate)
 {
-	return clamp_t(u16, rate, 1, AD9545_NCO_MAX_FREQ);
+	return min(rate, (unsigned long)AD9545_NCO_FREQ_INT_MAX + 1);
 }
 
 static int ad9545_nco_clk_set_rate(struct clk_hw *hw, unsigned long rate, unsigned long parent_rate)
 {
 	struct ad9545_aux_nco_clk *clk = to_nco_clk(hw);
 
-	return ad9545_set_nco_freq(clk->st, clk->address, rate);
+	return ad9545_set_nco_freq_hz(clk->st, clk->address, rate);
 }
 
 static const struct clk_ops ad9545_nco_clk_ops = {
-	.recalc_rate = ad95452_nco_clk_recalc_rate,
+	.recalc_rate = ad9545_nco_clk_recalc_rate,
 	.round_rate = ad9545_nco_clk_round_rate,
 	.set_rate = ad9545_nco_clk_set_rate,
 };

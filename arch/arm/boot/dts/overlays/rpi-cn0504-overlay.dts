@@ -1,0 +1,87 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709", "brcm,bcm2711";
+
+	fragment@0 {
+		target = <&ethernet>;
+		__overlay__ {
+			#address-cells = <2>;
+			#size-cells = <0>;
+
+			/* this works on RPi3 */
+			usb_eth_interface: usb_eth_interface@0 {
+				reg = <0 1>;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&i2c1>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ltc2945@6f{
+				compatible = "adi,ltc2945";
+				reg = <0x6f>;
+
+				shunt-resistor-micro-ohms = <20000>;
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&spi0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ksz9477@0 {
+				compatible = "microchip,ksz9477";
+				reg = <0>;
+				spi-max-frequency = <500000>;
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					/**
+					 * LAN1 should be connected via an ethernet
+					 * cable to the RPi's ethernet jack
+					 */
+					port@0 {
+						reg = <0>;
+						label = "lan1";
+						ethernet = <&usb_eth_interface>;
+					};
+					port@1 {
+						reg = <1>;
+						label = "lan2";
+					};
+					port@2 {
+						reg = <2>;
+						label = "lan3";
+					};
+				};
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@4 {
+		target = <&spidev1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+};

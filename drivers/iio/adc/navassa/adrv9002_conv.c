@@ -271,7 +271,7 @@ static void adrv9002_axi_digital_tune_verbose(const struct adrv9002_rf_phy *phy,
 {
 	int i, j;
 	char c;
-	struct adrv9002_chan *ch;
+	const struct adrv9002_chan *ch;
 
 	if (tx)
 		ch = &phy->tx_channels[channel].channel;

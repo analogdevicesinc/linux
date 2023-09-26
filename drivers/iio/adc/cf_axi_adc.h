@@ -33,6 +33,7 @@
 #define ADI_MMCM_RSTN 			(1 << 1)
 
 #define ADI_REG_CNTRL			0x0044
+#define ADI_NUM_LANES(x)                (((x) & 0x1F) << 8)
 #define ADI_SYNC			(1 << 3)
 #define ADI_R1_MODE			(1 << 2)
 #define ADI_DDR_EDGESEL			(1 << 1)
@@ -42,6 +43,9 @@
 #define ADI_EXT_SYNC_ARM		(1 << 1)
 #define ADI_EXT_SYNC_DISARM		(1 << 2)
 #define ADI_MANUAL_SYNC_REQUEST		(1 << 8)
+
+#define ADI_REG_CNTRL_3			0x004c
+#define ADI_CRC_EN			(1 << 8)
 
 #define ADI_REG_CLK_FREQ			0x0054
 #define ADI_CLK_FREQ(x)			(((x) & 0xFFFFFFFF) << 0)
@@ -123,6 +127,8 @@
 #define ADI_PN_OOS			(1 << 1)
 #define ADI_OVER_RANGE			(1 << 0)
 
+#define ADI_REG_CHAN_RAW_DATA(c)	(0x0408 + (c) * 0x40)
+
 #define ADI_REG_CHAN_CNTRL_1(c)		(0x0410 + (c) * 0x40)
 #define ADI_DCFILT_OFFSET(x)		(((x) & 0xFFFF) << 16)
 #define ADI_TO_DCFILT_OFFSET(x)		(((x) >> 16) & 0xFFFF)
@@ -140,6 +146,8 @@
 #define ADI_TO_ADC_PN_SEL(x)		(((x) >> 16) & 0xF)
 #define ADI_ADC_DATA_SEL(x)		(((x) & 0xF) << 0)
 #define ADI_TO_ADC_DATA_SEL(x)		(((x) >> 0) & 0xF)
+
+#define ADI_SOFTSPAN(c)			(0x0428 + (c) * 0x40)
 
 enum adc_pn_sel {
 	ADC_PN9 = 0,
@@ -184,6 +192,7 @@ enum adc_data_sel {
 
 #define AXIADC_MAX_CHANNEL		128
 
+#include <linux/mutex.h>
 #include <linux/spi/spi.h>
 #include <linux/clk/clkscale.h>
 
@@ -197,6 +206,7 @@ struct axiadc_chip_info {
 	const unsigned long 	*scan_masks;
 	const int			(*scale_table)[2];
 	int				num_scales;
+	int				resolution;
 	int				max_testmode;
 	unsigned long			max_rate;
 	struct iio_chan_spec		channel[AXIADC_MAX_CHANNEL];
@@ -230,6 +240,12 @@ struct axiadc_converter {
 	int				num_channels;
 	const struct attribute_group	*attrs;
 	struct iio_dev 	*indio_dev;
+	/*
+	 * shared lock between the converter and axi_adc to sync
+	 * accesses/configurations to/with the IP core. The axi_adc driver is
+	 * responsible to initialize this lock.
+	 */
+	struct mutex lock;
 	int (*read_raw)(struct iio_dev *indio_dev,
 			struct iio_chan_spec const *chan,
 			int *val,

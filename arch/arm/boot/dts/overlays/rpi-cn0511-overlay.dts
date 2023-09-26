@@ -1,0 +1,126 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2836", "brcm,bcm2835";
+
+	fragment@0 {
+		target-path = "/clocks";
+		__overlay__ {
+			adf4372_clkin: clock@0 {
+				compatible = "fixed-clock";
+				#clock-cells = <0>;
+				clock-frequency = <122880000>;
+				clock-output-names = "clkin";
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spi0_cs_pins>;
+		frag0: __overlay__ {
+				brcm,pins = <8 7 25>;
+				brcm,function = <1>; //output
+		};
+	};
+
+	fragment@2 {
+		target = <&spi0>;
+		frag1: __overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			cs-gpios = <&gpio 8 1>, <&gpio 7 1>, <&gpio 25 1>;
+			status = "okay";
+
+			dac0_ad9166: ad9166@0 {
+				compatible = "adi,ad9166";
+				reg = <0>;
+				spi-max-frequency = <1000000>;
+				clocks = <&adf4372_clk 0>;
+				clock-names = "dac_clk";
+				spi-cpha;
+				spi-cpol;
+				adi,standalone-probe;
+				adi,dc-test-en;
+				dac_clk-clock-scales = <1 10>;
+			};
+
+			adf4372_clk: adf4372@1 {
+				compatible = "adi,adf4372";
+				reg = <1>;
+
+				#address-cells = <1>;
+				#clock-cells = <1>;
+				#size-cells = <0>;
+
+				spi-max-frequency = <1000000>;
+				spi-3wire;
+				clocks = <&adf4372_clkin>;
+				clock-names = "clkin";
+				clock-output-names = "clk-rf8", "clk-rfaux8",
+						"clk-rf16";
+
+				adi,muxout-select = <1>;
+
+				channel@0 {
+					reg = <0>;
+					adi,power-up-frequency = /bits/ 64
+								<6000000000>;
+				};
+			};
+
+			ad9166_amp: ad9166-amp@2 {
+				compatible = "adi,ad9166-amp";
+				reg = <2>;	// CE2 - gpio25
+				spi-cpha;
+				spi-cpol;
+				spi-max-frequency = <1000000>;
+			};
+		};
+	};
+
+	fragment@3 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@4 {
+		target = <&spidev1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@5 {
+		target = <&i2c1>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ad5696r@4c {
+				compatible = "adi,ad5693r";
+				clock-frequency = <400000>;
+				reg = <0x4c>;
+			};
+
+			eeprom@51 {
+				compatible = "atmel,24c32";
+				reg = <0x51>;
+			};
+		};
+	};
+
+	fragment@6 {
+		target = <&i2c0>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+		};
+	};
+};

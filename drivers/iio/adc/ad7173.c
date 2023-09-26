@@ -110,6 +110,8 @@ struct ad7173_device_info {
 
 struct ad7173_state {
 	struct regulator *reg;
+	/* protect against device accesses */
+	struct mutex lock;
 	unsigned int adc_mode;
 	unsigned int interface_mode;
 
@@ -565,9 +567,9 @@ static int ad7173_write_raw(struct iio_dev *indio_dev,
 	unsigned int i;
 	int ret = 0;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&st->lock);
 	if (iio_buffer_enabled(indio_dev)) {
-		mutex_unlock(&indio_dev->mlock);
+		mutex_unlock(&st->lock);
 		return -EBUSY;
 	}
 
@@ -592,7 +594,7 @@ static int ad7173_write_raw(struct iio_dev *indio_dev,
 		break;
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&st->lock);
 	return ret;
 }
 
@@ -741,6 +743,7 @@ static int ad7173_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 
+	mutex_init(&st->lock);
 	id = spi_get_device_id(spi);
 	st->info = &ad7173_device_info[id->driver_data];
 

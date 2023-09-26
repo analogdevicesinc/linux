@@ -7,7 +7,7 @@
 #
 # This script is used to upload files to ADI internal artifactory server
 #
-# Copyright (C) 2019-2022 Analog Devices Inc.
+# Copyright (C) 2019-2023 Analog Devices Inc.
 #
 #######################################################################
 
@@ -42,6 +42,7 @@ parser.add_argument("--properties",  help="Properties to be added to file/folder
 parser.add_argument("--no_rel_path", help="If this exists, the relative path until local file will be appended to artifactory path", action="store_true")
 parser.add_argument("--props_level", help="Set for how many levels of folders to set specified properties, by default just on file.")
 parser.add_argument("--token",       help="Artifactory authentication token. Otherwise you can export API_TOKEN in terminal before calling this script.")
+parser.add_argument("--log_file",    help="Local file where to save the logs from curl command, if no file is specified the logs will be printed in terminal")
 args = parser.parse_args()
 parser.parse_args()
 
@@ -53,7 +54,7 @@ else:
       API_TOKEN = os.environ['API_TOKEN']
    else:
       print('\nError:Parameter "--token" is not set. This is Artifactory Authentication Token and can be set even using parameter "--token" on upload command, even by exporting API_TOKEN variable in terminal, before calling upload script.')
-      quit()
+      exit(1)
 
 if args.base_path:
    UPLOAD_BASE_PATH = args.base_path
@@ -62,7 +63,7 @@ else:
       UPLOAD_BASE_PATH = os.environ['UPLOAD_BASE_PATH']
    else:
       print('\nError:Parameter "--base_path" is not set. This is ADI Internal Artifactory Server plus first level of folders. It can be set even using parameter "--base_path" on upload command, even by exporting UPLOAD_BASE_PATH variable in terminal, before calling upload script.')
-      quit()
+      exit(1)
 
 
 if args.server_path:
@@ -73,10 +74,10 @@ if args.server_path:
    if SERVER_FOLDER not in SERVER_FOLDERS_LIST:
      print('\nError:Parameter "--server_path" must contain an already existing folder, for example "hdl", "linux", "SD_card_image" etc.' +
      'If you want to add new folders, please edit "upload_to_artifactory.py" or contact script owner.')
-     quit()
+     exit(1)
 else:
    print('\nError:Parameter "--server_path" is required. It should be set to server location where the files/folder will be uploaded. Check help section.')
-   quit()
+   exit(1)
 
 if args.local_path:
    LOCAL_PATH = os.path.abspath(args.local_path) if '../' in args.local_path else args.local_path
@@ -92,10 +93,10 @@ if args.local_path:
       print('IS FILE' + LOCAL_PATHS_LIST)
    else:
       print('\nError:It looks that parameter "--local_path" is wrong defined/does not exists. Plese check: ' + LOCAL_PATH)
-      quit()
+      exit(1)
 else:
    print('\nParameter "--local_path" is required. It should point to local file/folder to upload.')
-   quit()
+   exit(1)
 
 if args.properties:
    PROPS = args.properties
@@ -112,6 +113,11 @@ if args.props_level:
 else:
    PROP_LEVEL = 0
 
+if args.log_file:
+   LOG_FILE = ">> " + args.log_file
+else:
+   LOG_FILE = ''
+
 ########## Upload files ##########
 # If files with same name already exists at specified server path, they will be overwritten
 
@@ -121,7 +127,7 @@ for FILE in LOCAL_PATHS_LIST:
         ART_PATH = UPLOAD_BASE_PATH + "/" + SERVER_PATH + "/" + FILE_NAME
    else:
         ART_PATH = UPLOAD_BASE_PATH + "/" + SERVER_PATH + "/" + FILE
-   upload_cmd = "curl -v -s -H \"X-JFrog-Art-Api:" + API_TOKEN + "\" -X PUT \"" + ART_PATH + ";" + PROPS + "\" -T \"" + FILE + "\""
+   upload_cmd = "curl -H \"X-JFrog-Art-Api:" + API_TOKEN + "\" -X PUT \"" + ART_PATH + ";" + PROPS + "\" -T \"" + FILE + "\" " + LOG_FILE
    os.system(upload_cmd)
 
 ########## Upload properties on folders #########
@@ -133,7 +139,7 @@ else:
 
 i = 0
 while ( i < int(PROP_LEVEL)):
-   set_folder_props_cmd = "curl -H \"X-JFrog-Art-Api:" + API_TOKEN + "\" -X PUT \"" + ART_PATH + "/;" + PROPS + "\""
+   set_folder_props_cmd = "curl -H \"X-JFrog-Art-Api:" + API_TOKEN + "\" -X PUT \"" + ART_PATH + "/;" + PROPS + "\" " + LOG_FILE
    os.system(set_folder_props_cmd)
    i = i + 1
    ART_PATH = os.path.split(ART_PATH)[0]

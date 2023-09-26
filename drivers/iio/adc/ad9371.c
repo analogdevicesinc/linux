@@ -1169,7 +1169,7 @@ static ssize_t ad9371_phy_store(struct device *dev,
 	int ret = 0;
 	u32 val;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 
 	switch ((u32)this_attr->address & 0xFF) {
 	case AD9371_ENSM_MODE:
@@ -1216,7 +1216,7 @@ static ssize_t ad9371_phy_store(struct device *dev,
 		ret = -EINVAL;
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret ? ret : len;
 }
@@ -1231,7 +1231,7 @@ static ssize_t ad9371_phy_show(struct device *dev,
 	int ret = 0;
 	u32 val;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	switch ((u32)this_attr->address & 0xFF) {
 	case AD9371_ENSM_MODE:
 		ret = sprintf(buf, "%s\n", phy->radio_state ? "radio_on" : "radio_off");
@@ -1249,7 +1249,7 @@ static ssize_t ad9371_phy_show(struct device *dev,
 	default:
 		ret = -EINVAL;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret;
 }
@@ -1324,6 +1324,9 @@ static IIO_DEVICE_ATTR(large_lo_step_calibration_en, S_IRUGO | S_IWUSR,
 		       ad9371_phy_store,
 		       AD9371_LARGE_LO_STEP_CAL);
 
+static IIO_CONST_ATTR(out_voltage_scale_available,
+		      "0.783951 0.798128 0.810932 0.822608 1.560671 1.590157 1.613612 1.637490");
+
 static struct attribute *ad9371_phy_attributes[] = {
 	&iio_dev_attr_ensm_mode.dev_attr.attr,
 	&iio_dev_attr_ensm_mode_available.dev_attr.attr,
@@ -1336,6 +1339,7 @@ static struct attribute *ad9371_phy_attributes[] = {
 	&iio_dev_attr_calibrate_loopback_rx_rx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_lo_delay_en.dev_attr.attr,
 	&iio_dev_attr_large_lo_step_calibration_en.dev_attr.attr,
+	&iio_const_attr_out_voltage_scale_available.dev_attr.attr,
 	NULL,
 };
 
@@ -1358,6 +1362,7 @@ static struct attribute *ad9375_phy_attributes[] = {
 	&iio_dev_attr_calibrate_loopback_rx_rx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_lo_delay_en.dev_attr.attr,
 	&iio_dev_attr_large_lo_step_calibration_en.dev_attr.attr,
+	&iio_const_attr_out_voltage_scale_available.dev_attr.attr,
 	NULL,
 };
 
@@ -1372,14 +1377,14 @@ static int ad9371_phy_reg_access(struct iio_dev *indio_dev,
 	struct ad9371_rf_phy *phy = iio_priv(indio_dev);
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	if (readval == NULL) {
 		ret = ad9371_spi_write(phy->spi, reg, writeval);
 	} else {
 		*readval = ad9371_spi_read(phy->spi, reg);
 		ret = 0;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret;
 }
@@ -1402,7 +1407,7 @@ static ssize_t ad9371_phy_lo_write(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	switch (private) {
 	case LOEXT_FREQ:
 		ad9371_set_radio_state(phy, RADIO_FORCE_OFF);
@@ -1442,7 +1447,7 @@ static ssize_t ad9371_phy_lo_write(struct iio_dev *indio_dev,
 		break;
 
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret ? ret : len;
 }
@@ -1456,7 +1461,7 @@ static ssize_t ad9371_phy_lo_read(struct iio_dev *indio_dev,
 	u64 val;
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	switch (private) {
 	case LOEXT_FREQ:
 		ret = MYKONOS_getRfPllFrequency(phy->mykDevice, chan->channel + 1, &val);
@@ -1465,7 +1470,7 @@ static ssize_t ad9371_phy_lo_read(struct iio_dev *indio_dev,
 		ret = 0;
 
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret ? ret : sprintf(buf, "%llu\n", val);
 }
@@ -1613,7 +1618,7 @@ static ssize_t ad9371_phy_rx_write(struct iio_dev *indio_dev,
 	int ret = 0, val;
 	u32 mask;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 
 	switch (private) {
 	case RSSI:
@@ -1672,7 +1677,7 @@ static ssize_t ad9371_phy_rx_write(struct iio_dev *indio_dev,
 	}
 
 unlock:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret ? ret : len;
 }
@@ -1688,7 +1693,7 @@ static ssize_t ad9371_phy_rx_read(struct iio_dev *indio_dev,
 	s16 val_s16;
 	u32 mask;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 
 	switch (private) {
 	case RSSI:
@@ -1769,7 +1774,7 @@ static ssize_t ad9371_phy_rx_read(struct iio_dev *indio_dev,
 
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret;
 }
@@ -1801,7 +1806,7 @@ static ssize_t ad9371_phy_tx_read(struct iio_dev *indio_dev,
 	if (chan->channel > CHAN_TX2)
 		return -EINVAL;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	switch (private) {
 	case TX_QEC:
 	case TX_LOL:
@@ -1973,7 +1978,7 @@ static ssize_t ad9371_phy_tx_read(struct iio_dev *indio_dev,
 	if (!ret)
 		ret = sprintf(buf, "%d\n", val);
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret;
 }
@@ -1994,7 +1999,7 @@ static ssize_t ad9371_phy_tx_write(struct iio_dev *indio_dev,
 
 
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 
 	switch (private) {
 	case TX_QEC:
@@ -2071,7 +2076,7 @@ static ssize_t ad9371_phy_tx_write(struct iio_dev *indio_dev,
 
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret ? ret : len;
 }
@@ -2364,7 +2369,7 @@ static int ad9371_phy_read_raw(struct iio_dev *indio_dev,
 	int ret;
 
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	switch (m) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		if (chan->output) {
@@ -2470,7 +2475,7 @@ static int ad9371_phy_read_raw(struct iio_dev *indio_dev,
 		ret = -EINVAL;
 	}
 
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret;
 };
@@ -2482,10 +2487,10 @@ static int ad9371_phy_write_raw(struct iio_dev *indio_dev,
 				long mask)
 {
 	struct ad9371_rf_phy *phy = iio_priv(indio_dev);
-	u32 code;
-	int ret;
+	u32 code, slope;
+	int ret, i;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&phy->lock);
 	switch (mask) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		if (chan->output) {
@@ -2537,15 +2542,48 @@ static int ad9371_phy_write_raw(struct iio_dev *indio_dev,
 			} else {
 				ret = -ENODEV;
 			}
+			break;
 		}
 
 		ret = -ENOTSUPP;
 		break;
+	case IIO_CHAN_INFO_SCALE:
+	if (chan->output) {
+		switch (val) {
+		case 0:
+			slope = 1;
+			break;
+		case 1:
+			slope = 0;
+			break;
+		default:
+			ret = -EINVAL;
+			break;
+		}
+
+		ret = -EINVAL;
+
+		for (i = 0; i < ARRAY_SIZE(ad9371_auxdac_scale_val2_lut[0]); i++) {
+			if (val2 == ad9371_auxdac_scale_val2_lut[slope][i]) {
+				phy->mykDevice->auxIo->auxDacSlope[chan->channel - CHAN_AUXDAC0] =
+					slope;
+				phy->mykDevice->auxIo->auxDacVref[chan->channel - CHAN_AUXDAC0] = i;
+				ret = MYKONOS_setupAuxDacs(phy->mykDevice);
+				if (ret) {
+					dev_err(&phy->spi->dev, "%s (%d)",
+						getMykonosErrorMessage(ret), ret);
+						ret = -EFAULT;
+				}
+				break;
+			}
+		}
+	}
+	break;
 	default:
 		ret = -EINVAL;
 	}
 out:
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return ret;
 }
@@ -2766,10 +2804,10 @@ static ssize_t ad9371_debugfs_read(struct file *file, char __user *userbuf,
 		switch (entry->cmd) {
 		case DBGFS_BIST_PRBS_ERR_TX:
 			for (index = 0; index < 4; index++) {
-				mutex_lock(&phy->indio_dev->mlock);
+				mutex_lock(&phy->lock);
 				ret = MYKONOS_readDeframerPrbsCounters(phy->mykDevice,
 								       index, &errcnt);
-				mutex_unlock(&phy->indio_dev->mlock);
+				mutex_unlock(&phy->lock);
 				if (ret < 0)
 					return ret;
 
@@ -2779,10 +2817,10 @@ static ssize_t ad9371_debugfs_read(struct file *file, char __user *userbuf,
 			}
 			break;
 		case DBGFS_MONITOR_OUT:
-			mutex_lock(&phy->indio_dev->mlock);
+			mutex_lock(&phy->lock);
 			ret = MYKONOS_getGpioMonitorOut(phy->mykDevice,
 							&index, &mask);
-			mutex_unlock(&phy->indio_dev->mlock);
+			mutex_unlock(&phy->lock);
 			if (ret < 0)
 				return ret;
 
@@ -2790,9 +2828,9 @@ static ssize_t ad9371_debugfs_read(struct file *file, char __user *userbuf,
 				       index, mask);
 			break;
 		case DBGFS_PLLS_STATUS:
-			mutex_lock(&phy->indio_dev->mlock);
+			mutex_lock(&phy->lock);
 			ret = MYKONOS_checkPllsLockStatus(phy->mykDevice, &status);
-			mutex_unlock(&phy->indio_dev->mlock);
+			mutex_unlock(&phy->lock);
 			if (ret < 0)
 				return ret;
 
@@ -2838,17 +2876,17 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 	case DBGFS_INIT:
 		if (!(ret == 1 && val == 1))
 			return -EINVAL;
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = ad9371_reinit(phy);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 
 		return count;
 	case DBGFS_LOOPBACK_TX_RX:
 		if (ret != 1)
 			return -EINVAL;
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = MYKONOS_setRxFramerDataSource(phy->mykDevice, val);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -2857,9 +2895,9 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 	case DBGFS_LOOPBACK_TX_OBS:
 		if (ret != 1)
 			return -EINVAL;
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = MYKONOS_setObsRxFramerDataSource(phy->mykDevice, val);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -2869,10 +2907,10 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 		if (ret != 1)
 			return -EINVAL;
 
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = MYKONOS_enableRxFramerPrbs(phy->mykDevice,
 						 (val > 0) ? val - 1 : 0, !!val);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -2882,9 +2920,9 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 		if (ret != 1)
 			return -EINVAL;
 
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = MYKONOS_rxInjectPrbsError(phy->mykDevice);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -2894,10 +2932,10 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 		if (ret != 1)
 			return -EINVAL;
 
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = MYKONOS_enableObsRxFramerPrbs(phy->mykDevice,
 						    (val > 0) ? val - 1 : 0, !!val);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -2907,9 +2945,9 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 		if (ret != 1)
 			return -EINVAL;
 
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = MYKONOS_obsRxInjectPrbsError(phy->mykDevice);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -2919,11 +2957,11 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 		if (ret != 2)
 			return -EINVAL;
 
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = MYKONOS_enableDeframerPrbsChecker(phy->mykDevice, val,
 							(val2 > 0) ? val2 - 1 : 0,
 							!!val2);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -2933,9 +2971,9 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 		if (ret != 1)
 			return -EINVAL;
 
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = MYKONOS_clearDeframerPrbsCounters(phy->mykDevice);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -2944,9 +2982,9 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 	case DBGFS_BIST_TONE:
 		if (ret != 3)
 			return -EINVAL;
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = MYKONOS_enableTxNco(phy->mykDevice, val, val2, val3);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -2955,9 +2993,9 @@ static ssize_t ad9371_debugfs_write(struct file *file,
 	case DBGFS_MONITOR_OUT:
 		if (ret != 2)
 			return -EINVAL;
-		mutex_lock(&phy->indio_dev->mlock);
+		mutex_lock(&phy->lock);
 		ret = MYKONOS_setGpioMonitorOut(phy->mykDevice, val, val2);
-		mutex_unlock(&phy->indio_dev->mlock);
+		mutex_unlock(&phy->lock);
 		if (ret < 0)
 			return ret;
 
@@ -3884,7 +3922,7 @@ ad9371_profile_bin_write(struct file *filp, struct kobject *kobj,
 		return ret;
 
 
-	mutex_lock(&phy->indio_dev->mlock);
+	mutex_lock(&phy->lock);
 
 	if (IS_AD9375(phy) && ret == 1) {
 		ad9371_set_radio_state(phy, RADIO_FORCE_OFF);
@@ -3919,7 +3957,7 @@ ad9371_profile_bin_write(struct file *filp, struct kobject *kobj,
 	}
 
 out_unlock:
-	mutex_unlock(&phy->indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return (ret < 0) ? ret : count;
 }
@@ -4122,11 +4160,11 @@ ad9371_gt_bin_write(struct file *filp, struct kobject *kobj,
 	if (IS_ERR_OR_NULL(table))
 		return PTR_ERR(table);
 
-	mutex_lock(&phy->indio_dev->mlock);
+	mutex_lock(&phy->lock);
 
 	ret = ad9371_load_all_gt(phy, table);
 
-	mutex_unlock(&phy->indio_dev->mlock);
+	mutex_unlock(&phy->lock);
 
 	return (ret < 0) ? ret : count;
 }
@@ -4908,6 +4946,7 @@ static int ad9371_probe(struct spi_device *spi)
 	phy->indio_dev = indio_dev;
 	phy->spi = spi;
 	phy->jdev = jdev;
+	mutex_init(&phy->lock);
 
 	ret = ad9371_alloc_mykonos_device(phy);
 	if (ret < 0)

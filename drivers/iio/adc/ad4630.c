@@ -17,6 +17,8 @@
 #include <linux/iio/buffer-dmaengine.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+#include <linux/limits.h>
+#include <linux/kconfig.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
@@ -483,54 +485,6 @@ static int ad4630_get_avg_frame_len(struct iio_dev *dev,
 	return avg_len;
 }
 
-static ssize_t ad4630_test_pattern_set(struct iio_dev *indio_dev,
-				       uintptr_t private,
-				       const struct iio_chan_spec *chan,
-				       const char *buf, size_t len)
-{
-	const struct ad4630_state *st = iio_priv(indio_dev);
-	u32 pattern;
-	__be32 val;
-	int ret;
-
-	ret = kstrtou32(buf, 16, &pattern);
-	if (ret)
-		return ret;
-
-	ret = iio_device_claim_direct_mode(indio_dev);
-	if (ret)
-		return ret;
-
-	val = cpu_to_be32(pattern);
-	ret = regmap_bulk_write(st->regmap, AD4630_REG_PAT3, &val, 4);
-	iio_device_release_direct_mode(indio_dev);
-	if (ret)
-		return ret;
-
-	return len;
-}
-
-static ssize_t ad4630_test_pattern_get(struct iio_dev *indio_dev,
-				       uintptr_t private,
-				       const struct iio_chan_spec *chan,
-				       char *buf)
-{
-	const struct ad4630_state *st = iio_priv(indio_dev);
-	__be32 pattern;
-	int ret;
-
-	ret = iio_device_claim_direct_mode(indio_dev);
-	if (ret)
-		return ret;
-
-	ret = regmap_bulk_read(st->regmap, AD4630_REG_PAT3, &pattern, 4);
-	iio_device_release_direct_mode(indio_dev);
-	if (ret)
-		return ret;
-
-	return sysfs_emit(buf, "0x%x\n", __be32_to_cpu(pattern));
-}
-
 static int ad4630_dma_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 					  struct iio_dma_buffer_block *block)
 {
@@ -556,14 +510,17 @@ static int ad4630_sampling_enable(const struct ad4630_state *st, bool enable)
 	return pwm_apply_state(st->fetch_trigger, &fetch_state);
 }
 
-static int ad4630_out_mode_update(struct ad4630_state *st, bool test_pattern)
+static int ad4630_spi_transfer_update(struct ad4630_state *st)
 {
 	u8 bits_per_w;
 	u32 mode;
 	int ret;
 
-	if (test_pattern) {
-		mode = FIELD_PREP(AD4630_OUT_DATA_MODE_MSK, AD4630_32_PATTERN);
+	ret = regmap_read(st->regmap, AD4630_REG_MODES, &mode);
+	if (ret)
+		return ret;
+
+	if (FIELD_GET(AD4630_OUT_DATA_MODE_MSK, mode) == AD4630_32_PATTERN) {
 		bits_per_w = st->pattern_bits_per_word;
 		/*
 		 * If the previous mode is averaging, we need to update the
@@ -574,7 +531,6 @@ static int ad4630_out_mode_update(struct ad4630_state *st, bool test_pattern)
 		if (st->out_data == AD4630_30_AVERAGED_DIFF)
 			ad4630_update_sample_fetch_trigger(st, 0);
 	} else {
-		mode = FIELD_PREP(AD4630_OUT_DATA_MODE_MSK, st->out_data);
 		bits_per_w = st->bits_per_word;
 		/* Restore the fetch PWM signal */
 		if (st->out_data == AD4630_30_AVERAGED_DIFF) {
@@ -588,11 +544,6 @@ static int ad4630_out_mode_update(struct ad4630_state *st, bool test_pattern)
 		}
 	}
 
-	ret = regmap_update_bits(st->regmap, AD4630_REG_MODES,
-				 AD4630_OUT_DATA_MODE_MSK, mode);
-	if (ret)
-		return ret;
-
 	st->offload_xfer.bits_per_word = bits_per_w;
 
 	return 0;
@@ -603,16 +554,14 @@ static int ad4630_buffer_preenable(struct iio_dev *indio_dev)
 	struct ad4630_state *st = iio_priv(indio_dev);
 	int ret;
 
-	ret = pm_runtime_get_sync(&st->spi->dev);
+	ret = pm_runtime_resume_and_get(&st->spi->dev);
 	if (ret < 0)
 		return ret;
 
-	if (test_bit(st->chip->n_channels - 1, indio_dev->active_scan_mask)) {
-		/* enable test pattern mode */
-		ret = ad4630_out_mode_update(st, true);
-		if (ret)
-			goto out_error;
-	}
+	/* we might need to update the spi transfer if in test pattern mode */
+	ret = ad4630_spi_transfer_update(st);
+	if (ret)
+		goto out_error;
 
 	ret = regmap_write(st->regmap, AD4630_REG_EXIT_CFG_MODE, BIT(0));
 	if (ret)
@@ -644,12 +593,6 @@ static int ad4630_buffer_postdisable(struct iio_dev *indio_dev)
 	spi_bus_unlock(st->spi->master);
 
 	ret = regmap_read(st->regmap, AD4630_REG_ACCESS, &dummy);
-	if (ret)
-		goto out_error;
-
-	if (test_bit(st->chip->n_channels - 1, indio_dev->active_scan_mask))
-		ret = ad4630_out_mode_update(st, false);
-
 out_error:
 	pm_runtime_mark_last_busy(&st->spi->dev);
 	pm_runtime_put_autosuspend(&st->spi->dev);
@@ -676,16 +619,6 @@ static const struct iio_chan_spec_ext_info ad4630_ext_info[] = {
 	{}
 };
 
-static const struct iio_chan_spec_ext_info ad4630_test_pattern[] = {
-	{
-		.name = "test_pattern",
-		.read = ad4630_test_pattern_get,
-		.write = ad4630_test_pattern_set,
-		.shared = IIO_SHARED_BY_TYPE,
-	},
-	{}
-};
-
 #define AD4630_CHAN(_idx, _storage, _real, _shift, _info) {		\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE) |		\
 			BIT(IIO_CHAN_INFO_CALIBBIAS),			\
@@ -704,19 +637,6 @@ static const struct iio_chan_spec_ext_info ad4630_test_pattern[] = {
 	},								\
 }
 
-#define AD4630_CHAN_PATTERN(_idx) {		\
-	.type = IIO_VOLTAGE,			\
-	.indexed = 1,				\
-	.channel = _idx,			\
-	.scan_index = _idx,			\
-	.ext_info = ad4630_test_pattern,	\
-	.scan_type = {				\
-		.sign = 's',			\
-		.storagebits = 32,		\
-		.realbits = 32,			\
-	},					\
-}
-
 /*
  * We need the sample size to be 64 bytes when both channels are enabled as the
  * HW will always fill in the DMA bus which is 64bits. If we had just 16 bits
@@ -729,28 +649,24 @@ static const struct ad4630_out_mode ad4030_24_modes[] = {
 	[AD4630_24_DIFF] = {
 		.channels = {
 			AD4630_CHAN(0, 64, 24, 0, NULL),
-			AD4630_CHAN_PATTERN(1),
 		},
 		.data_width = 24,
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
 			AD4630_CHAN(0, 64, 16, 8, NULL),
-			AD4630_CHAN_PATTERN(1),
 		},
 		.data_width = 24,
 	},
 	[AD4630_24_DIFF_8_COM] = {
 		.channels = {
 			AD4630_CHAN(0, 64, 24, 8, NULL),
-			AD4630_CHAN_PATTERN(1),
 		},
 		.data_width = 32,
 	},
 	[AD4630_30_AVERAGED_DIFF] = {
 		.channels = {
 			AD4630_CHAN(0, 64, 30, 2, ad4630_ext_info),
-			AD4630_CHAN_PATTERN(1),
 		},
 		.data_width = 32,
 	}
@@ -761,7 +677,6 @@ static const struct ad4630_out_mode ad4630_16_modes[] = {
 		.channels = {
 			AD4630_CHAN(0, 32, 16, 0, NULL),
 			AD4630_CHAN(1, 32, 16, 0, NULL),
-			AD4630_CHAN_PATTERN(2),
 		},
 		.data_width = 16,
 	},
@@ -769,7 +684,6 @@ static const struct ad4630_out_mode ad4630_16_modes[] = {
 		.channels = {
 			AD4630_CHAN(0, 32, 16, 8, NULL),
 			AD4630_CHAN(1, 32, 16, 8, NULL),
-			AD4630_CHAN_PATTERN(2),
 		},
 		.data_width = 24,
 	},
@@ -777,7 +691,6 @@ static const struct ad4630_out_mode ad4630_16_modes[] = {
 		.channels = {
 			AD4630_CHAN(0, 32, 30, 2, ad4630_ext_info),
 			AD4630_CHAN(1, 32, 30, 2, ad4630_ext_info),
-			AD4630_CHAN_PATTERN(2),
 		},
 		.data_width = 32,
 	}
@@ -788,7 +701,6 @@ static const struct ad4630_out_mode ad4630_24_modes[] = {
 		.channels = {
 			AD4630_CHAN(0, 32, 24, 0, NULL),
 			AD4630_CHAN(1, 32, 24, 0, NULL),
-			AD4630_CHAN_PATTERN(2),
 		},
 		.data_width = 24,
 	},
@@ -796,7 +708,6 @@ static const struct ad4630_out_mode ad4630_24_modes[] = {
 		.channels = {
 			AD4630_CHAN(0, 32, 16, 8, NULL),
 			AD4630_CHAN(1, 32, 16, 8, NULL),
-			AD4630_CHAN_PATTERN(2),
 		},
 		.data_width = 24,
 	},
@@ -804,7 +715,6 @@ static const struct ad4630_out_mode ad4630_24_modes[] = {
 		.channels = {
 			AD4630_CHAN(0, 32, 24, 8, NULL),
 			AD4630_CHAN(1, 32, 24, 8, NULL),
-			AD4630_CHAN_PATTERN(2),
 		},
 		.data_width = 32,
 	},
@@ -812,22 +722,19 @@ static const struct ad4630_out_mode ad4630_24_modes[] = {
 		.channels = {
 			AD4630_CHAN(0, 32, 30, 2, ad4630_ext_info),
 			AD4630_CHAN(1, 32, 30, 2, ad4630_ext_info),
-			AD4630_CHAN_PATTERN(2),
 		},
 		.data_width = 32,
 	}
 };
 
-/* either both channels are enabled or test_pattern */
+/* all channels must be enabled */
 static const unsigned long ad4630_channel_masks[] = {
 	GENMASK(1, 0),
-	BIT(2),
 	0,
 };
 
 static const unsigned long ad4030_channel_masks[] = {
 	BIT(0),
-	BIT(1),
 	0,
 };
 
@@ -842,7 +749,7 @@ static const struct ad4630_chip_info ad4630_chip_info[] = {
 		.min_offset = (int)BIT(23) * -1,
 		.max_offset = BIT(23) - 1,
 		.base_word_len = 24,
-		.n_channels = 2,
+		.n_channels = 1,
 	},
 	[ID_AD4630_16] = {
 		.available_masks = ad4630_channel_masks,
@@ -853,7 +760,7 @@ static const struct ad4630_chip_info ad4630_chip_info[] = {
 		.min_offset = (int)BIT(15) * -1,
 		.max_offset = BIT(15) - 1,
 		.base_word_len = 16,
-		.n_channels = 3,
+		.n_channels = 2,
 	},
 	[ID_AD4630_24] = {
 		.available_masks = ad4630_channel_masks,
@@ -863,7 +770,7 @@ static const struct ad4630_chip_info ad4630_chip_info[] = {
 		.min_offset = (int)BIT(23) * -1,
 		.max_offset = BIT(23) - 1,
 		.base_word_len = 24,
-		.n_channels = 3,
+		.n_channels = 2,
 	}
 };
 
@@ -1054,11 +961,10 @@ static void ad4630_prepare_spi_sampling_msg(struct ad4630_state *st,
 
 	if (lane_mode == AD4630_SHARED_TWO_CH) {
 		/*
-		 * This means all channels (minus the test_pattern one as it's
-		 * not a real channel) on 1 lane.
+		 * This means all channels on 1 lane.
 		 */
-		st->bits_per_word = data_width * (st->chip->n_channels - 1);
-		st->pattern_bits_per_word = 32 * (st->chip->n_channels - 1);
+		st->bits_per_word = data_width * st->chip->n_channels;
+		st->pattern_bits_per_word = 32 * st->chip->n_channels;
 	} else {
 		st->bits_per_word  = data_width / (1 << lane_mode);
 		st->pattern_bits_per_word  = 32 / (1 << lane_mode);
@@ -1096,8 +1002,7 @@ static int ad4630_config(struct ad4630_state *st)
 	if (!ret) {
 		if (lane_mode > AD4630_SHARED_TWO_CH)
 			return dev_err_probe(dev, -EINVAL, "Invalid lane mode(%u)\n", lane_mode);
-		if (lane_mode == AD4630_SHARED_TWO_CH &&
-		    (st->chip->n_channels - 1) == 1)
+		if (lane_mode == AD4630_SHARED_TWO_CH && st->chip->n_channels == 1)
 			return dev_err_probe(dev, -EINVAL,
 					     "Interleaved lanes not valid for devices with one channel\n");
 
@@ -1183,6 +1088,111 @@ static const struct regmap_config ad4630_regmap_config = {
 	.val_bits = 8,
 	.read_flag_mask = BIT(7),
 };
+
+static int ad4630_set_test_pattern(void *arg, u64 val)
+{
+	struct iio_dev *indio_dev = arg;
+	struct ad4630_state *st = iio_priv(indio_dev);
+	__be32 pattern;
+	int ret;
+
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	if (val > U32_MAX) {
+		iio_device_release_direct_mode(indio_dev);
+		return -EINVAL;
+	}
+
+	pattern = cpu_to_be32(val);
+	ret = regmap_bulk_write(st->regmap, AD4630_REG_PAT3, &pattern, 4);
+
+	iio_device_release_direct_mode(indio_dev);
+
+	return ret;
+}
+
+static int ad4630_show_test_pattern(void *arg, u64 *val)
+{
+	struct iio_dev *indio_dev = arg;
+	struct ad4630_state *st = iio_priv(indio_dev);
+	__be32 pattern;
+	int ret;
+
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	ret = regmap_bulk_read(st->regmap, AD4630_REG_PAT3, &pattern, 4);
+	iio_device_release_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	*val =  __be32_to_cpu(pattern);
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(ad4630_test_pattern_fops, ad4630_show_test_pattern,
+			 ad4630_set_test_pattern, "%llu\n");
+
+static int ad4630_set_test_pattern_en(void *arg, u64 val)
+{
+	struct iio_dev *indio_dev = arg;
+	struct ad4630_state *st = iio_priv(indio_dev);
+	u32 mode;
+	int ret;
+
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	if (val)
+		mode = FIELD_PREP(AD4630_OUT_DATA_MODE_MSK, AD4630_32_PATTERN);
+	else
+		mode = FIELD_PREP(AD4630_OUT_DATA_MODE_MSK, st->out_data);
+
+	ret = regmap_update_bits(st->regmap, AD4630_REG_MODES,
+				 AD4630_OUT_DATA_MODE_MSK, mode);
+
+	iio_device_release_direct_mode(indio_dev);
+
+	return ret;
+}
+
+static int ad4630_show_test_pattern_en(void *arg, u64 *val)
+{
+	struct iio_dev *indio_dev = arg;
+	struct ad4630_state *st = iio_priv(indio_dev);
+	u32 mode;
+	int ret;
+
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	ret = regmap_read(st->regmap, AD4630_REG_MODES, &mode);
+	iio_device_release_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	mode = FIELD_GET(AD4630_OUT_DATA_MODE_MSK, mode);
+	*val = mode == AD4630_32_PATTERN;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(ad4630_test_pattern_en_fops, ad4630_show_test_pattern_en,
+			 ad4630_set_test_pattern_en, "%llu\n");
+
+static void ad4630_debugs_init(struct iio_dev *indio_dev)
+{
+	struct dentry *d = iio_get_debugfs_dentry(indio_dev);
+
+	debugfs_create_file_unsafe("test_pattern", 0600, d,
+				   indio_dev, &ad4630_test_pattern_fops);
+	debugfs_create_file_unsafe("test_pattern_enable", 0600, d,
+				   indio_dev, &ad4630_test_pattern_en_fops);
+}
 
 static int ad4630_probe(struct spi_device *spi)
 {
@@ -1270,7 +1280,14 @@ static int ad4630_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	return devm_iio_device_register(dev, indio_dev);
+	ret = devm_iio_device_register(dev, indio_dev);
+	if (ret)
+		return ret;
+
+	if (IS_ENABLED(CONFIG_DEBUG_FS))
+		ad4630_debugs_init(indio_dev);
+
+	return 0;
 }
 
 static int __maybe_unused ad4630_runtime_suspend(struct device *dev)

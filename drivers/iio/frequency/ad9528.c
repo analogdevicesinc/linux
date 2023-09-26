@@ -1604,21 +1604,39 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 
 	cnt = 0;
 	for_each_child_of_node(np, chan_np) {
-		of_property_read_u32(chan_np, "reg",
+		ret = of_property_read_u32(chan_np, "reg",
 				     &pdata->channels[cnt].channel_num);
+		if (ret) {
+			dev_err(dev, "missing reg property in channel node\n");
+			return NULL;
+		}
 		pdata->channels[cnt].sync_ignore_en = of_property_read_bool(
 				chan_np, "adi,sync-ignore-enable");
 		pdata->channels[cnt].output_dis =
 			of_property_read_bool(chan_np, "adi,output-dis");
 
-		of_property_read_u32(chan_np, "adi,driver-mode", &tmp);
+		tmp = DRIVER_MODE_LVDS;
+		ret = of_property_read_u32(chan_np, "adi,driver-mode", &tmp);
 		pdata->channels[cnt].driver_mode = tmp;
+		if (ret && !pdata->channels[cnt].output_dis)
+			dev_warn(dev, "adi,driver-mode not set - apply default to DRIVER_MODE_LVDS\n");
+
+		tmp = 0;
 		of_property_read_u32(chan_np, "adi,divider-phase", &tmp);
 		pdata->channels[cnt].divider_phase = tmp;
-		of_property_read_u32(chan_np, "adi,channel-divider", &tmp);
+
+		tmp = 1;
+		ret = of_property_read_u32(chan_np, "adi,channel-divider", &tmp);
 		pdata->channels[cnt].channel_divider = tmp;
-		of_property_read_u32(chan_np, "adi,signal-source", &tmp);
+		if (ret && !pdata->channels[cnt].output_dis)
+			dev_warn(dev, "adi,channel-divider not set - apply default to 1\n");
+
+		tmp = SOURCE_VCO;
+		ret = of_property_read_u32(chan_np, "adi,signal-source", &tmp);
 		pdata->channels[cnt].signal_source = tmp;
+		if (ret && !pdata->channels[cnt].output_dis)
+			dev_warn(dev, "adi,signal-source not set - apply default to SOURCE_VCO\n");
+
 		ret = of_property_read_string(
 				chan_np, "adi,extended-name", &str);
 		if (ret >= 0)

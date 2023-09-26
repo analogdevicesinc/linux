@@ -231,7 +231,7 @@ static ssize_t ad9739a_show(struct device *dev,
 	u16 fsc_ua;
 	enum operation_mode op_mode;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	switch ((u32)this_attr->address) {
 	case AD9739A_FSC:
 		ret = ad9739a_get_fsc(conv, &fsc_ua);
@@ -247,7 +247,7 @@ static ssize_t ad9739a_show(struct device *dev,
 	default:
 		ret = -EINVAL;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 	return ret;
 }
 
@@ -261,7 +261,7 @@ static ssize_t ad9739a_store(struct device *dev,
 	int ret = 0;
 	u16 fsc_ua;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&conv->lock);
 	switch ((u32)this_attr->address) {
 	case AD9739A_FSC:
 		ret = kstrtou16(buf, 10, &fsc_ua);
@@ -278,7 +278,7 @@ static ssize_t ad9739a_store(struct device *dev,
 	default:
 		ret = -EINVAL;
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&conv->lock);
 
 	return ret ? ret : len;
 }
