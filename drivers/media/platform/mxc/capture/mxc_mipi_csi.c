@@ -1271,8 +1271,8 @@ static int mipi_csis_remove(struct platform_device *pdev)
 	struct csi_state *state = platform_get_drvdata(pdev);
 
 	v4l2_async_unregister_subdev(&state->mipi_sd);
-	v4l2_async_nf_cleanup(&state->subdev_notifier);
 	v4l2_async_nf_unregister(&state->subdev_notifier);
+	v4l2_async_nf_cleanup(&state->subdev_notifier);
 	v4l2_device_unregister(&state->v4l2_dev);
 
 	pm_runtime_disable(&pdev->dev);
