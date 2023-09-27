@@ -1969,8 +1969,8 @@ static int mx6s_csi_remove(struct platform_device *pdev)
 	struct mx6s_csi_dev *csi_dev =
 				container_of(v4l2_dev, struct mx6s_csi_dev, v4l2_dev);
 
-	v4l2_async_nf_cleanup(&csi_dev->subdev_notifier);
 	v4l2_async_nf_unregister(&csi_dev->subdev_notifier);
+	v4l2_async_nf_cleanup(&csi_dev->subdev_notifier);
 
 	video_unregister_device(csi_dev->vdev);
 	v4l2_device_unregister(&csi_dev->v4l2_dev);
