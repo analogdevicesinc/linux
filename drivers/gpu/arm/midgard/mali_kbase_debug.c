@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2012-2014, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -21,10 +21,7 @@
 
 #include <mali_kbase.h>
 
-static struct kbasep_debug_assert_cb kbasep_debug_assert_registered_cb = {
-	NULL,
-	NULL
-};
+static struct kbasep_debug_assert_cb kbasep_debug_assert_registered_cb = { NULL, NULL };
 
 void kbase_debug_assert_register_hook(kbase_debug_assert_hook *func, void *param)
 {
@@ -38,4 +35,3 @@ void kbasep_debug_assert_call_hook(void)
 		kbasep_debug_assert_registered_cb.func(kbasep_debug_assert_registered_cb.param);
 }
 KBASE_EXPORT_SYMBOL(kbasep_debug_assert_call_hook);
-

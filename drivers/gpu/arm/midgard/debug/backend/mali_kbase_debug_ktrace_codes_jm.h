@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2011-2015, 2018-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -40,11 +40,11 @@
 int dummy_array[] = {
 #endif
 
-	/*
+/*
 	 * Job Slot management events
 	 */
-	/* info_val==irq rawstat at start */
-	KBASE_KTRACE_CODE_MAKE_CODE(JM_IRQ),
+/* info_val==irq rawstat at start */
+KBASE_KTRACE_CODE_MAKE_CODE(JM_IRQ),
 	/* info_val==jobs processed */
 	KBASE_KTRACE_CODE_MAKE_CODE(JM_IRQ_END),
 	/* In the following:
@@ -73,8 +73,7 @@ int dummy_array[] = {
 	 *   JS_HEAD on submit
 	 * - otherwise gpu_addr==0
 	 */
-	KBASE_KTRACE_CODE_MAKE_CODE(JM_SOFTSTOP),
-	KBASE_KTRACE_CODE_MAKE_CODE(JM_SOFTSTOP_0),
+	KBASE_KTRACE_CODE_MAKE_CODE(JM_SOFTSTOP), KBASE_KTRACE_CODE_MAKE_CODE(JM_SOFTSTOP_0),
 	KBASE_KTRACE_CODE_MAKE_CODE(JM_SOFTSTOP_1),
 	/* gpu_addr==JS_HEAD read */
 	KBASE_KTRACE_CODE_MAKE_CODE(JM_HARDSTOP),
@@ -89,14 +88,12 @@ int dummy_array[] = {
 	 * - otherwise gpu_addr==0
 	 */
 	/* gpu_addr==JS_HEAD read */
-	KBASE_KTRACE_CODE_MAKE_CODE(JM_CHECK_HEAD),
-	KBASE_KTRACE_CODE_MAKE_CODE(JM_FLUSH_WORKQS),
+	KBASE_KTRACE_CODE_MAKE_CODE(JM_CHECK_HEAD), KBASE_KTRACE_CODE_MAKE_CODE(JM_FLUSH_WORKQS),
 	KBASE_KTRACE_CODE_MAKE_CODE(JM_FLUSH_WORKQS_DONE),
 	/* info_val == is_scheduled */
 	KBASE_KTRACE_CODE_MAKE_CODE(JM_ZAP_NON_SCHEDULED),
 	/* info_val == is_scheduled */
-	KBASE_KTRACE_CODE_MAKE_CODE(JM_ZAP_SCHEDULED),
-	KBASE_KTRACE_CODE_MAKE_CODE(JM_ZAP_DONE),
+	KBASE_KTRACE_CODE_MAKE_CODE(JM_ZAP_SCHEDULED), KBASE_KTRACE_CODE_MAKE_CODE(JM_ZAP_DONE),
 	/* info_val == nr jobs submitted */
 	KBASE_KTRACE_CODE_MAKE_CODE(JM_SLOT_SOFT_OR_HARD_STOP),
 	/* gpu_addr==JS_HEAD_NEXT last written */
@@ -203,4 +200,4 @@ int dummy_array[] = {
 };
 #endif
 
-/* ***** THE LACK OF HEADER GUARDS IS INTENTIONAL ***** */
+	/* ***** THE LACK OF HEADER GUARDS IS INTENTIONAL ***** */

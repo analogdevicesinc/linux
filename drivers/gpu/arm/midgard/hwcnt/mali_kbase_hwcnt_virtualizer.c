@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2018, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -255,7 +255,7 @@ static int kbasep_hwcnt_virtualizer_client_add(struct kbase_hwcnt_virtualizer *h
 
 		/* Make the scratch enable map the union of all enable maps */
 		kbase_hwcnt_enable_map_copy(&hvirt->scratch_map, enable_map);
-		list_for_each_entry (pos, &hvirt->clients, node)
+		list_for_each_entry(pos, &hvirt->clients, node)
 			kbase_hwcnt_enable_map_union(&hvirt->scratch_map, &pos->enable_map);
 
 		/* Set the counters with the new union enable map */
@@ -264,7 +264,7 @@ static int kbasep_hwcnt_virtualizer_client_add(struct kbase_hwcnt_virtualizer *h
 							       &hvirt->scratch_buf);
 		/* Accumulate into only existing clients' accumulation bufs */
 		if (!errcode)
-			list_for_each_entry (pos, &hvirt->clients, node)
+			list_for_each_entry(pos, &hvirt->clients, node)
 				kbasep_hwcnt_virtualizer_client_accumulate(pos,
 									   &hvirt->scratch_buf);
 	}
@@ -315,7 +315,7 @@ static void kbasep_hwcnt_virtualizer_client_remove(struct kbase_hwcnt_virtualize
 		struct kbase_hwcnt_virtualizer_client *pos;
 		/* Make the scratch enable map the union of all enable maps */
 		kbase_hwcnt_enable_map_disable_all(&hvirt->scratch_map);
-		list_for_each_entry (pos, &hvirt->clients, node)
+		list_for_each_entry(pos, &hvirt->clients, node)
 			kbase_hwcnt_enable_map_union(&hvirt->scratch_map, &pos->enable_map);
 		/* Set the counters with the new union enable map */
 		errcode = kbase_hwcnt_accumulator_set_counters(hvirt->accum, &hvirt->scratch_map,
@@ -323,7 +323,7 @@ static void kbasep_hwcnt_virtualizer_client_remove(struct kbase_hwcnt_virtualize
 							       &hvirt->scratch_buf);
 		/* Accumulate into remaining clients' accumulation bufs */
 		if (!errcode) {
-			list_for_each_entry (pos, &hvirt->clients, node)
+			list_for_each_entry(pos, &hvirt->clients, node)
 				kbasep_hwcnt_virtualizer_client_accumulate(pos,
 									   &hvirt->scratch_buf);
 
@@ -373,7 +373,7 @@ static int kbasep_hwcnt_virtualizer_client_set_counters(
 
 	/* Make the scratch enable map the union of all enable maps */
 	kbase_hwcnt_enable_map_copy(&hvirt->scratch_map, enable_map);
-	list_for_each_entry (pos, &hvirt->clients, node)
+	list_for_each_entry(pos, &hvirt->clients, node)
 		/* Ignore the enable map of the selected client */
 		if (pos != hvcli)
 			kbase_hwcnt_enable_map_union(&hvirt->scratch_map, &pos->enable_map);
@@ -385,7 +385,7 @@ static int kbasep_hwcnt_virtualizer_client_set_counters(
 		return errcode;
 
 	/* Accumulate into all accumulation bufs except the selected client's */
-	list_for_each_entry (pos, &hvirt->clients, node)
+	list_for_each_entry(pos, &hvirt->clients, node)
 		if (pos != hvcli)
 			kbasep_hwcnt_virtualizer_client_accumulate(pos, &hvirt->scratch_buf);
 
@@ -503,7 +503,7 @@ static int kbasep_hwcnt_virtualizer_client_dump(struct kbase_hwcnt_virtualizer *
 		return errcode;
 
 	/* Accumulate into all accumulation bufs except the selected client's */
-	list_for_each_entry (pos, &hvirt->clients, node)
+	list_for_each_entry(pos, &hvirt->clients, node)
 		if (pos != hvcli)
 			kbasep_hwcnt_virtualizer_client_accumulate(pos, &hvirt->scratch_buf);
 
@@ -724,7 +724,7 @@ void kbase_hwcnt_virtualizer_term(struct kbase_hwcnt_virtualizer *hvirt)
 	if (WARN_ON(hvirt->client_count != 0)) {
 		struct kbase_hwcnt_virtualizer_client *pos, *n;
 
-		list_for_each_entry_safe (pos, n, &hvirt->clients, node)
+		list_for_each_entry_safe(pos, n, &hvirt->clients, node)
 			kbase_hwcnt_virtualizer_client_destroy(pos);
 	}
 

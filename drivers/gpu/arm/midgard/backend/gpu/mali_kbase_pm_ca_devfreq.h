@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2017, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2017-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -56,4 +56,3 @@ extern const struct kbase_pm_ca_policy kbase_pm_ca_devfreq_policy_ops;
 void kbase_devfreq_set_core_mask(struct kbase_device *kbdev, u64 core_mask);
 
 #endif /* MALI_KBASE_PM_CA_DEVFREQ_H */
-

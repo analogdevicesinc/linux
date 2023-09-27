@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2012-2017, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -33,16 +33,21 @@
  * @kbdev: Device pointer
  * @issue: issue to be checked
  */
-#define kbase_hw_has_issue(kbdev, issue)\
-	test_bit(issue, &(kbdev)->hw_issues_mask[0])
+#define kbase_hw_has_issue(kbdev, issue) test_bit(issue, &(kbdev)->hw_issues_mask[0])
 
 /**
  * kbase_hw_has_feature - Tell whether a feature is supported
  * @kbdev: Device pointer
  * @feature: feature to be checked
  */
-#define kbase_hw_has_feature(kbdev, feature)\
-	test_bit(feature, &(kbdev)->hw_features_mask[0])
+#define kbase_hw_has_feature(kbdev, feature) test_bit(feature, &(kbdev)->hw_features_mask[0])
+
+/**
+ * kbase_hw_has_l2_slice_hash_feature - Tell if the feature is supported
+ * @kbdev: Device pointer
+ */
+#define kbase_hw_has_l2_slice_hash_feature(kbdev) \
+	test_bit(BASE_HW_FEATURE_L2_SLICE_HASH, &(kbdev)->hw_features_mask[0])
 
 /**
  * kbase_hw_set_issues_mask - Set the hardware issues mask based on the GPU ID
@@ -68,4 +73,4 @@ int kbase_hw_set_issues_mask(struct kbase_device *kbdev);
  */
 void kbase_hw_set_features_mask(struct kbase_device *kbdev);
 
-#endif				/* _KBASE_HW_H_ */
+#endif /* _KBASE_HW_H_ */

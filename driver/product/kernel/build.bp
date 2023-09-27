@@ -1,0 +1,129 @@
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
+/*
+ *
+ * (C) COPYRIGHT 2016-2023 ARM Limited. All rights reserved.
+ *
+ * This program is free software and is provided to you under the terms of the
+ * GNU General Public License version 2 as published by the Free Software
+ * Foundation, and any use by you of this program is subject to the terms
+ * of such GNU license.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, you can access it online at
+ * http://www.gnu.org/licenses/gpl-2.0.html.
+ *
+ */
+
+bob_install_group {
+    name: "IG_kernel_modules",
+    android: {
+        install_path: "{{.module_path}}",
+    },
+    linux: {
+        install_path: "{{.install_dir}}/{{.module_path}}",
+    },
+}
+
+bob_defaults {
+    name: "kernel_defaults",
+    build_by_default: false,
+    enabled: false,
+    exclude_srcs: [
+        "**/*.mod.c",
+    ],
+    local_include_dirs: [
+        "include",
+    ],
+    build_kernel_modules: {
+        build_by_default: true,
+        enabled: true,
+        kernel_dir: "{{.kernel_dir}}",
+        kernel_cross_compile: "{{.kernel_compiler}}",
+        kernel_cc: "{{.kernel_cc}}",
+        kernel_hostcc: "{{.kernel_hostcc}}",
+        kernel_clang_triple: "{{.kernel_clang_triple}}",
+        kernel_ld: "{{.kernel_ld}}",
+    },
+    install_group: "IG_kernel_modules",
+    add_to_alias: ["kernel"],
+    owner: "{{.android_module_owner}}",
+    // These flags should be synchronised with that defined in
+    // kernel/drivers/base/arm/Makefile and
+    // kernel/drivers/gpu/arm/midgard/Makefile
+    cflags: [
+        "-Wall",
+        "-Werror",
+        "-Wextra -Wunused -Wno-unused-parameter",
+        "-Wmissing-declarations",
+        "-Wmissing-format-attribute",
+        "-Wmissing-prototypes",
+        "-Wold-style-definition",
+        // The -Wmissing-include-dirs cannot be enabled as the path to some of the
+        // included directories change depending on whether it is an in-tree or
+        // out-of-tree build.
+        "-Wno-sign-compare",
+        "-Wno-shift-negative-value",
+        "-DKBUILD_EXTRA_WARN1",
+        "-Wdisabled-optimization",
+        // The -Wshadow flag cannot be enabled unless upstream kernels are
+        // patched to fix redefinitions of certain built-in functions and
+        // global variables.
+        "-Wmissing-field-initializers",
+        // -Wtype-limits must be disabled due to build failures on kernel 5.x
+        "-Wno-type-limits",
+        "-DKBUILD_EXTRA_WARN2",
+        // This warning is disabled to avoid build failures in some kernel versions
+        "-Wno-ignored-qualifiers",
+    ],
+    target_toolchain_gnu: {
+        cflags: [
+            "-Wunused-but-set-variable",
+            "-Wunused-const-variable",
+            "-Wpacked-not-aligned",
+            "-Wstringop-truncation",
+            "-Wlogical-op",
+            "-Wmaybe-uninitialized",
+            "-Wunused-macros",
+            // This flag is needed to avoid build errors on older kernels
+            "-Wno-cast-function-type",
+        ],
+    },
+    workaround_no_missing_attributes: {
+        cflags: [
+            "-Wno-missing-attributes",
+        ],
+    },
+    mali_gcov_kernel: {
+        cflags: [
+            "-fprofile-arcs",
+            "-ftest-coverage",
+            "-DGCOV_PROFILE=1",
+        ],
+    },
+    mali_kcov: {
+        cflags: [
+            "-fsanitize-coverage=trace-cmp",
+            "-DCONFIG_KCOV=1",
+            "-DCONFIG_KCOV_ENABLE_COMPARISONS=1",
+        ],
+    },
+    allow_android_tags: {
+        tags: [
+            "eng",
+            "optional",
+        ],
+    },
+}
+
+// Alias for all kernel modules. `kernel_defaults` uses `add_to_alias` to
+// ensure any modules using that are included in this alias; any
+// bob_kernel_modules not using those defaults must explicitly use
+// `add_to_alias` or be listed here.
+bob_alias {
+    name: "kernel",
+}

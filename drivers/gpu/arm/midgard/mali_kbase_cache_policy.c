@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2012-2018, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -49,16 +49,15 @@ u32 kbase_cache_enabled(u32 flags, u32 nr_pages)
 	return cache_flags;
 }
 
-
-void kbase_sync_single_for_device(struct kbase_device *kbdev, dma_addr_t handle,
-		size_t size, enum dma_data_direction dir)
+void kbase_sync_single_for_device(struct kbase_device *kbdev, dma_addr_t handle, size_t size,
+				  enum dma_data_direction dir)
 {
 	dma_sync_single_for_device(kbdev->dev, handle, size, dir);
 }
 KBASE_EXPORT_TEST_API(kbase_sync_single_for_device);
 
-void kbase_sync_single_for_cpu(struct kbase_device *kbdev, dma_addr_t handle,
-		size_t size, enum dma_data_direction dir)
+void kbase_sync_single_for_cpu(struct kbase_device *kbdev, dma_addr_t handle, size_t size,
+			       enum dma_data_direction dir)
 {
 	dma_sync_single_for_cpu(kbdev->dev, handle, size, dir);
 }

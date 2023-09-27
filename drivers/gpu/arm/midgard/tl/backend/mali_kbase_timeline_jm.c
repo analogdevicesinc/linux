@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -28,16 +28,14 @@
 void kbase_create_timeline_objects(struct kbase_device *kbdev)
 {
 	unsigned int lpu_id;
-	unsigned int as_nr;
+	int as_nr;
 	struct kbase_context *kctx;
 	struct kbase_timeline *timeline = kbdev->timeline;
-	struct kbase_tlstream *summary =
-		&timeline->streams[TL_STREAM_TYPE_OBJ_SUMMARY];
+	struct kbase_tlstream *summary = &timeline->streams[TL_STREAM_TYPE_OBJ_SUMMARY];
 
 	/* Summarize the LPU objects. */
 	for (lpu_id = 0; lpu_id < kbdev->gpu_props.num_job_slots; lpu_id++) {
-		u32 *lpu =
-			&kbdev->gpu_props.props.raw_props.js_features[lpu_id];
+		u32 *lpu = &kbdev->gpu_props.props.raw_props.js_features[lpu_id];
 		__kbase_tlstream_tl_new_lpu(summary, lpu, lpu_id, *lpu);
 	}
 
@@ -46,21 +44,15 @@ void kbase_create_timeline_objects(struct kbase_device *kbdev)
 		__kbase_tlstream_tl_new_as(summary, &kbdev->as[as_nr], as_nr);
 
 	/* Create GPU object and make it retain all LPUs and address spaces. */
-	__kbase_tlstream_tl_new_gpu(summary,
-			kbdev,
-			kbdev->gpu_props.props.raw_props.gpu_id,
-			kbdev->gpu_props.num_cores);
+	__kbase_tlstream_tl_new_gpu(summary, kbdev, kbdev->id, kbdev->gpu_props.num_cores);
 
 	for (lpu_id = 0; lpu_id < kbdev->gpu_props.num_job_slots; lpu_id++) {
-		void *lpu =
-			&kbdev->gpu_props.props.raw_props.js_features[lpu_id];
+		void *lpu = &kbdev->gpu_props.props.raw_props.js_features[lpu_id];
 		__kbase_tlstream_tl_lifelink_lpu_gpu(summary, lpu, kbdev);
 	}
 
 	for (as_nr = 0; as_nr < kbdev->nr_hw_address_spaces; as_nr++)
-		__kbase_tlstream_tl_lifelink_as_gpu(summary,
-				&kbdev->as[as_nr],
-				kbdev);
+		__kbase_tlstream_tl_lifelink_as_gpu(summary, &kbdev->as[as_nr], kbdev);
 
 	/* Lock the context list, to ensure no changes to the list are made
 	 * while we're summarizing the contexts and their contents.
@@ -70,10 +62,7 @@ void kbase_create_timeline_objects(struct kbase_device *kbdev)
 	/* For each context in the device... */
 	list_for_each_entry(kctx, &timeline->tl_kctx_list, tl_kctx_list_node) {
 		/* Summarize the context itself */
-		__kbase_tlstream_tl_new_ctx(summary,
-				kctx,
-				kctx->id,
-				(u32)(kctx->tgid));
+		__kbase_tlstream_tl_new_ctx(summary, kctx, kctx->id, (u32)(kctx->tgid));
 	}
 
 	/* Reset body stream buffers while holding the kctx lock.

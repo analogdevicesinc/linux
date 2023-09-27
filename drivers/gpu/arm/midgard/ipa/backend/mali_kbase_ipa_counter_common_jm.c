@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2017-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2017-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -39,9 +39,7 @@
  * incrementing every cycle over a ~100ms sample period at a high frequency,
  * e.g. 1 GHz: 2^30 * 0.1seconds ~= 2^27.
  */
-static inline u32 kbase_ipa_read_hwcnt(
-	struct kbase_ipa_model_vinstr_data *model_data,
-	u32 offset)
+static inline u32 kbase_ipa_read_hwcnt(struct kbase_ipa_model_vinstr_data *model_data, u32 offset)
 {
 	u8 *p = (u8 *)model_data->dump_buf.dump_buf;
 	u64 val = *(u64 *)&p[offset];
@@ -63,9 +61,8 @@ static inline s64 kbase_ipa_add_saturate(s64 a, s64 b)
 	return rtn;
 }
 
-s64 kbase_ipa_sum_all_shader_cores(
-	struct kbase_ipa_model_vinstr_data *model_data,
-	s32 coeff, u32 counter)
+s64 kbase_ipa_sum_all_shader_cores(struct kbase_ipa_model_vinstr_data *model_data, s32 coeff,
+				   u32 counter)
 {
 	struct kbase_device *kbdev = model_data->kbdev;
 	u64 core_mask;
@@ -76,8 +73,7 @@ s64 kbase_ipa_sum_all_shader_cores(
 	while (core_mask != 0ull) {
 		if ((core_mask & 1ull) != 0ull) {
 			/* 0 < counter_value < 2^27 */
-			u32 counter_value = kbase_ipa_read_hwcnt(model_data,
-						       base + counter);
+			u32 counter_value = kbase_ipa_read_hwcnt(model_data, base + counter);
 
 			/* 0 < ret < 2^27 * max_num_cores = 2^32 */
 			ret = kbase_ipa_add_saturate(ret, counter_value);
@@ -90,9 +86,8 @@ s64 kbase_ipa_sum_all_shader_cores(
 	return ret * coeff;
 }
 
-s64 kbase_ipa_sum_all_memsys_blocks(
-	struct kbase_ipa_model_vinstr_data *model_data,
-	s32 coeff, u32 counter)
+s64 kbase_ipa_sum_all_memsys_blocks(struct kbase_ipa_model_vinstr_data *model_data, s32 coeff,
+				    u32 counter)
 {
 	struct kbase_device *kbdev = model_data->kbdev;
 	const u32 num_blocks = kbdev->gpu_props.props.l2_props.num_l2_slices;
@@ -102,8 +97,7 @@ s64 kbase_ipa_sum_all_memsys_blocks(
 
 	for (i = 0; i < num_blocks; i++) {
 		/* 0 < counter_value < 2^27 */
-		u32 counter_value = kbase_ipa_read_hwcnt(model_data,
-					       base + counter);
+		u32 counter_value = kbase_ipa_read_hwcnt(model_data, base + counter);
 
 		/* 0 < ret < 2^27 * max_num_memsys_blocks = 2^29 */
 		ret = kbase_ipa_add_saturate(ret, counter_value);
@@ -114,15 +108,13 @@ s64 kbase_ipa_sum_all_memsys_blocks(
 	return ret * coeff;
 }
 
-s64 kbase_ipa_single_counter(
-	struct kbase_ipa_model_vinstr_data *model_data,
-	s32 coeff, u32 counter)
+s64 kbase_ipa_single_counter(struct kbase_ipa_model_vinstr_data *model_data, s32 coeff, u32 counter)
 {
 	/* Range: 0 < counter_value < 2^27 */
 	const u32 counter_value = kbase_ipa_read_hwcnt(model_data, counter);
 
 	/* Range: -2^49 < ret < 2^49 */
-	return counter_value * (s64) coeff;
+	return counter_value * (s64)coeff;
 }
 
 int kbase_ipa_attach_vinstr(struct kbase_ipa_model_vinstr_data *model_data)
@@ -131,8 +123,7 @@ int kbase_ipa_attach_vinstr(struct kbase_ipa_model_vinstr_data *model_data)
 	struct kbase_device *kbdev = model_data->kbdev;
 	struct kbase_hwcnt_virtualizer *hvirt = kbdev->hwcnt_gpu_virt;
 	struct kbase_hwcnt_enable_map enable_map;
-	const struct kbase_hwcnt_metadata *metadata =
-		kbase_hwcnt_virtualizer_metadata(hvirt);
+	const struct kbase_hwcnt_metadata *metadata = kbase_hwcnt_virtualizer_metadata(hvirt);
 
 	if (!metadata)
 		return -1;
@@ -148,8 +139,7 @@ int kbase_ipa_attach_vinstr(struct kbase_ipa_model_vinstr_data *model_data)
 	/* Disable cycle counter only. */
 	enable_map.clk_enable_map = 0;
 
-	errcode = kbase_hwcnt_virtualizer_client_create(
-		hvirt, &enable_map, &model_data->hvirt_cli);
+	errcode = kbase_hwcnt_virtualizer_client_create(hvirt, &enable_map, &model_data->hvirt_cli);
 	kbase_hwcnt_enable_map_free(&enable_map);
 	if (errcode) {
 		dev_err(kbdev->dev, "Failed to register IPA with virtualizer");
@@ -157,8 +147,7 @@ int kbase_ipa_attach_vinstr(struct kbase_ipa_model_vinstr_data *model_data)
 		return errcode;
 	}
 
-	errcode = kbase_hwcnt_dump_buffer_alloc(
-		metadata, &model_data->dump_buf);
+	errcode = kbase_hwcnt_dump_buffer_alloc(metadata, &model_data->dump_buf);
 	if (errcode) {
 		dev_err(kbdev->dev, "Failed to allocate IPA dump buffer");
 		kbase_hwcnt_virtualizer_client_destroy(model_data->hvirt_cli);
@@ -181,7 +170,7 @@ void kbase_ipa_detach_vinstr(struct kbase_ipa_model_vinstr_data *model_data)
 int kbase_ipa_vinstr_dynamic_coeff(struct kbase_ipa_model *model, u32 *coeffp)
 {
 	struct kbase_ipa_model_vinstr_data *model_data =
-			(struct kbase_ipa_model_vinstr_data *)model->model_data;
+		(struct kbase_ipa_model_vinstr_data *)model->model_data;
 	s64 energy = 0;
 	size_t i;
 	u64 coeff = 0, coeff_mul = 0;
@@ -189,8 +178,8 @@ int kbase_ipa_vinstr_dynamic_coeff(struct kbase_ipa_model *model, u32 *coeffp)
 	u32 active_cycles;
 	int err = 0;
 
-	err = kbase_hwcnt_virtualizer_client_dump(model_data->hvirt_cli,
-		&start_ts_ns, &end_ts_ns, &model_data->dump_buf);
+	err = kbase_hwcnt_virtualizer_client_dump(model_data->hvirt_cli, &start_ts_ns, &end_ts_ns,
+						  &model_data->dump_buf);
 	if (err)
 		goto err0;
 
@@ -201,7 +190,7 @@ int kbase_ipa_vinstr_dynamic_coeff(struct kbase_ipa_model *model, u32 *coeffp)
 	 */
 	active_cycles = model_data->get_active_cycles(model_data);
 
-	if (active_cycles < (u32) max(model_data->min_sample_cycles, 0)) {
+	if (active_cycles < (u32)max(model_data->min_sample_cycles, 0)) {
 		err = -ENODATA;
 		goto err0;
 	}
@@ -215,8 +204,7 @@ int kbase_ipa_vinstr_dynamic_coeff(struct kbase_ipa_model *model, u32 *coeffp)
 	for (i = 0; i < model_data->groups_def_num; i++) {
 		const struct kbase_ipa_group *group = &model_data->groups_def[i];
 		s32 coeff = model_data->group_values[i];
-		s64 group_energy = group->op(model_data, coeff,
-					     group->counter_block_offset);
+		s64 group_energy = group->op(model_data, coeff, group->counter_block_offset);
 
 		energy = kbase_ipa_add_saturate(energy, group_energy);
 	}
@@ -269,12 +257,13 @@ int kbase_ipa_vinstr_dynamic_coeff(struct kbase_ipa_model *model, u32 *coeffp)
 
 err0:
 	/* Clamp to a sensible range - 2^16 gives about 14W at 400MHz/750mV */
-	*coeffp = clamp(coeff_mul, (u64) 0, (u64) 1 << 16);
+	*coeffp = clamp(coeff_mul, (u64)0, (u64)1 << 16);
 	return err;
 }
 
 void kbase_ipa_vinstr_reset_data(struct kbase_ipa_model *model)
 {
+	CSTD_UNUSED(model);
 	/* Currently not implemented */
 	WARN_ON_ONCE(1);
 }
@@ -301,37 +290,32 @@ int kbase_ipa_vinstr_common_model_init(struct kbase_ipa_model *model,
 	model_data->groups_def_num = ipa_group_size;
 	model_data->get_active_cycles = get_active_cycles;
 
-	model->model_data = (void *) model_data;
+	model->model_data = (void *)model_data;
 
 	for (i = 0; i < model_data->groups_def_num; ++i) {
 		const struct kbase_ipa_group *group = &model_data->groups_def[i];
 
 		model_data->group_values[i] = group->default_value;
 		err = kbase_ipa_model_add_param_s32(model, group->name,
-					&model_data->group_values[i],
-					1, false);
+						    &model_data->group_values[i], 1, false);
 		if (err)
 			goto exit;
 	}
 
 	model_data->scaling_factor = DEFAULT_SCALING_FACTOR;
-	err = kbase_ipa_model_add_param_s32(model, "scale",
-					    &model_data->scaling_factor,
-					    1, false);
+	err = kbase_ipa_model_add_param_s32(model, "scale", &model_data->scaling_factor, 1, false);
 	if (err)
 		goto exit;
 
 	model_data->min_sample_cycles = DEFAULT_MIN_SAMPLE_CYCLES;
 	err = kbase_ipa_model_add_param_s32(model, "min_sample_cycles",
-					    &model_data->min_sample_cycles,
-					    1, false);
+					    &model_data->min_sample_cycles, 1, false);
 	if (err)
 		goto exit;
 
 	model_data->reference_voltage = reference_voltage;
 	err = kbase_ipa_model_add_param_s32(model, "reference_voltage",
-					    &model_data->reference_voltage,
-					    1, false);
+					    &model_data->reference_voltage, 1, false);
 	if (err)
 		goto exit;
 
@@ -348,7 +332,7 @@ exit:
 void kbase_ipa_vinstr_common_model_term(struct kbase_ipa_model *model)
 {
 	struct kbase_ipa_model_vinstr_data *model_data =
-			(struct kbase_ipa_model_vinstr_data *)model->model_data;
+		(struct kbase_ipa_model_vinstr_data *)model->model_data;
 
 	kbase_ipa_detach_vinstr(model_data);
 	kfree(model_data);

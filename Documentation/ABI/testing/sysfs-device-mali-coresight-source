@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -71,6 +71,10 @@ Description:
             [11:10] = 1, Generate TS request approx every 128 cycles
             [22:16] = 1, Trace bus ID
 
+What:		/sys/bus/coresight/devices/mali-source-ela/reset_regs
+Description:
+        Attribute used to reset registers to zero.
+
 What:		/sys/bus/coresight/devices/mali-source-ela/enable_source
 Description:
         Attribute used to enable Coresight Source ELA.
@@ -79,35 +83,121 @@ What:		/sys/bus/coresight/devices/mali-source-ela/is_enabled
 Description:
         Attribute used to check if Coresight Source ELA is enabled.
 
-What:		/sys/bus/coresight/devices/mali-source-ela/select
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/TIMECTRL
 Description:
-        Coresight Source ELA select trace mode:
-            [0], NONE
-            [1], JCN
-            [2], CEU_EXEC
-            [3], CEU_CMDS
-            [4], MCU_AHBP
-            [5], HOST_AXI
-            [6], NR_TRACEMODE
-
+        Coresight Source ELA TIMECTRL register set/get.
         Refer to specification for more details.
 
-What:		/sys/bus/coresight/devices/mali-source-ela/sigmask0
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/TSSR
 Description:
-        Coresight Source ELA SIGMASK0 register set/get.
+        Coresight Source ELA TSR register set/get.
         Refer to specification for more details.
 
-What:		/sys/bus/coresight/devices/mali-source-ela/sigmask4
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/ATBCTRL
 Description:
-        Coresight Source ELA SIGMASK4 register set/get.
+        Coresight Source ELA ATBCTRL register set/get.
         Refer to specification for more details.
 
-What:		/sys/bus/coresight/devices/mali-source-ela/sigcomp0
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/PTACTION
 Description:
-        Coresight Source ELA SIGCOMP0 register set/get.
+        Coresight Source ELA PTACTION register set/get.
         Refer to specification for more details.
 
-What:		/sys/bus/coresight/devices/mali-source-ela/sigcomp4
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/AUXCTRL
 Description:
-        Coresight Source ELA SIGCOMP4 register set/get.
+        Coresight Source ELA AUXCTRL register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/CNTSEL
+Description:
+        Coresight Source ELA CNTSEL register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/SIGSELn
+Description:
+        Coresight Source ELA SIGSELn register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/TRIGCTRLn
+Description:
+        Coresight Source ELA TRIGCTRLn register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/NEXTSTATEn
+Description:
+        Coresight Source ELA NEXTSTATEn register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/ACTIONn
+Description:
+        Coresight Source ELA ACTIONn register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/ALTNEXTSTATEn
+Description:
+        Coresight Source ELA ALTNEXTSTATEn register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/ALTACTIONn
+Description:
+        Coresight Source ELA ALTACTIONn register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/COMPCTRLn
+Description:
+        Coresight Source ELA COMPCTRLn register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/ALTCOMPCTRLn
+Description:
+        Coresight Source ELA ALTCOMPCTRLn register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/COUNTCOMPn
+Description:
+        Coresight Source ELA COUNTCOMPn register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/TWBSELn
+Description:
+        Coresight Source ELA TWBSELn register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/EXTMASKn
+Description:
+        Coresight Source ELA EXTMASKn register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/EXTCOMPn
+Description:
+        Coresight Source ELA EXTCOMPn register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/QUALMASKn
+Description:
+        Coresight Source ELA QUALMASKn register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/QUALCOMPn
+        Coresight Source ELA QUALCOMPn register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/SIGMASKn_0-7
+Description:
+        Coresight Source ELA SIGMASKn_0-7 register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/SIGCOMPn_0-7
+Description:
+        Coresight Source ELA SIGCOMPn_0-7 register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/SIGSELn_0-7
+Description:
+        Coresight Source ELA SIGSELn_0-7 register set/get.
+        Refer to specification for more details.
+
+What:		/sys/bus/coresight/devices/mali-source-ela/regs/SIGMASKn_0-7
+Description:
+        Coresight Source ELA SIGMASKn_0-7 register set/get.
         Refer to specification for more details.

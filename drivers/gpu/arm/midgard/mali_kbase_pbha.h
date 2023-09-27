@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2021-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2021-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -49,9 +49,8 @@ bool kbasep_pbha_supported(struct kbase_device *kbdev);
  *
  * Return: 0 on success, otherwise error code.
  */
-int kbase_pbha_record_settings(struct kbase_device *kbdev, bool runtime,
-			       unsigned int id, unsigned int read_setting,
-			       unsigned int write_setting);
+int kbase_pbha_record_settings(struct kbase_device *kbdev, bool runtime, unsigned int id,
+			       unsigned int read_setting, unsigned int write_setting);
 
 /**
  * kbase_pbha_write_settings - write recorded PBHA settings to GPU

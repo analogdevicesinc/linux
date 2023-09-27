@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014, 2016, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -81,4 +81,4 @@ void kbasep_regs_history_debugfs_init(struct kbase_device *kbdev);
 
 #endif /* defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_NO_MALI) */
 
-#endif  /*_KBASE_REGS_HISTORY_DEBUGFS_H*/
+#endif /*_KBASE_REGS_HISTORY_DEBUGFS_H*/

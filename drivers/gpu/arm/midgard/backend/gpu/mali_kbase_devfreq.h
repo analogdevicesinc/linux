@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014, 2019-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -22,6 +22,14 @@
 #ifndef _BASE_DEVFREQ_H_
 #define _BASE_DEVFREQ_H_
 
+/**
+ * kbase_devfreq_init - Initialize kbase device for DevFreq.
+ * @kbdev:      Device pointer
+ *
+ * This function must be called only when a kbase device is initialized.
+ *
+ * Return: 0 on success.
+ */
 int kbase_devfreq_init(struct kbase_device *kbdev);
 
 void kbase_devfreq_term(struct kbase_device *kbdev);
@@ -39,8 +47,7 @@ void kbase_devfreq_force_freq(struct kbase_device *kbdev, unsigned long freq);
  * @kbdev:      Device pointer
  * @work_type:  The type of the devfreq work item, i.e. suspend or resume
  */
-void kbase_devfreq_enqueue_work(struct kbase_device *kbdev,
-				enum kbase_devfreq_work_type work_type);
+void kbase_devfreq_enqueue_work(struct kbase_device *kbdev, enum kbase_devfreq_work_type work_type);
 
 /**
  * kbase_devfreq_opp_translate - Translate nominal OPP frequency from devicetree
@@ -57,6 +64,6 @@ void kbase_devfreq_enqueue_work(struct kbase_device *kbdev,
  * untranslated frequency (and corresponding voltage) and all cores enabled.
  * The voltages returned are in micro Volts (uV).
  */
-void kbase_devfreq_opp_translate(struct kbase_device *kbdev, unsigned long freq,
-	u64 *core_mask, unsigned long *freqs, unsigned long *volts);
+void kbase_devfreq_opp_translate(struct kbase_device *kbdev, unsigned long freq, u64 *core_mask,
+				 unsigned long *freqs, unsigned long *volts);
 #endif /* _BASE_DEVFREQ_H_ */

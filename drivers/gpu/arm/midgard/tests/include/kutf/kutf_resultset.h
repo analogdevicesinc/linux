@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014, 2017, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -55,18 +55,18 @@
  */
 enum kutf_result_status {
 	KUTF_RESULT_BENCHMARK = -3,
-	KUTF_RESULT_SKIP    = -2,
+	KUTF_RESULT_SKIP = -2,
 	KUTF_RESULT_UNKNOWN = -1,
 
-	KUTF_RESULT_PASS    = 0,
-	KUTF_RESULT_DEBUG   = 1,
-	KUTF_RESULT_INFO    = 2,
-	KUTF_RESULT_WARN    = 3,
-	KUTF_RESULT_FAIL    = 4,
-	KUTF_RESULT_FATAL   = 5,
-	KUTF_RESULT_ABORT   = 6,
+	KUTF_RESULT_PASS = 0,
+	KUTF_RESULT_DEBUG = 1,
+	KUTF_RESULT_INFO = 2,
+	KUTF_RESULT_WARN = 3,
+	KUTF_RESULT_FAIL = 4,
+	KUTF_RESULT_FATAL = 5,
+	KUTF_RESULT_ABORT = 6,
 
-	KUTF_RESULT_USERDATA      = 7,
+	KUTF_RESULT_USERDATA = 7,
 	KUTF_RESULT_USERDATA_WAIT = 8,
 	KUTF_RESULT_TEST_FINISHED = 9
 };
@@ -90,9 +90,9 @@ struct kutf_context;
  * @message:	A more verbose status message.
  */
 struct kutf_result {
-	struct list_head            node;
-	enum kutf_result_status     status;
-	const char                  *message;
+	struct list_head node;
+	enum kutf_result_status status;
+	const char *message;
 };
 
 /**
@@ -112,9 +112,9 @@ struct kutf_result {
  * @flags:	Flags see %KUTF_RESULT_SET_WAITING_FOR_INPUT
  */
 struct kutf_result_set {
-	struct list_head          results;
-	wait_queue_head_t         waitq;
-	int                       flags;
+	struct list_head results;
+	wait_queue_head_t waitq;
+	int flags;
 };
 
 /**
@@ -134,8 +134,8 @@ struct kutf_result_set *kutf_create_result_set(void);
  *
  * Return: 0 if the result is successfully added. -ENOMEM if allocation fails.
  */
-int kutf_add_result(struct kutf_context *context,
-		enum kutf_result_status status, const char *message);
+int kutf_add_result(struct kutf_context *context, enum kutf_result_status status,
+		    const char *message);
 
 /**
  * kutf_remove_result() - Remove a result from the head of a result set.
@@ -146,8 +146,7 @@ int kutf_add_result(struct kutf_context *context,
  *
  * Return: result or ERR_PTR if interrupted
  */
-struct kutf_result *kutf_remove_result(
-		struct kutf_result_set *set);
+struct kutf_result *kutf_remove_result(struct kutf_result_set *set);
 
 /**
  * kutf_destroy_result_set() - Free a previously created result set.
@@ -175,6 +174,6 @@ void kutf_set_waiting_for_input(struct kutf_result_set *set);
  */
 void kutf_clear_waiting_for_input(struct kutf_result_set *set);
 
-#endif	/* __KERNEL__ */
+#endif /* __KERNEL__ */
 
-#endif	/* _KERNEL_UTF_RESULTSET_H_ */
+#endif /* _KERNEL_UTF_RESULTSET_H_ */

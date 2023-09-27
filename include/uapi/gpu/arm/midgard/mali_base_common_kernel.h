@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -162,7 +162,7 @@ struct base_mem_handle {
 
 /* A mask for all input bits, including IN/OUT bits.
  */
-#define BASE_MEM_FLAGS_INPUT_MASK                                                                  \
+#define BASE_MEM_FLAGS_INPUT_MASK \
 	(((1 << BASE_MEM_FLAGS_NR_BITS) - 1) & ~BASE_MEM_FLAGS_OUTPUT_MASK)
 
 /* Special base mem handles.
@@ -206,13 +206,13 @@ typedef __u32 base_context_create_flags;
 
 /* Bitmask used to encode a memory group ID in base_context_create_flags
  */
-#define BASEP_CONTEXT_MMU_GROUP_ID_MASK                                                            \
+#define BASEP_CONTEXT_MMU_GROUP_ID_MASK \
 	((base_context_create_flags)0xF << BASEP_CONTEXT_MMU_GROUP_ID_SHIFT)
 
 /* Bitpattern describing the base_context_create_flags that can be
  * passed to the kernel
  */
-#define BASEP_CONTEXT_CREATE_KERNEL_FLAGS                                                          \
+#define BASEP_CONTEXT_CREATE_KERNEL_FLAGS \
 	(BASE_CONTEXT_SYSTEM_MONITOR_SUBMIT_DISABLED | BASEP_CONTEXT_MMU_GROUP_ID_MASK)
 
 /* Flags for base tracepoint

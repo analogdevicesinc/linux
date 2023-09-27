@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 #
-# (C) COPYRIGHT 2013-2022 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2013-2023 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -45,22 +45,22 @@ Documentation/devicetree/bindings/regulator/regulator.txt for details.
                        This is optional.
 - operating-points-v2 : Refer to Documentation/devicetree/bindings/power/mali-opp.txt
 for details.
-- quirks_gpu : Used to write to the JM_CONFIG or CSF_CONFIG register.
+- quirks-gpu : Used to write to the JM_CONFIG or CSF_CONFIG register.
 	  Should be used with care. Options passed here are used to override
 	  certain default behavior. Note: This will override 'idvs-group-size'
 	  field in devicetree and module param 'corestack_driver_control',
-	  therefore if 'quirks_gpu' is used then 'idvs-group-size' and
-	  'corestack_driver_control' value should be incorporated into 'quirks_gpu'.
-- quirks_sc : Used to write to the SHADER_CONFIG register.
+	  therefore if 'quirks-gpu' is used then 'idvs-group-size' and
+	  'corestack_driver_control' value should be incorporated into 'quirks-gpu'.
+- quirks-sc : Used to write to the SHADER_CONFIG register.
 	  Should be used with care. Options passed here are used to override
 	  certain default behavior.
-- quirks_tiler : Used to write to the TILER_CONFIG register.
+- quirks-tiler : Used to write to the TILER_CONFIG register.
 	  Should be used with care. Options passed here are used to
 	  disable or override certain default behavior.
-- quirks_mmu : Used to write to the L2_CONFIG register.
+- quirks-mmu : Used to write to the L2_CONFIG register.
 	  Should be used with care. Options passed here are used to
 	  disable or override certain default behavior.
-- power_model : Sets the power model parameters. Defined power models include:
+- power-model : Sets the power model parameters. Defined power models include:
 	  "mali-simple-power-model", "mali-g51-power-model", "mali-g52-power-model",
 	  "mali-g52_r1-power-model", "mali-g71-power-model", "mali-g72-power-model",
 	  "mali-g76-power-model", "mali-g77-power-model", "mali-tnax-power-model",
@@ -97,7 +97,7 @@ for details.
 	  are used at different points so care should be taken to configure
 	  both power models in the device tree (specifically dynamic-coefficient,
 	  static-coefficient and scale) to best match the platform.
-- power_policy : Sets the GPU power policy at probe time. Available options are
+- power-policy : Sets the GPU power policy at probe time. Available options are
                  "coarse_demand" and "always_on". If not set, then "coarse_demand" is used.
 - system-coherency : Sets the coherency protocol to be used for coherent
 		     accesses made from the GPU.
@@ -117,17 +117,19 @@ for details.
 -  l2-hash-values : Override L2 hash function using provided hash values, on GPUs that supports it.
 		    It is mutually exclusive with 'l2-hash'. Only one or the other must be
 		    used in a supported GPU.
--  arbiter_if : Phandle to the arbif platform device, used to provide KBASE with an interface
+-  arbiter-if : Phandle to the arbif platform device, used to provide KBASE with an interface
 		to the Arbiter. This is required when using arbitration; setting to a non-NULL
 		value will enable arbitration.
 		If arbitration is in use, then there should be no external GPU control.
-		When arbiter_if is in use then the following must not be:
-		- power_model                         (no IPA allowed with arbitration)
+		When arbiter-if is in use then the following must not be:
+		- power-model                         (no IPA allowed with arbitration)
 		- #cooling-cells
 		- operating-points-v2                 (no dvfs in kbase with arbitration)
 		- system-coherency with a value of 1  (no full coherency with arbitration)
-- int_id_override: list of <ID Setting[7:0]> tuples defining the IDs needed to be
+- int-id-override: list of <ID Setting[7:0]> tuples defining the IDs needed to be
 		   set and the setting coresponding to the SYSC_ALLOC register.
+- propagate-bits: Used to write to L2_CONFIG.PBHA_HWU. This bitset establishes which
+		   PBHA bits are propagated on the AXI bus.
 
 
 Example for a Mali GPU with 1 clock and 1 regulator:
@@ -235,8 +237,8 @@ Example for a Mali GPU supporting PBHA configuration via DTB (default):
 gpu@0xfc010000 {
     ...
     pbha {
-        int_id_override = <2 0x32>, <9 0x05>, <16 0x32>;
-        propagate_bits = <0x03>;
+        int-id-override = <2 0x32>, <9 0x05>, <16 0x32>;
+        propagate-bits = /bits/ 4 <0x03>;
     };
     ...
 };

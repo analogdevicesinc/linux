@@ -292,7 +292,8 @@ static void kbasep_hwcnt_accumulator_disable(struct kbase_hwcnt_context *hctx, b
 	accum->accumulated = true;
 
 disable:
-	hctx->iface->dump_disable(accum->backend);
+	hctx->iface->dump_disable(accum->backend, (accum->accumulated) ? &accum->accum_buf : NULL,
+				  &accum->enable_map);
 
 	/* Regardless of any errors during the accumulate, put the accumulator
 	 * in the disabled state.
@@ -454,7 +455,9 @@ static int kbasep_hwcnt_accumulator_dump(struct kbase_hwcnt_context *hctx, u64 *
 	if ((state == ACCUM_STATE_ENABLED) && new_map) {
 		/* Backend is only enabled if there were any enabled counters */
 		if (cur_map_any_enabled)
-			hctx->iface->dump_disable(accum->backend);
+			hctx->iface->dump_disable(accum->backend,
+						  (accum->accumulated) ? &accum->accum_buf : NULL,
+						  cur_map);
 
 		/* (Re-)enable the backend if the new map has enabled counters.
 		 * No need to acquire the spinlock, as concurrent enable while
@@ -481,9 +484,15 @@ static int kbasep_hwcnt_accumulator_dump(struct kbase_hwcnt_context *hctx, u64 *
 
 		/* If we've not written anything into the dump buffer so far, it
 		 * means there was nothing to write. Zero any enabled counters.
+		 *
+		 * In this state, the blocks are likely to be off (and at the very least, not
+		 * counting), so write in the 'off' block state
 		 */
-		if (!dump_written)
+		if (!dump_written) {
 			kbase_hwcnt_dump_buffer_zero(dump_buf, cur_map);
+			kbase_hwcnt_dump_buffer_block_state_update(dump_buf, cur_map,
+								   KBASE_HWCNT_STATE_OFF);
+		}
 	}
 
 	/* Write out timestamps */
@@ -499,7 +508,8 @@ error:
 	WARN_ON(state != ACCUM_STATE_ENABLED);
 
 	/* Disable the backend, and transition to the error state */
-	hctx->iface->dump_disable(accum->backend);
+	hctx->iface->dump_disable(accum->backend, (accum->accumulated) ? &accum->accum_buf : NULL,
+				  cur_map);
 	spin_lock_irqsave(&hctx->state_lock, flags);
 
 	accum->state = ACCUM_STATE_ERROR;

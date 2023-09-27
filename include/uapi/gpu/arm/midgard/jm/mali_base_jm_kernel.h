@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -60,28 +60,26 @@
 /* A mask of all the flags which are only valid for allocations within kbase,
  * and may not be passed from user space.
  */
-#define BASEP_MEM_FLAGS_KERNEL_ONLY \
-	(BASEP_MEM_PERMANENT_KERNEL_MAPPING | BASEP_MEM_NO_USER_FREE | \
-	 BASE_MEM_FLAG_MAP_FIXED | BASEP_MEM_PERFORM_JIT_TRIM)
+#define BASEP_MEM_FLAGS_KERNEL_ONLY                                                              \
+	(BASEP_MEM_PERMANENT_KERNEL_MAPPING | BASEP_MEM_NO_USER_FREE | BASE_MEM_FLAG_MAP_FIXED | \
+	 BASEP_MEM_PERFORM_JIT_TRIM)
 
 /* A mask of all currently reserved flags
  */
-#define BASE_MEM_FLAGS_RESERVED \
-	(BASE_MEM_RESERVED_BIT_8 | BASE_MEM_RESERVED_BIT_19)
-
+#define BASE_MEM_FLAGS_RESERVED (BASE_MEM_RESERVED_BIT_8 | BASE_MEM_RESERVED_BIT_19)
 
 /* Similar to BASE_MEM_TILER_ALIGN_TOP, memory starting from the end of the
  * initial commit is aligned to 'extension' pages, where 'extension' must be a power
  * of 2 and no more than BASE_MEM_TILER_ALIGN_TOP_EXTENSION_MAX_PAGES
  */
-#define BASE_JIT_ALLOC_MEM_TILER_ALIGN_TOP  (1 << 0)
+#define BASE_JIT_ALLOC_MEM_TILER_ALIGN_TOP (1 << 0)
 
 /**
  * BASE_JIT_ALLOC_HEAP_INFO_IS_SIZE - If set, the heap info address points
  * to a __u32 holding the used size in bytes;
  * otherwise it points to a __u64 holding the lowest address of unused memory.
  */
-#define BASE_JIT_ALLOC_HEAP_INFO_IS_SIZE  (1 << 1)
+#define BASE_JIT_ALLOC_HEAP_INFO_IS_SIZE (1 << 1)
 
 /**
  * BASE_JIT_ALLOC_VALID_FLAGS - Valid set of just-in-time memory allocation flags
@@ -109,26 +107,25 @@
  */
 
 /* Private flag tracking whether job descriptor dumping is disabled */
-#define BASEP_CONTEXT_FLAG_JOB_DUMP_DISABLED \
-	((base_context_create_flags)(1 << 31))
+#define BASEP_CONTEXT_FLAG_JOB_DUMP_DISABLED ((base_context_create_flags)(1 << 31))
 
 /* Flags for base tracepoint specific to JM */
-#define BASE_TLSTREAM_FLAGS_MASK (BASE_TLSTREAM_ENABLE_LATENCY_TRACEPOINTS | \
-		BASE_TLSTREAM_JOB_DUMPING_ENABLED)
+#define BASE_TLSTREAM_FLAGS_MASK \
+	(BASE_TLSTREAM_ENABLE_LATENCY_TRACEPOINTS | BASE_TLSTREAM_JOB_DUMPING_ENABLED)
 /*
  * Dependency stuff, keep it private for now. May want to expose it if
  * we decide to make the number of semaphores a configurable
  * option.
  */
-#define BASE_JD_ATOM_COUNT              256
+#define BASE_JD_ATOM_COUNT 256
 
 /* Maximum number of concurrent render passes.
  */
 #define BASE_JD_RP_COUNT (256)
 
 /* Set/reset values for a software event */
-#define BASE_JD_SOFT_EVENT_SET             ((unsigned char)1)
-#define BASE_JD_SOFT_EVENT_RESET           ((unsigned char)0)
+#define BASE_JD_SOFT_EVENT_SET ((unsigned char)1)
+#define BASE_JD_SOFT_EVENT_RESET ((unsigned char)0)
 
 /**
  * struct base_jd_udata - Per-job data
@@ -156,9 +153,9 @@ struct base_jd_udata {
  */
 typedef __u8 base_jd_dep_type;
 
-#define BASE_JD_DEP_TYPE_INVALID  (0)       /**< Invalid dependency */
-#define BASE_JD_DEP_TYPE_DATA     (1U << 0) /**< Data dependency */
-#define BASE_JD_DEP_TYPE_ORDER    (1U << 1) /**< Order dependency */
+#define BASE_JD_DEP_TYPE_INVALID (0) /**< Invalid dependency */
+#define BASE_JD_DEP_TYPE_DATA (1U << 0) /**< Data dependency */
+#define BASE_JD_DEP_TYPE_ORDER (1U << 1) /**< Order dependency */
 
 /**
  * typedef base_jd_core_req - Job chain hardware requirements.
@@ -180,7 +177,7 @@ typedef __u32 base_jd_core_req;
 
 /* Requires fragment shaders
  */
-#define BASE_JD_REQ_FS  ((base_jd_core_req)1 << 0)
+#define BASE_JD_REQ_FS ((base_jd_core_req)1 << 0)
 
 /* Requires compute shaders
  *
@@ -196,20 +193,20 @@ typedef __u32 base_jd_core_req;
 #define BASE_JD_REQ_CS ((base_jd_core_req)1 << 1)
 
 /* Requires tiling */
-#define BASE_JD_REQ_T  ((base_jd_core_req)1 << 2)
+#define BASE_JD_REQ_T ((base_jd_core_req)1 << 2)
 
 /* Requires cache flushes */
 #define BASE_JD_REQ_CF ((base_jd_core_req)1 << 3)
 
 /* Requires value writeback */
-#define BASE_JD_REQ_V  ((base_jd_core_req)1 << 4)
+#define BASE_JD_REQ_V ((base_jd_core_req)1 << 4)
 
 /* SW-only requirements - the HW does not expose these as part of the job slot
  * capabilities
  */
 
 /* Requires fragment job with AFBC encoding */
-#define BASE_JD_REQ_FS_AFBC  ((base_jd_core_req)1 << 13)
+#define BASE_JD_REQ_FS_AFBC ((base_jd_core_req)1 << 13)
 
 /* SW-only requirement: coalesce completion events.
  * If this bit is set then completion of this atom will not cause an event to
@@ -223,29 +220,29 @@ typedef __u32 base_jd_core_req;
 /* SW Only requirement: the job chain requires a coherent core group. We don't
  * mind which coherent core group is used.
  */
-#define BASE_JD_REQ_COHERENT_GROUP  ((base_jd_core_req)1 << 6)
+#define BASE_JD_REQ_COHERENT_GROUP ((base_jd_core_req)1 << 6)
 
 /* SW Only requirement: The performance counters should be enabled only when
  * they are needed, to reduce power consumption.
  */
-#define BASE_JD_REQ_PERMON               ((base_jd_core_req)1 << 7)
+#define BASE_JD_REQ_PERMON ((base_jd_core_req)1 << 7)
 
 /* SW Only requirement: External resources are referenced by this atom.
  *
  * This bit may not be used in combination with BASE_JD_REQ_EVENT_COALESCE and
  * BASE_JD_REQ_SOFT_EVENT_WAIT.
  */
-#define BASE_JD_REQ_EXTERNAL_RESOURCES   ((base_jd_core_req)1 << 8)
+#define BASE_JD_REQ_EXTERNAL_RESOURCES ((base_jd_core_req)1 << 8)
 
 /* SW Only requirement: Software defined job. Jobs with this bit set will not be
  * submitted to the hardware but will cause some action to happen within the
  * driver
  */
-#define BASE_JD_REQ_SOFT_JOB        ((base_jd_core_req)1 << 9)
+#define BASE_JD_REQ_SOFT_JOB ((base_jd_core_req)1 << 9)
 
-#define BASE_JD_REQ_SOFT_DUMP_CPU_GPU_TIME      (BASE_JD_REQ_SOFT_JOB | 0x1)
-#define BASE_JD_REQ_SOFT_FENCE_TRIGGER          (BASE_JD_REQ_SOFT_JOB | 0x2)
-#define BASE_JD_REQ_SOFT_FENCE_WAIT             (BASE_JD_REQ_SOFT_JOB | 0x3)
+#define BASE_JD_REQ_SOFT_DUMP_CPU_GPU_TIME (BASE_JD_REQ_SOFT_JOB | 0x1)
+#define BASE_JD_REQ_SOFT_FENCE_TRIGGER (BASE_JD_REQ_SOFT_JOB | 0x2)
+#define BASE_JD_REQ_SOFT_FENCE_WAIT (BASE_JD_REQ_SOFT_JOB | 0x3)
 
 /* 0x4 RESERVED for now */
 
@@ -257,11 +254,11 @@ typedef __u32 base_jd_core_req;
  * - BASE_JD_REQ_SOFT_EVENT_RESET: this job resets the event, making it
  *   possible for other jobs to wait upon. It completes immediately.
  */
-#define BASE_JD_REQ_SOFT_EVENT_WAIT             (BASE_JD_REQ_SOFT_JOB | 0x5)
-#define BASE_JD_REQ_SOFT_EVENT_SET              (BASE_JD_REQ_SOFT_JOB | 0x6)
-#define BASE_JD_REQ_SOFT_EVENT_RESET            (BASE_JD_REQ_SOFT_JOB | 0x7)
+#define BASE_JD_REQ_SOFT_EVENT_WAIT (BASE_JD_REQ_SOFT_JOB | 0x5)
+#define BASE_JD_REQ_SOFT_EVENT_SET (BASE_JD_REQ_SOFT_JOB | 0x6)
+#define BASE_JD_REQ_SOFT_EVENT_RESET (BASE_JD_REQ_SOFT_JOB | 0x7)
 
-#define BASE_JD_REQ_SOFT_DEBUG_COPY             (BASE_JD_REQ_SOFT_JOB | 0x8)
+#define BASE_JD_REQ_SOFT_DEBUG_COPY (BASE_JD_REQ_SOFT_JOB | 0x8)
 
 /* SW only requirement: Just In Time allocation
  *
@@ -278,7 +275,7 @@ typedef __u32 base_jd_core_req;
  *
  * The job will complete immediately.
  */
-#define BASE_JD_REQ_SOFT_JIT_ALLOC              (BASE_JD_REQ_SOFT_JOB | 0x9)
+#define BASE_JD_REQ_SOFT_JIT_ALLOC (BASE_JD_REQ_SOFT_JOB | 0x9)
 
 /* SW only requirement: Just In Time free
  *
@@ -288,7 +285,7 @@ typedef __u32 base_jd_core_req;
  *
  * The job will complete immediately.
  */
-#define BASE_JD_REQ_SOFT_JIT_FREE               (BASE_JD_REQ_SOFT_JOB | 0xa)
+#define BASE_JD_REQ_SOFT_JIT_FREE (BASE_JD_REQ_SOFT_JOB | 0xa)
 
 /* SW only requirement: Map external resource
  *
@@ -297,7 +294,7 @@ typedef __u32 base_jd_core_req;
  * passed via the jc element of the atom which is a pointer to a
  * base_external_resource_list.
  */
-#define BASE_JD_REQ_SOFT_EXT_RES_MAP            (BASE_JD_REQ_SOFT_JOB | 0xb)
+#define BASE_JD_REQ_SOFT_EXT_RES_MAP (BASE_JD_REQ_SOFT_JOB | 0xb)
 
 /* SW only requirement: Unmap external resource
  *
@@ -306,7 +303,7 @@ typedef __u32 base_jd_core_req;
  * passed via the jc element of the atom which is a pointer to a
  * base_external_resource_list.
  */
-#define BASE_JD_REQ_SOFT_EXT_RES_UNMAP          (BASE_JD_REQ_SOFT_JOB | 0xc)
+#define BASE_JD_REQ_SOFT_EXT_RES_UNMAP (BASE_JD_REQ_SOFT_JOB | 0xc)
 
 /* HW Requirement: Requires Compute shaders (but not Vertex or Geometry Shaders)
  *
@@ -316,7 +313,7 @@ typedef __u32 base_jd_core_req;
  * In contrast to BASE_JD_REQ_CS, this does not indicate that the Job
  * Chain contains 'Geometry Shader' or 'Vertex Shader' jobs.
  */
-#define BASE_JD_REQ_ONLY_COMPUTE    ((base_jd_core_req)1 << 10)
+#define BASE_JD_REQ_ONLY_COMPUTE ((base_jd_core_req)1 << 10)
 
 /* HW Requirement: Use the base_jd_atom::device_nr field to specify a
  * particular core group
@@ -331,7 +328,7 @@ typedef __u32 base_jd_core_req;
 /* SW Flag: If this bit is set then the successful completion of this atom
  * will not cause an event to be sent to userspace
  */
-#define BASE_JD_REQ_EVENT_ONLY_ON_FAILURE   ((base_jd_core_req)1 << 12)
+#define BASE_JD_REQ_EVENT_ONLY_ON_FAILURE ((base_jd_core_req)1 << 12)
 
 /* SW Flag: If this bit is set then completion of this atom will not cause an
  * event to be sent to userspace, whether successful or not.
@@ -408,23 +405,22 @@ typedef __u32 base_jd_core_req;
 
 /* These requirement bits are currently unused in base_jd_core_req
  */
-#define BASEP_JD_REQ_RESERVED \
-	(~(BASE_JD_REQ_ATOM_TYPE | BASE_JD_REQ_EXTERNAL_RESOURCES | \
-	BASE_JD_REQ_EVENT_ONLY_ON_FAILURE | BASEP_JD_REQ_EVENT_NEVER | \
-	BASE_JD_REQ_EVENT_COALESCE | \
-	BASE_JD_REQ_COHERENT_GROUP | BASE_JD_REQ_SPECIFIC_COHERENT_GROUP | \
-	BASE_JD_REQ_FS_AFBC | BASE_JD_REQ_PERMON | \
-	BASE_JD_REQ_SKIP_CACHE_START | BASE_JD_REQ_SKIP_CACHE_END | \
-	BASE_JD_REQ_JOB_SLOT | BASE_JD_REQ_START_RENDERPASS | \
-	BASE_JD_REQ_END_RENDERPASS | BASE_JD_REQ_LIMITED_CORE_MASK))
+#define BASEP_JD_REQ_RESERVED                                                                 \
+	(~(BASE_JD_REQ_ATOM_TYPE | BASE_JD_REQ_EXTERNAL_RESOURCES |                           \
+	   BASE_JD_REQ_EVENT_ONLY_ON_FAILURE | BASEP_JD_REQ_EVENT_NEVER |                     \
+	   BASE_JD_REQ_EVENT_COALESCE | BASE_JD_REQ_COHERENT_GROUP |                          \
+	   BASE_JD_REQ_SPECIFIC_COHERENT_GROUP | BASE_JD_REQ_FS_AFBC | BASE_JD_REQ_PERMON |   \
+	   BASE_JD_REQ_SKIP_CACHE_START | BASE_JD_REQ_SKIP_CACHE_END | BASE_JD_REQ_JOB_SLOT | \
+	   BASE_JD_REQ_START_RENDERPASS | BASE_JD_REQ_END_RENDERPASS |                        \
+	   BASE_JD_REQ_LIMITED_CORE_MASK))
 
 /* Mask of all bits in base_jd_core_req that control the type of the atom.
  *
  * This allows dependency only atoms to have flags set
  */
-#define BASE_JD_REQ_ATOM_TYPE \
-	(BASE_JD_REQ_FS | BASE_JD_REQ_CS | BASE_JD_REQ_T | BASE_JD_REQ_CF | \
-	BASE_JD_REQ_V | BASE_JD_REQ_SOFT_JOB | BASE_JD_REQ_ONLY_COMPUTE)
+#define BASE_JD_REQ_ATOM_TYPE                                                               \
+	(BASE_JD_REQ_FS | BASE_JD_REQ_CS | BASE_JD_REQ_T | BASE_JD_REQ_CF | BASE_JD_REQ_V | \
+	 BASE_JD_REQ_SOFT_JOB | BASE_JD_REQ_ONLY_COMPUTE)
 
 /**
  * BASE_JD_REQ_SOFT_JOB_TYPE - Mask of all bits in base_jd_core_req that
@@ -436,8 +432,7 @@ typedef __u32 base_jd_core_req;
  * a dependency only job.
  */
 #define BASE_JD_REQ_SOFT_JOB_OR_DEP(core_req) \
-	(((core_req) & BASE_JD_REQ_SOFT_JOB) || \
-	((core_req) & BASE_JD_REQ_ATOM_TYPE) == BASE_JD_REQ_DEP)
+	(((core_req)&BASE_JD_REQ_SOFT_JOB) || ((core_req)&BASE_JD_REQ_ATOM_TYPE) == BASE_JD_REQ_DEP)
 
 /**
  * enum kbase_jd_atom_state - Atom states
@@ -571,17 +566,17 @@ struct base_jd_fragment {
 typedef __u8 base_jd_prio;
 
 /* Medium atom priority. This is a priority higher than BASE_JD_PRIO_LOW */
-#define BASE_JD_PRIO_MEDIUM  ((base_jd_prio)0)
+#define BASE_JD_PRIO_MEDIUM ((base_jd_prio)0)
 /* High atom priority. This is a priority higher than BASE_JD_PRIO_MEDIUM and
  * BASE_JD_PRIO_LOW
  */
-#define BASE_JD_PRIO_HIGH    ((base_jd_prio)1)
+#define BASE_JD_PRIO_HIGH ((base_jd_prio)1)
 /* Low atom priority. */
-#define BASE_JD_PRIO_LOW     ((base_jd_prio)2)
+#define BASE_JD_PRIO_LOW ((base_jd_prio)2)
 /* Real-Time atom priority. This is a priority higher than BASE_JD_PRIO_HIGH,
  * BASE_JD_PRIO_MEDIUM, and BASE_JD_PRIO_LOW
  */
-#define BASE_JD_PRIO_REALTIME    ((base_jd_prio)3)
+#define BASE_JD_PRIO_REALTIME ((base_jd_prio)3)
 
 /* Invalid atom priority (max uint8_t value) */
 #define BASE_JD_PRIO_INVALID ((base_jd_prio)255)
@@ -709,7 +704,7 @@ enum {
 	BASE_JD_SW_EVENT_JOB = (0u << 11), /* Job related event */
 	BASE_JD_SW_EVENT_BAG = (1u << 11), /* Bag related event */
 	BASE_JD_SW_EVENT_INFO = (2u << 11), /* Misc/info event */
-	BASE_JD_SW_EVENT_RESERVED = (3u << 11),	/* Reserved event type */
+	BASE_JD_SW_EVENT_RESERVED = (3u << 11), /* Reserved event type */
 	/* Mask to extract the type from an event code */
 	BASE_JD_SW_EVENT_TYPE_MASK = (3u << 11)
 };
@@ -924,34 +919,29 @@ enum base_jd_event_code {
 	BASE_JD_EVENT_ACCESS_FLAG = 0xD8,
 
 	/* SW defined exceptions */
-	BASE_JD_EVENT_MEM_GROWTH_FAILED =
-		BASE_JD_SW_EVENT | BASE_JD_SW_EVENT_JOB | 0x000,
-	BASE_JD_EVENT_JOB_CANCELLED =
-		BASE_JD_SW_EVENT | BASE_JD_SW_EVENT_JOB | 0x002,
-	BASE_JD_EVENT_JOB_INVALID =
-		BASE_JD_SW_EVENT | BASE_JD_SW_EVENT_JOB | 0x003,
+	BASE_JD_EVENT_MEM_GROWTH_FAILED = BASE_JD_SW_EVENT | BASE_JD_SW_EVENT_JOB | 0x000,
+	BASE_JD_EVENT_JOB_CANCELLED = BASE_JD_SW_EVENT | BASE_JD_SW_EVENT_JOB | 0x002,
+	BASE_JD_EVENT_JOB_INVALID = BASE_JD_SW_EVENT | BASE_JD_SW_EVENT_JOB | 0x003,
 
 	BASE_JD_EVENT_RANGE_HW_FAULT_OR_SW_ERROR_END = BASE_JD_SW_EVENT |
-		BASE_JD_SW_EVENT_RESERVED | 0x3FF,
+						       BASE_JD_SW_EVENT_RESERVED | 0x3FF,
 
-	BASE_JD_EVENT_RANGE_SW_SUCCESS_START = BASE_JD_SW_EVENT |
-		BASE_JD_SW_EVENT_SUCCESS | 0x000,
+	BASE_JD_EVENT_RANGE_SW_SUCCESS_START = BASE_JD_SW_EVENT | BASE_JD_SW_EVENT_SUCCESS | 0x000,
 
-	BASE_JD_EVENT_DRV_TERMINATED = BASE_JD_SW_EVENT |
-		BASE_JD_SW_EVENT_SUCCESS | BASE_JD_SW_EVENT_INFO | 0x000,
+	BASE_JD_EVENT_DRV_TERMINATED = BASE_JD_SW_EVENT | BASE_JD_SW_EVENT_SUCCESS |
+				       BASE_JD_SW_EVENT_INFO | 0x000,
 
-	BASE_JD_EVENT_RANGE_SW_SUCCESS_END = BASE_JD_SW_EVENT |
-		BASE_JD_SW_EVENT_SUCCESS | BASE_JD_SW_EVENT_RESERVED | 0x3FF,
+	BASE_JD_EVENT_RANGE_SW_SUCCESS_END = BASE_JD_SW_EVENT | BASE_JD_SW_EVENT_SUCCESS |
+					     BASE_JD_SW_EVENT_RESERVED | 0x3FF,
 
-	BASE_JD_EVENT_RANGE_KERNEL_ONLY_START = BASE_JD_SW_EVENT |
-		BASE_JD_SW_EVENT_KERNEL | 0x000,
-	BASE_JD_EVENT_REMOVED_FROM_NEXT = BASE_JD_SW_EVENT |
-		BASE_JD_SW_EVENT_KERNEL | BASE_JD_SW_EVENT_JOB | 0x000,
-	BASE_JD_EVENT_END_RP_DONE = BASE_JD_SW_EVENT |
-		BASE_JD_SW_EVENT_KERNEL | BASE_JD_SW_EVENT_JOB | 0x001,
+	BASE_JD_EVENT_RANGE_KERNEL_ONLY_START = BASE_JD_SW_EVENT | BASE_JD_SW_EVENT_KERNEL | 0x000,
+	BASE_JD_EVENT_REMOVED_FROM_NEXT = BASE_JD_SW_EVENT | BASE_JD_SW_EVENT_KERNEL |
+					  BASE_JD_SW_EVENT_JOB | 0x000,
+	BASE_JD_EVENT_END_RP_DONE = BASE_JD_SW_EVENT | BASE_JD_SW_EVENT_KERNEL |
+				    BASE_JD_SW_EVENT_JOB | 0x001,
 
-	BASE_JD_EVENT_RANGE_KERNEL_ONLY_END = BASE_JD_SW_EVENT |
-		BASE_JD_SW_EVENT_KERNEL | BASE_JD_SW_EVENT_RESERVED | 0x3FF
+	BASE_JD_EVENT_RANGE_KERNEL_ONLY_END = BASE_JD_SW_EVENT | BASE_JD_SW_EVENT_KERNEL |
+					      BASE_JD_SW_EVENT_RESERVED | 0x3FF
 };
 
 /**

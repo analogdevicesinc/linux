@@ -24,7 +24,7 @@
  */
 
 #include <mali_kbase.h>
-#include <gpu/mali_kbase_gpu_regmap.h>
+#include <hw_access/mali_kbase_hw_access_regmap.h>
 
 #include "backend/gpu/mali_kbase_model_linux.h"
 #include "device/mali_kbase_device.h"
@@ -39,16 +39,14 @@ struct model_irq_data {
 
 static void serve_job_irq(struct work_struct *work)
 {
-	struct model_irq_data *data = container_of(work, struct model_irq_data,
-									work);
+	struct model_irq_data *data = container_of(work, struct model_irq_data, work);
 	struct kbase_device *kbdev = data->kbdev;
 
 	/* Make sure no worker is already serving this IRQ */
 	while (atomic_cmpxchg(&kbdev->serving_job_irq, 1, 0) == 1) {
 		u32 val;
 
-		while ((val = kbase_reg_read(kbdev,
-				JOB_CONTROL_REG(JOB_IRQ_STATUS)))) {
+		while ((val = kbase_reg_read32(kbdev, JOB_CONTROL_ENUM(JOB_IRQ_STATUS)))) {
 			unsigned long flags;
 
 			/* Handle the IRQ */
@@ -67,19 +65,18 @@ static void serve_job_irq(struct work_struct *work)
 
 static void serve_gpu_irq(struct work_struct *work)
 {
-	struct model_irq_data *data = container_of(work, struct model_irq_data,
-									work);
+	struct model_irq_data *data = container_of(work, struct model_irq_data, work);
 	struct kbase_device *kbdev = data->kbdev;
 
 	/* Make sure no worker is already serving this IRQ */
 	while (atomic_cmpxchg(&kbdev->serving_gpu_irq, 1, 0) == 1) {
 		u32 val;
 
-		while ((val = kbase_reg_read(kbdev,
-				GPU_CONTROL_REG(GPU_IRQ_STATUS)))) {
-			/* Handle the IRQ */
+		while ((val = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_STATUS)))) {
+			/* Handle the GPU_IRQ */
 			kbase_gpu_interrupt(kbdev, val);
 		}
+
 	}
 
 	kmem_cache_free(kbdev->irq_slab, data);
@@ -87,15 +84,14 @@ static void serve_gpu_irq(struct work_struct *work)
 
 static void serve_mmu_irq(struct work_struct *work)
 {
-	struct model_irq_data *data = container_of(work, struct model_irq_data,
-									work);
+	struct model_irq_data *data = container_of(work, struct model_irq_data, work);
 	struct kbase_device *kbdev = data->kbdev;
 
 	/* Make sure no worker is already serving this IRQ */
 	if (atomic_cmpxchg(&kbdev->serving_mmu_irq, 1, 0) == 1) {
 		u32 val;
 
-		while ((val = kbase_reg_read(kbdev, MMU_CONTROL_REG(MMU_IRQ_STATUS)))) {
+		while ((val = kbase_reg_read32(kbdev, MMU_CONTROL_ENUM(IRQ_STATUS)))) {
 			/* Handle the IRQ */
 			kbase_mmu_interrupt(kbdev, val);
 		}
@@ -141,30 +137,6 @@ void gpu_device_raise_irq(void *model, u32 irq)
 		queue_work(kbdev->irq_workq, &data->work);
 }
 
-void kbase_reg_write(struct kbase_device *kbdev, u32 offset, u32 value)
-{
-	unsigned long flags;
-
-	spin_lock_irqsave(&kbdev->reg_op_lock, flags);
-	midgard_model_write_reg(kbdev->model, offset, value);
-	spin_unlock_irqrestore(&kbdev->reg_op_lock, flags);
-}
-
-KBASE_EXPORT_TEST_API(kbase_reg_write);
-
-u32 kbase_reg_read(struct kbase_device *kbdev, u32 offset)
-{
-	unsigned long flags;
-	u32 val = 0;
-
-	spin_lock_irqsave(&kbdev->reg_op_lock, flags);
-	midgard_model_read_reg(kbdev->model, offset, &val);
-	spin_unlock_irqrestore(&kbdev->reg_op_lock, flags);
-
-	return val;
-}
-KBASE_EXPORT_TEST_API(kbase_reg_read);
-
 int kbase_install_interrupts(struct kbase_device *kbdev)
 {
 	KBASE_DEBUG_ASSERT(kbdev);
@@ -177,8 +149,8 @@ int kbase_install_interrupts(struct kbase_device *kbdev)
 	if (kbdev->irq_workq == NULL)
 		return -ENOMEM;
 
-	kbdev->irq_slab = kmem_cache_create("dummy_irq_slab",
-				sizeof(struct model_irq_data), 0, 0, NULL);
+	kbdev->irq_slab =
+		kmem_cache_create("dummy_irq_slab", sizeof(struct model_irq_data), 0, 0, NULL);
 	if (kbdev->irq_slab == NULL) {
 		destroy_workqueue(kbdev->irq_workq);
 		return -ENOMEM;
@@ -202,9 +174,8 @@ void kbase_synchronize_irqs(struct kbase_device *kbdev)
 
 KBASE_EXPORT_TEST_API(kbase_synchronize_irqs);
 
-int kbase_set_custom_irq_handler(struct kbase_device *kbdev,
-					irq_handler_t custom_handler,
-					int irq_type)
+int kbase_set_custom_irq_handler(struct kbase_device *kbdev, irq_handler_t custom_handler,
+				 int irq_type)
 {
 	return 0;
 }

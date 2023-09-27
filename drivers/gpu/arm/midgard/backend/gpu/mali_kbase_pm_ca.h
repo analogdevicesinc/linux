@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2011-2018, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -71,7 +71,7 @@ u64 kbase_pm_ca_get_core_mask(struct kbase_device *kbdev);
  * Calls into the core availability policy
  */
 void kbase_pm_ca_update_core_status(struct kbase_device *kbdev, u64 cores_ready,
-						u64 cores_transitioning);
+				    u64 cores_transitioning);
 
 /**
  * kbase_pm_ca_get_instr_core_mask - Get the PM state sync-ed shaders core mask

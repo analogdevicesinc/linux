@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2012-2015, 2018, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -77,7 +77,8 @@ bool kbasep_js_ctx_attr_runpool_release_ctx(struct kbase_device *kbdev, struct k
  * - jsctx mutex
  * - If the context is scheduled, then runpool_irq spinlock must also be held
  */
-void kbasep_js_ctx_attr_ctx_retain_atom(struct kbase_device *kbdev, struct kbase_context *kctx, struct kbase_jd_atom *katom);
+void kbasep_js_ctx_attr_ctx_retain_atom(struct kbase_device *kbdev, struct kbase_context *kctx,
+					struct kbase_jd_atom *katom);
 
 /**
  * kbasep_js_ctx_attr_ctx_release_atom - Release all attributes of an atom,
@@ -101,13 +102,15 @@ void kbasep_js_ctx_attr_ctx_retain_atom(struct kbase_device *kbdev, struct kbase
  * or similar is called sometime later.
  * false indicates no change in ctx attributes state of the runpool.
  */
-bool kbasep_js_ctx_attr_ctx_release_atom(struct kbase_device *kbdev, struct kbase_context *kctx, struct kbasep_js_atom_retained_state *katom_retained_state);
+bool kbasep_js_ctx_attr_ctx_release_atom(struct kbase_device *kbdev, struct kbase_context *kctx,
+					 struct kbasep_js_atom_retained_state *katom_retained_state);
 
 /*
  * Requires:
  * - runpool_irq spinlock
  */
-static inline s8 kbasep_js_ctx_attr_count_on_runpool(struct kbase_device *kbdev, enum kbasep_js_ctx_attr attribute)
+static inline s8 kbasep_js_ctx_attr_count_on_runpool(struct kbase_device *kbdev,
+						     enum kbasep_js_ctx_attr attribute)
 {
 	struct kbasep_js_device_data *js_devdata;
 
@@ -122,17 +125,19 @@ static inline s8 kbasep_js_ctx_attr_count_on_runpool(struct kbase_device *kbdev,
  * Requires:
  * - runpool_irq spinlock
  */
-static inline bool kbasep_js_ctx_attr_is_attr_on_runpool(struct kbase_device *kbdev, enum kbasep_js_ctx_attr attribute)
+static inline bool kbasep_js_ctx_attr_is_attr_on_runpool(struct kbase_device *kbdev,
+							 enum kbasep_js_ctx_attr attribute)
 {
 	/* In general, attributes are 'on' when they have a non-zero refcount (note: the refcount will never be < 0) */
-	return (bool) kbasep_js_ctx_attr_count_on_runpool(kbdev, attribute);
+	return (bool)kbasep_js_ctx_attr_count_on_runpool(kbdev, attribute);
 }
 
 /*
  * Requires:
  * - jsctx mutex
  */
-static inline bool kbasep_js_ctx_attr_is_attr_on_ctx(struct kbase_context *kctx, enum kbasep_js_ctx_attr attribute)
+static inline bool kbasep_js_ctx_attr_is_attr_on_ctx(struct kbase_context *kctx,
+						     enum kbasep_js_ctx_attr attribute)
 {
 	struct kbasep_js_kctx_info *js_kctx_info;
 
@@ -141,7 +146,7 @@ static inline bool kbasep_js_ctx_attr_is_attr_on_ctx(struct kbase_context *kctx,
 	js_kctx_info = &kctx->jctx.sched_info;
 
 	/* In general, attributes are 'on' when they have a refcount (which should never be < 0) */
-	return (bool) (js_kctx_info->ctx.ctx_attr_ref_count[attribute]);
+	return (bool)(js_kctx_info->ctx.ctx_attr_ref_count[attribute]);
 }
 
-#endif				/* _KBASE_JS_DEFS_H_ */
+#endif /* _KBASE_JS_DEFS_H_ */

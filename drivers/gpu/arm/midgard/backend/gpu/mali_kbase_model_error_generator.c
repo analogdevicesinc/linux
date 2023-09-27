@@ -56,44 +56,37 @@ static void gpu_generate_error(void)
 		/* pick up a faulty mmu address space */
 		hw_error_status.faulty_mmu_as = prandom_u32() % NUM_MMU_AS;
 		/* pick up an mmu table level */
-		hw_error_status.mmu_table_level =
-			1 + (prandom_u32() % MAX_MMU_TABLE_LEVEL);
-		hw_error_status.errors_mask =
-			(u32)(1 << (prandom_u32() % TOTAL_FAULTS));
+		hw_error_status.mmu_table_level = 1 + (prandom_u32() % MAX_MMU_TABLE_LEVEL);
+		hw_error_status.errors_mask = (u32)(1 << (prandom_u32() % TOTAL_FAULTS));
 
 		/*is there also one or more errors? */
 		if ((prandom_u32() % 100) < multiple_error_probability) {
-			errors_num = 1 + (prandom_u32() %
-					  (MAX_CONCURRENT_FAULTS - 1));
+			errors_num = 1 + (prandom_u32() % (MAX_CONCURRENT_FAULTS - 1));
 			while (errors_num-- > 0) {
 				u32 temp_mask;
 
-				temp_mask = (u32)(
-					1 << (prandom_u32() % TOTAL_FAULTS));
+				temp_mask = (u32)(1 << (prandom_u32() % TOTAL_FAULTS));
 				/* below we check that no bit of the same error
 				 * type is set again in the error mask
 				 */
 				if ((temp_mask & IS_A_JOB_ERROR) &&
-						(hw_error_status.errors_mask &
-							IS_A_JOB_ERROR)) {
+				    (hw_error_status.errors_mask & IS_A_JOB_ERROR)) {
 					errors_num++;
 					continue;
 				}
 				if ((temp_mask & IS_A_MMU_ERROR) &&
-						(hw_error_status.errors_mask &
-							IS_A_MMU_ERROR)) {
+				    (hw_error_status.errors_mask & IS_A_MMU_ERROR)) {
 					errors_num++;
 					continue;
 				}
 				if ((temp_mask & IS_A_GPU_ERROR) &&
-						(hw_error_status.errors_mask &
-							IS_A_GPU_ERROR)) {
+				    (hw_error_status.errors_mask & IS_A_GPU_ERROR)) {
 					errors_num++;
 					continue;
 				}
 				/* this error mask is already set */
 				if ((hw_error_status.errors_mask | temp_mask) ==
-						hw_error_status.errors_mask) {
+				    hw_error_status.errors_mask) {
 					errors_num++;
 					continue;
 				}
@@ -114,8 +107,7 @@ int job_atom_inject_error(struct kbase_error_params *params)
 
 	if (!new_elem) {
 		model_error_log(KBASE_CORE,
-			"\njob_atom_inject_error: kzalloc failed for new_elem\n"
-									);
+				"\njob_atom_inject_error: kzalloc failed for new_elem\n");
 		return -ENOMEM;
 	}
 	new_elem->params.jc = params->jc;
@@ -124,7 +116,7 @@ int job_atom_inject_error(struct kbase_error_params *params)
 	new_elem->params.faulty_mmu_as = params->faulty_mmu_as;
 
 	/*circular list below */
-	if (error_track_list == NULL) {	/*no elements */
+	if (error_track_list == NULL) { /*no elements */
 		error_track_list = new_elem;
 		new_elem->next = error_track_list;
 	} else {
@@ -154,12 +146,9 @@ void midgard_set_error(int job_slot)
 				/* found a faulty atom matching with the
 				 * current one
 				 */
-				hw_error_status.errors_mask =
-						walker->params.errors_mask;
-				hw_error_status.mmu_table_level =
-						walker->params.mmu_table_level;
-				hw_error_status.faulty_mmu_as =
-						walker->params.faulty_mmu_as;
+				hw_error_status.errors_mask = walker->params.errors_mask;
+				hw_error_status.mmu_table_level = walker->params.mmu_table_level;
+				hw_error_status.faulty_mmu_as = walker->params.faulty_mmu_as;
 				hw_error_status.current_job_slot = job_slot;
 
 				if (walker->next == walker) {
@@ -179,5 +168,5 @@ void midgard_set_error(int job_slot)
 			walker = walker->next;
 		} while (auxiliar->next != error_track_list);
 	}
-#endif				/* CONFIG_MALI_ERROR_INJECT_RANDOM */
+#endif /* CONFIG_MALI_ERROR_INJECT_RANDOM */
 }

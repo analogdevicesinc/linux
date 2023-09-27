@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2016-2018, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2016-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -64,9 +64,8 @@ struct kutf_irq_fixture_data {
 #define IRQ_TIMEOUT HZ
 
 /* Kernel API for setting irq throttle hook callback and irq time in us*/
-extern int kbase_set_custom_irq_handler(struct kbase_device *kbdev,
-		irq_handler_t custom_handler,
-		int irq_type);
+extern int kbase_set_custom_irq_handler(struct kbase_device *kbdev, irq_handler_t custom_handler,
+					int irq_type);
 extern irqreturn_t kbase_gpu_irq_test_handler(int irq, void *data, u32 val);
 
 static DECLARE_WAIT_QUEUE_HEAD(wait);
@@ -75,7 +74,7 @@ static u64 irq_time;
 
 static void *kbase_untag(void *ptr)
 {
-	return (void *)(((uintptr_t) ptr) & ~3);
+	return (void *)(((uintptr_t)ptr) & ~3);
 }
 
 /**
@@ -88,7 +87,7 @@ static void *kbase_untag(void *ptr)
 static irqreturn_t kbase_gpu_irq_custom_handler(int irq, void *data)
 {
 	struct kbase_device *kbdev = kbase_untag(data);
-	u32 val = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_IRQ_STATUS));
+	u32 val = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_STATUS));
 	irqreturn_t result;
 	u64 tval;
 	bool has_test_irq = val & TEST_IRQ;
@@ -96,8 +95,7 @@ static irqreturn_t kbase_gpu_irq_custom_handler(int irq, void *data)
 	if (has_test_irq) {
 		tval = ktime_get_real_ns();
 		/* Clear the test source only here */
-		kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_CLEAR),
-				TEST_IRQ);
+		kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_CLEAR), TEST_IRQ);
 		/* Remove the test IRQ status bit */
 		val = val ^ TEST_IRQ;
 	}
@@ -121,13 +119,11 @@ static irqreturn_t kbase_gpu_irq_custom_handler(int irq, void *data)
  *
  * Return: Fixture data created on success or NULL on failure
  */
-static void *mali_kutf_irq_default_create_fixture(
-		struct kutf_context *context)
+static void *mali_kutf_irq_default_create_fixture(struct kutf_context *context)
 {
 	struct kutf_irq_fixture_data *data;
 
-	data = kutf_mempool_alloc(&context->fixture_pool,
-			sizeof(struct kutf_irq_fixture_data));
+	data = kutf_mempool_alloc(&context->fixture_pool, sizeof(struct kutf_irq_fixture_data));
 
 	if (!data)
 		goto fail;
@@ -151,8 +147,7 @@ fail:
  *
  * @context:             KUTF context.
  */
-static void mali_kutf_irq_default_remove_fixture(
-		struct kutf_context *context)
+static void mali_kutf_irq_default_remove_fixture(struct kutf_context *context)
 {
 	struct kutf_irq_fixture_data *data = context->fixture;
 	struct kbase_device *kbdev = data->kbdev;
@@ -185,8 +180,7 @@ static void mali_kutf_irq_latency(struct kutf_context *context)
 	kbase_pm_context_active(kbdev);
 	kbase_pm_wait_for_desired_state(kbdev);
 
-	kbase_set_custom_irq_handler(kbdev, kbase_gpu_irq_custom_handler,
-			GPU_IRQ_HANDLER);
+	kbase_set_custom_irq_handler(kbdev, kbase_gpu_irq_custom_handler, GPU_IRQ_HANDLER);
 
 	for (i = 1; i <= NR_TEST_IRQS; i++) {
 		u64 start_time = ktime_get_real_ns();
@@ -194,8 +188,7 @@ static void mali_kutf_irq_latency(struct kutf_context *context)
 		triggered = false;
 
 		/* Trigger fake IRQ */
-		kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_RAWSTAT),
-				TEST_IRQ);
+		kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_RAWSTAT), TEST_IRQ);
 
 		if (wait_event_timeout(wait, triggered, IRQ_TIMEOUT) == 0) {
 			/* Wait extra time to see if it would come */
@@ -224,14 +217,16 @@ static void mali_kutf_irq_latency(struct kutf_context *context)
 
 	if (i > NR_TEST_IRQS) {
 		do_div(average_time, NR_TEST_IRQS);
-		results = kutf_dsprintf(&context->fixture_pool,
-				"Min latency = %lldns, Max latency = %lldns, Average latency = %lldns\n",
-				min_time, max_time, average_time);
+		results = kutf_dsprintf(
+			&context->fixture_pool,
+			"Min latency = %lldns, Max latency = %lldns, Average latency = %lldns\n",
+			min_time, max_time, average_time);
 		kutf_test_pass(context, results);
 	} else {
-		results = kutf_dsprintf(&context->fixture_pool,
-				"Timed out for the %u-th IRQ (loop_limit: %u), triggered late: %d\n",
-				i, NR_TEST_IRQS, triggered);
+		results = kutf_dsprintf(
+			&context->fixture_pool,
+			"Timed out for the %u-th IRQ (loop_limit: %u), triggered late: %d\n", i,
+			NR_TEST_IRQS, triggered);
 		kutf_test_fail(context, results);
 	}
 }
@@ -252,9 +247,8 @@ static int __init mali_kutf_irq_test_main_init(void)
 		return -ENOMEM;
 	}
 
-	suite = kutf_create_suite(irq_app, "irq_default",
-			1, mali_kutf_irq_default_create_fixture,
-			mali_kutf_irq_default_remove_fixture);
+	suite = kutf_create_suite(irq_app, "irq_default", 1, mali_kutf_irq_default_create_fixture,
+				  mali_kutf_irq_default_remove_fixture);
 
 	if (suite == NULL) {
 		pr_warn("Creation of test suite failed!\n");
@@ -262,8 +256,7 @@ static int __init mali_kutf_irq_test_main_init(void)
 		return -ENOMEM;
 	}
 
-	kutf_add_test(suite, 0x0, "irq_latency",
-			mali_kutf_irq_latency);
+	kutf_add_test(suite, 0x0, "irq_latency", mali_kutf_irq_latency);
 	return 0;
 }
 

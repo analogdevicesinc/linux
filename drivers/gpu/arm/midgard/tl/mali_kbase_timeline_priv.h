@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -59,19 +59,19 @@
  */
 struct kbase_timeline {
 	struct kbase_tlstream streams[TL_STREAM_TYPE_COUNT];
-	struct list_head  tl_kctx_list;
-	struct mutex      tl_kctx_list_lock;
+	struct list_head tl_kctx_list;
+	struct mutex tl_kctx_list_lock;
 	struct timer_list autoflush_timer;
-	atomic_t          autoflush_timer_active;
-	struct mutex      reader_lock;
+	atomic_t autoflush_timer_active;
+	struct mutex reader_lock;
 	wait_queue_head_t event_queue;
 #if MALI_UNIT_TEST
-	atomic_t          bytes_collected;
+	atomic_t bytes_collected;
 #endif /* MALI_UNIT_TEST */
-	atomic_t         *timeline_flags;
-	size_t            obj_header_btc;
-	size_t            aux_header_btc;
-	ktime_t           last_acquire_time;
+	atomic_t *timeline_flags;
+	size_t obj_header_btc;
+	size_t aux_header_btc;
+	ktime_t last_acquire_time;
 #if MALI_USE_CSF
 	struct kbase_csf_tl_reader csf_tl_reader;
 #endif

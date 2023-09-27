@@ -81,8 +81,7 @@ struct kbase_mmu_hw_op_param {
  * Configure the MMU using the address space details setup in the
  * kbase_context structure.
  */
-void kbase_mmu_hw_configure(struct kbase_device *kbdev,
-		struct kbase_as *as);
+void kbase_mmu_hw_configure(struct kbase_device *kbdev, struct kbase_as *as);
 
 /**
  * kbase_mmu_hw_do_lock - Issue LOCK command to the MMU and program
@@ -195,7 +194,7 @@ int kbase_mmu_hw_do_flush_on_gpu_ctrl(struct kbase_device *kbdev, struct kbase_a
  * Clear a bus error or page fault that has been reported by the MMU.
  */
 void kbase_mmu_hw_clear_fault(struct kbase_device *kbdev, struct kbase_as *as,
-		enum kbase_mmu_fault_type type);
+			      enum kbase_mmu_fault_type type);
 
 /**
  * kbase_mmu_hw_enable_fault - Enable fault that has been previously reported by
@@ -209,6 +208,6 @@ void kbase_mmu_hw_clear_fault(struct kbase_device *kbdev, struct kbase_as *as,
  * called to enable the page fault or bus error fault again.
  */
 void kbase_mmu_hw_enable_fault(struct kbase_device *kbdev, struct kbase_as *as,
-		enum kbase_mmu_fault_type type);
+			       enum kbase_mmu_fault_type type);
 
-#endif	/* _KBASE_MMU_HW_H_ */
+#endif /* _KBASE_MMU_HW_H_ */

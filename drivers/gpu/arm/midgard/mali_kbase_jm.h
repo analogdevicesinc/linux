@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2013-2014, 2016, 2019-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2013-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -100,7 +100,7 @@ void kbase_jm_idle_ctx(struct kbase_device *kbdev, struct kbase_context *kctx);
  * Return: Atom that has now been unblocked and can now be run, or NULL if none
  */
 struct kbase_jd_atom *kbase_jm_return_atom_to_js(struct kbase_device *kbdev,
-			struct kbase_jd_atom *katom);
+						 struct kbase_jd_atom *katom);
 
 /**
  * kbase_jm_complete() - Complete an atom
@@ -110,8 +110,8 @@ struct kbase_jd_atom *kbase_jm_return_atom_to_js(struct kbase_device *kbdev,
  *
  * Return: Atom that has now been unblocked and can now be run, or NULL if none
  */
-struct kbase_jd_atom *kbase_jm_complete(struct kbase_device *kbdev,
-		struct kbase_jd_atom *katom, ktime_t *end_timestamp);
+struct kbase_jd_atom *kbase_jm_complete(struct kbase_device *kbdev, struct kbase_jd_atom *katom,
+					ktime_t *end_timestamp);
 #endif /* !MALI_USE_CSF */
 
 #endif /* _KBASE_JM_H_ */

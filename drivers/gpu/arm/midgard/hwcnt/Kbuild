@@ -21,7 +21,6 @@
 mali_kbase-y += \
     hwcnt/mali_kbase_hwcnt.o \
     hwcnt/mali_kbase_hwcnt_gpu.o \
-    hwcnt/mali_kbase_hwcnt_gpu_narrow.o \
     hwcnt/mali_kbase_hwcnt_types.o \
     hwcnt/mali_kbase_hwcnt_virtualizer.o \
     hwcnt/mali_kbase_hwcnt_watchdog_if_timer.o

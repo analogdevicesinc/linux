@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 #
-# (C) COPYRIGHT 2017, 2020-2022 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2017-2023 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -17,6 +17,7 @@
 # http://www.gnu.org/licenses/gpl-2.0.html.
 #
 #
+src:=$(if $(patsubst /%,,$(src)),$(srctree)/$(src),$(src))
 
 ccflags-y += -I$(src)/include \
              -I$(src)
@@ -28,4 +29,5 @@ obj-$(CONFIG_MALI_KUTF) += kutf/
 obj-$(CONFIG_MALI_KUTF_IRQ_TEST) += mali_kutf_irq_test/
 obj-$(CONFIG_MALI_KUTF_CLK_RATE_TRACE) += mali_kutf_clk_rate_trace/kernel/
 obj-$(CONFIG_MALI_KUTF_MGM_INTEGRATION) += mali_kutf_mgm_integration_test/
+
 

@@ -39,7 +39,6 @@
 #include <csf/mali_kbase_csf_kcpu_fence_debugfs.h>
 #include <hwcnt/mali_kbase_hwcnt_virtualizer.h>
 #include <mali_kbase_kinstr_prfcnt.h>
-#include <mali_kbase_vinstr.h>
 #include <tl/mali_kbase_timeline.h>
 
 /**
@@ -55,7 +54,6 @@ static void kbase_device_firmware_hwcnt_term(struct kbase_device *kbdev)
 {
 	if (kbdev->csf.firmware_inited) {
 		kbase_kinstr_prfcnt_term(kbdev->kinstr_prfcnt_ctx);
-		kbase_vinstr_term(kbdev->vinstr_ctx);
 		kbase_hwcnt_virtualizer_term(kbdev->hwcnt_gpu_virt);
 		kbase_hwcnt_backend_csf_metadata_term(&kbdev->hwcnt_gpu_iface);
 		kbase_csf_firmware_unload_term(kbdev);
@@ -214,8 +212,7 @@ static int kbase_csf_late_init(struct kbase_device *kbdev)
  */
 static int kbase_device_hwcnt_watchdog_if_init(struct kbase_device *kbdev)
 {
-	return kbase_hwcnt_watchdog_if_timer_create(
-		&kbdev->hwcnt_watchdog_timer);
+	return kbase_hwcnt_watchdog_if_timer_create(&kbdev->hwcnt_watchdog_timer);
 }
 
 /**
@@ -236,8 +233,7 @@ static void kbase_device_hwcnt_watchdog_if_term(struct kbase_device *kbdev)
  */
 static int kbase_device_hwcnt_backend_csf_if_init(struct kbase_device *kbdev)
 {
-	return kbase_hwcnt_backend_csf_if_fw_create(
-		kbdev, &kbdev->hwcnt_backend_csf_if_fw);
+	return kbase_hwcnt_backend_csf_if_fw_create(kbdev, &kbdev->hwcnt_backend_csf_if_fw);
 }
 
 /**
@@ -258,10 +254,10 @@ static void kbase_device_hwcnt_backend_csf_if_term(struct kbase_device *kbdev)
  */
 static int kbase_device_hwcnt_backend_csf_init(struct kbase_device *kbdev)
 {
-	return kbase_hwcnt_backend_csf_create(
-		&kbdev->hwcnt_backend_csf_if_fw,
-		KBASE_HWCNT_BACKEND_CSF_RING_BUFFER_COUNT,
-		&kbdev->hwcnt_watchdog_timer, &kbdev->hwcnt_gpu_iface);
+	return kbase_hwcnt_backend_csf_create(&kbdev->hwcnt_backend_csf_if_fw,
+					      KBASE_HWCNT_BACKEND_CSF_RING_BUFFER_COUNT,
+					      &kbdev->hwcnt_watchdog_timer,
+					      &kbdev->hwcnt_gpu_iface);
 }
 
 /**
@@ -344,8 +340,7 @@ static const struct kbase_device_init dev_init[] = {
 #endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
 };
 
-static void kbase_device_term_partial(struct kbase_device *kbdev,
-		unsigned int i)
+static void kbase_device_term_partial(struct kbase_device *kbdev, unsigned int i)
 {
 	while (i-- > 0) {
 		if (dev_init[i].term)
@@ -373,8 +368,7 @@ int kbase_device_init(struct kbase_device *kbdev)
 		if (dev_init[i].init) {
 			err = dev_init[i].init(kbdev);
 			if (err) {
-				dev_err(kbdev->dev, "%s error = %d\n",
-					dev_init[i].err_mes, err);
+				dev_err(kbdev->dev, "%s error = %d\n", dev_init[i].err_mes, err);
 				kbase_device_term_partial(kbdev, i);
 				break;
 			}
@@ -407,42 +401,27 @@ static int kbase_device_hwcnt_csf_deferred_init(struct kbase_device *kbdev)
 	 */
 	ret = kbase_hwcnt_backend_csf_metadata_init(&kbdev->hwcnt_gpu_iface);
 	if (ret) {
-		dev_err(kbdev->dev,
-			"GPU hwcnt backend metadata creation failed");
+		dev_err(kbdev->dev, "GPU hwcnt backend metadata creation failed");
 		return ret;
 	}
 
-	ret = kbase_hwcnt_virtualizer_init(
-		kbdev->hwcnt_gpu_ctx,
-		KBASE_HWCNT_GPU_VIRTUALIZER_DUMP_THRESHOLD_NS,
-		&kbdev->hwcnt_gpu_virt);
+	ret = kbase_hwcnt_virtualizer_init(kbdev->hwcnt_gpu_ctx,
+					   KBASE_HWCNT_GPU_VIRTUALIZER_DUMP_THRESHOLD_NS,
+					   &kbdev->hwcnt_gpu_virt);
 	if (ret) {
-		dev_err(kbdev->dev,
-			"GPU hwcnt virtualizer initialization failed");
+		dev_err(kbdev->dev, "GPU hwcnt virtualizer initialization failed");
 		goto virt_fail;
 	}
 
-	ret = kbase_vinstr_init(kbdev->hwcnt_gpu_virt, &kbdev->vinstr_ctx);
+	ret = kbase_kinstr_prfcnt_init(kbdev->hwcnt_gpu_virt, &kbdev->kinstr_prfcnt_ctx);
 	if (ret) {
-		dev_err(kbdev->dev,
-			"Virtual instrumentation initialization failed");
-		goto vinstr_fail;
-	}
-
-	ret = kbase_kinstr_prfcnt_init(kbdev->hwcnt_gpu_virt,
-				       &kbdev->kinstr_prfcnt_ctx);
-	if (ret) {
-		dev_err(kbdev->dev,
-			"Performance counter instrumentation initialization failed");
+		dev_err(kbdev->dev, "Performance counter instrumentation initialization failed");
 		goto kinstr_prfcnt_fail;
 	}
 
 	return ret;
 
 kinstr_prfcnt_fail:
-	kbase_vinstr_term(kbdev->vinstr_ctx);
-
-vinstr_fail:
 	kbase_hwcnt_virtualizer_term(kbdev->hwcnt_gpu_virt);
 
 virt_fail:

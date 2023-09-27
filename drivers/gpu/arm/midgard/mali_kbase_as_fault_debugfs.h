@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2016, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2016-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -35,14 +35,19 @@ void kbase_as_fault_debugfs_init(struct kbase_device *kbdev);
  * @kbdev: Pointer to kbase_device
  * @as_no: The address space the fault occurred on
  */
-static inline void
-kbase_as_fault_debugfs_new(struct kbase_device *kbdev, int as_no)
+static inline void kbase_as_fault_debugfs_new(struct kbase_device *kbdev, int as_no)
 {
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 #ifdef CONFIG_MALI_DEBUG
 	kbdev->debugfs_as_read_bitmap |= (1ULL << as_no);
+#else
+	CSTD_UNUSED(kbdev);
+	CSTD_UNUSED(as_no);
 #endif /* CONFIG_DEBUG_FS */
+#else
+	CSTD_UNUSED(kbdev);
+	CSTD_UNUSED(as_no);
 #endif /* CONFIG_MALI_DEBUG */
 }
 
-#endif  /*_KBASE_AS_FAULT_DEBUG_FS_H*/
+#endif /*_KBASE_AS_FAULT_DEBUG_FS_H*/

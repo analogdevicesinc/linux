@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014-2015, 2017-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -36,8 +36,7 @@
  *
  * Return: Zero for succeess or a Linux error code
  */
-int kbase_backend_gpuprops_get(struct kbase_device *kbdev,
-					struct kbase_gpuprops_regdump *regdump);
+int kbase_backend_gpuprops_get(struct kbase_device *kbdev, struct kbase_gpuprops_regdump *regdump);
 
 /**
  * kbase_backend_gpuprops_get_curr_config() - Fill @curr_config_regdump with
@@ -53,8 +52,8 @@ int kbase_backend_gpuprops_get(struct kbase_device *kbdev,
  *
  * Return: Zero for succeess or a Linux error code
  */
-int kbase_backend_gpuprops_get_curr_config(struct kbase_device *kbdev,
-		struct kbase_current_config_regdump *curr_config_regdump);
+int kbase_backend_gpuprops_get_curr_config(
+	struct kbase_device *kbdev, struct kbase_current_config_regdump *curr_config_regdump);
 
 /**
  * kbase_backend_gpuprops_get_features - Fill @regdump with GPU properties read
@@ -82,7 +81,6 @@ int kbase_backend_gpuprops_get_features(struct kbase_device *kbdev,
  * Return: Zero on success, Linux error code on failure
  */
 int kbase_backend_gpuprops_get_l2_features(struct kbase_device *kbdev,
-					struct kbase_gpuprops_regdump *regdump);
-
+					   struct kbase_gpuprops_regdump *regdump);
 
 #endif /* _KBASE_HWACCESS_GPUPROPS_H_ */

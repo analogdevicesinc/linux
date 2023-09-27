@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014, 2017, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -69,4 +69,4 @@ void *kutf_mempool_alloc(struct kutf_mempool *pool, size_t size);
  * @pool:	The memory pool to free
  */
 void kutf_mempool_destroy(struct kutf_mempool *pool);
-#endif	/* _KERNEL_UTF_MEM_H_ */
+#endif /* _KERNEL_UTF_MEM_H_ */

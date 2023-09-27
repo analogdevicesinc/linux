@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2011-2014, 2016-2017, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -48,7 +48,8 @@ static struct platform_device *mali_device;
  * assumes that size of linux_resource array is at least PLATFORM_CONFIG_RESOURCE_COUNT.
  * Resources are put in fixed order: I/O memory region, job IRQ, MMU IRQ, GPU IRQ.
  */
-static void kbasep_config_parse_io_resources(const struct kbase_io_resources *io_resources, struct resource *const linux_resources)
+static void kbasep_config_parse_io_resources(const struct kbase_io_resources *io_resources,
+					     struct resource *const linux_resources)
 {
 	if (!io_resources || !linux_resources) {
 		pr_err("%s: couldn't find proper resources\n", __func__);
@@ -58,19 +59,19 @@ static void kbasep_config_parse_io_resources(const struct kbase_io_resources *io
 	memset(linux_resources, 0, PLATFORM_CONFIG_RESOURCE_COUNT * sizeof(struct resource));
 
 	linux_resources[0].start = io_resources->io_memory_region.start;
-	linux_resources[0].end   = io_resources->io_memory_region.end;
+	linux_resources[0].end = io_resources->io_memory_region.end;
 	linux_resources[0].flags = IORESOURCE_MEM;
 
 	linux_resources[1].start = io_resources->job_irq_number;
-	linux_resources[1].end   = io_resources->job_irq_number;
+	linux_resources[1].end = io_resources->job_irq_number;
 	linux_resources[1].flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL;
 
 	linux_resources[2].start = io_resources->mmu_irq_number;
-	linux_resources[2].end   = io_resources->mmu_irq_number;
+	linux_resources[2].end = io_resources->mmu_irq_number;
 	linux_resources[2].flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL;
 
 	linux_resources[3].start = io_resources->gpu_irq_number;
-	linux_resources[3].end   = io_resources->gpu_irq_number;
+	linux_resources[3].end = io_resources->gpu_irq_number;
 	linux_resources[3].flags = IORESOURCE_IRQ | IORESOURCE_IRQ_HIGHLEVEL;
 }
 
@@ -80,7 +81,8 @@ int kbase_platform_register(void)
 	struct resource resources[PLATFORM_CONFIG_RESOURCE_COUNT];
 	int err;
 
-	config = kbase_get_platform_config(); /* declared in midgard/mali_kbase_config.h but defined in platform folder */
+	config =
+		kbase_get_platform_config(); /* declared in midgard/mali_kbase_config.h but defined in platform folder */
 	if (config == NULL) {
 		pr_err("%s: couldn't get platform config\n", __func__);
 		return -ENODEV;

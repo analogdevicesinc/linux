@@ -21,6 +21,7 @@
 
 #include <linux/protected_memory_allocator.h>
 #include <mali_kbase.h>
+#include <mali_kbase_reg_track.h>
 #include "mali_kbase_csf.h"
 #include "mali_kbase_csf_mcu_shared_reg.h"
 #include <mali_kbase_mem_migrate.h>
@@ -40,12 +41,13 @@
 #define CSG_REG_USERIO_VPFN(reg, csi, nr_susp_pages) (reg->start_pfn + 2 * (nr_susp_pages + csi))
 
 /* MCU shared segment dummy page mapping flags */
-#define DUMMY_PAGE_MAP_FLAGS (KBASE_REG_MEMATTR_INDEX(AS_MEMATTR_INDEX_DEFAULT) | KBASE_REG_GPU_NX)
+#define DUMMY_PAGE_MAP_FLAGS \
+	(KBASE_REG_MEMATTR_INDEX(KBASE_MEMATTR_INDEX_DEFAULT) | KBASE_REG_GPU_NX)
 
 /* MCU shared segment suspend buffer mapping flags */
-#define SUSP_PAGE_MAP_FLAGS                                                                        \
-	(KBASE_REG_GPU_RD | KBASE_REG_GPU_WR | KBASE_REG_GPU_NX |                                  \
-	 KBASE_REG_MEMATTR_INDEX(AS_MEMATTR_INDEX_DEFAULT))
+#define SUSP_PAGE_MAP_FLAGS                                       \
+	(KBASE_REG_GPU_RD | KBASE_REG_GPU_WR | KBASE_REG_GPU_NX | \
+	 KBASE_REG_MEMATTR_INDEX(KBASE_MEMATTR_INDEX_DEFAULT))
 
 /**
  * struct kbase_csg_shared_region - Wrapper object for use with a CSG on runtime
@@ -72,11 +74,11 @@ static unsigned long get_userio_mmu_flags(struct kbase_device *kbdev)
 	unsigned long userio_map_flags;
 
 	if (kbdev->system_coherency == COHERENCY_NONE)
-		userio_map_flags =
-			KBASE_REG_GPU_RD | KBASE_REG_MEMATTR_INDEX(AS_MEMATTR_INDEX_NON_CACHEABLE);
+		userio_map_flags = KBASE_REG_GPU_RD |
+				   KBASE_REG_MEMATTR_INDEX(KBASE_MEMATTR_INDEX_NON_CACHEABLE);
 	else
 		userio_map_flags = KBASE_REG_GPU_RD | KBASE_REG_SHARE_BOTH |
-				   KBASE_REG_MEMATTR_INDEX(AS_MEMATTR_INDEX_SHARED);
+				   KBASE_REG_MEMATTR_INDEX(KBASE_MEMATTR_INDEX_SHARED);
 
 	return (userio_map_flags | KBASE_REG_GPU_NX);
 }
@@ -607,10 +609,11 @@ static int shared_mcu_csg_reg_init(struct kbase_device *kbdev,
 	struct kbase_csf_mcu_shared_regions *shared_regs = &kbdev->csf.scheduler.mcu_regs_data;
 	const u32 nr_susp_pages = PFN_UP(kbdev->csf.global_iface.groups[0].suspend_size);
 	u32 nr_csis = kbdev->csf.global_iface.groups[0].stream_num;
+	u32 i;
 	const size_t nr_csg_reg_pages = 2 * (nr_susp_pages + nr_csis);
 	struct kbase_va_region *reg;
 	u64 vpfn;
-	int err, i;
+	int err;
 
 	INIT_LIST_HEAD(&csg_reg->link);
 	reg = kbase_alloc_free_region(&kbdev->csf.mcu_shared_zone, 0, nr_csg_reg_pages);
@@ -697,7 +700,7 @@ static void shared_mcu_csg_reg_term(struct kbase_device *kbdev,
 	const u32 nr_susp_pages = PFN_UP(kbdev->csf.global_iface.groups[0].suspend_size);
 	const u32 nr_csis = kbdev->csf.global_iface.groups[0].stream_num;
 	u64 vpfn;
-	int i;
+	u32 i;
 
 	for (i = 0; i < nr_csis; i++) {
 		vpfn = CSG_REG_USERIO_VPFN(reg, i, nr_susp_pages);

@@ -76,7 +76,7 @@ config MALI_NO_MALI_DEFAULT_GPU
 endchoice
 
 menu "Platform specific options"
-source "drivers/gpu/arm/midgard/platform/Kconfig"
+source "$(MALI_KCONFIG_EXT_PREFIX)drivers/gpu/arm/midgard/platform/Kconfig"
 endmenu
 
 config MALI_CSF_SUPPORT
@@ -161,6 +161,17 @@ config MALI_CORESIGHT
 	depends on MALI_MIDGARD && MALI_CSF_SUPPORT && !MALI_NO_MALI
 	bool "Enable Kbase CoreSight tracing support"
 	default n
+
+config MALI_FENCE_TIMEOUT_RECOVERY
+	bool "Enable fence timeout recovery"
+	depends on MALI_MIDGARD && SYNC_FILE
+	default y
+	help
+	  Choose this option to enable fence timeout recovery
+	  without this feature, it is possible for a graphic application to
+	  block the surfaceflinger indefinitely
+	  if the latter is waiting for a fence to be signalled from the former.
+	  This behaviour would trigger the system SWT and causing a platform reboot.
 
 menuconfig MALI_EXPERT
 	depends on MALI_MIDGARD
@@ -409,6 +420,6 @@ config MALI_ARBITRATION
 	  If unsure, say N.
 
 
-source "drivers/gpu/arm/midgard/tests/Kconfig"
+source "$(MALI_KCONFIG_EXT_PREFIX)drivers/gpu/arm/midgard/tests/Kconfig"
 
 endif

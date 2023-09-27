@@ -22,6 +22,7 @@
 #include "backend/gpu/mali_kbase_cache_policy_backend.h"
 #include <device/mali_kbase_device.h>
 
+#if MALI_USE_CSF
 /**
  * kbasep_amba_register_present() - Check AMBA_<> register is present
  *                                  in the GPU.
@@ -33,48 +34,54 @@
  */
 static bool kbasep_amba_register_present(struct kbase_device *kbdev)
 {
-	return (ARCH_MAJOR_REV_REG(kbdev->gpu_props.props.raw_props.gpu_id) >=
-		GPU_ID2_ARCH_MAJOR_REV_MAKE(12, 1));
+	return kbdev->gpu_props.gpu_id.arch_id >= GPU_ID_ARCH_MAKE(12, 0, 1);
 }
+#endif
 
-void kbase_cache_set_coherency_mode(struct kbase_device *kbdev,
-		u32 mode)
+void kbase_cache_set_coherency_mode(struct kbase_device *kbdev, u32 mode)
 {
 	kbdev->current_gpu_coherency_mode = mode;
 
+#if MALI_USE_CSF
 	if (kbasep_amba_register_present(kbdev)) {
-		u32 val = kbase_reg_read(kbdev, GPU_CONTROL_REG(AMBA_ENABLE));
+		u32 val = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(AMBA_ENABLE));
 
 		val = AMBA_ENABLE_COHERENCY_PROTOCOL_SET(val, mode);
-		kbase_reg_write(kbdev, GPU_CONTROL_REG(AMBA_ENABLE), val);
+		kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(AMBA_ENABLE), val);
 	} else
-		kbase_reg_write(kbdev, GPU_CONTROL_REG(COHERENCY_ENABLE), mode);
+		kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(COHERENCY_ENABLE), mode);
+#else /* MALI_USE_CSF */
+	kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(COHERENCY_ENABLE), mode);
+#endif /* MALI_USE_CSF */
 }
 
 u32 kbase_cache_get_coherency_features(struct kbase_device *kbdev)
 {
 	u32 coherency_features;
 
+#if MALI_USE_CSF
 	if (kbasep_amba_register_present(kbdev))
-		coherency_features =
-			kbase_reg_read(kbdev, GPU_CONTROL_REG(AMBA_FEATURES));
+		coherency_features = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(AMBA_FEATURES));
 	else
-		coherency_features = kbase_reg_read(
-			kbdev, GPU_CONTROL_REG(COHERENCY_FEATURES));
+		coherency_features = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(COHERENCY_FEATURES));
+#else /* MALI_USE_CSF */
+	coherency_features = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(COHERENCY_FEATURES));
+#endif /* MALI_USE_CSF */
 
 	return coherency_features;
 }
 
-void kbase_amba_set_memory_cache_support(struct kbase_device *kbdev,
-					 bool enable)
+#if MALI_USE_CSF
+void kbase_amba_set_memory_cache_support(struct kbase_device *kbdev, bool enable)
 {
 	if (kbasep_amba_register_present(kbdev)) {
-		u32 val = kbase_reg_read(kbdev, GPU_CONTROL_REG(AMBA_ENABLE));
+		u32 val = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(AMBA_ENABLE));
 
 		val = AMBA_ENABLE_MEMORY_CACHE_SUPPORT_SET(val, enable);
-		kbase_reg_write(kbdev, GPU_CONTROL_REG(AMBA_ENABLE), val);
+		kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(AMBA_ENABLE), val);
 
 	} else {
 		WARN(1, "memory_cache_support not supported");
 	}
 }
+#endif /* MALI_USE_CSF */

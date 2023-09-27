@@ -80,8 +80,8 @@ u64 __maybe_unused kbase_backend_time_convert_gpu_to_cpu(struct kbase_device *kb
  * @ts:                 Pointer to struct timespec to store current monotonic
  *			time in
  */
-void kbase_backend_get_gpu_time(struct kbase_device *kbdev, u64 *cycle_counter,
-				u64 *system_time, struct timespec64 *ts);
+void kbase_backend_get_gpu_time(struct kbase_device *kbdev, u64 *cycle_counter, u64 *system_time,
+				struct timespec64 *ts);
 
 /**
  * kbase_backend_get_gpu_time_norequest() - Get current GPU time without
@@ -92,10 +92,8 @@ void kbase_backend_get_gpu_time(struct kbase_device *kbdev, u64 *cycle_counter,
  * @ts:			Pointer to struct timespec to store current monotonic
  *			time in
  */
-void kbase_backend_get_gpu_time_norequest(struct kbase_device *kbdev,
-					  u64 *cycle_counter,
-					  u64 *system_time,
-					  struct timespec64 *ts);
+void kbase_backend_get_gpu_time_norequest(struct kbase_device *kbdev, u64 *cycle_counter,
+					  u64 *system_time, struct timespec64 *ts);
 
 /**
  * kbase_device_set_timeout_ms - Set an unscaled device timeout in milliseconds,
@@ -140,8 +138,7 @@ void kbase_device_set_timeout(struct kbase_device *kbdev, enum kbase_timeout_sel
  *
  * Return:	Timeout in milliseconds, as an unsigned integer.
  */
-unsigned int kbase_get_timeout_ms(struct kbase_device *kbdev,
-				  enum kbase_timeout_selector selector);
+unsigned int kbase_get_timeout_ms(struct kbase_device *kbdev, enum kbase_timeout_selector selector);
 
 /**
  * kbase_backend_get_cycle_cnt - Reads the GPU cycle counter

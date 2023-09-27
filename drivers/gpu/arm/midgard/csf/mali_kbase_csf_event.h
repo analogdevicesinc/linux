@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2021-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2021-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -56,8 +56,8 @@ typedef enum kbase_csf_event_callback_action kbase_csf_event_callback(void *para
  *
  * Return: 0 on success, or negative on failure.
  */
-int kbase_csf_event_wait_add(struct kbase_context *kctx,
-		kbase_csf_event_callback *callback, void *param);
+int kbase_csf_event_wait_add(struct kbase_context *kctx, kbase_csf_event_callback *callback,
+			     void *param);
 
 /**
  * kbase_csf_event_wait_remove - Remove a CSF event callback
@@ -70,8 +70,8 @@ int kbase_csf_event_wait_add(struct kbase_context *kctx,
  * This function removes an event callback from the list of CSF event callbacks
  * belonging to a given Kbase context.
  */
-void kbase_csf_event_wait_remove(struct kbase_context *kctx,
-		kbase_csf_event_callback *callback, void *param);
+void kbase_csf_event_wait_remove(struct kbase_context *kctx, kbase_csf_event_callback *callback,
+				 void *param);
 
 /**
  * kbase_csf_event_term - Removes all CSF event callbacks
@@ -148,8 +148,8 @@ bool kbase_csf_event_read_error(struct kbase_context *kctx,
  *
  */
 void kbase_csf_event_add_error(struct kbase_context *const kctx,
-			struct kbase_csf_notification *const error,
-			struct base_csf_notification const *const data);
+			       struct kbase_csf_notification *const error,
+			       struct base_csf_notification const *const data);
 
 /**
  * kbase_csf_event_remove_error - Remove an error from event error list
@@ -157,8 +157,7 @@ void kbase_csf_event_add_error(struct kbase_context *const kctx,
  * @kctx:  Address of a base context associated with a GPU address space.
  * @error: Address of the item to be removed from the context's event error list.
  */
-void kbase_csf_event_remove_error(struct kbase_context *kctx,
-				  struct kbase_csf_notification *error);
+void kbase_csf_event_remove_error(struct kbase_context *kctx, struct kbase_csf_notification *error);
 
 /**
  * kbase_csf_event_error_pending - Check the error pending status

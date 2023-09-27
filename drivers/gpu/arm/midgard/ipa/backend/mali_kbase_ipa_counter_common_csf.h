@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -43,7 +43,7 @@ struct kbase_ipa_counter_model_data;
  * @num_shader_cores_cntrs: Number of elements in @shader_cores_cntrs_def array.
  * @counter_coeffs:      Buffer to store coefficient value used for HW counters
  * @counter_values:      Buffer to store the accumulated value of HW counters
- *                       retreived from kbase_ipa_control.
+ *                       retrieved from kbase_ipa_control.
  * @num_counters:        Number of counters queried from kbase_ipa_control.
  * @reference_voltage:   voltage, in mV, of the operating point used when
  *                       deriving the power model coefficients. Range approx
@@ -142,11 +142,10 @@ void kbase_ipa_counter_reset_data(struct kbase_ipa_model *model);
  * Return: 0 on success, error code otherwise
  */
 int kbase_ipa_counter_common_model_init(struct kbase_ipa_model *model,
-		const struct kbase_ipa_counter *top_level_cntrs_def,
-		size_t num_top_level_cntrs,
-		const struct kbase_ipa_counter *shader_cores_cntrs_def,
-		size_t num_shader_cores_cntrs,
-		s32 reference_voltage);
+					const struct kbase_ipa_counter *top_level_cntrs_def,
+					size_t num_top_level_cntrs,
+					const struct kbase_ipa_counter *shader_cores_cntrs_def,
+					size_t num_shader_cores_cntrs, s32 reference_voltage);
 /**
  * kbase_ipa_counter_common_model_term() - terminate ipa power model
  * @model: ipa power model to terminate

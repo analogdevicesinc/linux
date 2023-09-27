@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2010-2015, 2018-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -28,11 +28,13 @@
 
 static bool always_on_shaders_needed(struct kbase_device *kbdev)
 {
+	CSTD_UNUSED(kbdev);
 	return true;
 }
 
 static bool always_on_get_core_active(struct kbase_device *kbdev)
 {
+	CSTD_UNUSED(kbdev);
 	return true;
 }
 
@@ -58,15 +60,15 @@ static void always_on_term(struct kbase_device *kbdev)
  * and name.
  */
 const struct kbase_pm_policy kbase_pm_always_on_policy_ops = {
-	"always_on",			/* name */
-	always_on_init,			/* init */
-	always_on_term,			/* term */
-	always_on_shaders_needed,	/* shaders_needed */
-	always_on_get_core_active,	/* get_core_active */
-	NULL,				/* handle_event */
-	KBASE_PM_POLICY_ID_ALWAYS_ON,	/* id */
+	"always_on", /* name */
+	always_on_init, /* init */
+	always_on_term, /* term */
+	always_on_shaders_needed, /* shaders_needed */
+	always_on_get_core_active, /* get_core_active */
+	NULL, /* handle_event */
+	KBASE_PM_POLICY_ID_ALWAYS_ON, /* id */
 #if MALI_USE_CSF
-	ALWAYS_ON_PM_SCHED_FLAGS,	/* pm_sched_flags */
+	ALWAYS_ON_PM_SCHED_FLAGS, /* pm_sched_flags */
 #endif
 };
 

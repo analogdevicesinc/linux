@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -114,8 +114,9 @@ int kbase_csf_tiler_heap_term(struct kbase_context *kctx, u64 gpu_heap_va);
  *         available upon completion of a render pass and -EINVAL when
  *         invalid value was passed for one of the argument).
  */
-int kbase_csf_tiler_heap_alloc_new_chunk(struct kbase_context *kctx,
-	u64 gpu_heap_va, u32 nr_in_flight, u32 pending_frag_count, u64 *new_chunk_ptr);
+int kbase_csf_tiler_heap_alloc_new_chunk(struct kbase_context *kctx, u64 gpu_heap_va,
+					 u32 nr_in_flight, u32 pending_frag_count,
+					 u64 *new_chunk_ptr);
 
 /**
  * kbase_csf_tiler_heap_scan_kctx_unused_pages - Performs the tiler heap shrinker calim's scan

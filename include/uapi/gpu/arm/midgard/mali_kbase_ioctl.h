@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2017-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2017-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -162,7 +162,7 @@ struct kbase_ioctl_hwcnt_reader_setup {
 	__u32 mmu_l2_bm;
 };
 
-#define KBASE_IOCTL_HWCNT_READER_SETUP                                                             \
+#define KBASE_IOCTL_HWCNT_READER_SETUP \
 	_IOW(KBASE_IOCTL_TYPE, 8, struct kbase_ioctl_hwcnt_reader_setup)
 
 /**
@@ -276,7 +276,7 @@ union kbase_ioctl_mem_find_cpu_offset {
 	} out;
 };
 
-#define KBASE_IOCTL_MEM_FIND_CPU_OFFSET                                                            \
+#define KBASE_IOCTL_MEM_FIND_CPU_OFFSET \
 	_IOWR(KBASE_IOCTL_TYPE, 16, union kbase_ioctl_mem_find_cpu_offset)
 
 /**
@@ -445,7 +445,7 @@ struct kbase_ioctl_sticky_resource_map {
 	__u64 address;
 };
 
-#define KBASE_IOCTL_STICKY_RESOURCE_MAP                                                            \
+#define KBASE_IOCTL_STICKY_RESOURCE_MAP \
 	_IOW(KBASE_IOCTL_TYPE, 29, struct kbase_ioctl_sticky_resource_map)
 
 /**
@@ -459,7 +459,7 @@ struct kbase_ioctl_sticky_resource_unmap {
 	__u64 address;
 };
 
-#define KBASE_IOCTL_STICKY_RESOURCE_UNMAP                                                          \
+#define KBASE_IOCTL_STICKY_RESOURCE_UNMAP \
 	_IOW(KBASE_IOCTL_TYPE, 30, struct kbase_ioctl_sticky_resource_unmap)
 
 /**
@@ -487,7 +487,7 @@ union kbase_ioctl_mem_find_gpu_start_and_offset {
 	} out;
 };
 
-#define KBASE_IOCTL_MEM_FIND_GPU_START_AND_OFFSET                                                  \
+#define KBASE_IOCTL_MEM_FIND_GPU_START_AND_OFFSET \
 	_IOWR(KBASE_IOCTL_TYPE, 31, union kbase_ioctl_mem_find_gpu_start_and_offset)
 
 #define KBASE_IOCTL_CINSTR_GWT_START _IO(KBASE_IOCTL_TYPE, 33)
@@ -565,7 +565,7 @@ union kbase_ioctl_get_cpu_gpu_timeinfo {
 	} out;
 };
 
-#define KBASE_IOCTL_GET_CPU_GPU_TIMEINFO                                                           \
+#define KBASE_IOCTL_GET_CPU_GPU_TIMEINFO \
 	_IOWR(KBASE_IOCTL_TYPE, 50, union kbase_ioctl_get_cpu_gpu_timeinfo)
 
 /**
@@ -577,7 +577,7 @@ struct kbase_ioctl_context_priority_check {
 	__u8 priority;
 };
 
-#define KBASE_IOCTL_CONTEXT_PRIORITY_CHECK                                                         \
+#define KBASE_IOCTL_CONTEXT_PRIORITY_CHECK \
 	_IOWR(KBASE_IOCTL_TYPE, 54, struct kbase_ioctl_context_priority_check)
 
 /**
@@ -589,7 +589,7 @@ struct kbase_ioctl_set_limited_core_count {
 	__u8 max_core_count;
 };
 
-#define KBASE_IOCTL_SET_LIMITED_CORE_COUNT                                                         \
+#define KBASE_IOCTL_SET_LIMITED_CORE_COUNT \
 	_IOW(KBASE_IOCTL_TYPE, 55, struct kbase_ioctl_set_limited_core_count)
 
 /**
@@ -610,7 +610,7 @@ struct kbase_ioctl_kinstr_prfcnt_enum_info {
 	__u64 info_list_ptr;
 };
 
-#define KBASE_IOCTL_KINSTR_PRFCNT_ENUM_INFO                                                        \
+#define KBASE_IOCTL_KINSTR_PRFCNT_ENUM_INFO \
 	_IOWR(KBASE_IOCTL_TYPE, 56, struct kbase_ioctl_kinstr_prfcnt_enum_info)
 
 /**
@@ -639,7 +639,7 @@ union kbase_ioctl_kinstr_prfcnt_setup {
 	} out;
 };
 
-#define KBASE_IOCTL_KINSTR_PRFCNT_SETUP                                                            \
+#define KBASE_IOCTL_KINSTR_PRFCNT_SETUP \
 	_IOWR(KBASE_IOCTL_TYPE, 57, union kbase_ioctl_kinstr_prfcnt_setup)
 
 /***************

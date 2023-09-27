@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 #
-# (C) COPYRIGHT 2012-2013, 2017, 2021 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2012-2023 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -20,7 +20,7 @@
 
 # Add your platform specific Kconfig file here
 #
-# "drivers/gpu/arm/midgard/platform/xxx/Kconfig"
+# "$(MALI_KCONFIG_EXT_PREFIX)drivers/gpu/arm/midgard/platform/xxx/Kconfig"
 #
 # Where xxx is the platform name is the name set in MALI_PLATFORM_NAME
 #

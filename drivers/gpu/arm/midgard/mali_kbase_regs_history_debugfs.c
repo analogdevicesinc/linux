@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2014, 2016, 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -94,8 +94,7 @@ void kbase_io_history_term(struct kbase_io_history *h)
 	h->buf = NULL;
 }
 
-void kbase_io_history_add(struct kbase_io_history *h,
-		void __iomem const *addr, u32 value, u8 write)
+void kbase_io_history_add(struct kbase_io_history *h, void __iomem const *addr, u32 value, u8 write)
 {
 	struct kbase_io_access *io;
 	unsigned long flags;
@@ -129,15 +128,13 @@ void kbase_io_history_dump(struct kbase_device *kbdev)
 
 	dev_err(kbdev->dev, "Register IO History:");
 	iters = (h->size > h->count) ? h->count : h->size;
-	dev_err(kbdev->dev, "Last %zu register accesses of %zu total:\n", iters,
-			h->count);
+	dev_err(kbdev->dev, "Last %zu register accesses of %zu total:\n", iters, h->count);
 	for (i = 0; i < iters; ++i) {
-		struct kbase_io_access *io =
-			&h->buf[(h->count - iters + i) % h->size];
+		struct kbase_io_access *io = &h->buf[(h->count - iters + i) % h->size];
 		char const access = (io->addr & 1) ? 'w' : 'r';
 
-		dev_err(kbdev->dev, "%6zu: %c: reg 0x%016lx val %08x\n", i,
-			access, (unsigned long)(io->addr & ~0x1), io->value);
+		dev_err(kbdev->dev, "%6zu: %c: reg 0x%16pK val %08x\n", i, access,
+			(void *)(io->addr & ~0x1), io->value);
 	}
 
 	spin_unlock_irqrestore(&h->lock, flags);
@@ -179,6 +176,8 @@ static int regs_history_show(struct seq_file *sfile, void *data)
 	size_t iters;
 	unsigned long flags;
 
+	CSTD_UNUSED(data);
+
 	if (!h->enabled) {
 		seq_puts(sfile, "The register access history is disabled\n");
 		goto out;
@@ -187,15 +186,13 @@ static int regs_history_show(struct seq_file *sfile, void *data)
 	spin_lock_irqsave(&h->lock, flags);
 
 	iters = (h->size > h->count) ? h->count : h->size;
-	seq_printf(sfile, "Last %zu register accesses of %zu total:\n", iters,
-			h->count);
+	seq_printf(sfile, "Last %zu register accesses of %zu total:\n", iters, h->count);
 	for (i = 0; i < iters; ++i) {
-		struct kbase_io_access *io =
-			&h->buf[(h->count - iters + i) % h->size];
+		struct kbase_io_access *io = &h->buf[(h->count - iters + i) % h->size];
 		char const access = (io->addr & 1) ? 'w' : 'r';
 
-		seq_printf(sfile, "%6zu: %c: reg 0x%016lx val %08x\n", i,
-			   access, (unsigned long)(io->addr & ~0x1), io->value);
+		seq_printf(sfile, "%6zu: %c: reg 0x%16pK val %08x\n", i, access,
+			   (void *)(io->addr & ~0x1), io->value);
 	}
 
 	spin_unlock_irqrestore(&h->lock, flags);
@@ -227,14 +224,11 @@ static const struct file_operations regs_history_fops = {
 
 void kbasep_regs_history_debugfs_init(struct kbase_device *kbdev)
 {
-	debugfs_create_bool("regs_history_enabled", 0644,
-			kbdev->mali_debugfs_directory,
-			&kbdev->io_history.enabled);
-	debugfs_create_file("regs_history_size", 0644,
-			kbdev->mali_debugfs_directory,
-			&kbdev->io_history, &regs_history_size_fops);
-	debugfs_create_file("regs_history", 0444,
-			kbdev->mali_debugfs_directory, &kbdev->io_history,
-			&regs_history_fops);
+	debugfs_create_bool("regs_history_enabled", 0644, kbdev->mali_debugfs_directory,
+			    &kbdev->io_history.enabled);
+	debugfs_create_file("regs_history_size", 0644, kbdev->mali_debugfs_directory,
+			    &kbdev->io_history, &regs_history_size_fops);
+	debugfs_create_file("regs_history", 0444, kbdev->mali_debugfs_directory, &kbdev->io_history,
+			    &regs_history_fops);
 }
 #endif /* defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_NO_MALI) */

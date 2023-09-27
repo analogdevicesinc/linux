@@ -54,6 +54,8 @@ static ssize_t kbase_csf_kcpu_queue_fence_signal_enabled_set(struct file *file,
 	unsigned int enabled;
 	struct kbase_device *kbdev = file->private_data;
 
+	CSTD_UNUSED(ppos);
+
 	ret = kstrtouint_from_user(buf, count, 10, &enabled);
 	if (ret < 0)
 		return ret;
@@ -90,6 +92,8 @@ static ssize_t kbase_csf_kcpu_queue_fence_signal_timeout_set(struct file *file,
 	int ret;
 	unsigned int timeout_ms;
 	struct kbase_device *kbdev = file->private_data;
+
+	CSTD_UNUSED(ppos);
 
 	ret = kstrtouint_from_user(buf, count, 10, &timeout_ms);
 	if (ret < 0)
@@ -142,10 +146,12 @@ int kbase_csf_fence_timer_debugfs_init(struct kbase_device *kbdev)
 #else
 int kbase_csf_fence_timer_debugfs_init(struct kbase_device *kbdev)
 {
+	CSTD_UNUSED(kbdev);
 	return 0;
 }
 
 #endif
 void kbase_csf_fence_timer_debugfs_term(struct kbase_device *kbdev)
 {
+	CSTD_UNUSED(kbdev);
 }

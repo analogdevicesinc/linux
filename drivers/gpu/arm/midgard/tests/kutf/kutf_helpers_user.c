@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2017, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2017-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -60,7 +60,8 @@ static int validate_val_name(const char *val_str, int str_len)
 {
 	int i = 0;
 
-	for (i = 0; str_len && i <= KUTF_HELPER_MAX_VAL_NAME_LEN && val_str[i] != '\0'; ++i, --str_len) {
+	for (i = 0; str_len && i <= KUTF_HELPER_MAX_VAL_NAME_LEN && val_str[i] != '\0';
+	     ++i, --str_len) {
 		char val_chr = val_str[i];
 
 		if (val_chr >= 'A' && val_chr <= 'Z')
@@ -78,7 +79,8 @@ static int validate_val_name(const char *val_str, int str_len)
 	if (i == 0)
 		return 1;
 	/* Length greater than KUTF_HELPER_MAX_VAL_NAME_LEN not allowed */
-	if (i > KUTF_HELPER_MAX_VAL_NAME_LEN || (i == KUTF_HELPER_MAX_VAL_NAME_LEN && val_str[i] != '\0'))
+	if (i > KUTF_HELPER_MAX_VAL_NAME_LEN ||
+	    (i == KUTF_HELPER_MAX_VAL_NAME_LEN && val_str[i] != '\0'))
 		return 1;
 
 	return 0;
@@ -97,19 +99,18 @@ static int find_quoted_string_valid_len(const char *str)
 
 	ptr = strpbrk(str, check_chars);
 	if (ptr)
-		return (int)(ptr-str);
+		return (int)(ptr - str);
 
 	return (int)strlen(str);
 }
 
-static int kutf_helper_userdata_enqueue(struct kutf_context *context,
-		const char *str)
+static int kutf_helper_userdata_enqueue(struct kutf_context *context, const char *str)
 {
 	char *str_copy;
 	size_t len;
 	int err;
 
-	len = strlen(str)+1;
+	len = strlen(str) + 1;
 
 	str_copy = kutf_mempool_alloc(&context->fixture_pool, len);
 	if (!str_copy)
@@ -126,8 +127,7 @@ static int kutf_helper_userdata_enqueue(struct kutf_context *context,
 /* (Name size) + ("=0x" size) + (64-bit hex value size) + (terminator) */
 #define NAMED_U64_VAL_BUF_SZ (KUTF_HELPER_MAX_VAL_NAME_LEN + 3 + MAX_U64_HEX_LEN + 1)
 
-int kutf_helper_send_named_u64(struct kutf_context *context,
-		const char *val_name, u64 val)
+int kutf_helper_send_named_u64(struct kutf_context *context, const char *val_name, u64 val)
 {
 	int ret = 1;
 	char msgbuf[NAMED_U64_VAL_BUF_SZ];
@@ -135,23 +135,25 @@ int kutf_helper_send_named_u64(struct kutf_context *context,
 
 	if (validate_val_name(val_name, KUTF_HELPER_MAX_VAL_NAME_LEN + 1)) {
 		errmsg = kutf_dsprintf(&context->fixture_pool,
-				"Failed to send u64 value named '%s': Invalid value name", val_name);
+				       "Failed to send u64 value named '%s': Invalid value name",
+				       val_name);
 		goto out_err;
 	}
 
 	ret = snprintf(msgbuf, NAMED_U64_VAL_BUF_SZ, "%s=0x%llx", val_name, val);
 	if (ret >= NAMED_U64_VAL_BUF_SZ || ret < 0) {
-		errmsg = kutf_dsprintf(&context->fixture_pool,
-				"Failed to send u64 value named '%s': snprintf() problem buffer size==%d ret=%d",
-				val_name, NAMED_U64_VAL_BUF_SZ, ret);
+		errmsg = kutf_dsprintf(
+			&context->fixture_pool,
+			"Failed to send u64 value named '%s': snprintf() problem buffer size==%d ret=%d",
+			val_name, NAMED_U64_VAL_BUF_SZ, ret);
 		goto out_err;
 	}
 
 	ret = kutf_helper_userdata_enqueue(context, msgbuf);
 	if (ret) {
 		errmsg = kutf_dsprintf(&context->fixture_pool,
-				"Failed to send u64 value named '%s': send returned %d",
-				val_name, ret);
+				       "Failed to send u64 value named '%s': send returned %d",
+				       val_name, ret);
 		goto out_err;
 	}
 
@@ -166,8 +168,7 @@ EXPORT_SYMBOL(kutf_helper_send_named_u64);
 #define NAMED_STR_START_DELIM NAMED_VALUE_SEP "\""
 #define NAMED_STR_END_DELIM "\""
 
-int kutf_helper_max_str_len_for_kern(const char *val_name,
-		int kern_buf_sz)
+int kutf_helper_max_str_len_for_kern(const char *val_name, int kern_buf_sz)
 {
 	const int val_name_len = strlen(val_name);
 	const int start_delim_len = strlen(NAMED_STR_START_DELIM);
@@ -175,16 +176,14 @@ int kutf_helper_max_str_len_for_kern(const char *val_name,
 	int max_msg_len = kern_buf_sz;
 	int max_str_len;
 
-	max_str_len = max_msg_len - val_name_len - start_delim_len -
-		end_delim_len;
+	max_str_len = max_msg_len - val_name_len - start_delim_len - end_delim_len;
 
 	return max_str_len;
 }
 EXPORT_SYMBOL(kutf_helper_max_str_len_for_kern);
 
-int kutf_helper_send_named_str(struct kutf_context *context,
-		const char *val_name,
-		const char *val_str)
+int kutf_helper_send_named_str(struct kutf_context *context, const char *val_name,
+			       const char *val_str)
 {
 	int val_str_len;
 	int str_buf_sz;
@@ -198,7 +197,8 @@ int kutf_helper_send_named_str(struct kutf_context *context,
 
 	if (validate_val_name(val_name, KUTF_HELPER_MAX_VAL_NAME_LEN + 1)) {
 		errmsg = kutf_dsprintf(&context->fixture_pool,
-				"Failed to send u64 value named '%s': Invalid value name", val_name);
+				       "Failed to send u64 value named '%s': Invalid value name",
+				       val_name);
 		goto out_err;
 	}
 	val_name_len = strlen(val_name);
@@ -213,9 +213,10 @@ int kutf_helper_send_named_str(struct kutf_context *context,
 	 */
 	str_buf = kmalloc(str_buf_sz, GFP_KERNEL);
 	if (!str_buf) {
-		errmsg = kutf_dsprintf(&context->fixture_pool,
-				"Failed to send str value named '%s': kmalloc failed, str_buf_sz=%d",
-				val_name, str_buf_sz);
+		errmsg = kutf_dsprintf(
+			&context->fixture_pool,
+			"Failed to send str value named '%s': kmalloc failed, str_buf_sz=%d",
+			val_name, str_buf_sz);
 		goto out_err;
 	}
 	copy_ptr = str_buf;
@@ -247,8 +248,8 @@ int kutf_helper_send_named_str(struct kutf_context *context,
 
 	if (ret) {
 		errmsg = kutf_dsprintf(&context->fixture_pool,
-				"Failed to send str value named '%s': send returned %d",
-				val_name, ret);
+				       "Failed to send str value named '%s': send returned %d",
+				       val_name, ret);
 		goto out_err;
 	}
 
@@ -262,9 +263,8 @@ out_err:
 }
 EXPORT_SYMBOL(kutf_helper_send_named_str);
 
-int kutf_helper_receive_named_val(
-		struct kutf_context *context,
-		struct kutf_helper_named_val *named_val)
+int kutf_helper_receive_named_val(struct kutf_context *context,
+				  struct kutf_helper_named_val *named_val)
 {
 	size_t recv_sz;
 	char *recv_str;
@@ -298,8 +298,7 @@ int kutf_helper_receive_named_val(
 		}
 	}
 	if (!name_str) {
-		pr_err("Invalid name part for received string '%s'\n",
-				recv_str);
+		pr_err("Invalid name part for received string '%s'\n", recv_str);
 		return KUTF_HELPER_ERR_INVALID_NAME;
 	}
 
@@ -324,11 +323,13 @@ int kutf_helper_receive_named_val(
 				recv_sz -= (strval_len + 1);
 				type = KUTF_HELPER_VALTYPE_STR;
 			} else {
-				pr_err("String value contains invalid characters in rest of received string '%s'\n", recv_str);
+				pr_err("String value contains invalid characters in rest of received string '%s'\n",
+				       recv_str);
 				err = KUTF_HELPER_ERR_CHARS_AFTER_VAL;
 			}
 		} else {
-			pr_err("End of string delimiter not found in rest of received string '%s'\n", recv_str);
+			pr_err("End of string delimiter not found in rest of received string '%s'\n",
+			       recv_str);
 			err = KUTF_HELPER_ERR_NO_END_DELIMITER;
 		}
 	} else {
@@ -345,7 +346,8 @@ int kutf_helper_receive_named_val(
 			recv_sz -= len_remain;
 		} else {
 			/* special case: not a number, report as such */
-			pr_err("Rest of received string was not a numeric value or quoted string value: '%s'\n", recv_str);
+			pr_err("Rest of received string was not a numeric value or quoted string value: '%s'\n",
+			       recv_str);
 		}
 	}
 
@@ -354,8 +356,8 @@ int kutf_helper_receive_named_val(
 
 	/* Any remaining characters - error */
 	if (strnlen(recv_str, recv_sz) != 0) {
-		pr_err("Characters remain after value of type %s: '%s'\n",
-				get_val_type_name(type), recv_str);
+		pr_err("Characters remain after value of type %s: '%s'\n", get_val_type_name(type),
+		       recv_str);
 		return KUTF_HELPER_ERR_CHARS_AFTER_VAL;
 	}
 
@@ -381,44 +383,41 @@ int kutf_helper_receive_named_val(
 EXPORT_SYMBOL(kutf_helper_receive_named_val);
 
 #define DUMMY_MSG "<placeholder due to test fail>"
-int kutf_helper_receive_check_val(
-		struct kutf_helper_named_val *named_val,
-		struct kutf_context *context,
-		const char *expect_val_name,
-		enum kutf_helper_valtype expect_val_type)
+int kutf_helper_receive_check_val(struct kutf_helper_named_val *named_val,
+				  struct kutf_context *context, const char *expect_val_name,
+				  enum kutf_helper_valtype expect_val_type)
 {
 	int err;
 
 	err = kutf_helper_receive_named_val(context, named_val);
 	if (err < 0) {
 		const char *msg = kutf_dsprintf(&context->fixture_pool,
-				"Failed to receive value named '%s'",
-				expect_val_name);
+						"Failed to receive value named '%s'",
+						expect_val_name);
 		kutf_test_fail(context, msg);
 		return err;
 	} else if (err > 0) {
-		const char *msg = kutf_dsprintf(&context->fixture_pool,
-				"Named-value parse error when expecting value named '%s'",
-				expect_val_name);
+		const char *msg = kutf_dsprintf(
+			&context->fixture_pool,
+			"Named-value parse error when expecting value named '%s'", expect_val_name);
 		kutf_test_fail(context, msg);
 		goto out_fail_and_fixup;
 	}
 
-	if (named_val->val_name != NULL &&
-			strcmp(named_val->val_name, expect_val_name) != 0) {
-		const char *msg = kutf_dsprintf(&context->fixture_pool,
-				"Expecting to receive value named '%s' but got '%s'",
-				expect_val_name, named_val->val_name);
+	if (named_val->val_name != NULL && strcmp(named_val->val_name, expect_val_name) != 0) {
+		const char *msg =
+			kutf_dsprintf(&context->fixture_pool,
+				      "Expecting to receive value named '%s' but got '%s'",
+				      expect_val_name, named_val->val_name);
 		kutf_test_fail(context, msg);
 		goto out_fail_and_fixup;
 	}
-
 
 	if (named_val->type != expect_val_type) {
-		const char *msg = kutf_dsprintf(&context->fixture_pool,
-				"Expecting value named '%s' to be of type %s but got %s",
-				expect_val_name, get_val_type_name(expect_val_type),
-				get_val_type_name(named_val->type));
+		const char *msg = kutf_dsprintf(
+			&context->fixture_pool,
+			"Expecting value named '%s' to be of type %s but got %s", expect_val_name,
+			get_val_type_name(expect_val_type), get_val_type_name(named_val->type));
 		kutf_test_fail(context, msg);
 		goto out_fail_and_fixup;
 	}
@@ -431,17 +430,16 @@ out_fail_and_fixup:
 	case KUTF_HELPER_VALTYPE_U64:
 		named_val->u.val_u64 = 0ull;
 		break;
-	case KUTF_HELPER_VALTYPE_STR:
-		{
-			char *str = kutf_mempool_alloc(&context->fixture_pool, sizeof(DUMMY_MSG));
+	case KUTF_HELPER_VALTYPE_STR: {
+		char *str = kutf_mempool_alloc(&context->fixture_pool, sizeof(DUMMY_MSG));
 
-			if (!str)
-				return -1;
+		if (!str)
+			return -1;
 
-			strcpy(str, DUMMY_MSG);
-			named_val->u.val_str = str;
-			break;
-		}
+		strcpy(str, DUMMY_MSG);
+		named_val->u.val_str = str;
+		break;
+	}
 	default:
 		break;
 	}

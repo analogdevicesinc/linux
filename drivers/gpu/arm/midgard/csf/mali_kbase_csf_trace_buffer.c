@@ -89,7 +89,7 @@ struct firmware_trace_buffer {
 	} cpu_va;
 	u32 num_pages;
 	u32 trace_enable_init_mask[CSF_FIRMWARE_TRACE_ENABLE_INIT_MASK_MAX];
-	char name[1]; /* this field must be last */
+	char name[]; /* this field must be last */
 };
 
 /**
@@ -138,10 +138,9 @@ int kbase_csf_firmware_trace_buffers_init(struct kbase_device *kbdev)
 	}
 
 	/* GPU-readable,writable memory used for Extract variables */
-	ret = kbase_csf_firmware_mcu_shared_mapping_init(
-			kbdev, 1, PROT_WRITE,
-			KBASE_REG_GPU_RD | KBASE_REG_GPU_WR,
-			&kbdev->csf.firmware_trace_buffers.mcu_rw);
+	ret = kbase_csf_firmware_mcu_shared_mapping_init(kbdev, 1, PROT_WRITE,
+							 KBASE_REG_GPU_RD | KBASE_REG_GPU_WR,
+							 &kbdev->csf.firmware_trace_buffers.mcu_rw);
 	if (ret != 0) {
 		dev_err(kbdev->dev, "Failed to map GPU-rw MCU shared memory\n");
 		goto out;
@@ -149,42 +148,39 @@ int kbase_csf_firmware_trace_buffers_init(struct kbase_device *kbdev)
 
 	/* GPU-writable memory used for Insert variables */
 	ret = kbase_csf_firmware_mcu_shared_mapping_init(
-			kbdev, 1, PROT_READ, KBASE_REG_GPU_WR,
-			&kbdev->csf.firmware_trace_buffers.mcu_write);
+		kbdev, 1, PROT_READ, KBASE_REG_GPU_WR,
+		&kbdev->csf.firmware_trace_buffers.mcu_write);
 	if (ret != 0) {
 		dev_err(kbdev->dev, "Failed to map GPU-writable MCU shared memory\n");
 		goto out;
 	}
 
 	list_for_each_entry(trace_buffer, &kbdev->csf.firmware_trace_buffers.list, node) {
-		u32 extract_gpu_va, insert_gpu_va, data_buffer_gpu_va,
-			trace_enable_size_dwords;
+		u32 extract_gpu_va, insert_gpu_va, data_buffer_gpu_va, trace_enable_size_dwords;
 		u32 *extract_cpu_va, *insert_cpu_va;
 		unsigned int i;
 
 		/* GPU-writable data buffer for the individual trace buffer */
-		ret = kbase_csf_firmware_mcu_shared_mapping_init(
-				kbdev, trace_buffer->num_pages, PROT_READ, KBASE_REG_GPU_WR,
-				&trace_buffer->data_mapping);
+		ret = kbase_csf_firmware_mcu_shared_mapping_init(kbdev, trace_buffer->num_pages,
+								 PROT_READ, KBASE_REG_GPU_WR,
+								 &trace_buffer->data_mapping);
 		if (ret) {
-			dev_err(kbdev->dev, "Failed to map GPU-writable MCU shared memory for a trace buffer\n");
+			dev_err(kbdev->dev,
+				"Failed to map GPU-writable MCU shared memory for a trace buffer\n");
 			goto out;
 		}
 
 		extract_gpu_va =
 			(kbdev->csf.firmware_trace_buffers.mcu_rw.va_reg->start_pfn << PAGE_SHIFT) +
 			mcu_rw_offset;
-		extract_cpu_va = (u32 *)(
-			kbdev->csf.firmware_trace_buffers.mcu_rw.cpu_addr +
-			mcu_rw_offset);
-		insert_gpu_va =
-			(kbdev->csf.firmware_trace_buffers.mcu_write.va_reg->start_pfn << PAGE_SHIFT) +
-			mcu_write_offset;
-		insert_cpu_va = (u32 *)(
-			kbdev->csf.firmware_trace_buffers.mcu_write.cpu_addr +
-			mcu_write_offset);
-		data_buffer_gpu_va =
-			(trace_buffer->data_mapping.va_reg->start_pfn << PAGE_SHIFT);
+		extract_cpu_va =
+			(u32 *)(kbdev->csf.firmware_trace_buffers.mcu_rw.cpu_addr + mcu_rw_offset);
+		insert_gpu_va = (kbdev->csf.firmware_trace_buffers.mcu_write.va_reg->start_pfn
+				 << PAGE_SHIFT) +
+				mcu_write_offset;
+		insert_cpu_va = (u32 *)(kbdev->csf.firmware_trace_buffers.mcu_write.cpu_addr +
+					mcu_write_offset);
+		data_buffer_gpu_va = (trace_buffer->data_mapping.va_reg->start_pfn << PAGE_SHIFT);
 
 		/* Initialize the Extract variable */
 		*extract_cpu_va = 0;
@@ -192,23 +188,21 @@ int kbase_csf_firmware_trace_buffers_init(struct kbase_device *kbdev)
 		/* Each FW address shall be mapped and set individually, as we can't
 		 * assume anything about their location in the memory address space.
 		 */
-		kbase_csf_update_firmware_memory(
-				kbdev, trace_buffer->gpu_va.data_address, data_buffer_gpu_va);
-		kbase_csf_update_firmware_memory(
-				kbdev, trace_buffer->gpu_va.insert_address, insert_gpu_va);
-		kbase_csf_update_firmware_memory(
-				kbdev, trace_buffer->gpu_va.extract_address, extract_gpu_va);
-		kbase_csf_update_firmware_memory(
-				kbdev, trace_buffer->gpu_va.size_address,
-				trace_buffer->num_pages << PAGE_SHIFT);
+		kbase_csf_update_firmware_memory(kbdev, trace_buffer->gpu_va.data_address,
+						 data_buffer_gpu_va);
+		kbase_csf_update_firmware_memory(kbdev, trace_buffer->gpu_va.insert_address,
+						 insert_gpu_va);
+		kbase_csf_update_firmware_memory(kbdev, trace_buffer->gpu_va.extract_address,
+						 extract_gpu_va);
+		kbase_csf_update_firmware_memory(kbdev, trace_buffer->gpu_va.size_address,
+						 trace_buffer->num_pages << PAGE_SHIFT);
 
-		trace_enable_size_dwords =
-				(trace_buffer->trace_enable_entry_count + 31) >> 5;
+		trace_enable_size_dwords = (trace_buffer->trace_enable_entry_count + 31) >> 5;
 
 		for (i = 0; i < trace_enable_size_dwords; i++) {
-			kbase_csf_update_firmware_memory(
-					kbdev, trace_buffer->gpu_va.trace_enable + i*4,
-					trace_buffer->trace_enable_init_mask[i]);
+			kbase_csf_update_firmware_memory(kbdev,
+							 trace_buffer->gpu_va.trace_enable + i * 4,
+							 trace_buffer->trace_enable_init_mask[i]);
 		}
 
 		/* Store CPU virtual addresses for permanently mapped variables */
@@ -233,23 +227,21 @@ void kbase_csf_firmware_trace_buffers_term(struct kbase_device *kbdev)
 		struct firmware_trace_buffer *trace_buffer;
 
 		trace_buffer = list_first_entry(&kbdev->csf.firmware_trace_buffers.list,
-				struct firmware_trace_buffer, node);
+						struct firmware_trace_buffer, node);
 		kbase_csf_firmware_mcu_shared_mapping_term(kbdev, &trace_buffer->data_mapping);
 		list_del(&trace_buffer->node);
 
 		kfree(trace_buffer);
 	}
 
-	kbase_csf_firmware_mcu_shared_mapping_term(
-			kbdev, &kbdev->csf.firmware_trace_buffers.mcu_rw);
-	kbase_csf_firmware_mcu_shared_mapping_term(
-			kbdev, &kbdev->csf.firmware_trace_buffers.mcu_write);
+	kbase_csf_firmware_mcu_shared_mapping_term(kbdev,
+						   &kbdev->csf.firmware_trace_buffers.mcu_rw);
+	kbase_csf_firmware_mcu_shared_mapping_term(kbdev,
+						   &kbdev->csf.firmware_trace_buffers.mcu_write);
 }
 
-int kbase_csf_firmware_parse_trace_buffer_entry(struct kbase_device *kbdev,
-						const u32 *entry,
-						unsigned int size,
-						bool updatable)
+int kbase_csf_firmware_parse_trace_buffer_entry(struct kbase_device *kbdev, const u32 *entry,
+						unsigned int size, bool updatable)
 {
 	const char *name = (char *)&entry[7];
 	const unsigned int name_len = size - TRACE_BUFFER_ENTRY_NAME_OFFSET;
@@ -259,8 +251,7 @@ int kbase_csf_firmware_parse_trace_buffer_entry(struct kbase_device *kbdev,
 	/* Allocate enough space for struct firmware_trace_buffer and the
 	 * trace buffer name (with NULL termination).
 	 */
-	trace_buffer =
-		kmalloc(sizeof(*trace_buffer) + name_len + 1, GFP_KERNEL);
+	trace_buffer = kmalloc(struct_size(trace_buffer, name, name_len + 1), GFP_KERNEL);
 
 	if (!trace_buffer)
 		return -ENOMEM;
@@ -309,8 +300,7 @@ void kbase_csf_firmware_reload_trace_buffers_data(struct kbase_device *kbdev)
 	const u32 cache_line_alignment = kbase_get_cache_line_alignment(kbdev);
 
 	list_for_each_entry(trace_buffer, &kbdev->csf.firmware_trace_buffers.list, node) {
-		u32 extract_gpu_va, insert_gpu_va, data_buffer_gpu_va,
-			trace_enable_size_dwords;
+		u32 extract_gpu_va, insert_gpu_va, data_buffer_gpu_va, trace_enable_size_dwords;
 		u32 *extract_cpu_va, *insert_cpu_va;
 		unsigned int i;
 
@@ -318,17 +308,14 @@ void kbase_csf_firmware_reload_trace_buffers_data(struct kbase_device *kbdev)
 		extract_gpu_va =
 			(kbdev->csf.firmware_trace_buffers.mcu_rw.va_reg->start_pfn << PAGE_SHIFT) +
 			mcu_rw_offset;
-		extract_cpu_va = (u32 *)(
-			kbdev->csf.firmware_trace_buffers.mcu_rw.cpu_addr +
-			mcu_rw_offset);
-		insert_gpu_va =
-			(kbdev->csf.firmware_trace_buffers.mcu_write.va_reg->start_pfn << PAGE_SHIFT) +
-			mcu_write_offset;
-		insert_cpu_va = (u32 *)(
-			kbdev->csf.firmware_trace_buffers.mcu_write.cpu_addr +
-			mcu_write_offset);
-		data_buffer_gpu_va =
-			(trace_buffer->data_mapping.va_reg->start_pfn << PAGE_SHIFT);
+		extract_cpu_va =
+			(u32 *)(kbdev->csf.firmware_trace_buffers.mcu_rw.cpu_addr + mcu_rw_offset);
+		insert_gpu_va = (kbdev->csf.firmware_trace_buffers.mcu_write.va_reg->start_pfn
+				 << PAGE_SHIFT) +
+				mcu_write_offset;
+		insert_cpu_va = (u32 *)(kbdev->csf.firmware_trace_buffers.mcu_write.cpu_addr +
+					mcu_write_offset);
+		data_buffer_gpu_va = (trace_buffer->data_mapping.va_reg->start_pfn << PAGE_SHIFT);
 
 		/* Notice that the function only re-updates firmware memory locations
 		 * with information that allows access to the trace buffers without
@@ -340,23 +327,21 @@ void kbase_csf_firmware_reload_trace_buffers_data(struct kbase_device *kbdev)
 		/* Each FW address shall be mapped and set individually, as we can't
 		 * assume anything about their location in the memory address space.
 		 */
-		kbase_csf_update_firmware_memory(
-				kbdev, trace_buffer->gpu_va.data_address, data_buffer_gpu_va);
-		kbase_csf_update_firmware_memory(
-				kbdev, trace_buffer->gpu_va.insert_address, insert_gpu_va);
-		kbase_csf_update_firmware_memory(
-				kbdev, trace_buffer->gpu_va.extract_address, extract_gpu_va);
-		kbase_csf_update_firmware_memory(
-				kbdev, trace_buffer->gpu_va.size_address,
-				trace_buffer->num_pages << PAGE_SHIFT);
+		kbase_csf_update_firmware_memory(kbdev, trace_buffer->gpu_va.data_address,
+						 data_buffer_gpu_va);
+		kbase_csf_update_firmware_memory(kbdev, trace_buffer->gpu_va.insert_address,
+						 insert_gpu_va);
+		kbase_csf_update_firmware_memory(kbdev, trace_buffer->gpu_va.extract_address,
+						 extract_gpu_va);
+		kbase_csf_update_firmware_memory(kbdev, trace_buffer->gpu_va.size_address,
+						 trace_buffer->num_pages << PAGE_SHIFT);
 
-		trace_enable_size_dwords =
-				(trace_buffer->trace_enable_entry_count + 31) >> 5;
+		trace_enable_size_dwords = (trace_buffer->trace_enable_entry_count + 31) >> 5;
 
 		for (i = 0; i < trace_enable_size_dwords; i++) {
-			kbase_csf_update_firmware_memory(
-					kbdev, trace_buffer->gpu_va.trace_enable + i*4,
-					trace_buffer->trace_enable_init_mask[i]);
+			kbase_csf_update_firmware_memory(kbdev,
+							 trace_buffer->gpu_va.trace_enable + i * 4,
+							 trace_buffer->trace_enable_init_mask[i]);
 		}
 
 		/* Store CPU virtual addresses for permanently mapped variables,
@@ -371,8 +356,8 @@ void kbase_csf_firmware_reload_trace_buffers_data(struct kbase_device *kbdev)
 	}
 }
 
-struct firmware_trace_buffer *kbase_csf_firmware_get_trace_buffer(
-	struct kbase_device *kbdev, const char *name)
+struct firmware_trace_buffer *kbase_csf_firmware_get_trace_buffer(struct kbase_device *kbdev,
+								  const char *name)
 {
 	struct firmware_trace_buffer *trace_buffer;
 
@@ -392,8 +377,9 @@ unsigned int kbase_csf_firmware_trace_buffer_get_trace_enable_bits_count(
 }
 EXPORT_SYMBOL(kbase_csf_firmware_trace_buffer_get_trace_enable_bits_count);
 
-static void kbasep_csf_firmware_trace_buffer_update_trace_enable_bit(
-	struct firmware_trace_buffer *tb, unsigned int bit, bool value)
+static void
+kbasep_csf_firmware_trace_buffer_update_trace_enable_bit(struct firmware_trace_buffer *tb,
+							 unsigned int bit, bool value)
 {
 	struct kbase_device *kbdev = tb->kbdev;
 
@@ -419,14 +405,13 @@ static void kbasep_csf_firmware_trace_buffer_update_trace_enable_bit(
 		 * value of bitmask it cached after the boot.
 		 */
 		kbase_csf_update_firmware_memory(
-			kbdev,
-			tb->gpu_va.trace_enable + trace_enable_reg_offset * 4,
+			kbdev, tb->gpu_va.trace_enable + trace_enable_reg_offset * 4,
 			tb->trace_enable_init_mask[trace_enable_reg_offset]);
 	}
 }
 
-int kbase_csf_firmware_trace_buffer_update_trace_enable_bit(
-	struct firmware_trace_buffer *tb, unsigned int bit, bool value)
+int kbase_csf_firmware_trace_buffer_update_trace_enable_bit(struct firmware_trace_buffer *tb,
+							    unsigned int bit, bool value)
 {
 	struct kbase_device *kbdev = tb->kbdev;
 	int err = 0;
@@ -443,16 +428,14 @@ int kbase_csf_firmware_trace_buffer_update_trace_enable_bit(
 		 * the User to retry the update.
 		 */
 		if (kbase_reset_gpu_silent(kbdev)) {
-			dev_warn(
-				kbdev->dev,
-				"GPU reset already in progress when enabling firmware timeline.");
+			dev_warn(kbdev->dev,
+				 "GPU reset already in progress when enabling firmware timeline.");
 			spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 			return -EAGAIN;
 		}
 	}
 
-	kbasep_csf_firmware_trace_buffer_update_trace_enable_bit(tb, bit,
-								 value);
+	kbasep_csf_firmware_trace_buffer_update_trace_enable_bit(tb, bit, value);
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
 	if (tb->updatable)
@@ -462,16 +445,14 @@ int kbase_csf_firmware_trace_buffer_update_trace_enable_bit(
 }
 EXPORT_SYMBOL(kbase_csf_firmware_trace_buffer_update_trace_enable_bit);
 
-bool kbase_csf_firmware_trace_buffer_is_empty(
-	const struct firmware_trace_buffer *trace_buffer)
+bool kbase_csf_firmware_trace_buffer_is_empty(const struct firmware_trace_buffer *trace_buffer)
 {
-	return *(trace_buffer->cpu_va.insert_cpu_va) ==
-			*(trace_buffer->cpu_va.extract_cpu_va);
+	return *(trace_buffer->cpu_va.insert_cpu_va) == *(trace_buffer->cpu_va.extract_cpu_va);
 }
 EXPORT_SYMBOL(kbase_csf_firmware_trace_buffer_is_empty);
 
-unsigned int kbase_csf_firmware_trace_buffer_read_data(
-	struct firmware_trace_buffer *trace_buffer, u8 *data, unsigned int num_bytes)
+unsigned int kbase_csf_firmware_trace_buffer_read_data(struct firmware_trace_buffer *trace_buffer,
+						       u8 *data, unsigned int num_bytes)
 {
 	unsigned int bytes_copied;
 	u8 *data_cpu_va = trace_buffer->data_mapping.cpu_addr;
@@ -480,19 +461,17 @@ unsigned int kbase_csf_firmware_trace_buffer_read_data(
 	u32 buffer_size = trace_buffer->num_pages << PAGE_SHIFT;
 
 	if (insert_offset >= extract_offset) {
-		bytes_copied = min_t(unsigned int, num_bytes,
-			(insert_offset - extract_offset));
+		bytes_copied = min_t(unsigned int, num_bytes, (insert_offset - extract_offset));
 		memcpy(data, &data_cpu_va[extract_offset], bytes_copied);
 		extract_offset += bytes_copied;
 	} else {
 		unsigned int bytes_copied_head, bytes_copied_tail;
 
-		bytes_copied_tail = min_t(unsigned int, num_bytes,
-			(buffer_size - extract_offset));
+		bytes_copied_tail = min_t(unsigned int, num_bytes, (buffer_size - extract_offset));
 		memcpy(data, &data_cpu_va[extract_offset], bytes_copied_tail);
 
-		bytes_copied_head = min_t(unsigned int,
-			(num_bytes - bytes_copied_tail), insert_offset);
+		bytes_copied_head =
+			min_t(unsigned int, (num_bytes - bytes_copied_tail), insert_offset);
 		memcpy(&data[bytes_copied_tail], data_cpu_va, bytes_copied_head);
 
 		bytes_copied = bytes_copied_head + bytes_copied_tail;

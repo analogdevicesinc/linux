@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2011-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -43,7 +43,7 @@
  * This gives a maximum period between samples of 2^(32+8)/100 ns = slightly
  * under 11s. Exceeding this will cause overflow
  */
-#define KBASE_PM_TIME_SHIFT			8
+#define KBASE_PM_TIME_SHIFT 8
 #endif
 
 #if MALI_USE_CSF
@@ -111,9 +111,6 @@ int kbasep_pm_metrics_init(struct kbase_device *kbdev)
 	KBASE_DEBUG_ASSERT(kbdev != NULL);
 	kbdev->pm.backend.metrics.kbdev = kbdev;
 	kbdev->pm.backend.metrics.time_period_start = ktime_get_raw();
-	kbdev->pm.backend.metrics.values.time_busy = 0;
-	kbdev->pm.backend.metrics.values.time_idle = 0;
-	kbdev->pm.backend.metrics.values.time_in_protm = 0;
 
 	perf_counter.scaling_factor = GPU_ACTIVE_SCALING_FACTOR;
 
@@ -126,39 +123,21 @@ int kbasep_pm_metrics_init(struct kbase_device *kbdev)
 	/* We need the GPU_ACTIVE counter */
 	perf_counter.idx = GPU_ACTIVE_CNT_IDX;
 
-	err = kbase_ipa_control_register(
-		kbdev, &perf_counter, NUM_PERF_COUNTERS,
-		&kbdev->pm.backend.metrics.ipa_control_client);
+	err = kbase_ipa_control_register(kbdev, &perf_counter, NUM_PERF_COUNTERS,
+					 &kbdev->pm.backend.metrics.ipa_control_client);
 	if (err) {
-		dev_err(kbdev->dev,
-			"Failed to register IPA with kbase_ipa_control: err=%d",
-			err);
+		dev_err(kbdev->dev, "Failed to register IPA with kbase_ipa_control: err=%d", err);
 		return -1;
 	}
 #else
 	KBASE_DEBUG_ASSERT(kbdev != NULL);
 	kbdev->pm.backend.metrics.kbdev = kbdev;
 	kbdev->pm.backend.metrics.time_period_start = ktime_get_raw();
-
-	kbdev->pm.backend.metrics.gpu_active = false;
-	kbdev->pm.backend.metrics.active_cl_ctx[0] = 0;
-	kbdev->pm.backend.metrics.active_cl_ctx[1] = 0;
-	kbdev->pm.backend.metrics.active_gl_ctx[0] = 0;
-	kbdev->pm.backend.metrics.active_gl_ctx[1] = 0;
-	kbdev->pm.backend.metrics.active_gl_ctx[2] = 0;
-
-	kbdev->pm.backend.metrics.values.time_busy = 0;
-	kbdev->pm.backend.metrics.values.time_idle = 0;
-	kbdev->pm.backend.metrics.values.busy_cl[0] = 0;
-	kbdev->pm.backend.metrics.values.busy_cl[1] = 0;
-	kbdev->pm.backend.metrics.values.busy_gl = 0;
-
 #endif
 	spin_lock_init(&kbdev->pm.backend.metrics.lock);
 
 #ifdef CONFIG_MALI_MIDGARD_DVFS
-	hrtimer_init(&kbdev->pm.backend.metrics.timer, CLOCK_MONOTONIC,
-							HRTIMER_MODE_REL);
+	hrtimer_init(&kbdev->pm.backend.metrics.timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	kbdev->pm.backend.metrics.timer.function = dvfs_callback;
 	kbdev->pm.backend.metrics.initialized = true;
 	atomic_set(&kbdev->pm.backend.metrics.timer_state, TIMER_OFF);
@@ -189,8 +168,9 @@ void kbasep_pm_metrics_term(struct kbase_device *kbdev)
 #endif /* CONFIG_MALI_MIDGARD_DVFS */
 
 #if MALI_USE_CSF
-	kbase_ipa_control_unregister(
-		kbdev, kbdev->pm.backend.metrics.ipa_control_client);
+	kbase_ipa_control_unregister(kbdev, kbdev->pm.backend.metrics.ipa_control_client);
+#else
+	CSTD_UNUSED(kbdev);
 #endif
 }
 
@@ -213,9 +193,8 @@ static void kbase_pm_get_dvfs_utilisation_calc(struct kbase_device *kbdev)
 	/* Query IPA_CONTROL for the latest GPU-active and protected-time
 	 * info.
 	 */
-	err = kbase_ipa_control_query(
-		kbdev, kbdev->pm.backend.metrics.ipa_control_client,
-		&gpu_active_counter, 1, &protected_time);
+	err = kbase_ipa_control_query(kbdev, kbdev->pm.backend.metrics.ipa_control_client,
+				      &gpu_active_counter, 1, &protected_time);
 
 	/* Read the timestamp after reading the GPU_ACTIVE counter value.
 	 * This ensures the time gap between the 2 reads is consistent for
@@ -226,15 +205,13 @@ static void kbase_pm_get_dvfs_utilisation_calc(struct kbase_device *kbdev)
 	now = ktime_get_raw();
 
 	if (err) {
-		dev_err(kbdev->dev,
-			"Failed to query the increment of GPU_ACTIVE counter: err=%d",
+		dev_err(kbdev->dev, "Failed to query the increment of GPU_ACTIVE counter: err=%d",
 			err);
 	} else {
 		u64 diff_ns;
 		s64 diff_ns_signed;
 		u32 ns_time;
-		ktime_t diff = ktime_sub(
-			now, kbdev->pm.backend.metrics.time_period_start);
+		ktime_t diff = ktime_sub(now, kbdev->pm.backend.metrics.time_period_start);
 
 		diff_ns_signed = ktime_to_ns(diff);
 
@@ -294,25 +271,21 @@ static void kbase_pm_get_dvfs_utilisation_calc(struct kbase_device *kbdev)
 		 */
 		gpu_active_counter = MIN(gpu_active_counter, ns_time);
 
-		kbdev->pm.backend.metrics.values.time_busy +=
-			gpu_active_counter;
+		kbdev->pm.backend.metrics.values.time_busy += gpu_active_counter;
 
-		kbdev->pm.backend.metrics.values.time_idle +=
-			ns_time - gpu_active_counter;
+		kbdev->pm.backend.metrics.values.time_idle += ns_time - gpu_active_counter;
 
 		/* Also make time in protected mode available explicitly,
 		 * so users of this data have this info, too.
 		 */
-		kbdev->pm.backend.metrics.values.time_in_protm +=
-			protected_time;
+		kbdev->pm.backend.metrics.values.time_in_protm += protected_time;
 	}
 
 	kbdev->pm.backend.metrics.time_period_start = now;
 }
 #endif /* defined(CONFIG_MALI_DEVFREQ) || defined(CONFIG_MALI_MIDGARD_DVFS) */
 #else
-static void kbase_pm_get_dvfs_utilisation_calc(struct kbase_device *kbdev,
-					       ktime_t now)
+static void kbase_pm_get_dvfs_utilisation_calc(struct kbase_device *kbdev, ktime_t now)
 {
 	ktime_t diff;
 
@@ -323,7 +296,7 @@ static void kbase_pm_get_dvfs_utilisation_calc(struct kbase_device *kbdev,
 		return;
 
 	if (kbdev->pm.backend.metrics.gpu_active) {
-		u32 ns_time = (u32) (ktime_to_ns(diff) >> KBASE_PM_TIME_SHIFT);
+		u32 ns_time = (u32)(ktime_to_ns(diff) >> KBASE_PM_TIME_SHIFT);
 
 		kbdev->pm.backend.metrics.values.time_busy += ns_time;
 		if (kbdev->pm.backend.metrics.active_cl_ctx[0])
@@ -343,11 +316,10 @@ static void kbase_pm_get_dvfs_utilisation_calc(struct kbase_device *kbdev,
 
 	kbdev->pm.backend.metrics.time_period_start = now;
 }
-#endif  /* MALI_USE_CSF */
+#endif /* MALI_USE_CSF */
 
 #if defined(CONFIG_MALI_DEVFREQ) || defined(CONFIG_MALI_MIDGARD_DVFS)
-void kbase_pm_get_dvfs_metrics(struct kbase_device *kbdev,
-			       struct kbasep_pm_metrics *last,
+void kbase_pm_get_dvfs_metrics(struct kbase_device *kbdev, struct kbasep_pm_metrics *last,
 			       struct kbasep_pm_metrics *diff)
 {
 	struct kbasep_pm_metrics *cur = &kbdev->pm.backend.metrics.values;
@@ -394,11 +366,9 @@ void kbase_pm_get_dvfs_action(struct kbase_device *kbdev)
 
 	diff = &kbdev->pm.backend.metrics.dvfs_diff;
 
-	kbase_pm_get_dvfs_metrics(kbdev, &kbdev->pm.backend.metrics.dvfs_last,
-				  diff);
+	kbase_pm_get_dvfs_metrics(kbdev, &kbdev->pm.backend.metrics.dvfs_last, diff);
 
-	utilisation = (100 * diff->time_busy) /
-			max(diff->time_busy + diff->time_idle, 1u);
+	utilisation = (100 * diff->time_busy) / max(diff->time_busy + diff->time_idle, 1u);
 
 #if !MALI_USE_CSF
 	busy = max(diff->busy_gl + diff->busy_cl[0] + diff->busy_cl[1], 1u);
@@ -407,8 +377,7 @@ void kbase_pm_get_dvfs_action(struct kbase_device *kbdev)
 	util_cl_share[0] = (100 * diff->busy_cl[0]) / busy;
 	util_cl_share[1] = (100 * diff->busy_cl[1]) / busy;
 
-	kbase_platform_dvfs_event(kbdev, utilisation, util_gl_share,
-				  util_cl_share);
+	kbase_platform_dvfs_event(kbdev, utilisation, util_gl_share, util_cl_share);
 #else
 	/* Note that, at present, we don't pass protected-mode time to the
 	 * platform here. It's unlikely to be useful, however, as the platform
@@ -451,7 +420,6 @@ void kbase_pm_metrics_stop(struct kbase_device *kbdev)
 	atomic_cmpxchg(&kbdev->pm.backend.metrics.timer_state, TIMER_ON, TIMER_STOPPED);
 }
 
-
 #endif /* CONFIG_MALI_MIDGARD_DVFS */
 
 #if !MALI_USE_CSF
@@ -484,12 +452,12 @@ static void kbase_pm_metrics_active_calc(struct kbase_device *kbdev)
 		if (katom && katom->gpu_rb_state != KBASE_ATOM_GPU_RB_SUBMITTED)
 			katom = kbase_gpu_inspect(kbdev, js, 1);
 
-		if (katom && katom->gpu_rb_state ==
-				KBASE_ATOM_GPU_RB_SUBMITTED) {
+		if (katom && katom->gpu_rb_state == KBASE_ATOM_GPU_RB_SUBMITTED) {
 			if (katom->core_req & BASE_JD_REQ_ONLY_COMPUTE) {
-				int device_nr = (katom->core_req &
-					BASE_JD_REQ_SPECIFIC_COHERENT_GROUP)
-						? katom->device_nr : 0;
+				int device_nr =
+					(katom->core_req & BASE_JD_REQ_SPECIFIC_COHERENT_GROUP) ?
+						      katom->device_nr :
+						      0;
 				if (!WARN_ON(device_nr >= 2))
 					kbdev->pm.backend.metrics.active_cl_ctx[device_nr] = 1;
 			} else {

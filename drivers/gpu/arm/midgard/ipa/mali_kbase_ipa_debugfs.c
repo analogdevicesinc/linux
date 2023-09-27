@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2017-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2017-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -46,7 +46,7 @@ static int param_int_get(void *data, u64 *val)
 	struct kbase_ipa_model_param *param = data;
 
 	mutex_lock(&param->model->kbdev->ipa.lock);
-	*(s64 *) val = *param->addr.s32p;
+	*(s64 *)val = *param->addr.s32p;
 	mutex_unlock(&param->model->kbdev->ipa.lock);
 
 	return 0;
@@ -56,7 +56,7 @@ static int param_int_set(void *data, u64 val)
 {
 	struct kbase_ipa_model_param *param = data;
 	struct kbase_ipa_model *model = param->model;
-	s64 sval = (s64) val;
+	s64 sval = (s64)val;
 	s32 old_val;
 	int err = 0;
 
@@ -76,8 +76,8 @@ static int param_int_set(void *data, u64 val)
 
 DEFINE_DEBUGFS_ATTRIBUTE(fops_s32, param_int_get, param_int_set, "%lld\n");
 
-static ssize_t param_string_get(struct file *file, char __user *user_buf,
-				size_t count, loff_t *ppos)
+static ssize_t param_string_get(struct file *file, char __user *user_buf, size_t count,
+				loff_t *ppos)
 {
 	struct kbase_ipa_model_param *param = file->private_data;
 	ssize_t ret;
@@ -85,15 +85,14 @@ static ssize_t param_string_get(struct file *file, char __user *user_buf,
 
 	mutex_lock(&param->model->kbdev->ipa.lock);
 	len = strnlen(param->addr.str, param->size - 1) + 1;
-	ret = simple_read_from_buffer(user_buf, count, ppos,
-				      param->addr.str, len);
+	ret = simple_read_from_buffer(user_buf, count, ppos, param->addr.str, len);
 	mutex_unlock(&param->model->kbdev->ipa.lock);
 
 	return ret;
 }
 
-static ssize_t param_string_set(struct file *file, const char __user *user_buf,
-				size_t count, loff_t *ppos)
+static ssize_t param_string_set(struct file *file, const char __user *user_buf, size_t count,
+				loff_t *ppos)
 {
 	struct kbase_ipa_model_param *param = file->private_data;
 	struct kbase_ipa_model *model = param->model;
@@ -101,6 +100,8 @@ static ssize_t param_string_set(struct file *file, const char __user *user_buf,
 	ssize_t ret = count;
 	size_t buf_size;
 	int err;
+
+	CSTD_UNUSED(ppos);
 
 	mutex_lock(&model->kbdev->ipa.lock);
 
@@ -150,9 +151,8 @@ static const struct file_operations fops_string = {
 	.llseek = default_llseek,
 };
 
-int kbase_ipa_model_param_add(struct kbase_ipa_model *model, const char *name,
-			      void *addr, size_t size,
-			      enum kbase_ipa_model_param_type type)
+int kbase_ipa_model_param_add(struct kbase_ipa_model *model, const char *name, void *addr,
+			      size_t size, enum kbase_ipa_model_param_type type)
 {
 	struct kbase_ipa_model_param *param;
 
@@ -214,10 +214,8 @@ static int force_fallback_model_set(void *data, u64 val)
 	return 0;
 }
 
-DEFINE_DEBUGFS_ATTRIBUTE(force_fallback_model,
-		force_fallback_model_get,
-		force_fallback_model_set,
-		"%llu\n");
+DEFINE_DEBUGFS_ATTRIBUTE(force_fallback_model, force_fallback_model_get, force_fallback_model_set,
+			 "%llu\n");
 
 static int current_power_get(void *data, u64 *val)
 {
@@ -229,9 +227,8 @@ static int current_power_get(void *data, u64 *val)
 	/* The current model assumes that there's no more than one voltage
 	 * regulator currently available in the system.
 	 */
-	kbase_get_real_power(df, &power,
-		kbdev->current_nominal_freq,
-		(kbdev->current_voltages[0] / 1000));
+	kbase_get_real_power(df, &power, kbdev->current_nominal_freq,
+			     (kbdev->current_voltages[0] / 1000));
 	kbase_pm_context_idle(kbdev);
 
 	*val = power;
@@ -247,21 +244,17 @@ static void kbase_ipa_model_debugfs_init(struct kbase_ipa_model *model)
 
 	lockdep_assert_held(&model->kbdev->ipa.lock);
 
-	dir = debugfs_create_dir(model->ops->name,
-				 model->kbdev->mali_debugfs_directory);
+	dir = debugfs_create_dir(model->ops->name, model->kbdev->mali_debugfs_directory);
 
 	if (IS_ERR_OR_NULL(dir)) {
-		dev_err(model->kbdev->dev,
-			"Couldn't create mali debugfs %s directory",
+		dev_err(model->kbdev->dev, "Couldn't create mali debugfs %s directory",
 			model->ops->name);
 		return;
 	}
 
 	list_for_each(it, &model->params) {
 		struct kbase_ipa_model_param *param =
-				list_entry(it,
-					   struct kbase_ipa_model_param,
-					   link);
+			list_entry(it, struct kbase_ipa_model_param, link);
 		const struct file_operations *fops = NULL;
 
 		switch (param->type) {
@@ -274,18 +267,15 @@ static void kbase_ipa_model_debugfs_init(struct kbase_ipa_model *model)
 		}
 
 		if (unlikely(!fops)) {
-			dev_err(model->kbdev->dev,
-				"Type not set for %s parameter %s\n",
+			dev_err(model->kbdev->dev, "Type not set for %s parameter %s\n",
 				model->ops->name, param->name);
 		} else {
-			debugfs_create_file(param->name, 0644,
-					    dir, param, fops);
+			debugfs_create_file(param->name, 0644, dir, param, fops);
 		}
 	}
 }
 
-void kbase_ipa_model_param_set_s32(struct kbase_ipa_model *model,
-	const char *name, s32 val)
+void kbase_ipa_model_param_set_s32(struct kbase_ipa_model *model, const char *name, s32 val)
 {
 	struct kbase_ipa_model_param *param;
 
@@ -296,8 +286,7 @@ void kbase_ipa_model_param_set_s32(struct kbase_ipa_model *model,
 			if (param->type == PARAM_TYPE_S32) {
 				*param->addr.s32p = val;
 			} else {
-				dev_err(model->kbdev->dev,
-					"Wrong type for %s parameter %s\n",
+				dev_err(model->kbdev->dev, "Wrong type for %s parameter %s\n",
 					model->ops->name, param->name);
 			}
 			break;
@@ -316,10 +305,10 @@ void kbase_ipa_debugfs_init(struct kbase_device *kbdev)
 		kbase_ipa_model_debugfs_init(kbdev->ipa.configured_model);
 	kbase_ipa_model_debugfs_init(kbdev->ipa.fallback_model);
 
-	debugfs_create_file("ipa_current_power", 0444,
-		kbdev->mali_debugfs_directory, kbdev, &current_power);
-	debugfs_create_file("ipa_force_fallback_model", 0644,
-		kbdev->mali_debugfs_directory, kbdev, &force_fallback_model);
+	debugfs_create_file("ipa_current_power", 0444, kbdev->mali_debugfs_directory, kbdev,
+			    &current_power);
+	debugfs_create_file("ipa_force_fallback_model", 0644, kbdev->mali_debugfs_directory, kbdev,
+			    &force_fallback_model);
 
 	mutex_unlock(&kbdev->ipa.lock);
 }

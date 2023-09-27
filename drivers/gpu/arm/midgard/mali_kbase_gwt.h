@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2010-2017, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -48,7 +48,6 @@ int kbase_gpu_gwt_stop(struct kbase_context *kctx);
  *
  * Return: 0 on success, error on failure.
  */
-int kbase_gpu_gwt_dump(struct kbase_context *kctx,
-			union kbase_ioctl_cinstr_gwt_dump *gwt_dump);
+int kbase_gpu_gwt_dump(struct kbase_context *kctx, union kbase_ioctl_cinstr_gwt_dump *gwt_dump);
 
 #endif /* _KBASE_GWT_H */

@@ -31,7 +31,6 @@
 #include "backend/gpu/mali_kbase_pm_ca.h"
 #include "mali_kbase_pm_policy.h"
 
-
 /**
  * kbase_pm_dev_idle - The GPU is idle.
  *
@@ -56,7 +55,7 @@ void kbase_pm_dev_activate(struct kbase_device *kbdev);
  *
  * @kbdev: The kbase device structure for the device (must be a valid
  *         pointer)
- * @type:  The type of core (see the enum kbase_pm_core_type enumeration)
+ * @core_type:  The type of core (see the enum kbase_pm_core_type enumeration)
  *
  * This function can be called by the active power policy to return a bitmask of
  * the cores (of a specified type) present in the GPU device and also a count of
@@ -64,15 +63,14 @@ void kbase_pm_dev_activate(struct kbase_device *kbdev);
  *
  * Return: The bit mask of cores present
  */
-u64 kbase_pm_get_present_cores(struct kbase_device *kbdev,
-						enum kbase_pm_core_type type);
+u64 kbase_pm_get_present_cores(struct kbase_device *kbdev, enum kbase_pm_core_type core_type);
 
 /**
  * kbase_pm_get_active_cores - Get details of the cores that are currently
  *                             active in the device.
  *
  * @kbdev: The kbase device structure for the device (must be a valid pointer)
- * @type:  The type of core (see the enum kbase_pm_core_type enumeration)
+ * @core_type:  The type of core (see the enum kbase_pm_core_type enumeration)
  *
  * This function can be called by the active power policy to return a bitmask of
  * the cores (of a specified type) that are actively processing work (i.e.
@@ -80,15 +78,14 @@ u64 kbase_pm_get_present_cores(struct kbase_device *kbdev,
  *
  * Return: The bit mask of active cores
  */
-u64 kbase_pm_get_active_cores(struct kbase_device *kbdev,
-						enum kbase_pm_core_type type);
+u64 kbase_pm_get_active_cores(struct kbase_device *kbdev, enum kbase_pm_core_type core_type);
 
 /**
  * kbase_pm_get_trans_cores - Get details of the cores that are currently
  *                            transitioning between power states.
  *
  * @kbdev: The kbase device structure for the device (must be a valid pointer)
- * @type:  The type of core (see the enum kbase_pm_core_type enumeration)
+ * @core_type:  The type of core (see the enum kbase_pm_core_type enumeration)
  *
  * This function can be called by the active power policy to return a bitmask of
  * the cores (of a specified type) that are currently transitioning between
@@ -96,15 +93,14 @@ u64 kbase_pm_get_active_cores(struct kbase_device *kbdev,
  *
  * Return: The bit mask of transitioning cores
  */
-u64 kbase_pm_get_trans_cores(struct kbase_device *kbdev,
-						enum kbase_pm_core_type type);
+u64 kbase_pm_get_trans_cores(struct kbase_device *kbdev, enum kbase_pm_core_type core_type);
 
 /**
  * kbase_pm_get_ready_cores - Get details of the cores that are currently
  *                            powered and ready for jobs.
  *
  * @kbdev: The kbase device structure for the device (must be a valid pointer)
- * @type:  The type of core (see the enum kbase_pm_core_type enumeration)
+ * @core_type:  The type of core (see the enum kbase_pm_core_type enumeration)
  *
  * This function can be called by the active power policy to return a bitmask of
  * the cores (of a specified type) that are powered and ready for jobs (they may
@@ -112,8 +108,7 @@ u64 kbase_pm_get_trans_cores(struct kbase_device *kbdev,
  *
  * Return: The bit mask of ready cores
  */
-u64 kbase_pm_get_ready_cores(struct kbase_device *kbdev,
-						enum kbase_pm_core_type type);
+u64 kbase_pm_get_ready_cores(struct kbase_device *kbdev, enum kbase_pm_core_type core_type);
 
 /**
  * kbase_pm_clock_on - Turn the clock for the device on, and enable device
@@ -224,7 +219,7 @@ void kbase_pm_reset_done(struct kbase_device *kbdev);
  * power off in progress and kbase_pm_context_active() was called instead of
  * kbase_csf_scheduler_pm_active().
  *
- * Return: 0 on success, error code on error
+ * Return: 0 on success, or -ETIMEDOUT code on timeout error.
  */
 int kbase_pm_wait_for_desired_state(struct kbase_device *kbdev);
 #else
@@ -247,10 +242,25 @@ int kbase_pm_wait_for_desired_state(struct kbase_device *kbdev);
  * must ensure that this is not the case by, for example, calling
  * kbase_pm_wait_for_poweroff_work_complete()
  *
- * Return: 0 on success, error code on error
+ * Return: 0 on success, or -ETIMEDOUT error code on timeout error.
  */
 int kbase_pm_wait_for_desired_state(struct kbase_device *kbdev);
 #endif
+
+/**
+ * kbase_pm_killable_wait_for_desired_state - Wait for the desired power state to be
+ *                                            reached in a killable state.
+ * @kbdev: The kbase device structure for the device (must be a valid pointer)
+ *
+ * This function is same as kbase_pm_wait_for_desired_state(), expect that it would
+ * allow the SIGKILL signal to interrupt the wait.
+ * This function is supposed to be called from the code that is executed in ioctl or
+ * Userspace context, wherever it is safe to do so.
+ *
+ * Return: 0 on success, or -ETIMEDOUT code on timeout error or -ERESTARTSYS if the
+ *         wait was interrupted.
+ */
+int kbase_pm_killable_wait_for_desired_state(struct kbase_device *kbdev);
 
 /**
  * kbase_pm_wait_for_l2_powered - Wait for the L2 cache to be powered on
@@ -333,6 +343,8 @@ void kbase_pm_update_state(struct kbase_device *kbdev);
  *                               shader poweroff timer
  * @kbdev: Device pointer
  *
+ * This function must be called only when a kbase device is initialized.
+ *
  * Return: 0 on success, error code on error
  */
 int kbase_pm_state_machine_init(struct kbase_device *kbdev);
@@ -360,8 +372,8 @@ void kbase_pm_update_cores_state(struct kbase_device *kbdev);
  * kbasep_pm_metrics_init - Initialize the metrics gathering framework.
  * @kbdev: The kbase device structure for the device (must be a valid pointer)
  *
- * This must be called before other metric gathering APIs are called.
- *
+ * This function must be called only when a kbase device is initialized and
+ * also must be called before other metric gathering APIs are called.
  *
  * Return: 0 on success, error code on error
  */
@@ -473,6 +485,22 @@ void kbase_pm_release_gpu_cycle_counter_nolock(struct kbase_device *kbdev);
 int kbase_pm_wait_for_poweroff_work_complete(struct kbase_device *kbdev);
 
 /**
+ * kbase_pm_killable_wait_for_poweroff_work_complete - Wait for the poweroff workqueue to
+ *                                                     complete in killable state.
+ *
+ * @kbdev: The kbase device structure for the device (must be a valid pointer)
+ *
+ * This function is same as kbase_pm_wait_for_poweroff_work_complete(), expect that
+ * it would allow the SIGKILL signal to interrupt the wait.
+ * This function is supposed to be called from the code that is executed in ioctl or
+ * Userspace context, wherever it is safe to do so.
+ *
+ * Return: 0 on success, or -ETIMEDOUT code on timeout error or -ERESTARTSYS if the
+ *         wait was interrupted.
+ */
+int kbase_pm_killable_wait_for_poweroff_work_complete(struct kbase_device *kbdev);
+
+/**
  * kbase_pm_wait_for_gpu_power_down - Wait for the GPU power down to complete
  *
  * @kbdev: The kbase device structure for the device (must be a valid pointer)
@@ -486,8 +514,9 @@ void kbase_pm_wait_for_gpu_power_down(struct kbase_device *kbdev);
  * @kbdev: The kbase device structure for the device (must be a valid pointer)
  *
  * Setup the power management callbacks and initialize/enable the runtime-pm
- * for the Mali GPU platform device, using the callback function. This must be
- * called before the kbase_pm_register_access_enable() function.
+ * for the Mali GPU platform device, using the callback function.
+ * This function must be called only when a kbase device is initialized and
+ * also must be called before the kbase_pm_register_access_enable() function.
  *
  * Return: 0 on success, error code on error
  */
@@ -571,8 +600,7 @@ void kbase_pm_do_poweron(struct kbase_device *kbdev, bool is_resume);
 void kbase_pm_do_poweroff(struct kbase_device *kbdev);
 
 #if defined(CONFIG_MALI_DEVFREQ) || defined(CONFIG_MALI_MIDGARD_DVFS)
-void kbase_pm_get_dvfs_metrics(struct kbase_device *kbdev,
-			       struct kbasep_pm_metrics *last,
+void kbase_pm_get_dvfs_metrics(struct kbase_device *kbdev, struct kbasep_pm_metrics *last,
 			       struct kbasep_pm_metrics *diff);
 #endif /* defined(CONFIG_MALI_DEVFREQ) || defined(CONFIG_MALI_MIDGARD_DVFS) */
 
@@ -607,8 +635,8 @@ int kbase_platform_dvfs_event(struct kbase_device *kbdev, u32 utilisation);
  *
  * Return:         Returns 0 on failure and non zero on success.
  */
-int kbase_platform_dvfs_event(struct kbase_device *kbdev, u32 utilisation,
-			      u32 util_gl_share, u32 util_cl_share[2]);
+int kbase_platform_dvfs_event(struct kbase_device *kbdev, u32 utilisation, u32 util_gl_share,
+			      u32 util_cl_share[2]);
 #endif
 
 #endif /* CONFIG_MALI_MIDGARD_DVFS */
@@ -623,8 +651,7 @@ void kbase_pm_power_changed(struct kbase_device *kbdev);
  *
  * Caller must hold hwaccess_lock
  */
-void kbase_pm_metrics_update(struct kbase_device *kbdev,
-				ktime_t *now);
+void kbase_pm_metrics_update(struct kbase_device *kbdev, ktime_t *now);
 
 /**
  * kbase_pm_cache_snoop_enable - Allow CPU snoops on the GPU
@@ -792,8 +819,7 @@ bool kbase_pm_is_mcu_desired(struct kbase_device *kbdev);
  *
  * Return: true if MCU is inactive
  */
-bool kbase_pm_is_mcu_inactive(struct kbase_device *kbdev,
-			      enum kbase_mcu_state state);
+bool kbase_pm_is_mcu_inactive(struct kbase_device *kbdev, enum kbase_mcu_state state);
 
 /**
  * kbase_pm_idle_groups_sched_suspendable - Check whether the scheduler can be
@@ -804,13 +830,11 @@ bool kbase_pm_is_mcu_inactive(struct kbase_device *kbdev,
  *
  * Return: true if allowed to enter the suspended state.
  */
-static inline
-bool kbase_pm_idle_groups_sched_suspendable(struct kbase_device *kbdev)
+static inline bool kbase_pm_idle_groups_sched_suspendable(struct kbase_device *kbdev)
 {
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
-	return !(kbdev->pm.backend.csf_pm_sched_flags &
-		 CSF_DYNAMIC_PM_SCHED_IGNORE_IDLE);
+	return !(kbdev->pm.backend.csf_pm_sched_flags & CSF_DYNAMIC_PM_SCHED_IGNORE_IDLE);
 }
 
 /**
@@ -822,13 +846,11 @@ bool kbase_pm_idle_groups_sched_suspendable(struct kbase_device *kbdev)
  *
  * Return: true if allowed to enter the suspended state.
  */
-static inline
-bool kbase_pm_no_runnables_sched_suspendable(struct kbase_device *kbdev)
+static inline bool kbase_pm_no_runnables_sched_suspendable(struct kbase_device *kbdev)
 {
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
-	return !(kbdev->pm.backend.csf_pm_sched_flags &
-		 CSF_DYNAMIC_PM_SCHED_NO_SUSPEND);
+	return !(kbdev->pm.backend.csf_pm_sched_flags & CSF_DYNAMIC_PM_SCHED_NO_SUSPEND);
 }
 
 /**
@@ -844,8 +866,7 @@ static inline bool kbase_pm_no_mcu_core_pwroff(struct kbase_device *kbdev)
 {
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
-	return kbdev->pm.backend.csf_pm_sched_flags &
-		CSF_DYNAMIC_PM_CORE_KEEP_ON;
+	return kbdev->pm.backend.csf_pm_sched_flags & CSF_DYNAMIC_PM_CORE_KEEP_ON;
 }
 
 /**
@@ -965,13 +986,12 @@ static inline void kbase_pm_enable_db_mirror_interrupt(struct kbase_device *kbde
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
 	if (!kbdev->pm.backend.db_mirror_interrupt_enabled) {
-		u32 irq_mask = kbase_reg_read(kbdev,
-				GPU_CONTROL_REG(GPU_IRQ_MASK));
+		u32 irq_mask = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_MASK));
 
 		WARN_ON(irq_mask & DOORBELL_MIRROR);
 
-		kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_MASK),
-				irq_mask | DOORBELL_MIRROR);
+		kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_MASK),
+				  irq_mask | DOORBELL_MIRROR);
 		kbdev->pm.backend.db_mirror_interrupt_enabled = true;
 	}
 }
@@ -989,11 +1009,10 @@ static inline void kbase_pm_disable_db_mirror_interrupt(struct kbase_device *kbd
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
 	if (kbdev->pm.backend.db_mirror_interrupt_enabled) {
-		u32 irq_mask = kbase_reg_read(kbdev,
-				GPU_CONTROL_REG(GPU_IRQ_MASK));
+		u32 irq_mask = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_MASK));
 
-		kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_MASK),
-				irq_mask & ~DOORBELL_MIRROR);
+		kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_MASK),
+				  irq_mask & ~DOORBELL_MIRROR);
 		kbdev->pm.backend.db_mirror_interrupt_enabled = false;
 	}
 }

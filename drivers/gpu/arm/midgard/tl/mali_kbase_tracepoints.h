@@ -77,6 +77,11 @@ extern const size_t  aux_desc_header_size;
 #define TL_JS_EVENT_STOP      GATOR_JOB_SLOT_STOP
 #define TL_JS_EVENT_SOFT_STOP GATOR_JOB_SLOT_SOFT_STOPPED
 
+#define TL_PM_STATE_SHADER 0x100
+#define TL_PM_STATE_TILER 0x110
+#define TL_PM_STATE_L2 0x120
+#define TL_PM_STATE_STACK 0xE00
+
 #define TLSTREAM_ENABLED (1u << 31)
 
 void __kbase_tlstream_tl_new_ctx(
@@ -393,7 +398,8 @@ void __kbase_tlstream_tl_kbase_new_device(
 	u32 kbase_device_as_count,
 	u32 kbase_device_sb_entry_count,
 	u32 kbase_device_has_cross_stream_sync,
-	u32 kbase_device_supports_gpu_sleep
+	u32 kbase_device_supports_gpu_sleep,
+	u32 kbase_device_has_vd54d34dbb40917c8cea48cca407a8789413be0db
 );
 
 void __kbase_tlstream_tl_kbase_gpucmdqueue_kick(
@@ -1996,6 +2002,7 @@ struct kbase_tlstream;
  * @kbase_device_sb_entry_count: The number of entries each scoreboard set in the physical hardware has available
  * @kbase_device_has_cross_stream_sync: Whether cross-stream synchronization is supported
  * @kbase_device_supports_gpu_sleep: Whether GPU sleep is supported
+ * @kbase_device_has_vd54d34dbb40917c8cea48cca407a8789413be0db: Whether v34932631451e2dea4ed0fab0025a0d2767d5e427 is supported
  */
 #if MALI_USE_CSF
 #define KBASE_TLSTREAM_TL_KBASE_NEW_DEVICE(	\
@@ -2006,7 +2013,8 @@ struct kbase_tlstream;
 	kbase_device_as_count,	\
 	kbase_device_sb_entry_count,	\
 	kbase_device_has_cross_stream_sync,	\
-	kbase_device_supports_gpu_sleep	\
+	kbase_device_supports_gpu_sleep,	\
+	kbase_device_has_vd54d34dbb40917c8cea48cca407a8789413be0db	\
 	)	\
 	do {	\
 		int enabled = atomic_read(&kbdev->timeline_flags);	\
@@ -2019,7 +2027,8 @@ struct kbase_tlstream;
 				kbase_device_as_count,	\
 				kbase_device_sb_entry_count,	\
 				kbase_device_has_cross_stream_sync,	\
-				kbase_device_supports_gpu_sleep	\
+				kbase_device_supports_gpu_sleep,	\
+				kbase_device_has_vd54d34dbb40917c8cea48cca407a8789413be0db	\
 				);	\
 	} while (0)
 #else
@@ -2031,7 +2040,8 @@ struct kbase_tlstream;
 	kbase_device_as_count,	\
 	kbase_device_sb_entry_count,	\
 	kbase_device_has_cross_stream_sync,	\
-	kbase_device_supports_gpu_sleep	\
+	kbase_device_supports_gpu_sleep,	\
+	kbase_device_has_vd54d34dbb40917c8cea48cca407a8789413be0db	\
 	)	\
 	do { } while (0)
 #endif /* MALI_USE_CSF */

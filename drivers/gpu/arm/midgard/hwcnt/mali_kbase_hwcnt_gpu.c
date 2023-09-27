@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2018-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -19,8 +19,8 @@
  *
  */
 
+#include <mali_kbase.h>
 #include "hwcnt/mali_kbase_hwcnt_gpu.h"
-#include "hwcnt/mali_kbase_hwcnt_types.h"
 
 #include <linux/err.h>
 
@@ -129,8 +129,11 @@ static int kbasep_hwcnt_backend_gpu_metadata_create(const struct kbase_hwcnt_gpu
 	size_t non_sc_block_count;
 	size_t sc_block_count;
 
-	WARN_ON(!gpu_info);
-	WARN_ON(!metadata);
+	if (WARN_ON(!gpu_info))
+		return -EINVAL;
+
+	if (WARN_ON(!metadata))
+		return -EINVAL;
 
 	/* Calculate number of block instances that aren't shader cores */
 	non_sc_block_count = 2 + gpu_info->l2_count;
@@ -164,7 +167,6 @@ static int kbasep_hwcnt_backend_gpu_metadata_create(const struct kbase_hwcnt_gpu
 	blks[2].inst_cnt = gpu_info->l2_count;
 	blks[2].hdr_cnt = KBASE_HWCNT_V5_HEADERS_PER_BLOCK;
 	blks[2].ctr_cnt = gpu_info->prfcnt_values_per_block - KBASE_HWCNT_V5_HEADERS_PER_BLOCK;
-
 	/*
 	 * There are as many shader cores in the system as there are bits set in
 	 * the core mask. However, the dump buffer memory requirements need to
@@ -294,6 +296,7 @@ void kbase_hwcnt_csf_metadata_destroy(const struct kbase_hwcnt_metadata *metadat
 static bool is_block_type_shader(const u64 grp_type, const u64 blk_type, const size_t blk)
 {
 	bool is_shader = false;
+	CSTD_UNUSED(blk);
 
 	/* Warn on unknown group type */
 	if (WARN_ON(grp_type != KBASE_HWCNT_GPU_GROUP_TYPE_V5))
@@ -338,7 +341,7 @@ int kbase_hwcnt_jm_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 	u64 core_mask = pm_core_mask;
 
 	/* Variables to deal with the current configuration */
-	int l2_count = 0;
+	size_t l2_count = 0;
 
 	if (!dst || !src || !dst_enable_map || (dst_enable_map->metadata != dst->metadata))
 		return -EINVAL;
@@ -351,6 +354,7 @@ int kbase_hwcnt_jm_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 		const size_t ctr_cnt =
 			kbase_hwcnt_metadata_block_counters_count(metadata, grp, blk);
 		const u64 blk_type = kbase_hwcnt_metadata_block_type(metadata, grp, blk);
+
 		const bool is_shader_core = is_block_type_shader(
 			kbase_hwcnt_metadata_group_type(metadata, grp), blk_type, blk);
 		const bool is_l2_cache = is_block_type_l2_cache(
@@ -437,14 +441,18 @@ int kbase_hwcnt_jm_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 }
 
 int kbase_hwcnt_csf_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
-			     const struct kbase_hwcnt_enable_map *dst_enable_map, bool accumulate)
+			     blk_stt_t *src_block_stt,
+			     const struct kbase_hwcnt_enable_map *dst_enable_map,
+			     size_t num_l2_slices, u64 shader_present_bitmap, bool accumulate)
 {
 	const struct kbase_hwcnt_metadata *metadata;
+	size_t grp, blk, blk_inst;
 	const u64 *dump_src = src;
 	size_t src_offset = 0;
-	size_t grp, blk, blk_inst;
+	size_t blk_inst_count = 0;
 
-	if (!dst || !src || !dst_enable_map || (dst_enable_map->metadata != dst->metadata))
+	if (!dst || !src || !src_block_stt || !dst_enable_map ||
+	    (dst_enable_map->metadata != dst->metadata))
 		return -EINVAL;
 
 	metadata = dst->metadata;
@@ -457,6 +465,8 @@ int kbase_hwcnt_csf_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 		const uint64_t blk_type = kbase_hwcnt_metadata_block_type(metadata, grp, blk);
 		const bool is_undefined = kbase_hwcnt_is_block_type_undefined(
 			kbase_hwcnt_metadata_group_type(metadata, grp), blk_type);
+		blk_stt_t *dst_blk_stt =
+			kbase_hwcnt_dump_buffer_block_state_instance(dst, grp, blk, blk_inst);
 
 		/*
 		 * Skip block if no values in the destination block are enabled.
@@ -470,25 +480,31 @@ int kbase_hwcnt_csf_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 				if (accumulate) {
 					kbase_hwcnt_dump_buffer_block_accumulate(dst_blk, src_blk,
 										 hdr_cnt, ctr_cnt);
+					kbase_hwcnt_block_state_append(
+						dst_blk_stt, src_block_stt[blk_inst_count]);
 				} else {
 					kbase_hwcnt_dump_buffer_block_copy(dst_blk, src_blk,
 									   (hdr_cnt + ctr_cnt));
+					kbase_hwcnt_block_state_set(dst_blk_stt,
+								    src_block_stt[blk_inst_count]);
 				}
 			} else {
-				/* Even though the block might be undefined, the
-				 * user has enabled counter collection for it.
-				 * We should not propagate garbage data.
+				/* Even though the block might be undefined, the user has enabled
+				 * counter collection for it. We should not propagate garbage
+				 * data, or copy/accumulate the block states.
 				 */
 				if (accumulate) {
 					/* No-op to preserve existing values */
 				} else {
-					/* src is garbage, so zero the dst */
+					/* src is garbage, so zero the dst and reset block state */
 					kbase_hwcnt_dump_buffer_block_zero(dst_blk,
 									   (hdr_cnt + ctr_cnt));
+					kbase_hwcnt_block_state_set(dst_blk_stt,
+								    KBASE_HWCNT_STATE_UNKNOWN);
 				}
 			}
 		}
-
+		blk_inst_count++;
 		src_offset += (hdr_cnt + ctr_cnt);
 	}
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2017, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2017-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -59,7 +59,7 @@ char *kutf_helper_input_dequeue(struct kutf_context *context, size_t *str_size)
 		spin_unlock(&kutf_input_lock);
 
 		err = wait_event_interruptible(context->userdata.input_waitq,
-				kutf_helper_pending_input(context));
+					       kutf_helper_pending_input(context));
 
 		if (err)
 			return ERR_PTR(-EINTR);
@@ -67,8 +67,7 @@ char *kutf_helper_input_dequeue(struct kutf_context *context, size_t *str_size)
 		spin_lock(&kutf_input_lock);
 	}
 
-	line = list_first_entry(&context->userdata.input_head,
-			struct kutf_userdata_line, node);
+	line = list_first_entry(&context->userdata.input_head, struct kutf_userdata_line, node);
 	if (line->str) {
 		/*
 		 * Unless it is the end-of-input marker,
@@ -84,13 +83,11 @@ char *kutf_helper_input_dequeue(struct kutf_context *context, size_t *str_size)
 	return line->str;
 }
 
-int kutf_helper_input_enqueue(struct kutf_context *context,
-		const char __user *str, size_t size)
+int kutf_helper_input_enqueue(struct kutf_context *context, const char __user *str, size_t size)
 {
 	struct kutf_userdata_line *line;
 
-	line = kutf_mempool_alloc(&context->fixture_pool,
-			sizeof(*line) + size + 1);
+	line = kutf_mempool_alloc(&context->fixture_pool, sizeof(*line) + size + 1);
 	if (!line)
 		return -ENOMEM;
 	if (str) {

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -34,8 +34,8 @@
  *
  * Return: A pointer to the selected memory pool.
  */
-static inline struct kbase_mem_pool *kbase_mem_pool_group_select(
-	struct kbase_device *kbdev, u32 mem_group_id, bool is_small_page)
+static inline struct kbase_mem_pool *
+kbase_mem_pool_group_select(struct kbase_device *kbdev, u32 mem_group_id, bool is_small_page)
 {
 	if (WARN_ON(unlikely(kbdev == NULL)))
 		return NULL;
@@ -60,8 +60,8 @@ static inline struct kbase_mem_pool *kbase_mem_pool_group_select(
  * The equivalent number of 2 MiB pages is calculated automatically for the
  * purpose of configuring the large page pools.
  */
-void kbase_mem_pool_group_config_set_max_size(
-	struct kbase_mem_pool_group_config *configs, size_t max_size);
+void kbase_mem_pool_group_config_set_max_size(struct kbase_mem_pool_group_config *configs,
+					      size_t max_size);
 
 /**
  * kbase_mem_pool_group_init - Initialize a set of memory pools

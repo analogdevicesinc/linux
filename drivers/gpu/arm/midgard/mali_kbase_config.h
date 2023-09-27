@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2010-2017, 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -29,7 +29,6 @@
 #include <linux/mm.h>
 #include <mali_malisw.h>
 #include <backend/gpu/mali_kbase_backend_config.h>
-#include <linux/rbtree.h>
 
 /* Forward declaration of struct kbase_device */
 struct kbase_device;
@@ -153,8 +152,7 @@ struct kbase_platform_funcs_conf {
 	 * Context: The caller must hold the hwaccess_lock. Function must be
 	 *          runnable in an interrupt context.
 	 */
-	void (*platform_handler_atom_complete_func)(
-		struct kbase_jd_atom *katom);
+	void (*platform_handler_atom_complete_func)(struct kbase_jd_atom *katom);
 #endif
 };
 
@@ -232,7 +230,7 @@ struct kbase_pm_callback_conf {
 	 *
 	 * @return 0 on success, else int error code.
 	 */
-	 int (*power_runtime_init_callback)(struct kbase_device *kbdev);
+	int (*power_runtime_init_callback)(struct kbase_device *kbdev);
 
 	/** Callback for handling runtime power management termination.
 	 *
@@ -376,8 +374,7 @@ struct kbase_clk_rate_trace_op_conf {
 	 * Kbase will use this function pointer to enumerate the existence of a
 	 * GPU clock on the given index.
 	 */
-	void *(*enumerate_gpu_clk)(struct kbase_device *kbdev,
-		unsigned int index);
+	void *(*enumerate_gpu_clk)(struct kbase_device *kbdev, unsigned int index);
 
 	/**
 	 * @get_gpu_clk_rate: Get the current rate for an enumerated clock.
@@ -386,8 +383,7 @@ struct kbase_clk_rate_trace_op_conf {
 	 *
 	 * Returns current rate of the GPU clock in unit of Hz.
 	 */
-	unsigned long (*get_gpu_clk_rate)(struct kbase_device *kbdev,
-		void *gpu_clk_handle);
+	unsigned long (*get_gpu_clk_rate)(struct kbase_device *kbdev, void *gpu_clk_handle);
 
 	/**
 	 * @gpu_clk_notifier_register: Register a clock rate change notifier.
@@ -405,8 +401,8 @@ struct kbase_clk_rate_trace_op_conf {
 	 * The callback function expects the pointer of type
 	 * 'struct kbase_gpu_clk_notifier_data' as the third argument.
 	 */
-	int (*gpu_clk_notifier_register)(struct kbase_device *kbdev,
-		void *gpu_clk_handle, struct notifier_block *nb);
+	int (*gpu_clk_notifier_register)(struct kbase_device *kbdev, void *gpu_clk_handle,
+					 struct notifier_block *nb);
 
 	/**
 	 * @gpu_clk_notifier_unregister: Unregister clock rate change notifier
@@ -419,8 +415,8 @@ struct kbase_clk_rate_trace_op_conf {
 	 * was previously registered to get notified of the change in rate
 	 * of clock corresponding to @gpu_clk_handle.
 	 */
-	void (*gpu_clk_notifier_unregister)(struct kbase_device *kbdev,
-		void *gpu_clk_handle, struct notifier_block *nb);
+	void (*gpu_clk_notifier_unregister)(struct kbase_device *kbdev, void *gpu_clk_handle,
+					    struct notifier_block *nb);
 };
 
 #if IS_ENABLED(CONFIG_OF)
@@ -440,9 +436,9 @@ struct kbase_io_memory_region {
  * @brief Specifies I/O related resources like IRQs and memory region for I/O operations.
  */
 struct kbase_io_resources {
-	u32                      job_irq_number;
-	u32                      mmu_irq_number;
-	u32                      gpu_irq_number;
+	u32 job_irq_number;
+	u32 mmu_irq_number;
+	u32 gpu_irq_number;
 	struct kbase_io_memory_region io_memory_region;
 };
 
@@ -580,4 +576,4 @@ int kbase_platform_register(void);
 void kbase_platform_unregister(void);
 #endif
 
-#endif				/* _KBASE_CONFIG_H_ */
+#endif /* _KBASE_CONFIG_H_ */

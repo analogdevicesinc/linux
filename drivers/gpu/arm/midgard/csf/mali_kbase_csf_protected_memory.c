@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -31,27 +31,28 @@ int kbase_csf_protected_memory_init(struct kbase_device *const kbdev)
 	int err = 0;
 
 #if IS_ENABLED(CONFIG_OF)
-	struct device_node *pma_node = of_parse_phandle(kbdev->dev->of_node,
-					"protected-memory-allocator", 0);
+	struct device_node *pma_node =
+		of_parse_phandle(kbdev->dev->of_node, "protected-memory-allocator", 0);
 	if (!pma_node) {
 		dev_info(kbdev->dev, "Protected memory allocator not available\n");
 	} else {
-		struct platform_device *const pdev =
-				of_find_device_by_node(pma_node);
+		struct platform_device *const pdev = of_find_device_by_node(pma_node);
 
-		kbdev->csf.pma_dev = NULL;
 		if (!pdev) {
-			dev_err(kbdev->dev, "Platform device for Protected memory allocator not found\n");
+			dev_err(kbdev->dev,
+				"Platform device for Protected memory allocator not found\n");
 		} else {
 			kbdev->csf.pma_dev = platform_get_drvdata(pdev);
 			if (!kbdev->csf.pma_dev) {
 				dev_info(kbdev->dev, "Protected memory allocator is not ready\n");
 				err = -EPROBE_DEFER;
 			} else if (!try_module_get(kbdev->csf.pma_dev->owner)) {
-				dev_err(kbdev->dev, "Failed to get Protected memory allocator module\n");
+				dev_err(kbdev->dev,
+					"Failed to get Protected memory allocator module\n");
 				err = -ENODEV;
 			} else {
-				dev_info(kbdev->dev, "Protected memory allocator successfully loaded\n");
+				dev_info(kbdev->dev,
+					 "Protected memory allocator successfully loaded\n");
 			}
 		}
 		of_node_put(pma_node);
@@ -68,15 +69,11 @@ void kbase_csf_protected_memory_term(struct kbase_device *const kbdev)
 }
 
 struct protected_memory_allocation **
-		kbase_csf_protected_memory_alloc(
-		struct kbase_device *const kbdev,
-		struct tagged_addr *phys,
-		size_t num_pages,
-		bool is_small_page)
+kbase_csf_protected_memory_alloc(struct kbase_device *const kbdev, struct tagged_addr *phys,
+				 size_t num_pages, bool is_small_page)
 {
 	size_t i;
-	struct protected_memory_allocator_device *pma_dev =
-		kbdev->csf.pma_dev;
+	struct protected_memory_allocator_device *pma_dev = kbdev->csf.pma_dev;
 	struct protected_memory_allocation **pma = NULL;
 	unsigned int order = KBASE_MEM_POOL_2MB_PAGE_TABLE_ORDER;
 	unsigned int num_pages_order;
@@ -114,9 +111,7 @@ struct protected_memory_allocation **
 			*phys++ = as_tagged_tag(phys_addr, HUGE_HEAD | HUGE_PAGE);
 
 			for (j = 1; j < num_pages_order; j++) {
-				*phys++ = as_tagged_tag(phys_addr +
-							PAGE_SIZE * j,
-							HUGE_PAGE);
+				*phys++ = as_tagged_tag(phys_addr + PAGE_SIZE * j, HUGE_PAGE);
 			}
 		} else {
 			phys[i] = as_tagged(phys_addr);
@@ -131,15 +126,12 @@ struct protected_memory_allocation **
 	return pma;
 }
 
-void kbase_csf_protected_memory_free(
-		struct kbase_device *const kbdev,
-		struct protected_memory_allocation **pma,
-		size_t num_pages,
-		bool is_small_page)
+void kbase_csf_protected_memory_free(struct kbase_device *const kbdev,
+				     struct protected_memory_allocation **pma, size_t num_pages,
+				     bool is_small_page)
 {
 	size_t i;
-	struct protected_memory_allocator_device *pma_dev =
-		kbdev->csf.pma_dev;
+	struct protected_memory_allocator_device *pma_dev = kbdev->csf.pma_dev;
 	unsigned int num_pages_order = (1u << KBASE_MEM_POOL_2MB_PAGE_TABLE_ORDER);
 
 	if (is_small_page)

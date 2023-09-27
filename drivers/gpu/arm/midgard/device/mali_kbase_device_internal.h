@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -36,12 +36,17 @@ struct kbase_device_init {
 	char *err_mes;
 };
 
-int kbase_device_vinstr_init(struct kbase_device *kbdev);
-void kbase_device_vinstr_term(struct kbase_device *kbdev);
-
 int kbase_device_kinstr_prfcnt_init(struct kbase_device *kbdev);
 void kbase_device_kinstr_prfcnt_term(struct kbase_device *kbdev);
 
+/**
+ * kbase_device_timeline_init() - Initialize kbase device for timeline
+ * @kbdev: Pointer to the kbase device
+ *
+ * This function must be called only when a kbase device is initialized.
+ *
+ * Return: 0 on success
+ */
 int kbase_device_timeline_init(struct kbase_device *kbdev);
 void kbase_device_timeline_term(struct kbase_device *kbdev);
 
@@ -66,6 +71,8 @@ void kbase_device_id_init(struct kbase_device *kbdev);
  * kbase_device_early_init - Perform any device-specific initialization.
  * @kbdev:	Device pointer
  *
+ * This function must be called only when a kbase device is initialized.
+ *
  * Return: 0 on success, or an error code on failure.
  */
 int kbase_device_early_init(struct kbase_device *kbdev);
@@ -89,13 +96,3 @@ int kbase_device_late_init(struct kbase_device *kbdev);
  * @kbdev:	Device pointer
  */
 void kbase_device_late_term(struct kbase_device *kbdev);
-
-#if MALI_USE_CSF && !IS_ENABLED(CONFIG_MALI_NO_MALI)
-/**
- * kbase_is_register_accessible - Checks if register is accessible
- * @offset: Register offset
- *
- * Return: true if the register is accessible, false otherwise.
- */
-bool kbase_is_register_accessible(u32 offset);
-#endif /* MALI_USE_CSF && !IS_ENABLED(CONFIG_MALI_NO_MALI) */

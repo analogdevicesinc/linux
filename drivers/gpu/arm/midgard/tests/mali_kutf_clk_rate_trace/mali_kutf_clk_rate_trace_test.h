@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -126,14 +126,14 @@ enum kbasep_clk_rate_trace_req {
  *    Note, at the close, PM_CTX_CNT is 1. The PM_CTX_CNT will internally be
  *    dropped down to 0 as part of the portal close clean up.
  */
-#define GET_PLATFORM         "GET_PLATFORM"
-#define GET_CLK_RATE_MGR     "GET_CLK_RATE_MGR"
-#define GET_CLK_RATE_TRACE   "GET_CLK_RATE_TRACE"
-#define GET_TRACE_SNAPSHOT   "GET_TRACE_SNAPSHOT"
-#define INC_PM_CTX_CNT       "INC_PM_CTX_CNT"
-#define DEC_PM_CTX_CNT       "DEC_PM_CTX_CNT"
-#define CLOSE_PORTAL         "CLOSE_PORTAL"
-#define INVOKE_NOTIFY_42KHZ  "INVOKE_NOTIFY_42KHZ"
+#define GET_PLATFORM "GET_PLATFORM"
+#define GET_CLK_RATE_MGR "GET_CLK_RATE_MGR"
+#define GET_CLK_RATE_TRACE "GET_CLK_RATE_TRACE"
+#define GET_TRACE_SNAPSHOT "GET_TRACE_SNAPSHOT"
+#define INC_PM_CTX_CNT "INC_PM_CTX_CNT"
+#define DEC_PM_CTX_CNT "DEC_PM_CTX_CNT"
+#define CLOSE_PORTAL "CLOSE_PORTAL"
+#define INVOKE_NOTIFY_42KHZ "INVOKE_NOTIFY_42KHZ"
 
 /**
  * DOC: Portal service response tag names.

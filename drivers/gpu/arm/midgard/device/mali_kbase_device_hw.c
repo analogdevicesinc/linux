@@ -32,7 +32,7 @@ bool kbase_is_gpu_removed(struct kbase_device *kbdev)
 	if (!IS_ENABLED(CONFIG_MALI_ARBITER_SUPPORT))
 		return false;
 
-	return (kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_ID)) == 0);
+	return (kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_ID)) == 0);
 }
 
 /**
@@ -56,7 +56,7 @@ static int busy_wait_cache_operation(struct kbase_device *kbdev, u32 irq_bit)
 		unsigned int i;
 
 		for (i = 0; i < 1000; i++) {
-			if (kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_IRQ_RAWSTAT)) & irq_bit) {
+			if (kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_RAWSTAT)) & irq_bit) {
 				completed = true;
 				break;
 			}
@@ -91,14 +91,12 @@ static int busy_wait_cache_operation(struct kbase_device *kbdev, u32 irq_bit)
 	}
 
 	KBASE_KTRACE_ADD(kbdev, CORE_GPU_IRQ_CLEAR, NULL, irq_bit);
-	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_CLEAR), irq_bit);
+	kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_CLEAR), irq_bit);
 
 	return 0;
 }
 
 #if MALI_USE_CSF
-#define U64_LO_MASK ((1ULL << 32) - 1)
-#define U64_HI_MASK (~U64_LO_MASK)
 
 int kbase_gpu_cache_flush_pa_range_and_busy_wait(struct kbase_device *kbdev, phys_addr_t phys,
 						 size_t nr_bytes, u32 flush_op)
@@ -109,18 +107,15 @@ int kbase_gpu_cache_flush_pa_range_and_busy_wait(struct kbase_device *kbdev, phy
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
 	/* 1. Clear the interrupt FLUSH_PA_RANGE_COMPLETED bit. */
-	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_CLEAR), FLUSH_PA_RANGE_COMPLETED);
+	kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_CLEAR), FLUSH_PA_RANGE_COMPLETED);
 
 	/* 2. Issue GPU_CONTROL.COMMAND.FLUSH_PA_RANGE operation. */
 	start_pa = phys;
 	end_pa = start_pa + nr_bytes - 1;
 
-	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_COMMAND_ARG0_LO), start_pa & U64_LO_MASK);
-	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_COMMAND_ARG0_HI),
-			(start_pa & U64_HI_MASK) >> 32);
-	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_COMMAND_ARG1_LO), end_pa & U64_LO_MASK);
-	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_COMMAND_ARG1_HI), (end_pa & U64_HI_MASK) >> 32);
-	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_COMMAND), flush_op);
+	kbase_reg_write64(kbdev, GPU_CONTROL_ENUM(GPU_COMMAND_ARG0), start_pa);
+	kbase_reg_write64(kbdev, GPU_CONTROL_ENUM(GPU_COMMAND_ARG1), end_pa);
+	kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_COMMAND), flush_op);
 
 	/* 3. Busy-wait irq status to be enabled. */
 	ret = busy_wait_cache_operation(kbdev, (u32)FLUSH_PA_RANGE_COMPLETED);
@@ -129,8 +124,7 @@ int kbase_gpu_cache_flush_pa_range_and_busy_wait(struct kbase_device *kbdev, phy
 }
 #endif /* MALI_USE_CSF */
 
-int kbase_gpu_cache_flush_and_busy_wait(struct kbase_device *kbdev,
-					u32 flush_op)
+int kbase_gpu_cache_flush_and_busy_wait(struct kbase_device *kbdev, u32 flush_op)
 {
 	int need_to_wake_up = 0;
 	int ret = 0;
@@ -151,9 +145,10 @@ int kbase_gpu_cache_flush_and_busy_wait(struct kbase_device *kbdev,
 	 */
 	if (kbdev->cache_clean_in_progress) {
 		/* disable irq first */
-		u32 irq_mask = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_IRQ_MASK));
-		kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_MASK),
-				irq_mask & ~CLEAN_CACHES_COMPLETED);
+		u32 irq_mask = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_MASK));
+
+		kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_MASK),
+				  irq_mask & ~CLEAN_CACHES_COMPLETED);
 
 		/* busy wait irq status to be enabled */
 		ret = busy_wait_cache_operation(kbdev, (u32)CLEAN_CACHES_COMPLETED);
@@ -161,20 +156,18 @@ int kbase_gpu_cache_flush_and_busy_wait(struct kbase_device *kbdev,
 			return ret;
 
 		/* merge pended command if there's any */
-		flush_op = GPU_COMMAND_FLUSH_CACHE_MERGE(
-			kbdev->cache_clean_queued, flush_op);
+		flush_op = GPU_COMMAND_FLUSH_CACHE_MERGE(kbdev->cache_clean_queued, flush_op);
 
 		/* enable wake up notify flag */
 		need_to_wake_up = 1;
 	} else {
 		/* Clear the interrupt CLEAN_CACHES_COMPLETED bit. */
-		kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_CLEAR),
-				CLEAN_CACHES_COMPLETED);
+		kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_CLEAR), CLEAN_CACHES_COMPLETED);
 	}
 
 	/* 2. Issue GPU_CONTROL.COMMAND.FLUSH_CACHE operation. */
 	KBASE_KTRACE_ADD(kbdev, CORE_GPU_CLEAN_INV_CACHES, NULL, flush_op);
-	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_COMMAND), flush_op);
+	kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_COMMAND), flush_op);
 
 	/* 3. Busy-wait irq status to be enabled. */
 	ret = busy_wait_cache_operation(kbdev, (u32)CLEAN_CACHES_COMPLETED);
@@ -188,8 +181,7 @@ int kbase_gpu_cache_flush_and_busy_wait(struct kbase_device *kbdev,
 	return ret;
 }
 
-void kbase_gpu_start_cache_clean_nolock(struct kbase_device *kbdev,
-					u32 flush_op)
+void kbase_gpu_start_cache_clean_nolock(struct kbase_device *kbdev, u32 flush_op)
 {
 	u32 irq_mask;
 
@@ -201,18 +193,17 @@ void kbase_gpu_start_cache_clean_nolock(struct kbase_device *kbdev,
 		 * the cache. Instead, accumulate all cache clean operations
 		 * and trigger that immediately after this one finishes.
 		 */
-		kbdev->cache_clean_queued = GPU_COMMAND_FLUSH_CACHE_MERGE(
-			kbdev->cache_clean_queued, flush_op);
+		kbdev->cache_clean_queued =
+			GPU_COMMAND_FLUSH_CACHE_MERGE(kbdev->cache_clean_queued, flush_op);
 		return;
 	}
 
 	/* Enable interrupt */
-	irq_mask = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_IRQ_MASK));
-	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_MASK),
-				irq_mask | CLEAN_CACHES_COMPLETED);
+	irq_mask = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_MASK));
+	kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_MASK), irq_mask | CLEAN_CACHES_COMPLETED);
 
 	KBASE_KTRACE_ADD(kbdev, CORE_GPU_CLEAN_INV_CACHES, NULL, flush_op);
-	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_COMMAND), flush_op);
+	kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_COMMAND), flush_op);
 
 	kbdev->cache_clean_in_progress = true;
 }
@@ -247,7 +238,7 @@ void kbase_clean_caches_done(struct kbase_device *kbdev)
 		 * It might have already been done by kbase_gpu_cache_flush_and_busy_wait.
 		 */
 		KBASE_KTRACE_ADD(kbdev, CORE_GPU_IRQ_CLEAR, NULL, CLEAN_CACHES_COMPLETED);
-		kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_CLEAR), CLEAN_CACHES_COMPLETED);
+		kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_CLEAR), CLEAN_CACHES_COMPLETED);
 
 		if (kbdev->cache_clean_queued) {
 			u32 pended_flush_op = kbdev->cache_clean_queued;
@@ -255,12 +246,12 @@ void kbase_clean_caches_done(struct kbase_device *kbdev)
 			kbdev->cache_clean_queued = 0;
 
 			KBASE_KTRACE_ADD(kbdev, CORE_GPU_CLEAN_INV_CACHES, NULL, pended_flush_op);
-			kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_COMMAND), pended_flush_op);
+			kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_COMMAND), pended_flush_op);
 		} else {
 			/* Disable interrupt */
-			irq_mask = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_IRQ_MASK));
-			kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_MASK),
-					irq_mask & ~CLEAN_CACHES_COMPLETED);
+			irq_mask = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_MASK));
+			kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_MASK),
+					  irq_mask & ~CLEAN_CACHES_COMPLETED);
 
 			kbase_gpu_cache_clean_wait_complete(kbdev);
 		}
@@ -290,16 +281,14 @@ void kbase_gpu_wait_cache_clean(struct kbase_device *kbdev)
 	}
 }
 
-int kbase_gpu_wait_cache_clean_timeout(struct kbase_device *kbdev,
-				unsigned int wait_timeout_ms)
+int kbase_gpu_wait_cache_clean_timeout(struct kbase_device *kbdev, unsigned int wait_timeout_ms)
 {
 	long remaining = msecs_to_jiffies(wait_timeout_ms);
 	int result = 0;
 
 	while (remaining && get_cache_clean_flag(kbdev)) {
 		remaining = wait_event_timeout(kbdev->cache_clean_wait,
-					!kbdev->cache_clean_in_progress,
-					remaining);
+					       !kbdev->cache_clean_in_progress, remaining);
 	}
 
 	if (!remaining) {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2018-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -430,12 +430,20 @@ static int kbasep_hwcnt_backend_jm_dump_enable(struct kbase_hwcnt_backend *backe
 }
 
 /* JM backend implementation of kbase_hwcnt_backend_dump_disable_fn */
-static void kbasep_hwcnt_backend_jm_dump_disable(struct kbase_hwcnt_backend *backend)
+static void kbasep_hwcnt_backend_jm_dump_disable(struct kbase_hwcnt_backend *backend,
+						 struct kbase_hwcnt_dump_buffer *dump_buffer,
+						 const struct kbase_hwcnt_enable_map *enable_map)
 {
 	int errcode;
 	struct kbase_hwcnt_backend_jm *backend_jm = (struct kbase_hwcnt_backend_jm *)backend;
 
-	if (WARN_ON(!backend_jm) || !backend_jm->enabled)
+	if (WARN_ON(!backend_jm ||
+		    (dump_buffer && (backend_jm->info->metadata != dump_buffer->metadata)) ||
+		    (enable_map && (backend_jm->info->metadata != enable_map->metadata)) ||
+		    (dump_buffer && !enable_map)))
+		return;
+	/* No WARN needed here, but still return early if backend is already disabled */
+	if (!backend_jm->enabled)
 		return;
 
 	kbasep_hwcnt_backend_jm_cc_disable(backend_jm);
@@ -752,7 +760,7 @@ static void kbasep_hwcnt_backend_jm_term(struct kbase_hwcnt_backend *backend)
 	if (!backend)
 		return;
 
-	kbasep_hwcnt_backend_jm_dump_disable(backend);
+	kbasep_hwcnt_backend_jm_dump_disable(backend, NULL, NULL);
 	kbasep_hwcnt_backend_jm_destroy((struct kbase_hwcnt_backend_jm *)backend);
 }
 

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2012-2016, 2018-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -31,7 +31,6 @@
 #include <linux/fdtable.h>
 #include <linux/syscalls.h>
 #if IS_ENABLED(CONFIG_SYNC_FILE)
-#include "mali_kbase_fence_defs.h"
 #include <linux/sync_file.h>
 #endif
 
@@ -113,8 +112,7 @@ int kbase_sync_fence_validate(int fd);
  *
  * Return: The "next" event code for atom, typically JOB_CANCELLED or EVENT_DONE
  */
-enum base_jd_event_code
-kbase_sync_fence_out_trigger(struct kbase_jd_atom *katom, int result);
+enum base_jd_event_code kbase_sync_fence_out_trigger(struct kbase_jd_atom *katom, int result);
 
 /**
  * kbase_sync_fence_in_wait() - Wait for explicit input fence to be signaled
@@ -164,8 +162,7 @@ void kbase_sync_fence_out_remove(struct kbase_jd_atom *katom);
  *
  * Return: 0 on success, < 0 on error
  */
-int kbase_sync_fence_in_info_get(struct kbase_jd_atom *katom,
-				 struct kbase_sync_fence_info *info);
+int kbase_sync_fence_in_info_get(struct kbase_jd_atom *katom, struct kbase_sync_fence_info *info);
 
 /**
  * kbase_sync_fence_out_info_get() - Retrieves information about output fence
@@ -174,17 +171,14 @@ int kbase_sync_fence_in_info_get(struct kbase_jd_atom *katom,
  *
  * Return: 0 on success, < 0 on error
  */
-int kbase_sync_fence_out_info_get(struct kbase_jd_atom *katom,
-				  struct kbase_sync_fence_info *info);
+int kbase_sync_fence_out_info_get(struct kbase_jd_atom *katom, struct kbase_sync_fence_info *info);
 #endif /* !MALI_USE_CSF */
 
 #if IS_ENABLED(CONFIG_SYNC_FILE)
 #if (KERNEL_VERSION(4, 10, 0) > LINUX_VERSION_CODE)
-void kbase_sync_fence_info_get(struct fence *fence,
-			       struct kbase_sync_fence_info *info);
+void kbase_sync_fence_info_get(struct fence *fence, struct kbase_sync_fence_info *info);
 #else
-void kbase_sync_fence_info_get(struct dma_fence *fence,
-			       struct kbase_sync_fence_info *info);
+void kbase_sync_fence_info_get(struct dma_fence *fence, struct kbase_sync_fence_info *info);
 #endif
 #endif
 
@@ -195,7 +189,6 @@ void kbase_sync_fence_info_get(struct dma_fence *fence,
  * Return: Pointer to string describing @status.
  */
 const char *kbase_sync_status_string(int status);
-
 
 #if !MALI_USE_CSF
 /*

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2016-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2016-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -70,8 +70,7 @@ struct kbase_ipa_model {
  *
  * Return: 0 on success, or an error code
  */
-int kbase_ipa_model_add_param_s32(struct kbase_ipa_model *model,
-				  const char *name, s32 *addr,
+int kbase_ipa_model_add_param_s32(struct kbase_ipa_model *model, const char *name, s32 *addr,
 				  size_t num_elems, bool dt_required);
 
 /**
@@ -87,8 +86,7 @@ int kbase_ipa_model_add_param_s32(struct kbase_ipa_model *model,
  *
  * Return: 0 on success, or an error code
  */
-int kbase_ipa_model_add_param_string(struct kbase_ipa_model *model,
-				     const char *name, char *addr,
+int kbase_ipa_model_add_param_string(struct kbase_ipa_model *model, const char *name, char *addr,
 				     size_t size, bool dt_required);
 
 struct kbase_ipa_model_ops {
@@ -199,8 +197,8 @@ const struct kbase_ipa_model_ops *kbase_ipa_model_ops_find(struct kbase_device *
  * Return: Pointer to counter model's 'ops' structure, or NULL if the lookup
  *         failed.
  */
-const struct kbase_ipa_model_ops *kbase_ipa_counter_model_ops_find(
-	struct kbase_device *kbdev, const char *name);
+const struct kbase_ipa_model_ops *kbase_ipa_counter_model_ops_find(struct kbase_device *kbdev,
+								   const char *name);
 
 /**
  * kbase_ipa_model_name_from_id - Find the best model for a given GPU ID
@@ -209,7 +207,7 @@ const struct kbase_ipa_model_ops *kbase_ipa_counter_model_ops_find(
  * Return: The name of the appropriate counter-based model, or the name of the
  *         fallback model if no counter model exists.
  */
-const char *kbase_ipa_model_name_from_id(u32 gpu_id);
+const char *kbase_ipa_model_name_from_id(struct kbase_gpu_id_props *gpu_id);
 
 /**
  * kbase_ipa_counter_model_name_from_id - Find the best counter model for a
@@ -219,7 +217,7 @@ const char *kbase_ipa_model_name_from_id(u32 gpu_id);
  * Return: The name of the appropriate counter-based model, or NULL if the
  *         no counter model exists.
  */
-const char *kbase_ipa_counter_model_name_from_id(u32 gpu_id);
+const char *kbase_ipa_counter_model_name_from_id(struct kbase_gpu_id_props *gpu_id);
 
 /**
  * kbase_ipa_init_model - Initilaize the particular IPA model
@@ -232,7 +230,7 @@ const char *kbase_ipa_counter_model_name_from_id(u32 gpu_id);
  * Return: pointer to kbase_ipa_model on success, NULL on error
  */
 struct kbase_ipa_model *kbase_ipa_init_model(struct kbase_device *kbdev,
-					const struct kbase_ipa_model_ops *ops);
+					     const struct kbase_ipa_model_ops *ops);
 /**
  * kbase_ipa_term_model - Terminate the particular IPA model
  * @model:      pointer to the IPA model object, already initialized
@@ -262,16 +260,13 @@ void kbase_ipa_protection_mode_switch_event(struct kbase_device *kbdev);
  *
  * Return: 0 on success, or an error code.
  */
-int kbase_get_real_power(struct devfreq *df, u32 *power,
-				unsigned long freq,
-				unsigned long voltage);
+int kbase_get_real_power(struct devfreq *df, u32 *power, unsigned long freq, unsigned long voltage);
 
 /* Called by kbase_get_real_power() to invoke the power models.
  * Must be called with kbdev->ipa.lock held.
  * This function is only exposed for use by unit tests.
  */
-int kbase_get_real_power_locked(struct kbase_device *kbdev, u32 *power,
-				unsigned long freq,
+int kbase_get_real_power_locked(struct kbase_device *kbdev, u32 *power, unsigned long freq,
 				unsigned long voltage);
 
 extern struct devfreq_cooling_power kbase_ipa_power_model_ops;
@@ -292,7 +287,8 @@ void kbase_ipa_reset_data(struct kbase_device *kbdev);
 #else /* !(defined(CONFIG_MALI_DEVFREQ) && defined(CONFIG_DEVFREQ_THERMAL)) */
 
 static inline void kbase_ipa_protection_mode_switch_event(struct kbase_device *kbdev)
-{ }
+{
+}
 
 #endif /* (defined(CONFIG_MALI_DEVFREQ) && defined(CONFIG_DEVFREQ_THERMAL)) */
 

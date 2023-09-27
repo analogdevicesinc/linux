@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014-2018, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -40,4 +40,4 @@ struct kbase_context;
  */
 void kbasep_jd_debugfs_ctx_init(struct kbase_context *kctx);
 
-#endif  /*_KBASE_JD_DEBUGFS_H*/
+#endif /*_KBASE_JD_DEBUGFS_H*/

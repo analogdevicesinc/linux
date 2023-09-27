@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2015, 2018, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2015-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -35,25 +35,20 @@
  * string is meant to be concatenated with the inline asm string and will
  * cause compilation to stop on mismatch.  (for details, see gcc PR 15089)
  */
-#define __asmeq(x, y)  ".ifnc " x "," y " ; .err ; .endif\n\t"
+#define __asmeq(x, y) ".ifnc " x "," y " ; .err ; .endif\n\t"
 #endif
 
-static noinline u64 invoke_smc_fid(u64 function_id,
-		u64 arg0, u64 arg1, u64 arg2)
+static noinline u64 invoke_smc_fid(u64 function_id, u64 arg0, u64 arg1, u64 arg2)
 {
 	register u64 x0 asm("x0") = function_id;
 	register u64 x1 asm("x1") = arg0;
 	register u64 x2 asm("x2") = arg1;
 	register u64 x3 asm("x3") = arg2;
 
-	asm volatile(
-			__asmeq("%0", "x0")
-			__asmeq("%1", "x1")
-			__asmeq("%2", "x2")
-			__asmeq("%3", "x3")
-			"smc    #0\n"
-			: "+r" (x0)
-			: "r" (x1), "r" (x2), "r" (x3));
+	asm volatile(__asmeq("%0", "x0") __asmeq("%1", "x1") __asmeq("%2", "x2")
+			     __asmeq("%3", "x3") "smc    #0\n"
+		     : "+r"(x0)
+		     : "r"(x1), "r"(x2), "r"(x3));
 
 	return x0;
 }
@@ -68,8 +63,7 @@ u64 kbase_invoke_smc_fid(u32 fid, u64 arg0, u64 arg1, u64 arg2)
 	return invoke_smc_fid(fid, arg0, arg1, arg2);
 }
 
-u64 kbase_invoke_smc(u32 oen, u16 function_number, bool smc64,
-		u64 arg0, u64 arg1, u64 arg2)
+u64 kbase_invoke_smc(u32 oen, u16 function_number, bool smc64, u64 arg0, u64 arg1, u64 arg2)
 {
 	u32 fid = 0;
 
@@ -87,4 +81,3 @@ u64 kbase_invoke_smc(u32 oen, u16 function_number, bool smc64,
 }
 
 #endif /* CONFIG_ARM64 */
-

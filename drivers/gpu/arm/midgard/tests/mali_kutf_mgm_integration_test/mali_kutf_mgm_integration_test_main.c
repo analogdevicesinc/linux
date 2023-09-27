@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -85,11 +85,11 @@ static void mali_kutf_mgm_pte_translation_test(struct kutf_context *context)
 			u64 original_pte;
 
 			if (mmu_level == MIDGARD_MMU_LEVEL(3))
-				original_pte =
-					(pa & PAGE_MASK) | ENTRY_ACCESS_BIT | ENTRY_IS_ATE_L3;
+				original_pte = (pa & PAGE_MASK) | ENTRY_ACCESS_BIT |
+					       ENTRY_IS_ATE_L3;
 			else
-				original_pte =
-					(pa & PAGE_MASK) | ENTRY_ACCESS_BIT | ENTRY_IS_ATE_L02;
+				original_pte = (pa & PAGE_MASK) | ENTRY_ACCESS_BIT |
+					       ENTRY_IS_ATE_L02;
 
 			dev_dbg(kbdev->dev, "Testing group_id=%u, mmu_level=%u, pte=0x%llx\n",
 				data->group_id, mmu_level, original_pte);

@@ -20,6 +20,7 @@
  */
 
 #include <mali_kbase.h>
+#include <hw_access/mali_kbase_hw_access.h>
 #include <gpu/mali_kbase_gpu_fault.h>
 #include <backend/gpu/mali_kbase_instr_internal.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
@@ -38,19 +39,14 @@
  */
 static void kbase_report_gpu_fault(struct kbase_device *kbdev, int multiple)
 {
-	u32 status = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_FAULTSTATUS));
-	u64 address = (u64) kbase_reg_read(kbdev,
-			GPU_CONTROL_REG(GPU_FAULTADDRESS_HI)) << 32;
+	u32 status = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_FAULTSTATUS));
+	uintptr_t phys_addr = kbase_reg_read64(kbdev, GPU_CONTROL_ENUM(GPU_FAULTADDRESS));
 
-	address |= kbase_reg_read(kbdev,
-			GPU_CONTROL_REG(GPU_FAULTADDRESS_LO));
-
-	dev_warn(kbdev->dev, "GPU Fault 0x%08x (%s) at 0x%016llx",
-		status,
-		kbase_gpu_exception_name(status & 0xFF),
-		address);
+	dev_warn(kbdev->dev, "GPU Fault 0x%08x (%s) at PA 0x%pK", status,
+		 kbase_gpu_exception_name(status & 0xFF), (void *)phys_addr);
 	if (multiple)
-		dev_warn(kbdev->dev, "There were multiple GPU faults - some have not been reported\n");
+		dev_warn(kbdev->dev,
+			 "There were multiple GPU faults - some have not been reported\n");
 
 }
 
@@ -68,7 +64,7 @@ void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)
 	 * kbase_gpu_cache_flush_and_busy_wait
 	 */
 	KBASE_KTRACE_ADD(kbdev, CORE_GPU_IRQ_CLEAR, NULL, val & ~CLEAN_CACHES_COMPLETED);
-	kbase_reg_write(kbdev, GPU_CONTROL_REG(GPU_IRQ_CLEAR), val & ~CLEAN_CACHES_COMPLETED);
+	kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_CLEAR), val & ~CLEAN_CACHES_COMPLETED);
 
 	/* kbase_instr_hwcnt_sample_done frees the HWCNT pipeline to request another
 	 * sample. Therefore this must be called after clearing the IRQ to avoid a
@@ -99,46 +95,9 @@ void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)
 		 * cores.
 		 */
 		if (kbdev->pm.backend.l2_always_on ||
-			kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_TTRX_921))
+		    kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_TTRX_921))
 			kbase_pm_power_changed(kbdev);
 	}
 
 	KBASE_KTRACE_ADD(kbdev, CORE_GPU_IRQ_DONE, NULL, val);
 }
-
-#if IS_ENABLED(CONFIG_MALI_REAL_HW)
-void kbase_reg_write(struct kbase_device *kbdev, u32 offset, u32 value)
-{
-	WARN_ON(!kbdev->pm.backend.gpu_powered);
-
-	writel(value, kbdev->reg + offset);
-
-#if IS_ENABLED(CONFIG_DEBUG_FS)
-	if (unlikely(kbdev->io_history.enabled))
-		kbase_io_history_add(&kbdev->io_history, kbdev->reg + offset,
-				     value, 1);
-#endif /* CONFIG_DEBUG_FS */
-	dev_dbg(kbdev->dev, "w: reg %08x val %08x", offset, value);
-}
-KBASE_EXPORT_TEST_API(kbase_reg_write);
-
-u32 kbase_reg_read(struct kbase_device *kbdev, u32 offset)
-{
-	u32 val = 0;
-
-	if (WARN_ON(!kbdev->pm.backend.gpu_powered))
-		return val;
-
-	val = readl(kbdev->reg + offset);
-
-#if IS_ENABLED(CONFIG_DEBUG_FS)
-	if (unlikely(kbdev->io_history.enabled))
-		kbase_io_history_add(&kbdev->io_history, kbdev->reg + offset,
-				     val, 0);
-#endif /* CONFIG_DEBUG_FS */
-	dev_dbg(kbdev->dev, "r: reg %08x val %08x", offset, val);
-
-	return val;
-}
-KBASE_EXPORT_TEST_API(kbase_reg_read);
-#endif /* IS_ENABLED(CONFIG_MALI_REAL_HW) */

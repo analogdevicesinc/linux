@@ -45,20 +45,18 @@
  */
 static DECLARE_BITMAP(csg_slots_status_updated, MAX_SUPPORTED_CSGS);
 
-static
-bool csg_slot_status_update_finish(struct kbase_device *kbdev, u32 csg_nr)
+static bool csg_slot_status_update_finish(struct kbase_device *kbdev, u32 csg_nr)
 {
 	struct kbase_csf_cmd_stream_group_info const *const ginfo =
 		&kbdev->csf.global_iface.groups[csg_nr];
 
 	return !((kbase_csf_firmware_csg_input_read(ginfo, CSG_REQ) ^
 		  kbase_csf_firmware_csg_output(ginfo, CSG_ACK)) &
-			     CSG_REQ_STATUS_UPDATE_MASK);
+		 CSG_REQ_STATUS_UPDATE_MASK);
 }
 
-static
-bool csg_slots_status_update_finish(struct kbase_device *kbdev,
-		const unsigned long *slots_mask)
+static bool csg_slots_status_update_finish(struct kbase_device *kbdev,
+					   const unsigned long *slots_mask)
 {
 	const u32 max_csg_slots = kbdev->csf.global_iface.group_num;
 	bool changed = false;
@@ -77,7 +75,7 @@ bool csg_slots_status_update_finish(struct kbase_device *kbdev,
 }
 
 static void wait_csg_slots_status_update_finish(struct kbase_device *kbdev,
-		unsigned long *slots_mask)
+						unsigned long *slots_mask)
 {
 	const u32 max_csg_slots = kbdev->csf.global_iface.group_num;
 	long remaining = kbase_csf_timeout_in_jiffies(STATUS_UPDATE_WAIT_TIMEOUT);
@@ -88,14 +86,13 @@ static void wait_csg_slots_status_update_finish(struct kbase_device *kbdev,
 
 	while (!bitmap_empty(slots_mask, max_csg_slots) && remaining) {
 		remaining = wait_event_timeout(kbdev->csf.event_wait,
-				csg_slots_status_update_finish(kbdev, slots_mask),
-				remaining);
+					       csg_slots_status_update_finish(kbdev, slots_mask),
+					       remaining);
 		if (likely(remaining)) {
-			bitmap_andnot(slots_mask, slots_mask,
-				csg_slots_status_updated, max_csg_slots);
+			bitmap_andnot(slots_mask, slots_mask, csg_slots_status_updated,
+				      max_csg_slots);
 		} else {
-			dev_warn(kbdev->dev,
-				 "STATUS_UPDATE request timed out for slots 0x%lx",
+			dev_warn(kbdev->dev, "STATUS_UPDATE request timed out for slots 0x%lx",
 				 slots_mask[0]);
 		}
 	}
@@ -119,8 +116,8 @@ void kbase_csf_debugfs_update_active_groups_status(struct kbase_device *kbdev)
 	if (kbdev->csf.scheduler.state == SCHED_SLEEPING) {
 		/* Wait for the MCU sleep request to complete. */
 		kbase_pm_wait_for_desired_state(kbdev);
-		bitmap_copy(csg_slots_status_updated,
-			    kbdev->csf.scheduler.csg_inuse_bitmap, max_csg_slots);
+		bitmap_copy(csg_slots_status_updated, kbdev->csf.scheduler.csg_inuse_bitmap,
+			    max_csg_slots);
 		return;
 	}
 
@@ -157,7 +154,7 @@ void kbase_csf_debugfs_update_active_groups_status(struct kbase_device *kbdev)
 
 #define MAX_SCHED_STATE_STRING_LEN (16)
 static const char *scheduler_state_to_string(struct kbase_device *kbdev,
-			enum kbase_csf_scheduler_state sched_state)
+					     enum kbase_csf_scheduler_state sched_state)
 {
 	switch (sched_state) {
 	case SCHED_BUSY:
@@ -189,8 +186,7 @@ static const char *blocked_reason_to_string(u32 reason_id)
 	static const char *const cs_blocked_reason[] = {
 		[CS_STATUS_BLOCKED_REASON_REASON_UNBLOCKED] = "UNBLOCKED",
 		[CS_STATUS_BLOCKED_REASON_REASON_WAIT] = "WAIT",
-		[CS_STATUS_BLOCKED_REASON_REASON_PROGRESS_WAIT] =
-			"PROGRESS_WAIT",
+		[CS_STATUS_BLOCKED_REASON_REASON_PROGRESS_WAIT] = "PROGRESS_WAIT",
 		[CS_STATUS_BLOCKED_REASON_REASON_SYNC_WAIT] = "SYNC_WAIT",
 		[CS_STATUS_BLOCKED_REASON_REASON_DEFERRED] = "DEFERRED",
 		[CS_STATUS_BLOCKED_REASON_REASON_RESOURCE] = "RESOURCE",
@@ -218,6 +214,7 @@ static bool sb_source_supported(u32 glb_version)
 	return supported;
 }
 
+
 static void kbasep_csf_scheduler_dump_active_queue_cs_status_wait(
 	struct seq_file *file, u32 glb_version, u32 wait_status, u32 wait_sync_value,
 	u64 wait_sync_live_value, u64 wait_sync_pointer, u32 sb_status, u32 blocked_reason)
@@ -225,56 +222,51 @@ static void kbasep_csf_scheduler_dump_active_queue_cs_status_wait(
 #define WAITING "Waiting"
 #define NOT_WAITING "Not waiting"
 
-	seq_printf(file, "SB_MASK: %d\n",
-			CS_STATUS_WAIT_SB_MASK_GET(wait_status));
+	seq_printf(file, "SB_MASK: %d\n", CS_STATUS_WAIT_SB_MASK_GET(wait_status));
 	if (sb_source_supported(glb_version))
 		seq_printf(file, "SB_SOURCE: %d\n", CS_STATUS_WAIT_SB_SOURCE_GET(wait_status));
-	seq_printf(file, "PROGRESS_WAIT: %s\n",
-			CS_STATUS_WAIT_PROGRESS_WAIT_GET(wait_status) ?
-			WAITING : NOT_WAITING);
+
+	{
+		seq_printf(file, "PROGRESS_WAIT: %s\n",
+			   CS_STATUS_WAIT_PROGRESS_WAIT_GET(wait_status) ? WAITING : NOT_WAITING);
+	}
 	seq_printf(file, "PROTM_PEND: %s\n",
-			CS_STATUS_WAIT_PROTM_PEND_GET(wait_status) ?
-			WAITING : NOT_WAITING);
+		   CS_STATUS_WAIT_PROTM_PEND_GET(wait_status) ? WAITING : NOT_WAITING);
 	seq_printf(file, "SYNC_WAIT: %s\n",
-			CS_STATUS_WAIT_SYNC_WAIT_GET(wait_status) ?
-			WAITING : NOT_WAITING);
+		   CS_STATUS_WAIT_SYNC_WAIT_GET(wait_status) ? WAITING : NOT_WAITING);
 	seq_printf(file, "WAIT_CONDITION: %s\n",
-			CS_STATUS_WAIT_SYNC_WAIT_CONDITION_GET(wait_status) ?
-			"greater than" : "less or equal");
+		   CS_STATUS_WAIT_SYNC_WAIT_CONDITION_GET(wait_status) ? "greater than" :
+									       "less or equal");
 	seq_printf(file, "SYNC_POINTER: 0x%llx\n", wait_sync_pointer);
 	seq_printf(file, "SYNC_VALUE: %d\n", wait_sync_value);
 	seq_printf(file, "SYNC_LIVE_VALUE: 0x%016llx\n", wait_sync_live_value);
-	seq_printf(file, "SB_STATUS: %u\n",
-		   CS_STATUS_SCOREBOARDS_NONZERO_GET(sb_status));
+	seq_printf(file, "SB_STATUS: %u\n", CS_STATUS_SCOREBOARDS_NONZERO_GET(sb_status));
 	seq_printf(file, "BLOCKED_REASON: %s\n",
-		   blocked_reason_to_string(CS_STATUS_BLOCKED_REASON_REASON_GET(
-			   blocked_reason)));
+		   blocked_reason_to_string(CS_STATUS_BLOCKED_REASON_REASON_GET(blocked_reason)));
 }
 
-static void kbasep_csf_scheduler_dump_active_cs_trace(struct seq_file *file,
-			struct kbase_csf_cmd_stream_info const *const stream)
+static void
+kbasep_csf_scheduler_dump_active_cs_trace(struct seq_file *file,
+					  struct kbase_csf_cmd_stream_info const *const stream)
 {
-	u32 val = kbase_csf_firmware_cs_input_read(stream,
-			CS_INSTR_BUFFER_BASE_LO);
-	u64 addr = ((u64)kbase_csf_firmware_cs_input_read(stream,
-				CS_INSTR_BUFFER_BASE_HI) << 32) | val;
-	val = kbase_csf_firmware_cs_input_read(stream,
-				CS_INSTR_BUFFER_SIZE);
+	u32 val = kbase_csf_firmware_cs_input_read(stream, CS_INSTR_BUFFER_BASE_LO);
+	u64 addr = ((u64)kbase_csf_firmware_cs_input_read(stream, CS_INSTR_BUFFER_BASE_HI) << 32) |
+		   val;
+	val = kbase_csf_firmware_cs_input_read(stream, CS_INSTR_BUFFER_SIZE);
 
 	seq_printf(file, "CS_TRACE_BUF_ADDR: 0x%16llx, SIZE: %u\n", addr, val);
 
 	/* Write offset variable address (pointer) */
-	val = kbase_csf_firmware_cs_input_read(stream,
-			CS_INSTR_BUFFER_OFFSET_POINTER_LO);
-	addr = ((u64)kbase_csf_firmware_cs_input_read(stream,
-			CS_INSTR_BUFFER_OFFSET_POINTER_HI) << 32) | val;
+	val = kbase_csf_firmware_cs_input_read(stream, CS_INSTR_BUFFER_OFFSET_POINTER_LO);
+	addr = ((u64)kbase_csf_firmware_cs_input_read(stream, CS_INSTR_BUFFER_OFFSET_POINTER_HI)
+		<< 32) |
+	       val;
 	seq_printf(file, "CS_TRACE_BUF_OFFSET_PTR: 0x%16llx\n", addr);
 
 	/* EVENT_SIZE and EVENT_STATEs */
 	val = kbase_csf_firmware_cs_input_read(stream, CS_INSTR_CONFIG);
 	seq_printf(file, "TRACE_EVENT_SIZE: 0x%x, TRACE_EVENT_STAES 0x%x\n",
-			CS_INSTR_CONFIG_EVENT_SIZE_GET(val),
-			CS_INSTR_CONFIG_EVENT_STATE_GET(val));
+		   CS_INSTR_CONFIG_EVENT_SIZE_GET(val), CS_INSTR_CONFIG_EVENT_STATE_GET(val));
 }
 
 /**
@@ -284,8 +276,7 @@ static void kbasep_csf_scheduler_dump_active_cs_trace(struct seq_file *file,
  * @file:  seq_file for printing to
  * @queue: Address of a GPU command queue to examine
  */
-static void kbasep_csf_scheduler_dump_active_queue(struct seq_file *file,
-		struct kbase_queue *queue)
+static void kbasep_csf_scheduler_dump_active_queue(struct seq_file *file, struct kbase_queue *queue)
 {
 	u64 *addr;
 	u32 *addr32;
@@ -306,8 +297,7 @@ static void kbasep_csf_scheduler_dump_active_queue(struct seq_file *file,
 
 	glb_version = queue->kctx->kbdev->csf.global_iface.version;
 
-	if (WARN_ON(queue->csi_index == KBASEP_IF_NR_INVALID ||
-		    !queue->group))
+	if (WARN_ON(queue->csi_index == KBASEP_IF_NR_INVALID || !queue->group))
 		return;
 
 	addr = queue->user_io_addr;
@@ -322,10 +312,11 @@ static void kbasep_csf_scheduler_dump_active_queue(struct seq_file *file,
 #define KBASEP_CSF_DEBUGFS_CS_HEADER_USER_IO \
 	"Bind Idx,     Ringbuf addr,     Size, Prio,    Insert offset,   Extract offset, Active, Doorbell\n"
 
-	seq_printf(file, KBASEP_CSF_DEBUGFS_CS_HEADER_USER_IO "%8d, %16llx, %8x, %4u, %16llx, %16llx, %6u, %8d\n",
-			queue->csi_index, queue->base_addr,
-			queue->size,
-			queue->priority, cs_insert, cs_extract, cs_active, queue->doorbell_nr);
+	seq_printf(file,
+		   KBASEP_CSF_DEBUGFS_CS_HEADER_USER_IO
+		   "%8d, %16llx, %8x, %4u, %16llx, %16llx, %6u, %8d\n",
+		   queue->csi_index, queue->base_addr, queue->size, queue->priority, cs_insert,
+		   cs_extract, cs_active, queue->doorbell_nr);
 
 	/* Print status information for blocked group waiting for sync object. For on-slot queues,
 	 * if cs_trace is enabled, dump the interface's cs_trace configuration.
@@ -339,7 +330,8 @@ static void kbasep_csf_scheduler_dump_active_queue(struct seq_file *file,
 			sb_status = queue->sb_status;
 			blocked_reason = queue->blocked_reason;
 
-			evt = (u64 *)kbase_phy_alloc_mapping_get(queue->kctx, wait_sync_pointer, &mapping);
+			evt = (u64 *)kbase_phy_alloc_mapping_get(queue->kctx, wait_sync_pointer,
+								 &mapping);
 			if (evt) {
 				wait_sync_live_value = evt[0];
 				kbase_phy_alloc_mapping_put(queue->kctx, mapping);
@@ -352,8 +344,7 @@ static void kbasep_csf_scheduler_dump_active_queue(struct seq_file *file,
 				wait_sync_live_value, wait_sync_pointer, sb_status, blocked_reason);
 		}
 	} else {
-		struct kbase_device const *const kbdev =
-			queue->group->kctx->kbdev;
+		struct kbase_device const *const kbdev = queue->group->kctx->kbdev;
 		struct kbase_csf_cmd_stream_group_info const *const ginfo =
 			&kbdev->csf.global_iface.groups[queue->group->csg_nr];
 		struct kbase_csf_cmd_stream_info const *const stream =
@@ -364,36 +355,30 @@ static void kbasep_csf_scheduler_dump_active_queue(struct seq_file *file,
 		if (WARN_ON(!stream))
 			return;
 
-		cmd_ptr = kbase_csf_firmware_cs_output(stream,
-				CS_STATUS_CMD_PTR_LO);
-		cmd_ptr |= (u64)kbase_csf_firmware_cs_output(stream,
-				CS_STATUS_CMD_PTR_HI) << 32;
-		req_res = kbase_csf_firmware_cs_output(stream,
-					CS_STATUS_REQ_RESOURCE);
+		cmd_ptr = kbase_csf_firmware_cs_output(stream, CS_STATUS_CMD_PTR_LO);
+		cmd_ptr |= (u64)kbase_csf_firmware_cs_output(stream, CS_STATUS_CMD_PTR_HI) << 32;
+		req_res = kbase_csf_firmware_cs_output(stream, CS_STATUS_REQ_RESOURCE);
 
 		seq_printf(file, "CMD_PTR: 0x%llx\n", cmd_ptr);
 		seq_printf(file, "REQ_RESOURCE [COMPUTE]: %d\n",
-			CS_STATUS_REQ_RESOURCE_COMPUTE_RESOURCES_GET(req_res));
+			   CS_STATUS_REQ_RESOURCE_COMPUTE_RESOURCES_GET(req_res));
 		seq_printf(file, "REQ_RESOURCE [FRAGMENT]: %d\n",
-			CS_STATUS_REQ_RESOURCE_FRAGMENT_RESOURCES_GET(req_res));
+			   CS_STATUS_REQ_RESOURCE_FRAGMENT_RESOURCES_GET(req_res));
 		seq_printf(file, "REQ_RESOURCE [TILER]: %d\n",
-			CS_STATUS_REQ_RESOURCE_TILER_RESOURCES_GET(req_res));
+			   CS_STATUS_REQ_RESOURCE_TILER_RESOURCES_GET(req_res));
 		seq_printf(file, "REQ_RESOURCE [IDVS]: %d\n",
-			CS_STATUS_REQ_RESOURCE_IDVS_RESOURCES_GET(req_res));
+			   CS_STATUS_REQ_RESOURCE_IDVS_RESOURCES_GET(req_res));
 
-		wait_status = kbase_csf_firmware_cs_output(stream,
-				CS_STATUS_WAIT);
-		wait_sync_value = kbase_csf_firmware_cs_output(stream,
-					CS_STATUS_WAIT_SYNC_VALUE);
-		wait_sync_pointer = kbase_csf_firmware_cs_output(stream,
-					CS_STATUS_WAIT_SYNC_POINTER_LO);
-		wait_sync_pointer |= (u64)kbase_csf_firmware_cs_output(stream,
-					CS_STATUS_WAIT_SYNC_POINTER_HI) << 32;
+		wait_status = kbase_csf_firmware_cs_output(stream, CS_STATUS_WAIT);
+		wait_sync_value = kbase_csf_firmware_cs_output(stream, CS_STATUS_WAIT_SYNC_VALUE);
+		wait_sync_pointer =
+			kbase_csf_firmware_cs_output(stream, CS_STATUS_WAIT_SYNC_POINTER_LO);
+		wait_sync_pointer |=
+			(u64)kbase_csf_firmware_cs_output(stream, CS_STATUS_WAIT_SYNC_POINTER_HI)
+			<< 32;
 
-		sb_status = kbase_csf_firmware_cs_output(stream,
-							 CS_STATUS_SCOREBOARDS);
-		blocked_reason = kbase_csf_firmware_cs_output(
-			stream, CS_STATUS_BLOCKED_REASON);
+		sb_status = kbase_csf_firmware_cs_output(stream, CS_STATUS_SCOREBOARDS);
+		blocked_reason = kbase_csf_firmware_cs_output(stream, CS_STATUS_BLOCKED_REASON);
 
 		evt = (u64 *)kbase_phy_alloc_mapping_get(queue->kctx, wait_sync_pointer, &mapping);
 		if (evt) {
@@ -417,7 +402,7 @@ static void kbasep_csf_scheduler_dump_active_queue(struct seq_file *file,
 }
 
 static void kbasep_csf_scheduler_dump_active_group(struct seq_file *file,
-		struct kbase_queue_group *const group)
+						   struct kbase_queue_group *const group)
 {
 	if (kbase_csf_scheduler_group_get_slot(group) >= 0) {
 		struct kbase_device *const kbdev = group->kctx->kbdev;
@@ -426,11 +411,9 @@ static void kbasep_csf_scheduler_dump_active_group(struct seq_file *file,
 		char idle = 'N';
 		struct kbase_csf_cmd_stream_group_info const *const ginfo =
 			&kbdev->csf.global_iface.groups[group->csg_nr];
-		u8 slot_priority =
-			kbdev->csf.scheduler.csg_slots[group->csg_nr].priority;
+		u8 slot_priority = kbdev->csf.scheduler.csg_slots[group->csg_nr].priority;
 
-		ep_c = kbase_csf_firmware_csg_output(ginfo,
-				CSG_STATUS_EP_CURRENT);
+		ep_c = kbase_csf_firmware_csg_output(ginfo, CSG_STATUS_EP_CURRENT);
 		ep_r = kbase_csf_firmware_csg_output(ginfo, CSG_STATUS_EP_REQ);
 
 		if (CSG_STATUS_EP_REQ_EXCLUSIVE_COMPUTE_GET(ep_r))
@@ -441,12 +424,12 @@ static void kbasep_csf_scheduler_dump_active_group(struct seq_file *file,
 			exclusive = '0';
 
 		if (kbase_csf_firmware_csg_output(ginfo, CSG_STATUS_STATE) &
-				CSG_STATUS_STATE_IDLE_MASK)
+		    CSG_STATUS_STATE_IDLE_MASK)
 			idle = 'Y';
 
 		if (!test_bit(group->csg_nr, csg_slots_status_updated)) {
 			seq_printf(file, "*** Warn: Timed out for STATUS_UPDATE on slot %d\n",
-				group->csg_nr);
+				   group->csg_nr);
 			seq_puts(file, "*** The following group-record is likely stale\n");
 		}
 			seq_puts(
@@ -465,11 +448,8 @@ static void kbasep_csf_scheduler_dump_active_group(struct seq_file *file,
 
 	} else {
 		seq_puts(file, "GroupID, CSG NR, Run State, Priority\n");
-		seq_printf(file, "%7d, %6d, %9d, %8d\n",
-			group->handle,
-			group->csg_nr,
-			group->run_state,
-			group->priority);
+		seq_printf(file, "%7d, %6d, %9d, %8d\n", group->handle, group->csg_nr,
+			   group->run_state, group->priority);
 	}
 
 	if (group->run_state != KBASE_CSF_GROUP_TERMINATED) {
@@ -478,8 +458,7 @@ static void kbasep_csf_scheduler_dump_active_group(struct seq_file *file,
 		seq_puts(file, "Bound queues:\n");
 
 		for (i = 0; i < MAX_SUPPORTED_STREAMS_PER_GROUP; i++) {
-			kbasep_csf_scheduler_dump_active_queue(file,
-					group->bound_queues[i]);
+			kbasep_csf_scheduler_dump_active_queue(file, group->bound_queues[i]);
 		}
 	}
 
@@ -495,27 +474,25 @@ static void kbasep_csf_scheduler_dump_active_group(struct seq_file *file,
  *
  * Return: Negative error code or 0 on success.
  */
-static int kbasep_csf_queue_group_debugfs_show(struct seq_file *file,
-		void *data)
+static int kbasep_csf_queue_group_debugfs_show(struct seq_file *file, void *data)
 {
 	u32 gr;
 	struct kbase_context *const kctx = file->private;
 	struct kbase_device *kbdev;
+	CSTD_UNUSED(data);
 
 	if (WARN_ON(!kctx))
 		return -EINVAL;
 
 	kbdev = kctx->kbdev;
 
-	seq_printf(file, "MALI_CSF_CSG_DEBUGFS_VERSION: v%u\n",
-			MALI_CSF_CSG_DEBUGFS_VERSION);
+	seq_printf(file, "MALI_CSF_CSG_DEBUGFS_VERSION: v%u\n", MALI_CSF_CSG_DEBUGFS_VERSION);
 
 	mutex_lock(&kctx->csf.lock);
 	kbase_csf_scheduler_lock(kbdev);
 	kbase_csf_debugfs_update_active_groups_status(kbdev);
 	for (gr = 0; gr < MAX_QUEUE_GROUP_NUM; gr++) {
-		struct kbase_queue_group *const group =
-			kctx->csf.queue_groups[gr];
+		struct kbase_queue_group *const group = kctx->csf.queue_groups[gr];
 
 		if (group)
 			kbasep_csf_scheduler_dump_active_group(file, group);
@@ -535,15 +512,14 @@ static int kbasep_csf_queue_group_debugfs_show(struct seq_file *file,
  *
  * Return: Negative error code or 0 on success.
  */
-static int kbasep_csf_scheduler_dump_active_groups(struct seq_file *file,
-		void *data)
+static int kbasep_csf_scheduler_dump_active_groups(struct seq_file *file, void *data)
 {
 	u32 csg_nr;
 	struct kbase_device *kbdev = file->private;
 	u32 num_groups = kbdev->csf.global_iface.group_num;
+	CSTD_UNUSED(data);
 
-	seq_printf(file, "MALI_CSF_CSG_DEBUGFS_VERSION: v%u\n",
-			MALI_CSF_CSG_DEBUGFS_VERSION);
+	seq_printf(file, "MALI_CSF_CSG_DEBUGFS_VERSION: v%u\n", MALI_CSF_CSG_DEBUGFS_VERSION);
 
 	kbase_csf_scheduler_lock(kbdev);
 	kbase_csf_debugfs_update_active_groups_status(kbdev);
@@ -554,8 +530,7 @@ static int kbasep_csf_scheduler_dump_active_groups(struct seq_file *file,
 		if (!group)
 			continue;
 
-		seq_printf(file, "\nCtx %d_%d\n", group->kctx->tgid,
-				group->kctx->id);
+		seq_printf(file, "\nCtx %d_%d\n", group->kctx->tgid, group->kctx->id);
 
 		kbasep_csf_scheduler_dump_active_group(file, group);
 	}
@@ -564,18 +539,14 @@ static int kbasep_csf_scheduler_dump_active_groups(struct seq_file *file,
 	return 0;
 }
 
-static int kbasep_csf_queue_group_debugfs_open(struct inode *in,
-		struct file *file)
+static int kbasep_csf_queue_group_debugfs_open(struct inode *in, struct file *file)
 {
-	return single_open(file, kbasep_csf_queue_group_debugfs_show,
-			in->i_private);
+	return single_open(file, kbasep_csf_queue_group_debugfs_show, in->i_private);
 }
 
-static int kbasep_csf_active_queue_groups_debugfs_open(struct inode *in,
-		struct file *file)
+static int kbasep_csf_active_queue_groups_debugfs_open(struct inode *in, struct file *file)
 {
-	return single_open(file, kbasep_csf_scheduler_dump_active_groups,
-			in->i_private);
+	return single_open(file, kbasep_csf_scheduler_dump_active_groups, in->i_private);
 }
 
 static const struct file_operations kbasep_csf_queue_group_debugfs_fops = {
@@ -593,25 +564,23 @@ void kbase_csf_queue_group_debugfs_init(struct kbase_context *kctx)
 	if (WARN_ON(!kctx || IS_ERR_OR_NULL(kctx->kctx_dentry)))
 		return;
 
-	file = debugfs_create_file("groups", mode,
-		kctx->kctx_dentry, kctx, &kbasep_csf_queue_group_debugfs_fops);
+	file = debugfs_create_file("groups", mode, kctx->kctx_dentry, kctx,
+				   &kbasep_csf_queue_group_debugfs_fops);
 
 	if (IS_ERR_OR_NULL(file)) {
 		dev_warn(kctx->kbdev->dev,
-		    "Unable to create per context queue groups debugfs entry");
+			 "Unable to create per context queue groups debugfs entry");
 	}
 }
 
-static const struct file_operations
-	kbasep_csf_active_queue_groups_debugfs_fops = {
+static const struct file_operations kbasep_csf_active_queue_groups_debugfs_fops = {
 	.open = kbasep_csf_active_queue_groups_debugfs_open,
 	.read = seq_read,
 	.llseek = seq_lseek,
 	.release = single_release,
 };
 
-static int kbasep_csf_debugfs_scheduling_timer_enabled_get(
-		void *data, u64 *val)
+static int kbasep_csf_debugfs_scheduling_timer_enabled_get(void *data, u64 *val)
 {
 	struct kbase_device *const kbdev = data;
 
@@ -620,8 +589,7 @@ static int kbasep_csf_debugfs_scheduling_timer_enabled_get(
 	return 0;
 }
 
-static int kbasep_csf_debugfs_scheduling_timer_enabled_set(
-		void *data, u64 val)
+static int kbasep_csf_debugfs_scheduling_timer_enabled_set(void *data, u64 val)
 {
 	struct kbase_device *const kbdev = data;
 
@@ -630,10 +598,10 @@ static int kbasep_csf_debugfs_scheduling_timer_enabled_set(
 	return 0;
 }
 
-static int kbasep_csf_debugfs_scheduling_timer_kick_set(
-		void *data, u64 val)
+static int kbasep_csf_debugfs_scheduling_timer_kick_set(void *data, u64 val)
 {
 	struct kbase_device *const kbdev = data;
+	CSTD_UNUSED(val);
 
 	kbase_csf_scheduler_kick(kbdev);
 
@@ -662,8 +630,8 @@ DEFINE_DEBUGFS_ATTRIBUTE(kbasep_csf_debugfs_scheduling_timer_kick_fops, NULL,
  *         size of the state string if it was copied successfully to the
  *         User buffer or a negative value in case of an error.
  */
-static ssize_t kbase_csf_debugfs_scheduler_state_get(struct file *file,
-		    char __user *user_buf, size_t count, loff_t *ppos)
+static ssize_t kbase_csf_debugfs_scheduler_state_get(struct file *file, char __user *user_buf,
+						     size_t count, loff_t *ppos)
 {
 	struct kbase_device *kbdev = file->private_data;
 	struct kbase_csf_scheduler *scheduler = &kbdev->csf.scheduler;
@@ -676,8 +644,7 @@ static ssize_t kbase_csf_debugfs_scheduler_state_get(struct file *file,
 	if (!state_string)
 		count = 0;
 
-	return simple_read_from_buffer(user_buf, count, ppos,
-				       state_string, strlen(state_string));
+	return simple_read_from_buffer(user_buf, count, ppos, state_string, strlen(state_string));
 }
 
 /**
@@ -696,8 +663,8 @@ static ssize_t kbase_csf_debugfs_scheduler_state_get(struct file *file,
  *         state or if copy from user buffer failed, otherwise the length of
  *         the User buffer.
  */
-static ssize_t kbase_csf_debugfs_scheduler_state_set(struct file *file,
-		const char __user *ubuf, size_t count, loff_t *ppos)
+static ssize_t kbase_csf_debugfs_scheduler_state_set(struct file *file, const char __user *ubuf,
+						     size_t count, loff_t *ppos)
 {
 	struct kbase_device *kbdev = file->private_data;
 	char buf[MAX_SCHED_STATE_STRING_LEN];
@@ -737,19 +704,15 @@ static const struct file_operations kbasep_csf_debugfs_scheduler_state_fops = {
 
 void kbase_csf_debugfs_init(struct kbase_device *kbdev)
 {
-	debugfs_create_file("active_groups", 0444,
-		kbdev->mali_debugfs_directory, kbdev,
-		&kbasep_csf_active_queue_groups_debugfs_fops);
+	debugfs_create_file("active_groups", 0444, kbdev->mali_debugfs_directory, kbdev,
+			    &kbasep_csf_active_queue_groups_debugfs_fops);
 
-	debugfs_create_file("scheduling_timer_enabled", 0644,
-			kbdev->mali_debugfs_directory, kbdev,
-			&kbasep_csf_debugfs_scheduling_timer_enabled_fops);
-	debugfs_create_file("scheduling_timer_kick", 0200,
-			kbdev->mali_debugfs_directory, kbdev,
-			&kbasep_csf_debugfs_scheduling_timer_kick_fops);
-	debugfs_create_file("scheduler_state", 0644,
-			kbdev->mali_debugfs_directory, kbdev,
-			&kbasep_csf_debugfs_scheduler_state_fops);
+	debugfs_create_file("scheduling_timer_enabled", 0644, kbdev->mali_debugfs_directory, kbdev,
+			    &kbasep_csf_debugfs_scheduling_timer_enabled_fops);
+	debugfs_create_file("scheduling_timer_kick", 0200, kbdev->mali_debugfs_directory, kbdev,
+			    &kbasep_csf_debugfs_scheduling_timer_kick_fops);
+	debugfs_create_file("scheduler_state", 0644, kbdev->mali_debugfs_directory, kbdev,
+			    &kbasep_csf_debugfs_scheduler_state_fops);
 
 	kbase_csf_tl_reader_debugfs_init(kbdev);
 }

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -39,11 +39,11 @@
 #if 0 /* Dummy section to avoid breaking formatting */
 int dummy_array[] = {
 #endif
-	/*
+/*
 	 * Generic CSF events
 	 */
-	/* info_val = 0 */
-	KBASE_KTRACE_CODE_MAKE_CODE(SCHEDULER_EVICT_CTX_SLOTS_START),
+/* info_val = 0 */
+KBASE_KTRACE_CODE_MAKE_CODE(SCHEDULER_EVICT_CTX_SLOTS_START),
 	/* info_val == number of CSGs supported */
 	KBASE_KTRACE_CODE_MAKE_CODE(SCHEDULER_EVICT_CTX_SLOTS_END),
 	/* info_val[0:7]   == fw version_minor
@@ -209,13 +209,11 @@ int dummy_array[] = {
 	KBASE_KTRACE_CODE_MAKE_CODE(PROTM_EVENT_WORKER_END),
 
 	/* info_val = scheduler state */
-	KBASE_KTRACE_CODE_MAKE_CODE(SCHED_BUSY),
-	KBASE_KTRACE_CODE_MAKE_CODE(SCHED_INACTIVE),
-	KBASE_KTRACE_CODE_MAKE_CODE(SCHED_SUSPENDED),
-	KBASE_KTRACE_CODE_MAKE_CODE(SCHED_SLEEPING),
+	KBASE_KTRACE_CODE_MAKE_CODE(SCHED_BUSY), KBASE_KTRACE_CODE_MAKE_CODE(SCHED_INACTIVE),
+	KBASE_KTRACE_CODE_MAKE_CODE(SCHED_SUSPENDED), KBASE_KTRACE_CODE_MAKE_CODE(SCHED_SLEEPING),
 
-	/* info_val = mcu state */
-#define KBASEP_MCU_STATE(n) KBASE_KTRACE_CODE_MAKE_CODE(PM_MCU_ ## n),
+/* info_val = mcu state */
+#define KBASEP_MCU_STATE(n) KBASE_KTRACE_CODE_MAKE_CODE(PM_MCU_##n),
 #include "backend/gpu/mali_kbase_pm_mcu_states.h"
 #undef KBASEP_MCU_STATE
 
@@ -237,8 +235,7 @@ int dummy_array[] = {
 	/* info_val == queue->enabled */
 	KBASE_KTRACE_CODE_MAKE_CODE(CSI_START),
 	/* info_val == queue->enabled before stop */
-	KBASE_KTRACE_CODE_MAKE_CODE(CSI_STOP),
-	KBASE_KTRACE_CODE_MAKE_CODE(CSI_STOP_REQ),
+	KBASE_KTRACE_CODE_MAKE_CODE(CSI_STOP), KBASE_KTRACE_CODE_MAKE_CODE(CSI_STOP_REQ),
 	/* info_val == CS_REQ ^ CS_ACK that were not processed due to the group
 	 * being suspended
 	 */
@@ -252,8 +249,7 @@ int dummy_array[] = {
 	/* info_val == CS_ACK_PROTM_PEND ^ CS_REQ_PROTM_PEND */
 	KBASE_KTRACE_CODE_MAKE_CODE(CSI_PROTM_ACK),
 	/* info_val == group->run_State (for group the queue is bound to) */
-	KBASE_KTRACE_CODE_MAKE_CODE(QUEUE_START),
-	KBASE_KTRACE_CODE_MAKE_CODE(QUEUE_STOP),
+	KBASE_KTRACE_CODE_MAKE_CODE(QUEUE_START), KBASE_KTRACE_CODE_MAKE_CODE(QUEUE_STOP),
 	/* info_val == contents of CS_STATUS_WAIT_SYNC_POINTER */
 	KBASE_KTRACE_CODE_MAKE_CODE(QUEUE_SYNC_UPDATE_EVAL_START),
 	/* info_val == bool for result of the evaluation */

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2018, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -123,11 +123,18 @@ kbase_hwcnt_backend_dump_enable_nolock_fn(struct kbase_hwcnt_backend *backend,
  * typedef kbase_hwcnt_backend_dump_disable_fn - Disable counter dumping with
  *                                               the backend.
  * @backend: Non-NULL pointer to backend.
+ * @dump_buffer: Pointer to an accumulated dump buffer to update or NULL.
+ * @enable_map: Pointer to enable map specifying enabled counters. Must be NULL if no @dump_buffer
  *
  * If the backend is already disabled, does nothing.
  * Any undumped counter values since the last dump get will be lost.
+ *
+ * @dump_buffer and @enable_map gives the backend an opportunity to update an existing accumulated
+ * buffer with state information, in case that is relevant for the backend.
  */
-typedef void kbase_hwcnt_backend_dump_disable_fn(struct kbase_hwcnt_backend *backend);
+typedef void kbase_hwcnt_backend_dump_disable_fn(struct kbase_hwcnt_backend *backend,
+						 struct kbase_hwcnt_dump_buffer *dump_buffer,
+						 const struct kbase_hwcnt_enable_map *enable_map);
 
 /**
  * typedef kbase_hwcnt_backend_dump_clear_fn - Reset all the current undumped

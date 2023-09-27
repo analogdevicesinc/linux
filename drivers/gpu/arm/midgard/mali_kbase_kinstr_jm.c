@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -62,7 +62,7 @@
 #include <linux/build_bug.h>
 #elif !defined(static_assert)
 // Stringify the expression if no message is given.
-#define static_assert(e, ...)  __static_assert(e, #__VA_ARGS__, #e)
+#define static_assert(e, ...) __static_assert(e, #__VA_ARGS__, #e)
 #define __static_assert(e, msg, ...) _Static_assert(e, msg)
 #endif
 
@@ -145,9 +145,8 @@ struct kbase_kinstr_jm_atom_state_change {
 		u8 padding[4];
 	} data;
 };
-static_assert(
-	((1 << 8 * sizeof(((struct kbase_kinstr_jm_atom_state_change *)0)->state)) - 1) >=
-	KBASE_KINSTR_JM_READER_ATOM_STATE_COUNT);
+static_assert(((1 << 8 * sizeof(((struct kbase_kinstr_jm_atom_state_change *)0)->state)) - 1) >=
+	      KBASE_KINSTR_JM_READER_ATOM_STATE_COUNT);
 
 #define KBASE_KINSTR_JM_ATOM_STATE_FLAG_OVERFLOW BIT(0)
 
@@ -228,8 +227,7 @@ static inline bool reader_changes_is_valid_size(const size_t size)
  * -ERANGE - the requested memory size was invalid
  * -ENOMEM - could not allocate the memory
  */
-static int reader_changes_init(struct reader_changes *const changes,
-			       const size_t size)
+static int reader_changes_init(struct reader_changes *const changes, const size_t size)
 {
 	BUILD_BUG_ON((PAGE_SIZE % sizeof(*changes->data)) != 0);
 
@@ -246,8 +244,8 @@ static int reader_changes_init(struct reader_changes *const changes,
 	mutex_init(&changes->consumer);
 
 	changes->size = size / sizeof(*changes->data);
-	changes->threshold = min(((size_t)(changes->size)) / 4,
-			     ((size_t)(PAGE_SIZE)) / sizeof(*changes->data));
+	changes->threshold =
+		min(((size_t)(changes->size)) / 4, ((size_t)(PAGE_SIZE)) / sizeof(*changes->data));
 
 	return changes->size;
 }
@@ -326,10 +324,9 @@ static u32 reader_changes_count(struct reader_changes *const changes)
  *              userspace. Kicked when a threshold is reached or there is
  *              overflow.
  */
-static void reader_changes_push(
-	struct reader_changes *const changes,
-	const struct kbase_kinstr_jm_atom_state_change *const change,
-	wait_queue_head_t *const wait_queue)
+static void reader_changes_push(struct reader_changes *const changes,
+				const struct kbase_kinstr_jm_atom_state_change *const change,
+				wait_queue_head_t *const wait_queue)
 {
 	u32 head, tail, size, space;
 	unsigned long irq;
@@ -350,8 +347,7 @@ static void reader_changes_push(
 	if (space >= 1) {
 		data[head] = *change;
 		if (space == 1) {
-			data[head].flags |=
-				KBASE_KINSTR_JM_ATOM_STATE_FLAG_OVERFLOW;
+			data[head].flags |= KBASE_KINSTR_JM_ATOM_STATE_FLAG_OVERFLOW;
 			pr_warn(PR_ "overflow of circular buffer\n");
 		}
 		smp_store_release(&changes->head, (head + 1) & (size - 1));
@@ -394,11 +390,10 @@ struct reader {
 	struct kbase_kinstr_jm *context;
 };
 
-static struct kbase_kinstr_jm *
-kbase_kinstr_jm_ref_get(struct kbase_kinstr_jm *const ctx);
+static struct kbase_kinstr_jm *kbase_kinstr_jm_ref_get(struct kbase_kinstr_jm *const ctx);
 static void kbase_kinstr_jm_ref_put(struct kbase_kinstr_jm *const ctx);
 static int kbase_kinstr_jm_readers_add(struct kbase_kinstr_jm *const ctx,
-					struct reader *const reader);
+				       struct reader *const reader);
 static void kbase_kinstr_jm_readers_del(struct kbase_kinstr_jm *const ctx,
 					struct reader *const reader);
 
@@ -428,8 +423,7 @@ static void reader_term(struct reader *const reader)
  *
  * Return: 0 on success, else error code.
  */
-static int reader_init(struct reader **const out_reader,
-		       struct kbase_kinstr_jm *const ctx,
+static int reader_init(struct reader **const out_reader, struct kbase_kinstr_jm *const ctx,
 		       size_t const num_changes)
 {
 	struct reader *reader = NULL;
@@ -478,6 +472,8 @@ static int reader_release(struct inode *const node, struct file *const file)
 {
 	struct reader *const reader = file->private_data;
 
+	CSTD_UNUSED(node);
+
 	reader_term(reader);
 	file->private_data = NULL;
 
@@ -493,12 +489,10 @@ static int reader_release(struct inode *const node, struct file *const file)
  * Return: The number of bytes copied or negative errno on failure.
  */
 static ssize_t reader_changes_copy_to_user(struct reader_changes *const changes,
-					   char __user *buffer,
-					   size_t buffer_size)
+					   char __user *buffer, size_t buffer_size)
 {
 	ssize_t ret = 0;
-	struct kbase_kinstr_jm_atom_state_change const *src_buf = READ_ONCE(
-		changes->data);
+	struct kbase_kinstr_jm_atom_state_change const *src_buf = READ_ONCE(changes->data);
 	size_t const entry_size = sizeof(*src_buf);
 	size_t changes_tail, changes_count, read_size;
 
@@ -506,9 +500,8 @@ static ssize_t reader_changes_copy_to_user(struct reader_changes *const changes,
 	 * Note that we can't use is_power_of_2() since old compilers don't
 	 * understand it's a constant expression.
 	 */
-#define is_power_of_two(x) ((x) && !((x) & ((x) - 1)))
-	static_assert(is_power_of_two(
-			sizeof(struct kbase_kinstr_jm_atom_state_change)));
+#define is_power_of_two(x) ((x) && !((x) & ((x)-1)))
+	static_assert(is_power_of_two(sizeof(struct kbase_kinstr_jm_atom_state_change)));
 #undef is_power_of_two
 
 	lockdep_assert_held_once(&changes->consumer);
@@ -523,8 +516,7 @@ static ssize_t reader_changes_copy_to_user(struct reader_changes *const changes,
 	do {
 		changes_tail = changes->tail;
 		changes_count = reader_changes_count_locked(changes);
-		read_size = min(changes_count * entry_size,
-				buffer_size & ~(entry_size - 1));
+		read_size = min(changes_count * entry_size, buffer_size & ~(entry_size - 1));
 
 		if (!read_size)
 			break;
@@ -535,8 +527,7 @@ static ssize_t reader_changes_copy_to_user(struct reader_changes *const changes,
 		buffer += read_size;
 		buffer_size -= read_size;
 		ret += read_size;
-		changes_tail = (changes_tail + read_size / entry_size) &
-			(changes->size - 1);
+		changes_tail = (changes_tail + read_size / entry_size) & (changes->size - 1);
 		smp_store_release(&changes->tail, changes_tail);
 	} while (read_size);
 
@@ -564,14 +555,14 @@ static ssize_t reader_changes_copy_to_user(struct reader_changes *const changes,
  * Note: The number of bytes read will always be a multiple of the size of an
  * entry.
  */
-static ssize_t reader_read(struct file *const filp,
-			   char __user *const buffer,
-			   size_t const buffer_size,
-			   loff_t *const offset)
+static ssize_t reader_read(struct file *const filp, char __user *const buffer,
+			   size_t const buffer_size, loff_t *const offset)
 {
 	struct reader *const reader = filp->private_data;
 	struct reader_changes *changes;
 	ssize_t ret;
+
+	CSTD_UNUSED(offset);
 
 	if (!reader)
 		return -EBADF;
@@ -596,9 +587,8 @@ static ssize_t reader_read(struct file *const filp,
 			goto exit;
 		}
 
-		if (wait_event_interruptible(
-				reader->wait_queue,
-				!!reader_changes_count_locked(changes))) {
+		if (wait_event_interruptible(reader->wait_queue,
+					     !!reader_changes_count_locked(changes))) {
 			ret = -EINTR;
 			goto exit;
 		}
@@ -625,8 +615,7 @@ exit:
  * * EPOLLHUP | EPOLLERR - IO control arguments were invalid or the file
  *                         descriptor did not have an attached reader.
  */
-static __poll_t reader_poll(struct file *const file,
-			    struct poll_table_struct *const wait)
+static __poll_t reader_poll(struct file *const file, struct poll_table_struct *const wait)
 {
 	struct reader *reader;
 	struct reader_changes *changes;
@@ -652,13 +641,11 @@ static __poll_t reader_poll(struct file *const file,
 }
 
 /* The file operations virtual function table */
-static const struct file_operations file_operations = {
-	.owner = THIS_MODULE,
-	.llseek = no_llseek,
-	.read = reader_read,
-	.poll = reader_poll,
-	.release = reader_release
-};
+static const struct file_operations file_operations = { .owner = THIS_MODULE,
+							.llseek = no_llseek,
+							.read = reader_read,
+							.poll = reader_poll,
+							.release = reader_release };
 
 /* The maximum amount of readers that can be created on a context. */
 static const size_t kbase_kinstr_jm_readers_max = 16;
@@ -669,8 +656,7 @@ static const size_t kbase_kinstr_jm_readers_max = 16;
  */
 static void kbase_kinstr_jm_release(struct kref *const ref)
 {
-	struct kbase_kinstr_jm *const ctx =
-		container_of(ref, struct kbase_kinstr_jm, refcount);
+	struct kbase_kinstr_jm *const ctx = container_of(ref, struct kbase_kinstr_jm, refcount);
 
 	kfree(ctx);
 }
@@ -680,8 +666,7 @@ static void kbase_kinstr_jm_release(struct kref *const ref)
  * @ctx: the context to reference count
  * Return: the reference counted context
  */
-static struct kbase_kinstr_jm *
-kbase_kinstr_jm_ref_get(struct kbase_kinstr_jm *const ctx)
+static struct kbase_kinstr_jm *kbase_kinstr_jm_ref_get(struct kbase_kinstr_jm *const ctx)
 {
 	if (likely(ctx))
 		kref_get(&ctx->refcount);
@@ -708,7 +693,7 @@ static void kbase_kinstr_jm_ref_put(struct kbase_kinstr_jm *const ctx)
  * -ENOMEM - too many readers already added.
  */
 static int kbase_kinstr_jm_readers_add(struct kbase_kinstr_jm *const ctx,
-					struct reader *const reader)
+				       struct reader *const reader)
 {
 	struct hlist_bl_head *const readers = &ctx->readers;
 	struct hlist_bl_node *node;
@@ -751,16 +736,14 @@ static void kbase_kinstr_jm_readers_del(struct kbase_kinstr_jm *const ctx,
 	static_branch_dec(&basep_kinstr_jm_reader_static_key);
 }
 
-int kbase_kinstr_jm_get_fd(struct kbase_kinstr_jm *const ctx,
-			   union kbase_kinstr_jm_fd *jm_fd_arg)
+int kbase_kinstr_jm_get_fd(struct kbase_kinstr_jm *const ctx, union kbase_kinstr_jm_fd *jm_fd_arg)
 {
 	struct kbase_kinstr_jm_fd_in const *in;
 	struct reader *reader;
-	size_t const change_size = sizeof(struct
-					  kbase_kinstr_jm_atom_state_change);
+	size_t const change_size = sizeof(struct kbase_kinstr_jm_atom_state_change);
 	int status;
 	int fd;
-	int i;
+	size_t i;
 
 	if (!ctx || !jm_fd_arg)
 		return -EINVAL;
@@ -782,8 +765,7 @@ int kbase_kinstr_jm_get_fd(struct kbase_kinstr_jm *const ctx,
 	jm_fd_arg->out.size = change_size;
 	memset(&jm_fd_arg->out.padding, 0, sizeof(jm_fd_arg->out.padding));
 
-	fd = anon_inode_getfd("[mali_kinstr_jm]", &file_operations, reader,
-			      O_CLOEXEC);
+	fd = anon_inode_getfd("[mali_kinstr_jm]", &file_operations, reader, O_CLOEXEC);
 	if (fd < 0)
 		reader_term(reader);
 
@@ -814,16 +796,15 @@ void kbase_kinstr_jm_term(struct kbase_kinstr_jm *const ctx)
 	kbase_kinstr_jm_ref_put(ctx);
 }
 
-void kbasep_kinstr_jm_atom_state(
-	struct kbase_jd_atom *const katom,
-	const enum kbase_kinstr_jm_reader_atom_state state)
+void kbasep_kinstr_jm_atom_state(struct kbase_jd_atom *const katom,
+				 const enum kbase_kinstr_jm_reader_atom_state state)
 {
 	struct kbase_context *const kctx = katom->kctx;
 	struct kbase_kinstr_jm *const ctx = kctx->kinstr_jm;
 	const u8 id = kbase_jd_atom_id(kctx, katom);
-	struct kbase_kinstr_jm_atom_state_change change = {
-		.timestamp = ktime_get_raw_ns(), .atom = id, .state = state
-	};
+	struct kbase_kinstr_jm_atom_state_change change = { .timestamp = ktime_get_raw_ns(),
+							    .atom = id,
+							    .state = state };
 	struct reader *reader;
 	struct hlist_bl_node *node;
 
@@ -840,8 +821,7 @@ void kbasep_kinstr_jm_atom_state(
 
 	rcu_read_lock();
 	hlist_bl_for_each_entry_rcu(reader, node, &ctx->readers, node)
-		reader_changes_push(
-			&reader->changes, &change, &reader->wait_queue);
+		reader_changes_push(&reader->changes, &change, &reader->wait_queue);
 	rcu_read_unlock();
 }
 

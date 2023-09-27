@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2012-2016, 2018, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -32,6 +32,8 @@
  *		per device and initialize the required lists.
  * @kbdev:	Device pointer
  *
+ * This function must be called only when a kbase device is initialized.
+ *
  * Return: Zero on success or a negative error code.
  */
 int kbase_debug_job_fault_dev_init(struct kbase_device *kbdev);
@@ -50,9 +52,11 @@ void kbase_debug_job_fault_debugfs_init(struct kbase_device *kbdev);
 void kbase_debug_job_fault_dev_term(struct kbase_device *kbdev);
 
 /**
- * kbase_debug_job_fault_context_init - Initialize the relevant
- *		data structure per context
+ * kbase_debug_job_fault_context_init - Initialize the relevant data structure per context
  * @kctx: KBase context pointer
+ *
+ * This function must be called only when a kbase context is instantiated.
+ *
  * Return: 0 on success
  */
 int kbase_debug_job_fault_context_init(struct kbase_context *kctx);
@@ -93,8 +97,7 @@ void kbase_debug_job_fault_kctx_unblock(struct kbase_context *kctx);
  *
  * Return: true if dump is going on
  */
-bool kbase_debug_job_fault_process(struct kbase_jd_atom *katom,
-		u32 completion_code);
+bool kbase_debug_job_fault_process(struct kbase_jd_atom *katom, u32 completion_code);
 
 /**
  * kbase_debug_job_fault_reg_snapshot_init - Set the interested registers
@@ -105,8 +108,7 @@ bool kbase_debug_job_fault_process(struct kbase_jd_atom *katom,
  *
  * Return: true if initializing successfully
  */
-bool kbase_debug_job_fault_reg_snapshot_init(struct kbase_context *kctx,
-		int reg_range);
+bool kbase_debug_job_fault_reg_snapshot_init(struct kbase_context *kctx, int reg_range);
 
 /**
  * kbase_job_fault_get_reg_snapshot - Read the interested registers for
@@ -118,4 +120,4 @@ bool kbase_debug_job_fault_reg_snapshot_init(struct kbase_context *kctx,
  */
 bool kbase_job_fault_get_reg_snapshot(struct kbase_context *kctx);
 
-#endif  /*_KBASE_DEBUG_JOB_FAULT_H*/
+#endif /*_KBASE_DEBUG_JOB_FAULT_H*/

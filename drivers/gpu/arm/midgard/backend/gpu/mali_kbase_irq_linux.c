@@ -34,12 +34,12 @@
 
 static void *kbase_tag(void *ptr, u32 tag)
 {
-	return (void *)(((uintptr_t) ptr) | tag);
+	return (void *)(((uintptr_t)ptr) | tag);
 }
 
 static void *kbase_untag(void *ptr)
 {
-	return (void *)(((uintptr_t) ptr) & ~3);
+	return (void *)(((uintptr_t)ptr) & ~3);
 }
 
 static irqreturn_t kbase_job_irq_handler(int irq, void *data)
@@ -56,12 +56,12 @@ static irqreturn_t kbase_job_irq_handler(int irq, void *data)
 		return IRQ_NONE;
 	}
 
-	val = kbase_reg_read(kbdev, JOB_CONTROL_REG(JOB_IRQ_STATUS));
+	val = kbase_reg_read32(kbdev, JOB_CONTROL_ENUM(JOB_IRQ_STATUS));
 
 #ifdef CONFIG_MALI_DEBUG
 	if (!kbdev->pm.backend.driver_ready_for_irqs)
-		dev_warn(kbdev->dev, "%s: irq %d irqstatus 0x%x before driver is ready\n",
-				__func__, irq, val);
+		dev_warn(kbdev->dev, "%s: irq %d irqstatus 0x%x before driver is ready\n", __func__,
+			 irq, val);
 #endif /* CONFIG_MALI_DEBUG */
 
 	if (!val) {
@@ -99,12 +99,12 @@ static irqreturn_t kbase_mmu_irq_handler(int irq, void *data)
 
 	atomic_inc(&kbdev->faults_pending);
 
-	val = kbase_reg_read(kbdev, MMU_CONTROL_REG(MMU_IRQ_STATUS));
+	val = kbase_reg_read32(kbdev, MMU_CONTROL_ENUM(IRQ_STATUS));
 
 #ifdef CONFIG_MALI_DEBUG
 	if (!kbdev->pm.backend.driver_ready_for_irqs)
-		dev_warn(kbdev->dev, "%s: irq %d irqstatus 0x%x before driver is ready\n",
-				__func__, irq, val);
+		dev_warn(kbdev->dev, "%s: irq %d irqstatus 0x%x before driver is ready\n", __func__,
+			 irq, val);
 #endif /* CONFIG_MALI_DEBUG */
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
@@ -126,7 +126,8 @@ static irqreturn_t kbase_gpu_irq_handler(int irq, void *data)
 {
 	unsigned long flags;
 	struct kbase_device *kbdev = kbase_untag(data);
-	u32 val;
+	u32 gpu_irq_status;
+	irqreturn_t irq_state = IRQ_NONE;
 
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 
@@ -136,23 +137,25 @@ static irqreturn_t kbase_gpu_irq_handler(int irq, void *data)
 		return IRQ_NONE;
 	}
 
-	val = kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_IRQ_STATUS));
+	gpu_irq_status = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_STATUS));
 
 #ifdef CONFIG_MALI_DEBUG
-	if (!kbdev->pm.backend.driver_ready_for_irqs)
-		dev_dbg(kbdev->dev, "%s: irq %d irqstatus 0x%x before driver is ready\n",
-				__func__, irq, val);
+	if (!kbdev->pm.backend.driver_ready_for_irqs) {
+		dev_dbg(kbdev->dev, "%s: irq %d irqstatus 0x%x before driver is ready\n", __func__,
+			irq, gpu_irq_status);
+	}
 #endif /* CONFIG_MALI_DEBUG */
+
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
-	if (!val)
-		return IRQ_NONE;
+	if (gpu_irq_status) {
+		dev_dbg(kbdev->dev, "%s: irq %d irqstatus 0x%x\n", __func__, irq, gpu_irq_status);
+		kbase_gpu_interrupt(kbdev, gpu_irq_status);
 
-	dev_dbg(kbdev->dev, "%s: irq %d irqstatus 0x%x\n", __func__, irq, val);
+		irq_state = IRQ_HANDLED;
+	}
 
-	kbase_gpu_interrupt(kbdev, val);
-
-	return IRQ_HANDLED;
+	return irq_state;
 }
 
 static irq_handler_t kbase_handler_table[] = {
@@ -162,14 +165,14 @@ static irq_handler_t kbase_handler_table[] = {
 };
 
 #ifdef CONFIG_MALI_DEBUG
-#define  JOB_IRQ_HANDLER JOB_IRQ_TAG
-#define  GPU_IRQ_HANDLER GPU_IRQ_TAG
+#define JOB_IRQ_HANDLER JOB_IRQ_TAG
+#define GPU_IRQ_HANDLER GPU_IRQ_TAG
 
 /**
  * kbase_gpu_irq_test_handler - Variant (for test) of kbase_gpu_irq_handler()
  * @irq:  IRQ number
  * @data: Data associated with this IRQ (i.e. kbdev)
- * @val:  Value of the GPU_CONTROL_REG(GPU_IRQ_STATUS)
+ * @val:  Value of the GPU_CONTROL_ENUM(GPU_IRQ_STATUS)
  *
  * Handle the GPU device interrupt source requests reflected in the
  * given source bit-pattern. The test code caller is responsible for
@@ -206,33 +209,30 @@ KBASE_EXPORT_TEST_API(kbase_gpu_irq_test_handler);
  *
  * Return: 0 case success, error code otherwise
  */
-int kbase_set_custom_irq_handler(struct kbase_device *kbdev,
-					irq_handler_t custom_handler,
-					int irq_type)
+int kbase_set_custom_irq_handler(struct kbase_device *kbdev, irq_handler_t custom_handler,
+				 int irq_type)
 {
 	int result = 0;
 	irq_handler_t requested_irq_handler = NULL;
 
-	KBASE_DEBUG_ASSERT((irq_type >= JOB_IRQ_HANDLER) &&
-			   (irq_type <= GPU_IRQ_HANDLER));
+	KBASE_DEBUG_ASSERT((irq_type >= JOB_IRQ_HANDLER) && (irq_type <= GPU_IRQ_HANDLER));
 
 	/* Release previous handler */
 	if (kbdev->irqs[irq_type].irq)
 		free_irq(kbdev->irqs[irq_type].irq, kbase_tag(kbdev, irq_type));
 
-	requested_irq_handler = (custom_handler != NULL) ?
-					custom_handler :
-					kbase_handler_table[irq_type];
+	requested_irq_handler = (custom_handler != NULL) ? custom_handler :
+								 kbase_handler_table[irq_type];
 
 	if (request_irq(kbdev->irqs[irq_type].irq, requested_irq_handler,
-			kbdev->irqs[irq_type].flags | IRQF_SHARED,
-			dev_name(kbdev->dev),
+			kbdev->irqs[irq_type].flags | IRQF_SHARED, dev_name(kbdev->dev),
 			kbase_tag(kbdev, irq_type)) != 0) {
 		result = -EINVAL;
 		dev_err(kbdev->dev, "Can't request interrupt %d (index %d)\n",
-					kbdev->irqs[irq_type].irq, irq_type);
+			kbdev->irqs[irq_type].irq, irq_type);
 #if IS_ENABLED(CONFIG_SPARSE_IRQ)
-		dev_err(kbdev->dev, "You have CONFIG_SPARSE_IRQ support enabled - is the interrupt number correct for this configuration?\n");
+		dev_err(kbdev->dev,
+			"You have CONFIG_SPARSE_IRQ support enabled - is the interrupt number correct for this configuration?\n");
 #endif /* CONFIG_SPARSE_IRQ */
 	}
 
@@ -251,7 +251,7 @@ struct kbasep_irq_test {
 
 static struct kbasep_irq_test kbasep_irq_test_data;
 
-#define IRQ_TEST_TIMEOUT    500
+#define IRQ_TEST_TIMEOUT 500
 
 static irqreturn_t kbase_job_irq_test_handler(int irq, void *data)
 {
@@ -267,7 +267,7 @@ static irqreturn_t kbase_job_irq_test_handler(int irq, void *data)
 		return IRQ_NONE;
 	}
 
-	val = kbase_reg_read(kbdev, JOB_CONTROL_REG(JOB_IRQ_STATUS));
+	val = kbase_reg_read32(kbdev, JOB_CONTROL_ENUM(JOB_IRQ_STATUS));
 
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
@@ -279,7 +279,7 @@ static irqreturn_t kbase_job_irq_test_handler(int irq, void *data)
 	kbasep_irq_test_data.triggered = 1;
 	wake_up(&kbasep_irq_test_data.wait);
 
-	kbase_reg_write(kbdev, JOB_CONTROL_REG(JOB_IRQ_CLEAR), val);
+	kbase_reg_write32(kbdev, JOB_CONTROL_ENUM(JOB_IRQ_CLEAR), val);
 
 	return IRQ_HANDLED;
 }
@@ -298,7 +298,7 @@ static irqreturn_t kbase_mmu_irq_test_handler(int irq, void *data)
 		return IRQ_NONE;
 	}
 
-	val = kbase_reg_read(kbdev, MMU_CONTROL_REG(MMU_IRQ_STATUS));
+	val = kbase_reg_read32(kbdev, MMU_CONTROL_ENUM(IRQ_STATUS));
 
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
@@ -310,15 +310,14 @@ static irqreturn_t kbase_mmu_irq_test_handler(int irq, void *data)
 	kbasep_irq_test_data.triggered = 1;
 	wake_up(&kbasep_irq_test_data.wait);
 
-	kbase_reg_write(kbdev, MMU_CONTROL_REG(MMU_IRQ_CLEAR), val);
+	kbase_reg_write32(kbdev, MMU_CONTROL_ENUM(IRQ_CLEAR), val);
 
 	return IRQ_HANDLED;
 }
 
 static enum hrtimer_restart kbasep_test_interrupt_timeout(struct hrtimer *timer)
 {
-	struct kbasep_irq_test *test_data = container_of(timer,
-						struct kbasep_irq_test, timer);
+	struct kbasep_irq_test *test_data = container_of(timer, struct kbasep_irq_test, timer);
 
 	test_data->timeout = 1;
 	test_data->triggered = 1;
@@ -326,8 +325,7 @@ static enum hrtimer_restart kbasep_test_interrupt_timeout(struct hrtimer *timer)
 	return HRTIMER_NORESTART;
 }
 
-static int kbasep_common_test_interrupt(
-				struct kbase_device * const kbdev, u32 tag)
+static int kbasep_common_test_interrupt(struct kbase_device *const kbdev, u32 tag)
 {
 	int err = 0;
 	irq_handler_t test_handler;
@@ -339,13 +337,13 @@ static int kbasep_common_test_interrupt(
 	switch (tag) {
 	case JOB_IRQ_TAG:
 		test_handler = kbase_job_irq_test_handler;
-		rawstat_offset = JOB_CONTROL_REG(JOB_IRQ_RAWSTAT);
-		mask_offset = JOB_CONTROL_REG(JOB_IRQ_MASK);
+		rawstat_offset = JOB_CONTROL_ENUM(JOB_IRQ_RAWSTAT);
+		mask_offset = JOB_CONTROL_ENUM(JOB_IRQ_MASK);
 		break;
 	case MMU_IRQ_TAG:
 		test_handler = kbase_mmu_irq_test_handler;
-		rawstat_offset = MMU_CONTROL_REG(MMU_IRQ_RAWSTAT);
-		mask_offset = MMU_CONTROL_REG(MMU_IRQ_MASK);
+		rawstat_offset = MMU_CONTROL_ENUM(IRQ_RAWSTAT);
+		mask_offset = MMU_CONTROL_ENUM(IRQ_MASK);
 		break;
 	case GPU_IRQ_TAG:
 		/* already tested by pm_driver - bail out */
@@ -354,9 +352,9 @@ static int kbasep_common_test_interrupt(
 	}
 
 	/* store old mask */
-	old_mask_val = kbase_reg_read(kbdev, mask_offset);
+	old_mask_val = kbase_reg_read32(kbdev, mask_offset);
 	/* mask interrupts */
-	kbase_reg_write(kbdev, mask_offset, 0x0);
+	kbase_reg_write32(kbdev, mask_offset, 0x0);
 
 	if (kbdev->irqs[tag].irq) {
 		/* release original handler and install test handler */
@@ -364,36 +362,33 @@ static int kbasep_common_test_interrupt(
 			err = -EINVAL;
 		} else {
 			kbasep_irq_test_data.timeout = 0;
-			hrtimer_init(&kbasep_irq_test_data.timer,
-					CLOCK_MONOTONIC, HRTIMER_MODE_REL);
-			kbasep_irq_test_data.timer.function =
-						kbasep_test_interrupt_timeout;
+			hrtimer_init(&kbasep_irq_test_data.timer, CLOCK_MONOTONIC,
+				     HRTIMER_MODE_REL);
+			kbasep_irq_test_data.timer.function = kbasep_test_interrupt_timeout;
 
 			/* trigger interrupt */
-			kbase_reg_write(kbdev, mask_offset, 0x1);
-			kbase_reg_write(kbdev, rawstat_offset, 0x1);
+			kbase_reg_write32(kbdev, mask_offset, 0x1);
+			kbase_reg_write32(kbdev, rawstat_offset, 0x1);
 
 			hrtimer_start(&kbasep_irq_test_data.timer,
-					HR_TIMER_DELAY_MSEC(IRQ_TEST_TIMEOUT),
-					HRTIMER_MODE_REL);
+				      HR_TIMER_DELAY_MSEC(IRQ_TEST_TIMEOUT), HRTIMER_MODE_REL);
 
-			wait_event(kbasep_irq_test_data.wait,
-					kbasep_irq_test_data.triggered != 0);
+			wait_event(kbasep_irq_test_data.wait, kbasep_irq_test_data.triggered != 0);
 
 			if (kbasep_irq_test_data.timeout != 0) {
 				dev_err(kbdev->dev, "Interrupt %d (index %d) didn't reach CPU.\n",
-						kbdev->irqs[tag].irq, tag);
+					kbdev->irqs[tag].irq, tag);
 				err = -EINVAL;
 			} else {
 				dev_dbg(kbdev->dev, "Interrupt %d (index %d) reached CPU.\n",
-						kbdev->irqs[tag].irq, tag);
+					kbdev->irqs[tag].irq, tag);
 			}
 
 			hrtimer_cancel(&kbasep_irq_test_data.timer);
 			kbasep_irq_test_data.triggered = 0;
 
 			/* mask interrupts */
-			kbase_reg_write(kbdev, mask_offset, 0x0);
+			kbase_reg_write32(kbdev, mask_offset, 0x0);
 
 			/* release test handler */
 			free_irq(kbdev->irqs[tag].irq, kbase_tag(kbdev, tag));
@@ -401,21 +396,20 @@ static int kbasep_common_test_interrupt(
 
 		/* restore original interrupt */
 		if (request_irq(kbdev->irqs[tag].irq, kbase_handler_table[tag],
-				kbdev->irqs[tag].flags | IRQF_SHARED,
-				dev_name(kbdev->dev), kbase_tag(kbdev, tag))) {
+				kbdev->irqs[tag].flags | IRQF_SHARED, dev_name(kbdev->dev),
+				kbase_tag(kbdev, tag))) {
 			dev_err(kbdev->dev, "Can't restore original interrupt %d (index %d)\n",
-						kbdev->irqs[tag].irq, tag);
+				kbdev->irqs[tag].irq, tag);
 			err = -EINVAL;
 		}
 	}
 	/* restore old mask */
-	kbase_reg_write(kbdev, mask_offset, old_mask_val);
+	kbase_reg_write32(kbdev, mask_offset, old_mask_val);
 
 	return err;
 }
 
-int kbasep_common_test_interrupt_handlers(
-					struct kbase_device * const kbdev)
+int kbasep_common_test_interrupt_handlers(struct kbase_device *const kbdev)
 {
 	int err;
 
@@ -427,19 +421,21 @@ int kbasep_common_test_interrupt_handlers(
 
 	err = kbasep_common_test_interrupt(kbdev, JOB_IRQ_TAG);
 	if (err) {
-		dev_err(kbdev->dev, "Interrupt JOB_IRQ didn't reach CPU. Check interrupt assignments.\n");
+		dev_err(kbdev->dev,
+			"Interrupt JOB_IRQ didn't reach CPU. Check interrupt assignments.\n");
 		goto out;
 	}
 
 	err = kbasep_common_test_interrupt(kbdev, MMU_IRQ_TAG);
 	if (err) {
-		dev_err(kbdev->dev, "Interrupt MMU_IRQ didn't reach CPU. Check interrupt assignments.\n");
+		dev_err(kbdev->dev,
+			"Interrupt MMU_IRQ didn't reach CPU. Check interrupt assignments.\n");
 		goto out;
 	}
 
 	dev_dbg(kbdev->dev, "Interrupts are correctly assigned.\n");
 
- out:
+out:
 	kbase_pm_context_idle(kbdev);
 
 	return err;
@@ -454,14 +450,14 @@ int kbase_install_interrupts(struct kbase_device *kbdev)
 
 	for (i = 0; i < nr; i++) {
 		err = request_irq(kbdev->irqs[i].irq, kbase_handler_table[i],
-				kbdev->irqs[i].flags | IRQF_SHARED,
-				dev_name(kbdev->dev),
-				kbase_tag(kbdev, i));
+				  kbdev->irqs[i].flags | IRQF_SHARED, dev_name(kbdev->dev),
+				  kbase_tag(kbdev, i));
 		if (err) {
 			dev_err(kbdev->dev, "Can't request interrupt %d (index %d)\n",
-							kbdev->irqs[i].irq, i);
+				kbdev->irqs[i].irq, i);
 #if IS_ENABLED(CONFIG_SPARSE_IRQ)
-			dev_err(kbdev->dev, "You have CONFIG_SPARSE_IRQ support enabled - is the interrupt number correct for this configuration?\n");
+			dev_err(kbdev->dev,
+				"You have CONFIG_SPARSE_IRQ support enabled - is the interrupt number correct for this configuration?\n");
 #endif /* CONFIG_SPARSE_IRQ */
 			goto release;
 		}
@@ -469,7 +465,7 @@ int kbase_install_interrupts(struct kbase_device *kbdev)
 
 	return 0;
 
- release:
+release:
 	while (i-- > 0)
 		free_irq(kbdev->irqs[i].irq, kbase_tag(kbdev, i));
 

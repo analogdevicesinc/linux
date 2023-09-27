@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -37,30 +37,22 @@
 
 DECLARE_EVENT_CLASS(gpu,
 
-	TP_PROTO(unsigned int state, unsigned int gpu_id),
+		    TP_PROTO(unsigned int state, unsigned int gpu_id),
 
-	TP_ARGS(state, gpu_id),
+		    TP_ARGS(state, gpu_id),
 
-	TP_STRUCT__entry(
-		__field(u32, state)
-		__field(u32, gpu_id)
-	),
+		    TP_STRUCT__entry(__field(u32, state) __field(u32, gpu_id)),
 
-	TP_fast_assign(
-		__entry->state = state;
-		__entry->gpu_id = gpu_id;
-	),
+		    TP_fast_assign(__entry->state = state; __entry->gpu_id = gpu_id;),
 
-	TP_printk("state=%lu gpu_id=%lu", (unsigned long)__entry->state,
-		  (unsigned long)__entry->gpu_id)
-);
+		    TP_printk("state=%lu gpu_id=%lu", (unsigned long)__entry->state,
+			      (unsigned long)__entry->gpu_id));
 
 DEFINE_EVENT(gpu, gpu_frequency,
 
-	TP_PROTO(unsigned int frequency, unsigned int gpu_id),
+	     TP_PROTO(unsigned int frequency, unsigned int gpu_id),
 
-	TP_ARGS(frequency, gpu_id)
-);
+	     TP_ARGS(frequency, gpu_id));
 
 #endif /* _TRACE_POWER_GPU_FREQUENCY_H */
 

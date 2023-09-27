@@ -83,17 +83,22 @@
  *   before allocating GPU memory for the context.
  * - CPU mappings of USER_BUFFER imported memory handles must be cached.
  * 1.19:
- *   - Add Neural Engine support in queue_group_create IOCTL fields
- *   - Previous version retained as KBASE_IOCTL_CS_QUEUE_GROUP_CREATE_1_18 for
+ * - Add NE support in queue_group_create IOCTL fields
+ * - Previous version retained as KBASE_IOCTL_CS_QUEUE_GROUP_CREATE_1_18 for
  *     backward compatibility.
  * 1.20:
  * - Restrict child process from doing supported file operations (like mmap, ioctl,
  *   read, poll) on the file descriptor of mali device file that was inherited
  *   from the parent process.
+ * 1.21:
+ * - Remove KBASE_IOCTL_HWCNT_READER_SETUP and KBASE_HWCNT_READER_* ioctls.
+ * 1.22:
+ * - Add comp_pri_threshold and comp_pri_ratio attributes to
+ *   kbase_ioctl_cs_queue_group_create.
  */
 
 #define BASE_UK_VERSION_MAJOR 1
-#define BASE_UK_VERSION_MINOR 20
+#define BASE_UK_VERSION_MINOR 22
 
 /**
  * struct kbase_ioctl_version_check - Check version compatibility between
@@ -142,8 +147,7 @@ struct kbase_ioctl_cs_queue_kick {
 	__u64 buffer_gpu_addr;
 };
 
-#define KBASE_IOCTL_CS_QUEUE_KICK \
-	_IOW(KBASE_IOCTL_TYPE, 37, struct kbase_ioctl_cs_queue_kick)
+#define KBASE_IOCTL_CS_QUEUE_KICK _IOW(KBASE_IOCTL_TYPE, 37, struct kbase_ioctl_cs_queue_kick)
 
 /**
  * union kbase_ioctl_cs_queue_bind - Bind a GPU command queue to a group
@@ -169,8 +173,7 @@ union kbase_ioctl_cs_queue_bind {
 	} out;
 };
 
-#define KBASE_IOCTL_CS_QUEUE_BIND \
-	_IOWR(KBASE_IOCTL_TYPE, 39, union kbase_ioctl_cs_queue_bind)
+#define KBASE_IOCTL_CS_QUEUE_BIND _IOWR(KBASE_IOCTL_TYPE, 39, union kbase_ioctl_cs_queue_bind)
 
 /**
  * struct kbase_ioctl_cs_queue_register_ex - Register a GPU command queue with the
@@ -262,7 +265,7 @@ union kbase_ioctl_cs_queue_group_create_1_6 {
 	} out;
 };
 
-#define KBASE_IOCTL_CS_QUEUE_GROUP_CREATE_1_6                                  \
+#define KBASE_IOCTL_CS_QUEUE_GROUP_CREATE_1_6 \
 	_IOWR(KBASE_IOCTL_TYPE, 42, union kbase_ioctl_cs_queue_group_create_1_6)
 
 /**
@@ -312,7 +315,7 @@ union kbase_ioctl_cs_queue_group_create_1_18 {
 	} out;
 };
 
-#define KBASE_IOCTL_CS_QUEUE_GROUP_CREATE_1_18                                                     \
+#define KBASE_IOCTL_CS_QUEUE_GROUP_CREATE_1_18 \
 	_IOWR(KBASE_IOCTL_TYPE, 58, union kbase_ioctl_cs_queue_group_create_1_18)
 
 /**
@@ -366,7 +369,7 @@ union kbase_ioctl_cs_queue_group_create {
 	} out;
 };
 
-#define KBASE_IOCTL_CS_QUEUE_GROUP_CREATE                                      \
+#define KBASE_IOCTL_CS_QUEUE_GROUP_CREATE \
 	_IOWR(KBASE_IOCTL_TYPE, 58, union kbase_ioctl_cs_queue_group_create)
 
 /**
@@ -383,8 +386,7 @@ struct kbase_ioctl_cs_queue_group_term {
 #define KBASE_IOCTL_CS_QUEUE_GROUP_TERMINATE \
 	_IOW(KBASE_IOCTL_TYPE, 43, struct kbase_ioctl_cs_queue_group_term)
 
-#define KBASE_IOCTL_CS_EVENT_SIGNAL \
-	_IO(KBASE_IOCTL_TYPE, 44)
+#define KBASE_IOCTL_CS_EVENT_SIGNAL _IO(KBASE_IOCTL_TYPE, 44)
 
 typedef __u8 base_kcpu_queue_id; /* We support up to 256 active KCPU queues */
 
@@ -399,8 +401,7 @@ struct kbase_ioctl_kcpu_queue_new {
 	__u8 padding[7];
 };
 
-#define KBASE_IOCTL_KCPU_QUEUE_CREATE \
-	_IOR(KBASE_IOCTL_TYPE, 45, struct kbase_ioctl_kcpu_queue_new)
+#define KBASE_IOCTL_KCPU_QUEUE_CREATE _IOR(KBASE_IOCTL_TYPE, 45, struct kbase_ioctl_kcpu_queue_new)
 
 /**
  * struct kbase_ioctl_kcpu_queue_delete - Destroy a KCPU command queue
@@ -506,7 +507,7 @@ union kbase_ioctl_cs_tiler_heap_init_1_13 {
 	} out;
 };
 
-#define KBASE_IOCTL_CS_TILER_HEAP_INIT_1_13                                                        \
+#define KBASE_IOCTL_CS_TILER_HEAP_INIT_1_13 \
 	_IOWR(KBASE_IOCTL_TYPE, 48, union kbase_ioctl_cs_tiler_heap_init_1_13)
 
 /**
@@ -565,16 +566,14 @@ union kbase_ioctl_cs_get_glb_iface {
 	} out;
 };
 
-#define KBASE_IOCTL_CS_GET_GLB_IFACE \
-	_IOWR(KBASE_IOCTL_TYPE, 51, union kbase_ioctl_cs_get_glb_iface)
+#define KBASE_IOCTL_CS_GET_GLB_IFACE _IOWR(KBASE_IOCTL_TYPE, 51, union kbase_ioctl_cs_get_glb_iface)
 
 struct kbase_ioctl_cs_cpu_queue_info {
 	__u64 buffer;
 	__u64 size;
 };
 
-#define KBASE_IOCTL_VERSION_CHECK \
-	_IOWR(KBASE_IOCTL_TYPE, 52, struct kbase_ioctl_version_check)
+#define KBASE_IOCTL_VERSION_CHECK _IOWR(KBASE_IOCTL_TYPE, 52, struct kbase_ioctl_version_check)
 
 #define KBASE_IOCTL_CS_CPU_QUEUE_DUMP \
 	_IOW(KBASE_IOCTL_TYPE, 53, struct kbase_ioctl_cs_cpu_queue_info)

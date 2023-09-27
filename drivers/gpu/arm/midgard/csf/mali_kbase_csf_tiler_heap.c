@@ -21,6 +21,7 @@
 
 #include <tl/mali_kbase_tracepoints.h>
 
+#include "mali_kbase_reg_track.h"
 #include "mali_kbase_csf_tiler_heap.h"
 #include "mali_kbase_csf_tiler_heap_def.h"
 #include "mali_kbase_csf_heap_context_alloc.h"
@@ -64,16 +65,13 @@ static u64 encode_chunk_ptr(u32 const chunk_size, u64 const chunk_addr)
 	WARN_ON(chunk_size & ~CHUNK_SIZE_MASK);
 	WARN_ON(chunk_addr & ~CHUNK_ADDR_MASK);
 
-	encoded_size =
-		(u64)(chunk_size >> CHUNK_HDR_NEXT_SIZE_ENCODE_SHIFT) <<
-		CHUNK_HDR_NEXT_SIZE_POS;
+	encoded_size = (u64)(chunk_size >> CHUNK_HDR_NEXT_SIZE_ENCODE_SHIFT)
+		       << CHUNK_HDR_NEXT_SIZE_POS;
 
-	encoded_addr =
-		(chunk_addr >> CHUNK_HDR_NEXT_ADDR_ENCODE_SHIFT) <<
-		CHUNK_HDR_NEXT_ADDR_POS;
+	encoded_addr = (chunk_addr >> CHUNK_HDR_NEXT_ADDR_ENCODE_SHIFT) << CHUNK_HDR_NEXT_ADDR_POS;
 
 	return (encoded_size & CHUNK_HDR_NEXT_SIZE_MASK) |
-		(encoded_addr & CHUNK_HDR_NEXT_ADDR_MASK);
+	       (encoded_addr & CHUNK_HDR_NEXT_ADDR_MASK);
 }
 
 /**
@@ -83,14 +81,12 @@ static u64 encode_chunk_ptr(u32 const chunk_size, u64 const chunk_addr)
  *
  * Return: The address of the most recently-linked chunk, or NULL if none.
  */
-static struct kbase_csf_tiler_heap_chunk *get_last_chunk(
-	struct kbase_csf_tiler_heap *const heap)
+static struct kbase_csf_tiler_heap_chunk *get_last_chunk(struct kbase_csf_tiler_heap *const heap)
 {
 	if (list_empty(&heap->chunks_list))
 		return NULL;
 
-	return list_last_entry(&heap->chunks_list,
-		struct kbase_csf_tiler_heap_chunk, link);
+	return list_last_entry(&heap->chunks_list, struct kbase_csf_tiler_heap_chunk, link);
 }
 
 /**
@@ -136,7 +132,7 @@ static void remove_external_chunk_mappings(struct kbase_context *const kctx,
  * Return: 0 if successful or a negative error code on failure.
  */
 static int link_chunk(struct kbase_csf_tiler_heap *const heap,
-	struct kbase_csf_tiler_heap_chunk *const chunk)
+		      struct kbase_csf_tiler_heap_chunk *const chunk)
 {
 	struct kbase_csf_tiler_heap_chunk *const prev = get_last_chunk(heap);
 
@@ -149,8 +145,7 @@ static int link_chunk(struct kbase_csf_tiler_heap *const heap,
 
 		*prev_hdr = encode_chunk_ptr(heap->chunk_size, chunk->gpu_va);
 
-		dev_dbg(kctx->kbdev->dev,
-			"Linked tiler heap chunks, 0x%llX -> 0x%llX\n",
+		dev_dbg(kctx->kbdev->dev, "Linked tiler heap chunks, 0x%llX -> 0x%llX\n",
 			prev->gpu_va, chunk->gpu_va);
 	}
 
@@ -172,7 +167,7 @@ static int link_chunk(struct kbase_csf_tiler_heap *const heap,
  * Return: 0 if successful or a negative error code on failure.
  */
 static int init_chunk(struct kbase_csf_tiler_heap *const heap,
-	struct kbase_csf_tiler_heap_chunk *const chunk, bool link_with_prev)
+		      struct kbase_csf_tiler_heap_chunk *const chunk, bool link_with_prev)
 {
 	int err = 0;
 	u64 *chunk_hdr;
@@ -181,8 +176,7 @@ static int init_chunk(struct kbase_csf_tiler_heap *const heap,
 	lockdep_assert_held(&kctx->csf.tiler_heaps.lock);
 
 	if (unlikely(chunk->gpu_va & ~CHUNK_ADDR_MASK)) {
-		dev_err(kctx->kbdev->dev,
-			"Tiler heap chunk address is unusable\n");
+		dev_err(kctx->kbdev->dev, "Tiler heap chunk address is unusable\n");
 		return -EINVAL;
 	}
 
@@ -283,8 +277,7 @@ static struct kbase_csf_tiler_heap_chunk *alloc_new_chunk(struct kbase_context *
 
 	chunk = kzalloc(sizeof(*chunk), GFP_KERNEL);
 	if (unlikely(!chunk)) {
-		dev_err(kctx->kbdev->dev,
-			"No kernel memory for a new tiler heap chunk\n");
+		dev_err(kctx->kbdev->dev, "No kernel memory for a new tiler heap chunk\n");
 		return NULL;
 	}
 
@@ -445,8 +438,8 @@ static void delete_all_chunks(struct kbase_csf_tiler_heap *heap)
 	     "Deleting a heap's chunks when that heap is still linked requires the tiler_heaps lock, which cannot be held by the caller");
 
 	list_for_each_safe(entry, tmp, &heap->chunks_list) {
-		struct kbase_csf_tiler_heap_chunk *chunk = list_entry(
-			entry, struct kbase_csf_tiler_heap_chunk, link);
+		struct kbase_csf_tiler_heap_chunk *chunk =
+			list_entry(entry, struct kbase_csf_tiler_heap_chunk, link);
 
 		list_del_init(&chunk->link);
 		heap->chunk_count--;
@@ -466,8 +459,7 @@ static void delete_all_chunks(struct kbase_csf_tiler_heap *heap)
  *
  * Return: 0 if successful or a negative error code on failure.
  */
-static int create_initial_chunks(struct kbase_csf_tiler_heap *const heap,
-	u32 const nchunks)
+static int create_initial_chunks(struct kbase_csf_tiler_heap *const heap, u32 const nchunks)
 {
 	int err = 0;
 	u32 i;
@@ -520,13 +512,12 @@ static void delete_heap(struct kbase_csf_tiler_heap *heap)
 	 * may be overwritten with new data, meaning heap->gpu_va should not
 	 * be used past this point.
 	 */
-	kbase_csf_heap_context_allocator_free(&kctx->csf.tiler_heaps.ctx_alloc,
-		heap->gpu_va);
+	kbase_csf_heap_context_allocator_free(&kctx->csf.tiler_heaps.ctx_alloc, heap->gpu_va);
 
 	WARN_ON(heap->chunk_count);
-	KBASE_TLSTREAM_AUX_TILER_HEAP_STATS(kctx->kbdev, kctx->id,
-		heap->heap_id, 0, 0, heap->max_chunks, heap->chunk_size, 0,
-		heap->target_in_flight, 0);
+	KBASE_TLSTREAM_AUX_TILER_HEAP_STATS(kctx->kbdev, kctx->id, heap->heap_id, 0, 0,
+					    heap->max_chunks, heap->chunk_size, 0,
+					    heap->target_in_flight, 0);
 
 	if (heap->buf_desc_reg) {
 		kbase_vunmap(kctx, &heap->buf_desc_map);
@@ -552,8 +543,8 @@ static void delete_heap(struct kbase_csf_tiler_heap *heap)
  *
  * Return: pointer to the tiler heap object, or NULL if not found.
  */
-static struct kbase_csf_tiler_heap *find_tiler_heap(
-	struct kbase_context *const kctx, u64 const heap_gpu_va)
+static struct kbase_csf_tiler_heap *find_tiler_heap(struct kbase_context *const kctx,
+						    u64 const heap_gpu_va)
 {
 	struct kbase_csf_tiler_heap *heap = NULL;
 
@@ -564,8 +555,7 @@ static struct kbase_csf_tiler_heap *find_tiler_heap(
 			return heap;
 	}
 
-	dev_dbg(kctx->kbdev->dev, "Tiler heap 0x%llX was not found\n",
-		heap_gpu_va);
+	dev_dbg(kctx->kbdev->dev, "Tiler heap 0x%llX was not found\n", heap_gpu_va);
 
 	return NULL;
 }
@@ -589,8 +579,7 @@ static struct kbase_csf_tiler_heap_chunk *find_chunk(struct kbase_csf_tiler_heap
 
 int kbase_csf_tiler_heap_context_init(struct kbase_context *const kctx)
 {
-	int err = kbase_csf_heap_context_allocator_init(
-		&kctx->csf.tiler_heaps.ctx_alloc, kctx);
+	int err = kbase_csf_heap_context_allocator_init(&kctx->csf.tiler_heaps.ctx_alloc, kctx);
 
 	if (unlikely(err))
 		return err;
@@ -615,8 +604,8 @@ void kbase_csf_tiler_heap_context_term(struct kbase_context *const kctx)
 	mutex_unlock(&kctx->csf.tiler_heaps.lock);
 
 	list_for_each_safe(entry, tmp, &local_heaps_list) {
-		struct kbase_csf_tiler_heap *heap = list_entry(
-			entry, struct kbase_csf_tiler_heap, link);
+		struct kbase_csf_tiler_heap *heap =
+			list_entry(entry, struct kbase_csf_tiler_heap, link);
 
 		list_del_init(&heap->link);
 		delete_heap(heap);
@@ -678,8 +667,7 @@ int kbase_csf_tiler_heap_init(struct kbase_context *const kctx, u32 const chunk_
 {
 	int err = 0;
 	struct kbase_csf_tiler_heap *heap = NULL;
-	struct kbase_csf_heap_context_allocator *const ctx_alloc =
-		&kctx->csf.tiler_heaps.ctx_alloc;
+	struct kbase_csf_heap_context_allocator *const ctx_alloc = &kctx->csf.tiler_heaps.ctx_alloc;
 	struct kbase_csf_tiler_heap_chunk *chunk = NULL;
 	struct kbase_va_region *gpu_va_reg = NULL;
 	void *vmap_ptr = NULL;
@@ -843,8 +831,7 @@ buf_desc_not_suitable:
 	return err;
 }
 
-int kbase_csf_tiler_heap_term(struct kbase_context *const kctx,
-	u64 const heap_gpu_va)
+int kbase_csf_tiler_heap_term(struct kbase_context *const kctx, u64 const heap_gpu_va)
 {
 	int err = 0;
 	struct kbase_csf_tiler_heap *heap = NULL;
@@ -868,13 +855,11 @@ int kbase_csf_tiler_heap_term(struct kbase_context *const kctx,
 	if (likely(kctx->running_total_tiler_heap_memory >= heap_size))
 		kctx->running_total_tiler_heap_memory -= heap_size;
 	else
-		dev_warn(kctx->kbdev->dev,
-			 "Running total tiler heap memory lower than expected!");
+		dev_warn(kctx->kbdev->dev, "Running total tiler heap memory lower than expected!");
 	if (likely(kctx->running_total_tiler_heap_nr_chunks >= chunk_count))
 		kctx->running_total_tiler_heap_nr_chunks -= chunk_count;
 	else
-		dev_warn(kctx->kbdev->dev,
-			 "Running total tiler chunk count lower than expected!");
+		dev_warn(kctx->kbdev->dev, "Running total tiler chunk count lower than expected!");
 	if (!err)
 		dev_dbg(kctx->kbdev->dev,
 			"Terminated tiler heap 0x%llX, buffer descriptor 0x%llX, ctx_%d_%d\n",
@@ -937,8 +922,9 @@ static int validate_allocation_request(struct kbase_csf_tiler_heap *heap, u32 nr
 	return -ENOMEM;
 }
 
-int kbase_csf_tiler_heap_alloc_new_chunk(struct kbase_context *kctx,
-	u64 gpu_heap_va, u32 nr_in_flight, u32 pending_frag_count, u64 *new_chunk_ptr)
+int kbase_csf_tiler_heap_alloc_new_chunk(struct kbase_context *kctx, u64 gpu_heap_va,
+					 u32 nr_in_flight, u32 pending_frag_count,
+					 u64 *new_chunk_ptr)
 {
 	struct kbase_csf_tiler_heap *heap;
 	struct kbase_csf_tiler_heap_chunk *chunk;

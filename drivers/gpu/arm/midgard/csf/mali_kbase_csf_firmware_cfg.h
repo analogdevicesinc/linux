@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -69,4 +69,38 @@ void kbase_csf_firmware_cfg_term(struct kbase_device *kbdev);
 int kbase_csf_firmware_cfg_option_entry_parse(struct kbase_device *kbdev,
 					      const struct kbase_csf_mcu_fw *const fw,
 					      const u32 *entry, unsigned int size, bool updatable);
+
+/**
+ * kbase_csf_firmware_cfg_fw_wa_enable() - Enable firmware workarounds configuration.
+ *
+ * @kbdev:     Kbase device structure
+ *
+ * Look for the config entry that enables support in FW for workarounds and set it according to
+ * the firmware workaround configuration before the initial boot or reload of firmware.
+ *
+ * Return: 0 if successful, negative error code on failure
+ */
+int kbase_csf_firmware_cfg_fw_wa_enable(struct kbase_device *kbdev);
+
+/**
+ * kbase_csf_firmware_cfg_fw_wa_init() - Initialize firmware workarounds configuration.
+ *
+ * @kbdev:     Kbase device structure
+ *
+ * Retrieve and save the firmware workarounds configuration from device-tree "quirks_ext" property.
+ * Then, look for the config entry that enables support in FW for workarounds and set it according
+ * to the configuration before the initial firmware boot.
+ *
+ * Return: 0 if successful, negative error code on failure
+ */
+int kbase_csf_firmware_cfg_fw_wa_init(struct kbase_device *kbdev);
+
+/**
+ * kbase_csf_firmware_cfg_fw_wa_term - Delete local cache for firmware workarounds configuration.
+ *
+ * @kbdev: Pointer to the Kbase device
+ *
+ */
+void kbase_csf_firmware_cfg_fw_wa_term(struct kbase_device *kbdev);
+
 #endif /* _KBASE_CSF_FIRMWARE_CFG_H_ */

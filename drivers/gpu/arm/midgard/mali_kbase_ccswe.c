@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -25,8 +25,7 @@
 #include <linux/math64.h>
 #include <linux/time.h>
 
-static u64 kbasep_ccswe_cycle_at_no_lock(
-	struct kbase_ccswe *self, u64 timestamp_ns)
+static u64 kbasep_ccswe_cycle_at_no_lock(struct kbase_ccswe *self, u64 timestamp_ns)
 {
 	s64 diff_s, diff_ns;
 	u32 gpu_freq;
@@ -39,8 +38,7 @@ static u64 kbasep_ccswe_cycle_at_no_lock(
 	diff_s = div_s64(diff_ns, NSEC_PER_SEC);
 	diff_ns -= diff_s * NSEC_PER_SEC;
 
-	return self->cycles_elapsed + diff_s * gpu_freq
-		+ div_s64(diff_ns * gpu_freq, NSEC_PER_SEC);
+	return self->cycles_elapsed + diff_s * gpu_freq + div_s64(diff_ns * gpu_freq, NSEC_PER_SEC);
 }
 
 void kbase_ccswe_init(struct kbase_ccswe *self)
@@ -62,8 +60,7 @@ u64 kbase_ccswe_cycle_at(struct kbase_ccswe *self, u64 timestamp_ns)
 	return result;
 }
 
-void kbase_ccswe_freq_change(
-	struct kbase_ccswe *self, u64 timestamp_ns, u32 gpu_freq)
+void kbase_ccswe_freq_change(struct kbase_ccswe *self, u64 timestamp_ns, u32 gpu_freq)
 {
 	unsigned long flags;
 
@@ -75,8 +72,7 @@ void kbase_ccswe_freq_change(
 
 	/* If this is the first frequency change, cycles_elapsed is zero. */
 	if (self->timestamp_ns)
-		self->cycles_elapsed = kbasep_ccswe_cycle_at_no_lock(
-			self, timestamp_ns);
+		self->cycles_elapsed = kbasep_ccswe_cycle_at_no_lock(self, timestamp_ns);
 
 	self->timestamp_ns = timestamp_ns;
 	self->prev_gpu_freq = self->gpu_freq;

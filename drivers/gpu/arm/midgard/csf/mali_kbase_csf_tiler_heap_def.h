@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -48,13 +48,11 @@
 /* Bitmask of valid chunk sizes. This is also the maximum chunk size, in bytes.
  */
 #define CHUNK_SIZE_MASK \
-	((CHUNK_HDR_NEXT_SIZE_MASK >> CHUNK_HDR_NEXT_SIZE_POS) << \
-	 CHUNK_HDR_NEXT_SIZE_ENCODE_SHIFT)
+	((CHUNK_HDR_NEXT_SIZE_MASK >> CHUNK_HDR_NEXT_SIZE_POS) << CHUNK_HDR_NEXT_SIZE_ENCODE_SHIFT)
 
 /* Bitmask of valid chunk addresses. This is also the highest address. */
 #define CHUNK_ADDR_MASK \
-	((CHUNK_HDR_NEXT_ADDR_MASK >> CHUNK_HDR_NEXT_ADDR_POS) << \
-	 CHUNK_HDR_NEXT_ADDR_ENCODE_SHIFT)
+	((CHUNK_HDR_NEXT_ADDR_MASK >> CHUNK_HDR_NEXT_ADDR_POS) << CHUNK_HDR_NEXT_ADDR_ENCODE_SHIFT)
 
 /* The size of the area needed to be vmapped prior to handing the tiler heap
  * over to the tiler, so that the shrinker could be invoked.

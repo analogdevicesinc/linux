@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2017, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2017-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -37,8 +37,7 @@ struct protected_mode_ops {
 	 *
 	 * Return: 0 on success, non-zero on error
 	 */
-	int (*protected_mode_enable)(
-			struct protected_mode_device *protected_dev);
+	int (*protected_mode_enable)(struct protected_mode_device *protected_dev);
 
 	/*
 	 * protected_mode_disable() - Disable protected mode on device, and
@@ -47,8 +46,7 @@ struct protected_mode_ops {
 	 *
 	 * Return: 0 on success, non-zero on error
 	 */
-	int (*protected_mode_disable)(
-			struct protected_mode_device *protected_dev);
+	int (*protected_mode_disable)(struct protected_mode_device *protected_dev);
 };
 
 /**

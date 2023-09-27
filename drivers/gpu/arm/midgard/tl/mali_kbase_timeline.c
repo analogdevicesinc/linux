@@ -42,13 +42,11 @@
 /* These values are used in mali_kbase_tracepoints.h
  * to retrieve the streams from a kbase_timeline instance.
  */
-const size_t __obj_stream_offset =
-	offsetof(struct kbase_timeline, streams)
-	+ sizeof(struct kbase_tlstream) * TL_STREAM_TYPE_OBJ;
+const size_t __obj_stream_offset = offsetof(struct kbase_timeline, streams) +
+				   sizeof(struct kbase_tlstream) * TL_STREAM_TYPE_OBJ;
 
-const size_t __aux_stream_offset =
-	offsetof(struct kbase_timeline, streams)
-	+ sizeof(struct kbase_tlstream) * TL_STREAM_TYPE_AUX;
+const size_t __aux_stream_offset = offsetof(struct kbase_timeline, streams) +
+				   sizeof(struct kbase_tlstream) * TL_STREAM_TYPE_AUX;
 
 /**
  * kbasep_timeline_autoflush_timer_callback - autoflush timer callback
@@ -60,14 +58,13 @@ const size_t __aux_stream_offset =
 static void kbasep_timeline_autoflush_timer_callback(struct timer_list *timer)
 {
 	enum tl_stream_type stype;
-	int                 rcode;
+	int rcode;
 	struct kbase_timeline *timeline =
 		container_of(timer, struct kbase_timeline, autoflush_timer);
 
 	CSTD_UNUSED(timer);
 
-	for (stype = (enum tl_stream_type)0; stype < TL_STREAM_TYPE_COUNT;
-			stype++) {
+	for (stype = (enum tl_stream_type)0; stype < TL_STREAM_TYPE_COUNT; stype++) {
 		struct kbase_tlstream *stream = &timeline->streams[stype];
 
 		int af_cnt = atomic_read(&stream->autoflush_counter);
@@ -77,10 +74,7 @@ static void kbasep_timeline_autoflush_timer_callback(struct timer_list *timer)
 			continue;
 
 		/* Check if stream should be flushed now. */
-		if (af_cnt != atomic_cmpxchg(
-					&stream->autoflush_counter,
-					af_cnt,
-					af_cnt + 1))
+		if (af_cnt != atomic_cmpxchg(&stream->autoflush_counter, af_cnt, af_cnt + 1))
 			continue;
 		if (!af_cnt)
 			continue;
@@ -90,18 +84,14 @@ static void kbasep_timeline_autoflush_timer_callback(struct timer_list *timer)
 	}
 
 	if (atomic_read(&timeline->autoflush_timer_active))
-		rcode = mod_timer(
-				&timeline->autoflush_timer,
-				jiffies + msecs_to_jiffies(AUTOFLUSH_INTERVAL));
+		rcode = mod_timer(&timeline->autoflush_timer,
+				  jiffies + msecs_to_jiffies(AUTOFLUSH_INTERVAL));
 	CSTD_UNUSED(rcode);
 }
 
-
-
 /*****************************************************************************/
 
-int kbase_timeline_init(struct kbase_timeline **timeline,
-		atomic_t *timeline_flags)
+int kbase_timeline_init(struct kbase_timeline **timeline, atomic_t *timeline_flags)
 {
 	enum tl_stream_type i;
 	struct kbase_timeline *result;
@@ -121,8 +111,7 @@ int kbase_timeline_init(struct kbase_timeline **timeline,
 
 	/* Prepare stream structures. */
 	for (i = 0; i < TL_STREAM_TYPE_COUNT; i++)
-		kbase_tlstream_init(&result->streams[i], i,
-			&result->event_queue);
+		kbase_tlstream_init(&result->streams[i], i, &result->event_queue);
 
 	/* Initialize the kctx list */
 	mutex_init(&result->tl_kctx_list_lock);
@@ -130,8 +119,7 @@ int kbase_timeline_init(struct kbase_timeline **timeline,
 
 	/* Initialize autoflush timer. */
 	atomic_set(&result->autoflush_timer_active, 0);
-	kbase_timer_setup(&result->autoflush_timer,
-			  kbasep_timeline_autoflush_timer_callback);
+	kbase_timer_setup(&result->autoflush_timer, kbasep_timeline_autoflush_timer_callback);
 	result->timeline_flags = timeline_flags;
 
 #if MALI_USE_CSF
@@ -271,7 +259,7 @@ void kbase_timeline_release(struct kbase_timeline *timeline)
 	elapsed_time = ktime_sub(ktime_get_raw(), timeline->last_acquire_time);
 	elapsed_time_ms = ktime_to_ms(elapsed_time);
 	time_to_sleep = (elapsed_time_ms < 0 ? TIMELINE_HYSTERESIS_TIMEOUT_MS :
-					       TIMELINE_HYSTERESIS_TIMEOUT_MS - elapsed_time_ms);
+						     TIMELINE_HYSTERESIS_TIMEOUT_MS - elapsed_time_ms);
 	if (time_to_sleep > 0)
 		msleep_interruptible(time_to_sleep);
 
@@ -314,13 +302,10 @@ int kbase_timeline_streams_flush(struct kbase_timeline *timeline)
 
 void kbase_timeline_streams_body_reset(struct kbase_timeline *timeline)
 {
-	kbase_tlstream_reset(
-			&timeline->streams[TL_STREAM_TYPE_OBJ]);
-	kbase_tlstream_reset(
-			&timeline->streams[TL_STREAM_TYPE_AUX]);
+	kbase_tlstream_reset(&timeline->streams[TL_STREAM_TYPE_OBJ]);
+	kbase_tlstream_reset(&timeline->streams[TL_STREAM_TYPE_AUX]);
 #if MALI_USE_CSF
-	kbase_tlstream_reset(
-			&timeline->streams[TL_STREAM_TYPE_CSFFW]);
+	kbase_tlstream_reset(&timeline->streams[TL_STREAM_TYPE_CSFFW]);
 #endif
 }
 
@@ -364,8 +349,7 @@ void kbase_timeline_post_kbase_context_create(struct kbase_context *kctx)
 	 * duplicate creation tracepoints.
 	 */
 #if MALI_USE_CSF
-	KBASE_TLSTREAM_TL_KBASE_NEW_CTX(
-		kbdev, kctx->id, kbdev->gpu_props.props.raw_props.gpu_id);
+	KBASE_TLSTREAM_TL_KBASE_NEW_CTX(kbdev, kctx->id, kbdev->id);
 #endif
 	/* Trace with the AOM tracepoint even in CSF for dumping */
 	KBASE_TLSTREAM_TL_NEW_CTX(kbdev, kctx, kctx->id, 0);
@@ -393,8 +377,8 @@ void kbase_timeline_post_kbase_context_destroy(struct kbase_context *kctx)
 }
 
 #if MALI_UNIT_TEST
-void kbase_timeline_stats(struct kbase_timeline *timeline,
-		u32 *bytes_collected, u32 *bytes_generated)
+void kbase_timeline_stats(struct kbase_timeline *timeline, u32 *bytes_collected,
+			  u32 *bytes_generated)
 {
 	enum tl_stream_type stype;
 
@@ -402,10 +386,8 @@ void kbase_timeline_stats(struct kbase_timeline *timeline,
 
 	/* Accumulate bytes generated per stream  */
 	*bytes_generated = 0;
-	for (stype = (enum tl_stream_type)0; stype < TL_STREAM_TYPE_COUNT;
-			stype++)
-		*bytes_generated += atomic_read(
-			&timeline->streams[stype].bytes_generated);
+	for (stype = (enum tl_stream_type)0; stype < TL_STREAM_TYPE_COUNT; stype++)
+		*bytes_generated += atomic_read(&timeline->streams[stype].bytes_generated);
 
 	*bytes_collected = atomic_read(&timeline->bytes_collected);
 }

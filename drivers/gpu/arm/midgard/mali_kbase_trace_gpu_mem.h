@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -26,25 +26,26 @@
 #include <trace/events/gpu_mem.h>
 #endif
 
-#define DEVICE_TGID ((u32) 0U)
+#define DEVICE_TGID ((u32)0U)
 
-static void kbase_trace_gpu_mem_usage(struct kbase_device *kbdev,
-				      struct kbase_context *kctx)
+static void kbase_trace_gpu_mem_usage(struct kbase_device *kbdev, struct kbase_context *kctx)
 {
 #if IS_ENABLED(CONFIG_TRACE_GPU_MEM)
 	lockdep_assert_held(&kbdev->gpu_mem_usage_lock);
 
-	trace_gpu_mem_total(kbdev->id, DEVICE_TGID,
-			    kbdev->total_gpu_pages << PAGE_SHIFT);
+	trace_gpu_mem_total(kbdev->id, DEVICE_TGID, kbdev->total_gpu_pages << PAGE_SHIFT);
 
 	if (likely(kctx))
 		trace_gpu_mem_total(kbdev->id, kctx->kprcs->tgid,
-				kctx->kprcs->total_gpu_pages << PAGE_SHIFT);
+				    kctx->kprcs->total_gpu_pages << PAGE_SHIFT);
+#else
+	CSTD_UNUSED(kbdev);
+	CSTD_UNUSED(kctx);
 #endif
 }
 
 static inline void kbase_trace_gpu_mem_usage_dec(struct kbase_device *kbdev,
-				struct kbase_context *kctx, size_t pages)
+						 struct kbase_context *kctx, size_t pages)
 {
 	spin_lock(&kbdev->gpu_mem_usage_lock);
 
@@ -59,7 +60,7 @@ static inline void kbase_trace_gpu_mem_usage_dec(struct kbase_device *kbdev,
 }
 
 static inline void kbase_trace_gpu_mem_usage_inc(struct kbase_device *kbdev,
-				struct kbase_context *kctx, size_t pages)
+						 struct kbase_context *kctx, size_t pages)
 {
 	spin_lock(&kbdev->gpu_mem_usage_lock);
 
@@ -82,8 +83,7 @@ static inline void kbase_trace_gpu_mem_usage_inc(struct kbase_device *kbdev,
  * Remove reference to dma buf been unmapped from kbase_device level
  * rb_tree and Kbase_process level dma buf rb_tree.
  */
-void kbase_remove_dma_buf_usage(struct kbase_context *kctx,
-				struct kbase_mem_phy_alloc *alloc);
+void kbase_remove_dma_buf_usage(struct kbase_context *kctx, struct kbase_mem_phy_alloc *alloc);
 
 /**
  * kbase_add_dma_buf_usage - Add a dma-buf entry captured.
@@ -94,7 +94,6 @@ void kbase_remove_dma_buf_usage(struct kbase_context *kctx,
  * Add reference to dma buf been mapped to kbase_device level
  * rb_tree and Kbase_process level dma buf rb_tree.
  */
-void kbase_add_dma_buf_usage(struct kbase_context *kctx,
-				    struct kbase_mem_phy_alloc *alloc);
+void kbase_add_dma_buf_usage(struct kbase_context *kctx, struct kbase_mem_phy_alloc *alloc);
 
 #endif /* _KBASE_TRACE_GPU_MEM_H_ */

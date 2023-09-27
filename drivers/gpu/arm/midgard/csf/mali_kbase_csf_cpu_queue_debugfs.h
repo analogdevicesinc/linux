@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -34,12 +34,11 @@ struct base_csf_notification;
 
 /* CPU queue dump status */
 /* Dumping is done or no dumping is in progress. */
-#define BASE_CSF_CPU_QUEUE_DUMP_COMPLETE	0
+#define BASE_CSF_CPU_QUEUE_DUMP_COMPLETE 0
 /* Dumping request is pending. */
-#define BASE_CSF_CPU_QUEUE_DUMP_PENDING		1
+#define BASE_CSF_CPU_QUEUE_DUMP_PENDING 1
 /* Dumping request is issued to Userspace */
-#define BASE_CSF_CPU_QUEUE_DUMP_ISSUED		2
-
+#define BASE_CSF_CPU_QUEUE_DUMP_ISSUED 2
 
 /**
  * kbase_csf_cpu_queue_debugfs_init() - Create a debugfs entry for per context cpu queue(s)
@@ -57,7 +56,7 @@ void kbase_csf_cpu_queue_debugfs_init(struct kbase_context *kctx);
  * Return: true if needs CPU queue dump, or false otherwise.
  */
 bool kbase_csf_cpu_queue_read_dump_req(struct kbase_context *kctx,
-					struct base_csf_notification *req);
+				       struct base_csf_notification *req);
 
 /**
  * kbase_csf_cpu_queue_dump_needed - Check the requirement for cpu queue dump
@@ -85,6 +84,5 @@ static inline bool kbase_csf_cpu_queue_dump_needed(struct kbase_context *kctx)
  *
  * Return: Return 0 for dump successfully, or error code.
  */
-int kbase_csf_cpu_queue_dump(struct kbase_context *kctx,
-		u64 buffer, size_t buf_size);
+int kbase_csf_cpu_queue_dump(struct kbase_context *kctx, u64 buffer, size_t buf_size);
 #endif /* _KBASE_CSF_CPU_QUEUE_DEBUGFS_H_ */

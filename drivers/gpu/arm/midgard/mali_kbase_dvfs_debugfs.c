@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -37,6 +37,7 @@ static int kbasep_dvfs_utilization_debugfs_show(struct seq_file *file, void *dat
 {
 	struct kbase_device *kbdev = file->private;
 
+	CSTD_UNUSED(data);
 #if MALI_USE_CSF
 	seq_printf(file, "busy_time: %u idle_time: %u protm_time: %u\n",
 		   kbdev->pm.backend.metrics.values.time_busy,
@@ -51,11 +52,9 @@ static int kbasep_dvfs_utilization_debugfs_show(struct seq_file *file, void *dat
 	return 0;
 }
 
-static int kbasep_dvfs_utilization_debugfs_open(struct inode *in,
-						struct file *file)
+static int kbasep_dvfs_utilization_debugfs_open(struct inode *in, struct file *file)
 {
-	return single_open(file, kbasep_dvfs_utilization_debugfs_show,
-			   in->i_private);
+	return single_open(file, kbasep_dvfs_utilization_debugfs_show, in->i_private);
 }
 
 static const struct file_operations kbasep_dvfs_utilization_debugfs_fops = {
@@ -73,13 +72,11 @@ void kbase_dvfs_status_debugfs_init(struct kbase_device *kbdev)
 	if (WARN_ON(!kbdev || IS_ERR_OR_NULL(kbdev->mali_debugfs_directory)))
 		return;
 
-	file = debugfs_create_file("dvfs_utilization", mode,
-				   kbdev->mali_debugfs_directory, kbdev,
+	file = debugfs_create_file("dvfs_utilization", mode, kbdev->mali_debugfs_directory, kbdev,
 				   &kbasep_dvfs_utilization_debugfs_fops);
 
 	if (IS_ERR_OR_NULL(file)) {
-		dev_warn(kbdev->dev,
-			 "Unable to create dvfs debugfs entry");
+		dev_warn(kbdev->dev, "Unable to create dvfs debugfs entry");
 	}
 }
 

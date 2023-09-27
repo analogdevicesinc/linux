@@ -30,15 +30,13 @@
 struct kbase_device;
 struct kbase_jd_atom;
 
-
 typedef u32 kbase_context_flags;
 
 /*
  * typedef kbasep_js_ctx_job_cb - Callback function run on all of a context's
  * jobs registered with the Job Scheduler
  */
-typedef void kbasep_js_ctx_job_cb(struct kbase_device *kbdev,
-				  struct kbase_jd_atom *katom);
+typedef void kbasep_js_ctx_job_cb(struct kbase_device *kbdev, struct kbase_jd_atom *katom);
 
 /*
  * @brief Maximum number of jobs that can be submitted to a job slot whilst
@@ -302,10 +300,8 @@ struct kbasep_js_device_data {
 		s8 slot_affinity_refcount[BASE_JM_MAX_NR_SLOTS][64];
 	} runpool_irq;
 	struct semaphore schedule_sem;
-	struct list_head ctx_list_pullable[BASE_JM_MAX_NR_SLOTS]
-					  [KBASE_JS_ATOM_SCHED_PRIO_COUNT];
-	struct list_head ctx_list_unpullable[BASE_JM_MAX_NR_SLOTS]
-					    [KBASE_JS_ATOM_SCHED_PRIO_COUNT];
+	struct list_head ctx_list_pullable[BASE_JM_MAX_NR_SLOTS][KBASE_JS_ATOM_SCHED_PRIO_COUNT];
+	struct list_head ctx_list_unpullable[BASE_JM_MAX_NR_SLOTS][KBASE_JS_ATOM_SCHED_PRIO_COUNT];
 	s8 nr_user_contexts_running;
 	s8 nr_all_contexts_running;
 	base_jd_core_req js_reqs[BASE_JM_MAX_NR_SLOTS];
@@ -325,7 +321,7 @@ struct kbasep_js_device_data {
 
 #ifdef CONFIG_MALI_DEBUG
 	bool softstop_always;
-#endif				/* CONFIG_MALI_DEBUG */
+#endif /* CONFIG_MALI_DEBUG */
 	int init_status;
 	u32 nr_contexts_pullable;
 	atomic_t nr_contexts_runnable;
@@ -404,7 +400,6 @@ struct kbasep_js_atom_retained_state {
 	int sched_priority;
 	/* Core group atom was executed on */
 	u32 device_nr;
-
 };
 
 /*

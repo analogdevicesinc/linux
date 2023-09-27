@@ -24,8 +24,7 @@
  */
 
 #include <mali_kbase.h>
-#include <gpu/mali_kbase_gpu_regmap.h>
-#include <mali_kbase_vinstr.h>
+#include <hw_access/mali_kbase_hw_access_regmap.h>
 #include <mali_kbase_kinstr_prfcnt.h>
 #include <hwcnt/mali_kbase_hwcnt_context.h>
 
@@ -50,23 +49,21 @@ void kbase_pm_halt(struct kbase_device *kbdev)
 
 void kbase_pm_context_active(struct kbase_device *kbdev)
 {
-	(void)kbase_pm_context_active_handle_suspend(kbdev,
-		KBASE_PM_SUSPEND_HANDLER_NOT_POSSIBLE);
+	(void)kbase_pm_context_active_handle_suspend(kbdev, KBASE_PM_SUSPEND_HANDLER_NOT_POSSIBLE);
 }
 
 int kbase_pm_context_active_handle_suspend(struct kbase_device *kbdev,
-	enum kbase_pm_suspend_handler suspend_handler)
+					   enum kbase_pm_suspend_handler suspend_handler)
 {
 	int c;
 
 	KBASE_DEBUG_ASSERT(kbdev != NULL);
-	dev_dbg(kbdev->dev, "%s - reason = %d, pid = %d\n", __func__,
-		suspend_handler, current->pid);
+	dev_dbg(kbdev->dev, "%s - reason = %d, pid = %d\n", __func__, suspend_handler,
+		current->pid);
 	kbase_pm_lock(kbdev);
 
 #ifdef CONFIG_MALI_ARBITER_SUPPORT
-	if (kbase_arbiter_pm_ctx_active_handle_suspend(kbdev,
-			suspend_handler)) {
+	if (kbase_arbiter_pm_ctx_active_handle_suspend(kbdev, suspend_handler)) {
 		kbase_pm_unlock(kbdev);
 		return 1;
 	}
@@ -117,7 +114,6 @@ void kbase_pm_context_idle(struct kbase_device *kbdev)
 
 	KBASE_DEBUG_ASSERT(kbdev != NULL);
 
-
 	kbase_pm_lock(kbdev);
 
 	c = --kbdev->pm.active_count;
@@ -138,20 +134,55 @@ void kbase_pm_context_idle(struct kbase_device *kbdev)
 	}
 
 	kbase_pm_unlock(kbdev);
-	dev_dbg(kbdev->dev, "%s %d (pid = %d)\n", __func__,
-		kbdev->pm.active_count, current->pid);
+	dev_dbg(kbdev->dev, "%s %d (pid = %d)\n", __func__, kbdev->pm.active_count, current->pid);
 }
 
 KBASE_EXPORT_TEST_API(kbase_pm_context_idle);
 
+static void reenable_hwcnt_on_resume(struct kbase_device *kbdev)
+{
+	unsigned long flags;
+
+	/* Re-enable GPU hardware counters */
+#if MALI_USE_CSF
+	kbase_csf_scheduler_spin_lock(kbdev, &flags);
+	kbase_hwcnt_context_enable(kbdev->hwcnt_gpu_ctx);
+	kbase_csf_scheduler_spin_unlock(kbdev, flags);
+#else
+	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+	kbase_hwcnt_context_enable(kbdev->hwcnt_gpu_ctx);
+	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+#endif
+
+	/* Resume HW counters intermediaries. */
+	kbase_kinstr_prfcnt_resume(kbdev->kinstr_prfcnt_ctx);
+}
+
+static void resume_job_scheduling(struct kbase_device *kbdev)
+{
+#if !MALI_USE_CSF
+	/* Resume any blocked atoms (which may cause contexts to be scheduled in
+	 * and dependent atoms to run)
+	 */
+	kbase_resume_suspended_soft_jobs(kbdev);
+
+	/* Resume the Job Scheduler and associated components, and start running
+	 * atoms
+	 */
+	kbasep_js_resume(kbdev);
+#else
+	kbase_csf_scheduler_pm_resume(kbdev);
+#endif
+}
+
 int kbase_pm_driver_suspend(struct kbase_device *kbdev)
 {
-	KBASE_DEBUG_ASSERT(kbdev);
+	bool scheduling_suspended = false;
+	bool timers_halted = false;
 
 	/* Suspend HW counter intermediaries. This blocks until workers and timers
 	 * are no longer running.
 	 */
-	kbase_vinstr_suspend(kbdev->vinstr_ctx);
 	kbase_kinstr_prfcnt_suspend(kbdev->kinstr_prfcnt_ctx);
 
 	/* Disable GPU hardware counters.
@@ -162,6 +193,7 @@ int kbase_pm_driver_suspend(struct kbase_device *kbdev)
 	mutex_lock(&kbdev->pm.lock);
 	if (WARN_ON(kbase_pm_is_suspending(kbdev))) {
 		mutex_unlock(&kbdev->pm.lock);
+		/* No error handling for this condition */
 		return 0;
 	}
 	kbdev->pm.suspending = true;
@@ -193,13 +225,11 @@ int kbase_pm_driver_suspend(struct kbase_device *kbdev)
 	 */
 	kbasep_js_suspend(kbdev);
 #else
-	if (kbase_csf_scheduler_pm_suspend(kbdev)) {
-		mutex_lock(&kbdev->pm.lock);
-		kbdev->pm.suspending = false;
-		mutex_unlock(&kbdev->pm.lock);
-		return -1;
-	}
+	if (kbase_csf_scheduler_pm_suspend(kbdev))
+		goto exit;
 #endif
+
+	scheduling_suspended = true;
 
 	/* Wait for the active count to reach zero. This is not the same as
 	 * waiting for a power down, since not all policies power down when this
@@ -207,8 +237,7 @@ int kbase_pm_driver_suspend(struct kbase_device *kbdev)
 	 */
 	dev_dbg(kbdev->dev, ">wait_event - waiting for active_count == 0 (pid = %d)\n",
 		current->pid);
-	wait_event(kbdev->pm.zero_active_count_wait,
-		kbdev->pm.active_count == 0);
+	wait_event(kbdev->pm.zero_active_count_wait, kbdev->pm.active_count == 0);
 	dev_dbg(kbdev->dev, ">wait_event - waiting done\n");
 
 #if MALI_USE_CSF
@@ -217,26 +246,21 @@ int kbase_pm_driver_suspend(struct kbase_device *kbdev)
 	 * the system resumes. Therefore, it is now safe to skip taking the context
 	 * list lock when traversing the context list.
 	 */
-	if (kbase_csf_kcpu_queue_halt_timers(kbdev)) {
-		mutex_lock(&kbdev->pm.lock);
-		kbdev->pm.suspending = false;
-		mutex_unlock(&kbdev->pm.lock);
-		return -1;
-	}
+	if (kbase_csf_kcpu_queue_halt_timers(kbdev))
+		goto exit;
 #endif
+
+	timers_halted = true;
 
 	/* NOTE: We synchronize with anything that was just finishing a
 	 * kbase_pm_context_idle() call by locking the pm.lock below
 	 */
 	if (kbase_hwaccess_pm_suspend(kbdev)) {
-#if MALI_USE_CSF
-		/* Resume the timers in case of suspend failure. */
-		kbase_csf_kcpu_queue_resume_timers(kbdev);
-#endif
-		mutex_lock(&kbdev->pm.lock);
-		kbdev->pm.suspending = false;
-		mutex_unlock(&kbdev->pm.lock);
-		return -1;
+		/* No early return yet */
+		if (IS_ENABLED(CONFIG_MALI_ARBITER_SUPPORT))
+			WARN_ON_ONCE(1);
+		else
+			goto exit;
 	}
 
 #ifdef CONFIG_MALI_ARBITER_SUPPORT
@@ -248,39 +272,51 @@ int kbase_pm_driver_suspend(struct kbase_device *kbdev)
 #endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
 	return 0;
+
+exit:
+	if (timers_halted) {
+#if MALI_USE_CSF
+		/* Resume the timers in case of suspend failure. But that needs to
+		 * be done before clearing the 'pm.suspending' flag so as to keep the
+		 * context termination blocked.
+		 */
+		kbase_csf_kcpu_queue_resume_timers(kbdev);
+#endif
+	}
+
+	mutex_lock(&kbdev->pm.lock);
+	kbdev->pm.suspending = false;
+	mutex_unlock(&kbdev->pm.lock);
+
+	if (scheduling_suspended)
+		resume_job_scheduling(kbdev);
+
+	reenable_hwcnt_on_resume(kbdev);
+	/* Wake up the threads blocked on the completion of System suspend/resume */
+	wake_up_all(&kbdev->pm.resume_wait);
+	return -1;
 }
 
 void kbase_pm_driver_resume(struct kbase_device *kbdev, bool arb_gpu_start)
 {
-	unsigned long flags;
+	CSTD_UNUSED(arb_gpu_start);
 
 	/* MUST happen before any pm_context_active calls occur */
 	kbase_hwaccess_pm_resume(kbdev);
 
 	/* Initial active call, to power on the GPU/cores if needed */
 #ifdef CONFIG_MALI_ARBITER_SUPPORT
-	if (kbase_pm_context_active_handle_suspend(kbdev,
-			(arb_gpu_start ?
-				KBASE_PM_SUSPEND_HANDLER_VM_GPU_GRANTED :
-				KBASE_PM_SUSPEND_HANDLER_NOT_POSSIBLE)))
+	if (kbase_pm_context_active_handle_suspend(
+		    kbdev, (arb_gpu_start ? KBASE_PM_SUSPEND_HANDLER_VM_GPU_GRANTED :
+						  KBASE_PM_SUSPEND_HANDLER_NOT_POSSIBLE)))
 		return;
 #else
 	kbase_pm_context_active(kbdev);
 #endif
 
-#if !MALI_USE_CSF
-	/* Resume any blocked atoms (which may cause contexts to be scheduled in
-	 * and dependent atoms to run)
-	 */
-	kbase_resume_suspended_soft_jobs(kbdev);
+	resume_job_scheduling(kbdev);
 
-	/* Resume the Job Scheduler and associated components, and start running
-	 * atoms
-	 */
-	kbasep_js_resume(kbdev);
-#else
-	kbase_csf_scheduler_pm_resume(kbdev);
-
+#if MALI_USE_CSF
 	kbase_csf_kcpu_queue_resume_timers(kbdev);
 #endif
 
@@ -289,20 +325,8 @@ void kbase_pm_driver_resume(struct kbase_device *kbdev, bool arb_gpu_start)
 	 */
 	kbase_pm_context_idle(kbdev);
 
-	/* Re-enable GPU hardware counters */
-#if MALI_USE_CSF
-	kbase_csf_scheduler_spin_lock(kbdev, &flags);
-	kbase_hwcnt_context_enable(kbdev->hwcnt_gpu_ctx);
-	kbase_csf_scheduler_spin_unlock(kbdev, flags);
-#else
-	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
-	kbase_hwcnt_context_enable(kbdev->hwcnt_gpu_ctx);
-	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
-#endif
+	reenable_hwcnt_on_resume(kbdev);
 
-	/* Resume HW counters intermediaries. */
-	kbase_vinstr_resume(kbdev->vinstr_ctx);
-	kbase_kinstr_prfcnt_resume(kbdev->kinstr_prfcnt_ctx);
 	/* System resume callback is complete */
 	kbdev->pm.resuming = false;
 	/* Unblock the threads waiting for the completion of System suspend/resume */

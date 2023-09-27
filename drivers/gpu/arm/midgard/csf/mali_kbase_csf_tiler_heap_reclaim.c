@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -63,8 +63,8 @@ static void detach_ctx_from_heap_reclaim_mgr(struct kbase_context *kctx)
 
 	if (!list_empty(&info->mgr_link)) {
 		u32 remaining = (info->nr_est_unused_pages > info->nr_freed_pages) ?
-					info->nr_est_unused_pages - info->nr_freed_pages :
-					0;
+					      info->nr_est_unused_pages - info->nr_freed_pages :
+					      0;
 
 		list_del_init(&info->mgr_link);
 		if (remaining)
@@ -257,6 +257,8 @@ static unsigned long kbase_csf_tiler_heap_reclaim_count_free_pages(struct kbase_
 	struct kbase_csf_sched_heap_reclaim_mgr *mgr = &kbdev->csf.scheduler.reclaim_mgr;
 	unsigned long page_cnt = atomic_read(&mgr->unused_pages);
 
+	CSTD_UNUSED(sc);
+
 	dev_dbg(kbdev->dev, "Reclaim count unused pages (estimate): %lu", page_cnt);
 
 	return page_cnt;
@@ -324,7 +326,6 @@ static unsigned long kbase_csf_tiler_heap_reclaim_scan_objects(struct shrinker *
 void kbase_csf_tiler_heap_reclaim_ctx_init(struct kbase_context *kctx)
 {
 	/* Per-kctx heap_info object initialization */
-	memset(&kctx->csf.sched.heap_info, 0, sizeof(struct kbase_csf_ctx_heap_reclaim_info));
 	INIT_LIST_HEAD(&kctx->csf.sched.heap_info.mgr_link);
 }
 
@@ -337,8 +338,6 @@ void kbase_csf_tiler_heap_reclaim_mgr_init(struct kbase_device *kbdev)
 	for (prio = KBASE_QUEUE_GROUP_PRIORITY_REALTIME; prio < KBASE_QUEUE_GROUP_PRIORITY_COUNT;
 	     prio++)
 		INIT_LIST_HEAD(&scheduler->reclaim_mgr.ctx_lists[prio]);
-
-	atomic_set(&scheduler->reclaim_mgr.unused_pages, 0);
 
 	reclaim->count_objects = kbase_csf_tiler_heap_reclaim_count_objects;
 	reclaim->scan_objects = kbase_csf_tiler_heap_reclaim_scan_objects;

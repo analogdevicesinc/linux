@@ -33,7 +33,7 @@
 /* CSFFW Timeline read polling default period in milliseconds. */
 #define KBASE_CSF_TL_READ_INTERVAL_DEFAULT 200
 /* CSFFW Timeline read polling maximum period in milliseconds. */
-#define KBASE_CSF_TL_READ_INTERVAL_MAX (60*1000)
+#define KBASE_CSF_TL_READ_INTERVAL_MAX (60 * 1000)
 
 struct firmware_trace_buffer;
 struct kbase_tlstream;
@@ -90,8 +90,7 @@ struct kbase_csf_tl_reader {
  * @self:	CSFFW TL Reader instance.
  * @stream:	Destination timeline stream.
  */
-void kbase_csf_tl_reader_init(struct kbase_csf_tl_reader *self,
-	struct kbase_tlstream *stream);
+void kbase_csf_tl_reader_init(struct kbase_csf_tl_reader *self, struct kbase_tlstream *stream);
 
 /**
  * kbase_csf_tl_reader_term() - Terminate CSFFW Timelime Stream Reader.
@@ -117,8 +116,7 @@ int kbase_csf_tl_reader_flush_buffer(struct kbase_csf_tl_reader *self);
  *
  * Return: zero on success, a negative error code otherwise.
  */
-int kbase_csf_tl_reader_start(struct kbase_csf_tl_reader *self,
-	struct kbase_device *kbdev);
+int kbase_csf_tl_reader_start(struct kbase_csf_tl_reader *self, struct kbase_device *kbdev);
 
 /**
  * kbase_csf_tl_reader_stop() - Stop asynchronous copying of CSFFW timeline stream.

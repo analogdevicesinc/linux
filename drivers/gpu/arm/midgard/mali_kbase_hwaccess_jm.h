@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -33,8 +33,7 @@
  *
  * Caller must hold the HW access lock
  */
-void kbase_backend_run_atom(struct kbase_device *kbdev,
-				struct kbase_jd_atom *katom);
+void kbase_backend_run_atom(struct kbase_device *kbdev, struct kbase_jd_atom *katom);
 
 /**
  * kbase_backend_slot_update - Update state based on slot ringbuffers
@@ -62,8 +61,8 @@ void kbase_backend_slot_update(struct kbase_device *kbdev);
  * Return: Number of free address space, or KBASEP_AS_NR_INVALID if none
  *	   available
  */
-int kbase_backend_find_and_release_free_address_space(
-		struct kbase_device *kbdev, struct kbase_context *kctx);
+int kbase_backend_find_and_release_free_address_space(struct kbase_device *kbdev,
+						      struct kbase_context *kctx);
 
 /**
  * kbase_backend_use_ctx() - Activate a currently unscheduled context, using the
@@ -76,9 +75,7 @@ int kbase_backend_find_and_release_free_address_space(
  *
  * Return: true if successful, false if ASID not assigned.
  */
-bool kbase_backend_use_ctx(struct kbase_device *kbdev,
-				struct kbase_context *kctx,
-				int as_nr);
+bool kbase_backend_use_ctx(struct kbase_device *kbdev, struct kbase_context *kctx, int as_nr);
 
 /**
  * kbase_backend_use_ctx_sched() - Activate a context.
@@ -108,8 +105,7 @@ bool kbase_backend_use_ctx_sched(struct kbase_device *kbdev, struct kbase_contex
  *
  * Caller must hold kbase_device->mmu_hw_mutex and hwaccess_lock
  */
-void kbase_backend_release_ctx_irq(struct kbase_device *kbdev,
-				struct kbase_context *kctx);
+void kbase_backend_release_ctx_irq(struct kbase_device *kbdev, struct kbase_context *kctx);
 
 /**
  * kbase_backend_release_ctx_noirq - Release a context from the GPU. This will
@@ -122,8 +118,7 @@ void kbase_backend_release_ctx_irq(struct kbase_device *kbdev,
  * This function must perform any operations that could not be performed in IRQ
  * context by kbase_backend_release_ctx_irq().
  */
-void kbase_backend_release_ctx_noirq(struct kbase_device *kbdev,
-						struct kbase_context *kctx);
+void kbase_backend_release_ctx_noirq(struct kbase_device *kbdev, struct kbase_context *kctx);
 
 /**
  * kbase_backend_cache_clean - Perform a cache clean if the given atom requires
@@ -134,9 +129,7 @@ void kbase_backend_release_ctx_noirq(struct kbase_device *kbdev,
  * On some GPUs, the GPU cache must be cleaned following a failed atom. This
  * function performs a clean if it is required by @katom.
  */
-void kbase_backend_cache_clean(struct kbase_device *kbdev,
-		struct kbase_jd_atom *katom);
-
+void kbase_backend_cache_clean(struct kbase_device *kbdev, struct kbase_jd_atom *katom);
 
 /**
  * kbase_backend_complete_wq() - Perform backend-specific actions required on
@@ -149,8 +142,7 @@ void kbase_backend_cache_clean(struct kbase_device *kbdev,
  *
  * Return: true if atom has completed, false if atom should be re-submitted
  */
-void kbase_backend_complete_wq(struct kbase_device *kbdev,
-				struct kbase_jd_atom *katom);
+void kbase_backend_complete_wq(struct kbase_device *kbdev, struct kbase_jd_atom *katom);
 
 #if !MALI_USE_CSF
 /**
@@ -163,8 +155,7 @@ void kbase_backend_complete_wq(struct kbase_device *kbdev,
  * This function should only be called from kbase_jd_done_worker() or
  * js_return_worker().
  */
-void kbase_backend_complete_wq_post_sched(struct kbase_device *kbdev,
-		base_jd_core_req core_req);
+void kbase_backend_complete_wq_post_sched(struct kbase_device *kbdev, base_jd_core_req core_req);
 #endif /* !MALI_USE_CSF */
 
 /**
@@ -242,8 +233,7 @@ int kbase_backend_slot_free(struct kbase_device *kbdev, unsigned int js);
  * Work out whether to leave disjoint state when finishing an atom that was
  * originated by kbase_job_check_enter_disjoint().
  */
-void kbase_job_check_leave_disjoint(struct kbase_device *kbdev,
-		struct kbase_jd_atom *target_katom);
+void kbase_job_check_leave_disjoint(struct kbase_device *kbdev, struct kbase_jd_atom *target_katom);
 
 /**
  * kbase_backend_jm_kill_running_jobs_from_kctx - Kill all jobs that are

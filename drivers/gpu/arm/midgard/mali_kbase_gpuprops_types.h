@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2011-2018, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -28,14 +28,14 @@
 
 #include <uapi/gpu/arm/midgard/mali_base_kernel.h>
 
-#define KBASE_GPU_SPEED_MHZ    123
+#define KBASE_GPU_SPEED_MHZ 123
 #define KBASE_GPU_PC_SIZE_LOG2 24U
 
 struct kbase_gpuprops_regdump {
 	u32 gpu_id;
 	u32 l2_features;
 	u32 l2_config;
-	u32 l2_asn_hash[ASN_HASH_COUNT];
+	u32 l2_slice_hash[GPU_L2_SLICE_HASH_COUNT];
 	u32 core_features;
 	u32 tiler_features;
 	u32 mem_features;
@@ -142,12 +142,44 @@ struct curr_config_props {
 	u8 padding[4];
 };
 
+/**
+ * struct kbase_gpu_id_props - Properties based on GPU_ID register.
+ * @version_status: field indicating the status of the GPU release
+ * @version_minor:  minor release version number (p1 in r0p1)
+ * @version_major:  major release version number (r0 in r0p1)
+ * @product_major:  product identifier
+ * @arch_rev:       architecture patch version
+ * @arch_minor:     architecture minor revision
+ * @arch_major:     architecture major revision
+ * @product_id:     id composed of arch_major << 8 | product major
+ * @version_id:     id composed of version_major << 16 | version_minor << 8 | version_status
+ * @arch_id:        id composed of arch_major << 16 | arch_minor << 8 | arch_rev
+ *
+ * Use GPU_ID_PRODUCT_MAKE, GPU_ID_VERSION_MAKE or GPU_ID_ARCH_MAKE to perform
+ * comparisons between product_id, version_id or arch_id respectively
+ */
+struct kbase_gpu_id_props {
+	u16 version_status;
+	u16 version_minor;
+	u16 version_major;
+	u16 product_major;
+	u16 arch_rev;
+	u16 arch_minor;
+	u16 arch_major;
+	/* Composite ids */
+	u32 product_id;
+	u32 version_id;
+	u32 arch_id;
+};
+
 struct kbase_gpu_props {
 	/* kernel-only properties */
 	u8 num_cores;
 	u8 num_core_groups;
 	u8 num_address_spaces;
 	u8 num_job_slots;
+
+	struct kbase_gpu_id_props gpu_id;
 
 	struct kbase_gpu_cache_props l2_props;
 
@@ -167,4 +199,4 @@ struct kbase_gpu_props {
 	void *prop_buffer;
 };
 
-#endif				/* _KBASE_GPUPROPS_TYPES_H_ */
+#endif /* _KBASE_GPUPROPS_TYPES_H_ */

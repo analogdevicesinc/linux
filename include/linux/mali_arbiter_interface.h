@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -142,15 +142,14 @@ struct arbiter_if_arb_vm_ops {
  * (via arbiter_if_arb_vm_ops above) in the context of these callbacks.
  */
 struct arbiter_if_vm_arb_ops {
-	int (*vm_arb_register_dev)(struct arbiter_if_dev *arbif_dev,
-		struct device *dev, struct arbiter_if_arb_vm_ops *ops);
+	int (*vm_arb_register_dev)(struct arbiter_if_dev *arbif_dev, struct device *dev,
+				   struct arbiter_if_arb_vm_ops *ops);
 	void (*vm_arb_unregister_dev)(struct arbiter_if_dev *arbif_dev);
 	void (*vm_arb_get_max_config)(struct arbiter_if_dev *arbif_dev);
 	void (*vm_arb_gpu_request)(struct arbiter_if_dev *arbif_dev);
 	void (*vm_arb_gpu_active)(struct arbiter_if_dev *arbif_dev);
 	void (*vm_arb_gpu_idle)(struct arbiter_if_dev *arbif_dev);
-	void (*vm_arb_gpu_stopped)(struct arbiter_if_dev *arbif_dev,
-		u8 gpu_required);
+	void (*vm_arb_gpu_stopped)(struct arbiter_if_dev *arbif_dev, u8 gpu_required);
 };
 
 /**

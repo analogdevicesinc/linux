@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -43,7 +43,7 @@
 
 #include "../mali_kutf_clk_rate_trace_test.h"
 
-#define MINOR_FOR_FIRST_KBASE_DEV	(-1)
+#define MINOR_FOR_FIRST_KBASE_DEV (-1)
 
 /* KUTF test application pointer for this test */
 static struct kutf_application *kutf_app;
@@ -133,21 +133,19 @@ static struct kutf_clk_rate_trace_fixture_data *g_ptr_portal_data;
 #define PORTAL_MSG_LEN (KUTF_MAX_LINE_LENGTH - MAX_REPLY_NAME_LEN)
 static char portal_msg_buf[PORTAL_MSG_LEN];
 
-static void kutf_portal_trace_write(
-	struct kbase_clk_rate_listener *listener,
-	u32 index, u32 new_rate)
+static void kutf_portal_trace_write(struct kbase_clk_rate_listener *listener, u32 index,
+				    u32 new_rate)
 {
 	struct clk_trace_snapshot *snapshot;
 	struct kutf_clk_rate_trace_fixture_data *data;
 
 	if (listener == NULL) {
-		pr_err("%s - index: %u, new_rate: %u, listener is NULL\n",
-			__func__, index, new_rate);
+		pr_err("%s - index: %u, new_rate: %u, listener is NULL\n", __func__, index,
+		       new_rate);
 		return;
 	}
 
-	data = container_of(listener, struct kutf_clk_rate_trace_fixture_data,
-		       listener);
+	data = container_of(listener, struct kutf_clk_rate_trace_fixture_data, listener);
 
 	lockdep_assert_held(&data->kbdev->pm.clk_rtm.lock);
 
@@ -196,7 +194,7 @@ static void kutf_set_pm_ctx_idle(struct kutf_context *context)
 }
 
 static const char *kutf_clk_trace_do_change_pm_ctx(struct kutf_context *context,
-				struct clk_trace_portal_input *cmd)
+						   struct clk_trace_portal_input *cmd)
 {
 	struct kutf_clk_rate_trace_fixture_data *data = context->fixture;
 	int seq = cmd->cmd_input.u.val_u64 & 0xFF;
@@ -204,8 +202,7 @@ static const char *kutf_clk_trace_do_change_pm_ctx(struct kutf_context *context,
 	const enum kbasep_clk_rate_trace_req req = cmd->portal_cmd;
 	char const *errmsg = NULL;
 
-	WARN_ON(req != PORTAL_CMD_INC_PM_CTX_CNT &&
-		req != PORTAL_CMD_DEC_PM_CTX_CNT);
+	WARN_ON(req != PORTAL_CMD_INC_PM_CTX_CNT && req != PORTAL_CMD_DEC_PM_CTX_CNT);
 
 	if (req == PORTAL_CMD_INC_PM_CTX_CNT && cnt < UINT_MAX) {
 		data->pm_ctx_cnt++;
@@ -220,20 +217,19 @@ static const char *kutf_clk_trace_do_change_pm_ctx(struct kutf_context *context,
 	}
 
 	/* Skip the length check, no chance of overflow for two ints */
-	snprintf(portal_msg_buf, PORTAL_MSG_LEN,
-			"{SEQ:%d, PM_CTX_CNT:%u}", seq, data->pm_ctx_cnt);
+	snprintf(portal_msg_buf, PORTAL_MSG_LEN, "{SEQ:%d, PM_CTX_CNT:%u}", seq, data->pm_ctx_cnt);
 
 	if (kutf_helper_send_named_str(context, "ACK", portal_msg_buf)) {
 		pr_warn("Error in sending ack for adjusting pm_ctx_cnt\n");
 		errmsg = kutf_dsprintf(&context->fixture_pool,
-				"Error in sending ack for adjusting pm_ctx_cnt");
+				       "Error in sending ack for adjusting pm_ctx_cnt");
 	}
 
 	return errmsg;
 }
 
 static const char *kutf_clk_trace_do_get_rate(struct kutf_context *context,
-				struct clk_trace_portal_input *cmd)
+					      struct clk_trace_portal_input *cmd)
 {
 	struct kutf_clk_rate_trace_fixture_data *data = context->fixture;
 	struct kbase_device *kbdev = data->kbdev;
@@ -247,8 +243,7 @@ static const char *kutf_clk_trace_do_get_rate(struct kutf_context *context,
 	WARN_ON((cmd->portal_cmd != PORTAL_CMD_GET_CLK_RATE_MGR) &&
 		(cmd->portal_cmd != PORTAL_CMD_GET_CLK_RATE_TRACE));
 
-	ret = snprintf(portal_msg_buf, PORTAL_MSG_LEN,
-			"{SEQ:%d, RATE:[", seq);
+	ret = snprintf(portal_msg_buf, PORTAL_MSG_LEN, "{SEQ:%d, RATE:[", seq);
 
 	for (i = 0; i < data->nclks; i++) {
 		spin_lock(&kbdev->pm.clk_rtm.lock);
@@ -260,24 +255,22 @@ static const char *kutf_clk_trace_do_get_rate(struct kutf_context *context,
 		spin_unlock(&kbdev->pm.clk_rtm.lock);
 
 		if ((i + 1) == data->nclks)
-			ret += snprintf(portal_msg_buf + ret,
-				PORTAL_MSG_LEN - ret, "0x%lx], GPU_IDLE:%d}",
-				rate, idle);
+			ret += snprintf(portal_msg_buf + ret, PORTAL_MSG_LEN - ret,
+					"0x%lx], GPU_IDLE:%d}", rate, idle);
 		else
-			ret += snprintf(portal_msg_buf + ret,
-				PORTAL_MSG_LEN - ret, "0x%lx, ", rate);
+			ret += snprintf(portal_msg_buf + ret, PORTAL_MSG_LEN - ret, "0x%lx, ",
+					rate);
 
 		if (ret >= PORTAL_MSG_LEN) {
 			pr_warn("Message buf overflow with rate array data\n");
 			return kutf_dsprintf(&context->fixture_pool,
-						"Message buf overflow with rate array data");
+					     "Message buf overflow with rate array data");
 		}
 	}
 
 	if (kutf_helper_send_named_str(context, "ACK", portal_msg_buf)) {
 		pr_warn("Error in sending back rate array\n");
-		errmsg = kutf_dsprintf(&context->fixture_pool,
-				"Error in sending rate array");
+		errmsg = kutf_dsprintf(&context->fixture_pool, "Error in sending rate array");
 	}
 
 	return errmsg;
@@ -297,7 +290,7 @@ static const char *kutf_clk_trace_do_get_rate(struct kutf_context *context,
  * Return: generated string
  */
 static const char *kutf_clk_trace_do_get_snapshot(struct kutf_context *context,
-				struct clk_trace_portal_input *cmd)
+						  struct clk_trace_portal_input *cmd)
 {
 	struct kutf_clk_rate_trace_fixture_data *data = context->fixture;
 	struct clk_trace_snapshot snapshot;
@@ -309,8 +302,7 @@ static const char *kutf_clk_trace_do_get_snapshot(struct kutf_context *context,
 
 	WARN_ON(cmd->portal_cmd != PORTAL_CMD_GET_TRACE_SNAPSHOT);
 
-	ret = snprintf(portal_msg_buf, PORTAL_MSG_LEN,
-			"{SEQ:%d, SNAPSHOT_ARRAY:[", seq);
+	ret = snprintf(portal_msg_buf, PORTAL_MSG_LEN, "{SEQ:%d, SNAPSHOT_ARRAY:[", seq);
 
 	for (i = 0; i < data->nclks; i++) {
 		spin_lock(&data->kbdev->pm.clk_rtm.lock);
@@ -327,20 +319,19 @@ static const char *kutf_clk_trace_do_get_snapshot(struct kutf_context *context,
 			fmt = "(0x%lx, 0x%lx, %u, %u)]}";
 		else
 			fmt = "(0x%lx, 0x%lx, %u, %u), ";
-		ret += snprintf(portal_msg_buf + ret, PORTAL_MSG_LEN - ret,
-			    fmt, snapshot.previous_rate, snapshot.current_rate,
-			    snapshot.rate_up_cnt, snapshot.rate_down_cnt);
+		ret += snprintf(portal_msg_buf + ret, PORTAL_MSG_LEN - ret, fmt,
+				snapshot.previous_rate, snapshot.current_rate, snapshot.rate_up_cnt,
+				snapshot.rate_down_cnt);
 		if (ret >= PORTAL_MSG_LEN) {
 			pr_warn("Message buf overflow with snapshot data\n");
 			return kutf_dsprintf(&context->fixture_pool,
-					"Message buf overflow with snapshot data");
+					     "Message buf overflow with snapshot data");
 		}
 	}
 
 	if (kutf_helper_send_named_str(context, "ACK", portal_msg_buf)) {
 		pr_warn("Error in sending back snapshot array\n");
-		errmsg = kutf_dsprintf(&context->fixture_pool,
-				"Error in sending snapshot array");
+		errmsg = kutf_dsprintf(&context->fixture_pool, "Error in sending snapshot array");
 	}
 
 	return errmsg;
@@ -356,9 +347,8 @@ static const char *kutf_clk_trace_do_get_snapshot(struct kutf_context *context,
  *
  * Return: generated string
  */
-static const char *kutf_clk_trace_do_invoke_notify_42k(
-	struct kutf_context *context,
-	struct clk_trace_portal_input *cmd)
+static const char *kutf_clk_trace_do_invoke_notify_42k(struct kutf_context *context,
+						       struct clk_trace_portal_input *cmd)
 {
 	struct kutf_clk_rate_trace_fixture_data *data = context->fixture;
 	int seq = cmd->cmd_input.u.val_u64 & 0xFF;
@@ -372,32 +362,30 @@ static const char *kutf_clk_trace_do_invoke_notify_42k(
 	spin_lock(&clk_rtm->lock);
 
 	data->invoke_notify = true;
-	kbase_clk_rate_trace_manager_notify_all(
-		clk_rtm, 0, new_rate_hz);
+	kbase_clk_rate_trace_manager_notify_all(clk_rtm, 0, new_rate_hz);
 	data->invoke_notify = false;
 
 	spin_unlock(&clk_rtm->lock);
 
-	ret = snprintf(portal_msg_buf, PORTAL_MSG_LEN,
-		       "{SEQ:%d, HZ:%lu}", seq, new_rate_hz);
+	ret = snprintf(portal_msg_buf, PORTAL_MSG_LEN, "{SEQ:%d, HZ:%lu}", seq, new_rate_hz);
 
 	if (ret >= PORTAL_MSG_LEN) {
 		pr_warn("Message buf overflow with invoked data\n");
 		return kutf_dsprintf(&context->fixture_pool,
-				"Message buf overflow with invoked data");
+				     "Message buf overflow with invoked data");
 	}
 
 	if (kutf_helper_send_named_str(context, "ACK", portal_msg_buf)) {
 		pr_warn("Error in sending ack for " INVOKE_NOTIFY_42KHZ "request\n");
 		errmsg = kutf_dsprintf(&context->fixture_pool,
-			"Error in sending ack for " INVOKE_NOTIFY_42KHZ "request");
+				       "Error in sending ack for " INVOKE_NOTIFY_42KHZ "request");
 	}
 
 	return errmsg;
 }
 
 static const char *kutf_clk_trace_do_close_portal(struct kutf_context *context,
-				struct clk_trace_portal_input *cmd)
+						  struct clk_trace_portal_input *cmd)
 {
 	struct kutf_clk_rate_trace_fixture_data *data = context->fixture;
 	int seq = cmd->cmd_input.u.val_u64 & 0xFF;
@@ -408,13 +396,12 @@ static const char *kutf_clk_trace_do_close_portal(struct kutf_context *context,
 	data->server_state = PORTAL_STATE_CLOSING;
 
 	/* Skip the length check, no chance of overflow for two ints */
-	snprintf(portal_msg_buf, PORTAL_MSG_LEN,
-			"{SEQ:%d, PM_CTX_CNT:%u}", seq, data->pm_ctx_cnt);
+	snprintf(portal_msg_buf, PORTAL_MSG_LEN, "{SEQ:%d, PM_CTX_CNT:%u}", seq, data->pm_ctx_cnt);
 
 	if (kutf_helper_send_named_str(context, "ACK", portal_msg_buf)) {
 		pr_warn("Error in sending ack for " CLOSE_PORTAL "reuquest\n");
 		errmsg = kutf_dsprintf(&context->fixture_pool,
-			"Error in sending ack for " CLOSE_PORTAL "reuquest");
+				       "Error in sending ack for " CLOSE_PORTAL "reuquest");
 	}
 
 	return errmsg;
@@ -430,9 +417,8 @@ static const char *kutf_clk_trace_do_close_portal(struct kutf_context *context,
  *
  * Return: A string to indicate the platform (PV/PTM/GPU/UNKNOWN)
  */
-static const char *kutf_clk_trace_do_get_platform(
-	struct kutf_context *context,
-	struct clk_trace_portal_input *cmd)
+static const char *kutf_clk_trace_do_get_platform(struct kutf_context *context,
+						  struct clk_trace_portal_input *cmd)
 {
 	int seq = cmd->cmd_input.u.val_u64 & 0xFF;
 	char const *errmsg = NULL;
@@ -442,17 +428,16 @@ static const char *kutf_clk_trace_do_get_platform(
 #if defined(CONFIG_MALI_ARBITER_SUPPORT) && defined(CONFIG_OF)
 	struct kutf_clk_rate_trace_fixture_data *data = context->fixture;
 
-	arbiter_if_node =
-		of_get_property(data->kbdev->dev->of_node, "arbiter_if", NULL);
+	arbiter_if_node = of_get_property(data->kbdev->dev->of_node, "arbiter-if", NULL);
+	if (!arbiter_if_node)
+		arbiter_if_node = of_get_property(data->kbdev->dev->of_node, "arbiter_if", NULL);
 #endif
 	if (arbiter_if_node) {
-		power_node = of_find_compatible_node(NULL, NULL,
-						     "arm,mali-gpu-power");
+		power_node = of_find_compatible_node(NULL, NULL, "arm,mali-gpu-power");
 		if (power_node) {
 			platform = "PV";
 		} else {
-			power_node = of_find_compatible_node(NULL, NULL,
-							     "arm,mali-ptm");
+			power_node = of_find_compatible_node(NULL, NULL, "arm,mali-ptm");
 			if (power_node)
 				platform = "PTM";
 			else
@@ -463,36 +448,33 @@ static const char *kutf_clk_trace_do_get_platform(
 	}
 
 	pr_debug("%s - platform is %s\n", __func__, platform);
-	snprintf(portal_msg_buf, PORTAL_MSG_LEN,
-			  "{SEQ:%d, PLATFORM:%s}", seq, platform);
+	snprintf(portal_msg_buf, PORTAL_MSG_LEN, "{SEQ:%d, PLATFORM:%s}", seq, platform);
 
 	WARN_ON(cmd->portal_cmd != PORTAL_CMD_GET_PLATFORM);
 
 	if (kutf_helper_send_named_str(context, "ACK", portal_msg_buf)) {
 		pr_warn("Error in sending ack for " CLOSE_PORTAL "reuquest\n");
 		errmsg = kutf_dsprintf(&context->fixture_pool,
-			"Error in sending ack for " GET_PLATFORM "request");
+				       "Error in sending ack for " GET_PLATFORM "request");
 	}
 
 	return errmsg;
 }
 
 static bool kutf_clk_trace_dequeue_portal_cmd(struct kutf_context *context,
-				struct clk_trace_portal_input *cmd)
+					      struct clk_trace_portal_input *cmd)
 {
 	int i;
 	int err = kutf_helper_receive_named_val(context, &cmd->cmd_input);
 
 	cmd->named_val_err = err;
-	if (err == KUTF_HELPER_ERR_NONE &&
-		cmd->cmd_input.type == KUTF_HELPER_VALTYPE_U64) {
+	if (err == KUTF_HELPER_ERR_NONE && cmd->cmd_input.type == KUTF_HELPER_VALTYPE_U64) {
 		/* All portal request commands are of format (named u64):
 		 *   CMD_NAME=1234
 		 * where, 1234 is a (variable) sequence number tag.
 		 */
 		for (i = 0; i < PORTAL_TOTAL_CMDS; i++) {
-			if (strcmp(cmd->cmd_input.val_name,
-				kbasep_portal_cmd_name_map[i].name))
+			if (strcmp(cmd->cmd_input.val_name, kbasep_portal_cmd_name_map[i].name))
 				continue;
 
 			cmd->portal_cmd = kbasep_portal_cmd_name_map[i].cmd;
@@ -504,8 +486,8 @@ static bool kutf_clk_trace_dequeue_portal_cmd(struct kutf_context *context,
 	return false;
 }
 
-static void kutf_clk_trace_flag_result(struct kutf_context *context,
-			enum kutf_result_status result, char const *msg)
+static void kutf_clk_trace_flag_result(struct kutf_context *context, enum kutf_result_status result,
+				       char const *msg)
 {
 	struct kutf_clk_rate_trace_fixture_data *data = context->fixture;
 
@@ -513,20 +495,18 @@ static void kutf_clk_trace_flag_result(struct kutf_context *context,
 		data->test_status = result;
 		if (msg)
 			data->result_msg = msg;
-		if (data->server_state == PORTAL_STATE_LIVE &&
-			result > KUTF_RESULT_WARN) {
+		if (data->server_state == PORTAL_STATE_LIVE && result > KUTF_RESULT_WARN) {
 			data->server_state = PORTAL_STATE_CLOSING;
 		}
 	}
 }
 
 static bool kutf_clk_trace_process_portal_cmd(struct kutf_context *context,
-				struct clk_trace_portal_input *cmd)
+					      struct clk_trace_portal_input *cmd)
 {
 	char const *errmsg = NULL;
 
-	BUILD_BUG_ON(ARRAY_SIZE(kbasep_portal_cmd_name_map) !=
-				PORTAL_TOTAL_CMDS);
+	BUILD_BUG_ON(ARRAY_SIZE(kbasep_portal_cmd_name_map) != PORTAL_TOTAL_CMDS);
 	WARN_ON(cmd->portal_cmd == PORTAL_CMD_INVALID);
 
 	switch (cmd->portal_cmd) {
@@ -554,10 +534,9 @@ static bool kutf_clk_trace_process_portal_cmd(struct kutf_context *context,
 		break;
 	default:
 		pr_warn("Don't know how to handle portal_cmd: %d, abort session.\n",
-				cmd->portal_cmd);
+			cmd->portal_cmd);
 		errmsg = kutf_dsprintf(&context->fixture_pool,
-				"Don't know how to handle portal_cmd: %d",
-				cmd->portal_cmd);
+				       "Don't know how to handle portal_cmd: %d", cmd->portal_cmd);
 		break;
 	}
 
@@ -578,7 +557,7 @@ static bool kutf_clk_trace_process_portal_cmd(struct kutf_context *context,
  * Return: 0 on success, non-zero on failure
  */
 static int kutf_clk_trace_do_nack_response(struct kutf_context *context,
-				struct clk_trace_portal_input *cmd)
+					   struct clk_trace_portal_input *cmd)
 {
 	int seq;
 	int err;
@@ -587,21 +566,19 @@ static int kutf_clk_trace_do_nack_response(struct kutf_context *context,
 	WARN_ON(cmd->portal_cmd != PORTAL_CMD_INVALID);
 
 	if (cmd->named_val_err == KUTF_HELPER_ERR_NONE &&
-			  cmd->cmd_input.type == KUTF_HELPER_VALTYPE_U64) {
+	    cmd->cmd_input.type == KUTF_HELPER_VALTYPE_U64) {
 		/* Keep seq number as % 256 */
 		seq = cmd->cmd_input.u.val_u64 & 255;
-		snprintf(portal_msg_buf, PORTAL_MSG_LEN,
-				 "{SEQ:%d, MSG: Unknown command '%s'.}", seq,
-				 cmd->cmd_input.val_name);
-		err = kutf_helper_send_named_str(context, "NACK",
-						portal_msg_buf);
+		snprintf(portal_msg_buf, PORTAL_MSG_LEN, "{SEQ:%d, MSG: Unknown command '%s'.}",
+			 seq, cmd->cmd_input.val_name);
+		err = kutf_helper_send_named_str(context, "NACK", portal_msg_buf);
 	} else
-		err = kutf_helper_send_named_str(context, "NACK",
-			"Wrong portal cmd format (Ref example: CMD_NAME=0X16)");
+		err = kutf_helper_send_named_str(
+			context, "NACK", "Wrong portal cmd format (Ref example: CMD_NAME=0X16)");
 
 	if (err) {
 		errmsg = kutf_dsprintf(&context->fixture_pool,
-						"Failed to send portal NACK response");
+				       "Failed to send portal NACK response");
 		kutf_clk_trace_flag_result(context, KUTF_RESULT_FAIL, errmsg);
 	}
 
@@ -642,8 +619,7 @@ static void kutf_clk_trace_barebone_check(struct kutf_context *context)
 	}
 	spin_unlock(&kbdev->pm.clk_rtm.lock);
 	if (fail) {
-		msg = kutf_dsprintf(&context->fixture_pool,
-				"GPU Idle not yielding 0-rate");
+		msg = kutf_dsprintf(&context->fixture_pool, "GPU Idle not yielding 0-rate");
 		pr_err("Trace did not see idle rate\n");
 	} else {
 		/* Make local PM active if not done so yet */
@@ -658,7 +634,7 @@ static void kutf_clk_trace_barebone_check(struct kutf_context *context)
 		for (i = 0; i < data->nclks; i++) {
 			/* Rate match between the manager and the trace */
 			if (kbdev->pm.clk_rtm.clks[i]->clock_val !=
-				data->snapshot[i].current_rate) {
+			    data->snapshot[i].current_rate) {
 				fail = true;
 				break;
 			}
@@ -667,20 +643,19 @@ static void kutf_clk_trace_barebone_check(struct kutf_context *context)
 
 		if (idle[1]) {
 			msg = kutf_dsprintf(&context->fixture_pool,
-				"GPU still idle after set_pm_ctx_active");
+					    "GPU still idle after set_pm_ctx_active");
 			pr_err("GPU still idle after set_pm_ctx_active\n");
 		}
 
 		if (!msg && fail) {
 			msg = kutf_dsprintf(&context->fixture_pool,
-				"Trace rate not matching Clk manager's read");
+					    "Trace rate not matching Clk manager's read");
 			pr_err("Trace rate not matching Clk manager's read\n");
 		}
 	}
 
 	if (!msg && idle[0] && !idle[1] && !data->total_update_cnt) {
-		msg = kutf_dsprintf(&context->fixture_pool,
-				"Trace update did not occur");
+		msg = kutf_dsprintf(&context->fixture_pool, "Trace update did not occur");
 		pr_err("Trace update did not occur\n");
 	}
 	if (msg)
@@ -705,19 +680,17 @@ static void kutf_clk_trace_no_clks_dummy(struct kutf_context *context)
 
 	while (time_before(jiffies, timeout)) {
 		if (kutf_helper_pending_input(context)) {
-			has_cmd = kutf_clk_trace_dequeue_portal_cmd(context,
-									&cmd);
+			has_cmd = kutf_clk_trace_dequeue_portal_cmd(context, &cmd);
 			if (!has_cmd && kutf_clk_trace_end_of_stream(&cmd))
 				break;
 
 			kutf_helper_send_named_str(context, "NACK",
-				"Fatal! No clocks visible, aborting");
+						   "Fatal! No clocks visible, aborting");
 		}
 		msleep(20);
 	}
 
-	kutf_clk_trace_flag_result(context, KUTF_RESULT_FATAL,
-				"No clocks visble to the portal");
+	kutf_clk_trace_flag_result(context, KUTF_RESULT_FATAL, "No clocks visble to the portal");
 }
 
 /**
@@ -755,9 +728,8 @@ static void mali_kutf_clk_rate_trace_test_portal(struct kutf_context *context)
 	if (data->server_state == PORTAL_STATE_CLOSING) {
 		while (kutf_helper_pending_input(context) &&
 		       (kutf_clk_trace_dequeue_portal_cmd(context, &new_cmd) ||
-				!kutf_clk_trace_end_of_stream(&new_cmd))) {
-			kutf_helper_send_named_str(context, "NACK",
-					"Portal closing down");
+			!kutf_clk_trace_end_of_stream(&new_cmd))) {
+			kutf_helper_send_named_str(context, "NACK", "Portal closing down");
 		}
 	}
 
@@ -803,8 +775,7 @@ static void mali_kutf_clk_rate_trace_test_portal(struct kutf_context *context)
  *
  * Return: Fixture data created on success or NULL on failure
  */
-static void *mali_kutf_clk_rate_trace_create_fixture(
-		struct kutf_context *context)
+static void *mali_kutf_clk_rate_trace_create_fixture(struct kutf_context *context)
 {
 	struct kutf_clk_rate_trace_fixture_data *data;
 	struct kbase_device *kbdev;
@@ -821,7 +792,7 @@ static void *mali_kutf_clk_rate_trace_create_fixture(
 
 	pr_debug("Creating fixture\n");
 	data = kutf_mempool_alloc(&context->fixture_pool,
-			sizeof(struct kutf_clk_rate_trace_fixture_data));
+				  sizeof(struct kutf_clk_rate_trace_fixture_data));
 	if (!data)
 		return NULL;
 
@@ -855,8 +826,7 @@ static void *mali_kutf_clk_rate_trace_create_fixture(
 		data->listener.notify = kutf_portal_trace_write;
 		data->invoke_notify = false;
 
-		kbase_clk_rate_trace_manager_subscribe(
-			&kbdev->pm.clk_rtm, &data->listener);
+		kbase_clk_rate_trace_manager_subscribe(&kbdev->pm.clk_rtm, &data->listener);
 		/* Update the kutf_server_portal fixture_data pointer */
 		g_ptr_portal_data = data;
 	}
@@ -882,8 +852,7 @@ static void *mali_kutf_clk_rate_trace_create_fixture(
  *
  * @context:             KUTF context.
  */
-static void mali_kutf_clk_rate_trace_remove_fixture(
-		struct kutf_context *context)
+static void mali_kutf_clk_rate_trace_remove_fixture(struct kutf_context *context)
 {
 	struct kutf_clk_rate_trace_fixture_data *data = context->fixture;
 	struct kbase_device *kbdev = data->kbdev;
@@ -892,8 +861,7 @@ static void mali_kutf_clk_rate_trace_remove_fixture(
 		/* Clean up the portal trace write arrangement */
 		g_ptr_portal_data = NULL;
 
-		kbase_clk_rate_trace_manager_unsubscribe(
-			&kbdev->pm.clk_rtm, &data->listener);
+		kbase_clk_rate_trace_manager_unsubscribe(&kbdev->pm.clk_rtm, &data->listener);
 	}
 	pr_debug("Destroying fixture\n");
 	kbase_release_device(kbdev);
@@ -917,31 +885,25 @@ static int __init mali_kutf_clk_rate_trace_test_module_init(void)
 	kutf_app = kutf_create_application(CLK_RATE_TRACE_APP_NAME);
 
 	if (!kutf_app) {
-		pr_warn("Creation of app " CLK_RATE_TRACE_APP_NAME
-				" failed!\n");
+		pr_warn("Creation of app " CLK_RATE_TRACE_APP_NAME " failed!\n");
 		return -ENOMEM;
 	}
 
 	pr_debug("Create suite %s\n", CLK_RATE_TRACE_SUITE_NAME);
-	suite = kutf_create_suite_with_filters_and_data(
-			kutf_app, CLK_RATE_TRACE_SUITE_NAME, 1,
-			mali_kutf_clk_rate_trace_create_fixture,
-			mali_kutf_clk_rate_trace_remove_fixture,
-			KUTF_F_TEST_GENERIC,
-			suite_data);
+	suite = kutf_create_suite_with_filters_and_data(kutf_app, CLK_RATE_TRACE_SUITE_NAME, 1,
+							mali_kutf_clk_rate_trace_create_fixture,
+							mali_kutf_clk_rate_trace_remove_fixture,
+							KUTF_F_TEST_GENERIC, suite_data);
 
 	if (!suite) {
-		pr_warn("Creation of suite %s failed!\n",
-				CLK_RATE_TRACE_SUITE_NAME);
+		pr_warn("Creation of suite %s failed!\n", CLK_RATE_TRACE_SUITE_NAME);
 		kutf_destroy_application(kutf_app);
 		return -ENOMEM;
 	}
 
 	filters = suite->suite_default_flags;
-	kutf_add_test_with_filters(
-			suite, 0x0, CLK_RATE_TRACE_PORTAL,
-			mali_kutf_clk_rate_trace_test_portal,
-			filters);
+	kutf_add_test_with_filters(suite, 0x0, CLK_RATE_TRACE_PORTAL,
+				   mali_kutf_clk_rate_trace_test_portal, filters);
 
 	pr_debug("Init complete\n");
 	return 0;
@@ -957,7 +919,6 @@ static void __exit mali_kutf_clk_rate_trace_test_module_exit(void)
 	kutf_destroy_application(kutf_app);
 	pr_debug("Exit complete\n");
 }
-
 
 module_init(mali_kutf_clk_rate_trace_test_module_init);
 module_exit(mali_kutf_clk_rate_trace_test_module_exit);

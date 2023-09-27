@@ -24,7 +24,7 @@
  */
 
 #include <mali_kbase.h>
-#include <gpu/mali_kbase_gpu_regmap.h>
+#include <hw_access/mali_kbase_hw_access_regmap.h>
 #include <mali_kbase_gpuprops.h>
 #include <mali_kbase_hwaccess_gpuprops.h>
 #include <mali_kbase_config_defaults.h>
@@ -34,9 +34,7 @@
 #include <linux/of_platform.h>
 #include <linux/moduleparam.h>
 
-
-static void kbase_gpuprops_construct_coherent_groups(
-	struct base_gpu_props * const props)
+static void kbase_gpuprops_construct_coherent_groups(struct base_gpu_props *const props)
 {
 	struct mali_base_gpu_coherent_group *current_group;
 	u64 group_present;
@@ -83,7 +81,7 @@ static void kbase_gpuprops_construct_coherent_groups(
 	first_set = group_present & ~(group_present - 1);
 
 	while (group_present != 0 && num_groups < BASE_MAX_COHERENT_GROUPS) {
-		group_present -= first_set;	/* Clear the current group bit */
+		group_present -= first_set; /* Clear the current group bit */
 		first_set_prev = first_set;
 
 		first_set = group_present & ~(group_present - 1);
@@ -98,7 +96,8 @@ static void kbase_gpuprops_construct_coherent_groups(
 	}
 
 	if (group_present != 0)
-		pr_warn("Too many coherent groups (keeping only %d groups).\n", BASE_MAX_COHERENT_GROUPS);
+		pr_warn("Too many coherent groups (keeping only %d groups).\n",
+			BASE_MAX_COHERENT_GROUPS);
 
 	props->coherency_info.num_groups = num_groups;
 }
@@ -114,7 +113,7 @@ static void kbase_gpuprops_construct_coherent_groups(
  * Return: Zero on success, Linux error code on failure
  */
 int kbase_gpuprops_get_curr_config_props(struct kbase_device *kbdev,
-	struct curr_config_props * const curr_config)
+					 struct curr_config_props *const curr_config)
 {
 	struct kbase_current_config_regdump curr_config_regdump;
 	int err;
@@ -127,21 +126,17 @@ int kbase_gpuprops_get_curr_config_props(struct kbase_device *kbdev,
 		return 0;
 
 	/* Dump relevant registers */
-	err = kbase_backend_gpuprops_get_curr_config(kbdev,
-						     &curr_config_regdump);
+	err = kbase_backend_gpuprops_get_curr_config(kbdev, &curr_config_regdump);
 	if (err)
 		return err;
 
-	curr_config->l2_slices =
-		KBASE_UBFX32(curr_config_regdump.mem_features, 8U, 4) + 1;
+	curr_config->l2_slices = KBASE_UBFX32(curr_config_regdump.mem_features, 8U, 4) + 1;
 
 	curr_config->l2_present =
-		((u64) curr_config_regdump.l2_present_hi << 32) +
-		curr_config_regdump.l2_present_lo;
+		((u64)curr_config_regdump.l2_present_hi << 32) + curr_config_regdump.l2_present_lo;
 
-	curr_config->shader_present =
-		((u64) curr_config_regdump.shader_present_hi << 32) +
-		curr_config_regdump.shader_present_lo;
+	curr_config->shader_present = ((u64)curr_config_regdump.shader_present_hi << 32) +
+				      curr_config_regdump.shader_present_lo;
 
 	curr_config->num_cores = hweight64(curr_config->shader_present);
 
@@ -178,8 +173,8 @@ int kbase_gpuprops_req_curr_config_update(struct kbase_device *kbdev)
  *
  * Return: Zero on success, Linux error code on failure
  */
-static int kbase_gpuprops_get_props(struct base_gpu_props * const gpu_props,
-	struct kbase_device *kbdev)
+static int kbase_gpuprops_get_props(struct base_gpu_props *const gpu_props,
+				    struct kbase_device *kbdev)
 {
 	struct kbase_gpuprops_regdump regdump;
 	int i;
@@ -202,17 +197,13 @@ static int kbase_gpuprops_get_props(struct base_gpu_props * const gpu_props,
 	gpu_props->raw_props.as_present = regdump.as_present;
 	gpu_props->raw_props.js_present = regdump.js_present;
 	gpu_props->raw_props.shader_present =
-		((u64) regdump.shader_present_hi << 32) +
-		regdump.shader_present_lo;
+		((u64)regdump.shader_present_hi << 32) + regdump.shader_present_lo;
 	gpu_props->raw_props.tiler_present =
-		((u64) regdump.tiler_present_hi << 32) +
-		regdump.tiler_present_lo;
+		((u64)regdump.tiler_present_hi << 32) + regdump.tiler_present_lo;
 	gpu_props->raw_props.l2_present =
-		((u64) regdump.l2_present_hi << 32) +
-		regdump.l2_present_lo;
+		((u64)regdump.l2_present_hi << 32) + regdump.l2_present_lo;
 	gpu_props->raw_props.stack_present =
-		((u64) regdump.stack_present_hi << 32) +
-		regdump.stack_present_lo;
+		((u64)regdump.stack_present_hi << 32) + regdump.stack_present_lo;
 
 	for (i = 0; i < GPU_MAX_JOB_SLOTS; i++)
 		gpu_props->raw_props.js_features[i] = regdump.js_features[i];
@@ -224,26 +215,20 @@ static int kbase_gpuprops_get_props(struct base_gpu_props * const gpu_props,
 	gpu_props->raw_props.thread_max_threads = regdump.thread_max_threads;
 	gpu_props->raw_props.thread_max_workgroup_size = regdump.thread_max_workgroup_size;
 	gpu_props->raw_props.thread_features = regdump.thread_features;
-	gpu_props->raw_props.thread_tls_alloc = regdump.thread_tls_alloc;
 
 	gpu_props->raw_props.gpu_features =
-		((u64) regdump.gpu_features_hi << 32) +
-		regdump.gpu_features_lo;
+		((u64)regdump.gpu_features_hi << 32) + regdump.gpu_features_lo;
 
 	return 0;
 }
 
-void kbase_gpuprops_update_core_props_gpu_id(
-	struct base_gpu_props * const gpu_props)
+void kbase_gpuprops_update_core_props_gpu_id(struct base_gpu_props *const gpu_props,
+					     struct kbase_gpu_id_props *gpu_id)
 {
-	gpu_props->core_props.version_status =
-		KBASE_UBFX32(gpu_props->raw_props.gpu_id, 0U, 4);
-	gpu_props->core_props.minor_revision =
-		KBASE_UBFX32(gpu_props->raw_props.gpu_id, 4U, 8);
-	gpu_props->core_props.major_revision =
-		KBASE_UBFX32(gpu_props->raw_props.gpu_id, 12U, 4);
-	gpu_props->core_props.product_id =
-		KBASE_UBFX32(gpu_props->raw_props.gpu_id, 16U, 16);
+	gpu_props->core_props.version_status = gpu_id->version_status;
+	gpu_props->core_props.minor_revision = gpu_id->version_minor;
+	gpu_props->core_props.major_revision = gpu_id->version_major;
+	gpu_props->core_props.product_id = KBASE_UBFX32(gpu_props->raw_props.gpu_id, 16U, 16);
 }
 
 /**
@@ -254,8 +239,8 @@ void kbase_gpuprops_update_core_props_gpu_id(
  *
  * Updates the &struct base_gpu_props structure with the max config properties.
  */
-static void kbase_gpuprops_update_max_config_props(
-	struct base_gpu_props * const base_props, struct kbase_device *kbdev)
+static void kbase_gpuprops_update_max_config_props(struct base_gpu_props *const base_props,
+						   struct kbase_device *kbdev)
 {
 	int l2_n = 0;
 
@@ -270,10 +255,8 @@ static void kbase_gpuprops_update_max_config_props(
 	 * Set the base_props with the maximum config values to ensure that the
 	 * user space will always be based on the maximum resources available.
 	 */
-	base_props->l2_props.num_l2_slices =
-		kbdev->gpu_props.max_config.l2_slices;
-	base_props->raw_props.shader_present =
-		kbdev->gpu_props.max_config.core_mask;
+	base_props->l2_props.num_l2_slices = kbdev->gpu_props.max_config.l2_slices;
+	base_props->raw_props.shader_present = kbdev->gpu_props.max_config.core_mask;
 	/*
 	 * Update l2_present in the raw data to be consistent with the
 	 * max_config.l2_slices number.
@@ -289,12 +272,10 @@ static void kbase_gpuprops_update_max_config_props(
 	 * not necessary to split the shader core groups in different coherent
 	 * groups.
 	 */
-	base_props->coherency_info.coherency =
-		base_props->raw_props.mem_features;
+	base_props->coherency_info.coherency = base_props->raw_props.mem_features;
 	base_props->coherency_info.num_core_groups = 1;
 	base_props->coherency_info.num_groups = 1;
-	base_props->coherency_info.group[0].core_mask =
-		kbdev->gpu_props.max_config.core_mask;
+	base_props->coherency_info.group[0].core_mask = kbdev->gpu_props.max_config.core_mask;
 	base_props->coherency_info.group[0].num_cores =
 		hweight32(kbdev->gpu_props.max_config.core_mask);
 }
@@ -307,26 +288,27 @@ static void kbase_gpuprops_update_max_config_props(
  * Fill the &struct base_gpu_props structure with values derived from the GPU
  * configuration registers
  */
-static void kbase_gpuprops_calculate_props(
-	struct base_gpu_props * const gpu_props, struct kbase_device *kbdev)
+static void kbase_gpuprops_calculate_props(struct base_gpu_props *const gpu_props,
+					   struct kbase_device *kbdev)
 {
 	int i;
 
 	/* Populate the base_gpu_props structure */
-	kbase_gpuprops_update_core_props_gpu_id(gpu_props);
+	kbase_gpuprops_update_core_props_gpu_id(gpu_props, &kbdev->gpu_props.gpu_id);
 	gpu_props->core_props.log2_program_counter_size = KBASE_GPU_PC_SIZE_LOG2;
 #if KERNEL_VERSION(5, 0, 0) > LINUX_VERSION_CODE
 	gpu_props->core_props.gpu_available_memory_size = totalram_pages << PAGE_SHIFT;
 #else
-	gpu_props->core_props.gpu_available_memory_size =
-		totalram_pages() << PAGE_SHIFT;
+	gpu_props->core_props.gpu_available_memory_size = totalram_pages() << PAGE_SHIFT;
 #endif
 
 	for (i = 0; i < BASE_GPU_NUM_TEXTURE_FEATURES_REGISTERS; i++)
-		gpu_props->core_props.texture_features[i] = gpu_props->raw_props.texture_features[i];
+		gpu_props->core_props.texture_features[i] =
+			gpu_props->raw_props.texture_features[i];
 
 	gpu_props->l2_props.log2_line_size = KBASE_UBFX32(gpu_props->raw_props.l2_features, 0U, 8);
-	gpu_props->l2_props.log2_cache_size = KBASE_UBFX32(gpu_props->raw_props.l2_features, 16U, 8);
+	gpu_props->l2_props.log2_cache_size =
+		KBASE_UBFX32(gpu_props->raw_props.l2_features, 16U, 8);
 
 	/* Field with number of l2 slices is added to MEM_FEATURES register
 	 * since t76x. Below code assumes that for older GPU reserved bits will
@@ -335,8 +317,10 @@ static void kbase_gpuprops_calculate_props(
 	gpu_props->l2_props.num_l2_slices =
 		KBASE_UBFX32(gpu_props->raw_props.mem_features, 8U, 4) + 1;
 
-	gpu_props->tiler_props.bin_size_bytes = 1 << KBASE_UBFX32(gpu_props->raw_props.tiler_features, 0U, 6);
-	gpu_props->tiler_props.max_active_levels = KBASE_UBFX32(gpu_props->raw_props.tiler_features, 8U, 4);
+	gpu_props->tiler_props.bin_size_bytes =
+		1 << KBASE_UBFX32(gpu_props->raw_props.tiler_features, 0U, 6);
+	gpu_props->tiler_props.max_active_levels =
+		KBASE_UBFX32(gpu_props->raw_props.tiler_features, 8U, 4);
 
 	if (gpu_props->raw_props.thread_max_threads == 0)
 		gpu_props->thread_props.max_threads = THREAD_MT_DEFAULT;
@@ -346,19 +330,14 @@ static void kbase_gpuprops_calculate_props(
 	if (gpu_props->raw_props.thread_max_workgroup_size == 0)
 		gpu_props->thread_props.max_workgroup_size = THREAD_MWS_DEFAULT;
 	else
-		gpu_props->thread_props.max_workgroup_size = gpu_props->raw_props.thread_max_workgroup_size;
+		gpu_props->thread_props.max_workgroup_size =
+			gpu_props->raw_props.thread_max_workgroup_size;
 
 	if (gpu_props->raw_props.thread_max_barrier_size == 0)
 		gpu_props->thread_props.max_barrier_size = THREAD_MBS_DEFAULT;
 	else
-		gpu_props->thread_props.max_barrier_size = gpu_props->raw_props.thread_max_barrier_size;
-
-	if (gpu_props->raw_props.thread_tls_alloc == 0)
-		gpu_props->thread_props.tls_alloc =
-				gpu_props->thread_props.max_threads;
-	else
-		gpu_props->thread_props.tls_alloc =
-				gpu_props->raw_props.thread_tls_alloc;
+		gpu_props->thread_props.max_barrier_size =
+			gpu_props->raw_props.thread_max_barrier_size;
 
 #if MALI_USE_CSF
 	gpu_props->thread_props.max_registers =
@@ -394,15 +373,14 @@ static void kbase_gpuprops_calculate_props(
 	 */
 	if (kbdev->gpu_props.max_config.core_mask)
 		/* Update the max config properties in the base_gpu_props */
-		kbase_gpuprops_update_max_config_props(gpu_props,
-						       kbdev);
+		kbase_gpuprops_update_max_config_props(gpu_props, kbdev);
 	else
 		/* Initialize the coherent_group structure for each group */
 		kbase_gpuprops_construct_coherent_groups(gpu_props);
 }
 
 void kbase_gpuprops_set_max_config(struct kbase_device *kbdev,
-	const struct max_config_props *max_config)
+				   const struct max_config_props *max_config)
 {
 	if (WARN_ON(!kbdev) || WARN_ON(!max_config))
 		return;
@@ -410,6 +388,28 @@ void kbase_gpuprops_set_max_config(struct kbase_device *kbdev,
 	kbdev->gpu_props.max_config.l2_slices = max_config->l2_slices;
 	kbdev->gpu_props.max_config.core_mask = max_config->core_mask;
 }
+
+void kbase_gpuprops_update_composite_ids(struct kbase_gpu_id_props *props)
+{
+	props->product_id = GPU_ID_PRODUCT_MAKE(props->arch_major, props->product_major);
+	props->version_id = GPU_ID_VERSION_MAKE(props->version_major, props->version_minor,
+						props->version_status);
+	props->arch_id = GPU_ID_ARCH_MAKE(props->arch_major, props->arch_minor, props->arch_rev);
+}
+
+void kbase_gpuprops_parse_gpu_id(struct kbase_gpu_id_props *props, u64 gpu_id)
+{
+	props->arch_major = GPU_ID2_ARCH_MAJOR_GET(gpu_id);
+	props->version_status = gpu_id & GPU_ID2_VERSION_STATUS;
+	props->version_minor = GPU_ID2_VERSION_MINOR_GET(gpu_id);
+	props->version_major = GPU_ID2_VERSION_MAJOR_GET(gpu_id);
+	props->product_major = GPU_ID2_PRODUCT_MAJOR_GET(gpu_id);
+	props->arch_rev = GPU_ID2_ARCH_REV_GET(gpu_id);
+	props->arch_minor = GPU_ID2_ARCH_MINOR_GET(gpu_id);
+
+	kbase_gpuprops_update_composite_ids(props);
+}
+KBASE_EXPORT_TEST_API(kbase_gpuprops_parse_gpu_id);
 
 void kbase_gpuprops_set(struct kbase_device *kbdev)
 {
@@ -437,8 +437,7 @@ void kbase_gpuprops_set(struct kbase_device *kbdev)
 	gpu_props->mmu.pa_bits = KBASE_UBFX32(raw->mmu_features, 8U, 8);
 
 	gpu_props->num_cores = hweight64(raw->shader_present);
-	gpu_props->num_core_groups =
-		gpu_props->props.coherency_info.num_core_groups;
+	gpu_props->num_core_groups = gpu_props->props.coherency_info.num_core_groups;
 	gpu_props->num_address_spaces = hweight32(raw->as_present);
 	gpu_props->num_job_slots = hweight32(raw->js_present);
 
@@ -471,7 +470,7 @@ int kbase_gpuprops_set_features(struct kbase_device *kbdev)
 	 * Additionally, add non-coherent mode, as this is always supported.
 	 */
 	gpu_props->raw_props.coherency_mode = regdump.coherency_features |
-		COHERENCY_FEATURE_BIT(COHERENCY_NONE);
+					      COHERENCY_FEATURE_BIT(COHERENCY_NONE);
 
 	if (!kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_THREAD_GROUP_SPLIT))
 		gpu_props->thread_props.max_thread_group_split = 0;
@@ -491,6 +490,12 @@ int kbase_gpuprops_set_features(struct kbase_device *kbdev)
 		KBASE_UBFX32(gpu_props->raw_props.core_features, 0, 4);
 #endif
 
+	gpu_props->raw_props.thread_tls_alloc = regdump.thread_tls_alloc;
+	if (gpu_props->raw_props.thread_tls_alloc == 0)
+		gpu_props->thread_props.tls_alloc = gpu_props->thread_props.max_threads;
+	else
+		gpu_props->thread_props.tls_alloc = gpu_props->raw_props.thread_tls_alloc;
+
 	return err;
 }
 
@@ -509,7 +514,7 @@ static u8 override_l2_hash;
 module_param(override_l2_hash, byte, 0000);
 MODULE_PARM_DESC(override_l2_hash, "Override L2 hash config for testing");
 
-static u32 l2_hash_values[ASN_HASH_COUNT] = {
+static u32 l2_hash_values[GPU_L2_SLICE_HASH_COUNT] = {
 	0,
 };
 static unsigned int num_override_l2_hash_values;
@@ -517,9 +522,9 @@ module_param_array(l2_hash_values, uint, &num_override_l2_hash_values, 0000);
 MODULE_PARM_DESC(l2_hash_values, "Override L2 hash values config for testing");
 
 /* Definitions for range of supported user defined hash functions for GPUs
- * that support L2_CONFIG and not ASN_HASH features. Supported hash function
- * range from 0b1000-0b1111 inclusive. Selection of any other values will
- * lead to undefined behavior.
+ * that support L2_CONFIG and not L2 cache slice hash features. Supported
+ * hash function range from 0b1000-0b1111 inclusive. Selection of any other
+ * values will lead to undefined behavior.
  */
 #define USER_DEFINED_HASH_LO ((u8)0x08)
 #define USER_DEFINED_HASH_HI ((u8)0x0F)
@@ -542,8 +547,7 @@ enum l2_config_override_result {
  *         overridden, L2_CONFIG_OVERRIDE_NONE if no overrides are provided.
  *         L2_CONFIG_OVERRIDE_FAIL otherwise.
  */
-static enum l2_config_override_result
-kbase_read_l2_config_from_dt(struct kbase_device *const kbdev)
+static enum l2_config_override_result kbase_read_l2_config_from_dt(struct kbase_device *const kbdev)
 {
 	struct device_node *np = kbdev->dev->of_node;
 
@@ -558,8 +562,7 @@ kbase_read_l2_config_from_dt(struct kbase_device *const kbdev)
 	/* Check overriding value is supported, if not will result in
 	 * undefined behavior.
 	 */
-	if (override_l2_hash >= USER_DEFINED_HASH_LO &&
-	    override_l2_hash <= USER_DEFINED_HASH_HI)
+	if (override_l2_hash >= USER_DEFINED_HASH_LO && override_l2_hash <= USER_DEFINED_HASH_HI)
 		kbdev->l2_hash_override = override_l2_hash;
 	else if (of_property_read_u8(np, "l2-hash", &kbdev->l2_hash_override))
 		kbdev->l2_hash_override = 0;
@@ -571,31 +574,26 @@ kbase_read_l2_config_from_dt(struct kbase_device *const kbdev)
 		kbdev->l2_hash_values_override = true;
 		for (i = 0; i < num_override_l2_hash_values; i++)
 			kbdev->l2_hash_values[i] = l2_hash_values[i];
-	} else if (!of_property_read_u32_array(np, "l2-hash-values",
-					       kbdev->l2_hash_values,
-					       ASN_HASH_COUNT))
+	} else if (!of_property_read_u32_array(np, "l2-hash-values", kbdev->l2_hash_values,
+					       GPU_L2_SLICE_HASH_COUNT))
 		kbdev->l2_hash_values_override = true;
 
-	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_ASN_HASH) &&
-	    (kbdev->l2_hash_override)) {
+	if (kbase_hw_has_l2_slice_hash_feature(kbdev) && (kbdev->l2_hash_override)) {
 		dev_err(kbdev->dev, "l2-hash not supported\n");
 		return L2_CONFIG_OVERRIDE_FAIL;
 	}
 
-	if (!kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_ASN_HASH) &&
-	    (kbdev->l2_hash_values_override)) {
+	if (!kbase_hw_has_l2_slice_hash_feature(kbdev) && (kbdev->l2_hash_values_override)) {
 		dev_err(kbdev->dev, "l2-hash-values not supported\n");
 		return L2_CONFIG_OVERRIDE_FAIL;
 	}
 
 	if (kbdev->l2_hash_override && kbdev->l2_hash_values_override) {
-		dev_err(kbdev->dev,
-			"both l2-hash & l2-hash-values not supported\n");
+		dev_err(kbdev->dev, "both l2-hash & l2-hash-values not supported\n");
 		return L2_CONFIG_OVERRIDE_FAIL;
 	}
 
-	if (kbdev->l2_size_override || kbdev->l2_hash_override ||
-	    kbdev->l2_hash_values_override)
+	if (kbdev->l2_size_override || kbdev->l2_hash_override || kbdev->l2_hash_values_override)
 		return L2_CONFIG_OVERRIDE_OK;
 
 	return L2_CONFIG_OVERRIDE_NONE;
@@ -641,25 +639,23 @@ int kbase_gpuprops_update_l2_features(struct kbase_device *kbdev)
 		if (err)
 			goto exit;
 
-		dev_info(kbdev->dev, "Reflected L2_FEATURES is 0x%x\n",
-			 regdump.l2_features);
-		dev_info(kbdev->dev, "Reflected L2_CONFIG is 0x%08x\n",
-			 regdump.l2_config);
+		dev_info(kbdev->dev, "Reflected L2_FEATURES is 0x%x\n", regdump.l2_features);
+		dev_info(kbdev->dev, "Reflected L2_CONFIG is 0x%08x\n", regdump.l2_config);
 
-		if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_ASN_HASH)) {
+		if (kbase_hw_has_l2_slice_hash_feature(kbdev)) {
 			int idx;
-			const bool asn_he = regdump.l2_config &
-					    L2_CONFIG_ASN_HASH_ENABLE_MASK;
+			const bool enable = regdump.l2_config & L2_CONFIG_L2_SLICE_HASH_ENABLE_MASK;
+
 #if !IS_ENABLED(CONFIG_MALI_NO_MALI)
-			if (!asn_he && kbdev->l2_hash_values_override)
-				dev_err(kbdev->dev,
-					"Failed to use requested ASN_HASH, fallback to default");
+			if (!enable && kbdev->l2_hash_values_override) {
+					dev_err(kbdev->dev,
+						"Failed to use requested ASN_HASH, fallback to default");
+			}
 #endif
-			for (idx = 0; idx < ASN_HASH_COUNT; idx++)
-				dev_info(kbdev->dev,
-					 "%s ASN_HASH[%d] is [0x%08x]\n",
-					 asn_he ? "Overridden" : "Default", idx,
-					 regdump.l2_asn_hash[idx]);
+			for (idx = 0; idx < GPU_L2_SLICE_HASH_COUNT; idx++)
+					dev_info(kbdev->dev, "%s ASN_HASH[%d] is [0x%08x]\n",
+						 enable ? "Overridden" : "Default", idx,
+						 regdump.l2_slice_hash[idx]);
 		}
 
 		/* Update gpuprops with reflected L2_FEATURES */
@@ -677,9 +673,11 @@ static struct {
 	size_t offset;
 	int size;
 } gpu_property_mapping[] = {
-#define PROP(name, member) \
-	{KBASE_GPUPROP_ ## name, offsetof(struct base_gpu_props, member), \
-		sizeof(((struct base_gpu_props *)0)->member)}
+#define PROP(name, member)                                                     \
+	{                                                                      \
+		KBASE_GPUPROP_##name, offsetof(struct base_gpu_props, member), \
+			sizeof(((struct base_gpu_props *)0)->member)           \
+	}
 	PROP(PRODUCT_ID, core_props.product_id),
 	PROP(VERSION_STATUS, core_props.version_status),
 	PROP(MINOR_REVISION, core_props.minor_revision),
@@ -693,9 +691,9 @@ static struct {
 	PROP(GPU_AVAILABLE_MEMORY_SIZE, core_props.gpu_available_memory_size),
 
 #if MALI_USE_CSF
-#define BACKWARDS_COMPAT_PROP(name, type)                                                          \
-	{                                                                                          \
-		KBASE_GPUPROP_##name, SIZE_MAX, sizeof(type)                                       \
+#define BACKWARDS_COMPAT_PROP(name, type)                    \
+	{                                                    \
+		KBASE_GPUPROP_##name, SIZE_MAX, sizeof(type) \
 	}
 	BACKWARDS_COMPAT_PROP(NUM_EXEC_ENGINES, u8),
 #else
@@ -804,10 +802,22 @@ int kbase_gpuprops_populate_user_buffer(struct kbase_device *kbdev)
 
 	p = kprops->prop_buffer;
 
-#define WRITE_U8(v) (*p++ = (v) & 0xFF)
-#define WRITE_U16(v) do { WRITE_U8(v); WRITE_U8((v) >> 8); } while (0)
-#define WRITE_U32(v) do { WRITE_U16(v); WRITE_U16((v) >> 16); } while (0)
-#define WRITE_U64(v) do { WRITE_U32(v); WRITE_U32((v) >> 32); } while (0)
+#define WRITE_U8(v) (*p++ = (v)&0xFF)
+#define WRITE_U16(v)                \
+	do {                        \
+		WRITE_U8(v);        \
+		WRITE_U8((v) >> 8); \
+	} while (0)
+#define WRITE_U32(v)                  \
+	do {                          \
+		WRITE_U16(v);         \
+		WRITE_U16((v) >> 16); \
+	} while (0)
+#define WRITE_U64(v)                  \
+	do {                          \
+		WRITE_U32(v);         \
+		WRITE_U32((v) >> 32); \
+	} while (0)
 
 	for (i = 0; i < count; i++) {
 		u32 type = gpu_property_mapping[i].type;
@@ -835,13 +845,12 @@ int kbase_gpuprops_populate_user_buffer(struct kbase_device *kbdev)
 			type_size = KBASE_GPUPROP_VALUE_SIZE_U64;
 			break;
 		default:
-			dev_err(kbdev->dev,
-				"Invalid gpu_property_mapping type=%d size=%d",
-				type, gpu_property_mapping[i].size);
+			dev_err(kbdev->dev, "Invalid gpu_property_mapping type=%d size=%d", type,
+				gpu_property_mapping[i].size);
 			return -EINVAL;
 		}
 
-		WRITE_U32((type<<2) | type_size);
+		WRITE_U32((type << 2) | type_size);
 
 		switch (type_size) {
 		case KBASE_GPUPROP_VALUE_SIZE_U8:

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2011-2014, 2017, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -31,9 +31,7 @@ static struct kbase_io_resources io_resources = {
 	.job_irq_number = 68,
 	.mmu_irq_number = 69,
 	.gpu_irq_number = 70,
-	.io_memory_region = {
-			     .start = 0x2f010000,
-			     .end = 0x2f010000 + (4096 * 4) - 1}
+	.io_memory_region = { .start = 0x2f010000, .end = 0x2f010000 + (4096 * 4) - 1 }
 };
 #endif
 
@@ -47,12 +45,10 @@ static void pm_callback_power_off(struct kbase_device *kbdev)
 {
 }
 
-struct kbase_pm_callback_conf pm_callbacks = {
-	.power_on_callback = pm_callback_power_on,
-	.power_off_callback = pm_callback_power_off,
-	.power_suspend_callback  = NULL,
-	.power_resume_callback = NULL
-};
+struct kbase_pm_callback_conf pm_callbacks = { .power_on_callback = pm_callback_power_on,
+					       .power_off_callback = pm_callback_power_off,
+					       .power_suspend_callback = NULL,
+					       .power_resume_callback = NULL };
 
 static struct kbase_platform_config versatile_platform_config = {
 #ifndef CONFIG_OF
@@ -69,7 +65,8 @@ struct kbase_platform_config *kbase_get_platform_config(void)
 #if MALI_USE_CSF
 int kbase_platform_dvfs_event(struct kbase_device *kbdev, u32 utilisation)
 #else
-int kbase_platform_dvfs_event(struct kbase_device *kbdev, u32 utilisation, u32 util_gl_share, u32 util_cl_share[2])
+int kbase_platform_dvfs_event(struct kbase_device *kbdev, u32 utilisation, u32 util_gl_share,
+			      u32 util_cl_share[2])
 #endif
 {
 	return 1;

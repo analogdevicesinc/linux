@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2014-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -34,8 +34,7 @@ struct kbase_jd_debugfs_depinfo {
 	char type;
 };
 
-static void kbase_jd_debugfs_fence_info(struct kbase_jd_atom *atom,
-					struct seq_file *sfile)
+static void kbase_jd_debugfs_fence_info(struct kbase_jd_atom *atom, struct seq_file *sfile)
 {
 #if IS_ENABLED(CONFIG_SYNC_FILE)
 	struct kbase_sync_fence_info info;
@@ -45,14 +44,12 @@ static void kbase_jd_debugfs_fence_info(struct kbase_jd_atom *atom,
 	case BASE_JD_REQ_SOFT_FENCE_TRIGGER:
 		res = kbase_sync_fence_out_info_get(atom, &info);
 		if (res == 0)
-			seq_printf(sfile, "Sa([%pK]%d) ",
-				   info.fence, info.status);
+			seq_printf(sfile, "Sa([%pK]%d) ", info.fence, info.status);
 		break;
 	case BASE_JD_REQ_SOFT_FENCE_WAIT:
 		res = kbase_sync_fence_in_info_get(atom, &info);
 		if (res == 0)
-			seq_printf(sfile, "Wa([%pK]%d) ",
-				   info.fence, info.status);
+			seq_printf(sfile, "Wa([%pK]%d) ", info.fence, info.status);
 		break;
 	default:
 		break;
@@ -60,16 +57,16 @@ static void kbase_jd_debugfs_fence_info(struct kbase_jd_atom *atom,
 #endif /* CONFIG_SYNC_FILE */
 }
 
-static void kbasep_jd_debugfs_atom_deps(
-		struct kbase_jd_debugfs_depinfo *deps,
-		struct kbase_jd_atom *atom)
+static void kbasep_jd_debugfs_atom_deps(struct kbase_jd_debugfs_depinfo *deps,
+					struct kbase_jd_atom *atom)
 {
 	struct kbase_context *kctx = atom->kctx;
 	int i;
 
-	for (i = 0; i < 2; i++)	{
+	for (i = 0; i < 2; i++) {
 		deps[i].id = (unsigned int)(atom->dep[i].atom ?
-				kbase_jd_atom_id(kctx, atom->dep[i].atom) : 0);
+							  kbase_jd_atom_id(kctx, atom->dep[i].atom) :
+							  0);
 
 		switch (atom->dep[i].dep_type) {
 		case BASE_JD_DEP_TYPE_INVALID:
@@ -105,14 +102,15 @@ static int kbasep_jd_debugfs_atoms_show(struct seq_file *sfile, void *data)
 	unsigned long irq_flags;
 	int i;
 
+	CSTD_UNUSED(data);
+
 	KBASE_DEBUG_ASSERT(kctx != NULL);
 
 	/* Print version */
 	seq_printf(sfile, "v%u\n", MALI_JD_DEBUGFS_VERSION);
 
 	/* Print U/K API version */
-	seq_printf(sfile, "ukv%u.%u\n", BASE_UK_VERSION_MAJOR,
-			BASE_UK_VERSION_MINOR);
+	seq_printf(sfile, "ukv%u.%u\n", BASE_UK_VERSION_MAJOR, BASE_UK_VERSION_MINOR);
 
 	/* Print table heading */
 	seq_puts(sfile, " ID, Core req, St,   Predeps,           Start time, Additional info...\n");
@@ -140,13 +138,9 @@ static int kbasep_jd_debugfs_atoms_show(struct seq_file *sfile, void *data)
 
 		kbasep_jd_debugfs_atom_deps(deps, atom);
 
-		seq_printf(sfile,
-				"%3u, %8x, %2u, %c%3u %c%3u, %20lld, ",
-				i, atom->core_req, atom->status,
-				deps[0].type, deps[0].id,
-				deps[1].type, deps[1].id,
-				start_timestamp);
-
+		seq_printf(sfile, "%3u, %8x, %2u, %c%3u %c%3u, %20lld, ", i, atom->core_req,
+			   atom->status, deps[0].type, deps[0].id, deps[1].type, deps[1].id,
+			   start_timestamp);
 
 		kbase_jd_debugfs_fence_info(atom, sfile);
 
@@ -157,7 +151,6 @@ static int kbasep_jd_debugfs_atoms_show(struct seq_file *sfile, void *data)
 
 	return 0;
 }
-
 
 /**
  * kbasep_jd_debugfs_atoms_open - open operation for atom debugfs file
@@ -186,14 +179,11 @@ void kbasep_jd_debugfs_ctx_init(struct kbase_context *kctx)
 	/* Caller already ensures this, but we keep the pattern for
 	 * maintenance safety.
 	 */
-	if (WARN_ON(!kctx) ||
-		WARN_ON(IS_ERR_OR_NULL(kctx->kctx_dentry)))
+	if (WARN_ON(!kctx) || WARN_ON(IS_ERR_OR_NULL(kctx->kctx_dentry)))
 		return;
 
 	/* Expose all atoms */
-	debugfs_create_file("atoms", mode, kctx->kctx_dentry, kctx,
-			&kbasep_jd_debugfs_atoms_fops);
-
+	debugfs_create_file("atoms", mode, kctx->kctx_dentry, kctx, &kbasep_jd_debugfs_atoms_fops);
 }
 
 #endif /* CONFIG_DEBUG_FS */

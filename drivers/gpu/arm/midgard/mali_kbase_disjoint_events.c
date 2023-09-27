@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2014, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -29,8 +29,7 @@ void kbase_disjoint_init(struct kbase_device *kbdev)
 {
 	KBASE_DEBUG_ASSERT(kbdev != NULL);
 
-	atomic_set(&kbdev->disjoint_event.count, 0);
-	atomic_set(&kbdev->disjoint_event.state, 0);
+	/* disjoiont_event is already zero-initialized by kzalloc. */
 }
 
 /* increment the disjoint event count */

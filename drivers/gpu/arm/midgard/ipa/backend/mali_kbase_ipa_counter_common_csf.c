@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -76,13 +76,12 @@ static s64 kbase_ipa_group_energy(s32 coeff, u64 counter_value)
  * @model_data: Pointer to counter model data
  *
  * Register IPA counter model as a client of kbase_ipa_control, which
- * provides an interface to retreive the accumulated value of hardware
+ * provides an interface to retrieve the accumulated value of hardware
  * counters to calculate energy consumption.
  *
  * Return: 0 on success, or an error code.
  */
-static int
-kbase_ipa_attach_ipa_control(struct kbase_ipa_counter_model_data *model_data)
+static int kbase_ipa_attach_ipa_control(struct kbase_ipa_counter_model_data *model_data)
 {
 	struct kbase_device *kbdev = model_data->kbdev;
 	struct kbase_ipa_control_perf_counter *perf_counters;
@@ -93,15 +92,13 @@ kbase_ipa_attach_ipa_control(struct kbase_ipa_counter_model_data *model_data)
 	/* Value for GPU_ACTIVE counter also needs to be queried. It is required
 	 * for the normalization of top-level and shader core counters.
 	 */
-	model_data->num_counters = 1 + model_data->num_top_level_cntrs +
-				   model_data->num_shader_cores_cntrs;
+	model_data->num_counters =
+		1 + model_data->num_top_level_cntrs + model_data->num_shader_cores_cntrs;
 
-	perf_counters = kcalloc(model_data->num_counters,
-				sizeof(*perf_counters), GFP_KERNEL);
+	perf_counters = kcalloc(model_data->num_counters, sizeof(*perf_counters), GFP_KERNEL);
 
 	if (!perf_counters) {
-		dev_err(kbdev->dev,
-			"Failed to allocate memory for perf_counters array");
+		dev_err(kbdev->dev, "Failed to allocate memory for perf_counters array");
 		return -ENOMEM;
 	}
 
@@ -116,8 +113,7 @@ kbase_ipa_attach_ipa_control(struct kbase_ipa_counter_model_data *model_data)
 	cnt_idx++;
 
 	for (i = 0; i < model_data->num_top_level_cntrs; ++i) {
-		const struct kbase_ipa_counter *counter =
-			&model_data->top_level_cntrs_def[i];
+		const struct kbase_ipa_counter *counter = &model_data->top_level_cntrs_def[i];
 
 		perf_counters[cnt_idx].type = counter->counter_block_type;
 		perf_counters[cnt_idx].idx = counter->counter_block_offset;
@@ -127,8 +123,7 @@ kbase_ipa_attach_ipa_control(struct kbase_ipa_counter_model_data *model_data)
 	}
 
 	for (i = 0; i < model_data->num_shader_cores_cntrs; ++i) {
-		const struct kbase_ipa_counter *counter =
-			&model_data->shader_cores_cntrs_def[i];
+		const struct kbase_ipa_counter *counter = &model_data->shader_cores_cntrs_def[i];
 
 		perf_counters[cnt_idx].type = counter->counter_block_type;
 		perf_counters[cnt_idx].idx = counter->counter_block_offset;
@@ -137,12 +132,10 @@ kbase_ipa_attach_ipa_control(struct kbase_ipa_counter_model_data *model_data)
 		cnt_idx++;
 	}
 
-	err = kbase_ipa_control_register(kbdev, perf_counters,
-					 model_data->num_counters,
+	err = kbase_ipa_control_register(kbdev, perf_counters, model_data->num_counters,
 					 &model_data->ipa_control_client);
 	if (err)
-		dev_err(kbdev->dev,
-			"Failed to register IPA with kbase_ipa_control");
+		dev_err(kbdev->dev, "Failed to register IPA with kbase_ipa_control");
 
 	kfree(perf_counters);
 	return err;
@@ -152,20 +145,17 @@ kbase_ipa_attach_ipa_control(struct kbase_ipa_counter_model_data *model_data)
  * kbase_ipa_detach_ipa_control() - De-register from kbase_ipa_control.
  * @model_data: Pointer to counter model data
  */
-static void
-kbase_ipa_detach_ipa_control(struct kbase_ipa_counter_model_data *model_data)
+static void kbase_ipa_detach_ipa_control(struct kbase_ipa_counter_model_data *model_data)
 {
 	if (model_data->ipa_control_client) {
-		kbase_ipa_control_unregister(model_data->kbdev,
-					     model_data->ipa_control_client);
+		kbase_ipa_control_unregister(model_data->kbdev, model_data->ipa_control_client);
 		model_data->ipa_control_client = NULL;
 	}
 }
 
 static int calculate_coeff(struct kbase_ipa_counter_model_data *model_data,
-			   const struct kbase_ipa_counter *const cnt_defs,
-			   size_t num_counters, s32 *counter_coeffs,
-			   u64 *counter_values, u32 active_cycles, u32 *coeffp)
+			   const struct kbase_ipa_counter *const cnt_defs, size_t num_counters,
+			   s32 *counter_coeffs, u64 *counter_values, u32 active_cycles, u32 *coeffp)
 {
 	u64 coeff = 0, coeff_mul = 0;
 	s64 total_energy = 0;
@@ -184,21 +174,18 @@ static int calculate_coeff(struct kbase_ipa_counter_model_data *model_data,
 
 		if (counter_value > MAX_COUNTER_INCREMENT) {
 			dev_warn(model_data->kbdev->dev,
-				 "Increment in counter %s more than expected",
-				 cnt_defs[i].name);
+				 "Increment in counter %s more than expected", cnt_defs[i].name);
 			return -ERANGE;
 		}
 
-		total_energy =
-			kbase_ipa_add_saturate(total_energy, group_energy);
+		total_energy = kbase_ipa_add_saturate(total_energy, group_energy);
 	}
 
 	/* Range: 0 <= coeff < 2^63 */
 	if (total_energy >= 0)
 		coeff = total_energy;
 	else
-		dev_dbg(model_data->kbdev->dev,
-			"Energy value came negative as %lld", total_energy);
+		dev_dbg(model_data->kbdev->dev, "Energy value came negative as %lld", total_energy);
 
 	/* Range: 0 <= coeff < 2^63 (because active_cycles >= 1). However, this
 	 * can be constrained further: the value of counters that are being
@@ -275,9 +262,8 @@ int kbase_ipa_counter_dynamic_coeff(struct kbase_ipa_model *model, u32 *coeffp)
 	 * not be used when GPU enters protected mode, as IPA is supposed to
 	 * switch to the simple power model.
 	 */
-	ret = kbase_ipa_control_query(kbdev,
-				      model_data->ipa_control_client,
-				      cnt_values_p, num_counters, NULL);
+	ret = kbase_ipa_control_query(kbdev, model_data->ipa_control_client, cnt_values_p,
+				      num_counters, NULL);
 	if (WARN_ON(ret))
 		return ret;
 
@@ -293,9 +279,7 @@ int kbase_ipa_counter_dynamic_coeff(struct kbase_ipa_model *model, u32 *coeffp)
 	 * that regular calls every 25-100 ms interval are expected.
 	 */
 	if (diff_ms > MAX_SAMPLE_INTERVAL_MS) {
-		dev_dbg(kbdev->dev,
-			"Last sample was taken %lld milli seconds ago",
-			diff_ms);
+		dev_dbg(kbdev->dev, "Last sample was taken %lld milli seconds ago", diff_ms);
 		return -EOVERFLOW;
 	}
 
@@ -305,8 +289,7 @@ int kbase_ipa_counter_dynamic_coeff(struct kbase_ipa_model *model, u32 *coeffp)
 	 * 0 <= active_cycles < 2^31
 	 */
 	if (*cnt_values_p > U32_MAX) {
-		dev_warn(kbdev->dev,
-			 "Increment in GPU_ACTIVE counter more than expected");
+		dev_warn(kbdev->dev, "Increment in GPU_ACTIVE counter more than expected");
 		return -ERANGE;
 	}
 
@@ -325,18 +308,16 @@ int kbase_ipa_counter_dynamic_coeff(struct kbase_ipa_model *model, u32 *coeffp)
 
 	cnt_values_p++;
 	ret = calculate_coeff(model_data, model_data->top_level_cntrs_def,
-			      model_data->num_top_level_cntrs,
-			      counter_coeffs_p, cnt_values_p, active_cycles,
-			      &coeffp[KBASE_IPA_BLOCK_TYPE_TOP_LEVEL]);
+			      model_data->num_top_level_cntrs, counter_coeffs_p, cnt_values_p,
+			      active_cycles, &coeffp[KBASE_IPA_BLOCK_TYPE_TOP_LEVEL]);
 	if (ret)
 		return ret;
 
 	cnt_values_p += model_data->num_top_level_cntrs;
 	counter_coeffs_p += model_data->num_top_level_cntrs;
 	ret = calculate_coeff(model_data, model_data->shader_cores_cntrs_def,
-			      model_data->num_shader_cores_cntrs,
-			      counter_coeffs_p, cnt_values_p, active_cycles,
-			      &coeffp[KBASE_IPA_BLOCK_TYPE_SHADER_CORES]);
+			      model_data->num_shader_cores_cntrs, counter_coeffs_p, cnt_values_p,
+			      active_cycles, &coeffp[KBASE_IPA_BLOCK_TYPE_SHADER_CORES]);
 
 	return ret;
 }
@@ -351,26 +332,24 @@ void kbase_ipa_counter_reset_data(struct kbase_ipa_model *model)
 
 	lockdep_assert_held(&model->kbdev->ipa.lock);
 
-	ret = kbase_ipa_control_query(model->kbdev,
-				      model_data->ipa_control_client,
-				      cnt_values_p, num_counters, NULL);
+	ret = kbase_ipa_control_query(model->kbdev, model_data->ipa_control_client, cnt_values_p,
+				      num_counters, NULL);
 	WARN_ON(ret);
 }
 
 int kbase_ipa_counter_common_model_init(struct kbase_ipa_model *model,
-		const struct kbase_ipa_counter *top_level_cntrs_def,
-		size_t num_top_level_cntrs,
-		const struct kbase_ipa_counter *shader_cores_cntrs_def,
-		size_t num_shader_cores_cntrs,
-		s32 reference_voltage)
+					const struct kbase_ipa_counter *top_level_cntrs_def,
+					size_t num_top_level_cntrs,
+					const struct kbase_ipa_counter *shader_cores_cntrs_def,
+					size_t num_shader_cores_cntrs, s32 reference_voltage)
 {
 	struct kbase_ipa_counter_model_data *model_data;
 	s32 *counter_coeffs_p;
 	int err = 0;
 	size_t i;
 
-	if (!model || !top_level_cntrs_def || !shader_cores_cntrs_def ||
-	    !num_top_level_cntrs || !num_shader_cores_cntrs)
+	if (!model || !top_level_cntrs_def || !shader_cores_cntrs_def || !num_top_level_cntrs ||
+	    !num_shader_cores_cntrs)
 		return -EINVAL;
 
 	model_data = kzalloc(sizeof(*model_data), GFP_KERNEL);
@@ -390,13 +369,12 @@ int kbase_ipa_counter_common_model_init(struct kbase_ipa_model *model,
 	counter_coeffs_p = model_data->counter_coeffs;
 
 	for (i = 0; i < model_data->num_top_level_cntrs; ++i) {
-		const struct kbase_ipa_counter *counter =
-			&model_data->top_level_cntrs_def[i];
+		const struct kbase_ipa_counter *counter = &model_data->top_level_cntrs_def[i];
 
 		*counter_coeffs_p = counter->coeff_default_value;
 
-		err = kbase_ipa_model_add_param_s32(
-			model, counter->name, counter_coeffs_p, 1, false);
+		err = kbase_ipa_model_add_param_s32(model, counter->name, counter_coeffs_p, 1,
+						    false);
 		if (err)
 			goto exit;
 
@@ -404,13 +382,12 @@ int kbase_ipa_counter_common_model_init(struct kbase_ipa_model *model,
 	}
 
 	for (i = 0; i < model_data->num_shader_cores_cntrs; ++i) {
-		const struct kbase_ipa_counter *counter =
-			&model_data->shader_cores_cntrs_def[i];
+		const struct kbase_ipa_counter *counter = &model_data->shader_cores_cntrs_def[i];
 
 		*counter_coeffs_p = counter->coeff_default_value;
 
-		err = kbase_ipa_model_add_param_s32(
-			model, counter->name, counter_coeffs_p, 1, false);
+		err = kbase_ipa_model_add_param_s32(model, counter->name, counter_coeffs_p, 1,
+						    false);
 		if (err)
 			goto exit;
 
@@ -418,22 +395,19 @@ int kbase_ipa_counter_common_model_init(struct kbase_ipa_model *model,
 	}
 
 	model_data->scaling_factor = DEFAULT_SCALING_FACTOR;
-	err = kbase_ipa_model_add_param_s32(
-		model, "scale", &model_data->scaling_factor, 1, false);
+	err = kbase_ipa_model_add_param_s32(model, "scale", &model_data->scaling_factor, 1, false);
 	if (err)
 		goto exit;
 
 	model_data->min_sample_cycles = DEFAULT_MIN_SAMPLE_CYCLES;
 	err = kbase_ipa_model_add_param_s32(model, "min_sample_cycles",
-					    &model_data->min_sample_cycles, 1,
-					    false);
+					    &model_data->min_sample_cycles, 1, false);
 	if (err)
 		goto exit;
 
 	model_data->reference_voltage = reference_voltage;
 	err = kbase_ipa_model_add_param_s32(model, "reference_voltage",
-					    &model_data->reference_voltage, 1,
-					    false);
+					    &model_data->reference_voltage, 1, false);
 	if (err)
 		goto exit;
 

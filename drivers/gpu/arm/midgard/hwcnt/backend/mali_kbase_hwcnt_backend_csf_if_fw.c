@@ -24,7 +24,7 @@
  */
 
 #include <mali_kbase.h>
-#include <gpu/mali_kbase_gpu_regmap.h>
+#include <hw_access/mali_kbase_hw_access_regmap.h>
 #include <device/mali_kbase_device.h>
 #include "hwcnt/mali_kbase_hwcnt_gpu.h"
 #include "hwcnt/mali_kbase_hwcnt_types.h"
@@ -38,7 +38,6 @@
 
 #include <linux/log2.h>
 #include "mali_kbase_ccswe.h"
-
 
 /* Ring buffer virtual address start at 4GB  */
 #define KBASE_HWC_CSF_RING_BUFFER_VA_START (1ull << 32)
@@ -250,10 +249,9 @@ static void kbasep_hwcnt_backend_csf_if_fw_get_prfcnt_info(
 	/* Read the block size if the GPU has the register PRFCNT_FEATURES
 	 * which was introduced in architecture version 11.x.7.
 	 */
-	if ((kbdev->gpu_props.props.raw_props.gpu_id & GPU_ID2_PRODUCT_MODEL) >=
-	    GPU_ID2_PRODUCT_TTUX) {
-		prfcnt_block_size = PRFCNT_FEATURES_COUNTER_BLOCK_SIZE_GET(
-					    kbase_reg_read(kbdev, GPU_CONTROL_REG(PRFCNT_FEATURES)))
+	if (kbase_reg_is_valid(kbdev, GPU_CONTROL_ENUM(PRFCNT_FEATURES))) {
+		prfcnt_block_size = PRFCNT_FEATURES_COUNTER_BLOCK_SIZE_GET(kbase_reg_read32(
+					    kbdev, GPU_CONTROL_ENUM(PRFCNT_FEATURES)))
 				    << 8;
 	}
 
@@ -284,7 +282,7 @@ static int kbasep_hwcnt_backend_csf_if_fw_ring_buf_alloc(
 	struct page **page_list;
 	void *cpu_addr;
 	int ret;
-	int i;
+	size_t i;
 	size_t num_pages;
 	u64 flags;
 	struct kbase_hwcnt_backend_csf_if_fw_ring_buf *fw_ring_buf;
@@ -330,7 +328,7 @@ static int kbasep_hwcnt_backend_csf_if_fw_ring_buf_alloc(
 	/* Get physical page for the buffer */
 	ret = kbase_mem_pool_alloc_pages(&kbdev->mem_pools.small[KBASE_MEM_GROUP_CSF_FW], num_pages,
 					 phys, false, NULL);
-	if (ret != num_pages)
+	if ((size_t)ret != num_pages)
 		goto phys_mem_pool_alloc_error;
 
 	/* Get the CPU virtual address */
@@ -342,7 +340,7 @@ static int kbasep_hwcnt_backend_csf_if_fw_ring_buf_alloc(
 		goto vmap_error;
 
 	flags = KBASE_REG_GPU_WR | KBASE_REG_GPU_NX |
-		KBASE_REG_MEMATTR_INDEX(AS_MEMATTR_INDEX_NON_CACHEABLE);
+		KBASE_REG_MEMATTR_INDEX(KBASE_MEMATTR_INDEX_NON_CACHEABLE);
 
 	/* Update MMU table */
 	ret = kbase_mmu_insert_pages(kbdev, &kbdev->csf.mcu_mmu, gpu_va_base >> PAGE_SHIFT, phys,

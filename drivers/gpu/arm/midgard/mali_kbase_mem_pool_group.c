@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -25,21 +25,17 @@
 
 #include <linux/memory_group_manager.h>
 
-void kbase_mem_pool_group_config_set_max_size(
-	struct kbase_mem_pool_group_config *const configs,
-	size_t const max_size)
+void kbase_mem_pool_group_config_set_max_size(struct kbase_mem_pool_group_config *const configs,
+					      size_t const max_size)
 {
-	size_t const large_max_size = max_size >>
-		(KBASE_MEM_POOL_2MB_PAGE_TABLE_ORDER -
-		KBASE_MEM_POOL_4KB_PAGE_TABLE_ORDER);
+	size_t const large_max_size = max_size >> (KBASE_MEM_POOL_2MB_PAGE_TABLE_ORDER -
+						   KBASE_MEM_POOL_4KB_PAGE_TABLE_ORDER);
 	int gid;
 
 	for (gid = 0; gid < MEMORY_GROUP_MANAGER_NR_GROUPS; ++gid) {
-		kbase_mem_pool_config_set_max_size(&configs->small[gid],
-			max_size);
+		kbase_mem_pool_config_set_max_size(&configs->small[gid], max_size);
 
-		kbase_mem_pool_config_set_max_size(&configs->large[gid],
-			large_max_size);
+		kbase_mem_pool_config_set_max_size(&configs->large[gid], large_max_size);
 	}
 }
 
@@ -84,8 +80,7 @@ int kbase_mem_pool_group_init(struct kbase_mem_pool_group *const mem_pools,
 	return err;
 }
 
-void kbase_mem_pool_group_mark_dying(
-	struct kbase_mem_pool_group *const mem_pools)
+void kbase_mem_pool_group_mark_dying(struct kbase_mem_pool_group *const mem_pools)
 {
 	int gid;
 
@@ -95,8 +90,7 @@ void kbase_mem_pool_group_mark_dying(
 	}
 }
 
-void kbase_mem_pool_group_term(
-	struct kbase_mem_pool_group *const mem_pools)
+void kbase_mem_pool_group_term(struct kbase_mem_pool_group *const mem_pools)
 {
 	int gid;
 

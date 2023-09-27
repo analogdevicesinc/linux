@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -63,9 +63,8 @@ struct memory_group_manager_ops {
 	 *
 	 * Return: Pointer to allocated page, or NULL if allocation failed.
 	 */
-	struct page *(*mgm_alloc_page)(
-		struct memory_group_manager_device *mgm_dev, int group_id,
-		gfp_t gfp_mask, unsigned int order);
+	struct page *(*mgm_alloc_page)(struct memory_group_manager_device *mgm_dev, int group_id,
+				       gfp_t gfp_mask, unsigned int order);
 
 	/*
 	 * mgm_free_page - Free a physical memory page in a group
@@ -82,9 +81,8 @@ struct memory_group_manager_ops {
 	 * @order:    Page order for physical page size (order=0 means 4 KiB,
 	 *            order=9 means 2 MiB).
 	 */
-	void (*mgm_free_page)(
-		struct memory_group_manager_device *mgm_dev, int group_id,
-		struct page *page, unsigned int order);
+	void (*mgm_free_page)(struct memory_group_manager_device *mgm_dev, int group_id,
+			      struct page *page, unsigned int order);
 
 	/*
 	 * mgm_get_import_memory_id - Get the physical memory group ID for the
@@ -101,9 +99,8 @@ struct memory_group_manager_ops {
 	 * Return: The memory group ID to use when mapping pages from this
 	 *         imported memory.
 	 */
-	int (*mgm_get_import_memory_id)(
-		struct memory_group_manager_device *mgm_dev,
-		struct memory_group_manager_import_data *import_data);
+	int (*mgm_get_import_memory_id)(struct memory_group_manager_device *mgm_dev,
+					struct memory_group_manager_import_data *import_data);
 
 	/*
 	 * mgm_update_gpu_pte - Modify a GPU page table entry for a memory group
@@ -127,8 +124,8 @@ struct memory_group_manager_ops {
 	 *
 	 * Return: A modified GPU page table entry to be stored in a page table.
 	 */
-	u64 (*mgm_update_gpu_pte)(struct memory_group_manager_device *mgm_dev,
-			int group_id, int mmu_level, u64 pte);
+	u64 (*mgm_update_gpu_pte)(struct memory_group_manager_device *mgm_dev, int group_id,
+				  int mmu_level, u64 pte);
 
 	/*
 	 * mgm_pte_to_original_pte - Undo any modification done during mgm_update_gpu_pte()
@@ -172,10 +169,10 @@ struct memory_group_manager_ops {
 	 * Return: Type of fault that occurred or VM_FAULT_NOPAGE if the page
 	 *         table entry was successfully installed.
 	 */
-	vm_fault_t (*mgm_vmf_insert_pfn_prot)(
-		struct memory_group_manager_device *mgm_dev, int group_id,
-		struct vm_area_struct *vma, unsigned long addr,
-		unsigned long pfn, pgprot_t pgprot);
+	vm_fault_t (*mgm_vmf_insert_pfn_prot)(struct memory_group_manager_device *mgm_dev,
+					      int group_id, struct vm_area_struct *vma,
+					      unsigned long addr, unsigned long pfn,
+					      pgprot_t pgprot);
 };
 
 /**
@@ -199,10 +196,7 @@ struct memory_group_manager_device {
 	struct module *owner;
 };
 
-
-enum memory_group_manager_import_type {
-	MEMORY_GROUP_MANAGER_IMPORT_TYPE_DMA_BUF
-};
+enum memory_group_manager_import_type { MEMORY_GROUP_MANAGER_IMPORT_TYPE_DMA_BUF };
 
 /**
  * struct memory_group_manager_import_data - Structure describing the imported

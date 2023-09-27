@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2011-2015, 2017, 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -44,6 +44,19 @@ struct kbase_device;
 /* from mali_cdsb.h */
 #define KBASE_UBFX32(value, offset, size) \
 	(((u32)(value) >> (u32)(offset)) & (u32)((1ULL << (u32)(size)) - 1))
+
+/**
+ * kbase_gpuprops_update_composite_ids - update composite ids with new gpu id
+ * @props: pointer to GPU_ID property structure
+ */
+void kbase_gpuprops_update_composite_ids(struct kbase_gpu_id_props *props);
+
+/**
+ * kbase_gpuprops_parse_gpu_id - parse fields of GPU_ID
+ * @props: pointer to GPU_ID property structure
+ * @gpu_id: gpu id register value
+ */
+void kbase_gpuprops_parse_gpu_id(struct kbase_gpu_id_props *props, u64 gpu_id);
 
 /**
  * kbase_gpuprops_set - Set up Kbase GPU properties.
@@ -109,13 +122,14 @@ int kbase_device_populate_max_freq(struct kbase_device *kbdev);
 /**
  * kbase_gpuprops_update_core_props_gpu_id - break down gpu id value
  * @gpu_props: the &base_gpu_props structure
+ * @gpu_id: the &kbase_gpu_id_props structure
  *
- * Break down gpu_id value stored in base_gpu_props::raw_props.gpu_id into
- * separate fields (version_status, minor_revision, major_revision, product_id)
- * stored in base_gpu_props::core_props.
+ * Copy valuse stored in kbase_gpu_id_props into separate fields
+ * (version_status, minor_revision, major_revision, product_id) stored in
+ * base_gpu_props::core_props.
  */
 void kbase_gpuprops_update_core_props_gpu_id(
-	struct base_gpu_props * const gpu_props);
+	struct base_gpu_props * const gpu_props, struct kbase_gpu_id_props *gpu_id);
 
 /**
  * kbase_gpuprops_set_max_config - Set the max config information
@@ -125,7 +139,7 @@ void kbase_gpuprops_update_core_props_gpu_id(
  * This function sets max_config in the kbase_gpu_props.
  */
 void kbase_gpuprops_set_max_config(struct kbase_device *kbdev,
-	const struct max_config_props *max_config);
+				   const struct max_config_props *max_config);
 
 /**
  * kbase_gpuprops_get_curr_config_props - Get the current allocated resources
@@ -138,7 +152,7 @@ void kbase_gpuprops_set_max_config(struct kbase_device *kbdev,
  * Return: Zero on success, Linux error code on failure
  */
 int kbase_gpuprops_get_curr_config_props(struct kbase_device *kbdev,
-	struct curr_config_props * const curr_config);
+					 struct curr_config_props *const curr_config);
 
 /**
  * kbase_gpuprops_req_curr_config_update - Request Current Config Update
@@ -151,4 +165,4 @@ int kbase_gpuprops_get_curr_config_props(struct kbase_device *kbdev,
  */
 int kbase_gpuprops_req_curr_config_update(struct kbase_device *kbdev);
 
-#endif				/* _KBASE_GPUPROPS_H_ */
+#endif /* _KBASE_GPUPROPS_H_ */

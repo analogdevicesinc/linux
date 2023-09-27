@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2015, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2015-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -27,25 +27,26 @@
 
 /* The ids of ioctl commands. */
 #define KBASE_HWCNT_READER 0xBE
-#define KBASE_HWCNT_READER_GET_HWVER       _IOR(KBASE_HWCNT_READER, 0x00, __u32)
+#define KBASE_HWCNT_READER_GET_HWVER _IOR(KBASE_HWCNT_READER, 0x00, __u32)
 #define KBASE_HWCNT_READER_GET_BUFFER_SIZE _IOR(KBASE_HWCNT_READER, 0x01, __u32)
-#define KBASE_HWCNT_READER_DUMP            _IOW(KBASE_HWCNT_READER, 0x10, __u32)
-#define KBASE_HWCNT_READER_CLEAR           _IOW(KBASE_HWCNT_READER, 0x11, __u32)
-#define KBASE_HWCNT_READER_GET_BUFFER      _IOC(_IOC_READ, KBASE_HWCNT_READER, 0x20,\
-		offsetof(struct kbase_hwcnt_reader_metadata, cycles))
-#define KBASE_HWCNT_READER_GET_BUFFER_WITH_CYCLES      _IOR(KBASE_HWCNT_READER, 0x20,\
-		struct kbase_hwcnt_reader_metadata)
-#define KBASE_HWCNT_READER_PUT_BUFFER      _IOC(_IOC_WRITE, KBASE_HWCNT_READER, 0x21,\
-		offsetof(struct kbase_hwcnt_reader_metadata, cycles))
-#define KBASE_HWCNT_READER_PUT_BUFFER_WITH_CYCLES      _IOW(KBASE_HWCNT_READER, 0x21,\
-		struct kbase_hwcnt_reader_metadata)
-#define KBASE_HWCNT_READER_SET_INTERVAL    _IOW(KBASE_HWCNT_READER, 0x30, __u32)
-#define KBASE_HWCNT_READER_ENABLE_EVENT    _IOW(KBASE_HWCNT_READER, 0x40, __u32)
-#define KBASE_HWCNT_READER_DISABLE_EVENT   _IOW(KBASE_HWCNT_READER, 0x41, __u32)
+#define KBASE_HWCNT_READER_DUMP _IOW(KBASE_HWCNT_READER, 0x10, __u32)
+#define KBASE_HWCNT_READER_CLEAR _IOW(KBASE_HWCNT_READER, 0x11, __u32)
+#define KBASE_HWCNT_READER_GET_BUFFER             \
+	_IOC(_IOC_READ, KBASE_HWCNT_READER, 0x20, \
+	     offsetof(struct kbase_hwcnt_reader_metadata, cycles))
+#define KBASE_HWCNT_READER_GET_BUFFER_WITH_CYCLES \
+	_IOR(KBASE_HWCNT_READER, 0x20, struct kbase_hwcnt_reader_metadata)
+#define KBASE_HWCNT_READER_PUT_BUFFER              \
+	_IOC(_IOC_WRITE, KBASE_HWCNT_READER, 0x21, \
+	     offsetof(struct kbase_hwcnt_reader_metadata, cycles))
+#define KBASE_HWCNT_READER_PUT_BUFFER_WITH_CYCLES \
+	_IOW(KBASE_HWCNT_READER, 0x21, struct kbase_hwcnt_reader_metadata)
+#define KBASE_HWCNT_READER_SET_INTERVAL _IOW(KBASE_HWCNT_READER, 0x30, __u32)
+#define KBASE_HWCNT_READER_ENABLE_EVENT _IOW(KBASE_HWCNT_READER, 0x40, __u32)
+#define KBASE_HWCNT_READER_DISABLE_EVENT _IOW(KBASE_HWCNT_READER, 0x41, __u32)
 #define KBASE_HWCNT_READER_GET_API_VERSION _IOW(KBASE_HWCNT_READER, 0xFF, __u32)
 #define KBASE_HWCNT_READER_GET_API_VERSION_WITH_FEATURES \
-		_IOW(KBASE_HWCNT_READER, 0xFF, \
-		     struct kbase_hwcnt_reader_api_version)
+	_IOW(KBASE_HWCNT_READER, 0xFF, struct kbase_hwcnt_reader_api_version)
 
 /**
  * struct kbase_hwcnt_reader_metadata_cycles - GPU clock cycles
@@ -117,8 +118,7 @@ enum prfcnt_list_type {
 	PRFCNT_LIST_TYPE_SAMPLE_META,
 };
 
-#define FLEX_LIST_TYPE(type, subtype)                                          \
-	((__u16)(((type & 0xf) << 12) | (subtype & 0xfff)))
+#define FLEX_LIST_TYPE(type, subtype) ((__u16)(((type & 0xf) << 12) | (subtype & 0xfff)))
 #define FLEX_LIST_TYPE_NONE FLEX_LIST_TYPE(0, 0)
 
 #define PRFCNT_ENUM_TYPE_BLOCK FLEX_LIST_TYPE(PRFCNT_LIST_TYPE_ENUM, 0)
@@ -129,12 +129,9 @@ enum prfcnt_list_type {
 #define PRFCNT_REQUEST_TYPE_ENABLE FLEX_LIST_TYPE(PRFCNT_LIST_TYPE_REQUEST, 1)
 #define PRFCNT_REQUEST_TYPE_SCOPE FLEX_LIST_TYPE(PRFCNT_LIST_TYPE_REQUEST, 2)
 
-#define PRFCNT_SAMPLE_META_TYPE_SAMPLE                                         \
-	FLEX_LIST_TYPE(PRFCNT_LIST_TYPE_SAMPLE_META, 0)
-#define PRFCNT_SAMPLE_META_TYPE_CLOCK                                          \
-	FLEX_LIST_TYPE(PRFCNT_LIST_TYPE_SAMPLE_META, 1)
-#define PRFCNT_SAMPLE_META_TYPE_BLOCK                                          \
-	FLEX_LIST_TYPE(PRFCNT_LIST_TYPE_SAMPLE_META, 2)
+#define PRFCNT_SAMPLE_META_TYPE_SAMPLE FLEX_LIST_TYPE(PRFCNT_LIST_TYPE_SAMPLE_META, 0)
+#define PRFCNT_SAMPLE_META_TYPE_CLOCK FLEX_LIST_TYPE(PRFCNT_LIST_TYPE_SAMPLE_META, 1)
+#define PRFCNT_SAMPLE_META_TYPE_BLOCK FLEX_LIST_TYPE(PRFCNT_LIST_TYPE_SAMPLE_META, 2)
 
 /**
  * struct prfcnt_item_header - Header for an item of the list.
@@ -491,13 +488,13 @@ struct prfcnt_sample_access {
 /* The ids of ioctl commands, on a reader file descriptor, magic number */
 #define KBASE_KINSTR_PRFCNT_READER 0xBF
 /* Ioctl ID for issuing a session operational command */
-#define KBASE_IOCTL_KINSTR_PRFCNT_CMD                                          \
+#define KBASE_IOCTL_KINSTR_PRFCNT_CMD \
 	_IOW(KBASE_KINSTR_PRFCNT_READER, 0x00, struct prfcnt_control_cmd)
 /* Ioctl ID for fetching a dumpped sample */
-#define KBASE_IOCTL_KINSTR_PRFCNT_GET_SAMPLE                                   \
+#define KBASE_IOCTL_KINSTR_PRFCNT_GET_SAMPLE \
 	_IOR(KBASE_KINSTR_PRFCNT_READER, 0x01, struct prfcnt_sample_access)
 /* Ioctl ID for release internal buffer of the previously fetched sample */
-#define KBASE_IOCTL_KINSTR_PRFCNT_PUT_SAMPLE                                   \
+#define KBASE_IOCTL_KINSTR_PRFCNT_PUT_SAMPLE \
 	_IOW(KBASE_KINSTR_PRFCNT_READER, 0x10, struct prfcnt_sample_access)
 
 #endif /* _UAPI_KBASE_HWCNT_READER_H_ */

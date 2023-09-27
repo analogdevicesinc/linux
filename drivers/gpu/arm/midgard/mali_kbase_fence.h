@@ -30,9 +30,9 @@
 #if IS_ENABLED(CONFIG_SYNC_FILE)
 
 #include <linux/list.h>
-#include "mali_kbase_fence_defs.h"
 #include "mali_kbase.h"
 #include "mali_kbase_refcount_defs.h"
+#include <linux/version_compat_defs.h>
 
 #if MALI_USE_CSF
 /* Maximum number of characters in DMA fence timeline name. */
@@ -99,13 +99,12 @@ struct dma_fence *kbase_fence_out_new(struct kbase_jd_atom *katom);
  *
  * This function will take ownership of one fence reference!
  */
-#define kbase_fence_fence_in_set(katom, fence) \
-	do { \
+#define kbase_fence_fence_in_set(katom, fence)        \
+	do {                                          \
 		WARN_ON((katom)->dma_fence.fence_in); \
-		(katom)->dma_fence.fence_in = fence; \
+		(katom)->dma_fence.fence_in = fence;  \
 	} while (0)
 #endif
-
 
 #if !MALI_USE_CSF
 /**
@@ -146,8 +145,7 @@ static inline void kbase_fence_in_remove(struct kbase_jd_atom *katom)
  */
 static inline bool kbase_fence_out_is_ours(struct kbase_jd_atom *katom)
 {
-	return katom->dma_fence.fence &&
-				katom->dma_fence.fence->ops == &kbase_fence_ops;
+	return katom->dma_fence.fence && katom->dma_fence.fence->ops == &kbase_fence_ops;
 }
 
 /**
@@ -157,19 +155,10 @@ static inline bool kbase_fence_out_is_ours(struct kbase_jd_atom *katom)
  *
  * Return: 0 on success, < 0 on error
  */
-static inline int kbase_fence_out_signal(struct kbase_jd_atom *katom,
-					 int status)
+static inline int kbase_fence_out_signal(struct kbase_jd_atom *katom, int status)
 {
-	if (status) {
-#if (KERNEL_VERSION(4, 10, 0) > LINUX_VERSION_CODE && \
-	  KERNEL_VERSION(4, 9, 68) <= LINUX_VERSION_CODE)
-		fence_set_error(katom->dma_fence.fence, status);
-#elif (KERNEL_VERSION(4, 11, 0) <= LINUX_VERSION_CODE)
-		dma_fence_set_error(katom->dma_fence.fence, status);
-#else
-		katom->dma_fence.fence->status = status;
-#endif
-	}
+	if (status)
+		dma_fence_set_error_helper(katom->dma_fence.fence, status);
 	return dma_fence_signal(katom->dma_fence.fence);
 }
 

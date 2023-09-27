@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2011-2015, 2018-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -42,7 +42,7 @@
  * strings
  *
  * Before #including, the includer MUST #define KBASE_KTRACE_CODE_MAKE_CODE.
- * After #including, the includer MUST #under KBASE_KTRACE_CODE_MAKE_CODE.
+ * After #including, the includer MUST #undef KBASE_KTRACE_CODE_MAKE_CODE.
  *
  * e.g.:
  * #define KBASE_KTRACE_CODE( X ) KBASE_KTRACE_CODE_ ## X
@@ -76,11 +76,11 @@
 int dummy_array[] = {
 #endif
 
-	/*
+/*
 	 * Core events
 	 */
-	/* no info_val */
-	KBASE_KTRACE_CODE_MAKE_CODE(CORE_CTX_DESTROY),
+/* no info_val */
+KBASE_KTRACE_CODE_MAKE_CODE(CORE_CTX_DESTROY),
 	/* no info_val */
 	KBASE_KTRACE_CODE_MAKE_CODE(CORE_CTX_HWINSTR_TERM),
 	/* info_val == GPU_IRQ_STATUS register */
@@ -101,12 +101,9 @@ int dummy_array[] = {
 	 */
 	KBASE_KTRACE_CODE_MAKE_CODE(PM_JOB_SUBMIT_AFTER_POWERING_UP),
 	KBASE_KTRACE_CODE_MAKE_CODE(PM_JOB_SUBMIT_AFTER_POWERED_UP),
-	KBASE_KTRACE_CODE_MAKE_CODE(PM_PWRON),
-	KBASE_KTRACE_CODE_MAKE_CODE(PM_PWRON_TILER),
-	KBASE_KTRACE_CODE_MAKE_CODE(PM_PWRON_L2),
-	KBASE_KTRACE_CODE_MAKE_CODE(PM_PWROFF),
-	KBASE_KTRACE_CODE_MAKE_CODE(PM_PWROFF_TILER),
-	KBASE_KTRACE_CODE_MAKE_CODE(PM_PWROFF_L2),
+	KBASE_KTRACE_CODE_MAKE_CODE(PM_PWRON), KBASE_KTRACE_CODE_MAKE_CODE(PM_PWRON_TILER),
+	KBASE_KTRACE_CODE_MAKE_CODE(PM_PWRON_L2), KBASE_KTRACE_CODE_MAKE_CODE(PM_PWROFF),
+	KBASE_KTRACE_CODE_MAKE_CODE(PM_PWROFF_TILER), KBASE_KTRACE_CODE_MAKE_CODE(PM_PWROFF_L2),
 	KBASE_KTRACE_CODE_MAKE_CODE(PM_CORES_POWERED),
 	KBASE_KTRACE_CODE_MAKE_CODE(PM_CORES_POWERED_TILER),
 	KBASE_KTRACE_CODE_MAKE_CODE(PM_CORES_POWERED_L2),
@@ -127,12 +124,10 @@ int dummy_array[] = {
 	/* info_val == kbdev->pm.active_count*/
 	KBASE_KTRACE_CODE_MAKE_CODE(PM_CONTEXT_ACTIVE),
 	/* info_val == kbdev->pm.active_count*/
-	KBASE_KTRACE_CODE_MAKE_CODE(PM_CONTEXT_IDLE),
-	KBASE_KTRACE_CODE_MAKE_CODE(PM_GPU_ON),
+	KBASE_KTRACE_CODE_MAKE_CODE(PM_CONTEXT_IDLE), KBASE_KTRACE_CODE_MAKE_CODE(PM_GPU_ON),
 	KBASE_KTRACE_CODE_MAKE_CODE(PM_GPU_OFF),
 	/* info_val == policy number, or -1 for "Already changing" */
-	KBASE_KTRACE_CODE_MAKE_CODE(PM_SET_POLICY),
-	KBASE_KTRACE_CODE_MAKE_CODE(PM_CA_SET_POLICY),
+	KBASE_KTRACE_CODE_MAKE_CODE(PM_SET_POLICY), KBASE_KTRACE_CODE_MAKE_CODE(PM_CA_SET_POLICY),
 	/* info_val == policy number */
 	KBASE_KTRACE_CODE_MAKE_CODE(PM_CURRENT_POLICY_INIT),
 	/* info_val == policy number */
@@ -142,8 +137,8 @@ int dummy_array[] = {
 	KBASE_KTRACE_CODE_MAKE_CODE(PM_RUNTIME_SUSPEND_CALLBACK),
 	KBASE_KTRACE_CODE_MAKE_CODE(PM_RUNTIME_RESUME_CALLBACK),
 
-	/* info_val = l2 state */
-#define KBASEP_L2_STATE(n) KBASE_KTRACE_CODE_MAKE_CODE(PM_L2_ ## n),
+/* info_val = l2 state */
+#define KBASEP_L2_STATE(n) KBASE_KTRACE_CODE_MAKE_CODE(PM_L2_##n),
 #include "backend/gpu/mali_kbase_pm_l2_states.h"
 #undef KBASEP_L2_STATE
 
@@ -158,8 +153,7 @@ int dummy_array[] = {
 	/*
 	 * Arbitration events
 	 */
-	KBASE_KTRACE_CODE_MAKE_CODE(ARB_GPU_LOST),
-	KBASE_KTRACE_CODE_MAKE_CODE(ARB_VM_STATE),
+	KBASE_KTRACE_CODE_MAKE_CODE(ARB_GPU_LOST), KBASE_KTRACE_CODE_MAKE_CODE(ARB_VM_STATE),
 	KBASE_KTRACE_CODE_MAKE_CODE(ARB_VM_EVT),
 #endif
 
@@ -178,4 +172,4 @@ int dummy_array[] = {
 };
 #endif
 
-/* ***** THE LACK OF HEADER GUARDS IS INTENTIONAL ***** */
+	/* ***** THE LACK OF HEADER GUARDS IS INTENTIONAL ***** */

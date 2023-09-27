@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2015-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2015-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -23,8 +23,8 @@
 #define _UAPI_KBASE_GPU_COHERENCY_H_
 
 #define COHERENCY_ACE_LITE 0
-#define COHERENCY_ACE      1
-#define COHERENCY_NONE     31
+#define COHERENCY_ACE 1
+#define COHERENCY_NONE 31
 #define COHERENCY_FEATURE_BIT(x) (1 << (x))
 
 #endif /* _UAPI_KBASE_GPU_COHERENCY_H_ */

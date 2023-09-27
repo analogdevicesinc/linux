@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2012-2016, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -57,8 +57,6 @@ void kbasep_mem_profile_debugfs_remove(struct kbase_context *kctx);
  * @post @ref mem_profile_initialized will be set to @c true
  *       the first time this function succeeds.
  */
-int kbasep_mem_profile_debugfs_insert(struct kbase_context *kctx, char *data,
-					size_t size);
+int kbasep_mem_profile_debugfs_insert(struct kbase_context *kctx, char *data, size_t size);
 
-#endif  /*_KBASE_MEM_PROFILE_DEBUGFS_H*/
-
+#endif /*_KBASE_MEM_PROFILE_DEBUGFS_H*/

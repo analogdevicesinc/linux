@@ -26,24 +26,24 @@
 #include <backend/gpu/mali_kbase_model_linux.h>
 
 /* Performance counter blocks base offsets */
-#define JM_BASE             (0 * KBASE_IPA_NR_BYTES_PER_BLOCK)
-#define MEMSYS_BASE         (2 * KBASE_IPA_NR_BYTES_PER_BLOCK)
+#define JM_BASE (0 * KBASE_IPA_NR_BYTES_PER_BLOCK)
+#define MEMSYS_BASE (2 * KBASE_IPA_NR_BYTES_PER_BLOCK)
 
 /* JM counter block offsets */
-#define JM_GPU_ACTIVE (KBASE_IPA_NR_BYTES_PER_CNT *  6)
+#define JM_GPU_ACTIVE (KBASE_IPA_NR_BYTES_PER_CNT * 6)
 
 /* MEMSYS counter block offsets */
 #define MEMSYS_L2_ANY_LOOKUP (KBASE_IPA_NR_BYTES_PER_CNT * 25)
 
 /* SC counter block offsets */
-#define SC_EXEC_INSTR_FMA          (KBASE_IPA_NR_BYTES_PER_CNT * 27)
-#define SC_EXEC_INSTR_COUNT        (KBASE_IPA_NR_BYTES_PER_CNT * 28)
-#define SC_EXEC_INSTR_MSG          (KBASE_IPA_NR_BYTES_PER_CNT * 30)
+#define SC_EXEC_INSTR_FMA (KBASE_IPA_NR_BYTES_PER_CNT * 27)
+#define SC_EXEC_INSTR_COUNT (KBASE_IPA_NR_BYTES_PER_CNT * 28)
+#define SC_EXEC_INSTR_MSG (KBASE_IPA_NR_BYTES_PER_CNT * 30)
 #define SC_TEX_FILT_NUM_OPERATIONS (KBASE_IPA_NR_BYTES_PER_CNT * 39)
-#define SC_TEX_COORD_ISSUE         (KBASE_IPA_NR_BYTES_PER_CNT * 40)
+#define SC_TEX_COORD_ISSUE (KBASE_IPA_NR_BYTES_PER_CNT * 40)
 #define SC_TEX_TFCH_NUM_OPERATIONS (KBASE_IPA_NR_BYTES_PER_CNT * 42)
-#define SC_VARY_INSTR              (KBASE_IPA_NR_BYTES_PER_CNT * 49)
-#define SC_BEATS_WR_TIB            (KBASE_IPA_NR_BYTES_PER_CNT * 62)
+#define SC_VARY_INSTR (KBASE_IPA_NR_BYTES_PER_CNT * 49)
+#define SC_BEATS_WR_TIB (KBASE_IPA_NR_BYTES_PER_CNT * 62)
 
 /**
  * kbase_g7x_power_model_get_jm_counter() - get performance counter offset
@@ -57,6 +57,7 @@
 static u32 kbase_g7x_power_model_get_jm_counter(struct kbase_ipa_model_vinstr_data *model_data,
 						u32 counter_block_offset)
 {
+	CSTD_UNUSED(model_data);
 	return JM_BASE + counter_block_offset;
 }
 
@@ -72,6 +73,7 @@ static u32 kbase_g7x_power_model_get_jm_counter(struct kbase_ipa_model_vinstr_da
 static u32 kbase_g7x_power_model_get_memsys_counter(struct kbase_ipa_model_vinstr_data *model_data,
 						    u32 counter_block_offset)
 {
+	CSTD_UNUSED(model_data);
 	/* The base address of Memory System performance counters is always the same, although their number
 	 * may vary based on the number of cores. For the moment it's ok to return a constant.
 	 */
@@ -91,13 +93,12 @@ static u32 kbase_g7x_power_model_get_sc_counter(struct kbase_ipa_model_vinstr_da
 						u32 counter_block_offset)
 {
 #if IS_ENABLED(CONFIG_MALI_NO_MALI)
-	const u32 sc_base = MEMSYS_BASE +
-		(KBASE_DUMMY_MODEL_MAX_MEMSYS_BLOCKS *
-		 KBASE_IPA_NR_BYTES_PER_BLOCK);
+	const u32 sc_base =
+		MEMSYS_BASE + (KBASE_DUMMY_MODEL_MAX_MEMSYS_BLOCKS * KBASE_IPA_NR_BYTES_PER_BLOCK);
 #else
-	const u32 sc_base = MEMSYS_BASE +
-		(model_data->kbdev->gpu_props.props.l2_props.num_l2_slices *
-		 KBASE_IPA_NR_BYTES_PER_BLOCK);
+	const u32 sc_base =
+		MEMSYS_BASE + (model_data->kbdev->gpu_props.props.l2_props.num_l2_slices *
+			       KBASE_IPA_NR_BYTES_PER_BLOCK);
 #endif
 	return sc_base + counter_block_offset;
 }
@@ -112,15 +113,12 @@ static u32 kbase_g7x_power_model_get_sc_counter(struct kbase_ipa_model_vinstr_da
  *
  * Return: Energy estimation for a single Memory System performance counter.
  */
-static s64 kbase_g7x_sum_all_memsys_blocks(
-		struct kbase_ipa_model_vinstr_data *model_data,
-		s32 coeff,
-		u32 counter_block_offset)
+static s64 kbase_g7x_sum_all_memsys_blocks(struct kbase_ipa_model_vinstr_data *model_data,
+					   s32 coeff, u32 counter_block_offset)
 {
 	u32 counter;
 
-	counter = kbase_g7x_power_model_get_memsys_counter(model_data,
-						     counter_block_offset);
+	counter = kbase_g7x_power_model_get_memsys_counter(model_data, counter_block_offset);
 	return kbase_ipa_sum_all_memsys_blocks(model_data, coeff, counter);
 }
 
@@ -135,15 +133,12 @@ static s64 kbase_g7x_sum_all_memsys_blocks(
  * Return: Energy estimation for a Shader Cores performance counter for all
  * cores.
  */
-static s64 kbase_g7x_sum_all_shader_cores(
-	struct kbase_ipa_model_vinstr_data *model_data,
-	s32 coeff,
-	u32 counter_block_offset)
+static s64 kbase_g7x_sum_all_shader_cores(struct kbase_ipa_model_vinstr_data *model_data, s32 coeff,
+					  u32 counter_block_offset)
 {
 	u32 counter;
 
-	counter = kbase_g7x_power_model_get_sc_counter(model_data,
-						       counter_block_offset);
+	counter = kbase_g7x_power_model_get_sc_counter(model_data, counter_block_offset);
 	return kbase_ipa_sum_all_shader_cores(model_data, coeff, counter);
 }
 
@@ -155,15 +150,12 @@ static s64 kbase_g7x_sum_all_shader_cores(
  *
  * Return: Energy estimation for a single Job Manager performance counter.
  */
-static s64 kbase_g7x_jm_single_counter(
-	struct kbase_ipa_model_vinstr_data *model_data,
-	s32 coeff,
-	u32 counter_block_offset)
+static s64 kbase_g7x_jm_single_counter(struct kbase_ipa_model_vinstr_data *model_data, s32 coeff,
+				       u32 counter_block_offset)
 {
 	u32 counter;
 
-	counter = kbase_g7x_power_model_get_jm_counter(model_data,
-						     counter_block_offset);
+	counter = kbase_g7x_power_model_get_jm_counter(model_data, counter_block_offset);
 	return kbase_ipa_single_counter(model_data, coeff, counter);
 }
 
@@ -174,8 +166,7 @@ static s64 kbase_g7x_jm_single_counter(
  * Return: the number of cycles the GPU was active during the counter sampling
  * period.
  */
-static u32 kbase_g7x_get_active_cycles(
-	struct kbase_ipa_model_vinstr_data *model_data)
+static u32 kbase_g7x_get_active_cycles(struct kbase_ipa_model_vinstr_data *model_data)
 {
 	u32 counter = kbase_g7x_power_model_get_jm_counter(model_data, JM_GPU_ACTIVE);
 
@@ -455,31 +446,27 @@ static const struct kbase_ipa_group ipa_groups_def_tbax[] = {
 	},
 };
 
-#define IPA_POWER_MODEL_OPS(gpu, init_token)                                                       \
-	static const struct kbase_ipa_model_ops kbase_##gpu##_ipa_model_ops = {                    \
-		.name = "mali-" #gpu "-power-model",                                               \
-		.init = kbase_##init_token##_power_model_init,                                     \
-		.term = kbase_ipa_vinstr_common_model_term,                                        \
-		.get_dynamic_coeff = kbase_ipa_vinstr_dynamic_coeff,                               \
-		.reset_counter_data = kbase_ipa_vinstr_reset_data,                                 \
+#define IPA_POWER_MODEL_OPS(gpu, init_token)                                    \
+	static const struct kbase_ipa_model_ops kbase_##gpu##_ipa_model_ops = { \
+		.name = "mali-" #gpu "-power-model",                            \
+		.init = kbase_##init_token##_power_model_init,                  \
+		.term = kbase_ipa_vinstr_common_model_term,                     \
+		.get_dynamic_coeff = kbase_ipa_vinstr_dynamic_coeff,            \
+		.reset_counter_data = kbase_ipa_vinstr_reset_data,              \
 	}
 
-#define STANDARD_POWER_MODEL(gpu, reference_voltage) \
-	static int kbase_ ## gpu ## _power_model_init(\
-			struct kbase_ipa_model *model) \
-	{ \
-		BUILD_BUG_ON(ARRAY_SIZE(ipa_groups_def_ ## gpu) > \
-				KBASE_IPA_MAX_GROUP_DEF_NUM); \
-		return kbase_ipa_vinstr_common_model_init(model, \
-				ipa_groups_def_ ## gpu, \
-				ARRAY_SIZE(ipa_groups_def_ ## gpu), \
-				kbase_g7x_get_active_cycles, \
-				(reference_voltage)); \
-	} \
+#define STANDARD_POWER_MODEL(gpu, reference_voltage)                                          \
+	static int kbase_##gpu##_power_model_init(struct kbase_ipa_model *model)              \
+	{                                                                                     \
+		BUILD_BUG_ON(ARRAY_SIZE(ipa_groups_def_##gpu) > KBASE_IPA_MAX_GROUP_DEF_NUM); \
+		return kbase_ipa_vinstr_common_model_init(model, ipa_groups_def_##gpu,        \
+							  ARRAY_SIZE(ipa_groups_def_##gpu),   \
+							  kbase_g7x_get_active_cycles,        \
+							  (reference_voltage));               \
+	}                                                                                     \
 	IPA_POWER_MODEL_OPS(gpu, gpu)
 
-#define ALIAS_POWER_MODEL(gpu, as_gpu) \
-	IPA_POWER_MODEL_OPS(gpu, as_gpu)
+#define ALIAS_POWER_MODEL(gpu, as_gpu) IPA_POWER_MODEL_OPS(gpu, as_gpu)
 
 STANDARD_POWER_MODEL(g71, 800);
 STANDARD_POWER_MODEL(g72, 800);
@@ -496,26 +483,19 @@ ALIAS_POWER_MODEL(g52, g76);
 ALIAS_POWER_MODEL(tnax, g77);
 
 static const struct kbase_ipa_model_ops *ipa_counter_model_ops[] = {
-	&kbase_g71_ipa_model_ops,
-	&kbase_g72_ipa_model_ops,
-	&kbase_g76_ipa_model_ops,
-	&kbase_g52_ipa_model_ops,
-	&kbase_g52_r1_ipa_model_ops,
-	&kbase_g51_ipa_model_ops,
-	&kbase_g77_ipa_model_ops,
-	&kbase_tnax_ipa_model_ops,
-	&kbase_tbex_ipa_model_ops,
+	&kbase_g71_ipa_model_ops, &kbase_g72_ipa_model_ops,    &kbase_g76_ipa_model_ops,
+	&kbase_g52_ipa_model_ops, &kbase_g52_r1_ipa_model_ops, &kbase_g51_ipa_model_ops,
+	&kbase_g77_ipa_model_ops, &kbase_tnax_ipa_model_ops,   &kbase_tbex_ipa_model_ops,
 	&kbase_tbax_ipa_model_ops
 };
 
-const struct kbase_ipa_model_ops *kbase_ipa_counter_model_ops_find(
-		struct kbase_device *kbdev, const char *name)
+const struct kbase_ipa_model_ops *kbase_ipa_counter_model_ops_find(struct kbase_device *kbdev,
+								   const char *name)
 {
-	int i;
+	size_t i;
 
 	for (i = 0; i < ARRAY_SIZE(ipa_counter_model_ops); ++i) {
-		const struct kbase_ipa_model_ops *ops =
-			ipa_counter_model_ops[i];
+		const struct kbase_ipa_model_ops *ops = ipa_counter_model_ops[i];
 
 		if (!strcmp(ops->name, name))
 			return ops;
@@ -526,34 +506,30 @@ const struct kbase_ipa_model_ops *kbase_ipa_counter_model_ops_find(
 	return NULL;
 }
 
-const char *kbase_ipa_counter_model_name_from_id(u32 gpu_id)
+const char *kbase_ipa_counter_model_name_from_id(struct kbase_gpu_id_props *gpu_id)
 {
-	const u32 prod_id =
-		(gpu_id & GPU_ID_VERSION_PRODUCT_ID) >> KBASE_GPU_ID_VERSION_PRODUCT_ID_SHIFT;
-
-	switch (GPU_ID2_MODEL_MATCH_VALUE(prod_id)) {
-	case GPU_ID2_PRODUCT_TMIX:
+	switch (gpu_id->product_id) {
+	case GPU_ID_PRODUCT_TMIX:
 		return "mali-g71-power-model";
-	case GPU_ID2_PRODUCT_THEX:
+	case GPU_ID_PRODUCT_THEX:
 		return "mali-g72-power-model";
-	case GPU_ID2_PRODUCT_TNOX:
+	case GPU_ID_PRODUCT_TNOX:
 		return "mali-g76-power-model";
-	case GPU_ID2_PRODUCT_TSIX:
+	case GPU_ID_PRODUCT_TSIX:
 		return "mali-g51-power-model";
-	case GPU_ID2_PRODUCT_TGOX:
-		if ((gpu_id & GPU_ID2_VERSION_MAJOR) ==
-				(0 << GPU_ID2_VERSION_MAJOR_SHIFT))
+	case GPU_ID_PRODUCT_TGOX:
+		if (gpu_id->version_major == 0)
 			/* g52 aliased to g76 power-model's ops */
 			return "mali-g52-power-model";
 		else
 			return "mali-g52_r1-power-model";
-	case GPU_ID2_PRODUCT_TNAX:
+	case GPU_ID_PRODUCT_TNAX:
 		return "mali-tnax-power-model";
-	case GPU_ID2_PRODUCT_TTRX:
+	case GPU_ID_PRODUCT_TTRX:
 		return "mali-g77-power-model";
-	case GPU_ID2_PRODUCT_TBEX:
+	case GPU_ID_PRODUCT_TBEX:
 		return "mali-tbex-power-model";
-	case GPU_ID2_PRODUCT_TBAX:
+	case GPU_ID_PRODUCT_TBAX:
 		return "mali-tbax-power-model";
 	default:
 		return NULL;

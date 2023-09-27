@@ -137,6 +137,8 @@ static void kbasep_csf_sync_print_kcpu_fence_wait_or_signal(char *buffer, int *l
 	bool is_signaled = false;
 
 	fence_info = &cmd->info.fence;
+	if (kbase_kcpu_command_fence_has_force_signaled(fence_info))
+		return;
 
 	fence = kbase_fence_get(fence_info);
 	if (WARN_ON(!fence))
@@ -364,7 +366,7 @@ static void kbasep_csf_sync_print_kcpu_cqs_set_op(struct kbase_context *kctx, ch
 }
 
 /**
- * kbasep_csf_kcpu_debugfs_print_queue() - Print debug data for a KCPU queue
+ * kbasep_csf_sync_kcpu_debugfs_print_queue() - Print debug data for a KCPU queue
  *
  * @kctx:  The kbase context.
  * @file:  The seq_file to print to.
@@ -585,7 +587,7 @@ static void kbasep_csf_print_gpu_sync_op(struct seq_file *file, struct kbase_con
 					 u64 sync_cmd, enum debugfs_gpu_sync_type type,
 					 bool is_64bit, bool follows_wait)
 {
-	u64 sync_addr = 0, compare_val = 0, live_val = 0;
+	u64 sync_addr = 0, compare_val = 0, live_val = 0, ringbuffer_boundary_check;
 	u64 move_cmd;
 	u8 sync_addr_reg, compare_val_reg, wait_condition = 0;
 	int err;
@@ -601,30 +603,70 @@ static void kbasep_csf_print_gpu_sync_op(struct seq_file *file, struct kbase_con
 		return;
 	}
 
-	/* We expect there to be at least 2 preceding MOVE instructions, and
-	 * Base will always arrange for the 2 MOVE + SYNC instructions to be
-	 * contiguously located, and is therefore never expected to be wrapped
-	 * around the ringbuffer boundary.
-	 */
-	if (unlikely(ringbuff_offset < (2 * sizeof(u64)))) {
+	/* 1. Get Register identifiers from SYNC_* instruction */
+	sync_addr_reg = SYNC_SRC0_GET(sync_cmd);
+	compare_val_reg = SYNC_SRC1_GET(sync_cmd);
+
+	if (ringbuff_offset < sizeof(u64)) {
 		dev_warn(kctx->kbdev->dev,
 			 "Unexpected wraparound detected between %s & MOVE instruction",
 			 gpu_sync_type_name[type]);
 		return;
 	}
-
-	/* 1. Get Register identifiers from SYNC_* instruction */
-	sync_addr_reg = SYNC_SRC0_GET(sync_cmd);
-	compare_val_reg = SYNC_SRC1_GET(sync_cmd);
-
 	/* 2. Get values from first MOVE command */
 	ringbuff_offset -= sizeof(u64);
 	move_cmd = kbasep_csf_read_ringbuffer_value(queue, ringbuff_offset);
-	if (!kbasep_csf_get_move_immediate_value(move_cmd, sync_addr_reg, compare_val_reg,
-						 &sync_addr, &compare_val))
+
+	/* We expect there to be at least 2 preceding MOVE instructions for CQS, or 3 preceding
+	 * MOVE instructions for Timeline CQS, and Base will always arrange for these
+	 * MOVE + SYNC instructions to be contiguously located, and is therefore never expected
+	 * to be wrapped around the ringbuffer boundary. The following check takes place after
+	 * the ringbuffer has been decremented, and already points to the first MOVE command,
+	 * so that it can be determined if it's a 32-bit MOVE (so 2 vs 1 preceding MOVE commands
+	 * will be checked).
+	 * This is to maintain compatibility with older userspace; a check is done to ensure that
+	 * the MOVE opcode found was a 32-bit MOVE, and if so, it has determined that a newer
+	 * userspace is being used and will continue to read the next 32-bit MOVE to recover the
+	 * compare/set value in the wait/set operation. If not, the single 48-bit value found
+	 * will be used.
+	 */
+	ringbuffer_boundary_check =
+		(INSTR_OPCODE_GET(move_cmd) == GPU_CSF_MOVE32_OPCODE && is_64bit) ? 2 : 1;
+	if (unlikely(ringbuff_offset < (ringbuffer_boundary_check * sizeof(u64)))) {
+		dev_warn(kctx->kbdev->dev,
+			 "Unexpected wraparound detected between %s & MOVE instruction",
+			 gpu_sync_type_name[type]);
+		return;
+	}
+	/* For 64-bit SYNC commands, the first MOVE command read in will actually use 1 register
+	 * above the compare value register in the sync command, as this will store the higher
+	 * 32-bits of 64-bit compare value. The compare value register read above will be read
+	 * afterwards.
+	 */
+	if (!kbasep_csf_get_move_immediate_value(move_cmd, sync_addr_reg,
+						 compare_val_reg + (is_64bit ? 1 : 0), &sync_addr,
+						 &compare_val))
 		return;
 
-	/* 3. Get values from next MOVE command */
+	/* 64-bit WAITs or SETs are split into 2 32-bit MOVEs. sync_val would contain the higher
+	 * 32 bits, so the lower 32-bits are retrieved afterwards, to recover the full u64 value.
+	 */
+	if (INSTR_OPCODE_GET(move_cmd) == GPU_CSF_MOVE32_OPCODE && is_64bit) {
+		u64 compare_val_lower = 0;
+
+		ringbuff_offset -= sizeof(u64);
+		move_cmd = kbasep_csf_read_ringbuffer_value(queue, ringbuff_offset);
+
+		if (!kbasep_csf_get_move_immediate_value(move_cmd, sync_addr_reg, compare_val_reg,
+							 &sync_addr, &compare_val_lower))
+			return;
+		/* Mask off upper 32 bits of compare_val_lower, and combine with the higher 32 bits
+		 * to restore the original u64 compare value.
+		 */
+		compare_val = (compare_val << 32) | (compare_val_lower & ((u64)U32_MAX));
+	}
+
+	/* 3. Get values from next MOVE command, which should be the CQS object address */
 	ringbuff_offset -= sizeof(u64);
 	move_cmd = kbasep_csf_read_ringbuffer_value(queue, ringbuff_offset);
 	if (!kbasep_csf_get_move_immediate_value(move_cmd, sync_addr_reg, compare_val_reg,
@@ -724,7 +766,6 @@ static void kbasep_csf_dump_active_queue_sync_info(struct seq_file *file, struct
 		default:
 			break;
 		}
-
 		switch (INSTR_OPCODE_GET(instr)) {
 		case GPU_CSF_SYNC_ADD_OPCODE:
 		case GPU_CSF_SYNC_ADD64_OPCODE:
@@ -824,6 +865,8 @@ static int kbasep_csf_sync_gpu_dump(struct kbase_context *kctx, struct seq_file 
 static int kbasep_csf_sync_debugfs_show(struct seq_file *file, void *data)
 {
 	struct kbase_context *kctx = file->private;
+
+	CSTD_UNUSED(data);
 
 	kbasep_print(kctx, file, "MALI_CSF_SYNC_DEBUGFS_VERSION: v%u\n",
 		     MALI_CSF_SYNC_DEBUGFS_VERSION);

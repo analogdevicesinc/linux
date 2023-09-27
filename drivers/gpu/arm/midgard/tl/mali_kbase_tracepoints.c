@@ -358,8 +358,8 @@ enum tl_msg_id_obj {
 		"atom,edit_addr,new_addr,jit_flags,mem_flags,j_id,com_pgs,extent,va_pgs") \
 	TRACEPOINT_DESC(KBASE_TL_KBASE_NEW_DEVICE, \
 		"New KBase Device", \
-		"@IIIIIII", \
-		"kbase_device_id,kbase_device_gpu_core_count,kbase_device_max_num_csgs,kbase_device_as_count,kbase_device_sb_entry_count,kbase_device_has_cross_stream_sync,kbase_device_supports_gpu_sleep") \
+		"@IIIIIIII", \
+		"kbase_device_id,kbase_device_gpu_core_count,kbase_device_max_num_csgs,kbase_device_as_count,kbase_device_sb_entry_count,kbase_device_has_cross_stream_sync,kbase_device_supports_gpu_sleep,kbase_device_has_vd54d34dbb40917c8cea48cca407a8789413be0db") \
 	TRACEPOINT_DESC(KBASE_TL_KBASE_GPUCMDQUEUE_KICK, \
 		"Kernel receives a request to process new GPU queue instructions", \
 		"@IL", \
@@ -2093,7 +2093,8 @@ void __kbase_tlstream_tl_kbase_new_device(
 	u32 kbase_device_as_count,
 	u32 kbase_device_sb_entry_count,
 	u32 kbase_device_has_cross_stream_sync,
-	u32 kbase_device_supports_gpu_sleep
+	u32 kbase_device_supports_gpu_sleep,
+	u32 kbase_device_has_vd54d34dbb40917c8cea48cca407a8789413be0db
 )
 {
 	const u32 msg_id = KBASE_TL_KBASE_NEW_DEVICE;
@@ -2105,6 +2106,7 @@ void __kbase_tlstream_tl_kbase_new_device(
 		+ sizeof(kbase_device_sb_entry_count)
 		+ sizeof(kbase_device_has_cross_stream_sync)
 		+ sizeof(kbase_device_supports_gpu_sleep)
+		+ sizeof(kbase_device_has_vd54d34dbb40917c8cea48cca407a8789413be0db)
 		;
 	char *buffer;
 	unsigned long acq_flags;
@@ -2128,6 +2130,8 @@ void __kbase_tlstream_tl_kbase_new_device(
 		pos, &kbase_device_has_cross_stream_sync, sizeof(kbase_device_has_cross_stream_sync));
 	pos = kbasep_serialize_bytes(buffer,
 		pos, &kbase_device_supports_gpu_sleep, sizeof(kbase_device_supports_gpu_sleep));
+	pos = kbasep_serialize_bytes(buffer,
+		pos, &kbase_device_has_vd54d34dbb40917c8cea48cca407a8789413be0db, sizeof(kbase_device_has_vd54d34dbb40917c8cea48cca407a8789413be0db));
 
 	kbase_tlstream_msgbuf_release(stream, acq_flags);
 }

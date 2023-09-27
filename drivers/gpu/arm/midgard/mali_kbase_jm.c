@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2013-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2013-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -123,18 +123,18 @@ void kbase_jm_idle_ctx(struct kbase_device *kbdev, struct kbase_context *kctx)
 }
 
 struct kbase_jd_atom *kbase_jm_return_atom_to_js(struct kbase_device *kbdev,
-				struct kbase_jd_atom *katom)
+						 struct kbase_jd_atom *katom)
 {
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
-	dev_dbg(kbdev->dev, "Atom %pK is returning with event code 0x%x\n",
-		(void *)katom, katom->event_code);
+	dev_dbg(kbdev->dev, "Atom %pK is returning with event code 0x%x\n", (void *)katom,
+		katom->event_code);
 
-	KBASE_KTRACE_ADD_JM(kbdev, JM_RETURN_ATOM_TO_JS, katom->kctx, katom,
-			    katom->jc, katom->event_code);
+	KBASE_KTRACE_ADD_JM(kbdev, JM_RETURN_ATOM_TO_JS, katom->kctx, katom, katom->jc,
+			    katom->event_code);
 
 	if (katom->event_code != BASE_JD_EVENT_STOPPED &&
-			katom->event_code != BASE_JD_EVENT_REMOVED_FROM_NEXT) {
+	    katom->event_code != BASE_JD_EVENT_REMOVED_FROM_NEXT) {
 		return kbase_js_complete_atom(katom, NULL);
 	}
 
@@ -143,8 +143,8 @@ struct kbase_jd_atom *kbase_jm_return_atom_to_js(struct kbase_device *kbdev,
 	return NULL;
 }
 
-struct kbase_jd_atom *kbase_jm_complete(struct kbase_device *kbdev,
-		struct kbase_jd_atom *katom, ktime_t *end_timestamp)
+struct kbase_jd_atom *kbase_jm_complete(struct kbase_device *kbdev, struct kbase_jd_atom *katom,
+					ktime_t *end_timestamp)
 {
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 

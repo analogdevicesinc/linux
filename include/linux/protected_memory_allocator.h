@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -56,8 +56,7 @@ struct protected_memory_allocator_ops {
 	 * Return: Pointer to allocated memory, or NULL if allocation failed.
 	 */
 	struct protected_memory_allocation *(*pma_alloc_page)(
-		struct protected_memory_allocator_device *pma_dev,
-		unsigned int order);
+		struct protected_memory_allocator_device *pma_dev, unsigned int order);
 
 	/*
 	 * pma_get_phys_addr - Get the physical address of the protected memory
@@ -70,9 +69,8 @@ struct protected_memory_allocator_ops {
 	 *
 	 * Return: The physical address of the given allocation.
 	 */
-	phys_addr_t (*pma_get_phys_addr)(
-		struct protected_memory_allocator_device *pma_dev,
-		struct protected_memory_allocation *pma);
+	phys_addr_t (*pma_get_phys_addr)(struct protected_memory_allocator_device *pma_dev,
+					 struct protected_memory_allocation *pma);
 
 	/*
 	 * pma_free_page - Free a page of memory
@@ -81,9 +79,8 @@ struct protected_memory_allocator_ops {
 	 *           through.
 	 * @pma:     The protected memory allocation to free.
 	 */
-	void (*pma_free_page)(
-		struct protected_memory_allocator_device *pma_dev,
-		struct protected_memory_allocation *pma);
+	void (*pma_free_page)(struct protected_memory_allocator_device *pma_dev,
+			      struct protected_memory_allocation *pma);
 };
 
 /**

@@ -295,8 +295,7 @@ static int kbasep_migrate_page_allocated_mapped(struct page *old_page, struct pa
 
 	/* Unmap the old physical range. */
 	unmap_mapping_range(kctx->kfile->filp->f_inode->i_mapping,
-			    page_md->data.mapped.vpfn << PAGE_SHIFT,
-			    PAGE_SIZE, 1);
+			    page_md->data.mapped.vpfn << PAGE_SHIFT, PAGE_SIZE, 1);
 
 	ret = kbase_mmu_migrate_page(as_tagged(page_to_phys(old_page)),
 				     as_tagged(page_to_phys(new_page)), old_dma_addr, new_dma_addr,
@@ -687,9 +686,6 @@ void kbase_mem_migrate_init(struct kbase_device *kbdev)
 	spin_lock_init(&mem_migrate->free_pages_lock);
 	INIT_LIST_HEAD(&mem_migrate->free_pages_list);
 
-#if (KERNEL_VERSION(6, 0, 0) > LINUX_VERSION_CODE)
-	mem_migrate->inode = NULL;
-#endif
 	mem_migrate->free_pages_workq =
 		alloc_workqueue("free_pages_workq", WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
 	INIT_WORK(&mem_migrate->free_pages_work, kbase_free_pages_worker);

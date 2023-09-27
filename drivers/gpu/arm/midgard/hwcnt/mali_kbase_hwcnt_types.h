@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2018, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -59,10 +59,16 @@
  *
  * Enable Map:
  *   An array of u64 bitfields, where each bit either enables exactly one
- *   block value, or is unused (padding).
+ *   block value, or is unused (padding). Note that this is derived from
+ *   the client configuration, and is not obtained from the hardware.
  * Dump Buffer:
  *   An array of u64 values, where each u64 corresponds either to one block
  *   value, or is unused (padding).
+ * Block State Buffer:
+ *   An array of blk_stt_t values, where each blk_stt_t corresponds to one block
+ *   instance and is used to track the on/off power state transitions, as well has
+ *   hardware resource availability, and whether the block was operating
+ *   in normal or protected mode.
  * Availability Mask:
  *   A bitfield, where each bit corresponds to whether a block instance is
  *   physically available (e.g. an MP3 GPU may have a sparse core mask of
@@ -114,8 +120,59 @@
  * Return: Input value if already aligned to the specified boundary, or next
  * (incrementing upwards) aligned value.
  */
-#define KBASE_HWCNT_ALIGN_UPWARDS(value, alignment)                                                \
+#define KBASE_HWCNT_ALIGN_UPWARDS(value, alignment) \
 	(value + ((alignment - (value % alignment)) % alignment))
+
+typedef u8 blk_stt_t;
+
+/* Number of bytes storing the per-block state transition information. */
+#define KBASE_HWCNT_BLOCK_STATE_BYTES (sizeof(blk_stt_t))
+
+/* Number of entries of blk_stt_t used to store the block state. */
+#define KBASE_HWCNT_BLOCK_STATE_STRIDE (1)
+
+/* Block state indicating that the hardware block state was indeterminable
+ * or not set during the sampling period.
+ */
+#define KBASE_HWCNT_STATE_UNKNOWN ((blk_stt_t)(0))
+
+/* Block state indicating that the hardware block was on or transitioned to on
+ * during the sampling period.
+ */
+#define KBASE_HWCNT_STATE_ON ((blk_stt_t)(1u << 0))
+
+/* Block state indicating that the hardware block was off or transitioned to off
+ * during the sampling period.
+ */
+#define KBASE_HWCNT_STATE_OFF ((blk_stt_t)(1u << 1))
+
+/* Block state indicating that the hardware block was available to the current
+ * VM for some portion of the sampling period.
+ */
+#define KBASE_HWCNT_STATE_AVAILABLE ((blk_stt_t)(1u << 2))
+
+/* Block state indicating that the hardware block was unavailable to the current
+ * VM for some portion of the sampling period.
+ */
+#define KBASE_HWCNT_STATE_UNAVAILABLE ((blk_stt_t)(1u << 3))
+
+/* Block state indicating that the hardware block was operating in normal mode
+ * for some portion of the sampling period.
+ */
+#define KBASE_HWCNT_STATE_NORMAL ((blk_stt_t)(1u << 4))
+
+/* Block state indicating that the hardware block was operating in protected mode
+ * for some portion of the sampling period.
+ */
+#define KBASE_HWCNT_STATE_PROTECTED ((blk_stt_t)(1u << 5))
+
+/* For a valid block state with the above masks, only a maximum of
+ * KBASE_HWCNT_STATE_BITS can be set.
+ */
+#define KBASE_HWCNT_STATE_BITS (6)
+
+/* Mask to detect malformed block state bitmaps. */
+#define KBASE_HWCNT_STATE_MASK ((blk_stt_t)((1u << KBASE_HWCNT_STATE_BITS) - 1))
 
 /**
  * struct kbase_hwcnt_block_description - Description of one or more identical,
@@ -183,6 +240,12 @@ struct kbase_hwcnt_description {
  * @avail_mask_index:  Index in bits into the parent's Availability Mask where
  *                     the Availability Masks of the Block Instances described
  *                     by this metadata start.
+ * @blk_stt_index:     Index in bits into the parent's Block State Buffer
+ *                     where the Block State Masks of the Block Instances described
+ *                     by this metadata start.
+ * @blk_stt_stride:    Stride in the underly block state tracking type between
+ *                     the Block State bytes corresponding to each of the
+ *                     Block Instances.
  */
 struct kbase_hwcnt_block_metadata {
 	u64 type;
@@ -194,6 +257,8 @@ struct kbase_hwcnt_block_metadata {
 	size_t dump_buf_index;
 	size_t dump_buf_stride;
 	size_t avail_mask_index;
+	size_t blk_stt_index;
+	size_t blk_stt_stride;
 };
 
 /**
@@ -217,6 +282,9 @@ struct kbase_hwcnt_block_metadata {
  * @avail_mask_index: Index in bits into the parent's Availability Mask where
  *                    the Availability Masks of the blocks within the group
  *                    described by this metadata start.
+ * @blk_stt_index:    Index in blk_stt_t into the parent's Block State Buffer
+ *                    where the Block State Masks of the blocks within the group
+ *                    described by this metadata start.
  */
 struct kbase_hwcnt_group_metadata {
 	u64 type;
@@ -225,6 +293,7 @@ struct kbase_hwcnt_group_metadata {
 	size_t enable_map_index;
 	size_t dump_buf_index;
 	size_t avail_mask_index;
+	size_t blk_stt_index;
 };
 
 /**
@@ -237,6 +306,8 @@ struct kbase_hwcnt_group_metadata {
  *                    Group in the system.
  * @enable_map_bytes: The size in bytes of an Enable Map needed for the system.
  * @dump_buf_bytes:   The size in bytes of a Dump Buffer needed for the system.
+ * @blk_stt_bytes:    The size in bytes of a Block State Buffer needed for
+ *                    the system.
  * @avail_mask:       The Availability Mask for the system.
  * @clk_cnt:          The number of clock domains in the system.
  */
@@ -245,6 +316,7 @@ struct kbase_hwcnt_metadata {
 	const struct kbase_hwcnt_group_metadata *grp_metadata;
 	size_t enable_map_bytes;
 	size_t dump_buf_bytes;
+	size_t blk_stt_bytes;
 	u64 avail_mask;
 	u8 clk_cnt;
 };
@@ -257,7 +329,7 @@ struct kbase_hwcnt_metadata {
  * @hwcnt_enable_map: Non-NULL pointer of size metadata->enable_map_bytes to an
  *              array of u64 bitfields, each bit of which enables one hardware
  *              counter.
- * @clk_enable_map: An array of u64 bitfields, each bit of which enables cycle
+ * @clk_enable_map: A u64 bitfield, each bit of which enables cycle
  *              counter for a given clock domain.
  */
 struct kbase_hwcnt_enable_map {
@@ -274,27 +346,14 @@ struct kbase_hwcnt_enable_map {
  *            metadata->dump_buf_bytes.
  * @clk_cnt_buf: A pointer to an array of u64 values for cycle count elapsed
  *               for each clock domain.
+ * @blk_stt_buf: A pointer to an array of blk_stt_t values holding block state
+ *               information for each block.
  */
 struct kbase_hwcnt_dump_buffer {
 	const struct kbase_hwcnt_metadata *metadata;
 	u64 *dump_buf;
 	u64 *clk_cnt_buf;
-};
-
-/**
- * struct kbase_hwcnt_dump_buffer_array - Hardware Counter Dump Buffer array.
- * @page_addr:  Address of allocated pages. A single allocation is used for all
- *              Dump Buffers in the array.
- * @page_order: The allocation order of the pages, the order is on a logarithmic
- *              scale.
- * @buf_cnt:    The number of allocated Dump Buffers.
- * @bufs:       Non-NULL pointer to the array of Dump Buffers.
- */
-struct kbase_hwcnt_dump_buffer_array {
-	unsigned long page_addr;
-	unsigned int page_order;
-	size_t buf_cnt;
-	struct kbase_hwcnt_dump_buffer *bufs;
+	blk_stt_t *blk_stt_buf;
 };
 
 /**
@@ -314,6 +373,58 @@ int kbase_hwcnt_metadata_create(const struct kbase_hwcnt_description *desc,
  * @metadata: Pointer to hardware counter metadata
  */
 void kbase_hwcnt_metadata_destroy(const struct kbase_hwcnt_metadata *metadata);
+
+/**
+ * kbase_hwcnt_block_state_set() - Set one or more block states
+ *                                 for a block instance.
+ * @blk_stt: Pointer to destination block state instance
+ * @stt: Block state bitmask
+ */
+static inline void kbase_hwcnt_block_state_set(blk_stt_t *blk_stt, blk_stt_t stt)
+{
+	if (WARN_ON(stt & ~KBASE_HWCNT_STATE_MASK))
+		return;
+
+	*blk_stt = stt;
+}
+
+/**
+ * kbase_hwcnt_block_state_append() - Adds one or more block states
+ *                                    onto a block instance.
+ * @blk_stt: Pointer to destination block state instance
+ * @stt: Block state bitmask
+ */
+static inline void kbase_hwcnt_block_state_append(blk_stt_t *blk_stt, blk_stt_t stt)
+{
+	if (WARN_ON(stt & ~KBASE_HWCNT_STATE_MASK))
+		return;
+
+	*blk_stt |= stt;
+}
+
+/**
+ * kbase_hwcnt_block_state_copy() - Copy block state between two block
+ *                                  state instances.
+ * @dst_blk_stt: Pointer to destination block state instance
+ * @src_blk_stt: Pointer to source block state instance.
+ */
+static inline void kbase_hwcnt_block_state_copy(blk_stt_t *dst_blk_stt,
+						const blk_stt_t *src_blk_stt)
+{
+	kbase_hwcnt_block_state_set(dst_blk_stt, *src_blk_stt);
+}
+
+/**
+ * kbase_hwcnt_block_state_accumulate() - Accumulate block state between two block
+ *                                        state instances.
+ * @dst_blk_stt: Pointer to destination block state instance
+ * @src_blk_stt: Pointer to source block state instance.
+ */
+static inline void kbase_hwcnt_block_state_accumulate(blk_stt_t *dst_blk_stt,
+						      const blk_stt_t *src_blk_stt)
+{
+	kbase_hwcnt_block_state_append(dst_blk_stt, *src_blk_stt);
+}
 
 /**
  * kbase_hwcnt_metadata_group_count() - Get the number of groups.
@@ -489,12 +600,12 @@ kbase_hwcnt_metadata_block_values_count(const struct kbase_hwcnt_metadata *metad
  * Iteration order is group, then block, then block instance (i.e. linearly
  * through memory).
  */
-#define kbase_hwcnt_metadata_for_each_block(md, grp, blk, blk_inst)                                \
-	for ((grp) = 0; (grp) < kbase_hwcnt_metadata_group_count((md)); (grp)++)                   \
-		for ((blk) = 0; (blk) < kbase_hwcnt_metadata_block_count((md), (grp)); (blk)++)    \
-			for ((blk_inst) = 0;                                                       \
-			     (blk_inst) <                                                          \
-			     kbase_hwcnt_metadata_block_instance_count((md), (grp), (blk));        \
+#define kbase_hwcnt_metadata_for_each_block(md, grp, blk, blk_inst)                             \
+	for ((grp) = 0; (grp) < kbase_hwcnt_metadata_group_count((md)); (grp)++)                \
+		for ((blk) = 0; (blk) < kbase_hwcnt_metadata_block_count((md), (grp)); (blk)++) \
+			for ((blk_inst) = 0;                                                    \
+			     (blk_inst) <                                                       \
+			     kbase_hwcnt_metadata_block_instance_count((md), (grp), (blk));     \
 			     (blk_inst)++)
 
 /**
@@ -869,9 +980,8 @@ static inline void kbase_hwcnt_enable_map_block_disable_value(u64 *bitfld, size_
 /**
  * kbase_hwcnt_dump_buffer_alloc() - Allocate a dump buffer.
  * @metadata: Non-NULL pointer to metadata describing the system.
- * @dump_buf: Non-NULL pointer to dump buffer to be initialised. Will be
- *            initialised to undefined values, so must be used as a copy dest,
- *            or cleared before use.
+ * @dump_buf: Non-NULL pointer to a zero-initialized dump buffer.
+ *            The memory will be zero allocated
  *
  * Return: 0 on success, else error code.
  */
@@ -886,30 +996,6 @@ int kbase_hwcnt_dump_buffer_alloc(const struct kbase_hwcnt_metadata *metadata,
  * freed dump buffer.
  */
 void kbase_hwcnt_dump_buffer_free(struct kbase_hwcnt_dump_buffer *dump_buf);
-
-/**
- * kbase_hwcnt_dump_buffer_array_alloc() - Allocate an array of dump buffers.
- * @metadata:  Non-NULL pointer to metadata describing the system.
- * @n:         Number of dump buffers to allocate
- * @dump_bufs: Non-NULL pointer to dump buffer array to be initialised.
- *
- * A single zeroed contiguous page allocation will be used for all of the
- * buffers inside the array, where:
- * dump_bufs[n].dump_buf == page_addr + n * metadata.dump_buf_bytes
- *
- * Return: 0 on success, else error code.
- */
-int kbase_hwcnt_dump_buffer_array_alloc(const struct kbase_hwcnt_metadata *metadata, size_t n,
-					struct kbase_hwcnt_dump_buffer_array *dump_bufs);
-
-/**
- * kbase_hwcnt_dump_buffer_array_free() - Free a dump buffer array.
- * @dump_bufs: Dump buffer array to be freed.
- *
- * Can be safely called on an all-zeroed dump buffer array structure, or on an
- * already freed dump buffer array.
- */
-void kbase_hwcnt_dump_buffer_array_free(struct kbase_hwcnt_dump_buffer_array *dump_bufs);
 
 /**
  * kbase_hwcnt_dump_buffer_block_instance() - Get the pointer to a block
@@ -935,6 +1021,34 @@ static inline u64 *kbase_hwcnt_dump_buffer_block_instance(const struct kbase_hwc
 	return buf->dump_buf + buf->metadata->grp_metadata[grp].dump_buf_index +
 	       buf->metadata->grp_metadata[grp].blk_metadata[blk].dump_buf_index +
 	       (buf->metadata->grp_metadata[grp].blk_metadata[blk].dump_buf_stride * blk_inst);
+}
+
+/**
+ * kbase_hwcnt_dump_buffer_block_state_instance() - Get the pointer to a block
+ *                                                  instance's block state mask.
+ * @buf:      Non-NULL pointer to dump buffer.
+ * @grp:      Index of the group in the metadata.
+ * @blk:      Index of the block in the group.
+ * @blk_inst: Index of the block instance in the block.
+ *
+ * Return: blk_stt_t* to the block state mask of the block instance in the dump
+ * buffer.
+ */
+static inline blk_stt_t *
+kbase_hwcnt_dump_buffer_block_state_instance(const struct kbase_hwcnt_dump_buffer *buf, size_t grp,
+					     size_t blk, size_t blk_inst)
+{
+	if (WARN_ON(!buf) || WARN_ON(!buf->dump_buf))
+		return NULL;
+
+	if (WARN_ON(!buf->metadata) || WARN_ON(grp >= buf->metadata->grp_cnt) ||
+	    WARN_ON(blk >= buf->metadata->grp_metadata[grp].blk_cnt) ||
+	    WARN_ON(blk_inst >= buf->metadata->grp_metadata[grp].blk_metadata[blk].inst_cnt))
+		return buf->blk_stt_buf;
+
+	return buf->blk_stt_buf + buf->metadata->grp_metadata[grp].blk_stt_index +
+	       buf->metadata->grp_metadata[grp].blk_metadata[blk].blk_stt_index +
+	       (buf->metadata->grp_metadata[grp].blk_metadata[blk].blk_stt_stride * blk_inst);
 }
 
 /**
@@ -1227,5 +1341,20 @@ static inline bool kbase_hwcnt_clk_enable_map_enabled(const u64 clk_enable_map, 
 		return true;
 	return false;
 }
+
+/**
+ * kbase_hwcnt_dump_buffer_block_state_update() - Update the enabled block instances' block states
+ *                                                in dst. After the operation, all non-enabled or
+ *                                                unavailable block instances will be unchanged.
+ * @dst:            Non-NULL pointer to dump buffer.
+ * @dst_enable_map: Non-NULL pointer to enable map specifying enabled values.
+ * @blk_stt_val:    Mask of block states to update. Block states not set in this mask will still be
+ *                  preserved in dst.
+ *
+ * The dst and dst_enable_map MUST have been created from the same metadata.
+ */
+void kbase_hwcnt_dump_buffer_block_state_update(struct kbase_hwcnt_dump_buffer *dst,
+						const struct kbase_hwcnt_enable_map *dst_enable_map,
+						blk_stt_t blk_stt_val);
 
 #endif /* _KBASE_HWCNT_TYPES_H_ */

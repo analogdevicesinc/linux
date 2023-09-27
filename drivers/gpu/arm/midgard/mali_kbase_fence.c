@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2011-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -29,11 +29,9 @@
 static DEFINE_SPINLOCK(kbase_fence_lock);
 
 #if (KERNEL_VERSION(4, 10, 0) > LINUX_VERSION_CODE)
-struct fence *
-kbase_fence_out_new(struct kbase_jd_atom *katom)
+struct fence *kbase_fence_out_new(struct kbase_jd_atom *katom)
 #else
-struct dma_fence *
-kbase_fence_out_new(struct kbase_jd_atom *katom)
+struct dma_fence *kbase_fence_out_new(struct kbase_jd_atom *katom)
 #endif
 {
 #if (KERNEL_VERSION(4, 10, 0) > LINUX_VERSION_CODE)
@@ -48,14 +46,10 @@ kbase_fence_out_new(struct kbase_jd_atom *katom)
 	if (!fence)
 		return NULL;
 
-	dma_fence_init(fence,
-		       &kbase_fence_ops,
-		       &kbase_fence_lock,
-		       katom->dma_fence.context,
+	dma_fence_init(fence, &kbase_fence_ops, &kbase_fence_lock, katom->dma_fence.context,
 		       atomic_inc_return(&katom->dma_fence.seqno));
 
 	katom->dma_fence.fence = fence;
 
 	return fence;
 }
-

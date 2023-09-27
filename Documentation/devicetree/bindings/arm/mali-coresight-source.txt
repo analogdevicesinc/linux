@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 #
-# (C) COPYRIGHT 2022 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2023 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -87,27 +87,6 @@ Required properties
 
 - compatible: Has to be "arm,coresight-mali-source-ela"
 - gpu : phandle to a Mali GPU definition
-- signal-groups: Signal groups indexed from 0 to 5.
-                 Used to configure the signal channels.
-  - sgN: Types of signals attached to one channel.
-         It can be more than one type in the case of
-         JCN request/response.
-
-         Types:
-           - "jcn-request": Can share the channel with "jcn-response"
-           - "jcn-response": Can share the channel with "jcn-request"
-           - "ceu-execution": Cannot share the channel with other types
-           - "ceu-commands": Cannot share the channel with other types
-           - "mcu-ahbp": Cannot share the channel with other types
-           - "host-axi": Cannot share the channel with other types
-
-
-         If the HW implementation shares a common channel
-         for JCN response and request (total of 4 channels),
-         Refer to:
-           - "Example: Shared JCN request/response channel"
-         Otherwise (total of 5 channels), refer to:
-           - "Example: Split JCN request/response channel"
 - port:
   - endpoint:
     - remote-endpoint: phandle to a Coresight sink port
@@ -116,19 +95,12 @@ Example: Split JCN request/response channel
 --------------------------------------------
 
 This examples applies to implementations with a total of 5 signal groups,
-where JCN request and response are assigned to independent channels.
+where JCN request and response are assigned to independent or shared
+channels depending on the GPU model.
 
 mali-source-ela {
   compatible = "arm,coresight-mali-source-ela";
   gpu = <&gpu>;
-  signal-groups {
-    sg0 = "jcn-request";
-    sg1 = "jcn-response";
-    sg2 = "ceu-execution";
-    sg3 = "ceu-commands";
-    sg4 = "mcu-ahbp";
-    sg5 = "host-axi";
-  };
   port {
     mali_source_ela_out_port0: endpoint {
       remote-endpoint = <&mali_sink_in_port2>;
@@ -136,25 +108,9 @@ mali-source-ela {
   };
 };
 
-Example: Shared JCN request/response channel
+SysFS Configuration
 --------------------------------------------
 
-This examples applies to implementations with a total of 4 signal groups,
-where JCN request and response are assigned to the same channel.
-
-mali-source-ela {
-  compatible = "arm,coresight-mali-source-ela";
-  gpu = <&gpu>;
-  signal-groups {
-    sg0 = "jcn-request", "jcn-response";
-    sg1 = "ceu-execution";
-    sg2 = "ceu-commands";
-    sg3 = "mcu-ahbp";
-    sg4 = "host-axi";
-  };
-  port {
-    mali_source_ela_out_port0: endpoint {
-      remote-endpoint = <&mali_sink_in_port1>;
-    };
-  };
-};
+The register values used by CoreSight for ELA can be configured using SysFS
+interfaces. This implicitly includes configuring the ELA for independent or
+shared JCN request and response channels.

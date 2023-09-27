@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -69,77 +69,69 @@ DEFINE_MALI_ADD_EVENT(SCHED_BUSY);
 DEFINE_MALI_ADD_EVENT(SCHED_INACTIVE);
 DEFINE_MALI_ADD_EVENT(SCHED_SUSPENDED);
 DEFINE_MALI_ADD_EVENT(SCHED_SLEEPING);
-#define KBASEP_MCU_STATE(n) DEFINE_MALI_ADD_EVENT(PM_MCU_ ## n);
+#define KBASEP_MCU_STATE(n) DEFINE_MALI_ADD_EVENT(PM_MCU_##n);
 #include "backend/gpu/mali_kbase_pm_mcu_states.h"
 #undef KBASEP_MCU_STATE
 
-DECLARE_EVENT_CLASS(mali_csf_grp_q_template,
+DECLARE_EVENT_CLASS(
+	mali_csf_grp_q_template,
 	TP_PROTO(struct kbase_device *kbdev, struct kbase_queue_group *group,
-			struct kbase_queue *queue, u64 info_val),
+		 struct kbase_queue *queue, u64 info_val),
 	TP_ARGS(kbdev, group, queue, info_val),
-	TP_STRUCT__entry(
-		__field(u64, info_val)
-		__field(pid_t, kctx_tgid)
-		__field(u32, kctx_id)
-		__field(u8, group_handle)
-		__field(s8, csg_nr)
-		__field(u8, slot_prio)
-		__field(s8, csi_index)
-	),
-	TP_fast_assign(
-		{
-			struct kbase_context *kctx = NULL;
+	TP_STRUCT__entry(__field(u64, info_val) __field(pid_t, kctx_tgid) __field(u32, kctx_id)
+				 __field(u8, group_handle) __field(s8, csg_nr)
+					 __field(u8, slot_prio) __field(s8, csi_index)),
+	TP_fast_assign({
+		struct kbase_context *kctx = NULL;
 
-			__entry->info_val = info_val;
-			/* Note: if required in future, we could record some
+		__entry->info_val = info_val;
+		/* Note: if required in future, we could record some
 			 * flags in __entry about whether the group/queue parts
 			 * are valid, and add that to the trace message e.g.
 			 * by using __print_flags()/__print_symbolic()
 			 */
-			if (queue) {
-				/* Note: kctx overridden by group->kctx later if group is valid */
-				kctx = queue->kctx;
-				__entry->csi_index = queue->csi_index;
-			} else {
-				__entry->csi_index = -1;
-			}
-
-			if (group) {
-				kctx = group->kctx;
-				__entry->group_handle = group->handle;
-				__entry->csg_nr = group->csg_nr;
-				if (group->csg_nr >= 0)
-					__entry->slot_prio = kbdev->csf.scheduler.csg_slots[group->csg_nr].priority;
-				else
-					__entry->slot_prio = 0u;
-			} else {
-				__entry->group_handle = 0u;
-				__entry->csg_nr = -1;
-				__entry->slot_prio = 0u;
-			}
-			__entry->kctx_id = (kctx) ? kctx->id : 0u;
-			__entry->kctx_tgid = (kctx) ? kctx->tgid : 0;
+		if (queue) {
+			/* Note: kctx overridden by group->kctx later if group is valid */
+			kctx = queue->kctx;
+			__entry->csi_index = queue->csi_index;
+		} else {
+			__entry->csi_index = -1;
 		}
 
-	),
-	TP_printk("kctx=%d_%u group=%u slot=%d prio=%u csi=%d info=0x%llx",
-			__entry->kctx_tgid, __entry->kctx_id,
-			__entry->group_handle, __entry->csg_nr,
-			__entry->slot_prio, __entry->csi_index,
-			__entry->info_val)
-);
+		if (group) {
+			kctx = group->kctx;
+			__entry->group_handle = group->handle;
+			__entry->csg_nr = group->csg_nr;
+			if (group->csg_nr >= 0)
+				__entry->slot_prio =
+					kbdev->csf.scheduler.csg_slots[group->csg_nr].priority;
+			else
+				__entry->slot_prio = 0u;
+		} else {
+			__entry->group_handle = 0u;
+			__entry->csg_nr = -1;
+			__entry->slot_prio = 0u;
+		}
+		__entry->kctx_id = (kctx) ? kctx->id : 0u;
+		__entry->kctx_tgid = (kctx) ? kctx->tgid : 0;
+	}
+
+		       ),
+	TP_printk("kctx=%d_%u group=%u slot=%d prio=%u csi=%d info=0x%llx", __entry->kctx_tgid,
+		  __entry->kctx_id, __entry->group_handle, __entry->csg_nr, __entry->slot_prio,
+		  __entry->csi_index, __entry->info_val));
 
 /*
  * Group events
  */
-#define DEFINE_MALI_CSF_GRP_EVENT(name) \
-	DEFINE_EVENT_PRINT(mali_csf_grp_q_template, mali_##name, \
-	TP_PROTO(struct kbase_device *kbdev, struct kbase_queue_group *group, \
-			struct kbase_queue *queue, u64 info_val), \
-	TP_ARGS(kbdev, group, queue, info_val), \
-	TP_printk("kctx=%d_%u group=%u slot=%d prio=%u info=0x%llx", \
-		__entry->kctx_tgid, __entry->kctx_id, __entry->group_handle, \
-		__entry->csg_nr, __entry->slot_prio, __entry->info_val))
+#define DEFINE_MALI_CSF_GRP_EVENT(name)                                                           \
+	DEFINE_EVENT_PRINT(mali_csf_grp_q_template, mali_##name,                                  \
+			   TP_PROTO(struct kbase_device *kbdev, struct kbase_queue_group *group,  \
+				    struct kbase_queue *queue, u64 info_val),                     \
+			   TP_ARGS(kbdev, group, queue, info_val),                                \
+			   TP_printk("kctx=%d_%u group=%u slot=%d prio=%u info=0x%llx",           \
+				     __entry->kctx_tgid, __entry->kctx_id, __entry->group_handle, \
+				     __entry->csg_nr, __entry->slot_prio, __entry->info_val))
 
 DEFINE_MALI_CSF_GRP_EVENT(CSG_SLOT_START_REQ);
 DEFINE_MALI_CSF_GRP_EVENT(CSG_SLOT_STOP_REQ);
@@ -191,11 +183,11 @@ DEFINE_MALI_CSF_GRP_EVENT(CSF_GROUP_TERMINATED);
 /*
  * Group + Queue events
  */
-#define DEFINE_MALI_CSF_GRP_Q_EVENT(name)  \
-	DEFINE_EVENT(mali_csf_grp_q_template, mali_##name, \
-	TP_PROTO(struct kbase_device *kbdev, struct kbase_queue_group *group, \
-			struct kbase_queue *queue, u64 info_val), \
-	TP_ARGS(kbdev, group, queue, info_val))
+#define DEFINE_MALI_CSF_GRP_Q_EVENT(name)                                                  \
+	DEFINE_EVENT(mali_csf_grp_q_template, mali_##name,                                 \
+		     TP_PROTO(struct kbase_device *kbdev, struct kbase_queue_group *group, \
+			      struct kbase_queue *queue, u64 info_val),                    \
+		     TP_ARGS(kbdev, group, queue, info_val))
 
 DEFINE_MALI_CSF_GRP_Q_EVENT(CSI_START);
 DEFINE_MALI_CSF_GRP_Q_EVENT(CSI_STOP);
@@ -222,36 +214,29 @@ DEFINE_MALI_CSF_GRP_Q_EVENT(CSI_PROTM_PEND_CLEAR);
  * KCPU queue events
  */
 DECLARE_EVENT_CLASS(mali_csf_kcpu_queue_template,
-	TP_PROTO(struct kbase_kcpu_command_queue *queue,
-		 u64 info_val1, u64 info_val2),
-	TP_ARGS(queue, info_val1, info_val2),
-	TP_STRUCT__entry(
-		__field(u64, info_val1)
-		__field(u64, info_val2)
-		__field(pid_t, kctx_tgid)
-		__field(u32, kctx_id)
-		__field(u8, id)
-	),
-	TP_fast_assign(
-		{
-			__entry->info_val1 = info_val1;
-			__entry->info_val2 = info_val2;
-			__entry->kctx_id = queue->kctx->id;
-			__entry->kctx_tgid = queue->kctx->tgid;
-			__entry->id = queue->id;
-		}
+		    TP_PROTO(struct kbase_kcpu_command_queue *queue, u64 info_val1, u64 info_val2),
+		    TP_ARGS(queue, info_val1, info_val2),
+		    TP_STRUCT__entry(__field(u64, info_val1) __field(u64, info_val2)
+					     __field(pid_t, kctx_tgid) __field(u32, kctx_id)
+						     __field(u8, id)),
+		    TP_fast_assign({
+			    __entry->info_val1 = info_val1;
+			    __entry->info_val2 = info_val2;
+			    __entry->kctx_id = queue->kctx->id;
+			    __entry->kctx_tgid = queue->kctx->tgid;
+			    __entry->id = queue->id;
+		    }
 
-	),
-	TP_printk("kctx=%d_%u id=%u info_val1=0x%llx info_val2=0x%llx",
-			__entry->kctx_tgid, __entry->kctx_id, __entry->id,
-			__entry->info_val1, __entry->info_val2)
-);
+				   ),
+		    TP_printk("kctx=%d_%u id=%u info_val1=0x%llx info_val2=0x%llx",
+			      __entry->kctx_tgid, __entry->kctx_id, __entry->id, __entry->info_val1,
+			      __entry->info_val2));
 
-#define DEFINE_MALI_CSF_KCPU_EVENT(name)  \
-	DEFINE_EVENT(mali_csf_kcpu_queue_template, mali_##name, \
-	TP_PROTO(struct kbase_kcpu_command_queue *queue, \
-		 u64 info_val1, u64 info_val2), \
-	TP_ARGS(queue, info_val1, info_val2))
+#define DEFINE_MALI_CSF_KCPU_EVENT(name)                                             \
+	DEFINE_EVENT(mali_csf_kcpu_queue_template, mali_##name,                      \
+		     TP_PROTO(struct kbase_kcpu_command_queue *queue, u64 info_val1, \
+			      u64 info_val2),                                        \
+		     TP_ARGS(queue, info_val1, info_val2))
 
 DEFINE_MALI_CSF_KCPU_EVENT(KCPU_QUEUE_CREATE);
 DEFINE_MALI_CSF_KCPU_EVENT(KCPU_QUEUE_DELETE);

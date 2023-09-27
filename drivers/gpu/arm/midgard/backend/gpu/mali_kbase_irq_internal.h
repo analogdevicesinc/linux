@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014-2015, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -37,11 +37,10 @@ void kbase_release_interrupts(struct kbase_device *kbdev);
  */
 void kbase_synchronize_irqs(struct kbase_device *kbdev);
 
-int kbasep_common_test_interrupt_handlers(
-					struct kbase_device * const kbdev);
+int kbasep_common_test_interrupt_handlers(struct kbase_device *const kbdev);
 
 irqreturn_t kbase_gpu_irq_test_handler(int irq, void *data, u32 val);
-int kbase_set_custom_irq_handler(struct kbase_device *kbdev,
-				 irq_handler_t custom_handler, int irq_type);
+int kbase_set_custom_irq_handler(struct kbase_device *kbdev, irq_handler_t custom_handler,
+				 int irq_type);
 
 #endif /* _KBASE_IRQ_INTERNAL_H_ */

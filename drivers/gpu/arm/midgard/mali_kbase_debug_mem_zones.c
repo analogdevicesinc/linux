@@ -50,6 +50,8 @@ static int debug_mem_zones_show(struct seq_file *sfile, void *data)
 	struct kbase_reg_zone *reg_zone;
 	enum kbase_memory_zone zone_idx;
 
+	CSTD_UNUSED(data);
+
 	kbase_gpu_vm_lock(kctx);
 
 	for (zone_idx = 0; zone_idx < CONTEXT_ZONE_MAX; zone_idx++) {

@@ -63,27 +63,14 @@ static struct kbase_timeout_info timeout_info[KBASE_TIMEOUT_SELECTOR_COUNT] = {
 };
 #endif
 
-void kbase_backend_get_gpu_time_norequest(struct kbase_device *kbdev,
-					  u64 *cycle_counter,
-					  u64 *system_time,
-					  struct timespec64 *ts)
+void kbase_backend_get_gpu_time_norequest(struct kbase_device *kbdev, u64 *cycle_counter,
+					  u64 *system_time, struct timespec64 *ts)
 {
-	u32 hi1, hi2;
-
 	if (cycle_counter)
 		*cycle_counter = kbase_backend_get_cycle_cnt(kbdev);
 
 	if (system_time) {
-		/* Read hi, lo, hi to ensure a coherent u64 */
-		do {
-			hi1 = kbase_reg_read(kbdev,
-					     GPU_CONTROL_REG(TIMESTAMP_HI));
-			*system_time = kbase_reg_read(kbdev,
-					     GPU_CONTROL_REG(TIMESTAMP_LO));
-			hi2 = kbase_reg_read(kbdev,
-					     GPU_CONTROL_REG(TIMESTAMP_HI));
-		} while (hi1 != hi2);
-		*system_time |= (((u64) hi1) << 32);
+		*system_time = kbase_reg_read64_coherent(kbdev, GPU_CONTROL_ENUM(TIMESTAMP));
 	}
 
 	/* Record the CPU's idea of current time */
@@ -113,7 +100,7 @@ static bool timedwait_cycle_count_active(struct kbase_device *kbdev)
 	const unsigned long remaining = jiffies + msecs_to_jiffies(timeout);
 
 	while (time_is_after_jiffies(remaining)) {
-		if ((kbase_reg_read(kbdev, GPU_CONTROL_REG(GPU_STATUS)) &
+		if ((kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_STATUS)) &
 		     GPU_STATUS_CYCLE_COUNT_ACTIVE)) {
 			success = true;
 			break;
@@ -124,18 +111,15 @@ static bool timedwait_cycle_count_active(struct kbase_device *kbdev)
 }
 #endif
 
-void kbase_backend_get_gpu_time(struct kbase_device *kbdev, u64 *cycle_counter,
-				u64 *system_time, struct timespec64 *ts)
+void kbase_backend_get_gpu_time(struct kbase_device *kbdev, u64 *cycle_counter, u64 *system_time,
+				struct timespec64 *ts)
 {
 #if !MALI_USE_CSF
 	kbase_pm_request_gpu_cycle_counter(kbdev);
-	WARN_ONCE(kbdev->pm.backend.l2_state != KBASE_L2_ON,
-		  "L2 not powered up");
-	WARN_ONCE((!timedwait_cycle_count_active(kbdev)),
-		  "Timed out on CYCLE_COUNT_ACTIVE");
+	WARN_ONCE(kbdev->pm.backend.l2_state != KBASE_L2_ON, "L2 not powered up");
+	WARN_ONCE((!timedwait_cycle_count_active(kbdev)), "Timed out on CYCLE_COUNT_ACTIVE");
 #endif
-	kbase_backend_get_gpu_time_norequest(kbdev, cycle_counter, system_time,
-					     ts);
+	kbase_backend_get_gpu_time_norequest(kbdev, cycle_counter, system_time, ts);
 #if !MALI_USE_CSF
 	kbase_pm_release_gpu_cycle_counter(kbdev);
 #endif
@@ -270,19 +254,7 @@ KBASE_EXPORT_TEST_API(kbase_get_timeout_ms);
 
 u64 kbase_backend_get_cycle_cnt(struct kbase_device *kbdev)
 {
-	u32 hi1, hi2, lo;
-
-	/* Read hi, lo, hi to ensure a coherent u64 */
-	do {
-		hi1 = kbase_reg_read(kbdev,
-					GPU_CONTROL_REG(CYCLE_COUNT_HI));
-		lo = kbase_reg_read(kbdev,
-					GPU_CONTROL_REG(CYCLE_COUNT_LO));
-		hi2 = kbase_reg_read(kbdev,
-					GPU_CONTROL_REG(CYCLE_COUNT_HI));
-	} while (hi1 != hi2);
-
-	return lo | (((u64) hi1) << 32);
+	return kbase_reg_read64_coherent(kbdev, GPU_CONTROL_ENUM(CYCLE_COUNT));
 }
 
 #if MALI_USE_CSF

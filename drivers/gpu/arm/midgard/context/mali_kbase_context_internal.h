@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -36,6 +36,14 @@ struct kbase_context_init {
 	char *err_mes;
 };
 
+/**
+ * kbase_context_common_init() - Initialize kbase context
+ * @kctx:   Pointer to the kbase context to be initialized.
+ *
+ * This function must be called only when a kbase context is instantiated.
+ *
+ * Return: 0 on success.
+ */
 int kbase_context_common_init(struct kbase_context *kctx);
 void kbase_context_common_term(struct kbase_context *kctx);
 

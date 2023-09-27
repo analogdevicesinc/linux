@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2021-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2021-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -46,9 +46,8 @@ union kbase_ioctl_kinstr_prfcnt_setup;
  *
  * Return: 0 on success, else error code.
  */
-int kbase_kinstr_prfcnt_init(
-	struct kbase_hwcnt_virtualizer *hvirt,
-	struct kbase_kinstr_prfcnt_context **out_kinstr_ctx);
+int kbase_kinstr_prfcnt_init(struct kbase_hwcnt_virtualizer *hvirt,
+			     struct kbase_kinstr_prfcnt_context **out_kinstr_ctx);
 
 /**
  * kbase_kinstr_prfcnt_term() - Terminate a kinstr_prfcnt context.
@@ -168,9 +167,8 @@ void kbasep_kinstr_prfcnt_client_destroy(struct kbase_kinstr_prfcnt_client *cli)
  *
  * Return: 0 on success, else error code.
  */
-int kbase_kinstr_prfcnt_enum_info(
-	struct kbase_kinstr_prfcnt_context *kinstr_ctx,
-	struct kbase_ioctl_kinstr_prfcnt_enum_info *enum_info);
+int kbase_kinstr_prfcnt_enum_info(struct kbase_kinstr_prfcnt_context *kinstr_ctx,
+				  struct kbase_ioctl_kinstr_prfcnt_enum_info *enum_info);
 
 /**
  * kbase_kinstr_prfcnt_setup() - Set up a new hardware counter reader client.

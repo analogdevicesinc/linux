@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2021-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2021-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -40,8 +40,8 @@ struct kbase_csf_event_cb {
 	void *param;
 };
 
-int kbase_csf_event_wait_add(struct kbase_context *kctx,
-			     kbase_csf_event_callback *callback, void *param)
+int kbase_csf_event_wait_add(struct kbase_context *kctx, kbase_csf_event_callback *callback,
+			     void *param)
 {
 	int err = -ENOMEM;
 	struct kbase_csf_event_cb *event_cb =
@@ -56,8 +56,7 @@ int kbase_csf_event_wait_add(struct kbase_context *kctx,
 
 		spin_lock_irqsave(&kctx->csf.event.lock, flags);
 		list_add_tail(&event_cb->link, &kctx->csf.event.callback_list);
-		dev_dbg(kctx->kbdev->dev,
-			"Added event handler %pK with param %pK\n", event_cb,
+		dev_dbg(kctx->kbdev->dev, "Added event handler %pK with param %pK\n", event_cb,
 			event_cb->param);
 		spin_unlock_irqrestore(&kctx->csf.event.lock, flags);
 
@@ -67,8 +66,8 @@ int kbase_csf_event_wait_add(struct kbase_context *kctx,
 	return err;
 }
 
-void kbase_csf_event_wait_remove(struct kbase_context *kctx,
-		kbase_csf_event_callback *callback, void *param)
+void kbase_csf_event_wait_remove(struct kbase_context *kctx, kbase_csf_event_callback *callback,
+				 void *param)
 {
 	struct kbase_csf_event_cb *event_cb;
 	unsigned long flags;
@@ -78,8 +77,7 @@ void kbase_csf_event_wait_remove(struct kbase_context *kctx,
 	list_for_each_entry(event_cb, &kctx->csf.event.callback_list, link) {
 		if ((event_cb->callback == callback) && (event_cb->param == param)) {
 			list_del(&event_cb->link);
-			dev_dbg(kctx->kbdev->dev,
-				"Removed event handler %pK with param %pK\n",
+			dev_dbg(kctx->kbdev->dev, "Removed event handler %pK with param %pK\n",
 				event_cb, event_cb->param);
 			kfree(event_cb);
 			break;
@@ -113,8 +111,7 @@ void kbase_csf_event_signal(struct kbase_context *kctx, bool notify_gpu)
 	struct kbase_csf_event_cb *event_cb, *next_event_cb;
 	unsigned long flags;
 
-	dev_dbg(kctx->kbdev->dev,
-		"Signal event (%s GPU notify) for context %pK\n",
+	dev_dbg(kctx->kbdev->dev, "Signal event (%s GPU notify) for context %pK\n",
 		notify_gpu ? "with" : "without", (void *)kctx);
 
 	/* First increment the signal count and wake up event thread.
@@ -136,12 +133,10 @@ void kbase_csf_event_signal(struct kbase_context *kctx, bool notify_gpu)
 	 */
 	spin_lock_irqsave(&kctx->csf.event.lock, flags);
 
-	list_for_each_entry_safe(
-		event_cb, next_event_cb, &kctx->csf.event.callback_list, link) {
+	list_for_each_entry_safe(event_cb, next_event_cb, &kctx->csf.event.callback_list, link) {
 		enum kbase_csf_event_callback_action action;
 
-		dev_dbg(kctx->kbdev->dev,
-			"Calling event handler %pK with param %pK\n",
+		dev_dbg(kctx->kbdev->dev, "Calling event handler %pK with param %pK\n",
 			(void *)event_cb, event_cb->param);
 		action = event_cb->callback(event_cb->param);
 		if (action == KBASE_CSF_EVENT_CALLBACK_REMOVE) {
@@ -160,17 +155,15 @@ void kbase_csf_event_term(struct kbase_context *kctx)
 
 	spin_lock_irqsave(&kctx->csf.event.lock, flags);
 
-	list_for_each_entry_safe(
-		event_cb, next_event_cb, &kctx->csf.event.callback_list, link) {
+	list_for_each_entry_safe(event_cb, next_event_cb, &kctx->csf.event.callback_list, link) {
 		list_del(&event_cb->link);
-		dev_warn(kctx->kbdev->dev,
-			"Removed event handler %pK with param %pK\n",
-			(void *)event_cb, event_cb->param);
+		dev_warn(kctx->kbdev->dev, "Removed event handler %pK with param %pK\n",
+			 (void *)event_cb, event_cb->param);
 		kfree(event_cb);
 	}
 
-	WARN(!list_empty(&kctx->csf.event.error_list),
-	     "Error list not empty for ctx %d_%d\n", kctx->tgid, kctx->id);
+	WARN(!list_empty(&kctx->csf.event.error_list), "Error list not empty for ctx %d_%d\n",
+	     kctx->tgid, kctx->id);
 
 	spin_unlock_irqrestore(&kctx->csf.event.lock, flags);
 }
@@ -182,8 +175,7 @@ void kbase_csf_event_init(struct kbase_context *const kctx)
 	spin_lock_init(&kctx->csf.event.lock);
 }
 
-void kbase_csf_event_remove_error(struct kbase_context *kctx,
-				  struct kbase_csf_notification *error)
+void kbase_csf_event_remove_error(struct kbase_context *kctx, struct kbase_csf_notification *error)
 {
 	unsigned long flags;
 
@@ -201,19 +193,19 @@ bool kbase_csf_event_read_error(struct kbase_context *kctx,
 	spin_lock_irqsave(&kctx->csf.event.lock, flags);
 	if (likely(!list_empty(&kctx->csf.event.error_list))) {
 		error_data = list_first_entry(&kctx->csf.event.error_list,
-			struct kbase_csf_notification, link);
+					      struct kbase_csf_notification, link);
 		list_del_init(&error_data->link);
 		*event_data = error_data->data;
-		dev_dbg(kctx->kbdev->dev, "Dequeued error %pK in context %pK\n",
-			(void *)error_data, (void *)kctx);
+		dev_dbg(kctx->kbdev->dev, "Dequeued error %pK in context %pK\n", (void *)error_data,
+			(void *)kctx);
 	}
 	spin_unlock_irqrestore(&kctx->csf.event.lock, flags);
 	return !!error_data;
 }
 
 void kbase_csf_event_add_error(struct kbase_context *const kctx,
-			struct kbase_csf_notification *const error,
-			struct base_csf_notification const *const data)
+			       struct kbase_csf_notification *const error,
+			       struct base_csf_notification const *const data)
 {
 	unsigned long flags;
 
@@ -230,8 +222,7 @@ void kbase_csf_event_add_error(struct kbase_context *const kctx,
 	if (list_empty(&error->link)) {
 		error->data = *data;
 		list_add_tail(&error->link, &kctx->csf.event.error_list);
-		dev_dbg(kctx->kbdev->dev,
-			"Added error %pK of type %d in context %pK\n",
+		dev_dbg(kctx->kbdev->dev, "Added error %pK of type %d in context %pK\n",
 			(void *)error, data->type, (void *)kctx);
 	} else {
 		dev_dbg(kctx->kbdev->dev, "Error %pK of type %d already pending in context %pK",

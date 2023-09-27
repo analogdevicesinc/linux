@@ -24,6 +24,7 @@
  */
 
 #include "mali_kbase_debug_mem_allocs.h"
+#include "mali_kbase_reg_track.h"
 #include "mali_kbase.h"
 
 #include <linux/string.h>
@@ -47,13 +48,8 @@ static void debug_zone_mem_allocs_show(struct kbase_reg_zone *zone, struct seq_f
 	struct rb_node *p;
 	struct rb_root *rbtree = &zone->reg_rbtree;
 	struct kbase_va_region *reg;
-	const char *type_names[5] = {
-		"Native",
-		"Imported UMM",
-		"Imported user buf",
-		"Alias",
-		"Raw"
-	};
+	const char *type_names[5] = { "Native", "Imported UMM", "Imported user buf", "Alias",
+				      "Raw" };
 
 #define MEM_ALLOCS_HEADER \
 	"              VA,          VA size,      Commit size,    Flags,     Mem type\n"
@@ -63,9 +59,9 @@ static void debug_zone_mem_allocs_show(struct kbase_reg_zone *zone, struct seq_f
 		reg = rb_entry(p, struct kbase_va_region, rblink);
 		if (!(reg->flags & KBASE_REG_FREE)) {
 			seq_printf(sfile, "%16llx, %16zx, %16zx, %8lx, %s\n",
-					reg->start_pfn << PAGE_SHIFT, reg->nr_pages << PAGE_SHIFT,
-					kbase_reg_current_backed_size(reg) << PAGE_SHIFT,
-					reg->flags, type_names[reg->gpu_alloc->type]);
+				   reg->start_pfn << PAGE_SHIFT, reg->nr_pages << PAGE_SHIFT,
+				   kbase_reg_current_backed_size(reg) << PAGE_SHIFT, reg->flags,
+				   type_names[reg->gpu_alloc->type]);
 		}
 	}
 }
@@ -83,6 +79,8 @@ static int debug_ctx_mem_allocs_show(struct seq_file *sfile, void *data)
 {
 	struct kbase_context *const kctx = sfile->private;
 	enum kbase_memory_zone zone_idx;
+
+	CSTD_UNUSED(data);
 
 	kbase_gpu_vm_lock(kctx);
 	for (zone_idx = 0; zone_idx < CONTEXT_ZONE_MAX; zone_idx++) {

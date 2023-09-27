@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -776,7 +776,7 @@ bool kbase_debug_coresight_csf_state_wait(struct kbase_device *kbdev,
 	spin_lock_irqsave(&kbdev->csf.coresight.lock, flags);
 
 	list_for_each_entry_safe(config_entry, next_config_entry, &kbdev->csf.coresight.configs,
-				  link) {
+				 link) {
 		const enum kbase_debug_coresight_csf_state prev_state = config_entry->state;
 		long remaining;
 
@@ -836,13 +836,13 @@ void kbase_debug_coresight_csf_term(struct kbase_device *kbdev)
 	spin_lock_irqsave(&kbdev->csf.coresight.lock, flags);
 
 	list_for_each_entry_safe(config_entry, next_config_entry, &kbdev->csf.coresight.configs,
-				  link) {
+				 link) {
 		list_del_init(&config_entry->link);
 		kfree(config_entry);
 	}
 
 	list_for_each_entry_safe(client_entry, next_client_entry, &kbdev->csf.coresight.clients,
-				  link) {
+				 link) {
 		list_del_init(&client_entry->link);
 		kfree(client_entry);
 	}

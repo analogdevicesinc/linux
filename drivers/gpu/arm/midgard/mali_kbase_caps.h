@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -67,4 +67,4 @@ static inline bool mali_kbase_supports_mem_protected(unsigned long api_version)
 	return mali_kbase_supports_cap(api_version, MALI_KBASE_CAP_MEM_PROTECTED);
 }
 
-#endif	/* __KBASE_CAPS_H_ */
+#endif /* __KBASE_CAPS_H_ */

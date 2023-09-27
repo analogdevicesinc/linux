@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2012-2013, 2017, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -70,7 +70,7 @@ struct dma_buf_te_ioctl_fill {
 #define DMA_BUF_TE_VERSION _IOR(DMA_BUF_TE_IOCTL_BASE, 0x00, struct dma_buf_te_ioctl_version)
 #define DMA_BUF_TE_ALLOC _IOR(DMA_BUF_TE_IOCTL_BASE, 0x01, struct dma_buf_te_ioctl_alloc)
 #define DMA_BUF_TE_QUERY _IOR(DMA_BUF_TE_IOCTL_BASE, 0x02, struct dma_buf_te_ioctl_status)
-#define DMA_BUF_TE_SET_FAILING                                                                     \
+#define DMA_BUF_TE_SET_FAILING \
 	_IOW(DMA_BUF_TE_IOCTL_BASE, 0x03, struct dma_buf_te_ioctl_set_failing)
 #define DMA_BUF_TE_ALLOC_CONT _IOR(DMA_BUF_TE_IOCTL_BASE, 0x04, struct dma_buf_te_ioctl_alloc)
 #define DMA_BUF_TE_FILL _IOR(DMA_BUF_TE_IOCTL_BASE, 0x05, struct dma_buf_te_ioctl_fill)

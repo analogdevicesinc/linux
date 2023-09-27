@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -55,17 +55,17 @@ void kbase_csf_tiler_heap_reclaim_sched_notify_grp_suspend(struct kbase_queue_gr
 /**
  * kbase_csf_tiler_heap_reclaim_ctx_init - Initializer on per context data fields for use
  *                                         with the tiler heap reclaim manager.
- *
  * @kctx: Pointer to the kbase_context.
  *
+ * This function must be called only when a kbase context is instantiated.
  */
 void kbase_csf_tiler_heap_reclaim_ctx_init(struct kbase_context *kctx);
 
 /**
  * kbase_csf_tiler_heap_reclaim_mgr_init - Initializer for the tiler heap reclaim manger.
- *
  * @kbdev: Pointer to the device.
  *
+ * This function must be called only when a kbase device is initialized.
  */
 void kbase_csf_tiler_heap_reclaim_mgr_init(struct kbase_device *kbdev);
 

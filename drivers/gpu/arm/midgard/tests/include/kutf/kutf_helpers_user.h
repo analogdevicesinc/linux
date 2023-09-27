@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2017, 2020-2021 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2017-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -29,7 +29,6 @@
 
 #include <kutf/kutf_suite.h>
 #include <kutf/kutf_helpers.h>
-
 
 #define KUTF_HELPER_MAX_VAL_NAME_LEN 255
 
@@ -86,7 +85,6 @@ enum kutf_helper_err {
 	KUTF_HELPER_ERR_INVALID_VALUE,
 };
 
-
 /* Send named NAME=value pair, u64 value
  *
  * NAME must match [A-Z0-9_]\+ and can be up to MAX_VAL_NAME_LEN characters long
@@ -95,8 +93,7 @@ enum kutf_helper_err {
  *
  * Returns 0 on success, non-zero on failure
  */
-int kutf_helper_send_named_u64(struct kutf_context *context,
-		const char *val_name, u64 val);
+int kutf_helper_send_named_u64(struct kutf_context *context, const char *val_name, u64 val);
 
 /* Get the maximum length of a string that can be represented as a particular
  * NAME="value" pair without string-value truncation in the kernel's buffer
@@ -126,8 +123,8 @@ int kutf_helper_max_str_len_for_kern(const char *val_name, int kern_buf_sz);
  *
  * Returns 0 on success, non-zero on failure
  */
-int kutf_helper_send_named_str(struct kutf_context *context,
-		const char *val_name, const char *val_str);
+int kutf_helper_send_named_str(struct kutf_context *context, const char *val_name,
+			       const char *val_str);
 
 /* Receive named NAME=value pair
  *
@@ -143,9 +140,8 @@ int kutf_helper_send_named_str(struct kutf_context *context,
  * file, positive value indicates an enum kutf_helper_err value for correct
  * reception of data but invalid parsing
  */
-int kutf_helper_receive_named_val(
-		struct kutf_context *context,
-		struct kutf_helper_named_val *named_val);
+int kutf_helper_receive_named_val(struct kutf_context *context,
+				  struct kutf_helper_named_val *named_val);
 
 /* Receive and validate NAME=value pair
  *
@@ -171,14 +167,11 @@ int kutf_helper_receive_named_val(
  * The rationale behind this is that we'd prefer to continue the rest of the
  * test with failures propagated, rather than hitting a timeout
  */
-int kutf_helper_receive_check_val(
-		struct kutf_helper_named_val *named_val,
-		struct kutf_context *context,
-		const char *expect_val_name,
-		enum kutf_helper_valtype expect_val_type);
+int kutf_helper_receive_check_val(struct kutf_helper_named_val *named_val,
+				  struct kutf_context *context, const char *expect_val_name,
+				  enum kutf_helper_valtype expect_val_type);
 
 /* Output a named value to kmsg */
 void kutf_helper_output_named_val(struct kutf_helper_named_val *named_val);
 
-
-#endif	/* _KERNEL_UTF_HELPERS_USER_H_ */
+#endif /* _KERNEL_UTF_HELPERS_USER_H_ */

@@ -31,8 +31,7 @@
  * @kbdev:    Device pointer
  * @mode:     Coherency mode. COHERENCY_ACE/ACE_LITE
  */
-void kbase_cache_set_coherency_mode(struct kbase_device *kbdev,
-		u32 mode);
+void kbase_cache_set_coherency_mode(struct kbase_device *kbdev, u32 mode);
 
 /**
  * kbase_cache_get_coherency_features() - Get the coherency features
@@ -43,6 +42,7 @@ void kbase_cache_set_coherency_mode(struct kbase_device *kbdev,
  */
 u32 kbase_cache_get_coherency_features(struct kbase_device *kbdev);
 
+#if MALI_USE_CSF
 /**
  * kbase_amba_set_memory_cache_support() - Sets AMBA memory cache support
  *                                         in the GPU.
@@ -51,6 +51,6 @@ u32 kbase_cache_get_coherency_features(struct kbase_device *kbdev);
  *
  * Note: Only for arch version 12.x.1 onwards.
  */
-void kbase_amba_set_memory_cache_support(struct kbase_device *kbdev,
-					 bool enable);
+void kbase_amba_set_memory_cache_support(struct kbase_device *kbdev, bool enable);
+#endif /* MALI_USE_CSF */
 #endif /* _KBASE_CACHE_POLICY_BACKEND_H_ */

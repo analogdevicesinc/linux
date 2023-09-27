@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2018, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -22,6 +22,8 @@
 #ifndef _KBASE_HWCNT_GPU_H_
 #define _KBASE_HWCNT_GPU_H_
 
+#include "hwcnt/mali_kbase_hwcnt_types.h"
+
 #include <linux/bug.h>
 #include <linux/types.h>
 
@@ -34,7 +36,7 @@ struct kbase_hwcnt_dump_buffer;
 #define KBASE_HWCNT_V5_BLOCK_TYPE_COUNT 4
 #define KBASE_HWCNT_V5_HEADERS_PER_BLOCK 4
 #define KBASE_HWCNT_V5_DEFAULT_COUNTERS_PER_BLOCK 60
-#define KBASE_HWCNT_V5_DEFAULT_VALUES_PER_BLOCK                                                    \
+#define KBASE_HWCNT_V5_DEFAULT_VALUES_PER_BLOCK \
 	(KBASE_HWCNT_V5_HEADERS_PER_BLOCK + KBASE_HWCNT_V5_DEFAULT_COUNTERS_PER_BLOCK)
 
 /* FrontEnd block count in V5 GPU hardware counter. */
@@ -290,12 +292,15 @@ int kbase_hwcnt_jm_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
  * kbase_hwcnt_csf_dump_get() - Copy or accumulate enabled counters from the raw
  *                              dump buffer in src into the dump buffer
  *                              abstraction in dst.
- * @dst:            Non-NULL pointer to destination dump buffer.
- * @src:            Non-NULL pointer to source raw dump buffer, of same length
- *                  as dump_buf_bytes in the metadata of dst dump buffer.
- * @dst_enable_map: Non-NULL pointer to enable map specifying enabled values.
- * @accumulate:     True if counters in src should be accumulated into
- *                  destination, rather than copied.
+ * @dst:                   Non-NULL pointer to destination dump buffer.
+ * @src:                   Non-NULL pointer to source raw dump buffer, of same length
+ *                         as dump_buf_bytes in the metadata of dst dump buffer.
+ * @src_block_stt:         Non-NULL pointer to source block state buffer.
+ * @dst_enable_map:        Non-NULL pointer to enable map specifying enabled values.
+ * @num_l2_slices:         Current number of L2 slices allocated to the GPU.
+ * @shader_present_bitmap: Current shader-present bitmap that is allocated to the GPU.
+ * @accumulate:            True if counters in src should be accumulated into
+ *                         destination, rather than copied.
  *
  * The dst and dst_enable_map MUST have been created from the same metadata as
  * returned from the call to kbase_hwcnt_csf_metadata_create as was used to get
@@ -304,7 +309,9 @@ int kbase_hwcnt_jm_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
  * Return: 0 on success, else error code.
  */
 int kbase_hwcnt_csf_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
-			     const struct kbase_hwcnt_enable_map *dst_enable_map, bool accumulate);
+			     blk_stt_t *src_block_stt,
+			     const struct kbase_hwcnt_enable_map *dst_enable_map,
+			     size_t num_l2_slices, u64 shader_present_bitmap, bool accumulate);
 
 /**
  * kbase_hwcnt_backend_gpu_block_map_to_physical() - Convert from a block

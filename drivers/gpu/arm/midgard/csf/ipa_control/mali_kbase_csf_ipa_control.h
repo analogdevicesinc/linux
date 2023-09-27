@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -68,6 +68,8 @@ struct kbase_ipa_control_perf_counter {
  * kbase_ipa_control_init - Initialize the IPA Control component
  *
  * @kbdev: Pointer to Kbase device.
+ *
+ * This function must be called only when a kbase device is initialized.
  */
 void kbase_ipa_control_init(struct kbase_device *kbdev);
 
@@ -103,10 +105,9 @@ void kbase_ipa_control_term(struct kbase_device *kbdev);
  *
  * Return: 0 on success, negative -errno on error
  */
-int kbase_ipa_control_register(
-	struct kbase_device *kbdev,
-	const struct kbase_ipa_control_perf_counter *perf_counters,
-	size_t num_counters, void **client);
+int kbase_ipa_control_register(struct kbase_device *kbdev,
+			       const struct kbase_ipa_control_perf_counter *perf_counters,
+			       size_t num_counters, void **client);
 
 /**
  * kbase_ipa_control_unregister - Unregister a client from IPA Control
@@ -117,8 +118,7 @@ int kbase_ipa_control_register(
  *
  * Return: 0 on success, negative -errno on error
  */
-int kbase_ipa_control_unregister(struct kbase_device *kbdev,
-				 const void *client);
+int kbase_ipa_control_unregister(struct kbase_device *kbdev, const void *client);
 
 /**
  * kbase_ipa_control_query - Query performance counters
@@ -152,9 +152,8 @@ int kbase_ipa_control_unregister(struct kbase_device *kbdev,
  *
  * Return: 0 on success, negative -errno on error
  */
-int kbase_ipa_control_query(struct kbase_device *kbdev, const void *client,
-			    u64 *values, size_t num_values,
-			    u64 *protected_time);
+int kbase_ipa_control_query(struct kbase_device *kbdev, const void *client, u64 *values,
+			    size_t num_values, u64 *protected_time);
 
 /**
  * kbase_ipa_control_handle_gpu_power_on - Handle the GPU power on event
@@ -236,8 +235,8 @@ void kbase_ipa_control_handle_gpu_sleep_exit(struct kbase_device *kbdev);
  *
  * Notify the IPA Control component about a GPU rate change.
  */
-void kbase_ipa_control_rate_change_notify_test(struct kbase_device *kbdev,
-					       u32 clk_index, u32 clk_rate_hz);
+void kbase_ipa_control_rate_change_notify_test(struct kbase_device *kbdev, u32 clk_index,
+					       u32 clk_rate_hz);
 #endif /* MALI_UNIT_TEST */
 
 /**

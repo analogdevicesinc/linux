@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -36,19 +36,19 @@
 #define GPU_REQUEST_TIMEOUT 1000
 #define KHZ_TO_HZ 1000
 
-#define MAX_L2_SLICES_MASK		0xFF
+#define MAX_L2_SLICES_MASK 0xFF
 
 /* Maximum time in ms, before deferring probe incase
  * GPU_GRANTED message is not received
  */
 static int gpu_req_timeout = 1;
 module_param(gpu_req_timeout, int, 0644);
-MODULE_PARM_DESC(gpu_req_timeout,
+MODULE_PARM_DESC(
+	gpu_req_timeout,
 	"On a virtualized platform, if the GPU is not granted within this time(ms) kbase will defer the probe");
 
 static void kbase_arbiter_pm_vm_wait_gpu_assignment(struct kbase_device *kbdev);
-static inline bool kbase_arbiter_pm_vm_gpu_assigned_lockheld(
-	struct kbase_device *kbdev);
+static inline bool kbase_arbiter_pm_vm_gpu_assigned_lockheld(struct kbase_device *kbdev);
 
 /**
  * kbase_arbiter_pm_vm_state_str() - Helper function to get string
@@ -57,8 +57,7 @@ static inline bool kbase_arbiter_pm_vm_gpu_assigned_lockheld(
  *
  * Return: string representation of Kbase_vm_state
  */
-static inline const char *kbase_arbiter_pm_vm_state_str(
-	enum kbase_vm_state state)
+static inline const char *kbase_arbiter_pm_vm_state_str(enum kbase_vm_state state)
 {
 	switch (state) {
 	case KBASE_VM_STATE_INITIALIZING:
@@ -98,8 +97,7 @@ static inline const char *kbase_arbiter_pm_vm_state_str(
  *
  * Return: String representation of Kbase_arbif_event
  */
-static inline const char *kbase_arbiter_pm_vm_event_str(
-	enum kbase_arbif_evt evt)
+static inline const char *kbase_arbiter_pm_vm_event_str(enum kbase_arbif_evt evt)
 {
 	switch (evt) {
 	case KBASE_VM_GPU_INITIALIZED_EVT:
@@ -131,19 +129,18 @@ static inline const char *kbase_arbiter_pm_vm_event_str(
  *
  * This function sets the new state for the VM
  */
-static void kbase_arbiter_pm_vm_set_state(struct kbase_device *kbdev,
-	enum kbase_vm_state new_state)
+static void kbase_arbiter_pm_vm_set_state(struct kbase_device *kbdev, enum kbase_vm_state new_state)
 {
 	struct kbase_arbiter_vm_state *arb_vm_state = kbdev->pm.arb_vm_state;
 
 	dev_dbg(kbdev->dev, "VM set_state %s -> %s",
-	kbase_arbiter_pm_vm_state_str(arb_vm_state->vm_state),
-	kbase_arbiter_pm_vm_state_str(new_state));
+		kbase_arbiter_pm_vm_state_str(arb_vm_state->vm_state),
+		kbase_arbiter_pm_vm_state_str(new_state));
 
 	lockdep_assert_held(&arb_vm_state->vm_state_lock);
 	arb_vm_state->vm_state = new_state;
 	if (new_state != KBASE_VM_STATE_INITIALIZING_WITH_GPU &&
-		new_state != KBASE_VM_STATE_INITIALIZING)
+	    new_state != KBASE_VM_STATE_INITIALIZING)
 		KBASE_KTRACE_ADD(kbdev, ARB_VM_STATE, NULL, new_state);
 	wake_up(&arb_vm_state->vm_state_wait);
 }
@@ -157,21 +154,18 @@ static void kbase_arbiter_pm_vm_set_state(struct kbase_device *kbdev,
  */
 static void kbase_arbiter_pm_suspend_wq(struct work_struct *data)
 {
-	struct kbase_arbiter_vm_state *arb_vm_state = container_of(data,
-				struct kbase_arbiter_vm_state,
-				vm_suspend_work);
+	struct kbase_arbiter_vm_state *arb_vm_state =
+		container_of(data, struct kbase_arbiter_vm_state, vm_suspend_work);
 	struct kbase_device *kbdev = arb_vm_state->kbdev;
 
 	mutex_lock(&arb_vm_state->vm_state_lock);
 	dev_dbg(kbdev->dev, ">%s\n", __func__);
 	if (arb_vm_state->vm_state == KBASE_VM_STATE_STOPPING_IDLE ||
-			arb_vm_state->vm_state ==
-					KBASE_VM_STATE_STOPPING_ACTIVE ||
-			arb_vm_state->vm_state ==
-					KBASE_VM_STATE_SUSPEND_PENDING) {
+	    arb_vm_state->vm_state == KBASE_VM_STATE_STOPPING_ACTIVE ||
+	    arb_vm_state->vm_state == KBASE_VM_STATE_SUSPEND_PENDING) {
 		mutex_unlock(&arb_vm_state->vm_state_lock);
 		dev_dbg(kbdev->dev, ">kbase_pm_driver_suspend\n");
-		kbase_pm_driver_suspend(kbdev);
+		WARN_ON_ONCE(kbase_pm_driver_suspend(kbdev));
 		dev_dbg(kbdev->dev, "<kbase_pm_driver_suspend\n");
 		mutex_lock(&arb_vm_state->vm_state_lock);
 	}
@@ -188,9 +182,8 @@ static void kbase_arbiter_pm_suspend_wq(struct work_struct *data)
  */
 static void kbase_arbiter_pm_resume_wq(struct work_struct *data)
 {
-	struct kbase_arbiter_vm_state *arb_vm_state = container_of(data,
-				struct kbase_arbiter_vm_state,
-				vm_resume_work);
+	struct kbase_arbiter_vm_state *arb_vm_state =
+		container_of(data, struct kbase_arbiter_vm_state, vm_resume_work);
 	struct kbase_device *kbdev = arb_vm_state->kbdev;
 
 	mutex_lock(&arb_vm_state->vm_state_lock);
@@ -222,15 +215,15 @@ static void kbase_arbiter_pm_resume_wq(struct work_struct *data)
  */
 static enum hrtimer_restart request_timer_callback(struct hrtimer *timer)
 {
-	struct kbase_arbiter_vm_state *arb_vm_state = container_of(timer,
-			struct kbase_arbiter_vm_state, vm_request_timer);
+	struct kbase_arbiter_vm_state *arb_vm_state =
+		container_of(timer, struct kbase_arbiter_vm_state, vm_request_timer);
 
 	KBASE_DEBUG_ASSERT(arb_vm_state);
 	KBASE_DEBUG_ASSERT(arb_vm_state->kbdev);
 
 	dev_warn(arb_vm_state->kbdev->dev,
-		"Still waiting for GPU to be granted from Arbiter after %d ms\n",
-		GPU_REQUEST_TIMEOUT);
+		 "Still waiting for GPU to be granted from Arbiter after %d ms\n",
+		 GPU_REQUEST_TIMEOUT);
 	return HRTIMER_NORESTART;
 }
 
@@ -246,9 +239,8 @@ static void start_request_timer(struct kbase_device *kbdev)
 {
 	struct kbase_arbiter_vm_state *arb_vm_state = kbdev->pm.arb_vm_state;
 
-	hrtimer_start(&arb_vm_state->vm_request_timer,
-			HR_TIMER_DELAY_MSEC(GPU_REQUEST_TIMEOUT),
-			HRTIMER_MODE_REL);
+	hrtimer_start(&arb_vm_state->vm_request_timer, HR_TIMER_DELAY_MSEC(GPU_REQUEST_TIMEOUT),
+		      HRTIMER_MODE_REL);
 }
 
 /**
@@ -280,8 +272,7 @@ int kbase_arbiter_pm_early_init(struct kbase_device *kbdev)
 	int err;
 	struct kbase_arbiter_vm_state *arb_vm_state = NULL;
 
-	arb_vm_state = kmalloc(sizeof(struct kbase_arbiter_vm_state),
-				GFP_KERNEL);
+	arb_vm_state = kmalloc(sizeof(struct kbase_arbiter_vm_state), GFP_KERNEL);
 	if (arb_vm_state == NULL)
 		return -ENOMEM;
 
@@ -290,8 +281,7 @@ int kbase_arbiter_pm_early_init(struct kbase_device *kbdev)
 
 	mutex_init(&arb_vm_state->vm_state_lock);
 	init_waitqueue_head(&arb_vm_state->vm_state_wait);
-	arb_vm_state->vm_arb_wq = alloc_ordered_workqueue("kbase_vm_arb_wq",
-		WQ_HIGHPRI);
+	arb_vm_state->vm_arb_wq = alloc_ordered_workqueue("kbase_vm_arb_wq", WQ_HIGHPRI);
 	if (!arb_vm_state->vm_arb_wq) {
 		dev_err(kbdev->dev, "Failed to allocate vm_arb workqueue\n");
 		kfree(arb_vm_state);
@@ -301,15 +291,13 @@ int kbase_arbiter_pm_early_init(struct kbase_device *kbdev)
 	INIT_WORK(&arb_vm_state->vm_resume_work, kbase_arbiter_pm_resume_wq);
 	arb_vm_state->vm_arb_starting = false;
 	atomic_set(&kbdev->pm.gpu_users_waiting, 0);
-	hrtimer_init(&arb_vm_state->vm_request_timer, CLOCK_MONOTONIC,
-							HRTIMER_MODE_REL);
-	arb_vm_state->vm_request_timer.function =
-						request_timer_callback;
+	hrtimer_init(&arb_vm_state->vm_request_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	arb_vm_state->vm_request_timer.function = request_timer_callback;
 	kbdev->pm.arb_vm_state = arb_vm_state;
 
 	err = kbase_arbif_init(kbdev);
 	if (err) {
-		dev_err(kbdev->dev, "Failed to initialise arbif module\n");
+		dev_err(kbdev->dev, "Failed to initialise arbif module. (err = %d)\n", err);
 		goto arbif_init_fail;
 	}
 
@@ -318,21 +306,20 @@ int kbase_arbiter_pm_early_init(struct kbase_device *kbdev)
 		dev_dbg(kbdev->dev, "Waiting for initial GPU assignment...\n");
 
 		err = wait_event_timeout(arb_vm_state->vm_state_wait,
-			arb_vm_state->vm_state ==
-					KBASE_VM_STATE_INITIALIZING_WITH_GPU,
-			msecs_to_jiffies(gpu_req_timeout));
+					 arb_vm_state->vm_state ==
+						 KBASE_VM_STATE_INITIALIZING_WITH_GPU,
+					 msecs_to_jiffies(gpu_req_timeout));
 
 		if (!err) {
 			dev_dbg(kbdev->dev,
-			"Kbase probe Deferred after waiting %d ms to receive GPU_GRANT\n",
-			gpu_req_timeout);
+				"Kbase probe Deferred after waiting %d ms to receive GPU_GRANT\n",
+				gpu_req_timeout);
 
 			err = -ENODEV;
 			goto arbif_timeout;
 		}
 
-		dev_dbg(kbdev->dev,
-			"Waiting for initial GPU assignment - done\n");
+		dev_dbg(kbdev->dev, "Waiting for initial GPU assignment - done\n");
 	}
 	return 0;
 
@@ -423,9 +410,8 @@ void kbase_arbiter_pm_vm_stopped(struct kbase_device *kbdev)
 	lockdep_assert_held(&arb_vm_state->vm_state_lock);
 
 	if (atomic_read(&kbdev->pm.gpu_users_waiting) > 0 &&
-			arb_vm_state->vm_state == KBASE_VM_STATE_STOPPING_IDLE)
-		kbase_arbiter_pm_vm_set_state(kbdev,
-			 KBASE_VM_STATE_STOPPING_ACTIVE);
+	    arb_vm_state->vm_state == KBASE_VM_STATE_STOPPING_IDLE)
+		kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_STOPPING_ACTIVE);
 
 	dev_dbg(kbdev->dev, "%s %s\n", __func__,
 		kbase_arbiter_pm_vm_state_str(arb_vm_state->vm_state));
@@ -438,8 +424,7 @@ void kbase_arbiter_pm_vm_stopped(struct kbase_device *kbdev)
 	switch (arb_vm_state->vm_state) {
 	case KBASE_VM_STATE_STOPPING_ACTIVE:
 		request_gpu = true;
-		kbase_arbiter_pm_vm_set_state(kbdev,
-			KBASE_VM_STATE_STOPPED_GPU_REQUESTED);
+		kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_STOPPED_GPU_REQUESTED);
 		break;
 	case KBASE_VM_STATE_STOPPING_IDLE:
 		kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_STOPPED);
@@ -448,8 +433,7 @@ void kbase_arbiter_pm_vm_stopped(struct kbase_device *kbdev)
 		kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_SUSPENDED);
 		break;
 	default:
-		dev_warn(kbdev->dev, "unexpected pm_stop VM state %u",
-			arb_vm_state->vm_state);
+		dev_warn(kbdev->dev, "unexpected pm_stop VM state %u", arb_vm_state->vm_state);
 		break;
 	}
 
@@ -459,8 +443,7 @@ void kbase_arbiter_pm_vm_stopped(struct kbase_device *kbdev)
 		start_request_timer(kbdev);
 }
 
-void kbase_arbiter_set_max_config(struct kbase_device *kbdev,
-				  uint32_t max_l2_slices,
+void kbase_arbiter_set_max_config(struct kbase_device *kbdev, uint32_t max_l2_slices,
 				  uint32_t max_core_mask)
 {
 	struct kbase_arbiter_vm_state *arb_vm_state;
@@ -544,8 +527,7 @@ static void kbase_arbiter_pm_vm_gpu_start(struct kbase_device *kbdev)
 	cancel_request_timer(kbdev);
 	switch (arb_vm_state->vm_state) {
 	case KBASE_VM_STATE_INITIALIZING:
-		kbase_arbiter_pm_vm_set_state(kbdev,
-			KBASE_VM_STATE_INITIALIZING_WITH_GPU);
+		kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_INITIALIZING_WITH_GPU);
 		break;
 	case KBASE_VM_STATE_STOPPED_GPU_REQUESTED:
 		kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_STARTING);
@@ -557,8 +539,7 @@ static void kbase_arbiter_pm_vm_gpu_start(struct kbase_device *kbdev)
 		 */
 		kbase_gpuprops_req_curr_config_update(kbdev);
 		/* curr_config will be updated while resuming the PM. */
-		queue_work(arb_vm_state->vm_arb_wq,
-			&arb_vm_state->vm_resume_work);
+		queue_work(arb_vm_state->vm_arb_wq, &arb_vm_state->vm_resume_work);
 		break;
 	case KBASE_VM_STATE_SUSPEND_WAIT_FOR_GRANT:
 		kbase_pm_set_gpu_lost(kbdev, false);
@@ -572,10 +553,8 @@ static void kbase_arbiter_pm_vm_gpu_start(struct kbase_device *kbdev)
 		 * without a frequency update
 		 */
 		if (!freq_updated)
-			dev_warn(kbdev->dev,
-				"GPU_GRANTED when not expected - state %s\n",
-				kbase_arbiter_pm_vm_state_str(
-					arb_vm_state->vm_state));
+			dev_warn(kbdev->dev, "GPU_GRANTED when not expected - state %s\n",
+				 kbase_arbiter_pm_vm_state_str(arb_vm_state->vm_state));
 		break;
 	}
 }
@@ -599,31 +578,25 @@ static void kbase_arbiter_pm_vm_gpu_stop(struct kbase_device *kbdev)
 
 	switch (arb_vm_state->vm_state) {
 	case KBASE_VM_STATE_IDLE:
-		kbase_arbiter_pm_vm_set_state(kbdev,
-			KBASE_VM_STATE_STOPPING_IDLE);
-		queue_work(arb_vm_state->vm_arb_wq,
-			&arb_vm_state->vm_suspend_work);
+		kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_STOPPING_IDLE);
+		queue_work(arb_vm_state->vm_arb_wq, &arb_vm_state->vm_suspend_work);
 		break;
 	case KBASE_VM_STATE_ACTIVE:
-		kbase_arbiter_pm_vm_set_state(kbdev,
-			KBASE_VM_STATE_STOPPING_ACTIVE);
-		queue_work(arb_vm_state->vm_arb_wq,
-			&arb_vm_state->vm_suspend_work);
+		kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_STOPPING_ACTIVE);
+		queue_work(arb_vm_state->vm_arb_wq, &arb_vm_state->vm_suspend_work);
 		break;
 	case KBASE_VM_STATE_STARTING:
 		dev_dbg(kbdev->dev, "Got GPU_STOP event while STARTING.");
-		kbase_arbiter_pm_vm_set_state(kbdev,
-			KBASE_VM_STATE_STOPPING_ACTIVE);
+		kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_STOPPING_ACTIVE);
 		if (arb_vm_state->vm_arb_starting)
-			queue_work(arb_vm_state->vm_arb_wq,
-				&arb_vm_state->vm_suspend_work);
+			queue_work(arb_vm_state->vm_arb_wq, &arb_vm_state->vm_suspend_work);
 		break;
 	case KBASE_VM_STATE_SUSPEND_PENDING:
 		/* Suspend finishes with a stop so nothing else to do */
 		break;
 	default:
 		dev_warn(kbdev->dev, "GPU_STOP when not expected - state %s\n",
-			kbase_arbiter_pm_vm_state_str(arb_vm_state->vm_state));
+			 kbase_arbiter_pm_vm_state_str(arb_vm_state->vm_state));
 		break;
 	}
 }
@@ -646,7 +619,7 @@ static void kbase_gpu_lost(struct kbase_device *kbdev)
 	case KBASE_VM_STATE_ACTIVE:
 	case KBASE_VM_STATE_IDLE:
 		dev_warn(kbdev->dev, "GPU lost in state %s",
-		kbase_arbiter_pm_vm_state_str(arb_vm_state->vm_state));
+			 kbase_arbiter_pm_vm_state_str(arb_vm_state->vm_state));
 		kbase_arbiter_pm_vm_gpu_stop(kbdev);
 		handle_gpu_lost = true;
 		break;
@@ -689,8 +662,7 @@ static void kbase_gpu_lost(struct kbase_device *kbdev)
  *
  * Return: True if its ready to be suspended else False.
  */
-static inline bool kbase_arbiter_pm_vm_os_suspend_ready_state(
-	struct kbase_device *kbdev)
+static inline bool kbase_arbiter_pm_vm_os_suspend_ready_state(struct kbase_device *kbdev)
 {
 	switch (kbdev->pm.arb_vm_state->vm_state) {
 	case KBASE_VM_STATE_SUSPENDED:
@@ -718,8 +690,7 @@ static void kbase_arbiter_pm_vm_os_prepare_suspend(struct kbase_device *kbdev)
 
 	lockdep_assert_held(&arb_vm_state->vm_state_lock);
 	if (kbdev->arb.arb_if) {
-		if (kbdev->pm.arb_vm_state->vm_state ==
-					KBASE_VM_STATE_SUSPENDED)
+		if (kbdev->pm.arb_vm_state->vm_state == KBASE_VM_STATE_SUSPENDED)
 			return;
 	}
 	/* Block suspend OS function until we are in a stable state
@@ -730,17 +701,15 @@ static void kbase_arbiter_pm_vm_os_prepare_suspend(struct kbase_device *kbdev)
 		switch (arb_vm_state->vm_state) {
 		case KBASE_VM_STATE_STOPPING_ACTIVE:
 		case KBASE_VM_STATE_STOPPING_IDLE:
-			kbase_arbiter_pm_vm_set_state(kbdev,
-				KBASE_VM_STATE_SUSPEND_PENDING);
+			kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_SUSPEND_PENDING);
 			break;
 		case KBASE_VM_STATE_STOPPED_GPU_REQUESTED:
-			kbase_arbiter_pm_vm_set_state(kbdev,
-				KBASE_VM_STATE_SUSPEND_WAIT_FOR_GRANT);
+			kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_SUSPEND_WAIT_FOR_GRANT);
 			break;
 		case KBASE_VM_STATE_STARTING:
 			if (!arb_vm_state->vm_arb_starting) {
 				kbase_arbiter_pm_vm_set_state(kbdev,
-					KBASE_VM_STATE_SUSPEND_PENDING);
+							      KBASE_VM_STATE_SUSPEND_PENDING);
 				kbase_arbiter_pm_vm_stopped(kbdev);
 			}
 			break;
@@ -748,24 +717,21 @@ static void kbase_arbiter_pm_vm_os_prepare_suspend(struct kbase_device *kbdev)
 			break;
 		}
 		mutex_unlock(&arb_vm_state->vm_state_lock);
-		wait_event(arb_vm_state->vm_state_wait,
-			arb_vm_state->vm_state != prev_state);
+		wait_event(arb_vm_state->vm_state_wait, arb_vm_state->vm_state != prev_state);
 		mutex_lock(&arb_vm_state->vm_state_lock);
 	}
 
 	switch (arb_vm_state->vm_state) {
 	case KBASE_VM_STATE_STOPPED:
-		kbase_arbiter_pm_vm_set_state(kbdev,
-			KBASE_VM_STATE_SUSPENDED);
+		kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_SUSPENDED);
 		break;
 	case KBASE_VM_STATE_IDLE:
 	case KBASE_VM_STATE_ACTIVE:
-		kbase_arbiter_pm_vm_set_state(kbdev,
-			KBASE_VM_STATE_SUSPEND_PENDING);
+		kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_SUSPEND_PENDING);
 		mutex_unlock(&arb_vm_state->vm_state_lock);
 		/* Ensure resume has completed fully before starting suspend */
 		flush_work(&arb_vm_state->vm_resume_work);
-		kbase_pm_driver_suspend(kbdev);
+		WARN_ON_ONCE(kbase_pm_driver_suspend(kbdev));
 		mutex_lock(&arb_vm_state->vm_state_lock);
 		break;
 	case KBASE_VM_STATE_SUSPENDED:
@@ -789,12 +755,10 @@ static void kbase_arbiter_pm_vm_os_resume(struct kbase_device *kbdev)
 	struct kbase_arbiter_vm_state *arb_vm_state = kbdev->pm.arb_vm_state;
 
 	lockdep_assert_held(&arb_vm_state->vm_state_lock);
-	KBASE_DEBUG_ASSERT_MSG(arb_vm_state->vm_state ==
-						KBASE_VM_STATE_SUSPENDED,
-		"Unexpected state to resume");
+	KBASE_DEBUG_ASSERT_MSG(arb_vm_state->vm_state == KBASE_VM_STATE_SUSPENDED,
+			       "Unexpected state to resume");
 
-	kbase_arbiter_pm_vm_set_state(kbdev,
-		KBASE_VM_STATE_STOPPED_GPU_REQUESTED);
+	kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_STOPPED_GPU_REQUESTED);
 	kbase_arbif_gpu_request(kbdev);
 	start_request_timer(kbdev);
 
@@ -816,8 +780,7 @@ static void kbase_arbiter_pm_vm_os_resume(struct kbase_device *kbdev)
  * The state machine function. Receives events and transitions states
  * according the event received and the current state
  */
-void kbase_arbiter_pm_vm_event(struct kbase_device *kbdev,
-	enum kbase_arbif_evt evt)
+void kbase_arbiter_pm_vm_event(struct kbase_device *kbdev, enum kbase_arbif_evt evt)
 {
 	struct kbase_arbiter_vm_state *arb_vm_state = kbdev->pm.arb_vm_state;
 
@@ -825,10 +788,9 @@ void kbase_arbiter_pm_vm_event(struct kbase_device *kbdev,
 		return;
 
 	mutex_lock(&arb_vm_state->vm_state_lock);
-	dev_dbg(kbdev->dev, "%s %s\n", __func__,
-		kbase_arbiter_pm_vm_event_str(evt));
+	dev_dbg(kbdev->dev, "%s %s\n", __func__, kbase_arbiter_pm_vm_event_str(evt));
 	if (arb_vm_state->vm_state != KBASE_VM_STATE_INITIALIZING_WITH_GPU &&
-		arb_vm_state->vm_state != KBASE_VM_STATE_INITIALIZING)
+	    arb_vm_state->vm_state != KBASE_VM_STATE_INITIALIZING)
 		KBASE_KTRACE_ADD(kbdev, ARB_VM_EVT, NULL, evt);
 	switch (evt) {
 	case KBASE_VM_GPU_GRANTED_EVT:
@@ -850,8 +812,7 @@ void kbase_arbiter_pm_vm_event(struct kbase_device *kbdev,
 	case KBASE_VM_GPU_IDLE_EVENT:
 		switch (arb_vm_state->vm_state) {
 		case KBASE_VM_STATE_ACTIVE:
-			kbase_arbiter_pm_vm_set_state(kbdev,
-				KBASE_VM_STATE_IDLE);
+			kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_IDLE);
 			kbase_arbif_gpu_idle(kbdev);
 			break;
 		default:
@@ -863,13 +824,11 @@ void kbase_arbiter_pm_vm_event(struct kbase_device *kbdev,
 		switch (arb_vm_state->vm_state) {
 		case KBASE_VM_STATE_STARTING:
 		case KBASE_VM_STATE_IDLE:
-			kbase_arbiter_pm_vm_set_state(kbdev,
-			KBASE_VM_STATE_ACTIVE);
+			kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_ACTIVE);
 			kbase_arbif_gpu_active(kbdev);
 			break;
 		case KBASE_VM_STATE_STOPPING_IDLE:
-			kbase_arbiter_pm_vm_set_state(kbdev,
-				KBASE_VM_STATE_STOPPING_ACTIVE);
+			kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_STOPPING_ACTIVE);
 			break;
 		default:
 			break;
@@ -881,12 +840,10 @@ void kbase_arbiter_pm_vm_event(struct kbase_device *kbdev,
 		case KBASE_VM_STATE_INITIALIZING_WITH_GPU:
 			lockdep_assert_held(&kbdev->pm.lock);
 			if (kbdev->pm.active_count > 0) {
-				kbase_arbiter_pm_vm_set_state(kbdev,
-					KBASE_VM_STATE_ACTIVE);
+				kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_ACTIVE);
 				kbase_arbif_gpu_active(kbdev);
 			} else {
-				kbase_arbiter_pm_vm_set_state(kbdev,
-					KBASE_VM_STATE_IDLE);
+				kbase_arbiter_pm_vm_set_state(kbdev, KBASE_VM_STATE_IDLE);
 				kbase_arbif_gpu_idle(kbdev);
 			}
 			break;
@@ -916,8 +873,8 @@ static void kbase_arbiter_pm_vm_wait_gpu_assignment(struct kbase_device *kbdev)
 
 	dev_dbg(kbdev->dev, "Waiting for GPU assignment...\n");
 	wait_event(arb_vm_state->vm_state_wait,
-		arb_vm_state->vm_state == KBASE_VM_STATE_IDLE ||
-		arb_vm_state->vm_state == KBASE_VM_STATE_ACTIVE);
+		   arb_vm_state->vm_state == KBASE_VM_STATE_IDLE ||
+			   arb_vm_state->vm_state == KBASE_VM_STATE_ACTIVE);
 	dev_dbg(kbdev->dev, "Waiting for GPU assignment - done\n");
 }
 
@@ -929,8 +886,7 @@ static void kbase_arbiter_pm_vm_wait_gpu_assignment(struct kbase_device *kbdev)
  *
  * Return: true if GPU is assigned, else false.
  */
-static inline bool kbase_arbiter_pm_vm_gpu_assigned_lockheld(
-	struct kbase_device *kbdev)
+static inline bool kbase_arbiter_pm_vm_gpu_assigned_lockheld(struct kbase_device *kbdev)
 {
 	struct kbase_arbiter_vm_state *arb_vm_state = kbdev->pm.arb_vm_state;
 
@@ -953,7 +909,7 @@ static inline bool kbase_arbiter_pm_vm_gpu_assigned_lockheld(
  * Return: 0 on success else 1 suspend handler isn not possible.
  */
 int kbase_arbiter_pm_ctx_active_handle_suspend(struct kbase_device *kbdev,
-	enum kbase_pm_suspend_handler suspend_handler)
+					       enum kbase_pm_suspend_handler suspend_handler)
 {
 	struct kbase_arbiter_vm_state *arb_vm_state = kbdev->pm.arb_vm_state;
 	int res = 0;
@@ -962,23 +918,18 @@ int kbase_arbiter_pm_ctx_active_handle_suspend(struct kbase_device *kbdev,
 		mutex_lock(&arb_vm_state->vm_state_lock);
 		while (!kbase_arbiter_pm_vm_gpu_assigned_lockheld(kbdev)) {
 			/* Update VM state since we have GPU work to do */
-			if (arb_vm_state->vm_state ==
-						KBASE_VM_STATE_STOPPING_IDLE)
+			if (arb_vm_state->vm_state == KBASE_VM_STATE_STOPPING_IDLE)
 				kbase_arbiter_pm_vm_set_state(kbdev,
-					KBASE_VM_STATE_STOPPING_ACTIVE);
-			else if (arb_vm_state->vm_state ==
-						KBASE_VM_STATE_STOPPED) {
+							      KBASE_VM_STATE_STOPPING_ACTIVE);
+			else if (arb_vm_state->vm_state == KBASE_VM_STATE_STOPPED) {
 				kbase_arbiter_pm_vm_set_state(kbdev,
-					KBASE_VM_STATE_STOPPED_GPU_REQUESTED);
+							      KBASE_VM_STATE_STOPPED_GPU_REQUESTED);
 				kbase_arbif_gpu_request(kbdev);
 				start_request_timer(kbdev);
-			} else if (arb_vm_state->vm_state ==
-					KBASE_VM_STATE_INITIALIZING_WITH_GPU)
+			} else if (arb_vm_state->vm_state == KBASE_VM_STATE_INITIALIZING_WITH_GPU)
 				break;
 
-			if (suspend_handler !=
-				KBASE_PM_SUSPEND_HANDLER_NOT_POSSIBLE) {
-
+			if (suspend_handler != KBASE_PM_SUSPEND_HANDLER_NOT_POSSIBLE) {
 				/* In case of GPU lost, even if
 				 * active_count > 0, we no longer have GPU
 				 * access
@@ -1024,8 +975,7 @@ int kbase_arbiter_pm_ctx_active_handle_suspend(struct kbase_device *kbdev,
  * @arb_freq: Pointer to struchture holding GPU clock frequenecy data
  * @freq: New frequency value in KHz
  */
-void kbase_arbiter_pm_update_gpu_freq(struct kbase_arbiter_freq *arb_freq,
-	uint32_t freq)
+void kbase_arbiter_pm_update_gpu_freq(struct kbase_arbiter_freq *arb_freq, uint32_t freq)
 {
 	struct kbase_gpu_clk_notifier_data ndata;
 
@@ -1037,8 +987,7 @@ void kbase_arbiter_pm_update_gpu_freq(struct kbase_arbiter_freq *arb_freq,
 		arb_freq->arb_freq = freq;
 		arb_freq->freq_updated = true;
 		if (arb_freq->nb)
-			arb_freq->nb->notifier_call(arb_freq->nb,
-						    POST_RATE_CHANGE, &ndata);
+			arb_freq->nb->notifier_call(arb_freq->nb, POST_RATE_CHANGE, &ndata);
 	}
 
 	mutex_unlock(&arb_freq->arb_freq_lock);
@@ -1052,8 +1001,7 @@ void kbase_arbiter_pm_update_gpu_freq(struct kbase_arbiter_freq *arb_freq,
  * Return: Pointer to structure holding GPU clock frequency data reported from
  * arbiter, only index 0 is valid.
  */
-static void *get_arb_gpu_clk(struct kbase_device *kbdev,
-		unsigned int index)
+static void *get_arb_gpu_clk(struct kbase_device *kbdev, unsigned int index)
 {
 	if (index == 0)
 		return &kbdev->arb.arb_freq;
@@ -1067,12 +1015,10 @@ static void *get_arb_gpu_clk(struct kbase_device *kbdev,
  *
  * Return: The GPU clock frequency value saved when gpu is granted from arbiter
  */
-static unsigned long get_arb_gpu_clk_rate(struct kbase_device *kbdev,
-		void *gpu_clk_handle)
+static unsigned long get_arb_gpu_clk_rate(struct kbase_device *kbdev, void *gpu_clk_handle)
 {
 	uint32_t freq;
-	struct kbase_arbiter_freq *arb_dev_freq =
-			(struct kbase_arbiter_freq *) gpu_clk_handle;
+	struct kbase_arbiter_freq *arb_dev_freq = (struct kbase_arbiter_freq *)gpu_clk_handle;
 
 	mutex_lock(&arb_dev_freq->arb_freq_lock);
 	/* Convert from KHz to Hz */
@@ -1092,12 +1038,11 @@ static unsigned long get_arb_gpu_clk_rate(struct kbase_device *kbdev,
  *
  * Return: 0 on success, negative error code otherwise.
  */
-static int arb_gpu_clk_notifier_register(struct kbase_device *kbdev,
-	void *gpu_clk_handle, struct notifier_block *nb)
+static int arb_gpu_clk_notifier_register(struct kbase_device *kbdev, void *gpu_clk_handle,
+					 struct notifier_block *nb)
 {
 	int ret = 0;
-	struct kbase_arbiter_freq *arb_dev_freq =
-		(struct kbase_arbiter_freq *)gpu_clk_handle;
+	struct kbase_arbiter_freq *arb_dev_freq = (struct kbase_arbiter_freq *)gpu_clk_handle;
 
 	if (!arb_dev_freq->nb)
 		arb_dev_freq->nb = nb;
@@ -1117,16 +1062,14 @@ static int arb_gpu_clk_notifier_register(struct kbase_device *kbdev,
  * was previously registered to get notified of a frequency change of the
  * clock corresponding to @gpu_clk_handle.
  */
-static void arb_gpu_clk_notifier_unregister(struct kbase_device *kbdev,
-	void *gpu_clk_handle, struct notifier_block *nb)
+static void arb_gpu_clk_notifier_unregister(struct kbase_device *kbdev, void *gpu_clk_handle,
+					    struct notifier_block *nb)
 {
-	struct kbase_arbiter_freq *arb_dev_freq =
-		(struct kbase_arbiter_freq *)gpu_clk_handle;
+	struct kbase_arbiter_freq *arb_dev_freq = (struct kbase_arbiter_freq *)gpu_clk_handle;
 	if (arb_dev_freq->nb == nb) {
 		arb_dev_freq->nb = NULL;
 	} else {
-		dev_err(kbdev->dev, "%s - notifier did not match\n",
-			 __func__);
+		dev_err(kbdev->dev, "%s - notifier did not match\n", __func__);
 	}
 }
 

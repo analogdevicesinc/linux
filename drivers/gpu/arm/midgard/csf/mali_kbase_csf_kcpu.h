@@ -53,6 +53,7 @@ struct kbase_kcpu_command_import_info {
  * @fence_cb:      Fence callback
  * @fence:         Fence
  * @kcpu_queue:    kcpu command queue
+ * @fence_has_force_signaled:	fence has forced signaled after fence timeouted
  */
 struct kbase_kcpu_command_fence_info {
 #if (KERNEL_VERSION(4, 10, 0) > LINUX_VERSION_CODE)
@@ -63,6 +64,9 @@ struct kbase_kcpu_command_fence_info {
 	struct dma_fence *fence;
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) */
 	struct kbase_kcpu_command_queue *kcpu_queue;
+#if IS_ENABLED(CONFIG_MALI_FENCE_TIMEOUT_RECOVERY)
+	bool fence_has_force_signaled;
+#endif
 };
 
 /**
@@ -181,7 +185,7 @@ struct kbase_kcpu_command_jit_free_info {
 struct kbase_suspend_copy_buffer {
 	size_t size;
 	struct page **pages;
-	int nr_pages;
+	unsigned int nr_pages;
 	size_t offset;
 	struct kbase_mem_phy_alloc *cpu_alloc;
 };
@@ -252,8 +256,8 @@ struct kbase_kcpu_command {
  *				the function which handles processing of kcpu
  *				commands enqueued into a kcpu command queue;
  *				part of kernel API for processing workqueues
- * @dump_work:			struct work_struct which contains a pointer to the
- *				function which handles dumping the state of a kcpu
+ * @timeout_work:		struct work_struct which contains a pointer to the
+ *				function which handles post-timeout actions
  *				queue when a fence signal timeout occurs.
  * @start_offset:		Index of the command to be executed next
  * @id:				KCPU command queue ID.
@@ -296,7 +300,7 @@ struct kbase_kcpu_command_queue {
 	struct kbase_kcpu_command commands[KBASEP_KCPU_QUEUE_SIZE];
 	struct workqueue_struct *wq;
 	struct work_struct work;
-	struct work_struct dump_work;
+	struct work_struct timeout_work;
 	u8 start_offset;
 	u8 id;
 	u16 num_pending_cmds;
@@ -328,8 +332,7 @@ struct kbase_kcpu_command_queue {
  *
  * Return: 0 if successful or a negative error code on failure.
  */
-int kbase_csf_kcpu_queue_new(struct kbase_context *kctx,
-			 struct kbase_ioctl_kcpu_queue_new *newq);
+int kbase_csf_kcpu_queue_new(struct kbase_context *kctx, struct kbase_ioctl_kcpu_queue_new *newq);
 
 /**
  * kbase_csf_kcpu_queue_delete - Delete KCPU command queue.
@@ -342,7 +345,7 @@ int kbase_csf_kcpu_queue_new(struct kbase_context *kctx,
  * Return: 0 if successful or a negative error code on failure.
  */
 int kbase_csf_kcpu_queue_delete(struct kbase_context *kctx,
-			    struct kbase_ioctl_kcpu_queue_delete *del);
+				struct kbase_ioctl_kcpu_queue_delete *del);
 
 /**
  * kbase_csf_kcpu_queue_enqueue - Enqueue a KCPU command into a KCPU command
@@ -364,6 +367,8 @@ int kbase_csf_kcpu_queue_enqueue(struct kbase_context *kctx,
  *                                     for a GPU address space
  *
  * @kctx: Pointer to the kbase context being initialized.
+ *
+ * This function must be called only when a kbase context is instantiated.
  *
  * Return: 0 if successful or a negative error code on failure.
  */
@@ -417,4 +422,13 @@ int kbase_csf_kcpu_queue_halt_timers(struct kbase_device *kbdev);
  */
 void kbase_csf_kcpu_queue_resume_timers(struct kbase_device *kbdev);
 
+#if IS_ENABLED(CONFIG_MALI_FENCE_TIMEOUT_RECOVERY)
+bool kbase_kcpu_command_fence_has_force_signaled(struct kbase_kcpu_command_fence_info *fence_info);
+#else
+static inline bool
+kbase_kcpu_command_fence_has_force_signaled(struct kbase_kcpu_command_fence_info *fence_info)
+{
+	return false;
+}
+#endif
 #endif /* _KBASE_CSF_KCPU_H_ */

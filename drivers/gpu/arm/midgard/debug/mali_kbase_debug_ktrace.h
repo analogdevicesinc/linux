@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -104,8 +104,7 @@ static inline bool kbasep_ktrace_initialized(struct kbase_ktrace *ktrace)
  * PRIVATE: do not use directly. Use KBASE_KTRACE_ADD() instead.
  */
 void kbasep_ktrace_add(struct kbase_device *kbdev, enum kbase_ktrace_code code,
-		struct kbase_context *kctx, kbase_ktrace_flag_t flags,
-		u64 info_val);
+		       struct kbase_context *kctx, kbase_ktrace_flag_t flags, u64 info_val);
 
 /**
  * kbasep_ktrace_clear - clear the trace ringbuffer
@@ -123,36 +122,33 @@ void kbasep_ktrace_clear(struct kbase_device *kbdev);
  */
 void kbasep_ktrace_dump(struct kbase_device *kbdev);
 
-#define KBASE_KTRACE_RBUF_ADD(kbdev, code, kctx, info_val)     \
-	kbasep_ktrace_add(kbdev, KBASE_KTRACE_CODE(code), kctx, 0, \
-			info_val) \
+#define KBASE_KTRACE_RBUF_ADD(kbdev, code, kctx, info_val) \
+	kbasep_ktrace_add(kbdev, KBASE_KTRACE_CODE(code), kctx, 0, info_val)
 
-#define KBASE_KTRACE_RBUF_CLEAR(kbdev) \
-	kbasep_ktrace_clear(kbdev)
+#define KBASE_KTRACE_RBUF_CLEAR(kbdev) kbasep_ktrace_clear(kbdev)
 
-#define KBASE_KTRACE_RBUF_DUMP(kbdev) \
-	kbasep_ktrace_dump(kbdev)
+#define KBASE_KTRACE_RBUF_DUMP(kbdev) kbasep_ktrace_dump(kbdev)
 
 #else /* KBASE_KTRACE_TARGET_RBUF */
 
 #define KBASE_KTRACE_RBUF_ADD(kbdev, code, kctx, info_val) \
-	do { \
-		CSTD_UNUSED(kbdev); \
-		CSTD_NOP(code); \
-		CSTD_UNUSED(kctx); \
-		CSTD_UNUSED(info_val); \
-		CSTD_NOP(0); \
+	do {                                               \
+		CSTD_UNUSED(kbdev);                        \
+		CSTD_NOP(code);                            \
+		CSTD_UNUSED(kctx);                         \
+		CSTD_UNUSED(info_val);                     \
+		CSTD_NOP(0);                               \
 	} while (0)
 
 #define KBASE_KTRACE_RBUF_CLEAR(kbdev) \
-	do { \
-		CSTD_UNUSED(kbdev); \
-		CSTD_NOP(0); \
+	do {                           \
+		CSTD_UNUSED(kbdev);    \
+		CSTD_NOP(0);           \
 	} while (0)
 #define KBASE_KTRACE_RBUF_DUMP(kbdev) \
-	do { \
-		CSTD_UNUSED(kbdev); \
-		CSTD_NOP(0); \
+	do {                          \
+		CSTD_UNUSED(kbdev);   \
+		CSTD_NOP(0);          \
 	} while (0)
 #endif /* KBASE_KTRACE_TARGET_RBUF */
 
@@ -161,32 +157,31 @@ void kbasep_ktrace_dump(struct kbase_device *kbdev);
  */
 #if KBASE_KTRACE_TARGET_FTRACE
 
-#define KBASE_KTRACE_FTRACE_ADD(kbdev, code, kctx, info_val) \
-	trace_mali_##code(kctx, info_val)
+#define KBASE_KTRACE_FTRACE_ADD(kbdev, code, kctx, info_val) trace_mali_##code(kctx, info_val)
 
 #else /* KBASE_KTRACE_TARGET_FTRACE */
 #define KBASE_KTRACE_FTRACE_ADD(kbdev, code, kctx, info_val) \
-	do { \
-		CSTD_UNUSED(kbdev); \
-		CSTD_NOP(code); \
-		CSTD_UNUSED(kctx); \
-		CSTD_UNUSED(info_val); \
-		CSTD_NOP(0); \
+	do {                                                 \
+		CSTD_UNUSED(kbdev);                          \
+		CSTD_NOP(code);                              \
+		CSTD_UNUSED(kctx);                           \
+		CSTD_UNUSED(info_val);                       \
+		CSTD_NOP(0);                                 \
 	} while (0)
 #endif /* KBASE_KTRACE_TARGET_FTRACE */
 
 /* No 'clear' implementation for ftrace yet */
 #define KBASE_KTRACE_FTRACE_CLEAR(kbdev) \
-	do { \
-		CSTD_UNUSED(kbdev); \
-		CSTD_NOP(0); \
+	do {                             \
+		CSTD_UNUSED(kbdev);      \
+		CSTD_NOP(0);             \
 	} while (0)
 
 /* No 'dump' implementation for ftrace yet */
 #define KBASE_KTRACE_FTRACE_DUMP(kbdev) \
-	do { \
-		CSTD_UNUSED(kbdev); \
-		CSTD_NOP(0); \
+	do {                            \
+		CSTD_UNUSED(kbdev);     \
+		CSTD_NOP(0);            \
 	} while (0)
 
 /*
@@ -207,21 +202,21 @@ void kbasep_ktrace_dump(struct kbase_device *kbdev);
  * a) be static or static inline, and
  * b) just return 0 and have no other statements present in the body.
  */
-#define KBASE_KTRACE_ADD(kbdev, code, kctx, info_val) \
-	do { \
+#define KBASE_KTRACE_ADD(kbdev, code, kctx, info_val)                             \
+	do {                                                                      \
 		/* capture values that could come from non-pure function calls */ \
-		u64 __info_val = info_val; \
-		KBASE_KTRACE_RBUF_ADD(kbdev, code, kctx, __info_val); \
-		KBASE_KTRACE_FTRACE_ADD(kbdev, code, kctx, __info_val); \
+		u64 __info_val = info_val;                                        \
+		KBASE_KTRACE_RBUF_ADD(kbdev, code, kctx, __info_val);             \
+		KBASE_KTRACE_FTRACE_ADD(kbdev, code, kctx, __info_val);           \
 	} while (0)
 
 /**
  * KBASE_KTRACE_CLEAR - Clear the trace, if applicable to the target(s)
  * @kbdev:    kbase device
  */
-#define KBASE_KTRACE_CLEAR(kbdev) \
-	do { \
-		KBASE_KTRACE_RBUF_CLEAR(kbdev); \
+#define KBASE_KTRACE_CLEAR(kbdev)                 \
+	do {                                      \
+		KBASE_KTRACE_RBUF_CLEAR(kbdev);   \
 		KBASE_KTRACE_FTRACE_CLEAR(kbdev); \
 	} while (0)
 
@@ -229,9 +224,9 @@ void kbasep_ktrace_dump(struct kbase_device *kbdev);
  * KBASE_KTRACE_DUMP - Dump the trace, if applicable to the target(s)
  * @kbdev:    kbase device
  */
-#define KBASE_KTRACE_DUMP(kbdev) \
-	do { \
-		KBASE_KTRACE_RBUF_DUMP(kbdev); \
+#define KBASE_KTRACE_DUMP(kbdev)                 \
+	do {                                     \
+		KBASE_KTRACE_RBUF_DUMP(kbdev);   \
 		KBASE_KTRACE_FTRACE_DUMP(kbdev); \
 	} while (0)
 

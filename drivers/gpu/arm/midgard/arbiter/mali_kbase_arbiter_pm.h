@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -114,8 +114,7 @@ int kbase_arbiter_pm_install_interrupts(struct kbase_device *kbdev);
  * The state machine function. Receives events and transitions states
  * according the event received and the current state
  */
-void kbase_arbiter_pm_vm_event(struct kbase_device *kbdev,
-	enum kbase_arbif_evt event);
+void kbase_arbiter_pm_vm_event(struct kbase_device *kbdev, enum kbase_arbif_evt event);
 
 /**
  * kbase_arbiter_pm_ctx_active_handle_suspend() - Handle suspend operation for
@@ -131,8 +130,7 @@ void kbase_arbiter_pm_vm_event(struct kbase_device *kbdev,
  * Return: 0 if success, 1 if failure due to system suspending/suspended
  */
 int kbase_arbiter_pm_ctx_active_handle_suspend(struct kbase_device *kbdev,
-	enum kbase_pm_suspend_handler suspend_handler);
-
+					       enum kbase_pm_suspend_handler suspend_handler);
 
 /**
  * kbase_arbiter_pm_vm_stopped() - Handle stop event for the VM
@@ -152,8 +150,7 @@ void kbase_arbiter_pm_vm_stopped(struct kbase_device *kbdev);
  * This function handles a stop event for the VM.
  * It will update the VM state and forward the stop event to the driver.
  */
-void kbase_arbiter_set_max_config(struct kbase_device *kbdev,
-				  uint32_t max_l2_slices,
+void kbase_arbiter_set_max_config(struct kbase_device *kbdev, uint32_t max_l2_slices,
 				  uint32_t max_core_mask);
 
 /**
@@ -190,7 +187,6 @@ struct kbase_arbiter_freq {
  *
  * Updates the GPU frequency and triggers any notifications
  */
-void kbase_arbiter_pm_update_gpu_freq(struct kbase_arbiter_freq *arb_freq,
-	uint32_t freq);
+void kbase_arbiter_pm_update_gpu_freq(struct kbase_arbiter_freq *arb_freq, uint32_t freq);
 
 #endif /*_MALI_KBASE_ARBITER_PM_H_ */

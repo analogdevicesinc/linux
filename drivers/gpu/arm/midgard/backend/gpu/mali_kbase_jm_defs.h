@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -109,21 +109,21 @@ struct kbase_backend_data {
 	atomic_t reset_gpu;
 
 /* The GPU reset isn't pending */
-#define KBASE_RESET_GPU_NOT_PENDING     0
+#define KBASE_RESET_GPU_NOT_PENDING 0
 /* kbase_prepare_to_reset_gpu has been called */
-#define KBASE_RESET_GPU_PREPARED        1
+#define KBASE_RESET_GPU_PREPARED 1
 /* kbase_reset_gpu has been called - the reset will now definitely happen
  * within the timeout period
  */
-#define KBASE_RESET_GPU_COMMITTED       2
+#define KBASE_RESET_GPU_COMMITTED 2
 /* The GPU reset process is currently occuring (timeout has expired or
  * kbasep_try_reset_gpu_early was called)
  */
-#define KBASE_RESET_GPU_HAPPENING       3
+#define KBASE_RESET_GPU_HAPPENING 3
 /* Reset the GPU silently, used when resetting the GPU as part of normal
  * behavior (e.g. when exiting protected mode).
  */
-#define KBASE_RESET_GPU_SILENT          4
+#define KBASE_RESET_GPU_SILENT 4
 	struct workqueue_struct *reset_workq;
 	struct work_struct reset_work;
 	wait_queue_head_t reset_wait;

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014, 2017, 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -36,7 +36,7 @@
  * KUTF_MAX_DSPRINTF_LEN - Maximum size of the message strings within
  * kernel UTF, messages longer then this will be truncated.
  */
-#define KUTF_MAX_DSPRINTF_LEN	1024
+#define KUTF_MAX_DSPRINTF_LEN 1024
 
 /**
  * kutf_dsprintf() - dynamic sprintf
@@ -53,8 +53,6 @@
  *
  * Return: Returns pointer to allocated string, or NULL on error.
  */
-const char *kutf_dsprintf(struct kutf_mempool *pool,
-		const char *fmt, ...) __printf(2, 3);
+const char *kutf_dsprintf(struct kutf_mempool *pool, const char *fmt, ...) __printf(2, 3);
 
-
-#endif	/* _KERNEL_UTF_UTILS_H_ */
+#endif /* _KERNEL_UTF_UTILS_H_ */
