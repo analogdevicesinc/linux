@@ -16,6 +16,7 @@ obj-$(CONFIG_ADF4371) += adf4371.o
 obj-$(CONFIG_ADF4377) += adf4377.o
 obj-$(CONFIG_ADF5355) += adf5355.o
 obj-$(CONFIG_ADL5960) += adl5960.o
+obj-$(CONFIG_ADMFM2000) += admfm2000.o
 obj-$(CONFIG_ADMV1013) += admv1013.o
 obj-$(CONFIG_ADMV1014) += admv1014.o
 obj-$(CONFIG_ADMV1014) += admv4420.o
