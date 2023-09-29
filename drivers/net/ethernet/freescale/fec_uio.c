@@ -183,7 +183,7 @@ static int imx_dwmac_init(struct platform_device *pdev, void *priv)
 	return 0;
 }
 
-static void imx_dwmac_fix_speed(void *priv, unsigned int speed)
+static void imx_dwmac_fix_speed(void *priv, unsigned int speed, unsigned int mode)
 {
 	struct plat_stmmacenet_data *plat_dat;
 	struct imx_priv_data *dwmac = priv;
@@ -193,8 +193,8 @@ static void imx_dwmac_fix_speed(void *priv, unsigned int speed)
 	plat_dat = dwmac->plat_dat;
 
 	if (dwmac->ops->mac_rgmii_txclk_auto_adj ||
-			(plat_dat->interface == PHY_INTERFACE_MODE_RMII) ||
-			(plat_dat->interface == PHY_INTERFACE_MODE_MII))
+			(plat_dat->mac_interface == PHY_INTERFACE_MODE_RMII) ||
+			(plat_dat->mac_interface == PHY_INTERFACE_MODE_MII))
 		return;
 
 	switch (speed) {
@@ -368,7 +368,7 @@ static void stmmac_mac_link_up(struct phylink_config *config,
 	priv->speed = speed;
 
 	if (priv->plat->fix_mac_speed)
-		priv->plat->fix_mac_speed(priv->plat->bsp_priv, speed);
+		priv->plat->fix_mac_speed(priv->plat->bsp_priv, speed, mode);
 
 	if (!duplex)
 		ctrl &= ~priv->hw->link.duplex;
@@ -414,9 +414,9 @@ static const struct phylink_mac_ops stmmac_phylink_mac_ops = {
 static int stmmac_phy_setup(struct stmmac_priv *priv)
 {
 	struct stmmac_mdio_bus_data *mdio_bus_data = priv->plat->mdio_bus_data;
-	struct fwnode_handle *fwnode = of_fwnode_handle(priv->plat->phylink_node);
 	int max_speed = priv->plat->max_speed;
 	int mode = priv->plat->phy_interface;
+	struct fwnode_handle *fwnode;
 	struct phylink *phylink;
 
 	priv->phylink_config.dev = &priv->dev->dev;
@@ -424,9 +424,6 @@ static int stmmac_phy_setup(struct stmmac_priv *priv)
 	if (priv->plat->mdio_bus_data)
 		priv->phylink_config.ovr_an_inband =
 			mdio_bus_data->xpcs_an_inband;
-
-	if (!fwnode)
-		fwnode = dev_fwnode(priv->device);
 
 	/* Set the platform/firmware specified interface mode */
 	__set_bit(mode, priv->phylink_config.supported_interfaces);
@@ -444,6 +441,10 @@ static int stmmac_phy_setup(struct stmmac_priv *priv)
 
 	priv->phylink_config.mac_managed_pm = true;
 
+	fwnode = priv->plat->port_node;
+	if (!fwnode)
+		fwnode = dev_fwnode(priv->device);
+
 	phylink = phylink_create(&priv->phylink_config, fwnode,
 			mode, &stmmac_phylink_mac_ops);
 	if (IS_ERR(phylink))
@@ -452,6 +453,7 @@ static int stmmac_phy_setup(struct stmmac_priv *priv)
 	priv->phylink = phylink;
 	return 0;
 }
+
 static int stmmac_init_phy(struct net_device *dev)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
@@ -462,7 +464,7 @@ static int stmmac_init_phy(struct net_device *dev)
 	if (!phylink_expects_phy(priv->phylink))
 		return 0;
 
-	fwnode = of_fwnode_handle(priv->plat->phylink_node);
+	fwnode = priv->plat->port_node;
 	if (!fwnode)
 		fwnode = dev_fwnode(priv->device);
 
@@ -500,7 +502,7 @@ static int stmmac_init_phy(struct net_device *dev)
 
 static void stmmac_check_pcs_mode(struct stmmac_priv *priv)
 {
-	int interface = priv->plat->interface;
+	int interface = priv->plat->mac_interface;
 
 	if (priv->dma_cap.pcs) {
 		if ((interface == PHY_INTERFACE_MODE_RGMII) ||
