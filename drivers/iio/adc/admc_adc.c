@@ -88,9 +88,7 @@ static int axiadc_hw_submit_block(struct iio_dma_buffer_queue *queue,
 	struct iio_dev *indio_dev = queue->driver_data;
 	struct axiadc_state *st = iio_priv(indio_dev);
 
-	block->block.bytes_used = block->block.size;
-
-	iio_dmaengine_buffer_submit_block(queue, block, DMA_FROM_DEVICE);
+	iio_dmaengine_buffer_submit_block(queue, block);
 
 	axiadc_write(st, ADI_REG_STATUS, ~0);
 	axiadc_write(st, ADI_REG_DMA_STATUS, ~0);

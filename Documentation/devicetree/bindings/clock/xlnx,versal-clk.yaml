@@ -20,7 +20,12 @@ select: false
 
 properties:
   compatible:
-    const: xlnx,versal-clk
+    oneOf:
+      - description: For implementations complying for Versal.
+        const: xlnx,versal-clk
+
+      - description: For implementations complying for Versal NET.
+        const: xlnx,versal-net-clk
 
   "#clock-cells":
     const: 1
@@ -48,8 +53,8 @@ additionalProperties: false
 examples:
   - |
     firmware {
-      zynqmp_firmware: zynqmp-firmware {
-        compatible = "xlnx,zynqmp-firmware";
+      versal_firmware: versal-firmware {
+        compatible = "xlnx,versal-firmware";
         method = "smc";
         versal_clk: clock-controller {
           #clock-cells = <1>;

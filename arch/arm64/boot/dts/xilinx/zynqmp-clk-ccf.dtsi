@@ -133,7 +133,7 @@
 };
 
 &gpu {
-	clocks = <&zynqmp_clk GPU_REF>, <&zynqmp_clk GPU_PP0_REF>, <&zynqmp_clk GPU_PP1_REF>;
+	clocks = <&zynqmp_clk GPU_REF>, <&zynqmp_clk GPU_PP0_REF>;
 };
 
 &lpd_dma_chan1 {
@@ -308,6 +308,10 @@
 	clocks = <&zynqmp_clk AMS_REF>;
 };
 
+&zynqmp_pcap {
+	clocks = <&zynqmp_clk PCAP>;
+};
+
 &zynqmp_dpdma {
 	clocks = <&zynqmp_clk DPDMA_REF>;
 	assigned-clocks = <&zynqmp_clk DPDMA_REF>; /* apll */
@@ -324,8 +328,4 @@
 
 &zynqmp_dp_snd_codec0 {
 	clocks = <&zynqmp_clk DP_AUDIO_REF>;
-};
-
-&zynqmp_pcap {
-	clocks = <&zynqmp_clk PCAP>;
 };

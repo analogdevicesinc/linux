@@ -205,11 +205,11 @@ static int adrv9363x_box_card_dai_init(struct snd_soc_pcm_runtime *rtd)
 		return ret;
 
 	if (gpio_is_valid(priv->gpio_hp_det)) {
-		snd_soc_card_jack_new(rtd->card, "Headphones",
-				      SND_JACK_HEADPHONE,
-				      &simple_card_hp_jack,
-				      simple_card_hp_jack_pins,
-				      ARRAY_SIZE(simple_card_hp_jack_pins));
+		snd_soc_card_jack_new_pins(rtd->card, "Headphones",
+					   SND_JACK_HEADPHONE,
+					   &simple_card_hp_jack,
+					   simple_card_hp_jack_pins,
+					   ARRAY_SIZE(simple_card_hp_jack_pins));
 
 		simple_card_hp_jack_gpio.gpio = priv->gpio_hp_det;
 		simple_card_hp_jack_gpio.invert = priv->gpio_hp_det_invert;
@@ -218,11 +218,11 @@ static int adrv9363x_box_card_dai_init(struct snd_soc_pcm_runtime *rtd)
 	}
 
 	if (gpio_is_valid(priv->gpio_mic_det)) {
-		snd_soc_card_jack_new(rtd->card, "Mic Jack",
-				      SND_JACK_MICROPHONE,
-				      &simple_card_mic_jack,
-				      simple_card_mic_jack_pins,
-				      ARRAY_SIZE(simple_card_mic_jack_pins));
+		snd_soc_card_jack_new_pins(rtd->card, "Mic Jack",
+					   SND_JACK_MICROPHONE,
+					   &simple_card_mic_jack,
+					   simple_card_mic_jack_pins,
+					   ARRAY_SIZE(simple_card_mic_jack_pins));
 		simple_card_mic_jack_gpio.gpio = priv->gpio_mic_det;
 		simple_card_mic_jack_gpio.invert = priv->gpio_mic_det_invert;
 		snd_soc_jack_add_gpios(&simple_card_mic_jack, 1,
@@ -560,13 +560,12 @@ static int headset_init(struct snd_soc_component *component)
 	int ret;
 
 	/* Enable Headset and 4 Buttons Jack detection */
-	ret = snd_soc_card_jack_new(component->card, "Headset Jack",
-				    SND_JACK_HEADSET |
-				    SND_JACK_BTN_0 | SND_JACK_BTN_1 |
-				    SND_JACK_BTN_2 | SND_JACK_BTN_3,
-				    &headset_jack,
-				    headset_jack_pins,
-				    ARRAY_SIZE(headset_jack_pins));
+	ret = snd_soc_card_jack_new_pins(component->card, "Headset Jack",
+					 SND_JACK_HEADSET | SND_JACK_BTN_0 |
+					 SND_JACK_BTN_1 | SND_JACK_BTN_2 |
+					 SND_JACK_BTN_3, &headset_jack,
+					 headset_jack_pins,
+					 ARRAY_SIZE(headset_jack_pins));
 	if (ret)
 		return ret;
 

@@ -177,7 +177,7 @@ static int adm1177_probe(struct i2c_client *client,
 		u32 *pdata = client->dev.platform_data; /* FIXME later */
 		chip->r_sense_mohm = pdata[0];
 		chip->alert_threshold_ma = pdata[1];
-		chip->vrange_high = pdata[2];			
+		chip->vrange_high = pdata[2];
 	}
 
 	if (chip->alert_threshold_ma) {
@@ -206,16 +206,7 @@ static int adm1177_probe(struct i2c_client *client,
 	indio_dev->info = &adm1177_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
-	return iio_device_register(indio_dev);
-}
-
-static int adm1177_remove(struct i2c_client *client)
-{
-	struct iio_dev *indio_dev = i2c_get_clientdata(client);
-
-	iio_device_unregister(indio_dev);
-
-	return 0;
+	return devm_iio_device_register(&client->dev, indio_dev);
 }
 
 static const struct i2c_device_id adm1177_ids[] = {
@@ -236,7 +227,6 @@ static struct i2c_driver adm1177_driver = {
 		.of_match_table = adm1177_dt_ids,
 	},
 	.probe = adm1177_probe,
-	.remove = adm1177_remove,
 	.id_table = adm1177_ids,
 };
 module_i2c_driver(adm1177_driver);

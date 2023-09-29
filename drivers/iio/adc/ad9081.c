@@ -1647,11 +1647,11 @@ out:
 
 static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 	IIO_ENUM("test_mode", IIO_SHARED_BY_TYPE, &ad9081_testmode_enum),
-	IIO_ENUM_AVAILABLE("test_mode", &ad9081_testmode_enum),
+	IIO_ENUM_AVAILABLE("test_mode", IIO_SHARED_BY_TYPE, &ad9081_testmode_enum),
 	IIO_ENUM("nyquist_zone", IIO_SEPARATE, &ad9081_nyquist_zone_enum),
-	IIO_ENUM_AVAILABLE("nyquist_zone", &ad9081_nyquist_zone_enum),
+	IIO_ENUM_AVAILABLE("nyquist_zone", IIO_SHARED_BY_TYPE, &ad9081_nyquist_zone_enum),
 	IIO_ENUM("main_ffh_mode", IIO_SEPARATE, &ad9081_adc_main_ffh_mode_enum),
-	IIO_ENUM_AVAILABLE("main_ffh_mode", &ad9081_adc_main_ffh_mode_enum),
+	IIO_ENUM_AVAILABLE("main_ffh_mode", IIO_SHARED_BY_TYPE, &ad9081_adc_main_ffh_mode_enum),
 	{
 		.name = "main_nco_frequency",
 		.read = ad9081_ext_info_read,
@@ -1747,7 +1747,7 @@ static struct iio_chan_spec_ext_info rxadc_ext_info[] = {
 
 static struct iio_chan_spec_ext_info txdac_ext_info[] = {
 	IIO_ENUM("main_ffh_mode", IIO_SEPARATE, &ad9081_dac_main_ffh_mode_enum),
-	IIO_ENUM_AVAILABLE("main_ffh_mode", &ad9081_dac_main_ffh_mode_enum),
+	IIO_ENUM_AVAILABLE("main_ffh_mode", IIO_SHARED_BY_TYPE, &ad9081_dac_main_ffh_mode_enum),
 	{
 		.name = "main_nco_frequency",
 		.read = ad9081_ext_info_read,
@@ -5201,7 +5201,7 @@ out_clk_del_provider:
 	return ret;
 }
 
-static int ad9081_remove(struct spi_device *spi)
+static void ad9081_remove(struct spi_device *spi)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 	struct ad9081_phy *phy = conv->phy;
@@ -5214,8 +5214,6 @@ static int ad9081_remove(struct spi_device *spi)
 	clk_disable_unprepare(phy->dev_clk);
 	of_clk_del_provider(spi->dev.of_node);
 	adi_ad9081_device_deinit(&phy->ad9081);
-
-	return 0;
 }
 
 static const struct spi_device_id ad9081_id[] = {

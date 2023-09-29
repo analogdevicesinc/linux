@@ -68,7 +68,7 @@ static int spi_ad9250_transfer_one(struct spi_master *master,
 	x[0].tx_buf = spi_ad9250->data;
 	x[0].delay.unit = SPI_DELAY_UNIT_USECS,
 	x[0].delay.value = 10;
-	spi_ad9250->data[0] = cs_to_cpld(spi->chip_select, spi_ad9250->id);
+	spi_ad9250->data[0] = cs_to_cpld(spi_get_chipselect(spi, 0), spi_ad9250->id);
 	spi_message_add_tail(&x[0], &m);
 
 	list_for_each_entry(tn, &msg->transfers, transfer_list) {
@@ -138,13 +138,11 @@ static int spi_ad9250_probe(struct spi_device *spi)
 	return 0;
 }
 
-static int spi_ad9250_remove(struct spi_device *spi)
+static void spi_ad9250_remove(struct spi_device *spi)
 {
 	struct spi_master *master = spi_get_drvdata(spi);
 
 	spi_unregister_master(master);
-
-	return 0;
 }
 
 static const struct spi_device_id spi_ad9250_ids[] = {

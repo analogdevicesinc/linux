@@ -11,6 +11,8 @@
 #include <linux/iio/iio.h>
 #include <linux/platform_device.h>
 #include <linux/gpio/consumer.h>
+#include <linux/property.h>
+#include <linux/mod_devicetable.h>
 
 enum ch_direction {
 	CH_IN,

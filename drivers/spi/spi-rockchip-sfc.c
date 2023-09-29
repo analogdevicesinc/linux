@@ -346,7 +346,7 @@ static int rockchip_sfc_xfer_setup(struct rockchip_sfc *sfc,
 
 	/* set the Controller */
 	ctrl |= SFC_CTRL_PHASE_SEL_NEGETIVE;
-	cmd |= mem->spi->chip_select << SFC_CMD_CS_SHIFT;
+	cmd |= spi_get_chipselect(mem->spi, 0) << SFC_CMD_CS_SHIFT;
 
 	dev_dbg(sfc->dev, "sfc addr.nbytes=%x(x%d) dummy.nbytes=%x(x%d)\n",
 		op->addr.nbytes, op->addr.buswidth,
@@ -624,10 +624,8 @@ static int rockchip_sfc_probe(struct platform_device *pdev)
 
 	/* Find the irq */
 	ret = platform_get_irq(pdev, 0);
-	if (ret < 0) {
-		dev_err(dev, "Failed to get the irq\n");
+	if (ret < 0)
 		goto err_irq;
-	}
 
 	ret = devm_request_irq(dev, ret, rockchip_sfc_irq_handler,
 			       0, pdev->name, sfc);

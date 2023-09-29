@@ -54,12 +54,6 @@
 #define DWC3_PWR_STATE_RETRIES			1000
 #define DWC3_PWR_TIMEOUT			100
 
-/* Versal USB Node ID */
-#define VERSAL_USB_NODE_ID			0x18224018
-
-/* Versal USB Reset ID */
-#define VERSAL_USB_RESET_ID			0xC104036
-
 #define XLNX_USB_FPD_PIPE_CLK			0x7c
 #define PIPE_CLK_DESELECT			1
 #define PIPE_CLK_SELECT				0
@@ -210,9 +204,17 @@ static int dwc3_zynqmp_power_req(struct device *dev, bool on)
 static int dwc3_versal_power_req(struct device *dev, bool on)
 {
 	int ret;
+	u32 pm_info[2];
 	struct dwc3_xlnx *priv_data;
 
 	priv_data = dev_get_drvdata(dev);
+
+	ret = of_property_read_u32_array(dev->of_node, "power-domains",
+					 pm_info, ARRAY_SIZE(pm_info));
+	if (ret < 0) {
+		dev_err(dev, "Failed to read power management information\n");
+		return ret;
+	}
 
 	if (on) {
 		dev_dbg(dev, "%s:Trying to set power state to D0....\n",
@@ -221,12 +223,11 @@ static int dwc3_versal_power_req(struct device *dev, bool on)
 		if (priv_data->pmu_state == D0_STATE)
 			return 0;
 
-		ret = zynqmp_pm_reset_assert(VERSAL_USB_RESET_ID,
-					     PM_RESET_ACTION_RELEASE);
+		ret = reset_control_deassert(priv_data->crst);
 		if (ret < 0)
 			dev_err(priv_data->dev, "failed to De-assert Reset\n");
 
-		ret = zynqmp_pm_usb_set_state(VERSAL_USB_NODE_ID,
+		ret = zynqmp_pm_usb_set_state(pm_info[1],
 					      XLNX_REQ_PWR_STATE_D0,
 					      DWC3_PWR_STATE_RETRIES *
 					      DWC3_PWR_TIMEOUT);
@@ -241,15 +242,14 @@ static int dwc3_versal_power_req(struct device *dev, bool on)
 		if (priv_data->pmu_state == D3_STATE)
 			return 0;
 
-		ret = zynqmp_pm_usb_set_state(VERSAL_USB_NODE_ID,
+		ret = zynqmp_pm_usb_set_state(pm_info[1],
 					      XLNX_REQ_PWR_STATE_D3,
 					      DWC3_PWR_STATE_RETRIES *
 					      DWC3_PWR_TIMEOUT);
 		if (ret < 0)
 			dev_err(priv_data->dev, "failed to enter D3 state\n");
 
-		ret = zynqmp_pm_reset_assert(VERSAL_USB_RESET_ID,
-					     PM_RESET_ACTION_ASSERT);
+		ret = reset_control_assert(priv_data->crst);
 		if (ret < 0)
 			dev_err(priv_data->dev, "failed to assert Reset\n");
 
@@ -354,18 +354,24 @@ static int dwc3_xlnx_init_versal(struct dwc3_xlnx *priv_data)
 	struct device		*dev = priv_data->dev;
 	int			ret;
 
+	priv_data->crst = devm_reset_control_get_exclusive(dev, NULL);
+	if (IS_ERR(priv_data->crst))
+		return dev_err_probe(dev, PTR_ERR(priv_data->crst),
+				     "failed to get reset signal\n");
+
 	dwc3_xlnx_mask_phy_rst(priv_data, false);
 
 	/* Assert and De-assert reset */
-	ret = zynqmp_pm_reset_assert(VERSAL_USB_RESET_ID,
-				     PM_RESET_ACTION_ASSERT);
+	ret = reset_control_assert(priv_data->crst);
 	if (ret < 0) {
 		dev_err_probe(dev, ret, "failed to assert Reset\n");
 		return ret;
 	}
 
-	ret = zynqmp_pm_reset_assert(VERSAL_USB_RESET_ID,
-				     PM_RESET_ACTION_RELEASE);
+	/* reset hold time */
+	usleep_range(5, 10);
+
+	ret = reset_control_deassert(priv_data->crst);
 	if (ret < 0) {
 		dev_err_probe(dev, ret, "failed to De-assert Reset\n");
 		return ret;
@@ -380,9 +386,29 @@ static int dwc3_xlnx_init_zynqmp(struct dwc3_xlnx *priv_data)
 {
 	struct device		*dev = priv_data->dev;
 	struct reset_control	*crst, *hibrst, *apbrst;
-	int			ret;
+	struct gpio_desc	*reset_gpio;
+	int			ret = 0;
 	u32			reg;
-	struct gpio_desc	*reset_gpio = NULL;
+
+	priv_data->usb3_phy = devm_phy_optional_get(dev, "usb3-phy");
+	if (IS_ERR(priv_data->usb3_phy)) {
+		ret = PTR_ERR(priv_data->usb3_phy);
+		dev_err_probe(dev, ret,
+			      "failed to get USB3 PHY\n");
+		goto err;
+	}
+
+	/*
+	 * The following core resets are not required unless a USB3 PHY
+	 * is used, and the subsequent register settings are not required
+	 * unless a core reset is performed (they should be set properly
+	 * by the first-stage boot loader, but may be reverted by a core
+	 * reset). They may also break the configuration if USB3 is actually
+	 * in use but the usb3-phy entry is missing from the device tree.
+	 * Therefore, skip these operations in this case.
+	 */
+	if (!priv_data->usb3_phy)
+		goto skip_usb3_phy;
 
 	crst = devm_reset_control_get_exclusive(dev, "usb_crst");
 	if (IS_ERR(crst)) {
@@ -391,6 +417,7 @@ static int dwc3_xlnx_init_zynqmp(struct dwc3_xlnx *priv_data)
 			      "failed to get core reset signal\n");
 		goto err;
 	}
+
 	priv_data->crst = crst;
 
 	hibrst = devm_reset_control_get_exclusive(dev, "usb_hibrst");
@@ -407,25 +434,6 @@ static int dwc3_xlnx_init_zynqmp(struct dwc3_xlnx *priv_data)
 		dev_err_probe(dev, ret,
 			      "failed to get APB reset signal\n");
 		goto err;
-	}
-
-	priv_data->usb3_phy = devm_phy_optional_get(dev, "usb3-phy");
-	if (IS_ERR(priv_data->usb3_phy)) {
-		ret = PTR_ERR(priv_data->usb3_phy);
-		dev_err_probe(dev, ret,
-			      "failed to get USB3 PHY\n");
-		goto err;
-	}
-
-	/*
-	 * When no USB3 PHY 'usb3-phy' property is specified in the
-	 * device-tree, then zynqmp board work as a USB2.0 mode only.
-	 * USB2.0 mode only design is non-SerDes based, so we are
-	 * skipping phy initialization.
-	 */
-	if (!priv_data->usb3_phy) {
-		ret = 0;
-		goto skip_usb3_phy;
 	}
 
 	ret = reset_control_assert(crst);
@@ -486,18 +494,16 @@ skip_usb3_phy:
 	/* ulpi reset via gpio-modepin or gpio-framework driver */
 	reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(reset_gpio)) {
-		ret = PTR_ERR(reset_gpio);
-		dev_err_probe(dev, ret,
-			      "Failed to bind reset gpio %d,errcode\n", ret);
-		goto err;
+		return dev_err_probe(dev, PTR_ERR(reset_gpio),
+				     "Failed to request reset GPIO\n");
 	}
 
 	if (reset_gpio) {
 		/* Toggle ulpi to reset the phy. */
 		gpiod_set_value_cansleep(reset_gpio, 1);
-		usleep_range(5000, 10000); /* delay */
+		usleep_range(5000, 10000);
 		gpiod_set_value_cansleep(reset_gpio, 0);
-		usleep_range(5000, 10000); /* delay */
+		usleep_range(5000, 10000);
 	}
 
 	/*
@@ -615,6 +621,8 @@ static int dwc3_xlnx_probe(struct platform_device *pdev)
 	/* Register the dwc3-xilinx wakeup function to dwc3 host */
 	dwc3_host_wakeup_register(dwc3_xilinx_wakeup_capable);
 
+	platform_set_drvdata(pdev, priv_data);
+
 	ret = devm_clk_bulk_get_all(priv_data->dev, &priv_data->clks);
 	if (ret < 0)
 		return ret;
@@ -636,7 +644,11 @@ static int dwc3_xlnx_probe(struct platform_device *pdev)
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
 	pm_suspend_ignore_children(dev, false);
-	pm_runtime_get_sync(dev);
+	ret = pm_runtime_resume_and_get(dev);
+	if (ret < 0) {
+		pm_runtime_disable(dev);
+		return ret;
+	}
 
 	return 0;
 
@@ -699,6 +711,7 @@ static int __maybe_unused dwc3_xlnx_suspend(struct device *dev)
 			/* Put the core into D3 */
 			dwc3_set_usb_core_power(dev, false);
 #endif
+
 		phy_exit(priv_data->usb3_phy);
 
 		/* Disable the clocks */
@@ -721,7 +734,6 @@ static int __maybe_unused dwc3_xlnx_resume(struct device *dev)
 		dwc3_set_usb_core_power(dev, true);
 #endif
 
-	/* Enabled the clocks */
 	ret = clk_bulk_enable(priv_data->num_clocks, priv_data->clks);
 	if (ret)
 		return ret;

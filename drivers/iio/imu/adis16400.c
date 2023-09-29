@@ -466,7 +466,7 @@ static int adis16400_initial_setup(struct iio_dev *indio_dev)
 
 		dev_info(&indio_dev->dev, "%s: prod_id 0x%04x at CS%d (irq %d)\n",
 			indio_dev->name, prod_id,
-			st->adis.spi->chip_select, st->adis.spi->irq);
+			spi_get_chipselect(st->adis.spi, 0), st->adis.spi->irq);
 	}
 	/* use high spi speed if possible */
 	if (st->variant->flags & ADIS16400_HAS_SLOW_MODE) {
@@ -641,13 +641,23 @@ static irqreturn_t adis16400_trigger_handler(int irq, void *p)
 	if (ret)
 		dev_err(&adis->spi->dev, "Failed to read data: %d\n", ret);
 
-	if (st->variant->flags & ADIS16400_BURST_DIAG_STAT)
+	if (st->variant->flags & ADIS16400_BURST_DIAG_STAT) {
 		buffer = adis->buffer + sizeof(u16);
-	else
-		buffer = adis->buffer;
+		/*
+		 * The size here is always larger than, or equal to the true
+		 * size of the channel data. This may result in a larger copy
+		 * than necessary, but as the target buffer will be
+		 * buffer->scan_bytes this will be safe.
+		 */
+		iio_push_to_buffers_with_ts_unaligned(indio_dev, buffer,
+						      indio_dev->scan_bytes - sizeof(pf->timestamp),
+						      pf->timestamp);
+	} else {
+		iio_push_to_buffers_with_timestamp(indio_dev,
+						   adis->buffer,
+						   pf->timestamp);
+	}
 
-	iio_push_to_buffers_with_timestamp(indio_dev, buffer,
-		pf->timestamp);
 
 	iio_trigger_notify_done(indio_dev->trig);
 
@@ -1230,3 +1240,4 @@ module_spi_driver(adis16400_driver);
 MODULE_AUTHOR("Manuel Stahl <manuel.stahl@iis.fraunhofer.de>");
 MODULE_DESCRIPTION("Analog Devices ADIS16400/5 IMU SPI driver");
 MODULE_LICENSE("GPL v2");
+MODULE_IMPORT_NS(IIO_ADISLIB);

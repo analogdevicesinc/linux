@@ -1013,7 +1013,7 @@ static const struct iio_chan_spec_ext_info adf4377_ext_info[] = {
 	 */
 	_ADF4377_EXT_INFO("frequency", IIO_SHARED_BY_ALL, ADF4377_FREQ),
 	IIO_ENUM("muxout_select", IIO_SHARED_BY_ALL, &adf4377_muxout_enum),
-	IIO_ENUM_AVAILABLE_SHARED("muxout_select", IIO_SHARED_BY_ALL, &adf4377_muxout_enum),
+	IIO_ENUM_AVAILABLE("muxout_select", IIO_SHARED_BY_ALL, &adf4377_muxout_enum),
 	{ },
 };
 

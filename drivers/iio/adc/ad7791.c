@@ -223,8 +223,7 @@ static struct ad7791_state *ad_sigma_delta_to_ad7791(struct ad_sigma_delta *sd)
 	return container_of(sd, struct ad7791_state, sd);
 }
 
-static int ad7791_set_channel(struct ad_sigma_delta *sd, unsigned int slot,
-	unsigned int channel)
+static int ad7791_set_channel(struct ad_sigma_delta *sd, unsigned int channel)
 {
 	ad_sd_set_comm(sd, channel);
 
@@ -526,3 +525,4 @@ module_spi_driver(ad7791_driver);
 MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
 MODULE_DESCRIPTION("Analog Devices AD7787/AD7788/AD7789/AD7790/AD7791 ADC driver");
 MODULE_LICENSE("GPL v2");
+MODULE_IMPORT_NS(IIO_AD_SIGMA_DELTA);

@@ -46,7 +46,7 @@
 		interrupt-parent = <&gpio0>;
 		interrupts = <75 IRQ_TYPE_LEVEL_LOW>;
 		ti,micbias = <1>; /* 2.2 Volt */
-		ti,insertion-debounce-time = <6>; /* 1 sec */
+		ti,debounce-insertion-ms = <6>; /* 1 sec */
 	};
 
 	rtc@68 {

@@ -60,10 +60,10 @@ struct ad8366_state {
 	enum ad8366_type	type;
 	struct ad8366_info	*info;
 	/*
-	 * DMA (thus cache coherency maintenance) requires the
+	 * DMA (thus cache coherency maintenance) may require the
 	 * transfer buffers to live in their own cache lines.
 	 */
-	unsigned char		data[2] ____cacheline_aligned;
+	unsigned char		data[2] __aligned(IIO_DMA_MINALIGN);
 };
 
 static struct ad8366_info ad8366_infos[] = {
@@ -403,7 +403,7 @@ error_disable_reg:
 	return ret;
 }
 
-static int ad8366_remove(struct spi_device *spi)
+static void ad8366_remove(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 	struct ad8366_state *st = iio_priv(indio_dev);
@@ -413,8 +413,6 @@ static int ad8366_remove(struct spi_device *spi)
 
 	if (!IS_ERR(reg))
 		regulator_disable(reg);
-
-	return 0;
 }
 
 static const struct spi_device_id ad8366_id[] = {

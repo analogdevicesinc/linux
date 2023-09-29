@@ -211,7 +211,7 @@ struct css_device_id {
 	kernel_ulong_t driver_data;
 };
 
-#define ACPI_ID_LEN	9
+#define ACPI_ID_LEN	16
 
 struct acpi_device_id {
 	__u8 id[ACPI_ID_LEN];
@@ -835,6 +835,8 @@ struct wmi_device_id {
 #define MHI_DEVICE_MODALIAS_FMT "mhi:%s"
 #define MHI_NAME_SIZE 32
 
+#define MHI_EP_DEVICE_MODALIAS_FMT "mhi_ep:%s"
+
 /**
  * struct mhi_device_id - MHI device identification
  * @chan: MHI channel name
@@ -893,6 +895,35 @@ struct dfl_device_id {
 	__u16 type;
 	__u16 feature_id;
 	kernel_ulong_t driver_data;
+};
+
+/* ISHTP (Integrated Sensor Hub Transport Protocol) */
+
+#define ISHTP_MODULE_PREFIX	"ishtp:"
+
+/**
+ * struct ishtp_device_id - ISHTP device identifier
+ * @guid: GUID of the device.
+ * @driver_data: pointer to driver specific data
+ */
+struct ishtp_device_id {
+	guid_t guid;
+	kernel_ulong_t driver_data;
+};
+
+/**
+ * struct cdx_device_id - CDX device identifier
+ * @vendor: Vendor ID
+ * @device: Device ID
+ * @override_only: Match only when dev->driver_override is this driver.
+ *
+ * Type of entries in the "device Id" table for CDX devices supported by
+ * a CDX device driver.
+ */
+struct cdx_device_id {
+	__u16 vendor;
+	__u16 device;
+	__u32 override_only;
 };
 
 #endif /* LINUX_MOD_DEVICETABLE_H */

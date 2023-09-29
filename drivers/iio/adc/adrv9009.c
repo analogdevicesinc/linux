@@ -2671,8 +2671,8 @@ static const struct iio_chan_spec_ext_info adrv9009_phy_rx_ext_info[] = {
 	 * values > 2^32 in order to support the entire frequency range
 	 * in Hz. Using scale is a bit ugly.
 	 */
-	IIO_ENUM_AVAILABLE_SHARED("gain_control_mode", 0,  &adrv9009_agc_modes_available),
-	IIO_ENUM("gain_control_mode", false, &adrv9009_agc_modes_available),
+	IIO_ENUM_AVAILABLE("gain_control_mode", IIO_SEPARATE,  &adrv9009_agc_modes_available),
+	IIO_ENUM("gain_control_mode", IIO_SEPARATE, &adrv9009_agc_modes_available),
 	_ADRV9009_EXT_RX_INFO("rssi", RSSI),
 	_ADRV9009_EXT_RX_INFO("quadrature_tracking_en", RX_QEC),
 	_ADRV9009_EXT_RX_INFO("bb_dc_offset_tracking_en", RX_BBDC),
@@ -2688,8 +2688,8 @@ static const struct iio_chan_spec_ext_info adrv9009_phy_obs_rx_ext_info[] = {
 	 * values > 2^32 in order to support the entire frequency range
 	 * in Hz. Using scale is a bit ugly.
 	 */
-	IIO_ENUM_AVAILABLE_SHARED("rf_port_select", 0, &adrv9009_rf_obs_rx_port_available),
-	IIO_ENUM("rf_port_select", false, &adrv9009_rf_obs_rx_port_available),
+	IIO_ENUM_AVAILABLE("rf_port_select", IIO_SEPARATE, &adrv9009_rf_obs_rx_port_available),
+	IIO_ENUM("rf_port_select", IIO_SEPARATE, &adrv9009_rf_obs_rx_port_available),
 	_ADRV9009_EXT_RX_INFO("quadrature_tracking_en", RX_QEC),
 	_ADRV9009_EXT_RX_INFO("bb_dc_offset_tracking_en", RX_BBDC),
 	_ADRV9009_EXT_RX_INFO("rf_bandwidth", RX_RF_BANDWIDTH),
@@ -6810,7 +6810,7 @@ out_unregister_notifier:
 	return ret;
 }
 
-static int adrv9009_remove(struct spi_device *spi)
+static void adrv9009_remove(struct spi_device *spi)
 {
 	struct adrv9009_rf_phy *phy = adrv9009_spi_to_phy(spi);
 
@@ -6825,8 +6825,6 @@ static int adrv9009_remove(struct spi_device *spi)
 	clk_disable_unprepare(phy->fmc2_clk);
 
 	adrv9009_shutdown(phy);
-
-	return 0;
 }
 
 static const struct spi_device_id adrv9009_id[] = {

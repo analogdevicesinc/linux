@@ -22,7 +22,6 @@
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/of_device.h>
-#include <linux/of_gpio.h>
 #include <linux/of_irq.h>
 #include <linux/regmap.h>
 #include <linux/spi/spi.h>
@@ -445,25 +444,12 @@ static void bcm2835aux_spi_handle_err(struct spi_master *master,
 
 static int bcm2835aux_spi_setup(struct spi_device *spi)
 {
-	int ret;
-
 	/* sanity check for native cs */
 	if (spi->mode & SPI_NO_CS)
 		return 0;
-	if (gpio_is_valid(spi->cs_gpio)) {
-		/* with gpio-cs set the GPIO to the correct level
-		 * and as output (in case the dt has the gpio not configured
-		 * as output but native cs)
-		 */
-		ret = gpio_direction_output(spi->cs_gpio,
-					    (spi->mode & SPI_CS_HIGH) ? 0 : 1);
-		if (ret)
-			dev_err(&spi->dev,
-				"could not set gpio %i as output: %i\n",
-				spi->cs_gpio, ret);
 
-		return ret;
-	}
+	if (spi_get_csgpiod(spi, 0))
+		return 0;
 
 	/* for dt-backwards compatibility: only support native on CS0
 	 * known things not supported with broken native CS:
@@ -479,7 +465,7 @@ static int bcm2835aux_spi_setup(struct spi_device *spi)
 	dev_warn(&spi->dev,
 		 "Native CS is not supported - please configure cs-gpio in device-tree\n");
 
-	if (spi->chip_select == 0)
+	if (spi_get_chipselect(spi, 0) == 0)
 		return 0;
 
 	dev_warn(&spi->dev, "Native CS is not working for cs > 0\n");
@@ -519,6 +505,7 @@ static int bcm2835aux_spi_probe(struct platform_device *pdev)
 	master->prepare_message = bcm2835aux_spi_prepare_message;
 	master->unprepare_message = bcm2835aux_spi_unprepare_message;
 	master->dev.of_node = pdev->dev.of_node;
+	master->use_gpio_descriptors = true;
 
 	bs = spi_master_get_devdata(master);
 

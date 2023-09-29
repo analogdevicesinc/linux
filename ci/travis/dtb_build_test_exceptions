@@ -1,7 +1,40 @@
 # Device-trees that are upstream/non-ADI, go here
 
+# Socfpga
 arch/arm/boot/dts/socfpga_cyclone5_chameleon96.dts
 arch/arm/boot/dts/socfpga_cyclone5_de0_nano_soc.dts
+arch/arm/boot/dts/socfpga_arria10_chameleonv3.dts
+arch/arm/boot/dts/socfpga_arria10_socdk_nand.dts
+arch/arm/boot/dts/socfpga_arria10_socdk_qspi.dts
+arch/arm/boot/dts/socfpga_arria10_socdk_sdmmc.dts
+arch/arm/boot/dts/socfpga_arria5_socdk.dts
+arch/arm/boot/dts/socfpga_cyclone5_de0_sockit.dts
+arch/arm/boot/dts/socfpga_cyclone5_mcvevk.dts
+arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
+arch/arm/boot/dts/socfpga_cyclone5_sockit.dts
+arch/arm/boot/dts/socfpga_cyclone5_socrates.dts
+arch/arm/boot/dts/socfpga_cyclone5_sodia.dts
+arch/arm/boot/dts/socfpga_cyclone5_vining_fpga.dts
+arch/arm/boot/dts/socfpga_vt.dts
+
+# Zynq
+arch/arm/boot/dts/zynq-cc108.dts
+arch/arm/boot/dts/zynq-microzed.dts
+arch/arm/boot/dts/zynq-parallella.dts
+arch/arm/boot/dts/zynq-zed.dts
+arch/arm/boot/dts/zynq-zturn.dts
+arch/arm/boot/dts/zynq-zc706.dts
+arch/arm/boot/dts/zynq-zc770-xm010.dts
+arch/arm/boot/dts/zynq-zc770-xm011.dts
+arch/arm/boot/dts/zynq-zc770-xm012.dts
+arch/arm/boot/dts/zynq-zc770-xm013.dts
+arch/arm/boot/dts/zynq-zybo.dts
+arch/arm/boot/dts/zynq-zybo-z7.dts
+arch/arm/boot/dts/zynq-zc702.dts
+arch/arm/boot/dts/zynq-zturn-v5.dts
+arch/arm/boot/dts/zynq-ebaz4205.dts
+
+# ZynqMP
 arch/arm64/boot/dts/xilinx/zynqmp-zcu208-revA.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu216-revA.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu1285-revA.dts
@@ -21,34 +54,7 @@ arch/arm64/boot/dts/xilinx/zynqmp-zc1751-xm017-dc3.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zc1751-xm018-dc4.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zc1751-xm019-dc5.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu100-revC.dts
-arch/arm/boot/dts/socfpga_arria10_socdk_nand.dts
-arch/arm/boot/dts/socfpga_arria10_socdk_qspi.dts
-arch/arm/boot/dts/socfpga_arria10_socdk_sdmmc.dts
-arch/arm/boot/dts/socfpga_arria5_socdk.dts
-arch/arm/boot/dts/socfpga_cyclone5_de0_sockit.dts
-arch/arm/boot/dts/socfpga_cyclone5_mcvevk.dts
-arch/arm/boot/dts/socfpga_cyclone5_socdk.dts
-arch/arm/boot/dts/socfpga_cyclone5_sockit.dts
-arch/arm/boot/dts/socfpga_cyclone5_socrates.dts
-arch/arm/boot/dts/socfpga_cyclone5_sodia.dts
-arch/arm/boot/dts/socfpga_cyclone5_vining_fpga.dts
-arch/arm/boot/dts/socfpga_vt.dts
-arch/arm/boot/dts/zynq-cc108.dts
-arch/arm/boot/dts/zynq-microzed.dts
-arch/arm/boot/dts/zynq-parallella.dts
-arch/arm/boot/dts/zynq-zed.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu102-revA.dts
-arch/arm/boot/dts/zynq-zturn.dts
-arch/arm/boot/dts/zynq-zc706.dts
-arch/arm/boot/dts/zynq-zc770-xm010.dts
-arch/arm/boot/dts/zynq-zc770-xm011.dts
-arch/arm/boot/dts/zynq-zc770-xm012.dts
-arch/arm/boot/dts/zynq-zc770-xm013.dts
-arch/arm/boot/dts/zynq-zybo.dts
-arch/arm/boot/dts/zynq-zybo-z7.dts
-arch/arm/boot/dts/zynq-zc702.dts
-arch/arm/boot/dts/zynq-zturn-v5.dts
-arch/arm/boot/dts/zynq-ebaz4205.dts
 arch/arm64/boot/dts/xilinx/zynqmp-a2197-revA.dts
 arch/arm64/boot/dts/xilinx/zynqmp-dlc21-revA.dts
 arch/arm64/boot/dts/xilinx/zynqmp-e-a2197-00-revA.dts
@@ -79,15 +85,29 @@ arch/arm64/boot/dts/xilinx/zynqmp-vpk120-revA.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev1.1.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu670-revA.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu670-revB.dts
+arch/arm64/boot/dts/xilinx/zynqmp-sc-revC.dts
+arch/arm64/boot/dts/xilinx/zynqmp-sc-vek280-revB.dts
+arch/arm64/boot/dts/xilinx/zynqmp-sc-vn-p-b2197-00-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-sc-vpk180-revB.dts
+arch/arm64/boot/dts/xilinx/zynqmp-sck-kd-g-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-sm-k24-revA.dts
+arch/arm64/boot/dts/xilinx/zynqmp-smk-k24-revA.dts
+
+# Versal
+arch/arm64/boot/dts/xilinx/versal-clk.dtsi
+arch/arm64/boot/dts/xilinx/versal-net-clk-ccf.dtsi
+arch/arm64/boot/dts/xilinx/versal-net-clk.dtsi
+arch/arm64/boot/dts/xilinx/versal-net.dtsi
 arch/arm64/boot/dts/xilinx/versal-net-emu-rev1.9.dts
 arch/arm64/boot/dts/xilinx/versal-net-ipp-rev1.9.dts
 arch/arm64/boot/dts/xilinx/versal-net-ipp-rev1.9-ospi.dts
+arch/arm64/boot/dts/xilinx/versal-net-vn-p-b2197-00-revA.dts
+arch/arm64/boot/dts/xilinx/versal-net-vn-p-b2197-00-revA-pl.dts
 arch/arm64/boot/dts/xilinx/versal-v350-revA.dts
 arch/arm64/boot/dts/xilinx/versal-vck190-rev1.1.dts
 arch/arm64/boot/dts/xilinx/versal-vck190-rev1.1-x-ebm-01-revA.dts
 arch/arm64/boot/dts/xilinx/versal-vck190-rev1.1-x-ebm-02-revA.dts
 arch/arm64/boot/dts/xilinx/versal-vck190-rev1.1-x-ebm-03-revA.dts
-arch/arm64/boot/dts/xilinx/versal-vck190-reva.dts
 arch/arm64/boot/dts/xilinx/versal-vck190-revA.dts
 arch/arm64/boot/dts/xilinx/versal-vck190-revA-x-ebm-01-revA.dts
 arch/arm64/boot/dts/xilinx/versal-vck190-revA-x-ebm-02-revA.dts
@@ -102,12 +122,12 @@ arch/arm64/boot/dts/xilinx/versal-vc-p-a2197-00-revA-x-prc-04-revA.dts
 arch/arm64/boot/dts/xilinx/versal-vc-p-a2197-00-revA-x-prc-04-revA-ospi.dts
 arch/arm64/boot/dts/xilinx/versal-vc-p-a2197-00-revA-x-prc-05-revA.dts
 arch/arm64/boot/dts/xilinx/versal-vek280-revA.dts
+arch/arm64/boot/dts/xilinx/versal-vek280-revB.dts
 arch/arm64/boot/dts/xilinx/versal-vhk158-revA.dts
 arch/arm64/boot/dts/xilinx/versal-vmk180-rev1.1.dts
 arch/arm64/boot/dts/xilinx/versal-vmk180-rev1.1-x-ebm-01-revA.dts
 arch/arm64/boot/dts/xilinx/versal-vmk180-rev1.1-x-ebm-02-revA.dts
 arch/arm64/boot/dts/xilinx/versal-vmk180-rev1.1-x-ebm-03-revA.dts
-arch/arm64/boot/dts/xilinx/versal-vmk180-reva.dts
 arch/arm64/boot/dts/xilinx/versal-vmk180-revA.dts
 arch/arm64/boot/dts/xilinx/versal-vmk180-revA-x-ebm-01-revA.dts
 arch/arm64/boot/dts/xilinx/versal-vmk180-revA-x-ebm-02-revA.dts
@@ -117,8 +137,11 @@ arch/arm64/boot/dts/xilinx/versal-vpk120-revB.dts
 arch/arm64/boot/dts/xilinx/versal-vpk180-revA.dts
 arch/arm64/boot/dts/xilinx/versal-vp-x-a2785-00-revA.dts
 arch/arm64/boot/dts/xilinx/versal-x-ebm-01-revA.dts
+arch/arm64/boot/dts/xilinx/versal-x-ebm-01-revA.dtsi
 arch/arm64/boot/dts/xilinx/versal-x-ebm-02-revA.dts
+arch/arm64/boot/dts/xilinx/versal-x-ebm-02-revA.dtsi
 arch/arm64/boot/dts/xilinx/versal-x-ebm-03-revA.dts
+arch/arm64/boot/dts/xilinx/versal-x-ebm-03-revA.dtsi
 
 # Anything belonging to ADI, goes here
 

@@ -668,17 +668,6 @@ static int ad_pulsar_buffer_postdisable(struct iio_dev *indio_dev)
 	return ad_pulsar_reg_write(adc, AD7682_REG_CONFIG, AD7682_DISABLE_SEQ);
 }
 
-static int ad_pulsar_dma_submit(struct iio_dma_buffer_queue *queue,
-				struct iio_dma_buffer_block *block)
-{
-	return iio_dmaengine_buffer_submit_block(queue, block, DMA_DEV_TO_MEM);
-}
-
-static const struct iio_dma_buffer_ops ad_pulsar_dma_buffer_ops = {
-	.submit = ad_pulsar_dma_submit,
-	.abort = iio_dmaengine_buffer_abort,
-};
-
 static const struct iio_buffer_setup_ops ad_pulsar_buffer_ops = {
 	.preenable = &ad_pulsar_buffer_preenable,
 	.postdisable = &ad_pulsar_buffer_postdisable,
@@ -823,7 +812,6 @@ static void ad_pulsar_clk_disable(void *data)
 static int ad_pulsar_probe(struct spi_device *spi)
 {
 	struct ad_pulsar_adc *adc;
-	struct iio_buffer *buffer;
 	struct iio_dev *indio_dev;
 	struct clk *ref_clk;
 	int ret;
@@ -891,13 +879,11 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_BUFFER_HARDWARE | INDIO_DIRECT_MODE;
 	indio_dev->setup_ops = &ad_pulsar_buffer_ops;
 
-	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent, "rx",
-						 &ad_pulsar_dma_buffer_ops,
-						 indio_dev);
-	if (IS_ERR(buffer))
-		return PTR_ERR(buffer);
-
-	iio_device_attach_buffer(indio_dev, buffer);
+	ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
+					      indio_dev, "rx",
+					      IIO_BUFFER_DIRECTION_IN);
+	if (ret)
+		return ret;
 
 	ret = ad_pulsar_set_samp_freq(adc, adc->info->max_rate);
 	if (ret)

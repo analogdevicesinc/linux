@@ -50,7 +50,7 @@ drivers/iio/adc/xilinx-xadc-core.o
 drivers/iio/adc/xilinx-xadc-events.o
 drivers/iio/jesd204/axi_jesd204b_gt.o
 drivers/iio/jesd204/axi_jesd204b_v51.o
-drivers/media/platform/imageon-bridge.o
+drivers/media/platform/adi/imageon-bridge.o
 drivers/spi/spi-xcomm.o
 drivers/clk/clk-axi-clkgen.o
 drivers/misc/mathworks/mathworks_generic_of.o

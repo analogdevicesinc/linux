@@ -11,7 +11,7 @@
 #define _AXI_HDMI_DRV_H_
 
 #include <drm/drm.h>
-#include <drm/drm_fb_cma_helper.h>
+#include <drm/drm_fb_dma_helper.h>
 #include <linux/of.h>
 #include <linux/clk.h>
 

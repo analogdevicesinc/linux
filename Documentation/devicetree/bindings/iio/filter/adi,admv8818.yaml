@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: (GPL-1.0-only OR BSD-2-Clause)
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 %YAML 1.2
 ---
 $id: http://devicetree.org/schemas/iio/filter/adi,admv8818.yaml#
@@ -36,36 +36,17 @@ properties:
 
   clock-names:
     items:
-      - const: "rf_in"
+      - const: rf_in
 
   clock-output-names:
     maxItems: 1
 
-  clock-scales:
-    description:
-      The Common Clock Framework max rate is limited by MAX of unsigned long.
-      For ADMV8818 device this is a deficiency. If specified, this
-      property allows arbitrary scales. The first element in the array should
-      be the multiplier and the second element should be the divider.
-    $ref: /schemas/types.yaml#/definitions/uint32-array
-    minimum: 1
-
   '#clock-cells':
     const: 0
-
-  adi,bw-hz:
-    description:
-      Allows the user to increase the Bandpass Filter (BPF) bandwidth
-      in Hz. Normally when invoked by the clk notifier, the driver
-      sets the HPF cutoff close below the frequency and the LPF cutoff
-      close above the frequency, and thus creating a BPF.
-    $ref: /schemas/types.yaml#/definitions/uint64
 
 required:
   - compatible
   - reg
-  - clocks
-  - clock-names
 
 additionalProperties: false
 
@@ -79,10 +60,7 @@ examples:
         reg = <0>;
         spi-max-frequency = <10000000>;
         clocks = <&admv8818_rfin>;
-        clock-scales = <1 5>;
         clock-names = "rf_in";
-        adi,bw-hz = /bits/ 64 <600000000>;
       };
     };
 ...
-

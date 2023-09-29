@@ -1143,14 +1143,12 @@ err_of_clk_del_provider:
 	return ret;
 }
 
-static int ad9517_remove(struct spi_device *spi)
+static void ad9517_remove(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 
 	iio_device_unregister(indio_dev);
 	of_clk_del_provider(spi->dev.of_node);
-
-	return 0;
 }
 
 static const struct spi_device_id ad9517_id[] = {

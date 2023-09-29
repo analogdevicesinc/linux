@@ -22,8 +22,9 @@
 static int aie_part_get_clk_state_bit(struct aie_partition *apart,
 				      struct aie_location *loc)
 {
-	if (apart->adev->ops->get_tile_type(apart->adev, loc) !=
-			AIE_TILE_TYPE_TILE)
+	u32 ttype = apart->adev->ops->get_tile_type(apart->adev, loc);
+
+	if (ttype != AIE_TILE_TYPE_TILE && ttype != AIE_TILE_TYPE_MEMORY)
 		return -EINVAL;
 
 	return (loc->col - apart->range.start.col) *
@@ -54,9 +55,9 @@ bool aie_part_check_clk_enable_loc(struct aie_partition *apart,
 				   struct aie_location *loc)
 {
 	int bit;
+	u32 ttype = apart->adev->ops->get_tile_type(apart->adev, loc);
 
-	if (apart->adev->ops->get_tile_type(apart->adev, loc) !=
-			AIE_TILE_TYPE_TILE)
+	if (ttype != AIE_TILE_TYPE_TILE && ttype != AIE_TILE_TYPE_MEMORY)
 		return true;
 
 	bit = aie_part_get_clk_state_bit(apart, loc);
@@ -72,8 +73,8 @@ bool aie_part_check_clk_enable_loc(struct aie_partition *apart,
  *
  * This function will enable clocks of the specified tiles.
  */
-static int aie_part_request_tiles(struct aie_partition *apart, int num_tiles,
-				  struct aie_location *locs)
+int aie_part_request_tiles(struct aie_partition *apart, int num_tiles,
+			   struct aie_location *locs)
 {
 	if (num_tiles == 0) {
 		aie_resource_set(&apart->tiles_inuse, 0,
@@ -104,8 +105,8 @@ static int aie_part_request_tiles(struct aie_partition *apart, int num_tiles,
  *
  * This function will disable clocks of the specified tiles.
  */
-static int aie_part_release_tiles(struct aie_partition *apart, int num_tiles,
-				  struct aie_location *locs)
+int aie_part_release_tiles(struct aie_partition *apart, int num_tiles,
+			   struct aie_location *locs)
 {
 	if (num_tiles == 0) {
 		aie_resource_clear(&apart->tiles_inuse, 0,

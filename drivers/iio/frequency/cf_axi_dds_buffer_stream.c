@@ -44,7 +44,7 @@ static int dds_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 		cf_axi_dds_pl_ddr_fifo_ctrl(st, enable_fifo);
 	}
 
-	return iio_dmaengine_buffer_submit_block(queue, block, DMA_TO_DEVICE);
+	return iio_dmaengine_buffer_submit_block(queue, block);
 }
 
 static int dds_buffer_state_set(struct iio_dev *indio_dev, bool state)
@@ -98,10 +98,10 @@ int cf_axi_dds_configure_buffer(struct iio_dev *indio_dev)
 	if (IS_ERR(buffer))
 		return PTR_ERR(buffer);
 
+	buffer->direction = IIO_BUFFER_DIRECTION_OUT;
 	iio_device_attach_buffer(indio_dev, buffer);
 
 	indio_dev->modes |= INDIO_BUFFER_HARDWARE;
-	indio_dev->direction = IIO_DEVICE_DIRECTION_OUT;
 	indio_dev->setup_ops = &dds_buffer_setup_ops;
 
 	return 0;

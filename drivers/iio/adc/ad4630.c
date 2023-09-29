@@ -485,12 +485,6 @@ static int ad4630_get_avg_frame_len(struct iio_dev *dev,
 	return avg_len;
 }
 
-static int ad4630_dma_buffer_submit_block(struct iio_dma_buffer_queue *queue,
-					  struct iio_dma_buffer_block *block)
-{
-	return iio_dmaengine_buffer_submit_block(queue, block, DMA_DEV_TO_MEM);
-}
-
 static int ad4630_sampling_enable(const struct ad4630_state *st, bool enable)
 {
 	struct pwm_state conv_state, fetch_state;
@@ -614,8 +608,8 @@ static const struct iio_enum ad4630_avg_frame_len_enum = {
 static const struct iio_chan_spec_ext_info ad4630_ext_info[] = {
 	IIO_ENUM("sample_averaging", IIO_SHARED_BY_TYPE,
 		 &ad4630_avg_frame_len_enum),
-	IIO_ENUM_AVAILABLE_SHARED("sample_averaging", IIO_SHARED_BY_TYPE,
-				  &ad4630_avg_frame_len_enum),
+	IIO_ENUM_AVAILABLE("sample_averaging", IIO_SHARED_BY_TYPE,
+			   &ad4630_avg_frame_len_enum),
 	{}
 };
 
@@ -1061,11 +1055,6 @@ static int ad4630_config(struct ad4630_state *st)
 	return 0;
 }
 
-static const struct iio_dma_buffer_ops ad4630_dma_buffer_ops = {
-	.submit = ad4630_dma_buffer_submit_block,
-	.abort = iio_dmaengine_buffer_abort,
-};
-
 static const struct iio_buffer_setup_ops ad4630_buffer_setup_ops = {
 	.preenable = &ad4630_buffer_preenable,
 	.postdisable = &ad4630_buffer_postdisable,
@@ -1198,7 +1187,6 @@ static int ad4630_probe(struct spi_device *spi)
 {
 	struct device *dev = &spi->dev;
 	struct iio_dev *indio_dev;
-	struct iio_buffer *buffer;
 	struct clk *trigger_clock;
 	struct ad4630_state *st;
 	int ret;
@@ -1263,13 +1251,11 @@ static int ad4630_probe(struct spi_device *spi)
 	indio_dev->available_scan_masks = st->chip->available_masks;
 	indio_dev->setup_ops = &ad4630_buffer_setup_ops;
 
-	buffer = devm_iio_dmaengine_buffer_alloc(dev, "rx",
-						 &ad4630_dma_buffer_ops, NULL);
-	if (IS_ERR(buffer))
-		return dev_err_probe(dev, PTR_ERR(buffer),
+	ret = devm_iio_dmaengine_buffer_setup(dev, indio_dev, "rx",
+					      IIO_BUFFER_DIRECTION_IN);
+	if (ret)
+		return dev_err_probe(dev, ret,
 				     "Failed to get DMA buffer\n");
-
-	iio_device_attach_buffer(indio_dev, buffer);
 
 	pm_runtime_set_autosuspend_delay(dev, 1000);
 	pm_runtime_use_autosuspend(dev);

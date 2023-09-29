@@ -7829,17 +7829,17 @@ static const struct iio_chan_spec_ext_info ad9361_phy_rx_ext_info[] = {
 	 * values > 2^32 in order to support the entire frequency range
 	 * in Hz. Using scale is a bit ugly.
 	 */
-	IIO_ENUM_AVAILABLE("gain_control_mode", &ad9361_agc_modes_available),
-	IIO_ENUM("gain_control_mode", false, &ad9361_agc_modes_available),
+	IIO_ENUM_AVAILABLE("gain_control_mode", IIO_SHARED_BY_TYPE, &ad9361_agc_modes_available),
+	IIO_ENUM("gain_control_mode", IIO_SEPARATE, &ad9361_agc_modes_available),
 	_AD9361_EXT_RX_INFO("rssi", 1),
-	IIO_ENUM_AVAILABLE("rf_port_select", &ad9361_rf_rx_port_available),
-	IIO_ENUM("rf_port_select", false, &ad9361_rf_rx_port_available),
+	IIO_ENUM_AVAILABLE("rf_port_select", IIO_SHARED_BY_TYPE, &ad9361_rf_rx_port_available),
+	IIO_ENUM("rf_port_select", IIO_SEPARATE, &ad9361_rf_rx_port_available),
 	{ },
 };
 
 static const struct iio_chan_spec_ext_info ad9361_phy_tx_ext_info[] = {
-	IIO_ENUM_AVAILABLE("rf_port_select", &ad9361_rf_tx_port_available),
-	IIO_ENUM("rf_port_select", false, &ad9361_rf_tx_port_available),
+	IIO_ENUM_AVAILABLE("rf_port_select", IIO_SHARED_BY_TYPE, &ad9361_rf_tx_port_available),
+	IIO_ENUM("rf_port_select", IIO_SEPARATE, &ad9361_rf_tx_port_available),
 	_AD9361_EXT_TX_INFO("rssi", 0),
 	{ },
 };

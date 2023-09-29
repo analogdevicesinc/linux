@@ -44,13 +44,10 @@
 #include <linux/module.h>
 #include <linux/io.h>
 
-#include <mach/hardware.h>
 #include <asm/mach-types.h>
-
-#include <mach/mux.h>
-
-#include <mach/omap7xx.h>	/* OMAP7XX_IO_CONF registers */
-
+#include <linux/soc/ti/omap1-io.h>
+#include <linux/soc/ti/omap1-soc.h>
+#include <linux/soc/ti/omap1-mux.h>
 
 /* FIXME address is now a platform device resource,
  * and irqs should show there too...
@@ -182,7 +179,7 @@ static void uwire_chipselect(struct spi_device *spi, int value)
 
 	w = uwire_read_reg(UWIRE_CSR);
 	old_cs = (w >> 10) & 0x03;
-	if (value == BITBANG_CS_INACTIVE || old_cs != spi->chip_select) {
+	if (value == BITBANG_CS_INACTIVE || old_cs != spi_get_chipselect(spi, 0)) {
 		/* Deselect this CS, or the previous CS */
 		w &= ~CS_CMD;
 		uwire_write_reg(UWIRE_CSR, w);
@@ -196,7 +193,7 @@ static void uwire_chipselect(struct spi_device *spi, int value)
 		else
 			uwire_write_reg(UWIRE_SR4, 0);
 
-		w = spi->chip_select << 10;
+		w = spi_get_chipselect(spi, 0) << 10;
 		w |= CS_CMD;
 		uwire_write_reg(UWIRE_CSR, w);
 	}
@@ -213,7 +210,7 @@ static int uwire_txrx(struct spi_device *spi, struct spi_transfer *t)
 	if (!t->tx_buf && !t->rx_buf)
 		return 0;
 
-	w = spi->chip_select << 10;
+	w = spi_get_chipselect(spi, 0) << 10;
 	w |= CS_CMD;
 
 	if (t->tx_buf) {
@@ -411,7 +408,7 @@ static int uwire_setup_transfer(struct spi_device *spi, struct spi_transfer *t)
 		rate /= 8;
 		break;
 	}
-	omap_uwire_configure_mode(spi->chip_select, flags);
+	omap_uwire_configure_mode(spi_get_chipselect(spi, 0), flags);
 	pr_debug("%s: uwire flags %02x, armxor %lu KHz, SCK %lu KHz\n",
 			__func__, flags,
 			clk_get_rate(uwire->ck) / 1000,
@@ -548,12 +545,6 @@ static int __init omap_uwire_init(void)
 		omap_cfg_reg(N14_1610_UWIRE_CS0);
 		omap_cfg_reg(N15_1610_UWIRE_CS1);
 	}
-	if (machine_is_omap_perseus2()) {
-		/* configure pins: MPU_UW_nSCS1, MPU_UW_SDO, MPU_UW_SCLK */
-		int val = omap_readl(OMAP7XX_IO_CONF_9) & ~0x00EEE000;
-		omap_writel(val | 0x00AAA000, OMAP7XX_IO_CONF_9);
-	}
-
 	return platform_driver_register(&uwire_driver);
 }
 

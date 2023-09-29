@@ -293,7 +293,7 @@ struct adf4371_state {
 	bool spi_3wire_en;
 	bool differential_ref_clk;
 	bool rf8aux_vco_en;
-	u8 buf[10] ____cacheline_aligned;
+	u8 buf[10] __aligned(IIO_DMA_MINALIGN);
 };
 
 static unsigned long long adf4371_pll_fract_n_get_rate(struct adf4371_state *st,
@@ -780,7 +780,7 @@ static const struct iio_chan_spec_ext_info adf4371_ext_info[] = {
 		.shared = IIO_SHARED_BY_ALL,
 	},
 	IIO_ENUM("muxout_mode", IIO_SHARED_BY_ALL, &adf4371_muxout_mode_enum),
-	IIO_ENUM_AVAILABLE("muxout_mode", &adf4371_muxout_mode_enum),
+	IIO_ENUM_AVAILABLE("muxout_mode", IIO_SHARED_BY_TYPE, &adf4371_muxout_mode_enum),
 	{ },
 };
 
@@ -811,7 +811,7 @@ static const struct iio_chan_spec_ext_info adf4371_ext_info_aux[] = {
 		.shared = IIO_SHARED_BY_ALL,
 	},
 	IIO_ENUM("muxout_mode", IIO_SHARED_BY_ALL, &adf4371_muxout_mode_enum),
-	IIO_ENUM_AVAILABLE("muxout_mode", &adf4371_muxout_mode_enum),
+	IIO_ENUM_AVAILABLE("muxout_mode", IIO_SHARED_BY_TYPE, &adf4371_muxout_mode_enum),
 	{ },
 };
 
@@ -1073,13 +1073,6 @@ static int adf4371_setup(struct adf4371_state *st)
 	return adf4371_channel_config(st);
 }
 
-static void adf4371_clk_disable(void *data)
-{
-	struct adf4371_state *st = data;
-
-	clk_disable_unprepare(st->clkin);
-}
-
 static int adf4371_parse_dt(struct adf4371_state *st)
 {
 	unsigned char num_channels;
@@ -1291,17 +1284,9 @@ static int adf4371_probe(struct spi_device *spi)
 	indio_dev->channels = st->chip_info->channels;
 	indio_dev->num_channels = st->chip_info->num_channels + 1; /* Include IIO_TEMP */
 
-	st->clkin = devm_clk_get(&spi->dev, "clkin");
+	st->clkin = devm_clk_get_enabled(&spi->dev, "clkin");
 	if (IS_ERR(st->clkin))
 		return PTR_ERR(st->clkin);
-
-	ret = clk_prepare_enable(st->clkin);
-	if (ret < 0)
-		return ret;
-
-	ret = devm_add_action_or_reset(&spi->dev, adf4371_clk_disable, st);
-	if (ret)
-		return ret;
 
 	st->clkin_freq = clk_get_rate(st->clkin);
 

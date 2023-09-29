@@ -36,7 +36,7 @@ static int xhdmiphy_init(struct phy *phy)
 
 	count++;
 
-	if (count < XHDMIPHY_MAX_LANES)
+	if (count < (XHDMIPHY_MAX_LANES - 4))
 		return 0;
 
 	/* initialize HDMI phy */
@@ -93,7 +93,7 @@ static int xhdmiphy_configure(struct phy *phy, union phy_configure_opts *opts)
 
 	if (!phy_lane->direction) {
 		count_rx++;
-		if (count_rx < XHDMIPHY_MAX_LANES) {
+		if (count_rx < phy_dev->conf.rx_channels) {
 			return 0;
 		} else if (cfg->ibufds) {
 			xhdmiphy_ibufds_en(phy_dev, XHDMIPHY_DIR_RX,
@@ -174,12 +174,14 @@ static int xhdmiphy_configure(struct phy *phy, union phy_configure_opts *opts)
 	if (phy_lane->direction) {
 		count_tx++;
 
-		if (count_tx < XHDMIPHY_MAX_LANES) {
+		if (count_tx < phy_dev->conf.tx_channels) {
 			return 0;
 		} else if (cfg->ibufds) {
 			xhdmiphy_ibufds_en(phy_dev, XHDMIPHY_DIR_TX,
 					   cfg->ibufds_en);
 			cfg->ibufds = 0;
+		} else if (cfg->get_samplerate) {
+			cfg->samplerate = phy_dev->tx_samplerate;
 		} else if (cfg->clkout1_obuftds) {
 			xhdmiphy_clkout1_obuftds_en(phy_dev, XHDMIPHY_DIR_TX,
 						    cfg->clkout1_obuftds_en);
@@ -283,13 +285,8 @@ static irqreturn_t xhdmiphy_irq_handler(int irq, void *dev_id)
 	 */
 	if (priv->conf.gt_type == XHDMIPHY_GTYE5 ||
 	    priv->conf.gt_type == XHDMIPHY_GTYP) {
-		if (priv->conf.gt_direction == XHDMIPHY_SIMPLE_TX)
-			xhdmiphy_intr_dis(priv, XHDMIPHY_GTYE5_TX_ALL_MASK);
-		else if (priv->conf.gt_direction == XHDMIPHY_SIMPLE_RX)
-			xhdmiphy_intr_dis(priv, XHDMIPHY_GTYE5_RX_ALL_MASK);
-		else
-			xhdmiphy_intr_dis(priv, XHDMIPHY_GTYE5_TX_ALL_MASK |
-					  XHDMIPHY_GTYE5_RX_ALL_MASK);
+		xhdmiphy_intr_dis(priv, XHDMIPHY_GTYE5_TX_ALL_MASK |
+				  XHDMIPHY_GTYE5_RX_ALL_MASK);
 	} else {
 		xhdmiphy_intr_dis(priv, XHDMIPHY_INTR_ALL_MASK);
 	}
@@ -349,9 +346,14 @@ static irqreturn_t xhdmiphy_irq_thread(int irq, void *dev_id)
 		if (priv->conf.gt_direction == XHDMIPHY_SIMPLE_TX)
 			event_mask =	XHDMIPHY_INTR_TXTMRTIMEOUT_MASK |
 					XHDMIPHY_INTR_TXFREQCHANGE_MASK;
-		else
+		else if (priv->conf.gt_direction == XHDMIPHY_SIMPLE_RX)
 			event_mask =	XHDMIPHY_INTR_RXFREQCHANGE_MASK |
 					XHDMIPHY_INTR_RXTMRTIMEOUT_MASK;
+		else
+			event_mask =	XHDMIPHY_INTR_RXFREQCHANGE_MASK |
+					XHDMIPHY_INTR_RXTMRTIMEOUT_MASK |
+					XHDMIPHY_INTR_TXTMRTIMEOUT_MASK |
+					XHDMIPHY_INTR_TXFREQCHANGE_MASK;
 	}
 
 	event_ack = event_mask & status;
@@ -642,8 +644,8 @@ static int xhdmiphy_parse_of(struct xhdmiphy_dev *priv)
 	}
 	xgtphycfg->tx_frl_refclk_sel = val;
 
-	priv->rxch4_gpio = devm_gpiod_get(priv->dev,
-					  "rxch4-sel", GPIOD_OUT_LOW);
+	priv->rxch4_gpio = devm_gpiod_get_optional(priv->dev,
+						   "rxch4-sel", GPIOD_OUT_LOW);
 
 	if (IS_ERR(priv->rxch4_gpio)) {
 		if (PTR_ERR(priv->rxch4_gpio) != -EPROBE_DEFER)
@@ -667,6 +669,7 @@ static int xhdmiphy_parse_of(struct xhdmiphy_dev *priv)
 			dev_err(priv->dev, "Invalid gt-direction %d\n", val);
 			return -EINVAL;
 		}
+		xgtphycfg->gt_direction = val;
 	}
 
 	return rc;
@@ -807,9 +810,10 @@ static int xhdmiphy_probe(struct platform_device *pdev)
 	mutex_init(&priv->hdmiphy_mutex);
 
 	for_each_child_of_node(np, child) {
-		if (index >= XHDMIPHY_MAX_LANES) {
+		if (index >= priv->conf.rx_channels + priv->conf.tx_channels) {
 			dev_err(&pdev->dev,
-				"MAX 4 PHY Lanes are supported\n");
+				"MAX %d PHY Lanes are supported\n",
+				(priv->conf.rx_channels + priv->conf.tx_channels));
 			return -E2BIG;
 		}
 

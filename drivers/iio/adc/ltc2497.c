@@ -30,13 +30,13 @@ struct ltc2497_driverdata {
 	u32 recv_size;
 	u32 sub_lsb;
 	/*
-	 * DMA (thus cache coherency maintenance) requires the
+	 * DMA (thus cache coherency maintenance) may require the
 	 * transfer buffers to live in their own cache lines.
 	 */
 	union {
 		__be32 d32;
 		u8 d8[3];
-	} data ____cacheline_aligned;
+	} data __aligned(IIO_DMA_MINALIGN);
 };
 
 static int ltc2497_result_and_measure(struct ltc2497core_driverdata *ddata,
@@ -48,10 +48,11 @@ static int ltc2497_result_and_measure(struct ltc2497core_driverdata *ddata,
 
 	if (val) {
 		if (st->recv_size == 3)
-			ret = i2c_master_recv(st->client, (char *)&st->data.d8, st->recv_size);
+			ret = i2c_master_recv(st->client, (char *)&st->data.d8,
+					      st->recv_size);
 		else
-			ret = i2c_master_recv(st->client, (char *)&st->data.d32, st->recv_size);
-
+			ret = i2c_master_recv(st->client, (char *)&st->data.d32,
+					      st->recv_size);
 		if (ret < 0) {
 			dev_err(&st->client->dev, "i2c_master_recv failed\n");
 			return ret;
@@ -127,13 +128,11 @@ static int ltc2497_probe(struct i2c_client *client,
 	return ltc2497core_probe(dev, indio_dev);
 }
 
-static int ltc2497_remove(struct i2c_client *client)
+static void ltc2497_remove(struct i2c_client *client)
 {
 	struct iio_dev *indio_dev = i2c_get_clientdata(client);
 
 	ltc2497core_remove(indio_dev);
-
-	return 0;
 }
 
 static const struct ltc2497_chip_info ltc2497_info[] = {

@@ -8,7 +8,7 @@
 #include <linux/platform_device.h>
 #include <linux/dmaengine.h>
 #include <linux/bitfield.h>
-
+#include <linux/mod_devicetable.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
@@ -146,7 +146,7 @@ static int m2k_la_txrx_read_raw(struct iio_dev *indio_dev,
 	struct m2k_la *m2k_la = iio_device_get_drvdata(indio_dev);
 	unsigned int div, reg;
 
-	if (indio_dev->direction == IIO_DEVICE_DIRECTION_IN)
+	if (indio_dev->buffer->direction == IIO_BUFFER_DIRECTION_IN)
 		reg = M2K_LA_REG_DIVIDER_LA;
 	else
 		reg = M2K_LA_REG_DIVIDER_PG;
@@ -168,7 +168,7 @@ static int m2k_la_txrx_write_raw(struct iio_dev *indio_dev,
 		val = 1;
 
 	div = DIV_ROUND_UP(clk_get_rate(m2k_la->clk), val);
-	if (indio_dev->direction == IIO_DEVICE_DIRECTION_IN)
+	if (indio_dev->buffer->direction == IIO_BUFFER_DIRECTION_IN)
 		reg = M2K_LA_REG_DIVIDER_LA;
 	else
 		reg = M2K_LA_REG_DIVIDER_PG;
@@ -541,22 +541,22 @@ static ssize_t m2k_la_set_streaming(struct iio_dev *indio_dev,
 
 static const struct iio_chan_spec_ext_info m2k_la_rx_ext_info[] = {
 	IIO_ENUM("trigger", IIO_SEPARATE, &m2k_la_trigger_enum),
-	IIO_ENUM_AVAILABLE("trigger", &m2k_la_trigger_enum),
+	IIO_ENUM_AVAILABLE("trigger", IIO_SHARED_BY_TYPE, &m2k_la_trigger_enum),
 	IIO_ENUM("trigger_logic_mode", IIO_SHARED_BY_TYPE,
 		&m2k_la_trigger_logic_mode_enum),
-	IIO_ENUM_AVAILABLE("trigger_logic_mode",
+	IIO_ENUM_AVAILABLE("trigger_logic_mode", IIO_SHARED_BY_TYPE,
 		&m2k_la_trigger_logic_mode_enum),
 	IIO_ENUM("trigger_mux_out", IIO_SHARED_BY_TYPE,
 		&m2k_la_trigger_mux_out_enum),
-	IIO_ENUM_AVAILABLE("trigger_mux_out",
+	IIO_ENUM_AVAILABLE("trigger_mux_out", IIO_SHARED_BY_TYPE,
 		&m2k_la_trigger_mux_out_enum),
 	IIO_ENUM("data_delay_auto", IIO_SHARED_BY_ALL,
 		&m2k_la_data_delay_auto_enum),
-	IIO_ENUM_AVAILABLE_SHARED("data_delay_auto", IIO_SHARED_BY_ALL,
+	IIO_ENUM_AVAILABLE("data_delay_auto", IIO_SHARED_BY_ALL,
 		&m2k_la_data_delay_auto_enum),
 	IIO_ENUM("rate_mux", IIO_SHARED_BY_ALL,
 		&m2k_la_rate_mux_enum),
-	IIO_ENUM_AVAILABLE_SHARED("rate_mux", IIO_SHARED_BY_ALL,
+	IIO_ENUM_AVAILABLE("rate_mux", IIO_SHARED_BY_ALL,
 		&m2k_la_rate_mux_enum),
 	{
 		.name = "trigger_delay",
@@ -698,10 +698,10 @@ static const struct iio_enum m2k_la_trig_src_enum = {
 };
 
 static const struct iio_chan_spec_ext_info m2k_la_tx_ext_info[] = {
-	IIO_ENUM_AVAILABLE_SHARED("trigger_src", IIO_SHARED_BY_ALL,
+	IIO_ENUM_AVAILABLE("trigger_src", IIO_SHARED_BY_ALL,
 		&m2k_la_trig_src_enum),
 	IIO_ENUM("trigger_src", IIO_SHARED_BY_ALL, &m2k_la_trig_src_enum),
-	IIO_ENUM_AVAILABLE_SHARED("trigger_condition", IIO_SHARED_BY_ALL,
+	IIO_ENUM_AVAILABLE("trigger_condition", IIO_SHARED_BY_ALL,
 		&m2k_la_trig_condition_enum),
 	IIO_ENUM("trigger_condition", IIO_SHARED_BY_ALL,
 		&m2k_la_trig_condition_enum),
@@ -860,13 +860,13 @@ static const struct iio_chan_spec_ext_info m2k_la_ext_info[] = {
 		.shared = IIO_SHARED_BY_ALL,
 	},
 	IIO_ENUM("clocksource", IIO_SHARED_BY_ALL, &m2k_la_clocksource_enum),
-	IIO_ENUM_AVAILABLE_SHARED("clocksource", IIO_SHARED_BY_ALL,
+	IIO_ENUM_AVAILABLE("clocksource", IIO_SHARED_BY_ALL,
 		&m2k_la_clocksource_enum),
 
 	IIO_ENUM("direction", IIO_SEPARATE, &m2k_la_direction_enum),
-	IIO_ENUM_AVAILABLE("direction", &m2k_la_direction_enum),
+	IIO_ENUM_AVAILABLE("direction", IIO_SHARED_BY_TYPE, &m2k_la_direction_enum),
 	IIO_ENUM("outputmode", IIO_SEPARATE, &m2k_la_output_mode_enum),
-	IIO_ENUM_AVAILABLE("outputmode", &m2k_la_output_mode_enum),
+	IIO_ENUM_AVAILABLE("outputmode", IIO_SHARED_BY_TYPE, &m2k_la_output_mode_enum),
 	{}
 };
 
@@ -989,26 +989,6 @@ static const struct iio_chan_spec m2k_la_rx_chan_spec[] = {
 	M2K_LA_RX_CHAN_TRIGGER(17),
 };
 
-static int m2k_la_submit_block(struct iio_dma_buffer_queue *queue,
-	struct iio_dma_buffer_block *block)
-{
-	struct iio_dev *indio_dev = queue->driver_data;
-
-	if (indio_dev->direction == IIO_DEVICE_DIRECTION_IN) {
-		block->block.bytes_used = block->block.size;
-		iio_dmaengine_buffer_submit_block(queue, block, DMA_DEV_TO_MEM);
-	} else {
-		iio_dmaengine_buffer_submit_block(queue, block, DMA_MEM_TO_DEV);
-	}
-
-	return 0;
-}
-
-static const struct iio_dma_buffer_ops m2k_la_dma_buffer_ops = {
-	.submit = m2k_la_submit_block,
-	.abort = iio_dmaengine_buffer_abort,
-};
-
 static int m2k_la_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 	unsigned int writeval, unsigned int *readval)
 {
@@ -1068,7 +1048,6 @@ static void m2k_la_disable_clk(void *data)
 static int m2k_la_probe(struct platform_device *pdev)
 {
 	struct iio_dev *indio_dev, *indio_dev_tx, *indio_dev_rx;
-	struct iio_buffer *buffer_tx, *buffer_rx;
 	struct m2k_la *m2k_la;
 	struct resource *mem;
 	int ret;
@@ -1138,14 +1117,12 @@ static int m2k_la_probe(struct platform_device *pdev)
 	indio_dev_tx->info = &m2k_la_txrx_iio_info;
 	indio_dev_tx->channels = m2k_la_tx_chan_spec,
 	indio_dev_tx->num_channels = ARRAY_SIZE(m2k_la_tx_chan_spec);
-	indio_dev_tx->direction = IIO_DEVICE_DIRECTION_OUT;
 	indio_dev_tx->setup_ops = &m2k_la_tx_setup_ops;
 
-	buffer_tx = devm_iio_dmaengine_buffer_alloc(&pdev->dev, "tx", &m2k_la_dma_buffer_ops,
-						    indio_dev_tx);
-	if (IS_ERR(buffer_tx))
-		return PTR_ERR(buffer_tx);
-	iio_device_attach_buffer(indio_dev_tx, buffer_tx);
+	ret = devm_iio_dmaengine_buffer_setup(&pdev->dev, indio_dev_tx, "tx",
+					      IIO_BUFFER_DIRECTION_OUT);
+	if (ret)
+		return ret;
 
 	iio_device_set_drvdata(indio_dev_tx, m2k_la);
 
@@ -1160,11 +1137,10 @@ static int m2k_la_probe(struct platform_device *pdev)
 	indio_dev_rx->channels = m2k_la_rx_chan_spec,
 	indio_dev_rx->num_channels = ARRAY_SIZE(m2k_la_rx_chan_spec);
 
-	buffer_rx = devm_iio_dmaengine_buffer_alloc(&pdev->dev, "rx", &m2k_la_dma_buffer_ops,
-						    indio_dev_rx);
-	if (IS_ERR(buffer_rx))
-		return PTR_ERR(buffer_rx);
-	iio_device_attach_buffer(indio_dev_rx, buffer_rx);
+	ret = devm_iio_dmaengine_buffer_setup(&pdev->dev, indio_dev_rx, "rx",
+					      IIO_BUFFER_DIRECTION_IN);
+	if (ret)
+		return ret;
 
 	iio_device_set_drvdata(indio_dev_rx, m2k_la);
 

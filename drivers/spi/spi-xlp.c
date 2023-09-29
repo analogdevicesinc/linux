@@ -9,7 +9,6 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/spi/spi.h>
-#include <linux/of.h>
 #include <linux/interrupt.h>
 
 /* SPI Configuration Register */
@@ -140,7 +139,7 @@ static int xlp_spi_setup(struct spi_device *spi)
 	int cs;
 
 	xspi = spi_master_get_devdata(spi->master);
-	cs = spi->chip_select;
+	cs = spi_get_chipselect(spi, 0);
 	/*
 	 * The value of fdiv must be between 4 and 65535.
 	 */
@@ -351,7 +350,7 @@ static int xlp_spi_transfer_one(struct spi_master *master,
 	struct xlp_spi_priv *xspi = spi_master_get_devdata(master);
 	int ret = 0;
 
-	xspi->cs = spi->chip_select;
+	xspi->cs = spi_get_chipselect(spi, 0);
 	xspi->dev = spi->dev;
 
 	if (spi_transfer_is_last(master, t))
@@ -436,17 +435,10 @@ static const struct acpi_device_id xlp_spi_acpi_match[] = {
 MODULE_DEVICE_TABLE(acpi, xlp_spi_acpi_match);
 #endif
 
-static const struct of_device_id xlp_spi_dt_id[] = {
-	{ .compatible = "netlogic,xlp832-spi" },
-	{ },
-};
-MODULE_DEVICE_TABLE(of, xlp_spi_dt_id);
-
 static struct platform_driver xlp_spi_driver = {
 	.probe	= xlp_spi_probe,
 	.driver = {
 		.name	= "xlp-spi",
-		.of_match_table = xlp_spi_dt_id,
 		.acpi_match_table = ACPI_PTR(xlp_spi_acpi_match),
 	},
 };

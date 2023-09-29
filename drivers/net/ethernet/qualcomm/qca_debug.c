@@ -119,7 +119,7 @@ qcaspi_info_show(struct seq_file *s, void *what)
 	seq_printf(s, "SPI mode         : %x\n",
 		   qca->spi_dev->mode);
 	seq_printf(s, "SPI chip select  : %u\n",
-		   (unsigned int)qca->spi_dev->chip_select);
+		   (unsigned int)spi_get_chipselect(qca->spi_dev, 0));
 	seq_printf(s, "SPI legacy mode  : %u\n",
 		   (unsigned int)qca->legacy_mode);
 	seq_printf(s, "SPI burst length : %u\n",
@@ -164,10 +164,10 @@ qcaspi_get_drvinfo(struct net_device *dev, struct ethtool_drvinfo *p)
 {
 	struct qcaspi *qca = netdev_priv(dev);
 
-	strlcpy(p->driver, QCASPI_DRV_NAME, sizeof(p->driver));
-	strlcpy(p->version, QCASPI_DRV_VERSION, sizeof(p->version));
-	strlcpy(p->fw_version, "QCA7000", sizeof(p->fw_version));
-	strlcpy(p->bus_info, dev_name(&qca->spi_dev->dev),
+	strscpy(p->driver, QCASPI_DRV_NAME, sizeof(p->driver));
+	strscpy(p->version, QCASPI_DRV_VERSION, sizeof(p->version));
+	strscpy(p->fw_version, "QCA7000", sizeof(p->fw_version));
+	strscpy(p->bus_info, dev_name(&qca->spi_dev->dev),
 		sizeof(p->bus_info));
 }
 
@@ -246,7 +246,9 @@ qcaspi_get_regs(struct net_device *dev, struct ethtool_regs *regs, void *p)
 }
 
 static void
-qcaspi_get_ringparam(struct net_device *dev, struct ethtool_ringparam *ring)
+qcaspi_get_ringparam(struct net_device *dev, struct ethtool_ringparam *ring,
+		     struct kernel_ethtool_ringparam *kernel_ring,
+		     struct netlink_ext_ack *extack)
 {
 	struct qcaspi *qca = netdev_priv(dev);
 
@@ -257,7 +259,9 @@ qcaspi_get_ringparam(struct net_device *dev, struct ethtool_ringparam *ring)
 }
 
 static int
-qcaspi_set_ringparam(struct net_device *dev, struct ethtool_ringparam *ring)
+qcaspi_set_ringparam(struct net_device *dev, struct ethtool_ringparam *ring,
+		     struct kernel_ethtool_ringparam *kernel_ring,
+		     struct netlink_ext_ack *extack)
 {
 	const struct net_device_ops *ops = dev->netdev_ops;
 	struct qcaspi *qca = netdev_priv(dev);

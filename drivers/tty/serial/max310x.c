@@ -402,7 +402,7 @@ static int max14830_detect(struct device *dev)
 	ret = s->if_cfg->extended_reg_enable(dev, true);
 	if (ret)
 		return ret;
-
+	
 	regmap_read(s->regmap, s->if_cfg->rev_id_reg, &val);
 	s->if_cfg->extended_reg_enable(dev, false);
 	if (((val & MAX310x_REV_MASK) != MAX14830_REV_ID)) {
@@ -906,7 +906,7 @@ static void max310x_break_ctl(struct uart_port *port, int break_state)
 
 static void max310x_set_termios(struct uart_port *port,
 				struct ktermios *termios,
-				struct ktermios *old)
+				const struct ktermios *old)
 {
 	unsigned int lcr = 0, flow = 0;
 	int baud;
@@ -1036,7 +1036,7 @@ static void max310x_rs_proc(struct work_struct *ws)
 			MAX310X_MODE2_ECHOSUPR_BIT, mode2);
 }
 
-static int max310x_rs485_config(struct uart_port *port,
+static int max310x_rs485_config(struct uart_port *port, struct ktermios *termios,
 				struct serial_rs485 *rs485)
 {
 	struct max310x_one *one = to_max310x_port(port);
@@ -1045,9 +1045,6 @@ static int max310x_rs485_config(struct uart_port *port,
 	    (rs485->delay_rts_after_send > 0x0f))
 		return -ERANGE;
 
-	rs485->flags &= SER_RS485_RTS_ON_SEND | SER_RS485_RX_DURING_TX |
-			SER_RS485_ENABLED;
-	memset(rs485->padding, 0, sizeof(rs485->padding));
 	port->rs485 = *rs485;
 
 	schedule_work(&one->rs_work);
@@ -1260,6 +1257,12 @@ static int max310x_gpio_set_config(struct gpio_chip *chip, unsigned int offset,
 }
 #endif
 
+static const struct serial_rs485 max310x_rs485_supported = {
+	.flags = SER_RS485_ENABLED | SER_RS485_RTS_ON_SEND | SER_RS485_RX_DURING_TX,
+	.delay_rts_before_send = 1,
+	.delay_rts_after_send = 1,
+};
+
 static int max310x_probe(struct device *dev, const struct max310x_devtype *devtype,
 			 const struct max310x_if_cfg *if_cfg,
 			 struct regmap *regmaps[], int irq)
@@ -1367,6 +1370,7 @@ static int max310x_probe(struct device *dev, const struct max310x_devtype *devty
 		s->p[i].port.membase	= (void __iomem *)~0;
 		s->p[i].port.uartclk	= uartclk;
 		s->p[i].port.rs485_config = max310x_rs485_config;
+		s->p[i].port.rs485_supported = max310x_rs485_supported;
 		s->p[i].port.ops	= &max310x_ops;
 		s->p[i].regmap		= regmaps[i];
 
@@ -1433,7 +1437,7 @@ out_clk:
 	return ret;
 }
 
-static int max310x_remove(struct device *dev)
+static void max310x_remove(struct device *dev)
 {
 	struct max310x_port *s = dev_get_drvdata(dev);
 	int i;
@@ -1448,8 +1452,6 @@ static int max310x_remove(struct device *dev)
 	}
 
 	clk_disable_unprepare(s->clk);
-
-	return 0;
 }
 
 static const struct of_device_id __maybe_unused max310x_dt_ids[] = {
@@ -1515,9 +1517,9 @@ static int max310x_spi_probe(struct spi_device *spi)
 	return max310x_probe(&spi->dev, devtype, &max310x_spi_if_cfg, regmaps, spi->irq);
 }
 
-static int max310x_spi_remove(struct spi_device *spi)
+static void max310x_spi_remove(struct spi_device *spi)
 {
-	return max310x_remove(&spi->dev);
+	max310x_remove(&spi->dev);
 }
 
 static const struct spi_device_id max310x_id_table[] = {
@@ -1614,10 +1616,9 @@ static int max310x_i2c_probe(struct i2c_client *client)
 			     regmaps, client->irq);
 }
 
-static int max310x_i2c_remove(struct i2c_client *client)
+static void max310x_i2c_remove(struct i2c_client *client)
 {
-	/* I2C client remove callback returns int before 5.15. */
-	return max310x_remove(&client->dev);
+	max310x_remove(&client->dev);
 }
 
 static struct i2c_driver max310x_i2c_driver = {

@@ -16,10 +16,6 @@
 
 #include "edac_module.h"
 
-static bool disable_event; /* No support for notification. Default: 0 (Off) */
-module_param(disable_event, bool, 0444);
-MODULE_PARM_DESC(disable_event, "No error notification support. Default: 0 (Off)");
-
 /* Granularity of reported error in bytes */
 #define XDDR_EDAC_ERR_GRAIN			1
 
@@ -30,8 +26,10 @@ MODULE_PARM_DESC(disable_event, "No error notification support. Default: 0 (Off)
 #define XDDR_IRQ_EN_OFFSET			0x20
 #define XDDR_IRQ1_EN_OFFSET			0x2C
 #define XDDR_IRQ_DIS_OFFSET			0x24
+#define XDDR_IRQ1_DIS_OFFSET			0x30
 #define XDDR_IRQ_CE_MASK			GENMASK(18, 15)
 #define XDDR_IRQ_UE_MASK			GENMASK(14, 11)
+#define XDDR_IRQ_ALL				GENMASK(31, 0)
 
 #define XDDR_REG_CONFIG0_OFFSET			0x258
 #define XDDR_REG_CONFIG0_BUS_WIDTH_MASK		GENMASK(19, 18)
@@ -799,14 +797,15 @@ static void xddr_enable_intr(struct xddr_edac_priv *priv)
 	writel(1, priv->ddrmc_baseaddr + XDDR_PCSR_OFFSET);
 }
 
-static void xddr_disable_intr(struct xddr_edac_priv *priv)
+static void xddr_disable_all_intr(struct xddr_edac_priv *priv)
 {
 	/* Unlock the PCSR registers */
 	writel(PCSR_UNLOCK_VAL, priv->ddrmc_baseaddr + XDDR_PCSR_OFFSET);
 
-	/* Disable UE/CE Interrupts */
-	writel(XDDR_IRQ_CE_MASK | XDDR_IRQ_UE_MASK,
+	writel(XDDR_IRQ_ALL,
 	       priv->ddrmc_baseaddr + XDDR_IRQ_DIS_OFFSET);
+	writel(XDDR_IRQ_ALL,
+	       priv->ddrmc_baseaddr + XDDR_IRQ1_DIS_OFFSET);
 
 	/* Lock the PCSR registers */
 	writel(1, priv->ddrmc_baseaddr + XDDR_PCSR_OFFSET);
@@ -1193,27 +1192,23 @@ static int xddr_mc_probe(struct platform_device *pdev)
 
 	xddr_setup_address_map(priv);
 #endif
-	if (disable_event) {
+
+	rc = xlnx_register_event(PM_NOTIFY_CB, EVENT_ERROR_PMC_ERR1,
+				 XPM_EVENT_ERROR_MASK_DDRMC_CR | XPM_EVENT_ERROR_MASK_DDRMC_NCR,
+				 false, xddr_err_callback, mci);
+	if (rc == -ENODEV) {
 		rc = xddr_setup_irq(mci, pdev);
 		if (rc)
 			goto del_edac_mc;
-	} else {
-		rc = xlnx_register_event(PM_NOTIFY_CB, XPM_NODETYPE_EVENT_ERROR_PMC_ERR1,
-					 XPM_EVENT_ERROR_MASK_DDRMC_CR |
-					 XPM_EVENT_ERROR_MASK_DDRMC_NCR,
-					 false, xddr_err_callback, mci);
-		if (rc == -ENODEV) {
-			rc = xddr_setup_irq(mci, pdev);
-			if (rc)
-				goto del_edac_mc;
-		}
-		if (rc) {
-			if (rc == -EACCES)
-				rc = -EPROBE_DEFER;
-
-			goto del_edac_mc;
-		}
 	}
+	if (rc) {
+		if (rc == -EACCES)
+			rc = -EPROBE_DEFER;
+
+		goto del_edac_mc;
+	}
+
+	xddr_disable_all_intr(priv);
 
 	xddr_enable_intr(priv);
 
@@ -1238,16 +1233,15 @@ static int xddr_mc_remove(struct platform_device *pdev)
 	struct mem_ctl_info *mci = platform_get_drvdata(pdev);
 	struct xddr_edac_priv *priv = mci->pvt_info;
 
-	xddr_disable_intr(priv);
+	xddr_disable_all_intr(priv);
 
 #ifdef CONFIG_EDAC_DEBUG
 	edac_remove_sysfs_attributes(mci);
 #endif
 
-	if (!disable_event)
-		xlnx_unregister_event(PM_NOTIFY_CB, XPM_NODETYPE_EVENT_ERROR_PMC_ERR1,
-				      XPM_EVENT_ERROR_MASK_DDRMC_CR |
-				      XPM_EVENT_ERROR_MASK_DDRMC_NCR, xddr_err_callback, mci);
+	xlnx_unregister_event(PM_NOTIFY_CB, EVENT_ERROR_PMC_ERR1,
+			      XPM_EVENT_ERROR_MASK_DDRMC_CR |
+			      XPM_EVENT_ERROR_MASK_DDRMC_NCR, xddr_err_callback, mci);
 	edac_mc_del_mc(&pdev->dev);
 	edac_mc_free(mci);
 

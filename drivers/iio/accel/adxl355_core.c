@@ -18,8 +18,10 @@
 #include <linux/math64.h>
 #include <linux/module.h>
 #include <linux/mod_devicetable.h>
-#include <linux/of_irq.h>
+#include <linux/property.h>
 #include <linux/regmap.h>
+#include <linux/units.h>
+
 #include <asm/unaligned.h>
 
 #include "adxl355.h"
@@ -61,9 +63,6 @@
 #define ADXL359_PARTID_VAL		0xE9
 #define ADXL355_RESET_CODE		0x52
 
-#define MEGA 1000000UL
-#define TERA 1000000000000ULL
-
 static const struct regmap_range adxl355_read_reg_range[] = {
 	regmap_reg_range(ADXL355_DEVID_AD_REG, ADXL355_FIFO_DATA_REG),
 	regmap_reg_range(ADXL355_OFFSET_X_H_REG, ADXL355_SELF_TEST_REG),
@@ -73,7 +72,7 @@ const struct regmap_access_table adxl355_readable_regs_tbl = {
 	.yes_ranges = adxl355_read_reg_range,
 	.n_yes_ranges = ARRAY_SIZE(adxl355_read_reg_range),
 };
-EXPORT_SYMBOL_GPL(adxl355_readable_regs_tbl);
+EXPORT_SYMBOL_NS_GPL(adxl355_readable_regs_tbl, IIO_ADXL355);
 
 static const struct regmap_range adxl355_write_reg_range[] = {
 	regmap_reg_range(ADXL355_OFFSET_X_H_REG, ADXL355_RESET_REG),
@@ -83,7 +82,7 @@ const struct regmap_access_table adxl355_writeable_regs_tbl = {
 	.yes_ranges = adxl355_write_reg_range,
 	.n_yes_ranges = ARRAY_SIZE(adxl355_write_reg_range),
 };
-EXPORT_SYMBOL_GPL(adxl355_writeable_regs_tbl);
+EXPORT_SYMBOL_NS_GPL(adxl355_writeable_regs_tbl, IIO_ADXL355);
 
 const struct adxl355_chip_info adxl35x_chip_info[] = {
 	[ADXL355] = {
@@ -137,7 +136,7 @@ const struct adxl355_chip_info adxl35x_chip_info[] = {
 		},
 	},
 };
-EXPORT_SYMBOL_GPL(adxl35x_chip_info);
+EXPORT_SYMBOL_NS_GPL(adxl35x_chip_info, IIO_ADXL355);
 
 enum adxl355_op_mode {
 	ADXL355_MEASUREMENT,
@@ -234,7 +233,7 @@ struct adxl355_data {
 			u8 buf[14];
 			s64 ts;
 		} buffer;
-	} ____cacheline_aligned;
+	} __aligned(IIO_DMA_MINALIGN);
 };
 
 static int adxl355_set_op_mode(struct adxl355_data *data,
@@ -500,8 +499,8 @@ static int adxl355_read_raw(struct iio_dev *indio_dev,
 
 			return IIO_VAL_INT;
 		case IIO_ACCEL:
-			ret = adxl355_read_axis(data, adxl355_chans
-						[chan->address].data_reg);
+			ret = adxl355_read_axis(data, adxl355_chans[
+						chan->address].data_reg);
 			if (ret < 0)
 				return ret;
 			*val = sign_extend32(ret >> chan->scan_type.shift,
@@ -567,7 +566,7 @@ static int adxl355_write_raw(struct iio_dev *indio_dev,
 		return adxl355_set_odr(data, odr_idx);
 	case IIO_CHAN_INFO_HIGH_PASS_FILTER_3DB_FREQUENCY:
 		hpf_idx = adxl355_find_match(data->adxl355_hpf_3db_table,
-					     ARRAY_SIZE(data->adxl355_hpf_3db_table),
+					ARRAY_SIZE(data->adxl355_hpf_3db_table),
 					     val, val2);
 		if (hpf_idx < 0)
 			return hpf_idx;
@@ -793,10 +792,7 @@ int adxl355_core_probe(struct device *dev, struct regmap *regmap,
 		return ret;
 	}
 
-	/*
-	 * TODO: Would be good to move it to the generic version.
-	 */
-	irq = of_irq_get_byname(dev->of_node, "DRDY");
+	irq = fwnode_irq_get_byname(dev_fwnode(dev), "DRDY");
 	if (irq > 0) {
 		ret = adxl355_probe_trigger(indio_dev, irq);
 		if (ret)
@@ -805,7 +801,7 @@ int adxl355_core_probe(struct device *dev, struct regmap *regmap,
 
 	return devm_iio_device_register(dev, indio_dev);
 }
-EXPORT_SYMBOL_GPL(adxl355_core_probe);
+EXPORT_SYMBOL_NS_GPL(adxl355_core_probe, IIO_ADXL355);
 
 MODULE_AUTHOR("Puranjay Mohan <puranjay12@gmail.com>");
 MODULE_DESCRIPTION("ADXL355 3-Axis Digital Accelerometer core driver");

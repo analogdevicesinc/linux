@@ -78,7 +78,7 @@ static ssize_t ad5686_write_dac_powerdown(struct iio_dev *indio_dev,
 	unsigned int val, ref_bit_msk;
 	u8 shift, address = 0;
 
-	ret = strtobool(buf, &readin);
+	ret = kstrtobool(buf, &readin);
 	if (ret)
 		return ret;
 
@@ -240,7 +240,7 @@ static const struct iio_chan_spec_ext_info ad5686_ext_info[] = {
 		.shared = IIO_SEPARATE,
 	},
 	IIO_ENUM("powerdown_mode", IIO_SEPARATE, &ad5686_powerdown_mode_enum),
-	IIO_ENUM_AVAILABLE("powerdown_mode", &ad5686_powerdown_mode_enum),
+	IIO_ENUM_AVAILABLE("powerdown_mode", IIO_SHARED_BY_TYPE, &ad5686_powerdown_mode_enum),
 	{ },
 };
 
@@ -510,7 +510,7 @@ static irqreturn_t ad5686_trigger_handler(int irq, void *p)
 	u16 val;
 	int ret;
 
-	ret = iio_buffer_remove_sample(buffer, sample);
+	ret = iio_pop_from_buffer(buffer, sample);
 	if (ret < 0)
 		goto out;
 
@@ -637,7 +637,6 @@ int ad5686_probe(struct device *dev,
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = st->chip_info->channels;
 	indio_dev->num_channels = st->chip_info->num_channels;
-	indio_dev->direction = IIO_DEVICE_DIRECTION_OUT;
 
 	mutex_init(&st->lock);
 
@@ -672,8 +671,10 @@ int ad5686_probe(struct device *dev,
 	if (ret)
 		goto error_disable_reg;
 
-	ret = devm_iio_triggered_buffer_setup(dev, indio_dev, NULL,
-					      &ad5686_trigger_handler, NULL);
+	ret = devm_iio_triggered_buffer_setup_ext(dev, indio_dev, NULL,
+						  &ad5686_trigger_handler,
+						  IIO_BUFFER_DIRECTION_OUT,
+						  NULL, NULL);
 	if (ret)
 		goto error_disable_reg;
 
@@ -688,9 +689,9 @@ error_disable_reg:
 		regulator_disable(st->reg);
 	return ret;
 }
-EXPORT_SYMBOL_GPL(ad5686_probe);
+EXPORT_SYMBOL_NS_GPL(ad5686_probe, IIO_AD5686);
 
-int ad5686_remove(struct device *dev)
+void ad5686_remove(struct device *dev)
 {
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
 	struct ad5686_state *st = iio_priv(indio_dev);
@@ -698,10 +699,8 @@ int ad5686_remove(struct device *dev)
 	iio_device_unregister(indio_dev);
 	if (!IS_ERR(st->reg))
 		regulator_disable(st->reg);
-
-	return 0;
 }
-EXPORT_SYMBOL_GPL(ad5686_remove);
+EXPORT_SYMBOL_NS_GPL(ad5686_remove, IIO_AD5686);
 
 MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD5686/85/84 DAC");

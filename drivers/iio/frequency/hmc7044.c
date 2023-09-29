@@ -2289,15 +2289,13 @@ static int hmc7044_probe(struct spi_device *spi)
 
 }
 
-static int hmc7044_remove(struct spi_device *spi)
+static void hmc7044_remove(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 
 	iio_device_unregister(indio_dev);
 
 	of_clk_del_provider(spi->dev.of_node);
-
-	return 0;
 }
 
 static const struct spi_device_id hmc7044_id[] = {

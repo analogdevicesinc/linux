@@ -18,6 +18,14 @@
 #define TIMEOUT_US		(timeout * 1000000)
 #define POLL_PERIOD_US		(2000)
 
+#define in_range(b, start, len) (		\
+{						\
+typeof(b) b_ = (b);				\
+typeof(start) start_ = (start);			\
+((b_) >= (start_) && (b_) < (start_) + (len));	\
+}						\
+)
+
 /* DPU fingerprint, target info */
 #define DPU_PMU_IP_RST		(0x004)
 #define DPU_IPVER_INFO		(0x1E0)
@@ -75,6 +83,8 @@
 #define DPU_SFM_START		(0x720)
 #define DPU_SFM_RESET		(0x730)
 #define DPU_SFM_MODE		(0x738)
+#define DPU_SFM_SRC_ADDR_H	(0x73C)
+#define DPU_SFM_DST_ADDR_H	(0x740)
 #define DPU_REG_END		(0x800)
 
 #define DPU_NUM(x)		(GENMASK(3, 0) & (x))
@@ -95,18 +105,18 @@ enum DPU_DMA_DIR {
 };
 
 struct dpcma_req_free {
-	u64 phy_addr;
+	u64 dma_addr;
 	size_t capacity;
 };
 
 struct dpcma_req_alloc {
 	size_t size;
-	u64 phy_addr;
+	u64 dma_addr;
 	size_t capacity;
 };
 
 struct dpcma_req_sync {
-	u64 phy_addr;
+	u64 dma_addr;
 	size_t size;
 	int direction;
 };
@@ -171,8 +181,8 @@ struct ioc_kernel_run_t {
 struct ioc_softmax_t {
 	u32 width;
 	u32 height;
-	u32 input;
-	u32 output;
+	u64 input;
+	u64 output;
 	u32 scale;
 	u32 offset;
 };

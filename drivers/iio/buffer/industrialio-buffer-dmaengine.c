@@ -59,20 +59,27 @@ static void iio_dmaengine_buffer_block_done(void *data,
 }
 
 int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
-	struct iio_dma_buffer_block *block, int direction)
+	struct iio_dma_buffer_block *block)
 {
 	struct dmaengine_buffer *dmaengine_buffer;
+	enum dma_transfer_direction direction;
 	struct dma_async_tx_descriptor *desc;
 	dma_cookie_t cookie;
 
 	dmaengine_buffer = iio_buffer_to_dmaengine_buffer(&block->queue->buffer);
 
-	if (direction == DMA_DEV_TO_MEM)
+	if (queue->buffer.direction == IIO_BUFFER_DIRECTION_IN) {
+		direction = DMA_DEV_TO_MEM;
 		block->block.bytes_used = block->block.size;
+	} else {
+		direction = DMA_MEM_TO_DEV;
+	}
+
 	block->block.bytes_used = min_t(size_t, block->block.bytes_used,
-			dmaengine_buffer->max_size);
-	block->block.bytes_used = rounddown(block->block.bytes_used,
-			dmaengine_buffer->align);
+					dmaengine_buffer->max_size);
+	block->block.bytes_used = round_down(block->block.bytes_used,
+					     dmaengine_buffer->align);
+
 	if (block->block.bytes_used == 0) {
 		iio_dma_buffer_block_done(block);
 		return 0;
@@ -150,12 +157,10 @@ static const struct iio_buffer_access_funcs iio_dmaengine_buffer_ops = {
 	.flags = INDIO_BUFFER_FLAG_FIXED_WATERMARK,
 };
 
-#if 0
 static const struct iio_dma_buffer_ops iio_dmaengine_default_ops = {
 	.submit = iio_dmaengine_buffer_submit_block,
 	.abort = iio_dmaengine_buffer_abort,
 };
-#endif
 
 static ssize_t iio_dmaengine_buffer_get_length_align(struct device *dev,
 	struct device_attribute *attr, char *buf)
@@ -164,7 +169,7 @@ static ssize_t iio_dmaengine_buffer_get_length_align(struct device *dev,
 	struct dmaengine_buffer *dmaengine_buffer =
 		iio_buffer_to_dmaengine_buffer(buffer);
 
-	return sprintf(buf, "%zu\n", dmaengine_buffer->align);
+	return sysfs_emit(buf, "%zu\n", dmaengine_buffer->align);
 }
 
 static IIO_DEVICE_ATTR(length_align_bytes, 0444,
@@ -232,6 +237,9 @@ static struct iio_buffer *iio_dmaengine_buffer_alloc(struct device *dev,
 	dmaengine_buffer->chan = chan;
 	dmaengine_buffer->align = width;
 	dmaengine_buffer->max_size = dma_get_max_seg_size(chan->device->dev);
+
+	if (!ops)
+		ops = &iio_dmaengine_default_ops;
 
 	iio_dma_buffer_init(&dmaengine_buffer->queue, chan->device->dev, ops,
 		driver_data);
@@ -314,7 +322,8 @@ EXPORT_SYMBOL_GPL(devm_iio_dmaengine_buffer_alloc);
  */
 int devm_iio_dmaengine_buffer_setup(struct device *dev,
 				    struct iio_dev *indio_dev,
-				    const char *channel)
+				    const char *channel,
+				    enum iio_buffer_direction dir)
 {
 	struct iio_buffer *buffer;
 
@@ -324,6 +333,8 @@ int devm_iio_dmaengine_buffer_setup(struct device *dev,
 		return PTR_ERR(buffer);
 
 	indio_dev->modes |= INDIO_BUFFER_HARDWARE;
+
+	buffer->direction = dir;
 
 	return iio_device_attach_buffer(indio_dev, buffer);
 }

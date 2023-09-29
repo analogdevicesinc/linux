@@ -261,7 +261,7 @@ static void xspi_chipselect(struct spi_device *qspi, bool is_high)
 			xqspi->regs + XSPI_SSR_OFFSET);
 	} else {
 		cs = xqspi->cs_inactive;
-		cs ^= BIT(qspi->chip_select);
+		cs ^= BIT(spi_get_chipselect(qspi, 0));
 		/* Activate the chip select */
 		xqspi->write_fn(cs, xqspi->regs + XSPI_SSR_OFFSET);
 	}
@@ -346,9 +346,9 @@ static int xilinx_spi_setup_transfer(struct spi_device *spi,
 	xspi->write_fn(config_reg, xspi->regs + XSPI_CR_OFFSET);
 
 	if (spi->mode & SPI_CS_HIGH)
-		xspi->cs_inactive &= ~BIT(spi->chip_select);
+		xspi->cs_inactive &= ~BIT(spi_get_chipselect(spi, 0));
 	else
-		xspi->cs_inactive |= BIT(spi->chip_select);
+		xspi->cs_inactive |= BIT(spi_get_chipselect(spi, 0));
 
 	return 0;
 }
@@ -798,8 +798,8 @@ static int xilinx_spi_probe(struct platform_device *pdev)
 		goto clk_unprepare_all;
 	} else if (xspi->irq >= 0) {
 		/* Register for SPI Interrupt */
-		ret = devm_request_irq(&pdev->dev, xspi->irq, xilinx_spi_irq,
-				       0, dev_name(&pdev->dev), master);
+		ret = devm_request_irq(&pdev->dev, xspi->irq, xilinx_spi_irq, 0,
+				       dev_name(&pdev->dev), master);
 		if (ret)
 			goto clk_unprepare_all;
 	}

@@ -514,7 +514,7 @@ __handle_sync_with_main() {
 
 build_sync_branches_with_main() {
 	GIT_FETCH_DEPTH=50
-	BRANCHES="adi-5.15.0 rpi-5.15.y"
+	BRANCHES="adi-6.1.0 rpi-6.1.y"
 
 	__update_git_ref "$MAIN_BRANCH" "$MAIN_BRANCH" || {
 		echo_red "Could not fetch branch '$MAIN_BRANCH'"

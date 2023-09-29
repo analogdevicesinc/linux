@@ -515,7 +515,7 @@ static int adin1110_register_mdiobus(struct adin1110_priv *priv,
 		return -ENOMEM;
 
 	snprintf(priv->mii_bus_name, MII_BUS_ID_SIZE, "%s-%u",
-		 priv->cfg->name, priv->spidev->chip_select);
+		 priv->cfg->name, spi_get_chipselect(priv->spidev, 0));
 
 	mii_bus->name = priv->mii_bus_name;
 	mii_bus->read = adin1110_mdio_read;
@@ -760,7 +760,7 @@ static int adin1110_set_mac_address(struct net_device *netdev,
 	if (!is_valid_ether_addr(dev_addr))
 		return -EADDRNOTAVAIL;
 
-	ether_addr_copy(netdev->dev_addr, dev_addr);
+	eth_hw_addr_set(netdev, dev_addr);
 	memset(mask, 0xFF, ETH_ALEN);
 
 	mac_slot = (!port_priv->nr) ?  ADIN_MAC_P1_ADDR_SLOT : ADIN_MAC_P2_ADDR_SLOT;
@@ -1045,7 +1045,7 @@ static int adin1110_ndo_get_phys_port_name(struct net_device *dev,
 static const struct net_device_ops adin1110_netdev_ops = {
 	.ndo_open		= adin1110_net_open,
 	.ndo_stop		= adin1110_net_stop,
-	.ndo_do_ioctl		= adin1110_ioctl,
+	.ndo_eth_ioctl		= adin1110_ioctl,
 	.ndo_start_xmit		= adin1110_start_xmit,
 	.ndo_set_mac_address	= adin1110_ndo_set_mac_address,
 	.ndo_set_rx_mode	= adin1110_set_rx_mode,
@@ -1370,6 +1370,9 @@ static int adin1110_fdb_add(struct adin1110_port_priv *port_priv,
 	if (!priv->forwarding)
 		return 0;
 
+	if (fdb->is_local)
+		return -EINVAL;
+
 	/* Find free FDB slot on device. */
 	for (mac_nr = ADIN_MAC_FDB_ADDR_SLOT; mac_nr < ADIN_MAC_MAX_ADDR_SLOTS; mac_nr++) {
 		ret = adin1110_read_reg(priv, ADIN1110_MAC_ADDR_FILTER_UPR + (mac_nr * 2), &val);
@@ -1422,6 +1425,9 @@ static int adin1110_fdb_del(struct adin1110_port_priv *port_priv,
 		   "DEBUG: %s: MACID = %pM vid = %u flags = %u %u -- port %d\n",
 		   __func__, fdb->addr, fdb->vid, fdb->added_by_user,
 		   fdb->offloaded, port_priv->nr);
+
+	if (fdb->is_local)
+		return -EINVAL;
 
 	for (mac_nr = ADIN_MAC_FDB_ADDR_SLOT; mac_nr < ADIN_MAC_MAX_ADDR_SLOTS; mac_nr++) {
 		ret = adin1110_read_mac(priv, mac_nr, addr);
@@ -1577,8 +1583,9 @@ static int adin1110_probe_netdevs(struct adin1110_priv *priv)
 		priv->ports[i] = port_priv;
 		SET_NETDEV_DEV(netdev, dev);
 
-		if (!device_get_mac_address(dev, netdev->dev_addr, ETH_ALEN))
-			eth_hw_addr_random(netdev);
+		ret = device_get_ethdev_address(dev, netdev);
+		if (ret < 0)
+			return ret;
 
 		netdev->irq = priv->spidev->irq;
 		INIT_WORK(&port_priv->tx_work, adin1110_tx_work);

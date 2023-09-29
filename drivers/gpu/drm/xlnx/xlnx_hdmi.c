@@ -26,6 +26,7 @@
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_connector.h>
 #include <drm/drm_crtc_helper.h>
+#include <drm/drm_framebuffer.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_of.h>
@@ -2190,7 +2191,19 @@ static void xlnx_hdmi_piointr_handler(struct xlnx_hdmi *hdmi)
 						return;
 					}
 				}
-				xlnx_hdmi_set_samplerate(hdmi, 1);
+
+				phy_cfg.hdmi.get_samplerate = 1;
+				for (i = 0; i < HDMI_MAX_LANES; i++) {
+					ret = phy_configure(hdmi->phy[i],
+							    &phy_cfg);
+					if (ret) {
+						dev_err(hdmi->dev, "phy_cfg: get_samplerate err\n");
+						return;
+					}
+				}
+				/* Set the sample rate got from HMDI-PHY */
+				xlnx_hdmi_set_samplerate(hdmi,
+							 phy_cfg.hdmi.samplerate);
 
 				/* release vid_in bridge resets */
 				xlnx_hdmi_ext_sysrst_deassert(hdmi);

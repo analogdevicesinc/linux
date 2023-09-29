@@ -45,6 +45,12 @@ enum aie_tile_type {
 #define AIE_TILE_TYPE_MASK_SHIMNOC	BIT(AIE_TILE_TYPE_SHIMNOC)
 #define AIE_TILE_TYPE_MASK_MEMORY	BIT(AIE_TILE_TYPE_MEMORY)
 
+#define AIE_ISOLATE_EAST_MASK		BIT(3)
+#define AIE_ISOLATE_NORTH_MASK		BIT(2)
+#define AIE_ISOLATE_WEST_MASK		BIT(1)
+#define AIE_ISOLATE_SOUTH_MASK		BIT(0)
+#define AIE_ISOLATE_ALL_MASK		GENMASK(3, 0)
+
 /*
  * Macros for attribute property of AI engine registers accessed by kernel
  * 0 - 7 bits: tile type bits
@@ -70,16 +76,28 @@ enum aie_tile_type {
 /* AIE core registers step size */
 #define AIE_CORE_REGS_STEP		0x10
 
+/* Number of event status registers */
+#define AIE_NUM_EVENT_STS_CORETILE	4U
+#define AIE_NUM_EVENT_STS_MEMTILE	6U
+#define AIE_NUM_EVENT_STS_SHIMTILE	4U
+
+/* Number of DMA channels */
+#define AIE_MAX_MM2S_CH		6U
+#define AIE_MAX_S2MM_CH		6U
+
 /*
  * Macros of AI engine module type index of a tile type
  * e.g.
  * id 0 of CORE tile is memory module, and 1 is core module
+ * id 0 of MEM tile is memory module
  * id 0 of SHIM tile is pl module, and 1 is noc module
  */
 #define AIE_TILE_MOD_START		AIE_MEM_MOD
 #define AIE_MOD_ID(T, M)		((M) - AIE_##T ## _MOD_START)
 #define AIE_TILE_MEM_MOD_ID		AIE_MOD_ID(TILE, AIE_MEM_MOD)
 #define AIE_TILE_CORE_MOD_ID		AIE_MOD_ID(TILE, AIE_CORE_MOD)
+#define AIE_MEMORY_MOD_START		AIE_MEM_MOD
+#define AIE_MEMORY_MEM_MOD_ID		AIE_MOD_ID(MEMORY, AIE_MEM_MOD)
 #define AIE_SHIMPL_MOD_START		AIE_PL_MOD
 #define AIE_SHIMNOC_MOD_START		AIE_PL_MOD
 #define AIE_SHIM_PL_MOD_ID		AIE_MOD_ID(SHIMPL, AIE_PL_MOD)
@@ -91,6 +109,12 @@ enum aie_tile_type {
 #define DELIMITER_LEVEL2 "; "
 
 /* Helper macros to dynamically create sysfs device attribute */
+#define AIE_APERTURE_ATTR_RO(_name) {				\
+	.name		= __stringify(_name),			\
+	.mode		= 0444,					\
+	.show		= aie_aperture_show_##_name,		\
+}
+
 #define AIE_PART_DEV_ATTR_RO(_name) {				\
 	.name		= __stringify(_name),			\
 	.mode		= 0444,					\
@@ -195,6 +219,15 @@ enum aie_shim_switch_type {
 	AIE_SHIM_SWITCH_B
 };
 
+/*
+ * enum for SSIT devices
+ */
+enum aie_device_type {
+	AIE_DEV_GENERIC_DEVICE,
+	AIE_DEV_GEN_S100 = 100,
+	AIE_DEV_GEN_S200 = 200
+};
+
 /**
  * struct aie_tile_regs - contiguous range of AI engine register
  *			  within an AI engine tile
@@ -248,7 +281,8 @@ struct aie_part_mem {
  * @laddr: low address field attributes
  * @haddr: high address field attributes
  * @buflen: buffer length field attributes
- * @sts: channel status field attributes
+ * @sts: FSM status field attributes
+ * @chansts: channel status field attributes
  * @stall: queue stall status field attributes
  * @qsize: queue size field attributes
  * @curbd: current buffer descriptor field attributes
@@ -268,6 +302,7 @@ struct aie_dma_attr {
 	struct aie_single_reg_field haddr;
 	struct aie_single_reg_field buflen;
 	struct aie_single_reg_field sts;
+	struct aie_single_reg_field chansts;
 	struct aie_single_reg_field stall;
 	struct aie_single_reg_field qsize;
 	struct aie_single_reg_field curbd;
@@ -299,7 +334,10 @@ struct aie_aperture;
  * @get_tile_type: get type of tile based on tile operation
  * @get_mem_info: get different types of memories information
  * @get_core_status: get the status of AIE core.
- * @reset_shim: reset shim, it will assert and then release SHIM reset
+ * @get_part_sysfs_lock_status: get partition lock status for sysfs.
+ * @get_tile_sysfs_lock_status: get tile lock status for sysfs.
+ * @get_part_sysfs_dma_status: get partition dma status for sysfs.
+ * @get_tile_sysfs_dma_status: get tile dma status for sysfs.
  * @init_part_clk_state: initialize clock states software structure which is a
  *			 bitmap for the AI engine partition. The clock states
  *			 structure is the structure used to keep track of if
@@ -316,7 +354,12 @@ struct aie_aperture;
  *		     caller to apply partition lock before calling this
  *		     function. The caller function will need to set the bitmap
  *		     on which tiles are required to be clocked on.
+ * @set_tile_isolation: set tile isolation boundary for input direction.
  * @mem_clear: clear data memory banks of the partition.
+ * @get_dma_s2mm_status: get dma s2mm status
+ * @get_dma_mm2s_status: get dma mm2s status
+ * @get_chan_status: get dma channel status
+ * @get_lock_status: get tile, shimdma and memtile lock status
  *
  * Different AI engine device version has its own device
  * operation.
@@ -328,12 +371,36 @@ struct aie_tile_operations {
 				     struct aie_part_mem *pmem);
 	u32 (*get_core_status)(struct aie_partition *apart,
 			       struct aie_location *loc);
-	int (*reset_shim)(struct aie_aperture *aperture,
-			  struct aie_range *range);
+	ssize_t (*get_part_sysfs_lock_status)(struct aie_partition *apart,
+					      struct aie_location *loc,
+					      char *buffer, ssize_t size);
+	ssize_t (*get_tile_sysfs_lock_status)(struct aie_partition *apart,
+					      struct aie_location *loc,
+					      char *buffer, ssize_t size);
+	ssize_t (*get_part_sysfs_dma_status)(struct aie_partition *apart,
+					     struct aie_location *loc,
+					     char *buffer, ssize_t size);
+	ssize_t (*get_tile_sysfs_dma_status)(struct aie_partition *apart,
+					     struct aie_location *loc,
+					     char *buffer, ssize_t size);
 	int (*init_part_clk_state)(struct aie_partition *apart);
 	int (*scan_part_clocks)(struct aie_partition *apart);
 	int (*set_part_clocks)(struct aie_partition *apart);
+	int (*set_tile_isolation)(struct aie_partition *apart,
+				  struct aie_location *loc, u8 dir);
 	int (*mem_clear)(struct aie_partition *apart);
+	u32 (*get_dma_s2mm_status)(struct aie_partition *apart,
+				   struct aie_location *loc,
+				   u8 chanid);
+	u32 (*get_dma_mm2s_status)(struct aie_partition *apart,
+				   struct aie_location *loc,
+				   u8 chanid);
+	u8 (*get_chan_status)(struct aie_partition *apart,
+			      struct aie_location *loc,
+			      u32 status);
+	u32 (*get_lock_status)(struct aie_partition *apart,
+			       struct aie_location *loc,
+			       u8 lock);
 };
 
 /**
@@ -519,11 +586,19 @@ struct aie_tile_rsc_attr {
  * @sts: lock status field attributes
  * @sts_regoff: lock status register offset
  * @num_locks: number of locks
+ * @overflow: overflow status field attributes
+ * @overflow_regoff: overflow status register offset
+ * @underflow: underflow status field attributes
+ * @underflow_regoff: underflowstatus register offset
  */
 struct aie_lock_attr {
 	struct aie_single_reg_field sts;
 	u32 sts_regoff;
 	u32 num_locks;
+	struct aie_single_reg_field overflow;
+	u32 overflow_regoff;
+	struct aie_single_reg_field underflow;
+	u32 underflow_regoff;
 };
 
 /**
@@ -650,13 +725,19 @@ struct aie_tile {
  * @col_clkbuf: column clock buffer attribute
  * @shim_dma: SHIM DMA attribute
  * @tile_dma: tile DMA attribute
+ * @memtile_dma: MEM tile DMA attribute
  * @pl_events: pl module event attribute
+ * @memtile_events: memory tile event attribute
  * @mem_events: memory module event attribute
  * @core_events: core module event attribute
+ * @mem_lock: mem lock attribute
+ * @pl_lock: Shim tile lock attribute
+ * @memtile_lock: Mem Tile lock attribute
  * @l1_ctrl: level 1 interrupt controller attribute
  * @l2_ctrl: level 2 interrupt controller attribute
  * @core_errors: core module error attribute
  * @mem_errors: memory module error attribute
+ * @memtile_errors: memory tile error attribute
  * @shim_errors: shim tile error attribute
  * @array_shift: array address shift
  * @col_shift: column address shift
@@ -668,7 +749,9 @@ struct aie_tile {
  * @num_core_regs: number of core registers range
  * @pm_node_id: AI Engine platform management node ID
  * @clock_id: AI Engine clock ID
+ * @device_name: identify ssit device id
  * @ttype_attr: tile type attributes
+ * @aperture_sysfs_attr: aperture level sysfs attributes
  * @part_sysfs_attr: partition level sysfs attributes
  * @tile_sysfs_attr: tile level sysfs attributes
  * @core_status_str: core status in string format
@@ -677,9 +760,6 @@ struct aie_tile {
  * @core_sp: stack pointer attribute
  * @dma_status_str: DMA channel status in string format
  * @queue_status_str: DMA queue status in string format
- * @pl_lock: PL module lock attribute
- * @mem_lock: memory module lock attribute
- * @lock_status_str: lock status in string format
  */
 struct aie_device {
 	struct list_head apertures;
@@ -694,13 +774,19 @@ struct aie_device {
 	const struct aie_single_reg_field *col_clkbuf;
 	const struct aie_dma_attr *shim_dma;
 	const struct aie_dma_attr *tile_dma;
+	const struct aie_dma_attr *memtile_dma;
 	const struct aie_event_attr *pl_events;
+	const struct aie_event_attr *memtile_events;
 	const struct aie_event_attr *mem_events;
 	const struct aie_event_attr *core_events;
+	const struct aie_lock_attr *mem_lock;
+	const struct aie_lock_attr *memtile_lock;
+	const struct aie_lock_attr *pl_lock;
 	const struct aie_l1_intr_ctrl_attr *l1_ctrl;
 	const struct aie_l2_intr_ctrl_attr *l2_ctrl;
 	const struct aie_error_attr *core_errors;
 	const struct aie_error_attr *mem_errors;
+	const struct aie_error_attr *memtile_errors;
 	const struct aie_error_attr *shim_errors;
 	u32 array_shift;
 	u32 col_shift;
@@ -710,18 +796,20 @@ struct aie_device {
 	u32 num_core_regs;
 	u32 pm_node_id;
 	u32 clock_id;
+	u32 device_name;
 	struct aie_tile_attr ttype_attr[AIE_TILE_TYPE_MAX];
+	const struct aie_sysfs_attr *aperture_sysfs_attr;
 	const struct aie_sysfs_attr *part_sysfs_attr;
 	const struct aie_sysfs_attr *tile_sysfs_attr;
 	char **core_status_str;
 	const struct aie_single_reg_field *core_pc;
 	const struct aie_single_reg_field *core_lr;
 	const struct aie_single_reg_field *core_sp;
-	char **dma_status_str;
-	char **queue_status_str;
-	const struct aie_lock_attr *pl_lock;
-	const struct aie_lock_attr *mem_lock;
-	char **lock_status_str;
+};
+
+struct aie_l2_mask {
+	u32 *val;
+	int count;
 };
 
 /**
@@ -741,6 +829,7 @@ struct aie_device {
  * @range: range of aperture
  * @backtrack: workqueue to backtrack interrupt
  * @l2_mask: level 2 interrupt controller mask bitmap
+ * @attr_grp: attribute group for sysfs
  */
 struct aie_aperture {
 	struct list_head node;
@@ -755,7 +844,8 @@ struct aie_aperture {
 	int irq;
 	struct aie_range range;
 	struct work_struct backtrack;
-	struct aie_resource l2_mask;
+	struct aie_l2_mask l2_mask;
+	struct attribute_group *attr_grp;
 };
 
 /**
@@ -837,6 +927,7 @@ extern const struct file_operations aie_part_fops;
 
 #define cdev_to_aiedev(i_cdev) container_of((i_cdev), struct aie_device, cdev)
 #define dev_to_aiedev(_dev) container_of((_dev), struct aie_device, dev)
+#define dev_to_aieaperture(_dev) container_of((_dev), struct aie_aperture, dev)
 #define dev_to_aiepart(_dev) container_of((_dev), struct aie_partition, dev)
 #define dev_to_aietile(_dev) container_of((_dev), struct aie_tile, dev)
 
@@ -1015,8 +1106,11 @@ int xilinx_ai_engine_add_dev(struct aie_device *adev,
 int xilinx_ai_engine_probe_v1(struct platform_device *pdev);
 
 void aie_part_remove(struct aie_partition *apart);
+int aie_part_clear_context(struct aie_partition *apart);
 int aie_part_clean(struct aie_partition *apart);
 int aie_part_open(struct aie_partition *apart, void *rsc_metadata);
+int aie_part_initialize(struct aie_partition *apart, void __user *user_args);
+int aie_part_teardown(struct aie_partition *apart);
 
 int aie_mem_get_info(struct aie_partition *apart, unsigned long arg);
 
@@ -1024,9 +1118,14 @@ long aie_part_attach_dmabuf_req(struct aie_partition *apart,
 				void __user *user_args);
 long aie_part_detach_dmabuf_req(struct aie_partition *apart,
 				void __user *user_args);
-long aie_part_set_bd(struct aie_partition *apart, void __user *user_args);
-long aie_part_set_dmabuf_bd(struct aie_partition *apart,
+long aie_part_set_bd_from_user(struct aie_partition *apart,
+					void __user *user_args);
+long aie_part_set_bd(struct aie_partition *apart,
+					struct aie_dma_bd_args *args);
+long aie_part_set_dmabuf_bd_from_user(struct aie_partition *apart,
 			    void __user *user_args);
+long aie_part_set_dmabuf_bd(struct aie_partition *apart,
+					struct aie_dmabuf_bd_args *args);
 void aie_part_release_dmabufs(struct aie_partition *apart);
 int aie_part_prealloc_dbufs_cache(struct aie_partition *apart);
 
@@ -1036,6 +1135,10 @@ bool aie_part_check_clk_enable_loc(struct aie_partition *apart,
 int aie_part_set_freq(struct aie_partition *apart, u64 freq);
 int aie_part_get_freq(struct aie_partition *apart, u64 *freq);
 
+int aie_part_request_tiles(struct aie_partition *apart, int num_tiles,
+			   struct aie_location *locs);
+int aie_part_release_tiles(struct aie_partition *apart, int num_tiles,
+			   struct aie_location *locs);
 int aie_part_request_tiles_from_user(struct aie_partition *apart,
 				     void __user *user_args);
 int aie_part_release_tiles_from_user(struct aie_partition *apart,
@@ -1051,12 +1154,14 @@ int aie_part_get_tile_rows(struct aie_partition *apart,
 
 int aie_part_reset(struct aie_partition *apart);
 int aie_part_post_reinit(struct aie_partition *apart);
+int aie_part_init_isolation(struct aie_partition *apart);
 struct aie_partition *aie_create_partition(struct aie_aperture *aperture,
 					   u32 partition_id);
 
 void aie_aperture_backtrack(struct work_struct *work);
 irqreturn_t aie_interrupt(int irq, void *data);
-int aie_aperture_create_l2_bitmap(struct aie_aperture *aperture);
+void aie_interrupt_callback(const u32 *payload, void *data);
+int aie_aperture_create_l2_mask(struct aie_aperture *aperture);
 bool aie_part_has_error(struct aie_partition *apart);
 void aie_part_clear_cached_events(struct aie_partition *apart);
 int aie_part_set_intr_rscs(struct aie_partition *apart);
@@ -1097,6 +1202,8 @@ int aie_part_rscmgr_set_tile_broadcast(struct aie_partition *apart,
 				       struct aie_location loc,
 				       enum aie_module_type mod, uint32_t id);
 
+int aie_aperture_sysfs_create_entries(struct aie_aperture *aperture);
+void aie_aperture_sysfs_remove_entries(struct aie_aperture *aperture);
 int aie_part_sysfs_create_entries(struct aie_partition *apart);
 void aie_part_sysfs_remove_entries(struct aie_partition *apart);
 int aie_tile_sysfs_create_entries(struct aie_tile *atile);
@@ -1137,6 +1244,9 @@ ssize_t aie_sysfs_get_errors(struct aie_partition *apart,
 			     ssize_t size);
 ssize_t aie_tile_show_error(struct device *dev, struct device_attribute *attr,
 			    char *buffer);
+ssize_t aie_aperture_show_hardware_info(struct device *dev,
+					struct device_attribute *attr,
+					char *buffer);
 ssize_t aie_part_show_error_stat(struct device *dev,
 				 struct device_attribute *attr, char *buffer);
 ssize_t aie_part_show_current_freq(struct device *dev,
@@ -1155,4 +1265,11 @@ long aie_part_rscmgr_get_statistics(struct aie_partition *apart,
 
 int aie_overlay_register_notifier(void);
 void aie_overlay_unregister_notifier(void);
+u32 aie_get_core_pc(struct aie_partition *apart,
+		    struct aie_location *loc);
+u32 aie_get_core_lr(struct aie_partition *apart,
+		    struct aie_location *loc);
+u32 aie_get_core_sp(struct aie_partition *apart,
+		    struct aie_location *loc);
+
 #endif /* AIE_INTERNAL_H */

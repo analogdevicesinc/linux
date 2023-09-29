@@ -5,6 +5,7 @@
 #include <linux/platform_device.h>
 #include <linux/gpio/consumer.h>
 #include <linux/clk.h>
+#include <linux/of.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -354,10 +355,10 @@ static const struct iio_chan_spec_ext_info m2k_fabric_user_supply_ext_info[] = {
 static const struct iio_chan_spec_ext_info m2k_fabric_rx_ext_info_revc[] = {
 	IIO_ENUM("calibration_mode", IIO_SHARED_BY_ALL,
 		&m2k_fabric_calibration_mode_enum),
-	IIO_ENUM_AVAILABLE_SHARED("calibration_mode", IIO_SHARED_BY_ALL,
+	IIO_ENUM_AVAILABLE("calibration_mode", IIO_SHARED_BY_ALL,
 		&m2k_fabric_calibration_mode_enum),
 	IIO_ENUM("gain", IIO_SEPARATE, &m2k_fabric_adc_gain_enum),
-	IIO_ENUM_AVAILABLE("gain", &m2k_fabric_adc_gain_enum),
+	IIO_ENUM_AVAILABLE("gain", IIO_SHARED_BY_TYPE, &m2k_fabric_adc_gain_enum),
 	{
 		.name = "powerdown",
 		.read = m2k_fabric_powerdown_read,
@@ -370,7 +371,7 @@ static const struct iio_chan_spec_ext_info m2k_fabric_rx_ext_info_revc[] = {
 static const struct iio_chan_spec_ext_info m2k_fabric_tx_ext_info[] = {
 	IIO_ENUM("calibration_mode", IIO_SHARED_BY_ALL,
 		&m2k_fabric_calibration_mode_enum),
-	IIO_ENUM_AVAILABLE_SHARED("calibration_mode", IIO_SHARED_BY_ALL,
+	IIO_ENUM_AVAILABLE("calibration_mode", IIO_SHARED_BY_ALL,
 		&m2k_fabric_calibration_mode_enum),
 	{
 		.name = "powerdown",
@@ -419,10 +420,10 @@ static const struct iio_chan_spec m2k_fabric_chan_spec_revc[] = {
 static const struct iio_chan_spec_ext_info m2k_fabric_rx_ext_info_revd[] = {
 	IIO_ENUM("calibration_mode", IIO_SHARED_BY_ALL,
 		&m2k_fabric_calibration_mode_enum),
-	IIO_ENUM_AVAILABLE_SHARED("calibration_mode", IIO_SHARED_BY_ALL,
+	IIO_ENUM_AVAILABLE("calibration_mode", IIO_SHARED_BY_ALL,
 		&m2k_fabric_calibration_mode_enum),
 	IIO_ENUM("gain", IIO_SEPARATE, &m2k_fabric_adc_gain_enum),
-	IIO_ENUM_AVAILABLE("gain", &m2k_fabric_adc_gain_enum),
+	IIO_ENUM_AVAILABLE("gain", IIO_SHARED_BY_TYPE, &m2k_fabric_adc_gain_enum),
 	{
 		.name = "powerdown",
 		.read = m2k_fabric_powerdown_read,

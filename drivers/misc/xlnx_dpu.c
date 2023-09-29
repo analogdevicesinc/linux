@@ -21,6 +21,8 @@
 #include <linux/clk.h>
 #include <linux/dma-mapping.h>
 #include <linux/nospec.h>
+#include <linux/slab.h>
+#include <linux/iommu.h>
 #ifdef CONFIG_DEBUG_FS
 #include <linux/debugfs.h>
 #endif
@@ -42,6 +44,15 @@ static bool force_poll;
 module_param(force_poll, bool, 0444);
 MODULE_PARM_DESC(force_poll, "polling or interrupt mode (default interrupt)");
 
+/*
+ * This parameter is intended to be used only when IOMMU is enabled.
+ * By specifying it the allocated buffer is forced to be contiguous
+ * in physical memory.
+ */
+static bool force_contig;
+module_param(force_contig, bool, 0444);
+MODULE_PARM_DESC(force_contig, "buffer is forced to be contiguous, default 0");
+
 /**
  * struct cu - Computer Unit (cu) structure
  * @mutex: protects from simultaneous access
@@ -58,44 +69,62 @@ struct cu {
  * struct xdpu_dev - Driver data for DPU
  * @dev: pointer to device struct
  * @regs: virtual base address for the dpu regmap
- * @head: indicates dma memory pool list
  * @cu: indicates computer unit struct
  * @axi_clk: AXI Lite clock
  * @dpu_clk: DPU clock used for DPUCZDX8G general logic
  * @dsp_clk: DSP clock used for DSP blocks
  * @miscdev: misc device handle
+ * @mutex: protect client
  * @root: debugfs dentry
+ * @client_list: indicates how many dpu clients link to xdpu
  * @dpu_cnt: indicates how many dpu core/cu enabled in IP, up to 4
  * @sfm_cnt: indicates softmax core enabled or not
  */
 struct xdpu_dev {
 	struct device	*dev;
 	void __iomem	*regs;
-	struct list_head	head;
 	struct cu	cu[MAX_CU_NUM];
 	struct clk	*axi_clk;
 	struct clk	*dpu_clk;
 	struct clk	*dsp_clk;
 	struct miscdevice	miscdev;
+	struct mutex	mutex; /* guards client */
 #ifdef CONFIG_DEBUG_FS
 	struct dentry	*root;
+	struct list_head	client_list;
 #endif
 	u8	dpu_cnt;
 	u8	sfm_cnt;
 };
 
 /**
+ * struct xdpu_client - DPU client
+ * @dev: pointer to dpu device struct
+ * @head: indicates dma memory pool list head
+ * @node: client node
+ */
+struct xdpu_client {
+	struct xdpu_dev	*dev;
+	struct list_head	head;
+	struct list_head	node;
+};
+
+/**
  * struct dpu_buffer_block - DPU buffer block
  * @head: list head
- * @vaddr: virtual address of the blocks memory
+ * @cpu_addr: cpu virtual address of the blocks memory
  * @dma_addr: dma address of the blocks memory
- * @capacity: total size of the block in bytes
+ * @phy_addr: physical address of the blocks memory
+ * @size: total size of the block in bytes
+ * @attrs: dma buffer attributes
  */
 struct dpu_buffer_block {
 	struct list_head	head;
-	void	*vaddr;
+	void	*cpu_addr;
 	dma_addr_t	dma_addr;
-	size_t	capacity;
+	phys_addr_t	phy_addr;
+	size_t	size;
+	unsigned long	attrs;
 };
 
 #ifdef CONFIG_DEBUG_FS
@@ -195,7 +224,9 @@ static void xlnx_dpu_dump_regs(struct xdpu_dev *p)
 		DUMPREG(CMD_XLEN);
 		DUMPREG(CMD_YLEN);
 		DUMPREG(SRC_ADDR);
+		DUMPREG(SRC_ADDR_H);
 		DUMPREG(DST_ADDR);
+		DUMPREG(DST_ADDR_H);
 		DUMPREG(CMD_SCAL);
 		DUMPREG(CMD_OFF);
 		DUMPREG(INT_CLR);
@@ -215,10 +246,6 @@ static void xlnx_dpu_int_clear(struct xdpu_dev *xdpu, int id)
 {
 	iowrite32(BIT(id), xdpu->regs + DPU_INT_ICR);
 	iowrite32(0, xdpu->regs + DPU_IPSTART(id));
-
-	/* make sure have enough time to receive the INT level */
-	udelay(1);
-
 	iowrite32(ioread32(xdpu->regs + DPU_INT_ICR) & ~BIT(id),
 		  xdpu->regs + DPU_INT_ICR);
 }
@@ -248,9 +275,12 @@ static int xlnx_dpu_softmax(struct xdpu_dev *xdpu, struct ioc_softmax_t *p)
 	iowrite32(p->width, xdpu->regs + DPU_SFM_CMD_XLEN);
 	iowrite32(p->height, xdpu->regs + DPU_SFM_CMD_YLEN);
 
-	/* ip limition - softmax supports up to 32-bit addressing */
 	iowrite32(p->input, xdpu->regs + DPU_SFM_SRC_ADDR);
+	iowrite32(p->input >> 32, xdpu->regs + DPU_SFM_SRC_ADDR_H);
+
 	iowrite32(p->output, xdpu->regs + DPU_SFM_DST_ADDR);
+	iowrite32(p->output >> 32, xdpu->regs + DPU_SFM_DST_ADDR_H);
+
 	iowrite32(p->scale, xdpu->regs + DPU_SFM_CMD_SCAL);
 	iowrite32(p->offset, xdpu->regs + DPU_SFM_CMD_OFF);
 	iowrite32(1, xdpu->regs + DPU_SFM_RESET);
@@ -296,8 +326,8 @@ err_out:
  *
  * Return:	0 if successful; otherwise -errno
  */
-static int xlnx_dpu_run(struct xdpu_dev *xdpu, struct ioc_kernel_run_t *p,
-			int id)
+static inline int xlnx_dpu_run(struct xdpu_dev *xdpu,
+			       struct ioc_kernel_run_t *p, int id)
 {
 	int val, ret;
 
@@ -359,9 +389,9 @@ static int xlnx_dpu_run(struct xdpu_dev *xdpu, struct ioc_kernel_run_t *p,
 	p->counter = lo_hi_readq(xdpu->regs + DPU_CYCLE_L(id));
 
 	dev_dbg(xdpu->dev,
-		"%s: PID=%d DPU=%d CPU=%d TIME=%lldms complete!\n",
+		"%s: PID=%d DPU=%d CPU=%d TIME=%lldus complete!\n",
 		__func__, current->pid, id, raw_smp_processor_id(),
-		ktime_ms_delta(p->time_end, p->time_start));
+		ktime_us_delta(p->time_end, p->time_start));
 
 	return 0;
 
@@ -372,18 +402,27 @@ err_out:
 	return -ETIMEDOUT;
 }
 
+static inline phys_addr_t get_pa(void *addr)
+{
+	if (likely(is_vmalloc_addr(addr)))
+		return page_to_phys(vmalloc_to_page(addr)) +
+			offset_in_page(addr);
+	return __pa(addr);
+}
+
 /**
  * xlnx_dpu_alloc_bo - alloc contiguous physical memory for dpu
- * @xdpu:	dpu structure
+ * @client:	dpu client
  * @req:	dpcma_req_alloc struct, contains the request info
  *
  * Return:	0 if successful; otherwise -errno
  */
-static long xlnx_dpu_alloc_bo(struct xdpu_dev *xdpu,
+static long xlnx_dpu_alloc_bo(struct xdpu_client *client,
 			      struct dpcma_req_alloc __user *req)
 {
 	struct dpu_buffer_block *pb;
 	size_t size;
+	struct xdpu_dev *xdpu = client->dev;
 
 	pb = kzalloc(sizeof(*pb), GFP_KERNEL);
 	if (!pb)
@@ -395,25 +434,35 @@ static long xlnx_dpu_alloc_bo(struct xdpu_dev *xdpu,
 	if (size > SIZE_MAX - PAGE_SIZE)
 		goto err_pb;
 
-	pb->capacity = PAGE_ALIGN(size);
+	pb->size = size;
 
-	if (put_user(pb->capacity, &req->capacity))
+	if (put_user(pb->size, &req->capacity))
 		goto err_pb;
 
-	pb->vaddr = dma_alloc_coherent(xdpu->dev, pb->capacity, &pb->dma_addr,
-				       GFP_KERNEL);
-	if (!pb->vaddr)
+	if (iommu_present(xdpu->dev->bus) && force_contig)
+		pb->attrs = DMA_ATTR_FORCE_CONTIGUOUS;
+
+	pb->cpu_addr = dma_alloc_attrs(xdpu->dev, pb->size, &pb->dma_addr,
+				       GFP_KERNEL | __GFP_ZERO, pb->attrs);
+	if (!pb->cpu_addr)
 		goto err_pb;
 
-	if (put_user(pb->dma_addr, &req->phy_addr))
+	if (put_user(pb->dma_addr, &req->dma_addr))
 		goto err_out;
 
-	list_add(&pb->head, &xdpu->head);
+	if (!(iommu_present(xdpu->dev->bus)))
+		pb->phy_addr = pb->dma_addr;
+	else
+		pb->phy_addr = get_pa(pb->cpu_addr);
+
+	mutex_lock(&xdpu->mutex);
+	list_add(&pb->head, &client->head);
+	mutex_unlock(&xdpu->mutex);
 
 	return 0;
-
 err_out:
-	dma_free_coherent(xdpu->dev, pb->capacity, pb->vaddr, pb->dma_addr);
+	dma_free_attrs(xdpu->dev, pb->size, pb->cpu_addr, pb->dma_addr,
+		       pb->attrs);
 err_pb:
 	kfree(pb);
 	return -EFAULT;
@@ -421,51 +470,52 @@ err_pb:
 
 /**
  * xlnx_dpu_free_bo - free contiguous physical memory allocated
- * @xdpu:	dpu structure
+ * @client:	dpu client
  * @req:	dpcma_req_free struct, contains the request info
  *
  * Return:	0 if successful; otherwise -errno
  */
-static long xlnx_dpu_free_bo(struct xdpu_dev *xdpu,
+static long xlnx_dpu_free_bo(struct xdpu_client *client,
 			     struct dpcma_req_free __user *req)
 {
-	struct list_head *pos = NULL, *next = NULL;
-	u64 phy_addr = 0;
-	struct dpu_buffer_block *h;
+	dma_addr_t dma_addr = 0;
+	struct xdpu_dev *xdpu = client->dev;
+	struct dpu_buffer_block *h, *n;
 
-	if (get_user(phy_addr, &req->phy_addr))
+	if (get_user(dma_addr, &req->dma_addr))
 		return -EFAULT;
 
-	list_for_each_safe(pos, next, &xdpu->head) {
-		h = list_entry(pos, struct dpu_buffer_block, head);
-		if (phy_addr == h->dma_addr) {
-			dma_free_coherent(xdpu->dev, h->capacity, h->vaddr,
-					  h->dma_addr);
-			list_del(pos);
+	mutex_lock(&xdpu->mutex);
+	list_for_each_entry_safe(h, n, &client->head, head) {
+		if (in_range(dma_addr, h->dma_addr, h->size)) {
+			dma_free_attrs(xdpu->dev, h->size, h->cpu_addr,
+				       h->dma_addr, h->attrs);
+			list_del(&h->head);
 			kfree(h);
 		}
 	}
+	mutex_unlock(&xdpu->mutex);
 
 	return 0;
 }
 
 /**
  * xlnx_dpu_sync_bo - flush/invalidate cache for allocated memory
- * @xdpu:	dpu structure
+ * @client:	dpu client
  * @req:	dpcma_req_sync struct, contains the request info
  *
  * Return:	0 if successful; otherwise -errno
  */
-static long xlnx_dpu_sync_bo(struct xdpu_dev *xdpu,
-			     struct dpcma_req_sync __user *req)
+static inline long xlnx_dpu_sync_bo(struct xdpu_client *client,
+				    struct dpcma_req_sync __user *req)
 {
-	struct list_head *pos = NULL;
-	long phy_addr;
+	dma_addr_t dma_addr;
 	int dir;
-	size_t size, offset;
-	struct dpu_buffer_block *h;
+	size_t size;
+	struct dpu_buffer_block *h = NULL, *n = NULL;
+	struct xdpu_dev *xdpu = client->dev;
 
-	if (get_user(phy_addr, &req->phy_addr) ||
+	if (get_user(dma_addr, &req->dma_addr) ||
 	    get_user(size, &req->size) || get_user(dir, &req->direction))
 		return -EFAULT;
 
@@ -474,23 +524,24 @@ static long xlnx_dpu_sync_bo(struct xdpu_dev *xdpu,
 		return -EINVAL;
 	}
 
-	list_for_each(pos, &xdpu->head) {
-		h = list_entry(pos, struct dpu_buffer_block, head);
-		if (phy_addr >= h->dma_addr &&
-		    phy_addr < h->dma_addr + h->capacity) {
-			offset = phy_addr;
+	mutex_lock(&xdpu->mutex);
+	list_for_each_entry_safe(h, n, &client->head, head) {
+		if (in_range(dma_addr, h->dma_addr, h->size)) {
 			if (dir == DPU_TO_CPU)
 				dma_sync_single_for_cpu(xdpu->dev,
-							offset,
+							h->phy_addr,
 							size,
 							DMA_FROM_DEVICE);
 			else
 				dma_sync_single_for_device(xdpu->dev,
-							   offset,
+							   h->phy_addr,
 							   size,
 							   DMA_TO_DEVICE);
+			break;
 		}
 	}
+	mutex_unlock(&xdpu->mutex);
+
 	return 0;
 }
 
@@ -506,10 +557,9 @@ static long xlnx_dpu_ioctl(struct file *file, unsigned int cmd,
 			   unsigned long arg)
 {
 	int ret = 0;
-	struct xdpu_dev *xdpu;
+	struct xdpu_client *client = file->private_data;
+	struct xdpu_dev *xdpu = client->dev;
 	void __user *data = NULL;
-
-	xdpu = container_of(file->private_data, struct xdpu_dev, miscdev);
 
 	if (_IOC_TYPE(cmd) != DPU_IOC_MAGIC)
 		return -ENOTTY;
@@ -555,13 +605,13 @@ static long xlnx_dpu_ioctl(struct file *file, unsigned int cmd,
 		break;
 	}
 	case DPUIOC_CREATE_BO:
-		return xlnx_dpu_alloc_bo(xdpu,
+		return xlnx_dpu_alloc_bo(client,
 					 (struct dpcma_req_alloc __user *)arg);
 	case DPUIOC_FREE_BO:
-		return xlnx_dpu_free_bo(xdpu,
+		return xlnx_dpu_free_bo(client,
 					(struct dpcma_req_free __user *)arg);
 	case DPUIOC_SYNC_BO:
-		return xlnx_dpu_sync_bo(xdpu,
+		return xlnx_dpu_sync_bo(client,
 					(struct dpcma_req_sync __user *)arg);
 	case DPUIOC_G_INFO:
 	{
@@ -583,8 +633,7 @@ static long xlnx_dpu_ioctl(struct file *file, unsigned int cmd,
 	{
 		struct ioc_softmax_t t;
 
-		if (copy_from_user(&t, data,
-				   sizeof(struct ioc_softmax_t))) {
+		if (copy_from_user(&t, data, sizeof(struct ioc_softmax_t))) {
 			dev_err(xdpu->dev, "copy_from_user softmax_t fail\n");
 			return -EINVAL;
 		}
@@ -659,8 +708,12 @@ static irqreturn_t xlnx_dpu_isr(int irq, void *data)
  */
 static int xlnx_dpu_mmap(struct file *file, struct vm_area_struct *vma)
 {
+	int found = 0;
+	struct xdpu_client *client = file->private_data;
+	struct xdpu_dev *xdpu = client->dev;
+	struct dpu_buffer_block *h = NULL, *n = NULL;
 	size_t size = vma->vm_end - vma->vm_start;
-	phys_addr_t offset = (phys_addr_t)vma->vm_pgoff << PAGE_SHIFT;
+	dma_addr_t offset = (dma_addr_t)vma->vm_pgoff << PAGE_SHIFT;
 
 	if ((offset >> PAGE_SHIFT) != vma->vm_pgoff)
 		return -EINVAL;
@@ -671,20 +724,104 @@ static int xlnx_dpu_mmap(struct file *file, struct vm_area_struct *vma)
 	if (!((vma->vm_pgoff + size) <= __pa(high_memory)))
 		return -EINVAL;
 
-	if (remap_pfn_range(vma,
-			    vma->vm_start,
-			    vma->vm_pgoff,
-			    size,
-			    vma->vm_page_prot))
-		return -EAGAIN;
+	mutex_lock(&xdpu->mutex);
+	list_for_each_entry_safe(h, n, &client->head, head) {
+		if (in_range(offset, h->dma_addr, h->size)) {
+			found = 1;
+			break;
+		}
+	}
+	mutex_unlock(&xdpu->mutex);
+
+	if (!found)
+		return -EINVAL;
+
+	/* map the whole buffer */
+	vma->vm_pgoff = 0;
+
+	return dma_mmap_attrs(xdpu->dev, vma, h->cpu_addr, h->dma_addr,
+			size, 0);
+}
+
+/**
+ * xlnx_dpu_open - open dpu device
+ * @inode:	inode object
+ * @filp:	file object
+ * Return:	0 if successful; otherwise -errno
+ */
+static int xlnx_dpu_open(struct inode *inode, struct file *filp)
+{
+	struct xdpu_dev *xdpu;
+	struct xdpu_client *client;
+
+	client = kzalloc(sizeof(*client), GFP_KERNEL);
+	if (!client)
+		return -ENOMEM;
+
+	xdpu = container_of(filp->private_data, struct xdpu_dev, miscdev);
+	client->dev = xdpu;
+	INIT_LIST_HEAD(&client->head);
+
+	filp->private_data = client;
+
+#ifdef CONFIG_DEBUG_FS
+	mutex_lock(&xdpu->mutex);
+	list_add_tail(&client->node, &xdpu->client_list);
+	mutex_unlock(&xdpu->mutex);
+#endif
+	return 0;
+}
+
+/**
+ * xlnx_dpu_release - release dpu resources
+ * @inode:	inode object
+ * @filp:	file object
+ *
+ * Return:	0 if successful; otherwise -errno
+ */
+static int xlnx_dpu_release(struct inode *inode, struct file *filp)
+{
+	struct xdpu_client *client = filp->private_data;
+	struct xdpu_dev *xdpu = client->dev;
+	struct dpu_buffer_block *h = NULL, *n = NULL;
+#ifdef CONFIG_DEBUG_FS
+	struct xdpu_client *p = NULL, *t = NULL;
+#endif
+
+	mutex_lock(&xdpu->mutex);
+	/* Drain the remaining buffer entries when abnormal close */
+	if (!list_empty(&client->head)) {
+		list_for_each_entry_safe(h, n, &client->head, head) {
+			dma_free_attrs(xdpu->dev,
+				       h->size,
+				       h->cpu_addr,
+				       h->dma_addr,
+				       h->attrs);
+			list_del(&h->head);
+			kfree(h);
+		};
+	}
+
+#ifdef CONFIG_DEBUG_FS
+	list_for_each_entry_safe(p, t, &xdpu->client_list, node) {
+		if (p == client) {
+			list_del(&p->node);
+			kfree(p);
+			break;
+		};
+	};
+#endif
+	mutex_unlock(&xdpu->mutex);
 
 	return 0;
 }
 
 static const struct file_operations dev_fops = {
 	.owner = THIS_MODULE,
-	.unlocked_ioctl = xlnx_dpu_ioctl,
+	.open = xlnx_dpu_open,
 	.mmap = xlnx_dpu_mmap,
+	.unlocked_ioctl = xlnx_dpu_ioctl,
+	.release = xlnx_dpu_release,
 };
 
 /**
@@ -836,19 +973,18 @@ static int xlnx_dpu_probe(struct platform_device *pdev)
 	if (ret && ret != -ENODEV)
 		goto err_out;
 
-	/* Vivado flow DPU ip is capable of 40-bit physical addresses only */
-	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(40))) {
+	/* The DMA of the DPU is capable of 40-bit physical addresses */
+	if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(40)))
 		/* fall back to 32-bit DMA mask */
 		if (dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32)))
 			goto err_out;
-	}
+
+	mutex_init(&xdpu->mutex);
 
 	for (i = 0; i < xdpu->dpu_cnt + xdpu->sfm_cnt; i++) {
 		init_completion(&xdpu->cu[i].done);
 		mutex_init(&xdpu->cu[i].mutex);
 	}
-
-	INIT_LIST_HEAD(&xdpu->head);
 
 	xdpu->miscdev.minor = MISC_DYNAMIC_MINOR;
 	xdpu->miscdev.name = DEVICE_NAME;
@@ -861,6 +997,8 @@ static int xlnx_dpu_probe(struct platform_device *pdev)
 	xlnx_dpu_regs_init(xdpu);
 
 #ifdef CONFIG_DEBUG_FS
+	INIT_LIST_HEAD(&xdpu->client_list);
+
 	ret = dpu_debugfs_init(xdpu);
 	if (ret) {
 		dev_err(xdpu->dev, "failed to init dpu_debugfs)\n");
@@ -1113,7 +1251,9 @@ static const struct debugfs_reg32 sfm_regs[] = {
 	dump_register(SFM_CMD_XLEN),
 	dump_register(SFM_CMD_YLEN),
 	dump_register(SFM_SRC_ADDR),
+	dump_register(SFM_SRC_ADDR_H),
 	dump_register(SFM_DST_ADDR),
+	dump_register(SFM_DST_ADDR_H),
 	dump_register(SFM_CMD_SCAL),
 	dump_register(SFM_CMD_OFF),
 	dump_register(SFM_INT_CLR),
@@ -1128,27 +1268,42 @@ static const struct debugfs_reg32 sfm_regs[] = {
 
 static int dump_show(struct seq_file *seq, void *v)
 {
+	struct xdpu_client *client;
 	struct xdpu_dev *xdpu = seq->private;
 	struct dpu_buffer_block *h;
 	static const char units[] = "KMG";
 	const char *unit = units;
 	unsigned long delta = 0;
 
-	seq_puts(seq,
-		 "Virtual Address\t\t\t\tRequest Mem\t\tPhysical Address\n");
-	list_for_each_entry(h, &xdpu->head, head) {
-		delta = (h->capacity) >> 10;
-		while (!(delta & 1023) && unit[1]) {
-			delta >>= 10;
-			unit++;
-		}
-		seq_printf(seq, "%p-%p   %9lu%c         %016llx-%016llx\n",
-			   h->vaddr, h->vaddr + h->capacity,
-			   delta, *unit,
-			   (u64)h->dma_addr, (u64)(h->dma_addr + h->capacity));
-		delta = 0;
-		unit = units;
-	}
+	mutex_lock(&xdpu->mutex);
+	list_for_each_entry(client, &xdpu->client_list, node) {
+		if (!list_empty(&client->head)) {
+			seq_printf(seq, "Client: %px\n", client);
+			seq_puts(seq, "Virtual Address\t\t\t\t");
+			seq_puts(seq, "Request Mem\t\tPhysical Address\t\t\t");
+			seq_puts(seq, "DMA Address\n");
+			list_for_each_entry(h, &client->head, head) {
+				delta = (h->size) >> 10;
+				while (!(delta & 1023) && unit[1]) {
+					delta >>= 10;
+					unit++;
+				}
+				seq_printf(seq, "%px-%px   %9lu%c\t\t",
+					   h->cpu_addr,
+					   h->cpu_addr + h->size,
+					   delta, *unit);
+				seq_printf(seq, "   0x%010llx-0x%010llx\t\t",
+					   h->phy_addr,
+					   h->phy_addr + h->size);
+				seq_printf(seq, "0x%010llx-0x%010llx\n",
+					   h->dma_addr,
+					   (h->dma_addr + h->size));
+				delta = 0;
+				unit = units;
+			};
+		};
+	};
+	mutex_unlock(&xdpu->mutex);
 
 	return 0;
 }

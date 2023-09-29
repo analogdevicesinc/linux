@@ -1079,15 +1079,13 @@ static int ltc6952_probe(struct spi_device *spi)
 	return jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
 }
 
-static int ltc6952_remove(struct spi_device *spi)
+static void ltc6952_remove(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 
 	iio_device_unregister(indio_dev);
 
 	of_clk_del_provider(spi->dev.of_node);
-
-	return 0;
 }
 
 static const struct spi_device_id ltc6952_id[] = {

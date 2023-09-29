@@ -558,7 +558,7 @@ static const struct iio_enum ad9680_testmode_enum = {
 
 static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	IIO_ENUM("test_mode", IIO_SEPARATE, &ad9680_testmode_enum),
-	IIO_ENUM_AVAILABLE("test_mode", &ad9680_testmode_enum),
+	IIO_ENUM_AVAILABLE("test_mode", IIO_SHARED_BY_TYPE, &ad9680_testmode_enum),
 	{
 		.name = "scale_available",
 		.read = ad9680_show_scale_available,
@@ -1554,7 +1554,7 @@ static int ad9680_probe(struct spi_device *spi)
 	return 0;
 }
 
-static int ad9680_remove(struct spi_device *spi)
+static void ad9680_remove(struct spi_device *spi)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 
@@ -1565,8 +1565,6 @@ static int ad9680_remove(struct spi_device *spi)
 		clk_disable_unprepare(conv->clk);
 		conv->running = false;
 	}
-
-	return 0;
 }
 
 static const struct spi_device_id ad9680_id[] = {

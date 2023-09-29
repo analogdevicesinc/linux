@@ -86,9 +86,10 @@ void *adi_axi_adc_conv_priv(struct adi_axi_adc_conv *conv)
 {
 	struct adi_axi_adc_client *cl = conv_to_client(conv);
 
-	return (char *)cl + ALIGN(sizeof(struct adi_axi_adc_client), IIO_ALIGN);
+	return (char *)cl + ALIGN(sizeof(struct adi_axi_adc_client),
+				  IIO_DMA_MINALIGN);
 }
-EXPORT_SYMBOL_GPL(adi_axi_adc_conv_priv);
+EXPORT_SYMBOL_NS_GPL(adi_axi_adc_conv_priv, IIO_ADI_AXI);
 
 static void adi_axi_adc_write(struct adi_axi_adc_state *st,
 			      unsigned int reg,
@@ -103,21 +104,9 @@ static unsigned int adi_axi_adc_read(struct adi_axi_adc_state *st,
 	return ioread32(st->regs + reg);
 }
 
-static int adi_axi_adc_buffer_submit_block(struct iio_dma_buffer_queue *queue,
-					   struct iio_dma_buffer_block *block)
-{
-	return iio_dmaengine_buffer_submit_block(queue, block, DMA_MEM_TO_DEV);
-}
-
-static const struct iio_dma_buffer_ops adi_axi_adc_dma_buffer_ops = {
-	.submit = adi_axi_adc_buffer_submit_block,
-	.abort = iio_dmaengine_buffer_abort,
-};
-
 static int adi_axi_adc_config_dma_buffer(struct device *dev,
 					 struct iio_dev *indio_dev)
 {
-	struct iio_buffer *buffer;
 	const char *dma_name;
 
 	if (!device_property_present(dev, "dmas"))
@@ -126,15 +115,8 @@ static int adi_axi_adc_config_dma_buffer(struct device *dev,
 	if (device_property_read_string(dev, "dma-names", &dma_name))
 		dma_name = "rx";
 
-	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent,
-						 dma_name, &adi_axi_adc_dma_buffer_ops, NULL);
-	if (IS_ERR(buffer))
-		return PTR_ERR(buffer);
-
-	indio_dev->modes |= INDIO_BUFFER_HARDWARE;
-	iio_device_attach_buffer(indio_dev, buffer);
-
-	return 0;
+	return devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent, indio_dev,
+					       dma_name, IIO_BUFFER_DIRECTION_IN);
 }
 
 static int adi_axi_adc_read_raw(struct iio_dev *indio_dev,
@@ -190,9 +172,9 @@ static struct adi_axi_adc_conv *adi_axi_adc_conv_register(struct device *dev,
 	struct adi_axi_adc_client *cl;
 	size_t alloc_size;
 
-	alloc_size = ALIGN(sizeof(struct adi_axi_adc_client), IIO_ALIGN);
+	alloc_size = ALIGN(sizeof(struct adi_axi_adc_client), IIO_DMA_MINALIGN);
 	if (sizeof_priv)
-		alloc_size += ALIGN(sizeof_priv, IIO_ALIGN);
+		alloc_size += ALIGN(sizeof_priv, IIO_DMA_MINALIGN);
 
 	cl = kzalloc(alloc_size, GFP_KERNEL);
 	if (!cl)
@@ -245,7 +227,7 @@ struct adi_axi_adc_conv *devm_adi_axi_adc_conv_register(struct device *dev,
 
 	return conv;
 }
-EXPORT_SYMBOL_GPL(devm_adi_axi_adc_conv_register);
+EXPORT_SYMBOL_NS_GPL(devm_adi_axi_adc_conv_register, IIO_ADI_AXI);
 
 static ssize_t in_voltage_scale_available_show(struct device *dev,
 					       struct device_attribute *attr,
@@ -343,16 +325,19 @@ static struct adi_axi_adc_client *adi_axi_adc_attach_client(struct device *dev)
 
 		if (!try_module_get(cl->dev->driver->owner)) {
 			mutex_unlock(&registered_clients_lock);
+			of_node_put(cln);
 			return ERR_PTR(-ENODEV);
 		}
 
 		get_device(cl->dev);
 		cl->info = info;
 		mutex_unlock(&registered_clients_lock);
+		of_node_put(cln);
 		return cl;
 	}
 
 	mutex_unlock(&registered_clients_lock);
+	of_node_put(cln);
 
 	return ERR_PTR(-EPROBE_DEFER);
 }

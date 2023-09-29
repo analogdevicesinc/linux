@@ -2,7 +2,8 @@
 /*
  * Xilinx Zynq MPSoC Firmware layer
  *
- *  Copyright (C) 2014-2021 Xilinx
+ * Copyright (C) 2014 - 2022, Xilinx, Inc.
+ * Copyright (C) 2022 - 2023, Advanced Micro Devices, Inc.
  *
  *  Michal Simek <michal.simek@xilinx.com>
  *  Davorin Mista <davorin.mista@aggios.com>
@@ -32,10 +33,27 @@
 #define PM_SIP_SVC			0xC2000000
 
 /* PM API versions */
+#define PM_API_VERSION_1	1
 #define PM_API_VERSION_2	2
 
 /* Firmware feature check version mask */
 #define FIRMWARE_VERSION_MASK		0xFFFFU
+
+#define ZYNQMP_FAMILY_CODE 0x23
+#define VERSAL_FAMILY_CODE 0x26
+
+/* When all subfamily of platform need to support */
+#define ALL_SUB_FAMILY_CODE		0x00
+#define VERSAL_SUB_FAMILY_CODE		0x01
+#define VERSALNET_SUB_FAMILY_CODE	0x03
+
+#define FAMILY_CODE_LSB	21
+#define FAMILY_CODE_MSB	27
+#define SUB_FAMILY_CODE_LSB	19
+#define SUB_FAMILY_CODE_MSB	20
+
+#define API_ID_MASK		GENMASK(7, 0)
+#define MODULE_ID_MASK		GENMASK(11, 8)
 
 /* ATF only commands */
 #define TF_A_PM_REGISTER_SGI		0xa04
@@ -50,8 +68,27 @@
 #define PM_BBRAM_READ_USERDATA		0xB04
 #define PM_BBRAM_LOCK_USERDATA		0xB05
 
+/* xilSecure API commands  module id + api id */
+#define XSECURE_API_RSA_SIGN_VERIFY	0x501
+#define XSECURE_API_RSA_PUBLIC_ENCRYPT	0x502
+#define XSECURE_API_RSA_PRIVATE_DECRYPT	0x503
+#define XSECURE_API_SHA3_UPDATE		0x504
+#define XSECURE_API_AES_OP_INIT		0x50a
+#define XSECURE_API_AES_UPDATE_AAD	0x50b
+#define XSECURE_API_AES_ENCRYPT_UPDATE	0x50c
+#define XSECURE_API_AES_ENCRYPT_FINAL	0x50d
+#define XSECURE_API_AES_DECRYPT_UPDATE	0x50e
+#define XSECURE_API_AES_DECRYPT_FINAL	0x50f
+#define XSECURE_API_AES_WRITE_KEY	0x511
+
 /* Secure Commands */
 #define PM_WRITE_AES_KEY		0x568
+
+/* XilSEM commands */
+#define PM_XSEM_HEADER			0x300
+#define PM_XSEM_CRAM_ERRINJ		0x304
+#define PM_XSEM_RD_CONFIG		0x309
+#define PM_XSEM_CRAM_RD_ECC		0x30B
 
 /* To Get UID info list */
 #define PM_GET_UID_INFO_LIST		0x705
@@ -101,6 +138,14 @@
 #define XILINX_ZYNQMP_PM_FPGA_ENCRYPTION_USERKEY	BIT(3)
 #define XILINX_ZYNQMP_PM_FPGA_ENCRYPTION_DEVKEY		BIT(4)
 
+/*
+ * Node IDs for the Error Events.
+ */
+#define EVENT_ERROR_PMC_ERR1	(0x28100000U)
+#define EVENT_ERROR_PMC_ERR2	(0x28104000U)
+#define EVENT_ERROR_PSM_ERR1	(0x28108000U)
+#define EVENT_ERROR_PSM_ERR2	(0x2810C000U)
+
 /* AIE Operation */
 #define XILINX_AIE_OPS_COL_RST				BIT(0)
 #define XILINX_AIE_OPS_SHIM_RST				BIT(1)
@@ -110,6 +155,22 @@
 #define XILINX_AIE_OPS_ENB_AXI_MM_ERR_EVENT		BIT(5)
 #define XILINX_AIE_OPS_SET_L2_CTRL_NPI_INTR		BIT(6)
 
+enum pm_module_id {
+	PM_MODULE_ID = 0x0,
+	XPM_MODULE_ID = 0x2,
+	XSEM_MODULE_ID = 0x3,
+	XSECURE_MODULE_ID = 0x5,
+	TF_A_MODULE_ID = 0xa,
+	XNVM_MODULE_ID = 0xb,
+	XPUF_MODULE_ID = 0xc,
+	XOCP_MODULE_ID = 0xd,
+};
+
+enum xsecure_aeskeysize {
+	XSECURE_AES_KEY_SIZE_128 = 16,
+	XSECURE_AES_KEY_SIZE_256 = 32,
+};
+
 enum pm_api_cb_id {
 	PM_INIT_SUSPEND_CB = 30,
 	PM_ACKNOWLEDGE_CB = 31,
@@ -117,6 +178,7 @@ enum pm_api_cb_id {
 };
 
 enum pm_api_id {
+	PM_API_FEATURES = 0,
 	PM_GET_API_VERSION = 1,
 	PM_SET_CONFIGURATION = 2,
 	PM_GET_NODE_STATUS = 3,
@@ -170,9 +232,9 @@ enum pm_api_id {
 	/* PM_REGISTER_ACCESS API */
 	PM_REGISTER_ACCESS = 52,
 	PM_EFUSE_ACCESS = 53,
-	PM_FPGA_GET_VERSION = 54,
-	PM_FPGA_GET_FEATURE_LIST = 55,
 	PM_FEATURE_CHECK = 63,
+	PM_FPGA_GET_VERSION = 72,
+	PM_FPGA_GET_FEATURE_LIST = 73,
 };
 
 /* PMU-FW return status codes */
@@ -180,6 +242,7 @@ enum pm_ret_status {
 	XST_PM_SUCCESS = 0,
 	XST_PM_INVALID_VERSION = 4,
 	XST_PM_NO_FEATURE = 19,
+	XST_PM_INVALID_CRC = 301,
 	XST_PM_INTERNAL = 2000,
 	XST_PM_CONFLICT = 2001,
 	XST_PM_NO_ACCESS = 2002,
@@ -229,7 +292,7 @@ enum pm_ioctl_id {
 	/* IOCTL for Secure Read/Write Interface */
 	IOCTL_READ_REG = 28,
 	IOCTL_MASK_WRITE_REG = 29,
-	/* Dynamic SD/GEM/USB configuration */
+	/* Dynamic SD/GEM configuration */
 	IOCTL_SET_SD_CONFIG = 30,
 	IOCTL_SET_GEM_CONFIG = 31,
 	IOCTL_SET_USB_CONFIG = 32,
@@ -254,7 +317,6 @@ enum pm_query_id {
 	PM_QID_PINCTRL_GET_PIN_GROUPS = 11,
 	PM_QID_CLOCK_GET_NUM_CLOCKS = 12,
 	PM_QID_CLOCK_GET_MAX_DIVISOR = 13,
-	PM_QID_PLD_GET_PARENT = 14,
 };
 
 enum rpu_oper_mode {
@@ -423,85 +485,12 @@ enum zynqmp_pm_request_ack {
 };
 
 enum pm_node_id {
-	NODE_UNKNOWN = 0,
-	NODE_APU = 1,
-	NODE_APU_0 = 2,
-	NODE_APU_1 = 3,
-	NODE_APU_2 = 4,
-	NODE_APU_3 = 5,
-	NODE_RPU = 6,
-	NODE_RPU_0 = 7,
-	NODE_RPU_1 = 8,
-	NODE_PLD = 9,
-	NODE_FPD = 10,
-	NODE_OCM_BANK_0 = 11,
-	NODE_OCM_BANK_1 = 12,
-	NODE_OCM_BANK_2 = 13,
-	NODE_OCM_BANK_3 = 14,
 	NODE_TCM_0_A = 15,
 	NODE_TCM_0_B = 16,
 	NODE_TCM_1_A = 17,
 	NODE_TCM_1_B = 18,
-	NODE_L2 = 19,
-	NODE_GPU_PP_0 = 20,
-	NODE_GPU_PP_1 = 21,
-	NODE_USB_0 = 22,
-	NODE_USB_1 = 23,
-	NODE_TTC_0 = 24,
-	NODE_TTC_1 = 25,
-	NODE_TTC_2 = 26,
-	NODE_TTC_3 = 27,
-	NODE_SATA = 28,
-	NODE_ETH_0 = 29,
-	NODE_ETH_1 = 30,
-	NODE_ETH_2 = 31,
-	NODE_ETH_3 = 32,
-	NODE_UART_0 = 33,
-	NODE_UART_1 = 34,
-	NODE_SPI_0 = 35,
-	NODE_SPI_1 = 36,
-	NODE_I2C_0 = 37,
-	NODE_I2C_1 = 38,
 	NODE_SD_0 = 39,
 	NODE_SD_1 = 40,
-	NODE_DP = 41,
-	NODE_GDMA = 42,
-	NODE_ADMA = 43,
-	NODE_NAND = 44,
-	NODE_QSPI = 45,
-	NODE_GPIO = 46,
-	NODE_CAN_0 = 47,
-	NODE_CAN_1 = 48,
-	NODE_EXTERN = 49,
-	NODE_APLL = 50,
-	NODE_VPLL = 51,
-	NODE_DPLL = 52,
-	NODE_RPLL = 53,
-	NODE_IOPLL = 54,
-	NODE_DDR = 55,
-	NODE_IPI_APU = 56,
-	NODE_IPI_RPU_0 = 57,
-	NODE_GPU = 58,
-	NODE_PCIE = 59,
-	NODE_PCAP = 60,
-	NODE_RTC = 61,
-	NODE_LPD = 62,
-	NODE_VCU = 63,
-	NODE_IPI_RPU_1 = 64,
-	NODE_IPI_PL_0 = 65,
-	NODE_IPI_PL_1 = 66,
-	NODE_IPI_PL_2 = 67,
-	NODE_IPI_PL_3 = 68,
-	NODE_PL = 69,
-	NODE_GEM_TSU = 70,
-	NODE_SWDT_0 = 71,
-	NODE_SWDT_1 = 72,
-	NODE_CSU = 73,
-	NODE_PJTAG = 74,
-	NODE_TRACE = 75,
-	NODE_TESTSCAN = 76,
-	NODE_PMU = 77,
-	NODE_MAX = 78,
 };
 
 enum tap_delay_type {
@@ -588,6 +577,11 @@ enum tap_delay_bypass_ctrl {
 	PM_TAPDELAY_BYPASS_ENABLE = 1,
 };
 
+enum ospi_mux_select_type {
+	PM_OSPI_MUX_SEL_DMA = 0,
+	PM_OSPI_MUX_SEL_LINEAR = 1,
+};
+
 enum sgmii_mode {
 	PM_SGMII_DISABLE = 0,
 	PM_SGMII_ENABLE = 1,
@@ -617,25 +611,32 @@ enum pm_feature_config_id {
 	PM_FEATURE_EXTWDT_VALUE = 4,
 };
 
-enum pm_sd_config_type {
-	SD_CONFIG_EMMC_SEL = 1, /* To set SD_EMMC_SEL in CTRL_REG_SD and SD_SLOTTYPE */
-	SD_CONFIG_BASECLK = 2, /* To set SD_BASECLK in SD_CONFIG_REG1 */
-	SD_CONFIG_8BIT = 3, /* To set SD_8BIT in SD_CONFIG_REG2 */
-	SD_CONFIG_FIXED = 4, /* To set fixed config registers */
-};
-
-enum pm_gem_config_type {
-	GEM_CONFIG_SGMII_MODE = 1, /* To set GEM_SGMII_MODE in GEM_CLK_CTRL register */
-	GEM_CONFIG_FIXED = 2, /* To set fixed config registers */
-};
-
 enum pm_usb_config_type {
 	USB_CONFIG_FIXED = 1, /* To set fixed config registers */
 };
 
-enum ospi_mux_select_type {
-	PM_OSPI_MUX_SEL_DMA = 0,
-	PM_OSPI_MUX_SEL_LINEAR = 1,
+/**
+ * enum pm_sd_config_type - PM SD configuration.
+ * @SD_CONFIG_EMMC_SEL: To set SD_EMMC_SEL in CTRL_REG_SD and SD_SLOTTYPE
+ * @SD_CONFIG_BASECLK: To set SD_BASECLK in SD_CONFIG_REG1
+ * @SD_CONFIG_8BIT: To set SD_8BIT in SD_CONFIG_REG2
+ * @SD_CONFIG_FIXED: To set fixed config registers
+ */
+enum pm_sd_config_type {
+	SD_CONFIG_EMMC_SEL = 1,
+	SD_CONFIG_BASECLK = 2,
+	SD_CONFIG_8BIT = 3,
+	SD_CONFIG_FIXED = 4,
+};
+
+/**
+ * enum pm_gem_config_type - PM GEM configuration.
+ * @GEM_CONFIG_SGMII_MODE: To set GEM_SGMII_MODE in GEM_CLK_CTRL register
+ * @GEM_CONFIG_FIXED: To set fixed config registers
+ */
+enum pm_gem_config_type {
+	GEM_CONFIG_SGMII_MODE = 1,
+	GEM_CONFIG_FIXED = 2,
 };
 
 /**
@@ -652,12 +653,27 @@ struct zynqmp_pm_query_data {
 	u32 arg3;
 };
 
+/**
+ * struct xlnx_feature - Feature data
+ * @family:	Family code of platform
+ * @subfamily:	Subfamily code of platform
+ * @feature_id:	Feature id of module
+ * @data:	Collection of all supported platform data
+ */
+struct xlnx_feature {
+	u32 family;
+	u32 subfamily;
+	u32 feature_id;
+	void *data;
+};
+
 int zynqmp_pm_invoke_fn(u32 pm_api_id, u32 arg0, u32 arg1,
 			u32 arg2, u32 arg3, u32 arg4, u32 *ret_payload);
 
 #if IS_REACHABLE(CONFIG_ZYNQMP_FIRMWARE)
 int zynqmp_pm_get_api_version(u32 *version);
 int zynqmp_pm_get_chipid(u32 *idcode, u32 *version);
+void *xlnx_get_crypto_dev_data(struct xlnx_feature *feature_map);
 int zynqmp_pm_query_data(struct zynqmp_pm_query_data qdata, u32 *out);
 int zynqmp_pm_clock_enable(u32 clock_id);
 int zynqmp_pm_clock_disable(u32 clock_id);
@@ -714,9 +730,6 @@ int zynqmp_pm_get_node_status(const u32 node, u32 *const status,
 int zynqmp_pm_get_operating_characteristic(const u32 node,
 					   const enum zynqmp_pm_opchar_type type,
 					   u32 *const result);
-int zynqmp_pm_force_powerdown(const u32 target, const enum zynqmp_pm_request_ack ack);
-int zynqmp_pm_request_wakeup(const u32 node, const bool set_addr,
-			     const u64 address, const enum zynqmp_pm_request_ack ack);
 int zynqmp_pm_set_wakeup_source(const u32 target, const u32 wakeup_node, const u32 enable);
 int zynqmp_pm_fpga_load(const u64 address, const u32 size,
 			const u32 flags, u32 *status);
@@ -725,9 +738,9 @@ int zynqmp_pm_write_ggs(u32 index, u32 value);
 int zynqmp_pm_read_ggs(u32 index, u32 *value);
 int zynqmp_pm_write_pggs(u32 index, u32 value);
 int zynqmp_pm_read_pggs(u32 index, u32 *value);
+int zynqmp_pm_set_tapdelay_bypass(u32 index, u32 value);
 int zynqmp_pm_usb_set_state(u32 node, u32 state, u32 value);
 int zynqmp_pm_afi(u32 index, u32 value);
-int zynqmp_pm_set_tapdelay_bypass(u32 index, u32 value);
 int zynqmp_pm_set_sgmii_mode(u32 enable);
 int zynqmp_pm_ulpi_reset(void);
 int zynqmp_pm_probe_counter_read(u32 domain, u32 reg, u32 *value);
@@ -744,7 +757,6 @@ int zynqmp_pm_request_wake(const u32 node,
 int zynqmp_pm_get_rpu_mode(u32 node_id, enum rpu_oper_mode *rpu_mode);
 int zynqmp_pm_set_rpu_mode(u32 node_id, u32 arg1);
 int zynqmp_pm_set_tcm_config(u32 node_id, u32 arg1);
-int zynqmp_pm_clear_aie_npi_isr(u32 node, u32 irq_mask);
 int zynqmp_pm_pinctrl_request(const u32 pin);
 int zynqmp_pm_pinctrl_release(const u32 pin);
 int zynqmp_pm_pinctrl_get_function(const u32 pin, u32 *id);
@@ -764,18 +776,33 @@ int zynqmp_pm_get_uid_info(const u64 address, const u32 size, u32 *count);
 int zynqmp_pm_sec_read_reg(u32 node_id, u32 offset, u32 *ret_value);
 int zynqmp_pm_sec_mask_write_reg(const u32 node_id, const u32 offset,
 				 u32 mask, u32 value);
+int zynqmp_pm_register_sgi(u32 sgi_num, u32 reset);
 int zynqmp_pm_set_sd_config(u32 node, enum pm_sd_config_type config, u32 value);
 int zynqmp_pm_set_gem_config(u32 node, enum pm_gem_config_type config,
 			     u32 value);
 int zynqmp_pm_set_usb_config(u32 node, enum pm_usb_config_type config,
 			     u32 value);
+int zynqmp_pm_xilsem_cntrl_ops(u32 cmd, u32 *const response);
+int zynqmp_pm_xilsem_cram_errinj(u32 frame, u32 qword, u32 bit, u32 row, u32 *const response);
+int zynqmp_pm_xilsem_cram_readecc(u32 frame, u32 row, u32 *const response);
+int zynqmp_pm_xilsem_read_cfg(u32 *const response);
 int zynqmp_pm_get_meta_header(const u64 src, const u64 dst,
 			      const u32 size, u32 *count);
-int zynqmp_pm_register_sgi(u32 sgi_num, u32 reset);
 int zynqmp_pm_aie_operation(u32 node, u16 start_col, u16 num_col, u32 operation);
 int zynqmp_pm_fpga_get_version(u32 *value);
 int zynqmp_pm_fpga_get_feature_list(u32 *value);
 int zynqmp_pm_get_qos(u32 node, u32 *const def_qos, u32 *const qos);
+int versal_pm_sha_hash(const u64 src, const u64 dst, const u32 size);
+int versal_pm_aes_key_write(const u32 keylen,
+			    const u32 keysrc, const u64 keyaddr);
+int versal_pm_aes_op_init(const u64 hw_req);
+int versal_pm_aes_update_aad(const u64 aad_addr, const u32 aad_len);
+int versal_pm_aes_enc_update(const u64 in_params, const u64 in_addr);
+int versal_pm_aes_dec_update(const u64 in_params, const u64 in_addr);
+int versal_pm_aes_dec_final(const u64 gcm_addr);
+int versal_pm_aes_enc_final(const u64 gcm_addr);
+int versal_pm_rsa_encrypt(const u64 in_params, const u64 in_addr);
+int versal_pm_rsa_decrypt(const u64 in_params, const u64 in_addr);
 #else
 static inline int zynqmp_pm_get_api_version(u32 *version)
 {
@@ -785,6 +812,11 @@ static inline int zynqmp_pm_get_api_version(u32 *version)
 static inline int zynqmp_pm_get_chipid(u32 *idcode, u32 *version)
 {
 	return -ENODEV;
+}
+
+static inline void *xlnx_get_crypto_dev_data(struct xlnx_feature *feature_map)
+{
+	return ERR_PTR(-ENODEV);
 }
 
 static inline int zynqmp_pm_query_data(struct zynqmp_pm_query_data qdata,
@@ -930,6 +962,12 @@ static inline int zynqmp_pm_aes_engine(const u64 address, u32 *out)
 	return -ENODEV;
 }
 
+static inline int zynqmp_pm_sha_hash(const u64 address, const u32 size,
+				     const u32 flags)
+{
+	return -ENODEV;
+}
+
 static inline int zynqmp_pm_fpga_load(const u64 address, const u32 size,
 				      const u32 flags, u32 *status)
 {
@@ -961,17 +999,17 @@ static inline int zynqmp_pm_read_pggs(u32 index, u32 *value)
 	return -ENODEV;
 }
 
+static inline int zynqmp_pm_set_tapdelay_bypass(u32 index, u32 value)
+{
+	return -ENODEV;
+}
+
 static inline int zynqmp_pm_usb_set_state(u32 node, u32 state, u32 value)
 {
 	return -ENODEV;
 }
 
 static inline int zynqmp_pm_afi(u32 index, u32 value)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_set_tapdelay_bypass(u32 index, u32 value)
 {
 	return -ENODEV;
 }
@@ -1025,11 +1063,6 @@ static inline int zynqmp_pm_set_tcm_config(u32 node_id, u32 arg1)
 	return -ENODEV;
 }
 
-static inline int zynqmp_pm_clear_aie_npi_isr(u32 node, u32 irq_mask)
-{
-	return -ENODEV;
-}
-
 static inline int zynqmp_pm_pinctrl_request(const u32 pin)
 {
 	return -ENODEV;
@@ -1073,12 +1106,6 @@ static inline int zynqmp_pm_load_pdi(const u32 src, const u64 address)
 }
 
 static inline int zynqmp_pm_efuse_access(const u64 address, u32 *out)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_sha_hash(const u64 address, const u32 size,
-				     const u32 flags)
 {
 	return -ENODEV;
 }
@@ -1133,19 +1160,6 @@ static inline int zynqmp_pm_get_node_status(const u32 node, u32 *const status,
 static inline int zynqmp_pm_get_operating_characteristic(const u32 node,
 							 const enum zynqmp_pm_opchar_type type,
 							 u32 *const result)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_force_powerdown(const u32 target,
-					    const enum zynqmp_pm_request_ack ack)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_request_wakeup(const u32 node, const bool set_addr,
-					   const u64 address,
-					   const enum zynqmp_pm_request_ack ack)
 {
 	return -ENODEV;
 }
@@ -1243,13 +1257,20 @@ static inline int zynqmp_pm_get_uid_info(const u64 address, const u32 size,
 	return -ENODEV;
 }
 
-static inline int zynqmp_pm_sec_read_reg(u32 node_id, u32 offset, u32 *ret_value)
+static inline int zynqmp_pm_sec_read_reg(u32 node_id, u32 offset,
+					 u32 *ret_value)
 {
 	return -ENODEV;
 }
 
-static inline int zynqmp_pm_sec_mask_write_reg(const u32 node_id, const u32 offset,
-					u32 mask, u32 value)
+static inline int zynqmp_pm_sec_mask_write_reg(const u32 node_id,
+					       const u32 offset,
+					       u32 mask, u32 value)
+{
+	return -ENODEV;
+}
+
+static inline int zynqmp_pm_register_sgi(u32 sgi_num, u32 reset)
 {
 	return -ENODEV;
 }
@@ -1280,13 +1301,29 @@ static inline int zynqmp_pm_set_usb_config(u32 node,
 	return -ENODEV;
 }
 
-static inline int zynqmp_pm_get_meta_header(const u64 src, const u64 dst,
-					    const u32 size, u32 *count)
+static inline int zynqmp_pm_xilsem_cntrl_ops(u32 cmd, u32 *const response)
 {
 	return -ENODEV;
 }
 
-static inline int zynqmp_pm_register_sgi(u32 sgi_num, u32 reset)
+static inline int zynqmp_pm_xilsem_cram_readecc(u32 frame, u32 row, u32 *const response)
+{
+	return -ENODEV;
+}
+
+static inline int zynqmp_pm_xilsem_cram_errinj(u32 frame, u32 qword, u32 bit,
+					       u32 row, u32 *const response)
+{
+	return -ENODEV;
+}
+
+static inline int zynqmp_pm_xilsem_read_cfg(u32 *const response)
+{
+	return -ENODEV;
+}
+
+static inline int zynqmp_pm_get_meta_header(const u64 src, const u64 dst,
+					    const u32 size, u32 *count)
 {
 	return -ENODEV;
 }
@@ -1303,6 +1340,61 @@ static inline int zynqmp_pm_fpga_get_version(u32 *value)
 }
 
 static inline int zynqmp_pm_fpga_get_feature_list(u32 *value)
+{
+	return -ENODEV;
+}
+
+static inline int versal_pm_sha_hash(const u64 src, const u64 dst,
+				     const u32 size)
+{
+	return -ENODEV;
+}
+
+static inline int versal_pm_aes_key_write(const u32 keylen,
+					  const u32 keysrc, const u64 keyaddr)
+{
+	return -ENODEV;
+}
+
+static inline int versal_pm_aes_op_init(const u64 hw_req)
+{
+	return -ENODEV;
+}
+
+static inline int versal_pm_aes_update_aad(const u64 aad_addr,
+					   const u32 aad_len)
+{
+	return -ENODEV;
+}
+
+static inline int versal_pm_aes_enc_update(const u64 in_params,
+					   const u64 in_addr)
+{
+	return -ENODEV;
+}
+
+static inline int versal_pm_aes_dec_update(const u64 in_params,
+					   const u64 in_addr)
+{
+	return -ENODEV;
+}
+
+static inline int versal_pm_aes_enc_final(const u64 gcm_addr)
+{
+	return -ENODEV;
+}
+
+static inline int versal_pm_aes_dec_final(const u64 gcm_addr)
+{
+	return -ENODEV;
+}
+
+static inline int versal_pm_rsa_encrypt(const u64 in_params, const u64 in_addr)
+{
+	return -ENODEV;
+}
+
+static inline int versal_pm_rsa_decrypt(const u64 in_params, const u64 in_addr)
 {
 	return -ENODEV;
 }

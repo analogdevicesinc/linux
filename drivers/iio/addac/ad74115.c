@@ -24,25 +24,6 @@
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/triggered_buffer.h>
 
-/* 5.10 compatibility */
-static int fwnode_irq_get_byname(struct fwnode_handle *fwnode, const char *name)
-{
-	int index;
-
-	if (!name)
-		return -EINVAL;
-
-	index = fwnode_property_match_string(fwnode, "interrupt-names",  name);
-	if (index < 0)
-		return index;
-
-	return fwnode_irq_get(fwnode, index);
-}
-
-#include <linux/slab.h>
-#define IIO_DMA_MINALIGN ARCH_KMALLOC_MINALIGN
-/* end 5.10 compatibility */
-
 #define AD74115_NAME				"ad74115"
 
 #define AD74115_CH_FUNC_SETUP_REG		0x01

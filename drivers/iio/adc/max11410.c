@@ -22,23 +22,6 @@
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iio/triggered_buffer.h>
 
-/* Added for supporing kernel v5.10 */
-#define IIO_DMA_MINALIGN ARCH_KMALLOC_MINALIGN
-static int fwnode_irq_get_byname(struct fwnode_handle *fwnode, const char *name)
-{
-	int index;
-
-	if (!name)
-		return -EINVAL;
-
-	index = fwnode_property_match_string(fwnode, "interrupt-names",  name);
-	if (index < 0)
-		return index;
-
-	return fwnode_irq_get(fwnode, index);
-}
-/* end of v5.10 patch */
-
 #define MAX11410_REG_CONV_START	0x01
 #define		MAX11410_CONV_TYPE_SINGLE	0x00
 #define		MAX11410_CONV_TYPE_CONTINUOUS	0x01

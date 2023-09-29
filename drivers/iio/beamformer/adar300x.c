@@ -1436,12 +1436,13 @@ static int ad300x_setup_trigger_buffer(struct device *dev,
 	int			err;
 
 	/* Configure trigger buffer */
-	err = devm_iio_triggered_buffer_setup(dev, indio_dev, NULL,
-					      &ad3552r_trigger_handler, NULL);
+	err = devm_iio_triggered_buffer_setup_ext(dev, indio_dev, NULL,
+						  &ad3552r_trigger_handler,
+						  IIO_BUFFER_DIRECTION_OUT,
+						  NULL, NULL);
 
 	if (err)
 		return err;
-	indio_dev->direction = IIO_DEVICE_DIRECTION_OUT;
 
 	if (!irq)
 		return 0;
@@ -1605,7 +1606,6 @@ static int adar300x_probe(struct spi_device *spi, const struct attribute_group *
 		adar300x_info.attrs = attr_group;
 		indio_dev->info = &adar300x_info;
 		indio_dev->modes = INDIO_DIRECT_MODE;
-		indio_dev->direction = IIO_DEVICE_DIRECTION_OUT;
 		indio_dev->available_scan_masks = adar300x_available_scan_masks;
 
 		ret = adar300x_setup(indio_dev);

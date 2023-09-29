@@ -437,9 +437,9 @@ static void a3700_spi_set_cs(struct spi_device *spi, bool enable)
 	struct a3700_spi *a3700_spi = spi_master_get_devdata(spi->master);
 
 	if (!enable)
-		a3700_spi_activate_cs(a3700_spi, spi->chip_select);
+		a3700_spi_activate_cs(a3700_spi, spi_get_chipselect(spi, 0));
 	else
-		a3700_spi_deactivate_cs(a3700_spi, spi->chip_select);
+		a3700_spi_deactivate_cs(a3700_spi, spi_get_chipselect(spi, 0));
 }
 
 static void a3700_spi_header_set(struct a3700_spi *a3700_spi)
@@ -497,7 +497,7 @@ static int a3700_spi_fifo_write(struct a3700_spi *a3700_spi)
 
 	while (!a3700_is_wfifo_full(a3700_spi) && a3700_spi->buf_len) {
 		val = *(u32 *)a3700_spi->tx_buf;
-		spireg_write(a3700_spi, A3700_SPI_DATA_OUT_REG, val);
+		spireg_write(a3700_spi, A3700_SPI_DATA_OUT_REG, cpu_to_le32(val));
 		a3700_spi->buf_len -= 4;
 		a3700_spi->tx_buf += 4;
 	}
@@ -519,7 +519,7 @@ static int a3700_spi_fifo_read(struct a3700_spi *a3700_spi)
 	while (!a3700_is_rfifo_empty(a3700_spi) && a3700_spi->buf_len) {
 		val = spireg_read(a3700_spi, A3700_SPI_DATA_IN_REG);
 		if (a3700_spi->buf_len >= 4) {
-
+			val = le32_to_cpu(val);
 			memcpy(a3700_spi->rx_buf, &val, 4);
 
 			a3700_spi->buf_len -= 4;
@@ -901,7 +901,7 @@ static int a3700_spi_probe(struct platform_device *pdev)
 	return 0;
 
 error_clk:
-	clk_disable_unprepare(spi->clk);
+	clk_unprepare(spi->clk);
 error:
 	spi_master_put(master);
 out:

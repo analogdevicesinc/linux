@@ -254,17 +254,6 @@ static const struct iio_buffer_setup_ops ad4134_buffer_ops = {
 	.predisable = ad4134_buffer_predisable,
 };
 
-static int ad4134_hw_submit_block(struct iio_dma_buffer_queue *queue,
-				  struct iio_dma_buffer_block *block)
-{
-	return iio_dmaengine_buffer_submit_block(queue, block, DMA_DEV_TO_MEM);
-}
-
-static const struct iio_dma_buffer_ops dma_buffer_ops = {
-	.submit = ad4134_hw_submit_block,
-	.abort = iio_dmaengine_buffer_abort,
-};
-
 static void ad4134_disable_regulators(void *data)
 {
 	struct ad4134_state *st = data;
@@ -424,7 +413,6 @@ static int ad4134_probe(struct spi_device *spi)
 	struct component_match *match = NULL;
 	struct device *dev = &spi->dev;
 	struct fwnode_handle *fwnode = dev_fwnode(dev);
-	struct iio_buffer *buffer;
 	struct iio_dev *indio_dev;
 	struct ad4134_state *st;
 	int ret;
@@ -471,13 +459,11 @@ static int ad4134_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	buffer = devm_iio_dmaengine_buffer_alloc(dev, "rx", &dma_buffer_ops,
-						 indio_dev);
-	if (IS_ERR(buffer))
-		return dev_err_probe(dev, PTR_ERR(buffer),
+	ret = devm_iio_dmaengine_buffer_setup(dev, indio_dev, "rx",
+					      IIO_BUFFER_DIRECTION_IN);
+	if (ret)
+		return dev_err_probe(dev, ret,
 				     "Failed to allocate IIO DMA buffer\n");
-
-	iio_device_attach_buffer(indio_dev, buffer);
 
 	st->spi_engine_fwnode = fwnode_find_reference(fwnode, "adi,spi-engine", 0);
 	if (IS_ERR(st->spi_engine_fwnode))
@@ -491,11 +477,9 @@ static int ad4134_probe(struct spi_device *spi)
 	return component_master_add_with_match(dev, &ad4134_comp_ops, match);
 }
 
-static int ad4134_remove(struct spi_device *spi)
+static void ad4134_remove(struct spi_device *spi)
 {
 	component_master_del(&spi->dev, &ad4134_comp_ops);
-
-	return 0;
 }
 
 static const struct spi_device_id ad4134_id[] = {
@@ -541,11 +525,9 @@ static int ad4134_spi_engine_probe(struct spi_device *spi)
 	return component_add(&spi->dev, &ad4134_spi_engine_ops);
 }
 
-static int ad4134_spi_engine_remove(struct spi_device *spi)
+static void ad4134_spi_engine_remove(struct spi_device *spi)
 {
 	component_del(&spi->dev, &ad4134_spi_engine_ops);
-
-	return 0;
 }
 
 static const struct spi_device_id ad4134_spi_engine_id[] = {

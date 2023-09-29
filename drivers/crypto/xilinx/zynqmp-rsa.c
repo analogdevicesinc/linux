@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (C) 2017 Xilinx, Inc.
+ * Copyright (C) 2017 - 2022 Xilinx, Inc.
+ * Copyright (C) 2022 - 2023, Advanced Micro Devices, Inc.
  */
 
 #include <linux/module.h>
@@ -24,16 +25,6 @@
 #define ZYNQMP_RSA_BLOCKSIZE	64
 
 /* Key size in bytes */
-#define XSECURE_RSA_512_KEY_SIZE	(512U / 8U)
-#define XSECURE_RSA_576_KEY_SIZE	(576U / 8U)
-#define XSECURE_RSA_704_KEY_SIZE	(704U / 8U)
-#define XSECURE_RSA_768_KEY_SIZE	(768U / 8U)
-#define XSECURE_RSA_992_KEY_SIZE	(992U / 8U)
-#define XSECURE_RSA_1024_KEY_SIZE	(1024U / 8U)
-#define XSECURE_RSA_1152_KEY_SIZE	(1152U / 8U)
-#define XSECURE_RSA_1408_KEY_SIZE	(1408U / 8U)
-#define XSECURE_RSA_1536_KEY_SIZE	(1536U / 8U)
-#define XSECURE_RSA_1984_KEY_SIZE	(1984U / 8U)
 #define XSECURE_RSA_2048_KEY_SIZE	(2048U / 8U)
 #define XSECURE_RSA_3072_KEY_SIZE	(3072U / 8U)
 #define XSECURE_RSA_4096_KEY_SIZE	(4096U / 8U)
@@ -56,6 +47,7 @@ struct zynqmp_rsa_dev {
 	/* the lock protects queue and dev list*/
 	spinlock_t              lock;
 	struct crypto_queue     queue;
+	struct skcipher_alg	*alg;
 };
 
 struct zynqmp_rsa_drv {
@@ -106,6 +98,12 @@ static int zynqmp_rsa_xcrypt(struct skcipher_request *req, unsigned int flags)
 	dma_addr_t dma_addr;
 
 	nbytes = req->cryptlen;
+	if (nbytes != XSECURE_RSA_2048_KEY_SIZE &&
+	    nbytes != XSECURE_RSA_3072_KEY_SIZE &&
+	    nbytes != XSECURE_RSA_4096_KEY_SIZE) {
+		return -EOPNOTSUPP;
+	}
+
 	dma_size = nbytes + op->keylen;
 	kbuf = dma_alloc_coherent(dd->dev, dma_size, &dma_addr, GFP_KERNEL);
 	if (!kbuf)
@@ -125,22 +123,6 @@ static int zynqmp_rsa_xcrypt(struct skcipher_request *req, unsigned int flags)
 	}
 	memcpy(kbuf + nbytes, op->key, op->keylen);
 
-	if (nbytes != XSECURE_RSA_512_KEY_SIZE &&
-	    nbytes != XSECURE_RSA_576_KEY_SIZE &&
-	    nbytes != XSECURE_RSA_704_KEY_SIZE &&
-	    nbytes != XSECURE_RSA_768_KEY_SIZE &&
-	    nbytes != XSECURE_RSA_992_KEY_SIZE &&
-	    nbytes != XSECURE_RSA_1024_KEY_SIZE &&
-	    nbytes != XSECURE_RSA_1152_KEY_SIZE &&
-	    nbytes != XSECURE_RSA_1408_KEY_SIZE &&
-	    nbytes != XSECURE_RSA_1536_KEY_SIZE &&
-	    nbytes != XSECURE_RSA_1984_KEY_SIZE &&
-	    nbytes != XSECURE_RSA_2048_KEY_SIZE &&
-	    nbytes != XSECURE_RSA_3072_KEY_SIZE &&
-	    nbytes != XSECURE_RSA_4096_KEY_SIZE) {
-		return -EOPNOTSUPP;
-	}
-
 	zynqmp_pm_rsa(dma_addr, nbytes, flags);
 
 	err = skcipher_walk_virt(&walk, req, false);
@@ -151,6 +133,8 @@ static int zynqmp_rsa_xcrypt(struct skcipher_request *req, unsigned int flags)
 		memcpy(walk.dst.virt.addr, kbuf + dst_data, datasize);
 		dst_data = dst_data + datasize;
 		err = skcipher_walk_done(&walk, 0);
+		if (err)
+			goto out;
 	}
 
 out:
@@ -186,12 +170,15 @@ static struct skcipher_alg zynqmp_alg = {
 	.ivsize			=	1,
 };
 
-static const struct of_device_id zynqmp_rsa_dt_ids[] = {
-	{ .compatible = "xlnx,zynqmp-rsa" },
+static struct xlnx_feature rsa_feature_map[] = {
+	{
+		.family = ZYNQMP_FAMILY_CODE,
+		.subfamily = ALL_SUB_FAMILY_CODE,
+		.feature_id = PM_SECURE_RSA,
+		.data = &zynqmp_alg,
+	},
 	{ /* sentinel */ }
 };
-
-MODULE_DEVICE_TABLE(of, zynqmp_rsa_dt_ids);
 
 static int zynqmp_rsa_probe(struct platform_device *pdev)
 {
@@ -201,6 +188,12 @@ static int zynqmp_rsa_probe(struct platform_device *pdev)
 	rsa_dd = devm_kzalloc(&pdev->dev, sizeof(*rsa_dd), GFP_KERNEL);
 	if (!rsa_dd)
 		return -ENOMEM;
+
+	rsa_dd->alg = xlnx_get_crypto_dev_data(rsa_feature_map);
+	if (IS_ERR(rsa_dd->alg)) {
+		dev_err(dev, "RSA is not supported on the platform\n");
+		return PTR_ERR(rsa_dd->alg);
+	}
 
 	rsa_dd->dev = dev;
 	platform_set_drvdata(pdev, rsa_dd);
@@ -216,7 +209,7 @@ static int zynqmp_rsa_probe(struct platform_device *pdev)
 	list_add_tail(&rsa_dd->list, &zynqmp_rsa.dev_list);
 	spin_unlock(&zynqmp_rsa.lock);
 
-	ret = crypto_register_skcipher(&zynqmp_alg);
+	ret = crypto_register_skcipher(rsa_dd->alg);
 	if (ret)
 		goto err_algs;
 
@@ -232,7 +225,12 @@ err_algs:
 
 static int zynqmp_rsa_remove(struct platform_device *pdev)
 {
-	crypto_unregister_skcipher(&zynqmp_alg);
+	struct zynqmp_rsa_dev *drv_ctx;
+
+	drv_ctx = platform_get_drvdata(pdev);
+
+	crypto_unregister_skcipher(drv_ctx->alg);
+
 	return 0;
 }
 
@@ -241,11 +239,35 @@ static struct platform_driver xilinx_rsa_driver = {
 	.remove = zynqmp_rsa_remove,
 	.driver = {
 		.name = "zynqmp_rsa",
-		.of_match_table = of_match_ptr(zynqmp_rsa_dt_ids),
 	},
 };
 
-module_platform_driver(xilinx_rsa_driver);
+static int __init rsa_driver_init(void)
+{
+	struct platform_device *pdev;
+	int ret;
+
+	ret = platform_driver_register(&xilinx_rsa_driver);
+	if (ret)
+		return ret;
+
+	pdev = platform_device_register_simple(xilinx_rsa_driver.driver.name,
+					       0, NULL, 0);
+	if (IS_ERR(pdev)) {
+		ret = PTR_ERR(pdev);
+		platform_driver_unregister(&xilinx_rsa_driver);
+	}
+
+	return ret;
+}
+
+static void __exit rsa_driver_exit(void)
+{
+	platform_driver_unregister(&xilinx_rsa_driver);
+}
+
+device_initcall(rsa_driver_init);
+module_exit(rsa_driver_exit);
 
 MODULE_DESCRIPTION("ZynqMP RSA hw acceleration support.");
 MODULE_LICENSE("GPL");

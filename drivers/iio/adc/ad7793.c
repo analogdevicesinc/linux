@@ -192,8 +192,7 @@ static struct ad7793_state *ad_sigma_delta_to_ad7793(struct ad_sigma_delta *sd)
 	return container_of(sd, struct ad7793_state, sd);
 }
 
-static int ad7793_set_channel(struct ad_sigma_delta *sd, unsigned int slot,
-	unsigned int channel)
+static int ad7793_set_channel(struct ad_sigma_delta *sd, unsigned int channel)
 {
 	struct ad7793_state *st = ad_sigma_delta_to_ad7793(sd);
 
@@ -324,7 +323,7 @@ static int ad7793_setup(struct iio_dev *indio_dev,
 	if (ret)
 		goto out;
 
-	ret = ad7793_set_channel(&st->sd, 0, 0);
+	ret = ad7793_set_channel(&st->sd, 0);
 	if (ret)
 		goto out;
 
@@ -929,3 +928,4 @@ module_spi_driver(ad7793_driver);
 MODULE_AUTHOR("Michael Hennerich <michael.hennerich@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD7793 and similar ADCs");
 MODULE_LICENSE("GPL v2");
+MODULE_IMPORT_NS(IIO_AD_SIGMA_DELTA);

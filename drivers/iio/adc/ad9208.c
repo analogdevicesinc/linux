@@ -557,7 +557,7 @@ static ssize_t ad9208_ext_info_write(struct iio_dev *indio_dev,
 
 static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	IIO_ENUM("test_mode", IIO_SEPARATE, &ad9208_testmode_enum),
-	IIO_ENUM_AVAILABLE("test_mode", &ad9208_testmode_enum),
+	IIO_ENUM_AVAILABLE("test_mode", IIO_SHARED_BY_TYPE, &ad9208_testmode_enum),
 	{
 		.name = "scale_available",
 		.read = ad9208_show_scale_available,
@@ -575,7 +575,7 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 
 static struct iio_chan_spec_ext_info ad9680_ext_info[] = {
 	IIO_ENUM("test_mode", IIO_SEPARATE, &ad9208_testmode_enum),
-	IIO_ENUM_AVAILABLE("test_mode", &ad9208_testmode_enum),
+	IIO_ENUM_AVAILABLE("test_mode", IIO_SHARED_BY_TYPE, &ad9208_testmode_enum),
 	{
 		.name = "scale_available",
 		.read = ad9208_show_scale_available,
@@ -1634,7 +1634,7 @@ static int ad9208_probe(struct spi_device *spi)
 	return jesd204_fsm_start(jdev, JESD204_LINKS_ALL);
 }
 
-static int ad9208_remove(struct spi_device *spi)
+static void ad9208_remove(struct spi_device *spi)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 	struct ad9208_phy *phy = conv->phy;
@@ -1650,8 +1650,6 @@ static int ad9208_remove(struct spi_device *spi)
 		clk_disable_unprepare(conv->lane_clk);
 
 	ad9208_deinit(&phy->ad9208);
-
-	return 0;
 }
 
 static const struct spi_device_id ad9208_id[] = {

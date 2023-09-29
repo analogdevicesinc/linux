@@ -10,7 +10,6 @@
 #include <linux/device.h>
 #include <linux/gpio/consumer.h>
 #include <linux/iio/iio.h>
-#include <linux/iio/buffer.h>
 #include <linux/iio/triggered_buffer.h>
 #include <linux/iio/trigger_consumer.h>
 #include <linux/module.h>
@@ -124,7 +123,7 @@ struct ad5766_state {
 		u32	d32;
 		u16	w16[2];
 		u8	b8[4];
-	} data[3] ____cacheline_aligned;
+	} data[3] __aligned(IIO_DMA_MINALIGN);
 };
 
 struct ad5766_span_tbl {
@@ -427,14 +426,6 @@ static ssize_t ad5766_write_ext(struct iio_dev *indio_dev,
 	.shared = _shared, \
 }
 
-#define IIO_ENUM_AVAILABLE_SHARED(_name, _shared, _e) \
-{ \
-	.name = (_name "_available"), \
-	.shared = _shared, \
-	.read = iio_enum_available_read, \
-	.private = (uintptr_t)(_e), \
-}
-
 static const struct iio_chan_spec_ext_info ad5766_ext_info[] = {
 
 	_AD5766_CHAN_EXT_INFO("dither_enable", AD5766_DITHER_ENABLE,
@@ -444,9 +435,8 @@ static const struct iio_chan_spec_ext_info ad5766_ext_info[] = {
 	_AD5766_CHAN_EXT_INFO("dither_source", AD5766_DITHER_SOURCE,
 			      IIO_SEPARATE),
 	IIO_ENUM("dither_scale", IIO_SEPARATE, &ad5766_dither_scale_enum),
-	IIO_ENUM_AVAILABLE_SHARED("dither_scale",
-				  IIO_SEPARATE,
-				  &ad5766_dither_scale_enum),
+	IIO_ENUM_AVAILABLE("dither_scale", IIO_SEPARATE,
+			   &ad5766_dither_scale_enum),
 	{}
 };
 
@@ -590,7 +580,7 @@ static irqreturn_t ad5766_trigger_handler(int irq, void *p)
 	int ret, ch, i;
 	u16 data[ARRAY_SIZE(ad5766_channels)];
 
-	ret = iio_buffer_remove_sample(buffer, (u8 *)data);
+	ret = iio_pop_from_buffer(buffer, data);
 	if (ret)
 		goto done;
 
@@ -633,7 +623,6 @@ static int ad5766_probe(struct spi_device *spi)
 	indio_dev->info = &ad5766_info;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	indio_dev->direction = IIO_DEVICE_DIRECTION_OUT;
 
 	st->gpio_reset = devm_gpiod_get_optional(&st->spi->dev, "reset",
 						GPIOD_OUT_LOW);
@@ -645,8 +634,11 @@ static int ad5766_probe(struct spi_device *spi)
 		return ret;
 
 	/* Configure trigger buffer */
-	ret = devm_iio_triggered_buffer_setup(&spi->dev, indio_dev, NULL,
-					      ad5766_trigger_handler, NULL);
+	ret = devm_iio_triggered_buffer_setup_ext(&spi->dev, indio_dev, NULL,
+						  ad5766_trigger_handler,
+						  IIO_BUFFER_DIRECTION_OUT,
+						  NULL,
+						  NULL);
 	if (ret)
 		return ret;
 

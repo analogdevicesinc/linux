@@ -56,10 +56,10 @@ struct ad7303_state {
 
 	struct mutex lock;
 	/*
-	 * DMA (thus cache coherency maintenance) requires the
+	 * DMA (thus cache coherency maintenance) may require the
 	 * transfer buffers to live in their own cache lines.
 	 */
-	__be16 data[2] ____cacheline_aligned;
+	__be16 data[2] __aligned(IIO_DMA_MINALIGN);
 };
 
 static irqreturn_t ad7303_trigger_handler(int irq, void *p)
@@ -73,7 +73,7 @@ static irqreturn_t ad7303_trigger_handler(int irq, void *p)
 	uint16_t val;
 	int ret;
 
-	ret = iio_buffer_remove_sample(buffer, sample);
+	ret = iio_pop_from_buffer(buffer, sample);
 	if (ret < 0)
 		goto out;
 
@@ -145,7 +145,7 @@ static ssize_t ad7303_write_dac_powerdown(struct iio_dev *indio_dev,
 	bool pwr_down;
 	int ret;
 
-	ret = strtobool(buf, &pwr_down);
+	ret = kstrtobool(buf, &pwr_down);
 	if (ret)
 		return ret;
 
@@ -270,6 +270,11 @@ static const struct iio_chan_spec ad7303_channels[] = {
 	AD7303_CHANNEL(1),
 };
 
+static void ad7303_reg_disable(void *reg)
+{
+	regulator_disable(reg);
+}
+
 static int ad7303_probe(struct spi_device *spi)
 {
 	const struct spi_device_id *id = spi_get_device_id(spi);
@@ -282,7 +287,6 @@ static int ad7303_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
-	spi_set_drvdata(spi, indio_dev);
 
 	st->spi = spi;
 
@@ -296,18 +300,27 @@ static int ad7303_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
+	ret = devm_add_action_or_reset(&spi->dev, ad7303_reg_disable, st->vdd_reg);
+	if (ret)
+		return ret;
+
 	st->vref_reg = devm_regulator_get_optional(&spi->dev, "REF");
 	if (IS_ERR(st->vref_reg)) {
 		ret = PTR_ERR(st->vref_reg);
 		if (ret != -ENODEV)
-			goto err_disable_vdd_reg;
+			return ret;
 		st->vref_reg = NULL;
 	}
 
 	if (st->vref_reg) {
 		ret = regulator_enable(st->vref_reg);
 		if (ret)
-			goto err_disable_vdd_reg;
+			return ret;
+
+		ret = devm_add_action_or_reset(&spi->dev, ad7303_reg_disable,
+					       st->vref_reg);
+		if (ret)
+			return ret;
 
 		st->config |= AD7303_CFG_EXTERNAL_VREF;
 	}
@@ -317,42 +330,15 @@ static int ad7303_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = ad7303_channels;
 	indio_dev->num_channels = ARRAY_SIZE(ad7303_channels);
-	indio_dev->direction = IIO_DEVICE_DIRECTION_OUT;
 
-	ret = iio_triggered_buffer_setup(indio_dev, NULL,
-		&ad7303_trigger_handler, NULL);
+	ret = devm_iio_triggered_buffer_setup_ext(&spi->dev, indio_dev, NULL,
+						  &ad7303_trigger_handler,
+						  IIO_BUFFER_DIRECTION_OUT,
+						  NULL, NULL);
 	if (ret)
-		goto err_disable_vref_reg;
+		return ret;
 
-	ret = iio_device_register(indio_dev);
-	if (ret)
-		goto err_buffer_cleanup;
-
-	return 0;
-
-err_buffer_cleanup:
-	iio_triggered_buffer_cleanup(indio_dev);
-err_disable_vref_reg:
-	if (st->vref_reg)
-		regulator_disable(st->vref_reg);
-err_disable_vdd_reg:
-	regulator_disable(st->vdd_reg);
-	return ret;
-}
-
-static int ad7303_remove(struct spi_device *spi)
-{
-	struct iio_dev *indio_dev = spi_get_drvdata(spi);
-	struct ad7303_state *st = iio_priv(indio_dev);
-
-	iio_device_unregister(indio_dev);
-	iio_triggered_buffer_cleanup(indio_dev);
-
-	if (st->vref_reg)
-		regulator_disable(st->vref_reg);
-	regulator_disable(st->vdd_reg);
-
-	return 0;
+	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
 static const struct of_device_id ad7303_spi_of_match[] = {
@@ -373,7 +359,6 @@ static struct spi_driver ad7303_driver = {
 		.of_match_table = ad7303_spi_of_match,
 	},
 	.probe = ad7303_probe,
-	.remove = ad7303_remove,
 	.id_table = ad7303_spi_ids,
 };
 module_spi_driver(ad7303_driver);

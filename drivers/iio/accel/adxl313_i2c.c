@@ -35,7 +35,7 @@ static const struct regmap_config adxl31x_i2c_regmap_config[] = {
 		.rd_table	= &adxl314_readable_regs_table,
 		.wr_table	= &adxl314_writable_regs_table,
 		.max_register	= 0x39,
-	}
+	},
 };
 
 static const struct i2c_device_id adxl313_i2c_id[] = {

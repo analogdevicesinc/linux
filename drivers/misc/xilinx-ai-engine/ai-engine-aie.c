@@ -63,10 +63,12 @@
 #define AIE_SHIMPL_BISR_CACHE_CTRL_REGOFF	0x00036000U
 #define AIE_SHIMPL_L1INTR_MASK_A_REGOFF		0x00035000U
 #define AIE_SHIMPL_L1INTR_BLOCK_NORTH_B_REGOFF	0x00035050U
+#define AIE_SHIMPL_TILECTRL_REGOFF		0x00036030U
 #define AIE_SHIMPL_CLKCNTR_REGOFF		0x00036040U
 #define AIE_SHIMPL_COLRESET_REGOFF		0x00036048U
 #define AIE_SHIMPL_RESET_REGOFF			0x0003604cU
 #define AIE_SHIMPL_GROUP_ERROR_REGOFF		0x0003450cU
+#define AIE_TILE_CORE_TILECTRL_REGOFF		0x00036030U
 #define AIE_TILE_CORE_CLKCNTR_REGOFF		0x00036040U
 #define AIE_TILE_CORE_GROUP_ERROR_REGOFF	0x00034510U
 #define AIE_TILE_MEM_GROUP_ERROR_REGOFF		0x00014514U
@@ -134,6 +136,12 @@ static const struct aie_tile_regs aie_kernel_regs[] = {
 	 .soff = AIE_SHIMPL_RESET_REGOFF,
 	 .eoff = AIE_SHIMPL_RESET_REGOFF,
 	},
+	/* SHIM tile control */
+	{.attribute = (AIE_TILE_TYPE_MASK_SHIMPL | AIE_TILE_TYPE_MASK_SHIMNOC) <<
+		      AIE_REGS_ATTR_TILE_TYPE_SHIFT,
+	 .soff = AIE_SHIMPL_TILECTRL_REGOFF,
+	 .eoff = AIE_SHIMPL_TILECTRL_REGOFF,
+	},
 	/* SHIM clock control */
 	{.attribute = (AIE_TILE_TYPE_MASK_SHIMPL | AIE_TILE_TYPE_MASK_SHIMNOC) <<
 		      AIE_REGS_ATTR_TILE_TYPE_SHIFT,
@@ -151,6 +159,11 @@ static const struct aie_tile_regs aie_kernel_regs[] = {
 		      AIE_REGS_ATTR_TILE_TYPE_SHIFT,
 	 .soff = AIE_SHIMPL_GROUP_ERROR_REGOFF,
 	 .eoff = AIE_SHIMPL_GROUP_ERROR_REGOFF,
+	},
+	/* Core tile control */
+	{.attribute = AIE_TILE_TYPE_MASK_TILE << AIE_REGS_ATTR_TILE_TYPE_SHIFT,
+	 .soff = AIE_TILE_CORE_TILECTRL_REGOFF,
+	 .eoff = AIE_TILE_CORE_TILECTRL_REGOFF,
 	},
 	/* Tile clock control */
 	{.attribute = AIE_TILE_TYPE_MASK_TILE << AIE_REGS_ATTR_TILE_TYPE_SHIFT,
@@ -280,6 +293,7 @@ static char *aie_dma_status_str[] = {
 	"starting",
 	"running",
 	"stalled_on_requesting_lock",
+	"invalid_status",
 };
 
 static char *aie_queue_status_str[] = {
@@ -876,6 +890,10 @@ static const struct aie_dev_attr aie_tile_dev_attr[] = {
 			     AIE_TILE_TYPE_MASK_SHIMNOC),
 };
 
+static const struct aie_dev_attr aie_aperture_dev_attr[] = {
+	AIE_APERTURE_ATTR_RO(hardware_info),
+};
+
 static const struct aie_dev_attr aie_part_dev_attr[] = {
 	AIE_PART_DEV_ATTR_RO(error_stat),
 	AIE_PART_DEV_ATTR_RO(current_freq),
@@ -887,6 +905,13 @@ static const struct aie_bin_attr aie_part_bin_attr[] = {
 	AIE_PART_BIN_ATTR_RO(error, AIE_PART_SYSFS_ERROR_BINA_SIZE),
 	AIE_PART_BIN_ATTR_RO(lock, AIE_PART_SYSFS_LOCK_BINA_SIZE),
 	AIE_PART_BIN_ATTR_RO(status, AIE_PART_SYSFS_STATUS_BINA_SIZE),
+};
+
+static const struct aie_sysfs_attr aie_aperture_sysfs_attr = {
+	.dev_attr = aie_aperture_dev_attr,
+	.bin_attr = NULL,
+	.num_dev_attrs = ARRAY_SIZE(aie_aperture_dev_attr),
+	.num_bin_attrs = 0U,
 };
 
 static const struct aie_sysfs_attr aie_part_sysfs_attr = {
@@ -910,6 +935,12 @@ static u32 aie_get_tile_type(struct aie_device *adev, struct aie_location *loc)
 	/* SHIM row */
 	if ((loc->col % 4) < 2)
 		return AIE_TILE_TYPE_SHIMPL;
+
+	if (adev->device_name == AIE_DEV_GEN_S100 ||
+	    adev->device_name == AIE_DEV_GEN_S200) {
+		if (loc->col == 58)
+			return AIE_TILE_TYPE_SHIMPL;
+	}
 
 	return AIE_TILE_TYPE_SHIMNOC;
 }
@@ -948,62 +979,6 @@ static unsigned int aie_get_mem_info(struct aie_device *adev,
 	pmem[1].mem.range.size.row = num_rows;
 
 	return NUM_MEMS_PER_TILE;
-}
-
-/**
- * aie_set_shim_reset() - Set AI engine SHIM reset
- * @aperture: AI engine aperture
- * @range: range of AI engine tiles
- * @assert: true to set reset, false to unset reset
- */
-static void aie_set_shim_reset(struct aie_aperture *aperture,
-			       struct aie_range *range, bool assert)
-{
-	u32 c;
-	u32 val;
-	struct aie_location loc;
-
-	val = FIELD_PREP(AIE_SHIMPL_SHIMRST_MASK, (assert ? 1 : 0));
-	loc.row = 0;
-	for (c = range->start.col; c < range->start.col + range->size.col;
-	     c++) {
-		u32 regoff;
-
-		loc.col = c;
-		regoff = aie_cal_regoff(aperture->adev, loc,
-					AIE_SHIMPL_RESET_REGOFF);
-		iowrite32(val, aperture->base + regoff);
-	}
-}
-
-static int aie_reset_shim(struct aie_aperture *aperture,
-			  struct aie_range *range)
-{
-	int ret;
-
-	/* Enable shim reset of each column */
-	aie_set_shim_reset(aperture, range, true);
-
-	/* Assert shim reset of AI engine array */
-	ret = zynqmp_pm_reset_assert(VERSAL_PM_RST_AIE_SHIM_ID,
-				     PM_RESET_ACTION_ASSERT);
-	if (ret < 0) {
-		dev_err(&aperture->dev, "failed to assert SHIM reset.\n");
-		return ret;
-	}
-
-	/* Release shim reset of AI engine array */
-	ret = zynqmp_pm_reset_assert(VERSAL_PM_RST_AIE_SHIM_ID,
-				     PM_RESET_ACTION_RELEASE);
-	if (ret < 0) {
-		dev_err(&aperture->dev, "failed to release SHIM reset.\n");
-		return ret;
-	}
-
-	/* Disable shim reset of each column */
-	aie_set_shim_reset(aperture, range, false);
-
-	return 0;
 }
 
 static int aie_init_part_clk_state(struct aie_partition *apart)
@@ -1293,14 +1268,624 @@ static int aie_part_clear_mems(struct aie_partition *apart)
 	return 0;
 }
 
+/**
+ * aie_set_tile_isolation() - Set isolation boundary of AI engine tile
+ * @apart: AI engine partition
+ * @loc: Location of tile
+ * @dir: Direction to block
+ * @return: return 0 if success negative value for failure.
+ *
+ * Possible direction values are:
+ *	- AIE_ISOLATE_EAST_MASK
+ *	- AIE_ISOLATE_NORTH_MASK
+ *	- AIE_ISOLATE_WEST_MASK
+ *	- AIE_ISOLATE_SOUTH_MASK
+ *	- AIE_ISOLATE_ALL_MASK
+ *	- or "OR" of multiple values
+ */
+static int aie_set_tile_isolation(struct aie_partition *apart,
+				  struct aie_location *loc, u8 dir)
+{
+	struct aie_device *adev = apart->adev;
+	struct aie_aperture *aperture = apart->aperture;
+	void __iomem *va;
+	u32 ttype, val;
+
+	/* For AIE device, dir input will match register masks */
+	val = (u32)dir;
+	ttype = aie_get_tile_type(adev, loc);
+	if (ttype == AIE_TILE_TYPE_TILE) {
+		va = aperture->base +
+		     aie_cal_regoff(adev, *loc, AIE_TILE_CORE_TILECTRL_REGOFF);
+	} else {
+		va = aperture->base +
+		     aie_cal_regoff(adev, *loc, AIE_SHIMPL_TILECTRL_REGOFF);
+	}
+	iowrite32(val, va);
+
+	return 0;
+}
+
+/**
+ * aie_get_lock_status() - reads the lock status.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @return: 32-bit register value.
+ */
+static u32 aie_get_lock_status(struct aie_partition *apart,
+			       struct aie_location *loc)
+{
+	u32 ttype, stsoff, regoff;
+
+	ttype = aie_get_tile_type(apart->adev, loc);
+	if (ttype != AIE_TILE_TYPE_TILE)
+		stsoff = aie_pl_lock.sts_regoff;
+	else
+		stsoff = aie_mem_lock.sts_regoff;
+
+	regoff = aie_cal_regoff(apart->adev, *loc, stsoff);
+
+	return ioread32(apart->aperture->base + regoff);
+}
+
+/**
+ * aie_get_lock_status_str() - returns the string value corresponding to
+ *			       lock status value.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine lock.
+ * @status: status value of lock.
+ * @lock: lock ID.
+ * @buffer: location to return lock status string.
+ * @size: total size of buffer available.
+ * @return: length of string copied to buffer.
+ */
+static ssize_t aie_get_lock_status_str(struct aie_partition *apart,
+				       struct aie_location *loc, u32 status,
+				       u32 lock, char *buffer, ssize_t size)
+{
+	char **str = aie_lock_status_str;
+	u32 ttype, mask;
+	u8 value, shift;
+
+	ttype = aie_get_tile_type(apart->adev, loc);
+	if (ttype != AIE_TILE_TYPE_TILE) {
+		shift = lock * aie_pl_lock.sts.regoff;
+		mask = aie_pl_lock.sts.mask << shift;
+	} else {
+		shift = lock * aie_mem_lock.sts.regoff;
+		mask = aie_mem_lock.sts.mask << shift;
+	}
+
+	value = (status & mask) >> shift;
+
+	return scnprintf(buffer, max(0L, size), str[value]);
+}
+
+static ssize_t aie_get_tile_sysfs_lock_status(struct aie_partition *apart,
+					      struct aie_location *loc,
+					      char *buffer, ssize_t size)
+{
+	u32 i, ttype, num_locks;
+	unsigned long status;
+	ssize_t len = 0;
+
+	ttype = aie_get_tile_type(apart->adev, loc);
+	if (ttype == AIE_TILE_TYPE_SHIMPL)
+		return len;
+
+	if (ttype == AIE_TILE_TYPE_TILE)
+		num_locks = aie_mem_lock.num_locks;
+	else
+		num_locks = aie_pl_lock.num_locks;
+
+	if (!aie_part_check_clk_enable_loc(apart, loc)) {
+		for (i = 0; i < num_locks; i++) {
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					 "%d: clock_gated\n", i);
+		}
+		return len;
+	}
+
+	status = aie_get_lock_status(apart, loc);
+	for (i = 0; i < num_locks; i++) {
+		len += scnprintf(&buffer[len], max(0L, size - len), "%d: ", i);
+		len += aie_get_lock_status_str(apart, loc, status, i,
+					       &buffer[len], size - len);
+		len += scnprintf(&buffer[len], max(0L, size - len), "\n");
+	}
+
+	return len;
+}
+
+static ssize_t aie_get_part_sysfs_lock_status(struct aie_partition *apart,
+					      struct aie_location *loc,
+					      char *buffer, ssize_t size)
+{
+	u32 i, ttype, num_locks;
+	unsigned long status;
+	ssize_t len = 0;
+
+	ttype = aie_get_tile_type(apart->adev, loc);
+	if (ttype == AIE_TILE_TYPE_SHIMPL)
+		return len;
+
+	if (!aie_part_check_clk_enable_loc(apart, loc)) {
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 "clock_gated");
+		return len;
+	}
+
+	if (ttype == AIE_TILE_TYPE_TILE)
+		num_locks = aie_mem_lock.num_locks;
+	else
+		num_locks = aie_pl_lock.num_locks;
+
+	status = aie_get_lock_status(apart, loc);
+	for (i = 0; i < num_locks; i++) {
+		len += aie_get_lock_status_str(apart, loc, status, i,
+					       &buffer[len], size - len);
+		if (i < num_locks - 1) {
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					 DELIMITER_LEVEL0);
+		}
+	}
+	return len;
+}
+
+/**
+ * aie_get_dma_s2mm_status() - reads the DMA stream to memory map status.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @return: 32-bit register value.
+ */
+static u32 aie_get_dma_s2mm_status(struct aie_partition *apart,
+				   struct aie_location *loc)
+{
+	u32 stsoff, regoff, ttype;
+
+	ttype = aie_get_tile_type(apart->adev, loc);
+	if (ttype != AIE_TILE_TYPE_TILE)
+		stsoff = aie_shimdma.s2mm_sts_regoff;
+	else
+		stsoff = aie_tiledma.s2mm_sts_regoff;
+
+	regoff = aie_cal_regoff(apart->adev, *loc, stsoff);
+
+	return ioread32(apart->aperture->base + regoff);
+}
+
+/**
+ * aie_get_dma_mm2s_status() - reads the DMA memory map to stream status.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @return: 32-bit register value.
+ */
+static u32 aie_get_dma_mm2s_status(struct aie_partition *apart,
+				   struct aie_location *loc)
+{
+	u32 stsoff, regoff, ttype;
+
+	ttype = aie_get_tile_type(apart->adev, loc);
+	if (ttype != AIE_TILE_TYPE_TILE)
+		stsoff = aie_shimdma.mm2s_sts_regoff;
+	else
+		stsoff = aie_tiledma.mm2s_sts_regoff;
+
+	regoff = aie_cal_regoff(apart->adev, *loc, stsoff);
+
+	return ioread32(apart->aperture->base + regoff);
+}
+
+/**
+ * aie_get_chan_status() - reads the DMA channel status.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @status: status value of DMA.
+ * @chanid: DMA channel ID.
+ * @return: 8-bit status value.
+ */
+static u8 aie_get_chan_status(struct aie_partition *apart,
+			      struct aie_location *loc, u32 status, u8 chanid)
+{
+	const struct aie_single_reg_field *sts, *stall;
+	u32 mask, chan_shift, shift, value, ttype;
+
+	ttype = aie_get_tile_type(apart->adev, loc);
+	if (ttype != AIE_TILE_TYPE_TILE) {
+		sts = &aie_shimdma.sts;
+		stall = &aie_shimdma.stall;
+	} else {
+		sts = &aie_tiledma.sts;
+		stall = &aie_tiledma.stall;
+	}
+
+	/* Calculate channel status bit */
+	chan_shift = sts->regoff;
+	mask = sts->mask << (chan_shift * chanid);
+	shift = ffs(mask) - 1;
+	value = (status & mask) >> shift;
+
+	/* Calculate stall status bit */
+	chan_shift = stall->regoff;
+	mask = stall->mask << (chan_shift * chanid);
+	shift = ffs(mask) - 1;
+	value |= (status & mask) >> shift;
+
+	/* If invalid value set to "invalid_status" */
+	if (value >= ARRAY_SIZE(aie_dma_status_str))
+		value = ARRAY_SIZE(aie_dma_status_str) - 1;
+
+	return value;
+}
+
+/**
+ * aie_get_queue_size() - reads the DMA queue size.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @status: status value of DMA.
+ * @chanid: DMA channel ID.
+ * @return: 8-bit value.
+ */
+static u8 aie_get_queue_size(struct aie_partition *apart,
+			     struct aie_location *loc, u32 status, u8 chanid)
+{
+	const struct aie_single_reg_field *qsize;
+	u32 mask, chan_shift, shift, ttype;
+
+	ttype = aie_get_tile_type(apart->adev, loc);
+	if (ttype != AIE_TILE_TYPE_TILE)
+		qsize = &aie_shimdma.qsize;
+	else
+		qsize = &aie_tiledma.qsize;
+
+	/* Calculate queue size bit */
+	chan_shift = qsize->regoff;
+	mask = qsize->mask << (chan_shift * chanid);
+	shift = ffs(mask) - 1;
+
+	return (status & mask) >> shift;
+}
+
+/**
+ * aie_get_queue_status() - reads the DMA queue status.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @status: status value of DMA.
+ * @chanid: DMA channel ID.
+ * @return: 8-bit status value.
+ */
+static u8 aie_get_queue_status(struct aie_partition *apart,
+			       struct aie_location *loc, u32 status, u8 chanid)
+{
+	const struct aie_single_reg_field *qsts;
+	u32 mask, chan_shift, shift, ttype;
+
+	ttype = aie_get_tile_type(apart->adev, loc);
+	if (ttype != AIE_TILE_TYPE_TILE)
+		qsts = &aie_shimdma.qsts;
+	else
+		qsts = &aie_tiledma.qsts;
+
+	/* Get queue status bit */
+	chan_shift = qsts->regoff;
+	mask = qsts->mask << (chan_shift * chanid);
+	shift = ffs(mask) - 1;
+
+	return (status & mask) >> shift;
+}
+
+/**
+ * aie_get_current_bd() - reads the current buffer descriptor being processed
+ *			  by DMA channel.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @status: status value of DMA.
+ * @chanid: DMA channel ID.
+ * @return: 8-bit buffer descriptor value.
+ */
+static u8 aie_get_current_bd(struct aie_partition *apart,
+			     struct aie_location *loc, u32 status, u8 chanid)
+{
+	const struct aie_single_reg_field *curbd;
+	u32 mask, chan_shift, shift, ttype;
+
+	ttype = aie_get_tile_type(apart->adev, loc);
+	if (ttype != AIE_TILE_TYPE_TILE)
+		curbd = &aie_shimdma.curbd;
+	else
+		curbd = &aie_tiledma.curbd;
+
+	/* Get current buffer descriptor */
+	chan_shift = curbd->regoff;
+	mask = curbd->mask << (chan_shift * chanid);
+	shift = ffs(mask) - 1;
+
+	return (status & mask) >> shift;
+}
+
+/**
+ * aie_get_fifo_status() - reads the current value of DMA FIFO counters.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @return: concatenated value of counters for AIE tiles and 0 for shim tiles.
+ */
+static u32 aie_get_fifo_status(struct aie_partition *apart,
+			       struct aie_location *loc)
+{
+	u32 fifo_off, regoff, ttype;
+
+	ttype = aie_get_tile_type(apart->adev, loc);
+	if (ttype != AIE_TILE_TYPE_TILE)
+		return 0U;
+
+	fifo_off = aie_tiledma.fifo_cnt_regoff;
+
+	regoff = aie_cal_regoff(apart->adev, *loc, fifo_off);
+
+	return ioread32(apart->aperture->base + regoff);
+}
+
+/**
+ * aie_get_fifo_count() - returns the value of a DMA FIFO counter from its
+ *			  concatenated register value.
+ * @apart: AI engine partition.
+ * @status: register value of DMA FIFO counter.
+ * @counterid: counter ID.
+ * @return: DMA FIFO count.
+ */
+static u32 aie_get_fifo_count(struct aie_partition *apart, u32 status,
+			      u8 counterid)
+{
+	status >>= (aie_tiledma.fifo_cnt.regoff * counterid);
+
+	return (status & aie_tiledma.fifo_cnt.mask);
+}
+
+/**
+ * aie_get_part_sysfs_dma_status() - returns the status of DMA in string format
+ *				     with MM2S and S2MM type channel separated
+ *				     by a ',' symbol. Channels with a given
+ *				     type are separated by a '|' symbol.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @buffer: location to return DMA status string.
+ * @size: total size of buffer available.
+ * @return: length of string copied to buffer.
+ */
+static ssize_t aie_get_part_sysfs_dma_status(struct aie_partition *apart,
+					     struct aie_location *loc,
+					     char *buffer, ssize_t size)
+{
+	u32 i, ttype, num_s2mm_chan, num_mm2s_chan;
+	bool is_delimit_req = false;
+	unsigned long status;
+	ssize_t len = 0;
+
+	ttype = aie_get_tile_type(apart->adev, loc);
+	if (ttype == AIE_TILE_TYPE_SHIMPL)
+		return len;
+
+	if (!aie_part_check_clk_enable_loc(apart, loc)) {
+		len += scnprintf(buffer, max(0L, size - len),
+				 "mm2s: clock_gated%ss2mm: clock_gated",
+				 DELIMITER_LEVEL1);
+		return len;
+	}
+
+	if (ttype != AIE_TILE_TYPE_TILE) {
+		num_mm2s_chan = aie_shimdma.num_mm2s_chan;
+		num_s2mm_chan = aie_shimdma.num_s2mm_chan;
+	} else {
+		num_mm2s_chan = aie_tiledma.num_mm2s_chan;
+		num_s2mm_chan = aie_tiledma.num_s2mm_chan;
+	}
+
+	/* MM2S */
+	len += scnprintf(&buffer[len], max(0L, size - len), "mm2s: ");
+	status = aie_get_dma_mm2s_status(apart, loc);
+
+	for (i = 0; i < num_mm2s_chan; i++) {
+		u32 value = aie_get_chan_status(apart, loc, status, i);
+
+		if (is_delimit_req) {
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					 DELIMITER_LEVEL0);
+		}
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 aie_dma_status_str[value]);
+		is_delimit_req = true;
+	}
+
+	/* S2MM */
+	is_delimit_req = false;
+	len += scnprintf(&buffer[len], max(0L, size - len), "%ss2mm: ",
+			 DELIMITER_LEVEL1);
+	status = aie_get_dma_s2mm_status(apart, loc);
+
+	for (i = 0; i < num_s2mm_chan; i++) {
+		u32 value = aie_get_chan_status(apart, loc, status, i);
+
+		if (is_delimit_req) {
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					 DELIMITER_LEVEL0);
+		}
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 aie_dma_status_str[value]);
+		is_delimit_req = true;
+	}
+	return len;
+}
+
+/*
+ * aie_get_tile_sysfs_dma_status() - exports AI engine DMA channel status,
+ *				     queue size, queue status, and current
+ *				     buffer descriptor ID being processed by
+ *				     DMA channel to a tile level sysfs node.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @buffer: location to return DMA status string.
+ * @size: total size of buffer available.
+ * @return: length of string copied to buffer.
+ */
+static ssize_t aie_get_tile_sysfs_dma_status(struct aie_partition *apart,
+					     struct aie_location *loc,
+					     char *buffer, ssize_t size)
+{
+	u32 ttype, chan, mm2s, s2mm, num_s2mm_chan, num_mm2s_chan, fifo;
+	char **qsts_str = aie_queue_status_str;
+	bool is_delimit_req = false;
+	ssize_t len = 0;
+
+	if (!aie_part_check_clk_enable_loc(apart, loc)) {
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 "channel_status: mm2s: clock_gated%ss2mm: clock_gated\n",
+				 DELIMITER_LEVEL1);
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 "queue_size: mm2s: clock_gated%ss2mm: clock_gated\n",
+				 DELIMITER_LEVEL1);
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 "queue_status: mm2s: clock_gated%ss2mm: clock_gated\n",
+				 DELIMITER_LEVEL1);
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 "current_bd: mm2s: clock_gated%ss2mm: clock_gated\n",
+				 DELIMITER_LEVEL1);
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 "fifo_len: clock_gated\n");
+		return len;
+	}
+
+	ttype = aie_get_tile_type(apart->adev, loc);
+	if (ttype != AIE_TILE_TYPE_TILE) {
+		num_mm2s_chan = aie_shimdma.num_mm2s_chan;
+		num_s2mm_chan = aie_shimdma.num_s2mm_chan;
+	} else {
+		num_mm2s_chan = aie_tiledma.num_mm2s_chan;
+		num_s2mm_chan = aie_tiledma.num_s2mm_chan;
+	}
+
+	len += scnprintf(&buffer[len], max(0L, size - len), "channel_status: ");
+	len += aie_get_part_sysfs_dma_status(apart, loc, &buffer[len],
+					     max(0L, size - len));
+
+	mm2s = aie_get_dma_mm2s_status(apart, loc);
+	s2mm = aie_get_dma_s2mm_status(apart, loc);
+
+	/* Queue size */
+	len += scnprintf(&buffer[len], max(0L, size - len),
+			 "\nqueue_size: mm2s: ");
+
+	for (chan = 0; chan < num_mm2s_chan; chan++) {
+		if (is_delimit_req) {
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					DELIMITER_LEVEL0);
+		}
+
+		len += scnprintf(&buffer[len], max(0L, size - len), "%d",
+				 aie_get_queue_size(apart, loc, mm2s, chan));
+		is_delimit_req = true;
+	}
+
+	len += scnprintf(&buffer[len], max(0L, size - len), "%ss2mm: ",
+			 DELIMITER_LEVEL1);
+
+	is_delimit_req = false;
+	for (chan = 0; chan < num_s2mm_chan; chan++) {
+		if (is_delimit_req) {
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					DELIMITER_LEVEL0);
+		}
+
+		len += scnprintf(&buffer[len], max(0L, size - len), "%d",
+				 aie_get_queue_size(apart, loc, s2mm, chan));
+		is_delimit_req = true;
+	}
+
+	/* Queue status */
+	len += scnprintf(&buffer[len], max(0L, size - len),
+			 "\nqueue_status: mm2s: ");
+
+	is_delimit_req = false;
+	for (chan = 0; chan < num_mm2s_chan; chan++) {
+		if (is_delimit_req) {
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					DELIMITER_LEVEL0);
+		}
+
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 qsts_str[aie_get_queue_status(apart, loc, mm2s,
+					  chan)]);
+		is_delimit_req = true;
+	}
+
+	len += scnprintf(&buffer[len], max(0L, size - len), "%ss2mm: ",
+			 DELIMITER_LEVEL1);
+
+	is_delimit_req = false;
+	for (chan = 0; chan < num_s2mm_chan; chan++) {
+		if (is_delimit_req) {
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					DELIMITER_LEVEL0);
+		}
+
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 qsts_str[aie_get_queue_status(apart, loc, s2mm,
+					  chan)]);
+		is_delimit_req = true;
+	}
+
+	/* Current BD */
+	len += scnprintf(&buffer[len], max(0L, size - len),
+			 "\ncurrent_bd: mm2s: ");
+
+	is_delimit_req = false;
+	for (chan = 0; chan < num_mm2s_chan; chan++) {
+		if (is_delimit_req) {
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					DELIMITER_LEVEL0);
+		}
+
+		len += scnprintf(&buffer[len], max(0L, size - len), "%d",
+				 aie_get_current_bd(apart, loc, mm2s, chan));
+		is_delimit_req = true;
+	}
+
+	len += scnprintf(&buffer[len], max(0L, size - len), "%ss2mm: ",
+			 DELIMITER_LEVEL1);
+
+	is_delimit_req = false;
+	for (chan = 0; chan < num_s2mm_chan; chan++) {
+		if (is_delimit_req) {
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					DELIMITER_LEVEL0);
+		}
+
+		len += scnprintf(&buffer[len], max(0L, size - len), "%d",
+				 aie_get_current_bd(apart, loc, s2mm, chan));
+		is_delimit_req = true;
+	}
+
+	/* FIFO length */
+	len += scnprintf(&buffer[len], max(0L, size - len), "\nfifo_len: ");
+
+	fifo = aie_get_fifo_status(apart, loc);
+	len += scnprintf(&buffer[len], max(0L, size - len), "%d%s%d\n",
+			 aie_get_fifo_count(apart, fifo, 0), DELIMITER_LEVEL0,
+			 aie_get_fifo_count(apart, fifo, 1));
+	return len;
+}
+
 static const struct aie_tile_operations aie_ops = {
 	.get_tile_type = aie_get_tile_type,
 	.get_mem_info = aie_get_mem_info,
 	.get_core_status = aie_get_core_status,
-	.reset_shim = aie_reset_shim,
+	.get_part_sysfs_lock_status = aie_get_part_sysfs_lock_status,
+	.get_tile_sysfs_lock_status = aie_get_tile_sysfs_lock_status,
+	.get_part_sysfs_dma_status = aie_get_part_sysfs_dma_status,
+	.get_tile_sysfs_dma_status = aie_get_tile_sysfs_dma_status,
 	.init_part_clk_state = aie_init_part_clk_state,
 	.scan_part_clocks = aie_scan_part_clocks,
 	.set_part_clocks = aie_set_part_clocks,
+	.set_tile_isolation = aie_set_tile_isolation,
 	.mem_clear = aie_part_clear_mems,
 };
 
@@ -1314,12 +1899,12 @@ static void aie_device_init_rscs_attr(struct aie_device *adev)
 	struct aie_tile_attr *tattr;
 
 	tattr = &adev->ttype_attr[AIE_TILE_TYPE_TILE];
-	tattr->num_mods = 2;
+	tattr->num_mods = NUM_MODS_CORE_TILE;
 	tattr->rscs_attr = aie_core_tile_rscs_attr;
 	tattr->mods = aie_core_tile_module_types;
 
 	tattr = &adev->ttype_attr[AIE_TILE_TYPE_SHIMPL];
-	tattr->num_mods = 1;
+	tattr->num_mods = NUM_MODS_SHIMPL_TILE;
 	tattr->rscs_attr = aie_shimpl_tile_rscs_attr;
 	tattr->mods = aie_shimpl_tile_module_types;
 
@@ -1329,7 +1914,7 @@ static void aie_device_init_rscs_attr(struct aie_device *adev)
 	 * driver yet.
 	 */
 	tattr = &adev->ttype_attr[AIE_TILE_TYPE_SHIMNOC];
-	tattr->num_mods = 1;
+	tattr->num_mods = NUM_MODS_SHIMPL_TILE;
 	tattr->rscs_attr = aie_shimpl_tile_rscs_attr;
 	tattr->mods = aie_shimpl_tile_module_types;
 }
@@ -1366,17 +1951,13 @@ int aie_device_init(struct aie_device *adev)
 	adev->core_errors = &aie_core_error;
 	adev->mem_errors = &aie_mem_error;
 	adev->shim_errors = &aie_shim_error;
+	adev->aperture_sysfs_attr = &aie_aperture_sysfs_attr;
 	adev->part_sysfs_attr = &aie_part_sysfs_attr;
 	adev->tile_sysfs_attr = &aie_tile_sysfs_attr;
 	adev->core_status_str = aie_core_status_str;
 	adev->core_pc = &aie_core_pc;
 	adev->core_lr = &aie_core_lr;
 	adev->core_sp = &aie_core_sp;
-	adev->dma_status_str = aie_dma_status_str;
-	adev->queue_status_str = aie_queue_status_str;
-	adev->pl_lock = &aie_pl_lock;
-	adev->mem_lock = &aie_mem_lock;
-	adev->lock_status_str = aie_lock_status_str;
 
 	aie_device_init_rscs_attr(adev);
 

@@ -12,7 +12,9 @@ maintainers:
 description: |
   Analog Devices ADXL312, ADXL313, and ADXL314 3-Axis Digital Accelerometer that
   support both I2C & SPI interfaces.
+    https://www.analog.com/en/products/adxl312.html
     https://www.analog.com/en/products/adxl313.html
+    https://www.analog.com/en/products/adxl314.html
 
 properties:
   compatible:
@@ -25,8 +27,6 @@ properties:
     maxItems: 1
 
   spi-3wire: true
-
-  spi-max-frequency: true
 
   vs-supply:
     description: Regulator that supplies power to the accelerometer
@@ -50,7 +50,10 @@ required:
   - compatible
   - reg
 
-additionalProperties: false
+allOf:
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
+unevaluatedProperties: false
 
 examples:
   - |

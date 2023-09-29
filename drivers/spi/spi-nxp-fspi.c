@@ -588,7 +588,7 @@ static int nxp_fspi_clk_prep_enable(struct nxp_fspi *f)
 {
 	int ret;
 
-	if (is_acpi_node(f->dev->fwnode))
+	if (is_acpi_node(dev_fwnode(f->dev)))
 		return 0;
 
 	ret = clk_prepare_enable(f->clk_en);
@@ -606,7 +606,7 @@ static int nxp_fspi_clk_prep_enable(struct nxp_fspi *f)
 
 static int nxp_fspi_clk_disable_unprep(struct nxp_fspi *f)
 {
-	if (is_acpi_node(f->dev->fwnode))
+	if (is_acpi_node(dev_fwnode(f->dev)))
 		return 0;
 
 	clk_disable_unprepare(f->clk);
@@ -663,7 +663,7 @@ static void nxp_fspi_select_mem(struct nxp_fspi *f, struct spi_device *spi)
 	 * Return, if previously selected slave device is same as current
 	 * requested slave device.
 	 */
-	if (f->selected == spi->chip_select)
+	if (f->selected == spi_get_chipselect(spi, 0))
 		return;
 
 	/* Reset FLSHxxCR0 registers */
@@ -676,9 +676,9 @@ static void nxp_fspi_select_mem(struct nxp_fspi *f, struct spi_device *spi)
 	size_kb = FSPI_FLSHXCR0_SZ(f->memmap_phy_size);
 
 	fspi_writel(f, size_kb, f->iobase + FSPI_FLSHA1CR0 +
-		    4 * spi->chip_select);
+		    4 * spi_get_chipselect(spi, 0));
 
-	dev_dbg(f->dev, "Slave device [CS:%x] selected\n", spi->chip_select);
+	dev_dbg(f->dev, "Slave device [CS:%x] selected\n", spi_get_chipselect(spi, 0));
 
 	nxp_fspi_clk_disable_unprep(f);
 
@@ -690,7 +690,7 @@ static void nxp_fspi_select_mem(struct nxp_fspi *f, struct spi_device *spi)
 	if (ret)
 		return;
 
-	f->selected = spi->chip_select;
+	f->selected = spi_get_chipselect(spi, 0);
 }
 
 static int nxp_fspi_read_ahb(struct nxp_fspi *f, const struct spi_mem_op *op)
@@ -1055,7 +1055,7 @@ static const char *nxp_fspi_get_name(struct spi_mem *mem)
 
 	name = devm_kasprintf(dev, GFP_KERNEL,
 			      "%s-%d", dev_name(f->dev),
-			      mem->spi->chip_select);
+			      spi_get_chipselect(mem->spi, 0));
 
 	if (!name) {
 		dev_err(dev, "failed to get memory for custom flash name\n");
@@ -1100,7 +1100,7 @@ static int nxp_fspi_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, f);
 
 	/* find the resources - configuration register address space */
-	if (is_acpi_node(f->dev->fwnode))
+	if (is_acpi_node(dev_fwnode(f->dev)))
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	else
 		res = platform_get_resource_byname(pdev,
@@ -1113,7 +1113,7 @@ static int nxp_fspi_probe(struct platform_device *pdev)
 	}
 
 	/* find the resources - controller memory mapped space */
-	if (is_acpi_node(f->dev->fwnode))
+	if (is_acpi_node(dev_fwnode(f->dev)))
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 1);
 	else
 		res = platform_get_resource_byname(pdev,

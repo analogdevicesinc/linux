@@ -624,7 +624,7 @@ static const struct iio_chan_spec_ext_info adl5960_ext_lo_info[] = {
 	_ADL5960_EXT_INFO("frequency", IIO_SEPARATE,
 		ADL5960_EXTI_LO_FREQ),
 	IIO_ENUM("mode", IIO_SEPARATE, &adl5960_lo_mode_enum),
-	IIO_ENUM_AVAILABLE_SHARED("mode", IIO_SEPARATE, &adl5960_lo_mode_enum),
+	IIO_ENUM_AVAILABLE("mode", IIO_SEPARATE, &adl5960_lo_mode_enum),
 	{ },
 };
 
@@ -639,8 +639,7 @@ static const struct iio_chan_spec_ext_info adl5960_ext_if_info[] = {
 	_ADL5960_EXT_INFO("offset_frequency", IIO_SEPARATE,
 		ADL5960_EXTI_OFS_FREQ),
 	IIO_ENUM("offset_mode", IIO_SEPARATE, &adl5960_if_mode_enum),
-	IIO_ENUM_AVAILABLE_SHARED("offset_mode", IIO_SEPARATE,
-		&adl5960_if_mode_enum),
+	IIO_ENUM_AVAILABLE("offset_mode", IIO_SEPARATE, &adl5960_if_mode_enum),
 	{ },
 };
 

@@ -379,9 +379,9 @@ static ssize_t cf_axi_tdd_write(struct iio_dev *indio_dev, uintptr_t private,
 
 static const struct iio_chan_spec_ext_info cf_axi_tdd_ext_info[] = {
 	IIO_ENUM("en_mode", IIO_SHARED_BY_ALL, &cf_axi_tdd_en_available),
-	IIO_ENUM_AVAILABLE_SHARED("en_mode", IIO_SHARED_BY_ALL, &cf_axi_tdd_en_available),
+	IIO_ENUM_AVAILABLE("en_mode", IIO_SHARED_BY_ALL, &cf_axi_tdd_en_available),
 	IIO_ENUM("dma_gateing_mode", IIO_SHARED_BY_ALL, &cf_axi_tdd_dma_gateing_mode_available),
-	IIO_ENUM_AVAILABLE_SHARED("dma_gateing_mode", IIO_SHARED_BY_ALL,
+	IIO_ENUM_AVAILABLE("dma_gateing_mode", IIO_SHARED_BY_ALL,
 				  &cf_axi_tdd_dma_gateing_mode_available),
 	CF_AXI_TDD_IIO_EXT_INFO("burst_count", CF_AXI_TDD_BURST_COUNT, IIO_SHARED_BY_ALL),
 	CF_AXI_TDD_IIO_EXT_INFO("secondary", CF_AXI_TDD_SECONDARY, IIO_SHARED_BY_ALL),

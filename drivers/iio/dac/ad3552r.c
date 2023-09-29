@@ -7,9 +7,6 @@
  */
 #include <asm/unaligned.h>
 #include <linux/device.h>
-/* iio.h and buffer.h not in 5.14 */
-#include <linux/iio/iio.h>
-#include <linux/iio/buffer.h>
 #include <linux/iio/triggered_buffer.h>
 #include <linux/iio/trigger_consumer.h>
 #include <linux/iopoll.h>
@@ -593,9 +590,7 @@ static irqreturn_t ad3552r_trigger_handler(int irq, void *p)
 	int err;
 
 	memset(buff, 0, sizeof(buff));
-	/* In 5.14 iio_pop_from_buffer is used */
-	//err = iio_pop_from_buffer(buf, buff);
-	err = iio_buffer_remove_sample(buf, buff);
+	err = iio_pop_from_buffer(buf, buff);
 	if (err)
 		goto end;
 
@@ -661,7 +656,7 @@ static int ad3552r_reset(struct ad3552r_desc *dac)
 {
 	struct reg_addr_pool addr;
 	int ret;
-	u16 val;
+	int val;
 
 	dac->gpio_reset = devm_gpiod_get_optional(&dac->spi->dev, "reset",
 						  GPIOD_OUT_LOW);
@@ -814,10 +809,10 @@ static int ad3552r_configure_custom_gain(struct ad3552r_desc *dac,
 
 	gain_child = fwnode_get_named_child_node(child,
 						 "custom-output-range-config");
-	if (IS_ERR(gain_child)) {
+	if (!gain_child) {
 		dev_err(dev,
 			"mandatory custom-output-range-config property missing\n");
-		return PTR_ERR(gain_child);
+		return -EINVAL;
 	}
 
 	dac->ch_data[ch].range_override = 1;
@@ -974,7 +969,7 @@ static int ad3552r_configure_device(struct ad3552r_desc *dac)
 							     2);
 			if (err) {
 				dev_err(dev,
-					"failed to parse adi,output-range-microvolt\n");
+					"adi,output-range-microvolt property could not be parsed\n");
 				goto put_child;
 			}
 
@@ -1102,17 +1097,12 @@ static int ad3552r_probe(struct spi_device *spi)
 	indio_dev->num_channels = dac->num_ch;
 	indio_dev->channels = dac->channels;
 	indio_dev->modes = INDIO_DIRECT_MODE;
-	/* indio_dev->direction don't exist in 5.14 */
-	indio_dev->direction = IIO_DEVICE_DIRECTION_OUT;
 
-	/* In 5.14 devm_iio_triggered_buffer_setup_ext is used */
-	//err = devm_iio_triggered_buffer_setup_ext(&indio_dev->dev, indio_dev, NULL,
-	//					  &ad3552r_trigger_handler,
-	//					  IIO_BUFFER_DIRECTION_OUT,
-	//					  NULL,
-	//					  NULL);
-	err = devm_iio_triggered_buffer_setup(&indio_dev->dev, indio_dev, NULL,
-					      &ad3552r_trigger_handler, NULL);
+	err = devm_iio_triggered_buffer_setup_ext(&indio_dev->dev, indio_dev, NULL,
+						  &ad3552r_trigger_handler,
+						  IIO_BUFFER_DIRECTION_OUT,
+						  NULL,
+						  NULL);
 	if (err)
 		return err;
 

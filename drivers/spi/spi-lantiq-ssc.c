@@ -388,11 +388,11 @@ static int lantiq_ssc_setup(struct spi_device *spidev)
 {
 	struct spi_master *master = spidev->master;
 	struct lantiq_ssc_spi *spi = spi_master_get_devdata(master);
-	unsigned int cs = spidev->chip_select;
+	unsigned int cs = spi_get_chipselect(spidev, 0);
 	u32 gpocon;
 
 	/* GPIOs are used for CS */
-	if (spidev->cs_gpiod)
+	if (spi_get_csgpiod(spidev, 0))
 		return 0;
 
 	dev_dbg(spi->dev, "using internal chipselect %u\n", cs);
@@ -796,7 +796,7 @@ static void lantiq_ssc_handle_err(struct spi_master *master,
 static void lantiq_ssc_set_cs(struct spi_device *spidev, bool enable)
 {
 	struct lantiq_ssc_spi *spi = spi_master_get_devdata(spidev->master);
-	unsigned int cs = spidev->chip_select;
+	unsigned int cs = spi_get_chipselect(spidev, 0);
 	u32 fgpo;
 
 	if (!!(spidev->mode & SPI_CS_HIGH) == enable)
@@ -906,17 +906,11 @@ static int lantiq_ssc_probe(struct platform_device *pdev)
 	struct spi_master *master;
 	struct lantiq_ssc_spi *spi;
 	const struct lantiq_ssc_hwcfg *hwcfg;
-	const struct of_device_id *match;
 	u32 id, supports_dma, revision;
 	unsigned int num_cs;
 	int err;
 
-	match = of_match_device(lantiq_ssc_match, dev);
-	if (!match) {
-		dev_err(dev, "no device match\n");
-		return -EINVAL;
-	}
-	hwcfg = match->data;
+	hwcfg = of_device_get_match_data(dev);
 
 	master = spi_alloc_master(dev, sizeof(struct lantiq_ssc_spi));
 	if (!master)

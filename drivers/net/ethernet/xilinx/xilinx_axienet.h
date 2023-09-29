@@ -3,20 +3,21 @@
  * Definitions for Xilinx Axi Ethernet device driver.
  *
  * Copyright (c) 2009 Secret Lab Technologies, Ltd.
- * Copyright (c) 2010 - 2012 Xilinx, Inc. All rights reserved.
+ * Copyright (c) 2010 - 2022 Xilinx, Inc. All rights reserved.
+ * Copyright (c) 2022 Advanced Micro Devices, Inc.
  */
 
 #ifndef XILINX_AXIENET_H
 #define XILINX_AXIENET_H
 
+#include <linux/clk.h>
 #include <linux/netdevice.h>
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <linux/if_vlan.h>
+#include <linux/phylink.h>
 #include <linux/net_tstamp.h>
-#include <linux/phy.h>
 #include <linux/of_platform.h>
-#include <linux/clk.h>
 
 /* Packet size info */
 #define XAE_HDR_SIZE			14 /* Size of Ethernet header */
@@ -132,11 +133,11 @@
 #define XAXIDMA_IRQ_ERROR_MASK		0x00004000 /* Error interrupt */
 #define XAXIDMA_IRQ_ALL_MASK		0x00007000 /* All interrupts */
 
-/* Default TX/RX Threshold and waitbound values for SGDMA mode */
+/* Default TX/RX Threshold and delay timer values for SGDMA mode */
 #define XAXIDMA_DFT_TX_THRESHOLD	24
-#define XAXIDMA_DFT_TX_WAITBOUND	254
+#define XAXIDMA_DFT_TX_USEC		50
 #define XAXIDMA_DFT_RX_THRESHOLD	1
-#define XAXIDMA_DFT_RX_WAITBOUND	254
+#define XAXIDMA_DFT_RX_USEC		50
 
 #define XAXIDMA_BD_CTRL_TXSOF_MASK	0x08000000 /* First tx packet */
 #define XAXIDMA_BD_CTRL_TXEOF_MASK	0x04000000 /* Last tx packet */
@@ -354,6 +355,9 @@
 
 #define DELAY_OF_ONE_MILLISEC		1000
 
+/* Xilinx PCS/PMA PHY register for switching 1000BaseX or SGMII */
+#define XLNX_MII_STD_SELECT_REG		0x11
+#define XLNX_MII_STD_SELECT_SGMII	BIT(0)
 #define XAXIENET_NAPI_WEIGHT		64
 
 /* Definition of 1588 PTP in Axi Ethernet IP */
@@ -675,12 +679,16 @@ struct aximcdma_bd {
 #else
 #define XAE_MAX_QUEUES		1
 #endif
-
 /**
  * struct axienet_local - axienet private per device data
  * @ndev:	Pointer for net_device to which it will be attached.
  * @dev:	Pointer to device structure
  * @phy_node:	Pointer to device node structure
+ * @phylink:	Pointer to phylink instance
+ * @phylink_config: phylink configuration settings
+ * @pcs_phy:	Reference to PCS/PMA PHY if used
+ * @pcs:	phylink pcs structure for PCS PHY
+ * @switch_x_sgmii: Whether switchable 1000BaseX/SGMII mode is enabled in the core
  * @axi_clk:	AXI4-Lite bus clock
  * @misc_clks:	Misc ethernet clocks (AXI4-Stream, Ref, MGT clocks)
  * @mii_bus:	Pointer to MII bus structure
@@ -693,27 +701,12 @@ struct aximcdma_bd {
  * @num_rx_queues: Total number of Rx DMA queues
  * @dq:		DMA queues data
  * @phy_mode:	Phy type to identify between MII/GMII/RGMII/SGMII/1000 Base-X
- * @master:	Master endpoint
- * @slaves:	Front panel ports
- * @timer_priv: PTP timer private data pointer
- * @ptp_tx_irq: PTP tx irq
- * @ptp_rx_irq: PTP rx irq
- * @rtc_irq:	PTP RTC irq
- * @qbv_irq:	QBV shed irq
- * @ptp_ts_type: ptp time stamp type - 1 or 2 step mode
- * @ptp_rx_hw_pointer: ptp rx hw pointer
- * @ptp_rx_sw_pointer: ptp rx sw pointer
- * @ptp_txq:	PTP tx queue header
- * @tx_tstamp_work: PTP timestamping work queue
- * @qbv_regs:	pointer to qbv registers base address
- * @ptp_tx_lock: PTP tx lock
  * @dma_err_tasklet: Tasklet structure to process Axi DMA errors
  * @eth_irq:	Axi Ethernet IRQ number
  * @options:	AxiEthernet option word
- * @last_link:	Phy link state in which the PHY was negotiated earlier
  * @features:	Stores the extended features supported by the axienet hw
- * @tx_bd_num:	Number of TX buffer descriptors.
- * @rx_bd_num:	Number of RX buffer descriptors.
+ * @tx_bd_num: Number of TX buffer descriptors.
+ * @rx_bd_num: Number of RX buffer descriptors.
  * @max_frm_size: Stores the maximum size of the frame that can be that
  *		  Txed/Rxed in the existing hardware. If jumbo option is
  *		  supported, the maximum frame size would be 9k. Else it is
@@ -722,8 +715,9 @@ struct aximcdma_bd {
  * @csum_offload_on_tx_path:	Stores the checksum selection on TX side.
  * @csum_offload_on_rx_path:	Stores the checksum selection on RX side.
  * @coalesce_count_rx:	Store the irq coalesce on RX side.
+ * @coalesce_usec_rx:	IRQ coalesce delay for RX
  * @coalesce_count_tx:	Store the irq coalesce on TX side.
- * @phy_flags:	Phy interface flags.
+ * @coalesce_usec_tx:	IRQ coalesce delay for TX
  * @eth_hasnobuf: Ethernet is configured in Non buf mode.
  * @eth_hasptp: Ethernet is configured for ptp.
  * @axienet_config: Ethernet config structure
@@ -756,7 +750,13 @@ struct axienet_local {
 	struct net_device *ndev;
 	struct device *dev;
 
-	struct device_node *phy_node;
+	struct phylink *phylink;
+	struct phylink_config phylink_config;
+
+	struct mdio_device *pcs_phy;
+	struct phylink_pcs pcs;
+
+	bool switch_x_sgmii;
 
 	struct clk *axi_clk;
 	struct clk_bulk_data misc_clks[XAE_NUM_MISC_CLOCKS];
@@ -776,12 +776,10 @@ struct axienet_local {
 	struct axienet_dma_q *dq[XAE_MAX_QUEUES];	/* DMA queue data*/
 
 	phy_interface_t phy_mode;
-
 	spinlock_t ptp_tx_lock;		/* PTP tx lock*/
 	int eth_irq;
 
-	u32 options;			/* Current options word */
-	u32 last_link;
+	u32 options;
 	u32 features;
 
 	u16 tx_bd_num;
@@ -794,13 +792,14 @@ struct axienet_local {
 	int csum_offload_on_rx_path;
 
 	u32 coalesce_count_rx;
+	u32 coalesce_usec_rx;
 	u32 coalesce_count_tx;
-	u32 phy_flags;
+	u32 coalesce_usec_tx;
 	bool eth_hasnobuf;
 	bool eth_hasptp;
 	const struct axienet_config *axienet_config;
 
-#if defined(CONFIG_XILINX_AXI_EMAC_HWTSTAMP)
+#ifdef CONFIG_XILINX_AXI_EMAC_HWTSTAMP
 	void __iomem *tx_ts_regs;
 	void __iomem *rx_ts_regs;
 	struct hwtstamp_config tstamp_config;
@@ -858,7 +857,6 @@ struct axienet_local {
  *		completed.
  * @rx_bd_ci:	Stores the index of the Rx buffer descriptor in the ring being
  *		accessed currently.
- * @flags:      MCDMA management channel flags
  * @chan_id:    MCDMA channel to operate on.
  * @rx_offset:	MCDMA S2MM channel starting offset.
  * @txq_bd_v:	Virtual address of the MCDMA TX buffer descriptor ring
@@ -938,7 +936,7 @@ struct axienet_config {
 };
 
 /**
- * struct axienet_option - Used to set axi ethernet hardware options
+ * struct axiethernet_option - Used to set axi ethernet hardware options
  * @opt:	Option to be set.
  * @reg:	Register offset to be written for setting the option
  * @m_or:	Mask to be ORed for setting the option in the register
@@ -977,6 +975,18 @@ static inline u32 axienet_ior(struct axienet_local *lp, off_t offset)
 static inline u32 axinet_ior_read_mcr(struct axienet_local *lp)
 {
 	return axienet_ior(lp, XAE_MDIO_MCR_OFFSET);
+}
+
+static inline void axienet_lock_mii(struct axienet_local *lp)
+{
+	if (lp->mii_bus)
+		mutex_lock(&lp->mii_bus->mdio_lock);
+}
+
+static inline void axienet_unlock_mii(struct axienet_local *lp)
+{
+	if (lp->mii_bus)
+		mutex_unlock(&lp->mii_bus->mdio_lock);
 }
 
 /**
@@ -1125,14 +1135,12 @@ static inline void axienet_dma_bdout(struct axienet_dma_q *q,
 	writel(value, (q->dma_regs + reg));
 #endif
 }
+
 /* Function prototypes visible in xilinx_axienet_mdio.c for other files */
 int axienet_mdio_enable(struct axienet_local *lp);
 void axienet_mdio_disable(struct axienet_local *lp);
 int axienet_mdio_setup(struct axienet_local *lp);
 void axienet_mdio_teardown(struct axienet_local *lp);
-void axienet_adjust_link(struct net_device *ndev);
-
-int axienet_mdio_wait_until_ready(struct axienet_local *lp);
 void __maybe_unused axienet_bd_free(struct net_device *ndev,
 				    struct axienet_dma_q *q);
 int __maybe_unused axienet_dma_q_init(struct net_device *ndev,
@@ -1146,9 +1154,6 @@ void __axienet_device_reset(struct axienet_dma_q *q);
 void axienet_set_mac_address(struct net_device *ndev, const void *address);
 void axienet_set_multicast_list(struct net_device *ndev);
 int xaxienet_rx_poll(struct napi_struct *napi, int quota);
-void axienet_setoptions(struct net_device *ndev, u32 options);
-int axienet_queue_xmit(struct sk_buff *skb, struct net_device *ndev,
-		       u16 map);
 
 #if defined(CONFIG_AXIENET_HAS_MCDMA)
 int __maybe_unused axienet_mcdma_rx_q_init(struct net_device *ndev,
@@ -1184,5 +1189,6 @@ void axienet_tx_hwtstamp(struct axienet_local *lp,
 void axienet_tx_hwtstamp(struct axienet_local *lp,
 			 struct axidma_bd *cur_p);
 #endif
+u32 axienet_usec_to_timer(struct axienet_local *lp, u32 coalesce_usec);
 
 #endif /* XILINX_AXI_ENET_H */

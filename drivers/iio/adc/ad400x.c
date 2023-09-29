@@ -315,19 +315,6 @@ static int ad400x_buffer_postdisable(struct iio_dev *indio_dev)
 	return spi_bus_unlock(st->spi->master);
 }
 
-static int hw_submit_block(struct iio_dma_buffer_queue *queue,
-			   struct iio_dma_buffer_block *block)
-{
-	block->block.bytes_used = block->block.size;
-
-	return iio_dmaengine_buffer_submit_block(queue, block, DMA_DEV_TO_MEM);
-}
-
-static const struct iio_dma_buffer_ops dma_buffer_ops = {
-	.submit = hw_submit_block,
-	.abort = iio_dmaengine_buffer_abort,
-};
-
 static const struct iio_buffer_setup_ops ad400x_buffer_setup_ops = {
 	.postenable = &ad400x_buffer_postenable,
 	.postdisable = &ad400x_buffer_postdisable,
@@ -342,7 +329,6 @@ static int ad400x_probe(struct spi_device *spi)
 {
 	struct ad400x_state *st;
 	struct iio_dev *indio_dev;
-	struct iio_buffer *buffer;
 	int ret, dev_id;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
@@ -386,12 +372,10 @@ static int ad400x_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent, "rx",
-						 &dma_buffer_ops, indio_dev);
-	if (IS_ERR(buffer))
-		return PTR_ERR(buffer);
-
-	iio_device_attach_buffer(indio_dev, buffer);
+	ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent, indio_dev,
+					      "rx", IIO_BUFFER_DIRECTION_IN);
+	if (ret)
+		return ret;
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }

@@ -108,12 +108,18 @@ struct ad7173_device_info {
 	unsigned int num_sinc5_data_rates;
 };
 
+struct ad7173_channel {
+	unsigned int ain;
+	bool differential;
+};
+
 struct ad7173_state {
 	struct regulator *reg;
 	/* protect against device accesses */
 	struct mutex lock;
 	unsigned int adc_mode;
 	unsigned int interface_mode;
+	struct ad7173_channel *channels;
 
 	struct ad_sigma_delta sd;
 
@@ -418,31 +424,51 @@ static struct ad7173_state *ad_sigma_delta_to_ad7173(struct ad_sigma_delta *sd)
 	return container_of(sd, struct ad7173_state, sd);
 }
 
-static int ad7173_prepare_channel(struct ad_sigma_delta *sd, unsigned int slot,
-	const struct iio_chan_spec *chan)
+static int ad7173_prepare_channel(struct ad_sigma_delta *sd,
+				  struct ad7173_channel *ch,
+				  unsigned int channel)
 {
 	unsigned int config;
 
 	config = AD7173_SETUP_REF_SEL_INT_REF;
 
-	if (chan->differential)
+	if (ch->differential)
 		config |= AD7173_SETUP_BIPOLAR;
 
-	return ad_sd_write_reg(sd, AD7173_REG_SETUP(slot), 2, config);
+	return ad_sd_write_reg(sd, channel, 2, config);
 }
 
-static int ad7173_set_channel(struct ad_sigma_delta *sd, unsigned int slot,
-	unsigned int channel)
+static int ad7173_set_channel(struct ad_sigma_delta *sd, unsigned int channel)
 {
 	struct ad7173_state *st = ad_sigma_delta_to_ad7173(sd);
+	struct ad7173_channel *ch = &st->channels[channel];
 	unsigned int val;
+	int ret;
 
-	if (channel == AD_SD_SLOT_DISABLE)
-	    val = 0;
+	/*
+	 * !\TODO: AD_SD_SLOT_DISABLE is not present upstream so it's also being
+	 * removed in here. But in fact, it seems that we have a bug upstream
+	 * in the lib. The reason is that for devices with sequencer support the
+	 * conversions are done sequentially for all enabled channels. That means
+	 * that for single conversions we should only have one channel enabled and
+	 * that's not the case with upstream code. We just keep enabling channels
+	 * per single conversion. In our tree (original sequencer code added by Lars)
+	 * ww always did single conversions on channel 0 (selecting the correct AIN
+	 * ports to get the right conversion input) and disabled all the other ports.
+	 */
+	/*if (channel == AD_SD_SLOT_DISABLE)
+		val = 0;
 	else
-	    val = AD7173_CH_ENABLE | channel;
+		val = AD7173_CH_ENABLE | ch->ain;
+	*/
 
-	return ad_sd_write_reg(&st->sd, AD7173_REG_CH(slot), 2, val);
+	ret = ad7173_prepare_channel(sd, ch, channel);
+	if (ret)
+		return ret;
+
+	val = AD7173_CH_ENABLE | ch->ain;
+
+	return ad_sd_write_reg(&st->sd, AD7173_REG_CH(channel), 2, val);
 }
 
 static int ad7173_set_mode(struct ad_sigma_delta *sd,
@@ -458,7 +484,6 @@ static int ad7173_set_mode(struct ad_sigma_delta *sd,
 
 static const struct ad_sigma_delta_info ad7173_sigma_delta_info = {
 	.set_channel = ad7173_set_channel,
-	.prepare_channel = ad7173_prepare_channel,
 	.set_mode = ad7173_set_mode,
 	.has_registers = true,
 	.data_reg = AD7173_REG_DATA,
@@ -656,7 +681,7 @@ static int ad7173_of_parse_channel_config(struct iio_dev *indio_dev,
 	unsigned int num_ext_channels = 0;
 	unsigned int num_channels = 0;
 	unsigned int scan_index = 0;
-	unsigned int chan_index = 0;
+	unsigned int chan_idx = 0;
 
 	chan_node = of_get_child_by_name(np, "adi,channels");
 	if (chan_node)
@@ -672,6 +697,11 @@ static int ad7173_of_parse_channel_config(struct iio_dev *indio_dev,
 	chan = devm_kcalloc(indio_dev->dev.parent, sizeof(*chan), num_channels,
 		GFP_KERNEL);
 	if (!chan)
+		return -ENOMEM;
+
+	st->channels = devm_kcalloc(indio_dev->dev.parent, sizeof(*st->channels),
+				    num_channels, GFP_KERNEL);
+	if (!st->channels)
 		return -ENOMEM;
 
 	indio_dev->channels = chan;
@@ -706,9 +736,8 @@ static int ad7173_of_parse_channel_config(struct iio_dev *indio_dev,
 			return -EINVAL;
 		}
 
-
 		*chan = ad7173_channel_template;
-		chan->address = AD7173_CH_ADDRESS(ain[0], ain[1]);
+		chan->address = chan_idx;
 		chan->scan_index = scan_index;
 		chan->channel = ain[0];
 		chan->channel2 = ain[1];
@@ -716,7 +745,10 @@ static int ad7173_of_parse_channel_config(struct iio_dev *indio_dev,
 		if (chan->differential)
 			chan->info_mask_separate |= BIT(IIO_CHAN_INFO_OFFSET);
 
-		chan_index++;
+		st->channels[chan_idx].ain = AD7173_CH_ADDRESS(ain[0], ain[1]);
+		st->channels[chan_idx].differential = chan->differential;
+
+		chan_idx++;
 		scan_index++;
 		chan++;
 	}
@@ -777,7 +809,7 @@ static int ad7173_probe(struct spi_device *spi)
 	return ad7173_gpio_init(st);
 }
 
-static int ad7173_remove(struct spi_device *spi)
+static void ad7173_remove(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 	struct ad7173_state *st = iio_priv(indio_dev);
@@ -785,8 +817,6 @@ static int ad7173_remove(struct spi_device *spi)
 	ad7173_gpio_cleanup(st);
 
 	iio_device_unregister(indio_dev);
-
-	return 0;
 }
 
 static const struct spi_device_id ad7173_id_table[] = {

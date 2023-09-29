@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0+
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * ADA4250 driver
  *
- * Copyright 2021 Analog Devices Inc.
+ * Copyright 2022 Analog Devices Inc.
  */
 
 #include <linux/bitfield.h>
@@ -13,6 +13,8 @@
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
+
+#include <asm/unaligned.h>
 
 /* ADA4250 Register Map */
 #define ADA4250_REG_GAIN_MUX        0x00
@@ -25,47 +27,49 @@
 
 /* ADA4250_REG_GAIN_MUX Map */
 #define ADA4250_GAIN_MUX_MSK        GENMASK(2, 0)
-#define ADA4250_GAIN_MUX(x)         FIELD_PREP(ADA4250_GAIN_MUX_MSK, x)
 
 /* ADA4250_REG_REFBUF Map */
 #define ADA4250_REFBUF_MSK          BIT(0)
-#define ADA4250_REFBUF(x)           FIELD_PREP(ADA4250_REFBUF_MSK, x)
 
 /* ADA4250_REG_RESET Map */
 #define ADA4250_RESET_MSK           BIT(0)
-#define ADA4250_RESET(x)            FIELD_PREP(ADA4250_RESET_MSK, x)
 
 /* ADA4250_REG_SNSR_CAL_VAL Map */
-#define ADA4250_SNSR_CAL_VAL_MSK    GENMASK(7, 0)
-#define ADA4250_SNSR_CAL_VAL(x)     FIELD_PREP(ADA4250_SNSR_CAL_VAL_MSK, x)
+#define ADA4250_CAL_CFG_BIAS_MSK    GENMASK(7, 0)
 
 /* ADA4250_REG_SNSR_CAL_CNFG Bit Definition */
 #define ADA4250_BIAS_SET_MSK        GENMASK(3, 2)
-#define ADA4250_BIAS_SET(x)         FIELD_PREP(ADA4250_BIAS_SET_MSK, x)
 #define ADA4250_RANGE_SET_MSK       GENMASK(1, 0)
-#define ADA4250_RANGE_SET(x)        FIELD_PREP(ADA4250_RANGE_SET_MSK, x)
 
+/* Miscellaneous definitions */
 #define ADA4250_CHIP_ID             0x4250
-#define ADA4250_GAIN_1		    1
 #define ADA4250_RANGE1              0
 #define	ADA4250_RANGE4              3
 
-enum supported_parts {
-	ADA4250,
+/* ADA4250 current bias set */
+enum ada4250_current_bias {
+	ADA4250_BIAS_DISABLED,
+	ADA4250_BIAS_BANDGAP,
+	ADA4250_BIAS_AVDD,
 };
 
-struct ada4250 {
+struct ada4250_state {
+	struct spi_device	*spi;
 	struct regmap		*regmap;
 	struct regulator	*reg;
+	/* Protect against concurrent accesses to the device and data content */
+	struct mutex		lock;
 	u8			bias;
 	u8			gain;
 	int			offset_uv;
 	bool			refbuf_en;
 };
 
-static const int calibbias_table[] = {0, 1, 2, 3};
+/* ADA4250 Current Bias Source Settings: Disabled, Bandgap Reference, AVDD */
+static const int calibbias_table[] = {0, 1, 2};
 
-static const int hwgain_table[] = {0, 1, 2, 3, 4, 5, 6, 7};
+/* ADA4250 Gain (V/V) values: 1, 2, 4, 8, 16, 32, 64, 128 */
+static const int hwgain_table[] = {1, 2, 4, 8, 16, 32, 64, 128};
 
 static const struct regmap_config ada4250_regmap_config = {
 	.reg_bits = 8,
@@ -74,23 +78,23 @@ static const struct regmap_config ada4250_regmap_config = {
 	.max_register = 0x1A,
 };
 
-static int ada4250_set_offset(struct iio_dev *indio_dev,
-				   const struct iio_chan_spec *chan,
-				   int offset)
+static int ada4250_set_offset_uv(struct iio_dev *indio_dev,
+				 const struct iio_chan_spec *chan,
+				 int offset_uv)
 {
-	struct ada4250 *dev = iio_priv(indio_dev);
+	struct ada4250_state *st = iio_priv(indio_dev);
 
 	int i, ret, x[8], max_vos, min_vos, voltage_v, vlsb = 0;
 	u8 offset_raw, range = ADA4250_RANGE1;
 	u32 lsb_coeff[6] = {1333, 2301, 4283, 8289, 16311, 31599};
 
-	if (dev->bias == 0 || dev->bias == 3)
+	if (st->bias == 0 || st->bias == 3)
 		return -EINVAL;
 
-	voltage_v = regulator_get_voltage(dev->reg);
+	voltage_v = regulator_get_voltage(st->reg);
 	voltage_v = DIV_ROUND_CLOSEST(voltage_v, 1000000);
 
-	if (dev->bias == 2)
+	if (st->bias == ADA4250_BIAS_AVDD)
 		x[0] = voltage_v;
 	else
 		x[0] = 5;
@@ -98,17 +102,30 @@ static int ada4250_set_offset(struct iio_dev *indio_dev,
 	x[1] = 126 * (x[0] - 1);
 
 	for (i = 0; i < 6; i++)
-		x[i+2] = DIV_ROUND_CLOSEST(x[1] * 1000, lsb_coeff[i]);
+		x[i + 2] = DIV_ROUND_CLOSEST(x[1] * 1000, lsb_coeff[i]);
 
-	if (dev->gain == 0)
+	if (st->gain == 0)
 		return -EINVAL;
 
+	/*
+	 * Compute Range and Voltage per LSB for the Sensor Offset Calibration
+	 * Example of computation for Range 1 and Range 2 (Curren Bias Set = AVDD):
+	 *                     Range 1                            Range 2
+	 *   Gain   | Max Vos(mV) |   LSB(mV)        |  Max Vos(mV)  | LSB(mV) |
+	 *    2     |    X1*127   | X1=0.126(AVDD-1) |   X1*3*127    |  X1*3   |
+	 *    4     |    X2*127   | X2=X1/1.3333     |   X2*3*127    |  X2*3   |
+	 *    8     |    X3*127   | X3=X1/2.301      |   X3*3*127    |  X3*3   |
+	 *    16    |    X4*127   | X4=X1/4.283      |   X4*3*127    |  X4*3   |
+	 *    32    |    X5*127   | X5=X1/8.289      |   X5*3*127    |  X5*3   |
+	 *    64    |    X6*127   | X6=X1/16.311     |   X6*3*127    |  X6*3   |
+	 *    128   |    X7*127   | X7=X1/31.599     |   X7*3*127    |  X7*3   |
+	 */
 	for (i = ADA4250_RANGE1; i <= ADA4250_RANGE4; i++) {
-		max_vos = x[dev->gain] *  127 * ((1 << (i + 1)) - 1);
+		max_vos = x[st->gain] *  127 * ((1 << (i + 1)) - 1);
 		min_vos = -1 * max_vos;
-		if (offset > min_vos && offset < max_vos) {
+		if (offset_uv > min_vos && offset_uv < max_vos) {
 			range = i;
-			vlsb = x[dev->gain] * ((1 << (i + 1)) - 1);
+			vlsb = x[st->gain] * ((1 << (i + 1)) - 1);
 			break;
 		}
 	}
@@ -116,50 +133,68 @@ static int ada4250_set_offset(struct iio_dev *indio_dev,
 	if (vlsb <= 0)
 		return -EINVAL;
 
-	offset_raw = DIV_ROUND_CLOSEST(abs(offset), vlsb);
+	offset_raw = DIV_ROUND_CLOSEST(abs(offset_uv), vlsb);
 
-	ret = regmap_update_bits(dev->regmap, ADA4250_REG_SNSR_CAL_CNFG,
-					ADA4250_RANGE_SET_MSK,
-					ADA4250_RANGE_SET(range));
-	if (ret < 0)
-		return ret;
+	mutex_lock(&st->lock);
+	ret = regmap_update_bits(st->regmap, ADA4250_REG_SNSR_CAL_CNFG,
+				 ADA4250_RANGE_SET_MSK,
+				 FIELD_PREP(ADA4250_RANGE_SET_MSK, range));
+	if (ret)
+		goto exit;
 
-	dev->offset_uv = offset_raw * vlsb;
+	st->offset_uv = offset_raw * vlsb;
 
-	if (offset < 0) {
-		offset_raw |= 1 << 8;
-		dev->offset_uv *= (-1);
+	/*
+	 * To set the offset calibration value, use bits [6:0] and bit 7 as the
+	 * polarity bit (set to "0" for a negative offset and "1" for a positive
+	 * offset).
+	 */
+	if (offset_uv < 0) {
+		offset_raw |= BIT(7);
+		st->offset_uv *= (-1);
 	}
 
-	return regmap_write(dev->regmap, ADA4250_REG_SNSR_CAL_VAL, offset_raw);
+	ret = regmap_write(st->regmap, ADA4250_REG_SNSR_CAL_VAL, offset_raw);
+
+exit:
+	mutex_unlock(&st->lock);
+
+	return ret;
 }
 
 static int ada4250_read_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan,
 			    int *val, int *val2, long info)
 {
-	struct ada4250 *dev = iio_priv(indio_dev);
+	struct ada4250_state *st = iio_priv(indio_dev);
 	int ret;
 
 	switch (info) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
-		ret = regmap_read(dev->regmap, ADA4250_REG_GAIN_MUX, val);
-		if (ret < 0)
+		ret = regmap_read(st->regmap, ADA4250_REG_GAIN_MUX, val);
+		if (ret)
 			return ret;
+
+		*val = BIT(*val);
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_OFFSET:
-		*val = dev->offset_uv;
+		*val = st->offset_uv;
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_CALIBBIAS:
-		ret = regmap_read(dev->regmap, ADA4250_REG_SNSR_CAL_CNFG, val);
-		if (ret < 0)
+		ret = regmap_read(st->regmap, ADA4250_REG_SNSR_CAL_CNFG, val);
+		if (ret)
 			return ret;
 
-		*val = *val >> 2;
+		*val = FIELD_GET(ADA4250_BIAS_SET_MSK, *val);
 
 		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_SCALE:
+		*val = 1;
+		*val2 = 1000000;
+
+		return IIO_VAL_FRACTIONAL;
 	default:
 		return -EINVAL;
 	}
@@ -169,29 +204,29 @@ static int ada4250_write_raw(struct iio_dev *indio_dev,
 			     struct iio_chan_spec const *chan,
 			     int val, int val2, long info)
 {
-	struct ada4250 *dev = iio_priv(indio_dev);
+	struct ada4250_state *st = iio_priv(indio_dev);
 	int ret;
 
 	switch (info) {
 	case IIO_CHAN_INFO_HARDWAREGAIN:
-		ret = regmap_write(dev->regmap, ADA4250_REG_GAIN_MUX,
-				   ADA4250_GAIN_MUX(val));
-		if (ret < 0)
+		ret = regmap_write(st->regmap, ADA4250_REG_GAIN_MUX,
+				   FIELD_PREP(ADA4250_GAIN_MUX_MSK, ilog2(val)));
+		if (ret)
 			return ret;
 
-		dev->gain = val;
+		st->gain = ilog2(val);
 
 		return ret;
 	case IIO_CHAN_INFO_OFFSET:
-		return ada4250_set_offset(indio_dev, chan, val);
+		return ada4250_set_offset_uv(indio_dev, chan, val);
 	case IIO_CHAN_INFO_CALIBBIAS:
-		ret = regmap_update_bits(dev->regmap, ADA4250_REG_SNSR_CAL_CNFG,
-						ADA4250_BIAS_SET_MSK,
-						ADA4250_BIAS_SET(val));
-		if (ret < 0)
+		ret = regmap_update_bits(st->regmap, ADA4250_REG_SNSR_CAL_CNFG,
+					 ADA4250_BIAS_SET_MSK,
+					 FIELD_PREP(ADA4250_BIAS_SET_MSK, val));
+		if (ret)
 			return ret;
 
-		dev->bias = val;
+		st->bias = val;
 
 		return ret;
 	default:
@@ -200,19 +235,19 @@ static int ada4250_write_raw(struct iio_dev *indio_dev,
 }
 
 static int ada4250_read_avail(struct iio_dev *indio_dev,
-			       struct iio_chan_spec const *chan,
-			       const int **vals, int *type, int *length,
-			       long mask)
+			      struct iio_chan_spec const *chan,
+			      const int **vals, int *type, int *length,
+			      long mask)
 {
 	switch (mask) {
 	case IIO_CHAN_INFO_CALIBBIAS:
-		*vals = (const int *)calibbias_table;
+		*vals = calibbias_table;
 		*type = IIO_VAL_INT;
 		*length = ARRAY_SIZE(calibbias_table);
 
 		return IIO_AVAIL_LIST;
 	case IIO_CHAN_INFO_HARDWAREGAIN:
-		*vals = (const int *)hwgain_table;
+		*vals = hwgain_table;
 		*type = IIO_VAL_INT;
 		*length = ARRAY_SIZE(hwgain_table);
 
@@ -223,16 +258,16 @@ static int ada4250_read_avail(struct iio_dev *indio_dev,
 }
 
 static int ada4250_reg_access(struct iio_dev *indio_dev,
-				unsigned int reg,
-				unsigned int write_val,
-				unsigned int *read_val)
+			      unsigned int reg,
+			      unsigned int write_val,
+			      unsigned int *read_val)
 {
-	struct ada4250 *dev = iio_priv(indio_dev);
+	struct ada4250_state *st = iio_priv(indio_dev);
 
 	if (read_val)
-		return regmap_read(dev->regmap, reg, read_val);
+		return regmap_read(st->regmap, reg, read_val);
 	else
-		return regmap_write(dev->regmap, reg, write_val);
+		return regmap_write(st->regmap, reg, write_val);
 }
 
 static const struct iio_info ada4250_info = {
@@ -242,59 +277,78 @@ static const struct iio_info ada4250_info = {
 	.debugfs_reg_access = &ada4250_reg_access,
 };
 
-#define ADA4250_CHAN(_channel) {				\
-	.type = IIO_VOLTAGE,					\
-	.output = 1,						\
-	.indexed = 1,						\
-	.channel = _channel,					\
-	.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) | \
-		BIT(IIO_CHAN_INFO_OFFSET) |			\
-		BIT(IIO_CHAN_INFO_CALIBBIAS),			\
-	.info_mask_separate_available = BIT(IIO_CHAN_INFO_CALIBBIAS) | \
-		BIT(IIO_CHAN_INFO_HARDWAREGAIN),		\
-}
-
 static const struct iio_chan_spec ada4250_channels[] = {
-	ADA4250_CHAN(0),
+	{
+		.type = IIO_VOLTAGE,
+		.output = 1,
+		.indexed = 1,
+		.channel = 0,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_HARDWAREGAIN) |
+				BIT(IIO_CHAN_INFO_OFFSET) |
+				BIT(IIO_CHAN_INFO_CALIBBIAS) |
+				BIT(IIO_CHAN_INFO_SCALE),
+		.info_mask_separate_available = BIT(IIO_CHAN_INFO_CALIBBIAS) |
+						BIT(IIO_CHAN_INFO_HARDWAREGAIN),
+	}
 };
-
-static int ada4250_init(struct ada4250 *dev)
-{
-	int ret;
-	u16 chip_id;
-	u8 data[2];
-
-	ret = regmap_write(dev->regmap, ADA4250_REG_RESET,
-				ADA4250_RESET(1));
-	if (ret < 0)
-		return ret;
-
-	ret = regmap_bulk_read(dev->regmap, ADA4250_REG_CHIP_ID, data, 2);
-	if (ret < 0)
-		return ret;
-
-	chip_id = (data[1] << 8) | data[0];
-
-	if (chip_id != ADA4250_CHIP_ID)
-		return -EINVAL;
-
-	return regmap_write(dev->regmap, ADA4250_REG_REFBUF_EN,
-				ADA4250_REFBUF(dev->refbuf_en));
-}
 
 static void ada4250_reg_disable(void *data)
 {
 	regulator_disable(data);
 }
 
+static int ada4250_init(struct ada4250_state *st)
+{
+	int ret;
+	u16 chip_id;
+	u8 data[2] __aligned(8) = {};
+	struct spi_device *spi = st->spi;
+
+	st->refbuf_en = device_property_read_bool(&spi->dev, "adi,refbuf-enable");
+
+	st->reg = devm_regulator_get(&spi->dev, "avdd");
+	if (IS_ERR(st->reg))
+		return dev_err_probe(&spi->dev, PTR_ERR(st->reg),
+				     "failed to get the AVDD voltage\n");
+
+	ret = regulator_enable(st->reg);
+	if (ret) {
+		dev_err(&spi->dev, "Failed to enable specified AVDD supply\n");
+		return ret;
+	}
+
+	ret = devm_add_action_or_reset(&spi->dev, ada4250_reg_disable, st->reg);
+	if (ret)
+		return ret;
+
+	ret = regmap_write(st->regmap, ADA4250_REG_RESET,
+			   FIELD_PREP(ADA4250_RESET_MSK, 1));
+	if (ret)
+		return ret;
+
+	ret = regmap_bulk_read(st->regmap, ADA4250_REG_CHIP_ID, data, 2);
+	if (ret)
+		return ret;
+
+	chip_id = get_unaligned_le16(data);
+
+	if (chip_id != ADA4250_CHIP_ID) {
+		dev_err(&spi->dev, "Invalid chip ID.\n");
+		return -EINVAL;
+	}
+
+	return regmap_write(st->regmap, ADA4250_REG_REFBUF_EN,
+			    FIELD_PREP(ADA4250_REFBUF_MSK, st->refbuf_en));
+}
+
 static int ada4250_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct regmap *regmap;
-	struct ada4250 *dev;
+	struct ada4250_state *st;
 	int ret;
 
-	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*dev));
+	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
 
@@ -302,33 +356,19 @@ static int ada4250_probe(struct spi_device *spi)
 	if (IS_ERR(regmap))
 		return PTR_ERR(regmap);
 
-	dev = iio_priv(indio_dev);
-	dev->regmap = regmap;
-	dev->refbuf_en = of_property_read_bool(spi->dev.of_node, "adi,refbuf-enable");
+	st = iio_priv(indio_dev);
+	st->regmap = regmap;
+	st->spi = spi;
 
-	dev->reg = devm_regulator_get(&spi->dev, "avdd");
-	if (IS_ERR(dev->reg))
-		return PTR_ERR(dev->reg);
-
-	ret = regulator_enable(dev->reg);
-	if (ret < 0) {
-		dev_err(&spi->dev, "Failed to enable specified AVDD supply\n");
-		return ret;
-	}
-
-	ret = devm_add_action_or_reset(&spi->dev, ada4250_reg_disable,
-					dev->reg);
-	if (ret < 0)
-		return ret;
-
-	indio_dev->dev.parent = &spi->dev;
 	indio_dev->info = &ada4250_info;
 	indio_dev->name = "ada4250";
 	indio_dev->channels = ada4250_channels;
 	indio_dev->num_channels = ARRAY_SIZE(ada4250_channels);
 
-	ret = ada4250_init(dev);
-	if (ret < 0) {
+	mutex_init(&st->lock);
+
+	ret = ada4250_init(st);
+	if (ret) {
 		dev_err(&spi->dev, "ADA4250 init failed\n");
 		return ret;
 	}
@@ -337,7 +377,7 @@ static int ada4250_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id ada4250_id[] = {
-	{ "ada4250", ADA4250 },
+	{ "ada4250", 0 },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ada4250_id);

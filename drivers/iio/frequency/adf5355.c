@@ -1032,7 +1032,7 @@ error_disable_clk:
 	return ret;
 }
 
-static int adf5355_remove(struct spi_device *spi)
+static void adf5355_remove(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 	struct adf5355_state *st = iio_priv(indio_dev);
@@ -1052,8 +1052,6 @@ static int adf5355_remove(struct spi_device *spi)
 	if (!IS_ERR(reg)) {
 		regulator_disable(reg);
 	}
-
-	return 0;
 }
 
 

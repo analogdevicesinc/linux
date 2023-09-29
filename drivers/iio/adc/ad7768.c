@@ -491,15 +491,15 @@ static struct iio_chan_spec_ext_info ad7768_ext_info[] = {
 	IIO_ENUM("power_mode",
 		 IIO_SHARED_BY_ALL,
 		 &ad7768_power_mode_enum),
-	IIO_ENUM_AVAILABLE_SHARED("power_mode",
-				  IIO_SHARED_BY_ALL,
-				  &ad7768_power_mode_enum),
+	IIO_ENUM_AVAILABLE("power_mode",
+			   IIO_SHARED_BY_ALL,
+			   &ad7768_power_mode_enum),
 	IIO_ENUM("filter_type",
 		 IIO_SHARED_BY_ALL,
 		 &ad7768_filter_type_iio_enum),
-	IIO_ENUM_AVAILABLE_SHARED("filter_type",
-				  IIO_SHARED_BY_ALL,
-				  &ad7768_filter_type_iio_enum),
+	IIO_ENUM_AVAILABLE("filter_type",
+			   IIO_SHARED_BY_ALL,
+			   &ad7768_filter_type_iio_enum),
 	{ },
 
 };
@@ -562,19 +562,6 @@ static const struct axiadc_chip_info ad7768_4_conv_chip_info = {
 };
 
 static const unsigned long ad7768_available_scan_masks[]  = { 0xFF, 0x00 };
-
-static int hw_submit_block(struct iio_dma_buffer_queue *queue,
-	struct iio_dma_buffer_block *block)
-{
-	block->block.bytes_used = block->block.size;
-
-	return iio_dmaengine_buffer_submit_block(queue, block, DMA_DEV_TO_MEM);
-}
-
-static const struct iio_dma_buffer_ops dma_buffer_ops = {
-	.submit = hw_submit_block,
-	.abort = iio_dmaengine_buffer_abort,
-};
 
 static void ad7768_reg_disable(void *data)
 {
@@ -661,9 +648,8 @@ static int ad7768_register_axi_adc(struct ad7768_state *st)
 
 static int ad7768_register(struct ad7768_state *st, struct iio_dev *indio_dev)
 {
-	struct iio_buffer *buffer;
+	int ret;
 
-	indio_dev->dev.parent = &st->spi->dev;
 	indio_dev->name = "ad7768";
 	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
 	indio_dev->channels = st->chip_info->channel;
@@ -671,12 +657,10 @@ static int ad7768_register(struct ad7768_state *st, struct iio_dev *indio_dev)
 	indio_dev->info = &ad7768_info;
 	indio_dev->available_scan_masks = ad7768_available_scan_masks;
 
-	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent, "rx",
-						&dma_buffer_ops, indio_dev);
-	if (IS_ERR(buffer))
-		return PTR_ERR(buffer);
-
-	iio_device_attach_buffer(indio_dev, buffer);
+	ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent, indio_dev,
+					      "rx", IIO_BUFFER_DIRECTION_IN);
+	if (ret)
+		return ret;
 
 	return devm_iio_device_register(&st->spi->dev, indio_dev);
 }

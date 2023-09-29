@@ -378,7 +378,7 @@ static int cw1200_spi_probe(struct spi_device *func)
 	func->mode = SPI_MODE_0;
 
 	pr_info("cw1200_wlan_spi: Probe called (CS %d M %d BPW %d CLK %d)\n",
-		func->chip_select, func->mode, func->bits_per_word,
+		spi_get_chipselect(func, 0), func->mode, func->bits_per_word,
 		func->max_speed_hz);
 
 	if (cw1200_spi_on(plat_data)) {
@@ -423,7 +423,7 @@ static int cw1200_spi_probe(struct spi_device *func)
 }
 
 /* Disconnect Function to be called by SPI stack when device is disconnected */
-static int cw1200_spi_disconnect(struct spi_device *func)
+static void cw1200_spi_disconnect(struct spi_device *func)
 {
 	struct hwbus_priv *self = spi_get_drvdata(func);
 
@@ -435,8 +435,6 @@ static int cw1200_spi_disconnect(struct spi_device *func)
 		}
 	}
 	cw1200_spi_off(dev_get_platdata(&func->dev));
-
-	return 0;
 }
 
 static int __maybe_unused cw1200_spi_suspend(struct device *dev)

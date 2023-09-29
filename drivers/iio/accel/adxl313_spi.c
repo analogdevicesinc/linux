@@ -42,7 +42,7 @@ static const struct regmap_config adxl31x_spi_regmap_config[] = {
 		.max_register	= 0x39,
 		/* Setting bits 7 and 6 enables multiple-byte read */
 		.read_flag_mask	= BIT(7) | BIT(6),
-	}
+	},
 };
 
 static int adxl313_spi_setup(struct device *dev, struct regmap *regmap)

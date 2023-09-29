@@ -520,7 +520,7 @@ error_disable_vref:
 	return ret;
 }
 
-static int ad738x_remove(struct spi_device *spi)
+static void ad738x_remove(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 	struct ad738x_state *st = iio_priv(indio_dev);
@@ -528,8 +528,6 @@ static int ad738x_remove(struct spi_device *spi)
 	iio_device_unregister(indio_dev);
 	iio_triggered_buffer_cleanup(indio_dev);
 	regulator_disable(st->vref);
-
-	return 0;
 }
 
 static const struct spi_device_id ad738x_id[] = {

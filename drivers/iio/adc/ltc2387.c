@@ -232,12 +232,6 @@ static int ltc2387_write_raw(struct iio_dev *indio_dev,
 	}
 }
 
-static int ltc2387_dma_submit(struct iio_dma_buffer_queue *queue,
-			      struct iio_dma_buffer_block *block)
-{
-	return iio_dmaengine_buffer_submit_block(queue, block, DMA_DEV_TO_MEM);
-}
-
 static void ltc2387_pwm_diasble(void *data)
 {
 	pwm_disable(data);
@@ -252,11 +246,6 @@ static void ltc2387_clk_disable(void *data)
 {
 	clk_disable_unprepare(data);
 }
-
-static const struct iio_dma_buffer_ops ltc2387_dma_buffer_ops = {
-	.submit = ltc2387_dma_submit,
-	.abort = iio_dmaengine_buffer_abort,
-};
 
 static const struct iio_info ltc2387_info = {
 	.read_raw = ltc2387_read_raw,
@@ -290,7 +279,6 @@ MODULE_DEVICE_TABLE(of, ltc2387_of_match);
 static int ltc2387_probe(struct platform_device *pdev)
 {
 	struct iio_dev			*indio_dev;
-	struct iio_buffer		*buffer;
 	struct ltc2387_dev		*ltc;
 	int				ret;
 
@@ -366,14 +354,12 @@ static int ltc2387_probe(struct platform_device *pdev)
 	indio_dev->name = pdev->dev.of_node->name;
 	indio_dev->info = &ltc2387_info;
 	indio_dev->modes = INDIO_BUFFER_HARDWARE;
-	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent,
-						 "rx",
-						 &ltc2387_dma_buffer_ops,
-						 indio_dev);
-	if (IS_ERR(buffer))
-		return PTR_ERR(buffer);
+	ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
+					      indio_dev, "rx",
+					      IIO_BUFFER_DIRECTION_IN);
+	if (ret)
+		return ret;
 
-	iio_device_attach_buffer(indio_dev, buffer);
 	ret = ltc2387_setup(indio_dev);
 	if (ret < 0) {
 		dev_err(&pdev->dev, "\nltc2387 setup failed\n");

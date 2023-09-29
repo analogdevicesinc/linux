@@ -166,9 +166,9 @@ static struct iio_chan_spec_ext_info ltc2308_ext_info[] = {
 	IIO_ENUM("sleep_mode",
 		 IIO_SHARED_BY_ALL,
 		 &ltc2308_sleep_mode_enum),
-	IIO_ENUM_AVAILABLE_SHARED("sleep_mode",
-				  IIO_SHARED_BY_ALL,
-				  &ltc2308_sleep_mode_enum),
+	IIO_ENUM_AVAILABLE("sleep_mode",
+			   IIO_SHARED_BY_ALL,
+			   &ltc2308_sleep_mode_enum),
 	{ }
 };
 

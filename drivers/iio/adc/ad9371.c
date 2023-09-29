@@ -2093,7 +2093,7 @@ static const struct iio_chan_spec_ext_info ad9371_phy_rx_ext_info[] = {
 	 * values > 2^32 in order to support the entire frequency range
 	 * in Hz. Using scale is a bit ugly.
 	 */
-	IIO_ENUM_AVAILABLE("gain_control_mode", &ad9371_agc_modes_available),
+	IIO_ENUM_AVAILABLE("gain_control_mode", IIO_SHARED_BY_TYPE, &ad9371_agc_modes_available),
 	IIO_ENUM("gain_control_mode", false, &ad9371_agc_modes_available),
 	_AD9371_EXT_RX_INFO("rssi", RSSI),
 	_AD9371_EXT_RX_INFO("quadrature_tracking_en", RX_QEC),
@@ -2107,9 +2107,9 @@ static const struct iio_chan_spec_ext_info ad9371_phy_obs_rx_ext_info[] = {
 	 * values > 2^32 in order to support the entire frequency range
 	 * in Hz. Using scale is a bit ugly.
 	 */
-	IIO_ENUM_AVAILABLE("gain_control_mode", &ad9371_agc_modes_available),
+	IIO_ENUM_AVAILABLE("gain_control_mode", IIO_SHARED_BY_TYPE, &ad9371_agc_modes_available),
 	IIO_ENUM("gain_control_mode", false, &ad9371_agc_modes_available),
-	IIO_ENUM_AVAILABLE("rf_port_select", &ad9371_rf_obs_rx_port_available),
+	IIO_ENUM_AVAILABLE("rf_port_select", IIO_SHARED_BY_TYPE, &ad9371_rf_obs_rx_port_available),
 	IIO_ENUM("rf_port_select", false, &ad9371_rf_obs_rx_port_available),
 	_AD9371_EXT_RX_INFO("quadrature_tracking_en", RX_QEC),
 	_AD9371_EXT_RX_INFO("rssi", RSSI),
@@ -5130,7 +5130,7 @@ out_unregister_notifier:
 	return ret;
 }
 
-static int ad9371_remove(struct spi_device *spi)
+static void ad9371_remove(struct spi_device *spi)
 {
 	struct ad9371_rf_phy *phy = ad9371_spi_to_phy(spi);
 
@@ -5141,8 +5141,6 @@ static int ad9371_remove(struct spi_device *spi)
 	sysfs_remove_bin_file(&phy->indio_dev->dev.kobj, &phy->bin_gt);
 	iio_device_unregister(phy->indio_dev);
  	of_clk_del_provider(spi->dev.of_node);
-
-	return 0;
 }
 
 static const struct spi_device_id ad9371_id[] = {

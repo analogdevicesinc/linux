@@ -177,9 +177,9 @@ static struct iio_chan_spec_ext_info ad7768_ext_info[] = {
 	IIO_ENUM("common_mode_voltage",
 		 IIO_SHARED_BY_ALL,
 		 &ad7768_vcm_mode_enum),
-	IIO_ENUM_AVAILABLE_SHARED("common_mode_voltage",
-				  IIO_SHARED_BY_ALL,
-				  &ad7768_vcm_mode_enum),
+	IIO_ENUM_AVAILABLE("common_mode_voltage",
+			   IIO_SHARED_BY_ALL,
+			   &ad7768_vcm_mode_enum),
 	{ },
 };
 
@@ -220,20 +220,17 @@ struct ad7768_state {
 	bool spi_is_dma_mapped;
 	int irq;
 	/*
-	 * DMA (thus cache coherency maintenance) requires the
+	 * DMA (thus cache coherency maintenance) may require the
 	 * transfer buffers to live in their own cache lines.
 	 */
 	union {
 		unsigned char buf[6];
-		struct {
-			__be32 word;
-			unsigned char status[2];
-		};
+		__be32 word;
 		struct {
 			__be32 chan;
 			s64 timestamp;
 		} scan;
-	} data ____cacheline_aligned;
+	} data __aligned(IIO_DMA_MINALIGN);
 };
 
 static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
@@ -724,8 +721,8 @@ static irqreturn_t ad7768_trigger_handler(int irq, void *p)
 	iio_push_to_buffers_with_timestamp(indio_dev, &st->data.scan,
 					   iio_get_time_ns(indio_dev));
 
-	iio_trigger_notify_done(indio_dev->trig);
 err_unlock:
+	iio_trigger_notify_done(indio_dev->trig);
 	mutex_unlock(&st->lock);
 
 	return IRQ_HANDLED;
@@ -798,19 +795,6 @@ static int ad7768_buffer_predisable(struct iio_dev *indio_dev)
 	return ad7768_spi_reg_read(st, AD7768_REG_ADC_DATA, &regval, 3);
 }
 
-static int hw_submit_block(struct iio_dma_buffer_queue *queue,
-			   struct iio_dma_buffer_block *block)
-{
-	block->block.bytes_used = block->block.size;
-
-	return iio_dmaengine_buffer_submit_block(queue, block, DMA_DEV_TO_MEM);
-}
-
-static const struct iio_dma_buffer_ops dma_buffer_ops = {
-	.submit = hw_submit_block,
-	.abort = iio_dmaengine_buffer_abort,
-};
-
 static const struct iio_buffer_setup_ops ad7768_buffer_ops = {
 	.postenable = &ad7768_buffer_postenable,
 	.predisable = &ad7768_buffer_predisable,
@@ -827,19 +811,10 @@ static void ad7768_regulator_disable(void *data)
 	regulator_disable(st->vref);
 }
 
-static void ad7768_clk_disable(void *data)
-{
-	struct ad7768_state *st = data;
-
-	clk_disable_unprepare(st->mclk);
-}
-
 static int ad7768_triggered_buffer_alloc(struct iio_dev *indio_dev)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 	int ret;
-
-	indio_dev->modes |= INDIO_BUFFER_TRIGGERED;
 
 	st->trig = devm_iio_trigger_alloc(indio_dev->dev.parent, "%s-dev%d",
 					  indio_dev->name, iio_device_id(indio_dev));
@@ -847,7 +822,6 @@ static int ad7768_triggered_buffer_alloc(struct iio_dev *indio_dev)
 		return -ENOMEM;
 
 	st->trig->ops = &ad7768_trigger_ops;
-	st->trig->dev.parent = indio_dev->dev.parent;
 	iio_trigger_set_drvdata(st->trig, indio_dev);
 	ret = devm_iio_trigger_register(indio_dev->dev.parent, st->trig);
 	if (ret)
@@ -872,19 +846,10 @@ static int ad7768_triggered_buffer_alloc(struct iio_dev *indio_dev)
 
 static int ad7768_hardware_buffer_alloc(struct iio_dev *indio_dev)
 {
-	struct iio_buffer *buffer;
-
-	indio_dev->modes |=  INDIO_BUFFER_HARDWARE;
 	indio_dev->setup_ops = &ad7768_buffer_ops;
-	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent,
-						 "rx", &dma_buffer_ops,
-						 indio_dev);
-	if (IS_ERR(buffer))
-		return PTR_ERR(buffer);
-
-	iio_device_attach_buffer(indio_dev, buffer);
-
-	return 0;
+	return devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
+					       indio_dev, "rx",
+					       IIO_BUFFER_DIRECTION_IN);
 }
 
 static int ad7768_set_channel_label(struct iio_dev *indio_dev,
@@ -941,17 +906,9 @@ static int ad7768_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	st->mclk = devm_clk_get(&spi->dev, "mclk");
+	st->mclk = devm_clk_get_enabled(&spi->dev, "mclk");
 	if (IS_ERR(st->mclk))
 		return PTR_ERR(st->mclk);
-
-	ret = clk_prepare_enable(st->mclk);
-	if (ret < 0)
-		return ret;
-
-	ret = devm_add_action_or_reset(&spi->dev, ad7768_clk_disable, st);
-	if (ret)
-		return ret;
 
 	st->mclk_freq = clk_get_rate(st->mclk);
 	st->spi_is_dma_mapped = spi_engine_offload_supported(spi);

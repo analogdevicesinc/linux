@@ -1067,7 +1067,7 @@ static const struct iio_enum cf_axi_dds_scale_available = {
 };
 
 static const struct iio_chan_spec_ext_info cf_axi_dds_ext_info[] = {
-	IIO_ENUM_AVAILABLE("scale", &cf_axi_dds_scale_available),
+	IIO_ENUM_AVAILABLE("scale", IIO_SHARED_BY_TYPE, &cf_axi_dds_scale_available),
 	{ },
 };
 

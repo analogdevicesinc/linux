@@ -40,7 +40,7 @@
 
 &qspi { /* PMC_MIO_500 0 - 12 */
 	status = "okay"; /* u93 and u92 */
-	num-cs = <1>;
+	num-cs = <2>;
 	is-dual = <1>;
 	spi-rx-bus-width = <4>;
 	spi-tx-bus-width = <4>;
@@ -49,7 +49,8 @@
 		compatible = "m25p80", "jedec,spi-nor";
 		#address-cells = <1>;
 		#size-cells = <1>;
-		reg = <0>;
+		reg = <0>, <1>;
+		parallel-memories = /bits/ 64 <0x8000000 0x8000000>; /* 128MB */
 		spi-tx-bus-width = <4>;
 		spi-rx-bus-width = <4>;
 		spi-max-frequency = <35000000>;
@@ -62,8 +63,6 @@
 
 &usb0 { /* PMC_MIO_500 13 - 25 USB 2.0 */
 	status = "okay";
-	xlnx,usb-polarity = <0>;
-	xlnx,usb-reset-mode = <0>;
 };
 
 &dwc3_0 { /* USB 2.0 host */
@@ -89,12 +88,10 @@
 
 &i2c0 { /* PMC_MIO46/47 */
 	status = "okay";
-	clock-frequency = <400000>;
 };
 
 &i2c1 { /* PMC_MIO44/45 */
 	status = "okay";
-	clock-frequency = <400000>;
 };
 
 /* PCIe at MIO 38/39/40/50 */

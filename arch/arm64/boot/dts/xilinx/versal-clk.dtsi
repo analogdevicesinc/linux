@@ -73,6 +73,10 @@
 				#reset-cells = <1>;
 			};
 
+			pinctrl0: pinctrl {
+				compatible = "xlnx,versal-pinctrl";
+			};
+
 			versal_sec_cfg: versal-sec-cfg {
 				compatible = "xlnx,versal-sec-cfg";
 				#address-cells = <1>;
@@ -252,6 +256,8 @@
 &ospi {
 	clocks = <&versal_clk OSPI_REF>;
 	power-domains = <&versal_firmware PM_DEV_OSPI>;
+	reset-names = "qspi";
+	resets = <&versal_reset VERSAL_RST_OSPI>;
 };
 
 &rtc {
@@ -269,12 +275,14 @@
 };
 
 &sdhci0 {
-	clocks = <&versal_clk SDIO0_REF>, <&versal_clk LPD_LSBUS>;
+	clocks = <&versal_clk SDIO0_REF>, <&versal_clk LPD_LSBUS>,
+		<&versal_clk SD_DLL_REF>;
 	power-domains = <&versal_firmware PM_DEV_SDIO_0>;
 };
 
 &sdhci1 {
-	clocks = <&versal_clk SDIO1_REF>, <&versal_clk LPD_LSBUS>;
+	clocks = <&versal_clk SDIO1_REF>, <&versal_clk LPD_LSBUS>,
+		<&versal_clk SD_DLL_REF>;
 	power-domains = <&versal_firmware PM_DEV_SDIO_1>;
 };
 

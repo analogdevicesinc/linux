@@ -6,6 +6,7 @@
  *  Author: Lars-Peter Clausen <lars@metafoo.de>
  */
 
+#include <linux/align.h>
 #include <linux/interrupt.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
@@ -43,7 +44,7 @@ void ad_sd_set_comm(struct ad_sigma_delta *sigma_delta, uint8_t comm)
 	 * to select the channel */
 	sigma_delta->comm = comm & AD_SD_COMM_CHAN_MASK;
 }
-EXPORT_SYMBOL_GPL(ad_sd_set_comm);
+EXPORT_SYMBOL_NS_GPL(ad_sd_set_comm, IIO_AD_SIGMA_DELTA);
 
 /**
  * ad_sd_write_reg() - Write a register
@@ -95,39 +96,34 @@ int ad_sd_write_reg(struct ad_sigma_delta *sigma_delta, unsigned int reg,
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(ad_sd_write_reg);
-
-static void ad_sd_prepare_read_reg(struct ad_sigma_delta *sigma_delta,
-	struct spi_message *m, struct spi_transfer *t, unsigned int reg,
-	unsigned int size, uint8_t *tx_buf, uint8_t *rx_buf, bool cs_change)
-{
-	memset(t, 0, sizeof(*t) * 2);
-	t[1].rx_buf = rx_buf;
-	t[1].len = size;
-	t[1].cs_change = cs_change;
-
-	spi_message_init(m);
-
-	if (sigma_delta->info->has_registers) {
-		tx_buf[0] = reg << sigma_delta->info->addr_shift;
-		tx_buf[0] |= sigma_delta->info->read_mask;
-		tx_buf[0] |= sigma_delta->comm;
-		t[0].tx_buf = tx_buf,
-		t[0].len = 1,
-		spi_message_add_tail(&t[0], m);
-	}
-	spi_message_add_tail(&t[1], m);
-}
+EXPORT_SYMBOL_NS_GPL(ad_sd_write_reg, IIO_AD_SIGMA_DELTA);
 
 static int ad_sd_read_reg_raw(struct ad_sigma_delta *sigma_delta,
 	unsigned int reg, unsigned int size, uint8_t *val)
 {
-	struct spi_message m;
-	struct spi_transfer t[2];
+	uint8_t *data = sigma_delta->tx_buf;
 	int ret;
+	struct spi_transfer t[] = {
+		{
+			.tx_buf = data,
+			.len = 1,
+		}, {
+			.rx_buf = val,
+			.len = size,
+			.cs_change = sigma_delta->bus_locked,
+		},
+	};
+	struct spi_message m;
 
-	ad_sd_prepare_read_reg(sigma_delta, &m, t, reg, size,
-		sigma_delta->tx_buf, val, sigma_delta->keep_cs_asserted);
+	spi_message_init(&m);
+
+	if (sigma_delta->info->has_registers) {
+		data[0] = reg << sigma_delta->info->addr_shift;
+		data[0] |= sigma_delta->info->read_mask;
+		data[0] |= sigma_delta->comm;
+		spi_message_add_tail(&t[0], &m);
+	}
+	spi_message_add_tail(&t[1], &m);
 
 	if (sigma_delta->bus_locked)
 		ret = spi_sync_locked(sigma_delta->spi, &m);
@@ -177,7 +173,7 @@ int ad_sd_read_reg(struct ad_sigma_delta *sigma_delta,
 out:
 	return ret;
 }
-EXPORT_SYMBOL_GPL(ad_sd_read_reg);
+EXPORT_SYMBOL_NS_GPL(ad_sd_read_reg, IIO_AD_SIGMA_DELTA);
 
 /**
  * ad_sd_reset() - Reset the serial interface
@@ -205,7 +201,7 @@ int ad_sd_reset(struct ad_sigma_delta *sigma_delta,
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(ad_sd_reset);
+EXPORT_SYMBOL_NS_GPL(ad_sd_reset, IIO_AD_SIGMA_DELTA);
 
 int ad_sd_calibrate(struct ad_sigma_delta *sigma_delta,
 	unsigned int mode, unsigned int channel)
@@ -213,7 +209,7 @@ int ad_sd_calibrate(struct ad_sigma_delta *sigma_delta,
 	int ret;
 	unsigned long timeout;
 
-	ret = ad_sigma_delta_set_channel(sigma_delta, 0, channel);
+	ret = ad_sigma_delta_set_channel(sigma_delta, channel);
 	if (ret)
 		return ret;
 
@@ -244,7 +240,7 @@ out:
 
 	return ret;
 }
-EXPORT_SYMBOL_GPL(ad_sd_calibrate);
+EXPORT_SYMBOL_NS_GPL(ad_sd_calibrate, IIO_AD_SIGMA_DELTA);
 
 /**
  * ad_sd_calibrate_all() - Performs channel calibration
@@ -268,23 +264,7 @@ int ad_sd_calibrate_all(struct ad_sigma_delta *sigma_delta,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(ad_sd_calibrate_all);
-
-static int ad_sigma_delta_set_active_slots(struct ad_sigma_delta *sigma_delta,
-	unsigned int active_slots)
-{
-	unsigned int i;
-	int ret;
-
-	/* Disable unused slots */
-	for (i = active_slots; i < sigma_delta->active_slots; i++) {
-		ret = ad_sigma_delta_set_channel(sigma_delta, i,
-			AD_SD_SLOT_DISABLE);
-	}
-	sigma_delta->active_slots = active_slots;
-
-	return 0;
-}
+EXPORT_SYMBOL_NS_GPL(ad_sd_calibrate_all, IIO_AD_SIGMA_DELTA);
 
 /**
  * ad_sigma_delta_single_conversion() - Performs a single data conversion
@@ -299,7 +279,6 @@ int ad_sigma_delta_single_conversion(struct iio_dev *indio_dev,
 {
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
 	unsigned int sample, raw_sample;
-	unsigned int reg_size;
 	unsigned int data_reg;
 	int ret = 0;
 
@@ -307,10 +286,7 @@ int ad_sigma_delta_single_conversion(struct iio_dev *indio_dev,
 		return -EBUSY;
 
 	mutex_lock(&indio_dev->mlock);
-	ad_sigma_delta_prepare_channel(sigma_delta, 0, chan);
-	ad_sigma_delta_set_channel(sigma_delta, 0, chan->address);
-
-	ad_sigma_delta_set_active_slots(sigma_delta, 1);
+	ad_sigma_delta_set_channel(sigma_delta, chan->address);
 
 	spi_bus_lock(sigma_delta->spi->master);
 	sigma_delta->bus_locked = true;
@@ -334,10 +310,9 @@ int ad_sigma_delta_single_conversion(struct iio_dev *indio_dev,
 	else
 		data_reg = AD_SD_REG_DATA;
 
-	reg_size = chan->scan_type.realbits + chan->scan_type.shift;
-	reg_size = DIV_ROUND_UP(reg_size, 8);
-	BUG_ON(reg_size > 4);
-	ret = ad_sd_read_reg(sigma_delta, data_reg, reg_size, &raw_sample);
+	ret = ad_sd_read_reg(sigma_delta, data_reg,
+		DIV_ROUND_UP(chan->scan_type.realbits + chan->scan_type.shift, 8),
+		&raw_sample);
 
 out:
 	if (!sigma_delta->irq_dis) {
@@ -364,15 +339,28 @@ out:
 
 	return IIO_VAL_INT;
 }
-EXPORT_SYMBOL_GPL(ad_sigma_delta_single_conversion);
+EXPORT_SYMBOL_NS_GPL(ad_sigma_delta_single_conversion, IIO_AD_SIGMA_DELTA);
 
-static void ad_sd_prepare_transfer_msg(struct iio_dev *indio_dev)
+/*
+ * There are code duplication introduced by the below function but since the spi engine
+ * is the only things we have not upstreamed, let's keep this code duplicated as it allow
+ * us to leave the rest of the module in sync with upstream.
+ */
+static void ad_sd_prepare_and_enable_spi_engine_msg(struct ad_sigma_delta *sigma_delta,
+						    struct iio_dev *indio_dev)
 {
-	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
-	uint8_t *tx = sigma_delta->buf_data + indio_dev->scan_bytes;
-	uint8_t *rx = sigma_delta->buf_data;
+	struct spi_transfer t[] = {
+		{
+			.tx_buf = sigma_delta->tx_buf,
+			.len = 1,
+		}, {
+			.rx_buf = (void *)-1,
+			.cs_change = true,
+		},
+	};
 	unsigned int reg_size;
 	unsigned int data_reg;
+	struct spi_message m;
 
 	reg_size = indio_dev->channels[0].scan_type.realbits +
 			indio_dev->channels[0].scan_type.shift;
@@ -383,73 +371,93 @@ static void ad_sd_prepare_transfer_msg(struct iio_dev *indio_dev)
 	else
 		data_reg = AD_SD_REG_DATA;
 
-	BUG_ON(reg_size > 4);
-	/* We store reg_size bytes samples in a 32 bit word. Keep the upper
-	 * reg_size bytes set to zero.
-	 */
-	rx += 4 - reg_size;
+	t[1].len = reg_size;
 
-	ad_sd_prepare_read_reg(sigma_delta, &sigma_delta->spi_msg,
-		sigma_delta->spi_transfer, data_reg, reg_size, tx,
-		rx, true);
+	spi_message_init(&m);
+
+	if (sigma_delta->info->has_registers) {
+		sigma_delta->tx_buf[0] = data_reg << sigma_delta->info->addr_shift;
+		sigma_delta->tx_buf[0] |= sigma_delta->info->read_mask;
+		sigma_delta->tx_buf[0] |= sigma_delta->comm;
+		spi_message_add_tail(&t[0], &m);
+	}
+	spi_message_add_tail(&t[1], &m);
+
+	spi_engine_offload_load_msg(sigma_delta->spi, &m);
+	spi_engine_offload_enable(sigma_delta->spi, true);
 }
 
 static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
-	unsigned int reg_size;
-	unsigned int i, slot;
+	unsigned int i, slot, samples_buf_size;
+	unsigned int channel;
+	uint8_t *samples_buf;
 	int ret;
 
-	slot = 0;
-	for_each_set_bit(i, indio_dev->active_scan_mask, indio_dev->masklength) {
-		ret = ad_sigma_delta_prepare_channel(sigma_delta, slot,
-			&indio_dev->channels[i]);
+	if (sigma_delta->num_slots == 1) {
+		channel = find_first_bit(indio_dev->active_scan_mask,
+					 indio_dev->masklength);
+		ret = ad_sigma_delta_set_channel(sigma_delta,
+						 indio_dev->channels[channel].address);
 		if (ret)
-			goto err_predisable;
-		ret = ad_sigma_delta_set_channel(sigma_delta, slot,
-			indio_dev->channels[i].address);
-		if (ret)
-			goto err_predisable;
-		slot++;
+			return ret;
+		slot = 1;
+	} else {
+		/*
+		 * At this point update_scan_mode already enabled the required channels.
+		 * For sigma-delta sequencer drivers with multiple slots, an update_scan_mode
+		 * implementation is mandatory.
+		 */
+		slot = 0;
+		for_each_set_bit(i, indio_dev->active_scan_mask, indio_dev->masklength) {
+			sigma_delta->slots[slot] = indio_dev->channels[i].address;
+			slot++;
+		}
 	}
 
-	kfree(sigma_delta->buf_data);
-	sigma_delta->buf_data = kzalloc(indio_dev->scan_bytes + 1, GFP_KERNEL);
-	if (!sigma_delta->buf_data)
+	sigma_delta->active_slots = slot;
+	sigma_delta->current_slot = 0;
+
+	if (sigma_delta->active_slots > 1) {
+		ret = ad_sigma_delta_append_status(sigma_delta, true);
+		if (ret)
+			return ret;
+	}
+
+	samples_buf_size = ALIGN(slot * indio_dev->channels[0].scan_type.storagebits, 8);
+	samples_buf_size += sizeof(int64_t);
+	samples_buf = devm_krealloc(&sigma_delta->spi->dev, sigma_delta->samples_buf,
+				    samples_buf_size, GFP_KERNEL);
+	if (!samples_buf)
 		return -ENOMEM;
 
-	ad_sigma_delta_set_active_slots(sigma_delta, slot);
-	sigma_delta->current_slot = 0;
+	sigma_delta->samples_buf = samples_buf;
 
 	spi_bus_lock(sigma_delta->spi->master);
 	sigma_delta->bus_locked = true;
 	sigma_delta->keep_cs_asserted = true;
 
-	ad_sd_prepare_transfer_msg(indio_dev);
-
-	if (indio_dev->currentmode == INDIO_BUFFER_HARDWARE) {
-		sigma_delta->spi_transfer[1].rx_buf = (void *)-1;
-		spi_engine_offload_load_msg(sigma_delta->spi, &sigma_delta->spi_msg);
-		spi_engine_offload_enable(sigma_delta->spi, true);
-	} else {
-		sigma_delta->spi_transfer[1].rx_buf = sigma_delta->buf_data;
-		reg_size = sigma_delta->spi_transfer[1].len;
-		BUG_ON(reg_size > 4);
-		sigma_delta->spi_transfer[1].rx_buf += 4 - reg_size;
-		sigma_delta->irq_dis = false;
-		enable_irq(sigma_delta->spi->irq);
-	}
+	if (iio_device_get_current_mode(indio_dev) == INDIO_BUFFER_HARDWARE)
+		ad_sd_prepare_and_enable_spi_engine_msg(sigma_delta, indio_dev);
 
 	ret = ad_sigma_delta_set_mode(sigma_delta, AD_SD_MODE_CONTINUOUS);
 	if (ret)
 		goto err_unlock;
 
+	/*
+	 * Differs from upstream because of the spi engine support and we want to enable
+	 * the irq only after setting AD_SD_MODE_CONTINUOUS (as in the upstream lib)
+	 */
+	if (iio_device_get_current_mode(indio_dev) == INDIO_BUFFER_HARDWARE) {
+		sigma_delta->irq_dis = false;
+		enable_irq(sigma_delta->spi->irq);
+	}
+
 	return 0;
 
 err_unlock:
 	spi_bus_unlock(sigma_delta->spi->master);
-err_predisable:
 
 	return ret;
 }
@@ -458,7 +466,7 @@ static int ad_sd_buffer_postdisable(struct iio_dev *indio_dev)
 {
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
 
-	if (indio_dev->currentmode == INDIO_BUFFER_HARDWARE) {
+	if (iio_device_get_current_mode(indio_dev) == INDIO_BUFFER_HARDWARE) {
 		spi_engine_offload_enable(sigma_delta->spi, false);
 	} else {
 		reinit_completion(&sigma_delta->completion);
@@ -473,6 +481,10 @@ static int ad_sd_buffer_postdisable(struct iio_dev *indio_dev)
 	sigma_delta->keep_cs_asserted = false;
 	ad_sigma_delta_set_mode(sigma_delta, AD_SD_MODE_IDLE);
 
+	if (sigma_delta->status_appended)
+		ad_sigma_delta_append_status(sigma_delta, false);
+
+	ad_sigma_delta_disable_all(sigma_delta);
 	sigma_delta->bus_locked = false;
 	return spi_bus_unlock(sigma_delta->spi->master);
 }
@@ -482,24 +494,86 @@ static irqreturn_t ad_sd_trigger_handler(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
+	uint8_t *data = sigma_delta->rx_buf;
+	unsigned int transfer_size;
+	unsigned int sample_size;
+	unsigned int sample_pos;
+	unsigned int status_pos;
 	unsigned int reg_size;
-	int ret;
+	unsigned int data_reg;
 
-	sigma_delta->current_slot++;
+	reg_size = indio_dev->channels[0].scan_type.realbits +
+			indio_dev->channels[0].scan_type.shift;
+	reg_size = DIV_ROUND_UP(reg_size, 8);
 
-	ret = spi_sync_locked(sigma_delta->spi, &sigma_delta->spi_msg);
-	if (ret == 0 && sigma_delta->current_slot == sigma_delta->active_slots) {
-		iio_push_to_buffers_with_timestamp(indio_dev,
-			sigma_delta->buf_data, pf->timestamp);
-		sigma_delta->current_slot = 0;
-		sigma_delta->spi_transfer[1].rx_buf = sigma_delta->buf_data;
-		reg_size = sigma_delta->spi_transfer[1].len;
-		sigma_delta->spi_transfer[1].rx_buf += 4 - reg_size;
-	} else {
-		sigma_delta->spi_transfer[1].rx_buf +=
-			indio_dev->channels[0].scan_type.storagebits / 8;
+	if (sigma_delta->info->data_reg != 0)
+		data_reg = sigma_delta->info->data_reg;
+	else
+		data_reg = AD_SD_REG_DATA;
+
+	/* Status word will be appended to the sample during transfer */
+	if (sigma_delta->status_appended)
+		transfer_size = reg_size + 1;
+	else
+		transfer_size = reg_size;
+
+	switch (reg_size) {
+	case 4:
+	case 2:
+	case 1:
+		status_pos = reg_size;
+		ad_sd_read_reg_raw(sigma_delta, data_reg, transfer_size, &data[0]);
+		break;
+	case 3:
+		/*
+		 * Data array after transfer will look like (if status is appended):
+		 * data[] = { [0][sample][sample][sample][status] }
+		 * Keeping the first byte 0 shifts the status postion by 1 byte to the right.
+		 */
+		status_pos = reg_size + 1;
+
+		/* We store 24 bit samples in a 32 bit word. Keep the upper
+		 * byte set to zero. */
+		ad_sd_read_reg_raw(sigma_delta, data_reg, transfer_size, &data[1]);
+		break;
 	}
 
+	/*
+	 * For devices sampling only one channel at
+	 * once, there is no need for sample number tracking.
+	 */
+	if (sigma_delta->active_slots == 1) {
+		iio_push_to_buffers_with_timestamp(indio_dev, data, pf->timestamp);
+		goto irq_handled;
+	}
+
+	if (sigma_delta->status_appended) {
+		u8 converted_channel;
+
+		converted_channel = data[status_pos] & sigma_delta->info->status_ch_mask;
+		if (converted_channel != sigma_delta->slots[sigma_delta->current_slot]) {
+			/*
+			 * Desync occurred during continuous sampling of multiple channels.
+			 * Drop this incomplete sample and start from first channel again.
+			 */
+
+			sigma_delta->current_slot = 0;
+			goto irq_handled;
+		}
+	}
+
+	sample_size = indio_dev->channels[0].scan_type.storagebits / 8;
+	sample_pos = sample_size * sigma_delta->current_slot;
+	memcpy(&sigma_delta->samples_buf[sample_pos], data, sample_size);
+	sigma_delta->current_slot++;
+
+	if (sigma_delta->current_slot == sigma_delta->active_slots) {
+		sigma_delta->current_slot = 0;
+		iio_push_to_buffers_with_timestamp(indio_dev, sigma_delta->samples_buf,
+						   pf->timestamp);
+	}
+
+irq_handled:
 	iio_trigger_notify_done(indio_dev->trig);
 	sigma_delta->irq_dis = false;
 	enable_irq(sigma_delta->spi->irq);
@@ -507,13 +581,11 @@ static irqreturn_t ad_sd_trigger_handler(int irq, void *p)
 	return IRQ_HANDLED;
 }
 
-static bool ad_sd_validate_scan_mask(struct iio_dev *indio_dev,
-	const unsigned long *mask)
+static bool ad_sd_validate_scan_mask(struct iio_dev *indio_dev, const unsigned long *mask)
 {
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
 
-	return bitmap_weight(mask, indio_dev->masklength) <=
-		sigma_delta->num_slots;
+	return bitmap_weight(mask, indio_dev->masklength) <= sigma_delta->num_slots;
 }
 
 static const struct iio_buffer_setup_ops ad_sd_buffer_setup_ops = {
@@ -551,10 +623,7 @@ int ad_sd_validate_trigger(struct iio_dev *indio_dev, struct iio_trigger *trig)
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(ad_sd_validate_trigger);
-
-static const struct iio_trigger_ops ad_sd_trigger_ops = {
-};
+EXPORT_SYMBOL_NS_GPL(ad_sd_validate_trigger, IIO_AD_SIGMA_DELTA);
 
 static int devm_ad_sd_probe_trigger(struct device *dev, struct iio_dev *indio_dev)
 {
@@ -572,7 +641,6 @@ static int devm_ad_sd_probe_trigger(struct device *dev, struct iio_dev *indio_de
 	if (sigma_delta->trig == NULL)
 		return -ENOMEM;
 
-	sigma_delta->trig->ops = &ad_sd_trigger_ops;
 	init_completion(&sigma_delta->completion);
 
 	sigma_delta->irq_dis = true;
@@ -609,6 +677,11 @@ int devm_ad_sd_setup_buffer_and_trigger(struct device *dev, struct iio_dev *indi
 	if (spi_engine_offload_supported(sigma_delta->spi))
 		indio_dev->modes |= INDIO_BUFFER_HARDWARE;
 
+	sigma_delta->slots = devm_kcalloc(dev, sigma_delta->num_slots,
+					  sizeof(*sigma_delta->slots), GFP_KERNEL);
+	if (!sigma_delta->slots)
+		return -ENOMEM;
+
 	ret = devm_iio_triggered_buffer_setup(dev, indio_dev,
 					      &iio_pollfunc_store_time,
 					      &ad_sd_trigger_handler,
@@ -618,7 +691,7 @@ int devm_ad_sd_setup_buffer_and_trigger(struct device *dev, struct iio_dev *indi
 
 	return devm_ad_sd_probe_trigger(dev, indio_dev);
 }
-EXPORT_SYMBOL_GPL(devm_ad_sd_setup_buffer_and_trigger);
+EXPORT_SYMBOL_NS_GPL(devm_ad_sd_setup_buffer_and_trigger, IIO_AD_SIGMA_DELTA);
 
 /**
  * ad_sd_init() - Initializes a ad_sigma_delta struct
@@ -635,13 +708,30 @@ int ad_sd_init(struct ad_sigma_delta *sigma_delta, struct iio_dev *indio_dev,
 {
 	sigma_delta->spi = spi;
 	sigma_delta->info = info;
-	sigma_delta->num_slots = 1;
-	sigma_delta->active_slots = 1;
+
+	/* If the field is unset in ad_sigma_delta_info, asume there can only be 1 slot. */
+	if (!info->num_slots)
+		sigma_delta->num_slots = 1;
+	else
+		sigma_delta->num_slots = info->num_slots;
+
+	if (sigma_delta->num_slots > 1) {
+		if (!indio_dev->info->update_scan_mode) {
+			dev_err(&spi->dev, "iio_dev lacks update_scan_mode().\n");
+			return -EINVAL;
+		}
+
+		if (!info->disable_all) {
+			dev_err(&spi->dev, "ad_sigma_delta_info lacks disable_all().\n");
+			return -EINVAL;
+		}
+	}
+
 	iio_device_set_drvdata(indio_dev, sigma_delta);
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(ad_sd_init);
+EXPORT_SYMBOL_NS_GPL(ad_sd_init, IIO_AD_SIGMA_DELTA);
 
 MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
 MODULE_DESCRIPTION("Analog Devices Sigma-Delta ADCs");

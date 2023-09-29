@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0+
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * ADMV1013 driver
  *
@@ -6,19 +6,20 @@
  */
 
 #include <linux/bitfield.h>
-#include <linux/bitops.h>
 #include <linux/bits.h>
 #include <linux/clk.h>
-#include <linux/clkdev.h>
 #include <linux/clk/clkscale.h>
-#include <linux/clk-provider.h>
 #include <linux/device.h>
 #include <linux/iio/iio.h>
 #include <linux/module.h>
+#include <linux/mod_devicetable.h>
 #include <linux/notifier.h>
-#include <linux/regmap.h>
+#include <linux/property.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
+#include <linux/units.h>
+
+#include <asm/unaligned.h>
 
 /* ADMV1013 Register Map */
 #define ADMV1013_REG_SPI_CONTROL		0x00
@@ -34,211 +35,189 @@
 
 /* ADMV1013_REG_SPI_CONTROL Map */
 #define ADMV1013_PARITY_EN_MSK			BIT(15)
-#define ADMV1013_PARITY_EN(x)			FIELD_PREP(ADMV1013_PARITY_EN_MSK, x)
 #define ADMV1013_SPI_SOFT_RESET_MSK		BIT(14)
-#define ADMV1013_SPI_SOFT_RESET(x)		FIELD_PREP(ADMV1013_SPI_SOFT_RESET_MSK, x)
 #define ADMV1013_CHIP_ID_MSK			GENMASK(11, 4)
 #define ADMV1013_CHIP_ID			0xA
 #define ADMV1013_REVISION_ID_MSK		GENMASK(3, 0)
-#define ADMV1013_REVISION_ID(x)			FIELD_PREP(ADMV1013_REVISION_ID_MSK, x)
 
 /* ADMV1013_REG_ALARM Map */
 #define ADMV1013_PARITY_ERROR_MSK		BIT(15)
-#define ADMV1013_PARITY_ERROR(x)		FIELD_PREP(ADMV1013_PARITY_ERROR_MSK, x)
 #define ADMV1013_TOO_FEW_ERRORS_MSK		BIT(14)
-#define ADMV1013_TOO_FEW_ERRORS(x)		FIELD_PREP(ADMV1013_TOO_FEW_ERRORS_MSK, x)
 #define ADMV1013_TOO_MANY_ERRORS_MSK		BIT(13)
-#define ADMV1013_TOO_MANY_ERRORS(x)		FIELD_PREP(ADMV1013_TOO_MANY_ERRORS_MSK, x)
 #define ADMV1013_ADDRESS_RANGE_ERROR_MSK	BIT(12)
-#define ADMV1013_ADDRESS_RANGE_ERROR(x)		FIELD_PREP(ADMV1013_ADDRESS_RANGE_ERROR_MSK, x)
 
 /* ADMV1013_REG_ENABLE Map */
 #define ADMV1013_VGA_PD_MSK			BIT(15)
-#define ADMV1013_VGA_PD(x)			FIELD_PREP(ADMV1013_VGA_PD_MSK, x)
 #define ADMV1013_MIXER_PD_MSK			BIT(14)
-#define ADMV1013_MIXER_PD(x)			FIELD_PREP(ADMV1013_MIXER_PD_MSK, x)
 #define ADMV1013_QUAD_PD_MSK			GENMASK(13, 11)
-#define ADMV1013_QUAD_PD(x)			FIELD_PREP(ADMV1013_QUAD_PD_MSK, x)
 #define ADMV1013_BG_PD_MSK			BIT(10)
-#define ADMV1013_BG_PD(x)			FIELD_PREP(ADMV1013_BG_PD_MSK, x)
 #define ADMV1013_MIXER_IF_EN_MSK		BIT(7)
-#define ADMV1013_MIXER_IF_EN(x)			FIELD_PREP(ADMV1013_MIXER_IF_EN_MSK, x)
 #define ADMV1013_DET_EN_MSK			BIT(5)
-#define ADMV1013_DET_EN(x)			FIELD_PREP(ADMV1013_DET_EN_MSK, x)
 
-/* ADMV1013_REG_LO_AMP_I Map */
-#define ADMV1013_LOAMP_PH_ADJ_I_FINE_MSK	GENMASK(13, 7)
-#define ADMV1013_LOAMP_PH_ADJ_I_FINE(x)		FIELD_PREP(ADMV1013_LOAMP_PH_ADJ_I_FINE_MSK, x)
+/* ADMV1013_REG_LO_AMP Map */
+#define ADMV1013_LOAMP_PH_ADJ_FINE_MSK		GENMASK(13, 7)
 #define ADMV1013_MIXER_VGATE_MSK		GENMASK(6, 0)
-#define ADMV1013_MIXER_VGATE(x)			FIELD_PREP(ADMV1013_MIXER_VGATE_MSK, x)
 
-/* ADMV1013_REG_LO_AMP_Q Map */
-#define ADMV1013_LOAMP_PH_ADJ_Q_FINE_MSK	GENMASK(13, 7)
-#define ADMV1013_LOAMP_PH_ADJ_Q_FINE(x)		FIELD_PREP(ADMV1013_LOAMP_PH_ADJ_Q_FINE_MSK, x)
-
-/* ADMV1013_REG_OFFSET_ADJUST_I Map */
-#define ADMV1013_MIXER_OFF_ADJ_I_P_MSK		GENMASK(15, 9)
-#define ADMV1013_MIXER_OFF_ADJ_I_P(x)		FIELD_PREP(ADMV1013_MIXER_OFF_ADJ_I_P_MSK, x)
-#define ADMV1013_MIXER_OFF_ADJ_I_N_MSK		GENMASK(8, 2)
-#define ADMV1013_MIXER_OFF_ADJ_I_N(x)		FIELD_PREP(ADMV1013_MIXER_OFF_ADJ_I_N_MSK, x)
-
-/* ADMV1013_REG_OFFSET_ADJUST_Q Map */
-#define ADMV1013_MIXER_OFF_ADJ_Q_P_MSK		GENMASK(15, 9)
-#define ADMV1013_MIXER_OFF_ADJ_Q_P(x)		FIELD_PREP(ADMV1013_MIXER_OFF_ADJ_Q_P_MSK, x)
-#define ADMV1013_MIXER_OFF_ADJ_Q_N_MSK		GENMASK(8, 2)
-#define ADMV1013_MIXER_OFF_ADJ_Q_N(x)		FIELD_PREP(ADMV1013_MIXER_OFF_ADJ_Q_N_MSK, x)
+/* ADMV1013_REG_OFFSET_ADJUST Map */
+#define ADMV1013_MIXER_OFF_ADJ_P_MSK		GENMASK(15, 9)
+#define ADMV1013_MIXER_OFF_ADJ_N_MSK		GENMASK(8, 2)
 
 /* ADMV1013_REG_QUAD Map */
 #define ADMV1013_QUAD_SE_MODE_MSK		GENMASK(9, 6)
-#define ADMV1013_QUAD_SE_MODE(x)		FIELD_PREP(ADMV1013_QUAD_SE_MODE_MSK, x)
 #define ADMV1013_QUAD_FILTERS_MSK		GENMASK(3, 0)
-#define ADMV1013_QUAD_FILTERS(x)		FIELD_PREP(ADMV1013_QUAD_FILTERS_MSK, x)
 
 /* ADMV1013_REG_VVA_TEMP_COMP Map */
 #define ADMV1013_VVA_TEMP_COMP_MSK		GENMASK(15, 0)
-#define ADMV1013_VVA_TEMP_COMP(x)		FIELD_PREP(ADMV1013_VVA_TEMP_COMP_MSK, x)
 
-enum supported_parts {
-	ADMV1013,
+/* ADMV1013 Miscellaneous Defines */
+#define ADMV1013_READ				BIT(7)
+#define ADMV1013_REG_ADDR_READ_MSK		GENMASK(6, 1)
+#define ADMV1013_REG_ADDR_WRITE_MSK		GENMASK(22, 17)
+#define ADMV1013_REG_DATA_MSK			GENMASK(16, 1)
+
+enum {
+	ADMV1013_IQ_MODE,
+	ADMV1013_IF_MODE
 };
 
-struct admv1013_dev {
+enum {
+	ADMV1013_RFMOD_I_CALIBPHASE,
+	ADMV1013_RFMOD_Q_CALIBPHASE,
+};
+
+enum {
+	ADMV1013_SE_MODE_POS = 6,
+	ADMV1013_SE_MODE_NEG = 9,
+	ADMV1013_SE_MODE_DIFF = 12
+};
+
+struct admv1013_state {
 	struct spi_device	*spi;
 	struct clk		*clkin;
 	struct clock_scale	clkscale;
-	/* Protect against concurrent accesses to the device */
+	/* Protect against concurrent accesses to the device and to data */
 	struct mutex		lock;
 	struct regulator	*reg;
 	struct notifier_block	nb;
-	u64			clkin_freq;
+	unsigned int		input_mode;
 	unsigned int		quad_se_mode;
-	bool			parity_en;
-	bool			vga_pd;
-	bool			mixer_pd;
-	bool			quad_pd;
-	bool			bg_pd;
-	bool			mixer_if_en;
 	bool			det_en;
+	u8			data[3] __aligned(IIO_DMA_MINALIGN);
 };
 
-static int admv1013_spi_read(struct admv1013_dev *dev, unsigned int reg,
-			      unsigned int *val)
+static int __admv1013_spi_read(struct admv1013_state *st, unsigned int reg,
+			       unsigned int *val)
 {
 	int ret;
-	unsigned int cnt, temp;
 	struct spi_transfer t = {0};
-	u8 data[3];
 
-	data[0] = 0x80 | (reg << 1);
-	data[1] = 0x0;
-	data[2] = 0x0;
+	st->data[0] = ADMV1013_READ | FIELD_PREP(ADMV1013_REG_ADDR_READ_MSK, reg);
+	st->data[1] = 0x0;
+	st->data[2] = 0x0;
 
-	t.rx_buf = &data[0];
-	t.tx_buf = &data[0];
+	t.rx_buf = &st->data[0];
+	t.tx_buf = &st->data[0];
 	t.len = 3;
 
-	ret = spi_sync_transfer(dev->spi, &t, 1);
-	if (ret < 0)
+	ret = spi_sync_transfer(st->spi, &t, 1);
+	if (ret)
 		return ret;
 
-	temp = ((data[0] | 0x80 | (reg << 1)) << 16) |
-		(data[1] << 8) | data[2];
-
-	if (dev->parity_en) {
-		cnt = hweight_long(temp);
-		if (!(cnt % 2))
-			return -EINVAL;
-	}
-
-	*val = (temp >> 1) & 0xFFFF;
+	*val = FIELD_GET(ADMV1013_REG_DATA_MSK, get_unaligned_be24(&st->data[0]));
 
 	return ret;
 }
 
-static int admv1013_spi_write(struct admv1013_dev *dev,
-				      unsigned int reg,
-				      unsigned int val)
+static int admv1013_spi_read(struct admv1013_state *st, unsigned int reg,
+			     unsigned int *val)
 {
-	unsigned int cnt;
-	u8 data[3];
+	int ret;
 
-	val = (val << 1);
+	mutex_lock(&st->lock);
+	ret = __admv1013_spi_read(st, reg, val);
+	mutex_unlock(&st->lock);
 
-	if (dev->parity_en) {
-		cnt = hweight_long((reg << 17) | val);
-		if (cnt % 2 == 0)
-			val |= 0x1;
-	}
-
-	data[0] = (reg << 1) | (val >> 16);
-	data[1] = val >> 8;
-	data[2] = val;
-
-	return spi_write(dev->spi, &data[0], 3);
+	return ret;
 }
 
-static int admv1013_spi_update_bits(struct admv1013_dev *dev, unsigned int reg,
-			       unsigned int mask, unsigned int val)
+static int __admv1013_spi_write(struct admv1013_state *st,
+				unsigned int reg,
+				unsigned int val)
+{
+	put_unaligned_be24(FIELD_PREP(ADMV1013_REG_DATA_MSK, val) |
+			   FIELD_PREP(ADMV1013_REG_ADDR_WRITE_MSK, reg), &st->data[0]);
+
+	return spi_write(st->spi, &st->data[0], 3);
+}
+
+static int admv1013_spi_write(struct admv1013_state *st, unsigned int reg,
+			      unsigned int val)
+{
+	int ret;
+
+	mutex_lock(&st->lock);
+	ret = __admv1013_spi_write(st, reg, val);
+	mutex_unlock(&st->lock);
+
+	return ret;
+}
+
+static int __admv1013_spi_update_bits(struct admv1013_state *st, unsigned int reg,
+				      unsigned int mask, unsigned int val)
 {
 	int ret;
 	unsigned int data, temp;
 
-	mutex_lock(&dev->lock);
-	ret = admv1013_spi_read(dev, reg, &data);
-	if (ret < 0)
-		goto exit;
+	ret = __admv1013_spi_read(st, reg, &data);
+	if (ret)
+		return ret;
 
 	temp = (data & ~mask) | (val & mask);
 
-	ret = admv1013_spi_write(dev, reg, temp);
+	return __admv1013_spi_write(st, reg, temp);
+}
 
-exit:
-	mutex_unlock(&dev->lock);
+static int admv1013_spi_update_bits(struct admv1013_state *st, unsigned int reg,
+				    unsigned int mask, unsigned int val)
+{
+	int ret;
+
+	mutex_lock(&st->lock);
+	ret = __admv1013_spi_update_bits(st, reg, mask, val);
+	mutex_unlock(&st->lock);
 
 	return ret;
 }
 
 static int admv1013_read_raw(struct iio_dev *indio_dev,
-			    struct iio_chan_spec const *chan,
-			    int *val, int *val2, long info)
+			     struct iio_chan_spec const *chan,
+			     int *val, int *val2, long info)
 {
-	struct admv1013_dev *dev = iio_priv(indio_dev);
-	unsigned int data;
+	struct admv1013_state *st = iio_priv(indio_dev);
+	unsigned int data, addr;
 	int ret;
 
 	switch (info) {
-	case IIO_CHAN_INFO_OFFSET:
-		if (chan->channel2 == IIO_MOD_I) {
-			ret = admv1013_spi_read(dev, ADMV1013_REG_OFFSET_ADJUST_I, &data);
-			if (ret < 0)
-				return ret;
-
-			*val = (data & ADMV1013_MIXER_OFF_ADJ_I_P_MSK) >> 9;
-			*val2 = (data & ADMV1013_MIXER_OFF_ADJ_I_N_MSK) >> 2;
-		} else {
-			ret = admv1013_spi_read(dev, ADMV1013_REG_OFFSET_ADJUST_Q, &data);
-			if (ret < 0)
-				return ret;
-
-			*val = (data & ADMV1013_MIXER_OFF_ADJ_Q_P_MSK) >> 9;
-			*val2 = (data & ADMV1013_MIXER_OFF_ADJ_Q_N_MSK) >> 2;
+	case IIO_CHAN_INFO_CALIBBIAS:
+		switch (chan->channel) {
+		case IIO_MOD_I:
+			addr = ADMV1013_REG_OFFSET_ADJUST_I;
+			break;
+		case IIO_MOD_Q:
+			addr = ADMV1013_REG_OFFSET_ADJUST_Q;
+			break;
+		default:
+			return -EINVAL;
 		}
 
-		return IIO_VAL_INT_MULTIPLE;
-	case IIO_CHAN_INFO_PHASE:
-		if (chan->channel2 == IIO_MOD_I) {
-			ret = admv1013_spi_read(dev, ADMV1013_REG_LO_AMP_I, &data);
-			if (ret < 0)
-				return ret;
+		ret = admv1013_spi_read(st, addr, &data);
+		if (ret)
+			return ret;
 
-			*val = (data & ADMV1013_LOAMP_PH_ADJ_I_FINE_MSK) >> 7;
-		} else {
-			ret = admv1013_spi_read(dev, ADMV1013_REG_LO_AMP_Q, &data);
-			if (ret < 0)
-				return ret;
-
-			*val = (data & ADMV1013_LOAMP_PH_ADJ_Q_FINE_MSK) >> 7;
-		}
+		if (!chan->channel)
+			*val = FIELD_GET(ADMV1013_MIXER_OFF_ADJ_P_MSK, data);
+		else
+			*val = FIELD_GET(ADMV1013_MIXER_OFF_ADJ_N_MSK, data);
 
 		return IIO_VAL_INT;
 	default:
@@ -247,94 +226,153 @@ static int admv1013_read_raw(struct iio_dev *indio_dev,
 }
 
 static int admv1013_write_raw(struct iio_dev *indio_dev,
-			     struct iio_chan_spec const *chan,
-			     int val, int val2, long info)
+			      struct iio_chan_spec const *chan,
+			      int val, int val2, long info)
 {
-	struct admv1013_dev *dev = iio_priv(indio_dev);
-	int ret;
+	struct admv1013_state *st = iio_priv(indio_dev);
+	unsigned int addr, data, msk;
 
 	switch (info) {
-	case IIO_CHAN_INFO_OFFSET:
-		val2 /= 100000;
+	case IIO_CHAN_INFO_CALIBBIAS:
+		switch (chan->channel2) {
+		case IIO_MOD_I:
+			addr = ADMV1013_REG_OFFSET_ADJUST_I;
+			break;
+		case IIO_MOD_Q:
+			addr = ADMV1013_REG_OFFSET_ADJUST_Q;
+			break;
+		default:
+			return -EINVAL;
+		}
 
-		if (chan->channel2 == IIO_MOD_I)
-			ret = admv1013_spi_update_bits(dev, ADMV1013_REG_OFFSET_ADJUST_I,
-							ADMV1013_MIXER_OFF_ADJ_I_P_MSK |
-							ADMV1013_MIXER_OFF_ADJ_I_N_MSK,
-							ADMV1013_MIXER_OFF_ADJ_I_P(val) |
-							ADMV1013_MIXER_OFF_ADJ_I_N(val2));
-		else
-			ret = admv1013_spi_update_bits(dev, ADMV1013_REG_OFFSET_ADJUST_Q,
-							ADMV1013_MIXER_OFF_ADJ_Q_P_MSK |
-							ADMV1013_MIXER_OFF_ADJ_Q_N_MSK,
-							ADMV1013_MIXER_OFF_ADJ_Q_P(val) |
-							ADMV1013_MIXER_OFF_ADJ_Q_N(val2));
+		if (!chan->channel) {
+			msk = ADMV1013_MIXER_OFF_ADJ_P_MSK;
+			data = FIELD_PREP(ADMV1013_MIXER_OFF_ADJ_P_MSK, val);
+		} else {
+			msk = ADMV1013_MIXER_OFF_ADJ_N_MSK;
+			data = FIELD_PREP(ADMV1013_MIXER_OFF_ADJ_N_MSK, val);
+		}
 
-		return ret;
-	case IIO_CHAN_INFO_PHASE:
-		if (chan->channel2 == IIO_MOD_I)
-			return admv1013_spi_update_bits(dev, ADMV1013_REG_LO_AMP_I,
-							ADMV1013_LOAMP_PH_ADJ_I_FINE_MSK,
-							ADMV1013_LOAMP_PH_ADJ_I_FINE(val));
-		else
-			return admv1013_spi_update_bits(dev, ADMV1013_REG_LO_AMP_Q,
-							ADMV1013_LOAMP_PH_ADJ_Q_FINE_MSK,
-							ADMV1013_LOAMP_PH_ADJ_Q_FINE(val));
+		return admv1013_spi_update_bits(st, addr, msk, data);
 	default:
 		return -EINVAL;
 	}
 }
 
-static int admv1013_update_quad_filters(struct admv1013_dev *dev)
+static ssize_t admv1013_read(struct iio_dev *indio_dev,
+			     uintptr_t private,
+			     const struct iio_chan_spec *chan,
+			     char *buf)
+{
+	struct admv1013_state *st = iio_priv(indio_dev);
+	unsigned int data, addr;
+	int ret;
+
+	switch ((u32)private) {
+	case ADMV1013_RFMOD_I_CALIBPHASE:
+		addr = ADMV1013_REG_LO_AMP_I;
+		break;
+	case ADMV1013_RFMOD_Q_CALIBPHASE:
+		addr = ADMV1013_REG_LO_AMP_Q;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	ret = admv1013_spi_read(st, addr, &data);
+	if (ret)
+		return ret;
+
+	data = FIELD_GET(ADMV1013_LOAMP_PH_ADJ_FINE_MSK, data);
+
+	return sysfs_emit(buf, "%u\n", data);
+}
+
+static ssize_t admv1013_write(struct iio_dev *indio_dev,
+			      uintptr_t private,
+			      const struct iio_chan_spec *chan,
+			      const char *buf, size_t len)
+{
+	struct admv1013_state *st = iio_priv(indio_dev);
+	unsigned int data;
+	int ret;
+
+	ret = kstrtou32(buf, 10, &data);
+	if (ret)
+		return ret;
+
+	data = FIELD_PREP(ADMV1013_LOAMP_PH_ADJ_FINE_MSK, data);
+
+	switch ((u32)private) {
+	case ADMV1013_RFMOD_I_CALIBPHASE:
+		ret = admv1013_spi_update_bits(st, ADMV1013_REG_LO_AMP_I,
+					       ADMV1013_LOAMP_PH_ADJ_FINE_MSK,
+					       data);
+		if (ret)
+			return ret;
+		break;
+	case ADMV1013_RFMOD_Q_CALIBPHASE:
+		ret = admv1013_spi_update_bits(st, ADMV1013_REG_LO_AMP_Q,
+					       ADMV1013_LOAMP_PH_ADJ_FINE_MSK,
+					       data);
+		if (ret)
+			return ret;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return ret ? ret : len;
+}
+
+static int admv1013_update_quad_filters(struct admv1013_state *st)
 {
 	unsigned int filt_raw;
+	u64 rate = clk_get_rate_scaled(st->clkin, &st->clkscale);
 
-	if (dev->clkin_freq >= 5400000000 && dev->clkin_freq <= 7000000000)
+	if (rate >= (5400 * HZ_PER_MHZ) && rate <= (7000 * HZ_PER_MHZ))
 		filt_raw = 15;
-	else if (dev->clkin_freq >= 5400000000 && dev->clkin_freq <= 8000000000)
+	else if (rate >= (5400 * HZ_PER_MHZ) && rate <= (8000 * HZ_PER_MHZ))
 		filt_raw = 10;
-	else if (dev->clkin_freq >= 6600000000 && dev->clkin_freq <= 9200000000)
+	else if (rate >= (6600 * HZ_PER_MHZ) && rate <= (9200 * HZ_PER_MHZ))
 		filt_raw = 5;
 	else
 		filt_raw = 0;
 
-	return admv1013_spi_update_bits(dev, ADMV1013_REG_QUAD,
+	return __admv1013_spi_update_bits(st, ADMV1013_REG_QUAD,
 					ADMV1013_QUAD_FILTERS_MSK,
-					ADMV1013_QUAD_FILTERS(filt_raw));
+					FIELD_PREP(ADMV1013_QUAD_FILTERS_MSK, filt_raw));
 }
 
-static int admv1013_update_mixer_vgate(struct admv1013_dev *dev)
+static int admv1013_update_mixer_vgate(struct admv1013_state *st)
 {
 	unsigned int vcm, mixer_vgate;
 
-	vcm = regulator_get_voltage(dev->reg);
+	vcm = regulator_get_voltage(st->reg);
 
-	if (vcm >= 0 && vcm <= 1800000)
+	if (vcm <= 1800000)
 		mixer_vgate = (2389 * vcm / 1000000 + 8100) / 100;
 	else if (vcm > 1800000 && vcm <= 2600000)
 		mixer_vgate = (2375 * vcm / 1000000 + 125) / 100;
 	else
 		return -EINVAL;
 
-	return admv1013_spi_update_bits(dev, ADMV1013_REG_LO_AMP_I,
+	return __admv1013_spi_update_bits(st, ADMV1013_REG_LO_AMP_I,
 				 ADMV1013_MIXER_VGATE_MSK,
-				 ADMV1013_MIXER_VGATE(mixer_vgate));
+				 FIELD_PREP(ADMV1013_MIXER_VGATE_MSK, mixer_vgate));
 }
 
 static int admv1013_reg_access(struct iio_dev *indio_dev,
-				unsigned int reg,
-				unsigned int write_val,
-				unsigned int *read_val)
+			       unsigned int reg,
+			       unsigned int write_val,
+			       unsigned int *read_val)
 {
-	struct admv1013_dev *dev = iio_priv(indio_dev);
-	int ret;
+	struct admv1013_state *st = iio_priv(indio_dev);
 
 	if (read_val)
-		ret = admv1013_spi_read(dev, reg, read_val);
+		return admv1013_spi_read(st, reg, read_val);
 	else
-		ret = admv1013_spi_write(dev, reg, write_val);
-
-	return ret;
+		return admv1013_spi_write(st, reg, write_val);
 }
 
 static const struct iio_info admv1013_info = {
@@ -345,112 +383,113 @@ static const struct iio_info admv1013_info = {
 
 static int admv1013_freq_change(struct notifier_block *nb, unsigned long action, void *data)
 {
-	struct admv1013_dev *dev = container_of(nb, struct admv1013_dev, nb);
-	struct clk_notifier_data *cnd = data;
+	struct admv1013_state *st = container_of(nb, struct admv1013_state, nb);
+	int ret;
 
 	if (action == POST_RATE_CHANGE) {
-		/* cache the new rate */
-		dev->clkin_freq = clk_get_rate_scaled(cnd->clk, &dev->clkscale);
-
-		return notifier_from_errno(admv1013_update_quad_filters(dev));
+		mutex_lock(&st->lock);
+		ret = notifier_from_errno(admv1013_update_quad_filters(st));
+		mutex_unlock(&st->lock);
+		return ret;
 	}
 
 	return NOTIFY_OK;
 }
 
-static void admv1013_clk_notifier_unreg(void *data)
-{
-	struct admv1013_dev *dev = data;
-
-	clk_notifier_unregister(dev->clkin, &dev->nb);
+#define _ADMV1013_EXT_INFO(_name, _shared, _ident) { \
+		.name = _name, \
+		.read = admv1013_read, \
+		.write = admv1013_write, \
+		.private = _ident, \
+		.shared = _shared, \
 }
 
-#define ADMV1013_CHAN(_channel, rf_comp) {			\
+static const struct iio_chan_spec_ext_info admv1013_ext_info[] = {
+	_ADMV1013_EXT_INFO("i_calibphase", IIO_SEPARATE, ADMV1013_RFMOD_I_CALIBPHASE),
+	_ADMV1013_EXT_INFO("q_calibphase", IIO_SEPARATE, ADMV1013_RFMOD_Q_CALIBPHASE),
+	{ },
+};
+
+#define ADMV1013_CHAN_PHASE(_channel, _channel2, _admv1013_ext_info) {		\
 	.type = IIO_ALTVOLTAGE,					\
-	.modified = 1,						\
-	.output = 1,						\
+	.output = 0,						\
 	.indexed = 1,						\
-	.channel2 = IIO_MOD_##rf_comp,				\
+	.channel2 = _channel2,					\
 	.channel = _channel,					\
-	.info_mask_separate = BIT(IIO_CHAN_INFO_PHASE) |	\
-		BIT(IIO_CHAN_INFO_OFFSET)			\
+	.differential = 1,					\
+	.ext_info = _admv1013_ext_info,				\
+	}
+
+#define ADMV1013_CHAN_CALIB(_channel, rf_comp) {	\
+	.type = IIO_ALTVOLTAGE,					\
+	.output = 0,						\
+	.indexed = 1,						\
+	.channel = _channel,					\
+	.channel2 = IIO_MOD_##rf_comp,				\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_CALIBBIAS),	\
 	}
 
 static const struct iio_chan_spec admv1013_channels[] = {
-	ADMV1013_CHAN(0, I),
-	ADMV1013_CHAN(0, Q),
+	ADMV1013_CHAN_PHASE(0, 1, admv1013_ext_info),
+	ADMV1013_CHAN_CALIB(0, I),
+	ADMV1013_CHAN_CALIB(0, Q),
+	ADMV1013_CHAN_CALIB(1, I),
+	ADMV1013_CHAN_CALIB(1, Q),
 };
 
-static int admv1013_init(struct admv1013_dev *dev)
+static int admv1013_init(struct admv1013_state *st)
 {
 	int ret;
-	unsigned int chip_id, enable_reg, enable_reg_msk;
-	bool temp_parity = dev->parity_en;
-
-	dev->parity_en = false;
+	unsigned int data;
+	struct spi_device *spi = st->spi;
 
 	/* Perform a software reset */
-	ret = admv1013_spi_update_bits(dev, ADMV1013_REG_SPI_CONTROL,
-				 ADMV1013_SPI_SOFT_RESET_MSK,
-				 ADMV1013_SPI_SOFT_RESET(1));
-	if (ret < 0)
+	ret = __admv1013_spi_update_bits(st, ADMV1013_REG_SPI_CONTROL,
+					 ADMV1013_SPI_SOFT_RESET_MSK,
+					 FIELD_PREP(ADMV1013_SPI_SOFT_RESET_MSK, 1));
+	if (ret)
 		return ret;
 
-	ret = admv1013_spi_update_bits(dev, ADMV1013_REG_SPI_CONTROL,
-				 ADMV1013_SPI_SOFT_RESET_MSK,
-				 ADMV1013_SPI_SOFT_RESET(0));
-	if (ret < 0)
+	ret = __admv1013_spi_update_bits(st, ADMV1013_REG_SPI_CONTROL,
+					 ADMV1013_SPI_SOFT_RESET_MSK,
+					 FIELD_PREP(ADMV1013_SPI_SOFT_RESET_MSK, 0));
+	if (ret)
 		return ret;
 
-	ret = admv1013_spi_update_bits(dev, ADMV1013_REG_SPI_CONTROL,
-				 ADMV1013_PARITY_EN_MSK,
-				 ADMV1013_PARITY_EN(temp_parity));
-	if (ret < 0)
+	ret = __admv1013_spi_read(st, ADMV1013_REG_SPI_CONTROL, &data);
+	if (ret)
 		return ret;
 
-	dev->parity_en = temp_parity;
-
-	ret = admv1013_spi_read(dev, ADMV1013_REG_SPI_CONTROL, &chip_id);
-	if (ret < 0)
-		return ret;
-
-	chip_id = (chip_id & ADMV1013_CHIP_ID_MSK) >> 4;
-	if (chip_id != ADMV1013_CHIP_ID)
+	data = FIELD_GET(ADMV1013_CHIP_ID_MSK, data);
+	if (data != ADMV1013_CHIP_ID) {
+		dev_err(&spi->dev, "Invalid Chip ID.\n");
 		return -EINVAL;
+	}
 
-	ret = admv1013_spi_write(dev, ADMV1013_REG_VVA_TEMP_COMP, 0xE700);
-	if (ret < 0)
+	ret = __admv1013_spi_write(st, ADMV1013_REG_VVA_TEMP_COMP, 0xE700);
+	if (ret)
 		return ret;
 
-	ret = admv1013_spi_update_bits(dev, ADMV1013_REG_QUAD,
-					ADMV1013_QUAD_SE_MODE_MSK,
-					ADMV1013_QUAD_SE_MODE(dev->quad_se_mode));
-	if (ret < 0)
+	data = FIELD_PREP(ADMV1013_QUAD_SE_MODE_MSK, st->quad_se_mode);
+
+	ret = __admv1013_spi_update_bits(st, ADMV1013_REG_QUAD,
+					 ADMV1013_QUAD_SE_MODE_MSK, data);
+	if (ret)
 		return ret;
 
-	ret = admv1013_update_mixer_vgate(dev);
-	if (ret < 0)
+	ret = admv1013_update_mixer_vgate(st);
+	if (ret)
 		return ret;
 
-	ret = admv1013_update_quad_filters(dev);
-	if (ret < 0)
+	ret = admv1013_update_quad_filters(st);
+	if (ret)
 		return ret;
 
-	enable_reg_msk = ADMV1013_VGA_PD_MSK |
-			ADMV1013_MIXER_PD_MSK |
-			ADMV1013_QUAD_PD_MSK |
-			ADMV1013_BG_PD_MSK |
-			ADMV1013_MIXER_IF_EN_MSK |
-			ADMV1013_DET_EN_MSK;
-
-	enable_reg = ADMV1013_VGA_PD(dev->vga_pd) |
-			ADMV1013_MIXER_PD(dev->mixer_pd) |
-			ADMV1013_QUAD_PD(dev->quad_pd ? 7 : 0) |
-			ADMV1013_BG_PD(dev->bg_pd) |
-			ADMV1013_MIXER_IF_EN(dev->mixer_if_en) |
-			ADMV1013_DET_EN(dev->det_en);
-
-	return admv1013_spi_update_bits(dev, ADMV1013_REG_ENABLE, enable_reg_msk, enable_reg);
+	return __admv1013_spi_update_bits(st, ADMV1013_REG_ENABLE,
+					  ADMV1013_DET_EN_MSK |
+					  ADMV1013_MIXER_IF_EN_MSK,
+					  st->det_en |
+					  st->input_mode);
 }
 
 static void admv1013_clk_disable(void *data)
@@ -463,101 +502,137 @@ static void admv1013_reg_disable(void *data)
 	regulator_disable(data);
 }
 
-static int admv1013_dt_parse(struct admv1013_dev *dev)
+static void admv1013_powerdown(void *data)
+{
+	unsigned int enable_reg, enable_reg_msk;
+
+	/* Disable all components in the Enable Register */
+	enable_reg_msk = ADMV1013_VGA_PD_MSK |
+			ADMV1013_MIXER_PD_MSK |
+			ADMV1013_QUAD_PD_MSK |
+			ADMV1013_BG_PD_MSK |
+			ADMV1013_MIXER_IF_EN_MSK |
+			ADMV1013_DET_EN_MSK;
+
+	enable_reg = FIELD_PREP(ADMV1013_VGA_PD_MSK, 1) |
+			FIELD_PREP(ADMV1013_MIXER_PD_MSK, 1) |
+			FIELD_PREP(ADMV1013_QUAD_PD_MSK, 7) |
+			FIELD_PREP(ADMV1013_BG_PD_MSK, 1) |
+			FIELD_PREP(ADMV1013_MIXER_IF_EN_MSK, 0) |
+			FIELD_PREP(ADMV1013_DET_EN_MSK, 0);
+
+	admv1013_spi_update_bits(data, ADMV1013_REG_ENABLE, enable_reg_msk, enable_reg);
+}
+
+static int admv1013_properties_parse(struct admv1013_state *st)
 {
 	int ret;
-	struct spi_device *spi = dev->spi;
+	const char *str;
+	struct spi_device *spi = st->spi;
 
-	dev->parity_en = of_property_read_bool(spi->dev.of_node, "adi,parity-en");
-	dev->vga_pd = of_property_read_bool(spi->dev.of_node, "adi,vga-pd");
-	dev->mixer_pd = of_property_read_bool(spi->dev.of_node, "adi,mixer-pd");
-	dev->quad_pd = of_property_read_bool(spi->dev.of_node, "adi,quad-pd");
-	dev->bg_pd = of_property_read_bool(spi->dev.of_node, "adi,bg-pd");
-	dev->mixer_if_en = of_property_read_bool(spi->dev.of_node, "adi,mixer-if-en");
-	dev->det_en = of_property_read_bool(spi->dev.of_node, "adi,det-en");
+	st->det_en = device_property_read_bool(&spi->dev, "adi,detector-enable");
 
-	ret = of_property_read_u32(spi->dev.of_node, "adi,quad-se-mode", &dev->quad_se_mode);
-	if (ret < 0)
-		dev->quad_se_mode = 12;
+	ret = device_property_read_string(&spi->dev, "adi,input-mode", &str);
+	if (ret)
+		st->input_mode = ADMV1013_IQ_MODE;
 
-	dev->reg = devm_regulator_get(&spi->dev, "vcm");
-	if (IS_ERR(dev->reg))
-		return PTR_ERR(dev->reg);
+	if (!strcmp(str, "iq"))
+		st->input_mode = ADMV1013_IQ_MODE;
+	else if (!strcmp(str, "if"))
+		st->input_mode = ADMV1013_IF_MODE;
+	else
+		return -EINVAL;
 
-	dev->clkin = devm_clk_get(&spi->dev, "lo_in");
-	if (IS_ERR(dev->clkin))
-		return PTR_ERR(dev->clkin);
+	ret = device_property_read_string(&spi->dev, "adi,quad-se-mode", &str);
+	if (ret)
+		st->quad_se_mode = ADMV1013_SE_MODE_DIFF;
 
-	return of_clk_get_scale(spi->dev.of_node, NULL, &dev->clkscale);
+	if (!strcmp(str, "diff"))
+		st->quad_se_mode = ADMV1013_SE_MODE_DIFF;
+	else if (!strcmp(str, "se-pos"))
+		st->quad_se_mode = ADMV1013_SE_MODE_POS;
+	else if (!strcmp(str, "se-neg"))
+		st->quad_se_mode = ADMV1013_SE_MODE_NEG;
+	else
+		return -EINVAL;
+
+	st->reg = devm_regulator_get(&spi->dev, "vcm");
+	if (IS_ERR(st->reg))
+		return dev_err_probe(&spi->dev, PTR_ERR(st->reg),
+				     "failed to get the common-mode voltage\n");
+
+	st->clkin = devm_clk_get(&spi->dev, "lo_in");
+	if (IS_ERR(st->clkin))
+		return dev_err_probe(&spi->dev, PTR_ERR(st->clkin),
+				     "failed to get the LO input clock\n");
+
+	return of_clk_get_scale(spi->dev.of_node, NULL, &st->clkscale);
 }
 
 static int admv1013_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
-	struct admv1013_dev *dev;
+	struct admv1013_state *st;
 	int ret;
 
-	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*dev));
+	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
 
-	dev = iio_priv(indio_dev);
+	st = iio_priv(indio_dev);
 
-	indio_dev->dev.parent = &spi->dev;
 	indio_dev->info = &admv1013_info;
 	indio_dev->name = "admv1013";
 	indio_dev->channels = admv1013_channels;
 	indio_dev->num_channels = ARRAY_SIZE(admv1013_channels);
 
-	dev->spi = spi;
+	st->spi = spi;
 
-	ret = admv1013_dt_parse(dev);
-	if (ret < 0)
+	ret = admv1013_properties_parse(st);
+	if (ret)
 		return ret;
 
-	ret = regulator_enable(dev->reg);
-	if (ret < 0) {
+	ret = regulator_enable(st->reg);
+	if (ret) {
 		dev_err(&spi->dev, "Failed to enable specified Common-Mode Voltage!\n");
 		return ret;
 	}
 
 	ret = devm_add_action_or_reset(&spi->dev, admv1013_reg_disable,
-					dev->reg);
-	if (ret < 0)
+				       st->reg);
+	if (ret)
 		return ret;
 
-	ret = clk_prepare_enable(dev->clkin);
-	if (ret < 0)
+	ret = clk_prepare_enable(st->clkin);
+	if (ret)
 		return ret;
 
-	ret = devm_add_action_or_reset(&spi->dev, admv1013_clk_disable, dev->clkin);
-	if (ret < 0)
+	ret = devm_add_action_or_reset(&spi->dev, admv1013_clk_disable, st->clkin);
+	if (ret)
 		return ret;
 
-	dev->clkin_freq = clk_get_rate_scaled(dev->clkin, &dev->clkscale);
-
-	dev->nb.notifier_call = admv1013_freq_change;
-	ret = clk_notifier_register(dev->clkin, &dev->nb);
-	if (ret < 0)
+	st->nb.notifier_call = admv1013_freq_change;
+	ret = devm_clk_notifier_register(&spi->dev, st->clkin, &st->nb);
+	if (ret)
 		return ret;
 
-	ret = devm_add_action_or_reset(&spi->dev, admv1013_clk_notifier_unreg, dev);
-	if (ret < 0)
-		return ret;
+	mutex_init(&st->lock);
 
-	mutex_init(&dev->lock);
-
-	ret = admv1013_init(dev);
-	if (ret < 0) {
+	ret = admv1013_init(st);
+	if (ret) {
 		dev_err(&spi->dev, "admv1013 init failed\n");
 		return ret;
 	}
+
+	ret = devm_add_action_or_reset(&spi->dev, admv1013_powerdown, st);
+	if (ret)
+		return ret;
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
 static const struct spi_device_id admv1013_id[] = {
-	{ "admv1013", ADMV1013 },
+	{ "admv1013", 0 },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, admv1013_id);
@@ -570,14 +645,13 @@ MODULE_DEVICE_TABLE(of, admv1013_of_match);
 
 static struct spi_driver admv1013_driver = {
 	.driver = {
-			.name = "admv1013",
-			.of_match_table = admv1013_of_match,
-		},
+		.name = "admv1013",
+		.of_match_table = admv1013_of_match,
+	},
 	.probe = admv1013_probe,
 	.id_table = admv1013_id,
 };
 module_spi_driver(admv1013_driver);
-
 
 MODULE_AUTHOR("Antoniu Miclaus <antoniu.miclaus@analog.com");
 MODULE_DESCRIPTION("Analog Devices ADMV1013");

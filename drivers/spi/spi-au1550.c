@@ -166,7 +166,7 @@ static void au1550_spi_chipsel(struct spi_device *spi, int value)
 	switch (value) {
 	case BITBANG_CS_INACTIVE:
 		if (hw->pdata->deactivate_cs)
-			hw->pdata->deactivate_cs(hw->pdata, spi->chip_select,
+			hw->pdata->deactivate_cs(hw->pdata, spi_get_chipselect(spi, 0),
 					cspol);
 		break;
 
@@ -211,7 +211,7 @@ static void au1550_spi_chipsel(struct spi_device *spi, int value)
 		} while ((stat & PSC_SPISTAT_DR) == 0);
 
 		if (hw->pdata->activate_cs)
-			hw->pdata->activate_cs(hw->pdata, spi->chip_select,
+			hw->pdata->activate_cs(hw->pdata, spi_get_chipselect(spi, 0),
 					cspol);
 		break;
 	}
@@ -405,7 +405,7 @@ static int au1550_spi_dma_txrxb(struct spi_device *spi, struct spi_transfer *t)
 		dma_unmap_single(hw->dev, dma_tx_addr, t->len,
 			DMA_TO_DEVICE);
 
-	return hw->rx_count < hw->tx_count ? hw->rx_count : hw->tx_count;
+	return min(hw->rx_count, hw->tx_count);
 }
 
 static irqreturn_t au1550_spi_dma_irq_callback(struct au1550_spi *hw)
@@ -539,7 +539,7 @@ static int au1550_spi_pio_txrxb(struct spi_device *spi, struct spi_transfer *t)
 
 	wait_for_completion(&hw->master_done);
 
-	return hw->rx_count < hw->tx_count ? hw->rx_count : hw->tx_count;
+	return min(hw->rx_count, hw->tx_count);
 }
 
 static irqreturn_t au1550_spi_pio_irq_callback(struct au1550_spi *hw)

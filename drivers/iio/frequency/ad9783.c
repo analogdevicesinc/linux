@@ -669,15 +669,15 @@ static const struct iio_enum ad9783_iio_enums[] = {
 
 static struct iio_chan_spec_ext_info ad9783_dac_ext_info[] = {
 	IIO_ENUM("mix_mode", IIO_SEPARATE, &ad9783_iio_enums[0]),
-	IIO_ENUM_AVAILABLE("mix_mode", &ad9783_iio_enums[0]),
+	IIO_ENUM_AVAILABLE("mix_mode", IIO_SHARED_BY_TYPE, &ad9783_iio_enums[0]),
 	{ },
 };
 
 static struct iio_chan_spec_ext_info ad9783_auxdac_ext_info[] = {
 	IIO_ENUM("output_type", IIO_SEPARATE, &ad9783_iio_enums[1]),
-	IIO_ENUM_AVAILABLE("output_type", &ad9783_iio_enums[1]),
+	IIO_ENUM_AVAILABLE("output_type", IIO_SHARED_BY_TYPE, &ad9783_iio_enums[1]),
 	IIO_ENUM("active_output", IIO_SEPARATE, &ad9783_iio_enums[2]),
-	IIO_ENUM_AVAILABLE("active_output", &ad9783_iio_enums[2]),
+	IIO_ENUM_AVAILABLE("active_output", IIO_SHARED_BY_TYPE, &ad9783_iio_enums[2]),
 	{ },
 };
 

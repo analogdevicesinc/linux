@@ -19,6 +19,49 @@
 
 #define NUM_TYPES_OF_MEM	3U
 
+#define NUM_MODS_CORE_TILE	2U
+#define NUM_MODS_MEM_TILE	1U
+#define NUM_MODS_SHIMPL_TILE	1U
+
+/*
+ * Number of resources per module
+ */
+#define AIEML_NUM_PERF_TILE_CORE_MOD		4U
+#define AIEML_NUM_USEREVENT_TILE_CORE_MOD	4U
+#define AIEML_NUM_TRACECONTROL_TILE_CORE_MOD	1U
+#define AIEML_NUM_PCEVENT_TILE_CORE_MOD		4U
+#define AIEML_NUM_SSSELECT_TILE_CORE_MOD	8U
+#define AIEML_NUM_BROADCAST_TILE_CORE_MOD	16U
+#define AIEML_NUM_COMBOEVENT_TILE_CORE_MOD	4U
+#define AIEML_NUM_GROUPEVENTS_TILE_CORE_MOD	9U
+
+#define AIEML_NUM_PERF_TILE_MEM_MOD		2U
+#define AIEML_NUM_USEREVENT_TILE_MEM_MOD	4U
+#define AIEML_NUM_TRACECONTROL_TILE_MEM_MOD	1U
+#define AIEML_NUM_PCEVENT_TILE_MEM_MOD		0U
+#define AIEML_NUM_SSSELECT_TILE_MEM_MOD		0U
+#define AIEML_NUM_BROADCAST_TILE_MEM_MOD	16U
+#define AIEML_NUM_COMBOEVENT_TILE_MEM_MOD	4U
+#define AIEML_NUM_GROUPEVENTS_TILE_MEM_MOD	8U
+
+#define AIEML_NUM_PERF_MEM_MOD			4U
+#define AIEML_NUM_USEREVENT_MEM_MOD		2U
+#define AIEML_NUM_TRACECONTROL_MEM_MOD		1U
+#define AIEML_NUM_PCEVENT_MEM_MOD		0U
+#define AIEML_NUM_SSSELECT_MEM_MOD		8U
+#define AIEML_NUM_BROADCAST_MEM_MOD		16U
+#define AIEML_NUM_COMBOEVENT_MEM_MOD		4U
+#define AIEML_NUM_GROUPEVENTS_MEM_MOD		9U
+
+#define AIEML_NUM_PERF_PL_MOD			2U
+#define AIEML_NUM_USEREVENT_PL_MOD		2U
+#define AIEML_NUM_TRACECONTROL_PL_MOD		1U
+#define AIEML_NUM_PCEVENT_PL_MOD		0U
+#define AIEML_NUM_SSSELECT_PL_MOD		8U
+#define AIEML_NUM_BROADCAST_PL_MOD		16U
+#define AIEML_NUM_COMBOEVENT_PL_MOD		4U
+#define AIEML_NUM_GROUPEVENTS_PL_MOD		6U
+
 /*
  * Register offsets
  */
@@ -27,23 +70,48 @@
 #define AIEML_SHIMNOC_BD15_7_REGOFF			0x0001d1fcU
 #define AIEML_SHIMNOC_L2INTR_MASK_REGOFF		0x00015000U
 #define AIEML_SHIMNOC_L2INTR_INTR_REGOFF		0x00015010U
+#define AIEML_SHIMNOC_LOCK_REGOFF			0x00014000U
+#define AIEML_SHIMNOC_LOCK_OVERFLOW_REGOFF		0x00014120U
+#define AIEML_SHIMNOC_LOCK_UNDERFLOW_REGOFF		0x00014128U
+#define AIEML_SHIMNOC_DMA_S2MM_STATUS_REGOFF		0x0001D220U
+#define AIEML_SHIMNOC_DMA_MM2S_STATUS_REGOFF		0x0001D228U
+
 #define AIEML_SHIMPL_BISRCACHE_CTRL_REGOFF		0x00036000U
 #define AIEML_SHIMPL_COLCLOCK_CTRL_REGOFF		0x000fff20U
 #define AIEML_SHIMPL_COLRESET_CTRL_REGOFF		0x000fff28U
+#define AIEML_SHIMPL_EVENT_BC0_REGOFF			0x00034010U
+#define AIEML_SHIMPL_EVENT_STATUS0_REGOFF		0x00034200U
+#define AIEML_SHIMPL_GROUP0_REGOFF			0x00034500U
 #define AIEML_SHIMPL_GROUPERROR_REGOFF			0x0003450cU
 #define AIEML_SHIMPL_L1INTR_MASK_A_REGOFF		0x00035000U
 #define AIEML_SHIMPL_L1INTR_BLOCK_NORTH_B_REGOFF	0x00035050U
+#define AIEML_SHIMPL_TILECTRL_REGOFF			0x00036030U
 #define AIEML_SHIMPL_MODCLOCK_CTRL_0_REGOFF		0x000fff00U
 #define AIEML_SHIMPL_MODCLOCK_CTRL_1_REGOFF		0x000fff04U
 #define AIEML_SHIMPL_MODRESET_CTRL_0_REGOFF		0x000fff10U
 #define AIEML_SHIMPL_MODRESET_CTRL_1_REGOFF		0x000fff14U
+
+#define AIEML_MEMORY_GROUP0_REGOFF			0x00094500U
 #define AIEML_MEMORY_GROUPERROR_REGOFF			0x00094518U
+#define AIEML_MEMORY_TILECTRL_REGOFF			0x00096030U
+#define AIEML_MEMORY_EVENT_BC0_REGOFF			0x00094010U
+#define AIEML_MEMORY_EVENT_STATUS0_REGOFF		0x00094200U
 #define AIEML_MEMORY_MEMCTRL_REGOFF			0x00096048U
 #define AIEML_MEMORY_MODCLOCKCTRL_REGOFF		0x000fff00U
 #define AIEML_MEMORY_MODRESETCTRL_REGOFF		0x000fff10U
+#define AIEML_MEMORY_LOCK_REGOFF			0x000C0000U
+#define AIEML_MEMORY_LOCK_OVERFLOW_REGOFF		0x000C0420U
+#define AIEML_MEMORY_LOCK_UNDERFLOW_REGOFF		0x000C0428U
+#define AIEML_MEMORY_DMA_S2MM_STATUS_REGOFF		0x000A0660U
+#define AIEML_MEMORY_DMA_MM2S_STATUS_REGOFF		0x000A0680U
+
 #define AIEML_TILE_COREMOD_AMLL0_PART1_REGOFF		0x00030000U
 #define AIEML_TILE_COREMOD_AMHH8_PART2_REGOFF		0x00030470U
 #define AIEML_TILE_COREMOD_GROUPERROR_REGOFF		0x00034510U
+#define AIEML_TILE_COREMOD_TILECTRL_REGOFF		0x00036030U
+#define AIEML_TILE_COREMOD_GROUP0_REGOFF		0x00034500U
+#define AIEML_TILE_COREMOD_EVENT_BC0_REGOFF		0x00034010U
+#define AIEML_TILE_COREMOD_EVENT_STATUS0_REGOFF		0x00034200U
 #define AIEML_TILE_COREMOD_MEMCTRL_REGOFF		0x00036070U
 #define AIEML_TILE_COREMOD_MODCLOCKCTRL_REGOFF		0x00060000U
 #define AIEML_TILE_COREMOD_MODRESETCTRL_REGOFF		0x00060010U
@@ -51,14 +119,33 @@
 #define AIEML_TILE_COREMOD_WH11_PART2_REGOFF		0x00030af0U
 #define AIEML_TILE_COREMOD_R0_REGOFF			0x00030c00U
 #define AIEML_TILE_COREMOD_R31_REGOFF			0x00030df0U
+#define AIEML_TILE_COREMOD_CORE_STATUS_REGOFF		0x00032004U
+#define AIEML_TILE_COREMOD_CORE_PC_REGOFF		0x00031100U
+#define AIEML_TILE_COREMOD_CORE_SP_REGOFF		0x00031120U
+#define AIEML_TILE_COREMOD_CORE_LR_REGOFF		0x00031130U
 #define AIEML_TILE_MEMMOD_GROUPERROR_REGOFF		0x00014514U
+#define AIEML_TILE_MEMMOD_GROUP0_REGOFF			0x00014500U
+#define AIEML_TILE_MEMMOD_EVENT_BC0_REGOFF		0x00014010U
+#define AIEML_TILE_MEMMOD_EVENT_STATUS0_REGOFF		0x00014200U
 #define AIEML_TILE_MEMMOD_MEMCTRL_REGOFF		0x00016010U
+#define AIEML_TILE_MEMMOD_LOCK_REGOFF			0x0001F000U
+#define AIEML_TILE_MEMMOD_LOCK_OVERFLOW_REGOFF		0x0001F120U
+#define AIEML_TILE_MEMMOD_LOCK_UNDERFLOW_REGOFF		0x0001F128U
+#define AIEML_TILE_MEMMOD_DMA_S2MM_STATUS_REGOFF	0x0001DF00U
+#define AIEML_TILE_MEMMOD_DMA_MM2S_STATUS_REGOFF	0x0001DF10U
 
 /*
  * Register masks
  */
 #define AIEML_SHIMPL_COLRESET_CTRL_MASK			GENMASK(1, 0)
 #define AIEML_SHIMPL_COLCLOCK_CTRL_MASK			GENMASK(1, 0)
+
+/* Macros to define size of a sysfs binary attribute */
+#define AIEML_PART_SYSFS_CORE_BINA_SIZE		0x4000		/* 16KB */
+#define AIEML_PART_SYSFS_LOCK_BINA_SIZE		0x28000		/* 160KB */
+#define AIEML_PART_SYSFS_ERROR_BINA_SIZE	0x4000		/* 16KB */
+#define AIEML_PART_SYSFS_DMA_BINA_SIZE		0xC800		/* 50KB */
+#define AIEML_PART_SYSFS_STATUS_BINA_SIZE	0x3c000		/* 240KB */
 
 static const struct aie_tile_regs aieml_kernel_regs[] = {
 	/* SHIM AXI MM Config */
@@ -94,6 +181,12 @@ static const struct aie_tile_regs aieml_kernel_regs[] = {
 	 .soff = AIEML_SHIMPL_COLRESET_CTRL_REGOFF,
 	 .eoff = AIEML_SHIMPL_COLRESET_CTRL_REGOFF,
 	},
+	/* SHIM tile control */
+	{.attribute = (AIE_TILE_TYPE_MASK_SHIMPL | AIE_TILE_TYPE_MASK_SHIMNOC) <<
+		AIE_REGS_ATTR_TILE_TYPE_SHIFT,
+	 .soff = AIEML_SHIMPL_TILECTRL_REGOFF,
+	 .eoff = AIEML_SHIMPL_TILECTRL_REGOFF,
+	},
 	/* SHIM group error enable */
 	{.attribute = (AIE_TILE_TYPE_MASK_SHIMPL | AIE_TILE_TYPE_MASK_SHIMNOC) <<
 		      AIE_REGS_ATTR_TILE_TYPE_SHIFT,
@@ -123,6 +216,11 @@ static const struct aie_tile_regs aieml_kernel_regs[] = {
 	 .soff = AIEML_MEMORY_GROUPERROR_REGOFF,
 	 .eoff = AIEML_MEMORY_GROUPERROR_REGOFF,
 	},
+	/* MEMORY mem tile control */
+	{.attribute = AIE_TILE_TYPE_MASK_MEMORY << AIE_REGS_ATTR_TILE_TYPE_SHIFT,
+	 .soff = AIEML_MEMORY_TILECTRL_REGOFF,
+	 .eoff = AIEML_MEMORY_TILECTRL_REGOFF,
+	},
 	/* MEMORY tile mem control */
 	{.attribute = AIE_TILE_TYPE_MASK_MEMORY << AIE_REGS_ATTR_TILE_TYPE_SHIFT,
 	 .soff = AIEML_MEMORY_MEMCTRL_REGOFF,
@@ -142,6 +240,11 @@ static const struct aie_tile_regs aieml_kernel_regs[] = {
 	{.attribute = AIE_TILE_TYPE_MASK_TILE << AIE_REGS_ATTR_TILE_TYPE_SHIFT,
 	 .soff = AIEML_TILE_COREMOD_GROUPERROR_REGOFF,
 	 .eoff = AIEML_TILE_COREMOD_GROUPERROR_REGOFF,
+	},
+	/* TILE tile control */
+	{.attribute = AIE_TILE_TYPE_MASK_TILE << AIE_REGS_ATTR_TILE_TYPE_SHIFT,
+	 .soff = AIEML_TILE_COREMOD_TILECTRL_REGOFF,
+	 .eoff = AIEML_TILE_COREMOD_TILECTRL_REGOFF,
 	},
 	/* TILE memory control */
 	{.attribute = AIE_TILE_TYPE_MASK_TILE << AIE_REGS_ATTR_TILE_TYPE_SHIFT,
@@ -168,6 +271,557 @@ static const struct aie_tile_regs aieml_kernel_regs[] = {
 	 .soff = AIEML_TILE_MEMMOD_MEMCTRL_REGOFF,
 	 .eoff = AIEML_TILE_MEMMOD_MEMCTRL_REGOFF,
 	},
+};
+
+/* resource attributes for core tile type */
+static const
+struct aie_tile_rsc_attr aieml_core_tile_rscs_attr[AIE_RSCTYPE_MAX] = {
+	{
+		/* perf counter */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_PERF_TILE_MEM_MOD,},
+			{.num_rscs = AIEML_NUM_PERF_TILE_CORE_MOD,},
+		},
+	},
+	{
+		/* user event */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_USEREVENT_TILE_MEM_MOD,},
+			{.num_rscs = AIEML_NUM_USEREVENT_TILE_CORE_MOD,},
+		},
+	},
+	{
+		/* trace control */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_TRACECONTROL_TILE_MEM_MOD,},
+			{.num_rscs = AIEML_NUM_TRACECONTROL_TILE_CORE_MOD,},
+		},
+	},
+	{
+		/* pc event */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_PCEVENT_TILE_MEM_MOD,},
+			{.num_rscs = AIEML_NUM_PCEVENT_TILE_CORE_MOD,},
+		},
+	},
+	{
+		/* stream switch port select */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_SSSELECT_TILE_MEM_MOD,},
+			{.num_rscs = AIEML_NUM_SSSELECT_TILE_CORE_MOD,},
+		},
+	},
+	{
+		/* broadcast */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_BROADCAST_TILE_MEM_MOD,},
+			{.num_rscs = AIEML_NUM_BROADCAST_TILE_CORE_MOD,},
+		},
+	},
+	{
+		/* combo events */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_COMBOEVENT_TILE_MEM_MOD,},
+			{.num_rscs = AIEML_NUM_COMBOEVENT_TILE_CORE_MOD,},
+		},
+	},
+	{
+		/* group events */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_GROUPEVENTS_TILE_MEM_MOD,},
+			{.num_rscs = AIEML_NUM_GROUPEVENTS_TILE_CORE_MOD,},
+		},
+	},
+};
+
+/* resource attributes for mem tile type */
+static const
+struct aie_tile_rsc_attr aieml_mem_tile_rscs_attr[AIE_RSCTYPE_MAX] = {
+	{
+		/* perf counter */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_PERF_MEM_MOD,},
+		},
+	},
+	{
+		/* user event */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_USEREVENT_MEM_MOD,},
+		},
+	},
+	{
+		/* trace control */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_TRACECONTROL_MEM_MOD,},
+		},
+	},
+	{
+		/* pc event */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_PCEVENT_MEM_MOD,},
+		},
+	},
+	{
+		/* stream switch port select */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_SSSELECT_MEM_MOD,},
+		},
+	},
+	{
+		/* broadcast */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_BROADCAST_MEM_MOD,},
+		},
+	},
+	{
+		/* combo events */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_COMBOEVENT_MEM_MOD,},
+		},
+	},
+	{
+		/* group events */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_GROUPEVENTS_MEM_MOD,},
+		},
+	},
+};
+
+/* resource attributes for shim tile type */
+static const
+struct aie_tile_rsc_attr aieml_shimpl_tile_rscs_attr[AIE_RSCTYPE_MAX] = {
+	{
+		/* perf counter */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_PERF_PL_MOD,},
+		},
+	},
+	{
+		/* user event */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_USEREVENT_PL_MOD,},
+		},
+	},
+	{
+		/* trace control */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_TRACECONTROL_PL_MOD,},
+		},
+	},
+	{
+		/* pc event */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_PCEVENT_PL_MOD,},
+		},
+	},
+	{
+		/* stream switch port select */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_SSSELECT_PL_MOD,},
+		},
+	},
+	{
+		/* broadcast */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_BROADCAST_PL_MOD,},
+		},
+	},
+	{
+		/* combo events */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_COMBOEVENT_PL_MOD,},
+		},
+	},
+	{
+		/* group events */
+		.mod_attr = {
+			{.num_rscs = AIEML_NUM_GROUPEVENTS_PL_MOD,},
+		},
+	},
+};
+
+/* modules types array of CORE tile */
+static const
+enum aie_module_type aieml_core_tile_module_types[NUM_MODS_CORE_TILE] = {
+	AIE_MEM_MOD,
+	AIE_CORE_MOD,
+};
+
+/* modules types array of MEM tile */
+static const
+enum aie_module_type aieml_mem_tile_module_types[NUM_MODS_MEM_TILE] = {
+	AIE_MEM_MOD,
+};
+
+/* modules types array of SHIM PL tile */
+static const
+enum aie_module_type aieml_shimpl_tile_module_types[NUM_MODS_SHIMPL_TILE] = {
+	AIE_PL_MOD,
+};
+
+static const struct aie_event_prop aieml_core_stream_error_prop[] = {
+	{
+		.event = 71U,
+		.event_str = "stream_switch_port_parity_error",
+	},
+	{
+		.event = 57U,
+		.event_str = "control_pkt_error",
+	},
+	{
+		.event = 56U,
+		.event_str = "stream_pkt_parity_error",
+	},
+};
+
+static const struct aie_event_prop aieml_core_inst_error_prop[] = {
+	{
+		.event = 59U,
+		.event_str = "instruction_decompression_error",
+	},
+	{
+		.event = 70U,
+		.event_str = "decompression_underflow",
+	},
+};
+
+static const struct aie_event_prop aieml_core_ecc_error_prop[] = {
+	{
+		.event = 64U,
+		.event_str = "pm_ecc_error_2-bit",
+	},
+	{
+		.event = 62U,
+		.event_str = "pm_ecc_error_scrub_2-bit",
+	},
+};
+
+static const struct aie_event_prop aieml_core_access_error_prop[] = {
+	{
+		.event = 55U,
+		.event_str = "pm_reg_access_failure",
+	},
+	{
+		.event = 60U,
+		.event_str = "dm_address_out_of_range",
+	},
+	{
+		.event = 65U,
+		.event_str = "pm_address_out_of_range",
+	},
+	{
+		.event = 66U,
+		.event_str = "dm_access_to_unavailable",
+	},
+};
+
+static const struct aie_event_prop aieml_core_lock_error_prop[] = {
+	{
+		.event = 67U,
+		.event_str = "lock_access_to_unavailable",
+	},
+	{
+		.event = 72U,
+		.event_str = "processor_bus_error",
+	},
+};
+
+static const struct aie_event_prop aieml_core_bus_error_prop[] = {
+	{
+		.event = 58U,
+		.event_str = "axi_mm_slave_error",
+	},
+};
+
+static const struct aie_event_prop aieml_mem_ecc_error_prop[] = {
+	{
+		.event = 88U,
+		.event_str = "dm_ecc_error_scrub_2-bit",
+	},
+	{
+		.event = 90U,
+		.event_str = "dm_ecc_error_2-bit",
+	},
+};
+
+static const struct aie_event_prop aieml_mem_parity_error_prop[] = {
+	{
+		.event = 96U,
+		.event_str = "dm_parity_error_bank_7",
+	},
+	{
+		.event = 95U,
+		.event_str = "dm_parity_error_bank_6",
+	},
+	{
+		.event = 94U,
+		.event_str = "dm_parity_error_bank_5",
+	},
+	{
+		.event = 93U,
+		.event_str = "dm_parity_error_bank_4",
+	},
+	{
+		.event = 92U,
+		.event_str = "dm_parity_error_bank_3",
+	},
+	{
+		.event = 91U,
+		.event_str = "dm_parity_error_bank_2",
+	},
+};
+
+static const struct aie_event_prop aieml_mem_dma_error_prop[] = {
+	{
+		.event = 100U,
+		.event_str = "dma_mm2s_1_error",
+	},
+	{
+		.event = 99U,
+		.event_str = "dma_mm2s_0_error",
+	},
+	{
+		.event = 98U,
+		.event_str = "dma_s2mm_1_error",
+	},
+	{
+		.event = 97U,
+		.event_str = "dma_s2mm_0_error",
+	},
+};
+
+static const struct aie_event_prop aieml_memtile_ecc_error_prop[] = {
+	{
+		.event = 132U,
+		.event_str = "dm_ecc_error_2-bit",
+	},
+	{
+		.event = 130U,
+		.event_str = "dm_ecc_error_scrub_2-bit",
+	},
+};
+
+static const struct aie_event_prop aieml_memtile_dma_error_prop[] = {
+	{
+		.event = 134U,
+		.event_str = "dma_mm2s_error",
+	},
+	{
+		.event = 133U,
+		.event_str = "dma_s2mm_error",
+	},
+};
+
+static const struct aie_event_prop aieml_memtile_stream_error_prop[] = {
+	{
+		.event = 137U,
+		.event_str = "control_pkt_error",
+	},
+	{
+		.event = 136U,
+		.event_str = "stream_pkt_parity_error",
+	},
+	{
+		.event = 135U,
+		.event_str = "stream_switch_port_parity_error",
+	},
+};
+
+static const struct aie_event_prop aieml_memtile_lock_error_prop[] = {
+	{
+		.event = 139U,
+		.event_str = "lock_error",
+	},
+};
+
+static const struct aie_event_prop aieml_memtile_bus_error_prop[] = {
+	{
+		.event = 58U,
+		.event_str = "axi_mm_slave_error",
+	},
+};
+
+static const struct aie_event_prop aieml_shim_bus_error_prop[] = {
+	{
+		.event = 71U,
+		.event_str = "axi_mm_byte_strobe_error",
+	},
+	{
+		.event = 70U,
+		.event_str = "axi_mm_unsecure_access_in_secure_mode",
+	},
+	{
+		.event = 69U,
+		.event_str = "axi_mm_unsupported_traffic",
+	},
+	{
+		.event = 68U,
+		.event_str = "axi_mm_slave_nsu_error",
+	},
+	{
+		.event = 67U,
+		.event_str = "axi_mm_decode_nsu_error",
+	},
+	{
+		.event = 64U,
+		.event_str = "axi_mm_slave_tile_error",
+	},
+};
+
+static const struct aie_event_prop aieml_shim_stream_error_prop[] = {
+	{
+		.event = 66U,
+		.event_str = "stream_switch_port_parity_error",
+	},
+	{
+		.event = 65U,
+		.event_str = "control_pkt_error",
+	},
+};
+
+static const struct aie_event_prop aieml_shim_dma_error_prop[] = {
+	{
+		.event = 73U,
+		.event_str = "dma_mm2s_error",
+	},
+	{
+		.event = 72U,
+		.event_str = "dma_s2mm_error",
+	},
+};
+
+static const struct aie_err_category aieml_core_err_category[] = {
+	{
+		/* AIE_ERROR_CATEGORY_STREAM */
+		.err_category = AIE_ERROR_CATEGORY_STREAM,
+		.num_events = ARRAY_SIZE(aieml_core_stream_error_prop),
+		.prop = aieml_core_stream_error_prop,
+	},
+	{
+		/* AIE_ERROR_CATEGORY_ACCESS */
+		.err_category = AIE_ERROR_CATEGORY_ACCESS,
+		.num_events = ARRAY_SIZE(aieml_core_access_error_prop),
+		.prop = aieml_core_access_error_prop,
+	},
+	{
+		/* AIE_ERROR_CATEGORY_BUS */
+		.err_category = AIE_ERROR_CATEGORY_BUS,
+		.num_events = ARRAY_SIZE(aieml_core_bus_error_prop),
+		.prop = aieml_core_bus_error_prop,
+	},
+	{
+		/* AIE_ERROR_CATEGORY_INSTRUCTION */
+		.err_category = AIE_ERROR_CATEGORY_INSTRUCTION,
+		.num_events = ARRAY_SIZE(aieml_core_inst_error_prop),
+		.prop = aieml_core_inst_error_prop,
+	},
+	{
+		/* AIE_ERROR_CATEGORY_ECC */
+		.err_category = AIE_ERROR_CATEGORY_ECC,
+		.num_events = ARRAY_SIZE(aieml_core_ecc_error_prop),
+		.prop = aieml_core_ecc_error_prop,
+	},
+	{
+		/* AIE_ERROR_CATEGORY_LOCK */
+		.err_category = AIE_ERROR_CATEGORY_LOCK,
+		.num_events = ARRAY_SIZE(aieml_core_lock_error_prop),
+		.prop = aieml_core_lock_error_prop,
+	},
+};
+
+static const struct aie_err_category aieml_mem_err_category[] = {
+	{
+		/* AIE_ERROR_CATEGORY_ECC */
+		.err_category = AIE_ERROR_CATEGORY_ECC,
+		.num_events = ARRAY_SIZE(aieml_mem_ecc_error_prop),
+		.prop = aieml_mem_ecc_error_prop,
+	},
+	{
+		/* AIE_ERROR_CATEGORY_MEM_PARITY */
+		.err_category = AIE_ERROR_CATEGORY_MEM_PARITY,
+		.num_events = ARRAY_SIZE(aieml_mem_parity_error_prop),
+		.prop = aieml_mem_parity_error_prop,
+	},
+	{
+		/* AIE_ERROR_CATEGORY_DMA */
+		.err_category = AIE_ERROR_CATEGORY_DMA,
+		.num_events = ARRAY_SIZE(aieml_mem_dma_error_prop),
+		.prop = aieml_mem_dma_error_prop,
+	},
+};
+
+static const struct aie_err_category aieml_memtile_err_category[] = {
+	{
+		/* AIE_ERROR_CATEGORY_ECC */
+		.err_category = AIE_ERROR_CATEGORY_ECC,
+		.num_events = ARRAY_SIZE(aieml_memtile_ecc_error_prop),
+		.prop = aieml_memtile_ecc_error_prop,
+	},
+	{
+		/* AIE_ERROR_CATEGORY_STREAM */
+		.err_category = AIE_ERROR_CATEGORY_STREAM,
+		.num_events = ARRAY_SIZE(aieml_memtile_stream_error_prop),
+		.prop = aieml_memtile_stream_error_prop,
+	},
+	{
+		/* AIE_ERROR_CATEGORY_DMA */
+		.err_category = AIE_ERROR_CATEGORY_DMA,
+		.num_events = ARRAY_SIZE(aieml_memtile_dma_error_prop),
+		.prop = aieml_memtile_dma_error_prop,
+	},
+	{
+		/* AIE_ERROR_CATEGORY_BUS */
+		.err_category = AIE_ERROR_CATEGORY_BUS,
+		.num_events = ARRAY_SIZE(aieml_memtile_bus_error_prop),
+		.prop = aieml_memtile_bus_error_prop,
+	},
+	{
+		/* AIE_ERROR_CATEGORY_LOCK */
+		.err_category = AIE_ERROR_CATEGORY_LOCK,
+		.num_events = ARRAY_SIZE(aieml_memtile_lock_error_prop),
+		.prop = aieml_memtile_lock_error_prop,
+	},
+};
+
+static const struct aie_err_category aieml_shim_err_category[] = {
+	{
+		/* AIE_ERROR_CATEGORY_BUS */
+		.err_category = AIE_ERROR_CATEGORY_BUS,
+		.num_events = ARRAY_SIZE(aieml_shim_bus_error_prop),
+		.prop = aieml_shim_bus_error_prop,
+	},
+	{
+		/* AIE_ERROR_CATEGORY_STREAM */
+		.err_category = AIE_ERROR_CATEGORY_STREAM,
+		.num_events = ARRAY_SIZE(aieml_shim_stream_error_prop),
+		.prop = aieml_shim_stream_error_prop,
+	},
+	{
+		/* AIE_ERROR_CATEGORY_DMA */
+		.err_category = AIE_ERROR_CATEGORY_DMA,
+		.num_events = ARRAY_SIZE(aieml_shim_dma_error_prop),
+		.prop = aieml_shim_dma_error_prop,
+	},
+};
+
+static const struct aie_error_attr aieml_core_error = {
+	.num_err_categories = ARRAY_SIZE(aieml_core_err_category),
+	.err_category = aieml_core_err_category,
+};
+
+static const struct aie_error_attr aieml_mem_error = {
+	.num_err_categories = ARRAY_SIZE(aieml_mem_err_category),
+	.err_category = aieml_mem_err_category,
+};
+
+static const struct aie_error_attr aieml_memtile_error = {
+	.num_err_categories = ARRAY_SIZE(aieml_memtile_err_category),
+	.err_category = aieml_memtile_err_category,
+};
+
+static const struct aie_error_attr aieml_shim_error = {
+	.num_err_categories = ARRAY_SIZE(aieml_shim_err_category),
+	.err_category = aieml_shim_err_category,
 };
 
 static const struct aie_tile_regs aieml_core_amxx_regs = {
@@ -210,6 +864,26 @@ static const struct aie_single_reg_field aieml_col_clkbuf = {
 	.regoff = AIEML_SHIMPL_COLCLOCK_CTRL_REGOFF,
 };
 
+static const struct aie_single_reg_field aieml_core_sts = {
+	.mask = GENMASK(21, 0),
+	.regoff = AIEML_TILE_COREMOD_CORE_STATUS_REGOFF,
+};
+
+static const struct aie_single_reg_field aieml_core_pc = {
+	.mask = GENMASK(19, 0),
+	.regoff = AIEML_TILE_COREMOD_CORE_PC_REGOFF,
+};
+
+static const struct aie_single_reg_field aieml_core_lr = {
+	.mask = GENMASK(19, 0),
+	.regoff = AIEML_TILE_COREMOD_CORE_LR_REGOFF,
+};
+
+static const struct aie_single_reg_field aieml_core_sp = {
+	.mask = GENMASK(19, 0),
+	.regoff = AIEML_TILE_COREMOD_CORE_SP_REGOFF,
+};
+
 static const struct aie_dma_attr aieml_shimdma = {
 	.laddr = {
 		.mask = 0xffffffffU,
@@ -223,9 +897,295 @@ static const struct aie_dma_attr aieml_shimdma = {
 		.mask = 0xffffffffU,
 		.regoff = 0x0U,
 	},
+	.chansts = {
+		.mask = BIT(19),
+		.regoff = 0x4,
+	},
+	.qsize = {
+		.mask = GENMASK(22, 20),
+		.regoff = 0x0,
+	},
+	.qsts = {
+		.mask = BIT(18),
+		.regoff = 0x0,
+	},
+	.curbd = {
+		.mask = GENMASK(27, 24),
+		.regoff = 0x0,
+	},
 	.bd_regoff = AIEML_SHIMNOC_BD0_0_REGOFF,
 	.num_bds = 16,
 	.bd_len = 0x20U,
+	.num_mm2s_chan = 2U,
+	.num_s2mm_chan = 2U,
+	.mm2s_sts_regoff = AIEML_SHIMNOC_DMA_MM2S_STATUS_REGOFF,
+	.s2mm_sts_regoff = AIEML_SHIMNOC_DMA_S2MM_STATUS_REGOFF,
+};
+
+static const struct aie_dma_attr aieml_tiledma = {
+	.chansts = {
+		.mask = BIT(19),
+		.regoff = 0x4,
+	},
+	.qsize = {
+		.mask = GENMASK(22, 20),
+		.regoff = 0x0,
+	},
+	.qsts = {
+		.mask = BIT(18),
+		.regoff = 0x0,
+	},
+	.curbd = {
+		.mask = GENMASK(27, 24),
+		.regoff = 0x0,
+	},
+	.num_mm2s_chan = 2U,
+	.num_s2mm_chan = 2U,
+	.mm2s_sts_regoff = AIEML_TILE_MEMMOD_DMA_MM2S_STATUS_REGOFF,
+	.s2mm_sts_regoff = AIEML_TILE_MEMMOD_DMA_S2MM_STATUS_REGOFF,
+};
+
+static const struct aie_dma_attr aieml_memtiledma = {
+	.chansts = {
+		.mask = BIT(19),
+		.regoff = 0x4,
+	},
+	.qsize = {
+		.mask = GENMASK(22, 20),
+		.regoff = 0x0,
+	},
+	.qsts = {
+		.mask = BIT(18),
+		.regoff = 0x0,
+	},
+	.curbd = {
+		.mask = GENMASK(29, 24),
+		.regoff = 0x0,
+	},
+	.num_mm2s_chan = 6U,
+	.num_s2mm_chan = 6U,
+	.mm2s_sts_regoff = AIEML_MEMORY_DMA_MM2S_STATUS_REGOFF,
+	.s2mm_sts_regoff = AIEML_MEMORY_DMA_S2MM_STATUS_REGOFF,
+};
+
+static const struct aie_lock_attr aieml_pl_lock = {
+	.sts = {
+		.mask = GENMASK(5, 0),
+		.regoff = 0x10,
+	},
+	.sts_regoff = AIEML_SHIMNOC_LOCK_REGOFF,
+	.num_locks = 16U,
+	.overflow = {
+		.mask = GENMASK(15, 0),
+		.regoff = 0x4,
+	},
+	.overflow_regoff = AIEML_SHIMNOC_LOCK_OVERFLOW_REGOFF,
+	.underflow = {
+		.mask = GENMASK(15, 0),
+		.regoff = 0x4,
+	},
+	.underflow_regoff = AIEML_SHIMNOC_LOCK_UNDERFLOW_REGOFF,
+};
+
+static const struct aie_lock_attr aieml_mem_lock = {
+	.sts = {
+		.mask = GENMASK(5, 0),
+		.regoff = 0x10,
+	},
+	.sts_regoff = AIEML_TILE_MEMMOD_LOCK_REGOFF,
+	.num_locks = 16U,
+	.overflow = {
+		.mask = GENMASK(15, 0),
+		.regoff = 0x4,
+	},
+	.overflow_regoff = AIEML_TILE_MEMMOD_LOCK_OVERFLOW_REGOFF,
+	.underflow = {
+		.mask = GENMASK(15, 0),
+		.regoff = 0x4,
+	},
+	.underflow_regoff = AIEML_TILE_MEMMOD_LOCK_UNDERFLOW_REGOFF,
+};
+
+static const struct aie_lock_attr aieml_memtile_lock = {
+	.sts = {
+		.mask = GENMASK(5, 0),
+		.regoff = 0x10,
+	},
+	.sts_regoff = AIEML_MEMORY_LOCK_REGOFF,
+	.num_locks = 64U,
+	.overflow = {
+		.mask = GENMASK(31, 0),
+		.regoff = 0x4,
+	},
+	.overflow_regoff = AIEML_MEMORY_LOCK_OVERFLOW_REGOFF,
+	.underflow = {
+		.mask = GENMASK(31, 0),
+		.regoff = 0x4,
+	},
+	.underflow_regoff = AIEML_MEMORY_LOCK_UNDERFLOW_REGOFF,
+};
+
+static const struct aie_event_attr aieml_pl_event = {
+	.bc_event = {
+		.mask = GENMASK(6, 0),
+		.regoff = 0U,
+	},
+	.group_error = {
+		.mask = GENMASK(11, 0),
+		.regoff = 0xcU,
+	},
+	.bc_regoff = AIEML_SHIMPL_EVENT_BC0_REGOFF,
+	.status_regoff = AIEML_SHIMPL_EVENT_STATUS0_REGOFF,
+	.group_regoff = AIEML_SHIMPL_GROUP0_REGOFF,
+	.base_error_event = 64U,
+	.num_broadcasts = 16U,
+	.base_bc_event = 110U,
+	.num_events = 128U,
+};
+
+static const struct aie_event_attr aieml_memtile_event = {
+	.bc_event = {
+		.mask = GENMASK(7, 0),
+		.regoff = 0U,
+	},
+	.group_error = {
+		.mask = GENMASK(11, 0),
+		.regoff = 0x18U,
+	},
+	.bc_regoff = AIEML_MEMORY_EVENT_BC0_REGOFF,
+	.status_regoff = AIEML_MEMORY_EVENT_STATUS0_REGOFF,
+	.group_regoff = AIEML_MEMORY_GROUP0_REGOFF,
+	.base_error_event = 129U,
+	.num_broadcasts = 16U,
+	.base_bc_event = 142U,
+	.num_events = 192U,
+};
+
+static const struct aie_event_attr aieml_mem_event = {
+	.bc_event = {
+		.mask = GENMASK(6, 0),
+		.regoff = 0U,
+	},
+	.group_error = {
+		.mask = GENMASK(15, 0),
+		.regoff = 0x14U,
+	},
+	.bc_regoff = AIEML_TILE_MEMMOD_EVENT_BC0_REGOFF,
+	.status_regoff = AIEML_TILE_MEMMOD_EVENT_STATUS0_REGOFF,
+	.group_regoff = AIEML_TILE_MEMMOD_GROUP0_REGOFF,
+	.base_error_event = 87U,
+	.num_broadcasts = 16U,
+	.base_bc_event = 107U,
+	.num_events = 128U,
+};
+
+static const struct aie_event_attr aieml_core_event = {
+	.bc_event = {
+		.mask = GENMASK(6, 0),
+		.regoff = 0U,
+	},
+	.group_error = {
+		.mask = GENMASK(24, 0),
+		.regoff = 0x10U,
+	},
+	.bc_regoff = AIEML_TILE_COREMOD_EVENT_BC0_REGOFF,
+	.status_regoff = AIEML_TILE_COREMOD_EVENT_STATUS0_REGOFF,
+	.group_regoff = AIEML_TILE_COREMOD_GROUP0_REGOFF,
+	.base_error_event = 48U,
+	.num_broadcasts = 16U,
+	.base_bc_event = 107U,
+	.num_events = 128U,
+};
+
+static char *aieml_core_status_str[] = {
+	"enable",
+	"reset",
+	"south_memory_stall",
+	"west_memory_stall",
+	"north_memory_stall",
+	"east_memory_stall",
+	"south_lock_stall",
+	"west_lock_stall",
+	"north_lock_stall",
+	"east_lock_stall",
+	"stream_stall_ss0",
+	"",
+	"stream_stall_ms0",
+	"",
+	"cascade_stall_scd",
+	"cascade_stall_mcd",
+	"debug_halt",
+	"ecc_error_stall",
+	"ecc_scrubbing_stall",
+	"error_halt",
+	"core_done",
+	"core_processor_bus_stall",
+};
+
+static char *aieml_dma_chan_status_str[] = {
+	"idle",
+	"running",
+};
+
+static char *aieml_dma_qsts_str[] = {
+	"okay",
+	"overflow",
+};
+
+static const struct aie_dev_attr aieml_aperture_dev_attr[] = {
+	AIE_APERTURE_ATTR_RO(hardware_info),
+};
+
+static const struct aie_dev_attr aieml_tile_dev_attr[] = {
+	AIE_TILE_DEV_ATTR_RO(core, AIE_TILE_TYPE_MASK_TILE),
+	AIE_TILE_DEV_ATTR_RO(dma, AIE_TILE_TYPE_MASK_TILE |
+			     AIE_TILE_TYPE_MASK_MEMORY |
+			     AIE_TILE_TYPE_MASK_SHIMNOC),
+	AIE_TILE_DEV_ATTR_RO(error, AIE_TILE_TYPE_MASK_TILE |
+			     AIE_TILE_TYPE_MASK_MEMORY |
+			     AIE_TILE_TYPE_MASK_SHIMNOC |
+			     AIE_TILE_TYPE_MASK_SHIMPL),
+	AIE_TILE_DEV_ATTR_RO(event, AIE_TILE_TYPE_MASK_TILE |
+			     AIE_TILE_TYPE_MASK_MEMORY |
+			     AIE_TILE_TYPE_MASK_SHIMNOC |
+			     AIE_TILE_TYPE_MASK_SHIMPL),
+	AIE_TILE_DEV_ATTR_RO(lock, AIE_TILE_TYPE_MASK_TILE |
+			     AIE_TILE_TYPE_MASK_MEMORY |
+			     AIE_TILE_TYPE_MASK_SHIMNOC),
+};
+
+static const struct aie_dev_attr aieml_part_dev_attr[] = {
+	AIE_PART_DEV_ATTR_RO(current_freq),
+	AIE_PART_DEV_ATTR_RO(error_stat),
+};
+
+static const struct aie_bin_attr aieml_part_bin_attr[] = {
+	AIE_PART_BIN_ATTR_RO(core, AIEML_PART_SYSFS_CORE_BINA_SIZE),
+	AIE_PART_BIN_ATTR_RO(lock, AIEML_PART_SYSFS_LOCK_BINA_SIZE),
+	AIE_PART_BIN_ATTR_RO(dma, AIEML_PART_SYSFS_DMA_BINA_SIZE),
+	AIE_PART_BIN_ATTR_RO(error, AIEML_PART_SYSFS_ERROR_BINA_SIZE),
+	AIE_PART_BIN_ATTR_RO(status, AIEML_PART_SYSFS_STATUS_BINA_SIZE),
+};
+
+static const struct aie_sysfs_attr aieml_aperture_sysfs_attr = {
+	.dev_attr = aieml_aperture_dev_attr,
+	.bin_attr = NULL,
+	.num_dev_attrs = ARRAY_SIZE(aieml_aperture_dev_attr),
+	.num_bin_attrs = 0U,
+};
+
+static const struct aie_sysfs_attr aieml_part_sysfs_attr = {
+	.dev_attr = aieml_part_dev_attr,
+	.bin_attr = aieml_part_bin_attr,
+	.num_dev_attrs = ARRAY_SIZE(aieml_part_dev_attr),
+	.num_bin_attrs = ARRAY_SIZE(aieml_part_bin_attr),
+};
+
+static const struct aie_sysfs_attr aieml_tile_sysfs_attr = {
+	.dev_attr = aieml_tile_dev_attr,
+	.bin_attr = NULL,
+	.num_dev_attrs = ARRAY_SIZE(aieml_tile_dev_attr),
+	.num_bin_attrs = 0U,
 };
 
 static u32 aieml_get_tile_type(struct aie_device *adev,
@@ -242,6 +1202,542 @@ static u32 aieml_get_tile_type(struct aie_device *adev,
 			return AIE_TILE_TYPE_SHIMPL;
 
 	return AIE_TILE_TYPE_SHIMNOC;
+}
+
+static u32 aieml_get_lock_status(struct aie_partition *apart,
+				 struct aie_location *loc, u8 lock)
+{
+	const struct aie_lock_attr *attr;
+	u32 ttype, stsoff, regoff, value;
+
+	ttype = aieml_get_tile_type(apart->adev, loc);
+	if (ttype == AIE_TILE_TYPE_TILE)
+		attr = &aieml_mem_lock;
+	else if (ttype == AIE_TILE_TYPE_MEMORY)
+		attr = &aieml_memtile_lock;
+	else
+		attr = &aieml_pl_lock;
+
+	stsoff = attr->sts.regoff * lock + attr->sts_regoff;
+	regoff = aie_cal_regoff(apart->adev, *loc, stsoff);
+	value = ioread32(apart->aperture->base + regoff);
+
+	return aie_get_reg_field(&attr->sts, value);
+}
+
+static u64 aieml_get_lock_overflow_status(struct aie_partition *apart,
+					  struct aie_location *loc)
+{
+	const struct aie_lock_attr *attr;
+	u32 ttype, stsoff, regoff;
+	u64 value = 0;
+
+	ttype = aieml_get_tile_type(apart->adev, loc);
+	if (ttype == AIE_TILE_TYPE_TILE)
+		attr = &aieml_mem_lock;
+	else if (ttype == AIE_TILE_TYPE_MEMORY)
+		attr = &aieml_memtile_lock;
+	else
+		attr = &aieml_pl_lock;
+
+	if (ttype != AIE_TILE_TYPE_MEMORY) {
+		stsoff = attr->overflow_regoff;
+		regoff = aie_cal_regoff(apart->adev, *loc, stsoff);
+		value = ioread32(apart->aperture->base + regoff);
+		value = aie_get_reg_field(&attr->overflow, value);
+	} else {
+		stsoff = attr->overflow_regoff;
+		regoff = aie_cal_regoff(apart->adev, *loc, stsoff);
+		value = ioread32(apart->aperture->base + regoff);
+
+		stsoff = attr->overflow.regoff * 1U + attr->overflow_regoff;
+		regoff = aie_cal_regoff(apart->adev, *loc, stsoff);
+		value |= ((u64)ioread32(apart->aperture->base + regoff)) << 32;
+	}
+	return value;
+}
+
+static u64 aieml_get_lock_underflow_status(struct aie_partition *apart,
+					   struct aie_location *loc)
+{
+	const struct aie_lock_attr *attr;
+	u32 ttype, stsoff, regoff;
+	u64 value = 0;
+
+	ttype = aieml_get_tile_type(apart->adev, loc);
+	if (ttype == AIE_TILE_TYPE_TILE)
+		attr = &aieml_mem_lock;
+	else if (ttype == AIE_TILE_TYPE_MEMORY)
+		attr = &aieml_memtile_lock;
+	else
+		attr = &aieml_pl_lock;
+
+	if (ttype != AIE_TILE_TYPE_MEMORY) {
+		stsoff = attr->underflow_regoff;
+		regoff = aie_cal_regoff(apart->adev, *loc, stsoff);
+		value = ioread32(apart->aperture->base + regoff);
+		value = aie_get_reg_field(&attr->underflow, value);
+	} else {
+		stsoff = attr->underflow_regoff;
+		regoff = aie_cal_regoff(apart->adev, *loc, stsoff);
+		value = ioread32(apart->aperture->base + regoff);
+
+		stsoff = attr->underflow.regoff * 1U + attr->underflow_regoff;
+		regoff = aie_cal_regoff(apart->adev, *loc, stsoff);
+		value |= ((u64)ioread32(apart->aperture->base + regoff)) << 32;
+	}
+	return value;
+}
+
+static ssize_t aieml_get_tile_sysfs_lock_status(struct aie_partition *apart,
+						struct aie_location *loc,
+						char *buffer, ssize_t size)
+{
+	unsigned long overflow, underflow;
+	u32 i, ttype, num_locks;
+	ssize_t len = 0;
+
+	ttype = aieml_get_tile_type(apart->adev, loc);
+	if (ttype == AIE_TILE_TYPE_SHIMPL)
+		return len;
+
+	if (ttype == AIE_TILE_TYPE_TILE)
+		num_locks = aieml_mem_lock.num_locks;
+	else if (ttype == AIE_TILE_TYPE_MEMORY)
+		num_locks = aieml_memtile_lock.num_locks;
+	else
+		num_locks = aieml_pl_lock.num_locks;
+
+	if (!aie_part_check_clk_enable_loc(apart, loc)) {
+		for (i = 0; i < num_locks; i++) {
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					 "%d: clock_gated\n", i);
+		}
+		return len;
+	}
+
+	overflow = aieml_get_lock_overflow_status(apart, loc);
+
+	underflow = aieml_get_lock_underflow_status(apart, loc);
+
+	for (i = 0; i < num_locks; i++) {
+		len += scnprintf(&buffer[len], max(0L, size - len), "%d: %d",
+				 i, aieml_get_lock_status(apart, loc, i));
+
+		if (test_bit(num_locks, &overflow))
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					 "|overflow");
+
+		if (test_bit(num_locks, &underflow))
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					 "|underflow");
+
+		len += scnprintf(&buffer[len], max(0L, size - len), "\n");
+	}
+
+	return len;
+}
+
+static ssize_t aieml_get_part_sysfs_lock_status(struct aie_partition *apart,
+						struct aie_location *loc,
+						char *buffer, ssize_t size)
+{
+	u32 i, ttype, num_locks;
+	ssize_t len = 0;
+
+	if (!aie_part_check_clk_enable_loc(apart, loc)) {
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 "clock_gated");
+		return len;
+	}
+
+	ttype = aieml_get_tile_type(apart->adev, loc);
+	if (ttype == AIE_TILE_TYPE_TILE)
+		num_locks = aieml_mem_lock.num_locks;
+	else if (ttype == AIE_TILE_TYPE_MEMORY)
+		num_locks = aieml_memtile_lock.num_locks;
+	else
+		num_locks = aieml_pl_lock.num_locks;
+
+	for (i = 0; i < num_locks; i++) {
+		len += scnprintf(&buffer[len], max(0L, size - len), "%d",
+				 aieml_get_lock_status(apart, loc, i));
+
+		if (i < num_locks - 1)
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					 DELIMITER_LEVEL0);
+	}
+
+	return len;
+}
+
+/*
+ * aieml_get_tile_dma_attr() - gets tile dma attribute for AIEML
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @attr: pointer of attribute to assign
+ */
+static void aieml_get_tile_dma_attr(struct aie_partition *apart,
+				    struct aie_location *loc,
+				    const struct aie_dma_attr **attr)
+{
+	u32 ttype;
+
+	ttype = aieml_get_tile_type(apart->adev, loc);
+	if (ttype == AIE_TILE_TYPE_TILE)
+		*attr = &aieml_tiledma;
+	else if (ttype == AIE_TILE_TYPE_MEMORY)
+		*attr = &aieml_memtiledma;
+	else
+		*attr = &aieml_shimdma;
+}
+
+/**
+ * aieml_get_dma_s2mm_status() - reads the DMA stream to memory map status.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @chanid: DMA channel ID.
+ * @return: 32-bit register value.
+ */
+static u32 aieml_get_dma_s2mm_status(struct aie_partition *apart,
+				     struct aie_location *loc, u8 chanid)
+{
+	const struct aie_dma_attr *attr;
+	u32 stsoff, regoff;
+
+	aieml_get_tile_dma_attr(apart, loc, &attr);
+
+	stsoff = attr->s2mm_sts_regoff + chanid * attr->chansts.regoff;
+	regoff = aie_cal_regoff(apart->adev, *loc, stsoff);
+
+	return ioread32(apart->aperture->base + regoff);
+}
+
+/**
+ * aieml_get_dma_mm2s_status() - reads the DMA memory map to stream status.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @chanid: DMA channel ID.
+ * @return: 32-bit register value.
+ */
+static u32 aieml_get_dma_mm2s_status(struct aie_partition *apart,
+				     struct aie_location *loc, u8 chanid)
+{
+	const struct aie_dma_attr *attr;
+	u32 stsoff, regoff;
+
+	aieml_get_tile_dma_attr(apart, loc, &attr);
+
+	stsoff = attr->mm2s_sts_regoff + chanid * attr->chansts.regoff;
+	regoff = aie_cal_regoff(apart->adev, *loc, stsoff);
+
+	return ioread32(apart->aperture->base + regoff);
+}
+
+/**
+ * aieml_get_chan_status() - reads the DMA channel status from DMA status value.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @status: status value of DMA.
+ * @return: 8-bit status value.
+ */
+static u8 aieml_get_chan_status(struct aie_partition *apart,
+				struct aie_location *loc, u32 status)
+{
+	const struct aie_dma_attr *attr;
+
+	aieml_get_tile_dma_attr(apart, loc, &attr);
+
+	return aie_get_reg_field(&attr->chansts, status);
+}
+
+/**
+ * aieml_get_queue_size() - reads the DMA queue size from DMA status value.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @status: status value of DMA.
+ * @return: 8-bit value.
+ */
+static u8 aieml_get_queue_size(struct aie_partition *apart,
+			       struct aie_location *loc, u32 status)
+{
+	const struct aie_dma_attr *attr;
+
+	aieml_get_tile_dma_attr(apart, loc, &attr);
+
+	return aie_get_reg_field(&attr->qsize, status);
+}
+
+/**
+ * aieml_get_queue_status() - reads the DMA queue status from DMA status value.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @status: status value of DMA.
+ * @return: 8-bit status value.
+ */
+static u8 aieml_get_queue_status(struct aie_partition *apart,
+				 struct aie_location *loc, u32 status)
+{
+	const struct aie_dma_attr *attr;
+
+	aieml_get_tile_dma_attr(apart, loc, &attr);
+
+	return aie_get_reg_field(&attr->qsts, status);
+}
+
+/**
+ * aieml_get_current_bd() - reads the current buffer descriptor being processed
+ *			    by DMA channel from DMA status value.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @status: status value of DMA.
+ * @return: 8-bit buffer descriptor value.
+ */
+static u8 aieml_get_current_bd(struct aie_partition *apart,
+			       struct aie_location *loc, u32 status)
+{
+	const struct aie_dma_attr *attr;
+
+	aieml_get_tile_dma_attr(apart, loc, &attr);
+
+	return aie_get_reg_field(&attr->curbd, status);
+}
+
+/**
+ * aieml_get_part_sysfs_dma_status() - returns the status of DMA in string
+ *				       format with MM2S and S2MM type channel
+ *				       separated by a ',' symbol. Channels with
+ *				       a given type are separated by a '|'
+ *				       symbol.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @buffer: location to return DMA status string.
+ * @size: total size of buffer available.
+ * @return: length of string copied to buffer.
+ */
+static ssize_t aieml_get_part_sysfs_dma_status(struct aie_partition *apart,
+					       struct aie_location *loc,
+					       char *buffer, ssize_t size)
+{
+	u32 i, ttype, num_s2mm_chan, num_mm2s_chan;
+	bool is_delimit_req = false;
+	ssize_t len = 0;
+
+	if (!aie_part_check_clk_enable_loc(apart, loc)) {
+		len += scnprintf(buffer, max(0L, size - len),
+				 "mm2s: clock_gated%ss2mm: clock_gated",
+				 DELIMITER_LEVEL1);
+		return len;
+	}
+
+	ttype = aieml_get_tile_type(apart->adev, loc);
+	if (ttype == AIE_TILE_TYPE_TILE) {
+		num_mm2s_chan = aieml_tiledma.num_mm2s_chan;
+		num_s2mm_chan = aieml_tiledma.num_s2mm_chan;
+	} else if (ttype == AIE_TILE_TYPE_MEMORY) {
+		num_mm2s_chan = aieml_memtiledma.num_mm2s_chan;
+		num_s2mm_chan = aieml_memtiledma.num_s2mm_chan;
+	} else {
+		num_mm2s_chan = aieml_shimdma.num_mm2s_chan;
+		num_s2mm_chan = aieml_shimdma.num_s2mm_chan;
+	}
+
+	/* MM2S */
+	len += scnprintf(&buffer[len], max(0L, size - len), "mm2s: ");
+	for (i = 0; i < num_mm2s_chan; i++) {
+		u32 status = aieml_get_dma_mm2s_status(apart, loc, i);
+		u32 value = aieml_get_chan_status(apart, loc, status);
+
+		if (is_delimit_req)
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					 DELIMITER_LEVEL0);
+
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 aieml_dma_chan_status_str[value]);
+		is_delimit_req = true;
+	}
+
+	/* S2MM */
+	is_delimit_req = false;
+	len += scnprintf(&buffer[len], max(0L, size - len), "%ss2mm: ",
+			 DELIMITER_LEVEL1);
+	for (i = 0; i < num_s2mm_chan; i++) {
+		u32 status = aieml_get_dma_s2mm_status(apart, loc, i);
+		u32 value = aieml_get_chan_status(apart, loc, status);
+
+		if (is_delimit_req)
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					 DELIMITER_LEVEL0);
+
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 aieml_dma_chan_status_str[value]);
+		is_delimit_req = true;
+	}
+
+	return len;
+}
+
+/**
+ * aieml_get_tile_sysfs_dma_status() - exports AI engine DMA channel status,
+ *				       queue size, queue status, and current
+ *				       buffer descriptor ID being processed by
+ *				       DMA channel to a tile level sysfs node.
+ * @apart: AI engine partition.
+ * @loc: location of AI engine DMA.
+ * @buffer: location to return DMA status string.
+ * @size: total size of buffer available.
+ * @return: length of string copied to buffer.
+ */
+static ssize_t aieml_get_tile_sysfs_dma_status(struct aie_partition *apart,
+					       struct aie_location *loc,
+					       char *buffer, ssize_t size)
+{
+	u32 i, ttype, chan, mm2s[AIE_MAX_MM2S_CH], s2mm[AIE_MAX_S2MM_CH],
+	    num_s2mm_chan, num_mm2s_chan;
+	bool is_delimit_req = false;
+	ssize_t len = 0;
+
+	if (!aie_part_check_clk_enable_loc(apart, loc)) {
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 "channel_status: mm2s: clock_gated%ss2mm: clock_gated\n",
+				 DELIMITER_LEVEL1);
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 "queue_size: mm2s: clock_gated%ss2mm: clock_gated\n",
+				 DELIMITER_LEVEL1);
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 "queue_status: mm2s: clock_gated%ss2mm: clock_gated\n",
+				 DELIMITER_LEVEL1);
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 "current_bd: mm2s: clock_gated%ss2mm: clock_gated\n",
+				 DELIMITER_LEVEL1);
+		return len;
+	}
+
+	ttype = aieml_get_tile_type(apart->adev, loc);
+	if (ttype == AIE_TILE_TYPE_TILE) {
+		num_mm2s_chan = aieml_tiledma.num_mm2s_chan;
+		num_s2mm_chan = aieml_tiledma.num_s2mm_chan;
+	} else if (ttype == AIE_TILE_TYPE_MEMORY) {
+		num_mm2s_chan = aieml_memtiledma.num_mm2s_chan;
+		num_s2mm_chan = aieml_memtiledma.num_s2mm_chan;
+	} else {
+		num_mm2s_chan = aieml_shimdma.num_mm2s_chan;
+		num_s2mm_chan = aieml_shimdma.num_s2mm_chan;
+	}
+
+	len += scnprintf(&buffer[len], max(0L, size - len), "channel_status: ");
+	len += aieml_get_part_sysfs_dma_status(apart, loc, &buffer[len],
+					       max(0L, size - len));
+
+	for (i = 0; i < num_mm2s_chan; i++)
+		mm2s[i] = aieml_get_dma_mm2s_status(apart, loc, i);
+
+	for (i = 0; i < num_s2mm_chan; i++)
+		s2mm[i] = aieml_get_dma_s2mm_status(apart, loc, i);
+
+	/* Queue size */
+	len += scnprintf(&buffer[len], max(0L, size - len),
+			 "\nqueue_size: mm2s: ");
+
+	for (chan = 0; chan < num_mm2s_chan; chan++) {
+		if (is_delimit_req)
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					DELIMITER_LEVEL0);
+
+		len += scnprintf(&buffer[len], max(0L, size - len), "%d",
+				 aieml_get_queue_size(apart, loc, mm2s[chan]));
+		is_delimit_req = true;
+	}
+
+	len += scnprintf(&buffer[len], max(0L, size - len), "%ss2mm: ",
+			 DELIMITER_LEVEL1);
+
+	is_delimit_req = false;
+	for (chan = 0; chan < num_s2mm_chan; chan++) {
+		if (is_delimit_req)
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					DELIMITER_LEVEL0);
+
+		len += scnprintf(&buffer[len], max(0L, size - len), "%d",
+				 aieml_get_queue_size(apart, loc, s2mm[chan]));
+		is_delimit_req = true;
+	}
+
+	/* Queue status */
+	len += scnprintf(&buffer[len], max(0L, size - len),
+			 "\nqueue_status: mm2s: ");
+
+	is_delimit_req = false;
+	for (chan = 0; chan < num_mm2s_chan; chan++) {
+		u32 value = aieml_get_queue_status(apart, loc, mm2s[chan]);
+
+		if (is_delimit_req)
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					DELIMITER_LEVEL0);
+
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 aieml_dma_qsts_str[value]);
+		is_delimit_req = true;
+	}
+
+	len += scnprintf(&buffer[len], max(0L, size - len), "%ss2mm: ",
+			 DELIMITER_LEVEL1);
+
+	is_delimit_req = false;
+	for (chan = 0; chan < num_s2mm_chan; chan++) {
+		u32 value = aieml_get_queue_status(apart, loc, s2mm[chan]);
+
+		if (is_delimit_req)
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					DELIMITER_LEVEL0);
+
+		len += scnprintf(&buffer[len], max(0L, size - len),
+				 aieml_dma_qsts_str[value]);
+		is_delimit_req = true;
+	}
+
+	/* Current BD */
+	len += scnprintf(&buffer[len], max(0L, size - len),
+			 "\ncurrent_bd: mm2s: ");
+
+	is_delimit_req = false;
+	for (chan = 0; chan < num_mm2s_chan; chan++) {
+		if (is_delimit_req)
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					DELIMITER_LEVEL0);
+
+		len += scnprintf(&buffer[len], max(0L, size - len), "%d",
+				 aieml_get_current_bd(apart, loc, mm2s[chan]));
+		is_delimit_req = true;
+	}
+
+	len += scnprintf(&buffer[len], max(0L, size - len), "%ss2mm: ",
+			 DELIMITER_LEVEL1);
+
+	is_delimit_req = false;
+	for (chan = 0; chan < num_s2mm_chan; chan++) {
+		if (is_delimit_req)
+			len += scnprintf(&buffer[len], max(0L, size - len),
+					DELIMITER_LEVEL0);
+
+		len += scnprintf(&buffer[len], max(0L, size - len), "%d",
+				 aieml_get_current_bd(apart, loc, s2mm[chan]));
+		is_delimit_req = true;
+	}
+
+	len += scnprintf(&buffer[len], max(0L, size - len), "\n");
+	return len;
+}
+
+static u32 aieml_get_core_status(struct aie_partition *apart,
+				 struct aie_location *loc)
+{
+	u32 regoff, regvalue;
+
+	regoff = aie_cal_regoff(apart->adev, *loc, aieml_core_sts.regoff);
+	regvalue = ioread32(apart->aperture->base + regoff);
+
+	return aie_get_reg_field(&aieml_core_sts, regvalue);
 }
 
 static unsigned int aieml_get_mem_info(struct aie_device *adev,
@@ -290,28 +1786,11 @@ static unsigned int aieml_get_mem_info(struct aie_device *adev,
 	return NUM_TYPES_OF_MEM;
 }
 
-static int aieml_reset_shim(struct aie_aperture *aperture,
-			    struct aie_range *range)
-{
-	u32 node_id = aperture->adev->pm_node_id;
-	int ret;
-
-	ret = zynqmp_pm_aie_operation(node_id, range->start.col,
-				      range->size.col,
-				      XILINX_AIE_OPS_COL_RST |
-				      XILINX_AIE_OPS_SHIM_RST);
-	if (ret < 0)
-		dev_err(&aperture->dev,
-			"failed to perform shim and column reset.\n");
-
-	return ret;
-}
-
 static int aieml_init_part_clk_state(struct aie_partition *apart)
 {
 	int ret, num_tiles;
 
-	num_tiles = apart->range.size.col * apart->range.size.row - 1;
+	num_tiles = apart->range.size.col * (apart->range.size.row - 1);
 
 	ret = aie_resource_initialize(&apart->cores_clk_state, num_tiles);
 	if (ret) {
@@ -384,10 +1863,13 @@ static int aieml_set_part_clocks(struct aie_partition *apart)
 	ret = zynqmp_pm_aie_operation(node_id, range->start.col,
 				      range->size.col,
 				      XILINX_AIE_OPS_ENB_COL_CLK_BUFF);
-	if (ret < 0)
+	if (ret < 0) {
 		dev_err(&apart->dev, "failed to enable clocks for partition\n");
+		return ret;
+	}
 
-	return ret;
+	return aie_resource_set(&apart->cores_clk_state, 0,
+				apart->cores_clk_state.total);
 }
 
 static int aieml_part_clear_mems(struct aie_partition *apart)
@@ -405,15 +1887,100 @@ static int aieml_part_clear_mems(struct aie_partition *apart)
 	return ret;
 }
 
+/**
+ * aieml_set_tile_isolation() - Set isolation boundary of AI engile tile
+ * @apart: AI engine partition
+ * @loc: Location of tile
+ * @dir: Direction to block
+ * @return: return 0 if success negative value for failure.
+ *
+ * Possible direction values are:
+ *	- AIE_ISOLATE_EAST_MASK
+ *	- AIE_ISOLATE_NORTH_MASK
+ *	- AIE_ISOLATE_WEST_MASK
+ *	- AIE_ISOLATE_SOUTH_MASK
+ *	- AIE_ISOLATE_ALL_MASK
+ *	- or "OR" of multiple values
+ */
+static int aieml_set_tile_isolation(struct aie_partition *apart,
+				    struct aie_location *loc, u8 dir)
+{
+	struct aie_device *adev = apart->adev;
+	struct aie_aperture *aperture = apart->aperture;
+	void __iomem *va;
+	u32 ttype, val;
+
+	/* For AIEML device, dir input will match register mask */
+	val = (u32)dir;
+	ttype = aieml_get_tile_type(adev, loc);
+	if (ttype == AIE_TILE_TYPE_TILE) {
+		va = aperture->base +
+		     aie_cal_regoff(adev, *loc,
+				    AIEML_TILE_COREMOD_TILECTRL_REGOFF);
+	} else if (ttype == AIE_TILE_TYPE_MEMORY) {
+		va = aperture->base +
+		     aie_cal_regoff(adev, *loc, AIEML_MEMORY_TILECTRL_REGOFF);
+	} else {
+		va = aperture->base +
+		     aie_cal_regoff(adev, *loc, AIEML_SHIMPL_TILECTRL_REGOFF);
+	}
+	iowrite32(val, va);
+	return 0;
+}
+
 static const struct aie_tile_operations aieml_ops = {
 	.get_tile_type = aieml_get_tile_type,
 	.get_mem_info = aieml_get_mem_info,
-	.reset_shim = aieml_reset_shim,
+	.get_core_status = aieml_get_core_status,
+	.get_part_sysfs_lock_status = aieml_get_part_sysfs_lock_status,
+	.get_tile_sysfs_lock_status = aieml_get_tile_sysfs_lock_status,
+	.get_part_sysfs_dma_status = aieml_get_part_sysfs_dma_status,
+	.get_tile_sysfs_dma_status = aieml_get_tile_sysfs_dma_status,
 	.init_part_clk_state = aieml_init_part_clk_state,
 	.scan_part_clocks = aieml_scan_part_clocks,
 	.set_part_clocks = aieml_set_part_clocks,
+	.set_tile_isolation = aieml_set_tile_isolation,
 	.mem_clear = aieml_part_clear_mems,
+	.get_dma_s2mm_status = aieml_get_dma_s2mm_status,
+	.get_dma_mm2s_status = aieml_get_dma_mm2s_status,
+	.get_chan_status = aieml_get_chan_status,
+	.get_lock_status = aieml_get_lock_status,
 };
+
+/**
+ * aieml_device_init_rscs_attr() - initialize AI engine device resources
+ *				   attributes
+ * @adev: AI engine device
+ */
+static void aieml_device_init_rscs_attr(struct aie_device *adev)
+{
+	struct aie_tile_attr *tattr;
+
+	tattr = &adev->ttype_attr[AIE_TILE_TYPE_TILE];
+	tattr->num_mods = NUM_MODS_CORE_TILE;
+	tattr->rscs_attr = aieml_core_tile_rscs_attr;
+	tattr->mods = aieml_core_tile_module_types;
+
+	tattr = &adev->ttype_attr[AIE_TILE_TYPE_MEMORY];
+	tattr->num_mods = NUM_MODS_MEM_TILE;
+	tattr->rscs_attr = aieml_mem_tile_rscs_attr;
+	tattr->mods = aieml_mem_tile_module_types;
+
+	tattr = &adev->ttype_attr[AIE_TILE_TYPE_SHIMPL];
+	tattr->num_mods = NUM_MODS_SHIMPL_TILE;
+	tattr->rscs_attr = aieml_shimpl_tile_rscs_attr;
+	tattr->mods = aieml_shimpl_tile_module_types;
+
+	/*
+	 * For now, SHIMNOC is the same as SHIMPL as there is
+	 * no SHIMNOC specific resources managed by kernel
+	 * driver yet.
+	 */
+	tattr = &adev->ttype_attr[AIE_TILE_TYPE_SHIMNOC];
+	tattr->num_mods = NUM_MODS_SHIMPL_TILE;
+	tattr->rscs_attr = aieml_shimpl_tile_rscs_attr;
+	tattr->mods = aieml_shimpl_tile_module_types;
+}
 
 int aieml_device_init(struct aie_device *adev)
 {
@@ -427,7 +1994,29 @@ int aieml_device_init(struct aie_device *adev)
 	adev->core_regs = aieml_core_regs;
 	adev->col_rst = &aieml_col_rst;
 	adev->col_clkbuf = &aieml_col_clkbuf;
+	adev->tile_dma = &aieml_tiledma;
 	adev->shim_dma = &aieml_shimdma;
+	adev->memtile_dma = &aieml_memtiledma;
+	adev->aperture_sysfs_attr = &aieml_aperture_sysfs_attr;
+	adev->part_sysfs_attr = &aieml_part_sysfs_attr;
+	adev->tile_sysfs_attr = &aieml_tile_sysfs_attr;
+	adev->core_status_str = aieml_core_status_str;
+	adev->core_pc = &aieml_core_pc;
+	adev->core_lr = &aieml_core_lr;
+	adev->core_sp = &aieml_core_sp;
+	adev->pl_events = &aieml_pl_event;
+	adev->memtile_events = &aieml_memtile_event;
+	adev->mem_events = &aieml_mem_event;
+	adev->mem_lock = &aieml_mem_lock;
+	adev->pl_lock = &aieml_pl_lock;
+	adev->memtile_lock = &aieml_memtile_lock;
+	adev->core_events = &aieml_core_event;
+	adev->core_errors = &aieml_core_error;
+	adev->mem_errors = &aieml_mem_error;
+	adev->memtile_errors = &aieml_memtile_error;
+	adev->shim_errors = &aieml_shim_error;
+
+	aieml_device_init_rscs_attr(adev);
 
 	return 0;
 }

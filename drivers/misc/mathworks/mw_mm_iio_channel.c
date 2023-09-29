@@ -7,6 +7,7 @@
  */
 
 #include <linux/iio/iio.h>
+#include <linux/iio/buffer.h>
 #include <linux/iio/sysfs.h>
 #include <linux/idr.h>
 #include <linux/device.h>
@@ -32,7 +33,7 @@ static DEFINE_IDA(mw_mm_iio_channel_ida);
 }
 
 struct mw_mm_iio_channel_info {
-	enum iio_device_direction 		iio_direction;
+	enum iio_buffer_direction 		iio_direction;
 };
 
 enum mw_mm_iio_reg_access {
@@ -43,7 +44,7 @@ enum mw_mm_iio_reg_access {
 struct mw_mm_iio_chandev {
 	struct mathworks_ipcore_dev 			*mwdev;
 	struct device							dev;
-	enum iio_device_direction 				iio_direction;
+	enum iio_buffer_direction				iio_direction;
 	enum mw_mm_iio_reg_access					reg_access;
 };
 
@@ -280,11 +281,11 @@ static int mw_mm_iio_channel_probe(
 }
 
 static struct mw_mm_iio_channel_info mw_mm_iio_mm2s_info = {
-	.iio_direction = IIO_DEVICE_DIRECTION_OUT,
+	.iio_direction = IIO_BUFFER_DIRECTION_OUT,
 };
 
 static struct mw_mm_iio_channel_info mw_mm_iio_s2mm_info = {
-	.iio_direction = IIO_DEVICE_DIRECTION_IN,
+	.iio_direction = IIO_BUFFER_DIRECTION_IN,
 };
 
 static const struct of_device_id mw_mm_iio_channel_of_match[] = {

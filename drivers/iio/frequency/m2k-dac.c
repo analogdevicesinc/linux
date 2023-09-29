@@ -478,15 +478,14 @@ static const struct iio_enum m2k_dac_trig_src_enum = {
 };
 
 static const struct iio_chan_spec_ext_info m2k_dac_ext_info[] = {
-	IIO_ENUM_AVAILABLE_SHARED("sampling_frequency", IIO_SHARED_BY_ALL,
-		&m2k_dac_samp_freq_available_enum),
+	IIO_ENUM_AVAILABLE("sampling_frequency", IIO_SHARED_BY_ALL,
+			   &m2k_dac_samp_freq_available_enum),
 	IIO_ENUM("trigger_src", IIO_SHARED_BY_ALL, &m2k_dac_trig_src_enum),
-	IIO_ENUM_AVAILABLE_SHARED("trigger_src", IIO_SHARED_BY_ALL,
-		&m2k_dac_trig_src_enum),
+	IIO_ENUM_AVAILABLE("trigger_src", IIO_SHARED_BY_ALL, &m2k_dac_trig_src_enum),
 	IIO_ENUM("trigger_condition", IIO_SHARED_BY_ALL,
-		&m2k_dac_trig_condition_enum),
-	IIO_ENUM_AVAILABLE_SHARED("trigger_condition", IIO_SHARED_BY_ALL,
-		&m2k_dac_trig_condition_enum),
+		 &m2k_dac_trig_condition_enum),
+	IIO_ENUM_AVAILABLE("trigger_condition", IIO_SHARED_BY_ALL,
+			   &m2k_dac_trig_condition_enum),
 	{ },
 };
 
@@ -538,20 +537,9 @@ static int m2k_dac_buffer_postdisable(struct iio_dev *indio_dev)
 	return 0;
 }
 
-static int m2k_dac_buffer_submit_block(struct iio_dma_buffer_queue *queue,
-	struct iio_dma_buffer_block *block)
-{
-	return iio_dmaengine_buffer_submit_block(queue, block, DMA_MEM_TO_DEV);
-}
-
 static const struct iio_buffer_setup_ops m2k_dac_buffer_setup_ops = {
 	.preenable = m2k_dac_buffer_preenable,
 	.postdisable = m2k_dac_buffer_postdisable,
-};
-
-static const struct iio_dma_buffer_ops m2k_dac_dma_buffer_ops = {
-	.submit = m2k_dac_buffer_submit_block,
-	.abort = iio_dmaengine_buffer_abort,
 };
 
 static const struct iio_info m2k_dac_ch_info = {
@@ -574,8 +562,8 @@ static int m2k_dac_alloc_channel(struct platform_device *pdev,
 	struct m2k_dac *m2k_dac, unsigned int num)
 {
 	struct iio_dev *indio_dev;
-	struct iio_buffer *buffer;
 	struct m2k_dac_ch *ch;
+	int ret;
 
 	indio_dev = devm_iio_device_alloc(&pdev->dev, sizeof(*ch));
 	if (!indio_dev)
@@ -588,18 +576,17 @@ static int m2k_dac_alloc_channel(struct platform_device *pdev,
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->name = m2k_dac_ch_dev_names[num];
 	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
-	indio_dev->direction = IIO_DEVICE_DIRECTION_OUT;
 	indio_dev->setup_ops = &m2k_dac_buffer_setup_ops;
 	indio_dev->info = &m2k_dac_ch_info;
 	indio_dev->channels = &m2k_dac_channel_info;
 	indio_dev->num_channels = 1;
 
-	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent, m2k_dac_ch_dma_names[num],
-						 &m2k_dac_dma_buffer_ops, indio_dev);
-	if (IS_ERR(buffer))
-		return PTR_ERR(buffer);
+	ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent, indio_dev,
+					      m2k_dac_ch_dma_names[num],
+					      IIO_BUFFER_DIRECTION_OUT);
+	if (ret)
+		return ret;
 
-	iio_device_attach_buffer(indio_dev, buffer);
 	m2k_dac->ch_indio_dev[num] = indio_dev;
 
 	return 0;

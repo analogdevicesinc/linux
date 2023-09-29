@@ -166,30 +166,8 @@ static void axi_pwmgen_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 	state->time_unit = capture.time_unit;
 }
 
-static void axi_pwmgen_disable(struct pwm_chip *chip, struct pwm_device *pwm)
-{
-	unsigned int ch = pwm->hwpwm;
-	struct axi_pwmgen *pwmgen = to_axi_pwmgen(chip);
-
-	axi_pwmgen_write(pwmgen, AXI_PWMGEN_CHX_PERIOD(ch), 0);
-	axi_pwmgen_write(pwmgen, AXI_PWMGEN_REG_CONFIG, AXI_PWMGEN_LOAD_CONIG);
-}
-
-static int axi_pwmgen_enable(struct pwm_chip *chip, struct pwm_device *pwm)
-{
-	unsigned int ch = pwm->hwpwm;
-	struct axi_pwmgen *pwmgen = to_axi_pwmgen(chip);
-
-	axi_pwmgen_write(pwmgen, AXI_PWMGEN_CHX_PERIOD(ch), pwmgen->ch_period[ch]);
-	axi_pwmgen_write(pwmgen, AXI_PWMGEN_REG_CONFIG, AXI_PWMGEN_LOAD_CONIG);
-
-	return 0;
-}
-
 static const struct pwm_ops axi_pwmgen_pwm_ops = {
 	.apply = axi_pwmgen_apply,
-	.disable = axi_pwmgen_disable,
-	.enable = axi_pwmgen_enable,
 	.capture = axi_pwmgen_capture,
 	.get_state = axi_pwmgen_get_state,
 	.owner = THIS_MODULE,

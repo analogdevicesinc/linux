@@ -906,7 +906,7 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	AD6676_EXT_INFO("bw_margin_high", AD6676_ATTR_MRGN_H),
 	AD6676_EXT_INFO("bw_margin_if", AD6676_ATTR_MRGN_IF),
 	AD6676_EXT_INFO("shuffler_thresh", AD6676_ATTR_SHUF_TH),
-	IIO_ENUM_AVAILABLE("shuffler_control",
+	IIO_ENUM_AVAILABLE("shuffler_control", IIO_SHARED_BY_TYPE,
 			&ad6676_shuffler_modes_available),
 	IIO_ENUM("shuffler_control", IIO_SHARED_BY_TYPE,
 			&ad6676_shuffler_modes_available),
@@ -1260,13 +1260,11 @@ out:
 	return ret;
 }
 
-static int ad6676_remove(struct spi_device *spi)
+static void ad6676_remove(struct spi_device *spi)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 
 	clk_disable_unprepare(conv->clk);
-
-	return 0;
 }
 
 static const struct spi_device_id ad6676_id[] = {

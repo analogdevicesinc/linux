@@ -41,10 +41,11 @@ ssize_t aie_part_read_cb_status(struct kobject *kobj, char *buffer,
 	for (index = 0; index < apart->range.size.col * apart->range.size.row;
 	     index++, atile++) {
 		struct aie_location loc = atile->loc;
+		const struct aie_tile_operations *ops = apart->adev->ops;
 		bool preamble = true;
 		u32 ttype;
 
-		ttype = apart->adev->ops->get_tile_type(apart->adev, &loc);
+		ttype = ops->get_tile_type(apart->adev, &loc);
 
 		if (ttype == AIE_TILE_TYPE_TILE) {
 			if (preamble) {
@@ -56,7 +57,8 @@ ssize_t aie_part_read_cb_status(struct kobject *kobj, char *buffer,
 			}
 
 			len += aie_sysfs_get_core_status(apart, &loc,
-							 &buffer[len], size);
+							 &buffer[len],
+							 size - len);
 		}
 
 		if (ttype == AIE_TILE_TYPE_TILE ||
@@ -73,8 +75,9 @@ ssize_t aie_part_read_cb_status(struct kobject *kobj, char *buffer,
 						 "%sds: ", DELIMITER_LEVEL2);
 			}
 
-			len += aie_sysfs_get_dma_status(apart, &loc,
-							&buffer[len], size);
+			len += ops->get_part_sysfs_dma_status(apart, &loc,
+							      &buffer[len],
+							      size - len);
 
 			if (preamble) {
 				len += scnprintf(&buffer[len],
@@ -88,8 +91,9 @@ ssize_t aie_part_read_cb_status(struct kobject *kobj, char *buffer,
 						 "%sls: ", DELIMITER_LEVEL2);
 			}
 
-			len += aie_sysfs_get_lock_status(apart, &loc,
-							 &buffer[len], size);
+			len += ops->get_part_sysfs_lock_status(apart, &loc,
+							       &buffer[len],
+							       size - len);
 		}
 
 		if (aie_check_tile_error(apart, loc)) {
@@ -106,7 +110,7 @@ ssize_t aie_part_read_cb_status(struct kobject *kobj, char *buffer,
 			}
 
 			len += aie_sysfs_get_errors(apart, &loc, &buffer[len],
-						    size);
+						    size - len);
 		}
 
 		if (!preamble) {

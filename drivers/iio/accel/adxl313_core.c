@@ -119,7 +119,7 @@ const struct adxl313_chip_info adxl31x_chip_info[] = {
 		.variable_range = false,
 		.soft_reset = false,
 		.check_id = &adxl312_check_id,
-	}
+	},
 };
 EXPORT_SYMBOL_NS_GPL(adxl31x_chip_info, IIO_ADXL313);
 

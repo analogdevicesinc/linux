@@ -642,7 +642,7 @@ free_ctrl:
 	return ret;
 }
 
-static int addi9036_remove(struct i2c_client *client)
+static void addi9036_remove(struct i2c_client *client)
 {
 	struct v4l2_subdev *sd = i2c_get_clientdata(client);
 	struct addi9036 *addi9036 = to_addi9036(sd);
@@ -650,8 +650,6 @@ static int addi9036_remove(struct i2c_client *client)
 	v4l2_async_unregister_subdev(&addi9036->sd);
 	media_entity_cleanup(&addi9036->sd.entity);
 	v4l2_ctrl_handler_free(&addi9036->ctrls);
-
-	return 0;
 }
 
 static const struct i2c_device_id addi9036_id[] = {
