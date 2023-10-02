@@ -321,7 +321,6 @@ int32_t adi_adrv9001_Utilities_WaitMs(adi_adrv9001_Device_t *adrv9001, uint32_t 
 
 int32_t adi_adrv9001_Utilities_SystemDebugPreCalibrate(adi_adrv9001_Device_t *adrv9001, adi_adrv9001_Init_t *init, const char *armImagePath, const char *streamImagePath, const char *armImageVer)
 {
-	uint8_t i = 0;
 	int32_t status = 0;
 	uint8_t gp1LdoResistorValue = 0;
 	uint8_t devClkLdoRegisterValue = 0;
