@@ -315,7 +315,7 @@ build_dt_binding_check() {
 	fi
 
 	# install dt_binding_check dependencies
-	pip3 install git+https://github.com/devicetree-org/dt-schema.git@master
+	pip3 install dtschema
 
 	__update_git_ref "${ref_branch}" "${ref_branch}"
 
