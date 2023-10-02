@@ -131,7 +131,8 @@
             "numberLnaGainSteps": 0,
             "lnaGainSteps_mdB": [ 0, 0, 0, 0 ],
             "lnaDigitalGainDelay": 0,
-            "minGainIndex": 0
+            "minGainIndex": 0,
+            "lnaType": 0
           },
           "rxSsiConfig": {
             "ssiType": 1,
@@ -248,7 +249,8 @@
             "numberLnaGainSteps": 0,
             "lnaGainSteps_mdB": [ 0, 0, 0, 0 ],
             "lnaDigitalGainDelay": 0,
-            "minGainIndex": 0
+            "minGainIndex": 0,
+            "lnaType": 0
           },
           "rxSsiConfig": {
             "ssiType": 1,
@@ -365,7 +367,8 @@
             "numberLnaGainSteps": 0,
             "lnaGainSteps_mdB": [ 0, 0, 0, 0 ],
             "lnaDigitalGainDelay": 0,
-            "minGainIndex": 0
+            "minGainIndex": 0,
+            "lnaType": 0
           },
           "rxSsiConfig": {
             "ssiType": 1,
@@ -482,7 +485,8 @@
             "numberLnaGainSteps": 0,
             "lnaGainSteps_mdB": [ 0, 0, 0, 0 ],
             "lnaDigitalGainDelay": 0,
-            "minGainIndex": 0
+            "minGainIndex": 0,
+            "lnaType": 0
           },
           "rxSsiConfig": {
             "ssiType": 0,
@@ -599,7 +603,8 @@
             "numberLnaGainSteps": 0,
             "lnaGainSteps_mdB": [ 0, 0, 0, 0 ],
             "lnaDigitalGainDelay": 0,
-            "minGainIndex": 0
+            "minGainIndex": 0,
+            "lnaType": 0
           },
           "rxSsiConfig": {
             "ssiType": 1,
@@ -716,7 +721,8 @@
             "numberLnaGainSteps": 0,
             "lnaGainSteps_mdB": [ 0, 0, 0, 0 ],
             "lnaDigitalGainDelay": 0,
-            "minGainIndex": 0
+            "minGainIndex": 0,
+            "lnaType": 0
           },
           "rxSsiConfig": {
             "ssiType": 0,
@@ -833,7 +839,8 @@
             "numberLnaGainSteps": 0,
             "lnaGainSteps_mdB": [ 0, 0, 0, 0 ],
             "lnaDigitalGainDelay": 0,
-            "minGainIndex": 0
+            "minGainIndex": 0,
+            "lnaType": 0
           },
           "rxSsiConfig": {
             "ssiType": 0,
@@ -950,7 +957,8 @@
             "numberLnaGainSteps": 0,
             "lnaGainSteps_mdB": [ 0, 0, 0, 0 ],
             "lnaDigitalGainDelay": 0,
-            "minGainIndex": 0
+            "minGainIndex": 0,
+            "lnaType": 0
           },
           "rxSsiConfig": {
             "ssiType": 0,
