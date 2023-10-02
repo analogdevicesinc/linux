@@ -127,10 +127,11 @@ int32_t adi_adrv9001_Utilities_WaitMs(adi_adrv9001_Device_t *adrv9001, uint32_t 
  * \param[in] init              Pointer to the ADRV9001 initialization settings data structure
  * \param[in] armImagePath      Absolute path of the ARM image to be programmed
  * \param[in] streamImagePath   Absolute path of the stream image to be programmed
+ * \param[in] armImageVer       ARM image version (from SDK : packages.adrv9001.config file)
  *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */
-int32_t adi_adrv9001_Utilities_SystemDebugPreCalibrate(adi_adrv9001_Device_t *adrv9001, adi_adrv9001_Init_t *init, const char *armImagePath, const char *streamImagePath);
+int32_t adi_adrv9001_Utilities_SystemDebugPreCalibrate(adi_adrv9001_Device_t *adrv9001, adi_adrv9001_Init_t *init, const char *armImagePath, const char *streamImagePath, const char *armImageVer);
 
 /**
  * \brief Function for In-System Debugging

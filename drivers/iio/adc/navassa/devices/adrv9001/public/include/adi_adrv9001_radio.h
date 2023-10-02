@@ -461,7 +461,7 @@ int32_t adi_adrv9001_Radio_PllLoopFilter_Set(adi_adrv9001_Device_t *adrv9001,
  *
  * \param[in] adrv9001              Context variable - Pointer to the ADRV9001 device data structure containing settings
  * \param[in] pll                   The PLL for which to configure the loop filter
- * \param[in] pllLoopFilterConfig   The current loop filter configuration
+ * \param[out] pllLoopFilterConfig   The current loop filter configuration
  *
  * \returns A code indicating success (ADI_COMMON_ACT_NO_ACTION) or the required action to recover
  */

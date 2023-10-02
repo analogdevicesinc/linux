@@ -35,23 +35,20 @@
 #include "adi_adrv9001_fh.h"
 
 #include "adi_adrv9001_gpio.h"
-
 #include "adi_adrv9001_ssi.h"
 
 #include "adrv9001_reg_addr_macros.h"
 #include "adrv9001_bf_hal.h"
 #include "adrv9001_bf.h"
 
-#define ADI_ADRV9001_ARM_BINARY_IMAGE_FILE_SIZE_BYTES (288*1024)
+#define ADI_ADRV9001_ARM_BINARY_IMAGE_FILE_SIZE_BYTES (303*1024)
 #define ADI_ADRV9001_STREAM_BINARY_IMAGE_FILE_SIZE_BYTES (32*1024)
 
 #define ADI_ADRV9001_RX_GAIN_TABLE_SIZE_ROWS 256
 #define ADI_ADRV9001_TX_ATTEN_TABLE_SIZE_ROWS 1024
 
-#define ADI_ADRV9001_NUMBER_OF_ARM_BINARY_IMAGE_BYTES_TO_VERIFY 12
-
 #ifdef __KERNEL__
-#define printf(...)	pr_info(__VA_ARGS__)
+#define printf(...)    pr_info(__VA_ARGS__)
 #endif
 
 int32_t adi_adrv9001_Utilities_ArmImage_Load(adi_adrv9001_Device_t *device, const char *armImagePath, adi_adrv9001_ArmSingleSpiWriteMode_e spiWriteMode)
@@ -322,7 +319,7 @@ int32_t adi_adrv9001_Utilities_WaitMs(adi_adrv9001_Device_t *adrv9001, uint32_t 
 	return halError;
 }
 
-int32_t adi_adrv9001_Utilities_SystemDebugPreCalibrate(adi_adrv9001_Device_t *adrv9001, adi_adrv9001_Init_t *init, const char *armImagePath, const char *streamImagePath)
+int32_t adi_adrv9001_Utilities_SystemDebugPreCalibrate(adi_adrv9001_Device_t *adrv9001, adi_adrv9001_Init_t *init, const char *armImagePath, const char *streamImagePath, const char *armImageVer)
 {
 	uint8_t i = 0;
 	int32_t status = 0;
@@ -330,10 +327,7 @@ int32_t adi_adrv9001_Utilities_SystemDebugPreCalibrate(adi_adrv9001_Device_t *ad
 	uint8_t devClkLdoRegisterValue = 0;
 	uint8_t clkSynthLdoReg = 0;
 	uint8_t lpClkSynthLdoReg = 0;
-	bool armImageLoadVerifyFail = 0;
 	uint32_t armStatusCheckTimeoutUs = 5000000;
-	uint8_t armMemoryReadData[ADI_ADRV9001_NUMBER_OF_ARM_BINARY_IMAGE_BYTES_TO_VERIFY] = { 0 };
-	const uint8_t armBinaryImageVerifyBuffer[ADI_ADRV9001_NUMBER_OF_ARM_BINARY_IMAGE_BYTES_TO_VERIFY] = { 168, 30, 1, 32, 189, 91, 4, 1, 9, 170, 0, 1 };
 
 	adi_common_ApiVersion_t apiVersion_0 = {
 		.major = 0,
@@ -355,6 +349,15 @@ int32_t adi_adrv9001_Utilities_SystemDebugPreCalibrate(adi_adrv9001_Device_t *ad
 		.maintVer = 0,
 		.buildVer = 0,
 	};
+
+	adi_adrv9001_ArmVersion_t armVersion = {
+		.majorVer = 0,
+		.minorVer = 0,
+		.maintVer = 0,
+		.armBuildType = 0,
+	};
+
+	uint8_t armImageVersion[3] = { 0 };
 
 	adi_adrv9001_ArmSingleSpiWriteMode_e spiWriteMode = ADI_ADRV9001_ARM_SINGLE_SPI_WRITE_MODE_STANDARD_BYTES_252;
 
@@ -419,29 +422,18 @@ int32_t adi_adrv9001_Utilities_SystemDebugPreCalibrate(adi_adrv9001_Device_t *ad
 
 	printf("--> . Verify ARM Image Load\r\n");
 	ADI_MSG_EXPECT("ARM Start Status Check Error.", adi_adrv9001_arm_StartStatus_Check, adrv9001, armStatusCheckTimeoutUs);
-	ADI_MSG_EXPECT("ARM Memory Read Error.", adi_adrv9001_arm_Memory_Read, adrv9001, ADRV9001_ADDR_ARM_START_PROG, &armMemoryReadData[0], sizeof(armMemoryReadData), spiWriteMode);
-
-	for (i = 0; i < ADI_ADRV9001_NUMBER_OF_ARM_BINARY_IMAGE_BYTES_TO_VERIFY; i++)
+	ADI_MSG_EXPECT("ARM Check Firmware Version.", adi_adrv9001_arm_Version, adrv9001, &armVersion);
+	armImageVersion[0] = (armImageVer[0] - '0');
+	armImageVersion[1] = (armImageVer[2] - '0') * 10  + (armImageVer[3] - '0');
+	armImageVersion[2] = (armImageVer[5] - '0') * 10  + (armImageVer[6] - '0');
+	if ((armImageVersion[0] == armVersion.majorVer) && (armImageVersion[1] == armVersion.minorVer) && (armImageVersion[2] == armVersion.maintVer))
 	{
-		if (armMemoryReadData[i] == armBinaryImageVerifyBuffer[i])
-		{
-			armImageLoadVerifyFail = 0;
-		}
-		else
-		{
-			armImageLoadVerifyFail = 1;
-			break;
-		}
-	}
-
-	if (armImageLoadVerifyFail)
-	{
-		printf("      NOK - ARM Read Back Error. Check Dev_Clk, SPI and Power Supply\r\n");
-		ADI_ERROR_RETURN(ADI_COMMON_ERR_API_FAIL);
+		printf("      OK -  Version = %u.%u.%u.%u\r\n", armImageVersion[0], armImageVersion[1], armImageVersion[2], armVersion.armBuildType);
 	}
 	else
 	{
-		printf("      OK\r\n");
+		printf("      NOK - ARM Image Load verification failed\r\n");
+		ADI_ERROR_RETURN(ADI_COMMON_ERR_API_FAIL);
 	}
 
 	printf("--> . Check Dev_Clk \r\n");
