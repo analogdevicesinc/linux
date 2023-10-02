@@ -620,3 +620,55 @@ int32_t adi_adrv9001_dpd_fh_regions_Inspect(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
+static __maybe_unused int32_t __maybe_unused adi_adrv9001_dpd_channel_Status_Get_Validate(adi_adrv9001_Device_t* adrv9001,
+                                                                                         adi_common_ChannelNumber_e channel,
+                                                                                         adi_adrv9001_DpdChannelStatus_t* dpdChannelStatus)
+{
+    adi_adrv9001_ChannelState_e state = ADI_ADRV9001_CHANNEL_STANDBY;
+    uint8_t port_index = 0;
+    uint8_t chan_index = 0;
+
+    /* Check that channelMask is valid */
+    ADI_RANGE_CHECK(adrv9001, channel, ADI_CHANNEL_1, ADI_CHANNEL_2);
+    ADI_NULL_PTR_RETURN(&adrv9001->common, dpdChannelStatus);
+
+    ADI_EXPECT(adi_adrv9001_Radio_Channel_State_Get, adrv9001, ADI_TX, channel, &state);
+    adi_common_port_to_index(ADI_TX, &port_index);
+    adi_common_channel_to_index(channel, &chan_index);
+
+	if (state != ADI_ADRV9001_CHANNEL_CALIBRATED &&
+	    state != ADI_ADRV9001_CHANNEL_PRIMED &&
+        state != ADI_ADRV9001_CHANNEL_RF_ENABLED)
+    {
+        ADI_ERROR_REPORT(&adrv9001->common,
+            ADI_COMMON_ERRSRC_API,
+            ADI_COMMON_ERR_INV_PARAM,
+            ADI_COMMON_ACT_ERR_CHECK_PARAM,
+            channel,
+		    "Invalid channel state. Channel must be in CALIBRATED or PRIMED or RF_ENABLED state");
+    }
+
+    ADI_API_RETURN(adrv9001);
+}
+
+int32_t adi_adrv9001_dpd_channel_Status_Get(adi_adrv9001_Device_t* adrv9001, adi_common_ChannelNumber_e channel, adi_adrv9001_DpdChannelStatus_t* dpdChannelStatus)
+{
+    uint8_t armReadBack[24] = { 0 };
+    uint8_t channelMask = 0;
+    uint32_t offset = 0;
+
+    ADI_PERFORM_VALIDATION(adi_adrv9001_dpd_channel_Status_Get_Validate, adrv9001, channel, dpdChannelStatus);
+    channelMask = adi_adrv9001_Radio_MailboxChannel_Get(ADI_TX, channel);
+    ADI_EXPECT(adi_adrv9001_arm_MailBox_Get, adrv9001, OBJID_GO_CAL_STATUS, OBJID_TC_TX_DPD, channelMask, offset, armReadBack, sizeof(armReadBack))
+
+    adrv9001_ParseFourBytes(&offset, armReadBack, &dpdChannelStatus->numberOfSuccessfulIterations);
+    adrv9001_ParseFourBytes(&offset, armReadBack, &dpdChannelStatus->numberOfIterations);
+    adrv9001_ParseFourBytes(&offset, armReadBack, &dpdChannelStatus->txPeakPower_100th_dB);
+    adrv9001_ParseFourBytes(&offset, armReadBack, &dpdChannelStatus->rxPeakPower_100th_dB);
+    adrv9001_ParseFourBytes(&offset, armReadBack, &dpdChannelStatus->txAvgPower_100th_dB);
+    adrv9001_ParseFourBytes(&offset, armReadBack, &dpdChannelStatus->rxAvgPower_100th_dB);
+
+    ADI_API_RETURN(adrv9001);
+}
+
+
