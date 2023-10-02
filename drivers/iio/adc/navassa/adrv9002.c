@@ -3826,10 +3826,10 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	api_call(phy, adi_adrv9001_Stream_Version, &stream_version);
 
 	dev_info(&spi->dev,
-		 "%s Rev %d.%d, Firmware %u.%u.%u.%u,  Stream %u.%u.%u.%u,  API version: %u.%u.%u successfully initialized",
+		 "%s Rev %d.%d, Firmware %u.%u.%u,  Stream %u.%u.%u.%u,  API version: %u.%u.%u successfully initialized",
 		 indio_dev->name, silicon_version.major, silicon_version.minor,
 		 arm_version.majorVer, arm_version.minorVer, arm_version.maintVer,
-		 arm_version.rcVer, stream_version.majorVer, stream_version.minorVer,
+		 stream_version.majorVer, stream_version.minorVer,
 		 stream_version.maintVer, stream_version.buildVer, api_version.major,
 		 api_version.minor, api_version.patch);
 
