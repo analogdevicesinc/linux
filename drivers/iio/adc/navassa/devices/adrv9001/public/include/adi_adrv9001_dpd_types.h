@@ -153,4 +153,14 @@ typedef struct adi_adrv9001_DpdFhRegions
     uint64_t endFrequency_Hz;   //!< Carrier frequency less than this is included in the region
 } adi_adrv9001_DpdFhRegions_t;
 
+typedef struct adi_adrv9001_DpdChannelStatus
+{
+    uint32_t numberOfSuccessfulIterations;
+    uint32_t numberOfIterations;
+    int32_t	txPeakPower_100th_dB;
+    int32_t	rxPeakPower_100th_dB;
+    int32_t	txAvgPower_100th_dB;
+    int32_t	rxAvgPower_100th_dB;
+} adi_adrv9001_DpdChannelStatus_t;
+
 #endif /* _ADI_ADRV9001_DPD_TYPES_H_ */
