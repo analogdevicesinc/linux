@@ -82,6 +82,13 @@
 		};
 	};
 
+	enet0_reset: enet0-reset {
+		compatible = "gpio-reset";
+		reset-gpios = <&pca6416_1 0 GPIO_ACTIVE_LOW>;
+		reset-delay-us = <10000>;
+		#reset-cells = <0>;
+	};
+
 	modem_reset: modem-reset {
 		compatible = "gpio-reset";
 		reset-gpios = <&pca6416_2 0 GPIO_ACTIVE_LOW>;
@@ -354,8 +361,6 @@
 		ethphy1: ethernet-phy@1 {
 			compatible = "ethernet-phy-ieee802.3-c22";
 			reg = <1>;
-			reset-gpios = <&pca6416_1 0 GPIO_ACTIVE_LOW>;
-			reset-assert-us = <10000>;
 			qca,disable-smarteee;
 			vddio-supply = <&vddio1>;
 
@@ -435,6 +440,7 @@
 				reg = <0x68>;
 				gpio-controller;
 				#gpio-cells = <2>;
+				resets = <&enet0_reset>;
 				status = "disabled";
 			};
 		};
