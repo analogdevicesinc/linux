@@ -20,6 +20,7 @@ obj-$(CONFIG_ADMV4420) += admv4420.o
 obj-$(CONFIG_ADRF6780) += adrf6780.o
 obj-$(CONFIG_ADF5355) += adf5355.o
 obj-$(CONFIG_ADL5960) += adl5960.o
+obj-$(CONFIG_ADMFM2000) += admfm2000.o
 
 cf_axi_dds_drv-y := cf_axi_dds.o cf_axi_dds_buffer_stream.o
 obj-$(CONFIG_CF_AXI_DDS) += cf_axi_dds_drv.o
