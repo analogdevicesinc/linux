@@ -6,6 +6,7 @@
  *
  */
 
+#include <linux/busfreq-imx.h>
 #include <linux/clk.h>
 #include <linux/gpio/consumer.h>
 #include <linux/kernel.h>
@@ -186,7 +187,9 @@ static int imx_dwmac_clks_config(void *priv, bool enabled)
 			clk_disable_unprepare(dwmac->clk_mem);
 			return ret;
 		}
+		request_bus_freq(BUS_FREQ_HIGH);
 	} else {
+		release_bus_freq(BUS_FREQ_HIGH);
 		clk_disable_unprepare(dwmac->clk_tx);
 		clk_disable_unprepare(dwmac->clk_mem);
 	}
