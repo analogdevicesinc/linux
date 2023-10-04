@@ -1030,7 +1030,8 @@ static int vsc9959_mdio_bus_alloc(struct ocelot *ocelot)
 		if (ocelot_port->phy_mode == PHY_INTERFACE_MODE_INTERNAL)
 			continue;
 
-		phylink_pcs = lynx_pcs_create_mdiodev(felix->imdio, port);
+		phylink_pcs = lynx_pcs_create_mdiodev(felix->imdio, port,
+						      NULL, 0);
 		if (IS_ERR(phylink_pcs))
 			continue;
 

@@ -184,10 +184,6 @@ static void dpaa2_mac_config(struct phylink_config *config, unsigned int mode,
 				 dpmac_eth_if_mode(state->interface));
 	if (err)
 		netdev_err(mac->net_dev,  "dpmac_set_protocol() = %d\n", err);
-
-	err = phy_set_mode_ext(mac->serdes_phy, PHY_MODE_ETHERNET, state->interface);
-	if (err)
-		netdev_err(mac->net_dev, "phy_set_mode_ext() = %d\n", err);
 }
 
 static void dpaa2_mac_link_up(struct phylink_config *config,
@@ -252,6 +248,7 @@ static int dpaa2_pcs_create(struct dpaa2_mac *mac,
 			    struct fwnode_handle *dpmac_node,
 			    int id)
 {
+	size_t num_phys = mac->serdes_phy ? 1 : 0;
 	struct fwnode_handle *node;
 	struct phylink_pcs *pcs;
 
@@ -262,7 +259,7 @@ static int dpaa2_pcs_create(struct dpaa2_mac *mac,
 		return 0;
 	}
 
-	pcs = lynx_pcs_create_fwnode(node);
+	pcs = lynx_pcs_create_fwnode(node, &mac->serdes_phy, num_phys);
 	fwnode_handle_put(node);
 
 	if (pcs == ERR_PTR(-EPROBE_DEFER)) {
@@ -298,53 +295,20 @@ static void dpaa2_pcs_destroy(struct dpaa2_mac *mac)
 
 static void dpaa2_mac_set_supported_interfaces(struct dpaa2_mac *mac)
 {
-	int intf, err;
+	struct phylink_config *cfg = &mac->phylink_config;
 
-	/* We support the current interface mode, and if we have a PCS
-	 * similar interface modes that do not require the SerDes lane to be
-	 * reconfigured.
+	/* We support the current interface mode, and if we have a PCS, the
+	 * interface modes that the SerDes allows switching between.
 	 */
-	__set_bit(mac->if_mode, mac->phylink_config.supported_interfaces);
-	if (mac->pcs) {
-		switch (mac->if_mode) {
-		case PHY_INTERFACE_MODE_1000BASEX:
-		case PHY_INTERFACE_MODE_SGMII:
-			__set_bit(PHY_INTERFACE_MODE_1000BASEX,
-				  mac->phylink_config.supported_interfaces);
-			__set_bit(PHY_INTERFACE_MODE_SGMII,
-				  mac->phylink_config.supported_interfaces);
-			break;
-
-		default:
-			break;
-		}
-	}
-
-	if (!mac->serdes_phy)
-		return;
-
-	/* In case we have access to the SerDes phy/lane, then ask the SerDes
-	 * driver what interfaces are supported based on the current PLL
-	 * configuration.
-	 */
-	for (intf = 0; intf < PHY_INTERFACE_MODE_MAX; intf++) {
-		if (intf == PHY_INTERFACE_MODE_NA)
-			continue;
-
-		err = phy_validate(mac->serdes_phy, PHY_MODE_ETHERNET, intf, NULL);
-		if (err)
-			continue;
-
-		__set_bit(intf, mac->phylink_config.supported_interfaces);
-	}
+	__set_bit(mac->if_mode, cfg->supported_interfaces);
+	if (mac->pcs)
+		lynx_pcs_set_supported_interfaces(mac->pcs, mac->if_mode,
+						  cfg->supported_interfaces);
 }
 
 void dpaa2_mac_start(struct dpaa2_mac *mac)
 {
 	ASSERT_RTNL();
-
-	if (mac->serdes_phy)
-		phy_power_on(mac->serdes_phy);
 
 	phylink_start(mac->phylink);
 }
@@ -354,9 +318,6 @@ void dpaa2_mac_stop(struct dpaa2_mac *mac)
 	ASSERT_RTNL();
 
 	phylink_stop(mac->phylink);
-
-	if (mac->serdes_phy)
-		phy_power_off(mac->serdes_phy);
 }
 
 int dpaa2_mac_connect(struct dpaa2_mac *mac)
@@ -389,8 +350,6 @@ int dpaa2_mac_connect(struct dpaa2_mac *mac)
 			serdes_phy = NULL;
 		else if (IS_ERR(serdes_phy))
 			return PTR_ERR(serdes_phy);
-		else
-			phy_init(serdes_phy);
 	}
 	mac->serdes_phy = serdes_phy;
 

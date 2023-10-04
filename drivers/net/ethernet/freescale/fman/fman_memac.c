@@ -1043,7 +1043,7 @@ static struct phylink_pcs *memac_pcs_create(struct device_node *mac_node,
 	if (!node)
 		return ERR_PTR(-ENODEV);
 
-	pcs = lynx_pcs_create_fwnode(of_fwnode_handle(node));
+	pcs = lynx_pcs_create_fwnode(of_fwnode_handle(node), NULL, 0);
 	of_node_put(node);
 
 	return pcs;

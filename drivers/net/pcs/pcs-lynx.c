@@ -4,9 +4,13 @@
  */
 
 #include <linux/mdio.h>
+#include <linux/phy/phy.h>
 #include <linux/phylink.h>
 #include <linux/pcs-lynx.h>
 #include <linux/property.h>
+
+#define PRIMARY_LANE			0
+#define MAX_NUM_LANES			4
 
 #define SGMII_CLOCK_PERIOD_NS		8 /* PCS is clocked at 125 MHz */
 #define LINK_TIMER_VAL(ns)		((u32)((ns) / SGMII_CLOCK_PERIOD_NS))
@@ -23,6 +27,8 @@
 struct lynx_pcs {
 	struct phylink_pcs pcs;
 	struct mdio_device *mdio;
+	size_t num_phys;
+	struct phy *serdes[MAX_NUM_LANES];
 };
 
 enum sgmii_speed {
@@ -176,6 +182,19 @@ static int lynx_pcs_config(struct phylink_pcs *pcs, unsigned int neg_mode,
 			   const unsigned long *advertising, bool permit)
 {
 	struct lynx_pcs *lynx = phylink_pcs_to_lynx(pcs);
+	size_t i;
+	int err;
+
+	for (i = 0; i < lynx->num_phys; i++) {
+		err = phy_set_mode_ext(lynx->serdes[i], PHY_MODE_ETHERNET,
+				       ifmode);
+		if (err) {
+			dev_err(&lynx->mdio->dev,
+				"phy_set_mode_ext() failed: %pe\n",
+				ERR_PTR(err));
+			return err;
+		}
+	}
 
 	switch (ifmode) {
 	case PHY_INTERFACE_MODE_1000BASEX:
@@ -311,31 +330,117 @@ static void lynx_pcs_link_up(struct phylink_pcs *pcs, unsigned int neg_mode,
 	}
 }
 
+static int lynx_pcs_enable(struct phylink_pcs *pcs)
+{
+	struct lynx_pcs *lynx = phylink_pcs_to_lynx(pcs);
+	size_t i;
+	int err;
+
+	for (i = 0; i < lynx->num_phys; i++) {
+		err = phy_power_on(lynx->serdes[i]);
+		if (err)
+			return err;
+	}
+
+	return 0;
+}
+
+static void lynx_pcs_disable(struct phylink_pcs *pcs)
+{
+	struct lynx_pcs *lynx = phylink_pcs_to_lynx(pcs);
+	size_t i;
+
+	for (i = 0; i < lynx->num_phys; i++)
+		phy_power_off(lynx->serdes[i]);
+}
+
 static const struct phylink_pcs_ops lynx_pcs_phylink_ops = {
 	.pcs_get_state = lynx_pcs_get_state,
 	.pcs_config = lynx_pcs_config,
 	.pcs_an_restart = lynx_pcs_an_restart,
 	.pcs_link_up = lynx_pcs_link_up,
+	.pcs_enable = lynx_pcs_enable,
+	.pcs_disable = lynx_pcs_disable,
 };
 
-static struct phylink_pcs *lynx_pcs_create(struct mdio_device *mdio)
+void lynx_pcs_set_supported_interfaces(struct phylink_pcs *pcs,
+				       phy_interface_t default_interface,
+				       unsigned long *supported_interfaces)
+{
+	struct lynx_pcs *lynx = phylink_pcs_to_lynx(pcs);
+	phy_interface_t iface;
+	int err;
+
+	__set_bit(default_interface, supported_interfaces);
+
+	if (default_interface == PHY_INTERFACE_MODE_1000BASEX ||
+	    default_interface == PHY_INTERFACE_MODE_SGMII) {
+		__set_bit(PHY_INTERFACE_MODE_1000BASEX, supported_interfaces);
+		__set_bit(PHY_INTERFACE_MODE_SGMII, supported_interfaces);
+	}
+
+	if (!lynx->num_phys)
+		return;
+
+	/* In case we have access to the SerDes phy/lane, then ask the SerDes
+	 * driver what interfaces are supported based on the current PLL
+	 * configuration.
+	 */
+	for (iface = 0; iface < PHY_INTERFACE_MODE_MAX; iface++) {
+		if (iface == PHY_INTERFACE_MODE_NA)
+			continue;
+
+		err = phy_validate(lynx->serdes[PRIMARY_LANE],
+				   PHY_MODE_ETHERNET, iface, NULL);
+		if (err)
+			continue;
+
+		__set_bit(iface, supported_interfaces);
+	}
+}
+EXPORT_SYMBOL(lynx_pcs_set_supported_interfaces);
+
+static struct phylink_pcs *lynx_pcs_create(struct mdio_device *mdio,
+					   struct phy **phys, size_t num_phys)
 {
 	struct lynx_pcs *lynx;
+	size_t i;
+	int err;
+
+	if (num_phys > MAX_NUM_LANES)
+		return ERR_PTR(-ERANGE);
 
 	lynx = kzalloc(sizeof(*lynx), GFP_KERNEL);
 	if (!lynx)
 		return ERR_PTR(-ENOMEM);
+
+	for (i = 0; i < num_phys; i++) {
+		lynx->serdes[i] = phys[i];
+		err = phy_init(lynx->serdes[i]);
+		if (err) {
+			dev_err(&mdio->dev,
+				"Failed to initialize SerDes: %pe\n",
+				ERR_PTR(err));
+
+			while (i--)
+				phy_exit(lynx->serdes[i]);
+			kfree(lynx);
+			return ERR_PTR(err);
+		}
+	}
 
 	mdio_device_get(mdio);
 	lynx->mdio = mdio;
 	lynx->pcs.ops = &lynx_pcs_phylink_ops;
 	lynx->pcs.neg_mode = true;
 	lynx->pcs.poll = true;
+	lynx->num_phys = num_phys;
 
 	return lynx_to_phylink_pcs(lynx);
 }
 
-struct phylink_pcs *lynx_pcs_create_mdiodev(struct mii_bus *bus, int addr)
+struct phylink_pcs *lynx_pcs_create_mdiodev(struct mii_bus *bus, int addr,
+					    struct phy **phys, size_t num_phys)
 {
 	struct mdio_device *mdio;
 	struct phylink_pcs *pcs;
@@ -344,7 +449,7 @@ struct phylink_pcs *lynx_pcs_create_mdiodev(struct mii_bus *bus, int addr)
 	if (IS_ERR(mdio))
 		return ERR_CAST(mdio);
 
-	pcs = lynx_pcs_create(mdio);
+	pcs = lynx_pcs_create(mdio, phys, num_phys);
 
 	/* lynx_create() has taken a refcount on the mdiodev if it was
 	 * successful. If lynx_create() fails, this will free the mdio
@@ -368,7 +473,8 @@ EXPORT_SYMBOL(lynx_pcs_create_mdiodev);
  *  -ENOMEM if we fail to allocate memory
  *  pointer to a phylink_pcs on success
  */
-struct phylink_pcs *lynx_pcs_create_fwnode(struct fwnode_handle *node)
+struct phylink_pcs *lynx_pcs_create_fwnode(struct fwnode_handle *node,
+					   struct phy **phys, size_t num_phys)
 {
 	struct mdio_device *mdio;
 	struct phylink_pcs *pcs;
@@ -380,7 +486,7 @@ struct phylink_pcs *lynx_pcs_create_fwnode(struct fwnode_handle *node)
 	if (!mdio)
 		return ERR_PTR(-EPROBE_DEFER);
 
-	pcs = lynx_pcs_create(mdio);
+	pcs = lynx_pcs_create(mdio, phys, num_phys);
 
 	/* lynx_create() has taken a refcount on the mdiodev if it was
 	 * successful. If lynx_create() fails, this will free the mdio
@@ -397,8 +503,13 @@ EXPORT_SYMBOL_GPL(lynx_pcs_create_fwnode);
 void lynx_pcs_destroy(struct phylink_pcs *pcs)
 {
 	struct lynx_pcs *lynx = phylink_pcs_to_lynx(pcs);
+	size_t i;
+
+	for (i = 0; i < lynx->num_phys; i++)
+		phy_exit(lynx->serdes[i]);
 
 	mdio_device_put(lynx->mdio);
+
 	kfree(lynx);
 }
 EXPORT_SYMBOL(lynx_pcs_destroy);
