@@ -127,13 +127,25 @@ imx93_ldb_encoder_atomic_check(struct drm_encoder *encoder,
 }
 
 static enum
-drm_mode_status imx93_ldb_mode_valid(struct drm_encoder *crtc,
+drm_mode_status imx93_ldb_mode_valid(struct drm_encoder *encoder,
 				     const struct drm_display_mode *mode)
 {
+	struct imx93_ldb_channel *imx93_ldb_ch = enc_to_imx93_ldb_ch(encoder);
+	struct imx93_ldb *imx93_ldb = imx93_ldb_ch->imx93_ldb;
+	unsigned long serial_rate;
+
 	if (mode->clock > 80000)
 		return MODE_CLOCK_HIGH;
 
-	return MODE_OK;
+	if (imx93_ldb_ch->base.panel)
+		return MODE_OK;
+
+	serial_rate = mode->clock * 7000UL;
+
+	if (serial_rate == clk_round_rate(imx93_ldb->clk_root, serial_rate))
+		return MODE_OK;
+
+	return MODE_BAD;
 }
 
 static const struct drm_encoder_helper_funcs imx93_ldb_encoder_helper_funcs = {
