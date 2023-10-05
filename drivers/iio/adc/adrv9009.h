@@ -38,6 +38,8 @@ enum debugfs_cmd {
 	DBGFS_INIT,
 	DBGFS_BIST_FRAMER_A_PRBS,
 	DBGFS_BIST_FRAMER_B_PRBS,
+	DBGFS_BIST_SERIALIZER_A_PRBS,
+	DBGFS_BIST_SERIALIZER_B_PRBS,
 	DBGFS_BIST_FRAMER_A_LOOPBACK,
 	DBGFS_BIST_FRAMER_B_LOOPBACK,
 	DBGFS_BIST_TONE,
@@ -214,7 +216,7 @@ struct adrv9009_rf_phy {
 	struct clk 		*clks[NUM_ADRV9009_CLKS];
 	struct adrv9009_clock	clk_priv[NUM_ADRV9009_CLKS];
 	struct clk_onecell_data	clk_data;
-	struct adrv9009_debugfs_entry debugfs_entry[342];
+	struct adrv9009_debugfs_entry debugfs_entry[344];
 	struct bin_attribute 	bin;
 	struct bin_attribute 	bin_gt;
 	struct iio_dev 		*indio_dev;
