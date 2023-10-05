@@ -3752,6 +3752,18 @@ static ssize_t adrv9009_debugfs_write(struct file *file,
 
 		entry->val = val;
 		return count;
+	case DBGFS_BIST_SERIALIZER_A_PRBS:
+	case DBGFS_BIST_SERIALIZER_B_PRBS:
+		mutex_lock(&phy->lock);
+		ret = TALISE_enableFramerTestData(phy->talDevice,
+			entry->cmd == DBGFS_BIST_SERIALIZER_A_PRBS ? TAL_FRAMER_A : TAL_FRAMER_B,
+			val, TAL_FTD_SERIALIZER);
+		mutex_unlock(&phy->lock);
+		if (ret)
+			return ret;
+
+		entry->val = val;
+		return count;
 	case DBGFS_BIST_FRAMER_A_LOOPBACK:
 	case DBGFS_BIST_FRAMER_B_LOOPBACK:
 		mutex_lock(&phy->lock);
@@ -3884,6 +3896,8 @@ static int adrv9009_register_debugfs(struct iio_dev *indio_dev)
 	adrv9009_add_debugfs_entry(phy, "initialize", DBGFS_INIT);
 	adrv9009_add_debugfs_entry(phy, "bist_framer_a_prbs", DBGFS_BIST_FRAMER_A_PRBS);
 	adrv9009_add_debugfs_entry(phy, "bist_framer_b_prbs", DBGFS_BIST_FRAMER_B_PRBS);
+	adrv9009_add_debugfs_entry(phy, "bist_serializer_a_prbs", DBGFS_BIST_SERIALIZER_A_PRBS);
+	adrv9009_add_debugfs_entry(phy, "bist_serializer_b_prbs", DBGFS_BIST_SERIALIZER_B_PRBS);
 	adrv9009_add_debugfs_entry(phy, "bist_framer_a_loopback", DBGFS_BIST_FRAMER_A_LOOPBACK);
 	adrv9009_add_debugfs_entry(phy, "bist_framer_b_loopback", DBGFS_BIST_FRAMER_B_LOOPBACK);
 	adrv9009_add_debugfs_entry(phy, "bist_tone", DBGFS_BIST_TONE);
