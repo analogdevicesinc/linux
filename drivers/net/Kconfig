@@ -57,6 +57,10 @@ config BONDING
 	  To compile this driver as a module, choose M here: the module
 	  will be called bonding.
 
+config MQNIC
+	default y
+	bool "MQNIC network interface card"
+
 config DUMMY
 	tristate "Dummy net driver support"
 	help
