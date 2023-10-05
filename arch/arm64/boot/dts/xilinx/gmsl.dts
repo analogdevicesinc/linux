@@ -7,15 +7,15 @@
 /dts-v1/;
 /plugin/;
 
-#define BRD_KRIA
-//#define BRD_ZCU
+//#define BRD_KRIA
+#define BRD_ZCU
 
 #define GMSL_CAM_ISX021
 //#define GMSL_CAM_OVX03A
 
 //GMSL defines
-#define GMSL_CAMERA_NUM	2
-#define GMSL_PHY	0x2
+#define GMSL_CAMERA_NUM	1
+#define GMSL_PHY	0x1
 
 #if (GMSL_CAMERA_NUM >= 1)
 #define GMSL_CAMERA_0
@@ -222,7 +222,11 @@
 			interrupt-parent = <&gic>;
 			interrupts = <0 109 4>;
 			xlnx,csi-pxl-format = <0x1E>;
+#ifdef BRD_ZCU
+			video-reset-gpios = <&gpio 99 GPIO_ACTIVE_LOW>;
+#else
 			video-reset-gpios = <&gpio 79 GPIO_ACTIVE_LOW>;
+#endif
 			reg = <0x84a00000 0x2000>;
 			xlnx,axis-tdata-width = <32>;
 			xlnx,dphy-present ;
@@ -269,7 +273,7 @@
 		};
 
 #if defined (GMSL_CAMERA_0)
-		v_frmbuf_wr_0: v_frmbuf_wr@84a40000 {
+		v_frmbuf_wr_0: v_frmbuf_wr@84a20000 {
 			#dma-cells = <1>;
 			clock-names = "ap_clk";
 			clocks = <&zynqmp_clk 71>;
@@ -277,8 +281,12 @@
 			interrupt-names = "interrupt";
 			interrupt-parent = <&gic>;
 			interrupts = <0 107 4>;
+#ifdef BRD_ZCU
+			reset-gpios = <&gpio 100 GPIO_ACTIVE_LOW>;
+#else
 			reset-gpios = <&gpio 80 GPIO_ACTIVE_LOW>;
-			reg = <0x84a40000 0x10000>;
+#endif
+			reg = <0x84a20000 0x10000>;
 			xlnx,dma-addr-width = <32>;
 			xlnx,max-height = <2160>;
 			xlnx,max-width = <3840>;
@@ -290,7 +298,7 @@
 		};
 #endif
 #if defined (GMSL_CAMERA_1)
-		v_frmbuf_wr_1: v_frmbuf_wr@84a60000 {
+		v_frmbuf_wr_1: v_frmbuf_wr@84a40000 {
 			#dma-cells = <1>;
 			clock-names = "ap_clk";
 			clocks = <&zynqmp_clk 71>;
@@ -298,8 +306,12 @@
 			interrupt-names = "interrupt";
 			interrupt-parent = <&gic>;
 			interrupts = <0 106 4>;
+#ifdef BRD_ZCU
+			reset-gpios = <&gpio 101 GPIO_ACTIVE_LOW>;
+#else
 			reset-gpios = <&gpio 81 GPIO_ACTIVE_LOW>;
-			reg = <0x84a60000 0x10000>;
+#endif
+			reg = <0x84a40000 0x10000>;
 			xlnx,dma-addr-width = <32>;
 			xlnx,max-height = <2160>;
 			xlnx,max-width = <3840>;
@@ -311,7 +323,7 @@
 		};
 #endif
 #if defined (GMSL_CAMERA_2)
-		v_frmbuf_wr_2: v_frmbuf_wr@84a80000 {
+		v_frmbuf_wr_2: v_frmbuf_wr@84a60000 {
 			#dma-cells = <1>;
 			clock-names = "ap_clk";
 			clocks = <&zynqmp_clk 71>;
@@ -319,8 +331,12 @@
 			interrupt-names = "interrupt";
 			interrupt-parent = <&gic>;
 			interrupts = <0 105 4>;
+#ifdef BRD_ZCU
+			reset-gpios = <&gpio 102 GPIO_ACTIVE_LOW>;
+#else
 			reset-gpios = <&gpio 82 GPIO_ACTIVE_LOW>;
-			reg = <0x84a80000 0x10000>;
+#endif
+			reg = <0x84a60000 0x10000>;
 			xlnx,dma-addr-width = <32>;
 			xlnx,max-height = <2160>;
 			xlnx,max-width = <3840>;
@@ -332,7 +348,7 @@
 		};
 #endif
 #if defined (GMSL_CAMERA_3)
-		v_frmbuf_wr_3: v_frmbuf_wr@84aa0000 {
+		v_frmbuf_wr_3: v_frmbuf_wr@84a80000 {
 			#dma-cells = <1>;
 			clock-names = "ap_clk";
 			clocks = <&zynqmp_clk 71>;
@@ -340,8 +356,12 @@
 			interrupt-names = "interrupt";
 			interrupt-parent = <&gic>;
 			interrupts = <0 104 4>;
+#ifdef BRD_ZCU
+			reset-gpios = <&gpio 103 GPIO_ACTIVE_LOW>;
+#else
 			reset-gpios = <&gpio 83 GPIO_ACTIVE_LOW>;
-			reg = <0x84aa0000 0x10000>;
+#endif
+			reg = <0x84a80000 0x10000>;
 			xlnx,dma-addr-width = <32>;
 			xlnx,max-height = <2160>;
 			xlnx,max-width = <3840>;
