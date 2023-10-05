@@ -195,7 +195,6 @@ static int __ad400x_set_sampling_freq(struct ad400x_state *st, int freq)
 	cnv_state.period = ref_clk_period_ps * target;
 	cnv_state.duty_cycle = ref_clk_period_ps;
 	cnv_state.time_unit = PWM_UNIT_PSEC;
-	cnv_state.enabled = true;
 	return pwm_apply_state(st->cnv_trigger, &cnv_state);
 }
 
@@ -454,6 +453,7 @@ static int ad400x_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad400x_state *st = iio_priv(indio_dev);
 	int ret;
+	struct pwm_state conv_state;
 
 	memset(&st->spi_transfer, 0, sizeof(st->spi_transfer));
 	st->spi_transfer.rx_buf = (void *)-1;
@@ -471,15 +471,23 @@ static int ad400x_buffer_postenable(struct iio_dev *indio_dev)
 
 	spi_engine_offload_enable(st->spi, true);
 
+	pwm_get_state(st->cnv_trigger, &conv_state);
+	conv_state.enabled = true;
+	ret = pwm_apply_state(st->cnv_trigger, &conv_state);
 	return 0;
 }
 
 static int ad400x_buffer_postdisable(struct iio_dev *indio_dev)
 {
 	struct ad400x_state *st = iio_priv(indio_dev);
+	struct pwm_state conv_state;
+	int ret;
 
 	spi_engine_offload_enable(st->spi, false);
 
+	pwm_get_state(st->cnv_trigger, &conv_state);
+	conv_state.enabled = false;
+	ret = pwm_apply_state(st->cnv_trigger, &conv_state);
 	st->bus_locked = false;
 	return spi_bus_unlock(st->spi->master);
 }
