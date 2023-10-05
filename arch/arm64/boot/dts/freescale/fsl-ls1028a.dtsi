@@ -255,6 +255,12 @@
 			};
 		};
 
+		serdes: phy@1ea0000 {
+			compatible = "fsl,ls1028a-serdes", "fsl,lynx-10g";
+			reg = <0x00 0x1ea0000 0x0 0xffff>;
+			#phy-cells = <1>;
+		};
+
 		scfg: syscon@1fc0000 {
 			compatible = "fsl,ls1028a-scfg", "syscon";
 			reg = <0x0 0x1fc0000 0x0 0x10000>;

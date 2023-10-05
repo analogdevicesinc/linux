@@ -26,6 +26,8 @@
 &enetc_port0 {
 	phy-handle = <&slot1_sgmii>;
 	phy-mode = "usxgmii";
+	phys = <&serdes 0>;
+	phy-names = "serdes";
 	managed = "in-band-status";
 	status = "okay";
 };
@@ -61,6 +63,8 @@
 		status = "okay";
 		phy-handle = <&slot2_qxgmii0>;
 		phy-mode = "10g-qxgmii";
+		phys = <&serdes 1>;
+		phy-names = "serdes";
 		managed = "in-band-status";
 	};
 
@@ -68,6 +72,8 @@
 		status = "okay";
 		phy-handle = <&slot2_qxgmii1>;
 		phy-mode = "10g-qxgmii";
+		phys = <&serdes 1>;
+		phy-names = "serdes";
 		managed = "in-band-status";
 	};
 
@@ -75,6 +81,8 @@
 		status = "okay";
 		phy-handle = <&slot2_qxgmii2>;
 		phy-mode = "10g-qxgmii";
+		phys = <&serdes 1>;
+		phy-names = "serdes";
 		managed = "in-band-status";
 	};
 
@@ -82,6 +90,8 @@
 		status = "okay";
 		phy-handle = <&slot2_qxgmii3>;
 		phy-mode = "10g-qxgmii";
+		phys = <&serdes 1>;
+		phy-names = "serdes";
 		managed = "in-band-status";
 	};
 };

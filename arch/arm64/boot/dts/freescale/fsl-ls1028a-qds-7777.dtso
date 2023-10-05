@@ -43,24 +43,32 @@
 		status = "okay";
 		phy-handle = <&slot1_sxgmii0>;
 		phy-mode = "2500base-x";
+		phys = <&serdes 0>;
+		phy-names = "serdes";
 	};
 
 	port@1 {
 		status = "okay";
 		phy-handle = <&slot1_sxgmii1>;
 		phy-mode = "2500base-x";
+		phys = <&serdes 1>;
+		phy-names = "serdes";
 	};
 
 	port@2 {
 		status = "okay";
 		phy-handle = <&slot1_sxgmii2>;
 		phy-mode = "2500base-x";
+		phys = <&serdes 2>;
+		phy-names = "serdes";
 	};
 
 	port@3 {
 		status = "okay";
 		phy-handle = <&slot1_sxgmii3>;
 		phy-mode = "2500base-x";
+		phys = <&serdes 3>;
+		phy-names = "serdes";
 	};
 };
 
