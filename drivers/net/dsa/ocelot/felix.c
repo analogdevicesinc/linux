@@ -20,6 +20,7 @@
 #include <linux/module.h>
 #include <linux/of_net.h>
 #include <linux/pci.h>
+#include <linux/phy/phy.h>
 #include <linux/of.h>
 #include <net/pkt_sched.h>
 #include <net/dsa.h>
@@ -1488,8 +1489,10 @@ static struct regmap *felix_request_port_regmap(struct felix *felix, int port)
 static int felix_init_structs(struct felix *felix, int num_phys_ports)
 {
 	struct ocelot *ocelot = &felix->ocelot;
+	struct dsa_switch *ds = felix->ds;
 	phy_interface_t *port_phy_modes;
 	struct regmap *target;
+	struct dsa_port *dp;
 	int port, i, err;
 
 	ocelot->num_phys_ports = num_phys_ports;
@@ -1571,6 +1574,15 @@ static int felix_init_structs(struct felix *felix, int num_phys_ports)
 	}
 
 	kfree(port_phy_modes);
+
+	dsa_switch_for_each_available_port(dp, ds) {
+		struct ocelot_port *ocelot_port = ocelot->ports[dp->index];
+
+		ocelot_port->serdes = devm_of_phy_optional_get(ocelot->dev,
+							       dp->dn, NULL);
+		if (IS_ERR(ocelot_port->serdes))
+			return PTR_ERR(ocelot_port->serdes);
+	}
 
 	if (felix->info->mdio_bus_alloc) {
 		err = felix->info->mdio_bus_alloc(ocelot);
@@ -1694,10 +1706,6 @@ static int felix_setup(struct dsa_switch *ds)
 
 	dsa_switch_for_each_available_port(dp, ds) {
 		ocelot_init_port(ocelot, dp->index);
-
-		if (felix->info->configure_serdes)
-			felix->info->configure_serdes(ocelot, dp->index,
-						      dp->dn);
 
 		/* Set the default QoS Classification based on PCP and DEI
 		 * bits of vlan tag.
