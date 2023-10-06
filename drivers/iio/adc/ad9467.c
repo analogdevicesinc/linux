@@ -696,7 +696,7 @@ static ssize_t ad9467_lvds_sync_write(struct iio_dev *indio_dev,
 
 	mutex_lock(&indio_dev->mlock);
 
-	ret = ad9467_spi_write(conv->spi, 0x15, 0xA0);
+	ret = ad9467_spi_write(conv->spi, 0x15, 0x50);
 	if (ret)
 		return ret;
 
@@ -711,7 +711,7 @@ static ssize_t ad9467_lvds_sync_write(struct iio_dev *indio_dev,
 
 	if (timeout) {
 		dev_info(&conv->spi->dev, "Success: Pattern correct and Locked!\n");
-		ret = ad9467_spi_write(conv->spi, 0x15, 0x80);
+		ret = ad9467_spi_write(conv->spi, 0x15, 0x40);
 	} else {
 		dev_info(&conv->spi->dev, "LVDS Sync Timeout.\n");
 		ret = -ETIME;
