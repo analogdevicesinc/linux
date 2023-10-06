@@ -157,8 +157,8 @@
 		ad9508_0_c2:channel@2 {
 			reg = <2>;
 			adi,extended-name = "CNV";
-			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_HIGHZ_CMOS | DRIVER_CMOS_P_ENABLE | DRIVER_PHASE_CMOS_P_NORMAL | DRIVER_CMOS_N_ENABLE | DRIVER_PHASE_CMOS_N_FORCE_LOW)>;
-			//adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_LVDS_1_25)>;
+			//adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_HIGHZ_CMOS | DRIVER_CMOS_P_ENABLE | DRIVER_PHASE_CMOS_P_NORMAL | DRIVER_CMOS_N_ENABLE | DRIVER_PHASE_CMOS_N_FORCE_LOW)>;
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_LVDS_1_25)>;
 			adi,divider-phase = <0>;
 			//adi,channel-divider = <20>;
 			adi,channel-divider = <10>;
