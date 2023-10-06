@@ -1355,7 +1355,7 @@ static int ad9467_setup(struct axiadc_converter *st, unsigned int chip_id)
 		st->adc_output_mode |= AD9643_DEF_OUTPUT_MODE;
 		return 0;
 	case CHIPID_MACH1:
-		ad9467_spi_write(spi, 0x16, 0x60);
+		ad9467_spi_write(spi, 0x16, 0x61);
 		return 0;
 	default:
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", chip_id);
