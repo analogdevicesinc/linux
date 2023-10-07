@@ -154,8 +154,8 @@ struct ad400x_state {
 	bool bus_locked;
 
 	unsigned long ref_clk_rate;
-	struct pwm_device *cnv;
-	int samp_freq;
+	struct pwm_device *cnv_trigger;
+	const struct ad400x_chip_info *chip;
 
 	struct spi_message spi_msg;
 	struct spi_transfer spi_transfer;
@@ -171,6 +171,54 @@ struct ad400x_state {
 	 */
 	uint8_t	data[4] ____cacheline_aligned;
 };
+
+static int ad400x_get_sampling_freq(struct ad400x_state *st)
+{
+	struct pwm_state conversion_state;
+
+	pwm_get_state(st->cnv_trigger, &conversion_state);
+	return DIV_ROUND_CLOSEST_ULL(1000000000000, conversion_state.period);
+}
+
+static int __ad400x_set_sampling_freq(struct ad400x_state *st, int freq)
+{
+	unsigned long long target, ref_clk_period_ps;
+	struct pwm_state cnv_state;
+
+	/* Sync up PWM state and prepare for pwm_apply_state(). */
+	pwm_init_state(st->cnv_trigger, &cnv_state);
+
+	freq = clamp(freq, 0, st->chip->max_rate);
+	target = DIV_ROUND_CLOSEST_ULL(st->ref_clk_rate, freq);
+	ref_clk_period_ps = DIV_ROUND_CLOSEST_ULL(1000000000000,
+						  st->ref_clk_rate);
+	cnv_state.period = ref_clk_period_ps * target;
+	cnv_state.duty_cycle = ref_clk_period_ps;
+	cnv_state.time_unit = PWM_UNIT_PSEC;
+	cnv_state.enabled = true;
+	return pwm_apply_state(st->cnv_trigger, &cnv_state);
+}
+
+static int ad400x_set_sampling_freq(struct iio_dev *indio_dev, unsigned int freq)
+{
+	struct ad400x_state *st = iio_priv(indio_dev);
+	int ret;
+
+	if (!st->cnv_trigger)
+		return -EINVAL;
+
+	if (!freq || freq > st->chip->max_rate)
+		return -EINVAL;
+
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	ret = __ad400x_set_sampling_freq(st, freq);
+	iio_device_release_direct_mode(indio_dev);
+
+	return ret;
+}
 
 static int ad400x_write_reg(struct ad400x_state *st, uint8_t val)
 {
@@ -321,8 +369,7 @@ static int ad400x_read_raw(struct iio_dev *indio_dev,
 
 		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		*val = st->samp_freq;
-
+		*val = ad400x_get_sampling_freq(st);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_OFFSET:
 		*val = -(1 << chan->scan_type.realbits);
@@ -359,47 +406,13 @@ static int ad400x_reg_access(struct iio_dev *indio_dev,
 	return ret;
 }
 
-static int ad400x_set_samp_freq(struct ad400x_state *st, int freq)
-{
-	unsigned long long target, ref_clk_period_ps;
-	struct pwm_state cnv_state;
-	int ret;
-
-	/* Sync up PWM state and prepare for pwm_apply_state(). */
-	pwm_init_state(st->cnv, &cnv_state);
-
-	freq = clamp(freq, 0, ADAQ4003_MAX_FREQ);
-	target = DIV_ROUND_CLOSEST_ULL(st->ref_clk_rate, freq);
-	ref_clk_period_ps = DIV_ROUND_CLOSEST_ULL(1000000000000,
-						  st->ref_clk_rate);
-	cnv_state.period = ref_clk_period_ps * target;
-	cnv_state.duty_cycle = ref_clk_period_ps;
-	cnv_state.time_unit = PWM_UNIT_PSEC;
-	cnv_state.enabled = true;
-	ret = pwm_apply_state(st->cnv, &cnv_state);
-	if (ret) {
-		dev_info(&st->spi->dev, "Error on pwm_apply_state()");
-		return ret;
-	}
-
-	dev_info(&st->spi->dev, "pwm_state period %llu", pwm_get_period(st->cnv));
-	dev_info(&st->spi->dev, "pwm_state duty_cycle %llu", pwm_get_duty_cycle(st->cnv));
-	st->samp_freq = DIV_ROUND_CLOSEST_ULL(st->ref_clk_rate, target);
-
-	return ret;
-}
-
 static int ad400x_write_raw(struct iio_dev *indio_dev,
-			    const struct iio_chan_spec *chan,
+			    struct iio_chan_spec const *chan,
 			    int val, int val2, long info)
 {
-	struct ad400x_state *st = iio_priv(indio_dev);
-
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		if (!st->cnv)
-			return -EINVAL;
-		return ad400x_set_samp_freq(st, val);
+		return ad400x_set_sampling_freq(indio_dev, val);
 	default:
 		return -EINVAL;
 	}
@@ -413,6 +426,7 @@ static const struct iio_info adaq4003_info = {
 
 static const struct iio_info ad400x_info = {
 	.read_raw = &ad400x_read_raw,
+	.write_raw = &ad400x_write_raw,
 	.debugfs_reg_access = &ad400x_reg_access,
 };
 
@@ -522,16 +536,16 @@ static int pwm_gen_setup(struct spi_device *spi, struct ad400x_state *st)
 
 	st->ref_clk_rate = clk_get_rate(ref_clk);
 
-	st->cnv = devm_pwm_get(&spi->dev, "cnv");
-	if (IS_ERR(st->cnv))
-		return PTR_ERR(st->cnv);
+	st->cnv_trigger = devm_pwm_get(&spi->dev, "cnv");
+	if (IS_ERR(st->cnv_trigger))
+		return PTR_ERR(st->cnv_trigger);
 
 	ret = devm_add_action_or_reset(&spi->dev, ad400x_pwm_diasble,
-				       st->cnv);
+				       st->cnv_trigger);
 	if (ret)
 		return ret;
 
-	return ad400x_set_samp_freq(st, ADAQ4003_MAX_FREQ);
+	return __ad400x_set_sampling_freq(st, st->chip->max_rate);
 }
 
 static int ad400x_probe(struct spi_device *spi)
@@ -566,6 +580,8 @@ static int ad400x_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
+	st->chip = &ad400x_chips[dev_id];
+
 	ret = devm_add_action_or_reset(&spi->dev, ad400x_regulator_disable, st->vref);
 	if (ret)
 		return ret;
@@ -583,7 +599,6 @@ static int ad400x_probe(struct spi_device *spi)
 
 	indio_dev->num_channels = 1;
 	st->num_bits = indio_dev->channels->scan_type.realbits;
-	st->samp_freq = 1800000;
 
 	/* Set turbo mode */
 	st->turbo_mode = true;
