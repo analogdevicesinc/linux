@@ -423,7 +423,7 @@ static const struct spi_device_id ad400x_id[] = {
 };
 MODULE_DEVICE_TABLE(spi, ad400x_id);
 
-static int ad400x_buffer_postenable(struct iio_dev *indio_dev)
+static int ad400x_buffer_preenable(struct iio_dev *indio_dev)
 {
 	struct ad400x_state *st = iio_priv(indio_dev);
 	int ret;
@@ -462,7 +462,7 @@ static int ad400x_buffer_postdisable(struct iio_dev *indio_dev)
 }
 
 static const struct iio_buffer_setup_ops ad400x_buffer_setup_ops = {
-	.postenable = &ad400x_buffer_postenable,
+	.preenable = &ad400x_buffer_preenable,
 	.postdisable = &ad400x_buffer_postdisable,
 };
 
