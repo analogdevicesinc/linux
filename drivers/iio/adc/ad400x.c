@@ -458,7 +458,7 @@ static int ad400x_enable_cnv_trigger(struct ad400x_state *st, bool enable)
 	return pwm_apply_state(st->cnv_trigger, &cnv_state);
 }
 
-static int ad400x_buffer_postenable(struct iio_dev *indio_dev)
+static int ad400x_buffer_preenable(struct iio_dev *indio_dev)
 {
 	struct ad400x_state *st = iio_priv(indio_dev);
 	int ret;
@@ -508,7 +508,7 @@ static const struct iio_dma_buffer_ops dma_buffer_ops = {
 };
 
 static const struct iio_buffer_setup_ops ad400x_buffer_setup_ops = {
-	.postenable = &ad400x_buffer_postenable,
+	.preenable = &ad400x_buffer_preenable,
 	.postdisable = &ad400x_buffer_postdisable,
 };
 
