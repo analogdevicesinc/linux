@@ -12,19 +12,37 @@ maintainers:
 description: |
   Analog Devices AD400X family Analog to Digital Converters with SPI support.
   Specifications can be found at:
+    https://www.analog.com/en/products/ad4001.html
+    https://www.analog.com/en/products/ad4002.html
     https://www.analog.com/en/products/ad4003.html
+    https://www.analog.com/en/products/ad4004.html
+    https://www.analog.com/en/products/ad4005.html
+    https://www.analog.com/en/products/ad4006.html
     https://www.analog.com/en/products/ad4007.html
+    https://www.analog.com/en/products/ad4008.html
+    https://www.analog.com/en/products/ad4010.html
     https://www.analog.com/en/products/ad4011.html
     https://www.analog.com/en/products/ad4020.html
+    https://www.analog.com/en/products/ad4021.html
+    https://www.analog.com/en/products/ad4022.html
     https://www.analog.com/en/products/adaq4003.html
 
 properties:
   compatible:
     enum:
+      - adi,ad4001
+      - adi,ad4002
       - adi,ad4003
+      - adi,ad4004
+      - adi,ad4005
+      - adi,ad4006
       - adi,ad4007
+      - adi,ad4008
+      - adi,ad4010
       - adi,ad4011
       - adi,ad4020
+      - adi,ad4021
+      - adi,ad4022
       - adi,adaq4003
 
   reg: true
