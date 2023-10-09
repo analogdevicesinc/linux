@@ -5,6 +5,7 @@ dtb-$(CONFIG_ARCH_BCM2835) += overlay_map.dtb hat_map.dtb
 dtbo-$(CONFIG_ARCH_BCM2835) += \
 	act-led.dtbo \
 	adafruit-st7735r.dtbo \
+	ad2s1210.dtbo \
 	adafruit18.dtbo \
 	adau1977-adc.dtbo \
 	adau7002-simple.dtbo \
