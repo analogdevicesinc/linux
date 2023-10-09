@@ -847,10 +847,12 @@ irqreturn_t hx280enc_isr(int irq, void *dev_id)
 		dev->irq_status = irq_status & (~0x01);
 		spin_unlock_irqrestore(&owner_lock, flags);
 
-		if (irq_status & 0x04)
+		if (irq_status & 0x04) {
 			up(&hx280enc_data.core_suspend_sem);
-
-		wake_up_all(&enc_wait_queue);
+			wake_up_all(&enc_wait_queue);
+		} else {
+			pr_err("h1 abnormal irq %x\n", irq_status);
+		}
 
 		PDEBUG("IRQ handled!\n");
 		return IRQ_HANDLED;
