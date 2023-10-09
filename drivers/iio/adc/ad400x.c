@@ -37,57 +37,6 @@
 #define AD400X_TURBO_MODE(x)	FIELD_PREP(BIT_MASK(1), x)
 #define AD400X_HIGH_Z_MODE(x)	FIELD_PREP(BIT_MASK(2), x)
 
-enum ad400x_ids {
-	ID_ADAQ4003,
-	ID_AD4000,
-	ID_AD4001,
-	ID_AD4002,
-	ID_AD4003,
-	ID_AD4004,
-	ID_AD4005,
-	ID_AD4006,
-	ID_AD4007,
-	ID_AD4008,
-	ID_AD4010,
-	ID_AD4011,
-	ID_AD4020,
-	ID_AD4021,
-	ID_AD4022,
-};
-
-struct ad400x_chip_info {
-	struct iio_chan_spec chan_spec;
-	int max_rate;
-};
-
-struct ad400x_state {
-	struct spi_device *spi;
-	struct regulator *vref;
-	/* protect device accesses */
-	struct mutex lock;
-	bool bus_locked;
-
-	const struct ad400x_chip_info *chip;
-
-	unsigned long ref_clk_rate;
-	struct pwm_device *cnv;
-	int samp_freq;
-
-	struct spi_message spi_msg;
-	struct spi_transfer spi_transfer;
-
-	bool turbo_mode;
-	bool high_z_mode;
-
-	unsigned int num_bits;
-
-	/*
-	 * DMA (thus cache coherency maintenance) requires the
-	 * transfer buffers to live in their own cache lines.
-	 */
-	uint8_t	data[4] ____cacheline_aligned;
-};
-
 #define AD400X_CHANNEL(real_bits)					\
 	{								\
 		.type = IIO_VOLTAGE,					\
@@ -103,11 +52,38 @@ struct ad400x_state {
 		},							\
 	}								\
 
+enum ad400x_ids {
+	ID_AD4000,
+	ID_AD4001,
+	ID_AD4002,
+	ID_AD4003,
+	ID_AD4004,
+	ID_AD4005,
+	ID_AD4006,
+	ID_AD4007,
+	ID_AD4008,
+	ID_AD4010,
+	ID_AD4011,
+	ID_AD4020,
+	ID_AD4021,
+	ID_AD4022,
+	ID_ADAQ4003,
+};
+
+static const struct iio_chan_spec ad400x_channels[] = {
+	AD400X_CHANNEL(18),
+};
+
+static const struct iio_chan_spec ad4020_channel[] = {
+	AD400X_CHANNEL(20),
+};
+
+struct ad400x_chip_info {
+	struct iio_chan_spec chan_spec;
+	int max_rate;
+};
+
 static const struct ad400x_chip_info ad400x_chips[] = {
-	[ID_ADAQ4003] = {
-		.chan_spec = AD400X_CHANNEL(18),
-		.max_rate  = 2000000,
-	},
 	[ID_AD4000] = {
 		.chan_spec = AD400X_CHANNEL(16),
 		.max_rate  = 2000000,
@@ -164,7 +140,86 @@ static const struct ad400x_chip_info ad400x_chips[] = {
 		.chan_spec = AD400X_CHANNEL(20),
 		.max_rate  =  500000,
 	},
+	[ID_ADAQ4003] = {
+		.chan_spec = AD400X_CHANNEL(18),
+		.max_rate  = 2000000,
+	},
 };
+
+struct ad400x_state {
+	struct spi_device *spi;
+	struct regulator *vref;
+	/* protect device accesses */
+	struct mutex lock;
+	bool bus_locked;
+
+	const struct ad400x_chip_info *chip;
+
+	unsigned long ref_clk_rate;
+	struct pwm_device *cnv_trigger;
+	const struct ad400x_chip_info *chip;
+
+	struct spi_message spi_msg;
+	struct spi_transfer spi_transfer;
+
+	bool turbo_mode;
+	bool high_z_mode;
+
+	unsigned int num_bits;
+
+	/*
+	 * DMA (thus cache coherency maintenance) requires the
+	 * transfer buffers to live in their own cache lines.
+	 */
+	uint8_t	data[4] ____cacheline_aligned;
+};
+
+static int ad400x_get_sampling_freq(struct ad400x_state *st)
+{
+	struct pwm_state conversion_state;
+
+	pwm_get_state(st->cnv_trigger, &conversion_state);
+	return DIV_ROUND_CLOSEST_ULL(1000000000000, conversion_state.period);
+}
+
+static int __ad400x_set_sampling_freq(struct ad400x_state *st, int freq)
+{
+	unsigned long long target, ref_clk_period_ps;
+	struct pwm_state cnv_state;
+
+	/* Sync up PWM state and prepare for pwm_apply_state(). */
+	pwm_init_state(st->cnv_trigger, &cnv_state);
+
+	freq = clamp(freq, 0, st->chip->max_rate);
+	target = DIV_ROUND_CLOSEST_ULL(st->ref_clk_rate, freq);
+	ref_clk_period_ps = DIV_ROUND_CLOSEST_ULL(1000000000000,
+						  st->ref_clk_rate);
+	cnv_state.period = ref_clk_period_ps * target;
+	cnv_state.duty_cycle = ref_clk_period_ps;
+	cnv_state.time_unit = PWM_UNIT_PSEC;
+	return pwm_apply_state(st->cnv_trigger, &cnv_state);
+}
+
+static int ad400x_set_sampling_freq(struct iio_dev *indio_dev, unsigned int freq)
+{
+	struct ad400x_state *st = iio_priv(indio_dev);
+	int ret;
+
+	if (!st->cnv_trigger)
+		return -EINVAL;
+
+	if (!freq || freq > st->chip->max_rate)
+		return -EINVAL;
+
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	ret = __ad400x_set_sampling_freq(st, freq);
+	iio_device_release_direct_mode(indio_dev);
+
+	return ret;
+}
 
 static int ad400x_write_reg(struct ad400x_state *st, uint8_t val)
 {
@@ -315,8 +370,7 @@ static int ad400x_read_raw(struct iio_dev *indio_dev,
 
 		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		*val = st->samp_freq;
-
+		*val = ad400x_get_sampling_freq(st);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_OFFSET:
 		*val = -(1 << chan->scan_type.realbits);
@@ -353,48 +407,13 @@ static int ad400x_reg_access(struct iio_dev *indio_dev,
 	return ret;
 }
 
-static int ad400x_set_samp_freq(struct ad400x_state *st, int freq)
-{
-	unsigned long long target, ref_clk_period_ps;
-	struct pwm_state cnv_state;
-	int ret;
-
-	/* Sync up PWM state and prepare for pwm_apply_state(). */
-	pwm_init_state(st->cnv, &cnv_state);
-
-	freq = clamp(freq, 0, st->chip->max_rate);
-	target = DIV_ROUND_CLOSEST_ULL(st->ref_clk_rate, freq);
-	ref_clk_period_ps = DIV_ROUND_CLOSEST_ULL(1000000000000,
-						  st->ref_clk_rate);
-	cnv_state.period = ref_clk_period_ps * target;
-	cnv_state.duty_cycle = ref_clk_period_ps;
-	cnv_state.time_unit = PWM_UNIT_PSEC;
-	cnv_state.enabled = true;
-	ret = pwm_apply_state(st->cnv, &cnv_state);
-	if (ret) {
-		dev_info(&st->spi->dev, "Error on pwm_apply_state()");
-		return ret;
-	}
-
-	dev_info(&st->spi->dev, "pwm_state period %llu", pwm_get_period(st->cnv));
-	dev_info(&st->spi->dev, "pwm_state duty_cycle %llu", pwm_get_duty_cycle(st->cnv));
-	st->samp_freq = DIV_ROUND_CLOSEST_ULL(st->ref_clk_rate, target);
-	dev_info(&st->spi->dev, "new sampling frequency %d", st->samp_freq);
-
-	return ret;
-}
-
 static int ad400x_write_raw(struct iio_dev *indio_dev,
-			    const struct iio_chan_spec *chan,
+			    struct iio_chan_spec const *chan,
 			    int val, int val2, long info)
 {
-	struct ad400x_state *st = iio_priv(indio_dev);
-
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		if (!st->cnv)
-			return -EINVAL;
-		return ad400x_set_samp_freq(st, val);
+		return ad400x_set_sampling_freq(indio_dev, val);
 	default:
 		return -EINVAL;
 	}
@@ -407,23 +426,35 @@ static const struct iio_info ad400x_info = {
 };
 
 static const struct spi_device_id ad400x_id[] = {
-	{ "ad4001", (kernel_ulong_t)&ad400x_chips[ID_AD4001] },
-	{ "ad4002", (kernel_ulong_t)&ad400x_chips[ID_AD4002] },
-	{ "ad4003", (kernel_ulong_t)&ad400x_chips[ID_AD4003] },
-	{ "ad4004", (kernel_ulong_t)&ad400x_chips[ID_AD4004] },
-	{ "ad4005", (kernel_ulong_t)&ad400x_chips[ID_AD4005] },
-	{ "ad4006", (kernel_ulong_t)&ad400x_chips[ID_AD4006] },
-	{ "ad4008", (kernel_ulong_t)&ad400x_chips[ID_AD4008] },
-	{ "ad4010", (kernel_ulong_t)&ad400x_chips[ID_AD4010] },
-	{ "ad4020", (kernel_ulong_t)&ad400x_chips[ID_AD4020] },
-	{ "ad4021", (kernel_ulong_t)&ad400x_chips[ID_AD4021] },
-	{ "ad4022", (kernel_ulong_t)&ad400x_chips[ID_AD4022] },
-	{ "adaq4003", (kernel_ulong_t)&ad400x_chips[ID_ADAQ4003] },
+	{"ad4000", ID_AD4000},
+	{"ad4001", ID_AD4001},
+	{"ad4002", ID_AD4002},
+	{"ad4003", ID_AD4003},
+	{"ad4004", ID_AD4004},
+	{"ad4005", ID_AD4005},
+	{"ad4006", ID_AD4006},
+	{"ad4007", ID_AD4007},
+	{"ad4008", ID_AD4008},
+	{"ad4010", ID_AD4010},
+	{"ad4011", ID_AD4011},
+	{"ad4020", ID_AD4020},
+	{"ad4021", ID_AD4021},
+	{"ad4022", ID_AD4022},
+	{"adaq4003", ID_ADAQ4003},
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad400x_id);
 
-static int ad400x_buffer_postenable(struct iio_dev *indio_dev)
+static int ad400x_enable_cnv_trigger(struct ad400x_state *st, bool enable)
+{
+	struct pwm_state cnv_state;
+
+	pwm_get_state(st->cnv_trigger, &cnv_state);
+	cnv_state.enabled = enable;
+	return pwm_apply_state(st->cnv_trigger, &cnv_state);
+}
+
+static int ad400x_buffer_preenable(struct iio_dev *indio_dev)
 {
 	struct ad400x_state *st = iio_priv(indio_dev);
 	int ret;
@@ -444,7 +475,7 @@ static int ad400x_buffer_postenable(struct iio_dev *indio_dev)
 
 	spi_engine_offload_enable(st->spi, true);
 
-	return 0;
+	return ad400x_enable_cnv_trigger(st, true);
 }
 
 static int ad400x_buffer_postdisable(struct iio_dev *indio_dev)
@@ -454,7 +485,9 @@ static int ad400x_buffer_postdisable(struct iio_dev *indio_dev)
 	spi_engine_offload_enable(st->spi, false);
 
 	st->bus_locked = false;
-	return spi_bus_unlock(st->spi->master);
+	spi_bus_unlock(st->spi->master);
+
+	return ad400x_enable_cnv_trigger(st, false);
 }
 
 static int hw_submit_block(struct iio_dma_buffer_queue *queue,
@@ -471,7 +504,7 @@ static const struct iio_dma_buffer_ops dma_buffer_ops = {
 };
 
 static const struct iio_buffer_setup_ops ad400x_buffer_setup_ops = {
-	.postenable = &ad400x_buffer_postenable,
+	.preenable = &ad400x_buffer_preenable,
 	.postdisable = &ad400x_buffer_postdisable,
 };
 
@@ -509,16 +542,16 @@ static int pwm_gen_setup(struct spi_device *spi, struct ad400x_state *st)
 
 	st->ref_clk_rate = clk_get_rate(ref_clk);
 
-	st->cnv = devm_pwm_get(&spi->dev, "cnv");
-	if (IS_ERR(st->cnv))
-		return PTR_ERR(st->cnv);
+	st->cnv_trigger = devm_pwm_get(&spi->dev, "cnv");
+	if (IS_ERR(st->cnv_trigger))
+		return PTR_ERR(st->cnv_trigger);
 
 	ret = devm_add_action_or_reset(&spi->dev, ad400x_pwm_diasble,
-				       st->cnv);
+				       st->cnv_trigger);
 	if (ret)
 		return ret;
 
-	return ad400x_set_samp_freq(st, st->chip->max_rate);
+	return __ad400x_set_sampling_freq(st, st->chip->max_rate);
 }
 
 static int ad400x_probe(struct spi_device *spi)
@@ -551,6 +584,8 @@ static int ad400x_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
+	st->chip = &ad400x_chips[dev_id];
+
 	ret = devm_add_action_or_reset(&spi->dev, ad400x_regulator_disable, st->vref);
 	if (ret)
 		return ret;
@@ -560,11 +595,16 @@ static int ad400x_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
 	indio_dev->info = &ad400x_info;
 
-	indio_dev->channels = &st->chip->chan_spec;
+	if (dev_id == ID_ADAQ4003)
+		indio_dev->info = &adaq4003_info;
+	else
+		indio_dev->info = &ad400x_info;
+
+	indio_dev->channels = &ad400x_chips[dev_id].chan_spec;
+
 	indio_dev->num_channels = 1;
 
 	st->num_bits = indio_dev->channels->scan_type.realbits;
-	st->samp_freq = st->chip->max_rate;
 
 	/* Set turbo mode */
 	st->turbo_mode = true;
@@ -602,18 +642,20 @@ static int ad400x_probe(struct spi_device *spi)
 }
 
 static const struct of_device_id ad400x_of_match[] = {
-	{ .compatible = "adi,ad4001", .data = (struct ad400x_chip_info *)&ad400x_chips[ID_AD4001] },
-	{ .compatible = "adi,ad4002", .data = (struct ad400x_chip_info *)&ad400x_chips[ID_AD4002] },
-	{ .compatible = "adi,ad4003", .data = (struct ad400x_chip_info *)&ad400x_chips[ID_AD4003] },
-	{ .compatible = "adi,ad4004", .data = (struct ad400x_chip_info *)&ad400x_chips[ID_AD4004] },
-	{ .compatible = "adi,ad4005", .data = (struct ad400x_chip_info *)&ad400x_chips[ID_AD4005] },
-	{ .compatible = "adi,ad4006", .data = (struct ad400x_chip_info *)&ad400x_chips[ID_AD4006] },
-	{ .compatible = "adi,ad4008", .data = (struct ad400x_chip_info *)&ad400x_chips[ID_AD4008] },
-	{ .compatible = "adi,ad4010", .data = (struct ad400x_chip_info *)&ad400x_chips[ID_AD4010] },
-	{ .compatible = "adi,ad4020", .data = (struct ad400x_chip_info *)&ad400x_chips[ID_AD4020] },
-	{ .compatible = "adi,ad4021", .data = (struct ad400x_chip_info *)&ad400x_chips[ID_AD4021] },
-	{ .compatible = "adi,ad4022", .data = (struct ad400x_chip_info *)&ad400x_chips[ID_AD4022] },
-	{ .compatible = "adi,adaq4003", .data = (struct ad400x_chip_info *)&ad400x_chips[ID_ADAQ4003] },
+	{ .compatible = "adi,ad4000", .data = (const void *)ID_AD4000 },
+	{ .compatible = "adi,ad4001", .data = (const void *)ID_AD4001 },
+	{ .compatible = "adi,ad4002", .data = (const void *)ID_AD4002 },
+	{ .compatible = "adi,ad4003", .data = (const void *)ID_AD4003 },
+	{ .compatible = "adi,ad4004", .data = (const void *)ID_AD4004 },
+	{ .compatible = "adi,ad4005", .data = (const void *)ID_AD4005 },
+	{ .compatible = "adi,ad4006", .data = (const void *)ID_AD4006 },
+	{ .compatible = "adi,ad4007", .data = (const void *)ID_AD4007 },
+	{ .compatible = "adi,ad4008", .data = (const void *)ID_AD4008 },
+	{ .compatible = "adi,ad4011", .data = (const void *)ID_AD4011 },
+	{ .compatible = "adi,ad4020", .data = (const void *)ID_AD4020 },
+	{ .compatible = "adi,ad4021", .data = (const void *)ID_AD4021 },
+	{ .compatible = "adi,ad4022", .data = (const void *)ID_AD4022 },
+	{ .compatible = "adi,adaq4003", .data = (const void *)ID_ADAQ4003 },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, ad400x_of_match);
