@@ -11,6 +11,5 @@ source "drivers/staging/iio/addac/Kconfig"
 source "drivers/staging/iio/frequency/Kconfig"
 source "drivers/staging/iio/impedance-analyzer/Kconfig"
 source "drivers/staging/iio/meter/Kconfig"
-source "drivers/staging/iio/resolver/Kconfig"
 
 endmenu
