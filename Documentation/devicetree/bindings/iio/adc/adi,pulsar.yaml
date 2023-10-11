@@ -13,11 +13,14 @@ description: |
   Analog Devices PulSAR family Analog to Digital Converters with SPI support
     https://www.analog.com/en/products/ad7988-5.html
     https://www.analog.com/en/products/ad7988-1.html
+    https://www.analog.com/en/products/ad7986.html
+    https://www.analog.com/en/products/ad7985.html
     https://www.analog.com/en/products/ad7984.html
     https://www.analog.com/en/products/ad7983.html
     https://www.analog.com/en/products/ad7982.html
     https://www.analog.com/en/products/ad7980.html
     https://www.analog.com/en/products/ad7949.html
+    https://www.analog.com/en/products/ad7944.html
     https://www.analog.com/en/products/ad7946.html
     https://www.analog.com/en/products/ad7942.html
     https://www.analog.com/en/products/ad7699.html
@@ -45,12 +48,15 @@ properties:
     enum:
       - adi,pulsar,ad7988-5
       - adi,pulsar,ad7988-1
+      - adi,pulsar,ad7986
+      - adi,pulsar,ad7985
       - adi,pulsar,ad7984
       - adi,pulsar,ad7983
       - adi,pulsar,ad7982
       - adi,pulsar,ad7980
       - adi,pulsar,ad7949
       - adi,pulsar,ad7946
+      - adi,pulsar,ad7944
       - adi,pulsar,ad7942
       - adi,pulsar,ad7699
       - adi,pulsar,ad7693
@@ -103,6 +109,12 @@ properties:
 
   vref-supply:
     description: Voltage regulator for the reference voltage.
+
+  turbo-gpios:
+    maxItems: 1
+    description:
+      GPIO used to enable the turbo mode. This mode is used to increase the
+      sampling rate of the ADC at the expense of power consumption.
 
 patternProperties:
   "^channel@([0-8])$":
@@ -164,6 +176,18 @@ allOf:
         "^channel@([0-8])$":
           required:
             - adi,single-channel
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - adi,pulsar,ad7986
+              - adi,pulsar,ad7985
+              - adi,pulsar,ad7944
+    then:
+      required:
+        - turbo-gpios
 
 required:
   - compatible
