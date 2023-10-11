@@ -381,15 +381,6 @@ static void free_init_resources(struct fman_mac *tgec)
 	tgec->unicast_addr_hash = NULL;
 }
 
-static int tgec_enable(struct fman_mac *tgec)
-{
-	return 0;
-}
-
-static void tgec_disable(struct fman_mac *tgec)
-{
-}
-
 static int tgec_set_promiscuous(struct fman_mac *tgec, bool new_val)
 {
 	struct tgec_regs __iomem *regs = tgec->regs;
@@ -772,8 +763,6 @@ int tgec_initialization(struct mac_device *mac_dev,
 	mac_dev->set_allmulti		= tgec_set_allmulti;
 	mac_dev->set_tstamp		= tgec_set_tstamp;
 	mac_dev->set_multi		= fman_set_multi;
-	mac_dev->enable			= tgec_enable;
-	mac_dev->disable		= tgec_disable;
 
 	mac_dev->fman_mac = tgec_config(mac_dev, params);
 	if (!mac_dev->fman_mac) {
