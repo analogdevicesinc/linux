@@ -240,7 +240,7 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		reg = <0>;
-		nand-bus-width = <16>;
+		nand-bus-width = <8>;
 
 		partition@0 {
 			label = "u-boot";
@@ -248,7 +248,7 @@
 		};
 		partition@200000 {
 			label = "root";
-			reg = <0x200000 0x3fe00000>;
+			reg = <0x200000 0xffe00000>;
 		};
 	};
 };
