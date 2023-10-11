@@ -465,9 +465,27 @@
 			clock-names = "sfp";
 		};
 
+		serdes1: phy@1ea0000 {
+			compatible = "fsl,ls1046a-serdes1", "fsl,lynx-10g";
+			reg = <0x00 0x1ea0000 0x0 0xffff>;
+			#phy-cells = <1>;
+			big-endian;
+			fsl,dcfg-handle = <&dcfg>;
+		};
+
+		serdes2: phy@1eb0000 {
+			compatible = "fsl,ls1046a-serdes2", "fsl,lynx-10g";
+			reg = <0x00 0x1eb0000 0x0 0xffff>;
+			#phy-cells = <1>;
+			big-endian;
+			fsl,dcfg-handle = <&dcfg>;
+		};
+
 		dcfg: dcfg@1ee0000 {
 			compatible = "fsl,ls1046a-dcfg", "syscon";
-			reg = <0x0 0x1ee0000 0x0 0x1000>;
+			reg = <0x0 0x1ee0000 0x0 0x1000>,
+			      <0x0 0x20140000 0x0 0x1000>;
+			reg-names = "dcfg_ccsr", "dcfg_dcsr";
 			big-endian;
 		};
 
