@@ -51,7 +51,7 @@
 	};
 
 	wm8524: audio-codec {
-		status = "disabled";
+		clocks = <&clk IMX8MN_CLK_SAI3_ROOT>;
 	};
 
 	rpmsg_audio: rpmsg_audio {
@@ -68,6 +68,7 @@
 			 <&clk IMX8MN_AUDIO_PLL1_OUT>,
 			 <&clk IMX8MN_AUDIO_PLL2_OUT>;
 		clock-names = "ipg", "mclk", "dma", "pll8k", "pll11k";
+		audio-codec = <&wm8524>;
 		status = "okay";
 	};
 
