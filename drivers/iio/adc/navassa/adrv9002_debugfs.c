@@ -1532,6 +1532,9 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 		debugfs_create_file(attr, 0600, d, &tx->channel, &adrv9002_enablement_delays_fops);
 
 		adrv9002_debugfs_dpd_config_create(tx, d);
+
+		sprintf(attr, "tx%d_carrier_hz", chan);
+		debugfs_create_u64(attr, 0600, d, &tx->channel.carrier);
 	}
 
 	for (chan = 0; chan < ARRAY_SIZE(phy->rx_channels); chan++) {
@@ -1577,6 +1580,9 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 		sprintf(attr, "rx%d_near_end_loopback", chan);
 		debugfs_create_file_unsafe(attr, 0200, d, rx,
 					   &adrv9002_rx_near_end_loopback_set_fops);
+
+		sprintf(attr, "rx%d_carrier_hz", chan);
+		debugfs_create_u64(attr, 0600, d, &rx->channel.carrier);
 	}
 
 	adrv9002_debugfs_fh_config_create(phy, d);
