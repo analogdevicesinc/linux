@@ -14,6 +14,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
 #include <linux/err.h>
+#include <linux/gpio/consumer.h>
 #include <linux/jiffies.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -332,6 +333,7 @@ struct ad_pulsar_adc {
 	const struct ad_pulsar_chip_info *info;
 	struct iio_chan_spec *channels;
 	struct spi_transfer *seq_xfer;
+	struct gpio_desc *turbo_gpio;
 	unsigned int cfg;
 	unsigned long ref_clk_rate;
 	struct pwm_device *cnv;
@@ -915,6 +917,13 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	ret = ad_pulsar_set_samp_freq(adc, adc->info->max_rate);
 	if (ret)
 		return ret;
+
+	/* REVISIT: for now, turbo mode is always enabled */
+	adc->turbo_gpio = devm_gpiod_get_optional(&spi->dev, "turbo",
+						  GPIOD_OUT_HIGH);
+	if (IS_ERR(adc->turbo_gpio))
+		return dev_err_probe(&spi->dev, PTR_ERR(adc->turbo_gpio),
+				     "Failed to get turbo GPIO\n");
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
