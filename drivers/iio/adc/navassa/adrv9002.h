@@ -153,6 +153,7 @@ struct adrv9002_chan {
 	struct gpio_desc *mux_ctl;
 	struct gpio_desc *mux_ctl_2;
 	struct adrv9002_ext_lo *ext_lo;
+	u64 carrier;
 	/*
 	 * These values are in nanoseconds. They need to be converted with
 	 * @adrv9002_chan_ns_to_en_delay() before passing them to the API.
