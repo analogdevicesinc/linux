@@ -50,11 +50,13 @@
 			tx@0 {
 				reg = <0>;
 				adi,port = <1>;
+				adi,dpd;
 			};
 
 			tx@1 {
 				reg = <1>;
 				adi,port = <1>;
+				adi,dpd;
 			};
 
 		};
