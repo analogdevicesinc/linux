@@ -19,6 +19,7 @@
 #include "adi_common_log.h"
 #include "adi_adrv9001_user.h"
 #include "adi_adrv9001_cals_types.h"
+#include "adi_adrv9001_dpd_types.h"
 #include "adi_adrv9001_fh_types.h"
 #include "adi_adrv9001_radio_types.h"
 #include "adi_adrv9001_rx_gaincontrol_types.h"
@@ -35,6 +36,8 @@ struct iio_chan_spec;
 #define ADRV9002_FH_TABLES_NR		2
 #define ADRV9002_RX_MIN_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MIN
 #define ADRV9002_RX_MAX_GAIN_IDX	ADI_ADRV9001_RX_GAIN_INDEX_MAX
+#define ADRV9002_DPD_MAX_REGIONS	8
+#define ADRV9002_DPD_FH_MAX_REGIONS	(ADRV9002_DPD_MAX_REGIONS - 1)
 
 enum {
 	ADRV9002_CHANN_1,
@@ -181,8 +184,12 @@ struct adrv9002_rx_chan {
 
 struct adrv9002_tx_chan {
 	struct adrv9002_chan channel;
+	struct adi_adrv9001_DpdInitCfg *dpd_init;
+	struct adi_adrv9001_DpdCfg *dpd;
 	struct adi_adrv9001_TxAttenuationPinControlCfg *pin_cfg;
 	u8 dac_boost_en;
+	u8 elb_en;
+	u8 ext_path_calib;
 #ifdef CONFIG_DEBUG_FS
 	struct adi_adrv9001_TxSsiTestModeCfg ssi_test;
 	u8 loopback;
