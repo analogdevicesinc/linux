@@ -14,6 +14,7 @@
 #include "adi_adrv9001_dpd_types.h"
 #include "adi_adrv9001_gpio_types.h"
 #include "adi_adrv9001_fh_types.h"
+#include "adi_adrv9001_radio.h"
 
 #define ADRV9002_OF_U32_GET_VALIDATE(dev, node, key, def, min, max,		\
 				     val, mandatory) ({				\
@@ -729,6 +730,18 @@ static int adrv9002_parse_tx_dt(struct adrv9002_rf_phy *phy,
 	if (of_property_read_bool(node, "adi,dac-full-scale-boost"))
 		tx->dac_boost_en = true;
 
+	ret = of_property_read_u64(node, "adi,carrier-hz", &tx->channel.carrier);
+	if (!ret) {
+		u64 min = ADI_ADRV9001_CARRIER_FREQUENCY_MIN_HZ;
+		u64 max = ADI_ADRV9001_CARRIER_FREQUENCY_MAX_HZ;
+
+		if (tx->channel.carrier < min || tx->channel.carrier > max) {
+			dev_err(&phy->spi->dev, "Invalid carrier(%llu) for TX%d\n",
+				tx->channel.carrier, channel + 1);
+			return -EINVAL;
+		}
+	}
+
 	ret = adrv9002_parse_en_delays(phy, node, &tx->channel);
 	if (ret)
 		return ret;
@@ -1045,6 +1058,18 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 	ret = adrv9002_parse_en_delays(phy, node, &rx->channel);
 	if (ret)
 		return ret;
+
+	ret = of_property_read_u64(node, "adi,carrier-hz", &rx->channel.carrier);
+	if (!ret) {
+		u64 min = ADI_ADRV9001_CARRIER_FREQUENCY_MIN_HZ;
+		u64 max = ADI_ADRV9001_CARRIER_FREQUENCY_MAX_HZ;
+
+		if (rx->channel.carrier < min || rx->channel.carrier > max) {
+			dev_err(&phy->spi->dev, "Invalid carrier(%llu) for RX%d\n",
+				rx->channel.carrier, channel + 1);
+			return -EINVAL;
+		}
+	}
 
 	/* check min/max gain and assign to pinctrl and agc if there */
 #define ADRV9002_OF_RX_OPTIONAL(key, def, min, max, val)	\
