@@ -162,6 +162,7 @@ static void dpaa2_mac_config(struct phylink_config *config, unsigned int mode,
 {
 	struct dpaa2_mac *mac = phylink_to_dpaa2_mac(config);
 	struct dpmac_link_state *dpmac_state = &mac->state;
+	size_t i;
 	int err;
 
 	if (linkmode_test_bit(ETHTOOL_LINK_MODE_Autoneg_BIT,
@@ -176,7 +177,7 @@ static void dpaa2_mac_config(struct phylink_config *config, unsigned int mode,
 		netdev_err(mac->net_dev, "%s: dpmac_set_link_state() = %d\n",
 			   __func__, err);
 
-	if (!mac->serdes_phy)
+	if (!mac->num_phys)
 		return;
 
 	/* This happens only if we support changing of protocol at runtime */
@@ -184,6 +185,11 @@ static void dpaa2_mac_config(struct phylink_config *config, unsigned int mode,
 				 dpmac_eth_if_mode(state->interface));
 	if (err)
 		netdev_err(mac->net_dev,  "dpmac_set_protocol() = %d\n", err);
+
+	/* Configure any optional retimers for the current interface mode */
+	for (i = mac->num_lanes; i < mac->num_phys; i++)
+		phy_set_mode_ext(mac->phys[i], PHY_MODE_ETHERNET,
+				 state->interface);
 }
 
 static void dpaa2_mac_link_up(struct phylink_config *config,
@@ -248,7 +254,6 @@ static int dpaa2_pcs_create(struct dpaa2_mac *mac,
 			    struct fwnode_handle *dpmac_node,
 			    int id)
 {
-	size_t num_phys = mac->serdes_phy ? 1 : 0;
 	struct fwnode_handle *node;
 	struct phylink_pcs *pcs;
 
@@ -259,7 +264,7 @@ static int dpaa2_pcs_create(struct dpaa2_mac *mac,
 		return 0;
 	}
 
-	pcs = lynx_pcs_create_fwnode(node, &mac->serdes_phy, num_phys);
+	pcs = lynx_pcs_create_fwnode(node, mac->phys, mac->num_lanes);
 	fwnode_handle_put(node);
 
 	if (pcs == ERR_PTR(-EPROBE_DEFER)) {
@@ -320,11 +325,66 @@ void dpaa2_mac_stop(struct dpaa2_mac *mac)
 	phylink_stop(mac->phylink);
 }
 
+static int dpaa2_mac_get_phys(struct dpaa2_mac *mac)
+{
+	struct device_node *dn = to_of_node(mac->fw_node);
+	struct device *dev = &mac->mc_dev->dev;
+	struct phy *phy;
+	size_t i;
+	int err;
+	u32 val;
+
+	err = of_count_phandle_with_args(dn, "phys", "#phy-cells");
+	if (err <= 0) {
+		mac->num_phys = 0;
+		return 0;
+	}
+	mac->num_phys = err;
+
+	if (fwnode_property_read_u32(mac->fw_node, "num-lanes", &val))
+		mac->num_lanes = 1;
+	else
+		mac->num_lanes = val;
+
+	mac->phys = devm_kcalloc(dev, mac->num_phys, sizeof(struct phy *),
+				 GFP_KERNEL);
+	if (!mac->phys)
+		return -ENOMEM;
+
+	for (i = 0; i < mac->num_phys; i++) {
+		phy = devm_of_phy_get_by_index(dev, dn, i);
+		if (IS_ERR(phy))
+			return PTR_ERR(phy);
+
+		mac->phys[i] = phy;
+	}
+
+	/* PHYs 0 .. num_lanes-1 are SerDes lanes and are managed by the PCS.
+	 * The rest up to num_phys are optional retimers or other PHYs that
+	 * may be in the signal path and need to be managed. These will be
+	 * managed by the dpaa2-mac driver.
+	 */
+	for (i = mac->num_lanes; i < mac->num_phys; i++) {
+		err = phy_init(mac->phys[i]);
+		if (err)
+			return err;
+	}
+
+	return 0;
+}
+
+static void dpaa2_mac_put_phys(struct dpaa2_mac *mac)
+{
+	size_t i;
+
+	for (i = mac->num_lanes; i < mac->num_phys; i++)
+		phy_exit(mac->phys[i]);
+}
+
 int dpaa2_mac_connect(struct dpaa2_mac *mac)
 {
 	struct net_device *net_dev = mac->net_dev;
 	struct fwnode_handle *dpmac_node;
-	struct phy *serdes_phy = NULL;
 	struct phylink *phylink;
 	int err;
 
@@ -344,14 +404,10 @@ int dpaa2_mac_connect(struct dpaa2_mac *mac)
 	if (mac->features & DPAA2_MAC_FEATURE_PROTOCOL_CHANGE &&
 	    !phy_interface_mode_is_rgmii(mac->if_mode) &&
 	    is_of_node(dpmac_node)) {
-		serdes_phy = of_phy_get(to_of_node(dpmac_node), NULL);
-
-		if (serdes_phy == ERR_PTR(-ENODEV))
-			serdes_phy = NULL;
-		else if (IS_ERR(serdes_phy))
-			return PTR_ERR(serdes_phy);
+		err = dpaa2_mac_get_phys(mac);
+		if (err)
+			return err;
 	}
-	mac->serdes_phy = serdes_phy;
 
 	/* The MAC does not have the capability to add RGMII delays so
 	 * error out if the interface mode requests them and there is no PHY
@@ -418,8 +474,7 @@ void dpaa2_mac_disconnect(struct dpaa2_mac *mac)
 
 	phylink_destroy(mac->phylink);
 	dpaa2_pcs_destroy(mac);
-	of_phy_put(mac->serdes_phy);
-	mac->serdes_phy = NULL;
+	dpaa2_mac_put_phys(mac);
 }
 
 int dpaa2_mac_open(struct dpaa2_mac *mac)
