@@ -14,6 +14,9 @@
 #include "linux/spi/spi.h"
 
 #include "adrv9002.h"
+#include "adi_adrv9001_cals.h"
+#include "adi_adrv9001_dpd.h"
+#include "adi_adrv9001_dpd_types.h"
 #include "adi_adrv9001_fh.h"
 #include "adi_adrv9001_fh_types.h"
 #include "adi_adrv9001_gpio.h"
@@ -1260,6 +1263,197 @@ static void adrv9002_debugfs_gpio_config_create(struct adrv9002_rf_phy *phy, str
 	}
 }
 
+static int adrv9002_dpd_init_config_dump_show(struct seq_file *seq, void *ignored)
+{
+	struct adrv9002_tx_chan *tx = seq->private;
+	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.idx);
+	adi_adrv9001_DpdInitCfg_t init = {0};
+	unsigned int i;
+	int ret;
+
+	mutex_lock(&phy->lock);
+	ret = api_call(phy, adi_adrv9001_dpd_Initial_Inspect, tx->channel.number, &init);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return ret;
+
+	adrv9002_seq_printf(seq, &init, enable);
+	adrv9002_seq_printf(seq, &init, amplifierType);
+	adrv9002_seq_printf(seq, &init, lutSize);
+	adrv9002_seq_printf(seq, &init, model);
+	adrv9002_seq_printf(seq, &init, changeModelTapOrders);
+
+	for (i = 0; i < ARRAY_SIZE(init.modelOrdersForEachTap); i++)
+		seq_printf(seq, "tap%i: 0x%x ", i, init.modelOrdersForEachTap[i]);
+
+	seq_puts(seq, "\n");
+	adrv9002_seq_printf(seq, &init, preLutScale);
+	adrv9002_seq_printf(seq, &init, clgcEnable);
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(adrv9002_dpd_init_config_dump);
+
+static int adrv9002_tx_ext_path_delay_get(void *arg, u64 *val)
+{
+	struct adrv9002_tx_chan *tx = arg;
+	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.idx);
+	u32 delay;
+	int ret;
+
+	mutex_lock(&phy->lock);
+	ret = api_call(phy, adi_adrv9001_cals_ExternalPathDelay_Get, tx->channel.number, &delay);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return ret;
+
+	*val = delay;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_tx_ext_path_delay_fops,
+			 adrv9002_tx_ext_path_delay_get, NULL, "%llu\n");
+
+static int adrv9002_tx_dpd_luts_reset_set(void *arg, u64 val)
+{
+	struct adrv9002_tx_chan *tx = arg;
+	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.idx);
+	int ret;
+
+	mutex_lock(&phy->lock);
+	tx->dpd->resetLuts = !!val;
+	ret = api_call(phy, adi_adrv9001_dpd_Configure, tx->channel.number, tx->dpd);
+	tx->dpd->resetLuts = false;
+	mutex_unlock(&phy->lock);
+
+	return ret;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(adrv9002_tx_dpd_luts_reset_fops,
+			 NULL, adrv9002_tx_dpd_luts_reset_set, "%llu");
+
+static int adrv9002_dpd_monitor_dump_show(struct seq_file *seq, void *ignored)
+{
+	struct adrv9002_tx_chan *tx = seq->private;
+	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.idx);
+	struct adi_adrv9001_DpdChannelStatus status = {0};
+	int ret;
+
+	mutex_lock(&phy->lock);
+	ret = api_call(phy, adi_adrv9001_dpd_channel_Status_Get, tx->channel.number, &status);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return ret;
+
+	adrv9002_seq_printf(seq, &status, numberOfIterations);
+	adrv9002_seq_printf(seq, &status, numberOfSuccessfulIterations);
+	seq_printf(seq, "txPeakPower_100th_dB: %d\n", status.txPeakPower_100th_dB);
+	seq_printf(seq, "rxPeakPower_100th_dB: %d\n", status.rxPeakPower_100th_dB);
+	seq_printf(seq, "txAvgPower_100th_dB: %d\n", status.txAvgPower_100th_dB);
+	seq_printf(seq, "rxAvgPower_100th_dB: %d\n", status.rxAvgPower_100th_dB);
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(adrv9002_dpd_monitor_dump);
+
+static int adrv9002_dpd_config_dump_show(struct seq_file *seq, void *ignored)
+{
+	struct adrv9002_tx_chan *tx = seq->private;
+	struct adrv9002_rf_phy *phy = tx_to_phy(tx, tx->channel.idx);
+	adi_adrv9001_DpdCfg_t cfg = {0};
+	int ret;
+
+	mutex_lock(&phy->lock);
+	ret = api_call(phy, adi_adrv9001_dpd_Inspect, tx->channel.number, &cfg);
+	mutex_unlock(&phy->lock);
+	if (ret)
+		return ret;
+
+	adrv9002_seq_printf(seq, &cfg, numberOfSamples);
+	adrv9002_seq_printf(seq, &cfg, additionalPowerScale);
+	adrv9002_seq_printf(seq, &cfg, rxTxNormalizationLowerThreshold);
+	adrv9002_seq_printf(seq, &cfg, rxTxNormalizationUpperThreshold);
+	adrv9002_seq_printf(seq, &cfg, detectionPowerThreshold);
+	adrv9002_seq_printf(seq, &cfg, detectionPeakThreshold);
+	adrv9002_seq_printf(seq, &cfg, countsLessThanPowerThreshold);
+	adrv9002_seq_printf(seq, &cfg, countsGreaterThanPeakThreshold);
+	adrv9002_seq_printf(seq, &cfg, immediateLutSwitching);
+	adrv9002_seq_printf(seq, &cfg, timeFilterCoefficient);
+	adrv9002_seq_printf(seq, &cfg, clgcLoopOpen);
+	adrv9002_seq_printf(seq, &cfg, clgcFilterAlpha);
+	seq_printf(seq, "clgcGainTarget_HundredthdB: %d\n", cfg.clgcGainTarget_HundredthdB);
+	seq_printf(seq, "clgcLastGain_HundredthdB: %d\n", cfg.clgcLastGain_HundredthdB);
+	seq_printf(seq, "clgcFilteredGain_HundredthdB: %d\n", cfg.clgcFilteredGain_HundredthdB);
+
+	return 0;
+}
+DEFINE_SHOW_ATTRIBUTE(adrv9002_dpd_config_dump);
+
+static void adrv9002_debugfs_dpd_config_create(struct adrv9002_tx_chan *tx, struct dentry *d)
+{
+	unsigned int tap;
+	char attr[64];
+
+	if (!tx->dpd_init)
+		return;
+
+	sprintf(attr, "tx%u_dpd_init_config", tx->channel.idx);
+	debugfs_create_file(attr, 0400, d, tx, &adrv9002_dpd_init_config_dump_fops);
+	sprintf(attr, "tx%u_dpd_config", tx->channel.idx);
+	debugfs_create_file(attr, 0400, d, tx, &adrv9002_dpd_config_dump_fops);
+	sprintf(attr, "tx%u_dpd_enable", tx->channel.idx);
+	debugfs_create_bool(attr, 0600, d, &tx->dpd_init->enable);
+	sprintf(attr, "tx%u_external_path_delay_ps", tx->channel.idx);
+	debugfs_create_file_unsafe(attr, 0400, d, tx, &adrv9002_tx_ext_path_delay_fops);
+	sprintf(attr, "tx%u_dpd_reset_luts", tx->channel.idx);
+	debugfs_create_file_unsafe(attr, 0200, d, tx, &adrv9002_tx_dpd_luts_reset_fops);
+	sprintf(attr, "tx%u_external_path_delay_calibrate", tx->channel.idx);
+	debugfs_create_u8(attr, 0600, d, &tx->ext_path_calib);
+	sprintf(attr, "tx%u_dpd_monitor", tx->channel.idx);
+	debugfs_create_file(attr, 0400, d, tx, &adrv9002_dpd_monitor_dump_fops);
+	sprintf(attr, "tx%u_lut_size", tx->channel.idx);
+	debugfs_create_u32(attr, 0600, d, &tx->dpd_init->lutSize);
+	sprintf(attr, "tx%u_clgc_enable", tx->channel.idx);
+	debugfs_create_u8(attr, 0600, d, &tx->dpd_init->clgcEnable);
+	sprintf(attr, "tx%u_pre_lut_scale", tx->channel.idx);
+	debugfs_create_u8(attr, 0600, d, &tx->dpd_init->preLutScale);
+	sprintf(attr, "tx%u_change_model_tap_orders", tx->channel.idx);
+	debugfs_create_bool(attr, 0600, d, &tx->dpd_init->changeModelTapOrders);
+
+	for (tap = 0; tap < ARRAY_SIZE(tx->dpd_init->modelOrdersForEachTap); tap++) {
+		sprintf(attr, "tx%u_model_order_tap%u", tx->channel.idx, tap);
+		debugfs_create_u32(attr, 0600, d, &tx->dpd_init->modelOrdersForEachTap[tap]);
+	}
+
+	sprintf(attr, "tx%u_samples_number", tx->channel.idx);
+	debugfs_create_u32(attr, 0600, d, &tx->dpd->numberOfSamples);
+	sprintf(attr, "tx%u_additional_power_scale", tx->channel.idx);
+	debugfs_create_u32(attr, 0600, d, &tx->dpd->additionalPowerScale);
+	sprintf(attr, "tx%u_rxtx_normalization_lower_threshold", tx->channel.idx);
+	debugfs_create_u32(attr, 0600, d, &tx->dpd->rxTxNormalizationLowerThreshold);
+	sprintf(attr, "tx%u_rxtx_normalization_upper_threshold", tx->channel.idx);
+	debugfs_create_u32(attr, 0600, d, &tx->dpd->rxTxNormalizationUpperThreshold);
+	sprintf(attr, "tx%d_detection_power_threshold", tx->channel.idx);
+	debugfs_create_u32(attr, 0600, d, &tx->dpd->detectionPowerThreshold);
+	sprintf(attr, "tx%u_detection_peak_threshold", tx->channel.idx);
+	debugfs_create_u32(attr, 0600, d, &tx->dpd->detectionPeakThreshold);
+	sprintf(attr, "tx%u_counts_less_than_power_threshold", tx->channel.idx);
+	debugfs_create_u16(attr, 0600, d, &tx->dpd->countsLessThanPowerThreshold);
+	sprintf(attr, "tx%u_counts_greater_than_peak_threshold", tx->channel.idx);
+	debugfs_create_u16(attr, 0600, d, &tx->dpd->countsGreaterThanPeakThreshold);
+	sprintf(attr, "tx%u_immediate_lut_switching", tx->channel.idx);
+	debugfs_create_bool(attr, 0600, d, &tx->dpd->immediateLutSwitching);
+	sprintf(attr, "tx%u_time_filter_coefficient", tx->channel.idx);
+	debugfs_create_u32(attr, 0600, d, &tx->dpd->timeFilterCoefficient);
+	sprintf(attr, "tx%u_clgc_loop_open", tx->channel.idx);
+	debugfs_create_u8(attr, 0600, d, &tx->dpd->clgcLoopOpen);
+	sprintf(attr, "tx%u_clgc_gain_target_hundredthdB", tx->channel.idx);
+	debugfs_create_u32(attr, 0600, d, &tx->dpd->clgcGainTarget_HundredthdB);
+	sprintf(attr, "tx%u_clgc_filter_alpha", tx->channel.idx);
+	debugfs_create_u32(attr, 0600, d, &tx->dpd->clgcFilterAlpha);
+	sprintf(attr, "tx%u_capture_delay_us", tx->channel.idx);
+	debugfs_create_u32(attr, 0600, d, &tx->dpd->captureDelay_us);
+}
+
 void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 {
 	int chan;
@@ -1336,6 +1530,8 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 		debugfs_create_u32(attr, 0600, d, &tx->channel.en_delays_ns.riseToOnDelay);
 		sprintf(attr, "tx%d_enablement_delays", chan);
 		debugfs_create_file(attr, 0600, d, &tx->channel, &adrv9002_enablement_delays_fops);
+
+		adrv9002_debugfs_dpd_config_create(tx, d);
 	}
 
 	for (chan = 0; chan < ARRAY_SIZE(phy->rx_channels); chan++) {
