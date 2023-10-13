@@ -29,11 +29,6 @@
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 
-/* 5.10 compatibility */
-#include <linux/slab.h>
-#define IIO_DMA_MINALIGN		ARCH_KMALLOC_MINALIGN
-/* end 5.10 compatibility */
-
 #define AD_PULSAR_REG_CONFIG		0x00
 
 #define AD7682_NUM_TEMP_CHANNELS	1
