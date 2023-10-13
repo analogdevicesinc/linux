@@ -3128,6 +3128,9 @@ static u64 adrv9002_get_init_carrier(const struct adrv9002_chan *c)
 	u64 lo_freq;
 
 	if (!c->ext_lo) {
+		if (c->carrier)
+			return c->carrier;
+
 		/* If no external LO, keep the same values as before */
 		if (c->port == ADI_RX)
 			return 2400000000ULL;
