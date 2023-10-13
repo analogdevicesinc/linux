@@ -68,4 +68,8 @@
 #define	ADRV9002_TX_1	0
 #define	ADRV9002_TX_2	1
 
+/* Digital predistortion */
+#define ADRV9002_DPD_LUTSIZE_256	0
+#define ADRV9002_DPD_LUTSIZE_512	1
+
 #endif /* _DT_BINDINGS_IIO_ADC_ADRV9002_H */
