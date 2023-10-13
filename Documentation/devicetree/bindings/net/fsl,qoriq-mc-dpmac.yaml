@@ -34,6 +34,18 @@ properties:
     description: A reference to the SerDes lane(s)
     maxItems: 1
 
+  num-lanes:
+    maximum: 4
+    description:
+      The number of SerDes lanes used for this MAC. There must be at least this
+      many "phys" and "phy-names" elements. The first "num-lanes" represent
+      SerDes phys, while the remaining represent optional retimers in the
+      signal path.
+
+  phys: true
+
+  phy-names: true
+
 required:
   - reg
 
