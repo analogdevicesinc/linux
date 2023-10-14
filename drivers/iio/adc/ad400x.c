@@ -70,14 +70,6 @@ enum ad400x_ids {
 	ID_ADAQ4003,
 };
 
-static const struct iio_chan_spec ad400x_channels[] = {
-	AD400X_CHANNEL(18),
-};
-
-static const struct iio_chan_spec ad4020_channel[] = {
-	AD400X_CHANNEL(20),
-};
-
 struct ad400x_chip_info {
 	struct iio_chan_spec chan_spec;
 	int max_rate;
