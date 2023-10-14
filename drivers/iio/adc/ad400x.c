@@ -417,12 +417,6 @@ static int ad400x_write_raw(struct iio_dev *indio_dev,
 	}
 }
 
-static const struct iio_info adaq4003_info = {
-	.read_raw = &ad400x_read_raw,
-	.write_raw = &ad400x_write_raw,
-	.debugfs_reg_access = &ad400x_reg_access,
-};
-
 static const struct iio_info ad400x_info = {
 	.read_raw = &ad400x_read_raw,
 	.write_raw = &ad400x_write_raw,
@@ -599,11 +593,7 @@ static int ad400x_probe(struct spi_device *spi)
 	indio_dev->dev.parent = &spi->dev;
 	indio_dev->name = spi_get_device_id(spi)->name;
 	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
-
-	if (dev_id == ID_ADAQ4003)
-		indio_dev->info = &adaq4003_info;
-	else
-		indio_dev->info = &ad400x_info;
+	indio_dev->info = &ad400x_info;
 
 	indio_dev->channels = &ad400x_chips[dev_id].chan_spec;
 
