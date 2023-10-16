@@ -59,7 +59,6 @@ resource_size_t size;
 #define FEC_MMFR_TA             (2 << 16)
 #define FEC_MMFR_DATA(v)        ((v) & 0xffff)
 
-#define ENET_QOS               "30bf0000.ethernet"
 #define MTL_MAX_RX_QUEUES       8
 #define MTL_MAX_TX_QUEUES       8
 static int phyaddr = -1;
@@ -110,7 +109,7 @@ MODULE_DEVICE_TABLE(platform, fec_enet_uio_devtype);
 
 static const struct of_device_id fec_enet_uio_ids[] = {
 	{ .compatible = "fsl,imx8mm-fec-uio", .data = &fec_enet_uio_devtype },
-	{ .compatible = "fsl,imx8mp-enet-qos", .data = &fec_enet_uio_devtype },
+	{ .compatible = "fsl,imx-enet-qos", .data = &fec_enet_uio_devtype },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, fec_enet_uio_ids);
@@ -1516,10 +1515,11 @@ fec_enet_uio_remove(struct platform_device *pdev)
 static int
 fec_enet_uio_probe(struct platform_device *pdev)
 {
+	const char *comp_str = of_get_property(pdev->dev.of_node, "compatible", NULL);
 	int ret;
 
-	/* This is for the ENET-QOS ethernet */
-	if (!strcmp(pdev->name, ENET_QOS)) {
+	/* This is for the ENET-QOS ethernet (i.MX8MP & i.MX93 supported)*/
+	if (!strcmp(comp_str, "fsl,imx-enet-qos")) {
 		ret = enet_qos_probe(pdev);
 
 		if (ret)
