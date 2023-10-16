@@ -34,7 +34,7 @@
 
 &amba {
 	axi_tdd_0: axi-tdd-0@7C440000 {
-		compatible = "adi,axi-tdd-2.00.a";
+		compatible = "adi,axi-tdd";
 		reg = <0x7C440000 0x10000>;
 		clocks = <&clkc 15>, <&adc0_ad9364 20>;
 		clock-names = "s_axi_aclk", "intf_clk";
