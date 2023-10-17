@@ -16,5 +16,5 @@
 };
 
 &eqos {
-	compatible = "fsl,imx8mp-enet-qos", "snps,dwmac-5.10a";
+	compatible = "fsl,imx-enet-qos", "snps,dwmac-5.10a";
 };
