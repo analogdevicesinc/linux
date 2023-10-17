@@ -432,15 +432,6 @@ static const struct spi_device_id ad400x_id[] = {
 };
 MODULE_DEVICE_TABLE(spi, ad400x_id);
 
-static int ad400x_enable_cnv_trigger(struct ad400x_state *st, bool enable)
-{
-	struct pwm_state cnv_state;
-
-	pwm_get_state(st->cnv_trigger, &cnv_state);
-	cnv_state.enabled = enable;
-	return pwm_apply_state(st->cnv_trigger, &cnv_state);
-}
-
 static int ad400x_buffer_preenable(struct iio_dev *indio_dev)
 {
 	struct ad400x_state *st = iio_priv(indio_dev);
@@ -462,7 +453,7 @@ static int ad400x_buffer_preenable(struct iio_dev *indio_dev)
 
 	spi_engine_offload_enable(st->spi, true);
 
-	return ad400x_enable_cnv_trigger(st, true);
+	return pwm_enable(st->cnv_trigger);
 }
 
 static int ad400x_buffer_postdisable(struct iio_dev *indio_dev)
@@ -474,7 +465,9 @@ static int ad400x_buffer_postdisable(struct iio_dev *indio_dev)
 	st->bus_locked = false;
 	spi_bus_unlock(st->spi->master);
 
-	return ad400x_enable_cnv_trigger(st, false);
+	pwm_disable(st->cnv_trigger);
+
+	return 0;
 }
 
 static int hw_submit_block(struct iio_dma_buffer_queue *queue,
