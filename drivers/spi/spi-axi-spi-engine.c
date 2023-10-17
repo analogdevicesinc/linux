@@ -531,6 +531,12 @@ static void spi_engine_complete_message(struct spi_master *master, int status)
 	msg->status = status;
 	msg->actual_length = msg->frame_length;
 	spi_engine->msg = NULL;
+	spi_engine->tx_xfer = NULL;
+	spi_engine->tx_buf = NULL;
+	spi_engine->tx_length = 0;
+	spi_engine->rx_xfer = NULL;
+	spi_engine->rx_buf = NULL;
+	spi_engine->rx_length = 0;
 	spi_finalize_current_message(master);
 }
 
