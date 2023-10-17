@@ -161,7 +161,7 @@ struct ad400x_state {
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
 	 */
-	uint8_t	data[4] ____cacheline_aligned;
+	u8 data[4] ____cacheline_aligned;
 };
 
 static int ad400x_get_sampling_freq(struct ad400x_state *st)
@@ -262,7 +262,7 @@ static int ad400x_read_sample(struct ad400x_state *st, uint32_t *val)
 {
 	struct spi_message m;
 	struct spi_transfer t = {0};
-	uint8_t input[4] = {0};
+	u8 input[4] = {0};
 	int ret;
 
 	t.rx_buf = input;
@@ -290,7 +290,7 @@ static int ad400x_read_sample(struct ad400x_state *st, uint32_t *val)
 
 static int ad400x_set_mode(struct ad400x_state *st)
 {
-	uint8_t mode;
+	u8 mode;
 	int ret;
 
 	mode = AD400X_TURBO_MODE(st->turbo_mode) |
@@ -308,7 +308,7 @@ static int ad400x_set_mode(struct ad400x_state *st)
 }
 
 static int ad400x_single_conversion(struct iio_dev *indio_dev,
-	const struct iio_chan_spec *chan, int *val)
+				    const struct iio_chan_spec *chan, int *val)
 {
 	struct ad400x_state *st = iio_priv(indio_dev);
 	unsigned int sample, raw_sample;
@@ -339,7 +339,8 @@ static int ad400x_single_conversion(struct iio_dev *indio_dev,
 }
 
 static int ad400x_read_raw(struct iio_dev *indio_dev,
-	struct iio_chan_spec const *chan, int *val, int *val2, long info)
+			   struct iio_chan_spec const *chan, int *val,
+			   int *val2, long info)
 {
 	struct ad400x_state *st = iio_priv(indio_dev);
 	int ret;
