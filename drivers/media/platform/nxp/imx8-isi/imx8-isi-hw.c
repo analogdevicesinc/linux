@@ -323,8 +323,6 @@ static void mxc_isi_channel_set_control(struct mxc_isi_pipe *pipe,
 	if (pipe->chained)
 		val |= CHNL_CTRL_CHAIN_BUF(CHNL_CTRL_CHAIN_BUF_2_CHAIN);
 
-	val |= CHNL_CTRL_BLANK_PXL(0xff);
-
 	/* Input source (including VC configuration for CSI-2) */
 	if (input == MXC_ISI_INPUT_MEM) {
 		/*
@@ -363,6 +361,10 @@ void mxc_isi_channel_config(struct mxc_isi_pipe *pipe,
 	mxc_isi_write(pipe, CHNL_IMG_CFG,
 		      CHNL_IMG_CFG_HEIGHT(in_size->height) |
 		      CHNL_IMG_CFG_WIDTH(in_size->width));
+
+	/* temp, will verify with imx95 */
+	if (pipe->isi->pdata->raw32_chan_cfg)
+		mxc_isi_write(pipe, CHNL_IMG_CFG2, in_size->width);
 
 	/* Scaling */
 	mxc_isi_channel_set_scaling(pipe, in_encoding, in_size, scale,

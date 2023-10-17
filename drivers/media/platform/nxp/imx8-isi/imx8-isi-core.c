@@ -279,6 +279,10 @@ static const struct clk_bulk_data mxc_imx8mn_clks[] = {
 	{ .id = "apb" },
 };
 
+static const struct clk_bulk_data mxc_imx95_clks[] = {
+	{ .id = "axi" },
+};
+
 static const struct mxc_isi_plat_data mxc_imx8mn_data = {
 	.model			= MXC_ISI_IMX8MN,
 	.num_ports		= 1,
@@ -291,6 +295,7 @@ static const struct mxc_isi_plat_data mxc_imx8mn_data = {
 	.buf_active_reverse	= false,
 	.gasket_ops		= &mxc_imx8_gasket_ops,
 	.has_36bit_dma		= false,
+	.raw32_chan_cfg		= false,
 };
 
 static const struct mxc_isi_plat_data mxc_imx8mp_data = {
@@ -305,6 +310,7 @@ static const struct mxc_isi_plat_data mxc_imx8mp_data = {
 	.buf_active_reverse	= true,
 	.gasket_ops		= &mxc_imx8_gasket_ops,
 	.has_36bit_dma		= true,
+	.raw32_chan_cfg		= false,
 };
 
 static const struct mxc_isi_plat_data mxc_imx93_data = {
@@ -319,6 +325,22 @@ static const struct mxc_isi_plat_data mxc_imx93_data = {
 	.buf_active_reverse	= true,
 	.gasket_ops		= &mxc_imx93_gasket_ops,
 	.has_36bit_dma		= false,
+	.raw32_chan_cfg		= false,
+};
+
+static const struct mxc_isi_plat_data mxc_imx95_data = {
+	.model			= MXC_ISI_IMX95,
+	.num_ports		= 4,
+	.num_channels		= 8,
+	.reg_offset		= 0x10000,
+	.ier_reg		= &mxc_imx8_isi_ier_v2,
+	.set_thd		= &mxc_imx8_isi_thd_v1,
+	.clks			= mxc_imx95_clks,
+	.num_clks		= ARRAY_SIZE(mxc_imx95_clks),
+	.buf_active_reverse	= true,
+	.gasket_ops		= &mxc_imx95_gasket_ops,
+	.has_36bit_dma		= true,
+	.raw32_chan_cfg		= true,
 };
 
 /* -----------------------------------------------------------------------------
@@ -529,6 +551,7 @@ static const struct of_device_id mxc_isi_of_match[] = {
 	{ .compatible = "fsl,imx8mn-isi", .data = &mxc_imx8mn_data },
 	{ .compatible = "fsl,imx8mp-isi", .data = &mxc_imx8mp_data },
 	{ .compatible = "fsl,imx93-isi", .data = &mxc_imx93_data },
+	{ .compatible = "fsl,imx95-isi", .data = &mxc_imx95_data },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, mxc_isi_of_match);
