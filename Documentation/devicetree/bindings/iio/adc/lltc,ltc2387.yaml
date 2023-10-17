@@ -62,7 +62,7 @@ required:
   - pwm-names
 
 examples:
-  dts: |
+  - |
     ltc2387@0{
             compatible = "ltc2387-16";
             clocks = <&clk 0>;
