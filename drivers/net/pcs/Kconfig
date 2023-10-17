@@ -20,6 +20,7 @@ config PCS_XPCS
 	  DesignWare XPCS controllers.
 
 config PCS_LYNX
+	depends on MTIP_BACKPLANE_PHY || MTIP_BACKPLANE_PHY=n
 	tristate
 	help
 	  This module provides helpers to phylink for managing the Lynx PCS
