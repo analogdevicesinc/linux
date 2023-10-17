@@ -283,7 +283,6 @@ static int ad400x_read_sample(struct ad400x_state *st, uint32_t *val)
 	if (ret < 0)
 		return ret;
 
-	dev_info(&st->spi->dev, "read: %u", *val);
 	*val = (input[2] << 16) | (input[1] << 8) | input[0];
 
 	return ret;
