@@ -68,7 +68,7 @@
 		reg = <0x44a00000 0x1000>;
 		interrupt-parent = <&intc>;
 		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clkc 15 &spi_clk>;
+		clocks = <&clkc 15>, <&spi_clk>;
 		clock-names = "s_axi_aclk", "spi_clk";
 		num-cs = <1>;
 
