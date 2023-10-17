@@ -95,8 +95,8 @@ properties:
 
   adi,power-up-frequency-hz:
     description: |
-    PLL tunes to the set frequency on probe or defaults to either the minimum
-    for the part or value set using adi,vco-minimum-frequency-hz.
+      PLL tunes to the set frequency on probe or defaults to either the minimum
+      for the part or value set using adi,vco-minimum-frequency-hz.
     allOf:
       - $ref: /schemas/types.yaml#/definitions/uint32
     maxItems: 1
@@ -154,5 +154,5 @@ examples:
         adi,vco-minimum-frequency-hz = <700000000>;
         adi,vco-maximum-frequency-hz = <840000000>;
       };
-   };
+    };
 ...
