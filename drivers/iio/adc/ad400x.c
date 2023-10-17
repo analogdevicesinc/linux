@@ -166,10 +166,8 @@ struct ad400x_state {
 
 static int ad400x_get_sampling_freq(struct ad400x_state *st)
 {
-	struct pwm_state conversion_state;
-
-	pwm_get_state(st->cnv_trigger, &conversion_state);
-	return DIV_ROUND_CLOSEST_ULL(1000000000000, conversion_state.period);
+	return DIV_ROUND_CLOSEST_ULL(1000000000000,
+				     pwm_get_period(st->cnv_trigger));
 }
 
 static int __ad400x_set_sampling_freq(struct ad400x_state *st, int freq)
