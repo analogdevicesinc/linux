@@ -2,7 +2,7 @@
 # Copyright 2021 Analog Devices Inc.
 %YAML 1.2
 ---
-$id: http://devicetree.org/schemas/trivial-devices.yaml#
+$id: http://devicetree.org/schemas/misc/adi,axi-data-offload.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
 title: ADI AXI Data Offload Engine
