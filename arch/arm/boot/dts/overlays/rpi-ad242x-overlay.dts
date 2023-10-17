@@ -1,0 +1,90 @@
+#include <dt-bindings/clock/bcm2835.h>
+/*
+ * Device tree overlay - AD242X Transceivers
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2711";
+
+	fragment@0 {
+		target = <&sound>;
+		__overlay__ {
+			compatible = "simple-audio-card";
+			simple-audio-card,name = "ad242x";
+			status="okay";
+
+			capture_link: simple-audio-card,dai-link@0 {
+				format = "i2s";
+
+				r_cpu_dai: cpu {
+					sound-dai = <&i2s>;
+
+				// TDM slot configuration for stereo
+					dai-tdm-slot-num = <2>;
+					dai-tdm-slot-width = <32>;
+				};
+
+				r_codec_dai: codec {
+					sound-dai = <&codec_in>;
+				};
+			};
+
+			playback_link: simple-audio-card,dai-link@1 {
+				format = "i2s";
+
+				p_cpu_dai: cpu {
+					sound-dai = <&i2s>;
+
+				// TDM slot configuration for stereo
+					dai-tdm-slot-num = <2>;
+					dai-tdm-slot-width = <32>;
+				};
+
+				p_codec_dai: codec {
+					sound-dai = <&codec_out>;
+				};
+			};
+		};
+	};
+
+	fragment@1 {
+		target-path = "/";
+		__overlay__ {
+			codec_out: spdif-transmitter {
+				#address-cells = <0>;
+				#size-cells = <0>;
+				#sound-dai-cells = <0>;
+				/* 
+					"linux,spdif-dit" is used in generic I2S(transmitter) driver.					 
+					You can see details "linux,spdif-dit" by bellow command
+					modinfo snd_soc_spdif_tx
+				*/
+				compatible = "linux,spdif-dit";
+				status = "okay";
+			};
+			codec_in: spdif-receiver {
+				#address-cells = <0>;
+				#size-cells = <0>;
+				#sound-dai-cells = <0>;
+				/* 
+					"linux,spdif-dir" is used in generic I2S(receiver) driver.					 
+					You can see details "linux,spdif-dir" by bellow command
+					modinfo snd_soc_spdif_rx
+				*/
+				compatible = "linux,spdif-dir";
+				status = "okay";
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&i2s>;
+		__overlay__ {
+			#sound-dai-cells = <0>;
+			status = "okay";
+		};
+	};
+};
