@@ -536,7 +536,6 @@ static int ad400x_probe(struct spi_device *spi)
 	struct ad400x_state *st;
 	struct iio_dev *indio_dev;
 	struct iio_buffer *buffer;
-	const char *p_compat;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
@@ -580,12 +579,7 @@ static int ad400x_probe(struct spi_device *spi)
 	if (ret < 0)
 		return ret;
 
-	/* We support DMA with the SPI engine, otherwise we actually don't */
-	ret = device_property_read_string(spi->dev.parent, "compatible", &p_compat);
-	if (ret < 0)
-		return ret;
-
-	if (strcmp(p_compat, "adi,axi-spi-engine-1.00.a") == 0) {
+	if (spi_engine_offload_supported(spi)) {
 		buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent,
 							 "rx", &dma_buffer_ops,
 							 indio_dev);
