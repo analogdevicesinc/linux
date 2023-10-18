@@ -360,6 +360,12 @@ static const struct csis_pix_format mipi_csis_formats[] = {
 		.data_type = MIPI_CSI2_DATA_TYPE_YUV422_8,
 		.width = 16,
 	},
+	{
+		.code = MEDIA_BUS_FMT_YUYV8_1X16,
+		.output = MEDIA_BUS_FMT_YUYV8_1X16,
+		.data_type = MIPI_CSI2_DATA_TYPE_YUV422_8,
+		.width = 16,
+	},
 	/* RGB formats. */
 	{
 		.code = MEDIA_BUS_FMT_RGB565_1X16,
