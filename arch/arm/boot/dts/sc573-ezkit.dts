@@ -481,6 +481,7 @@
 	bus-width = <4>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&mmc0_default>;
+	max-frequency = <18750000>;
 	status = "okay";
 };
 
