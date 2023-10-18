@@ -155,6 +155,8 @@ build_check_is_new_adi_driver_dual_licensed() {
 		exit 1
 	fi
 
+	__update_git_ref "${ref_branch}" "${ref_branch}"
+
 	COMMIT_RANGE="${ref_branch}.."
 
 	echo_green "Running checkpatch for commit range '$COMMIT_RANGE'"
