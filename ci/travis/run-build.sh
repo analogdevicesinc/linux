@@ -153,7 +153,14 @@ get_ref_branch() {
 	fi
 }
 
-build_check_is_new_adi_driver_dual_licensed() {
+bad_licence_error() {
+       __echo_red "File '$1' is being added to Analog Devices Linux tree."
+       __echo_red "Analog Devices code is being marked dual-licensed... Make sure this is really intended!"
+       __echo_red "If not intended, change MODULE_LICENSE() or the SPDX-License-Identifier accordingly."
+       __echo_red "This is not as simple as one thinks and upstream might require a lawyer to sign the patches!"
+}
+
+build_check_new_file_license() {
 	local ret
 
 	local ref_branch="$(get_ref_branch)"
@@ -167,22 +174,23 @@ build_check_is_new_adi_driver_dual_licensed() {
 
 	COMMIT_RANGE="${ref_branch}.."
 
-	__echo_green "Running checkpatch for commit range '$COMMIT_RANGE'"
+	__echo_green "Running check_new_adi_file_license for commit range '$COMMIT_RANGE'"
 
 	ret=0
-	# Get list of files in the commit range
-	for file in $(git diff --name-only "$COMMIT_RANGE") ; do
-		if git diff "$COMMIT_RANGE" "$file" | grep -q "+MODULE_LICENSE" ; then
-			# Check that it has an 'Analog Devices' string
-			if ! grep -q "Analog Devices" "$file" ; then
+	# Get list of new files in the commit range
+	for file in $(git diff --name-status "$COMMIT_RANGE" | grep ^A | cut -d$'\t' -f2) ; do
+		if git diff "$COMMIT_RANGE" "$file" | grep "+MODULE_LICENSE" | grep -q "Dual" ; then
+			bad_licence_error "$file"
+			ret=1
+		elif git diff "$COMMIT_RANGE" "$file" | grep "SPDX-License-Identifier:" | grep -qi "OR" ; then
+			# The below might catch bad licenses in header files and also helps to make sure dual licenses are
+			# not in driver (eg: sometimes people have MODULE_LICENSE != SPDX-License-Identifier - which is also
+			# wrong and maybe someting to improve in this job)
+			if echo "$file" | grep -q ".yaml$"; then
 				continue
 			fi
-			if git diff "$COMMIT_RANGE" "$file" | grep "+MODULE_LICENSE" | grep -v "Dual" ; then
-				__echo_red "File '$file' contains new Analog Devices' driver"
-				__echo_red "New 'Analog Devices' drivers must be dual-licensed, with a license being BSD"
-				__echo_red " Example: MODULE_LICENSE(Dual BSD/GPL)"
-				ret=1
-			fi
+			bad_licence_error "$file"
+			ret=1
 		fi
 	done
 
