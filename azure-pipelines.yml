@@ -76,10 +76,10 @@ jobs:
       ./ci/travis/run-build.sh
     displayName: 'Bindings Check Script'
 
-- job: check_is_new_adi_driver_dual_licensed
+- job: check_new_file_license
   condition: eq(variables['Build.Reason'], 'PullRequest')
   variables:
-    BUILD_TYPE: check_is_new_adi_driver_dual_licensed
+    BUILD_TYPE: check_new_file_license
     TARGET_BRANCH: $[ variables['System.PullRequest.TargetBranch'] ]
   steps:
   - checkout: self
