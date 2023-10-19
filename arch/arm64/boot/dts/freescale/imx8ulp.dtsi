@@ -243,17 +243,6 @@
 			#mbox-cells = <2>;
 		};
 
-		ele_mu: ele-mu {
-			compatible = "fsl,imx-ele";
-			mboxes = <&s4muap 0 0 &s4muap 1 0>;
-			mbox-names = "tx", "rx";
-			fsl,ele_mu_did = <7>;
-			fsl,ele_mu_id = <2>;
-			fsl,ele_mu_max_users = <4>;
-			status = "okay";
-			sram-pool = <&sram0>;
-		};
-
 		dsp: dsp@21170000 {
 			compatible = "fsl,imx8ulp-hifi4";
 			reg = <0x21170000 0x20000>;
@@ -1270,4 +1259,12 @@
 	rpmsg-lifecycle {
 		compatible = "nxp,rpmsg-lifecycle";
 	};
+
+	ele_fw2: se-fw2 {
+		 compatible = "fsl,imx8ulp-se-fw";
+		 mbox-names = "tx", "rx";
+		 mboxes = <&s4muap 0 0>,
+			<&s4muap 1 0>;
+		 sram = <&sram0>;
+	 };
 };
