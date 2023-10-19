@@ -357,7 +357,7 @@ static int devfreq_cooling_handle_event_change(unsigned long event)
     }
 
     while (device->kernels[core] && core <= gcvCORE_3D_MAX) {
-        gckHARDWARE_SetFscaleValue(device->kernels[core++]->hardware, FscaleVal, ~0U);
+        gckHARDWARE_SetFscaleValue(device->kernels[core++]->hardware, FscaleVal, FscaleVal);
     }
 
     return NOTIFY_OK;
