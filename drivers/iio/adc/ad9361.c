@@ -2829,7 +2829,7 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 	else
 		decim = 3;
 
-	if (clkrf == (2 * clktf)) {
+	if ((clkrf / 2) == clktf) {
 		__rx_phase = 0x0E;
 		switch (txnco_word) {
 		case 0:
@@ -2864,7 +2864,7 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 				__rx_phase = 0x1A;
 			break;
 		}
-	} else if (clktf == (2 * clkrf)) {
+	} else if ((clktf / 2) == clkrf) {
 		__rx_phase = -2;
 		switch (txnco_word) {
 		case 0:
@@ -2877,11 +2877,11 @@ static int ad9361_tx_quad_calib(struct ad9361_rf_phy *phy,
 			rxnco_word = 3;
 			break;
 		}
-	} else if (clktf == (4 * clkrf)) {
+	} else if ((clktf / 4) == clkrf) {
 		__rx_phase = -2;
 		txnco_word = 0;
 		rxnco_word = 3;
-	} else if (clkrf == (4 * clktf)) {
+	} else if ((clkrf / 4) == clktf) {
 		__rx_phase = -2;
 		txnco_word = 3;
 		rxnco_word = 0;
