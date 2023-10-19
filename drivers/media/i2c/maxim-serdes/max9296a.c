@@ -12,6 +12,8 @@
 
 #include "max_des.h"
 
+/* TODO: backport fixes from MAX96724. */
+
 #define MAX9296A_DPLL_FREQ		2500
 
 struct max9296a_priv {
