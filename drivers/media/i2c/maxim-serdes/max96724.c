@@ -277,6 +277,7 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 {
 	struct max96724_priv *priv = des_to_priv(des_priv);
 	unsigned int num_data_lanes = phy->mipi.num_data_lanes;
+	unsigned int dpll_freq = phy->link_frequency * 2;
 	unsigned int num_hw_data_lanes;
 	unsigned int reg, val, shift, mask, clk_bit;
 	unsigned int index = phy->index;
@@ -349,7 +350,7 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 	if (ret)
 		return ret;
 
-	if (phy->link_frequency > 1500000000ull) {
+	if (dpll_freq > 1500000000ull) {
 		/* Enable initial deskew with 2 x 32k UI. */
 		ret = max96724_write(priv, 0x903 + 0x40 * index, 0x81);
 		if (ret)
@@ -379,7 +380,7 @@ static int max96724_init_phy(struct max_des_priv *des_priv,
 	/* Set DPLL frequency. */
 	reg = 0x415 + 0x3 * index;
 	ret = max96724_update_bits(priv, reg, GENMASK(4, 0),
-				   div_u64(phy->link_frequency, 100000000));
+				   div_u64(dpll_freq, 100000000));
 	if (ret)
 		return ret;
 

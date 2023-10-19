@@ -14,9 +14,9 @@
 #include "max_ser.h"
 #include "max_serdes.h"
 
-#define MAX_DES_LINK_FREQUENCY_MIN		200000000ull
-#define MAX_DES_LINK_FREQUENCY_DEFAULT		1500000000ull
-#define MAX_DES_LINK_FREQUENCY_MAX		2500000000ull
+#define MAX_DES_LINK_FREQUENCY_MIN		100000000ull
+#define MAX_DES_LINK_FREQUENCY_DEFAULT		750000000ull
+#define MAX_DES_LINK_FREQUENCY_MAX		1250000000ull
 
 const struct regmap_config max_des_i2c_regmap = {
 	.reg_bits = 16,
