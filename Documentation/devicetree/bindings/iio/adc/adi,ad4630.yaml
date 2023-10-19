@@ -16,6 +16,9 @@ description: |
   https://www.analog.com/media/en/technical-documentation/data-sheets/ad4630-24_ad4632-24.pdf
   https://www.analog.com/media/en/technical-documentation/data-sheets/ad4630-16-4632-16.pdf
   https://www.analog.com/media/en/technical-documentation/data-sheets/ad4030-24-4032-24.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/adaq4216.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/adaq4220.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/adaq4224.pdf
 
 properties:
 
@@ -25,6 +28,9 @@ properties:
       - adi,ad4630-16
       - adi,ad4630-24
       - adi,ad463x
+      - adi,adaq4216
+      - adi,adaq4220
+      - adi,adaq4224
 
   reg:
     maxItems: 1
@@ -120,6 +126,13 @@ properties:
     enum: [0, 1, 2, 3]
     default: 0
 
+  adi,pga-gpios:
+    description:
+      Device tree identifier of the PGA/PGIA control pins.
+      The PGA input pins are used to configure the gain applied to the input
+      signal pior to ADC sampling.
+    maxItems: 1
+
 required:
   - compatible
   - reg
@@ -191,6 +204,40 @@ examples:
             adi,clock-mode = <1>;
             adi,dual-data-rate;
             adi,out-data-mode = <3>;
+        };
+    };
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        adaq4224: adaq4224@0 {
+            compatible = "adi,adaq4224";
+            reg = <0>;
+            vdd-supply = <&vref>;
+            vdd_1_8-supply = <&vdd_1_8>;
+            vio-supply = <&vio>;
+            vref-supply = <&vref>;
+            spi-max-frequency = <80000000>;
+            reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
+            adi,pga-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>,
+                            <&gpio0 88 GPIO_ACTIVE_HIGH>;
+            adi,lane-mode = <1>;
+            adi,clock-mode = <1>;
+            adi,out-data-mode = <0>;
+            adi,dual-data-rate;
+            adi,spi-trigger;
+
+            clocks = <&cnv_ext_clk>;
+            clock-names = "trigger_clock";
+
+            dmas = <&rx_dma 0>;
+            dma-names = "rx";
+
+            pwm-names = "spi_trigger", "cnv";
+            pwms = <&axi_pwm_gen 0 0>, <&axi_pwm_gen 1 0>;
         };
     };
 ...
