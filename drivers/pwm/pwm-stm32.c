@@ -308,7 +308,7 @@ unlock:
 	return ret;
 }
 
-static int stm32_pwm_config(struct stm32_pwm *priv, int ch,
+static int stm32_pwm_config(struct stm32_pwm *priv, unsigned int ch,
 			    int duty_ns, int period_ns)
 {
 	unsigned long long prd, div, dty;
@@ -374,7 +374,7 @@ static int stm32_pwm_config(struct stm32_pwm *priv, int ch,
 	return 0;
 }
 
-static int stm32_pwm_set_polarity(struct stm32_pwm *priv, int ch,
+static int stm32_pwm_set_polarity(struct stm32_pwm *priv, unsigned int ch,
 				  enum pwm_polarity polarity)
 {
 	u32 mask;
@@ -389,7 +389,7 @@ static int stm32_pwm_set_polarity(struct stm32_pwm *priv, int ch,
 	return 0;
 }
 
-static int stm32_pwm_enable(struct stm32_pwm *priv, int ch)
+static int stm32_pwm_enable(struct stm32_pwm *priv, unsigned int ch)
 {
 	u32 mask;
 	int ret;
@@ -414,7 +414,7 @@ static int stm32_pwm_enable(struct stm32_pwm *priv, int ch)
 	return 0;
 }
 
-static void stm32_pwm_disable(struct stm32_pwm *priv, int ch)
+static void stm32_pwm_disable(struct stm32_pwm *priv, unsigned int ch)
 {
 	u32 mask;
 
