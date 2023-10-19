@@ -40,7 +40,7 @@
 #error
 #endif
 
-#if !defined(DES_CH_PHY_LANE_RATE)
+#if !defined(DES_CH_PHY_LINK_FREQ)
 #error
 #endif
 
@@ -76,7 +76,7 @@ channel@DES_CH_REG {
 #else
 #error
 #endif
-				link-frequencies = /bits/ 64 <DES_CH_PHY_LANE_RATE>;
+				link-frequencies = /bits/ 64 <DES_CH_PHY_LINK_FREQ>;
 			};
 		};
 
