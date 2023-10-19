@@ -1465,16 +1465,6 @@
 			};
 		};
 
-		ele_mu: ele-mu {
-			compatible = "fsl,imx93-ele";
-			mboxes = <&s4muap 0 0 &s4muap 1 0>;
-			mbox-names = "tx", "rx";
-			fsl,ele_mu_did = <3>;
-			fsl,ele_mu_id = <2>;
-			fsl,ele_mu_max_users = <4>;
-			status = "okay";
-		};
-
 		dsi: dsi@4ae10000 {
 			compatible = "fsl,imx93-mipi-dsi";
 			reg = <0x4ae10000 0x4000>;
@@ -1576,5 +1566,12 @@
 			      "sys_pll_pfd1", "sys_pll_pfd1_div2", "sys_pll_pfd2",
 			      "sys_pll_pfd2_div2";
 		status = "disabled";
+	};
+
+	ele_fw2: se-fw2 {
+		compatible = "fsl,imx93-se-fw";
+		mbox-names = "tx", "rx";
+		mboxes = <&s4muap 0 0>,
+			<&s4muap 1 0>;
 	};
 };
