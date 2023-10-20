@@ -19,6 +19,8 @@
 #include <linux/firmware/intel/stratix10-smc.h>
 #include <linux/firmware/intel/stratix10-svc-client.h>
 #include <linux/types.h>
+#include <linux/iommu.h>
+#include <linux/iova.h>
 
 /**
  * SVC_NUM_DATA_IN_FIFO - number of struct stratix10_svc_data in the FIFO
@@ -50,6 +52,8 @@
 #define FPGA_CONFIG_POLL_COUNT_FAST		50
 #define FPGA_CONFIG_POLL_COUNT_SLOW		58
 #define BYTE_TO_WORD_SIZE              4
+#define IOMMU_LIMIT_ADDR 			0x20000000
+#define IOMMU_STARTING_ADDR			0x0
 
 /* stratix10 service layer clients */
 #define STRATIX10_RSU				"stratix10-rsu"
@@ -144,6 +148,9 @@ struct stratix10_svc_data {
  * @complete_status: state for completion
  * @invoke_fn: function to issue secure monitor call or hypervisor call
  * @sdm_lock: only allows a single command single response to SDM
+ * @domain: pointer to allocated iommu domain
+ * @is_smmu_enabled: flag to indicate whether is smmu_enabled for device
+ * @carveout: iova_domain used to allocate iova addr that is accessible by SDM
  * @svc: manages the list of client svc drivers
  *
  * This struct is used to create communication channels for service clients, to
@@ -159,6 +166,13 @@ struct stratix10_svc_controller {
 	struct completion complete_status;
 	svc_invoke_fn *invoke_fn;
 	struct mutex *sdm_lock;
+	struct iommu_domain *domain;
+	bool is_smmu_enabled;
+	struct {
+		struct iova_domain domain;
+		unsigned long shift;
+		unsigned long limit;
+	} carveout;
 	struct stratix10_svc *svc;
 };
 
@@ -1744,24 +1758,58 @@ void *stratix10_svc_allocate_memory(struct stratix10_svc_chan *chan,
 				    size_t size)
 {
 	struct stratix10_svc_data_mem *pmem;
-	unsigned long va;
+	unsigned long va_gen_pool;
 	phys_addr_t pa;
 	struct gen_pool *genpool = chan->ctrl->genpool;
-	size_t s = roundup(size, 1 << genpool->min_alloc_order);
+	size_t s;
+	void *va;
+	unsigned int ret;
+	struct iova *alloc;
+	dma_addr_t dma_addr;
 
 	pmem = devm_kzalloc(chan->ctrl->dev, sizeof(*pmem), GFP_KERNEL);
 	if (!pmem)
 		return ERR_PTR(-ENOMEM);
 
-	va = gen_pool_alloc(genpool, s);
-	if (!va)
-		return ERR_PTR(-ENOMEM);
+	if(chan->ctrl->is_smmu_enabled == true) {
+		s = PAGE_ALIGN(size);
+		va = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO, get_order(s));
+		if (!va) {
+			pr_debug("%s get_free_pages_failes\n",__func__);
+			return ERR_PTR(-ENOMEM);
+		}
 
-	memset((void *)va, 0, s);
-	pa = gen_pool_virt_to_phys(genpool, va);
+		alloc = alloc_iova(&chan->ctrl->carveout.domain,
+					s >> chan->ctrl->carveout.shift ,
+					chan->ctrl->carveout.limit >> chan->ctrl->carveout.shift , true);
 
-	pmem->vaddr = (void *)va;
-	pmem->paddr = pa;
+		dma_addr = iova_dma_addr(&chan->ctrl->carveout.domain, alloc);
+
+		ret = iommu_map(chan->ctrl->domain, dma_addr, virt_to_phys(va),s, IOMMU_READ | IOMMU_WRITE);
+		if (ret < 0) {
+			pr_debug("%s IOMMU map failed\n",__func__);
+			free_iova(&chan->ctrl->carveout.domain, iova_pfn(&chan->ctrl->carveout.domain, dma_addr));
+			free_pages((unsigned long)va, get_order(size));
+			return ERR_PTR(-ENOMEM);
+		}
+
+		pmem->paddr = dma_addr;
+	} else {
+		s = roundup(size, 1 << genpool->min_alloc_order);
+
+		va_gen_pool = gen_pool_alloc(genpool, s);
+		if (!va_gen_pool)
+			return ERR_PTR(-ENOMEM);
+
+		va = (void *)va_gen_pool;
+
+		memset(va, 0, s);
+		pa = gen_pool_virt_to_phys(genpool, va_gen_pool);
+
+		pmem->paddr = pa;
+	}
+
+	pmem->vaddr = va;
 	pmem->size = s;
 	list_add_tail(&pmem->node, &svc_data_mem);
 	pr_debug("%s: %s: va=%p, pa=0x%016x\n", __func__,
@@ -1784,9 +1832,15 @@ void stratix10_svc_free_memory(struct stratix10_svc_chan *chan, void *kaddr)
 
 	list_for_each_entry(pmem, &svc_data_mem, node)
 		if (pmem->vaddr == kaddr) {
-			gen_pool_free(chan->ctrl->genpool,
-				       (unsigned long)kaddr, pmem->size);
-			pmem->vaddr = NULL;
+			if(chan->ctrl->is_smmu_enabled) {
+				iommu_unmap(chan->ctrl->domain, pmem->paddr, pmem->size);
+				free_iova(&chan->ctrl->carveout.domain, iova_pfn(&chan->ctrl->carveout.domain, pmem->paddr));
+				free_pages((unsigned long)pmem->vaddr, get_order(pmem->size));
+			} else {
+				gen_pool_free(chan->ctrl->genpool,
+					(unsigned long)kaddr, pmem->size);
+				pmem->vaddr = NULL;
+			}
 			list_del(&pmem->node);
 			return;
 		}
@@ -1798,6 +1852,7 @@ EXPORT_SYMBOL_GPL(stratix10_svc_free_memory);
 static const struct of_device_id stratix10_svc_drv_match[] = {
 	{.compatible = "intel,stratix10-svc"},
 	{.compatible = "intel,agilex-svc"},
+	{.compatible = "intel,agilex5-svc"},
 	{},
 };
 
@@ -1811,10 +1866,12 @@ static int stratix10_svc_drv_probe(struct platform_device *pdev)
 	struct gen_pool *genpool;
 	struct stratix10_svc_sh_memory *sh_memory;
 	struct stratix10_svc *svc;
+	struct device_node *node = pdev->dev.of_node;
 
 	svc_invoke_fn *invoke_fn;
 	size_t fifo_size;
 	int ret;
+	unsigned long order;
 
 	/* get SMC or HVC function */
 	invoke_fn = get_invoke_func(dev);
@@ -1855,6 +1912,46 @@ static int stratix10_svc_drv_probe(struct platform_device *pdev)
 	controller->genpool = genpool;
 	controller->invoke_fn = invoke_fn;
 	init_completion(&controller->complete_status);
+
+	if (of_device_is_compatible(node, "intel,agilex5-svc")) {
+		if (iommu_present(&platform_bus_type)) {
+			controller->is_smmu_enabled = true;
+			pr_debug("Intel Service Layer Driver: IOMMU Present\n");
+			controller->domain = iommu_domain_alloc(&platform_bus_type);
+
+			if (!controller->domain) {
+				pr_debug("Intel Service Layer Driver: Error IOMMU domain\n");
+				ret = -ENODEV;
+				goto err_destroy_pool;
+			} else {
+				ret = iova_cache_get();
+				if (ret < 0) {
+					pr_debug("Intel Service Layer Driver: IOVA cache failed\n");
+					iommu_domain_free(controller->domain);
+					ret = -ENODEV;
+				}
+				ret = iommu_attach_device(controller->domain, dev);
+				if (ret) {
+					pr_debug("Intel Service Layer Driver: Error IOMMU attach failed\n");
+					iova_cache_put();
+					iommu_domain_free(controller->domain);
+					ret = -ENODEV;
+					goto err_destroy_pool;
+				}
+			}
+
+			order = __ffs(controller->domain->pgsize_bitmap);
+			init_iova_domain(&controller->carveout.domain, 1UL << order,
+				 IOMMU_STARTING_ADDR);
+
+			controller->carveout.shift = iova_shift(&controller->carveout.domain);
+			controller->carveout.limit = IOMMU_LIMIT_ADDR;
+		} else {
+			pr_debug("Intel Service Layer Driver: IOMMU Not Present\n");
+			ret = -ENODEV;
+			goto err_destroy_pool;
+		}
+	}
 
 	/* This mutex is used to block threads from utilizing
 	 * SDM to prevent out of order command tx
@@ -1921,6 +2018,7 @@ static int stratix10_svc_drv_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		return ret;
 	}
+
 	controller->svc = svc;
 
 	svc->stratix10_svc_rsu = platform_device_alloc(STRATIX10_RSU, 0);
@@ -1950,6 +2048,13 @@ static int stratix10_svc_drv_remove(struct platform_device *pdev)
 	int i;
 	struct stratix10_svc_controller *ctrl = platform_get_drvdata(pdev);
 	struct stratix10_svc *svc = ctrl->svc;
+
+	if(ctrl->domain) {
+		put_iova_domain(&ctrl->carveout.domain);
+		iova_cache_put();
+		iommu_detach_device(ctrl->domain, &pdev->dev);
+		iommu_domain_free(ctrl->domain);
+	}
 
 	platform_device_unregister(svc->intel_svc_fcs);
 	platform_device_unregister(svc->stratix10_svc_rsu);
