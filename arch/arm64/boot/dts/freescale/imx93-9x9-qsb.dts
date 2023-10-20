@@ -8,7 +8,7 @@
 #include <dt-bindings/usb/pd.h>
 #include "imx93.dtsi"
 
-&ele_mu {
+&ele_fw2 {
 	memory-region = <&ele_reserved>;
 };
 
