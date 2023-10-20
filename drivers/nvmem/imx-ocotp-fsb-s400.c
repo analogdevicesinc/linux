@@ -7,6 +7,7 @@
 #include <linux/dev_printk.h>
 #include <linux/errno.h>
 #include <linux/firmware/imx/ele_base_msg.h>
+#include <linux/firmware/imx/se_fw_inc.h>
 #include <linux/io.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -38,6 +39,7 @@ struct bank_2_reg {
 struct imx_fsb_s400_hw {
 	enum soc_type soc;
 	unsigned int fsb_otp_shadow;
+	const uint8_t se_pdev_name[20];
 	const struct bank_2_reg fsb_bank_reg[MAPPING_SIZE];
 	bool oscca_fuse_read;
 	bool reverse_mac_address;
@@ -47,17 +49,19 @@ struct imx_fsb_s400_fuse {
 	void __iomem *regs;
 	struct nvmem_config config;
 	struct mutex lock;
+	struct device *se_dev;
 	const struct imx_fsb_s400_hw *hw;
 	bool fsb_read_dis;
 };
 
-static int read_words_via_s400_api(u32 *buf, unsigned int fuse_base, unsigned int num)
+static int read_words_via_s400_api(u32 *buf, unsigned int fuse_base,
+				   unsigned int num, struct device *se_dev)
 {
 	unsigned int i;
 	int err = 0;
 
 	for (i = 0; i < num; i++)
-		err = read_common_fuse(fuse_base + i, buf + i, false);
+		err = read_common_fuse(se_dev, 0, buf + i);
 
 	return err;
 }
@@ -124,29 +128,35 @@ static int fsb_s400_fuse_read(void *priv, unsigned int offset, void *val,
 			case 0:
 				break;
 			case LOCK_CFG:
-				err = read_words_via_s400_api(&buf[8], 8, 8);
+				err = read_words_via_s400_api(&buf[8], 8, 8,
+							      fuse->se_dev);
 				if (err)
 					goto ret;
 				break;
 			case ECID:
-				err = read_words_via_s400_api(&buf[16], 16, 8);
+				err = read_words_via_s400_api(&buf[16], 16, 8,
+							      fuse->se_dev);
 				if (err)
 					goto ret;
 				break;
 			case UNIQ_ID:
-				err = read_common_fuse(OTP_UNIQ_ID, &buf[56], true);
+				err = read_common_fuse(fuse->se_dev,
+						       OTP_UNIQ_ID,
+						       &buf[56]);
 				if (err)
 					goto ret;
 				break;
 			case OTFAD_CFG:
-				err = read_common_fuse(OTFAD_CONFIG, &buf[184], false);
+				err = read_common_fuse(fuse->se_dev,
+						       OTFAD_CONFIG, &buf[184]);
 				if (err)
 					goto ret;
 				break;
 			case 25:
 			case 26:
 			case 27:
-				err = read_words_via_s400_api(&buf[200], 200, 24);
+				err = read_words_via_s400_api(&buf[200], 200, 24,
+							      fuse->se_dev);
 				if (err)
 					goto ret;
 				break;
@@ -155,14 +165,16 @@ static int fsb_s400_fuse_read(void *priv, unsigned int offset, void *val,
 			case 34:
 			case 35:
 			case 36:
-				err = read_words_via_s400_api(&buf[256], 256, 40);
+				err = read_words_via_s400_api(&buf[256], 256, 40,
+							      fuse->se_dev);
 				if (err)
 					goto ret;
 				break;
 			case 49:
 			case 50:
 			case 51:
-				err = read_words_via_s400_api(&buf[392], 392, 24);
+				err = read_words_via_s400_api(&buf[392], 392, 24,
+							      fuse->se_dev);
 				if (err)
 					goto ret;
 				break;
@@ -174,35 +186,37 @@ static int fsb_s400_fuse_read(void *priv, unsigned int offset, void *val,
 	} else if (fuse->hw->soc == IMX93) {
 		for (bank = 0; bank < 6; bank++) {
 			if (fuse->fsb_read_dis)
-				read_words_via_s400_api(&buf[bank * 8], bank * 8, 8);
+				read_words_via_s400_api(&buf[bank * 8], bank * 8,
+							8, fuse->se_dev);
 			else
 				read_nwords_via_fsb(regs, &buf[bank * 8], bank * 8, 8);
 		}
 
 		if (fuse->fsb_read_dis)
-			read_words_via_s400_api(&buf[48], 48, 4);
+			read_words_via_s400_api(&buf[48], 48, 4, fuse->se_dev);
 		else
 			read_nwords_via_fsb(regs, &buf[48], 48, 4); /* OTP_UNIQ_ID */
 
-		err = read_words_via_s400_api(&buf[63], 63, 1);
+		err = read_words_via_s400_api(&buf[63], 63, 1, fuse->se_dev);
 		if (err)
 			goto ret;
 
-		err = read_words_via_s400_api(&buf[128], 128, 16);
+		err = read_words_via_s400_api(&buf[128], 128, 16, fuse->se_dev);
 		if (err)
 			goto ret;
 
-		err = read_words_via_s400_api(&buf[182], 182, 1);
+		err = read_words_via_s400_api(&buf[182], 182, 1, fuse->se_dev);
 		if (err)
 			goto ret;
 
-		err = read_words_via_s400_api(&buf[188], 188, 1);
+		err = read_words_via_s400_api(&buf[188], 188, 1, fuse->se_dev);
 		if (err)
 			goto ret;
 
 		for (bank = 39; bank < 64; bank++) {
 			if (fuse->fsb_read_dis)
-				read_words_via_s400_api(&buf[bank * 8], bank * 8, 8);
+				read_words_via_s400_api(&buf[bank * 8], bank * 8,
+					       		8, fuse->se_dev);
 			else
 				read_nwords_via_fsb(regs, &buf[bank * 8], bank * 8, 8);
 		}
@@ -297,6 +311,7 @@ static int imx_fsb_s400_fuse_probe(struct platform_device *pdev)
 		return PTR_ERR(nvmem);
 	}
 
+	fuse->se_dev = get_se_dev(fuse->hw->se_pdev_name);
 	dev_dbg(&pdev->dev, "fuse nvmem device registered successfully\n");
 
 	return 0;
@@ -331,6 +346,7 @@ static const struct imx_fsb_s400_hw imx8ulp_fsb_s400_hw = {
 	},
 	.oscca_fuse_read = false,
 	.reverse_mac_address = false,
+	.se_pdev_name = "se-fw2",
 };
 
 static const struct imx_fsb_s400_hw imx93_fsb_s400_hw = {
@@ -338,6 +354,7 @@ static const struct imx_fsb_s400_hw imx93_fsb_s400_hw = {
 	.fsb_otp_shadow = 0x8000,
 	.oscca_fuse_read = true,
 	.reverse_mac_address = true,
+	.se_pdev_name = "se-fw2",
 };
 
 static const struct of_device_id imx_fsb_s400_fuse_match[] = {

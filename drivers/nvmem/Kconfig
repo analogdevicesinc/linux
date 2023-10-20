@@ -95,7 +95,7 @@ config NVMEM_IMX_OCOTP_ELE
 
 config NVMEM_IMX_OCOTP_FSB_S400
 	tristate "i.MX FSB/S400-API ocotp fuse box support"
-	depends on IMX_EL_ENCLAVE
+	depends on IMX_SEC_ENCLAVE
 	default y
 	help
 	  This is a driver for the ocotp fuse box which can be accessed by
