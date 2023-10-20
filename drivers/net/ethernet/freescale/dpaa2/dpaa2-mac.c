@@ -5,7 +5,8 @@
 #include <linux/pcs-lynx.h>
 #include <linux/phy/phy.h>
 #include <linux/property.h>
-
+#include <linux/fsl/mc.h>
+#include <linux/msi.h>
 #include "dpaa2-eth.h"
 #include "dpaa2-mac.h"
 
@@ -627,4 +628,26 @@ void dpaa2_mac_get_ethtool_stats(struct dpaa2_mac *mac, u64 *data)
 		}
 		*(data + i) = value;
 	}
+}
+
+void dpaa2_mac_driver_attach(struct fsl_mc_device *dpmac_dev)
+{
+	struct device_driver *drv = driver_find("fsl_dpaa2_mac", &fsl_mc_bus_type);
+	struct device *dev = &dpmac_dev->dev;
+	int err;
+
+	if (dev && dev->driver == NULL && drv) {
+		err = device_attach(dev);
+		if (err && err != -EAGAIN)
+			dev_err(dev, "Error in attaching the fsl_dpaa2_mac driver\n");
+	}
+}
+
+void dpaa2_mac_driver_detach(struct fsl_mc_device *dpmac_dev)
+{
+	struct device_driver *drv = driver_find("fsl_dpaa2_mac", &fsl_mc_bus_type);
+	struct device *dev = &dpmac_dev->dev;
+
+	if (dev && dev->driver == drv)
+		device_release_driver(dev);
 }

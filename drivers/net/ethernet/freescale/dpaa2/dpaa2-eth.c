@@ -15,6 +15,7 @@
 #include <linux/bpf_trace.h>
 #include <linux/fsl/ptp_qoriq.h>
 #include <linux/ptp_classify.h>
+#include <linux/device/driver.h>
 #include <net/pkt_cls.h>
 #include <net/sock.h>
 #include <net/tso.h>
@@ -4681,6 +4682,8 @@ static int dpaa2_eth_connect_mac(struct dpaa2_eth_priv *priv)
 	if (IS_ERR(dpmac_dev) || dpmac_dev->dev.type != &fsl_mc_bus_dpmac_type)
 		return 0;
 
+	dpaa2_mac_driver_detach(dpmac_dev);
+
 	mac = kzalloc(sizeof(struct dpaa2_mac), GFP_KERNEL);
 	if (!mac)
 		return -ENOMEM;
@@ -4736,6 +4739,7 @@ static void dpaa2_eth_disconnect_mac(struct dpaa2_eth_priv *priv)
 		dpaa2_mac_disconnect(mac);
 
 	dpaa2_mac_close(mac);
+	dpaa2_mac_driver_attach(mac->mc_dev);
 	kfree(mac);
 }
 

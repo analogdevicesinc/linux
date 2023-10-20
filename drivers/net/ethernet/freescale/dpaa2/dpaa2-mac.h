@@ -7,7 +7,6 @@
 #include <linux/of_mdio.h>
 #include <linux/of_net.h>
 #include <linux/phylink.h>
-
 #include "dpmac.h"
 #include "dpmac-cmd.h"
 
@@ -22,6 +21,7 @@ struct dpaa2_mac {
 
 	struct phylink_config phylink_config;
 	struct phylink *phylink;
+	struct ethtool_link_ksettings kset;
 	phy_interface_t if_mode;
 	enum dpmac_link_type if_link_type;
 	struct phylink_pcs *pcs;
@@ -30,6 +30,8 @@ struct dpaa2_mac {
 	struct phy **phys;
 	size_t num_phys;
 	size_t num_lanes;
+
+	int phy_req_state;
 };
 
 static inline bool dpaa2_mac_is_type_phy(struct dpaa2_mac *mac)
@@ -58,5 +60,9 @@ void dpaa2_mac_get_ethtool_stats(struct dpaa2_mac *mac, u64 *data);
 void dpaa2_mac_start(struct dpaa2_mac *mac);
 
 void dpaa2_mac_stop(struct dpaa2_mac *mac);
+
+void dpaa2_mac_driver_attach(struct fsl_mc_device *dpmac_dev);
+
+void dpaa2_mac_driver_detach(struct fsl_mc_device *dpmac_dev);
 
 #endif /* DPAA2_MAC_H */
