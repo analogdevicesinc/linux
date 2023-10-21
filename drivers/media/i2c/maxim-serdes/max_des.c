@@ -385,6 +385,18 @@ static int max_des_get_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static u64 max_des_get_pixel_rate(struct max_des_subdev_priv *sd_priv)
+{
+	struct max_des_priv *priv = sd_priv->priv;
+	struct max_des_phy *phy = &priv->phys[sd_priv->phy_id];
+	u8 bpp = 8;
+
+	if (sd_priv->fmt)
+		bpp = sd_priv->fmt->bpp;
+
+	return phy->link_frequency * 2 * phy->mipi.num_data_lanes / bpp;
+}
+
 static int max_des_set_fmt(struct v4l2_subdev *sd,
 			   struct v4l2_subdev_state *sd_state,
 			   struct v4l2_subdev_format *format)
@@ -403,6 +415,9 @@ static int max_des_set_fmt(struct v4l2_subdev *sd,
 		return -EINVAL;
 
 	sd_priv->fmt = fmt;
+
+	v4l2_ctrl_s_ctrl_int64(sd_priv->pixel_rate_ctrl,
+			       max_des_get_pixel_rate(sd_priv));
 
 	mutex_lock(&priv->lock);
 
@@ -603,7 +618,10 @@ static void max_des_set_sd_name(struct max_des_subdev_priv *sd_priv)
 
 static int max_des_v4l2_register_sd(struct max_des_subdev_priv *sd_priv)
 {
+	struct v4l2_ctrl_handler *hdl = &sd_priv->ctrl_handler;
+	u64 max_pixel_rate = max_des_get_pixel_rate(sd_priv);
 	struct max_des_priv *priv = sd_priv->priv;
+	struct max_des_phy *phy = &priv->phys[sd_priv->phy_id];
 	int ret;
 
 	v4l2_i2c_subdev_init(&sd_priv->sd, priv->client, &max_des_subdev_ops);
@@ -613,6 +631,16 @@ static int max_des_v4l2_register_sd(struct max_des_subdev_priv *sd_priv)
 	sd_priv->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	sd_priv->sd.fwnode = sd_priv->fwnode;
 	fwnode_handle_get(sd_priv->sd.fwnode);
+
+	sd_priv->sd.ctrl_handler = hdl;
+	ret = v4l2_ctrl_handler_init(hdl, 1);
+	if (ret)
+		goto error;
+
+	v4l2_ctrl_new_int_menu(hdl, NULL, V4L2_CID_LINK_FREQ, 0, 0, &phy->link_frequency);
+	sd_priv->pixel_rate_ctrl = v4l2_ctrl_new_std(hdl, NULL, V4L2_CID_PIXEL_RATE,
+						     0, max_pixel_rate,
+						     1, max_pixel_rate);
 
 	sd_priv->pads[MAX_DES_SOURCE_PAD].flags = MEDIA_PAD_FL_SOURCE;
 	sd_priv->pads[MAX_DES_SINK_PAD].flags = MEDIA_PAD_FL_SINK;
@@ -631,6 +659,7 @@ static int max_des_v4l2_register_sd(struct max_des_subdev_priv *sd_priv)
 
 error:
 	media_entity_cleanup(&sd_priv->sd.entity);
+	v4l2_ctrl_handler_free(&sd_priv->ctrl_handler);
 	fwnode_handle_put(sd_priv->sd.fwnode);
 
 	return ret;
@@ -640,6 +669,7 @@ static void max_des_v4l2_unregister_sd(struct max_des_subdev_priv *sd_priv)
 {
 	v4l2_async_unregister_subdev(&sd_priv->sd);
 	media_entity_cleanup(&sd_priv->sd.entity);
+	v4l2_ctrl_handler_free(&sd_priv->ctrl_handler);
 	fwnode_handle_put(sd_priv->sd.fwnode);
 }
 

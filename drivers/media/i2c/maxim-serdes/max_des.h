@@ -5,6 +5,7 @@
 
 #include <linux/i2c-atr.h>
 
+#include <media/v4l2-ctrls.h>
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-subdev.h>
 
@@ -39,6 +40,9 @@ struct max_des_dt_vc_remap {
 
 struct max_des_subdev_priv {
 	struct v4l2_subdev sd;
+	struct v4l2_ctrl_handler ctrl_handler;
+	struct v4l2_ctrl *pixel_rate_ctrl;
+
 	unsigned int index;
 	struct fwnode_handle *fwnode;
 
@@ -80,7 +84,7 @@ struct max_des_pipe {
 
 struct max_des_phy {
 	unsigned int index;
-	u64 link_frequency;
+	s64 link_frequency;
 	struct v4l2_mbus_config_mipi_csi2 mipi;
 	bool alt_mem_map8;
 	bool alt2_mem_map8;
