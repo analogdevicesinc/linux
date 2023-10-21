@@ -82,10 +82,10 @@ Configuration parameters:
 #define GMSL_CAM_2_INCLUDE		"gmsl-ox03a.dtsi"
 #define GMSL_CAM_3_INCLUDE		"gmsl-ox03a.dtsi"
 
-#define GMSL_CAM_0_PINS_INCLUDE		"gmsl-serializer-pins-ox03a.dtsi"
-#define GMSL_CAM_1_PINS_INCLUDE		"gmsl-serializer-pins-ox03a.dtsi"
-#define GMSL_CAM_2_PINS_INCLUDE		"gmsl-serializer-pins-ox03a.dtsi"
-#define GMSL_CAM_3_PINS_INCLUDE		"gmsl-serializer-pins-ox03a.dtsi"
+#define GMSL_CAM_0_OVERLAY_INCLUDE		"gmsl-ox03a-overlay.dtsi"
+#define GMSL_CAM_1_OVERLAY_INCLUDE		"gmsl-ox03a-overlay.dtsi"
+#define GMSL_CAM_2_OVERLAY_INCLUDE		"gmsl-ox03a-overlay.dtsi"
+#define GMSL_CAM_3_OVERLAY_INCLUDE		"gmsl-ox03a-overlay.dtsi"
 */
 
 #if !defined(GMSL_CAMERA_NUM)
@@ -111,8 +111,8 @@ Configuration parameters:
 #define GMSL_MAX9296A_COMPAT "maxim,max9296a"
 #define GMSL_OX03A_INCLUDE "gmsl-ox03a.dtsi"
 #define GMSL_IMX219_INCLUDE "gmsl-imx219.dtsi"
-#define GMSL_SER_PINS_OX03A_INCLUDE "gmsl-serializer-pins-ox03a.dtsi"
-#define GMSL_SER_PINS_IMX219_INCLUDE "gmsl-serializer-pins-imx219.dtsi"
+#define GMSL_OX03A_OVERLAY_INCLUDE "gmsl-ox03a-overlay.dtsi"
+#define GMSL_IMX219_OVERLAY_INCLUDE "gmsl-imx219-overlay.dtsi"
 
 #if GMSL_CAMERA_NUM >= 1
 #define GMSL_CAMERA_0
@@ -203,11 +203,11 @@ Configuration parameters:
 #endif
 #endif
 
-#if !defined(GMSL_CAM_0_PINS_INCLUDE)
+#if !defined(GMSL_CAM_0_OVERLAY_INCLUDE)
 #if defined(GMSL_CAM_0_TEGRA_OX03A)
-#define GMSL_CAM_0_PINS_INCLUDE		GMSL_SER_PINS_OX03A_INCLUDE
+#define GMSL_CAM_0_OVERLAY_INCLUDE		GMSL_OX03A_OVERLAY_INCLUDE
 #elif defined(GMSL_CAM_0_TEGRA_IMX219)
-#define GMSL_CAM_0_PINS_INCLUDE		GMSL_SER_PINS_IMX219_INCLUDE
+#define GMSL_CAM_0_OVERLAY_INCLUDE		GMSL_IMX219_OVERLAY_INCLUDE
 #endif
 #endif
 
@@ -261,11 +261,11 @@ Configuration parameters:
 #endif
 #endif
 
-#if !defined(GMSL_CAM_1_PINS_INCLUDE)
+#if !defined(GMSL_CAM_1_OVERLAY_INCLUDE)
 #if defined(GMSL_CAM_1_TEGRA_OX03A)
-#define GMSL_CAM_1_PINS_INCLUDE		GMSL_SER_PINS_OX03A_INCLUDE
+#define GMSL_CAM_1_OVERLAY_INCLUDE		GMSL_OX03A_OVERLAY_INCLUDE
 #elif defined(GMSL_CAM_1_TEGRA_IMX219)
-#define GMSL_CAM_1_PINS_INCLUDE		GMSL_SER_PINS_IMX219_INCLUDE
+#define GMSL_CAM_1_OVERLAY_INCLUDE		GMSL_IMX219_OVERLAY_INCLUDE
 #endif
 #endif
 
@@ -319,11 +319,11 @@ Configuration parameters:
 #endif
 #endif
 
-#if !defined(GMSL_CAM_2_PINS_INCLUDE)
+#if !defined(GMSL_CAM_2_OVERLAY_INCLUDE)
 #if defined(GMSL_CAM_2_TEGRA_OX03A)
-#define GMSL_CAM_2_PINS_INCLUDE		GMSL_SER_PINS_OX03A_INCLUDE
+#define GMSL_CAM_2_OVERLAY_INCLUDE		GMSL_OX03A_OVERLAY_INCLUDE
 #elif defined(GMSL_CAM_2_TEGRA_IMX219)
-#define GMSL_CAM_2_PINS_INCLUDE		GMSL_SER_PINS_IMX219_INCLUDE
+#define GMSL_CAM_2_OVERLAY_INCLUDE		GMSL_IMX219_OVERLAY_INCLUDE
 #endif
 #endif
 
@@ -377,11 +377,11 @@ Configuration parameters:
 #endif
 #endif
 
-#if !defined(GMSL_CAM_3_PINS_INCLUDE)
+#if !defined(GMSL_CAM_3_OVERLAY_INCLUDE)
 #if defined(GMSL_CAM_3_TEGRA_OX03A)
-#define GMSL_CAM_3_PINS_INCLUDE		GMSL_SER_PINS_OX03A_INCLUDE
+#define GMSL_CAM_3_OVERLAY_INCLUDE		GMSL_OX03A_OVERLAY_INCLUDE
 #elif defined(GMSL_CAM_3_TEGRA_IMX219)
-#define GMSL_CAM_3_PINS_INCLUDE		GMSL_SER_PINS_IMX219_INCLUDE
+#define GMSL_CAM_3_OVERLAY_INCLUDE		GMSL_IMX219_OVERLAY_INCLUDE
 #endif
 #endif
 
@@ -601,63 +601,55 @@ cam_3_i2c_bus: &ser_3_i2c_0 {};
 #endif
 
 #if defined(GMSL_CAMERA_0)
-&ser_0 {
-#if defined(GMSL_CAM_0_PINS_INCLUDE)
-	#define SER_INDEX 0
-	#include GMSL_CAM_0_PINS_INCLUDE
-#endif
-};
-
 &cam_0_i2c_bus {
 	#define CAM_INDEX 0
 	#define CAM_HEX_REG GMSL_CAM_0_DEFAULT_HEX_ADDR
 	#include GMSL_CAM_0_INCLUDE
 };
+
+#if defined(GMSL_CAM_0_OVERLAY_INCLUDE)
+#define SER_INDEX 0
+#include GMSL_CAM_0_OVERLAY_INCLUDE
+#endif
 #endif
 
 #if defined(GMSL_CAMERA_1)
-&ser_1 {
-#if defined(GMSL_CAM_1_PINS_INCLUDE)
-	#define SER_INDEX 1
-	#include GMSL_CAM_1_PINS_INCLUDE
-#endif
-};
-
 &cam_1_i2c_bus {
 	#define CAM_INDEX 1
 	#define CAM_HEX_REG GMSL_CAM_1_DEFAULT_HEX_ADDR
 	#include GMSL_CAM_1_INCLUDE
 };
+
+#if defined(GMSL_CAM_1_OVERLAY_INCLUDE)
+#define SER_INDEX 1
+#include GMSL_CAM_1_OVERLAY_INCLUDE
+#endif
 #endif
 
 #if defined(GMSL_CAMERA_2)
-&ser_2 {
-#if defined(GMSL_CAM_2_PINS_INCLUDE)
-	#define SER_INDEX 2
-	#include GMSL_CAM_2_PINS_INCLUDE
-#endif
-};
-
 &cam_2_i2c_bus {
 	#define CAM_INDEX 2
 	#define CAM_HEX_REG GMSL_CAM_2_DEFAULT_HEX_ADDR
 	#include GMSL_CAM_2_INCLUDE
 };
+
+#if defined(GMSL_CAM_2_OVERLAY_INCLUDE)
+#define SER_INDEX 2
+#include GMSL_CAM_2_OVERLAY_INCLUDE
+#endif
 #endif
 
 #if defined(GMSL_CAMERA_3)
-&ser_3 {
-#if defined(GMSL_CAM_3_PINS_INCLUDE)
-	#define SER_INDEX 3
-	#include GMSL_CAM_3_PINS_INCLUDE
-#endif
-};
-
 &cam_3_i2c_bus {
 	#define CAM_INDEX 3
 	#define CAM_HEX_REG GMSL_CAM_3_DEFAULT_HEX_ADDR
 	#include GMSL_CAM_3_INCLUDE
 };
+
+#if defined(GMSL_CAM_3_OVERLAY_INCLUDE)
+#define SER_INDEX 3
+#include GMSL_CAM_3_OVERLAY_INCLUDE
+#endif
 #endif
 
 #undef GMSL_TEGRA_PLATFORM
@@ -726,10 +718,10 @@ cam_3_i2c_bus: &ser_3_i2c_0 {};
 #undef GMSL_CAM_2_INCLUDE
 #undef GMSL_CAM_3_INCLUDE
 
-#undef GMSL_CAM_0_PINS_INCLUDE
-#undef GMSL_CAM_1_PINS_INCLUDE
-#undef GMSL_CAM_2_PINS_INCLUDE
-#undef GMSL_CAM_3_PINS_INCLUDE
+#undef GMSL_CAM_0_OVERLAY_INCLUDE
+#undef GMSL_CAM_1_OVERLAY_INCLUDE
+#undef GMSL_CAM_2_OVERLAY_INCLUDE
+#undef GMSL_CAM_3_OVERLAY_INCLUDE
 
 #undef STRINGIFY
 #undef _STRINGIFY

@@ -14,18 +14,20 @@
 #define SER_MFP0_PWDN_LABEL CONCAT(SER_LABEL, _mfp0_pwdn)
 #define SER_MFP4_RCLK_LABEL CONCAT(SER_LABEL, _mfp4_rclk)
 
-pins {
-	SER_MFP0_PWDN_LABEL: SER_MFP0_PWDN_LABEL {
-		pins = "mfp0";
-		function = "gpio";
-		bias-pull-up;
-	};
+&SER_LABEL {
+	pins {
+		SER_MFP0_PWDN_LABEL: SER_MFP0_PWDN_LABEL {
+			pins = "mfp0";
+			function = "gpio";
+			bias-pull-up;
+		};
 
-	SER_MFP4_RCLK_LABEL: SER_MFP4_RCLK_LABEL {
-		pins = "mfp4";
-		function = "rclkout";
-		slew-rate = <0>;
-		maxim,rclkout-clock = <0>;
+		SER_MFP4_RCLK_LABEL: SER_MFP4_RCLK_LABEL {
+			pins = "mfp4";
+			function = "rclkout";
+			slew-rate = <0>;
+			maxim,rclkout-clock = <0>;
+		};
 	};
 };
 

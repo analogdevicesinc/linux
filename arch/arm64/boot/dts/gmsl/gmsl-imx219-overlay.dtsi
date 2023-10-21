@@ -13,11 +13,13 @@
 
 #define SER_MFP2_RESET_LABEL CONCAT(SER_LABEL, _mfp2_reset)
 
-SER_MFP2_RESET_LABEL {
-	gpio-hog;
-	output-low;
-	gpios = <2 0>;
-	label = STRINGIFY(SER_MFP2_RESET_LABEL);
+&SER_LABEL {
+	SER_MFP2_RESET_LABEL {
+		gpio-hog;
+		output-low;
+		gpios = <2 0>;
+		label = STRINGIFY(SER_MFP2_RESET_LABEL);
+	};
 };
 
 #undef SER_MFP2_RESET_LABEL
