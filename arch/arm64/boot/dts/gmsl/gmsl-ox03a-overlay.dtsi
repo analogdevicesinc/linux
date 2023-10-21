@@ -3,6 +3,10 @@
  * Copyright (C) 2023 Analog Devices Inc.
  */
 
+#if defined(DES_CH_INDEX)
+#define DES_CH_SECOND_INDEX CONCAT(1, DES_CH_INDEX)
+#endif
+
 #if defined(SER_INDEX)
 #define SER_LABEL CONCAT(ser_, SER_INDEX)
 #endif
@@ -15,6 +19,11 @@
 #define SER_MFP4_RCLK_LABEL CONCAT(SER_LABEL, _mfp4_rclk)
 
 &SER_LABEL {
+	pipe@0 {
+		maxim,dbl12;
+		maxim,soft-bpp = <24>;
+	};
+
 	pins {
 		SER_MFP0_PWDN_LABEL: SER_MFP0_PWDN_LABEL {
 			pins = "mfp0";
@@ -31,8 +40,15 @@
 	};
 };
 
+&des {
+	phy@GMSL_DES_PHY {
+		maxim,alt-mem-map12;
+	};
+};
+
 #undef SER_MFP0_PWDN_LABEL
 #undef SER_MFP4_RCLK_LABEL
 
 #undef SER_INDEX
 #undef SER_LABEL
+#undef DES_CH_INDEX

@@ -11,6 +11,23 @@
 #define _STRINGIFY(a) # a
 #define STRINGIFY(a) _STRINGIFY(a)
 
+#define DES_CH_Y_LABEL(y)		CONCAT(des_ch_, y)
+#define DES_CH_Y_IN_LABEL(y)		CONCAT(DES_CH_Y_LABEL(y), _in)
+#define DES_CH_Y_OUT_LABEL(y)		CONCAT(DES_CH_Y_LABEL(y), _out)
+
+#define SER_X_LABEL(x)			CONCAT(ser_, x)
+#define SER_X_CH_LABEL(x)		CONCAT(SER_X_LABEL(x), _ch_)
+#define SER_X_CH_Y_LABEL(x, y)		CONCAT(SER_X_CH_LABEL(x), y)
+#define SER_X_CH_Y_IN_LABEL(x, y)	CONCAT(SER_X_CH_Y_LABEL(x, y), _in)
+#define SER_X_CH_Y_OUT_LABEL(x, y)	CONCAT(SER_X_CH_Y_LABEL(x, y), _out)
+
+#define CAM_X_LABEL(x)			CONCAT(cam_, x)
+#define CAM_X_OUT_LABEL(x)		CONCAT(CAM_X_LABEL(x), _out)
+
+#define CSI_X_LABEL(x)			CONCAT(csi_, x)
+#define CSI_X_IN_LABEL(x)		CONCAT(CSI_X_LABEL(x), _in)
+#define CSI_X_OUT_LABEL(x)		CONCAT(CSI_X_LABEL(x), _out)
+
 /*
 Configuration parameters:
 
@@ -445,6 +462,9 @@ Configuration parameters:
 
 #if defined(GMSL_CAMERA_0)
 	#define DES_CH_INDEX 0
+	#define SER_INDEX 0
+	#define SER_CH_INDEX 0
+	#define CSI_INDEX 0
 	#define DES_CH_PHY GMSL_DES_PHY
 	#define DES_CH_PHY_NUM_LANES GMSL_DES_PHY_NUM_LANES
 	#define DES_CH_PHY_LINK_FREQ GMSL_DES_PHY_LINK_FREQ
@@ -453,6 +473,9 @@ Configuration parameters:
 
 #if defined(GMSL_CAMERA_1)
 	#define DES_CH_INDEX 1
+	#define SER_INDEX 1
+	#define SER_CH_INDEX 0
+	#define CSI_INDEX 1
 	#define DES_CH_PHY GMSL_DES_PHY
 	#define DES_CH_PHY_NUM_LANES GMSL_DES_PHY_NUM_LANES
 	#define DES_CH_PHY_LINK_FREQ GMSL_DES_PHY_LINK_FREQ
@@ -461,6 +484,9 @@ Configuration parameters:
 
 #if defined(GMSL_CAMERA_2)
 	#define DES_CH_INDEX 2
+	#define SER_INDEX 2
+	#define SER_CH_INDEX 0
+	#define CSI_INDEX 2
 	#define DES_CH_PHY GMSL_DES_PHY
 	#define DES_CH_PHY_NUM_LANES GMSL_DES_PHY_NUM_LANES
 	#define DES_CH_PHY_LINK_FREQ GMSL_DES_PHY_LINK_FREQ
@@ -469,6 +495,9 @@ Configuration parameters:
 
 #if defined(GMSL_CAMERA_3)
 	#define DES_CH_INDEX 3
+	#define SER_INDEX 3
+	#define SER_CH_INDEX 0
+	#define CSI_INDEX 3
 	#define DES_CH_PHY GMSL_DES_PHY
 	#define DES_CH_PHY_NUM_LANES GMSL_DES_PHY_NUM_LANES
 	#define DES_CH_PHY_LINK_FREQ GMSL_DES_PHY_LINK_FREQ
@@ -550,6 +579,8 @@ ser_3_i2c_bus: &des_i2c_3 {};
 #if defined(GMSL_CAMERA_0)
 &ser_0_i2c_bus {
 	#define SER_INDEX 0
+	#define DES_CH_INDEX 0
+	#define CAM_INDEX 0
 	#define SER_COMPAT GMSL_SER_0_COMPATIBLE
 	#define SER_HEX_REG GMSL_SER_0_DEFAULT_HEX_ADDR
 	#define SER_I2C_ADDR_POOL_0 GMSL_CAM_0_HEX_ADDR
@@ -560,6 +591,8 @@ ser_3_i2c_bus: &des_i2c_3 {};
 #if defined(GMSL_CAMERA_1)
 &ser_1_i2c_bus {
 	#define SER_INDEX 1
+	#define DES_CH_INDEX 1
+	#define CAM_INDEX 1
 	#define SER_COMPAT GMSL_SER_1_COMPATIBLE
 	#define SER_HEX_REG GMSL_SER_1_DEFAULT_HEX_ADDR
 	#define SER_I2C_ADDR_POOL_0 GMSL_CAM_1_HEX_ADDR
@@ -570,6 +603,8 @@ ser_3_i2c_bus: &des_i2c_3 {};
 #if defined(GMSL_CAMERA_2)
 &ser_2_i2c_bus {
 	#define SER_INDEX 2
+	#define DES_CH_INDEX 2
+	#define CAM_INDEX 2
 	#define SER_COMPAT GMSL_SER_2_COMPATIBLE
 	#define SER_HEX_REG GMSL_SER_2_DEFAULT_HEX_ADDR
 	#define SER_I2C_ADDR_POOL_0 GMSL_CAM_2_HEX_ADDR
@@ -580,6 +615,8 @@ ser_3_i2c_bus: &des_i2c_3 {};
 #if defined(GMSL_CAMERA_3)
 &ser_3_i2c_bus {
 	#define SER_INDEX 3
+	#define DES_CH_INDEX 3
+	#define CAM_INDEX 3
 	#define SER_COMPAT GMSL_SER_3_COMPATIBLE
 	#define SER_HEX_REG GMSL_SER_3_DEFAULT_HEX_ADDR
 	#define SER_I2C_ADDR_POOL_0 GMSL_CAM_3_HEX_ADDR
@@ -603,12 +640,15 @@ cam_3_i2c_bus: &ser_3_i2c_0 {};
 #if defined(GMSL_CAMERA_0)
 &cam_0_i2c_bus {
 	#define CAM_INDEX 0
+	#define SER_INDEX 0
+	#define SER_CH_INDEX 0
 	#define CAM_HEX_REG GMSL_CAM_0_DEFAULT_HEX_ADDR
 	#include GMSL_CAM_0_INCLUDE
 };
 
 #if defined(GMSL_CAM_0_OVERLAY_INCLUDE)
 #define SER_INDEX 0
+#define DES_CH_INDEX 0
 #include GMSL_CAM_0_OVERLAY_INCLUDE
 #endif
 #endif
@@ -616,12 +656,15 @@ cam_3_i2c_bus: &ser_3_i2c_0 {};
 #if defined(GMSL_CAMERA_1)
 &cam_1_i2c_bus {
 	#define CAM_INDEX 1
+	#define SER_INDEX 1
+	#define SER_CH_INDEX 0
 	#define CAM_HEX_REG GMSL_CAM_1_DEFAULT_HEX_ADDR
 	#include GMSL_CAM_1_INCLUDE
 };
 
 #if defined(GMSL_CAM_1_OVERLAY_INCLUDE)
 #define SER_INDEX 1
+#define DES_CH_INDEX 1
 #include GMSL_CAM_1_OVERLAY_INCLUDE
 #endif
 #endif
@@ -629,12 +672,15 @@ cam_3_i2c_bus: &ser_3_i2c_0 {};
 #if defined(GMSL_CAMERA_2)
 &cam_2_i2c_bus {
 	#define CAM_INDEX 2
+	#define SER_INDEX 2
+	#define SER_CH_INDEX 0
 	#define CAM_HEX_REG GMSL_CAM_2_DEFAULT_HEX_ADDR
 	#include GMSL_CAM_2_INCLUDE
 };
 
 #if defined(GMSL_CAM_2_OVERLAY_INCLUDE)
 #define SER_INDEX 2
+#define DES_CH_INDEX 2
 #include GMSL_CAM_2_OVERLAY_INCLUDE
 #endif
 #endif
@@ -642,12 +688,15 @@ cam_3_i2c_bus: &ser_3_i2c_0 {};
 #if defined(GMSL_CAMERA_3)
 &cam_3_i2c_bus {
 	#define CAM_INDEX 3
+	#define SER_INDEX 3
+	#define SER_CH_INDEX 0
 	#define CAM_HEX_REG GMSL_CAM_3_DEFAULT_HEX_ADDR
 	#include GMSL_CAM_3_INCLUDE
 };
 
 #if defined(GMSL_CAM_3_OVERLAY_INCLUDE)
 #define SER_INDEX 3
+#define DES_CH_INDEX 3
 #include GMSL_CAM_3_OVERLAY_INCLUDE
 #endif
 #endif
@@ -722,6 +771,19 @@ cam_3_i2c_bus: &ser_3_i2c_0 {};
 #undef GMSL_CAM_1_OVERLAY_INCLUDE
 #undef GMSL_CAM_2_OVERLAY_INCLUDE
 #undef GMSL_CAM_3_OVERLAY_INCLUDE
+
+#undef DES_CH_Y_LABEL
+#undef DES_CH_Y_OUT_LABEL
+#undef DES_CH_Y_IN_LABEL
+
+#undef SER_X_LABEL
+#undef SER_X_CH_LABEL
+#undef SER_X_CH_LABEL_Y
+#undef SER_X_CH_Y_OUT_LABEL
+#undef SER_X_CH_Y_IN_LABEL
+
+#undef CAM_X_LABEL
+#undef CAM_X_OUT_LABEL
 
 #undef STRINGIFY
 #undef _STRINGIFY

@@ -45,7 +45,7 @@
 					vc-id = <0>;
 					port-index = <GMSL_TEGRA_PORT>;
 					bus-width = <GMSL_DES_PHY_NUM_LANES>;
-					remote-endpoint = <&csi_out0>;
+					remote-endpoint = <&CSI_X_OUT_LABEL(0)>;
 				};
 			};
 #endif
@@ -58,7 +58,7 @@
 					vc-id = <1>;
 					port-index = <GMSL_TEGRA_PORT>;
 					bus-width = <GMSL_DES_PHY_NUM_LANES>;
-					remote-endpoint = <&csi_out1>;
+					remote-endpoint = <&CSI_X_OUT_LABEL(1)>;
 				};
 			};
 #endif
@@ -71,7 +71,7 @@
 					vc-id = <2>;
 					port-index = <GMSL_TEGRA_PORT>;
 					bus-width = <GMSL_DES_PHY_NUM_LANES>;
-					remote-endpoint = <&csi_out2>;
+					remote-endpoint = <&CSI_X_OUT_LABEL(2)>;
 				};
 			};
 #endif
@@ -84,7 +84,7 @@
 					vc-id = <3>;
 					port-index = <GMSL_TEGRA_PORT>;
 					bus-width = <GMSL_DES_PHY_NUM_LANES>;
-					remote-endpoint = <&csi_out3>;
+					remote-endpoint = <&CSI_X_OUT_LABEL(3)>;
 				};
 			};
 #endif

@@ -4,14 +4,22 @@
  */
 
 #if defined(SER_INDEX)
-#define SER_LABEL CONCAT(ser_, SER_INDEX)
-#define SER_CH_LABEL	CONCAT(SER_LABEL, _ch_)
-#define SER_CH_LABEL_X(x) CONCAT(SER_CH_LABEL, x)
+#define SER_LABEL SER_X_LABEL(SER_INDEX)
 #define SER_I2C_LABEL CONCAT(SER_LABEL, _i2c_0)
-#define SER_OUT_LABEL CONCAT(ser_out, SER_INDEX)
-#define SER_IN_LABEL CONCAT(ser_in, SER_INDEX)
-#define SER_OUT_REMOTE_LABEL CONCAT(des_in, SER_INDEX)
-#define SER_IN_REMOTE_LABEL CONCAT(cam_out, SER_INDEX)
+#define SER_OUT_LABEL SER_X_CH_Y_OUT_LABEL(SER_INDEX, 0)
+#define SER_IN_LABEL SER_X_CH_Y_IN_LABEL(SER_INDEX, 0)
+#endif
+
+#if defined(DES_CH_INDEX)
+#define SER_OUT_REMOTE_LABEL DES_CH_Y_IN_LABEL(DES_CH_INDEX)
+#endif
+
+#if defined(CAM_INDEX)
+#define SER_IN_REMOTE_LABEL CAM_X_OUT_LABEL(CAM_INDEX)
+#endif
+
+#if !defined(SER_I2C_LABEL)
+#error
 #endif
 
 #if !defined(SER_COMPAT)
@@ -80,7 +88,7 @@ SER_LABEL: gmsl-serializer@SER_HEX_REG {
 	channel@0 {
 		reg = <0>;
 
-		label = STRINGIFY(SER_CH_LABEL_X(0));
+		label = STRINGIFY(SER_X_CH_Y_LABEL(SER_INDEX, 0));
 
 		ports {
 			#address-cells = <1>;
@@ -108,6 +116,8 @@ SER_LABEL: gmsl-serializer@SER_HEX_REG {
 #undef SER_COMPAT
 #undef SER_HEX_REG
 #undef SER_INDEX
+#undef DES_CH_INDEX
+#undef CAM_INDEX
 #undef SER_LABEL
 #undef SER_OUT_LABEL
 #undef SER_IN_LABEL

@@ -3,11 +3,27 @@
  * Copyright (C) 2023 Analog Devices Inc.
  */
 
+#if defined(DES_CH_INDEX)
+#if DES_CH_INDEX == 0
+#define DES_CH_SECOND_INDEX 4
+#elif DES_CH_INDEX == 1
+#define DES_CH_SECOND_INDEX 5
+#elif DES_CH_INDEX == 2
+#define DES_CH_SECOND_INDEX 6
+#elif DES_CH_INDEX == 3
+#define DES_CH_SECOND_INDEX 7
+#endif
+#endif
+
 #if defined(SER_INDEX)
 #define SER_LABEL CONCAT(ser_, SER_INDEX)
 #endif
 
 #if !defined(SER_LABEL)
+#error
+#endif
+
+#if !defined(DES_CH_SECOND_INDEX)
 #error
 #endif
 
@@ -20,9 +36,66 @@
 		gpios = <2 0>;
 		label = STRINGIFY(SER_MFP2_RESET_LABEL);
 	};
+
+	pipe@0 {
+		maxim,dbl8;
+		maxim,soft-bpp = <10>;
+		maxim,bpp = <16>;
+	};
+
+	channel@1 {
+		reg = <1>;
+
+		label = STRINGIFY(SER_X_CH_Y_LABEL(SER_INDEX, 1));
+
+		maxim,embedded-data;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				SER_X_CH_Y_OUT_LABEL(SER_INDEX, 1): endpoint {
+					remote-endpoint = <&DES_CH_Y_IN_LABEL(DES_CH_SECOND_INDEX)>;
+				};
+			};
+		};
+	};
+};
+
+&des {
+	phy@GMSL_DES_PHY {
+		maxim,alt2-mem-map8;
+	};
+
+	channel@DES_CH_SECOND_INDEX {
+		reg = <DES_CH_SECOND_INDEX>;
+
+		maxim,phy-id = <GMSL_DES_PHY>;
+		maxim,embedded-data;
+
+		label = STRINGIFY(DES_CH_Y_LABEL(DES_CH_SECOND_INDEX));
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@1 {
+				reg = <1>;
+
+				DES_CH_Y_IN_LABEL(DES_CH_SECOND_INDEX): endpoint {
+					remote-endpoint = <&SER_X_CH_Y_OUT_LABEL(SER_INDEX, 1)>;
+				};
+			};
+		};
+	};
 };
 
 #undef SER_MFP2_RESET_LABEL
 
 #undef SER_INDEX
 #undef SER_LABEL
+#undef DES_CH_INDEX
+#undef DES_CH_SECOND_INDEX

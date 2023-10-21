@@ -3,13 +3,19 @@
  * Copyright (C) 2023 Analog Devices Inc.
  */
 
-#ifdef DES_CH_INDEX
+#if defined(DES_CH_INDEX)
 #define DES_CH_REG DES_CH_INDEX
-#define DES_CH_LABEL CONCAT(des_ch_, DES_CH_INDEX)
-#define DES_CH_OUT_LABEL CONCAT(des_out, DES_CH_INDEX)
-#define DES_CH_IN_LABEL CONCAT(des_in, DES_CH_INDEX)
-#define DES_CH_OUT_REMOTE_LABEL CONCAT(csi_in, DES_CH_INDEX)
-#define DES_CH_IN_REMOTE_LABEL CONCAT(ser_out, DES_CH_INDEX)
+#define DES_CH_LABEL DES_CH_Y_LABEL(DES_CH_INDEX)
+#define DES_CH_OUT_LABEL DES_CH_Y_OUT_LABEL(DES_CH_INDEX)
+#define DES_CH_IN_LABEL DES_CH_Y_IN_LABEL(DES_CH_INDEX)
+#endif
+
+#if defined(SER_INDEX) && defined(SER_CH_INDEX)
+#define DES_CH_IN_REMOTE_LABEL SER_X_CH_Y_OUT_LABEL(SER_INDEX, SER_CH_INDEX)
+#endif
+
+#if defined(CSI_INDEX)
+#define DES_CH_OUT_REMOTE_LABEL CSI_X_IN_LABEL(CSI_INDEX)
 #endif
 
 #if !defined(DES_CH_PHY)
@@ -91,6 +97,9 @@ channel@DES_CH_REG {
 };
 
 #undef DES_CH_INDEX
+#undef SER_INDEX
+#undef SER_CH_INDEX
+#undef CSI_INDEX
 #undef DES_CH_PHY
 #undef DES_CH_PHY_NUM_LANES
 #undef DES_CH_PHY_CLOCK_LANE

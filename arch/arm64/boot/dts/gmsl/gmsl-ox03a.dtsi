@@ -11,9 +11,12 @@
 #define CAM_SER_LABEL		CONCAT(ser_, CAM_SER_INDEX)
 #define CAM_PWDN_LABEL		CONCAT(CAM_SER_LABEL, _mfp0_pwdn)
 #define CAM_RCLK_LABEL		CONCAT(CAM_SER_LABEL, _mfp4_rclk)
-#define CAM_OUT_LABEL		CONCAT(cam_out, CAM_INDEX)
-#define CAM_IN_LABEL		CONCAT(ser_in, CAM_INDEX)
+#define CAM_OUT_LABEL		CAM_X_OUT_LABEL(CAM_INDEX)
 #define CAM_LABEL		CONCAT(cam_, CAM_INDEX)
+#endif
+
+#if defined(SER_INDEX) && defined(SER_CH_INDEX)
+#define CAM_OUT_REMOTE_LABEL	SER_X_CH_Y_IN_LABEL(SER_INDEX, SER_CH_INDEX)
 #endif
 
 #if !defined(CAM_HEX_REG)
@@ -40,7 +43,7 @@
 #error
 #endif
 
-#if !defined(CAM_IN_LABEL)
+#if !defined(CAM_OUT_REMOTE_LABEL)
 #error
 #endif
 
@@ -622,7 +625,7 @@ CAM_LABEL: ox03a@CAM_HEX_REG {
 			CAM_OUT_LABEL: endpoint {
 				port-index = <GMSL_TEGRA_PORT>;
 				bus-width = <GMSL_DES_PHY_NUM_LANES>;
-				remote-endpoint = <&CAM_IN_LABEL>;
+				remote-endpoint = <&CAM_OUT_REMOTE_LABEL>;
 				data-lanes = <1 2 3 4>;
 				clock-lanes = <0>;
 			};
@@ -639,4 +642,4 @@ CAM_LABEL: ox03a@CAM_HEX_REG {
 #undef CAM_RCLK_LABEL
 #undef CAM_LABEL
 #undef CAM_OUT_LABEL
-#undef CAM_IN_LABEL
+#undef CAM_OUT_REMOTE_LABEL
