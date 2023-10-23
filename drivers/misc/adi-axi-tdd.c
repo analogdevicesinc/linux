@@ -303,34 +303,19 @@ static ssize_t adi_axi_tdd_show(struct device *dev,
 	}
 }
 
-static int adi_axi_tdd_parse_ms(struct adi_axi_tdd_state *st,
+static int adi_axi_tdd_parse_ns(struct adi_axi_tdd_state *st,
 				const char *buf,
 				u64 *res)
 {
 	u64 clk_rate = READ_ONCE(st->clk.rate);
-	char *orig_str, *modf_str, *int_part, frac_part[7];
-	long ival, frac;
+	long val;
 	int ret;
 
-	orig_str = kstrdup(buf, GFP_KERNEL);
-	int_part = strsep(&orig_str, ".");
-	ret = kstrtol(int_part, 10, &ival);
-	if (ret || ival < 0)
+	ret = kstrtol(buf, 10, &val);
+	if (ret < 0)
 		return -EINVAL;
-	modf_str = strsep(&orig_str, ".");
-	if (modf_str) {
-		snprintf(frac_part, 7, "%s00000", modf_str);
-		ret = kstrtol(frac_part, 10, &frac);
-		if (ret)
-			return -EINVAL;
-	} else {
-		frac = 0;
-	}
 
-	*res = DIV_ROUND_CLOSEST_ULL((u64)ival * clk_rate, 1000)
-		+ DIV_ROUND_CLOSEST_ULL((u64)frac * clk_rate, 1000000000);
-
-	kfree(orig_str);
+	*res = DIV_ROUND_CLOSEST_ULL(val * clk_rate, 1000000000);
 
 	return ret;
 }
@@ -401,7 +386,7 @@ static int adi_axi_tdd_write_regs(const struct adi_axi_tdd_attribute *attr,
 			return ret;
 		return regmap_write(st->regs, ADI_REG_TDD_STARTUP_DELAY, data);
 	case ADI_TDD_ATTR_STARTUP_DELAY_MS:
-		ret = adi_axi_tdd_parse_ms(st, buf, &data64);
+		ret = adi_axi_tdd_parse_ns(st, buf, &data64);
 		if (ret)
 			return ret;
 		if (FIELD_GET(GENMASK_ULL(63, 32), data64))
@@ -414,7 +399,7 @@ static int adi_axi_tdd_write_regs(const struct adi_axi_tdd_attribute *attr,
 			return ret;
 		return regmap_write(st->regs, ADI_REG_TDD_FRAME_LENGTH, data);
 	case ADI_TDD_ATTR_FRAME_LENGTH_MS:
-		ret = adi_axi_tdd_parse_ms(st, buf, &data64);
+		ret = adi_axi_tdd_parse_ns(st, buf, &data64);
 		if (ret)
 			return ret;
 		if (FIELD_GET(GENMASK_ULL(63, 32), data64))
@@ -428,7 +413,7 @@ static int adi_axi_tdd_write_regs(const struct adi_axi_tdd_attribute *attr,
 		return regmap_bulk_write(st->regs, ADI_REG_TDD_SYNC_COUNTER_LOW,
 					 &data64, 2);
 	case ADI_TDD_ATTR_INTERNAL_SYNC_PERIOD_MS:
-		ret = adi_axi_tdd_parse_ms(st, buf, &data64);
+		ret = adi_axi_tdd_parse_ns(st, buf, &data64);
 		if (ret)
 			return ret;
 		return regmap_bulk_write(st->regs, ADI_REG_TDD_SYNC_COUNTER_LOW,
@@ -460,7 +445,7 @@ static int adi_axi_tdd_write_regs(const struct adi_axi_tdd_attribute *attr,
 							ADI_TDD_CHANNEL_ON),
 				    data);
 	case ADI_TDD_ATTR_CHANNEL_ON_MS:
-		ret = adi_axi_tdd_parse_ms(st, buf, &data64);
+		ret = adi_axi_tdd_parse_ns(st, buf, &data64);
 		if (ret)
 			return ret;
 		if (FIELD_GET(GENMASK_ULL(63, 32), data64))
@@ -478,7 +463,7 @@ static int adi_axi_tdd_write_regs(const struct adi_axi_tdd_attribute *attr,
 							ADI_TDD_CHANNEL_OFF),
 				    data);
 	case ADI_TDD_ATTR_CHANNEL_OFF_MS:
-		ret = adi_axi_tdd_parse_ms(st, buf, &data64);
+		ret = adi_axi_tdd_parse_ns(st, buf, &data64);
 		if (ret)
 			return ret;
 		if (FIELD_GET(GENMASK_ULL(63, 32), data64))
