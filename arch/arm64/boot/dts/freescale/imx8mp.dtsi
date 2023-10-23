@@ -351,17 +351,13 @@
 			      "sys_pll1_800m", "dram_pll_div";
 	};
 
-	power-domains {
-		compatible = "simple-bus";
-
-		audiomix_pd: audiomix-pd {
-			compatible = "fsl,imx8m-pm-domain";
-			#power-domain-cells = <0>;
-			domain-index = <5>;
-			domain-name = "audiomix";
-			clocks = <&clk IMX8MP_CLK_AUDIO_AHB_ROOT>,
-				 <&clk IMX8MP_CLK_AUDIO_AXI_ROOT>;
-		};
+	audiomix_pd: audiomix-pd {
+		compatible = "fsl,imx8m-pm-domain";
+		#power-domain-cells = <0>;
+		domain-index = <5>;
+		domain-name = "audiomix";
+		clocks = <&clk IMX8MP_CLK_AUDIO_AHB_ROOT>,
+			 <&clk IMX8MP_CLK_AUDIO_AXI_ROOT>;
 	};
 
 	pmu {
@@ -455,6 +451,16 @@
 		clock-frequency = <0>;
 		clock-output-names = "clk_dummy";
 	};
+
+	irq_sec_vio: caam_secvio {
+		compatible = "fsl,imx6q-caam-secvio";
+		interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
+		jtag-tamper = "disabled";
+		watchdog-tamper = "enabled";
+		internal-boot-tamper = "enabled";
+		external-pin-tamper = "disabled";
+	};
+
 	soc: soc@0 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
@@ -659,15 +665,6 @@
 				compatible = "fsl,imx8mp-anatop", "fsl,imx8mm-anatop";
 				reg = <0x30360000 0x10000>;
 				#clock-cells = <1>;
-			};
-
-			irq_sec_vio: caam_secvio {
-				compatible = "fsl,imx6q-caam-secvio";
-				interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
-				jtag-tamper = "disabled";
-				watchdog-tamper = "enabled";
-				internal-boot-tamper = "enabled";
-				external-pin-tamper = "disabled";
 			};
 
 			caam_snvs: caam-snvs@30370000 {
@@ -1899,74 +1896,6 @@
 				status = "disabled";
 			};
 
-			ldb: ldb-display-controller {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				compatible = "fsl,imx8mp-ldb";
-				clocks = <&clk IMX8MP_CLK_MEDIA_LDB_ROOT>;
-				clock-names = "ldb";
-				assigned-clocks = <&clk IMX8MP_CLK_MEDIA_LDB>;
-				assigned-clock-parents = <&clk IMX8MP_VIDEO_PLL1_OUT>;
-				gpr = <&media_blk_ctrl>;
-				power-domains = <&pgc_mediamix>;
-				status = "disabled";
-
-				lvds-channel@0 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-					reg = <0>;
-					phys = <&ldb_phy1>;
-					phy-names = "ldb_phy";
-					status = "disabled";
-
-					port@0 {
-						reg = <0>;
-
-						ldb_ch0: endpoint {
-							remote-endpoint = <&lcdif2_disp_ldb_ch0>;
-						};
-					};
-				};
-
-				lvds-channel@1 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-					reg = <1>;
-					phys = <&ldb_phy2>;
-					phy-names = "ldb_phy";
-					status = "disabled";
-
-					port@0 {
-						reg = <0>;
-
-						ldb_ch1: endpoint {
-							remote-endpoint = <&lcdif2_disp_ldb_ch1>;
-						};
-					};
-				};
-			};
-
-			ldb_phy: phy-lvds {
-				compatible = "fsl,imx8mp-lvds-phy";
-				#address-cells = <1>;
-				#size-cells = <0>;
-				gpr = <&media_blk_ctrl>;
-				clocks = <&clk IMX8MP_CLK_MEDIA_APB_ROOT>;
-				clock-names = "apb";
-				power-domains = <&pgc_mediamix>;
-				status = "disabled";
-
-				ldb_phy1: port@0 {
-					reg = <0>;
-					#phy-cells = <0>;
-				};
-
-				ldb_phy2: port@1 {
-					reg = <1>;
-					#phy-cells = <0>;
-				};
-			};
-
 			mediamix_gpr: media_gpr@32ec0008 {
 				compatible = "fsl,imx8mp-iomuxc-gpr", "syscon";
 				reg = <0x32ec0008 0x4>;
@@ -2378,6 +2307,74 @@
 					<&dsp_vdev0vring1>, <&dsp_reserved>;
 			fsl,dsp-ctrl = <&audio_blk_ctrl>;
 			status = "disabled";
+		};
+	};
+
+	ldb: ldb-display-controller {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx8mp-ldb";
+		clocks = <&clk IMX8MP_CLK_MEDIA_LDB_ROOT>;
+		clock-names = "ldb";
+		assigned-clocks = <&clk IMX8MP_CLK_MEDIA_LDB>;
+		assigned-clock-parents = <&clk IMX8MP_VIDEO_PLL1_OUT>;
+		gpr = <&media_blk_ctrl>;
+		power-domains = <&pgc_mediamix>;
+		status = "disabled";
+
+		lvds-channel@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			phys = <&ldb_phy1>;
+			phy-names = "ldb_phy";
+			status = "disabled";
+
+			port@0 {
+				reg = <0>;
+
+				ldb_ch0: endpoint {
+					remote-endpoint = <&lcdif2_disp_ldb_ch0>;
+				};
+			};
+		};
+
+		lvds-channel@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			phys = <&ldb_phy2>;
+			phy-names = "ldb_phy";
+			status = "disabled";
+
+			port@0 {
+				reg = <0>;
+
+				ldb_ch1: endpoint {
+					remote-endpoint = <&lcdif2_disp_ldb_ch1>;
+				};
+			};
+		};
+	};
+
+	ldb_phy: phy-lvds {
+		compatible = "fsl,imx8mp-lvds-phy";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		gpr = <&media_blk_ctrl>;
+		clocks = <&clk IMX8MP_CLK_MEDIA_APB_ROOT>;
+		clock-names = "apb";
+		power-domains = <&pgc_mediamix>;
+		status = "disabled";
+
+		ldb_phy1: port@0 {
+			reg = <0>;
+			#phy-cells = <0>;
+		};
+
+		ldb_phy2: port@1 {
+			reg = <1>;
+			#phy-cells = <0>;
 		};
 	};
 

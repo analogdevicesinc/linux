@@ -72,65 +72,58 @@
 		};
 	};
 
-	regulators {
-		compatible = "simple-bus";
-		#address-cells = <1>;
-		#size-cells = <0>;
+	reg_audio: regulator-audio {
+		compatible = "regulator-fixed";
+		regulator-name = "cs42888_supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
 
-		reg_audio: regulator@0 {
-			compatible = "regulator-fixed";
-			reg = <2>;
-			regulator-name = "cs42888_supply";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			regulator-always-on;
-		};
+	reg_can_en: regulator-can-gen {
+		compatible = "regulator-fixed";
+		regulator-name = "can-en";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pca9557_b 5 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
 
-		reg_can_en: regulator-can-gen {
-			compatible = "regulator-fixed";
-			regulator-name = "can-en";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&pca9557_b 5 GPIO_ACTIVE_HIGH>;
-			enable-active-high;
-		};
+	reg_can_stby: regulator-can-stby {
+		compatible = "regulator-fixed";
+		regulator-name = "can-stby";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pca9557_b 4 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		vin-supply = <&reg_can_en>;
+	};
 
-		reg_can_stby: regulator-can-stby {
-			compatible = "regulator-fixed";
-			regulator-name = "can-stby";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&pca9557_b 4 GPIO_ACTIVE_HIGH>;
-			enable-active-high;
-			vin-supply = <&reg_can_en>;
-		};
+	reg_fec2_supply: fec2_nvcc {
+		compatible = "regulator-fixed";
+		regulator-name = "fec2_nvcc";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&max7322 0 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
 
-		reg_fec2_supply: fec2_nvcc {
-			compatible = "regulator-fixed";
-			regulator-name = "fec2_nvcc";
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
-			gpio = <&max7322 0 GPIO_ACTIVE_HIGH>;
-			enable-active-high;
-		};
+	reg_usdhc2_vmmc: usdhc2_vmmc {
+		compatible = "regulator-fixed";
+		regulator-name = "sw-3p3-sd1";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&lsio_gpio4 7 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
 
-		reg_usdhc2_vmmc: usdhc2_vmmc {
-			compatible = "regulator-fixed";
-			regulator-name = "sw-3p3-sd1";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&lsio_gpio4 7 GPIO_ACTIVE_HIGH>;
-			enable-active-high;
-		};
-
-		epdev_on: fixedregulator-100 {
-			compatible = "regulator-fixed";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			regulator-name = "epdev_on";
-			gpio = <&pca9557_b 3 0>;
-			enable-active-high;
-		};
+	epdev_on: fixedregulator-100 {
+		compatible = "regulator-fixed";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-name = "epdev_on";
+		gpio = <&pca9557_b 3 0>;
+		enable-active-high;
 	};
 };
 

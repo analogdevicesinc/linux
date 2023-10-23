@@ -5,18 +5,25 @@
  */
 
 / {
+	lvds0_ipg_clk: clock-lvds0-ipg {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		clock-output-names = "lvds0_ipg_clk";
+	};
+
+	lvds1_ipg_clk: clock-lvds1-ipg {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24000000>;
+		clock-output-names = "lvds1_ipg_clk";
+	};
+
 	lvds1_subsys: bus@56240000 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x56240000 0x0 0x56240000 0x10000>;
-
-		lvds0_ipg_clk: clock-lvds-ipg {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <24000000>;
-			clock-output-names = "lvds0_ipg_clk";
-		};
 
 		lvds0_lis_lpcg: clock-controller@56243000 {
 			compatible = "fsl,imx8qxp-lpcg";
@@ -106,54 +113,6 @@
 			};
 		};
 
-		ldb1: ldb1-display-controller {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			compatible = "fsl,imx8qm-ldb";
-			clocks = <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_MISC2>,
-				 <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_BYPASS>;
-			clock-names = "pixel", "bypass";
-			assigned-clocks = <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_MISC2>;
-			assigned-clock-parents = <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_BYPASS>;
-			power-domains = <&pd IMX_SC_R_LVDS_0>;
-			gpr = <&lvds0_region>;
-			status = "disabled";
-
-			lvds-channel@0 {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				reg = <0>;
-				phys = <&ldb1_phy1>;
-				phy-names = "ldb_phy";
-				status = "disabled";
-
-				port@0 {
-					reg = <0>;
-
-					ldb1_ch0: endpoint {
-						remote-endpoint = <&dpu1_disp1_ldb1_ch0>;
-					};
-				};
-			};
-
-			lvds-channel@1 {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				reg = <1>;
-				phys = <&ldb1_phy2>;
-				phy-names = "ldb_phy";
-				status = "disabled";
-
-				port@0 {
-					reg = <0>;
-
-					ldb1_ch1: endpoint {
-						remote-endpoint = <&dpu1_disp1_ldb1_ch1>;
-					};
-				};
-			};
-		};
-
 		pwm_lvds0: pwm@56244000 {
 			compatible = "fsl,imx8qm-pwm", "fsl,imx27-pwm";
 			reg = <0x56244000 0x1000>;
@@ -196,18 +155,59 @@
 		};
 	};
 
+	ldb1: ldb1-display-controller {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx8qm-ldb";
+		clocks = <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_MISC2>,
+			 <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_BYPASS>;
+		clock-names = "pixel", "bypass";
+		assigned-clocks = <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_MISC2>;
+		assigned-clock-parents = <&clk IMX_SC_R_LVDS_0 IMX_SC_PM_CLK_BYPASS>;
+		power-domains = <&pd IMX_SC_R_LVDS_0>;
+		gpr = <&lvds0_region>;
+		status = "disabled";
+
+		lvds-channel@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			phys = <&ldb1_phy1>;
+			phy-names = "ldb_phy";
+			status = "disabled";
+
+			port@0 {
+				reg = <0>;
+
+				ldb1_ch0: endpoint {
+					remote-endpoint = <&dpu1_disp1_ldb1_ch0>;
+				};
+			};
+		};
+
+		lvds-channel@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			phys = <&ldb1_phy2>;
+			phy-names = "ldb_phy";
+			status = "disabled";
+
+			port@0 {
+				reg = <0>;
+
+				ldb1_ch1: endpoint {
+					remote-endpoint = <&dpu1_disp1_ldb1_ch1>;
+				};
+			};
+		};
+	};
+
 	lvds2_subsys: bus@57240000 {
 		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x57240000 0x0 0x57240000 0x10000>;
-
-		lvds1_ipg_clk: clock-lvds-ipg {
-			compatible = "fixed-clock";
-			#clock-cells = <0>;
-			clock-frequency = <24000000>;
-			clock-output-names = "lvds1_ipg_clk";
-		};
 
 		lvds1_lis_lpcg: clock-controller@57243000 {
 			compatible = "fsl,imx8qxp-lpcg";
@@ -297,54 +297,6 @@
 			};
 		};
 
-		ldb2: ldb2-display-controller {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			compatible = "fsl,imx8qm-ldb";
-			clocks = <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_MISC2>,
-				 <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_BYPASS>;
-			clock-names = "pixel", "bypass";
-			assigned-clocks = <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_MISC2>;
-			assigned-clock-parents = <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_BYPASS>;
-			power-domains = <&pd IMX_SC_R_LVDS_1>;
-			gpr = <&lvds1_region>;
-			status = "disabled";
-
-			lvds-channel@0 {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				reg = <0>;
-				phys = <&ldb2_phy1>;
-				phy-names = "ldb_phy";
-				status = "disabled";
-
-				port@0 {
-					reg = <0>;
-
-					ldb2_ch0: endpoint {
-						remote-endpoint = <&dpu2_disp1_ldb2_ch0>;
-					};
-				};
-			};
-
-			lvds-channel@1 {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				reg = <1>;
-				phys = <&ldb2_phy2>;
-				phy-names = "ldb_phy";
-				status = "disabled";
-
-				port@0 {
-					reg = <0>;
-
-					ldb2_ch1: endpoint {
-						remote-endpoint = <&dpu2_disp1_ldb2_ch1>;
-					};
-				};
-			};
-		};
-
 		pwm_lvds1: pwm@57244000 {
 			compatible = "fsl,imx8qm-pwm", "fsl,imx27-pwm";
 			reg = <0x57244000 0x1000>;
@@ -384,6 +336,54 @@
 			assigned-clock-rates = <24000000>;
 			power-domains = <&pd IMX_SC_R_LVDS_1_I2C_0>;
 			status = "disabled";
+		};
+	};
+
+	ldb2: ldb2-display-controller {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "fsl,imx8qm-ldb";
+		clocks = <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_MISC2>,
+			 <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_BYPASS>;
+		clock-names = "pixel", "bypass";
+		assigned-clocks = <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_MISC2>;
+		assigned-clock-parents = <&clk IMX_SC_R_LVDS_1 IMX_SC_PM_CLK_BYPASS>;
+		power-domains = <&pd IMX_SC_R_LVDS_1>;
+		gpr = <&lvds1_region>;
+		status = "disabled";
+
+		lvds-channel@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			phys = <&ldb2_phy1>;
+			phy-names = "ldb_phy";
+			status = "disabled";
+
+			port@0 {
+				reg = <0>;
+
+				ldb2_ch0: endpoint {
+					remote-endpoint = <&dpu2_disp1_ldb2_ch0>;
+				};
+			};
+		};
+
+		lvds-channel@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <1>;
+			phys = <&ldb2_phy2>;
+			phy-names = "ldb_phy";
+			status = "disabled";
+
+			port@0 {
+				reg = <0>;
+
+				ldb2_ch1: endpoint {
+					remote-endpoint = <&dpu2_disp1_ldb2_ch1>;
+				};
+			};
 		};
 	};
 };

@@ -4,6 +4,16 @@
  *	Dong Aisheng <aisheng.dong@nxp.com>
  */
 
+/ {
+	usbphynop2: usbphynop2 {
+		compatible = "usb-nop-xceiv";
+		clocks = <&usb2_lpcg 1>;
+		clock-names = "main_clk";
+		power-domains = <&pd IMX_SC_R_USB_0_PHY>;
+		status = "disabled";
+	};
+};
+
 &conn_subsys {
 	usbh1: usb@5b0e0000 {
 		compatible = "fsl,imx8qm-usb", "fsl,imx7ulp-usb",
@@ -28,14 +38,6 @@
 		#index-cells = <1>;
 		compatible = "fsl,imx7ulp-usbmisc", "fsl,imx6q-usbmisc";
 		reg = <0x5b0e0200 0x200>;
-	};
-
-	usbphynop2: usbphynop2 {
-		compatible = "usb-nop-xceiv";
-		clocks = <&usb2_lpcg 1>;
-		clock-names = "main_clk";
-		power-domains = <&pd IMX_SC_R_USB_0_PHY>;
-		status = "disabled";
 	};
 };
 

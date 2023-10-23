@@ -10,26 +10,26 @@ img_ipg_clk: clock-img-ipg {
 	clock-output-names = "img_ipg_clk";
 };
 
+img_axi_clk: clock-img-axi {
+	compatible = "fixed-clock";
+	#clock-cells = <0>;
+	clock-frequency = <400000000>;
+	clock-output-names = "img_axi_clk";
+};
+
+img_pxl_clk: clock-img-pxl {
+	compatible = "fixed-clock";
+	#clock-cells = <0>;
+	clock-frequency = <600000000>;
+	clock-output-names = "img_pxl_clk";
+};
+
 img_subsys: bus@58000000 {
 	compatible = "simple-pm-bus", "simple-bus";
 	#address-cells = <1>;
 	#size-cells = <1>;
 	ranges = <0x58000000 0x0 0x58000000 0x1000000>;
 	power-domains = <&pd IMX_SC_R_ISI_CH0>;
-
-	img_axi_clk: clock-img-axi {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <400000000>;
-		clock-output-names = "img_axi_clk";
-	};
-
-	img_pxl_clk: clock-img-pxl {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <600000000>;
-		clock-output-names = "img_pxl_clk";
-	};
 
 	csi0_core_lpcg: clock-controller@58223018 {
 		compatible = "fsl,imx8qxp-lpcg";

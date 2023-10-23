@@ -4,32 +4,32 @@
  * Copyright 2019,2020 NXP
  */
 
+dc1_cfg_clk: clock-dc1-cfg {
+	compatible = "fixed-clock";
+	#clock-cells = <0>;
+	clock-frequency = <100000000>;
+	clock-output-names = "dc1_cfg_clk";
+};
+
+dc1_axi_int_clk: clock-dc1-axi-int {
+	compatible = "fixed-clock";
+	#clock-cells = <0>;
+	clock-frequency = <400000000>;
+	clock-output-names = "dc1_axi_int_clk";
+};
+
+dc1_axi_ext_clk: clock-dc1-axi-ext {
+	compatible = "fixed-clock";
+	#clock-cells = <0>;
+	clock-frequency = <800000000>;
+	clock-output-names = "dc1_axi_ext_clk";
+};
+
 dc1_subsys: bus@57000000 {
 	compatible = "simple-bus";
 	#address-cells = <1>;
 	#size-cells = <1>;
 	ranges = <0x57000000 0x0 0x57000000 0x300000>;
-
-	dc1_cfg_clk: clock-dc-cfg {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <100000000>;
-		clock-output-names = "dc1_cfg_clk";
-	};
-
-	dc1_axi_int_clk: clock-dc-axi-int {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <400000000>;
-		clock-output-names = "dc1_axi_int_clk";
-	};
-
-	dc1_axi_ext_clk: clock-dc-axi-ext {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <800000000>;
-		clock-output-names = "dc1_axi_ext_clk";
-	};
 
 	dc1_disp_lpcg: clock-controller@57010000 {
 		compatible = "fsl,imx8qxp-lpcg";

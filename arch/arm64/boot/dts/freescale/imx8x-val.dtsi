@@ -10,75 +10,67 @@
 		stdout-path = &lpuart0;
 	};
 
-	regulators {
-		compatible = "simple-bus";
-		#address-cells = <1>;
-		#size-cells = <0>;
+	reg_usdhc2_vmmc: usdhc2_vmmc {
+		compatible = "regulator-fixed";
+		regulator-name = "SD1_SPWR";
+		regulator-min-microvolt = <3000000>;
+		regulator-max-microvolt = <3000000>;
+		gpio = <&lsio_gpio4 19 GPIO_ACTIVE_HIGH>;
+		off-on-delay = <2720>;
+		enable-active-high;
+	};
 
-		reg_usdhc2_vmmc: usdhc2_vmmc {
-			compatible = "regulator-fixed";
-			regulator-name = "SD1_SPWR";
-			regulator-min-microvolt = <3000000>;
-			regulator-max-microvolt = <3000000>;
-			gpio = <&lsio_gpio4 19 GPIO_ACTIVE_HIGH>;
-			off-on-delay = <2720>;
-			enable-active-high;
-		};
+	reg_can_en: regulator-can-gen {
+		compatible = "regulator-fixed";
+		regulator-name = "can-en";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pca9557_b 5 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
 
-		reg_can_en: regulator-can-gen {
-			compatible = "regulator-fixed";
-			regulator-name = "can-en";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&pca9557_b 5 GPIO_ACTIVE_HIGH>;
-			enable-active-high;
-		};
+	reg_can_stby: regulator-can-stby {
+		compatible = "regulator-fixed";
+		regulator-name = "can-stby";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pca9557_b 4 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		vin-supply = <&reg_can_en>;
+	};
 
-		reg_can_stby: regulator-can-stby {
-			compatible = "regulator-fixed";
-			regulator-name = "can-stby";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&pca9557_b 4 GPIO_ACTIVE_HIGH>;
-			enable-active-high;
-			vin-supply = <&reg_can_en>;
-		};
+	reg_audio: fixedregulator-0 {
+		compatible = "regulator-fixed";
+		regulator-name = "cs42888_supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
 
-		reg_audio: fixedregulator@0 {
-			compatible = "regulator-fixed";
-			reg = <2>;
-			regulator-name = "cs42888_supply";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			regulator-always-on;
-		};
+	reg_baseboard: fixedregulator-1 {
+		compatible = "regulator-fixed";
+		regulator-name = "baseboard_supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+		gpio = <&lsio_gpio5 9 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
 
-		reg_baseboard: fixedregulator@1 {
-			compatible = "regulator-fixed";
-			reg = <2>;
-			regulator-name = "baseboard_supply";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			regulator-always-on;
-			gpio = <&lsio_gpio5 9 GPIO_ACTIVE_HIGH>;
-			enable-active-high;
-		};
+	reg_fec2_supply: fec2_nvcc {
+		compatible = "regulator-fixed";
+		regulator-name = "fec2_nvcc";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		gpio = <&max7322 0 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
 
-		reg_fec2_supply: fec2_nvcc {
-			compatible = "regulator-fixed";
-			regulator-name = "fec2_nvcc";
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
-			gpio = <&max7322 0 GPIO_ACTIVE_HIGH>;
-			enable-active-high;
-		};
-
-		reg_adc_vref_1v8: adc_vref_1v8 {
-			compatible = "regulator-fixed";
-			regulator-name = "vref_1v8";
-			regulator-min-microvolt = <1800000>;
-			regulator-max-microvolt = <1800000>;
-		};
+	reg_adc_vref_1v8: adc_vref_1v8 {
+		compatible = "regulator-fixed";
+		regulator-name = "vref_1v8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
 	};
 
 	sound-cs42888 {

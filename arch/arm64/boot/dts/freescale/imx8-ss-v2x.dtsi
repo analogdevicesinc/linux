@@ -11,7 +11,7 @@ v2x_subsys: bus@2C000000 {
 	#size-cells = <1>;
 	ranges = <0x2c000000 0x0 0x2c000000 0x50000>;
 
-	v2x_sv0: mu@2C000000 {
+	v2x_sv0: mu@2c000000 {
 		compatible = "fsl,imx8-mu-seco";
 		reg = <0x2c000000 0x10000>;
 		interrupts = <GIC_SPI 340 IRQ_TYPE_LEVEL_HIGH>;

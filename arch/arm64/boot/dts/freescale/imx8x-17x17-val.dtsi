@@ -16,24 +16,22 @@
 		};
 	};
 
-	regulators {
-		epdev_on: fixedregulator-100 {
-			compatible = "regulator-fixed";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			regulator-name = "epdev_on";
-			gpio = <&pca9557_a 0 GPIO_ACTIVE_HIGH>;
-			enable-active-high;
-		};
+	epdev_on: fixedregulator-100 {
+		compatible = "regulator-fixed";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-name = "epdev_on";
+		gpio = <&pca9557_a 0 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
 
-		reg_pcieb: regulator-pcie {
-			compatible = "regulator-fixed";
-			regulator-name = "mpcie_3v3";
-			regulator-min-microvolt = <3300000>;
-			regulator-max-microvolt = <3300000>;
-			gpio = <&pca9557_a 5 GPIO_ACTIVE_HIGH>;
-			enable-active-high;
-		};
+	reg_pcieb: regulator-pcie {
+		compatible = "regulator-fixed";
+		regulator-name = "mpcie_3v3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pca9557_a 5 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
 	};
 };
 

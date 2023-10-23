@@ -3,19 +3,21 @@
  * Copyright 2020 NXP
  */
 
-&ddr_pmu0 {
-	compatible = "fsl,imx8dxl-ddr-pmu", "fsl,imx8-ddr-pmu";
-	interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
-};
-
-&ddr_subsys {
+/ {
 	db_ipg_clk: clock-db-ipg {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <456000000>;
 		clock-output-names = "db_ipg_clk";
 	};
+};
 
+&ddr_pmu0 {
+	compatible = "fsl,imx8dxl-ddr-pmu", "fsl,imx8-ddr-pmu";
+	interrupts = <GIC_SPI 71 IRQ_TYPE_LEVEL_HIGH>;
+};
+
+&ddr_subsys {
 	db_pmu0: db-pmu@5ca40000 {
 		compatible = "fsl,imx8dxl-db-pmu";
 		reg = <0x5ca40000 0x10000>;

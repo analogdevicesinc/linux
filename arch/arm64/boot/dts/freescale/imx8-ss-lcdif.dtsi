@@ -4,18 +4,18 @@
  * Copyright 2020 NXP
  */
 
+ipg_dma_clk: clock-ipg {
+	compatible = "fixed-clock";
+	#clock-cells = <0>;
+	clock-frequency = <120000000>;
+	clock-output-names = "ipg_dma_clk";
+};
+
 lcdif_subsys: bus@5a180000 {
 	compatible = "simple-bus";
 	#address-cells = <1>;
 	#size-cells = <1>;
 	ranges = <0x5a180000 0x0 0x5a180000 0x500000>;
-
-	ipg_dma_clk: clock-ipg {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <120000000>;
-		clock-output-names = "ipg_dma_clk";
-	};
 
 	lcd_clk_lpcg: clock-controller@5a580000 {
 		compatible = "fsl,imx8qxp-lpcg";

@@ -6,6 +6,22 @@
 
 #include <dt-bindings/firmware/imx/rsrc.h>
 
+/ {
+	hdmi_rx_ipg: clock-hdmi-rx-ipg {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <200000000>;
+		clock-output-names = "hdmi_rx_ipg_clk";
+	};
+
+	hdmi_rx_dig_pll: clock-hdmi-rx-dig-pll {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <800000000>;
+		clock-output-names = "hdmi_rx_dig_pll_clk";
+	};
+};
+
 &img_subsys {
 	irqsteer_hdmi_rx: irqsteer@58260000 {
 		compatible = "fsl,imx-irqsteer";
@@ -20,20 +36,6 @@
 		clock-names = "ipg";
 		power-domains = <&pd IMX_SC_R_HDMI_RX>;
 		status = "disabled";
-	};
-
-	hdmi_rx_ipg: clock-hdmi-rx-ipg {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <200000000>;
-		clock-output-names = "hdmi_rx_ipg_clk";
-	};
-
-	hdmi_rx_dig_pll: clock-hdmi-rx-dig-pll {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <800000000>;
-		clock-output-names = "hdmi_rx_dig_pll_clk";
 	};
 
 	hdmi_rx_lpcg_gpio_ipg_s: clock-controller@58263000 {

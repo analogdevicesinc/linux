@@ -6,18 +6,18 @@
 
 #include <dt-bindings/firmware/imx/rsrc.h>
 
+cm40_ipg_clk: clock-cm40-ipg {
+	compatible = "fixed-clock";
+	#clock-cells = <0>;
+	clock-frequency = <132000000>;
+	clock-output-names = "cm40_ipg_clk";
+};
+
 cm40_subsys: bus@34000000 {
 	compatible = "simple-bus";
 	#address-cells = <1>;
 	#size-cells = <1>;
 	ranges = <0x34000000 0x0 0x34000000 0x4000000>;
-
-	cm40_ipg_clk: clock-cm40-ipg {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <132000000>;
-		clock-output-names = "cm40_ipg_clk";
-	};
 
 	cm40_i2c: i2c@37230000 {
 		compatible = "fsl,imx8qxp-lpi2c", "fsl,imx7ulp-lpi2c";

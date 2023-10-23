@@ -13,10 +13,6 @@
 	cpu-supply = <&buck1>;
 };
 
-&aips4 {
-	/delete-node/ display-subsystem;
-};
-
 &{/thermal-zones/cpu-thermal/cooling-maps/map0} {
 	cooling-device =
 					<&A53_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
@@ -24,6 +20,7 @@
 					<&A53_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
 					<&A53_3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 };
+/delete-node/ &{/display-subsystem};
 /delete-node/ &gpu;
 /delete-node/ &lcdif;
 /delete-node/ &mipi_dsi;
