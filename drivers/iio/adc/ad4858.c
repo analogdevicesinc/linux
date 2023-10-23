@@ -688,6 +688,25 @@ static int ad4858_setup(struct ad4858_dev *adc)
 	return spi_sync_transfer(adc->spi, &xfer, 1);
 }
 
+static const long ad4858_softspan_range_mv[] = {
+	[0] = 2500,   // "0-2.5",
+	[1] = 5000,   // "M2.5-2.5",
+	[2] = 5000,   // "0-5",
+	[3] = 10000,  // "M5-5",
+	[4] = 6250,   // "0-6.25",
+	[5] = 12500,  // "M6.25-6.25",
+	[6] = 10000,  // "0-10",
+	[7] = 20000,  // "M10-10",
+	[8] = 12500,  // "0-12.5",
+	[9] = 25000,  // "M12.5-12.5",
+	[10] = 20000, // "0-20",
+	[11] = 40000, // "M20-20",
+	[12] = 25000, // "0-25",
+	[13] = 50000, // "M25-25",
+	[14] = 40000, // "0-40",
+	[15] = 80000, // "M40-40",
+};
+
 static int ad4858_read_raw(struct iio_dev *indio_dev,
 			   const struct iio_chan_spec *chan,
 			   int *val, int *val2, long info)
@@ -719,9 +738,9 @@ static int ad4858_read_raw(struct iio_dev *indio_dev,
 			AD4858_REG_CHX_SOFTSPAN(chan->channel), &softspan);
 		if (ret)
 			return ret;
-		*val = (softspan % 2 ? 2 : 1) * adc->vref_mv / 1000;
-		*val2 = chan->scan_type.realbits;
-		return IIO_VAL_FRACTIONAL_LOG2;
+		*val = ad4858_softspan_range_mv[softspan];
+		*val2 = (1 << chan->scan_type.realbits) * 1000;
+		return IIO_VAL_FRACTIONAL;
 	case IIO_CHAN_INFO_CALIBBIAS:
 		ad4858_get_offset(adc, chan->channel, val);
 		return IIO_VAL_INT;
