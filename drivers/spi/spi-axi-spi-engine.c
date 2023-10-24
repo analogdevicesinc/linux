@@ -213,22 +213,20 @@ static void spi_engine_gen_sleep(struct spi_engine_program *p, bool dry,
 	unsigned int clk_div, struct spi_transfer *xfer)
 {
 	unsigned int spi_clk = clk_get_rate(spi_engine->ref_clk);
-	unsigned int t;
+	unsigned long long t;
 	int delay;
 
 	delay = spi_delay_to_ns(&xfer->delay, xfer);
 	if (delay < 0)
 		return;
-	delay /= 1000;
 
-	if (delay == 0)
-		return;
+	t = DIV_ROUND_UP_ULL((unsigned long long)(delay) * spi_clk,
+			     (clk_div + 1) * 2);
 
-	t = DIV_ROUND_UP(delay * spi_clk, (clk_div + 1) * 2);
-	/* spi_clk is in Hz while delay is usec, a division is required */
-	t /= 1000000;
+	/* spi_clk is in Hz while delay is nsec, a division is required */
+	t = DIV_ROUND_CLOSEST_ULL(t, 1000000000);
 	while (t) {
-		unsigned int n = min(t, 256U);
+		unsigned int n = min_t(unsigned int, t, 256U);
 
 		spi_engine_program_add_cmd(p, dry, SPI_ENGINE_CMD_SLEEP(n - 1));
 		t -= n;
