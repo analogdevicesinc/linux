@@ -1389,7 +1389,6 @@ err_dtsec:
 }
 
 int dtsec_initialization(struct mac_device *mac_dev,
-			 struct device_node *mac_node,
 			 struct fman_mac_params *params)
 {
 	int			err;
@@ -1418,7 +1417,7 @@ int dtsec_initialization(struct mac_device *mac_dev,
 	dtsec->dtsec_drv_param->maximum_frame = fman_get_max_frm();
 	dtsec->dtsec_drv_param->tx_pad_crc = true;
 
-	phy_node = of_parse_phandle(mac_node, "tbi-handle", 0);
+	phy_node = of_parse_phandle(mac_dev->dev->of_node, "tbi-handle", 0);
 	if (!phy_node || !of_device_is_available(phy_node)) {
 		of_node_put(phy_node);
 		err = -EINVAL;

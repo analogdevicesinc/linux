@@ -748,7 +748,6 @@ static struct fman_mac *tgec_config(struct mac_device *mac_dev,
 }
 
 int tgec_initialization(struct mac_device *mac_dev,
-			struct device_node *mac_node,
 			struct fman_mac_params *params)
 {
 	int err;

@@ -160,10 +160,8 @@ static int fwnode_match_devnode(struct device *dev, const void *fwnode)
 static int acpi_mac_probe(struct platform_device *pdev)
 {
 	int			err, i, nph;
-	int (*init)(struct mac_device *mac_dev, struct device_node *mac_node,
-		    struct fman_mac_params *params);
+	int (*init)(struct mac_device *mac_dev, struct fman_mac_params *params);
 	struct device		*dev;
-	struct device_node	*mac_node;
 	struct mac_device	*mac_dev;
 	struct mac_priv_s	*priv;
 	u32			val;
@@ -178,7 +176,6 @@ static int acpi_mac_probe(struct platform_device *pdev)
 
 	dev = &pdev->dev;
 
-	mac_node = dev->of_node;
 	init = device_get_match_data(dev);
 
 	mac_dev = devm_kzalloc(dev, sizeof(*mac_dev), GFP_KERNEL);
@@ -315,7 +312,7 @@ static int acpi_mac_probe(struct platform_device *pdev)
 	params.exception_cb	= mac_exception;
 	params.event_cb		= mac_exception;
 
-	err = init(mac_dev, mac_node, &params);
+	err = init(mac_dev, &params);
 	if (err < 0) {
 		dev_err(dev, "%s: mac_dev->init() = %d\n", __func__, err);
 		goto _return;
@@ -347,8 +344,7 @@ MODULE_DEVICE_TABLE(acpi, mac_acpi_match);
 static int mac_probe(struct platform_device *_of_dev)
 {
 	int			 err, i, nph;
-	int (*init)(struct mac_device *mac_dev, struct device_node *mac_node,
-		    struct fman_mac_params *params);
+	int (*init)(struct mac_device *mac_dev, struct fman_mac_params *params);
 	struct device		*dev;
 	struct device_node	*mac_node, *dev_node;
 	struct mac_device	*mac_dev;
@@ -544,7 +540,7 @@ static int mac_probe(struct platform_device *_of_dev)
 	params.exception_cb	= mac_exception;
 	params.event_cb		= mac_exception;
 
-	err = init(mac_dev, mac_node, &params);
+	err = init(mac_dev, &params);
 	if (err < 0)
 		goto _return_dev_arr_put;
 
