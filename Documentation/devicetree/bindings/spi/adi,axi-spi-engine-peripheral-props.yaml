@@ -1,0 +1,24 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/spi/adi,axi-spi-engine-peripheral-props.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Peripheral properties for Analog Devices AXI SPI Engine Controller
+
+maintainers:
+  - Michael Hennerich <Michael.Hennerich@analog.com>
+  - Nuno Sá <nuno.sa@analog.com>
+
+properties:
+  adi,offloads:
+    description:
+      List of AXI SPI Engine offload instances assigned to this peripheral.
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    maxItems: 32
+    items:
+      items:
+        - minimum: 0
+          maximum: 31
+
+additionalProperties: true

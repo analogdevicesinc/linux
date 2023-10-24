@@ -132,6 +132,7 @@ properties:
 
 # The controller specific properties go here.
 allOf:
+  - $ref: adi,axi-spi-engine-peripheral-props.yaml#
   - $ref: arm,pl022-peripheral-props.yaml#
   - $ref: cdns,qspi-nor-peripheral-props.yaml#
   - $ref: samsung,spi-peripheral-props.yaml#

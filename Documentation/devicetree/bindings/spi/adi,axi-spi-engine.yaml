@@ -21,6 +21,23 @@ maintainers:
 allOf:
   - $ref: /schemas/spi/spi-controller.yaml#
 
+$defs:
+  offload:
+    description:
+      Describes the connections of the trigger input and the data output stream
+      of one or more offload instances.
+
+    properties:
+      reg:
+        description:
+          Index of the offload instance.
+        items:
+          - minimum: 0
+            maximum: 31
+
+    required:
+      - reg
+
 properties:
   compatible:
     const: adi,axi-spi-engine-1.00.a
@@ -40,6 +57,22 @@ properties:
     items:
       - const: s_axi_aclk
       - const: spi_clk
+
+  offloads:
+    type: object
+    description: Zero or more offloads supported by the controller.
+
+    properties:
+      "#address-cells":
+        const: 1
+
+      "#size-cells":
+        const: 0
+
+    patternProperties:
+      "^offload@[0-8a-f]+$":
+        type: object
+        $ref: '#/$defs/offload'
 
 required:
   - compatible
@@ -62,5 +95,19 @@ examples:
         #address-cells = <1>;
         #size-cells = <0>;
 
-        /* SPI devices */
+        offloads {
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            offload@0 {
+                compatible = "adi,example-offload";
+                reg = <0>;
+            };
+        };
+
+        adc@0 {
+            compatible = "adi,example-adc";
+            reg = <0>;
+            adi,offloads = <0>;
+        };
     };
