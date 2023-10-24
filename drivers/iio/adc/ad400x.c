@@ -437,6 +437,8 @@ static int ad400x_buffer_preenable(struct iio_dev *indio_dev)
 	st->spi_transfer.rx_buf = (void *)-1;
 	st->spi_transfer.len = 4;
 	st->spi_transfer.bits_per_word = st->num_bits;
+	st->spi_transfer.delay.value = 60;
+	st->spi_transfer.delay.unit = SPI_DELAY_UNIT_NSECS;
 
 	spi_message_init_with_transfers(&st->spi_msg, &st->spi_transfer, 1);
 
