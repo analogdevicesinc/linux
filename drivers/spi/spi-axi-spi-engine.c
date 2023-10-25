@@ -2,9 +2,11 @@
 /*
  * SPI-Engine SPI controller driver
  * Copyright 2015 Analog Devices Inc.
+ * Copyright 2023 BayLibre, SAS
  *  Author: Lars-Peter Clausen <lars@metafoo.de>
  */
 
+#include <linux/cleanup.h>
 #include <linux/clk.h>
 #include <linux/idr.h>
 #include <linux/interrupt.h>
@@ -38,10 +40,21 @@
 #define SPI_ENGINE_REG_SDI_DATA_FIFO		0xe8
 #define SPI_ENGINE_REG_SDI_DATA_FIFO_PEEK	0xec
 
+#define SPI_ENGINE_MAX_NUM_OFFLOADS		32
+
+#define SPI_ENGINE_REG_OFFLOAD_CTRL(x)		(0x100 + (SPI_ENGINE_MAX_NUM_OFFLOADS * x))
+#define SPI_ENGINE_REG_OFFLOAD_STATUS(x)	(0x104 + (SPI_ENGINE_MAX_NUM_OFFLOADS * x))
+#define SPI_ENGINE_REG_OFFLOAD_RESET(x)		(0x108 + (SPI_ENGINE_MAX_NUM_OFFLOADS * x))
+#define SPI_ENGINE_REG_OFFLOAD_CMD_FIFO(x)	(0x110 + (SPI_ENGINE_MAX_NUM_OFFLOADS * x))
+#define SPI_ENGINE_REG_OFFLOAD_SDO_FIFO(x)	(0x114 + (SPI_ENGINE_MAX_NUM_OFFLOADS * x))
+
 #define SPI_ENGINE_INT_CMD_ALMOST_EMPTY		BIT(0)
 #define SPI_ENGINE_INT_SDO_ALMOST_EMPTY		BIT(1)
 #define SPI_ENGINE_INT_SDI_ALMOST_FULL		BIT(2)
 #define SPI_ENGINE_INT_SYNC			BIT(3)
+
+#define SPI_ENGINE_OFFLOAD_CTRL_ENABLE		BIT(0)
+#define SPI_ENGINE_OFFLOAD_STATUS_ENABLED	BIT(0)
 
 #define SPI_ENGINE_CONFIG_CPHA			BIT(0)
 #define SPI_ENGINE_CONFIG_CPOL			BIT(1)
@@ -76,6 +89,10 @@
 #define SPI_ENGINE_CMD_SYNC(id) \
 	SPI_ENGINE_CMD(SPI_ENGINE_INST_MISC, SPI_ENGINE_MISC_SYNC, (id))
 
+/* default sizes - can be changed when SPI Engine firmware is compiled */
+#define SPI_ENGINE_OFFLOAD_CMD_FIFO_SIZE	16
+#define SPI_ENGINE_OFFLOAD_SDO_FIFO_SIZE	16
+
 struct spi_engine_program {
 	unsigned int length;
 	uint16_t instructions[];
@@ -107,6 +124,10 @@ struct spi_engine_message_state {
 	u8 sync_id;
 };
 
+struct spi_engine_offload {
+	unsigned int index;
+};
+
 struct spi_engine {
 	struct clk *clk;
 	struct clk *ref_clk;
@@ -119,6 +140,9 @@ struct spi_engine {
 	struct spi_controller *controller;
 
 	unsigned int int_enable;
+
+	struct spi_offload offloads[SPI_ENGINE_MAX_NUM_OFFLOADS];
+	struct spi_engine_offload offload_priv[SPI_ENGINE_MAX_NUM_OFFLOADS];
 };
 
 static void spi_engine_program_add_cmd(struct spi_engine_program *p,
@@ -603,6 +627,239 @@ static int spi_engine_transfer_one_message(struct spi_controller *host,
 	return 0;
 }
 
+static struct spi_offload *spi_engine_offload_get(struct spi_device *spi,
+						  unsigned int index)
+{
+	struct spi_controller *host = spi->controller;
+	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
+	struct spi_offload *offload;
+	u32 vals[SPI_ENGINE_MAX_NUM_OFFLOADS];
+	int ret;
+
+	/* Use the adi,offloads array to find the offload at index. */
+
+	if (index >= ARRAY_SIZE(vals))
+		return ERR_PTR(-EINVAL);
+
+	ret = device_property_read_u32_array(&spi->dev, "adi,offloads", vals,
+					     index + 1);
+	if (ret < 0)
+		return ERR_PTR(ret);
+
+	if (vals[index] >= SPI_ENGINE_MAX_NUM_OFFLOADS)
+		return ERR_PTR(-EINVAL);
+
+	offload = &spi_engine->offloads[vals[index]];
+
+	return offload;
+}
+
+static int spi_engine_offload_prepare(struct spi_offload *offload,
+				      struct spi_message *msg)
+{
+	struct spi_controller *host = offload->controller;
+	struct spi_engine_offload *priv = offload->priv;
+	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
+	struct spi_engine_program p_dry, *p __free(kfree) = NULL;
+	struct spi_transfer *xfer;
+	void __iomem *cmd_addr;
+	void __iomem *sdo_addr;
+	size_t tx_word_count = 0;
+	unsigned int i;
+
+	/* count total number of tx words in message */
+	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
+		if (!xfer->tx_buf)
+			continue;
+
+		if (xfer->bits_per_word <= 8)
+			tx_word_count += xfer->len;
+		else if (xfer->bits_per_word <= 16)
+			tx_word_count += xfer->len / 2;
+		else
+			tx_word_count += xfer->len / 4;
+	}
+
+	/* REVISIT: could get actual size from devicetree if needed */
+	if (tx_word_count > SPI_ENGINE_OFFLOAD_SDO_FIFO_SIZE)
+		return -EINVAL;
+
+	spi_engine_precompile_message(msg);
+
+	/* dry run to get length */
+	p_dry.length = 0;
+	spi_engine_compile_message(msg, true, &p_dry);
+
+	/* REVISIT: could get actual size from devicetree if needed */
+	if (p_dry.length > SPI_ENGINE_OFFLOAD_CMD_FIFO_SIZE)
+		return -EINVAL;
+
+	p = kzalloc(sizeof(*p) + sizeof(*p->instructions) * p_dry.length, GFP_KERNEL);
+	if (!p)
+		return -ENOMEM;
+
+	spi_engine_compile_message(msg, false, p);
+
+	cmd_addr = spi_engine->base + SPI_ENGINE_REG_OFFLOAD_CMD_FIFO(priv->index);
+	sdo_addr = spi_engine->base + SPI_ENGINE_REG_OFFLOAD_SDO_FIFO(priv->index);
+
+	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
+		if (!xfer->tx_buf)
+			continue;
+
+		if (xfer->bits_per_word <= 8) {
+			const u8 *buf = xfer->tx_buf;
+
+			for (i = 0; i < xfer->len; i++)
+				writel_relaxed(buf[i], sdo_addr);
+		} else if (xfer->bits_per_word <= 16) {
+			const u16 *buf = xfer->tx_buf;
+
+			for (i = 0; i < xfer->len / 2; i++)
+				writel_relaxed(buf[i], sdo_addr);
+		} else {
+			const u32 *buf = xfer->tx_buf;
+
+			for (i = 0; i < xfer->len / 4; i++)
+				writel_relaxed(buf[i], sdo_addr);
+		}
+	}
+
+	for (i = 0; i < p->length; i++)
+		writel_relaxed(p->instructions[i], cmd_addr);
+
+	return 0;
+}
+
+static void spi_engine_offload_unprepare(struct spi_offload *offload)
+{
+	struct spi_controller *host = offload->controller;
+	struct spi_engine_offload *priv = offload->priv;
+	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
+
+	writel_relaxed(1, spi_engine->base +
+			  SPI_ENGINE_REG_OFFLOAD_RESET(priv->index));
+	writel_relaxed(0, spi_engine->base +
+			  SPI_ENGINE_REG_OFFLOAD_RESET(priv->index));
+}
+
+static int spi_engine_offload_enable(struct spi_offload *offload)
+{
+	struct spi_controller *host = offload->controller;
+	struct spi_engine_offload *priv = offload->priv;
+	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
+	unsigned int reg;
+
+	reg = readl_relaxed(spi_engine->base +
+			    SPI_ENGINE_REG_OFFLOAD_CTRL(priv->index));
+	reg |= SPI_ENGINE_OFFLOAD_CTRL_ENABLE;
+	writel_relaxed(reg, spi_engine->base +
+			    SPI_ENGINE_REG_OFFLOAD_CTRL(priv->index));
+
+	return 0;
+}
+
+static void spi_engine_offload_disable(struct spi_offload *offload)
+{
+	struct spi_controller *host = offload->controller;
+	struct spi_engine_offload *priv = offload->priv;
+	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
+	unsigned int reg;
+
+	reg = readl_relaxed(spi_engine->base +
+			    SPI_ENGINE_REG_OFFLOAD_CTRL(priv->index));
+	reg &= ~SPI_ENGINE_OFFLOAD_CTRL_ENABLE;
+	writel_relaxed(reg, spi_engine->base +
+			    SPI_ENGINE_REG_OFFLOAD_CTRL(priv->index));
+}
+
+static const struct spi_controller_offload_ops spi_engine_offload_ops = {
+	.get = spi_engine_offload_get,
+	.prepare = spi_engine_offload_prepare,
+	.unprepare = spi_engine_offload_unprepare,
+	.enable = spi_engine_offload_enable,
+	.disable = spi_engine_offload_disable,
+};
+
+static void spi_engine_offload_release(void *p)
+{
+	struct spi_offload *offload = p;
+	struct platform_device *pdev = container_of(offload->dev,
+						    struct platform_device, dev);
+
+	offload->dev = NULL;
+	platform_device_unregister(pdev);
+}
+
+/**
+ * devm_spi_engine_register_offload() - Registers platform device for offload.
+ *
+ * @dev: The parent platform device node.
+ * @offload: The offload firmware node.
+ *
+ * Return: 0 on success, negative error code otherwise.
+ */
+static int devm_spi_engine_register_offload(struct device *dev,
+					    struct spi_engine *spi_engine,
+					    struct fwnode_handle *fwnode)
+{
+	struct platform_device_info pdevinfo = {
+		.parent = dev,
+		.name = "offload",
+		.fwnode = fwnode,
+	};
+	struct platform_device *pdev;
+	struct spi_offload *offload;
+	u32 index;
+	int ret;
+
+	ret = fwnode_property_read_u32(fwnode, "reg", &index);
+	if (ret)
+		return ret;
+
+	if (index >= SPI_ENGINE_MAX_NUM_OFFLOADS)
+		return -EINVAL;
+
+	pdevinfo.id = index;
+
+	pdev = platform_device_register_full(&pdevinfo);
+	if (IS_ERR(pdev))
+		return PTR_ERR(pdev);
+
+	offload = &spi_engine->offloads[index];
+	offload->dev = &pdev->dev;
+
+	return devm_add_action_or_reset(dev, spi_engine_offload_release, offload);
+}
+
+/**
+ * spi_engine_offload_populate() - Registers platform device for each offload instance.
+ * @host: The SPI controller.
+ * @spi_engine: The SPI engine.
+ * @dev: The parent platform device.
+ */
+static void spi_engine_offload_populate(struct spi_controller *host,
+					struct spi_engine *spi_engine,
+					struct device *dev)
+{
+	struct fwnode_handle *offloads;
+	struct fwnode_handle *child;
+	int ret;
+
+	/* offloads are optional */
+	offloads = device_get_named_child_node(dev, "offloads");
+	if (!offloads)
+		return;
+
+	fwnode_for_each_available_child_node(offloads, child) {
+		ret = devm_spi_engine_register_offload(dev, spi_engine, child);
+		if (ret)
+			dev_warn(dev, "failed to register offload: %d\n", ret);
+	}
+
+	fwnode_handle_put(offloads);
+}
+
 static void spi_engine_timeout(struct timer_list *timer)
 {
 	struct spi_engine *spi_engine = from_timer(spi_engine, timer, watchdog_timer);
@@ -633,6 +890,7 @@ static int spi_engine_probe(struct platform_device *pdev)
 	unsigned int version;
 	int irq;
 	int ret;
+	int i;
 
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
@@ -670,6 +928,15 @@ static int spi_engine_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
+	for (i = 0; i < SPI_ENGINE_MAX_NUM_OFFLOADS; i++) {
+		struct spi_engine_offload *priv = &spi_engine->offload_priv[i];
+		struct spi_offload *offload = &spi_engine->offloads[i];
+
+		priv->index = i;
+		offload->controller = host;
+		offload->priv = priv;
+	}
+
 	writel_relaxed(0x00, spi_engine->base + SPI_ENGINE_REG_RESET);
 	writel_relaxed(0xff, spi_engine->base + SPI_ENGINE_REG_INT_PENDING);
 	writel_relaxed(0x00, spi_engine->base + SPI_ENGINE_REG_INT_ENABLE);
@@ -692,6 +959,7 @@ static int spi_engine_probe(struct platform_device *pdev)
 	host->prepare_message = spi_engine_prepare_message;
 	host->unprepare_message = spi_engine_unprepare_message;
 	host->num_chipselect = 8;
+	host->offload_ops = &spi_engine_offload_ops;
 
 	if (host->max_speed_hz == 0)
 		return dev_err_probe(&pdev->dev, -EINVAL, "spi_clk rate is 0");
@@ -701,6 +969,8 @@ static int spi_engine_probe(struct platform_device *pdev)
 		return ret;
 
 	platform_set_drvdata(pdev, host);
+
+	spi_engine_offload_populate(host, spi_engine, &pdev->dev);
 
 	return 0;
 }
