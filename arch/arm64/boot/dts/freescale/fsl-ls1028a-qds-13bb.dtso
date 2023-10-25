@@ -60,28 +60,28 @@
 	port@0 {
 		status = "okay";
 		phy-handle = <&slot2_qxgmii0>;
-		phy-mode = "usxgmii";
+		phy-mode = "10g-qxgmii";
 		managed = "in-band-status";
 	};
 
 	port@1 {
 		status = "okay";
 		phy-handle = <&slot2_qxgmii1>;
-		phy-mode = "usxgmii";
+		phy-mode = "10g-qxgmii";
 		managed = "in-band-status";
 	};
 
 	port@2 {
 		status = "okay";
 		phy-handle = <&slot2_qxgmii2>;
-		phy-mode = "usxgmii";
+		phy-mode = "10g-qxgmii";
 		managed = "in-band-status";
 	};
 
 	port@3 {
 		status = "okay";
 		phy-handle = <&slot2_qxgmii3>;
-		phy-mode = "usxgmii";
+		phy-mode = "10g-qxgmii";
 		managed = "in-band-status";
 	};
 };
