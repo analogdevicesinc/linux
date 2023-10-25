@@ -28,6 +28,8 @@ struct spi_transfer;
 struct spi_controller_mem_ops;
 struct spi_controller_mem_caps;
 struct spi_message;
+struct spi_controller_offload_ops;
+struct spi_offload;
 
 /*
  * INTERFACES between SPI master-side drivers and SPI slave protocol handlers,
@@ -712,6 +714,9 @@ struct spi_controller {
 	/* Optimized handlers for SPI memory-like operations. */
 	const struct spi_controller_mem_ops *mem_ops;
 	const struct spi_controller_mem_caps *mem_caps;
+
+	/* Operations for controllers with offload support. */
+	const struct spi_controller_offload_ops *offload_ops;
 
 	/* GPIO chip select */
 	struct gpio_desc	**cs_gpiods;
@@ -1501,6 +1506,124 @@ static inline ssize_t spi_w8r16be(struct spi_device *spi, u8 cmd)
 		return status;
 
 	return be16_to_cpu(result);
+}
+
+/*---------------------------------------------------------------------------*/
+
+/*
+ * Offloading support.
+ *
+ * Some SPI controllers support offloading of SPI transfers. Essentially,
+ * this allows the SPI controller to record SPI transfers and then play them
+ * back later via a hardware trigger.
+ */
+
+/**
+ * SPI_OFFLOAD_RX - placeholder for indicating read transfers for offloads
+ *
+ * Assign xfer->rx_buf to this value for any read transfer passed to
+ * spi_offload_prepare(). This will act as a flag to indicate to the offload
+ * that it should do something with the data read during this transfer. What
+ * that something can be is determined by the specific hardware, e.g. it could
+ * be piped to DMA or a DSP, etc.
+ */
+#define SPI_OFFLOAD_RX_SENTINEL ((void *)1)
+
+/**
+ * struct spi_controller_offload_ops - callbacks for offload support
+ *
+ * Drivers for hardware with offload support need to implement all of these
+ * callbacks.
+ */
+struct spi_controller_offload_ops {
+	/**
+	 * @get: Callback to get the nth offload assigned to the given SPI
+	 * device. Implementations must return the pointer to the device or
+	 * a negative error code (return -ENODEV rather than NULL if no matching
+	 * device).
+	 */
+	struct spi_offload *(*get)(struct spi_device *spi, unsigned int index);
+	/**
+	 * @prepare: Callback to prepare the offload for the given SPI message.
+	 * @msg and any of its members (including any xfer->tx_buf) is not
+	 * guaranteed to be valid beyond the lifetime of this call.
+	 */
+	int (*prepare)(struct spi_offload *offload, struct spi_message *msg);
+	/**
+	 * @unprepare: Callback to release any resources used by prepare().
+	 */
+	void (*unprepare)(struct spi_offload *offload);
+	/**
+	 * @enable: Callback to enable the offload.
+	 */
+	int (*enable)(struct spi_offload *offload);
+	/**
+	 * @disable: Callback to disable the offload.
+	 */
+	void (*disable)(struct spi_offload *offload);
+};
+
+/** struct spi_offload - offload handle */
+struct spi_offload {
+	/** @controller: The associated SPI controller. */
+	struct spi_controller *controller;
+	/** @dev: The device associated with the offload instance. */
+	struct device *dev;
+	/** @priv: Private instance data used by the SPI controller. */
+	void *priv;
+};
+
+/**
+ * spi_offload_get - gets an offload assigned to the given SPI device
+ * @spi: SPI device.
+ * @index: Index of the offload in the SPI device's fwnode int array.
+ *
+ * The lifetime of the returned offload is tied to the struct spi_controller
+ * instance. Since @spi owns a reference to the controller, most consumers
+ * should not have to do anything extra. But if the offload is passed somewhere
+ * outside of the control of the SPI device driver, then an additional reference
+ * to the controller must be made.
+ *
+ * Return: Pointer to the offload handle or negative error code.
+ */
+static inline struct spi_offload *spi_offload_get(struct spi_device *spi,
+						  unsigned int index)
+{
+	if (!spi->controller->offload_ops)
+		return ERR_PTR(-EOPNOTSUPP);
+
+	return spi->controller->offload_ops->get(spi, index);
+}
+
+int spi_offload_prepare(struct spi_offload *offload, struct spi_device *spi,
+			struct spi_transfer *xfers, unsigned int num_xfers);
+
+/**
+ * spi_offload_unprepare - releases any resources used by spi_offload_prepare()
+ * @offload: The offload instance.
+ */
+static inline void spi_offload_unprepare(struct spi_offload *offload)
+{
+	offload->controller->offload_ops->unprepare(offload);
+}
+
+/**
+ * spi_offload_enable - enables the offload
+ * @offload: The offload instance.
+ * Return: 0 on success or negative error code.
+ */
+static inline int spi_offload_enable(struct spi_offload *offload)
+{
+	return offload->controller->offload_ops->enable(offload);
+}
+
+/**
+ * spi_offload_disable - disables the offload
+ * @offload: The offload instance.
+ */
+static inline void spi_offload_disable(struct spi_offload *offload)
+{
+	offload->controller->offload_ops->disable(offload);
 }
 
 /*---------------------------------------------------------------------------*/
