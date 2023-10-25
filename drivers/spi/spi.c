@@ -3057,6 +3057,13 @@ static int spi_controller_check_ops(struct spi_controller *ctlr)
 		}
 	}
 
+	if (ctlr->offload_ops && !(ctlr->offload_ops->get &&
+				   ctlr->offload_ops->prepare &&
+				   ctlr->offload_ops->unprepare &&
+				   ctlr->offload_ops->enable &&
+				   ctlr->offload_ops->disable))
+		return -EINVAL;
+
 	return 0;
 }
 
@@ -4447,6 +4454,38 @@ int spi_write_then_read(struct spi_device *spi,
 	return status;
 }
 EXPORT_SYMBOL_GPL(spi_write_then_read);
+
+/**
+ * spi_offload_prepare - prepare offload hardware for a transfer
+ * @offload:	The offload instance.
+ * @spi:	The spi device to use for the transfers.
+ * @xfers:	The transfers to be executed.
+ * @num_xfers:	The number of transfers.
+ *
+ * Records a series of transfers to be executed later by the offload hardware
+ * trigger.
+ *
+ * Return: 0 on success, else a negative error code.
+ */
+int spi_offload_prepare(struct spi_offload *offload, struct spi_device *spi,
+			struct spi_transfer *xfers, unsigned int num_xfers)
+{
+	struct spi_controller *ctlr = offload->controller;
+	struct spi_message msg;
+	int ret;
+
+	spi_message_init_with_transfers(&msg, xfers, num_xfers);
+
+	ret = __spi_validate(spi, &msg);
+	if (ret)
+		return ret;
+
+	msg.spi = spi;
+	ret = ctlr->offload_ops->prepare(offload, &msg);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(spi_offload_prepare);
 
 /*-------------------------------------------------------------------------*/
 
