@@ -1,0 +1,272 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/fsl,netc.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP Ethernet controller (NETC)
+
+maintainers:
+  - Wei Fang <wei.fang@nxp.com>
+  - Clark Wang <xiaoning.wang@nxp.com>
+  - Shawn Guo <shawnguo@kernel.org>
+  - NXP Linux Team <linux-imx@nxp.com>
+
+description: |
+  NETC is a TSN capable Ethernet IP, which enables a comprehensive portfolio
+  of Ethernet solutions. The NIC functionality in NETC is known as EtherNET
+  Controller (ENETC). ENETC supports virtualization/isolation based on PCIe
+  Single Root IO Virtualization (SR-IOV), advanced QoS with 8 traffic classes
+  and 4 discard resilience levels, and a full range of TSN standards and NIC
+  offload capabilities.
+
+  NETC presents itself as a multi-function PCIe Root Complex Integrated Endpoint
+  (RCiEP) for easy software discovery of peripheral functions. As such, it
+  contains multiple PCIe functions. NETC also hosts PCIe functions for other
+  related Ethernet functions, such as the Timer (IEEE 1588 and 802.1AS-2020)
+  and MDIO (for managing external Ethernet PHY devices via an MDIO interface).
+  NETC also connects to the Root Complex Event Collector (RCEC) to convey power
+  management and error messages.
+
+  In addition, there are two 64KB register blocks in NETC, one is Integrated
+  Endpoint Register Block(IERB), the other is Privileged Register Block (PRB).
+  IERB is used for pre-boot initialization, debug and non-customer configuration.
+  PRB is used for reset control and error handling during functional operation.
+
+  Notice that, this schema file only applies to NETC V4.1 and later versions,
+  and is currently not applicable to NETC V1.0.
+
+properties:
+  compatible:
+    oneOf:
+      - items:
+          - const: fsl,imx95-enetc
+      - items:
+          - const: fsl,imx95-netc-timer
+      - items:
+          - const: fsl,imx95-netc-emdio
+      - items:
+          - const: fsl,imx95-netc-prb-ierb
+
+required:
+  - compatible
+  - reg
+
+allOf:
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: fsl,imx95-enetc
+    then:
+        $ref: ethernet-controller.yaml#
+        properties:
+          reg:
+            maxItems: 1
+            description: |
+              PCI address of the ENETC instance. As defined in the PCI Bus Binding
+              reference, the reg property is a five-cell address encoded as (phys.hi
+              phys.mid phys.lo size.hi size.lo). phys.hi should contain the device's
+              BDF as 0b00000000 bbbbbbbb dddddfff 00000000. The other cells should be
+              zero. See Documentation/devicetree/bindings/pci/pci.txt
+
+          clocks:
+            minItems: 1
+            items:
+             - description: NETC system clock
+             - description: RGMII/RMII interface reference clock
+
+          clock-names:
+            minItems: 1
+            items:
+              - const: ipg_clk
+              - const: enet_ref_clk
+
+          phy-mode: true
+
+          phy-handle: true
+
+          fixed-link: true
+
+          managed: true
+
+          mdio:
+            $ref: mdio.yaml#
+            unevaluatedProperties: false
+            description: |
+              optional node for ENETC instance, otherwise use NETC EMDIO.
+
+        required:
+          - clocks
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: fsl,imx95-netc-timer
+    then:
+      properties:
+        reg:
+          maxItems: 1
+          description: |
+            PCI address of the NETC PTP Timer. As defined in the PCI Bus Binding
+            reference, the reg property is a five-cell address encoded as (phys.hi
+            phys.mid phys.lo size.hi size.lo). phys.hi should contain the device's
+            BDF as 0b00000000 bbbbbbbb dddddfff 00000000. The other cells should be
+            zero. See Documentation/devicetree/bindings/pci/pci.txt
+
+        clocks:
+          maxItems: 1
+
+        clock-names:
+          maxItems: 1
+          items:
+            enum:
+              - ptp_clk
+
+        fsl,clk-select:
+          $ref: /schemas/types.yaml#/definitions/uint32
+          description: |
+            The NETC PTP Timer has three 1588 reference clocks, two are from
+            internal PLL, and one is from external crystal oscillator. So this
+            property is used to set TMR_CTRL[CK_SEL] field to select expected
+            reference clock.
+            0 indicates the reference clock comes from enet_timer1_clk_root.
+            1 indicates the reference clock comes from enet_clk_root/2.
+            2 indicates the reference clock comes from external crystal oscillator.
+            If this property is not presented, the driver will use the default
+            reference clock which comes from enet_clk_root.
+          enum: [0, 1, 2]
+
+        fsl,oclk-prsc:
+          $ref: /schemas/types.yaml#/definitions/uint32
+          description: |
+            The NETC PTP Timer has the capability to generate output FIPER pulse
+            clock (TMR_GCLK), and its frequency is by dividing the timer input
+            clock by TMR_PRSC[PRSC_OCK]. Therefore, this property is used to
+            set the output clock division prescale factor, namely the value of
+            TMR_PRSC[PRSC_OCK]. Notice that, the factor must be an even value.
+            If this property is not presented, the default factor is 2.
+
+        fsl,clk-cfg:
+          $ref: /schemas/types.yaml#/definitions/uint32-array
+          minItems: 3
+          maxItems: 3
+          description: |
+            This property is an array with three elements and provides the period
+            information of the reference clock, the first element indicates the
+            frequency of the clock, the unit is MHz, the second element indicates
+            the integral part of the clock period, and the third elemet indicates
+            the fractional part of the clock period.
+            If this property is not presented, then the NETC PTP timer is assumed
+            to be using enet_clk_root/2 as the reference clock, and the related
+            clock information will be gotten from NETCCLKFR and NETCCLKCR of IERB.
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: fsl,imx95-netc-emdio
+    then:
+      $ref: mdio.yaml#
+      properties:
+        reg:
+          maxItems: 1
+          description: |
+            PCI address of the NETC external MDIO. As defined in the PCI Bus Binding
+            reference, the reg property is a five-cell address encoded as (phys.hi
+            phys.mid phys.lo size.hi size.lo). phys.hi should contain the device's
+            BDF as 0b00000000 bbbbbbbb dddddfff 00000000. The other cells should be
+            zero. See Documentation/devicetree/bindings/pci/pci.txt
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: fsl,imx95-netc-prb-ierb
+    then:
+      properties:
+        reg:
+          minItems: 2
+          maxItems: 2
+
+        reg-names:
+          items:
+            - const: ierb_base
+            - const: prb_base
+
+        power-domains:
+          maxItems: 1
+
+      required:
+        - reg-names
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    pcie0 {
+      #address-cells = <3>;
+      #size-cells = <2>;
+
+      enetc_port0: ethernet@0,0 {
+        compatible = "fsl,imx95-enetc";
+        reg = <0x000000 0 0 0 0>;
+        clocks = <&clk 98>,
+                 <&clk 102>;
+        clock-names = "ipg_clk", "enet_ref_clk";
+        pinctrl-names = "default";
+        pinctrl-0 = <&pinctrl_enetc0>;
+        phy-handle = <&ethphy0>;
+        phy-mode = "rgmii";
+      };
+
+      enetc_port2: ethernet@10,0 {
+        compatible = "fsl,imx95-enetc";
+        reg = <0x008000 0 0 0 0>;
+        clocks = <&clk 98>;
+        clock-names = "ipg_clk";
+        phy-handle = <&ethphy2>;
+        phy-mode = "usxgmii";
+        managed = "in-band-status";
+      };
+
+      ethernet@18,0 {
+        compatible = "fsl,imx95-netc-timer";
+        reg = <0x00c000 0 0 0 0>;
+        fsl,clk-select = <1>;
+        fsl,oclk-prsc = <2>;
+        fsl,clk-cfg = <0x14d 0x3 0xcece07>;
+      };
+    };
+  - |
+    pcie1 {
+      #address-cells = <3>;
+      #size-cells = <2>;
+
+      netc_emdio: mdio@0,0 {
+        compatible = "fsl,imx95-netc-emdio";
+        reg = <0x010000 0 0 0 0>;
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        ethphy0: ethernet-phy@1 {
+          reg = <1>;
+          eee-broken-1000t;
+          reset-gpios = <&i2c5_gpio_expander_21 2 1>;
+          reset-assert-us = <10000>;
+          reset-deassert-us = <80000>;
+        };
+
+        ethphy2: ethernet-phy@8 {
+          reg = <8>;
+        };
+      };
+    };
+  - |
+    netc_prb_ierb@4cde0000 {
+      compatible = "fsl,imx95-netc-prb-ierb";
+      reg = <0x4cde0000 0x10000>, <0x4cdf0000 0x10000>;
+      reg-names = "ierb_base", "prb_base";
+      power-domains = <&scmi_devpd 18>;
+    };
