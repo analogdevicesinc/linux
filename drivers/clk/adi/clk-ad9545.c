@@ -1802,8 +1802,11 @@ static int ad9545_set_r_div(struct ad9545_state *st, u32 div, int addr)
 	u32 val;
 	int ret;
 
-	if (div > AD9545_R_DIV_MAX || div == 0)
+	if (div > AD9545_R_DIV_MAX || div == 0) {
+		dev_err(st->dev, "Invalid R-divider value (addr: %d): %u",
+			addr, div);
 		return -EINVAL;
+	}
 
 	/* r-div ratios are mapped from 0 onward */
 	div -= 1;
