@@ -1785,10 +1785,12 @@ void *stratix10_svc_allocate_memory(struct stratix10_svc_chan *chan,
 
 		dma_addr = iova_dma_addr(&chan->ctrl->carveout.domain, alloc);
 
-		ret = iommu_map(chan->ctrl->domain, dma_addr, virt_to_phys(va),s, IOMMU_READ | IOMMU_WRITE);
+		ret = iommu_map(chan->ctrl->domain, dma_addr, virt_to_phys(va),
+				s, IOMMU_READ | IOMMU_WRITE, GFP_KERNEL);
 		if (ret < 0) {
 			pr_debug("%s IOMMU map failed\n",__func__);
-			free_iova(&chan->ctrl->carveout.domain, iova_pfn(&chan->ctrl->carveout.domain, dma_addr));
+			free_iova(&chan->ctrl->carveout.domain,
+					iova_pfn(&chan->ctrl->carveout.domain, dma_addr));
 			free_pages((unsigned long)va, get_order(size));
 			return ERR_PTR(-ENOMEM);
 		}
