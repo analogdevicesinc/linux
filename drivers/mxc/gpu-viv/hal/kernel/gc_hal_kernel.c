@@ -5516,6 +5516,10 @@ gckDEVICE_Profiler_Dispatch(IN gckDEVICE                     Device,
     gckKERNEL kernel;
     gctUINT32 coreIndex = Interface->coreIndex;
 
+    gcmkHEADER_ARG("Device=%p Interface=%p", Device, Interface);
+
+    gcmkVERIFY_ARGUMENT(coreIndex < gcvCORE_COUNT);
+
     kernel = Device->kernels[coreIndex];
 
     /* Dispatch on profiler command. */
@@ -5590,6 +5594,8 @@ gckDEVICE_Profiler_Dispatch(IN gckDEVICE                     Device,
 OnError:
     /* Save status. */
     Interface->status = status;
+
+    gcmkFOOTER();
 
     /* Return the status. */
     return status;
