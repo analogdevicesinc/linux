@@ -144,6 +144,7 @@ struct stratix10_svc_data {
  * @complete_status: state for completion
  * @invoke_fn: function to issue secure monitor call or hypervisor call
  * @sdm_lock: only allows a single command single response to SDM
+ * @svc: manages the list of client svc drivers
  *
  * This struct is used to create communication channels for service clients, to
  * handle secure monitor or hypervisor call.
@@ -158,6 +159,7 @@ struct stratix10_svc_controller {
 	struct completion complete_status;
 	svc_invoke_fn *invoke_fn;
 	struct mutex *sdm_lock;
+	struct stratix10_svc *svc;
 };
 
 /**
@@ -1919,6 +1921,7 @@ static int stratix10_svc_drv_probe(struct platform_device *pdev)
 		ret = -ENOMEM;
 		return ret;
 	}
+	controller->svc = svc;
 
 	svc->stratix10_svc_rsu = platform_device_alloc(STRATIX10_RSU, 0);
 	if (!svc->stratix10_svc_rsu) {
@@ -1929,8 +1932,6 @@ static int stratix10_svc_drv_probe(struct platform_device *pdev)
 	ret = platform_device_add(svc->stratix10_svc_rsu);
 	if (ret)
 		goto err_put_device;
-
-	dev_set_drvdata(dev, svc);
 
 	pr_info("Intel Service Layer Driver Initialized\n");
 
@@ -1947,8 +1948,8 @@ err_destroy_pool:
 static int stratix10_svc_drv_remove(struct platform_device *pdev)
 {
 	int i;
-	struct stratix10_svc *svc = dev_get_drvdata(&pdev->dev);
 	struct stratix10_svc_controller *ctrl = platform_get_drvdata(pdev);
+	struct stratix10_svc *svc = ctrl->svc;
 
 	platform_device_unregister(svc->intel_svc_fcs);
 	platform_device_unregister(svc->stratix10_svc_rsu);
