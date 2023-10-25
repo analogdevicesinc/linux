@@ -1882,16 +1882,14 @@ static int ad9545_input_refs_setup(struct ad9545_state *st)
 			return ret;
 	}
 
-	/* configure refs r dividers */
-	for (i = 0; i < ARRAY_SIZE(st->ref_in_clks); i++) {
-		ret = ad9545_set_r_div(st, st->ref_in_clks[i].r_div_ratio, i);
-		if (ret < 0)
-			return ret;
-	}
-
 	for (i = 0; i < ARRAY_SIZE(st->ref_in_clks); i++) {
 		if (!st->ref_in_clks[i].ref_used)
 			continue;
+
+		/* configure refs r dividers */
+		ret = ad9545_set_r_div(st, st->ref_in_clks[i].r_div_ratio, i);
+		if (ret < 0)
+			return ret;
 
 		/* write nominal period in attoseconds */
 		period_es = 1000000000000000000ULL;
