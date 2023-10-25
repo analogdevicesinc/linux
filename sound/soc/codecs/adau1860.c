@@ -694,7 +694,15 @@ static int adau1860_dapm_sysclk_check(struct snd_soc_dapm_widget *source,
 		{ name, "OUT ASRC Ch0", "ASRCO 0 Mux" },                       \
 		{ name, "OUT ASRC Ch1", "ASRCO 1 Mux" },                       \
 		{ name, "OUT ASRC Ch2", "ASRCO 2 Mux" },                       \
-		{ name, "OUT ASRC Ch3", "ASRCO 3 Mux" }
+		{ name, "OUT ASRC Ch3", "ASRCO 3 Mux" },                       \
+		{ name, "FDSP Ch0", "FDSP" }, { name, "FDSP Ch1", "FDSP" },    \
+		{ name, "FDSP Ch2", "FDSP" }, { name, "FDSP Ch3", "FDSP" },    \
+		{ name, "FDSP Ch4", "FDSP" }, { name, "FDSP Ch5", "FDSP" },    \
+		{ name, "FDSP Ch6", "FDSP" }, { name, "FDSP Ch7", "FDSP" },    \
+		{ name, "FDSP Ch8", "FDSP" }, { name, "FDSP Ch9", "FDSP" },    \
+		{ name, "FDSP Ch10", "FDSP" }, { name, "FDSP Ch11", "FDSP" },  \
+		{ name, "FDSP Ch12", "FDSP" }, { name, "FDSP Ch13", "FDSP" },  \
+		{ name, "FDSP Ch14", "FDSP" }, { name, "FDSP Ch15", "FDSP" }
 
 #define ADAU1860_DAC_ROUTES(name)                                             \
 		{ name, "SPT0 Ch0", "SPT0_IN" }, { name, "SPT0 Ch1", "SPT0_IN" },     \
