@@ -266,10 +266,6 @@ static int ad400x_read_sample(struct ad400x_state *st, uint32_t *val)
 	t.rx_buf = input;
 	t.len = 4;
 	t.bits_per_word = st->num_bits;
-	if (st->turbo_mode) {
-		t.word_delay.value = 500;
-		t.word_delay.unit = SPI_DELAY_UNIT_NSECS;
-	}
 
 	spi_message_init_with_transfers(&m, &t, 1);
 
