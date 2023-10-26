@@ -152,12 +152,12 @@
 
 		partition@3 {
 			label = "kernel (spi)";
-			reg = <0x00e0000 0x0600000>;
+			reg = <0x00e0000 0x0800000>;
 		};
 
 		partition@4 {
 			label = "root file system (spi)";
-			reg = <0x06e0000 0x0920000>;
+			reg = <0x08e0000 0x1AC0000>;
 		};
 	};
 };
