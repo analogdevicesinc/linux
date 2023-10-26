@@ -152,15 +152,14 @@ static const struct regmap_config adi_axi_tdd_regmap_cfg = {
 	.reg_stride = 4,
 };
 
-static int adi_axi_tdd_format_ms(struct adi_axi_tdd_state *st, u64 x, char *buf)
+static int adi_axi_tdd_format_ns(struct adi_axi_tdd_state *st, u64 x, char *buf)
 {
-	u32 vals[2];
+	u64 clk_rate = READ_ONCE(st->clk.rate);
 	u64 t_ns;
 
-	t_ns = div_u64(x * 1000000000ULL, READ_ONCE(st->clk.rate));
-	vals[0] = div_u64_rem(t_ns, 1000000, &vals[1]);
+	t_ns = div_u64(x * 1000000000, clk_rate);
 
-	return sysfs_emit(buf, "%d.%06u\n", vals[0], vals[1]);
+	return sysfs_emit(buf, "%lu\n", t_ns);
 }
 
 static ssize_t adi_axi_tdd_show(struct device *dev,
@@ -233,7 +232,7 @@ static ssize_t adi_axi_tdd_show(struct device *dev,
 		ret = regmap_read(st->regs, ADI_REG_TDD_STARTUP_DELAY, &data);
 		if (ret)
 			return ret;
-		return adi_axi_tdd_format_ms(st, data, buf);
+		return adi_axi_tdd_format_ns(st, data, buf);
 	case ADI_TDD_ATTR_FRAME_LENGTH_RAW:
 		ret = regmap_read(st->regs, ADI_REG_TDD_FRAME_LENGTH, &data);
 		if (ret)
@@ -243,7 +242,7 @@ static ssize_t adi_axi_tdd_show(struct device *dev,
 		ret = regmap_read(st->regs, ADI_REG_TDD_FRAME_LENGTH, &data);
 		if (ret)
 			return ret;
-		return adi_axi_tdd_format_ms(st, data, buf);
+		return adi_axi_tdd_format_ns(st, data, buf);
 	case ADI_TDD_ATTR_INTERNAL_SYNC_PERIOD_RAW:
 		ret = regmap_bulk_read(st->regs, ADI_REG_TDD_SYNC_COUNTER_LOW,
 				       &data64, 2);
@@ -255,7 +254,7 @@ static ssize_t adi_axi_tdd_show(struct device *dev,
 				       &data64, 2);
 		if (ret)
 			return ret;
-		return adi_axi_tdd_format_ms(st, data64, buf);
+		return adi_axi_tdd_format_ns(st, data64, buf);
 	case ADI_TDD_ATTR_STATE:
 		ret = regmap_read(st->regs, ADI_REG_TDD_STATUS, &data);
 		if (ret)
@@ -283,7 +282,7 @@ static ssize_t adi_axi_tdd_show(struct device *dev,
 		if (ret)
 			return ret;
 		if (ms)
-			return adi_axi_tdd_format_ms(st, data, buf);
+			return adi_axi_tdd_format_ns(st, data, buf);
 		return sysfs_emit(buf, "%u\n", data);
 	case ADI_TDD_ATTR_CHANNEL_OFF_MS:
 		ms = true;
@@ -296,7 +295,7 @@ static ssize_t adi_axi_tdd_show(struct device *dev,
 		if (ret)
 			return ret;
 		if (ms)
-			return adi_axi_tdd_format_ms(st, data, buf);
+			return adi_axi_tdd_format_ns(st, data, buf);
 		return sysfs_emit(buf, "%u\n", data);
 	default:
 		return -EINVAL;
@@ -315,7 +314,7 @@ static int adi_axi_tdd_parse_ns(struct adi_axi_tdd_state *st,
 	if (ret < 0)
 		return -EINVAL;
 
-	*res = DIV_ROUND_CLOSEST_ULL(val * clk_rate, 1000000000);
+	*res = DIV_ROUND_CLOSEST_ULL((val / 1000) * clk_rate, 1000000);
 
 	return ret;
 }
