@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: GPL-2.0
+# TEE CRYPTO Configuration
+config TEE_CRYPTO
+	tristate "Crypto Operations offloaded to TEE."
+	depends on OPTEE
+	default m
+	help
+	 Enables the kernel module TEE_CRYPTO, where Cryptographic operation
+         are offloaded to trusted execution environment. This driver has been
+         by default compiled as Module only. Module will be called tee_crypto.
