@@ -13,7 +13,7 @@
 	status = "okay";
 	disp-dev = "hdmi_disp";
 
-	port@0 {
+	port {
 		dcss_out: endpoint {
 			remote-endpoint = <&hdmi_in>;
 		};

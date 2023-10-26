@@ -199,12 +199,8 @@
 				#size-cells = <0>;
 
 				mipi0_in: port@0 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-
 					reg = <0>;
-					mipi0_dsi_in: endpoint@0 {
-						reg = <0>;
+					mipi0_dsi_in: endpoint {
 						remote-endpoint = <&dpu_disp0_mipi_dsi>;
 					};
 				};
@@ -313,12 +309,8 @@
 				#size-cells = <0>;
 
 				mipi1_in: port@0 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-
 					reg = <0>;
-					mipi1_dsi_in: endpoint@0 {
-						reg = <0>;
+					mipi1_dsi_in: endpoint {
 						remote-endpoint = <&dpu_disp1_mipi_dsi>;
 					};
 				};
@@ -362,6 +354,13 @@
 					remote-endpoint = <&dpu_disp0_ldb1_ch0>;
 				};
 			};
+
+			port@1 {
+				reg = <1>;
+
+				endpoint {
+				};
+			};
 		};
 
 		lvds-channel@1 {
@@ -377,6 +376,13 @@
 
 				ldb1_ch1: endpoint {
 					remote-endpoint = <&dpu_disp0_ldb1_ch1>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				endpoint {
 				};
 			};
 		};
@@ -418,6 +424,13 @@
 					remote-endpoint = <&dpu_disp1_ldb2_ch0>;
 				};
 			};
+
+			port@1 {
+				reg = <1>;
+
+				endpoint {
+				};
+			};
 		};
 
 		lvds-channel@1 {
@@ -433,6 +446,13 @@
 
 				ldb2_ch1: endpoint {
 					remote-endpoint = <&dpu_disp1_ldb2_ch1>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				endpoint {
 				};
 			};
 		};

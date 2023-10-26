@@ -4,15 +4,11 @@
 #include "imx8dx-mek.dts"
 
 &mipi_csi_0 {
-	#address-cells = <1>;
-	#size-cells = <0>;
 	/delete-property/virtual-channel;
 	status = "okay";
 
 	/* Camera 0  MIPI CSI-2 (CSIS0) */
 	port@0 {
-		reg = <0>;
-
 		mipi_csi0_ep: endpoint {
 			remote-endpoint = <&ov5640_mipi_ep>;
 			data-lanes = <1 2>;

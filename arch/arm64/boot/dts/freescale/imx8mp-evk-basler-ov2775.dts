@@ -90,7 +90,7 @@
 &mipi_csi_0 {
 	status = "okay";
 
-	port@0 {
+	port {
 		mipi_csi0_ep: endpoint {
 			remote-endpoint = <&basler_ep_0>;
 			data-lanes = <4>;

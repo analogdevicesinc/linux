@@ -171,8 +171,6 @@
 		};
 
 		hdmi:hdmi@56268000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			reg = <0x56268000 0x1000>,
 					<0x56261000 0x1000>;
 			interrupt-parent = <&irqsteer_hdmi>;
@@ -215,8 +213,7 @@
 							<&pd IMX_SC_R_HDMI_PLL_1>;
 			power-domain-names = "hdmi", "pll0", "pll1";
 
-			port@0 {
-				reg = <0>;
+			port {
 				hdmi_disp: endpoint {
 					remote-endpoint = <&dpu1_disp0_hdmi>;
 				};

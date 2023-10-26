@@ -109,7 +109,7 @@
 	assigned-clock-parents = <&clk IMX8MP_SYS_PLL1_266M>;
 	assigned-clock-rates = <266000000>;
 
-	port@0 {
+	port {
 		endpoint {
 			remote-endpoint = <&ov2775_mipi_0_ep>;
 			data-lanes = <4>;

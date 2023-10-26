@@ -44,7 +44,7 @@
 						   <800000000>,
 						   <400000000>;
 
-	port@0 {
+	port {
 		dcss_out: endpoint {
 			remote-endpoint = <&mipi_dsi_in>;
 		};
@@ -53,13 +53,7 @@
 
 &adv_bridge {
 	status = "okay";
-
-	#address-cells = <1>;
-	#size-cells = <0>;
-
-	port@0 {
-		reg = <0>;
-
+	port {
 		adv7535_in: endpoint {
 			remote-endpoint = <&mipi_dsi_out>;
 		};

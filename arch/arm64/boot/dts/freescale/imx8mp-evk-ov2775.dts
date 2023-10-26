@@ -101,7 +101,7 @@
 &mipi_csi_0 {
 	status = "okay";
 
-	port@0 {
+	port {
 		endpoint {
 			remote-endpoint = <&ov2775_mipi_0_ep>;
 			data-lanes = <4>;

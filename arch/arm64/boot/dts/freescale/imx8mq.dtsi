@@ -1146,6 +1146,10 @@
 							reg = <0>;
 							remote-endpoint = <&lcdif_mipi_dsi>;
 						};
+
+						endpoint@1 {
+							reg = <1>;
+						};
 					};
 
 					port@1 {
@@ -1451,8 +1455,6 @@
 			};
 
 			dcss: display-controller@32e00000 {
-				#address-cells = <1>;
-				#size-cells = <0>;
 				compatible = "nxp,imx8mq-dcss";
 				reg = <0x32e00000 0x2d000>, <0x32e2f000 0x1000>;
 				interrupts = <6>, <8>, <9>, <16>, <17>;

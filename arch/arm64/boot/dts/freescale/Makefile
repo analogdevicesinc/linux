@@ -280,11 +280,11 @@ dtb-$(CONFIG_ARCH_MXC) += imx8mq-ddr3l-val.dtb imx8mq-ddr4-val.dtb imx8mq-ddr4-v
 dtb-$(CONFIG_ARCH_MXC) += imx8mq-evk-pcie-ep.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8mq-wevk.dtb
 
-dtb-$(CONFIG_ARCH_MXC) += imx8qm-apalis-eval.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx8qm-apalis-ixora-v1.1.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx8qm-apalis-v1.1-eval.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx8qm-apalis-v1.1-ixora-v1.1.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx8qm-apalis-v1.1-ixora-v1.2.dtb
+#dtb-$(CONFIG_ARCH_MXC) += imx8qm-apalis-eval.dtb
+#dtb-$(CONFIG_ARCH_MXC) += imx8qm-apalis-ixora-v1.1.dtb
+#dtb-$(CONFIG_ARCH_MXC) += imx8qm-apalis-v1.1-eval.dtb
+#dtb-$(CONFIG_ARCH_MXC) += imx8qm-apalis-v1.1-ixora-v1.1.dtb
+#dtb-$(CONFIG_ARCH_MXC) += imx8qm-apalis-v1.1-ixora-v1.2.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek.dtb \
 			  imx8qm-mek-enet2-tja1100.dtb imx8qm-mek-rpmsg.dtb \
 			  imx8qm-mek-hdmi.dtb \
@@ -351,11 +351,11 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek-revd-dsi-rm67191.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek-revd-dsi-rm67199.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek-revd-root.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek-revd-sof-cs42888.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx8qxp-ai_ml.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx8qxp-colibri-aster.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx8qxp-colibri-eval-v3.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx8qxp-colibri-iris.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx8qxp-colibri-iris-v2.dtb
+#dtb-$(CONFIG_ARCH_MXC) += imx8qxp-ai_ml.dtb
+#dtb-$(CONFIG_ARCH_MXC) += imx8qxp-colibri-aster.dtb
+#dtb-$(CONFIG_ARCH_MXC) += imx8qxp-colibri-eval-v3.dtb
+#dtb-$(CONFIG_ARCH_MXC) += imx8qxp-colibri-iris.dtb
+#dtb-$(CONFIG_ARCH_MXC) += imx8qxp-colibri-iris-v2.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8ulp-evk.dtb imx8ulp-evk-lpspi-slave.dtb \
 			  imx8ulp-evk-i3c.dtb imx8ulp-evk-rk055hdmipi4m.dtb imx8ulp-evk-rk055hdmipi4mv2.dtb \
 			  imx8ulp-evk-epdc.dtb imx8ulp-evk-sof-btsco.dtb \

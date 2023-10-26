@@ -1645,8 +1645,6 @@
 			};
 
 			lcdif1: lcd-controller@32e80000 {
-				#address-cells = <1>;
-				#size-cells = <0>;
 				compatible = "fsl,imx8mp-lcdif1";
 				reg = <0x32e80000 0x10000>;
 				clocks = <&clk IMX8MP_CLK_MEDIA_DISP1_PIX_ROOT>,
@@ -1665,9 +1663,7 @@
 				power-domains = <&media_blk_ctrl IMX8MP_MEDIABLK_PD_LCDIF_1>;
 				status = "disabled";
 
-				lcdif1_disp: port@0 {
-					reg = <0>;
-
+				lcdif1_disp: port {
 					lcdif_to_dsim: endpoint {
 						remote-endpoint = <&dsim_from_lcdif>;
 					};
@@ -1675,8 +1671,6 @@
 			};
 
 			lcdif2: lcd-controller@32e90000 {
-				#address-cells = <1>;
-				#size-cells = <0>;
 				compatible = "fsl,imx8mp-lcdif2";
 				reg = <0x32e90000 0x10000>;
 				clocks = <&clk IMX8MP_CLK_MEDIA_DISP2_PIX_ROOT>,
@@ -1694,10 +1688,9 @@
 				power-domains = <&media_blk_ctrl IMX8MP_MEDIABLK_PD_LCDIF_2>;
 				status = "disabled";
 
-				lcdif2_disp: port@0 {
+				lcdif2_disp: port {
 					#address-cells = <1>;
 					#size-cells = <0>;
-					reg = <0>;
 
 					lcdif2_disp_ldb_ch0: endpoint@0 {
 						reg = <0>;
@@ -1823,8 +1816,6 @@
 			};
 
 			lcdif3: lcd-controller@32fc6000 {
-				#address-cells = <1>;
-				#size-cells = <0>;
 				compatible = "fsl,imx8mp-lcdif1";
 				reg = <0x32fc6000 0x10000>;
 				clocks = <&hdmiphy 0>,
@@ -1841,9 +1832,7 @@
 				interrupt-parent = <&irqsteer_hdmi>;
 				status = "disabled";
 
-				lcdif3_disp: port@0 {
-					reg = <0>;
-
+				lcdif3_disp: port {
 					lcdif3_to_hdmi: endpoint {
 						remote-endpoint = <&hdmi_from_lcdif3>;
 					};
@@ -1869,12 +1858,7 @@
 				assigned-clock-rates = <133000000>, <500000000>, <24000000>;
 				status = "disabled";
 
-				#address-cells = <1>;
-				#size-cells = <0>;
-
-				port@0 {
-					reg = <0>;
-
+				port {
 					hdmi_from_lcdif3: endpoint {
 						remote-endpoint = <&lcdif3_to_hdmi>;
 					};
@@ -2340,16 +2324,12 @@
 		};
 
 		lvds-channel@1 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			reg = <1>;
 			phys = <&ldb_phy2>;
 			phy-names = "ldb_phy";
 			status = "disabled";
 
-			port@0 {
-				reg = <0>;
-
+			port {
 				ldb_ch1: endpoint {
 					remote-endpoint = <&lcdif2_disp_ldb_ch1>;
 				};

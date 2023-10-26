@@ -44,12 +44,9 @@
 	compatible = "fsl,imx8qm-dpu";
 
 	dpu2_disp0: port@0 {
-		#address-cells = <1>;
-		#size-cells = <0>;
 		reg = <0>;
 
-		dpu2_disp0_mipi1: endpoint@0 {
-			reg = <0>;
+		dpu2_disp0_mipi1: endpoint {
 			remote-endpoint = <&mipi1_dsi_in>;
 		};
 

@@ -198,12 +198,8 @@
 				#size-cells = <0>;
 
 				mipi0_in: port@0 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-
 					reg = <0>;
-					mipi0_dsi_in: endpoint@0 {
-						reg = <0>;
+					mipi0_dsi_in: endpoint {
 						remote-endpoint = <&dpu1_disp0_mipi0>;
 					};
 				};
@@ -390,12 +386,8 @@
 				#size-cells = <0>;
 
 				mipi1_in: port@0 {
-					#address-cells = <1>;
-					#size-cells = <0>;
-
 					reg = <0>;
-					mipi1_dsi_in: endpoint@0 {
-						reg = <0>;
+					mipi1_dsi_in: endpoint {
 						remote-endpoint = <&dpu2_disp0_mipi1>;
 					};
 				};

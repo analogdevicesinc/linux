@@ -46,9 +46,6 @@
 	#size-cells = <0>;
 
 	panel@0 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
 		compatible = "raydium,rm67191";
 		reg = <0>;
 		reset-gpios = <&pca9557_a 6 GPIO_ACTIVE_LOW>;
@@ -57,8 +54,7 @@
 		width-mm = <68>;
 		height-mm = <121>;
 
-		port@0 {
-			reg = <0>;
+		port {
 			panel0_in: endpoint {
 				remote-endpoint = <&mipi0_panel_out>;
 			};
@@ -89,9 +85,6 @@
 	#size-cells = <0>;
 
 	panel@0 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
 		compatible = "raydium,rm67191";
 		reg = <0>;
 		reset-gpios = <&pca9557_b 7 GPIO_ACTIVE_LOW>;
@@ -100,8 +93,7 @@
 		width-mm = <68>;
 		height-mm = <121>;
 
-		port@0 {
-			reg = <0>;
+		port {
 			panel1_in: endpoint {
 				remote-endpoint = <&mipi1_panel_out>;
 			};

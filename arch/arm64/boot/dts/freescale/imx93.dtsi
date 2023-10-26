@@ -1418,6 +1418,12 @@
 							remote-endpoint = <&lcdif_to_dpi>;
 						};
 					};
+
+					port@1 {
+						reg = <1>;
+						endpoint {
+						};
+					};
 				};
 			};
 
@@ -1524,12 +1530,16 @@
 						remote-endpoint = <&lcdif_to_dsi>;
 					};
 				};
+
+				port@1 {
+					reg = <1>;
+					endpoint {
+					};
+				};
 			};
 		};
 
 		lcdif: lcd-controller@4ae30000 {
-			#address-cells = <1>;
-			#size-cells = <0>;
 			compatible = "fsl,imx93-lcdif";
 			reg = <0x4ae30000 0x10000>;
 			interrupts = <GIC_SPI 176 IRQ_TYPE_LEVEL_HIGH>;
@@ -1549,10 +1559,9 @@
 			power-domains = <&media_blk_ctrl IMX93_MEDIABLK_PD_LCDIF>;
 			status = "disabled";
 
-			lcdif_disp: port@0 {
+			lcdif_disp: port {
 				#address-cells = <1>;
 				#size-cells = <0>;
-				reg = <0>;
 
 				lcdif_to_dsi: endpoint@0 {
 					reg = <0>;
@@ -1607,6 +1616,12 @@
 
 				ldb_ch0: endpoint {
 					remote-endpoint = <&lcdif_to_ldb>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				endpoint {
 				};
 			};
 		};

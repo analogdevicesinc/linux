@@ -1242,9 +1242,7 @@
 &dcss {
 	status = "okay";
 
-	port@0 {
-		reg = <0>;
-
+	port {
 		dcss_out: endpoint {
 			  remote-endpoint = <&hdmi_in>;
 		};

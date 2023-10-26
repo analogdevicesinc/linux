@@ -1156,8 +1156,6 @@
 			};
 
 			lcdif: lcd-controller@32e00000 {
-				#address-cells = <1>;
-				#size-cells = <0>;
 				compatible = "fsl,imx8mn-lcdif";
 				reg = <0x32e00000 0x10000>;
 				clocks = <&clk IMX8MN_CLK_DISP_PIXEL_ROOT>,
@@ -1177,9 +1175,7 @@
 				power-domains = <&disp_blk_ctrl IMX8MN_DISPBLK_PD_LCDIF>;
 				status = "disabled";
 
-				lcdif_disp0: port@0 {
-					reg = <0>;
-
+				lcdif_disp0: port {
 					lcdif_to_dsim: endpoint {
 						remote-endpoint = <&dsim_from_lcdif>;
 					};

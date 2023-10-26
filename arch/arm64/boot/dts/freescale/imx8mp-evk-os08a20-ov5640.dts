@@ -91,7 +91,7 @@
 &mipi_csi_0 {
 	status = "okay";
 
-	port@0 {
+	port {
 		endpoint {
 			remote-endpoint = <&os08a20_mipi_0_ep>;
 			data-lanes = <4>;
