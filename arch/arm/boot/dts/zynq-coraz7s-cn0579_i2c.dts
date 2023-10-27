@@ -29,6 +29,35 @@
 			clock-frequency = <32768000>;
 		};
 	};
+
+	cn0579_control@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		out-gpios = <&ad7768 0 0>, <&ad7768 1 0>, <&ad7768 2 0>, <&ad7768 3 0>;
+		label = "cn0579_control";
+
+		channel@0 {
+			reg = <0>;
+			label = "CC_CH0";
+		};
+
+		channel@1 {
+			reg = <1>;
+			label = "CC_CH1";
+		};
+
+		channel@2 {
+			reg = <2>;
+			label = "CC_CH2";
+		};
+
+		channel@3 {
+			reg = <3>;
+			label = "CC_CH3";
+		};
+	};
 };
 
 &fpga_axi {
@@ -93,6 +122,8 @@
 		clocks = <&ad7768_mclk>;
 		clock-names = "mclk";
 		adi,data-lines = <4>;
+		gpio-controller;
+		#gpio-cells = <2>;
 	};
 };
 
