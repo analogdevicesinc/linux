@@ -244,7 +244,7 @@ static void __devm_iio_dmaengine_buffer_free(void *buffer)
  *
  * The buffer will be automatically de-allocated once the device gets destroyed.
  */
-static struct iio_buffer *devm_iio_dmaengine_buffer_alloc(struct device *dev,
+struct iio_buffer *devm_iio_dmaengine_buffer_alloc(struct device *dev,
 	const char *channel)
 {
 	struct iio_buffer *buffer;
@@ -261,6 +261,7 @@ static struct iio_buffer *devm_iio_dmaengine_buffer_alloc(struct device *dev,
 
 	return buffer;
 }
+EXPORT_SYMBOL_GPL(devm_iio_dmaengine_buffer_alloc);
 
 /**
  * devm_iio_dmaengine_buffer_setup() - Setup a DMA buffer for an IIO device

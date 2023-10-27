@@ -40,6 +40,13 @@ config IIO_BUFFER_HW_CONSUMER
 	  Should be selected by drivers that want to use the generic Hw consumer
 	  interface.
 
+config IIO_HW_TRIGGERED_BUFFER
+	tristate "Industrial I/O hardware triggered buffer support"
+	select AUXILIARY_BUS
+	select IIO_TRIGGER
+	help
+	  Provides helper functions for setting up hardware triggered buffers.
+
 config IIO_KFIFO_BUF
 	tristate "Industrial I/O buffering based on kfifo"
 	help
@@ -53,10 +60,3 @@ config IIO_TRIGGERED_BUFFER
 	select IIO_KFIFO_BUF
 	help
 	  Provides helper functions for setting up triggered buffers.
-
-config IIO_HW_TRIGGERED_BUFFER
-	tristate "Industrial I/O hardware triggered buffer support"
-	select AUXILIARY_BUS
-	select IIO_TRIGGER
-	help
-	  Provides helper functions for setting up hardware triggered buffers.
