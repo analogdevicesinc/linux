@@ -36,7 +36,8 @@
 		compatible = "sff,sfp";
 		i2c-bus = <&sfp2_i2c>;
 		maximum-power-milliwatt = <2000>;
-		tx-disable-gpios = <&sfp2_csr 0 GPIO_ACTIVE_HIGH>;
+		/* Leave commented out if using DPMAC_LINK_TYPE_FIXED mode */
+		/* tx-disable-gpios = <&sfp2_csr 0 GPIO_ACTIVE_HIGH>; */
 		los-gpios = <&sfp2_csr 4 GPIO_ACTIVE_HIGH>;
 		tx-fault-gpios = <&sfp2_csr 5 GPIO_ACTIVE_HIGH>;
 		mod-def0-gpios = <&sfp2_csr 7 GPIO_ACTIVE_LOW>;
@@ -46,7 +47,8 @@
 		compatible = "sff,sfp";
 		i2c-bus = <&sfp3_i2c>;
 		maximum-power-milliwatt = <2000>;
-		tx-disable-gpios = <&sfp3_csr 0 GPIO_ACTIVE_HIGH>;
+		/* Leave commented out if using DPMAC_LINK_TYPE_FIXED mode */
+		/* tx-disable-gpios = <&sfp3_csr 0 GPIO_ACTIVE_HIGH>; */
 		los-gpios = <&sfp3_csr 4 GPIO_ACTIVE_HIGH>;
 		tx-fault-gpios = <&sfp3_csr 5 GPIO_ACTIVE_HIGH>;
 		mod-def0-gpios = <&sfp3_csr 7 GPIO_ACTIVE_LOW>;
