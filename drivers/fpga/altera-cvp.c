@@ -24,6 +24,9 @@
 /* Vendor Specific Extended Capability Registers */
 #define VSE_PCIE_EXT_CAP_ID		0x0
 #define VSE_PCIE_EXT_CAP_ID_VAL		0x000b	/* 16bit */
+#define VSE_PCIE_SPECIFIC_HEADER	0x4	/* VSEC ID, Revision, length*/
+#define VSEC_LENGTH_BIT_OFFSET		20	/* Bit 20 to 31 */
+#define AGILEX5_VSEC_LENGTH		0x60	/* Agilex5 only */
 
 #define VSE_CVP_STATUS			0x1c	/* 32bit */
 #define VSE_CVP_STATUS_CFG_RDY		BIT(18)	/* CVP_CONFIG_READY */
@@ -51,6 +54,7 @@
 #define V1_VSEC_OFFSET			0x200	/* Vendor Specific Offset V1 */
 /* V2 Defines */
 #define VSE_CVP_TX_CREDITS		0x49	/* 8bit */
+#define VSE_CVP_AG5_TX_CREDITS		0x5C	/* 8bit credits for Agilex5*/
 
 #define V2_CREDIT_TIMEOUT_US		40000
 #define V2_CHECK_CREDIT_US		10
@@ -61,6 +65,9 @@
 
 #define DRV_NAME		"altera-cvp"
 #define ALTERA_CVP_MGR_NAME	"Altera CvP FPGA Manager"
+#define SOCFPGA_CVP_V1_OTHERS	0x1
+#define SOCFPGA_CVP_V2_OTHERS	0x2
+#define SOCFPGA_CVP_V2_AGILEX5	0x3
 
 /* Write block sizes */
 #define ALTERA_CVP_V1_SIZE	4
@@ -85,6 +92,7 @@ struct altera_cvp_conf {
 	u32			vsec_offset;
 	u8			*send_buf;
 	const struct cvp_priv	*priv;
+	u32			device_family_type;
 };
 
 struct cvp_priv {
@@ -236,9 +244,13 @@ static int altera_cvp_v2_wait_for_credit(struct fpga_manager *mgr,
 	struct altera_cvp_conf *conf = mgr->priv;
 	int ret;
 	u8 val;
+	u32 vse_cvp_tx_credits_offset = VSE_CVP_TX_CREDITS;
+
+	if (conf->device_family_type == SOCFPGA_CVP_V2_AGILEX5)
+		vse_cvp_tx_credits_offset = VSE_CVP_AG5_TX_CREDITS;
 
 	do {
-		ret = altera_read_config_byte(conf, VSE_CVP_TX_CREDITS, &val);
+		ret = altera_read_config_byte(conf, vse_cvp_tx_credits_offset, &val);
 		if (ret) {
 			dev_err(&conf->pci_dev->dev,
 				"Error reading CVP Credit Register\n");
@@ -676,10 +688,19 @@ static int altera_cvp_probe(struct pci_dev *pdev,
 	conf->pci_dev = pdev;
 	conf->write_data = altera_cvp_write_data_iomem;
 
-	if (conf->vsec_offset == V1_VSEC_OFFSET)
+	/* To differentiate the target SOCFPGA */
+	if (conf->vsec_offset == V1_VSEC_OFFSET) {
 		conf->priv = &cvp_priv_v1;
-	else
+		conf->device_family_type = SOCFPGA_CVP_V1_OTHERS;
+	} else {
+		/* Agilex7, Stratix10, Agilex5*/
 		conf->priv = &cvp_priv_v2;
+		pci_read_config_dword(pdev, offset + VSE_PCIE_SPECIFIC_HEADER, &regval);
+		if ((regval >> VSEC_LENGTH_BIT_OFFSET) == AGILEX5_VSEC_LENGTH)
+			conf->device_family_type = SOCFPGA_CVP_V2_AGILEX5;
+		else
+			conf->device_family_type = SOCFPGA_CVP_V2_OTHERS;
+	}
 
 	conf->map = pci_iomap(pdev, CVP_BAR, 0);
 	if (!conf->map) {
