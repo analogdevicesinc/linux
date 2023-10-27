@@ -2379,7 +2379,9 @@ static void of_register_spi_devices(struct spi_controller *ctlr)
 	struct device_node *nc;
 
 	for_each_available_child_of_node(ctlr->dev.of_node, nc) {
-		if (of_node_test_and_set_flag(nc, OF_POPULATED))
+		/* Only nodes with '@' in the name are peripheral nodes. */
+		if (of_node_test_and_set_flag(nc, OF_POPULATED) ||
+		    !strchr(kbasename(nc->full_name), '@'))
 			continue;
 		spi = of_register_spi_device(ctlr, nc);
 		if (IS_ERR(spi)) {
