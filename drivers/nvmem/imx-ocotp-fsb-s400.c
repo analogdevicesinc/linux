@@ -61,7 +61,7 @@ static int read_words_via_s400_api(u32 *buf, unsigned int fuse_base,
 	int err = 0;
 
 	for (i = 0; i < num; i++)
-		err = read_common_fuse(se_dev, 0, buf + i);
+		err = read_common_fuse(se_dev, fuse_base + i, buf + i);
 
 	return err;
 }
