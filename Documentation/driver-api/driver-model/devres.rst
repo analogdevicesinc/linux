@@ -285,6 +285,7 @@ I2C
 IIO
   devm_iio_device_alloc()
   devm_iio_device_register()
+  devm_iio_dmaengine_buffer_alloc()
   devm_iio_dmaengine_buffer_setup()
   devm_iio_kfifo_buffer_setup()
   devm_iio_kfifo_buffer_setup_ext()
