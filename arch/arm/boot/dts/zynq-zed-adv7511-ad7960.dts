@@ -1,0 +1,103 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices LTC2387
+ *
+ * hdl_project: <cn0577/zed>
+ * board_revision: <A>
+ *
+ * Copyright (C) 2022 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pwm/pwm.h>
+
+/ {
+	vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <4096000>;
+		regulator-max-microvolt = <4096000>;
+		regulator-always-on;
+	};
+
+
+	gpio-control@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		out-gpios = <&gpio0 89 GPIO_ACTIVE_HIGH>,
+			        <&gpio0 88 GPIO_ACTIVE_HIGH>,
+					<&gpio0 87 GPIO_ACTIVE_HIGH>,
+	                <&gpio0 86 GPIO_ACTIVE_HIGH>;
+		channel@0 {
+			reg = <0>;
+			label = "en3_fmc";
+		};
+		channel@1 {
+			reg = <1>;
+			label = "en2_fmc";
+		};
+		channel@2 {
+			reg = <2>;
+			label = "en1_fmc";
+		};
+		channel@3 {
+			reg = <3>;
+			label = "en0_fmc";
+		};
+	};
+};
+
+&fpga_axi {
+	rx_dma: dmac@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x1000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	ref_clk: axi-clkgen@0x44a80000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44a80000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 15>;
+		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "ref_clk";
+	};
+
+	axi_pwm_gen: pwm@0x44a60000 {
+		compatible = "adi,axi-pwmgen";
+		reg = <0x44a60000 0x1000>;
+		label = "ltc2387_if";
+		#pwm-cells = <2>;
+		clocks = <&ref_clk>;
+	};
+	
+	ad7960@0{
+		compatible = "ad7960";
+		clocks = <&ref_clk>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		pwms = <&axi_pwm_gen 0 0
+			    &axi_pwm_gen 1 0>;
+		pwm-names = "cnv", "clk_en";
+		vref-supply = <&vref>;
+	};
+};

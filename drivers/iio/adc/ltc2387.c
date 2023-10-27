@@ -67,6 +67,8 @@ enum ltc2387_id {
 	ID_LTC2387_16_X4,
 	ID_LTC2387_18,
 	ID_LTC2387_18_X4,
+	ID_AD7960,
+	
 };
 
 struct ltc2387_info {
@@ -107,6 +109,17 @@ static const struct ltc2387_info ltc2387_infos[] = {
 		.test_pattern = {
 			[ONE_LANE] = 0b101000000111111100,
 			[TWO_LANES] = 0b110011000011111100
+		},
+		.channels = {
+			LTC2378_CHAN(18, 32),
+		},
+		.num_channels = 1,
+	},
+	[ID_AD7960] = {
+		.resolution = 18,
+		.test_pattern = {
+			[ONE_LANE] =  0b000000000000000000,
+			[TWO_LANES] = 0b000000000000000000
 		},
 		.channels = {
 			LTC2378_CHAN(18, 32),
@@ -158,8 +171,8 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	cnv_state.time_unit = PWM_UNIT_PSEC;
 	cnv_state.enabled = true;
 	ret = pwm_apply_state(ltc->cnv, &cnv_state);
-	if (ret < 0)
-		return ret;
+	// if (ret < 0)
+		// return ret;
 
 	/* Gate the active period of the clock (see page 10-13 for both LTC's) */
 	if (ltc->lane_mode == TWO_LANES)
@@ -172,8 +185,8 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	clk_en_state.time_unit = PWM_UNIT_PSEC;
 	clk_en_state.enabled = true;
 	ret = pwm_apply_state(ltc->clk_en, &clk_en_state);
-	if (ret < 0)
-		return ret;
+	// if (ret < 0)
+		// return ret;
 
 	ltc->sampling_freq = DIV_ROUND_CLOSEST_ULL(ltc->ref_clk_rate, target);
 
@@ -188,7 +201,7 @@ static int ltc2387_setup(struct iio_dev *indio_dev)
 	if (device_property_present(dev, "adi,use-two-lanes"))
 		ltc->lane_mode = TWO_LANES;
 
-	return ltc2387_set_sampling_freq(ltc, 15 * MHz);
+	return ltc2387_set_sampling_freq(ltc, 5 * MHz);
 }
 
 static int ltc2387_read_raw(struct iio_dev *indio_dev,
@@ -271,7 +284,10 @@ static const struct of_device_id ltc2387_of_match[] = {
 	}, {
 		.compatible = "adaq2387-18",
 		.data = &ltc2387_infos[ID_LTC2387_18]
-	},
+	}, {
+		.compatible = "ad7960",
+		.data = &ltc2387_infos[ID_AD7960]
+    },
 	{}
 };
 MODULE_DEVICE_TABLE(of, ltc2387_of_match);
