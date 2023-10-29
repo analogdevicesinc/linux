@@ -1002,6 +1002,14 @@ config REGULATOR_PF0900
 	 Say y here to support the NXP PF0900/PF0901/PF09XX PMIC
 	 regulator driver.
 
+config REGULATOR_PF5300
+	tristate "NXP PF5300/PF5301/PF5302 regulator driver"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	 Say y here to support the NXP PF5300/PF5301/PF5302 PMIC
+	 regulator driver.
+
 config REGULATOR_PCAP
 	tristate "Motorola PCAP2 regulator driver"
 	depends on EZX_PCAP
