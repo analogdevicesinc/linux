@@ -2000,90 +2000,85 @@ gckVIDMEM_Free(IN gckKERNEL Kernel, IN gcuVIDMEM_NODE_PTR Node)
         gcmkFOOTER_NO();
         return gcvSTATUS_OK;
     } else if (vidMemBlock && vidMemBlock->object.type == gcvOBJ_VIDMEM_BLOCK) {
+        gckOS os = vidMemBlock->os;
+
+        kernel = Node->VirtualChunk.kernel;
+
         /* Acquire the vidMem block mutex */
-        gcmkONERROR(gckOS_AcquireMutex(Kernel->os,
-                                       Kernel->vidMemBlockMutex,
+        gcmkONERROR(gckOS_AcquireMutex(kernel->os,
+                                       kernel->vidMemBlockMutex,
                                        gcvINFINITE));
         vbListMutexAcquired = gcvTRUE;
 
-        if (vidMemBlock) {
-            gckOS os = vidMemBlock->os;
+        gcmkONERROR(gckOS_AcquireMutex(os, vidMemBlock->mutex, gcvINFINITE));
+        vbMutexAcquired = gcvTRUE;
 
-            gcmkONERROR(gckOS_AcquireMutex(os, vidMemBlock->mutex, gcvINFINITE));
-            vbMutexAcquired = gcvTRUE;
-            kernel          = Node->VirtualChunk.kernel;
+        if (Node->VirtualChunk.kvaddr) {
+            gcmkONERROR(gckOS_DestroyKernelMapping(kernel->os,
+                                                    vidMemBlock->physical,
+                                                    Node->VirtualChunk.kvaddr));
 
-            if (Kernel != kernel) {
-                gcmkFATAL("ERROR: You allocate vidMemBLock on core[%d], but try to free it on core[%d]",
-                          kernel->core, Kernel->core);
+            Node->VirtualChunk.kvaddr = gcvNULL;
+        }
+
+        /* Handle the free chunk in the linked-list */
+        {
+            /* Check if chunk is in free list. */
+            if (Node->VirtualChunk.nextFree) {
+                /* Chunk is already freed. */
+                gcmkONERROR(gcvSTATUS_INVALID_DATA);
             }
 
-            if (Node->VirtualChunk.kvaddr) {
-                gcmkONERROR(gckOS_DestroyKernelMapping(kernel->os,
-                                                       vidMemBlock->physical,
-                                                       Node->VirtualChunk.kvaddr));
+            vidMemBlock->freeBytes += Node->VirtualChunk.bytes;
 
-                Node->VirtualChunk.kvaddr = gcvNULL;
+            /* Find the next free chunk. */
+            for (node = Node->VirtualChunk.next;
+                    node != gcvNULL && node->VirtualChunk.nextFree == gcvNULL;
+                    node = node->VirtualChunk.next)
+                ;
+
+            if (node == gcvNULL)
+                gcmkONERROR(gcvSTATUS_INVALID_DATA);
+
+            /* Insert this chunk in the free list. */
+            Node->VirtualChunk.nextFree = node;
+            Node->VirtualChunk.prevFree = node->VirtualChunk.prevFree;
+
+            Node->VirtualChunk.prevFree->VirtualChunk.nextFree =
+            node->VirtualChunk.prevFree = Node;
+
+            /* Is the next chunk a free chunk. */
+            if (Node->VirtualChunk.next == Node->VirtualChunk.nextFree &&
+                Node->VirtualChunk.next->VirtualChunk.bytes != 0) {
+                /* Merge this chunk with the next chunk. */
+                gcmkONERROR(_MergeVirtualChunk(os, node = Node));
+                gcmkASSERT(node->VirtualChunk.nextFree != node);
+                gcmkASSERT(node->VirtualChunk.prevFree != node);
             }
 
-            /* Handle the free chunk in the linked-list */
-            {
-                /* Check if chunk is in free list. */
-                if (Node->VirtualChunk.nextFree) {
-                    /* Chunk is already freed. */
-                    gcmkONERROR(gcvSTATUS_INVALID_DATA);
-                }
-
-                vidMemBlock->freeBytes += Node->VirtualChunk.bytes;
-
-                /* Find the next free chunk. */
-                for (node = Node->VirtualChunk.next;
-                     node != gcvNULL && node->VirtualChunk.nextFree == gcvNULL;
-                     node = node->VirtualChunk.next)
-                    ;
-
-                if (node == gcvNULL)
-                    gcmkONERROR(gcvSTATUS_INVALID_DATA);
-
-                /* Insert this chunk in the free list. */
-                Node->VirtualChunk.nextFree = node;
-                Node->VirtualChunk.prevFree = node->VirtualChunk.prevFree;
-
-                Node->VirtualChunk.prevFree->VirtualChunk.nextFree =
-                node->VirtualChunk.prevFree = Node;
-
-                /* Is the next chunk a free chunk. */
-                if (Node->VirtualChunk.next == Node->VirtualChunk.nextFree &&
-                    Node->VirtualChunk.next->VirtualChunk.bytes != 0) {
-                    /* Merge this chunk with the next chunk. */
-                    gcmkONERROR(_MergeVirtualChunk(os, node = Node));
-                    gcmkASSERT(node->VirtualChunk.nextFree != node);
-                    gcmkASSERT(node->VirtualChunk.prevFree != node);
-                }
-
-                /* Is the previous chunk a free chunk. */
-                if (Node->VirtualChunk.prev == Node->VirtualChunk.prevFree &&
-                    Node->VirtualChunk.prev->VirtualChunk.bytes != 0) {
-                    /* Merge this chunk with the previous chunk. */
-                    gcmkONERROR(_MergeVirtualChunk(os, node = Node->VirtualChunk.prev));
-                    gcmkASSERT(node->VirtualChunk.nextFree != node);
-                    gcmkASSERT(node->VirtualChunk.prevFree != node);
-                }
-            }
-
-            /* Release the mutex. */
-            gcmkVERIFY_OK(gckOS_ReleaseMutex(os, vidMemBlock->mutex));
-
-            /* Only free the vidmem block when all the chunks are freed. */
-            if (_IsVidMemBlockFree(vidMemBlock)) {
-                gcmkONERROR(_RemoveFromBlockList(kernel, vidMemBlock));
-
-                gcmkONERROR(gckVIDMEM_BLOCK_Destroy(kernel, vidMemBlock));
+            /* Is the previous chunk a free chunk. */
+            if (Node->VirtualChunk.prev == Node->VirtualChunk.prevFree &&
+                Node->VirtualChunk.prev->VirtualChunk.bytes != 0) {
+                /* Merge this chunk with the previous chunk. */
+                gcmkONERROR(_MergeVirtualChunk(os, node = Node->VirtualChunk.prev));
+                gcmkASSERT(node->VirtualChunk.nextFree != node);
+                gcmkASSERT(node->VirtualChunk.prevFree != node);
             }
         }
 
+        /* Release the mutex. */
+        gcmkVERIFY_OK(gckOS_ReleaseMutex(os, vidMemBlock->mutex));
+        vbMutexAcquired = gcvFALSE;
+
+        /* Only free the vidmem block when all the chunks are freed. */
+        if (_IsVidMemBlockFree(vidMemBlock)) {
+            gcmkONERROR(_RemoveFromBlockList(kernel, vidMemBlock));
+
+            gcmkONERROR(gckVIDMEM_BLOCK_Destroy(kernel, vidMemBlock));
+        }
+
         /* Release the vidMem block mutex. */
-        gcmkVERIFY_OK(gckOS_ReleaseMutex(Kernel->os, Kernel->vidMemBlockMutex));
+        gcmkVERIFY_OK(gckOS_ReleaseMutex(kernel->os, kernel->vidMemBlockMutex));
 
         /* Success. */
         gcmkFOOTER_NO();
@@ -2144,7 +2139,7 @@ OnError:
 
     if (vbListMutexAcquired) {
         gcmkVERIFY_OK(gckOS_ReleaseMutex(vidMemBlock->os,
-                                         Kernel->vidMemBlockMutex));
+                                         kernel->vidMemBlockMutex));
     }
 
     /* Return the status. */
