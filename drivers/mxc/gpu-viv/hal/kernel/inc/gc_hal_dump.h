@@ -107,6 +107,18 @@
 #    define gcdDUMP_VERIFY_PER_DRAW     0
 #endif
 
+ /*
+  *  gcdDUMP_VERIFY_PER_FRAME
+  *
+  *      Sub feature of gcdDUMP.
+  *      When set to 1, verify every frame
+  *      to ease simulation debug.
+  *      Only valid for ES3 driver for now.
+  */
+#ifndef gcdDUMP_VERIFY_PER_FRAME
+#define gcdDUMP_VERIFY_PER_FRAME     0
+#endif
+
 /* Standalone dump features below. */
 
 /*
