@@ -234,6 +234,10 @@
 			compatible = "fsl,imx8ulp-ocotp", "syscon";
 			reg = <0x27010000 0x1000>;
 			status = "okay";
+
+			fec_mac_address: mac-address@ac {
+				reg = <0xac 6>;
+			};
 		};
 
 		s4muap: mailbox@27020000 {
@@ -833,6 +837,8 @@
 				interrupt-names = "int0";
 				fsl,num-tx-queues = <1>;
 				fsl,num-rx-queues = <1>;
+				nvmem-cells = <&fec_mac_address>;
+				nvmem-cell-names = "mac-address";
 				status = "disabled";
 			};
 		};
