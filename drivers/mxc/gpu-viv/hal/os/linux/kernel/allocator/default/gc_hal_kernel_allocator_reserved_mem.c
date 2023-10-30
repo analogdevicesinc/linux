@@ -237,7 +237,7 @@ reserved_mem_mmap(IN gckALLOCATOR           Allocator,
 
     /* Make this mapping non-cached. */
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 2, 0)) || \
-    ((LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 22)) && defined(CONFIG_ANDROID))
+    ((LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 26)) && defined(CONFIG_ANDROID))
     vm_flags_set(vma, gcdVM_FLAGS);
 #else
     vma->vm_flags |= gcdVM_FLAGS;
