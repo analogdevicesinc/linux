@@ -411,7 +411,7 @@ _QueryProcessPageTable(IN gctPOINTER Logical, OUT gctPHYS_ADDR_T *Address)
         /* Kernel logical address. */
         *Address = virt_to_phys(Logical);
         return gcvSTATUS_OK;
-#if USING_PFN_FOLLOW
+#if USING_PFN_FOLLOW || (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0))
     } else {
         struct vm_area_struct *vma;
         unsigned long          pfn = 0;
@@ -423,7 +423,7 @@ _QueryProcessPageTable(IN gctPOINTER Logical, OUT gctPHYS_ADDR_T *Address)
             up_read(&current_mm_mmap_sem);
             return gcvSTATUS_NOT_FOUND;
         }
-        ret = pfn_follow(vma, addr, &pfn);
+        ret = follow_pfn(vma, logical, &pfn);
         up_read(&current_mm_mmap_sem);
         if (ret < 0) {
             return gcvSTATUS_NOT_FOUND;

@@ -323,7 +323,7 @@ import_pfn_map(gckOS Os, struct device *dev, struct um_desc *um,
 
     down_read(&current_mm_mmap_sem);
     vma = find_vma(current->mm, addr);
-#if !gcdUSING_PFN_FOLLOW
+#if !gcdUSING_PFN_FOLLOW && (LINUX_VERSION_CODE < KERNEL_VERSION(6, 5, 0))
     up_read(&current_mm_mmap_sem);
 #endif
 
@@ -350,7 +350,7 @@ import_pfn_map(gckOS Os, struct device *dev, struct um_desc *um,
     }
 
     for (i = 0; i < pfn_count; i++) {
-#if gcdUSING_PFN_FOLLOW
+#if gcdUSING_PFN_FOLLOW || (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0))
         int ret = 0;
 
         ret = follow_pfn(vma, addr, &pfns[i]);
@@ -406,7 +406,7 @@ import_pfn_map(gckOS Os, struct device *dev, struct um_desc *um,
         /* Advance to next. */
         addr += PAGE_SIZE;
     }
-#if gcdUSING_PFN_FOLLOW
+#if gcdUSING_PFN_FOLLOW || (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0))
     up_read(&current_mm_mmap_sem);
 #endif
 
