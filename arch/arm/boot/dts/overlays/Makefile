@@ -209,6 +209,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-admv1014.dtbo \
 	rpi-admv8818.dtbo \
 	rpi-adrf6780.dtbo \
+	rpi-ad242x.dtbo \
 	rpi-ad4130.dtbo \
 	rpi-ad5592r.dtbo \
 	rpi-ad5593r.dtbo \
