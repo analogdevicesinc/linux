@@ -1940,6 +1940,21 @@ static int lynx_10g_init(struct phy *phy)
 	return 0;
 }
 
+static int lynx_10g_exit(struct phy *phy)
+{
+	struct lynx_10g_lane *lane = phy_get_drvdata(phy);
+
+	/* The lane returns to the state where it isn't managed by the
+	 * consumer, so we must treat is as if it isn't initialized, and always
+	 * powered on.
+	 */
+	lane->init = false;
+	lane->powered_up = false;
+	lynx_10g_power_on(phy);
+
+	return 0;
+}
+
 static void lynx_10g_check_cdr_lock(struct phy *phy,
 				    struct phy_status_opts_cdr *cdr)
 {
@@ -1991,6 +2006,7 @@ static int lynx_10g_configure(struct phy *phy, union phy_configure_opts *opts)
 
 static const struct phy_ops lynx_10g_ops = {
 	.init		= lynx_10g_init,
+	.exit		= lynx_10g_exit,
 	.power_on	= lynx_10g_power_on,
 	.power_off	= lynx_10g_power_off,
 	.set_mode	= lynx_10g_set_mode,
