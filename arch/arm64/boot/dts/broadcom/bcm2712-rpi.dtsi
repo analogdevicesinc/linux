@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: GPL-2.0
+
+#include <dt-bindings/power/raspberrypi-power.h>
+
+&soc {
+	firmware: firmware {
+		compatible = "raspberrypi,bcm2835-firmware", "simple-mfd";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		mboxes = <&mailbox>;
+		dma-ranges;
+
+		firmware_clocks: clocks {
+			compatible = "raspberrypi,firmware-clocks";
+			#clock-cells = <1>;
+		};
+
+		reset: reset {
+			compatible = "raspberrypi,firmware-reset";
+			#reset-cells = <1>;
+		};
+
+		vcio: vcio {
+			compatible = "raspberrypi,vcio";
+		};
+	};
+
+	power: power {
+		compatible = "raspberrypi,bcm2835-power";
+		firmware = <&firmware>;
+		#power-domain-cells = <1>;
+	};
+
+	fb: fb {
+		compatible = "brcm,bcm2708-fb";
+		firmware = <&firmware>;
+		status = "okay";
+	};
+
+	rpi_rtc: rpi_rtc {
+		compatible = "raspberrypi,rpi-rtc";
+		firmware = <&firmware>;
+		status = "okay";
+		trickle-charge-microvolt = <0>;
+	};
+
+	/* Define these notional regulators for use by overlays, etc. */
+	vdd_3v3_reg: fixedregulator_3v3 {
+		compatible = "regulator-fixed";
+		regulator-always-on;
+		regulator-max-microvolt = <3300000>;
+		regulator-min-microvolt = <3300000>;
+		regulator-name = "3v3";
+	};
+
+	vdd_5v0_reg: fixedregulator_5v0 {
+		compatible = "regulator-fixed";
+		regulator-always-on;
+		regulator-max-microvolt = <5000000>;
+		regulator-min-microvolt = <5000000>;
+		regulator-name = "5v0";
+	};
+};
+
+/ {
+	__overrides__ {
+		arm_freq;
+	};
+};
+
+pciex1: &pcie1 { };
+pciex4: &pcie2 { };
+
+&dma32 {
+	/* The VPU firmware uses DMA channel 11 for VCHIQ */
+	brcm,dma-channel-mask = <0x03f>;
+};
+
+&dma40 {
+	/* The VPU firmware DMA channel 11 for VCHIQ */
+	brcm,dma-channel-mask = <0x07c0>;
+};
+
+&rmem {
+	/*
+	 * RPi4's co-processor will copy the board's bootloader configuration
+	 * into memory for the OS to consume. It'll also update this node with
+	 * its placement information.
+	 */
+	blconfig: nvram@0 {
+		compatible = "raspberrypi,bootloader-config", "nvmem-rmem";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0x0 0x0 0x0>;
+		no-map;
+		status = "disabled";
+	};
+};
