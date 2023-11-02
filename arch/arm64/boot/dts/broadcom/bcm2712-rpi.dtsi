@@ -35,7 +35,7 @@
 	fb: fb {
 		compatible = "brcm,bcm2708-fb";
 		firmware = <&firmware>;
-		status = "okay";
+		status = "disabled";
 	};
 
 	rpi_rtc: rpi_rtc {
