@@ -99,19 +99,6 @@
 			#mbox-cells = <0>;
 		};
 
-		usb: usb@7c480000 {
-			compatible = "brcm,bcm2835-usb";
-			reg = <0x7c480000 0x10000>;
-			interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
-			#address-cells = <1>;
-			#size-cells = <0>;
-			clocks = <&clk_usb>;
-			clock-names = "otg";
-			phys = <&usbphy>;
-			phy-names = "usb2-phy";
-			status = "disabled";
-		};
-
 		/*
 		 * This node is the provider for the enable-method for
 		 * bringing up secondary cores.
@@ -1025,6 +1012,24 @@
 				<0x10 0x7fffe000  0x0 0x2000>;
 			interrupts = <GIC_PPI 9 (GIC_CPU_MASK_SIMPLE(4) |
 						 IRQ_TYPE_LEVEL_HIGH)>;
+		};
+
+		usb: usb@480000 {
+			compatible = "brcm,bcm2835-usb";
+			reg = <0x10 0x00480000 0x0 0x10000>;
+			interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			clocks = <&clk_usb>;
+			clock-names = "otg";
+			phys = <&usbphy>;
+			phy-names = "usb2-phy";
+			status = "okay";
+
+			dr_mode = "host";
+			g-np-tx-fifo-size = <32>;
+			g-rx-fifo-size = <558>;
+			g-tx-fifo-size = <512 512 512 512 512 256 256>;
 		};
 	};
 
