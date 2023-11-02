@@ -43,5 +43,6 @@
 	dmas = <&sdma2 8 24 0>, <&sdma2 9 24 0>;
 	assigned-clock-rates = <24576000>;
 	fsl,dataline = <2 0xf 0xf>;
+	fsl,sai-mclk-direction-output;
 	status = "okay";
 };
