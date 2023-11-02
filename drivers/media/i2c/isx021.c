@@ -372,6 +372,87 @@ fail:
 	return ret;
 }
 
+static int isx021_set_exposure(struct isx021 *sensor, s64 val)
+{
+	u8 exp_time_byte0;
+	u8 exp_time_byte1;
+	u8 exp_time_byte2;
+	u8 exp_time_byte3;
+	int ret;
+
+	exp_time_byte0 = val & 0xFF;
+	exp_time_byte1 = (val >> 8) & 0xFF;
+	exp_time_byte2 = (val >> 16) & 0xFF;
+	exp_time_byte3 = (val >> 24) & 0xFF;
+
+	ret = isx021_write(sensor, 0xac4d, 0x03);
+	if (ret)
+	{
+		goto fail;
+	}
+
+	ret = isx021_write(sensor, 0xac4e, 0x03);
+	if (ret)
+	{
+		goto fail;
+	}
+
+	ret = isx021_write(sensor, 0xac44, exp_time_byte0);
+	if (ret)
+	{
+		goto fail;
+	}
+
+	ret = isx021_write(sensor, 0xac45, exp_time_byte1);
+	if (ret)
+	{
+		goto fail;
+	}
+
+	ret = isx021_write(sensor, 0xac46, exp_time_byte2);
+	if (ret)
+	{
+		goto fail;
+	}
+
+	ret = isx021_write(sensor, 0xac47, exp_time_byte3);
+	if (ret)
+	{
+		goto fail;
+	}
+
+	// Shutter2
+	ret = isx021_write(sensor, 0xac48, exp_time_byte0);
+	if (ret)
+	{
+		goto fail;
+	}
+
+	ret = isx021_write(sensor, 0xac49, exp_time_byte1);
+	if (ret)
+	{
+		goto fail;
+	}
+
+	ret = isx021_write(sensor, 0xac4a, exp_time_byte2);
+	if (ret)
+	{
+		goto fail;
+	}
+
+	ret = isx021_write(sensor, 0xac4b, exp_time_byte3);
+	if (ret)
+	{
+		goto fail;
+	}
+
+	return 0;
+
+fail:
+	dev_err(sensor->dev, "[%s] : EXPOSURE control error\n", __func__);
+	return ret;
+}
+
 static int isx021_set_response_mode(struct isx021 *sensor)
 {
 	int es_number;
@@ -477,6 +558,7 @@ static int isx021_s_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_EXPOSURE:
+		isx021_set_exposure(sensor, ctrl->val);
 		break;
 
 	case V4L2_CID_EXPOSURE_AUTO:
