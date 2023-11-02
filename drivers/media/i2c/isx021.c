@@ -23,6 +23,8 @@
 #define ISX021_WIDTH	1920
 #define ISX021_HEIGHT	1080
 
+#define PLUS_10(x)  ((x)+(x)/10)
+
 static const char * const isx021_supply_names[] = {
 	"dvdd",
 };
@@ -41,6 +43,9 @@ struct isx021 {
 
 	struct v4l2_ctrl_handler ctrls;
 };
+
+static int trigger_mode;
+module_param(trigger_mode, int, 0644);
 
 static int isx021_set_response_mode(struct isx021 *sensor);
 
@@ -81,7 +86,7 @@ static int isx021_write_reg_with_verify(struct isx021 *sensor, u16 addr, u8 valu
 
 	ret = regmap_write(sensor->regmap, addr, val8);
 
-	usleep_range(10000, 11000);
+	usleep_range(10000, PLUS_10(10000));
 
 	ret = regmap_read(sensor->regmap, addr, &val32);
 
@@ -147,7 +152,7 @@ static int isx021_power_on(struct isx021 *sensor)
 	 * delay of 100µs resulted in I2C communication failures, while 500µs
 	 * seems to be enough. Be conservative.
 	 */
-	usleep_range(1000, 2000);
+	usleep_range(1000, PLUS_10(1000));
 
 	ret = isx021_set_response_mode(sensor);
 	if (ret < 0)
@@ -171,9 +176,28 @@ static void isx021_power_off(struct isx021 *sensor)
 
 /* ------------------------------------------------------------------------- */
 
+static int isx021_write_mode_set_f_lock_register(struct isx021 *sensor, u8 val8)
+{
+  int ret;
+
+  usleep_range(20000, PLUS_10(20000));
+
+  ret = isx021_write(sensor, 0x8a55, 0x06);  // ACK Response mode
+
+  usleep_range(20000, PLUS_10(20000));
+
+  ret = isx021_write(sensor, 0xbef0, val8);
+
+  usleep_range(20000, PLUS_10(20000));
+
+  ret = isx021_write(sensor, 0x8a55, 0x02);  // NAK Response mode
+
+  return 0;
+}
+
 static int isx021_set_gain(struct isx021 *sensor, s64 val)
 {
-	int ret = 0;
+	int ret;
 
 	s64 gain;
 	u8 digital_gain_low_byte;
@@ -281,7 +305,6 @@ static int isx021_set_gain(struct isx021 *sensor, s64 val)
 
 fail:
 	dev_err(sensor->dev, "[%s] : GAIN control error\n", __func__);
-
 	return ret;
 }
 
@@ -342,7 +365,10 @@ static int isx021_set_auto_exposure(struct isx021 *sensor, bool enable)
 	if (ret)
 		goto fail;
 
+	return 0;
+
 fail:
+	dev_err(sensor->dev, "[%s] : AUTO EXPOSURE control error\n", __func__);
 	return ret;
 }
 
@@ -352,13 +378,22 @@ static int isx021_set_response_mode(struct isx021 *sensor)
 	int ret = 0;
 	u8 r_val;
 
-	usleep_range(100000, 110000);
-
-	ret = isx021_write(sensor, 0x8a01, 0x00);
+	ret = isx021_write_mode_set_f_lock_register(sensor, 0x53);
 	if (ret)
-		goto error_exit;
+	{
+		dev_err(sensor->dev, "[%s] : Write to MODE_SET_F_LOCK register caused Time out.\n", __func__);
+		return ret;
+	}
 
-	usleep_range(100000, 110000);  // For ES3
+	usleep_range(100000, PLUS_10(100000));
+
+	ret = isx021_write(sensor, 0x8a01, 0x00);  // transit to Startup state
+	if (ret) {
+		dev_err(sensor->dev, "[%s] : Transition to Startup state failed.\n", __func__);
+		goto error_exit;
+	}
+
+	usleep_range(100000, PLUS_10(100000));  // For ES3 and MP
 
 	ret = isx021_read(sensor, 0x8a55, &r_val);
 
@@ -369,11 +404,57 @@ static int isx021_set_response_mode(struct isx021 *sensor)
 
 	ret = isx021_write(sensor, 0x8a55, 0x06);
 
-	usleep_range(100000, 110000);  // For ES3
-	ret = isx021_write(sensor, 0x8a01, 0x80);
+	usleep_range(100000, PLUS_10(100000));  // For ES3 and MP
 
 error_exit:
 	return ret;
+}
+
+static int isx021_set_fsync_trigger_mode(struct isx021 *sensor)
+{
+  int ret;
+
+  ret = isx021_write_mode_set_f_lock_register(sensor, 0x53);
+  if (ret)
+  {
+    dev_err(sensor->dev, "[%s] : Write to MODE_SET_F_LOCK register caused Time out.\n", __func__);
+    return ret;
+  }
+
+  ret = isx021_write(sensor, 0x8a01, 0x00);  // transit to Startup state
+  if (ret)
+  {
+    dev_err(sensor->dev, "[%s] : Transition to Startup state failed.\n", __func__);
+    goto error_exit;
+  }
+
+  usleep_range(120000, PLUS_10(120000));
+
+  // set SG_MODE_CTL to 0 for transition to FSYNC mode
+
+  ret = isx021_write(sensor, 0x8af0, 0x02);  // set FSYNC mode
+
+  if (ret)
+  {
+    goto error_exit;
+  }
+
+  usleep_range(120000, PLUS_10(120000));
+
+  // set SG_MODE_APL to 0 for transition to FSYNC mode
+
+  ret = isx021_write(sensor, 0xbf14, 0x02);
+
+  if (ret)
+  {
+    goto error_exit;
+  }
+
+  usleep_range(240000, PLUS_10(240000));
+
+ error_exit:
+
+  return ret;
 }
 
 /* -----------------------------------------------------------------------------
@@ -497,12 +578,31 @@ static int isx021_stream_on(struct isx021 *sensor)
 {
 	int ret = 0;
 
+	if (trigger_mode){
+		ret = isx021_set_fsync_trigger_mode(sensor);
+		dev_dbg(sensor->dev, "[%s] : Putting camera sensor into Slave mode.\n", __func__);
+	}
+	if (ret)
+		dev_err(sensor->dev, "[%s] : Putting camera sensor into Slave mode failed.\n", __func__);
+
+	ret = isx021_write(sensor, 0x8a01, 0x80);  // transit to Streaming state
+	if (ret)
+		dev_err(sensor->dev, "[%s] : Write to MODE_SET_F register failed.\n", __func__);
+
+	usleep_range(120000, PLUS_10(120000));
+
 	return ret;
 }
 
 static int isx021_stream_off(struct isx021 *sensor)
 {
 	int ret = 0;
+
+	ret = isx021_write(sensor, 0x8a01, 0x00);  // transit to Startup state
+	if (ret)
+		dev_err(sensor->dev, "[%s] : Write to MODE_SET_F register failed.\n", __func__);
+
+	usleep_range(120000, PLUS_10(120000));
 
 	return ret;
 }
