@@ -1315,9 +1315,9 @@ static const struct spi_device_id ad4630_id_table[] = {
 MODULE_DEVICE_TABLE(spi, ad4630_id_table);
 
 static const struct of_device_id ad4630_of_match[] = {
-	{ .compatible = "adi,ad4630-24", .data = &ad4630_chip_info[ID_AD4030_24] },
+	{ .compatible = "adi,ad4030-24", .data = &ad4630_chip_info[ID_AD4030_24] },
 	{ .compatible = "adi,ad4630-16", .data = &ad4630_chip_info[ID_AD4630_16] },
-	{ .compatible = "adi,ad4030-24", .data = &ad4630_chip_info[ID_AD4630_24] },
+	{ .compatible = "adi,ad4630-24", .data = &ad4630_chip_info[ID_AD4630_24] },
 	{ .compatible = "adi,ad463x", .data = &ad463x_chip_info},
 	{}
 };
