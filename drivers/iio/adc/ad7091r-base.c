@@ -6,6 +6,7 @@
  */
 
 #include <linux/bitops.h>
+#include <linux/bitfield.h>
 #include <linux/iio/events.h>
 #include <linux/iio/iio.h>
 #include <linux/interrupt.h>
@@ -16,7 +17,8 @@
 #include "ad7091r-base.h"
 
 /* AD7091R_REG_RESULT */
-#define AD7091R_REG_RESULT_CH_ID(x)	    (((x) >> 13) & 0x3)
+#define AD7091R5_REG_RESULT_CH_ID(x)	    (((x) >> 13) & 0x3)
+#define AD7091R8_REG_RESULT_CH_ID(x)	    (((x) >> 13) & 0x7)
 #define AD7091R_REG_RESULT_CONV_RESULT(x)   ((x) & 0xfff)
 
 /* AD7091R_REG_CONF */
@@ -45,10 +47,14 @@ static int ad7091r_set_mode(struct ad7091r_state *st, enum ad7091r_mode mode)
 		return -EINVAL;
 	}
 
-	ret = regmap_update_bits(st->map, AD7091R_REG_CONF,
-				 AD7091R_REG_CONF_MODE_MASK, conf);
-	if (ret)
-		return ret;
+	/* AD7091R-2/4/8 don't set normal, command, autocycle modes in conf reg */
+	if (st->chip_info->type == AD7091R5) {
+		return 0;
+		ret = regmap_update_bits(st->map, AD7091R_REG_CONF,
+					 AD7091R_REG_CONF_MODE_MASK, conf);
+		if (ret)
+			return ret;
+	}
 
 	st->mode = mode;
 
@@ -88,8 +94,13 @@ static int ad7091r_read_one(struct iio_dev *iio_dev,
 	if (ret)
 		return ret;
 
-	if (AD7091R_REG_RESULT_CH_ID(val) != channel)
-		return -EIO;
+	if (st->chip_info->type == AD7091R5) {
+		if (AD7091R5_REG_RESULT_CH_ID(val) != channel)
+			return -EIO;
+	} else {
+		if (AD7091R8_REG_RESULT_CH_ID(val) != channel)
+			return -EIO;
+	}
 
 	*read_val = AD7091R_REG_RESULT_CONV_RESULT(val);
 
