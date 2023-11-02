@@ -157,8 +157,20 @@ unlock:
 	return ret;
 }
 
+static int ad7091r_reg_access(struct iio_dev *indio_dev, unsigned int reg,
+			      unsigned int writeval, unsigned int *readval)
+{
+	struct ad7091r_state *st  = iio_priv(indio_dev);
+
+	if (readval)
+		return regmap_read(st->map, reg, readval);
+
+	return regmap_write(st->map, reg, writeval);
+}
+
 static const struct iio_info ad7091r_info = {
 	.read_raw = ad7091r_read_raw,
+	.debugfs_reg_access = &ad7091r_reg_access,
 };
 
 static irqreturn_t ad7091r_event_handler(int irq, void *private)
