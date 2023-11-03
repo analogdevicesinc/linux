@@ -24,6 +24,16 @@
 		regulator-max-microvolt = <4096000>;
 		regulator-always-on;
 	};
+	gpio-control@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		out-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>;           
+		channel@0 {
+			reg = <0>;
+			label = "turbo_gpio";
+		};
+	};
 };
 
 &fpga_axi {
@@ -83,7 +93,6 @@
 			compatible = "adi,pulsar,ad7986";
 			reg = <0>;
 			spi-max-frequency = <80000000>;
-			turbo-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>;
 			clocks = <&spi_clk>;
 			clock-names = "ref_clk";
 			dmas = <&rx_dma 0>;
