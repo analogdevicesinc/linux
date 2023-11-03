@@ -2138,11 +2138,19 @@ static void lynx_10g_pll_read_configuration(struct lynx_10g_priv *priv)
 static void lynx_10g_backup_pccr_val(struct lynx_10g_lane *lane)
 {
 	u32 val;
+	int err;
 
 	if (lane->mode == LANE_MODE_UNKNOWN)
 		return;
 
-	lynx_pccr_read(lane, lane->mode, &val);
+	err = lynx_pccr_read(lane, lane->mode, &val);
+	if (err) {
+		dev_warn(&lane->phy->dev,
+			 "The driver doesn't know how to access the PCCR for lane mode %d\n",
+			 lane->mode);
+		lane->mode = LANE_MODE_UNKNOWN;
+		return;
+	}
 
 	lane->default_pccr[lane->mode] = val;
 
