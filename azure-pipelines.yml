@@ -1,5 +1,5 @@
 variables:
-  isMain: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
+  isMain: $[eq(variables['Build.SourceBranch'], 'refs/heads/main')]
 
 trigger:
 - main
