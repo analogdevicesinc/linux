@@ -3973,6 +3973,11 @@ static int ad9081_reg_from_phandle(struct ad9081_phy *phy,
 	return ret;
 }
 
+static void ad9081_dt_err(struct ad9081_phy *phy, const char *prop)
+{
+	dev_err(&phy->spi->dev, "Missing required dt property: '%s'\n", prop);
+}
+
 static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 {
 	struct device_node *of_channels, *of_chan;
@@ -3984,8 +3989,14 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 	if (of_trx_path == NULL)
 		return -ENODEV;
 
-	of_property_read_u64(of_trx_path, "adi,dac-frequency-hz",
+	ret = of_property_read_u64(of_trx_path, "adi,dac-frequency-hz",
 			     &phy->dac_frequency_hz);
+	if (ret) {
+		ad9081_dt_err(phy, "adi,dac-frequency-hz");
+		of_node_put(of_trx_path);
+
+		return ret;
+	}
 
 	phy->tx_ffh_hopf_via_gpio_en =
 		of_property_read_bool(of_trx_path, "adi,ffh-hopf-via-gpio-enable");
@@ -3998,8 +4009,15 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 		return -ENODEV;
 	}
 
-	of_property_read_u32(of_channels, "adi,interpolation",
+	ret = of_property_read_u32(of_channels, "adi,interpolation",
 			     &phy->tx_main_interp);
+	if (ret) {
+		ad9081_dt_err(phy, "adi,interpolation");
+		of_node_put(of_channels);
+		of_node_put(of_trx_path);
+
+		return ret;
+	}
 
 	for_each_child_of_node(of_channels, of_chan) {
 		ret = of_property_read_u32(of_chan, "reg", &reg);
@@ -4031,6 +4049,9 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 					dev_err(&phy->spi->dev,
 						"invalid device tree configuration: index (%d > %d)\n",
 						index, MAX_NUM_CHANNELIZER);
+					of_node_put(of_channels);
+					of_node_put(of_trx_path);
+
 					return -EINVAL;
 				}
 
@@ -4050,8 +4071,15 @@ static int ad9081_parse_dt_tx(struct ad9081_phy *phy, struct device_node *np)
 		return -ENODEV;
 	}
 
-	of_property_read_u32(of_channels, "adi,interpolation",
+	ret = of_property_read_u32(of_channels, "adi,interpolation",
 			     &phy->tx_chan_interp);
+	if (ret) {
+		ad9081_dt_err(phy, "adi,interpolation");
+		of_node_put(of_channels);
+		of_node_put(of_trx_path);
+
+		return ret;
+	}
 
 	for_each_child_of_node(of_channels, of_chan) {
 		ret = of_property_read_u32(of_chan, "reg", &reg);
@@ -4128,9 +4156,16 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 	if (of_trx_path == NULL)
 		return -ENODEV;
 
-	of_property_read_u64(of_trx_path, "adi,adc-frequency-hz",
+	ret = of_property_read_u64(of_trx_path, "adi,adc-frequency-hz",
 			     &phy->adc_frequency_hz);
+	if (ret) {
+		ad9081_dt_err(phy, "adi,adc-frequency-hz");
+		of_node_put(of_trx_path);
 
+		return ret;
+	}
+
+	nz = AD9081_ADC_NYQUIST_ZONE_ODD;
 	of_property_read_u32(of_trx_path, "adi,nyquist-zone", &nz);
 
 	of_property_read_variable_u8_array(of_trx_path,
@@ -4155,8 +4190,16 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 			of_property_read_u8(of_chan,
 					     "adi,nco-channel-select-mode",
 					     &phy->rx_cddc_nco_channel_select_mode[reg]);
-			of_property_read_u32(of_chan, "adi,decimation",
+			ret = of_property_read_u32(of_chan, "adi,decimation",
 					     &phy->adc_main_decimation[reg]);
+			if (ret) {
+				ad9081_dt_err(phy, "adi,decimation");
+				of_node_put(of_channels);
+				of_node_put(of_trx_path);
+
+				return ret;
+			}
+
 			phy->rx_cddc_c2r[reg] = of_property_read_bool(
 				of_chan, "adi,complex-to-real-enable");
 			phy->rx_cddc_gain_6db_en[reg] = of_property_read_bool(
@@ -4187,8 +4230,16 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 		if (!ret && (reg < ARRAY_SIZE(phy->rx_fddc_shift))) {
 			u32 mode;
 
-			of_property_read_u32(of_chan, "adi,decimation",
+			ret = of_property_read_u32(of_chan, "adi,decimation",
 					     &phy->adc_chan_decimation[reg]);
+			if (ret) {
+				ad9081_dt_err(phy, "adi,decimation");
+				of_node_put(of_channels);
+				of_node_put(of_trx_path);
+
+				return ret;
+			}
+
 			of_property_read_u64(of_chan,
 					     "adi,nco-frequency-shift-hz",
 					     &phy->rx_fddc_shift[reg]);
