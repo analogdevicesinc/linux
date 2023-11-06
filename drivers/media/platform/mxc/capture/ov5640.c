@@ -775,7 +775,8 @@ static int ov5640_get_sysclk(void)
 	int xvclk = ov5640_data.mclk / 10000;
 	int sysclk;
 	int temp1, temp2;
-	int Multiplier, PreDiv, VCO, SysDiv, Pll_rdiv, Bit_div2x, sclk_rdiv;
+	int Multiplier, PreDiv, VCO, SysDiv, Pll_rdiv, sclk_rdiv;
+	int Bit_div2x = 4;
 	int sclk_rdiv_map[] = {1, 2, 4, 8};
 	u8 regval = 0;
 
@@ -784,8 +785,8 @@ static int ov5640_get_sysclk(void)
 	if (temp2 == 8 || temp2 == 10) {
 		Bit_div2x = temp2 / 2;
 	} else {
-		pr_err("ov5640: unsupported bit mode %d\n", temp2);
-		return -1;
+		pr_warn("ov5640: unsupported bit mode %d, default to 8\n",
+			temp2);
 	}
 
 	temp1 = ov5640_read_reg(0x3035, &regval);
