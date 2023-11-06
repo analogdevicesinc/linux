@@ -16,7 +16,7 @@ __echo_red() {
 	[ "${LOCAL_BUILD}" == "y" ] && echo $@ || echo_red $@
 }
 
-MAIN_BRANCH=${MAIN_BRANCH:-master}
+MAIN_BRANCH=${MAIN_BRANCH:-main}
 
 if [ -f "${FULL_BUILD_DIR}/env" ] && [ -z "${LOCAL_BUILD}" ]; then
 	echo_blue "Loading environment variables"
@@ -302,7 +302,7 @@ build_checkpatch() {
 
 	# __update_git_ref() does a shallow fetch with depth=50 by default to speed things
 	# up. However that could be problematic if the branch in the PR diverged from
-	# master such that we cannot find a common ancestor. In that case, the job will
+	# main/master such that we cannot find a common ancestor. In that case, the job will
 	# timeout after 60min even if the branch is able to merge (even if diverged). We
 	# could do '$GIT_FETCH_DEPTH="disable"' before calling __update_git_ref() but that
 	# would slow things a lot. Instead, let's do a treeless fetch which get's the whole

@@ -36,7 +36,7 @@ FULL_BUILD_DIR="${TRAVIS_BUILD_DIR}/${LOCAL_BUILD_DIR}"
 # Get the common stuff from libiio
 [ -f "${FULL_BUILD_DIR}/lib.sh" ] || {
 	mkdir -p "${FULL_BUILD_DIR}"
-	wget https://raw.githubusercontent.com/analogdevicesinc/libiio/master/CI/travis/lib.sh \
+	wget https://raw.githubusercontent.com/analogdevicesinc/libiio/main/CI/travis/lib.sh \
 		-O "${FULL_BUILD_DIR}/lib.sh"
 }
 
