@@ -10,11 +10,14 @@
  * Copyright (C) 2019-2020 Analog Devices Inc.
  */
 
-#include "zynqmp-zcu102-rev10-ad9081.dts"
+#include "zynqmp-zcu102-rev10-ad9081-default.dtsi"
+#include <dt-bindings/iio/frequency/hmc7044.h>
+#include <dt-bindings/iio/adc/adi,ad9081.h>
 
 &axi_ad9081_adxcvr_rx {
 	adi,sys-clk-select = <XCVR_CPLL>;
 };
+
 &spi1 {
 	status = "okay";
 
@@ -243,6 +246,7 @@
 					adi,lanes-per-device = <4>;		/* JESD L */
 					adi,samples-per-converter-per-frame = <1>; /* JESD S */
 					adi,high-density = <0>;			/* JESD HD */
+					adi,tpl-phase-adjust = <3>;
 				};
 			};
 		};
