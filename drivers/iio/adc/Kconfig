@@ -520,6 +520,18 @@ config ADRV9009
 	  ADRV9009/ADRV9008 RF Transceivers. Provides direct access
 	  via sysfs.
 
+config ADRV9025
+	tristate "Analog Devices ADRV9025/ADRV9026/ADRV9029 RF Transceiver driver"
+	depends on SPI
+	select CF_AXI_ADC
+	help
+	  Say yes here to build support for Analog Devices:
+	  ADRV9025/ADRV9026/ADRV9026 RF Transceivers. Provides direct access
+	  via sysfs.
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called adrv9025_drv.
+
 config AD6676
 	tristate "Analog Devices AD6676 Wideband IF Receiver driver"
 	depends on SPI
