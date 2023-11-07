@@ -10,8 +10,10 @@
  * Copyright (C) 2019-2020 Analog Devices Inc.
  */
 
-#include "zynqmp-zcu102-rev10-ad9081.dts"
+#include "zynqmp-zcu102-rev10-ad9081-default.dtsi"
 #include <dt-bindings/jesd204/adxcvr.h>
+#include <dt-bindings/iio/frequency/hmc7044.h>
+#include <dt-bindings/iio/adc/adi,ad9081.h>
 
 /*
  * This is an alternative example device tree which uses QPLL for both adxcvr instances.
