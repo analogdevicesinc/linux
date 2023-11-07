@@ -35,7 +35,9 @@
 // TX_JESD_S=1
 // TX_JESD_NP=12
 
-#include "zynqmp-zcu102-rev10-ad9081.dts"
+#include <dt-bindings/iio/frequency/hmc7044.h>
+#include <dt-bindings/iio/adc/adi,ad9081.h>
+#include "zynqmp-zcu102-rev10-ad9081-default.dtsi"
 
 &axi_ad9081_rx_jesd {
 	clocks = <&zynqmp_clk 71>, <&hmc7044 10>, <&axi_ad9081_adxcvr_rx 1>, <&axi_ad9081_adxcvr_rx 0>;
@@ -90,6 +92,8 @@
 		adi,vcxo-frequency = <100000000>;
 
 		adi,pll1-loop-bandwidth-hz = <200>;
+		adi,pll1-ref-prio-ctrl = <0xE1>; /* prefer CLKIN1 -> CLKIN0 -> CLKIN2 -> CLKIN3 */
+		adi,pll1-ref-autorevert-enable;
 
 		adi,pll2-output-frequency = <2900000000>;
 

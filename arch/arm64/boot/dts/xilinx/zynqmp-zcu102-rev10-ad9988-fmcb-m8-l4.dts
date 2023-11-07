@@ -10,7 +10,9 @@
  * Copyright (C) 2021 Analog Devices Inc.
  */
 
-#include "zynqmp-zcu102-rev10-ad9081.dts"
+#include "zynqmp-zcu102-rev10-ad9081-default.dtsi"
+#include <dt-bindings/iio/frequency/hmc7044.h>
+#include <dt-bindings/iio/adc/adi,ad9081.h>
 
 #define HMC7044_PLL2_FREQUENCY	2949120000
 #define AD9988_DAC_FREQUENCY	11796480000
@@ -61,6 +63,8 @@
 		adi,vcxo-frequency = <122880000>;
 
 		adi,pll1-loop-bandwidth-hz = <200>;
+		adi,pll1-ref-prio-ctrl = <0xE1>; /* prefer CLKIN1 -> CLKIN0 -> CLKIN2 -> CLKIN3 */
+		adi,pll1-ref-autorevert-enable;
 
 		adi,pll2-output-frequency = <HMC7044_PLL2_FREQUENCY>;
 
