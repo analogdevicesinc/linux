@@ -354,7 +354,8 @@ static int altr_sdram_probe(struct platform_device *pdev)
 	}
 
 	/* Arria10 has a 2nd IRQ */
-	irq2 = platform_get_irq(pdev, 1);
+	if (of_machine_is_compatible("altr,socfpga-arria10"))
+		irq2 = platform_get_irq(pdev, 1);
 
 	layers[0].type = EDAC_MC_LAYER_CHIP_SELECT;
 	layers[0].size = 1;
