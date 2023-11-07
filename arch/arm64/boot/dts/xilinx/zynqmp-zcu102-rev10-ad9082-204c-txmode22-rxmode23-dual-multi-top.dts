@@ -38,8 +38,10 @@
 // TX_JESD_S=2 \
 // TX_JESD_NP=12
 
-#include "zynqmp-zcu102-rev10-ad9081.dts"
+#include "zynqmp-zcu102-rev10-ad9081-default.dtsi"
 #include <dt-bindings/jesd204/device-states.h>
+#include <dt-bindings/iio/frequency/hmc7044.h>
+#include <dt-bindings/iio/adc/adi,ad9081.h>
 
 #define JESD204_FSM_STOP_STATES		1
 #define JESD204_SUBCLASS		1
