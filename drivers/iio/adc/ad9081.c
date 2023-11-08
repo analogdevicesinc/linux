@@ -4400,7 +4400,8 @@ static int ad9081_parse_dt(struct ad9081_phy *phy, struct device *dev)
 
 static char* ad9081_lable_writer(struct ad9081_phy *phy, const struct iio_chan_spec *chan)
 {
-	u8 cddc_num, cddc_mask, fddc_num, fddc_mask;
+	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
+	u8 adc_num, cddc_num, cddc_mask, fddc_num, fddc_mask;
 
 	ad9081_iiochan_to_fddc_cddc(phy, chan, &fddc_num, &fddc_mask, &cddc_num, &cddc_mask);
 
@@ -4412,8 +4413,21 @@ static char* ad9081_lable_writer(struct ad9081_phy *phy, const struct iio_chan_s
 
 	}
 
+	switch (conv->id) {
+	case CHIPID_AD9082:
+	case CHIPID_AD9986:
+	case CHIPID_AD9207:
+		if (cddc_num == 0 || cddc_num == 2)
+			adc_num = 0;
+		else
+			adc_num = 1;
+		break;
+	default:
+		adc_num = cddc_num;
+	}
+
 	snprintf(phy->rx_chan_labels[fddc_num], sizeof(phy->rx_chan_labels[0]),
-		"FDDC%u->CDDC%u->ADC%u", fddc_num, cddc_num, cddc_num);
+		"FDDC%u->CDDC%u->ADC%u", fddc_num, cddc_num, adc_num);
 
 	return phy->rx_chan_labels[fddc_num];
 }
