@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/temperature/adi,max30210.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices MAX30210 Low-Power I2C Digital Temperature Sensor
+
+maintainers:
+  - Daniel Matyas <daniel.matyas@analog.com>
+
+description: |
+  The MAX30210 operates from 1.7V to 2.0V supply voltage, and is a low-power,
+  high-accuracy digital temperature sensor with ±0.1°C accuracy from +20°C to
+  +50°C and ±0.15°C accuracy from -20°C to +85°C.
+  https://www.analog.com/media/en/technical-documentation/data-sheets/max30210.pdf
+
+properties:
+  compatible:
+    const: adi,max30210
+
+  reg:
+    maxItems: 1
+
+  vdd-supply:
+    description:
+      Must have values in the interval (1.7V; 5.5V) in order for the device to
+      function correctly.
+
+  adi,external-convert-enable:
+    description:
+      It can be used for both an external conversion input (CVT) and powering
+      down (PDB) the part to reduce current in between temperature conversions.
+    type: boolean
+
+  adi,ext-conv-rising-edge:
+    description:
+      It is used to set the active edge of the external conversion input to
+      rising. By default, the active edge is falling.
+    type: boolean
+
+  adi,comp-int:
+    description:
+      If present comparator mode is used. If not present interrupt mode is used
+      (default).
+    type: boolean
+
+required:
+  - compatible
+  - reg
+  - vdd-supply
+
+additionalProperties: false
+
+examples:
+  - |
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        status = "okay";
+      
+        temperature-sensor@80 {
+            compatible = "adi,max30210";
+            reg = <0x80>;
+            vdd-supply = <&reg_vdd>;
+            adi,external-convert-enable;
+            adi,external-convert-rising-edge;
+        };
+    };
+...
