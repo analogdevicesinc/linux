@@ -150,6 +150,18 @@
 		reg = <0x60>;
 		interrupt-open-drain;
 	};
+
+	/* WCPU boards SCH-54536 */
+	ms5611@77 {
+		compatible = "meas,ms5611";
+		reg = <0x77>;
+	};
+
+	icm20602@68 {
+		compatible = "invensense,icm20602";
+		reg = <0x68>;
+	};
+	/* iam20380@69 no driver yet */
 };
 
 &i2c_rpbus_15 {
@@ -179,6 +191,12 @@
 		rext = <499>;
 		interrupt-parent = <&lsio_gpio1>;
 		interrupts = <2 2>;
+	};
+
+	/* WCPU boards SCH-54536 */
+	vcnl4035@60 {
+		compatible = "vishay,vcnl4035";
+		reg = <0x60>;
 	};
 };
 
