@@ -22,6 +22,7 @@
 #include <linux/dmaengine.h>
 #include <linux/platform_device.h>
 #include <linux/of.h>
+#include <linux/units.h>
 
 #include <linux/clk.h>
 
@@ -98,6 +99,8 @@ struct axiadc_state {
 	unsigned int			max_usr_channel;
 	struct iio_chan_spec		channels[ADI_MAX_CHANNEL];
 	unsigned int			adc_calibbias[2];
+	unsigned int			adc_calibscale[2][2];
+	bool				calibrate;
 };
 
 #define CN0363_CHANNEL(_address, _type, _ch, _mod, _rb) { \
@@ -159,9 +162,40 @@ static const struct iio_enum m2k_samp_freq_available_enum = {
 	.num_items = ARRAY_SIZE(m2k_samp_freq_available),
 };
 
+static int m2k_get_calibrate(struct iio_dev *indio_dev,
+			     const struct iio_chan_spec *chan)
+{
+	struct axiadc_state *st = iio_priv(indio_dev);
+
+	return st->calibrate;
+}
+
+static int m2k_set_calibrate(struct iio_dev *indio_dev,
+			     const struct iio_chan_spec *chan, unsigned int val)
+{
+	struct axiadc_state *st = iio_priv(indio_dev);
+
+	st->calibrate = val;
+	return 0;
+}
+
+static const char * const m2k_calibrate_items[] = {
+	"false",
+	"true"
+};
+
+static const struct iio_enum m2k_calibrate_enum = {
+	.items = m2k_calibrate_items,
+	.num_items = ARRAY_SIZE(m2k_calibrate_items),
+	.set = m2k_set_calibrate,
+	.get = m2k_get_calibrate,
+};
+
 static const struct iio_chan_spec_ext_info m2k_chan_ext_info[] = {
 	IIO_ENUM_AVAILABLE("sampling_frequency", IIO_SHARED_BY_ALL,
-		&m2k_samp_freq_available_enum),
+			&m2k_samp_freq_available_enum),
+	IIO_ENUM_AVAILABLE("calibrate", IIO_SHARED_BY_ALL, &m2k_calibrate_enum),
+	IIO_ENUM("calibrate", IIO_SHARED_BY_ALL, &m2k_calibrate_enum),
 	{ },
 };
 
@@ -471,6 +505,12 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 		*val = st->oversampling_ratio;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_CALIBSCALE:
+		if (st->calibrate) {
+			*val = st->adc_calibscale[chan->channel][0];
+			*val2 = st->adc_calibscale[chan->channel][1];
+			return IIO_VAL_INT_PLUS_MICRO;
+		}
+
 		if (!st->slave_regs)
 			return -EINVAL;
 		reg = axiadc_slave_read(st,
@@ -504,6 +544,11 @@ static int axiadc_m2k_special_probe(struct platform_device *pdev)
 		val = cf_axi_dds_to_signed_mag_fmt(1, 0);
 		axiadc_slave_write(st, ADI_REG_CORRECTION_COEFFICIENT(0), val);
 		axiadc_slave_write(st, ADI_REG_CORRECTION_COEFFICIENT(1), val);
+
+		st->adc_calibscale[0][0] = 1;
+		st->adc_calibscale[1][0] = 1;
+		st->adc_calibscale[0][1] = 0;
+		st->adc_calibscale[1][1] = 0;
 	}
 
 	for (i = 0; i < indio_dev->num_channels; i++) {
@@ -547,6 +592,12 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		axiadc_slave_write(st, 0x40, val - 1);
 		return 0;
 	case IIO_CHAN_INFO_CALIBSCALE:
+		if (st->calibrate) {
+			st->adc_calibscale[chan->channel][0] = val;
+			st->adc_calibscale[chan->channel][1] = val2;
+			return 0;
+		}
+
 		if (!st->slave_regs)
 			return -EINVAL;
 
