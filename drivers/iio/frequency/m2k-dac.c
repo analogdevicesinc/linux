@@ -30,13 +30,29 @@
 #define M2K_DAC_REG_CORRECTION_ENABLE 0x54
 #define M2K_DAC_REG_CORRECTION_COEFFICIENT(x) (0x58 + (x) * 4)
 #define M2K_DAC_REG_INSTRUMENT_TRIGGER 0x60
+#define M2K_DAC_REG_RAW_PATTERN 0x64
 
 #define M2K_DAC_DMA_SYNC_BIT	BIT(0)
 #define M2K_DAC_SYNC_START_BIT	BIT(1)
+#define M2K_DAC_FLAGS_DMA_FLUSH_BIT		BIT(3)
+#define M2K_DAC_FLAGS_RAW_ENABLE_CHAN_A_BIT	BIT(4)
+#define M2K_DAC_FLAGS_RAW_ENABLE_CHAN_B_BIT	BIT(5)
+#define M2K_DAC_FLAGS_RAW_IDLE_BIT(chan_num)	(!(chan_num) ? M2K_DAC_FLAGS_RAW_ENABLE_CHAN_A_BIT :\
+							     M2K_DAC_FLAGS_RAW_ENABLE_CHAN_B_BIT)
+
+#define M2K_DAC_FLAGS_DMA_FLUSH(x)		FIELD_PREP(M2K_DAC_FLAGS_DMA_FLUSH_BIT, x)
+#define M2K_DAC_FLAGS_RAW_IDLE(x, chan_num)	(!(chan_num) ? FIELD_PREP(M2K_DAC_FLAGS_RAW_ENABLE_CHAN_A_BIT, x) :\
+							     FIELD_PREP(M2K_DAC_FLAGS_RAW_ENABLE_CHAN_B_BIT, x))
 
 #define M2K_DAC_TRIGGER_CONDITION_MASK(x)	(0x155 << x)
 #define M2K_DAC_TRIGGER_SOURCE_MASK		GENMASK(19, 16)
 #define M2K_DAC_TRIGGER_EXT_SOURCE		GENMASK(17, 16)
+#define M2K_DAC_REG_RAW_PATTERN_CHAN_A_MASK	GENMASK(15, 0)
+#define M2K_DAC_REG_RAW_PATTERN_CHAN_B_MASK	GENMASK(31, 16)
+#define M2K_DAC_RAW_PATTERN_MASK(chan_num)	(!(chan_num) ? M2K_DAC_REG_RAW_PATTERN_CHAN_A_MASK :\
+							     M2K_DAC_REG_RAW_PATTERN_CHAN_B_MASK)
+#define M2K_DAC_RAW_PATTERN(x, chan_num)	(!(chan_num) ? FIELD_PREP(M2K_DAC_REG_RAW_PATTERN_CHAN_A_MASK, x) :\
+							     FIELD_PREP(M2K_DAC_REG_RAW_PATTERN_CHAN_B_MASK, x))
 
 struct m2k_dac {
 	void __iomem *regs;
@@ -52,6 +68,7 @@ struct m2k_dac {
 struct m2k_dac_ch {
 	struct m2k_dac *dac;
 	unsigned int num;
+	unsigned char raw_idle_enable;
 };
 
 static unsigned int cf_axi_dds_to_signed_mag_fmt(int val, int val2)
@@ -122,6 +139,23 @@ static int cf_axi_dds_signed_mag_fmt_to_iio(unsigned int val, int *r_val,
 	return IIO_VAL_INT_PLUS_MICRO;
 }
 
+static int m2k_dac_reg_update(struct iio_dev *indio_dev, unsigned int reg,
+			      unsigned int writeval, const unsigned int mask)
+{
+	struct m2k_dac_ch *ch = iio_priv(indio_dev);
+	struct m2k_dac *m2k_dac = ch->dac;
+	unsigned int regval;
+
+	reg &= 0xffff;
+
+	regval = ioread32(m2k_dac->regs + reg);
+	regval &= ~mask;
+	writeval &= mask;
+	iowrite32(writeval | regval, m2k_dac->regs + reg);
+
+	return 0;
+}
+
 static int m2k_dac_ch_read_raw(struct iio_dev *indio_dev,
 	struct iio_chan_spec const *chan, int *val, int *val2, long info)
 {
@@ -133,6 +167,15 @@ static int m2k_dac_ch_read_raw(struct iio_dev *indio_dev,
 	mutex_lock(&m2k_dac->lock);
 
 	switch (info) {
+	case IIO_CHAN_INFO_RAW:
+		if (ch->num == 0)
+			*val = FIELD_GET(M2K_DAC_REG_RAW_PATTERN_CHAN_A_MASK,
+					 ioread32(m2k_dac->regs + M2K_DAC_REG_RAW_PATTERN));
+		else
+			*val = FIELD_GET(M2K_DAC_REG_RAW_PATTERN_CHAN_B_MASK,
+					 ioread32(m2k_dac->regs + M2K_DAC_REG_RAW_PATTERN));
+		ret = IIO_VAL_INT;
+		break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		*val = clk_get_rate(m2k_dac->clk);
 		reg = ioread32(m2k_dac->regs + M2K_DAC_REG_FILTER(ch->num));
@@ -188,6 +231,11 @@ static int m2k_dac_ch_write_raw(struct iio_dev *indio_dev,
 	mutex_lock(&m2k_dac->lock);
 
 	switch (info) {
+	case IIO_CHAN_INFO_RAW:
+		m2k_dac_reg_update(indio_dev, M2K_DAC_REG_RAW_PATTERN,
+				   M2K_DAC_RAW_PATTERN(val, ch->num),
+				   M2K_DAC_RAW_PATTERN_MASK(ch->num));
+		break;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		rate = clk_get_rate(m2k_dac->clk);
 		if (val >= rate)
@@ -245,23 +293,6 @@ static int m2k_dac_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 		iowrite32(writeval, m2k_dac->regs + reg);
 	else
 		*readval = ioread32(m2k_dac->regs + reg);
-
-	return 0;
-}
-
-static int m2k_dac_reg_update(struct iio_dev *indio_dev, unsigned int reg,
-			      unsigned int writeval, const unsigned int mask)
-{
-	struct m2k_dac_ch *ch = iio_priv(indio_dev);
-	struct m2k_dac *m2k_dac = ch->dac;
-	unsigned int regval;
-
-	reg &= 0xffff;
-
-	regval = ioread32(m2k_dac->regs + reg);
-	regval &= ~mask;
-	writeval &= mask;
-	iowrite32(writeval | regval, m2k_dac->regs + reg);
 
 	return 0;
 }
@@ -477,6 +508,47 @@ static const struct iio_enum m2k_dac_trig_src_enum = {
 	.get = m2k_dac_get_trig_src,
 };
 
+static int m2k_dac_get_raw_enable(struct iio_dev *indio_dev,
+				  const struct iio_chan_spec *chan)
+{
+	struct m2k_dac_ch *ch = iio_priv(indio_dev);
+
+	return ch->raw_idle_enable;
+}
+
+static int m2k_dac_set_raw_enable(struct iio_dev *indio_dev,
+				  const struct iio_chan_spec *chan, unsigned int val)
+{
+	struct m2k_dac_ch *ch = iio_priv(indio_dev);
+	int ret;
+
+	ch->raw_idle_enable = val;
+
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return 0;
+
+	m2k_dac_reg_update(indio_dev, M2K_DAC_REG_FLAGS,
+			   M2K_DAC_FLAGS_RAW_IDLE(val, ch->num),
+			   M2K_DAC_FLAGS_RAW_IDLE_BIT(ch->num));
+
+	iio_device_release_direct_mode(indio_dev);
+
+	return 0;
+}
+
+static const char * const m2k_dac_raw_enable_items[] = {
+	"disabled",
+	"enabled",
+};
+
+static const struct iio_enum m2k_dac_raw_enable_enum = {
+	.items = m2k_dac_raw_enable_items,
+	.num_items = ARRAY_SIZE(m2k_dac_raw_enable_items),
+	.set = m2k_dac_set_raw_enable,
+	.get = m2k_dac_get_raw_enable,
+};
+
 static const struct iio_chan_spec_ext_info m2k_dac_ext_info[] = {
 	IIO_ENUM_AVAILABLE("sampling_frequency", IIO_SHARED_BY_ALL,
 			   &m2k_dac_samp_freq_available_enum),
@@ -486,6 +558,8 @@ static const struct iio_chan_spec_ext_info m2k_dac_ext_info[] = {
 		 &m2k_dac_trig_condition_enum),
 	IIO_ENUM_AVAILABLE("trigger_condition", IIO_SHARED_BY_ALL,
 			   &m2k_dac_trig_condition_enum),
+	IIO_ENUM_AVAILABLE("raw_enable", IIO_SEPARATE, &m2k_dac_raw_enable_enum),
+	IIO_ENUM("raw_enable", IIO_SEPARATE, &m2k_dac_raw_enable_enum),
 	{ },
 };
 
@@ -493,6 +567,7 @@ static const struct iio_chan_spec m2k_dac_channel_info = {
 	.type = IIO_VOLTAGE,
 	.indexed = 1,
 	.channel = 0,
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ) |
 		BIT(IIO_CHAN_INFO_OVERSAMPLING_RATIO) |
 		BIT(IIO_CHAN_INFO_CALIBSCALE),
@@ -517,8 +592,28 @@ static int m2k_dac_buffer_preenable(struct iio_dev *indio_dev)
 		m2k_dac_reg_update(indio_dev, M2K_DAC_REG_FLAGS, 0,
 				   M2K_DAC_SYNC_START_BIT);
 	}
+	m2k_dac_reg_update(indio_dev, M2K_DAC_REG_FLAGS,
+			   M2K_DAC_FLAGS_RAW_IDLE(0, ch->num), M2K_DAC_FLAGS_RAW_IDLE_BIT(ch->num));
+	return 0;
+}
 
-	cf_axi_dds_datasel(m2k_dac->dds, ch->num, DATA_SEL_DMA);
+/*
+ * The raw flag must be enabled prior to the destruction of the iio_buffer due
+ *  to the specifics of the HDL DMA implementation. If the flag is enabled
+ *  post-destruction, it could result in improper data flushing by the DMA.
+ *
+ * Consequently, upon the next buffer enablement, a spike will occur, displaying
+ *  the last sample from the previous buffer.
+ */
+static int m2k_dac_buffer_predisable(struct iio_dev *indio_dev)
+{
+	struct m2k_dac_ch *ch = iio_priv(indio_dev);
+
+	if (ch->raw_idle_enable)
+		m2k_dac_reg_update(indio_dev, M2K_DAC_REG_FLAGS,
+				   M2K_DAC_FLAGS_RAW_IDLE(1, ch->num),
+				   M2K_DAC_FLAGS_RAW_IDLE_BIT(ch->num));
+
 	return 0;
 }
 
@@ -533,12 +628,12 @@ static int m2k_dac_buffer_postdisable(struct iio_dev *indio_dev)
 				   M2K_DAC_SYNC_START_BIT);
 	}
 
-	cf_axi_dds_datasel(m2k_dac->dds, ch->num, DATA_SEL_DDS);
 	return 0;
 }
 
 static const struct iio_buffer_setup_ops m2k_dac_buffer_setup_ops = {
 	.preenable = m2k_dac_buffer_preenable,
+	.predisable = m2k_dac_buffer_predisable,
 	.postdisable = m2k_dac_buffer_postdisable,
 };
 
@@ -572,6 +667,7 @@ static int m2k_dac_alloc_channel(struct platform_device *pdev,
 	ch = iio_priv(indio_dev);
 	ch->num = num;
 	ch->dac = m2k_dac;
+	ch->raw_idle_enable = 0;
 
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->name = m2k_dac_ch_dev_names[num];
@@ -689,6 +785,9 @@ static int m2k_dac_probe(struct platform_device *pdev)
 		return ret;
 
 	platform_set_drvdata(pdev, m2k_dac);
+
+	cf_axi_dds_datasel(m2k_dac->dds, 0, DATA_SEL_DMA);
+	cf_axi_dds_datasel(m2k_dac->dds, 1, DATA_SEL_DMA);
 
 	ret = devm_iio_device_register(&pdev->dev, m2k_dac->ch_indio_dev[0]);
 	if (ret)
