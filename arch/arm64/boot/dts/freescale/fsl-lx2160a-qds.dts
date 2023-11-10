@@ -7,11 +7,6 @@
 /dts-v1/;
 
 #include "fsl-lx2160a.dtsi"
-#include "fsl-lx2160a-sd1-19-lane-d-c-b-a-backplane.dtsi"
-#include "fsl-lx2160a-sd1-19-lane-e-backplane.dtsi"
-#include "fsl-lx2160a-sd1-19-lane-f-backplane.dtsi"
-#include "fsl-lx2160a-sd1-19-lane-g-backplane.dtsi"
-#include "fsl-lx2160a-sd1-19-lane-h-backplane.dtsi"
 
 / {
 	model = "NXP Layerscape LX2160AQDS";
