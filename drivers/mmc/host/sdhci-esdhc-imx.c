@@ -231,6 +231,7 @@ enum cd_types {
 struct esdhc_platform_data {
 	enum wp_types wp_type;
 	enum cd_types cd_type;
+	bool cd_gpio_wakeup;
 	int max_bus_width;
 	unsigned int delay_line;
 	unsigned int tuning_step;       /* The delay cell steps in tuning procedure */
@@ -1649,6 +1650,10 @@ sdhci_esdhc_imx_probe_dt(struct platform_device *pdev,
 	if (of_property_read_bool(np, "fsl,wp-controller"))
 		boarddata->wp_type = ESDHC_WP_CONTROLLER;
 
+	if (of_property_read_bool(np, "fsl,cd-gpio-wakeup-disable"))
+		boarddata->cd_gpio_wakeup = false;
+	else
+		boarddata->cd_gpio_wakeup = true;
 	/*
 	 * If we have this property, then activate WP check.
 	 * Retrieveing and requesting the actual WP GPIO will happen
@@ -1926,7 +1931,8 @@ static int sdhci_esdhc_suspend(struct device *dev)
 	if (ret)
 		return ret;
 
-	ret = mmc_gpio_set_cd_wake(host->mmc, true);
+	if (imx_data->boarddata.cd_gpio_wakeup)
+		ret = mmc_gpio_set_cd_wake(host->mmc, true);
 
 	pm_runtime_disable(dev);
 	pm_runtime_set_suspended(dev);
@@ -1937,6 +1943,8 @@ static int sdhci_esdhc_suspend(struct device *dev)
 static int sdhci_esdhc_resume(struct device *dev)
 {
 	struct sdhci_host *host = dev_get_drvdata(dev);
+	struct sdhci_pltfm_host *pltfm_host = sdhci_priv(host);
+	struct pltfm_imx_data *imx_data = sdhci_pltfm_priv(pltfm_host);
 	int ret;
 
 	pm_runtime_set_active(dev);
@@ -1955,8 +1963,10 @@ static int sdhci_esdhc_resume(struct device *dev)
 
 	if (host->mmc->caps2 & MMC_CAP2_CQE)
 		ret = cqhci_resume(host->mmc);
+	if (ret)
+		return ret;
 
-	if (!ret)
+	if (imx_data->boarddata.cd_gpio_wakeup)
 		ret = mmc_gpio_set_cd_wake(host->mmc, false);
 
 	pm_runtime_mark_last_busy(dev);
