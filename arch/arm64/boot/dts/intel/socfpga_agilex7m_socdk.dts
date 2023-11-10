@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+// Copyright (c) 2023 Intel Corporation
+
+#include "socfpga_agilex_socdk.dts"
+
+/ {
+	model = "SoCFPGA Agilex7-M SoCDK";
+	compatible = "intel,socfpga-agilex-socdk", "intel,socfpga-agilex";
+};
+
+&qspi {
+	status = "disabled";
+};
