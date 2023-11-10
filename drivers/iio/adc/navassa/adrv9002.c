@@ -716,7 +716,7 @@ static int adrv9002_init_cals_set(struct adrv9002_rf_phy *phy, const char *buf)
 
 static int adrv9002_fh_set(const struct adrv9002_rf_phy *phy, const char *buf, u64 address)
 {
-	int tbl, ret;
+	int ret;
 
 	if (!phy->curr_profile->sysConfig.fhModeOn) {
 		dev_err(&phy->spi->dev, "Frequency hopping not enabled\n");
@@ -735,12 +735,12 @@ static int adrv9002_fh_set(const struct adrv9002_rf_phy *phy, const char *buf, u
 	case ADRV9002_HOP_2_TABLE_SEL:
 		ret = __sysfs_match_string(adrv9002_hop_table,
 					   ARRAY_SIZE(adrv9002_hop_table) - 1, buf);
-		if (ret) {
+		if (ret < 0) {
 			dev_err(&phy->spi->dev, "Unknown table %s\n", buf);
 			return ret;
 		}
 
-		return api_call(phy, adi_adrv9001_fh_HopTable_Set, address, tbl);
+		return api_call(phy, adi_adrv9001_fh_HopTable_Set, address, ret);
 	case ADRV9002_HOP_1_TRIGGER:
 		return api_call(phy, adi_adrv9001_fh_Hop, ADI_ADRV9001_FH_HOP_SIGNAL_1);
 	case ADRV9002_HOP_2_TRIGGER:
