@@ -179,7 +179,7 @@ int __adrv9002_dev_err(const struct adrv9002_rf_phy *phy, const char *function, 
 	int ret;
 
 	dev_err(&phy->spi->dev, "%s, %d: failed with \"%s\" (%d)\n", function, line,
-		phy->adrv9001->common.error.errormessage ?
+		phy->adrv9001->common.error.errormessage[0] != '\0' ?
 		phy->adrv9001->common.error.errormessage : "",
 		phy->adrv9001->common.error.errCode);
 
