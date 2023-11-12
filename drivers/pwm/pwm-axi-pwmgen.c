@@ -21,11 +21,11 @@
 #define AXI_PWMGEN_REG_CONFIG		0x10
 #define AXI_PWMGEN_REG_NPWM		0x14
 #define AXI_PWMGEN_CH_PERIOD_BASE	0x40
-#define AXI_PWMGEN_CH_DUTY_BASE		0x44
-#define AXI_PWMGEN_CH_PHASE_BASE	0x48
-#define AXI_PWMGEN_CHX_PERIOD(ch)	(AXI_PWMGEN_CH_PERIOD_BASE + (12 * (ch)))
-#define AXI_PWMGEN_CHX_DUTY(ch)		(AXI_PWMGEN_CH_DUTY_BASE + (12 * (ch)))
-#define AXI_PWMGEN_CHX_PHASE(ch)	(AXI_PWMGEN_CH_PHASE_BASE + (12 * (ch)))
+#define AXI_PWMGEN_CH_DUTY_BASE		0x80
+#define AXI_PWMGEN_CH_PHASE_BASE	0xC0
+#define AXI_PWMGEN_CHX_PERIOD(ch)	(AXI_PWMGEN_CH_PERIOD_BASE + (4 * (ch)))
+#define AXI_PWMGEN_CHX_DUTY(ch)		(AXI_PWMGEN_CH_DUTY_BASE + (4 * (ch)))
+#define AXI_PWMGEN_CHX_PHASE(ch)	(AXI_PWMGEN_CH_PHASE_BASE + (4 * (ch)))
 #define AXI_PWMGEN_TEST_DATA		0x5A0F0081
 #define AXI_PWMGEN_LOAD_CONIG		BIT(1)
 #define AXI_PWMGEN_RESET		BIT(0)
@@ -196,7 +196,7 @@ static int axi_pwmgen_setup(struct pwm_chip *chip)
 	}
 
 	pwm->chip.npwm = axi_pwmgen_read(pwm, AXI_PWMGEN_REG_NPWM);
-	if (pwm->chip.npwm > 4)
+	if (pwm->chip.npwm > 16)
 		return -EINVAL;
 
 	/* Disable all the outputs */
