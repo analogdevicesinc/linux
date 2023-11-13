@@ -7811,7 +7811,7 @@ static ssize_t ad9361_phy_tx_read(struct iio_dev *indio_dev,
 {
 	struct ad9361_rf_phy *phy = iio_priv(indio_dev);
 	u8 reg_val_buf[3];
-	u32 val;
+	u32 val = 0;
 	int ret;
 
 	mutex_lock(&phy->lock);
