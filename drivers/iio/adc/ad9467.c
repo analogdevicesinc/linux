@@ -992,10 +992,9 @@ static int ad9467_get_scale(struct axiadc_converter *conv, int *val, int *val2)
 		vref_mask = AD9467_REG_VREF_MASK;
 		break;
 	case CHIPID_AD9643:
-		vref_mask = AD9643_REG_VREF_MASK;
-		break;
 	case CHIPID_AD9250:
 	case CHIPID_AD9683:
+		vref_mask = AD9643_REG_VREF_MASK;
 		break;
 	case CHIPID_AD9265:
 		vref_mask = AD9265_REG_VREF_MASK;
