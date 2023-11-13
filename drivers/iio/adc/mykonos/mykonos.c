@@ -533,7 +533,7 @@ mykonosErr_t MYKONOS_verifyDeviceDataStructure(mykonosDevice_t *device)
         }
         else
         {
-            if ((device->obsRx->framer == NULL))
+            if (device->obsRx->framer == NULL)
             {
                 CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_CHECKDEVSTRUCT_OBSRXFRAMER,
                         getMykonosErrorMessage(MYKONOS_ERR_CHECKDEVSTRUCT_OBSRXFRAMER));
@@ -2029,7 +2029,7 @@ mykonosErr_t MYKONOS_initDigitalClocks(mykonosDevice_t *device)
     { /* Settings designed for 46.08 MHz PLL REFCLK */
         vcoCalOffset   = (vcoIndex == 11 || (vcoIndex > 35 && vcoIndex <= 37) || (vcoIndex > 29 && vcoIndex <= 34)|| vcoIndex == 40 || vcoIndex == 44) ?
                          14 :(vcoIndex <= 10 || vcoIndex > 44) ?
-                         15 : ((vcoIndex > 12 && vcoIndex <= 22) || (vcoIndex > 23 && vcoIndex <= 23) || (vcoIndex > 26 && vcoIndex <= 29) || (vcoIndex > 23 && vcoIndex <= 25) || vcoIndex == 35) ?
+                         15 : ((vcoIndex > 12 && vcoIndex <= 25) || (vcoIndex > 26 && vcoIndex <= 29) || vcoIndex == 35) ?
                          12 : 13;
 
         loopFilterIcp = icp_46p08[vcoIndex - 1];
@@ -2056,7 +2056,7 @@ mykonosErr_t MYKONOS_initDigitalClocks(mykonosDevice_t *device)
     { /* Settings designed for 76.8 MHz PLL REFCLK */
         vcoCalOffset   = (vcoIndex == 11 || (vcoIndex > 35 && vcoIndex <= 37) || (vcoIndex > 29 && vcoIndex <= 34)|| vcoIndex == 40 || vcoIndex == 44) ?
                          14 :(vcoIndex <= 10 || vcoIndex > 44) ?
-                         15 : ((vcoIndex > 12 && vcoIndex <= 22) || (vcoIndex > 23 && vcoIndex <= 23) || (vcoIndex > 26 && vcoIndex <= 29) || (vcoIndex > 23 && vcoIndex <= 25) || vcoIndex == 35) ?
+                         15 : ((vcoIndex > 12 && vcoIndex <= 25) || (vcoIndex > 26 && vcoIndex <= 29) || vcoIndex == 35) ?
                          12 : 13;
 
         loopFilterIcp  = icp_76p8[vcoIndex-1];
@@ -16910,7 +16910,7 @@ static mykonosErr_t MYKONOS_calculateDigitalClocks(mykonosDevice_t *device, uint
         return MYKONOS_ERR_CALCDIGCLK_NULLDEV_PARAM;
     }
 
-    if ((device->clocks == NULL))
+    if (device->clocks == NULL)
     {
         CMB_writeToLog(ADIHAL_LOG_ERROR, device->spiSettings->chipSelectIndex, MYKONOS_ERR_CALCDIGCLK_NULL_CLKSTRUCT,
                 getMykonosErrorMessage(MYKONOS_ERR_CALCDIGCLK_NULL_CLKSTRUCT));
