@@ -647,13 +647,13 @@ static ssize_t adf4371_read(struct iio_dev *indio_dev,
 	struct adf4371_state *st = iio_priv(indio_dev);
 	unsigned long long val = 0;
 	unsigned int readval, reg, bit;
-	int muxout_mode, ret;
+	int muxout_mode, ret = 0;
 
 	switch ((u32)private) {
 	case ADF4371_FREQ:
 		val = adf4371_pll_fract_n_get_rate(st, chan->channel);
 		muxout_mode = adf4371_get_muxout_mode(indio_dev, chan);
-		if (st->spi_3wire_en && (muxout_mode == ADF4371_DIG_LOCK)) {
+		if (st->spi_3wire_en && muxout_mode == ADF4371_DIG_LOCK) {
 			ret = regmap_read(st->regmap, ADF4371_REG(0x7C), &readval);
 			if (ret < 0)
 				break;
