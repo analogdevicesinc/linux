@@ -3428,7 +3428,8 @@ static int ad9081_parse_fir(struct ad9081_phy *phy,
 		}
 		if (q_mode && q) {
 			ret = ad9081_adc_pfir_prog(phy, ctl_pages, coeff_pages,
-				q_mode, REAL_Q_LOAD, phy->coeffs_q, q);
+				(adi_ad9081_adc_pfir_i_mode_e)q_mode, REAL_Q_LOAD,
+				phy->coeffs_q, q);
 
 			if (ret)
 				goto out;
