@@ -1711,7 +1711,7 @@ static long iio_buffer_ioctl_wrapper(struct file *filp, unsigned int cmd,
 	struct iio_dev_buffer_pair *ib = filp->private_data;
 	struct iio_dev *indio_dev = ib->indio_dev;
 	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
-	int ret;
+	int ret = -ENODEV;
 
 	mutex_lock(&iio_dev_opaque->info_exist_lock);
 
