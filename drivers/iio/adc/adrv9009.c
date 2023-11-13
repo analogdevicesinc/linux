@@ -1076,7 +1076,8 @@ static int adrv9009_do_setup(struct adrv9009_rf_phy *phy)
 	}
 
 	ret = TALISE_setRxTxEnable(phy->talDevice,
-				   has_rx_and_en(phy) ? phy->talInit.rx.rxChannels : 0,
+				   has_rx_and_en(phy) ?
+					(taliseRxORxChannels_t)phy->talInit.rx.rxChannels : 0,
 				   has_tx_and_en(phy) ? phy->talInit.tx.txChannels : 0);
 	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev, "%s:%d (ret %d)", __func__, __LINE__, ret);
@@ -5489,8 +5490,6 @@ static irqreturn_t adrv9009_irq_handler(int irq, void *p)
 	case TALACT_ERR_REDUCE_TXSAMPLE_PWR:
 		TALISE_clearPaProtectErrorFlags(phy->talDevice);
 		msleep(500);
-	default:
-		break;
 	}
 
 	return IRQ_HANDLED;
@@ -6270,7 +6269,7 @@ static int adrv9009_jesd204_post_running_stage(struct jesd204_dev *jdev,
 		return -EFAULT;
 	}
 	ret = TALISE_setRxTxEnable(phy->talDevice,
-		has_rx_and_en(phy) ? phy->talInit.rx.rxChannels : 0,
+		has_rx_and_en(phy) ? (taliseRxORxChannels_t)phy->talInit.rx.rxChannels : 0,
 		has_tx_and_en(phy) ? phy->talInit.tx.txChannels : 0);
 	if (ret != TALACT_NO_ACTION) {
 		dev_err(&phy->spi->dev,
