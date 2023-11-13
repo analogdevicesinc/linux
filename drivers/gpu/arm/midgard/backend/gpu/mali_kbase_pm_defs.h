@@ -358,6 +358,11 @@ union kbase_pm_policy_data {
  *                       mode for the saving the HW state before power down.
  * @db_mirror_interrupt_enabled: Flag tracking if the Doorbell mirror interrupt
  *                               is enabled or not.
+ * @l2_force_off_after_mcu_halt: Flag to indicate that L2 cache power down is
+ *				 must after performing the MCU halt. Flag is set
+ *				 immediately after the MCU halt and cleared
+ *				 after the L2 cache power down. MCU can't be
+ *				 re-enabled whilst the flag is set.
  * @in_reset: True if a GPU is resetting and normal power manager operation is
  *            suspended
  * @partial_shaderoff: True if we want to partial power off shader cores,
@@ -475,6 +480,8 @@ struct kbase_pm_backend_data {
 	bool gpu_wakeup_override;
 	bool db_mirror_interrupt_enabled;
 #endif
+
+	bool l2_force_off_after_mcu_halt;
 #endif
 	bool l2_desired;
 	bool l2_always_on;

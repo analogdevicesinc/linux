@@ -25,7 +25,10 @@
 #include <mali_kbase_ctx_sched.h>
 #include "device/mali_kbase_device.h"
 #include "mali_kbase_csf.h"
-#include "mali_kbase_csf_sync_debugfs.h"
+#include "mali_kbase_csf_cpu_queue.h"
+#include "mali_kbase_csf_csg.h"
+#include "mali_kbase_csf_sync.h"
+#include "mali_kbase_csf_util.h"
 #include <linux/export.h>
 #include <linux/version_compat_defs.h>
 
@@ -78,9 +81,6 @@ static int kbase_kcpu_map_import_prepare(struct kbase_kcpu_command_queue *kcpu_q
 		 * on the physical pages tracking object. When the last
 		 * reference to the tracking object is dropped, the pages
 		 * would be unpinned if they weren't unpinned before.
-		 *
-		 * It is possible that the imported buffer has already
-		 * acquired resources: in that case, there's nothing to do.
 		 */
 		switch (reg->gpu_alloc->imported.user_buf.state) {
 		case KBASE_USER_BUF_STATE_EMPTY: {
@@ -1555,7 +1555,6 @@ static void fence_signal_timeout_start(struct kbase_kcpu_command_queue *kcpu_que
 		mod_timer(&kcpu_queue->fence_signal_timeout, jiffies + msecs_to_jiffies(wait_ms));
 }
 
-#if IS_ENABLED(CONFIG_MALI_FENCE_TIMEOUT_RECOVERY)
 static void
 kbase_kcpu_command_fence_force_signaled_set(struct kbase_kcpu_command_fence_info *fence_info,
 					    bool has_force_signaled)
@@ -1673,17 +1672,10 @@ static void kcpu_force_signal_fence(struct kbase_kcpu_command_queue *kcpu_queue)
 
 static void kcpu_queue_force_fence_signal(struct kbase_kcpu_command_queue *kcpu_queue)
 {
-	struct kbase_context *const kctx = kcpu_queue->kctx;
-	char buff[] = "surfaceflinger";
-
-	/* Force signal unsignaled fence expect surfaceflinger */
-	if (memcmp(kctx->comm, buff, sizeof(buff))) {
-		mutex_lock(&kcpu_queue->lock);
-		kcpu_force_signal_fence(kcpu_queue);
-		mutex_unlock(&kcpu_queue->lock);
-	}
+	mutex_lock(&kcpu_queue->lock);
+	kcpu_force_signal_fence(kcpu_queue);
+	mutex_unlock(&kcpu_queue->lock);
 }
-#endif
 
 /**
  * fence_signal_timeout_cb() - Timeout callback function for fence-signal-wait
@@ -1823,9 +1815,7 @@ static int kbasep_kcpu_fence_signal_init(struct kbase_kcpu_command_queue *kcpu_q
 
 	current_command->type = BASE_KCPU_COMMAND_TYPE_FENCE_SIGNAL;
 	current_command->info.fence.fence = fence_out;
-#if IS_ENABLED(CONFIG_MALI_FENCE_TIMEOUT_RECOVERY)
 	kbase_kcpu_command_fence_force_signaled_set(&current_command->info.fence, false);
-#endif
 	return 0;
 
 fd_flags_fail:
@@ -1906,7 +1896,8 @@ int kbase_kcpu_fence_signal_init(struct kbase_kcpu_command_queue *kcpu_queue,
 KBASE_EXPORT_TEST_API(kbase_kcpu_fence_signal_init);
 #endif /* CONFIG_SYNC_FILE */
 
-static void kcpu_queue_dump(struct kbase_kcpu_command_queue *queue)
+static void kcpu_fence_timeout_dump(struct kbase_kcpu_command_queue *queue,
+				    struct kbasep_printer *kbpr)
 {
 	struct kbase_context *kctx = queue->kctx;
 	struct kbase_kcpu_command *cmd;
@@ -1960,35 +1951,41 @@ static void kcpu_queue_dump(struct kbase_kcpu_command_queue *queue)
 
 	kbase_sync_fence_info_get(fence, &info);
 
-	dev_warn(kctx->kbdev->dev, "------------------------------------------------\n");
-	dev_warn(kctx->kbdev->dev, "KCPU Fence signal timeout detected for ctx:%d_%d\n", kctx->tgid,
-		 kctx->id);
-	dev_warn(kctx->kbdev->dev, "------------------------------------------------\n");
-	dev_warn(kctx->kbdev->dev, "Kcpu queue:%u still waiting for fence[%pK] context#seqno:%s\n",
-		 queue->id, fence, info.name);
-	dev_warn(kctx->kbdev->dev, "Fence metadata timeline name: %s\n",
-		 kcpu_fence->metadata->timeline_name);
+	kbasep_print(kbpr, "------------------------------------------------\n");
+	kbasep_print(kbpr, "KCPU Fence signal timeout detected for ctx:%d_%d\n", kctx->tgid,
+		     kctx->id);
+	kbasep_print(kbpr, "------------------------------------------------\n");
+	kbasep_print(kbpr, "Kcpu queue:%u still waiting for fence[%pK] context#seqno:%s\n",
+		     queue->id, fence, info.name);
+	kbasep_print(kbpr, "Fence metadata timeline name: %s\n",
+		     kcpu_fence->metadata->timeline_name);
 
 	kbase_fence_put(fence);
 	mutex_unlock(&queue->lock);
 
-	mutex_lock(&kctx->csf.kcpu_queues.lock);
-	kbasep_csf_sync_kcpu_dump_locked(kctx, NULL);
-	mutex_unlock(&kctx->csf.kcpu_queues.lock);
+	kbasep_csf_csg_active_dump_print(kctx->kbdev, kbpr);
+	kbasep_csf_csg_dump_print(kctx, kbpr);
+	kbasep_csf_sync_gpu_dump_print(kctx, kbpr);
+	kbasep_csf_sync_kcpu_dump_print(kctx, kbpr);
+	kbasep_csf_cpu_queue_dump_print(kctx, kbpr);
 
-	dev_warn(kctx->kbdev->dev, "-----------------------------------------------\n");
+	kbasep_print(kbpr, "-----------------------------------------------\n");
 }
 
 static void kcpu_queue_timeout_worker(struct work_struct *data)
 {
 	struct kbase_kcpu_command_queue *queue =
 		container_of(data, struct kbase_kcpu_command_queue, timeout_work);
+	struct kbasep_printer *kbpr = NULL;
 
-	kcpu_queue_dump(queue);
+	kbpr = kbasep_printer_buffer_init(queue->kctx->kbdev, KBASEP_PRINT_TYPE_DEV_WARN);
+	if (kbpr) {
+		kcpu_fence_timeout_dump(queue, kbpr);
+		kbasep_printer_buffer_flush(kbpr);
+		kbasep_printer_term(kbpr);
+	}
 
-#if IS_ENABLED(CONFIG_MALI_FENCE_TIMEOUT_RECOVERY)
 	kcpu_queue_force_fence_signal(queue);
-#endif
 }
 
 static void kcpu_queue_process_worker(struct work_struct *data)

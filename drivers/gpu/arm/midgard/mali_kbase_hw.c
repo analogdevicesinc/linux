@@ -33,7 +33,7 @@ void kbase_hw_set_features_mask(struct kbase_device *kbdev)
 {
 	const enum base_hw_feature *features;
 
-	switch (kbdev->gpu_props.gpu_id.product_id) {
+	switch (kbdev->gpu_props.gpu_id.product_model) {
 	case GPU_ID_PRODUCT_TMIX:
 		features = base_hw_features_tMIx;
 		break;
@@ -82,6 +82,10 @@ void kbase_hw_set_features_mask(struct kbase_device *kbdev)
 	case GPU_ID_PRODUCT_TTIX:
 	case GPU_ID_PRODUCT_LTIX:
 		features = base_hw_features_tTIx;
+		break;
+	case GPU_ID_PRODUCT_TKRX:
+	case GPU_ID_PRODUCT_LKRX:
+		features = base_hw_features_tKRx;
 		break;
 	default:
 		features = base_hw_features_generic;
@@ -246,6 +250,12 @@ static const enum base_hw_issue *kbase_hw_get_issues_for_new_id(struct kbase_dev
 		  { { GPU_ID_VERSION_MAKE(0, 0, 0), base_hw_issues_tTIx_r0p0 },
 		    { U32_MAX, NULL } } },
 
+		{ GPU_ID_PRODUCT_TKRX,
+		  { { GPU_ID_VERSION_MAKE(0, 0, 0), base_hw_issues_tKRx_r0p0 },
+		    { U32_MAX, NULL } } },
+		{ GPU_ID_PRODUCT_LKRX,
+		  { { GPU_ID_VERSION_MAKE(0, 0, 0), base_hw_issues_tKRx_r0p0 },
+		    { U32_MAX, NULL } } },
 	};
 
 	struct kbase_gpu_id_props *gpu_id = &kbdev->gpu_props.gpu_id;
@@ -254,7 +264,7 @@ static const enum base_hw_issue *kbase_hw_get_issues_for_new_id(struct kbase_dev
 
 	/* Stop when we reach the end of the products array. */
 	for (p = 0; p < ARRAY_SIZE(base_hw_products); ++p) {
-		if (gpu_id->product_id == base_hw_products[p].product_model) {
+		if (gpu_id->product_model == base_hw_products[p].product_model) {
 			product = &base_hw_products[p];
 			break;
 		}
@@ -316,8 +326,6 @@ static const enum base_hw_issue *kbase_hw_get_issues_for_new_id(struct kbase_dev
 			gpu_id->version_minor = fallback_version_minor;
 			gpu_id->version_status = fallback_version_status;
 			gpu_id->version_id = fallback_version;
-
-			kbase_gpuprops_update_core_props_gpu_id(&kbdev->gpu_props.props, gpu_id);
 		}
 	}
 	return issues;
@@ -330,18 +338,18 @@ int kbase_hw_set_issues_mask(struct kbase_device *kbdev)
 	u32 impl_tech;
 
 	gpu_id = &kbdev->gpu_props.gpu_id;
-	impl_tech = kbdev->gpu_props.props.thread_props.impl_tech;
+	impl_tech = kbdev->gpu_props.impl_tech;
 
-	if (impl_tech != IMPLEMENTATION_MODEL) {
+	if (impl_tech != THREAD_FEATURES_IMPLEMENTATION_TECHNOLOGY_SOFTWARE) {
 		issues = kbase_hw_get_issues_for_new_id(kbdev);
 		if (issues == NULL) {
-			dev_err(kbdev->dev,
-				"HW product - Unknown GPU Product ID %x", gpu_id->product_id);
+			dev_err(kbdev->dev, "HW product - Unknown GPU Product ID %x",
+				gpu_id->product_id);
 			return -EINVAL;
 		}
 	} else {
 		/* Software model */
-		switch (gpu_id->product_id) {
+		switch (gpu_id->product_model) {
 		case GPU_ID_PRODUCT_TMIX:
 			issues = base_hw_issues_model_tMIx;
 			break;
@@ -391,17 +399,20 @@ int kbase_hw_set_issues_mask(struct kbase_device *kbdev)
 		case GPU_ID_PRODUCT_LTIX:
 			issues = base_hw_issues_model_tTIx;
 			break;
+		case GPU_ID_PRODUCT_TKRX:
+		case GPU_ID_PRODUCT_LKRX:
+			issues = base_hw_issues_model_tKRx;
+			break;
 		default:
-			dev_err(kbdev->dev,
-				"HW issues - Unknown Product ID %x", gpu_id->product_id);
+			dev_err(kbdev->dev, "HW issues - Unknown Product ID %x",
+				gpu_id->product_id);
 			return -EINVAL;
 		}
 	}
 
-	dev_info(kbdev->dev,
-		"GPU identified as 0x%x arch %d.%d.%d r%dp%d status %d",
-		gpu_id->product_major, gpu_id->arch_major, gpu_id->arch_minor, gpu_id->arch_rev,
-		gpu_id->version_major, gpu_id->version_minor, gpu_id->version_status);
+	dev_info(kbdev->dev, "GPU identified as 0x%x arch %d.%d.%d r%dp%d status %d",
+		 gpu_id->product_major, gpu_id->arch_major, gpu_id->arch_minor, gpu_id->arch_rev,
+		 gpu_id->version_major, gpu_id->version_minor, gpu_id->version_status);
 
 	for (; *issues != BASE_HW_ISSUE_END; issues++)
 		set_bit(*issues, &kbdev->hw_issues_mask[0]);

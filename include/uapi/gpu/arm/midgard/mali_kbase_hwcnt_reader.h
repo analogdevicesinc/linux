@@ -149,6 +149,8 @@ struct prfcnt_item_header {
  * @PRFCNT_BLOCK_TYPE_TILER:       Tiler.
  * @PRFCNT_BLOCK_TYPE_MEMORY:      Memory System.
  * @PRFCNT_BLOCK_TYPE_SHADER_CORE: Shader Core.
+ * @PRFCNT_BLOCK_TYPE_FW:          Firmware.
+ * @PRFCNT_BLOCK_TYPE_CSG:         CSG.
  * @PRFCNT_BLOCK_TYPE_RESERVED:    Reserved.
  */
 enum prfcnt_block_type {
@@ -156,6 +158,8 @@ enum prfcnt_block_type {
 	PRFCNT_BLOCK_TYPE_TILER,
 	PRFCNT_BLOCK_TYPE_MEMORY,
 	PRFCNT_BLOCK_TYPE_SHADER_CORE,
+	PRFCNT_BLOCK_TYPE_FW,
+	PRFCNT_BLOCK_TYPE_CSG,
 	PRFCNT_BLOCK_TYPE_RESERVED = 255,
 };
 

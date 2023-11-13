@@ -51,10 +51,12 @@ bool kbase_reg_is_valid(struct kbase_device *kbdev, u32 reg_enum)
 bool kbase_reg_is_accessible(struct kbase_device *kbdev, u32 reg_enum, u32 flags)
 {
 #ifdef CONFIG_MALI_DEBUG
-	if (WARN(!kbase_reg_is_valid(kbdev, reg_enum), "Invalid register enum 0x%x", reg_enum))
+	if (WARN(!kbase_reg_is_valid(kbdev, reg_enum), "Invalid register enum 0x%x: %s", reg_enum,
+		 kbase_reg_get_enum_string(reg_enum)))
 		return false;
 	if (WARN((kbdev->regmap.flags[reg_enum] & flags) != flags,
-		 "Invalid register access permissions 0x%x", reg_enum))
+		 "Invalid register access permissions 0x%x: %s", reg_enum,
+		 kbase_reg_get_enum_string(reg_enum)))
 		return false;
 #else
 	CSTD_UNUSED(kbdev);

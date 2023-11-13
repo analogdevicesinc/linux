@@ -22,12 +22,8 @@
 #ifndef _KBASE_CSF_SYNC_DEBUGFS_H_
 #define _KBASE_CSF_SYNC_DEBUGFS_H_
 
-#include <linux/seq_file.h>
-
 /* Forward declaration */
 struct kbase_context;
-
-#define MALI_CSF_SYNC_DEBUGFS_VERSION 0
 
 /**
  * kbase_csf_sync_debugfs_init() - Create a debugfs entry for CSF queue sync info
@@ -35,28 +31,5 @@ struct kbase_context;
  * @kctx: The kbase_context for which to create the debugfs entry
  */
 void kbase_csf_sync_debugfs_init(struct kbase_context *kctx);
-
-/**
- * kbasep_csf_sync_kcpu_dump() - Print CSF KCPU queue sync info
- *
- * @kctx: The kbase context.
- * @file: The seq_file for printing to.
- *
- * Return: Negative error code or 0 on success.
- *
- * Note: This function should not be used if kcpu_queues.lock is held. Use
- * kbasep_csf_sync_kcpu_dump_locked() instead.
- */
-int kbasep_csf_sync_kcpu_dump(struct kbase_context *kctx, struct seq_file *file);
-
-/**
- * kbasep_csf_sync_kcpu_dump() - Print CSF KCPU queue sync info
- *
- * @kctx: The kbase context.
- * @file: The seq_file for printing to.
- *
- * Return: Negative error code or 0 on success.
- */
-int kbasep_csf_sync_kcpu_dump_locked(struct kbase_context *kctx, struct seq_file *file);
 
 #endif /* _KBASE_CSF_SYNC_DEBUGFS_H_ */

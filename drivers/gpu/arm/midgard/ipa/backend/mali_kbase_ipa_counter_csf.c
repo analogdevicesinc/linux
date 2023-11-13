@@ -31,6 +31,8 @@
 #define L2_READ_LOOKUP (26)
 #define L2_EXT_READ_NOSNP (30)
 #define L2_EXT_WRITE_NOSNP_FULL (43)
+#define L2_RD_MSG_IN_STALL (17)
+#define L2_EXT_WRITE (42)
 
 /* SC counter block offsets */
 #define FRAG_STARVING (8)
@@ -49,6 +51,12 @@
 #define BEATS_RD_TEX (58)
 #define BEATS_RD_TEX_EXT (59)
 #define FRAG_QUADS_COARSE (68)
+#define EXEC_STARVE_ARITH (33)
+#define TEX_TFCH_CLK_STALLED (37)
+#define RT_RAYS_STARTED (84)
+#define TEX_CFCH_NUM_L1_CT_OPERATIONS (90)
+#define EXEC_INSTR_SLOT1 (118)
+#define EXEC_ISSUE_SLOT_ANY (119)
 
 /* Tiler counter block offsets */
 #define IDVS_POS_SHAD_STALL (23)
@@ -59,6 +67,7 @@
 #define IDVS_VAR_SHAD_STALL (38)
 #define ITER_STALL (40)
 #define PMGR_PTR_RD_STALL (48)
+#define PRIMASSY_POS_SHADER_WAIT (64)
 
 #define COUNTER_DEF(cnt_name, coeff, cnt_idx, block_type)                                        \
 	{                                                                                        \
@@ -127,6 +136,16 @@ static const struct kbase_ipa_counter ipa_top_level_cntrs_def_ttix[] = {
 	MEMSYS_COUNTER_DEF("l2_ext_read_nosnp", 512341, L2_EXT_READ_NOSNP),
 };
 
+static const struct kbase_ipa_counter ipa_top_level_cntrs_def_tkrx[] = {
+	TILER_COUNTER_DEF("primassy_pos_shader_wait", 93883, PRIMASSY_POS_SHADER_WAIT),
+	TILER_COUNTER_DEF("idvs_pos_shad_stall", -69197, IDVS_POS_SHAD_STALL),
+
+	MEMSYS_COUNTER_DEF("l2_rd_msg_out", 176502, L2_RD_MSG_OUT),
+	MEMSYS_COUNTER_DEF("l2_ext_write_nosnp_full", 510351, L2_EXT_WRITE_NOSNP_FULL),
+	MEMSYS_COUNTER_DEF("l2_ext_write", -402377, L2_EXT_WRITE),
+	MEMSYS_COUNTER_DEF("l2_rd_msg_in_stall", -66545, L2_RD_MSG_IN_STALL),
+};
+
 /* These tables provide a description of each performance counter
  * used by the shader cores counter model for energy estimation.
  */
@@ -177,6 +196,16 @@ static const struct kbase_ipa_counter ipa_shader_core_cntrs_def_ttix[] = {
 	SC_COUNTER_DEF("exec_instr_sfu", 31583, EXEC_INSTR_SFU),
 };
 
+static const struct kbase_ipa_counter ipa_shader_core_cntrs_def_tkrx[] = {
+	SC_COUNTER_DEF("exec_issue_slot_any", 299674, EXEC_ISSUE_SLOT_ANY),
+	SC_COUNTER_DEF("exec_starve_arith", 26817, EXEC_STARVE_ARITH),
+	SC_COUNTER_DEF("tex_cfch_num_l1_ct_operations", 226797, TEX_CFCH_NUM_L1_CT_OPERATIONS),
+	SC_COUNTER_DEF("exec_instr_slot1", -1185776, EXEC_INSTR_SLOT1),
+	SC_COUNTER_DEF("tex_tfch_clk_stalled", -147729, TEX_TFCH_CLK_STALLED),
+	SC_COUNTER_DEF("exec_instr_fma", 61968, EXEC_INSTR_FMA),
+	SC_COUNTER_DEF("rt_rays_started", -149038, RT_RAYS_STARTED),
+};
+
 #define IPA_POWER_MODEL_OPS(gpu, init_token)                             \
 	const struct kbase_ipa_model_ops kbase_##gpu##_ipa_model_ops = { \
 		.name = "mali-" #gpu "-power-model",                     \
@@ -210,6 +239,9 @@ STANDARD_POWER_MODEL(tvax, 750);
 STANDARD_POWER_MODEL(ttux, 750);
 /* Reference voltage value is 550 mV. */
 STANDARD_POWER_MODEL(ttix, 550);
+STANDARD_POWER_MODEL(tkrx, 550);
+/* Assuming LKRX is an alias of TKRX for IPA */
+ALIAS_POWER_MODEL(lkrx, tkrx);
 
 /* Assuming LODX is an alias of TODX for IPA */
 ALIAS_POWER_MODEL(lodx, todx);
@@ -223,7 +255,8 @@ ALIAS_POWER_MODEL(ltix, ttix);
 static const struct kbase_ipa_model_ops *ipa_counter_model_ops[] = {
 	&kbase_todx_ipa_model_ops, &kbase_lodx_ipa_model_ops, &kbase_tgrx_ipa_model_ops,
 	&kbase_tvax_ipa_model_ops, &kbase_ttux_ipa_model_ops, &kbase_ltux_ipa_model_ops,
-	&kbase_ttix_ipa_model_ops, &kbase_ltix_ipa_model_ops,
+	&kbase_ttix_ipa_model_ops, &kbase_ltix_ipa_model_ops, &kbase_tkrx_ipa_model_ops,
+	&kbase_lkrx_ipa_model_ops,
 };
 
 const struct kbase_ipa_model_ops *kbase_ipa_counter_model_ops_find(struct kbase_device *kbdev,
@@ -245,7 +278,7 @@ const struct kbase_ipa_model_ops *kbase_ipa_counter_model_ops_find(struct kbase_
 
 const char *kbase_ipa_counter_model_name_from_id(struct kbase_gpu_id_props *gpu_id)
 {
-	switch (gpu_id->product_id) {
+	switch (gpu_id->product_model) {
 	case GPU_ID_PRODUCT_TODX:
 		return "mali-todx-power-model";
 	case GPU_ID_PRODUCT_LODX:
@@ -262,6 +295,10 @@ const char *kbase_ipa_counter_model_name_from_id(struct kbase_gpu_id_props *gpu_
 		return "mali-ttix-power-model";
 	case GPU_ID_PRODUCT_LTIX:
 		return "mali-ltix-power-model";
+	case GPU_ID_PRODUCT_TKRX:
+		return "mali-tkrx-power-model";
+	case GPU_ID_PRODUCT_LKRX:
+		return "mali-lkrx-power-model";
 	default:
 		return NULL;
 	}

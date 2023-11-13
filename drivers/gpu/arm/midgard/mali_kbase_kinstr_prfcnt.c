@@ -133,14 +133,14 @@ struct kbase_kinstr_prfcnt_client_config {
  *                                              for terminating a partially
  *                                              initialised client.
  *
- * @KINSTR_PRFCNT_UNINITIALISED : Client is uninitialised
- * @KINSTR_PRFCNT_PARSE_SETUP : Parse the setup session
- * @KINSTR_PRFCNT_ENABLE_MAP : Allocate memory for enable map
- * @KINSTR_PRFCNT_DUMP_BUFFER : Allocate memory for dump buffer
- * @KINSTR_PRFCNT_SAMPLE_ARRAY : Allocate memory for and initialise sample array
- * @KINSTR_PRFCNT_VIRTUALIZER_CLIENT : Create virtualizer client
- * @KINSTR_PRFCNT_WAITQ_MUTEX : Create and initialise mutex and waitqueue
- * @KINSTR_PRFCNT_INITIALISED : Client is fully initialised
+ * @KINSTR_PRFCNT_UNINITIALISED: Client is uninitialised
+ * @KINSTR_PRFCNT_PARSE_SETUP: Parse the setup session
+ * @KINSTR_PRFCNT_ENABLE_MAP: Allocate memory for enable map
+ * @KINSTR_PRFCNT_DUMP_BUFFER: Allocate memory for dump buffer
+ * @KINSTR_PRFCNT_SAMPLE_ARRAY: Allocate memory for and initialise sample array
+ * @KINSTR_PRFCNT_VIRTUALIZER_CLIENT: Create virtualizer client
+ * @KINSTR_PRFCNT_WAITQ_MUTEX: Create and initialise mutex and waitqueue
+ * @KINSTR_PRFCNT_INITIALISED: Client is fully initialised
  */
 enum kbase_kinstr_prfcnt_client_init_state {
 	KINSTR_PRFCNT_UNINITIALISED,
@@ -405,7 +405,7 @@ static u32 kbase_hwcnt_block_state_to_prfcnt_block_state(blk_stt_t hw_blk_stt)
 			prfcnt_block_state |= BLOCK_STATE_PROTECTED;
 			break;
 		default:
-			WARN_ON(1);
+			WARN(true, "Unknown block state bit set: 0x%x", set_bit);
 			break;
 		}
 	}
@@ -439,8 +439,23 @@ static enum prfcnt_block_type kbase_hwcnt_metadata_block_type_to_prfcnt_block_ty
 		block_type = PRFCNT_BLOCK_TYPE_MEMORY;
 		break;
 
+	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_FW:
+	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_FW2:
+	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_FW3:
+		block_type = PRFCNT_BLOCK_TYPE_FW;
+		break;
+
+	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_CSG:
+	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_CSG2:
+	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_CSG3:
+		block_type = PRFCNT_BLOCK_TYPE_CSG;
+		break;
+
+
 	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_FE_UNDEFINED:
 	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_SC_UNDEFINED:
+	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_FW_UNDEFINED:
+	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_CSG_UNDEFINED:
 	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_TILER_UNDEFINED:
 	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_MEMSYS_UNDEFINED:
 	default:
@@ -452,10 +467,10 @@ static enum prfcnt_block_type kbase_hwcnt_metadata_block_type_to_prfcnt_block_ty
 }
 
 static bool kbase_kinstr_is_block_type_reserved(const struct kbase_hwcnt_metadata *metadata,
-						size_t grp, size_t blk)
+						size_t blk)
 {
 	enum prfcnt_block_type block_type = kbase_hwcnt_metadata_block_type_to_prfcnt_block_type(
-		kbase_hwcnt_metadata_block_type(metadata, grp, blk));
+		kbase_hwcnt_metadata_block_type(metadata, blk));
 
 	return block_type == PRFCNT_BLOCK_TYPE_RESERVED;
 }
@@ -478,7 +493,7 @@ int kbasep_kinstr_prfcnt_set_block_meta_items(struct kbase_hwcnt_enable_map *ena
 					      struct prfcnt_metadata **block_meta_base,
 					      u8 *base_addr, u8 counter_set)
 {
-	size_t grp, blk, blk_inst;
+	size_t blk, blk_inst;
 	struct prfcnt_metadata **ptr_md = block_meta_base;
 	const struct kbase_hwcnt_metadata *metadata;
 	uint8_t block_idx = 0;
@@ -487,7 +502,7 @@ int kbasep_kinstr_prfcnt_set_block_meta_items(struct kbase_hwcnt_enable_map *ena
 		return -EINVAL;
 
 	metadata = dst->metadata;
-	kbase_hwcnt_metadata_for_each_block(metadata, grp, blk, blk_inst)
+	kbase_hwcnt_metadata_for_each_block(metadata, blk, blk_inst)
 	{
 		u8 *dst_blk;
 		blk_stt_t hw_blk_stt;
@@ -497,18 +512,18 @@ int kbasep_kinstr_prfcnt_set_block_meta_items(struct kbase_hwcnt_enable_map *ena
 			block_idx = 0;
 
 		/* Skip unavailable or non-enabled blocks */
-		if (kbase_kinstr_is_block_type_reserved(metadata, grp, blk) ||
-		    !kbase_hwcnt_metadata_block_instance_avail(metadata, grp, blk, blk_inst) ||
-		    !kbase_hwcnt_enable_map_block_enabled(enable_map, grp, blk, blk_inst))
+		if (kbase_kinstr_is_block_type_reserved(metadata, blk) ||
+		    !kbase_hwcnt_metadata_block_instance_avail(metadata, blk, blk_inst) ||
+		    !kbase_hwcnt_enable_map_block_enabled(enable_map, blk, blk_inst))
 			continue;
 
-		dst_blk = (u8 *)kbase_hwcnt_dump_buffer_block_instance(dst, grp, blk, blk_inst);
-		hw_blk_stt = *kbase_hwcnt_dump_buffer_block_state_instance(dst, grp, blk, blk_inst);
+		dst_blk = (u8 *)kbase_hwcnt_dump_buffer_block_instance(dst, blk, blk_inst);
+		hw_blk_stt = *kbase_hwcnt_dump_buffer_block_state_instance(dst, blk, blk_inst);
 		(*ptr_md)->hdr.item_type = PRFCNT_SAMPLE_META_TYPE_BLOCK;
 		(*ptr_md)->hdr.item_version = PRFCNT_READER_API_VERSION;
 		(*ptr_md)->u.block_md.block_type =
 			kbase_hwcnt_metadata_block_type_to_prfcnt_block_type(
-				kbase_hwcnt_metadata_block_type(metadata, grp, blk));
+				kbase_hwcnt_metadata_block_type(metadata, blk));
 		(*ptr_md)->u.block_md.block_idx = block_idx;
 		(*ptr_md)->u.block_md.set = counter_set;
 		(*ptr_md)->u.block_md.block_state =
@@ -732,7 +747,7 @@ static int kbasep_kinstr_prfcnt_client_stop(struct kbase_kinstr_prfcnt_client *c
 	int ret;
 	u64 tm_start = 0;
 	u64 tm_end = 0;
-	struct kbase_hwcnt_physical_enable_map phys_em;
+	struct kbase_hwcnt_physical_enable_map phys_em = { 0 };
 	size_t available_samples_count;
 	unsigned int write_idx;
 	unsigned int read_idx;
@@ -745,14 +760,6 @@ static int kbasep_kinstr_prfcnt_client_stop(struct kbase_kinstr_prfcnt_client *c
 		return -EINVAL;
 
 	mutex_lock(&cli->kinstr_ctx->lock);
-
-	/* Disable counters under the lock, so we do not race with the
-	 * sampling thread.
-	 */
-	phys_em.fe_bm = 0;
-	phys_em.tiler_bm = 0;
-	phys_em.mmu_l2_bm = 0;
-	phys_em.shader_bm = 0;
 
 	kbase_hwcnt_gpu_enable_map_from_physical(&cli->enable_map, &phys_em);
 
@@ -1135,18 +1142,18 @@ static const struct file_operations kinstr_prfcnt_client_fops = {
 size_t kbasep_kinstr_prfcnt_get_sample_md_count(const struct kbase_hwcnt_metadata *metadata,
 						struct kbase_hwcnt_enable_map *enable_map)
 {
-	size_t grp, blk, blk_inst;
+	size_t blk, blk_inst;
 	size_t md_count = 0;
 
 	if (!metadata)
 		return 0;
 
-	kbase_hwcnt_metadata_for_each_block(metadata, grp, blk, blk_inst)
+	kbase_hwcnt_metadata_for_each_block(metadata, blk, blk_inst)
 	{
 		/* Skip unavailable, non-enabled or reserved blocks */
-		if (kbase_kinstr_is_block_type_reserved(metadata, grp, blk) ||
-		    !kbase_hwcnt_metadata_block_instance_avail(metadata, grp, blk, blk_inst) ||
-		    !kbase_hwcnt_enable_map_block_enabled(enable_map, grp, blk, blk_inst))
+		if (kbase_kinstr_is_block_type_reserved(metadata, blk) ||
+		    !kbase_hwcnt_metadata_block_instance_avail(metadata, blk, blk_inst) ||
+		    !kbase_hwcnt_enable_map_block_enabled(enable_map, blk, blk_inst))
 			continue;
 
 		md_count++;
@@ -1438,10 +1445,42 @@ static bool prfcnt_mode_supported(u8 mode)
 	return (mode == PRFCNT_MODE_MANUAL) || (mode == PRFCNT_MODE_PERIODIC);
 }
 
+/**
+ * prfcnt_block_supported - Check if the current GPU supports a given block
+ *                          type.
+ * @metadata:   GPU-specific metadata
+ * @req_enable: Requested block type coming from userspace.
+ *
+ * Return: true if the block is supported by the underlying GPU, false
+ *         otherwise.
+ */
+static bool prfcnt_block_supported(const struct kbase_hwcnt_metadata *metadata,
+				   const struct prfcnt_request_enable *req_enable)
+{
+	size_t blk, blk_inst;
+
+	kbase_hwcnt_metadata_for_each_block(metadata, blk, blk_inst)
+	{
+		const enum kbase_hwcnt_gpu_v5_block_type blk_type =
+			kbase_hwcnt_metadata_block_type(metadata, blk);
+		const enum prfcnt_block_type prfcnt_block_type =
+			kbase_hwcnt_metadata_block_type_to_prfcnt_block_type(blk_type);
+
+		if (prfcnt_block_type == req_enable->block_type)
+			return true;
+	}
+	return false;
+}
+
 static void kbasep_kinstr_prfcnt_block_enable_to_physical(uint32_t *phys_em,
 							  const uint64_t *enable_mask)
 {
-	*phys_em |= kbase_hwcnt_backend_gpu_block_map_to_physical(enable_mask[0], enable_mask[1]);
+	/* Adding a baseline phys_em value '1' on any type that has been requested. This
+	 * ensures the phys_em block states will always be reflected in the client's
+	 * sample outputs, even when the client provided an all zero value mask.
+	 */
+	*phys_em |=
+		(1 | kbase_hwcnt_backend_gpu_block_map_to_physical(enable_mask[0], enable_mask[1]));
 }
 
 /**
@@ -1532,6 +1571,14 @@ kbasep_kinstr_prfcnt_parse_request_enable(const struct prfcnt_request_enable *re
 		break;
 	case PRFCNT_BLOCK_TYPE_SHADER_CORE:
 		kbasep_kinstr_prfcnt_block_enable_to_physical(&config->phys_em.shader_bm,
+							      req_enable->enable_mask);
+		break;
+	case PRFCNT_BLOCK_TYPE_FW:
+		kbasep_kinstr_prfcnt_block_enable_to_physical(&config->phys_em.fw_bm,
+							      req_enable->enable_mask);
+		break;
+	case PRFCNT_BLOCK_TYPE_CSG:
+		kbasep_kinstr_prfcnt_block_enable_to_physical(&config->phys_em.csg_bm,
 							      req_enable->enable_mask);
 		break;
 	default:
@@ -1646,6 +1693,12 @@ static int kbasep_kinstr_prfcnt_parse_setup(struct kbase_kinstr_prfcnt_context *
 			break;
 
 		case PRFCNT_REQUEST_TYPE_ENABLE:
+			if (!prfcnt_block_supported(kinstr_ctx->metadata,
+						    &req_arr[i].u.req_enable)) {
+				err = -EINVAL;
+				break;
+			}
+
 			err = kbasep_kinstr_prfcnt_parse_request_enable(&req_arr[i].u.req_enable,
 									config);
 			break;
@@ -1782,20 +1835,36 @@ int kbasep_kinstr_prfcnt_client_create(struct kbase_kinstr_prfcnt_context *kinst
 
 static size_t kbasep_kinstr_prfcnt_get_block_info_count(const struct kbase_hwcnt_metadata *metadata)
 {
-	size_t grp, blk;
+	size_t blk;
 	size_t block_info_count = 0;
 
 	if (!metadata)
 		return 0;
 
-	for (grp = 0; grp < kbase_hwcnt_metadata_group_count(metadata); grp++) {
-		for (blk = 0; blk < kbase_hwcnt_metadata_block_count(metadata, grp); blk++) {
-			if (!kbase_kinstr_is_block_type_reserved(metadata, grp, blk))
-				block_info_count++;
-		}
+	for (blk = 0; blk < kbase_hwcnt_metadata_block_count(metadata); blk++) {
+		if (!kbase_kinstr_is_block_type_reserved(metadata, blk))
+			block_info_count++;
 	}
 
 	return block_info_count;
+}
+
+static size_t kbasep_kinstr_prfcnt_get_enum_info_count(const struct kbase_hwcnt_metadata *metadata)
+{
+	/* First we indicate the number of non-block enable request types that
+	 * are available, defined by a static array in this file.
+	 */
+	uint32_t count = ARRAY_SIZE(kinstr_prfcnt_supported_requests);
+
+	/* Then we count the number of block types that should be indicated to
+	 * userspace by checking the metadata.
+	 */
+	count += kbasep_kinstr_prfcnt_get_block_info_count(metadata);
+
+	/* We finally include one item for sample_info (clock domain) description
+	 * and one item for a sentinel to indicate that the list is done.
+	 */
+	return count + 2;
 }
 
 static void kbasep_kinstr_prfcnt_get_request_info_list(struct prfcnt_enum_item *item_arr,
@@ -1828,50 +1897,46 @@ int kbasep_kinstr_prfcnt_get_block_info_list(const struct kbase_hwcnt_metadata *
 					     size_t block_set, struct prfcnt_enum_item *item_arr,
 					     size_t *arr_idx)
 {
-	size_t grp, blk;
+	size_t blk;
 
 	if (!metadata || !item_arr || !arr_idx)
 		return -EINVAL;
 
-	for (grp = 0; grp < kbase_hwcnt_metadata_group_count(metadata); grp++) {
-		for (blk = 0; blk < kbase_hwcnt_metadata_block_count(metadata, grp); blk++) {
-			size_t blk_inst;
-			size_t unused_blk_inst_count = 0;
-			size_t blk_inst_count =
-				kbase_hwcnt_metadata_block_instance_count(metadata, grp, blk);
-			enum prfcnt_block_type block_type =
-				kbase_hwcnt_metadata_block_type_to_prfcnt_block_type(
-					kbase_hwcnt_metadata_block_type(metadata, grp, blk));
+	for (blk = 0; blk < kbase_hwcnt_metadata_block_count(metadata); blk++) {
+		size_t blk_inst;
+		size_t unused_blk_inst_count = 0;
+		size_t blk_inst_count = kbase_hwcnt_metadata_block_instance_count(metadata, blk);
+		enum prfcnt_block_type block_type =
+			kbase_hwcnt_metadata_block_type_to_prfcnt_block_type(
+				kbase_hwcnt_metadata_block_type(metadata, blk));
 
-			if (block_type == PRFCNT_BLOCK_TYPE_RESERVED)
-				continue;
+		if (block_type == PRFCNT_BLOCK_TYPE_RESERVED)
+			continue;
 
-			/* Count number of unused blocks to updated number of instances */
-			for (blk_inst = 0; blk_inst < blk_inst_count; blk_inst++) {
-				if (!kbase_hwcnt_metadata_block_instance_avail(metadata, grp, blk,
-									       blk_inst))
-					unused_blk_inst_count++;
-			}
+		/* Count number of unused blocks to updated number of instances */
+		for (blk_inst = 0; blk_inst < blk_inst_count; blk_inst++) {
+			if (!kbase_hwcnt_metadata_block_instance_avail(metadata, blk, blk_inst))
+				unused_blk_inst_count++;
+		}
 
-			item_arr[(*arr_idx)++] = (struct prfcnt_enum_item){
-				.hdr = {
-					.item_type = PRFCNT_ENUM_TYPE_BLOCK,
-					.item_version = PRFCNT_READER_API_VERSION,
-				},
+		item_arr[(*arr_idx)++] = (struct prfcnt_enum_item){
+			.hdr = {
+				.item_type = PRFCNT_ENUM_TYPE_BLOCK,
+				.item_version = PRFCNT_READER_API_VERSION,
+			},
 				.u.block_counter = {
 					.set = block_set,
 					.block_type = block_type,
 					.num_instances = blk_inst_count - unused_blk_inst_count,
 					.num_values = kbase_hwcnt_metadata_block_values_count(
-						metadata, grp, blk),
+							metadata, blk),
 					/* The bitmask of available counters should be dynamic.
 					 * Temporarily, it is set to U64_MAX, waiting for the
 					 * required functionality to be available in the future.
 					 */
 					.counter_mask = {U64_MAX, U64_MAX},
 				},
-			};
-		}
+		};
 	}
 
 	return 0;
@@ -1881,59 +1946,38 @@ static int
 kbasep_kinstr_prfcnt_enum_info_count(struct kbase_kinstr_prfcnt_context *kinstr_ctx,
 				     struct kbase_ioctl_kinstr_prfcnt_enum_info *enum_info)
 {
-	uint32_t count = 0;
-	size_t block_info_count = 0;
 	const struct kbase_hwcnt_metadata *metadata;
 
-	count = ARRAY_SIZE(kinstr_prfcnt_supported_requests);
 	metadata = kbase_hwcnt_virtualizer_metadata(kinstr_ctx->hvirt);
 
-	/* Add the sample_info (clock domain) descriptive item */
-	count++;
-
-	/* Other blocks based on meta data */
-	block_info_count = kbasep_kinstr_prfcnt_get_block_info_count(metadata);
-	count += block_info_count;
-
-	/* Reserve one for the last sentinel item. */
-	count++;
-	enum_info->info_item_count = count;
+	enum_info->info_item_count = kbasep_kinstr_prfcnt_get_enum_info_count(metadata);
 	enum_info->info_item_size = sizeof(struct prfcnt_enum_item);
-	kinstr_ctx->info_item_count = count;
 
 	return 0;
 }
 
-static int
-kbasep_kinstr_prfcnt_enum_info_list(struct kbase_kinstr_prfcnt_context *kinstr_ctx,
-				    struct kbase_ioctl_kinstr_prfcnt_enum_info *enum_info)
+int kbasep_kinstr_populate_prfcnt_enum_list(const struct kbase_hwcnt_metadata *metadata,
+					    struct prfcnt_enum_item *prfcnt_item_arr,
+					    size_t prfcnt_item_array_size)
 {
-	struct prfcnt_enum_item *prfcnt_item_arr;
 	size_t arr_idx = 0;
 	int err = 0;
-	size_t block_info_count = 0;
-	const struct kbase_hwcnt_metadata *metadata;
+	size_t block_info_count;
 
-	if ((enum_info->info_item_size == 0) || (enum_info->info_item_count == 0) ||
-	    !enum_info->info_list_ptr)
+	if (!metadata)
 		return -EINVAL;
 
-	if (enum_info->info_item_count != kinstr_ctx->info_item_count)
+	block_info_count = kbasep_kinstr_prfcnt_get_block_info_count(metadata);
+	/* Some basic sanity check on the provided prfcnt_item_array_size */
+	if (block_info_count >= prfcnt_item_array_size)
 		return -EINVAL;
-
-	prfcnt_item_arr = kcalloc(enum_info->info_item_count, sizeof(*prfcnt_item_arr), GFP_KERNEL);
-	if (!prfcnt_item_arr)
-		return -ENOMEM;
 
 	kbasep_kinstr_prfcnt_get_request_info_list(prfcnt_item_arr, &arr_idx);
 
-	metadata = kbase_hwcnt_virtualizer_metadata(kinstr_ctx->hvirt);
 	/* Place the sample_info item */
 	kbasep_kinstr_prfcnt_get_sample_info_item(metadata, prfcnt_item_arr, &arr_idx);
 
-	block_info_count = kbasep_kinstr_prfcnt_get_block_info_count(metadata);
-
-	if (arr_idx + block_info_count >= enum_info->info_item_count)
+	if (arr_idx + block_info_count >= prfcnt_item_array_size)
 		err = -EINVAL;
 
 	if (!err) {
@@ -1949,13 +1993,40 @@ kbasep_kinstr_prfcnt_enum_info_list(struct kbase_kinstr_prfcnt_context *kinstr_c
 #endif
 		kbasep_kinstr_prfcnt_get_block_info_list(metadata, counter_set, prfcnt_item_arr,
 							 &arr_idx);
-		if (arr_idx != enum_info->info_item_count - 1)
+		if (arr_idx != prfcnt_item_array_size - 1)
 			err = -EINVAL;
 	}
 
 	/* The last sentinel item. */
-	prfcnt_item_arr[enum_info->info_item_count - 1].hdr.item_type = FLEX_LIST_TYPE_NONE;
-	prfcnt_item_arr[enum_info->info_item_count - 1].hdr.item_version = 0;
+	prfcnt_item_arr[prfcnt_item_array_size - 1].hdr.item_type = FLEX_LIST_TYPE_NONE;
+	prfcnt_item_arr[prfcnt_item_array_size - 1].hdr.item_version = 0;
+
+	return err;
+}
+
+static int
+kbasep_kinstr_prfcnt_enum_info_list(struct kbase_kinstr_prfcnt_context *kinstr_ctx,
+				    struct kbase_ioctl_kinstr_prfcnt_enum_info *enum_info)
+{
+	struct prfcnt_enum_item *prfcnt_item_arr;
+	int err = 0;
+	const struct kbase_hwcnt_metadata *metadata;
+
+	if ((enum_info->info_item_size == 0) || (enum_info->info_item_count == 0) ||
+	    !enum_info->info_list_ptr)
+		return -EINVAL;
+
+	metadata = kbase_hwcnt_virtualizer_metadata(kinstr_ctx->hvirt);
+
+	if (enum_info->info_item_count != kbasep_kinstr_prfcnt_get_enum_info_count(metadata))
+		return -EINVAL;
+
+	prfcnt_item_arr = kcalloc(enum_info->info_item_count, sizeof(*prfcnt_item_arr), GFP_KERNEL);
+	if (!prfcnt_item_arr)
+		return -ENOMEM;
+
+	err = kbasep_kinstr_populate_prfcnt_enum_list(metadata, prfcnt_item_arr,
+						      enum_info->info_item_count);
 
 	if (!err) {
 		unsigned long bytes = enum_info->info_item_count * sizeof(*prfcnt_item_arr);
@@ -1988,24 +2059,36 @@ int kbase_kinstr_prfcnt_setup(struct kbase_kinstr_prfcnt_context *kinstr_ctx,
 			      union kbase_ioctl_kinstr_prfcnt_setup *setup)
 {
 	int err;
-	size_t item_count;
+	size_t item_count, max_item_count;
 	size_t bytes;
 	struct prfcnt_request_item *req_arr = NULL;
 	struct kbase_kinstr_prfcnt_client *cli = NULL;
 	const size_t max_bytes = 32 * sizeof(*req_arr);
+	const struct kbase_hwcnt_metadata *metadata;
 
 	if (!kinstr_ctx || !setup)
 		return -EINVAL;
 
 	item_count = setup->in.request_item_count;
 
+	if (!setup->in.requests_ptr || (item_count < 2) || (setup->in.request_item_size == 0))
+		return -EINVAL;
+
+	metadata = kbase_hwcnt_virtualizer_metadata(kinstr_ctx->hvirt);
+
+	max_item_count = kbasep_kinstr_prfcnt_get_enum_info_count(metadata);
+
 	/* Limiting the request items to 2x of the expected: accommodating
 	 * moderate duplications but rejecting excessive abuses.
 	 */
-	if (!setup->in.requests_ptr || (item_count < 2) || (setup->in.request_item_size == 0) ||
-	    item_count > 2 * kinstr_ctx->info_item_count) {
+	if (item_count > 2 * max_item_count)
 		return -EINVAL;
-	}
+
+	/* Only after the initial validation do we want to add more information to the
+	 * prfcnt context, in order to avoid the dependency on the enum_info IOCTL
+	 * before setting up the context.
+	 */
+	kinstr_ctx->info_item_count = max_item_count;
 
 	if (check_mul_overflow(item_count, sizeof(*req_arr), &bytes))
 		return -EINVAL;

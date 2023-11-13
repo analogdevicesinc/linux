@@ -1,6 +1,6 @@
 /*
  *
- * (C) COPYRIGHT 2020 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -63,6 +63,16 @@ Description:
 		This attribute is available only with mali platform
 		device-driver that supports a CSF GPU. This attribute is
 		used to configure the timeout value in microseconds for the
+		GPU idle handling. If GPU has been idle for this timeout
+		period, then it is put to sleep for GPUs where sleep feature
+		is supported or is powered down after suspending command
+		stream groups.
+
+What:		/sys/class/misc/mali%u/device/idle_hysteresis_time_ns
+Description:
+		This attribute is available only with mali platform
+		device-driver that supports a CSF GPU. This attribute is
+		used to configure the timeout value in nanoseconds for the
 		GPU idle handling. If GPU has been idle for this timeout
 		period, then it is put to sleep for GPUs where sleep feature
 		is supported or is powered down after suspending command
@@ -232,6 +242,23 @@ Description:
 		If we set the value to zero then MCU-controlled shader/tiler
 		power management will be disabled.
 
+What:       /sys/class/misc/mali%u/device/mcu_shader_pwroff_timeout_ns
+Description:
+		This attribute is available only with mali platform
+		device-driver that supports a CSF GPU. The duration value unit
+		is in nanoseconds and is used for configuring MCU shader Core power-off
+		timer. The configured MCU shader Core power-off timer will only have
+		effect when the host driver has delegated the shader cores
+		power management to MCU. The supplied value will be
+		recorded internally without any change. But the actual field
+		value will be subject to core power-off timer source frequency
+		scaling and maximum value limiting. The default source will be
+		SYSTEM_TIMESTAMP counter. But in case the platform is not able
+		to supply it, the GPU CYCLE_COUNTER source will be used as an
+		alternative.
+
+		If we set the value to zero then MCU-controlled shader/tiler
+		power management will be disabled.
 
 What:           /sys/class/misc/mali%u/device/csg_scheduling_period
 Description:

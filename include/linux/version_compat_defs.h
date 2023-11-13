@@ -41,7 +41,11 @@
 
 #if KERNEL_VERSION(4, 16, 0) > LINUX_VERSION_CODE
 typedef unsigned int __poll_t;
+
+#ifndef HRTIMER_MODE_REL_SOFT
+#define HRTIMER_MODE_REL_SOFT HRTIMER_MODE_REL
 #endif
+#endif /* KERNEL_VERSION(4, 16, 0) > LINUX_VERSION_CODE */
 
 #if KERNEL_VERSION(4, 9, 78) >= LINUX_VERSION_CODE
 
@@ -240,10 +244,56 @@ static inline void vm_flags_clear(struct vm_area_struct *vma, vm_flags_t flags)
 }
 #endif
 
+static inline void kbase_unpin_user_buf_page(struct page *page)
+{
+#if KERNEL_VERSION(5, 9, 0) > LINUX_VERSION_CODE
+	put_page(page);
+#else
+	unpin_user_page(page);
+#endif
+}
+
+static inline long kbase_get_user_pages(unsigned long start, unsigned long nr_pages,
+					unsigned int gup_flags, struct page **pages,
+					struct vm_area_struct **vmas)
+{
+#if ((KERNEL_VERSION(6, 5, 0) > LINUX_VERSION_CODE) && !defined(__ANDROID_COMMON_KERNEL__)) || \
+	((KERNEL_VERSION(6, 4, 0) > LINUX_VERSION_CODE) && defined(__ANDROID_COMMON_KERNEL__))
+	return get_user_pages(start, nr_pages, gup_flags, pages, vmas);
+#else
+	return get_user_pages(start, nr_pages, gup_flags, pages);
+#endif
+}
+
+static inline long kbase_pin_user_pages_remote(struct task_struct *tsk, struct mm_struct *mm,
+					       unsigned long start, unsigned long nr_pages,
+					       unsigned int gup_flags, struct page **pages,
+					       struct vm_area_struct **vmas, int *locked)
+{
+#if KERNEL_VERSION(4, 10, 0) > LINUX_VERSION_CODE
+	return get_user_pages_remote(tsk, mm, start, nr_pages, gup_flags, pages, vmas);
+#elif KERNEL_VERSION(5, 6, 0) > LINUX_VERSION_CODE
+	return get_user_pages_remote(tsk, mm, start, nr_pages, gup_flags, pages, vmas, locked);
+#elif KERNEL_VERSION(5, 9, 0) > LINUX_VERSION_CODE
+	return pin_user_pages_remote(tsk, mm, start, nr_pages, gup_flags, pages, vmas, locked);
+#elif ((KERNEL_VERSION(6, 5, 0) > LINUX_VERSION_CODE) && !defined(__ANDROID_COMMON_KERNEL__)) || \
+	((KERNEL_VERSION(6, 4, 0) > LINUX_VERSION_CODE) && defined(__ANDROID_COMMON_KERNEL__))
+	return pin_user_pages_remote(mm, start, nr_pages, gup_flags, pages, vmas, locked);
+#else
+	return pin_user_pages_remote(mm, start, nr_pages, gup_flags, pages, locked);
+#endif
+}
+
 #if (KERNEL_VERSION(6, 4, 0) <= LINUX_VERSION_CODE)
 #define KBASE_CLASS_CREATE(owner, name) class_create(name)
 #else
 #define KBASE_CLASS_CREATE(owner, name) class_create(owner, name)
-#endif
+#endif /* (KERNEL_VERSION(6, 4, 0) <= LINUX_VERSION_CODE) */
+
+#if KERNEL_VERSION(5, 0, 0) > LINUX_VERSION_CODE
+#define kbase_totalram_pages() totalram_pages
+#else
+#define kbase_totalram_pages() totalram_pages()
+#endif /* KERNEL_VERSION(5, 0, 0) > LINUX_VERSION_CODE */
 
 #endif /* _VERSION_COMPAT_DEFS_H_ */

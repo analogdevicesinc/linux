@@ -205,6 +205,20 @@ kbasep_hwcnt_backend_csf_if_fw_cc_disable(struct kbase_hwcnt_backend_csf_if_fw_c
 		kbase_clk_rate_trace_manager_unsubscribe(rtm, &fw_ctx->rate_listener);
 }
 
+#if !IS_ENABLED(CONFIG_MALI_NO_MALI)
+/**
+ * kbasep_hwcnt_backend_csf_core_mask() - Obtain Core Mask - MAX Core ID
+ *
+ * @gpu_props:  gpu_props structure
+ *
+ * Return:      calculated core mask (maximum Core ID)
+ */
+static u64 kbasep_hwcnt_backend_csf_core_mask(struct kbase_gpu_props *gpu_props)
+{
+	return gpu_props->coherency_info.group.core_mask;
+}
+#endif
+
 static void kbasep_hwcnt_backend_csf_if_fw_get_prfcnt_info(
 	struct kbase_hwcnt_backend_csf_if_ctx *ctx,
 	struct kbase_hwcnt_backend_csf_if_prfcnt_info *prfcnt_info)
@@ -233,6 +247,8 @@ static void kbasep_hwcnt_backend_csf_if_fw_get_prfcnt_info(
 	u32 prfcnt_size;
 	u32 prfcnt_hw_size;
 	u32 prfcnt_fw_size;
+	u32 csg_count;
+	u32 fw_block_count = 0;
 	u32 prfcnt_block_size =
 		KBASE_HWCNT_V5_DEFAULT_VALUES_PER_BLOCK * KBASE_HWCNT_VALUE_HW_BYTES;
 
@@ -241,27 +257,41 @@ static void kbasep_hwcnt_backend_csf_if_fw_get_prfcnt_info(
 
 	fw_ctx = (struct kbase_hwcnt_backend_csf_if_fw_ctx *)ctx;
 	kbdev = fw_ctx->kbdev;
+	csg_count = kbdev->csf.global_iface.group_num;
 	prfcnt_size = kbdev->csf.global_iface.prfcnt_size;
 	prfcnt_hw_size = GLB_PRFCNT_SIZE_HARDWARE_SIZE_GET(prfcnt_size);
 	prfcnt_fw_size = GLB_PRFCNT_SIZE_FIRMWARE_SIZE_GET(prfcnt_size);
-	fw_ctx->buf_bytes = prfcnt_hw_size + prfcnt_fw_size;
 
 	/* Read the block size if the GPU has the register PRFCNT_FEATURES
 	 * which was introduced in architecture version 11.x.7.
 	 */
 	if (kbase_reg_is_valid(kbdev, GPU_CONTROL_ENUM(PRFCNT_FEATURES))) {
-		prfcnt_block_size = PRFCNT_FEATURES_COUNTER_BLOCK_SIZE_GET(kbase_reg_read32(
+		prfcnt_block_size = PRFCNT_FEATURES_COUNTER_BLOCK_SIZE_GET(KBASE_REG_READ(
 					    kbdev, GPU_CONTROL_ENUM(PRFCNT_FEATURES)))
 				    << 8;
 	}
 
+	/* Extra sanity check to ensure that we support two different configurations:
+	 * a global FW block without CSG blocks and a global FW block with CSG blocks.
+	 */
+	if (!prfcnt_fw_size)
+		fw_block_count = 0;
+	else if (prfcnt_fw_size == prfcnt_block_size)
+		fw_block_count = 1;
+	else if (prfcnt_fw_size == ((1 + csg_count) * prfcnt_block_size))
+		fw_block_count = 1 + csg_count;
+	else
+		WARN_ON_ONCE(true);
+
+	fw_ctx->buf_bytes = prfcnt_hw_size + prfcnt_fw_size;
 	*prfcnt_info = (struct kbase_hwcnt_backend_csf_if_prfcnt_info){
 		.prfcnt_hw_size = prfcnt_hw_size,
 		.prfcnt_fw_size = prfcnt_fw_size,
 		.dump_bytes = fw_ctx->buf_bytes,
 		.prfcnt_block_size = prfcnt_block_size,
-		.l2_count = kbdev->gpu_props.props.l2_props.num_l2_slices,
-		.core_mask = kbdev->gpu_props.props.coherency_info.group[0].core_mask,
+		.l2_count = kbdev->gpu_props.num_l2_slices,
+		.core_mask = kbasep_hwcnt_backend_csf_core_mask(&kbdev->gpu_props),
+		.csg_count = fw_block_count > 1 ? csg_count : 0,
 		.clk_cnt = fw_ctx->clk_cnt,
 		.clearing_samples = true,
 	};
@@ -506,6 +536,7 @@ kbasep_hwcnt_backend_csf_if_fw_dump_enable(struct kbase_hwcnt_backend_csf_if_ctx
 		(struct kbase_hwcnt_backend_csf_if_fw_ctx *)ctx;
 	struct kbase_hwcnt_backend_csf_if_fw_ring_buf *fw_ring_buf =
 		(struct kbase_hwcnt_backend_csf_if_fw_ring_buf *)ring_buf;
+	u32 max_csg_slots;
 
 	WARN_ON(!ctx);
 	WARN_ON(!ring_buf);
@@ -514,6 +545,7 @@ kbasep_hwcnt_backend_csf_if_fw_dump_enable(struct kbase_hwcnt_backend_csf_if_ctx
 
 	kbdev = fw_ctx->kbdev;
 	global_iface = &kbdev->csf.global_iface;
+	max_csg_slots = kbdev->csf.global_iface.group_num;
 
 	/* Configure */
 	prfcnt_config = GLB_PRFCNT_CONFIG_SIZE_SET(0, fw_ring_buf->buf_count);
@@ -534,6 +566,12 @@ kbasep_hwcnt_backend_csf_if_fw_dump_enable(struct kbase_hwcnt_backend_csf_if_ctx
 	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_SHADER_EN, enable->shader_bm);
 	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_MMU_L2_EN, enable->mmu_l2_bm);
 	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_TILER_EN, enable->tiler_bm);
+	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_FW_EN, enable->fw_bm);
+	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_CSG_EN, enable->csg_bm);
+
+	/* Enable all of the CSGs by default. */
+	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_CSG_SELECT, max_csg_slots);
+
 
 	/* Configure the HWC set and buffer size */
 	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_CONFIG, prfcnt_config);

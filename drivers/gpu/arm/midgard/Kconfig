@@ -162,17 +162,6 @@ config MALI_CORESIGHT
 	bool "Enable Kbase CoreSight tracing support"
 	default n
 
-config MALI_FENCE_TIMEOUT_RECOVERY
-	bool "Enable fence timeout recovery"
-	depends on MALI_MIDGARD && SYNC_FILE
-	default y
-	help
-	  Choose this option to enable fence timeout recovery
-	  without this feature, it is possible for a graphic application to
-	  block the surfaceflinger indefinitely
-	  if the latter is waiting for a fence to be signalled from the former.
-	  This behaviour would trigger the system SWT and causing a platform reboot.
-
 menuconfig MALI_EXPERT
 	depends on MALI_MIDGARD
 	bool "Enable Expert Settings"
@@ -183,32 +172,20 @@ menuconfig MALI_EXPERT
 
 if MALI_EXPERT
 
-config LARGE_PAGE_ALLOC_OVERRIDE
-	bool "Override default setting of 2MB pages"
+config LARGE_PAGE_SUPPORT
+	bool "Support for 2MB page allocations"
 	depends on MALI_MIDGARD && MALI_EXPERT
-	default n
+	default y
 	help
-	  An override config for LARGE_PAGE_ALLOC config.
-	  When LARGE_PAGE_ALLOC_OVERRIDE is Y, 2MB page allocation will be
-	  enabled by LARGE_PAGE_ALLOC. When this is N, the feature will be
-	  enabled when GPU HW satisfies requirements.
+	 Rather than allocating all GPU memory page-by-page, allow the system
+	 to decide whether to attempt to allocate 2MB pages from the kernel.
+	 This reduces TLB pressure.
 
-	  If in doubt, say N
+	 Note that this option only enables the support for the module parameter
+	 and does not necessarily mean that 2MB pages will be used automatically.
+	 This depends on GPU support.
 
-config LARGE_PAGE_ALLOC
-	bool "Attempt to allocate 2MB pages"
-	depends on MALI_MIDGARD && MALI_EXPERT
-	default n
-	help
-	  Rather than allocating all GPU memory page-by-page, attempt to
-	  allocate 2MB pages from the kernel. This reduces TLB pressure and
-	  helps to prevent memory fragmentation.
-
-	  Note this config applies only when LARGE_PAGE_ALLOC_OVERRIDE config
-	  is enabled and enabling this on a GPU HW that does not satisfy
-	  requirements can cause serious problem.
-
-	  If in doubt, say N
+	 If in doubt, say Y.
 
 config PAGE_MIGRATION_SUPPORT
 	bool "Enable support for page migration"
@@ -417,6 +394,15 @@ config MALI_ARBITRATION
 	help
 	  Enables the build of several reference modules used in the reference
 	  virtualization setup for Mali
+	  If unsure, say N.
+
+config MALI_TRACE_POWER_GPU_WORK_PERIOD
+	bool "Enable per-application GPU metrics tracepoints"
+	depends on MALI_MIDGARD
+	default y
+	help
+	  This option enables per-application GPU metrics tracepoints.
+
 	  If unsure, say N.
 
 

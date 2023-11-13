@@ -37,7 +37,7 @@ int kbase_pm_ca_init(struct kbase_device *kbdev)
 	if (kbdev->current_core_mask)
 		pm_backend->ca_cores_enabled = kbdev->current_core_mask;
 	else
-		pm_backend->ca_cores_enabled = kbdev->gpu_props.props.raw_props.shader_present;
+		pm_backend->ca_cores_enabled = kbdev->gpu_props.shader_present;
 #endif
 
 	return 0;

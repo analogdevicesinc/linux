@@ -184,4 +184,19 @@ int kbase_kinstr_prfcnt_enum_info(struct kbase_kinstr_prfcnt_context *kinstr_ctx
 int kbase_kinstr_prfcnt_setup(struct kbase_kinstr_prfcnt_context *kinstr_ctx,
 			      union kbase_ioctl_kinstr_prfcnt_setup *setup);
 
+/**
+ * kbasep_kinstr_populate_prfcnt_enum_list() - Populate the enumeration output list.
+ * @metadata:   Hardware counter metadata
+ * @item_array: Pointer to a pre-allocated array for populating the enumeration items
+ * @array_size: The array size of the item_array. Must match the corresponding metadata
+ *              enumeration number of items.
+ *
+ * The function converts the configured hardware counter metadata into perfcnt enumeration
+ * items and populate them into the supplied recipient array.
+ *
+ * Return: 0 on success, else -EINVAL on misconfigured input fields or mismatched array length.
+ */
+int kbasep_kinstr_populate_prfcnt_enum_list(const struct kbase_hwcnt_metadata *metadata,
+					    struct prfcnt_enum_item *item_array, size_t array_size);
+
 #endif /* _KBASE_KINSTR_PRFCNT_H_ */

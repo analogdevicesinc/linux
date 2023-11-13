@@ -48,7 +48,7 @@
  */
 #define KBASEP_TICK_PROTM_PEND_SCAN_SEQ_NR_INVALID (U32_MAX)
 
-#define FIRMWARE_IDLE_HYSTERESIS_TIME_USEC (10000) /* Default 10 milliseconds */
+#define FIRMWARE_IDLE_HYSTERESIS_TIME_NS (10 * 1000 * 1000) /* Default 10 milliseconds */
 
 /* Idle hysteresis time can be scaled down when GPU sleep feature is used */
 #define FIRMWARE_IDLE_HYSTERESIS_GPU_SLEEP_SCALER (5)
@@ -545,6 +545,5 @@ static inline u64 kbase_csf_ktrace_gpu_cycle_cnt(struct kbase_device *kbdev)
  * right away, otherwise once the group is made resident.
  */
 void kbase_csf_process_queue_kick(struct kbase_queue *queue);
-
 
 #endif /* _KBASE_CSF_H_ */

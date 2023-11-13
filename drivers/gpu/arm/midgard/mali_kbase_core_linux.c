@@ -59,7 +59,7 @@
 #include "csf/mali_kbase_csf_firmware.h"
 #include "csf/mali_kbase_csf_tiler_heap.h"
 #include "csf/mali_kbase_csf_csg_debugfs.h"
-#include "csf/mali_kbase_csf_cpu_queue_debugfs.h"
+#include "csf/mali_kbase_csf_cpu_queue.h"
 #include "csf/mali_kbase_csf_event.h"
 #endif
 #ifdef CONFIG_MALI_ARBITER_SUPPORT
@@ -233,6 +233,7 @@ static struct kbase_file *kbase_file_new(struct kbase_device *const kbdev, struc
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 		init_waitqueue_head(&kfile->zero_fops_count_wait);
 #endif
+		init_waitqueue_head(&kfile->event_queue);
 	}
 	return kfile;
 }
@@ -1697,7 +1698,7 @@ static int kbase_ioctl_cs_get_glb_iface(struct kbase_context *kctx,
 static int kbasep_ioctl_cs_cpu_queue_dump(struct kbase_context *kctx,
 					  struct kbase_ioctl_cs_cpu_queue_info *cpu_queue_info)
 {
-	return kbase_csf_cpu_queue_dump(kctx, cpu_queue_info->buffer, cpu_queue_info->size);
+	return kbase_csf_cpu_queue_dump_buffer(kctx, cpu_queue_info->buffer, cpu_queue_info->size);
 }
 
 static int kbase_ioctl_read_user_page(struct kbase_context *kctx,
@@ -2222,7 +2223,7 @@ static ssize_t kbase_read(struct file *filp, char __user *buf, size_t count, lof
 				goto out;
 			}
 
-			if (wait_event_interruptible(kctx->event_queue,
+			if (wait_event_interruptible(kfile->event_queue,
 						     kbase_event_pending(kctx)) != 0) {
 				err = -ERESTARTSYS;
 				goto out;
@@ -2277,7 +2278,7 @@ static __poll_t kbase_poll(struct file *filp, poll_table *wait)
 		goto out;
 	}
 
-	poll_wait(filp, &kctx->event_queue, wait);
+	poll_wait(filp, &kfile->event_queue, wait);
 	if (kbase_event_pending(kctx)) {
 #if (KERNEL_VERSION(4, 19, 0) > LINUX_VERSION_CODE)
 		ret = POLLIN | POLLRDNORM;
@@ -2295,7 +2296,11 @@ void kbase_event_wakeup(struct kbase_context *kctx)
 {
 	KBASE_DEBUG_ASSERT(kctx);
 	dev_dbg(kctx->kbdev->dev, "Waking event queue for context %pK\n", (void *)kctx);
-	wake_up_interruptible(&kctx->event_queue);
+#ifdef CONFIG_MALI_DEBUG
+	if (WARN_ON_ONCE(!kctx->kfile))
+		return;
+#endif
+	wake_up_interruptible(&kctx->kfile->event_queue);
 }
 
 KBASE_EXPORT_TEST_API(kbase_event_wakeup);
@@ -2543,7 +2548,7 @@ static ssize_t core_mask_show(struct device *dev, struct device_attribute *attr,
 #endif /* MALI_USE_CSF */
 
 	ret += scnprintf(buf + ret, PAGE_SIZE - ret, "Available core mask : 0x%llX\n",
-			 kbdev->gpu_props.props.raw_props.shader_present);
+			 kbdev->gpu_props.shader_present);
 
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
@@ -2570,7 +2575,7 @@ static ssize_t core_mask_store(struct device *dev, struct device_attribute *attr
 	u64 new_core_mask;
 #else
 	u64 new_core_mask[3];
-	u64 group0_core_mask;
+	u64 group_core_mask;
 	int i;
 #endif /* MALI_USE_CSF */
 
@@ -2614,7 +2619,7 @@ static ssize_t core_mask_store(struct device *dev, struct device_attribute *attr
 	mutex_lock(&kbdev->pm.lock);
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 
-	shader_present = kbdev->gpu_props.props.raw_props.shader_present;
+	shader_present = kbdev->gpu_props.shader_present;
 
 #if MALI_USE_CSF
 	if ((new_core_mask & shader_present) != new_core_mask) {
@@ -2627,7 +2632,7 @@ static ssize_t core_mask_store(struct device *dev, struct device_attribute *attr
 	} else if (!(new_core_mask & shader_present & kbdev->pm.backend.ca_cores_enabled)) {
 		dev_err(dev,
 			"Invalid core mask 0x%llX: No intersection with currently available cores (present = 0x%llX, CA enabled = 0x%llX\n",
-			new_core_mask, kbdev->gpu_props.props.raw_props.shader_present,
+			new_core_mask, kbdev->gpu_props.shader_present,
 			kbdev->pm.backend.ca_cores_enabled);
 		err = -EINVAL;
 		goto unlock;
@@ -2636,7 +2641,7 @@ static ssize_t core_mask_store(struct device *dev, struct device_attribute *attr
 	if (kbdev->pm.debug_core_mask != new_core_mask)
 		kbase_pm_set_debug_core_mask(kbdev, new_core_mask);
 #else
-	group0_core_mask = kbdev->gpu_props.props.coherency_info.group[0].core_mask;
+	group_core_mask = kbdev->gpu_props.coherency_info.group.core_mask;
 
 	for (i = 0; i < 3; ++i) {
 		if ((new_core_mask[i] & shader_present) != new_core_mask[i]) {
@@ -2650,16 +2655,14 @@ static ssize_t core_mask_store(struct device *dev, struct device_attribute *attr
 			     kbdev->pm.backend.ca_cores_enabled)) {
 			dev_err(dev,
 				"Invalid core mask 0x%llX for JS %d: No intersection with currently available cores (present = 0x%llX, CA enabled = 0x%llX\n",
-				new_core_mask[i], i,
-				kbdev->gpu_props.props.raw_props.shader_present,
+				new_core_mask[i], i, kbdev->gpu_props.shader_present,
 				kbdev->pm.backend.ca_cores_enabled);
 			err = -EINVAL;
 			goto unlock;
-
-		} else if (!(new_core_mask[i] & group0_core_mask)) {
+		} else if (!(new_core_mask[i] & group_core_mask)) {
 			dev_err(dev,
 				"Invalid core mask 0x%llX for JS %d: No intersection with group 0 core mask 0x%llX\n",
-				new_core_mask[i], i, group0_core_mask);
+				new_core_mask[i], i, group_core_mask);
 			err = -EINVAL;
 			goto unlock;
 		} else if (!(new_core_mask[i] & kbdev->gpu_props.curr_config.shader_present)) {
@@ -3285,10 +3288,13 @@ static ssize_t gpuinfo_show(struct device *dev, struct device_attribute *attr, c
 		{ .id = GPU_ID_PRODUCT_TGRX, .name = "Mali-G510" },
 		{ .id = GPU_ID_PRODUCT_TVAX, .name = "Mali-G310" },
 		{ .id = GPU_ID_PRODUCT_LTIX, .name = "Mali-G620" },
+		{ .id = GPU_ID_PRODUCT_TKRX, .name = "Mali-TKRX" },
+		{ .id = GPU_ID_PRODUCT_LKRX, .name = "Mali-LKRX" },
 	};
 	const char *product_name = "(Unknown Mali GPU)";
 	struct kbase_device *kbdev;
 	u32 product_id;
+	u32 product_model;
 	unsigned int i;
 	struct kbase_gpu_props *gpu_props;
 
@@ -3300,20 +3306,20 @@ static ssize_t gpuinfo_show(struct device *dev, struct device_attribute *attr, c
 
 	gpu_props = &kbdev->gpu_props;
 	product_id = gpu_props->gpu_id.product_id;
+	product_model = gpu_props->gpu_id.product_model;
 
 	for (i = 0; i < ARRAY_SIZE(gpu_product_id_names); ++i) {
 		const struct gpu_product_id_name *p = &gpu_product_id_names[i];
 
-		if (p->id == product_id) {
+		if (p->id == product_model) {
 			product_name = p->name;
 			break;
 		}
 	}
 
 #if MALI_USE_CSF
-	if (product_id == GPU_ID_PRODUCT_TTUX) {
-		const bool rt_supported =
-			GPU_FEATURES_RAY_TRACING_GET(gpu_props->props.raw_props.gpu_features);
+	if (product_model == GPU_ID_PRODUCT_TTUX) {
+		const bool rt_supported = gpu_props->gpu_features.ray_intersection;
 		const u8 nr_cores = gpu_props->num_cores;
 
 		/* Mali-G715-Immortalis if 10 < number of cores with ray tracing supproted.
@@ -3334,9 +3340,8 @@ static ssize_t gpuinfo_show(struct device *dev, struct device_attribute *attr, c
 				nr_cores);
 	}
 
-	if (product_id == GPU_ID_PRODUCT_TTIX) {
-		const bool rt_supported =
-			GPU_FEATURES_RAY_TRACING_GET(gpu_props->props.raw_props.gpu_features);
+	if (product_model == GPU_ID_PRODUCT_TTIX) {
+		const bool rt_supported = gpu_props->gpu_features.ray_intersection;
 		const u8 nr_cores = gpu_props->num_cores;
 
 		if ((nr_cores >= 10) && rt_supported)
@@ -3349,7 +3354,7 @@ static ssize_t gpuinfo_show(struct device *dev, struct device_attribute *attr, c
 	}
 #endif /* MALI_USE_CSF */
 
-	return scnprintf(buf, PAGE_SIZE, "%s %d cores r%dp%d 0x%04X\n", product_name,
+	return scnprintf(buf, PAGE_SIZE, "%s %d cores r%dp%d 0x%08X\n", product_name,
 			 kbdev->gpu_props.num_cores, gpu_props->gpu_id.version_major,
 			 gpu_props->gpu_id.version_minor, product_id);
 }
@@ -3467,7 +3472,7 @@ int kbase_pm_gpu_freq_init(struct kbase_device *kbdev)
 	dev_dbg(kbdev->dev, "Lowest frequency identified is %llu kHz", kbdev->lowest_gpu_freq_khz);
 	dev_dbg(kbdev->dev,
 		"Setting default highest frequency to %u kHz (pending devfreq initialization",
-		kbdev->gpu_props.props.core_props.gpu_freq_khz_max);
+		kbdev->gpu_props.gpu_freq_khz_max);
 
 	return 0;
 }
@@ -4563,7 +4568,7 @@ int kbase_device_pm_init(struct kbase_device *kbdev)
 	int err = 0;
 
 #if defined(CONFIG_MALI_ARBITER_SUPPORT) && defined(CONFIG_OF)
-	u32 product_id;
+	u32 product_model;
 
 	if (kbase_is_pv_enabled(kbdev->dev->of_node)) {
 		dev_info(kbdev->dev, "Arbitration interface enabled\n");
@@ -4588,11 +4593,11 @@ int kbase_device_pm_init(struct kbase_device *kbdev)
 			kbase_gpuprops_parse_gpu_id(&kbdev->gpu_props.gpu_id,
 						    kbase_reg_get_gpu_id(kbdev));
 			kbase_pm_register_access_disable(kbdev);
-			product_id = kbdev->gpu_props.gpu_id.product_id;
+			product_model = kbdev->gpu_props.gpu_id.product_model;
 
-			if (product_id != GPU_ID_PRODUCT_TGOX &&
-			    product_id != GPU_ID_PRODUCT_TNOX &&
-			    product_id != GPU_ID_PRODUCT_TBAX) {
+			if (product_model != GPU_ID_PRODUCT_TGOX &&
+			    product_model != GPU_ID_PRODUCT_TNOX &&
+			    product_model != GPU_ID_PRODUCT_TBAX) {
 				kbase_arbiter_pm_early_term(kbdev);
 				dev_err(kbdev->dev, "GPU platform not suitable for arbitration\n");
 				return -EPERM;
@@ -5132,9 +5137,9 @@ void kbase_device_debugfs_term(struct kbase_device *kbdev)
  */
 static u32 kbase_device_normalize_coherency_bitmap(struct kbase_device *kbdev)
 {
-	u32 supported_coherency_bitmap = kbdev->gpu_props.props.raw_props.coherency_mode;
+	u32 supported_coherency_bitmap = kbdev->gpu_props.coherency_mode;
 
-	if ((kbdev->gpu_props.gpu_id.product_id == GPU_ID_PRODUCT_TMIX) &&
+	if ((kbdev->gpu_props.gpu_id.product_model == GPU_ID_PRODUCT_TMIX) &&
 	    (supported_coherency_bitmap == COHERENCY_FEATURE_BIT(COHERENCY_ACE)))
 		supported_coherency_bitmap |= COHERENCY_FEATURE_BIT(COHERENCY_ACE_LITE);
 
@@ -5235,7 +5240,7 @@ int kbase_device_coherency_init(struct kbase_device *kbdev)
 		dev_info(kbdev->dev, "Using coherency mode %u set from dtb", override_coherency);
 	}
 early_exit:
-	kbdev->gpu_props.props.raw_props.coherency_mode = kbdev->system_coherency;
+	kbdev->gpu_props.coherency_mode = kbdev->system_coherency;
 
 	return err;
 }
@@ -5418,7 +5423,10 @@ static ssize_t idle_hysteresis_time_store(struct device *dev, struct device_attr
 		return -EINVAL;
 	}
 
-	kbase_csf_firmware_set_gpu_idle_hysteresis_time(kbdev, dur);
+	/* In sysFs, The unit of the input value of idle_hysteresis_time is us.
+	 * But the unit of the input parameter of this function is ns, so multiply by 1000
+	 */
+	kbase_csf_firmware_set_gpu_idle_hysteresis_time(kbdev, dur * NSEC_PER_USEC);
 
 	return count;
 }
@@ -5447,13 +5455,82 @@ static ssize_t idle_hysteresis_time_show(struct device *dev, struct device_attri
 	if (!kbdev)
 		return -ENODEV;
 
-	dur = kbase_csf_firmware_get_gpu_idle_hysteresis_time(kbdev);
+	/* The unit of return value of idle_hysteresis_time_show is us, So divide by 1000.*/
+	dur = kbase_csf_firmware_get_gpu_idle_hysteresis_time(kbdev) / NSEC_PER_USEC;
 	ret = scnprintf(buf, PAGE_SIZE, "%u\n", dur);
 
 	return ret;
 }
 
 static DEVICE_ATTR_RW(idle_hysteresis_time);
+
+/**
+ * idle_hysteresis_time_ns_store - Store callback for CSF
+ *                     idle_hysteresis_time_ns sysfs file.
+ *
+ * @dev:   The device with sysfs file is for
+ * @attr:  The attributes of the sysfs file
+ * @buf:   The value written to the sysfs file
+ * @count: The number of bytes written to the sysfs file
+ *
+ * This function is called when the idle_hysteresis_time_ns sysfs
+ * file is written to.
+ *
+ * This file contains values of the idle hysteresis duration in ns.
+ *
+ * Return: @count if the function succeeded. An error code on failure.
+ */
+static ssize_t idle_hysteresis_time_ns_store(struct device *dev, struct device_attribute *attr,
+					     const char *buf, size_t count)
+{
+	struct kbase_device *kbdev;
+	u32 dur = 0;
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	if (kstrtou32(buf, 0, &dur)) {
+		dev_err(kbdev->dev, "Couldn't process idle_hysteresis_time_ns write operation.\n"
+				    "Use format <idle_hysteresis_time_ns>\n");
+		return -EINVAL;
+	}
+
+	kbase_csf_firmware_set_gpu_idle_hysteresis_time(kbdev, dur);
+
+	return count;
+}
+
+/**
+ * idle_hysteresis_time_ns_show - Show callback for CSF
+ *                  idle_hysteresis_time_ns sysfs entry.
+ *
+ * @dev:  The device this sysfs file is for.
+ * @attr: The attributes of the sysfs file.
+ * @buf:  The output buffer to receive the GPU information.
+ *
+ * This function is called to get the current idle hysteresis duration in ns.
+ *
+ * Return: The number of bytes output to @buf.
+ */
+static ssize_t idle_hysteresis_time_ns_show(struct device *dev, struct device_attribute *attr,
+					    char *const buf)
+{
+	struct kbase_device *kbdev;
+	ssize_t ret;
+	u32 dur;
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	dur = kbase_csf_firmware_get_gpu_idle_hysteresis_time(kbdev);
+	ret = scnprintf(buf, PAGE_SIZE, "%u\n", dur);
+
+	return ret;
+}
+
+static DEVICE_ATTR_RW(idle_hysteresis_time_ns);
 
 /**
  * mcu_shader_pwroff_timeout_show - Get the MCU shader Core power-off time value.
@@ -5479,7 +5556,8 @@ static ssize_t mcu_shader_pwroff_timeout_show(struct device *dev, struct device_
 	if (!kbdev)
 		return -ENODEV;
 
-	pwroff = kbase_csf_firmware_get_mcu_core_pwroff_time(kbdev);
+	/* The unit of return value of the function is us, So divide by 1000.*/
+	pwroff = kbase_csf_firmware_get_mcu_core_pwroff_time(kbdev) / NSEC_PER_USEC;
 	return scnprintf(buf, PAGE_SIZE, "%u\n", pwroff);
 }
 
@@ -5519,12 +5597,82 @@ static ssize_t mcu_shader_pwroff_timeout_store(struct device *dev, struct device
 	if (dur == 0 && !always_on)
 		return -EINVAL;
 
-	kbase_csf_firmware_set_mcu_core_pwroff_time(kbdev, dur);
+	/* In sysFs, The unit of the input value of mcu_shader_pwroff_timeout is us.
+	 * But the unit of the input parameter of this function is ns, so multiply by 1000
+	 */
+	kbase_csf_firmware_set_mcu_core_pwroff_time(kbdev, dur * NSEC_PER_USEC);
 
 	return count;
 }
 
 static DEVICE_ATTR_RW(mcu_shader_pwroff_timeout);
+
+/**
+ * mcu_shader_pwroff_timeout_ns_show - Get the MCU shader Core power-off time value.
+ *
+ * @dev:  The device this sysfs file is for.
+ * @attr: The attributes of the sysfs file.
+ * @buf:  The output buffer for the sysfs file contents
+ *
+ * Get the internally recorded MCU shader Core power-off (nominal) timeout value.
+ * The unit of the value is in nanoseconds.
+ *
+ * Return: The number of bytes output to @buf if the
+ *         function succeeded. A Negative value on failure.
+ */
+static ssize_t mcu_shader_pwroff_timeout_ns_show(struct device *dev, struct device_attribute *attr,
+						 char *const buf)
+{
+	struct kbase_device *kbdev = dev_get_drvdata(dev);
+	u32 pwroff;
+
+	if (!kbdev)
+		return -ENODEV;
+
+	pwroff = kbase_csf_firmware_get_mcu_core_pwroff_time(kbdev);
+	return scnprintf(buf, PAGE_SIZE, "%u\n", pwroff);
+}
+
+/**
+ * mcu_shader_pwroff_timeout_ns_store - Set the MCU shader core power-off time value.
+ *
+ * @dev:   The device with sysfs file is for
+ * @attr:  The attributes of the sysfs file
+ * @buf:   The value written to the sysfs file
+ * @count: The number of bytes to write to the sysfs file
+ *
+ * The duration value (unit: nanoseconds) for configuring MCU Shader Core
+ * timer, when the shader cores' power transitions are delegated to the
+ * MCU (normal operational mode)
+ *
+ * Return: @count if the function succeeded. An error code on failure.
+ */
+static ssize_t mcu_shader_pwroff_timeout_ns_store(struct device *dev, struct device_attribute *attr,
+						  const char *buf, size_t count)
+{
+	struct kbase_device *kbdev = dev_get_drvdata(dev);
+	u32 dur;
+
+	const struct kbase_pm_policy *current_policy;
+	bool always_on;
+
+	if (!kbdev)
+		return -ENODEV;
+
+	if (kstrtouint(buf, 0, &dur))
+		return -EINVAL;
+
+	current_policy = kbase_pm_get_policy(kbdev);
+	always_on = current_policy == &kbase_pm_always_on_policy_ops;
+	if (dur == 0 && !always_on)
+		return -EINVAL;
+
+	kbase_csf_firmware_set_mcu_core_pwroff_time(kbdev, dur);
+
+	return count;
+}
+
+static DEVICE_ATTR_RW(mcu_shader_pwroff_timeout_ns);
 
 #endif /* MALI_USE_CSF */
 
@@ -5556,7 +5704,9 @@ static struct attribute *kbase_attrs[] = {
 	&dev_attr_csg_scheduling_period.attr,
 	&dev_attr_fw_timeout.attr,
 	&dev_attr_idle_hysteresis_time.attr,
+	&dev_attr_idle_hysteresis_time_ns.attr,
 	&dev_attr_mcu_shader_pwroff_timeout.attr,
+	&dev_attr_mcu_shader_pwroff_timeout_ns.attr,
 #endif /* !MALI_USE_CSF */
 	&dev_attr_power_policy.attr,
 	&dev_attr_core_mask.attr,

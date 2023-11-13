@@ -46,6 +46,20 @@ struct kbase_device;
 	(((u32)(value) >> (u32)(offset)) & (u32)((1ULL << (u32)(size)) - 1))
 
 /**
+ * KBASE_UBFX64 - Extracts bits from a 64-bit bitfield.
+ * @value:  The value from which to extract bits.
+ * @offset: The first bit to extract (0 being the LSB).
+ * @size:   The number of bits to extract.
+ *
+ * Context: @offset + @size <= 64.
+ *
+ * Return: Bits [@offset, @offset + @size) from @value.
+ */
+/* from mali_cdsb.h */
+#define KBASE_UBFX64(value, offset, size) \
+	(((u64)(value) >> (u32)(offset)) & (u64)((1ULL << (u32)(size)) - 1))
+
+/**
  * kbase_gpuprops_update_composite_ids - update composite ids with new gpu id
  * @props: pointer to GPU_ID property structure
  */
@@ -59,24 +73,20 @@ void kbase_gpuprops_update_composite_ids(struct kbase_gpu_id_props *props);
 void kbase_gpuprops_parse_gpu_id(struct kbase_gpu_id_props *props, u64 gpu_id);
 
 /**
- * kbase_gpuprops_set - Set up Kbase GPU properties.
+ * kbase_gpuprops_init - Set up Kbase GPU properties.
  * @kbdev: The struct kbase_device structure for the device
  *
  * Set up Kbase GPU properties with information from the GPU registers
+ *
+ * Return: Zero on success, Linux error code on failuren
  */
-void kbase_gpuprops_set(struct kbase_device *kbdev);
+int kbase_gpuprops_init(struct kbase_device *kbdev);
 
 /**
- * kbase_gpuprops_set_features - Set up Kbase GPU properties
- * @kbdev:   Device pointer
- *
- * This function sets up GPU properties that are dependent on the hardware
- * features bitmask. This function must be preceeded by a call to
- * kbase_hw_set_features_mask().
- *
- * Return: Zero on success, Linux error code on failure
+ * kbase_gpuprops_term - Terminate Kbase GPU properties.
+ * @kbdev: The struct kbase_device structure for the device
  */
-int kbase_gpuprops_set_features(struct kbase_device *kbdev);
+void kbase_gpuprops_term(struct kbase_device *kbdev);
 
 /**
  * kbase_gpuprops_update_l2_features - Update GPU property of L2_FEATURES
@@ -118,18 +128,6 @@ void kbase_gpuprops_free_user_buffer(struct kbase_device *kbdev);
  * Return: 0 on success and non-zero value on failure.
  */
 int kbase_device_populate_max_freq(struct kbase_device *kbdev);
-
-/**
- * kbase_gpuprops_update_core_props_gpu_id - break down gpu id value
- * @gpu_props: the &base_gpu_props structure
- * @gpu_id: the &kbase_gpu_id_props structure
- *
- * Copy valuse stored in kbase_gpu_id_props into separate fields
- * (version_status, minor_revision, major_revision, product_id) stored in
- * base_gpu_props::core_props.
- */
-void kbase_gpuprops_update_core_props_gpu_id(
-	struct base_gpu_props * const gpu_props, struct kbase_gpu_id_props *gpu_id);
 
 /**
  * kbase_gpuprops_set_max_config - Set the max config information

@@ -25,9 +25,6 @@
 
 #include <mali_kbase.h>
 
-#define GPU_FEATURES_CROSS_STREAM_SYNC_MASK (1ull << 3ull)
-
-
 void kbase_create_timeline_objects(struct kbase_device *kbdev)
 {
 	int as_nr;
@@ -35,10 +32,6 @@ void kbase_create_timeline_objects(struct kbase_device *kbdev)
 	struct kbase_context *kctx;
 	struct kbase_timeline *timeline = kbdev->timeline;
 	struct kbase_tlstream *summary = &kbdev->timeline->streams[TL_STREAM_TYPE_OBJ_SUMMARY];
-	u32 const kbdev_has_cross_stream_sync = (kbdev->gpu_props.props.raw_props.gpu_features &
-						 GPU_FEATURES_CROSS_STREAM_SYNC_MASK) ?
-							      1 :
-							      0;
 	u32 const num_sb_entries = kbdev->gpu_props.gpu_id.arch_major >= 11 ? 16 : 8;
 	u32 const supports_gpu_sleep =
 #ifdef KBASE_PM_RUNTIME
@@ -46,7 +39,6 @@ void kbase_create_timeline_objects(struct kbase_device *kbdev)
 #else
 		false;
 #endif /* KBASE_PM_RUNTIME */
-
 
 	/* Summarize the Address Space objects. */
 	for (as_nr = 0; as_nr < kbdev->nr_hw_address_spaces; as_nr++)
@@ -59,11 +51,11 @@ void kbase_create_timeline_objects(struct kbase_device *kbdev)
 		__kbase_tlstream_tl_lifelink_as_gpu(summary, &kbdev->as[as_nr], kbdev);
 
 	/* Trace the creation of a new kbase device and set its properties. */
-	__kbase_tlstream_tl_kbase_new_device(summary, kbdev->id, kbdev->gpu_props.num_cores,
-					     kbdev->csf.global_iface.group_num,
-					     kbdev->nr_hw_address_spaces, num_sb_entries,
-					     kbdev_has_cross_stream_sync, supports_gpu_sleep,
-					     0
+	__kbase_tlstream_tl_kbase_new_device(
+		summary, kbdev->id, kbdev->gpu_props.num_cores, kbdev->csf.global_iface.group_num,
+		kbdev->nr_hw_address_spaces, num_sb_entries,
+		kbdev->gpu_props.gpu_features.cross_stream_sync, supports_gpu_sleep,
+		0
 	);
 
 	/* Lock the context list, to ensure no changes to the list are made

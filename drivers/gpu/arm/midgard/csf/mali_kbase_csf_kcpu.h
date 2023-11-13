@@ -64,9 +64,7 @@ struct kbase_kcpu_command_fence_info {
 	struct dma_fence *fence;
 #endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) */
 	struct kbase_kcpu_command_queue *kcpu_queue;
-#if IS_ENABLED(CONFIG_MALI_FENCE_TIMEOUT_RECOVERY)
 	bool fence_has_force_signaled;
-#endif
 };
 
 /**
@@ -422,13 +420,5 @@ int kbase_csf_kcpu_queue_halt_timers(struct kbase_device *kbdev);
  */
 void kbase_csf_kcpu_queue_resume_timers(struct kbase_device *kbdev);
 
-#if IS_ENABLED(CONFIG_MALI_FENCE_TIMEOUT_RECOVERY)
 bool kbase_kcpu_command_fence_has_force_signaled(struct kbase_kcpu_command_fence_info *fence_info);
-#else
-static inline bool
-kbase_kcpu_command_fence_has_force_signaled(struct kbase_kcpu_command_fence_info *fence_info)
-{
-	return false;
-}
-#endif
 #endif /* _KBASE_CSF_KCPU_H_ */

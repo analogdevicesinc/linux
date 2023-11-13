@@ -554,7 +554,7 @@ int kbase_add_va_region(struct kbase_context *kctx, struct kbase_va_region *reg,
 	int err = 0;
 	struct kbase_device *kbdev = kctx->kbdev;
 	const int cpu_va_bits = kbase_get_num_cpu_va_bits(kctx);
-	const int gpu_pc_bits = kbdev->gpu_props.props.core_props.log2_program_counter_size;
+	const int gpu_pc_bits = kbdev->gpu_props.log2_program_counter_size;
 
 	KBASE_DEBUG_ASSERT(kctx != NULL);
 	KBASE_DEBUG_ASSERT(reg != NULL);
@@ -878,12 +878,12 @@ static void kbase_reg_zone_exec_va_term(struct kbase_context *kctx)
 	kbase_reg_zone_term(zone);
 }
 
+#if MALI_USE_CSF
 static inline u64 kbase_get_exec_fixed_va_zone_base(struct kbase_context *kctx)
 {
 	return kbase_get_exec_va_zone_base(kctx) + KBASE_REG_ZONE_EXEC_VA_SIZE;
 }
 
-#if MALI_USE_CSF
 static int kbase_reg_zone_exec_fixed_va_init(struct kbase_context *kctx, u64 gpu_va_limit)
 {
 	struct kbase_reg_zone *zone = kbase_ctx_reg_zone_get(kctx, EXEC_FIXED_VA_ZONE);

@@ -127,10 +127,13 @@ kbase_hwcnt_backend_dump_enable_nolock_fn(struct kbase_hwcnt_backend *backend,
  * @enable_map: Pointer to enable map specifying enabled counters. Must be NULL if no @dump_buffer
  *
  * If the backend is already disabled, does nothing.
- * Any undumped counter values since the last dump get will be lost.
+ *
+ * Any undumped counter values since the last dump get will be lost. However, Undumped block state
+ * can be retained by the backend.
  *
  * @dump_buffer and @enable_map gives the backend an opportunity to update an existing accumulated
- * buffer with state information, in case that is relevant for the backend.
+ * buffer with state information, and for the caller take ownership of it. In particular, the
+ * caller can use this when they require such information whilst the counter dumps are disabled.
  */
 typedef void kbase_hwcnt_backend_dump_disable_fn(struct kbase_hwcnt_backend *backend,
 						 struct kbase_hwcnt_dump_buffer *dump_buffer,

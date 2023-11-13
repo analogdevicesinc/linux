@@ -19,6 +19,7 @@
 #
 
 mali_kbase-y += \
+    csf/mali_kbase_csf_util.o \
     csf/mali_kbase_csf_firmware_cfg.o \
     csf/mali_kbase_csf_trace_buffer.o \
     csf/mali_kbase_csf.o \
@@ -29,12 +30,15 @@ mali_kbase-y += \
     csf/mali_kbase_csf_tl_reader.o \
     csf/mali_kbase_csf_heap_context_alloc.o \
     csf/mali_kbase_csf_reset_gpu.o \
+    csf/mali_kbase_csf_csg.o \
     csf/mali_kbase_csf_csg_debugfs.o \
     csf/mali_kbase_csf_kcpu_debugfs.o \
+    csf/mali_kbase_csf_sync.o \
     csf/mali_kbase_csf_sync_debugfs.o \
     csf/mali_kbase_csf_kcpu_fence_debugfs.o \
     csf/mali_kbase_csf_protected_memory.o \
     csf/mali_kbase_csf_tiler_heap_debugfs.o \
+    csf/mali_kbase_csf_cpu_queue.o \
     csf/mali_kbase_csf_cpu_queue_debugfs.o \
     csf/mali_kbase_csf_event.o \
     csf/mali_kbase_csf_firmware_log.o \

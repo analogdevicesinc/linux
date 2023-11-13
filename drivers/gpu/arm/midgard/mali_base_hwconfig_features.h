@@ -149,5 +149,13 @@ __attribute__((unused)) static const enum base_hw_feature base_hw_features_tTIx[
 	BASE_HW_FEATURE_END
 };
 
+__attribute__((unused)) static const enum base_hw_feature base_hw_features_tKRx[] = {
+	BASE_HW_FEATURE_FLUSH_REDUCTION,  BASE_HW_FEATURE_PROTECTED_DEBUG_MODE,
+	BASE_HW_FEATURE_L2_CONFIG,	  BASE_HW_FEATURE_CLEAN_ONLY_SAFE,
+	BASE_HW_FEATURE_L2_SLICE_HASH,	  BASE_HW_FEATURE_GPU_SLEEP,
+	BASE_HW_FEATURE_CORE_FEATURES,	  BASE_HW_FEATURE_PBHA_HWU,
+	BASE_HW_FEATURE_LARGE_PAGE_ALLOC, BASE_HW_FEATURE_END
+};
+
 
 #endif /* _BASE_HWCONFIG_FEATURES_H_ */

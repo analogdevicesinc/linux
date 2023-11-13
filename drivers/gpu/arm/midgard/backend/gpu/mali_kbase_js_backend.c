@@ -28,6 +28,9 @@
 #include <mali_kbase_reset_gpu.h>
 #include <backend/gpu/mali_kbase_jm_internal.h>
 #include <backend/gpu/mali_kbase_js_internal.h>
+#if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
+#include <mali_kbase_gpu_metrics.h>
+#endif
 
 /*
  * Hold the runpool_mutex for this
@@ -280,6 +283,39 @@ void kbase_backend_ctx_count_changed(struct kbase_device *kbdev)
 		KBASE_KTRACE_ADD_JM(kbdev, JS_POLICY_TIMER_START, NULL, NULL, 0u, 0u);
 	}
 
+#if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
+	if (unlikely(suspend_timer)) {
+		js_devdata->gpu_metrics_timer_needed = false;
+		/* Cancel the timer as System suspend is happening */
+		hrtimer_cancel(&js_devdata->gpu_metrics_timer);
+		js_devdata->gpu_metrics_timer_running = false;
+		spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+		/* Explicitly emit the tracepoint on System suspend */
+		kbase_gpu_metrics_emit_tracepoint(kbdev, ktime_get_raw_ns());
+		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+		return;
+	}
+
+	if (!nr_running_ctxs) {
+		/* Just set the flag to not restart the timer on expiry */
+		js_devdata->gpu_metrics_timer_needed = false;
+		return;
+	}
+
+	/* There are runnable contexts so the timer is needed */
+	if (!js_devdata->gpu_metrics_timer_needed) {
+		spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+		js_devdata->gpu_metrics_timer_needed = true;
+		/* No need to restart the timer if it is already running. */
+		if (!js_devdata->gpu_metrics_timer_running) {
+			hrtimer_start(&js_devdata->gpu_metrics_timer,
+				      HR_TIMER_DELAY_NSEC(kbase_gpu_metrics_get_tp_emit_interval()),
+				      HRTIMER_MODE_REL);
+			js_devdata->gpu_metrics_timer_running = true;
+		}
+		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+	}
+#endif
 }
 
 int kbase_backend_timer_init(struct kbase_device *kbdev)

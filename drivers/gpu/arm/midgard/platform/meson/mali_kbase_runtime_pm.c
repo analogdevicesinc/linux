@@ -199,6 +199,10 @@ static int kbase_device_runtime_init(struct kbase_device *kbdev)
 		ret = -EINVAL;
 	}
 
+	/* allocate resources for reset */
+	if (!ret)
+		ret = resets_init(kbdev);
+
 	return ret;
 }
 

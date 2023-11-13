@@ -387,7 +387,8 @@ enum kbase_regmap_enum_v11 {
  */
 
 enum kbase_regmap_enum_v12 {
-	GPU_CONTROL__GPU_COMMAND_ARG0 = NR_V11_REGS, /* (RW) 64-bit 0xD0 */
+	GPU_CONTROL__AMBA_ENABLE = NR_V11_REGS, /* (RW) 32-bit 0x304 */
+	GPU_CONTROL__GPU_COMMAND_ARG0, /* (RW) 64-bit 0xD0 */
 	GPU_CONTROL__GPU_COMMAND_ARG1, /* (RW) 64-bit 0xD8 */
 	GPU_CONTROL__MCU_FEATURES, /* (RO) 32-bit 0x708 */
 	GPU_CONTROL__SHADER_PWRFEATURES, /* (RW) 32-bit 0x188 */
@@ -395,9 +396,13 @@ enum kbase_regmap_enum_v12 {
 };
 
 enum kbase_regmap_enum_v12_remap {
-	GPU_CONTROL__AMBA_ENABLE = GPU_CONTROL__COHERENCY_ENABLE, /* (RW) 32-bit 0x304 */
 	GPU_CONTROL__AMBA_FEATURES = GPU_CONTROL__COHERENCY_FEATURES, /* (RO) 32-bit 0x300 */
 };
+
+/*
+ * V12_REMOVED_REGS:
+ * GPU_CONTROL__COHERENCY_ENABLE
+ */
 
 
 #endif /* _MALI_KBASE_REGMAP_CSF_ENUMS_H_ */

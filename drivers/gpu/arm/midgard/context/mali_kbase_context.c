@@ -184,8 +184,6 @@ int kbase_context_common_init(struct kbase_context *kctx)
 	spin_lock_init(&kctx->waiting_soft_jobs_lock);
 	INIT_LIST_HEAD(&kctx->waiting_soft_jobs);
 
-	init_waitqueue_head(&kctx->event_queue);
-
 	kbase_gpu_vm_lock(kctx);
 	bitmap_copy(kctx->cookies, &cookies_mask, BITS_PER_LONG);
 	kbase_gpu_vm_unlock(kctx);

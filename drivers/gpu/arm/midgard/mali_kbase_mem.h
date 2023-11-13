@@ -325,7 +325,7 @@ enum kbase_user_buf_state {
  *                   to the physical pages to prevent flag changes or shrink
  *                   while maps are still held.
  * @nents: 0..N
- * @pages: N elements, only 0..nents are valid
+ * @pages: N elements, only 0..(nents - 1) are valid
  * @mappings: List of CPU mappings of this physical memory allocation.
  * @evict_node: Node used to store this allocation on the eviction list
  * @evicted: Physical backing size when the pages where evicted

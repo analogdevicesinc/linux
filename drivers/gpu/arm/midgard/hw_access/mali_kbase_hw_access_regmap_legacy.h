@@ -33,7 +33,6 @@
 #define GPU_CONTROL_BASE 0x0000
 #define GPU_CONTROL_REG(r) (GPU_CONTROL_BASE + (r))
 
-
 #define GPU_ID 0x000 /* (RO) GPU and revision identifier */
 #define L2_FEATURES 0x004 /* (RO) Level 2 cache features */
 #define TILER_FEATURES 0x00C /* (RO) Tiler Features */

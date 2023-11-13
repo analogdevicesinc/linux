@@ -148,6 +148,59 @@ struct kbase_as;
 struct kbase_mmu_setup;
 struct kbase_kinstr_jm;
 
+#if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
+/**
+ * struct kbase_gpu_metrics - Object containing members that are used to emit
+ *                            GPU metrics tracepoints for all applications that
+ *                            created Kbase context(s) for a GPU.
+ *
+ * @active_list:   List of applications that did some GPU activity in the recent work period.
+ * @inactive_list: List of applications that didn't do any GPU activity in the recent work period.
+ */
+struct kbase_gpu_metrics {
+	struct list_head active_list;
+	struct list_head inactive_list;
+};
+
+/**
+ * struct kbase_gpu_metrics_ctx - Object created for every application, that created
+ *                                Kbase context(s), containing members that are used
+ *                                to emit GPU metrics tracepoints for the application.
+ *
+ * @link:                    Links the object in kbase_device::gpu_metrics::active_list
+ *                           or kbase_device::gpu_metrics::inactive_list.
+ * @first_active_start_time: Records the time at which the application first became
+ *                           active in the current work period.
+ * @last_active_start_time:  Records the time at which the application last became
+ *                           active in the current work period.
+ * @last_active_end_time:    Records the time at which the application last became
+ *                           inactive in the current work period.
+ * @total_active:            Tracks the time for which application has been active
+ *                           in the current work period.
+ * @prev_wp_active_end_time: Records the time at which the application last became
+ *                           inactive in the previous work period.
+ * @aid:                     Unique identifier for an application.
+ * @kctx_count:              Counter to keep a track of the number of Kbase contexts
+ *                           created for an application. There may be multiple Kbase
+ *                           contexts contributing GPU activity data to a single GPU
+ *                           metrics context.
+ * @active_cnt:              Counter that is updated every time the GPU activity starts
+ *                           and ends in the current work period for an application.
+ * @flags:                   Flags to track the state of GPU metrics context.
+ */
+struct kbase_gpu_metrics_ctx {
+	struct list_head link;
+	u64 first_active_start_time;
+	u64 last_active_start_time;
+	u64 last_active_end_time;
+	u64 total_active;
+	u64 prev_wp_active_end_time;
+	unsigned int aid;
+	unsigned int kctx_count;
+	u8 active_cnt;
+	u8 flags;
+};
+#endif
 
 /**
  * struct kbase_io_access - holds information about 1 register access
@@ -1327,6 +1380,12 @@ struct kbase_device {
 	u32 mmu_or_gpu_cache_op_wait_time_ms;
 	struct kmem_cache *va_region_slab;
 
+#if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
+	/**
+	 * @gpu_metrics: GPU device wide structure used for emitting GPU metrics tracepoints.
+	 */
+	struct kbase_gpu_metrics gpu_metrics;
+#endif
 #if MALI_USE_CSF
 	atomic_t fence_signal_timeout_enabled;
 #endif
@@ -1402,6 +1461,9 @@ enum kbase_file_state {
  *                       present.
  * @zero_fops_count_wait: Waitqueue used to wait for the @fops_count to become 0.
  *                        Currently needed only for the "mem_view" debugfs file.
+ * @event_queue:          Wait queue used for blocking the thread, which consumes
+ *                        the base_jd_event corresponding to an atom, when there
+ *                        are no more posted events.
  */
 struct kbase_file {
 	struct kbase_device *kbdev;
@@ -1417,6 +1479,7 @@ struct kbase_file {
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	wait_queue_head_t zero_fops_count_wait;
 #endif
+	wait_queue_head_t event_queue;
 };
 #if MALI_JIT_PRESSURE_LIMIT_BASE
 /**
@@ -1640,9 +1703,6 @@ struct kbase_sub_alloc {
  *                        used in conjunction with @cookies bitmask mainly for
  *                        providing a mechansim to have the same value for CPU &
  *                        GPU virtual address.
- * @event_queue:          Wait queue used for blocking the thread, which consumes
- *                        the base_jd_event corresponding to an atom, when there
- *                        are no more posted events.
  * @tgid:                 Thread group ID of the process whose thread created
  *                        the context (by calling KBASE_IOCTL_VERSION_CHECK or
  *                        KBASE_IOCTL_SET_FLAGS, depending on the @api_version).
@@ -1735,6 +1795,8 @@ struct kbase_sub_alloc {
  *                        atom but before the debug data for faulty atom was dumped.
  * @mem_view_column_width: Controls the number of bytes shown in every column of the
  *                         output of "mem_view" debugfs file.
+ * @job_fault_work:       Tracking the latest fault dump work item for assisting the
+ *                        operation of the job-fault-dump debug process.
  * @jsctx_queue:          Per slot & priority arrays of object containing the root
  *                        of RB-tree holding currently runnable atoms on the job slot
  *                        and the head item of the linked list of atoms blocked on
@@ -1897,7 +1959,6 @@ struct kbase_context {
 	DECLARE_BITMAP(cookies, BITS_PER_LONG);
 	struct kbase_va_region *pending_regions[BITS_PER_LONG];
 
-	wait_queue_head_t event_queue;
 	pid_t tgid;
 	pid_t pid;
 	atomic_t used_pages;
@@ -1937,6 +1998,7 @@ struct kbase_context {
 	struct list_head job_fault_resume_event_list;
 	unsigned int mem_view_column_width;
 
+	struct work_struct *job_fault_work;
 #endif /* CONFIG_DEBUG_FS */
 	struct kbase_va_region *jit_alloc[1 + BASE_JIT_ALLOC_COUNT];
 	u8 jit_max_allocations;
@@ -1983,6 +2045,13 @@ struct kbase_context {
 
 	struct task_struct *task;
 
+#if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
+	/**
+	 * @gpu_metrics_ctx: Pointer to the GPU metrics context corresponding to the
+	 *                   application that created the Kbase context.
+	 */
+	struct kbase_gpu_metrics_ctx *gpu_metrics_ctx;
+#endif
 
 	char comm[TASK_COMM_LEN];
 };
@@ -2067,7 +2136,7 @@ static inline bool kbase_device_is_cpu_coherent(struct kbase_device *kbdev)
  */
 static inline u64 kbase_get_lock_region_min_size_log2(struct kbase_gpu_props const *gpu_props)
 {
-	if (gpu_props->gpu_id.product_id >= GPU_ID_PRODUCT_MAKE(12, 0))
+	if (gpu_props->gpu_id.product_model >= GPU_ID_MODEL_MAKE(12, 0))
 		return 12; /* 4 kB */
 
 	return 15; /* 32 kB */

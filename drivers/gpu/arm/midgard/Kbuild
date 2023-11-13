@@ -64,18 +64,12 @@ ifeq ($(CONFIG_MALI_FENCE_DEBUG), y)
     endif
 endif
 
-ifeq ($(CONFIG_MALI_FENCE_TIMEOUT_RECOVERY), y)
-    ifneq ($(CONFIG_SYNC_FILE), y)
-        $(error CONFIG_MALI_FENCE_TIMEOUT_RECOVERY depends on CONFIG_SYNC_FILE to be set in Kernel configuration)
-    endif
-endif
-
 #
 # Configurations
 #
 
 # Driver version string which is returned to userspace via an ioctl
-MALI_RELEASE_NAME ?= '"r45p0-01eac0"'
+MALI_RELEASE_NAME ?= '"r46p0-01eac0"'
 # Set up defaults if not defined by build system
 ifeq ($(CONFIG_MALI_DEBUG), y)
     MALI_UNIT_TEST = 1
@@ -194,6 +188,10 @@ mali_kbase-$(CONFIG_SYNC_FILE) += \
     mali_kbase_fence_ops.o \
     mali_kbase_sync_file.o \
     mali_kbase_sync_common.o
+
+mali_kbase-$(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD) += \
+        mali_power_gpu_work_period_trace.o \
+        mali_kbase_gpu_metrics.o
 
 ifneq ($(CONFIG_MALI_CSF_SUPPORT),y)
     mali_kbase-y += \

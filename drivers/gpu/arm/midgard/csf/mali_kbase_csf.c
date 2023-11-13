@@ -27,6 +27,7 @@
 #include <linux/export.h>
 #include <linux/priority_control_manager.h>
 #include <linux/shmem_fs.h>
+#include <csf/mali_kbase_csf_cpu_queue.h>
 #include <csf/mali_kbase_csf_registers.h>
 #include "mali_kbase_csf_tiler_heap.h"
 #include <mmu/mali_kbase_mmu.h>
@@ -1161,6 +1162,9 @@ static int create_queue_group(struct kbase_context *const kctx,
 		} else {
 			int err = 0;
 
+#if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
+			group->prev_act = false;
+#endif
 			group->kctx = kctx;
 			group->handle = group_handle;
 			group->csg_nr = KBASEP_CSG_NR_INVALID;
@@ -1604,6 +1608,9 @@ int kbase_csf_ctx_init(struct kbase_context *kctx)
 					mutex_init(&kctx->csf.lock);
 
 					err = kbasep_ctx_user_reg_page_mapping_init(kctx);
+
+					if (likely(!err))
+						kbase_csf_cpu_queue_init(kctx);
 
 					if (unlikely(err))
 						kbase_csf_tiler_heap_context_term(kctx);

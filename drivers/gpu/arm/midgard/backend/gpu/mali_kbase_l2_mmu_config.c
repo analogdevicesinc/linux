@@ -82,10 +82,10 @@ int kbase_set_mmu_quirks(struct kbase_device *kbdev)
 					     { KBASE_AID_32, GENMASK(25, 24), 24 },
 					     { KBASE_AID_32, GENMASK(27, 26), 26 } };
 	u32 product_model;
-	u32 mmu_config;
+	u32 mmu_config = 0;
 	unsigned int i;
 
-	product_model = kbdev->gpu_props.gpu_id.product_id;
+	product_model = kbdev->gpu_props.gpu_id.product_model;
 
 	/* Limit the GPU bus bandwidth if the platform needs this. */
 	for (i = 0; i < ARRAY_SIZE(limits); i++) {
@@ -95,7 +95,8 @@ int kbase_set_mmu_quirks(struct kbase_device *kbdev)
 		}
 	}
 
-	mmu_config = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(L2_MMU_CONFIG));
+	if (kbase_reg_is_valid(kbdev, GPU_CONTROL_ENUM(L2_MMU_CONFIG)))
+		mmu_config = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(L2_MMU_CONFIG));
 
 	if (kbase_is_gpu_removed(kbdev))
 		return -EIO;

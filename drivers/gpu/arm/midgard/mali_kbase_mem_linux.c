@@ -1006,7 +1006,7 @@ static int kbase_mem_flags_change_native(struct kbase_context *kctx, unsigned in
 		 * looking up all physical pages assigned to different GPU VAs
 		 * and all CPU mappings associated with those physical pages.
 		 */
-		if (atomic_read(&reg->cpu_alloc->gpu_mappings) > 1)
+		if (atomic_read(&reg->gpu_alloc->gpu_mappings) > 1)
 			return -EINVAL;
 
 		if (atomic_read(&reg->cpu_alloc->kernel_mappings) > 0)
@@ -1035,20 +1035,9 @@ int kbase_mem_flags_change(struct kbase_context *kctx, u64 gpu_addr, unsigned in
 	if ((gpu_addr & ~PAGE_MASK) && (gpu_addr >= PAGE_SIZE))
 		return ret;
 
-	/* Perform preliminary validation. At this stage, the function still
-	 * doesn't know about the properties of the VA region, hence only
-	 * generic validation can be made about the correctness of flags and mask.
-	 */
-
 	flags &= mask;
 
-	if (flags & ~(BASE_MEM_FLAGS_MODIFIABLE))
-		return ret;
-
-	if (mask & ~(BASE_MEM_FLAGS_MODIFIABLE))
-		return ret;
-
-	/* now we can lock down the context, and find the region */
+	/* Lock down the context, and find the region */
 	down_write(kbase_mem_get_process_mmap_lock());
 	kbase_gpu_vm_lock(kctx);
 
@@ -1066,20 +1055,37 @@ int kbase_mem_flags_change(struct kbase_context *kctx, u64 gpu_addr, unsigned in
 	if (kbase_va_region_is_no_user_free(reg))
 		goto out_unlock;
 
-	/* Once the region has been found and validated, the actions to take depend
+	/* Different memory flags are allowed for different memory types, hence
+	 * this step of the validation process must be done at this point and
+	 * cannot be done earlier.
+	 *
+	 * Once the region has been found and validated, the actions to take depend
 	 * on the memory type of the region.
 	 */
 	switch (reg->gpu_alloc->type) {
 	case KBASE_MEM_TYPE_NATIVE: {
+		if ((flags & ~(BASE_MEM_FLAGS_MODIFIABLE_NATIVE)) ||
+		    (mask & ~(BASE_MEM_FLAGS_MODIFIABLE_NATIVE))) {
+			ret = -EINVAL;
+			break;
+		}
+
 		ret = kbase_mem_flags_change_native(kctx, flags, reg);
 		break;
 	}
 	case KBASE_MEM_TYPE_IMPORTED_UMM: {
+		if ((flags & ~(BASE_MEM_FLAGS_MODIFIABLE_IMPORTED_UMM)) ||
+		    (mask & ~(BASE_MEM_FLAGS_MODIFIABLE_IMPORTED_UMM))) {
+			ret = -EINVAL;
+			break;
+		}
+
 		ret = kbase_mem_flags_change_imported_umm(kctx, flags, reg);
 		break;
 	}
 	default: {
-		/* Other memory types are not supported. Do nothing. */
+		/* Other memory types are not supported. Return error. */
+		ret = -EINVAL;
 		break;
 	}
 	}
@@ -1531,7 +1537,7 @@ no_alloc:
 u32 kbase_get_cache_line_alignment(struct kbase_device *kbdev)
 {
 	u32 cpu_cache_line_size = cache_line_size();
-	u32 gpu_cache_line_size = (1UL << kbdev->gpu_props.props.l2_props.log2_line_size);
+	u32 gpu_cache_line_size = (1UL << kbdev->gpu_props.log2_line_size);
 
 	return ((cpu_cache_line_size > gpu_cache_line_size) ? cpu_cache_line_size :
 								    gpu_cache_line_size);
@@ -1546,6 +1552,8 @@ static struct kbase_va_region *kbase_mem_from_user_buffer(struct kbase_context *
 	bool shared_zone = false;
 	u32 cache_line_alignment = kbase_get_cache_line_alignment(kctx->kbdev);
 	struct kbase_alloc_import_user_buf *user_buf;
+	int write;
+	long faulted_pages;
 
 	/* Flag supported only for dma-buf imported memory */
 	if (*flags & BASE_MEM_IMPORT_SYNC_ON_MAP_UNMAP)
@@ -1642,48 +1650,21 @@ static struct kbase_va_region *kbase_mem_from_user_buffer(struct kbase_context *
 	reg->gpu_alloc->nents = 0;
 	reg->extension = 0;
 
-	/* If the region is coherent with the CPU then the memory is imported
-	 * and DMA mapped. Current behavior is preserved, so the function
-	 * stops short of creating a GPU mapping.
-	 *
-	 * Otherwise get_user_pages is called as a sanity check, but with
-	 * NULL as the pages argument which will fault the pages, but not
-	 * pin them. The memory will then be pinned only around the jobs that
-	 * specify the region as an external resource.
-	 */
-	if (reg->flags & KBASE_REG_SHARE_BOTH) {
-		int err;
+	write = reg->flags & (KBASE_REG_CPU_WR | KBASE_REG_GPU_WR);
 
-		down_read(kbase_mem_get_process_mmap_lock());
-		err = kbase_user_buf_from_empty_to_dma_mapped(kctx, reg);
-		up_read(kbase_mem_get_process_mmap_lock());
+	down_read(kbase_mem_get_process_mmap_lock());
+	faulted_pages =
+		kbase_get_user_pages(address, *va_pages, write ? FOLL_WRITE : 0, NULL, NULL);
+	up_read(kbase_mem_get_process_mmap_lock());
 
-		if (err < 0)
-			goto dma_map_pages_fail;
+	if (faulted_pages != *va_pages)
+		goto fault_mismatch;
 
+	if (reg->flags & KBASE_REG_SHARE_BOTH)
 		*flags |= KBASE_MEM_IMPORT_HAVE_PAGES;
-	} else {
-		int write = reg->flags & (KBASE_REG_CPU_WR | KBASE_REG_GPU_WR);
-		long faulted_pages;
-
-		down_read(kbase_mem_get_process_mmap_lock());
-#if KERNEL_VERSION(6, 4, 0) > LINUX_VERSION_CODE
-		faulted_pages =
-			get_user_pages(address, *va_pages, write ? FOLL_WRITE : 0, NULL, NULL);
-#else
-		faulted_pages =
-			get_user_pages(address, *va_pages, write ? FOLL_WRITE : 0, NULL);
-#endif
-		up_read(kbase_mem_get_process_mmap_lock());
-
-		if (faulted_pages != *va_pages)
-			goto fault_mismatch;
-	}
 
 	return reg;
 
-dma_map_pages_fail:
-	kbase_user_buf_unpin_pages(reg->gpu_alloc);
 fault_mismatch:
 no_page_array:
 invalid_flags:
@@ -2116,7 +2097,11 @@ int kbase_mem_commit(struct kbase_context *kctx, u64 gpu_addr, u64 new_pages)
 	const enum kbase_caller_mmu_sync_info mmu_sync_info = CALLER_MMU_ASYNC;
 
 	KBASE_DEBUG_ASSERT(kctx);
-	KBASE_DEBUG_ASSERT(gpu_addr != 0);
+
+	if (unlikely(gpu_addr == 0)) {
+		dev_warn(kctx->kbdev->dev, "kbase:mem_commit: gpu_addr is 0");
+		return -EINVAL;
+	}
 
 	if (gpu_addr & ~PAGE_MASK) {
 		dev_warn(kctx->kbdev->dev,

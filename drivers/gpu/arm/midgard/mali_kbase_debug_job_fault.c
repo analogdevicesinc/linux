@@ -48,18 +48,17 @@ static void kbase_ctx_remove_pending_event(struct kbase_context *kctx)
 	list_for_each_entry(event, event_list, head) {
 		if (event->katom->kctx == kctx) {
 			list_del(&event->head);
-			spin_unlock_irqrestore(&kctx->kbdev->job_fault_event_lock, flags);
-
+			WARN_ON_ONCE(&event->job_fault_work != kctx->job_fault_work);
 			wake_up(&kctx->kbdev->job_fault_resume_wq);
-			flush_work(&event->job_fault_work);
-
 			/* job_fault_event_list can only have a single atom for
 			 * each context.
 			 */
-			return;
+			break;
 		}
 	}
 	spin_unlock_irqrestore(&kctx->kbdev->job_fault_event_lock, flags);
+	if (kctx->job_fault_work)
+		flush_work(kctx->job_fault_work);
 }
 
 static bool kbase_ctx_has_no_event_pending(struct kbase_context *kctx)
@@ -154,12 +153,16 @@ static void kbase_job_fault_resume_event_cleanup(struct kbase_context *kctx)
 {
 	struct list_head *event_list = &kctx->job_fault_resume_event_list;
 
+	lockdep_assert_held(&kctx->kbdev->hwaccess_lock);
+
 	while (!list_empty(event_list)) {
 		struct base_job_fault_event *event;
 
 		event = kbase_job_fault_event_dequeue(kctx->kbdev,
 						      &kctx->job_fault_resume_event_list);
-		kbase_jd_done_worker(&event->katom->work);
+		WARN_ON(work_pending(&event->katom->work));
+		INIT_WORK(&event->katom->work, kbase_jd_done_worker);
+		queue_work(kctx->jctx.job_done_wq, &event->katom->work);
 	}
 }
 
@@ -167,13 +170,16 @@ static void kbase_job_fault_resume_worker(struct work_struct *data)
 {
 	struct base_job_fault_event *event =
 		container_of(data, struct base_job_fault_event, job_fault_work);
+	struct kbase_device *kbdev;
 	struct kbase_context *kctx;
 	struct kbase_jd_atom *katom;
+	unsigned long flags;
 
 	katom = event->katom;
 	kctx = katom->kctx;
+	kbdev = kctx->kbdev;
 
-	dev_info(kctx->kbdev->dev, "Job dumping wait\n");
+	dev_info(kbdev->dev, "Job dumping wait\n");
 
 	/* When it was waked up, it need to check if queue is empty or the
 	 * failed atom belongs to different context. If yes, wake up. Both
@@ -181,18 +187,21 @@ static void kbase_job_fault_resume_worker(struct work_struct *data)
 	 * should never happen that the job_fault_event_list has the two
 	 * atoms belong to the same context.
 	 */
-	wait_event(kctx->kbdev->job_fault_resume_wq, kbase_ctx_has_no_event_pending(kctx));
+	wait_event(kbdev->job_fault_resume_wq, kbase_ctx_has_no_event_pending(kctx));
 
+	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 	atomic_set(&kctx->job_fault_count, 0);
-	kbase_jd_done_worker(&katom->work);
+	WARN_ON(work_pending(&katom->work));
+	INIT_WORK(&katom->work, kbase_jd_done_worker);
+	queue_work(kctx->jctx.job_done_wq, &katom->work);
 
 	/* In case the following atoms were scheduled during failed job dump
 	 * the job_done_worker was held. We need to rerun it after the dump
 	 * was finished
 	 */
 	kbase_job_fault_resume_event_cleanup(kctx);
-
-	dev_info(kctx->kbdev->dev, "Job dumping finish, resume scheduler\n");
+	dev_info(kbdev->dev, "Job dumping finish, resume scheduler\n");
+	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 }
 
 static struct base_job_fault_event *kbase_job_fault_event_queue(struct list_head *event_list,
@@ -219,12 +228,11 @@ static void kbase_job_fault_event_post(struct kbase_device *kbdev, struct kbase_
 
 	spin_lock_irqsave(&kbdev->job_fault_event_lock, flags);
 	event = kbase_job_fault_event_queue(&kbdev->job_fault_event_list, katom, completion_code);
-	spin_unlock_irqrestore(&kbdev->job_fault_event_lock, flags);
-
-	wake_up_interruptible(&kbdev->job_fault_wq);
-
 	INIT_WORK(&event->job_fault_work, kbase_job_fault_resume_worker);
+	katom->kctx->job_fault_work = &event->job_fault_work;
+	wake_up_interruptible(&kbdev->job_fault_wq);
 	queue_work(kbdev->job_fault_resume_workq, &event->job_fault_work);
+	spin_unlock_irqrestore(&kbdev->job_fault_event_lock, flags);
 
 	dev_info(katom->kctx->kbdev->dev, "Job fault happen, start dump: %d_%d", katom->kctx->tgid,
 		 katom->kctx->id);

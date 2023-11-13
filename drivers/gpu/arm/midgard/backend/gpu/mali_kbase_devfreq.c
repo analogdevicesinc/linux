@@ -98,7 +98,7 @@ void kbase_devfreq_opp_translate(struct kbase_device *kbdev, unsigned long freq,
 	if (i == kbdev->num_opps) {
 		unsigned long voltage = get_voltage(kbdev, freq);
 
-		*core_mask = kbdev->gpu_props.props.raw_props.shader_present;
+		*core_mask = kbdev->gpu_props.shader_present;
 
 		for (i = 0; i < kbdev->nr_clocks; i++) {
 			freqs[i] = freq;
@@ -393,7 +393,7 @@ static int kbase_devfreq_init_core_mask_table(struct kbase_device *kbdev)
 	struct device_node *node;
 	unsigned int i = 0;
 	int count;
-	u64 shader_present = kbdev->gpu_props.props.raw_props.shader_present;
+	u64 shader_present = kbdev->gpu_props.shader_present;
 
 	if (!opp_node)
 		return 0;
@@ -456,7 +456,7 @@ static int kbase_devfreq_init_core_mask_table(struct kbase_device *kbdev)
 
 		core_count_p = of_get_property(node, "opp-core-count", NULL);
 		if (core_count_p) {
-			u64 remaining_core_mask = kbdev->gpu_props.props.raw_props.shader_present;
+			u64 remaining_core_mask = kbdev->gpu_props.shader_present;
 			int core_count = be32_to_cpup(core_count_p);
 
 			core_mask = 0;
@@ -635,7 +635,7 @@ int kbase_devfreq_init(struct kbase_device *kbdev)
 
 	if (dp->max_state > 0) {
 		/* Record the maximum frequency possible */
-		kbdev->gpu_props.props.core_props.gpu_freq_khz_max = dp->freq_table[0] / 1000;
+		kbdev->gpu_props.gpu_freq_khz_max = dp->freq_table[0] / 1000;
 	}
 
 #if IS_ENABLED(CONFIG_DEVFREQ_THERMAL)

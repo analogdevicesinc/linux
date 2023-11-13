@@ -49,32 +49,26 @@
  * @page_owner:          Pointer to the task/process that created the Kbase context
  *                       for which a page needs to be allocated. It can be NULL if
  *                       the page won't be associated with Kbase context.
- * @alloc_from_kthread:  Flag indicating that the current thread is a kernel thread.
  *
- * This function checks if the current thread is a kernel thread and can make a
- * request to kernel to allocate a physical page. If the kernel thread is allocating
- * a page for the Kbase context and the process that created the context is exiting
- * or is being killed, then there is no point in doing a page allocation.
+ * This function checks if the current thread can make a request to kernel to
+ * allocate a physical page. If the process that created the context is exiting or
+ * is being killed, then there is no point in doing a page allocation.
  *
  * The check done by the function is particularly helpful when the system is running
  * low on memory. When a page is allocated from the context of a kernel thread, OoM
  * killer doesn't consider the kernel thread for killing and kernel keeps retrying
  * to allocate the page as long as the OoM killer is able to kill processes.
- * The check allows kernel thread to quickly exit the page allocation loop once OoM
- * killer has initiated the killing of @page_owner, thereby unblocking the context
- * termination for @page_owner and freeing of GPU memory allocated by it. This helps
- * in preventing the kernel panic and also limits the number of innocent processes
+ * The check allows to quickly exit the page allocation loop once OoM killer has
+ * initiated the killing of @page_owner, thereby unblocking the context termination
+ * for @page_owner and freeing of GPU memory allocated by it. This helps in
+ * preventing the kernel panic and also limits the number of innocent processes
  * that get killed.
  *
  * Return: true if the page can be allocated otherwise false.
  */
-static inline bool can_alloc_page(struct kbase_mem_pool *pool, struct task_struct *page_owner,
-				  const bool alloc_from_kthread)
+static inline bool can_alloc_page(struct kbase_mem_pool *pool, struct task_struct *page_owner)
 {
-	if (likely(!alloc_from_kthread || !page_owner))
-		return true;
-
-	if ((page_owner->flags & PF_EXITING) || fatal_signal_pending(page_owner)) {
+	if (page_owner && ((page_owner->flags & PF_EXITING) || fatal_signal_pending(page_owner))) {
 		dev_info(pool->kbdev->dev, "%s : Process %s/%d exiting", __func__, page_owner->comm,
 			 task_pid_nr(page_owner));
 		return false;
@@ -409,7 +403,7 @@ int kbase_mem_pool_grow(struct kbase_mem_pool *pool, size_t nr_to_grow,
 		}
 		kbase_mem_pool_unlock(pool);
 
-		if (unlikely(!can_alloc_page(pool, page_owner, alloc_from_kthread)))
+		if (unlikely(!can_alloc_page(pool, page_owner)))
 			return -ENOMEM;
 
 		p = kbase_mem_alloc_page(pool, alloc_from_kthread);
@@ -759,7 +753,7 @@ int kbase_mem_pool_alloc_pages(struct kbase_mem_pool *pool, size_t nr_4k_pages,
 	} else {
 		/* Get any remaining pages from kernel */
 		while (i != nr_4k_pages) {
-			if (unlikely(!can_alloc_page(pool, page_owner, alloc_from_kthread)))
+			if (unlikely(!can_alloc_page(pool, page_owner)))
 				goto err_rollback;
 
 			p = kbase_mem_alloc_page(pool, alloc_from_kthread);

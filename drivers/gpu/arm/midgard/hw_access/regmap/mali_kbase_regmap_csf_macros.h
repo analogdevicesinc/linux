@@ -28,6 +28,7 @@
 
 #define ENUM_OFFSET(_index, _base, _next) (_base + _index * (_next - _base))
 
+
 #define GPU_CONTROL_ENUM(regname) GPU_CONTROL__##regname
 #define GPU_TEXTURE_FEATURES_ENUM(n) GPU_CONTROL_ENUM(TEXTURE_FEATURES_##n)
 #define GPU_TEXTURE_FEATURES_OFFSET(n) (GPU_TEXTURE_FEATURES_ENUM(0) + n)
@@ -185,14 +186,17 @@
 /* CSF_CONFIG register */
 #define CSF_CONFIG_FORCE_COHERENCY_FEATURES_SHIFT 2
 
-#define MCU_CNTRL_ENABLE (1 << 0)
-#define MCU_CNTRL_AUTO (1 << 1)
-#define MCU_CNTRL_DISABLE (0)
+#define MCU_CONTROL_REQ_DISABLE 0x0
+#define MCU_CONTROL_REQ_ENABLE 0x1
+#define MCU_CONTROL_REQ_AUTO 0x2
+
+#define MCU_STATUS_VALUE_DISABLED 0x0
+#define MCU_STATUS_VALUE_ENABLED 0x1
+#define MCU_STATUS_VALUE_HALT 0x2
+#define MCU_STATUS_VALUE_FATAL 0x3
 
 #define MCU_CNTRL_DOORBELL_DISABLE_SHIFT (31)
 #define MCU_CNTRL_DOORBELL_DISABLE_MASK (1 << MCU_CNTRL_DOORBELL_DISABLE_SHIFT)
-
-#define MCU_STATUS_HALTED (1 << 1)
 
 /* JOB IRQ flags */
 #define JOB_IRQ_GLOBAL_IF (1u << 31) /* Global interface interrupt received */

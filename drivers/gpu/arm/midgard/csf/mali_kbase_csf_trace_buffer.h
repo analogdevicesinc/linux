@@ -31,6 +31,9 @@
 #define KBASE_CSFFW_LOG_BUF_NAME "fwlog"
 #define KBASE_CSFFW_BENCHMARK_BUF_NAME "benchmark"
 #define KBASE_CSFFW_TIMELINE_BUF_NAME "timeline"
+#if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
+#define KBASE_CSFFW_GPU_METRICS_BUF_NAME "gpu_metrics"
+#endif /* CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD */
 
 /* Forward declarations */
 struct firmware_trace_buffer;

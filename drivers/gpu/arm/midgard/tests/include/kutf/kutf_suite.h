@@ -201,22 +201,23 @@ struct kutf_userdata {
 
 /**
  * struct kutf_context - Structure representing a kernel test context
- * @kref:		Refcount for number of users of this context
- * @suite:		Convenience pointer to the suite this context
- *                      is running
- * @test_fix:		The fixture that is being run in this context
- * @fixture_pool:	The memory pool used for the duration of
- *                      the fixture/text context.
- * @fixture:		The user provided fixture structure.
- * @fixture_index:	The index (id) of the current fixture.
- * @fixture_name:	The name of the current fixture (or NULL if unnamed).
- * @test_data:		Any user private data associated with this test
- * @result_set:		All the results logged by this test context
- * @status:		The status of the currently running fixture.
- * @expected_status:	The expected status on exist of the currently
- *                      running fixture.
- * @work:		Work item to enqueue onto the work queue to run the test
- * @userdata:		Structure containing the user data for the test to read
+ * @kref:            Refcount for number of users of this context
+ * @suite:           Convenience pointer to the suite this context
+ *                   is running
+ * @test_fix:        The fixture that is being run in this context
+ * @fixture_pool:    The memory pool used for the duration of
+ *                   the fixture/text context.
+ * @fixture:         The user provided fixture structure.
+ * @fixture_index:   The index (id) of the current fixture.
+ * @fixture_name:    The name of the current fixture (or NULL if unnamed).
+ * @test_data:       Any user private data associated with this test
+ * @result_set:      All the results logged by this test context
+ * @output_sync:     Mutex to serialize test failure output.
+ * @status:	         The status of the currently running fixture.
+ * @expected_status: The expected status on exist of the currently
+ *                   running fixture.
+ * @work:            Work item to enqueue onto the work queue to run the test
+ * @userdata:        Structure containing the user data for the test to read
  */
 struct kutf_context {
 	struct kref kref;
@@ -228,6 +229,7 @@ struct kutf_context {
 	const char *fixture_name;
 	union kutf_callback_data test_data;
 	struct kutf_result_set *result_set;
+	struct mutex output_sync;
 	enum kutf_result_status status;
 	enum kutf_result_status expected_status;
 
@@ -510,6 +512,21 @@ void kutf_test_debug(struct kutf_context *context, char const *message);
 void kutf_test_info(struct kutf_context *context, char const *message);
 
 /**
+ * kutf_test_info_msg() - Send a formatted information message.
+ *
+ * @context: The test context this test is running in.
+ * @msg:     A format string with the failure message.
+ * @...:     Additional parameters corresponding to the format flags of the
+ *           format string.
+ *
+ * Note: The message must not be freed during the lifetime of the test run.
+ * This means it should either be a prebaked string, or if a dynamic string
+ * is required it must be created with kutf_dsprintf which will store
+ * the resultant string in a buffer who's lifetime is the same as the test run.
+ */
+void kutf_test_info_msg(struct kutf_context *context, char const *msg, ...) __printf(2, 3);
+
+/**
  * kutf_test_warn() - Send a warning message
  * @context:	The test context this test is running in.
  * @message:	A message string containing the warning message.
@@ -532,6 +549,16 @@ void kutf_test_warn(struct kutf_context *context, char const *message);
  * the resultant string in a buffer who's lifetime is the same as the test run.
  */
 void kutf_test_fail(struct kutf_context *context, char const *message);
+
+/**
+ * kutf_test_fail_msg() - Send a formatted failure message.
+ *
+ * @context:	The test context this test is running in.
+ * @msg:	A format string with the failure message.
+ * @...:    Additional parameters corresponding to the format flags of the
+ *          format string.
+ */
+void kutf_test_fail_msg(struct kutf_context *context, char const *msg, ...) __printf(2, 3);
 
 /**
  * kutf_test_fatal() - Tell the kernel that a test has triggered a fatal error

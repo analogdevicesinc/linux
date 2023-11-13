@@ -22,7 +22,7 @@
 #ifndef _UAPI_KBASE_IOCTL_H_
 #define _UAPI_KBASE_IOCTL_H_
 
-#ifdef __cpluscplus
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -782,7 +782,7 @@ struct kbase_ioctl_tlstream_stats {
 #define KBASE_GPUPROP_RAW_THREAD_TLS_ALLOC 83
 #define KBASE_GPUPROP_TLS_ALLOC 84
 #define KBASE_GPUPROP_RAW_GPU_FEATURES 85
-#ifdef __cpluscplus
+#ifdef __cplusplus
 }
 #endif
 

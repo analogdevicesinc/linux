@@ -37,6 +37,7 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
     CONFIG_MALI_MIDGARD ?= m
     ifeq ($(CONFIG_MALI_MIDGARD),m)
         CONFIG_MALI_PLATFORM_NAME ?= "devicetree"
+        CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD ?= y
         CONFIG_MALI_GATOR_SUPPORT ?= y
         CONFIG_MALI_ARBITRATION ?= n
         CONFIG_MALI_PARTITION_MANAGER ?= n
@@ -62,12 +63,6 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
 
         ifeq ($(CONFIG_MALI_CSF_SUPPORT), y)
             CONFIG_MALI_CORESIGHT ?= n
-        endif
-
-        ifeq ($(CONFIG_SYNC_FILE), y)
-            CONFIG_MALI_FENCE_TIMEOUT_RECOVERY ?= y
-        else
-            CONFIG_MALI_FENCE_TIMEOUT_RECOVERY = n
         endif
 
         #
@@ -108,8 +103,7 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
         else
             # Prevent misuse when CONFIG_MALI_EXPERT=n
             CONFIG_MALI_CORESTACK = n
-            CONFIG_LARGE_PAGE_ALLOC_OVERRIDE = n
-            CONFIG_LARGE_PAGE_ALLOC = n
+            CONFIG_LARGE_PAGE_SUPPORT = y
             CONFIG_MALI_PWRSOFT_765 = n
             CONFIG_MALI_MEMORY_FULLY_BACKED = n
             CONFIG_MALI_JOB_DUMP = n
@@ -174,8 +168,7 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
         CONFIG_MALI_DMA_BUF_LEGACY_COMPAT \
         CONFIG_MALI_EXPERT \
         CONFIG_MALI_CORESTACK \
-        CONFIG_LARGE_PAGE_ALLOC_OVERRIDE \
-        CONFIG_LARGE_PAGE_ALLOC \
+        CONFIG_LARGE_PAGE_SUPPORT \
         CONFIG_MALI_PWRSOFT_765 \
         CONFIG_MALI_MEMORY_FULLY_BACKED \
         CONFIG_MALI_JOB_DUMP \
@@ -191,13 +184,13 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
         CONFIG_MALI_MIDGARD_ENABLE_TRACE \
         CONFIG_MALI_SYSTEM_TRACE \
         CONFIG_MALI_FENCE_DEBUG \
-        CONFIG_MALI_FENCE_TIMEOUT_RECOVERY \
         CONFIG_MALI_KUTF \
         CONFIG_MALI_KUTF_IRQ_TEST \
         CONFIG_MALI_KUTF_CLK_RATE_TRACE \
         CONFIG_MALI_KUTF_MGM_INTEGRATION_TEST \
         CONFIG_MALI_XEN \
-        CONFIG_MALI_CORESIGHT
+        CONFIG_MALI_CORESIGHT \
+        CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD
 
 
 endif
@@ -238,6 +231,10 @@ endif
 #
 # KBUILD_EXTRA_SYMBOLS to prevent warnings about unknown functions
 #
+BASE_SYMBOLS = $(M)/../../base/arm/Module.symvers
+
+EXTRA_SYMBOLS += \
+    $(BASE_SYMBOLS)
 
 CFLAGS_MODULE += -Wall -Werror
 

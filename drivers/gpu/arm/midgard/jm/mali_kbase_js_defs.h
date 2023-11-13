@@ -339,6 +339,29 @@ struct kbasep_js_device_data {
 	 */
 	struct mutex runpool_mutex;
 
+#if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
+	/**
+	 * @gpu_metrics_timer: High-resolution timer used to periodically emit the GPU metrics
+	 *                     tracepoints for applications that are using the GPU. The timer is
+	 *                     needed for the long duration handling so that the length of work
+	 *                     period is within the allowed limit.
+	 */
+	struct hrtimer gpu_metrics_timer;
+
+	/**
+	 * @gpu_metrics_timer_needed: Flag to indicate if the @gpu_metrics_timer is needed.
+	 *                            The timer won't be started after the expiry if the flag
+	 *                            isn't set.
+	 */
+	bool gpu_metrics_timer_needed;
+
+	/**
+	 * @gpu_metrics_timer_running: Flag to indicate if the @gpu_metrics_timer is running.
+	 *                             The flag is set to false when the timer is cancelled or
+	 *                             is not restarted after the expiry.
+	 */
+	bool gpu_metrics_timer_running;
+#endif
 };
 
 /**

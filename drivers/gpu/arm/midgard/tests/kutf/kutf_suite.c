@@ -896,7 +896,7 @@ static struct kutf_context *kutf_create_context(struct kutf_test_fixture *test_f
 	new_context = kmalloc(sizeof(*new_context), GFP_KERNEL);
 	if (!new_context) {
 		pr_err("Failed to allocate test context");
-		goto fail_alloc;
+		goto fail_context_alloc;
 	}
 
 	new_context->result_set = kutf_create_result_set();
@@ -917,6 +917,8 @@ static struct kutf_context *kutf_create_context(struct kutf_test_fixture *test_f
 	new_context->fixture_name = NULL;
 	new_context->test_data = test_fix->test_func->test_data;
 
+	mutex_init(&new_context->output_sync);
+
 	new_context->userdata.flags = 0;
 	INIT_LIST_HEAD(&new_context->userdata.input_head);
 	init_waitqueue_head(&new_context->userdata.input_waitq);
@@ -929,7 +931,7 @@ static struct kutf_context *kutf_create_context(struct kutf_test_fixture *test_f
 
 fail_result_set:
 	kfree(new_context);
-fail_alloc:
+fail_context_alloc:
 	return NULL;
 }
 
@@ -1061,6 +1063,20 @@ void kutf_test_info(struct kutf_context *context, char const *message)
 }
 EXPORT_SYMBOL(kutf_test_info);
 
+__printf(2, 3) void kutf_test_info_msg(struct kutf_context *context, char const *msg, ...)
+{
+	va_list args;
+
+	mutex_lock(&context->output_sync);
+
+	va_start(args, msg);
+	kutf_test_info(context, kutf_dsprintf(&context->fixture_pool, msg, args));
+	va_end(args);
+
+	mutex_unlock(&context->output_sync);
+}
+EXPORT_SYMBOL(kutf_test_info_msg);
+
 void kutf_test_warn(struct kutf_context *context, char const *message)
 {
 	kutf_test_log_result(context, message, KUTF_RESULT_WARN);
@@ -1072,6 +1088,20 @@ void kutf_test_fail(struct kutf_context *context, char const *message)
 	kutf_test_log_result(context, message, KUTF_RESULT_FAIL);
 }
 EXPORT_SYMBOL(kutf_test_fail);
+
+__printf(2, 3) void kutf_test_fail_msg(struct kutf_context *context, char const *msg, ...)
+{
+	va_list args;
+
+	mutex_lock(&context->output_sync);
+
+	va_start(args, msg);
+	kutf_test_fail(context, kutf_dsprintf(&context->fixture_pool, msg, args));
+	va_end(args);
+
+	mutex_unlock(&context->output_sync);
+}
+EXPORT_SYMBOL(kutf_test_fail_msg);
 
 void kutf_test_fatal(struct kutf_context *context, char const *message)
 {

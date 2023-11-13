@@ -20,6 +20,7 @@
  */
 
 #include <mali_kbase.h>
+#include "backend/gpu/mali_kbase_pm_internal.h"
 #include "mali_kbase_csf.h"
 #include "mali_kbase_csf_tiler_heap.h"
 #include "mali_kbase_csf_tiler_heap_reclaim.h"
@@ -193,7 +194,29 @@ static unsigned long reclaim_unused_heap_pages(struct kbase_device *kbdev)
 	unsigned long total_freed_pages = 0;
 	int prio;
 
-	lockdep_assert_held(&kbdev->csf.scheduler.lock);
+	lockdep_assert_held(&scheduler->lock);
+
+	if (scheduler->state != SCHED_SUSPENDED) {
+		/* Clean and invalidate the L2 cache before reading from the heap contexts,
+		 * headers of the individual chunks and buffer descriptors.
+		 */
+		kbase_gpu_start_cache_clean(kbdev, GPU_COMMAND_CACHE_CLN_INV_L2);
+		if (kbase_gpu_wait_cache_clean_timeout(kbdev,
+						       kbdev->mmu_or_gpu_cache_op_wait_time_ms))
+			dev_warn(
+				kbdev->dev,
+				"[%llu] Timeout waiting for CACHE_CLN_INV_L2 to complete before Tiler heap reclaim",
+				kbase_backend_get_cycle_cnt(kbdev));
+
+	} else {
+		/* Make sure power down transitions have completed, i.e. L2 has been
+		 * powered off as that would ensure its contents are flushed to memory.
+		 * This is needed as Scheduler doesn't wait for the power down to finish.
+		 */
+		if (kbase_pm_wait_for_desired_state(kbdev))
+			dev_warn(kbdev->dev,
+				 "Wait for power down transition failed before Tiler heap reclaim");
+	}
 
 	for (prio = KBASE_QUEUE_GROUP_PRIORITY_LOW;
 	     total_freed_pages < HEAP_RECLAIM_SCAN_BATCH_SIZE &&

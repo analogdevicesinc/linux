@@ -66,7 +66,7 @@ struct gpu_props_user_data {
 		__u32 max_threads;
 		__u32 max_workgroup_size;
 		__u32 max_barrier_size;
-		__u16 max_registers;
+		__u32 max_registers;
 		__u8 max_task_queue;
 		__u8 max_thread_group_split;
 		__u8 impl_tech;
@@ -79,16 +79,16 @@ struct gpu_props_user_data {
 		__u64 tiler_present;
 		__u64 l2_present;
 		__u64 stack_present;
-		__u32 l2_features;
-		__u32 core_features;
-		__u32 mem_features;
-		__u32 mmu_features;
+		__u64 l2_features;
+		__u64 core_features;
+		__u64 mem_features;
+		__u64 mmu_features;
 		__u32 as_present;
 		__u32 js_present;
 		__u32 js_features[GPU_MAX_JOB_SLOTS];
-		__u32 tiler_features;
+		__u64 tiler_features;
 		__u32 texture_features[BASE_GPU_NUM_TEXTURE_FEATURES_REGISTERS];
-		__u32 gpu_id;
+		__u64 gpu_id;
 		__u32 thread_max_threads;
 		__u32 thread_max_workgroup_size;
 		__u32 thread_max_barrier_size;
@@ -103,7 +103,7 @@ struct gpu_props_user_data {
 		__u32 coherency;
 		struct {
 			__u64 core_mask;
-			__u16 num_cores;
+			__u32 num_cores;
 		} group[BASE_MAX_COHERENT_GROUPS];
 	} coherency_info;
 };

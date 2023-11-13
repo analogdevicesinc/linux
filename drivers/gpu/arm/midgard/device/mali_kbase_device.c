@@ -468,15 +468,13 @@ int kbase_device_early_init(struct kbase_device *kbdev)
 	if (err)
 		goto pm_runtime_term;
 
-
 	/* Set the list of features available on the current HW
 	 * (identified by the GPU_ID register)
 	 */
 	kbase_hw_set_features_mask(kbdev);
 
 	/* Find out GPU properties based on the GPU feature registers. */
-	kbase_gpuprops_set(kbdev);
-	err = kbase_gpuprops_set_features(kbdev);
+	err = kbase_gpuprops_init(kbdev);
 	if (err)
 		goto regmap_term;
 
@@ -485,7 +483,7 @@ int kbase_device_early_init(struct kbase_device *kbdev)
 	 */
 	err = kbase_hw_set_issues_mask(kbdev);
 	if (err)
-		goto regmap_term;
+		goto gpuprops_term;
 
 	/* We're done accessing the GPU registers for now. */
 	kbase_pm_register_access_disable(kbdev);
@@ -499,10 +497,12 @@ int kbase_device_early_init(struct kbase_device *kbdev)
 	err = kbase_install_interrupts(kbdev);
 #endif
 	if (err)
-		goto regmap_term;
+		goto gpuprops_term;
 
 	return 0;
 
+gpuprops_term:
+	kbase_gpuprops_term(kbdev);
 regmap_term:
 	kbase_regmap_term(kbdev);
 pm_runtime_term:
@@ -525,6 +525,7 @@ void kbase_device_early_term(struct kbase_device *kbdev)
 #else
 	kbase_release_interrupts(kbdev);
 #endif /* CONFIG_MALI_ARBITER_SUPPORT */
+	kbase_gpuprops_term(kbdev);
 	kbase_pm_runtime_term(kbdev);
 	kbasep_platform_device_term(kbdev);
 	kbase_ktrace_term(kbdev);

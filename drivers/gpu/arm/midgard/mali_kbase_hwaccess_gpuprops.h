@@ -26,17 +26,19 @@
 #ifndef _KBASE_HWACCESS_GPUPROPS_H_
 #define _KBASE_HWACCESS_GPUPROPS_H_
 
+#include <mali_kbase_gpuprops_private_types.h>
+
 /**
  * kbase_backend_gpuprops_get() - Fill @regdump with GPU properties read from
  *				  GPU
- * @kbdev:	Device pointer
- * @regdump:	Pointer to struct kbase_gpuprops_regdump structure
+ * @kbdev: Device pointer
+ * @regdump: Pointer to a zero initialised kbasep_gpuprops_regdump structure
  *
  * The caller should ensure that GPU remains powered-on during this function.
  *
  * Return: Zero for succeess or a Linux error code
  */
-int kbase_backend_gpuprops_get(struct kbase_device *kbdev, struct kbase_gpuprops_regdump *regdump);
+int kbase_backend_gpuprops_get(struct kbase_device *kbdev, struct kbasep_gpuprops_regdump *regdump);
 
 /**
  * kbase_backend_gpuprops_get_curr_config() - Fill @curr_config_regdump with
@@ -56,20 +58,6 @@ int kbase_backend_gpuprops_get_curr_config(
 	struct kbase_device *kbdev, struct kbase_current_config_regdump *curr_config_regdump);
 
 /**
- * kbase_backend_gpuprops_get_features - Fill @regdump with GPU properties read
- *                                       from GPU
- * @kbdev:   Device pointer
- * @regdump: Pointer to struct kbase_gpuprops_regdump structure
- *
- * This function reads GPU properties that are dependent on the hardware
- * features bitmask. It will power-on the GPU if required.
- *
- * Return: Zero for succeess or a Linux error code
- */
-int kbase_backend_gpuprops_get_features(struct kbase_device *kbdev,
-					struct kbase_gpuprops_regdump *regdump);
-
-/**
  * kbase_backend_gpuprops_get_l2_features - Fill @regdump with L2_FEATURES read
  *                                          from GPU
  * @kbdev:   Device pointer
@@ -81,6 +69,6 @@ int kbase_backend_gpuprops_get_features(struct kbase_device *kbdev,
  * Return: Zero on success, Linux error code on failure
  */
 int kbase_backend_gpuprops_get_l2_features(struct kbase_device *kbdev,
-					   struct kbase_gpuprops_regdump *regdump);
+					   struct kbasep_gpuprops_regdump *regdump);
 
 #endif /* _KBASE_HWACCESS_GPUPROPS_H_ */

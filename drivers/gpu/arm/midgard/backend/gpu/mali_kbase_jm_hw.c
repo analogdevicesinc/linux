@@ -56,21 +56,12 @@ static u64 kbase_job_write_affinity(struct kbase_device *kbdev, base_jd_core_req
 		skip_affinity_check = true;
 	} else if ((core_req &
 		    (BASE_JD_REQ_COHERENT_GROUP | BASE_JD_REQ_SPECIFIC_COHERENT_GROUP))) {
-		unsigned int num_core_groups = kbdev->gpu_props.num_core_groups;
-		struct mali_base_gpu_coherent_group_info *coherency_info =
-			&kbdev->gpu_props.props.coherency_info;
-
 		affinity = kbdev->pm.backend.shaders_avail & kbdev->pm.debug_core_mask[js];
 
-		/* JS2 on a dual core group system targets core group 1. All
-		 * other cases target core group 0.
+		/* Bifrost onwards GPUs only have 1 coherent group which is equal to
+		 * shader_present
 		 */
-		if (js == 2 && num_core_groups > 1)
-			affinity &= coherency_info->group[1].core_mask;
-		else if (num_core_groups > 1)
-			affinity &= coherency_info->group[0].core_mask;
-		else
-			affinity &= kbdev->gpu_props.curr_config.shader_present;
+		affinity &= kbdev->gpu_props.curr_config.shader_present;
 	} else {
 		/* Use all cores */
 		affinity = kbdev->pm.backend.shaders_avail & kbdev->pm.debug_core_mask[js];
@@ -298,11 +289,10 @@ int kbase_job_hw_submit(struct kbase_device *kbdev, struct kbase_jd_atom *katom,
 					  TL_JS_EVENT_START);
 
 	KBASE_TLSTREAM_TL_ATTRIB_ATOM_CONFIG(kbdev, katom, jc_head, affinity, cfg);
-	KBASE_TLSTREAM_TL_RET_CTX_LPU(
-		kbdev, kctx, &kbdev->gpu_props.props.raw_props.js_features[katom->slot_nr]);
+	KBASE_TLSTREAM_TL_RET_CTX_LPU(kbdev, kctx, &kbdev->gpu_props.js_features[katom->slot_nr]);
 	KBASE_TLSTREAM_TL_RET_ATOM_AS(kbdev, katom, &kbdev->as[kctx->as_nr]);
-	KBASE_TLSTREAM_TL_RET_ATOM_LPU(
-		kbdev, katom, &kbdev->gpu_props.props.raw_props.js_features[js], "ctx_nr,atom_nr");
+	KBASE_TLSTREAM_TL_RET_ATOM_LPU(kbdev, katom, &kbdev->gpu_props.js_features[js],
+				       "ctx_nr,atom_nr");
 	kbase_kinstr_jm_atom_hw_submit(katom);
 
 	/* Update the slot's last katom submission kctx */
@@ -372,8 +362,7 @@ static void kbasep_job_slot_update_head_start_timestamp(struct kbase_device *kbd
  */
 static void kbasep_trace_tl_event_lpu_softstop(struct kbase_device *kbdev, unsigned int js)
 {
-	KBASE_TLSTREAM_TL_EVENT_LPU_SOFTSTOP(kbdev,
-					     &kbdev->gpu_props.props.raw_props.js_features[js]);
+	KBASE_TLSTREAM_TL_EVENT_LPU_SOFTSTOP(kbdev, &kbdev->gpu_props.js_features[js]);
 }
 
 void kbase_job_done(struct kbase_device *kbdev, u32 done)
@@ -549,6 +538,14 @@ void kbase_job_done(struct kbase_device *kbdev, u32 done)
 					 */
 					kbase_gpu_complete_hw(kbdev, i, BASE_JD_EVENT_DONE, 0,
 							      &end_timestamp);
+#if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
+					/* Increment the end timestamp value by 1 ns to
+					 * avoid having the same value for 'start_time_ns'
+					 * and 'end_time_ns' for the 2nd atom whose job
+					 * completion IRQ got merged with the 1st atom.
+					 */
+					end_timestamp = ktime_add(end_timestamp, ns_to_ktime(1));
+#endif
 				}
 				nr_done--;
 			}

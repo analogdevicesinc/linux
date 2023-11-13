@@ -96,9 +96,8 @@ static u32 kbase_g7x_power_model_get_sc_counter(struct kbase_ipa_model_vinstr_da
 	const u32 sc_base =
 		MEMSYS_BASE + (KBASE_DUMMY_MODEL_MAX_MEMSYS_BLOCKS * KBASE_IPA_NR_BYTES_PER_BLOCK);
 #else
-	const u32 sc_base =
-		MEMSYS_BASE + (model_data->kbdev->gpu_props.props.l2_props.num_l2_slices *
-			       KBASE_IPA_NR_BYTES_PER_BLOCK);
+	const u32 sc_base = MEMSYS_BASE + (model_data->kbdev->gpu_props.num_l2_slices *
+					   KBASE_IPA_NR_BYTES_PER_BLOCK);
 #endif
 	return sc_base + counter_block_offset;
 }
@@ -508,7 +507,7 @@ const struct kbase_ipa_model_ops *kbase_ipa_counter_model_ops_find(struct kbase_
 
 const char *kbase_ipa_counter_model_name_from_id(struct kbase_gpu_id_props *gpu_id)
 {
-	switch (gpu_id->product_id) {
+	switch (gpu_id->product_model) {
 	case GPU_ID_PRODUCT_TMIX:
 		return "mali-g71-power-model";
 	case GPU_ID_PRODUCT_THEX:

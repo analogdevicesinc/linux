@@ -549,9 +549,21 @@ static inline bool kbase_csf_firmware_mcu_halted(struct kbase_device *kbdev)
 #if IS_ENABLED(CONFIG_MALI_NO_MALI)
 	return true;
 #else
-	return (kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(MCU_STATUS)) == MCU_STATUS_HALTED);
+	return (kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(MCU_STATUS)) == MCU_STATUS_VALUE_HALT);
 #endif /* CONFIG_MALI_NO_MALI */
 }
+
+/**
+ * kbase_csf_firmware_mcu_halt_req_complete - Check if the MCU Halt request is complete
+ *
+ * @kbdev: Instance of a GPU platform device that implements a CSF interface.
+ *
+ * This function needs to be called after Halt request has been sent to the FW.
+ *
+ * Return: true if the Halt request is complete, otherwise false.
+ */
+bool kbase_csf_firmware_mcu_halt_req_complete(struct kbase_device *kbdev);
+
 
 /**
  * kbase_csf_firmware_trigger_mcu_halt - Send the Global request to firmware to

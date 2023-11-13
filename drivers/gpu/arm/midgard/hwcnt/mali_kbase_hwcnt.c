@@ -454,10 +454,20 @@ static int kbasep_hwcnt_accumulator_dump(struct kbase_hwcnt_context *hctx, u64 *
 	 */
 	if ((state == ACCUM_STATE_ENABLED) && new_map) {
 		/* Backend is only enabled if there were any enabled counters */
-		if (cur_map_any_enabled)
-			hctx->iface->dump_disable(accum->backend,
-						  (accum->accumulated) ? &accum->accum_buf : NULL,
-						  cur_map);
+		if (cur_map_any_enabled) {
+			/* In this case we do *not* want to have the buffer updated with extra
+			 * block state, it should instead remain in the backend until the next dump
+			 * happens, hence supplying NULL as the dump_buffer parameter here.
+			 *
+			 * Attempting to take ownership of backend-accumulated block state at this
+			 * point will instead give inaccurate information. For example the dump
+			 * buffer for 'set_counters' operation might be dumping a period that
+			 * should've been entirely in the 'ON' state, but would report it as
+			 * partially in the 'OFF' state. Instead, that 'OFF' state should be
+			 * reported in the _next_ dump.
+			 */
+			hctx->iface->dump_disable(accum->backend, NULL, NULL);
+		}
 
 		/* (Re-)enable the backend if the new map has enabled counters.
 		 * No need to acquire the spinlock, as concurrent enable while
@@ -507,7 +517,11 @@ error:
 	/* An error was only physically possible if the backend was enabled */
 	WARN_ON(state != ACCUM_STATE_ENABLED);
 
-	/* Disable the backend, and transition to the error state */
+	/* Disable the backend, and transition to the error state. In this case, we can try to save
+	 * the block state into the accumulated buffer, but there's no guarantee we'll have one, so
+	 * this is more of a 'best effort' for error cases. There would be an suitable block
+	 * state recorded on the next dump_enable() anyway.
+	 */
 	hctx->iface->dump_disable(accum->backend, (accum->accumulated) ? &accum->accum_buf : NULL,
 				  cur_map);
 	spin_lock_irqsave(&hctx->state_lock, flags);

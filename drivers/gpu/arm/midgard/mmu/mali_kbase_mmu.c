@@ -1796,7 +1796,7 @@ next:
 	 * movable once they are returned to a memory pool.
 	 */
 	if (kbase_is_page_migration_enabled() && !ignore_page_migration && phys) {
-		const u64 num_pages = to_vpfn - from_vpfn + 1;
+		const u64 num_pages = to_vpfn - from_vpfn;
 		u64 i;
 
 		for (i = 0; i < num_pages; i++) {
@@ -2343,6 +2343,7 @@ static int mmu_insert_pages_no_flush(struct kbase_device *kbdev, struct kbase_mm
 	unsigned int i;
 	phys_addr_t new_pgds[MIDGARD_MMU_BOTTOMLEVEL + 1];
 	int l, cur_level, insert_level;
+	struct tagged_addr *start_phys = phys;
 
 	/* Note that 0 is a valid start_vpfn */
 	/* 64-bit address range is the max */
@@ -2509,7 +2510,7 @@ fail_unlock:
 	if (insert_vpfn != start_vpfn) {
 		/* Invalidate the pages we have partially completed */
 		mmu_insert_pages_failure_recovery(kbdev, mmut, start_vpfn, insert_vpfn, dirty_pgds,
-						  phys, ignore_page_migration);
+						  start_phys, ignore_page_migration);
 	}
 
 	mmu_flush_invalidate_insert_pages(kbdev, mmut, start_vpfn, nr,
@@ -2672,7 +2673,6 @@ void kbase_mmu_disable(struct kbase_context *kctx)
 	/* 0xF value used to prevent skipping of any levels when flushing */
 	if (mmu_flush_cache_on_gpu_ctrl(kbdev))
 		op_param.flush_skip_levels = pgd_level_to_skip_flush(0xF);
-#endif
 
 	/* lock MMU to prevent existing jobs on GPU from executing while the AS is
 	 * not yet disabled
@@ -2704,8 +2704,26 @@ void kbase_mmu_disable(struct kbase_context *kctx)
 			dev_err(kbdev->dev, "Failed to unlock AS %d for ctx %d_%d", kctx->as_nr,
 				kctx->tgid, kctx->id);
 	}
+#else
+	CSTD_UNUSED(lock_err);
 
-#if !MALI_USE_CSF
+	/*
+	 * The address space is being disabled, drain all knowledge of it out
+	 * from the caches as pages and page tables might be freed after this.
+	 *
+	 * The job scheduler code will already be holding the locks and context
+	 * so just do the flush.
+	 */
+	flush_err = kbase_mmu_hw_do_flush_locked(kbdev, &kbdev->as[kctx->as_nr], &op_param);
+	if (flush_err) {
+		dev_err(kbdev->dev,
+			"Flush for GPU page table update did not complete to disable AS %d for ctx %d_%d",
+			kctx->as_nr, kctx->tgid, kctx->id);
+		/* GPU reset would have been triggered by the flush function */
+	}
+
+	kbdev->mmu_mode->disable_as(kbdev, kctx->as_nr);
+
 	/*
 	 * JM GPUs has some L1 read only caches that need to be invalidated
 	 * with START_FLUSH configuration. Purge the MMU disabled kctx from
@@ -3470,6 +3488,13 @@ int kbase_mmu_migrate_page(struct tagged_addr old_phys, struct tagged_addr new_p
 
 		ret = kbase_mmu_hw_do_lock(kbdev, as, &op_param);
 		if (!ret) {
+#if MALI_USE_CSF
+			if (mmu_flush_cache_on_gpu_ctrl(kbdev))
+				ret = kbase_gpu_cache_flush_pa_range_and_busy_wait(
+					kbdev, as_phys_addr_t(old_phys), PAGE_SIZE,
+					GPU_COMMAND_FLUSH_PA_RANGE_CLN_INV_L2_LSC);
+			else
+#endif
 				ret = kbase_gpu_cache_flush_and_busy_wait(
 					kbdev, GPU_COMMAND_CACHE_CLN_INV_L2_LSC);
 		}

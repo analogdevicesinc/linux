@@ -143,8 +143,7 @@ static void sub_free(struct kbase_csf_heap_context_allocator *const ctx_alloc,
 int kbase_csf_heap_context_allocator_init(struct kbase_csf_heap_context_allocator *const ctx_alloc,
 					  struct kbase_context *const kctx)
 {
-	const u32 gpu_cache_line_size =
-		(1U << kctx->kbdev->gpu_props.props.l2_props.log2_line_size);
+	const u32 gpu_cache_line_size = (1U << kctx->kbdev->gpu_props.log2_line_size);
 
 	/* We cannot pre-allocate GPU memory here because the
 	 * custom VA zone may not have been created yet.
