@@ -28,6 +28,8 @@ config AXI_JESD204_RX
 config XILINX_TRANSCEIVER
 	tristate
 
+endif
+
 config ADI_IIO_FAKEDEV
 	tristate "Analog Devices Generic IIO fake device driver"
 	help
@@ -37,6 +39,3 @@ config ADI_IIO_FAKEDEV
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called adi-iio-fakedev.
-
-endif
-
