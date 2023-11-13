@@ -6,7 +6,7 @@
  * Licensed under the GPL-2.
  */
 
-#ifndef IIO_ADC_AD6676_H_
+#ifndef IIO_ADC_AD6676_H
 #define IIO_ADC_AD6676_H
 
 #define AD6676_SPI_CONFIG	0x000
