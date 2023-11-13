@@ -1453,7 +1453,7 @@ static int ad9680_sfdr_fixup(struct spi_device *spi)
 		0x16, 0x18, 0x19, 0x1A, 0x30, 0x11A, 0x934, 0x935
 	};
 	u32 sfdr_optim_vals[ARRAY_SIZE(sfdr_optim_regs)];
-	int ret, tmp;
+	int ret = 0, tmp;
 
 	tmp = of_property_read_u32_array(spi->dev.of_node,
 		"adi,sfdr-optimization-config",
