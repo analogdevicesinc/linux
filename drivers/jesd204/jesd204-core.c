@@ -98,7 +98,7 @@ bool jesd204_link_get_paused(const struct jesd204_link *lnk)
 }
 EXPORT_SYMBOL_GPL(jesd204_link_get_paused);
 
-int jesd204_device_count_get()
+int jesd204_device_count_get(void)
 {
 	return jesd204_device_count;
 }
