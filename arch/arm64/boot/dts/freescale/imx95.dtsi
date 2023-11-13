@@ -570,6 +570,30 @@
 		};
 	};
 
+	gpu_opp_table: opp_table {
+		compatible = "operating-points-v2", "operating-points-v2-mali";
+
+		opp@1000000000 {
+			opp-hz = /bits/ 64 <1000000000>;
+			opp-hz-real = /bits/ 64 <1000000000>, /bits/ 64 <500000000>;
+		};
+
+		opp@800000000 {
+			opp-hz = /bits/ 64 <800000000>;
+			opp-hz-real = /bits/ 64 <800000000>, /bits/ 64 <500000000>;
+		};
+
+		opp@667000000 {
+			opp-hz = /bits/ 64 <667000000>;
+			opp-hz-real = /bits/ 64 <667000000>, /bits/ 64 <400000000>;
+		};
+
+		opp@400000000 {
+			opp-hz = /bits/ 64 <400000000>;
+			opp-hz-real = /bits/ 64 <400000000>, /bits/ 64 <250000000>;
+		};
+	};
+
 	soc {
 		compatible = "simple-bus";
 		#address-cells = <2>;
@@ -1917,6 +1941,27 @@
 						 <&scmi_clk IMX95_CLK_SYSPLL1_PFD2>,
 						 <&scmi_clk IMX95_CLK_SYSPLL1_PFD0>;
 			assigned-clock-rates = <133333333>, <667000000>, <500000000>;
+		};
+
+		mali: gpu@4d900000 {
+			compatible = "arm,mali-valhall";
+			reg = <0 0x4d900000 0 0x700000>, <0 0x4d810000 0 0x10000>;
+			interrupts = <GIC_SPI 288 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 289 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 290 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "GPU", "JOB", "MMU";
+			clocks = <&scmi_clk IMX95_CLK_GPU>, <&scmi_clk IMX95_CLK_GPUAPB>;
+			clock-names = "gpu", "gpu_apb";
+			power-domains = <&scmi_devpd IMX95_PD_GPU>;
+			operating-points-v2 = <&gpu_opp_table>;
+			#cooling-cells = <2>;
+			power_model {
+			    compatible = "arm,mali-simple-power-model";
+			    static-coefficient = <2427750>;
+			    dynamic-coefficient = <4687>;
+			    ts = <20000 2000 (-20) 2>;
+			    thermal-zone = "gpu";
+			};
 		};
 	};
 };
