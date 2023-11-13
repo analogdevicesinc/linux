@@ -295,10 +295,8 @@ struct iio_buffer *devm_iio_dmaengine_buffer_alloc(struct device *dev,
 	int ret;
 
 	buffer = iio_dmaengine_buffer_alloc(dev, channel, ops, driver_data);
-	if (IS_ERR(buffer)) {
-		devres_free(buffer);
-		return buffer;
-	}
+	if (IS_ERR(buffer))
+		return ERR_CAST(buffer);
 
 	ret = devm_add_action_or_reset(dev, __devm_iio_dmaengine_buffer_free,
 				       buffer);
