@@ -2488,7 +2488,7 @@ static int ad9371_phy_write_raw(struct iio_dev *indio_dev,
 {
 	struct ad9371_rf_phy *phy = iio_priv(indio_dev);
 	u32 code, slope;
-	int ret, i;
+	int ret = 0, i;
 
 	mutex_lock(&phy->lock);
 	switch (mask) {
