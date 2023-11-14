@@ -392,7 +392,8 @@
 						<&A53_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
 						<&A53_1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
 						<&A53_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
-						<&A53_3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+						<&A53_3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&mix_gpu_ml 0 1>;
 				};
 			};
 		};
@@ -2480,6 +2481,9 @@
 		reg-names = "phys_baseaddr", "contiguous_mem";
 		memory-region=<&gpu_reserved>;
 		status = "disabled";
+
+		throttle,max_state = <1>;
+		#cooling-cells = <2>;
 	};
 
 	i2c_rpbus_3: i2c-rpbus-3 {
