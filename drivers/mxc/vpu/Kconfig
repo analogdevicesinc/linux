@@ -29,3 +29,5 @@ config MX6_VPU_352M
 	 This config is used for special VPU use case.
 
 endmenu
+
+source "drivers/mxc/vpu/wave6/Kconfig"
