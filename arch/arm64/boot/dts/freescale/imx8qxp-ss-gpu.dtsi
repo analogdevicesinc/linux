@@ -11,5 +11,8 @@
 		reg = <0x80000000 0x80000000>, <0x0 0x10000000>;
 		reg-names = "phys_baseaddr", "contiguous_mem";
 		status = "disabled";
+
+		throttle,max_state = <1>;
+		#cooling-cells = <2>;
 	};
 };
