@@ -278,6 +278,9 @@
 			resets = <&src 0>, <&src 3>, <&src 3>;
 			reset-names = "gpu3d", "gpu2d", "gpuvg";
 			power-domains = <&pd_pu>;
+
+			throttle,max_state = <1>;
+			#cooling-cells = <2>;
 		};
 
 		ipu2: ipu@2800000 {
