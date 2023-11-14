@@ -51,7 +51,7 @@
 #include <linux/compat.h>
 #include <linux/busfreq-imx.h>
 
-#ifdef CONFIG_DEVICE_THERMAL
+#ifdef CONFIG_DEVFREQ_THERMAL
 #include <linux/thermal.h>
 DEFINE_SPINLOCK(thermal_lock);
 /*1:hot, 0: not hot*/
@@ -304,7 +304,7 @@ static int hantro_ctrlblk_reset(struct device *dev)
 	return 0;
 }
 
-#ifdef CONFIG_DEVICE_THERMAL
+#ifdef CONFIG_DEVFREQ_THERMAL
 static int hantro_thermal_check(struct device *dev)
 {
 	unsigned long flags;
@@ -366,7 +366,7 @@ static struct thermal_cooling_device_ops hantro_cooling_ops = {
 	.get_cur_state = hantro_cooling_get_cur_state,
 	.set_cur_state = hantro_cooling_set_cur_state,
 };
-#endif  //CONFIG_DEVICE_THERMAL
+#endif  //CONFIG_DEVFREQ_THERMAL
 
 static void ReadCoreConfig(hantrodec_t *dev)
 {
@@ -577,7 +577,7 @@ long ReserveDecoder(hantrodec_t *dev, struct file *filp, unsigned long format)
 			return -1;
 	}
 
-#ifdef CONFIG_DEVICE_THERMAL
+#ifdef CONFIG_DEVFREQ_THERMAL
 	if (hantro_dynamic_clock)
 		hantro_thermal_check(hantro_dev);
 #endif
@@ -1910,7 +1910,7 @@ static int hantro_dev_probe(struct platform_device *pdev)
 		goto err_out_class;
 	}
 
-#ifdef CONFIG_DEVICE_THERMAL
+#ifdef CONFIG_DEVFREQ_THERMAL
 	hantrodec_data.cooling = thermal_of_cooling_device_register(pdev->dev.of_node,
 		(char *)dev_name(&pdev->dev), &hantrodec_data, &hantro_cooling_ops);
 	if (IS_ERR(hantrodec_data.cooling))
@@ -1938,7 +1938,7 @@ static int hantro_dev_remove(struct platform_device *pdev)
 	hantro_clk_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
 	if (hantrodec_major > 0) {
-#ifdef CONFIG_DEVICE_THERMAL
+#ifdef CONFIG_DEVFREQ_THERMAL
 		thermal_cooling_device_unregister(hantrodec_data.cooling);
 #endif
 		device_destroy(hantro_class, MKDEV(hantrodec_major, 0));
