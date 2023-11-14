@@ -285,6 +285,9 @@
 			resets = <&src 0>;
 			reset-names = "gpu3d";
 			power-domains = <&pd_pu>;
+
+			throttle,max_state = <1>;
+			#cooling-cells = <2>;
 		};
 
 		dma_apbh: dma-controller@1804000 {
