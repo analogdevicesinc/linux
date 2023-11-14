@@ -53,6 +53,11 @@
 			linux,cma-default;
 			reusable;
 		};
+
+		vpu_boot: vpu_boot@a0000000 {
+			reg = <0 0xa0000000 0 0x100000>;
+			no-map;
+		};
 	};
 
 	reg_3p3v: regulator-3p3v {
@@ -961,4 +966,8 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_tpm6>;
 	status = "okay";
+};
+
+&vpu {
+	boot = <&vpu_boot>;
 };

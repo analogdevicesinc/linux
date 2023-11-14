@@ -1963,5 +1963,44 @@
 			    thermal-zone = "gpu";
 			};
 		};
+
+		vpu: vpu@4c480000 {
+			compatible = "fsl,cnm633c-vpu";
+			reg = <0x0 0x4c480000 0x0 0x10000>, <0x0 0x4c4c0000 0x0 0x10000>;
+			interrupts = <GIC_SPI 299 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&scmi_clk IMX95_CLK_VPU>,
+				 <&vpu_blk_ctrl IMX95_CLK_VPUBLK_WAVE>;
+			power-domains = <&scmi_devpd IMX95_PD_VPU>;
+		};
+
+		jpegdec: jpegdec@4c500000 {
+			compatible = "fsl,imx9-jpgdec";
+			reg = <0x0 0x4C500000 0x0 0x00050000>;
+			interrupts = <GIC_SPI 295 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 296 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 297 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 298 IRQ_TYPE_LEVEL_HIGH>;
+			slot = <0>;
+			clocks = <&scmi_clk IMX95_CLK_VPU>,
+				 <&scmi_clk IMX95_CLK_VPUJPEG>,
+				 <&vpu_blk_ctrl IMX95_CLK_VPUBLK_JPEG_DEC>;
+			power-domains = <&scmi_devpd IMX95_PD_VPU>;
+			power-domain-names = "pd_dec";
+		};
+
+		jpegenc: jpegenc@4c550000 {
+			compatible = "fsl,imx9-jpgenc";
+			reg = <0x0 0x4C550000 0x0 0x00050000>;
+			interrupts = <GIC_SPI 291 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 292 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 293 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 294 IRQ_TYPE_LEVEL_HIGH>;
+			slot = <0>;
+			clocks = <&scmi_clk IMX95_CLK_VPU>,
+				 <&scmi_clk IMX95_CLK_VPUJPEG>,
+				 <&vpu_blk_ctrl IMX95_CLK_VPUBLK_JPEG_ENC>;
+			power-domains = <&scmi_devpd IMX95_PD_VPU>;
+			power-domain-names = "pd_enc";
+		};
 	};
 };
