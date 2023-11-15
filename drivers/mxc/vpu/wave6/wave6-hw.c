@@ -298,24 +298,31 @@ int wave6_vpu_get_version(struct vpu_device *vpu_dev, uint32_t *version_info,
 int wave6_vpu_init(struct device *dev, u8 *firmware, uint32_t size)
 {
 	struct vpu_device *vpu_dev = dev_get_drvdata(dev);
-	struct vpu_dma_buf *common_vb;
+	struct vpu_buf *common_vb;
 	int ret;
 
-	common_vb = &vpu_dev->common_mem;
+	common_vb = (struct vpu_buf *)&vpu_dev->common_mem;
 
 	if (size * 2 > WAVE6_MAX_CODE_BUF_SIZE)
 		return -EINVAL;
 
-	ret = wave6_vdi_write_memory(vpu_dev, (struct vpu_buf *)common_vb, 0, firmware, size,
+	if (!common_vb->vaddr || !common_vb->size) {
+		common_vb->size = SIZE_COMMON;
+		ret = wave6_vdi_allocate_dma_memory(vpu_dev, common_vb);
+		if (ret) {
+			dev_err(dev, "fail to allocate boot memory\n");
+			return -ENOMEM;
+		}
+		dev_info(vpu_dev->dev, "boot daddr: %pad, size: 0x%lx\n",
+			 &common_vb->daddr, common_vb->size);
+	}
+
+	ret = wave6_vdi_write_memory(vpu_dev, common_vb, 0, firmware, size,
 				     VDI_128BIT_LITTLE_ENDIAN);
 	if (ret < 0) {
 		dev_err(vpu_dev->dev, "%s: Copy fw to common buffer fail: %d\n",
 			__func__, ret);
 		return ret;
-	}
-	if (!common_vb->dma_addr) {
-		common_vb->dma_addr = dma_map_resource(vpu_dev->dev, common_vb->phys_addr, common_vb->size, DMA_BIDIRECTIONAL, 0);
-		dev_info(vpu_dev->dev, "boot addr: %pad -> %pad\n", &common_vb->phys_addr, &common_vb->dma_addr);
 	}
 
 	wave6_remap_code_buffer(vpu_dev);

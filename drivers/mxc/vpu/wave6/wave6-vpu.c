@@ -120,7 +120,6 @@ static int wave6_vpu_probe(struct platform_device *pdev)
 	struct vpu_device *dev;
 	struct device_node *np;
 	const struct wave6_match_data *match_data;
-	struct resource mem;
 
 	match_data = device_get_match_data(&pdev->dev);
 	if (!match_data) {
@@ -184,37 +183,47 @@ static int wave6_vpu_probe(struct platform_device *pdev)
 	}
 
 	np = of_parse_phandle(pdev->dev.of_node, "boot", 0);
-	if (!np) {
-		dev_err(&pdev->dev, "boot node is not found.\n");
-		ret = -ENODEV;
-		goto err_free_sram;
-	}
+	if (np) {
+		struct resource mem;
 
-	ret = of_address_to_resource(np, 0, &mem);
-	of_node_put(np);
-	if (ret) {
-		dev_err(&pdev->dev, "boot resource not available.\n");
-		goto err_free_sram;
-	}
+		ret = of_address_to_resource(np, 0, &mem);
+		of_node_put(np);
+		if (ret) {
+			dev_err(&pdev->dev, "boot resource not available.\n");
+			goto err_free_sram;
+		}
 
-	dev->common_mem.phys_addr = mem.start;
-	dev->common_mem.size = resource_size(&mem);
-	if (dev->common_mem.size < SIZE_COMMON) {
-		dev_err(&pdev->dev, "boot memory size is small.\n");
-		goto err_free_sram;
-	}
+		dev->common_mem.phys_addr = mem.start;
+		dev->common_mem.size = resource_size(&mem);
+		if (dev->common_mem.size < SIZE_COMMON) {
+			dev_err(&pdev->dev, "boot memory size is small.\n");
+			goto err_free_sram;
+		}
 
-	dev->common_mem.vaddr = devm_memremap(&pdev->dev,
-					      dev->common_mem.phys_addr,
-					      dev->common_mem.size,
-					      MEMREMAP_WC);
-	if (!dev->common_mem.vaddr) {
-		dev_err(&pdev->dev, "boot memory mapping fail.\n");
-		goto err_free_sram;
-	}
+		dev->common_mem.vaddr = devm_memremap(&pdev->dev,
+						      dev->common_mem.phys_addr,
+						      dev->common_mem.size,
+						      MEMREMAP_WC);
+		if (!dev->common_mem.vaddr) {
+			dev_err(&pdev->dev, "boot memory mapping fail.\n");
+			goto err_free_sram;
+		}
 
-	dev_info(&pdev->dev, "boot daddr: %pad, size: 0x%lx\n",
-		 &dev->common_mem.phys_addr, dev->common_mem.size);
+		dev->common_mem.dma_addr = dma_map_resource(&pdev->dev,
+							    dev->common_mem.phys_addr,
+							    dev->common_mem.size,
+							    DMA_BIDIRECTIONAL,
+							    0);
+		if (!dev->common_mem.dma_addr) {
+			dev_err(&pdev->dev, "boot memory dma map resource fail.\n");
+			goto err_free_sram;
+		}
+
+		dev_info(&pdev->dev, "boot phys_addr: %pad, dma_addr: %pad, size: 0x%lx\n",
+			 &dev->common_mem.phys_addr,
+			 &dev->common_mem.dma_addr,
+			 dev->common_mem.size);
+	}
 
 	dev->product_code = wave6_vdi_readl(dev, W6_VPU_RET_PRODUCT_VERSION);
 	dev->product = wave_vpu_get_product_id(dev);
@@ -323,8 +332,16 @@ static int wave6_vpu_remove(struct platform_device *pdev)
 	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
-	if (dev->common_mem.dma_addr)
-		dma_unmap_resource(&pdev->dev, dev->common_mem.dma_addr, dev->common_mem.size, DMA_BIDIRECTIONAL, 0);
+	if (dev->common_mem.phys_addr) {
+		if (dev->common_mem.dma_addr)
+			dma_unmap_resource(&pdev->dev,
+					   dev->common_mem.dma_addr,
+					   dev->common_mem.size,
+					   DMA_BIDIRECTIONAL,
+					   0);
+	} else {
+		wave6_vdi_free_dma_memory(dev, (struct vpu_buf *)&dev->common_mem);
+	}
 
 	return 0;
 }
