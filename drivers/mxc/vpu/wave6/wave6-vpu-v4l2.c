@@ -88,7 +88,7 @@ static int wave6_vpu_job_ready(void *priv)
 
 	if (inst->state < VPU_INST_STATE_PIC_RUN)
 		return 0;
-	if (inst->state == VPU_INST_STATE_STOP)
+	if (inst->state == VPU_INST_STATE_STOP && inst->eos)
 		return 0;
 
 	return 1;
