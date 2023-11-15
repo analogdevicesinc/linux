@@ -826,11 +826,11 @@ irqreturn_t hx280enc_isr(int irq, void *dev_id)
 	/* BASE_HWFuse2 = 0x4a0; HWCFGIrqClearSupport = 0x00800000 */
 	is_write1_clr = (readl(dev->hwregs + 0x4a0) & 0x00800000);
 	if (irq_status & 0x01) {
-		/* clear enc IRQ and slice ready interrupt bit */
+		/* clear enc IRQ ,sw reset and slice ready interrupt bit */
 		if (is_write1_clr)
-			writel(irq_status & (0x101), dev->hwregs + 0x04);
+			writel(irq_status & (0x111), dev->hwregs + 0x04);
 		else
-			writel(irq_status & (~0x101), dev->hwregs + 0x04);
+			writel(irq_status & (~0x111), dev->hwregs + 0x04);
 
 		dev->statusShowReg = readl(dev->hwregs + 0x04);
 
@@ -842,12 +842,11 @@ irqreturn_t hx280enc_isr(int irq, void *dev_id)
 			return IRQ_HANDLED;
 		}
 
-		spin_lock_irqsave(&owner_lock, flags);
-		dev->irq_received = 1;
-		dev->irq_status = irq_status & (~0x01);
-		spin_unlock_irqrestore(&owner_lock, flags);
-
 		if (irq_status & 0x04) {
+			spin_lock_irqsave(&owner_lock, flags);
+			dev->irq_received = 1;
+			dev->irq_status = irq_status & (~0x01);
+			spin_unlock_irqrestore(&owner_lock, flags);
 			up(&hx280enc_data.core_suspend_sem);
 			wake_up_all(&enc_wait_queue);
 		} else {
