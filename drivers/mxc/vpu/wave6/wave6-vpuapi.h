@@ -36,7 +36,8 @@ enum vpu_instance_state {
 	VPU_INST_STATE_OPEN = 1,
 	VPU_INST_STATE_INIT_SEQ = 2,
 	VPU_INST_STATE_PIC_RUN = 3,
-	VPU_INST_STATE_STOP = 4
+	VPU_INST_STATE_SEEK = 4,
+	VPU_INST_STATE_STOP = 5
 };
 
 #define WAVE6_MAX_FBS 31
@@ -1161,6 +1162,7 @@ struct vpu_instance {
 	enum v4l2_quantization quantization;
 
 	enum vpu_instance_state state;
+	enum vpu_instance_state state_in_seek;
 	enum vpu_instance_type type;
 	const struct vpu_instance_ops *ops;
 
@@ -1233,6 +1235,7 @@ int wave6_vpu_dec_give_command(struct vpu_instance *inst, enum codec_command cmd
 int wave6_vpu_dec_get_bitstream_buffer(struct vpu_instance *inst, dma_addr_t *prd_prt,
 				       dma_addr_t *pwr_ptr, uint32_t *size);
 int wave6_vpu_dec_update_bitstream_buffer(struct vpu_instance *inst, int size);
+int wave6_vpu_dec_flush_instance(struct vpu_instance *inst);
 
 int wave6_vpu_enc_open(struct vpu_instance *inst, struct enc_open_param *enc_op_param);
 int wave6_vpu_enc_close(struct vpu_instance *inst, u32 *fail_res);

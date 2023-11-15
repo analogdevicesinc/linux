@@ -37,6 +37,7 @@ enum W6_QUERY_OPT {
 	W6_QUERY_GET_RESULT = 2,
 	W6_QUERY_GET_FW_STATUS = 3,
 	W6_QUERY_GET_UPDATE_FB_STATUS = 4,
+	W6_QUERY_GET_FLUSH_CMD_INFO = 10,
 };
 
 #define W6_REG_BASE     0x00000000
@@ -387,6 +388,12 @@ enum W6_QUERY_OPT {
 #define W6_RET_DEC_DISP_LINEAR_NUM                    (W6_REG_BASE + 0x470)
 #define W6_RET_DEC_DISP_LINEAR_ADDR_0                 (W6_REG_BASE + 0x474)
 #define W6_RET_DEC_DISP_LINEAR_ADDR_30                (W6_REG_BASE + 0x4EC)
+
+/************************************************************************/
+/* DECODER - QUERY : GET_FLUSH_CMD_INFO                                 */
+/************************************************************************/
+#define W6_RET_DEC_FLUSH_CMD_DISP_ADDR_0              (W6_REG_BASE + 0x300)
+#define W6_RET_DEC_FLUSH_CMD_DISP_ADDR_1E             (W6_REG_BASE + 0x378)
 
 /************************************************************************/
 /* ENCODER - CREATE_INSTANCE                                            */

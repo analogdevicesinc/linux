@@ -50,8 +50,6 @@ int wave6_vpu_subscribe_event(struct v4l2_fh *fh,
 		sub->id, sub->flags);
 
 	switch (sub->type) {
-	case V4L2_EVENT_EOS:
-		return v4l2_event_subscribe(fh, sub, 0, NULL);
 	case V4L2_EVENT_SOURCE_CHANGE:
 		if (is_decoder)
 			return v4l2_src_change_event_subscribe(fh, sub);
@@ -88,7 +86,9 @@ static int wave6_vpu_job_ready(void *priv)
 	dev_dbg(inst->dev->dev, "[%d]%s: state %d\n",
 		inst->id, __func__, inst->state);
 
-	if (inst->state == VPU_INST_STATE_STOP && inst->eos)
+	if (inst->state < VPU_INST_STATE_PIC_RUN)
+		return 0;
+	if (inst->state == VPU_INST_STATE_STOP)
 		return 0;
 
 	return 1;

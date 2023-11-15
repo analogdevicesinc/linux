@@ -665,6 +665,22 @@ int wave6_vpu_dec_give_command(struct vpu_instance *inst, enum codec_command cmd
 	return 0;
 }
 
+int wave6_vpu_dec_flush_instance(struct vpu_instance *inst)
+{
+	struct vpu_device *vpu_dev = inst->dev;
+	int ret;
+
+	ret = mutex_lock_interruptible(&vpu_dev->hw_lock);
+	if (ret)
+		return ret;
+
+	ret = wave6_vpu_dec_flush(inst);
+
+	mutex_unlock(&vpu_dev->hw_lock);
+
+	return ret;
+}
+
 int wave6_vpu_enc_open(struct vpu_instance *inst, struct enc_open_param *pop)
 {
 	struct enc_info *p_enc_info;

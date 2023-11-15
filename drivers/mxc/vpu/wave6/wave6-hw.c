@@ -1444,6 +1444,38 @@ dma_addr_t wave6_vpu_dec_get_rd_ptr(struct vpu_instance *vpu_inst)
 	return vpu_read_reg(vpu_inst->dev, W6_RET_DEC_BS_RD_PTR);
 }
 
+int wave6_vpu_dec_flush(struct vpu_instance *inst)
+{
+	int ret, index;
+
+	wave6_send_command(inst->dev, inst->id, inst->std, W6_FLUSH_INSTANCE);
+	ret = wave6_wait_vpu_busy(inst->dev, W6_VPU_BUSY_STATUS);
+	if (ret)
+		return -ETIMEDOUT;
+
+	if (!vpu_read_reg(inst->dev, W6_RET_SUCCESS)) {
+		u32 reg_val;
+
+		reg_val = vpu_read_reg(inst->dev, W6_RET_FAIL_REASON);
+		wave6_print_reg_err(inst->dev, reg_val);
+		return -EIO;
+	}
+
+	ret = wave6_send_query(inst->dev, inst->id, inst->std, W6_QUERY_GET_FLUSH_CMD_INFO);
+	if (ret)
+		return ret;
+
+	for (index = 0; index < WAVE6_MAX_FBS; index++) {
+		struct frame_buffer fb;
+		dma_addr_t addr = vpu_read_reg(inst->dev,
+					       W6_RET_DEC_FLUSH_CMD_DISP_ADDR_0 + index * 4);
+
+		fb = wave6_dec_get_display_buffer(inst, addr, true);
+	}
+
+	return 0;
+}
+
 /************************************************************************/
 /* ENCODER functions */
 /************************************************************************/

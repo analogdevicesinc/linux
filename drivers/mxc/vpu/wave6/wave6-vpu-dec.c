@@ -123,20 +123,16 @@ static void wave6_vpu_dec_release_fb(struct vpu_instance *inst)
 {
 	int i;
 
-	for (i = 0; i < WAVE6_MAX_FBS; i++)
+	for (i = 0; i < WAVE6_MAX_FBS; i++) {
 		wave6_vdi_free_dma_memory(inst->dev, &inst->frame_vbuf[i]);
-	for (i = 0; i < WAVE6_MAX_FBS; i++)
+		memset(&inst->frame_buf[i], 0, sizeof(struct frame_buffer));
 		wave6_vdi_free_dma_memory(inst->dev, &inst->aux_vbuf[AUX_BUF_FBC_Y_TBL][i]);
-	for (i = 0; i < WAVE6_MAX_FBS; i++)
 		wave6_vdi_free_dma_memory(inst->dev, &inst->aux_vbuf[AUX_BUF_FBC_C_TBL][i]);
-	for (i = 0; i < WAVE6_MAX_FBS; i++)
 		wave6_vdi_free_dma_memory(inst->dev, &inst->aux_vbuf[AUX_BUF_MV_COL][i]);
-	for (i = 0; i < WAVE6_MAX_FBS; i++)
 		wave6_vdi_free_dma_memory(inst->dev, &inst->aux_vbuf[AUX_BUF_DEF_CDF][i]);
-	for (i = 0; i < WAVE6_MAX_FBS; i++)
 		wave6_vdi_free_dma_memory(inst->dev, &inst->aux_vbuf[AUX_BUF_SEG_MAP][i]);
-	for (i = 0; i < WAVE6_MAX_FBS; i++)
 		wave6_vdi_free_dma_memory(inst->dev, &inst->aux_vbuf[AUX_BUF_PRE_ENT][i]);
+	}
 }
 
 static void wave6_vpu_dec_destroy_instance(struct vpu_instance *inst)
@@ -416,6 +412,8 @@ static enum v4l2_ycbcr_encoding to_v4l2_ycbcr_encoding(u32 matrix_coeffs)
 		return V4L2_YCBCR_ENC_601;
 	case 6:
 		return V4L2_YCBCR_ENC_601;
+	case 7:
+		return V4L2_YCBCR_ENC_SMPTE240M;
 	case 9:
 		return V4L2_YCBCR_ENC_BT2020;
 	case 10:
@@ -503,20 +501,7 @@ static void wave6_vpu_dec_stop_decode(struct vpu_instance *inst)
 {
 	dev_dbg(inst->dev->dev, "%s: state %d\n", __func__, inst->state);
 
-	inst->state = VPU_INST_STATE_STOP;
-
 	wave6_vpu_dec_update_bitstream_buffer(inst, 0);
-}
-
-static void wave6_handle_seq_end(struct vpu_instance *inst)
-{
-	static const struct v4l2_event vpu_event_eos = {
-		.type = V4L2_EVENT_EOS
-	};
-
-	inst->eos = true;
-	v4l2_event_queue_fh(&inst->v4l2_fh, &vpu_event_eos);
-	v4l2_m2m_set_src_buffered(inst->v4l2_fh.m2m_ctx, false);
 }
 
 static void wave6_handle_decoded_frame(struct vpu_instance *inst,
@@ -627,7 +612,8 @@ static void wave6_handle_last_frame(struct vpu_instance *inst,
 	dst_buf->field = V4L2_FIELD_NONE;
 	v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
 
-	wave6_handle_seq_end(inst);
+	inst->eos = true;
+	v4l2_m2m_set_src_buffered(inst->v4l2_fh.m2m_ctx, false);
 }
 
 static void wave6_vpu_dec_retry_one_frame(struct vpu_instance *inst)
@@ -791,7 +777,7 @@ static int wave6_vpu_dec_try_fmt_cap(struct file *file, void *fh, struct v4l2_fo
 		__func__, pix_mp->pixelformat, pix_mp->width, pix_mp->height,
 		pix_mp->num_planes, pix_mp->colorspace);
 
-	if (f->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+	if (!V4L2_TYPE_IS_CAPTURE(f->type))
 		return -EINVAL;
 
 	vpu_fmt = wave6_find_vpu_fmt(pix_mp->pixelformat, VPU_FMT_TYPE_RAW);
@@ -913,7 +899,7 @@ static int wave6_vpu_dec_try_fmt_out(struct file *file, void *fh, struct v4l2_fo
 		__func__, pix_mp->pixelformat, pix_mp->width, pix_mp->height,
 		pix_mp->num_planes, pix_mp->colorspace);
 
-	if (f->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+	if (!V4L2_TYPE_IS_OUTPUT(f->type))
 		return -EINVAL;
 
 	vpu_fmt = wave6_find_vpu_fmt(pix_mp->pixelformat, VPU_FMT_TYPE_CODEC);
@@ -930,6 +916,10 @@ static int wave6_vpu_dec_try_fmt_out(struct file *file, void *fh, struct v4l2_fo
 	}
 
 	wave6_update_pix_fmt(pix_mp, width, height);
+	pix_mp->colorspace = inst->colorspace;
+	pix_mp->ycbcr_enc = inst->ycbcr_enc;
+	pix_mp->quantization = inst->quantization;
+	pix_mp->xfer_func = inst->xfer_func;
 
 	return 0;
 }
@@ -1001,8 +991,10 @@ static int wave6_vpu_dec_g_selection(struct file *file, void *fh, struct v4l2_se
 	dev_dbg(inst->dev->dev, "%s: type %d target %d\n",
 		__func__, s->type, s->target);
 
-	if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+	if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE &&
+	    s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
 		return -EINVAL;
+
 	switch (s->target) {
 	case V4L2_SEL_TGT_COMPOSE_BOUNDS:
 		s->r.left = 0;
@@ -1049,7 +1041,8 @@ static int wave6_vpu_dec_s_selection(struct file *file, void *fh, struct v4l2_se
 	int scale_width = 0, scale_height = 0;
 	int min_scale_width = 0, min_scale_height = 0;
 
-	if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE)
+	if (s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE &&
+	    s->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
 		return -EINVAL;
 
 	if (s->target != V4L2_SEL_TGT_COMPOSE)
@@ -1108,12 +1101,8 @@ static int wave6_vpu_dec_decoder_cmd(struct file *file, void *fh, struct v4l2_de
 	if (ret)
 		return ret;
 
-	if (!wave6_vpu_both_queues_are_streaming(inst))
-		return 0;
-
 	switch (dc->cmd) {
 	case V4L2_DEC_CMD_STOP:
-		inst->state = VPU_INST_STATE_STOP;
 		v4l2_m2m_set_src_buffered(inst->v4l2_fh.m2m_ctx, true);
 		v4l2_m2m_try_schedule(inst->v4l2_fh.m2m_ctx);
 		break;
@@ -1375,7 +1364,7 @@ static int wave6_vpu_dec_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 {
 	struct vpu_instance *inst = vb2_get_drv_priv(q);
 	struct v4l2_pix_format_mplane inst_format =
-		(q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) ? inst->src_fmt : inst->dst_fmt;
+		(V4L2_TYPE_IS_OUTPUT(q->type)) ? inst->src_fmt : inst->dst_fmt;
 	unsigned int i;
 
 	dev_dbg(inst->dev->dev, "%s: num_buffers %d num_planes %d type %d\n",
@@ -1396,7 +1385,7 @@ static int wave6_vpu_dec_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 			dev_dbg(inst->dev->dev, "size[%d] : %d\n", i, sizes[i]);
 		}
 
-		if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+		if (V4L2_TYPE_IS_CAPTURE(q->type)) {
 			struct v4l2_ctrl *ctrl;
 			unsigned int min_disp_cnt = 0;
 
@@ -1410,6 +1399,13 @@ static int wave6_vpu_dec_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 			if (*num_buffers > WAVE6_MAX_FBS)
 				*num_buffers = min_disp_cnt;
 		}
+	}
+
+	if (V4L2_TYPE_IS_OUTPUT(q->type) &&
+	    inst->state == VPU_INST_STATE_SEEK) {
+		v4l2_m2m_suspend(inst->dev->m2m_dev);
+		wave6_vpu_dec_destroy_instance(inst);
+		v4l2_m2m_resume(inst->dev->m2m_dev);
 	}
 
 	return 0;
@@ -1449,39 +1445,78 @@ static int wave6_vpu_dec_seek_header(struct vpu_instance *inst)
 	return ret;
 }
 
-static void wave6_vpu_dec_buf_queue(struct vb2_buffer *vb)
+static void wave6_vpu_dec_open_and_seek_header(struct vpu_instance *inst)
+{
+	int ret;
+
+	if (inst->state == VPU_INST_STATE_NONE) {
+		ret = wave6_vpu_dec_create_instance(inst);
+		if (ret)
+			goto error;
+	}
+
+	if (inst->state == VPU_INST_STATE_OPEN) {
+		wave6_handle_bitstream_buffer(inst);
+		ret = wave6_vpu_dec_seek_header(inst);
+		if (ret)
+			goto error;
+	}
+
+	return;
+
+error:
+	vb2_queue_error(v4l2_m2m_get_src_vq(inst->v4l2_fh.m2m_ctx));
+	vb2_queue_error(v4l2_m2m_get_dst_vq(inst->v4l2_fh.m2m_ctx));
+}
+
+static void wave6_vpu_dec_buf_queue_src(struct vb2_buffer *vb)
 {
 	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
 	struct vpu_instance *inst = vb2_get_drv_priv(vb->vb2_queue);
-	struct vpu_buffer *vpu_buf = wave6_to_vpu_buf(vbuf);
-	int ret;
 
 	dev_dbg(inst->dev->dev, "type %4d index %4d size[0] %4ld size[1] : %4ld | size[2] : %4ld\n",
 		vb->type, vb->index, vb2_plane_size(&vbuf->vb2_buf, 0),
 		vb2_plane_size(&vbuf->vb2_buf, 1), vb2_plane_size(&vbuf->vb2_buf, 2));
 
-	vpu_buf->consumed = false;
-
-	if (vb->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		vbuf->sequence = inst->queued_src_buf_num++;
-	} else if (vb->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
-		vbuf->sequence = inst->queued_dst_buf_num++;
-		if (inst->next_buf_last) {
-			wave6_handle_last_frame(inst, vbuf);
-			inst->next_buf_last = false;
-			return;
-		}
-	}
+	vbuf->sequence = inst->queued_src_buf_num++;
 
 	v4l2_m2m_buf_queue(inst->v4l2_fh.m2m_ctx, vbuf);
 
-	if (vb->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE &&
-	    vb2_is_streaming(vb->vb2_queue) && inst->state == VPU_INST_STATE_OPEN) {
-		wave6_handle_bitstream_buffer(inst);
-		ret = wave6_vpu_dec_seek_header(inst);
-		if (ret)
-			return;
+	if (inst->state < VPU_INST_STATE_INIT_SEQ) {
+		v4l2_m2m_suspend(inst->dev->m2m_dev);
+		wave6_vpu_dec_open_and_seek_header(inst);
+		v4l2_m2m_resume(inst->dev->m2m_dev);
 	}
+}
+
+static void wave6_vpu_dec_buf_queue_dst(struct vb2_buffer *vb)
+{
+	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
+	struct vpu_instance *inst = vb2_get_drv_priv(vb->vb2_queue);
+
+	dev_dbg(inst->dev->dev, "type %4d index %4d size[0] %4ld size[1] : %4ld | size[2] : %4ld\n",
+		vb->type, vb->index, vb2_plane_size(&vbuf->vb2_buf, 0),
+		vb2_plane_size(&vbuf->vb2_buf, 1), vb2_plane_size(&vbuf->vb2_buf, 2));
+
+	vbuf->sequence = inst->queued_dst_buf_num++;
+	if (inst->next_buf_last) {
+		wave6_handle_last_frame(inst, vbuf);
+		inst->next_buf_last = false;
+	} else {
+		v4l2_m2m_buf_queue(inst->v4l2_fh.m2m_ctx, vbuf);
+	}
+}
+
+static void wave6_vpu_dec_buf_queue(struct vb2_buffer *vb)
+{
+	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
+	struct vpu_buffer *vpu_buf = wave6_to_vpu_buf(vbuf);
+
+	vpu_buf->consumed = false;
+	if (V4L2_TYPE_IS_OUTPUT(vb->type))
+		wave6_vpu_dec_buf_queue_src(vb);
+	else
+		wave6_vpu_dec_buf_queue_dst(vb);
 }
 
 static int wave6_vpu_dec_start_streaming(struct vb2_queue *q, unsigned int count)
@@ -1493,22 +1528,10 @@ static int wave6_vpu_dec_start_streaming(struct vb2_queue *q, unsigned int count
 
 	v4l2_m2m_suspend(inst->dev->m2m_dev);
 
-	if (inst->state == VPU_INST_STATE_NONE) {
-		ret = wave6_vpu_dec_create_instance(inst);
-		if (ret)
-			goto exit;
-	}
-
-	if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
-		if (inst->state == VPU_INST_STATE_OPEN) {
-			wave6_handle_bitstream_buffer(inst);
-			ret = wave6_vpu_dec_seek_header(inst);
-			if (ret)
-				goto exit;
-		}
-	}
-
-	if (q->type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE) {
+	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
+		if (inst->state == VPU_INST_STATE_SEEK)
+			inst->state = inst->state_in_seek;
+	} else {
 		if (inst->state == VPU_INST_STATE_INIT_SEQ) {
 			ret = wave6_vpu_dec_prepare_fb(inst);
 			if (ret)
@@ -1536,20 +1559,21 @@ static void wave6_vpu_dec_stop_streaming(struct vb2_queue *q)
 	wave6_vpu_return_buffers(inst, q->type, VB2_BUF_STATE_ERROR);
 	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
 		inst->queued_src_buf_num = 0;
-		inst->state = VPU_INST_STATE_OPEN;
+		inst->state_in_seek = inst->state;
+		inst->state = VPU_INST_STATE_SEEK;
 	} else {
 		dma_addr_t rd_ptr, wr_ptr;
 
 		wave6_vpu_dec_get_bitstream_buffer(inst, &rd_ptr, &wr_ptr, NULL);
 		wave6_vpu_dec_set_rd_ptr(inst, wr_ptr, true);
 
-		if (inst->eos)
-			inst->eos = false;
-
 		if (v4l2_m2m_has_stopped(m2m_ctx))
 			v4l2_m2m_clear_state(m2m_ctx);
 
+		inst->eos = false;
 		inst->queued_dst_buf_num = 0;
+		if (inst->state == VPU_INST_STATE_SEEK)
+			wave6_vpu_dec_flush_instance(inst);
 	}
 
 	v4l2_m2m_resume(inst->dev->m2m_dev);

@@ -53,6 +53,8 @@ int wave6_vpu_dec_fini_seq(struct vpu_instance *vpu_inst, u32 *fail_res);
 
 dma_addr_t wave6_vpu_dec_get_rd_ptr(struct vpu_instance *vpu_inst);
 
+int wave6_vpu_dec_flush(struct vpu_instance *inst);
+
 /***< WAVE6 encoder >******/
 
 int wave6_vpu_build_up_enc_param(struct device *dev, struct vpu_instance *inst,

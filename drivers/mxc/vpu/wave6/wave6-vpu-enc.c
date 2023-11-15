@@ -10,7 +10,7 @@
 #define VPU_ENC_DEV_NAME "C&M Wave6 VPU encoder"
 #define VPU_ENC_DRV_NAME "wave6-enc"
 
-static const struct vpu_format wave6_vpu_enc_fmt_list[2][17] = {
+static const struct vpu_format wave6_vpu_enc_fmt_list[2][23] = {
 	[VPU_FMT_TYPE_CODEC] = {
 		{
 			.v4l2_pix_fmt = V4L2_PIX_FMT_HEVC,
@@ -166,6 +166,54 @@ static const struct vpu_format wave6_vpu_enc_fmt_list[2][17] = {
 			.min_height = W6_MIN_ENC_PIC_HEIGHT,
 			.num_planes = 1,
 		},
+		{
+			.v4l2_pix_fmt = V4L2_PIX_FMT_P010,
+			.max_width = W6_MAX_ENC_PIC_WIDTH,
+			.min_width = W6_MIN_ENC_PIC_WIDTH,
+			.max_height = W6_MAX_ENC_PIC_HEIGHT,
+			.min_height = W6_MIN_ENC_PIC_HEIGHT,
+			.num_planes = 1,
+		},
+		{
+			.v4l2_pix_fmt = V4L2_PIX_FMT_ARGB32,
+			.max_width = W6_MAX_ENC_PIC_WIDTH,
+			.min_width = W6_MIN_ENC_PIC_WIDTH,
+			.max_height = W6_MAX_ENC_PIC_HEIGHT,
+			.min_height = W6_MIN_ENC_PIC_HEIGHT,
+			.num_planes = 1,
+		},
+		{
+			.v4l2_pix_fmt = V4L2_PIX_FMT_XRGB32,
+			.max_width = W6_MAX_ENC_PIC_WIDTH,
+			.min_width = W6_MIN_ENC_PIC_WIDTH,
+			.max_height = W6_MAX_ENC_PIC_HEIGHT,
+			.min_height = W6_MIN_ENC_PIC_HEIGHT,
+			.num_planes = 1,
+		},
+		{
+			.v4l2_pix_fmt = V4L2_PIX_FMT_RGBA32,
+			.max_width = W6_MAX_ENC_PIC_WIDTH,
+			.min_width = W6_MIN_ENC_PIC_WIDTH,
+			.max_height = W6_MAX_ENC_PIC_HEIGHT,
+			.min_height = W6_MIN_ENC_PIC_HEIGHT,
+			.num_planes = 1,
+		},
+		{
+			.v4l2_pix_fmt = V4L2_PIX_FMT_RGBX32,
+			.max_width = W6_MAX_ENC_PIC_WIDTH,
+			.min_width = W6_MIN_ENC_PIC_WIDTH,
+			.max_height = W6_MAX_ENC_PIC_HEIGHT,
+			.min_height = W6_MIN_ENC_PIC_HEIGHT,
+			.num_planes = 1,
+		},
+		{
+			.v4l2_pix_fmt = V4L2_PIX_FMT_ARGB2101010,
+			.max_width = W6_MAX_ENC_PIC_WIDTH,
+			.min_width = W6_MIN_ENC_PIC_WIDTH,
+			.max_height = W6_MAX_ENC_PIC_HEIGHT,
+			.min_height = W6_MIN_ENC_PIC_HEIGHT,
+			.num_planes = 1,
+		},
 	}
 };
 
@@ -210,18 +258,15 @@ static void wave6_vpu_enc_release_fb(struct vpu_instance *inst)
 {
 	int i;
 
-	for (i = 0; i < WAVE6_MAX_FBS; i++)
+	for (i = 0; i < WAVE6_MAX_FBS; i++) {
 		wave6_vdi_free_dma_memory(inst->dev, &inst->frame_vbuf[i]);
-	for (i = 0; i < WAVE6_MAX_FBS; i++)
+		memset(&inst->frame_buf[i], 0, sizeof(struct frame_buffer));
 		wave6_vdi_free_dma_memory(inst->dev, &inst->aux_vbuf[AUX_BUF_FBC_Y_TBL][i]);
-	for (i = 0; i < WAVE6_MAX_FBS; i++)
 		wave6_vdi_free_dma_memory(inst->dev, &inst->aux_vbuf[AUX_BUF_FBC_C_TBL][i]);
-	for (i = 0; i < WAVE6_MAX_FBS; i++)
 		wave6_vdi_free_dma_memory(inst->dev, &inst->aux_vbuf[AUX_BUF_MV_COL][i]);
-	for (i = 0; i < WAVE6_MAX_FBS; i++)
 		wave6_vdi_free_dma_memory(inst->dev, &inst->aux_vbuf[AUX_BUF_SUB_SAMPLE][i]);
-	for (i = 0; i < WAVE6_MAX_FBS; i++)
 		wave6_vdi_free_dma_memory(inst->dev, &inst->aux_vbuf[AUX_BUF_DEF_CDF][i]);
+	}
 }
 
 static void wave6_vpu_enc_destroy_instance(struct vpu_instance *inst)
@@ -286,14 +331,46 @@ static struct vb2_v4l2_buffer *wave6_get_valid_dst_buf(struct vpu_instance *inst
 
 static void wave6_set_csc(struct vpu_instance *inst, struct enc_param *pic_param)
 {
-	if (!(inst->src_fmt.pixelformat == V4L2_PIX_FMT_RGB24))
+	bool is_10bit = false;
+
+	if (!(inst->src_fmt.pixelformat == V4L2_PIX_FMT_RGB24) &&
+	    !(inst->src_fmt.pixelformat == V4L2_PIX_FMT_ARGB32) &&
+	    !(inst->src_fmt.pixelformat == V4L2_PIX_FMT_XRGB32) &&
+	    !(inst->src_fmt.pixelformat == V4L2_PIX_FMT_RGBA32) &&
+	    !(inst->src_fmt.pixelformat == V4L2_PIX_FMT_RGBX32) &&
+	    !(inst->src_fmt.pixelformat == V4L2_PIX_FMT_ARGB2101010))
 		return;
 
-	if (inst->ycbcr_enc == V4L2_YCBCR_ENC_601) {
+	if (inst->src_fmt.pixelformat == V4L2_PIX_FMT_ARGB2101010)
+		is_10bit = true;
+
+	if ((inst->src_fmt.pixelformat == V4L2_PIX_FMT_RGBA32) ||
+	    (inst->src_fmt.pixelformat == V4L2_PIX_FMT_RGBX32))
+		pic_param->csc.format_order = 8;
+
+	if (inst->ycbcr_enc == V4L2_YCBCR_ENC_DEFAULT) {
+		pic_param->csc.coef_ry = 0x084;
+		pic_param->csc.coef_gy = 0x102;
+		pic_param->csc.coef_by = 0x032;
+		pic_param->csc.coef_rcb = 0xffffffb4;
+		pic_param->csc.coef_gcb = 0xffffff6c;
+		pic_param->csc.coef_bcb = 0x0e0;
+		pic_param->csc.coef_rcr = 0x0e0;
+		pic_param->csc.coef_gcr = 0xffffff44;
+		pic_param->csc.coef_bcr = 0xffffffdc;
+		pic_param->csc.offset_y = (is_10bit) ? 0x40 : 0x10;
+		pic_param->csc.offset_cb = (is_10bit) ? 0x200 : 0x80;
+		pic_param->csc.offset_cr = (is_10bit) ? 0x200 : 0x80;
+	} else if (inst->ycbcr_enc == V4L2_YCBCR_ENC_601) {
 		if (inst->quantization == V4L2_QUANTIZATION_FULL_RANGE) {
+			/*
+			 * Y  =  0.299(R)    0.587(G)    0.114(B)
+			 * Cb = -0.16874(R) -0.33126(G)  0.5(B)
+			 * Cr =  0.5(R)     -0.41869(G) -0.08131(B)
+			 */
 			pic_param->csc.coef_ry = 0x099;
 			pic_param->csc.coef_gy = 0x12d;
-			pic_param->csc.coef_by = 0x03A;
+			pic_param->csc.coef_by = 0x03a;
 			pic_param->csc.coef_rcb = 0xffffffaa;
 			pic_param->csc.coef_gcb = 0xffffff56;
 			pic_param->csc.coef_bcb = 0x100;
@@ -301,9 +378,14 @@ static void wave6_set_csc(struct vpu_instance *inst, struct enc_param *pic_param
 			pic_param->csc.coef_gcr = 0xffffff2a;
 			pic_param->csc.coef_bcr = 0xffffffd6;
 			pic_param->csc.offset_y = 0x0;
-			pic_param->csc.offset_cb = 0x80;
-			pic_param->csc.offset_cr = 0x80;
+			pic_param->csc.offset_cb = (is_10bit) ? 0x200 : 0x80;
+			pic_param->csc.offset_cr = (is_10bit) ? 0x200 : 0x80;
 		} else {
+			/*
+			 * Y  =  0.258(R)   0.504(G)   0.098(B)
+			 * Cb = -0.1484(R) -0.2891(G)  0.4375(B)
+			 * Cr =  0.4375(R) -0.3672(G) -0.0703(B)
+			 */
 			pic_param->csc.coef_ry = 0x084;
 			pic_param->csc.coef_gy = 0x102;
 			pic_param->csc.coef_by = 0x032;
@@ -313,36 +395,149 @@ static void wave6_set_csc(struct vpu_instance *inst, struct enc_param *pic_param
 			pic_param->csc.coef_rcr = 0x0e0;
 			pic_param->csc.coef_gcr = 0xffffff44;
 			pic_param->csc.coef_bcr = 0xffffffdc;
-			pic_param->csc.offset_y = 0x10;
-			pic_param->csc.offset_cb = 0x80;
-			pic_param->csc.offset_cr = 0x80;
+			pic_param->csc.offset_y = (is_10bit) ? 0x40 : 0x10;
+			pic_param->csc.offset_cb = (is_10bit) ? 0x200 : 0x80;
+			pic_param->csc.offset_cr = (is_10bit) ? 0x200 : 0x80;
 		}
 	} else if (inst->ycbcr_enc == V4L2_YCBCR_ENC_709) {
-		pic_param->csc.coef_ry = 0x06d;
-		pic_param->csc.coef_gy = 0x16e;
-		pic_param->csc.coef_by = 0x025;
-		pic_param->csc.coef_rcb = 0xffffffc5;
-		pic_param->csc.coef_gcb = 0xffffff3b;
-		pic_param->csc.coef_bcb = 0x100;
-		pic_param->csc.coef_rcr = 0x100;
-		pic_param->csc.coef_gcr = 0xffffff17;
-		pic_param->csc.coef_bcr = 0xffffffe9;
-		pic_param->csc.offset_y = 0x0;
-		pic_param->csc.offset_cb = 0x80;
-		pic_param->csc.offset_cr = 0x80;
+		if (inst->quantization == V4L2_QUANTIZATION_FULL_RANGE) {
+			/*
+			 * Y  =  0.2126(R)   0.7152(G)   0.0722(B)
+			 * Cb = -0.11457(R) -0.38543(G)  0.5(B)
+			 * Cr =  0.5(R)     -0.45415(G) -0.04585(B)
+			 */
+			pic_param->csc.coef_ry = 0x06d;
+			pic_param->csc.coef_gy = 0x16e;
+			pic_param->csc.coef_by = 0x025;
+			pic_param->csc.coef_rcb = 0xffffffc5;
+			pic_param->csc.coef_gcb = 0xffffff3b;
+			pic_param->csc.coef_bcb = 0x100;
+			pic_param->csc.coef_rcr = 0x100;
+			pic_param->csc.coef_gcr = 0xffffff17;
+			pic_param->csc.coef_bcr = 0xffffffe9;
+			pic_param->csc.offset_y = 0x0;
+			pic_param->csc.offset_cb = (is_10bit) ? 0x200 : 0x80;
+			pic_param->csc.offset_cr = (is_10bit) ? 0x200 : 0x80;
+		} else {
+			pic_param->csc.coef_ry = 0x05e;
+			pic_param->csc.coef_gy = 0x13b;
+			pic_param->csc.coef_by = 0x020;
+			pic_param->csc.coef_rcb = 0xffffffcc;
+			pic_param->csc.coef_gcb = 0xffffff53;
+			pic_param->csc.coef_bcb = 0x0e1;
+			pic_param->csc.coef_rcr = 0x0e1;
+			pic_param->csc.coef_gcr = 0xffffff34;
+			pic_param->csc.coef_bcr = 0xffffffeb;
+			pic_param->csc.offset_y = (is_10bit) ? 0x40 : 0x10;
+			pic_param->csc.offset_cb = (is_10bit) ? 0x200 : 0x80;
+			pic_param->csc.offset_cr = (is_10bit) ? 0x200 : 0x80;
+		}
 	} else if (inst->ycbcr_enc == V4L2_YCBCR_ENC_BT2020) {
-		pic_param->csc.coef_ry = 0x087;
-		pic_param->csc.coef_gy = 0x15b;
-		pic_param->csc.coef_by = 0x01e;
-		pic_param->csc.coef_rcb = 0xffffffb9;
-		pic_param->csc.coef_gcb = 0xffffff47;
-		pic_param->csc.coef_bcb = 0x100;
-		pic_param->csc.coef_rcr = 0x100;
-		pic_param->csc.coef_gcr = 0xffffff15;
-		pic_param->csc.coef_bcr = 0xffffffeb;
-		pic_param->csc.offset_y = 0x0;
-		pic_param->csc.offset_cb = 0x80;
-		pic_param->csc.offset_cr = 0x80;
+		if (inst->quantization == V4L2_QUANTIZATION_FULL_RANGE) {
+			/*
+			 * Y  =  0.2627(R)   0.678(G)    0.0593(B)
+			 * Cb = -0.13963(R) -0.36037(G)  0.5(B)
+			 * Cr =  0.5(R)     -0.45979(G) -0.04021(B)
+			 */
+			pic_param->csc.coef_ry = 0x087;
+			pic_param->csc.coef_gy = 0x15b;
+			pic_param->csc.coef_by = 0x01e;
+			pic_param->csc.coef_rcb = 0xffffffb9;
+			pic_param->csc.coef_gcb = 0xffffff47;
+			pic_param->csc.coef_bcb = 0x100;
+			pic_param->csc.coef_rcr = 0x100;
+			pic_param->csc.coef_gcr = 0xffffff15;
+			pic_param->csc.coef_bcr = 0xffffffeb;
+			pic_param->csc.offset_y = 0x0;
+			pic_param->csc.offset_cb = (is_10bit) ? 0x200 : 0x80;
+			pic_param->csc.offset_cr = (is_10bit) ? 0x200 : 0x80;
+		} else {
+			pic_param->csc.coef_ry = 0x074;
+			pic_param->csc.coef_gy = 0x12a;
+			pic_param->csc.coef_by = 0x01a;
+			pic_param->csc.coef_rcb = 0xffffffc1;
+			pic_param->csc.coef_gcb = 0xffffff5e;
+			pic_param->csc.coef_bcb = 0x0e1;
+			pic_param->csc.coef_rcr = 0x0e1;
+			pic_param->csc.coef_gcr = 0xffffff31;
+			pic_param->csc.coef_bcr = 0xffffffee;
+			pic_param->csc.offset_y = (is_10bit) ? 0x40 : 0x10;
+			pic_param->csc.offset_cb = (is_10bit) ? 0x200 : 0x80;
+			pic_param->csc.offset_cr = (is_10bit) ? 0x200 : 0x80;
+		}
+	} else if (inst->ycbcr_enc == V4L2_YCBCR_ENC_SMPTE240M) {
+		if (inst->quantization == V4L2_QUANTIZATION_FULL_RANGE) {
+			/*
+			 * Y  =  0.2122(R)  0.7013(G)  0.0865(B)
+			 * Cb = -0.1161(R) -0.3839(G)  0.5(B)
+			 * Cr =  0.5(R)    -0.4451(G) -0.0549(B)
+			 */
+			pic_param->csc.coef_ry = 0x06d;
+			pic_param->csc.coef_gy = 0x167;
+			pic_param->csc.coef_by = 0x02c;
+			pic_param->csc.coef_rcb = 0xffffffc5;
+			pic_param->csc.coef_gcb = 0xffffff3b;
+			pic_param->csc.coef_bcb = 0x100;
+			pic_param->csc.coef_rcr = 0x100;
+			pic_param->csc.coef_gcr = 0xffffff1c;
+			pic_param->csc.coef_bcr = 0xffffffe4;
+			pic_param->csc.offset_y = 0x0;
+			pic_param->csc.offset_cb = (is_10bit) ? 0x200 : 0x80;
+			pic_param->csc.offset_cr = (is_10bit) ? 0x200 : 0x80;
+		} else {
+			pic_param->csc.coef_ry = 0x05d;
+			pic_param->csc.coef_gy = 0x134;
+			pic_param->csc.coef_by = 0x026;
+			pic_param->csc.coef_rcb = 0xffffffcc;
+			pic_param->csc.coef_gcb = 0xffffff53;
+			pic_param->csc.coef_bcb = 0x0e1;
+			pic_param->csc.coef_rcr = 0x0e1;
+			pic_param->csc.coef_gcr = 0xffffff38;
+			pic_param->csc.coef_bcr = 0xffffffe7;
+			pic_param->csc.offset_y = (is_10bit) ? 0x40 : 0x10;
+			pic_param->csc.offset_cb = (is_10bit) ? 0x200 : 0x80;
+			pic_param->csc.offset_cr = (is_10bit) ? 0x200 : 0x80;
+		}
+	} else if (inst->ycbcr_enc == V4L2_YCBCR_ENC_XV601) {
+		if (inst->quantization == V4L2_QUANTIZATION_LIM_RANGE) {
+			/*
+			 * Y  =  0.2558(R)  0.5021(G)  0.0975(B)
+			 * Cb = -0.1476(R) -0.2899(G)  0.4375(B)
+			 * Cr =  0.4375(R) -0.3664(G) -0.0711(B)
+			 */
+			pic_param->csc.coef_ry = 0x083;
+			pic_param->csc.coef_gy = 0x101;
+			pic_param->csc.coef_by = 0x032;
+			pic_param->csc.coef_rcb = 0xffffffb4;
+			pic_param->csc.coef_gcb = 0xffffff6c;
+			pic_param->csc.coef_bcb = 0x0e0;
+			pic_param->csc.coef_rcr = 0x0e0;
+			pic_param->csc.coef_gcr = 0xffffff44;
+			pic_param->csc.coef_bcr = 0xffffffdc;
+			pic_param->csc.offset_y = (is_10bit) ? 0x40 : 0x10;
+			pic_param->csc.offset_cb = 0x0;
+			pic_param->csc.offset_cr = 0x0;
+		}
+	} else if (inst->ycbcr_enc == V4L2_YCBCR_ENC_XV709) {
+		if (inst->quantization == V4L2_QUANTIZATION_LIM_RANGE) {
+			/*
+			 * Y  =  0.1819(R)  0.6118(G)  0.0618(B)
+			 * Cb = -0.1003(R) -0.3372(G)  0.4375(B)
+			 * Cr =  0.4375(R) -0.3974(G) -0.0401(B)
+			 */
+			pic_param->csc.coef_ry = 0x05d;
+			pic_param->csc.coef_gy = 0x139;
+			pic_param->csc.coef_by = 0x020;
+			pic_param->csc.coef_rcb = 0xffffffcd;
+			pic_param->csc.coef_gcb = 0xffffff53;
+			pic_param->csc.coef_bcb = 0x0e0;
+			pic_param->csc.coef_rcr = 0x0e0;
+			pic_param->csc.coef_gcr = 0xffffff35;
+			pic_param->csc.coef_bcr = 0xffffffeb;
+			pic_param->csc.offset_y = (is_10bit) ? 0x40 : 0x10;
+			pic_param->csc.offset_cb = 0x0;
+			pic_param->csc.offset_cr = 0x0;
+		}
 	}
 }
 
@@ -428,6 +623,22 @@ static void wave6_update_pix_fmt(struct v4l2_pix_format_mplane *pix_mp,
 		pix_mp->height = height;
 		pix_mp->plane_fmt[0].bytesperline = round_up((width * 3), 16);
 		pix_mp->plane_fmt[0].sizeimage = round_up((width * 3), 16) * height;
+		break;
+	case V4L2_PIX_FMT_P010:
+		pix_mp->width = width;
+		pix_mp->height = height;
+		pix_mp->plane_fmt[0].bytesperline = round_up((width * 2), 32);
+		pix_mp->plane_fmt[0].sizeimage = round_up((width * 2), 32) * height * 3 / 2;
+		break;
+	case V4L2_PIX_FMT_ARGB32:
+	case V4L2_PIX_FMT_XRGB32:
+	case V4L2_PIX_FMT_RGBA32:
+	case V4L2_PIX_FMT_RGBX32:
+	case V4L2_PIX_FMT_ARGB2101010:
+		pix_mp->width = width;
+		pix_mp->height = height;
+		pix_mp->plane_fmt[0].bytesperline = round_up((width * 4), 16);
+		pix_mp->plane_fmt[0].sizeimage = round_up((width * 4), 16) * height;
 		break;
 	default:
 		pix_mp->width = width;
@@ -649,9 +860,6 @@ static void wave6_handle_encoded_frame(struct vpu_instance *inst,
 static void wave6_handle_last_frame(struct vpu_instance *inst,
 				    dma_addr_t addr)
 {
-	static const struct v4l2_event vpu_event_eos = {
-		.type = V4L2_EVENT_EOS
-	};
 	struct vb2_v4l2_buffer *dst_buf;
 
 	dst_buf = wave6_get_dst_buf_by_addr(inst, addr);
@@ -666,7 +874,6 @@ static void wave6_handle_last_frame(struct vpu_instance *inst,
 
 	inst->state = VPU_INST_STATE_PIC_RUN;
 	inst->eos = true;
-	v4l2_event_queue_fh(&inst->v4l2_fh, &vpu_event_eos);
 
 	v4l2_m2m_set_src_buffered(inst->v4l2_fh.m2m_ctx, false);
 }
@@ -758,7 +965,7 @@ static int wave6_vpu_enc_try_fmt_cap(struct file *file, void *fh, struct v4l2_fo
 		__func__, pix_mp->pixelformat, pix_mp->width, pix_mp->height,
 		pix_mp->num_planes, pix_mp->colorspace);
 
-	if (f->type != V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
+	if (!V4L2_TYPE_IS_CAPTURE(f->type))
 		return -EINVAL;
 
 	vpu_fmt = wave6_find_vpu_fmt(pix_mp->pixelformat, VPU_FMT_TYPE_CODEC);
@@ -864,7 +1071,7 @@ static int wave6_vpu_enc_try_fmt_out(struct file *file, void *fh, struct v4l2_fo
 		__func__, pix_mp->pixelformat, pix_mp->width, pix_mp->height,
 		pix_mp->num_planes, pix_mp->colorspace);
 
-	if (f->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+	if (!V4L2_TYPE_IS_OUTPUT(f->type))
 		return -EINVAL;
 
 	vpu_fmt = wave6_find_vpu_fmt(pix_mp->pixelformat, VPU_FMT_TYPE_RAW);
@@ -884,6 +1091,14 @@ static int wave6_vpu_enc_try_fmt_out(struct file *file, void *fh, struct v4l2_fo
 	}
 
 	wave6_update_pix_fmt(pix_mp, width, height);
+
+	if (pix_mp->ycbcr_enc == V4L2_YCBCR_ENC_BT2020_CONST_LUM)
+		pix_mp->ycbcr_enc = V4L2_YCBCR_ENC_BT2020;
+	if (pix_mp->ycbcr_enc == V4L2_YCBCR_ENC_XV601 ||
+	    pix_mp->ycbcr_enc == V4L2_YCBCR_ENC_XV709) {
+		if (pix_mp->quantization == V4L2_QUANTIZATION_FULL_RANGE)
+			pix_mp->quantization = V4L2_QUANTIZATION_LIM_RANGE;
+	}
 
 	return 0;
 }
@@ -919,7 +1134,13 @@ static int wave6_vpu_enc_s_fmt_out(struct file *file, void *fh, struct v4l2_form
 	    inst->src_fmt.pixelformat == V4L2_PIX_FMT_NV12M ||
 	    inst->src_fmt.pixelformat == V4L2_PIX_FMT_NV16M ||
 	    inst->src_fmt.pixelformat == V4L2_PIX_FMT_RGB24 ||
-	    inst->src_fmt.pixelformat == V4L2_PIX_FMT_YUV24) {
+	    inst->src_fmt.pixelformat == V4L2_PIX_FMT_YUV24 ||
+	    inst->src_fmt.pixelformat == V4L2_PIX_FMT_P010 ||
+	    inst->src_fmt.pixelformat == V4L2_PIX_FMT_ARGB32 ||
+	    inst->src_fmt.pixelformat == V4L2_PIX_FMT_XRGB32 ||
+	    inst->src_fmt.pixelformat == V4L2_PIX_FMT_RGBA32 ||
+	    inst->src_fmt.pixelformat == V4L2_PIX_FMT_RGBX32 ||
+	    inst->src_fmt.pixelformat == V4L2_PIX_FMT_ARGB2101010) {
 		inst->cbcr_interleave = true;
 		inst->nv21 = false;
 	} else if (inst->src_fmt.pixelformat == V4L2_PIX_FMT_NV21 ||
@@ -978,27 +1199,26 @@ static int wave6_vpu_enc_g_selection(struct file *file, void *fh, struct v4l2_se
 	dev_dbg(inst->dev->dev, "%s: type %d target %d\n",
 		__func__, s->type, s->target);
 
-	if (s->type == V4L2_BUF_TYPE_VIDEO_OUTPUT) {
-		switch (s->target) {
-		case V4L2_SEL_TGT_CROP_DEFAULT:
-		case V4L2_SEL_TGT_CROP_BOUNDS:
-			s->r.left = 0;
-			s->r.top = 0;
-			s->r.width = inst->dst_fmt.width;
-			s->r.height = inst->dst_fmt.height;
-			break;
-		case V4L2_SEL_TGT_CROP:
-			s->r.left = 0;
-			s->r.top = 0;
-			s->r.width = inst->dst_fmt.width;
-			s->r.height = inst->dst_fmt.height;
-			dev_dbg(inst->dev->dev, "V4L2_SEL_TGT_CROP width : %d | height : %d\n",
-				s->r.width, s->r.height);
-			break;
-		default:
-			return -EINVAL;
-		}
-	} else {
+	if (!V4L2_TYPE_IS_OUTPUT(s->type))
+		return -EINVAL;
+
+	switch (s->target) {
+	case V4L2_SEL_TGT_CROP_DEFAULT:
+	case V4L2_SEL_TGT_CROP_BOUNDS:
+		s->r.left = 0;
+		s->r.top = 0;
+		s->r.width = inst->dst_fmt.width;
+		s->r.height = inst->dst_fmt.height;
+		break;
+	case V4L2_SEL_TGT_CROP:
+		s->r.left = 0;
+		s->r.top = 0;
+		s->r.width = inst->dst_fmt.width;
+		s->r.height = inst->dst_fmt.height;
+		dev_dbg(inst->dev->dev, "V4L2_SEL_TGT_CROP width : %d | height : %d\n",
+			s->r.width, s->r.height);
+		break;
+	default:
 		return -EINVAL;
 	}
 
@@ -1009,7 +1229,7 @@ static int wave6_vpu_enc_s_selection(struct file *file, void *fh, struct v4l2_se
 {
 	struct vpu_instance *inst = wave6_to_vpu_inst(fh);
 
-	if (s->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)
+	if (!V4L2_TYPE_IS_OUTPUT(s->type))
 		return -EINVAL;
 
 	if (s->target != V4L2_SEL_TGT_CROP)
@@ -1061,7 +1281,7 @@ static int wave6_vpu_enc_g_parm(struct file *file, void *fh, struct v4l2_streamp
 
 	dev_dbg(inst->dev->dev, "%s: type %d\n", __func__, a->type);
 
-	if (a->type != V4L2_BUF_TYPE_VIDEO_OUTPUT && a->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+	if (!V4L2_TYPE_IS_OUTPUT(a->type))
 		return -EINVAL;
 
 	a->parm.output.capability = V4L2_CAP_TIMEPERFRAME;
@@ -1082,7 +1302,7 @@ static int wave6_vpu_enc_s_parm(struct file *file, void *fh, struct v4l2_streamp
 
 	dev_dbg(inst->dev->dev, "%s: type %d\n", __func__, a->type);
 
-	if (a->type != V4L2_BUF_TYPE_VIDEO_OUTPUT && a->type != V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE)
+	if (!V4L2_TYPE_IS_OUTPUT(a->type))
 		return -EINVAL;
 
 	a->parm.output.capability = V4L2_CAP_TIMEPERFRAME;
@@ -1485,6 +1705,8 @@ static u32 to_matrix_coeffs(enum v4l2_colorspace colorspace,
 		return 9;
 	case V4L2_YCBCR_ENC_BT2020_CONST_LUM:
 		return 10;
+	case V4L2_YCBCR_ENC_SMPTE240M:
+		return 7;
 	default:
 		return 2;
 	}
@@ -1668,6 +1890,7 @@ static void wave6_set_enc_open_param(struct enc_open_param *open_param,
 	struct enc_wave_param *input = &inst->enc_param;
 	struct enc_wave_param *output = &open_param->wave_param;
 
+	open_param->source_endian = VPU_SOURCE_ENDIAN;
 	if (inst->src_fmt.pixelformat == V4L2_PIX_FMT_YUV420 ||
 	    inst->src_fmt.pixelformat == V4L2_PIX_FMT_NV12 ||
 	    inst->src_fmt.pixelformat == V4L2_PIX_FMT_NV21 ||
@@ -1692,10 +1915,20 @@ static void wave6_set_enc_open_param(struct enc_open_param *open_param,
 		open_param->packed_format = PACKED_YUYV;
 	} else if (inst->src_fmt.pixelformat == V4L2_PIX_FMT_RGB24) {
 		open_param->src_format = FORMAT_RGB_24BIT_PACKED;
+	} else if (inst->src_fmt.pixelformat == V4L2_PIX_FMT_P010) {
+		open_param->src_format = FORMAT_420_P10_16BIT_MSB;
+		open_param->source_endian = VDI_128BIT_LE_BYTE_SWAP;
+	} else if (inst->src_fmt.pixelformat == V4L2_PIX_FMT_ARGB32 ||
+		   inst->src_fmt.pixelformat == V4L2_PIX_FMT_XRGB32 ||
+		   inst->src_fmt.pixelformat == V4L2_PIX_FMT_RGBA32 ||
+		   inst->src_fmt.pixelformat == V4L2_PIX_FMT_RGBX32) {
+		open_param->src_format = FORMAT_RGB_32BIT_PACKED;
+	} else if (inst->src_fmt.pixelformat == V4L2_PIX_FMT_ARGB2101010) {
+		open_param->src_format = FORMAT_RGB_P10_32BIT_PACKED;
+		open_param->source_endian = VDI_128BIT_LE_WORD_BYTE_SWAP;
 	}
 	open_param->line_buf_int_en = true;
 	open_param->stream_endian = VPU_STREAM_ENDIAN;
-	open_param->source_endian = VPU_SOURCE_ENDIAN;
 	open_param->inst_buffer.work_base = inst->work_vbuf.daddr;
 	open_param->inst_buffer.work_size = inst->work_vbuf.size;
 	open_param->inst_buffer.temp_base = inst->temp_vbuf.daddr;
@@ -1958,7 +2191,7 @@ static int wave6_vpu_enc_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 {
 	struct vpu_instance *inst = vb2_get_drv_priv(q);
 	struct v4l2_pix_format_mplane inst_format =
-		(q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) ? inst->src_fmt : inst->dst_fmt;
+		(V4L2_TYPE_IS_OUTPUT(q->type)) ? inst->src_fmt : inst->dst_fmt;
 	unsigned int i;
 
 	dev_dbg(inst->dev->dev, "%s: num_buffers %d num_planes %d type %d\n",
@@ -1979,7 +2212,7 @@ static int wave6_vpu_enc_queue_setup(struct vb2_queue *q, unsigned int *num_buff
 			dev_dbg(inst->dev->dev, "size[%d] : %d\n", i, sizes[i]);
 		}
 
-		if (q->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		if (V4L2_TYPE_IS_OUTPUT(q->type)) {
 			struct v4l2_ctrl *ctrl;
 			unsigned int min_src_frame_count = 0;
 
@@ -2005,7 +2238,7 @@ static void wave6_vpu_enc_buf_queue(struct vb2_buffer *vb)
 		vb->type, vb->index, vb2_plane_size(&vbuf->vb2_buf, 0),
 		vb2_plane_size(&vbuf->vb2_buf, 1), vb2_plane_size(&vbuf->vb2_buf, 2));
 
-	if (vb->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+	if (V4L2_TYPE_IS_OUTPUT(vb->type)) {
 		vbuf->sequence = inst->queued_src_buf_num++;
 
 		vpu_buf->force_pic_type_enable = inst->force_pic_type_enable;
