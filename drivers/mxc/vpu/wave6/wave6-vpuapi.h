@@ -1126,10 +1126,10 @@ struct vpu_device {
 	int irq;
 	enum product_id	product;
 	struct vpu_attr	attr;
-	struct vpu_buf common_mem;
+	struct vpu_dma_buf common_mem;
 	u32 last_performance_cycles;
 	struct gen_pool *sram_pool;
-	struct vpu_buf sram_buf;
+	struct vpu_dma_buf sram_buf;
 	void __iomem *vm_reg_base;
 	void __iomem *gb_reg_base;
 	int product_code;

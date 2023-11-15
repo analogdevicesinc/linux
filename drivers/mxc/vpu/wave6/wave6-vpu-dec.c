@@ -1197,7 +1197,7 @@ static void wave6_set_dec_openparam(struct dec_open_param *open_param,
 	open_param->inst_buffer.work_size = inst->work_vbuf.size;
 	open_param->inst_buffer.temp_base = inst->temp_vbuf.daddr;
 	open_param->inst_buffer.temp_size = inst->temp_vbuf.size;
-	open_param->inst_buffer.sec_base_core0 = inst->dev->sram_buf.daddr;
+	open_param->inst_buffer.sec_base_core0 = inst->dev->sram_buf.dma_addr;
 	open_param->inst_buffer.sec_size_core0 = inst->dev->sram_buf.size;
 	open_param->bitstream_mode = BS_MODE_PIC_END;
 	open_param->stream_endian = VPU_STREAM_ENDIAN;

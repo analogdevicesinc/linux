@@ -12,6 +12,7 @@
 #include <linux/genalloc.h>
 #include <linux/firmware.h>
 #include <linux/interrupt.h>
+#include <linux/pm_runtime.h>
 #include "wave6-vpu.h"
 #include "wave6-regdefine.h"
 #include "wave6-vpuconfig.h"
@@ -157,6 +158,9 @@ static int wave6_vpu_probe(struct platform_device *pdev)
 	}
 	dev->num_clks = ret;
 
+	pm_runtime_enable(&pdev->dev);
+	pm_runtime_resume_and_get(&pdev->dev);
+
 	ret = clk_bulk_prepare_enable(dev->num_clks, dev->clks);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to enable clocks: %d\n", ret);
@@ -170,12 +174,13 @@ static int wave6_vpu_probe(struct platform_device *pdev)
 		dev->sram_buf.size = match_data->sram_size;
 		dev->sram_buf.vaddr = gen_pool_dma_alloc(dev->sram_pool,
 							 dev->sram_buf.size,
-							 &dev->sram_buf.daddr);
+							 &dev->sram_buf.phys_addr);
 		if (!dev->sram_buf.vaddr)
 			dev->sram_buf.size = 0;
-
-		dev_info(&pdev->dev, "sram daddr: %pad, size: 0x%lx\n",
-			 &dev->sram_buf.daddr, dev->sram_buf.size);
+		else
+			dev->sram_buf.dma_addr = dma_map_resource(&pdev->dev, dev->sram_buf.phys_addr, dev->sram_buf.size, DMA_BIDIRECTIONAL, 0);
+		dev_info(&pdev->dev, "sram 0x%pad, 0x%pad, size 0x%lx\n",
+			 &dev->sram_buf.phys_addr, &dev->sram_buf.dma_addr, dev->sram_buf.size);
 	}
 
 	np = of_parse_phandle(pdev->dev.of_node, "boot", 0);
@@ -192,7 +197,7 @@ static int wave6_vpu_probe(struct platform_device *pdev)
 		goto err_free_sram;
 	}
 
-	dev->common_mem.daddr = mem.start;
+	dev->common_mem.phys_addr = mem.start;
 	dev->common_mem.size = resource_size(&mem);
 	if (dev->common_mem.size < SIZE_COMMON) {
 		dev_err(&pdev->dev, "boot memory size is small.\n");
@@ -200,7 +205,7 @@ static int wave6_vpu_probe(struct platform_device *pdev)
 	}
 
 	dev->common_mem.vaddr = devm_memremap(&pdev->dev,
-					      dev->common_mem.daddr,
+					      dev->common_mem.phys_addr,
 					      dev->common_mem.size,
 					      MEMREMAP_WC);
 	if (!dev->common_mem.vaddr) {
@@ -209,7 +214,7 @@ static int wave6_vpu_probe(struct platform_device *pdev)
 	}
 
 	dev_info(&pdev->dev, "boot daddr: %pad, size: 0x%lx\n",
-		 &dev->common_mem.daddr, dev->common_mem.size);
+		 &dev->common_mem.phys_addr, dev->common_mem.size);
 
 	dev->product_code = wave6_vdi_readl(dev, W6_VPU_RET_PRODUCT_VERSION);
 	dev->product = wave_vpu_get_product_id(dev);
@@ -260,6 +265,7 @@ static int wave6_vpu_probe(struct platform_device *pdev)
 
 	ret = wave6_vpu_load_firmware(&pdev->dev, match_data->fw_name);
 	if (ret) {
+		pm_runtime_disable(&pdev->dev);
 		dev_err(&pdev->dev, "failed to wave6_vpu_load_firmware: %d\n", ret);
 		goto err_kfifo_free;
 	}
@@ -283,11 +289,16 @@ err_dec_unreg:
 err_v4l2_unregister:
 	v4l2_device_unregister(&dev->v4l2_dev);
 err_free_sram:
-	if (dev->sram_pool && dev->sram_buf.vaddr)
+	if (dev->sram_pool && dev->sram_buf.vaddr) {
+		dma_unmap_resource(&pdev->dev, dev->sram_buf.dma_addr, dev->sram_buf.size, DMA_BIDIRECTIONAL, 0);
 		gen_pool_free(dev->sram_pool,
 			      (unsigned long)dev->sram_buf.vaddr,
 			      dev->sram_buf.size);
+	}
 	clk_bulk_disable_unprepare(dev->num_clks, dev->clks);
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_set_suspended(&pdev->dev);
 
 	return ret;
 }
@@ -296,10 +307,12 @@ static int wave6_vpu_remove(struct platform_device *pdev)
 {
 	struct vpu_device *dev = dev_get_drvdata(&pdev->dev);
 
-	if (dev->sram_pool && dev->sram_buf.vaddr)
+	if (dev->sram_pool && dev->sram_buf.vaddr) {
+		dma_unmap_resource(&pdev->dev, dev->sram_buf.dma_addr, dev->sram_buf.size, DMA_BIDIRECTIONAL, 0);
 		gen_pool_free(dev->sram_pool,
 			      (unsigned long)dev->sram_buf.vaddr,
 			      dev->sram_buf.size);
+	}
 	clk_bulk_disable_unprepare(dev->num_clks, dev->clks);
 	wave6_vpu_release_m2m_dev(dev);
 	wave6_vpu_enc_unregister_device(dev);
@@ -307,8 +320,43 @@ static int wave6_vpu_remove(struct platform_device *pdev)
 	v4l2_device_unregister(&dev->v4l2_dev);
 	kfifo_free(&dev->irq_status);
 
+	pm_runtime_put_sync(&pdev->dev);
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_set_suspended(&pdev->dev);
+	if (dev->common_mem.dma_addr)
+		dma_unmap_resource(&pdev->dev, dev->common_mem.dma_addr, dev->common_mem.size, DMA_BIDIRECTIONAL, 0);
+
 	return 0;
 }
+
+#ifdef CONFIG_PM
+static int wave6_vpu_runtime_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int wave6_vpu_runtime_resume(struct device *dev)
+{
+	return 0;
+}
+#endif
+
+#ifdef CONFIG_PM_SLEEP
+static int wave6_vpu_suspend(struct device *dev)
+{
+	return 0;
+}
+
+static int wave6_vpu_resume(struct device *dev)
+{
+	return 0;
+}
+
+#endif
+static const struct dev_pm_ops wave6_vpu_pm_ops = {
+	SET_RUNTIME_PM_OPS(wave6_vpu_runtime_suspend, wave6_vpu_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(wave6_vpu_suspend, wave6_vpu_resume)
+};
 
 static const struct of_device_id wave6_dt_ids[] = {
 	{ .compatible = "fsl,cnm633c-vpu", .data = &wave633c_data },
@@ -320,7 +368,8 @@ static struct platform_driver wave6_vpu_driver = {
 	.driver = {
 		.name = VPU_PLATFORM_DEVICE_NAME,
 		.of_match_table = of_match_ptr(wave6_dt_ids),
-		},
+		.pm = &wave6_vpu_pm_ops,
+	},
 	.probe = wave6_vpu_probe,
 	.remove = wave6_vpu_remove,
 	//.suspend = vpu_suspend,

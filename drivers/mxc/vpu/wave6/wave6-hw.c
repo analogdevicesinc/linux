@@ -112,7 +112,7 @@ static void wave6_remap_code_buffer(struct vpu_device *vpu_dev)
 	dma_addr_t code_base;
 	u32 i, reg_val, remap_size;
 
-	code_base = vpu_dev->common_mem.daddr;
+	code_base = vpu_dev->common_mem.dma_addr;
 
 	for (i = 0; i < WAVE6_MAX_CODE_BUF_SIZE / W6_REMAP_MAX_SIZE; i++) {
 		remap_size = (W6_REMAP_MAX_SIZE >> 12) & 0x1ff;
@@ -253,6 +253,8 @@ int wave6_vpu_get_version(struct vpu_device *vpu_dev, uint32_t *version_info,
 	hw_config_def1 = vpu_read_reg(vpu_dev, W6_RET_STD_DEF1);
 	hw_config_feature = vpu_read_reg(vpu_dev, W6_RET_CONF_FEATURE);
 
+	dev_info(vpu_dev->dev, "hw revision : 0x%x\n", vpu_read_reg(vpu_dev, W6_RET_CONF_REVISION));
+
 	attr->support_hevc10bit_enc = (hw_config_feature >> 3) & 1;
 	attr->support_avc10bit_enc = (hw_config_feature >> 11) & 1;
 
@@ -296,7 +298,7 @@ int wave6_vpu_get_version(struct vpu_device *vpu_dev, uint32_t *version_info,
 int wave6_vpu_init(struct device *dev, u8 *firmware, uint32_t size)
 {
 	struct vpu_device *vpu_dev = dev_get_drvdata(dev);
-	struct vpu_buf *common_vb;
+	struct vpu_dma_buf *common_vb;
 	int ret;
 
 	common_vb = &vpu_dev->common_mem;
@@ -304,12 +306,16 @@ int wave6_vpu_init(struct device *dev, u8 *firmware, uint32_t size)
 	if (size * 2 > WAVE6_MAX_CODE_BUF_SIZE)
 		return -EINVAL;
 
-	ret = wave6_vdi_write_memory(vpu_dev, common_vb, 0, firmware, size,
+	ret = wave6_vdi_write_memory(vpu_dev, (struct vpu_buf *)common_vb, 0, firmware, size,
 				     VDI_128BIT_LITTLE_ENDIAN);
 	if (ret < 0) {
 		dev_err(vpu_dev->dev, "%s: Copy fw to common buffer fail: %d\n",
 			__func__, ret);
 		return ret;
+	}
+	if (!common_vb->dma_addr) {
+		common_vb->dma_addr = dma_map_resource(vpu_dev->dev, common_vb->phys_addr, common_vb->size, DMA_BIDIRECTIONAL, 0);
+		dev_info(vpu_dev->dev, "boot addr: %pad -> %pad\n", &common_vb->phys_addr, &common_vb->dma_addr);
 	}
 
 	wave6_remap_code_buffer(vpu_dev);
