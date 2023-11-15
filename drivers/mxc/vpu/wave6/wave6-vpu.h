@@ -20,6 +20,7 @@
 struct vpu_buffer {
 	struct v4l2_m2m_buffer v4l2_m2m_buf;
 	bool consumed;
+	bool used;
 	bool force_pic_type_enable;
 	enum enc_force_pic_type force_pic_type;
 };

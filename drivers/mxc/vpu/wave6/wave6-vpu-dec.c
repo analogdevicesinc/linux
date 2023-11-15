@@ -520,8 +520,10 @@ static void wave6_handle_decoded_frame(struct vpu_instance *inst,
 		return;
 
 	dst_buf = wave6_get_dst_buf_by_addr(inst, addr);
-	if (dst_buf)
+	if (dst_buf) {
 		v4l2_m2m_buf_copy_metadata(src_buf, dst_buf, true);
+		wave6_to_vpu_buf(dst_buf)->used = true;
+	}
 
 	src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
 	v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
@@ -687,6 +689,12 @@ static void wave6_vpu_dec_finish_decode(struct vpu_instance *inst)
 
 	if (info.sequence_changed) {
 		struct dec_initial_info initial_info;
+
+		if (info.sequence_changed & 0x2) {
+			dev_err(inst->dev->dev, "fb_alloc_fail, it may led to firmware hang\n");
+			vb2_queue_error(v4l2_m2m_get_src_vq(inst->v4l2_fh.m2m_ctx));
+			vb2_queue_error(v4l2_m2m_get_dst_vq(inst->v4l2_fh.m2m_ctx));
+		}
 
 		v4l2_m2m_mark_stopped(m2m_ctx);
 
@@ -1513,6 +1521,7 @@ static void wave6_vpu_dec_buf_queue(struct vb2_buffer *vb)
 	struct vpu_buffer *vpu_buf = wave6_to_vpu_buf(vbuf);
 
 	vpu_buf->consumed = false;
+	vpu_buf->used = false;
 	if (V4L2_TYPE_IS_OUTPUT(vb->type))
 		wave6_vpu_dec_buf_queue_src(vb);
 	else

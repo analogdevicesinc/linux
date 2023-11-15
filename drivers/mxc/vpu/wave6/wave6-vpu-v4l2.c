@@ -79,6 +79,23 @@ void wave6_vpu_return_buffers(struct vpu_instance *inst,
 	}
 }
 
+static bool wave6_vpu_check_fb_available(struct vpu_instance *inst)
+{
+	struct vb2_v4l2_buffer *vb2_v4l2_buf;
+	struct v4l2_m2m_buffer *v4l2_m2m_buf;
+	struct vpu_buffer *vpu_buf;
+
+	v4l2_m2m_for_each_dst_buf(inst->v4l2_fh.m2m_ctx, v4l2_m2m_buf) {
+		vb2_v4l2_buf = &v4l2_m2m_buf->vb;
+		vpu_buf = wave6_to_vpu_buf(vb2_v4l2_buf);
+
+		if (!vpu_buf->used)
+			return true;
+	}
+
+	return false;
+}
+
 static int wave6_vpu_job_ready(void *priv)
 {
 	struct vpu_instance *inst = priv;
@@ -89,6 +106,8 @@ static int wave6_vpu_job_ready(void *priv)
 	if (inst->state < VPU_INST_STATE_PIC_RUN)
 		return 0;
 	if (inst->state == VPU_INST_STATE_STOP && inst->eos)
+		return 0;
+	if (!wave6_vpu_check_fb_available(inst))
 		return 0;
 
 	return 1;

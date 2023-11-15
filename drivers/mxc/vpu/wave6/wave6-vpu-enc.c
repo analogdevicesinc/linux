@@ -802,8 +802,10 @@ static int wave6_vpu_enc_start_encode(struct vpu_instance *inst)
 		dev_dbg(inst->dev->dev, "%s: success\n", __func__);
 		if (src_buf)
 			src_vbuf->consumed = true;
-		if (dst_buf)
+		if (dst_buf) {
 			dst_vbuf->consumed = true;
+			dst_vbuf->used = true;
+		}
 	}
 
 exit:
@@ -2251,6 +2253,7 @@ static void wave6_vpu_enc_buf_queue(struct vb2_buffer *vb)
 	}
 
 	vpu_buf->consumed = false;
+	vpu_buf->used = false;
 	v4l2_m2m_buf_queue(inst->v4l2_fh.m2m_ctx, vbuf);
 }
 
