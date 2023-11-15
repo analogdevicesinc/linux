@@ -812,6 +812,22 @@
 			dma-names ="tx", "rx";
 			status = "disabled";
 
+			flash: m25p128@0 {
+				status = "okay";
+				compatible = "st,m25p80";
+				spi-max-frequency = <25000000>;
+				m25p,fast-read;
+				reg = <0>;
+
+				#address-cells = <1>;
+				#size-cells = <1>;
+
+				partition@0 {
+				label = "spi_flash_part0";
+				reg = <0x0 0x100000>;
+				};
+			};
+
 		};
 
 		spi1: spi@10da5000 {
