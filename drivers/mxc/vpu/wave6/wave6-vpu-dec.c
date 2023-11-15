@@ -5,6 +5,7 @@
  * Copyright (C) 2021 CHIPS&MEDIA INC
  */
 
+#include <linux/delay.h>
 #include "wave6-vpu.h"
 
 #define VPU_DEC_DEV_NAME "C&M Wave6 VPU decoder"
@@ -139,6 +140,17 @@ static void wave6_vpu_dec_destroy_instance(struct vpu_instance *inst)
 {
 	u32 fail_res;
 	int ret;
+
+	if (inst->workqueue) {
+		atomic_set(&inst->start_init_seq, 0);
+
+		mutex_unlock(&inst->dev->dev_lock);
+		cancel_work_sync(&inst->init_task);
+		mutex_lock(&inst->dev->dev_lock);
+
+		destroy_workqueue(inst->workqueue);
+		inst->workqueue = NULL;
+	}
 
 	ret = wave6_vpu_dec_close(inst, &fail_res);
 	if (ret) {
@@ -1216,6 +1228,7 @@ static void wave6_set_dec_openparam(struct dec_open_param *open_param,
 static int wave6_vpu_dec_create_instance(struct vpu_instance *inst)
 {
 	int ret;
+	u32 fail_res;
 	struct dec_open_param open_param;
 	struct vpu_attr *attr = &inst->dev->attr;
 
@@ -1244,7 +1257,7 @@ static int wave6_vpu_dec_create_instance(struct vpu_instance *inst)
 	if (ret) {
 		dev_err(inst->dev->dev, "alloc temp of size %zu failed\n",
 			inst->temp_vbuf.size);
-		return ret;
+		goto error_tbuf;
 	}
 
 	inst->vui_vbuf.size = ALIGN(WAVE6_VUI_BUF_SIZE, 4096);
@@ -1252,7 +1265,7 @@ static int wave6_vpu_dec_create_instance(struct vpu_instance *inst)
 	if (ret) {
 		dev_err(inst->dev->dev, "alloc vui of size %zu failed\n",
 			inst->vui_vbuf.size);
-		return ret;
+		goto error_vui;
 	}
 
 	wave6_set_dec_openparam(&open_param, inst);
@@ -1260,15 +1273,31 @@ static int wave6_vpu_dec_create_instance(struct vpu_instance *inst)
 	ret = wave6_vpu_dec_open(inst, &open_param);
 	if (ret) {
 		dev_err(inst->dev->dev, "failed create instance : %d\n", ret);
-		return ret;
+		goto error_open;
 	}
 
 	if (inst->thumbnail_mode)
 		wave6_vpu_dec_give_command(inst, ENABLE_DEC_THUMBNAIL_MODE, NULL);
 
+	inst->workqueue = alloc_ordered_workqueue("init_seq", WQ_MEM_RECLAIM);
+	if (!inst->workqueue) {
+		dev_err(inst->dev->dev, "failed to alloc init seq workqueue\n");
+		ret = -ENOMEM;
+		goto error_wq;
+	}
+
 	inst->state = VPU_INST_STATE_OPEN;
 
 	return 0;
+error_wq:
+	wave6_vpu_dec_close(inst, &fail_res);
+error_open:
+	wave6_vdi_free_dma_memory(inst->dev, &inst->vui_vbuf);
+error_vui:
+	wave6_vdi_free_dma_memory(inst->dev, &inst->temp_vbuf);
+error_tbuf:
+	wave6_vdi_free_dma_memory(inst->dev, &inst->work_vbuf);
+	return ret;
 }
 
 static int wave6_vpu_dec_prepare_fb(struct vpu_instance *inst)
@@ -1428,16 +1457,18 @@ static int wave6_vpu_dec_seek_header(struct vpu_instance *inst)
 
 	ret = wave6_vpu_dec_issue_seq_init(inst);
 	if (ret) {
-		dev_dbg(inst->dev->dev, "failed wave6_vpu_dec_issue_seq_init %d\n", ret);
+		dev_err(inst->dev->dev, "failed wave6_vpu_dec_issue_seq_init %d\n", ret);
 		return ret;
 	}
 
+	mutex_unlock(&inst->dev->dev_lock);
 	if (wave6_vpu_wait_interrupt(inst, VPU_DEC_TIMEOUT) < 0)
-		dev_dbg(inst->dev->dev, "failed to call vpu_wait_interrupt()\n");
+		dev_err(inst->dev->dev, "failed to call vpu_wait_interrupt()\n");
+	mutex_lock(&inst->dev->dev_lock);
 
 	ret = wave6_vpu_dec_complete_seq_init(inst, &initial_info);
 	if (ret) {
-		dev_dbg(inst->dev->dev, "vpu_dec_complete_seq_init: %d, reason : %d\n",
+		dev_err(inst->dev->dev, "vpu_dec_complete_seq_init: %d, reason : %d\n",
 			ret, initial_info.err_reason);
 		if (initial_info.err_reason == WAVE6_SYSERR_NOT_SUPPORT)
 			ret = -EINVAL;
@@ -1453,30 +1484,6 @@ static int wave6_vpu_dec_seek_header(struct vpu_instance *inst)
 	return ret;
 }
 
-static void wave6_vpu_dec_open_and_seek_header(struct vpu_instance *inst)
-{
-	int ret;
-
-	if (inst->state == VPU_INST_STATE_NONE) {
-		ret = wave6_vpu_dec_create_instance(inst);
-		if (ret)
-			goto error;
-	}
-
-	if (inst->state == VPU_INST_STATE_OPEN) {
-		wave6_handle_bitstream_buffer(inst);
-		ret = wave6_vpu_dec_seek_header(inst);
-		if (ret)
-			goto error;
-	}
-
-	return;
-
-error:
-	vb2_queue_error(v4l2_m2m_get_src_vq(inst->v4l2_fh.m2m_ctx));
-	vb2_queue_error(v4l2_m2m_get_dst_vq(inst->v4l2_fh.m2m_ctx));
-}
-
 static void wave6_vpu_dec_buf_queue_src(struct vb2_buffer *vb)
 {
 	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
@@ -1489,12 +1496,6 @@ static void wave6_vpu_dec_buf_queue_src(struct vb2_buffer *vb)
 	vbuf->sequence = inst->queued_src_buf_num++;
 
 	v4l2_m2m_buf_queue(inst->v4l2_fh.m2m_ctx, vbuf);
-
-	if (inst->state < VPU_INST_STATE_INIT_SEQ) {
-		v4l2_m2m_suspend(inst->dev->m2m_dev);
-		wave6_vpu_dec_open_and_seek_header(inst);
-		v4l2_m2m_resume(inst->dev->m2m_dev);
-	}
 }
 
 static void wave6_vpu_dec_buf_queue_dst(struct vb2_buffer *vb)
@@ -1528,6 +1529,32 @@ static void wave6_vpu_dec_buf_queue(struct vb2_buffer *vb)
 		wave6_vpu_dec_buf_queue_dst(vb);
 }
 
+static void wave6_vpu_dec_init_seq_task(struct work_struct *work)
+{
+	struct vpu_instance *inst = container_of(work, struct vpu_instance, init_task);
+	int ret;
+
+	while (atomic_read(&inst->start_init_seq)) {
+		if (inst->state != VPU_INST_STATE_OPEN)
+			break;
+		if (!v4l2_m2m_num_src_bufs_ready(inst->v4l2_fh.m2m_ctx)) {
+			fsleep(1000);
+			continue;
+		}
+		mutex_lock(&inst->dev->dev_lock);
+		wave6_handle_bitstream_buffer(inst);
+		ret = wave6_vpu_dec_seek_header(inst);
+		if (ret) {
+			vb2_queue_error(v4l2_m2m_get_src_vq(inst->v4l2_fh.m2m_ctx));
+			vb2_queue_error(v4l2_m2m_get_dst_vq(inst->v4l2_fh.m2m_ctx));
+			atomic_set(&inst->start_init_seq, 0);
+		}
+		mutex_unlock(&inst->dev->dev_lock);
+	}
+
+	atomic_set(&inst->start_init_seq, 0);
+}
+
 static int wave6_vpu_dec_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct vpu_instance *inst = vb2_get_drv_priv(q);
@@ -1538,6 +1565,17 @@ static int wave6_vpu_dec_start_streaming(struct vb2_queue *q, unsigned int count
 	v4l2_m2m_suspend(inst->dev->m2m_dev);
 
 	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
+		if (inst->state == VPU_INST_STATE_NONE) {
+			ret = wave6_vpu_dec_create_instance(inst);
+			if (ret)
+				goto exit;
+		}
+		if (inst->state == VPU_INST_STATE_OPEN) {
+			atomic_set(&inst->start_init_seq, 1);
+			INIT_WORK(&inst->init_task, wave6_vpu_dec_init_seq_task);
+			queue_work(inst->workqueue, &inst->init_task);
+		}
+
 		if (inst->state == VPU_INST_STATE_SEEK)
 			inst->state = inst->state_in_seek;
 	} else {

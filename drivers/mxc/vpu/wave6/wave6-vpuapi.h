@@ -1198,6 +1198,10 @@ struct vpu_instance {
 	bool force_pic_type_enable;
 	enum enc_force_pic_type force_pic_type;
 	struct sar_info sar;
+
+	struct workqueue_struct *workqueue;
+	struct work_struct init_task;
+	atomic_t start_init_seq;
 };
 
 void wave6_vdi_gb_writel(struct vpu_device *vpu_device, unsigned int addr, unsigned int data);
