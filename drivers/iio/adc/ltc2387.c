@@ -154,7 +154,7 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 						  ltc->ref_clk_rate);
 	cnv_state.period = ref_clk_period_ps * target;
 	cnv_state.duty_cycle = ref_clk_period_ps;
-	cnv_state.phase = ref_clk_period_ps;
+	cnv_state.phase = 0;
 	cnv_state.time_unit = PWM_UNIT_PSEC;
 	cnv_state.enabled = true;
 	ret = pwm_apply_state(ltc->cnv, &cnv_state);
@@ -168,7 +168,7 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 		clk_en_time = DIV_ROUND_UP_ULL(ltc->device_info->resolution, 2);
 	clk_en_state.period = cnv_state.period;
 	clk_en_state.duty_cycle = ref_clk_period_ps * clk_en_time;
-	clk_en_state.phase = 0;
+	clk_en_state.phase = cnv_state.phase + LTC2387_T_FIRSTCLK;
 	clk_en_state.time_unit = PWM_UNIT_PSEC;
 	clk_en_state.enabled = true;
 	ret = pwm_apply_state(ltc->clk_en, &clk_en_state);
