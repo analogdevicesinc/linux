@@ -99,9 +99,12 @@ struct ci_hdrc_imx_data {
 	struct clk *clk;
 	struct clk *clk_wakeup;
 	struct imx_usbmisc_data *usbmisc_data;
+	/* wakeup interrupt*/
+	int irq;
 	bool supports_runtime_pm;
 	bool override_phy_control;
 	bool in_lpm;
+	bool wakeup_int;
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pinctrl_hsic_active;
 	struct regulator *hsic_pad_regulator;
@@ -337,6 +340,25 @@ static int ci_hdrc_imx_notify_event(struct ci_hdrc *ci, unsigned int event)
 	return ret;
 }
 
+static irqreturn_t ci_wakeup_irq_handler(int irq, void *data)
+{
+	struct platform_device *pdev = data;
+	struct ci_hdrc_imx_data *imx_data = platform_get_drvdata(pdev);
+
+	if (imx_data->in_lpm) {
+		if (imx_data->wakeup_int)
+			return IRQ_HANDLED;
+
+		disable_irq_nosync(irq);
+		imx_data->wakeup_int = true;
+		pm_runtime_resume(&imx_data->ci_pdev->dev);
+
+		return IRQ_HANDLED;
+	}
+
+	return IRQ_NONE;
+}
+
 static int ci_hdrc_imx_probe(struct platform_device *pdev)
 {
 	struct ci_hdrc_imx_data *data;
@@ -471,6 +493,15 @@ static int ci_hdrc_imx_probe(struct platform_device *pdev)
 
 	if (pdata.flags & CI_HDRC_SUPPORTS_RUNTIME_PM)
 		data->supports_runtime_pm = true;
+
+	data->irq = platform_get_irq_optional(pdev, 1);
+	if (data->irq > 0) {
+		ret = devm_request_threaded_irq(dev, data->irq,
+				NULL, ci_wakeup_irq_handler,
+				IRQF_ONESHOT, "ci_imx_wakeup", pdev);
+		if (ret)
+			goto err_clk;
+	}
 
 	ret = imx_usbmisc_init(data->usbmisc_data);
 	if (ret) {
@@ -616,6 +647,11 @@ static int imx_controller_resume(struct device *dev,
 		goto clk_disable;
 	}
 
+	if (data->wakeup_int) {
+		data->wakeup_int = false;
+		enable_irq(data->irq);
+	}
+
 	return 0;
 
 clk_disable:
@@ -638,6 +674,10 @@ static int ci_hdrc_imx_suspend(struct device *dev)
 		return ret;
 
 	pinctrl_pm_select_sleep_state(dev);
+
+	if (device_may_wakeup(dev))
+		enable_irq_wake(data->irq);
+
 	return ret;
 }
 
@@ -645,6 +685,9 @@ static int ci_hdrc_imx_resume(struct device *dev)
 {
 	struct ci_hdrc_imx_data *data = dev_get_drvdata(dev);
 	int ret;
+
+	if (device_may_wakeup(dev))
+		disable_irq_wake(data->irq);
 
 	pinctrl_pm_select_default_state(dev);
 	ret = imx_controller_resume(dev, PMSG_RESUME);
