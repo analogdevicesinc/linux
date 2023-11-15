@@ -454,13 +454,6 @@ static void svc_thread_recv_status_ok(struct stratix10_svc_data *p_data,
 		cb_data->kaddr2 = svc_pa_to_va(res.a2);
 		cb_data->kaddr3 = &res.a3;
 		break;
-	case COMMAND_MBOX_SEND_CMD:
-		cb_data->status = BIT(SVC_STATUS_OK);
-		cb_data->kaddr1 = &res.a1;
-		/* SDM return size in u8. Convert size to u32 word */
-		res.a2 = res.a2 * BYTE_TO_WORD_SIZE;
-		cb_data->kaddr2 = &res.a2;
-		break;
 	case COMMAND_FCS_GET_CHIP_ID:
 		cb_data->status = BIT(SVC_STATUS_OK);
 		cb_data->kaddr2 = &res.a2;
@@ -507,7 +500,7 @@ static void svc_thread_recv_status_ok(struct stratix10_svc_data *p_data,
 	case COMMAND_MBOX_SEND_CMD:
 		cb_data->status = BIT(SVC_STATUS_OK);
 		cb_data->kaddr1 = &res.a1;
-		/* SDM return size in u32 word. Convert size to u8 */
+		/* SDM return size in u8. Convert size to u32 word */
 		res.a2 = res.a2 * BYTE_TO_WORD_SIZE;
 		cb_data->kaddr2 = &res.a2;
 		break;
@@ -1193,7 +1186,6 @@ static int svc_normal_to_secure_thread(void *data)
 			case COMMAND_FCS_DATA_ENCRYPTION:
 			case COMMAND_FCS_DATA_DECRYPTION:
 			case COMMAND_FCS_RANDOM_NUMBER_GEN:
-			case COMMAND_MBOX_SEND_CMD:
 			case COMMAND_FCS_PSGSIGMA_TEARDOWN:
 			case COMMAND_FCS_GET_CHIP_ID:
 			case COMMAND_FCS_ATTESTATION_SUBKEY:
