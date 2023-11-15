@@ -502,6 +502,7 @@ static int wave6_vpu_dec_start_decode(struct vpu_instance *inst)
 
 		src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
 		dst_buf = v4l2_m2m_dst_buf_remove(inst->v4l2_fh.m2m_ctx);
+		dst_buf->sequence = inst->sequence++;
 		v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
 		v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_ERROR);
 	}
@@ -554,6 +555,7 @@ static void wave6_handle_skipped_frame(struct vpu_instance *inst)
 	if (!vpu_buf || !vpu_buf->consumed)
 		return;
 
+	inst->sequence++;
 	src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
 	v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
 }
@@ -584,6 +586,7 @@ static void wave6_handle_display_frame(struct vpu_instance *inst,
 				      inst->dst_fmt.plane_fmt[2].sizeimage);
 	}
 
+	dst_buf->sequence = inst->sequence++;
 	dst_buf->field = V4L2_FIELD_NONE;
 	v4l2_m2m_dst_buf_remove_by_buf(inst->v4l2_fh.m2m_ctx, dst_buf);
 	v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
@@ -1507,7 +1510,7 @@ static void wave6_vpu_dec_buf_queue_dst(struct vb2_buffer *vb)
 		vb->type, vb->index, vb2_plane_size(&vbuf->vb2_buf, 0),
 		vb2_plane_size(&vbuf->vb2_buf, 1), vb2_plane_size(&vbuf->vb2_buf, 2));
 
-	vbuf->sequence = inst->queued_dst_buf_num++;
+	inst->queued_dst_buf_num++;
 	if (inst->next_buf_last) {
 		wave6_handle_last_frame(inst, vbuf);
 		inst->next_buf_last = false;
@@ -1608,6 +1611,7 @@ static void wave6_vpu_dec_stop_streaming(struct vb2_queue *q)
 		inst->queued_src_buf_num = 0;
 		inst->state_in_seek = inst->state;
 		inst->state = VPU_INST_STATE_SEEK;
+		inst->sequence = 0;
 	} else {
 		dma_addr_t rd_ptr, wr_ptr;
 
