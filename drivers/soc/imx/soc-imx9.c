@@ -1,34 +1,29 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2022 NXP
+ * Copyright 2022-2023 NXP
  */
 
 #include <linux/module.h>
-#include <linux/nvmem-consumer.h>
 #include <linux/kernel.h>
 #include <linux/of.h>
-#include <linux/of_address.h>
+#include <linux/arm-smccc.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/sys_soc.h>
 
-#define DEVICE_ID		0x800
-#define DIGPROG_MAJOR_UPPER(x)	(((x) & 0x00f00000) >> 20)
-#define DIGPROG_MAJOR_LOWER(x)	(((x) & 0x0000f000) >> 12)
-#define BASE_LAYER_REV(x)	(((x) & 0x000000f0) >> 4)
+#define IMX_SIP_GET_SOC_INFO	0xc2000006
+#define SOC_ID(x)		(((x) & 0xFFFF) >> 8)
+#define SOC_REV_MAJOR(x)	((((x) >> 28) & 0xF) - 0x9)
+#define SOC_REV_MINOR(x)	(((x) >> 24) & 0xF)
 
 static int imx9_soc_device_register(struct device *dev)
 {
 	struct soc_device_attribute *attr;
-	struct device_node *anaosc_np;
+	struct arm_smccc_res res;
 	struct soc_device *sdev;
-	void __iomem *anaosc;
-	u32 device_id;
-	u32 v[4];
+	u32 soc_id, rev_major, rev_minor;
+	u64 uid127_64, uid63_0;
 	int err;
-	struct nvmem_cell *cell;
-	void *buf;
-	size_t len;
 
 	attr = kzalloc(sizeof(*attr), GFP_KERNEL);
 	if (!attr)
@@ -42,47 +37,29 @@ static int imx9_soc_device_register(struct device *dev)
 
 	attr->family = kasprintf(GFP_KERNEL, "Freescale i.MX");
 
-	anaosc_np = of_find_compatible_node(NULL, NULL, "fsl,imx93-anatop");
-	if (!anaosc_np) {
-		err = -ENOENT;
+	/*
+	 * Retrieve the soc id, rev & uid info:
+	 * res.a1[31:16]: soc revision;
+	 * res.a1[15:0]: soc id;
+	 * res.a2: uid[127:64];
+	 * res.a3: uid[63:0];
+	 */
+	arm_smccc_smc(IMX_SIP_GET_SOC_INFO, 0, 0, 0, 0, 0, 0, 0, &res);
+	if (res.a0 != SMCCC_RET_SUCCESS) {
+		err = -EINVAL;
 		goto family;
 	}
-	anaosc = of_iomap(anaosc_np, 0);
-	WARN_ON(!anaosc);
 
-	device_id = readl(anaosc + DEVICE_ID);
+	soc_id = SOC_ID(res.a1);
+	rev_major = SOC_REV_MAJOR(res.a1);
+	rev_minor = SOC_REV_MINOR(res.a1);
 
-	iounmap(anaosc);
-	of_node_put(anaosc_np);
+	attr->soc_id = kasprintf(GFP_KERNEL, "i.MX%2x", soc_id);
+	attr->revision = kasprintf(GFP_KERNEL, "%d.%d", rev_major, rev_minor);
 
-	if (BASE_LAYER_REV(device_id) == 0x1) {
-		attr->revision = kasprintf(GFP_KERNEL, "1.0");
-	} else {
-		attr->revision = kasprintf(GFP_KERNEL, "unknown" );
-	}
-
-	cell = nvmem_cell_get(dev, "soc_unique_id");
-	if (IS_ERR(cell)) {
-		err = PTR_ERR(cell);
-		goto revision;
-	}
-
-	buf = nvmem_cell_read(cell, &len);
-	if (IS_ERR(buf)) {
-		nvmem_cell_put(cell);
-		err = PTR_ERR(buf);
-		goto revision;
-	}
-	nvmem_cell_put(cell);
-
-	memcpy(v, buf, min(len, sizeof(v)));
-	attr->serial_number = kasprintf(GFP_KERNEL, "%08x%08x%08x%08x", v[0], v[1], v[2], v[3]);
-
-	if (DIGPROG_MAJOR_UPPER(device_id) == 0x9 && DIGPROG_MAJOR_LOWER(device_id) == 0x2) {
-		attr->soc_id = kasprintf(GFP_KERNEL, "i.MX93");
-	} else {
-		attr->soc_id = kasprintf(GFP_KERNEL, "unknown");
-	}
+	uid127_64 = res.a2;
+	uid63_0 = res.a3;
+	attr->serial_number = kasprintf(GFP_KERNEL, "%016llx%016llx", uid127_64, uid63_0);
 
 	if(of_machine_is_compatible("fsl,imx91p"))
 		attr->soc_id = kasprintf(GFP_KERNEL, "i.MX91P");
@@ -98,7 +75,6 @@ static int imx9_soc_device_register(struct device *dev)
 soc_id:
 	kfree(attr->soc_id);
 	kfree(attr->serial_number);
-revision:
 	kfree(attr->revision);
 family:
 	kfree(attr->family);
@@ -119,8 +95,9 @@ static int imx9_init_soc_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id imx9_soc_of_match[] = {
-        { .compatible = "fsl,imx93-soc", },
-        { }
+	{ .compatible = "fsl,imx93-soc", },
+	{ .compatible = "fsl,imx95-soc", },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, imx9_soc_of_match);
 

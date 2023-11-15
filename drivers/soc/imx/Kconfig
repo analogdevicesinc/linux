@@ -12,18 +12,6 @@ config SOC_IMX8M
 	  support, it will provide the SoC info like SoC family,
 	  ID and revision etc.
 
-config SOC_DEV_IMX9
-	tristate "i.MX9 SoC device support"
-	depends on ARCH_MXC || COMPILE_TEST
-	depends on NVMEM_IMX_OCOTP_FSB_S400
-	default ARCH_MXC && ARM64
-	select SOC_BUS
-	select ARM_GIC_V3 if ARCH_MXC && ARCH_MULTI_V7
-	help
-	  If you say yes here you get support for the NXP i.MX9 SoC device
-	  support, it will provide the SoC info like SoC family,
-	  ID and revision etc.
-
 config IMX8M_BUSFREQ
 	tristate "i.MX8M busfreq"
 	depends on SOC_IMX8M
