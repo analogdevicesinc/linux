@@ -229,6 +229,8 @@ int ad917x_register_read_block(ad917x_handle_t *h,
 #define AD917X_LINK_0_EN               BIT(0)
 #define AD917X_LINK_1_EN               BIT(1)
 
+#define AD917X_DYN_LINK_LATENCY_0_REG  0x302
+#define AD917X_DYN_LINK_LATENCY_1_REG  0x303
 #define AD917X_JESD_LMFC_DELAY0_REG    0x304
 #define AD917X_JESD_LMFC_DELAY1_REG    0x305
 #define AD917X_JESD_LMFC_DELAY(x)      (((x) & 0x3F) << 0)

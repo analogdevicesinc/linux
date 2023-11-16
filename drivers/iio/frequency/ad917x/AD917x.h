@@ -496,6 +496,17 @@ int ad917x_jesd_oneshot_sync(ad917x_handle_t *h, u8 err_window);
 int ad917x_jesd_get_sync_rotation_done(ad917x_handle_t *h, bool *done);
 
 /**
+ * \brief Get reported link latencies
+ *
+ * Get the reported dynamic link latency from selected link
+ *
+ * \param h     Pointer to the AD917X device reference handle.
+ * \param link  Target JESD Link on which to get latency
+ * \param latency Pointer to variable to which latency shall be stored
+ */
+int ad917x_get_dyn_latency(ad917x_handle_t *h, jesd_link_t link, u8 *latency);
+
+/**
  * \brief Set the LMFC Delay and Variance for the JESD Links
  *
  * API to configure the LMFC Delay and Variance for JESD Link Setup.
