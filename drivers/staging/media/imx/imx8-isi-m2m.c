@@ -106,7 +106,7 @@ void mxc_isi_m2m_frame_write_done(struct mxc_isi_dev *mxc_isi)
 	fh = &curr_mxc_ctx->fh;
 
 	if (isi_m2m->aborting) {
-		mxc_isi_channel_disable(mxc_isi);
+		mxc_isi_channel_disable_loc(mxc_isi);
 		dev_warn(&isi_m2m->pdev->dev, "Aborting current job\n");
 		goto job_finish;
 	}
@@ -136,7 +136,7 @@ void mxc_isi_m2m_frame_write_done(struct mxc_isi_dev *mxc_isi)
 		dst_vbuf->vb2_buf.state = VB2_BUF_STATE_ACTIVE;
 		dst_buf = to_isi_buffer(dst_vbuf);
 		dst_buf->v4l2_buf.sequence = isi_m2m->frame_count;
-		mxc_isi_channel_set_outbuf(mxc_isi, dst_buf);
+		mxc_isi_channel_set_outbuf_loc(mxc_isi, dst_buf);
 		v4l2_m2m_dst_buf_remove(fh->m2m_ctx);
 		b = to_v4l2_m2m_buffer(dst_vbuf);
 		list_add_tail(&b->list, &isi_m2m->out_active);
@@ -170,7 +170,7 @@ static void mxc_isi_m2m_device_run(void *priv)
 
 	src_buf = to_isi_buffer(vbuf);
 	mxc_isi_channel_set_m2m_src_addr(mxc_isi, src_buf);
-	mxc_isi_channel_enable(mxc_isi, mxc_isi->m2m_enabled);
+	mxc_isi_channel_enable_loc(mxc_isi, mxc_isi->m2m_enabled);
 
 unlock:
 	spin_unlock_irqrestore(&isi_m2m->slock, flags);
@@ -367,7 +367,7 @@ static int m2m_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
 	dst_vbuf->vb2_buf.state = VB2_BUF_STATE_ACTIVE;
 	dst_buf = to_isi_buffer(dst_vbuf);
 	dst_buf->v4l2_buf.sequence = 0;
-	mxc_isi_channel_set_outbuf(mxc_isi, dst_buf);
+	mxc_isi_channel_set_outbuf_loc(mxc_isi, dst_buf);
 	v4l2_m2m_dst_buf_remove(fh->m2m_ctx);
 	b = to_v4l2_m2m_buffer(dst_vbuf);
 	list_add_tail(&b->list, &isi_m2m->out_active);
@@ -381,7 +381,7 @@ static int m2m_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
 	dst_vbuf->vb2_buf.state = VB2_BUF_STATE_ACTIVE;
 	dst_buf = to_isi_buffer(dst_vbuf);
 	dst_buf->v4l2_buf.sequence = 1;
-	mxc_isi_channel_set_outbuf(mxc_isi, dst_buf);
+	mxc_isi_channel_set_outbuf_loc(mxc_isi, dst_buf);
 	v4l2_m2m_dst_buf_remove(fh->m2m_ctx);
 	b = to_v4l2_m2m_buffer(dst_vbuf);
 	list_add_tail(&b->list, &isi_m2m->out_active);
@@ -1008,7 +1008,7 @@ static int mxc_isi_m2m_streamon(struct file *file, void *priv,
 		mxc_isi_channel_init(mxc_isi);
 		mxc_isi_m2m_config_src(mxc_isi, src_f);
 		mxc_isi_m2m_config_dst(mxc_isi, dst_f);
-		mxc_isi_channel_config(mxc_isi, src_f, dst_f);
+		mxc_isi_channel_config_loc(mxc_isi, src_f, dst_f);
 	}
 
 	ret = v4l2_m2m_ioctl_streamon(file, priv, type);
@@ -1024,7 +1024,7 @@ static int mxc_isi_m2m_streamoff(struct file *file, void *priv,
 	int ret;
 
 	if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
-		mxc_isi_channel_disable(mxc_isi);
+		mxc_isi_channel_disable_loc(mxc_isi);
 
 	ret = v4l2_m2m_ioctl_streamoff(file, priv, type);
 

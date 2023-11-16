@@ -207,7 +207,7 @@ void mxc_isi_cap_frame_write_done(struct mxc_isi_dev *mxc_isi)
 		buf = list_first_entry(&isi_cap->out_discard,
 				       struct mxc_isi_buffer, list);
 		buf->v4l2_buf.sequence = isi_cap->frame_count;
-		mxc_isi_channel_set_outbuf(mxc_isi, buf);
+		mxc_isi_channel_set_outbuf_loc(mxc_isi, buf);
 		list_move_tail(isi_cap->out_discard.next, &isi_cap->out_active);
 		goto unlock;
 	}
@@ -215,7 +215,7 @@ void mxc_isi_cap_frame_write_done(struct mxc_isi_dev *mxc_isi)
 	/* ISI channel output buffer */
 	buf = list_first_entry(&isi_cap->out_pending, struct mxc_isi_buffer, list);
 	buf->v4l2_buf.sequence = isi_cap->frame_count;
-	mxc_isi_channel_set_outbuf(mxc_isi, buf);
+	mxc_isi_channel_set_outbuf_loc(mxc_isi, buf);
 	vb2 = &buf->v4l2_buf.vb2_buf;
 	vb2->state = VB2_BUF_STATE_ACTIVE;
 	list_move_tail(isi_cap->out_pending.next, &isi_cap->out_active);
@@ -395,7 +395,7 @@ static int cap_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
 	buf->v4l2_buf.sequence = 0;
 	vb2 = &buf->v4l2_buf.vb2_buf;
 	vb2->state = VB2_BUF_STATE_ACTIVE;
-	mxc_isi_channel_set_outbuf(mxc_isi, buf);
+	mxc_isi_channel_set_outbuf_loc(mxc_isi, buf);
 	list_move_tail(isi_cap->out_discard.next, &isi_cap->out_active);
 
 	/* ISI channel output buffer 2 */
@@ -403,7 +403,7 @@ static int cap_vb2_start_streaming(struct vb2_queue *q, unsigned int count)
 	buf->v4l2_buf.sequence = 1;
 	vb2 = &buf->v4l2_buf.vb2_buf;
 	vb2->state = VB2_BUF_STATE_ACTIVE;
-	mxc_isi_channel_set_outbuf(mxc_isi, buf);
+	mxc_isi_channel_set_outbuf_loc(mxc_isi, buf);
 	list_move_tail(isi_cap->out_pending.next, &isi_cap->out_active);
 
 	/* Clear frame count */
@@ -445,7 +445,7 @@ static void cap_vb2_stop_streaming(struct vb2_queue *q)
 
 	dev_dbg(&isi_cap->pdev->dev, "%s\n", __func__);
 
-	mxc_isi_channel_disable(mxc_isi);
+	mxc_isi_channel_disable_loc(mxc_isi);
 
 	spin_lock_irqsave(&isi_cap->slock, flags);
 
@@ -1044,7 +1044,7 @@ int mxc_isi_config_parm(struct mxc_isi_cap_dev *isi_cap)
 		return -EINVAL;
 
 	mxc_isi_channel_init(mxc_isi);
-	mxc_isi_channel_config(mxc_isi, &isi_cap->src_f, &isi_cap->dst_f);
+	mxc_isi_channel_config_loc(mxc_isi, &isi_cap->src_f, &isi_cap->dst_f);
 
 	return 0;
 }
@@ -1112,7 +1112,7 @@ static int mxc_isi_cap_streamon(struct file *file, void *priv,
 
 	if (!isi_cap->is_streaming[isi_cap->id] &&
 	     q->start_streaming_called) {
-		mxc_isi_channel_enable(mxc_isi, mxc_isi->m2m_enabled);
+		mxc_isi_channel_enable_loc(mxc_isi, mxc_isi->m2m_enabled);
 		ret = mxc_isi_pipeline_enable(isi_cap, 1);
 		if (ret < 0 && ret != -ENOIOCTLCMD)
 			goto disable;
@@ -1124,7 +1124,7 @@ static int mxc_isi_cap_streamon(struct file *file, void *priv,
 	return 0;
 
 disable:
-	mxc_isi_channel_disable(mxc_isi);
+	mxc_isi_channel_disable_loc(mxc_isi);
 power:
 	v4l2_subdev_call(src_sd, core, s_power, 0);
 	return ret;
@@ -1147,7 +1147,7 @@ static int mxc_isi_cap_streamoff(struct file *file, void *priv,
 
 	if (isi_cap->is_streaming[isi_cap->id]) {
 		mxc_isi_pipeline_enable(isi_cap, 0);
-		mxc_isi_channel_disable(mxc_isi);
+		mxc_isi_channel_disable_loc(mxc_isi);
 
 		isi_cap->is_streaming[isi_cap->id] = 0;
 		mxc_isi->is_streaming = 0;
@@ -1861,7 +1861,7 @@ static int mxc_isi_cap_runtime_suspend(struct device *dev)
 	if (isi_cap->runtime_suspend) {
 		if (isi_cap->is_streaming[isi_cap->id]) {
 			disp_mix_clks_enable(mxc_isi, false);
-			mxc_isi_channel_disable(mxc_isi);
+			mxc_isi_channel_disable_loc(mxc_isi);
 		}
 	}
 
@@ -1888,7 +1888,7 @@ static int mxc_isi_cap_runtime_resume(struct device *dev)
 			disp_mix_clks_enable(mxc_isi, true);
 			mxc_isi_clean_registers(mxc_isi);
 			mxc_isi_config_parm(mxc_isi->isi_cap);
-			mxc_isi_channel_enable(mxc_isi, mxc_isi->m2m_enabled);
+			mxc_isi_channel_enable_loc(mxc_isi, mxc_isi->m2m_enabled);
 		}
 	}
 
