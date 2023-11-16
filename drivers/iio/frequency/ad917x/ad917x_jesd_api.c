@@ -717,3 +717,20 @@ int ad917x_jesd_set_lmfc_delay(ad917x_handle_t *h, jesd_link_t link,
 
 	return API_ERROR_OK;
 }
+
+int ad917x_get_dyn_latency(ad917x_handle_t *h, jesd_link_t link, u8 *latency)
+{
+	int ret;
+
+	if (!h)
+		return API_ERROR_INVALID_HANDLE_PTR;
+	if (link > JESD_LINK_1)
+		return API_ERROR_INVALID_PARAM;
+
+	ret = ad917x_register_read(h, AD917X_DYN_LINK_LATENCY_0_REG + link,
+				   latency);
+	if (ret != API_ERROR_OK)
+		return ret;
+
+	return API_ERROR_OK;
+}
