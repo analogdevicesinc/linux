@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 
 /*
- * Copyright 2020,2022 NXP
+ * Copyright 2020,2022,2023 NXP
  */
 
 #include <linux/clk.h>
@@ -42,6 +42,8 @@
 enum imx8mp_lvds_phy_devtype {
 	FSL_LVDS_PHY_IMX8MP,
 	FSL_LVDS_PHY_IMX93,
+	FSL_LVDS0_PHY_IMX95,
+	FSL_LVDS1_PHY_IMX95,
 };
 
 struct imx8mp_lvds_phy_devdata {
@@ -56,6 +58,14 @@ static const struct imx8mp_lvds_phy_devdata imx8mp_lvds_phy_devdata[] = {
 	},
 	[FSL_LVDS_PHY_IMX93] = {
 		.lvds_ctrl = 0x24,
+		.has_disable = true,
+	},
+	[FSL_LVDS0_PHY_IMX95] = {
+		.lvds_ctrl = 0x8,
+		.has_disable = true,
+	},
+	[FSL_LVDS1_PHY_IMX95] = {
+		.lvds_ctrl = 0xc,
 		.has_disable = true,
 	},
 };
@@ -286,6 +296,10 @@ static const struct of_device_id imx8mp_lvds_phy_of_match[] = {
 	  .data = &imx8mp_lvds_phy_devdata[FSL_LVDS_PHY_IMX8MP] },
 	{ .compatible = "fsl,imx93-lvds-phy",
 	  .data = &imx8mp_lvds_phy_devdata[FSL_LVDS_PHY_IMX93] },
+	{ .compatible = "fsl,imx95-lvds0-phy",
+	  .data = &imx8mp_lvds_phy_devdata[FSL_LVDS0_PHY_IMX95] },
+	{ .compatible = "fsl,imx95-lvds1-phy",
+	  .data = &imx8mp_lvds_phy_devdata[FSL_LVDS1_PHY_IMX95] },
 	{}
 };
 MODULE_DEVICE_TABLE(of, imx8mp_lvds_phy_of_match);
