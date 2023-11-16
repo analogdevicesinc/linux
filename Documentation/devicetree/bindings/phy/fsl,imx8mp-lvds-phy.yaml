@@ -11,15 +11,18 @@ maintainers:
   - Liu Ying <victor.liu@nxp.com>
 
 description: |
-  LVDS PHY found on i.MX8MP and i.MX93 SoCs.  i.MX8MP LVDS PHY IP contains
+  LVDS PHY found on i.MX8MP, i.MX93 and i.MX95 SoCs.  i.MX8MP LVDS PHY IP contains
   two PHYs, each of which supports a four data lane LVDS channel.  i.MX93
-  LVDS PHY IP contains one PHY.
+  LVDS PHY IP contains one PHY. i.MX95 LVDS PHY IP contains two PHYs
+  and the two PHYs have different registers offset.
 
 properties:
   compatible:
     enum:
       - fsl,imx8mp-lvds-phy
       - fsl,imx93-lvds-phy
+      - fsl,imx95-lvds0-phy
+      - fsl,imx95-lvds1-phy
 
   "#address-cells":
     const: 1
@@ -93,7 +96,10 @@ allOf:
       properties:
         compatible:
           contains:
-            const: fsl,imx93-lvds-phy
+            enum:
+              - fsl,imx93-lvds-phy
+              - fsl,imx95-lvds0-phy
+              - fsl,imx95-lvds1-phy
     then:
       properties:
         port@1: false
