@@ -1804,12 +1804,81 @@
 			compatible = "syscon", "simple-mfd";
 			reg = <0x0 0x4ad20000 0x0 0x14>;
 			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
+
+			dphy_rx: dphy-rx {
+				compatible = "fsl,imx95-dphy-rx";
+				clocks = <&scmi_clk IMX95_CLK_MIPIPHYCFG>;
+				clock-names = "phy_cfg";
+				assigned-clocks = <&scmi_clk IMX95_CLK_MIPIPHYCFG>;
+				assigned-clock-parents = <&osc_24m>;
+				assigned-clock-rate = <24000000>;
+				#phy-cells = <0>;
+				fsl,csis = <&mipi_csi0>;
+				power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+				status = "disabled";
+			};
 		};
 
 		mipi_tx_phy_csr: syscon@4ad20100 {
 			compatible = "fsl,imx95-mipi-tx-phy-csr", "syscon";
 			reg = <0x0 0x4ad20100 0x0 0x14>;
 			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
+		};
+
+		mipi_csi0: csi@4ad30000 {
+			compatible = "snps,dw-mipi-csi2", "syscon";
+			reg = <0x0 0x4ad30000 0x0 0x10000>;
+			interrupts = <GIC_SPI 374 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cameramix_csr IMX95_CLK_CAMBLK_CSI2_FOR0>,
+				 <&scmi_clk IMX95_CLK_CAMAPB>;
+			clock-names = "per", "pixel";
+			assigned-clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
+			assigned-clock-parents = <&scmi_clk IMX95_CLK_SYSPLL1_PFD1_DIV2>;
+			assigned-clock-rates = <133330000>;
+			phys = <&dphy_rx>;
+			phy-names = "dphy-rx";
+			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+				};
+
+				port@1 {
+					reg = <1>;
+				};
+			};
+		};
+
+		mipi_csi1: csi@4ad40000 {
+			compatible = "fsl,imx95-mipi-csi2", "fsl,imx93-mipi-csi2";
+			reg = <0x0 0x4ad40000 0x0 0x10000>;
+			interrupts = <GIC_SPI 375 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cameramix_csr IMX95_CLK_CAMBLK_CSI2_FOR1>,
+				 <&scmi_clk IMX95_CLK_CAMAPB>;
+			clock-names = "per", "pixel";
+			assigned-clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
+			assigned-clock-parents = <&scmi_clk IMX95_CLK_SYSPLL1_PFD1_DIV2>;
+			assigned-clock-rates = <133330000>;
+			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+				};
+
+				port@1 {
+					reg = <1>;
+				};
+			};
 		};
 
 		isi: isi@4ad50000 {
