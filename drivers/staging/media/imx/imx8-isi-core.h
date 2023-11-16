@@ -39,9 +39,9 @@
 
 #include "imx8-common.h"
 
-#define MXC_ISI_DRIVER_NAME	"mxc-isi"
-#define MXC_ISI_CAPTURE		"mxc-isi-cap"
-#define MXC_ISI_M2M		"mxc-isi-m2m"
+#define MXC_ISI_DRIVER_NAME	"mxc-isi_v1"
+#define MXC_ISI_CAPTURE		"mxc-isi-cap_v1"
+#define MXC_ISI_M2M		"mxc-isi-m2m_v1"
 #define MXC_MAX_PLANES		3
 
 struct mxc_isi_dev;
