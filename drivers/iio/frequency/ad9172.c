@@ -40,6 +40,9 @@
 #define AD9172_ATTR_MAIN_PHASE(x) (7 << 8 | (x))
 #define AD9172_ATTR_MAIN_NCO_EN(x) (8 << 8 | (x))
 
+#define AD9172_DYN_DELAY_MARGIN 2
+#define AD9172_DYN_DELAY_MAX 0xC
+
 enum chip_id {
 	CHIPID_AD9171 = 0x71,
 	CHIPID_AD9172 = 0x72,
@@ -121,6 +124,7 @@ static int ad9172_link_status_get(struct ad9172_state *st, unsigned long lane_ra
 	struct regmap *map = st->map;
 	struct device *dev = regmap_get_device(map);
 	ad917x_jesd_link_stat_t link_status;
+	u8 lat;
 	int ret, i;
 
 	for (i = JESD_LINK_0; i <= JESD_LINK_1; i++) {
@@ -144,6 +148,25 @@ static int ad9172_link_status_get(struct ad9172_state *st, unsigned long lane_ra
 			link_status.code_grp_sync_stat != link_status.frame_sync_stat ||
 			link_status.code_grp_sync_stat != link_status.init_lane_sync_stat)
 			return -EFAULT;
+
+		ret = ad917x_get_dyn_latency(&st->dac_h, i, &lat);
+		if (ret != 0) {
+			dev_err(dev,
+				"Reading Link%d dynamic latency failed\n", i);
+			return -EIO;
+		}
+		dev_dbg(dev, "Link%d dynamic link latency: 0x%x\n", i, lat);
+		/*
+		 * Use a safe margin of 2 PCLK cycles
+		 * HW can buffer up to 0xC PCLK cycles of data, link is
+		 * operational for values above 0xC, but data will be lost
+		 */
+		if (lat < AD9172_DYN_DELAY_MARGIN ||
+		    lat > (AD9172_DYN_DELAY_MAX - AD9172_DYN_DELAY_MARGIN)) {
+			dev_err(dev, "Link%d invalid dyn. link latency: 0x%x\n",
+				i, lat);
+			return -EINVAL;
+		}
 
 		if (!st->jesd_dual_link_mode)
 			break;
