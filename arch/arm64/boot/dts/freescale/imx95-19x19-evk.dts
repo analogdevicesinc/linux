@@ -602,6 +602,37 @@
 	status = "okay";
 };
 
+&enetc_port0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_enetc0>;
+	phy-handle = <&ethphy0>;
+	phy-mode = "rgmii-id";
+	status = "okay";
+};
+
+&enetc_port2 {
+	phy-handle = <&ethphy2>;
+	phy-mode = "usxgmii";
+	managed = "in-band-status";
+};
+
+&netc_emdio {
+	status = "okay";
+
+	ethphy0: ethernet-phy@1 {
+		reg = <1>;
+		eee-broken-1000t;
+		reset-gpios = <&i2c5_gpio_expander_21 2 GPIO_ACTIVE_LOW>;
+		reset-assert-us = <10000>;
+		reset-deassert-us = <80000>;
+	};
+
+	ethphy2: ethernet-phy@8 {
+		compatible = "ethernet-phy-ieee802.3-c45";
+		reg = <8>;
+	};
+};
+
 &wdog3 {
 	fsl,ext-reset-output;
 	status = "okay";
