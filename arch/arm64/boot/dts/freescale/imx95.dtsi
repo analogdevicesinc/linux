@@ -1800,6 +1800,12 @@
 			};
 		};
 
+		combo_phy_csr: syscon@4ad20000 {
+			compatible = "syscon", "simple-mfd";
+			reg = <0x0 0x4ad20000 0x0 0x14>;
+			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
+		};
+
 		mipi_tx_phy_csr: syscon@4ad20100 {
 			compatible = "fsl,imx95-mipi-tx-phy-csr", "syscon";
 			reg = <0x0 0x4ad20100 0x0 0x14>;
