@@ -55,19 +55,18 @@
 	};
 
 	sof-sound-wm8962 {
-		compatible = "simple-audio-card";
+		compatible = "audio-graph-card2";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_hpdet>;
+		links = <&cpu>;
 		label = "wm8962-audio";
-		simple-audio-card,bitclock-master = <&sndcodec>;
-		simple-audio-card,frame-master = <&sndcodec>;
-		simple-audio-card,hp-det-gpio = <&gpio4 28 0>;
-		simple-audio-card,widgets =
+		hp-det-gpio = <&gpio4 28 0>;
+		widgets =
 			"Headphone", "Headphones",
 			"Microphone", "Headset Mic",
 			"Microphone", "Digital Mic",
 			"Speaker", "Speaker";
-		simple-audio-card,routing =
+		routing =
 			"Headphones", "HPOUTL",
 			"Headphones", "HPOUTR",
 			"Speaker", "SPKOUTL",
@@ -76,20 +75,10 @@
 			"IN1R", "Headset Mic",
 			"IN1L", "Headset Mic",
 			"DMICDAT", "Digital Mic";
-		simple-audio-card,dai-link {
-			format = "i2s";
-			cpu {
-				sound-dai = <&dsp 1>;
-			};
-			sndcodec: codec {
-				sound-dai = <&wm8962>;
-			};
-		};
 	};
 };
 
 &dsp {
-	#sound-dai-cells = <1>;
 	compatible = "fsl,imx8mp-dsp";
 	reg = <0x0 0x3B6E8000 0x0 0x88000>;
 
@@ -120,13 +109,26 @@
 	/delete-property/ firmware-name;
 
 	tplg-name = "sof-imx8mp-wm8962.tplg";
-	machine-drv-name = "asoc-simple-card";
+	machine-drv-name = "asoc-audio-graph-card2";
 	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 { reg = <0>; endpoint { /* not used */ }; };
+		cpu: port@1 { reg = <1>; cpu_ep: endpoint { remote-endpoint = <&codec_ep>; }; };
+		port@2 { reg = <2>; endpoint { /* not used */ }; };
+	};
 };
 
 &wm8962 {
-	#sound-dai-cells = <0>;
 	status = "okay";
+	port {
+		bitclock-master;
+		frame-master;
+		codec_ep: endpoint { remote-endpoint = <&cpu_ep>; };
+	};
 };
 
 &sai3 {

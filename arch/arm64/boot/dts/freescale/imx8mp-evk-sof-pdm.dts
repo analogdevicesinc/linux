@@ -29,22 +29,15 @@
 		#sound-dai-cells = <0>;
 		compatible = "dmic-codec";
 		wakeup-delay-ms = <250>;
+
+		port { codec_ep: endpoint { remote-endpoint  = <&cpu_ep>; }; };
 	};
 
 	sof-sound-micfil {
-		compatible = "simple-audio-card";
+		compatible = "audio-graph-card2";
 		label = "micfil-audio";
+		links = <&cpu>;
 
-		simple-audio-card,dai-link {
-			format = "i2s";
-			capture-only;
-			cpu {
-				sound-dai = <&dsp 2>;
-			};
-			codec {
-				sound-dai = <&dmic>;
-			};
-		};
 	};
 };
 
@@ -77,8 +70,20 @@
 	/delete-property/ firmware-name;
 
 	tplg-name = "sof-imx8mp-wm8960.tplg";
-	machine-drv-name = "asoc-simple-card";
+	machine-drv-name = "asoc-audio-graph-card2";
 	status = "okay";
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 { reg = <0>; endpoint { /* not used */ }; };
+		port@1 { reg = <1>; endpoint { /* not used */ }; };
+		cpu: port@2 {
+			reg = <2>;
+			capture-only;
+			cpu_ep: endpoint { remote-endpoint = <&codec_ep>; };
+		};
+	};
 };
 
 &micfil {
