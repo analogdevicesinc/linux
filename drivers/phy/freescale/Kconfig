@@ -17,6 +17,16 @@ config PHY_FSL_IMX8MQ_USB
 	select GENERIC_PHY
 	default ARCH_MXC && ARM64
 
+config PHY_FSL_IMX9_DPHY_RX
+       tristate "Freescale i.MX9 DPHY Rx"
+       depends on OF && HAS_IOMEM
+       select GENERIC_PHY
+       select GENERIC_PHY_MIPI_DPHY
+       select REGMAP_MMIO
+       help
+         Enable this to add support for the Synopsys DW DPHY Rx as found
+         on NXP's i.MX9 family.
+
 config PHY_FSL_IMX93_MIPI_DPHY
 	tristate "Freescale i.MX93 MIPI DPHY"
 	depends on OF && HAS_IOMEM
