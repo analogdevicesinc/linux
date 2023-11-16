@@ -32,6 +32,7 @@
 #include <drm/drm_print.h>
 
 #define HWVER_131			0x31333100	/* IP version 1.31 */
+#define HWVER_151			0x30313531	/* IP version 1.51 */
 
 #define DSI_VERSION			0x00
 #define VERSION				GENMASK(31, 8)
@@ -871,6 +872,7 @@ static void dw_mipi_dsi_dphy_timing_config(struct dw_mipi_dsi *dsi)
 {
 	const struct dw_mipi_dsi_phy_ops *phy_ops = dsi->plat_data->phy_ops;
 	struct dw_mipi_dsi_dphy_timing timing;
+	bool hwver_is_151 = false;
 	u32 hw_version;
 	int ret;
 
@@ -887,9 +889,13 @@ static void dw_mipi_dsi_dphy_timing_config(struct dw_mipi_dsi *dsi)
 	 * DSI_CMD_MODE_CFG.MAX_RD_PKT_SIZE_LP (see CMD_MODE_ALL_LP)
 	 */
 
-	hw_version = dsi_read(dsi, DSI_VERSION) & VERSION;
+	hw_version = dsi_read(dsi, DSI_VERSION);
+	if (hw_version == HWVER_151)
+		hwver_is_151 = true;
+	else
+		hw_version &= VERSION;
 
-	if (hw_version >= HWVER_131) {
+	if (hw_version >= HWVER_131 || hwver_is_151) {
 		dsi_write(dsi, DSI_PHY_TMR_CFG,
 			  PHY_HS2LP_TIME_V131(timing.data_hs2lp) |
 			  PHY_LP2HS_TIME_V131(timing.data_lp2hs));
