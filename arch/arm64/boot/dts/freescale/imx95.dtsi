@@ -1812,6 +1812,48 @@
 			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
 		};
 
+		isi: isi@4ad50000 {
+			compatible = "fsl,imx95-isi";
+			reg = <0x0 0x4ad50000 0x0 0x80000>;
+			interrupts = <GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 344 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 345 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 346 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 347 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 348 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 349 IRQ_TYPE_LEVEL_HIGH>,
+				     <GIC_SPI 350 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&cameramix_csr IMX95_CLK_CAMBLK_ISI_AXI>;
+			clock-names = "axi";
+			assigned-clocks = <&scmi_clk IMX95_CLK_CAMISI>;
+			assigned-clock-parents = <&scmi_clk IMX95_CLK_SYSPLL1_PFD2>;
+			assigned-clock-rates = <667000000>;
+			fsl,blk-ctrl = <&cameramix_csr>;
+			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+			status = "disabled";
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@0 {
+					reg = <0>;
+				};
+
+				port@1 {
+					reg = <1>;
+				};
+
+				port@2 {
+					reg = <2>;
+				};
+
+				port@3 {
+					reg = <3>;
+				};
+			};
+		};
+
 		dispmix_csr: syscon@4b010000 {
 			compatible = "nxp,imx95-display-csr", "syscon";
 			#address-cells = <1>;
