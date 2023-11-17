@@ -346,7 +346,7 @@ config CLK_LS1028A_PLLDIG
 
 config COMMON_CLK_ADI
 	def_bool COMMON_CLK
-	---help---
+	help
 	  Support for Analog Devices clock providers.
 
 config COMMON_CLK_XGENE
