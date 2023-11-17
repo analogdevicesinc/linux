@@ -1563,6 +1563,23 @@ int32_t adi_ad9081_dac_duc_channel_nco_ftw_get(adi_ad9081_device_t *device,
 					       uint64_t *acc_modulus,
 					       uint64_t *acc_delta);
 
+/**
+ * @ingroup tx_nco_setup
+ * @brief  Enable Frequency Inversion (Opposite Sideband Selection) on DAC Main and Channels datapaths
+ *
+ * @param  device   Pointer to the device structure
+ * @param  dacs     DAC mask
+ * @param  channels Channel mask
+ * @param  enable   Frequency inversion enable
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_dac_duc_sel_sideband_enable_set(adi_ad9081_device_t *device,
+						   uint8_t dacs,
+						   uint8_t channels,
+						   uint8_t enable);
+
 /*===== 2 . 5 . 1   T R A N S M I T  P A T H  F F H =====*/
 /**
  * @ingroup tx_nco_ffh_setup
@@ -1844,6 +1861,20 @@ int32_t adi_ad9081_dac_duc_main_dsa_enable_set(adi_ad9081_device_t *device,
 
 /**
  * @ingroup tx_pa_protect_setup
+ * @brief Configure DAC digital gain in main datapath
+ *
+ * @param device    Pointer to the device structure
+ * @param dacs      Target DAC Channel to enable data output
+ * @param gain      12 bit data path digital gain
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_dac_duc_main_dig_gain_set(adi_ad9081_device_t *device,
+					     uint8_t dacs, uint16_t gain);
+
+/**
+ * @ingroup tx_pa_protect_setup
  * @brief  Configure DAC DSA
  *
  * @param  device  Pointer to the device structure
@@ -1860,6 +1891,23 @@ int32_t adi_ad9081_dac_duc_main_dsa_set(adi_ad9081_device_t *device,
 					uint8_t dacs, uint8_t code,
 					uint8_t cutover, uint8_t boost,
 					uint16_t gain);
+
+/**
+ * @ingroup tx_pa_protect_setup
+ * @brief Disables DLL clock control, SWD clock control, and mushi decoder/control for each specified DAC
+ *
+ * @param device            Pointer to the device structure
+ * @param dacs              0bXXXX, set X==1 to control corresponding DAC :
+ *                                  Bit 3: DAC 3  (MSB)
+ *                                  Bit 2: DAC 2
+ *                                  Bit 1: DAC 1
+ *                                  Bit 0: DAC 0  (LSB)
+ *
+ * @return API_CMS_ERROR_OK                     API Completed Successfully
+ * @return <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_dac_dll_power_down(adi_ad9081_device_t *device,
+				      uint8_t dacs);
 
 /*===== 2 . 7   T X  P A T H  H E L P E R  A P I =====*/
 /**
