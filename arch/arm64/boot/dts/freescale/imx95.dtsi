@@ -1745,6 +1745,11 @@
 						reg = <0>;
 						remote-endpoint = <&display_pixel_link0_to_mipi_dsi>;
 					};
+
+					mipi_dsi_to_display_pixel_link1: endpoint@1 {
+						reg = <1>;
+						remote-endpoint = <&display_pixel_link1_to_mipi_dsi>;
+					};
 				};
 
 				port@1 {
@@ -1832,7 +1837,14 @@
 					};
 
 					port@3 {
+						#address-cells = <1>;
+						#size-cells = <0>;
 						reg = <3>;
+
+						display_pixel_link1_to_mipi_dsi: endpoint@0 {
+							reg = <0>;
+							remote-endpoint = <&mipi_dsi_to_display_pixel_link1>;
+						};
 					};
 				};
 			};
