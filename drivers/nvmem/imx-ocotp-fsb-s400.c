@@ -28,6 +28,7 @@
 enum soc_type {
 	IMX8ULP,
 	IMX93,
+	IMX95,
 };
 
 struct bank_2_reg {
@@ -112,7 +113,7 @@ static int fsb_s400_fuse_read(void *priv, unsigned int offset, void *val,
 	void __iomem *regs = fuse->regs + fuse->hw->fsb_otp_shadow;
 	unsigned int num_bytes, bank;
 	u32 *buf;
-	int err;
+	int err, i;
 
 	num_bytes = round_up(2048, 4);
 	buf = kzalloc(num_bytes, GFP_KERNEL);
@@ -220,6 +221,30 @@ static int fsb_s400_fuse_read(void *priv, unsigned int offset, void *val,
 			else
 				read_nwords_via_fsb(regs, &buf[bank * 8], bank * 8, 8);
 		}
+	} else if (fuse->hw->soc == IMX95) {
+		buf[0] = readl_relaxed(regs + 0 * 4) & 0xffff;
+		buf[7] = readl_relaxed(regs + 7 * 4) & 0xffff;
+		buf[9] = readl_relaxed(regs + 9 * 4) & 0xffff;
+		buf[10] = readl_relaxed(regs + 10 * 4) & 0xffff;
+		buf[11] = readl_relaxed(regs + 11 * 4) & 0xffff;
+		for (i = 12; i < 36; i++)
+			buf[i] = readl_relaxed(regs + i * 4);
+		buf[36] = readl_relaxed(regs + 36 * 4) & 0xffff;
+		buf[37] = readl_relaxed(regs + 37 * 4) & 0xffff;
+		for (i = 38; i < 52; i++)
+			buf[i] = readl_relaxed(regs + i * 4);
+		buf[317] = readl_relaxed(regs + 317 * 4) & 0xffff;
+		buf[318] = readl_relaxed(regs + 318 * 4) & 0xffff;
+		for (i = 320; i < 327; i++)
+			buf[i] = readl_relaxed(regs + i * 4);
+		for (i = 328; i < 512; i++)
+			buf[i] = readl_relaxed(regs + i * 4);
+
+		read_words_via_s400_api(&buf[63], 63, 1, fuse->se_dev);
+		read_words_via_s400_api(&buf[128], 128, 16, fuse->se_dev);
+		read_words_via_s400_api(&buf[188], 188, 1, fuse->se_dev);
+
+		err = 0;
 	}
 
 	memcpy(val, (u8 *)(buf) + offset, bytes);
@@ -357,9 +382,18 @@ static const struct imx_fsb_s400_hw imx93_fsb_s400_hw = {
 	.se_pdev_name = "se-fw2",
 };
 
+static const struct imx_fsb_s400_hw imx95_fsb_s400_hw = {
+	.soc = IMX95,
+	.fsb_otp_shadow = 0x8000,
+	.oscca_fuse_read = false,
+	.reverse_mac_address = false,
+	.se_pdev_name = "se-fw2",
+};
+
 static const struct of_device_id imx_fsb_s400_fuse_match[] = {
 	{ .compatible = "fsl,imx8ulp-ocotp", .data = &imx8ulp_fsb_s400_hw, },
 	{ .compatible = "fsl,imx93-ocotp", .data = &imx93_fsb_s400_hw, },
+	{ .compatible = "fsl,imx95-ocotp", .data = &imx95_fsb_s400_hw, },
 	{},
 };
 
