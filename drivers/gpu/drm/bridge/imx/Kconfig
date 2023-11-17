@@ -18,6 +18,9 @@ config DRM_IMX8MP_HDMI_PVI
 	  Choose this to enable support for the internal HDMI TX Parallel
 	  Video Interface found on the Freescale i.MX8MP SoC.
 
+config DRM_IMX_LDB_HELPER
+	tristate
+
 config DRM_IMX8QXP_PIXEL_COMBINER
 	tristate "Freescale i.MX8QM/QXP pixel combiner"
 	depends on OF
@@ -54,6 +57,16 @@ config DRM_IMX93_MIPI_DSI
 	help
 	  Choose this to enable MIPI DSI controller found in Freescale i.MX93
 	  processor.
+
+config DRM_IMX95_LDB
+	tristate "Freescale i.MX95 LVDS display bridge"
+	depends on OF
+	depends on COMMON_CLK
+	select DRM_IMX_LDB_HELPER
+	select DRM_KMS_HELPER
+	help
+	  Choose this to enable the internal LVDS Display Bridge(LDB) found in
+	  Freescale i.MX95 processor.
 
 config DRM_IMX95_MIPI_DSI
 	tristate "NXP i.MX95 specific extensions for Synopsys DW MIPI DSI"
