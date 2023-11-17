@@ -355,18 +355,26 @@ static int imx95_dsi_get_mux(struct imx95_dsi *dsi)
 static int imx95_dsi_select_input(struct imx95_dsi *dsi)
 {
 	struct device *dev = dsi->dev;
-	struct device_node *remote;
+	struct device_node *remote, *remote_2;
 	int ret;
 
+	/* pixel link0 */
 	remote = of_graph_get_remote_node(dev->of_node, 0,
 					  IMX95_DSI_ENDPOINT_PL0);
-	if (remote) {
+	/* pixel interleaver channel0 */
+	remote_2 = of_graph_get_remote_node(remote, IMX95_DSI_ENDPOINT_PL0, 0);
+	if (remote_2) {
 		dsi->use_pl0 = true;
 	} else {
+		/* pixel link1 */
 		remote = of_graph_get_remote_node(dev->of_node, 0,
 						  IMX95_DSI_ENDPOINT_PL1);
-		if (!remote) {
+		/* pixel interleaver channel1 */
+		remote_2 = of_graph_get_remote_node(remote,
+						    IMX95_DSI_ENDPOINT_PL1, 0);
+		if (!remote_2) {
 			dev_err(dev, "No valid input endpoint found\n");
+			of_node_put(remote);
 			return -EINVAL;
 		}
 
@@ -380,6 +388,7 @@ static int imx95_dsi_select_input(struct imx95_dsi *dsi)
 	if (ret < 0)
 		dev_err(dev, "failed to select input: %d\n", ret);
 
+	of_node_put(remote_2);
 	of_node_put(remote);
 
 	return ret;
