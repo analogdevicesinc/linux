@@ -2410,4 +2410,11 @@
 			power-domains = <&scmi_devpd IMX95_PD_NETC>;
 		};
 	};
+
+	ele_fw2: se-fw2 {
+		compatible = "fsl,imx95-se-fw";
+		mbox-names = "tx", "rx";
+		mboxes = <&elemu3 0 0>,
+			 <&elemu3 1 0>;
+	};
 };
