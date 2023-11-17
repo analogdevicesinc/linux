@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9434
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/axi-adc-hdl
+ * https://wiki.analog.com/resources/fpga/xilinx/fmc/ad9434
+ *
+ * hdl_project: <ad9434_fmc/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2023 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+&fpga_axi {
+	rx_dma: rx-dmac@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x1000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>; /* 57 */
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	axi_ad9434_core_0: axi-ad9434-core-lpc@44a00000 {
+		compatible = "xlnx,axi-ad9434-1.00.a";
+		reg = <0x44a00000 0x10000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&adc_ad9434>;
+	} ;
+};
+
+&spi0 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+
+#include "adi-ad9434-fmc-500ebz.dtsi"
