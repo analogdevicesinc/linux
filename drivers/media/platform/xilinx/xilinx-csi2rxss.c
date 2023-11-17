@@ -1013,7 +1013,8 @@ static int xcsi2rxss_probe(struct platform_device *pdev)
 
 	/* Reset GPIO */
 	xcsi2rxss->rst_gpio = devm_gpiod_get_optional(dev, "video-reset",
-						      GPIOD_OUT_HIGH);
+						      GPIOD_OUT_HIGH
+						      | GPIOD_FLAGS_BIT_NONEXCLUSIVE);
 	if (IS_ERR(xcsi2rxss->rst_gpio)) {
 		if (PTR_ERR(xcsi2rxss->rst_gpio) != -EPROBE_DEFER)
 			dev_err(dev, "Video Reset GPIO not setup in DT");
