@@ -554,7 +554,7 @@ stmmac_probe_config_dt(struct platform_device *pdev, u8 *mac)
 		/*VLAN filter failed queue state */
 		if (of_property_read_bool(np, "snps,vlan-fail-q-en")) {
 			dev_info(&pdev->dev, "VLAN filter failed queue\n");
-			plat->vlan_fail_q_en = true;
+			plat->flags |= STMMAC_FLAG_VLAN_FAIL_Q_EN;
 			plat->vlan_fail_q = plat->rx_queues_to_use - 1;
 		}
 	}
