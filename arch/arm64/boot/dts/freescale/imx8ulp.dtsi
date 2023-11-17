@@ -539,8 +539,8 @@
 				assigned-clocks = <&pcc3 IMX8ULP_CLK_LPUART4>;
 				assigned-clock-parents = <&cgc1 IMX8ULP_CLK_FROSC_DIV2>;
 				assigned-clock-rates = <48000000>;
-				dmas = <&edma1 56 0 0>, <&edma1 55 0 1>;
-				dma-names = "tx","rx";
+				dmas = <&edma1 55 0 1>, <&edma1 56 0 0> ;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -553,6 +553,8 @@
 				assigned-clocks = <&pcc3 IMX8ULP_CLK_LPUART5>;
 				assigned-clock-parents = <&cgc1 IMX8ULP_CLK_SOSC_DIV2>;
 				assigned-clock-rates = <24000000>;
+				dmas = <&edma1 57 0 1>, <&edma1 58 0 0> ;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -659,8 +661,8 @@
 				assigned-clocks = <&pcc4 IMX8ULP_CLK_LPUART6>;
 				assigned-clock-parents = <&cgc1 IMX8ULP_CLK_FROSC_DIV2>;
 				assigned-clock-rates = <48000000>;
-				dmas = <&edma1 60 0 0>, <&edma1 59 0 1>;
-				dma-names = "tx","rx";
+				dmas = <&edma1 59 0 1>, <&edma1 60 0 0>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -673,8 +675,8 @@
 				assigned-clocks = <&pcc4 IMX8ULP_CLK_LPUART7>;
 				assigned-clock-parents = <&cgc1 IMX8ULP_CLK_FROSC_DIV2>;
 				assigned-clock-rates = <48000000>;
-				dmas = <&edma1 62 0 0>, <&edma1 61 0 1>;
-				dma-names = "tx","rx";
+				dmas = <&edma1 61 0 1>, <&edma1 62 0 0>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
