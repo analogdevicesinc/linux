@@ -40,7 +40,7 @@
 #define __FUNCTION_NAME__ __FUNCTION__
 #endif
 
-#define AD9081_API_REV 0x00010500
+#define AD9081_API_REV 0x00010600
 #define AD9081_API_HW_RESET_LOW 600000
 #define AD9081_API_RESET_WAIT 500000
 #define AD9081_PLL_LOCK_TRY 75
@@ -60,69 +60,69 @@
 	adi_ad9081_hal_error_report(device, ADI_CMS_LOG_MSG, API_CMS_ERROR_OK, \
 				    __FILE__, __FUNCTION_NAME__, __LINE__,     \
 				    #var, comment)
-#define AD9081_WARN_REPORT(var, comment)                                       \
-	adi_ad9081_hal_error_report(device, ADI_CMS_LOG_WARN,                  \
-				    API_CMS_ERROR_OK, __FILE__,                \
-				    __FUNCTION_NAME__, __LINE__, #var,         \
+#define AD9081_WARN_REPORT(var, comment)                               \
+	adi_ad9081_hal_error_report(device, ADI_CMS_LOG_WARN,          \
+				    API_CMS_ERROR_OK, __FILE__,        \
+				    __FUNCTION_NAME__, __LINE__, #var, \
 				    comment)
-#define AD9081_ERROR_REPORT(error, var, comment)                               \
-	adi_ad9081_hal_error_report(device, ADI_CMS_LOG_ERR, error, __FILE__,  \
-				    __FUNCTION_NAME__, __LINE__, #var,         \
+#define AD9081_ERROR_REPORT(error, var, comment)                              \
+	adi_ad9081_hal_error_report(device, ADI_CMS_LOG_ERR, error, __FILE__, \
+				    __FUNCTION_NAME__, __LINE__, #var,        \
 				    comment)
 
 /* log report */
-#define AD9081_LOG_FUNC()                                                      \
-	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_API, "%s(...)",           \
+#define AD9081_LOG_FUNC()                                            \
+	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_API, "%s(...)", \
 				 __FUNCTION_NAME__)
-#define AD9081_LOG_SPIR(addr, data)                                            \
-	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_SPI,                      \
+#define AD9081_LOG_SPIR(addr, data)                       \
+	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_SPI, \
 				 "ad9081: r@%.4x = %.2x", addr, data)
-#define AD9081_LOG_SPIW(addr, data)                                            \
-	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_SPI,                      \
+#define AD9081_LOG_SPIW(addr, data)                       \
+	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_SPI, \
 				 "ad9081: w@%.4x = %.2x", addr, data)
-#define AD9081_LOG_SPIR32(addr, data)                                          \
-	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_SPI,                      \
+#define AD9081_LOG_SPIR32(addr, data)                     \
+	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_SPI, \
 				 "ad9081: r32@%.4x = %.8x", addr, data)
-#define AD9081_LOG_SPIW32(addr, data)                                          \
-	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_SPI,                      \
+#define AD9081_LOG_SPIW32(addr, data)                     \
+	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_SPI, \
 				 "ad9081: w32@%.4x = %.8x", addr, data)
-#define AD9081_LOG_VAR(type, msg, ...)                                         \
+#define AD9081_LOG_VAR(type, msg, ...) \
 	adi_ad9081_hal_log_write(device, type, msg, ##__VA_ARGS__)
-#define AD9081_LOG_MSG(msg)                                                    \
+#define AD9081_LOG_MSG(msg) \
 	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_MSG, msg)
-#define AD9081_LOG_WARN(msg)                                                   \
+#define AD9081_LOG_WARN(msg) \
 	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_WARN, msg)
-#define AD9081_LOG_ERR(msg)                                                    \
+#define AD9081_LOG_ERR(msg) \
 	adi_ad9081_hal_log_write(device, ADI_CMS_LOG_ERR, msg)
 
 /* var error check */
-#define AD9081_ERROR_RETURN(r)                                                 \
-	{                                                                      \
-		if (r != API_CMS_ERROR_OK) {                                   \
-			return r;                                              \
-		}                                                              \
+#define AD9081_ERROR_RETURN(r)               \
+	{                                    \
+		if (r != API_CMS_ERROR_OK) { \
+			return r;            \
+		}                            \
 	}
-#define AD9081_NULL_POINTER_RETURN(p)                                          \
-	{                                                                      \
-		if (p == NULL) {                                               \
-			AD9081_ERROR_REPORT(API_CMS_ERROR_NULL_PARAM, p,       \
-					    "Null pointer passed.");           \
-			return API_CMS_ERROR_NULL_PARAM;                       \
-		}                                                              \
+#define AD9081_NULL_POINTER_RETURN(p)                                    \
+	{                                                                \
+		if (p == NULL) {                                         \
+			AD9081_ERROR_REPORT(API_CMS_ERROR_NULL_PARAM, p, \
+					    "Null pointer passed.");     \
+			return API_CMS_ERROR_NULL_PARAM;                 \
+		}                                                        \
 	}
-#define AD9081_INVALID_PARAM_RETURN(r)                                         \
-	{                                                                      \
-		if (r) {                                                       \
-			AD9081_ERROR_REPORT(API_CMS_ERROR_INVALID_PARAM, r,    \
-					    "Invalid param passed.");          \
-			return API_CMS_ERROR_INVALID_PARAM;                    \
-		}                                                              \
+#define AD9081_INVALID_PARAM_RETURN(r)                                      \
+	{                                                                   \
+		if (r) {                                                    \
+			AD9081_ERROR_REPORT(API_CMS_ERROR_INVALID_PARAM, r, \
+					    "Invalid param passed.");       \
+			return API_CMS_ERROR_INVALID_PARAM;                 \
+		}                                                           \
 	}
-#define AD9081_INVALID_PARAM_WARN(r)                                           \
-	{                                                                      \
-		if (r) {                                                       \
-			AD9081_WARN_REPORT(r, "Invalid param passed.");        \
-		}                                                              \
+#define AD9081_INVALID_PARAM_WARN(r)                                    \
+	{                                                               \
+		if (r) {                                                \
+			AD9081_WARN_REPORT(r, "Invalid param passed."); \
+		}                                                       \
 	}
 
 /*============= E X P O R T S ==============*/
