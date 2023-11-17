@@ -1228,6 +1228,10 @@ int32_t adi_ad9081_jesd_rx_pll_startup(adi_ad9081_device_t *device,
 				    BF_FIXED_SERDES_PLL_INFO,
 				    0); /* not paged */
 	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_hal_bf_set(device, REG_PLL_ENCAL_ADDR,
+				    BF_PD_RXCLK_DIST_RC_INFO,
+				    0); /* not paged */
+	AD9081_ERROR_RETURN(err);
 	err = adi_ad9081_hal_bf_set(device, REG_PLL_ENABLE_CTRL_ADDR,
 				    BF_PWRUP_LCPLL_INFO, 0); /* not paged */
 	AD9081_ERROR_RETURN(err);
@@ -1268,7 +1272,7 @@ int32_t adi_ad9081_jesd_rx_power_down_des(adi_ad9081_device_t *device)
 				    BF_PD_DES_RC_CH_INFO, 0xff); /* not paged */
 	AD9081_ERROR_RETURN(err);
 	err = adi_ad9081_hal_bf_set(device, REG_PLL_ENCAL_ADDR,
-				    BF_PD_TXCLK_DIST_RC_INFO,
+				    BF_PD_RXCLK_DIST_RC_INFO,
 				    1); /* not paged */
 	AD9081_ERROR_RETURN(err);
 
@@ -2439,10 +2443,19 @@ int32_t adi_ad9081_jesd_tx_link_config_set(adi_ad9081_device_t *device,
 
 	/* Set jrx subclass mode for Rx only cases */
 	if (chip_mode == RX_ONLY) {
-		err = adi_ad9081_hal_bf_set(device, REG_JRX_L0_8_ADDR,
-					    BF_JRX_SUBCLASSV_CFG_INFO,
-					    jesd_param[i].jesd_subclass);
-		AD9081_ERROR_RETURN(err);
+		for (i = 0; i < 2; i++) {
+			link = (uint8_t)(links & (AD9081_LINK_0 << i));
+			if (link > 0) {
+				err = adi_ad9081_jesd_rx_link_select_set(device,
+									 link);
+				AD9081_ERROR_RETURN(err);
+				err = adi_ad9081_hal_bf_set(
+					device, REG_JRX_L0_8_ADDR,
+					BF_JRX_SUBCLASSV_CFG_INFO,
+					jesd_param[i].jesd_subclass);
+				AD9081_ERROR_RETURN(err);
+			}
+		}
 	}
 
 	/* power down all physical lanes, setupJtx()@ad9081_rx_r1.py, _enableJtxPhyLanes()@ad9081_rx_r1.py */
@@ -3522,6 +3535,10 @@ int32_t adi_ad9081_jesd_tx_power_down_ser(adi_ad9081_device_t *device)
 	err = adi_ad9081_hal_bf_set(device, REG_RSTB_ADDR, BF_RSTB_SER_INFO,
 				    0); /* not paged */
 	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_hal_bf_set(device, REG_PLL_ENCAL_ADDR,
+				    BF_PD_TXCLK_DIST_RC_INFO,
+				    1); /* not paged */
+	AD9081_ERROR_RETURN(err);
 
 	return API_CMS_ERROR_OK;
 }
@@ -3544,6 +3561,10 @@ int32_t adi_ad9081_jesd_tx_startup_ser(adi_ad9081_device_t *device,
 	AD9081_ERROR_RETURN(err);
 	err = adi_ad9081_hal_bf_set(device, REG_PWR_DN_ADDR, BF_PD_SER_INFO,
 				    (0xff & ~lanes)); /* not paged */
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_hal_bf_set(device, REG_PLL_ENCAL_ADDR,
+				    BF_PD_TXCLK_DIST_RC_INFO,
+				    0); /* not paged */
 	AD9081_ERROR_RETURN(err);
 
 	/* drive slice offsets */
@@ -4683,7 +4704,7 @@ int32_t adi_ad9081_jesd_loopback_mode_set(adi_ad9081_device_t *device,
 	AD9081_NULL_POINTER_RETURN(device);
 	AD9081_LOG_FUNC();
 
-	err = adi_ad9081_hal_bf_set(device, 0x00000941, 0x00000300,
+	err = adi_ad9081_hal_bf_set(device, 0x00000941, 0x100,
 				    mode); /* not paged */
 	AD9081_ERROR_RETURN(err);
 
