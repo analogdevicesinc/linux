@@ -379,6 +379,13 @@ F: drivers/gpu/drm/imx/dpu/
 F: drivers/gpu/imx/dpu/
 F: include/video/dpu.h
 
+display/dpu95
+M: Ying Liu <victor.liu@nxp.com>
+M: Laurentiu Palcu <laurentiu.palcu@nxp.com>
+M: Guangliu Ding <guangliu.ding@nxp.com>
+F: Documentation/devicetree/bindings/display/imx/nxp,imx95-dpu.yaml
+F: drivers/gpu/drm/imx/dpu95/
+
 display/dpu-blit
 M: Xianzhong Li <xianzhong.li@nxp.com>
 F: drivers/gpu/drm/imx/dpu/dpu-blit.c
