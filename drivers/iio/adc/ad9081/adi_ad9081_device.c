@@ -289,7 +289,7 @@ int32_t adi_ad9081_device_clk_pll_div_set(adi_ad9081_device_t *device,
 				    BF_D_FASTV_COMP_HIGHL_INFO, 0x2CE);
 	AD9081_ERROR_RETURN(err);
 	err = adi_ad9081_hal_bf_set(device, REG_BIAS_REG_1_ADDR,
-				    BF_D_BIAS_POLY_TRIM_INFO, 0x1F);
+				    BF_D_BIAS_POLY_TRIM_INFO, 0x10);
 	AD9081_ERROR_RETURN(err);
 	err = adi_ad9081_hal_bf_set(device, REG_BIAS_REG_0_ADDR,
 				    BF_D_BIAS_FIXED_TRIM_INFO, 0x20);
@@ -339,7 +339,7 @@ int32_t adi_ad9081_device_clk_pll_div_set(adi_ad9081_device_t *device,
 				    BF_D_IMPALA_TEMP_INFO, 0x2);
 	AD9081_ERROR_RETURN(err);
 	err = adi_ad9081_hal_bf_set(device, REG_VCO_CAL_CONTROL_REG_0_ADDR,
-				    BF_D_IMPALA_CAL_CONTROL_INFO, 0x3D60);
+				    BF_D_IMPALA_CAL_CONTROL_INFO, 0x7D60);
 	AD9081_ERROR_RETURN(err);
 
 	/* reset cal, try to lock pll */
@@ -854,7 +854,7 @@ int32_t adi_ad9081_device_init(adi_ad9081_device_t *device)
 				       "api v%d.%d.%d commit %s for ad%x ",
 				       (AD9081_API_REV & 0xff0000) >> 16,
 				       (AD9081_API_REV & 0xff00) >> 8,
-				       (AD9081_API_REV & 0xff), "4d11467",
+				       (AD9081_API_REV & 0xff), "c094613",
 				       AD9081_ID);
 	AD9081_ERROR_RETURN(err);
 
@@ -1314,7 +1314,7 @@ int32_t adi_ad9081_device_startup_tx_or_nco_test(
 	AD9081_ERROR_RETURN(err);
 
 	/* startup dac dll */
-	err = adi_ad9081_dac_dll_startup(device, AD9081_DAC_ALL);
+	err = adi_ad9081_dac_dll_startup(device, used_dacs);
 	AD9081_ERROR_RETURN(err);
 
 	/* disable tx */
@@ -1356,27 +1356,36 @@ int32_t adi_ad9081_device_startup_tx_or_nco_test(
 
 	/* set xbar (used channels by each DAC) */
 	for (i = 0; i < 4; i++) {
-		err = adi_ad9081_dac_xbar_set(device, AD9081_DAC_0 << i,
-					      dac_chan[i]);
-		AD9081_ERROR_RETURN(err);
+		if (used_dacs & (AD9081_DAC_0 << i)) {
+			err = adi_ad9081_dac_xbar_set(device, AD9081_DAC_0 << i,
+						      dac_chan[i]);
+			AD9081_ERROR_RETURN(err);
+		}
 	}
 
 	/* set main nco */
 	for (i = 0; i < 4; i++) {
-		err = adi_ad9081_dac_duc_nco_set(device, AD9081_DAC_0 << i,
-						 AD9081_DAC_CH_NONE,
-						 main_shift[i]);
-		AD9081_ERROR_RETURN(err);
+		if (used_dacs & (AD9081_DAC_0 << i)) {
+			err = adi_ad9081_dac_duc_nco_set(device,
+							 AD9081_DAC_0 << i,
+							 AD9081_DAC_CH_NONE,
+							 main_shift[i]);
+			AD9081_ERROR_RETURN(err);
+		}
 	}
 
 	/* set channel nco */
 	if (chan_interp != 1) {
 		for (i = 0; i < 8; i++) {
-			err = adi_ad9081_dac_duc_nco_set(device,
-							 AD9081_DAC_NONE,
-							 AD9081_DAC_CH_0 << i,
-							 chan_shift[i]);
-			AD9081_ERROR_RETURN(err);
+			for (j = 0; j < 4; j++) {
+				if (dac_chan[j] & (AD9081_DAC_CH_0 << i)) {
+					err = adi_ad9081_dac_duc_nco_set(
+						device, AD9081_DAC_NONE,
+						AD9081_DAC_CH_0 << i,
+						chan_shift[i]);
+					AD9081_ERROR_RETURN(err);
+				}
+			}
 		}
 	}
 

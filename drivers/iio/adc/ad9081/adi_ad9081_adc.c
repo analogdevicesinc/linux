@@ -72,33 +72,38 @@ adi_ad9081_adc_analog_input_buffer_set(adi_ad9081_device_t *device,
 				       adi_cms_signal_coupling_e coupling)
 {
 	int32_t err;
-	uint8_t enable_adc_core = 3, enable_cmbuf, cmin_input, cmin_out,
-		cmin_out_pulldown;
+	uint8_t enable_cmbuf, cmin_input, cmin_out, cmin_out_pulldown, die_id;
 	AD9081_NULL_POINTER_RETURN(device);
 	AD9081_LOG_FUNC();
+	AD9081_INVALID_PARAM_RETURN(coupling > COUPLING_DC);
 
-	if (adc_cores == 1 && coupling == COUPLING_AC) {
-		enable_cmbuf = 3;
-		cmin_input = 14;
-		cmin_out = 14;
-		cmin_out_pulldown = 4;
-	} else if (adc_cores == 1 && coupling == COUPLING_DC) {
-		enable_cmbuf = 0;
-		cmin_input = 14;
-		cmin_out = 4;
-		cmin_out_pulldown = 7;
-	} else if (adc_cores == 2 && coupling == COUPLING_AC) {
-		enable_cmbuf = 2;
-		cmin_input = 0;
-		cmin_out = 0;
-		cmin_out_pulldown = 3;
-	} else if (adc_cores == 2 && coupling == COUPLING_DC) {
-		enable_cmbuf = 0;
-		cmin_input = 0;
-		cmin_out = 4;
-		cmin_out_pulldown = 7;
-	} else {
-		return API_CMS_ERROR_INVALID_PARAM;
+	err = adi_ad9081_device_die_id_get(device, &die_id);
+	AD9081_ERROR_RETURN(err);
+
+	if ((die_id & 0x80) == 0) { /* ad9081 */
+		if (coupling == COUPLING_AC) {
+			enable_cmbuf = 3;
+			cmin_input = 14;
+			cmin_out = 14;
+			cmin_out_pulldown = 4;
+		} else if (coupling == COUPLING_DC) {
+			enable_cmbuf = 3;
+			cmin_input = 14;
+			cmin_out = 4;
+			cmin_out_pulldown = 7;
+		}
+	} else { /* mxfe */
+		if (coupling == COUPLING_AC) {
+			enable_cmbuf = 2;
+			cmin_input = 0;
+			cmin_out = 0;
+			cmin_out_pulldown = 3;
+		} else if (coupling == COUPLING_DC) {
+			enable_cmbuf = 2;
+			cmin_input = 0;
+			cmin_out = 4;
+			cmin_out_pulldown = 7;
+		}
 	}
 	err = adi_ad9081_hal_bf_set(
 		device, 0x2112, 0x100,
@@ -106,7 +111,7 @@ adi_ad9081_adc_analog_input_buffer_set(adi_ad9081_device_t *device,
 	AD9081_ERROR_RETURN(err);
 	err = adi_ad9081_adc_core_analog_regs_enable_set(
 		device, adc_cores,
-		enable_adc_core); /*Global enable of ADC0 and ADC1 SPI access */
+		1); /*Global enable of ADC0 and ADC1 SPI access */
 	AD9081_ERROR_RETURN(err);
 	err = adi_ad9081_hal_bf_set(device, 0x1721, 0x206,
 				    enable_cmbuf); /* Power down CMBUF_PD */
@@ -1553,7 +1558,7 @@ int32_t adi_ad9081_adc_ddc_coarse_chip_xfer_set(adi_ad9081_device_t *device,
 			err = adi_ad9081_adc_ddc_coarse_select_set(device,
 								   cddc);
 			AD9081_ERROR_RETURN(err);
-			/* 1: Used to synchronize the transfer of data from master to slave registers.
+			/* 1: Used to synchronize the transfer of data from main to subordinate registers.
                0: Do nothing.
                Note: This bit is used to update the DDC Phase Increment and Phase Offset
                registers when ddc0_phase_update_mode = 1 and ddc0_gpio_chip_transfer_mode = 0
@@ -1583,7 +1588,7 @@ adi_ad9081_adc_ddc_coarse_chip_xfer_status_get(adi_ad9081_device_t *device,
 			err = adi_ad9081_adc_ddc_coarse_select_set(device,
 								   cddc);
 			AD9081_ERROR_RETURN(err);
-			/* 1: Transfer of data from master to slave registers is complete.
+			/* 1: Transfer of data from main to subordinate registers is complete.
                0: Indicates the data transfer is not requested or not completed.
              */
 			err = adi_ad9081_hal_bf_get(
@@ -2056,8 +2061,8 @@ int32_t adi_ad9081_adc_ddc_fine_nco_set(adi_ad9081_device_t *device,
 #else
 			adc_freq_hz = adc_freq_hz / cddc_dcm;
 #endif
-			adc_freq_hz =
-				(cc2r_en > 0) ? (adc_freq_hz * 2) : adc_freq_hz;
+			adc_freq_hz = (cc2r_en > 0) ? (adc_freq_hz * 2) :
+						      adc_freq_hz;
 			err = adi_ad9081_hal_calc_tx_nco_ftw(
 				device, adc_freq_hz, fddc_shift_hz, &ftw);
 			AD9081_ERROR_RETURN(err);
@@ -2104,8 +2109,8 @@ int32_t adi_ad9081_adc_ddc_fine_nco_set_f(adi_ad9081_device_t *device,
 				adi_ad9081_adc_ddc_coarse_dcm_decode(cddc_dcm);
 			adc_freq_hz = (double)device->dev_info.adc_freq_hz;
 			adc_freq_hz = adc_freq_hz / cddc_dcm;
-			adc_freq_hz =
-				(cc2r_en > 0) ? (adc_freq_hz * 2) : adc_freq_hz;
+			adc_freq_hz = (cc2r_en > 0) ? (adc_freq_hz * 2) :
+						      adc_freq_hz;
 			err = adi_ad9081_hal_calc_nco_ftw_f(device, adc_freq_hz,
 							    fddc_shift_hz, &ftw,
 							    &a, &b);
@@ -2297,7 +2302,7 @@ int32_t adi_ad9081_adc_ddc_fine_chip_xfer_set(adi_ad9081_device_t *device,
 		if (fddc > 0) {
 			err = adi_ad9081_adc_ddc_fine_select_set(device, fddc);
 			AD9081_ERROR_RETURN(err);
-			/* 1: Used to synchronize the transfer of data from master to slave registers.
+			/* 1: Used to synchronize the transfer of data from main to subordinate registers.
                0: Do nothing.
                Note: This bit is used to update the DDC Phase Increment and Phase Offset
                registers when ddc0_phase_update_mode = 1 and ddc0_gpio_chip_transfer_mode = 0
@@ -2326,7 +2331,7 @@ adi_ad9081_adc_ddc_fine_chip_xfer_status_get(adi_ad9081_device_t *device,
 		if (fddc > 0) {
 			err = adi_ad9081_adc_ddc_fine_select_set(device, fddc);
 			AD9081_ERROR_RETURN(err);
-			/* 1: Transfer of data from master to slave registers is complete.
+			/* 1: Transfer of data from main to subordinate registers is complete.
                0: Indicates the data transfer is not requested or not completed.
              */
 			err = adi_ad9081_hal_bf_get(
@@ -2623,9 +2628,9 @@ adi_ad9081_adc_path_or_bypass_config(adi_ad9081_device_t *device, uint8_t cddcs,
 		}
 	} else {
 		/* Disable coarse and fine ddcs */
-		err = adi_ad9081_adc_ddc_coarse_nco_enable_set(device, 0x0F);
+		err = adi_ad9081_adc_ddc_coarse_nco_enable_set(device, 0x00);
 		AD9081_ERROR_RETURN(err);
-		err = adi_ad9081_adc_ddc_fine_nco_enable_set(device, 0xFF);
+		err = adi_ad9081_adc_ddc_fine_nco_enable_set(device, 0x00);
 		AD9081_ERROR_RETURN(err);
 	}
 
@@ -3263,8 +3268,8 @@ int32_t adi_ad9081_adc_pfir_coeff_validate(adi_ad9081_device_t *device,
 	last_16b_idx = -1;
 	for (i = 0; i < 192; i++) {
 		coeff = (int16_t)coeffs[i];
-		abs_coeff =
-			(coeff > 0) ? (uint16_t)(coeff) : (uint16_t)(-coeff);
+		abs_coeff = (coeff > 0) ? (uint16_t)(coeff) :
+					  (uint16_t)(-coeff);
 		if ((abs_coeff & 0xf800) > 0) {
 			first_16b_idx = first_16b_idx > i ? i : first_16b_idx;
 			last_16b_idx = last_16b_idx < i ? i : last_16b_idx;
@@ -3276,8 +3281,8 @@ int32_t adi_ad9081_adc_pfir_coeff_validate(adi_ad9081_device_t *device,
 	last_12b_idx = -1;
 	for (i = 0; i < 192; i++) {
 		coeff = (int16_t)coeffs[i];
-		abs_coeff =
-			(coeff > 0) ? (uint16_t)(coeff) : (uint16_t)(-coeff);
+		abs_coeff = (coeff > 0) ? (uint16_t)(coeff) :
+					  (uint16_t)(-coeff);
 		if (((abs_coeff & 0xf800) == 0) && ((abs_coeff & 0x0fc0) > 0)) {
 			first_12b_idx = first_12b_idx > i ? i : first_12b_idx;
 			last_12b_idx = last_12b_idx < i ? i : last_12b_idx;

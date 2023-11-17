@@ -364,12 +364,12 @@
 #define BF_JTX_TPL_SYSREF_MASK_GET(val) ((val >> 0x00000005) & 0x00000001)
 #define BF_JTX_TPL_SYSREF_CLR_PHASE_ERR_INFO 0x00000106
 #define BF_JTX_TPL_SYSREF_CLR_PHASE_ERR(val) ((val & 0x00000001) << 0x00000006)
-#define BF_JTX_TPL_SYSREF_CLR_PHASE_ERR_GET(val)                               \
+#define BF_JTX_TPL_SYSREF_CLR_PHASE_ERR_GET(val) \
 	((val >> 0x00000006) & 0x00000001)
 #define BF_JTX_TPL_SYSREF_IGNORE_WHEN_LINKED_INFO 0x00000107
-#define BF_JTX_TPL_SYSREF_IGNORE_WHEN_LINKED(val)                              \
+#define BF_JTX_TPL_SYSREF_IGNORE_WHEN_LINKED(val) \
 	((val & 0x00000001) << 0x00000007)
-#define BF_JTX_TPL_SYSREF_IGNORE_WHEN_LINKED_GET(val)                          \
+#define BF_JTX_TPL_SYSREF_IGNORE_WHEN_LINKED_GET(val) \
 	((val >> 0x00000007) & 0x00000001)
 
 #define REG_JTX_TPL_7_ADDR 0x00000637
@@ -378,7 +378,7 @@
 #define BF_JTX_TPL_SYSREF_N_SHOT_COUNT_GET(val) (val & 0x0000000F)
 #define BF_JTX_TPL_SYSREF_N_SHOT_ENABLE_INFO 0x00000104
 #define BF_JTX_TPL_SYSREF_N_SHOT_ENABLE(val) ((val & 0x00000001) << 0x00000004)
-#define BF_JTX_TPL_SYSREF_N_SHOT_ENABLE_GET(val)                               \
+#define BF_JTX_TPL_SYSREF_N_SHOT_ENABLE_GET(val) \
 	((val >> 0x00000004) & 0x00000001)
 
 #define REG_JTX_TPL_8_ADDR 0x00000638
@@ -553,14 +553,14 @@
 #define BF_JTX_DL_204B_BYP_8B10B_CFG_GET(val) ((val >> 0x00000001) & 0x00000001)
 #define BF_JTX_DL_204B_ILAS_TEST_EN_CFG_INFO 0x00000102
 #define BF_JTX_DL_204B_ILAS_TEST_EN_CFG(val) ((val & 0x00000001) << 0x00000002)
-#define BF_JTX_DL_204B_ILAS_TEST_EN_CFG_GET(val)                               \
+#define BF_JTX_DL_204B_ILAS_TEST_EN_CFG_GET(val) \
 	((val >> 0x00000002) & 0x00000001)
 #define BF_JTX_DL_204B_BYP_ILAS_CFG_INFO 0x00000103
 #define BF_JTX_DL_204B_BYP_ILAS_CFG(val) ((val & 0x00000001) << 0x00000003)
 #define BF_JTX_DL_204B_BYP_ILAS_CFG_GET(val) ((val >> 0x00000003) & 0x00000001)
 #define BF_JTX_DL_204B_ILAS_DELAY_CFG_INFO 0x00000404
 #define BF_JTX_DL_204B_ILAS_DELAY_CFG(val) ((val & 0x0000000F) << 0x00000004)
-#define BF_JTX_DL_204B_ILAS_DELAY_CFG_GET(val)                                 \
+#define BF_JTX_DL_204B_ILAS_DELAY_CFG_GET(val) \
 	((val >> 0x00000004) & 0x0000000F)
 
 #define REG_JTX_DL_204B_1_ADDR 0x0000065A
@@ -585,24 +585,24 @@
 #define BF_JTX_DL_204B_RJSPAT_EN_CFG_GET(val) (val & 0x00000001)
 #define BF_JTX_DL_204B_RJSPAT_SEL_CFG_INFO 0x00000201
 #define BF_JTX_DL_204B_RJSPAT_SEL_CFG(val) ((val & 0x00000003) << 0x00000001)
-#define BF_JTX_DL_204B_RJSPAT_SEL_CFG_GET(val)                                 \
+#define BF_JTX_DL_204B_RJSPAT_SEL_CFG_GET(val) \
 	((val >> 0x00000001) & 0x00000003)
 #define BF_JTX_DL_204B_TPL_TEST_EN_CFG_INFO 0x00000104
 #define BF_JTX_DL_204B_TPL_TEST_EN_CFG(val) ((val & 0x00000001) << 0x00000004)
-#define BF_JTX_DL_204B_TPL_TEST_EN_CFG_GET(val)                                \
+#define BF_JTX_DL_204B_TPL_TEST_EN_CFG_GET(val) \
 	((val >> 0x00000004) & 0x00000001)
 #define BF_JTX_DL_204B_SYNC_N_INFO 0x00000105
 #define BF_JTX_DL_204B_SYNC_N(val) ((val & 0x00000001) << 0x00000005)
 #define BF_JTX_DL_204B_SYNC_N_GET(val) ((val >> 0x00000005) & 0x00000001)
 #define BF_JTX_DL_204B_TESTMODE_IGNORE_SYNCN_CFG_INFO 0x00000106
-#define BF_JTX_DL_204B_TESTMODE_IGNORE_SYNCN_CFG(val)                          \
+#define BF_JTX_DL_204B_TESTMODE_IGNORE_SYNCN_CFG(val) \
 	((val & 0x00000001) << 0x00000006)
-#define BF_JTX_DL_204B_TESTMODE_IGNORE_SYNCN_CFG_GET(val)                      \
+#define BF_JTX_DL_204B_TESTMODE_IGNORE_SYNCN_CFG_GET(val) \
 	((val >> 0x00000006) & 0x00000001)
 #define BF_JTX_DL_204B_CLEAR_SYNC_NE_COUNT_INFO 0x00000107
-#define BF_JTX_DL_204B_CLEAR_SYNC_NE_COUNT(val)                                \
+#define BF_JTX_DL_204B_CLEAR_SYNC_NE_COUNT(val) \
 	((val & 0x00000001) << 0x00000007)
-#define BF_JTX_DL_204B_CLEAR_SYNC_NE_COUNT_GET(val)                            \
+#define BF_JTX_DL_204B_CLEAR_SYNC_NE_COUNT_GET(val) \
 	((val >> 0x00000007) & 0x00000001)
 
 #define REG_JTX_DL_204B_4_ADDR 0x0000065D
@@ -611,11 +611,11 @@
 #define BF_JTX_DL_204B_STATE_GET(val) (val & 0x0000000F)
 #define BF_JTX_DL_204B_SYNC_N_FORCE_VAL_INFO 0x00000106
 #define BF_JTX_DL_204B_SYNC_N_FORCE_VAL(val) ((val & 0x00000001) << 0x00000006)
-#define BF_JTX_DL_204B_SYNC_N_FORCE_VAL_GET(val)                               \
+#define BF_JTX_DL_204B_SYNC_N_FORCE_VAL_GET(val) \
 	((val >> 0x00000006) & 0x00000001)
 #define BF_JTX_DL_204B_SYNC_N_FORCE_EN_INFO 0x00000107
 #define BF_JTX_DL_204B_SYNC_N_FORCE_EN(val) ((val & 0x00000001) << 0x00000007)
-#define BF_JTX_DL_204B_SYNC_N_FORCE_EN_GET(val)                                \
+#define BF_JTX_DL_204B_SYNC_N_FORCE_EN_GET(val) \
 	((val >> 0x00000007) & 0x00000001)
 
 #define REG_JTX_DL_204B_5_ADDR 0x0000065E
@@ -628,18 +628,18 @@
 #define BF_JTX_DL_204B_L_EN_CFG_0(val) (val & 0x00000001)
 #define BF_JTX_DL_204B_L_EN_CFG_0_GET(val) (val & 0x00000001)
 #define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_0_INFO 0x00000102
-#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_0(val)                                 \
+#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_0(val) \
 	((val & 0x00000001) << 0x00000002)
-#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_0_GET(val)                             \
+#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_0_GET(val) \
 	((val >> 0x00000002) & 0x00000001)
 #define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_0_INFO 0x00000103
-#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_0(val)                                 \
+#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_0(val) \
 	((val & 0x00000001) << 0x00000003)
-#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_0_GET(val)                             \
+#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_0_GET(val) \
 	((val >> 0x00000003) & 0x00000001)
 #define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_0_INFO 0x00000104
 #define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_0(val) ((val & 0x00000001) << 0x00000004)
-#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_0_GET(val)                              \
+#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_0_GET(val) \
 	((val >> 0x00000004) & 0x00000001)
 
 #define REG_JTX_DL_204B_6_LANE6_ADDR 0x00000665
@@ -647,18 +647,18 @@
 #define BF_JTX_DL_204B_L_EN_CFG_1(val) (val & 0x00000001)
 #define BF_JTX_DL_204B_L_EN_CFG_1_GET(val) (val & 0x00000001)
 #define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_1_INFO 0x00000102
-#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_1(val)                                 \
+#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_1(val) \
 	((val & 0x00000001) << 0x00000002)
-#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_1_GET(val)                             \
+#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_1_GET(val) \
 	((val >> 0x00000002) & 0x00000001)
 #define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_1_INFO 0x00000103
-#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_1(val)                                 \
+#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_1(val) \
 	((val & 0x00000001) << 0x00000003)
-#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_1_GET(val)                             \
+#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_1_GET(val) \
 	((val >> 0x00000003) & 0x00000001)
 #define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_1_INFO 0x00000104
 #define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_1(val) ((val & 0x00000001) << 0x00000004)
-#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_1_GET(val)                              \
+#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_1_GET(val) \
 	((val >> 0x00000004) & 0x00000001)
 
 #define REG_JTX_DL_204B_6_LANE5_ADDR 0x00000664
@@ -666,18 +666,18 @@
 #define BF_JTX_DL_204B_L_EN_CFG_2(val) (val & 0x00000001)
 #define BF_JTX_DL_204B_L_EN_CFG_2_GET(val) (val & 0x00000001)
 #define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_2_INFO 0x00000102
-#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_2(val)                                 \
+#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_2(val) \
 	((val & 0x00000001) << 0x00000002)
-#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_2_GET(val)                             \
+#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_2_GET(val) \
 	((val >> 0x00000002) & 0x00000001)
 #define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_2_INFO 0x00000103
-#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_2(val)                                 \
+#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_2(val) \
 	((val & 0x00000001) << 0x00000003)
-#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_2_GET(val)                             \
+#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_2_GET(val) \
 	((val >> 0x00000003) & 0x00000001)
 #define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_2_INFO 0x00000104
 #define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_2(val) ((val & 0x00000001) << 0x00000004)
-#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_2_GET(val)                              \
+#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_2_GET(val) \
 	((val >> 0x00000004) & 0x00000001)
 
 #define REG_JTX_DL_204B_6_LANE4_ADDR 0x00000663
@@ -685,18 +685,18 @@
 #define BF_JTX_DL_204B_L_EN_CFG_3(val) (val & 0x00000001)
 #define BF_JTX_DL_204B_L_EN_CFG_3_GET(val) (val & 0x00000001)
 #define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_3_INFO 0x00000102
-#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_3(val)                                 \
+#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_3(val) \
 	((val & 0x00000001) << 0x00000002)
-#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_3_GET(val)                             \
+#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_3_GET(val) \
 	((val >> 0x00000002) & 0x00000001)
 #define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_3_INFO 0x00000103
-#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_3(val)                                 \
+#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_3(val) \
 	((val & 0x00000001) << 0x00000003)
-#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_3_GET(val)                             \
+#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_3_GET(val) \
 	((val >> 0x00000003) & 0x00000001)
 #define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_3_INFO 0x00000104
 #define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_3(val) ((val & 0x00000001) << 0x00000004)
-#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_3_GET(val)                              \
+#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_3_GET(val) \
 	((val >> 0x00000004) & 0x00000001)
 
 #define REG_JTX_DL_204B_6_LANE3_ADDR 0x00000662
@@ -704,18 +704,18 @@
 #define BF_JTX_DL_204B_L_EN_CFG_4(val) (val & 0x00000001)
 #define BF_JTX_DL_204B_L_EN_CFG_4_GET(val) (val & 0x00000001)
 #define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_4_INFO 0x00000102
-#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_4(val)                                 \
+#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_4(val) \
 	((val & 0x00000001) << 0x00000002)
-#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_4_GET(val)                             \
+#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_4_GET(val) \
 	((val >> 0x00000002) & 0x00000001)
 #define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_4_INFO 0x00000103
-#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_4(val)                                 \
+#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_4(val) \
 	((val & 0x00000001) << 0x00000003)
-#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_4_GET(val)                             \
+#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_4_GET(val) \
 	((val >> 0x00000003) & 0x00000001)
 #define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_4_INFO 0x00000104
 #define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_4(val) ((val & 0x00000001) << 0x00000004)
-#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_4_GET(val)                              \
+#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_4_GET(val) \
 	((val >> 0x00000004) & 0x00000001)
 
 #define REG_JTX_DL_204B_6_LANE2_ADDR 0x00000661
@@ -723,18 +723,18 @@
 #define BF_JTX_DL_204B_L_EN_CFG_5(val) (val & 0x00000001)
 #define BF_JTX_DL_204B_L_EN_CFG_5_GET(val) (val & 0x00000001)
 #define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_5_INFO 0x00000102
-#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_5(val)                                 \
+#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_5(val) \
 	((val & 0x00000001) << 0x00000002)
-#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_5_GET(val)                             \
+#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_5_GET(val) \
 	((val >> 0x00000002) & 0x00000001)
 #define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_5_INFO 0x00000103
-#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_5(val)                                 \
+#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_5(val) \
 	((val & 0x00000001) << 0x00000003)
-#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_5_GET(val)                             \
+#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_5_GET(val) \
 	((val >> 0x00000003) & 0x00000001)
 #define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_5_INFO 0x00000104
 #define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_5(val) ((val & 0x00000001) << 0x00000004)
-#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_5_GET(val)                              \
+#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_5_GET(val) \
 	((val >> 0x00000004) & 0x00000001)
 
 #define REG_JTX_DL_204B_6_LANE1_ADDR 0x00000660
@@ -742,18 +742,18 @@
 #define BF_JTX_DL_204B_L_EN_CFG_6(val) (val & 0x00000001)
 #define BF_JTX_DL_204B_L_EN_CFG_6_GET(val) (val & 0x00000001)
 #define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_6_INFO 0x00000102
-#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_6(val)                                 \
+#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_6(val) \
 	((val & 0x00000001) << 0x00000002)
-#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_6_GET(val)                             \
+#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_6_GET(val) \
 	((val >> 0x00000002) & 0x00000001)
 #define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_6_INFO 0x00000103
-#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_6(val)                                 \
+#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_6(val) \
 	((val & 0x00000001) << 0x00000003)
-#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_6_GET(val)                             \
+#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_6_GET(val) \
 	((val >> 0x00000003) & 0x00000001)
 #define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_6_INFO 0x00000104
 #define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_6(val) ((val & 0x00000001) << 0x00000004)
-#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_6_GET(val)                              \
+#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_6_GET(val) \
 	((val >> 0x00000004) & 0x00000001)
 
 #define REG_JTX_DL_204B_6_LANE0_ADDR 0x0000065F
@@ -761,18 +761,18 @@
 #define BF_JTX_DL_204B_L_EN_CFG_7(val) (val & 0x00000001)
 #define BF_JTX_DL_204B_L_EN_CFG_7_GET(val) (val & 0x00000001)
 #define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_7_INFO 0x00000102
-#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_7(val)                                 \
+#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_7(val) \
 	((val & 0x00000001) << 0x00000002)
-#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_7_GET(val)                             \
+#define BF_JTX_DL_204B_PHY_DATA_SEL_CFG_7_GET(val) \
 	((val >> 0x00000002) & 0x00000001)
 #define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_7_INFO 0x00000103
-#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_7(val)                                 \
+#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_7(val) \
 	((val & 0x00000001) << 0x00000003)
-#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_7_GET(val)                             \
+#define BF_JTX_DL_204B_SCR_DATA_SEL_CFG_7_GET(val) \
 	((val >> 0x00000003) & 0x00000001)
 #define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_7_INFO 0x00000104
 #define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_7(val) ((val & 0x00000001) << 0x00000004)
-#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_7_GET(val)                              \
+#define BF_JTX_DL_204B_SCR_IN_CTRL_CFG_7_GET(val) \
 	((val >> 0x00000004) & 0x00000001)
 
 #define REG_JTX_DL_204C_0_ADDR 0x00000667
@@ -815,17 +815,17 @@
 #define BF_JTX_DL_204H_BYP_ILAS_CFG(val) ((val & 0x00000001) << 0x00000001)
 #define BF_JTX_DL_204H_BYP_ILAS_CFG_GET(val) ((val >> 0x00000001) & 0x00000001)
 #define BF_JTX_DL_204H_CLEAR_SYNC_NE_COUNT_INFO 0x00000102
-#define BF_JTX_DL_204H_CLEAR_SYNC_NE_COUNT(val)                                \
+#define BF_JTX_DL_204H_CLEAR_SYNC_NE_COUNT(val) \
 	((val & 0x00000001) << 0x00000002)
-#define BF_JTX_DL_204H_CLEAR_SYNC_NE_COUNT_GET(val)                            \
+#define BF_JTX_DL_204H_CLEAR_SYNC_NE_COUNT_GET(val) \
 	((val >> 0x00000002) & 0x00000001)
 #define BF_JTX_DL_204H_LANE_SYNC_2SIDES_INFO 0x00000103
 #define BF_JTX_DL_204H_LANE_SYNC_2SIDES(val) ((val & 0x00000001) << 0x00000003)
-#define BF_JTX_DL_204H_LANE_SYNC_2SIDES_GET(val)                               \
+#define BF_JTX_DL_204H_LANE_SYNC_2SIDES_GET(val) \
 	((val >> 0x00000003) & 0x00000001)
 #define BF_JTX_DL_204H_ILAS_DELAY_CFG_INFO 0x00000404
 #define BF_JTX_DL_204H_ILAS_DELAY_CFG(val) ((val & 0x0000000F) << 0x00000004)
-#define BF_JTX_DL_204H_ILAS_DELAY_CFG_GET(val)                                 \
+#define BF_JTX_DL_204H_ILAS_DELAY_CFG_GET(val) \
 	((val >> 0x00000004) & 0x0000000F)
 
 #define REG_JTX_DL_204H_1_ADDR 0x0000066C
@@ -856,11 +856,11 @@
 #define BF_JTX_DL_204H_SCR_CFG_GET(val) ((val >> 0x00000001) & 0x00000001)
 #define BF_JTX_DL_204H_SYNC_N_FORCE_EN_INFO 0x00000102
 #define BF_JTX_DL_204H_SYNC_N_FORCE_EN(val) ((val & 0x00000001) << 0x00000002)
-#define BF_JTX_DL_204H_SYNC_N_FORCE_EN_GET(val)                                \
+#define BF_JTX_DL_204H_SYNC_N_FORCE_EN_GET(val) \
 	((val >> 0x00000002) & 0x00000001)
 #define BF_JTX_DL_204H_SYNC_N_FORCE_VAL_INFO 0x00000103
 #define BF_JTX_DL_204H_SYNC_N_FORCE_VAL(val) ((val & 0x00000001) << 0x00000003)
-#define BF_JTX_DL_204H_SYNC_N_FORCE_VAL_GET(val)                               \
+#define BF_JTX_DL_204H_SYNC_N_FORCE_VAL_GET(val) \
 	((val >> 0x00000003) & 0x00000001)
 #define BF_JTX_DL_204H_TEST_MODE_INFO 0x00000204
 #define BF_JTX_DL_204H_TEST_MODE(val) ((val & 0x00000003) << 0x00000004)
@@ -877,7 +877,7 @@
 #define BF_JTX_BR_LOG2_RATIO_0_GET(val) (val & 0x0000000F)
 #define BF_JTX_LANE_FIFO_WR_ENTRIES_0_INFO 0x00000404
 #define BF_JTX_LANE_FIFO_WR_ENTRIES_0(val) ((val & 0x0000000F) << 0x00000004)
-#define BF_JTX_LANE_FIFO_WR_ENTRIES_0_GET(val)                                 \
+#define BF_JTX_LANE_FIFO_WR_ENTRIES_0_GET(val) \
 	((val >> 0x00000004) & 0x0000000F)
 
 #define REG_JTX_PHY_IFX_0_LANE6_ADDR 0x00000676
@@ -886,7 +886,7 @@
 #define BF_JTX_BR_LOG2_RATIO_1_GET(val) (val & 0x0000000F)
 #define BF_JTX_LANE_FIFO_WR_ENTRIES_1_INFO 0x00000404
 #define BF_JTX_LANE_FIFO_WR_ENTRIES_1(val) ((val & 0x0000000F) << 0x00000004)
-#define BF_JTX_LANE_FIFO_WR_ENTRIES_1_GET(val)                                 \
+#define BF_JTX_LANE_FIFO_WR_ENTRIES_1_GET(val) \
 	((val >> 0x00000004) & 0x0000000F)
 
 #define REG_JTX_PHY_IFX_0_LANE5_ADDR 0x00000675
@@ -895,7 +895,7 @@
 #define BF_JTX_BR_LOG2_RATIO_2_GET(val) (val & 0x0000000F)
 #define BF_JTX_LANE_FIFO_WR_ENTRIES_2_INFO 0x00000404
 #define BF_JTX_LANE_FIFO_WR_ENTRIES_2(val) ((val & 0x0000000F) << 0x00000004)
-#define BF_JTX_LANE_FIFO_WR_ENTRIES_2_GET(val)                                 \
+#define BF_JTX_LANE_FIFO_WR_ENTRIES_2_GET(val) \
 	((val >> 0x00000004) & 0x0000000F)
 
 #define REG_JTX_PHY_IFX_0_LANE4_ADDR 0x00000674
@@ -904,7 +904,7 @@
 #define BF_JTX_BR_LOG2_RATIO_3_GET(val) (val & 0x0000000F)
 #define BF_JTX_LANE_FIFO_WR_ENTRIES_3_INFO 0x00000404
 #define BF_JTX_LANE_FIFO_WR_ENTRIES_3(val) ((val & 0x0000000F) << 0x00000004)
-#define BF_JTX_LANE_FIFO_WR_ENTRIES_3_GET(val)                                 \
+#define BF_JTX_LANE_FIFO_WR_ENTRIES_3_GET(val) \
 	((val >> 0x00000004) & 0x0000000F)
 
 #define REG_JTX_PHY_IFX_0_LANE3_ADDR 0x00000673
@@ -913,7 +913,7 @@
 #define BF_JTX_BR_LOG2_RATIO_4_GET(val) (val & 0x0000000F)
 #define BF_JTX_LANE_FIFO_WR_ENTRIES_4_INFO 0x00000404
 #define BF_JTX_LANE_FIFO_WR_ENTRIES_4(val) ((val & 0x0000000F) << 0x00000004)
-#define BF_JTX_LANE_FIFO_WR_ENTRIES_4_GET(val)                                 \
+#define BF_JTX_LANE_FIFO_WR_ENTRIES_4_GET(val) \
 	((val >> 0x00000004) & 0x0000000F)
 
 #define REG_JTX_PHY_IFX_0_LANE2_ADDR 0x00000672
@@ -922,7 +922,7 @@
 #define BF_JTX_BR_LOG2_RATIO_5_GET(val) (val & 0x0000000F)
 #define BF_JTX_LANE_FIFO_WR_ENTRIES_5_INFO 0x00000404
 #define BF_JTX_LANE_FIFO_WR_ENTRIES_5(val) ((val & 0x0000000F) << 0x00000004)
-#define BF_JTX_LANE_FIFO_WR_ENTRIES_5_GET(val)                                 \
+#define BF_JTX_LANE_FIFO_WR_ENTRIES_5_GET(val) \
 	((val >> 0x00000004) & 0x0000000F)
 
 #define REG_JTX_PHY_IFX_0_LANE1_ADDR 0x00000671
@@ -931,7 +931,7 @@
 #define BF_JTX_BR_LOG2_RATIO_6_GET(val) (val & 0x0000000F)
 #define BF_JTX_LANE_FIFO_WR_ENTRIES_6_INFO 0x00000404
 #define BF_JTX_LANE_FIFO_WR_ENTRIES_6(val) ((val & 0x0000000F) << 0x00000004)
-#define BF_JTX_LANE_FIFO_WR_ENTRIES_6_GET(val)                                 \
+#define BF_JTX_LANE_FIFO_WR_ENTRIES_6_GET(val) \
 	((val >> 0x00000004) & 0x0000000F)
 
 #define REG_JTX_PHY_IFX_0_LANE0_ADDR 0x00000670
@@ -940,7 +940,7 @@
 #define BF_JTX_BR_LOG2_RATIO_7_GET(val) (val & 0x0000000F)
 #define BF_JTX_LANE_FIFO_WR_ENTRIES_7_INFO 0x00000404
 #define BF_JTX_LANE_FIFO_WR_ENTRIES_7(val) ((val & 0x0000000F) << 0x00000004)
-#define BF_JTX_LANE_FIFO_WR_ENTRIES_7_GET(val)                                 \
+#define BF_JTX_LANE_FIFO_WR_ENTRIES_7_GET(val) \
 	((val >> 0x00000004) & 0x0000000F)
 
 #endif /* __ADI_AD9081_BF_JTX_DUAL_LINK_H__ */
