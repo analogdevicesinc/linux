@@ -288,6 +288,14 @@
 	status = "okay";
 };
 
+&displaymix_irqsteer {
+	status = "okay";
+};
+
+&dpu {
+	status = "okay";
+};
+
 &tpm3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_tpm3>;
