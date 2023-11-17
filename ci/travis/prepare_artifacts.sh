@@ -12,6 +12,9 @@ artifacts_structure() {
 
 	echo "git_sha=${GIT_SHA}" >> ${timestamp}/rpi_git_properties.txt
 	echo "git_sha_date=${GIT_SHA_DATE}" >> ${timestamp}/rpi_git_properties.txt
+	echo " ==== git_sha=${GIT_SHA} ======== "
+	echo " ==== git_sha_date=${GIT_SHA_DATE} ======= "
+
 
 	typeBCM=( "bcm2709" "bcm2711" "bcmrpi" )
 	typeKERNEL=( "kernel7" "kernel7l" "kernel" )
@@ -42,7 +45,12 @@ artifacts_artifactory() {
 artifacts_swdownloads() {
 	artifacts_structure
 	cd ${SOURCE_DIRECTORY}/${timestamp} || exit 1
+	echo "===== I am here: $PWD ======"
 	chmod 600 ${KEY_FILE}
+	echo "===== =Key FILE should be downloaded: $(ls -al)"
+        echo "==== DEST_SERVER: $DEST_SERVER ======"
+	echo "==== start scp to akamay with verbosity ======"
+	echo
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
 		-i ${KEY_FILE} -r *.tar.gz ${DEST_SERVER}
 	md5_modules=($(md5sum rpi_modules.tar.gz| cut -d ' ' -f 1))
@@ -60,7 +68,9 @@ artifacts_swdownloads() {
 	echo "checksum_boot_files=${md5_boot}" >> rpi_archives_properties.txt
 	echo "git_sha=${GIT_SHA}" >> rpi_archives_properties.txt
         echo "git_sha_date=${GIT_SHA_DATE}" >> rpi_archives_properties.txt
-
+        echo "========== content of rpi_properties.txt: ======="
+	cat rpi_archives_properties.txt
+	echo "================================ "
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
                 -i ${KEY_FILE} -r rpi_archives_properties.txt ${DEST_SERVER}
 }

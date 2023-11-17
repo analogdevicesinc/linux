@@ -87,8 +87,9 @@ stages:
     condition: and(
        succeeded(),
        or(eq(variables['Build.SourceBranch'], 'refs/heads/rpi-5.15.y'),
-          eq(variables['Build.SourceBranch'], 'refs/heads/rpi-6.1.y'))
-       )
+          or(variables['Build.SourceBranch'], 'refs/heads/rpi-6.1.y'),
+          or(variables['Build.SourceBranch'], 'refs/heads/staging-rpi/test_rpi-6.1.y'))
+      )
     pool:
       vmImage: 'ubuntu-latest'
     steps:
