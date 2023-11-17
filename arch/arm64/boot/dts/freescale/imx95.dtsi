@@ -330,6 +330,15 @@
 		clock-output-names = "osc_24m";
 	};
 
+	ldb_pll_pixel: ldb_pll_div7 {
+		#clock-cells = <0>;
+		compatible = "fixed-factor-clock";
+		clocks = <&scmi_clk IMX95_CLK_LDBPLL>;
+		clock-div = <7>;
+		clock-mult = <1>;
+		clock-output-names = "ldb_pll_div7";
+	};
+
 	sram1: sram@204c0000 {
 		compatible = "mmio-sram";
 		reg = <0x0 0x204c0000 0x0 0x18000>;
@@ -1846,6 +1855,11 @@
 							reg = <0>;
 							remote-endpoint = <&mipi_dsi_to_display_pixel_link0>;
 						};
+
+						display_pixel_link0_to_ldb_ch0: endpoint@1 {
+							reg = <1>;
+							remote-endpoint = <&ldb_ch0_to_display_pixel_link0>;
+						};
 					};
 
 					port@3 {
@@ -1856,6 +1870,11 @@
 						display_pixel_link1_to_mipi_dsi: endpoint@0 {
 							reg = <0>;
 							remote-endpoint = <&mipi_dsi_to_display_pixel_link1>;
+						};
+
+						display_pixel_link1_to_ldb_ch1: endpoint@1 {
+							reg = <1>;
+							remote-endpoint = <&ldb_ch1_to_display_pixel_link1>;
 						};
 					};
 				};
@@ -1881,6 +1900,94 @@
 			interrupt-controller;
 			#interrupt-cells = <1>;
 			status = "disabled";
+		};
+
+		lvds_csr: syscon@4b0c0000 {
+			compatible = "nxp,imx95-lvds-csr", "syscon";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x0 0x4b0c0000 0x0 0x10000>;
+			#clock-cells = <1>;
+			clocks = <&scmi_clk IMX95_CLK_DISPAPB>;
+			power-domains = <&scmi_devpd IMX95_PD_DISPLAY>;
+
+			ldb: ldb@4 {
+				compatible = "fsl,imx95-ldb";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0x4 0x4>;
+				clocks = <&ldb_pll_pixel>;
+				clock-names = "pixel";
+				status = "disabled";
+
+				channel@0 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0>;
+					phys = <&ldb0_phy1>;
+					phy-names = "lvds_phy";
+					status = "disabled";
+
+					port@0 {
+						reg = <0>;
+
+						ldb_ch0_to_display_pixel_link0: endpoint {
+							remote-endpoint = <&display_pixel_link0_to_ldb_ch0>;
+						};
+					};
+				};
+
+				channel@1 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <1>;
+					phys = <&ldb1_phy1>;
+					phy-names = "lvds_phy";
+					status = "disabled";
+
+					port@0 {
+						reg = <0>;
+
+						ldb_ch1_to_display_pixel_link1: endpoint {
+							remote-endpoint = <&display_pixel_link1_to_ldb_ch1>;
+						};
+					};
+				};
+			};
+
+			ldb0_phy: phy@8 {
+				compatible = "fsl,imx95-lvds0-phy";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0x8 0x4>;
+				gpr = <&lvds_csr>;
+				clocks = <&scmi_clk IMX95_CLK_DISPAPB>;
+				clock-names = "apb";
+				power-domains = <&scmi_devpd IMX95_PD_DISPLAY>;
+				status = "disabled";
+
+				ldb0_phy1: port@0 {
+					reg = <0>;
+					#phy-cells = <0>;
+				};
+			};
+
+			ldb1_phy: phy@c {
+				compatible = "fsl,imx95-lvds1-phy";
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0xc 0x4>;
+				gpr = <&lvds_csr>;
+				clocks = <&scmi_clk IMX95_CLK_DISPAPB>;
+				clock-names = "apb";
+				power-domains = <&scmi_devpd IMX95_PD_DISPLAY>;
+				status = "disabled";
+
+				ldb1_phy1: port@0 {
+					reg = <0>;
+					#phy-cells = <0>;
+				};
+			};
 		};
 
 		pixel_interleaver: bridge@4b0d0000 {
@@ -2057,7 +2164,7 @@
 				 <&scmi_clk IMX95_CLK_DISPAPB>,
 				 <&scmi_clk IMX95_CLK_DISPAXI>,
 				 <&scmi_clk IMX95_CLK_DISPOCRAM>,
-				 <&scmi_clk IMX95_CLK_LDBPLL>;
+				 <&ldb_pll_pixel>;
 			clock-names = "pix", "apb", "axi", "ocram", "ldb";
 			power-domains = <&scmi_devpd IMX95_PD_DISPLAY>;
 			nxp,blk-ctrl = <&dispmix_csr>;
