@@ -44,14 +44,14 @@ artifacts_swdownloads() {
 	cd ${SOURCE_DIRECTORY}/${timestamp} || exit 1
 	chmod 600 ${KEY_FILE}
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
-		-i ${KEY_FILE} -r *.tar.gz ${DEST_SERVER}
+		-i ${KEY_FILE} -r *.tar.gz ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
 	md5_modules=($(md5sum rpi_modules.tar.gz| cut -d ' ' -f 1))
 
 	rm rpi_modules.tar.gz rpi_git_properties.txt
 	tar -C ${PWD} -czvf rpi_latest_boot.tar.gz *
 	md5_boot=($(md5sum rpi_latest_boot.tar.gz| cut -d ' ' -f 1))
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
-	    -i ${KEY_FILE} -r rpi_latest_boot.tar.gz ${DEST_SERVER}
+	    -i ${KEY_FILE} -r rpi_latest_boot.tar.gz ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
 
 	echo "boot_date=${timestamp}" >> rpi_archives_properties.txt
 	echo "https://swdownloads.analog.com/cse/linux_rpi/${BUILD_SOURCEBRANCHNAME}/rpi_modules.tar.gz" >> rpi_archives_properties.txt
@@ -62,7 +62,7 @@ artifacts_swdownloads() {
         echo "git_sha_date=${GIT_SHA_DATE}" >> rpi_archives_properties.txt
 
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
-                -i ${KEY_FILE} -r rpi_archives_properties.txt ${DEST_SERVER}
+                -i ${KEY_FILE} -r rpi_archives_properties.txt ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
 }
 
 artifacts_${1}
