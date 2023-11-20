@@ -10,6 +10,13 @@
 	compatible = "brcm,bcm2835", "brcm,bcm2711";
 };
 
+&gpio {
+	ad7091r8_pins: ad7091r8_pins {
+		brcm,pins = <22>; // interrupt
+		brcm,function = <0>; // in
+	};
+};
+
 &spi0 {
 	status = "okay";
 
@@ -21,8 +28,10 @@
 		spi-max-frequency = <1000000>;
 		adi,conversion-start-gpios = <&gpio 25 GPIO_ACTIVE_LOW>;
 		reset-gpios = <&gpio 27 GPIO_ACTIVE_LOW>;
-		interrupts = <22 IRQ_TYPE_EDGE_RISING>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&ad7091r8_pins>;
 		interrupt-parent = <&gpio>;
+		interrupts = <22 IRQ_TYPE_EDGE_FALLING>;
 	};
 };
 
