@@ -1,0 +1,135 @@
+// SPDX-License-Identifier: BSD-2-Clause-Views
+/*
+ * Copyright (c) 2022-2023 The Regents of the University of California
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/ad9545.h>
+&{/} {
+	ref_clka: ref_clka {
+		compatible = "fixed-clock";
+		#clock-cells = <1>;
+
+		clock-frequency  = <10000000>;
+		clock-output-names = "Ref-A";
+	};
+};
+
+&amba {
+
+	afi0: afi0 {
+		compatible = "xlnx,afi-fpga";
+		config-afi =
+		// PL-to-PS AXI
+		// 0: 128-bit, 1: 64-bit, 2: 32-bit
+		<0 0>, // AFIFM0_RDCTRL [1:0] S_AXI_HPC0_FPD
+		<1 0>, // AFIFM0_WRCTRL [1:0] S_AXI_HPC0_FPD
+		<2 0>, // AFIFM1_RDCTRL [1:0] S_AXI_HPC1_FPD
+		<3 0>, // AFIFM1_WRCTRL [1:0] S_AXI_HPC1_FPD
+		<4 0>, // AFIFM2_RDCTRL [1:0] S_AXI_HP0_FPD
+		<5 0>, // AFIFM2_WRCTRL [1:0] S_AXI_HP0_FPD
+		<6 0>, // AFIFM3_RDCTRL [1:0] S_AXI_HP1_FPD
+		<7 0>, // AFIFM3_WRCTRL [1:0] S_AXI_HP1_FPD
+		<8 0>, // AFIFM4_RDCTRL [1:0] S_AXI_HP2_FPD
+		<9 0>, // AFIFM4_WRCTRL [1:0] S_AXI_HP2_FPD
+		<10 0>, // AFIFM5_RDCTRL [1:0] S_AXI_HP3_FPD
+		<11 0>, // AFIFM5_WRCTRL [1:0] S_AXI_HP3_FPD
+		<12 0>, // AFIFM6_RDCTRL [1:0] S_AXI_LPD
+		<13 0>, // AFIFM6_WRCTRL [1:0] S_AXI_LPD
+		// PS-to-PL AXI
+		// 0: 32-bit, 1: 64-bit, 2: 128-bit
+		<14 0x000>, // FPD_SLCR [9:8] AFIFS0 M_AXI_HPM0_FPD [11:10] AFIFS1 M_AXI_HPM1_FPD
+		<15 0x000>; // LPD_SLCR [9:8] AFIFS2 M_AXI_HPM0_LPD
+	};
+
+	mqnic0: ethernet@a0000000 {
+		compatible = "corundum,mqnic";
+		reg = <0x0 0xa0000000 0x0 0x1000000>,
+		      <0x0 0xa8000000 0x0 0x1000000>;
+		reg-names = "csr", "app";
+		interrupt-parent = <&gic>;
+		interrupts = <0 93 1>;
+		assigned-clocks = <&zynqmp_clk 71>; // PL0_REF
+		assigned-clock-rates = <300000000>;
+		resets = <&zynqmp_reset 116>; // ZYNQMP_RESET_PS_PL0
+		reset-names = "reset";
+	};
+};
+
+&spi0 {
+	status = "okay";
+	spi-3wire = <0>;
+	spi-max-frequency = <2000000>;
+	
+	ad9545_clock: ad9545@0 {
+		compatible = "adi,ad9545";
+		reg = <0>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		adi,ref-crystal;
+		adi,ref-frequency-hz = <52000000>;
+		clock-names = "Ref-A";
+		clocks = <&ref_clka 0>;
+
+		#clock-cells = <2>;
+		assigned-clocks = <&ad9545_clock AD9545_CLK_NCO AD9545_NCO0>,
+				<&ad9545_clock AD9545_CLK_PLL AD9545_PLL0>,
+				<&ad9545_clock AD9545_CLK_OUT AD9545_Q0A>;
+		assigned-clock-rates = <10000>, <1562500000>, <156250000>;
+		assigned-clock-phases = <0>, <0>, <0>,  <180>;
+
+		aux-nco-clk@AD9545_NCO0 {
+				reg = <AD9545_NCO0>;
+				adi,freq-lock-threshold-ps = <16000000>;
+				adi,phase-lock-threshold-ps = <16000000>;
+		};
+
+		ad9545_apll0: pll-clk@AD9545_PLL0 {
+			reg = <AD9545_PLL0>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			profile@0 {
+				reg = <0>;
+				adi,pll-source = <4>;
+				adi,profile-priority = <20>;
+				adi,pll-loop-bandwidth-uhz = <200000000>;
+			};
+
+			profile@1 {
+				reg = <1>;
+				adi,pll-source = <0>;
+				adi,profile-priority = <0>;
+				adi,pll-loop-bandwidth-uhz = <200000000>;
+			};
+		};
+
+		/* Ref A (J4) 10Mhz input */
+		ref-input-clk@0 {
+			reg = <0>;	
+			adi,single-ended-mode = <DRIVER_MODE_DC_COUPLED_1V8>;
+			adi,r-divider-ratio = <200>;
+			adi,ref-dtol-pbb = <10000000>;
+			adi,ref-monitor-hysteresis-pbb = <87500>;
+			adi,ref-validation-timer-ms = <1>;
+			adi,freq-lock-threshold-ps = <0xFFFFFF>;
+			adi,phase-lock-threshold-ps = <0xFFFFFF>;
+			adi,freq-lock-fill-rate = <20>;
+			adi,freq-lock-drain-rate = <20>;
+			adi,phase-lock-fill-rate = <20>;
+			adi,phase-lock-drain-rate = <20>;
+		};
+
+		output-clk@AD9545_Q0A {
+			reg = <AD9545_Q0A>;
+			adi,output-mode = <DRIVER_MODE_SINGLE_DIV_DIF>;
+			adi,current-source-microamp = <15000>;
+		};
+	};
+};
+
