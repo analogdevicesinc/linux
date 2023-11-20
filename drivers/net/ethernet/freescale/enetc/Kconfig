@@ -17,6 +17,7 @@ config FSL_ENETC
 	select FSL_ENETC_MDIO
 	select PHYLINK
 	select PCS_LYNX
+	select PCS_XPCS
 	select DIMLIB
 	help
 	  This driver supports NXP ENETC gigabit ethernet controller PCIe
@@ -33,6 +34,7 @@ config FSL_ENETC4
 	select FSL_ENETC_MDIO
 	select PHYLINK
 	select PCS_LYNX
+	select PCS_XPCS
 	select DIMLIB
 	help
 	  This driver supports the revision 4 of NXP ENETC (Ethernet Controller)

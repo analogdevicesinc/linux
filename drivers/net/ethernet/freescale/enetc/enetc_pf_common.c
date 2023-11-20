@@ -6,6 +6,7 @@
 #include <linux/of_net.h>
 #include <linux/pcs-lynx.h>
 #include <linux/phy/phy.h>
+#include <linux/pcs/pcs-xpcs.h>
 #include <linux/regulator/consumer.h>
 
 #include "enetc_pf.h"
@@ -406,12 +407,20 @@ static int enetc_imdio_create(struct enetc_pf *pf)
 		goto free_mdio_bus;
 	}
 
-	/* TODO: FIXME: i.MX95 does not use lynx PCS and Serdes */
-	phylink_pcs = lynx_pcs_create_mdiodev(bus, 0, &serdes, num_phys);
-	if (IS_ERR(phylink_pcs)) {
-		err = PTR_ERR(phylink_pcs);
-		dev_err(dev, "cannot create lynx pcs (%d)\n", err);
-		goto unregister_mdiobus;
+	if (is_enetc_rev1(pf->si)) {
+		phylink_pcs = lynx_pcs_create_mdiodev(bus, 0, &serdes, num_phys);
+		if (IS_ERR(phylink_pcs)) {
+			err = PTR_ERR(phylink_pcs);
+			dev_err(dev, "cannot create lynx pcs (%d)\n", err);
+			goto unregister_mdiobus;
+		}
+	} else {
+		phylink_pcs = xpcs_create_mdiodev_with_phy(bus, 0, 16, pf->if_mode);
+		if (IS_ERR(phylink_pcs)) {
+			err = PTR_ERR(phylink_pcs);
+			dev_err(dev, "cannot create xpcs mdiodev (%d)\n", err);
+			goto unregister_mdiobus;
+		}
 	}
 
 	pf->imdio = bus;
@@ -430,8 +439,12 @@ static void enetc_imdio_remove(struct enetc_pf *pf)
 {
 	struct enetc_mdio_priv *mdio_priv = pf->imdio->priv;
 
-	if (pf->pcs)
-		lynx_pcs_destroy(pf->pcs);
+	if (pf->pcs) {
+		if (is_enetc_rev1(pf->si))
+			lynx_pcs_destroy(pf->pcs);
+		else
+			xpcs_pcs_destroy(pf->pcs);
+	}
 
 	if (pf->imdio) {
 		mdiobus_unregister(pf->imdio);
@@ -447,6 +460,7 @@ static bool enetc_port_has_pcs(struct enetc_pf *pf)
 	return (pf->if_mode == PHY_INTERFACE_MODE_SGMII ||
 		pf->if_mode == PHY_INTERFACE_MODE_1000BASEX ||
 		pf->if_mode == PHY_INTERFACE_MODE_2500BASEX ||
+		pf->if_mode == PHY_INTERFACE_MODE_10GBASER ||
 		pf->if_mode == PHY_INTERFACE_MODE_USXGMII ||
 		pf->if_mode == PHY_INTERFACE_MODE_XGMII);
 }
@@ -508,6 +522,8 @@ int enetc_phylink_create(struct enetc_ndev_priv *priv,
 	__set_bit(PHY_INTERFACE_MODE_1000BASEX,
 		  pf->phylink_config.supported_interfaces);
 	__set_bit(PHY_INTERFACE_MODE_2500BASEX,
+		  pf->phylink_config.supported_interfaces);
+	__set_bit(PHY_INTERFACE_MODE_10GBASER,
 		  pf->phylink_config.supported_interfaces);
 	__set_bit(PHY_INTERFACE_MODE_USXGMII,
 		  pf->phylink_config.supported_interfaces);

@@ -344,6 +344,7 @@ static void enetc4_mac_config(struct enetc_pf *pf, unsigned int mode,
 	case PHY_INTERFACE_MODE_2500BASEX:
 		val |= IFMODE_SGMII;
 		break;
+	case PHY_INTERFACE_MODE_10GBASER:
 	case PHY_INTERFACE_MODE_XGMII:
 	case PHY_INTERFACE_MODE_USXGMII:
 		val |= IFMODE_XGMII;
