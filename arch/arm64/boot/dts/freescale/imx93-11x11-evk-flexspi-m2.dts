@@ -5,6 +5,10 @@
 
 #include "imx93-11x11-evk.dts"
 
+&reg_usdhc3_vmmc {
+	status = "disabled";
+};
+
 &usdhc3_pwrseq {
 	status = "disabled";
 };
