@@ -270,6 +270,44 @@
 				"IN1R", "AMIC";
 	};
 
+	reg_aqr_stby: regulator-aqr-stby {
+		compatible = "regulator-fixed";
+		regulator-name = "aqr-stby";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&i2c5_gpio_expander_21 1 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-always-on;
+	};
+
+	reg_aqr_en: regulator-aqr-en {
+		compatible = "regulator-fixed";
+		regulator-name = "aqr-en";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		vin-supply = <&reg_aqr_stby>;
+		gpio = <&i2c5_gpio_expander_21 0 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	reg_serdes_stby: regulator-mac-stby {
+		compatible = "regulator-fixed";
+		regulator-name = "mac-stby";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&i2c7_pcal6524 13 GPIO_ACTIVE_LOW>;
+		regulator-always-on;
+	};
+
+	reg_serdes_en: regulator-mac-en {
+		compatible = "regulator-fixed";
+		regulator-name = "mac-en";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		vin-supply = <&reg_serdes_stby>;
+		gpio = <&i2c5_gpio_expander_21 3 GPIO_ACTIVE_LOW>;
+	};
+
 	cm7: imx95-cm7 {
 		compatible = "fsl,imx95-cm7";
 		mbox-names = "tx", "rx", "rxdb";
@@ -653,6 +691,7 @@
 &enetc_port2 {
 	phy-handle = <&ethphy2>;
 	phy-mode = "usxgmii";
+	serdes-supply = <&reg_serdes_en>;
 	managed = "in-band-status";
 };
 
@@ -661,6 +700,7 @@
 };
 
 &netc_emdio {
+	phy-supply = <&reg_aqr_en>;
 	status = "okay";
 
 	ethphy0: ethernet-phy@1 {
