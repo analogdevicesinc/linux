@@ -690,9 +690,10 @@
 
 &enetc_port2 {
 	phy-handle = <&ethphy2>;
-	phy-mode = "usxgmii";
+	phy-mode = "10gbase-r";
 	serdes-supply = <&reg_serdes_en>;
 	managed = "in-band-status";
+	status = "okay";
 };
 
 &netc_timer {
