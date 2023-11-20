@@ -12,6 +12,7 @@
 
 #include "dpu95-crtc.h"
 #include "dpu95-plane.h"
+#include "dpu95-blit.h"
 
 #define DPU95_CRTCS	2
 #define DPU95_ENCODERS	DPU95_CRTCS
@@ -22,6 +23,7 @@
 struct dpu95_drm_device {
 	struct drm_device	base;
 	struct dpu95_soc	dpu_soc;
+	struct dpu_bliteng	dpu_be;
 	struct dpu95_crtc	dpu_crtc[DPU95_CRTCS];
 	struct dpu95_plane	dpu_primary[DPU95_PRIMARYS];
 	struct dpu95_plane	dpu_overlay[DPU95_OVERLAYS];

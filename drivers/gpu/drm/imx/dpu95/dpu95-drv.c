@@ -27,8 +27,10 @@
 DEFINE_DRM_GEM_DMA_FOPS(dpu95_drm_driver_fops);
 
 static struct drm_driver dpu95_drm_driver = {
-	.driver_features = DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC,
+	.driver_features = DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC | DRIVER_RENDER,
 	DRM_GEM_DMA_DRIVER_OPS,
+	.ioctls                 = imx_drm_dpu95_ioctls,
+	.num_ioctls             = ARRAY_SIZE(imx_drm_dpu95_ioctls),
 	.fops = &dpu95_drm_driver_fops,
 	.name = DRIVER_NAME,
 	.desc = "i.MX95 DPU DRM graphics",
@@ -50,11 +52,16 @@ static int dpu95_load(struct dpu95_drm_device *dpu_drm)
 	if (ret)
 		return ret;
 
+	ret = dpu95_bliteng_load(dpu_drm);
+	if (ret)
+		return ret;
+
 	return 0;
 }
 
 static void dpu95_unload(struct dpu95_drm_device *dpu_drm)
 {
+	dpu95_bliteng_unload(dpu_drm);
 	dpu95_kms_unprepare(dpu_drm);
 }
 
