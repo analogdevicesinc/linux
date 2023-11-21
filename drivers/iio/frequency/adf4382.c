@@ -436,6 +436,7 @@
 enum {
 	ADF4382_FREQ,
 	ADF4382_CH_PWR,
+	ADF4382_CH_EN,
 };
 
 struct adf4382_state {
@@ -945,6 +946,40 @@ int adf4382_get_out_power(struct adf4382_state *st, int ch, u8 *pwr)
 	return 0;
 }
 
+int adf4382_set_en_chan(struct adf4382_state *st, int ch, u8 en)
+{
+	u8 enable;
+
+	if(!ch) {
+		enable = FIELD_PREP(ADF4382_PD_CLKOUT1_MSK, !en);
+		return regmap_update_bits(st->regmap, 0x2B,
+					  ADF4382_PD_CLKOUT1_MSK,
+					  enable);
+	}
+
+	enable = FIELD_PREP(ADF4382_PD_CLKOUT2_MSK, !en);
+	return regmap_update_bits(st->regmap, 0x2B, ADF4382_PD_CLKOUT2_MSK,
+				  enable);
+}
+
+int adf4382_get_en_chan(struct adf4382_state *st, int ch, u8 *en)
+{
+	int enable;
+
+	if(!ch)
+		enable = regmap_test_bits(st->regmap, 0x2B,
+					  ADF4382_PD_CLKOUT1_MSK);
+	else
+		enable = regmap_test_bits(st->regmap, 0x2B,
+					  ADF4382_PD_CLKOUT2_MSK);
+	if (enable < 0)
+		return enable;
+	
+	*en = !enable;
+	return 0;
+	
+}
+
 static ssize_t adf4382_write(struct iio_dev *indio_dev, uintptr_t private,
 			     const struct iio_chan_spec *chan, const char *buf,
 			     size_t len)
@@ -965,6 +1000,9 @@ static ssize_t adf4382_write(struct iio_dev *indio_dev, uintptr_t private,
 		break;
 	case ADF4382_CH_PWR:
 		ret = adf4382_set_out_power(st, chan->channel, (u8)val);
+		break;
+	case ADF4382_CH_EN:
+		ret = adf4382_set_en_chan(st, chan->channel, (u8)val);
 		break;
 	default:
 		ret = -EINVAL;
@@ -989,6 +1027,9 @@ static ssize_t adf4382_read(struct iio_dev *indio_dev, uintptr_t private,
 		break;
 	case ADF4382_CH_PWR:
 		ret = adf4382_get_out_power(st, chan->channel, (u8 *)&val);
+		break;
+	case ADF4382_CH_EN:
+		ret = adf4382_get_en_chan(st, chan->channel, (u8 *)&val);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1015,6 +1056,7 @@ static const struct iio_chan_spec_ext_info adf4382_ext_info[] = {
 	 */
 	_ADF4382_EXT_INFO("frequency", IIO_SHARED_BY_ALL, ADF4382_FREQ),
 	_ADF4382_EXT_INFO("output_power", IIO_SEPARATE, ADF4382_CH_PWR),
+	_ADF4382_EXT_INFO("en", IIO_SEPARATE, ADF4382_CH_EN),
 	{ },
 };
 
