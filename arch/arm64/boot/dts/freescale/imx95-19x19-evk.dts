@@ -410,6 +410,19 @@
 		reg = <0x20>;
 		vcc-supply = <&reg_3p3v>;
 	};
+
+	pca9632: pca9632@62 {
+		compatible = "nxp,pca9632";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0x62>;
+
+		led_baclklight: led@0 {
+			label = "backlight";
+			reg = <0>;
+			linux,default-trigger = "none";
+		};
+	};
 };
 
 &lpi2c4 {
