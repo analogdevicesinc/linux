@@ -430,6 +430,8 @@
 #define ADF4382_REF_DIV_DEFAULT		   	1
 #define ADF4382_RFOUT_DEFAULT		   	2305000000ULL
 
+#define UA_TO_A					1000000
+
 enum {
 	ADF4382_FREQ,
 };
@@ -450,6 +452,26 @@ struct adf4382_state {
 	bool			ref_doubler_en;
 	u8			ref_div;
 	u16			bleed_word;
+};
+
+//Charge pump current values expressed in uA
+static const int adf4382_ci_ua[] = {
+	700,
+	900,
+	1100,
+	1300,
+	1400,
+	1800,
+	2200,
+	2500,
+	2900,
+	3600,
+	4300,
+	5000,
+	5800,
+	7200,
+	8600,
+	10100
 };
 
 //TODO Rewrite using defines
@@ -727,7 +749,9 @@ int adf4382_set_freq(struct adf4382_state *st)
 		int_mode = 1;
 		en_bleed = 0;
 
-		tmp = DIV_ROUND_UP(st->bleed_word, st->cp_i * pfd_freq_hz);
+		tmp = adf4382_ci_ua[st->cp_i] * pfd_freq_hz;
+		tmp = DIV_ROUND_UP_ULL(tmp, UA_TO_A);
+		tmp = DIV_ROUND_UP_ULL(st->bleed_word, tmp);
 		if (tmp <= 85)
 			ldwin_pw = 0;
 		else
@@ -843,13 +867,11 @@ int adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	// Set LD COUNT
 	ret = regmap_update_bits(st->regmap, 0x2c, ADF4382_LD_COUNT_OPWR_MSK,
 				 10);
 	if (ret)
 		return ret;
 
-	// Set LD COUNT
 	ret = regmap_update_bits(st->regmap, 0x2c, ADF4382_LDWIN_PW_MSK,
 				 FIELD_PREP(ADF4382_LDWIN_PW_MSK, ldwin_pw));
 	if (ret)
