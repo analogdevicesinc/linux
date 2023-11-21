@@ -205,6 +205,14 @@ int ad9208_jesd_set_if_config(ad9208_handle_t *h,
 			err = ad9208_register_write(h, 0x56e, 0x00);
 	} else {
 		err = get_jesd_serdes_vco_cfg(slr_mbps, &vco_cfg);
+		if (err != API_ERROR_OK)
+			return err;
+		err = ad9208_register_read(h, AD9208_JESD_SERDES_PLL_CFG_REG, &tmp_reg);
+		if (err != API_ERROR_OK)
+			return err;
+		tmp_reg &= AD9208_JESD_SLR_CTRL(ALL);
+		tmp_reg |= AD9208_JESD_SLR_CTRL(vco_cfg);
+		err = ad9208_register_write(h, AD9208_JESD_SERDES_PLL_CFG_REG, tmp_reg);
 	}
 	if (err != API_ERROR_OK)
 		return err;
