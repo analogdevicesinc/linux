@@ -191,7 +191,7 @@
 
 /* ADF4382 REG0029 Map */
 #define ADF4382_CLK2_OPWR_MSK			GENMASK(7, 4)
-#define ADF4382_CLK1_OPWR			GENMASK(3, 0)
+#define ADF4382_CLK1_OPWR_MSK			GENMASK(3, 0)
 
 /* ADF4382 REG002A Map */
 #define ADF4382_FN_DBL_MSK			BIT(7)
@@ -425,6 +425,7 @@
 #define ADF4382_DCLK_DIV1_0_MAX			160000000U   // 160MHz
 #define ADF4382_DCLK_DIV1_1_MAX			320000000U   // 320MHz
 #define ADF4382_M_VCO_BIAS_POST_CAL_FIX		0x3F
+#define ADF4382_MAX_OUT_PWR			15
 
 #define ADF4382_CP_I_DEFAULT		   	15
 #define ADF4382_REF_DIV_DEFAULT		   	1
@@ -434,6 +435,7 @@
 
 enum {
 	ADF4382_FREQ,
+	ADF4382_CH_PWR,
 };
 
 struct adf4382_state {
@@ -904,7 +906,43 @@ int adf4382_set_freq(struct adf4382_state *st)
 
 int adf4382_get_freq(struct adf4382_state *st, u64 *freq)
 {
-	return st->freq;
+	*freq = st->freq;
+	return 0;
+}
+
+int adf4382_set_out_power(struct adf4382_state *st, int ch, u8 pwr)
+{
+	u8 tmp;
+
+	if(pwr > ADF4382_MAX_OUT_PWR)
+		pwr = ADF4382_MAX_OUT_PWR;
+
+	if(!ch) {
+		tmp = FIELD_PREP(ADF4382_CLK1_OPWR_MSK, pwr);
+		return regmap_update_bits(st->regmap, 0x29, ADF4382_CLK1_OPWR_MSK,
+					  tmp);
+	}
+
+	tmp = FIELD_PREP(ADF4382_CLK2_OPWR_MSK, pwr);
+	return regmap_update_bits(st->regmap, 0x29, ADF4382_CLK2_OPWR_MSK, tmp);
+
+};
+
+int adf4382_get_out_power(struct adf4382_state *st, int ch, u8 *pwr)
+{
+	unsigned int tmp;
+	int ret;
+
+	ret = regmap_read(st->regmap, 0x29, &tmp);
+	if (ret)
+		return ret;
+
+	if(!ch)
+		*pwr = FIELD_GET(ADF4382_CLK1_OPWR_MSK, tmp);
+	else
+		*pwr = FIELD_GET(ADF4382_CLK2_OPWR_MSK, tmp);
+	
+	return 0;
 }
 
 static ssize_t adf4382_write(struct iio_dev *indio_dev, uintptr_t private,
@@ -912,18 +950,21 @@ static ssize_t adf4382_write(struct iio_dev *indio_dev, uintptr_t private,
 			     size_t len)
 {
 	struct adf4382_state *st = iio_priv(indio_dev);
-	unsigned long long freq;
+	unsigned long long val;
 	int ret;
+
+	ret = kstrtoull(buf, 10, &val);
+	if (ret)
+		return ret;
 
 	mutex_lock(&st->lock);
 	switch ((u32)private) {
 	case ADF4382_FREQ:
-		ret = kstrtoull(buf, 10, &freq);
-		if (ret)
-			break;
-		st->freq = freq;
-
+		st->freq = val;
 		ret = adf4382_set_freq(st);
+		break;
+	case ADF4382_CH_PWR:
+		ret = adf4382_set_out_power(st, chan->channel, (u8)val);
 		break;
 	default:
 		ret = -EINVAL;
@@ -945,6 +986,9 @@ static ssize_t adf4382_read(struct iio_dev *indio_dev, uintptr_t private,
 	switch ((u32)private) {
 	case ADF4382_FREQ:
 		ret = adf4382_get_freq(st, &val);
+		break;
+	case ADF4382_CH_PWR:
+		ret = adf4382_get_out_power(st, chan->channel, (u8 *)&val);
 		break;
 	default:
 		ret = -EINVAL;
@@ -970,6 +1014,7 @@ static const struct iio_chan_spec_ext_info adf4382_ext_info[] = {
 	 * in Hz.
 	 */
 	_ADF4382_EXT_INFO("frequency", IIO_SHARED_BY_ALL, ADF4382_FREQ),
+	_ADF4382_EXT_INFO("output_power", IIO_SEPARATE, ADF4382_CH_PWR),
 	{ },
 };
 
@@ -979,6 +1024,13 @@ static const struct iio_chan_spec adf4382_channels[] = {
 		.indexed = 1,
 		.output = 1,
 		.channel = 0,
+		.ext_info = adf4382_ext_info,
+	},
+	{
+		.type = IIO_ALTVOLTAGE,
+		.indexed = 1,
+		.output = 1,
+		.channel = 1,
 		.ext_info = adf4382_ext_info,
 	},
 };
