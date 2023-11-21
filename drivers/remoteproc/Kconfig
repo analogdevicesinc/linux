@@ -45,6 +45,15 @@ config IMX_DSP_REMOTEPROC
 
 	  It's safe to say N here.
 
+config IMX_NEUTRON_REMOTEPROC
+	tristate "i.MX neutron remoteproc support"
+	depends on ARCH_MXC
+	help
+	  Say y here to support iMX's neutron npu via the remote
+	  processor framework.
+
+	  It's safe to say N here.
+
 config INGENIC_VPU_RPROC
 	tristate "Ingenic JZ47xx VPU remoteproc support"
 	depends on MIPS || COMPILE_TEST
