@@ -47,7 +47,7 @@
 
 		/* SYSREF config */
 		adi,sysref-src = <SYSREF_SRC_INTERNAL>;
-		adi,sysref-k-div = <128>;
+		adi,sysref-k-div = <64>;
 		adi,sysref-pattern-mode = <SYSREF_PATTERN_CONTINUOUS>;
 
 		adi,rpole2 = <RPOLE2_900_OHM>;
@@ -68,7 +68,7 @@
 			adi,extended-name = "DAC_CLK_FMC";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <2>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_VCO>;
 		};
 
@@ -77,7 +77,7 @@
 			adi,extended-name = "DAC_SYSREF";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <1>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_SYSREF_VCO>;
 			adi,jesd204-sysref-chan;
 		};
@@ -87,7 +87,7 @@
 			adi,extended-name = "CLKD_DAC_SYSREF";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <2>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_SYSREF_VCO>;
 			adi,jesd204-sysref-chan;
 		};
@@ -97,7 +97,7 @@
 			adi,extended-name = "CLKD_ADC_SYSREF";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <2>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_SYSREF_VCO>;
 			adi,jesd204-sysref-chan;
 		};
@@ -107,7 +107,7 @@
 			adi,extended-name = "ADC_SYSREF";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <1>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_SYSREF_VCO>;
 			adi,jesd204-sysref-chan;
 		};
@@ -117,7 +117,7 @@
 			adi,extended-name = "ADC_CLK_FMC";
 			adi,driver-mode = <DRIVER_MODE_LVDS>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <2>;
+			adi,channel-divider = <4>;
 			adi,signal-source = <SOURCE_VCO>;
 		};
 
@@ -175,6 +175,7 @@
 		jesd204-top-device = <1>; /* This is the TOP device */
 		jesd204-link-ids = <0>;
 		jesd204-inputs = <&axi_ad9152_core 1 0>;
+		//jesd204-ignore-errors;
 	};
 
 	adc0_ad9680: ad9680@2 {
@@ -200,6 +201,7 @@
 		jesd204-top-device = <0>; /* This is the TOP device */
 		jesd204-link-ids = <0>;
 		jesd204-inputs = <&axi_ad9680_core 0 0>;
+		//jesd204-ignore-errors;
 
 		adi,powerdown-mode = <AD9208_PDN_MODE_POWERDOWN>;
 
