@@ -1040,10 +1040,22 @@ static int ad9172_jesd204_link_enable(struct jesd204_dev *jdev,
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct ad9172_jesd204_priv *priv = jesd204_dev_priv(jdev);
 	struct ad9172_state *st = priv->st;
+	u8 dac_mask;
 	int ret;
 
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
 		 __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	if (st->jesd_dual_link_mode || st->interpolation == 1)
+		dac_mask = AD917X_DAC0 | AD917X_DAC1;
+	else
+		dac_mask = AD917X_DAC0;
+
+	ret = ad917x_nco_phase_align(&st->dac_h, dac_mask);
+	if (ret != 0) {
+		dev_err(dev, "Failed to arm NCO phase alignment (%d)\n", ret);
+		return ret;
+	}
 
 	ad917x_jesd_set_sysref_enable(&st->dac_h, !!st->jesd_subclass);
 
