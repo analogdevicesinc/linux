@@ -983,6 +983,49 @@ static const struct iio_chan_spec adf4382_channels[] = {
 	},
 };
 
+static int adf4382_parse_device(struct adf4382_state *st)
+{
+	u32 tmp;
+	int ret;
+
+	ret = device_property_read_u64(&st->spi->dev, "adi,power-up-frequency",
+				       &st->freq);
+	if (ret)
+		st->freq = ADF4382_RFOUT_DEFAULT;
+	
+	ret = device_property_read_u32(&st->spi->dev, "adi,bleed-word",
+				       &tmp);
+	if (ret)
+		st->bleed_word = 0;
+	else 
+		st->bleed_word = (u16)tmp;
+
+	ret = device_property_read_u32(&st->spi->dev, "adi,charge-pump-current",
+				       &tmp);
+	if (ret)
+		st->cp_i = ADF4382_CP_I_DEFAULT;
+	else 
+		st->cp_i = (u8)tmp;
+
+	ret = device_property_read_u32(&st->spi->dev, "adi,ref-divider",
+				       &tmp);
+	if ((ret) || (!tmp))
+		st->ref_div = ADF4382_REF_DIV_DEFAULT;
+	else
+		st->ref_div = (u8)tmp;
+
+	st->spi_3wire_en = device_property_read_bool(&st->spi->dev,
+						     "adi,spi-3wire-enable");
+	st->ref_doubler_en = device_property_read_bool(&st->spi->dev,
+						     "adi,ref-doubler-enable");
+
+	st->clkin = devm_clk_get(&st->spi->dev, "ref_clk");
+	if (IS_ERR(st->clkin))
+		return PTR_ERR(st->clkin);
+	
+	return 0;
+}
+
 static int adf4382_init(struct adf4382_state *st)
 {
 	int ret;
@@ -1046,27 +1089,6 @@ static void adf4382_clk_disable(void *data)
 	clk_disable_unprepare(data);
 }
 
-static void adf4382_clk_notifier_unreg(void *data)
-{
-	struct adf4382_state *st = data;
-
-	clk_notifier_unregister(st->clkin, &st->nb);
-}
-
-static long adf4382_clock_round_rate(struct clk_hw *hw, unsigned long rate,
-				     unsigned long *parent_rate)
-{
-	return rate;
-}
-
-static unsigned long adf4382_clock_recalc_rate(struct clk_hw *hw,
-					       unsigned long parent_rate)
-{
-	struct adf4382_state *st = container_of(hw, struct adf4382_state, clk_hw);
-
-	return to_ccf_scaled(st->freq, &st->scale);
-}
-
 static int adf4382_clock_set_rate(struct clk_hw *hw, unsigned long rate,
 				  unsigned long parent_rate)
 {
@@ -1079,6 +1101,27 @@ static int adf4382_clock_set_rate(struct clk_hw *hw, unsigned long rate,
 	st->freq = scaled_rate;
 
 	return adf4382_set_freq(st);
+}
+
+static void adf4382_clk_notifier_unreg(void *data)
+{
+	struct adf4382_state *st = data;
+
+	clk_notifier_unregister(st->clkin, &st->nb);
+}
+
+static unsigned long adf4382_clock_recalc_rate(struct clk_hw *hw,
+					       unsigned long parent_rate)
+{
+	struct adf4382_state *st = container_of(hw, struct adf4382_state, clk_hw);
+
+	return to_ccf_scaled(st->freq, &st->scale);
+}
+
+static long adf4382_clock_round_rate(struct clk_hw *hw, unsigned long rate,
+				     unsigned long *parent_rate)
+{
+	return rate;
 }
 
 static const struct clk_ops adf4382_clock_ops = {
@@ -1122,7 +1165,6 @@ static int adf4382_probe(struct spi_device *spi)
 	struct iio_dev *indio_dev;
 	struct regmap *regmap;
 	struct adf4382_state *st;
-	u32 tmp;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
@@ -1151,40 +1193,9 @@ static int adf4382_probe(struct spi_device *spi)
 		st->scale.div = 10;
 	}
 
-	ret = device_property_read_u64(&st->spi->dev, "adi,power-up-frequency",
-				       &st->freq);
+	ret = adf4382_parse_device(st);
 	if (ret)
-		st->freq = ADF4382_RFOUT_DEFAULT;
-	
-	ret = device_property_read_u32(&st->spi->dev, "adi,bleed-word",
-				       &tmp);
-	if (ret)
-		st->bleed_word = 0;
-	else 
-		st->bleed_word = (u16)tmp;
-
-	ret = device_property_read_u32(&st->spi->dev, "adi,charge-pump-current",
-				       &tmp);
-	if (ret)
-		st->cp_i = ADF4382_CP_I_DEFAULT;
-	else 
-		st->cp_i = (u8)tmp;
-
-	ret = device_property_read_u32(&st->spi->dev, "adi,ref-divider",
-				       &tmp);
-	if ((ret) || (!tmp))
-		st->ref_div = ADF4382_REF_DIV_DEFAULT;
-	else
-		st->ref_div = (u8)tmp;
-
-	st->spi_3wire_en = device_property_read_bool(&st->spi->dev,
-						     "adi,spi-3wire-enable");
-	st->ref_doubler_en = device_property_read_bool(&st->spi->dev,
-						     "adi,ref-doubler-enable");
-
-	st->clkin = devm_clk_get(&spi->dev, "ref_clk");
-	if (IS_ERR(st->clkin))
-		return PTR_ERR(st->clkin);
+		return ret;
 
 	ret = clk_prepare_enable(st->clkin);
 	if (ret)
