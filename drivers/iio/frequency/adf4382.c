@@ -449,6 +449,7 @@ struct adf4382_state {
 	bool			spi_3wire_en;
 	bool			ref_doubler_en;
 	u8			ref_div;
+	u16			bleed_word;
 };
 
 //TODO Rewrite using defines
@@ -663,10 +664,12 @@ int adf4382_set_freq(struct adf4382_state *st)
 	unsigned int pfd_freq_hz;
 	u32 frac2_word = 0;
 	u32 mod2_word = 0;
-	u8 dclk_div1 = 2;
+	u8 dclk_div1;
 	u32 frac1_word;
 	u8 clkout_div;
-	u8 div1 = 8;
+	u8 div1;
+	u8 int_mode;
+	u8 en_bleed;
 	u16 n_int;
 	u64 tmp;
 	u64 vco;
@@ -693,42 +696,18 @@ int adf4382_set_freq(struct adf4382_state *st)
 		return -EINVAL;
 	}
 
-	ret = regmap_update_bits(st->regmap, 0x11, ADF4382_CLKOUT_DIV_MSK,
-				 FIELD_PREP(ADF4382_CLKOUT_DIV_MSK, clkout_div));
-	if (ret)
-		return ret;
-
 	ret = adf4382_pll_fract_n_compute(st, pfd_freq_hz, &n_int, &frac1_word,
-					&frac2_word, &mod2_word);
+					  &frac2_word, &mod2_word);
 	if (ret)
 		return ret;
 
 	dev_info(&st->spi->dev,"n_int %u frac1_word %u frac2_word %u mod1_word %u mod2_word %u\n",
 		n_int, frac1_word, frac2_word, ADF4382_MOD1WORD, mod2_word);
 
-	if (frac1_word == 0 && frac2_word == 0) {
-		// uint16_t bleed_i;
-		// uint8_t cp_i;
-		// u8 tmpval;
+	if (frac1_word || frac2_word) {
+		int_mode = 0;
+		en_bleed = 1;
 
-		// regmap_read(st->regmap, 0x1f, tmpval);
-		// cp_i = tmpval & ADF4382_CP_I_MSK;
-		// regmap_read(st->regmap, 0x1d, tmpval);
-		// bleed_i = tmpval;
-		// regmap_read(st->regmap, 0x1e, tmpval);
-		// bleed_i |= (tmpval & ADF4382_BLEED_I_MSB_MSK) << 8;
-
-		ldwin_pw = 0;
-
-		ret = regmap_update_bits(st->regmap, 0x15, ADF4382_INT_MODE_MSK,
-					 0xff);
-		if (ret)
-			return ret;
-		ret = regmap_update_bits(st->regmap, 0x1f, ADF4382_EN_BLEED_MSK,
-					 0);
-		if (ret)
-			return ret;
-	} else {
 		if (pfd_freq_hz <= 40000000) {
 			ldwin_pw = 7;
 		} else if (pfd_freq_hz <= 50000000) {
@@ -744,18 +723,38 @@ int adf4382_set_freq(struct adf4382_state *st)
 				ldwin_pw = 2;
 			}
 		}
-		ret = regmap_update_bits(st->regmap, 0x15, ADF4382_INT_MODE_MSK,
-					 0);
-		if (ret)
-			return ret;
-		ret = regmap_update_bits(st->regmap, 0x1f, ADF4382_EN_BLEED_MSK,
-					 0xff);
-		if (ret)
-			return ret;
+	} else {
+		int_mode = 1;
+		en_bleed = 0;
+
+		tmp = DIV_ROUND_UP(st->bleed_word, st->cp_i * pfd_freq_hz);
+		if (tmp <= 85)
+			ldwin_pw = 0;
+		else
+			ldwin_pw = 1;
+		
 	}
 
 	ret = regmap_update_bits(st->regmap, 0x28, ADF4382_VAR_MOD_EN_MSK,
 				 frac2_word != 0 ? 0xff : 0);
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, 0x15, ADF4382_INT_MODE_MSK,
+				 FIELD_PREP(ADF4382_INT_MODE_MSK, int_mode));
+	if (ret)
+		return ret;
+
+	var = st->bleed_word & ADF4382_BLEED_I_LSB_MSK;
+	ret = regmap_write(st->regmap, 0x1D, var);
+	if (ret)
+		return ret;
+	var = (st->bleed_word >> 8) & ADF4382_BLEED_I_MSB_MSK;
+	ret = regmap_update_bits(st->regmap, 0x1E, ADF4382_BLEED_I_MSB_MSK, var);
+	if (ret)
+		return ret;
+	ret = regmap_update_bits(st->regmap, 0x1F, ADF4382_EN_BLEED_MSK,
+				 FIELD_PREP(ADF4382_EN_BLEED_MSK, en_bleed));
 	if (ret)
 		return ret;
 
@@ -802,6 +801,8 @@ int adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
+	dclk_div1 = 2;
+	div1 = 8;
 	if (pfd_freq_hz <= ADF4382_DCLK_DIV1_0_MAX) {
 		dclk_div1 = 0;
 		div1 = 1;
@@ -844,13 +845,18 @@ int adf4382_set_freq(struct adf4382_state *st)
 
 	// Set LD COUNT
 	ret = regmap_update_bits(st->regmap, 0x2c, ADF4382_LD_COUNT_OPWR_MSK,
-				 14);
+				 10);
 	if (ret)
 		return ret;
 
 	// Set LD COUNT
 	ret = regmap_update_bits(st->regmap, 0x2c, ADF4382_LDWIN_PW_MSK,
-				 ldwin_pw);
+				 FIELD_PREP(ADF4382_LDWIN_PW_MSK, ldwin_pw));
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, 0x11, ADF4382_CLKOUT_DIV_MSK,
+				 FIELD_PREP(ADF4382_CLKOUT_DIV_MSK, clkout_div));
 	if (ret)
 		return ret;
 
@@ -868,12 +874,6 @@ int adf4382_set_freq(struct adf4382_state *st)
 
 	var = n_int & ADF4382_N_INT_LSB_MSK;
 	ret = regmap_write(st->regmap, 0x10, var);
-	if (ret)
-		return ret;
-
-	// Work-around to reduce frequency gaps.
-	ret = regmap_update_bits(st->regmap, 0x35, ADF4382_M_VCO_BIAS_MSK,
-				 ADF4382_M_VCO_BIAS_POST_CAL_FIX);
 	if (ret)
 		return ret;
 
@@ -986,7 +986,8 @@ static int adf4382_init(struct adf4382_state *st)
 	st->ref_freq_hz = clk_get_rate(st->clkin);
 
 	ret = regmap_update_bits(st->regmap, 0x20, ADF4382_EN_RDBLR_MSK,
-				 st->ref_doubler_en);
+				 FIELD_PREP(ADF4382_EN_RDBLR_MSK,
+				 	    st->ref_doubler_en));
 	if (ret)
 		return ret;
 
@@ -1133,27 +1134,31 @@ static int adf4382_probe(struct spi_device *spi)
 	if (ret)
 		st->freq = ADF4382_RFOUT_DEFAULT;
 	
+	ret = device_property_read_u32(&st->spi->dev, "adi,bleed-word",
+				       &tmp);
+	if (ret)
+		st->bleed_word = 0;
+	else 
+		st->bleed_word = (u16)tmp;
+
 	ret = device_property_read_u32(&st->spi->dev, "adi,charge-pump-current",
-				      &tmp);
+				       &tmp);
 	if (ret)
 		st->cp_i = ADF4382_CP_I_DEFAULT;
 	else 
 		st->cp_i = (u8)tmp;
-	dev_info(&st->spi->dev, "cp_i = %d", st->cp_i);
 
 	ret = device_property_read_u32(&st->spi->dev, "adi,ref-divider",
-				      &tmp);
+				       &tmp);
 	if ((ret) || (!tmp))
 		st->ref_div = ADF4382_REF_DIV_DEFAULT;
 	else
 		st->ref_div = (u8)tmp;
-	dev_info(&st->spi->dev, "ref_div = %d", st->ref_div);
 
 	st->spi_3wire_en = device_property_read_bool(&st->spi->dev,
 						     "adi,spi-3wire-enable");
 	st->ref_doubler_en = device_property_read_bool(&st->spi->dev,
 						     "adi,ref-doubler-enable");
-	dev_info(&st->spi->dev, "ref_doubler_en = %d", st->ref_doubler_en);
 
 	st->clkin = devm_clk_get(&spi->dev, "ref_clk");
 	if (IS_ERR(st->clkin))
