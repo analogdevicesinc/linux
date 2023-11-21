@@ -95,7 +95,7 @@
 		clock-names = "conv";
 
 		adi,sys-clk-select = <XCVR_CPLL>;
-		adi,out-clk-select = <XCVR_REFCLK_DIV2>;
+		adi,out-clk-select = <XCVR_REFCLK>;
 		adi,use-lpm-enable;
 
 		#clock-cells = <1>;
@@ -104,6 +104,7 @@
 		/* jesd204-fsm support */
 		jesd204-device;
 		#jesd204-cells = <2>;
+		//adi,jesd204-fsm-delayed-start-ms = <5000>;
 	};
 
 	axi_ad9152_jesd: axi-jesd204-tx@44a90000 {
@@ -132,7 +133,7 @@
 		clock-names = "conv";
 
 		adi,sys-clk-select = <XCVR_QPLL>;
-		adi,out-clk-select = <XCVR_REFCLK_DIV2>;
+		adi,out-clk-select = <XCVR_REFCLK>;
 		adi,use-lpm-enable;
 
 		#clock-cells = <1>;
@@ -141,6 +142,7 @@
 		/* jesd204-fsm support */
 		jesd204-device;
 		#jesd204-cells = <2>;
+		jesd204-inputs = <&clk0_ad9528 1 0>;
 	};
 };
 
