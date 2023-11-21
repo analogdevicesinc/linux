@@ -218,6 +218,44 @@ int32_t adi_ad9081_device_boot_post_clock(adi_ad9081_device_t *device)
 	err = adi_ad9081_hal_reg_set(device, 0x2112, 0x00);
 	AD9081_ERROR_RETURN(err);
 
+	if (device->dev_info.prod_id == 0x9177) {
+		/* additional write, AD9177 API-681 */
+		err = adi_ad9081_hal_bf_set(device, REG_SPI_ENABLE_ADC_ADDR,
+						BF_SPI_EN_REG8_ADC0_INFO, 1);
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(device, REG_SPI_ENABLE_ADC_ADDR,
+						BF_SPI_EN_REG32_ADC0_INFO, 1);
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_reg_get(device, 0x1729, &i);
+		AD9081_ERROR_RETURN(err);
+		i &= 0xfe; /* clear spi_en_nvg_1p0 */
+		err = adi_ad9081_hal_reg_set(device, 0x1729, i);
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(device, REG_SPI_ENABLE_ADC_ADDR,
+						BF_SPI_EN_REG8_ADC0_INFO, 0);
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(device, REG_SPI_ENABLE_ADC_ADDR,
+						BF_SPI_EN_REG32_ADC0_INFO, 0);
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(device, REG_SPI_ENABLE_ADC_ADDR,
+						BF_SPI_EN_REG8_ADC1_INFO, 1);
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(device, REG_SPI_ENABLE_ADC_ADDR,
+						BF_SPI_EN_REG32_ADC1_INFO, 1);
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_reg_get(device, 0x1729, &i);
+		AD9081_ERROR_RETURN(err);
+		i &= 0xfe; /* clear spi_en_nvg_1p0 */
+		err = adi_ad9081_hal_reg_set(device, 0x1729, i);
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(device, REG_SPI_ENABLE_ADC_ADDR,
+						BF_SPI_EN_REG8_ADC1_INFO, 0);
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_hal_bf_set(device, REG_SPI_ENABLE_ADC_ADDR,
+						BF_SPI_EN_REG32_ADC1_INFO, 0);
+		AD9081_ERROR_RETURN(err);
+	}
+
 	return API_CMS_ERROR_OK;
 }
 
