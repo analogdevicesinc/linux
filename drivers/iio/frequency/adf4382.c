@@ -444,7 +444,6 @@ struct adf4382_state {
 	struct mutex		lock;
 	struct notifier_block	nb;
 	unsigned int		ref_freq_hz;
-	unsigned int		rfout_freq_hz;
 	u8			cp_i;
 	u64			freq;
 	bool			spi_3wire_en;
@@ -587,7 +586,7 @@ void adf4382_pfd_compute(struct adf4382_state *st, unsigned int *pfd_freq_hz)
 	return;
 }
 
-int adf4382_set_freq(struct adf4382_state *st, u64 freq)
+int adf4382_set_freq(struct adf4382_state *st)
 {
 	u32 channel_spacing = 1;
 	unsigned int pfd_freq_hz;
@@ -613,7 +612,7 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 
 	for (clkout_div = 0; clkout_div < 4; clkout_div++)
 	{
-		tmp = (1 << clkout_div) * freq;
+		tmp = (1 << clkout_div) * st->freq;
 		if (tmp < ADI_ADF4382_VCO_FREQ_MIN || tmp > ADI_ADF4382_VCO_FREQ_MAX)
 		{
 			continue;
@@ -634,7 +633,7 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 		return ret;
 
 
-	n_int = div_u64_rem(freq, pfd_freq_hz, &tmp_r);
+	n_int = div_u64_rem(st->freq, pfd_freq_hz, &tmp_r);
 	residue = (u64)tmp_r * ADI_ADF4382_MOD1WORD;
 	frac1_word = (u32)div_u64_rem(residue, pfd_freq_hz, &tmp_r);
 	residue = tmp_r;
@@ -710,7 +709,7 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 		} else if (pfd_freq_hz <= 200000000) {
 			ldwin_pw = 4;
 		} else if (pfd_freq_hz <= 250000000) {
-			if (freq >= 5000000000 && freq< 6400000000) {
+			if (st->freq >= 5000000000 && st->freq< 6400000000) {
 				ldwin_pw = 3;
 			} else {
 				ldwin_pw = 2;
@@ -849,8 +848,6 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 	if (ret)
 		return ret;
 
-	st->freq = freq;
-
 	return 0;
 }
 
@@ -873,8 +870,9 @@ static ssize_t adf4382_write(struct iio_dev *indio_dev, uintptr_t private,
 		ret = kstrtoull(buf, 10, &freq);
 		if (ret)
 			break;
+		st->freq = freq;
 
-		ret = adf4382_set_freq(st, freq);
+		ret = adf4382_set_freq(st);
 		break;
 	default:
 		ret = -EINVAL;
@@ -973,7 +971,7 @@ static int adf4382_init(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	return adf4382_set_freq(st, st->freq);
+	return adf4382_set_freq(st);
 }
 
 static int adf4382_freq_change(struct notifier_block *nb, unsigned long action, void *data)
@@ -1026,8 +1024,9 @@ static int adf4382_clock_set_rate(struct clk_hw *hw, unsigned long rate,
 	scaled_rate = from_ccf_scaled(rate, &st->scale);
 
 	st->ref_freq_hz = parent_rate;
+	st->freq = scaled_rate;
 
-	return adf4382_set_freq(st, scaled_rate);
+	return adf4382_set_freq(st);
 }
 
 static const struct clk_ops adf4382_clock_ops = {
