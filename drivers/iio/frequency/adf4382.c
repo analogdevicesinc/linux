@@ -424,7 +424,11 @@
 #define ADI_ADF4382_CHANNEL_SPACING_MAX       78125U
 #define ADI_ADF4382_DCLK_DIV1_0_MAX           160000000U   // 160MHz
 #define ADI_ADF4382_DCLK_DIV1_1_MAX           320000000U   // 320MHz
-#define ADI_ADF4382_M_VCO_BIAS_POST_CAL_FIX   0x3F
+#define ADI_ADF4382_M_VCO_BIAS_POST_CAL_FIX	0x3F
+
+#define ADF4382_CP_I_DEFAULT		   	15
+#define ADF4382_REF_DIV_DEFAULT		   	1
+#define ADF4382_RFOUT_DEFAULT		   	2305000000ULL
 
 enum {
 	ADF4382_FREQ,
@@ -434,16 +438,18 @@ struct adf4382_state {
 	struct spi_device	*spi;
 	struct regmap		*regmap;
 	struct clk		*clkin;
-	struct clk_hw	clk_hw;
-	struct clock_scale scale;
+	struct clk_hw		clk_hw;
+	struct clock_scale 	scale;
 	/* Protect against concurrent accesses to the device and data content */
 	struct mutex		lock;
 	struct notifier_block	nb;
-	unsigned int		pfd_freq_hz;
 	unsigned int		ref_freq_hz;
 	unsigned int		rfout_freq_hz;
+	u8			cp_i;
 	u64			freq;
-	bool		spi_3wire_en;
+	bool			spi_3wire_en;
+	bool			ref_doubler_en;
+	u8			ref_div;
 };
 
 //TODO Rewrite using defines
@@ -568,10 +574,23 @@ static const struct iio_info adf4382_info = {
 	.debugfs_reg_access = &adf4382_reg_access,
 };
 
+void adf4382_pfd_compute(struct adf4382_state *st, unsigned int *pfd_freq_hz)
+{
+	unsigned int tmp;
+
+	tmp = DIV_ROUND_CLOSEST(st->ref_freq_hz, st->ref_div);
+	if (st->ref_doubler_en)
+		tmp *= 2;
+
+	*pfd_freq_hz = tmp;
+	
+	return;
+}
+
 int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 {
 	u32 channel_spacing = 1;
-	u64 ref_pfd_ratio;
+	unsigned int pfd_freq_hz;
 	u32 tmp_r;
 	u32 frac2_word = 0;
 	u8 en_phase_resync;
@@ -579,12 +598,10 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 	u8 dclk_div1 = 2;
 	u64 residue;
 	u32 frac1_word;
-	u8 doubler = 1;
 	u8 clkout_div;
 	u32 mod2_max;
 	u32 mod2_tmp;
 	u8 div1 = 8;
-	u8 ref_div;
 	u16 n_int;
 	u64 tmp;
 	u64 vco;
@@ -592,20 +609,7 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 	u8 var;
 	u8 ldwin_pw;
 
-	ref_pfd_ratio = DIV_ROUND_UP(st->ref_freq_hz, st->pfd_freq_hz);
-
-	do {
-		ref_div = doubler * ref_pfd_ratio;
-	} while (ref_div > 63 && ++doubler <= 2);
-	if (ref_div > 63) {
-		dev_err(&st->spi->dev, "Divider exceeds max value");
-		return -EINVAL;
-	}
-
-	ret = regmap_update_bits(st->regmap, 0x20, ADF4382_EN_RDBLR_MSK,
-				 doubler);
-	if (ret)
-		return ret;
+	adf4382_pfd_compute(st, &pfd_freq_hz);
 
 	for (clkout_div = 0; clkout_div < 4; clkout_div++)
 	{
@@ -630,9 +634,9 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 		return ret;
 
 
-	n_int = div_u64_rem(freq, st->pfd_freq_hz, &tmp_r);
+	n_int = div_u64_rem(freq, pfd_freq_hz, &tmp_r);
 	residue = (u64)tmp_r * ADI_ADF4382_MOD1WORD;
-	frac1_word = (u32)div_u64_rem(residue, st->pfd_freq_hz, &tmp_r);
+	frac1_word = (u32)div_u64_rem(residue, pfd_freq_hz, &tmp_r);
 	residue = tmp_r;
 
 	if (residue > 0)
@@ -647,10 +651,10 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 			mod2_max = ADI_ADF4382_MOD2WORD_MAX;
 		do
 		{
-			mod2_tmp = DIV_ROUND_UP(st->pfd_freq_hz,
+			mod2_tmp = DIV_ROUND_UP(pfd_freq_hz,
 						 gcd(channel_spacing *
 						     ADI_ADF4382_MOD1WORD,
-						     st->pfd_freq_hz));
+						     pfd_freq_hz));
 			if (mod2_tmp > mod2_max)
 			{
 				channel_spacing *= 5;
@@ -667,7 +671,7 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 	            mod2_word *= DIV_ROUND_DOWN_ULL(mod2_max, mod2_word);
 	        }
 
-	        frac2_word = DIV_ROUND_CLOSEST_ULL(residue * mod2_word, st->pfd_freq_hz);
+	        frac2_word = DIV_ROUND_CLOSEST_ULL(residue * mod2_word, pfd_freq_hz);
 	}
 
 
@@ -697,15 +701,15 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 		if (ret)
 			return ret;
 	} else {
-		if (st->pfd_freq_hz <= 40000000) {
+		if (pfd_freq_hz <= 40000000) {
 			ldwin_pw = 7;
-		} else if (st->pfd_freq_hz <= 50000000) {
+		} else if (pfd_freq_hz <= 50000000) {
 			ldwin_pw = 6;
-		} else if (st->pfd_freq_hz <= 100000000) {
+		} else if (pfd_freq_hz <= 100000000) {
 			ldwin_pw = 5;
-		} else if (st->pfd_freq_hz <= 200000000) {
+		} else if (pfd_freq_hz <= 200000000) {
 			ldwin_pw = 4;
-		} else if (st->pfd_freq_hz <= 250000000) {
+		} else if (pfd_freq_hz <= 250000000) {
 			if (freq >= 5000000000 && freq< 6400000000) {
 				ldwin_pw = 3;
 			} else {
@@ -770,10 +774,10 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 	if (ret)
 		return ret;
 
-	if (st->pfd_freq_hz <= ADI_ADF4382_DCLK_DIV1_0_MAX) {
+	if (pfd_freq_hz <= ADI_ADF4382_DCLK_DIV1_0_MAX) {
 		dclk_div1 = 0;
 		div1 = 1;
-	} else if (st->pfd_freq_hz <= ADI_ADF4382_DCLK_DIV1_1_MAX) {
+	} else if (pfd_freq_hz <= ADI_ADF4382_DCLK_DIV1_1_MAX) {
 		dclk_div1 = 1;
 		div1 = 2;
 	}
@@ -804,7 +808,7 @@ int adf4382_set_freq(struct adf4382_state *st, u64 freq)
 		return ret;
 
 
-	var = DIV_ROUND_UP(div_u64(st->pfd_freq_hz, div1 * 400000) - 2, 4);
+	var = DIV_ROUND_UP(div_u64(pfd_freq_hz, div1 * 400000) - 2, 4);
 	var = clamp_t(u8, var, 0U, 255U);
 	ret = regmap_write(st->regmap, 0x3e, var);
 	if (ret)
@@ -953,7 +957,21 @@ static int adf4382_init(struct adf4382_state *st)
 		return ret;
 
 	st->ref_freq_hz = clk_get_rate(st->clkin);
-	st->pfd_freq_hz = st->ref_freq_hz;
+
+	ret = regmap_update_bits(st->regmap, 0x20, ADF4382_EN_RDBLR_MSK,
+				 st->ref_doubler_en);
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, 0x20, ADF4382_R_DIV_MSK,
+				 st->ref_div);
+	if (ret)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, 0x1f, ADF4382_CP_I_MSK,
+				 st->cp_i);
+	if (ret)
+		return ret;
 
 	return adf4382_set_freq(st, st->freq);
 }
@@ -1008,7 +1026,6 @@ static int adf4382_clock_set_rate(struct clk_hw *hw, unsigned long rate,
 	scaled_rate = from_ccf_scaled(rate, &st->scale);
 
 	st->ref_freq_hz = parent_rate;
-	st->pfd_freq_hz = parent_rate;
 
 	return adf4382_set_freq(st, scaled_rate);
 }
@@ -1054,6 +1071,7 @@ static int adf4382_probe(struct spi_device *spi)
 	struct iio_dev *indio_dev;
 	struct regmap *regmap;
 	struct adf4382_state *st;
+	u32 tmp;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
@@ -1082,10 +1100,32 @@ static int adf4382_probe(struct spi_device *spi)
 		st->scale.div = 10;
 	}
 
-	st->freq = 20000000000ULL;
-	device_property_read_u64(&st->spi->dev, "adi,power-up-frequency", &st->freq);
+	ret = device_property_read_u64(&st->spi->dev, "adi,power-up-frequency",
+				       &st->freq);
+	if (ret)
+		st->freq = ADF4382_RFOUT_DEFAULT;
+	
+	ret = device_property_read_u32(&st->spi->dev, "adi,charge-pump-current",
+				      &tmp);
+	if (ret)
+		st->cp_i = ADF4382_CP_I_DEFAULT;
+	else 
+		st->cp_i = (u8)tmp;
+	dev_info(&st->spi->dev, "cp_i = %d", st->cp_i);
 
-	st->spi_3wire_en = device_property_read_bool(&st->spi->dev, "adi,spi-3wire-enable");
+	ret = device_property_read_u32(&st->spi->dev, "adi,ref-divider",
+				      &tmp);
+	if ((ret) || (!tmp))
+		st->ref_div = ADF4382_REF_DIV_DEFAULT;
+	else
+		st->ref_div = (u8)tmp;
+	dev_info(&st->spi->dev, "ref_div = %d", st->ref_div);
+
+	st->spi_3wire_en = device_property_read_bool(&st->spi->dev,
+						     "adi,spi-3wire-enable");
+	st->ref_doubler_en = device_property_read_bool(&st->spi->dev,
+						     "adi,ref-doubler-enable");
+	dev_info(&st->spi->dev, "ref_doubler_en = %d", st->ref_doubler_en);
 
 	st->clkin = devm_clk_get(&spi->dev, "ref_clk");
 	if (IS_ERR(st->clkin))
