@@ -188,7 +188,7 @@ int ad9208_jesd_set_if_config(ad9208_handle_t *h,
 		return API_ERROR_INVALID_PARAM;
 	}
 	/*Calculate Lane Rate */
-	slr = (((jesd_param.jesd_M * jesd_param.jesd_N) * (10)) * fout);
+	slr = (((jesd_param.jesd_M * jesd_param.jesd_NP) * (10)) * fout);
 	slr = DIV_U64(DIV_U64(slr, 8), jesd_param.jesd_L);
 	slr_mbps = DIV_U64(slr, 1000000);
 
