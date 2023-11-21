@@ -1047,6 +1047,20 @@ int ad917x_nco_main_freq_get(ad917x_handle_t *h,
 				     ad917x_dac_select_t dac,
 				     int64_t *carrier_freq_hz);
 
+/**
+ * \brief  Phase align NCOs to SYSREF edge
+ *
+ * Reset datapath clock dividers on next SYSREF edge in order to phase align the NCOs.
+ * This will ensure phase coherency across main and channel data paths.
+ *
+ * \param h    Pointer to the AD917x device reference handle.
+ * \param dacs Main data path DAC NCO select. Bitmask of:
+ *             AD917X_DAC0 - DAC0 NCO select
+ *             AD917X_DAC1 - DAC1 NCO select
+ *
+ */
+int ad917x_nco_phase_align(ad917x_handle_t *h, u8 dacs);
+
 /** @} */
 
 #endif /* !__AD917XAPI_H__ */
