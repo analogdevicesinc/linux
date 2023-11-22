@@ -334,7 +334,7 @@
 	ldb_pll_pixel: ldb_pll_div7 {
 		#clock-cells = <0>;
 		compatible = "fixed-factor-clock";
-		clocks = <&scmi_clk IMX95_CLK_LDBPLL>;
+		clocks = <&lvds_csr IMX95_CLK_DISPMIX_LVDS_PLL_GATE>;
 		clock-div = <7>;
 		clock-mult = <1>;
 		clock-output-names = "ldb_pll_div7";
@@ -2034,7 +2034,7 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0x4 0x4>;
-				clocks = <&ldb_pll_pixel>;
+				clocks = <&lvds_csr IMX95_CLK_DISPMIX_LVDS_CH_GATE>;
 				clock-names = "pixel";
 				status = "disabled";
 
@@ -2282,7 +2282,7 @@
 				 <&scmi_clk IMX95_CLK_DISPAPB>,
 				 <&scmi_clk IMX95_CLK_DISPAXI>,
 				 <&scmi_clk IMX95_CLK_DISPOCRAM>,
-				 <&ldb_pll_pixel>;
+				 <&lvds_csr IMX95_CLK_DISPMIX_PIX_DI_GATE>;
 			clock-names = "pix", "apb", "axi", "ocram", "ldb";
 			power-domains = <&scmi_devpd IMX95_PD_DISPLAY>;
 			nxp,blk-ctrl = <&dispmix_csr>;
