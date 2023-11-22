@@ -1537,7 +1537,7 @@ static inline int get_power(struct device *pdev)
 static inline int get_power_ls(struct device *pdev)
 {
 #if gcdENABLE_FSCALE_VAL_ADJUST && defined(CONFIG_DEVFREQ_THERMAL)
-    int ret;
+    int ret, val;
 
     ret = driver_create_file(pdev->driver, &driver_attr_gpu3DMinClock);
 
@@ -1548,6 +1548,20 @@ static inline int get_power_ls(struct device *pdev)
 
     if (ret)
         dev_err(pdev, "create gpu3DClockScale attr failed (%d)\n", ret);
+
+    if (of_find_property(pdev->of_node, "#cooling-cells", NULL)) {
+        ret = of_property_read_u32(pdev->of_node, "throttle,max_state", &val);
+        if (ret) {
+            dev_err(pdev, "gpufreq: missing throttle max state\n");
+        } else {
+            gpu_cooling_device = device_gpu_cooling_register(pdev->of_node, val);
+            if (IS_ERR(gpu_cooling_device)) {
+                dev_err(pdev, "failed to register gpufreq cooling device\n");
+                device_gpu_cooling_unregister(gpu_cooling_device);
+            }
+        }
+    }
+    gcdENABLE_GPU_THERMAL = 1;
 #endif
 
     return 0;
@@ -1622,6 +1636,8 @@ static inline void put_power(void)
 static inline void put_power_ls(void)
 {
 #if gcdENABLE_FSCALE_VAL_ADJUST && defined(CONFIG_DEVFREQ_THERMAL)
+    gcdENABLE_GPU_THERMAL = 0;
+    device_gpu_cooling_unregister(gpu_cooling_device);
 
     driver_remove_file(pdevice->dev.driver, &driver_attr_gpu3DMinClock);
 
