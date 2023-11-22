@@ -708,9 +708,6 @@ int adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	dev_info(&st->spi->dev,"n_int %u frac1_word %u frac2_word %u mod1_word %u mod2_word %u\n",
-		n_int, frac1_word, frac2_word, ADF4382_MOD1WORD, mod2_word);
-
 	if (frac1_word || frac2_word) {
 		int_mode = 0;
 		en_bleed = 1;
@@ -1294,8 +1291,6 @@ static int adf4382_probe(struct spi_device *spi)
 	struct adf4382_state *st;
 	int ret;
 	
-	dev_err(&spi->dev, "Enter the void\n");
-
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
