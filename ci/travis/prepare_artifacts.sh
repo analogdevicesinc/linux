@@ -10,6 +10,7 @@ artifacts_structure() {
 	cd ${SOURCE_DIRECTORY}
 	mkdir ${timestamp}
 
+	echo "git_branch=${BUILD_SOURCEBRANCHNAME}" >> ${timestamp}/rpi_git_properties.txt
 	echo "git_sha=${GIT_SHA}" >> ${timestamp}/rpi_git_properties.txt
 	echo "git_sha_date=${GIT_SHA_DATE}" >> ${timestamp}/rpi_git_properties.txt
 
@@ -53,7 +54,7 @@ artifacts_swdownloads() {
 	scp -2 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o HostKeyAlgorithms=+ssh-dss \
 	    -i ${KEY_FILE} -r rpi_latest_boot.tar.gz ${DEST_SERVER}/${BUILD_SOURCEBRANCHNAME}
 
-	echo "boot_date=${timestamp}" >> rpi_archives_properties.txt
+	echo "git_branch=${BUILD_SOURCEBRANCHNAME}" >> rpi_archives_properties.txt
 	echo "https://swdownloads.analog.com/cse/linux_rpi/${BUILD_SOURCEBRANCHNAME}/rpi_modules.tar.gz" >> rpi_archives_properties.txt
 	echo "https://swdownloads.analog.com/cse/linux_rpi/${BUILD_SOURCEBRANCHNAME}/rpi_latest_boot.tar.gz" >> rpi_archives_properties.txt
 	echo "checksum_modules=${md5_modules}" >> rpi_archives_properties.txt
