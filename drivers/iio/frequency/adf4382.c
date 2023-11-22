@@ -1373,6 +1373,6 @@ static struct spi_driver adf4382_driver = {
 };
 module_spi_driver(adf4382_driver);
 
-MODULE_AUTHOR("Antoniu Miclaus <antoniu.miclaus@analog.com>");
+MODULE_AUTHOR("Ciprian Hegbeli <ciprian.hegbeli@analog.com>");
 MODULE_DESCRIPTION("Analog Devices ADF4382");
 MODULE_LICENSE("GPL v2");
