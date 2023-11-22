@@ -412,26 +412,32 @@
 /* ADF4382 REG0054 Map */
 #define ADF4382_ADC_ST_CNV_MSK			BIT(0)
 
-#define ADF4382_REF_MIN				10000000U    // 10MHz
-#define ADF4382_REF_MAX				5000000000U  // 5GHz
-#define ADF4382_VCO_FREQ_MIN			11000000000U // 11GHz
-#define ADF4382_VCO_FREQ_MAX			22000000000U // 22GHz
-#define ADF4382_RFOUT_MIN			687500000U   // 687.50MHz
-#define ADF4382_RFOUT_MAX			(ADI_ADF4382_VCO_FREQ_MAX)
-#define ADF4382_MOD1WORD			0x2000000U   // 2^25
-#define ADF4382_MOD2WORD_MAX			0xFFFFFFU    // 2^24 - 1
-#define ADF4382_PHASE_RESYNC_MOD2WORD_MAX	0x1FFFFU     // 2^17 - 1
+#define ADF4382_REF_MIN				10000000ULL	// 10MHz
+#define ADF4382_REF_MAX				5000000000ULL	// 5GHz
+#define ADF4382_VCO_FREQ_MIN			11000000000ULL	// 11GHz
+#define ADF4382_VCO_FREQ_MAX			22000000000ULL	// 22GHz
+#define ADF4382_RFOUT_MIN			687500000ULL	// 687.50MHz
+#define ADF4382_RFOUT_MAX			22000000000ULL	// 22GHz
+#define ADF4382_MOD1WORD			0x2000000ULL	// 2^25
+#define ADF4382_MOD2WORD_MAX			0xFFFFFFU	// 2^24 - 1
+#define ADF4382_PHASE_RESYNC_MOD2WORD_MAX	0x1FFFFU	// 2^17 - 1
 #define ADF4382_CHANNEL_SPACING_MAX		78125U
-#define ADF4382_DCLK_DIV1_0_MAX			160000000U   // 160MHz
-#define ADF4382_DCLK_DIV1_1_MAX			320000000U   // 320MHz
-#define ADF4382_M_VCO_BIAS_POST_CAL_FIX		0x3F
+#define ADF4382_DCLK_DIV1_0_MAX			160000000ULL	// 160MHz
+#define ADF4382_DCLK_DIV1_1_MAX			320000000ULL	// 320MHz
 #define ADF4382_MAX_OUT_PWR			15
 
 #define ADF4382_CP_I_DEFAULT		   	15
 #define ADF4382_REF_DIV_DEFAULT		   	1
 #define ADF4382_RFOUT_DEFAULT		   	2305000000ULL
 
+#define ADF4382_PHASE_BLEED_CNST		2044000
+#define ADF4382_VCO_CAL_CNT			202
+#define ADF4382_VCO_CAL_VTUNE			124
+#define ADF4382_VCO_CAL_ALC			250
+
 #define UA_TO_A					1000000
+#define S_TO_NS					1000000000ULL
+#define NS_TO_PS				1000
 
 enum {
 	ADF4382_FREQ,
@@ -454,6 +460,7 @@ struct adf4382_state {
 	bool			ref_doubler_en;
 	u8			ref_div;
 	u16			bleed_word;
+	int 			phase;
 };
 
 //Charge pump current values expressed in uA
@@ -830,15 +837,15 @@ int adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, 0x38, 124);
+	ret = regmap_write(st->regmap, 0x38, ADF4382_VCO_CAL_VTUNE);
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, 0x3a, 250);
+	ret = regmap_write(st->regmap, 0x3a, ADF4382_VCO_CAL_ALC);
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, 0x37, 202);
+	ret = regmap_write(st->regmap, 0x37, ADF4382_VCO_CAL_CNT);
 	if (ret)
 		return ret;
 
@@ -888,6 +895,78 @@ int adf4382_get_freq(struct adf4382_state *st, u64 *freq)
 {
 	*freq = st->freq;
 	return 0;
+}
+
+int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_ps)
+{
+	u8 phase_reg_value;
+	u32 pfd_freq_hz;
+	u64 rfout_deg_s;
+	u32 rfout_deg_ns;
+	u64 phase_bleed;
+	u32 phase_deg_ns;
+	u16 phase_deg;
+	u64 phase_ci;
+	int ret;
+
+
+	ret = regmap_update_bits(st->regmap, 0x1E, ADF4382_EN_PHASE_RESYNC_MSK,
+				 0xff);
+	if(ret)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, 0x1F, ADF4382_EN_BLEED_MSK, 0xff);
+	if(ret)
+		return ret;
+
+	ret = regmap_update_bits(st->regmap, 0x32, ADF4382_DEL_MODE_MSK, 0x0);
+	if(ret)
+		return ret;
+
+	// dev->phase_adj = phase_ps;
+
+	//Determine the output freq. in degrees/s
+	rfout_deg_s = 360 * st->freq;
+	//Convert it to degrees/ns
+	rfout_deg_ns = div64_u64(rfout_deg_s, S_TO_NS);
+	//Determine the phase adjustment in degrees relative the output freq.
+	phase_deg_ns = rfout_deg_ns * phase_ps;
+	//Convert it to degrees/ps
+	phase_deg = div_u64(phase_deg_ns, NS_TO_PS);
+
+	if(phase_deg > 360) {
+		dev_err(&st->spi->dev, "Phase Adjustment cannot exceed 360deg per Clock Period");
+		return EINVAL;
+	}
+
+	/*Phase adjustment can only be done if bleed is active, and a bleed
+	constant needs to be added*/
+	phase_bleed = phase_deg * ADF4382_PHASE_BLEED_CNST;
+	//The charge pump current will also need to be taken in to account
+	phase_ci = phase_bleed * adf4382_ci_ua[st->cp_i];
+	phase_ci = div_u64(phase_ci, UA_TO_A);
+
+	//Computation of the register value for the phase adjust
+	adf4382_pfd_compute(st, &pfd_freq_hz);
+	phase_reg_value = div_u64((phase_ci * pfd_freq_hz), (360 * st->freq));
+
+	if(phase_reg_value > 255)
+		phase_reg_value -= 255;
+
+	ret = regmap_write(st->regmap, 0x33, phase_reg_value);
+	if(ret)
+		return ret;
+
+	return regmap_update_bits(st->regmap, 0x34, ADF4382_PHASE_ADJ_MSK, 0xff);
+}
+
+int adf4382_set_phase_pol(struct adf4382_state *st, bool sub_pol)
+{
+	u8 pol;
+
+	pol = FIELD_PREP(ADF4382_PHASE_ADJ_POL_MSK, sub_pol);
+	return regmap_update_bits(st->regmap, 0x32, ADF4382_PHASE_ADJ_POL_MSK,
+				  pol);
 }
 
 int adf4382_set_out_power(struct adf4382_state *st, int ch, u8 pwr)
@@ -1048,6 +1127,9 @@ static int adf4382_read_raw(struct iio_dev *indio_dev,
 			return ret;
 
         	return IIO_VAL_INT;
+	case IIO_CHAN_INFO_PHASE:
+		*val = st->phase;
+        	return IIO_VAL_INT;
 	default:
 		return -EINVAL;
 	}
@@ -1060,10 +1142,22 @@ static int adf4382_write_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct adf4382_state *st = iio_priv(indio_dev);
+	int ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_ENABLE:
-		return adf4382_set_en_chan(st, chan->channel, (u8)val);	
+		return adf4382_set_en_chan(st, chan->channel, (u8)val);
+	case IIO_CHAN_INFO_PHASE:
+		st->phase = val;
+
+		if (val < 0)
+			ret = adf4382_set_phase_pol(st, true);
+		else
+			ret = adf4382_set_phase_pol(st, false);
+		if (ret)
+			return ret;
+
+		return adf4382_set_phase_adjust(st, abs(val));
 	default:
 		return -EINVAL;
 	}
@@ -1092,6 +1186,7 @@ static const struct iio_chan_spec adf4382_channels[] = {
 	{
 		.type = IIO_ALTVOLTAGE,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_PHASE),
 		.indexed = 1,
 		.output = 1,
 		.channel = 0,
@@ -1100,6 +1195,7 @@ static const struct iio_chan_spec adf4382_channels[] = {
 	{
 		.type = IIO_ALTVOLTAGE,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_ENABLE),
+		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_PHASE),
 		.indexed = 1,
 		.output = 1,
 		.channel = 1,
@@ -1308,6 +1404,7 @@ static int adf4382_probe(struct spi_device *spi)
 
 	st->regmap = regmap;
 	st->spi = spi;
+	st->phase = 0;
 
 	mutex_init(&st->lock);
 
