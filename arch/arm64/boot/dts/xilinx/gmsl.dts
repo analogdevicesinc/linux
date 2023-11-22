@@ -469,6 +469,77 @@
 				#size-cells = <0>;
 				compatible = "maxim,max96724";
 				reg = <0x27>;
+
+				gpio-controller;
+				#gpio-cells = <2>;
+
+				pinctrl-0 = <&mfp0_fsync0 &mfp1_fsync1 &mfp2_fsync2 &mfp3_fsync3>;
+				pinctrl-names = "default";
+				pins {
+					mfp0_fsync0: mfp0_fsync0 {
+						pins = "mfp0";
+						function = "gpio";
+						bias-pull-up;
+						input-enable;
+						maxim,jitter-compensation = <1>;
+						maxim,gmsl-tx-a = <1>;
+						maxim,gmsl-tx-id-a = <0>;
+						maxim,gmsl-tx-b = <1>;
+						maxim,gmsl-tx-id-b = <0>;
+						maxim,gmsl-tx-c = <1>;
+						maxim,gmsl-tx-id-c = <0>;
+						maxim,gmsl-tx-d = <1>;
+						maxim,gmsl-tx-id-d = <0>;
+					};
+
+					mfp1_fsync1: mfp1_fsync1 {
+						pins = "mfp1";
+						function = "gpio";
+						bias-pull-up;
+						input-enable;
+						maxim,jitter-compensation = <1>;
+						maxim,gmsl-tx-a = <1>;
+						maxim,gmsl-tx-id-a = <1>;
+						maxim,gmsl-tx-b = <1>;
+						maxim,gmsl-tx-id-b = <1>;
+						maxim,gmsl-tx-c = <1>;
+						maxim,gmsl-tx-id-c = <1>;
+						maxim,gmsl-tx-d = <1>;
+						maxim,gmsl-tx-id-d = <1>;
+					};
+
+					mfp2_fsync2: mfp2_fsync2 {
+						pins = "mfp2";
+						function = "gpio";
+						bias-pull-up;
+						input-enable;
+						maxim,jitter-compensation = <1>;
+						maxim,gmsl-tx-a = <1>;
+						maxim,gmsl-tx-id-a = <2>;
+						maxim,gmsl-tx-b = <1>;
+						maxim,gmsl-tx-id-b = <2>;
+						maxim,gmsl-tx-c = <1>;
+						maxim,gmsl-tx-id-c = <2>;
+						maxim,gmsl-tx-d = <1>;
+						maxim,gmsl-tx-id-d = <2>;
+					};
+
+					mfp3_fsync3: mfp3_fsync3 {
+						pins = "mfp3";
+						function = "gpio";
+						bias-pull-up;
+						input-enable;
+						maxim,jitter-compensation = <1>;
+						maxim,gmsl-tx-a = <1>;
+						maxim,gmsl-tx-id-a = <3>;
+						maxim,gmsl-tx-b = <1>;
+						maxim,gmsl-tx-id-b = <3>;
+						maxim,gmsl-tx-c = <1>;
+						maxim,gmsl-tx-id-c = <3>;
+						maxim,gmsl-tx-d = <1>;
+						maxim,gmsl-tx-id-d = <3>;
+					};
+				};
 			};
 		};
 	};
