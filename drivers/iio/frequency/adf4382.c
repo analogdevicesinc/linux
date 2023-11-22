@@ -436,7 +436,6 @@
 enum {
 	ADF4382_FREQ,
 	ADF4382_CH_PWR,
-	ADF4382_CH_EN,
 };
 
 struct adf4382_state {
@@ -580,23 +579,6 @@ static const struct regmap_config adf4382_regmap_config = {
 	.val_bits = 8,
 	.read_flag_mask = BIT(7),
 //	.max_register = 0x54,
-};
-
-static int adf4382_reg_access(struct iio_dev *indio_dev,
-			      unsigned int reg,
-			      unsigned int write_val,
-			      unsigned int *read_val)
-{
-	struct adf4382_state *st = iio_priv(indio_dev);
-
-	if (read_val)
-		return regmap_read(st->regmap, reg, read_val);
-
-	return regmap_write(st->regmap, reg, write_val);
-}
-
-static const struct iio_info adf4382_info = {
-	.debugfs_reg_access = &adf4382_reg_access,
 };
 
 void adf4382_pfd_compute(struct adf4382_state *st, unsigned int *pfd_freq_hz)
@@ -1001,9 +983,6 @@ static ssize_t adf4382_write(struct iio_dev *indio_dev, uintptr_t private,
 	case ADF4382_CH_PWR:
 		ret = adf4382_set_out_power(st, chan->channel, (u8)val);
 		break;
-	case ADF4382_CH_EN:
-		ret = adf4382_set_en_chan(st, chan->channel, (u8)val);
-		break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -1027,9 +1006,6 @@ static ssize_t adf4382_read(struct iio_dev *indio_dev, uintptr_t private,
 		break;
 	case ADF4382_CH_PWR:
 		ret = adf4382_get_out_power(st, chan->channel, (u8 *)&val);
-		break;
-	case ADF4382_CH_EN:
-		ret = adf4382_get_en_chan(st, chan->channel, (u8 *)&val);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1056,13 +1032,69 @@ static const struct iio_chan_spec_ext_info adf4382_ext_info[] = {
 	 */
 	_ADF4382_EXT_INFO("frequency", IIO_SHARED_BY_ALL, ADF4382_FREQ),
 	_ADF4382_EXT_INFO("output_power", IIO_SEPARATE, ADF4382_CH_PWR),
-	_ADF4382_EXT_INFO("en", IIO_SEPARATE, ADF4382_CH_EN),
 	{ },
+};
+
+static int adf4382_read_raw(struct iio_dev *indio_dev, 
+			    struct iio_chan_spec const *chan,
+			    int *val,
+			    int *val2,
+			    long mask)
+{
+	struct adf4382_state *st = iio_priv(indio_dev);
+	int ret;
+
+	switch (mask) {
+	case IIO_CHAN_INFO_ENABLE:
+		ret = adf4382_get_en_chan(st, chan->channel, (u8 *)val);
+		if (ret)
+			return ret;
+
+        	return IIO_VAL_INT;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int adf4382_write_raw(struct iio_dev *indio_dev, 
+			    struct iio_chan_spec const *chan,
+			    int val,
+			    int val2,
+			    long mask)
+{
+	struct adf4382_state *st = iio_priv(indio_dev);
+
+	switch (mask) {
+	case IIO_CHAN_INFO_ENABLE:
+		return adf4382_set_en_chan(st, chan->channel, (u8)val);	
+	default:
+		return -EINVAL;
+	}
+}
+
+static int adf4382_reg_access(struct iio_dev *indio_dev,
+			      unsigned int reg,
+			      unsigned int write_val,
+			      unsigned int *read_val)
+{
+	struct adf4382_state *st = iio_priv(indio_dev);
+
+	if (read_val)
+		return regmap_read(st->regmap, reg, read_val);
+
+	return regmap_write(st->regmap, reg, write_val);
+}
+
+static const struct iio_info adf4382_info = {
+	.read_raw = &adf4382_read_raw,
+	.write_raw = &adf4382_write_raw,
+	.debugfs_reg_access = &adf4382_reg_access,
 };
 
 static const struct iio_chan_spec adf4382_channels[] = {
 	{
 		.type = IIO_ALTVOLTAGE,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_ENABLE),
 		.indexed = 1,
 		.output = 1,
 		.channel = 0,
@@ -1070,6 +1102,7 @@ static const struct iio_chan_spec adf4382_channels[] = {
 	},
 	{
 		.type = IIO_ALTVOLTAGE,
+		.info_mask_separate = BIT(IIO_CHAN_INFO_ENABLE),
 		.indexed = 1,
 		.output = 1,
 		.channel = 1,
@@ -1260,6 +1293,8 @@ static int adf4382_probe(struct spi_device *spi)
 	struct regmap *regmap;
 	struct adf4382_state *st;
 	int ret;
+	
+	dev_err(&spi->dev, "Enter the void\n");
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
