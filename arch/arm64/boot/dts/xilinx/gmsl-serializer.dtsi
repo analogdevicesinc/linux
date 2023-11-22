@@ -92,9 +92,26 @@ SER_LABEL: gmsl-serializer@SER_HEX_REG {
 		};
 	};
 
+#define SER_MFP0_WP_LABEL CONCAT(SER_LABEL, _mfp0)
+#define SER_MFP3_FSYNC_LABEL CONCAT(SER_LABEL, _mfp3)
 #define SER_MFP4_RCLK_LABEL CONCAT(SER_LABEL, _mfp4_rclk)
 
 	pins {
+		SER_MFP0_WP_LABEL: SER_MFP0_WP_LABEL {
+			pins = "mfp0";
+			function = "gpio";
+			output-low;
+		};
+
+		SER_MFP3_FSYNC_LABEL: SER_MFP3_FSYNC_LABEL {
+			pins = "mfp3";
+			function = "gpio";
+			bias-pull-up;
+			output-enable;
+			maxim,gmsl-rx = <1>;
+			maxim,gmsl-rx-id = <3>;
+		};
+
 		SER_MFP4_RCLK_LABEL: SER_MFP4_RCLK_LABEL {
 			pins = "mfp4";
 			function = "rclkout";
@@ -113,5 +130,6 @@ SER_LABEL: gmsl-serializer@SER_HEX_REG {
 #undef SER_OUT_REMOTE_LABEL
 #undef SER_IN_REMOTE_LABEL
 #undef SER_MFP0_WP_LABEL
+#undef SER_MFP3_FSYNC_LABEL
 #undef SER_MFP4_RCLK_LABEL
 #undef SER_I2C_ADDR_POLL_0
