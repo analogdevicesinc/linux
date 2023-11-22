@@ -66,6 +66,7 @@
 				exit-latency-us = <700>;
 				min-residency-us = <2700>;
 				wakeup-latency-us = <1500>;
+				status = "disabled";
 			};
 		};
 
