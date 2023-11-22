@@ -278,6 +278,8 @@ dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-it6263-lvds0.dtb
 
 imx95-19x19-evk-it6263-lvds1-dtbs := imx95-19x19-evk.dtb imx95-19x19-evk-it6263-lvds1.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-it6263-lvds1.dtb
+imx95-19x19-evk-cs42888-dtbs := imx95-19x19-evk.dtb imx95-19x19-evk-cs42888.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-cs42888.dtb
 
 imx95-19x19-evk-it6263-lvds-two-disp-dtbs := imx95-19x19-evk.dtb imx95-19x19-evk-it6263-lvds0.dtbo imx95-19x19-evk-it6263-lvds1.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-it6263-lvds-two-disp.dtb
