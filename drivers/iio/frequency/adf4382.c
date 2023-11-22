@@ -305,6 +305,7 @@
 #define ADF4382_SPARE_3D_MSK			BIT(7)
 #define ADF4382_SYNC_SP_DB_MSK			BIT(6)
 #define ADF4382_CMOS_OV_MSK			BIT(5)
+#define ADF4382_CMOS_OV(x)			FIELD_PREP(ADF4382_CMOS_OV_MSK, x)
 #define ADF4382_READ_MODE_MSK			BIT(4)
 #define ADF4382_CNTR_DIV_WORD_MSB_MSK		GENMASK(3, 0)
 
@@ -461,6 +462,7 @@ struct adf4382_state {
 	u8			ref_div;
 	u16			bleed_word;
 	int 			phase;
+	bool			cmos_1v8;
 };
 
 //Charge pump current values expressed in uA
@@ -533,7 +535,6 @@ static const struct reg_sequence adf4382_reg_default[] = {
 	{ 0x040, 0x00 },
 	{ 0x03f, 0x82 },
 	{ 0x03e, 0x4E },
-	{ 0x03d, 0x00 },
 	{ 0x03c, 0x00 },
 	{ 0x03b, 0x00 },
 	{ 0x03a, 0xFA },
@@ -1238,6 +1239,7 @@ static int adf4382_parse_device(struct adf4382_state *st)
 						     "adi,spi-3wire-enable");
 	st->ref_doubler_en = device_property_read_bool(&st->spi->dev,
 						     "adi,ref-doubler-enable");
+	st->cmos_1v8 = device_property_read_bool(&st->spi->dev, "adi,cmos-1v8");
 
 	st->clkin = devm_clk_get(&st->spi->dev, "ref_clk");
 	if (IS_ERR(st->clkin))
@@ -1260,6 +1262,10 @@ static int adf4382_init(struct adf4382_state *st)
 
 	ret = regmap_write(st->regmap, 0x00,
 				 ADF4382_SDO_ACT(en) | ADF4382_SDO_ACT_R(en));
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_write(st->regmap, 0x3D, ADF4382_CMOS_OV(st->cmos_1v8));
 	if (ret < 0)
 		return ret;
 
