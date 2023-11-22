@@ -193,7 +193,8 @@
 					trip = <&core_cluster_alert>;
 					cooling-device =
 						<&cpu0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
-						<&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+						<&cpu1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&gpu 0 1>;
 				};
 			};
 		};
@@ -896,7 +897,7 @@
 		};
 */
 
-		gpu@f0c0000 {
+		gpu: gpu@f0c0000 {
 			compatible = "fsl,ls1028a-gpu";
 			reg = <0x0 0x0f0c0000 0x0 0x10000>,
 				<0x0 0x80000000 0x0 0x80000000>,
@@ -904,6 +905,9 @@
 			reg-names = "base", "phys_baseaddr",
 				"contiguous_mem";
 			interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH>;
+
+			throttle,max_state = <1>;
+			#cooling-cells = <2>;
 		};
 
 		sai1: audio-controller@f100000 {
