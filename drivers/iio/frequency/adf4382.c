@@ -487,7 +487,6 @@ static const int adf4382_ci_ua[] = {
 
 //TODO Rewrite using defines
 static const struct reg_sequence adf4382_reg_default[] = {
-	{ 0x000, 0x18 },
 	{ 0x00a, 0xA5 },
 	{ 0x200, 0x00 },
 	{ 0x201, 0x00 },
@@ -798,7 +797,8 @@ int adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 	var =  (frac1_word >> 24)  & ADF4382_FRAC1WORD_BIT25_MSK;
-	ret = regmap_update_bits(st->regmap, 0x15, ADF4382_FRAC1WORD_BIT25_MSK, var);
+	ret = regmap_update_bits(st->regmap, 0x15, ADF4382_FRAC1WORD_BIT25_MSK,
+				 var);
 	if (ret)
 		return ret;
 
@@ -1295,7 +1295,8 @@ static int adf4382_init(struct adf4382_state *st)
 	return adf4382_set_freq(st);
 }
 
-static int adf4382_freq_change(struct notifier_block *nb, unsigned long action, void *data)
+static int adf4382_freq_change(struct notifier_block *nb, unsigned long action,
+			       void *data)
 {
 	struct adf4382_state *st = container_of(nb, struct adf4382_state, nb);
 	int ret;
