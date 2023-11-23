@@ -64,7 +64,7 @@ properties:
 
   adi,ref-divider:
     description: |
-      Input divider of the refernece frequency, cannot be lower then 1 or
+      Input divider of the reference frequency, cannot be lower then 1 or
       higher then 63.
     allOf:
       - $ref: /schemas/types.yaml#/definitions/uint32
@@ -75,13 +75,13 @@ properties:
   
   adi,ref-doubler-enable:
     description: |
-      Enables the doubling of the refernce clock.
+      Enables the doubling of the reference clock.
     type: boolean
     maxItems: 1
 
   adi,bleed-word:
     description: |
-      A small promagrable constant charge pump current, known as bleed current,
+      A small programmable constant charge pump current, known as bleed current,
       can be used to optimize the phase noise and fractional spurious signals
       in fractional mode.
     allOf:
