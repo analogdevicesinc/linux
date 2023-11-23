@@ -243,6 +243,51 @@ int ad917x_jesd_get_cfg_param(ad917x_handle_t *h,
 	return API_ERROR_OK;
 }
 
+int ad917x_jesd_oneshot_sync(ad917x_handle_t *h, u8 err_window)
+{
+	int err;
+	u8 mode;
+
+	if (!h)
+		return API_ERROR_INVALID_HANDLE_PTR;
+
+	err = ad917x_register_write(h, AD917X_SYSREF_ERR_WINDOW_REG,
+				    AD917X_SYSREF_ERR_WIN(err_window));
+	if (err)
+		return err;
+
+	err = ad917x_register_read(h, AD917X_SYSREF_MODE_REG, &mode);
+	if (err)
+		return err;
+
+	if (mode & AD917X_SYSREF_MODE_ONESHOT) {
+		err = ad917x_register_write(h, AD917X_SYSREF_MODE_REG,
+					    mode & ~AD917X_SYSREF_MODE_ONESHOT);
+		if (err)
+			return err;
+	}
+
+	return ad917x_register_write(h, AD917X_SYSREF_MODE_REG,
+				     mode | AD917X_SYSREF_MODE_ONESHOT);
+}
+
+int ad917x_jesd_get_sync_rotation_done(ad917x_handle_t *h, bool *done)
+{
+	int err;
+	u8 mode;
+
+	if (!h)
+		return API_ERROR_INVALID_HANDLE_PTR;
+
+	err = ad917x_register_read(h, AD917X_SYSREF_MODE_REG, &mode);
+	if (err)
+		return err;
+
+	*done = (mode & AD917X_SYNC_ROTATION_DONE);
+
+	return 0;
+}
+
 int ad917x_jesd_set_sysref_enable(ad917x_handle_t *h, uint8_t en)
 {
 	int err;
