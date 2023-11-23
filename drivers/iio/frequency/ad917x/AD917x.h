@@ -473,6 +473,27 @@ int ad917x_jesd_set_sysref_enable(ad917x_handle_t *h, uint8_t en);
  */
 int ad917x_jesd_get_sysref_enable(ad917x_handle_t *h, uint8_t *en);
 
+/**
+ * \brief Configure SYSREF for oneshot sync
+ *
+ * Configure SYSREF oneshot sequence to align LMFC on next SYSREF
+ * rising edge signal.
+ *
+ * \param h          Pointer to the AD917X device reference handle.
+ * \param err_window Error window in DAC clock cycles for SYSREF
+ *                   jitter.
+ */
+int ad917x_jesd_oneshot_sync(ad917x_handle_t *h, u8 err_window);
+
+/**
+ * \brief Check if sync rotation has happened
+ *
+ * Checks if SYSREF to LMFC synchronization logic has completed.
+ *
+ * \param h     Pointer to the AD917X device reference handle.
+ * \param *done Return value indicating if rotation has completed.
+ */
+int ad917x_jesd_get_sync_rotation_done(ad917x_handle_t *h, bool *done);
 
 /**
  * \brief Set the LMFC Delay and Variance for the JESD Links
