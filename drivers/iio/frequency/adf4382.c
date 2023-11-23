@@ -970,7 +970,7 @@ int adf4382_set_phase_pol(struct adf4382_state *st, bool sub_pol)
 				  pol);
 }
 
-int adf4382_set_out_power(struct adf4382_state *st, int ch, u8 pwr)
+int adf4382_set_out_power(struct adf4382_state *st, int ch, int pwr)
 {
 	u8 tmp;
 
@@ -988,7 +988,7 @@ int adf4382_set_out_power(struct adf4382_state *st, int ch, u8 pwr)
 
 };
 
-int adf4382_get_out_power(struct adf4382_state *st, int ch, u8 *pwr)
+int adf4382_get_out_power(struct adf4382_state *st, int ch, int *pwr)
 {
 	unsigned int tmp;
 	int ret;
@@ -1005,7 +1005,7 @@ int adf4382_get_out_power(struct adf4382_state *st, int ch, u8 *pwr)
 	return 0;
 }
 
-int adf4382_set_en_chan(struct adf4382_state *st, int ch, u8 en)
+int adf4382_set_en_chan(struct adf4382_state *st, int ch, int en)
 {
 	u8 enable;
 
@@ -1021,7 +1021,7 @@ int adf4382_set_en_chan(struct adf4382_state *st, int ch, u8 en)
 				  enable);
 }
 
-int adf4382_get_en_chan(struct adf4382_state *st, int ch, u8 *en)
+int adf4382_get_en_chan(struct adf4382_state *st, int ch, int *en)
 {
 	int enable;
 
@@ -1058,7 +1058,7 @@ static ssize_t adf4382_write(struct iio_dev *indio_dev, uintptr_t private,
 		ret = adf4382_set_freq(st);
 		break;
 	case ADF4382_CH_PWR:
-		ret = adf4382_set_out_power(st, chan->channel, (u8)val);
+		ret = adf4382_set_out_power(st, chan->channel, val);
 		break;
 	default:
 		ret = -EINVAL;
@@ -1074,23 +1074,24 @@ static ssize_t adf4382_read(struct iio_dev *indio_dev, uintptr_t private,
 			    const struct iio_chan_spec *chan, char *buf)
 {
 	struct adf4382_state *st = iio_priv(indio_dev);
-	u64 val = 0;
+	u64 val_u64 = 0;
+	int val_int = 0;
 	int ret;
 
 	switch ((u32)private) {
 	case ADF4382_FREQ:
-		ret = adf4382_get_freq(st, &val);
-		break;
+		ret = adf4382_get_freq(st, &val_u64);
+		if (ret)
+			return ret;
+		return sysfs_emit(buf, "%llu\n", val_u64);
 	case ADF4382_CH_PWR:
-		ret = adf4382_get_out_power(st, chan->channel, (u8 *)&val);
-		break;
+		ret = adf4382_get_out_power(st, chan->channel, &val_int);
+		if (ret)
+			return ret;
+		return sysfs_emit(buf, "%d\n", val_int);
 	default:
-		ret = -EINVAL;
-		val = 0;
-		break;
+		return -EINVAL;
 	}
-
-	return ret ?: sysfs_emit(buf, "%llu\n", val);
 }
 
 #define _ADF4382_EXT_INFO(_name, _shared, _ident) { \
@@ -1123,10 +1124,9 @@ static int adf4382_read_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_ENABLE:
-		ret = adf4382_get_en_chan(st, chan->channel, (u8 *)val);
+		ret = adf4382_get_en_chan(st, chan->channel, val);
 		if (ret)
 			return ret;
-
         	return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
 		*val = st->phase;
@@ -1147,7 +1147,7 @@ static int adf4382_write_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_ENABLE:
-		return adf4382_set_en_chan(st, chan->channel, (u8)val);
+		return adf4382_set_en_chan(st, chan->channel, val);
 	case IIO_CHAN_INFO_PHASE:
 		st->phase = val;
 
