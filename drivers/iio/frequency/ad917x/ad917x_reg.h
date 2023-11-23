@@ -47,6 +47,14 @@ int ad917x_register_read_block(ad917x_handle_t *h,
 #define AD917X_MAINDAC_PAGE_0         BIT(6)
 #define AD917X_MAINDAC_PAGE_1         BIT(7)
 
+#define AD917X_SYSREF_ERR_WINDOW_REG  0x039
+#define AD917X_SYSREF_ERR_WIN(x)      (((x) & 0x7F) << 0)
+
+#define AD917X_SYSREF_MODE_REG        0x03A
+#define AD917X_SYNC_ROTATION_DONE     BIT(4)
+#define AD917X_SYSREF_MODE_ONESHOT    BIT(1)
+#define AD917X_SYSREF_MODE_CONTINUOUS BIT(0)
+
 #define AD917X_SYSREF_ROTATION_REG    0x03B
 #define AD917X_SYNC_LOGIC_EN          BIT(7)
 #define AD917X_SYNC_RSV_EN            BIT(6)
