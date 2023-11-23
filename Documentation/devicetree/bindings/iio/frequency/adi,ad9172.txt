@@ -33,6 +33,10 @@ Optional properties:
 	- reset-gpio: a GPIO spec for the reset pin.
 	- txen0-gpio: a GPIO spec for the TXEN0 pin.
 	- txen1-gpio: a GPIO spec for the TXEN1 pin.
+	- adi,lmfc-delay: Delay from the LMFC to the LMFC Rx in units of
+		PCLK cycles. Set for both links.
+	- adi,lmfc-var-delay: Variable delay buffer in units of PCLK
+		cycles. Set for both links.
 
 
 Example:
