@@ -93,7 +93,7 @@ SER_LABEL: gmsl-serializer@SER_HEX_REG {
 	};
 
 #define SER_MFP0_WP_LABEL CONCAT(SER_LABEL, _mfp0)
-#define SER_MFP3_FSYNC_LABEL CONCAT(SER_LABEL, _mfp3)
+#define SER_MFP3_FSYNC_LABEL CONCAT(SER_LABEL, _mfp3_fsync)
 #define SER_MFP4_RCLK_LABEL CONCAT(SER_LABEL, _mfp4_rclk)
 
 	pins {

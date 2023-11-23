@@ -5,6 +5,7 @@
 #ifdef ISX021_INDEX
 #define ISX021_SER_INDEX  ISX021_INDEX
 #define ISX021_SER_LABEL  CONCAT(serializer_, ISX021_SER_INDEX)
+#define ISX021_FSYNC_LABEL CONCAT(ISX021_SER_LABEL, _mfp3_fsync)
 #define ISX021_RCLK_LABEL CONCAT(ISX021_SER_LABEL, _mfp4_rclk)
 #define ISX021_OUT_LABEL CONCAT(cam_out, ISX021_INDEX)
 #define ISX021_IN_LABEL CONCAT(ser_in, ISX021_INDEX)
@@ -12,6 +13,10 @@
 #endif
 
 #if !defined(ISX021_SER_LABEL)
+#error
+#endif
+
+#if !defined(ISX021_FSYNC_LABEL)
 #error
 #endif
 
@@ -39,7 +44,7 @@ ISX021_LABEL: isx021@ISX021_HEX_REG {
 	clocks = <&ov_clk_12M>;
 	clock-names = "xclk";
 	dvdd-supply = <&ov_1_5V>;
-	pinctrl-0 = <&ISX021_RCLK_LABEL>;
+	pinctrl-0 = <&ISX021_RCLK_LABEL &ISX021_FSYNC_LABEL>;
 	pinctrl-names = "default";
 	reset-gpios = <&ISX021_SER_LABEL 8 GPIO_ACTIVE_LOW>;
 	ports {
@@ -61,6 +66,7 @@ ISX021_LABEL: isx021@ISX021_HEX_REG {
 #undef ISX021_INDEX
 #undef Ox03A_SER_INDEX
 #undef ISX021_SER_LABEL
+#undef ISX021_FSYNC_LABEL
 #undef ISX021_RCLK_LABEL
 #undef ISX021_LABEL
 #undef ISX021_OUT_LABEL
