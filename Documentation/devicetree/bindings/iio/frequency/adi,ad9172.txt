@@ -28,6 +28,8 @@ Optional properties:
 		SYNCOUTB signal, default is CMOS.
 	- adi,sysref-coupling-dc-enable: Enables SYSREF signal DC coupling,
 		default is AC coupling.
+	- adi,sysref-error-window: Amount of jitter allowed on the sysref
+		input pins. Unit is in DAC clock cycles.
 	- reset-gpio: a GPIO spec for the reset pin.
 	- txen0-gpio: a GPIO spec for the TXEN0 pin.
 	- txen1-gpio: a GPIO spec for the TXEN1 pin.
