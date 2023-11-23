@@ -195,7 +195,7 @@
 
 /* ADF4382 REG002A Map */
 #define ADF4382_FN_DBL_MSK			BIT(7)
-#define ADF4382_PD_NDIV_TL_MSK	BIT(6)	
+#define ADF4382_PD_NDIV_TL_MSK	BIT(6)
 #define ADF4382_CLKOUT_BST_MSK			BIT(5)
 #define ADF4382_PD_SYNC_MSK			BIT(4)
 #define ADF4382_PD_CLK_MSK			BIT(3)
@@ -427,9 +427,9 @@
 #define ADF4382_DCLK_DIV1_1_MAX			320000000ULL	// 320MHz
 #define ADF4382_MAX_OUT_PWR			15
 
-#define ADF4382_CP_I_DEFAULT		   	15
-#define ADF4382_REF_DIV_DEFAULT		   	1
-#define ADF4382_RFOUT_DEFAULT		   	2305000000ULL
+#define ADF4382_CP_I_DEFAULT			15
+#define ADF4382_REF_DIV_DEFAULT			1
+#define ADF4382_RFOUT_DEFAULT			2305000000ULL
 
 #define ADF4382_PHASE_BLEED_CNST		2044000
 #define ADF4382_VCO_CAL_CNT			202
@@ -450,7 +450,7 @@ struct adf4382_state {
 	struct regmap		*regmap;
 	struct clk		*clkin;
 	struct clk_hw		clk_hw;
-	struct clock_scale 	scale;
+	struct clock_scale	scale;
 	/* Protect against concurrent accesses to the device and data content */
 	struct mutex		lock;
 	struct notifier_block	nb;
@@ -461,7 +461,7 @@ struct adf4382_state {
 	bool			ref_doubler_en;
 	u8			ref_div;
 	u16			bleed_word;
-	int 			phase;
+	int			phase;
 	bool			cmos_3v3;
 };
 
@@ -597,7 +597,7 @@ void adf4382_pfd_compute(struct adf4382_state *st, unsigned int *pfd_freq_hz)
 		tmp *= 2;
 
 	*pfd_freq_hz = tmp;
-	
+
 	return;
 }
 
@@ -745,7 +745,7 @@ int adf4382_set_freq(struct adf4382_state *st)
 			ldwin_pw = 0;
 		else
 			ldwin_pw = 1;
-		
+
 	}
 
 	ret = regmap_update_bits(st->regmap, 0x28, ADF4382_VAR_MOD_EN_MSK,
@@ -1001,7 +1001,7 @@ int adf4382_get_out_power(struct adf4382_state *st, int ch, int *pwr)
 		*pwr = FIELD_GET(ADF4382_CLK1_OPWR_MSK, tmp);
 	else
 		*pwr = FIELD_GET(ADF4382_CLK2_OPWR_MSK, tmp);
-	
+
 	return 0;
 }
 
@@ -1033,10 +1033,10 @@ int adf4382_get_en_chan(struct adf4382_state *st, int ch, int *en)
 					  ADF4382_PD_CLKOUT2_MSK);
 	if (enable < 0)
 		return enable;
-	
+
 	*en = !enable;
 	return 0;
-	
+
 }
 
 static ssize_t adf4382_write(struct iio_dev *indio_dev, uintptr_t private,
@@ -1113,7 +1113,7 @@ static const struct iio_chan_spec_ext_info adf4382_ext_info[] = {
 	{ },
 };
 
-static int adf4382_read_raw(struct iio_dev *indio_dev, 
+static int adf4382_read_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan,
 			    int *val,
 			    int *val2,
@@ -1127,16 +1127,16 @@ static int adf4382_read_raw(struct iio_dev *indio_dev,
 		ret = adf4382_get_en_chan(st, chan->channel, val);
 		if (ret)
 			return ret;
-        	return IIO_VAL_INT;
+		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
 		*val = st->phase;
-        	return IIO_VAL_INT;
+		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
 	}
 }
 
-static int adf4382_write_raw(struct iio_dev *indio_dev, 
+static int adf4382_write_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan,
 			    int val,
 			    int val2,
@@ -1213,19 +1213,19 @@ static int adf4382_parse_device(struct adf4382_state *st)
 				       &st->freq);
 	if (ret)
 		st->freq = ADF4382_RFOUT_DEFAULT;
-	
+
 	ret = device_property_read_u32(&st->spi->dev, "adi,bleed-word",
 				       &tmp);
 	if (ret)
 		st->bleed_word = 0;
-	else 
+	else
 		st->bleed_word = (u16)tmp;
 
 	ret = device_property_read_u32(&st->spi->dev, "adi,charge-pump-current",
 				       &tmp);
 	if (ret)
 		st->cp_i = ADF4382_CP_I_DEFAULT;
-	else 
+	else
 		st->cp_i = (u8)tmp;
 
 	ret = device_property_read_u32(&st->spi->dev, "adi,ref-divider",
@@ -1244,7 +1244,7 @@ static int adf4382_parse_device(struct adf4382_state *st)
 	st->clkin = devm_clk_get(&st->spi->dev, "ref_clk");
 	if (IS_ERR(st->clkin))
 		return PTR_ERR(st->clkin);
-	
+
 	return 0;
 }
 
@@ -1278,7 +1278,7 @@ static int adf4382_init(struct adf4382_state *st)
 
 	ret = regmap_update_bits(st->regmap, 0x20, ADF4382_EN_RDBLR_MSK,
 				 FIELD_PREP(ADF4382_EN_RDBLR_MSK,
-				 	    st->ref_doubler_en));
+					    st->ref_doubler_en));
 	if (ret)
 		return ret;
 
@@ -1393,7 +1393,7 @@ static int adf4382_probe(struct spi_device *spi)
 	struct regmap *regmap;
 	struct adf4382_state *st;
 	int ret;
-	
+
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
