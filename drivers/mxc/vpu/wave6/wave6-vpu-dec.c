@@ -1545,6 +1545,7 @@ static void wave6_vpu_dec_init_seq_task(struct work_struct *work)
 			continue;
 		}
 		mutex_lock(&inst->dev->dev_lock);
+		v4l2_m2m_suspend(inst->dev->m2m_dev);
 		wave6_handle_bitstream_buffer(inst);
 		ret = wave6_vpu_dec_seek_header(inst);
 		if (ret) {
@@ -1552,6 +1553,7 @@ static void wave6_vpu_dec_init_seq_task(struct work_struct *work)
 			vb2_queue_error(v4l2_m2m_get_dst_vq(inst->v4l2_fh.m2m_ctx));
 			atomic_set(&inst->start_init_seq, 0);
 		}
+		v4l2_m2m_resume(inst->dev->m2m_dev);
 		mutex_unlock(&inst->dev->dev_lock);
 	}
 
