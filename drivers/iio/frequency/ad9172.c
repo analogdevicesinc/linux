@@ -71,6 +71,8 @@ struct ad9172_state {
 	bool pll_bypass;
 	signal_type_t syncoutb_type;
 	signal_coupling_t sysref_coupling;
+	u32 lmfc_delay;
+	u32 lmfc_var;
 	u8 nco_main_enable;
 	u8 nco_channel_enable;
 	u8 logic_lanes[8];
@@ -335,6 +337,13 @@ static int ad9172_setup(struct ad9172_state *st)
 	dev_info(dev, "Serdes PLL %s (stat: %x)\n",
 		 ((pll_lock_status & 0x1) == 0x1) ?
 		 "Locked" : "Unlocked",  pll_lock_status);
+
+	ret = ad917x_jesd_set_lmfc_delay(&st->dac_h, JESD_LINK_ALL,
+					 st->lmfc_delay, st->lmfc_var);
+	if (ret) {
+		dev_err(dev, "failed to set LMFC delay (%d)\n", ret);
+		return ret;
+	}
 
 	/* No need to continue here when jesd204-fsm enabled */
 	if (st->jdev)
@@ -943,6 +952,11 @@ static int ad9172_parse_dt(struct spi_device *spi, struct ad9172_state *st)
 	if (ret)
 		for(i = 0; i < sizeof(st->logic_lanes); i++)
 			st->logic_lanes[i] = i;
+
+	of_property_read_u32(np, "adi,lmfc-delay", &st->lmfc_delay);
+
+	st->lmfc_var = 0xC;
+	of_property_read_u32(np, "adi,lmfc-var-delay", &st->lmfc_var);
 
 	return 0;
 }
