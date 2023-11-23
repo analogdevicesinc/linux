@@ -26,6 +26,7 @@
 		clock-names = "ref_clk";
 		adi,charge-pump-current = <15>;
 		adi,ref-divider = <2>;
+		adi,spi-3wire-enable;
 		/* spi-cpha; */
 		/* spi-cpol; */
 		/* #address-cells = <1>;
