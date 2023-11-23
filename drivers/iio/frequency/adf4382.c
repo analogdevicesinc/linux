@@ -462,7 +462,7 @@ struct adf4382_state {
 	u8			ref_div;
 	u16			bleed_word;
 	int 			phase;
-	bool			cmos_1v8;
+	bool			cmos_3v3;
 };
 
 //Charge pump current values expressed in uA
@@ -1239,7 +1239,7 @@ static int adf4382_parse_device(struct adf4382_state *st)
 						     "adi,spi-3wire-enable");
 	st->ref_doubler_en = device_property_read_bool(&st->spi->dev,
 						     "adi,ref-doubler-enable");
-	st->cmos_1v8 = device_property_read_bool(&st->spi->dev, "adi,cmos-1v8");
+	st->cmos_3v3 = device_property_read_bool(&st->spi->dev, "adi,cmos-3v3");
 
 	st->clkin = devm_clk_get(&st->spi->dev, "ref_clk");
 	if (IS_ERR(st->clkin))
@@ -1265,7 +1265,7 @@ static int adf4382_init(struct adf4382_state *st)
 	if (ret < 0)
 		return ret;
 
-	ret = regmap_write(st->regmap, 0x3D, ADF4382_CMOS_OV(st->cmos_1v8));
+	ret = regmap_write(st->regmap, 0x3D, ADF4382_CMOS_OV(st->cmos_3v3));
 	if (ret < 0)
 		return ret;
 
