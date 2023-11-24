@@ -7,9 +7,6 @@
 /dts-v1/;
 /plugin/;
 
-#define BRD_KRIA
-//#define BRD_ZCU
-
 #define GMSL_CAM_ISX021
 //#define GMSL_CAM_OVX03A
 
@@ -111,7 +108,7 @@
 		#size-cells = <1>;
 		compatible = "simple-bus";
 		ranges = <0 0 0 0xffffffff>;
-#ifdef BRD_KRIA
+
 		axi_iic_mipi: i2c@84a40000 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -121,8 +118,7 @@
 			reg = <0x84a40000 0x1000>;
 			interrupts = <0 109 4>;
 		};
-#endif
-
+#if (GMSL_CAMERA_DES1 > 0)
 		axis_switch_0: axis_switch@0 {
 			compatible = "xlnx,axis-switch-1.1";
 			xlnx,routing-mode = <0>;
@@ -173,7 +169,7 @@
 #endif
 			};
 		};
-
+#endif
 
 #if (GMSL_CAMERA_DES2 > 0)
 		axis_switch_1: axis_switch@1 {
@@ -228,6 +224,7 @@
 		};
 #endif
 
+#if (GMSL_CAMERA_DES1 > 0)
 		gmsl_aggregator_0: gmsl_aggregator@0 {
 			compatible = "maxim,aggregator";
 			max,num-source-slots = <1>;
@@ -279,6 +276,7 @@
 #endif
 			};
 		};
+#endif
 
 #if (GMSL_CAMERA_DES2 > 0)
 		gmsl_aggregator_1: gmsl_aggregator@1 {
@@ -343,6 +341,7 @@
 			clocks = <&pwm_clk>;
 		};
 
+#if (GMSL_CAMERA_DES1 > 0)
 		mipi_csi2_rx_subsyst_0: mipi_csi2_rx_subsystem@84a00000 {
 			clock-names = "lite_aclk", "dphy_clk_200M", "video_aclk";
 			clocks = <&zynqmp_clk 71>, <&misc_clk_0>, <&zynqmp_clk 71>;
@@ -386,6 +385,7 @@
 				};
 			};
 		};
+#endif
 
 #if (GMSL_CAMERA_DES2 > 0)
 		mipi_csi2_rx_subsyst_1: mipi_csi2_rx_subsystem@84a20000 {
@@ -523,7 +523,6 @@
 			xlnx,video-width = <8>;
 		};
 #endif
-
 #if defined (GMSL_CAMERA_4)
 		v_frmbuf_wr_4: v_frmbuf_wr@84ae0000 {
 			#dma-cells = <1>;
@@ -609,6 +608,7 @@
 		};
 #endif
 
+#if (GMSL_CAMERA_DES1 > 0)
 		vcap_mipi_csi2_rx_subsyst_0 {
 			compatible = "xlnx,video";
 			dma-names = "port0", "port1", "port2", "port3";
@@ -664,6 +664,7 @@
 #endif
 			};
 		};
+#endif
 
 #if (GMSL_CAMERA_DES2 > 0)
 		vcap_mipi_csi2_rx_subsyst_1 {
@@ -721,33 +722,10 @@
 #endif
 			};
 		};
+#endif
 	};
 };
-#endif
 
-#ifdef BRD_ZCU
-&i2c1{
-	#address-cells = <1>;
-	#size-cells = <0>;
-	i2c-mux@75 {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		i2c@1 {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			reg = <1>;
-			deserializer: gmsl-deserializer@27 {
-				#address-cells = <1>;
-				#size-cells = <0>;
-				compatible = "maxim,max96724";
-				reg = <0x27>;
-			};
-		};
-	};
-};
-#endif
-
-#ifdef BRD_KRIA
 &axi_iic_mipi { 
 	i2c-mux@77 {
 		compatible = "nxp,pca9548"; /* u18 */
@@ -756,6 +734,7 @@
 		reg = <0x77>;
 		reset-gpios = <&gpio 88 GPIO_ACTIVE_LOW>;
 
+#if (GMSL_CAMERA_DES1 > 0)
 		i2c@3 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -838,6 +817,7 @@
 				};
 			};
 		};
+#endif
 
 #if (GMSL_CAMERA_DES2 > 0)
 		i2c@4 {
@@ -925,8 +905,8 @@
 #endif
 	};
 };
-#endif
 
+#if (GMSL_CAMERA_DES1 > 0)
 &deserializer {
 	phy@GMSL_PHY {
 		reg = <GMSL_PHY>;
@@ -952,6 +932,7 @@
 	#include "gmsl-deserializer-channel.dtsi"
 #endif
 };
+#endif
 
 #if (GMSL_CAMERA_DES2 > 0)
 &deserializer_2 {
@@ -981,6 +962,7 @@
 };
 #endif
 
+#if (GMSL_CAMERA_DES1 > 0)
 &deserializer {
 	i2c-alias-pool = <
 		GMSL_SER_0_HEX_ADDR
@@ -1030,6 +1012,7 @@
 #endif
 	};
 };
+#endif
 
 #if (GMSL_CAMERA_DES2 > 0)
 &deserializer_2 {
@@ -1083,6 +1066,7 @@
 };
 #endif
 
+#if (GMSL_CAMERA_DES1 > 0)
 #if defined(GMSL_CAMERA_0)
 serializer_0_i2c_bus: &deserializer_i2c_0 {};
 #endif
@@ -1094,6 +1078,7 @@ serializer_2_i2c_bus: &deserializer_i2c_2 {};
 #endif
 #if defined(GMSL_CAMERA_3)
 serializer_3_i2c_bus: &deserializer_i2c_3 {};
+#endif
 #endif
 
 #if (GMSL_CAMERA_DES2 > 0)
@@ -1111,6 +1096,7 @@ serializer_7_i2c_bus: &deserializer_i2c_7 {};
 #endif
 #endif
 
+#if (GMSL_CAMERA_DES1 > 0)
 #if defined(GMSL_CAMERA_0)
 &serializer_0_i2c_bus {
 	#define SER_INDEX 0
@@ -1157,6 +1143,7 @@ serializer_7_i2c_bus: &deserializer_i2c_7 {};
 #endif
 	#include "gmsl-serializer.dtsi"
 };
+#endif
 #endif
 
 #if (GMSL_CAMERA_DES2 > 0)
@@ -1209,6 +1196,7 @@ serializer_7_i2c_bus: &deserializer_i2c_7 {};
 #endif
 #endif
 
+#if (GMSL_CAMERA_DES1 > 0)
 #if defined(GMSL_CAMERA_0)
 camera_0_i2c_bus: &serializer_0_i2c_0 {};
 #endif
@@ -1220,6 +1208,7 @@ camera_2_i2c_bus: &serializer_2_i2c_0 {};
 #endif
 #if defined(GMSL_CAMERA_3)
 camera_3_i2c_bus: &serializer_3_i2c_0 {};
+#endif
 #endif
 
 #if (GMSL_CAMERA_DES2 > 0)
@@ -1237,6 +1226,7 @@ camera_7_i2c_bus: &serializer_2_3_i2c_0 {};
 #endif
 #endif
 
+#if (GMSL_CAMERA_DES1 > 0)
 #if defined(GMSL_CAMERA_0)
 &camera_0_i2c_bus {
 #if defined(GMSL_CAM_OVX03A)
@@ -1287,6 +1277,7 @@ camera_7_i2c_bus: &serializer_2_3_i2c_0 {};
 	#include "gmsl-isx021.dtsi"
 #endif
 };
+#endif
 #endif
 
 #if (GMSL_CAMERA_DES2 > 0)
