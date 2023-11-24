@@ -450,14 +450,16 @@ static void imx95_dsi_phy_write_testcode(struct imx95_dsi *dsi, u16 test_code)
 	/* c. Set TESTCLK to high. */
 	imx95_dsi_write(dsi, DSI_PHY_TST_CTRL0, PHY_TESTCLK);
 	/* d. Place the LSB 8-bit word of testcode in TESTDIN. */
-	imx95_dsi_write(dsi, DSI_PHY_TST_CTRL1, PHY_TESTEN | PHY_TESTDIN(test_code));
+	imx95_dsi_write(dsi, DSI_PHY_TST_CTRL1,
+			PHY_TESTEN | PHY_TESTDIN(test_code & 0xff));
 	/*
 	 * e. Set TESTCLK to low(with the falling edge on TESTCLK, the TESTDIN
 	 * signal content is latched internally).
 	 */
 	imx95_dsi_write(dsi, DSI_PHY_TST_CTRL0, PHY_UNTESTCLK);
 	/* f. Set TESTEN to low. */
-	imx95_dsi_write(dsi, DSI_PHY_TST_CTRL1, PHY_UNTESTEN | PHY_TESTDIN(test_code));
+	imx95_dsi_write(dsi, DSI_PHY_TST_CTRL1,
+			PHY_UNTESTEN | PHY_TESTDIN(test_code & 0xff));
 }
 
 static void
