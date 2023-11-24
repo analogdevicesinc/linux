@@ -26,12 +26,13 @@
 	};
 
 	sof-audio-cs42888 {
-		compatible = "simple-audio-card";
+		compatible = "audio-graph-card2";
+		links = <&cpu>;
 		label = "imx-cs42888";
-		simple-audio-card,widgets =
+		widgets =
 			"Line", "Line Out Jack",
 			"Line", "Line In Jack";
-		simple-audio-card,routing =
+		routing =
 			"Line Out Jack", "AOUT1L",
 			"Line Out Jack", "AOUT1R",
 			"Line Out Jack", "AOUT2L",
@@ -45,15 +46,6 @@
 			"AIN2L", "Line In Jack",
 			"AIN2R", "Line In Jack";
 		status = "okay";
-		simple-audio-card,dai-link {
-			format = "i2s";
-			cpu {
-				sound-dai = <&dsp 0>;
-			};
-			codec {
-				sound-dai = <&cs42888>;
-			};
-		};
 	};
 };
 
@@ -100,7 +92,6 @@
 
 &dsp {
 	compatible = "fsl,imx8qm-dsp";
-	#sound-dai-cells = <1>;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_esai0>;
@@ -138,9 +129,16 @@
 	/delete-property/ firmware-name;
 
 	tplg-name = "sof-imx8-cs42888.tplg";
-	machine-drv-name = "asoc-simple-card";
-
+	machine-drv-name = "asoc-audio-graph-card2";
 	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu: port@0 { reg = <0>; cpu_ep: endpoint { remote-endpoint = <&codec_ep>; }; };
+		port@1 { reg = <1>; endpoint { /* not used */ }; };
+       };
 };
 
 &amix {
@@ -171,4 +169,6 @@
 			  <&mclkout0_lpcg 0>;
 	assigned-clock-rates = <786432000>, <49152000>, <12288000>, <12288000>;
 	status = "okay";
+
+	port { codec_ep: endpoint { remote-endpoint = <&cpu_ep>; }; };
 };
