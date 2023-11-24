@@ -1198,6 +1198,7 @@ struct vpu_instance {
 	struct dec_scaler_info scaler_info;
 	bool force_pic_type_enable;
 	enum enc_force_pic_type force_pic_type;
+	int repeat_seq_header;
 	struct sar_info sar;
 
 	struct workqueue_struct *workqueue;

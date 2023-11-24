@@ -1612,6 +1612,9 @@ static int wave6_vpu_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		inst->force_pic_type_enable = true;
 		inst->force_pic_type = ENC_FORCE_PIC_TYPE_IDR;
 		break;
+	case V4L2_CID_MPEG_VIDEO_REPEAT_SEQ_HEADER:
+		inst->repeat_seq_header = ctrl->val;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -1967,6 +1970,7 @@ static void wave6_set_enc_open_param(struct enc_open_param *open_param,
 	output->min_qp_b = input->min_qp_b;
 	output->max_qp_b = input->max_qp_b;
 	output->intra_period = input->intra_period;
+	output->forced_idr_header = inst->repeat_seq_header;
 
 	switch (inst->std) {
 	case W_AVC_ENC:
@@ -2524,6 +2528,10 @@ static int wave6_vpu_open_enc(struct file *filp)
 
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
 			  V4L2_CID_MIN_BUFFERS_FOR_OUTPUT, 1, 32, 1, 1);
+
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_REPEAT_SEQ_HEADER,
+			0, 1, 1, 1);
 
 	if (v4l2_ctrl_hdl->error) {
 		ret = -ENODEV;
