@@ -28,21 +28,9 @@
 	};
 
 	sof-sound-btsco {
-		compatible = "simple-audio-card";
+		compatible = "audio-graph-card2";
 		label = "btsco-audio";
-		simple-audio-card,name = "bt-dsp-a";
-		simple-audio-card,bitclock-master = <&cpudai>;
-		simple-audio-card,frame-master = <&cpudai>;
-
-		simple-audio-card,dai-link {
-			format = "i2s";
-			cpudai: cpu {
-				sound-dai = <&dsp 0>;
-			};
-			sndcodec: codec {
-				sound-dai = <&bt_sco_codec 1>;
-			};
-		};
+		links = <&cpu>;
 	};
 };
 
@@ -67,7 +55,6 @@
 };
 
 &dsp {
-	#sound-dai-cells = <1>;
 	compatible = "fsl,imx8ulp-dsp";
 	memory-reserved = <&dsp_reserved0>;
 	memory-region = <&dsp_reserved1>;
@@ -106,6 +93,37 @@
 			<&mu3 3 1>;
 	/delete-property/ firmware-name;
 	tplg-name = "sof-imx8ulp-btsco.tplg";
-	machine-drv-name = "asoc-simple-card";
+	machine-drv-name = "asoc-audio-graph-card2";
+
+
 	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu: port@0 {
+			reg = <0>;
+			bitclock-master;
+			frame-master;
+
+			cpu_ep: endpoint { remote-endpoint = <&codec_ep>; };
+		};
+		port@1 { reg = <1>; endpoint { /* not used */ }; };
+       };
+};
+
+&bt_sco_codec {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 { reg = <0>; endpoint { /* not used */ }; };
+		port@1 {
+			reg = <1>;
+			codec_ep: endpoint { remote-endpoint = <&cpu_ep>; };
+		};
+       };
 };
