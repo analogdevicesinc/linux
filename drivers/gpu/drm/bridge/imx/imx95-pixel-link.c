@@ -131,7 +131,7 @@ imx95_pl_find_next_bridge_per_output_port(struct imx95_pl *pl, u32 out_port)
 	}
 	of_node_put(remote);
 
-	for (ep = 0; ep < OUT_ENDPOINTS; ep++) {
+	for (ep = OUT_ENDPOINTS - 1; ep >= 0; ep--) {
 		remote = of_graph_get_remote_node(np, out_port, ep);
 		if (!remote) {
 			dev_dbg(dev, "no remote node for port%u ep%u\n",
