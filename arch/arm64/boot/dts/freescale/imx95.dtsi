@@ -387,6 +387,10 @@
 			scmi_bbm: protocol@81 {
 				reg = <0x81>;
 			};
+
+			scmi_misc: protocol@84 {
+				reg = <0x84>;
+			};
 		};
 	};
 
