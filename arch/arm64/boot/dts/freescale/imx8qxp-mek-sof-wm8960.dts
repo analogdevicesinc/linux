@@ -26,17 +26,15 @@
 	};
 
 	sof-sound-wm8960 {
-		compatible = "simple-audio-card";
+		compatible = "audio-graph-card2";
+		links = <&cpu>;
 		label = "wm8960-audio";
-		simple-audio-card,bitclock-master = <&sndcodec>;
-		simple-audio-card,frame-master = <&sndcodec>;
 		hp-det-gpio = <&lsio_gpio1 0 0>;
-		mic-det-gpio = <&lsio_gpio1 0 0>;
-		simple-audio-card,widgets =
+		widgets =
 			"Headphone", "Headphones",
 			"Speaker", "Ext Spk",
 			"Microphone", "Mic Jack";
-		simple-audio-card,routing =
+		routing =
 			"Headphones", "HP_L",
 			"Headphones", "HP_R",
 			"Ext Spk", "SPK_LP",
@@ -45,15 +43,6 @@
 			"Ext Spk", "SPK_RN",
 			"LINPUT1", "Mic Jack",
 			"Mic Jack", "MICB";
-		simple-audio-card,dai-link {
-			format = "i2s";
-			cpu {
-				sound-dai = <&dsp 1>;
-			};
-			sndcodec: codec {
-				sound-dai = <&wm8960>;
-			};
-		};
 	};
 };
 
@@ -92,7 +81,6 @@
 };
 
 &dsp {
-	#sound-dai-cells = <1>;
 	compatible = "fsl,imx8qxp-dsp";
 	reg = <0x596e8000 0x88000>;
 
@@ -134,13 +122,26 @@
 	/delete-property/ firmware-name;
 
 	tplg-name = "sof-imx8-wm8960.tplg";
-	machine-drv-name = "asoc-simple-card";
+	machine-drv-name = "asoc-audio-graph-card2";
 	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+	port@0 { reg = <0>; endpoint { /* not used */ }; };
+	cpu: port@1 { reg = <1>; cpu_ep: endpoint { remote-endpoint = <&codec_ep>; }; };
+	};
 };
 
 &wm8960 {
-	#sound-dai-cells = <0>;
 	status = "okay";
+
+	port {
+		bitclock-master;
+		frame-master;
+		codec_ep: endpoint { remote-endpoint = <&cpu_ep>; };
+	};
 };
 
 &amix {

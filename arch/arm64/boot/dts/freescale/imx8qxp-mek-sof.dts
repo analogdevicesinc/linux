@@ -26,16 +26,17 @@
 	};
 
 	sof-audio-cs42888 {
-		compatible = "simple-audio-card";
+		compatible = "audio-graph-card2";
 		label = "imx-cs42888";
-		simple-audio-card,widgets =
+		links = <&cpu0 &cpu1>;
+		widgets =
 			"Line", "Line Out Jack",
 			"Line", "Line In Jack",
 			"Headphone", "Headphones",
 			"Speaker", "Ext Spk",
 			"Microphone", "Mic Jack";
 
-		simple-audio-card,routing =
+		routing =
 			"Line Out Jack", "AOUT1L",
 			"Line Out Jack", "AOUT1R",
 			"Line Out Jack", "AOUT2L",
@@ -57,29 +58,6 @@
 			"LINPUT1", "Mic Jack",
 			"Mic Jack", "MICB";
 		status = "okay";
-		simple-audio-card,dai-link@0 {
-			format = "i2s";
-			cpu {
-				sound-dai = <&dsp 0>;
-			};
-			codec {
-				sound-dai = <&cs42888>;
-			};
-		};
-
-		simple-audio-card,dai-link@1 {
-			format = "i2s";
-			bitclock-master = <&sndcodec>;
-			frame-master = <&sndcodec>;
-			hp-det-gpio = <&lsio_gpio1 0 0>;
-			mic-det-gpio = <&lsio_gpio1 0 0>;
-			cpu {
-				sound-dai = <&dsp 1>;
-			};
-			sndcodec: codec {
-				sound-dai = <&wm8960>;
-			};
-		};
 	};
 };
 
@@ -159,9 +137,18 @@
 	/delete-property/ firmware-name;
 
 	reg = <0x596e8000 0x88000>;
-	tplg-name = "sof-imx8-wm8960-cs4288.tplg";
-	machine-drv-name = "asoc-simple-card";
+	tplg-name = "sof-imx8-wm8960-cs42888.tplg";
+	machine-drv-name = "asoc-audio-graph-card2";
+
 	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		cpu0: port@0 { reg = <0>; cpu0_ep: endpoint { remote-endpoint = <&codec0_ep>; }; };
+		cpu1: port@1 { reg = <1>; cpu1_ep: endpoint { remote-endpoint = <&codec1_ep>; }; };
+	};
 };
 
 &amix {
@@ -181,16 +168,23 @@
 };
 
 &wm8960 {
-	#sound-dai-cells = <0>;
 	status = "okay";
+
+	port {
+		bitclock-master;
+		frame-master;
+		hp-det-gpio = <&lsio_gpio0 31 GPIO_ACTIVE_HIGH>;
+		codec1_ep: endpoint { remote-endpoint = <&cpu1_ep>; };
+	};
 };
 
 &cs42888 {
-	#sound-dai-cells = <0>;
 	assigned-clocks = <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
 			  <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_SLV_BUS>,
 			  <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MST_BUS>,
 			  <&mclkout0_lpcg 0>;
 	assigned-clock-rates = <786432000>, <49152000>, <12288000>, <12288000>;
 	status = "okay";
+
+	port { codec0_ep: endpoint { remote-endpoint = <&cpu0_ep>; }; };
 };
