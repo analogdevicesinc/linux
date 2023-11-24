@@ -52,7 +52,7 @@
 	#size-cells = <0>;
 	assigned-clocks = <&scmi_clk IMX95_CLK_LDBPLL_VCO>,
 			  <&scmi_clk IMX95_CLK_LDBPLL>;
-	assigned-clock-rates = <4158000000>, <1039500000>;
+	assigned-clock-rates = <3291120000>, <1097040000>;
 	status = "okay";
 
 	channel@0 {
