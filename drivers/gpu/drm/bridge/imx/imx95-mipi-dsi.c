@@ -154,6 +154,8 @@
 #define N_MAX				16U
 #define N_MIN				1U
 
+#define PIXEL_LINK_STREAMS		2
+
 #define DRIVER_NAME			"imx95-mipi-dsi"
 
 enum dsi_pixel_link_format {
@@ -355,27 +357,37 @@ static int imx95_dsi_get_mux(struct imx95_dsi *dsi)
 static int imx95_dsi_select_input(struct imx95_dsi *dsi)
 {
 	struct device *dev = dsi->dev;
-	struct device_node *remote, *remote_2;
+	struct device_node *remote0, *remote1 = NULL;
+	struct device_node *remote_pi0, *remote_pi1 = NULL;
+	struct device_node *remote_ldb_ch0, *remote_ldb_ch1 = NULL;
+	u32 port;
 	int ret;
 
 	/* pixel link0 */
-	remote = of_graph_get_remote_node(dev->of_node, 0,
-					  IMX95_DSI_ENDPOINT_PL0);
+	remote0 = of_graph_get_remote_node(dev->of_node, 0,
+					   IMX95_DSI_ENDPOINT_PL0);
 	/* pixel interleaver channel0 */
-	remote_2 = of_graph_get_remote_node(remote, IMX95_DSI_ENDPOINT_PL0, 0);
-	if (remote_2) {
+	remote_pi0 = of_graph_get_remote_node(remote0,
+					      IMX95_DSI_ENDPOINT_PL0, 0);
+	/* ldb channel0 */
+	port = IMX95_DSI_ENDPOINT_PL0 + PIXEL_LINK_STREAMS;
+	remote_ldb_ch0 = of_graph_get_remote_node(remote0, port, 1);
+	if (remote_pi0 && !remote_ldb_ch0) {
 		dsi->use_pl0 = true;
 	} else {
 		/* pixel link1 */
-		remote = of_graph_get_remote_node(dev->of_node, 0,
-						  IMX95_DSI_ENDPOINT_PL1);
+		remote1 = of_graph_get_remote_node(dev->of_node, 0,
+						   IMX95_DSI_ENDPOINT_PL1);
 		/* pixel interleaver channel1 */
-		remote_2 = of_graph_get_remote_node(remote,
-						    IMX95_DSI_ENDPOINT_PL1, 0);
-		if (!remote_2) {
+		remote_pi1 = of_graph_get_remote_node(remote1,
+						      IMX95_DSI_ENDPOINT_PL1, 0);
+		/* ldb channel1 */
+		port = IMX95_DSI_ENDPOINT_PL1 + PIXEL_LINK_STREAMS;
+		remote_ldb_ch1 = of_graph_get_remote_node(remote1, port, 1);
+		if (!remote_pi1 || remote_ldb_ch1) {
 			dev_err(dev, "No valid input endpoint found\n");
-			of_node_put(remote);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto out;
 		}
 
 		dsi->use_pl0 = false;
@@ -388,8 +400,13 @@ static int imx95_dsi_select_input(struct imx95_dsi *dsi)
 	if (ret < 0)
 		dev_err(dev, "failed to select input: %d\n", ret);
 
-	of_node_put(remote_2);
-	of_node_put(remote);
+out:
+	of_node_put(remote_ldb_ch1);
+	of_node_put(remote_pi1);
+	of_node_put(remote1);
+	of_node_put(remote_ldb_ch0);
+	of_node_put(remote_pi0);
+	of_node_put(remote0);
 
 	return ret;
 }
