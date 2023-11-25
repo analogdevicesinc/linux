@@ -78,7 +78,7 @@
 
 &pcie {
 	status = "disabled";
-	/delete-node/ wifi_wake_host;
+	/delete-property/ host-wake-gpio;
 };
 
 &pcie_phy {
