@@ -64,6 +64,10 @@ properties:
       L=operation state) (optional required).
     type: boolean
 
+  host-wake-gpio:
+    description: Should specify the GPIO for controlling the PCI bus device
+      wake signal, used to wakeup the host processor. Default to active-low.
+
 required:
   - compatible
   - reg
