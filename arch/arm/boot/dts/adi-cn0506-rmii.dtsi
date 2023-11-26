@@ -9,7 +9,8 @@
 	 * PHY after matching MAC link caps with PHY link caps,
 	 * even though, the design won't be able to actually support it
 	 */
-	compatible = "cdns,macb";
+	compatible = "xlnx,zynq-gem";
+
 
 	clocks = <&clkc 30>, <&fmc_mii_clk1>, <&clkc 13>;
 	clock-names = "pclk", "hclk", "tx_clk";
@@ -31,7 +32,7 @@
 	 * PHY after matching MAC link caps with PHY link caps,
 	 * even though, the design won't be able to actually support it
 	 */
-	compatible = "cdns,macb";
+	compatible = "xlnx,zynq-gem";
 
 	clocks = <&clkc 31>, <&fmc_mii_clk2>, <&clkc 14>;
 	clock-names = "pclk", "hclk", "tx_clk";
