@@ -7,7 +7,7 @@
 	 * PHY after matching MAC link caps with PHY link caps,
 	 * even though, the design won't be able to actually support it
 	 */
-	compatible = "cdns,macb";
+	compatible = "xlnx,zynq-gem";
 
 	ethernet_gem0_phy1: ethernet-phy@1 {
 		reg = <1>;
@@ -23,7 +23,7 @@
 	 * PHY after matching MAC link caps with PHY link caps,
 	 * even though, the design won't be able to actually support it
 	 */
-	compatible = "cdns,macb";
+	compatible = "xlnx,zynq-gem";
 
 	ethernet_gem1_phy2: ethernet-phy@2 {
 		reg = <2>;
