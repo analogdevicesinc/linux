@@ -36,6 +36,7 @@
 	status = "okay";
 	phy-mode = "rmii";
 	phy-handle = <&ethernet_gem0_phy1>;
+	compatible = "xlnx,zynqmp-gem";
 
 	/* need to override the clocks to squeeze our external ref fmc_mii_clk1 here */
 	clocks = <&zynqmp_clk LPD_LSBUS>, <&fmc_mii_clk1>, <&zynqmp_clk GEM0_TX>,
@@ -54,6 +55,7 @@
 	status = "okay";
 	phy-mode = "rmii";
 	phy-handle = <&ethernet_gem1_phy2>;
+	compatible = "xlnx,zynqmp-gem";
 
 	/* need to override the clocks to squeeze our external ref fmc_mii_clk2 here */
 	clocks = <&zynqmp_clk LPD_LSBUS>, <&fmc_mii_clk2>, <&zynqmp_clk GEM1_TX>,
