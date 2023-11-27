@@ -1332,7 +1332,8 @@ static int mxc_isi_video_release(struct file *file)
 		dev_err(video->pipe->isi->dev, "%s fail\n", __func__);
 
 	mutex_lock(&video->lock);
-	mxc_isi_video_cleanup_streaming(video);
+	if (!video->vdev.queue->owner)
+		mxc_isi_video_cleanup_streaming(video);
 	mutex_unlock(&video->lock);
 
 	pm_runtime_put(video->pipe->isi->dev);
