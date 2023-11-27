@@ -10,6 +10,7 @@
 #include "wave6.h"
 #include "wave6-regdefine.h"
 #include "wave6-av1-cdf-table.h"
+#include "wave6-vpu-ctrl.h"
 
 #define VPU_BUSY_CHECK_TIMEOUT 10000000
 #define MAX_CSC_COEFF_NUM      4
@@ -92,7 +93,7 @@ static int wave6_wait_vpu_busy(struct vpu_device *vpu_dev, unsigned int addr)
 				 0, VPU_BUSY_CHECK_TIMEOUT, false, vpu_dev, addr);
 }
 
-static void wave6_enable_interrupt(struct vpu_device *vpu_dev)
+void wave6_enable_interrupt(struct vpu_device *vpu_dev)
 {
 	u32 data;
 
@@ -107,23 +108,6 @@ static void wave6_enable_interrupt(struct vpu_device *vpu_dev)
 	vpu_write_reg(vpu_dev, W6_VPU_VINT_ENABLE, data);
 }
 
-static void wave6_remap_code_buffer(struct vpu_device *vpu_dev)
-{
-	dma_addr_t code_base;
-	u32 i, reg_val, remap_size;
-
-	code_base = vpu_dev->common_mem.dma_addr;
-
-	for (i = 0; i < WAVE6_MAX_CODE_BUF_SIZE / W6_REMAP_MAX_SIZE; i++) {
-		remap_size = (W6_REMAP_MAX_SIZE >> 12) & 0x1ff;
-		reg_val = 0x80000000 | (WAVE6_UPPER_PROC_AXI_ID << 20) | (0 << 16) |
-			  (i << 12) | BIT(11) | remap_size;
-		vpu_write_gb_reg(vpu_dev, W6_VPU_REMAP_CTRL_GB, reg_val);
-		vpu_write_gb_reg(vpu_dev, W6_VPU_REMAP_VADDR_GB, i * W6_REMAP_MAX_SIZE);
-		vpu_write_gb_reg(vpu_dev, W6_VPU_REMAP_PADDR_GB, code_base + i * W6_REMAP_MAX_SIZE);
-	}
-}
-
 static void wave6_load_av1_cdf_table(struct vpu_device *vpu_dev, struct vpu_buf *vb)
 {
 	const u16 *tbl_data;
@@ -132,6 +116,14 @@ static void wave6_load_av1_cdf_table(struct vpu_device *vpu_dev, struct vpu_buf 
 	tbl_data = def_cdf_tbl;
 	wave6_vdi_write_memory(vpu_dev, vb, 0, (u8 *)def_cdf_tbl,
 			       tbl_size, VDI_128BIT_LITTLE_ENDIAN);
+}
+
+void wave6_vpu_check_state(struct vpu_device *vpu_dev)
+{
+	int state = wave6_vpu_ctrl_get_state(vpu_dev->ctrl, &vpu_dev->entity);
+
+	if (state == WAVE6_VPU_STATE_PREPARE)
+		wave6_vpu_ctrl_wait_done(vpu_dev->ctrl, &vpu_dev->entity);
 }
 
 bool wave6_vpu_is_init(struct vpu_device *vpu_dev)
@@ -165,12 +157,7 @@ int32_t wave_vpu_get_product_id(struct vpu_device *vpu_dev)
 
 static void wave6_send_command(struct vpu_device *vpu_dev, u32 id, u32 std, u32 cmd)
 {
-	if (cmd == W6_INIT_VPU || cmd == W6_WAKEUP_VPU) {
-		vpu_write_reg(vpu_dev, W6_VPU_BUSY_STATUS, 1);
-		vpu_write_gb_reg(vpu_dev, W6_COMMAND_GB, cmd);
-
-		vpu_write_gb_reg(vpu_dev, W6_VPU_REMAP_CORE_START_GB, 1);
-	} else if (cmd == W6_CREATE_INSTANCE) {
+	if (cmd == W6_CREATE_INSTANCE) {
 		vpu_write_reg(vpu_dev, W6_CMD_INSTANCE_INFO, (std << 16));
 
 		vpu_write_reg(vpu_dev, W6_VPU_BUSY_STATUS, 1);
@@ -253,7 +240,7 @@ int wave6_vpu_get_version(struct vpu_device *vpu_dev, uint32_t *version_info,
 	hw_config_def1 = vpu_read_reg(vpu_dev, W6_RET_STD_DEF1);
 	hw_config_feature = vpu_read_reg(vpu_dev, W6_RET_CONF_FEATURE);
 
-	dev_info(vpu_dev->dev, "hw revision : 0x%x\n", vpu_read_reg(vpu_dev, W6_RET_CONF_REVISION));
+	dev_dbg(vpu_dev->dev, "hw revision : 0x%x\n", vpu_read_reg(vpu_dev, W6_RET_CONF_REVISION));
 
 	attr->support_hevc10bit_enc = (hw_config_feature >> 3) & 1;
 	attr->support_avc10bit_enc = (hw_config_feature >> 11) & 1;
@@ -295,56 +282,6 @@ int wave6_vpu_get_version(struct vpu_device *vpu_dev, uint32_t *version_info,
 	return 0;
 }
 
-int wave6_vpu_init(struct device *dev, u8 *firmware, uint32_t size)
-{
-	struct vpu_device *vpu_dev = dev_get_drvdata(dev);
-	struct vpu_buf *common_vb;
-	int ret;
-
-	common_vb = (struct vpu_buf *)&vpu_dev->common_mem;
-
-	if (size * 2 > WAVE6_MAX_CODE_BUF_SIZE)
-		return -EINVAL;
-
-	if (!common_vb->vaddr || !common_vb->size) {
-		common_vb->size = SIZE_COMMON;
-		ret = wave6_vdi_allocate_dma_memory(vpu_dev, common_vb);
-		if (ret) {
-			dev_err(dev, "fail to allocate boot memory\n");
-			return -ENOMEM;
-		}
-		dev_info(vpu_dev->dev, "boot daddr: %pad, size: 0x%lx\n",
-			 &common_vb->daddr, common_vb->size);
-	}
-
-	ret = wave6_vdi_write_memory(vpu_dev, common_vb, 0, firmware, size,
-				     VDI_128BIT_LITTLE_ENDIAN);
-	if (ret < 0) {
-		dev_err(vpu_dev->dev, "%s: Copy fw to common buffer fail: %d\n",
-			__func__, ret);
-		return ret;
-	}
-
-	wave6_remap_code_buffer(vpu_dev);
-	wave6_enable_interrupt(vpu_dev);
-
-	wave6_send_command(vpu_dev, 0, 0, W6_INIT_VPU);
-	ret = wave6_wait_vpu_busy(vpu_dev, W6_VPU_BUSY_STATUS);
-	if (ret) {
-		dev_err(vpu_dev->dev, "%s: timeout\n", __func__);
-		return ret;
-	}
-
-	if (!vpu_read_reg(vpu_dev, W6_RET_SUCCESS)) {
-		u32 reason_code = vpu_read_reg(vpu_dev, W6_RET_FAIL_REASON);
-
-		wave6_print_reg_err(vpu_dev, reason_code);
-		return -EIO;
-	}
-
-	return wave6_vpu_get_version(vpu_dev, NULL, NULL);
-}
-
 int wave6_vpu_build_up_dec_param(struct vpu_instance *vpu_inst,
 				 struct dec_open_param *param)
 {
@@ -383,7 +320,7 @@ int wave6_vpu_build_up_dec_param(struct vpu_instance *vpu_inst,
 	vpu_write_reg(vpu_inst->dev, W6_CMD_DEC_CREATE_INST_WORK_BASE, param->inst_buffer.work_base);
 	vpu_write_reg(vpu_inst->dev, W6_CMD_DEC_CREATE_INST_WORK_SIZE, param->inst_buffer.work_size);
 
-	reg_val = wave6_vdi_convert_endian(param->stream_endian);
+	reg_val = wave6_convert_endian(param->stream_endian);
 	reg_val = (~reg_val & VDI_128BIT_ENDIAN_MASK);
 	vpu_write_reg(vpu_inst->dev, W6_CMD_DEC_CREATE_INST_BS_PARAM, reg_val);
 	vpu_write_reg(vpu_inst->dev, W6_CMD_DEC_CREATE_INST_ADDR_EXT, param->ext_addr_vcpu);
@@ -686,7 +623,7 @@ int wave6_vpu_dec_register_frame_buffer(struct vpu_instance *vpu_inst,
 			return -EINVAL;
 	}
 
-	endian = wave6_vdi_convert_endian(p_dec_info->open_param.frame_endian);
+	endian = wave6_convert_endian(p_dec_info->open_param.frame_endian);
 
 	reg_val = (p_dec_info->initial_info.pic_width << 16) |
 		  (p_dec_info->initial_info.pic_height);
@@ -780,7 +717,7 @@ int wave6_vpu_dec_register_display_buffer(struct vpu_instance *vpu_inst, struct 
 	cbcr_interleave = vpu_inst->cbcr_interleave;
 	nv21 = vpu_inst->nv21;
 
-	endian = wave6_vdi_convert_endian(p_dec_info->open_param.frame_endian);
+	endian = wave6_convert_endian(p_dec_info->open_param.frame_endian);
 
 	switch (p_dec_info->wtl_format) {
 	case FORMAT_420:
@@ -1413,18 +1350,6 @@ int wave6_vpu_dec_get_result(struct vpu_instance *vpu_inst, struct dec_output_in
 	return 0;
 }
 
-int wave6_vpu_re_init(struct device *dev)
-{
-	struct vpu_device *vpu_dev = dev_get_drvdata(dev);
-	int ret;
-
-	wave6_enable_interrupt(vpu_dev);
-
-	ret = wave6_vpu_get_version(vpu_dev, NULL, NULL);
-
-	return ret;
-}
-
 int wave6_vpu_dec_fini_seq(struct vpu_instance *vpu_inst, u32 *fail_res)
 {
 	int ret;
@@ -1559,7 +1484,7 @@ int wave6_vpu_build_up_enc_param(struct device *dev, struct vpu_instance *vpu_in
 	vpu_write_reg(vpu_inst->dev, W6_CMD_ENC_CREATE_INST_WORK_BASE, param->inst_buffer.work_base);
 	vpu_write_reg(vpu_inst->dev, W6_CMD_ENC_CREATE_INST_WORK_SIZE, param->inst_buffer.work_size);
 
-	reg_val = wave6_vdi_convert_endian(param->stream_endian);
+	reg_val = wave6_convert_endian(param->stream_endian);
 	reg_val = (~reg_val & VDI_128BIT_ENDIAN_MASK);
 	vpu_write_reg(vpu_inst->dev, W6_CMD_ENC_CREATE_INST_BS_PARAM, reg_val);
 	vpu_write_reg(vpu_inst->dev, W6_CMD_ENC_CREATE_INST_SRC_OPT, 0);
@@ -1713,7 +1638,7 @@ static void wave6_gen_set_param_reg_common(struct enc_info *p_enc_info, enum wav
 	unsigned int i, endian;
 	u32 rot_mir_mode = 0;
 
-	endian = wave6_vdi_convert_endian(p_param->custom_map_endian);
+	endian = wave6_convert_endian(p_param->custom_map_endian);
 	endian = (~endian & VDI_128BIT_ENDIAN_MASK);
 
 	if (p_enc_info->rotation_enable) {
@@ -2310,7 +2235,7 @@ static void wave6_gen_enc_pic_reg(struct enc_info *p_enc_info, bool cbcr_interle
 	bool is_24bit = false;
 	bool format_conv;
 
-	endian = wave6_vdi_convert_endian(open.source_endian);
+	endian = wave6_convert_endian(open.source_endian);
 	endian = (~endian & VDI_128BIT_ENDIAN_MASK);
 	format_conv = is_format_conv(open.src_format, open.output_format);
 

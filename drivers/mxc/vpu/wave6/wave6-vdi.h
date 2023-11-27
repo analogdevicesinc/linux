@@ -17,8 +17,6 @@
 #define vpu_write_reg(VPU_INST, ADDR, DATA) wave6_vdi_writel(VPU_INST, ADDR, DATA)
 /* system register read */
 #define vpu_read_reg(CORE, ADDR) wave6_vdi_readl(CORE, ADDR)
-/* system global register write */
-#define vpu_write_gb_reg(VPU_INST, ADDR, DATA) wave6_vdi_gb_writel(VPU_INST, ADDR, DATA)
 
 struct vpu_buf {
 	size_t size;

@@ -10,59 +10,6 @@
 #include "wave6-regdefine.h"
 #include "wave6.h"
 
-static int wave6_initialize_vpu(struct device *dev, u8 *code, uint32_t size)
-{
-	int ret;
-	struct vpu_device *vpu_dev = dev_get_drvdata(dev);
-
-	ret = mutex_lock_interruptible(&vpu_dev->hw_lock);
-	if (ret)
-		return ret;
-
-	if (wave6_vpu_is_init(vpu_dev)) {
-		ret = wave6_vpu_re_init(dev);
-		goto mutex_unlock;
-	}
-
-	ret = wave6_vpu_init(dev, (void *)code, size);
-
-mutex_unlock:
-	mutex_unlock(&vpu_dev->hw_lock);
-	return ret;
-}
-
-int wave6_vpu_init_with_bitcode(struct device *dev, u8 *code, uint32_t size)
-{
-	if (!code || size == 0)
-		return -EINVAL;
-
-	return wave6_initialize_vpu(dev, code, size);
-}
-
-int wave6_vpu_get_version_info(struct device *dev, uint32_t *version_info,
-			       u32 *revision, uint32_t *product_id)
-{
-	int ret;
-	struct vpu_device *vpu_dev = dev_get_drvdata(dev);
-
-	ret = mutex_lock_interruptible(&vpu_dev->hw_lock);
-	if (ret)
-		return ret;
-
-	if (!wave6_vpu_is_init(vpu_dev)) {
-		ret = -EINVAL;
-		goto err_out;
-	}
-
-	if (product_id)
-		*product_id = vpu_dev->product;
-	ret = wave6_vpu_get_version(vpu_dev, version_info, revision);
-
-err_out:
-	mutex_unlock(&vpu_dev->hw_lock);
-	return ret;
-}
-
 static int wave6_check_dec_open_param(struct vpu_instance *inst, struct dec_open_param *param)
 {
 	struct vpu_attr *attr = &inst->dev->attr;
@@ -87,6 +34,8 @@ int wave6_vpu_dec_open(struct vpu_instance *inst, struct dec_open_param *pop)
 	struct dec_info *p_dec_info;
 	int ret;
 	struct vpu_device *vpu_dev = inst->dev;
+
+	wave6_vpu_check_state(vpu_dev);
 
 	ret = wave6_check_dec_open_param(inst, pop);
 	if (ret)
@@ -686,6 +635,8 @@ int wave6_vpu_enc_open(struct vpu_instance *inst, struct enc_open_param *pop)
 	struct enc_info *p_enc_info;
 	int ret;
 	struct vpu_device *vpu_dev = inst->dev;
+
+	wave6_vpu_check_state(vpu_dev);
 
 	ret = wave6_vpu_enc_check_open_param(inst, pop);
 	if (ret)

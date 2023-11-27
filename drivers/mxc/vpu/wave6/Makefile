@@ -9,4 +9,5 @@ wave6-objs += wave6-vpu.o \
 	wave6-hw.o \
 	wave6-vpu-v4l2.o
 
+obj-$(CONFIG_MXC_VIDEO_WAVE6_CTRL) += wave6-vpu-ctrl.o
 obj-$(CONFIG_MXC_VIDEO_WAVE6) += wave6.o

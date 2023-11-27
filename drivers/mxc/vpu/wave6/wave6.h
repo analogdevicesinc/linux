@@ -16,13 +16,15 @@
 #define WTL_PIXEL_16BIT              1
 #define WTL_PIXEL_32BIT              2
 
+void wave6_vpu_check_state(struct vpu_device *vpu_dev);
+
 bool wave6_vpu_is_init(struct vpu_device *vpu_dev);
+
+void wave6_enable_interrupt(struct vpu_device *vpu_dev);
 
 int32_t wave_vpu_get_product_id(struct vpu_device *vpu_dev);
 
 int wave6_vpu_get_version(struct vpu_device *vpu_dev, u32 *version_info, uint32_t *revision);
-
-int wave6_vpu_init(struct device *dev, u8 *firmware, uint32_t size);
 
 int wave6_vpu_build_up_dec_param(struct vpu_instance *inst, struct dec_open_param *param);
 

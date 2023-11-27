@@ -16,6 +16,7 @@
 #include "wave6-vpuerror.h"
 #include "wave6-vpuconfig.h"
 #include "wave6-vdi.h"
+#include "wave6-vpu-ctrl.h"
 
 enum product_id {
 	PRODUCT_ID_617,
@@ -1126,18 +1127,18 @@ struct vpu_device {
 	int irq;
 	enum product_id	product;
 	struct vpu_attr	attr;
-	struct vpu_dma_buf common_mem;
 	u32 last_performance_cycles;
 	struct gen_pool *sram_pool;
 	struct vpu_dma_buf sram_buf;
-	void __iomem *vm_reg_base;
-	void __iomem *gb_reg_base;
+	void __iomem *reg_base;
+	struct device *ctrl;
 	int product_code;
 	struct clk_bulk_data *clks;
 	int num_clks;
 	struct completion irq_done;
 	struct kfifo irq_status;
 	struct delayed_work task_timer;
+	struct wave6_vpu_entity entity;
 };
 
 struct vpu_instance;
@@ -1206,19 +1207,14 @@ struct vpu_instance {
 	atomic_t start_init_seq;
 };
 
-void wave6_vdi_gb_writel(struct vpu_device *vpu_device, unsigned int addr, unsigned int data);
 void wave6_vdi_writel(struct vpu_device *vpu_device, unsigned int addr, unsigned int data);
 unsigned int wave6_vdi_readl(struct vpu_device *vpu_dev, unsigned int addr);
 int wave6_vdi_clear_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb);
 int wave6_vdi_allocate_dma_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb);
 int wave6_vdi_write_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb, size_t offset,
 			   u8 *data, int len, int endian);
-int wave6_vdi_convert_endian(unsigned int endian);
 void wave6_vdi_free_dma_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb);
 
-int wave6_vpu_init_with_bitcode(struct device *dev, u8 *bitcode, uint32_t size);
-int wave6_vpu_get_version_info(struct device *dev, uint32_t *version_info, uint32_t *revision,
-			       uint32_t *product_id);
 int wave6_vpu_dec_open(struct vpu_instance *inst, struct dec_open_param *pop);
 int wave6_vpu_dec_close(struct vpu_instance *inst, u32 *fail_res);
 int wave6_vpu_dec_issue_seq_init(struct vpu_instance *inst);

@@ -47,6 +47,7 @@ enum W6_QUERY_OPT {
 /************************************************************************/
 /* VPU HOST REGISTER                                                    */
 /************************************************************************/
+#define W6_VPU_REG_GLOBAL_WR                         (W6_REG_BASE + 0x0000)
 #define W6_VCPU_CUR_PC                               (W6_REG_BASE + 0x0004)
 #define W6_VCPU_CUR_LR                               (W6_REG_BASE + 0x0008)
 #define W6_VPU_VINT_REASON_CLR                       (W6_REG_BASE + 0x0034)
