@@ -17,6 +17,7 @@
 	status = "okay";
 	phy-mode = "rgmii-id";
 	phy-handle = <&ethernet_gem0_phy1>;
+	compatible = "xlnx,zynqmp-gem";
 
 	ethernet_gem0_phy1: ethernet-phy@1 {
 		reg = <1>;
@@ -33,6 +34,7 @@
 	status = "okay";
 	phy-mode = "rgmii-id";
 	phy-handle = <&ethernet_gem1_phy2>;
+	compatible = "xlnx,zynqmp-gem";
 
 	ethernet_gem1_phy2: ethernet-phy@2 {
 		reg = <2>;
