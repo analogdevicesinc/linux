@@ -152,7 +152,8 @@
 		<&pd IMX_SC_R_AUDIO_CLK_0>,
 		<&pd IMX_SC_R_AUDIO_CLK_1>,
 		<&pd IMX_SC_R_AUDIO_PLL_0>,
-		<&pd IMX_SC_R_AUDIO_PLL_1>;
+		<&pd IMX_SC_R_AUDIO_PLL_1>,
+		<&pd IMX_SC_R_MU_2A>;
 
 	mbox-names = "txdb0", "txdb1", "rxdb0", "rxdb1";
 	mboxes = <&lsio_mu13 2 0>,

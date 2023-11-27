@@ -133,7 +133,8 @@
 			<&pd IMX_SC_R_AUDIO_CLK_0>,
 			<&pd IMX_SC_R_AUDIO_CLK_1>,
 			<&pd IMX_SC_R_AUDIO_PLL_0>,
-			<&pd IMX_SC_R_AUDIO_PLL_1>;
+			<&pd IMX_SC_R_AUDIO_PLL_1>,
+			<&pd IMX_SC_R_MU_2A>;
 
 		clocks = <&clk_dummy>, <&clk_dummy>, <&clk_dummy>, <&esai0_lpcg 1>, <&esai0_lpcg 0>,  <&esai0_lpcg 1>,
 			<&clk_dummy>, <&sai1_lpcg 1>, <&clk_dummy>, <&clk_dummy>,

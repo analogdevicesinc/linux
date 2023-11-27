@@ -147,7 +147,8 @@
 			<&pd IMX_SC_R_AUDIO_CLK_0>,
 			<&pd IMX_SC_R_AUDIO_CLK_1>,
 			<&pd IMX_SC_R_AUDIO_PLL_0>,
-			<&pd IMX_SC_R_AUDIO_PLL_1>;
+			<&pd IMX_SC_R_AUDIO_PLL_1>,
+			<&pd IMX_SC_R_MU_2A>;
 
 	clock-names = "ipg", "ocram", "core",
 		"sai1_bus", "sai1_mclk0", "sai1_mclk1", "sai1_mclk2", "sai1_mclk3";
