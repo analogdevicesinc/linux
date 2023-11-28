@@ -253,6 +253,41 @@ dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk.dtb \
 			  imx93-11x11-evk-flexspi-m2.dtb \
 			  imx93-11x11-evk-ld.dtb \
 			  imx93-11x11-evk-rpmsg.dtb imx93-11x11-evk-rpmsg-lpv.dtb
+
+imx93-11x11-evk-pmic-pf0900-dtbs := imx93-11x11-evk.dtb imx93-11x11-evk-pmic-pf0900.dtbo
+imx93-11x11-evk-pmic-pf0900-root-dtbs := imx93-11x11-evk-root.dtb imx93-11x11-evk-pmic-pf0900.dtbo
+imx93-11x11-evk-pmic-pf0900-flexio-i2c-dtbs := imx93-11x11-evk-flexio-i2c.dtb imx93-11x11-evk-pmic-pf0900.dtbo
+imx93-11x11-evk-pmic-pf0900-lpspi-dtbs := imx93-11x11-evk-lpspi.dtb imx93-11x11-evk-pmic-pf0900.dtbo
+imx93-11x11-evk-pmic-pf0900-lpspi-slave-dtbs := imx93-11x11-evk-lpspi-slave.dtb imx93-11x11-evk-pmic-pf0900.dtbo
+imx93-11x11-evk-pmic-pf0900-i3c-dtbs := imx93-11x11-evk-i3c.dtb imx93-11x11-evk-pmic-pf0900.dtbo
+imx93-11x11-evk-pmic-pf0900-lpuart-dtbs := imx93-11x11-evk-lpuart.dtb imx93-11x11-evk-pmic-pf0900.dtbo
+imx93-11x11-evk-pmic-pf0900-mqs-dtbs := imx93-11x11-evk-mqs.dtb imx93-11x11-evk-pmic-pf0900.dtbo
+imx93-11x11-evk-pmic-pf0900-aud-hat-dtbs := imx93-11x11-evk-aud-hat.dtb imx93-11x11-evk-pmic-pf0900.dtbo
+imx93-11x11-evk-pmic-pf0900-rm67199-dtbs := imx93-11x11-evk-rm67199.dtb imx93-11x11-evk-pmic-pf0900.dtbo
+imx93-11x11-evk-pmic-pf0900-boe-wxga-lvds-panel-dtbs := imx93-11x11-evk-boe-wxga-lvds-panel.dtb imx93-11x11-evk-pmic-pf0900.dtbo
+imx93-11x11-evk-pmic-pf0900-flexspi-m2-dtbs := imx93-11x11-evk-flexspi-m2.dtb imx93-11x11-evk-pmic-pf0900.dtbo
+imx93-11x11-evk-pmic-pf0900-mt9m114-dtbs := imx93-11x11-evk-mt9m114.dtb imx93-11x11-evk-pmic-pf0900.dtbo
+imx93-11x11-evk-pmic-pf0900-ld-dtbs := imx93-11x11-evk-ld.dtb imx93-11x11-evk-pmic-pf0900.dtbo
+imx93-11x11-evk-pmic-pf0900-rpmsg-dtbs := imx93-11x11-evk-rpmsg.dtb imx93-11x11-evk-pmic-pf0900.dtbo
+imx93-11x11-evk-pmic-pf0900-rpmsg-lpv-dtbs := imx93-11x11-evk-rpmsg-lpv.dtb imx93-11x11-evk-pmic-pf0900.dtbo
+
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-root.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-flexio-i2c.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-lpspi.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-lpspi-slave.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-i3c.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-lpuart.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-mqs.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-aud-hat.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-rm67199.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-boe-wxga-lvds-panel.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-flexspi-m2.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-mt9m114.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-ld.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-rpmsg.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-rpmsg-lpv.dtb
+
 dtb-$(CONFIG_ARCH_MXC) += imx93-9x9-qsb.dtb \
 			  imx93-9x9-qsb-can1.dtb \
 			  imx93-9x9-qsb-flexspi-m2.dtb \
