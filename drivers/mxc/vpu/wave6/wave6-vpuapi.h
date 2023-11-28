@@ -1126,6 +1126,8 @@ struct vpu_device {
 	struct mutex hw_lock; /* lock hw configurations */
 	int irq;
 	enum product_id	product;
+	u32 fw_version;
+	u32 hw_version;
 	struct vpu_attr	attr;
 	u32 last_performance_cycles;
 	struct gen_pool *sram_pool;
@@ -1139,6 +1141,8 @@ struct vpu_device {
 	struct kfifo irq_status;
 	struct delayed_work task_timer;
 	struct wave6_vpu_entity entity;
+
+	struct dentry *debugfs;
 };
 
 struct vpu_instance;
@@ -1205,6 +1209,8 @@ struct vpu_instance {
 	struct workqueue_struct *workqueue;
 	struct work_struct init_task;
 	atomic_t start_init_seq;
+
+	struct dentry *debugfs;
 };
 
 void wave6_vdi_writel(struct vpu_device *vpu_device, unsigned int addr, unsigned int data);
@@ -1254,4 +1260,6 @@ int wave6_vpu_enc_start_one_frame(struct vpu_instance *inst, struct enc_param *p
 int wave6_vpu_enc_get_output_info(struct vpu_instance *inst, struct enc_output_info *info);
 int wave6_vpu_enc_give_command(struct vpu_instance *inst, enum codec_command cmd, void *parameter);
 
+const char *wave6_vpu_instance_state_name(u32 state);
+void wave6_vpu_set_instance_state(struct vpu_instance *inst, u32 state);
 #endif

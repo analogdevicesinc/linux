@@ -17,6 +17,15 @@
 
 #define W6_VCPU_BOOT_TIMEOUT	3000000
 
+static unsigned int debug;
+module_param(debug, uint, 0644);
+
+#define dprintk(dev, fmt, arg...)					\
+	do {								\
+		if (debug)						\
+			dev_info(dev, fmt, ## arg);			\
+	} while (0)
+
 struct vpu_ctrl_resource {
 	const char *fw_name;
 };
@@ -178,7 +187,7 @@ static const char *wave6_vpu_ctrl_state_name(u32 state)
 
 static void wave6_vpu_ctrl_set_state(struct vpu_ctrl *ctrl, u32 state)
 {
-	dev_dbg(ctrl->dev, "set state: %s -> %s\n",
+	dprintk(ctrl->dev, "set state: %s -> %s\n",
 		wave6_vpu_ctrl_state_name(ctrl->state), wave6_vpu_ctrl_state_name(state));
 	ctrl->state = state;
 }
@@ -281,8 +290,9 @@ static void wave6_vpu_ctrl_load_firmware(const struct firmware *fw, void *contex
 		goto error;
 	}
 
-	if (fw->size * 2 > WAVE6_MAX_CODE_BUF_SIZE) {
-		dev_err(ctrl->dev, "firmware size (%ld) is too big\n", fw->size);
+	if (fw->size * 2 > ctrl->boot_mem.size) {
+		dev_err(ctrl->dev, "firmware size (%ld > %zd) is too big\n",
+			fw->size, ctrl->boot_mem.size);
 		goto error;
 	}
 

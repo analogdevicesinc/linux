@@ -14,17 +14,23 @@
 #include <linux/firmware.h>
 #include <linux/interrupt.h>
 #include <linux/pm_runtime.h>
+#include <linux/debugfs.h>
 #include "wave6-vpu.h"
 #include "wave6-regdefine.h"
 #include "wave6-vpuconfig.h"
 #include "wave6.h"
 #include "wave6-vpu-ctrl.h"
+#include "wave6-vpu-dbg.h"
 
 #define VPU_PLATFORM_DEVICE_NAME "vpu"
 #define VPU_CLK_NAME "vcodec"
+#define WAVE6_VPU_DEBUGFS_DIR "wave6"
 
 #define WAVE6_IS_ENC BIT(0)
 #define WAVE6_IS_DEC BIT(1)
+
+static unsigned int debug;
+module_param(debug, uint, 0644);
 
 struct wave6_match_data {
 	int flags;
@@ -35,6 +41,11 @@ static const struct wave6_match_data wave633c_data = {
 	.flags = WAVE6_IS_ENC | WAVE6_IS_DEC,
 	.sram_size = 0x18000,
 };
+
+unsigned int wave6_vpu_debug(void)
+{
+	return debug;
+}
 
 static irqreturn_t wave6_vpu_irq(int irq, void *dev_id)
 {
@@ -94,22 +105,36 @@ static void wave6_vpu_write_reg(struct device *dev, u32 addr, u32 data)
 static void wave6_vpu_on_boot(struct device *dev)
 {
 	struct vpu_device *vpu_dev = dev_get_drvdata(dev);
+	u32 product_code;
 	u32 version;
 	u32 revision;
+	u32 hw_version;
 	int ret;
 
-	vpu_dev->product_code = wave6_vdi_readl(vpu_dev, W6_VPU_RET_PRODUCT_VERSION);
+	wave6_enable_interrupt(vpu_dev);
+
+	product_code = wave6_vdi_readl(vpu_dev, W6_VPU_RET_PRODUCT_VERSION);
 	vpu_dev->product = wave_vpu_get_product_id(vpu_dev);
 
-	wave6_enable_interrupt(vpu_dev);
 	ret = wave6_vpu_get_version(vpu_dev, &version, &revision);
 	if (ret) {
 		dev_err(dev, "wave6_vpu_get_version fail\n");
 		return;
 	}
 
-	dev_info(dev, "enum product_id : %08x(0x%x), fw_version : %08x(r%d)\n",
-		 vpu_dev->product, vpu_dev->product_code, version, revision);
+	hw_version = wave6_vdi_readl(vpu_dev, W6_RET_CONF_REVISION);
+
+	if (vpu_dev->product_code != product_code ||
+	    vpu_dev->fw_version != revision ||
+	    vpu_dev->hw_version != hw_version) {
+		vpu_dev->product_code = product_code;
+		vpu_dev->fw_version = revision;
+		vpu_dev->hw_version = hw_version;
+		dev_info(dev, "product: %08x(0x%x), fw_version : %08x(r%d), hw_version : 0x%x\n",
+			 vpu_dev->product, vpu_dev->product_code,
+			 version, revision,
+			 vpu_dev->hw_version);
+	}
 }
 
 static int wave6_vpu_probe(struct platform_device *pdev)
@@ -231,6 +256,10 @@ static int wave6_vpu_probe(struct platform_device *pdev)
 		goto err_kfifo_free;
 	}
 
+	dev->debugfs = debugfs_lookup(WAVE6_VPU_DEBUGFS_DIR, NULL);
+	if (!dev->debugfs)
+		dev->debugfs = debugfs_create_dir(WAVE6_VPU_DEBUGFS_DIR, NULL);
+
 	pm_runtime_enable(&pdev->dev);
 
 	dev_dbg(&pdev->dev, "Added wave driver with caps %s %s\n",
@@ -300,6 +329,7 @@ static int wave6_vpu_runtime_suspend(struct device *dev)
 	if (!vpu_dev)
 		return -ENODEV;
 
+	dprintk(dev, "runtime suspend\n");
 	wave6_vpu_ctrl_put_sync(vpu_dev->ctrl, &vpu_dev->entity);
 	if (vpu_dev->num_clks)
 		clk_bulk_disable_unprepare(vpu_dev->num_clks, vpu_dev->clks);
@@ -314,6 +344,7 @@ static int wave6_vpu_runtime_resume(struct device *dev)
 	if (!vpu_dev)
 		return -ENODEV;
 
+	dprintk(dev, "runtime resume\n");
 	if (vpu_dev->num_clks) {
 		ret = clk_bulk_prepare_enable(vpu_dev->num_clks, vpu_dev->clks);
 		if (ret) {
@@ -331,6 +362,7 @@ static int wave6_vpu_suspend(struct device *dev)
 {
 	struct vpu_device *vpu_dev = dev_get_drvdata(dev);
 
+	dprintk(dev, "suspend\n");
 	v4l2_m2m_suspend(vpu_dev->m2m_dev);
 
 	return pm_runtime_force_suspend(dev);
@@ -341,6 +373,7 @@ static int wave6_vpu_resume(struct device *dev)
 	struct vpu_device *vpu_dev = dev_get_drvdata(dev);
 	int ret;
 
+	dprintk(dev, "resume\n");
 	ret = pm_runtime_force_resume(dev);
 	if (ret)
 		return ret;

@@ -41,9 +41,9 @@
 #define W6_ENC_PIC_SIZE_STEP            8
 
 //  application specific configuration
-#define W6_VPU_TIMEOUT                  60000
-#define VPU_ENC_TIMEOUT                 60000
-#define VPU_DEC_TIMEOUT                 60000
+#define W6_VPU_TIMEOUT                  6000
+#define VPU_ENC_TIMEOUT                 6000
+#define VPU_DEC_TIMEOUT                 6000
 
 #define HOST_ENDIAN                     VDI_128BIT_LITTLE_ENDIAN
 #define VPU_FRAME_ENDIAN                HOST_ENDIAN

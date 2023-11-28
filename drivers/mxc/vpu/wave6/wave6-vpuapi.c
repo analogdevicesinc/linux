@@ -9,6 +9,7 @@
 #include "wave6-vpuapi.h"
 #include "wave6-regdefine.h"
 #include "wave6.h"
+#include "wave6-vpu-dbg.h"
 
 static int wave6_check_dec_open_param(struct vpu_instance *inst, struct dec_open_param *param)
 {
@@ -1155,4 +1156,27 @@ int wave6_vpu_enc_complete_seq_init(struct vpu_instance *inst, struct enc_initia
 	mutex_unlock(&vpu_dev->hw_lock);
 
 	return 0;
+}
+
+const char *wave6_vpu_instance_state_name(u32 state)
+{
+	switch (state) {
+	case VPU_INST_STATE_NONE: return "none";
+	case VPU_INST_STATE_OPEN: return "open";
+	case VPU_INST_STATE_INIT_SEQ: return "init_seq";
+	case VPU_INST_STATE_PIC_RUN: return "pic_run";
+	case VPU_INST_STATE_SEEK: return "seek";
+	case VPU_INST_STATE_STOP: return "stop";
+	}
+	return "unknown";
+}
+
+void wave6_vpu_set_instance_state(struct vpu_instance *inst, u32 state)
+{
+	dprintk(inst->dev->dev, "[%d] %s -> %s\n",
+		inst->id,
+		wave6_vpu_instance_state_name(inst->state),
+		wave6_vpu_instance_state_name(state));
+
+	inst->state = state;
 }

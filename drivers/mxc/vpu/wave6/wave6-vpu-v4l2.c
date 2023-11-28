@@ -124,6 +124,7 @@ static void wave6_vpu_device_run_timeout(struct work_struct *work)
 	if (!inst)
 		return;
 
+	dev_err(inst->dev->dev, "[%d] sequence %d timeout\n", inst->id, inst->sequence);
 	src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
 	if (src_buf)
 		v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);

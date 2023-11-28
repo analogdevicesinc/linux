@@ -12,7 +12,7 @@
 #include "wave6-av1-cdf-table.h"
 #include "wave6-vpu-ctrl.h"
 
-#define VPU_BUSY_CHECK_TIMEOUT 10000000
+#define VPU_BUSY_CHECK_TIMEOUT 3000000
 #define MAX_CSC_COEFF_NUM      4
 
 static void wave6_print_reg_err(struct vpu_device *vpu_dev, u32 reg_fail_reason)
@@ -239,8 +239,6 @@ int wave6_vpu_get_version(struct vpu_device *vpu_dev, uint32_t *version_info,
 	attr->fw_version = vpu_read_reg(vpu_dev, W6_RET_FW_VERSION);
 	hw_config_def1 = vpu_read_reg(vpu_dev, W6_RET_STD_DEF1);
 	hw_config_feature = vpu_read_reg(vpu_dev, W6_RET_CONF_FEATURE);
-
-	dev_dbg(vpu_dev->dev, "hw revision : 0x%x\n", vpu_read_reg(vpu_dev, W6_RET_CONF_REVISION));
 
 	attr->support_hevc10bit_enc = (hw_config_feature >> 3) & 1;
 	attr->support_avc10bit_enc = (hw_config_feature >> 11) & 1;

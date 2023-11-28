@@ -6,6 +6,7 @@
  */
 
 #include "wave6-vpu.h"
+#include "wave6-vpu-dbg.h"
 
 #define VPU_ENC_DEV_NAME "C&M Wave6 VPU encoder"
 #define VPU_ENC_DRV_NAME "wave6-enc"
@@ -274,6 +275,8 @@ static void wave6_vpu_enc_destroy_instance(struct vpu_instance *inst)
 	u32 fail_res;
 	int ret;
 
+	wave6_vpu_remove_dbgfs_file(inst);
+
 	ret = wave6_vpu_enc_close(inst, &fail_res);
 	if (ret) {
 		dev_err(inst->dev->dev, "failed destroy instance: %d (%d)\n",
@@ -286,7 +289,7 @@ static void wave6_vpu_enc_destroy_instance(struct vpu_instance *inst)
 	wave6_vdi_free_dma_memory(inst->dev, &inst->ar_vbuf);
 	wave6_vdi_free_dma_memory(inst->dev, &inst->vui_vbuf);
 
-	inst->state = VPU_INST_STATE_NONE;
+	wave6_vpu_set_instance_state(inst, VPU_INST_STATE_NONE);
 
 	if (!pm_runtime_suspended(inst->dev->dev))
 		pm_runtime_put_sync(inst->dev->dev);
@@ -795,10 +798,11 @@ static int wave6_vpu_enc_start_encode(struct vpu_instance *inst)
 			goto exit;
 
 		dev_dbg(inst->dev->dev, "%s: fail %d\n", __func__, ret);
-		inst->state = VPU_INST_STATE_STOP;
+		wave6_vpu_set_instance_state(inst, VPU_INST_STATE_STOP);
 
 		src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
 		dst_buf = v4l2_m2m_dst_buf_remove(inst->v4l2_fh.m2m_ctx);
+		dst_buf->sequence = inst->sequence++;
 		v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
 		v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_ERROR);
 	} else {
@@ -819,7 +823,7 @@ static void wave6_vpu_enc_stop_encode(struct vpu_instance *inst)
 {
 	dev_dbg(inst->dev->dev, "%s: state %d\n", __func__, inst->state);
 
-	inst->state = VPU_INST_STATE_STOP;
+	wave6_vpu_set_instance_state(inst, VPU_INST_STATE_STOP);
 }
 
 static void wave6_handle_encoded_frame(struct vpu_instance *inst,
@@ -856,6 +860,7 @@ static void wave6_handle_encoded_frame(struct vpu_instance *inst,
 	else if (info->pic_type == PIC_TYPE_B)
 		dst_buf->flags |= V4L2_BUF_FLAG_BFRAME;
 
+	dst_buf->sequence = inst->sequence++;
 	v4l2_m2m_dst_buf_remove_by_buf(inst->v4l2_fh.m2m_ctx, dst_buf);
 	v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
 
@@ -877,7 +882,7 @@ static void wave6_handle_last_frame(struct vpu_instance *inst,
 	v4l2_m2m_dst_buf_remove_by_buf(inst->v4l2_fh.m2m_ctx, dst_buf);
 	v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
 
-	inst->state = VPU_INST_STATE_PIC_RUN;
+	wave6_vpu_set_instance_state(inst, VPU_INST_STATE_PIC_RUN);
 	inst->eos = true;
 
 	v4l2_m2m_set_src_buffered(inst->v4l2_fh.m2m_ctx, false);
@@ -1267,7 +1272,7 @@ static int wave6_vpu_enc_encoder_cmd(struct file *file, void *fh, struct v4l2_en
 
 	switch (ec->cmd) {
 	case V4L2_ENC_CMD_STOP:
-		inst->state = VPU_INST_STATE_STOP;
+		wave6_vpu_set_instance_state(inst, VPU_INST_STATE_STOP);
 		v4l2_m2m_set_src_buffered(inst->v4l2_fh.m2m_ctx, true);
 		v4l2_m2m_try_schedule(inst->v4l2_fh.m2m_ctx);
 		break;
@@ -2065,7 +2070,9 @@ static int wave6_vpu_enc_create_instance(struct vpu_instance *inst)
 		goto error_open;
 	}
 
-	inst->state = VPU_INST_STATE_OPEN;
+	dprintk(inst->dev->dev, "[%d] encoder\n", inst->id);
+	wave6_vpu_create_dbgfs_file(inst);
+	wave6_vpu_set_instance_state(inst, VPU_INST_STATE_OPEN);
 
 	return 0;
 error_open:
@@ -2124,7 +2131,7 @@ static int wave6_vpu_enc_initialize_instance(struct vpu_instance *inst)
 	if (ctrl)
 		v4l2_ctrl_s_ctrl(ctrl, initial_info.min_src_frame_count);
 
-	inst->state = VPU_INST_STATE_INIT_SEQ;
+	wave6_vpu_set_instance_state(inst, VPU_INST_STATE_INIT_SEQ);
 
 	return 0;
 }
@@ -2203,7 +2210,7 @@ static int wave6_vpu_enc_prepare_fb(struct vpu_instance *inst)
 		goto error;
 	}
 
-	inst->state = VPU_INST_STATE_PIC_RUN;
+	wave6_vpu_set_instance_state(inst, VPU_INST_STATE_PIC_RUN);
 
 	return 0;
 
@@ -2274,7 +2281,7 @@ static void wave6_vpu_enc_buf_queue(struct vb2_buffer *vb)
 		inst->force_pic_type_enable = false;
 		inst->force_pic_type = ENC_FORCE_PIC_TYPE_I;
 	} else {
-		vbuf->sequence = inst->queued_dst_buf_num++;
+		inst->queued_dst_buf_num++;
 	}
 
 	vpu_buf->consumed = false;
@@ -2285,13 +2292,25 @@ static void wave6_vpu_enc_buf_queue(struct vb2_buffer *vb)
 static int wave6_vpu_enc_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct vpu_instance *inst = vb2_get_drv_priv(q);
+	struct v4l2_pix_format_mplane *fmt;
 	struct vb2_queue *vq_peer;
 	int ret = 0;
 
-	if (V4L2_TYPE_IS_OUTPUT(q->type))
+	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
+		fmt = &inst->src_fmt;
 		vq_peer = v4l2_m2m_get_dst_vq(inst->v4l2_fh.m2m_ctx);
-	else
+	} else {
+		fmt = &inst->dst_fmt;
 		vq_peer = v4l2_m2m_get_src_vq(inst->v4l2_fh.m2m_ctx);
+	}
+
+	dprintk(inst->dev->dev, "[%d] %s %c%c%c%c %dx%d, %d buffers\n",
+		inst->id, V4L2_TYPE_IS_OUTPUT(q->type) ? "output" : "capture",
+		fmt->pixelformat,
+		fmt->pixelformat >> 8,
+		fmt->pixelformat >> 16,
+		fmt->pixelformat >> 24,
+		fmt->width, fmt->height, q->num_buffers);
 
 	if (!vb2_is_streaming(vq_peer))
 		return 0;
@@ -2333,16 +2352,19 @@ static void wave6_vpu_enc_stop_streaming(struct vb2_queue *q)
 	struct vpu_instance *inst = vb2_get_drv_priv(q);
 	struct vb2_queue *vq_peer;
 
-	dev_dbg(inst->dev->dev, "%s: type %d\n", __func__, q->type);
+	dprintk(inst->dev->dev, "[%d] %s, input %d, decode %d\n",
+		inst->id, V4L2_TYPE_IS_OUTPUT(q->type) ? "output" : "capture",
+		inst->queued_src_buf_num, inst->sequence);
 
 	if (wave6_vpu_both_queues_are_streaming(inst))
-		inst->state = VPU_INST_STATE_STOP;
+		wave6_vpu_set_instance_state(inst, VPU_INST_STATE_STOP);
 
 	v4l2_m2m_suspend(inst->dev->m2m_dev);
 
 	wave6_vpu_return_buffers(inst, q->type, VB2_BUF_STATE_ERROR);
 	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
 		inst->queued_src_buf_num = 0;
+		inst->sequence = 0;
 	} else {
 		inst->eos = false;
 		inst->queued_dst_buf_num = 0;
