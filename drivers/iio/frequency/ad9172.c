@@ -134,7 +134,7 @@ static int ad9172_link_status_get(struct ad9172_state *st, unsigned long lane_ra
 			i, link_status.good_checksum_stat);
 		dev_info(dev, "Link%d init_lane_sync_stat: %x\n",
 			i, link_status.init_lane_sync_stat);
-		dev_info(dev, "Link%d %d lanes @ %lu kBps\n",
+		dev_info(dev, "Link%d %d lanes @ %lu kbps\n",
 			i, st->appJesdConfig.jesd_L, lane_rate_kHz);
 
 		if (hweight8(link_status.code_grp_sync_stat) != st->appJesdConfig.jesd_L ||
