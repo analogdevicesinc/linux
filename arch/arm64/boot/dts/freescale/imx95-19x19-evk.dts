@@ -18,6 +18,8 @@
 		mmc0 = &usdhc1;
 		mmc1 = &usdhc2;
 		serial0 = &lpuart1;
+		ethernet0 = &enetc_port0;
+		ethernet1 = &enetc_port2;
 	};
 
 	bt_sco_codec: audio-codec-bt-sco {
