@@ -232,7 +232,6 @@ static int wave6_vpu_probe(struct platform_device *pdev)
 	}
 
 	pm_runtime_enable(&pdev->dev);
-	pm_runtime_resume_and_get(&pdev->dev);
 
 	dev_dbg(&pdev->dev, "Added wave driver with caps %s %s\n",
 		match_data->flags & WAVE6_IS_ENC ? "'ENCODE'" : "",
@@ -271,7 +270,6 @@ static int wave6_vpu_remove(struct platform_device *pdev)
 {
 	struct vpu_device *dev = dev_get_drvdata(&pdev->dev);
 
-	pm_runtime_put_sync(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 

@@ -164,6 +164,9 @@ static void wave6_vpu_dec_destroy_instance(struct vpu_instance *inst)
 	wave6_vdi_free_dma_memory(inst->dev, &inst->vui_vbuf);
 
 	inst->state = VPU_INST_STATE_NONE;
+
+	if (!pm_runtime_suspended(inst->dev->dev))
+		pm_runtime_put_sync(inst->dev->dev);
 }
 
 static void wave6_handle_bitstream_buffer(struct vpu_instance *inst)
@@ -1237,11 +1240,18 @@ static int wave6_vpu_dec_create_instance(struct vpu_instance *inst)
 
 	memset(&open_param, 0, sizeof(struct dec_open_param));
 
+	ret = pm_runtime_resume_and_get(inst->dev->dev);
+	if (ret) {
+		dev_err(inst->dev->dev, "runtime_resume failed %d\n", ret);
+		return ret;
+	}
+
 	inst->std = wave6_to_vpu_codstd(inst->src_fmt.pixelformat);
 	if (inst->std == STD_UNKNOWN) {
 		dev_err(inst->dev->dev, "unsupported pixelformat: %.4s\n",
 			(char *)&inst->src_fmt.pixelformat);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto error_pm;
 	}
 
 	if (attr->support_command_queue)
@@ -1252,7 +1262,7 @@ static int wave6_vpu_dec_create_instance(struct vpu_instance *inst)
 	if (ret) {
 		dev_err(inst->dev->dev, "alloc work of size %zu failed\n",
 			inst->work_vbuf.size);
-		return ret;
+		goto error_pm;
 	}
 
 	inst->temp_vbuf.size = ALIGN(WAVE6_TEMPBUF_SIZE, 4096);
@@ -1300,6 +1310,8 @@ error_vui:
 	wave6_vdi_free_dma_memory(inst->dev, &inst->temp_vbuf);
 error_tbuf:
 	wave6_vdi_free_dma_memory(inst->dev, &inst->work_vbuf);
+error_pm:
+	pm_runtime_put_sync(inst->dev->dev);
 	return ret;
 }
 

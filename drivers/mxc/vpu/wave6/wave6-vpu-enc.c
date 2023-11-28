@@ -287,6 +287,9 @@ static void wave6_vpu_enc_destroy_instance(struct vpu_instance *inst)
 	wave6_vdi_free_dma_memory(inst->dev, &inst->vui_vbuf);
 
 	inst->state = VPU_INST_STATE_NONE;
+
+	if (!pm_runtime_suspended(inst->dev->dev))
+		pm_runtime_put_sync(inst->dev->dev);
 }
 
 static struct vb2_v4l2_buffer *wave6_get_valid_src_buf(struct vpu_instance *inst)
@@ -2008,11 +2011,18 @@ static int wave6_vpu_enc_create_instance(struct vpu_instance *inst)
 
 	memset(&open_param, 0, sizeof(struct enc_open_param));
 
+	ret = pm_runtime_resume_and_get(inst->dev->dev);
+	if (ret) {
+		dev_err(inst->dev->dev, "runtime_resume failed %d\n", ret);
+		return ret;
+	}
+
 	inst->std = wave6_to_vpu_wavestd(inst->dst_fmt.pixelformat);
 	if (inst->std == STD_UNKNOWN) {
 		dev_err(inst->dev->dev, "unsupported pixelformat: %.4s\n",
 			(char *)&inst->dst_fmt.pixelformat);
-		return -EINVAL;
+		ret = -EINVAL;
+		goto error_pm;
 	}
 
 	inst->work_vbuf.size = WAVE627ENC_WORKBUF_SIZE;
@@ -2020,7 +2030,7 @@ static int wave6_vpu_enc_create_instance(struct vpu_instance *inst)
 	if (ret) {
 		dev_err(inst->dev->dev, "alloc work of size %zu failed\n",
 			inst->work_vbuf.size);
-		return ret;
+		goto error_pm;
 	}
 
 	inst->temp_vbuf.size = ALIGN(WAVE6_TEMPBUF_SIZE, 4096);
@@ -2028,7 +2038,7 @@ static int wave6_vpu_enc_create_instance(struct vpu_instance *inst)
 	if (ret) {
 		dev_err(inst->dev->dev, "alloc temp of size %zu failed\n",
 			inst->temp_vbuf.size);
-		return ret;
+		goto error_tbuf;
 	}
 
 	inst->ar_vbuf.size = ALIGN(WAVE6_ARBUF_SIZE, 4096);
@@ -2036,7 +2046,7 @@ static int wave6_vpu_enc_create_instance(struct vpu_instance *inst)
 	if (ret) {
 		dev_err(inst->dev->dev, "alloc ar of size %zu failed\n",
 			inst->ar_vbuf.size);
-		return ret;
+		goto error_arbuf;
 	}
 
 	inst->vui_vbuf.size = ALIGN(WAVE6_VUI_BUF_SIZE, 4096);
@@ -2044,7 +2054,7 @@ static int wave6_vpu_enc_create_instance(struct vpu_instance *inst)
 	if (ret) {
 		dev_err(inst->dev->dev, "alloc vui of size %zu failed\n",
 			inst->vui_vbuf.size);
-		return ret;
+		goto error_vui;
 	}
 
 	wave6_set_enc_open_param(&open_param, inst);
@@ -2052,12 +2062,23 @@ static int wave6_vpu_enc_create_instance(struct vpu_instance *inst)
 	ret = wave6_vpu_enc_open(inst, &open_param);
 	if (ret) {
 		dev_err(inst->dev->dev, "failed create instance : %d\n", ret);
-		return ret;
+		goto error_open;
 	}
 
 	inst->state = VPU_INST_STATE_OPEN;
 
 	return 0;
+error_open:
+	wave6_vdi_free_dma_memory(inst->dev, &inst->vui_vbuf);
+error_vui:
+	wave6_vdi_free_dma_memory(inst->dev, &inst->ar_vbuf);
+error_arbuf:
+	wave6_vdi_free_dma_memory(inst->dev, &inst->temp_vbuf);
+error_tbuf:
+	wave6_vdi_free_dma_memory(inst->dev, &inst->work_vbuf);
+error_pm:
+	pm_runtime_put_sync(inst->dev->dev);
+	return ret;
 }
 
 static int wave6_vpu_enc_initialize_instance(struct vpu_instance *inst)

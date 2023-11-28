@@ -7,6 +7,7 @@
 #ifndef __VPU_DRV_H__
 #define __VPU_DRV_H__
 
+#include <linux/pm_runtime.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-event.h>
