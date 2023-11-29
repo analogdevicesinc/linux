@@ -5,4 +5,5 @@
 obj-$(CONFIG_NEUTRON) = neutron.o
 
 neutron-objs := neutron_driver.o \
-		neutron_device.o
+		neutron_device.o \
+		neutron_buffer.o
