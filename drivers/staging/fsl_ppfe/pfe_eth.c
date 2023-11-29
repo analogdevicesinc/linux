@@ -884,24 +884,6 @@ static int pfe_eth_mdio_mux(u8 muxval)
 	return 0;
 }
 
-static int pfe_eth_mdio_write_addr(struct mii_bus *bus, int mii_id,
-				   int dev_addr, int regnum)
-{
-	struct pfe_mdio_priv_s *priv = (struct pfe_mdio_priv_s *)bus->priv;
-
-	__raw_writel(EMAC_MII_DATA_PA(mii_id) |
-		     EMAC_MII_DATA_RA(dev_addr) |
-		     EMAC_MII_DATA_TA | EMAC_MII_DATA(regnum),
-		     priv->mdio_base + EMAC_MII_DATA_REG);
-
-	if (pfe_eth_mdio_timeout(priv, EMAC_MDIO_TIMEOUT)) {
-		dev_err(&bus->dev, "phy MDIO address write timeout\n");
-		return -1;
-	}
-
-	return 0;
-}
-
 static int pfe_eth_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
 			      u16 value)
 {
