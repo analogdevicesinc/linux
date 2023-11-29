@@ -1205,7 +1205,8 @@ struct vpu_instance {
 	enum enc_force_pic_type force_pic_type;
 	int repeat_seq_header;
 	struct sar_info sar;
-
+	u64 total_frames;
+	u64 total_frame_cycle;
 	struct workqueue_struct *workqueue;
 	struct work_struct init_task;
 	atomic_t start_init_seq;

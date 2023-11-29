@@ -875,6 +875,8 @@ static void wave6_handle_encoded_frame(struct vpu_instance *inst,
 	v4l2_m2m_dst_buf_remove_by_buf(inst->v4l2_fh.m2m_ctx, dst_buf);
 	v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
 
+	inst->total_frames++;
+	inst->total_frame_cycle += info->cycle.frame_cycle;
 	dev_dbg(inst->dev->dev, "frame_cycle %8d\n", info->frame_cycle);
 }
 
@@ -897,6 +899,15 @@ static void wave6_handle_last_frame(struct vpu_instance *inst,
 	inst->eos = true;
 
 	v4l2_m2m_set_src_buffered(inst->v4l2_fh.m2m_ctx, false);
+
+	if (inst->total_frames) {
+		dprintk(inst->dev->dev, "total frames %llu,avg cycle %llu,fps %llu\n",
+			 inst->total_frames,
+			 (inst->total_frame_cycle / inst->total_frames),
+			 (666000000 * inst->total_frames / inst->total_frame_cycle));
+	} else {
+		dprintk(inst->dev->dev, "no frame encode done!\n");
+	}
 }
 
 static void wave6_vpu_enc_finish_encode(struct vpu_instance *inst)
