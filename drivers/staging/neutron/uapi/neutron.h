@@ -71,6 +71,38 @@ struct neutron_uapi_buffer_create {
 	__u64 addr;
 };
 
+/**
+ * struct neutron_uapi_inference_args - Job creation struct
+ * @args:              Union parameters
+ * @tensor_offset:     Tensor array address offset, inputs, outputs, weight, scratch
+ * @kernel_offset:     Kernel address offset
+ * @microcode_offset:  Microcode address offset
+ * @tensor_count:      Valid tensor number.
+ * @dram_base:         Physical base address in DDR, used by neutron.
+ * @reserve:           Reserve for future.
+ */
+struct neutron_uapi_inference_args {
+	union {
+		__u32  args0;
+		__u32 tensor_offset;
+		__u32 kernel_offset;
+	};
+	union {
+		__u32  args1;
+		__u32 microcode_offset;
+	};
+	union {
+		__u32  args2;
+		__u32  tensor_count;
+	};
+	union {
+		__u32  args3;
+	};
+	__u32 dram_base;
+	__u32 reserve[2];
+};
+
+
 #ifdef __cplusplus
 } /* namespace Neutron */
 #endif

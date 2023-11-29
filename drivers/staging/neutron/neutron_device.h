@@ -83,6 +83,7 @@ struct neutron_log_buffer {
  * @dev:			Common device
  * @reg_base:			Register virtual address
  * @logger:			Log file struct
+ * @queue:			Neutron inference queue list pointer
  * @mbox:			Neutron mailbox interface pointer
  * @clks:			Neutron clock pointer
  * @rproc:			Neutron remote-proc pointer
@@ -96,6 +97,7 @@ struct neutron_device {
 	struct clk_bulk_data           *clks;
 	unsigned int                   num_clks;
 	struct neutron_log_buffer      logger;
+	struct neutron_inference_queue *queue;
 	struct neutron_mbox            *mbox;
 	struct rproc                   *rproc;
 	struct cdev                    cdev;

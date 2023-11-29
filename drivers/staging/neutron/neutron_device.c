@@ -20,6 +20,7 @@
 
 #include "neutron_device.h"
 #include "neutron_mailbox.h"
+#include "neutron_inference.h"
 
 /****************************************************************************/
 
@@ -202,6 +203,14 @@ static const struct file_operations ndev_fops = {
 	.read		= &neutron_read,
 };
 
+static void neutron_mbox_rx_callback(struct neutron_device *ndev, void *data)
+{
+	struct neutron_mbox_rx_msg *msg = data;
+
+	if (msg->retcode == DONE)
+		neutron_inference_done(ndev);
+}
+
 int neutron_dev_clk_get(struct neutron_device *ndev)
 {
 	int ret;
@@ -244,10 +253,16 @@ int neutron_dev_init(struct neutron_device *ndev,
 	if (ret)
 		goto destroy_mutex;
 
-	ndev->mbox = neutron_mbox_create(ndev, irq, NULL);
+	ndev->mbox = neutron_mbox_create(ndev, irq, neutron_mbox_rx_callback);
 	if (!ndev->mbox) {
 		dev_err(ndev->dev, "Failed to init mailbox\n");
 		goto put_clk;
+	}
+
+	ndev->queue = neutron_queue_create(ndev);
+	if (!ndev->queue) {
+		dev_err(ndev->dev, "Failed to create inference queue.\n");
+		goto destroy_mbox;
 	}
 
 	dma_set_mask_and_coherent(ndev->dev, DMA_BIT_MASK(32));
@@ -258,7 +273,7 @@ int neutron_dev_init(struct neutron_device *ndev,
 	ret = cdev_add(&ndev->cdev, ndev->devt, 1);
 	if (ret) {
 		dev_err(ndev->dev, "Failed to add character device.\n");
-		goto destroy_mbox;
+		goto destroy_queue;
 	}
 
 	sysdev = device_create(ndev->class, NULL, ndev->devt, ndev,
@@ -276,6 +291,8 @@ int neutron_dev_init(struct neutron_device *ndev,
 
 del_cdev:
 	cdev_del(&ndev->cdev);
+destroy_queue:
+	neutron_queue_destroy(ndev->queue);
 destroy_mbox:
 	neutron_mbox_destroy(ndev->mbox);
 put_clk:
@@ -289,6 +306,7 @@ destroy_mutex:
 
 void neutron_dev_deinit(struct neutron_device *ndev)
 {
+	neutron_queue_destroy(ndev->queue);
 	clk_bulk_disable_unprepare(ndev->num_clks, ndev->clks);
 	neutron_mbox_destroy(ndev->mbox);
 	mutex_destroy(&ndev->mutex);
