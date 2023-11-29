@@ -34,6 +34,10 @@ namespace Neutron {
 
 #define NEUTRON_IOCTL_BUFFER_CREATE	NEUTRON_IOW(0x07, \
 						   struct neutron_uapi_buffer_create)
+#define NEUTRON_IOCTL_INFERENCE_CREATE	NEUTRON_IOW(0x08, \
+						   struct neutron_uapi_inference_args)
+#define NEUTRON_IOCTL_KERNEL_LOAD	NEUTRON_IOW(0x09, \
+						   struct neutron_uapi_inference_args)
 
 
 /****************************************************************************

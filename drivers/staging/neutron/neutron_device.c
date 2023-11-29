@@ -18,6 +18,8 @@
 #include <linux/remoteproc.h>
 #include <linux/delay.h>
 
+#include "uapi/neutron.h"
+#include "neutron_buffer.h"
 #include "neutron_device.h"
 #include "neutron_mailbox.h"
 #include "neutron_inference.h"
@@ -197,10 +199,84 @@ static ssize_t neutron_read(struct file *file, char __user *buf,
 	return bytes;
 }
 
+static long neutron_ioctl(struct file *file,
+			  unsigned int cmd,
+			 unsigned long arg)
+{
+	struct neutron_device *ndev = file->private_data;
+	void __user *udata = (void __user *)arg;
+	int ret = -EINVAL;
+
+	ret = mutex_lock_interruptible(&ndev->mutex);
+	if (ret)
+		return ret;
+
+	dev_dbg(ndev->dev, "Device ioctl. file=0x%pK, cmd=0x%x, arg=0x%lx\n",
+		file, cmd, arg);
+
+	switch (cmd) {
+	case NEUTRON_IOCTL_BUFFER_CREATE: {
+		struct neutron_uapi_buffer_create uapi;
+
+		if (copy_from_user(&uapi, udata, sizeof(uapi)))
+			break;
+
+		dev_dbg(ndev->dev,
+			"Ioctl: Buffer create. size=%u\n",
+			uapi.size);
+
+		ret = neutron_buffer_create(ndev, uapi.size, &uapi.addr);
+		if (copy_to_user(udata, &uapi, sizeof(uapi)))
+			break;
+
+		break;
+	}
+	case NEUTRON_IOCTL_KERNEL_LOAD: {
+		struct neutron_uapi_inference_args uapi;
+
+		if (copy_from_user(&uapi, udata, sizeof(uapi)))
+			break;
+
+		dev_dbg(ndev->dev,
+			"Ioctl: Inference run. dram_base=%u, kernel_offset=%u\n",
+			uapi.dram_base, uapi.kernel_offset);
+		ret = neutron_inference_create(ndev, NEUTRON_CMD_LOAD_KERNEL, &uapi);
+
+		break;
+	}
+	case NEUTRON_IOCTL_INFERENCE_CREATE: {
+		struct neutron_uapi_inference_args uapi;
+
+		if (copy_from_user(&uapi, udata, sizeof(uapi)))
+			break;
+
+		dev_dbg(ndev->dev,
+			"Ioctl: Inference run. dram_base=%u, tensor_offset=%u\n",
+			uapi.dram_base, uapi.tensor_offset);
+		ret = neutron_inference_create(ndev, NEUTRON_CMD_RUN_INFERENCE, &uapi);
+
+		break;
+	}
+
+	default: {
+		dev_err(ndev->dev, "Invalid ioctl. cmd=%u, arg=%lu",
+			cmd, arg);
+		break;
+	}
+	}
+	mutex_unlock(&ndev->mutex);
+
+	return ret;
+}
+
 static const struct file_operations ndev_fops = {
 	.owner		= THIS_MODULE,
 	.open		= &neutron_open,
 	.read		= &neutron_read,
+	.unlocked_ioctl	= &neutron_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl	= &neutron_ioctl,
+#endif
 };
 
 static void neutron_mbox_rx_callback(struct neutron_device *ndev, void *data)
