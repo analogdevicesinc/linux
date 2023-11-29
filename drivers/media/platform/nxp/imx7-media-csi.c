@@ -264,6 +264,7 @@ struct imx7_csi {
 	bool is_streaming;
 	int buf_num;
 	u32 frame_sequence;
+	int frame_skip;
 
 	bool last_eof;
 	struct completion last_eof_completion;
@@ -701,6 +702,7 @@ static void imx7_csi_enable(struct imx7_csi *csi)
 	imx7_csi_dmareq_rff_enable(csi);
 	imx7_csi_hw_enable(csi);
 
+	csi->frame_skip = 0;
 	if (csi->model == IMX7_CSI_IMX8MQ)
 		imx7_csi_baseaddr_switch_on_second_frame(csi);
 }
@@ -779,6 +781,12 @@ static irqreturn_t imx7_csi_irq_handler(int irq, void *data)
 		imx7_csi_error_recovery(csi);
 	}
 
+	if (!(status & BIT_STATFF_INT)) {
+		dev_warn(csi->dev, "Stat fifo is not full\n");
+		imx7_csi_error_recovery(csi);
+		csi->frame_skip++;
+	}
+
 	if (status & BIT_ADDR_CH_ERR_INT) {
 		imx7_csi_hw_disable(csi);
 
@@ -805,14 +813,19 @@ static irqreturn_t imx7_csi_irq_handler(int irq, void *data)
 
 	if ((status & BIT_DMA_TSF_DONE_FB1) ||
 	    (status & BIT_DMA_TSF_DONE_FB2)) {
-		imx7_csi_vb2_buf_done(csi);
-
-		if (csi->last_eof) {
-			complete(&csi->last_eof_completion);
-			csi->last_eof = false;
+		if (csi->frame_skip) {
+			dev_warn(csi->dev, "skip frame: %d\n", csi->frame_skip);
+			csi->frame_skip--;
+			goto out;
+		} else {
+			imx7_csi_vb2_buf_done(csi);
+			if (csi->last_eof) {
+				complete(&csi->last_eof_completion);
+				csi->last_eof = false;
+			}
 		}
 	}
-
+out:
 	spin_unlock(&csi->irqlock);
 
 	return IRQ_HANDLED;
