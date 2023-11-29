@@ -1237,7 +1237,8 @@ struct vpu_instance {
 	bool force_key_frame;
 	bool error_recovery;
 	struct sar_info sar;
-
+	u64 total_frames;
+	u64 total_frame_cycle;
 	struct workqueue_struct *workqueue;
 	struct work_struct init_task;
 	atomic_t start_init_seq;
