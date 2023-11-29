@@ -2514,7 +2514,7 @@ static int wave6_vpu_open_enc(struct file *filp)
 			  0, 1, 1, 0);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_GOP_SIZE,
-			  0, 2047, 1, 0);
+			  0, 2047, 1, 30);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
 			       V4L2_CID_MPEG_VIDEO_MULTI_SLICE_MODE,
 			       V4L2_MPEG_VIDEO_MULTI_SLICE_MODE_MAX_MB, 0,
