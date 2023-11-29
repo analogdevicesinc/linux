@@ -146,7 +146,7 @@ static void imx_pll14xx_calc_settings(struct clk_pll14xx *pll, unsigned long rat
 {
 	u32 pll_div_ctl0, pll_div_ctl1;
 	int mdiv, pdiv, sdiv, kdiv;
-	long fout, rate_min, rate_max, dist, best = LONG_MAX;
+	long fvco, fout, rate_min, rate_max, dist, best = LONG_MAX;
 	const struct imx_pll14xx_rate_table *tt;
 
 	/*
@@ -159,6 +159,8 @@ static void imx_pll14xx_calc_settings(struct clk_pll14xx *pll, unsigned long rat
 	 *
 	 * fvco = (m * 65536 + k) * prate / (p * 65536)
 	 * fout = (m * 65536 + k) * prate / (p * 65536) / (1 << sdiv)
+	 *
+	 * e) 1600MHz <= fvco <= 3200MHz
 	 */
 
 	/* First try if we can get the desired rate from one of the static entries */
@@ -208,6 +210,10 @@ static void imx_pll14xx_calc_settings(struct clk_pll14xx *pll, unsigned long rat
 			kdiv = pll1443x_calc_kdiv(mdiv, pdiv, sdiv, rate, prate);
 			fout = pll14xx_calc_rate(pll, mdiv, pdiv, sdiv, kdiv, prate);
 
+			fvco = fout << sdiv;
+
+			if (fvco < 1600000000 || fvco > 3200000000)
+				continue;
 			/* best match */
 			dist = abs((long)rate - (long)fout);
 			if (dist < best) {
