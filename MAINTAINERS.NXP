@@ -1021,7 +1021,6 @@ thermal
 M: Jacky Bai <ping.bai@nxp.com>
 M: Alice Guo <alice.guo@nxp.com>
 F: drivers/thermal/
-F: include/linux/device_cooling.h
 
 timer
 M: Jacky Bai <ping.bai@nxp.com>
