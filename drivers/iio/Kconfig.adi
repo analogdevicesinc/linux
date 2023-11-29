@@ -195,4 +195,5 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD5110
 	imply MAX31865
 	imply MAX11205
+	imply ADRV9025
 
