@@ -19,6 +19,7 @@
 #include <linux/delay.h>
 
 #include "neutron_device.h"
+#include "neutron_mailbox.h"
 
 /****************************************************************************/
 
@@ -243,6 +244,12 @@ int neutron_dev_init(struct neutron_device *ndev,
 	if (ret)
 		goto destroy_mutex;
 
+	ndev->mbox = neutron_mbox_create(ndev, irq, NULL);
+	if (!ndev->mbox) {
+		dev_err(ndev->dev, "Failed to init mailbox\n");
+		goto put_clk;
+	}
+
 	dma_set_mask_and_coherent(ndev->dev, DMA_BIT_MASK(32));
 
 	cdev_init(&ndev->cdev, &ndev_fops);
@@ -251,7 +258,7 @@ int neutron_dev_init(struct neutron_device *ndev,
 	ret = cdev_add(&ndev->cdev, ndev->devt, 1);
 	if (ret) {
 		dev_err(ndev->dev, "Failed to add character device.\n");
-		goto destroy_mutex;
+		goto destroy_mbox;
 	}
 
 	sysdev = device_create(ndev->class, NULL, ndev->devt, ndev,
@@ -269,6 +276,8 @@ int neutron_dev_init(struct neutron_device *ndev,
 
 del_cdev:
 	cdev_del(&ndev->cdev);
+destroy_mbox:
+	neutron_mbox_destroy(ndev->mbox);
 put_clk:
 	clk_bulk_disable_unprepare(ndev->num_clks, ndev->clks);
 destroy_mutex:
@@ -281,6 +290,7 @@ destroy_mutex:
 void neutron_dev_deinit(struct neutron_device *ndev)
 {
 	clk_bulk_disable_unprepare(ndev->num_clks, ndev->clks);
+	neutron_mbox_destroy(ndev->mbox);
 	mutex_destroy(&ndev->mutex);
 	device_destroy(ndev->class, ndev->cdev.dev);
 	cdev_del(&ndev->cdev);
