@@ -138,7 +138,7 @@ static ssize_t axi_jesd204_tx_status_read(struct device *dev,
 		ret += scnprintf(buf + ret, PAGE_SIZE - ret,
 			"Measured Link Clock: off\n");
 	} else {
-		clock_rate = DIV_ROUND_CLOSEST_ULL(DIV_ROUND_CLOSEST(jesd->axi_clk_freq,
+		clock_rate = DIV_ROUND_CLOSEST_ULL((u64)DIV_ROUND_CLOSEST(jesd->axi_clk_freq,
 			1000) * clock_ratio, 1ULL << 16);
 
 		ret += scnprintf(buf + ret, PAGE_SIZE - ret,
@@ -169,7 +169,7 @@ static ssize_t axi_jesd204_tx_status_read(struct device *dev,
 			ret += scnprintf(buf + ret, PAGE_SIZE - ret,
 				"Measured Device Clock: off\n");
 		} else {
-			clock_rate = DIV_ROUND_CLOSEST_ULL(DIV_ROUND_CLOSEST(jesd->axi_clk_freq,
+			clock_rate = DIV_ROUND_CLOSEST_ULL((u64)DIV_ROUND_CLOSEST(jesd->axi_clk_freq,
 				1000) * clock_ratio, 1ULL << 16);
 
 			ret += scnprintf(buf + ret, PAGE_SIZE - ret,
