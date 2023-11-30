@@ -1054,6 +1054,8 @@ static int tc_setup_taprio(struct stmmac_priv *priv,
 		return -EINVAL;
 	if (!qopt->cycle_time)
 		return -ERANGE;
+	if (qopt->cycle_time_extension >= BIT(wid + 7))
+		return -ERANGE;
 
 	if (!plat->est) {
 		plat->est = devm_kzalloc(priv->device, sizeof(*plat->est),
@@ -1121,6 +1123,17 @@ static int tc_setup_taprio(struct stmmac_priv *priv,
 	ctr = qopt->cycle_time;
 	priv->plat->est->ctr[0] = do_div(ctr, NSEC_PER_SEC);
 	priv->plat->est->ctr[1] = (u32)ctr;
+
+	priv->plat->est->ter = qopt->cycle_time_extension;
+
+	for (i = 0; i < plat->tx_queues_to_use; i++) {
+		if (qopt->max_sdu[i])
+			plat->est->max_sdu[i] = qopt->max_sdu[i] +
+						priv->dev->hard_header_len -
+						ETH_TLEN;
+		else
+			plat->est->max_sdu[i] = 0;
+	}
 
 	if (fpe && !priv->dma_cap.fpesel) {
 		mutex_unlock(&priv->plat->est->lock);
@@ -1228,6 +1241,7 @@ static int tc_query_caps(struct stmmac_priv *priv,
 			return -EOPNOTSUPP;
 
 		caps->gate_mask_per_txq = true;
+		caps->supports_queue_max_sdu = true;
 
 		return 0;
 	}

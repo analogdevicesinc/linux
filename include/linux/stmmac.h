@@ -130,6 +130,7 @@ struct stmmac_est {
 	u32 ti_ns[EST_GCL];
 	u32 gates[EST_GCL];
 	u32 gcl_size;
+	u32 max_sdu[MTL_MAX_TX_QUEUES];
 };
 
 struct stmmac_rxq_cfg {
