@@ -3,9 +3,13 @@
  * Copyright 2023 NXP
  */
 
-#include "imx95-19x19-evk.dts"
+/dts-v1/;
+/plugin/;
 
-/ {
+#include <dt-bindings/clock/fsl,imx95-clock.h>
+#include <dt-bindings/gpio/gpio.h>
+
+&{/} {
 	reg_dvdd_1v2: regulator-dvdd {
 		compatible = "regulator-fixed";
 		regulator-name = "DVDD_1V2";
@@ -44,6 +48,8 @@
 };
 
 &lpi2c3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	status = "okay";
 
 	adp5585_isp: mfd-isp@34 {
@@ -110,7 +116,6 @@
 			};
 		};
 	};
-
 };
 
 &dphy_rx {
@@ -121,6 +126,9 @@
 	status = "okay";
 
 	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
 		port@0 {
 			reg = <0>;
 			mipi_csi0_ep: endpoint {
@@ -143,7 +151,12 @@
 	status = "okay";
 
 	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
 		port@2 {
+			reg = <2>;
+
 			isi_in_2: endpoint {
 				remote-endpoint = <&mipi_csi0_out>;
 			};
