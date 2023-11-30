@@ -2451,8 +2451,10 @@ static bool stmmac_xdp_xmit_zc(struct stmmac_priv *priv, u32 queue, u32 budget)
 
 		if (priv->plat->est && priv->plat->est->enable &&
 		    priv->plat->est->max_sdu[queue] &&
-		    xdp_desc.len > priv->plat->est->max_sdu[queue])
+		    xdp_desc.len > priv->plat->est->max_sdu[queue]) {
+			priv->xstats.max_sdu_txq_drop[queue]++;
 			continue;
+		}
 
 		if (likely(priv->extend_desc))
 			tx_desc = (struct dma_desc *)(tx_q->dma_etx + entry);
@@ -4430,8 +4432,10 @@ static netdev_tx_t stmmac_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	if (priv->plat->est && priv->plat->est->enable &&
 	    priv->plat->est->max_sdu[queue] &&
-	    skb->len > priv->plat->est->max_sdu[queue])
+	    skb->len > priv->plat->est->max_sdu[queue]) {
+		priv->xstats.max_sdu_txq_drop[queue]++;
 		goto qbv_pkt_drop;
+	}
 
 	if (unlikely(stmmac_tx_avail(priv, queue) < nfrags + 1)) {
 		if (!netif_tx_queue_stopped(netdev_get_tx_queue(dev, queue))) {
@@ -4807,8 +4811,10 @@ static int stmmac_xdp_xmit_xdpf(struct stmmac_priv *priv, int queue,
 
 	if (priv->plat->est && priv->plat->est->enable &&
 	    priv->plat->est->max_sdu[queue] &&
-	    xdpf->len > priv->plat->est->max_sdu[queue])
+	    xdpf->len > priv->plat->est->max_sdu[queue]) {
+		priv->xstats.max_sdu_txq_drop[queue]++;
 		return STMMAC_XDP_CONSUMED;
+	}
 
 	if (likely(priv->extend_desc))
 		tx_desc = (struct dma_desc *)(tx_q->dma_etx + entry);
