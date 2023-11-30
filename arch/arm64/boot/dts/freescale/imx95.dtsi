@@ -457,11 +457,7 @@
 		status = "disabled";
 
 		in-ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			port@0 {
-				reg = <0>;
+			port {
 				ca_funnel_in_port0: endpoint {
 					remote-endpoint = <&etm0_out_port>;
 				};
@@ -482,11 +478,7 @@
 		status = "disabled";
 
 		in-ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			port@0 {
-				reg = <0>;
+			port {
 				hugo_funnel_in_port0: endpoint {
 					remote-endpoint = <&ca_funnel_out_port0>;
 				};
