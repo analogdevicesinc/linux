@@ -2067,6 +2067,10 @@
 							remote-endpoint = <&display_pixel_link0_to_ldb_ch0>;
 						};
 					};
+
+					port@1 {
+						reg = <1>;
+					};
 				};
 
 				channel@1 {
@@ -2083,6 +2087,10 @@
 						ldb_ch1_to_display_pixel_link1: endpoint {
 							remote-endpoint = <&display_pixel_link1_to_ldb_ch1>;
 						};
+					};
+
+					port@1 {
+						reg = <1>;
 					};
 				};
 			};
