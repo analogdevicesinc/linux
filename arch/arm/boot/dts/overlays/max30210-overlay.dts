@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: (GPL-2.0+)
+/* Overlay for MAX30210
+ *
+ * Copyright 2023 Analog Devices Inc.
+ */
+
+ /dts-v1/;
+ /plugin/;
+ 
+/ {
+	compatible = "bcrm, bcm2711";
+};
+ 
+&{/} {
+	vdd: regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-boot-on;
+		regulator-always-on;
+	};
+};
+
+&i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+ 
+	temperature-sensor@40 {
+		compatible = "adi,max30210";
+		reg = <0x40>;
+		vdd-supply = <&vdd>;
+		interrupt-parent = <&gpio>;
+		// /* IRQ_TYPE_EDGE_BOTH | IRQ_TYPE_LEVEL_HIGH */
+		interrupts = <17 0x0>;
+		// adi,external-convert-enable;
+		// adi,external-convert-rising-edge;
+	};
+};
