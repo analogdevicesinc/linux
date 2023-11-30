@@ -161,7 +161,11 @@
 		compatible = "invensense,icm20602";
 		reg = <0x68>;
 	};
-	/* iam20380@69 no driver yet */
+
+	iam20380@69 {
+		compatible = "invensense,iam20380";
+		reg = <0x69>;
+	};
 };
 
 &i2c_rpbus_15 {
