@@ -57,13 +57,13 @@
 		reg = <0x34>;
 		status = "okay";
 
-		adp5585gpio_isp: gpio-isp@34 {
+		adp5585gpio_isp: gpio-isp-adp5585 {
 			compatible = "adp5585-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
 		};
 
-		adp5585pwm_isp: pwm-isp@34 {
+		adp5585pwm_isp: pwm-isp-adp5585 {
 			compatible = "adp5585-pwm";
 			#pwm-cells = <3>;
 		};
