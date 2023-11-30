@@ -386,13 +386,13 @@
 		compatible = "adi,adp5585";
 		reg = <0x34>;
 
-		adp5585gpio: gpio@34 {
+		adp5585gpio: gpio-adp5585 {
 			compatible = "adp5585-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
 		};
 
-		adp5585pwm: pwm@34 {
+		adp5585pwm: pwm-adp5585 {
 			compatible = "adp5585-pwm";
 			#pwm-cells = <3>;
 		};
