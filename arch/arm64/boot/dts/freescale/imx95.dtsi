@@ -611,16 +611,16 @@
 		clock-names = "main_clk";
 	};
 
+	imx95_soc: imx95-soc {
+		compatible = "fsl,imx95-soc";
+	};
+
 	soc {
 		compatible = "simple-bus";
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges = <0x0 0x0 0x0 0x0 0x0 0x80000000>,
 			 <0x0 0x28000000 0x0 0x28000000 0x0 0x10000000>;
-
-		imx95_soc: imx95-soc {
-			compatible = "fsl,imx95-soc";
-		};
 
 		aips2: bus@42000000 {
 			compatible = "fsl,aips-bus", "simple-bus";
