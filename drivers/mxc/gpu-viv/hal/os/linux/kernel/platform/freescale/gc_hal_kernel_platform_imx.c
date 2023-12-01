@@ -1616,7 +1616,8 @@ static inline void put_power(void)
 
 #if gcdENABLE_FSCALE_VAL_ADJUST && defined(CONFIG_DEVFREQ_THERMAL)
     gcdENABLE_GPU_THERMAL = 0;
-    device_gpu_cooling_unregister(gpu_cooling_device);
+    if (gpu_cooling_device)
+        device_gpu_cooling_unregister(gpu_cooling_device);
 
     driver_remove_file(pdevice->dev.driver, &driver_attr_gpu3DMinClock);
 
@@ -1637,7 +1638,8 @@ static inline void put_power_ls(void)
 {
 #if gcdENABLE_FSCALE_VAL_ADJUST && defined(CONFIG_DEVFREQ_THERMAL)
     gcdENABLE_GPU_THERMAL = 0;
-    device_gpu_cooling_unregister(gpu_cooling_device);
+    if (gpu_cooling_device)
+        device_gpu_cooling_unregister(gpu_cooling_device);
 
     driver_remove_file(pdevice->dev.driver, &driver_attr_gpu3DMinClock);
 
