@@ -53,6 +53,8 @@
 		adi,vcxo-frequency = <100000000>;
 
 		adi,pll1-loop-bandwidth-hz = <200>;
+		adi,pll1-charge-pump-current-ua = <720>;
+		adi,pfd1-maximum-limit-frequency-hz = <1000000>; /* 1 MHz */
 
 		adi,pll2-output-frequency = <3000000000>;
 
