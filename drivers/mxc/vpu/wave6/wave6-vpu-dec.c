@@ -1791,6 +1791,8 @@ static int wave6_vpu_dec_release(struct file *filp)
 {
 	struct vpu_instance *inst = wave6_to_vpu_inst(filp->private_data);
 
+	v4l2_m2m_ctx_release(inst->v4l2_fh.m2m_ctx);
+
 	mutex_lock(&inst->dev->dev_lock);
 	if (inst->state != VPU_INST_STATE_NONE) {
 		v4l2_m2m_suspend(inst->dev->m2m_dev);
@@ -1799,7 +1801,6 @@ static int wave6_vpu_dec_release(struct file *filp)
 	}
 	mutex_unlock(&inst->dev->dev_lock);
 
-	v4l2_m2m_ctx_release(inst->v4l2_fh.m2m_ctx);
 	v4l2_ctrl_handler_free(&inst->v4l2_ctrl_hdl);
 	v4l2_fh_del(&inst->v4l2_fh);
 	v4l2_fh_exit(&inst->v4l2_fh);
