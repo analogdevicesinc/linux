@@ -21,6 +21,10 @@
 
 };
 
+&axi_ad9081_core_tx {
+	adi,axi-pl-fifo-enable;
+};
+
 &spi1 {
 	status = "okay";
 
