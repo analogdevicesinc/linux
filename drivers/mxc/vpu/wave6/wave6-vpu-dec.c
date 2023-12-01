@@ -1479,10 +1479,8 @@ static int wave6_vpu_dec_seek_header(struct vpu_instance *inst)
 		return ret;
 	}
 
-	mutex_unlock(&inst->dev->dev_lock);
 	if (wave6_vpu_wait_interrupt(inst, VPU_DEC_TIMEOUT) < 0)
 		dev_err(inst->dev->dev, "failed to call vpu_wait_interrupt()\n");
-	mutex_lock(&inst->dev->dev_lock);
 
 	ret = wave6_vpu_dec_complete_seq_init(inst, &initial_info);
 	if (ret) {
