@@ -29,6 +29,8 @@
 		adi,jesd204-max-sysref-frequency-hz = <2000000>; /* 2 MHz */
 
 		adi,pll1-loop-bandwidth-hz = <200>;
+		adi,pll1-charge-pump-current-ua = <720>;
+		adi,pfd1-maximum-limit-frequency-hz = <1000000>; /* 1 MHz */
 
 		adi,pll2-output-frequency = <3000000000>;
 
