@@ -2780,6 +2780,22 @@
 			reg-names = "ierb_base", "prb_base";
 			power-domains = <&scmi_devpd IMX95_PD_NETC>;
 		};
+
+		neutron_core: imx95-neutron-remoteproc {
+			compatible = "fsl,imx95-neutron-rproc";
+			reg = <0x0 0x4AB00000 0x0 0x4>;
+		};
+
+		neutron: imx95-neutron {
+			compatible = "fsl,imx95-neutron";
+			reg = <0x0 0x4AB00004 0x0 0x400>;
+			fsl,neutron-rproc = <&neutron_core>;
+			interrupts = <GIC_SPI 318 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&scmi_clk IMX95_CLK_NPU>,
+				 <&scmi_clk IMX95_CLK_NPUAPB>;
+			clock-names = "npu", "npu_apb";
+			power-domains = <&scmi_devpd IMX95_PD_NPU>;
+		};
 	};
 
 	ele_fw2: se-fw2 {
