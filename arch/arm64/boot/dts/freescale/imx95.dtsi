@@ -2580,10 +2580,52 @@
 			};
 		};
 
-		vpu: vpu@4c480000 {
+		vpu0: vpu@4c480000 {
 			compatible = "fsl,cnm633c-vpu";
-			reg = <0x0 0x4c480000 0x0 0x10000>, <0x0 0x4c4c0000 0x0 0x10000>;
+			reg = <0x0 0x4c480000 0x0 0x10000>;
 			interrupts = <GIC_SPI 299 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&scmi_clk IMX95_CLK_VPU>,
+				 <&vpu_blk_ctrl IMX95_CLK_VPUBLK_WAVE>;
+			power-domains = <&scmi_devpd IMX95_PD_VPU>;
+			cnm,ctrl = <&vpuctrl>;
+		};
+
+		vpu1: vpu@4c490000 {
+			compatible = "fsl,cnm633c-vpu";
+			reg = <0x0 0x4c490000 0x0 0x10000>;
+			interrupts = <GIC_SPI 300 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&scmi_clk IMX95_CLK_VPU>,
+				 <&vpu_blk_ctrl IMX95_CLK_VPUBLK_WAVE>;
+			power-domains = <&scmi_devpd IMX95_PD_VPU>;
+			cnm,ctrl = <&vpuctrl>;
+			status = "disabled";
+		};
+
+		vpu2: vpu@4c4a0000 {
+			compatible = "fsl,cnm633c-vpu";
+			reg = <0x0 0x4c4a0000 0x0 0x10000>;
+			interrupts = <GIC_SPI 301 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&scmi_clk IMX95_CLK_VPU>,
+				 <&vpu_blk_ctrl IMX95_CLK_VPUBLK_WAVE>;
+			power-domains = <&scmi_devpd IMX95_PD_VPU>;
+			cnm,ctrl = <&vpuctrl>;
+			status = "disabled";
+		};
+
+		vpu3: vpu@4c4b0000 {
+			compatible = "fsl,cnm633c-vpu";
+			reg = <0x0 0x4c4b0000 0x0 0x10000>;
+			interrupts = <GIC_SPI 302 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&scmi_clk IMX95_CLK_VPU>,
+				 <&vpu_blk_ctrl IMX95_CLK_VPUBLK_WAVE>;
+			power-domains = <&scmi_devpd IMX95_PD_VPU>;
+			cnm,ctrl = <&vpuctrl>;
+			status = "disabled";
+		};
+
+		vpuctrl: vpu-ctrl@4c4c0000 {
+			compatible = "fsl,cm633c-vpu-ctrl";
+			reg = <0x0 0x4c4c0000 0x0 0x10000>;
 			clocks = <&scmi_clk IMX95_CLK_VPU>,
 				 <&vpu_blk_ctrl IMX95_CLK_VPUBLK_WAVE>;
 			power-domains = <&scmi_devpd IMX95_PD_VPU>;
