@@ -92,6 +92,8 @@
 		adi,vcxo-frequency = <100000000>;
 
 		adi,pll1-loop-bandwidth-hz = <200>;
+		adi,pll1-charge-pump-current-ua = <720>;
+		adi,pfd1-maximum-limit-frequency-hz = <1000000>; /* 1 MHz */
 		adi,pll1-ref-prio-ctrl = <0xE1>; /* prefer CLKIN1 -> CLKIN0 -> CLKIN2 -> CLKIN3 */
 		adi,pll1-ref-autorevert-enable;
 
