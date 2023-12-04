@@ -6,6 +6,7 @@
 #include "imx8ulp-evk.dts"
 
 /delete-node/ &dsp_reserved;
+/delete-node/ &dsp_reserved_heap;
 /delete-node/ &dsp_vdev0vring0;
 /delete-node/ &dsp_vdev0vring1;
 /delete-node/ &dsp_vdev0buffer;
