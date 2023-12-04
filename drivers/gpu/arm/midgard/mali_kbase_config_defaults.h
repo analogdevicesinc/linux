@@ -276,9 +276,9 @@ enum {
  * Number of GPU clock cycles before the driver terminates a task that is
  * making no forward progress on an endpoint (e.g. shader core).
  * Value chosen is equivalent to the time after which a job is hard stopped
- * which is 5 seconds (assuming the GPU is usually clocked at ~1000 MHZ).
+ * which is 10 seconds (assuming the GPU is usually clocked at ~1000 MHZ).
  */
-#define DEFAULT_PROGRESS_TIMEOUT ((u64)5 * 1000 * 1024 * 1024)
+#define DEFAULT_PROGRESS_TIMEOUT ((u64)10 * 1000 * 1024 * 1024)
 
 /* Default threshold at which to switch to incremental rendering
  *
