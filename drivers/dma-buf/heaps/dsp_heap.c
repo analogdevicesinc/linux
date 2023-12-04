@@ -123,11 +123,17 @@ static int dsp_heap_create(void)
 	struct dma_heap_export_info exp_info;
 	struct dsp_heap *dsp_heap;
 	struct reserved_mem *rmem;
-	struct device_node np;
+	struct device_node *np;
 
-	np.full_name = "dsp_reserved_heap";
-	np.name = "dsp_reserved_heap";
-	rmem = of_reserved_mem_lookup(&np);
+	np = of_find_node_by_path("/reserved-memory");
+	if (!np)
+		return 0;
+
+	np = of_find_node_by_name(np, "dsp_reserved_heap");
+	if (!np)
+		return 0;
+
+	rmem = of_reserved_mem_lookup(np);
 	if (!rmem) {
 		pr_err("of_reserved_mem_lookup() returned NULL\n");
 		return 0;
