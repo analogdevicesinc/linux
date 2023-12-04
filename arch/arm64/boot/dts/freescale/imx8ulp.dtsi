@@ -88,7 +88,7 @@
 		interrupts = <GIC_PPI 9 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
-	gpu: gpu@80000000 {
+	gpu: gpu@2e000000 {
 		compatible = "fsl,imx8-gpu-ss";
 		cores = <&gpu3d>, <&gpu2d>;
 		reg = <0x0 0x80000000 0x0 0x80000000>,
