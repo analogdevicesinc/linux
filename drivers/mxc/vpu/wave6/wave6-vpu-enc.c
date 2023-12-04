@@ -792,10 +792,27 @@ static int wave6_vpu_enc_start_encode(struct vpu_instance *inst)
 		}
 	}
 	wave6_set_csc(inst, &pic_param);
+
+	if (src_buf)
+		src_vbuf->consumed = true;
+
+	if (dst_buf) {
+		dst_vbuf->consumed = true;
+		dst_vbuf->used = true;
+	}
+
 	ret = wave6_vpu_enc_start_one_frame(inst, &pic_param, &fail_res);
 	if (ret) {
-		if (fail_res == WAVE6_SYSERR_QUEUEING_FAIL)
+		if (fail_res == WAVE6_SYSERR_QUEUEING_FAIL) {
+			if (src_buf)
+				src_vbuf->consumed = false;
+
+			if (dst_buf) {
+				dst_vbuf->consumed = false;
+				dst_vbuf->used = false;
+			}
 			goto exit;
+		}
 
 		dev_dbg(inst->dev->dev, "%s: fail %d\n", __func__, ret);
 		wave6_vpu_set_instance_state(inst, VPU_INST_STATE_STOP);
@@ -807,12 +824,6 @@ static int wave6_vpu_enc_start_encode(struct vpu_instance *inst)
 		v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_ERROR);
 	} else {
 		dev_dbg(inst->dev->dev, "%s: success\n", __func__);
-		if (src_buf)
-			src_vbuf->consumed = true;
-		if (dst_buf) {
-			dst_vbuf->consumed = true;
-			dst_vbuf->used = true;
-		}
 	}
 
 exit:
