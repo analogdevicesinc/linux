@@ -29,6 +29,9 @@
 #include <linux/iio/buffer-dmaengine.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
+#include <linux/iio/buffer.h>
+#include <linux/iio/trigger_consumer.h>
+#include <linux/iio/triggered_buffer.h>
 
 #define AD_PULSAR_REG_CONFIG		0x00
 
@@ -338,6 +341,7 @@ struct ad_pulsar_adc {
 	int spi_speed_hz;
 	int samp_freq;
 	int device_id;
+	struct mutex lock;
 
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
@@ -389,10 +393,15 @@ static int ad_pulsar_read_channel(struct ad_pulsar_adc *adc, unsigned int reg,
 				  unsigned int *val)
 {
 	struct spi_transfer xfer = {
-		.bits_per_word = adc->info->resolution,
-		.speed_hz = adc->info->sclk_rate,
-		.len = 4,
+		.len = 2,
 	};
+	
+	if(spi_engine_offload_supported(adc->spi)){
+		xfer.bits_per_word = adc->info->resolution;
+		xfer.speed_hz = adc->info->sclk_rate;
+		xfer.len = 4;
+	}
+
 	int ret;
 
 	adc->cfg = reg;
@@ -404,8 +413,10 @@ static int ad_pulsar_read_channel(struct ad_pulsar_adc *adc, unsigned int reg,
 	ret = spi_sync_transfer(adc->spi, &xfer, 1);
 	if (ret)
 		return ret;
-
-	*val = get_unaligned_le32(adc->spi_rx_data);
+	if(spi_engine_offload_supported(adc->spi))
+		*val = get_unaligned_le32(adc->spi_rx_data);
+	 else 
+		*val = get_unaligned_be16(adc->spi_rx_data);
 
 	return ret;
 }
@@ -504,8 +515,10 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
-		if (chan->differential)
+		if (chan->differential & spi_engine_offload_supported(adc->spi))
 			*val = sign_extend32(*val, adc->info->resolution - 1);
+		else if (chan->differential & !spi_engine_offload_supported(adc->spi)) 
+			*val = sign_extend32(*val, 15);
 
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SAMP_FREQ:
@@ -833,6 +846,36 @@ static void ad_pulsar_clk_disable(void *data)
 	clk_disable_unprepare(data);
 }
 
+
+static irqreturn_t adi_emu_trigger_handler(int irq, void *p)
+{
+	struct iio_poll_func *pf = p;
+	struct iio_dev *indio_dev = pf->indio_dev;
+	struct ad_pulsar_adc *adc = iio_priv(indio_dev);
+	int ret;
+	unsigned int val,ext_val;
+
+	struct spi_transfer xfer = {
+		.len = 2,
+		.rx_buf = adc->spi_rx_data,
+	};
+
+	mutex_lock(&adc->lock);
+
+	ret = spi_sync_transfer(adc->spi, &xfer, 1);
+	if (ret)
+		return ret;
+		
+    val = get_unaligned_be16(adc->spi_rx_data);
+    ext_val = sign_extend32(val, 15);
+	iio_push_to_buffers(indio_dev, &ext_val);
+	iio_trigger_notify_done(indio_dev->trig);
+
+    mutex_unlock(&adc->lock);
+
+	return IRQ_HANDLED;
+}
+
 static int ad_pulsar_probe(struct spi_device *spi)
 {
 	struct ad_pulsar_adc *adc;
@@ -862,29 +905,32 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ref_clk = devm_clk_get(&spi->dev, "ref_clk");
-	if (IS_ERR(ref_clk))
-		return PTR_ERR(ref_clk);
+	if(spi_engine_offload_supported(spi)){
 
-	ret = clk_prepare_enable(ref_clk);
-	if (ret)
-		return ret;
+		ref_clk = devm_clk_get(&spi->dev, "ref_clk");
+		if (IS_ERR(ref_clk))
+			return PTR_ERR(ref_clk);
 
-	ret = devm_add_action_or_reset(&spi->dev, ad_pulsar_clk_disable,
-				       ref_clk);
-	if (ret)
-		return ret;
+		ret = clk_prepare_enable(ref_clk);
+		if (ret)
+			return ret;
 
-	adc->ref_clk_rate = clk_get_rate(ref_clk);
+		ret = devm_add_action_or_reset(&spi->dev, ad_pulsar_clk_disable,
+					       ref_clk);
+		if (ret)
+			return ret;
 
-	adc->cnv = devm_pwm_get(&spi->dev, "cnv");
-	if (IS_ERR(adc->cnv))
-		return PTR_ERR(adc->cnv);
+		adc->ref_clk_rate = clk_get_rate(ref_clk);
 
-	ret = devm_add_action_or_reset(&spi->dev, ad_pulsar_pwm_diasble,
-				       adc->cnv);
-	if (ret)
-		return ret;
+		adc->cnv = devm_pwm_get(&spi->dev, "cnv");
+		if (IS_ERR(adc->cnv))
+			return PTR_ERR(adc->cnv);
+
+		ret = devm_add_action_or_reset(&spi->dev, ad_pulsar_pwm_diasble,
+					       adc->cnv);
+		if (ret)
+			return ret;
+	}
 
 	adc->info = device_get_match_data(&spi->dev);
 	if (!adc->info) {
@@ -898,20 +944,29 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	indio_dev->name = adc->info->name;
+	indio_dev->name = spi->dev.of_node->name;
 	indio_dev->info = &ad_pulsar_iio_info;
 	indio_dev->modes = INDIO_BUFFER_HARDWARE | INDIO_DIRECT_MODE;
-	indio_dev->setup_ops = &ad_pulsar_buffer_ops;
 
-	ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
-					      indio_dev, "rx",
-					      IIO_BUFFER_DIRECTION_IN);
-	if (ret)
-		return ret;
+	if(spi_engine_offload_supported(spi)){
 
-	ret = ad_pulsar_set_samp_freq(adc, adc->info->max_rate);
-	if (ret)
-		return ret;
+		indio_dev->setup_ops = &ad_pulsar_buffer_ops;
+		ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
+						      indio_dev, "rx",
+						      IIO_BUFFER_DIRECTION_IN);
+
+		if (ret)
+			return ret;
+
+		ret = ad_pulsar_set_samp_freq(adc, adc->info->max_rate);
+		if (ret)
+			return ret;
+	} else {
+     	ret =  devm_iio_triggered_buffer_setup(&spi->dev, indio_dev, NULL,
+				&adi_emu_trigger_handler, NULL); 
+		if (ret)
+			return ret;
+	}
 
 	/* REVISIT: for now, turbo mode is always enabled */
 	adc->turbo_gpio = devm_gpiod_get_optional(&spi->dev, "turbo",
