@@ -87,7 +87,6 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 	    && !IS_ERR_OR_NULL(ictx->reg_blk_ctrl)) {
 		ictx->init_blk_ctrl = 1;
 		writel(0x1, ictx->reg_blk_ctrl + 0x8);
-		dev_info(kbdev->dev, "gpumix reset release finish");
 	}
 
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
@@ -126,6 +125,7 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 static void pm_callback_power_off(struct kbase_device *kbdev)
 {
 	unsigned long flags;
+	struct imx_platform_ctx *ictx = kbdev->platform_context;
 
 	dev_dbg(kbdev->dev, "%s\n", __func__);
 
@@ -142,6 +142,7 @@ static void pm_callback_power_off(struct kbase_device *kbdev)
 
 	/* Power down the GPU immediately */
 	disable_gpu_power_control(kbdev);
+	ictx->init_blk_ctrl = 0;
 #else /* MALI_USE_CSF */
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
@@ -176,16 +177,25 @@ static void pm_callback_runtime_off(struct kbase_device *kbdev)
 
 static void pm_callback_resume(struct kbase_device *kbdev)
 {
-	int ret = pm_callback_runtime_on(kbdev);
+	int ret = 0;
+	struct imx_platform_ctx *ictx = kbdev->platform_context;
+
+	if (ictx && (ictx->init_blk_ctrl == 0)
+	    && !IS_ERR_OR_NULL(ictx->reg_blk_ctrl)) {
+		ictx->init_blk_ctrl = 1;
+		writel(0x1, ictx->reg_blk_ctrl + 0x8);
+	}
+	ret = pm_callback_runtime_on(kbdev);
 
 	WARN_ON(ret);
 }
 
 static void pm_callback_suspend(struct kbase_device *kbdev)
 {
+	struct imx_platform_ctx *ictx = kbdev->platform_context;
 	pm_callback_runtime_off(kbdev);
+	ictx->init_blk_ctrl = 0;
 }
-
 
 struct kbase_pm_callback_conf pm_callbacks = {
 	.power_on_callback = pm_callback_power_on,
