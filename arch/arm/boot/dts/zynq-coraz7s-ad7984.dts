@@ -21,6 +21,36 @@
 		regulator-max-microvolt = <4096000>;
 		regulator-always-on;
 	};
+
+	one-bit-adc-dac@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		out-gpios = <&gpio0 88 GPIO_ACTIVE_HIGH>;
+				
+		channel@0 {
+			reg = <0>;
+			label = "DEBUG_SPI_PORT";
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+	
+    spi_clasic_ad7984@0{
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,pulsar,ad7984";
+		reg = <0>;
+		spi-max-frequency = <25000000>;
+		vref-supply = <&vref>;
+		channel@0 {
+			reg = <0>;
+			diff-channels = <0 1>;
+		};
+	};
 };
 
 &fpga_axi {
@@ -45,7 +75,7 @@
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
 
-		adc@0 {
+		spi_engine_ad7984@0 {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			compatible = "adi,pulsar,ad7984";
@@ -96,3 +126,4 @@
 		clock-output-names = "spi_clk";
 	};
 };
+
