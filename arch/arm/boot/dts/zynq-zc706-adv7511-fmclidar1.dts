@@ -105,7 +105,7 @@
 
 		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
 
-		clocks = <&clkc 16>, <&ad9528 3>, <&axi_ad9094_adxcvr 0>;
+		clocks = <&clkc 15>, <&ad9528 3>, <&axi_ad9094_adxcvr 0>;
 		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 		adi,octets-per-frame = <1>;
