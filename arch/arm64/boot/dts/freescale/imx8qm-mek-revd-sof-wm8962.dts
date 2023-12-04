@@ -6,6 +6,10 @@
 #include "imx8qm-mek-rpmsg.dts"
 
 /delete-node/ &wm8960;
+/delete-node/ &dsp_reserved_heap;
+/delete-node/ &dsp_vdev0vring0;
+/delete-node/ &dsp_vdev0vring1;
+/delete-node/ &dsp_vdev0buffer;
 
 &i2c1 {
 	#address-cells = <1>;
@@ -38,15 +42,8 @@
 	/delete-node/ sound-wm8960;
 
 	reserved-memory {
-		/delete-node/ dsp_reserved;
-		/delete-node/ dsp_reserved_heap;
-		/delete-node/ dsp_vdev0vring0;
-		/delete-node/ dsp_vdev0vring1;
-		/delete-node/ dsp_vdev0buffer;
-
 		dsp_reserved: dsp@92400000 {
 			reg = <0 0x92400000 0 0x2000000>;
-			no-map;
 		};
 	};
 

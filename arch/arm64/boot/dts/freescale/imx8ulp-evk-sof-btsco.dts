@@ -5,12 +5,13 @@
 
 #include "imx8ulp-evk.dts"
 
+/delete-node/ &dsp_reserved;
+/delete-node/ &dsp_vdev0vring0;
+/delete-node/ &dsp_vdev0vring1;
+/delete-node/ &dsp_vdev0buffer;
+
 / {
 	reserved-memory {
-		/delete-node/ dsp_reserved;
-		/delete-node/ dsp_vdev0vring0;
-		/delete-node/ dsp_vdev0vring1;
-		/delete-node/ dsp_vdev0buffer;
 		dsp_reserved0: dsp@8e000000 {
 			reg = <0 0x8e000000 0 0x1000000>;
 			no-map;
