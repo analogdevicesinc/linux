@@ -304,9 +304,12 @@ static int ad4630_read_raw(struct iio_dev *indio_dev,
 		ad4630_get_sampling_freq(st, val);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
+		if (st->chip->has_pga) {
+			*val = st->scale_tbl[st->pga_idx][0];
+			*val2 = st->scale_tbl[st->pga_idx][1];
+			return IIO_VAL_INT_PLUS_NANO;
+		}
 		*val = (st->vref * 2) / 1000;
-		if (st->chip->has_pga)
-			*val = *val * ad4630_gains[st->pga_idx] / 1000;
 		*val2 = chan->scan_type.realbits;
 		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_CALIBSCALE:
@@ -337,8 +340,8 @@ static int ad4630_read_avail(struct iio_dev *indio_dev,
 
 	switch (info) {
 	case IIO_CHAN_INFO_SCALE:
-		*vals = (int *)st->scale_tbl[st->pga_idx];
-		*length = ARRAY_SIZE(st->scale_tbl[st->pga_idx]) * 2;
+		*vals = (int *)st->scale_tbl;
+		*length = ARRAY_SIZE(ad4630_gains) * 2;
 		*type = IIO_VAL_INT_PLUS_NANO;
 		return IIO_AVAIL_LIST;
 	default:
@@ -435,14 +438,14 @@ static int ad4630_set_chan_offset(struct iio_dev *indio_dev, int ch, int offset)
 static void ad4630_fill_scale_tbl(struct ad4630_state *st)
 {
 	int val, val2, tmp0, tmp1, i;
-	s64 tmp2;
+	u64 tmp2;
 
 	val2 = st->chip->base_word_len;
 	for (i = 0; i < ARRAY_SIZE(ad4630_gains); i++) {
 		val = (st->vref * 2) / 1000;
-		val = val * ad4630_gains[i] / MICRO;
+		val = DIV_ROUND_CLOSEST(val * 1000, ad4630_gains[i]);
 
-		tmp2 = shift_right((s64)val * 1000000000LL, val2);
+		tmp2 = shift_right((u64)val * 1000000000LL, val2);
 		tmp0 = (int)div_s64_rem(tmp2, 1000000000LL, &tmp1);
 		st->scale_tbl[i][0] = tmp0; /* Integer part */
 		st->scale_tbl[i][1] = abs(tmp1); /* Fractional part */
@@ -452,17 +455,18 @@ static void ad4630_fill_scale_tbl(struct ad4630_state *st)
 static int ad4630_calc_pga_gain(int gain_int, int gain_fract, int vref,
 				int precision)
 {
+	u64 gain_nano, tmp;
 	int gain_idx;
-	u64 gain_nano;
 
 	gain_nano = gain_int * NANO + gain_fract;
 
 	if (gain_nano < 0 || gain_nano > ADAQ4224_GAIN_MAX_NANO)
 		return -EINVAL;
 
-	gain_nano = DIV_ROUND_CLOSEST_ULL(gain_nano << precision, NANO);
-	gain_nano = DIV_ROUND_CLOSEST_ULL(gain_nano, (vref / 1000000) * 2);
-	gain_idx = find_closest(gain_nano, ad4630_gains, ARRAY_SIZE(ad4630_gains));
+	tmp = DIV_ROUND_CLOSEST_ULL(gain_nano << precision, NANO);
+	gain_nano = DIV_ROUND_CLOSEST_ULL(vref * 2, tmp);
+	gain_idx = find_closest(gain_nano, ad4630_gains,
+				ARRAY_SIZE(ad4630_gains));
 
 	return gain_idx;
 }
