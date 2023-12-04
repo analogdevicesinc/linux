@@ -2784,6 +2784,7 @@
 		neutron_core: imx95-neutron-remoteproc {
 			compatible = "fsl,imx95-neutron-rproc";
 			reg = <0x0 0x4AB00000 0x0 0x4>;
+			power-domains = <&scmi_devpd IMX95_PD_NPU>;
 		};
 
 		neutron: imx95-neutron {
