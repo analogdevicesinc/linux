@@ -307,7 +307,6 @@ int ad_sigma_delta_single_conversion(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	mutex_lock(&indio_dev->mlock);
 	ad_sigma_delta_prepare_channel(sigma_delta, 0, chan);
 	ad_sigma_delta_set_channel(sigma_delta, 0, chan->address);
 
