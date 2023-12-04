@@ -46,7 +46,7 @@
 #define MAX31827_M_DGR_TO_16_BIT(x)	(((x) << 4) / 1000)
 #define MAX31827_DEVICE_ENABLE(x)	((x) ? 0xA : 0x0)
 
-enum chips { max31827 = 1, max31828, max31829 };
+enum chips { max31827 = 1, max31828, max31829, adaq4224_temp };
 
 enum max31827_cnv {
 	MAX31827_CNV_1_DIV_64_HZ = 1,
@@ -485,6 +485,7 @@ static const struct i2c_device_id max31827_i2c_ids[] = {
 	{ "max31827", max31827 },
 	{ "max31828", max31828 },
 	{ "max31829", max31829 },
+	{ "adaq4224_temp", adaq4224_temp },
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, max31827_i2c_ids);
@@ -513,6 +514,9 @@ static int max31827_init_client(struct max31827_state *st,
 	res |= FIELD_PREP(MAX31827_CONFIGURATION_TIMEOUT_MASK, !prop);
 
 	type = (enum chips)(uintptr_t)device_get_match_data(dev);
+	if (type == adaq4224_temp) {
+		dev->driver->name = "adaq4224_temp";
+	}
 
 	if (fwnode_property_present(fwnode, "adi,alarm-pol")) {
 		ret = fwnode_property_read_u32(fwnode, "adi,alarm-pol", &data);
@@ -526,6 +530,7 @@ static int max31827_init_client(struct max31827_state *st,
 		 */
 		switch (type) {
 		case max31827:
+		case adaq4224_temp:
 		case max31828:
 			res |= FIELD_PREP(MAX31827_CONFIGURATION_ALRM_POL_MASK,
 					  MAX31827_ALRM_POL_LOW);
@@ -562,6 +567,7 @@ static int max31827_init_client(struct max31827_state *st,
 		 */
 		switch (type) {
 		case max31827:
+		case adaq4224_temp:
 			res |= FIELD_PREP(MAX31827_CONFIGURATION_FLT_Q_MASK,
 					  MAX31827_FLT_Q_1);
 			break;
@@ -646,6 +652,10 @@ static const struct of_device_id max31827_of_match[] = {
 	{
 		.compatible = "adi,max31829",
 		.data = (void *)max31829
+	},
+	{
+		.compatible = "adi,adaq4224_temp",
+		.data = (void *)adaq4224_temp
 	},
 	{ }
 };
