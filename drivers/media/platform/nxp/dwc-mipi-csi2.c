@@ -486,6 +486,26 @@ static const struct dwc_csi_pix_format dwc_csi_formats[] = {
 		.output = MEDIA_BUS_FMT_SRGGB14_1X14,
 		.data_type = MIPI_CSI2_DT_RAW14,
 		.width = 14,
+	}, {
+		.code = MEDIA_BUS_FMT_SBGGR16_1X16,
+		.output = MEDIA_BUS_FMT_SBGGR16_1X16,
+		.data_type = MIPI_CSI2_DT_RAW16,
+		.width = 16,
+	}, {
+		.code = MEDIA_BUS_FMT_SGBRG16_1X16,
+		.output = MEDIA_BUS_FMT_SGBRG16_1X16,
+		.data_type = MIPI_CSI2_DT_RAW16,
+		.width = 16,
+	}, {
+		.code = MEDIA_BUS_FMT_SGRBG16_1X16,
+		.output = MEDIA_BUS_FMT_SGRBG16_1X16,
+		.data_type = MIPI_CSI2_DT_RAW16,
+		.width = 16,
+	}, {
+		.code = MEDIA_BUS_FMT_SRGGB16_1X16,
+		.output = MEDIA_BUS_FMT_SRGGB16_1X16,
+		.data_type = MIPI_CSI2_DT_RAW16,
+		.width = 16,
 	}
 };
 
