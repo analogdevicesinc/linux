@@ -127,7 +127,7 @@
 		};
 
 		axi_adrv9009_rx_jesd: axi-jesd204-rx@44aa0000 {
-			clocks = <&clkc 16>, <&axi_rx_clkgen>, <&rx_fixed_device_clk>, <&axi_adrv9009_adxcvr_rx 0>;
+			clocks = <&clkc 15>, <&axi_rx_clkgen>, <&rx_fixed_device_clk>, <&axi_adrv9009_adxcvr_rx 0>;
 			clock-names = "s_axi_aclk", "link_clk", "device_clk", "lane_clk";
 
 			adi,octets-per-frame = <8>;

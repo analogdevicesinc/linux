@@ -96,7 +96,7 @@
 
 		interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
 
-		clocks = <&clkc 16>, <&axi_ad9152_adxcvr 1>, <&axi_ad9152_adxcvr 0>;
+		clocks = <&clkc 15>, <&axi_ad9152_adxcvr 1>, <&axi_ad9152_adxcvr 0>;
 		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 		#clock-cells = <0>;
 		clock-output-names = "jesd_dac_lane_clk";
@@ -127,7 +127,7 @@
 
 		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
 
-		clocks = <&clkc 16>, <&axi_ad9680_adxcvr 1>, <&axi_ad9680_adxcvr 0>;
+		clocks = <&clkc 15>, <&axi_ad9680_adxcvr 1>, <&axi_ad9680_adxcvr 0>;
 		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 		#clock-cells = <0>;
 

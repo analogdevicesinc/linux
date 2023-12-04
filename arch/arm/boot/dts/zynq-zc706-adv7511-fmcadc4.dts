@@ -49,7 +49,7 @@
 
 		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
 
-		clocks = <&clkc 16>, <&axi_adxcvr 1>, <&axi_adxcvr 0>;
+		clocks = <&clkc 15>, <&axi_adxcvr 1>, <&axi_adxcvr 0>;
 		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 		#clock-cells = <0>;
