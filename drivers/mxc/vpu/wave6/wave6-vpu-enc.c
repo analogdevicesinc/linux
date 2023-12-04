@@ -900,7 +900,7 @@ static void wave6_handle_last_frame(struct vpu_instance *inst,
 
 	v4l2_m2m_set_src_buffered(inst->v4l2_fh.m2m_ctx, false);
 
-	if (inst->total_frames) {
+	if (inst->total_frames && inst->total_frame_cycle) {
 		dprintk(inst->dev->dev, "total frames %llu,avg cycle %llu,fps %llu\n",
 			 inst->total_frames,
 			 (inst->total_frame_cycle / inst->total_frames),
