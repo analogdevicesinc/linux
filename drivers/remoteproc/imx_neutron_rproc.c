@@ -11,6 +11,7 @@
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/remoteproc.h>
+#include <linux/pm_runtime.h>
 #include <linux/reset.h>
 
 #include "remoteproc_internal.h"
@@ -238,20 +239,32 @@ static int neutron_rproc_probe(struct platform_device *pdev)
 
 	dev_set_drvdata(dev, rproc);
 
+	pm_runtime_enable(dev);
+	ret = pm_runtime_get_sync(dev);
+	if (ret < 0) {
+		dev_err(dev, "failed to get pm: %d\n", ret);
+		goto err_dis_pm;
+	}
+
 	ret = neutron_rproc_addr_init(priv, pdev);
 	if (ret) {
 		dev_err(dev, "failed on neutron_rproc_addr_init\n");
-		goto err_put_rproc;
+		goto err_put_pm;
 	}
 
 	ret = rproc_add(rproc);
 	if (ret) {
 		dev_err(dev, "rproc_add failed\n");
-		goto err_put_rproc;
+		goto err_put_pm;
 	}
 
+	pm_runtime_put_sync(dev);
 	return 0;
 
+err_put_pm:
+	pm_runtime_put_sync(dev);
+err_dis_pm:
+	pm_runtime_disable(dev);
 err_put_rproc:
 	rproc_free(rproc);
 
@@ -261,6 +274,8 @@ err_put_rproc:
 static int neutron_rproc_remove(struct platform_device *pdev)
 {
 	struct rproc *rproc = platform_get_drvdata(pdev);
+
+	pm_runtime_disable(&pdev->dev);
 
 	rproc_del(rproc);
 	rproc_free(rproc);
