@@ -1246,6 +1246,8 @@ static int wave6_vpu_dec_create_instance(struct vpu_instance *inst)
 		return ret;
 	}
 
+	wave6_vpu_wait_active(inst);
+
 	inst->std = wave6_to_vpu_codstd(inst->src_fmt.pixelformat);
 	if (inst->std == STD_UNKNOWN) {
 		dev_err(inst->dev->dev, "unsupported pixelformat: %.4s\n",

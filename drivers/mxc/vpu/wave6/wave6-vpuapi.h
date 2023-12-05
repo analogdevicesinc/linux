@@ -1263,4 +1263,5 @@ int wave6_vpu_enc_give_command(struct vpu_instance *inst, enum codec_command cmd
 
 const char *wave6_vpu_instance_state_name(u32 state);
 void wave6_vpu_set_instance_state(struct vpu_instance *inst, u32 state);
+void wave6_vpu_wait_active(struct vpu_instance *inst);
 #endif

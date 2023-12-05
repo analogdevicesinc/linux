@@ -36,8 +36,6 @@ int wave6_vpu_dec_open(struct vpu_instance *inst, struct dec_open_param *pop)
 	int ret;
 	struct vpu_device *vpu_dev = inst->dev;
 
-	wave6_vpu_check_state(vpu_dev);
-
 	ret = wave6_check_dec_open_param(inst, pop);
 	if (ret)
 		return ret;
@@ -637,8 +635,6 @@ int wave6_vpu_enc_open(struct vpu_instance *inst, struct enc_open_param *pop)
 	int ret;
 	struct vpu_device *vpu_dev = inst->dev;
 
-	wave6_vpu_check_state(vpu_dev);
-
 	ret = wave6_vpu_enc_check_open_param(inst, pop);
 	if (ret)
 		return ret;
@@ -1179,4 +1175,9 @@ void wave6_vpu_set_instance_state(struct vpu_instance *inst, u32 state)
 		wave6_vpu_instance_state_name(state));
 
 	inst->state = state;
+}
+
+void wave6_vpu_wait_active(struct vpu_instance *inst)
+{
+	wave6_vpu_check_state(inst->dev);
 }
