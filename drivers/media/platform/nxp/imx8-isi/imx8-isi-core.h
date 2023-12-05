@@ -185,6 +185,7 @@ struct mxc_isi_dma_buffer {
 
 struct mxc_isi_input {
 	unsigned int			enable_count;
+	bool				connected;
 };
 
 struct mxc_isi_crossbar {

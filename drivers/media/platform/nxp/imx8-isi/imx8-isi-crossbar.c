@@ -9,6 +9,7 @@
 #include <linux/errno.h>
 #include <linux/kernel.h>
 #include <linux/minmax.h>
+#include <linux/of_graph.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/string.h>
@@ -175,32 +176,76 @@ mxc_isi_crossbar_xlate_streams(struct mxc_isi_crossbar *xbar,
 	return sd;
 }
 
+static int mxc_isi_create_default_routing(struct mxc_isi_crossbar *xbar,
+					   struct v4l2_subdev_route *routes)
+{
+	struct device *dev = xbar->isi->dev;
+	struct device_node *node;
+	unsigned int index = 0;
+	int i, j;
+
+	for_each_endpoint_of_node(dev->of_node, node) {
+		struct of_endpoint ep;
+
+		of_graph_parse_endpoint(node, &ep);
+
+		if (ep.port > xbar->isi->pdata->num_ports) {
+			dev_err(dev, "Invalid port number(%d)\n", ep.port);
+			return -EINVAL;
+		}
+
+		xbar->inputs[ep.port].connected = true;
+	}
+
+	for (i = 0; i < xbar->num_sources; ++i) {
+		struct v4l2_subdev_route *route = &routes[i];
+
+		j = index;
+		while (j < xbar->num_sinks) {
+			if (!xbar->inputs[j].connected) {
+				j = (++index) % xbar->num_sinks;
+				continue;
+			}
+
+			route->sink_pad = j;
+			route->source_pad = i + xbar->num_sinks;
+			route->flags = V4L2_SUBDEV_ROUTE_FL_ACTIVE;
+
+			index = (j + 1) % xbar->num_sinks;
+			dev_dbg(dev, "route: sink(%d) -> source(%d)\n",
+				route->sink_pad, route->source_pad);
+			break;
+		}
+	}
+
+	return 0;
+}
+
 static int mxc_isi_crossbar_init_state(struct v4l2_subdev *sd,
 				       struct v4l2_subdev_state *state)
 {
 	struct mxc_isi_crossbar *xbar = to_isi_crossbar(sd);
 	struct v4l2_subdev_krouting routing = { };
 	struct v4l2_subdev_route *routes;
-	unsigned int i;
 	int ret;
 
 	/*
-	 * Create a 1:1 mapping between pixel link inputs and outputs to
-	 * pipelines by default.
+	 * Create a 1:N mapping between pixel link inputs and outputs to
+	 * pipelines by according to the number of pixel links inputs and
+	 * ISI channels. The algorithm will divide the ISI channel equally
+	 * to each pixel link input which connect to a remote device.
 	 */
-	routes = kcalloc(xbar->num_sinks - 1, sizeof(*routes), GFP_KERNEL);
+	routes = kcalloc(xbar->num_sources, sizeof(*routes), GFP_KERNEL);
 	if (!routes)
 		return -ENOMEM;
 
-	for (i = 0; i < xbar->num_sinks - 1; ++i) {
-		struct v4l2_subdev_route *route = &routes[i];
-
-		route->sink_pad = i;
-		route->source_pad = i + xbar->num_sinks;
-		route->flags = V4L2_SUBDEV_ROUTE_FL_ACTIVE;
+	ret = mxc_isi_create_default_routing(xbar, routes);
+	if (ret < 0) {
+		kfree(routes);
+		return ret;
 	}
 
-	routing.num_routes = xbar->num_sinks - 1;
+	routing.num_routes = xbar->num_sources;
 	routing.routes = routes;
 
 	ret = __mxc_isi_crossbar_set_routing(sd, state, &routing);
