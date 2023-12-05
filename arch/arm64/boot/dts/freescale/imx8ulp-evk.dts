@@ -76,7 +76,7 @@
 			reg = <0 0x8e000000 0 0x1000000>;
 			no-map;
 		};
-		dsp_reserved_heap: dsp_reserved_heap {
+		dsp_reserved_heap: dsp_reserved_heap@8f000000 {
 			reg = <0 0x8f000000 0 0xef0000>;
 			no-map;
 		};
