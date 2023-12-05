@@ -25,8 +25,14 @@
 
 #define PLUS_10(x)  ((x)+(x)/10)
 
+#define V4L2_CID_FSYNC		(V4L2_CID_USER_BASE | 0x1002)
+
 static const char * const isx021_supply_names[] = {
 	"dvdd",
+};
+
+static const char * const isx021_ctrl_fsync_options[] = {
+	"Internal", "External",
 };
 
 struct isx021 {
@@ -37,15 +43,13 @@ struct isx021 {
 	struct regmap *regmap;
 
 	bool streaming;
+	int trigger_mode;
 
 	struct v4l2_subdev subdev;
 	struct media_pad pad;
 
 	struct v4l2_ctrl_handler ctrls;
 };
-
-static int trigger_mode;
-module_param(trigger_mode, int, 0644);
 
 static int isx021_set_response_mode(struct isx021 *sensor);
 
@@ -570,6 +574,10 @@ static int isx021_s_ctrl(struct v4l2_ctrl *ctrl)
 		isx021_set_gain(sensor, ctrl->val);
 		break;
 
+	case V4L2_CID_FSYNC:
+		sensor->trigger_mode = ctrl->val;
+		break;
+
 	default:
 		ret = -EINVAL;
 		break;
@@ -580,6 +588,16 @@ static int isx021_s_ctrl(struct v4l2_ctrl *ctrl)
 
 static const struct v4l2_ctrl_ops isx021_ctrl_ops = {
 	.s_ctrl = isx021_s_ctrl,
+};
+
+static const struct v4l2_ctrl_config isx021_ctrl_fsync = {
+	.ops = &isx021_ctrl_ops,
+	.id = V4L2_CID_FSYNC,
+	.name = "FSYNC source",
+	.type = V4L2_CTRL_TYPE_MENU,
+	.max = ARRAY_SIZE(isx021_ctrl_fsync_options) - 1,
+	.def = 0,
+	.qmenu = isx021_ctrl_fsync_options,
 };
 
 static int isx021_ctrls_init(struct isx021 *sensor)
@@ -613,6 +631,9 @@ static int isx021_ctrls_init(struct isx021 *sensor)
 
 	v4l2_ctrl_new_fwnode_properties(&sensor->ctrls, &isx021_ctrl_ops,
 					&props);
+
+	v4l2_ctrl_new_custom(&sensor->ctrls,
+				     &isx021_ctrl_fsync, NULL);
 
 	if (sensor->ctrls.error) {
 		dev_err(sensor->dev, "failed to add controls (%d)\n",
@@ -660,7 +681,7 @@ static int isx021_stream_on(struct isx021 *sensor)
 {
 	int ret = 0;
 
-	if (trigger_mode){
+	if (sensor->trigger_mode){
 		ret = isx021_set_fsync_trigger_mode(sensor);
 		dev_dbg(sensor->dev, "[%s] : Putting camera sensor into Slave mode.\n", __func__);
 	}
@@ -1001,6 +1022,8 @@ static int isx021_probe(struct i2c_client *client)
 	sensor->regmap = devm_regmap_init_i2c(client, &isx021_regmap_config);
 	if (IS_ERR(sensor->regmap))
 		return PTR_ERR(sensor->regmap);
+
+	sensor->trigger_mode = 0;
 
 	/*
 	 * Enable power management. The driver supports runtime PM, but needs to
