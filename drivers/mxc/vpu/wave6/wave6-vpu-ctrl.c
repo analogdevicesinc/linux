@@ -9,6 +9,7 @@
 #include <linux/pm_runtime.h>
 #include <linux/dma-mapping.h>
 #include <linux/iopoll.h>
+#include <linux/genalloc.h>
 
 #include "wave6-vpuconfig.h"
 #include "wave6-regdefine.h"
@@ -28,6 +29,7 @@ module_param(debug, uint, 0644);
 
 struct vpu_ctrl_resource {
 	const char *fw_name;
+	u32 sram_size;
 };
 
 struct vpu_ctrl {
@@ -41,6 +43,8 @@ struct vpu_ctrl {
 	struct wave6_vpu_entity *current_entity;
 	struct list_head entities;
 	const struct vpu_ctrl_resource *res;
+	struct gen_pool *sram_pool;
+	struct vpu_dma_buf sram_buf;
 };
 
 static void wave6_vpu_ctrl_writel(struct device *dev, u32 addr, u32 data)
@@ -531,6 +535,27 @@ int wave6_vpu_ctrl_get_state(struct device *dev, struct wave6_vpu_entity *entity
 }
 EXPORT_SYMBOL_GPL(wave6_vpu_ctrl_get_state);
 
+void *wave6_vpu_ctrl_get_sram(struct device *dev, dma_addr_t *dma_addr, u32 *size)
+{
+	struct vpu_ctrl *ctrl = dev_get_drvdata(dev);
+
+	if (!ctrl) {
+		if (dma_addr)
+			*dma_addr = 0;
+		if (size)
+			*size = 0;
+		return NULL;
+	}
+
+	if (dma_addr)
+		*dma_addr = ctrl->sram_buf.dma_addr;
+	if (size)
+		*size = ctrl->sram_buf.size;
+
+	return ctrl->sram_buf.vaddr;
+}
+EXPORT_SYMBOL_GPL(wave6_vpu_ctrl_get_sram);
+
 static void wave6_vpu_ctrl_init_reserved_boot_region(struct vpu_ctrl *ctrl)
 {
 	if (ctrl->boot_mem.size < SIZE_COMMON) {
@@ -614,6 +639,25 @@ static int wave6_vpu_ctrl_probe(struct platform_device *pdev)
 		}
 	}
 
+	ctrl->sram_pool = of_gen_pool_get(pdev->dev.of_node, "sram", 0);
+	if (ctrl->sram_pool) {
+		ctrl->sram_buf.size = ctrl->res->sram_size;
+		ctrl->sram_buf.vaddr = gen_pool_dma_alloc(ctrl->sram_pool,
+							  ctrl->sram_buf.size,
+							  &ctrl->sram_buf.phys_addr);
+		if (!ctrl->sram_buf.vaddr)
+			ctrl->sram_buf.size = 0;
+		else
+			ctrl->sram_buf.dma_addr = dma_map_resource(&pdev->dev,
+								   ctrl->sram_buf.phys_addr,
+								   ctrl->sram_buf.size,
+								   DMA_BIDIRECTIONAL,
+								   0);
+
+		dev_info(&pdev->dev, "sram 0x%pad, 0x%pad, size 0x%lx\n",
+			 &ctrl->sram_buf.phys_addr, &ctrl->sram_buf.dma_addr, ctrl->sram_buf.size);
+	}
+
 	mutex_init(&ctrl->ctrl_lock);
 	INIT_LIST_HEAD(&ctrl->entities);
 	dev_set_drvdata(&pdev->dev, ctrl);
@@ -629,6 +673,17 @@ static int wave6_vpu_ctrl_remove(struct platform_device *pdev)
 
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
+
+	if (ctrl->sram_pool && ctrl->sram_buf.vaddr) {
+		dma_unmap_resource(&pdev->dev,
+				   ctrl->sram_buf.dma_addr,
+				   ctrl->sram_buf.size,
+				   DMA_BIDIRECTIONAL,
+				   0);
+		gen_pool_free(ctrl->sram_pool,
+			      (unsigned long)ctrl->sram_buf.vaddr,
+			      ctrl->sram_buf.size);
+	}
 
 	if (ctrl->boot_mem.dma_addr)
 		dma_unmap_resource(&pdev->dev,
@@ -678,6 +733,7 @@ static const struct dev_pm_ops wave6_vpu_ctrl_pm_ops = {
 
 static const struct vpu_ctrl_resource wave633c_ctrl_data = {
 	.fw_name = "wave633c_codec_fw.bin",
+	.sram_size = 0x18000,
 };
 
 static const struct of_device_id wave6_ctrl_ids[] = {

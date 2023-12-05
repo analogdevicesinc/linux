@@ -27,4 +27,5 @@ int wave6_vpu_ctrl_resume_and_get(struct device *dev, struct wave6_vpu_entity *e
 void wave6_vpu_ctrl_put_sync(struct device *dev, struct wave6_vpu_entity *entity);
 int wave6_vpu_ctrl_get_state(struct device *dev, struct wave6_vpu_entity *entity);
 int wave6_vpu_ctrl_wait_done(struct device *dev, struct wave6_vpu_entity *entity);
+void *wave6_vpu_ctrl_get_sram(struct device *dev, dma_addr_t *dma_addr, u32 *size);
 #endif

@@ -3687,3 +3687,8 @@ int wave6_vpu_enc_check_open_param(struct vpu_instance *vpu_inst, struct enc_ope
 
 	return 0;
 }
+
+void *wave6_vpu_get_sram(struct vpu_instance *vpu_inst, dma_addr_t *dma_addr, u32 *size)
+{
+	return wave6_vpu_ctrl_get_sram(vpu_inst->dev->ctrl, dma_addr, size);
+}

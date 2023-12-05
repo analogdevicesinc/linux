@@ -10,7 +10,6 @@
 #include <linux/clk.h>
 #include <linux/of_address.h>
 #include <linux/of_platform.h>
-#include <linux/genalloc.h>
 #include <linux/firmware.h>
 #include <linux/interrupt.h>
 #include <linux/pm_runtime.h>
@@ -34,12 +33,10 @@ module_param(debug, uint, 0644);
 
 struct wave6_match_data {
 	int flags;
-	unsigned int sram_size;
 };
 
 static const struct wave6_match_data wave633c_data = {
 	.flags = WAVE6_IS_ENC | WAVE6_IS_DEC,
-	.sram_size = 0x18000,
 };
 
 unsigned int wave6_vpu_debug(void)
@@ -193,29 +190,10 @@ static int wave6_vpu_probe(struct platform_device *pdev)
 	}
 	dev->num_clks = ret;
 
-	dev->sram_pool = of_gen_pool_get(pdev->dev.of_node, "sram", 0);
-	if (dev->sram_pool) {
-		dev->sram_buf.size = match_data->sram_size;
-		dev->sram_buf.vaddr = gen_pool_dma_alloc(dev->sram_pool,
-							 dev->sram_buf.size,
-							 &dev->sram_buf.phys_addr);
-		if (!dev->sram_buf.vaddr)
-			dev->sram_buf.size = 0;
-		else
-			dev->sram_buf.dma_addr = dma_map_resource(&pdev->dev,
-								  dev->sram_buf.phys_addr,
-								  dev->sram_buf.size,
-								  DMA_BIDIRECTIONAL,
-								  0);
-
-		dev_info(&pdev->dev, "sram 0x%pad, 0x%pad, size 0x%lx\n",
-			 &dev->sram_buf.phys_addr, &dev->sram_buf.dma_addr, dev->sram_buf.size);
-	}
-
 	ret = v4l2_device_register(&pdev->dev, &dev->v4l2_dev);
 	if (ret) {
 		dev_err(&pdev->dev, "v4l2_device_register fail: %d\n", ret);
-		goto err_free_sram;
+		return ret;
 	}
 
 	if (match_data->flags & WAVE6_IS_DEC) {
@@ -280,17 +258,6 @@ err_dec_unreg:
 		wave6_vpu_dec_unregister_device(dev);
 err_v4l2_unregister:
 	v4l2_device_unregister(&dev->v4l2_dev);
-err_free_sram:
-	if (dev->sram_pool && dev->sram_buf.vaddr) {
-		dma_unmap_resource(&pdev->dev,
-				   dev->sram_buf.dma_addr,
-				   dev->sram_buf.size,
-				   DMA_BIDIRECTIONAL,
-				   0);
-		gen_pool_free(dev->sram_pool,
-			      (unsigned long)dev->sram_buf.vaddr,
-			      dev->sram_buf.size);
-	}
 
 	return ret;
 }
@@ -302,16 +269,6 @@ static int wave6_vpu_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
 
-	if (dev->sram_pool && dev->sram_buf.vaddr) {
-		dma_unmap_resource(&pdev->dev,
-				   dev->sram_buf.dma_addr,
-				   dev->sram_buf.size,
-				   DMA_BIDIRECTIONAL,
-				   0);
-		gen_pool_free(dev->sram_pool,
-			      (unsigned long)dev->sram_buf.vaddr,
-			      dev->sram_buf.size);
-	}
 	wave6_vpu_release_m2m_dev(dev);
 	wave6_vpu_enc_unregister_device(dev);
 	wave6_vpu_dec_unregister_device(dev);

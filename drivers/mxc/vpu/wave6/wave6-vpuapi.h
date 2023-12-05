@@ -1130,8 +1130,6 @@ struct vpu_device {
 	u32 hw_version;
 	struct vpu_attr	attr;
 	u32 last_performance_cycles;
-	struct gen_pool *sram_pool;
-	struct vpu_dma_buf sram_buf;
 	void __iomem *reg_base;
 	struct device *ctrl;
 	int product_code;
@@ -1264,4 +1262,5 @@ int wave6_vpu_enc_give_command(struct vpu_instance *inst, enum codec_command cmd
 const char *wave6_vpu_instance_state_name(u32 state);
 void wave6_vpu_set_instance_state(struct vpu_instance *inst, u32 state);
 void wave6_vpu_wait_active(struct vpu_instance *inst);
+void *wave6_vpu_get_sram(struct vpu_instance *vpu_inst, dma_addr_t *dma_addr, u32 *size);
 #endif
