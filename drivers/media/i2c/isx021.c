@@ -961,6 +961,7 @@ static const struct dev_pm_ops isx021_pm_ops = {
 static const struct regmap_config isx021_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 8,
+	.max_register = 0xFFFF,
 };
 
 static int isx021_probe(struct i2c_client *client)
