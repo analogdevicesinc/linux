@@ -2679,7 +2679,7 @@
 			power-domain-names = "pd_enc";
 		};
 
-		pcie@4ca00000 {
+		pcie_4ca00000: pcie@4ca00000 {
 			compatible = "pci-host-ecam-generic";
 			reg = <0x0 0x4ca00000 0x0 0x100000>;
 			/* Must be 3. */
@@ -2751,7 +2751,7 @@
 			};
 		};
 
-		pcie@4cb00000 {
+		pcie_4cb00000: pcie@4cb00000 {
 			compatible = "pci-host-ecam-generic";
 			reg = <0x0 0x4cb00000 0x0 0x100000>;
 			#address-cells = <3>;
