@@ -135,6 +135,15 @@ int neutron_rproc_shutdown(struct neutron_device *ndev)
 	return rproc_shutdown(rproc);
 }
 
+void neutron_rproc_put(struct neutron_device *ndev)
+{
+	if (!ndev->rproc)
+		return;
+
+	/* release rproc reference */
+	rproc_put(ndev->rproc);
+}
+
 static int neutron_open(struct inode *inode,
 			struct file *file)
 {
@@ -385,6 +394,7 @@ void neutron_dev_deinit(struct neutron_device *ndev)
 	neutron_queue_destroy(ndev->queue);
 	clk_bulk_disable_unprepare(ndev->num_clks, ndev->clks);
 	neutron_mbox_destroy(ndev->mbox);
+	neutron_rproc_put(ndev);
 	mutex_destroy(&ndev->mutex);
 	device_destroy(ndev->class, ndev->cdev.dev);
 	cdev_del(&ndev->cdev);
