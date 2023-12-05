@@ -30,7 +30,7 @@ struct sec_mipi_dsim_plat_data {
 	const struct sec_mipi_dsim_pll *dphy_pll;
 	int (*dphy_timing_cmp)(const void *key, const void *elt);
 	enum drm_mode_status (*mode_valid)(struct drm_connector *connector,
-					   struct drm_display_mode *mode);
+					   const struct drm_display_mode *mode);
 	int (*determine_pll_ref_rate)(u32 *rate, u32 min, u32 max);
 };
 
