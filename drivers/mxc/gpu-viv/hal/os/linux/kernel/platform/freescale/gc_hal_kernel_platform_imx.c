@@ -1480,7 +1480,10 @@ static inline int get_power_imx6(struct device *pdev)
 
 static inline int get_power(struct device *pdev)
 {
-    int ret, val;
+    int ret;
+#if gcdENABLE_FSCALE_VAL_ADJUST && defined(CONFIG_DEVFREQ_THERMAL)
+    int val;
+#endif
 
     /*Initialize the clock structure*/
 #ifdef IMX_GPU_SUBSYSTEM
