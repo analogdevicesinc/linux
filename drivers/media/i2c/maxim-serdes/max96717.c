@@ -442,13 +442,20 @@ static int max96717_conf_pin_config_set_one(struct max96717_priv *priv,
 		return -ENOTSUPP;
 	}
 
-	if ((param == PIN_CONFIG_OUTPUT_ENABLE) && (priv->info->part == MAX96717)) {
-		config = pinconf_to_config_packed(MAX96717_PINCTRL_GMSL_RX_EN, 0);
+	if (param == MAX96717_PINCTRL_GMSL_RX_EN) {
+		if (priv->info->part == MAX96717)
+			config = pinconf_to_config_packed(PIN_CONFIG_OUTPUT_ENABLE, 0);
+		else if (priv->info->part == MAX9295)
+			config = pinconf_to_config_packed(PIN_CONFIG_OUTPUT_ENABLE, 1);
 		ret = max96717_conf_pin_config_set_one(priv, offset, config);
 		if (ret)
 			return ret;
 	} else if (param == PIN_CONFIG_OUTPUT) {
 		config = pinconf_to_config_packed(PIN_CONFIG_OUTPUT_ENABLE, 1);
+		ret = max96717_conf_pin_config_set_one(priv, offset, config);
+		if (ret)
+			return ret;
+		config = pinconf_to_config_packed(MAX96717_PINCTRL_GMSL_RX_EN, 0);
 		ret = max96717_conf_pin_config_set_one(priv, offset, config);
 		if (ret)
 			return ret;
