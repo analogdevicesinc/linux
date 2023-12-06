@@ -977,7 +977,7 @@ static const struct iio_chan_spec_ext_info adrv9025_phy_rx_ext_info[] = {
 	 * values > 2^32 in order to support the entire frequency range
 	 * in Hz. Using scale is a bit ugly.
 	 */
-	IIO_ENUM_AVAILABLE("gain_control_mode", IIO_SEPARATE,
+	IIO_ENUM_AVAILABLE_SHARED("gain_control_mode", IIO_SEPARATE,
 				  &adrv9025_agc_modes_available),
 	IIO_ENUM("gain_control_mode", false, &adrv9025_agc_modes_available),
 	_ADRV9025_EXT_RX_INFO("rssi", RSSI),
