@@ -2483,7 +2483,7 @@ out_disable_clocks:
 	return ret;
 }
 
-static void adrv9025_remove(struct spi_device *spi)
+static int adrv9025_remove(struct spi_device *spi)
 {
 	struct adrv9025_rf_phy *phy = adrv9025_spi_to_phy(spi);
 
@@ -2492,6 +2492,8 @@ static void adrv9025_remove(struct spi_device *spi)
 	clk_disable_unprepare(phy->dev_clk);
 
 	adrv9025_shutdown(phy);
+
+	return 0;
 }
 
 static const struct spi_device_id adrv9025_id[] = {
