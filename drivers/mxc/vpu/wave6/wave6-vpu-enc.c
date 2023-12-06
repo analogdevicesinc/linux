@@ -755,22 +755,28 @@ static int wave6_vpu_enc_start_encode(struct vpu_instance *inst)
 		src_vbuf = wave6_to_vpu_buf(src_buf);
 		if (inst->src_fmt.num_planes == 1) {
 			frame_buf.buf_y =
-				vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
+				vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0) +
+				src_buf->planes[0].data_offset;
 			frame_buf.buf_cb = frame_buf.buf_y + luma_size;
 			frame_buf.buf_cr = frame_buf.buf_cb + chroma_size;
 		} else if (inst->src_fmt.num_planes == 2) {
 			frame_buf.buf_y =
-				vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
+				vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0) +
+				src_buf->planes[0].data_offset;
 			frame_buf.buf_cb =
-				vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 1);
+				vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 1) +
+				src_buf->planes[1].data_offset;
 			frame_buf.buf_cr = frame_buf.buf_cb + chroma_size;
 		} else if (inst->src_fmt.num_planes == 3) {
 			frame_buf.buf_y =
-				vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
+				vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0) +
+				src_buf->planes[0].data_offset;
 			frame_buf.buf_cb =
-				vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 1);
+				vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 1) +
+				src_buf->planes[1].data_offset;
 			frame_buf.buf_cr =
-				vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 2);
+				vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 2) +
+				src_buf->planes[2].data_offset;
 		}
 		frame_buf.stride = stride;
 		pic_param.src_idx = src_buf->vb2_buf.index;
