@@ -223,6 +223,10 @@
 	status = "okay";
 };
 
+&usb2 {
+	status = "disabled";
+};
+
 &can0 {
 	status = "okay";
 };
