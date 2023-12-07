@@ -120,7 +120,9 @@
 #define ADI_FORMAT_TYPE			(1 << 5)
 #define ADI_FORMAT_ENABLE		(1 << 4)
 #define ADI_PN23_TYPE			(1 << 1) /* !v8.0 */
+#ifndef ADI_ENABLE
 #define ADI_ENABLE			(1 << 0)
+#endif
 
 #define ADI_REG_CHAN_STATUS(c)		(0x0404 + (c) * 0x40)
 #define ADI_PN_ERR			(1 << 2)
