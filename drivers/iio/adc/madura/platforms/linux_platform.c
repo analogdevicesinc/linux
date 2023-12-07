@@ -655,7 +655,7 @@ FILE* __fopen (adi_hal_Cfg_t *hal, const char * filename, const char *mode)
 	if (ret < 0)
 		return NULL;
 
-	stream->start = stream->ptr = stream->fw->data;
+	stream->start = stream->ptr = (char *)stream->fw->data;
 	stream->end = stream->start + stream->fw->size;
 
 	return stream;
