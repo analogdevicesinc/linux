@@ -110,6 +110,7 @@ enum imx_mu_type {
 	IMX_MU_V2 = BIT(1),
 	IMX_MU_V2_S4 = BIT(15),
 	IMX_MU_V2_IRQ = BIT(16),
+	IMX_MU_V2_V2X = BIT(18),
 };
 
 struct imx_mu_dcfg {
@@ -147,6 +148,11 @@ static struct imx_mu_priv *to_imx_mu_priv(struct mbox_controller *mbox)
 	return container_of(mbox, struct imx_mu_priv, mbox);
 }
 
+static u32 imx_mu_read(struct imx_mu_priv *priv, u32 offs)
+{
+	return ioread32(priv->base + offs);
+}
+
 uint8_t *get_mu_buf(struct mbox_chan *chan)
 {
 	uint8_t *addr;
@@ -160,11 +166,6 @@ EXPORT_SYMBOL(get_mu_buf);
 static void imx_mu_write(struct imx_mu_priv *priv, u32 val, u32 offs)
 {
 	iowrite32(val, priv->base + offs);
-}
-
-static u32 imx_mu_read(struct imx_mu_priv *priv, u32 offs)
-{
-	return ioread32(priv->base + offs);
 }
 
 static int imx_mu_tx_waiting_write(struct imx_mu_priv *priv, u32 val, u32 idx)
@@ -297,6 +298,8 @@ static int imx_mu_specific_tx(struct imx_mu_priv *priv, struct imx_mu_con_priv *
 	if (priv->dcfg->type & IMX_MU_V2_S4) {
 		size = ((struct imx_s4_rpc_msg_max *)data)->hdr.size;
 		max_size = sizeof(struct imx_s4_rpc_msg_max);
+		if (priv->dcfg->type & IMX_MU_V2_V2X)
+			num_tr = 4;
 	} else {
 		size = ((struct imx_sc_rpc_msg_max *)data)->hdr.size;
 		max_size = sizeof(struct imx_sc_rpc_msg_max);
@@ -1026,6 +1029,18 @@ static const struct imx_mu_dcfg imx_mu_cfg_imx93_s4 = {
 	.xCR	= {0x8, 0x110, 0x114, 0x120, 0x128},
 };
 
+static const struct imx_mu_dcfg imx_mu_cfg_imx95_v2x = {
+	.tx     = imx_mu_specific_tx,
+	.rx     = imx_mu_specific_rx,
+	.init   = imx_mu_init_specific,
+	.type   = IMX_MU_V2 | IMX_MU_V2_S4 | IMX_MU_V2_V2X,
+	.xTR    = 0x200,
+	.xRR    = 0x280,
+	.xSR    = {0xC, 0x118, 0x124, 0x12C},
+	.xCR    = {0x8, 0x110, 0x114, 0x120, 0x128},
+	.xBUF   = 0x8000,
+};
+
 static const struct imx_mu_dcfg imx_mu_cfg_imx8_scu = {
 	.tx	= imx_mu_specific_tx,
 	.rx	= imx_mu_specific_rx,
@@ -1057,7 +1072,7 @@ static const struct of_device_id imx_mu_dt_ids[] = {
 	{ .compatible = "fsl,imx93-mu-s4", .data = &imx_mu_cfg_imx93_s4 },
 	{ .compatible = "fsl,imx95-mu", .data = &imx_mu_cfg_imx8ulp },
 	{ .compatible = "fsl,imx95-mu-ele", .data = &imx_mu_cfg_imx8ulp_s4 },
-	{ .compatible = "fsl,imx95-mu-v2x", .data = &imx_mu_cfg_imx8ulp_s4 },
+	{ .compatible = "fsl,imx95-mu-v2x", .data = &imx_mu_cfg_imx95_v2x },
 	{ .compatible = "fsl,imx8-mu-scu", .data = &imx_mu_cfg_imx8_scu },
 	{ .compatible = "fsl,imx8-mu-seco", .data = &imx_mu_cfg_imx8_seco },
 	{ },
