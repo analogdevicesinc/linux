@@ -31,6 +31,7 @@
 #define AXI_PWMGEN_RESET		BIT(0)
 
 #define AXI_PWMGEN_PSEC_PER_SEC		1000000000000ULL
+#define AXI_PWMGEN_N_MAX_PWMS		0x10
 
 static const unsigned long long axi_pwmgen_scales[] = {
 	[PWM_UNIT_SEC]  = 1000000000000ULL,
@@ -46,7 +47,7 @@ struct axi_pwmgen {
 	void __iomem		*base;
 
 	/* Used to store the period when the channel is disabled */
-	unsigned int		ch_period[4];
+	unsigned int		ch_period[AXI_PWMGEN_N_MAX_PWMS];
 };
 
 static inline unsigned int axi_pwmgen_read(struct axi_pwmgen *pwm,
@@ -196,7 +197,7 @@ static int axi_pwmgen_setup(struct pwm_chip *chip)
 	}
 
 	pwm->chip.npwm = axi_pwmgen_read(pwm, AXI_PWMGEN_REG_NPWM);
-	if (pwm->chip.npwm > 16)
+	if (pwm->chip.npwm > AXI_PWMGEN_N_MAX_PWMS)
 		return -EINVAL;
 
 	/* Disable all the outputs */
