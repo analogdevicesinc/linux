@@ -78,6 +78,7 @@ int32_t adi_adrv9025_HwOpen(adi_adrv9025_Device_t*      device,
                              NULL,
                              "SPI error");
             ADI_ERROR_RETURN(device->common.error.newAction);
+	    break;
         case ADI_COMMON_HAL_GPIO_FAIL:
             ADI_ERROR_REPORT(&device->common,
                              ADI_COMMON_ERRSRC_ADI_HAL,
@@ -86,6 +87,7 @@ int32_t adi_adrv9025_HwOpen(adi_adrv9025_Device_t*      device,
                              NULL,
                              "GPIO error");
             ADI_ERROR_RETURN(device->common.error.newAction);
+	    break;
         case ADI_COMMON_HAL_TIMER_FAIL:
             ADI_ERROR_REPORT(&device->common,
                              ADI_COMMON_ERRSRC_ADI_HAL,
@@ -94,6 +96,7 @@ int32_t adi_adrv9025_HwOpen(adi_adrv9025_Device_t*      device,
                              NULL,
                              "Timer error");
             ADI_ERROR_RETURN(device->common.error.newAction);
+	    break;
         case ADI_COMMON_HAL_GEN_SW: /* fall through */
         default:
             ADI_ERROR_REPORT(&device->common,
@@ -153,6 +156,7 @@ int32_t adi_adrv9025_HwClose(adi_adrv9025_Device_t* device)
                              NULL,
                              "SPI error");
             ADI_ERROR_RETURN(device->common.error.newAction);
+	    break;
         case ADI_COMMON_HAL_GPIO_FAIL:
             ADI_ERROR_REPORT(&device->common,
                              ADI_COMMON_ERRSRC_ADI_HAL,
@@ -161,6 +165,7 @@ int32_t adi_adrv9025_HwClose(adi_adrv9025_Device_t* device)
                              NULL,
                              "GPIO error");
             ADI_ERROR_RETURN(device->common.error.newAction);
+	    break;
         case ADI_COMMON_HAL_TIMER_FAIL:
             ADI_ERROR_REPORT(&device->common,
                              ADI_COMMON_ERRSRC_ADI_HAL,
@@ -169,6 +174,7 @@ int32_t adi_adrv9025_HwClose(adi_adrv9025_Device_t* device)
                              NULL,
                              "Timer error");
             ADI_ERROR_RETURN(device->common.error.newAction);
+	    break;
         case ADI_COMMON_HAL_GEN_SW: /* fall through */
         default:
             ADI_ERROR_REPORT(&device->common,
