@@ -1610,7 +1610,7 @@
 			};
 		};
 
-		mailbox@47320000 {
+		v2x_mu6: mailbox@47320000 {
 			compatible = "fsl,imx95-mu-v2x";
 			reg = <0x0 0x47320000 0x0 0x10000>;
 			interrupts = <GIC_SPI 254 IRQ_TYPE_LEVEL_HIGH>;
@@ -2804,5 +2804,12 @@
 		mbox-names = "tx", "rx";
 		mboxes = <&elemu3 0 0>,
 			 <&elemu3 1 0>;
+	};
+
+	v2x_she: v2x-fw6 {
+		compatible = "fsl,imx95-se-fw";
+		mbox-names = "tx", "rx";
+		mboxes = <&v2x_mu6 0 0>,
+			<&v2x_mu6 1 0>;
 	};
 };
