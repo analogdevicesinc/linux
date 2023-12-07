@@ -310,6 +310,12 @@ gckHARDWARE_CancelJob(IN gckHARDWARE Hardware);
 gceSTATUS
 gckHARDWARE_ResumeWLFE(gckHARDWARE Hardware);
 
+gceSTATUS
+gckHARDWARE_SwitchSecurityMode(gckHARDWARE Hardware,
+                               gctPOINTER Logical, gctADDRESS Address,
+                               gctUINT32 firstMode, gctUINT32 secondMode,
+                               gctUINT32 *Bytes);
+
 #define gcmkWRITE_MEMORY(logical, data)                                       \
     do {                                                                      \
         gcmkVERIFY_OK(gckOS_WriteMemory(os, logical, data));                  \
