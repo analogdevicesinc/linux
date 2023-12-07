@@ -2859,6 +2859,19 @@ gckCOMMAND_SwitchSecurityMode(gckCOMMAND Command, gckHARDWARE Hardware)
     gctUINT32 size;
     gctUINT8_PTR pointer;
     gctADDRESS address;
+    gctUINT64 powerManagement = 0;
+
+    status = gckOS_QueryOption(Command->os, "powerManagement", &powerManagement);
+    if (gcmIS_ERROR(status))
+        powerManagement = 0;
+
+    if (powerManagement)
+        gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware, gcvFALSE));
+
+    gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, gcvPOWER_ON_AUTO));
+
+    gcmkONERROR(gckHARDWARE_SwitchSecurityMode(Hardware, gcvNULL, gcvINVALID_ADDRESS, 1, 0, &reserveBytes));
+
 
     gcmkONERROR(gckHARDWARE_SwitchSecurityMode(Hardware, gcvNULL, gcvINVALID_ADDRESS, 1, 0, &reserveBytes));
 
@@ -2873,6 +2886,10 @@ gckCOMMAND_SwitchSecurityMode(gckCOMMAND Command, gckHARDWARE Hardware)
         gcmkONERROR(gckCOMMAND_Execute(Command, reserveBytes));
     else
         gcmkONERROR(gckCOMMAND_ExecuteEnd(Command, reserveBytes));
+
+    /* enable power management */
+    if (powerManagement)
+        gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware, gcvTRUE));
 
 OnError:
     return status;
