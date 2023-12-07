@@ -11,8 +11,8 @@
 //#define GMSL_CAM_OVX03A
 
 //GMSL defines
-#define GMSL_CAMERA_NUM 8
-#define GMSL_CAMERA_DES1 4
+#define GMSL_CAMERA_NUM 4
+#define GMSL_CAMERA_DES1 0
 #define GMSL_CAMERA_DES2 4
 #define GMSL_PHY	0x1
 
@@ -28,16 +28,16 @@
 #if (GMSL_CAMERA_NUM >= 4)
 #define GMSL_CAMERA_3
 #endif
-#if (GMSL_CAMERA_NUM >= 5)
+#if (GMSL_CAMERA_NUM >= 5 || GMSL_CAMERA_DES2 > 0)
 #define GMSL_CAMERA_4
 #endif
-#if (GMSL_CAMERA_NUM >= 6)
+#if (GMSL_CAMERA_NUM >= 6 || GMSL_CAMERA_DES2 > 1)
 #define GMSL_CAMERA_5
 #endif
-#if (GMSL_CAMERA_NUM >= 7)
+#if (GMSL_CAMERA_NUM >= 7 || GMSL_CAMERA_DES2 > 2)
 #define GMSL_CAMERA_6
 #endif
-#if (GMSL_CAMERA_NUM >= 8)
+#if (GMSL_CAMERA_NUM >= 8 || GMSL_CAMERA_DES2 > 3)
 #define GMSL_CAMERA_7
 #endif
 
@@ -758,13 +758,13 @@
 						input-enable;
 						maxim,jitter-compensation = <1>;
 						maxim,gmsl-tx-a = <1>;
-						maxim,gmsl-tx-id-a = <0>;
-						maxim,gmsl-tx-b = <1>;
-						maxim,gmsl-tx-id-b = <0>;
-						maxim,gmsl-tx-c = <1>;
-						maxim,gmsl-tx-id-c = <0>;
-						maxim,gmsl-tx-d = <1>;
-						maxim,gmsl-tx-id-d = <0>;
+						maxim,gmsl-tx-id-a = <3>;
+						maxim,gmsl-tx-b = <0>;
+						maxim,gmsl-tx-id-b = <3>;
+						maxim,gmsl-tx-c = <0>;
+						maxim,gmsl-tx-id-c = <3>;
+						maxim,gmsl-tx-d = <0>;
+						maxim,gmsl-tx-id-d = <3>;
 					};
 
 					des1_mfp1_fsync1: mfp1_fsync1 {
@@ -773,14 +773,14 @@
 						bias-pull-up;
 						input-enable;
 						maxim,jitter-compensation = <1>;
-						maxim,gmsl-tx-a = <1>;
-						maxim,gmsl-tx-id-a = <1>;
+						maxim,gmsl-tx-a = <0>;
+						maxim,gmsl-tx-id-a = <3>;
 						maxim,gmsl-tx-b = <1>;
-						maxim,gmsl-tx-id-b = <1>;
-						maxim,gmsl-tx-c = <1>;
-						maxim,gmsl-tx-id-c = <1>;
-						maxim,gmsl-tx-d = <1>;
-						maxim,gmsl-tx-id-d = <1>;
+						maxim,gmsl-tx-id-b = <3>;
+						maxim,gmsl-tx-c = <0>;
+						maxim,gmsl-tx-id-c = <3>;
+						maxim,gmsl-tx-d = <0>;
+						maxim,gmsl-tx-id-d = <3>;
 					};
 
 					des1_mfp2_fsync2: mfp2_fsync2 {
@@ -789,14 +789,14 @@
 						bias-pull-up;
 						input-enable;
 						maxim,jitter-compensation = <1>;
-						maxim,gmsl-tx-a = <1>;
-						maxim,gmsl-tx-id-a = <2>;
-						maxim,gmsl-tx-b = <1>;
-						maxim,gmsl-tx-id-b = <2>;
+						maxim,gmsl-tx-a = <0>;
+						maxim,gmsl-tx-id-a = <3>;
+						maxim,gmsl-tx-b = <0>;
+						maxim,gmsl-tx-id-b = <3>;
 						maxim,gmsl-tx-c = <1>;
-						maxim,gmsl-tx-id-c = <2>;
-						maxim,gmsl-tx-d = <1>;
-						maxim,gmsl-tx-id-d = <2>;
+						maxim,gmsl-tx-id-c = <3>;
+						maxim,gmsl-tx-d = <0>;
+						maxim,gmsl-tx-id-d = <3>;
 					};
 
 					des1_mfp3_fsync3: mfp3_fsync3 {
@@ -805,11 +805,11 @@
 						bias-pull-up;
 						input-enable;
 						maxim,jitter-compensation = <1>;
-						maxim,gmsl-tx-a = <1>;
+						maxim,gmsl-tx-a = <0>;
 						maxim,gmsl-tx-id-a = <3>;
-						maxim,gmsl-tx-b = <1>;
+						maxim,gmsl-tx-b = <0>;
 						maxim,gmsl-tx-id-b = <3>;
-						maxim,gmsl-tx-c = <1>;
+						maxim,gmsl-tx-c = <0>;
 						maxim,gmsl-tx-id-c = <3>;
 						maxim,gmsl-tx-d = <1>;
 						maxim,gmsl-tx-id-d = <3>;
@@ -843,13 +843,13 @@
 						input-enable;
 						maxim,jitter-compensation = <1>;
 						maxim,gmsl-tx-a = <1>;
-						maxim,gmsl-tx-id-a = <0>;
-						maxim,gmsl-tx-b = <1>;
-						maxim,gmsl-tx-id-b = <0>;
-						maxim,gmsl-tx-c = <1>;
-						maxim,gmsl-tx-id-c = <0>;
-						maxim,gmsl-tx-d = <1>;
-						maxim,gmsl-tx-id-d = <0>;
+						maxim,gmsl-tx-id-a = <3>;
+						maxim,gmsl-tx-b = <0>;
+						maxim,gmsl-tx-id-b = <3>;
+						maxim,gmsl-tx-c = <0>;
+						maxim,gmsl-tx-id-c = <3>;
+						maxim,gmsl-tx-d = <0>;
+						maxim,gmsl-tx-id-d = <3>;
 					};
 
 					des2_mfp1_fsync1: mfp1_fsync1 {
@@ -858,14 +858,14 @@
 						bias-pull-up;
 						input-enable;
 						maxim,jitter-compensation = <1>;
-						maxim,gmsl-tx-a = <1>;
-						maxim,gmsl-tx-id-a = <1>;
+						maxim,gmsl-tx-a = <0>;
+						maxim,gmsl-tx-id-a = <3>;
 						maxim,gmsl-tx-b = <1>;
-						maxim,gmsl-tx-id-b = <1>;
-						maxim,gmsl-tx-c = <1>;
-						maxim,gmsl-tx-id-c = <1>;
-						maxim,gmsl-tx-d = <1>;
-						maxim,gmsl-tx-id-d = <1>;
+						maxim,gmsl-tx-id-b = <3>;
+						maxim,gmsl-tx-c = <0>;
+						maxim,gmsl-tx-id-c = <3>;
+						maxim,gmsl-tx-d = <0>;
+						maxim,gmsl-tx-id-d = <3>;
 					};
 
 					des2_mfp2_fsync2: mfp2_fsync2 {
@@ -874,14 +874,14 @@
 						bias-pull-up;
 						input-enable;
 						maxim,jitter-compensation = <1>;
-						maxim,gmsl-tx-a = <1>;
-						maxim,gmsl-tx-id-a = <2>;
-						maxim,gmsl-tx-b = <1>;
-						maxim,gmsl-tx-id-b = <2>;
+						maxim,gmsl-tx-a = <0>;
+						maxim,gmsl-tx-id-a = <3>;
+						maxim,gmsl-tx-b = <0>;
+						maxim,gmsl-tx-id-b = <3>;
 						maxim,gmsl-tx-c = <1>;
-						maxim,gmsl-tx-id-c = <2>;
-						maxim,gmsl-tx-d = <1>;
-						maxim,gmsl-tx-id-d = <2>;
+						maxim,gmsl-tx-id-c = <3>;
+						maxim,gmsl-tx-d = <0>;
+						maxim,gmsl-tx-id-d = <3>;
 					};
 
 					des2_mfp3_fsync3: mfp3_fsync3 {
@@ -890,11 +890,11 @@
 						bias-pull-up;
 						input-enable;
 						maxim,jitter-compensation = <1>;
-						maxim,gmsl-tx-a = <1>;
+						maxim,gmsl-tx-a = <0>;
 						maxim,gmsl-tx-id-a = <3>;
-						maxim,gmsl-tx-b = <1>;
+						maxim,gmsl-tx-b = <0>;
 						maxim,gmsl-tx-id-b = <3>;
-						maxim,gmsl-tx-c = <1>;
+						maxim,gmsl-tx-c = <0>;
 						maxim,gmsl-tx-id-c = <3>;
 						maxim,gmsl-tx-d = <1>;
 						maxim,gmsl-tx-id-d = <3>;
