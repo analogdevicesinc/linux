@@ -20,6 +20,10 @@
 #include "adi_common_error_types.h"
 #include "adi_adrv9025_cpu_types.h"
 
+#ifndef ADRV9025_INIT_SPI_DEBUG
+#define ADRV9025_INIT_SPI_DEBUG 0
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
