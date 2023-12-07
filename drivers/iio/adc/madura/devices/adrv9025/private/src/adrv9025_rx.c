@@ -811,16 +811,6 @@ int32_t adrv9025_RxFirWrite(adi_adrv9025_Device_t* device,
     uint8_t  filterConfig  = 0;
     uint8_t  rxPfirBankSel = 0;
 
-    ADI_NULL_DEVICE_PTR_RETURN(device);
-
-    ADI_FUNCTION_ENTRY_LOG(&device->common,
-                           ADI_COMMON_LOG_API_PRIV);
-
-    ADI_NULL_PTR_RETURN(&device->common,
-                        coefs);
-
-    ADRV9025_BUGINFO(__FUNCTION__);
-
     static const uint8_t autoInc      = ADI_ADRV9025_PFIR_COEFF_AUTO_INCR;
     static const uint8_t RXFIR_BANKA  = 0x01;
     static const uint8_t ORXFIR_BANKA = 0x02;
@@ -833,6 +823,16 @@ int32_t adrv9025_RxFirWrite(adi_adrv9025_Device_t* device,
 
     static const uint8_t RXFIR_MAXTAPS = 72;
     static const uint8_t RXFIR_MULTAPS = 24;
+
+    ADI_NULL_DEVICE_PTR_RETURN(device);
+
+    ADI_FUNCTION_ENTRY_LOG(&device->common,
+			   ADI_COMMON_LOG_API_PRIV);
+
+    ADI_NULL_PTR_RETURN(&device->common,
+			coefs);
+
+    ADRV9025_BUGINFO(__FUNCTION__);
 
     if (adrv9025_RxAddrDecode(device,
                               rxChanMask) == 0)

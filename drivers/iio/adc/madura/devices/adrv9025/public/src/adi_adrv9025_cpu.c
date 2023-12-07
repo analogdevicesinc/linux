@@ -50,11 +50,12 @@ int32_t adrv9025_CpuStackPtrWrite(adi_adrv9025_Device_t* device,
                                   adi_adrv9025_CpuType_e cpuType,
                                   const uint32_t*        buf)
 {
+    adi_adrv9025_CpuAddr_t *cpuAddr = NULL;
+    const uint8_t          *bytes   = (const uint8_t *)buf;
+
     ADI_NULL_DEVICE_PTR_RETURN(device);
     ADI_FUNCTION_ENTRY_LOG(&device->common,
                            ADI_COMMON_LOG_API);
-    adi_adrv9025_CpuAddr_t* cpuAddr = NULL;
-    const uint8_t*          bytes   = (const uint8_t *)buf;
 
     cpuAddr = adrv9025_CpuAddrGet(&device->devStateInfo.cpu,
                                   cpuType);

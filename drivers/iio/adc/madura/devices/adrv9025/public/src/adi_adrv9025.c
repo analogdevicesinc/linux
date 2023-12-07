@@ -1077,6 +1077,13 @@ int32_t adi_adrv9025_SpiVerify(adi_adrv9025_Device_t* device)
 {
     uint8_t spiReg = 0;
 
+    static const uint8_t SCRATCH_PAD_1 = 0xB6; /* DATA 10110110 */
+    static const uint8_t SCRATCH_PAD_2 = 0x49; /* DATA 01001001*/
+    static const uint8_t VENDOR_ID_0   = 0x56;
+    static const uint8_t VENDOR_ID_1   = 0x04;
+
+    int32_t recoveryAction = ADI_COMMON_ACT_WARN_CHECK_PARAM;
+
     ADI_NULL_DEVICE_PTR_RETURN(device);
 
     ADI_FUNCTION_ENTRY_LOG(&device->common,
@@ -1084,13 +1091,8 @@ int32_t adi_adrv9025_SpiVerify(adi_adrv9025_Device_t* device)
 
     ADRV9025_BUGINFO(__FUNCTION__);
 
-    static const uint8_t SCRATCH_PAD_1 = 0xB6; /* DATA 10110110 */
-    static const uint8_t SCRATCH_PAD_2 = 0x49; /* DATA 01001001*/
-    static const uint8_t VENDOR_ID_0   = 0x56;
-    static const uint8_t VENDOR_ID_1   = 0x04;
-
     /* check that the hardware is available */
-    int32_t recoveryAction = adi_adrv9025_HwVerify(device);
+    recoveryAction = adi_adrv9025_HwVerify(device);
     if (recoveryAction != ADI_COMMON_ACT_NO_ACTION)
     {
         return device->common.error.newAction;

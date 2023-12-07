@@ -1997,10 +1997,11 @@ int32_t adi_adrv9025_RxGainGetRangeCheck(adi_adrv9025_Device_t*    device,
                                          adi_adrv9025_RxChannels_e rxChannel,
                                          adi_adrv9025_RxGain_t*    rxGain)
 {
-    UNUSED_PARA(rxGain);
     static const uint32_t ALL_RX_MASK = (uint32_t)(ADI_ADRV9025_RX1 | ADI_ADRV9025_RX2 | ADI_ADRV9025_RX3 | ADI_ADRV9025_RX4);
     static const uint32_t ORX12_MASK  = (uint32_t)(ADI_ADRV9025_ORX1 | ADI_ADRV9025_ORX2);
     static const uint32_t ORX34_MASK  = (uint32_t)(ADI_ADRV9025_ORX3 | ADI_ADRV9025_ORX4);
+
+    UNUSED_PARA(rxGain);
 
     ADI_NULL_DEVICE_PTR_RETURN(device);
 
@@ -2604,12 +2605,25 @@ int32_t adi_adrv9025_RxFirRead(adi_adrv9025_Device_t*    device,
     uint8_t  numTapsReg    = 0;
     uint8_t  nTapMul       = 0;
     uint8_t  filterGain    = 0;
-    uint8_t  pfirCoeffCtl  = 0;;
+    uint8_t  pfirCoeffCtl  = 0;
     uint16_t baseaddr      = 0;
     uint8_t  rxPfirBankSel = 0;
     uint8_t  byteLo        = 0;
     uint8_t  byteHi        = 0;
     uint8_t  filterConfig  = 0;
+
+    static const uint8_t autoInc = ADI_ADRV9025_PFIR_COEFF_AUTO_INCR;
+
+    static const uint8_t RXFIR_BANKA  = 0x01;
+    static const uint8_t ORXFIR_BANKA = 0x02;
+    static const uint8_t ORXFIR_BANKB = 0x04;
+    static const uint8_t ORXFIR_BANKC = 0x08;
+
+    static const uint8_t BANKA;
+    static const uint8_t BANKB = 1;
+    static const uint8_t BANKC = 2;
+
+    static const uint8_t RXFIR_MULTAPS = 24;
 
     ADI_NULL_DEVICE_PTR_RETURN(device);
 
@@ -2624,19 +2638,6 @@ int32_t adi_adrv9025_RxFirRead(adi_adrv9025_Device_t*    device,
                         numFirCoefs);
 
     ADRV9025_BUGINFO(__FUNCTION__);
-
-    static const uint8_t autoInc = ADI_ADRV9025_PFIR_COEFF_AUTO_INCR;
-
-    static const uint8_t RXFIR_BANKA  = 0x01;
-    static const uint8_t ORXFIR_BANKA = 0x02;
-    static const uint8_t ORXFIR_BANKB = 0x04;
-    static const uint8_t ORXFIR_BANKC = 0x08;
-
-    static const uint8_t BANKA = 0;
-    static const uint8_t BANKB = 1;
-    static const uint8_t BANKC = 2;
-
-    static const uint8_t RXFIR_MULTAPS = 24;
 
     if (adrv9025_RxAddrDecode(device,
                               rxChannel) == 0)
@@ -4400,12 +4401,6 @@ int32_t adi_adrv9025_RxAgcClkModeSet(adi_adrv9025_Device_t     *device,
                                      uint32_t                   rxChannelMask,
                                      adi_adrv9025_RxAgcMode_e   agcMode)
 {
-    /* Check that the passed device pointer is not NULL */
-    ADI_NULL_DEVICE_PTR_RETURN(device);
-
-    /* Add entry to the API log */
-    ADI_FUNCTION_ENTRY_LOG(&device->common, ADI_COMMON_LOG_API);
-
     uint8_t                   rxChannelListPosition = 0;
     int32_t                   recoveryAction        = ADI_COMMON_ACT_ERR_RESET_FULL;
     adi_adrv9025_RxChannels_e rxChannel             = ADI_ADRV9025_RXOFF;
@@ -4414,6 +4409,12 @@ int32_t adi_adrv9025_RxAgcClkModeSet(adi_adrv9025_Device_t     *device,
     static const uint8_t                   rxChannelMax    = 0x0F;
     static const adi_adrv9025_RxChannels_e rxChannelList[] = {ADI_ADRV9025_RX1, ADI_ADRV9025_RX2, ADI_ADRV9025_RX3, ADI_ADRV9025_RX4};
     static const uint8_t rxChannelListSize                 = (adi_adrv9025_RxChannels_e)( sizeof(rxChannelList) / sizeof(rxChannelList[0]));
+
+    /* Check that the passed device pointer is not NULL */
+    ADI_NULL_DEVICE_PTR_RETURN(device);
+
+    /* Add entry to the API log */
+    ADI_FUNCTION_ENTRY_LOG(&device->common, ADI_COMMON_LOG_API);
 
     if ((rxChannelMask > rxChannelMax) || (rxChannelMask == 0))
     {
@@ -4484,6 +4485,10 @@ int32_t adi_adrv9025_RxAgcClkModeGet(adi_adrv9025_Device_t     *device,
                                      adi_adrv9025_RxChannels_e  rxChannel,
                                      uint8_t                   *agcMode)
 {
+    adrv9025_BfRxChanAddr_e rxChannelBfAddr = ADRV9025_BF_ALL_RX_CHANNELS;
+
+    int32_t recoveryAction = ADI_COMMON_ACT_ERR_RESET_FULL;
+
     /* Check that the passed device pointer is not NULL */
     ADI_NULL_DEVICE_PTR_RETURN(device);
 
@@ -4492,10 +4497,6 @@ int32_t adi_adrv9025_RxAgcClkModeGet(adi_adrv9025_Device_t     *device,
 
     /* Add entry to the API log */
     ADI_FUNCTION_ENTRY_LOG(&device->common, ADI_COMMON_LOG_API);
-
-    adrv9025_BfRxChanAddr_e rxChannelBfAddr = ADRV9025_BF_ALL_RX_CHANNELS;
-
-    int32_t recoveryAction = ADI_COMMON_ACT_ERR_RESET_FULL;
 
     switch (rxChannel)
     {
