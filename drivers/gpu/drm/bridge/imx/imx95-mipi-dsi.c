@@ -847,17 +847,14 @@ imx95_dsi_validate_mode(struct imx95_dsi *dsi, const struct drm_display_mode *mo
 
 	if ((bridge->ops & DRM_BRIDGE_OP_DETECT) &&
 	    (bridge->ops & DRM_BRIDGE_OP_EDID)) {
-		unsigned long pixel_clock_rate = mode->clock * 1000;
-		unsigned long rounded_rate;
-
-		/* Allow +/-0.5% pixel clock rate deviation */
-		rounded_rate = clk_round_rate(dsi->clk_pixel, pixel_clock_rate);
-		if (rounded_rate < pixel_clock_rate * 995 / 1000 ||
-		    rounded_rate > pixel_clock_rate * 1005 / 1000) {
-			dev_dbg(dsi->dev, "failed to round clock for mode " DRM_MODE_FMT "\n",
-				DRM_MODE_ARG(mode));
+		/*
+		 * Since clk_round_rate() returns unreasonable rate for
+		 * dsi->clk_pixel, we have to validate mode against
+		 * magic mode clock rates.
+		 */
+		if (mode->clock != 297000 && mode->clock != 148500 &&
+		    mode->clock != 74250)
 			return MODE_NOCLOCK;
-		}
 	}
 
 	return MODE_OK;
