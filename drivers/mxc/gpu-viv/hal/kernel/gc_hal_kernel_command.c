@@ -2859,11 +2859,9 @@ gckCOMMAND_SwitchSecurityMode(gckCOMMAND Command, gckHARDWARE Hardware)
     gctUINT32 size;
     gctUINT8_PTR pointer;
     gctADDRESS address;
-    gctUINT64 powerManagement = 0;
+    gctBOOL powerManagement = gcvFALSE;
 
-    status = gckOS_QueryOption(Command->os, "powerManagement", &powerManagement);
-    if (gcmIS_ERROR(status))
-        powerManagement = 0;
+    gcmkONERROR(gckHARDWARE_QueryPowerManagement(Hardware, &powerManagement));
 
     if (powerManagement)
         gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware, gcvFALSE));
