@@ -100,6 +100,7 @@ int32_t adi_adrv9025_InitCalsWait(adi_adrv9025_Device_t* device,
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
     uint8_t cmdStatusByte  = 0;
     uint8_t errFlag        = 0;
+    static const uint16_t TIMEOUT_MS_FACTOR = 1000;
 
     ADI_NULL_DEVICE_PTR_RETURN(device);
 
@@ -108,8 +109,6 @@ int32_t adi_adrv9025_InitCalsWait(adi_adrv9025_Device_t* device,
 
     ADI_NULL_PTR_RETURN(&device->common,
                         errorFlag);
-
-    static const uint16_t TIMEOUT_MS_FACTOR = 1000;
 
     recoveryAction = adi_adrv9025_CpuCmdStatusWait(device,
                                                    ADI_ADRV9025_CPU_TYPE_C,

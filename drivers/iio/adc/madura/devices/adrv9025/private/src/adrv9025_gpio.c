@@ -18,7 +18,6 @@
 int32_t adrv9025_GpIntHandler(adi_adrv9025_Device_t*      device,
                               adi_adrv9025_gpIntStatus_t* gpIntStatus)
 {
-    UNUSED_PARA(device);
     int32_t               recoveryAction                               = ADI_COMMON_ACT_NO_ACTION;
     const char*           errMsg                                       = "No Interrupt Detected";
     static const uint64_t ADI_ADRV9025_GP_MASK_ARM_D_WATCHDOG_TIMEOUT  = 0x0010000000000000; /* bit52 */
@@ -74,6 +73,7 @@ int32_t adrv9025_GpIntHandler(adi_adrv9025_Device_t*      device,
     static const uint64_t ADI_ADRV9025_GP_MASK_RX0_STREAM_ERROR        = 0x0000000000000004; /* bit02 */
     static const uint64_t ADI_ADRV9025_GP_MASK_CORE_STREAM_ERROR       = 0x0000000000000002; /* bit01 */
     static const uint64_t ADI_ADRV9025_GP_MASK_MEMORY_ECC_ERROR        = 0x0000000000000001; /* bit00 */
+    UNUSED_PARA(device);
 
     /* test for RF1 PLL Unlock 47 */
     if ((gpIntStatus->gp_Int_Active_Sources & ADI_ADRV9025_GP_MASK_RF1PLL_UNLOCK) > 0)

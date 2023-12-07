@@ -446,6 +446,8 @@ static int32_t adrv9025_VerifyTxProfile(adi_adrv9025_Device_t*    device,
     static const uint32_t TXSRLRATEMAX2 = 625000;
     uint32_t              srlInputRate  = 0;
 
+    uint32_t HsDigClk_kHz = 0;
+
     ADI_NULL_DEVICE_PTR_RETURN(device);
 
     ADI_FUNCTION_ENTRY_LOG(&device->common,
@@ -609,7 +611,7 @@ static int32_t adrv9025_VerifyTxProfile(adi_adrv9025_Device_t*    device,
         ADI_ERROR_RETURN(device->common.error.newAction);
     }
 
-    uint32_t HsDigClk_kHz = (txProfile->txInputRate_kHz * txProfile->txFirInterpolation *
+    HsDigClk_kHz = (txProfile->txInputRate_kHz * txProfile->txFirInterpolation *
         txProfile->dpdHb1Interpolation * txProfile->dpdHb2Interpolation *
         txProfile->thb1Interpolation * txProfile->thb2Interpolation *
         txProfile->thb3Interpolation * txProfile->txInt5Interpolation);
@@ -671,6 +673,8 @@ static int32_t adrv9025_VerifyRxProfile(adi_adrv9025_Device_t*    device,
 
     static const uint32_t RXBANDWIDTHMIN = 20000;
     static const uint32_t RXBANDWIDTHMAX = 300000;
+
+    uint32_t HsDigClk_kHz = 0;
 
     ADI_NULL_DEVICE_PTR_RETURN(device);
 
@@ -854,7 +858,7 @@ static int32_t adrv9025_VerifyRxProfile(adi_adrv9025_Device_t*    device,
         ADI_ERROR_RETURN(device->common.error.newAction);
     }
 
-    uint32_t HsDigClk_kHz = (rxProfile->rxOutputRate_kHz * rxProfile->rxFirDecimation *
+    HsDigClk_kHz = (rxProfile->rxOutputRate_kHz * rxProfile->rxFirDecimation *
         rxProfile->rxFir1Decimation * rxProfile->rxFir2Decimation *
         rxProfile->rhb1Decimation * rxProfile->rhb2Decimation * rxProfile->rhb3Decimation *
         rxProfile->rxDec5Decimation * ddcMultiply) / ddcDivide;
@@ -908,6 +912,8 @@ static int32_t adrv9025_VerifyOrxProfile(adi_adrv9025_Device_t*    device,
 
     static const uint32_t RXBANDWIDTHMIN = 20000;
     static const uint32_t RXBANDWIDTHMAX = 450000;
+
+    uint32_t HsDigClk_kHz = 0;
 
     ADI_NULL_DEVICE_PTR_RETURN(device);
 
@@ -1079,7 +1085,7 @@ static int32_t adrv9025_VerifyOrxProfile(adi_adrv9025_Device_t*    device,
         ADI_ERROR_RETURN(device->common.error.newAction);
     }
 
-    uint32_t HsDigClk_kHz = (orxProfile->rxOutputRate_kHz * orxProfile->rxFirDecimation *
+    HsDigClk_kHz = (orxProfile->rxOutputRate_kHz * orxProfile->rxFirDecimation *
                              orxProfile->rxFir1Decimation *
                              orxProfile->rhb1Decimation * orxProfile->rhb2Decimation * orxProfile->rhb3Decimation *
                              orxProfile->rxDec5Decimation * ddcMultiply) / ddcDivide;
@@ -1133,6 +1139,8 @@ static int32_t adrv9025_VerifyLbProfile(adi_adrv9025_Device_t*    device,
 
     static const uint32_t RXBANDWIDTHMIN = 20000;
     static const uint32_t RXBANDWIDTHMAX = 455000;
+
+    uint32_t HsDigClk_kHz = 0;
 
     ADI_NULL_DEVICE_PTR_RETURN(device);
 
@@ -1293,7 +1301,7 @@ static int32_t adrv9025_VerifyLbProfile(adi_adrv9025_Device_t*    device,
         ADI_ERROR_RETURN(device->common.error.newAction);
     }
 
-    uint32_t HsDigClk_kHz = (lbProfile->rxOutputRate_kHz * lbProfile->rxFirDecimation *
+    HsDigClk_kHz = (lbProfile->rxOutputRate_kHz * lbProfile->rxFirDecimation *
         lbProfile->rxFir1Decimation *
         lbProfile->rhb1Decimation * lbProfile->rhb2Decimation * lbProfile->rhb3Decimation *
         lbProfile->rxDec5Decimation * ddcMultiply) / ddcDivide;

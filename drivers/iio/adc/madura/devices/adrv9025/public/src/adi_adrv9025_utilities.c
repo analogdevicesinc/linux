@@ -2757,7 +2757,6 @@ int32_t adi_adrv9025_CpuMemDump(adi_adrv9025_Device_t* device,
                                 adi_adrv9025_CpuType_e cpuType,
                                 const char*            binaryFilename)
 {
-    ADI_NULL_DEVICE_PTR_RETURN(device);
     int32_t                 recoveryAction = ADI_COMMON_ACT_NO_ACTION;
     FILE*                   ofp;
     uint32_t                byteCount                                         = 0;
@@ -2771,6 +2770,8 @@ int32_t adi_adrv9025_CpuMemDump(adi_adrv9025_Device_t* device,
     uint8_t                 binaryRead[ADI_ADRV9025_MEM_DUMP_CHUNK_SIZE + 10] = {0};
 
     const uint32_t armExceptionAddr = 0x20028210; /* Exception Flag Memory */
+
+    ADI_NULL_DEVICE_PTR_RETURN(device);
 
     ADI_NULL_PTR_RETURN(&device->common,
                         binaryFilename);
@@ -3004,10 +3005,6 @@ int32_t adi_adrv9025_CpuMemDumpWithoutException(adi_adrv9025_Device_t* device,
                                                 adi_adrv9025_CpuType_e cpuType,
                                                 const char*            binaryFilename)
 {
-    ADI_NULL_DEVICE_PTR_RETURN(device);
-    ADI_FUNCTION_ENTRY_LOG(&device->common,
-                           ADI_COMMON_LOG_API);
-
     int32_t                 recoveryAction = ADI_COMMON_ACT_NO_ACTION;
     FILE*                   ofp;
     uint32_t                byteCount = 0;
@@ -3015,6 +3012,10 @@ int32_t adi_adrv9025_CpuMemDumpWithoutException(adi_adrv9025_Device_t* device,
     adi_adrv9025_CpuAddr_t* cpuAddr   = NULL;
 
     uint8_t binaryRead[ADI_ADRV9025_MEM_DUMP_CHUNK_SIZE + 10] = {0};
+
+    ADI_NULL_DEVICE_PTR_RETURN(device);
+    ADI_FUNCTION_ENTRY_LOG(&device->common,
+			   ADI_COMMON_LOG_API);
 
     ADI_NULL_PTR_RETURN(&device->common,
                         binaryFilename);

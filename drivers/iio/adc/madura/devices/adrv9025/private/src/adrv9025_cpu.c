@@ -2393,7 +2393,6 @@ const char* adrv9025_CpuErrCodeToString(
     adi_adrv9025_Device_t* device,
     uint32_t               errCode)
 {
-    UNUSED_PARA(device);
 #if ADI_ADRV9025_CPU_VERBOSE == 0
     return "";
 #else
@@ -2401,6 +2400,7 @@ const char* adrv9025_CpuErrCodeToString(
     uint32_t    min    = 0u;
     uint32_t    max    = (sizeof(adrv9025_error_table_ErrorCode) / sizeof(adrv9025_arm_api_error_t)) - 1u;
     uint32_t    curr   = (min + max) / 2;
+    UNUSED_PARA(device);
 
     /* do a binary search */
     while (min <= max && result == NULL)
@@ -2432,7 +2432,6 @@ int32_t adrv9025_CpuCmdErrorHandler(
     uint32_t               detErr,
     int32_t                recoveryAction)
 {
-    UNUSED_PARA(errHdl);
     int32_t              recAction      = recoveryAction;
     uint8_t              cpuOpCode      = 0;
     uint8_t              cpuObjId       = 0;
@@ -2443,6 +2442,7 @@ int32_t adrv9025_CpuCmdErrorHandler(
     const char*          errorString    = NULL;
     static const uint8_t ERR_FLAG_MASK  = 0x0E;
     static const uint8_t ERR_FLAG_SHIFT = 1;
+    UNUSED_PARA(errHdl);
 
     cpuOpCode     = (uint8_t)(detErr >> ADRV9025_CPU_OPCODE_SHIFT);
     cpuObjId      = (uint8_t)(detErr >> ADRV9025_CPU_OBJ_ID_SHIFT);

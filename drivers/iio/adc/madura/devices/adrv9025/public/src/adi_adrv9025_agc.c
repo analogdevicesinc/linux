@@ -690,6 +690,11 @@ int32_t adi_adrv9025_AgcCfgSet(adi_adrv9025_Device_t* device,
     uint8_t                             i              = 0;
     uint8_t                             refClockCycles = 0;
 
+    /* APD Low Frequency MITIGATION Mode Setup */
+    static const uint8_t  APD_LOW_FREQ_ADCOVRG_2ND_HIGH_COUNTER = 3;
+    static const uint8_t  APD_LOW_FREQ_ERROR_MITIGATION_MODE    = 1;
+    static const uint16_t APD_LOW_FREQ_THRESH_OFFSET            = 6;
+
     ADI_NULL_DEVICE_PTR_RETURN(device);
 
     ADI_FUNCTION_ENTRY_LOG(&device->common,
@@ -1021,11 +1026,6 @@ int32_t adi_adrv9025_AgcCfgSet(adi_adrv9025_Device_t* device,
                                                      baseAddr,
                                                      agcConfig[configIndex].agcPeak.hb2UnderRangeLowThreshExceededCnt);
             ADI_ERROR_RETURN(device->common.error.newAction);
-
-            /* APD Low Frequency MITIGATION Mode Setup */
-            static const uint8_t  APD_LOW_FREQ_ADCOVRG_2ND_HIGH_COUNTER = 3;
-            static const uint8_t  APD_LOW_FREQ_ERROR_MITIGATION_MODE    = 1;
-            static const uint16_t APD_LOW_FREQ_THRESH_OFFSET            = 6;
 
             adrv9025_RxDecimatedDataOverloadSecondaryUpperThresholdBfSet(device,
                                                                          baseAddr,
@@ -1789,11 +1789,6 @@ int32_t adi_adrv9025_AgcReset(adi_adrv9025_Device_t* device,
 int32_t adi_adrv9025_AgcOverloadIndicatorGpioSet(adi_adrv9025_Device_t* device,
                                                  uint8_t                overloadEnable)
 {
-    /* Check that the passed device pointer is not NULL */
-    ADI_NULL_DEVICE_PTR_RETURN(device);
-    /* Add entry to the API log */
-    ADI_FUNCTION_ENTRY_LOG(&device->common, ADI_COMMON_LOG_API);
-
     uint8_t               sharedResourceAcqReleaseStatus = 0x00;    /* Will be passed as reference, used to confirm that the shared resource has been acquired */
     uint32_t              sharedResourceId               = 0x00;    /* To iterate over ADRV9025_GPIO for loop */
     static const uint32_t gpioOutputMask                 = 0x3FFC0; /* 111111111111000000 mask to set pins to output */
@@ -1803,6 +1798,11 @@ int32_t adi_adrv9025_AgcOverloadIndicatorGpioSet(adi_adrv9025_Device_t* device,
     adrv9025_FeatureID_e  sharedResourceFeatureId        = ADRV9025_FEATURE_UNUSED;
 
     int32_t sharedResourceArr[] = {6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17};
+
+    /* Check that the passed device pointer is not NULL */
+    ADI_NULL_DEVICE_PTR_RETURN(device);
+    /* Add entry to the API log */
+    ADI_FUNCTION_ENTRY_LOG(&device->common, ADI_COMMON_LOG_API);
 
     if (overloadEnable)
     {
