@@ -206,6 +206,8 @@
 				jesd204-device;
 				#jesd204-cells = <2>;
 				jesd204-inputs = <&axi_ad9081_tx_jesd 0 DEFRAMER_LINK0_TX>;
+
+				adi,axi-pl-fifo-enable;
 			};
 		};
 	};
