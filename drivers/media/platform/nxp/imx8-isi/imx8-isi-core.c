@@ -338,7 +338,6 @@ static const struct mxc_isi_plat_data mxc_imx95_data = {
 	.clks			= mxc_imx95_clks,
 	.num_clks		= ARRAY_SIZE(mxc_imx95_clks),
 	.buf_active_reverse	= true,
-	.gasket_ops		= &mxc_imx95_gasket_ops,
 	.has_36bit_dma		= true,
 	.raw32_chan_cfg		= true,
 };
