@@ -20,6 +20,7 @@
 #include <linux/sysfs.h>
 
 #include <linux/iio/buffer.h>
+#include <linux/iio/hw_triggered_buffer.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/trigger_consumer.h>
@@ -133,6 +134,7 @@ struct ad7380_state {
 	struct spi_device *spi;
 	struct regulator *vref;
 	struct regmap *regmap;
+	struct spi_offload *spi_offload;
 	/*
 	 * DMA (thus cache coherency maintenance) requires the
 	 * transfer buffers to live in their own cache lines.
@@ -335,6 +337,50 @@ static const struct iio_info ad7380_info = {
 	.debugfs_reg_access = &ad7380_debugfs_reg_access,
 };
 
+static int ad7380_buffer_preenable(struct iio_dev *indio_dev)
+{
+	struct ad7380_state *st = iio_priv(indio_dev);
+	struct spi_transfer xfer = {
+		.bits_per_word = st->chip_info->channels[0].scan_type.realbits,
+		.len = 4,
+		.rx_buf = SPI_OFFLOAD_RX_SENTINEL,
+	};
+
+	return spi_offload_prepare(st->spi_offload, st->spi, &xfer, 1);
+}
+
+static int ad7380_buffer_postenable(struct iio_dev *indio_dev)
+{
+	struct ad7380_state *st = iio_priv(indio_dev);
+
+	return spi_offload_enable(st->spi_offload);
+}
+
+static int ad7380_buffer_predisable(struct iio_dev *indio_dev)
+{
+	struct ad7380_state *st = iio_priv(indio_dev);
+
+	spi_offload_disable(st->spi_offload);
+
+	return 0;
+}
+
+static int ad7380_buffer_postdisable(struct iio_dev *indio_dev)
+{
+	struct ad7380_state *st = iio_priv(indio_dev);
+
+	spi_offload_unprepare(st->spi_offload);
+
+	return 0;
+}
+
+static const struct iio_buffer_setup_ops ad7380_buffer_ops = {
+	.preenable = &ad7380_buffer_preenable,
+	.postenable = &ad7380_buffer_postenable,
+	.predisable = &ad7380_buffer_predisable,
+	.postdisable = &ad7380_buffer_postdisable,
+};
+
 static int ad7380_init(struct ad7380_state *st)
 {
 	int ret;
@@ -417,11 +463,33 @@ static int ad7380_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->available_scan_masks = ad7380_2_channel_scan_masks;
 
-	ret = devm_iio_triggered_buffer_setup(&spi->dev, indio_dev,
-					      iio_pollfunc_store_time,
-					      ad7380_trigger_handler, NULL);
-	if (ret)
-		return ret;
+	st->spi_offload = spi_offload_get(spi, 0);
+	if (IS_ERR(st->spi_offload))
+		return dev_err_probe(&spi->dev, PTR_ERR(st->spi_offload),
+				     "failed to get SPI offload\n");
+
+	if (st->spi_offload) {
+		/*
+		 * We can't have a soft timestamp (always last channel) when
+		 * using a hardware trigger.
+		 */
+		indio_dev->num_channels -= 1;
+
+		ret = devm_iio_hw_triggered_buffer_setup(&spi->dev,
+							 indio_dev,
+							 st->spi_offload->dev,
+							 &ad7380_buffer_ops);
+		if (ret)
+			return dev_err_probe(&spi->dev, ret,
+					     "failed to setup offload\n");
+	} else {
+		ret = devm_iio_triggered_buffer_setup(&spi->dev, indio_dev,
+						      iio_pollfunc_store_time,
+						      ad7380_trigger_handler,
+						      NULL);
+		if (ret)
+			return ret;
+	}
 
 	ret = ad7380_init(st);
 	if (ret)
@@ -460,3 +528,4 @@ module_spi_driver(ad7380_driver);
 MODULE_AUTHOR("Stefan Popa <stefan.popa@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD738x ADC driver");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(IIO_SPI_ENGINE_OFFLOAD);

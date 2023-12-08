@@ -128,6 +128,7 @@ config AD7380
 	select IIO_BUFFER
 	select IIO_TRIGGER
 	select IIO_TRIGGERED_BUFFER
+	select IIO_AXI_SPI_ENGINE_OFFLOAD_PWM_TRIGGER
 	help
 	  AD7380 is a family of simultaneous sampling ADCs that share the same
 	  SPI register map and have similar pinouts.
