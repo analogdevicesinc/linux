@@ -321,12 +321,14 @@ static void wave6_vpu_ctrl_load_firmware(const struct firmware *fw, void *contex
 	mutex_unlock(&ctrl->ctrl_lock);
 
 	pm_runtime_put_sync(ctrl->dev);
+	release_firmware(fw);
 	return;
 error:
 	entity->write_reg(entity->dev, W6_VPU_REG_GLOBAL_WR, 0);
 	wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_OFF);
 	ctrl->current_entity = NULL;
 	pm_runtime_put_sync(ctrl->dev);
+	release_firmware(fw);
 }
 
 static int wave6_vpu_ctrl_sleep(struct vpu_ctrl *ctrl, struct wave6_vpu_entity *entity)
