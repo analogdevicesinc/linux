@@ -118,6 +118,10 @@ int neutron_rproc_boot(struct neutron_device *ndev, const char *fw_name)
 		if (!wait_until_neutron_ready(ndev, 100))
 			dev_err(ndev->dev, "failed: neutron is not ready, timeout\n");
 	}
+	/* Update power state */
+	if (ndev->power_state == NEUTRON_POWER_OFF)
+		ndev->power_state = NEUTRON_POWER_ON;
+
 out:
 	mutex_unlock(&ndev->mutex);
 
@@ -351,6 +355,9 @@ int neutron_dev_init(struct neutron_device *ndev,
 	}
 
 	dma_set_mask_and_coherent(ndev->dev, DMA_BIT_MASK(32));
+
+	/* Init power state */
+	ndev->power_state = NEUTRON_POWER_OFF;
 
 	cdev_init(&ndev->cdev, &ndev_fops);
 	ndev->cdev.owner = THIS_MODULE;

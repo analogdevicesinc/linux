@@ -132,8 +132,8 @@ static int neutron_suspend(struct device *dev)
 {
 	struct neutron_device *ndev = dev_get_drvdata(dev);
 
-	neutron_rproc_shutdown(ndev);
-	msleep(20);
+	if (ndev->power_state == NEUTRON_POWER_ON)
+		neutron_rproc_shutdown(ndev);
 
 	pm_runtime_force_suspend(dev);
 
@@ -149,9 +149,9 @@ static int neutron_resume(struct device *dev)
 	if (ret)
 		pr_err("neutron: failed to resume\n");
 
-	neutron_rproc_boot(ndev, NULL);
-
-	msleep(20);
+	/* Start the neutron core only when it is ON state before sleeping */
+	if (ndev->power_state == NEUTRON_POWER_ON)
+		neutron_rproc_boot(ndev, NULL);
 
 	return 0;
 }

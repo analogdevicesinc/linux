@@ -62,6 +62,9 @@
 #define RESET           0x23637
 #define DM_TEST         0xD37E57
 
+// Power status
+#define NEUTRON_POWER_OFF    0
+#define NEUTRON_POWER_ON     1
 /****************************************************************************
  * Types
  ****************************************************************************/
@@ -87,6 +90,7 @@ struct neutron_log_buffer {
  * @mbox:			Neutron mailbox interface pointer
  * @clks:			Neutron clock pointer
  * @rproc:			Neutron remote-proc pointer
+ * @power_state:		Neutron device power state
  */
 struct neutron_device {
 	struct device                  *dev;
@@ -103,6 +107,7 @@ struct neutron_device {
 	struct cdev                    cdev;
 	struct                         class *class;
 	dev_t                          devt;
+	unsigned int                   power_state;
 };
 
 int neutron_dev_init(struct neutron_device *ndev,
