@@ -744,6 +744,22 @@ F: drivers/memory/fsl_ifc.c
 F: drivers/mtd/nand/raw/gpmi-nand/
 F: include/linux/fsl_ifc.h
 
+net/phy
+M: Wei Fang <wei.fang@nxp.com>
+R: Clark Wang <xiaoning.wang@nxp.com>
+R: Florin Chiculita <florinlaurentiu.chiculita@nxp.com>
+F: drivers/net/phy/
+F: include/linux/phy.h
+
+net/tsn
+M: Xiaoliang Yang <xiaoliang.yang_1@nxp.com>
+M: Vladimir Oltean <vladimir.oltean@nxp.com>
+R: Wei Fang <wei.fang@nxp.com>
+R: Clark Wang <xiaoning.wang@nxp.com>
+F: include/net/tsn.h
+F: include/uapi/linux/tsn.h
+F: net/tsn/
+
 net/dpaa1
 M: Camelia Groza <camelia.groza@nxp.com>
 R: Wei Fang <wei.fang@nxp.com>
@@ -816,26 +832,10 @@ R: Madalin Bucur <madalin.bucur@oss.nxp.com>
 F: Documentation/devicetree/bindings/net/fsl_ppfe/pfe.txt
 F: drivers/staging/fsl_ppfe/
 
-net/phy
-M: Wei Fang <wei.fang@nxp.com>
-R: Clark Wang <xiaoning.wang@nxp.com>
-R: Florin Chiculita <florinlaurentiu.chiculita@nxp.com>
-F: drivers/net/phy/
-F: include/linux/phy.h
-
 net/ptp
 M: Wei Fang <wei.fang@nxp.com>
 R: Clark Wang <xiaoning.wang@nxp.com>
 F: drivers/ptp/
-
-net/tsn
-M: Xiaoliang Yang <xiaoliang.yang_1@nxp.com>
-M: Vladimir Oltean <vladimir.oltean@nxp.com>
-R: Wei Fang <wei.fang@nxp.com>
-R: Clark Wang <xiaoning.wang@nxp.com>
-F: include/net/tsn.h
-F: include/uapi/linux/tsn.h
-F: net/tsn/
 
 net/tsn-switch
 M: Xiaoliang Yang <xiaoliang.yang_1@nxp.com>
@@ -1092,10 +1092,6 @@ F: drivers/watchdog/
 wifi
 M: Sherry Sun <sherry.sun@nxp.com>
 F: drivers/net/wireless/
-
-bluetooth
-M: Sherry Sun <sherry.sun@nxp.com>
-F: drivers/bluetooth/btnxpuart.c
 
 nvmem
 M: Peng Fan <peng.fan@nxp.com>
