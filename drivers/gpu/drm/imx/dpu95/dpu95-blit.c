@@ -14,6 +14,7 @@
 #include <linux/io.h>
 #include <linux/mutex.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 
 #include "dpu95-blit-registers.h"
 #include "dpu95.h"
@@ -328,6 +329,11 @@ static int imx_drm_dpu95_set_cmdlist_ioctl(struct drm_device *drm_dev, void *dat
 	}
 
 	ret = dpu95_be_get(dpu_blit_eng);
+	ret = pm_runtime_resume_and_get(dpu_blit_eng->dev);
+	if (ret < 0) {
+		drm_err(drm_dev, "failed to get device RPM: %d\n", ret);
+		return ret;
+	}
 
 	cmd_nr = req->cmd_nr;
 	cmd = (u32 *)(unsigned long)req->cmd;
@@ -343,6 +349,7 @@ static int imx_drm_dpu95_set_cmdlist_ioctl(struct drm_device *drm_dev, void *dat
 
 err:
 	dpu95_be_put(dpu_blit_eng);
+	pm_runtime_put_autosuspend(dpu_blit_eng->dev);
 
 	return ret;
 }
@@ -366,10 +373,16 @@ static int imx_drm_dpu95_wait_ioctl(struct drm_device *drm_dev, void *data,
 		return -EINVAL;
 
 	ret = dpu95_be_get(dpu_blit_eng);
+	ret = pm_runtime_resume_and_get(dpu_blit_eng->dev);
+	if (ret < 0) {
+		drm_err(drm_dev, "failed to get device RPM: %d\n", ret);
+		return ret;
+	}
 
 	dpu95_be_wait(dpu_blit_eng);
 
 	dpu95_be_put(dpu_blit_eng);
+	pm_runtime_put_autosuspend(dpu_blit_eng->dev);
 
 	return ret;
 }
@@ -477,4 +490,41 @@ void dpu95_bliteng_unload(struct dpu95_drm_device *dpu_drm)
 	dpu_blit_eng = NULL;
 
 	imx_dpu_num--;
+}
+
+int dpu95_bliteng_runtime_suspend(struct dpu95_drm_device *dpu_drm)
+{
+	int ret;
+	struct dpu_bliteng *dpu_bliteng = &dpu_drm->dpu_be;
+
+	if (!dpu_bliteng)
+		return 0;
+
+	ret = dpu95_be_get(dpu_bliteng);
+
+	dpu95_be_wait(dpu_bliteng);
+
+	dpu95_be_put(dpu_bliteng);
+
+	/* LockUnlock and LockUnlockHIF */
+	dpu95_be_write(dpu_bliteng, CMDSEQ_LOCKUNLOCKHIF_LOCKUNLOCKHIF__LOCK_KEY,
+		CMDSEQ_LOCKUNLOCKHIF);
+	dpu95_be_write(dpu_bliteng, CMDSEQ_LOCKUNLOCK_LOCKUNLOCK__LOCK_KEY,
+		CMDSEQ_LOCKUNLOCK);
+
+	return 0;
+}
+
+int dpu95_bliteng_runtime_resume(struct dpu95_drm_device *dpu_drm)
+{
+	struct dpu_bliteng *dpu_bliteng = &dpu_drm->dpu_be;
+
+	if (!dpu_bliteng)
+		return 0;
+
+	dpu95_be_init_units(dpu_bliteng);
+
+	dpu95_cs_static_setup(dpu_bliteng);
+
+	return 0;
 }

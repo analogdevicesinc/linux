@@ -32,6 +32,7 @@ extern const struct drm_ioctl_desc imx_drm_dpu95_ioctls[4];
 
 int dpu95_bliteng_load(struct dpu95_drm_device *dpu_drm);
 void dpu95_bliteng_unload(struct dpu95_drm_device *dpu_drm);
-
+int dpu95_bliteng_runtime_suspend(struct dpu95_drm_device *dpu_drm);
+int dpu95_bliteng_runtime_resume(struct dpu95_drm_device *dpu_drm);
 
 #endif
