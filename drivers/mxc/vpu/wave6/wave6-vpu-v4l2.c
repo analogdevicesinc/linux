@@ -130,6 +130,7 @@ static void wave6_vpu_device_run_timeout(struct work_struct *work)
 		v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
 		if (inst->type == VPU_INST_TYPE_DEC)
 			inst->processed_buf_num++;
+		inst->error_buf_num++;
 	}
 
 	dst_buf = v4l2_m2m_dst_buf_remove(inst->v4l2_fh.m2m_ctx);

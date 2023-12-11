@@ -1180,6 +1180,7 @@ struct vpu_instance {
 	u32 queued_src_buf_num;
 	u32 queued_dst_buf_num;
 	u32 processed_buf_num;
+	u32 error_buf_num;
 	u32 sequence;
 	bool next_buf_last;
 	bool cbcr_interleave;

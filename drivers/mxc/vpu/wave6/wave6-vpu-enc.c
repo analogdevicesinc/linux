@@ -830,6 +830,7 @@ static int wave6_vpu_enc_start_encode(struct vpu_instance *inst)
 		dst_buf->sequence = inst->sequence++;
 		v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
 		v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_ERROR);
+		inst->error_buf_num++;
 	} else {
 		dev_dbg(inst->dev->dev, "%s: success\n", __func__);
 	}

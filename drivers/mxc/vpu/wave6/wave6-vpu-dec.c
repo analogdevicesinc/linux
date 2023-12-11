@@ -512,6 +512,7 @@ static int wave6_vpu_dec_start_decode(struct vpu_instance *inst)
 		v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
 		v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_ERROR);
 		inst->processed_buf_num++;
+		inst->error_buf_num++;
 	}
 
 	return ret;
@@ -567,6 +568,7 @@ static void wave6_handle_skipped_frame(struct vpu_instance *inst)
 	src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
 	v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
 	inst->processed_buf_num++;
+	inst->error_buf_num++;
 }
 
 static void wave6_handle_display_frame(struct vpu_instance *inst,
@@ -1642,6 +1644,7 @@ static void wave6_vpu_dec_stop_streaming(struct vb2_queue *q)
 	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
 		inst->queued_src_buf_num = 0;
 		inst->processed_buf_num = 0;
+		inst->error_buf_num = 0;
 		inst->state_in_seek = inst->state;
 		wave6_vpu_set_instance_state(inst, VPU_INST_STATE_SEEK);
 		inst->sequence = 0;
