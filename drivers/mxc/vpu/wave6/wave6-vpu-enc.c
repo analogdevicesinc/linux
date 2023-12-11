@@ -799,8 +799,10 @@ static int wave6_vpu_enc_start_encode(struct vpu_instance *inst)
 	}
 	wave6_set_csc(inst, &pic_param);
 
-	if (src_buf)
+	if (src_buf) {
 		src_vbuf->consumed = true;
+		inst->processed_buf_num++;
+	}
 
 	if (dst_buf) {
 		dst_vbuf->consumed = true;
@@ -2395,6 +2397,7 @@ static void wave6_vpu_enc_stop_streaming(struct vb2_queue *q)
 	wave6_vpu_return_buffers(inst, q->type, VB2_BUF_STATE_ERROR);
 	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
 		inst->queued_src_buf_num = 0;
+		inst->processed_buf_num = 0;
 		inst->sequence = 0;
 	} else {
 		inst->eos = false;
