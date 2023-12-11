@@ -572,7 +572,7 @@ static void wave6_handle_skipped_frame(struct vpu_instance *inst)
 }
 
 static void wave6_handle_display_frame(struct vpu_instance *inst,
-				       dma_addr_t addr)
+				       dma_addr_t addr, enum vb2_buffer_state state)
 {
 	struct vb2_v4l2_buffer *dst_buf;
 
@@ -600,7 +600,7 @@ static void wave6_handle_display_frame(struct vpu_instance *inst,
 	dst_buf->sequence = inst->sequence++;
 	dst_buf->field = V4L2_FIELD_NONE;
 	v4l2_m2m_dst_buf_remove_by_buf(inst->v4l2_fh.m2m_ctx, dst_buf);
-	v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
+	v4l2_m2m_buf_done(dst_buf, state);
 }
 
 static void wave6_handle_display_frames(struct vpu_instance *inst,
@@ -609,9 +609,20 @@ static void wave6_handle_display_frames(struct vpu_instance *inst,
 	int i;
 
 	for (i = 0; i < info->disp_frame_num; i++)
-		wave6_handle_display_frame(inst, info->disp_frame_addr[i]);
+		wave6_handle_display_frame(inst, info->disp_frame_addr[i], VB2_BUF_STATE_DONE);
 
 	dev_dbg(inst->dev->dev, "frame_cycle %8d\n", info->frame_cycle);
+}
+
+static void wave6_handle_discard_frames(struct vpu_instance *inst,
+					struct dec_output_info *info)
+{
+	int i;
+
+	for (i = 0; i < info->release_disp_frame_num; i++)
+		wave6_handle_display_frame(inst,
+					   info->release_disp_frame_addr[i],
+					   VB2_BUF_STATE_ERROR);
 }
 
 static void wave6_handle_last_frame(struct vpu_instance *inst,
@@ -726,6 +737,9 @@ static void wave6_vpu_dec_finish_decode(struct vpu_instance *inst)
 		if (info.frame_display_flag)
 			wave6_handle_display_frames(inst, &info);
 
+		if (info.release_disp_frame_num)
+			wave6_handle_discard_frames(inst, &info);
+
 		wave6_vpu_dec_give_command(inst, DEC_GET_SEQ_INFO, &initial_info);
 		wave6_vpu_dec_handle_source_change(inst, &initial_info);
 
@@ -741,6 +755,9 @@ static void wave6_vpu_dec_finish_decode(struct vpu_instance *inst)
 
 	if (info.frame_display_flag)
 		wave6_handle_display_frames(inst, &info);
+
+	if (info.release_disp_frame_num)
+		wave6_handle_discard_frames(inst, &info);
 
 	if (info.stream_end_flag && !inst->eos)
 		wave6_handle_last_frame(inst, NULL);
