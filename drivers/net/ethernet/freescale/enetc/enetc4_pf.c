@@ -978,11 +978,53 @@ static const struct pci_device_id enetc4_pf_id_table[] = {
 };
 MODULE_DEVICE_TABLE(pci, enetc4_pf_id_table);
 
+static int __maybe_unused enetc4_pf_suspend(struct device *dev)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct enetc_ndev_priv *priv;
+	struct enetc_si *si;
+
+	si = pci_get_drvdata(pdev);
+	if (!netif_running(si->ndev))
+		return 0;
+
+	priv = netdev_priv(si->ndev);
+	netif_device_detach(si->ndev);
+	rtnl_lock();
+	phylink_suspend(priv->phylink, false);
+	rtnl_unlock();
+
+	return 0;
+}
+
+static int __maybe_unused enetc4_pf_resume(struct device *dev)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct enetc_ndev_priv *priv;
+	struct enetc_si *si;
+
+	si = pci_get_drvdata(pdev);
+	if (!netif_running(si->ndev))
+		return 0;
+
+	priv = netdev_priv(si->ndev);
+	rtnl_lock();
+	phylink_resume(priv->phylink);
+	rtnl_unlock();
+
+	netif_device_attach(si->ndev);
+
+	return 0;
+}
+
+static SIMPLE_DEV_PM_OPS(enetc4_pf_pm_ops, enetc4_pf_suspend, enetc4_pf_resume);
+
 static struct pci_driver enetc4_pf_driver = {
 	.name = KBUILD_MODNAME,
 	.id_table = enetc4_pf_id_table,
 	.probe = enetc4_pf_probe,
 	.remove = enetc4_pf_remove,
+	.driver.pm = &enetc4_pf_pm_ops,
 #ifdef CONFIG_PCI_IOV
 	.sriov_configure = enetc_sriov_configure,
 #endif
