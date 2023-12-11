@@ -12,7 +12,6 @@
 #include <linux/pm_runtime.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
-#include <drm/drm_edid.h>
 #include <drm/drm_framebuffer.h>
 #include <drm/drm_vblank.h>
 #include <video/imx-lcdifv3.h>
@@ -204,57 +203,12 @@ static void lcdifv3_crtc_atomic_disable(struct drm_crtc *crtc,
 	pm_runtime_put(lcdifv3_crtc->dev->parent);
 }
 
-static enum drm_mode_status lcdifv3_crtc_mode_valid(struct drm_crtc * crtc,
-						    const struct drm_display_mode *mode)
-{
-	u8 vic;
-	long rounded_rate;
-	unsigned long pclk_rate;
-	struct drm_display_mode *dmt, copy;
-	struct lcdifv3_crtc *lcdifv3_crtc = to_lcdifv3_crtc(crtc);
-	struct lcdifv3_soc *lcdifv3 = dev_get_drvdata(lcdifv3_crtc->dev->parent);
-
-	/* check CEA-861 mode */
-	vic = drm_match_cea_mode(mode);
-	if (vic)
-		goto check_pix_clk;
-
-	/* check DMT mode */
-	dmt = drm_mode_find_dmt(crtc->dev, mode->hdisplay, mode->vdisplay,
-				drm_mode_vrefresh(mode), false);
-	if (dmt) {
-		drm_mode_copy(&copy, dmt);
-		drm_mode_destroy(crtc->dev, dmt);
-
-		if (drm_mode_equal(mode, &copy))
-			goto check_pix_clk;
-	}
-
-	return MODE_OK;
-
-check_pix_clk:
-	pclk_rate = mode->clock * 1000;
-
-	rounded_rate = lcdifv3_pix_clk_round_rate(lcdifv3, pclk_rate);
-
-	if (rounded_rate <= 0)
-		return MODE_BAD;
-
-	/* allow +/-0.5% HDMI pixel clock rate shift */
-	if (rounded_rate < pclk_rate * 995 / 1000 ||
-	    rounded_rate > pclk_rate * 1005 / 1000)
-		return MODE_BAD;
-
-	return MODE_OK;
-}
-
 static const struct drm_crtc_helper_funcs lcdifv3_helper_funcs = {
 	.atomic_check	= lcdifv3_crtc_atomic_check,
 	.atomic_begin	= lcdifv3_crtc_atomic_begin,
 	.atomic_flush	= lcdifv3_crtc_atomic_flush,
 	.atomic_enable	= lcdifv3_crtc_atomic_enable,
 	.atomic_disable	= lcdifv3_crtc_atomic_disable,
-	.mode_valid	= lcdifv3_crtc_mode_valid,
 };
 
 static int lcdifv3_enable_vblank(struct drm_crtc *crtc)

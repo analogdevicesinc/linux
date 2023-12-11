@@ -29,7 +29,5 @@ void lcdifv3_en_shadow_load(struct lcdifv3_soc *lcdifv3);
 void lcdifv3_enable_controller(struct lcdifv3_soc *lcdifv3);
 void lcdifv3_disable_controller(struct lcdifv3_soc *lcdifv3);
 void lcdifv3_dump_registers(struct lcdifv3_soc *lcdifv3);
-long lcdifv3_pix_clk_round_rate(struct lcdifv3_soc *lcdifv3,
-				unsigned long rate);
 
 #endif

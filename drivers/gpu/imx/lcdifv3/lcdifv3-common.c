@@ -501,16 +501,6 @@ void lcdifv3_disable_controller(struct lcdifv3_soc *lcdifv3)
 }
 EXPORT_SYMBOL(lcdifv3_disable_controller);
 
-long lcdifv3_pix_clk_round_rate(struct lcdifv3_soc *lcdifv3,
-				unsigned long rate)
-{
-	if (unlikely(!rate))
-		return -EINVAL;
-
-	return clk_round_rate(lcdifv3->clk_pix, rate);
-}
-EXPORT_SYMBOL(lcdifv3_pix_clk_round_rate);
-
 static int platform_remove_device_fn(struct device *dev, void *data)
 {
 	struct platform_device *pdev = to_platform_device(dev);
