@@ -11,20 +11,31 @@
 
 #include "enetc_pf.h"
 
+static int enetc_set_si_hw_addr(struct enetc_pf *pf, int si, u8 *mac_addr)
+{
+	struct enetc_hw *hw = &pf->si->hw;
+
+	if (pf->hw_ops->set_si_primary_mac)
+		pf->hw_ops->set_si_primary_mac(hw, si, mac_addr);
+	else
+		return -EOPNOTSUPP;
+
+	return 0;
+}
+
 int enetc_pf_set_mac_addr(struct net_device *ndev, void *addr)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
 	struct enetc_pf *pf = enetc_si_priv(priv->si);
-	struct enetc_hw *hw = &priv->si->hw;
 	struct sockaddr *saddr = addr;
+	int err;
 
 	if (!is_valid_ether_addr(saddr->sa_data))
 		return -EADDRNOTAVAIL;
 
-	if (pf->hw_ops->set_si_primary_mac)
-		pf->hw_ops->set_si_primary_mac(hw, 0, saddr->sa_data);
-	else
-		return -EOPNOTSUPP;
+	err = enetc_set_si_hw_addr(pf, 0, saddr->sa_data);
+	if (err)
+		return err;
 
 	eth_hw_addr_set(ndev, saddr->sa_data);
 
@@ -57,10 +68,12 @@ static int enetc_setup_mac_address(struct device_node *np, struct enetc_pf *pf,
 			 si, mac_addr);
 	}
 
-	if (pf->hw_ops->set_si_primary_mac)
-		pf->hw_ops->set_si_primary_mac(hw, si, mac_addr);
-	else
-		return -EOPNOTSUPP;
+	err = enetc_set_si_hw_addr(pf, si, mac_addr);
+	if (err)
+		return err;
+
+	if (!si)
+		memcpy(pf->mac_addr_base, mac_addr, ETH_ALEN);
 
 	return 0;
 }
@@ -75,7 +88,21 @@ int enetc_setup_mac_addresses(struct device_node *np, struct enetc_pf *pf)
 		return err;
 
 	for (i = 0; i < pf->total_vfs; i++) {
-		err = enetc_setup_mac_address(NULL, pf, i + 1);
+		if (is_enetc_rev1(pf->si)) {
+			err = enetc_setup_mac_address(NULL, pf, i + 1);
+		} else {
+			u8 mac_addr[ETH_ALEN];
+
+			memcpy(mac_addr, pf->mac_addr_base, ETH_ALEN);
+			eth_addr_add(mac_addr, i + 1);
+			if (!is_valid_ether_addr(mac_addr)) {
+				eth_random_addr(mac_addr);
+				dev_info(&pf->si->pdev->dev,
+					 "SI%d: Invalid MAC addr, using %pM\n",
+					 i + 1, mac_addr);
+			}
+			err = enetc_set_si_hw_addr(pf, i + 1, mac_addr);
+		}
 		if (err)
 			return err;
 	}
@@ -141,8 +168,8 @@ int enetc_pf_set_vf_mac(struct net_device *ndev, int vf, u8 *mac)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
 	struct enetc_pf *pf = enetc_si_priv(priv->si);
-	struct enetc_hw *hw = &priv->si->hw;
 	struct enetc_vf_state *vf_state;
+	int err;
 
 	if (vf >= pf->total_vfs)
 		return -EINVAL;
@@ -152,10 +179,10 @@ int enetc_pf_set_vf_mac(struct net_device *ndev, int vf, u8 *mac)
 
 	vf_state = &pf->vf_state[vf];
 	vf_state->flags |= ENETC_VF_FLAG_PF_SET_MAC;
-	if (pf->hw_ops->set_si_primary_mac)
-		pf->hw_ops->set_si_primary_mac(hw, vf + 1, mac);
-	else
-		return -EOPNOTSUPP;
+
+	err = enetc_set_si_hw_addr(pf, vf + 1, mac);
+	if (err)
+		return err;
 
 	return 0;
 }
@@ -557,9 +584,9 @@ static u16 enetc_msg_pf_set_vf_primary_mac_addr(struct enetc_pf *pf,
 	struct enetc_msg_swbd *msg = &pf->rxmsg[vf_id];
 	struct enetc_msg_cmd_set_primary_mac *cmd;
 	struct device *dev = &pf->si->pdev->dev;
-	struct enetc_hw *hw = &pf->si->hw;
 	u16 cmd_id;
 	char *addr;
+	int err;
 
 	cmd = (struct enetc_msg_cmd_set_primary_mac *)msg->vaddr;
 	cmd_id = cmd->header.id;
@@ -573,9 +600,8 @@ static u16 enetc_msg_pf_set_vf_primary_mac_addr(struct enetc_pf *pf,
 		goto end;
 	}
 
-	if (pf->hw_ops->set_si_primary_mac)
-		pf->hw_ops->set_si_primary_mac(hw, vf_id + 1, addr);
-	else
+	err = enetc_set_si_hw_addr(pf, vf_id + 1, addr);
+	if (err)
 		return -ENETC_MSG_CMD_STATUS_FAIL;
 
 end:

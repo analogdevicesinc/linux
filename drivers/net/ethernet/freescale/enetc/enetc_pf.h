@@ -62,6 +62,8 @@ struct enetc_pf {
 	phy_interface_t if_mode;
 	struct phylink_config phylink_config;
 	const struct enetc_pf_hw_ops *hw_ops;
+
+	u8 mac_addr_base[ETH_ALEN];
 };
 
 #define phylink_to_enetc_pf(config) \
