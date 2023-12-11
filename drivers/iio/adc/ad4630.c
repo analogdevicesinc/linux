@@ -141,11 +141,29 @@ enum {
 	ID_ADAQ4224,
 };
 
+enum {
+	AD4630_033_GAIN = 0,
+	AD4630_056_GAIN = 1,
+	AD4630_222_GAIN = 2,
+	AD4630_667_GAIN = 3,
+	AD4630_MAX_PGA,
+};
+
 /*
  * Gains computed as fractions of 1000 so they can be expressed by integers.
  */
 static const int ad4630_gains[4] = {
 	330, 560, 2220, 6670
+};
+
+/*
+ * Gains stored and computed as fractions to avoid introducing rounding erros.
+ */
+static const int ad4630_gains_frac[4][2] = {
+	[AD4630_033_GAIN] = { 1, 3 },
+	[AD4630_056_GAIN] = { 5, 9 },
+	[AD4630_222_GAIN] = { 20, 9 },
+	[AD4630_667_GAIN] = { 20, 3 },
 };
 
 struct ad4630_out_mode {
@@ -443,10 +461,12 @@ static void ad4630_fill_scale_tbl(struct ad4630_state *st)
 	val2 = st->chip->base_word_len;
 	for (i = 0; i < ARRAY_SIZE(ad4630_gains); i++) {
 		val = (st->vref * 2) / 1000;
-		val = DIV_ROUND_CLOSEST(val * 1000, ad4630_gains[i]);
-
-		tmp2 = shift_right((u64)val * 1000000000LL, val2);
-		tmp0 = (int)div_s64_rem(tmp2, 1000000000LL, &tmp1);
+		/* Multiply by MILLI here to avoid losing precision */
+		val = mult_frac(val, ad4630_gains_frac[i][1] * MILLI,
+				ad4630_gains_frac[i][0]);
+		/* Would multiply by NANO here but we already multiplied by MILLI */
+		tmp2 = shift_right((u64)val * MICRO, val2);
+		tmp0 = (int)div_s64_rem(tmp2, NANO, &tmp1);
 		st->scale_tbl[i][0] = tmp0; /* Integer part */
 		st->scale_tbl[i][1] = abs(tmp1); /* Fractional part */
 	}
