@@ -26,9 +26,7 @@
 		model = "imx-cs42888";
 		pri-dai-link {
 			link-name = "cs42888";
-			format = "dsp_a";
-			dai-tdm-slot-num = <8>;
-			dai-tdm-slot-width = <32>;
+			format = "i2s";
 			fsl,mclk-equal-bclk;
 			cpu {
 				sound-dai = <&sai2>;
@@ -72,6 +70,11 @@
 	#sound-dai-cells = <0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai2>;
+	clocks = <&scmi_clk IMX95_CLK_BUSNETCMIX>, <&dummy>,
+		 <&scmi_clk IMX95_CLK_SAI2>, <&dummy>,
+		 <&dummy>, <&scmi_clk IMX95_CLK_AUDIOPLL1>,
+		 <&scmi_clk IMX95_CLK_AUDIOPLL2>;
+	clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3", "pll8k", "pll11k";
 	assigned-clocks = <&scmi_clk IMX95_CLK_AUDIOPLL1_VCO>,
 			  <&scmi_clk IMX95_CLK_AUDIOPLL2_VCO>,
 			  <&scmi_clk IMX95_CLK_AUDIOPLL1>,
