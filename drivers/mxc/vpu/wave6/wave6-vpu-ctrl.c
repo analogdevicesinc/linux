@@ -21,6 +21,9 @@
 static unsigned int debug;
 module_param(debug, uint, 0644);
 
+static unsigned int reload_firmware;
+module_param(reload_firmware, uint, 0644);
+
 #define dprintk(dev, fmt, arg...)					\
 	do {								\
 		if (debug)						\
@@ -532,6 +535,9 @@ static int wave6_vpu_ctrl_try_boot(struct vpu_ctrl *ctrl, struct wave6_vpu_entit
 
 	if (ctrl->state != WAVE6_VPU_STATE_OFF && ctrl->state != WAVE6_VPU_STATE_SLEEP)
 		return 0;
+
+	if (reload_firmware)
+		wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_OFF);
 
 	if (entity->read_reg(entity->dev, W6_VPU_REG_GLOBAL_WR)) {
 		/* the vcpu may be booted by other vm */
