@@ -87,8 +87,8 @@
 			no-map;
 		};
 
-		rsc_table: rsc-table@2043C000 {
-			reg = <0 0x2043C000 0 0x1000>;
+		rsc_table: rsc-table@88220000 {
+			reg = <0 0x88220000 0 0x1000>;
 			no-map;
 		};
 
