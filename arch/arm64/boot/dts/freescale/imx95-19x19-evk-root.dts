@@ -14,12 +14,20 @@
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
+
+		linux_cma: linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x3c000000>;
+			alloc-ranges = <0 0x80000000 0 0x70000000>;
+			linux,cma-default;
+		};
+
 	};
 };
 
-&linux_cma {
-	size = <0 0x4000000>;
-	alloc-ranges = <0 0x80000000 0 0x20000000>;
+&edma3 {
+	status = "disabled";
 };
 
 &pcie_4ca00000 {
@@ -30,12 +38,20 @@
 	linux,pci-domain = <3>;
 };
 
-/delete-node/ &isi;
-
 &usdhc1 {
 	status = "disabled";
 };
 
 &usdhc2 {
 	status = "okay";
+};
+
+&scmi_iomuxc {
+	/* Add this to lpuart1 in case need use uart3 for inmate linux */
+	pinctrl_uart3: uart3grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO14__LPUART3_TX      0x31e
+			IMX95_PAD_GPIO_IO15__LPUART3_RX      0x31e
+		>;
+	};
 };
