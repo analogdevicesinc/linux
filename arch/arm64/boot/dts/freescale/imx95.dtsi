@@ -1783,6 +1783,96 @@
 			};
 		};
 
+		cameramix_mu1: mailbox@4ac60000 {
+			compatible = "fsl,imx95-mu-isp";
+			reg = <0x0 0x4ac60000 0x0 0x10000>;
+			interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
+			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+			#mbox-cells = <2>;
+			status = "disabled";
+		};
+
+		cameramix_mu2: mailbox@4ac70000 {
+			compatible = "fsl,imx95-mu-isp";
+			reg = <0x0 0x4ac70000 0x0 0x10000>;
+			interrupts = <GIC_SPI 336 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
+			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+			#mbox-cells = <2>;
+			status = "disabled";
+		};
+
+		cameramix_mu3: mailbox@4ac80000 {
+			compatible = "fsl,imx95-mu-isp";
+			reg = <0x0 0x4ac80000 0x0 0x10000>;
+			interrupts = <GIC_SPI 337 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
+			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+			#mbox-cells = <2>;
+			status = "disabled";
+		};
+
+		cameramix_mu4: mailbox@4ac90000 {
+			compatible = "fsl,imx95-mu-isp";
+			reg = <0x0 0x4ac90000 0x0 0x10000>;
+			interrupts = <GIC_SPI 338 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
+			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+			#mbox-cells = <2>;
+			status = "disabled";
+		};
+
+		cameramix_mu5: mailbox@4aca0000 {
+			compatible = "fsl,imx95-mu-isp";
+			reg = <0x0 0x4aca0000 0x0 0x10000>;
+			interrupts = <GIC_SPI 339 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
+			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+			#mbox-cells = <2>;
+			status = "disabled";
+		};
+
+		cameramix_mu6: mailbox@4acb0000 {
+			compatible = "fsl,imx95-mu-isp";
+			reg = <0x0 0x4acb0000 0x0 0x10000>;
+			interrupts = <GIC_SPI 340 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
+			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+			#mbox-cells = <2>;
+			status = "disabled";
+		};
+
+		cameramix_mu7: mailbox@4acc0000 {
+			compatible = "fsl,imx95-mu-isp";
+			reg = <0x0 0x4acc0000 0x0 0x10000>;
+			interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
+			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+			#mbox-cells = <2>;
+			status = "disabled";
+		};
+
+		cameramix_mu8: mailbox@4acd0000 {
+			compatible = "fsl,imx95-mu-isp";
+			reg = <0x0 0x4acd0000 0x0 0x10000>;
+			interrupts = <GIC_SPI 342 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
+			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+			#mbox-cells = <2>;
+			status = "disabled";
+		};
+
+		cameramix_mu9: mailbox@4ace0000 {
+			compatible = "fsl,imx95-mu-isp";
+			reg = <0x0 0x4ace0000 0x0 0x10000>;
+			interrupts = <GIC_SPI 343 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
+			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+			#mbox-cells = <2>;
+			status = "disabled";
+		};
+
 		mipi_dsi: dsi@4acf0000 {
 			compatible = "nxp,imx95-mipi-dsi";
 			reg = <0x0 0x4acf0000 0x0 0x10000>;
