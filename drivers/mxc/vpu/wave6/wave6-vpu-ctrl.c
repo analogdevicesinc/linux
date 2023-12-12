@@ -39,6 +39,28 @@ struct vpu_ctrl_resource {
 	u32 sram_size;
 };
 
+#define WAVE6_ENABLE_SW_UART	1
+
+#if WAVE6_ENABLE_SW_UART
+#include <linux/debugfs.h>
+
+#define W6_NXP_SW_UART_LOGER                         (W6_REG_BASE + 0x00f0)
+#define TRACEBUF_SIZE 131072
+
+static unsigned int enable_fwlog;
+module_param(enable_fwlog, uint, 0644);
+
+struct loger_t {
+	u32 size;
+	u32 wptr;
+	u32 rptr;
+	u32 anchor;
+	u32 count;
+	u32 reserved[3];
+	char vbase[];
+};
+#endif
+
 struct vpu_ctrl {
 	struct device *dev;
 	void __iomem *reg_base;
@@ -52,6 +74,11 @@ struct vpu_ctrl {
 	const struct vpu_ctrl_resource *res;
 	struct gen_pool *sram_pool;
 	struct vpu_dma_buf sram_buf;
+#if WAVE6_ENABLE_SW_UART
+	struct vpu_buf loger_buf;
+	struct loger_t *loger;
+	struct dentry *debugfs;
+#endif
 };
 
 static const struct vpu_ctrl_resource wave633c_ctrl_data = {
@@ -59,6 +86,118 @@ static const struct vpu_ctrl_resource wave633c_ctrl_data = {
 	.sram_size = 0x18000,
 };
 
+#if WAVE6_ENABLE_SW_UART
+static void wave6_vpu_ctrl_init_loger(struct vpu_ctrl *ctrl)
+{
+	ctrl->loger_buf.size = TRACEBUF_SIZE + sizeof(struct loger_t);
+	ctrl->loger_buf.vaddr = dma_alloc_coherent(ctrl->dev,
+						   ctrl->loger_buf.size,
+						   &ctrl->loger_buf.daddr,
+						   GFP_KERNEL);
+	if (!ctrl->loger_buf.vaddr) {
+		ctrl->loger_buf.size = 0;
+		return;
+	}
+	ctrl->loger = ctrl->loger_buf.vaddr;
+	ctrl->loger->size = TRACEBUF_SIZE;
+}
+
+static void wave6_vpu_ctrl_free_loger(struct vpu_ctrl *ctrl)
+{
+	ctrl->loger = NULL;
+	if (ctrl->loger_buf.vaddr)
+		dma_free_coherent(ctrl->dev,
+				  ctrl->loger_buf.size,
+				  ctrl->loger_buf.vaddr,
+				  ctrl->loger_buf.daddr);
+
+	memset(&ctrl->loger_buf, 0, sizeof(ctrl->loger_buf));
+}
+
+static void wave6_vpu_ctrl_start_loger(struct vpu_ctrl *ctrl, struct wave6_vpu_entity *entity)
+{
+	if (enable_fwlog)
+		entity->write_reg(entity->dev, W6_NXP_SW_UART_LOGER, (u32)ctrl->loger_buf.daddr);
+}
+
+static void wave6_vpu_ctrl_stop_loger(struct vpu_ctrl *ctrl, struct wave6_vpu_entity *entity)
+{
+	entity->write_reg(entity->dev, W6_NXP_SW_UART_LOGER, 0);
+}
+
+static int wave6_vpu_loger_show(struct seq_file *s, void *data)
+{
+	struct vpu_ctrl *ctrl = s->private;
+	u32 rptr;
+	u32 wptr;
+	int length;
+
+	if (!ctrl->loger)
+		return 0;
+
+	rptr = ctrl->loger->rptr;
+	wptr = ctrl->loger->wptr;
+
+	if (rptr == wptr)
+		return 0;
+
+	if (rptr < wptr)
+		length = wptr - rptr;
+	else
+		length = ctrl->loger->size - rptr;
+
+	if (s->count + length >= s->size) {
+		s->count = s->size;
+		return 0;
+	}
+
+	if (!seq_write(s, ctrl->loger->vbase + rptr, length)) {
+		rptr += length;
+		if (rptr == ctrl->loger->size)
+			rptr = 0;
+		ctrl->loger->rptr = rptr;
+	}
+
+	return 0;
+}
+
+static int wave6_vpu_loger_open(struct inode *inode, struct file *filp)
+{
+	return single_open(filp, wave6_vpu_loger_show, inode->i_private);
+}
+
+static const struct file_operations wave6_vpu_loger_fops = {
+	.owner = THIS_MODULE,
+	.open = wave6_vpu_loger_open,
+	.release = single_release,
+	.read = seq_read,
+};
+
+static void wave6_vpu_ctrl_create_debugfs(struct vpu_ctrl *ctrl)
+{
+	struct dentry *wave6_dbgfs = debugfs_lookup("wave6", NULL);
+
+	if (!wave6_dbgfs)
+		wave6_dbgfs = debugfs_create_dir("wave6", NULL);
+	if (!wave6_dbgfs)
+		return;
+
+	ctrl->debugfs = debugfs_create_file("fwlog",
+					    VERIFY_OCTAL_PERMISSIONS(0444),
+					    wave6_dbgfs,
+					    ctrl,
+					    &wave6_vpu_loger_fops);
+}
+
+static void wave6_vpu_ctrl_remove_debugfs(struct vpu_ctrl *ctrl)
+{
+	if (!ctrl->debugfs)
+		return;
+
+	debugfs_remove(ctrl->debugfs);
+	ctrl->debugfs = NULL;
+}
+#endif
 
 static void wave6_vpu_ctrl_writel(struct device *dev, u32 addr, u32 data)
 {
@@ -305,6 +444,8 @@ static void wave6_vpu_ctrl_load_firmware(const struct firmware *fw, void *contex
 		return;
 	}
 
+	dprintk(ctrl->dev, "loading firmware\n");
+
 	if (!fw || !fw->data) {
 		dev_err(ctrl->dev, "No firmware.\n");
 		goto error;
@@ -487,6 +628,10 @@ int wave6_vpu_ctrl_resume_and_get(struct device *dev, struct wave6_vpu_entity *e
 		return ret;
 	}
 
+#if WAVE6_ENABLE_SW_UART
+	wave6_vpu_ctrl_start_loger(ctrl, entity);
+#endif
+
 	entity->booted = false;
 
 	boot_flag = list_empty(&ctrl->entities) ? true : false;
@@ -528,6 +673,10 @@ void wave6_vpu_ctrl_put_sync(struct device *dev, struct wave6_vpu_entity *entity
 		else
 			wave6_vpu_ctrl_sleep(ctrl, entity);
 	}
+
+#if WAVE6_ENABLE_SW_UART
+	wave6_vpu_ctrl_stop_loger(ctrl, entity);
+#endif
 
 	if (!pm_runtime_suspended(ctrl->dev))
 		pm_runtime_put_sync(ctrl->dev);
@@ -704,6 +853,12 @@ static int wave6_vpu_ctrl_probe(struct platform_device *pdev)
 
 	mutex_init(&ctrl->ctrl_lock);
 	INIT_LIST_HEAD(&ctrl->entities);
+
+#if WAVE6_ENABLE_SW_UART
+	wave6_vpu_ctrl_init_loger(ctrl);
+	wave6_vpu_ctrl_create_debugfs(ctrl);
+#endif
+
 	pm_runtime_enable(&pdev->dev);
 
 	return 0;
@@ -712,6 +867,11 @@ static int wave6_vpu_ctrl_probe(struct platform_device *pdev)
 static int wave6_vpu_ctrl_remove(struct platform_device *pdev)
 {
 	struct vpu_ctrl *ctrl = dev_get_drvdata(&pdev->dev);
+
+#if WAVE6_ENABLE_SW_UART
+	wave6_vpu_ctrl_remove_debugfs(ctrl);
+	wave6_vpu_ctrl_free_loger(ctrl);
+#endif
 
 	pm_runtime_disable(&pdev->dev);
 	pm_runtime_set_suspended(&pdev->dev);
