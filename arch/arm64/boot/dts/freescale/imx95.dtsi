@@ -1906,6 +1906,40 @@
 			status = "disabled";
 		};
 
+		ocram_c_config: syscon@4add0000 {
+			compatible = "fsl,imx95-ocram-config", "syscon";
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <0x0 0x4add0000 0x0 0x10000>;
+			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
+			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+			assigned-clocks = <&scmi_clk IMX95_CLK_CAMAXI>,
+					  <&scmi_clk IMX95_CLK_CAMAPB>;
+			assigned-clock-parents = <&scmi_clk IMX95_CLK_SYSPLL1_PFD1>,
+						 <&scmi_clk IMX95_CLK_SYSPLL1_PFD1_DIV2>;
+			assigned-clock-rates = <800000000>, <133333333>;
+		};
+
+		ocram_c: ocram@4af80000 {
+			reg = <0x0 0x4af80000 0x0 0x18000>;
+			no-map;
+		};
+
+		isp_fw_core: remoteproc {
+			compatible = "nxp,imx95-isp-rproc";
+			nxp,blk-ctrl = <&cameramix_csr>;
+			nxp,ocram-cfg = <&ocram_c_config>;
+			nxp,isp-firmware = "imx9xm0p_isp_fw.bin";
+			clocks = <&scmi_clk IMX95_CLK_CAMCM0>;
+			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+			status = "disabled";
+
+			mba {
+				memory-region = <&ocram_c>;
+				ocram-map = <0x0 0x14000>;
+			};
+		};
+
 		mipi_dsi: dsi@4acf0000 {
 			compatible = "nxp,imx95-mipi-dsi";
 			reg = <0x0 0x4acf0000 0x0 0x10000>;
