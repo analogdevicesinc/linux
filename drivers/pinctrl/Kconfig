@@ -513,6 +513,7 @@ config PINCTRL_ZYNQMP
 	  will be called pinctrl-zynqmp.
 
 source "drivers/pinctrl/actions/Kconfig"
+source "drivers/pinctrl/adi/Kconfig"
 source "drivers/pinctrl/aspeed/Kconfig"
 source "drivers/pinctrl/bcm/Kconfig"
 source "drivers/pinctrl/berlin/Kconfig"

@@ -88,3 +88,5 @@ obj-$(CONFIG_MICROCHIP_PIT64B)		+= timer-microchip-pit64b.o
 obj-$(CONFIG_MSC313E_TIMER)		+= timer-msc313e.o
 obj-$(CONFIG_GOLDFISH_TIMER)		+= timer-goldfish.o
 obj-$(CONFIG_GXP_TIMER)			+= timer-gxp.o
+obj-$(CONFIG_ARCH_SC59X)		+= timer-adi-adsp-sc5xx.o
+obj-$(CONFIG_ARCH_SC59X_64)		+= timer-adi-adsp-sc5xx.o
