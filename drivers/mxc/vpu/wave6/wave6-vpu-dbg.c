@@ -82,12 +82,14 @@ static int wave6_vpu_dbg_instance(struct seq_file *s, void *data)
 	}
 
 	num = scnprintf(str, sizeof(str),
-			"queued src %d, dst %d, process %d, sequence %d, error %d\n",
+			"queued src %d, dst %d, process %d, sequence %d, error %d, drain %d:%d\n",
 			inst->queued_src_buf_num,
 			inst->queued_dst_buf_num,
 			inst->processed_buf_num,
 			inst->sequence,
-			inst->error_buf_num);
+			inst->error_buf_num,
+			inst->v4l2_fh.m2m_ctx->out_q_ctx.buffered,
+			inst->eos);
 	if (seq_write(s, str, num))
 		return 0;
 

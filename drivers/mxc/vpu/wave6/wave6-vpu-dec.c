@@ -651,8 +651,10 @@ static void wave6_handle_last_frame(struct vpu_instance *inst,
 	dst_buf->field = V4L2_FIELD_NONE;
 	v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
 
-	inst->eos = true;
-	v4l2_m2m_set_src_buffered(inst->v4l2_fh.m2m_ctx, false);
+	if (inst->state != VPU_INST_STATE_INIT_SEQ) {
+		inst->eos = true;
+		v4l2_m2m_set_src_buffered(inst->v4l2_fh.m2m_ctx, false);
+	}
 }
 
 static void wave6_vpu_dec_retry_one_frame(struct vpu_instance *inst)
@@ -1151,6 +1153,7 @@ static int wave6_vpu_dec_decoder_cmd(struct file *file, void *fh, struct v4l2_de
 
 	switch (dc->cmd) {
 	case V4L2_DEC_CMD_STOP:
+		dprintk(inst->dev->dev, "[%d] drain\n", inst->id);
 		v4l2_m2m_set_src_buffered(inst->v4l2_fh.m2m_ctx, true);
 		v4l2_m2m_try_schedule(inst->v4l2_fh.m2m_ctx);
 		break;
@@ -1676,8 +1679,8 @@ static void wave6_vpu_dec_stop_streaming(struct vb2_queue *q)
 
 		inst->eos = false;
 		inst->queued_dst_buf_num = 0;
-		if (inst->state == VPU_INST_STATE_SEEK)
-			wave6_vpu_dec_flush_instance(inst);
+		inst->sequence = 0;
+		wave6_vpu_dec_flush_instance(inst);
 	}
 
 	v4l2_m2m_resume(inst->dev->m2m_dev);
