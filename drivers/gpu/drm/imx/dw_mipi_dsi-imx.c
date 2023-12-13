@@ -50,8 +50,30 @@ __dw_mipi_dsi_imx_mode_valid(void *priv_data,
 {
 	struct dw_mipi_dsi_imx *dsi = priv_data;
 	struct device *dev = dsi->dev;
+	struct drm_bridge *bridge;
 	int bpp;
 	int ret;
+
+	bridge = dw_mipi_dsi_get_bridge(dsi->dmd);
+
+	/* Get the last bridge */
+	while (drm_bridge_get_next_bridge(bridge))
+		bridge = drm_bridge_get_next_bridge(bridge);
+
+	if ((bridge->ops & DRM_BRIDGE_OP_DETECT) &&
+	    (bridge->ops & DRM_BRIDGE_OP_EDID)) {
+		unsigned long pixel_clock_rate = mode->clock * 1000;
+		unsigned long rounded_rate;
+
+		/* Allow +/-0.5% pixel clock rate deviation */
+		rounded_rate = clk_round_rate(dsi->pixel_clk, pixel_clock_rate);
+		if (rounded_rate < pixel_clock_rate * 995 / 1000 ||
+		    rounded_rate > pixel_clock_rate * 1005 / 1000) {
+			DRM_DEV_DEBUG(dev, "failed to round clock for mode " DRM_MODE_FMT "\n",
+				      DRM_MODE_ARG(mode));
+			return MODE_NOCLOCK;
+		}
+	}
 
 	bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
 	if (bpp < 0) {
