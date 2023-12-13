@@ -120,9 +120,9 @@ static int sysref_configure(ad917x_handle_t *h)
 	err = ad917x_register_read(h, AD917X_SYSREF_CTRL_REG, &tmp_reg);
 	if (err != API_ERROR_OK)
 		return err;
-	tmp_reg &= ~(AD917X_SYSREF_PD);
+	tmp_reg &= ~(AD917X_SYSREF_DC_COUPLED);
 	if (h->sysref == COUPLING_DC)
-		tmp_reg |= AD917X_SYSREF_PD;
+		tmp_reg |= AD917X_SYSREF_DC_COUPLED;
 	return ad917x_register_write(h, AD917X_SYSREF_CTRL_REG, tmp_reg);
 }
 
