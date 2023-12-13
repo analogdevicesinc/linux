@@ -1,5 +1,5 @@
 /* Copyright (C) 2008-2012 Freescale Semiconductor, Inc.
- * Copyright 2020 NXP
+ * Copyright 2020,2023 NXP
  * Authors: Andy Fleming <afleming@freescale.com>
  *	    Timur Tabi <timur@freescale.com>
  *	    Geoff Thorpe <Geoff.Thorpe@freescale.com>
@@ -1334,21 +1334,22 @@ static long ioctl_dma_lock(struct ctx *ctx, void __user *arg)
 	struct mem_mapping *map;
 	struct vm_area_struct *vma;
 
+	spin_lock(&mem_lock);
 	down_read(&current->mm->mmap_lock);
 	vma = find_vma(current->mm, (unsigned long)arg);
 	if (!vma || (vma->vm_start > (unsigned long)arg)) {
 		up_read(&current->mm->mmap_lock);
+		spin_unlock(&mem_lock);
 		return -EFAULT;
 	}
-	spin_lock(&mem_lock);
 	list_for_each_entry(map, &ctx->maps, list) {
 		if (map->root_frag->pfn_base == vma->vm_pgoff)
 			goto map_match;
 	}
 	map = NULL;
 map_match:
-	spin_unlock(&mem_lock);
 	up_read(&current->mm->mmap_lock);
+	spin_unlock(&mem_lock);
 
 	if (!map)
 		return -EFAULT;
@@ -1363,12 +1364,12 @@ static long ioctl_dma_unlock(struct ctx *ctx, void __user *arg)
 	struct vm_area_struct *vma;
 	int ret;
 
+	spin_lock(&mem_lock);
 	down_read(&current->mm->mmap_lock);
 	vma = find_vma(current->mm, (unsigned long)arg);
 	if (!vma || (vma->vm_start > (unsigned long)arg))
 		ret = -EFAULT;
 	else {
-		spin_lock(&mem_lock);
 		list_for_each_entry(map, &ctx->maps, list) {
 			if (map->root_frag->pfn_base == vma->vm_pgoff) {
 				if (!map->root_frag->has_locking)
@@ -1383,10 +1384,10 @@ static long ioctl_dma_unlock(struct ctx *ctx, void __user *arg)
 			}
 		}
 		ret = -EINVAL;
-map_match:
-		spin_unlock(&mem_lock);
 	}
+map_match:
 	up_read(&current->mm->mmap_lock);
+	spin_unlock(&mem_lock);
 	return ret;
 }
 
