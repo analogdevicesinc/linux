@@ -90,6 +90,7 @@
 &mmc {
 	status = "okay";
 	bus-width = <4>;
+	no-1-8-v;
 	sd-uhs-sdr50;
 	sdhci-caps = <0x00000000 0x0000c800>;
 	sdhci-caps-mask = <0x00002000 0x0000ff00>;
