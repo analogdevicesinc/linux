@@ -1822,6 +1822,24 @@
 			};
 		};
 
+		neoisp0: isp@4ae00000 {
+			compatible = "nxp,imx95-a0-neoisp";
+			#address-cells = <2>;
+			#size-cells = <2>;
+			reg = <0x0 0x4ae00000 0x0 0x8000>,
+			      <0x0 0x4afe0000 0x0 0x10000>;
+			reg-names = "registers", "stats";
+			interrupts = <GIC_SPI 222 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-parent = <&gic>;
+			clocks = <&cameramix_csr IMX95_CLK_CAMBLK_ISP_AXI>,
+				 <&cameramix_csr IMX95_CLK_CAMBLK_ISP_PIXEL>,
+				 <&cameramix_csr IMX95_CLK_CAMBLK_ISP>;
+			clock-names = "camblk_isp_axi", "camblk_isp_pixel", "camblk_isp";
+			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+			nxp,blk-ctrl = <&cameramix_csr>;
+			status = "disabled";
+		};
+
 		cameramix_mu1: mailbox@4ac60000 {
 			compatible = "fsl,imx95-mu-isp";
 			reg = <0x0 0x4ac60000 0x0 0x10000>;
@@ -1969,7 +1987,6 @@
 			nxp,blk-ctrl = <&cameramix_csr>;
 			nxp,ocram-cfg = <&ocram_c_config>;
 			nxp,isp-firmware = "imx9xm0p_isp_fw.bin";
-			clocks = <&scmi_clk IMX95_CLK_CAMCM0>;
 			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
 			status = "disabled";
 
