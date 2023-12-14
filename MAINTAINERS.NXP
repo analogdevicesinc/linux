@@ -287,6 +287,14 @@ M: Mirela Rabulea <mirela.rabulea@nxp.com>
 M: Alice Yuan <alice.yuan@nxp.com>
 F: drivers/media/i2c/os08a20/*
 
+capture/neoisp
+M: Aymen SGHAIER <aymen.sghaier@nxp.com>
+M: Julien Vuillaumier <julien.vuillaumier@nxp.com>
+F: arch/arm64/boot/dts/freescale/imx95-19x19-evk-neoisp.dtso
+F: Documentation/userspace-api/media/v4l/neo-isp-hw-mapping.rst
+F: drivers/media/platform/nxp/neoisp/neoisp*
+F: include/uapi/linux/nxp_neoisp.h
+
 clock/imx
 M: Jacky Bai <jacky.bai@nxp.com>
 M: Peng Fan <peng.fan@nxp.com>
