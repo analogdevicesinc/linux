@@ -860,6 +860,10 @@ struct v4l2_pix_format {
 /* Vendor specific - used for RaspberryPi PiSP */
 #define V4L2_META_FMT_RPI_BE_CFG	v4l2_fourcc('R', 'P', 'B', 'C') /* PiSP BE configuration */
 
+/* Vendor specific - used for NXP NEOISP sub-system */
+#define V4L2_META_FMT_NEO_ISP_PARAMS	v4l2_fourcc('N', 'N', 'I', 'P') /* NXP NEOISP Parameters */
+#define V4L2_META_FMT_NEO_ISP_STATS	v4l2_fourcc('N', 'N', 'I', 'S') /* NXP NEOISP Statistics */
+
 #ifdef __KERNEL__
 /*
  * Line-based metadata formats. Remember to update v4l_fill_fmtdesc() when
