@@ -145,10 +145,6 @@ pcie@3600000 {
 	dma-coherent;
 };
 
-&dspi1 {
-	dma-coherent;
-};
-
 &i2c0 {
 	dma-coherent;
 };
