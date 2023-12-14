@@ -488,12 +488,14 @@ static int wave6_vpu_ctrl_sleep(struct vpu_ctrl *ctrl, struct wave6_vpu_entity *
 	ret = wave6_vpu_ctrl_wait_busy(entity);
 	if (ret) {
 		dev_err(ctrl->dev, "sleep vpu timeout\n");
+		wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_OFF);
 		return -EINVAL;
 	}
 
 	ret = wave6_vpu_ctrl_check_result(entity);
 	if (ret) {
 		dev_err(ctrl->dev, "sleep vpu fail, reason 0x%x\n", ret);
+		wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_OFF);
 		return -EIO;
 	}
 
