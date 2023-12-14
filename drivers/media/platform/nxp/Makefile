@@ -3,6 +3,7 @@
 obj-y += dw100/
 obj-y += imx-jpeg/
 obj-y += imx8-isi/
+obj-y += neoisp/
 
 obj-$(CONFIG_VIDEO_IMX7_CSI) += imx7-media-csi.o
 obj-$(CONFIG_VIDEO_IMX8MQ_MIPI_CSI2) += imx8mq-mipi-csi2.o
