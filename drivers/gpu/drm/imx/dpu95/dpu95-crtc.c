@@ -233,7 +233,7 @@ static int dpu95_crtc_atomic_check(struct drm_crtc *crtc,
 		return -EINVAL;
 	}
 
-	return ret;
+	return 0;
 }
 
 static void dpu95_crtc_atomic_begin(struct drm_crtc *crtc,
