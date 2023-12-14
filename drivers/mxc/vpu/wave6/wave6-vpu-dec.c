@@ -142,6 +142,7 @@ static void wave6_vpu_dec_destroy_instance(struct vpu_instance *inst)
 	u32 fail_res;
 	int ret;
 
+	dprintk(inst->dev->dev, "[%d] destroy instance\n", inst->id);
 	wave6_vpu_remove_dbgfs_file(inst);
 
 	if (inst->workqueue) {
@@ -503,7 +504,7 @@ static int wave6_vpu_dec_start_decode(struct vpu_instance *inst)
 		struct vb2_v4l2_buffer *src_buf = NULL;
 		struct vb2_v4l2_buffer *dst_buf = NULL;
 
-		dev_dbg(inst->dev->dev, "%s: fail %d\n", __func__, ret);
+		dev_err(inst->dev->dev, "[%d] %s: fail %d\n", inst->id, __func__, ret);
 		wave6_vpu_set_instance_state(inst, VPU_INST_STATE_STOP);
 
 		src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
@@ -533,15 +534,21 @@ static void wave6_handle_decoded_frame(struct vpu_instance *inst,
 	struct vpu_buffer *vpu_buf;
 
 	src_buf = v4l2_m2m_next_src_buf(inst->v4l2_fh.m2m_ctx);
-	if (!src_buf)
+	if (!src_buf) {
+		dev_err(inst->dev->dev, "[%d] decoder can't find src buffer\n", inst->id);
 		return;
+	}
 
 	vpu_buf = wave6_to_vpu_buf(src_buf);
-	if (!vpu_buf || !vpu_buf->consumed)
+	if (!vpu_buf || !vpu_buf->consumed) {
+		dev_err(inst->dev->dev, "[%d] src buffer is not consumed\n", inst->id);
 		return;
+	}
 
 	dst_buf = wave6_get_dst_buf_by_addr(inst, addr);
 	if (dst_buf) {
+		if (wave6_to_vpu_buf(dst_buf)->used)
+			dev_warn(inst->dev->dev, "[%d] duplication frame buffer\n", inst->id);
 		v4l2_m2m_buf_copy_metadata(src_buf, dst_buf, true);
 		wave6_to_vpu_buf(dst_buf)->used = true;
 	}
@@ -564,6 +571,7 @@ static void wave6_handle_skipped_frame(struct vpu_instance *inst)
 	if (!vpu_buf || !vpu_buf->consumed)
 		return;
 
+	dprintk(inst->dev->dev, "[%d] skip frame %d\n", inst->id, inst->sequence);
 	inst->sequence++;
 	src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
 	v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
@@ -575,10 +583,18 @@ static void wave6_handle_display_frame(struct vpu_instance *inst,
 				       dma_addr_t addr, enum vb2_buffer_state state)
 {
 	struct vb2_v4l2_buffer *dst_buf;
+	struct vpu_buffer *vpu_buf;
 
 	dst_buf = wave6_get_dst_buf_by_addr(inst, addr);
 	if (!dst_buf)
 		return;
+
+	vpu_buf = wave6_to_vpu_buf(dst_buf);
+	if (!vpu_buf->used) {
+		dprintk(inst->dev->dev, "[%d] recycle display buffer\n", inst->id);
+		vpu_buf->consumed = false;
+		return;
+	}
 
 	if (inst->dst_fmt.num_planes == 1) {
 		vb2_set_plane_payload(&dst_buf->vb2_buf, 0,
@@ -599,6 +615,8 @@ static void wave6_handle_display_frame(struct vpu_instance *inst,
 
 	dst_buf->sequence = inst->sequence++;
 	dst_buf->field = V4L2_FIELD_NONE;
+	if (state == VB2_BUF_STATE_ERROR)
+		dprintk(inst->dev->dev, "[%d] discard frame %d\n", inst->id, dst_buf->sequence);
 	v4l2_m2m_dst_buf_remove_by_buf(inst->v4l2_fh.m2m_ctx, dst_buf);
 	v4l2_m2m_buf_done(dst_buf, state);
 }
@@ -652,6 +670,7 @@ static void wave6_handle_last_frame(struct vpu_instance *inst,
 	v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
 
 	if (inst->state != VPU_INST_STATE_INIT_SEQ) {
+		dprintk(inst->dev->dev, "[%d] eos\n", inst->id);
 		inst->eos = true;
 		v4l2_m2m_set_src_buffered(inst->v4l2_fh.m2m_ctx, false);
 	}
@@ -1823,6 +1842,7 @@ static int wave6_vpu_dec_release(struct file *filp)
 {
 	struct vpu_instance *inst = wave6_to_vpu_inst(filp->private_data);
 
+	dprintk(inst->dev->dev, "[%d] release\n", inst->id);
 	v4l2_m2m_ctx_release(inst->v4l2_fh.m2m_ctx);
 
 	mutex_lock(&inst->dev->dev_lock);
