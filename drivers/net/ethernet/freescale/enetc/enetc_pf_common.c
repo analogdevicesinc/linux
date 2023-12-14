@@ -464,7 +464,7 @@ free_mdio_bus:
 
 static void enetc_imdio_remove(struct enetc_pf *pf)
 {
-	struct enetc_mdio_priv *mdio_priv = pf->imdio->priv;
+	struct enetc_mdio_priv *mdio_priv;
 
 	if (pf->pcs) {
 		if (is_enetc_rev1(pf->si))
@@ -474,12 +474,13 @@ static void enetc_imdio_remove(struct enetc_pf *pf)
 	}
 
 	if (pf->imdio) {
+		mdio_priv = pf->imdio->priv;
+
 		mdiobus_unregister(pf->imdio);
+		if (mdio_priv && mdio_priv->regulator)
+			regulator_disable(mdio_priv->regulator);
 		mdiobus_free(pf->imdio);
 	}
-
-	if (mdio_priv->regulator)
-		regulator_disable(mdio_priv->regulator);
 }
 
 static bool enetc_port_has_pcs(struct enetc_pf *pf)
@@ -520,7 +521,9 @@ int enetc_mdiobus_create(struct enetc_pf *pf, struct device_node *node)
 void enetc_mdiobus_destroy(struct enetc_pf *pf)
 {
 	enetc_mdio_remove(pf);
-	enetc_imdio_remove(pf);
+
+	if (enetc_port_has_pcs(pf))
+		enetc_imdio_remove(pf);
 }
 
 int enetc_phylink_create(struct enetc_ndev_priv *priv,
