@@ -96,4 +96,10 @@
 			IMX95_PAD_ENET2_RD3__NETCMIX_TOP_ETH1_RGMII_RD3		0x57e
 		>;
 	};
+
+	pinctrl_pwm_3_dsi_hpd_gpio: dsihpdgrp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO12__GPIO2_IO_BIT12			0x31e
+		>;
+	};
 };

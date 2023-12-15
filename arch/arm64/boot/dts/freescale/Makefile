@@ -348,6 +348,9 @@ dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-titan.dtb
 imx95-19x19-titan-adv7535-dtbs := imx95-19x19-titan.dtb imx95-19x19-titan-adv7535.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-titan-adv7535.dtb
 
+imx95-19x19-titan-lt8912-dtbs := imx95-19x19-titan.dtb imx95-19x19-titan-lt8912.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-titan-lt8912.dtb
+
 imx8mm-venice-gw72xx-0x-imx219-dtbs	:= imx8mm-venice-gw72xx-0x.dtb imx8mm-venice-gw72xx-0x-imx219.dtbo
 imx8mm-venice-gw72xx-0x-rpidsi-dtbs	:= imx8mm-venice-gw72xx-0x.dtb imx8mm-venice-gw72xx-0x-rpidsi.dtbo
 imx8mm-venice-gw72xx-0x-rs232-rts-dtbs	:= imx8mm-venice-gw72xx-0x.dtb imx8mm-venice-gw72xx-0x-rs232-rts.dtbo
