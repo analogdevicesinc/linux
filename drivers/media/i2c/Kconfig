@@ -1172,6 +1172,21 @@ config VIDEO_MAX9286
 	  To compile this driver as a module, choose M here: the
 	  module will be called max9286.
 
+config VIDEO_MAX96724
+	tristate "Maxim MAX96724 GMSL deserializer support"
+	depends on I2C && I2C_MUX
+	depends on VIDEO_DEV
+	depends on OF_GPIO
+	select V4L2_FWNODE
+	select VIDEO_V4L2_SUBDEV_API
+	select MEDIA_CONTROLLER
+	help
+	  This driver supports the Maxim MAX96724 GMSL deserializer which converts four GMSL2/1
+	  inputs to 1, 2, or 4 MIPI D-PHY or C-PHY outputs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called max96724.
+
 config VIDEO_ML86V7667
 	tristate "OKI ML86V7667 video decoder"
 	depends on VIDEO_DEV && I2C
