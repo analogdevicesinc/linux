@@ -419,7 +419,6 @@ struct frame_buffer {
 	unsigned int stride; /* A horizontal stride for given frame buffer */
 	unsigned int width; /* A width for given frame buffer */
 	unsigned int height; /* A height for given frame buffer */
-	unsigned int sequence_no;
 	int index;
 	u32 luma_bitdepth: 4;
 	u32 chroma_bitdepth: 4;

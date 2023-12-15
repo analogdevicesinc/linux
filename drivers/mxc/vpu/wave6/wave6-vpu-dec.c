@@ -197,7 +197,7 @@ static void wave6_handle_bitstream_buffer(struct vpu_instance *inst)
 	}
 
 	if (!src_size) {
-		dma_addr_t rd, wr;
+		dma_addr_t rd = 0, wr = 0;
 
 		wave6_vpu_dec_get_bitstream_buffer(inst, &rd, &wr, NULL);
 		wave6_vpu_dec_set_rd_ptr(inst, wr, true);
@@ -279,6 +279,7 @@ static int wave6_allocate_aux_buffer(struct vpu_instance *inst,
 		return ret;
 	}
 
+	num = min_t(u32, num, WAVE6_MAX_FBS);
 	for (i = 0; i < num; i++) {
 		inst->aux_vbuf[type][i].size = size;
 		ret = wave6_vdi_allocate_dma_memory(inst->dev, &inst->aux_vbuf[type][i]);
@@ -315,7 +316,7 @@ static void wave6_vpu_dec_handle_dst_buffer(struct vpu_instance *inst)
 	u32 fb_stride = inst->dst_fmt.width;
 	u32 luma_size = fb_stride * inst->dst_fmt.height;
 	u32 chroma_size = (fb_stride / 2) * (inst->dst_fmt.height / 2);
-	struct frame_buffer disp_buffer;
+	struct frame_buffer disp_buffer = {0};
 	struct dec_initial_info initial_info;
 	int ret;
 
@@ -1692,7 +1693,7 @@ static void wave6_vpu_dec_stop_streaming(struct vb2_queue *q)
 		wave6_vpu_set_instance_state(inst, VPU_INST_STATE_SEEK);
 		inst->sequence = 0;
 	} else {
-		dma_addr_t rd_ptr, wr_ptr;
+		dma_addr_t rd_ptr = 0, wr_ptr = 0;
 
 		wave6_vpu_dec_get_bitstream_buffer(inst, &rd_ptr, &wr_ptr, NULL);
 		wave6_vpu_dec_set_rd_ptr(inst, wr_ptr, true);
@@ -1724,16 +1725,18 @@ static void wave6_set_default_format(struct v4l2_pix_format_mplane *src_fmt,
 	const struct vpu_format *vpu_fmt;
 
 	vpu_fmt = wave6_find_vpu_fmt_by_idx(0, VPU_FMT_TYPE_CODEC);
-
-	src_fmt->pixelformat = vpu_fmt->v4l2_pix_fmt;
-	src_fmt->num_planes = vpu_fmt->num_planes;
-	wave6_update_pix_fmt(src_fmt, 720, 480);
+	if (vpu_fmt) {
+		src_fmt->pixelformat = vpu_fmt->v4l2_pix_fmt;
+		src_fmt->num_planes = vpu_fmt->num_planes;
+		wave6_update_pix_fmt(src_fmt, 720, 480);
+	}
 
 	vpu_fmt = wave6_find_vpu_fmt_by_idx(0, VPU_FMT_TYPE_RAW);
-
-	dst_fmt->pixelformat = vpu_fmt->v4l2_pix_fmt;
-	dst_fmt->num_planes = vpu_fmt->num_planes;
-	wave6_update_pix_fmt(dst_fmt, 736, 480);
+	if (vpu_fmt) {
+		dst_fmt->pixelformat = vpu_fmt->v4l2_pix_fmt;
+		dst_fmt->num_planes = vpu_fmt->num_planes;
+		wave6_update_pix_fmt(dst_fmt, 736, 480);
+	}
 }
 
 static int wave6_vpu_dec_queue_init(void *priv, struct vb2_queue *src_vq, struct vb2_queue *dst_vq)

@@ -799,12 +799,12 @@ static int wave6_vpu_enc_start_encode(struct vpu_instance *inst)
 	}
 	wave6_set_csc(inst, &pic_param);
 
-	if (src_buf) {
+	if (src_vbuf) {
 		src_vbuf->consumed = true;
 		inst->processed_buf_num++;
 	}
 
-	if (dst_buf) {
+	if (dst_vbuf) {
 		dst_vbuf->consumed = true;
 		dst_vbuf->used = true;
 	}
@@ -2431,16 +2431,18 @@ static void wave6_set_default_format(struct v4l2_pix_format_mplane *src_fmt,
 	const struct vpu_format *vpu_fmt;
 
 	vpu_fmt = wave6_find_vpu_fmt_by_idx(0, VPU_FMT_TYPE_RAW);
-
-	src_fmt->pixelformat = vpu_fmt->v4l2_pix_fmt;
-	src_fmt->num_planes = vpu_fmt->num_planes;
-	wave6_update_pix_fmt(src_fmt, 416, 240);
+	if (vpu_fmt) {
+		src_fmt->pixelformat = vpu_fmt->v4l2_pix_fmt;
+		src_fmt->num_planes = vpu_fmt->num_planes;
+		wave6_update_pix_fmt(src_fmt, 416, 240);
+	}
 
 	vpu_fmt = wave6_find_vpu_fmt_by_idx(0, VPU_FMT_TYPE_CODEC);
-
-	dst_fmt->pixelformat = vpu_fmt->v4l2_pix_fmt;
-	dst_fmt->num_planes = vpu_fmt->num_planes;
-	wave6_update_pix_fmt(dst_fmt, 416, 240);
+	if (vpu_fmt) {
+		dst_fmt->pixelformat = vpu_fmt->v4l2_pix_fmt;
+		dst_fmt->num_planes = vpu_fmt->num_planes;
+		wave6_update_pix_fmt(dst_fmt, 416, 240);
+	}
 }
 
 static int wave6_vpu_enc_queue_init(void *priv, struct vb2_queue *src_vq, struct vb2_queue *dst_vq)

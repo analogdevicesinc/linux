@@ -353,7 +353,7 @@ int wave6_vpu_build_up_dec_param(struct vpu_instance *vpu_inst,
 
 int wave6_vpu_dec_init_seq(struct vpu_instance *vpu_inst)
 {
-	struct dec_info *p_dec_info = &vpu_inst->codec_info->dec_info;
+	struct dec_info *p_dec_info;
 	struct vpu_attr *attr = &vpu_inst->dev->attr;
 	u32 cmd_option = INIT_SEQ_NORMAL, bs_option;
 	int ret;
@@ -361,6 +361,7 @@ int wave6_vpu_dec_init_seq(struct vpu_instance *vpu_inst)
 	if (!vpu_inst->codec_info)
 		return -EINVAL;
 
+	p_dec_info = &vpu_inst->codec_info->dec_info;
 	if (p_dec_info->thumbnail_mode)
 		cmd_option = INIT_SEQ_W_THUMBNAIL;
 
@@ -843,7 +844,7 @@ int wave6_vpu_dec_update_fb(struct vpu_instance *inst, struct frame_buffer *fb, 
 	u32 addr_mv_col = 0;
 	u32 reg_val;
 
-	if (fb && fb->index >= 0) {
+	if (fb && fb->index >= 0 && fb->index < WAVE6_MAX_FBS) {
 		fbc_index = fb->index;
 		addr_fbc_y = fb->buf_y;
 		addr_fbc_c = fb->buf_cb;
@@ -853,8 +854,8 @@ int wave6_vpu_dec_update_fb(struct vpu_instance *inst, struct frame_buffer *fb, 
 		addr_fbc_cr_tbl = p_dec_info->vb_fbc_c_tbl[fbc_index].daddr +
 					(p_dec_info->vb_fbc_c_tbl[fbc_index].size >> 1);
 	}
-	if (mv_index >= 0)
-		addr_mv_col = p_dec_info->vb_mv[fbc_index].daddr;
+	if (mv_index >= 0 && mv_index < WAVE6_MAX_FBS)
+		addr_mv_col = p_dec_info->vb_mv[mv_index].daddr;
 
 	reg_val = (p_dec_info->initial_info.chroma_format_idc << 25) |
 		  (p_dec_info->initial_info.luma_bitdepth << 21) |
@@ -2217,7 +2218,7 @@ static bool is_format_conv(enum frame_buffer_format in_fmt,
 }
 
 static void wave6_gen_enc_pic_reg(struct enc_info *p_enc_info, bool cbcr_interleave, bool nv21,
-				  struct enc_param opt, struct enc_cmd_enc_pic_reg *reg)
+				  struct enc_param *opt, struct enc_cmd_enc_pic_reg *reg)
 {
 	struct enc_open_param open = p_enc_info->open_param;
 	struct enc_wave_param param = open.wave_param;
@@ -2242,42 +2243,48 @@ static void wave6_gen_enc_pic_reg(struct enc_info *p_enc_info, bool cbcr_interle
 	case FORMAT_420_P10_16BIT_MSB:
 	case FORMAT_420_P10_16BIT_LSB:
 		color_format = 1;
-		stride_c = (cbcr_interleave) ? opt.source_frame->stride : (opt.source_frame->stride / 2);
+		stride_c = (cbcr_interleave) ? opt->source_frame->stride :
+					       (opt->source_frame->stride / 2);
 		break;
 	case FORMAT_420_P10_32BIT_MSB:
 	case FORMAT_420_P10_32BIT_LSB:
 		color_format = 1;
-		stride_c = (cbcr_interleave) ? opt.source_frame->stride : ALIGN((opt.source_frame->stride / 2), 16);
+		stride_c = (cbcr_interleave) ? opt->source_frame->stride :
+					       ALIGN((opt->source_frame->stride / 2), 16);
 		break;
 	case FORMAT_422:
 	case FORMAT_422_P10_16BIT_MSB:
 	case FORMAT_422_P10_16BIT_LSB:
 		color_format = 2;
-		stride_c = (cbcr_interleave) ? opt.source_frame->stride : (opt.source_frame->stride / 2);
+		stride_c = (cbcr_interleave) ? opt->source_frame->stride :
+					       (opt->source_frame->stride / 2);
 		stride_c = (format_conv) ? (stride_c * 2) : stride_c;
 		break;
 	case FORMAT_422_P10_32BIT_MSB:
 	case FORMAT_422_P10_32BIT_LSB:
 		color_format = 2;
-		stride_c = (cbcr_interleave) ? opt.source_frame->stride : ALIGN((opt.source_frame->stride / 2), 16);
+		stride_c = (cbcr_interleave) ? opt->source_frame->stride :
+					       ALIGN((opt->source_frame->stride / 2), 16);
 		stride_c = (format_conv) ? (stride_c * 2) : stride_c;
 		break;
 	case FORMAT_444:
 	case FORMAT_444_P10_16BIT_MSB:
 	case FORMAT_444_P10_16BIT_LSB:
 		color_format = 3;
-		stride_c = (cbcr_interleave) ? (opt.source_frame->stride * 2) : opt.source_frame->stride;
+		stride_c = (cbcr_interleave) ? (opt->source_frame->stride * 2) :
+					       opt->source_frame->stride;
 		stride_c = (format_conv) ? (stride_c * 2) : stride_c;
 		break;
 	case FORMAT_444_P10_32BIT_MSB:
 	case FORMAT_444_P10_32BIT_LSB:
 		color_format = 3;
-		stride_c = (cbcr_interleave) ? ALIGN((opt.source_frame->stride * 2), 16) : opt.source_frame->stride;
+		stride_c = (cbcr_interleave) ? ALIGN((opt->source_frame->stride * 2), 16) :
+					       opt->source_frame->stride;
 		stride_c = (format_conv) ? (stride_c * 2) : stride_c;
 		break;
 	case FORMAT_YUV444_24BIT:
 		color_format = 0;
-		stride_c = ALIGN((opt.source_frame->stride * 2), 16);
+		stride_c = ALIGN((opt->source_frame->stride * 2), 16);
 		break;
 	case FORMAT_RGB_24BIT_PACKED:
 	case FORMAT_YUV444_24BIT_PACKED:
@@ -2426,8 +2433,8 @@ static void wave6_gen_enc_pic_reg(struct enc_info *p_enc_info, bool cbcr_interle
 		break;
 	}
 
-	reg->bs_start = opt.pic_stream_buffer_addr;
-	reg->bs_size = opt.pic_stream_buffer_size;
+	reg->bs_start = opt->pic_stream_buffer_addr;
+	reg->bs_size = opt->pic_stream_buffer_size;
 	reg->bs_option = (p_enc_info->line_buf_int_en << 6);
 	reg->use_sec_axi = (p_enc_info->sec_axi_info.use_enc_rdo_enable << 1) |
 			   (p_enc_info->sec_axi_info.use_enc_lf_enable << 0);
@@ -2436,85 +2443,85 @@ static void wave6_gen_enc_pic_reg(struct enc_info *p_enc_info, bool cbcr_interle
 			       (param.report_mv_histo_threshold1 << 0);
 	reg->mv_histo_class1 = (param.report_mv_histo_threshold2 << 16) |
 			       (param.report_mv_histo_threshold3 << 0);
-	reg->custom_map_param = (opt.custom_map_opt.custom_mode_map_enable << 1) |
-				(opt.custom_map_opt.custom_roi_map_enable << 0);
-	reg->custom_map_addr = opt.custom_map_opt.custom_map_addr;
+	reg->custom_map_param = (opt->custom_map_opt.custom_mode_map_enable << 1) |
+				(opt->custom_map_opt.custom_roi_map_enable << 0);
+	reg->custom_map_addr = opt->custom_map_opt.custom_map_addr;
 
-	if (opt.src_end_flag)
+	if (opt->src_end_flag)
 		reg->src_pic_idx = 0xFFFFFFFF;
 	else
-		reg->src_pic_idx = opt.src_idx;
+		reg->src_pic_idx = opt->src_idx;
 
-	reg->src_addr_y = opt.source_frame->buf_y;
+	reg->src_addr_y = opt->source_frame->buf_y;
 	if (open.cbcr_order == CBCR_ORDER_NORMAL) {
-		reg->src_addr_u = opt.source_frame->buf_cb;
-		reg->src_addr_v = opt.source_frame->buf_cr;
+		reg->src_addr_u = opt->source_frame->buf_cb;
+		reg->src_addr_v = opt->source_frame->buf_cr;
 	} else {
-		reg->src_addr_u = opt.source_frame->buf_cr;
-		reg->src_addr_v = opt.source_frame->buf_cb;
+		reg->src_addr_u = opt->source_frame->buf_cr;
+		reg->src_addr_v = opt->source_frame->buf_cb;
 	}
-	reg->src_stride = (opt.source_frame->stride << 16) |
+	reg->src_stride = (opt->source_frame->stride << 16) |
 			  (stride_c << 0);
 	reg->src_format = (color_format << 28) |
 			  (is_24bit << 25) |
 			  (is_ayuv << 24) |
-			  (opt.update_last_2bit << 23) |
-			  ((opt.last_2bit_data & 0x3) << 21) |
+			  (opt->update_last_2bit << 23) |
+			  ((opt->last_2bit_data & 0x3) << 21) |
 			  (is_csc_format << 20) |
-			  (opt.csc.format_order << 16) |
+			  (opt->csc.format_order << 16) |
 			  (endian << 12) |
 			  (is_lsb << 6) |
 			  (is_3p4b << 5) |
 			  (is_10bit << 4) |
 			  (src_frame_format << 0);
 	reg->src_axi_sel = DEFAULT_SRC_AXI;
-	if (opt.code_option.implicit_header_encode) {
-		reg->code_option = (opt.src_end_flag << 10) |
-				   (opt.code_option.encode_eob << 7) |
-				   (opt.code_option.encode_eos << 6) |
+	if (opt->code_option.implicit_header_encode) {
+		reg->code_option = (opt->src_end_flag << 10) |
+				   (opt->code_option.encode_eob << 7) |
+				   (opt->code_option.encode_eos << 6) |
 				   (CODEOPT_ENC_VCL) |
 				   (CODEOPT_ENC_HEADER_IMPLICIT);
 	} else {
-		reg->code_option = (opt.code_option.encode_eob << 7) |
-				   (opt.code_option.encode_eos << 6) |
-				   (opt.code_option.encode_pps << 4) |
-				   (opt.code_option.encode_sps << 3) |
-				   (opt.code_option.encode_vps << 2) |
-				   (opt.code_option.encode_vcl << 1) |
-				   (opt.code_option.implicit_header_encode << 0);
+		reg->code_option = (opt->code_option.encode_eob << 7) |
+				   (opt->code_option.encode_eos << 6) |
+				   (opt->code_option.encode_pps << 4) |
+				   (opt->code_option.encode_sps << 3) |
+				   (opt->code_option.encode_vps << 2) |
+				   (opt->code_option.encode_vcl << 1) |
+				   (opt->code_option.implicit_header_encode << 0);
 	}
-	reg->pic_param = (opt.intra_4x4 << 27) |
-			 (opt.force_pic_type << 21) |
-			 (opt.force_pic_type_enable << 20) |
-			 (opt.force_pic_qp_b << 14) |
-			 (opt.force_pic_qp_p << 8) |
-			 (opt.force_pic_qp_i << 2) |
-			 (opt.force_pic_qp_enable << 1) |
-			 (opt.skip_picture << 0);
-	reg->longterm_pic = (opt.use_longterm_ref << 1) |
-			    (opt.use_cur_src_as_longterm_pic << 0);
-	reg->prefix_sei_nal_addr = opt.sei_nal.prefix_sei_nal_addr;
-	reg->prefix_sei_info = (opt.sei_nal.prefix_sei_nal_data_size << 16) |
-			       (opt.sei_nal.prefix_sei_nal_enable << 0);
-	reg->suffix_sei_nal_addr = opt.sei_nal.suffix_sei_nal_addr;
-	reg->suffix_sei_info = (opt.sei_nal.suffix_sei_nal_data_size << 16) |
-			       (opt.sei_nal.suffix_sei_nal_enable << 0);
-	reg->timestamp = ((opt.timestamp.hour & 0x1F) << 26) |
-			 ((opt.timestamp.min & 0x3F) << 20) |
-			 ((opt.timestamp.sec & 0x3F) << 14) |
-			 ((opt.timestamp.ms & 0x3FFF));
-	reg->csc_coeff[0] = ((opt.csc.coef_ry & 0x3FF) << 20) |
-			    ((opt.csc.coef_gy & 0x3FF) << 10) |
-			    ((opt.csc.coef_by & 0x3FF) << 0);
-	reg->csc_coeff[1] = ((opt.csc.coef_rcb & 0x3FF) << 20) |
-			    ((opt.csc.coef_gcb & 0x3FF) << 10) |
-			    ((opt.csc.coef_bcb & 0x3FF) << 0);
-	reg->csc_coeff[2] = ((opt.csc.coef_rcr & 0x3FF) << 20) |
-			    ((opt.csc.coef_gcr & 0x3FF) << 10) |
-			    ((opt.csc.coef_bcr & 0x3FF) << 0);
-	reg->csc_coeff[3] = ((opt.csc.offset_y & 0x3FF) << 20) |
-			    ((opt.csc.offset_cb & 0x3FF) << 10) |
-			    ((opt.csc.offset_cr & 0x3FF) << 0);
+	reg->pic_param = (opt->intra_4x4 << 27) |
+			 (opt->force_pic_type << 21) |
+			 (opt->force_pic_type_enable << 20) |
+			 (opt->force_pic_qp_b << 14) |
+			 (opt->force_pic_qp_p << 8) |
+			 (opt->force_pic_qp_i << 2) |
+			 (opt->force_pic_qp_enable << 1) |
+			 (opt->skip_picture << 0);
+	reg->longterm_pic = (opt->use_longterm_ref << 1) |
+			    (opt->use_cur_src_as_longterm_pic << 0);
+	reg->prefix_sei_nal_addr = opt->sei_nal.prefix_sei_nal_addr;
+	reg->prefix_sei_info = (opt->sei_nal.prefix_sei_nal_data_size << 16) |
+			       (opt->sei_nal.prefix_sei_nal_enable << 0);
+	reg->suffix_sei_nal_addr = opt->sei_nal.suffix_sei_nal_addr;
+	reg->suffix_sei_info = (opt->sei_nal.suffix_sei_nal_data_size << 16) |
+			       (opt->sei_nal.suffix_sei_nal_enable << 0);
+	reg->timestamp = ((opt->timestamp.hour & 0x1F) << 26) |
+			 ((opt->timestamp.min & 0x3F) << 20) |
+			 ((opt->timestamp.sec & 0x3F) << 14) |
+			 ((opt->timestamp.ms & 0x3FFF));
+	reg->csc_coeff[0] = ((opt->csc.coef_ry & 0x3FF) << 20) |
+			    ((opt->csc.coef_gy & 0x3FF) << 10) |
+			    ((opt->csc.coef_by & 0x3FF) << 0);
+	reg->csc_coeff[1] = ((opt->csc.coef_rcb & 0x3FF) << 20) |
+			    ((opt->csc.coef_gcb & 0x3FF) << 10) |
+			    ((opt->csc.coef_bcb & 0x3FF) << 0);
+	reg->csc_coeff[2] = ((opt->csc.coef_rcr & 0x3FF) << 20) |
+			    ((opt->csc.coef_gcr & 0x3FF) << 10) |
+			    ((opt->csc.coef_bcr & 0x3FF) << 0);
+	reg->csc_coeff[3] = ((opt->csc.offset_y & 0x3FF) << 20) |
+			    ((opt->csc.offset_cb & 0x3FF) << 10) |
+			    ((opt->csc.offset_cr & 0x3FF) << 0);
 }
 
 int wave6_vpu_encode(struct vpu_instance *vpu_inst, struct enc_param *option, u32 *fail_res)
@@ -2527,7 +2534,7 @@ int wave6_vpu_encode(struct vpu_instance *vpu_inst, struct enc_param *option, u3
 	memset(&reg, 0, sizeof(struct enc_cmd_enc_pic_reg));
 
 	wave6_gen_enc_pic_reg(p_enc_info, vpu_inst->cbcr_interleave,
-			      vpu_inst->nv21, *option, &reg);
+			      vpu_inst->nv21, option, &reg);
 
 	vpu_write_reg(vpu_inst->dev, W6_CMD_ENC_PIC_BS_START, reg.bs_start);
 	vpu_write_reg(vpu_inst->dev, W6_CMD_ENC_PIC_BS_SIZE, reg.bs_size);
