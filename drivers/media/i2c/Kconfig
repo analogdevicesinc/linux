@@ -1172,6 +1172,15 @@ config VIDEO_MAX9286
 	  To compile this driver as a module, choose M here: the
 	  module will be called max9286.
 
+config VIDEO_MAX96717_LIB
+	tristate "Maxim MAX96717 GMSL2 serializer support library."
+	depends on I2C
+	help
+	  This library supports the Maxim MAX96717 GMSL2 serializer which receives video on a
+	  MIPI CSI-2 interface and outputs it on a GMSL2 serial link transceiver.
+
+	  To compile this library as a module, choose M here: the module will be called max96717.
+
 config VIDEO_MAX96724
 	tristate "Maxim MAX96724 GMSL deserializer support"
 	depends on I2C && I2C_MUX
