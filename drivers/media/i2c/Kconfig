@@ -1215,6 +1215,21 @@ config VIDEO_ML86V7667
 	  To compile this driver as a module, choose M here: the
 	  module will be called ml86v7667.
 
+config VIDEO_MX95MBCAM
+	tristate "NXP OX03C10 + MAX961717 combo GMSL2 camera support"
+	select VIDEO_MAX96717_LIB
+	select VIDEO_OX03C10_LIB
+	depends on I2C
+	depends on VIDEO_DEV
+	depends on OF_GPIO
+	select V4L2_FWNODE
+	select VIDEO_V4L2_SUBDEV_API
+	select MEDIA_CONTROLLER
+	help
+	  This driver adds support for the OX03C10 camera module over a GMSL2 Maxim link. The
+	  module contains a MAX96717 GMSL2 serializer and needs to be used in conjuction with a
+	  compatible deserializer.
+
 config VIDEO_SAA7110
 	tristate "Philips SAA7110 video decoder"
 	depends on VIDEO_DEV && I2C
