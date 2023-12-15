@@ -414,10 +414,12 @@ static bool axi_dmac_transfer_done(struct axi_dmac_chan *chan,
 	if (chan->hw_sg) {
 		if (active->cyclic) {
 			vchan_cyclic_callback(&active->vdesc);
+			start_next = true;
 		} else {
 			list_del(&active->vdesc.node);
 			vchan_cookie_complete(&active->vdesc);
 			active = axi_dmac_active_desc(chan);
+			start_next = !!active;
 		}
 	} else {
 		do {
@@ -1026,6 +1028,7 @@ static int axi_dmac_probe(struct platform_device *pdev)
 	struct axi_dmac *dmac;
 	struct regmap *regmap;
 	unsigned int version;
+	u32 irq_mask = 0;
 	int ret;
 
 	dmac = devm_kzalloc(&pdev->dev, sizeof(*dmac), GFP_KERNEL);
@@ -1094,7 +1097,10 @@ static int axi_dmac_probe(struct platform_device *pdev)
 
 	dma_dev->copy_align = (dmac->chan.address_align_mask + 1);
 
-	axi_dmac_write(dmac, AXI_DMAC_REG_IRQ_MASK, 0x00);
+	if (dmac->chan.hw_sg)
+		irq_mask |= AXI_DMAC_IRQ_SOT;
+
+	axi_dmac_write(dmac, AXI_DMAC_REG_IRQ_MASK, irq_mask);
 
 	if (of_dma_is_coherent(pdev->dev.of_node)) {
 		ret = axi_dmac_read(dmac, AXI_DMAC_REG_COHERENCY_DESC);
