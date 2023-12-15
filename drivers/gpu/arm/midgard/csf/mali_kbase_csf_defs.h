@@ -915,7 +915,11 @@ struct kbase_csf_csg_slot {
  *                  number is indicative for use with reclaim shrinker's count method.
  */
 struct kbase_csf_sched_heap_reclaim_mgr {
+#if KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE
 	struct shrinker heap_reclaim;
+#else
+	struct shrinker *heap_reclaim;
+#endif
 	struct list_head ctx_lists[KBASE_QUEUE_GROUP_PRIORITY_COUNT];
 	atomic_t unused_pages;
 };

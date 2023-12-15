@@ -543,7 +543,11 @@ struct kbase_mem_pool {
 	u8 group_id;
 	spinlock_t pool_lock;
 	struct list_head page_list;
+#if KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE
 	struct shrinker reclaim;
+#else
+	struct shrinker *reclaim;
+#endif
 	atomic_t isolation_in_progress_cnt;
 
 	struct kbase_mem_pool *next_pool;
@@ -1967,7 +1971,11 @@ struct kbase_context {
 
 	struct kbase_mem_pool_group mem_pools;
 
+#if KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE
 	struct shrinker reclaim;
+#else
+	struct shrinker *reclaim;
+#endif
 	struct list_head evict_list;
 	atomic_t evict_nents;
 

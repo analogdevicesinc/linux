@@ -477,7 +477,11 @@ static unsigned long kbase_mem_pool_reclaim_count_objects(struct shrinker *s,
 
 	CSTD_UNUSED(sc);
 
+#if KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE
 	pool = container_of(s, struct kbase_mem_pool, reclaim);
+#else
+	pool = s->private_data;
+#endif
 
 	kbase_mem_pool_lock(pool);
 	if (pool->dont_reclaim && !pool->dying) {
@@ -499,7 +503,11 @@ static unsigned long kbase_mem_pool_reclaim_scan_objects(struct shrinker *s,
 	struct kbase_mem_pool *pool;
 	unsigned long freed;
 
+#if KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE
 	pool = container_of(s, struct kbase_mem_pool, reclaim);
+#else
+	pool = s->private_data;
+#endif
 
 	kbase_mem_pool_lock(pool);
 	if (pool->dont_reclaim && !pool->dying) {
@@ -525,6 +533,7 @@ int kbase_mem_pool_init(struct kbase_mem_pool *pool, const struct kbase_mem_pool
 			unsigned int order, int group_id, struct kbase_device *kbdev,
 			struct kbase_mem_pool *next_pool)
 {
+	struct shrinker *shrk;
 	if (WARN_ON(group_id < 0) || WARN_ON(group_id >= MEMORY_GROUP_MANAGER_NR_GROUPS)) {
 		return -EINVAL;
 	}
@@ -541,17 +550,30 @@ int kbase_mem_pool_init(struct kbase_mem_pool *pool, const struct kbase_mem_pool
 	spin_lock_init(&pool->pool_lock);
 	INIT_LIST_HEAD(&pool->page_list);
 
-	pool->reclaim.count_objects = kbase_mem_pool_reclaim_count_objects;
-	pool->reclaim.scan_objects = kbase_mem_pool_reclaim_scan_objects;
-	pool->reclaim.seeks = DEFAULT_SEEKS;
+#if KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE
+	shrk = &pool->reclaim;
+#else
+	shrk = shrinker_alloc(0,  "mali-mem-pool");
+	if (!shrk)
+		return -ENOMEM;
+
+	shrk->private_data = pool;
+	pool->reclaim = shrk;
+#endif
+
+	shrk->count_objects = kbase_mem_pool_reclaim_count_objects;
+	shrk->scan_objects = kbase_mem_pool_reclaim_scan_objects;
+	shrk->seeks = DEFAULT_SEEKS;
 	/* Kernel versions prior to 3.1 :
 	 * struct shrinker does not define batch
 	 */
-	pool->reclaim.batch = 0;
+	shrk->batch = 0;
 #if KERNEL_VERSION(6, 0, 0) > LINUX_VERSION_CODE
-	register_shrinker(&pool->reclaim);
+	register_shrinker(shrk);
+#elif KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE
+	register_shrinker(shrk, "mali-mem-pool");
 #else
-	register_shrinker(&pool->reclaim, "mali-mem-pool");
+	shrinker_register(shrk);
 #endif
 
 	pool_dbg(pool, "initialized\n");
@@ -578,7 +600,12 @@ void kbase_mem_pool_term(struct kbase_mem_pool *pool)
 
 	pool_dbg(pool, "terminate()\n");
 
+#if KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE
 	unregister_shrinker(&pool->reclaim);
+#else
+	if (pool->reclaim)
+		shrinker_free(pool->reclaim);
+#endif
 
 	kbase_mem_pool_lock(pool);
 	pool->max_size = 0;

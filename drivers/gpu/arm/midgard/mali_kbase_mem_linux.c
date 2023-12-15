@@ -652,7 +652,11 @@ out_unlock:
 static unsigned long kbase_mem_evictable_reclaim_count_objects(struct shrinker *s,
 							       struct shrink_control *sc)
 {
+#if KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE
 	struct kbase_context *kctx = container_of(s, struct kbase_context, reclaim);
+#else
+	struct kbase_context *kctx = s->private_data;
+#endif
 	int evict_nents = atomic_read(&kctx->evict_nents);
 	unsigned long nr_freeable_items;
 
@@ -702,7 +706,11 @@ static unsigned long kbase_mem_evictable_reclaim_scan_objects(struct shrinker *s
 	struct kbase_mem_phy_alloc *tmp;
 	unsigned long freed = 0;
 
+#if KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE
 	kctx = container_of(s, struct kbase_context, reclaim);
+#else
+	kctx = s->private_data;
+#endif
 
 	mutex_lock(&kctx->jit_evict_lock);
 
@@ -750,24 +758,42 @@ int kbase_mem_evictable_init(struct kbase_context *kctx)
 {
 	INIT_LIST_HEAD(&kctx->evict_list);
 	mutex_init(&kctx->jit_evict_lock);
+	struct shrinker *shrk;
 
-	kctx->reclaim.count_objects = kbase_mem_evictable_reclaim_count_objects;
-	kctx->reclaim.scan_objects = kbase_mem_evictable_reclaim_scan_objects;
-	kctx->reclaim.seeks = DEFAULT_SEEKS;
+#if KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE
+	shrk = &kctx->reclaim;
+#else
+	shrk = shrinker_alloc(0, "mali-mem");
+	if (!shrk)
+		return -ENOMEM;
+
+	shrk->private_data = kctx;
+	kctx->reclaim = shrk;
+#endif
+	shrk->count_objects = kbase_mem_evictable_reclaim_count_objects;
+	shrk->scan_objects = kbase_mem_evictable_reclaim_scan_objects;
+	shrk->seeks = DEFAULT_SEEKS;
 	/* Kernel versions prior to 3.1 :
 	 * struct shrinker does not define batch
 	 */
 #if KERNEL_VERSION(6, 0, 0) > LINUX_VERSION_CODE
-	register_shrinker(&kctx->reclaim);
+	register_shrinker(shrk);
+#elif KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE
+	register_shrinker(shrk, "mali-mem");
 #else
-	register_shrinker(&kctx->reclaim, "mali-mem");
+	shrinker_register(shrk);
 #endif
 	return 0;
 }
 
 void kbase_mem_evictable_deinit(struct kbase_context *kctx)
 {
+#if KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE
 	unregister_shrinker(&kctx->reclaim);
+#else
+	if (kctx->reclaim)
+		shrinker_free(kctx->reclaim);
+#endif
 }
 
 /**
