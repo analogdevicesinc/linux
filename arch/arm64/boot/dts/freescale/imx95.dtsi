@@ -66,7 +66,7 @@
 				exit-latency-us = <700>;
 				min-residency-us = <2700>;
 				wakeup-latency-us = <1500>;
-				status = "disabled";
+				status = "okay";
 			};
 		};
 
@@ -130,6 +130,7 @@
 			reg = <0x300>;
 			enable-method = "psci";
 			#cooling-cells = <2>;
+			cpu-idle-states = <&cpu_pd_wait>;
 			power-domains = <&scmi_perf IMX95_PERF_A55>;
 			power-domain-names = "perf";
 			i-cache-size = <32768>;
