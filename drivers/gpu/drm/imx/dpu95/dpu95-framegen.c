@@ -215,7 +215,8 @@ void dpu95_fg_cfg_videomode(struct dpu95_framegen *fg,
 	/* constant color is green(used in panic mode)  */
 	dpu95_fg_write(fg, FGCCR, CCGREEN(0x3ff));
 
-	clk_set_rate(dpu->clk_pix, m->crtc_clock * 1000);
+	if (enc_is_dsi)
+		clk_set_rate(dpu->clk_pix, m->crtc_clock * 1000);
 
 	ret = regmap_update_bits(dpu->regmap, CLOCK_CTRL, DSIP_CLK_SEL(fg->id),
 				 enc_is_dsi ? CCM : LVDS_PLL_7(fg->id));
@@ -331,17 +332,17 @@ int dpu95_fg_wait_for_secondary_syncup(struct dpu95_framegen *fg)
 
 void dpu95_fg_enable_clock(struct dpu95_framegen *fg, bool enc_is_dsi)
 {
-	if (!enc_is_dsi)
+	if (enc_is_dsi)
+		clk_prepare_enable(fg->dpu->clk_pix);
+	else
 		clk_prepare_enable(fg->dpu->clk_ldb);
-
-	clk_prepare_enable(fg->dpu->clk_pix);
 }
 
 void dpu95_fg_disable_clock(struct dpu95_framegen *fg, bool enc_is_dsi)
 {
-	clk_disable_unprepare(fg->dpu->clk_pix);
-
-	if (!enc_is_dsi)
+	if (enc_is_dsi)
+		clk_disable_unprepare(fg->dpu->clk_pix);
+	else
 		clk_disable_unprepare(fg->dpu->clk_ldb);
 }
 
