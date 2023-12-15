@@ -24,20 +24,12 @@
 
 	leds {
 		compatible = "gpio-leds";
-		hps0 {
-			label = "hps_led0";
-			gpios = <&portb 20 GPIO_ACTIVE_HIGH>;
-		};
 
 		hps1 {
 			label = "hps_led1";
-			gpios = <&portb 19 GPIO_ACTIVE_HIGH>;
+			gpios = <&porta 11 GPIO_ACTIVE_HIGH>;
 		};
 
-		hps2 {
-			label = "hps_led2";
-			gpios = <&portb 21 GPIO_ACTIVE_HIGH>;
-		};
 	};
 
 	memory {
@@ -47,7 +39,7 @@
 	};
 };
 
-&gpio1 {
+&gpio0 {
 	status = "okay";
 };
 
