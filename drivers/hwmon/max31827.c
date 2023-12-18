@@ -24,11 +24,13 @@
 
 #define MAX31827_CONFIGURATION_1SHOT_MASK	BIT(0)
 #define MAX31827_CONFIGURATION_CNV_RATE_MASK	GENMASK(3, 1)
+#define MAX31827_CONFIGURATION_PEC_EN_MASK	BIT(4)
 #define MAX31827_CONFIGURATION_TIMEOUT_MASK	BIT(5)
 #define MAX31827_CONFIGURATION_RESOLUTION_MASK	GENMASK(7, 6)
 #define MAX31827_CONFIGURATION_ALRM_POL_MASK	BIT(8)
 #define MAX31827_CONFIGURATION_COMP_INT_MASK	BIT(9)
 #define MAX31827_CONFIGURATION_FLT_Q_MASK	GENMASK(11, 10)
+#define MAX31827_CONFIGURATION_PEC_ERR_MASK	BIT(13)
 #define MAX31827_CONFIGURATION_U_TEMP_STAT_MASK	BIT(14)
 #define MAX31827_CONFIGURATION_O_TEMP_STAT_MASK	BIT(15)
 
@@ -94,23 +96,92 @@ struct max31827_state {
 	 * Prevent simultaneous access to the i2c client.
 	 */
 	struct mutex lock;
-	struct regmap *regmap;
 	bool enable;
 	unsigned int resolution;
 	unsigned int update_interval;
+	struct i2c_client *client;
 };
 
-static const struct regmap_config max31827_regmap = {
-	.reg_bits = 8,
-	.val_bits = 16,
-	.max_register = 0xA,
-};
+static int max31827_reg_write(struct i2c_client *client, unsigned int reg,
+			      unsigned int val)
+{
+	int ret;
+
+	ret = i2c_smbus_write_word_swapped(client, reg, val);
+	if (ret)
+		return ret;
+
+	if (client->flags & I2C_CLIENT_PEC) {
+		ret = i2c_smbus_read_word_swapped(client,
+						  MAX31827_CONFIGURATION_REG);
+		if (ret < 0)
+			return ret;
+
+		if (ret & MAX31827_CONFIGURATION_PEC_ERR_MASK)
+			return -ECOMM;
+	}
+
+	return 0;
+}
+
+static int max31827_update_bits(struct i2c_client *client, unsigned int reg,
+				unsigned int mask, unsigned int val)
+{
+	unsigned int tmp;
+	int ret;
+
+	ret = i2c_smbus_read_word_swapped(client, reg);
+	if (ret < 0)
+		return ret;
+
+	tmp = (ret & ~mask) | (ret & val);
+	ret = max31827_reg_write(client, reg, tmp);
+
+	return ret;
+}
+
+static int max31827_reg_write(struct max31827_state *st, unsigned int reg,
+			      unsigned int val)
+{
+	unsigned int cfg;
+	int ret;
+
+	ret = regmap_write(st->regmap, reg, val);
+	if (ret)
+		return ret;
+
+	if (st->client->flags & I2C_CLIENT_PEC) {
+		ret = regmap_read(st->regmap, MAX31827_CONFIGURATION_REG, &cfg);
+		if (ret)
+			return ret;
+
+		if (cfg & MAX31827_CONFIGURATION_PEC_ERR_MASK)
+			return -ECOMM;
+	}
+
+	return 0;
+}
+
+static int max31827_update_bits(struct max31827_state *st, unsigned int reg,
+				unsigned int mask, unsigned int val)
+{
+	unsigned int tmp = 0;
+	int ret;
+
+	ret = regmap_read(st->regmap, reg, &tmp);
+	if (ret)
+		return ret;
+
+	tmp = (tmp & ~mask) | (val & mask);
+	ret = max31827_reg_write(st, reg, tmp);
+
+	return ret;
+}
 
 static int shutdown_write(struct max31827_state *st, unsigned int reg,
 			  unsigned int mask, unsigned int val)
 {
-	unsigned int cfg;
-	unsigned int cnv_rate;
+	unsigned int cfg, cnv_rate;
 	int ret;
 
 	/*
@@ -125,34 +196,35 @@ static int shutdown_write(struct max31827_state *st, unsigned int reg,
 
 	if (!st->enable) {
 		if (!mask)
-			ret = regmap_write(st->regmap, reg, val);
+			ret = max31827_reg_write(st->client, reg, val);
 		else
-			ret = regmap_update_bits(st->regmap, reg, mask, val);
+			ret = max31827_update_bits(st->client, reg, mask, val);
 		goto unlock;
 	}
 
-	ret = regmap_read(st->regmap, MAX31827_CONFIGURATION_REG, &cfg);
-	if (ret)
+	ret = i2c_smbus_read_word_swapped(st->client,
+					  MAX31827_CONFIGURATION_REG);
+	if (ret < 0)
 		goto unlock;
 
-	cnv_rate = MAX31827_CONFIGURATION_CNV_RATE_MASK & cfg;
-	cfg = cfg & ~(MAX31827_CONFIGURATION_1SHOT_MASK |
+	cnv_rate = MAX31827_CONFIGURATION_CNV_RATE_MASK & ret;
+	cfg = ret & ~(MAX31827_CONFIGURATION_1SHOT_MASK |
 		      MAX31827_CONFIGURATION_CNV_RATE_MASK);
-	ret = regmap_write(st->regmap, MAX31827_CONFIGURATION_REG, cfg);
+	ret = max31827_reg_write(st->client, MAX31827_CONFIGURATION_REG, cfg);
 	if (ret)
 		goto unlock;
 
 	if (!mask)
-		ret = regmap_write(st->regmap, reg, val);
+		ret = max31827_reg_write(st->client, reg, val);
 	else
-		ret = regmap_update_bits(st->regmap, reg, mask, val);
+		ret = max31827_update_bits(st->client, reg, mask, val);
 
 	if (ret)
 		goto unlock;
 
-	ret = regmap_update_bits(st->regmap, MAX31827_CONFIGURATION_REG,
-				 MAX31827_CONFIGURATION_CNV_RATE_MASK,
-				 cnv_rate);
+	ret = max31827_update_bits(st->client, MAX31827_CONFIGURATION_REG,
+				   MAX31827_CONFIGURATION_CNV_RATE_MASK,
+				   cnv_rate);
 
 unlock:
 	mutex_unlock(&st->lock);
@@ -205,14 +277,14 @@ static int max31827_read(struct device *dev, enum hwmon_sensor_types type,
 	case hwmon_temp:
 		switch (attr) {
 		case hwmon_temp_enable:
-			ret = regmap_read(st->regmap,
-					  MAX31827_CONFIGURATION_REG, &uval);
-			if (ret)
+			ret = i2c_smbus_read_word_swapped(st->client,
+							  MAX31827_CONFIGURATION_REG);
+			if (ret < 0)
 				break;
 
 			uval = FIELD_GET(MAX31827_CONFIGURATION_1SHOT_MASK |
 					 MAX31827_CONFIGURATION_CNV_RATE_MASK,
-					 uval);
+					 ret);
 			*val = !!uval;
 
 			break;
@@ -226,10 +298,10 @@ static int max31827_read(struct device *dev, enum hwmon_sensor_types type,
 				 * be changed during the conversion process.
 				 */
 
-				ret = regmap_update_bits(st->regmap,
-							 MAX31827_CONFIGURATION_REG,
-							 MAX31827_CONFIGURATION_1SHOT_MASK,
-							 1);
+				ret = max31827_update_bits(st->client,
+							   MAX31827_CONFIGURATION_REG,
+							   MAX31827_CONFIGURATION_1SHOT_MASK,
+							   1);
 				if (ret) {
 					mutex_unlock(&st->lock);
 					return ret;
@@ -246,63 +318,65 @@ static int max31827_read(struct device *dev, enum hwmon_sensor_types type,
 			    st->update_interval == 125)
 				usleep_range(15000, 20000);
 
-			ret = regmap_read(st->regmap, MAX31827_T_REG, &uval);
+			ret = i2c_smbus_read_word_swapped(st->client,
+							  MAX31827_T_REG);
 
 			mutex_unlock(&st->lock);
 
-			if (ret)
+			if (ret < 0)
 				break;
 
-			*val = MAX31827_16_BIT_TO_M_DGR(uval);
+			*val = MAX31827_16_BIT_TO_M_DGR(ret);
 
 			break;
 		case hwmon_temp_max:
-			ret = regmap_read(st->regmap, MAX31827_TH_REG, &uval);
-			if (ret)
+			ret = i2c_smbus_read_word_swapped(st->client,
+							  MAX31827_TH_REG);
+			if (ret < 0)
 				break;
 
-			*val = MAX31827_16_BIT_TO_M_DGR(uval);
+			*val = MAX31827_16_BIT_TO_M_DGR(ret);
 			break;
 		case hwmon_temp_max_hyst:
-			ret = regmap_read(st->regmap, MAX31827_TH_HYST_REG,
-					  &uval);
-			if (ret)
+			ret = i2c_smbus_read_word_swapped(st->client,
+							  MAX31827_TH_HYST_REG);
+			if (ret < 0)
 				break;
 
-			*val = MAX31827_16_BIT_TO_M_DGR(uval);
+			*val = MAX31827_16_BIT_TO_M_DGR(ret);
 			break;
 		case hwmon_temp_max_alarm:
-			ret = regmap_read(st->regmap,
-					  MAX31827_CONFIGURATION_REG, &uval);
-			if (ret)
+			ret = i2c_smbus_read_word_swapped(st->client,
+							  MAX31827_CONFIGURATION_REG);
+			if (ret < 0)
 				break;
 
 			*val = FIELD_GET(MAX31827_CONFIGURATION_O_TEMP_STAT_MASK,
-					 uval);
+					 ret);
 			break;
 		case hwmon_temp_min:
-			ret = regmap_read(st->regmap, MAX31827_TL_REG, &uval);
-			if (ret)
+			ret = i2c_smbus_read_word_swapped(st->client, MAX31827_TL_REG);
+			if (ret < 0)
 				break;
 
-			*val = MAX31827_16_BIT_TO_M_DGR(uval);
+			*val = MAX31827_16_BIT_TO_M_DGR(ret);
 			break;
 		case hwmon_temp_min_hyst:
-			ret = regmap_read(st->regmap, MAX31827_TL_HYST_REG,
-					  &uval);
-			if (ret)
+			ret = i2c_smbus_read_word_swapped(st->client,
+							  MAX31827_TL_HYST_REG);
+			if (ret < 0)
 				break;
 
-			*val = MAX31827_16_BIT_TO_M_DGR(uval);
+			*val = MAX31827_16_BIT_TO_M_DGR(ret);
 			break;
 		case hwmon_temp_min_alarm:
-			ret = regmap_read(st->regmap,
-					  MAX31827_CONFIGURATION_REG, &uval);
-			if (ret)
+			ret = i2c_smbus_read_word_swapped(st->client,
+							  MAX31827_CONFIGURATION_REG);
+			if (ret < 0)
 				break;
 
 			*val = FIELD_GET(MAX31827_CONFIGURATION_U_TEMP_STAT_MASK,
-					 uval);
+					 ret);
 			break;
 		default:
 			ret = -EOPNOTSUPP;
@@ -313,13 +387,13 @@ static int max31827_read(struct device *dev, enum hwmon_sensor_types type,
 
 	case hwmon_chip:
 		if (attr == hwmon_chip_update_interval) {
-			ret = regmap_read(st->regmap,
-					  MAX31827_CONFIGURATION_REG, &uval);
-			if (ret)
+			ret = i2c_smbus_read_word_swapped(st->client,
+							  MAX31827_CONFIGURATION_REG);
+			if (ret < 0)
 				break;
 
 			uval = FIELD_GET(MAX31827_CONFIGURATION_CNV_RATE_MASK,
-					 uval);
+					 ret);
 			*val = max31827_conversions[uval];
 		}
 		break;
@@ -355,11 +429,11 @@ static int max31827_write(struct device *dev, enum hwmon_sensor_types type,
 
 			st->enable = val;
 
-			ret = regmap_update_bits(st->regmap,
-						 MAX31827_CONFIGURATION_REG,
-						 MAX31827_CONFIGURATION_1SHOT_MASK |
-						 MAX31827_CONFIGURATION_CNV_RATE_MASK,
-						 MAX31827_DEVICE_ENABLE(val));
+			ret = max31827_update_bits(st->client,
+						   MAX31827_CONFIGURATION_REG,
+						   MAX31827_CONFIGURATION_1SHOT_MASK |
+						   MAX31827_CONFIGURATION_CNV_RATE_MASK,
+						   MAX31827_DEVICE_ENABLE(val));
 
 			mutex_unlock(&st->lock);
 
@@ -402,10 +476,10 @@ static int max31827_write(struct device *dev, enum hwmon_sensor_types type,
 			res = FIELD_PREP(MAX31827_CONFIGURATION_CNV_RATE_MASK,
 					 res);
 
-			ret = regmap_update_bits(st->regmap,
-						 MAX31827_CONFIGURATION_REG,
-						 MAX31827_CONFIGURATION_CNV_RATE_MASK,
-						 res);
+			ret = max31827_update_bits(st->client,
+						   MAX31827_CONFIGURATION_REG,
+						   MAX31827_CONFIGURATION_CNV_RATE_MASK,
+						   res);
 			if (ret)
 				return ret;
 
@@ -428,8 +502,9 @@ static ssize_t temp1_resolution_show(struct device *dev,
 	unsigned int val;
 	int ret;
 
-	ret = regmap_read(st->regmap, MAX31827_CONFIGURATION_REG, &val);
-	if (ret)
+	ret = i2c_smbus_read_word_swapped(st->client,
+					  MAX31827_CONFIGURATION_REG);
+	if (ret < 0)
 		return ret;
 
 	val = FIELD_GET(MAX31827_CONFIGURATION_RESOLUTION_MASK, val);
@@ -473,10 +548,61 @@ static ssize_t temp1_resolution_store(struct device *dev,
 	return ret ? ret : count;
 }
 
+static ssize_t pec_show(struct device *dev, struct device_attribute *devattr,
+			char *buf)
+{
+	struct max31827_state *st = dev_get_drvdata(dev);
+	struct i2c_client *client = st->client;
+
+	return scnprintf(buf, PAGE_SIZE, "%d\n", !!(client->flags & I2C_CLIENT_PEC));
+}
+
+static ssize_t pec_store(struct device *dev, struct device_attribute *devattr,
+			 const char *buf, size_t count)
+{
+	struct max31827_state *st = dev_get_drvdata(dev);
+	struct i2c_client *client = st->client;
+	unsigned int val, val2;
+	int err;
+
+	err = kstrtouint(buf, 10, &val);
+	if (err < 0)
+		return err;
+
+	val2 = FIELD_PREP(MAX31827_CONFIGURATION_PEC_EN_MASK, !!val);
+
+	switch (val) {
+	case 0:
+		err = max31827_update_bits(client, MAX31827_CONFIGURATION_REG,
+					   MAX31827_CONFIGURATION_PEC_EN_MASK,
+					   val2);
+		if (err)
+			return err;
+
+		client->flags &= ~I2C_CLIENT_PEC;
+		break;
+	case 1:
+		err = max31827_update_bits(client, MAX31827_CONFIGURATION_REG,
+					   MAX31827_CONFIGURATION_PEC_EN_MASK,
+					   val2);
+		if (err)
+			return err;
+
+		client->flags |= I2C_CLIENT_PEC;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return count;
+}
+
 static DEVICE_ATTR_RW(temp1_resolution);
+static DEVICE_ATTR_RW(pec);
 
 static struct attribute *max31827_attrs[] = {
 	&dev_attr_temp1_resolution.attr,
+	&dev_attr_pec.attr,
 	NULL
 };
 ATTRIBUTE_GROUPS(max31827);
@@ -575,7 +701,7 @@ static int max31827_init_client(struct max31827_state *st,
 		}
 	}
 
-	return regmap_write(st->regmap, MAX31827_CONFIGURATION_REG, res);
+	return max31827_reg_write(st->client, MAX31827_CONFIGURATION_REG, res);
 }
 
 static const struct hwmon_channel_info *max31827_info[] = {
@@ -613,11 +739,7 @@ static int max31827_probe(struct i2c_client *client)
 		return -ENOMEM;
 
 	mutex_init(&st->lock);
-
-	st->regmap = devm_regmap_init_i2c(client, &max31827_regmap);
-	if (IS_ERR(st->regmap))
-		return dev_err_probe(dev, PTR_ERR(st->regmap),
-				     "Failed to allocate regmap.\n");
+	st->client = client;
 
 	err = devm_regulator_get_enable(dev, "vref");
 	if (err)
