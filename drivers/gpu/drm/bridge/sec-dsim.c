@@ -1679,7 +1679,7 @@ sec_mipi_dsim_bridge_mode_valid(struct drm_bridge *bridge,
 	}
 
 	if (pdata->mode_valid)
-		return pdata->mode_valid(&dsim->connector, mode);
+		return pdata->mode_valid(dsim->encoder, mode);
 
 	return MODE_OK;
 };
