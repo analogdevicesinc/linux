@@ -14,6 +14,7 @@ Required properties:
   Documentation/devicetree/bindings/clock/clock-bindings.txt
 	"cfg"		- DSIM access clock
 	"pll-ref"	- DSIM PHY PLL reference clock
+	"pixel"		- DSIM input pixel clock, required only by i.MX8MP.
 - assigned-clocks:	phandles to clocks that requires initial configuration
 - assigned-clock-rates:	rates of the clocks that requires initial configuration
 - pref-clk:		Assign DPHY PLL reference clock frequency. If not exists,
