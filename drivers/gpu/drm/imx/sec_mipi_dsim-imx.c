@@ -47,6 +47,7 @@ struct imx_sec_dsim_device {
 	struct clk *clk_cfg;
 	struct clk *clk_pllref;
 	struct clk *clk_apb;
+	struct clk *clk_pix;
 	struct drm_encoder encoder;
 
 	struct reset_control *soft_resetn;
@@ -209,6 +210,36 @@ static const struct drm_encoder_helper_funcs imx_sec_dsim_encoder_helper_funcs =
 	.atomic_check = imx_sec_dsim_encoder_atomic_check,
 };
 
+static enum drm_mode_status
+sec_dsim_mode_valid(struct drm_encoder *encoder,
+		    const struct drm_display_mode *mode)
+{
+	struct imx_sec_dsim_device *dsim_dev = enc_to_dsim(encoder);
+	struct drm_bridge *next_bridge = drm_bridge_chain_get_first_bridge(encoder);
+	unsigned long rounded_rate;
+	unsigned long pixel_clock_rate;
+
+	if (!next_bridge)
+		return MODE_OK;
+
+	while (drm_bridge_get_next_bridge(next_bridge))
+		next_bridge = drm_bridge_get_next_bridge(next_bridge);
+
+	if ((next_bridge->ops & DRM_BRIDGE_OP_DETECT) &&
+	    (next_bridge->ops & DRM_BRIDGE_OP_EDID)) {
+		if (dsim_dev->clk_pix) {
+			pixel_clock_rate = mode->clock * 1000;
+			rounded_rate = clk_round_rate(dsim_dev->clk_pix,
+						      pixel_clock_rate);
+
+			if (rounded_rate != pixel_clock_rate)
+				return MODE_CLOCK_RANGE;
+		}
+	}
+
+	return MODE_OK;
+}
+
 static int sec_dsim_determine_pll_ref_rate(u32 *rate, u32 min, u32 max)
 {
 	int ret;
@@ -260,7 +291,7 @@ static const struct sec_mipi_dsim_plat_data imx8mm_mipi_dsim_plat_data = {
 	.dphy_timing	= dphy_timing_ln14lpp_v1p2,
 	.num_dphy_timing = ARRAY_SIZE(dphy_timing_ln14lpp_v1p2),
 	.dphy_timing_cmp = dphy_timing_default_cmp,
-	.mode_valid	= NULL,
+	.mode_valid	= sec_dsim_mode_valid,
 	.determine_pll_ref_rate = sec_dsim_determine_pll_ref_rate,
 };
 
@@ -443,6 +474,11 @@ static int imx_sec_dsim_probe(struct platform_device *pdev)
 	dsim_dev->clk_apb = devm_clk_get(dev, "apb-root");
 	if (IS_ERR(dsim_dev->clk_apb))
 		return PTR_ERR(dsim_dev->clk_apb);
+
+	dsim_dev->clk_pix = devm_clk_get_optional(dev, "pixel");
+	if (IS_ERR(dsim_dev->clk_pix))
+		return dev_err_probe(dev, PTR_ERR(dsim_dev->clk_pix),
+				"failed to get pixel clock\n");
 
 	ret = sec_dsim_of_parse_resets(dsim_dev);
 	if (ret)
