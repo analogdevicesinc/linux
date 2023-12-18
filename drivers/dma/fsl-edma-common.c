@@ -48,6 +48,12 @@ void fsl_edma_tx_chan_handler(struct fsl_edma_chan *fsl_chan)
 {
 	spin_lock(&fsl_chan->vchan.lock);
 
+	/* Ignore this interrupt since channel has been freeed with power off */
+	if (!fsl_chan->edesc && !fsl_chan->tcd_pool) {
+		spin_unlock(&fsl_chan->vchan.lock);
+		return;
+	}
+
 	if (!fsl_chan->edesc) {
 		/* terminate_all called before */
 		spin_unlock(&fsl_chan->vchan.lock);
@@ -127,8 +133,8 @@ static void fsl_edma3_disable_request(struct fsl_edma_chan *fsl_chan)
 
 	flags = fsl_edma_drvflags(fsl_chan);
 
-	if (flags & FSL_EDMA_DRV_HAS_CHMUX)
-		edma_writel(fsl_chan->edma, 0, fsl_chan->mux_addr);
+	if (fsl_chan->srcid && (flags & FSL_EDMA_DRV_HAS_CHMUX))
+		edma_writel_chreg(fsl_chan, 0, ch_mux);
 
 	val &= ~EDMA_V3_CH_CSR_ERQ;
 	edma_writel_chreg(fsl_chan, val, ch_csr);
@@ -142,7 +148,7 @@ void fsl_edma_disable_request(struct fsl_edma_chan *fsl_chan)
 	if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_SPLIT_REG)
 		return fsl_edma3_disable_request(fsl_chan);
 
-	if (fsl_chan->edma->drvdata->flags & FSL_EDMA_DRV_WRAP_IO) {
+	if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_WRAP_IO) {
 		edma_writeb(fsl_chan->edma, ch, regs->cerq);
 		edma_writeb(fsl_chan->edma, EDMA_CEEI_CEEI(ch), regs->ceei);
 	} else {

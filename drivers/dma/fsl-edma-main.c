@@ -432,7 +432,6 @@ static int fsl_edma3_attach_pd(struct platform_device *pdev, struct fsl_edma_eng
 			continue;
 
 		fsl_chan = &fsl_edma->chans[i];
-
 		pd_chan = dev_pm_domain_attach_by_id(dev, i);
 		if (IS_ERR_OR_NULL(pd_chan)) {
 			dev_err(dev, "Failed attach pd %d\n", i);
@@ -473,7 +472,6 @@ static int fsl_edma_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "unable to find driver data\n");
 		return -EINVAL;
 	}
-
 	ret = of_property_read_u32(np, "dma-channels", &chans);
 	if (ret) {
 		dev_err(&pdev->dev, "Can't get dma-channels.\n");
@@ -672,6 +670,9 @@ static void fsl_edma_remove(struct platform_device *pdev)
 	of_dma_controller_free(np);
 	dma_async_device_unregister(&fsl_edma->dma_dev);
 	fsl_disable_clocks(fsl_edma, fsl_edma->drvdata->dmamuxs);
+
+	if (fsl_edma->drvdata->flags & FSL_EDMA_DRV_HAS_DMACLK)
+		clk_disable_unprepare(fsl_edma->dmaclk);
 }
 
 static int fsl_edma_suspend_late(struct device *dev)
@@ -685,6 +686,9 @@ static int fsl_edma_suspend_late(struct device *dev)
 		fsl_chan = &fsl_edma->chans[i];
 		if (fsl_edma->chan_masked & BIT(i))
 			continue;
+		if (!(fsl_edma->drvdata->flags & FSL_EDMA_DRV_HAS_PD) &&
+		    FSL_EDMA_DRV_SPLIT_REG && !fsl_chan->srcid)
+			continue;
 		spin_lock_irqsave(&fsl_chan->vchan.lock, flags);
 		/* Make sure chan is idle or will force disable. */
 		if (unlikely(fsl_chan->status == DMA_IN_PROGRESS)) {
@@ -696,7 +700,6 @@ static int fsl_edma_suspend_late(struct device *dev)
 		fsl_chan->pm_state = SUSPENDED;
 		spin_unlock_irqrestore(&fsl_chan->vchan.lock, flags);
 	}
-
 	return 0;
 }
 
@@ -711,6 +714,9 @@ static int fsl_edma_resume_early(struct device *dev)
 		fsl_chan = &fsl_edma->chans[i];
 		if (fsl_edma->chan_masked & BIT(i))
 			continue;
+		if (!(fsl_edma->drvdata->flags & FSL_EDMA_DRV_HAS_PD) &&
+		    FSL_EDMA_DRV_SPLIT_REG && !fsl_chan->srcid)
+			continue;
 		fsl_chan->pm_state = RUNNING;
 		edma_write_tcdreg(fsl_chan, 0, csr);
 		if (fsl_chan->srcid != 0)
@@ -719,7 +725,6 @@ static int fsl_edma_resume_early(struct device *dev)
 
 	if (!(fsl_edma->drvdata->flags & FSL_EDMA_DRV_SPLIT_REG))
 		edma_writel(fsl_edma, EDMA_CR_ERGA | EDMA_CR_ERCA, regs->cr);
-
 	return 0;
 }
 

@@ -206,6 +206,7 @@ struct fsl_edma_desc {
 /* Need clean CHn_CSR DONE before enable TCD's MAJORELINK */
 #define FSL_EDMA_DRV_CLEAR_DONE_E_LINK	BIT(14)
 #define FSL_EDMA_DRV_TCD64		BIT(15)
+#define FSL_EDMA_DRV_HAS_MPCLK         BIT(16)
 
 #define FSL_EDMA_DRV_EDMA3	(FSL_EDMA_DRV_SPLIT_REG |	\
 				 FSL_EDMA_DRV_BUS_8BYTE |	\
