@@ -389,7 +389,11 @@ _GFPAlloc(IN gckALLOCATOR  Allocator,
     gceSTATUS status;
     gctSIZE_T i          = 0;
     gctBOOL   contiguous = Flags & gcvALLOC_FLAG_CONTIGUOUS;
-    u32 normal_gfp = GFP_ATOMIC | __GFP_NORETRY | gcdNOWARN;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 4, 0) && LINUX_VERSION_CODE < KERNEL_VERSION(6, 3, 0)
+    u32 normal_gfp = __GFP_HIGH | __GFP_ATOMIC | __GFP_NORETRY | gcdNOWARN;
+#else
+    u32 normal_gfp = __GFP_HIGH | __GFP_NORETRY | gcdNOWARN;
+#endif
     u32 gfp = (contiguous ? normal_gfp : GFP_KERNEL) | __GFP_HIGHMEM | gcdNOWARN;
 
     struct gfp_alloc    *priv    = (struct gfp_alloc *)Allocator->privateData;
