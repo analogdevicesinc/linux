@@ -20,6 +20,22 @@
 	};
 };
 
+&reg_can1_stby {
+	gpio = <&i2c7_pcal6524_23 0 GPIO_ACTIVE_HIGH>;
+};
+
+&reg_can1_en {
+	gpio = <&i2c7_pcal6524_23 2 GPIO_ACTIVE_HIGH>;
+};
+
+&reg_can2_stby {
+	gpio = <&i2c7_pcal6524_23 3 GPIO_ACTIVE_HIGH>;
+};
+
+&reg_can2_en {
+	gpio = <&i2c7_pcal6524_23 5 GPIO_ACTIVE_HIGH>;
+};
+
 &reg_usb_vbus {
 	gpio = <&i2c7_pcal6524_23 22 GPIO_ACTIVE_HIGH>;
 };
