@@ -444,8 +444,7 @@ static int ad4134_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = devm_iio_dmaengine_buffer_setup(dev, indio_dev, "rx",
-					      IIO_BUFFER_DIRECTION_IN);
+	ret = devm_iio_dmaengine_buffer_setup(dev, indio_dev, "rx");
 	if (ret)
 		return dev_err_probe(dev, ret,
 				     "Failed to allocate IIO DMA buffer\n");

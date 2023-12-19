@@ -848,8 +848,7 @@ static int ad7768_hardware_buffer_alloc(struct iio_dev *indio_dev)
 {
 	indio_dev->setup_ops = &ad7768_buffer_ops;
 	return devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
-					       indio_dev, "rx",
-					       IIO_BUFFER_DIRECTION_IN);
+					       indio_dev, "rx");
 }
 
 static int ad7768_set_channel_label(struct iio_dev *indio_dev,
