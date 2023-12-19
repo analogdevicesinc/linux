@@ -229,7 +229,7 @@ static ssize_t polarity_store(struct device *child,
 	mutex_lock(&export->lock);
 	pwm_get_state(pwm, &state);
 	state.polarity = polarity;
-	ret = pwm_apply_state(pwm, &state);
+	ret = pwm_apply_might_sleep(pwm, &state);
 	mutex_unlock(&export->lock);
 
 	return ret ? : size;
