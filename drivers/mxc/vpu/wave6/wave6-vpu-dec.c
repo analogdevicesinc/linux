@@ -725,6 +725,18 @@ static void wave6_vpu_dec_handle_source_change(struct vpu_instance *inst,
 	v4l2_event_queue_fh(&inst->v4l2_fh, &vpu_event_src_ch);
 }
 
+static void wave6_vpu_dec_handle_decoding_warn_error(struct vpu_instance *inst,
+						     struct dec_output_info *info)
+{
+	if (info->warn_info)
+		dev_dbg(inst->dev->dev, "[%d] decoding %d warning 0x%x\n",
+			inst->id, inst->processed_buf_num, info->warn_info);
+
+	if (info->error_reason)
+		dev_err(inst->dev->dev, "[%d] decoding %d error 0x%x\n",
+			inst->id, inst->processed_buf_num, info->error_reason);
+}
+
 static void wave6_vpu_dec_finish_decode(struct vpu_instance *inst)
 {
 	struct dec_output_info info;
@@ -770,7 +782,9 @@ static void wave6_vpu_dec_finish_decode(struct vpu_instance *inst)
 		goto finish_decode;
 	}
 
-	if (info.frame_decoded_flag)
+	wave6_vpu_dec_handle_decoding_warn_error(inst, &info);
+
+	if (info.decoding_success && info.frame_decoded_flag)
 		wave6_handle_decoded_frame(inst, info.frame_decoded_addr);
 	else
 		wave6_handle_skipped_frame(inst);
