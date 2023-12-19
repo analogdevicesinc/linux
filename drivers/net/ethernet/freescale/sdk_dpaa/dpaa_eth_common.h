@@ -147,8 +147,6 @@ dpa_get_stats64(struct net_device *net_dev,
 		struct rtnl_link_stats64 *stats);
 int dpa_ndo_init(struct net_device *net_dev);
 int dpa_set_features(struct net_device *dev, netdev_features_t features);
-netdev_features_t dpa_fix_features(struct net_device *dev,
-		netdev_features_t features);
 #ifdef CONFIG_FSL_DPAA_TS
 u64 dpa_get_timestamp_ns(const struct dpa_priv_s *priv,
 			enum port_type rx_tx, const void *data);

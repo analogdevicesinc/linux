@@ -522,6 +522,21 @@ int fm_port_set_rate_limit(struct fm_port *port,
 @Cautions     Allowed only after the port is initialized.
 *//***************************************************************************/
 int fm_port_del_rate_limit(struct fm_port *port);
+/**************************************************************************//**
+@Function     fm_port_enable_rx_l4csum
+
+@Description   Configure L4 checksum validation by setting the DCL4C bit in
+               the FMBM_RFNE[FDCS] register. Passing true sets the DCL4C bit
+               to 1, disabling L4 checksum validation. This setting is
+               relevant only if the parser is enabled (Rx port).
+
+@Param[in]    port - A handle of the FM port device.
+@Param[in]    enable - Boolean, set to true to enable L4 checksum validation
+                       and false to disable it.
+
+@Cautions     Allowed only after the port is initialized.
+*//***************************************************************************/
+int fm_port_enable_rx_l4csum(struct fm_port *port, bool enable);
 
 struct   auto_res_tables_sizes
 {

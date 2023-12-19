@@ -279,29 +279,22 @@ EXPORT_SYMBOL(dpa_ndo_init);
 
 int dpa_set_features(struct net_device *dev, netdev_features_t features)
 {
-	/* Not much to do here for now */
-	dev->features = features;
+	netdev_features_t changed = features ^ dev->features;
+	struct dpa_priv_s *priv = netdev_priv(dev);
+	struct mac_device *mac_dev = priv->mac_dev;
+	bool enable;
+	int err;
+
+	if (changed & NETIF_F_RXCSUM) {
+		enable = !!(features & NETIF_F_RXCSUM);
+		err = fm_port_enable_rx_l4csum(mac_dev->port_dev[RX], enable);
+		if (err)
+			return err;
+	}
+
 	return 0;
 }
 EXPORT_SYMBOL(dpa_set_features);
-
-netdev_features_t dpa_fix_features(struct net_device *dev,
-		netdev_features_t features)
-{
-	netdev_features_t unsupported_features = 0;
-
-	/* In theory we should never be requested to enable features that
-	 * we didn't set in netdev->features and netdev->hw_features at probe
-	 * time, but double check just to be on the safe side.
-	 * We don't support enabling Rx csum through ethtool yet
-	 */
-	unsupported_features |= NETIF_F_RXCSUM;
-
-	features &= ~unsupported_features;
-
-	return features;
-}
-EXPORT_SYMBOL(dpa_fix_features);
 
 #ifdef CONFIG_FSL_DPAA_TS
 u64 dpa_get_timestamp_ns(const struct dpa_priv_s *priv, enum port_type rx_tx,

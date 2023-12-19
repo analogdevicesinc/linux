@@ -4394,7 +4394,7 @@ t_Error FM_PORT_ReleaseStalled(t_Handle h_FmPort)
     return FmResumeStalledPort(p_FmPort->h_Fm, p_FmPort->hardwarePortId);
 }
 
-t_Error FM_PORT_SetRxL4ChecksumVerify(t_Handle h_FmPort, bool l4Checksum)
+t_Error FM_PORT_SetRxL4ChecksumVerify(t_Handle h_FmPort, bool enable)
 {
     t_FmPort *p_FmPort = (t_FmPort*)h_FmPort;
     int err;
@@ -4407,7 +4407,13 @@ t_Error FM_PORT_SetRxL4ChecksumVerify(t_Handle h_FmPort, bool l4Checksum)
         RETURN_ERROR(MAJOR, E_INVALID_OPERATION,
                      ("available for Rx ports only"));
 
-    if (l4Checksum)
+    /* Bits 0-7 in the Rx FD Status are initialized by the user configurable
+     * FMBM_RFNE[FDCS]. A bit which is set by the user in FMBM_RFNE[FDCS] is
+     * reflected in the corresponding bit, and is not reset by the FMan
+     * hardware. So to let the hardware do its job, we need to clear the FMBM
+     * bit, and vice versa.
+     */
+    if (!enable)
         err = fman_port_modify_rx_fd_bits(
                 &p_FmPort->port, (uint8_t)(BMI_PORT_RFNE_FRWD_DCL4C >> 24),
                 TRUE);

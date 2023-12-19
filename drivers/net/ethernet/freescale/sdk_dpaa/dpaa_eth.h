@@ -444,8 +444,8 @@ struct sk_buff *_dpa_cleanup_tx_fd(const struct dpa_priv_s *priv,
 				   const struct qm_fd *fd);
 void __hot _dpa_process_parse_results(const fm_prs_result_t *parse_results,
 				      const struct qm_fd *fd,
-				      struct sk_buff *skb,
-				      int *use_gro);
+				      struct sk_buff *skb, bool *use_gro,
+				      bool dcl4c_valid);
 #ifndef CONFIG_FSL_DPAA_TS
 bool dpa_skb_is_recyclable(struct sk_buff *skb);
 bool dpa_buf_is_recyclable(struct sk_buff *skb,

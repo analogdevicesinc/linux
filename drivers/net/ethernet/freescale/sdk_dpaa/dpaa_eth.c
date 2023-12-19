@@ -327,25 +327,31 @@ static void _dpa_tx_error(struct net_device		*net_dev,
 	dev_kfree_skb(skb);
 }
 
-/* Helper function to factor out frame validation logic on all Rx paths. Its
+/**
+ * _dpa_process_parse_results() - Process parse result for RX FD
+ *
+ * @parse_results: Pointer to structure holding the parse results of the frame
+ * @fd: Pointer to QMan frame descriptor structure
+ * @skb: Pointer to socket buffer which will have its ip_summed field
+ *	overwritten
+ * @use_gro will only be written with 0, if the frame is definitely not
+ *	GRO-able; otherwise, it will be left unchanged
+ * @dcl4c_valid: if set, we assume no parser errors, since any error frame is
+ *	dropped before this function is called. When FMBM_RFNE[FDCS] is set, RX
+ *	checksum validation does not run and needs to be re-done in software,
+ *	which means we may get invalid frames.
+ *
+ * Helper function to factor out frame validation logic on all Rx paths. Its
  * purpose is to extract from the Parse Results structure information about
  * the integrity of the frame, its checksum, the length of the parsed headers
  * and whether the frame is suitable for GRO.
- *
- * Assumes no parser errors, since any error frame is dropped before this
- * function is called.
- *
- * @skb		will have its ip_summed field overwritten;
- * @use_gro	will only be written with 0, if the frame is definitely not
- *		GRO-able; otherwise, it will be left unchanged;
- * @hdr_size	will be written with a safe value, at least the size of the
- *		headers' length.
  */
 void __hot _dpa_process_parse_results(const fm_prs_result_t *parse_results,
 				      const struct qm_fd *fd,
-				      struct sk_buff *skb, int *use_gro)
+				      struct sk_buff *skb, bool *use_gro,
+				      bool dcl4c_valid)
 {
-	if (fd->status & FM_FD_STAT_L4CV) {
+	if (dcl4c_valid && fd->status & FM_FD_STAT_L4CV) {
 		/* The parser has run and performed L4 checksum validation.
 		 * We know there were no parser errors (and implicitly no
 		 * L4 csum error), otherwise we wouldn't be here.
@@ -361,7 +367,7 @@ void __hot _dpa_process_parse_results(const fm_prs_result_t *parse_results,
 		 * is currently TCP.
 		 */
 		if (!fm_l4_frame_is_tcp(parse_results))
-			*use_gro = 0;
+			*use_gro = false;
 
 		return;
 	}
@@ -373,7 +379,7 @@ void __hot _dpa_process_parse_results(const fm_prs_result_t *parse_results,
 	skb->ip_summed = CHECKSUM_NONE;
 
 	/* Bypass GRO for unknown traffic or if no PCDs are applied */
-	*use_gro = 0;
+	*use_gro = false;
 }
 
 int dpaa_eth_poll(struct napi_struct *napi, int budget)
@@ -687,12 +693,11 @@ static const struct net_device_ops dpa_private_ops = {
 #endif
 	.ndo_set_rx_mode = dpa_set_rx_mode,
 	.ndo_init = dpa_ndo_init,
-	.ndo_set_features = dpa_set_features,
-	.ndo_fix_features = dpa_fix_features,
 	.ndo_eth_ioctl = dpa_ioctl,
 #ifdef CONFIG_NET_POLL_CONTROLLER
 	.ndo_poll_controller = dpaa_eth_poll_controller,
 #endif
+	.ndo_set_features = dpa_set_features,
 };
 
 static int dpa_private_napi_add(struct net_device *net_dev)
@@ -765,8 +770,8 @@ static int dpa_private_netdev_init(struct net_device *net_dev)
 	net_dev->min_mtu = ETH_MIN_MTU;
 	net_dev->max_mtu = dpa_get_max_mtu();
 
-	net_dev->hw_features |= (NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-		NETIF_F_LLTX);
+	net_dev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
+				NETIF_F_RXCSUM | NETIF_F_LLTX;
 
 	/* Advertise S/G and HIGHDMA support for private interfaces */
 	net_dev->hw_features |= NETIF_F_SG | NETIF_F_HIGHDMA;

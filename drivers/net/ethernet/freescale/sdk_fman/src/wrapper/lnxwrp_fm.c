@@ -1619,6 +1619,14 @@ int fm_port_del_rate_limit(struct fm_port *port)
 }
 EXPORT_SYMBOL(fm_port_del_rate_limit);
 
+int fm_port_enable_rx_l4csum(struct fm_port *port, bool enable)
+{
+	t_LnxWrpFmPortDev *p_LnxWrpFmPortDev = (t_LnxWrpFmPortDev *)port;
+
+	return FM_PORT_SetRxL4ChecksumVerify(p_LnxWrpFmPortDev->h_Dev, enable);
+}
+EXPORT_SYMBOL(fm_port_enable_rx_l4csum);
+
 void FM_PORT_Dsar_DumpRegs(void);
 int ar_showmem(struct file *file, const char __user *buffer,
 		unsigned long count, void *data)

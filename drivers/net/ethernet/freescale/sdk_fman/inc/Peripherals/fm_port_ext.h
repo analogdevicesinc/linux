@@ -2020,14 +2020,14 @@ t_Error FM_PORT_ReleaseStalled(t_Handle h_FmPort);
                 Note that this takes affect only if hw-parser is enabled!
 
  @Param[in]     h_FmPort        A handle to a FM Port module.
- @Param[in]     l4Checksum      boolean indicates whether to do L3/L4 checksum
+ @Param[in]     enable          boolean indicates whether to do L3/L4 checksum
                                 on frames or not.
 
  @Return        E_OK on success; Error code otherwise.
 
  @Cautions      Allowed only following FM_PORT_Init().
 *//***************************************************************************/
-t_Error FM_PORT_SetRxL4ChecksumVerify(t_Handle h_FmPort, bool l4Checksum);
+t_Error FM_PORT_SetRxL4ChecksumVerify(t_Handle h_FmPort, bool enable);
 
 /**************************************************************************//**
  @Function      FM_PORT_SetErrorsRoute
