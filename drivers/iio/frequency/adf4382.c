@@ -154,7 +154,9 @@
 /* ADF4382 REG0020 Map */
 #define ADF4382_EN_AUTOCAL_MSK			BIT(7)
 #define ADF4382_EN_RDBLR_MSK			BIT(6)
+#define ADF4382_EN_RDBLR(x)			FIELD_PREP(ADF4382_EN_RDBLR_MSK, x)
 #define ADF4382_R_DIV_MSK			GENMASK(5, 0)
+#define ADF4382_R_DIV(x)			FIELD_PREP(ADF4382_R_DIV_MSK, x)
 
 /* ADF4382 REG0021 Map */
 #define ADF4382_PHASE_WORD_LSB_MSK		GENMASK(7, 0)
@@ -562,8 +564,6 @@ static const struct reg_sequence adf4382_reg_default[] = {
 	{ 0x023, 0x00 },
 	{ 0x022, 0x00 },
 	{ 0x021, 0x00 },
-	{ 0x020, 0xC1 },
-	{ 0x01f, 0x0F },
 	{ 0x01e, 0x20 },
 	{ 0x01d, 0x00 },
 	{ 0x01c, 0x00 },
@@ -1243,13 +1243,24 @@ static int adf4382_init(struct adf4382_state *st)
 	if (st->spi->mode & SPI_3WIRE || st->spi_3wire_en)
 		en = false;
 
-	ret = regmap_write(st->regmap, 0x00,
-				 ADF4382_SDO_ACT(en) | ADF4382_SDO_ACT_R(en));
+	ret = regmap_write(st->regmap, 0x00, ADF4382_SDO_ACT(en) |
+					     ADF4382_SDO_ACT_R(en));
 	if (ret < 0)
 		return ret;
 
 	ret = regmap_write(st->regmap, 0x3D, ADF4382_CMOS_OV(st->cmos_3v3));
 	if (ret < 0)
+		return ret;
+
+	ret = regmap_write(st->regmap, 0x20,
+			   ADF4382_EN_AUTOCAL_MSK |
+			   ADF4382_EN_RDBLR(st->ref_doubler_en) | 
+			   ADF4382_R_DIV(st->ref_div));
+	if (ret < 0)
+		return ret;
+
+	ret = regmap_write(st->regmap, 0x1f, st->cp_i);
+	if (ret)
 		return ret;
 
 	ret = regmap_multi_reg_write(st->regmap, adf4382_reg_default,
@@ -1258,22 +1269,6 @@ static int adf4382_init(struct adf4382_state *st)
 		return ret;
 
 	st->ref_freq_hz = clk_get_rate(st->clkin);
-
-	ret = regmap_update_bits(st->regmap, 0x20, ADF4382_EN_RDBLR_MSK,
-				 FIELD_PREP(ADF4382_EN_RDBLR_MSK,
-					    st->ref_doubler_en));
-	if (ret)
-		return ret;
-
-	ret = regmap_update_bits(st->regmap, 0x20, ADF4382_R_DIV_MSK,
-				 st->ref_div);
-	if (ret)
-		return ret;
-
-	ret = regmap_update_bits(st->regmap, 0x1f, ADF4382_CP_I_MSK,
-				 st->cp_i);
-	if (ret)
-		return ret;
 
 	return adf4382_set_freq(st);
 }
