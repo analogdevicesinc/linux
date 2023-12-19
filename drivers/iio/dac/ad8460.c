@@ -912,8 +912,9 @@ static int ad8460_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->setup_ops = &ad8460_buffer_setup_ops;
 
-	ret = devm_iio_dmaengine_buffer_setup(dev, indio_dev, "tx",
-					      IIO_BUFFER_DIRECTION_OUT);
+	ret = devm_iio_dmaengine_buffer_setup_ext(dev, indio_dev, "tx",
+						  IIO_BUFFER_DIRECTION_OUT,
+						  NULL, NULL);
 	if (ret)
 		return dev_err_probe(dev, ret,
 				     "Failed to get DMA buffer\n");

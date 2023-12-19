@@ -343,44 +343,6 @@ static int axiadc_hw_consumer_postenable(struct iio_dev *indio_dev)
 	return iio_hw_consumer_enable(st->frontend);
 }
 
-static int axiadc_hw_submit_block(struct iio_dma_buffer_queue *queue,
-	struct iio_dma_buffer_block *block)
-{
-	struct iio_dev *indio_dev = queue->driver_data;
-	struct axiadc_state *st = iio_priv(indio_dev);
-
-	iio_dmaengine_buffer_submit_block(queue, block);
-
-	axiadc_write(st, ADI_REG_STATUS, ~0);
-	axiadc_write(st, ADI_REG_DMA_STATUS, ~0);
-
-	return 0;
-}
-
-static const struct iio_dma_buffer_ops axiadc_dma_buffer_ops = {
-	.submit = axiadc_hw_submit_block,
-	.abort = iio_dmaengine_buffer_abort,
-};
-
-static int axiadc_configure_ring_stream(struct iio_dev *indio_dev,
-	const char *dma_name)
-{
-	struct iio_buffer *buffer;
-
-	if (dma_name == NULL)
-		dma_name = "rx";
-
-	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent, dma_name,
-						 &axiadc_dma_buffer_ops, indio_dev);
-	if (IS_ERR(buffer))
-		return PTR_ERR(buffer);
-
-	indio_dev->modes |= INDIO_BUFFER_HARDWARE;
-	iio_device_attach_buffer(indio_dev, buffer);
-
-	return 0;
-}
-
 static int axiadc_hw_consumer_predisable(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
@@ -793,7 +755,7 @@ static int adc_probe(struct platform_device *pdev)
 		indio_dev->num_channels = info->num_channels;
 	}
 
-	ret = axiadc_configure_ring_stream(indio_dev, "rx");
+	ret = devm_iio_dmaengine_buffer_setup(&pdev->dev, indio_dev, "rx");
 	if (ret)
 		return ret;
 

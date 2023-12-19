@@ -666,7 +666,7 @@ static int ad7768_register(struct ad7768_state *st, struct iio_dev *indio_dev)
 	indio_dev->available_scan_masks = ad7768_available_scan_masks;
 
 	ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent, indio_dev,
-					      "rx", IIO_BUFFER_DIRECTION_IN);
+					      "rx");
 	if (ret)
 		return ret;
 
