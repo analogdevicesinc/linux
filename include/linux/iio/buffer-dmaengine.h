@@ -20,19 +20,29 @@ int iio_dmaengine_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	struct iio_dma_buffer_block *block);
 void iio_dmaengine_buffer_abort(struct iio_dma_buffer_queue *queue);
 
-struct iio_buffer *devm_iio_dmaengine_buffer_alloc(struct device *dev,
-						   const char *channel,
-						   const struct iio_dma_buffer_ops *ops,
-						   void *data);
-
-struct iio_buffer *iio_dmaengine_buffer_alloc(struct device *dev,
-					      const char *channel,
-					      const struct iio_dma_buffer_ops *ops,
-					      void *data);
 void iio_dmaengine_buffer_free(struct iio_buffer *buffer);
-int devm_iio_dmaengine_buffer_setup(struct device *dev,
-				    struct iio_dev *indio_dev,
-				    const char *channel,
-				    enum iio_buffer_direction dir);
+struct iio_buffer *iio_dmaengine_buffer_setup_ext(struct device *dev,
+						  struct iio_dev *indio_dev,
+						  const char *channel,
+						  enum iio_buffer_direction,
+						  const struct iio_dma_buffer_ops *ops,
+						  void *data);
+
+#define iio_dmaengine_buffer_setup(dev, indio_dev, channel)     \
+	iio_dmaengine_buffer_setup_ext(dev, indio_dev, channel, \
+				       IIO_BUFFER_DIRECTION_IN,	\
+				       NULL, NULL)
+
+int devm_iio_dmaengine_buffer_setup_ext(struct device *dev,
+					struct iio_dev *indio_dev,
+					const char *channel,
+					enum iio_buffer_direction dir,
+					const struct iio_dma_buffer_ops *ops,
+					void *data);
+
+#define devm_iio_dmaengine_buffer_setup(dev, indio_dev, channel)	\
+	devm_iio_dmaengine_buffer_setup_ext(dev, indio_dev, channel,	\
+					    IIO_BUFFER_DIRECTION_IN,	\
+					    NULL, NULL)
 
 #endif

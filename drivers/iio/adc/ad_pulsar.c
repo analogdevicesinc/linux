@@ -932,8 +932,7 @@ static int ad_pulsar_probe(struct spi_device *spi)
 	indio_dev->setup_ops = &ad_pulsar_buffer_ops;
 
 	ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
-					      indio_dev, "rx",
-					      IIO_BUFFER_DIRECTION_IN);
+					      indio_dev, "rx");
 	if (ret)
 		return ret;
 

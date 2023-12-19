@@ -988,8 +988,7 @@ static int ad4000_probe(struct spi_device *spi)
 			dev_err_probe(dev, ret, "PWM setup failed\n");
 
 		ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
-						      indio_dev, "rx",
-						      IIO_BUFFER_DIRECTION_IN);
+						      indio_dev, "rx");
 		if (ret)
 			return ret;
 

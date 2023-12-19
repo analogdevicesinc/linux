@@ -392,8 +392,7 @@ static int ltc2387_probe(struct platform_device *pdev)
 	indio_dev->info = &ltc2387_info;
 	indio_dev->modes = INDIO_BUFFER_HARDWARE;
 	ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
-					      indio_dev, "rx",
-					      IIO_BUFFER_DIRECTION_IN);
+					      indio_dev, "rx");
 	if (ret)
 		return ret;
 

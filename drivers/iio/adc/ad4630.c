@@ -1546,8 +1546,7 @@ static int ad4630_probe(struct spi_device *spi)
 	indio_dev->available_scan_masks = st->chip->available_masks;
 	indio_dev->setup_ops = &ad4630_buffer_setup_ops;
 
-	ret = devm_iio_dmaengine_buffer_setup(dev, indio_dev, "rx",
-					      IIO_BUFFER_DIRECTION_IN);
+	ret = devm_iio_dmaengine_buffer_setup(dev, indio_dev, "rx");
 	if (ret)
 		return dev_err_probe(dev, ret,
 				     "Failed to get DMA buffer\n");
