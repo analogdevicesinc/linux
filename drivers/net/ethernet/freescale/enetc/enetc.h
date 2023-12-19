@@ -491,6 +491,7 @@ struct enetc_ndev_priv {
 	struct enetc_psfp_chain psfp_chain;
 	unsigned long *ist_bitmap;
 	unsigned long *isct_bitmap;
+	unsigned long *sgclt_used_words;
 
 	/* Minimum number of TX queues required by the network stack */
 	unsigned int min_num_stack_tx_queues;

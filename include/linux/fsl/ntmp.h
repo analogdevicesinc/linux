@@ -135,10 +135,6 @@ struct netc_cbdr {
 	struct device *dma_dev;
 
 	spinlock_t ring_lock; /* Avoid race condition */
-
-	/* bitmap of used words of SGCL table */
-	unsigned long *sgclt_used_words;
-	u32 sgclt_words_num;
 };
 
 struct ntmp_mfe {
@@ -178,7 +174,7 @@ struct ntmp_tgst_info {
 };
 
 struct ntmp_isit_cfg {
-	u32 isi_eid;    /* hardware assigns entry ID */
+	u32 entry_id;    /* hardware assigns entry ID */
 	u8 mac[ETH_ALEN];
 	u32 key_type;
 	u16 vid;
@@ -193,7 +189,7 @@ struct ntmp_isit_info {
 };
 
 struct ntmp_ist_cfg {
-	u32 is_eid;      /* software assigns entry ID */
+	u32 entry_id;      /* software assigns entry ID */
 	u32 rp_eid;
 	u32 sgi_eid;
 	u32 isc_eid;
@@ -228,7 +224,7 @@ struct ntmp_ist_info {
 };
 
 struct ntmp_isft_cfg {
-	u32 isf_eid;    /* hardware assigns entry ID */
+	u32 entry_id;    /* hardware assigns entry ID */
 	u32 is_eid;
 	u32 rp_eid;
 	u32 sgi_eid;
@@ -255,26 +251,26 @@ struct ntmp_isft_info {
 };
 
 struct ntmp_sgit_cfg {
-	u32 sgi_eid;        /* software assigns entry ID */
+	u32 entry_id;        /* software assigns entry ID */
 	s8 init_ipv;
 	u32 admin_sgcl_eid; /* software assigns entry ID */
 	u64 admin_bt;
 	u32 admin_ct_ext;
+	u32 sgcl_ct;
 	refcount_t refcount;
 	struct hlist_node node;
 };
 
 struct ntmp_sgclt_cfg {
-	u32 sgcl_eid;
+	u32 entry_id;
 	s8 init_ipv;
 	u32 ct;
 	u32 num_gates;
-	u32 entry_size;
 	struct action_gate_entry entries[];
 };
 
 struct ntmp_rpt_cfg {
-	u32 rp_eid;
+	u32 entry_id;
 	u32 cir;
 	u32 cbs;
 	u32 eir;
@@ -315,7 +311,7 @@ struct ntmp_rpt_info {
 };
 
 struct ntmp_isct_cfg {
-	u32 isc_eid;
+	u32 entry_id;
 };
 
 struct ntmp_sgit_info {
@@ -417,8 +413,6 @@ int netc_setup_cbdr(struct device *dev, int cbd_num,
 		    struct netc_cbdr_regs *regs,
 		    struct netc_cbdr *cbdr);
 void netc_free_cbdr(struct netc_cbdr *cbdr);
-int netc_cbdr_init_sgclt_words_bitmap(struct netc_cbdr *cbdr, u32 words_num);
-void netc_cbdr_free_sgclt_words_bitmap(struct netc_cbdr *cbdr);
 
 /* NTMP APIs */
 int ntmp_maft_add_entry(struct netc_cbdr *cbdr, u32 entry_id,
@@ -451,11 +445,13 @@ int ntmp_isft_add_or_update_entry(struct netc_cbdr *cbdr,
 int ntmp_isft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 			  struct ntmp_isft_info *info);
 int ntmp_isft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id);
-int ntmp_sgit_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_sgit_cfg *sgi,
-				  struct ntmp_sgclt_cfg *sgcl);
-int ntmp_sgit_query_entry(struct netc_cbdr *cbdr, u32 sgi_eid,
+int ntmp_sgit_add_or_update_entry(struct netc_cbdr *cbdr,
+				  struct ntmp_sgit_cfg *cfg);
+int ntmp_sgit_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 			  struct ntmp_sgit_info *info);
 int ntmp_sgit_delete_entry(struct netc_cbdr *cbdr, u32 entry_id);
+int ntmp_sgclt_add_entry(struct netc_cbdr *cbdr, struct ntmp_sgclt_cfg *cfg);
+int ntmp_sgclt_delete_entry(struct netc_cbdr *cbdr, u32 entry_id);
 int ntmp_sgclt_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 			   struct ntmp_sgclt_info *info);
 int ntmp_isct_operate_entry(struct netc_cbdr *cbdr, u32 entry_id,
@@ -477,16 +473,6 @@ static inline void netc_free_cbdr(struct netc_cbdr *cbdr)
 {
 }
 
-static inline int netc_cbdr_init_sgclt_words_bitmap(struct netc_cbdr *cbdr,
-						    u32 words_num)
-{
-	return 0;
-}
-
-static inline void netc_cbdr_free_sgclt_words_bitmap(struct netc_cbdr *cbdr)
-{
-}
-
 /* NTMP APIs */
 static inline int ntmp_maft_add_entry(struct netc_cbdr *cbdr, u32 entry_id,
 				      const char *mac_addr, int si_bitmap)
@@ -494,15 +480,13 @@ static inline int ntmp_maft_add_entry(struct netc_cbdr *cbdr, u32 entry_id,
 	return 0;
 }
 
-static inline int ntmp_maft_query_entry(struct netc_cbdr *cbdr,
-					u32 entry_id,
+static inline int ntmp_maft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 					struct ntmp_mfe *entry)
 {
 	return 0;
 }
 
-static inline int ntmp_maft_delete_entry(struct netc_cbdr *cbdr,
-					 u32 entry_id)
+static inline int ntmp_maft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 {
 	return 0;
 }
@@ -514,8 +498,7 @@ static inline int ntmp_rsst_query_or_update_entry(struct netc_cbdr *cbdr,
 	return 0;
 }
 
-static inline int ntmp_tgst_query_entry(struct netc_cbdr *cbdr,
-					u32 entry_id,
+static inline int ntmp_tgst_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 					struct ntmp_tgst_info *info)
 {
 	return 0;
@@ -540,15 +523,13 @@ static inline int ntmp_rpt_add_or_update_entry(struct netc_cbdr *cbdr,
 	return 0;
 }
 
-static inline int ntmp_rpt_query_entry(struct netc_cbdr *cbdr,
-				       u32 entry_id,
+static inline int ntmp_rpt_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 				       struct ntmp_rpt_info *info)
 {
 	return 0;
 }
 
-static inline int ntmp_rpt_delete_entry(struct netc_cbdr *cbdr,
-					u32 entry_id)
+static inline int ntmp_rpt_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 {
 	return 0;
 }
@@ -560,15 +541,13 @@ static inline int ntmp_isit_add_or_update_entry(struct netc_cbdr *cbdr,
 	return 0;
 }
 
-static inline int ntmp_isit_query_entry(struct netc_cbdr *cbdr,
-					u32 entry_id,
+static inline int ntmp_isit_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 					struct ntmp_isit_info *info)
 {
 	return 0;
 }
 
-static inline int ntmp_isit_delete_entry(struct netc_cbdr *cbdr,
-					 u32 entry_id)
+static inline int ntmp_isit_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 {
 	return 0;
 }
@@ -579,15 +558,13 @@ static inline int ntmp_ist_add_or_update_entry(struct netc_cbdr *cbdr,
 	return 0;
 }
 
-static inline int ntmp_ist_query_entry(struct netc_cbdr *cbdr,
-				       u32 entry_id,
+static inline int ntmp_ist_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 				       struct ntmp_ist_info *info)
 {
 	return 0;
 }
 
-static inline int ntmp_ist_delete_entry(struct netc_cbdr *cbdr,
-					u32 entry_id)
+static inline int ntmp_ist_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 {
 	return 0;
 }
@@ -599,49 +576,53 @@ static inline int ntmp_isft_add_or_update_entry(struct netc_cbdr *cbdr,
 	return 0;
 }
 
-static inline int ntmp_isft_query_entry(struct netc_cbdr *cbdr,
-					u32 entry_id,
+static inline int ntmp_isft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 					struct ntmp_isft_info *info)
 {
 	return 0;
 }
 
-static inline int ntmp_isft_delete_entry(struct netc_cbdr *cbdr,
-					 u32 entry_id)
+static inline int ntmp_isft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 {
 	return 0;
 }
 
 static inline int ntmp_sgit_add_or_update_entry(struct netc_cbdr *cbdr,
-						struct ntmp_sgit_cfg *sgi,
-						struct ntmp_sgclt_cfg *sgcl)
+						struct ntmp_sgit_cfg *cfg)
 {
 	return 0;
 }
 
-static inline int ntmp_sgit_query_entry(struct netc_cbdr *cbdr,
-					u32 sgi_eid,
+static inline int ntmp_sgit_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 					struct ntmp_sgit_info *info)
 {
 	return 0;
 }
 
-static inline int ntmp_sgit_delete_entry(struct netc_cbdr *cbdr,
-					 u32 entry_id)
+static inline int ntmp_sgit_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 {
 	return 0;
 }
 
-static inline int ntmp_sgclt_query_entry(struct netc_cbdr *cbdr,
-					 u32 entry_id,
+static inline int ntmp_sgclt_add_entry(struct netc_cbdr *cbdr,
+				       struct ntmp_sgclt_cfg *cfg)
+{
+	return 0;
+}
+
+static inline int ntmp_sgclt_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int ntmp_sgclt_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 					 struct ntmp_sgclt_info *info)
 {
 	return 0;
 }
 
-static inline int ntmp_isct_operate_entry(struct netc_cbdr *cbdr,
-					  u32 entry_id, int cmd,
-					  struct ntmp_isct_info *info)
+static inline int ntmp_isct_operate_entry(struct netc_cbdr *cbdr, u32 entry_id,
+					  int cmd, struct ntmp_isct_info *info)
 {
 	return 0;
 }
@@ -654,15 +635,13 @@ static inline int ntmp_ipft_add_entry(struct netc_cbdr *cbdr,
 	return 0;
 }
 
-static inline int ntmp_ipft_query_entry(struct netc_cbdr *cbdr,
-					u32 entry_id,
+static inline int ntmp_ipft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 					struct ntmp_ipft_info *info)
 {
 	return 0;
 }
 
-static inline int ntmp_ipft_delete_entry(struct netc_cbdr *cbdr,
-					 u32 entry_id)
+static inline int ntmp_ipft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 {
 	return 0;
 }

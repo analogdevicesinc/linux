@@ -351,12 +351,12 @@ static int enetc_psfp_show(struct seq_file *s, void *data)
 
 		seq_printf(s, "Show PSFP entry %d information.\n", i++);
 
-		err = ntmp_isit_query_entry(&si->cbdr, psfp->isit_cfg.isi_eid,
+		err = ntmp_isit_query_entry(&si->cbdr, psfp->isit_cfg.entry_id,
 					    isi_info);
 		if (err)
 			goto free_isc_info;
 		seq_printf(s, "Show ingress stream identification table entry %u:\n",
-			   psfp->isit_cfg.isi_eid);
+			   psfp->isit_cfg.entry_id);
 		enetc_psfp_isi_show(s, isi_info);
 
 		err = ntmp_ist_query_entry(&si->cbdr, psfp->isit_cfg.is_eid,

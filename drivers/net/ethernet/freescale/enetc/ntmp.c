@@ -632,7 +632,7 @@ int ntmp_rpt_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_rpt_cfg *cf
 		return -ENOMEM;
 
 	req->crd.update_act = cpu_to_le16(0xf);
-	req->entry_id = cpu_to_le32(cfg->rp_eid);
+	req->entry_id = cpu_to_le32(cfg->entry_id);
 	req->cfge.cbs = cpu_to_le32(cfg->cbs);
 	req->cfge.cir = cpu_to_le32(cfg->cir);
 	req->cfge.ebs = cpu_to_le32(cfg->ebs);
@@ -815,7 +815,7 @@ int ntmp_isit_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_isit_cfg *
 
 	if (add) {
 		resp = (struct isit_resp_query *)req;
-		cfg->isi_eid = le32_to_cpu(resp->entry_id);
+		cfg->entry_id = le32_to_cpu(resp->entry_id);
 	}
 
 end:
@@ -928,7 +928,7 @@ int ntmp_ist_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_ist_cfg *cf
 
 	/* Fill up NTMP request data buffer */
 	req->crd.update_act = cpu_to_le16(1);
-	req->entry_id = cpu_to_le32(cfg->is_eid);
+	req->entry_id = cpu_to_le32(cfg->entry_id);
 	req->cfge.sfe = cfg->sfe;
 	req->cfge.fa = cfg->fa;
 	req->cfge.msdu = cpu_to_le16(cfg->msdu);
@@ -1114,7 +1114,7 @@ int ntmp_isft_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_isft_cfg *
 
 	if (add) {
 		resp = (struct isft_resp_query *)req;
-		cfg->isf_eid = le32_to_cpu(resp->entry_id);
+		cfg->entry_id = le32_to_cpu(resp->entry_id);
 	}
 
 end:
@@ -1220,87 +1220,32 @@ int ntmp_isft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 }
 EXPORT_SYMBOL_GPL(ntmp_isft_delete_entry);
 
-int netc_cbdr_init_sgclt_words_bitmap(struct netc_cbdr *cbdr, u32 words_num)
+int ntmp_sgclt_add_entry(struct netc_cbdr *cbdr, struct ntmp_sgclt_cfg *cfg)
 {
-	cbdr->sgclt_used_words = bitmap_zalloc(words_num, GFP_KERNEL);
-	if (!cbdr->sgclt_used_words)
-		return -ENOMEM;
-
-	cbdr->sgclt_words_num = words_num;
-	return 0;
-}
-EXPORT_SYMBOL_GPL(netc_cbdr_init_sgclt_words_bitmap);
-
-void netc_cbdr_free_sgclt_words_bitmap(struct netc_cbdr *cbdr)
-{
-	bitmap_free(cbdr->sgclt_used_words);
-	cbdr->sgclt_used_words = NULL;
-	cbdr->sgclt_words_num = 0;
-}
-EXPORT_SYMBOL_GPL(netc_cbdr_free_sgclt_words_bitmap);
-
-static u32 ntmp_sgclt_find_free_entry_id(struct netc_cbdr *cbdr, u32 entry_size)
-{
-	u32 entry_id, next_eid, size, i;
-
-	do {
-		entry_id = find_first_zero_bit(cbdr->sgclt_used_words,
-					       cbdr->sgclt_words_num);
-		if (entry_id == cbdr->sgclt_words_num)
-			return NTMP_NULL_ENTRY_ID;
-
-		next_eid = find_next_bit(cbdr->sgclt_used_words,
-					 cbdr->sgclt_words_num,
-					 entry_id + 1);
-		size = next_eid - entry_id;
-	} while (size < entry_size &&
-		 next_eid != cbdr->sgclt_words_num);
-
-	if (size < entry_size)
-		return NTMP_NULL_ENTRY_ID;
-
-	for (i = entry_id; i < entry_id + entry_size; i++)
-		set_bit(i, cbdr->sgclt_used_words);
-
-	return entry_id;
-}
-
-static void ntmp_sgclt_clear_unused_entry_bits(struct netc_cbdr *cbdr, u32 entry_id,
-					       u32 entry_size)
-{
-	u32 i;
-
-	for (i = entry_id; i < entry_id + entry_size; i++)
-		clear_bit(i, cbdr->sgclt_used_words);
-}
-
-static int ntmp_sgclt_add_entry(struct netc_cbdr *cbdr, struct ntmp_sgclt_cfg *sgcl)
-{
-	u32 data_size, entry_size, len;
 	struct sgclt_req_add *req;
-	u64 total_interval = 0;
 	union netc_cbd cbd;
+	u32 data_size, len;
 	dma_addr_t dma;
-	u32 entry_id;
 	int i, err;
 	void *tmp;
 
-	data_size = struct_size(req, cfge.ge, sgcl->num_gates);
+	data_size = struct_size(req, cfge.ge, cfg->num_gates);
 	tmp = ntmp_alloc_data_mem(cbdr, data_size, &dma, (void **)&req);
 	if (!tmp)
 		return -ENOMEM;
 
 	/* Fill up NTMP request data buffer */
-	req->cfge.ct = cpu_to_le32(sgcl->ct);
+	req->entry_id = cpu_to_le32(cfg->entry_id);
+	req->cfge.ct = cpu_to_le32(cfg->ct);
 	req->cfge.ext_gtst = 1;
-	if (sgcl->init_ipv >= 0) {
+	if (cfg->init_ipv >= 0) {
 		req->cfge.ext_oipv = 1;
-		req->cfge.ext_ipv = sgcl->init_ipv & 0x7;
+		req->cfge.ext_ipv = cfg->init_ipv & 0x7;
 	}
 
-	req->cfge.list_len = sgcl->num_gates - 1;
-	for (i = 0; i < sgcl->num_gates; i++) {
-		struct action_gate_entry *from = &sgcl->entries[i];
+	req->cfge.list_len = cfg->num_gates - 1;
+	for (i = 0; i < cfg->num_gates; i++) {
+		struct action_gate_entry *from = &cfg->entries[i];
 		struct sgclt_ge *to = &req->cfge.ge[i];
 
 		if (from->gate_state)
@@ -1319,26 +1264,7 @@ static int ntmp_sgclt_add_entry(struct netc_cbdr *cbdr, struct ntmp_sgclt_cfg *s
 		}
 
 		to->interval = from->interval;
-		total_interval += to->interval;
 	}
-
-	/* Checks if the cumulative gate time in the stream gate control list is < 2^30. */
-	if (total_interval >= (1 << 30)) {
-		dev_err(cbdr->dma_dev,
-			"The cumulative gate time is lager than 2^30!\n");
-		err = -EINVAL;
-		goto end;
-	}
-
-	entry_size = 1 + (sgcl->num_gates + 1) / 2;
-	entry_id = ntmp_sgclt_find_free_entry_id(cbdr, entry_size);
-	if (entry_id == NTMP_NULL_ENTRY_ID) {
-		dev_err(cbdr->dma_dev,
-			"Not enough free words in the SGCL table!\n");
-		err = -ENOSPC;
-		goto end;
-	}
-	req->entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */
 	len = NTMP_REQ_RESP_LEN(data_size, 0);
@@ -1346,21 +1272,15 @@ static int ntmp_sgclt_add_entry(struct netc_cbdr *cbdr, struct ntmp_sgclt_cfg *s
 				NTMP_CMD_ADD, NTMP_AM_ENTRY_ID);
 
 	err = netc_xmit_ntmp_cmd(cbdr, &cbd);
-	if (err) {
+	if (err)
 		dev_err(cbdr->dma_dev,
 			"Add stream gate control list entry failed (%d)!", err);
-		ntmp_sgclt_clear_unused_entry_bits(cbdr, entry_id, entry_size);
-	} else {
-		/* Record the sgcl entry id which would be used in the SGI table. */
-		sgcl->sgcl_eid = entry_id;
-		sgcl->entry_size = entry_size;
-	}
 
-end:
 	ntmp_free_data_mem(cbdr, data_size, tmp, dma);
 
 	return err;
 }
+EXPORT_SYMBOL_GPL(ntmp_sgclt_add_entry);
 
 int ntmp_sgclt_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 			   struct ntmp_sgclt_info *info)
@@ -1428,7 +1348,7 @@ end:
 }
 EXPORT_SYMBOL_GPL(ntmp_sgclt_query_entry);
 
-static int ntmp_sgclt_delete_entry(struct netc_cbdr *cbdr, u32 entry_id, u32 entry_size)
+int ntmp_sgclt_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 {
 	struct sgclt_req_qd *req;
 	union netc_cbd cbd;
@@ -1454,16 +1374,14 @@ static int ntmp_sgclt_delete_entry(struct netc_cbdr *cbdr, u32 entry_id, u32 ent
 	if (err)
 		dev_err(cbdr->dma_dev,
 			"Delete stream gate control list entry failed (%d)!", err);
-	else
-		ntmp_sgclt_clear_unused_entry_bits(cbdr, entry_id, entry_size);
 
 	ntmp_free_data_mem(cbdr, data_size, tmp, dma);
 
 	return err;
 }
+EXPORT_SYMBOL_GPL(ntmp_sgclt_delete_entry);
 
-int ntmp_sgit_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_sgit_cfg *sgi,
-				  struct ntmp_sgclt_cfg *sgcl)
+int ntmp_sgit_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_sgit_cfg *cfg)
 {
 	struct sgit_req_ua *req;
 	union netc_cbd cbd;
@@ -1473,14 +1391,9 @@ int ntmp_sgit_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_sgit_cfg *
 	void *tmp;
 	int err;
 
-	base_time = sgi->admin_bt;
-	if (sgcl) {
-		err = ntmp_sgclt_add_entry(cbdr, sgcl);
-		if (err)
-			return err;
-		sgi->admin_sgcl_eid = sgcl->sgcl_eid;
-		base_time = ntmp_adjust_base_time(cbdr, sgi->admin_bt, sgcl->ct);
-	}
+	base_time = cfg->admin_bt;
+	if (cfg->admin_sgcl_eid != NTMP_NULL_ENTRY_ID)
+		base_time = ntmp_adjust_base_time(cbdr, cfg->admin_bt, cfg->sgcl_ct);
 
 	data_size = sizeof(*req);
 	tmp = ntmp_alloc_data_mem(cbdr, data_size, &dma, (void **)&req);
@@ -1488,17 +1401,17 @@ int ntmp_sgit_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_sgit_cfg *
 		return -ENOMEM;
 
 	req->crd.update_act = cpu_to_le16(7);
-	req->entry_id = cpu_to_le32(sgi->sgi_eid);
-	req->acfge.admin_sgcl_eid = cpu_to_le32(sgi->admin_sgcl_eid);
+	req->entry_id = cpu_to_le32(cfg->entry_id);
+	req->acfge.admin_sgcl_eid = cpu_to_le32(cfg->admin_sgcl_eid);
 	req->acfge.admin_bt = cpu_to_le64(base_time);
-	req->acfge.admin_ct_ext = cpu_to_le32(sgi->admin_ct_ext);
+	req->acfge.admin_ct_ext = cpu_to_le32(cfg->admin_ct_ext);
 	/* Specify the gate state to be open before the admin stream
-	 * control list takes affect.
+	 * control list takes effect.
 	 */
 	req->icfge.gst = 1;
-	if (sgi->init_ipv >= 0) {
+	if (cfg->init_ipv >= 0) {
 		req->icfge.oipv = 1;
-		req->icfge.ipv = sgi->init_ipv & 0x7;
+		req->icfge.ipv = cfg->init_ipv & 0x7;
 	}
 
 	/* Request header */
@@ -1507,12 +1420,9 @@ int ntmp_sgit_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_sgit_cfg *
 				NTMP_CMD_AU, NTMP_AM_ENTRY_ID);
 
 	err = netc_xmit_ntmp_cmd(cbdr, &cbd);
-	if (err) {
+	if (err)
 		dev_err(cbdr->dma_dev,
 			"Add/Update stream gate instance table entry failed (%d)!", err);
-		if (sgcl)
-			ntmp_sgclt_delete_entry(cbdr, sgcl->sgcl_eid, sgcl->entry_size);
-	}
 
 	ntmp_free_data_mem(cbdr, data_size, tmp, dma);
 
@@ -1520,7 +1430,7 @@ int ntmp_sgit_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_sgit_cfg *
 }
 EXPORT_SYMBOL_GPL(ntmp_sgit_add_or_update_entry);
 
-int ntmp_sgit_query_entry(struct netc_cbdr *cbdr, u32 sgi_eid,
+int ntmp_sgit_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 			  struct ntmp_sgit_info *info)
 {
 	struct sgit_resp_query *resp;
@@ -1531,7 +1441,7 @@ int ntmp_sgit_query_entry(struct netc_cbdr *cbdr, u32 sgi_eid,
 	void *tmp;
 	int err;
 
-	if (!info || sgi_eid == NTMP_NULL_ENTRY_ID)
+	if (!info || entry_id == NTMP_NULL_ENTRY_ID)
 		return -EINVAL;
 
 	data_size = sizeof(*resp);
@@ -1539,7 +1449,7 @@ int ntmp_sgit_query_entry(struct netc_cbdr *cbdr, u32 sgi_eid,
 	if (!tmp)
 		return -ENOMEM;
 
-	req->entry_id = cpu_to_le32(sgi_eid);
+	req->entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */
 	len = NTMP_REQ_RESP_LEN(sizeof(*req), data_size);
@@ -1554,10 +1464,10 @@ int ntmp_sgit_query_entry(struct netc_cbdr *cbdr, u32 sgi_eid,
 	}
 
 	resp = (struct sgit_resp_query *)req;
-	if (unlikely(le32_to_cpu(resp->entry_id) != sgi_eid)) {
+	if (unlikely(le32_to_cpu(resp->entry_id) != entry_id)) {
 		dev_err(cbdr->dma_dev,
 			"Entry ID doesn't match, query ID:0x%0x, response ID:0x%x\n",
-			sgi_eid, le32_to_cpu(resp->entry_id));
+			entry_id, le32_to_cpu(resp->entry_id));
 		err = -EIO;
 		goto end;
 	}
@@ -1588,47 +1498,17 @@ EXPORT_SYMBOL_GPL(ntmp_sgit_query_entry);
 
 int ntmp_sgit_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 {
-	struct ntmp_sgit_info *sgcl_eid;
-	struct ntmp_sgclt_info *sgcl;
-	struct ntmp_sgit_cfg sgi;
 	struct sgit_req_nua *req;
 	union netc_cbd cbd;
 	u32 data_size, len;
-	u32 entry_size;
 	dma_addr_t dma;
 	void *tmp;
 	int err;
 
-	sgcl_eid = kzalloc(sizeof(*sgcl_eid), GFP_KERNEL);
-	if (!sgcl_eid)
-		return -ENOMEM;
-
-	memset(&sgi, 0, sizeof(sgi));
-	sgi.sgi_eid = entry_id;
-	sgi.admin_sgcl_eid = NTMP_NULL_ENTRY_ID;
-
-	/* Step1: Query the stream gate instance table entry to retrieve
-	 * the entry id of the administrative gate control list and the
-	 * opertational gate control list.
-	 */
-	err = ntmp_sgit_query_entry(cbdr, entry_id, sgcl_eid);
-	if (err)
-		goto free_sgcl_eid;
-
-	/* Step2: Update the stream gate instance table entry to set
-	 * the entry id of the administrative gate control list to NULL.
-	 */
-	err = ntmp_sgit_add_or_update_entry(cbdr, &sgi, NULL);
-	if (err)
-		goto free_sgcl_eid;
-
-	/* Step3: delete the stream gate instance table entry. */
 	data_size = sizeof(*req);
 	tmp = ntmp_alloc_data_mem(cbdr, data_size, &dma, (void **)&req);
-	if (!tmp) {
-		err = -ENOMEM;
-		goto free_sgcl_eid;
-	}
+	if (!tmp)
+		return -ENOMEM;
 
 	/* Fill up NTMP request data buffer */
 	req->entry_id = cpu_to_le32(entry_id);
@@ -1639,47 +1519,11 @@ int ntmp_sgit_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 				NTMP_CMD_DELETE, NTMP_AM_ENTRY_ID);
 
 	err = netc_xmit_ntmp_cmd(cbdr, &cbd);
-	if (err) {
+	if (err)
 		dev_err(cbdr->dma_dev,
 			"Delete stream gate instance table entry failed (%d)!", err);
-		goto free_data_mem;
-	}
 
-	/* Step4: Delete the administrative gate control list
-	 * and the operational gate control list.
-	 */
-	sgcl = kzalloc(sizeof(*sgcl), GFP_KERNEL);
-	if (!sgcl) {
-		err = -ENOMEM;
-		goto free_data_mem;
-	}
-
-	if (sgcl_eid->admin_sgcl_eid != NTMP_NULL_ENTRY_ID) {
-		memset(sgcl, 0, sizeof(*sgcl));
-		err = ntmp_sgclt_query_entry(cbdr, sgcl_eid->admin_sgcl_eid, sgcl);
-		if (!err) {
-			/* entry_size equals to 1 + ROUNDUP(N / 2) where N is number of gates */
-			entry_size = 1 + (1 + sgcl->list_len) / 2;
-			ntmp_sgclt_delete_entry(cbdr, sgcl_eid->admin_sgcl_eid, entry_size);
-		}
-	}
-
-	if (sgcl_eid->oper_sgcl_eid != NTMP_NULL_ENTRY_ID) {
-		memset(sgcl, 0, sizeof(*sgcl));
-		err = ntmp_sgclt_query_entry(cbdr, sgcl_eid->oper_sgcl_eid, sgcl);
-		if (!err) {
-			entry_size = 1 + (1 + sgcl->list_len) / 2;
-			ntmp_sgclt_delete_entry(cbdr, sgcl_eid->oper_sgcl_eid, entry_size);
-		}
-	}
-
-	kfree(sgcl);
-
-free_data_mem:
 	ntmp_free_data_mem(cbdr, data_size, tmp, dma);
-
-free_sgcl_eid:
-	kfree(sgcl_eid);
 
 	return err;
 }
