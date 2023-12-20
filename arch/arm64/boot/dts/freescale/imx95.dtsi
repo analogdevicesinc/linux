@@ -1807,6 +1807,7 @@
 				compatible = "mmio-mux";
 				#mux-control-cells = <1>;
 				mux-reg-masks = <0x4 0x00000001>; /* Pixel_link_sel */
+				idle-states = <0>;
 			};
 		};
 
