@@ -1469,8 +1469,21 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_GainIndex_Gpio_Conf
     ADI_RANGE_CHECK(device, gainIndexPinCfgchannel->gainIndex_01_00, ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED, ADI_ADRV9001_GPIO_PIN_CRUMB_15_14);
     ADI_RANGE_CHECK(device, gainIndexPinCfgchannel->gainIndex_03_02, ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED, ADI_ADRV9001_GPIO_PIN_CRUMB_15_14);
     ADI_RANGE_CHECK(device, gainIndexPinCfgchannel->gainIndex_05_04, ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED, ADI_ADRV9001_GPIO_PIN_CRUMB_15_14);
-    ADI_RANGE_CHECK(device, gainIndexPinCfgchannel->gainIndex_07_06, ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED, ADI_ADRV9001_GPIO_PIN_CRUMB_15_14);
-    ADI_EXPECT(adi_adrv9001_Radio_Channel_State_Get, device, ADI_RX, channel, &state);
+    ADI_RANGE_CHECK(device, gainIndexPinCfgchannel->gainChange_gainIndex_06, ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED, ADI_ADRV9001_GPIO_PIN_CRUMB_15_14);
+	if ((gainIndexPinCfgchannel->gainIndex_01_00 == ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED) &&
+		(gainIndexPinCfgchannel->gainIndex_03_02 == ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED) &&
+		(gainIndexPinCfgchannel->gainIndex_05_04 == ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED) &&
+		(gainIndexPinCfgchannel->gainChange_gainIndex_06 == ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED))
+	{
+		ADI_ERROR_REPORT(&device->common,
+			ADI_COMMON_ERRSRC_API,
+			ADI_COMMON_ERR_API_FAIL,
+			ADI_COMMON_ACT_ERR_CHECK_PARAM,
+			NULL,
+			"All crumbs cannot be unassigned");
+		ADI_API_RETURN(device)
+	}
+	ADI_EXPECT(adi_adrv9001_Radio_Channel_State_Get, device, ADI_RX, channel, &state);
     if (ADI_ADRV9001_CHANNEL_CALIBRATED != state)
     {
         ADI_ERROR_REPORT(&device->common,
@@ -1525,7 +1538,7 @@ int32_t adi_adrv9001_Rx_GainIndex_Gpio_Configure(adi_adrv9001_Device_t *device,
     gpioCrumb1_0 = (uint8_t)gainIndexPinCfgchannel->gainIndex_01_00;
     gpioCrumb3_2 = (uint8_t)gainIndexPinCfgchannel->gainIndex_03_02;
     gpioCrumb5_4 = (uint8_t)gainIndexPinCfgchannel->gainIndex_05_04;
-    gpioCrumb7_6 = (uint8_t)gainIndexPinCfgchannel->gainIndex_07_06;
+    gpioCrumb7_6 = (uint8_t)gainIndexPinCfgchannel->gainChange_gainIndex_06;
 
     if (ADI_CHANNEL_1 == channel)
     {
@@ -1543,17 +1556,43 @@ int32_t adi_adrv9001_Rx_GainIndex_Gpio_Configure(adi_adrv9001_Device_t *device,
     }
 
     ADI_EXPECT(adrv9001_NvsRegmapCore_NvsGpioDirectionControlOe_Get, device, &gpioOutEn);
-    gpioOutEn |= (1 << (gpioCrumb1_0 * 2 - 1)) | (1 << (gpioCrumb1_0 * 2 - 2));
-    gpioOutEn |= (1 << (gpioCrumb3_2 * 2 - 1)) | (1 << (gpioCrumb3_2 * 2 - 2));
-    gpioOutEn |= (1 << (gpioCrumb5_4 * 2 - 1)) | (1 << (gpioCrumb5_4 * 2 - 2));
-    gpioOutEn |= (1 << (gpioCrumb7_6 * 2 - 1)) | (1 << (gpioCrumb7_6 * 2 - 2));
+
+	if (gpioCrumb1_0 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
+	{
+		gpioOutEn |= (1 << (gpioCrumb1_0 * 2 - 1)) | (1 << (gpioCrumb1_0 * 2 - 2));
+	}
+	if(gpioCrumb3_2 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
+	{
+		gpioOutEn |= (1 << (gpioCrumb3_2 * 2 - 1)) | (1 << (gpioCrumb3_2 * 2 - 2));
+	}
+	if (gpioCrumb5_4 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
+	{
+		gpioOutEn |= (1 << (gpioCrumb5_4 * 2 - 1)) | (1 << (gpioCrumb5_4 * 2 - 2));
+	}
+	if (gpioCrumb7_6 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
+	{
+		gpioOutEn |= (1 << (gpioCrumb7_6 * 2 - 1)) | (1 << (gpioCrumb7_6 * 2 - 2));
+	}
+
     ADI_EXPECT(adrv9001_NvsRegmapCore_NvsGpioDirectionControlOe_Set, device, gpioOutEn);
 
     /* Configure source */
-    ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + gpioCrumb1_0 - 1), gpioSource1_0);
-    ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + gpioCrumb3_2 - 1), gpioSource3_2);
-    ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + gpioCrumb5_4 - 1), gpioSource5_4);
-    ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + gpioCrumb7_6 - 1), gpioSource7_6);
+	if (gpioCrumb1_0 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
+	{
+		ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + gpioCrumb1_0 - 1), gpioSource1_0);
+	}
+	if (gpioCrumb3_2 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
+	{
+		ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + gpioCrumb3_2 - 1), gpioSource3_2);
+	}
+	if (gpioCrumb5_4 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
+	{
+		ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + gpioCrumb5_4 - 1), gpioSource5_4);
+	}
+	if (gpioCrumb7_6 != ADI_ADRV9001_GPIO_PIN_CRUMB_UNASSIGNED)
+	{
+		ADRV9001_SPIWRITEBYTE(device, "GPIO_SOURCE_SEL", (GPIO_SOURCE_SEL_ADDR + gpioCrumb7_6 - 1), gpioSource7_6);
+	}
 
     ADI_EXPECT(adrv9001_NvsRegmapRx_ControlOutMuxSel_Set, device, instance, GAIN_INDEX_MUX_ADDRESS);
 
