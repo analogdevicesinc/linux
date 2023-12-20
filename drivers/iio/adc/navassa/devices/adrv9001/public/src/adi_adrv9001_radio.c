@@ -1463,13 +1463,12 @@ int32_t adi_adrv9001_Radio_RfLogenDivider_Get(adi_adrv9001_Device_t *adrv9001, a
 {
 	uint8_t RfLogenDivMode = 0;
 	uint16_t RfLogenDivRatio = 0;
+	*RfLogenDivider = 0;
 
 	static const adrv9001_BfNvsPllMemMap_e instances[] = {
 		ADRV9001_BF_RF1_PLL,
 		ADRV9001_BF_RF2_PLL
 	};
-
-	*RfLogenDivider = 0;
 
 	ADI_PERFORM_VALIDATION(adi_adrv9001_Radio_RfLogenDivider_Get_Validate, adrv9001, pll, RfLogenDivider);
 
