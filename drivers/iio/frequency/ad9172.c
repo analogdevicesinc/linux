@@ -369,10 +369,9 @@ static int ad9172_setup(struct ad9172_state *st)
 	msleep(100);
 
 	ret = ad9172_link_status_get(st, lane_rate_kHz);
-	if (ret != 0) {
-		dev_err(dev, "DAC:MODE:JESD: ERROR : Link status failed\n");
-		return ret;
-	}
+	if (ret != 0)
+		dev_warn(dev, "DAC:MODE:JESD: WARN : Link status failed (%d)\n",
+			 ret);
 
 	return ad9172_finalize_setup(st);
 }
