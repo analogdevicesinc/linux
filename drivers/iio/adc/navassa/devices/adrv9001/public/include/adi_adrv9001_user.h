@@ -14,7 +14,7 @@
 #ifndef _ADI_ADRV9001_USER_H_
 #define _ADI_ADRV9001_USER_H_
 
-#include "adi_adrv9001_types.h"
+#include "adi_adrv9001_profile_types.h"
 
 #define HAL_SPIWRITEARRAY_BUFFERSIZE 256
 
@@ -163,6 +163,12 @@
 
 #define ADI_ADRV9001_FREQ_HOPPING_MAX_NUM_BYTES   (ADI_ADRV9001_MEM_WRITE_OVERHEAD_BYTES      +\
                                                    ADI_ADRV9001_FREQ_HOPPING_NUM_TABLE_BYTES)
+
+#define ADI_ADRV9001_WB_MAX_NUM_UNIQUE_CALS 156
+#define ADI_ADRV9001_WB_MAX_NUM_VECTOR_TABLE_WORDS 624
+#define ADI_ADRV9001_WB_MAX_NUM_VECTOR_TABLE_BYTES 2496
+#define ADI_ADRV9001_WB_MAX_NUM_ENTRY 16384
+#define ADI_ADRV9001_WB_MAX_NUM_COEFF 6000
 /*
  *****************************************
  * Rx and ObsRx gain tables
