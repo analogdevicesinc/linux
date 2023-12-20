@@ -558,6 +558,7 @@ static int wave6_vpu_ctrl_try_boot(struct vpu_ctrl *ctrl, struct wave6_vpu_entit
 		return wave6_vpu_ctrl_wakeup(ctrl, entity);
 
 	ctrl->current_entity = entity;
+	wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_PREPARE);
 	ret = request_firmware_nowait(THIS_MODULE,
 				      FW_ACTION_UEVENT,
 				      ctrl->res->fw_name,
@@ -571,7 +572,6 @@ static int wave6_vpu_ctrl_try_boot(struct vpu_ctrl *ctrl, struct wave6_vpu_entit
 		return ret;
 	}
 
-	wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_PREPARE);
 	return 0;
 }
 
@@ -628,6 +628,9 @@ void wave6_vpu_ctrl_put_sync(struct device *dev, struct wave6_vpu_entity *entity
 
 	if (!ctrl)
 		return;
+
+	if (entity == ctrl->current_entity)
+		wave6_vpu_ctrl_wait_done(dev, entity);
 
 	mutex_lock(&ctrl->ctrl_lock);
 
