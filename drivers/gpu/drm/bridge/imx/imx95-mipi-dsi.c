@@ -396,9 +396,7 @@ static int imx95_dsi_select_input(struct imx95_dsi *dsi)
 	dev_info(dev, "Using Pixel Link%d as input source\n",
 		 dsi->use_pl0 ? 0 : 1);
 
-	ret = mux_control_try_select(dsi->mux, !dsi->use_pl0);
-	if (ret < 0)
-		dev_err(dev, "failed to select input: %d\n", ret);
+	return 0;
 
 out:
 	of_node_put(remote_ldb_ch1);
@@ -409,15 +407,6 @@ out:
 	of_node_put(remote0);
 
 	return ret;
-}
-
-static void imx95_dsi_deselect_input(struct imx95_dsi *dsi)
-{
-	int ret;
-
-	ret = mux_control_deselect(dsi->mux);
-	if (ret < 0)
-		dev_err(dsi->dev, "failed to deselect input: %d\n", ret);
 }
 
 static inline void imx95_dsi_write(struct imx95_dsi *dsi, u32 reg, u32 val)
@@ -752,6 +741,12 @@ static int imx95_dsi_phy_init(void *priv_data)
 	u64 lane_mask;
 	int bpp, ret;
 
+	ret = mux_control_try_select(dsi->mux, !dsi->use_pl0);
+	if (ret < 0) {
+		dev_err(dsi->dev, "failed to select input: %d\n", ret);
+		return ret;
+	}
+
 	bpp = mipi_dsi_pixel_format_to_bpp(dsi->format);
 	if (bpp < 0) {
 		dev_err(dsi->dev, "failed to get dsi format bpp\n");
@@ -799,6 +794,7 @@ static int imx95_dsi_phy_init(void *priv_data)
 static void imx95_dsi_phy_power_off(void *priv_data)
 {
 	struct imx95_dsi *dsi = priv_data;
+	int ret;
 
 	/* set 1 to disable */
 	regmap_write(dsi->mst, DSI_CLOCK_GATING_CONTROL,
@@ -808,6 +804,10 @@ static void imx95_dsi_phy_power_off(void *priv_data)
 	imx95_dsi_phy_csr_write(dsi, PHY_MODE_CONTROL, TX_RXZ_DSI_MODE);
 
 	clk_disable_unprepare(dsi->clk_cfg);
+
+	ret = mux_control_deselect(dsi->mux);
+	if (ret < 0)
+		dev_err(dsi->dev, "failed to deselect input: %d\n", ret);
 }
 
 static int imx95_dsi_get_phy_configure_opts(struct imx95_dsi *dsi,
@@ -1149,7 +1149,6 @@ static int imx95_dsi_remove(struct platform_device *pdev)
 	struct imx95_dsi *dsi = platform_get_drvdata(pdev);
 
 	dw_mipi_dsi_remove(dsi->dmd);
-	imx95_dsi_deselect_input(dsi);
 
 	return 0;
 }
