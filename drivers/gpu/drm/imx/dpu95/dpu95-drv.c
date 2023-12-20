@@ -169,13 +169,24 @@ static int dpu95_runtime_resume(struct device *dev)
 static int dpu95_suspend(struct device *dev)
 {
 	struct drm_device *drm_dev = dev_get_drvdata(dev);
+	int ret;
 
-	return drm_mode_config_helper_suspend(drm_dev);
+	ret = drm_mode_config_helper_suspend(drm_dev);
+	if (ret)
+		return ret;
+
+	if (pm_runtime_active(dev))
+		dpu95_runtime_suspend(dev);
+
+	return 0;
 }
 
 static int dpu95_resume(struct device *dev)
 {
 	struct drm_device *drm_dev = dev_get_drvdata(dev);
+
+	if (pm_runtime_active(dev))
+		dpu95_runtime_resume(dev);
 
 	return drm_mode_config_helper_resume(drm_dev);
 }
