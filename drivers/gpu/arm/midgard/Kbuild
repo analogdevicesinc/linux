@@ -130,12 +130,12 @@ else
 endif
 
 ccflags-y += \
-    -I$(srctree)/include/linux \
-    -I$(srctree)/drivers/staging/android \
     -I$(src) \
     -I$(src)/platform/$(MALI_PLATFORM_DIR) \
     -I$(src)/../../../base \
-    -I$(src)/../../../../include
+    -I$(src)/../../../../include \
+    -I$(src)/../valhall-inc \
+    -I$(srctree)/include/linux
 
 subdir-ccflags-y += $(ccflags-y)
 
