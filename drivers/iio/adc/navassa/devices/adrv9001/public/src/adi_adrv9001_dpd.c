@@ -163,7 +163,6 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_dpd_Configure_Validate
     ADI_RANGE_CHECK(adrv9001, dpdConfig->timeFilterCoefficient, 0, MAX_TIME_FILTER_COEFFICIENT);
 	ADI_RANGE_CHECK(adrv9001, dpdConfig->clgcLoopOpen, 0, 1);
 	ADI_RANGE_CHECK(adrv9001, dpdConfig->captureDelay_us, 0, DPD_MAX_CAPTURE_DELAY_US);
-	ADI_RANGE_CHECK(adrv9001, dpdConfig->enableRepeatedEstimationInTDD, 0, 1);
     ADI_API_RETURN(adrv9001);
 }
 
