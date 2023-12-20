@@ -163,7 +163,7 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_dpd_Configure_Validate
     ADI_RANGE_CHECK(adrv9001, dpdConfig->timeFilterCoefficient, 0, MAX_TIME_FILTER_COEFFICIENT);
 	ADI_RANGE_CHECK(adrv9001, dpdConfig->clgcLoopOpen, 0, 1);
 	ADI_RANGE_CHECK(adrv9001, dpdConfig->captureDelay_us, 0, DPD_MAX_CAPTURE_DELAY_US);
-
+	ADI_RANGE_CHECK(adrv9001, dpdConfig->enableRepeatedEstimationInTDD, 0, 1);
     ADI_API_RETURN(adrv9001);
 }
 
@@ -171,7 +171,7 @@ int32_t adi_adrv9001_dpd_Configure(adi_adrv9001_Device_t *adrv9001,
                                    adi_common_ChannelNumber_e channel,
                                    adi_adrv9001_DpdCfg_t *dpdConfig)
 {
-	uint8_t armData[68] = { 0 };
+	uint8_t armData[72] = { 0 };
 
     uint8_t extData[5] = { 0 };
     uint32_t offset = 0;
@@ -203,13 +203,14 @@ int32_t adi_adrv9001_dpd_Configure(adi_adrv9001_Device_t *adrv9001,
 	adrv9001_LoadFourBytes(&offset, armData, dpdConfig->clgcFilterAlpha);
 	offset += 8; /* space for clgcLastGain_HundredthdB & clgcFilteredGain_HundredthdB , which are read-only */
 	adrv9001_LoadFourBytes(&offset, armData, dpdConfig->captureDelay_us);
-	
+	armData[offset++] = dpdConfig->enableRepeatedEstimationInTDD;
+	offset += 3; /* struct padding */
 	
     extData[0] = adi_adrv9001_Radio_MailboxChannel_Get(ADI_TX, channel);
     extData[1] = OBJID_GS_CONFIG;
     extData[2] = OBJID_TC_TX_DPD;
 
-    ADI_EXPECT(adi_adrv9001_arm_Config_Write, adrv9001, armData, sizeof(armData), extData, sizeof(extData))
+	ADI_EXPECT(adi_adrv9001_arm_Config_Write, adrv9001, armData, sizeof(armData), extData, sizeof(extData));
 
     ADI_API_RETURN(adrv9001);
 }
@@ -228,7 +229,7 @@ int32_t adi_adrv9001_dpd_Inspect(adi_adrv9001_Device_t *adrv9001,
                                  adi_common_ChannelNumber_e channel,
                                  adi_adrv9001_DpdCfg_t *dpdConfig)
 {
-	uint8_t armReadBack[68] = { 0 };
+	uint8_t armReadBack[72] = { 0 };
 
     uint8_t channelMask = 0;
     uint32_t offset = 0;
@@ -263,7 +264,8 @@ int32_t adi_adrv9001_dpd_Inspect(adi_adrv9001_Device_t *adrv9001,
 	adrv9001_ParseFourBytes(&offset, armReadBack, (uint32_t*)&dpdConfig->clgcLastGain_HundredthdB);
 	adrv9001_ParseFourBytes(&offset, armReadBack, (uint32_t*)&dpdConfig->clgcFilteredGain_HundredthdB);
 	adrv9001_ParseFourBytes(&offset, armReadBack, (uint32_t*)&dpdConfig->captureDelay_us);
-	
+	dpdConfig->enableRepeatedEstimationInTDD = (bool)armReadBack[offset++];
+	offset += 3; /* struct padding */
 
     ADI_API_RETURN(adrv9001);
 }
