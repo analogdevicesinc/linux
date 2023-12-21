@@ -815,7 +815,7 @@ static int wave6_vpu_enc_start_encode(struct vpu_instance *inst)
 			if (src_buf)
 				src_vbuf->consumed = false;
 
-			if (dst_buf) {
+			if (dst_vbuf) {
 				dst_vbuf->consumed = false;
 				dst_vbuf->used = false;
 			}

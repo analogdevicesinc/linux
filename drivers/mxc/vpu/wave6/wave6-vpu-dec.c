@@ -1724,10 +1724,30 @@ static void wave6_vpu_dec_stop_streaming(struct vb2_queue *q)
 	v4l2_m2m_resume(inst->dev->m2m_dev);
 }
 
+static int wave6_vpu_dec_buf_init(struct vb2_buffer *vb)
+{
+	struct vpu_instance *inst = vb2_get_drv_priv(vb->vb2_queue);
+	struct dec_initial_info initial_info;
+	int i;
+
+	if (V4L2_TYPE_IS_OUTPUT(vb->type))
+		return 0;
+
+	wave6_vpu_dec_give_command(inst, DEC_GET_SEQ_INFO, &initial_info);
+	if (initial_info.chroma_format_idc != YUV400)
+		return 0;
+
+	for (i = 0; i < inst->dst_fmt.num_planes; i++)
+		memset(vb2_plane_vaddr(vb, i), 0x80, vb2_plane_size(vb, i));
+
+	return 0;
+}
+
 static const struct vb2_ops wave6_vpu_dec_vb2_ops = {
 	.queue_setup = wave6_vpu_dec_queue_setup,
 	.wait_prepare = vb2_ops_wait_prepare,
 	.wait_finish = vb2_ops_wait_finish,
+	.buf_init = wave6_vpu_dec_buf_init,
 	.buf_queue = wave6_vpu_dec_buf_queue,
 	.start_streaming = wave6_vpu_dec_start_streaming,
 	.stop_streaming = wave6_vpu_dec_stop_streaming,

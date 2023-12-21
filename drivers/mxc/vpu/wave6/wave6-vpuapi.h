@@ -216,6 +216,13 @@ enum mirror_direction {
 	MIRDIR_HOR_VER /* horizontal and vertical mirroring */
 };
 
+enum chroma_format {
+	YUV400,
+	YUV420,
+	YUV422,
+	YUV444,
+};
+
 enum frame_buffer_format {
 	FORMAT_ERR = -1,
 	FORMAT_420 = 0, /* 8bit */
