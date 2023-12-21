@@ -487,6 +487,7 @@ int ntmp_tgst_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 	info->oper_bt = le64_to_cpu(olse->oper_bt);
 	info->oper_ct = le32_to_cpu(olse->oper_ct);
 	info->oper_ct_ext = le32_to_cpu(olse->oper_ct_ext);
+	info->oper_cl_len = list_len;
 	for (i = 0; i < list_len; i++) {
 		info->oper[i].interval = le32_to_cpu(olse->ge[i].interval);
 		info->oper[i].tc_gates = olse->ge[i].tc_state;
