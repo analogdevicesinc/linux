@@ -17,6 +17,7 @@
 #include <linux/of_address.h>
 #include <linux/remoteproc.h>
 #include <linux/delay.h>
+#include <linux/pm_runtime.h>
 
 #include "uapi/neutron.h"
 #include "neutron_buffer.h"
@@ -101,18 +102,16 @@ int neutron_rproc_boot(struct neutron_device *ndev, const char *fw_name)
 	if (IS_ERR(rproc))
 		return -ENODEV;
 
-	/* Block other threads until neutron firmware is ready */
-	mutex_lock(&ndev->mutex);
 	if (atomic_read(&rproc->power) == 0) {
 		ret = rproc_set_firmware(rproc, fw_name ? fw_name : NEUTRON_FIRMW_NAME);
 		if (ret) {
 			dev_err(ndev->dev, "could not set firmware: %s\n", fw_name);
-			goto out;
+			return ret;
 		}
 		ret = rproc_boot(rproc);
 		if (ret) {
 			dev_err(ndev->dev, "could not boot a remote processor\n");
-			goto out;
+			return ret;
 		}
 		/* Continue and assume boot neutron manually */
 		if (!wait_until_neutron_ready(ndev, 100))
@@ -121,9 +120,6 @@ int neutron_rproc_boot(struct neutron_device *ndev, const char *fw_name)
 	/* Update power state */
 	if (ndev->power_state == NEUTRON_POWER_OFF)
 		ndev->power_state = NEUTRON_POWER_ON;
-
-out:
-	mutex_unlock(&ndev->mutex);
 
 	return ret;
 }
@@ -148,6 +144,37 @@ void neutron_rproc_put(struct neutron_device *ndev)
 	rproc_put(ndev->rproc);
 }
 
+/* neutron hardware reset used when firmware gets stuck */
+int neutron_hw_reset(struct neutron_device *ndev)
+{
+	int ret = -ENODEV;
+
+	/* Before reset ctrl is ready for neutron, we use the pm runtime interface
+	 * powerOff and powerOn to do reset,
+	 * shutdown the neutron core before powering off.
+	 */
+	neutron_rproc_shutdown(ndev);
+	ret = pm_runtime_put_sync(ndev->dev);
+	if (ret) {
+		dev_err(ndev->dev, "hw_reset: failed to power off\n");
+		goto rproc_boot;
+	}
+
+	msleep(20);
+	ret = pm_runtime_get_sync(ndev->dev);
+	if (ret) {
+		dev_err(ndev->dev, "hw_reset: failed to power on\n");
+		goto rproc_boot;
+	}
+
+rproc_boot:
+
+	if (ndev->power_state == NEUTRON_POWER_ON)
+		ret = neutron_rproc_boot(ndev, NEUTRON_FIRMW_NAME);
+
+	return ret;
+}
+
 static int neutron_open(struct inode *inode,
 			struct file *file)
 {
@@ -157,7 +184,9 @@ static int neutron_open(struct inode *inode,
 	int head, ret = 0;
 	bool is_iomem = true;
 
+	mutex_lock(&ndev->mutex);
 	ret = neutron_rproc_boot(ndev, NEUTRON_FIRMW_NAME);
+	mutex_unlock(&ndev->mutex);
 	if (ret)
 		return ret;
 
@@ -220,10 +249,6 @@ static long neutron_ioctl(struct file *file,
 	void __user *udata = (void __user *)arg;
 	int ret = -EINVAL;
 
-	ret = mutex_lock_interruptible(&ndev->mutex);
-	if (ret)
-		return ret;
-
 	dev_dbg(ndev->dev, "Device ioctl. file=0x%pK, cmd=0x%x, arg=0x%lx\n",
 		file, cmd, arg);
 
@@ -277,7 +302,6 @@ static long neutron_ioctl(struct file *file,
 		break;
 	}
 	}
-	mutex_unlock(&ndev->mutex);
 
 	return ret;
 }

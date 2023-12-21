@@ -100,6 +100,18 @@ int neutron_inference_run(struct neutron_inference *inf)
 	neu_dbg("job %x is started, dram_base %x\n",
 		inf->args.tensor_offset, inf->args.dram_base);
 
+	/* Do reset when neutron is stuck.
+	 * If the previous inference job is done, the ACK register will be set to RESET_VAL.
+	 * Otherwise it means neutron is stuck.
+	 */
+	val = ndev->mbox->ops->read_ret(ndev->mbox);
+	if (unlikely(val != RESET_VAL)) {
+		dev_dbg(ndev->dev, "reset neutron: 0x%x\n", val);
+		mutex_lock(&ndev->mutex);
+		neutron_hw_reset(ndev);
+		mutex_unlock(&ndev->mutex);
+	}
+
 	/* Run neutron inference */
 	if (inf->cmd_type == NEUTRON_CMD_RUN_INFERENCE) {
 		/* set BASEDDRL address */

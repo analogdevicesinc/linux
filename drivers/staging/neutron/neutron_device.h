@@ -118,6 +118,7 @@ void neutron_dev_deinit(struct neutron_device *ndev);
 
 int neutron_rproc_boot(struct neutron_device *ndev, const char *fw_name);
 int neutron_rproc_shutdown(struct neutron_device *ndev);
+int neutron_hw_reset(struct neutron_device *ndev);
 
 #endif /* NEUTRON_DEVICE_H */
 
