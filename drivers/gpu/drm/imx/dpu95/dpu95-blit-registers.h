@@ -10,9 +10,10 @@
 /* Registers defination */
 #define COMCTRL_IPIDENTIFIER                       ((uint32_t)(0))
 
-/* Register for interrupts in COMMON domain */
+/* Register for interrupts in Common Control domain */
 #define COMCTRL_INTERRUPTENABLE0                    ((uint32_t)(0x1008))
 #define COMCTRL_INTERRUPTPRESET0                    ((uint32_t)(0x1014))
+#define COMCTRL_INTERRUPTPRESET1                    ((uint32_t)(0x1018))
 #define COMCTRL_INTERRUPTCLEAR0                     ((uint32_t)(0x1020))
 #define COMCTRL_INTERRUPTSTATUS0                    ((uint32_t)(0x102c))
 

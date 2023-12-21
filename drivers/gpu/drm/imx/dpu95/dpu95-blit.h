@@ -11,12 +11,34 @@
 #define CMDSEQ_FIFO_SPACE_THRESHOLD   192
 #define WORD_SIZE   4
 
+#include <linux/file.h>
+#include <linux/fdtable.h>
+#include <linux/sync_file.h>
+#include <linux/dma-fence.h>
+#include <linux/dma-fence-array.h>
 #include <drm/drm_ioctl.h>
+
+struct dpu_be_fence {
+	struct dma_fence base;
+	spinlock_t lock;
+	atomic_t refcnt;
+	bool signaled;
+};
 
 struct dpu_bliteng {
 	struct device		*dev;
 	void __iomem *base;
 	struct mutex mutex;
+
+	s32 irq_comctrl_sw[4];
+
+	struct semaphore sema[4];
+	struct dpu_be_fence *fence[4];
+	s32 next_fence_idx;
+
+	atomic64_t seqno;
+	spinlock_t lock;
+	u64 context;
 
 	void *buffer_addr_virt;
 	u32 buffer_addr_phy;
