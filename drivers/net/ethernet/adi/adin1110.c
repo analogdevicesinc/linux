@@ -163,6 +163,8 @@ struct adin1110_priv {
 	struct adin1110_port_priv	*ports[ADIN_MAC_MAX_PORTS];
 	char				mii_bus_name[MII_BUS_ID_SIZE];
 	u8				data[ADIN1110_MAX_BUFF] ____cacheline_aligned;
+
+	u32				reg_access_addr;
 };
 
 struct adin1110_switchdev_event_work {
@@ -1640,20 +1642,54 @@ static int adin1110_probe_netdevs(struct adin1110_priv *priv)
 ssize_t adin1110_debugfs_read(struct file *filp, char *buffer, size_t length, loff_t *offset)
 {
 	struct adin1110_priv *priv = filp->private_data;
-	u32 reg_val;
+	char buf[50] = {0};
+	u32 buf_len;
+	u32 val;
+	u32 reg;
 	int ret;
 
-	ret = adin1110_read_reg(priv, 0x6, &reg_val);
+	ret = adin1110_read_reg(priv, priv->reg_access_addr, &val);
 	if (ret)
 		return ret;
 
-	return sysfs_emit(buffer, "%x", reg_val);
+	buf_len = snprintf(buf, sizeof(buf), "0x%X\n", val);
+
+	return simple_read_from_buffer(buffer, length, offset, buf, buf_len);
+}
+
+ssize_t adin1110_debugfs_write(struct file *filp, const char *buffer, size_t length, loff_t *offset)
+{
+	struct adin1110_priv *priv = filp->private_data;
+	char buf[50];
+	u32 reg;
+	u32 val;
+	int ret;
+
+	if (copy_from_user(buf, buffer, length))
+		return -EFAULT;
+
+	ret = sscanf(buf, "%i %i", &reg, &val);
+	switch (ret) {
+	case 1:
+		priv->reg_access_addr = reg;
+		break;
+	case 2:
+		ret = adin1110_write_reg(priv, priv->reg_access_addr, val);
+		if (ret)
+			return ret;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return length;
 }
 
 static struct file_operations adin1110_debugfs_fops = {
 	.owner	= THIS_MODULE,
 	.open = simple_open,
 	.read = adin1110_debugfs_read,
+	.write = adin1110_debugfs_write,
 };
 
 static int adin1110_register_debugfs(struct adin1110_priv *priv)
@@ -1662,8 +1698,7 @@ static int adin1110_register_debugfs(struct adin1110_priv *priv)
 
 	d = debugfs_create_dir("adin1110", NULL);
 
-	debugfs_create_file("CONFIG_REG", 0444, d, priv, &adin1110_debugfs_fops);
-	debugfs_create_file("CONFIG2_REG", 0444, d, priv, &adin1110_debugfs_fops);
+	debugfs_create_file("direct_reg_access", 0644, d, priv, &adin1110_debugfs_fops);
 
 	return 0;
 }
