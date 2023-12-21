@@ -22,6 +22,17 @@
 #include "dpu95.h"
 #include "dpu95-drv.h"
 
+static inline u32 dpu95_comctrl_irq_read(struct dpu95_soc *dpu, unsigned int offset)
+{
+	return readl(dpu->comctrl_irq_reg + offset);
+}
+
+static inline void dpu95_comctrl_irq_write(struct dpu95_soc *dpu,
+					 unsigned int offset, u32 value)
+{
+	writel(value, dpu->comctrl_irq_reg + offset);
+}
+
 static inline u32 dpu95_disp_irq0_read(struct dpu95_soc *dpu, unsigned int offset)
 {
 	return readl(dpu->disp_irq0_reg + offset);
@@ -269,6 +280,27 @@ static void dpu95_dm_extdst5_master(struct dpu95_soc *dpu)
 	dpu95_dm_mask_write(dpu, EXTDST5_STATIC, MASTER);
 }
 
+static void dpu95_comctrl_irq_handle(struct irq_desc *desc, enum dpu95_irq irq)
+{
+	struct dpu95_soc *dpu = irq_desc_get_handler_data(desc);
+	struct irq_chip *chip = irq_desc_get_chip(desc);
+	unsigned int virq;
+	u32 status;
+
+	chained_irq_enter(chip, desc);
+
+	status = dpu95_comctrl_irq_read(dpu, INTERRUPTSTATUS(irq / 32));
+	status &= dpu95_comctrl_irq_read(dpu, INTERRUPTENABLE(irq / 32));
+
+	if (status & BIT(irq % 32)) {
+		virq = irq_linear_revmap(dpu->comctrl_irq_domain, irq);
+		if (virq)
+			generic_handle_irq(virq);
+	}
+
+	chained_irq_exit(chip, desc);
+}
+
 static void dpu95_disp_irq0_handle(struct irq_desc *desc, enum dpu95_irq irq)
 {
 	struct dpu95_soc *dpu = irq_desc_get_handler_data(desc);
@@ -309,6 +341,26 @@ static void dpu95_disp_irq2_handle(struct irq_desc *desc, enum dpu95_irq irq)
 	}
 
 	chained_irq_exit(chip, desc);
+}
+
+static void dpu95_comctrl_sw0_irq_handler(struct irq_desc *desc)
+{
+	dpu95_comctrl_irq_handle(desc, DPU95_IRQ_COMCTRL_SW0);
+}
+
+static void dpu95_comctrl_sw1_irq_handler(struct irq_desc *desc)
+{
+	dpu95_comctrl_irq_handle(desc, DPU95_IRQ_COMCTRL_SW1);
+}
+
+static void dpu95_comctrl_sw2_irq_handler(struct irq_desc *desc)
+{
+	dpu95_comctrl_irq_handle(desc, DPU95_IRQ_COMCTRL_SW2);
+}
+
+static void dpu95_comctrl_sw3_irq_handler(struct irq_desc *desc)
+{
+	dpu95_comctrl_irq_handle(desc, DPU95_IRQ_COMCTRL_SW3);
 }
 
 static void dpu95_dec_framecomplete0_irq_handler(struct irq_desc *desc)
@@ -361,6 +413,13 @@ static void dpu95_db1_shdload_irq_handler(struct irq_desc *desc)
 	dpu95_disp_irq2_handle(desc, DPU95_IRQ_DOMAINBLEND1_SHDLOAD);
 }
 
+static void (* const dpu95_comctrl_irq_handler[DPU95_IRQ_COUNT])(struct irq_desc *desc) = {
+	[DPU95_IRQ_COMCTRL_SW0]              = dpu95_comctrl_sw0_irq_handler,
+	[DPU95_IRQ_COMCTRL_SW1]              = dpu95_comctrl_sw1_irq_handler,
+	[DPU95_IRQ_COMCTRL_SW2]              = dpu95_comctrl_sw2_irq_handler,
+	[DPU95_IRQ_COMCTRL_SW3]              = dpu95_comctrl_sw3_irq_handler,
+};
+
 static void (* const dpu95_display_irq0_handler[DPU95_IRQ_COUNT])(struct irq_desc *desc) = {
 	[DPU95_IRQ_DOMAINBLEND0_SHDLOAD]     = dpu95_db0_shdload_irq_handler,
 	[DPU95_IRQ_EXTDST0_SHDLOAD]          = dpu95_ed0_shdload_irq_handler,
@@ -376,6 +435,16 @@ static void (* const dpu95_display_irq2_handler[DPU95_IRQ_COUNT])(struct irq_des
 	[DPU95_IRQ_DISENGCFG_FRAMECOMPLETE1] = dpu95_dec_framecomplete1_irq_handler,
 	[DPU95_IRQ_DISENGCFG_SEQCOMPLETE1]   = dpu95_dec_seqcomplete1_irq_handler,
 };
+
+int dpu95_map_comctrl_irq(struct dpu95_soc *dpu, int irq)
+{
+	int virq = irq_linear_revmap(dpu->comctrl_irq_domain, irq);
+
+	if (!virq)
+		virq = irq_create_mapping(dpu->comctrl_irq_domain, irq);
+
+	return virq;
+}
 
 int dpu95_map_disp_irq0(struct dpu95_soc *dpu, int irq)
 {
@@ -405,6 +474,8 @@ void dpu95_irq_hw_init(struct dpu95_soc *dpu)
 
 	for (i = 0; i < DPU95_IRQ_COUNT; i += 32) {
 		/* mask and clear all interrupts */
+		dpu95_comctrl_irq_write(dpu, INTERRUPTENABLE(i / 32), 0);
+		dpu95_comctrl_irq_write(dpu, INTERRUPTCLEAR(i / 32), ~unused_irq[i / 32]);
 		dpu95_disp_irq0_write(dpu, INTERRUPTENABLE(i / 32), 0);
 		dpu95_disp_irq0_write(dpu, INTERRUPTCLEAR(i / 32), ~unused_irq[i / 32]);
 		dpu95_disp_irq2_write(dpu, INTERRUPTENABLE(i / 32), 0);
@@ -418,6 +489,14 @@ static int dpu95_irq_init(struct platform_device *pdev, struct dpu95_soc *dpu)
 	struct irq_chip_generic *gc;
 	struct irq_chip_type *ct;
 	int ret, i, j;
+
+	for (i = 0; i < DPU95_COMCTRL_IRQ_IRQS; i++) {
+		dpu->comctrl_irq[i] = platform_get_irq(pdev, dpu_comctrl_irq[i]);
+		if (dpu->comctrl_irq[i] < 0)
+			return dev_err_probe(dev, dpu->comctrl_irq[i],
+					     "failed to get comctrl irq[%d]\n",
+					     dpu_comctrl_irq[i]);
+	}
 
 	for (i = 0; i < DPU95_DISPLAY_IRQ0_IRQS; i++) {
 		dpu->disp_irq0[i] = platform_get_irq(pdev, dpu_display_irq0[i]);
@@ -435,13 +514,23 @@ static int dpu95_irq_init(struct platform_device *pdev, struct dpu95_soc *dpu)
 					     dpu_display_irq2[i]);
 	}
 
+	dpu->comctrl_irq_domain = irq_domain_add_linear(dev->of_node,
+						      DPU95_IRQ_COUNT,
+						      &irq_generic_chip_ops,
+						      dpu);
+	if (!dpu->comctrl_irq_domain) {
+		dev_err(dev, "failed to add comctrl irq domain\n");
+		return -ENODEV;
+	}
+
 	dpu->disp_irq0_domain = irq_domain_add_linear(dev->of_node,
 						      DPU95_IRQ_COUNT,
 						      &irq_generic_chip_ops,
 						      dpu);
 	if (!dpu->disp_irq0_domain) {
 		dev_err(dev, "failed to add display irq0 domain\n");
-		return -ENODEV;
+		ret = -ENODEV;
+		goto err0;
 	}
 
 	dpu->disp_irq2_domain = irq_domain_add_linear(dev->of_node,
@@ -452,6 +541,15 @@ static int dpu95_irq_init(struct platform_device *pdev, struct dpu95_soc *dpu)
 		dev_err(dev, "failed to add display irq2 domain\n");
 		ret = -ENODEV;
 		goto err1;
+	}
+
+	ret = irq_alloc_domain_generic_chips(dpu->comctrl_irq_domain, 32, 1,
+					     "DPU COMCTRL IRQ",
+					     handle_level_irq, 0, 0, 0);
+	if (ret < 0) {
+		dev_err(dev, "failed to alloc generic irq chips for comctrl irq: %d\n",
+			ret);
+		goto err2;
 	}
 
 	ret = irq_alloc_domain_generic_chips(dpu->disp_irq0_domain, 32, 1,
@@ -470,6 +568,18 @@ static int dpu95_irq_init(struct platform_device *pdev, struct dpu95_soc *dpu)
 		dev_err(dev, "failed to alloc generic irq chips for display irq2: %d\n",
 			ret);
 		goto err2;
+	}
+
+	for (i = 0; i < DPU95_IRQ_COUNT; i += 32) {
+		gc = irq_get_domain_generic_chip(dpu->comctrl_irq_domain, i);
+		gc->reg_base = dpu->comctrl_irq_reg;
+		gc->unused = unused_irq[i / 32];
+		ct = gc->chip_types;
+		ct->chip.irq_ack = irq_gc_ack_set_bit;
+		ct->chip.irq_mask = irq_gc_mask_clr_bit;
+		ct->chip.irq_unmask = irq_gc_mask_set_bit;
+		ct->regs.ack = INTERRUPTCLEAR(i / 32);
+		ct->regs.mask = INTERRUPTENABLE(i / 32);
 	}
 
 	for (i = 0; i < DPU95_IRQ_COUNT; i += 32) {
@@ -494,6 +604,21 @@ static int dpu95_irq_init(struct platform_device *pdev, struct dpu95_soc *dpu)
 		ct->chip.irq_unmask = irq_gc_mask_set_bit;
 		ct->regs.ack = INTERRUPTCLEAR(i / 32);
 		ct->regs.mask = INTERRUPTENABLE(i / 32);
+	}
+
+	for (i = 0; i < DPU95_IRQ_COUNT; i++) {
+		if (!dpu95_comctrl_irq_handler[i])
+			continue;
+
+		for (j = 0; j < DPU95_COMCTRL_IRQ_IRQS; j++) {
+			if (dpu_comctrl_irq[j] != i)
+				continue;
+
+			irq_set_chained_handler_and_data(dpu->comctrl_irq[j],
+							 dpu95_comctrl_irq_handler[i],
+							 dpu);
+			break;
+		}
 	}
 
 	for (i = 0; i < DPU95_IRQ_COUNT; i++) {
@@ -532,6 +657,8 @@ err2:
 	irq_domain_remove(dpu->disp_irq2_domain);
 err1:
 	irq_domain_remove(dpu->disp_irq0_domain);
+err0:
+	irq_domain_remove(dpu->comctrl_irq_domain);
 	return ret;
 }
 
@@ -540,6 +667,20 @@ static void devm_dpu95_irq_exit(void *data)
 	struct dpu95_soc *dpu = data;
 	unsigned int irq;
 	int i, j;
+
+	for (i = 0; i < DPU95_IRQ_COUNT; i++) {
+		if (!dpu95_comctrl_irq_handler[i])
+			continue;
+
+		for (j = 0; j < DPU95_COMCTRL_IRQ_IRQS; j++) {
+			if (dpu_comctrl_irq[j] != i)
+				continue;
+
+			irq_set_chained_handler_and_data(dpu->comctrl_irq[j],
+							 NULL, NULL);
+			break;
+		}
+	}
 
 	for (i = 0; i < DPU95_IRQ_COUNT; i++) {
 		if (!dpu95_display_irq0_handler[i])
@@ -569,6 +710,13 @@ static void devm_dpu95_irq_exit(void *data)
 		}
 	}
 
+	for (i = 0; i < DPU95_COMCTRL_IRQ_IRQS; i++) {
+		irq = irq_linear_revmap(dpu->comctrl_irq_domain,
+					dpu_comctrl_irq[i]);
+		if (irq)
+			irq_dispose_mapping(irq);
+	}
+
 	for (i = 0; i < DPU95_DISPLAY_IRQ0_IRQS; i++) {
 		irq = irq_linear_revmap(dpu->disp_irq0_domain,
 					dpu_display_irq0[i]);
@@ -583,6 +731,7 @@ static void devm_dpu95_irq_exit(void *data)
 			irq_dispose_mapping(irq);
 	}
 
+	irq_domain_remove(dpu->comctrl_irq_domain);
 	irq_domain_remove(dpu->disp_irq0_domain);
 	irq_domain_remove(dpu->disp_irq2_domain);
 }
@@ -713,6 +862,10 @@ int dpu95_core_init(struct dpu95_drm_device *dpu_drm)
 	dpu_base = res->start;
 
 	dpu->dev = dev;
+
+	dpu->comctrl_irq_reg = devm_ioremap(dev, dpu_base + 0x1000, SZ_64);
+	if (!dpu->comctrl_irq_reg)
+		return -ENOMEM;
 
 	dpu->dm_mask_reg = devm_ioremap(dev, dpu_base + 0x2000, SZ_64);
 	if (!dpu->dm_mask_reg)

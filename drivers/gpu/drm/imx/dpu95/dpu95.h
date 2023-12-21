@@ -311,6 +311,14 @@ enum dpu95_pec_clken {
 	CLKEN_FULL = 0x3,
 };
 
+static enum dpu95_irq dpu_comctrl_irq[] = {
+	DPU95_IRQ_COMCTRL_SW0,
+	DPU95_IRQ_COMCTRL_SW1,
+	DPU95_IRQ_COMCTRL_SW2,
+	DPU95_IRQ_COMCTRL_SW3,
+};
+#define DPU95_COMCTRL_IRQ_IRQS		ARRAY_SIZE(dpu_comctrl_irq)
+
 static enum dpu95_irq dpu_display_irq0[] = {
 	DPU95_IRQ_EXTDST0_SHDLOAD,
 	DPU95_IRQ_EXTDST0_FRAMECOMPLETE,
@@ -400,6 +408,7 @@ static enum dpu95_irq dpu_display_irq2[] = {
 struct dpu95_soc {
 	struct device			*dev;
 
+	void __iomem			*comctrl_irq_reg;
 	void __iomem			*dm_mask_reg;
 	void __iomem			*disp_irq0_reg;
 	void __iomem			*disp_irq2_reg;
@@ -412,9 +421,11 @@ struct dpu95_soc {
 	struct clk			*clk_ocram;
 	struct clk			*clk_ldb;
 
+	int				comctrl_irq[DPU95_COMCTRL_IRQ_IRQS];
 	int				disp_irq0[DPU95_DISPLAY_IRQ0_IRQS];
 	int				disp_irq2[DPU95_DISPLAY_IRQ2_IRQS];
 
+	struct irq_domain		*comctrl_irq_domain;
 	struct irq_domain		*disp_irq0_domain;
 	struct irq_domain		*disp_irq2_domain;
 
@@ -446,6 +457,7 @@ struct dpu95_units {
 	void (*hw_init)(struct dpu95_soc *dpu, unsigned int index);
 };
 
+int dpu95_map_comctrl_irq(struct dpu95_soc *dpu, int irq);
 int dpu95_map_disp_irq0(struct dpu95_soc *dpu, int irq);
 int dpu95_map_disp_irq2(struct dpu95_soc *dpu, int irq);
 
