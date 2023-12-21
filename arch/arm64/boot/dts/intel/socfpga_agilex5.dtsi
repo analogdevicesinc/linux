@@ -133,8 +133,8 @@
 		compatible = "usb-nop-xceiv";
 	};
 
-	dsu-pmu-0 {
-		compatible = "arm,dsu-pmu";
+	pmu {
+		compatible = "arm,armv8-pmuv3";
 		interrupt-parent = <&intc>;
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_LOW>;
 		cpus = <&cpu0>, <&cpu1>, <&cpu2>, <&cpu3>;
