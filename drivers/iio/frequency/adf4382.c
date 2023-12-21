@@ -431,7 +431,7 @@
 
 #define ADF4382_CP_I_DEFAULT			15
 #define ADF4382_REF_DIV_DEFAULT			1
-#define ADF4382_RFOUT_DEFAULT			2305000000ULL
+#define ADF4382_RFOUT_DEFAULT			2850000000ULL
 
 #define ADF4382_PHASE_BLEED_CNST		2044000
 #define ADF4382_VCO_CAL_CNT			202
@@ -601,53 +601,74 @@ static void adf4382_pfd_compute(struct adf4382_state *st, unsigned int *pfd_freq
 	return;
 }
 
-static int adf4382_pll_fract_n_compute(struct adf4382_state *st,
-				       u64 pfd,
-				       u32 *integer,
-				       u32 *fract1,
-				       u32 *fract2,
-				       u32 *mod2)
+int adf4382_frac2_compute(struct adf4382_state *st, u64 res,
+			  unsigned int pfd_freq_hz, u32 *frac2_word,
+			  u32 *mod2_word)
 {
-	u64 tmp;
-	u64 vco = st->freq;
-	u64 mod2_max;
-	bool en_phase_resync;
-	u32 gcd_div;
-	int ret;
+	u32 channel_spacing;
+	u8 en_phase_resync;
+	u32 chsp_freq;
+	u32 mod2_tmp;
+	u32 mod2_max;
+	u32 mod2_wd;
+	u32 gcd_var;
 
-	tmp = do_div(vco, pfd);
-	tmp = tmp * ADF4382_MOD1WORD;
-	*fract2 = do_div(tmp, pfd);
+	channel_spacing = 1;
+	mod2_wd = 1;
 
-	*integer = vco;
-	*fract1 = tmp;
-	*mod2 = pfd;
+	en_phase_resync = regmap_test_bits(st->regmap, 0x1E,
+					   ADF4382_EN_PHASE_RESYNC_MSK);
+	if (en_phase_resync < 0)
+		return en_phase_resync;
 
-	if (*fract2 || *fract1) {
-		ret = regmap_test_bits(st->regmap, 0x1E,
-					ADF4382_EN_PHASE_RESYNC_MSK);
-		if (ret < 0)
-			return ret;
+	if (en_phase_resync)
+		mod2_max = ADF4382_PHASE_RESYNC_MOD2WORD_MAX;
+	else
+		mod2_max = ADF4382_MOD2WORD_MAX;
 
-		en_phase_resync = ret;
+	do {
+		chsp_freq = channel_spacing * ADF4382_MOD1WORD;
+		gcd_var = gcd(chsp_freq, pfd_freq_hz);
+		mod2_tmp = DIV_ROUND_UP(pfd_freq_hz, gcd_var);
+		dev_info(&st->spi->dev,"mod2_tmp = %u", mod2_tmp);
 
-		if (en_phase_resync)
-			mod2_max = ADF4382_PHASE_RESYNC_MOD2WORD_MAX;
-		else
-			mod2_max = ADF4382_MOD2WORD_MAX;
-
-
-		while (*mod2 > mod2_max) {
-			*mod2 >>= 1;
-			*fract2 >>= 1;
+		if (mod2_tmp > mod2_max) {
+			channel_spacing *= 5;
+		} else {
+			mod2_wd = mod2_tmp;
+			break;
 		}
 
-		gcd_div = gcd(*fract2, *mod2);
-		*mod2 /= gcd_div;
-		*fract2 /= gcd_div;
-	} else {
-		*mod2 = 1;
+	} while (channel_spacing < ADF4382_CHANNEL_SPACING_MAX);
+
+	if (!en_phase_resync) {
+		mod2_wd *= DIV_ROUND_DOWN_ULL(mod2_max, mod2_wd);
 	}
+
+	*frac2_word = DIV_ROUND_CLOSEST_ULL(res * mod2_wd, pfd_freq_hz);
+	*mod2_word = mod2_wd;
+
+	return 0;
+}
+
+int adf4382_pll_fract_n_compute(struct adf4382_state *st, unsigned int pfd_freq_hz,
+				u16 *n_int, u32 *frac1_word, u32 *frac2_word,
+				u32 *mod2_word)
+{
+	u64 rem;
+	u64 res;
+
+	*n_int = div64_u64_rem(st->freq, pfd_freq_hz, &rem);
+
+	res = rem * ADF4382_MOD1WORD;
+	*frac1_word = (u32)div64_u64_rem(res, pfd_freq_hz, &rem);
+
+	*frac2_word = 0;
+	*mod2_word = 0;
+
+	if(rem > 0)
+		return adf4382_frac2_compute(st, rem, pfd_freq_hz, frac2_word,
+					     mod2_word);
 
 	return 0;
 }
@@ -663,7 +684,7 @@ static int adf4382_set_freq(struct adf4382_state *st)
 	u8 div1;
 	u8 int_mode;
 	u8 en_bleed;
-	u32 n_int;
+	u16 n_int;
 	u64 tmp;
 	u64 vco;
 	int ret;
