@@ -24,7 +24,7 @@
 	status = "okay";
 
 	os08a20: os08a20_mipi@36 {
-		compatible = "ovti,os08a20";
+		compatible = "ovti,os08a20_mipi";
 		reg = <0x36>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_csi_mclk>;
