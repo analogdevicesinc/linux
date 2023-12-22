@@ -446,7 +446,7 @@ __push_back_to_github() {
 	}
 }
 
-MAIN_MIRROR="xcomm_zynq"
+MAIN_MIRROR="release-mirror"
 
 __update_main_mirror() {
 	git checkout "$MAIN_MIRROR"
@@ -505,7 +505,7 @@ __handle_sync_with_main() {
 
 build_sync_branches_with_main() {
 	GIT_FETCH_DEPTH=50
-	BRANCHES="adi-5.15.0 rpi-5.15.y"
+	BRANCHES="rpi-5.15.y"
 
 	__update_git_ref "$MAIN_BRANCH" "$MAIN_BRANCH" || {
 		echo_red "Could not fetch branch '$MAIN_BRANCH'"
