@@ -1572,7 +1572,7 @@
 				compatible = "fsl,imx8mp-sdma", "fsl,imx8mq-sdma";
 				reg = <0x30e10000 0x10000>;
 				#dma-cells = <3>;
-				clocks = <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SDMA2_ROOT>,
+				clocks = <&clk IMX8MP_CLK_AUDIO_ROOT>,
 					 <&clk IMX8MP_CLK_AUDIO_ROOT>;
 				clock-names = "ipg", "ahb";
 				interrupts = <GIC_SPI 103 IRQ_TYPE_LEVEL_HIGH>;
