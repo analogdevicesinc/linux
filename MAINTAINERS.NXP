@@ -282,6 +282,11 @@ M: G.n. Zhou <guoniu.zhou@nxp.com>
 F: Documentation/devicetree/bindings/media/imx8-parallel-csi.txt
 F: drivers/staging/media/imx/imx8-parallel-csi.c
 
+capture/os08a20
+M: Mirela Rabulea <mirela.rabulea@nxp.com>
+M: Alice Yuan <alice.yuan@nxp.com>
+F: drivers/media/i2c/os08a20/*
+
 clock/imx
 M: Jacky Bai <jacky.bai@nxp.com>
 M: Peng Fan <peng.fan@nxp.com>
