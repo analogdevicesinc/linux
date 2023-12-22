@@ -488,7 +488,6 @@ static const int adf4382_ci_ua[] = {
 	10100
 };
 
-//TODO Rewrite using defines
 static const struct reg_sequence adf4382_reg_default[] = {
 	{ 0x200, 0x00 },
 	{ 0x201, 0x00 },
@@ -737,8 +736,8 @@ static int adf4382_set_freq(struct adf4382_state *st)
 		int_mode = 1;
 		en_bleed = 0;
 
-		tmp = adf4382_ci_ua[st->cp_i] * pfd_freq_hz; /* FIXME */
-		tmp = DIV_ROUND_UP_ULL(tmp, UA_TO_A);
+		tmp = DIV_ROUND_UP_ULL(pfd_freq_hz, UA_TO_A);
+		tmp *= adf4382_ci_ua[st->cp_i];
 		tmp = DIV_ROUND_UP_ULL(st->bleed_word, tmp);
 		if (tmp <= 85)
 			ldwin_pw = 0;
