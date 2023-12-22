@@ -21,7 +21,6 @@
 #include <linux/gcd.h>
 #include <linux/math64.h>
 
-
 /* ADF4382 REG0000 Map */
 #define ADF4382_SOFT_RESET_R_MSK		BIT(7)
 #define ADF4382_LSB_FIRST_R_MSK			BIT(6)
@@ -31,7 +30,6 @@
 #define ADF4382_ADDRESS_ASC_MSK			BIT(2)
 #define ADF4382_LSB_FIRST_MSK			BIT(1)
 #define ADF4382_SOFT_RESET_MSK			BIT(0)
-
 
 /* ADF4382_REG0 */
 #define ADF4382_ADDR_ASC_MSK			BIT(2)
@@ -600,7 +598,7 @@ static const struct regmap_config adf4382_regmap_config = {
 };
 
 static int adf4382_pfd_compute(struct adf4382_state *st,
-				unsigned int *pfd_freq_hz)
+			       unsigned int *pfd_freq_hz)
 {
 	unsigned int tmp;
 
@@ -610,7 +608,7 @@ static int adf4382_pfd_compute(struct adf4382_state *st,
 
 	if (tmp < ADF4382_PFD_FREQ_MIN || tmp > ADF4382_PFD_FREQ_MAX)
 		return -EINVAL;
-	
+
 	*pfd_freq_hz = tmp;
 
 	return 0;
@@ -655,9 +653,8 @@ int adf4382_frac2_compute(struct adf4382_state *st, u64 res,
 
 	} while (channel_spacing < ADF4382_CHANNEL_SPACING_MAX);
 
-	if (!en_phase_resync) {
+	if (!en_phase_resync)
 		mod2_wd *= DIV_ROUND_DOWN_ULL(mod2_max, mod2_wd);
-	}
 
 	*frac2_word = DIV_ROUND_CLOSEST_ULL(res * mod2_wd, pfd_freq_hz);
 	*mod2_word = mod2_wd;
@@ -684,8 +681,8 @@ int adf4382_pll_fract_n_compute(struct adf4382_state *st, unsigned int pfd_freq_
 		dev_warn(&st->spi->dev, "PFD frequency exceeds 250MHz.");
 		dev_warn(&st->spi->dev, "Only integer mode available.");
 	}
-	
-	if(rem > 0) 
+
+	if (rem > 0)
 		return adf4382_frac2_compute(st, rem, pfd_freq_hz, frac2_word,
 					     mod2_word);
 
@@ -716,14 +713,11 @@ static int adf4382_set_freq(struct adf4382_state *st)
 		return ret;
 	}
 
-	for (clkout_div = 0; clkout_div <= st->clkout_div_reg_val_max; clkout_div++)
-	{
+	for (clkout_div = 0; clkout_div <= st->clkout_div_reg_val_max; clkout_div++) {
 		tmp =  (1 << clkout_div) * st->freq;
 		if (tmp < st->vco_min || tmp > st->vco_max)
-		{
 			continue;
-		}
-		
+
 		vco = tmp;
 		break;
 	}
@@ -742,21 +736,20 @@ static int adf4382_set_freq(struct adf4382_state *st)
 		int_mode = 0;
 		en_bleed = 1;
 
-		if (pfd_freq_hz <= 40000000) {
+		if (pfd_freq_hz <= 40000000)
 			ldwin_pw = 7;
-		} else if (pfd_freq_hz <= 50000000) {
+		else if (pfd_freq_hz <= 50000000)
 			ldwin_pw = 6;
-		} else if (pfd_freq_hz <= 100000000) {
+		else if (pfd_freq_hz <= 100000000)
 			ldwin_pw = 5;
-		} else if (pfd_freq_hz <= 200000000) {
+		else if (pfd_freq_hz <= 200000000)
 			ldwin_pw = 4;
-		} else if (pfd_freq_hz <= 250000000) {
-			if (st->freq >= 5000000000 && st->freq < 6400000000) {
+		else if (pfd_freq_hz <= 250000000)
+			if (st->freq >= 5000000000 && st->freq < 6400000000)
 				ldwin_pw = 3;
-			} else {
+			else
 				ldwin_pw = 2;
-			}
-		}
+
 	} else {
 		int_mode = 1;
 		en_bleed = 0;
@@ -910,7 +903,7 @@ static int adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	dev_info(&st->spi->dev,
+	dev_dbg(&st->spi->dev,
 		"VCO=%llu PFD=%u RFout_div=%u N=%u FRAC1=%u FRAC2=%u MOD2=%u\n",
 		vco, pfd_freq_hz, 1 << clkout_div, n_int,
 		frac1_word, frac2_word, mod2_word);
@@ -938,15 +931,15 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_ps)
 
 	ret = regmap_update_bits(st->regmap, 0x1E, ADF4382_EN_PHASE_RESYNC_MSK,
 				 0xff);
-	if(ret)
+	if (ret)
 		return ret;
 
 	ret = regmap_update_bits(st->regmap, 0x1F, ADF4382_EN_BLEED_MSK, 0xff);
-	if(ret)
+	if (ret)
 		return ret;
 
 	ret = regmap_update_bits(st->regmap, 0x32, ADF4382_DEL_MODE_MSK, 0x0);
-	if(ret)
+	if (ret)
 		return ret;
 
 	// dev->phase_adj = phase_ps;
@@ -960,13 +953,14 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_ps)
 	//Convert it to degrees/ps
 	phase_deg = div_u64(phase_deg_ns, NS_TO_PS);
 
-	if(phase_deg > 360) {
+	if (phase_deg > 360) {
 		dev_err(&st->spi->dev, "Phase Adjustment cannot exceed 360deg per Clock Period");
-		return EINVAL;
+		return -EINVAL;
 	}
 
-	/*Phase adjustment can only be done if bleed is active, and a bleed
-	constant needs to be added*/
+	/* Phase adjustment can only be done if bleed is active, and a bleed
+	 * constant needs to be added
+	 */
 	phase_bleed = phase_deg * ADF4382_PHASE_BLEED_CNST;
 	//The charge pump current will also need to be taken in to account
 	phase_ci = phase_bleed * adf4382_ci_ua[st->cp_i];
@@ -978,14 +972,14 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_ps)
 		dev_err(&st->spi->dev, "PFD frequency is out of range.\n");
 		return ret;
 	}
-	
+
 	phase_reg_value = div_u64((phase_ci * pfd_freq_hz), (360 * st->freq));
 
-	if(phase_reg_value > 255)
+	if (phase_reg_value > 255)
 		phase_reg_value -= 255;
 
 	ret = regmap_write(st->regmap, 0x33, phase_reg_value);
-	if(ret)
+	if (ret)
 		return ret;
 
 	return regmap_update_bits(st->regmap, 0x34, ADF4382_PHASE_ADJ_MSK, 0xff);
@@ -1004,10 +998,10 @@ static int adf4382_set_out_power(struct adf4382_state *st, int ch, int pwr)
 {
 	u8 tmp;
 
-	if(pwr > ADF4382_OUT_PWR_MAX)
+	if (pwr > ADF4382_OUT_PWR_MAX)
 		pwr = ADF4382_OUT_PWR_MAX;
 
-	if(!ch) {
+	if (!ch) {
 		tmp = FIELD_PREP(ADF4382_CLK1_OPWR_MSK, pwr);
 		return regmap_update_bits(st->regmap, 0x29, ADF4382_CLK1_OPWR_MSK,
 					  tmp);
@@ -1027,7 +1021,7 @@ static int adf4382_get_out_power(struct adf4382_state *st, int ch, int *pwr)
 	if (ret)
 		return ret;
 
-	if(!ch)
+	if (!ch)
 		*pwr = FIELD_GET(ADF4382_CLK1_OPWR_MSK, tmp);
 	else
 		*pwr = FIELD_GET(ADF4382_CLK2_OPWR_MSK, tmp);
@@ -1039,7 +1033,7 @@ static int adf4382_set_en_chan(struct adf4382_state *st, int ch, int en)
 {
 	u8 enable;
 
-	if(!ch) {
+	if (!ch) {
 		enable = FIELD_PREP(ADF4382_PD_CLKOUT1_MSK, !en);
 		return regmap_update_bits(st->regmap, 0x2B,
 					  ADF4382_PD_CLKOUT1_MSK,
@@ -1055,7 +1049,7 @@ static int adf4382_get_en_chan(struct adf4382_state *st, int ch, int *en)
 {
 	int enable;
 
-	if(!ch)
+	if (!ch)
 		enable = regmap_test_bits(st->regmap, 0x2B,
 					  ADF4382_PD_CLKOUT1_MSK);
 	else
@@ -1066,7 +1060,6 @@ static int adf4382_get_en_chan(struct adf4382_state *st, int ch, int *en)
 
 	*en = !enable;
 	return 0;
-
 }
 
 static ssize_t adf4382_write(struct iio_dev *indio_dev, uintptr_t private,
@@ -1260,7 +1253,7 @@ static int adf4382_parse_device(struct adf4382_state *st)
 
 	ret = device_property_read_u32(&st->spi->dev, "adi,ref-divider",
 				       &tmp);
-	if ((ret) || (!tmp))
+	if (ret || !tmp)
 		st->ref_div = ADF4382_REF_DIV_DEFAULT;
 	else
 		st->ref_div = (u8)tmp;
@@ -1268,7 +1261,7 @@ static int adf4382_parse_device(struct adf4382_state *st)
 	st->spi_3wire_en = device_property_read_bool(&st->spi->dev,
 						     "adi,spi-3wire-enable");
 	st->ref_doubler_en = device_property_read_bool(&st->spi->dev,
-						     "adi,ref-doubler-enable");
+						       "adi,ref-doubler-enable");
 	st->cmos_3v3 = device_property_read_bool(&st->spi->dev, "adi,cmos-3v3");
 
 	st->clkin = devm_clk_get(&st->spi->dev, "ref_clk");
@@ -1284,11 +1277,11 @@ static int adf4382_scratchpad_check(struct adf4382_state *st)
 	int ret;
 
 	ret = regmap_write(st->regmap, 0x0A, ADF4382_SCRATCHPAD_VAL);
-	if(ret)
+	if (ret)
 		return ret;
-	
+
 	ret = regmap_read(st->regmap, 0x0A, &val);
-	if(ret)
+	if (ret)
 		return ret;
 
 	if (val != ADF4382_SCRATCHPAD_VAL) {
@@ -1326,7 +1319,7 @@ static int adf4382_init(struct adf4382_state *st)
 
 	ret = regmap_write(st->regmap, 0x20,
 			   ADF4382_EN_AUTOCAL_MSK |
-			   ADF4382_EN_RDBLR(st->ref_doubler_en) | 
+			   ADF4382_EN_RDBLR(st->ref_doubler_en) |
 			   ADF4382_R_DIV(st->ref_div));
 	if (ret)
 		return ret;
