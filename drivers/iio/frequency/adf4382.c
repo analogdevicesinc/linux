@@ -585,10 +585,10 @@ static const struct regmap_config adf4382_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 8,
 	.read_flag_mask = BIT(7),
-//	.max_register = 0x54,
 };
 
-static void adf4382_pfd_compute(struct adf4382_state *st, unsigned int *pfd_freq_hz)
+static void adf4382_pfd_compute(struct adf4382_state *st,
+				unsigned int *pfd_freq_hz)
 {
 	unsigned int tmp;
 
@@ -630,7 +630,6 @@ int adf4382_frac2_compute(struct adf4382_state *st, u64 res,
 		chsp_freq = channel_spacing * ADF4382_MOD1WORD;
 		gcd_var = gcd(chsp_freq, pfd_freq_hz);
 		mod2_tmp = DIV_ROUND_UP(pfd_freq_hz, gcd_var);
-		dev_info(&st->spi->dev,"mod2_tmp = %u", mod2_tmp);
 
 		if (mod2_tmp > mod2_max) {
 			channel_spacing *= 5;
@@ -678,18 +677,18 @@ static int adf4382_set_freq(struct adf4382_state *st)
 	unsigned int pfd_freq_hz;
 	u32 frac2_word = 0;
 	u32 mod2_word = 0;
-	u8 dclk_div1;
 	u32 frac1_word;
 	u8 clkout_div;
-	u8 div1;
+	u8 dclk_div1;
 	u8 int_mode;
 	u8 en_bleed;
+	u8 ldwin_pw;
 	u16 n_int;
+	u8 div1;
 	u64 tmp;
 	u64 vco;
 	int ret;
 	u8 var;
-	u8 ldwin_pw;
 
 	adf4382_pfd_compute(st, &pfd_freq_hz);
 
@@ -745,7 +744,6 @@ static int adf4382_set_freq(struct adf4382_state *st)
 			ldwin_pw = 0;
 		else
 			ldwin_pw = 1;
-
 	}
 
 	ret = regmap_update_bits(st->regmap, 0x28, ADF4382_VAR_MOD_EN_MSK,
@@ -849,7 +847,6 @@ static int adf4382_set_freq(struct adf4382_state *st)
 	ret = regmap_write(st->regmap, 0x37, ADF4382_VCO_CAL_CNT);
 	if (ret)
 		return ret;
-
 
 	var = DIV_ROUND_UP(div_u64(pfd_freq_hz, div1 * 400000) - 2, 4);
 	var = clamp_t(u8, var, 0U, 255U);
@@ -1141,10 +1138,10 @@ static int adf4382_read_raw(struct iio_dev *indio_dev,
 }
 
 static int adf4382_write_raw(struct iio_dev *indio_dev,
-			    struct iio_chan_spec const *chan,
-			    int val,
-			    int val2,
-			    long mask)
+			     struct iio_chan_spec const *chan,
+			     int val,
+			     int val2,
+			     long mask)
 {
 	struct adf4382_state *st = iio_priv(indio_dev);
 	int ret;
