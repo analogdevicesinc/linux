@@ -387,25 +387,28 @@ static int mxc_isi_crossbar_enable_streams(struct v4l2_subdev *sd,
 	 * TODO: Track per-stream enable counts to support multiplexed
 	 * streams.
 	 */
-	if (!input->enable_count) {
+	if (!input->enabled_streams) {
 		ret = mxc_isi_crossbar_gasket_enable(xbar, state, remote_sd,
 						     remote_pad, sink_pad);
 		if (ret)
 			return ret;
-
-		ret = v4l2_subdev_enable_streams(remote_sd, remote_pad,
-						 sink_streams);
-		if (ret) {
-			dev_err(xbar->isi->dev,
-				"failed to %s streams 0x%llx on '%s':%u: %d\n",
-				"enable", sink_streams, remote_sd->name,
-				remote_pad, ret);
-			mxc_isi_crossbar_gasket_disable(xbar, sink_pad);
-			return ret;
-		}
 	}
 
-	input->enable_count++;
+	/*
+	 * For enabled streams, return directly to support ISI stream
+	 * duplicated feature
+	 */
+	if (input->enabled_streams & sink_streams)
+		return 0;
+
+	ret = v4l2_subdev_enable_streams(remote_sd, remote_pad, sink_streams);
+	if (ret < 0) {
+		if (!input->enabled_streams)
+			mxc_isi_crossbar_gasket_disable(xbar, sink_pad);
+		return ret;
+	}
+
+	input->enabled_streams |= sink_streams;
 
 	return 0;
 }
@@ -430,19 +433,21 @@ static int mxc_isi_crossbar_disable_streams(struct v4l2_subdev *sd,
 
 	input = &xbar->inputs[sink_pad];
 
-	input->enable_count--;
+	/* For disabled streams, return directly. */
+	if (!(input->enabled_streams & sink_streams))
+		return 0;
 
-	if (!input->enable_count) {
-		ret = v4l2_subdev_disable_streams(remote_sd, remote_pad,
-						  sink_streams);
-		if (ret)
-			dev_err(xbar->isi->dev,
-				"failed to %s streams 0x%llx on '%s':%u: %d\n",
-				"disable", sink_streams, remote_sd->name,
-				remote_pad, ret);
+	ret = v4l2_subdev_disable_streams(remote_sd, remote_pad, sink_streams);
+	if (ret)
+		dev_err(xbar->isi->dev,
+			"failed to %s streams 0x%llx on '%s':%u: %d\n",
+			"disable", sink_streams, remote_sd->name,
+			remote_pad, ret);
 
+	input->enabled_streams &= ~sink_streams;
+
+	if (!input->enabled_streams)
 		mxc_isi_crossbar_gasket_disable(xbar, sink_pad);
-	}
 
 	return ret;
 }

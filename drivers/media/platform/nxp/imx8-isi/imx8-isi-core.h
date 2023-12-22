@@ -184,7 +184,7 @@ struct mxc_isi_dma_buffer {
 };
 
 struct mxc_isi_input {
-	unsigned int			enable_count;
+	u64				enabled_streams;
 	bool				connected;
 };
 
