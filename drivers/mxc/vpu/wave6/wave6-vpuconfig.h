@@ -31,7 +31,7 @@
 #define W6_MIN_DEC_PIC_WIDTH            64U
 #define W6_MIN_DEC_PIC_HEIGHT           64U
 #define W6_MAX_DEC_PIC_WIDTH            4096U
-#define W6_MAX_DEC_PIC_HEIGHT           4096U
+#define W6_MAX_DEC_PIC_HEIGHT           2304U
 #define W6_DEC_PIC_SIZE_STEP            1
 
 #define W6_MIN_ENC_PIC_WIDTH            256U
