@@ -211,7 +211,7 @@ int kbase_ipa_vinstr_dynamic_coeff(struct kbase_ipa_model *model, u32 *coeffp)
 
 	/* Range: 0 <= coeff < 2^57 */
 	if (energy > 0)
-		coeff = energy;
+		coeff = (u64)energy;
 
 	/* Range: 0 <= coeff < 2^57 (because active_cycles >= 1). However, this
 	 * can be constrained further: Counter values can only be increased by
@@ -244,7 +244,7 @@ int kbase_ipa_vinstr_dynamic_coeff(struct kbase_ipa_model *model, u32 *coeffp)
 	/* Scale by user-specified integer factor.
 	 * Range: 0 <= coeff_mul < 2^57
 	 */
-	coeff_mul = coeff * model_data->scaling_factor;
+	coeff_mul = coeff * (u64)model_data->scaling_factor;
 
 	/* The power models have results with units
 	 * mW/(MHz V^2), i.e. nW/(Hz V^2). With precision of 1/1000000, this

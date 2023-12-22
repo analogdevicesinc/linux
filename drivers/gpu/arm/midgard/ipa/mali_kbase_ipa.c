@@ -174,7 +174,7 @@ int kbase_ipa_model_add_param_string(struct kbase_ipa_model *model, const char *
 	of_node_put(model_dt_node);
 
 	if (err && dt_required) {
-		strncpy(addr, "", size - 1);
+		strscpy(addr, "", size);
 		dev_warn(model->kbdev->dev, "Error %d, no DT entry: %s.%s = \'%s\'\n", err,
 			 model->ops->name, name, addr);
 		err = 0;
@@ -182,7 +182,7 @@ int kbase_ipa_model_add_param_string(struct kbase_ipa_model *model, const char *
 	} else if (err && !dt_required) {
 		origin = "default";
 	} else /* !err */ {
-		strncpy(addr, string_prop_value, size - 1);
+		strscpy(addr, string_prop_value, size);
 		origin = "DT";
 	}
 

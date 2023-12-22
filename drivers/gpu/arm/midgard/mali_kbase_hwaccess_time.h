@@ -150,6 +150,15 @@ unsigned int kbase_get_timeout_ms(struct kbase_device *kbdev, enum kbase_timeout
 u64 kbase_backend_get_cycle_cnt(struct kbase_device *kbdev);
 
 /**
+ * kbase_arch_timer_get_cntfrq - Get system timestamp counter frequency.
+ *
+ * @kbdev: Instance of a GPU platform device.
+ *
+ * Return: Frequency in Hz
+ */
+u64 kbase_arch_timer_get_cntfrq(struct kbase_device *kbdev);
+
+/**
  * kbase_backend_time_init() - Initialize system timestamp converter.
  *
  * @kbdev:	Kbase device pointer

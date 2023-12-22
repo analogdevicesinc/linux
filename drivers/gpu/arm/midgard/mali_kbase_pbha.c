@@ -155,7 +155,7 @@ int kbase_pbha_record_settings(struct kbase_device *kbdev, bool runtime, unsigne
 
 #if MALI_USE_CSF
 		if (runtime) {
-			int i;
+			uint i;
 
 			kbase_pm_context_active(kbdev);
 			/* Ensure host copy of SYSC_ALLOC is up to date */
@@ -215,7 +215,7 @@ void kbase_pbha_write_settings(struct kbase_device *kbdev)
 {
 #if MALI_USE_CSF
 	if (kbasep_pbha_supported(kbdev)) {
-		int i;
+		uint i;
 
 		for (i = 0; i < GPU_SYSC_ALLOC_COUNT; ++i)
 			kbase_reg_write32(kbdev, GPU_SYSC_ALLOC_OFFSET(i), kbdev->sysc_alloc[i]);
@@ -249,9 +249,10 @@ static int kbase_pbha_read_int_id_override_property(struct kbase_device *kbdev,
 		dev_err(kbdev->dev, "Bad DTB format: pbha.int_id_override\n");
 		return -EINVAL;
 	}
-	if (of_property_read_u32_array(pbha_node, "int-id-override", dtb_data, sz) != 0) {
+	if (of_property_read_u32_array(pbha_node, "int-id-override", dtb_data, (size_t)sz) != 0) {
 		/* There may be no int-id-override field. Fallback to int_id_override instead */
-		if (of_property_read_u32_array(pbha_node, "int_id_override", dtb_data, sz) != 0) {
+		if (of_property_read_u32_array(pbha_node, "int_id_override", dtb_data,
+					       (size_t)sz) != 0) {
 			dev_err(kbdev->dev, "Failed to read DTB pbha.int_id_override\n");
 			return -EINVAL;
 		}

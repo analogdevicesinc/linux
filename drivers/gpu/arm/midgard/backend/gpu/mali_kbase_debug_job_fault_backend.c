@@ -27,34 +27,38 @@
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 
 /*GPU_CONTROL_REG(r)*/
-static int gpu_control_reg_snapshot[] = { GPU_CONTROL_ENUM(GPU_ID), GPU_CONTROL_ENUM(SHADER_READY),
-					  GPU_CONTROL_ENUM(TILER_READY),
-					  GPU_CONTROL_ENUM(L2_READY) };
+static unsigned int gpu_control_reg_snapshot[] = { GPU_CONTROL_ENUM(GPU_ID),
+						   GPU_CONTROL_ENUM(SHADER_READY),
+						   GPU_CONTROL_ENUM(TILER_READY),
+						   GPU_CONTROL_ENUM(L2_READY) };
 
 /* JOB_CONTROL_REG(r) */
-static int job_control_reg_snapshot[] = { JOB_CONTROL_ENUM(JOB_IRQ_MASK),
-					  JOB_CONTROL_ENUM(JOB_IRQ_STATUS) };
+static unsigned int job_control_reg_snapshot[] = { JOB_CONTROL_ENUM(JOB_IRQ_MASK),
+						   JOB_CONTROL_ENUM(JOB_IRQ_STATUS) };
 
 /* JOB_SLOT_REG(n,r) */
-static int job_slot_reg_snapshot[] = { JOB_SLOT_ENUM(0, HEAD) - JOB_SLOT_BASE_ENUM(0),
-				       JOB_SLOT_ENUM(0, TAIL) - JOB_SLOT_BASE_ENUM(0),
-				       JOB_SLOT_ENUM(0, AFFINITY) - JOB_SLOT_BASE_ENUM(0),
-				       JOB_SLOT_ENUM(0, CONFIG) - JOB_SLOT_BASE_ENUM(0),
-				       JOB_SLOT_ENUM(0, STATUS) - JOB_SLOT_BASE_ENUM(0),
-				       JOB_SLOT_ENUM(0, HEAD_NEXT) - JOB_SLOT_BASE_ENUM(0),
-				       JOB_SLOT_ENUM(0, AFFINITY_NEXT) - JOB_SLOT_BASE_ENUM(0),
-				       JOB_SLOT_ENUM(0, CONFIG_NEXT) - JOB_SLOT_BASE_ENUM(0) };
+static unsigned int job_slot_reg_snapshot[] = {
+	JOB_SLOT_ENUM(0, HEAD) - JOB_SLOT_BASE_ENUM(0),
+	JOB_SLOT_ENUM(0, TAIL) - JOB_SLOT_BASE_ENUM(0),
+	JOB_SLOT_ENUM(0, AFFINITY) - JOB_SLOT_BASE_ENUM(0),
+	JOB_SLOT_ENUM(0, CONFIG) - JOB_SLOT_BASE_ENUM(0),
+	JOB_SLOT_ENUM(0, STATUS) - JOB_SLOT_BASE_ENUM(0),
+	JOB_SLOT_ENUM(0, HEAD_NEXT) - JOB_SLOT_BASE_ENUM(0),
+	JOB_SLOT_ENUM(0, AFFINITY_NEXT) - JOB_SLOT_BASE_ENUM(0),
+	JOB_SLOT_ENUM(0, CONFIG_NEXT) - JOB_SLOT_BASE_ENUM(0)
+};
 
 /*MMU_CONTROL_REG(r)*/
-static int mmu_reg_snapshot[] = { MMU_CONTROL_ENUM(IRQ_MASK), MMU_CONTROL_ENUM(IRQ_STATUS) };
+static unsigned int mmu_reg_snapshot[] = { MMU_CONTROL_ENUM(IRQ_MASK),
+					   MMU_CONTROL_ENUM(IRQ_STATUS) };
 
 /* MMU_AS_REG(n,r) */
-static int as_reg_snapshot[] = { MMU_AS_ENUM(0, TRANSTAB) - MMU_AS_BASE_ENUM(0),
-				 MMU_AS_ENUM(0, TRANSCFG) - MMU_AS_BASE_ENUM(0),
-				 MMU_AS_ENUM(0, MEMATTR) - MMU_AS_BASE_ENUM(0),
-				 MMU_AS_ENUM(0, FAULTSTATUS) - MMU_AS_BASE_ENUM(0),
-				 MMU_AS_ENUM(0, FAULTADDRESS) - MMU_AS_BASE_ENUM(0),
-				 MMU_AS_ENUM(0, STATUS) - MMU_AS_BASE_ENUM(0) };
+static unsigned int as_reg_snapshot[] = { MMU_AS_ENUM(0, TRANSTAB) - MMU_AS_BASE_ENUM(0),
+					  MMU_AS_ENUM(0, TRANSCFG) - MMU_AS_BASE_ENUM(0),
+					  MMU_AS_ENUM(0, MEMATTR) - MMU_AS_BASE_ENUM(0),
+					  MMU_AS_ENUM(0, FAULTSTATUS) - MMU_AS_BASE_ENUM(0),
+					  MMU_AS_ENUM(0, FAULTADDRESS) - MMU_AS_BASE_ENUM(0),
+					  MMU_AS_ENUM(0, STATUS) - MMU_AS_BASE_ENUM(0) };
 
 bool kbase_debug_job_fault_reg_snapshot_init(struct kbase_context *kctx, int reg_range)
 {
@@ -132,7 +136,7 @@ bool kbase_debug_job_fault_reg_snapshot_init(struct kbase_context *kctx, int reg
 bool kbase_job_fault_get_reg_snapshot(struct kbase_context *kctx)
 {
 	int offset = 0;
-	int reg_enum;
+	u32 reg_enum;
 	u64 val64;
 
 	if (kctx->reg_dump == NULL)

@@ -69,6 +69,7 @@
 	ENUM_OFFSET(n, DOORBELL_BLOCK_ENUM(0, regname), DOORBELL_BLOCK_ENUM(1, regname))
 
 /* register value macros */
+
 /* L2_CONFIG PBHA values */
 #define L2_CONFIG_PBHA_HWU_SHIFT GPU_U(12)
 #define L2_CONFIG_PBHA_HWU_MASK (GPU_U(0xF) << L2_CONFIG_PBHA_HWU_SHIFT)
@@ -79,7 +80,8 @@
 	 (((value) << L2_CONFIG_PBHA_HWU_SHIFT) & L2_CONFIG_PBHA_HWU_MASK))
 
 #define PRFCNT_FEATURES_COUNTER_BLOCK_SIZE_SHIFT (0)
-#define PRFCNT_FEATURES_COUNTER_BLOCK_SIZE_MASK ((0xFF) << PRFCNT_FEATURES_COUNTER_BLOCK_SIZE_SHIFT)
+#define PRFCNT_FEATURES_COUNTER_BLOCK_SIZE_MASK \
+	((0xFFU) << PRFCNT_FEATURES_COUNTER_BLOCK_SIZE_SHIFT)
 #define PRFCNT_FEATURES_COUNTER_BLOCK_SIZE_GET(reg_val)         \
 	(((reg_val)&PRFCNT_FEATURES_COUNTER_BLOCK_SIZE_MASK) >> \
 	 PRFCNT_FEATURES_COUNTER_BLOCK_SIZE_SHIFT)
@@ -401,16 +403,17 @@
 	 (((value) << GPU_FAULTSTATUS_ADDRESS_VALID_SHIFT) & GPU_FAULTSTATUS_ADDRESS_VALID_MASK))
 
 /* GPU IRQ flags */
-#define GPU_FAULT (1 << 0) /* A GPU Fault has occurred */
-#define GPU_PROTECTED_FAULT (1 << 1) /* A GPU fault has occurred in protected mode */
-#define RESET_COMPLETED (1 << 8) /* Set when a reset has completed.  */
-#define POWER_CHANGED_SINGLE (1 << 9) /* Set when a single core has finished powering up or down. */
-#define POWER_CHANGED_ALL (1 << 10) /* Set when all cores have finished powering up or down. */
-#define CLEAN_CACHES_COMPLETED (1 << 17) /* Set when a cache clean operation has completed. */
-#define DOORBELL_MIRROR (1 << 18) /* Mirrors the doorbell interrupt line to the CPU */
-#define MCU_STATUS_GPU_IRQ (1 << 19) /* MCU requires attention */
+#define GPU_FAULT (1U << 0) /* A GPU Fault has occurred */
+#define GPU_PROTECTED_FAULT (1U << 1) /* A GPU fault has occurred in protected mode */
+#define RESET_COMPLETED (1U << 8) /* Set when a reset has completed.  */
+#define POWER_CHANGED_SINGLE \
+	(1U << 9) /* Set when a single core has finished powering up or down. */
+#define POWER_CHANGED_ALL (1U << 10) /* Set when all cores have finished powering up or down. */
+#define CLEAN_CACHES_COMPLETED (1U << 17) /* Set when a cache clean operation has completed. */
+#define DOORBELL_MIRROR (1U << 18) /* Mirrors the doorbell interrupt line to the CPU */
+#define MCU_STATUS_GPU_IRQ (1U << 19) /* MCU requires attention */
 #define FLUSH_PA_RANGE_COMPLETED \
-	(1 << 20) /* Set when a physical range cache clean operation has completed. */
+	(1U << 20) /* Set when a physical range cache clean operation has completed. */
 
 
 /* GPU_FEATURES register */

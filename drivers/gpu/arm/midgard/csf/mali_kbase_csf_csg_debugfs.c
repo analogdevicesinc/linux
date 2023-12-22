@@ -236,7 +236,6 @@ static ssize_t kbase_csf_debugfs_scheduler_state_set(struct file *file, const ch
 {
 	struct kbase_device *kbdev = file->private_data;
 	char buf[MAX_SCHED_STATE_STRING_LEN];
-	ssize_t ret = count;
 
 	CSTD_UNUSED(ppos);
 
@@ -256,10 +255,10 @@ static ssize_t kbase_csf_debugfs_scheduler_state_set(struct file *file, const ch
 		kbase_csf_scheduler_force_wakeup(kbdev);
 	else {
 		dev_dbg(kbdev->dev, "Bad scheduler state %s", buf);
-		ret = -EINVAL;
+		return -EINVAL;
 	}
 
-	return ret;
+	return (ssize_t)count;
 }
 
 static const struct file_operations kbasep_csf_debugfs_scheduler_state_fops = {

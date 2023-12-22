@@ -24,6 +24,7 @@
 
 #include "device/mali_kbase_device.h"
 #include <csf/mali_kbase_csf_registers.h>
+#include <hw_access/mali_kbase_hw_access_regmap.h>
 #include <uapi/gpu/arm/midgard/gpu/mali_kbase_gpu_regmap.h>
 
 /*
@@ -770,9 +771,9 @@ extern bool fw_debug;
 static inline long kbase_csf_timeout_in_jiffies(const unsigned int msecs)
 {
 #ifdef CONFIG_MALI_DEBUG
-	return (fw_debug ? MAX_SCHEDULE_TIMEOUT : msecs_to_jiffies(msecs));
+	return (fw_debug ? MAX_SCHEDULE_TIMEOUT : (long)msecs_to_jiffies(msecs));
 #else
-	return msecs_to_jiffies(msecs);
+	return (long)msecs_to_jiffies(msecs);
 #endif
 }
 
@@ -807,15 +808,15 @@ void kbase_csf_firmware_disable_gpu_idle_timer(struct kbase_device *kbdev);
  *
  * Return: the internally recorded hysteresis (nominal) value.
  */
-u32 kbase_csf_firmware_get_gpu_idle_hysteresis_time(struct kbase_device *kbdev);
+u64 kbase_csf_firmware_get_gpu_idle_hysteresis_time(struct kbase_device *kbdev);
 
 /**
  * kbase_csf_firmware_set_gpu_idle_hysteresis_time - Set the firmware GPU idle
  *                                               detection hysteresis duration
  *
- * @kbdev: Instance of a GPU platform device that implements a CSF interface.
- * @dur:     The duration value (unit: milliseconds) for the configuring
- *           hysteresis field for GPU idle detection
+ * @kbdev:  Instance of a GPU platform device that implements a CSF interface.
+ * @dur_ns: The duration value (unit: nanoseconds) for the configuring
+ *          hysteresis field for GPU idle detection
  *
  * The supplied value will be recorded internally without any change. But the
  * actual field value will be subject to hysteresis source frequency scaling
@@ -827,7 +828,7 @@ u32 kbase_csf_firmware_get_gpu_idle_hysteresis_time(struct kbase_device *kbdev);
  *
  * Return: the actual internally configured hysteresis field value.
  */
-u32 kbase_csf_firmware_set_gpu_idle_hysteresis_time(struct kbase_device *kbdev, u32 dur);
+u32 kbase_csf_firmware_set_gpu_idle_hysteresis_time(struct kbase_device *kbdev, u64 dur_ns);
 
 /**
  * kbase_csf_firmware_get_mcu_core_pwroff_time - Get the MCU shader Core power-off
@@ -838,14 +839,14 @@ u32 kbase_csf_firmware_set_gpu_idle_hysteresis_time(struct kbase_device *kbdev, 
  * Return: the internally recorded MCU shader Core power-off (nominal) timeout value. The unit
  *         of the value is in micro-seconds.
  */
-u32 kbase_csf_firmware_get_mcu_core_pwroff_time(struct kbase_device *kbdev);
+u64 kbase_csf_firmware_get_mcu_core_pwroff_time(struct kbase_device *kbdev);
 
 /**
  * kbase_csf_firmware_set_mcu_core_pwroff_time - Set the MCU shader Core power-off
  *                                               time value
  *
  * @kbdev:   Instance of a GPU platform device that implements a CSF interface.
- * @dur:     The duration value (unit: micro-seconds) for configuring MCU
+ * @dur_ns:  The duration value (unit: nanoseconds) for configuring MCU
  *           core power-off timer, when the shader cores' power
  *           transitions are delegated to the MCU (normal operational
  *           mode)
@@ -864,7 +865,7 @@ u32 kbase_csf_firmware_get_mcu_core_pwroff_time(struct kbase_device *kbdev);
  * Return: the actual internal core power-off timer value in register defined
  *         format.
  */
-u32 kbase_csf_firmware_set_mcu_core_pwroff_time(struct kbase_device *kbdev, u32 dur);
+u32 kbase_csf_firmware_set_mcu_core_pwroff_time(struct kbase_device *kbdev, u64 dur_ns);
 
 /**
  * kbase_csf_firmware_reset_mcu_core_pwroff_time - Reset the MCU shader Core power-off

@@ -32,20 +32,26 @@
 #include "gpu/mali_kbase_gpu_id.h"
 #include "gpu/mali_kbase_gpu_coherency.h"
 
+#ifdef __KERNEL__
+#include <linux/mm.h>
+
 #if defined(PAGE_MASK) && defined(PAGE_SHIFT)
 #define LOCAL_PAGE_SHIFT PAGE_SHIFT
 #define LOCAL_PAGE_LSB ~PAGE_MASK
 #else
-#ifndef OSU_CONFIG_CPU_PAGE_SIZE_LOG2
-#define OSU_CONFIG_CPU_PAGE_SIZE_LOG2 12
+#error "Missing kernel definitions: PAGE_MASK, PAGE_SHIFT"
 #endif
 
-#if defined(OSU_CONFIG_CPU_PAGE_SIZE_LOG2)
-#define LOCAL_PAGE_SHIFT OSU_CONFIG_CPU_PAGE_SIZE_LOG2
-#define LOCAL_PAGE_LSB ((1ul << OSU_CONFIG_CPU_PAGE_SIZE_LOG2) - 1)
 #else
-#error Failed to find page size
+
+#if defined(MALI_PAGE_SIZE_AGNOSTIC)
+#define LOCAL_PAGE_SHIFT (__builtin_ctz((unsigned int)sysconf(_SC_PAGESIZE)))
+#else
+#define LOCAL_PAGE_SHIFT 12
 #endif
+
+#define LOCAL_PAGE_LSB ((1ul << LOCAL_PAGE_SHIFT) - 1)
+
 #endif
 
 /* Physical memory group ID for normal usage.

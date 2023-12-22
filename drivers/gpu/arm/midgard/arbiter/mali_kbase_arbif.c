@@ -183,7 +183,9 @@ int kbase_arbif_init(struct kbase_device *kbdev)
 
 	dev_dbg(kbdev->dev, "%s\n", __func__);
 
-	arbiter_if_node = of_parse_phandle(kbdev->dev->of_node, "arbiter_if", 0);
+	arbiter_if_node = of_parse_phandle(kbdev->dev->of_node, "arbiter-if", 0);
+	if (!arbiter_if_node)
+		arbiter_if_node = of_parse_phandle(kbdev->dev->of_node, "arbiter_if", 0);
 	if (!arbiter_if_node) {
 		dev_dbg(kbdev->dev, "No arbiter_if in Device Tree\n");
 		/* no arbiter interface defined in device tree */

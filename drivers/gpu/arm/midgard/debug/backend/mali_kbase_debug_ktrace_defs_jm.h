@@ -98,7 +98,7 @@ union kbase_ktrace_backend {
 				    * KBASE_KTRACE_FLAG_JM_ATOM
 				    */
 		u64 gpu_addr;
-		int atom_number; /* Only valid for KBASE_KTRACE_FLAG_JM_ATOM */
+		unsigned int atom_number; /* Only valid for KBASE_KTRACE_FLAG_JM_ATOM */
 		/* Pack smaller members together */
 		kbase_ktrace_code_t code;
 		kbase_ktrace_flag_t flags;

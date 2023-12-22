@@ -53,7 +53,7 @@ struct wa_blob {
 	u32 blob_offset;
 } __packed;
 
-static bool mali_in_range(const u8 *base, const u8 *end, off_t off, size_t sz)
+static bool within_range(const u8 *base, const u8 *end, off_t off, size_t sz)
 {
 	return !((size_t)(end - base - off) < sz);
 }
@@ -80,39 +80,7 @@ static u32 wait_any(struct kbase_device *kbdev, off_t offset, u32 bits)
 	return (val & bits);
 }
 
-static int wait(struct kbase_device *kbdev, off_t offset, u64 bits, bool set)
-{
-	int loop;
-	const int timeout = 100;
-	u64 val;
-	u64 target = 0;
-
-	if (set)
-		target = bits;
-
-	for (loop = 0; loop < timeout; loop++) {
-		if (kbase_reg_is_size64(kbdev, offset))
-			val = kbase_reg_read64(kbdev, offset);
-		else
-			val = kbase_reg_read32(kbdev, offset);
-
-		if ((val & bits) == target)
-			break;
-
-		udelay(10);
-	}
-
-	if (loop == timeout) {
-		dev_err(kbdev->dev,
-			"Timeout reading register 0x%lx, bits 0x%llx, last read was 0x%llx\n",
-			(unsigned long)offset, bits, val);
-		return -ETIMEDOUT;
-	}
-
-	return 0;
-}
-
-static inline int run_job(struct kbase_device *kbdev, int as, int slot, u64 cores, u64 jc)
+static inline int run_job(struct kbase_device *kbdev, int as, u32 slot, u64 cores, u64 jc)
 {
 	u32 done;
 
@@ -120,7 +88,7 @@ static inline int run_job(struct kbase_device *kbdev, int as, int slot, u64 core
 	kbase_reg_write64(kbdev, JOB_SLOT_OFFSET(slot, HEAD_NEXT), jc);
 	kbase_reg_write64(kbdev, JOB_SLOT_OFFSET(slot, AFFINITY_NEXT), cores);
 	kbase_reg_write32(kbdev, JOB_SLOT_OFFSET(slot, CONFIG_NEXT),
-			  JS_CONFIG_DISABLE_DESCRIPTOR_WR_BK | as);
+			  JS_CONFIG_DISABLE_DESCRIPTOR_WR_BK | (unsigned int)as);
 
 	/* go */
 	kbase_reg_write32(kbdev, JOB_SLOT_OFFSET(slot, COMMAND_NEXT), JS_COMMAND_START);
@@ -131,7 +99,7 @@ static inline int run_job(struct kbase_device *kbdev, int as, int slot, u64 core
 	kbase_reg_write32(kbdev, JOB_CONTROL_ENUM(JOB_IRQ_CLEAR), done);
 
 	if (done != (1ul << slot)) {
-		dev_err(kbdev->dev, "Failed to run WA job on slot %d cores 0x%llx: done 0x%lx\n",
+		dev_err(kbdev->dev, "Failed to run WA job on slot %u cores 0x%llx: done 0x%lx\n",
 			slot, (unsigned long long)cores, (unsigned long)done);
 		dev_err(kbdev->dev, "JS_STATUS on failure: 0x%x\n",
 			kbase_reg_read32(kbdev, JOB_SLOT_OFFSET(slot, STATUS)));
@@ -146,12 +114,14 @@ static inline int run_job(struct kbase_device *kbdev, int as, int slot, u64 core
 int kbase_dummy_job_wa_execute(struct kbase_device *kbdev, u64 cores)
 {
 	int as;
-	int slot;
+	u32 slot;
 	u64 jc;
 	int failed = 0;
 	int runs = 0;
 	u32 old_gpu_mask;
 	u32 old_job_mask;
+	u64 val;
+	const u32 timeout_us = 10000;
 
 	if (!kbdev)
 		return -EFAULT;
@@ -174,7 +144,8 @@ int kbase_dummy_job_wa_execute(struct kbase_device *kbdev, u64 cores)
 
 	if (kbdev->dummy_job_wa.flags & KBASE_DUMMY_JOB_WA_FLAG_WAIT_POWERUP) {
 		/* wait for power-ups */
-		wait(kbdev, GPU_CONTROL_ENUM(SHADER_READY), cores, true);
+		kbase_reg_poll64_timeout(kbdev, GPU_CONTROL_ENUM(SHADER_READY), val,
+					 (val & cores) == cores, 10, timeout_us, false);
 	}
 
 	if (kbdev->dummy_job_wa.flags & KBASE_DUMMY_JOB_WA_FLAG_SERIALIZE) {
@@ -205,8 +176,10 @@ int kbase_dummy_job_wa_execute(struct kbase_device *kbdev, u64 cores)
 		kbase_reg_write64(kbdev, GPU_CONTROL_ENUM(SHADER_PWROFF), cores);
 
 		/* wait for power off complete */
-		wait(kbdev, GPU_CONTROL_ENUM(SHADER_READY), cores, false);
-		wait(kbdev, GPU_CONTROL_ENUM(SHADER_PWRTRANS), cores, false);
+		kbase_reg_poll64_timeout(kbdev, GPU_CONTROL_ENUM(SHADER_READY), val, !(val & cores),
+					 10, timeout_us, false);
+		kbase_reg_poll64_timeout(kbdev, GPU_CONTROL_ENUM(SHADER_PWRTRANS), val,
+					 !(val & cores), 10, timeout_us, false);
 
 		kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_CLEAR), U32_MAX);
 	}
@@ -297,7 +270,7 @@ int kbase_dummy_job_wa_load(struct kbase_device *kbdev)
 
 	dev_dbg(kbdev->dev, "Loaded firmware of size %zu bytes\n", firmware->size);
 
-	if (!mali_in_range(fw, fw_end, 0, sizeof(*header))) {
+	if (!within_range(fw, fw_end, 0, sizeof(*header))) {
 		dev_err(kbdev->dev, "WA too small\n");
 		goto bad_fw;
 	}
@@ -316,7 +289,7 @@ int kbase_dummy_job_wa_load(struct kbase_device *kbdev)
 		goto bad_fw;
 	}
 
-	if (!mali_in_range(fw, fw_end, header->info_offset, sizeof(*v2_info))) {
+	if (!within_range(fw, fw_end, header->info_offset, sizeof(*v2_info))) {
 		dev_err(kbdev->dev, "WA info offset out of bounds\n");
 		goto bad_fw;
 	}
@@ -342,14 +315,14 @@ int kbase_dummy_job_wa_load(struct kbase_device *kbdev)
 		u64 gpu_va;
 		struct kbase_va_region *va_region;
 
-		if (!mali_in_range(fw, fw_end, blob_offset, sizeof(*blob))) {
+		if (!within_range(fw, fw_end, blob_offset, sizeof(*blob))) {
 			dev_err(kbdev->dev, "Blob offset out-of-range: 0x%lx\n",
 				(unsigned long)blob_offset);
 			goto bad_fw;
 		}
 
 		blob = (const struct wa_blob *)(fw + blob_offset);
-		if (!mali_in_range(fw, fw_end, blob->payload_offset, blob->size)) {
+		if (!within_range(fw, fw_end, blob->payload_offset, blob->size)) {
 			dev_err(kbdev->dev, "Payload out-of-bounds\n");
 			goto bad_fw;
 		}

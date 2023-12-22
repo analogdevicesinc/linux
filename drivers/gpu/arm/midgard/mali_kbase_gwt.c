@@ -19,8 +19,15 @@
  *
  */
 
-#include "mali_kbase_gwt.h"
+#include <mali_kbase_gwt.h>
+#include <mmu/mali_kbase_mmu.h>
+#include <mali_kbase.h>
+#include <mali_kbase_defs.h>
+#include <mali_malisw.h>
+
+#include <linux/rbtree.h>
 #include <linux/list_sort.h>
+#include <linux/module.h>
 
 static inline void kbase_gpu_gwt_setup_page_permission(struct kbase_context *kctx,
 						       unsigned long flag, struct rb_node *node)

@@ -96,10 +96,10 @@
 /* Flags for base tracepoint specific to CSF */
 
 /* Enable KBase tracepoints for CSF builds */
-#define BASE_TLSTREAM_ENABLE_CSF_TRACEPOINTS (1 << 2)
+#define BASE_TLSTREAM_ENABLE_CSF_TRACEPOINTS (1U << 2)
 
 /* Enable additional CSF Firmware side tracepoints */
-#define BASE_TLSTREAM_ENABLE_CSFFW_TRACEPOINTS (1 << 3)
+#define BASE_TLSTREAM_ENABLE_CSFFW_TRACEPOINTS (1U << 3)
 
 #define BASE_TLSTREAM_FLAGS_MASK                                                        \
 	(BASE_TLSTREAM_ENABLE_LATENCY_TRACEPOINTS | BASE_TLSTREAM_JOB_DUMPING_ENABLED | \
@@ -141,7 +141,7 @@
 #define BASE_CSF_EXCEPTION_HANDLER_FLAGS_MASK (BASE_CSF_TILER_OOM_EXCEPTION_FLAG)
 
 /* Initial value for LATEST_FLUSH register */
-#define POWER_DOWN_LATEST_FLUSH_VALUE ((uint32_t)1)
+#define POWER_DOWN_LATEST_FLUSH_VALUE ((__u32)1)
 
 /**
  * enum base_kcpu_command_type - Kernel CPU queue command type.
@@ -157,7 +157,7 @@
  * @BASE_KCPU_COMMAND_TYPE_JIT_ALLOC:          jit_alloc,
  * @BASE_KCPU_COMMAND_TYPE_JIT_FREE:           jit_free,
  * @BASE_KCPU_COMMAND_TYPE_GROUP_SUSPEND:      group_suspend,
- * @BASE_KCPU_COMMAND_TYPE_ERROR_BARRIER:      error_barrier,
+ * @BASE_KCPU_COMMAND_TYPE_ERROR_BARRIER:      error_barrier
  */
 enum base_kcpu_command_type {
 	BASE_KCPU_COMMAND_TYPE_FENCE_SIGNAL,
@@ -172,7 +172,7 @@ enum base_kcpu_command_type {
 	BASE_KCPU_COMMAND_TYPE_JIT_ALLOC,
 	BASE_KCPU_COMMAND_TYPE_JIT_FREE,
 	BASE_KCPU_COMMAND_TYPE_GROUP_SUSPEND,
-	BASE_KCPU_COMMAND_TYPE_ERROR_BARRIER,
+	BASE_KCPU_COMMAND_TYPE_ERROR_BARRIER
 };
 
 /**

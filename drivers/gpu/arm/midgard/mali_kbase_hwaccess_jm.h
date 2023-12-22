@@ -194,7 +194,7 @@ int kbase_backend_nr_atoms_on_slot(struct kbase_device *kbdev, unsigned int js);
  *
  * Return: Number of atoms currently on slot @js that are currently on the GPU.
  */
-int kbase_backend_nr_atoms_submitted(struct kbase_device *kbdev, unsigned int js);
+u32 kbase_backend_nr_atoms_submitted(struct kbase_device *kbdev, unsigned int js);
 
 /**
  * kbase_backend_ctx_count_changed() - Number of contexts ready to submit jobs

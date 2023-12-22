@@ -295,7 +295,9 @@ static int kbasep_migrate_page_allocated_mapped(struct page *old_page, struct pa
 
 	/* Unmap the old physical range. */
 	unmap_mapping_range(kctx->kfile->filp->f_inode->i_mapping,
-			    page_md->data.mapped.vpfn << PAGE_SHIFT, PAGE_SIZE, 1);
+			    (loff_t)(page_md->data.mapped.vpfn / GPU_PAGES_PER_CPU_PAGE)
+				    << PAGE_SHIFT,
+			    PAGE_SIZE, 1);
 
 	ret = kbase_mmu_migrate_page(as_tagged(page_to_phys(old_page)),
 				     as_tagged(page_to_phys(new_page)), old_dma_addr, new_dma_addr,

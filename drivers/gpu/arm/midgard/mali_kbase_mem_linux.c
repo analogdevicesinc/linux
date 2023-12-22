@@ -84,6 +84,18 @@
 
 #define IR_THRESHOLD_STEPS (256u)
 
+/*
+ * fully_backed_gpf_memory - enable full physical backing of all grow-on-GPU-page-fault
+ * allocations in the kernel.
+ */
+static bool fully_backed_gpf_memory;
+module_param(fully_backed_gpf_memory, bool, 0444);
+MODULE_PARM_DESC(
+	fully_backed_gpf_memory,
+	"Enable the full physical backing of all grow-on-GPU-page-fault allocations in the kernel."
+	"Note that this should only be enabled for testing worst case memory usage "
+	"and should not be enabled in production");
+
 #if MALI_USE_CSF
 static int kbase_csf_cpu_mmap_user_reg_page(struct kbase_context *kctx, struct vm_area_struct *vma);
 static int kbase_csf_cpu_mmap_user_io_pages(struct kbase_context *kctx, struct vm_area_struct *vma);
@@ -341,11 +353,13 @@ struct kbase_va_region *kbase_mem_alloc(struct kbase_context *kctx, u64 va_pages
 	if (kbase_check_alloc_sizes(kctx, *flags, va_pages, commit_pages, extension))
 		goto bad_sizes;
 
-#ifdef CONFIG_MALI_MEMORY_FULLY_BACKED
-	/* Ensure that memory is fully physically-backed. */
-	if (*flags & BASE_MEM_GROW_ON_GPF)
-		commit_pages = va_pages;
-#endif
+	/* Ensure that memory is fully physically-backed if full physical backing
+	 * has been requested for GPF allocations.
+	 */
+	if (unlikely(fully_backed_gpf_memory)) {
+		if (*flags & BASE_MEM_GROW_ON_GPF)
+			commit_pages = va_pages;
+	}
 
 	/* find out which VA zone to use */
 	if (*flags & BASE_MEM_SAME_VA)
@@ -391,7 +405,8 @@ struct kbase_va_region *kbase_mem_alloc(struct kbase_context *kctx, u64 va_pages
 		*flags &= ~BASE_MEM_CACHED_CPU;
 
 	if (*flags & BASE_MEM_GROW_ON_GPF) {
-		unsigned int const ir_threshold = atomic_read(&kctx->kbdev->memdev.ir_threshold);
+		unsigned int const ir_threshold =
+			(unsigned int)atomic_read(&kctx->kbdev->memdev.ir_threshold);
 
 		reg->threshold_pages =
 			((va_pages * ir_threshold) + (IR_THRESHOLD_STEPS / 2)) / IR_THRESHOLD_STEPS;
@@ -463,8 +478,8 @@ struct kbase_va_region *kbase_mem_alloc(struct kbase_context *kctx, u64 va_pages
 			* the SAME_VA zone inside kbase_context_get_unmapped_area().
 			*/
 			if (kctx->kbdev->gpu_props.mmu.va_bits > 33) {
-				if (va_pages >= (SZ_2M / SZ_4K))
-					align = (SZ_2M / SZ_4K);
+				if (va_pages >= NUM_PAGES_IN_2MB_LARGE_PAGE)
+					align = NUM_PAGES_IN_2MB_LARGE_PAGE;
 			}
 			if (*gpu_va)
 				align = 1;
@@ -668,7 +683,7 @@ static unsigned long kbase_mem_evictable_reclaim_count_objects(struct shrinker *
 		dev_err(kctx->kbdev->dev, "invalid evict_nents(%d)", evict_nents);
 		nr_freeable_items = 0;
 	} else {
-		nr_freeable_items = evict_nents;
+		nr_freeable_items = (unsigned long)evict_nents;
 	}
 
 #if KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE
@@ -949,6 +964,10 @@ static int kbase_mem_flags_change_imported_umm(struct kbase_context *kctx, unsig
 	if (flags & ~(BASE_MEM_COHERENT_SYSTEM | BASE_MEM_COHERENT_LOCAL))
 		return ret;
 
+	/* Don't change outer sharability if platform is not coherent */
+	if ((BASE_MEM_COHERENT_SYSTEM & flags) && !kbase_device_is_cpu_coherent(kctx->kbdev))
+		return ret;
+
 	/* shareability flags are ignored for GPU uncached memory
 	 * instead of causing an error.
 	 */
@@ -1168,7 +1187,7 @@ int kbase_mem_do_sync_imported(struct kbase_context *kctx, struct kbase_va_regio
 				reg->gpu_alloc->imported.umm.dma_attachment;
 			struct sg_table *sgt = reg->gpu_alloc->imported.umm.sgt;
 
-			dma_sync_sg_for_device(attachment->dev, sgt->sgl, sgt->nents, dir);
+			dma_sync_sg_for_device(attachment->dev, sgt->sgl, (int)sgt->nents, dir);
 			ret = 0;
 		}
 #else
@@ -1184,7 +1203,7 @@ int kbase_mem_do_sync_imported(struct kbase_context *kctx, struct kbase_va_regio
 				reg->gpu_alloc->imported.umm.dma_attachment;
 			struct sg_table *sgt = reg->gpu_alloc->imported.umm.sgt;
 
-			dma_sync_sg_for_cpu(attachment->dev, sgt->sgl, sgt->nents, dir);
+			dma_sync_sg_for_cpu(attachment->dev, sgt->sgl, (int)sgt->nents, dir);
 			ret = 0;
 		}
 #else
@@ -1213,8 +1232,13 @@ static void kbase_mem_umm_unmap_attachment(struct kbase_context *kctx,
 {
 	struct tagged_addr *pa = alloc->pages;
 
+#if (KERNEL_VERSION(6, 1, 55) <= LINUX_VERSION_CODE)
+	dma_buf_unmap_attachment_unlocked(alloc->imported.umm.dma_attachment,
+					  alloc->imported.umm.sgt, DMA_BIDIRECTIONAL);
+#else
 	dma_buf_unmap_attachment(alloc->imported.umm.dma_attachment, alloc->imported.umm.sgt,
 				 DMA_BIDIRECTIONAL);
+#endif
 	alloc->imported.umm.sgt = NULL;
 
 	kbase_remove_dma_buf_usage(kctx, alloc);
@@ -1246,7 +1270,12 @@ static int kbase_mem_umm_map_attachment(struct kbase_context *kctx, struct kbase
 	WARN_ON_ONCE(alloc->type != KBASE_MEM_TYPE_IMPORTED_UMM);
 	WARN_ON_ONCE(alloc->imported.umm.sgt);
 
+#if (KERNEL_VERSION(6, 1, 55) <= LINUX_VERSION_CODE)
+	sgt = dma_buf_map_attachment_unlocked(alloc->imported.umm.dma_attachment,
+					      DMA_BIDIRECTIONAL);
+#else
 	sgt = dma_buf_map_attachment(alloc->imported.umm.dma_attachment, DMA_BIDIRECTIONAL);
+#endif
 	if (IS_ERR_OR_NULL(sgt))
 		return -EINVAL;
 
@@ -1295,7 +1324,7 @@ int kbase_mem_umm_map(struct kbase_context *kctx, struct kbase_va_region *reg)
 {
 	int err;
 	struct kbase_mem_phy_alloc *alloc;
-	unsigned long gwt_mask = ~0;
+	unsigned long gwt_mask = ~0UL;
 
 	/* Calls to this function are inherently asynchronous, with respect to
 	 * MMU operations.
@@ -1562,7 +1591,7 @@ no_alloc:
 
 u32 kbase_get_cache_line_alignment(struct kbase_device *kbdev)
 {
-	u32 cpu_cache_line_size = cache_line_size();
+	u32 cpu_cache_line_size = (u32)cache_line_size();
 	u32 gpu_cache_line_size = (1UL << kbdev->gpu_props.log2_line_size);
 
 	return ((cpu_cache_line_size > gpu_cache_line_size) ? cpu_cache_line_size :
@@ -2091,8 +2120,8 @@ void kbase_mem_shrink_cpu_mapping(struct kbase_context *kctx, struct kbase_va_re
 		return;
 
 	unmap_mapping_range(kctx->kfile->filp->f_inode->i_mapping,
-			    (gpu_va_start + new_pages) << PAGE_SHIFT,
-			    (old_pages - new_pages) << PAGE_SHIFT, 1);
+			    (loff_t)(gpu_va_start + new_pages) << PAGE_SHIFT,
+			    (loff_t)(old_pages - new_pages) << PAGE_SHIFT, 1);
 }
 
 int kbase_mem_shrink_gpu_mapping(struct kbase_context *const kctx,
@@ -2180,14 +2209,22 @@ int kbase_mem_commit(struct kbase_context *kctx, u64 gpu_addr, u64 new_pages)
 	if (kbase_va_region_is_no_user_free(reg))
 		goto out_unlock;
 
-#ifdef CONFIG_MALI_MEMORY_FULLY_BACKED
-	/* Reject resizing commit size */
-	if (reg->flags & KBASE_REG_PF_GROW)
-		new_pages = reg->nr_pages;
-#endif
+	if (unlikely(fully_backed_gpf_memory)) {
+		if ((reg->flags & KBASE_REG_PF_GROW) && (reg->nr_pages != reg->initial_commit)) {
+			dev_err(kctx->kbdev->dev,
+				"GPF region has different physical and VA page size!");
+			res = -EINVAL;
+		} else {
+			/* The condition should already be satisfied, so no need to change
+			 * the commit size.
+			 */
+			res = 0;
+		}
+		goto out_unlock;
+	}
 
+	/* no change */
 	if (new_pages == reg->gpu_alloc->nents) {
-		/* no change */
 		res = 0;
 		goto out_unlock;
 	}
@@ -2563,7 +2600,7 @@ static int kbase_mmu_dump_mmap(struct kbase_context *kctx, struct vm_area_struct
 {
 	struct kbase_va_region *new_reg;
 	void *kaddr;
-	u32 nr_pages;
+	size_t nr_pages;
 	size_t size;
 	int err = 0;
 
@@ -2883,10 +2920,10 @@ void kbase_sync_mem_regions(struct kbase_context *kctx, struct kbase_vmap_struct
 {
 	size_t i;
 	off_t const offset = map->offset_in_page;
-	size_t const page_count = PFN_UP(offset + map->size);
+	size_t const page_count = PFN_UP((size_t)offset + map->size);
 
 	/* Sync first page */
-	size_t sz = MIN(((size_t)PAGE_SIZE - offset), map->size);
+	size_t sz = MIN((PAGE_SIZE - (size_t)offset), map->size);
 	struct tagged_addr cpu_pa = map->cpu_pages[0];
 	struct tagged_addr gpu_pa = map->gpu_pages[0];
 
@@ -2903,7 +2940,7 @@ void kbase_sync_mem_regions(struct kbase_context *kctx, struct kbase_vmap_struct
 	if (page_count > 1) {
 		cpu_pa = map->cpu_pages[page_count - 1];
 		gpu_pa = map->gpu_pages[page_count - 1];
-		sz = ((offset + map->size - 1) & ~PAGE_MASK) + 1;
+		sz = (((size_t)offset + map->size - 1) & ~PAGE_MASK) + 1;
 		kbase_sync_single(kctx, cpu_pa, gpu_pa, 0, sz, dest);
 	}
 }
@@ -2935,7 +2972,7 @@ static void kbase_vmap_phy_pages_migrate_count_increment(struct tagged_addr *pag
 		struct page *p = as_page(pages[i]);
 		struct kbase_page_metadata *page_md = kbase_page_private(p);
 
-		/* Skip the 4KB page that is part of a large page, as the large page is
+		/* Skip the small page that is part of a large page, as the large page is
 		 * excluded from the migration process.
 		 */
 		if (is_huge(pages[i]) || is_partial(pages[i]))
@@ -2987,7 +3024,7 @@ static void kbase_vunmap_phy_pages_migrate_count_decrement(struct tagged_addr *p
 		struct page *p = as_page(pages[i]);
 		struct kbase_page_metadata *page_md = kbase_page_private(p);
 
-		/* Skip the 4KB page that is part of a large page, as the large page is
+		/* Skip the small page that is part of a large page, as the large page is
 		 * excluded from the migration process.
 		 */
 		if (is_huge(pages[i]) || is_partial(pages[i]))
@@ -3044,7 +3081,7 @@ static int kbase_vmap_phy_pages(struct kbase_context *kctx, struct kbase_va_regi
 
 	if ((vmap_flags & KBASE_VMAP_FLAG_PERMANENT_MAP_ACCOUNTING) &&
 	    (page_count > (KBASE_PERMANENTLY_MAPPED_MEM_LIMIT_PAGES -
-			   atomic_read(&kctx->permanent_mapped_pages)))) {
+			   (size_t)atomic_read(&kctx->permanent_mapped_pages)))) {
 		dev_warn(
 			kctx->kbdev->dev,
 			"Request for %llu more pages mem needing a permanent mapping would breach limit %lu, currently at %d pages",
@@ -3195,7 +3232,7 @@ static void kbase_vunmap_phy_pages(struct kbase_context *kctx, struct kbase_vmap
 	 * haven't been released yet.
 	 */
 	if (kbase_is_page_migration_enabled() && !kbase_mem_is_imported(map->gpu_alloc->type)) {
-		const size_t page_count = PFN_UP(map->offset_in_page + map->size);
+		const size_t page_count = PFN_UP((size_t)map->offset_in_page + map->size);
 		struct tagged_addr *pages_array = map->cpu_pages;
 
 		kbase_vunmap_phy_pages_migrate_count_decrement(pages_array, page_count);
@@ -3204,7 +3241,7 @@ static void kbase_vunmap_phy_pages(struct kbase_context *kctx, struct kbase_vmap
 	if (map->flags & KBASE_VMAP_FLAG_SYNC_NEEDED)
 		kbase_sync_mem_regions(kctx, map, KBASE_SYNC_TO_DEVICE);
 	if (map->flags & KBASE_VMAP_FLAG_PERMANENT_MAP_ACCOUNTING) {
-		size_t page_count = PFN_UP(map->offset_in_page + map->size);
+		size_t page_count = PFN_UP((size_t)map->offset_in_page + map->size);
 
 		WARN_ON(page_count > (size_t)atomic_read(&kctx->permanent_mapped_pages));
 		atomic_sub(page_count, &kctx->permanent_mapped_pages);

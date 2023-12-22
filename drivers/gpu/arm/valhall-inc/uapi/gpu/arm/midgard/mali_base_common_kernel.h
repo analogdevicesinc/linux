@@ -221,11 +221,11 @@ typedef __u32 base_context_create_flags;
 /* Enable additional tracepoints for latency measurements (TL_ATOM_READY,
  * TL_ATOM_DONE, TL_ATOM_PRIO_CHANGE, TL_ATOM_EVENT_POST)
  */
-#define BASE_TLSTREAM_ENABLE_LATENCY_TRACEPOINTS (1 << 0)
+#define BASE_TLSTREAM_ENABLE_LATENCY_TRACEPOINTS (1U << 0)
 
 /* Indicate that job dumping is enabled. This could affect certain timers
  * to account for the performance impact.
  */
-#define BASE_TLSTREAM_JOB_DUMPING_ENABLED (1 << 1)
+#define BASE_TLSTREAM_JOB_DUMPING_ENABLED (1U << 1)
 
 #endif /* _UAPI_BASE_COMMON_KERNEL_H_ */

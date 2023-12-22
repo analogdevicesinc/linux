@@ -222,9 +222,9 @@ char *kbase_tlstream_msgbuf_acquire(struct kbase_tlstream *stream, size_t msg_si
 
 	spin_lock_irqsave(&stream->lock, *flags);
 
-	wb_idx_raw = atomic_read(&stream->wbi);
+	wb_idx_raw = (unsigned int)atomic_read(&stream->wbi);
 	wb_idx = wb_idx_raw % PACKET_COUNT;
-	wb_size = atomic_read(&stream->buffer[wb_idx].size);
+	wb_size = (size_t)atomic_read(&stream->buffer[wb_idx].size);
 
 	/* Select next buffer if data will not fit into current one. */
 	if (wb_size + msg_size > PACKET_SIZE) {
@@ -264,9 +264,9 @@ size_t kbase_tlstream_flush_stream(struct kbase_tlstream *stream)
 
 	spin_lock_irqsave(&stream->lock, flags);
 
-	wb_idx_raw = atomic_read(&stream->wbi);
+	wb_idx_raw = (unsigned int)atomic_read(&stream->wbi);
 	wb_idx = wb_idx_raw % PACKET_COUNT;
-	wb_size = atomic_read(&stream->buffer[wb_idx].size);
+	wb_size = (size_t)atomic_read(&stream->buffer[wb_idx].size);
 
 	if (wb_size > min_size) {
 		wb_size = kbasep_tlstream_msgbuf_submit(stream, wb_idx_raw, wb_size);

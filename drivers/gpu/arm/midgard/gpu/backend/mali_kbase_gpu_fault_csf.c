@@ -146,28 +146,28 @@ const char *kbase_gpu_exception_name(u32 const exception_code)
 		e = "ADDRESS_SIZE_FAULT_IN";
 		break;
 	case CS_FAULT_EXCEPTION_TYPE_ADDRESS_SIZE_FAULT_OUT_0:
-		e = "ADDRESS_SIZE_FAULT_OUT_0 at level 0";
+		e = "ADDRESS_SIZE_FAULT_OUT at level 0";
 		break;
 	case CS_FAULT_EXCEPTION_TYPE_ADDRESS_SIZE_FAULT_OUT_1:
-		e = "ADDRESS_SIZE_FAULT_OUT_1 at level 1";
+		e = "ADDRESS_SIZE_FAULT_OUT at level 1";
 		break;
 	case CS_FAULT_EXCEPTION_TYPE_ADDRESS_SIZE_FAULT_OUT_2:
-		e = "ADDRESS_SIZE_FAULT_OUT_2 at level 2";
+		e = "ADDRESS_SIZE_FAULT_OUT at level 2";
 		break;
 	case CS_FAULT_EXCEPTION_TYPE_ADDRESS_SIZE_FAULT_OUT_3:
-		e = "ADDRESS_SIZE_FAULT_OUT_3 at level 3";
+		e = "ADDRESS_SIZE_FAULT_OUT at level 3";
 		break;
 	case CS_FAULT_EXCEPTION_TYPE_MEMORY_ATTRIBUTE_FAULT_0:
-		e = "MEMORY_ATTRIBUTE_FAULT_0 at level 0";
+		e = "MEMORY_ATTRIBUTE_FAULT at level 0";
 		break;
 	case CS_FAULT_EXCEPTION_TYPE_MEMORY_ATTRIBUTE_FAULT_1:
-		e = "MEMORY_ATTRIBUTE_FAULT_1 at level 1";
+		e = "MEMORY_ATTRIBUTE_FAULT at level 1";
 		break;
 	case CS_FAULT_EXCEPTION_TYPE_MEMORY_ATTRIBUTE_FAULT_2:
-		e = "MEMORY_ATTRIBUTE_FAULT_2 at level 2";
+		e = "MEMORY_ATTRIBUTE_FAULT at level 2";
 		break;
 	case CS_FAULT_EXCEPTION_TYPE_MEMORY_ATTRIBUTE_FAULT_3:
-		e = "MEMORY_ATTRIBUTE_FAULT_3 at level 3";
+		e = "MEMORY_ATTRIBUTE_FAULT at level 3";
 		break;
 	/* Any other exception code is unknown */
 	default:

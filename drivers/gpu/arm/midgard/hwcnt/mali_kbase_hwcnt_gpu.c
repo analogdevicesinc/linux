@@ -169,7 +169,7 @@ static int kbasep_hwcnt_backend_gpu_metadata_create(const struct kbase_hwcnt_gpu
 	/* Calculate number of block instances that aren't cores */
 	non_core_block_count = 2 + gpu_info->l2_count;
 	/* Calculate number of block instances that are shader cores */
-	sc_block_count = fls64(gpu_info->core_mask);
+	sc_block_count = (size_t)fls64(gpu_info->core_mask);
 	/* Determine the total number of cores */
 	core_block_count = sc_block_count;
 
@@ -274,7 +274,8 @@ static int kbasep_hwcnt_backend_gpu_metadata_create(const struct kbase_hwcnt_gpu
 	desc.clk_cnt = gpu_info->clk_cnt;
 
 	/* The JM, Tiler, and L2s are always available, and are before cores */
-	kbase_hwcnt_set_avail_mask(&desc.avail_mask, (1ull << non_core_block_count) - 1, 0);
+	kbase_hwcnt_set_avail_mask(&desc.avail_mask, 0, 0);
+	kbase_hwcnt_set_avail_mask_bits(&desc.avail_mask, 0, non_core_block_count, U64_MAX);
 	kbase_hwcnt_set_avail_mask_bits(&desc.avail_mask, non_core_block_count, sc_block_count,
 					gpu_info->core_mask);
 
@@ -293,7 +294,7 @@ static size_t kbasep_hwcnt_backend_jm_dump_bytes(const struct kbase_hwcnt_gpu_in
 {
 	WARN_ON(!gpu_info);
 
-	return (2 + gpu_info->l2_count + fls64(gpu_info->core_mask)) *
+	return (2 + gpu_info->l2_count + (size_t)fls64(gpu_info->core_mask)) *
 	       gpu_info->prfcnt_values_per_block * KBASE_HWCNT_VALUE_HW_BYTES;
 }
 
@@ -372,33 +373,50 @@ void kbase_hwcnt_csf_metadata_destroy(const struct kbase_hwcnt_metadata *metadat
 	kbase_hwcnt_metadata_destroy(metadata);
 }
 
-static bool is_block_type_shader(const u64 blk_type)
+bool kbase_hwcnt_is_block_type_shader(const enum kbase_hwcnt_gpu_v5_block_type blk_type)
 {
-	bool is_shader = false;
-
 	if (blk_type == KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_SC ||
 	    blk_type == KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_SC2 ||
 	    blk_type == KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_SC3 ||
 	    blk_type == KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_SC_UNDEFINED)
-		is_shader = true;
+		return true;
 
-	return is_shader;
+	return false;
 }
 
-static bool is_block_type_l2_cache(const u64 blk_type)
+bool kbase_hwcnt_is_block_type_memsys(const enum kbase_hwcnt_gpu_v5_block_type blk_type)
 {
-	bool is_l2_cache = false;
-
 	if (blk_type == KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_MEMSYS ||
 	    blk_type == KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_MEMSYS2 ||
 	    blk_type == KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_MEMSYS_UNDEFINED)
-		is_l2_cache = true;
+		return true;
 
-	return is_l2_cache;
+	return false;
+}
+
+bool kbase_hwcnt_is_block_type_tiler(const enum kbase_hwcnt_gpu_v5_block_type blk_type)
+{
+	if (blk_type == KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_TILER ||
+	    blk_type == KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_TILER_UNDEFINED)
+		return true;
+
+	return false;
+}
+
+bool kbase_hwcnt_is_block_type_fe(const enum kbase_hwcnt_gpu_v5_block_type blk_type)
+{
+	if (blk_type == KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_FE ||
+	    blk_type == KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_FE2 ||
+	    blk_type == KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_FE3 ||
+	    blk_type == KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_FE_UNDEFINED)
+		return true;
+
+	return false;
 }
 
 int kbase_hwcnt_jm_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 			    const struct kbase_hwcnt_enable_map *dst_enable_map, u64 pm_core_mask,
+			    u64 debug_core_mask, u64 max_core_mask, size_t max_l2_slices,
 			    const struct kbase_hwcnt_curr_config *curr_config, bool accumulate)
 {
 	const struct kbase_hwcnt_metadata *metadata;
@@ -406,6 +424,7 @@ int kbase_hwcnt_jm_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 	const u64 *dump_src = src;
 	size_t src_offset = 0;
 	u64 core_mask = pm_core_mask;
+	u64 shader_present = curr_config->shader_present;
 
 	/* Variables to deal with the current configuration */
 	size_t l2_count = 0;
@@ -415,13 +434,12 @@ int kbase_hwcnt_jm_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 
 	metadata = dst->metadata;
 
-	kbase_hwcnt_metadata_for_each_block(metadata, blk, blk_inst)
-	{
+	kbase_hwcnt_metadata_for_each_block(metadata, blk, blk_inst) {
 		const size_t hdr_cnt = kbase_hwcnt_metadata_block_headers_count(metadata, blk);
 		const size_t ctr_cnt = kbase_hwcnt_metadata_block_counters_count(metadata, blk);
 		const u64 blk_type = kbase_hwcnt_metadata_block_type(metadata, blk);
-		const bool is_shader_core = is_block_type_shader(blk_type);
-		const bool is_l2_cache = is_block_type_l2_cache(blk_type);
+		const bool is_shader_core = kbase_hwcnt_is_block_type_shader(blk_type);
+		const bool is_l2_cache = kbase_hwcnt_is_block_type_memsys(blk_type);
 		const bool is_undefined = kbase_hwcnt_is_block_type_undefined(blk_type);
 		blk_stt_t *dst_blk_stt =
 			kbase_hwcnt_dump_buffer_block_state_instance(dst, blk, blk_inst);
@@ -458,25 +476,52 @@ int kbase_hwcnt_jm_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 
 			if (blk_valid) {
 				bool blk_powered;
-				blk_stt_t current_block_state;
+				blk_stt_t current_block_state = 0;
 
 				if (!is_shader_core) {
-					/* Under the current PM system, counters will only be
-					 * enabled after all non shader core blocks are powered up.
+					/* The L2 block must be available at this point, or handled
+					 * differently below.
+					 * Every partition must have a FE and a tiler, so they
+					 * must be implicitly available as part of the current
+					 * configuration.
 					 */
 					blk_powered = true;
+					current_block_state |= KBASE_HWCNT_STATE_AVAILABLE;
 				} else {
 					/* Check the PM core mask to see if the shader core is
 					 * powered up.
 					 */
 					blk_powered = core_mask & 1;
+
+					/* Set availability bits based on whether the core is
+					 * present in both the shader_present AND the core
+					 * mask in sysFS. The core masks are shifted to the
+					 * right at the end of the loop so always check the
+					 * rightmost bit.
+					 */
+					if ((shader_present & debug_core_mask) & 0x1)
+						current_block_state |= KBASE_HWCNT_STATE_AVAILABLE;
+					else {
+						/* If this branch is taken, the shader core may
+						 * be:
+						 * * in the max configuration, but not enabled
+						 * through the sysFS core mask
+						 * * in the max configuration, but not in the
+						 * current configuration
+						 * * physically not present
+						 */
+						current_block_state |=
+							KBASE_HWCNT_STATE_UNAVAILABLE;
+					}
 				}
-				current_block_state = (blk_powered) ? KBASE_HWCNT_STATE_ON :
-									    KBASE_HWCNT_STATE_OFF;
 
 				/* Note: KBASE_HWCNT_STATE_OFF for non-shader cores (L2, Tiler, JM)
-				 * is handled on this backend's dump_disable function
+				 * is handled on this backend's dump_disable function (since
+				 * they are considered to always be powered here).
 				 */
+				current_block_state |= (blk_powered) ? KBASE_HWCNT_STATE_ON :
+									     KBASE_HWCNT_STATE_OFF;
+
 				if (accumulate) {
 					/* Only update existing counter values if block was powered
 					 * and valid
@@ -500,10 +545,22 @@ int kbase_hwcnt_jm_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 					kbase_hwcnt_block_state_set(dst_blk_stt,
 								    current_block_state);
 				}
+			} else if (is_l2_cache && !is_undefined) {
+				/* Defined L2 can only reach here when the partition does not
+				 * own it. Check that the L2 count is within the resource
+				 * group or whole GPU's max L2 count, and if so,
+				 * mark it as unavailable.
+				 */
+				if (l2_count <= max_l2_slices) {
+					kbase_hwcnt_block_state_set(
+						dst_blk_stt, KBASE_HWCNT_STATE_OFF |
+								     KBASE_HWCNT_STATE_UNAVAILABLE);
+				}
+				kbase_hwcnt_dump_buffer_block_zero(dst_blk, (hdr_cnt + ctr_cnt));
 			} else {
-				/* Even though the block might be undefined, the user has enabled
-				 * counter collection for it. We should not propagate garbage data,
-				 * or copy/accumulate the block states.
+				/* Even though the block is undefined, the user has
+				 * enabled counter collection for it. We should not propagate
+				 * garbage data, or copy/accumulate the block states.
 				 */
 				if (accumulate) {
 					/* No-op to preserve existing values */
@@ -520,8 +577,13 @@ int kbase_hwcnt_jm_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 		/* Just increase the src_offset if the HW is available */
 		if (hw_res_available)
 			src_offset += (hdr_cnt + ctr_cnt);
-		if (is_shader_core)
-			core_mask = core_mask >> 1;
+		if (is_shader_core) {
+			/* Shift each core mask right by 1 */
+			core_mask >>= 1;
+			debug_core_mask >>= 1;
+			max_core_mask >>= 1;
+			shader_present >>= 1;
+		}
 	}
 
 	return 0;
@@ -544,8 +606,7 @@ int kbase_hwcnt_csf_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 
 	metadata = dst->metadata;
 
-	kbase_hwcnt_metadata_for_each_block(metadata, blk, blk_inst)
-	{
+	kbase_hwcnt_metadata_for_each_block(metadata, blk, blk_inst) {
 		const size_t hdr_cnt = kbase_hwcnt_metadata_block_headers_count(metadata, blk);
 		const size_t ctr_cnt = kbase_hwcnt_metadata_block_counters_count(metadata, blk);
 		const uint64_t blk_type = kbase_hwcnt_metadata_block_type(metadata, blk);
@@ -650,8 +711,7 @@ void kbase_hwcnt_gpu_enable_map_to_physical(struct kbase_hwcnt_physical_enable_m
 
 	metadata = src->metadata;
 
-	kbase_hwcnt_metadata_for_each_block(metadata, blk, blk_inst)
-	{
+	kbase_hwcnt_metadata_for_each_block(metadata, blk, blk_inst) {
 		const u64 blk_type = kbase_hwcnt_metadata_block_type(metadata, blk);
 		const u64 *blk_map = kbase_hwcnt_enable_map_block_instance(src, blk, blk_inst);
 		const size_t map_stride =
@@ -749,14 +809,31 @@ void kbase_hwcnt_gpu_set_to_physical(enum kbase_hwcnt_physical_set *dst, enum kb
 void kbase_hwcnt_gpu_enable_map_from_physical(struct kbase_hwcnt_enable_map *dst,
 					      const struct kbase_hwcnt_physical_enable_map *src)
 {
-	const struct kbase_hwcnt_metadata *metadata;
+	struct kbase_hwcnt_enable_cm cm = {};
 
-	u64 fe_bm[EM_COUNT] = { 0 };
-	u64 shader_bm[EM_COUNT] = { 0 };
-	u64 tiler_bm[EM_COUNT] = { 0 };
-	u64 mmu_l2_bm[EM_COUNT] = { 0 };
-	u64 fw_bm[EM_COUNT] = { 0 };
-	u64 csg_bm[EM_COUNT] = { 0 };
+	if (WARN_ON(!src) || WARN_ON(!dst))
+		return;
+
+	kbasep_hwcnt_backend_gpu_block_map_from_physical(src->fe_bm, &cm.fe_bm[EM_LO],
+							 &cm.fe_bm[EM_HI]);
+	kbasep_hwcnt_backend_gpu_block_map_from_physical(src->shader_bm, &cm.shader_bm[EM_LO],
+							 &cm.shader_bm[EM_HI]);
+	kbasep_hwcnt_backend_gpu_block_map_from_physical(src->tiler_bm, &cm.tiler_bm[EM_LO],
+							 &cm.tiler_bm[EM_HI]);
+	kbasep_hwcnt_backend_gpu_block_map_from_physical(src->mmu_l2_bm, &cm.mmu_l2_bm[EM_LO],
+							 &cm.mmu_l2_bm[EM_HI]);
+	kbasep_hwcnt_backend_gpu_block_map_from_physical(src->fw_bm, &cm.fw_bm[EM_LO],
+							 &cm.fw_bm[EM_HI]);
+	kbasep_hwcnt_backend_gpu_block_map_from_physical(src->csg_bm, &cm.csg_bm[EM_LO],
+							 &cm.csg_bm[EM_HI]);
+
+	kbase_hwcnt_gpu_enable_map_from_cm(dst, &cm);
+}
+
+void kbase_hwcnt_gpu_enable_map_from_cm(struct kbase_hwcnt_enable_map *dst,
+					const struct kbase_hwcnt_enable_cm *src)
+{
+	const struct kbase_hwcnt_metadata *metadata;
 	size_t blk, blk_inst;
 
 	if (WARN_ON(!src) || WARN_ON(!dst))
@@ -764,19 +841,7 @@ void kbase_hwcnt_gpu_enable_map_from_physical(struct kbase_hwcnt_enable_map *dst
 
 	metadata = dst->metadata;
 
-	kbasep_hwcnt_backend_gpu_block_map_from_physical(src->fe_bm, &fe_bm[EM_LO], &fe_bm[EM_HI]);
-	kbasep_hwcnt_backend_gpu_block_map_from_physical(src->shader_bm, &shader_bm[EM_LO],
-							 &shader_bm[EM_HI]);
-	kbasep_hwcnt_backend_gpu_block_map_from_physical(src->tiler_bm, &tiler_bm[EM_LO],
-							 &tiler_bm[EM_HI]);
-	kbasep_hwcnt_backend_gpu_block_map_from_physical(src->mmu_l2_bm, &mmu_l2_bm[EM_LO],
-							 &mmu_l2_bm[EM_HI]);
-	kbasep_hwcnt_backend_gpu_block_map_from_physical(src->fw_bm, &fw_bm[EM_LO], &fw_bm[EM_HI]);
-	kbasep_hwcnt_backend_gpu_block_map_from_physical(src->csg_bm, &csg_bm[EM_LO],
-							 &csg_bm[EM_HI]);
-
-	kbase_hwcnt_metadata_for_each_block(metadata, blk, blk_inst)
-	{
+	kbase_hwcnt_metadata_for_each_block(metadata, blk, blk_inst) {
 		const u64 blk_type = kbase_hwcnt_metadata_block_type(metadata, blk);
 		u64 *blk_map = kbase_hwcnt_enable_map_block_instance(dst, blk, blk_inst);
 		const size_t map_stride =
@@ -806,36 +871,36 @@ void kbase_hwcnt_gpu_enable_map_from_physical(struct kbase_hwcnt_enable_map *dst
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_FE2:
 				fallthrough;
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_FE3:
-				blk_map[map_idx] = fe_bm[map_idx];
+				blk_map[map_idx] = src->fe_bm[map_idx];
 				break;
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_TILER:
-				blk_map[map_idx] = tiler_bm[map_idx];
+				blk_map[map_idx] = src->tiler_bm[map_idx];
 				break;
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_SC:
 				fallthrough;
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_SC2:
 				fallthrough;
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_SC3:
-				blk_map[map_idx] = shader_bm[map_idx];
+				blk_map[map_idx] = src->shader_bm[map_idx];
 				break;
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_MEMSYS:
 				fallthrough;
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_MEMSYS2:
-				blk_map[map_idx] = mmu_l2_bm[map_idx];
+				blk_map[map_idx] = src->mmu_l2_bm[map_idx];
 				break;
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_FW:
 				fallthrough;
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_FW2:
 				fallthrough;
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_FW3:
-				blk_map[map_idx] = fw_bm[map_idx];
+				blk_map[map_idx] = src->fw_bm[map_idx];
 				break;
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_CSG:
 				fallthrough;
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_CSG2:
 				fallthrough;
 			case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_CSG3:
-				blk_map[map_idx] = csg_bm[map_idx];
+				blk_map[map_idx] = src->csg_bm[map_idx];
 				break;
 			default:
 				WARN(true, "Invalid block type %llu", blk_type);
@@ -855,8 +920,7 @@ void kbase_hwcnt_gpu_patch_dump_headers(struct kbase_hwcnt_dump_buffer *buf,
 
 	metadata = buf->metadata;
 
-	kbase_hwcnt_metadata_for_each_block(metadata, blk, blk_inst)
-	{
+	kbase_hwcnt_metadata_for_each_block(metadata, blk, blk_inst) {
 		u64 *buf_blk = kbase_hwcnt_dump_buffer_block_instance(buf, blk, blk_inst);
 		const u64 *blk_map =
 			kbase_hwcnt_enable_map_block_instance(enable_map, blk, blk_inst);

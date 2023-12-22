@@ -321,7 +321,7 @@ static inline void kbase_hwcnt_cp_avail_mask(struct kbase_hwcnt_avail_mask *dst_
  *                  placed is expected to be fully contained by the array of bitmask elements.
  * @length_in_bits: The length of the value being placed in the bitmask. Assumed to be no more
  *                  than 64 bits in length.
- * @value:          Pointer to the source value to be written into the bitmask.
+ * @value:          The source value to be written into the bitmask.
  */
 static inline void kbase_hwcnt_set_avail_mask_bits(struct kbase_hwcnt_avail_mask *avail_mask,
 						   size_t offset_in_bits, size_t length_in_bits,
@@ -929,8 +929,7 @@ kbase_hwcnt_enable_map_any_enabled(const struct kbase_hwcnt_enable_map *enable_m
 	if (enable_map->metadata->clk_cnt > 0 && (enable_map->clk_enable_map & clk_enable_map_mask))
 		return true;
 
-	kbase_hwcnt_metadata_for_each_block(enable_map->metadata, blk, blk_inst)
-	{
+	kbase_hwcnt_metadata_for_each_block(enable_map->metadata, blk, blk_inst) {
 		if (kbase_hwcnt_enable_map_block_enabled(enable_map, blk, blk_inst))
 			return true;
 	}

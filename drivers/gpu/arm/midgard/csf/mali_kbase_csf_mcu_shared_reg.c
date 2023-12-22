@@ -412,7 +412,7 @@ int kbase_csf_mcu_shared_add_queue(struct kbase_device *kbdev, struct kbase_queu
 		      "No bound csg_reg, or in wrong state"))
 		return -EIO;
 
-	vpfn = CSG_REG_USERIO_VPFN(csg_reg->reg, queue->csi_index, nr_susp_pages);
+	vpfn = CSG_REG_USERIO_VPFN(csg_reg->reg, (u32)queue->csi_index, nr_susp_pages);
 	err = userio_pages_replace_phys(kbdev, vpfn, queue->phys);
 	if (likely(!err)) {
 		/* Mark the queue has been successfully mapped */
@@ -452,7 +452,7 @@ void kbase_csf_mcu_shared_drop_stopped_queue(struct kbase_device *kbdev, struct 
 
 	csg_reg = get_group_bound_csg_reg(group);
 
-	vpfn = CSG_REG_USERIO_VPFN(csg_reg->reg, queue->csi_index, nr_susp_pages);
+	vpfn = CSG_REG_USERIO_VPFN(csg_reg->reg, (u32)queue->csi_index, nr_susp_pages);
 
 	WARN_ONCE(userio_pages_replace_phys(kbdev, vpfn, NULL),
 		  "Unexpected restoring to dummy map update error");

@@ -122,7 +122,7 @@ bool kbase_csf_scheduler_group_events_enabled(struct kbase_device *kbdev,
  * Note: Caller must hold the interrupt_lock.
  */
 struct kbase_queue_group *kbase_csf_scheduler_get_group_on_slot(struct kbase_device *kbdev,
-								int slot);
+								u32 slot);
 
 /**
  * kbase_csf_scheduler_group_deschedule() - Deschedule a GPU command queue
@@ -591,8 +591,11 @@ int kbase_csf_scheduler_handle_runtime_suspend(struct kbase_device *kbdev);
  * @kbdev: Pointer to the device
  *
  * This function is called when a GPU idle IRQ has been raised.
+ *
+ * Return: true if the PM state machine needs to be invoked after the processing
+ *         of GPU idle irq, otherwise false.
  */
-void kbase_csf_scheduler_process_gpu_idle_event(struct kbase_device *kbdev);
+bool kbase_csf_scheduler_process_gpu_idle_event(struct kbase_device *kbdev);
 
 /**
  * kbase_csf_scheduler_get_nr_active_csgs() - Get the number of active CSGs

@@ -269,13 +269,14 @@
 #define GPU_COMMAND_FLUSH_CACHE_MERGE(cmd1, cmd2) ((cmd1) > (cmd2) ? (cmd1) : (cmd2))
 
 /* IRQ flags */
-#define GPU_FAULT (1 << 0) /* A GPU Fault has occurred */
-#define MULTIPLE_GPU_FAULTS (1 << 7) /* More than one GPU Fault occurred.  */
-#define RESET_COMPLETED (1 << 8) /* Set when a reset has completed.  */
-#define POWER_CHANGED_SINGLE (1 << 9) /* Set when a single core has finished powering up or down. */
-#define POWER_CHANGED_ALL (1 << 10) /* Set when all cores have finished powering up or down. */
-#define PRFCNT_SAMPLE_COMPLETED (1 << 16) /* Set when a performance count sample has completed. */
-#define CLEAN_CACHES_COMPLETED (1 << 17) /* Set when a cache clean operation has completed. */
+#define GPU_FAULT (1U << 0) /* A GPU Fault has occurred */
+#define MULTIPLE_GPU_FAULTS (1U << 7) /* More than one GPU Fault occurred.  */
+#define RESET_COMPLETED (1U << 8) /* Set when a reset has completed.  */
+#define POWER_CHANGED_SINGLE \
+	(1U << 9) /* Set when a single core has finished powering up or down. */
+#define POWER_CHANGED_ALL (1U << 10) /* Set when all cores have finished powering up or down. */
+#define PRFCNT_SAMPLE_COMPLETED (1U << 16) /* Set when a performance count sample has completed. */
+#define CLEAN_CACHES_COMPLETED (1U << 17) /* Set when a cache clean operation has completed. */
 #define FLUSH_PA_RANGE_COMPLETED \
 	(1 << 20) /* Set when a physical range cache clean operation has completed. */
 

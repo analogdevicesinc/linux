@@ -22,6 +22,8 @@
 #ifndef _KBASE_RESET_GPU_H_
 #define _KBASE_RESET_GPU_H_
 
+struct kbase_device;
+
 /**
  * kbase_reset_gpu_prevent_and_wait - Prevent GPU resets from starting whilst
  *                                    the current thread is accessing the GPU,
@@ -236,7 +238,7 @@ int kbase_reset_gpu_silent(struct kbase_device *kbdev);
 bool kbase_reset_gpu_is_active(struct kbase_device *kbdev);
 
 /**
- * kbase_reset_gpu_not_pending - Reports if the GPU reset isn't pending
+ * kbase_reset_gpu_is_not_pending - Reports if the GPU reset isn't pending
  *
  * @kbdev: Device pointer
  *

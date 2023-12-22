@@ -28,6 +28,11 @@
 
 #include <linux/dma-mapping.h>
 
+/* Kernel/CPU page size can be 4/16/64KB whereas GPU page size is fixed as 4KB */
+#define GPU_PAGE_SIZE SZ_4K
+#define GPU_PAGE_MASK (~(SZ_4K - 1))
+#define GPU_PAGES_PER_CPU_PAGE (PAGE_SIZE / GPU_PAGE_SIZE)
+
 /* Flags for kbase_phy_allocator_pages_alloc */
 #define KBASE_PHY_PAGES_FLAG_DEFAULT (0) /** Default allocation flag */
 #define KBASE_PHY_PAGES_FLAG_CLEAR (1 << 0) /** Clear the pages after allocation */
@@ -49,7 +54,7 @@ struct tagged_addr {
 #define HUGE_HEAD (1u << 1)
 #define FROM_PARTIAL (1u << 2)
 
-#define NUM_4K_PAGES_IN_2MB_PAGE (SZ_2M / SZ_4K)
+#define NUM_PAGES_IN_2MB_LARGE_PAGE (SZ_2M / PAGE_SIZE)
 
 #define KBASE_INVALID_PHYSICAL_ADDRESS (~(phys_addr_t)0 & PAGE_MASK)
 
@@ -71,7 +76,7 @@ struct tagged_addr {
  */
 static inline phys_addr_t as_phys_addr_t(struct tagged_addr t)
 {
-	return t.tagged_addr & PAGE_MASK;
+	return t.tagged_addr & GPU_PAGE_MASK;
 }
 
 /**
@@ -90,7 +95,7 @@ static inline struct page *as_page(struct tagged_addr t)
  *             there is no tag info present, the lower order 12 bits will be 0
  * @phys: physical address to be converted to tagged type
  *
- * This is used for 4KB physical pages allocated by the Driver or imported pages
+ * This is used for small physical pages allocated by the Driver or imported pages
  * and is needed as physical pages tracking object stores the reference for
  * physical pages using tagged address type in lieu of the type generally used
  * for physical addresses.
@@ -101,7 +106,7 @@ static inline struct tagged_addr as_tagged(phys_addr_t phys)
 {
 	struct tagged_addr t;
 
-	t.tagged_addr = phys & PAGE_MASK;
+	t.tagged_addr = phys & GPU_PAGE_MASK;
 	return t;
 }
 
@@ -119,12 +124,12 @@ static inline struct tagged_addr as_tagged_tag(phys_addr_t phys, int tag)
 {
 	struct tagged_addr t;
 
-	t.tagged_addr = (phys & PAGE_MASK) | (tag & ~PAGE_MASK);
+	t.tagged_addr = (phys & GPU_PAGE_MASK) | (tag & ~GPU_PAGE_MASK);
 	return t;
 }
 
 /**
- * is_huge - Check if the physical page is one of the 512 4KB pages of the
+ * is_huge - Check if the physical page is one of the small pages of the
  *           large page which was not split to be used partially
  * @t: tagged address storing the tag in the lower order bits.
  *
@@ -136,9 +141,8 @@ static inline bool is_huge(struct tagged_addr t)
 }
 
 /**
- * is_huge_head - Check if the physical page is the first 4KB page of the
- *                512 4KB pages within a large page which was not split
- *                to be used partially
+ * is_huge_head - Check if the physical page is the first small page within
+ *                a large page which was not split to be used partially
  * @t: tagged address storing the tag in the lower order bits.
  *
  * Return: true if page is the first page of a large page, or false
@@ -151,8 +155,8 @@ static inline bool is_huge_head(struct tagged_addr t)
 }
 
 /**
- * is_partial - Check if the physical page is one of the 512 pages of the
- *              large page which was split in 4KB pages to be used
+ * is_partial - Check if the physical page is one of the small pages of the
+ *              large page which was split in small pages to be used
  *              partially for allocations >= 2 MB in size.
  * @t: tagged address storing the tag in the lower order bits.
  *
@@ -164,19 +168,19 @@ static inline bool is_partial(struct tagged_addr t)
 }
 
 /**
- * index_in_large_page() - Get index of a 4KB page within a 2MB page which
+ * index_in_large_page() - Get index of a small page within a 2MB page which
  *                         wasn't split to be used partially.
  *
- * @t:  Tagged physical address of the physical 4KB page that lies within
+ * @t:  Tagged physical address of the physical small page that lies within
  *      the large (or 2 MB) physical page.
  *
- * Return: Index of the 4KB page within a 2MB page
+ * Return: Index of the small page within a 2MB page
  */
 static inline unsigned int index_in_large_page(struct tagged_addr t)
 {
 	WARN_ON(!is_huge(t));
 
-	return (PFN_DOWN(as_phys_addr_t(t)) & (NUM_4K_PAGES_IN_2MB_PAGE - 1));
+	return (PFN_DOWN(as_phys_addr_t(t)) & (NUM_PAGES_IN_2MB_LARGE_PAGE - 1));
 }
 
 /**

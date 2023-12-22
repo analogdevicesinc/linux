@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -115,6 +115,15 @@ void midgard_model_write_reg(void *h, u32 addr, u32 value);
  * This hook is specific to the model built in Kbase.
  */
 void midgard_model_read_reg(void *h, u32 addr, u32 *const value);
+
+/**
+ * midgard_model_arch_timer_get_cntfrq - Get Model specific System Timer Frequency
+ *
+ * @h: Model handle.
+ *
+ * Return: Frequency in Hz
+ */
+u64 midgard_model_arch_timer_get_cntfrq(void *h);
 
 /**
  * gpu_device_raise_irq() - Private IRQ raise function.

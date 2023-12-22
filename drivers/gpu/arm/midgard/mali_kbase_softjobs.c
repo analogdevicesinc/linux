@@ -83,7 +83,8 @@ static void kbasep_add_waiting_with_timeout(struct kbase_jd_atom *katom)
 
 	/* Schedule timeout of this atom after a period if it is not active */
 	if (!timer_pending(&kctx->soft_job_timeout)) {
-		int timeout_ms = atomic_read(&kctx->kbdev->js_data.soft_job_timeout_ms);
+		unsigned int timeout_ms =
+			(unsigned int)atomic_read(&kctx->kbdev->js_data.soft_job_timeout_ms);
 		mod_timer(&kctx->soft_job_timeout, jiffies + msecs_to_jiffies(timeout_ms));
 	}
 }
@@ -172,7 +173,7 @@ static int kbase_dump_cpu_gpu_time(struct kbase_jd_atom *katom)
 
 	kbase_pm_context_idle(kctx->kbdev);
 
-	data.sec = ts.tv_sec;
+	data.sec = (__u64)ts.tv_sec;
 	data.usec = ts.tv_nsec / 1000;
 	data.system_time = system_time;
 	data.cycle_counter = cycle_counter;
@@ -612,7 +613,7 @@ static int kbase_debug_copy_prepare(struct kbase_jd_atom *katom)
 			/* Adjust number of pages, so that we only attempt to
 			 * release pages in the array that we know are valid.
 			 */
-			buffers[i].nr_pages = pinned_pages;
+			buffers[i].nr_pages = (unsigned int)pinned_pages;
 
 			ret = -EINVAL;
 			goto out_cleanup;
@@ -626,7 +627,8 @@ static int kbase_debug_copy_prepare(struct kbase_jd_atom *katom)
 
 		kbase_gpu_vm_lock(katom->kctx);
 		reg = kbase_region_tracker_find_region_enclosing_address(
-			katom->kctx, user_extres.ext_resource & ~BASE_EXT_RES_ACCESS_EXCLUSIVE);
+			katom->kctx,
+			user_extres.ext_resource & ~(__u64)BASE_EXT_RES_ACCESS_EXCLUSIVE);
 
 		if (kbase_is_region_invalid_or_free(reg) || reg->gpu_alloc == NULL) {
 			ret = -EINVAL;
@@ -668,7 +670,7 @@ static int kbase_debug_copy_prepare(struct kbase_jd_atom *katom)
 				if (ret < 0)
 					buffers[i].nr_extres_pages = 0;
 				else
-					buffers[i].nr_extres_pages = ret;
+					buffers[i].nr_extres_pages = (unsigned int)ret;
 
 				goto out_unlock;
 			}
@@ -1404,7 +1406,7 @@ static void kbase_ext_res_process(struct kbase_jd_atom *katom, bool map)
 	for (i = 0; i < ext_res->count; i++) {
 		u64 gpu_addr;
 
-		gpu_addr = ext_res->ext_res[i].ext_resource & ~BASE_EXT_RES_ACCESS_EXCLUSIVE;
+		gpu_addr = ext_res->ext_res[i].ext_resource & ~(__u64)BASE_EXT_RES_ACCESS_EXCLUSIVE;
 		if (map) {
 			if (!kbase_sticky_resource_acquire(katom->kctx, gpu_addr))
 				goto failed_loop;
@@ -1431,7 +1433,7 @@ static void kbase_ext_res_process(struct kbase_jd_atom *katom, bool map)
 failed_loop:
 	while (i > 0) {
 		u64 const gpu_addr = ext_res->ext_res[i - 1].ext_resource &
-				     ~BASE_EXT_RES_ACCESS_EXCLUSIVE;
+				     ~(__u64)BASE_EXT_RES_ACCESS_EXCLUSIVE;
 
 		kbase_sticky_resource_release_force(katom->kctx, NULL, gpu_addr);
 

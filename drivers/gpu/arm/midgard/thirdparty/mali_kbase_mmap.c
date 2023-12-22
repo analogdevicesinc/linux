@@ -270,8 +270,8 @@ unsigned long kbase_context_get_unmapped_area(struct kbase_context *const kctx,
 	unsigned long high_limit = mm->mmap_base;
 	unsigned long low_limit = PAGE_SIZE;
 #endif
-	int cpu_va_bits = BITS_PER_LONG;
-	int gpu_pc_bits = kctx->kbdev->gpu_props.log2_program_counter_size;
+	unsigned int cpu_va_bits = BITS_PER_LONG;
+	unsigned int gpu_pc_bits = kctx->kbdev->gpu_props.log2_program_counter_size;
 	bool is_shader_code = false;
 	bool is_same_4gb_page = false;
 	unsigned long ret;

@@ -48,7 +48,8 @@
 static int set_attr_from_string(char *const buf, void *const array, size_t const nelems,
 				kbase_debugfs_helper_set_attr_fn *const set_attr_fn)
 {
-	size_t index, err = 0;
+	size_t index;
+	int err = 0;
 	char *ptr = buf;
 
 	for (index = 0; index < nelems && *ptr; ++index) {
@@ -175,8 +176,8 @@ ssize_t kbase_debugfs_helper_get_attr_to_string(char *const buf, size_t const si
 		if (index == (nelems - 1))
 			postfix = "\n";
 
-		total += scnprintf(buf + total, size - total, "%zu%s", get_attr_fn(array, index),
-				   postfix);
+		total += scnprintf(buf + total, size - (size_t)total, "%zu%s",
+				   get_attr_fn(array, index), postfix);
 	}
 
 	return total;

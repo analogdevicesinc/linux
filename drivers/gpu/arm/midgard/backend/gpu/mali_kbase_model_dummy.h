@@ -134,10 +134,10 @@ struct error_status_t {
 
 	u32 errors_mask;
 	u32 mmu_table_level;
-	int faulty_mmu_as;
+	u32 faulty_mmu_as;
 
 	u64 current_jc;
-	int current_job_slot;
+	u32 current_job_slot;
 
 	u32 job_irq_rawstat;
 	u32 job_irq_status;
@@ -168,7 +168,7 @@ struct gpu_model_prfcnt_en {
 	u32 shader;
 };
 
-void midgard_set_error(int job_slot);
+void midgard_set_error(u32 job_slot);
 int job_atom_inject_error(struct kbase_error_params *params);
 int gpu_model_control(void *h, struct kbase_model_control_params *params);
 

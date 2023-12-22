@@ -112,7 +112,7 @@ static ssize_t int_id_overrides_write(struct file *file, const char __user *ubuf
 
 	kbase_pm_context_idle(kbdev);
 
-	return count;
+	return (ssize_t)count;
 }
 
 static int int_id_overrides_open(struct inode *in, struct file *file)
@@ -196,7 +196,7 @@ static ssize_t propagate_bits_write(struct file *file, const char __user *ubuf, 
 		kbase_reset_gpu_wait(kbdev);
 	}
 
-	return count;
+	return (ssize_t)count;
 }
 
 static const struct file_operations pbha_propagate_bits_fops = {

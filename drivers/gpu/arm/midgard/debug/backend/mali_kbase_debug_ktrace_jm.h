@@ -42,8 +42,8 @@
  */
 void kbasep_ktrace_add_jm(struct kbase_device *kbdev, enum kbase_ktrace_code code,
 			  struct kbase_context *kctx, const struct kbase_jd_atom *katom,
-			  u64 gpu_addr, kbase_ktrace_flag_t flags, int refcount, int jobslot,
-			  u64 info_val);
+			  u64 gpu_addr, kbase_ktrace_flag_t flags, int refcount,
+			  unsigned int jobslot, u64 info_val);
 
 #define KBASE_KTRACE_RBUF_ADD_JM(kbdev, code, kctx, katom, gpu_addr, flags, refcount, jobslot, \
 				 info_val)                                                     \
@@ -175,7 +175,7 @@ void kbasep_ktrace_add_jm(struct kbase_device *kbdev, enum kbase_ktrace_code cod
 	do {                                                                                      \
 		/* capture values that could come from non-pure function calls */                 \
 		u64 __gpu_addr = gpu_addr;                                                        \
-		int __jobslot = jobslot;                                                          \
+		unsigned int __jobslot = jobslot;                                                 \
 		KBASE_KTRACE_RBUF_ADD_JM(kbdev, code, kctx, katom, __gpu_addr,                    \
 					 KBASE_KTRACE_FLAG_JM_JOBSLOT, 0, __jobslot, 0);          \
 		KBASE_KTRACE_FTRACE_ADD_JM_SLOT(kbdev, code, kctx, katom, __gpu_addr, __jobslot); \
@@ -202,7 +202,7 @@ void kbasep_ktrace_add_jm(struct kbase_device *kbdev, enum kbase_ktrace_code cod
 	do {                                                                                      \
 		/* capture values that could come from non-pure function calls */                 \
 		u64 __gpu_addr = gpu_addr;                                                        \
-		int __jobslot = jobslot;                                                          \
+		unsigned int __jobslot = jobslot;                                                 \
 		u64 __info_val = info_val;                                                        \
 		KBASE_KTRACE_RBUF_ADD_JM(kbdev, code, kctx, katom, __gpu_addr,                    \
 					 KBASE_KTRACE_FLAG_JM_JOBSLOT, 0, __jobslot, __info_val); \
@@ -234,7 +234,7 @@ void kbasep_ktrace_add_jm(struct kbase_device *kbdev, enum kbase_ktrace_code cod
 		KBASE_KTRACE_RBUF_ADD_JM(kbdev, code, kctx, katom, __gpu_addr,              \
 					 KBASE_KTRACE_FLAG_JM_REFCOUNT, __refcount, 0, 0u); \
 		KBASE_KTRACE_FTRACE_ADD_JM_REFCOUNT(kbdev, code, kctx, katom, __gpu_addr,   \
-						    __refcount);                            \
+						    (unsigned int)__refcount);              \
 	} while (0)
 
 /**
@@ -265,7 +265,7 @@ void kbasep_ktrace_add_jm(struct kbase_device *kbdev, enum kbase_ktrace_code cod
 					 KBASE_KTRACE_FLAG_JM_REFCOUNT, __refcount, 0,            \
 					 __info_val);                                             \
 		KBASE_KTRACE_FTRACE_ADD_JM_REFCOUNT(kbdev, code, kctx, katom, __gpu_addr,         \
-						    __refcount, __info_val);                      \
+						    (unsigned int)__refcount, __info_val);        \
 	} while (0)
 
 /**

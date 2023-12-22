@@ -88,7 +88,7 @@ void kbase_destroy_context(struct kbase_context *kctx);
  */
 static inline bool kbase_ctx_flag(struct kbase_context *kctx, enum kbase_context_flags flag)
 {
-	return atomic_read(&kctx->flags) & flag;
+	return atomic_read(&kctx->flags) & (int)flag;
 }
 
 /**

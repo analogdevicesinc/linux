@@ -34,7 +34,12 @@
 #include <linux/sync_file.h>
 #endif
 
-#include "mali_kbase.h"
+#include <linux/version_compat_defs.h>
+
+#if !MALI_USE_CSF
+struct kbase_jd_atom;
+struct work_struct;
+#endif
 
 /**
  * struct kbase_sync_fence_info - Information about a fence
@@ -175,11 +180,7 @@ int kbase_sync_fence_out_info_get(struct kbase_jd_atom *katom, struct kbase_sync
 #endif /* !MALI_USE_CSF */
 
 #if IS_ENABLED(CONFIG_SYNC_FILE)
-#if (KERNEL_VERSION(4, 10, 0) > LINUX_VERSION_CODE)
-void kbase_sync_fence_info_get(struct fence *fence, struct kbase_sync_fence_info *info);
-#else
 void kbase_sync_fence_info_get(struct dma_fence *fence, struct kbase_sync_fence_info *info);
-#endif
 #endif
 
 /**

@@ -240,13 +240,17 @@ static void kbase_csf_debug_dump_registers(struct kbase_device *kbdev)
 		kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_MASK)),
 		kbase_reg_read32(kbdev, JOB_CONTROL_ENUM(JOB_IRQ_MASK)),
 		kbase_reg_read32(kbdev, MMU_CONTROL_ENUM(IRQ_MASK)));
-	dev_err(kbdev->dev, "  PWR_OVERRIDE0=0x%08x  PWR_OVERRIDE1=0x%08x",
-		kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(PWR_OVERRIDE0)),
-		kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(PWR_OVERRIDE1)));
-	dev_err(kbdev->dev, "  SHADER_CONFIG=0x%08x  L2_MMU_CONFIG=0x%08x  TILER_CONFIG=0x%08x",
-		kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(SHADER_CONFIG)),
-		kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(L2_MMU_CONFIG)),
-		kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(TILER_CONFIG)));
+	if (kbdev->gpu_props.gpu_id.arch_id < GPU_ID_ARCH_MAKE(14, 10, 0)) {
+		dev_err(kbdev->dev, "  PWR_OVERRIDE0=0x%08x  PWR_OVERRIDE1=0x%08x",
+			kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(PWR_OVERRIDE0)),
+			kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(PWR_OVERRIDE1)));
+		dev_err(kbdev->dev,
+			"  SHADER_CONFIG=0x%08x  L2_MMU_CONFIG=0x%08x  TILER_CONFIG=0x%08x",
+			kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(SHADER_CONFIG)),
+			kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(L2_MMU_CONFIG)),
+			kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(TILER_CONFIG)));
+	}
+
 }
 
 /**

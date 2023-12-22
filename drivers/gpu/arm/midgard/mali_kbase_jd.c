@@ -224,7 +224,8 @@ static int kbase_jd_pre_external_resources(struct kbase_jd_atom *katom,
 		struct kbase_va_region *reg;
 
 		reg = kbase_region_tracker_find_region_enclosing_address(
-			katom->kctx, user_res->ext_resource & ~BASE_EXT_RES_ACCESS_EXCLUSIVE);
+			katom->kctx,
+			user_res->ext_resource & ~(__u64)BASE_EXT_RES_ACCESS_EXCLUSIVE);
 		/* did we find a matching region object? */
 		if (unlikely(kbase_is_region_invalid_or_free(reg))) {
 			/* roll back */
@@ -686,10 +687,10 @@ static void jd_trace_atom_submit(struct kbase_context *const kctx,
 {
 	struct kbase_device *const kbdev = kctx->kbdev;
 
-	KBASE_TLSTREAM_TL_NEW_ATOM(kbdev, katom, kbase_jd_atom_id(kctx, katom));
+	KBASE_TLSTREAM_TL_NEW_ATOM(kbdev, katom, (u32)kbase_jd_atom_id(kctx, katom));
 	KBASE_TLSTREAM_TL_RET_ATOM_CTX(kbdev, katom, kctx);
 	if (priority)
-		KBASE_TLSTREAM_TL_ATTRIB_ATOM_PRIORITY(kbdev, katom, *priority);
+		KBASE_TLSTREAM_TL_ATTRIB_ATOM_PRIORITY(kbdev, katom, (u32)*priority);
 	KBASE_TLSTREAM_TL_ATTRIB_ATOM_STATE(kbdev, katom, TL_ATOM_STATE_IDLE);
 	kbase_kinstr_jm_atom_queue(katom);
 }
@@ -1258,7 +1259,8 @@ void kbase_jd_done_worker(struct work_struct *data)
 		return;
 	}
 
-	if ((katom->event_code != BASE_JD_EVENT_DONE) && (!kbase_ctx_flag(katom->kctx, KCTX_DYING)))
+	if ((katom->event_code != BASE_JD_EVENT_DONE) && !kbase_ctx_flag(katom->kctx, KCTX_DYING) &&
+	    !kbase_ctx_flag(katom->kctx, KCTX_PAGE_FAULT_REPORT_SKIP))
 		dev_err(kbdev->dev, "t6xx: GPU fault 0x%02lx from job slot %d\n",
 			(unsigned long)katom->event_code, katom->slot_nr);
 
@@ -1444,7 +1446,7 @@ static void jd_cancel_worker(struct work_struct *data)
  *   This can be called safely from atomic context.
  *   The caller must hold kbdev->hwaccess_lock
  */
-void kbase_jd_done(struct kbase_jd_atom *katom, int slot_nr, ktime_t *end_timestamp,
+void kbase_jd_done(struct kbase_jd_atom *katom, unsigned int slot_nr, ktime_t *end_timestamp,
 		   kbasep_js_atom_done_code done_code)
 {
 	struct kbase_context *kctx;

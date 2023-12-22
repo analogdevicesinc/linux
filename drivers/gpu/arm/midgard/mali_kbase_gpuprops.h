@@ -26,10 +26,13 @@
 #ifndef _KBASE_GPUPROPS_H_
 #define _KBASE_GPUPROPS_H_
 
-#include "mali_kbase_gpuprops_types.h"
+#include <linux/types.h>
 
 /* Forward definition - see mali_kbase.h */
 struct kbase_device;
+struct max_config_props;
+struct curr_config_props;
+struct kbase_gpu_id_props;
 
 /**
  * KBASE_UBFX32 - Extracts bits from a 32-bit bitfield.

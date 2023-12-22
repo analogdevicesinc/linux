@@ -22,6 +22,8 @@
 #ifndef _MALI_KBASE_HW_ACCESS_H_
 #define _MALI_KBASE_HW_ACCESS_H_
 
+#include <linux/version_compat_defs.h>
+
 #define KBASE_REGMAP_PERM_READ (1U << 0)
 #define KBASE_REGMAP_PERM_WRITE (1U << 1)
 #define KBASE_REGMAP_WIDTH_32_BIT (1U << 2)
@@ -186,4 +188,37 @@ u32 kbase_regmap_backend_init(struct kbase_device *kbdev);
  */
 void kbase_regmap_term(struct kbase_device *kbdev);
 
+/**
+ * kbase_reg_poll32_timeout - Poll a 32 bit register with timeout
+ * @kbdev:             Kbase device pointer
+ * @reg_enum:          Register enum
+ * @val:               Variable for result of read
+ * @cond:              Condition to be met
+ * @delay_us:          Delay between each poll (in uS)
+ * @timeout_us:        Timeout (in uS)
+ * @delay_before_read: If true delay for @delay_us before read
+ *
+ * Return: 0 if condition is met, -ETIMEDOUT if timed out.
+ */
+#define kbase_reg_poll32_timeout(kbdev, reg_enum, val, cond, delay_us, timeout_us,  \
+				 delay_before_read)                                 \
+	read_poll_timeout_atomic(kbase_reg_read32, val, cond, delay_us, timeout_us, \
+				 delay_before_read, kbdev, reg_enum)
+
+/**
+ * kbase_reg_poll64_timeout - Poll a 64 bit register with timeout
+ * @kbdev:             Kbase device pointer
+ * @reg_enum:          Register enum
+ * @val:               Variable for result of read
+ * @cond:              Condition to be met
+ * @delay_us:          Delay between each poll (in uS)
+ * @timeout_us:        Timeout (in uS)
+ * @delay_before_read: If true delay for @delay_us before read
+ *
+ * Return: 0 if condition is met, -ETIMEDOUT if timed out.
+ */
+#define kbase_reg_poll64_timeout(kbdev, reg_enum, val, cond, delay_us, timeout_us,  \
+				 delay_before_read)                                 \
+	read_poll_timeout_atomic(kbase_reg_read64, val, cond, delay_us, timeout_us, \
+				 delay_before_read, kbdev, reg_enum)
 #endif /* _MALI_KBASE_HW_ACCESS_H_ */

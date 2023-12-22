@@ -183,7 +183,7 @@ int kbase_timeline_acquire(struct kbase_device *kbdev, u32 flags)
 	if (WARN_ON(!timeline))
 		return -EFAULT;
 
-	if (atomic_cmpxchg(timeline->timeline_flags, 0, timeline_flags))
+	if (atomic_cmpxchg(timeline->timeline_flags, 0, (int)timeline_flags))
 		return -EBUSY;
 
 #if MALI_USE_CSF
@@ -387,8 +387,8 @@ void kbase_timeline_stats(struct kbase_timeline *timeline, u32 *bytes_collected,
 	/* Accumulate bytes generated per stream  */
 	*bytes_generated = 0;
 	for (stype = (enum tl_stream_type)0; stype < TL_STREAM_TYPE_COUNT; stype++)
-		*bytes_generated += atomic_read(&timeline->streams[stype].bytes_generated);
+		*bytes_generated += (u32)atomic_read(&timeline->streams[stype].bytes_generated);
 
-	*bytes_collected = atomic_read(&timeline->bytes_collected);
+	*bytes_collected = (u32)atomic_read(&timeline->bytes_collected);
 }
 #endif /* MALI_UNIT_TEST */

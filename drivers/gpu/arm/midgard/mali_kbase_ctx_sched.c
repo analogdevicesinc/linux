@@ -45,7 +45,7 @@ static int kbase_ktrace_get_ctx_refcnt(struct kbase_context *kctx)
 
 int kbase_ctx_sched_init(struct kbase_device *kbdev)
 {
-	int as_present = (1U << kbdev->nr_hw_address_spaces) - 1;
+	int as_present = (1 << kbdev->nr_hw_address_spaces) - 1;
 
 	/* These two must be recalculated if nr_hw_address_spaces changes
 	 * (e.g. for HW workarounds)
@@ -133,7 +133,8 @@ int kbase_ctx_sched_retain_ctx(struct kbase_context *kctx)
 				}
 				kctx->as_nr = free_as;
 				kbdev->as_to_kctx[free_as] = kctx;
-				KBASE_TLSTREAM_TL_KBASE_CTX_ASSIGN_AS(kbdev, kctx->id, free_as);
+				KBASE_TLSTREAM_TL_KBASE_CTX_ASSIGN_AS(kbdev, kctx->id,
+								      (u32)free_as);
 				kbase_mmu_update(kbdev, &kctx->mmu, kctx->as_nr);
 			}
 		} else {
@@ -198,7 +199,7 @@ void kbase_ctx_sched_release_ctx(struct kbase_context *kctx)
 		}
 	}
 
-	KBASE_KTRACE_ADD(kbdev, SCHED_RELEASE_CTX, kctx, new_ref_count);
+	KBASE_KTRACE_ADD(kbdev, SCHED_RELEASE_CTX, kctx, (u64)new_ref_count);
 }
 
 void kbase_ctx_sched_remove_ctx(struct kbase_context *kctx)
@@ -340,7 +341,7 @@ bool kbase_ctx_sched_inc_refcount_nolock(struct kbase_context *kctx)
 
 		kbase_ctx_sched_retain_ctx_refcount(kctx);
 		KBASE_KTRACE_ADD(kctx->kbdev, SCHED_RETAIN_CTX_NOLOCK, kctx,
-				 kbase_ktrace_get_ctx_refcnt(kctx));
+				 (u64)kbase_ktrace_get_ctx_refcnt(kctx));
 		result = true;
 	}
 
@@ -408,7 +409,7 @@ bool kbase_ctx_sched_inc_refcount_if_as_valid(struct kbase_context *kctx)
 			kbdev->as_free &= ~(1u << kctx->as_nr);
 
 		KBASE_KTRACE_ADD(kbdev, SCHED_RETAIN_CTX_NOLOCK, kctx,
-				 kbase_ktrace_get_ctx_refcnt(kctx));
+				 (u64)kbase_ktrace_get_ctx_refcnt(kctx));
 		added_ref = true;
 	}
 

@@ -27,7 +27,12 @@
 #define _KBASE_GPU_METRICS_H_
 
 #if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
-#include <mali_kbase.h>
+
+#include <linux/types.h>
+
+struct kbase_device;
+struct kbase_context;
+struct kbase_gpu_metrics_ctx;
 
 /**
  * kbase_gpu_metrics_get_tp_emit_interval() - Return the trace point emission interval.

@@ -74,7 +74,7 @@ static void mmu_disable_as(struct kbase_device *kbdev, int as_nr)
 	struct kbase_mmu_setup *const current_setup = &as->current_setup;
 
 	current_setup->transtab = 0ULL;
-	current_setup->transcfg = AS_TRANSCFG_MODE_SET(0, AS_TRANSCFG_MODE_UNMAPPED);
+	current_setup->transcfg = AS_TRANSCFG_MODE_SET(0ULL, AS_TRANSCFG_MODE_UNMAPPED);
 
 	/* Apply the address space setting */
 	kbase_mmu_hw_configure(kbdev, as);
@@ -86,7 +86,7 @@ static phys_addr_t pte_to_phy_addr(u64 entry)
 		return 0;
 
 	entry &= ~VALID_ENTRY_MASK;
-	return entry & ~0xFFF;
+	return entry & ~0xFFFULL;
 }
 
 static int ate_is_valid(u64 ate, int const level)

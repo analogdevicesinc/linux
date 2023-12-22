@@ -247,7 +247,7 @@ static int reader_changes_init(struct reader_changes *const changes, const size_
 	changes->threshold =
 		min(((size_t)(changes->size)) / 4, ((size_t)(PAGE_SIZE)) / sizeof(*changes->data));
 
-	return changes->size;
+	return (int)changes->size;
 }
 
 /**
@@ -526,7 +526,7 @@ static ssize_t reader_changes_copy_to_user(struct reader_changes *const changes,
 
 		buffer += read_size;
 		buffer_size -= read_size;
-		ret += read_size;
+		ret += (ssize_t)read_size;
 		changes_tail = (changes_tail + read_size / entry_size) & (changes->size - 1);
 		smp_store_release(&changes->tail, changes_tail);
 	} while (read_size);
@@ -831,14 +831,14 @@ void kbasep_kinstr_jm_atom_hw_submit(struct kbase_jd_atom *const katom)
 {
 	struct kbase_context *const kctx = katom->kctx;
 	struct kbase_device *const kbdev = kctx->kbdev;
-	const int slot = katom->slot_nr;
+	const unsigned int slot = katom->slot_nr;
 	struct kbase_jd_atom *const submitted = kbase_gpu_inspect(kbdev, slot, 0);
 
 	BUILD_BUG_ON(SLOT_RB_SIZE != 2);
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
-	if (WARN_ON(slot < 0 || slot >= GPU_MAX_JOB_SLOTS))
+	if (WARN_ON(slot >= GPU_MAX_JOB_SLOTS))
 		return;
 	if (WARN_ON(!submitted))
 		return;
@@ -851,7 +851,7 @@ void kbasep_kinstr_jm_atom_hw_release(struct kbase_jd_atom *const katom)
 {
 	struct kbase_context *const kctx = katom->kctx;
 	struct kbase_device *const kbdev = kctx->kbdev;
-	const int slot = katom->slot_nr;
+	const unsigned int slot = katom->slot_nr;
 	struct kbase_jd_atom *const submitted = kbase_gpu_inspect(kbdev, slot, 0);
 	struct kbase_jd_atom *const queued = kbase_gpu_inspect(kbdev, slot, 1);
 
@@ -859,7 +859,7 @@ void kbasep_kinstr_jm_atom_hw_release(struct kbase_jd_atom *const katom)
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
-	if (WARN_ON(slot < 0 || slot >= GPU_MAX_JOB_SLOTS))
+	if (WARN_ON(slot >= GPU_MAX_JOB_SLOTS))
 		return;
 	if (WARN_ON(!submitted))
 		return;

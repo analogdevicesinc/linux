@@ -22,8 +22,10 @@
 #ifndef _KBASE_DEBUG_JOB_FAULT_H
 #define _KBASE_DEBUG_JOB_FAULT_H
 
-#include <linux/debugfs.h>
-#include <linux/seq_file.h>
+#include <linux/types.h>
+
+struct kbase_context;
+struct kbase_device;
 
 #define REGISTER_DUMP_TERMINATION_FLAG 0xFFFFFFFF
 

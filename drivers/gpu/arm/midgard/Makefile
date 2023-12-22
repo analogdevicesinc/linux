@@ -105,7 +105,6 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
             CONFIG_MALI_CORESTACK = n
             CONFIG_LARGE_PAGE_SUPPORT = y
             CONFIG_MALI_PWRSOFT_765 = n
-            CONFIG_MALI_MEMORY_FULLY_BACKED = n
             CONFIG_MALI_JOB_DUMP = n
             CONFIG_MALI_NO_MALI = n
             CONFIG_MALI_REAL_HW = y
@@ -170,7 +169,6 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
         CONFIG_MALI_CORESTACK \
         CONFIG_LARGE_PAGE_SUPPORT \
         CONFIG_MALI_PWRSOFT_765 \
-        CONFIG_MALI_MEMORY_FULLY_BACKED \
         CONFIG_MALI_JOB_DUMP \
         CONFIG_MALI_NO_MALI \
         CONFIG_MALI_ERROR_INJECT \
@@ -191,6 +189,7 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
         CONFIG_MALI_XEN \
         CONFIG_MALI_CORESIGHT \
         CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD
+
 
 
 endif
@@ -231,7 +230,8 @@ endif
 #
 # KBUILD_EXTRA_SYMBOLS to prevent warnings about unknown functions
 #
-BASE_SYMBOLS = $(M)/../../base/arm/Module.symvers
+BASE_SYMBOLS =
+
 
 EXTRA_SYMBOLS += \
     $(BASE_SYMBOLS)

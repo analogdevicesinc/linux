@@ -159,9 +159,9 @@ bool kbase_gpu_atoms_submitted_any(struct kbase_device *kbdev)
 	return false;
 }
 
-int kbase_backend_nr_atoms_submitted(struct kbase_device *kbdev, unsigned int js)
+u32 kbase_backend_nr_atoms_submitted(struct kbase_device *kbdev, unsigned int js)
 {
-	int nr = 0;
+	u32 nr = 0;
 	int i;
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
@@ -539,7 +539,7 @@ static int kbase_gpu_protected_mode_reset(struct kbase_device *kbdev)
 }
 
 static int kbase_jm_protected_entry(struct kbase_device *kbdev, struct kbase_jd_atom **katom,
-				    int idx, int js)
+				    int idx, unsigned int js)
 {
 	int err = 0;
 
@@ -594,7 +594,7 @@ static int kbase_jm_protected_entry(struct kbase_device *kbdev, struct kbase_jd_
 }
 
 static int kbase_jm_enter_protected_mode(struct kbase_device *kbdev, struct kbase_jd_atom **katom,
-					 int idx, int js)
+					 int idx, unsigned int js)
 {
 	int err = 0;
 
@@ -758,7 +758,7 @@ static int kbase_jm_enter_protected_mode(struct kbase_device *kbdev, struct kbas
 }
 
 static int kbase_jm_exit_protected_mode(struct kbase_device *kbdev, struct kbase_jd_atom **katom,
-					int idx, int js)
+					int idx, unsigned int js)
 {
 	int err = 0;
 
@@ -1274,7 +1274,8 @@ void kbase_gpu_complete_hw(struct kbase_device *kbdev, unsigned int js, u32 comp
 		struct kbasep_js_device_data *js_devdata = &kbdev->js_data;
 		unsigned int i;
 
-		if (!kbase_ctx_flag(katom->kctx, KCTX_DYING)) {
+		if (!kbase_ctx_flag(katom->kctx, KCTX_DYING) &&
+		    !kbase_ctx_flag(katom->kctx, KCTX_PAGE_FAULT_REPORT_SKIP)) {
 			dev_warn(kbdev->dev, "error detected from slot %d, job status 0x%08x (%s)",
 				 js, completion_code, kbase_gpu_exception_name(completion_code));
 
@@ -1383,7 +1384,7 @@ void kbase_gpu_complete_hw(struct kbase_device *kbdev, unsigned int js, u32 comp
 		/* Check if there are lower priority jobs to soft stop */
 		kbase_job_slot_ctx_priority_check_locked(kctx, katom);
 
-		kbase_jm_try_kick(kbdev, 1 << katom->slot_nr);
+		kbase_jm_try_kick(kbdev, 1UL << katom->slot_nr);
 	}
 
 	/* For partial shader core off L2 cache flush */
@@ -1535,7 +1536,7 @@ static int should_stop_x_dep_slot(struct kbase_jd_atom *katom)
 
 		if (dep_atom->gpu_rb_state != KBASE_ATOM_GPU_RB_NOT_IN_SLOT_RB &&
 		    dep_atom->gpu_rb_state != KBASE_ATOM_GPU_RB_RETURN_TO_JS)
-			return dep_atom->slot_nr;
+			return (int)dep_atom->slot_nr;
 	}
 	return -1;
 }
@@ -1714,10 +1715,12 @@ bool kbase_backend_soft_hard_stop_slot(struct kbase_device *kbdev, struct kbase_
 	}
 
 	if (stop_x_dep_idx0 != -1)
-		kbase_backend_soft_hard_stop_slot(kbdev, kctx, stop_x_dep_idx0, NULL, action);
+		kbase_backend_soft_hard_stop_slot(kbdev, kctx, (unsigned int)stop_x_dep_idx0, NULL,
+						  action);
 
 	if (stop_x_dep_idx1 != -1)
-		kbase_backend_soft_hard_stop_slot(kbdev, kctx, stop_x_dep_idx1, NULL, action);
+		kbase_backend_soft_hard_stop_slot(kbdev, kctx, (unsigned int)stop_x_dep_idx1, NULL,
+						  action);
 
 	return ret;
 }

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 #
-# (C) COPYRIGHT 2020-2021 ARM Limited. All rights reserved.
+# COPYRIGHT 2012-2017, 2020-2021 ARM Limited. All rights reserved.
+# COPYRIGHT 2023 NXP
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -18,8 +19,7 @@
 #
 #
 
-ifeq ($(CONFIG_MALI_KUTF_CLK_RATE_TRACE),y)
-obj-m += mali_kutf_clk_rate_trace_test_portal.o
-
-mali_kutf_clk_rate_trace_test_portal-y := mali_kutf_clk_rate_trace_test.o
-endif
+mali_kbase-y += \
+    platform/$(MALI_PLATFORM_DIR)/mali_kbase_config_imx.o \
+    platform/$(MALI_PLATFORM_DIR)/mali_kbase_runtime_pm.o \
+    platform/$(MALI_PLATFORM_DIR)/mali_kbase_clk_rate_trace.o

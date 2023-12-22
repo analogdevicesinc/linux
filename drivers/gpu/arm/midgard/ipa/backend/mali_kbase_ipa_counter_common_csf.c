@@ -68,7 +68,7 @@ static s64 kbase_ipa_group_energy(s32 coeff, u64 counter_value)
 	/* Range: 0 < counter_value < 2^38 */
 
 	/* Range: -2^59 < ret < 2^59 (as -2^21 < coeff < 2^21) */
-	return counter_value * (s64)coeff;
+	return (s64)counter_value * (s64)coeff;
 }
 
 /**
@@ -183,7 +183,7 @@ static int calculate_coeff(struct kbase_ipa_counter_model_data *model_data,
 
 	/* Range: 0 <= coeff < 2^63 */
 	if (total_energy >= 0)
-		coeff = total_energy;
+		coeff = (u64)total_energy;
 	else
 		dev_dbg(model_data->kbdev->dev, "Energy value came negative as %lld", total_energy);
 
@@ -224,7 +224,7 @@ static int calculate_coeff(struct kbase_ipa_counter_model_data *model_data,
 	/* Scale by user-specified integer factor.
 	 * Range: 0 <= coeff_mul < 2^43
 	 */
-	coeff_mul = coeff * model_data->scaling_factor;
+	coeff_mul = coeff * (u64)model_data->scaling_factor;
 
 	/* The power models have results with units
 	 * mW/(MHz V^2), i.e. nW/(Hz V^2). With precision of 1/1000000, this

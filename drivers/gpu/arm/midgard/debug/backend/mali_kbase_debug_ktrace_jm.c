@@ -27,7 +27,7 @@
 
 void kbasep_ktrace_backend_format_header(char *buffer, int sz, s32 *written)
 {
-	*written += MAX(snprintf(buffer + *written, MAX(sz - *written, 0),
+	*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
 				 "katom,gpu_addr,jobslot,refcount"),
 			0);
 }
@@ -37,8 +37,8 @@ void kbasep_ktrace_backend_format_msg(struct kbase_ktrace_msg *trace_msg, char *
 {
 	/* katom */
 	if (trace_msg->backend.gpu.flags & KBASE_KTRACE_FLAG_JM_ATOM)
-		*written += MAX(snprintf(buffer + *written, MAX(sz - *written, 0),
-					 "atom %d (ud: 0x%llx 0x%llx)",
+		*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
+					 "atom %u (ud: 0x%llx 0x%llx)",
 					 trace_msg->backend.gpu.atom_number,
 					 trace_msg->backend.gpu.atom_udata[0],
 					 trace_msg->backend.gpu.atom_udata[1]),
@@ -46,31 +46,32 @@ void kbasep_ktrace_backend_format_msg(struct kbase_ktrace_msg *trace_msg, char *
 
 	/* gpu_addr */
 	if (trace_msg->backend.gpu.flags & KBASE_KTRACE_FLAG_BACKEND)
-		*written += MAX(snprintf(buffer + *written, MAX(sz - *written, 0), ",%.8llx,",
-					 trace_msg->backend.gpu.gpu_addr),
+		*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
+					 ",%.8llx,", trace_msg->backend.gpu.gpu_addr),
 				0);
 	else
-		*written += MAX(snprintf(buffer + *written, MAX(sz - *written, 0), ",,"), 0);
+		*written +=
+			MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), ",,"), 0);
 
 	/* jobslot */
 	if (trace_msg->backend.gpu.flags & KBASE_KTRACE_FLAG_JM_JOBSLOT)
-		*written += MAX(snprintf(buffer + *written, MAX(sz - *written, 0), "%d",
+		*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), "%d",
 					 trace_msg->backend.gpu.jobslot),
 				0);
 
-	*written += MAX(snprintf(buffer + *written, MAX(sz - *written, 0), ","), 0);
+	*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), ","), 0);
 
 	/* refcount */
 	if (trace_msg->backend.gpu.flags & KBASE_KTRACE_FLAG_JM_REFCOUNT)
-		*written += MAX(snprintf(buffer + *written, MAX(sz - *written, 0), "%d",
+		*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), "%d",
 					 trace_msg->backend.gpu.refcount),
 				0);
 }
 
 void kbasep_ktrace_add_jm(struct kbase_device *kbdev, enum kbase_ktrace_code code,
 			  struct kbase_context *kctx, const struct kbase_jd_atom *katom,
-			  u64 gpu_addr, kbase_ktrace_flag_t flags, int refcount, int jobslot,
-			  u64 info_val)
+			  u64 gpu_addr, kbase_ktrace_flag_t flags, int refcount,
+			  unsigned int jobslot, u64 info_val)
 {
 	unsigned long irqflags;
 	struct kbase_ktrace_msg *trace_msg;

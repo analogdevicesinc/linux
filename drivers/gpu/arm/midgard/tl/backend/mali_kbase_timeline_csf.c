@@ -42,7 +42,7 @@ void kbase_create_timeline_objects(struct kbase_device *kbdev)
 
 	/* Summarize the Address Space objects. */
 	for (as_nr = 0; as_nr < kbdev->nr_hw_address_spaces; as_nr++)
-		__kbase_tlstream_tl_new_as(summary, &kbdev->as[as_nr], as_nr);
+		__kbase_tlstream_tl_new_as(summary, &kbdev->as[as_nr], (u32)as_nr);
 
 	/* Create Legacy GPU object to track in AOM for dumping */
 	__kbase_tlstream_tl_new_gpu(summary, kbdev, kbdev->id, kbdev->gpu_props.num_cores);
@@ -53,7 +53,7 @@ void kbase_create_timeline_objects(struct kbase_device *kbdev)
 	/* Trace the creation of a new kbase device and set its properties. */
 	__kbase_tlstream_tl_kbase_new_device(
 		summary, kbdev->id, kbdev->gpu_props.num_cores, kbdev->csf.global_iface.group_num,
-		kbdev->nr_hw_address_spaces, num_sb_entries,
+		(u32)kbdev->nr_hw_address_spaces, num_sb_entries,
 		kbdev->gpu_props.gpu_features.cross_stream_sync, supports_gpu_sleep,
 		0
 	);
@@ -122,7 +122,7 @@ void kbase_create_timeline_objects(struct kbase_device *kbdev)
 
 		/* Trace the currently assigned address space */
 		if (kctx->as_nr != KBASEP_AS_NR_INVALID)
-			__kbase_tlstream_tl_kbase_ctx_assign_as(body, kctx->id, kctx->as_nr);
+			__kbase_tlstream_tl_kbase_ctx_assign_as(body, kctx->id, (u32)kctx->as_nr);
 
 		/* Trace all KCPU queues in the context into the body stream.
 		 * As we acquired the KCPU lock after resetting the body stream,

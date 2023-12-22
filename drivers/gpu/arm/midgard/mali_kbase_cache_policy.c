@@ -23,7 +23,8 @@
  * Cache Policy API.
  */
 
-#include "mali_kbase_cache_policy.h"
+#include <mali_kbase_cache_policy.h>
+#include <mali_kbase.h>
 
 /*
  * The output flags should be a combination of the following values:

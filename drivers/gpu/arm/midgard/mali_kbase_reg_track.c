@@ -553,8 +553,8 @@ int kbase_add_va_region(struct kbase_context *kctx, struct kbase_va_region *reg,
 {
 	int err = 0;
 	struct kbase_device *kbdev = kctx->kbdev;
-	const int cpu_va_bits = kbase_get_num_cpu_va_bits(kctx);
-	const int gpu_pc_bits = kbdev->gpu_props.log2_program_counter_size;
+	const size_t cpu_va_bits = kbase_get_num_cpu_va_bits(kctx);
+	const size_t gpu_pc_bits = kbdev->gpu_props.log2_program_counter_size;
 
 	KBASE_DEBUG_ASSERT(kctx != NULL);
 	KBASE_DEBUG_ASSERT(reg != NULL);
@@ -1367,7 +1367,7 @@ struct kbase_va_region *kbase_alloc_free_region(struct kbase_reg_zone *zone, u64
 		return NULL;
 
 	kbase_refcount_set(&new_reg->va_refcnt, 1);
-	atomic_set(&new_reg->no_user_free_count, 0);
+	atomic64_set(&new_reg->no_user_free_count, 0);
 	new_reg->cpu_alloc = NULL; /* no alloc bound yet */
 	new_reg->gpu_alloc = NULL; /* no alloc bound yet */
 	new_reg->rbtree = &zone->reg_rbtree;

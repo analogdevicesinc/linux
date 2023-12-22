@@ -80,34 +80,40 @@ struct kbase_hwcnt_jm_physical_layout {
 
 /**
  * struct kbase_hwcnt_backend_jm - Instance of a JM hardware counter backend.
- * @info:             Info used to create the backend.
- * @kctx:             KBase context used for GPU memory allocation and
- *                    counter dumping.
- * @gpu_dump_va:      GPU hardware counter dump buffer virtual address.
- * @cpu_dump_va:      CPU mapping of gpu_dump_va.
- * @vmap:             Dump buffer vmap.
- * @to_user_buf:      HWC sample buffer for client user, size
- *                    metadata.dump_buf_bytes.
- * @enabled:          True if dumping has been enabled, else false.
- * @accum_all_blk_stt: Block State to accumulate on next sample, for all types
- *                     of block.
+ * @info:                Info used to create the backend.
+ * @kctx:                KBase context used for GPU memory allocation and
+ *                       counter dumping.
+ * @gpu_dump_va:         GPU hardware counter dump buffer virtual address.
+ * @cpu_dump_va:         CPU mapping of gpu_dump_va.
+ * @vmap:                Dump buffer vmap.
+ * @to_user_buf:         HWC sample buffer for client user, size
+ *                       metadata.dump_buf_bytes.
+ * @enabled:             True if dumping has been enabled, else false.
+ * @accum_all_blk_stt:   Block State to accumulate on next sample, for all types
+ *                       of block.
  * @sampled_all_blk_stt: Block State to accumulate into the current sample, for
  *                       all types of block.
- * @pm_core_mask:     PM state sync-ed shaders core mask for the enabled
- *                    dumping.
- * @curr_config:      Current allocated hardware resources to correctly map the
- *                    source raw dump buffer to the destination dump buffer.
- * @clk_enable_map:   The enable map specifying enabled clock domains.
- * @cycle_count_elapsed:
- *                    Cycle count elapsed for a given sample period.
- *                    The top clock cycle, index 0, is read directly from
- *                    hardware, but the other clock domains need to be
- *                    calculated with software estimation.
- * @prev_cycle_count: Previous cycle count to calculate the cycle count for
- *                    sample period.
- * @rate_listener:    Clock rate listener callback state.
- * @ccswe_shader_cores: Shader cores cycle count software estimator.
- * @phys_layout:      Physical memory layout information of HWC sample buffer.
+ * @debug_core_mask:     User-set mask of shader cores that can be used.
+ * @pm_core_mask:        PM state sync-ed shaders core mask for the enabled
+ *                       dumping.
+ * @curr_config:         Current allocated hardware resources to correctly map the
+ *                       source raw dump buffer to the destination dump buffer.
+ * @max_core_mask:       Core mask of all cores allocated to the GPU (non
+ *                       virtualized platforms) or resource group (virtualized
+ *                       platforms).
+ * @max_l2_slices:       Maximum number of L2 slices allocated to the GPU (non
+ *                       virtualized platforms) or resource group (virtualized
+ *                       platforms).
+ * @clk_enable_map:      The enable map specifying enabled clock domains.
+ * @cycle_count_elapsed: Cycle count elapsed for a given sample period.
+ *                       The top clock cycle, index 0, is read directly from
+ *                       hardware, but the other clock domains need to be
+ *                       calculated with software estimation.
+ * @prev_cycle_count:    Previous cycle count to calculate the cycle count for
+ *                       sample period.
+ * @rate_listener:       Clock rate listener callback state.
+ * @ccswe_shader_cores:  Shader cores cycle count software estimator.
+ * @phys_layout:         Physical memory layout information of HWC sample buffer.
  */
 struct kbase_hwcnt_backend_jm {
 	const struct kbase_hwcnt_backend_jm_info *info;
@@ -119,8 +125,11 @@ struct kbase_hwcnt_backend_jm {
 	bool enabled;
 	blk_stt_t accum_all_blk_stt;
 	blk_stt_t sampled_all_blk_stt;
+	u64 debug_core_mask;
 	u64 pm_core_mask;
 	struct kbase_hwcnt_curr_config curr_config;
+	u64 max_core_mask;
+	size_t max_l2_slices;
 	u64 clk_enable_map;
 	u64 cycle_count_elapsed[BASE_MAX_NR_CLOCKS_REGULATORS];
 	u64 prev_cycle_count[BASE_MAX_NR_CLOCKS_REGULATORS];
@@ -355,9 +364,9 @@ kbasep_hwcnt_backend_jm_dump_enable_nolock(struct kbase_hwcnt_backend *backend,
 	struct kbase_hwcnt_backend_jm *backend_jm = (struct kbase_hwcnt_backend_jm *)backend;
 	struct kbase_context *kctx;
 	struct kbase_device *kbdev;
-	struct kbase_hwcnt_physical_enable_map phys_enable_map;
+	struct kbase_hwcnt_physical_enable_map phys_enable_map = { 0 };
 	enum kbase_hwcnt_physical_set phys_counter_set;
-	struct kbase_instr_hwcnt_enable enable;
+	struct kbase_instr_hwcnt_enable enable = { 0 };
 	u64 timestamp_ns;
 
 	if (!backend_jm || !enable_map || backend_jm->enabled ||
@@ -373,18 +382,21 @@ kbasep_hwcnt_backend_jm_dump_enable_nolock(struct kbase_hwcnt_backend *backend,
 
 	kbase_hwcnt_gpu_set_to_physical(&phys_counter_set, backend_jm->info->counter_set);
 
-	enable.fe_bm = phys_enable_map.fe_bm;
-	enable.shader_bm = phys_enable_map.shader_bm;
-	enable.tiler_bm = phys_enable_map.tiler_bm;
-	enable.mmu_l2_bm = phys_enable_map.mmu_l2_bm;
-	enable.counter_set = phys_counter_set;
+	enable = (struct kbase_instr_hwcnt_enable)
+	{
+		.fe_bm = phys_enable_map.fe_bm,
+		.shader_bm = phys_enable_map.shader_bm,
+		.tiler_bm = phys_enable_map.tiler_bm,
+		.mmu_l2_bm = phys_enable_map.mmu_l2_bm,
+		.counter_set = phys_counter_set,
 #if IS_ENABLED(CONFIG_MALI_NO_MALI)
-	/* The dummy model needs the CPU mapping. */
-	enable.dump_buffer = (uintptr_t)backend_jm->cpu_dump_va;
+		/* The dummy model needs the CPU mapping. */
+		.dump_buffer = (uintptr_t)backend_jm->cpu_dump_va,
 #else
-	enable.dump_buffer = backend_jm->gpu_dump_va;
+		.dump_buffer = backend_jm->gpu_dump_va,
 #endif /* CONFIG_MALI_NO_MALI */
-	enable.dump_buffer_bytes = backend_jm->info->dump_bytes;
+		.dump_buffer_bytes = backend_jm->info->dump_bytes,
+	};
 
 	timestamp_ns = kbasep_hwcnt_backend_jm_timestamp_ns(backend);
 
@@ -396,6 +408,10 @@ kbasep_hwcnt_backend_jm_dump_enable_nolock(struct kbase_hwcnt_backend *backend,
 	errcode = kbase_instr_hwcnt_enable_internal(kbdev, kctx, &enable);
 	if (errcode)
 		goto error;
+
+	backend_jm->debug_core_mask = kbase_pm_ca_get_debug_core_mask(kbdev);
+	backend_jm->max_l2_slices = backend_jm->info->hwcnt_gpu_info.l2_count;
+	backend_jm->max_core_mask = backend_jm->info->hwcnt_gpu_info.core_mask;
 
 	backend_jm->pm_core_mask = kbase_pm_ca_get_instr_core_mask(kbdev);
 
@@ -537,8 +553,7 @@ static int kbasep_hwcnt_backend_jm_dump_request(struct kbase_hwcnt_backend *back
 		*dump_time_ns = kbasep_hwcnt_backend_jm_timestamp_ns(backend);
 		ret = kbase_instr_hwcnt_request_dump(backend_jm->kctx);
 
-		kbase_hwcnt_metadata_for_each_clock(metadata, clk)
-		{
+		kbase_hwcnt_metadata_for_each_clock(metadata, clk) {
 			if (!kbase_hwcnt_clk_enable_map_enabled(backend_jm->clk_enable_map, clk))
 				continue;
 
@@ -620,8 +635,7 @@ static int kbasep_hwcnt_backend_jm_dump_get(struct kbase_hwcnt_backend *backend,
 	kbasep_hwcnt_backend_jm_dump_sample(backend_jm);
 
 	/* Extract elapsed cycle count for each clock domain if enabled. */
-	kbase_hwcnt_metadata_for_each_clock(dst_enable_map->metadata, clk)
-	{
+	kbase_hwcnt_metadata_for_each_clock(dst_enable_map->metadata, clk) {
 		if (!kbase_hwcnt_clk_enable_map_enabled(dst_enable_map->clk_enable_map, clk))
 			continue;
 
@@ -645,8 +659,9 @@ static int kbasep_hwcnt_backend_jm_dump_get(struct kbase_hwcnt_backend *backend,
 		return errcode;
 #endif /* CONFIG_MALI_NO_MALI */
 	errcode = kbase_hwcnt_jm_dump_get(dst, backend_jm->to_user_buf, dst_enable_map,
-					  backend_jm->pm_core_mask, &backend_jm->curr_config,
-					  accumulate);
+					  backend_jm->pm_core_mask, backend_jm->debug_core_mask,
+					  backend_jm->max_core_mask, backend_jm->max_l2_slices,
+					  &backend_jm->curr_config, accumulate);
 
 	if (errcode)
 		return errcode;

@@ -23,12 +23,15 @@
 #define _KBASE_MMU_H_
 
 #include <uapi/gpu/arm/midgard/mali_base_kernel.h>
+#include <mali_kbase_debug.h>
 
 #define KBASE_MMU_PAGE_ENTRIES 512
 
 struct kbase_context;
+struct kbase_device;
 struct kbase_mmu_table;
 struct kbase_va_region;
+struct tagged_addr;
 
 /**
  * enum kbase_caller_mmu_sync_info - MMU-synchronous caller info.
@@ -165,9 +168,9 @@ int kbase_mmu_insert_pages(struct kbase_device *kbdev, struct kbase_mmu_table *m
  *
  * @kbdev:         Instance of GPU platform device, allocated from the probe method.
  * @mmut:          GPU page tables.
- * @vpfn:          Start page frame number of the GPU virtual pages to map.
+ * @vpfn:          Start page frame number (in PAGE_SIZE units) of the GPU virtual pages to map.
  * @phys:          Physical address of the page to be mapped.
- * @nr:            The number of pages to map.
+ * @nr:            The number of pages (in PAGE_SIZE units) to map.
  * @flags:         Bitmask of attributes of the GPU memory region being mapped.
  * @as_nr:         The GPU address space number.
  * @group_id:      The physical memory group in which the page was allocated.
@@ -217,11 +220,11 @@ int kbase_mmu_update_pages(struct kbase_context *kctx, u64 vpfn, struct tagged_a
  * kbase_mmu_update_csf_mcu_pages - Update MCU mappings with changes of phys and flags
  *
  * @kbdev:    Pointer to kbase device.
- * @vpfn:     Virtual PFN (Page Frame Number) of the first page to update
+ * @vpfn:     GPU Virtual PFN (Page Frame Number), in PAGE_SIZE units, of the first page to update
  * @phys:     Pointer to the array of tagged physical addresses of the physical
  *            pages that are pointed to by the page table entries (that need to
  *            be updated).
- * @nr:       Number of pages to update
+ * @nr:       Number of pages (in PAGE_SIZE units) to update
  * @flags:    Flags
  * @group_id: The physical memory group in which the page was allocated.
  *            Valid range is 0..(MEMORY_GROUP_MANAGER_NR_GROUPS-1).

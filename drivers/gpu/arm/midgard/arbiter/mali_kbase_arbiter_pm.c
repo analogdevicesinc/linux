@@ -308,7 +308,7 @@ int kbase_arbiter_pm_early_init(struct kbase_device *kbdev)
 		err = wait_event_timeout(arb_vm_state->vm_state_wait,
 					 arb_vm_state->vm_state ==
 						 KBASE_VM_STATE_INITIALIZING_WITH_GPU,
-					 msecs_to_jiffies(gpu_req_timeout));
+					 msecs_to_jiffies((unsigned int)gpu_req_timeout));
 
 		if (!err) {
 			dev_dbg(kbdev->dev,

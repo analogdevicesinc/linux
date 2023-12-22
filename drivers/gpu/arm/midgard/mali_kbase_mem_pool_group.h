@@ -53,7 +53,7 @@ kbase_mem_pool_group_select(struct kbase_device *kbdev, u32 mem_group_id, bool i
  * a set of memory pools
  *
  * @configs:  Initial configuration for the set of memory pools
- * @max_size: Maximum number of free 4 KiB pages each pool can hold
+ * @max_size: Maximum number of free small pages each pool can hold
  *
  * This function sets the initial configuration for every memory pool so that
  * the maximum amount of free memory that each pool can hold is identical.
@@ -74,7 +74,7 @@ void kbase_mem_pool_group_config_set_max_size(struct kbase_mem_pool_group_config
  *
  * Initializes a complete set of physical memory pools. Memory pools are used to
  * allow efficient reallocation of previously-freed physical pages. A pair of
- * memory pools is initialized for each physical memory group: one for 4 KiB
+ * memory pools is initialized for each physical memory group: one for small
  * pages and one for 2 MiB pages.
  *
  * If @next_pools is not NULL then a request to allocate memory from an

@@ -228,7 +228,8 @@ void kbase_pm_update_cores_state(struct kbase_device *kbdev)
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 }
 
-int kbase_pm_list_policies(struct kbase_device *kbdev, const struct kbase_pm_policy *const **list)
+size_t kbase_pm_list_policies(struct kbase_device *kbdev,
+			      const struct kbase_pm_policy *const **list)
 {
 	CSTD_UNUSED(kbdev);
 	if (list)
@@ -294,7 +295,7 @@ void kbase_pm_set_policy(struct kbase_device *kbdev, const struct kbase_pm_polic
 	bool reset_gpu = false;
 	bool reset_op_prevented = true;
 	struct kbase_csf_scheduler *scheduler = NULL;
-	u32 pwroff;
+	u64 pwroff_ns;
 	bool switching_to_always_on;
 #endif
 
@@ -304,9 +305,9 @@ void kbase_pm_set_policy(struct kbase_device *kbdev, const struct kbase_pm_polic
 	KBASE_KTRACE_ADD(kbdev, PM_SET_POLICY, NULL, new_policy->id);
 
 #if MALI_USE_CSF
-	pwroff = kbase_csf_firmware_get_mcu_core_pwroff_time(kbdev);
+	pwroff_ns = kbase_csf_firmware_get_mcu_core_pwroff_time(kbdev);
 	switching_to_always_on = new_policy == &kbase_pm_always_on_policy_ops;
-	if (pwroff == 0 && !switching_to_always_on) {
+	if (pwroff_ns == 0 && !switching_to_always_on) {
 		dev_warn(
 			kbdev->dev,
 			"power_policy: cannot switch away from always_on with mcu_shader_pwroff_timeout set to 0\n");

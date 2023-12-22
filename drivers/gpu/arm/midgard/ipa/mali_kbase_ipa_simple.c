@@ -294,6 +294,9 @@ static int kbase_simple_power_model_recalculate(struct kbase_ipa_model *model)
 
 	if (!strnlen(model_data->tz_name, sizeof(model_data->tz_name))) {
 		model_data->gpu_tz = NULL;
+		dev_warn(model->kbdev->dev,
+			 "No thermal zone specified, will use the default temperature value of %u",
+			 FALLBACK_STATIC_TEMPERATURE);
 	} else {
 		char tz_name[THERMAL_NAME_LENGTH];
 		u32 string_len = strscpy(tz_name, model_data->tz_name, sizeof(tz_name));

@@ -778,7 +778,8 @@ KBASE_EXPORT_TEST_API(kbase_debug_coresight_csf_state_check);
 bool kbase_debug_coresight_csf_state_wait(struct kbase_device *kbdev,
 					  enum kbase_debug_coresight_csf_state state)
 {
-	const long wait_timeout = kbase_csf_timeout_in_jiffies(kbdev->csf.fw_timeout_ms);
+	const long wait_timeout =
+		kbase_csf_timeout_in_jiffies(kbase_get_timeout_ms(kbdev, CSF_FIRMWARE_TIMEOUT));
 	struct kbase_debug_coresight_csf_config *config_entry, *next_config_entry;
 	unsigned long flags;
 	bool success = true;

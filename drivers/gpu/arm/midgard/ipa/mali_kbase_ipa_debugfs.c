@@ -97,7 +97,7 @@ static ssize_t param_string_set(struct file *file, const char __user *user_buf, 
 	struct kbase_ipa_model_param *param = file->private_data;
 	struct kbase_ipa_model *model = param->model;
 	char *old_str = NULL;
-	ssize_t ret = count;
+	ssize_t ret = (ssize_t)count;
 	size_t buf_size;
 	int err;
 

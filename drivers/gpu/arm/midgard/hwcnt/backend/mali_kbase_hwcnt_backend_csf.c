@@ -44,6 +44,9 @@
 #define HWCNT_BACKEND_WATCHDOG_TIMER_INTERVAL_MS ((u32)1000)
 #endif /* IS_FPGA && !NO_MALI */
 
+/* Used to check for a sample in which all counters in the block are disabled */
+#define HWCNT_BLOCK_EMPTY_SAMPLE (2)
+
 /**
  * enum kbase_hwcnt_backend_csf_dump_state - HWC CSF backend dumping states.
  *
@@ -339,8 +342,7 @@ kbasep_hwcnt_backend_csf_cc_initial_sample(struct kbase_hwcnt_backend_csf *backe
 	backend_csf->info->csf_if->get_gpu_cycle_count(backend_csf->info->csf_if->ctx, cycle_counts,
 						       clk_enable_map);
 
-	kbase_hwcnt_metadata_for_each_clock(enable_map->metadata, clk)
-	{
+	kbase_hwcnt_metadata_for_each_clock(enable_map->metadata, clk) {
 		if (kbase_hwcnt_clk_enable_map_enabled(clk_enable_map, clk))
 			backend_csf->prev_cycle_count[clk] = cycle_counts[clk];
 	}
@@ -361,8 +363,7 @@ static void kbasep_hwcnt_backend_csf_cc_update(struct kbase_hwcnt_backend_csf *b
 	backend_csf->info->csf_if->get_gpu_cycle_count(backend_csf->info->csf_if->ctx, cycle_counts,
 						       backend_csf->clk_enable_map);
 
-	kbase_hwcnt_metadata_for_each_clock(backend_csf->info->metadata, clk)
-	{
+	kbase_hwcnt_metadata_for_each_clock(backend_csf->info->metadata, clk) {
 		if (kbase_hwcnt_clk_enable_map_enabled(backend_csf->clk_enable_map, clk)) {
 			backend_csf->cycle_count_elapsed[clk] =
 				cycle_counts[clk] - backend_csf->prev_cycle_count[clk];
@@ -384,34 +385,28 @@ static u64 kbasep_hwcnt_backend_csf_timestamp_ns(struct kbase_hwcnt_backend *bac
 
 /** kbasep_hwcnt_backend_csf_process_enable_map() - Process the enable_map to
  *                                                  guarantee headers are
- *                                                  enabled if any counter is
- *                                                  required.
+ *                                                  enabled.
  *@phys_enable_map: HWC physical enable map to be processed.
  */
-static void
-kbasep_hwcnt_backend_csf_process_enable_map(struct kbase_hwcnt_physical_enable_map *phys_enable_map)
+void kbasep_hwcnt_backend_csf_process_enable_map(
+	struct kbase_hwcnt_physical_enable_map *phys_enable_map)
 {
 	WARN_ON(!phys_enable_map);
 
-	/* Enable header if any counter is required from user, the header is
-	 * controlled by bit 0 of the enable mask.
+	/* Unconditionally enable each block header and first counter,
+	 * the header is controlled by bit 0 of the enable mask.
 	 */
-	phys_enable_map->fe_bm |= 1;
+	phys_enable_map->fe_bm |= 3;
 
-	if (phys_enable_map->tiler_bm)
-		phys_enable_map->tiler_bm |= 1;
+	phys_enable_map->tiler_bm |= 3;
 
-	if (phys_enable_map->mmu_l2_bm)
-		phys_enable_map->mmu_l2_bm |= 1;
+	phys_enable_map->mmu_l2_bm |= 3;
 
-	if (phys_enable_map->shader_bm)
-		phys_enable_map->shader_bm |= 1;
+	phys_enable_map->shader_bm |= 3;
 
-	if (phys_enable_map->fw_bm)
-		phys_enable_map->fw_bm |= 1;
+	phys_enable_map->fw_bm |= 3;
 
-	if (phys_enable_map->csg_bm)
-		phys_enable_map->csg_bm |= 1;
+	phys_enable_map->csg_bm |= 3;
 
 }
 
@@ -429,7 +424,7 @@ static void kbasep_hwcnt_backend_csf_init_layout(
 	WARN_ON(!prfcnt_info);
 	WARN_ON(!phys_layout);
 
-	shader_core_cnt = fls64(prfcnt_info->core_mask);
+	shader_core_cnt = (size_t)fls64(prfcnt_info->core_mask);
 	values_per_block = prfcnt_info->prfcnt_block_size / KBASE_HWCNT_VALUE_HW_BYTES;
 	fw_block_cnt = div_u64(prfcnt_info->prfcnt_fw_size, prfcnt_info->prfcnt_block_size);
 	hw_block_cnt = div_u64(prfcnt_info->prfcnt_hw_size, prfcnt_info->prfcnt_block_size);
@@ -542,7 +537,8 @@ static void kbasep_hwcnt_backend_csf_update_block_state(
 	size_t block_idx, blk_stt_t *const block_state, bool fw_in_protected_mode)
 {
 	/* Offset of shader core blocks from the start of the HW blocks in the sample */
-	size_t shader_core_block_offset = phys_layout->hw_block_cnt - phys_layout->shader_cnt;
+	size_t shader_core_block_offset =
+		(size_t)(phys_layout->hw_block_cnt - phys_layout->shader_cnt);
 	bool is_shader_core_block;
 
 	is_shader_core_block = block_idx >= shader_core_block_offset;
@@ -608,17 +604,17 @@ static void kbasep_hwcnt_backend_csf_accumulate_sample(
 	const u32 *old_block = old_sample_buf;
 	const u32 *new_block = new_sample_buf;
 	u64 *acc_block = accum_buf;
-	/* Flag to indicate whether current sample is when exiting protected mode. */
+	/* Flag to indicate whether current sample is exiting protected mode. */
 	bool exiting_protm = false;
 	const size_t values_per_block = phys_layout->values_per_block;
 
 	/* The block pointers now point to the first HW block, which is always a CSHW/front-end
 	 * block. The counter enable mask for this block can be checked to determine whether this
 	 * sample is taken after leaving protected mode - this is the only scenario where the CSHW
-	 * block counter enable mask is all-zero. In this case, the values in this sample would not
-	 * be meaningful, so they don't need to be accumulated.
+	 * block counter enable mask has only the first bit set, and no others. In this case,
+	 * the values in this sample would not be meaningful, so they don't need to be accumulated.
 	 */
-	exiting_protm = !new_block[phys_layout->enable_mask_offset];
+	exiting_protm = (new_block[phys_layout->enable_mask_offset] == 1);
 
 	for (block_idx = 0; block_idx < phys_layout->block_cnt; block_idx++) {
 		const u32 old_enable_mask = old_block[phys_layout->enable_mask_offset];
@@ -629,7 +625,7 @@ static void kbasep_hwcnt_backend_csf_accumulate_sample(
 							    &block_states[block_idx],
 							    fw_in_protected_mode);
 
-		if (new_enable_mask == 0) {
+		if (!(new_enable_mask & HWCNT_BLOCK_EMPTY_SAMPLE)) {
 			/* Hardware block was unavailable or we didn't turn on
 			 * any counters. Do nothing.
 			 */
@@ -662,7 +658,7 @@ static void kbasep_hwcnt_backend_csf_accumulate_sample(
 			 * saturating at their maximum value.
 			 */
 			if (!clearing_samples) {
-				if (old_enable_mask == 0) {
+				if (!(old_enable_mask & HWCNT_BLOCK_EMPTY_SAMPLE)) {
 					/* Block was previously
 					 * unavailable. Accumulate the new
 					 * counters only, as we know previous
@@ -1444,8 +1440,7 @@ static int kbasep_hwcnt_backend_csf_dump_get(struct kbase_hwcnt_backend *backend
 		return -EINVAL;
 
 	/* Extract elapsed cycle count for each clock domain if enabled. */
-	kbase_hwcnt_metadata_for_each_clock(dst_enable_map->metadata, clk)
-	{
+	kbase_hwcnt_metadata_for_each_clock(dst_enable_map->metadata, clk) {
 		if (!kbase_hwcnt_clk_enable_map_enabled(dst_enable_map->clk_enable_map, clk))
 			continue;
 

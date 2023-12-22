@@ -454,7 +454,7 @@ static void kbase_pm_metrics_active_calc(struct kbase_device *kbdev)
 
 		if (katom && katom->gpu_rb_state == KBASE_ATOM_GPU_RB_SUBMITTED) {
 			if (katom->core_req & BASE_JD_REQ_ONLY_COMPUTE) {
-				int device_nr =
+				u32 device_nr =
 					(katom->core_req & BASE_JD_REQ_SPECIFIC_COHERENT_GROUP) ?
 						      katom->device_nr :
 						      0;

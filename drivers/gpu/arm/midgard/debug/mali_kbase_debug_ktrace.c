@@ -71,13 +71,13 @@ static const char *const kbasep_ktrace_code_string[] = {
 
 static void kbasep_ktrace_format_header(char *buffer, int sz, s32 written)
 {
-	written += MAX(snprintf(buffer + written, MAX(sz - written, 0),
+	written += MAX(snprintf(buffer + written, (size_t)MAX(sz - written, 0),
 				"secs,thread_id,cpu,code,kctx,"),
 		       0);
 
 	kbasep_ktrace_backend_format_header(buffer, sz, &written);
 
-	written += MAX(snprintf(buffer + written, MAX(sz - written, 0),
+	written += MAX(snprintf(buffer + written, (size_t)MAX(sz - written, 0),
 				",info_val,ktrace_version=%u.%u", KBASE_KTRACE_VERSION_MAJOR,
 				KBASE_KTRACE_VERSION_MINOR),
 		       0);
@@ -93,7 +93,7 @@ static void kbasep_ktrace_format_msg(struct kbase_ktrace_msg *trace_msg, char *b
 	 *
 	 * secs,thread_id,cpu,code,
 	 */
-	written += MAX(snprintf(buffer + written, MAX(sz - written, 0), "%d.%.6d,%d,%d,%s,",
+	written += MAX(snprintf(buffer + written, (size_t)MAX(sz - written, 0), "%d.%.6d,%d,%d,%s,",
 				(int)trace_msg->timestamp.tv_sec,
 				(int)(trace_msg->timestamp.tv_nsec / 1000), trace_msg->thread_id,
 				trace_msg->cpu,
@@ -102,12 +102,12 @@ static void kbasep_ktrace_format_msg(struct kbase_ktrace_msg *trace_msg, char *b
 
 	/* kctx part: */
 	if (trace_msg->kctx_tgid) {
-		written += MAX(snprintf(buffer + written, MAX(sz - written, 0), "%d_%u",
+		written += MAX(snprintf(buffer + written, (size_t)MAX(sz - written, 0), "%d_%u",
 					trace_msg->kctx_tgid, trace_msg->kctx_id),
 			       0);
 	}
 	/* Trailing comma */
-	written += MAX(snprintf(buffer + written, MAX(sz - written, 0), ","), 0);
+	written += MAX(snprintf(buffer + written, (size_t)MAX(sz - written, 0), ","), 0);
 
 	/* Backend parts */
 	kbasep_ktrace_backend_format_msg(trace_msg, buffer, sz, &written);
@@ -119,7 +119,7 @@ static void kbasep_ktrace_format_msg(struct kbase_ktrace_msg *trace_msg, char *b
 	 * Note that the last column is empty, it's simply to hold the ktrace
 	 * version in the header
 	 */
-	written += MAX(snprintf(buffer + written, MAX(sz - written, 0), ",0x%.16llx",
+	written += MAX(snprintf(buffer + written, (size_t)MAX(sz - written, 0), ",0x%.16llx",
 				(unsigned long long)trace_msg->info_val),
 		       0);
 	buffer[sz - 1] = 0;
@@ -156,7 +156,7 @@ void kbasep_ktrace_msg_init(struct kbase_ktrace *ktrace, struct kbase_ktrace_msg
 {
 	lockdep_assert_held(&ktrace->lock);
 
-	trace_msg->thread_id = task_pid_nr(current);
+	trace_msg->thread_id = (u32)task_pid_nr(current);
 	trace_msg->cpu = task_cpu(current);
 
 	ktime_get_real_ts64(&trace_msg->timestamp);

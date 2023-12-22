@@ -1041,4 +1041,5 @@ static inline bool kbase_pm_l2_allow_mmu_page_migration(struct kbase_device *kbd
 	return (backend->l2_state != KBASE_L2_PEND_ON && backend->l2_state != KBASE_L2_PEND_OFF);
 }
 
+
 #endif /* _KBASE_BACKEND_PM_INTERNAL_H_ */

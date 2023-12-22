@@ -264,7 +264,7 @@ static int kbase_devfreq_status(struct device *dev, struct devfreq_dev_status *s
 static int kbase_devfreq_init_freq_table(struct kbase_device *kbdev, struct devfreq_dev_profile *dp)
 {
 	int count;
-	int i = 0;
+	unsigned int i = 0;
 	unsigned long freq;
 	struct dev_pm_opp *opp;
 
@@ -278,14 +278,14 @@ static int kbase_devfreq_init_freq_table(struct kbase_device *kbdev, struct devf
 	if (count < 0)
 		return count;
 
-	dp->freq_table = kmalloc_array(count, sizeof(dp->freq_table[0]), GFP_KERNEL);
+	dp->freq_table = kmalloc_array((size_t)count, sizeof(dp->freq_table[0]), GFP_KERNEL);
 	if (!dp->freq_table)
 		return -ENOMEM;
 
 #if KERNEL_VERSION(4, 11, 0) > LINUX_VERSION_CODE
 	rcu_read_lock();
 #endif
-	for (i = 0, freq = ULONG_MAX; i < count; i++, freq--) {
+	for (i = 0, freq = ULONG_MAX; i < (unsigned int)count; i++, freq--) {
 		opp = dev_pm_opp_find_freq_floor(kbdev->dev, &freq);
 		if (IS_ERR(opp))
 			break;
@@ -299,8 +299,8 @@ static int kbase_devfreq_init_freq_table(struct kbase_device *kbdev, struct devf
 	rcu_read_unlock();
 #endif
 
-	if (count != i)
-		dev_warn(kbdev->dev, "Unable to enumerate all OPPs (%d!=%d\n", count, i);
+	if ((unsigned int)count != i)
+		dev_warn(kbdev->dev, "Unable to enumerate all OPPs (%d!=%u\n", count, i);
 
 	dp->max_state = i;
 
@@ -401,7 +401,8 @@ static int kbase_devfreq_init_core_mask_table(struct kbase_device *kbdev)
 		return 0;
 
 	count = dev_pm_opp_get_opp_count(kbdev->dev);
-	kbdev->devfreq_table = kmalloc_array(count, sizeof(struct kbase_devfreq_opp), GFP_KERNEL);
+	kbdev->devfreq_table =
+		kmalloc_array((size_t)count, sizeof(struct kbase_devfreq_opp), GFP_KERNEL);
 	if (!kbdev->devfreq_table)
 		return -ENOMEM;
 

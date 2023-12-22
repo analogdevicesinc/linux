@@ -83,7 +83,7 @@ static void *debug_mem_start(struct seq_file *m, loff_t *_pos)
 			if (!data)
 				return NULL;
 			data->lh = &map->node;
-			data->offset = pos;
+			data->offset = (size_t)pos;
 			return data;
 		}
 	}
@@ -360,7 +360,7 @@ static ssize_t debug_mem_write(struct file *file, const char __user *ubuf, size_
 	kctx->mem_view_column_width = column_width;
 	kbase_gpu_vm_unlock(kctx);
 
-	return count;
+	return (ssize_t)count;
 }
 
 static const struct file_operations kbase_debug_mem_view_fops = { .owner = THIS_MODULE,

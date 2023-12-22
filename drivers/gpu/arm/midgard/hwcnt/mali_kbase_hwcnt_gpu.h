@@ -138,6 +138,24 @@ struct kbase_hwcnt_physical_enable_map {
 	u32 csg_bm;
 };
 
+/**
+ * struct kbase_hwcnt_enable_cm - 128-bit enable counter masks.
+ * @fe_bm:     Front end (JM/CSHW) counters selection bitmask.
+ * @shader_bm: Shader counters selection bitmask.
+ * @tiler_bm:  Tiler counters selection bitmask.
+ * @mmu_l2_bm: MMU_L2 counters selection bitmask.
+ * @fw_bm: CSF firmware counters selection bitmask.
+ * @csg_bm: CSF CSG counters selection bitmask.
+ */
+struct kbase_hwcnt_enable_cm {
+	u64 fe_bm[2];
+	u64 shader_bm[2];
+	u64 tiler_bm[2];
+	u64 mmu_l2_bm[2];
+	u64 fw_bm[2];
+	u64 csg_bm[2];
+};
+
 /*
  * Values for Hardware Counter SET_SELECT value.
  * Directly passed to HW.
@@ -275,16 +293,23 @@ void kbase_hwcnt_csf_metadata_destroy(const struct kbase_hwcnt_metadata *metadat
  * kbase_hwcnt_jm_dump_get() - Copy or accumulate enabled counters from the raw
  *                             dump buffer in src into the dump buffer
  *                             abstraction in dst.
- * @dst:            Non-NULL pointer to destination dump buffer.
- * @src:            Non-NULL pointer to source raw dump buffer, of same length
- *                  as dump_buf_bytes in the metadata of destination dump
- *                  buffer.
- * @dst_enable_map: Non-NULL pointer to enable map specifying enabled values.
- * @pm_core_mask:   PM state synchronized shaders core mask with the dump.
- * @curr_config:    Current allocated hardware resources to correctly map the
- *                  source raw dump buffer to the destination dump buffer.
- * @accumulate:     True if counters in source should be accumulated into
- *                  destination, rather than copied.
+ * @dst:             Non-NULL pointer to destination dump buffer.
+ * @src:             Non-NULL pointer to source raw dump buffer, of same length
+ *                   as dump_buf_bytes in the metadata of destination dump
+ *                   buffer.
+ * @dst_enable_map:  Non-NULL pointer to enable map specifying enabled values.
+ * @pm_core_mask:    PM state synchronized shaders core mask with the dump.
+ * @debug_core_mask: User-set mask of cores to be used by the GPU.
+ * @max_core_mask:   Core mask of all cores allocated to the GPU (non
+ *                   virtualized platforms) or resource group (virtualized
+ *                   platforms).
+ * @max_l2_slices:   Maximum number of L2 slices allocated to the GPU (non
+ *                   virtualised platforms) or resource group (virtualized
+ *                   platforms).
+ * @curr_config:     Current allocated hardware resources to correctly map the
+ *                   source raw dump buffer to the destination dump buffer.
+ * @accumulate:      True if counters in source should be accumulated into
+ *                   destination, rather than copied.
  *
  * The dst and dst_enable_map MUST have been created from the same metadata as
  * returned from the call to kbase_hwcnt_jm_metadata_create as was used to get
@@ -294,8 +319,9 @@ void kbase_hwcnt_csf_metadata_destroy(const struct kbase_hwcnt_metadata *metadat
  */
 int kbase_hwcnt_jm_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 			    const struct kbase_hwcnt_enable_map *dst_enable_map,
-			    const u64 pm_core_mask,
-			    const struct kbase_hwcnt_curr_config *curr_config, bool accumulate);
+			    const u64 pm_core_mask, u64 debug_core_mask, u64 max_core_mask,
+			    size_t max_l2_slices, const struct kbase_hwcnt_curr_config *curr_config,
+			    bool accumulate);
 
 /**
  * kbase_hwcnt_csf_dump_get() - Copy or accumulate enabled counters from the raw
@@ -419,5 +445,24 @@ void kbase_hwcnt_gpu_enable_map_from_physical(struct kbase_hwcnt_enable_map *dst
  */
 void kbase_hwcnt_gpu_patch_dump_headers(struct kbase_hwcnt_dump_buffer *buf,
 					const struct kbase_hwcnt_enable_map *enable_map);
+
+bool kbase_hwcnt_is_block_type_shader(const enum kbase_hwcnt_gpu_v5_block_type blk_type);
+
+bool kbase_hwcnt_is_block_type_memsys(const enum kbase_hwcnt_gpu_v5_block_type blk_type);
+
+bool kbase_hwcnt_is_block_type_tiler(const enum kbase_hwcnt_gpu_v5_block_type blk_type);
+
+bool kbase_hwcnt_is_block_type_fe(const enum kbase_hwcnt_gpu_v5_block_type blk_type);
+/**
+ * kbase_hwcnt_gpu_enable_map_from_cm() - Builds enable map abstraction from
+ *                                        counter selection bitmasks.
+ * @dst: Non-NULL pointer to destination enable map abstraction.
+ * @src: Non-NULL pointer to source counter selection bitmasks.
+ *
+ * The dst must have been created from a metadata returned from a call to
+ * kbase_hwcnt_jm_metadata_create or kbase_hwcnt_csf_metadata_create.
+ */
+void kbase_hwcnt_gpu_enable_map_from_cm(struct kbase_hwcnt_enable_map *dst,
+					const struct kbase_hwcnt_enable_cm *src);
 
 #endif /* _KBASE_HWCNT_GPU_H_ */

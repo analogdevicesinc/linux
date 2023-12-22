@@ -128,7 +128,7 @@
  * @minor: Kernel minor version
  */
 #define KBASE_API_VERSION(major, minor) \
-	((((major)&0xFFF) << 20) | (((minor)&0xFFF) << 8) | ((0 & 0xFF) << 0))
+	((((major)&0xFFFU) << 20U) | (((minor)&0xFFFU) << 8U) | ((0U & 0xFFU) << 0U))
 
 /**
  * struct mali_kbase_capability_def - kbase capabilities table
@@ -525,26 +525,28 @@ static struct kbase_device *to_kbase_device(struct device *dev)
 	return dev_get_drvdata(dev);
 }
 
-int assign_irqs(struct kbase_device *kbdev)
+/**
+ * get_irqs - Get interrupts information from the device tree.
+ *
+ * @kbdev: Kbase device.
+ * @pdev:  Platform device of the kbase device
+ *
+ * Read interrupt number and flag for 'JOB', 'MMU' and 'GPU' interrupts
+ * from the device tree and fill them into the struct of the kbase device.
+ *
+ * Return: 0 on successful reading of all the entries JOB, MMU and GPU interrupts.
+ *         -EINVAL on failure for all other cases.
+ *
+ */
+static int get_irqs(struct kbase_device *kbdev, struct platform_device *pdev)
 {
+	int i;
 	static const char *const irq_names_caps[] = { "JOB", "MMU", "GPU" };
 
-#if IS_ENABLED(CONFIG_OF)
-	static const char *const irq_names[] = { "job", "mmu", "gpu" };
-#endif
-
-	struct platform_device *pdev;
-	size_t i;
-
-	if (!kbdev)
-		return -ENODEV;
-
-	pdev = to_platform_device(kbdev->dev);
-
 	for (i = 0; i < ARRAY_SIZE(irq_names_caps); i++) {
+		struct irq_data *irqdata;
 		int irq;
 
-#if IS_ENABLED(CONFIG_OF)
 		/* We recommend using Upper case for the irq names in dts, but if
 		 * there are devices in the world using Lower case then we should
 		 * avoid breaking support for them. So try using names in Upper case
@@ -552,22 +554,40 @@ int assign_irqs(struct kbase_device *kbdev)
 		 * we assume there is no IRQ resource specified for the GPU.
 		 */
 		irq = platform_get_irq_byname(pdev, irq_names_caps[i]);
-		if (irq < 0)
-			irq = platform_get_irq_byname(pdev, irq_names[i]);
-#else
-		irq = platform_get_irq(pdev, i);
-#endif /* CONFIG_OF */
-
 		if (irq < 0) {
-			dev_err(kbdev->dev, "No IRQ resource '%s'\n", irq_names_caps[i]);
-			return irq;
+			static const char *const irq_names[] = { "job", "mmu", "gpu" };
+
+			irq = platform_get_irq_byname(pdev, irq_names[i]);
 		}
 
-		kbdev->irqs[i].irq = irq;
-		kbdev->irqs[i].flags = irqd_get_trigger_type(irq_get_irq_data(irq));
+		if (irq < 0)
+			return irq;
+
+		kbdev->irqs[i].irq = (u32)irq;
+		irqdata = irq_get_irq_data((unsigned int)irq);
+		if (likely(irqdata))
+			kbdev->irqs[i].flags = irqd_get_trigger_type(irqdata);
+		else
+			return -EINVAL;
+
+		kbdev->nr_irqs++;
 	}
 
 	return 0;
+}
+
+
+int kbase_get_irqs(struct kbase_device *kbdev)
+{
+	int result;
+	struct platform_device *pdev = to_platform_device(kbdev->dev);
+
+	kbdev->nr_irqs = 0;
+	result = get_irqs(kbdev, pdev);
+	if (result)
+		dev_err(kbdev->dev, "Invalid or No interrupt resources");
+
+	return result;
 }
 
 /* Find a particular kbase device (as specified by minor number), or find the "first" device if -1 is specified */
@@ -618,19 +638,19 @@ static ssize_t write_ctx_infinite_cache(struct file *f, const char __user *ubuf,
 	else
 		kbase_ctx_flag_clear(kctx, KCTX_INFINITE_CACHE);
 
-	return size;
+	return (ssize_t)size;
 }
 
 static ssize_t read_ctx_infinite_cache(struct file *f, char __user *ubuf, size_t size, loff_t *off)
 {
 	struct kbase_context *kctx = f->private_data;
 	char buf[32];
-	int count;
+	size_t count;
 	bool value;
 
 	value = kbase_ctx_flag(kctx, KCTX_INFINITE_CACHE);
 
-	count = scnprintf(buf, sizeof(buf), "%s\n", value ? "Y" : "N");
+	count = (size_t)scnprintf(buf, sizeof(buf), "%s\n", value ? "Y" : "N");
 
 	return simple_read_from_buffer(ubuf, size, off, buf, count);
 }
@@ -669,19 +689,19 @@ static ssize_t write_ctx_force_same_va(struct file *f, const char __user *ubuf, 
 		kbase_ctx_flag_clear(kctx, KCTX_FORCE_SAME_VA);
 	}
 
-	return size;
+	return (ssize_t)size;
 }
 
 static ssize_t read_ctx_force_same_va(struct file *f, char __user *ubuf, size_t size, loff_t *off)
 {
 	struct kbase_context *kctx = f->private_data;
 	char buf[32];
-	int count;
+	size_t count;
 	bool value;
 
 	value = kbase_ctx_flag(kctx, KCTX_FORCE_SAME_VA);
 
-	count = scnprintf(buf, sizeof(buf), "%s\n", value ? "Y" : "N");
+	count = (size_t)scnprintf(buf, sizeof(buf), "%s\n", value ? "Y" : "N");
 
 	return simple_read_from_buffer(ubuf, size, off, buf, count);
 }
@@ -759,7 +779,7 @@ static int kbase_open(struct inode *inode, struct file *filp)
 	struct kbase_file *kfile;
 	int ret = 0;
 
-	kbdev = kbase_find_device(iminor(inode));
+	kbdev = kbase_find_device((int)iminor(inode));
 
 	if (!kbdev)
 		return -ENODEV;
@@ -901,7 +921,7 @@ static int kbase_api_get_gpuprops(struct kbase_file *kfile,
 	}
 
 	if (get_props->size == 0)
-		return kprops->prop_buffer_size;
+		return (int)kprops->prop_buffer_size;
 	if (get_props->size < kprops->prop_buffer_size)
 		return -EINVAL;
 
@@ -909,7 +929,7 @@ static int kbase_api_get_gpuprops(struct kbase_file *kfile,
 			   kprops->prop_buffer_size);
 	if (err)
 		return -EFAULT;
-	return kprops->prop_buffer_size;
+	return (int)kprops->prop_buffer_size;
 }
 
 #if !MALI_USE_CSF
@@ -1111,8 +1131,8 @@ static int kbase_api_get_cpu_gpu_timeinfo(struct kbase_context *kctx,
 		timeinfo->out.cycle_counter = cycle_cnt;
 
 	if (flags & BASE_TIMEINFO_MONOTONIC_FLAG) {
-		timeinfo->out.sec = ts.tv_sec;
-		timeinfo->out.nsec = ts.tv_nsec;
+		timeinfo->out.sec = (u64)ts.tv_sec;
+		timeinfo->out.nsec = (u32)ts.tv_nsec;
 	}
 
 	kbase_pm_context_idle(kctx->kbdev);
@@ -1139,14 +1159,14 @@ static int kbase_api_get_ddk_version(struct kbase_context *kctx,
 				     struct kbase_ioctl_get_ddk_version *version)
 {
 	int ret;
-	uint len = sizeof(KERNEL_SIDE_DDK_VERSION_STRING);
+	int len = sizeof(KERNEL_SIDE_DDK_VERSION_STRING);
 
 	CSTD_UNUSED(kctx);
 
 	if (version->version_buffer == 0)
 		return len;
 
-	if (version->size < len)
+	if (version->size < (u32)len)
 		return -EOVERFLOW;
 
 	ret = copy_to_user(u64_to_user_ptr(version->version_buffer), KERNEL_SIDE_DDK_VERSION_STRING,
@@ -2192,7 +2212,7 @@ static ssize_t kbase_read(struct file *filp, char __user *buf, size_t count, lof
 	struct kbase_file *const kfile = filp->private_data;
 	struct kbase_context *kctx;
 	struct base_jd_event_v2 uevent;
-	int out_count = 0;
+	size_t out_count = 0;
 	ssize_t err = 0;
 
 	CSTD_UNUSED(f_pos);
@@ -2430,13 +2450,15 @@ static ssize_t power_policy_show(struct device *dev, struct device_attribute *at
 
 	for (i = 0; i < policy_count && ret < (ssize_t)PAGE_SIZE; i++) {
 		if (policy_list[i] == current_policy)
-			ret += scnprintf(buf + ret, PAGE_SIZE - ret, "[%s] ", policy_list[i]->name);
+			ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret), "[%s] ",
+					 policy_list[i]->name);
 		else
-			ret += scnprintf(buf + ret, PAGE_SIZE - ret, "%s ", policy_list[i]->name);
+			ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret), "%s ",
+					 policy_list[i]->name);
 	}
 
 	if (ret < (ssize_t)PAGE_SIZE - 1) {
-		ret += scnprintf(buf + ret, PAGE_SIZE - ret, "\n");
+		ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret), "\n");
 	} else {
 		buf[PAGE_SIZE - 2] = '\n';
 		buf[PAGE_SIZE - 1] = '\0';
@@ -2493,7 +2515,7 @@ static ssize_t power_policy_store(struct device *dev, struct device_attribute *a
 
 	kbase_pm_set_policy(kbdev, new_policy);
 
-	return count;
+	return (ssize_t)count;
 }
 
 /*
@@ -2532,22 +2554,22 @@ static ssize_t core_mask_show(struct device *dev, struct device_attribute *attr,
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 
 #if MALI_USE_CSF
-	ret += scnprintf(buf + ret, PAGE_SIZE - ret, "Current debug core mask : 0x%llX\n",
+	ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret), "Current debug core mask : 0x%llX\n",
 			 kbdev->pm.debug_core_mask);
-	ret += scnprintf(buf + ret, PAGE_SIZE - ret, "Current desired core mask : 0x%llX\n",
-			 kbase_pm_ca_get_core_mask(kbdev));
-	ret += scnprintf(buf + ret, PAGE_SIZE - ret, "Current in use core mask : 0x%llX\n",
-			 kbdev->pm.backend.shaders_avail);
+	ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret),
+			 "Current desired core mask : 0x%llX\n", kbase_pm_ca_get_core_mask(kbdev));
+	ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret),
+			 "Current in use core mask : 0x%llX\n", kbdev->pm.backend.shaders_avail);
 #else
-	ret += scnprintf(buf + ret, PAGE_SIZE - ret, "Current core mask (JS0) : 0x%llX\n",
+	ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret), "Current core mask (JS0) : 0x%llX\n",
 			 kbdev->pm.debug_core_mask[0]);
-	ret += scnprintf(buf + ret, PAGE_SIZE - ret, "Current core mask (JS1) : 0x%llX\n",
+	ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret), "Current core mask (JS1) : 0x%llX\n",
 			 kbdev->pm.debug_core_mask[1]);
-	ret += scnprintf(buf + ret, PAGE_SIZE - ret, "Current core mask (JS2) : 0x%llX\n",
+	ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret), "Current core mask (JS2) : 0x%llX\n",
 			 kbdev->pm.debug_core_mask[2]);
 #endif /* MALI_USE_CSF */
 
-	ret += scnprintf(buf + ret, PAGE_SIZE - ret, "Available core mask : 0x%llX\n",
+	ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret), "Available core mask : 0x%llX\n",
 			 kbdev->gpu_props.shader_present);
 
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
@@ -2580,7 +2602,7 @@ static ssize_t core_mask_store(struct device *dev, struct device_attribute *attr
 #endif /* MALI_USE_CSF */
 
 	int items;
-	ssize_t err = count;
+	ssize_t err = (ssize_t)count;
 	unsigned long flags;
 	u64 shader_present;
 
@@ -2733,7 +2755,7 @@ static ssize_t soft_job_timeout_store(struct device *dev, struct device_attribut
 
 	atomic_set(&kbdev->js_data.soft_job_timeout_ms, soft_job_timeout_ms);
 
-	return count;
+	return (ssize_t)count;
 }
 
 /**
@@ -2768,14 +2790,14 @@ static u32 timeout_ms_to_ticks(struct kbase_device *kbdev, long timeout_ms, int 
 			       u32 old_ticks)
 {
 	if (timeout_ms > 0) {
-		u64 ticks = timeout_ms * 1000000ULL;
+		u64 ticks = (u64)timeout_ms * 1000000ULL;
 
 		do_div(ticks, kbdev->js_data.scheduling_period_ns);
 		if (!ticks)
 			return 1;
 		return ticks;
 	} else if (timeout_ms < 0) {
-		return default_ticks;
+		return (u32)default_ticks;
 	} else {
 		return old_ticks;
 	}
@@ -2859,7 +2881,7 @@ static ssize_t js_timeouts_store(struct device *dev, struct device_attribute *at
 
 		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
-		return count;
+		return (ssize_t)count;
 	}
 
 	dev_err(kbdev->dev,
@@ -3041,7 +3063,7 @@ static ssize_t js_scheduling_period_store(struct device *dev, struct device_attr
 
 	dev_dbg(kbdev->dev, "JS scheduling period: %dms\n", js_scheduling_period);
 
-	return count;
+	return (ssize_t)count;
 }
 
 /**
@@ -3102,7 +3124,7 @@ static ssize_t js_softstop_always_store(struct device *dev, struct device_attrib
 	kbdev->js_data.softstop_always = (bool)softstop_always;
 	dev_dbg(kbdev->dev, "Support for softstop on a single context: %s\n",
 		(kbdev->js_data.softstop_always) ? "Enabled" : "Disabled");
-	return count;
+	return (ssize_t)count;
 }
 
 static ssize_t js_softstop_always_show(struct device *dev, struct device_attribute *attr,
@@ -3191,7 +3213,8 @@ static ssize_t debug_command_show(struct device *dev, struct device_attribute *a
 		return -ENODEV;
 
 	for (i = 0; i < KBASEP_DEBUG_COMMAND_COUNT && ret < (ssize_t)PAGE_SIZE; i++)
-		ret += scnprintf(buf + ret, PAGE_SIZE - ret, "%s\n", debug_commands[i].str);
+		ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret), "%s\n",
+				 debug_commands[i].str);
 
 	if (ret >= (ssize_t)PAGE_SIZE) {
 		buf[PAGE_SIZE - 2] = '\n';
@@ -3233,7 +3256,7 @@ static ssize_t debug_command_store(struct device *dev, struct device_attribute *
 	for (i = 0; i < KBASEP_DEBUG_COMMAND_COUNT; i++) {
 		if (sysfs_streq(debug_commands[i].str, buf)) {
 			debug_commands[i].func(kbdev);
-			return count;
+			return (ssize_t)count;
 		}
 	}
 
@@ -3287,6 +3310,7 @@ static ssize_t gpuinfo_show(struct device *dev, struct device_attribute *attr, c
 		{ .id = GPU_ID_PRODUCT_LODX, .name = "Mali-G610" },
 		{ .id = GPU_ID_PRODUCT_TGRX, .name = "Mali-G510" },
 		{ .id = GPU_ID_PRODUCT_TVAX, .name = "Mali-G310" },
+		{ .id = GPU_ID_PRODUCT_LTUX, .name = "Mali-G615" },
 		{ .id = GPU_ID_PRODUCT_LTIX, .name = "Mali-G620" },
 		{ .id = GPU_ID_PRODUCT_TKRX, .name = "Mali-TKRX" },
 		{ .id = GPU_ID_PRODUCT_LKRX, .name = "Mali-LKRX" },
@@ -3352,6 +3376,7 @@ static ssize_t gpuinfo_show(struct device *dev, struct device_attribute *attr, c
 		dev_dbg(kbdev->dev, "GPU ID_Name: %s (ID: 0x%x), nr_cores(%u)\n", product_name,
 			product_id, nr_cores);
 	}
+
 #endif /* MALI_USE_CSF */
 
 	return scnprintf(buf, PAGE_SIZE, "%s %d cores r%dp%d 0x%08X\n", product_name,
@@ -3392,10 +3417,10 @@ static ssize_t dvfs_period_store(struct device *dev, struct device_attribute *at
 		return -EINVAL;
 	}
 
-	kbdev->pm.dvfs_period = dvfs_period;
+	kbdev->pm.dvfs_period = (u32)dvfs_period;
 	dev_dbg(kbdev->dev, "DVFS period: %dms\n", dvfs_period);
 
-	return count;
+	return (ssize_t)count;
 }
 
 /**
@@ -3531,7 +3556,7 @@ static ssize_t pm_poweroff_store(struct device *dev, struct device_attribute *at
 	if (poweroff_gpu_ticks != 0)
 		dev_warn(kbdev->dev, "Separate GPU poweroff delay no longer supported.\n");
 
-	return count;
+	return (ssize_t)count;
 }
 
 /**
@@ -3617,7 +3642,7 @@ static ssize_t reset_timeout_store(struct device *dev, struct device_attribute *
 	kbdev->reset_timeout_ms = reset_timeout;
 	dev_dbg(kbdev->dev, "Reset timeout: %ums\n", reset_timeout);
 
-	return count;
+	return (ssize_t)count;
 }
 
 /**
@@ -3834,13 +3859,13 @@ static DEVICE_ATTR_RW(lp_mem_pool_max_size);
 
 /**
  * show_simplified_mem_pool_max_size - Show the maximum size for the memory
- *                                     pool 0 of small (4KiB) pages.
+ *                                     pool 0 of small (4KiB/16KiB/64KiB) pages.
  * @dev:  The device this sysfs file is for.
  * @attr: The attributes of the sysfs file.
  * @buf:  The output buffer to receive the max size.
  *
  * This function is called to get the maximum size for the memory pool 0 of
- * small (4KiB) pages. It is assumed that the maximum size value is same for
+ * small pages. It is assumed that the maximum size value is same for
  * all the pools.
  *
  * Return: The number of bytes output to @buf.
@@ -3861,14 +3886,14 @@ static ssize_t show_simplified_mem_pool_max_size(struct device *dev, struct devi
 
 /**
  * set_simplified_mem_pool_max_size - Set the same maximum size for all the
- *                                    memory pools of small (4KiB) pages.
+ *                                    memory pools of small (4KiB/16KiB/64KiB) pages.
  * @dev:   The device with sysfs file is for
  * @attr:  The attributes of the sysfs file
  * @buf:   The value written to the sysfs file
  * @count: The number of bytes written to the sysfs file
  *
  * This function is called to set the same maximum size for all the memory
- * pools of small (4KiB) pages.
+ * pools of small pages.
  *
  * Return: The number of bytes output to @buf.
  */
@@ -3877,7 +3902,7 @@ static ssize_t set_simplified_mem_pool_max_size(struct device *dev, struct devic
 {
 	struct kbase_device *const kbdev = to_kbase_device(dev);
 	unsigned long new_size;
-	int gid;
+	size_t gid;
 	int err;
 
 	CSTD_UNUSED(attr);
@@ -3892,7 +3917,7 @@ static ssize_t set_simplified_mem_pool_max_size(struct device *dev, struct devic
 	for (gid = 0; gid < MEMORY_GROUP_MANAGER_NR_GROUPS; ++gid)
 		kbase_mem_pool_debugfs_set_max_size(kbdev->mem_pools.small, gid, (size_t)new_size);
 
-	return count;
+	return (ssize_t)count;
 }
 
 static DEVICE_ATTR(max_size, 0600, show_simplified_mem_pool_max_size,
@@ -3944,7 +3969,7 @@ static ssize_t set_simplified_lp_mem_pool_max_size(struct device *dev,
 {
 	struct kbase_device *const kbdev = to_kbase_device(dev);
 	unsigned long new_size;
-	int gid;
+	size_t gid;
 	int err;
 
 	CSTD_UNUSED(attr);
@@ -3959,7 +3984,7 @@ static ssize_t set_simplified_lp_mem_pool_max_size(struct device *dev,
 	for (gid = 0; gid < MEMORY_GROUP_MANAGER_NR_GROUPS; ++gid)
 		kbase_mem_pool_debugfs_set_max_size(kbdev->mem_pools.large, gid, (size_t)new_size);
 
-	return count;
+	return (ssize_t)count;
 }
 
 static DEVICE_ATTR(lp_max_size, 0600, show_simplified_lp_mem_pool_max_size,
@@ -3967,15 +3992,15 @@ static DEVICE_ATTR(lp_max_size, 0600, show_simplified_lp_mem_pool_max_size,
 
 /**
  * show_simplified_ctx_default_max_size - Show the default maximum size for the
- *                                        memory pool 0 of small (4KiB) pages.
+ *                                        memory pool 0 of small (4KiB/16KiB/64KiB) pages.
  * @dev:  The device this sysfs file is for.
  * @attr: The attributes of the sysfs file.
  * @buf:  The output buffer to receive the pool size.
  *
  * This function is called to get the default ctx maximum size for the memory
- * pool 0 of small (4KiB) pages. It is assumed that maximum size value is same
+ * pool 0 of small pages. It is assumed that maximum size value is same
  * for all the pools. The maximum size for the pool of large (2MiB) pages will
- * be same as max size of the pool of small (4KiB) pages in terms of bytes.
+ * be same as max size of the pool of small pages in terms of bytes.
  *
  * Return: The number of bytes output to @buf.
  */
@@ -4032,7 +4057,7 @@ static ssize_t set_simplified_ctx_default_max_size(struct device *dev,
 
 	kbase_mem_pool_group_config_set_max_size(&kbdev->mem_pool_defaults, (size_t)new_size);
 
-	return count;
+	return (ssize_t)count;
 }
 
 static DEVICE_ATTR(ctx_default_max_size, 0600, show_simplified_ctx_default_max_size,
@@ -4102,7 +4127,7 @@ static ssize_t js_ctx_scheduling_mode_store(struct device *dev, struct device_at
 	}
 
 	if (new_js_ctx_scheduling_mode == kbdev->js_ctx_scheduling_mode)
-		return count;
+		return (ssize_t)count;
 
 	mutex_lock(&kbdev->kctx_list_lock);
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
@@ -4119,7 +4144,7 @@ static ssize_t js_ctx_scheduling_mode_store(struct device *dev, struct device_at
 
 	dev_dbg(kbdev->dev, "JS ctx scheduling mode: %u\n", new_js_ctx_scheduling_mode);
 
-	return count;
+	return (ssize_t)count;
 }
 
 static DEVICE_ATTR_RW(js_ctx_scheduling_mode);
@@ -4175,7 +4200,7 @@ static ssize_t update_serialize_jobs_setting(struct kbase_device *kbdev, const c
 		return -EINVAL;
 	}
 
-	return count;
+	return (ssize_t)count;
 }
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
@@ -4290,15 +4315,15 @@ static ssize_t show_serialize_jobs_sysfs(struct device *dev, struct device_attri
 
 	for (i = 0; i < NR_SERIALIZE_JOBS_SETTINGS; i++) {
 		if (kbdev->serialize_jobs == serialize_jobs_settings[i].setting)
-			ret += scnprintf(buf + ret, PAGE_SIZE - ret, "[%s]",
+			ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret), "[%s]",
 					 serialize_jobs_settings[i].name);
 		else
-			ret += scnprintf(buf + ret, PAGE_SIZE - ret, "%s ",
+			ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret), "%s ",
 					 serialize_jobs_settings[i].name);
 	}
 
 	if (ret < (ssize_t)(PAGE_SIZE - 1)) {
-		ret += scnprintf(buf + ret, PAGE_SIZE - ret, "\n");
+		ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret), "\n");
 	} else {
 		buf[PAGE_SIZE - 2] = '\n';
 		buf[PAGE_SIZE - 1] = '\0';
@@ -4690,7 +4715,7 @@ int power_control_init(struct kbase_device *kbdev)
 	 * operating with a partial initialization of clocks.
 	 */
 	for (i = 0; i < BASE_MAX_NR_CLOCKS_REGULATORS; i++) {
-		kbdev->clocks[i] = of_clk_get(kbdev->dev->of_node, i);
+		kbdev->clocks[i] = of_clk_get(kbdev->dev->of_node, (int)i);
 		if (IS_ERR(kbdev->clocks[i])) {
 			err = PTR_ERR(kbdev->clocks[i]);
 			kbdev->clocks[i] = NULL;
@@ -5247,6 +5272,93 @@ early_exit:
 
 
 #if MALI_USE_CSF
+
+bool kbasep_adjust_prioritized_process(struct kbase_device *kbdev, bool add, uint32_t tgid)
+{
+	struct kbase_context *kctx;
+	bool found_contexts = false;
+
+	mutex_lock(&kbdev->kctx_list_lock);
+	list_for_each_entry(kctx, &kbdev->kctx_list, kctx_list_link) {
+		if (kctx->tgid == tgid) {
+			if (add)
+				dev_dbg(kbdev->dev,
+					"Adding context %pK of process %u to prioritized list\n",
+					(void *)kctx, tgid);
+			else
+				dev_dbg(kbdev->dev,
+					"Removing context %pK of process %u from prioritized list\n",
+					(void *)kctx, tgid);
+			atomic_set(&kctx->prioritized, add);
+			found_contexts = true;
+		}
+	}
+	mutex_unlock(&kbdev->kctx_list_lock);
+
+	if (found_contexts)
+		kbase_csf_scheduler_kick(kbdev);
+
+	return found_contexts;
+}
+
+static ssize_t add_prioritized_process_store(struct device *dev, struct device_attribute *attr,
+					     const char *buf, size_t count)
+{
+	struct kbase_device *kbdev;
+	int ret;
+	unsigned int tgid;
+
+	CSTD_UNUSED(attr);
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	ret = kstrtouint(buf, 0, &tgid);
+	if (ret || tgid == 0) {
+		dev_err(kbdev->dev, "Invalid PID specified\n");
+		return -EINVAL;
+	}
+
+	if (unlikely(!kbasep_adjust_prioritized_process(kbdev, true, tgid))) {
+		dev_err(kbdev->dev, "Non-existent PID specified\n");
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR_WO(add_prioritized_process);
+
+static ssize_t remove_prioritized_process_store(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t count)
+{
+	struct kbase_device *kbdev;
+	int ret;
+	unsigned int tgid;
+
+	CSTD_UNUSED(attr);
+
+	kbdev = to_kbase_device(dev);
+	if (!kbdev)
+		return -ENODEV;
+
+	ret = kstrtouint(buf, 0, &tgid);
+	if (ret || tgid == 0) {
+		dev_err(kbdev->dev, "Invalid PID specified\n");
+		return -EINVAL;
+	}
+
+	if (unlikely(!kbasep_adjust_prioritized_process(kbdev, false, tgid))) {
+		dev_err(kbdev->dev, "Non-existent PID specified\n");
+		return -EINVAL;
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR_WO(remove_prioritized_process);
+
 /**
  * csg_scheduling_period_store - Store callback for the csg_scheduling_period
  * sysfs file.
@@ -5286,7 +5398,7 @@ static ssize_t csg_scheduling_period_store(struct device *dev, struct device_att
 	dev_dbg(kbdev->dev, "CSG scheduling period: %ums\n", csg_scheduling_period);
 	kbase_csf_scheduler_unlock(kbdev);
 
-	return count;
+	return (ssize_t)count;
 }
 
 /**
@@ -5350,16 +5462,16 @@ static ssize_t fw_timeout_store(struct device *dev, struct device_attribute *att
 			"Couldn't process fw_timeout write operation.\n"
 			"Use format 'fw_timeout_ms', and fw_timeout_ms > 0\n"
 			"Default fw_timeout: %u",
-			kbase_get_timeout_ms(kbdev, CSF_FIRMWARE_PING_TIMEOUT));
+			kbase_get_timeout_ms(kbdev, CSF_FIRMWARE_TIMEOUT));
 		return -EINVAL;
 	}
 
 	kbase_csf_scheduler_lock(kbdev);
-	kbdev->csf.fw_timeout_ms = fw_timeout;
+	kbase_device_set_timeout_ms(kbdev, CSF_FIRMWARE_TIMEOUT, fw_timeout);
 	kbase_csf_scheduler_unlock(kbdev);
 	dev_dbg(kbdev->dev, "Firmware timeout: %ums\n", fw_timeout);
 
-	return count;
+	return (ssize_t)count;
 }
 
 /**
@@ -5383,7 +5495,7 @@ static ssize_t fw_timeout_show(struct device *dev, struct device_attribute *attr
 	if (!kbdev)
 		return -ENODEV;
 
-	ret = scnprintf(buf, PAGE_SIZE, "%u\n", kbdev->csf.fw_timeout_ms);
+	ret = scnprintf(buf, PAGE_SIZE, "%u\n", kbase_get_timeout_ms(kbdev, CSF_FIRMWARE_TIMEOUT));
 
 	return ret;
 }
@@ -5409,7 +5521,7 @@ static ssize_t idle_hysteresis_time_store(struct device *dev, struct device_attr
 					  const char *buf, size_t count)
 {
 	struct kbase_device *kbdev;
-	u32 dur = 0;
+	u32 dur_us = 0;
 
 	CSTD_UNUSED(attr);
 
@@ -5417,7 +5529,7 @@ static ssize_t idle_hysteresis_time_store(struct device *dev, struct device_attr
 	if (!kbdev)
 		return -ENODEV;
 
-	if (kstrtou32(buf, 0, &dur)) {
+	if (kstrtou32(buf, 0, &dur_us)) {
 		dev_err(kbdev->dev, "Couldn't process idle_hysteresis_time write operation.\n"
 				    "Use format <idle_hysteresis_time>\n");
 		return -EINVAL;
@@ -5426,9 +5538,9 @@ static ssize_t idle_hysteresis_time_store(struct device *dev, struct device_attr
 	/* In sysFs, The unit of the input value of idle_hysteresis_time is us.
 	 * But the unit of the input parameter of this function is ns, so multiply by 1000
 	 */
-	kbase_csf_firmware_set_gpu_idle_hysteresis_time(kbdev, dur * NSEC_PER_USEC);
+	kbase_csf_firmware_set_gpu_idle_hysteresis_time(kbdev, (u64)dur_us * NSEC_PER_USEC);
 
-	return count;
+	return (ssize_t)count;
 }
 
 /**
@@ -5438,7 +5550,7 @@ static ssize_t idle_hysteresis_time_store(struct device *dev, struct device_attr
  * @attr: The attributes of the sysfs file.
  * @buf:  The output buffer to receive the GPU information.
  *
- * This function is called to get the current idle hysteresis duration in ms.
+ * This function is called to get the current idle hysteresis duration in us.
  *
  * Return: The number of bytes output to @buf.
  */
@@ -5447,7 +5559,7 @@ static ssize_t idle_hysteresis_time_show(struct device *dev, struct device_attri
 {
 	struct kbase_device *kbdev;
 	ssize_t ret;
-	u32 dur;
+	u64 dur_us;
 
 	CSTD_UNUSED(attr);
 
@@ -5455,9 +5567,9 @@ static ssize_t idle_hysteresis_time_show(struct device *dev, struct device_attri
 	if (!kbdev)
 		return -ENODEV;
 
-	/* The unit of return value of idle_hysteresis_time_show is us, So divide by 1000.*/
-	dur = kbase_csf_firmware_get_gpu_idle_hysteresis_time(kbdev) / NSEC_PER_USEC;
-	ret = scnprintf(buf, PAGE_SIZE, "%u\n", dur);
+	/* The unit of return value of idle_hysteresis_time_show is us, So divide by 1000 */
+	dur_us = div_u64(kbase_csf_firmware_get_gpu_idle_hysteresis_time(kbdev), NSEC_PER_USEC);
+	ret = scnprintf(buf, PAGE_SIZE, "%u\n", (u32)dur_us);
 
 	return ret;
 }
@@ -5484,19 +5596,19 @@ static ssize_t idle_hysteresis_time_ns_store(struct device *dev, struct device_a
 					     const char *buf, size_t count)
 {
 	struct kbase_device *kbdev;
-	u32 dur = 0;
+	u64 dur_ns = 0;
 
 	kbdev = to_kbase_device(dev);
 	if (!kbdev)
 		return -ENODEV;
 
-	if (kstrtou32(buf, 0, &dur)) {
+	if (kstrtou64(buf, 0, &dur_ns)) {
 		dev_err(kbdev->dev, "Couldn't process idle_hysteresis_time_ns write operation.\n"
 				    "Use format <idle_hysteresis_time_ns>\n");
 		return -EINVAL;
 	}
 
-	kbase_csf_firmware_set_gpu_idle_hysteresis_time(kbdev, dur);
+	kbase_csf_firmware_set_gpu_idle_hysteresis_time(kbdev, dur_ns);
 
 	return count;
 }
@@ -5518,14 +5630,14 @@ static ssize_t idle_hysteresis_time_ns_show(struct device *dev, struct device_at
 {
 	struct kbase_device *kbdev;
 	ssize_t ret;
-	u32 dur;
+	u64 dur_ns;
 
 	kbdev = to_kbase_device(dev);
 	if (!kbdev)
 		return -ENODEV;
 
-	dur = kbase_csf_firmware_get_gpu_idle_hysteresis_time(kbdev);
-	ret = scnprintf(buf, PAGE_SIZE, "%u\n", dur);
+	dur_ns = kbase_csf_firmware_get_gpu_idle_hysteresis_time(kbdev);
+	ret = scnprintf(buf, PAGE_SIZE, "%llu\n", dur_ns);
 
 	return ret;
 }
@@ -5549,16 +5661,16 @@ static ssize_t mcu_shader_pwroff_timeout_show(struct device *dev, struct device_
 					      char *const buf)
 {
 	struct kbase_device *kbdev = dev_get_drvdata(dev);
-	u32 pwroff;
+	u64 pwroff_us;
 
 	CSTD_UNUSED(attr);
 
 	if (!kbdev)
 		return -ENODEV;
 
-	/* The unit of return value of the function is us, So divide by 1000.*/
-	pwroff = kbase_csf_firmware_get_mcu_core_pwroff_time(kbdev) / NSEC_PER_USEC;
-	return scnprintf(buf, PAGE_SIZE, "%u\n", pwroff);
+	/* The unit of return value of the function is us, So divide by 1000 */
+	pwroff_us = div_u64(kbase_csf_firmware_get_mcu_core_pwroff_time(kbdev), NSEC_PER_USEC);
+	return scnprintf(buf, PAGE_SIZE, "%u\n", (u32)pwroff_us);
 }
 
 /**
@@ -5579,7 +5691,7 @@ static ssize_t mcu_shader_pwroff_timeout_store(struct device *dev, struct device
 					       const char *buf, size_t count)
 {
 	struct kbase_device *kbdev = dev_get_drvdata(dev);
-	u32 dur;
+	u32 dur_us;
 
 	const struct kbase_pm_policy *current_policy;
 	bool always_on;
@@ -5589,20 +5701,20 @@ static ssize_t mcu_shader_pwroff_timeout_store(struct device *dev, struct device
 	if (!kbdev)
 		return -ENODEV;
 
-	if (kstrtouint(buf, 0, &dur))
+	if (kstrtou32(buf, 0, &dur_us))
 		return -EINVAL;
 
 	current_policy = kbase_pm_get_policy(kbdev);
 	always_on = current_policy == &kbase_pm_always_on_policy_ops;
-	if (dur == 0 && !always_on)
+	if (dur_us == 0 && !always_on)
 		return -EINVAL;
 
 	/* In sysFs, The unit of the input value of mcu_shader_pwroff_timeout is us.
 	 * But the unit of the input parameter of this function is ns, so multiply by 1000
 	 */
-	kbase_csf_firmware_set_mcu_core_pwroff_time(kbdev, dur * NSEC_PER_USEC);
+	kbase_csf_firmware_set_mcu_core_pwroff_time(kbdev, (u64)dur_us * NSEC_PER_USEC);
 
-	return count;
+	return (ssize_t)count;
 }
 
 static DEVICE_ATTR_RW(mcu_shader_pwroff_timeout);
@@ -5624,13 +5736,13 @@ static ssize_t mcu_shader_pwroff_timeout_ns_show(struct device *dev, struct devi
 						 char *const buf)
 {
 	struct kbase_device *kbdev = dev_get_drvdata(dev);
-	u32 pwroff;
+	u64 pwroff_ns;
 
 	if (!kbdev)
 		return -ENODEV;
 
-	pwroff = kbase_csf_firmware_get_mcu_core_pwroff_time(kbdev);
-	return scnprintf(buf, PAGE_SIZE, "%u\n", pwroff);
+	pwroff_ns = kbase_csf_firmware_get_mcu_core_pwroff_time(kbdev);
+	return scnprintf(buf, PAGE_SIZE, "%llu\n", pwroff_ns);
 }
 
 /**
@@ -5651,7 +5763,7 @@ static ssize_t mcu_shader_pwroff_timeout_ns_store(struct device *dev, struct dev
 						  const char *buf, size_t count)
 {
 	struct kbase_device *kbdev = dev_get_drvdata(dev);
-	u32 dur;
+	u64 dur_ns;
 
 	const struct kbase_pm_policy *current_policy;
 	bool always_on;
@@ -5659,15 +5771,15 @@ static ssize_t mcu_shader_pwroff_timeout_ns_store(struct device *dev, struct dev
 	if (!kbdev)
 		return -ENODEV;
 
-	if (kstrtouint(buf, 0, &dur))
+	if (kstrtou64(buf, 0, &dur_ns))
 		return -EINVAL;
 
 	current_policy = kbase_pm_get_policy(kbdev);
 	always_on = current_policy == &kbase_pm_always_on_policy_ops;
-	if (dur == 0 && !always_on)
+	if (dur_ns == 0 && !always_on)
 		return -EINVAL;
 
-	kbase_csf_firmware_set_mcu_core_pwroff_time(kbdev, dur);
+	kbase_csf_firmware_set_mcu_core_pwroff_time(kbdev, dur_ns);
 
 	return count;
 }
@@ -5702,6 +5814,8 @@ static struct attribute *kbase_attrs[] = {
 	&dev_attr_js_scheduling_period.attr,
 #else
 	&dev_attr_csg_scheduling_period.attr,
+	&dev_attr_add_prioritized_process.attr,
+	&dev_attr_remove_prioritized_process.attr,
 	&dev_attr_fw_timeout.attr,
 	&dev_attr_idle_hysteresis_time.attr,
 	&dev_attr_idle_hysteresis_time_ns.attr,
@@ -5859,6 +5973,10 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 #endif
 
 		dev_info(kbdev->dev, "Probed as %s\n", dev_name(kbdev->mdev.this_device));
+		if (PAGE_SHIFT != 12)
+			dev_warn(kbdev->dev, "Experimental feature: %s with Page Size of %luKiB",
+				 dev_name(kbdev->mdev.this_device), PAGE_SIZE / 1024);
+
 		kbase_increment_device_id();
 #if (KERNEL_VERSION(5, 3, 0) <= LINUX_VERSION_CODE)
 		mutex_unlock(&kbase_probe_mutex);
@@ -6150,8 +6268,8 @@ void kbase_trace_mali_pm_status(u32 dev_id, u32 event, u64 value)
 void kbase_trace_mali_job_slots_event(u32 dev_id, u32 event, const struct kbase_context *kctx,
 				      u8 atom_id)
 {
-	trace_mali_job_slots_event(dev_id, event, (kctx != NULL ? kctx->tgid : 0),
-				   (kctx != NULL ? kctx->pid : 0), atom_id);
+	trace_mali_job_slots_event(dev_id, event, (kctx != NULL ? (u32)kctx->tgid : 0U),
+				   (kctx != NULL ? (u32)kctx->pid : 0U), atom_id);
 }
 
 void kbase_trace_mali_page_fault_insert_pages(u32 dev_id, int event, u32 value)

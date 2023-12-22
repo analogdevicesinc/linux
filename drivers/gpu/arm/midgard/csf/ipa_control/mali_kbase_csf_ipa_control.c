@@ -46,11 +46,6 @@
 #define TIMER_EVENTS_PER_SECOND ((u32)1000 / IPA_CONTROL_TIMER_DEFAULT_VALUE_MS)
 
 /*
- * Maximum number of loops polling the GPU before we assume the GPU has hung.
- */
-#define IPA_INACTIVE_MAX_LOOPS (8000000U)
-
-/*
  * Number of bits used to configure a performance counter in SELECT registers.
  */
 #define IPA_CONTROL_SELECT_BITS_PER_CNT ((u64)8)
@@ -86,16 +81,16 @@ static u32 timer_value(u32 gpu_rate)
 
 static int wait_status(struct kbase_device *kbdev, u32 flags)
 {
-	unsigned int max_loops = IPA_INACTIVE_MAX_LOOPS;
-	u32 status = kbase_reg_read32(kbdev, IPA_CONTROL_ENUM(STATUS));
-
+	u32 val;
+	const u32 timeout_us = kbase_get_timeout_ms(kbdev, IPA_INACTIVE_TIMEOUT) * USEC_PER_MSEC;
 	/*
 	 * Wait for the STATUS register to indicate that flags have been
 	 * cleared, in case a transition is pending.
 	 */
-	while (--max_loops && (status & flags))
-		status = kbase_reg_read32(kbdev, IPA_CONTROL_ENUM(STATUS));
-	if (max_loops == 0) {
+	const int err = kbase_reg_poll32_timeout(kbdev, IPA_CONTROL_ENUM(STATUS), val,
+						 !(val & flags), 0, timeout_us, false);
+
+	if (err) {
 		dev_err(kbdev->dev, "IPA_CONTROL STATUS register stuck");
 		return -EBUSY;
 	}
@@ -126,7 +121,7 @@ static int apply_select_config(struct kbase_device *kbdev, u64 *select)
 	return ret;
 }
 
-static u64 read_value_cnt(struct kbase_device *kbdev, u8 type, int select_idx)
+static u64 read_value_cnt(struct kbase_device *kbdev, u8 type, u8 select_idx)
 {
 	switch (type) {
 	case KBASE_IPA_CORE_TYPE_CSHW:

@@ -87,7 +87,7 @@ int kbase_pm_context_active_handle_suspend(struct kbase_device *kbdev,
 		}
 	}
 	c = ++kbdev->pm.active_count;
-	KBASE_KTRACE_ADD(kbdev, PM_CONTEXT_ACTIVE, NULL, c);
+	KBASE_KTRACE_ADD(kbdev, PM_CONTEXT_ACTIVE, NULL, (u64)c);
 
 	if (c == 1) {
 		/* First context active: Power on the GPU and
@@ -117,7 +117,7 @@ void kbase_pm_context_idle(struct kbase_device *kbdev)
 	kbase_pm_lock(kbdev);
 
 	c = --kbdev->pm.active_count;
-	KBASE_KTRACE_ADD(kbdev, PM_CONTEXT_IDLE, NULL, c);
+	KBASE_KTRACE_ADD(kbdev, PM_CONTEXT_IDLE, NULL, (u64)c);
 
 	KBASE_DEBUG_ASSERT(c >= 0);
 
@@ -200,8 +200,9 @@ int kbase_pm_driver_suspend(struct kbase_device *kbdev)
 	mutex_unlock(&kbdev->pm.lock);
 
 #ifdef CONFIG_MALI_ARBITER_SUPPORT
+#if !MALI_USE_CSF
 	if (kbdev->arb.arb_if) {
-		int i;
+		unsigned int i;
 		unsigned long flags;
 
 		spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
@@ -211,6 +212,7 @@ int kbase_pm_driver_suspend(struct kbase_device *kbdev)
 			kbase_job_slot_softstop(kbdev, i, NULL);
 		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 	}
+#endif /* !MALI_USE_CSF */
 #endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
 	/* From now on, the active count will drop towards zero. Sometimes,

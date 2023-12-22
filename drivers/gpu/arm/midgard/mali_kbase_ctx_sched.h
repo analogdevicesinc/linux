@@ -22,7 +22,10 @@
 #ifndef _KBASE_CTX_SCHED_H_
 #define _KBASE_CTX_SCHED_H_
 
-#include <mali_kbase.h>
+#include <linux/types.h>
+
+struct kbase_context;
+struct kbase_device;
 
 /**
  * DOC: The Context Scheduler manages address space assignment and reference
@@ -60,7 +63,7 @@ int kbase_ctx_sched_init(struct kbase_device *kbdev);
 void kbase_ctx_sched_term(struct kbase_device *kbdev);
 
 /**
- * kbase_ctx_sched_ctx_init - Initialize per-context data fields for scheduling
+ * kbase_ctx_sched_init_ctx - Initialize per-context data fields for scheduling
  * @kctx: The context to initialize
  *
  * This must be called during context initialization before any other context

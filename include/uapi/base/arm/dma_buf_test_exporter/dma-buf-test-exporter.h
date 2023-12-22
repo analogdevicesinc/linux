@@ -62,7 +62,7 @@ struct dma_buf_te_ioctl_set_failing {
 
 struct dma_buf_te_ioctl_fill {
 	int fd;
-	unsigned int value;
+	int value;
 };
 
 #define DMA_BUF_TE_IOCTL_BASE 'E'

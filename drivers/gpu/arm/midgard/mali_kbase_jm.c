@@ -70,13 +70,13 @@ u32 kbase_jm_kick(struct kbase_device *kbdev, u32 js_mask)
 	dev_dbg(kbdev->dev, "JM kick slot mask 0x%x\n", js_mask);
 
 	while (js_mask) {
-		unsigned int js = ffs(js_mask) - 1;
+		unsigned int js = (unsigned int)ffs((int)js_mask) - 1U;
 		int nr_jobs_to_submit = kbase_backend_slot_free(kbdev, js);
 
 		if (kbase_jm_next_job(kbdev, js, nr_jobs_to_submit))
-			ret_mask |= (1 << js);
+			ret_mask |= (1U << js);
 
-		js_mask &= ~(1 << js);
+		js_mask &= ~(1U << js);
 	}
 
 	dev_dbg(kbdev->dev, "Can still submit to mask 0x%x\n", ret_mask);

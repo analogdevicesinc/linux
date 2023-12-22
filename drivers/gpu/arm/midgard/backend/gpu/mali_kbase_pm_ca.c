@@ -109,13 +109,19 @@ unlock:
 KBASE_EXPORT_TEST_API(kbase_devfreq_set_core_mask);
 #endif
 
-u64 kbase_pm_ca_get_core_mask(struct kbase_device *kbdev)
+u64 kbase_pm_ca_get_debug_core_mask(struct kbase_device *kbdev)
 {
 #if MALI_USE_CSF
-	u64 debug_core_mask = kbdev->pm.debug_core_mask;
+	return kbdev->pm.debug_core_mask;
 #else
-	u64 debug_core_mask = kbdev->pm.debug_core_mask_all;
+	return kbdev->pm.debug_core_mask_all;
 #endif
+}
+KBASE_EXPORT_TEST_API(kbase_pm_ca_get_debug_core_mask);
+
+u64 kbase_pm_ca_get_core_mask(struct kbase_device *kbdev)
+{
+	u64 debug_core_mask = kbase_pm_ca_get_debug_core_mask(kbdev);
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 

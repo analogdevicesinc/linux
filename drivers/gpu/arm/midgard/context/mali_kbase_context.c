@@ -188,7 +188,7 @@ int kbase_context_common_init(struct kbase_context *kctx)
 	bitmap_copy(kctx->cookies, &cookies_mask, BITS_PER_LONG);
 	kbase_gpu_vm_unlock(kctx);
 
-	kctx->id = atomic_add_return(1, &(kctx->kbdev->ctx_num)) - 1;
+	kctx->id = (u32)atomic_add_return(1, &(kctx->kbdev->ctx_num)) - 1;
 
 	mutex_lock(&kctx->kbdev->kctx_list_lock);
 	err = kbase_insert_kctx_to_process(kctx);

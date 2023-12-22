@@ -30,7 +30,7 @@
 
 int kbase_backend_gpuprops_get(struct kbase_device *kbdev, struct kbasep_gpuprops_regdump *regdump)
 {
-	int i;
+	uint i;
 
 	/* regdump is zero intiialized, individual entries do not need to be explicitly set */
 	regdump->gpu_id = KBASE_REG_READ(kbdev, GPU_CONTROL_ENUM(GPU_ID));
@@ -122,7 +122,7 @@ int kbase_backend_gpuprops_get_l2_features(struct kbase_device *kbdev,
 
 #if MALI_USE_CSF
 		if (kbase_hw_has_l2_slice_hash_feature(kbdev)) {
-			int i;
+			uint i;
 			for (i = 0; i < GPU_L2_SLICE_HASH_COUNT; i++)
 				regdump->l2_slice_hash[i] =
 					kbase_reg_read32(kbdev, GPU_L2_SLICE_HASH_OFFSET(i));

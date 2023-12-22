@@ -22,7 +22,9 @@
 #ifndef _KBASE_PBHA_H
 #define _KBASE_PBHA_H
 
-#include <mali_kbase.h>
+#include <linux/types.h>
+
+struct kbase_device;
 
 /**
  * kbasep_pbha_supported - check whether PBHA registers are

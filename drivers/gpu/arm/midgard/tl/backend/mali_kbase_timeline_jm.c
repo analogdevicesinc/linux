@@ -42,7 +42,7 @@ void kbase_create_timeline_objects(struct kbase_device *kbdev)
 
 	/* Summarize the Address Space objects. */
 	for (as_nr = 0; as_nr < kbdev->nr_hw_address_spaces; as_nr++)
-		__kbase_tlstream_tl_new_as(summary, &kbdev->as[as_nr], as_nr);
+		__kbase_tlstream_tl_new_as(summary, &kbdev->as[as_nr], (u32)as_nr);
 
 	/* Create GPU object and make it retain all LPUs and address spaces. */
 	__kbase_tlstream_tl_new_gpu(summary, kbdev, kbdev->id, kbdev->gpu_props.num_cores);

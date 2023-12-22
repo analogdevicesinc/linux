@@ -114,7 +114,8 @@ bool kbase_pm_is_mcu_desired(struct kbase_device *kbdev)
 		return true;
 
 #ifdef KBASE_PM_RUNTIME
-	if (kbdev->pm.backend.gpu_wakeup_override)
+	if (kbdev->pm.backend.gpu_wakeup_override ||
+	    kbdev->pm.backend.runtime_suspend_abort_reason != ABORT_REASON_NONE)
 		return true;
 #endif
 
@@ -351,12 +352,14 @@ __pure static u32 map_core_type_to_tl_pm_state(struct kbase_device *kbdev,
 }
 #endif
 
-#if IS_ENABLED(CONFIG_ARM64)
+#if IS_ENABLED(CONFIG_ARM64) && !MALI_USE_CSF
+
 static void mali_cci_flush_l2(struct kbase_device *kbdev)
 {
+	u32 val;
 	const u32 mask = CLEAN_CACHES_COMPLETED | RESET_COMPLETED;
-	u32 loops = KBASE_CLEAN_CACHE_MAX_LOOPS;
-	u32 raw;
+	const u32 timeout_us =
+		kbase_get_timeout_ms(kbdev, KBASE_CLEAN_CACHE_TIMEOUT) * USEC_PER_MSEC;
 
 	/*
 	 * Note that we don't take the cache flush mutex here since
@@ -368,14 +371,11 @@ static void mali_cci_flush_l2(struct kbase_device *kbdev)
 
 	kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_COMMAND), GPU_COMMAND_CACHE_CLN_INV_L2);
 
-	raw = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_RAWSTAT));
-
 	/* Wait for cache flush to complete before continuing, exit on
 	 * gpu resets or loop expiry.
 	 */
-	while (((raw & mask) == 0) && --loops) {
-		raw = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_RAWSTAT));
-	}
+	kbase_reg_poll32_timeout(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_RAWSTAT), val, val & mask, 0,
+				 timeout_us, false);
 }
 #endif
 
@@ -632,7 +632,7 @@ static void kbase_pm_l2_config_override(struct kbase_device *kbdev)
 		val |= (kbdev->l2_hash_override << L2_CONFIG_HASH_SHIFT);
 	} else if (kbdev->l2_hash_values_override) {
 #if MALI_USE_CSF
-		int i;
+		uint i;
 
 		WARN_ON(!kbase_hw_has_l2_slice_hash_feature(kbdev));
 
@@ -640,7 +640,7 @@ static void kbase_pm_l2_config_override(struct kbase_device *kbdev)
 		val |= (0x1 << L2_CONFIG_L2_SLICE_HASH_ENABLE_SHIFT);
 		for (i = 0; i < GPU_L2_SLICE_HASH_COUNT; i++) {
 			/* L2_SLICE_HASH and ASN_HASH alias each other */
-			dev_dbg(kbdev->dev, "Program 0x%x to ASN_HASH[%d]\n",
+			dev_dbg(kbdev->dev, "Program 0x%x to ASN_HASH[%u]\n",
 				kbdev->l2_hash_values[i], i);
 			kbase_reg_write32(kbdev, GPU_L2_SLICE_HASH_OFFSET(i),
 					  kbdev->l2_hash_values[i]);
@@ -757,19 +757,20 @@ static void kbase_pm_enable_mcu_db_notification(struct kbase_device *kbdev)
  */
 static void wait_mcu_as_inactive(struct kbase_device *kbdev)
 {
-	unsigned int max_loops = KBASE_AS_INACTIVE_MAX_LOOPS;
-
+	u32 val;
+	int err;
+	const u32 timeout_us =
+		kbase_get_timeout_ms(kbdev, KBASE_AS_INACTIVE_TIMEOUT) * USEC_PER_MSEC;
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
 	if (!kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_TURSEHW_2716))
 		return;
 
 	/* Wait for the AS_ACTIVE_INT bit to become 0 for the AS used by MCU FW */
-	while (--max_loops && kbase_reg_read32(kbdev, MMU_AS_OFFSET(MCU_AS_NR, STATUS)) &
-				      AS_STATUS_AS_ACTIVE_INT_MASK)
-		;
-
-	if (!WARN_ON_ONCE(max_loops == 0))
+	err = kbase_reg_poll32_timeout(kbdev, MMU_AS_OFFSET(MCU_AS_NR, STATUS), val,
+				       !(val & AS_STATUS_AS_ACTIVE_INT_MASK), 10, timeout_us,
+				       false);
+	if (!WARN_ON_ONCE(err == -ETIMEDOUT))
 		return;
 
 	dev_err(kbdev->dev, "AS_ACTIVE_INT bit stuck for AS %d used by MCU FW", MCU_AS_NR);
@@ -1341,15 +1342,8 @@ static void kbase_pm_l2_clear_backend_slot_submit_kctx(struct kbase_device *kbde
 
 static bool can_power_down_l2(struct kbase_device *kbdev)
 {
-#if MALI_USE_CSF
-	/* Due to the HW issue GPU2019-3878, need to prevent L2 power off
-	 * whilst MMU command is in progress.
-	 * Also defer the power-down if MMU is in process of page migration.
-	 */
-	return !kbdev->mmu_hw_operation_in_progress && !kbdev->mmu_page_migrate_in_progress;
-#else
+	/* Defer the power-down if MMU is in process of page migration. */
 	return !kbdev->mmu_page_migrate_in_progress;
-#endif
 }
 
 static bool can_power_up_l2(struct kbase_device *kbdev)
@@ -1508,7 +1502,7 @@ static int kbase_pm_l2_update_state(struct kbase_device *kbdev)
 				 * must power them on explicitly.
 				 */
 				if (l2_present != 1)
-					kbase_pm_invoke(kbdev, KBASE_PM_CORE_L2, l2_present & ~1,
+					kbase_pm_invoke(kbdev, KBASE_PM_CORE_L2, l2_present & ~1ULL,
 							ACTION_PWRON);
 				/* Clear backend slot submission kctx */
 				kbase_pm_l2_clear_backend_slot_submit_kctx(kbdev);
@@ -2501,7 +2495,8 @@ int kbase_pm_wait_for_l2_powered(struct kbase_device *kbdev)
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
 #if MALI_USE_CSF
-	timeout = kbase_csf_timeout_in_jiffies(kbase_get_timeout_ms(kbdev, CSF_PM_TIMEOUT));
+	timeout = (unsigned long)kbase_csf_timeout_in_jiffies(
+		kbase_get_timeout_ms(kbdev, CSF_PM_TIMEOUT));
 #else
 	timeout = msecs_to_jiffies(PM_TIMEOUT_MS);
 #endif
@@ -2510,11 +2505,11 @@ int kbase_pm_wait_for_l2_powered(struct kbase_device *kbdev)
 #if KERNEL_VERSION(4, 13, 1) <= LINUX_VERSION_CODE
 	remaining = wait_event_killable_timeout(kbdev->pm.backend.gpu_in_desired_state_wait,
 						kbase_pm_is_in_desired_state_with_l2_powered(kbdev),
-						timeout);
+						(long)timeout);
 #else
 	remaining = wait_event_timeout(kbdev->pm.backend.gpu_in_desired_state_wait,
 				       kbase_pm_is_in_desired_state_with_l2_powered(kbdev),
-				       timeout);
+				       (long)timeout);
 #endif
 
 	if (!remaining) {
@@ -2535,7 +2530,7 @@ static int pm_wait_for_desired_state(struct kbase_device *kbdev, bool killable_w
 #if MALI_USE_CSF
 	long timeout = kbase_csf_timeout_in_jiffies(kbase_get_timeout_ms(kbdev, CSF_PM_TIMEOUT));
 #else
-	long timeout = msecs_to_jiffies(PM_TIMEOUT_MS);
+	long timeout = (long)msecs_to_jiffies(PM_TIMEOUT_MS);
 #endif
 	int err = 0;
 
@@ -2662,7 +2657,7 @@ static int pm_wait_for_poweroff_work_complete(struct kbase_device *kbdev, bool k
 	/* Handling of timeout error isn't supported for arbiter builds */
 	const long timeout = MAX_SCHEDULE_TIMEOUT;
 #else
-	const long timeout = msecs_to_jiffies(PM_TIMEOUT_MS);
+	const long timeout = (long)msecs_to_jiffies(PM_TIMEOUT_MS);
 #endif
 #endif
 	int err = 0;
@@ -3081,7 +3076,7 @@ static int kbase_set_gpu_quirks(struct kbase_device *kbdev)
 
 #endif /* !MALI_USE_CSF */
 	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_IDVS_GROUP_SIZE)) {
-		int default_idvs_group_size = 0xF;
+		u32 default_idvs_group_size = 0xF;
 		u32 group_size = 0;
 
 		if (of_property_read_u32(kbdev->dev->of_node, "idvs-group-size", &group_size))
@@ -3219,6 +3214,7 @@ static void kbase_pm_hw_issues_apply(struct kbase_device *kbdev)
 
 void kbase_pm_cache_snoop_enable(struct kbase_device *kbdev)
 {
+#if !MALI_USE_CSF
 	if ((kbdev->current_gpu_coherency_mode == COHERENCY_ACE) && !kbdev->cci_snoop_enabled) {
 #if IS_ENABLED(CONFIG_ARM64)
 		if (kbdev->snoop_enable_smc != 0)
@@ -3227,10 +3223,12 @@ void kbase_pm_cache_snoop_enable(struct kbase_device *kbdev)
 		dev_dbg(kbdev->dev, "MALI - CCI Snoops - Enabled\n");
 		kbdev->cci_snoop_enabled = true;
 	}
+#endif /* !MALI_USE_CSF */
 }
 
 void kbase_pm_cache_snoop_disable(struct kbase_device *kbdev)
 {
+#if !MALI_USE_CSF
 	if (kbdev->cci_snoop_enabled) {
 #if IS_ENABLED(CONFIG_ARM64)
 		if (kbdev->snoop_disable_smc != 0) {
@@ -3241,6 +3239,7 @@ void kbase_pm_cache_snoop_disable(struct kbase_device *kbdev)
 		dev_dbg(kbdev->dev, "MALI - CCI Snoops Disabled\n");
 		kbdev->cci_snoop_enabled = false;
 	}
+#endif /* !MALI_USE_CSF */
 }
 
 #if !MALI_USE_CSF

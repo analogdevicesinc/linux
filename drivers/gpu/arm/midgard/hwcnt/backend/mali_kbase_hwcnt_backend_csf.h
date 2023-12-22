@@ -31,6 +31,8 @@
 #include "hwcnt/backend/mali_kbase_hwcnt_backend_csf_if.h"
 #include "hwcnt/mali_kbase_hwcnt_watchdog_if.h"
 
+struct kbase_hwcnt_physical_enable_map;
+
 /**
  * kbase_hwcnt_backend_csf_create() - Create a CSF hardware counter backend
  *                                    interface.
@@ -126,6 +128,15 @@ void kbase_hwcnt_backend_csf_on_before_reset(struct kbase_hwcnt_backend_interfac
 void kbase_hwcnt_backend_csf_set_hw_availability(struct kbase_hwcnt_backend_interface *iface,
 						 size_t num_l2_slices,
 						 uint64_t shader_present_bitmap);
+
+/** kbasep_hwcnt_backend_csf_process_enable_map() - Process the enable_map to
+ *                                                  guarantee headers are
+ *                                                  enabled if any counter is
+ *                                                  required.
+ * @phys_enable_map: HWC physical enable map to be processed.
+ */
+void kbasep_hwcnt_backend_csf_process_enable_map(
+	struct kbase_hwcnt_physical_enable_map *phys_enable_map);
 
 /**
  * kbase_hwcnt_backend_csf_on_prfcnt_sample() - CSF performance counter sample

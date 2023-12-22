@@ -145,7 +145,7 @@ static ssize_t store_fw_cfg(struct kobject *kobj, struct attribute *attr, const 
 		cur_val = config->cur_val;
 		if (cur_val == val) {
 			spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
-			return count;
+			return (ssize_t)count;
 		}
 
 		/* If configuration update cannot be performed with
@@ -209,7 +209,7 @@ static ssize_t store_fw_cfg(struct kobject *kobj, struct attribute *attr, const 
 		return -EINVAL;
 	}
 
-	return count;
+	return (ssize_t)count;
 }
 
 static const struct sysfs_ops fw_cfg_ops = {
@@ -373,17 +373,17 @@ int kbase_csf_firmware_cfg_fw_wa_init(struct kbase_device *kbdev)
 	if (entry_count == -EINVAL || entry_count == -ENODATA)
 		return 0;
 
-	entry_bytes = entry_count * sizeof(u32);
+	entry_bytes = (size_t)entry_count * sizeof(u32);
 	kbdev->csf.quirks_ext = kzalloc(entry_bytes, GFP_KERNEL);
 	if (!kbdev->csf.quirks_ext)
 		return -ENOMEM;
 
 	ret = of_property_read_u32_array(kbdev->dev->of_node, "quirks-ext", kbdev->csf.quirks_ext,
-					 entry_count);
+					 (size_t)entry_count);
 
 	if (ret == -EINVAL)
 		ret = of_property_read_u32_array(kbdev->dev->of_node, "quirks_ext",
-						 kbdev->csf.quirks_ext, entry_count);
+						 kbdev->csf.quirks_ext, (size_t)entry_count);
 
 	if (ret == -EINVAL || ret == -ENODATA) {
 		/* This is unexpected since the property is already accessed for counting the number

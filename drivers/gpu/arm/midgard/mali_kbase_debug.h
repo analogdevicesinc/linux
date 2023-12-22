@@ -22,7 +22,10 @@
 #ifndef _KBASE_DEBUG_H
 #define _KBASE_DEBUG_H
 
+#include <mali_malisw.h>
+
 #include <linux/bug.h>
+#include <linux/module.h>
 
 /** @brief If equals to 0, a trace containing the file, line, and function will be displayed before each message. */
 #define KBASE_DEBUG_SKIP_TRACE 0

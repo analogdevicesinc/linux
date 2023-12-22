@@ -50,7 +50,7 @@ struct rb_entry {
  *			u64 for serving as tagged value.
  * @kctx: Pointer to kbase context.
  */
-#define SLOT_RB_TAG_KCTX(kctx) (u64)((uintptr_t)(kctx))
+#define SLOT_RB_TAG_KCTX(kctx) ((u64)(uintptr_t)(kctx))
 /**
  * struct slot_rb - Slot ringbuffer
  * @entries:		Ringbuffer entries
@@ -116,7 +116,7 @@ struct kbase_backend_data {
  * within the timeout period
  */
 #define KBASE_RESET_GPU_COMMITTED 2
-/* The GPU reset process is currently occuring (timeout has expired or
+/* The GPU reset process is currently occurring (timeout has expired or
  * kbasep_try_reset_gpu_early was called)
  */
 #define KBASE_RESET_GPU_HAPPENING 3

@@ -24,13 +24,13 @@
 
 #if IS_ENABLED(CONFIG_ARM64)
 
-#include <mali_kbase.h>
+#include <linux/types.h>
 
-#define SMC_FAST_CALL (1 << 31)
-#define SMC_64 (1 << 30)
+#define SMC_FAST_CALL (1U << 31)
+#define SMC_64 (1U << 30)
 
 #define SMC_OEN_OFFSET 24
-#define SMC_OEN_MASK (0x3F << SMC_OEN_OFFSET) /* 6 bits */
+#define SMC_OEN_MASK (0x3FU << SMC_OEN_OFFSET) /* 6 bits */
 #define SMC_OEN_SIP (2 << SMC_OEN_OFFSET)
 #define SMC_OEN_STD (4 << SMC_OEN_OFFSET)
 

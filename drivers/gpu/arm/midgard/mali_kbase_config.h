@@ -26,9 +26,9 @@
 #ifndef _KBASE_CONFIG_H_
 #define _KBASE_CONFIG_H_
 
-#include <linux/mm.h>
 #include <mali_malisw.h>
-#include <backend/gpu/mali_kbase_backend_config.h>
+
+#include <linux/mm.h>
 
 /* Forward declaration of struct kbase_device */
 struct kbase_device;

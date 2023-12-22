@@ -536,7 +536,7 @@ kbasep_hwcnt_backend_csf_if_fw_dump_enable(struct kbase_hwcnt_backend_csf_if_ctx
 		(struct kbase_hwcnt_backend_csf_if_fw_ctx *)ctx;
 	struct kbase_hwcnt_backend_csf_if_fw_ring_buf *fw_ring_buf =
 		(struct kbase_hwcnt_backend_csf_if_fw_ring_buf *)ring_buf;
-	u32 max_csg_slots;
+	u32 csg_mask;
 
 	WARN_ON(!ctx);
 	WARN_ON(!ring_buf);
@@ -545,7 +545,7 @@ kbasep_hwcnt_backend_csf_if_fw_dump_enable(struct kbase_hwcnt_backend_csf_if_ctx
 
 	kbdev = fw_ctx->kbdev;
 	global_iface = &kbdev->csf.global_iface;
-	max_csg_slots = kbdev->csf.global_iface.group_num;
+	csg_mask = (1 << kbdev->csf.global_iface.group_num) - 1;
 
 	/* Configure */
 	prfcnt_config = GLB_PRFCNT_CONFIG_SIZE_SET(0, fw_ring_buf->buf_count);
@@ -570,7 +570,7 @@ kbasep_hwcnt_backend_csf_if_fw_dump_enable(struct kbase_hwcnt_backend_csf_if_ctx
 	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_CSG_EN, enable->csg_bm);
 
 	/* Enable all of the CSGs by default. */
-	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_CSG_SELECT, max_csg_slots);
+	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_CSG_SELECT, csg_mask);
 
 
 	/* Configure the HWC set and buffer size */

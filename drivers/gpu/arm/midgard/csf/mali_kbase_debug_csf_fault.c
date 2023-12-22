@@ -88,8 +88,8 @@ bool kbase_debug_csf_fault_notify(struct kbase_device *kbdev, struct kbase_conte
 		goto unlock;
 	}
 
-	kbdev->csf.dof.kctx_tgid = kctx ? kctx->tgid : 0;
-	kbdev->csf.dof.kctx_id = kctx ? kctx->id : 0;
+	kbdev->csf.dof.kctx_tgid = kctx ? (unsigned int)kctx->tgid : 0U;
+	kbdev->csf.dof.kctx_id = kctx ? kctx->id : 0U;
 	kbdev->csf.dof.error_code = error;
 	kbase_debug_csf_fault_wakeup(kbdev);
 
@@ -142,7 +142,7 @@ static ssize_t debug_csf_fault_read(struct file *file, char __user *buffer, size
 	spin_unlock_irqrestore(&kbdev->csf.dof.lock, flags);
 
 	dev_info(kbdev->dev, "debug csf fault info read");
-	return simple_read_from_buffer(buffer, size, f_pos, buf, count);
+	return simple_read_from_buffer(buffer, size, f_pos, buf, (size_t)count);
 }
 
 static int debug_csf_fault_open(struct inode *in, struct file *file)
@@ -197,7 +197,7 @@ static ssize_t debug_csf_fault_write(struct file *file, const char __user *ubuf,
 	 */
 	wake_up(&kbdev->csf.dof.dump_wait_wq);
 
-	return count;
+	return (ssize_t)count;
 }
 
 static int debug_csf_fault_release(struct inode *in, struct file *file)

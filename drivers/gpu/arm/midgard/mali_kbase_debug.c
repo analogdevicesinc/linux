@@ -19,7 +19,8 @@
  *
  */
 
-#include <mali_kbase.h>
+#include <mali_kbase_debug.h>
+#include <mali_kbase_linux.h>
 
 static struct kbasep_debug_assert_cb kbasep_debug_assert_registered_cb = { NULL, NULL };
 

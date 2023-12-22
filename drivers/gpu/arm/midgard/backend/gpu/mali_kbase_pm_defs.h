@@ -29,6 +29,8 @@
 #include "mali_kbase_pm_always_on.h"
 #include "mali_kbase_pm_coarse_demand.h"
 
+#include <hw_access/mali_kbase_hw_access_regmap.h>
+
 #if defined(CONFIG_PM_RUNTIME) || defined(CONFIG_PM)
 #define KBASE_PM_RUNTIME 1
 #endif
@@ -95,6 +97,21 @@ enum kbase_shader_core_state {
 #define KBASEP_SHADER_STATE(n) KBASE_SHADERS_##n,
 #include "mali_kbase_pm_shader_states.h"
 #undef KBASEP_SHADER_STATE
+};
+
+/**
+ * enum kbase_pm_runtime_suspend_abort_reason - Reason why runtime suspend was aborted
+ *                                              after the wake up of MCU.
+ *
+ * @ABORT_REASON_NONE:          Not aborted
+ * @ABORT_REASON_DB_MIRROR_IRQ: Runtime suspend was aborted due to DB_MIRROR irq.
+ * @ABORT_REASON_NON_IDLE_CGS:  Runtime suspend was aborted as CSGs were detected as non-idle after
+ *                              their suspension.
+ */
+enum kbase_pm_runtime_suspend_abort_reason {
+	ABORT_REASON_NONE,
+	ABORT_REASON_DB_MIRROR_IRQ,
+	ABORT_REASON_NON_IDLE_CGS
 };
 
 /**
@@ -248,9 +265,6 @@ union kbase_pm_policy_data {
  *                     states and transitions.
  * @cg1_disabled:      Set if the policy wants to keep the second core group
  *                     powered off
- * @driver_ready_for_irqs: Debug state indicating whether sufficient
- *                         initialization of the driver has occurred to handle
- *                         IRQs
  * @metrics:           Structure to hold metrics for the GPU
  * @shader_tick_timer: Structure to hold the shader poweroff tick timer state
  * @poweroff_wait_in_progress: true if a wait for GPU power off is in progress.
@@ -290,6 +304,8 @@ union kbase_pm_policy_data {
  *                                     called previously.
  *                                     See &struct kbase_pm_callback_conf.
  * @ca_cores_enabled: Cores that are currently available
+ * @apply_hw_issue_TITANHW_2938_wa: Indicates if the workaround for BASE_HW_ISSUE_TITANHW_2938
+ *                                  needs to be applied when unmapping memory from GPU.
  * @mcu_state: The current state of the micro-control unit, only applicable
  *             to GPUs that have such a component
  * @l2_state:     The current state of the L2 cache state machine. See
@@ -358,6 +374,12 @@ union kbase_pm_policy_data {
  *                       mode for the saving the HW state before power down.
  * @db_mirror_interrupt_enabled: Flag tracking if the Doorbell mirror interrupt
  *                               is enabled or not.
+ * @runtime_suspend_abort_reason: Tracks if the runtime suspend was aborted,
+ *                                after the wake up of MCU, due to the DB_MIRROR irq
+ *                                or non-idle CSGs. Tracking is done to avoid
+ *                                redundant transition of MCU to sleep state after the
+ *                                abort of runtime suspend and before the resumption
+ *                                of scheduling.
  * @l2_force_off_after_mcu_halt: Flag to indicate that L2 cache power down is
  *				 must after performing the MCU halt. Flag is set
  *				 immediately after the MCU halt and cleared
@@ -427,10 +449,6 @@ struct kbase_pm_backend_data {
 
 	bool cg1_disabled;
 
-#ifdef CONFIG_MALI_DEBUG
-	bool driver_ready_for_irqs;
-#endif /* CONFIG_MALI_DEBUG */
-
 	struct kbasep_pm_metrics_state metrics;
 
 	struct kbasep_pm_tick_timer_state shader_tick_timer;
@@ -458,6 +476,7 @@ struct kbase_pm_backend_data {
 	u64 ca_cores_enabled;
 
 #if MALI_USE_CSF
+	bool apply_hw_issue_TITANHW_2938_wa;
 	enum kbase_mcu_state mcu_state;
 #endif
 	enum kbase_l2_core_state l2_state;
@@ -479,6 +498,7 @@ struct kbase_pm_backend_data {
 	bool gpu_idled;
 	bool gpu_wakeup_override;
 	bool db_mirror_interrupt_enabled;
+	enum kbase_pm_runtime_suspend_abort_reason runtime_suspend_abort_reason;
 #endif
 
 	bool l2_force_off_after_mcu_halt;

@@ -63,7 +63,7 @@ static void kbase_fence_fence_value_str(struct dma_fence *fence, char *str, int 
 	else
 		format = "%llu";
 
-	if (unlikely(!scnprintf(str, size, format, fence->seqno)))
+	if (unlikely(!scnprintf(str, (size_t)size, format, fence->seqno)))
 		pr_err("Fail to encode fence seqno to string");
 }
 

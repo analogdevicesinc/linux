@@ -20,9 +20,14 @@
  */
 
 #if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
+
 #include "mali_power_gpu_work_period_trace.h"
 #include <mali_kbase_gpu_metrics.h>
 #include <mali_kbase_config_defaults.h>
+#include <mali_kbase.h>
+
+#include <linux/module.h>
+#include <linux/slab.h>
 
 /**
  * enum gpu_metrics_ctx_flags - Flags for the GPU metrics context

@@ -123,7 +123,7 @@ config MALI_MIDGARD_ENABLE_TRACE
 
 config MALI_ARBITER_SUPPORT
 	bool "Enable arbiter support for Mali"
-	depends on MALI_MIDGARD && !MALI_CSF_SUPPORT
+	depends on MALI_MIDGARD
 	default n
 	help
 	  Enable support for the arbiter interface in the driver.
@@ -202,16 +202,6 @@ config PAGE_MIGRATION_SUPPORT
 
 	  If in doubt, say Y. To strip out page migration symbols and support,
 	  say N.
-
-config MALI_MEMORY_FULLY_BACKED
-	bool "Enable memory fully physically-backed"
-	depends on MALI_MIDGARD && MALI_EXPERT
-	default n
-	help
-	  This option enables full physical backing of all virtual
-	  memory allocations in the kernel. Notice that this build
-	  option only affects allocations of grow-on-GPU-page-fault
-	  memory.
 
 config MALI_CORESTACK
 	bool "Enable support of GPU core stack power control"

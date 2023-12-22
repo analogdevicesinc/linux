@@ -27,8 +27,9 @@
 
 void kbasep_ktrace_backend_format_header(char *buffer, int sz, s32 *written)
 {
-	*written += MAX(
-		snprintf(buffer + *written, MAX(sz - *written, 0), "group,slot,prio,csi,kcpu"), 0);
+	*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
+				 "group,slot,prio,csi,kcpu"),
+			0);
 }
 
 void kbasep_ktrace_backend_format_msg(struct kbase_ktrace_msg *trace_msg, char *buffer, int sz,
@@ -43,38 +44,39 @@ void kbasep_ktrace_backend_format_msg(struct kbase_ktrace_msg *trace_msg, char *
 	if (be_msg->gpu.flags & KBASE_KTRACE_FLAG_CSF_GROUP) {
 		const s8 slot = be_msg->gpu.csg_nr;
 		/* group,slot, */
-		*written += MAX(snprintf(buffer + *written, MAX(sz - *written, 0), "%u,%d,",
+		*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), "%u,%d,",
 					 be_msg->gpu.group_handle, slot),
 				0);
 
 		/* prio */
 		if (slot >= 0)
-			*written += MAX(snprintf(buffer + *written, MAX(sz - *written, 0), "%u",
-						 be_msg->gpu.slot_prio),
+			*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
+						 "%u", be_msg->gpu.slot_prio),
 					0);
 
 		/* , */
-		*written += MAX(snprintf(buffer + *written, MAX(sz - *written, 0), ","), 0);
+		*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), ","), 0);
 	} else {
 		/* No group,slot,prio fields, but ensure ending with "," */
-		*written += MAX(snprintf(buffer + *written, MAX(sz - *written, 0), ",,,"), 0);
+		*written +=
+			MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), ",,,"), 0);
 	}
 
 	/* queue parts: csi */
 	if (trace_msg->backend.gpu.flags & KBASE_KTRACE_FLAG_CSF_QUEUE)
-		*written += MAX(snprintf(buffer + *written, MAX(sz - *written, 0), "%d",
+		*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), "%d",
 					 be_msg->gpu.csi_index),
 				0);
 
 	/* , */
-	*written += MAX(snprintf(buffer + *written, MAX(sz - *written, 0), ","), 0);
+	*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), ","), 0);
 
 	if (be_msg->gpu.flags & KBASE_KTRACE_FLAG_CSF_KCPU) {
 		/* kcpu data */
-		*written +=
-			MAX(snprintf(buffer + *written, MAX(sz - *written, 0), "kcpu %d (0x%llx)",
-				     be_msg->kcpu.id, be_msg->kcpu.extra_info_val),
-			    0);
+		*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
+					 "kcpu %d (0x%llx)", be_msg->kcpu.id,
+					 be_msg->kcpu.extra_info_val),
+				0);
 	}
 
 	/* Don't end with a trailing "," - this is a 'standalone' formatted

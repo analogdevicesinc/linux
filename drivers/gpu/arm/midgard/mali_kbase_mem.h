@@ -31,7 +31,6 @@
 #endif
 
 #include <hw_access/mali_kbase_hw_access_regmap.h>
-#include <linux/kref.h>
 #include <uapi/gpu/arm/midgard/mali_base_kernel.h>
 #include <mali_kbase_hw.h>
 #include "mali_kbase_pm.h"
@@ -40,7 +39,10 @@
 #include "mali_kbase_mem_linux.h"
 #include "mali_kbase_reg_track.h"
 #include "mali_kbase_mem_migrate.h"
-#include "mali_kbase_refcount_defs.h"
+
+#include <linux/version_compat_defs.h>
+#include <linux/sched/mm.h>
+#include <linux/kref.h>
 
 static inline void kbase_process_page_usage_inc(struct kbase_context *kctx, int pages);
 
@@ -107,49 +109,49 @@ static inline void kbase_process_page_usage_inc(struct kbase_context *kctx, int 
 
 /* AS<n>_MEMATTR values from MMU_MEMATTR_STAGE1: */
 /* Use GPU implementation-defined caching policy. */
-#define KBASE_MEMATTR_IMPL_DEF_CACHE_POLICY                                      \
-	((unsigned long long)(AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_SET(               \
-				      0, AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_IMPL) | \
-			      AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_SET(             \
-				      0, AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_WRITE_BACK)))
+#define KBASE_MEMATTR_IMPL_DEF_CACHE_POLICY                                         \
+	((unsigned long long)(AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_SET(                  \
+				      0ull, AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_IMPL) | \
+			      AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_SET(                \
+				      0ull, AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_WRITE_BACK)))
 /* The attribute set to force all resources to be cached. */
-#define KBASE_MEMATTR_FORCE_TO_CACHE_ALL                                          \
-	((unsigned long long)(AS_MEMATTR_ATTRIBUTE0_ALLOC_W_MASK |                \
-			      AS_MEMATTR_ATTRIBUTE0_ALLOC_R_MASK |                \
-			      AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_SET(                \
-				      0, AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_ALLOC) | \
-			      AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_SET(              \
-				      0, AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_WRITE_BACK)))
+#define KBASE_MEMATTR_FORCE_TO_CACHE_ALL                                             \
+	((unsigned long long)(AS_MEMATTR_ATTRIBUTE0_ALLOC_W_MASK |                   \
+			      AS_MEMATTR_ATTRIBUTE0_ALLOC_R_MASK |                   \
+			      AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_SET(                   \
+				      0ull, AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_ALLOC) | \
+			      AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_SET(                 \
+				      0ull, AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_WRITE_BACK)))
 /* Inner write-alloc cache setup, no outer caching */
-#define KBASE_MEMATTR_WRITE_ALLOC                                                 \
-	((unsigned long long)(AS_MEMATTR_ATTRIBUTE0_ALLOC_W_MASK |                \
-			      AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_SET(                \
-				      0, AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_ALLOC) | \
-			      AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_SET(              \
-				      0, AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_WRITE_BACK)))
+#define KBASE_MEMATTR_WRITE_ALLOC                                                    \
+	((unsigned long long)(AS_MEMATTR_ATTRIBUTE0_ALLOC_W_MASK |                   \
+			      AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_SET(                   \
+				      0ull, AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_ALLOC) | \
+			      AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_SET(                 \
+				      0ull, AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_WRITE_BACK)))
 /* Set to implementation defined, outer caching */
-#define KBASE_MEMATTR_AARCH64_OUTER_IMPL_DEF                                     \
-	((unsigned long long)(AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_SET(               \
-				      0, AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_IMPL) | \
-			      AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_SET(             \
-				      0, AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_WRITE_BACK)))
+#define KBASE_MEMATTR_AARCH64_OUTER_IMPL_DEF                                        \
+	((unsigned long long)(AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_SET(                  \
+				      0ull, AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_IMPL) | \
+			      AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_SET(                \
+				      0ull, AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_WRITE_BACK)))
 /* Set to write back memory, outer caching */
-#define KBASE_MEMATTR_AARCH64_OUTER_WA                                            \
-	((unsigned long long)(AS_MEMATTR_ATTRIBUTE0_ALLOC_W_MASK |                \
-			      AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_SET(                \
-				      0, AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_ALLOC) | \
-			      AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_SET(              \
-				      0, AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_WRITE_BACK)))
+#define KBASE_MEMATTR_AARCH64_OUTER_WA                                               \
+	((unsigned long long)(AS_MEMATTR_ATTRIBUTE0_ALLOC_W_MASK |                   \
+			      AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_SET(                   \
+				      0ull, AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_ALLOC) | \
+			      AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_SET(                 \
+				      0ull, AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_WRITE_BACK)))
 /* Set to inner non-cacheable, outer-non-cacheable
  * Setting defined by the alloc bits is ignored, but set to a valid encoding:
  * - no-alloc on read
  * - no alloc on write
  */
-#define KBASE_MEMATTR_AARCH64_NON_CACHEABLE                                       \
-	((unsigned long long)(AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_SET(                \
-				      0, AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_ALLOC) | \
-			      AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_SET(              \
-				      0, AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_NON_CACHEABLE)))
+#define KBASE_MEMATTR_AARCH64_NON_CACHEABLE                                          \
+	((unsigned long long)(AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_SET(                   \
+				      0ull, AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_ALLOC) | \
+			      AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_SET(                 \
+				      0ull, AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_NON_CACHEABLE)))
 
 /* Symbols for default MEMATTR to use
  * Default is - HW implementation defined caching
@@ -175,11 +177,11 @@ static inline void kbase_process_page_usage_inc(struct kbase_context *kctx, int 
  * shared, otherwise inner non-cacheable.
  * Outer cacheable if inner or outer shared, otherwise outer non-cacheable.
  */
-#define KBASE_MEMATTR_AARCH64_SHARED                                             \
-	((unsigned long long)(AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_SET(               \
-				      0, AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_IMPL) | \
-			      AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_SET(             \
-				      0, AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_SHARED)))
+#define KBASE_MEMATTR_AARCH64_SHARED                                                \
+	((unsigned long long)(AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_SET(                  \
+				      0ull, AS_MEMATTR_ATTRIBUTE0_ALLOC_SEL_IMPL) | \
+			      AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_SET(                \
+				      0ull, AS_MEMATTR_ATTRIBUTE0_MEMORY_TYPE_SHARED)))
 
 /* Normal memory, shared between MCU and Host */
 #define KBASE_MEMATTR_INDEX_SHARED 6
@@ -454,7 +456,7 @@ enum kbase_page_status {
  * @vmap_count:    Counter of kernel mappings.
  * @group_id:      Memory group ID obtained at the time of page allocation.
  *
- * Each 4KB page will have a reference to this struct in the private field.
+ * Each small page will have a reference to this struct in the private field.
  * This will be used to keep track of information required for Linux page
  * migration functionality as well as address for DMA mapping.
  */
@@ -473,10 +475,12 @@ struct kbase_page_metadata {
 		struct {
 			struct kbase_va_region *reg;
 			struct kbase_mmu_table *mmut;
+			/* GPU virtual page frame number, in GPU_PAGE_SIZE units */
 			u64 vpfn;
 		} mapped;
 		struct {
 			struct kbase_mmu_table *mmut;
+			/* GPU virtual page frame number info is in GPU_PAGE_SIZE units */
 			u64 pgd_vpfn_level;
 		} pt_mapped;
 		struct {
@@ -687,7 +691,7 @@ struct kbase_va_region {
 #endif /* MALI_JIT_PRESSURE_LIMIT_BASE */
 
 	kbase_refcount_t va_refcnt;
-	atomic_t no_user_free_count;
+	atomic64_t no_user_free_count;
 };
 
 /* Special marker for failed JIT allocations that still must be marked as
@@ -785,7 +789,7 @@ static inline struct kbase_va_region *kbase_va_region_alloc_put(struct kbase_con
  */
 static inline bool kbase_va_region_is_no_user_free(struct kbase_va_region *region)
 {
-	return atomic_read(&region->no_user_free_count) > 0;
+	return atomic64_read(&region->no_user_free_count) > 0;
 }
 
 /**
@@ -801,10 +805,10 @@ static inline bool kbase_va_region_is_no_user_free(struct kbase_va_region *regio
 static inline void kbase_va_region_no_user_free_inc(struct kbase_va_region *region)
 {
 	WARN_ON(kbase_is_region_shrinkable(region));
-	WARN_ON(atomic_read(&region->no_user_free_count) == INT_MAX);
+	WARN_ON(atomic64_read(&region->no_user_free_count) == S64_MAX);
 
 	/* non-atomic as kctx->reg_lock is held */
-	atomic_inc(&region->no_user_free_count);
+	atomic64_inc(&region->no_user_free_count);
 }
 
 /**
@@ -816,7 +820,7 @@ static inline void kbase_va_region_no_user_free_dec(struct kbase_va_region *regi
 {
 	WARN_ON(!kbase_va_region_is_no_user_free(region));
 
-	atomic_dec(&region->no_user_free_count);
+	atomic64_dec(&region->no_user_free_count);
 }
 
 /* Common functions */
@@ -967,14 +971,14 @@ static inline int kbase_reg_prepare_native(struct kbase_va_region *reg, struct k
 #define KBASE_MEM_POOL_MAX_SIZE_KCTX (SZ_64M >> PAGE_SHIFT)
 
 /*
- * The order required for a 2MB page allocation (2^order * 4KB = 2MB)
+ * The order required for a 2MB page allocation (2^order * PAGE_SIZE = 2MB)
  */
-#define KBASE_MEM_POOL_2MB_PAGE_TABLE_ORDER 9
+#define KBASE_MEM_POOL_2MB_PAGE_TABLE_ORDER (__builtin_ffs(NUM_PAGES_IN_2MB_LARGE_PAGE) - 1)
 
 /*
- * The order required for a 4KB page allocation
+ * The order required for a small page allocation
  */
-#define KBASE_MEM_POOL_4KB_PAGE_TABLE_ORDER 0
+#define KBASE_MEM_POOL_SMALL_PAGE_TABLE_ORDER 0
 
 /**
  * kbase_mem_pool_config_set_max_size - Set maximum number of free pages in
@@ -1009,7 +1013,7 @@ kbase_mem_pool_config_get_max_size(const struct kbase_mem_pool_config *const con
  * kbase_mem_pool_init - Create a memory pool for a kbase device
  * @pool:      Memory pool to initialize
  * @config:    Initial configuration for the memory pool
- * @order:     Page order for physical page size (order=0=>4kB, order=9=>2MB)
+ * @order:     Page order for physical page size (order=0 => small page, order != 0 => 2MB)
  * @group_id:  A memory group ID to be passed to a platform-specific
  *             memory group manager, if present.
  *             Valid range is 0..(MEMORY_GROUP_MANAGER_NR_GROUPS-1).
@@ -1108,7 +1112,7 @@ void kbase_mem_pool_free_locked(struct kbase_mem_pool *pool, struct page *p, boo
 /**
  * kbase_mem_pool_alloc_pages - Allocate pages from memory pool
  * @pool:     Memory pool to allocate from
- * @nr_4k_pages: Number of pages to allocate
+ * @nr_small_pages: Number of pages to allocate
  * @pages:    Pointer to array where the physical address of the allocated
  *            pages will be stored.
  * @partial_allowed: If fewer pages allocated is allowed
@@ -1130,14 +1134,14 @@ void kbase_mem_pool_free_locked(struct kbase_mem_pool *pool, struct page *p, boo
  * the kernel OoM killer runs. If the caller must allocate pages while holding
  * this lock, it should use kbase_mem_pool_alloc_pages_locked() instead.
  */
-int kbase_mem_pool_alloc_pages(struct kbase_mem_pool *pool, size_t nr_4k_pages,
+int kbase_mem_pool_alloc_pages(struct kbase_mem_pool *pool, size_t nr_small_pages,
 			       struct tagged_addr *pages, bool partial_allowed,
 			       struct task_struct *page_owner);
 
 /**
  * kbase_mem_pool_alloc_pages_locked - Allocate pages from memory pool
  * @pool:        Memory pool to allocate from
- * @nr_4k_pages: Number of pages to allocate
+ * @nr_small_pages: Number of pages to allocate
  * @pages:       Pointer to array where the physical address of the allocated
  *               pages will be stored.
  *
@@ -1171,7 +1175,7 @@ int kbase_mem_pool_alloc_pages(struct kbase_mem_pool *pool, size_t nr_4k_pages,
  *
  * Note : Caller must hold the pool lock.
  */
-int kbase_mem_pool_alloc_pages_locked(struct kbase_mem_pool *pool, size_t nr_4k_pages,
+int kbase_mem_pool_alloc_pages_locked(struct kbase_mem_pool *pool, size_t nr_small_pages,
 				      struct tagged_addr *pages);
 
 /**
@@ -1249,7 +1253,9 @@ void kbase_mem_pool_set_max_size(struct kbase_mem_pool *pool, size_t max_size);
  * Adds @nr_to_grow pages to the pool. Note that this may cause the pool to
  * become larger than the maximum size specified.
  *
- * Return: 0 on success, -ENOMEM if unable to allocate sufficent pages
+ * Return: 0 on success, -ENOMEM if unable to allocate sufficient pages or
+ * -EPERM if the allocation of pages is not permitted due to the process exit
+ * or context termination.
  */
 int kbase_mem_pool_grow(struct kbase_mem_pool *pool, size_t nr_to_grow,
 			struct task_struct *page_owner);
@@ -1500,7 +1506,7 @@ void kbase_mmu_interrupt(struct kbase_device *kbdev, u32 irq_stat);
  * Return: The address of the buffer containing the MMU dump or NULL on error
  * (including if the @c nr_pages is too small)
  */
-void *kbase_mmu_dump(struct kbase_context *kctx, int nr_pages);
+void *kbase_mmu_dump(struct kbase_context *kctx, size_t nr_pages);
 #endif
 
 /**

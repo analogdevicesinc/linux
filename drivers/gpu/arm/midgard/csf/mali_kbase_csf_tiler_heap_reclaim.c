@@ -29,7 +29,7 @@
 #define HEAP_SHRINKER_SEEKS (DEFAULT_SEEKS + 2)
 
 /* Tiler heap shrinker batch value */
-#define HEAP_SHRINKER_BATCH (512)
+#define HEAP_SHRINKER_BATCH (512 / (GPU_PAGES_PER_CPU_PAGE))
 
 /* Tiler heap reclaim scan (free) method size for limiting a scan run length */
 #define HEAP_RECLAIM_SCAN_BATCH_SIZE (HEAP_SHRINKER_BATCH << 7)
@@ -69,8 +69,8 @@ static void detach_ctx_from_heap_reclaim_mgr(struct kbase_context *kctx)
 
 		list_del_init(&info->mgr_link);
 		if (remaining)
-			WARN_ON(atomic_sub_return(remaining, &scheduler->reclaim_mgr.unused_pages) <
-				0);
+			WARN_ON(atomic_sub_return((int)remaining,
+						  &scheduler->reclaim_mgr.unused_pages) < 0);
 
 		dev_dbg(kctx->kbdev->dev,
 			"Reclaim_mgr_detach: ctx_%d_%d, est_pages=0%u, freed_pages=%u", kctx->tgid,
@@ -96,7 +96,7 @@ static void attach_ctx_to_heap_reclaim_mgr(struct kbase_context *kctx)
 
 	list_add_tail(&info->mgr_link, &scheduler->reclaim_mgr.ctx_lists[prio]);
 	/* Accumulate the estimated pages to the manager total field */
-	atomic_add(info->nr_est_unused_pages, &scheduler->reclaim_mgr.unused_pages);
+	atomic_add((int)info->nr_est_unused_pages, &scheduler->reclaim_mgr.unused_pages);
 
 	dev_dbg(kctx->kbdev->dev, "Reclaim_mgr_attach: ctx_%d_%d, est_count_pages=%u", kctx->tgid,
 		kctx->id, info->nr_est_unused_pages);
@@ -201,8 +201,8 @@ static unsigned long reclaim_unused_heap_pages(struct kbase_device *kbdev)
 		 * headers of the individual chunks and buffer descriptors.
 		 */
 		kbase_gpu_start_cache_clean(kbdev, GPU_COMMAND_CACHE_CLN_INV_L2);
-		if (kbase_gpu_wait_cache_clean_timeout(kbdev,
-						       kbdev->mmu_or_gpu_cache_op_wait_time_ms))
+		if (kbase_gpu_wait_cache_clean_timeout(
+			    kbdev, kbase_get_timeout_ms(kbdev, MMU_AS_INACTIVE_WAIT_TIMEOUT)))
 			dev_warn(
 				kbdev->dev,
 				"[%llu] Timeout waiting for CACHE_CLN_INV_L2 to complete before Tiler heap reclaim",
@@ -241,7 +241,7 @@ static unsigned long reclaim_unused_heap_pages(struct kbase_device *kbdev)
 				u32 rm_cnt = MIN(info->nr_est_unused_pages - info->nr_freed_pages,
 						 freed_pages);
 
-				WARN_ON(atomic_sub_return(rm_cnt, &mgr->unused_pages) < 0);
+				WARN_ON(atomic_sub_return((int)rm_cnt, &mgr->unused_pages) < 0);
 
 				/* tracking the freed pages, before a potential detach call */
 				info->nr_freed_pages += freed_pages;
@@ -278,7 +278,7 @@ static unsigned long kbase_csf_tiler_heap_reclaim_count_free_pages(struct kbase_
 								   struct shrink_control *sc)
 {
 	struct kbase_csf_sched_heap_reclaim_mgr *mgr = &kbdev->csf.scheduler.reclaim_mgr;
-	unsigned long page_cnt = atomic_read(&mgr->unused_pages);
+	unsigned long page_cnt = (unsigned long)atomic_read(&mgr->unused_pages);
 
 	CSTD_UNUSED(sc);
 
@@ -300,14 +300,14 @@ static unsigned long kbase_csf_tiler_heap_reclaim_scan_free_pages(struct kbase_d
 
 		/* Wait for roughly 2-ms */
 		wait_event_timeout(kbdev->csf.event_wait, (scheduler->state != SCHED_BUSY),
-				   msecs_to_jiffies(2));
+				   (long)msecs_to_jiffies(2));
 		if (!mutex_trylock(&kbdev->csf.scheduler.lock)) {
 			dev_dbg(kbdev->dev, "Tiler heap reclaim scan see device busy (freed: 0)");
 			return 0;
 		}
 	}
 
-	avail = atomic_read(&mgr->unused_pages);
+	avail = (unsigned long)atomic_read(&mgr->unused_pages);
 	if (avail)
 		freed = reclaim_unused_heap_pages(kbdev);
 

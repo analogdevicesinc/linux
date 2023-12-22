@@ -131,7 +131,7 @@ int job_atom_inject_error(struct kbase_error_params *params)
 	return 0;
 }
 
-void midgard_set_error(int job_slot)
+void midgard_set_error(u32 job_slot)
 {
 #ifdef CONFIG_MALI_ERROR_INJECT_RANDOM
 	gpu_generate_error();

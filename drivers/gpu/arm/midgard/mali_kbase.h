@@ -26,25 +26,6 @@
 
 #include <mali_kbase_debug.h>
 
-#include <linux/atomic.h>
-#include <linux/highmem.h>
-#include <linux/hrtimer.h>
-#include <linux/ktime.h>
-#include <linux/list.h>
-#include <linux/mm.h>
-#include <linux/mutex.h>
-#include <linux/rwsem.h>
-#include <linux/sched.h>
-#if (KERNEL_VERSION(4, 11, 0) <= LINUX_VERSION_CODE)
-#include <linux/sched/mm.h>
-#endif
-#include <linux/slab.h>
-#include <linux/spinlock.h>
-#include <linux/vmalloc.h>
-#include <linux/wait.h>
-#include <linux/workqueue.h>
-#include <linux/interrupt.h>
-
 #include <uapi/gpu/arm/midgard/mali_base_kernel.h>
 #include <mali_kbase_linux.h>
 #include <linux/version_compat_defs.h>
@@ -75,18 +56,39 @@
 
 #include "ipa/mali_kbase_ipa.h"
 
+#if MALI_USE_CSF
+#include "csf/mali_kbase_csf.h"
+#endif
+
 #if IS_ENABLED(CONFIG_GPU_TRACEPOINTS)
 #include <trace/events/gpu.h>
 #endif
 
 #include "mali_linux_trace.h"
 
+#include <linux/atomic.h>
+#include <linux/highmem.h>
+#include <linux/hrtimer.h>
+#include <linux/ktime.h>
+#include <linux/list.h>
+#include <linux/mm.h>
+#include <linux/mutex.h>
+#include <linux/rwsem.h>
+#include <linux/sched.h>
+#if (KERNEL_VERSION(4, 11, 0) <= LINUX_VERSION_CODE)
+#include <linux/sched/mm.h>
+#endif
+#include <linux/slab.h>
+#include <linux/spinlock.h>
+#include <linux/vmalloc.h>
+#include <linux/wait.h>
+#include <linux/workqueue.h>
+#include <linux/interrupt.h>
+
 #define KBASE_DRV_NAME "mali"
 #define KBASE_TIMELINE_NAME KBASE_DRV_NAME ".timeline"
 
 #if MALI_USE_CSF
-#include "csf/mali_kbase_csf.h"
-
 /* Physical memory group ID for CSF user I/O.
  */
 #define KBASE_MEM_GROUP_CSF_IO BASE_MEM_GROUP_DEFAULT
@@ -169,7 +171,16 @@ unsigned long kbase_context_get_unmapped_area(struct kbase_context *kctx, const 
 					      const unsigned long len, const unsigned long pgoff,
 					      const unsigned long flags);
 
-int assign_irqs(struct kbase_device *kbdev);
+/**
+ * kbase_get_irqs() - Get GPU interrupts from the device tree.
+ *
+ * @kbdev: The kbase device structure of the device
+ *
+ * This function must be called once only when a kbase device is initialized.
+ *
+ * Return: 0 on success. Error code (negative) on failure.
+ */
+int kbase_get_irqs(struct kbase_device *kbdev);
 
 int kbase_sysfs_init(struct kbase_device *kbdev);
 void kbase_sysfs_term(struct kbase_device *kbdev);
@@ -271,7 +282,7 @@ int kbase_jd_submit(struct kbase_context *kctx, void __user *user_addr, u32 nr_a
  */
 void kbase_jd_done_worker(struct work_struct *data);
 
-void kbase_jd_done(struct kbase_jd_atom *katom, int slot_nr, ktime_t *end_timestamp,
+void kbase_jd_done(struct kbase_jd_atom *katom, unsigned int slot_nr, ktime_t *end_timestamp,
 		   kbasep_js_atom_done_code done_code);
 void kbase_jd_cancel(struct kbase_device *kbdev, struct kbase_jd_atom *katom);
 void kbase_jd_zap_context(struct kbase_context *kctx);
@@ -352,7 +363,7 @@ int kbase_job_slot_softstop_start_rp(struct kbase_context *kctx, struct kbase_va
  *
  * Where possible any job in the next register is evicted before the soft-stop.
  */
-void kbase_job_slot_softstop(struct kbase_device *kbdev, int js,
+void kbase_job_slot_softstop(struct kbase_device *kbdev, unsigned int js,
 			     struct kbase_jd_atom *target_katom);
 
 void kbase_job_slot_softstop_swflags(struct kbase_device *kbdev, unsigned int js,
@@ -534,7 +545,7 @@ static inline void kbase_pm_set_gpu_lost(struct kbase_device *kbdev, bool gpu_lo
 	const int cur_val = atomic_xchg(&kbdev->pm.gpu_lost, new_val);
 
 	if (new_val != cur_val)
-		KBASE_KTRACE_ADD(kbdev, ARB_GPU_LOST, NULL, new_val);
+		KBASE_KTRACE_ADD(kbdev, ARB_GPU_LOST, NULL, (u64)new_val);
 }
 #endif
 
@@ -636,16 +647,17 @@ int kbase_pm_force_mcu_wakeup_after_sleep(struct kbase_device *kbdev);
  *
  * Return: the atom's ID.
  */
-static inline int kbase_jd_atom_id(struct kbase_context *kctx, const struct kbase_jd_atom *katom)
+static inline unsigned int kbase_jd_atom_id(struct kbase_context *kctx,
+					    const struct kbase_jd_atom *katom)
 {
-	int result;
+	unsigned int result;
 
 	KBASE_DEBUG_ASSERT(kctx);
 	KBASE_DEBUG_ASSERT(katom);
 	KBASE_DEBUG_ASSERT(katom->kctx == kctx);
 
 	result = katom - &kctx->jctx.atoms[0];
-	KBASE_DEBUG_ASSERT(result >= 0 && result <= BASE_JD_ATOM_COUNT);
+	KBASE_DEBUG_ASSERT(result <= BASE_JD_ATOM_COUNT);
 	return result;
 }
 
@@ -767,6 +779,22 @@ int kbase_device_pcm_dev_init(struct kbase_device *const kbdev);
  */
 void kbase_device_pcm_dev_term(struct kbase_device *const kbdev);
 
+#if MALI_USE_CSF
+
+/**
+ * kbasep_adjust_prioritized_process() - Adds or removes the specified PID from
+ *                                       the list of prioritized processes.
+ *
+ * @kbdev: Pointer to the structure for the kbase device
+ * @add: True if the process should be prioritized, false otherwise
+ * @tgid: The process/thread group ID
+ *
+ * Return: true if the operation was successful, false otherwise
+ */
+bool kbasep_adjust_prioritized_process(struct kbase_device *kbdev, bool add, uint32_t tgid);
+
+#endif /* MALI_USE_CSF */
+
 /**
  * KBASE_DISJOINT_STATE_INTERLEAVED_CONTEXT_COUNT_THRESHOLD - If a job is soft stopped
  * and the number of contexts is >= this value it is reported as a disjoint event
@@ -786,9 +814,9 @@ void kbase_device_pcm_dev_term(struct kbase_device *const kbdev);
  *
  * Return: sampled value of kfile::fops_count.
  */
-static inline u32 kbase_file_fops_count(struct kbase_file *kfile)
+static inline int kbase_file_fops_count(struct kbase_file *kfile)
 {
-	u32 fops_count;
+	int fops_count;
 
 	spin_lock(&kfile->lock);
 	fops_count = kfile->fops_count;

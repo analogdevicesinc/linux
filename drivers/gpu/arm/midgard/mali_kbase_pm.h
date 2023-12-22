@@ -26,7 +26,9 @@
 #ifndef _KBASE_PM_H_
 #define _KBASE_PM_H_
 
-#include "mali_kbase_hwaccess_pm.h"
+#include <linux/types.h>
+
+struct kbase_device;
 
 #define PM_ENABLE_IRQS 0x01
 #define PM_HW_ISSUES_DETECT 0x02

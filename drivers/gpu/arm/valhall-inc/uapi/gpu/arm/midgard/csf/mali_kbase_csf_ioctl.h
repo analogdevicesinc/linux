@@ -95,10 +95,15 @@
  * 1.22:
  * - Add comp_pri_threshold and comp_pri_ratio attributes to
  *   kbase_ioctl_cs_queue_group_create.
+ * 1.23:
+ * - Disallows changing the sharability on the GPU of imported dma-bufs to
+ *   BASE_MEM_COHERENT_SYSTEM using KBASE_IOCTL_MEM_FLAGS_CHANGE.
+ * 1.24:
+ * - Implement full block state support for hardware counters.
  */
 
 #define BASE_UK_VERSION_MAJOR 1
-#define BASE_UK_VERSION_MINOR 22
+#define BASE_UK_VERSION_MINOR 24
 
 /**
  * struct kbase_ioctl_version_check - Check version compatibility between

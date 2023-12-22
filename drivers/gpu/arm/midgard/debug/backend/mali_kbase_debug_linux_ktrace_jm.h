@@ -28,7 +28,7 @@
 #define _KBASE_DEBUG_LINUX_KTRACE_JM_H_
 
 DECLARE_EVENT_CLASS(mali_jm_slot_template,
-		    TP_PROTO(struct kbase_context *kctx, int jobslot, u64 info_val),
+		    TP_PROTO(struct kbase_context *kctx, unsigned int jobslot, u64 info_val),
 		    TP_ARGS(kctx, jobslot, info_val),
 		    TP_STRUCT__entry(__field(pid_t, kctx_tgid) __field(u32, kctx_id)
 					     __field(unsigned int, jobslot) __field(u64, info_val)),
@@ -38,9 +38,9 @@ DECLARE_EVENT_CLASS(mali_jm_slot_template,
 		    TP_printk("kctx=%d_%u jobslot=%u info=0x%llx", __entry->kctx_tgid,
 			      __entry->kctx_id, __entry->jobslot, __entry->info_val));
 
-#define DEFINE_MALI_JM_SLOT_EVENT(name)                                               \
-	DEFINE_EVENT(mali_jm_slot_template, mali_##name,                              \
-		     TP_PROTO(struct kbase_context *kctx, int jobslot, u64 info_val), \
+#define DEFINE_MALI_JM_SLOT_EVENT(name)                                                        \
+	DEFINE_EVENT(mali_jm_slot_template, mali_##name,                                       \
+		     TP_PROTO(struct kbase_context *kctx, unsigned int jobslot, u64 info_val), \
 		     TP_ARGS(kctx, jobslot, info_val))
 DEFINE_MALI_JM_SLOT_EVENT(JM_RETURN_ATOM_TO_JS);
 DEFINE_MALI_JM_SLOT_EVENT(JM_MARK_FOR_RETURN_TO_JS);
@@ -78,7 +78,7 @@ DEFINE_MALI_JM_SLOT_EVENT(JS_SLOT_PRIO_IS_BLOCKED);
 #undef DEFINE_MALI_JM_SLOT_EVENT
 
 DECLARE_EVENT_CLASS(mali_jm_refcount_template,
-		    TP_PROTO(struct kbase_context *kctx, int refcount, u64 info_val),
+		    TP_PROTO(struct kbase_context *kctx, unsigned int refcount, u64 info_val),
 		    TP_ARGS(kctx, refcount, info_val),
 		    TP_STRUCT__entry(__field(pid_t, kctx_tgid) __field(u32, kctx_id)
 					     __field(unsigned int, refcount)
@@ -89,9 +89,9 @@ DECLARE_EVENT_CLASS(mali_jm_refcount_template,
 		    TP_printk("kctx=%d_%u refcount=%u info=0x%llx", __entry->kctx_tgid,
 			      __entry->kctx_id, __entry->refcount, __entry->info_val));
 
-#define DEFINE_MALI_JM_REFCOUNT_EVENT(name)                                            \
-	DEFINE_EVENT(mali_jm_refcount_template, mali_##name,                           \
-		     TP_PROTO(struct kbase_context *kctx, int refcount, u64 info_val), \
+#define DEFINE_MALI_JM_REFCOUNT_EVENT(name)                                                     \
+	DEFINE_EVENT(mali_jm_refcount_template, mali_##name,                                    \
+		     TP_PROTO(struct kbase_context *kctx, unsigned int refcount, u64 info_val), \
 		     TP_ARGS(kctx, refcount, info_val))
 DEFINE_MALI_JM_REFCOUNT_EVENT(JS_ADD_JOB);
 DEFINE_MALI_JM_REFCOUNT_EVENT(JS_REMOVE_JOB);

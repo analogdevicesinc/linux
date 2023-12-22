@@ -225,7 +225,7 @@ static void remove_unlinked_chunk(struct kbase_context *kctx,
 	 * For "no user free count", we check that the count is 1 as it is a shrinkable region;
 	 * no other code part within kbase can take a reference to it.
 	 */
-	WARN_ON(atomic_read(&chunk->region->no_user_free_count) > 1);
+	WARN_ON(atomic64_read(&chunk->region->no_user_free_count) > 1);
 	kbase_va_region_no_user_free_dec(chunk->region);
 #if !defined(CONFIG_MALI_VECTOR_DUMP)
 	chunk->region->flags &= ~KBASE_REG_DONT_NEED;
@@ -308,7 +308,7 @@ static struct kbase_csf_tiler_heap_chunk *alloc_new_chunk(struct kbase_context *
 	 * It should be fine and not a security risk if we let the region leak till
 	 * region tracker termination in such a case.
 	 */
-	if (unlikely(atomic_read(&chunk->region->no_user_free_count) > 1)) {
+	if (unlikely(atomic64_read(&chunk->region->no_user_free_count) > 1)) {
 		dev_err(kctx->kbdev->dev, "Chunk region has no_user_free_count > 1!\n");
 		goto unroll_region;
 	}

@@ -51,7 +51,7 @@ static int set_timeout(struct kbase_device *const kbdev, u64 const timeout)
 
 	dev_dbg(kbdev->dev, "New progress timeout: %llu cycles\n", timeout);
 
-	atomic64_set(&kbdev->csf.progress_timeout, timeout);
+	atomic64_set(&kbdev->csf.progress_timeout, (s64)timeout);
 	kbase_device_set_timeout(kbdev, CSF_SCHED_PROTM_PROGRESS_TIMEOUT, timeout, 1);
 
 	return 0;
@@ -112,7 +112,7 @@ static ssize_t progress_timeout_store(struct device *const dev, struct device_at
 	if (err)
 		return err;
 
-	return count;
+	return (ssize_t)count;
 }
 
 /**
@@ -179,5 +179,5 @@ void kbase_csf_timeout_term(struct kbase_device *const kbdev)
 
 u64 kbase_csf_timeout_get(struct kbase_device *const kbdev)
 {
-	return atomic64_read(&kbdev->csf.progress_timeout);
+	return (u64)atomic64_read(&kbdev->csf.progress_timeout);
 }

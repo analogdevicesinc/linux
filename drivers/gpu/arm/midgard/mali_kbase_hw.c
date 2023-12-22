@@ -205,6 +205,8 @@ static const enum base_hw_issue *kbase_hw_get_issues_for_new_id(struct kbase_dev
 		  { { GPU_ID_VERSION_MAKE(0, 0, 0), base_hw_issues_tBAx_r0p0 },
 		    { GPU_ID_VERSION_MAKE(0, 0, 1), base_hw_issues_tBAx_r0p0 },
 		    { GPU_ID_VERSION_MAKE(0, 0, 2), base_hw_issues_tBAx_r0p0 },
+		    { GPU_ID_VERSION_MAKE(0, 1, 0), base_hw_issues_tBAx_r0p1 },
+		    { GPU_ID_VERSION_MAKE(0, 2, 0), base_hw_issues_tBAx_r0p2 },
 		    { U32_MAX, NULL } } },
 
 		{ GPU_ID_PRODUCT_TODX,
@@ -244,17 +246,21 @@ static const enum base_hw_issue *kbase_hw_get_issues_for_new_id(struct kbase_dev
 
 		{ GPU_ID_PRODUCT_TTIX,
 		  { { GPU_ID_VERSION_MAKE(0, 0, 0), base_hw_issues_tTIx_r0p0 },
+		    { GPU_ID_VERSION_MAKE(0, 1, 0), base_hw_issues_tTIx_r0p1 },
 		    { U32_MAX, NULL } } },
 
 		{ GPU_ID_PRODUCT_LTIX,
 		  { { GPU_ID_VERSION_MAKE(0, 0, 0), base_hw_issues_tTIx_r0p0 },
+		    { GPU_ID_VERSION_MAKE(0, 1, 0), base_hw_issues_tTIx_r0p1 },
 		    { U32_MAX, NULL } } },
 
 		{ GPU_ID_PRODUCT_TKRX,
 		  { { GPU_ID_VERSION_MAKE(0, 0, 0), base_hw_issues_tKRx_r0p0 },
+		    { GPU_ID_VERSION_MAKE(0, 1, 0), base_hw_issues_tKRx_r0p1 },
 		    { U32_MAX, NULL } } },
 		{ GPU_ID_PRODUCT_LKRX,
 		  { { GPU_ID_VERSION_MAKE(0, 0, 0), base_hw_issues_tKRx_r0p0 },
+		    { GPU_ID_VERSION_MAKE(0, 1, 0), base_hw_issues_tKRx_r0p1 },
 		    { U32_MAX, NULL } } },
 	};
 

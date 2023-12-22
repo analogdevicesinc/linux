@@ -31,17 +31,17 @@
 
 static int wait_prfcnt_ready(struct kbase_device *kbdev)
 {
-	u32 loops;
-
-	for (loops = 0; loops < KBASE_PRFCNT_ACTIVE_MAX_LOOPS; loops++) {
-		const u32 prfcnt_active = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_STATUS)) &
-					  GPU_STATUS_PRFCNT_ACTIVE;
-		if (!prfcnt_active)
-			return 0;
+	u32 val;
+	const u32 timeout_us =
+		kbase_get_timeout_ms(kbdev, KBASE_PRFCNT_ACTIVE_TIMEOUT) * USEC_PER_MSEC;
+	const int err = kbase_reg_poll32_timeout(kbdev, GPU_CONTROL_ENUM(GPU_STATUS), val,
+						 !(val & GPU_STATUS_PRFCNT_ACTIVE), 0, timeout_us,
+						 false);
+	if (err) {
+		dev_err(kbdev->dev, "PRFCNT_ACTIVE bit stuck\n");
+		return -EBUSY;
 	}
-
-	dev_err(kbdev->dev, "PRFCNT_ACTIVE bit stuck\n");
-	return -EBUSY;
+	return 0;
 }
 
 int kbase_instr_hwcnt_enable_internal(struct kbase_device *kbdev, struct kbase_context *kctx,
@@ -86,11 +86,12 @@ int kbase_instr_hwcnt_enable_internal(struct kbase_device *kbdev, struct kbase_c
 	spin_unlock_irqrestore(&kbdev->hwcnt.lock, flags);
 
 	/* Configure */
-	prfcnt_config = kctx->as_nr << PRFCNT_CONFIG_AS_SHIFT;
+	prfcnt_config = (u32)kctx->as_nr << PRFCNT_CONFIG_AS_SHIFT;
 #ifdef CONFIG_MALI_PRFCNT_SET_SELECT_VIA_DEBUG_FS
-	prfcnt_config |= kbdev->hwcnt.backend.override_counter_set << PRFCNT_CONFIG_SETSELECT_SHIFT;
+	prfcnt_config |= (u32)kbdev->hwcnt.backend.override_counter_set
+			 << PRFCNT_CONFIG_SETSELECT_SHIFT;
 #else
-	prfcnt_config |= enable->counter_set << PRFCNT_CONFIG_SETSELECT_SHIFT;
+	prfcnt_config |= (u32)enable->counter_set << PRFCNT_CONFIG_SETSELECT_SHIFT;
 #endif
 
 	/* Wait until prfcnt config register can be written */

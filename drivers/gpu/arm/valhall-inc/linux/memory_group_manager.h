@@ -58,13 +58,17 @@ struct memory_group_manager_ops {
 	 *            0 .. MEMORY_GROUP_MANAGER_NR_GROUPS-1.
 	 * @gfp_mask: Bitmask of Get Free Page flags affecting allocator
 	 *            behavior.
-	 * @order:    Page order for physical page size (order=0 means 4 KiB,
-	 *            order=9 means 2 MiB).
+	 * @order:    Page order for physical page size.
+	 *            order = 0 refers to small pages
+	 *            order != 0 refers to 2 MB pages, so
+	 *            order = 9 (when small page size is 4KB,  2^9 *  4KB = 2 MB)
+	 *            order = 7 (when small page size is 16KB, 2^7 * 16KB = 2 MB)
+	 *            order = 5 (when small page size is 64KB, 2^5 * 64KB = 2 MB)
 	 *
 	 * Return: Pointer to allocated page, or NULL if allocation failed.
 	 */
-	struct page *(*mgm_alloc_page)(struct memory_group_manager_device *mgm_dev, int group_id,
-				       gfp_t gfp_mask, unsigned int order);
+	struct page *(*mgm_alloc_page)(struct memory_group_manager_device *mgm_dev,
+				       unsigned int group_id, gfp_t gfp_mask, unsigned int order);
 
 	/*
 	 * mgm_free_page - Free a physical memory page in a group
@@ -78,10 +82,11 @@ struct memory_group_manager_ops {
 	 *            memory that was allocated by calling the mgm_alloc_page
 	 *            method of the same memory pool with the same values of
 	 *            @group_id and @order.
-	 * @order:    Page order for physical page size (order=0 means 4 KiB,
-	 *            order=9 means 2 MiB).
+     * @order:    Page order for physical page size.
+     *            order = 0 refers to small pages
+     *            order != 0 refers to 2 MB pages.
 	 */
-	void (*mgm_free_page)(struct memory_group_manager_device *mgm_dev, int group_id,
+	void (*mgm_free_page)(struct memory_group_manager_device *mgm_dev, unsigned int group_id,
 			      struct page *page, unsigned int order);
 
 	/*
@@ -124,8 +129,8 @@ struct memory_group_manager_ops {
 	 *
 	 * Return: A modified GPU page table entry to be stored in a page table.
 	 */
-	u64 (*mgm_update_gpu_pte)(struct memory_group_manager_device *mgm_dev, int group_id,
-				  int mmu_level, u64 pte);
+	u64 (*mgm_update_gpu_pte)(struct memory_group_manager_device *mgm_dev,
+				  unsigned int group_id, int mmu_level, u64 pte);
 
 	/*
 	 * mgm_pte_to_original_pte - Undo any modification done during mgm_update_gpu_pte()
@@ -145,8 +150,8 @@ struct memory_group_manager_ops {
 	 *
 	 * Return: PTE entry as originally specified to mgm_update_gpu_pte()
 	 */
-	u64 (*mgm_pte_to_original_pte)(struct memory_group_manager_device *mgm_dev, int group_id,
-				       int mmu_level, u64 pte);
+	u64 (*mgm_pte_to_original_pte)(struct memory_group_manager_device *mgm_dev,
+				       unsigned int group_id, int mmu_level, u64 pte);
 
 	/*
 	 * mgm_vmf_insert_pfn_prot - Map a physical page in a group for the CPU
@@ -170,7 +175,7 @@ struct memory_group_manager_ops {
 	 *         table entry was successfully installed.
 	 */
 	vm_fault_t (*mgm_vmf_insert_pfn_prot)(struct memory_group_manager_device *mgm_dev,
-					      int group_id, struct vm_area_struct *vma,
+					      unsigned int group_id, struct vm_area_struct *vma,
 					      unsigned long addr, unsigned long pfn,
 					      pgprot_t pgprot);
 };

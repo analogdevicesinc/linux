@@ -21,6 +21,14 @@
 #ifndef _KBASE_MEM_MIGRATE_H
 #define _KBASE_MEM_MIGRATE_H
 
+#include <linux/version_compat_defs.h>
+
+#include <linux/types.h>
+
+struct kbase_device;
+struct file;
+struct page;
+
 /**
  * DOC: Base kernel page migration implementation.
  */

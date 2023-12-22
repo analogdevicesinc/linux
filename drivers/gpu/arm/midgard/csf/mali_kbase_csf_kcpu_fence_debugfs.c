@@ -60,9 +60,9 @@ static ssize_t kbase_csf_kcpu_queue_fence_signal_enabled_set(struct file *file,
 	if (ret < 0)
 		return ret;
 
-	atomic_set(&kbdev->fence_signal_timeout_enabled, enabled);
+	atomic_set(&kbdev->fence_signal_timeout_enabled, (int)enabled);
 
-	return count;
+	return (ssize_t)count;
 }
 
 static const struct file_operations kbase_csf_kcpu_queue_fence_signal_fops = {
@@ -82,7 +82,7 @@ static ssize_t kbase_csf_kcpu_queue_fence_signal_timeout_get(struct file *file, 
 	unsigned int timeout_ms = kbase_get_timeout_ms(kbdev, KCPU_FENCE_SIGNAL_TIMEOUT);
 
 	size = scnprintf(buffer, sizeof(buffer), "%u\n", timeout_ms);
-	return simple_read_from_buffer(buf, count, ppos, buffer, size);
+	return simple_read_from_buffer(buf, count, ppos, buffer, (size_t)size);
 }
 
 static ssize_t kbase_csf_kcpu_queue_fence_signal_timeout_set(struct file *file,
@@ -105,7 +105,7 @@ static ssize_t kbase_csf_kcpu_queue_fence_signal_timeout_set(struct file *file,
 	 */
 	kbase_device_set_timeout_ms(kbdev, KCPU_FENCE_SIGNAL_TIMEOUT, timeout_ms);
 
-	return count;
+	return (ssize_t)count;
 }
 
 static const struct file_operations kbase_csf_kcpu_queue_fence_signal_timeout_fops = {

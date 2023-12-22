@@ -27,8 +27,11 @@
 #ifndef _KBASE_GPU_MEMORY_DEBUGFS_H
 #define _KBASE_GPU_MEMORY_DEBUGFS_H
 
-#include <linux/debugfs.h>
-#include <linux/seq_file.h>
+#include <linux/compiler_types.h>
+#include <linux/types.h>
+
+struct kbase_io_history;
+struct kbase_device;
 
 /* kbase_io_history_add - add new entry to the register access history
  *

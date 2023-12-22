@@ -30,6 +30,8 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 
+struct kbase_context;
+
 /**
  * kbasep_mem_profile_debugfs_remove - Remove entry from Mali memory profile debugfs
  *

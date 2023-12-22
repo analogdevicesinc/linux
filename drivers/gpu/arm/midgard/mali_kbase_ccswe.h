@@ -22,6 +22,7 @@
 #ifndef _KBASE_CCSWE_H_
 #define _KBASE_CCSWE_H_
 
+#include <linux/types.h>
 #include <linux/spinlock.h>
 
 /**

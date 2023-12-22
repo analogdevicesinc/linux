@@ -906,7 +906,7 @@ static inline void kbase_js_runpool_dec_context_count(struct kbase_device *kbdev
  */
 static inline void kbase_js_sched_all(struct kbase_device *kbdev)
 {
-	kbase_js_sched(kbdev, (1 << kbdev->gpu_props.num_job_slots) - 1);
+	kbase_js_sched(kbdev, (1U << kbdev->gpu_props.num_job_slots) - 1U);
 }
 
 extern const int kbasep_js_atom_priority_to_relative[BASE_JD_NR_PRIO_LEVELS];

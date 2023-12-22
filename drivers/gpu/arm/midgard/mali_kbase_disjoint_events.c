@@ -74,6 +74,6 @@ u32 kbase_disjoint_event_get(struct kbase_device *kbdev)
 {
 	KBASE_DEBUG_ASSERT(kbdev != NULL);
 
-	return atomic_read(&kbdev->disjoint_event.count);
+	return (u32)atomic_read(&kbdev->disjoint_event.count);
 }
 KBASE_EXPORT_TEST_API(kbase_disjoint_event_get);

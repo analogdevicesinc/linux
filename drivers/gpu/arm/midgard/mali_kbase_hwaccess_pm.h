@@ -26,13 +26,13 @@
 #ifndef _KBASE_HWACCESS_PM_H_
 #define _KBASE_HWACCESS_PM_H_
 
-#include <hw_access/mali_kbase_hw_access_regmap.h>
+#include <linux/types.h>
 #include <linux/atomic.h>
-
-#include <backend/gpu/mali_kbase_pm_defs.h>
 
 /* Forward definition - see mali_kbase.h */
 struct kbase_device;
+struct kbase_pm_policy;
+struct kbase_pm_ca_policy;
 
 /* Functions common to all HW access backends */
 
@@ -199,7 +199,8 @@ void kbase_pm_set_policy(struct kbase_device *kbdev, const struct kbase_pm_polic
  *
  * Return: The number of policies
  */
-int kbase_pm_list_policies(struct kbase_device *kbdev, const struct kbase_pm_policy *const **list);
+size_t kbase_pm_list_policies(struct kbase_device *kbdev,
+			      const struct kbase_pm_policy *const **list);
 
 /**
  * kbase_pm_protected_mode_enable() - Enable protected mode

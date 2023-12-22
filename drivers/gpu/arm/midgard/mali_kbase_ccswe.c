@@ -32,13 +32,14 @@ static u64 kbasep_ccswe_cycle_at_no_lock(struct kbase_ccswe *self, u64 timestamp
 
 	lockdep_assert_held(&self->access);
 
-	diff_ns = timestamp_ns - self->timestamp_ns;
+	diff_ns = (s64)(timestamp_ns - self->timestamp_ns);
 	gpu_freq = diff_ns > 0 ? self->gpu_freq : self->prev_gpu_freq;
 
 	diff_s = div_s64(diff_ns, NSEC_PER_SEC);
 	diff_ns -= diff_s * NSEC_PER_SEC;
 
-	return self->cycles_elapsed + diff_s * gpu_freq + div_s64(diff_ns * gpu_freq, NSEC_PER_SEC);
+	return self->cycles_elapsed + (u64)diff_s * gpu_freq +
+	       (u64)div_s64(diff_ns * gpu_freq, NSEC_PER_SEC);
 }
 
 void kbase_ccswe_init(struct kbase_ccswe *self)

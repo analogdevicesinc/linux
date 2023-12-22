@@ -29,31 +29,77 @@
 struct priority_control_manager_device;
 
 /**
+ * DOC: PCM notifier callback types
+ *
+ * ADD_PRIORITIZED_PROCESS - indicate that work items for this process should be
+ *                           given priority over the work items from other
+ *                           processes that were assigned the same static
+ *                           priority level. Processes that would benefit from
+ *                           being added to this list includes foreground
+ *                           applications, as well as any other latency-sensitive
+ *                           applications.
+ *
+ * REMOVE_PRIORITIZED_PROCESS - indicate that work items for this process
+ *                              should no longer be prioritized over other work
+ *                              items given the same static priority level.
+ */
+#define ADD_PRIORITIZED_PROCESS 0
+#define REMOVE_PRIORITIZED_PROCESS 1
+
+/**
+ * struct pcm_prioritized_process_notifier_data - change of prioritized process
+ *                                                list passed to the callback
+ *
+ * @pid: PID of the process being added/removed
+ */
+struct pcm_prioritized_process_notifier_data {
+	uint32_t pid;
+};
+
+/**
  * struct priority_control_manager_ops - Callbacks for priority control manager operations
  *
  * @pcm_scheduler_priority_check: Callback to check if scheduling priority level can be requested
+ *                                pcm_dev: The priority control manager through which the
+ *                                         request is being made.
+ *                                task: The task struct of the process requesting the
+ *                                      priority check.
+ *                                requested_priority: The priority level being requested.
+ *
+ *                                The returned value will be:
+ *                                The same as requested_priority if the process has permission to
+ *                                use requested_priority.A lower priority value if the process does
+ *                                not have permission to use requested_priority
+ *
+ *                                requested_priority has the following value range:
+ *                                0-3 : Priority level, 0 being highest and 3 being lowest
+ *
+ *                                Return: The priority that would actually be given, could be lower
+ *                                than requested_priority
+ *
+ * @pcm_prioritized_process_notifier_register: register a callback for changes to the
+ *                                             list of prioritized processes
+ *                                             pcm_dev: The priority control manager through
+ *                                                      which the request is being made.
+ *                                             nb: notifier block with callback function pointer
+ *                                             On Success returns 0 otherwise -1
+ *
+ * @pcm_prioritized_process_notifier_unregister: unregister the callback for changes to the
+ *                                               list of prioritized processes
+ *                                               pcm_dev: The priority control manager through
+ *                                                        which the request is being made.
+ *                                               nb: notifier block which will be unregistered
+ *                                               On Success returns 0 otherwise -1
  */
 struct priority_control_manager_ops {
-	/*
-	 * pcm_scheduler_priority_check: This function can be used to check what priority its work
-	 *                               would be treated as based on the requested_priority value.
-	 *
-	 * @pcm_dev:                     The priority control manager through which the request is
-	 *                               being made.
-	 * @task:                        The task struct of the process requesting the priority check.
-	 * @requested_priority:          The priority level being requested.
-	 *
-	 * The returned value will be:
-	 *   The same as requested_priority if the process has permission to use requested_priority
-	 *   A lower priority value if the process does not have permission to use requested_priority
-	 *
-	 * requested_priority has the following value range:
-	 *   0-3 : Priority level, 0 being highest and 3 being lowest
-	 *
-	 * Return: The priority that would actually be given, could be lower than requested_priority
-	 */
 	int (*pcm_scheduler_priority_check)(struct priority_control_manager_device *pcm_dev,
 					    struct task_struct *task, int requested_priority);
+
+	int (*pcm_prioritized_process_notifier_register)(
+		struct priority_control_manager_device *pcm_dev, struct notifier_block *nb);
+
+	int (*pcm_prioritized_process_notifier_unregister)(
+		struct priority_control_manager_device *pcm_dev, struct notifier_block *nb);
 };
 
 /**

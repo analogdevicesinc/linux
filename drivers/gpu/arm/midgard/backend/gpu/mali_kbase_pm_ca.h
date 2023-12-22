@@ -58,6 +58,17 @@ void kbase_pm_ca_term(struct kbase_device *kbdev);
 u64 kbase_pm_ca_get_core_mask(struct kbase_device *kbdev);
 
 /**
+ * kbase_pm_ca_get_debug_core_mask - Get debug core mask.
+ *
+ * @kbdev: The kbase device structure for the device (must be a valid pointer)
+ *
+ * Returns a mask of the currently selected shader cores.
+ *
+ * Return: The bit mask of user-selected cores
+ */
+u64 kbase_pm_ca_get_debug_core_mask(struct kbase_device *kbdev);
+
+/**
  * kbase_pm_ca_update_core_status - Update core status
  *
  * @kbdev:               The kbase device structure for the device (must be

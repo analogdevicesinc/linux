@@ -22,6 +22,8 @@
 #ifndef _KBASE_AS_FAULT_DEBUG_FS_H
 #define _KBASE_AS_FAULT_DEBUG_FS_H
 
+#include <mali_kbase.h>
+
 /**
  * kbase_as_fault_debugfs_init() - Add debugfs files for reporting page faults
  *
@@ -35,7 +37,7 @@ void kbase_as_fault_debugfs_init(struct kbase_device *kbdev);
  * @kbdev: Pointer to kbase_device
  * @as_no: The address space the fault occurred on
  */
-static inline void kbase_as_fault_debugfs_new(struct kbase_device *kbdev, int as_no)
+static inline void kbase_as_fault_debugfs_new(struct kbase_device *kbdev, unsigned int as_no)
 {
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 #ifdef CONFIG_MALI_DEBUG

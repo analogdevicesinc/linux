@@ -99,11 +99,7 @@ static void kbasep_csf_sync_print_kcpu_fence_wait_or_signal(char *buffer, int *l
 							    struct kbase_kcpu_command *cmd,
 							    const char *cmd_name)
 {
-#if (KERNEL_VERSION(4, 10, 0) > LINUX_VERSION_CODE)
-	struct fence *fence = NULL;
-#else
 	struct dma_fence *fence = NULL;
-#endif /* LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0) */
 	struct kbase_kcpu_command_fence_info *fence_info;
 	struct kbase_sync_fence_info info;
 	const char *timeline_name = NULL;

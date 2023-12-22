@@ -101,3 +101,4 @@ void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)
 
 	KBASE_KTRACE_ADD(kbdev, CORE_GPU_IRQ_DONE, NULL, val);
 }
+KBASE_EXPORT_TEST_API(kbase_gpu_interrupt);

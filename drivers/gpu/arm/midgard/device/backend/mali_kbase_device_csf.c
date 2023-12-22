@@ -87,8 +87,8 @@ static int kbase_backend_late_init(struct kbase_device *kbdev)
 
 #ifdef CONFIG_MALI_DEBUG
 #if IS_ENABLED(CONFIG_MALI_REAL_HW)
-	if (kbasep_common_test_interrupt_handlers(kbdev) != 0) {
-		dev_err(kbdev->dev, "Interrupt assignment check failed.\n");
+	if (kbase_validate_interrupts(kbdev) != 0) {
+		dev_err(kbdev->dev, "Interrupt validation failed.\n");
 		err = -EINVAL;
 		goto fail_interrupt_test;
 	}
@@ -278,7 +278,7 @@ static const struct kbase_device_init dev_init[] = {
 #if !IS_ENABLED(CONFIG_MALI_REAL_HW)
 	{ kbase_gpu_device_create, kbase_gpu_device_destroy, "Dummy model initialization failed" },
 #else /* !IS_ENABLED(CONFIG_MALI_REAL_HW) */
-	{ assign_irqs, NULL, "IRQ search failed" },
+	{ kbase_get_irqs, NULL, "IRQ search failed" },
 #endif /* !IS_ENABLED(CONFIG_MALI_REAL_HW) */
 #if !IS_ENABLED(CONFIG_MALI_NO_MALI)
 	{ registers_map, registers_unmap, "Register map failed" },
