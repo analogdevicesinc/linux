@@ -419,19 +419,21 @@
 #define ADF4382_REF_MAX				5000000000ULL	// 5GHz
 #define ADF4382_VCO_FREQ_MIN			11000000000ULL	// 11GHz
 #define ADF4382_VCO_FREQ_MAX			22000000000ULL	// 22GHz
-#define ADF4382_RFOUT_MIN			687500000ULL	// 687.50MHz
-#define ADF4382_RFOUT_MAX			22000000000ULL	// 22GHz
+#define ADF4382A_VCO_FREQ_MIN			11500000000ULL	// 11.5GHz
+#define ADF4382A_VCO_FREQ_MAX			21000000000ULL	// 21GHz
 #define ADF4382_MOD1WORD			0x2000000ULL	// 2^25
 #define ADF4382_MOD2WORD_MAX			0xFFFFFFU	// 2^24 - 1
 #define ADF4382_PHASE_RESYNC_MOD2WORD_MAX	0x1FFFFU	// 2^17 - 1
 #define ADF4382_CHANNEL_SPACING_MAX		78125U
 #define ADF4382_DCLK_DIV1_0_MAX			160000000ULL	// 160MHz
 #define ADF4382_DCLK_DIV1_1_MAX			320000000ULL	// 320MHz
-#define ADF4382_MAX_OUT_PWR			15
+#define ADF4382_OUT_PWR_MAX			15
+#define ADF4382_CLKOUT_DIV_REG_VAL_MAX		4
+#define ADF4382A_CLKOUT_DIV_REG_VAL_MAX		2
 
 #define ADF4382_CP_I_DEFAULT			15
 #define ADF4382_REF_DIV_DEFAULT			1
-#define ADF4382_RFOUT_DEFAULT			2850000000ULL
+#define ADF4382_RFOUT_DEFAULT			2875000000ULL	// 2.875GHz
 #define ADF4382_SCRATCHPAD_VAL			0xA5
 
 #define ADF4382_PHASE_BLEED_CNST		2044000
@@ -446,6 +448,11 @@
 enum {
 	ADF4382_FREQ,
 	ADF4382_CH_PWR,
+};
+
+enum {
+	ADF4382,
+	ADF4382A,
 };
 
 struct adf4382_state {
@@ -463,9 +470,12 @@ struct adf4382_state {
 	bool			spi_3wire_en;
 	bool			ref_doubler_en;
 	u8			ref_div;
+	u8			clkout_div_reg_val_max;
 	u16			bleed_word;
 	int			phase;
 	bool			cmos_3v3;
+	u64			vco_max;
+	u64			vco_min;
 };
 
 //Charge pump current values expressed in uA
@@ -691,20 +701,20 @@ static int adf4382_set_freq(struct adf4382_state *st)
 
 	adf4382_pfd_compute(st, &pfd_freq_hz);
 
-	for (clkout_div = 0; clkout_div <= 4; clkout_div++)
+	for (clkout_div = 0; clkout_div <= st->clkout_div_reg_val_max; clkout_div++)
 	{
-		tmp = (1 << clkout_div) * st->freq;
-		if (tmp < ADF4382_VCO_FREQ_MIN || tmp > ADF4382_VCO_FREQ_MAX)
+		tmp =  (1 << clkout_div) * st->freq;
+		if (tmp < st->vco_min || tmp > st->vco_max)
 		{
 			continue;
 		}
-
+		
 		vco = tmp;
 		break;
 	}
 
 	if (vco == 0) {
-		dev_err(&st->spi->dev, "VCO is 0");
+		dev_err(&st->spi->dev, "Output frequancy is out of range.\n");
 		return -EINVAL;
 	}
 
@@ -885,10 +895,10 @@ static int adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	dev_dbg(&st->spi->dev,
-		 "VCO=%llu PFD=%u RFout_div=%u N=%u FRAC1=%u FRAC2=%u MOD2=%u\n",
-		 vco, pfd_freq_hz, 1 << clkout_div, n_int,
-		 frac1_word, frac2_word, mod2_word);
+	dev_info(&st->spi->dev,
+		"VCO=%llu PFD=%u RFout_div=%u N=%u FRAC1=%u FRAC2=%u MOD2=%u\n",
+		vco, pfd_freq_hz, 1 << clkout_div, n_int,
+		frac1_word, frac2_word, mod2_word);
 
 	return 0;
 }
@@ -974,8 +984,8 @@ static int adf4382_set_out_power(struct adf4382_state *st, int ch, int pwr)
 {
 	u8 tmp;
 
-	if(pwr > ADF4382_MAX_OUT_PWR)
-		pwr = ADF4382_MAX_OUT_PWR;
+	if(pwr > ADF4382_OUT_PWR_MAX)
+		pwr = ADF4382_OUT_PWR_MAX;
 
 	if(!ch) {
 		tmp = FIELD_PREP(ADF4382_CLK1_OPWR_MSK, pwr);
@@ -1433,6 +1443,15 @@ static int adf4382_probe(struct spi_device *spi)
 	st->spi = spi;
 	st->phase = 0;
 
+	st->vco_max = ADF4382_VCO_FREQ_MAX;
+	st->vco_min = ADF4382_VCO_FREQ_MIN;
+	st->clkout_div_reg_val_max = ADF4382_CLKOUT_DIV_REG_VAL_MAX;
+	if (spi_get_device_id(spi)->driver_data == ADF4382A) {
+		st->vco_max = ADF4382A_VCO_FREQ_MAX;
+		st->vco_min = ADF4382A_VCO_FREQ_MIN;
+		st->clkout_div_reg_val_max = ADF4382A_CLKOUT_DIV_REG_VAL_MAX;
+	}
+
 	mutex_init(&st->lock);
 
 	ret = of_clk_get_scale(st->spi->dev.of_node, NULL, &st->scale);
@@ -1476,13 +1495,15 @@ static int adf4382_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id adf4382_id[] = {
-	{ "adf4382", 0 },
+	{ "adf4382", ADF4382 },
+	{ "adf4382a", ADF4382A },
 	{},
 };
 MODULE_DEVICE_TABLE(spi, adf4382_id);
 
 static const struct of_device_id adf4382_of_match[] = {
 	{ .compatible = "adi,adf4382" },
+	{ .compatible = "adi,adf4382a" },
 	{},
 };
 MODULE_DEVICE_TABLE(of, adf4382_of_match);
