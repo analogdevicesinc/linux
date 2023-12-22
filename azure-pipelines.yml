@@ -1,5 +1,5 @@
 variables:
-  isMain: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
+  isRelease: $[eq(variables['Build.SourceBranch'], 'refs/heads/2022_R2-sync-test')]
 
 trigger:
 - main
@@ -18,7 +18,7 @@ pool:
 jobs:
 
 - job: sync_branches_with_main
-  condition: and(ne(variables['Build.Reason'], 'PullRequest'), eq(variables.isMain, true))
+  condition: and(ne(variables['Build.Reason'], 'PullRequest'), eq(variables.isRelease, true))
   variables:
     BUILD_TYPE: sync_branches_with_main
     MAIN_BRANCH: $[ variables['Build.SourceBranchName'] ]
