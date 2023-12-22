@@ -421,6 +421,9 @@
 #define ADF4382_VCO_FREQ_MAX			22000000000ULL	// 22GHz
 #define ADF4382A_VCO_FREQ_MIN			11500000000ULL	// 11.5GHz
 #define ADF4382A_VCO_FREQ_MAX			21000000000ULL	// 21GHz
+#define ADF4382_PFD_FREQ_MAX			625000000ULL	// 625MHz
+#define ADF4382_PFD_FREQ_FRAC_MAX		250000000ULL	// 250MHz
+#define ADF4382_PFD_FREQ_MIN			5400000ULL	// 5.4MHz
 #define ADF4382_MOD1WORD			0x2000000ULL	// 2^25
 #define ADF4382_MOD2WORD_MAX			0xFFFFFFU	// 2^24 - 1
 #define ADF4382_PHASE_RESYNC_MOD2WORD_MAX	0x1FFFFU	// 2^17 - 1
@@ -596,7 +599,7 @@ static const struct regmap_config adf4382_regmap_config = {
 	.read_flag_mask = BIT(7),
 };
 
-static void adf4382_pfd_compute(struct adf4382_state *st,
+static int adf4382_pfd_compute(struct adf4382_state *st,
 				unsigned int *pfd_freq_hz)
 {
 	unsigned int tmp;
@@ -605,9 +608,12 @@ static void adf4382_pfd_compute(struct adf4382_state *st,
 	if (st->ref_doubler_en)
 		tmp *= 2;
 
+	if (tmp < ADF4382_PFD_FREQ_MIN || tmp > ADF4382_PFD_FREQ_MAX)
+		return -EINVAL;
+	
 	*pfd_freq_hz = tmp;
 
-	return;
+	return 0;
 }
 
 int adf4382_frac2_compute(struct adf4382_state *st, u64 res,
@@ -674,7 +680,12 @@ int adf4382_pll_fract_n_compute(struct adf4382_state *st, unsigned int pfd_freq_
 	*frac2_word = 0;
 	*mod2_word = 0;
 
-	if(rem > 0)
+	if (pfd_freq_hz > ADF4382_PFD_FREQ_FRAC_MAX) {
+		dev_warn(&st->spi->dev, "PFD frequency exceeds 250MHz.");
+		dev_warn(&st->spi->dev, "Only integer mode available.");
+	}
+	
+	if(rem > 0) 
 		return adf4382_frac2_compute(st, rem, pfd_freq_hz, frac2_word,
 					     mod2_word);
 
@@ -699,7 +710,11 @@ static int adf4382_set_freq(struct adf4382_state *st)
 	int ret;
 	u8 var;
 
-	adf4382_pfd_compute(st, &pfd_freq_hz);
+	ret = adf4382_pfd_compute(st, &pfd_freq_hz);
+	if (ret) {
+		dev_err(&st->spi->dev, "PFD frequency is out of range.\n");
+		return ret;
+	}
 
 	for (clkout_div = 0; clkout_div <= st->clkout_div_reg_val_max; clkout_div++)
 	{
@@ -714,7 +729,7 @@ static int adf4382_set_freq(struct adf4382_state *st)
 	}
 
 	if (vco == 0) {
-		dev_err(&st->spi->dev, "Output frequancy is out of range.\n");
+		dev_err(&st->spi->dev, "Output frequency is out of range.\n");
 		return -EINVAL;
 	}
 
@@ -958,7 +973,12 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_ps)
 	phase_ci = div_u64(phase_ci, UA_TO_A);
 
 	//Computation of the register value for the phase adjust
-	adf4382_pfd_compute(st, &pfd_freq_hz);
+	ret = adf4382_pfd_compute(st, &pfd_freq_hz);
+	if (ret) {
+		dev_err(&st->spi->dev, "PFD frequency is out of range.\n");
+		return ret;
+	}
+	
 	phase_reg_value = div_u64((phase_ci * pfd_freq_hz), (360 * st->freq));
 
 	if(phase_reg_value > 255)
