@@ -1169,7 +1169,7 @@ set_clk(const char *buf)
             break;
     }
 
-    if (4 == sscanf(data, "%u %d %d", &dumpCore, &clkScale[0], &clkScale[1])) {
+    if (4 == sscanf(data, "%u %u %d %d", &devIndex, &dumpCore, &clkScale[0], &clkScale[1])) {
         pr_warn("Change device:%d core:%d MC scale:%d SH scale:%d\n",
                 devIndex, dumpCore, clkScale[0], clkScale[1]);
     } else {
