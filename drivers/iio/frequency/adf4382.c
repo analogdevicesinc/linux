@@ -432,6 +432,7 @@
 #define ADF4382_CP_I_DEFAULT			15
 #define ADF4382_REF_DIV_DEFAULT			1
 #define ADF4382_RFOUT_DEFAULT			2850000000ULL
+#define ADF4382_SCRATCHPAD_VAL			0xA5
 
 #define ADF4382_PHASE_BLEED_CNST		2044000
 #define ADF4382_VCO_CAL_CNT			202
@@ -489,7 +490,6 @@ static const int adf4382_ci_ua[] = {
 
 //TODO Rewrite using defines
 static const struct reg_sequence adf4382_reg_default[] = {
-	{ 0x00a, 0xA5 },
 	{ 0x200, 0x00 },
 	{ 0x201, 0x00 },
 	{ 0x202, 0x00 },
@@ -1249,6 +1249,27 @@ static int adf4382_parse_device(struct adf4382_state *st)
 	return 0;
 }
 
+static int adf4382_scratchpad_check(struct adf4382_state *st)
+{
+	unsigned int val;
+	int ret;
+
+	ret = regmap_write(st->regmap, 0x0A, ADF4382_SCRATCHPAD_VAL);
+	if(ret)
+		return ret;
+	
+	ret = regmap_read(st->regmap, 0x0A, &val);
+	if(ret)
+		return ret;
+
+	if (val != ADF4382_SCRATCHPAD_VAL) {
+		dev_err(&st->spi->dev, "Scratch pad test failed please check SPI connection");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int adf4382_init(struct adf4382_state *st)
 {
 	int ret;
@@ -1263,18 +1284,22 @@ static int adf4382_init(struct adf4382_state *st)
 
 	ret = regmap_write(st->regmap, 0x00, ADF4382_SDO_ACT(en) |
 					     ADF4382_SDO_ACT_R(en));
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	ret = regmap_write(st->regmap, 0x3D, ADF4382_CMOS_OV(st->cmos_3v3));
-	if (ret < 0)
+	if (ret)
+		return ret;
+
+	ret = adf4382_scratchpad_check(st);
+	if (ret)
 		return ret;
 
 	ret = regmap_write(st->regmap, 0x20,
 			   ADF4382_EN_AUTOCAL_MSK |
 			   ADF4382_EN_RDBLR(st->ref_doubler_en) | 
 			   ADF4382_R_DIV(st->ref_div));
-	if (ret < 0)
+	if (ret)
 		return ret;
 
 	ret = regmap_write(st->regmap, 0x1f, st->cp_i);
