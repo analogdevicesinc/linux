@@ -21,6 +21,7 @@ properties:
   compatible:
     enum:
       - adi,adf4382
+      - adi,adf4382a
 
   reg:
     maxItems: 1
