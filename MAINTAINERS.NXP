@@ -850,6 +850,11 @@ npu
 M: Alison Wang <alison.wang@nxp.com>
 F: drivers/staging/ethosu/
 
+neutron
+M: Jiwei Fu <jiwei.fu@nxp.com>
+F: drivers/staging/neutron/
+F: drivers/remoteproc/imx_neutron_rproc.c
+
 pcie/core
 M: Richard Zhu <hongxing.zhu@nxp.com>
 F: arch/arm64/kernel/pci.c
