@@ -2373,10 +2373,13 @@ gckHARDWARE_InitializeHardware(IN gckHARDWARE Hardware)
     /* Verify the arguments. */
     gcmkVERIFY_OBJECT(Hardware, gcvOBJ_HARDWARE);
 
+    gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os, Hardware->kernel,
+                                     0x00000, &control));
+
     /* Disable isolate GPU bit. */
     gcmkONERROR(gckOS_WriteRegisterEx(Hardware->os, Hardware->kernel,
                                       0x00000,
-                                      ((((gctUINT32) (0x00070900)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 19:19) - (0 ? 19:19) + 1) ==
+                                      ((((gctUINT32) (control)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 19:19) - (0 ? 19:19) + 1) ==
  32) ? ~0U : (~(~0U << ((1 ? 19:19) - (0 ? 19:19) + 1))))))) << (0 ? 19:19))) | (((gctUINT32) ((gctUINT32) (0) & ((gctUINT32) ((((1 ? 19:19) - (0 ? 19:19) + 1) ==
  32) ? ~0U : (~(~0U << ((1 ? 19:19) - (0 ? 19:19) + 1))))))) << (0 ? 19:19)))));
 
@@ -6852,8 +6855,10 @@ gckHARDWARE_SetFscaleValue(IN gckHARDWARE Hardware,
 {
     gceSTATUS status;
     gctUINT32 clock;
+    gctUINT64 powerManagement = 0;
     gctBOOL   acquired            = gcvFALSE;
     gctBOOL   commitMutexAcquired = gcvFALSE;
+    gceCHIPPOWERSTATE statesStored, state;
 
     gcmkHEADER_ARG("Hardware=0x%x FscaleValue=%d",
                    Hardware, FscaleValue);
@@ -6868,9 +6873,19 @@ gckHARDWARE_SetFscaleValue(IN gckHARDWARE Hardware,
 
     gcmkONERROR(gckCOMMAND_Stall(Hardware->kernel->command, gcvFALSE));
 
+    powerManagement = Hardware->options.powerManagement;
+
+    if (powerManagement)
+        gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware, gcvFALSE));
+
+    gcmkONERROR(gckHARDWARE_QueryPowerState(Hardware, &statesStored));
+
+    gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, gcvPOWER_ON_AUTO));
+
     gcmkONERROR(gckOS_AcquireMutex(Hardware->os,
                                    Hardware->powerMutex,
                                    gcvINFINITE));
+
     acquired = gcvTRUE;
 
     Hardware->kernel->timeOut = Hardware->kernel->timeOut * Hardware->powerOnFscaleVal / 64;
@@ -6990,8 +7005,33 @@ gckHARDWARE_SetFscaleValue(IN gckHARDWARE Hardware,
 
     gcmkVERIFY(gckOS_ReleaseMutex(Hardware->os, Hardware->powerMutex));
     acquired = gcvFALSE;
+
+    switch (statesStored) {
+    case gcvPOWER_OFF:
+        state = gcvPOWER_OFF_BROADCAST;
+        break;
+    case gcvPOWER_IDLE:
+        state = gcvPOWER_IDLE_BROADCAST;
+        break;
+    case gcvPOWER_SUSPEND:
+        state = gcvPOWER_SUSPEND_BROADCAST;
+        break;
+    case gcvPOWER_ON:
+        state = gcvPOWER_ON_AUTO;
+        break;
+    default:
+        state = statesStored;
+        break;
+    }
+
+    if (powerManagement)
+        gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware, gcvTRUE));
+
+    gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, state));
+
     gcmkONERROR(gckOS_ReleaseMutex(Hardware->kernel->os,
                                    Hardware->kernel->device->commitMutex));
+
     commitMutexAcquired = gcvFALSE;
 
     gcmkFOOTER_NO();
@@ -11107,26 +11147,25 @@ gckHARDWARE_SetClock(IN gckHARDWARE Hardware, IN gctUINT32 MCScale, IN gctUINT32
     gctUINT32 org;
     gctUINT32 mcScale = MCScale;
     gctUINT32 shScale = SHScale;
+    gceCHIPPOWERSTATE statesStored, state;
 
     gcmkHEADER();
 
-    status = gckOS_QueryOption(Hardware->os, "powerManagement", &powerManagement);
-    if (gcmIS_ERROR(status))
-        powerManagement = 0;
+    powerManagement = Hardware->options.powerManagement;
 
-    if (powerManagement) {
+    if (powerManagement)
         gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware, gcvFALSE));
 
-        gcmkPRINT("Warning: Power management status will be changed forever!\n");
-    }
+    gcmkONERROR(gckHARDWARE_QueryPowerState(Hardware, &statesStored));
 
     gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, gcvPOWER_ON_AUTO));
 
     /* Grab the global semaphore. */
-    gcmkONERROR(gckOS_AcquireSemaphore(Hardware->os,
-                                       Hardware->globalSemaphore));
+    gcmkONERROR(gckOS_AcquireSemaphore(Hardware->os, Hardware->globalSemaphore));
 
     globalAcquired = gcvTRUE;
+
+    Hardware->powerOnFscaleVal = MCScale;
 
     if (mcScale > 0 && mcScale <= 64) {
         gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os, Hardware->kernel,
@@ -11195,6 +11234,29 @@ gckHARDWARE_SetClock(IN gckHARDWARE Hardware, IN gctUINT32 MCScale, IN gctUINT32
     gcmkONERROR(gckOS_ReleaseSemaphore(Hardware->os, Hardware->globalSemaphore));
 
     globalAcquired = gcvFALSE;
+
+    switch (statesStored) {
+    case gcvPOWER_OFF:
+        state = gcvPOWER_OFF_BROADCAST;
+        break;
+    case gcvPOWER_IDLE:
+        state = gcvPOWER_IDLE_BROADCAST;
+        break;
+    case gcvPOWER_SUSPEND:
+        state = gcvPOWER_SUSPEND_BROADCAST;
+        break;
+    case gcvPOWER_ON:
+        state = gcvPOWER_ON_AUTO;
+        break;
+    default:
+        state = statesStored;
+        break;
+    }
+
+    if (powerManagement)
+        gcmkONERROR(gckHARDWARE_EnablePowerManagement(Hardware, gcvTRUE));
+
+    gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, state));
 
     gcmkFOOTER_NO();
 
