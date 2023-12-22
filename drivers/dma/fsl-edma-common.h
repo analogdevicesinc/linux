@@ -187,6 +187,11 @@ struct fsl_edma_desc {
 	struct fsl_edma_sw_tcd		tcd[];
 };
 
+struct fsl_edma3_reg_save {
+	u32 csr;
+	u32 sbr;
+};
+
 #define FSL_EDMA_DRV_HAS_DMACLK		BIT(0)
 #define FSL_EDMA_DRV_MUX_SWAP		BIT(1)
 #define FSL_EDMA_DRV_CONFIG32		BIT(2)
@@ -243,8 +248,10 @@ struct fsl_edma_engine {
 	u32			n_chans;
 	int			txirq;
 	int			errirq;
+	#define MAX_CHAN_NUM    64
 	bool			big_endian;
 	struct edma_regs	regs;
+	struct fsl_edma3_reg_save edma_save_regs[MAX_CHAN_NUM];
 	u64			chan_masked;
 	struct fsl_edma_chan	chans[] __counted_by(n_chans);
 };
@@ -486,9 +493,11 @@ struct dma_async_tx_descriptor *fsl_edma_prep_memcpy(
 		size_t len, unsigned long flags);
 void fsl_edma_xfer_desc(struct fsl_edma_chan *fsl_chan);
 void fsl_edma_issue_pending(struct dma_chan *chan);
+void fsl_edma_issue_work(struct work_struct *work);
 int fsl_edma_alloc_chan_resources(struct dma_chan *chan);
 void fsl_edma_free_chan_resources(struct dma_chan *chan);
 void fsl_edma_cleanup_vchan(struct dma_device *dmadev);
 void fsl_edma_setup_regs(struct fsl_edma_engine *edma);
+void fsl_edma_set_tcd_regs(struct fsl_edma_chan *fsl_chan, void *tcd);
 
 #endif /* _FSL_EDMA_COMMON_H_ */
