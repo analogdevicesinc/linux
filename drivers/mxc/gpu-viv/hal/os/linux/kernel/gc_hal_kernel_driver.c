@@ -991,6 +991,7 @@ static void drv_exit(void)
         gcmkASSERT(gpuClass != gcvNULL);
         device_destroy(gpuClass, MKDEV(major, 0));
         class_destroy(gpuClass);
+        gpuClass = gcvNULL;
 
         unregister_chrdev(major, DEVICE_NAME);
     }
