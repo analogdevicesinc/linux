@@ -229,7 +229,7 @@ enum gic_intid_range {
 };
 
 #ifdef CONFIG_GIC_GENTLE_CONFIG
-static u64 gic_mpidr_to_affinity(unsigned long mpidr);
+static u64 gic_cpu_to_affinity(int cpu);
 #endif
 
 static enum gic_intid_range __get_intid_range(irq_hw_number_t hwirq)
@@ -760,7 +760,7 @@ static int gic_set_type(struct irq_data *d, unsigned int type)
 	 * This allows to set the affinity to only the interrupts
 	 * registered by the cluster.
 	 */
-	affinity = gic_mpidr_to_affinity(cpu_logical_map(smp_processor_id()));
+	affinity = gic_cpu_to_affinity(smp_processor_id());
 	gic_write_irouter(affinity, base + GICD_IROUTER + irq * 8);
 #endif
 
