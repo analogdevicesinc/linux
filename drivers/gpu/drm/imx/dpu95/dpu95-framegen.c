@@ -202,6 +202,9 @@ void dpu95_fg_cfg_videomode(struct dpu95_framegen *fg,
 	kick_col = hact + 1;
 	kick_row = vact;
 
+	/* disable panic mechanism */
+	dpu95_fg_write(fg, FGPFIFOTRES, 0);
+
 	/* pkickconfig */
 	dpu95_fg_write(fg, PKICKCONFIG, COL(kick_col) | ROW(kick_row) | EN);
 
