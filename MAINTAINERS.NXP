@@ -696,7 +696,6 @@ M: Jiyu Yang <jiyu.yang@nxp.com>
 L: gpusw-devel@nxp.com
 F: drivers/mxc/gpu-viv/
 F: drivers/gpu/arm/*
-F: include/uapi/gpu/*
 F: Documentation/devicetree/bindings/gpu/arm,mali-*
 
 mxc/hdmi
