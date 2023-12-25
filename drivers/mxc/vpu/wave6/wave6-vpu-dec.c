@@ -317,7 +317,7 @@ static void wave6_vpu_dec_handle_dst_buffer(struct vpu_instance *inst)
 	u32 luma_size = fb_stride * inst->dst_fmt.height;
 	u32 chroma_size = (fb_stride / 2) * (inst->dst_fmt.height / 2);
 	struct frame_buffer disp_buffer = {0};
-	struct dec_initial_info initial_info;
+	struct dec_initial_info initial_info = {0};
 	int ret;
 
 	wave6_vpu_dec_give_command(inst, DEC_GET_SEQ_INFO, &initial_info);
@@ -756,7 +756,7 @@ static void wave6_vpu_dec_finish_decode(struct vpu_instance *inst)
 				info.sequence_changed, info.stream_end_flag);
 
 	if (info.sequence_changed) {
-		struct dec_initial_info initial_info;
+		struct dec_initial_info initial_info = {0};
 
 		if (info.sequence_changed & 0x2) {
 			dev_err(inst->dev->dev, "fb_alloc_fail, it may led to firmware hang\n");
@@ -1727,7 +1727,7 @@ static void wave6_vpu_dec_stop_streaming(struct vb2_queue *q)
 static int wave6_vpu_dec_buf_init(struct vb2_buffer *vb)
 {
 	struct vpu_instance *inst = vb2_get_drv_priv(vb->vb2_queue);
-	struct dec_initial_info initial_info;
+	struct dec_initial_info initial_info = {0};
 	int i;
 
 	if (V4L2_TYPE_IS_OUTPUT(vb->type))
