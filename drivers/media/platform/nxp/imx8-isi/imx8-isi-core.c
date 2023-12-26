@@ -496,6 +496,13 @@ static int mxc_isi_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(dev);
 
+	ret = pm_runtime_resume_and_get(dev);
+	if (ret) {
+		dev_err_probe(dev, ret, "Failed to enable ISI\n");
+		pm_runtime_disable(dev);
+		return ret;
+	}
+
 	ret = mxc_isi_crossbar_init(isi);
 	if (ret) {
 		dev_err(dev, "Failed to initialize crossbar: %d\n", ret);
@@ -519,11 +526,13 @@ static int mxc_isi_probe(struct platform_device *pdev)
 
 	mxc_isi_debug_init(isi);
 
+	pm_runtime_put(dev);
 	return 0;
 
 err_xbar:
 	mxc_isi_crossbar_cleanup(&isi->crossbar);
 err_pm:
+	pm_runtime_put(dev);
 	pm_runtime_disable(isi->dev);
 	return ret;
 }
