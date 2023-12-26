@@ -37,7 +37,7 @@ if MALI_MIDGARD
 config MALI_PLATFORM_NAME
 	depends on MALI_MIDGARD
 	string "Platform name"
-	default "devicetree"
+	default "imx"
 	help
 	  Enter the name of the desired platform configuration directory to
 	  include in the build. 'platform/$(MALI_PLATFORM_NAME)/Kbuild' must
@@ -394,8 +394,5 @@ config MALI_TRACE_POWER_GPU_WORK_PERIOD
 	  This option enables per-application GPU metrics tracepoints.
 
 	  If unsure, say N.
-
-
-source "$(MALI_KCONFIG_EXT_PREFIX)drivers/gpu/arm/midgard/tests/Kconfig"
 
 endif
