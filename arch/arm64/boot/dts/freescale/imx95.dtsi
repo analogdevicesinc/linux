@@ -2373,6 +2373,8 @@
 				phy-names = "usb2-phy", "usb3-phy";
 				snps,gfladj-refclk-lpm-sel-quirk;
 				snps,parkmode-disable-ss-quirk;
+				snps,tx-max-burst = /bits/ 8 <4>;
+				snps,tx-thr-num-pkt = /bits/ 8 <1>;
 			};
 		};
 
