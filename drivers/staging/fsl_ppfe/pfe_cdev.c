@@ -109,7 +109,7 @@ static irqreturn_t hif_us_isr(int irq, void *arg)
 		 */
 		writel_relaxed(int_enable_mask, HIF_INT_ENABLE);
 
-		eventfd_signal(trigger, 1);
+		eventfd_signal(trigger);
 	}
 
 	return IRQ_HANDLED;
