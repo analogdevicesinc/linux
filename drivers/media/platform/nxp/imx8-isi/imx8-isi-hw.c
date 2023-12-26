@@ -338,7 +338,8 @@ static void mxc_isi_channel_set_control(struct mxc_isi_pipe *pipe,
 	} else {
 		val |= CHNL_CTRL_SRC_TYPE(CHNL_CTRL_SRC_TYPE_DEVICE);
 		val |= CHNL_CTRL_SRC_INPUT(input);
-		val |= CHNL_CTRL_MIPI_VC_ID(0); /* FIXME: For CSI-2 only */
+		val |= CHNL_CTRL_MIPI_VC_ID(pipe->vc & 0x3);
+		val |= CHNL_CTRL_VC_ID_1((pipe->vc >> 2) & 0x1);
 	}
 
 	mxc_isi_write(pipe, CHNL_CTRL, val);
