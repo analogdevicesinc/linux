@@ -326,7 +326,7 @@ static void neutron_mbox_rx_callback(struct neutron_device *ndev, void *data)
 
 int neutron_dev_clk_get(struct neutron_device *ndev)
 {
-	int ret;
+	int ret = -ENODEV;
 
 	if (!ndev || !ndev->dev)
 		return ret;
