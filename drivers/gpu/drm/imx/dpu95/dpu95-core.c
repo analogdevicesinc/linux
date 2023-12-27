@@ -94,6 +94,23 @@ static const struct dpu95_units dpu_dbs = {
 	.hw_init = dpu95_db_hw_init,
 };
 
+/* Dither */
+static const unsigned int dt_ids[] = {0, 1};
+static const enum dpu95_unit_type dt_types[] = {DPU95_DISP, DPU95_DISP};
+static const unsigned long dt_ofss[] = {0x310000, 0x370000};
+static const unsigned long dt_aux_ofss[] = {0x311000, 0x371020};
+
+static const struct dpu95_units dpu_dts = {
+	.ids = dt_ids,
+	.types = dt_types,
+	.ofss = dt_ofss,
+	.aux_ofss = dt_aux_ofss,
+	.cnt = ARRAY_SIZE(dt_ids),
+	.name = "Dither",
+	.init = dpu95_dt_init,
+	.hw_init = dpu95_dt_hw_init,
+};
+
 /* External Destination */
 static const unsigned int ed_ids[] = {0, 1, 4, 5};
 static const enum dpu95_unit_type ed_types[] = {DPU95_DISP, DPU95_DISP,
@@ -221,6 +238,7 @@ static const struct dpu95_units dpu_lbs = {
 static const struct dpu95_units *dpu_all_units[] = {
 	&dpu_cfs,
 	&dpu_dbs,
+	&dpu_dts,
 	&dpu_eds,
 	&dpu_fes,
 	&dpu_fgs,

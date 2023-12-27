@@ -202,6 +202,22 @@ static void dpu95_crtc_mode_set_nofb(struct drm_crtc *crtc)
 	dpu95_cf_constantcolor_black(dpu_crtc->cf_cont);
 	dpu95_cf_framedimensions(dpu_crtc->cf_cont,
 				 adj->crtc_hdisplay, adj->crtc_vdisplay);
+
+	dpu95_dt_polen_active_high(dpu_crtc->dt);
+	if (enc_is_dsi) {
+		dpu95_dt_polhs_active_low(dpu_crtc->dt);
+		dpu95_dt_polvs_active_low(dpu_crtc->dt);
+	} else {
+		if (adj->flags & DRM_MODE_FLAG_PHSYNC)
+			dpu95_dt_polhs_active_high(dpu_crtc->dt);
+		else
+			dpu95_dt_polhs_active_low(dpu_crtc->dt);
+
+		if (adj->flags & DRM_MODE_FLAG_PVSYNC)
+			dpu95_dt_polvs_active_high(dpu_crtc->dt);
+		else
+			dpu95_dt_polvs_active_low(dpu_crtc->dt);
+	}
 }
 
 static int dpu95_crtc_atomic_check(struct drm_crtc *crtc,
@@ -492,6 +508,7 @@ static int dpu95_crtc_get_resources(struct dpu95_crtc *dpu_crtc)
 		{(void *)&dpu_crtc->ed_cont,	(void *)dpu95_ed_cont_get},
 		{(void *)&dpu_crtc->fg,		(void *)dpu95_fg_get},
 		{(void *)&dpu_crtc->db,		(void *)dpu95_db_get},
+		{(void *)&dpu_crtc->dt,		(void *)dpu95_dt_get},
 	};
 	int i, ret;
 

@@ -431,6 +431,7 @@ struct dpu95_soc {
 
 	struct dpu95_constframe		*cf[4];
 	struct dpu95_domainblend	*db[2];
+	struct dpu95_dither		*dt[2];
 	struct dpu95_extdst		*ed[4];
 	struct dpu95_fetchunit		*fe[4];
 	struct dpu95_framegen		*fg[2];
@@ -495,6 +496,20 @@ void dpu95_db_hw_init(struct dpu95_soc *dpu, unsigned int index);
 int dpu95_db_init(struct dpu95_soc *dpu, unsigned int index,
 		  unsigned int id, enum dpu95_unit_type type,
 		  unsigned long unused, unsigned long base);
+
+/* Dither Unit */
+struct dpu95_dither;
+void dpu95_dt_polhs_active_high(struct dpu95_dither *dt);
+void dpu95_dt_polhs_active_low(struct dpu95_dither *dt);
+void dpu95_dt_polvs_active_high(struct dpu95_dither *dt);
+void dpu95_dt_polvs_active_low(struct dpu95_dither *dt);
+void dpu95_dt_polen_active_high(struct dpu95_dither *dt);
+void dpu95_dt_polen_active_low(struct dpu95_dither *dt);
+struct dpu95_dither *dpu95_dt_get(struct dpu95_soc *dpu95, int id);
+void dpu95_dt_hw_init(struct dpu95_soc *dpu, unsigned int index);
+int dpu95_dt_init(struct dpu95_soc *dpu, unsigned int index,
+		  unsigned int id, enum dpu95_unit_type type,
+		  unsigned long aux_base, unsigned long base);
 
 /* External Destination Unit */
 struct dpu95_extdst;
