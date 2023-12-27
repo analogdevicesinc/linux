@@ -286,13 +286,32 @@ imx95_ldb_bridge_mode_valid(struct drm_bridge *bridge,
 			    const struct drm_display_mode *mode)
 {
 	struct ldb_channel *ldb_ch = bridge->driver_private;
+	struct ldb *ldb = ldb_ch->ldb;
+	struct imx95_ldb *imx95_ldb = base_to_imx95_ldb(ldb);
 	bool is_single = ldb_channel_is_single_link(ldb_ch);
+	struct drm_bridge *next_bridge = bridge;
+	unsigned long pixel_clock_rate;
+	unsigned long rounded_rate;
 
 	if (mode->clock > 330000)
 		return MODE_CLOCK_HIGH;
 
 	if (mode->clock > 165000 && is_single)
 		return MODE_CLOCK_HIGH;
+
+	while (drm_bridge_get_next_bridge(next_bridge))
+		next_bridge = drm_bridge_get_next_bridge(next_bridge);
+
+	if ((next_bridge->ops & DRM_BRIDGE_OP_DETECT) &&
+	    (next_bridge->ops & DRM_BRIDGE_OP_EDID)) {
+		if (imx95_ldb->clk_pixel) {
+			pixel_clock_rate = mode->clock * 1000;
+			rounded_rate = clk_round_rate(imx95_ldb->clk_pixel,
+						      pixel_clock_rate);
+			if (rounded_rate != pixel_clock_rate)
+				return MODE_CLOCK_RANGE;
+		}
+	}
 
 	return MODE_OK;
 }
