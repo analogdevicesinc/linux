@@ -812,7 +812,7 @@ static int wave6_vpu_enc_start_encode(struct vpu_instance *inst)
 	ret = wave6_vpu_enc_start_one_frame(inst, &pic_param, &fail_res);
 	if (ret) {
 		if (fail_res == WAVE6_SYSERR_QUEUEING_FAIL) {
-			if (src_buf)
+			if (src_vbuf)
 				src_vbuf->consumed = false;
 
 			if (dst_vbuf) {

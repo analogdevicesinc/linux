@@ -1546,11 +1546,11 @@ static int wave6_vpu_dec_seek_header(struct vpu_instance *inst)
 
 	ret = wave6_vpu_dec_complete_seq_init(inst, &initial_info);
 	if (ret) {
-		dev_err(inst->dev->dev, "vpu_dec_complete_seq_init: %d, reason : %d\n",
+		dev_err(inst->dev->dev, "vpu_dec_complete_seq_init: %d, reason : 0x%x\n",
 			ret, initial_info.err_reason);
-		if (initial_info.err_reason == WAVE6_SYSERR_NOT_SUPPORT)
+		if (initial_info.err_reason & WAVE6_SYSERR_NOT_SUPPORT) {
 			ret = -EINVAL;
-		if ((initial_info.err_reason & HEVC_ETCERR_INIT_SEQ_SPS_NOT_FOUND) ||
+		} else if ((initial_info.err_reason & HEVC_ETCERR_INIT_SEQ_SPS_NOT_FOUND) ||
 		    (initial_info.err_reason & AVC_ETCERR_INIT_SEQ_SPS_NOT_FOUND)) {
 			wave6_handle_skipped_frame(inst);
 			ret = 0;
