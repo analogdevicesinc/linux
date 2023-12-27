@@ -751,20 +751,17 @@
 	status = "okay";
 };
 
-&tca_mux {
-	port {
-		usb3_data_ss: endpoint {
-			remote-endpoint = <&typec_con_ss>;
-		};
-	};
-};
-
 &usb3 {
 	status = "okay";
 };
 
 &usb3_phy {
 	status = "okay";
+	port {
+		usb3_data_ss: endpoint {
+			remote-endpoint = <&typec_con_ss>;
+		};
+	};
 };
 
 &usb3_dwc3 {

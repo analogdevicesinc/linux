@@ -2329,21 +2329,15 @@
 			};
 		};
 
-		tca_mux: typec-mux@4c1fc000 {
-			compatible = "nxp,tca-mux";
-			reg = <0x0 0x4c1fc000 0x0 0x100>;
-			clocks = <&scmi_clk IMX95_CLK_HSIO>;
-			clock-names = "clk";
-			orientation-switch;
-		};
-
 		usb3_phy: phy@4c1f0040 {
-			compatible = "fsl,imx8mp-usb-phy";
-			reg = <0x0 0x4c1f0040 0x0 0x40>;
+			compatible = "fsl,imx95-usb-phy";
+			reg = <0x0 0x4c1f0040 0x0 0x40>,
+			      <0x0 0x4c1fc000 0x0 0x100>;
 			clocks = <&scmi_clk IMX95_CLK_HSIO>;
 			clock-names = "phy";
 			#phy-cells = <0>;
 			power-domains = <&scmi_devpd IMX95_PD_HSIO_TOP>;
+			orientation-switch;
 			status = "disabled";
 		};
 
