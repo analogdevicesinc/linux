@@ -48,11 +48,11 @@ static int dpu95_load(struct dpu95_drm_device *dpu_drm)
 	if (ret)
 		return ret;
 
-	ret = dpu95_bliteng_load(dpu_drm);
+	ret = dpu95_kms_prepare(dpu_drm);
 	if (ret)
 		return ret;
 
-	ret = dpu95_kms_prepare(dpu_drm);
+	ret = dpu95_bliteng_load(dpu_drm);
 	if (ret)
 		return ret;
 
@@ -61,8 +61,8 @@ static int dpu95_load(struct dpu95_drm_device *dpu_drm)
 
 static void dpu95_unload(struct dpu95_drm_device *dpu_drm)
 {
-	dpu95_kms_unprepare(dpu_drm);
 	dpu95_bliteng_unload(dpu_drm);
+	dpu95_kms_unprepare(dpu_drm);
 }
 
 static int dpu95_probe(struct platform_device *pdev)
@@ -127,7 +127,7 @@ static int dpu95_runtime_suspend(struct device *dev)
 
 	ret = dpu95_bliteng_runtime_suspend(dpu_drm);
 	if (ret) {
-		dev_err(dev, "failed to runtime suspend dpu blit engine: %d\n", ret);
+		dev_err(dev, "failed to runtime suspend blit engine: %d\n", ret);
 		return ret;
 	}
 
@@ -172,7 +172,7 @@ static int dpu95_runtime_resume(struct device *dev)
 
 	ret = dpu95_bliteng_runtime_resume(dpu_drm);
 	if (ret) {
-		dev_err(dev, "failed to runtime resume dpu blit engine: %d\n", ret);
+		dev_err(dev, "failed to runtime resume blit engine: %d\n", ret);
 		return ret;
 	}
 

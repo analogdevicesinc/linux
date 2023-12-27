@@ -34,6 +34,22 @@ static inline void dpu95_be_write(struct dpu_bliteng *dpu_be, u32 value,
 	writel(value, dpu_be->base + offset);
 }
 
+static void dpu95_cs_lock(struct dpu_bliteng *dpu_be)
+{
+	dpu95_be_write(dpu_be, CMDSEQ_LOCKUNLOCKHIF_LOCKUNLOCKHIF__LOCK_KEY,
+		CMDSEQ_LOCKUNLOCKHIF);
+	dpu95_be_write(dpu_be, CMDSEQ_LOCKUNLOCK_LOCKUNLOCK__LOCK_KEY,
+		CMDSEQ_LOCKUNLOCK);
+}
+
+static void dpu95_cs_unlock(struct dpu_bliteng *dpu_be)
+{
+	dpu95_be_write(dpu_be, CMDSEQ_LOCKUNLOCKHIF_LOCKUNLOCKHIF__UNLOCK_KEY,
+		CMDSEQ_LOCKUNLOCKHIF);
+	dpu95_be_write(dpu_be, CMDSEQ_LOCKUNLOCK_LOCKUNLOCK__UNLOCK_KEY,
+		CMDSEQ_LOCKUNLOCK);
+}
+
 static void dpu95_cs_wait_fifo_space(struct dpu_bliteng *dpu_be)
 {
 	while ((dpu95_be_read(dpu_be, CMDSEQ_STATUS) &
@@ -69,12 +85,6 @@ static void dpu95_cs_static_setup(struct dpu_bliteng *dpu_be)
 {
 	dpu95_cs_wait_idle(dpu_be);
 
-	/* LockUnlock and LockUnlockHIF */
-	dpu95_be_write(dpu_be, CMDSEQ_LOCKUNLOCKHIF_LOCKUNLOCKHIF__UNLOCK_KEY,
-		CMDSEQ_LOCKUNLOCKHIF);
-	dpu95_be_write(dpu_be, CMDSEQ_LOCKUNLOCK_LOCKUNLOCK__UNLOCK_KEY,
-		CMDSEQ_LOCKUNLOCK);
-
 	/* Control */
 	dpu95_be_write(dpu_be, 1 << CMDSEQ_CONTROL_CLEAR_SHIFT,
 		CMDSEQ_CONTROL);
@@ -95,11 +105,9 @@ static void dpu95_bliteng_set_dev(struct dpu_bliteng *dpu_be, struct device *dev
 	dpu_be->dev = dev;
 }
 
-static int dpu95_be_get(struct dpu_bliteng *dpu_be)
+static void dpu95_be_get(struct dpu_bliteng *dpu_be)
 {
 	mutex_lock(&dpu_be->mutex);
-
-	return 0;
 }
 
 static void dpu95_be_put(struct dpu_bliteng *dpu_be)
@@ -441,6 +449,7 @@ static int dpu95_bliteng_init(struct dpu_bliteng *dpu_bliteng)
 	if (ret)
 		return ret;
 
+	dpu95_cs_unlock(dpu_bliteng);
 	dpu95_cs_static_setup(dpu_bliteng);
 
 	/*Request general SW interrupts to implement DPU fence */
@@ -470,11 +479,8 @@ static int dpu95_bliteng_init(struct dpu_bliteng *dpu_bliteng)
 static void dpu95_bliteng_fini(struct dpu_bliteng *dpu_bliteng)
 {
 	int i;
-	/* LockUnlock and LockUnlockHIF */
-	dpu95_be_write(dpu_bliteng, CMDSEQ_LOCKUNLOCKHIF_LOCKUNLOCKHIF__LOCK_KEY,
-		CMDSEQ_LOCKUNLOCKHIF);
-	dpu95_be_write(dpu_bliteng, CMDSEQ_LOCKUNLOCK_LOCKUNLOCK__LOCK_KEY,
-		CMDSEQ_LOCKUNLOCK);
+
+	dpu95_cs_lock(dpu_bliteng);
 
 	kfree(dpu_bliteng->cmd_list);
 
@@ -512,7 +518,7 @@ static int imx_drm_dpu95_set_cmdlist_ioctl(struct drm_device *drm_dev, void *dat
 		return -EFAULT;
 	}
 
-	ret = dpu95_be_get(dpu_blit_eng);
+	dpu95_be_get(dpu_blit_eng);
 	ret = pm_runtime_resume_and_get(dpu_blit_eng->dev);
 	if (ret < 0) {
 		drm_err(drm_dev, "failed to get device RPM: %d\n", ret);
@@ -556,7 +562,7 @@ static int imx_drm_dpu95_wait_ioctl(struct drm_device *drm_dev, void *data,
 	if (id != 0)
 		return -EINVAL;
 
-	ret = dpu95_be_get(dpu_blit_eng);
+	dpu95_be_get(dpu_blit_eng);
 	ret = pm_runtime_resume_and_get(dpu_blit_eng->dev);
 	if (ret < 0) {
 		drm_err(drm_dev, "failed to get device RPM: %d\n", ret);
@@ -582,7 +588,7 @@ static int imx_drm_dpu95_get_param_ioctl(struct drm_device *drm_dev, void *data,
 		ret = imx_dpu_num;
 		break;
 	case DRM_IMX_GET_FENCE:
-		ret = dpu95_be_get(dpu_blit_eng);
+		dpu95_be_get(dpu_blit_eng);
 
 		if (fd == -1)
 			fd = dpu95_be_get_fence(dpu_blit_eng);
@@ -673,6 +679,8 @@ int dpu95_bliteng_load(struct dpu95_drm_device *dpu_drm)
 
 	imx_dpu_num++;
 
+	dpu_bliteng->ready = true;
+
 	return 0;
 }
 
@@ -689,23 +697,18 @@ void dpu95_bliteng_unload(struct dpu95_drm_device *dpu_drm)
 
 int dpu95_bliteng_runtime_suspend(struct dpu95_drm_device *dpu_drm)
 {
-	int ret;
 	struct dpu_bliteng *dpu_bliteng = &dpu_drm->dpu_be;
 
-	if (!dpu_bliteng)
+	if (!dpu_bliteng || !dpu_bliteng->ready)
 		return 0;
 
-	ret = dpu95_be_get(dpu_bliteng);
+	dpu95_be_get(dpu_bliteng);
 
 	dpu95_be_wait(dpu_bliteng);
 
 	dpu95_be_put(dpu_bliteng);
 
-	/* LockUnlock and LockUnlockHIF */
-	dpu95_be_write(dpu_bliteng, CMDSEQ_LOCKUNLOCKHIF_LOCKUNLOCKHIF__LOCK_KEY,
-		CMDSEQ_LOCKUNLOCKHIF);
-	dpu95_be_write(dpu_bliteng, CMDSEQ_LOCKUNLOCK_LOCKUNLOCK__LOCK_KEY,
-		CMDSEQ_LOCKUNLOCK);
+	dpu95_cs_lock(dpu_bliteng);
 
 	return 0;
 }
@@ -714,11 +717,12 @@ int dpu95_bliteng_runtime_resume(struct dpu95_drm_device *dpu_drm)
 {
 	struct dpu_bliteng *dpu_bliteng = &dpu_drm->dpu_be;
 
-	if (!dpu_bliteng)
+	if (!dpu_bliteng || !dpu_bliteng->ready)
 		return 0;
 
 	dpu95_be_init_units(dpu_bliteng);
 
+	dpu95_cs_unlock(dpu_bliteng);
 	dpu95_cs_static_setup(dpu_bliteng);
 
 	return 0;

@@ -46,6 +46,8 @@ struct dpu_bliteng {
 	u32 *cmd_list;
 
 	struct dpu95_soc *dpu;
+
+	bool ready;
 };
 
 struct dpu95_drm_device;
