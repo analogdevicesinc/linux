@@ -248,6 +248,7 @@ struct fsl_edma_engine {
 	u32			n_chans;
 	int			txirq;
 	int			errirq;
+	int                     txirq_count;
 	#define MAX_CHAN_NUM    64
 	bool			big_endian;
 	struct edma_regs	regs;
