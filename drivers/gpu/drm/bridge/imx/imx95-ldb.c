@@ -27,6 +27,9 @@
 #define LVDS_PHY_CLK_CTRL		0x00
 #define  LVDS_PHY_DIV2			BIT(0)
 
+#define LDB_DI0_HS_POL_ACT_LOW		BIT(13)
+#define LDB_DI1_HS_POL_ACT_LOW		BIT(14)
+
 #define DRIVER_NAME			"imx95-ldb"
 
 struct imx95_ldb_channel {
@@ -96,11 +99,28 @@ imx95_ldb_bridge_mode_set(struct drm_bridge *bridge,
 			dev_err(dev, "failed to init slave PHY: %d\n", ret);
 	}
 
-	/* input VSYNC/HSYNC signal from pixel link is active low */
-	if (ldb_ch->chno == 0 || is_split)
-		ldb->ldb_ctrl |= LDB_DI0_VS_POL_ACT_LOW | LDB_DI0_HS_POL_ACT_LOW;
-	if (ldb_ch->chno == 1 || is_split)
-		ldb->ldb_ctrl |= LDB_DI1_VS_POL_ACT_LOW | LDB_DI1_HS_POL_ACT_LOW;
+	if (ldb_ch->chno == 0 || is_split) {
+		if (adjusted_mode->flags & DRM_MODE_FLAG_NVSYNC)
+			ldb->ldb_ctrl |= LDB_DI0_VS_POL_ACT_LOW;
+		else if (adjusted_mode->flags & DRM_MODE_FLAG_PVSYNC)
+			ldb->ldb_ctrl &= ~LDB_DI0_VS_POL_ACT_LOW;
+
+		if (adjusted_mode->flags & DRM_MODE_FLAG_NHSYNC)
+			ldb->ldb_ctrl |= LDB_DI0_HS_POL_ACT_LOW;
+		else if (adjusted_mode->flags & DRM_MODE_FLAG_PHSYNC)
+			ldb->ldb_ctrl &= ~LDB_DI0_HS_POL_ACT_LOW;
+	}
+	if (ldb_ch->chno == 1 || is_split) {
+		if (adjusted_mode->flags & DRM_MODE_FLAG_NVSYNC)
+			ldb->ldb_ctrl |= LDB_DI1_VS_POL_ACT_LOW;
+		else if (adjusted_mode->flags & DRM_MODE_FLAG_PVSYNC)
+			ldb->ldb_ctrl &= ~LDB_DI1_VS_POL_ACT_LOW;
+
+		if (adjusted_mode->flags & DRM_MODE_FLAG_NHSYNC)
+			ldb->ldb_ctrl |= LDB_DI1_HS_POL_ACT_LOW;
+		else if (adjusted_mode->flags & DRM_MODE_FLAG_PHSYNC)
+			ldb->ldb_ctrl &= ~LDB_DI1_HS_POL_ACT_LOW;
+	}
 
 	ldb_bridge_mode_set_helper(bridge, mode, adjusted_mode);
 }
