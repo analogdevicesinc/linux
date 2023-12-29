@@ -29,6 +29,7 @@
 
 #define LDB_DI0_HS_POL_ACT_LOW		BIT(13)
 #define LDB_DI1_HS_POL_ACT_LOW		BIT(14)
+#define LDB_VSYNC_ADJ_EN		BIT(19)
 
 #define DRIVER_NAME			"imx95-ldb"
 
@@ -98,6 +99,8 @@ imx95_ldb_bridge_mode_set(struct drm_bridge *bridge,
 		if (ret < 0)
 			dev_err(dev, "failed to init slave PHY: %d\n", ret);
 	}
+
+	ldb->ldb_ctrl |= LDB_VSYNC_ADJ_EN;
 
 	if (ldb_ch->chno == 0 || is_split) {
 		if (adjusted_mode->flags & DRM_MODE_FLAG_NVSYNC)
