@@ -57,16 +57,12 @@ struct mxc_isi_fmt mxc_isi_src_formats[] = {
 	}
 };
 
-struct mxc_isi_fmt *mxc_isi_get_format(unsigned int index)
-{
-	return &mxc_isi_out_formats[index];
-}
-
 /*
  * lookup mxc_isi color format by fourcc or media bus format
  */
-struct mxc_isi_fmt *mxc_isi_find_format(const u32 *pixelformat,
-					const u32 *mbus_code, int index)
+static struct mxc_isi_fmt *mxc_isi_find_format(const u32 *pixelformat,
+					       const u32 *mbus_code,
+					       int index)
 {
 	struct mxc_isi_fmt *fmt, *def_fmt = NULL;
 	unsigned int i;
@@ -88,7 +84,7 @@ struct mxc_isi_fmt *mxc_isi_find_format(const u32 *pixelformat,
 	return def_fmt;
 }
 
-struct mxc_isi_fmt *mxc_isi_get_src_fmt(struct v4l2_subdev_format *sd_fmt)
+static struct mxc_isi_fmt *mxc_isi_get_src_fmt(struct v4l2_subdev_format *sd_fmt)
 {
 	u32 index;
 
@@ -551,7 +547,7 @@ static const struct v4l2_ctrl_ops mxc_isi_ctrl_ops = {
 	.s_ctrl = mxc_isi_s_ctrl,
 };
 
-int mxc_isi_ctrls_create(struct mxc_isi_cap_dev *isi_cap)
+static int mxc_isi_ctrls_create(struct mxc_isi_cap_dev *isi_cap)
 {
 	struct mxc_isi_ctrls *ctrls = &isi_cap->ctrls;
 	struct v4l2_ctrl_handler *handler = &ctrls->handler;
@@ -575,7 +571,7 @@ int mxc_isi_ctrls_create(struct mxc_isi_cap_dev *isi_cap)
 	return handler->error;
 }
 
-void mxc_isi_ctrls_delete(struct mxc_isi_cap_dev *isi_cap)
+static void mxc_isi_ctrls_delete(struct mxc_isi_cap_dev *isi_cap)
 {
 	struct mxc_isi_ctrls *ctrls = &isi_cap->ctrls;
 
@@ -1551,10 +1547,10 @@ static int mxc_isi_subdev_get_selection(struct v4l2_subdev *sd,
 		return 0;
 
 	case V4L2_SEL_TGT_CROP:
-		try_sel = v4l2_subdev_get_try_crop(sd, sd_state, sel->pad);
+		try_sel = v4l2_subdev_state_get_crop(sd_state, sel->pad);
 		break;
 	case V4L2_SEL_TGT_COMPOSE:
-		try_sel = v4l2_subdev_get_try_compose(sd, sd_state, sel->pad);
+		try_sel = v4l2_subdev_state_get_compose(sd_state, sel->pad);
 		f = &isi_cap->dst_f;
 		break;
 	default:
@@ -1594,10 +1590,10 @@ static int mxc_isi_subdev_set_selection(struct v4l2_subdev *sd,
 
 	switch (sel->target) {
 	case V4L2_SEL_TGT_CROP:
-		try_sel = v4l2_subdev_get_try_crop(sd, sd_state, sel->pad);
+		try_sel = v4l2_subdev_state_get_crop(sd_state, sel->pad);
 		break;
 	case V4L2_SEL_TGT_COMPOSE:
-		try_sel = v4l2_subdev_get_try_compose(sd, sd_state, sel->pad);
+		try_sel = v4l2_subdev_state_get_compose(sd_state, sel->pad);
 		f = &isi_cap->dst_f;
 		break;
 	default:
