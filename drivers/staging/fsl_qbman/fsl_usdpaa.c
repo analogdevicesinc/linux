@@ -1909,7 +1909,7 @@ static void phy_link_updates(struct net_device *net_dev)
 	list_for_each(position, &eventfd_head) {
 		ev_mem = list_entry(position, struct eventfd_list, d_list);
 		if (ev_mem->ndev == net_dev) {
-			eventfd_signal(ev_mem->efd_ctx, 1);
+			eventfd_signal(ev_mem->efd_ctx);
 			pr_debug("%s: Link '%s': Speed '%d-Mbps': Autoneg '%d': Duplex '%d'\n",
 				net_dev->name,
 				netif_carrier_ok(net_dev) ? "UP" : "DOWN",
@@ -1932,7 +1932,7 @@ static int setup_eventfd(struct task_struct *userspace_task,
 	struct eventfd_list *ev_mem;
 
 	rcu_read_lock();
-	efd_file = files_lookup_fd_rcu(userspace_task->files, args->efd);
+	efd_file = lookup_fdget_rcu(args->efd);
 	rcu_read_unlock();
 
 	/* check if device is already registered */
