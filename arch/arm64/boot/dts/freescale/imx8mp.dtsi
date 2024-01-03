@@ -780,13 +780,6 @@
 								       <300000000>;
 					};
 
-					pgc_gpu2d: power-domain@6 {
-						#power-domain-cells = <0>;
-						reg = <IMX8MP_POWER_DOMAIN_GPU2D>;
-						clocks = <&clk IMX8MP_CLK_GPU2D_ROOT>;
-						power-domains = <&pgc_gpumix>;
-					};
-
 					pgc_gpumix: power-domain@7 {
 						#power-domain-cells = <0>;
 						reg = <IMX8MP_POWER_DOMAIN_GPUMIX>;
@@ -804,6 +797,17 @@
 						#power-domain-cells = <0>;
 						reg = <IMX8MP_POWER_DOMAIN_VPUMIX>;
 						clocks = <&clk IMX8MP_CLK_VPU_ROOT>;
+					};
+
+					/*
+					 * gpu driver not handle defer probe, but gpu2d pd will defer probe is
+					 *  put above gpumix, so move below gpumix
+					 */
+					pgc_gpu2d: power-domain@6 {
+						#power-domain-cells = <0>;
+						reg = <IMX8MP_POWER_DOMAIN_GPU2D>;
+						clocks = <&clk IMX8MP_CLK_GPU2D_ROOT>;
+						power-domains = <&pgc_gpumix>;
 					};
 
 					pgc_gpu3d: power-domain@9 {
