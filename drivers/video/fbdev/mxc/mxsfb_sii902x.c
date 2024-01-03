@@ -43,6 +43,7 @@
 #include <asm/mach-types.h>
 #include <video/mxc_edid.h>
 
+#include "../core/fb_internal.h"
 #include "mxsfb_sii902x.h"
 
 #define DRV_NAME "sii902x"

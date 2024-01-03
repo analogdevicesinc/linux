@@ -12,6 +12,7 @@
 #include <linux/of_device.h>
 #include <sound/hdmi-codec.h>
 #include <drm/drm_edid.h>
+#include <drm/drm_eld.h>
 
 #include "mxsfb_sii902x.h"
 
