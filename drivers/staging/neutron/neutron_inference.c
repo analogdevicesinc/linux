@@ -46,10 +46,8 @@ static const struct file_operations neutron_inference_fops = {
 static inline void neutron_inference_del_list(struct neutron_inference_queue *queue,
 					      struct neutron_inference *inf)
 {
-	spin_lock_bh(&queue->lock);
+	queue->queue_count--;
 	list_del(&inf->node);
-	spin_unlock_bh(&queue->lock);
-	atomic_dec(&queue->queue_count);
 }
 
 static void poll_result_callback(struct timer_list *poll_timer)
@@ -80,6 +78,9 @@ int neutron_inference_run(struct neutron_inference *inf)
 	int ret = 0;
 
 	if (!inf || IS_ERR(inf))
+		return PTR_ERR(inf);
+
+	if (!inf->ndev || IS_ERR(inf->ndev))
 		return PTR_ERR(inf);
 
 	/* The job have been done */
@@ -186,15 +187,16 @@ int neutron_inference_done(struct neutron_device *ndev)
 static void inference_inqueue(struct neutron_inference_queue *queue,
 			      struct neutron_inference *inf)
 {
+	int queue_count;
+
 	spin_lock_bh(&queue->lock);
+	queue_count = queue->queue_count++;
 	list_add_tail(&inf->node, &queue->head);
 	inf->status = NEUTRON_UAPI_STATUS_PENDING;
 	spin_unlock_bh(&queue->lock);
 
-	atomic_inc(&queue->queue_count);
-
-	/* The minimum queue count should be 1 after count++  */
-	if (atomic_read(&queue->queue_count) == 1)
+	/* Start inference directly if there are no jobs in queue */
+	if (queue_count == 0)
 		neutron_inference_run(inf);
 }
 
@@ -202,18 +204,18 @@ static void inference_dequeue(struct neutron_inference_queue *queue,
 			      struct neutron_inference *inf)
 {
 	struct neutron_inference *next_inf;
+	int queue_count;
 
 	spin_lock_bh(&queue->lock);
 	/* Get next element before delete it */
 	next_inf = list_next_entry(inf, node);
+	neutron_inference_del_list(queue, inf);
 	queue->cur_inf = NULL;
-	list_del(&inf->node);
+	queue_count = queue->queue_count;
 	spin_unlock_bh(&queue->lock);
 
-	atomic_dec(&queue->queue_count);
-
 	/* There are jobs left in queue list */
-	if (atomic_read(&queue->queue_count) > 0) {
+	if (queue_count > 0) {
 		neu_dbg("next %x\n", next_inf->args.tensor_offset);
 		neutron_inference_run(next_inf);
 	}
@@ -273,12 +275,14 @@ static void neutron_inference_kref_destroy(struct kref *kref)
 		inf->args.tensor_offset, inf->status);
 
 	/* Delete entry if inference is not scheduled */
+	spin_lock_bh(&inf->ndev->queue->lock);
 	list_for_each_entry_safe(del_inf, _del_inf, &inf->ndev->queue->head, node) {
 		if (del_inf == inf) {
 			neutron_inference_del_list(inf->ndev->queue, inf);
 			break;
 		}
 	}
+	spin_unlock_bh(&inf->ndev->queue->lock);
 
 	if (inf->poll_mode)
 		del_timer(&inf->poll_timer);
@@ -374,8 +378,9 @@ struct neutron_inference_queue *neutron_queue_create(struct neutron_device *ndev
 	if (!queue)
 		return NULL;
 
-	atomic_set(&queue->queue_count, 0);
+	queue->queue_count = 0;
 	queue->ndev = ndev;
+	spin_lock_init(&queue->lock);
 
 	queue->wq = create_singlethread_workqueue("neutron_workqueue");
 	if (!queue->wq) {

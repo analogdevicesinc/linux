@@ -72,7 +72,7 @@ struct neutron_inference {
 struct neutron_inference_queue {
 	struct neutron_device    *ndev;
 	/* inference queue element count */
-	atomic_t                 queue_count;
+	unsigned int             queue_count;
 	/* inference list head */
 	struct list_head         head;
 	/* current inference job */
