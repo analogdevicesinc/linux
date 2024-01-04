@@ -1425,9 +1425,11 @@ uninit_regulators:
 	if (ret == -EPROBE_DEFER)
 		return ret;
 
-	endpoint = of_graph_get_next_endpoint(dev->of_node, NULL);
-	if (endpoint)
+	endpoint = of_graph_get_endpoint_by_regs(dev->of_node, 0, -1);
+	if (endpoint) {
 		remote_node = of_graph_get_remote_port_parent(endpoint);
+		of_node_put(endpoint);
+	}
 
 	if (!remote_node)
 		return ret;
