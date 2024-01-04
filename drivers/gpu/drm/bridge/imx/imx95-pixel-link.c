@@ -152,6 +152,12 @@ imx95_pl_find_next_bridge_per_output_port(struct imx95_pl *pl, u32 out_port)
 
 		of_node_put(remote);
 
+		if (pl->next_bridge[in_port] == pl->next_bridge[in_port ^ 1]) {
+			dev_err(dev, "do not support sharing next bridge(%pOF) between pixel links\n",
+				remote);
+			return -ENODEV;
+		}
+
 		return 0;
 	}
 
