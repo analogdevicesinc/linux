@@ -86,6 +86,7 @@ static int iio_hw_trigger_buffer_probe(struct auxiliary_device *adev,
 }
 
 static const struct auxiliary_device_id iio_hw_trigger_buffer_id_table[] = {
+	{ .name = "pwm-triggered-dma-buffer.triggered-buffer" },
 	{ }
 };
 MODULE_DEVICE_TABLE(auxiliary, iio_hw_trigger_buffer_id_table);

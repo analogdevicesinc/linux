@@ -34,6 +34,7 @@ obj-y += imu/
 obj-y += light/
 obj-y += magnetometer/
 obj-y += multiplexer/
+obj-y += offload/
 obj-y += orientation/
 obj-y += position/
 obj-y += potentiometer/
