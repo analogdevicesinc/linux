@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: GPL-2.0-only
+#
+# SPI offload handlers for Industrial I/O
+#
+# When adding new entries keep the list in alphabetical order
+
+menu "SPI offload handlers"
+
+config IIO_PWM_TRIGGERED_DMA_BUFFER
+	tristate "PWM trigger and DMA buffer connected to SPI offload"
+	select AUXILIARY_BUS
+	select IIO_BUFFER_DMAENGINE
+	help
+	  Provides a periodic hardware trigger via a PWM connected to the
+	  trigger input of a SPI offload and a hardware buffer implemented
+	  via DMA connected to the data output stream the a SPI offload.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called "iio-pwm-triggered-dma-buffer".
+
+endmenu
