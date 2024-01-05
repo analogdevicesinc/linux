@@ -120,7 +120,7 @@ static const struct iio_buffer_access_funcs iio_dmaengine_buffer_ops = {
 	.data_available = iio_dma_buffer_data_available,
 	.release = iio_dmaengine_buffer_release,
 
-	.modes = INDIO_BUFFER_HARDWARE,
+	.modes = INDIO_BUFFER_HARDWARE | INDIO_HW_BUFFER_TRIGGERED,
 	.flags = INDIO_BUFFER_FLAG_FIXED_WATERMARK,
 };
 
