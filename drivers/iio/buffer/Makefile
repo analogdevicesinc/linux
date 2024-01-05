@@ -9,4 +9,5 @@ obj-$(CONFIG_IIO_BUFFER_DMA) += industrialio-buffer-dma.o
 obj-$(CONFIG_IIO_BUFFER_DMAENGINE) += industrialio-buffer-dmaengine.o
 obj-$(CONFIG_IIO_BUFFER_HW_CONSUMER) += industrialio-hw-consumer.o
 obj-$(CONFIG_IIO_TRIGGERED_BUFFER) += industrialio-triggered-buffer.o
+obj-$(CONFIG_IIO_HW_TRIGGERED_BUFFER) += industrialio-hw-triggered-buffer.o
 obj-$(CONFIG_IIO_KFIFO_BUF) += kfifo_buf.o

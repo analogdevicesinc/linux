@@ -296,6 +296,7 @@ IIO
   devm_iio_channel_get()
   devm_iio_channel_get_all()
   devm_iio_hw_consumer_alloc()
+  devm_iio_hw_triggered_buffer_setup()
   devm_fwnode_iio_channel_get_by_name()
 
 INPUT
