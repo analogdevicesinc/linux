@@ -27,6 +27,7 @@
 #include <linux/iio/sysfs.h>
 #include <linux/iio/buffer.h>
 #include <linux/iio/buffer_impl.h>
+#include <linux/iio/trigger.h>
 
 static const char * const iio_endian_prefix[] = {
 	[IIO_BE] = "be",
@@ -867,8 +868,17 @@ static int iio_verify_update(struct iio_dev *indio_dev,
 					insert_buffer->watermark);
 	}
 
-	/* Definitely possible for devices to support both of these. */
-	if ((modes & INDIO_BUFFER_TRIGGERED) && indio_dev->trig) {
+	/* Definitely possible for devices to support all of these. */
+	if (modes & INDIO_HW_BUFFER_TRIGGERED) {
+		/*
+		 * Keep things simple for now and only allow a single buffer to
+		 * be connected in hardware mode.
+		 */
+		if (insert_buffer && !list_empty(&iio_dev_opaque->buffer_list))
+			return -EINVAL;
+		config->mode = INDIO_HW_BUFFER_TRIGGERED;
+		strict_scanmask = true;
+	} else if ((modes & INDIO_BUFFER_TRIGGERED) && indio_dev->trig) {
 		config->mode = INDIO_BUFFER_TRIGGERED;
 	} else if (modes & INDIO_BUFFER_HARDWARE) {
 		/*
@@ -1107,11 +1117,21 @@ static int iio_enable_buffers(struct iio_dev *indio_dev,
 		}
 	}
 
+	if (iio_dev_opaque->currentmode == INDIO_HW_BUFFER_TRIGGERED) {
+		struct iio_trigger *trig = indio_dev->trig;
+
+		if (trig->ops && trig->ops->set_trigger_state) {
+			ret = trig->ops->set_trigger_state(trig, true);
+			if (ret)
+				goto err_disable_buffers;
+		}
+	}
+
 	if (iio_dev_opaque->currentmode == INDIO_BUFFER_TRIGGERED) {
 		ret = iio_trigger_attach_poll_func(indio_dev->trig,
 						   indio_dev->pollfunc);
 		if (ret)
-			goto err_disable_buffers;
+			goto err_disable_hw_trigger;
 	}
 
 	if (indio_dev->setup_ops->postenable) {
@@ -1129,6 +1149,16 @@ err_detach_pollfunc:
 	if (iio_dev_opaque->currentmode == INDIO_BUFFER_TRIGGERED) {
 		iio_trigger_detach_poll_func(indio_dev->trig,
 					     indio_dev->pollfunc);
+	}
+err_disable_hw_trigger:
+	if (iio_dev_opaque->currentmode == INDIO_HW_BUFFER_TRIGGERED) {
+		struct iio_trigger *trig = indio_dev->trig;
+
+		if (trig->ops && trig->ops->set_trigger_state) {
+			ret = trig->ops->set_trigger_state(trig, false);
+			if (ret)
+				return ret;
+		}
 	}
 err_disable_buffers:
 	buffer = list_prepare_entry(tmp, &iio_dev_opaque->buffer_list, buffer_list);
@@ -1172,6 +1202,13 @@ static int iio_disable_buffers(struct iio_dev *indio_dev)
 	if (iio_dev_opaque->currentmode == INDIO_BUFFER_TRIGGERED) {
 		iio_trigger_detach_poll_func(indio_dev->trig,
 					     indio_dev->pollfunc);
+	}
+
+	if (iio_dev_opaque->currentmode == INDIO_HW_BUFFER_TRIGGERED) {
+		struct iio_trigger *trig = indio_dev->trig;
+
+		if (trig->ops && trig->ops->set_trigger_state)
+			trig->ops->set_trigger_state(trig, false);
 	}
 
 	list_for_each_entry(buffer, &iio_dev_opaque->buffer_list, buffer_list) {

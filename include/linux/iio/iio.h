@@ -366,6 +366,11 @@ s64 iio_get_time_ns(const struct iio_dev *indio_dev);
  * they must be managed by the core, but without the entire interrupts/poll
  * functions burden. Interrupts are irrelevant as the data flow is hardware
  * mediated and distributed.
+ * @INDIO_HW_BUFFER_TRIGGERED: Very unusual mode.
+ * This is similar to INDIO_BUFFER_TRIGGERED but everything is done in hardware
+ * therefore there are no poll functions attached. It also implies the semantics
+ * of both INDIO_HARDWARE_TRIGGERED for the trigger and INDIO_BUFFER_HARDWARE
+ * for the buffer.
  */
 #define INDIO_DIRECT_MODE		0x01
 #define INDIO_BUFFER_TRIGGERED		0x02
@@ -373,14 +378,19 @@ s64 iio_get_time_ns(const struct iio_dev *indio_dev);
 #define INDIO_BUFFER_HARDWARE		0x08
 #define INDIO_EVENT_TRIGGERED		0x10
 #define INDIO_HARDWARE_TRIGGERED	0x20
+#define INDIO_HW_BUFFER_TRIGGERED	0x40
 
-#define INDIO_ALL_BUFFER_MODES					\
-	(INDIO_BUFFER_TRIGGERED | INDIO_BUFFER_HARDWARE | INDIO_BUFFER_SOFTWARE)
+#define INDIO_ALL_BUFFER_MODES		\
+	(INDIO_BUFFER_TRIGGERED		\
+	 | INDIO_BUFFER_HARDWARE	\
+	 | INDIO_BUFFER_SOFTWARE	\
+	 | INDIO_HW_BUFFER_TRIGGERED)
 
 #define INDIO_ALL_TRIGGERED_MODES	\
 	(INDIO_BUFFER_TRIGGERED		\
 	 | INDIO_EVENT_TRIGGERED	\
-	 | INDIO_HARDWARE_TRIGGERED)
+	 | INDIO_HARDWARE_TRIGGERED	\
+	 | INDIO_HW_BUFFER_TRIGGERED)
 
 #define INDIO_MAX_RAW_ELEMENTS		4
 
