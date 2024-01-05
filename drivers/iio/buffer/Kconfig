@@ -53,3 +53,10 @@ config IIO_TRIGGERED_BUFFER
 	select IIO_KFIFO_BUF
 	help
 	  Provides helper functions for setting up triggered buffers.
+
+config IIO_HW_TRIGGERED_BUFFER
+	tristate "Industrial I/O hardware triggered buffer support"
+	select AUXILIARY_BUS
+	select IIO_TRIGGER
+	help
+	  Provides helper functions for setting up hardware triggered buffers.
