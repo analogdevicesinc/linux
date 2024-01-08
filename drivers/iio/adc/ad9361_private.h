@@ -103,6 +103,7 @@ struct gain_control {
 	u8 adc_large_overload_inc_steps; /* 0..15, 0x106 */
 
 	bool adc_lmt_small_overload_prevent_gain_inc; /* 0x120 */
+	bool agc_dig_sat_ovrg_en;  /* 0x101:7 */
 
 	u8 lmt_overload_large_exceed_counter; /* 0..15, 0x121 */
 	u8 lmt_overload_small_exceed_counter; /* 0..15, 0x121 */

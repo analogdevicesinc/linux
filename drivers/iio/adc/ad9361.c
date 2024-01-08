@@ -3374,9 +3374,8 @@ static int ad9361_gc_setup(struct ad9361_rf_phy *phy, struct gain_control *ctrl)
 	/* AGC */
 
 	tmp1 = reg = clamp_t(u8, ctrl->agc_inner_thresh_high, 0U, 127U);
-	ad9361_spi_writef(spi, REG_AGC_LOCK_LEVEL,
-			  AGC_LOCK_LEVEL_FAST_AGC_INNER_HIGH_THRESH_SLOW(~0),
-			  reg);
+	ad9361_spi_write(spi, REG_AGC_LOCK_LEVEL,
+			 reg | ((ctrl->agc_dig_sat_ovrg_en << 7) & ENABLE_DIG_SAT_OVRG));
 
 	tmp2 = reg = clamp_t(u8, ctrl->agc_inner_thresh_low, 0U, 127U);
 	reg |= (ctrl->adc_lmt_small_overload_prevent_gain_inc ?
@@ -8857,6 +8856,8 @@ static struct ad9361_phy_platform_data
 			  &pdata->gain_ctrl.agc_outer_thresh_low);
 	ad9361_of_get_u32(iodev, np, "adi,agc-outer-thresh-low-inc-steps", 2,
 			  &pdata->gain_ctrl.agc_outer_thresh_low_inc_steps);
+	ad9361_of_get_bool(iodev, np, "adi,agc-dig-sat-ovrg-enable",
+			   &pdata->gain_ctrl.agc_dig_sat_ovrg_en);
 	ad9361_of_get_u32(iodev, np, "adi,agc-adc-small-overload-exceed-counter", 10,
 			  &pdata->gain_ctrl.adc_small_overload_exceed_counter);
 	ad9361_of_get_u32(iodev, np, "adi,agc-adc-large-overload-exceed-counter", 10,
