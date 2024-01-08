@@ -2301,8 +2301,9 @@
 				 <&scmi_clk IMX95_CLK_DISPAPB>,
 				 <&scmi_clk IMX95_CLK_DISPAXI>,
 				 <&scmi_clk IMX95_CLK_DISPOCRAM>,
-				 <&lvds_csr IMX95_CLK_DISPMIX_PIX_DI_GATE>;
-			clock-names = "pix", "apb", "axi", "ocram", "ldb";
+				 <&lvds_csr IMX95_CLK_DISPMIX_PIX_DI_GATE>,
+				 <&scmi_clk IMX95_CLK_LDBPLL_VCO>;
+			clock-names = "pix", "apb", "axi", "ocram", "ldb", "ldb_vco";
 			power-domains = <&scmi_devpd IMX95_PD_DISPLAY>;
 			nxp,blk-ctrl = <&dispmix_csr>;
 			status = "disabled";
