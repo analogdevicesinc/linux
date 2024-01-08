@@ -332,18 +332,22 @@ int dpu95_fg_wait_for_secondary_syncup(struct dpu95_framegen *fg)
 
 void dpu95_fg_enable_clock(struct dpu95_framegen *fg, bool enc_is_dsi)
 {
-	if (enc_is_dsi)
+	if (enc_is_dsi) {
 		clk_prepare_enable(fg->dpu->clk_pix);
-	else
+	} else {
+		clk_prepare_enable(fg->dpu->clk_ldb_vco);
 		clk_prepare_enable(fg->dpu->clk_ldb);
+	}
 }
 
 void dpu95_fg_disable_clock(struct dpu95_framegen *fg, bool enc_is_dsi)
 {
-	if (enc_is_dsi)
+	if (enc_is_dsi) {
 		clk_disable_unprepare(fg->dpu->clk_pix);
-	else
+	} else {
 		clk_disable_unprepare(fg->dpu->clk_ldb);
+		clk_disable_unprepare(fg->dpu->clk_ldb_vco);
+	}
 }
 
 struct dpu95_framegen *dpu95_fg_get(struct dpu95_soc *dpu, unsigned int id)

@@ -929,6 +929,11 @@ int dpu95_core_init(struct dpu95_drm_device *dpu_drm)
 		return dev_err_probe(dev, PTR_ERR(dpu->clk_ldb),
 				     "failed to get ldb clock\n");
 
+	dpu->clk_ldb_vco = devm_clk_get(dev, "ldb_vco");
+	if (IS_ERR(dpu->clk_ldb_vco))
+		return dev_err_probe(dev, PTR_ERR(dpu->clk_ldb_vco),
+				     "failed to get ldb_vco clock\n");
+
 	ret = dpu95_submodules_init(dpu, dpu_base);
 	if (ret)
 		return ret;

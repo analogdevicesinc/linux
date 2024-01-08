@@ -420,6 +420,7 @@ struct dpu95_soc {
 	struct clk			*clk_pix;
 	struct clk			*clk_ocram;
 	struct clk			*clk_ldb;
+	struct clk			*clk_ldb_vco;
 
 	int				comctrl_irq[DPU95_COMCTRL_IRQ_IRQS];
 	int				disp_irq0[DPU95_DISPLAY_IRQ0_IRQS];
