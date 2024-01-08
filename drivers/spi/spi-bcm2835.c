@@ -1231,6 +1231,7 @@ static int bcm2835_spi_setup(struct spi_device *spi)
 		"brcm,bcm2711-gpio",
 		"brcm,bcm7211-gpio",
 	};
+	int len;
 	int ret, i;
 	u32 cs;
 
@@ -1302,6 +1303,10 @@ static int bcm2835_spi_setup(struct spi_device *spi)
 	}
 
 	if (i == ARRAY_SIZE(pinctrl_compats))
+		return 0;
+
+	/* Skip forced CS conversion if controller has an empty cs-gpios property */
+	if (of_find_property(ctlr->dev.of_node, "cs-gpios", &len) && len == 0)
 		return 0;
 
 	/*
