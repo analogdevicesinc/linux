@@ -592,10 +592,10 @@ static const struct imx8m_blk_ctrl_domain_data imx8mp_vpu_blk_ctl_domain_data[] 
 		},
 	},
 	[IMX8MP_VPUBLK_PD_VC8000E] = {
-		.name = "vpublk-h1",
-		.clk_names = (const char *[]){ "h1", },
+		.name = "vpublk-vc8000e",
+		.clk_names = (const char *[]){ "vc8000e", },
 		.num_clks = 1,
-		.gpc_name = "h1",
+		.gpc_name = "vc8000e",
 		.rst_mask = BIT(2),
 		.clk_mask = BIT(2),
 		.noc_data = {
