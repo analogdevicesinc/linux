@@ -365,7 +365,7 @@ properties:
       - const: framegen1_threshold1_fail
 
   clocks:
-    maxItems: 5
+    maxItems: 6
 
   clock-names:
     items:
@@ -374,6 +374,7 @@ properties:
       - const: axi
       - const: ocram
       - const: ldb
+      - const: ldb_vco
 
   power-domains:
     maxItems: 1
@@ -532,8 +533,9 @@ examples:
                <&scmi_clk IMX95_CLK_DISPAPB>,
                <&scmi_clk IMX95_CLK_DISPAXI>,
                <&scmi_clk IMX95_CLK_DISPOCRAM>,
-               <&scmi_clk IMX95_CLK_LDBPLL>;
-      clock-names = "pix", "apb", "axi", "ocram", "ldb";
+               <&scmi_clk IMX95_CLK_LDBPLL>,
+               <&scmi_clk IMX95_CLK_LDBPLL_VCO>;
+      clock-names = "pix", "apb", "axi", "ocram", "ldb", "ldb_vco";
       power-domains = <&scmi_devpd IMX95_PD_DISPLAY>;
       nxp,blk-ctrl = <&dispmix_csr>;
 
