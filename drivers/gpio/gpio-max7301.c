@@ -15,42 +15,52 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/max7301.h>
 
+#include <asm/unaligned.h>
+
 /* A write to the MAX7301 means one message with one transfer */
 static int max7301_spi_write(struct device *dev, unsigned int reg,
 				unsigned int val)
 {
+	struct max7301 *ts = dev_get_drvdata(dev);
 	struct spi_device *spi = to_spi_device(dev);
-	u16 word = ((reg & 0x7F) << 8) | (val & 0xFF);
+	put_unaligned_be16((reg & 0x7F) << 8 | (val & 0xFF), &ts->data[0]);
 
-	return spi_write_then_read(spi, &word, sizeof(word), NULL, 0);
+	return spi_write(spi, &ts->data[0], 2);
 }
 
 /* A read from the MAX7301 means two transfers; here, one message each */
-
 static int max7301_spi_read(struct device *dev, unsigned int reg)
 {
 	int ret;
 	u16 word;
+	struct spi_transfer t = {0};
+	struct max7301 *ts = dev_get_drvdata(dev);
 	struct spi_device *spi = to_spi_device(dev);
 
-	word = 0x8000 | (reg << 8);
-	ret = spi_write_then_read(spi, &word, sizeof(word), &word,
-				  sizeof(word));
+	put_unaligned_be16(0x80 | ((reg & 0x7F) << 8), &ts->data[0]);
+	ret = spi_write(spi, &ts->data[0], 2);
+
+	// send no-op command and receive the readout
+	ts->data[0] = 0x00;
+	ts->data[1] = 0x00;
+
+	t.rx_buf = &ts->data[0];
+	t.tx_buf = &ts->data[0];
+	t.len = 2;
+
+	ret = spi_sync_transfer(spi, &t, 1);
 	if (ret)
 		return ret;
-	return word & 0xff;
+
+	word = get_unaligned_be16(&ts->data[0]) & 0xFF;
+
+	return word;
 }
 
 static int max7301_probe(struct spi_device *spi)
 {
 	struct max7301 *ts;
 	int ret;
-
-	/* bits_per_word cannot be configured in platform data */
-	spi->bits_per_word = 16;
-	ret = spi_setup(spi);
-	if (ret < 0)
-		return ret;
 
 	ts = devm_kzalloc(&spi->dev, sizeof(struct max7301), GFP_KERNEL);
 	if (!ts)
