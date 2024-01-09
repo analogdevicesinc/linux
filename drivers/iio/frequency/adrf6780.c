@@ -33,7 +33,7 @@
 #define ADRF6780_PARITY_EN_MSK			BIT(15)
 #define ADRF6780_SOFT_RESET_MSK			BIT(14)
 #define ADRF6780_CHIP_ID_MSK			GENMASK(11, 4)
-#define ADRF6780_CHIP_ID			0xA
+#define ADRF6780_CHIP_ID			0x7
 #define ADRF6780_CHIP_REVISION_MSK		GENMASK(3, 0)
 
 /* ADRF6780_REG_ALARM_READBACK Map */
@@ -382,6 +382,7 @@ static int adrf6780_init(struct adrf6780_state *st)
 	ret = __adrf6780_spi_read(st, ADRF6780_REG_CONTROL, &chip_id);
 	if (ret)
 		return ret;
+
 
 	chip_id = FIELD_GET(ADRF6780_CHIP_ID_MSK, chip_id);
 	if (chip_id != ADRF6780_CHIP_ID) {
