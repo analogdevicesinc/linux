@@ -17,6 +17,7 @@ struct max7301 {
 	struct device *dev;
 	int (*write)(struct device *dev, unsigned int reg, unsigned int val);
 	int (*read)(struct device *dev, unsigned int reg);
+	u8		data[2] ____cacheline_aligned;
 };
 
 struct max7301_platform_data {
