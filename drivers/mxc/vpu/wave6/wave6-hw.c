@@ -10,7 +10,6 @@
 #include "wave6.h"
 #include "wave6-regdefine.h"
 #include "wave6-av1-cdf-table.h"
-#include "wave6-vpu-ctrl.h"
 
 #define VPU_BUSY_CHECK_TIMEOUT 3000000
 #define MAX_CSC_COEFF_NUM      4
@@ -120,7 +119,7 @@ static void wave6_load_av1_cdf_table(struct vpu_device *vpu_dev, struct vpu_buf 
 
 void wave6_vpu_check_state(struct vpu_device *vpu_dev)
 {
-	int state = wave6_vpu_ctrl_get_state(vpu_dev->ctrl, &vpu_dev->entity);
+	int state = wave6_vpu_ctrl_get_state(vpu_dev->ctrl);
 
 	if (state == WAVE6_VPU_STATE_PREPARE)
 		wave6_vpu_ctrl_wait_done(vpu_dev->ctrl, &vpu_dev->entity);
@@ -978,13 +977,18 @@ int wave6_vpu_dec_get_update_fb_info(struct vpu_instance *inst,
 			info->fbc_index = -1;
 		}
 
-		info->release_disp_frame_num = vpu_read_reg(inst->dev, W6_RET_DEC_RELEASE_NUM);
+		val = vpu_read_reg(inst->dev, W6_RET_DEC_RELEASE_IDC);
 		for (index = 0; index < WAVE6_MAX_FBS; index++) {
 			struct frame_buffer fb;
-			dma_addr_t addr = vpu_read_reg(inst->dev, W6_RET_DEC_DISP_RELEASE_ADDR_0 + index * 4);
+			dma_addr_t addr;
 
+			if (!(val & (1 << index)))
+				continue;
+
+			addr = vpu_read_reg(inst->dev, W6_RET_DEC_DISP_LINEAR_ADDR_0 + index * 4);
 			fb = wave6_dec_get_display_buffer(inst, addr, true);
-			info->release_disp_frame_addr[index] = fb.buf_y;
+			info->release_disp_frame_addr[info->release_disp_frame_num] = fb.buf_y;
+			info->release_disp_frame_num++;
 		}
 	}
 
@@ -1200,39 +1204,47 @@ int wave6_vpu_dec_get_result(struct vpu_instance *vpu_inst, struct dec_output_in
 		display_index = fb.index;
 	}
 
-	result->release_disp_frame_num = vpu_read_reg(vpu_inst->dev, W6_RET_DEC_RELEASE_NUM);
-	for (i = 0; i < result->release_disp_frame_num; i++) {
-		struct frame_buffer fb;
-		dma_addr_t addr = vpu_read_reg(vpu_inst->dev, W6_RET_DEC_DISP_RELEASE_ADDR_0 + i * 4);
+	reg_val = vpu_read_reg(vpu_inst->dev, W6_RET_DEC_DISP_IDC);
+	for (i = 0; i < WAVE6_MAX_FBS; i++) {
+		if (reg_val & (1 << i)) {
+			dma_addr_t addr = vpu_read_reg(vpu_inst->dev,
+						       W6_RET_DEC_DISP_LINEAR_ADDR_0 + i * 4);
 
-		fb = wave6_dec_get_display_buffer(vpu_inst, addr, true);
-		result->release_disp_frame_addr[i] = fb.buf_y;
+			result->disp_frame_addr[result->disp_frame_num] = addr;
+			result->disp_frame_num++;
+		}
 	}
 
-	result->disp_frame_num = vpu_read_reg(vpu_inst->dev, W6_RET_DEC_DISP_LINEAR_NUM);
-	for (i = 0; i < result->disp_frame_num; i++) {
-		dma_addr_t addr = vpu_read_reg(vpu_inst->dev, W6_RET_DEC_DISP_LINEAR_ADDR_0 + i * 4);
+	reg_val = vpu_read_reg(vpu_inst->dev, W6_RET_DEC_RELEASE_IDC);
+	for (i = 0; i < WAVE6_MAX_FBS; i++) {
+		if (reg_val & (1 << i)) {
+			struct frame_buffer fb;
+			dma_addr_t addr = vpu_read_reg(vpu_inst->dev,
+						       W6_RET_DEC_DISP_LINEAR_ADDR_0 + i * 4);
 
-		result->disp_frame_addr[i] = addr;
+			fb = wave6_dec_get_display_buffer(vpu_inst, addr, true);
+			result->release_disp_frame_addr[result->release_disp_frame_num] = fb.buf_y;
+			result->release_disp_frame_num++;
+		}
 	}
 
 	result->stream_end_flag = vpu_read_reg(vpu_inst->dev, W6_RET_DEC_STREAM_END);
-	result->sequence_changed = vpu_read_reg(vpu_inst->dev, W6_RET_DEC_NOTIFICATION);
+	result->notification_flag  = vpu_read_reg(vpu_inst->dev, W6_RET_DEC_NOTIFICATION);
 
 	if (vpu_inst->std == W_HEVC_DEC) {
 		result->decoded_poc = -1;
 		result->display_poc = -1;
-		if (decoded_index >= 0 || decoded_index == DECODED_IDX_FLAG_SKIP)
+		if (decoded_index >= 0)
 			result->decoded_poc = vpu_read_reg(vpu_inst->dev, W6_RET_DEC_PIC_POC);
 	} else if (vpu_inst->std == W_AVC_DEC) {
 		result->decoded_poc = -1;
 		result->display_poc = -1;
-		if (decoded_index >= 0 || decoded_index == DECODED_IDX_FLAG_SKIP)
+		if (decoded_index >= 0)
 			result->decoded_poc = vpu_read_reg(vpu_inst->dev, W6_RET_DEC_PIC_POC);
 	} else if (vpu_inst->std == W_AV1_DEC) {
 		result->decoded_poc = -1;
 		result->display_poc = -1;
-		if (decoded_index >= 0 || decoded_index == DECODED_IDX_FLAG_SKIP)
+		if (decoded_index >= 0)
 			result->decoded_poc = vpu_read_reg(vpu_inst->dev, W6_RET_DEC_PIC_POC);
 
 		reg_val = vpu_read_reg(vpu_inst->dev, W6_RET_DEC_PIC_PARAM);
@@ -1341,7 +1353,7 @@ int wave6_vpu_dec_get_result(struct vpu_instance *vpu_inst, struct dec_output_in
 		result->num_of_err_m_bs_in_disp = 0;
 	}
 
-	if (result->sequence_changed) {
+	if (result->notification_flag & DEC_NOTI_FLAG_SEQ_CHANGE) {
 		wave6_get_dec_seq_result(vpu_inst, &p_dec_info->initial_info);
 		p_dec_info->initial_info.sequence_no++;
 	}
@@ -1384,6 +1396,9 @@ dma_addr_t wave6_vpu_dec_get_rd_ptr(struct vpu_instance *vpu_inst)
 int wave6_vpu_dec_flush(struct vpu_instance *inst)
 {
 	int ret, index;
+	u32 unused_idc;
+	u32 used_idc;
+	u32 using_idc;
 
 	wave6_send_command(inst->dev, inst->id, inst->std, W6_FLUSH_INSTANCE);
 	ret = wave6_wait_vpu_busy(inst->dev, W6_VPU_BUSY_STATUS);
@@ -1402,13 +1417,27 @@ int wave6_vpu_dec_flush(struct vpu_instance *inst)
 	if (ret)
 		return ret;
 
+	unused_idc = vpu_read_reg(inst->dev, W6_RET_DEC_FLUSH_CMD_BUF_STATE_UNUSED_IDC);
+
 	for (index = 0; index < WAVE6_MAX_FBS; index++) {
 		struct frame_buffer fb;
+		bool remove = false;
 		dma_addr_t addr = vpu_read_reg(inst->dev,
 					       W6_RET_DEC_FLUSH_CMD_DISP_ADDR_0 + index * 4);
 
-		fb = wave6_dec_get_display_buffer(inst, addr, true);
+		if ((unused_idc >> index) & 0x1)
+			remove = true;
+
+		fb = wave6_dec_get_display_buffer(inst, addr, remove);
 	}
+
+	used_idc = vpu_read_reg(inst->dev, W6_RET_DEC_FLUSH_CMD_BUF_STATE_USED_IDC);
+	if (used_idc)
+		dev_err(inst->dev->dev, "%s: used_idc %d\n", __func__, used_idc);
+
+	using_idc = vpu_read_reg(inst->dev, W6_RET_DEC_FLUSH_CMD_BUF_STATE_USING_IDC);
+	if (using_idc)
+		dev_err(inst->dev->dev, "%s: using_idc %d\n", __func__, using_idc);
 
 	return 0;
 }

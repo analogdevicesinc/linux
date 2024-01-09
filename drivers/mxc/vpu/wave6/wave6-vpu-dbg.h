@@ -1,4 +1,9 @@
 /* SPDX-License-Identifier: (GPL-2.0 OR BSD-3-Clause) */
+/*
+ * Wave6 series multi-standard codec IP - debug interface
+ *
+ * Copyright (C) 2021 CHIPS&MEDIA INC
+ */
 
 #ifndef __WAVE6_VPU_DBG_H__
 #define __WAVE6_VPU_DBG_H__

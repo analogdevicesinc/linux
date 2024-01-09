@@ -7,7 +7,6 @@
 #ifndef __VPU_DRV_H__
 #define __VPU_DRV_H__
 
-#include <linux/pm_runtime.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-event.h>
@@ -65,6 +64,8 @@ static inline bool wave6_vpu_both_queues_are_streaming(struct vpu_instance *inst
 
 struct vb2_v4l2_buffer *wave6_get_dst_buf_by_addr(struct vpu_instance *inst,
 						  dma_addr_t addr);
+dma_addr_t wave6_get_dma_addr(struct vb2_v4l2_buffer *buf,
+			      unsigned int plane_no);
 int wave6_vpu_wait_interrupt(struct vpu_instance *inst, unsigned int timeout);
 int  wave6_vpu_dec_register_device(struct vpu_device *dev);
 void wave6_vpu_dec_unregister_device(struct vpu_device *dev);

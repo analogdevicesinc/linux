@@ -565,12 +565,8 @@ err_out:
 
 int wave6_vpu_dec_give_command(struct vpu_instance *inst, enum codec_command cmd, void *param)
 {
-	struct dec_info *p_dec_info;
+	struct dec_info *p_dec_info = &inst->codec_info->dec_info;
 
-	if (!inst || !inst->codec_info)
-		return -EINVAL;
-
-	p_dec_info = &inst->codec_info->dec_info;
 	switch (cmd) {
 	case ENABLE_DEC_THUMBNAIL_MODE:
 		p_dec_info->thumbnail_mode = 1;
@@ -1078,12 +1074,8 @@ unlock:
 
 int wave6_vpu_enc_give_command(struct vpu_instance *inst, enum codec_command cmd, void *param)
 {
-	struct enc_info *p_enc_info;
+	struct enc_info *p_enc_info = &inst->codec_info->enc_info;
 
-	if (!inst || !inst->codec_info)
-		return -EINVAL;
-
-	p_enc_info = &inst->codec_info->enc_info;
 	switch (cmd) {
 	case ENABLE_ROTATION:
 		p_enc_info->rotation_enable = true;

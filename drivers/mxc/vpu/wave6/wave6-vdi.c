@@ -9,7 +9,6 @@
 #include "wave6-vdi.h"
 #include "wave6-vpu.h"
 #include "wave6-regdefine.h"
-#include "wave6-vpu-ctrl.h"
 #include <linux/delay.h>
 
 #define VDI_SYSTEM_ENDIAN VDI_LITTLE_ENDIAN
@@ -47,11 +46,6 @@ int wave6_vdi_write_memory(struct vpu_device *vpu_dev, struct vpu_buf *vb, size_
 	if (offset > vb->size || len > vb->size || offset + len > vb->size) {
 		dev_err(vpu_dev->dev, "%s(): buffer too small\n", __func__);
 		return -ENOSPC;
-	}
-
-	if (!PRODUCT_CODE_W_SERIES(vpu_dev->product_code)) {
-		dev_err(vpu_dev->dev, "unknown product id : %08x\n", vpu_dev->product_code);
-		return -EINVAL;
 	}
 
 	wave6_swap_endian(vpu_dev->product_code, data, len, endian);

@@ -5,6 +5,7 @@
  * Copyright (C) 2021 CHIPS&MEDIA INC
  */
 
+#include <linux/pm_runtime.h>
 #include <linux/delay.h>
 #include "wave6-vpu.h"
 #include "wave6-vpu-dbg.h"
@@ -317,7 +318,7 @@ static void wave6_vpu_dec_handle_dst_buffer(struct vpu_instance *inst)
 	u32 luma_size = fb_stride * inst->dst_fmt.height;
 	u32 chroma_size = (fb_stride / 2) * (inst->dst_fmt.height / 2);
 	struct frame_buffer disp_buffer = {0};
-	struct dec_initial_info initial_info = {0};
+	struct dec_initial_info initial_info;
 	int ret;
 
 	wave6_vpu_dec_give_command(inst, DEC_GET_SEQ_INFO, &initial_info);
@@ -573,11 +574,12 @@ static void wave6_handle_skipped_frame(struct vpu_instance *inst)
 		return;
 
 	dprintk(inst->dev->dev, "[%d] skip frame %d\n", inst->id, inst->sequence);
+
 	inst->sequence++;
-	src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
-	v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
 	inst->processed_buf_num++;
 	inst->error_buf_num++;
+	src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
+	v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
 }
 
 static void wave6_handle_display_frame(struct vpu_instance *inst,
@@ -628,7 +630,9 @@ static void wave6_handle_display_frames(struct vpu_instance *inst,
 	int i;
 
 	for (i = 0; i < info->disp_frame_num; i++)
-		wave6_handle_display_frame(inst, info->disp_frame_addr[i], VB2_BUF_STATE_DONE);
+		wave6_handle_display_frame(inst,
+					   info->disp_frame_addr[i],
+					   VB2_BUF_STATE_DONE);
 
 	dev_dbg(inst->dev->dev, "frame_cycle %8d\n", info->frame_cycle);
 }
@@ -725,18 +729,6 @@ static void wave6_vpu_dec_handle_source_change(struct vpu_instance *inst,
 	v4l2_event_queue_fh(&inst->v4l2_fh, &vpu_event_src_ch);
 }
 
-static void wave6_vpu_dec_handle_decoding_warn_error(struct vpu_instance *inst,
-						     struct dec_output_info *info)
-{
-	if (info->warn_info)
-		dev_dbg(inst->dev->dev, "[%d] decoding %d warning 0x%x\n",
-			inst->id, inst->processed_buf_num, info->warn_info);
-
-	if (info->error_reason)
-		dev_err(inst->dev->dev, "[%d] decoding %d error 0x%x\n",
-			inst->id, inst->processed_buf_num, info->error_reason);
-}
-
 static void wave6_vpu_dec_finish_decode(struct vpu_instance *inst)
 {
 	struct dec_output_info info;
@@ -751,18 +743,17 @@ static void wave6_vpu_dec_finish_decode(struct vpu_instance *inst)
 	if (ret)
 		goto finish_decode;
 
-	dev_dbg(inst->dev->dev, "dec %d dis %d seq_ch %d stream_end %d\n",
+	dev_dbg(inst->dev->dev, "dec %d dis %d noti_flag %d stream_end %d\n",
 				info.frame_decoded_flag, info.frame_display_flag,
-				info.sequence_changed, info.stream_end_flag);
+				info.notification_flag, info.stream_end_flag);
 
-	if (info.sequence_changed) {
-		struct dec_initial_info initial_info = {0};
+	if (info.notification_flag & DEC_NOTI_FLAG_NO_FB) {
+		wave6_vpu_dec_retry_one_frame(inst);
+		goto finish_decode;
+	}
 
-		if (info.sequence_changed & 0x2) {
-			dev_err(inst->dev->dev, "fb_alloc_fail, it may led to firmware hang\n");
-			vb2_queue_error(v4l2_m2m_get_src_vq(inst->v4l2_fh.m2m_ctx));
-			vb2_queue_error(v4l2_m2m_get_dst_vq(inst->v4l2_fh.m2m_ctx));
-		}
+	if (info.notification_flag & DEC_NOTI_FLAG_SEQ_CHANGE) {
+		struct dec_initial_info initial_info;
 
 		v4l2_m2m_mark_stopped(m2m_ctx);
 
@@ -782,9 +773,7 @@ static void wave6_vpu_dec_finish_decode(struct vpu_instance *inst)
 		goto finish_decode;
 	}
 
-	wave6_vpu_dec_handle_decoding_warn_error(inst, &info);
-
-	if (info.decoding_success && info.frame_decoded_flag)
+	if (info.frame_decoded_flag)
 		wave6_handle_decoded_frame(inst, info.frame_decoded_addr);
 	else
 		wave6_handle_skipped_frame(inst);
@@ -1340,7 +1329,7 @@ static int wave6_vpu_dec_create_instance(struct vpu_instance *inst)
 	if (ret) {
 		dev_err(inst->dev->dev, "alloc vui of size %zu failed\n",
 			inst->vui_vbuf.size);
-		goto error_vui;
+		goto error_vuibuf;
 	}
 
 	wave6_set_dec_openparam(&open_param, inst);
@@ -1348,7 +1337,7 @@ static int wave6_vpu_dec_create_instance(struct vpu_instance *inst)
 	ret = wave6_vpu_dec_open(inst, &open_param);
 	if (ret) {
 		dev_err(inst->dev->dev, "failed create instance : %d\n", ret);
-		goto error_open;
+		goto error_dec_open;
 	}
 
 	dprintk(inst->dev->dev, "[%d] decoder\n", inst->id);
@@ -1367,16 +1356,18 @@ static int wave6_vpu_dec_create_instance(struct vpu_instance *inst)
 	wave6_vpu_set_instance_state(inst, VPU_INST_STATE_OPEN);
 
 	return 0;
+
 error_wq:
 	wave6_vpu_dec_close(inst, &fail_res);
-error_open:
+error_dec_open:
 	wave6_vdi_free_dma_memory(inst->dev, &inst->vui_vbuf);
-error_vui:
+error_vuibuf:
 	wave6_vdi_free_dma_memory(inst->dev, &inst->temp_vbuf);
 error_tbuf:
 	wave6_vdi_free_dma_memory(inst->dev, &inst->work_vbuf);
 error_pm:
 	pm_runtime_put_sync(inst->dev->dev);
+
 	return ret;
 }
 
@@ -1546,11 +1537,11 @@ static int wave6_vpu_dec_seek_header(struct vpu_instance *inst)
 
 	ret = wave6_vpu_dec_complete_seq_init(inst, &initial_info);
 	if (ret) {
-		dev_err(inst->dev->dev, "vpu_dec_complete_seq_init: %d, reason : 0x%x\n",
+		dev_err(inst->dev->dev, "vpu_dec_complete_seq_init: %d, reason : %d\n",
 			ret, initial_info.err_reason);
-		if (initial_info.err_reason & WAVE6_SYSERR_NOT_SUPPORT) {
+		if (initial_info.err_reason == WAVE6_SYSERR_NOT_SUPPORT)
 			ret = -EINVAL;
-		} else if ((initial_info.err_reason & HEVC_ETCERR_INIT_SEQ_SPS_NOT_FOUND) ||
+		if ((initial_info.err_reason & HEVC_ETCERR_INIT_SEQ_SPS_NOT_FOUND) ||
 		    (initial_info.err_reason & AVC_ETCERR_INIT_SEQ_SPS_NOT_FOUND)) {
 			wave6_handle_skipped_frame(inst);
 			ret = 0;
@@ -1724,30 +1715,10 @@ static void wave6_vpu_dec_stop_streaming(struct vb2_queue *q)
 	v4l2_m2m_resume(inst->dev->m2m_dev);
 }
 
-static int wave6_vpu_dec_buf_init(struct vb2_buffer *vb)
-{
-	struct vpu_instance *inst = vb2_get_drv_priv(vb->vb2_queue);
-	struct dec_initial_info initial_info = {0};
-	int i;
-
-	if (V4L2_TYPE_IS_OUTPUT(vb->type))
-		return 0;
-
-	wave6_vpu_dec_give_command(inst, DEC_GET_SEQ_INFO, &initial_info);
-	if (initial_info.chroma_format_idc != YUV400)
-		return 0;
-
-	for (i = 0; i < inst->dst_fmt.num_planes; i++)
-		memset(vb2_plane_vaddr(vb, i), 0x80, vb2_plane_size(vb, i));
-
-	return 0;
-}
-
 static const struct vb2_ops wave6_vpu_dec_vb2_ops = {
 	.queue_setup = wave6_vpu_dec_queue_setup,
 	.wait_prepare = vb2_ops_wait_prepare,
 	.wait_finish = vb2_ops_wait_finish,
-	.buf_init = wave6_vpu_dec_buf_init,
 	.buf_queue = wave6_vpu_dec_buf_queue,
 	.start_streaming = wave6_vpu_dec_start_streaming,
 	.stop_streaming = wave6_vpu_dec_stop_streaming,

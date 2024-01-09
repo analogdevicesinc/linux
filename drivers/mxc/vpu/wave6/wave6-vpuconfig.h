@@ -22,7 +22,7 @@
 		 (c) == WAVE663_CODE || (c) == WAVE677_CODE);		\
 })
 
-#define WAVE627ENC_WORKBUF_SIZE         (256 * 1024)
+#define WAVE627ENC_WORKBUF_SIZE         (512 * 1024)
 #define WAVE637DEC_WORKBUF_SIZE         (2 * 512 * 1024)
 #define WAVE637DEC_WORKBUF_SIZE_FOR_CQ  (3 * 512 * 1024)
 
@@ -31,7 +31,7 @@
 #define W6_MIN_DEC_PIC_WIDTH            64U
 #define W6_MIN_DEC_PIC_HEIGHT           64U
 #define W6_MAX_DEC_PIC_WIDTH            4096U
-#define W6_MAX_DEC_PIC_HEIGHT           2304U
+#define W6_MAX_DEC_PIC_HEIGHT           4096U
 #define W6_DEC_PIC_SIZE_STEP            1
 
 #define W6_MIN_ENC_PIC_WIDTH            256U

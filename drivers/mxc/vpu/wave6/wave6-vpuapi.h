@@ -184,8 +184,8 @@ enum DEC_PIC_OPTION {
 		SEQ_CHANGE_ENABLE_BITDEPTH | \
 		SEQ_CHANGE_ENABLE_DPB_COUNT)
 
-#define DECODED_IDX_FLAG_NO_FB -1
-#define DECODED_IDX_FLAG_SKIP -2
+#define DEC_NOTI_FLAG_NO_FB 0x2
+#define DEC_NOTI_FLAG_SEQ_CHANGE 0x1
 
 #define RECON_IDX_FLAG_ENC_END -1
 #define RECON_IDX_FLAG_ENC_DELAY -2
@@ -214,13 +214,6 @@ enum mirror_direction {
 	MIRDIR_VER, /* vertical mirroring */
 	MIRDIR_HOR, /* horizontal mirroring */
 	MIRDIR_HOR_VER /* horizontal and vertical mirroring */
-};
-
-enum chroma_format {
-	YUV400,
-	YUV420,
-	YUV422,
-	YUV444,
 };
 
 enum frame_buffer_format {
@@ -613,7 +606,7 @@ struct dec_output_info {
 	dma_addr_t release_disp_frame_addr[WAVE6_MAX_FBS];
 	dma_addr_t disp_frame_addr[WAVE6_MAX_FBS];
 	struct timestamp_info timestamp;
-	u32 sequence_changed;
+	u32 notification_flag;
 	u32 release_disp_frame_num: 5;
 	u32 disp_frame_num: 5;
 	u32 ctu_size: 2;
@@ -1145,7 +1138,6 @@ struct vpu_device {
 	struct kfifo irq_status;
 	struct delayed_work task_timer;
 	struct wave6_vpu_entity entity;
-
 	struct dentry *debugfs;
 };
 
@@ -1209,14 +1201,11 @@ struct vpu_instance {
 	struct dec_scaler_info scaler_info;
 	bool force_pic_type_enable;
 	enum enc_force_pic_type force_pic_type;
-	int repeat_seq_header;
 	struct sar_info sar;
-	u64 total_frames;
-	u64 total_frame_cycle;
+
 	struct workqueue_struct *workqueue;
 	struct work_struct init_task;
 	atomic_t start_init_seq;
-
 	struct dentry *debugfs;
 };
 

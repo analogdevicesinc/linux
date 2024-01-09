@@ -25,6 +25,12 @@ struct vb2_v4l2_buffer *wave6_get_dst_buf_by_addr(struct vpu_instance *inst,
 	return dst_buf;
 }
 
+dma_addr_t wave6_get_dma_addr(struct vb2_v4l2_buffer *buf, unsigned int plane_no)
+{
+	return vb2_dma_contig_plane_dma_addr(&buf->vb2_buf, plane_no) +
+			buf->planes[plane_no].data_offset;
+}
+
 int wave6_vpu_wait_interrupt(struct vpu_instance *inst, unsigned int timeout)
 {
 	int ret;

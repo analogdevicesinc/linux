@@ -375,7 +375,8 @@ enum W6_QUERY_OPT {
 #define W6_RET_DEC_ERR_CTB_NUM                        (W6_REG_BASE + 0x370)
 #define W6_RET_DEC_PIC_PARAM                          (W6_REG_BASE + 0x3A4)
 #define W6_RET_DEC_DISPLAY_FLAG                       (W6_REG_BASE + 0x3A8)
-#define W6_RET_DEC_RELEASE_NUM                        (W6_REG_BASE + 0x3AC)
+#define W6_RET_DEC_RELEASE_IDC                        (W6_REG_BASE + 0x3AC)
+#define W6_RET_DEC_DISP_IDC                           (W6_REG_BASE + 0x3B0)
 #define W6_RET_DEC_STREAM_END                         (W6_REG_BASE + 0x3C0)
 #define W6_RET_DEC_DECODED_FLAG                       (W6_REG_BASE + 0x3C4)
 #define W6_RET_DEC_WARN_INFO                          (W6_REG_BASE + 0x3CC)
@@ -384,17 +385,17 @@ enum W6_QUERY_OPT {
 #define W6_RET_DEC_TIMESTAMP                          (W6_REG_BASE + 0x3D8)
 #define W6_RET_DEC_LAST_FRAME_FLAG                    (W6_REG_BASE + 0x3E0)
 #define W6_RET_DEC_NUM_REQUIRED_COL_BUF               (W6_REG_BASE + 0x3E4)
-#define W6_RET_DEC_DISP_RELEASE_ADDR_0                (W6_REG_BASE + 0x3E8)
-#define W6_RET_DEC_DISP_RELEASE_ADDR_30               (W6_REG_BASE + 0x460)
-#define W6_RET_DEC_DISP_LINEAR_NUM                    (W6_REG_BASE + 0x470)
-#define W6_RET_DEC_DISP_LINEAR_ADDR_0                 (W6_REG_BASE + 0x474)
-#define W6_RET_DEC_DISP_LINEAR_ADDR_30                (W6_REG_BASE + 0x4EC)
+#define W6_RET_DEC_DISP_LINEAR_ADDR_0                 (W6_REG_BASE + 0x3E8)
+#define W6_RET_DEC_DISP_LINEAR_ADDR_30                (W6_REG_BASE + 0x460)
 
 /************************************************************************/
 /* DECODER - QUERY : GET_FLUSH_CMD_INFO                                 */
 /************************************************************************/
 #define W6_RET_DEC_FLUSH_CMD_DISP_ADDR_0              (W6_REG_BASE + 0x300)
 #define W6_RET_DEC_FLUSH_CMD_DISP_ADDR_1E             (W6_REG_BASE + 0x378)
+#define W6_RET_DEC_FLUSH_CMD_BUF_STATE_UNUSED_IDC     (W6_REG_BASE + 0x57C)
+#define W6_RET_DEC_FLUSH_CMD_BUF_STATE_USED_IDC       (W6_REG_BASE + 0x580)
+#define W6_RET_DEC_FLUSH_CMD_BUF_STATE_USING_IDC      (W6_REG_BASE + 0x584)
 
 /************************************************************************/
 /* ENCODER - CREATE_INSTANCE                                            */
