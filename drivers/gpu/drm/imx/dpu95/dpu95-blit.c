@@ -34,22 +34,6 @@ static inline void dpu95_be_write(struct dpu_bliteng *dpu_be, u32 value,
 	writel(value, dpu_be->base + offset);
 }
 
-static void dpu95_cs_lock(struct dpu_bliteng *dpu_be)
-{
-	dpu95_be_write(dpu_be, CMDSEQ_LOCKUNLOCKHIF_LOCKUNLOCKHIF__LOCK_KEY,
-		CMDSEQ_LOCKUNLOCKHIF);
-	dpu95_be_write(dpu_be, CMDSEQ_LOCKUNLOCK_LOCKUNLOCK__LOCK_KEY,
-		CMDSEQ_LOCKUNLOCK);
-}
-
-static void dpu95_cs_unlock(struct dpu_bliteng *dpu_be)
-{
-	dpu95_be_write(dpu_be, CMDSEQ_LOCKUNLOCKHIF_LOCKUNLOCKHIF__UNLOCK_KEY,
-		CMDSEQ_LOCKUNLOCKHIF);
-	dpu95_be_write(dpu_be, CMDSEQ_LOCKUNLOCK_LOCKUNLOCK__UNLOCK_KEY,
-		CMDSEQ_LOCKUNLOCK);
-}
-
 static void dpu95_cs_wait_fifo_space(struct dpu_bliteng *dpu_be)
 {
 	while ((dpu95_be_read(dpu_be, CMDSEQ_STATUS) &
@@ -449,7 +433,6 @@ static int dpu95_bliteng_init(struct dpu_bliteng *dpu_bliteng)
 	if (ret)
 		return ret;
 
-	dpu95_cs_unlock(dpu_bliteng);
 	dpu95_cs_static_setup(dpu_bliteng);
 
 	/*Request general SW interrupts to implement DPU fence */
@@ -479,8 +462,6 @@ static int dpu95_bliteng_init(struct dpu_bliteng *dpu_bliteng)
 static void dpu95_bliteng_fini(struct dpu_bliteng *dpu_bliteng)
 {
 	int i;
-
-	dpu95_cs_lock(dpu_bliteng);
 
 	kfree(dpu_bliteng->cmd_list);
 
@@ -708,8 +689,6 @@ int dpu95_bliteng_runtime_suspend(struct dpu95_drm_device *dpu_drm)
 
 	dpu95_be_put(dpu_bliteng);
 
-	dpu95_cs_lock(dpu_bliteng);
-
 	return 0;
 }
 
@@ -722,7 +701,6 @@ int dpu95_bliteng_runtime_resume(struct dpu95_drm_device *dpu_drm)
 
 	dpu95_be_init_units(dpu_bliteng);
 
-	dpu95_cs_unlock(dpu_bliteng);
 	dpu95_cs_static_setup(dpu_bliteng);
 
 	return 0;
