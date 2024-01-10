@@ -119,6 +119,7 @@ static const struct dt_index formatter_dt_to_index_map[] = {
 	{ .dtype = MIPI_CSI2_DT_RAW10,            .index = 19 },
 	{ .dtype = MIPI_CSI2_DT_RAW12,            .index = 20 },
 	{ .dtype = MIPI_CSI2_DT_RAW14,            .index = 21 },
+	{ .dtype = MIPI_CSI2_DT_RAW16,            .index = 22 },
 };
 
 static const struct formatter_pix_format formats[] = {
@@ -193,6 +194,18 @@ static const struct formatter_pix_format formats[] = {
 	}, {
 		.code = MEDIA_BUS_FMT_SRGGB14_1X14,
 		.data_type = MIPI_CSI2_DT_RAW14,
+	}, {
+		.code = MEDIA_BUS_FMT_SBGGR16_1X16,
+		.data_type = MIPI_CSI2_DT_RAW16,
+	}, {
+		.code = MEDIA_BUS_FMT_SGBRG16_1X16,
+		.data_type = MIPI_CSI2_DT_RAW16,
+	}, {
+		.code = MEDIA_BUS_FMT_SGRBG16_1X16,
+		.data_type = MIPI_CSI2_DT_RAW16,
+	}, {
+		.code = MEDIA_BUS_FMT_SRGGB16_1X16,
+		.data_type = MIPI_CSI2_DT_RAW16,
 	}
 };
 
