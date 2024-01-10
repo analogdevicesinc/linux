@@ -307,7 +307,8 @@ build_checkpatch() {
 	# could do '$GIT_FETCH_DEPTH="disable"' before calling __update_git_ref() but that
 	# would slow things a lot. Instead, let's do a treeless fetch which get's the whole
 	# history while being much faster than a typical fetch.
-	git fetch --filter=tree:0 --no-tags ${ORIGIN} +refs/heads/${ref_branch}:${ref_branch}
+	[ "${LOCAL_BUILD}" == "y" ] || \
+                git fetch --filter=tree:0 --no-tags ${ORIGIN} +refs/heads/${ref_branch}:${ref_branch}
 
 	scripts/checkpatch.pl --git "${ref_branch}.." \
 		--strict \
@@ -454,6 +455,9 @@ __update_git_ref() {
 	local ref="$1"
 	local local_ref="$2"
 	local depth
+
+        [ "${LOCAL_BUILD}" == "y" ] && return 0
+
 	[ "$GIT_FETCH_DEPTH" = "disabled" ] || {
 		depth="--depth=${GIT_FETCH_DEPTH:-50}"
 	}
