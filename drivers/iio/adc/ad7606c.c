@@ -59,11 +59,23 @@
 #define AD7606_READ_CMD(reg) ((1 << 6) | (reg & 0x3F))
 #define AD7606_WRITE_CMD(reg) (reg & 0x3F)
 #define AD7606_8_DOUT_LINES (BIT(4) | BIT(3))
+//#define AD7616_BURST_SEQ_EN (BIT(6) | BIT(5))
+#define AD7616_READ_CMD(reg) ((0 << 7) | (reg & 0x7F))
+#define AD7616_WRITE_CMD(reg) ((1 << 7) |(reg & 0x7F))
+#define AD7616_BURST_MODE		BIT(6)
+#define AD7616_SEQEN_MODE		BIT(5)
+#define AD7616_V0A              BIT(0)
+#define AD7616_V0B              BIT(5)
+#define AD7616_CHANNEL_REGISTER (0x03)
 
 static const unsigned long ad7606c_available_scan_masks[]  = { 0xFF, 0x00 };
 
 static const unsigned int ad7606c_oversampling_avail[9] = {
 	0, 2, 4, 8, 16, 32, 64, 128, 256
+};
+
+static const unsigned int ad7616_oversampling_avail[8] = {
+	1, 2, 4, 8, 16, 32, 64, 128,
 };
 
 static const unsigned int ad7606c_oversampling_pwm_rate[9] = {
@@ -75,10 +87,15 @@ static const unsigned int ad7606c_scale_avail[5] = {
 	19073, 38146, 47683, 76293, 95367
 };
 
+static const unsigned int ad7616_sw_scale_avail[3] = {
+	76293, 152588, 305176
+};
+
 enum {
     ID_INVALID,
     ID_AD7606C_16,
     ID_AD7606C_18,
+    ID_AD7616,
 };
 
 struct ad7606_chip_info {
@@ -116,6 +133,17 @@ struct ad7606_chip_info ad7606_chip_infos[] = {
         .scale_avail = ad7606c_scale_avail,
         .num_scales = ARRAY_SIZE(ad7606c_scale_avail),
     },
+     [ID_AD7616] = {
+    .name = "ad7616",
+    .resolution = 16,
+    .num_channels = 16,
+    .sclk_rate = 50000000,
+    .bits_per_word = 16,
+    .oversampling_avail = ad7616_oversampling_avail,
+    .num_oversamplings = ARRAY_SIZE(ad7616_oversampling_avail),
+    .scale_avail = ad7616_sw_scale_avail,
+    .num_scales = ARRAY_SIZE(ad7616_sw_scale_avail),
+        },
 };
 
 struct ad7606_state {
@@ -174,16 +202,26 @@ static struct iio_chan_spec ad7606c_base_channels[] = {
     AD7606_CHANNEL("v6", 5),
     AD7606_CHANNEL("v7", 6),
     AD7606_CHANNEL("v8", 7),
+    AD7606_CHANNEL("v9", 8),
+    AD7606_CHANNEL("v10", 9),
+    AD7606_CHANNEL("v11", 10),
+    AD7606_CHANNEL("v12", 11),
+    AD7606_CHANNEL("v13", 12),
+    AD7606_CHANNEL("v14", 13),
+    AD7606_CHANNEL("v15", 14),
+    AD7606_CHANNEL("v16", 15),
 };
 
 static const struct of_device_id ad7606_of_match[] = {
     { .compatible = "adi,ad7606c-18", .data = (void*)ID_AD7606C_18 },
+    { .compatible = "adi,ad7616", .data = (void*)ID_AD7616 },
     { },
 }
 MODULE_DEVICE_TABLE(of, ad7606_of_match);
 
 static const struct spi_device_id ad7606_spi_id[] = {
     { "adi,ad7606c", ID_AD7606C_18 },
+    { "adi,ad7616", ID_AD7616 },
     { },
 }
 MODULE_DEVICE_TABLE(spi, ad7606_spi_id);
@@ -330,7 +368,7 @@ static int ad7606_reg_read(struct ad7606_state *adc,
         },
     };
 
-    adc->tx[0] = AD7606_READ_CMD(reg);
+    adc->tx[0] = AD7616_READ_CMD(reg);
 
     spi_message_init_with_transfers(&m, t, ARRAY_SIZE(t));
     ret = spi_sync(adc->spi, &m);
@@ -363,7 +401,7 @@ static int ad7606_reg_write(struct ad7606_state *adc,
         },
     };
 
-    adc->tx[0] = AD7606_WRITE_CMD(reg);
+    adc->tx[0] = AD7616_WRITE_CMD(reg);
     adc->tx[1] = val & 0xFF;
 
     spi_message_init_with_transfers(&m, t, ARRAY_SIZE(t));
@@ -583,7 +621,13 @@ static int ad7606_spi_init(struct ad7606_state *adc) {
     switch (adc->device_id) {
     case ID_AD7606C_16:
     case ID_AD7606C_18:
-        ret = ad7606_reg_write(adc, REG_CONFIG, AD7606_8_DOUT_LINES);
+    case ID_AD7616:
+    /* Config register */
+      //  ret = ad7606_reg_write(adc, REG_CONFIG, AD7616_BURST_SEQ_EN);
+       ret = ad7606_reg_write_mask (adc,
+                                    REG_CONFIG,
+			                        AD7616_BURST_MODE | AD7616_SEQEN_MODE,
+			                        AD7616_BURST_MODE | AD7616_SEQEN_MODE);
         if (ret) {
             goto end;
         }
@@ -644,7 +688,7 @@ static int ad7606_buffer_postdisable(struct iio_dev *indio_dev) {
 
 static int ad7606_dma_submit(struct iio_dma_buffer_queue *queue,
                 struct iio_dma_buffer_block *block) {
-    return iio_dmaengine_buffer_submit_block(queue, block, DMA_DEV_TO_MEM);
+    return iio_dmaengine_buffer_submit_block(queue, block);
 }
 
 static struct attribute *ad7606_attributes_os_and_range[] = {
@@ -687,6 +731,10 @@ static int ad7606_init_channels(struct iio_dev *indio_dev) {
         case ID_AD7606C_18:
             storagebits = 32;
             realbits = 18;
+            break;
+         case ID_AD7616:
+            storagebits = 32;
+            realbits = 16;
             break;
         default:
             return -EINVAL;

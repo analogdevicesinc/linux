@@ -41,7 +41,7 @@
 
 			dma-channel@0 {
 				reg = <0>;
-				adi,source-bus-width = <256>;
+				adi,source-bus-width = <32>;
 				adi,source-bus-type = <1>;
 				adi,destination-bus-width = <64>;
 				adi,destination-bus-type = <0>;
@@ -81,10 +81,10 @@
 		adc@0 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "adi,ad7606c-18";
+			compatible = "adi,ad7616";
 			reg = <0>;
 
-			spi-max-frequency = <60000000>;
+			spi-max-frequency = <50000000>;
 			spi-cpha;
 
 			clocks = <&spi_clk>;
@@ -100,12 +100,24 @@
 			
 			adi,first-data-gpios = <&gpio0 93 GPIO_ACTIVE_HIGH>;
 			adi,serpar-gpios = <&gpio0 92 GPIO_ACTIVE_HIGH>;
-			adi,reset-gpios = <&gpio0 91 GPIO_ACTIVE_HIGH>;
+			adi,reset-gpios = <&gpio0 97 GPIO_ACTIVE_LOW>;
 			adi,standby-gpios = <&gpio0 90 GPIO_ACTIVE_LOW>;
 			adi,range-gpios = <&gpio0 89 GPIO_ACTIVE_HIGH>;
 			adi,oversampling-ratio-gpios = <&gpio0 88 GPIO_ACTIVE_HIGH
 											&gpio0 87 GPIO_ACTIVE_HIGH
 											&gpio0 86 GPIO_ACTIVE_HIGH>;
+
+			/*adi,hw_rngsel-gpios = <&gpio0 96 GPIO_ACTIVE_HIGH
+								     &gpio0 95 GPIO_ACTIVE_HIGH>; */
+			/*adi,oversampling-ratio-gpios = <&gpio0 94 GPIO_ACTIVE_HIGH
+											&gpio0 93 GPIO_ACTIVE_HIGH
+											&gpio0 92 GPIO_ACTIVE_HIGH>; */
+			/*adi,seq_en-gpios = <&gpio0 91 GPIO_ACTIVE_HIGH>; */
+			/*adi,burst-gpios = <&gpio0 90 GPIO_ACTIVE_HIGH>; */
+			/*adi,chsel-gpios = <&gpio0 89 GPIO_ACTIVE_HIGH
+								 &gpio0 88 GPIO_ACTIVE_HIGH
+								 &gpio0 87 GPIO_ACTIVE_HIGH>; */
+			/*adi,crcen-gpios = <&gpio0 86 GPIO_ACTIVE_HIGH>; */
 		};
 	};
 };
