@@ -467,6 +467,8 @@ void dpu95_irq_hw_init(struct dpu95_soc *dpu);
 
 void dpu95_submodules_hw_init(struct dpu95_soc *dpu);
 
+int dpu95_set_qos(struct dpu95_soc *dpu);
+
 void dpu95_enable_display_pipeline_sync(struct dpu95_soc *dpu);
 void dpu95_disable_display_pipeline_sync(struct dpu95_soc *dpu);
 

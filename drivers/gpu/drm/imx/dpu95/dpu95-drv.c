@@ -166,6 +166,14 @@ static int dpu95_runtime_resume(struct device *dev)
 		return ret;
 	}
 
+	ret = dpu95_set_qos(dpu);
+	if (ret) {
+		clk_disable_unprepare(dpu->clk_ocram);
+		clk_disable_unprepare(dpu->clk_apb);
+		clk_disable_unprepare(dpu->clk_axi);
+		return ret;
+	}
+
 	dpu95_irq_hw_init(dpu);
 
 	dpu95_submodules_hw_init(dpu);
