@@ -182,7 +182,7 @@ build_check_new_file_license() {
 		if git diff "$COMMIT_RANGE" "$file" | grep "+MODULE_LICENSE" | grep -q "Dual" ; then
 			bad_licence_error "$file"
 			ret=1
-		elif git diff "$COMMIT_RANGE" "$file" | grep "SPDX-License-Identifier:" | grep -qi "OR" ; then
+		elif git diff "$COMMIT_RANGE" "$file" | grep "SPDX-License-Identifier:" | grep -qi " OR " ; then
 			# The below might catch bad licenses in header files and also helps to make sure dual licenses are
 			# not in driver (eg: sometimes people have MODULE_LICENSE != SPDX-License-Identifier - which is also
 			# wrong and maybe someting to improve in this job)
