@@ -2,7 +2,9 @@
 /dts-v1/;
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/clock/rp1.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/mfd/rp1.h>
 #include <dt-bindings/pwm/pwm.h>
 #include <dt-bindings/reset/raspberrypi,firmware-reset.h>
 
@@ -61,6 +63,13 @@
 	leds: leds {
 		compatible = "gpio-leds";
 
+		led_pwr: led-pwr {
+			label = "PWR";
+			gpios = <&rp1_gpio 44 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+			linux,default-trigger = "none";
+		};
+
 		act_led: led-act {
 			label = "ACT";
 			gpios = <&gio_aon 9 GPIO_ACTIVE_LOW>;
@@ -110,6 +119,47 @@
 
 	clocks: clocks {
 	};
+
+	cam1_clk: cam1_clk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		status = "disabled";
+	};
+
+	cam0_clk: cam0_clk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		status = "disabled";
+	};
+
+	cam0_reg: cam0_reg {
+		compatible = "regulator-fixed";
+		regulator-name = "cam0_reg";
+		enable-active-high;
+		status = "okay";
+		gpio = <&rp1_gpio 34 0>;  // CD0_IO0_MICCLK, to MIPI 0 connector
+	};
+
+	cam1_reg: cam1_reg {
+		compatible = "regulator-fixed";
+		regulator-name = "cam1_reg";
+		enable-active-high;
+		status = "okay";
+		gpio = <&rp1_gpio 46 0>;  // CD1_IO0_MICCLK, to MIPI 1 connector
+	};
+
+	cam_dummy_reg: cam_dummy_reg {
+		compatible = "regulator-fixed";
+		regulator-name = "cam-dummy-reg";
+		status = "okay";
+	};
+};
+
+rp1_target: &pcie2 {
+	brcm,enable-mps-rcb;
+	brcm,vdm-qos-map = <0xbbaa9888>;
+	aspm-no-l0s;
+	status = "okay";
 };
 
 // Add some labels to 2712 device
@@ -120,7 +170,102 @@ uart10: &_uart0 { status = "okay"; };
 // The system SPI for the bootloader EEPROM
 spi10: &_spi0 { status = "okay"; };
 
+i2c_rp1boot: &_i2c3 { };
+
+#include "rp1.dtsi"
+
+&rp1 {
+	// PCIe address space layout:
+	// 00_00000000-00_00xxxxxx = RP1 peripherals
+	// 10_00000000-1x_xxxxxxxx = up to 64GB system RAM
+
+	// outbound access aimed at PCIe 0_00xxxxxx -> RP1 c0_40xxxxxx
+	// This is the RP1 peripheral space
+	ranges = <0xc0 0x40000000
+		  0x02000000 0x00 0x00000000
+		  0x00 0x00400000>;
+
+	dma-ranges =
+	// inbound RP1 1x_xxxxxxxx -> PCIe 1x_xxxxxxxx
+		     <0x10 0x00000000
+		      0x43000000 0x10 0x00000000
+		      0x10 0x00000000>,
+
+	// inbound RP1 c0_40xxxxxx -> PCIe 00_00xxxxxx
+	// This allows the RP1 DMA controller to address RP1 hardware
+		     <0xc0 0x40000000
+		      0x02000000 0x0 0x00000000
+		      0x0 0x00400000>,
+
+	// inbound RP1 0x_xxxxxxxx -> PCIe 1x_xxxxxxxx
+		     <0x00 0x00000000
+		      0x02000000 0x10 0x00000000
+		      0x10 0x00000000>;
+};
+
+// Expose RP1 nodes as system nodes with labels
+
+&rp1_dma  {
+	status = "okay";
+};
+
+&rp1_eth {
+	status = "okay";
+	phy-handle = <&phy1>;
+	phy-reset-gpios = <&rp1_gpio 32 GPIO_ACTIVE_LOW>;
+	phy-reset-duration = <5>;
+
+	phy1: ethernet-phy@1 {
+		reg = <0x1>;
+		brcm,powerdown-enable;
+	};
+};
+
+gpio: &rp1_gpio {
+	status = "okay";
+};
+
+// aux: &dummy {};
+
+&rp1_usb0 {
+	pinctrl-0 = <&usb_vbus_pins>;
+	pinctrl-names = "default";
+	status = "okay";
+};
+
+&rp1_usb1 {
+	status = "okay";
+};
+
 #include "bcm2712-rpi.dtsi"
+
+i2c_csi_dsi0: &i2c6 { // Note: This is for MIPI0 connector only
+	pinctrl-0 = <&rp1_i2c6_38_39>;
+	pinctrl-names = "default";
+	clock-frequency = <100000>;
+};
+
+i2c_csi_dsi1: &i2c4 { // Note: This is for MIPI1 connector only
+	pinctrl-0 = <&rp1_i2c4_40_41>;
+	pinctrl-names = "default";
+	clock-frequency = <100000>;
+};
+
+i2c_csi_dsi: &i2c_csi_dsi1 { }; // An alias for compatibility
+
+csi0: &rp1_csi0 { };
+csi1: &rp1_csi1 { };
+
+/* Add the IOMMUs for some RP1 bus masters */
+/*
+&csi0 {
+	iommus = <&iommu5>;
+};
+
+&csi1 {
+	iommus = <&iommu5>;
+};
+*/
 
 /* SDIO1 is used to drive the SD card */
 &sdio1 {
@@ -191,10 +336,28 @@ spi10: &_spi0 { status = "okay"; };
 	};
 };
 
+&i2c_rp1boot {
+	clock-frequency = <400000>;
+	pinctrl-0 = <&i2c3_m4_agpio0_pins>;
+	pinctrl-names = "default";
+};
+
 / {
 	chosen: chosen {
 		bootargs = "coherent_pool=1M 8250.nr_uarts=1 pci=pcie_bus_safe snd_bcm2835.enable_compat_alsa=0 snd_bcm2835.enable_hdmi=1";
 		stdout-path = "serial10:115200n8";
+	};
+
+	fan: cooling_fan {
+		status = "disabled";
+		compatible = "pwm-fan";
+		#cooling-cells = <2>;
+		cooling-min-state = <0>;
+		cooling-max-state = <3>;
+		cooling-levels = <0 75 125 175 250>;
+		pwms = <&rp1_pwm1 3 41566 PWM_POLARITY_INVERTED>;
+		rpm-regmap = <&rp1_pwm1>;
+		rpm-offset = <0x3c>;
 	};
 
 	pwr_button {
@@ -281,6 +444,66 @@ spi10_cs_pins: &spi10_cs_gpio1 {};
 
 	status = "disabled";
 };
+
+&rp1_pwm1 {
+	status = "disabled";
+	pinctrl-0 = <&rp1_pwm1_gpio45>;
+	pinctrl-names = "default";
+};
+
+&thermal_trips {
+	cpu_tepid: cpu-tepid {
+		temperature = <50000>;
+		hysteresis = <5000>;
+		type = "active";
+	};
+
+	cpu_warm: cpu-warm {
+		temperature = <60000>;
+		hysteresis = <5000>;
+		type = "active";
+	};
+
+	cpu_hot: cpu-hot {
+		temperature = <67500>;
+		hysteresis = <5000>;
+		type = "active";
+	};
+
+	cpu_vhot: cpu-vhot {
+		temperature = <75000>;
+		hysteresis = <5000>;
+		type = "active";
+	};
+};
+
+&cooling_maps {
+	tepid {
+		trip = <&cpu_tepid>;
+		cooling-device = <&fan 1 1>;
+	};
+
+	warm {
+		trip = <&cpu_warm>;
+		cooling-device = <&fan 2 2>;
+	};
+
+	hot {
+		trip = <&cpu_hot>;
+		cooling-device = <&fan 3 3>;
+	};
+
+	vhot {
+		trip = <&cpu_vhot>;
+		cooling-device = <&fan 4 4>;
+	};
+
+	melt {
+		trip = <&cpu_crit>;
+		cooling-device = <&fan 4 4>;
+	};
+};
+
 &gio {
 	// The GPIOs above 35 are not used on Pi 5, so shrink the upper bank
 	// to reduce the clutter in gpioinfo/pinctrl
@@ -363,17 +586,118 @@ spi10_cs_pins: &spi10_cs_gpio1 {};
 	};
 };
 
+&rp1_gpio {
+	gpio-line-names =
+		"ID_SD", // GPIO0
+		"ID_SC", // GPIO1
+		"PIN3", // GPIO2
+		"PIN5", // GPIO3
+		"PIN7", // GPIO4
+		"PIN29", // GPIO5
+		"PIN31", // GPIO6
+		"PIN26", // GPIO7
+		"PIN24", // GPIO8
+		"PIN21", // GPIO9
+		"PIN19", // GPIO10
+		"PIN23", // GPIO11
+		"PIN32", // GPIO12
+		"PIN33", // GPIO13
+		"PIN8", // GPIO14
+		"PIN10", // GPIO15
+		"PIN36", // GPIO16
+		"PIN11", // GPIO17
+		"PIN12", // GPIO18
+		"PIN35", // GPIO19
+		"PIN38", // GPIO20
+		"PIN40", // GPIO21
+		"PIN15", // GPIO22
+		"PIN16", // GPIO23
+		"PIN18", // GPIO24
+		"PIN22", // GPIO25
+		"PIN37", // GPIO26
+		"PIN13", // GPIO27
+
+		"PCIE_RP1_WAKE", // GPIO28
+		"FAN_TACH", // GPIO29
+		"HOST_SDA", // GPIO30
+		"HOST_SCL", // GPIO31
+		"ETH_RST_N", // GPIO32
+		"-", // GPIO33
+
+		"CD0_IO0_MICCLK", // GPIO34
+		"CD0_IO0_MICDAT0", // GPIO35
+		"RP1_PCIE_CLKREQ_N", // GPIO36
+		"-", // GPIO37
+		"CD0_SDA", // GPIO38
+		"CD0_SCL", // GPIO39
+		"CD1_SDA", // GPIO40
+		"CD1_SCL", // GPIO41
+		"USB_VBUS_EN", // GPIO42
+		"USB_OC_N", // GPIO43
+		"RP1_STAT_LED", // GPIO44
+		"FAN_PWM", // GPIO45
+		"CD1_IO0_MICCLK", // GPIO46
+		"2712_WAKE", // GPIO47
+		"CD1_IO1_MICDAT1", // GPIO48
+		"EN_MAX_USB_CUR", // GPIO49
+		"-", // GPIO50
+		"-", // GPIO51
+		"-", // GPIO52
+		"-"; // GPIO53
+
+	usb_vbus_pins: usb_vbus_pins {
+		function = "vbus1";
+		pins = "gpio42", "gpio43";
+	};
+};
+
 / {
 	aliases: aliases {
 		blconfig = &blconfig;
 		bluetooth = &bluetooth;
 		console = &uart10;
+		ethernet0 = &rp1_eth;
 		wifi0 = &wifi;
 		fb = &fb;
 		mailbox = &mailbox;
 		mmc0 = &sdio1;
+		uart0 = &uart0;
+		uart1 = &uart1;
+		uart2 = &uart2;
+		uart3 = &uart3;
+		uart4 = &uart4;
+		uart10 = &uart10;
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial2 = &uart2;
+		serial3 = &uart3;
+		serial4 = &uart4;
+		serial10 = &uart10;
+		i2c = &i2c_arm;
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+		i2c3 = &i2c3;
+		i2c4 = &i2c4;
+		i2c5 = &i2c5;
+		i2c6 = &i2c6;
+		i2c10 = &i2c_rp1boot;
+		// Bit-bashed i2c_gpios start at 10
+		spi0 = &spi0;
+		spi1 = &spi1;
+		spi2 = &spi2;
+		spi3 = &spi3;
+		spi4 = &spi4;
+		spi5 = &spi5;
+		gpio0 = &gpio;
+		gpio1 = &gio;
+		gpio2 = &gio_aon;
+		gpio3 = &pinctrl;
+		gpio4 = &pinctrl_aon;
+		usb0 = &rp1_usb0;
+		usb1 = &rp1_usb1;
 	};
-/*
+
 	__overrides__ {
 		bdaddr = <&bluetooth>, "local-bd-address[";
 		button_debounce = <&pwr_key>, "debounce-interval:0";
@@ -408,20 +732,7 @@ spi10_cs_pins: &spi10_cs_gpio1 {};
 
 		act_led_activelow = <&act_led>, "active-low?";
 		act_led_trigger = <&act_led>, "linux,default-trigger";
-		pwr_led_activelow = <&pwr_led>, "gpios:8";
-		pwr_led_trigger = <&pwr_led>, "linux,default-trigger";
-		drm_fb0_rp1_dsi0 = <&aliases>, "drm-fb0=",&dsi0;
-		drm_fb0_rp1_dsi1 = <&aliases>, "drm-fb0=",&dsi1;
-		drm_fb0_rp1_dpi = <&aliases>, "drm-fb0=",&dpi;
-		drm_fb0_vc4 = <&aliases>, "drm-fb0=",&vc4;
-		drm_fb1_rp1_dsi0 = <&aliases>, "drm-fb1=",&dsi0;
-		drm_fb1_rp1_dsi1 = <&aliases>, "drm-fb1=",&dsi1;
-		drm_fb1_rp1_dpi = <&aliases>, "drm-fb1=",&dpi;
-		drm_fb1_vc4 = <&aliases>, "drm-fb1=",&vc4;
-		drm_fb2_rp1_dsi0 = <&aliases>, "drm-fb2=",&dsi0;
-		drm_fb2_rp1_dsi1 = <&aliases>, "drm-fb2=",&dsi1;
-		drm_fb2_rp1_dpi = <&aliases>, "drm-fb2=",&dpi;
-		drm_fb2_vc4 = <&aliases>, "drm-fb2=",&vc4;
+		pwr_led_activelow = <&led_pwr>, "gpios:8";
+		pwr_led_trigger = <&led_pwr>, "linux,default-trigger";
 	};
-*/
 };
