@@ -936,13 +936,12 @@
 			iommus = <&smmu 7>;
 			status = "disabled";
 
-			usb@11000000{
+			dwc3_0: usb@11000000{
 				compatible = "snps,dwc3";
 				reg = <0x11000000 0x100000>;
 				interrupts = <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>;
 				phys = <&usbphy0>, <&usbphy0>;
 				phy-names = "usb2-phy", "usb3-phy";
-				dr_mode = "host";
 				maximum-speed = "super-speed-plus";
 				snps,dis_u2_sysphy-quirk;
 				snps,dma_set_40_bit_mask_quirk;

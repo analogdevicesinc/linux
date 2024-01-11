@@ -145,6 +145,10 @@
 	disable-over-current;
 };
 
+&dwc3_0 {
+	dr_mode = "host";
+};
+
 &smmu {
 	status = "okay";
 };
