@@ -3720,17 +3720,15 @@ err_close:
 	return err;
 }
 
-/* Add an ACL to redirect frames with specific destination MAC address to
- * control interface
- */
+/* Add an ACL to redirect frames to control interface based on the dst MAC */
 static int dpaa2_switch_port_trap_mac_addr(struct ethsw_port_priv *port_priv,
-					   const char *mac)
+					   const char *mac, const char *mask)
 {
 	struct dpaa2_switch_acl_entry acl_entry = {0};
 
 	/* Match on the destination MAC address */
 	ether_addr_copy(acl_entry.key.match.l2_dest_mac, mac);
-	eth_broadcast_addr(acl_entry.key.mask.l2_dest_mac);
+	ether_addr_copy(acl_entry.key.mask.l2_dest_mac, mask);
 
 	/* Trap to CPU */
 	acl_entry.cfg.precedence = 0;
@@ -3741,7 +3739,8 @@ static int dpaa2_switch_port_trap_mac_addr(struct ethsw_port_priv *port_priv,
 
 static int dpaa2_switch_port_init(struct ethsw_port_priv *port_priv, u16 port)
 {
-	const char stpa[ETH_ALEN] = {0x01, 0x80, 0xc2, 0x00, 0x00, 0x00};
+	const char ll_reserved_mac[ETH_ALEN] = {0x01, 0x80, 0xc2, 0x00, 0x00, 0x00};
+	const char ll_reserved_mask[ETH_ALEN] = {0xff, 0xff, 0xff, 0xff, 0xff, 0x00};
 	struct switchdev_obj_port_vlan vlan = {
 		.obj.id = SWITCHDEV_OBJ_ID_PORT_VLAN,
 		.vid = DEFAULT_VLAN_ID,
@@ -3816,7 +3815,7 @@ static int dpaa2_switch_port_init(struct ethsw_port_priv *port_priv, u16 port)
 	if (err)
 		return err;
 
-	err = dpaa2_switch_port_trap_mac_addr(port_priv, stpa);
+	err = dpaa2_switch_port_trap_mac_addr(port_priv, ll_reserved_mac, ll_reserved_mask);
 	if (err)
 		return err;
 
