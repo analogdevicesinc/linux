@@ -149,9 +149,12 @@ static int __vlan_vid_del(struct net_device *dev, struct net_bridge *br,
 	/* Try switchdev op first. In case it is not supported, fallback to
 	 * 8021q del.
 	 */
-	err = br_switchdev_port_vlan_del(dev, v->vid);
-	if (!(v->priv_flags & BR_VLFLAG_ADDED_BY_SWITCHDEV))
+	if (!(v->priv_flags & BR_VLFLAG_ADDED_BY_SWITCHDEV)) {
 		vlan_vid_del(dev, br->vlan_proto, v->vid);
+		return 0;
+	}
+
+	err = br_switchdev_port_vlan_del(dev, v->vid);
 	return err == -EOPNOTSUPP ? 0 : err;
 }
 
