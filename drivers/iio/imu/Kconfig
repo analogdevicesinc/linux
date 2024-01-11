@@ -37,7 +37,7 @@ config ADIS16475
 	help
 	  Say yes here to build support for Analog Devices ADIS16470, ADIS16475,
 	  ADIS16477, ADIS16465, ADIS16467, ADIS16500, ADIS16501, ADIS16505,
-	  ADIS16507 inertial sensors.
+	  ADIS16507, ADIS16575, ADIS16576, ADIS16577 inertial sensors.
 
 	  To compile this driver as a module, choose M here: the module will be
 	  called adis16475.
