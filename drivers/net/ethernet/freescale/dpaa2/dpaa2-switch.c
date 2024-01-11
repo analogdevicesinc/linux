@@ -2727,18 +2727,14 @@ static void dpaa2_switch_event_work(struct work_struct *work)
 	dev_put(dev);
 }
 
-/* Called under rcu_read_lock() */
-static int dpaa2_switch_port_event(struct notifier_block *nb,
-				   unsigned long event, void *ptr)
+static int dpaa2_switch_port_fdb_event(struct notifier_block *nb,
+				       unsigned long event, void *ptr)
 {
 	struct net_device *dev = switchdev_notifier_info_to_dev(ptr);
 	struct ethsw_port_priv *port_priv = netdev_priv(dev);
 	struct ethsw_switchdev_event_work *switchdev_work;
 	struct switchdev_notifier_fdb_info *fdb_info = ptr;
 	struct ethsw_core *ethsw = port_priv->ethsw_data;
-
-	if (event == SWITCHDEV_PORT_ATTR_SET)
-		return dpaa2_switch_port_attr_set_event(dev, ptr);
 
 	if (!dpaa2_switch_port_dev_check(dev))
 		return NOTIFY_DONE;
@@ -2778,6 +2774,24 @@ static int dpaa2_switch_port_event(struct notifier_block *nb,
 err_addr_alloc:
 	kfree(switchdev_work);
 	return NOTIFY_BAD;
+}
+
+/* Called under rcu_read_lock() */
+static int dpaa2_switch_port_event(struct notifier_block *nb,
+				   unsigned long event, void *ptr)
+{
+	struct net_device *dev = switchdev_notifier_info_to_dev(ptr);
+	int err;
+
+	switch (event) {
+	case SWITCHDEV_PORT_ATTR_SET:
+		return dpaa2_switch_port_attr_set_event(dev, ptr);
+	case SWITCHDEV_FDB_ADD_TO_DEVICE:
+	case SWITCHDEV_FDB_DEL_TO_DEVICE:
+		return dpaa2_switch_port_fdb_event(nb, event, ptr);
+	default:
+		return NOTIFY_DONE;
+	}
 }
 
 static int dpaa2_switch_port_obj_event(unsigned long event,
