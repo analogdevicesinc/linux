@@ -1041,9 +1041,12 @@ static void jesd204_dev_unregister(struct jesd204_dev *jdev)
 	if (jdev->dev.parent)
 		device_del(&jdev->dev);
 
+	jdev->fsm_rb_to_init = true;
 	jesd204_fsm_stop(jdev, JESD204_LINKS_ALL);
+	jdev->fsm_rb_to_init = false;
 
 	memset(&jdev->dev, 0, sizeof(jdev->dev));
+	jdev->fsm_inited = false;
 }
 
 static void devm_jesd204_dev_unreg(struct device *dev, void *res)

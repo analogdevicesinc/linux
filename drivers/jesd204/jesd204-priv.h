@@ -102,6 +102,7 @@ struct jesd204_dev_con_out {
  * @entry		list entry for the framework to keep a list of devices
  * @priv		private data to be returned to the driver
  * @fsm_inited		true if the FSM has been initialized for this device
+ * @fsm_rb_to_init	instruct FSM for rollback to init
  * @is_top		true if this device is a top device in a topology of
  *			devices that make up a JESD204 link (typically the
  *			device that is the ADC, DAC, or transceiver)
@@ -126,6 +127,7 @@ struct jesd204_dev {
 	void				*priv;
 
 	bool				fsm_inited;
+	bool				fsm_rb_to_init;
 	bool				is_top;
 
 	bool				is_sysref_provider;
