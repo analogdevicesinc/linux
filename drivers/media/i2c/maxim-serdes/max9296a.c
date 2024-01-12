@@ -14,7 +14,6 @@
 
 /* TODO: backport fixes from MAX96724. */
 
-#define MAX9296A_DPLL_FREQ		2500
 #define MAX9296A_PIPES_NUM		4
 
 struct max9296a_priv {
@@ -182,6 +181,7 @@ static int max9296a_init_phy(struct max_des_priv *des_priv,
 {
 	struct max9296a_priv *priv = des_to_priv(des_priv);
 	unsigned int num_data_lanes = phy->mipi.num_data_lanes;
+	unsigned int dpll_freq = phy->link_frequency * 2;
 	unsigned int master_phy, slave_phy;
 	unsigned int master_shift, slave_shift;
 	unsigned int reg, val, mask;
@@ -376,7 +376,7 @@ static int max9296a_init_phy(struct max_des_priv *des_priv,
 	/* Set DPLL frequency. */
 	reg = 0x31d + 0x3 * master_phy;
 	ret = max9296a_update_bits(priv, reg, GENMASK(4, 0),
-				   MAX9296A_DPLL_FREQ / 100);
+				   div_u64(dpll_freq, 100000000));
 	if (ret)
 		return ret;
 
@@ -391,7 +391,7 @@ static int max9296a_init_phy(struct max_des_priv *des_priv,
 		return ret;
 
 
-	if (phy->link_frequency > 1500000000ull) {
+	if (dpll_freq > 1500000000ull) {
 		/* Enable initial deskew with 2 x 32k UI. */
 		ret = max9296a_write(priv, 0x443 + 0x40 * phy->index, 0x81);
 		if (ret)
