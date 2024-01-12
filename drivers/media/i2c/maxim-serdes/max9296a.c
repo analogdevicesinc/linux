@@ -32,6 +32,9 @@ struct max9296a_chip_info {
 	unsigned int num_phys;
 	unsigned int num_links;
 	bool phy0_first_lanes_on_master_phy;
+	bool polarity_on_physical_lanes;
+	bool supports_tunnel_mode;
+	bool fix_tx_ids;
 };
 
 #define des_to_priv(des) \
@@ -160,6 +163,12 @@ static int max9296a_init(struct max_des_priv *des_priv)
 	if (ret)
 		return ret;
 
+	if (priv->info->num_pipes == 1) {
+		ret = max9296a_update_bits(priv, 0x160, BIT(0), 0x00);
+		if (ret)
+			return ret;
+	}
+
 	/* Disable link auto-select. */
 	ret = max9296a_update_bits(priv, 0x10, BIT(4), 0);
 	if (ret)
@@ -203,6 +212,17 @@ static int max9296a_init_phy(struct max_des_priv *des_priv,
 	 * PHY2 Lane 1 = D1
 	 * PHY3 Lane 0 = D2
 	 * PHY3 Lane 1 = D3
+	 *
+	 * MAX96714 only has two PHYs which cannot support single-PHY configurations.
+	 * Clock is always on the master PHY, first lanes are on PHY 0, even if
+	 * PHY 1 is the master PHY.
+	 *
+	 * PHY 0 + 1
+	 * CLK = PHY 1
+	 * PHY0 Lane 0 = D0
+	 * PHY0 Lane 1 = D1
+	 * PHY1 Lane 0 = D2
+	 * PHY1 Lane 1 = D3
 	 */
 	if (phy->index == 0) {
 		master_phy = 1;
@@ -273,12 +293,26 @@ static int max9296a_init_phy(struct max_des_priv *des_priv,
 
 	/*
 	 * Configure lane polarity.
+	 *
 	 * PHY 0 and 1 are on register 0x335.
 	 * PHY 1 and 2 are on register 0x336.
+	 *
 	 * Each PHY has 3 bits of polarity configuration.
+	 *
+	 * On MAX9296A, each bit represents the lane polarity of logical lanes.
+	 * Each of these lanes can be mapped to any physical lane.
 	 * 0th bit is for lane 0.
 	 * 1st bit is for lane 1.
 	 * 2nd bit is for clock lane.
+	 *
+	 * On MAX96714, each bit represents the lane polarity of physical lanes.
+	 * 0th bit for physical lane 0.
+	 * 1st bit for physical lane 1.
+	 * 2nd bit for clock lane of PHY 0, the slave PHY, which is unused.
+	 *
+	 * 3rd bit for physical lane 2.
+	 * 4th bit for physical lane 3.
+	 * 5th bit for clock lane of PHY 1, the master PHY.
 	 */
 	reg = 0x335 + phy->index;
 
@@ -306,7 +340,19 @@ static int max9296a_init_phy(struct max_des_priv *des_priv,
 		if (!phy->mipi.lane_polarities[i + 1])
 			continue;
 
-		map = i;
+		/*
+		 * The numbers inside the data_lanes array specify the hardware
+		 * lane each logical lane maps to.
+		 * If polarity is set for the physical lanes, retrieve the
+		 * physical lane matching the logical lane from data_lanes.
+		 * Otherwise, when polarity is set for the logical lanes
+		 * the index of the polarity can be used.
+		 */
+
+		if (priv->info->polarity_on_physical_lanes)
+			map = phy->mipi.data_lanes[i];
+		else
+			map = i;
 
 		if (map < 2)
 			shift = lane_0_bit;
@@ -464,8 +510,18 @@ static int max9296a_init_pipe(struct max_des_priv *des_priv,
 	if (ret)
 		return ret;
 
+	if (priv->info->num_pipes == 1) {
+		mask = BIT(0);
+		ret = max9296a_update_bits(priv, 0x160, mask, mask);
+		if (ret)
+			return ret;
+	}
+
 	/* Set source stream. */
-	reg = 0x50 + index;
+	if (priv->info->num_pipes == 1)
+		reg = 0x161;
+	else
+		reg = 0x50 + index;
 	ret = max9296a_update_bits(priv, reg, GENMASK(1, 0), pipe->stream_id);
 	if (ret)
 		return ret;
@@ -489,7 +545,6 @@ static int max9296a_select_links(struct max_des_priv *des_priv,
 }
 
 static const struct max_des_ops max9296a_ops = {
-	.fix_tx_ids = true,
 	.mipi_enable = max9296a_mipi_enable,
 	.init = max9296a_init,
 	.init_phy = max9296a_init_phy,
@@ -529,9 +584,11 @@ static int max9296a_probe(struct i2c_client *client)
 
 	*ops = max9296a_ops;
 
+	ops->fix_tx_ids = priv->info->fix_tx_ids;
 	ops->num_phys = priv->info->num_phys;
 	ops->num_pipes = priv->info->num_pipes;
 	ops->num_links = priv->info->num_links;
+	ops->supports_tunnel_mode = priv->info->supports_tunnel_mode;
 
 	priv->des_priv.dev = dev;
 	priv->des_priv.client = client;
@@ -554,14 +611,25 @@ static int max9296a_remove(struct i2c_client *client)
 
 static const struct max9296a_chip_info max9296a_info = {
 	.phy0_first_lanes_on_master_phy = true,
+	.fix_tx_ids = true,
 	.num_pipes = 4,
 	.pipe_hw_ids = { 0, 1, 2, 3 },
 	.num_phys = 2,
 	.num_links = 2,
 };
 
+static const struct max9296a_chip_info max96714_info = {
+	.polarity_on_physical_lanes = true,
+	.supports_tunnel_mode = true,
+	.num_pipes = 1,
+	.pipe_hw_ids = { 1 },
+	.num_phys = 1,
+	.num_links = 1,
+};
+
 static const struct of_device_id max9296a_of_table[] = {
 	{ .compatible = "maxim,max9296a", .data = &max9296a_info },
+	{ .compatible = "maxim,max96714", .data = &max96714_info },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, max9296a_of_table);
