@@ -684,6 +684,13 @@ static ssize_t axiadc_testmode_write(struct iio_dev *indio_dev,
 	return ret ? ret : len;
 }
 
+static ssize_t ad9467_lvds_sync_read(struct iio_dev *indio_dev,
+				    uintptr_t private,
+				    const struct iio_chan_spec *chan, char *buf)
+{
+	return sprintf(buf, "enable\n");
+}
+
 static ssize_t ad9467_lvds_sync_write(struct iio_dev *indio_dev,
 				     uintptr_t private,
 				     const struct iio_chan_spec *chan,
@@ -786,6 +793,7 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{
 	 .name = "lvds_sync",
 	 .write = ad9467_lvds_sync_write,
+	 .read = ad9467_lvds_sync_read,
 	 },
 	{
 	 .name = "lvds_cnv",
@@ -1223,6 +1231,8 @@ static int ad9467_write_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_SCALE:
 		return ad9467_set_scale(conv, val, val2);
 	case IIO_CHAN_INFO_SAMP_FREQ:
+		if (conv->chip_info->id == CHIPID_MACH1)
+			return -EINVAL;
 		if (!conv->clk)
 			return -ENODEV;
 
