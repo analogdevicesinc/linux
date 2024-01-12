@@ -5272,6 +5272,8 @@ static void ad9081_remove(struct spi_device *spi)
 	struct axiadc_converter *conv = spi_get_drvdata(spi);
 	struct ad9081_phy *phy = conv->phy;
 
+	jesd204_fsm_stop(phy->jdev, JESD204_LINKS_ALL);
+
 	cancel_delayed_work_sync(&phy->dwork);
 
 	if (phy->standalone || !jesd204_dev_is_top(phy->jdev))
