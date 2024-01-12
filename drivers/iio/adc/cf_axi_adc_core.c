@@ -1082,6 +1082,7 @@ static int axiadc_probe(struct platform_device *pdev)
 	struct resource *mem;
 	struct axiadc_spidev *axiadc_spidev;
 	struct axiadc_converter *conv;
+	struct device_link *link;
 	unsigned int config, skip = 1;
 	int ret;
 
@@ -1118,6 +1119,12 @@ static int axiadc_probe(struct platform_device *pdev)
 		return -ENODEV;
 
 	get_device(axiadc_spidev->dev_spi);
+
+	link = device_link_add(&pdev->dev, axiadc_spidev->dev_spi,
+			       DL_FLAG_AUTOREMOVE_SUPPLIER);
+	if (!link)
+		dev_warn(&pdev->dev, "failed to create device link to %s\n",
+			dev_name(axiadc_spidev->dev_spi));
 
 	ret = devm_add_action_or_reset(&pdev->dev, axiadc_release_converter, axiadc_spidev);
 	if (ret)
