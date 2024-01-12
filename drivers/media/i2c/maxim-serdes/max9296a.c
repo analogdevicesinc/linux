@@ -344,15 +344,28 @@ static int max9296a_init_phy(struct max_des_priv *des_priv,
 	if (ret)
 		return ret;
 
-	/* Disable initial deskew. */
-	ret = max9296a_write(priv, 0x443 + 0x40 * phy->index, 0x07);
-	if (ret)
-		return ret;
 
-	/* Disable periodic deskew. */
-	ret = max9296a_write(priv, 0x444 + 0x40 * phy->index, 0x01);
-	if (ret)
-		return ret;
+	if (phy->link_frequency > 1500000000ull) {
+		/* Enable initial deskew with 2 x 32k UI. */
+		ret = max9296a_write(priv, 0x443 + 0x40 * phy->index, 0x81);
+		if (ret)
+			return ret;
+
+		/* Enable periodic deskew with 2 x 1k UI.. */
+		ret = max9296a_write(priv, 0x444 + 0x40 * phy->index, 0x81);
+		if (ret)
+			return ret;
+	} else {
+		/* Disable initial deskew. */
+		ret = max9296a_write(priv, 0x443 + 0x40 * phy->index, 0x07);
+		if (ret)
+			return ret;
+
+		/* Disable periodic deskew. */
+		ret = max9296a_write(priv, 0x444 + 0x40 * phy->index, 0x01);
+		if (ret)
+			return ret;
+	}
 
 	/* Set alternate memory map modes. */
 	val  = phy->alt_mem_map12 ? BIT(0) : 0;
