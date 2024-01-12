@@ -3782,6 +3782,8 @@ static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 	struct ad9081_phy *phy = conv->phy;
 	int i;
 
+	phy->ad9081_debugfs_entry_index = 0;
+
 	if (iio_get_debugfs_dentry(indio_dev)) {
 		debugfs_create_devm_seqfile(&conv->spi->dev, "status",
 					    iio_get_debugfs_dentry(indio_dev),
