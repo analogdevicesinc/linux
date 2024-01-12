@@ -15,13 +15,22 @@
 /* TODO: backport fixes from MAX96724. */
 
 #define MAX9296A_DPLL_FREQ		2500
+#define MAX9296A_PIPES_NUM		4
 
 struct max9296a_priv {
 	struct max_des_priv des_priv;
+	const struct max9296a_chip_info *info;
 
 	struct device *dev;
 	struct i2c_client *client;
 	struct regmap *regmap;
+};
+
+struct max9296a_chip_info {
+	unsigned int num_pipes;
+	unsigned int pipe_hw_ids[MAX9296A_PIPES_NUM];
+	unsigned int num_phys;
+	unsigned int num_links;
 };
 
 #define des_to_priv(des) \
@@ -101,6 +110,12 @@ static int max9296a_reset(struct max9296a_priv *priv)
 		return ret;
 
 	return 0;
+}
+
+static unsigned int max9296a_pipe_id(struct max9296a_priv *priv,
+				     struct max_des_pipe *pipe)
+{
+	return priv->info->pipe_hw_ids[pipe->index];
 }
 
 static int max9296a_mipi_enable(struct max_des_priv *des_priv, bool enable)
@@ -267,7 +282,7 @@ static int max9296a_init_pipe_remap(struct max9296a_priv *priv,
 				    struct max_des_dt_vc_remap *remap,
 				    unsigned int i)
 {
-	unsigned int index = pipe->index;
+	unsigned int index = max9296a_pipe_id(priv, pipe);
 	unsigned int reg, val, shift, mask;
 	unsigned int phy_id = remap->phy * 2;
 	int ret;
@@ -329,7 +344,7 @@ static int max9296a_init_pipe(struct max_des_priv *des_priv,
 			      struct max_des_pipe *pipe)
 {
 	struct max9296a_priv *priv = des_to_priv(des_priv);
-	unsigned int index = pipe->index;
+	unsigned int index = max9296a_pipe_id(priv, pipe);
 	unsigned int reg, mask;
 	int ret;
 
@@ -364,9 +379,6 @@ static int max9296a_select_links(struct max_des_priv *des_priv,
 }
 
 static const struct max_des_ops max9296a_ops = {
-	.num_phys = 2,
-	.num_pipes = 4,
-	.num_links = 2,
 	.fix_tx_ids = true,
 	.mipi_enable = max9296a_mipi_enable,
 	.init = max9296a_init,
@@ -378,14 +390,26 @@ static const struct max_des_ops max9296a_ops = {
 
 static int max9296a_probe(struct i2c_client *client)
 {
+	struct device *dev = &client->dev;
 	struct max9296a_priv *priv;
+	struct max_des_ops *ops;
 	int ret;
 
-	priv = devm_kzalloc(&client->dev, sizeof(*priv), GFP_KERNEL);
+	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
 
-	priv->dev = &client->dev;
+	ops = devm_kzalloc(dev, sizeof(*ops), GFP_KERNEL);
+	if (!ops)
+		return -ENOMEM;
+
+	priv->info = device_get_match_data(dev);
+	if (!priv->info) {
+		dev_err(dev, "Failed to get match data\n");
+		return -ENODEV;
+	}
+
+	priv->dev = dev;
 	priv->client = client;
 	i2c_set_clientdata(client, priv);
 
@@ -393,10 +417,16 @@ static int max9296a_probe(struct i2c_client *client)
 	if (IS_ERR(priv->regmap))
 		return PTR_ERR(priv->regmap);
 
-	priv->des_priv.dev = &client->dev;
+	*ops = max9296a_ops;
+
+	ops->num_phys = priv->info->num_phys;
+	ops->num_pipes = priv->info->num_pipes;
+	ops->num_links = priv->info->num_links;
+
+	priv->des_priv.dev = dev;
 	priv->des_priv.client = client;
 	priv->des_priv.regmap = priv->regmap;
-	priv->des_priv.ops = &max9296a_ops;
+	priv->des_priv.ops = ops;
 
 	ret = max9296a_reset(priv);
 	if (ret)
@@ -412,8 +442,15 @@ static int max9296a_remove(struct i2c_client *client)
 	return max_des_remove(&priv->des_priv);
 }
 
+static const struct max9296a_chip_info max9296a_info = {
+	.num_pipes = 4,
+	.pipe_hw_ids = { 0, 1, 2, 3 },
+	.num_phys = 2,
+	.num_links = 2,
+};
+
 static const struct of_device_id max9296a_of_table[] = {
-	{ .compatible = "maxim,max9296a" },
+	{ .compatible = "maxim,max9296a", .data = &max9296a_info },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, max9296a_of_table);
