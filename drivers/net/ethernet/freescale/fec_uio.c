@@ -404,7 +404,6 @@ static struct phylink_pcs *stmmac_mac_select_pcs(struct phylink_config *config,
 }
 
 static const struct phylink_mac_ops stmmac_phylink_mac_ops = {
-	.validate = phylink_generic_validate,
 	.mac_select_pcs = stmmac_mac_select_pcs,
 	.mac_link_down = stmmac_mac_link_down,
 	.mac_link_up = stmmac_mac_link_up,
@@ -710,7 +709,7 @@ static int enet_qos_probe(struct platform_device *pdev)
 	if (!dwmac)
 		return -ENOMEM;
 
-	plat_dat = stmmac_probe_config_dt(pdev, stmmac_res.mac);
+	plat_dat = devm_stmmac_probe_config_dt(pdev, stmmac_res.mac);
 	if (IS_ERR(plat_dat))
 		return PTR_ERR(plat_dat);
 
@@ -718,7 +717,7 @@ static int enet_qos_probe(struct platform_device *pdev)
 	if (!data) {
 		dev_err(&pdev->dev, "failed to get match data\n");
 		ret = -EINVAL;
-		goto err_match_data;
+		goto err_parse_dt;
 	}
 
 	dwmac->ops = data;
@@ -758,8 +757,6 @@ err_dwmac_init:
 	imx_dwmac_clks_config(dwmac, false);
 err_clks_config:
 err_parse_dt:
-err_match_data:
-	stmmac_remove_config_dt(pdev, plat_dat);
 	return ret;
 }
 
