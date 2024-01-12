@@ -70,6 +70,7 @@ static int jesd204_fsm_handle_con(struct jesd204_dev *jdev,
  * @state		target JESD204 state
  * @op			callback ID associated with transitioning to @state
  * @first		marker for the first state in the transition series (when iterating backward)
+ * @first_init		marker for the first state in the transition series when starting from scratch
  * @last		marker for the last state in the transition series (when iterating forward)
  * @post_hook		hook to be run for this state, in the done_cb part
  */
@@ -77,6 +78,7 @@ struct jesd204_fsm_table_entry {
 	enum jesd204_dev_state	state;
 	enum jesd204_dev_op	op;
 	bool			first;
+	bool			first_init;
 	bool			last;
 	jesd204_fsm_done_cb	post_hook;
 };
@@ -88,6 +90,12 @@ struct jesd204_fsm_table_entry {
 struct jesd204_fsm_table_entry_iter {
 	const struct jesd204_fsm_table_entry	*table;
 };
+
+#define JESD204_STATE_NOP_INIT(x)					\
+{								\
+	.state = JESD204_STATE_##x,				\
+	.first_init = true,						\
+}
 
 #define JESD204_STATE_NOP(x)					\
 {								\
@@ -123,6 +131,8 @@ static void __jesd204_fsm_clear_errors(struct jesd204_dev *jdev,
 
 /* States to transition to start a JESD204 link */
 static const struct jesd204_fsm_table_entry jesd204_start_links_states[] = {
+	JESD204_STATE_NOP_INIT(INITIALIZED),
+	JESD204_STATE_NOP(PROBED),
 	JESD204_STATE_NOP(IDLE),
 	JESD204_STATE_OP(DEVICE_INIT),
 	JESD204_STATE_OP_WITH_POST_HOOK(LINK_INIT, jesd204_fsm_init_link),
@@ -1171,8 +1181,11 @@ static int jesd204_fsm_table_entry_done(struct jesd204_dev *jdev,
 }
 
 static bool jesd204_fsm_table_end(const struct jesd204_fsm_table_entry *entry,
-				  bool rollback)
+				  bool rollback, bool full)
 {
+	if (rollback && full)
+		return entry->first_init;
+
 	if (rollback)
 		return entry->first;
 	return entry->last;
@@ -1242,7 +1255,7 @@ static int jesd204_fsm_table_single(struct jesd204_dev *jdev,
 	 * FIXME: the handle_busy_flags logic needs re-visit, we should lock
 	 * here and unlock after the loop is done
 	 */
-	while (!jesd204_fsm_table_end(&it->table[0], rollback)) {
+	while (!jesd204_fsm_table_end(&it->table[0], rollback, jdev->fsm_rb_to_init)) {
 		it->table = table;
 
 		state_op = &jdev->dev_data->state_ops[table[0].op];
