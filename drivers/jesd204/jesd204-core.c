@@ -49,6 +49,7 @@ int jesd204_get_active_links_num(struct jesd204_dev *jdev)
 
 	return jdev_top->num_links;
 }
+EXPORT_SYMBOL_GPL(jesd204_get_active_links_num);
 
 int jesd204_get_links_data(struct jesd204_dev *jdev,
 			   struct jesd204_link ** const links,
