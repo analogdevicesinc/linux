@@ -791,7 +791,7 @@ static int ceetm_init_root(struct Qdisc *sch, struct ceetm_qdisc *priv,
 			return err;
 		}
 
-		bps = priv->root.rate << 3; /* Bps -> bps */
+		bps = (u64)priv->root.rate << 3; /* Bps -> bps */
 		err = qman_ceetm_lni_set_commit_rate_bps(lni, bps, dev->mtu);
 		if (err) {
 			pr_err(KBUILD_BASENAME " : %s : failed to configure the LNI shaper\n",
@@ -799,7 +799,7 @@ static int ceetm_init_root(struct Qdisc *sch, struct ceetm_qdisc *priv,
 			return err;
 		}
 
-		bps = priv->root.ceil << 3; /* Bps -> bps */
+		bps = (u64)priv->root.ceil << 3; /* Bps -> bps */
 		err = qman_ceetm_lni_set_excess_rate_bps(lni, bps, dev->mtu);
 		if (err) {
 			pr_err(KBUILD_BASENAME " : %s : failed to configure the LNI shaper\n",
@@ -1250,7 +1250,7 @@ static int ceetm_change_root(struct Qdisc *sch, struct ceetm_qdisc *priv,
 	}
 
 	if (priv->root.rate != qopt->rate) {
-		bps = qopt->rate << 3; /* Bps -> bps */
+		bps = (u64)qopt->rate << 3; /* Bps -> bps */
 		err = qman_ceetm_lni_set_commit_rate_bps(priv->root.lni, bps,
 							 dev->mtu);
 		if (err)
@@ -1259,7 +1259,7 @@ static int ceetm_change_root(struct Qdisc *sch, struct ceetm_qdisc *priv,
 	}
 
 	if (priv->root.ceil != qopt->ceil) {
-		bps = qopt->ceil << 3; /* Bps -> bps */
+		bps = (u64)qopt->ceil << 3; /* Bps -> bps */
 		err = qman_ceetm_lni_set_excess_rate_bps(priv->root.lni, bps,
 							 dev->mtu);
 		if (err)
@@ -1433,7 +1433,7 @@ static int ceetm_cls_change_root(struct ceetm_class *cl,
 	}
 
 	if (cl->shaped && cl->root.rate != copt->rate) {
-		bps = copt->rate << 3; /* Bps -> bps */
+		bps = (u64)copt->rate << 3; /* Bps -> bps */
 		err = qman_ceetm_channel_set_commit_rate_bps(cl->ch, bps,
 							     dev->mtu);
 		if (err)
@@ -1442,7 +1442,7 @@ static int ceetm_cls_change_root(struct ceetm_class *cl,
 	}
 
 	if (cl->shaped && cl->root.ceil != copt->ceil) {
-		bps = copt->ceil << 3; /* Bps -> bps */
+		bps = (u64)copt->ceil << 3; /* Bps -> bps */
 		err = qman_ceetm_channel_set_excess_rate_bps(cl->ch, bps,
 							     dev->mtu);
 		if (err)
@@ -1661,13 +1661,13 @@ static int ceetm_cls_change(struct Qdisc *sch, u32 classid, u32 parentid,
 		if (err)
 			goto channel_err;
 
-		bps = cl->root.rate << 3; /* Bps -> bps */
+		bps = (u64)cl->root.rate << 3; /* Bps -> bps */
 		err = qman_ceetm_channel_set_commit_rate_bps(channel, bps,
 							     dev->mtu);
 		if (err)
 			goto channel_err;
 
-		bps = cl->root.ceil << 3; /* Bps -> bps */
+		bps = (u64)cl->root.ceil << 3; /* Bps -> bps */
 		err = qman_ceetm_channel_set_excess_rate_bps(channel, bps,
 							     dev->mtu);
 		if (err)
