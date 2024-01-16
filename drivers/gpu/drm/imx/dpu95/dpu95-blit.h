@@ -7,7 +7,8 @@
 #ifndef __DPU95_BLIT_H__
 #define __DPU95_BLIT_H__
 
-#define COMMAND_BUFFER_SIZE	65536 /* up to 64k bytes */
+#define COMMAND_BUFFER_SIZE	16384 /* ocram_d 16k bytes */
+#define CMDSEQ_OCRAM_D_ADDR 0x300000
 #define CMDSEQ_FIFO_SPACE_THRESHOLD   192
 #define WORD_SIZE   4
 
@@ -39,9 +40,6 @@ struct dpu_bliteng {
 	atomic64_t seqno;
 	spinlock_t lock;
 	u64 context;
-
-	void *buffer_addr_virt;
-	u32 buffer_addr_phy;
 
 	u32 *cmd_list;
 

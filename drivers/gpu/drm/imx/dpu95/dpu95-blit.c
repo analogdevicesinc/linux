@@ -48,23 +48,6 @@ static void dpu95_cs_wait_idle(struct dpu_bliteng *dpu_be)
 		mdelay(1);
 }
 
-static int dpu95_cs_alloc_command_buffer(struct dpu_bliteng *dpu_be)
-{
-	/* command buffer need 32 bit address */
-	dpu_be->buffer_addr_virt =
-		alloc_pages_exact(COMMAND_BUFFER_SIZE,
-			GFP_KERNEL | GFP_DMA | GFP_DMA32 | __GFP_ZERO);
-	if (!dpu_be->buffer_addr_virt) {
-		dev_err(dpu_be->dev, "memory alloc failed for dpu command buffer\n");
-		return -ENOMEM;
-	}
-
-	dpu_be->buffer_addr_phy =
-		(u32)virt_to_phys(dpu_be->buffer_addr_virt);
-
-	return 0;
-}
-
 static void dpu95_cs_static_setup(struct dpu_bliteng *dpu_be)
 {
 	dpu95_cs_wait_idle(dpu_be);
@@ -74,7 +57,7 @@ static void dpu95_cs_static_setup(struct dpu_bliteng *dpu_be)
 		CMDSEQ_CONTROL);
 
 	/* BufferAddress and BufferSize */
-	dpu95_be_write(dpu_be, dpu_be->buffer_addr_phy, CMDSEQ_BUFFERADDRESS);
+	dpu95_be_write(dpu_be, CMDSEQ_OCRAM_D_ADDR, CMDSEQ_BUFFERADDRESS);
 	dpu95_be_write(dpu_be, COMMAND_BUFFER_SIZE / WORD_SIZE,
 		CMDSEQ_BUFFERSIZE);
 }
@@ -429,10 +412,6 @@ static int dpu95_bliteng_init(struct dpu_bliteng *dpu_bliteng)
 	dpu95_be_init_units(dpu_bliteng);
 
 	/* Init for command sequencer */
-	ret = dpu95_cs_alloc_command_buffer(dpu_bliteng);
-	if (ret)
-		return ret;
-
 	dpu95_cs_static_setup(dpu_bliteng);
 
 	/*Request general SW interrupts to implement DPU fence */
@@ -467,10 +446,6 @@ static void dpu95_bliteng_fini(struct dpu_bliteng *dpu_bliteng)
 
 	for (i = 0; i < 4; i++)
 		free_irq(dpu_bliteng->irq_comctrl_sw[i], dpu_bliteng);
-
-	if (dpu_bliteng->buffer_addr_virt)
-		free_pages_exact(dpu_bliteng->buffer_addr_virt,
-				 COMMAND_BUFFER_SIZE);
 }
 
 static int imx_drm_dpu95_set_cmdlist_ioctl(struct drm_device *drm_dev, void *data,
