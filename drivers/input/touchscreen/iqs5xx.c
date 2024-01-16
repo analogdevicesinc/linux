@@ -356,7 +356,7 @@ static int iqs5xx_bl_open(struct i2c_client *client)
 }
 
 static int iqs5xx_bl_write(struct i2c_client *client,
-			   u16 bl_addr, u8 *pmap_data, u16 pmap_len)
+			   u16 bl_addr, const u8 *pmap_data, u16 pmap_len)
 {
 	struct i2c_msg msg;
 	int ret, i;
@@ -395,7 +395,7 @@ msg_fail:
 }
 
 static int iqs5xx_bl_verify(struct i2c_client *client,
-			    u16 bl_addr, u8 *pmap_data, u16 pmap_len)
+			    u16 bl_addr, const u8 *pmap_data, u16 pmap_len)
 {
 	struct i2c_msg msg;
 	int ret, i;
@@ -446,27 +446,21 @@ static int iqs5xx_set_state(struct i2c_client *client, u8 state)
 	if (!iqs5xx->dev_id_info.bl_status)
 		return 0;
 
-	mutex_lock(&iqs5xx->lock);
+	guard(mutex)(&iqs5xx->lock);
 
 	/*
 	 * Addressing the device outside of a communication window prompts it
 	 * to assert the RDY output, so disable the interrupt line to prevent
 	 * the handler from servicing a false interrupt.
 	 */
-	disable_irq(client->irq);
+	guard(disable_irq)(&client->irq);
 
 	error1 = iqs5xx_write_byte(client, IQS5XX_SYS_CTRL1, state);
 	error2 = iqs5xx_write_byte(client, IQS5XX_END_COMM, 0);
 
 	usleep_range(50, 100);
-	enable_irq(client->irq);
 
-	mutex_unlock(&iqs5xx->lock);
-
-	if (error1)
-		return error1;
-
-	return error2;
+	return error1 ?: error2;
 }
 
 static int iqs5xx_open(struct input_dev *input)
@@ -703,7 +697,6 @@ static irqreturn_t iqs5xx_irq(int irq, void *data)
 static int iqs5xx_fw_file_parse(struct i2c_client *client,
 				const char *fw_file, u8 *pmap)
 {
-	const struct firmware *fw;
 	struct iqs5xx_ihex_rec *rec;
 	size_t pos = 0;
 	int error, i;
@@ -722,6 +715,7 @@ static int iqs5xx_fw_file_parse(struct i2c_client *client,
 	 * Because the ihex2fw tool tolerates neither (1) nor (2), the slightly
 	 * nonstandard ihex firmware is parsed directly by the driver.
 	 */
+	const struct firmware *fw __free(firmware) = NULL;
 	error = request_firmware(&fw, fw_file, &client->dev);
 	if (error) {
 		dev_err(&client->dev, "Failed to request firmware %s: %d\n",
@@ -732,8 +726,7 @@ static int iqs5xx_fw_file_parse(struct i2c_client *client,
 	do {
 		if (pos + sizeof(*rec) > fw->size) {
 			dev_err(&client->dev, "Insufficient firmware size\n");
-			error = -EINVAL;
-			break;
+			return -EINVAL;
 		}
 		rec = (struct iqs5xx_ihex_rec *)(fw->data + pos);
 		pos += sizeof(*rec);
@@ -741,15 +734,14 @@ static int iqs5xx_fw_file_parse(struct i2c_client *client,
 		if (rec->start != ':') {
 			dev_err(&client->dev, "Invalid start at record %u\n",
 				rec_num);
-			error = -EINVAL;
-			break;
+			return -EINVAL;
 		}
 
 		error = hex2bin(rec_hdr, rec->len, sizeof(rec_hdr));
 		if (error) {
 			dev_err(&client->dev, "Invalid header at record %u\n",
 				rec_num);
-			break;
+			return error;
 		}
 
 		rec_len = *rec_hdr;
@@ -758,8 +750,7 @@ static int iqs5xx_fw_file_parse(struct i2c_client *client,
 
 		if (pos + rec_len * 2 > fw->size) {
 			dev_err(&client->dev, "Insufficient firmware size\n");
-			error = -EINVAL;
-			break;
+			return -EINVAL;
 		}
 		pos += (rec_len * 2);
 
@@ -767,7 +758,7 @@ static int iqs5xx_fw_file_parse(struct i2c_client *client,
 		if (error) {
 			dev_err(&client->dev, "Invalid data at record %u\n",
 				rec_num);
-			break;
+			return error;
 		}
 
 		error = hex2bin(&rec_chksm,
@@ -775,7 +766,7 @@ static int iqs5xx_fw_file_parse(struct i2c_client *client,
 		if (error) {
 			dev_err(&client->dev, "Invalid checksum at record %u\n",
 				rec_num);
-			break;
+			return error;
 		}
 
 		chksm = 0;
@@ -800,22 +791,21 @@ static int iqs5xx_fw_file_parse(struct i2c_client *client,
 				dev_err(&client->dev,
 					"Invalid address at record %u\n",
 					rec_num);
-				error = -EINVAL;
-			} else {
-				memcpy(pmap + rec_addr - IQS5XX_CHKSM,
-				       rec_data, rec_len);
+				return -EINVAL;
 			}
+
+			memcpy(pmap + rec_addr - IQS5XX_CHKSM,
+			       rec_data, rec_len);
 			break;
+
 		case IQS5XX_REC_TYPE_EOF:
 			break;
+
 		default:
 			dev_err(&client->dev, "Invalid type at record %u\n",
 				rec_num);
-			error = -EINVAL;
+			return -EINVAL;
 		}
-
-		if (error)
-			break;
 
 		rec_num++;
 		while (pos < fw->size) {
@@ -825,33 +815,13 @@ static int iqs5xx_fw_file_parse(struct i2c_client *client,
 		}
 	} while (rec_type != IQS5XX_REC_TYPE_EOF);
 
-	release_firmware(fw);
-
-	return error;
+	return 0;
 }
 
-static int iqs5xx_fw_file_write(struct i2c_client *client, const char *fw_file)
+static int iqs5xx_update_firmware(struct iqs5xx_private *iqs5xx, const u8 *pmap)
 {
-	struct iqs5xx_private *iqs5xx = i2c_get_clientdata(client);
-	int error, error_init = 0;
-	u8 *pmap;
-
-	pmap = kzalloc(IQS5XX_PMAP_LEN, GFP_KERNEL);
-	if (!pmap)
-		return -ENOMEM;
-
-	error = iqs5xx_fw_file_parse(client, fw_file, pmap);
-	if (error)
-		goto err_kfree;
-
-	mutex_lock(&iqs5xx->lock);
-
-	/*
-	 * Disable the interrupt line in case the first attempt(s) to enter the
-	 * bootloader don't happen quickly enough, in which case the device may
-	 * assert the RDY output until the next attempt.
-	 */
-	disable_irq(client->irq);
+	struct i2c_client *client = iqs5xx->client;
+	int error;
 
 	iqs5xx->dev_id_info.bl_status = 0;
 
@@ -859,22 +829,50 @@ static int iqs5xx_fw_file_write(struct i2c_client *client, const char *fw_file)
 	if (error) {
 		error = iqs5xx_bl_open(client);
 		if (error)
-			goto err_reset;
+			return error;
 	}
 
 	error = iqs5xx_bl_write(client, IQS5XX_CHKSM, pmap, IQS5XX_PMAP_LEN);
 	if (error)
-		goto err_reset;
+		return error;
 
 	error = iqs5xx_bl_cmd(client, IQS5XX_BL_CMD_CRC, 0);
 	if (error)
-		goto err_reset;
+		return error;
 
 	error = iqs5xx_bl_verify(client, IQS5XX_CSTM,
 				 pmap + IQS5XX_CHKSM_LEN + IQS5XX_APP_LEN,
 				 IQS5XX_CSTM_LEN);
+	if (error)
+		return error;
 
-err_reset:
+	return 0;
+}
+
+static int iqs5xx_fw_file_write(struct i2c_client *client, const char *fw_file)
+{
+	struct iqs5xx_private *iqs5xx = i2c_get_clientdata(client);
+	int error, error_init = 0;
+
+	u8 *pmap __free(kfree) = kzalloc(IQS5XX_PMAP_LEN, GFP_KERNEL);
+	if (!pmap)
+		return -ENOMEM;
+
+	error = iqs5xx_fw_file_parse(client, fw_file, pmap);
+	if (error)
+		return error;
+
+	guard(mutex)(&iqs5xx->lock);
+
+	/*
+	 * Disable the interrupt line in case the first attempt(s) to enter the
+	 * bootloader don't happen quickly enough, in which case the device may
+	 * assert the RDY output until the next attempt.
+	 */
+	guard(disable_irq)(&client->irq);
+
+	error = iqs5xx_update_firmware(iqs5xx, pmap);
+
 	iqs5xx_reset(client);
 	usleep_range(15000, 15100);
 
@@ -882,14 +880,7 @@ err_reset:
 	if (!iqs5xx->dev_id_info.bl_status)
 		error_init = error_init ? : -EINVAL;
 
-	enable_irq(client->irq);
-
-	mutex_unlock(&iqs5xx->lock);
-
-err_kfree:
-	kfree(pmap);
-
-	return error ? : error_init;
+	return error ?: error_init;
 }
 
 static ssize_t fw_file_store(struct device *dev,
@@ -985,38 +976,30 @@ static int iqs5xx_suspend(struct device *dev)
 {
 	struct iqs5xx_private *iqs5xx = dev_get_drvdata(dev);
 	struct input_dev *input = iqs5xx->input;
-	int error = 0;
 
 	if (!input || device_may_wakeup(dev))
-		return error;
+		return 0;
 
-	mutex_lock(&input->mutex);
-
+	guard(mutex)(&input->mutex);
 	if (input_device_enabled(input))
-		error = iqs5xx_set_state(iqs5xx->client, IQS5XX_SUSPEND);
+		return iqs5xx_set_state(iqs5xx->client, IQS5XX_SUSPEND);
 
-	mutex_unlock(&input->mutex);
-
-	return error;
+	return 0;
 }
 
 static int iqs5xx_resume(struct device *dev)
 {
 	struct iqs5xx_private *iqs5xx = dev_get_drvdata(dev);
 	struct input_dev *input = iqs5xx->input;
-	int error = 0;
 
 	if (!input || device_may_wakeup(dev))
-		return error;
+		return 0;
 
-	mutex_lock(&input->mutex);
-
+	guard(mutex)(&input->mutex);
 	if (input_device_enabled(input))
-		error = iqs5xx_set_state(iqs5xx->client, IQS5XX_RESUME);
+		return iqs5xx_set_state(iqs5xx->client, IQS5XX_RESUME);
 
-	mutex_unlock(&input->mutex);
-
-	return error;
+	return 0;
 }
 
 static DEFINE_SIMPLE_DEV_PM_OPS(iqs5xx_pm, iqs5xx_suspend, iqs5xx_resume);
