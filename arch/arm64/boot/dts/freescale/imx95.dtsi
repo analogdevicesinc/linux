@@ -7,6 +7,7 @@
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/net/nxp-netc.h>
 #include <dt-bindings/thermal/thermal.h>
 
 #include "imx95-clock.h"

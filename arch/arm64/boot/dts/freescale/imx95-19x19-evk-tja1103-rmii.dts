@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+/*
+ * Notice:
+ * 1. This file enables the RMII interface of NETC, so that ENET port1 can
+ *    work in RMII mode.
+ * 2. When using the TJA1103 PHY chip, please complete the following
+ *    hardware configuration on TJA1103 board.
+ *    a) Short the 1-2 pins of CONFIG0 and CONFIG1 respectively, short the
+ *       2-3 pins of CONFIG2, this will set the address of the PHY chip to 2.
+ *    b) Short the 1-2 pins of CONFIG3 and disconnect the jumper of CONFIG4
+ *       to enable the RMII mode of the PHY chip.
+ *    c) Refer to the silk screen on the back of the daughter card, configure
+ *       CONFIG5 and CONFIG6 according to the situation to set it as Master
+ *       or Slave mode.
+ *    d) Change the short circuit of R70 from 1-2 pins to 2-3 pins to use the
+ *       correct RXER pin.
+ *    e) Since the ENET IO pins of i.MX95 is using 1.8V voltage, please make
+ *       sure that J17 jumper is shorted to 1-2 pins.
+ */
+
+#include "imx95-19x19-evk.dts"
+
+/ {
+	aliases {
+		ethernet2 = &enetc_port1;
+	};
+};
+
+&enetc_port0 {
+	status = "disabled";
+};
+
+&enetc_port1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_enetc1>;
+	phy-handle = <&ethphy1>;
+	phy-mode = "rmii";
+	status = "okay";
+};
+
+&netc_prb_ierb {
+	assigned-clock-rates = <666666666>, <50000000>;
+	netc-interfaces = <NXP_NETC_RMII
+			   NXP_NETC_RMII
+			   NXP_NETC_SERIAL>;
+	netc-rmii-clk-dir = <NXP_NETC_RMII_CLK_INPUT
+			     NXP_NETC_RMII_CLK_OUTPUT>;
+};
+
+&netc_emdio {
+	ethphy1: ethernet-phy@2 {
+		reg = <2>;
+		nxp,rmii-refclk-in;
+	};
+};
+
+&scmi_iomuxc {
+	pinctrl_enetc1: enetc1grp {
+		fsl,pins = <
+			IMX95_PAD_ENET2_TD2__NETCMIX_TOP_ETH1_RMII_REF50_CLK	0x4000057e
+			IMX95_PAD_ENET2_TXC__CCMSRCGPCMIX_TOP_ENET_CLK_ROOT	0x4000057e
+			IMX95_PAD_ENET1_MDC__NETCMIX_TOP_NETC_MDC		0x57e
+			IMX95_PAD_ENET1_MDIO__NETCMIX_TOP_NETC_MDIO		0x97e
+			IMX95_PAD_ENET2_RD0__NETCMIX_TOP_ETH1_RMII_RXD0		0x57e
+			IMX95_PAD_ENET2_RD1__NETCMIX_TOP_ETH1_RMII_RXD1		0x57e
+			IMX95_PAD_ENET2_RD2__NETCMIX_TOP_ETH1_RMII_RX_ER	0x57e
+			IMX95_PAD_ENET2_TX_CTL__NETCMIX_TOP_ETH1_RMII_TX_EN	0x57e
+			IMX95_PAD_ENET2_RX_CTL__NETCMIX_TOP_ETH1_RMII_CRS_DV	0x57e
+			IMX95_PAD_ENET2_TD1__NETCMIX_TOP_ETH1_RMII_TXD1		0x57e
+			IMX95_PAD_ENET2_TD0__NETCMIX_TOP_ETH1_RMII_TXD0		0x57e
+		>;
+	};
+};

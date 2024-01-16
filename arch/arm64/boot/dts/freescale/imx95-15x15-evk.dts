@@ -497,6 +497,12 @@
 	status = "okay";
 };
 
+&netc_prb_ierb {
+	netc-interfaces = <NXP_NETC_RGMII
+			   NXP_NETC_RGMII
+			   NXP_NETC_SERIAL>;
+};
+
 &netc_emdio {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_emdio>;

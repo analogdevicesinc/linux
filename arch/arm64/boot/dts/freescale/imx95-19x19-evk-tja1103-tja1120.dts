@@ -19,6 +19,12 @@
 	status = "okay";
 };
 
+&netc_prb_ierb {
+	netc-interfaces = <NXP_NETC_RGMII
+			   NXP_NETC_RGMII
+			   NXP_NETC_SERIAL>;
+};
+
 &netc_emdio {
 	ethphy1: ethernet-phy@2 {
 		compatible = "ethernet-phy-ieee802.3-c45";

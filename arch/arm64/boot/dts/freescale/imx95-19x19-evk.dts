@@ -720,6 +720,12 @@
 	status = "okay";
 };
 
+&netc_prb_ierb {
+	netc-interfaces = <NXP_NETC_RGMII
+			   NXP_NETC_RGMII
+			   NXP_NETC_SERIAL>;
+};
+
 &netc_emdio {
 	phy-supply = <&reg_aqr_en>;
 	status = "okay";
