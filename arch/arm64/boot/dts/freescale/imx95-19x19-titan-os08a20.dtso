@@ -1,0 +1,100 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/fsl,imx95-clock.h>
+#include <dt-bindings/gpio/gpio.h>
+#include "imx95-pinfunc.h"
+
+&scmi_iomuxc {
+	pinctrl_csi_mclk: csi_mclk {
+		fsl,pins = <
+			IMX95_PAD_CCM_CLKO1__CCMSRCGPCMIX_TOP_CLKO_1	0x39e
+		>;
+	};
+};
+
+&lpi2c3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	/delete-node/ pca9632;
+	/delete-node/ i2c3_gpio_expander_20;
+
+	os08a20: os08a20_mipi@36 {
+		compatible = "ovti,os08a20_mipi";
+		reg = <0x36>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_csi_mclk>;
+		clocks = <&scmi_clk IMX95_CLK_CCMCKO1>;
+		clock-names = "csi_mclk";
+		assigned-clocks = <&scmi_clk IMX95_CLK_CCMCKO1>;
+		assigned-clock-parents = <&osc_24m>;
+		assigned-clock-rates = <24000000>;
+		csi_id = <0>;
+		pwn-gpios = <&i2c7_pcal6524_23 19 GPIO_ACTIVE_HIGH>;
+		rst-gpios = <&i2c7_pcal6524_23 20 GPIO_ACTIVE_LOW>;
+		mclk = <24000000>;
+		mclk_source = <0>;
+		status = "okay";
+
+		port {
+			os08a20_mipi_0_ep: endpoint {
+				remote-endpoint = <&mipi_csi0_ep>;
+				data-lanes = <1 2 3 4>;
+				clock-lanes = <0>;
+			};
+		};
+	};
+};
+
+&dphy_rx {
+	status = "okay";
+};
+
+&mipi_csi0 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			mipi_csi0_ep: endpoint {
+				remote-endpoint = <&os08a20_mipi_0_ep>;
+				data-lanes = <1 2 3 4>;
+				clock-lanes = <0>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+				mipi_csi0_out: endpoint {
+				remote-endpoint = <&isi_in_2>;
+			};
+		};
+	};
+};
+
+&isi {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@2 {
+			reg = <2>;
+
+			isi_in_2: endpoint {
+				remote-endpoint = <&mipi_csi0_out>;
+			};
+		};
+	};
+};
