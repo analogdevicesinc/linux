@@ -75,6 +75,10 @@
 #define IERB_VFAUXR(a)		(0x4004 + 0x40 * (a))
 #define FAUXR_LDID		GENMASK(3, 0)
 
+#define SAI_CLK_SEL		0x4
+#define SAI_CLK_SEL_BIT5	BIT(5)
+#define SAI_CLK_SEL_BIT10	BIT(10)
+
 struct netc_prb_ierb {
 	void __iomem *prb_base;
 	void __iomem *ierb_base;
@@ -84,6 +88,8 @@ struct netc_prb_ierb {
 	struct regmap *netcmix;
 	struct platform_device *pdev;
 	struct dentry *debugfs_root;
+	u32 *ifmode;
+	u32 *rmii_clk_dir;
 };
 
 static struct netc_prb_ierb *netc_pi;
@@ -110,15 +116,19 @@ static void netc_netcmix_init(struct platform_device *pdev)
 
 	/* Configure Link MII port */
 	regmap_write(pi->netcmix, CFG_LINK_MII_PROT,
-		     MII_PROT(0, MII_PROT_RGMII) |
-		     MII_PROT(1, MII_PROT_RGMII) |
-		     MII_PROT(2, MII_PROT_SERIAL));
+		     MII_PROT(0, pi->ifmode[0]) |
+		     MII_PROT(1, pi->ifmode[1]) |
+		     MII_PROT(2, pi->ifmode[2]));
 
 	/* Configure Link0/1/2 PCS protocol */
 	regmap_write(pi->netcmix, CFG_LINK_PCS_PROT_0, 0);
 	regmap_write(pi->netcmix, CFG_LINK_PCS_PROT_1, 0);
 	regmap_write(pi->netcmix, CFG_LINK_PCS_PROT_2,
 		     PCS_PROT_10G_SXGMII);
+	if (pi->rmii_clk_dir)
+		regmap_write(pi->netcmix, SAI_CLK_SEL,
+			     pi->rmii_clk_dir[0] ? SAI_CLK_SEL_BIT5 : 0 |
+			     pi->rmii_clk_dir[1] ? SAI_CLK_SEL_BIT10 : 0);
 }
 
 static bool netc_ierb_is_locked(struct netc_prb_ierb *pi)
@@ -395,6 +405,40 @@ static int netc_prb_check_error(struct netc_prb_ierb *pi)
 	return 0;
 }
 
+static int netc_prb_parse_if(struct netc_prb_ierb *pi, struct device *dev)
+{
+	struct device_node *node = dev->of_node;
+	int ret, count;
+
+	count = of_property_count_u32_elems(node, "netc-interfaces");
+	if (count < 1)
+		return -EINVAL;
+	pi->ifmode = devm_kcalloc(dev, count, sizeof(pi->ifmode), GFP_KERNEL);
+
+	ret = of_property_read_u32_array(node, "netc-interfaces",
+					 pi->ifmode, count);
+	if (ret)
+		return ret;
+
+	if (pi->ifmode[0] == MII_PROT_RMII || pi->ifmode[1] == MII_PROT_RMII) {
+		count = of_property_count_u32_elems(node, "netc-rmii-clk-dir");
+		if (count < 1) {
+			dev_err(dev, "Missing netc-rmii-clk-dir property.\n");
+			return -EINVAL;
+		}
+		pi->rmii_clk_dir = devm_kcalloc(dev, count,
+						sizeof(pi->rmii_clk_dir),
+						GFP_KERNEL);
+
+		ret = of_property_read_u32_array(node, "netc-rmii-clk-dir",
+						 pi->rmii_clk_dir, count);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static int netc_prb_ierb_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
@@ -453,6 +497,7 @@ static int netc_prb_ierb_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, pi);
 
+	netc_prb_parse_if(pi, &pdev->dev);
 	netc_netcmix_init(pdev);
 
 	err = netc_ierb_init(pdev);
