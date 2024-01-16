@@ -227,6 +227,10 @@ capture/csi2-dwc
 M: G.n. Zhou <guoniu.zhou@nxp.com>
 F: drivers/staging/media/imx/dwc-mipi-csi2.c
 
+capture/csi-pixel-formatter
+M: G.n. Zhou <guoniu.zhou@nxp.com>
+F: drivers/media/platform/nxp/imx-csi-formatter.c
+
 capture/hdp
 M: Sandor Yu <sandor.yu@nxp.com>
 
