@@ -77,10 +77,6 @@
 	status = "okay";
 };
 
-&enetc_port2 {
-	status = "disabled";
-};
-
 &i2c6_gpio_expander_21 {
 	status = "disabled";
 };
