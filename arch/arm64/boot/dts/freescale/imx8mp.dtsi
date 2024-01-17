@@ -1550,6 +1550,7 @@
 					dma-names = "rx", "tx";
 					resets = <&audio_blk_ctrl 0>;
 					power-domains = <&audiomix_pd>;
+					hdmi-phandle = <&hdmi>;
 					status = "disabled";
 				};
 			};
