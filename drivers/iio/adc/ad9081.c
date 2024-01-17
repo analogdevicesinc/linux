@@ -142,6 +142,18 @@ struct device_settings_cache {
 	u8 adc_clk_pwdn;
 };
 
+enum ad9081_debugfs_cmd {
+	DBGFS_NONE,
+	DBGFS_BIST_PRBS_JRX,
+	DBGFS_BIST_PRBS_JRX_ERR,
+	DBGFS_BIST_JRX_SPO_SET,
+	DBGFS_BIST_JRX_SPO_SWEEP,
+	DBGFS_BIST_JRX_2D_EYE,
+	DBGFS_BIST_PRBS_JTX,
+	DBGFS_DEV_API_INFO,
+	DBGFS_DEV_CHIP_INFO,
+	DBGFS_ENTRY_MAX,
+};
 
 struct ad9081_debugfs_entry {
 	struct iio_dev *indio_dev;
@@ -254,11 +266,12 @@ struct ad9081_phy {
 	char rx_chan_labels[MAX_NUM_CHANNELIZER][32];
 	char tx_chan_labels[MAX_NUM_CHANNELIZER][32];
 
-	struct ad9081_debugfs_entry debugfs_entry[10];
+	struct ad9081_debugfs_entry debugfs_entry[DBGFS_ENTRY_MAX];
 	u32 ad9081_debugfs_entry_index;
 	u8 direct_lb_map;
 	u8 rx_ffh_gpio_mux_sel[6];
 	u8 sync_ms_gpio_num;
+	char dbuf[1024];
 };
 
 static int adi_ad9081_adc_nco_sync(adi_ad9081_device_t *device,
@@ -3473,15 +3486,35 @@ ad9081_fir_bin_write(struct file *filp, struct kobject *kobj,
 	return ad9081_parse_fir(phy, buf, count);
 }
 
-enum ad9081_debugfs_cmd {
-	DBGFS_NONE,
-	DBGFS_BIST_PRBS_JRX,
-	DBGFS_BIST_PRBS_JRX_ERR,
-	DBGFS_BIST_JRX_SPO_SET,
-	DBGFS_BIST_JRX_SPO_SWEEP,
-	DBGFS_BIST_PRBS_JTX,
-	DBGFS_DEV_API_INFO,
-	DBGFS_DEV_CHIP_INFO,
+static adi_ad9081_deser_mode_e
+ad9081_deserializer_mode_get(struct ad9081_jesd_link *txlink)
+{
+	return (txlink->jesd_param.jesd_jesdv == 1) ?
+	((txlink->lane_rate_kbps > (AD9081_DESER_MODE_204B_BR_TRESH / 1000)) ?
+		AD9081_HALF_RATE : AD9081_FULL_RATE) :
+		((txlink->lane_rate_kbps <
+		(AD9081_DESER_MODE_204C_BR_TRESH / 1000)) ?
+		AD9081_HALF_RATE : AD9081_QUART_RATE);
+}
+
+static int ad9081_val_to_prbs(int val)
+{
+	switch (val) {
+	case 0:
+		return PRBS_NONE;
+	case 7:
+		return PRBS7;
+	case 9:
+		return PRBS9;
+	case 15:
+		return PRBS15;
+	case 23:
+		return PRBS23;
+	case 31:
+		return PRBS31;
+	default:
+		return -EINVAL;
+	}
 };
 
 static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
@@ -3491,11 +3524,14 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 	struct iio_dev *indio_dev = entry->indio_dev;
 	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
 	struct ad9081_phy *phy = conv->phy;
-	char buf[700];
+	adi_ad9081_deser_mode_e dmode;
+	adi_cms_jesd_prbs_pattern_e prbs;
+	s16 eye_data[192];
 	u64 val = 0;
 	ssize_t len = 0;
-	int ret, i, j;
-	u8 api_rev[3];
+	int ret, i, j, spo_steps;
+	u16 duration;
+	u8 api_rev[3], lane;
 
 	if (entry->out_value) {
 		switch (entry->size) {
@@ -3530,14 +3566,14 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 						ret = adi_ad9081_jesd_rx_phy_prbs_test_result_get(
 							&phy->ad9081, j, &prbs_rx_result);
 
-						len += snprintf(buf + len, sizeof(buf), "%u/%u ",
+						len += snprintf(phy->dbuf + len, sizeof(phy->dbuf), "%u/%u ",
 							prbs_rx_result.phy_prbs_err_cnt,
 							prbs_rx_result.phy_prbs_pass);
 					}
 			}
 
 			if (ad9081_link_is_dual(phy->jrx_link_tx)) {
-				len += snprintf(buf + len, sizeof(buf), ": ");
+				len += snprintf(phy->dbuf + len, sizeof(phy->dbuf), ": ");
 				for (i = 0; i < phy->jrx_link_tx[1].jesd_param.jesd_l; i++) {
 					adi_ad9081_prbs_test_t prbs_rx_result;
 
@@ -3546,7 +3582,7 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 							ret = adi_ad9081_jesd_rx_phy_prbs_test_result_get(&phy->ad9081,
 								j, &prbs_rx_result);
 
-							len += snprintf(buf + len, sizeof(buf), "%u/%u ",
+							len += snprintf(phy->dbuf + len, sizeof(phy->dbuf), "%u/%u ",
 								prbs_rx_result.phy_prbs_err_cnt,
 								prbs_rx_result.phy_prbs_pass);
 						}
@@ -3554,27 +3590,81 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 			}
 
 			mutex_unlock(&conv->lock);
-			len += snprintf(buf + len, sizeof(buf), "\n");
+			len += snprintf(phy->dbuf + len, sizeof(phy->dbuf), "\n");
 			break;
 		case DBGFS_BIST_JRX_SPO_SWEEP:
-			len = snprintf(buf, sizeof(buf), "l:%u r:%u\n",
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "l:%u r:%u\n",
 				entry->val >> 16, entry->val & 0xFFFF);
 			break;
 		case DBGFS_BIST_JRX_SPO_SET:
-			len = snprintf(buf, sizeof(buf), "%d\n", (int) entry->val);
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "%d\n", (int)entry->val);
+			break;
+		case DBGFS_BIST_JRX_2D_EYE:
+			if (!entry->val)
+				return -EINVAL;
+
+			dmode = ad9081_deserializer_mode_get(&phy->jrx_link_tx[0]);
+			lane = (entry->val & 0xFF) - 1;
+			prbs = (entry->val >> 8) & 0xFF;
+			duration = (entry->val >> 16) & 0xFFFF;
+
+			mutex_lock(&conv->lock);
+			entry->val = 0;
+
+			switch (dmode) {
+			case AD9081_QUART_RATE:
+				spo_steps = 32;
+
+				ret = adi_ad9081_jesd_cal_bg_cal_pause(&phy->ad9081);
+				if (ret)
+					break;
+				ret = adi_ad9081_jesd_rx_qr_two_dim_eye_scan(&phy->ad9081,
+					lane, eye_data);
+				if (ret)
+					break;
+				ret = adi_ad9081_jesd_cal_bg_cal_start(&phy->ad9081);
+				break;
+			case AD9081_HALF_RATE:
+				spo_steps = 64;
+				ret = adi_ad9081_jesd_rx_hr_two_dim_eye_scan(&phy->ad9081,
+					lane, prbs, duration, eye_data);
+				break;
+			default:
+				ret = -EOPNOTSUPP;
+			}
+
+			if (ret < 0) {
+				dev_err(&phy->spi->dev,
+					"JRX eye_scan lane%u failed (%d)", lane, ret);
+				mutex_unlock(&conv->lock);
+				return ret;
+			}
+
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf),
+				"# lane %u spo_steps %u rate %lu\n",
+				lane, spo_steps, phy->jrx_link_tx[0].lane_rate_kbps);
+
+			for (i = 0; i < (spo_steps * 3); i += 3)
+				if (eye_data[i])
+					len += snprintf(phy->dbuf + len,
+						sizeof(phy->dbuf),
+						"%d,%d,%d\n", eye_data[i],
+						eye_data[i + 1], eye_data[i + 2]);
+
+			mutex_unlock(&conv->lock);
 			break;
 		case DBGFS_DEV_API_INFO:
 			adi_ad9081_device_api_revision_get(&phy->ad9081,
 				&api_rev[0], &api_rev[1], &api_rev[2]);
 
-			len = snprintf(buf, sizeof(buf), "%u.%u.%u\n",
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "%u.%u.%u\n",
 				api_rev[0], api_rev[1], api_rev[2]);
 			break;
 		case DBGFS_DEV_CHIP_INFO:
 			adi_ad9081_device_api_revision_get(&phy->ad9081, &api_rev[0],
 				&api_rev[1], &api_rev[2]);
 
-			len = snprintf(buf, sizeof(buf), "AD%X Rev. %u Grade %u\n",
+			len = snprintf(phy->dbuf, sizeof(phy->dbuf), "AD%X Rev. %u Grade %u\n",
 				conv->id, phy->chip_id.dev_revision, phy->chip_id.prod_grade);
 			break;
 		default:
@@ -3584,41 +3674,10 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 		return -EFAULT;
 	}
 	if (!len)
-		len = snprintf(buf, sizeof(buf), "%llu\n", val);
+		len = snprintf(phy->dbuf, sizeof(phy->dbuf), "%llu\n", val);
 
-	return simple_read_from_buffer(userbuf, count, ppos, buf, len);
+	return simple_read_from_buffer(userbuf, count, ppos, phy->dbuf, len);
 }
-
-static adi_ad9081_deser_mode_e
-ad9081_deserializer_mode_get(struct ad9081_jesd_link *txlink)
-{
-	return (txlink->jesd_param.jesd_jesdv == 1) ?
-	((txlink->lane_rate_kbps > (AD9081_DESER_MODE_204B_BR_TRESH / 1000)) ?
-		AD9081_HALF_RATE : AD9081_FULL_RATE) :
-		((txlink->lane_rate_kbps <
-		(AD9081_DESER_MODE_204C_BR_TRESH / 1000)) ?
-		AD9081_HALF_RATE : AD9081_QUART_RATE);
-}
-
-static int ad9081_val_to_prbs(int val)
-{
-	switch (val) {
-	case 0:
-		return PRBS_NONE;
-	case 7:
-		return PRBS7;
-	case 9:
-		return PRBS9;
-	case 15:
-		return PRBS15;
-	case 23:
-		return PRBS23;
-	case 31:
-		return PRBS31;
-	default:
-		return -EINVAL;
-	}
-};
 
 static ssize_t ad9081_debugfs_write(struct file *file,
 	const char __user *userbuf, size_t count, loff_t *ppos)
@@ -3694,6 +3753,46 @@ static ssize_t ad9081_debugfs_write(struct file *file,
 		}
 
 		entry->val = val2;
+		mutex_unlock(&conv->lock);
+
+		return count;
+	case DBGFS_BIST_JRX_2D_EYE:
+		if (ret < 1)
+			return -EINVAL;
+
+		if (ret < 2)
+			val2 = 7; /* PRBS7 */
+
+		if (ret < 3)
+			val3 = 10; /* 10 ms */
+
+		if (val > 7)
+			return -EINVAL;
+
+		if (phy->jrx_link_tx[0].logiclane_mapping[val] >=
+			phy->jrx_link_tx[0].jesd_param.jesd_l)
+			ret = -EINVAL;
+		else
+			ret = 0;
+
+		if (ad9081_link_is_dual(phy->jrx_link_tx) &&
+			phy->jrx_link_tx[1].logiclane_mapping[val] >=
+			phy->jrx_link_tx[1].jesd_param.jesd_l)
+			ret = -EINVAL;
+
+		if (ret)
+			return ret;
+
+		val = val + 1;
+
+		ret = ad9081_val_to_prbs(val2);
+		if (ret < 0)
+			return ret;
+
+		val2 = ret;
+		mutex_lock(&conv->lock);
+		/*           Time          PRBS                 Lane */
+		entry->val = val3 << 16 | (val2 & 0xFF) << 8 | (val & 0xFF);
 		mutex_unlock(&conv->lock);
 
 		return count;
@@ -3799,6 +3898,8 @@ static int ad9081_post_iio_register(struct iio_dev *indio_dev)
 			"bist_spo_set_jrx", DBGFS_BIST_JRX_SPO_SET);
 		ad9081_add_debugfs_entry(indio_dev,
 			"bist_spo_sweep_jrx", DBGFS_BIST_JRX_SPO_SWEEP);
+		ad9081_add_debugfs_entry(indio_dev,
+			"bist_2d_eyescan_jrx", DBGFS_BIST_JRX_2D_EYE);
 		ad9081_add_debugfs_entry(indio_dev,
 			"api_version", DBGFS_DEV_API_INFO);
 		ad9081_add_debugfs_entry(indio_dev,
