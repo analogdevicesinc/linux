@@ -464,7 +464,7 @@ static int CoreHasFormat(const u32 *cfg, int Core, u32 format)
 	return (cfg[Core] & (1 << format)) ? 1 : 0;
 }
 
-int GetDecCore(long Core, hantrodec_t *dev, struct file *filp)
+static int GetDecCore(long Core, hantrodec_t *dev, struct file *filp)
 {
 	int success = 0;
 	unsigned long flags;
@@ -480,8 +480,8 @@ int GetDecCore(long Core, hantrodec_t *dev, struct file *filp)
 	return success;
 }
 
-int GetDecCoreAny(long *Core, hantrodec_t *dev, struct file *filp,
-			unsigned long format)
+static int GetDecCoreAny(long *Core, hantrodec_t *dev, struct file *filp,
+			 unsigned long format)
 {
 	int success = 0;
 	long c;
@@ -499,7 +499,8 @@ int GetDecCoreAny(long *Core, hantrodec_t *dev, struct file *filp,
 
 	return success;
 }
-int GetDecCoreID(hantrodec_t *dev, struct file *filp,
+
+static int GetDecCoreID(hantrodec_t *dev, struct file *filp,
 			unsigned long format)
 {
 	long c;
@@ -550,7 +551,7 @@ static int hantrodec_choose_core(int is_g1)
 }
 
 
-long ReserveDecoder(hantrodec_t *dev, struct file *filp, unsigned long format)
+static long ReserveDecoder(hantrodec_t *dev, struct file *filp, unsigned long format)
 {
 	long Core = -1;
 
@@ -585,7 +586,7 @@ long ReserveDecoder(hantrodec_t *dev, struct file *filp, unsigned long format)
 	return Core;
 }
 
-void ReleaseDecoder(hantrodec_t *dev, long Core)
+static void ReleaseDecoder(hantrodec_t *dev, long Core)
 {
 	u32 status;
 	unsigned long flags;
@@ -613,7 +614,7 @@ void ReleaseDecoder(hantrodec_t *dev, long Core)
 
 }
 
-long ReservePostProcessor(hantrodec_t *dev, struct file *filp)
+static long ReservePostProcessor(hantrodec_t *dev, struct file *filp)
 {
 	unsigned long flags;
 
@@ -632,7 +633,7 @@ long ReservePostProcessor(hantrodec_t *dev, struct file *filp)
 	return Core;
 }
 
-void ReleasePostProcessor(hantrodec_t *dev, long Core)
+static void ReleasePostProcessor(hantrodec_t *dev, long Core)
 {
 	unsigned long flags;
 
@@ -659,7 +660,7 @@ void ReleasePostProcessor(hantrodec_t *dev, long Core)
 	up(&pp_core_sem);
 }
 
-long ReserveDecPp(hantrodec_t *dev, struct file *filp, unsigned long format)
+static long ReserveDecPp(hantrodec_t *dev, struct file *filp, unsigned long format)
 {
 	/* reserve Core 0, DEC+PP for pipeline */
 	unsigned long flags;
@@ -696,7 +697,7 @@ long ReserveDecPp(hantrodec_t *dev, struct file *filp, unsigned long format)
 	return Core;
 }
 
-long DecFlushRegs(hantrodec_t *dev, struct core_desc *Core)
+static long DecFlushRegs(hantrodec_t *dev, struct core_desc *Core)
 {
 	long ret = 0, i;
 
@@ -752,7 +753,7 @@ long DecFlushRegs(hantrodec_t *dev, struct core_desc *Core)
 	return 0;
 }
 
-long DecRefreshRegs(hantrodec_t *dev, struct core_desc *Core)
+static long DecRefreshRegs(hantrodec_t *dev, struct core_desc *Core)
 {
 	long ret, i;
 	u32 id = Core->id;
@@ -889,7 +890,7 @@ static int CheckDecIrq(hantrodec_t *dev, int id)
 	return rdy;
 }
 
-long WaitDecReadyAndRefreshRegs(hantrodec_t *dev, struct core_desc *Core)
+static long WaitDecReadyAndRefreshRegs(hantrodec_t *dev, struct core_desc *Core)
 {
 	u32 id = Core->id;
 	long ret;
@@ -913,7 +914,7 @@ long WaitDecReadyAndRefreshRegs(hantrodec_t *dev, struct core_desc *Core)
 	return DecRefreshRegs(dev, Core);
 }
 
-long PPFlushRegs(hantrodec_t *dev, struct core_desc *Core)
+static long PPFlushRegs(hantrodec_t *dev, struct core_desc *Core)
 {
 	long ret = 0;
 	u32 id = Core->id;
@@ -947,7 +948,7 @@ long PPFlushRegs(hantrodec_t *dev, struct core_desc *Core)
 	return 0;
 }
 
-long PPRefreshRegs(hantrodec_t *dev, struct core_desc *Core)
+static long PPRefreshRegs(hantrodec_t *dev, struct core_desc *Core)
 {
 	long i, ret;
 	u32 id = Core->id;
@@ -1006,7 +1007,7 @@ static int CheckPPIrq(hantrodec_t *dev, int id)
 	return rdy;
 }
 
-long WaitPPReadyAndRefreshRegs(hantrodec_t *dev, struct core_desc *Core)
+static long WaitPPReadyAndRefreshRegs(hantrodec_t *dev, struct core_desc *Core)
 {
 	u32 id = Core->id;
 
@@ -1064,7 +1065,7 @@ static int CheckCoreIrq(hantrodec_t *dev, const struct file *filp, int *id)
 	return rdy;
 }
 
-long WaitCoreReady(hantrodec_t *dev, const struct file *filp, int *id)
+static long WaitCoreReady(hantrodec_t *dev, const struct file *filp, int *id)
 {
 	PDEBUG("wait_event_interruptible CORE\n");
 
@@ -1504,7 +1505,7 @@ static const struct file_operations hantrodec_fops = {
  *Return type     : int
  *---------------------------------------------------------------------------
  */
-int hantrodec_init(struct platform_device *pdev)
+static int hantrodec_init(struct platform_device *pdev)
 {
 	int result;
 	int irq_0, irq_1;
@@ -1607,7 +1608,7 @@ err:
  *Return type     : int
  *---------------------------------------------------------------------------
  */
-void hantrodec_cleanup(void)
+static void hantrodec_cleanup(void)
 {
 	hantrodec_t *dev = &hantrodec_data;
 	int n = 0;

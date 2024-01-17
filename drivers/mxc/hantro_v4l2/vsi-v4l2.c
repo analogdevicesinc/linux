@@ -507,7 +507,7 @@ int vsi_v4l2_handle_cropchange(struct vsi_v4l2_msg *pmsg)
 	return 0;
 }
 
-bool vsi_v4l2_dec_in_source_change(struct vsi_v4l2_ctx *ctx)
+static bool vsi_v4l2_dec_in_source_change(struct vsi_v4l2_ctx *ctx)
 {
 	if (test_bit(CTX_FLAG_DELAY_SRCCHANGED_BIT, &ctx->flag))
 		return true;
@@ -519,7 +519,7 @@ bool vsi_v4l2_dec_in_source_change(struct vsi_v4l2_ctx *ctx)
 	return false;
 }
 
-void vsi_v4l2_dec_handle_last_empty_buffer(struct vsi_v4l2_ctx *ctx)
+static void vsi_v4l2_dec_handle_last_empty_buffer(struct vsi_v4l2_ctx *ctx)
 {
 	if (vsi_v4l2_dec_in_source_change(ctx))
 		return;

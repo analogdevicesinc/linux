@@ -272,7 +272,7 @@ int vsi_dec_capture_on(struct vsi_v4l2_ctx *ctx)
 	return ret;
 }
 
-int vsi_dec_capture_off(struct vsi_v4l2_ctx *ctx)
+static int vsi_dec_capture_off(struct vsi_v4l2_ctx *ctx)
 {
 	int ret;
 	struct vb2_queue *q = &ctx->output_que;
@@ -723,7 +723,7 @@ static int vsi_dec_try_decoder_cmd(struct file *file, void *fh, struct v4l2_deco
 	return 0;
 }
 
-int vsi_dec_decoder_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cmd)
+static int vsi_dec_decoder_cmd(struct file *file, void *fh, struct v4l2_decoder_cmd *cmd)
 {
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(file->private_data);
 	int ret = 0;
