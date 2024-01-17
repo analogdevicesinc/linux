@@ -370,7 +370,7 @@ static irqreturn_t vpu_jpu_irq_handler(int irq, void *dev_id)
  *
  * @return true return is a valid phy memory address, false return not.
  */
-bool vpu_is_valid_phy_memory(u32 paddr)
+static bool vpu_is_valid_phy_memory(u32 paddr)
 {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(3, 5, 0)
 	if (paddr > top_address_DRAM)
