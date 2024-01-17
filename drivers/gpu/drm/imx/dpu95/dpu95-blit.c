@@ -20,6 +20,10 @@
 #include "dpu95.h"
 #include "dpu95-drv.h"
 
+#define STORE9_SEQCOMPLETE_IRQ         2U
+#define STORE9_SEQCOMPLETE_IRQ_MASK    (1U<<STORE9_SEQCOMPLETE_IRQ)
+#define CMDSEQ_SEQCOMPLETE_SYNC        0x20000102
+
 static struct dpu_bliteng *dpu_blit_eng;
 static int imx_dpu_num;
 
@@ -213,6 +217,16 @@ static int dpu95_be_emit_fence(struct dpu_bliteng *dpu_be, struct dpu_be_fence *
 
 	dpu95_cs_wait_fifo_space(dpu_be);
 
+	dpu95_be_write(dpu_be, 0x14000001, CMDSEQ_HIF);
+	dpu95_be_write(dpu_be, PIXENGCFG_STORE9_TRIGGER, CMDSEQ_HIF);
+	dpu95_be_write(dpu_be, 0x10, CMDSEQ_HIF);
+
+	dpu95_be_write(dpu_be, CMDSEQ_SEQCOMPLETE_SYNC, CMDSEQ_HIF);
+
+	dpu95_be_write(dpu_be, 0x14000001, CMDSEQ_HIF);
+	dpu95_be_write(dpu_be, CMDSEQ_INTERRUPTCLEAR0, CMDSEQ_HIF);
+	dpu95_be_write(dpu_be, STORE9_SEQCOMPLETE_IRQ_MASK, CMDSEQ_HIF);
+
 	enable_irq(dpu_be->irq_comctrl_sw[i]);
 
 	/* Write comctrl interrupt PRESET to command sequencer */
@@ -266,9 +280,6 @@ static int dpu95_be_blit(struct dpu_bliteng *dpu_be,
 
 	return 0;
 }
-
-#define STORE9_SEQCOMPLETE_IRQ         2U
-#define STORE9_SEQCOMPLETE_IRQ_MASK    (1U<<STORE9_SEQCOMPLETE_IRQ)
 
 static void dpu95_be_wait(struct dpu_bliteng *dpu_be)
 {

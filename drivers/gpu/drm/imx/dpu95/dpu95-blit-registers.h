@@ -17,6 +17,9 @@
 #define COMCTRL_INTERRUPTCLEAR0                     ((uint32_t)(0x1020))
 #define COMCTRL_INTERRUPTSTATUS0                    ((uint32_t)(0x102c))
 
+/* Register for interrupts in CMDSEQ domain */
+#define CMDSEQ_INTERRUPTCLEAR0                     ((uint32_t)(0x11020))
+
 /* Register for pixel engine path configuration */
 #define PIXENGCFG_FETCHDECODE9_DYNAMIC              ((uint32_t)(0x91008))
 #define PIXENGCFG_FETCHDECODE9_DYNAMIC_RESET_VALUE  0U
