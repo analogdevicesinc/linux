@@ -1,5 +1,5 @@
 /* Copyright (C) 2008-2012 Freescale Semiconductor, Inc.
- * Copyright 2020,2023 NXP
+ * Copyright 2020,2023-2024 NXP
  * Authors: Andy Fleming <afleming@freescale.com>
  *	    Timur Tabi <timur@freescale.com>
  *	    Geoff Thorpe <Geoff.Thorpe@freescale.com>
@@ -1038,15 +1038,19 @@ static long ioctl_dma_map(struct file *fp, struct ctx *ctx,
 	int frag_count = 0;
 	unsigned long next_addr = PAGE_SIZE, populate;
 
-	/* error checking to ensure values copied from user space are valid */
-	if (i->len % PAGE_SIZE)
-		return -EINVAL;
-
 	map = kmalloc(sizeof(*map), GFP_KERNEL);
 	if (!map)
 		return -ENOMEM;
 
 	spin_lock(&mem_lock);
+
+	/* error checking to ensure values copied from user space are valid */
+	if (i->len % PAGE_SIZE) {
+		spin_unlock(&mem_lock);
+		kfree(map);
+		return -EINVAL;
+	}
+
 	if (i->flags & USDPAA_DMA_FLAG_SHARE) {
 		list_for_each_entry(frag, &mem_list, list) {
 			if (frag->refs && (frag->flags &
