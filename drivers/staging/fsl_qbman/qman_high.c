@@ -1714,12 +1714,12 @@ EXPORT_SYMBOL(qman_create_fq);
 
 void qman_destroy_fq(struct qman_fq *fq, u32 flags __maybe_unused)
 {
-
 	/* We don't need to lock the FQ as it is a pre-condition that the FQ be
 	 * quiesced. Instead, run some checks. */
 	switch (fq->state) {
 	case qman_fq_state_parked:
 		DPA_ASSERT(flags & QMAN_FQ_DESTROY_PARKED);
+		fallthrough;
 	case qman_fq_state_oos:
 		if (fq_isset(fq, QMAN_FQ_FLAG_DYNAMIC_FQID))
 			qman_release_fqid(fq->fqid);
