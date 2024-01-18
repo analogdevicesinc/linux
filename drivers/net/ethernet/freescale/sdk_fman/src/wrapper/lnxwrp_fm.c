@@ -154,13 +154,13 @@ static t_LnxWrpFm   lnxWrpFm;
 static bool fm_has_err_a050385;
 #endif
 
-int fm_get_max_frm()
+int fm_get_max_frm(void)
 {
 	return fsl_fm_max_frm;
 }
 EXPORT_SYMBOL(fm_get_max_frm);
 
-int fm_get_rx_extra_headroom()
+int fm_get_rx_extra_headroom(void)
 {
 	return ALIGN(fsl_fm_rx_extra_headroom, 16);
 }
