@@ -1,6 +1,6 @@
 /*
  * Copyright 2013 Freescale
- * Copyright 2017, 2023 NXP
+ * Copyright 2017, 2023, 2024 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -479,7 +479,7 @@ static int crypto_tls_create(struct crypto_template *tmpl, struct rtattr **tb)
 	struct aead_instance *inst;
 	struct hash_alg_common *auth;
 	struct crypto_alg *auth_base;
-	struct skcipher_alg *enc;
+	struct skcipher_alg_common *enc;
 	struct tls_instance_ctx *ctx;
 	u32 mask;
 	int err;
@@ -511,7 +511,7 @@ static int crypto_tls_create(struct crypto_template *tmpl, struct rtattr **tb)
 				   crypto_attr_alg_name(tb[2]), 0, mask);
 	if (err)
 		goto err_free_inst;
-	enc = crypto_spawn_skcipher_alg(&ctx->enc);
+	enc = crypto_spawn_skcipher_alg_common(&ctx->enc);
 
 	err = -ENAMETOOLONG;
 	if (snprintf(inst->alg.base.cra_name, CRYPTO_MAX_ALG_NAME,
@@ -533,8 +533,8 @@ static int crypto_tls_create(struct crypto_template *tmpl, struct rtattr **tb)
 					enc->base.cra_alignmask;
 	inst->alg.base.cra_ctxsize = sizeof(struct crypto_tls_ctx);
 
-	inst->alg.ivsize = crypto_skcipher_alg_ivsize(enc);
-	inst->alg.chunksize = crypto_skcipher_alg_chunksize(enc);
+	inst->alg.ivsize = enc->ivsize;
+	inst->alg.chunksize = enc->chunksize;
 	inst->alg.maxauthsize = auth->digestsize;
 
 	inst->alg.init = crypto_tls_init_tfm;
