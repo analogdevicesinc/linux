@@ -502,7 +502,7 @@ freemem:
 }
 EXPORT_SYMBOL(caam_sm_example_init);
 
-void caam_sm_example_shutdown(void)
+static void __exit caam_sm_example_shutdown(void)
 {
 	/* unused in present version */
 	struct device_node *dev_node;

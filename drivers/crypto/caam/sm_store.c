@@ -421,7 +421,7 @@ struct sm_key_job_result {
 	struct completion completion;
 };
 
-void sm_key_job_done(struct device *dev, u32 *desc, u32 err, void *context)
+static void sm_key_job_done(struct device *dev, u32 *desc, u32 err, void *context)
 {
 	struct sm_key_job_result *res = context;
 
@@ -464,7 +464,7 @@ exit:
  */
 
 
-int slot_alloc(struct device *dev, u32 unit, u32 size, u32 *slot)
+static int slot_alloc(struct device *dev, u32 unit, u32 size, u32 *slot)
 {
 	struct caam_drv_private_sm *smpriv = dev_get_drvdata(dev);
 	struct keystore_data *ksdata = smpriv->pagedesc[unit].ksdata;
@@ -490,9 +490,8 @@ int slot_alloc(struct device *dev, u32 unit, u32 size, u32 *slot)
 
 	return -ENOSPC;
 }
-EXPORT_SYMBOL(slot_alloc);
 
-int slot_dealloc(struct device *dev, u32 unit, u32 slot)
+static int slot_dealloc(struct device *dev, u32 unit, u32 slot)
 {
 	struct caam_drv_private_sm *smpriv = dev_get_drvdata(dev);
 	struct keystore_data *ksdata = smpriv->pagedesc[unit].ksdata;
@@ -519,9 +518,8 @@ int slot_dealloc(struct device *dev, u32 unit, u32 slot)
 
 	return -EINVAL;
 }
-EXPORT_SYMBOL(slot_dealloc);
 
-void *slot_get_address(struct device *dev, u32 unit, u32 slot)
+static void *slot_get_address(struct device *dev, u32 unit, u32 slot)
 {
 	struct caam_drv_private_sm *smpriv = dev_get_drvdata(dev);
 	struct keystore_data *ksdata = smpriv->pagedesc[unit].ksdata;
@@ -537,7 +535,7 @@ void *slot_get_address(struct device *dev, u32 unit, u32 slot)
 	return ksdata->base_address + slot * smpriv->slot_size;
 }
 
-void *slot_get_physical(struct device *dev, u32 unit, u32 slot)
+static void *slot_get_physical(struct device *dev, u32 unit, u32 slot)
 {
 	struct caam_drv_private_sm *smpriv = dev_get_drvdata(dev);
 	struct keystore_data *ksdata = smpriv->pagedesc[unit].ksdata;
@@ -553,7 +551,7 @@ void *slot_get_physical(struct device *dev, u32 unit, u32 slot)
 	return ksdata->phys_address + slot * smpriv->slot_size;
 }
 
-u32 slot_get_base(struct device *dev, u32 unit, u32 slot)
+static u32 slot_get_base(struct device *dev, u32 unit, u32 slot)
 {
 	struct caam_drv_private_sm *smpriv = dev_get_drvdata(dev);
 	struct keystore_data *ksdata = smpriv->pagedesc[unit].ksdata;
@@ -573,7 +571,7 @@ u32 slot_get_base(struct device *dev, u32 unit, u32 slot)
 	return (uintptr_t)(ksdata->base_address);
 }
 
-u32 slot_get_offset(struct device *dev, u32 unit, u32 slot)
+static u32 slot_get_offset(struct device *dev, u32 unit, u32 slot)
 {
 	struct caam_drv_private_sm *smpriv = dev_get_drvdata(dev);
 	struct keystore_data *ksdata = smpriv->pagedesc[unit].ksdata;
@@ -589,7 +587,7 @@ u32 slot_get_offset(struct device *dev, u32 unit, u32 slot)
 	return slot * smpriv->slot_size;
 }
 
-u32 slot_get_slot_size(struct device *dev, u32 unit, u32 slot)
+static u32 slot_get_slot_size(struct device *dev, u32 unit, u32 slot)
 {
 	struct caam_drv_private_sm *smpriv = dev_get_drvdata(dev);
 
@@ -604,7 +602,7 @@ u32 slot_get_slot_size(struct device *dev, u32 unit, u32 slot)
 
 
 
-int kso_init_data(struct device *dev, u32 unit)
+static int kso_init_data(struct device *dev, u32 unit)
 {
 	struct caam_drv_private_sm *smpriv = dev_get_drvdata(dev);
 	struct keystore_data *keystore_data = NULL;
@@ -651,7 +649,7 @@ int kso_init_data(struct device *dev, u32 unit)
 	return 0;
 }
 
-void kso_cleanup_data(struct device *dev, u32 unit)
+static void kso_cleanup_data(struct device *dev, u32 unit)
 {
 	struct caam_drv_private_sm *smpriv = dev_get_drvdata(dev);
 	struct keystore_data *keystore_data = NULL;
