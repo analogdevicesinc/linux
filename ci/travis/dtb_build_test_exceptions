@@ -142,6 +142,7 @@ arch/arm64/boot/dts/xilinx/versal-x-ebm-02-revA.dts
 arch/arm64/boot/dts/xilinx/versal-x-ebm-02-revA.dtsi
 arch/arm64/boot/dts/xilinx/versal-x-ebm-03-revA.dts
 arch/arm64/boot/dts/xilinx/versal-x-ebm-03-revA.dtsi
+arch/arm64/boot/dts/xilinx/versal-net-vn-x-b2197-00-revA.dts
 
 # Anything belonging to ADI, goes here
 
