@@ -5675,12 +5675,6 @@ static t_Error FmPortConfigAutoResForDeepSleepSupport1(t_FmPort *p_FmPort)
     return E_OK;
 }
 
-t_FmPortDsarTablesSizes* FM_PORT_GetDsarTablesMaxSizes(t_Handle h_FmPortRx)
-{
-    t_FmPort *p_FmPort = (t_FmPort *)h_FmPortRx;
-    return p_FmPort->deepSleepVars.autoResMaxSizes;
-}
-
 struct arOffsets
 {
     uint32_t arp;
