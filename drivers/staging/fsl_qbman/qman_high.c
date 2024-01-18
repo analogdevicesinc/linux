@@ -1151,7 +1151,7 @@ static inline void safe_copy_dqrr(struct qm_dqrr_entry *dst,
 	*d64 = *s64;
 #if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
 	{
-		u32 res, zero = 0;
+		u64 res, zero = 0;
 		/* Create a dependancy after copying first bytes ensures no wrap
 		   transaction generated to QBMan */
 		/* Logical AND the value pointed to by s64 with 0x0 and
