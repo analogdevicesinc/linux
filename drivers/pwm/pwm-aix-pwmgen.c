@@ -24,11 +24,11 @@
 #define AXI_PWMGEN_REG_CONFIG		0x10
 #define AXI_PWMGEN_REG_NPWM		0x14
 #define AXI_PWMGEN_CH_PERIOD_BASE	0x40
-#define AXI_PWMGEN_CH_DUTY_BASE		0x44
-#define AXI_PWMGEN_CH_OFFSET_BASE	0x48
-#define AXI_PWMGEN_CHX_PERIOD(ch)	(AXI_PWMGEN_CH_PERIOD_BASE + (12 * (ch)))
-#define AXI_PWMGEN_CHX_DUTY(ch)		(AXI_PWMGEN_CH_DUTY_BASE + (12 * (ch)))
-#define AXI_PWMGEN_CHX_OFFSET(ch)	(AXI_PWMGEN_CH_OFFSET_BASE + (12 * (ch)))
+#define AXI_PWMGEN_CH_DUTY_BASE		0x80
+#define AXI_PWMGEN_CH_OFFSET_BASE	0xC0
+#define AXI_PWMGEN_CHX_PERIOD(ch)	(AXI_PWMGEN_CH_PERIOD_BASE + (4 * (ch)))
+#define AXI_PWMGEN_CHX_DUTY(ch)		(AXI_PWMGEN_CH_DUTY_BASE + (4 * (ch)))
+#define AXI_PWMGEN_CHX_OFFSET(ch)	(AXI_PWMGEN_CH_OFFSET_BASE + (4 * (ch)))
 #define AXI_PWMGEN_TEST_DATA		0x5A0F0081
 #define AXI_PWMGEN_LOAD_CONIG		BIT(1)
 #define AXI_PWMGEN_RESET		BIT(0)
@@ -39,8 +39,8 @@ struct axi_pwmgen {
 	void __iomem		*base;
 
 	/* Used to store the period when the channel is disabled */
-	unsigned int		ch_period[4];
-	bool			ch_enabled[4];
+	unsigned int		ch_period[16];
+	bool			ch_enabled[16];
 };
 
 static inline unsigned int axi_pwmgen_read(struct axi_pwmgen *pwm,
@@ -142,7 +142,7 @@ static int axi_pwmgen_setup(struct pwm_chip *chip)
 	}
 
 	reg = axi_pwmgen_read(pwm, AXI_PWMGEN_REG_CORE_VERSION);
-	if (AXI_PWMGEN_VERSION_MAJOR(reg) != 1) {
+	if (AXI_PWMGEN_VERSION_MAJOR(reg) != 2) {
 		dev_err(chip->dev, "Unsupported peripheral version %u.%02u.%c\n",
 			AXI_PWMGEN_VERSION_MAJOR(reg),
 			AXI_PWMGEN_VERSION_MINOR(reg),
@@ -151,7 +151,7 @@ static int axi_pwmgen_setup(struct pwm_chip *chip)
 	}
 
 	pwm->chip.npwm = axi_pwmgen_read(pwm, AXI_PWMGEN_REG_NPWM);
-	if (pwm->chip.npwm > 4)
+	if (pwm->chip.npwm > 16)
 		return -EINVAL;
 
 	/* Disable all the outputs */
