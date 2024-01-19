@@ -16,6 +16,7 @@
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/of_irq.h>
 #include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
@@ -509,12 +510,38 @@ void dpu95_irq_hw_init(struct dpu95_soc *dpu)
 	}
 }
 
+static struct irq_domain *dpu95_find_parent_irq_domain(struct device *dev)
+{
+	struct device_node *parent;
+	struct irq_domain *domain;
+
+	parent = of_irq_find_parent(dev->of_node);
+	if (!parent) {
+		dev_err(dev, "failed to find parent irq node\n");
+		return NULL;
+	}
+
+	domain = irq_find_host(parent);
+	of_node_put(parent);
+	if (!domain) {
+		dev_err(dev, "failed to find parent irq domain\n");
+		return NULL;
+	}
+
+	return domain;
+}
+
 static int dpu95_irq_init(struct platform_device *pdev, struct dpu95_soc *dpu)
 {
+	struct irq_domain *parent_domain;
 	struct device *dev = &pdev->dev;
 	struct irq_chip_generic *gc;
 	struct irq_chip_type *ct;
 	int ret, i, j;
+
+	parent_domain = dpu95_find_parent_irq_domain(dev);
+	if (!parent_domain)
+		return -ENODEV;
 
 	for (i = 0; i < DPU95_COMCTRL_IRQ_IRQS; i++) {
 		dpu->comctrl_irq[i] = platform_get_irq(pdev, dpu_comctrl_irq[i]);
@@ -632,6 +659,12 @@ static int dpu95_irq_init(struct platform_device *pdev, struct dpu95_soc *dpu)
 		ct->regs.mask = INTERRUPTENABLE(i / 32);
 	}
 
+	ret = pm_runtime_resume_and_get(parent_domain->pm_dev);
+	if (ret < 0) {
+		dev_err(dev, "failed to get parent irq domain RPM: %d\n", ret);
+		goto err2;
+	}
+
 	for (i = 0; i < DPU95_IRQ_COUNT; i++) {
 		if (!dpu95_comctrl_irq_handler[i])
 			continue;
@@ -677,6 +710,8 @@ static int dpu95_irq_init(struct platform_device *pdev, struct dpu95_soc *dpu)
 		}
 	}
 
+	pm_runtime_put(parent_domain->pm_dev);
+
 	return 0;
 
 err2:
@@ -690,9 +725,21 @@ err0:
 
 static void devm_dpu95_irq_exit(void *data)
 {
+	struct irq_domain *parent_domain;
 	struct dpu95_soc *dpu = data;
 	unsigned int irq;
-	int i, j;
+	int ret, i, j;
+
+	parent_domain = dpu95_find_parent_irq_domain(dpu->dev);
+	if (!parent_domain)
+		return;
+
+	ret = pm_runtime_resume_and_get(parent_domain->pm_dev);
+	if (ret < 0) {
+		dev_err(dpu->dev, "failed to get parent irq domain RPM: %d\n",
+			ret);
+		return;
+	}
 
 	for (i = 0; i < DPU95_IRQ_COUNT; i++) {
 		if (!dpu95_comctrl_irq_handler[i])
@@ -735,6 +782,8 @@ static void devm_dpu95_irq_exit(void *data)
 			break;
 		}
 	}
+
+	pm_runtime_put(parent_domain->pm_dev);
 
 	for (i = 0; i < DPU95_COMCTRL_IRQ_IRQS; i++) {
 		irq = irq_linear_revmap(dpu->comctrl_irq_domain,
