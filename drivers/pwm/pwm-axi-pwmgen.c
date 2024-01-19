@@ -14,6 +14,10 @@
 #include <linux/pwm.h>
 #include <linux/slab.h>
 
+#define AXI_PWMGEN_VERSION_MAJOR(x)	(((x) >> 16) & 0xff)
+#define AXI_PWMGEN_VERSION_MINOR(x)	(((x) >> 8) & 0xff)
+#define AXI_PWMGEN_VERSION_PATCH(x)	((x) & 0xff)
+
 #define AXI_PWMGEN_REG_CORE_VERSION	0x00
 #define AXI_PWMGEN_REG_ID		0x04
 #define AXI_PWMGEN_REG_SCRATCHPAD	0x08
@@ -194,6 +198,15 @@ static int axi_pwmgen_setup(struct pwm_chip *chip)
 	if (reg != AXI_PWMGEN_TEST_DATA) {
 		dev_err(chip->dev, "failed to access the device registers\n");
 		return -EIO;
+	}
+
+	reg = axi_pwmgen_read(pwm, AXI_PWMGEN_REG_CORE_VERSION);
+	if (AXI_PWMGEN_VERSION_MAJOR(reg) != 2) {
+		dev_err(chip->dev, "Unsupported peripheral version %u.%u.%u\n",
+			AXI_PWMGEN_VERSION_MAJOR(reg),
+			AXI_PWMGEN_VERSION_MINOR(reg),
+			AXI_PWMGEN_VERSION_PATCH(reg));
+		return -ENODEV;
 	}
 
 	pwm->chip.npwm = axi_pwmgen_read(pwm, AXI_PWMGEN_REG_NPWM);
