@@ -79,7 +79,7 @@ axi_spi_engine_offload_set_samp_freq(struct iio_pwm_triggered_dma_buffer *st,
 	 * value is a hack to work around the edge vs. level offload trigger
 	 * issue in the ADI AXI SPI Engine firmware.
 	 */
-	return pwm_config(st->pwm, 10, period_ns);
+	return pwm_config(st->pwm, period_ns / 2, period_ns);
 }
 
 static ssize_t sampling_frequency_show(struct device *dev,
