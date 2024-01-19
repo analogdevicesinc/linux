@@ -3533,6 +3533,9 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 	u16 duration;
 	u8 api_rev[3], lane;
 
+	if (*ppos)
+		return 0;
+
 	if (entry->out_value) {
 		switch (entry->size) {
 		case 1:
