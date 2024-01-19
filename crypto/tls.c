@@ -194,17 +194,6 @@ static int crypto_tls_encrypt(struct aead_request *req)
 	int err;
 
 	/*
-	 * The hash result is saved at the beginning of the tls request ctx
-	 * and is aligned as required by the hash transform. Enough space was
-	 * allocated in crypto_tls_init_tfm to accommodate the difference. The
-	 * requests themselves start later at treq_ctx->tail + ctx->reqoff so
-	 * the result is not overwritten by the second (cipher) request.
-	 */
-	hash = (u8 *)ALIGN((unsigned long)hash +
-			   crypto_ahash_alignmask(ctx->auth),
-			   crypto_ahash_alignmask(ctx->auth) + 1);
-
-	/*
 	 * STEP 1: create ICV together with necessary padding
 	 */
 	err = crypto_tls_gen_padicv(hash, &phashlen, req);
@@ -357,13 +346,6 @@ static int crypto_tls_decrypt(struct aead_request *req)
 
 	/*
 	 * Step 3 - Verify hash
-	 * Align the digest result as required by the hash transform. Enough
-	 * space was allocated in crypto_tls_init_tfm
-	 */
-	hash = (u8 *)ALIGN((unsigned long)hash +
-			   crypto_ahash_alignmask(ctx->auth),
-			   crypto_ahash_alignmask(ctx->auth) + 1);
-	/*
 	 * Two bytes at the end of the associated data make the length field.
 	 * It must be updated with the length of the cleartext message before
 	 * the hash is calculated.
@@ -431,9 +413,7 @@ static int crypto_tls_init_tfm(struct crypto_aead *tfm)
 	 * and the other will be calculated. For encryption, one digest is
 	 * padded (up to a cipher blocksize) and chained with the payload
 	 */
-	ctx->reqoff = ALIGN(crypto_ahash_digestsize(auth) +
-			    crypto_ahash_alignmask(auth),
-			    crypto_ahash_alignmask(auth) + 1) +
+	ctx->reqoff = crypto_ahash_digestsize(auth) +
 			    max(crypto_ahash_digestsize(auth),
 				crypto_skcipher_blocksize(enc));
 
