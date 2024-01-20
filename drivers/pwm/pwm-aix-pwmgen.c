@@ -37,10 +37,6 @@ struct axi_pwmgen {
 	struct pwm_chip		chip;
 	struct clk		*clk;
 	void __iomem		*base;
-
-	/* Used to store the period when the channel is disabled */
-	unsigned int		ch_period[16];
-	bool			ch_enabled[16];
 };
 
 static inline unsigned int axi_pwmgen_read(struct axi_pwmgen *pwm,
@@ -80,17 +76,22 @@ static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *device,
 	unsigned int ch = device->hwpwm;
 	u64 period_cnt, duty_cnt;
 
-	period_cnt = DIV_ROUND_UP_ULL(state->period * clk_rate, NSEC_PER_SEC);
-	if (period_cnt > UINT_MAX)
+	if (state->polarity != PWM_POLARITY_NORMAL)
 		return -EINVAL;
 
-	pwm->ch_period[ch] = period_cnt;
-	pwm->ch_enabled[ch] = state->enabled;
+	period_cnt = DIV_ROUND_UP_ULL(state->period * clk_rate, NSEC_PER_SEC);
+	if (period_cnt > UINT_MAX)
+		period_cnt = UINT_MAX;
+
 	axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_PERIOD(ch),
 			 state->enabled ? period_cnt : 0);
 
 	duty_cnt = DIV_ROUND_UP_ULL(state->duty_cycle * clk_rate, NSEC_PER_SEC);
-	axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_DUTY(ch), duty_cnt);
+	if (duty_cnt > UINT_MAX)
+		duty_cnt = UINT_MAX;
+
+	axi_pwmgen_write(pwm, AXI_PWMGEN_CHX_DUTY(ch),
+			 state->enabled ? duty_cnt : 0);
 
 	/* Apply the new config */
 	axi_pwmgen_write(pwm, AXI_PWMGEN_REG_CONFIG, AXI_PWMGEN_LOAD_CONIG);
@@ -106,15 +107,11 @@ static int axi_pwmgen_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 	size_t ch = pwm->hwpwm;
 	unsigned int cnt;
 
-	state->enabled = pwmgen->ch_enabled[ch];
+	state->polarity = PWM_POLARITY_NORMAL;
 
-	if (state->enabled) {
-		cnt = axi_pwmgen_read(pwmgen, AXI_PWMGEN_CHX_PERIOD(ch));
-	} else {
-		cnt = pwmgen->ch_period[ch];
-	}
-
+	cnt = axi_pwmgen_read(pwmgen, AXI_PWMGEN_CHX_PERIOD(ch));
 	state->period = DIV_ROUND_CLOSEST_ULL((u64)cnt * NSEC_PER_SEC, rate);
+	state->enabled = !!cnt;
 
 	cnt = axi_pwmgen_read(pwmgen, AXI_PWMGEN_CHX_DUTY(ch));
 	state->duty_cycle = DIV_ROUND_CLOSEST_ULL((u64)cnt * NSEC_PER_SEC, rate);
