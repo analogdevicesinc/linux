@@ -707,9 +707,9 @@
 #endif
 			};
 		};
+#endif
 	};
 };
-#endif
 
 #ifdef BRD_ZCU
 &i2c1{
