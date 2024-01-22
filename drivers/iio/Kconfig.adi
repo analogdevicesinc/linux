@@ -178,6 +178,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply LTC2471
 	imply LTC2496
 	imply LTC2632
+	imply LTC2664
 	imply LTC2485
 	imply ADXRS290
 	imply ADXRS450
