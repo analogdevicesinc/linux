@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/i2c/nxp,mx95mbcam.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP MX95MBCAM camera module.
+
+maintainers:
+  - Laurentiu Palcu <laurentiu.palcu@oss.nxp.com>
+
+description: |
+  The MX95MBCAM module contains an OmniVision OX03C10 camera sensor and one MAX96717 GMSL serializer
+  chip that receives the data from the sensor on CSI-2 interface and serializes it for transmission
+  over a GMSL2/1 link. The module needs a deserializer chip on the remote side in order to convert
+  the GMSL packets to CSI-2 MIPI packets.
+
+allOf:
+  - $ref: /schemas/media/video-interface-devices.yaml#
+
+properties:
+  compatible:
+    enum:
+      - nxp,mx95mbcam
+
+  reg:
+    description: I2C device address
+    maxItems: 1
+
+  nxp,camera_sensor_reset_pin:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: indicates the MAX96717 pin used to reset the camera sensor
+
+  nxp,camera_sensor_clock_pin:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: indicates the MAX96717 pin used to transmit the clock signal to the sensor
+
+  orientation: true
+  rotation: true
+
+  port:
+    $ref: /schemas/graph.yaml#/properties/port
+    description: This the GMSL port which should point to a GMSL in port on the deserializer side.
+
+required:
+  - compatible
+  - reg
+  - nxp,camera_sensor_reset_pin
+  - nxp,camera_sensor_clock_pin
+  - port
+
+additionalProperties: false
+
+examples:
+  - |
+    i2c@42530000 {
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      reg = <0x42530000 0x10000>;
+
+      camera@40 {
+        compatible = "nxp,mx95mbcam";
+        reg = <0x40>;
+        nxp,camera_sensor_reset_pin = <8>;
+        nxp,camera_sensor_clock_pin = <4>;
+
+        orientation = <2>;
+        rotation = <0>;
+
+        port {
+          mx95mbcam_gmsl_a_out: endpoint {
+            remote-endpoint = <&max96724_gmsl_a_in>;
+          };
+        };
+      };
+    };
