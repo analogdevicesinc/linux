@@ -14,10 +14,11 @@
 #define MAX_ENTRY_NUMBER 128
 #define MAX_IFNAME_COUNT 64
 
+/* DEPRECATED */
 #define TSN_MULTICAST_GROUP_QBV	"qbv"
 #define TSN_MULTICAST_GROUP_QCI	"qci"
 
-/* multicast groups */
+/* DEPRECATED: multicast groups */
 enum tsn_multicast_groups {
 	TSN_MCGRP_QBV,
 	TSN_MCGRP_QCI,

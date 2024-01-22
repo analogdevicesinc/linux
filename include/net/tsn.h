@@ -4,26 +4,7 @@
 #ifndef __TSN_H__
 #define __TSN_H__
 
-#include <linux/notifier.h>
 #include <uapi/linux/tsn.h>
-
-enum tsn_notifier_type {
-	TSN_QBV_CONFIGCHANGETIME_ARRIVE = 1,
-};
-
-struct tsn_notifier_info {
-	struct net_device *dev;
-	union {
-		struct tsn_qbv_conf qbv_notify;
-		struct tsn_qci_psfp_sgi_conf qci_notify;
-	} ntdata;
-};
-
-static inline struct net_device *
-tsn_notifier_info_to_dev(const struct tsn_notifier_info *info)
-{
-	return info->dev;
-}
 
 struct tsn_ops {
 	void (*device_init)(struct net_device *ndev);
@@ -101,14 +82,9 @@ struct tsn_port {
 	struct list_head list;
 	enum ethdev_type type;
 	u8 tc_nums;
-	struct tsn_notifier_info nd;
 };
 
 struct tsn_port *tsn_get_port(struct net_device *ndev);
-int register_tsn_notifier(struct notifier_block *nb);
-int unregister_tsn_notifier(struct notifier_block *nb);
-int call_tsn_notifiers(unsigned long val, struct net_device *dev,
-			     struct tsn_notifier_info *info);
 int tsn_port_register(struct net_device *netdev, const struct tsn_ops *tsnops,
 		      u16 groupid);
 void tsn_port_unregister(struct net_device *netdev);
