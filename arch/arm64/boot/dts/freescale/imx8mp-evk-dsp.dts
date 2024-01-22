@@ -51,7 +51,6 @@
 
 &dsp {
 	compatible = "fsl,imx8mp-hifi4";
-	reg = <0x0 0x3B6E8000 0x0 0x88000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai3>, <&pinctrl_i2c3>, <&pinctrl_uart4>, <&pinctrl_pdm>;
 	assigned-clocks = <&clk IMX8MP_CLK_SAI3>;

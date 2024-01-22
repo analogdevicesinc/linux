@@ -80,7 +80,6 @@
 
 &dsp {
 	compatible = "fsl,imx8mp-dsp";
-	reg = <0x0 0x3B6E8000 0x0 0x88000>;
 
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai3>;
