@@ -2,7 +2,7 @@
 /*
  * Raydium RM692C9 MIPI-DSI panel driver
  *
- * Copyright 2023 NXP
+ * Copyright 2023,2024 NXP
  */
 
 #include <linux/backlight.h>
@@ -29,20 +29,6 @@
 
 /* Write Manufacture Command Set Control */
 #define WRMAUCCTR 0xFE
-
-/* Manufacturer Command Set pages (CMD2) */
-struct cmd_set_entry {
-	u8 cmd;
-	u8 param;
-};
-
-/*
- * There is no description in the Reference Manual about these commands.
- * We received them from vendor, so just use them as is.
- */
-static const struct cmd_set_entry mcs_rm692c9[] = {
-	{0xFE, 0x00}, {0xC2, 0x08}, {0x35, 0x00},
-};
 
 static const u32 rad_bus_formats[] = {
 	MEDIA_BUS_FMT_RGB888_1X24,
@@ -87,25 +73,6 @@ static inline struct rad_panel *to_rad_panel(struct drm_panel *panel)
 {
 	return container_of(panel, struct rad_panel, panel);
 }
-
-static int rad_panel_push_cmd_list(struct mipi_dsi_device *dsi,
-				   struct cmd_set_entry const *cmd_set,
-				   size_t count)
-{
-	size_t i;
-	int ret = 0;
-
-	for (i = 0; i < count; i++) {
-		const struct cmd_set_entry *entry = cmd_set++;
-		u8 buffer[2] = { entry->cmd, entry->param };
-
-		ret = mipi_dsi_generic_write(dsi, &buffer, sizeof(buffer));
-		if (ret < 0)
-			return ret;
-	}
-
-	return ret;
-};
 
 static int color_format_from_dsi_format(enum mipi_dsi_pixel_format format)
 {
@@ -192,19 +159,6 @@ static int rad_panel_enable(struct drm_panel *panel)
 
 	dsi->mode_flags |= MIPI_DSI_MODE_LPM;
 
-	ret = rad_panel_push_cmd_list(dsi,
-				      &mcs_rm692c9[0],
-				      ARRAY_SIZE(mcs_rm692c9));
-	if (ret < 0) {
-		dev_err(dev, "Failed to send MCS (%d)\n", ret);
-		goto fail;
-	}
-
-	/* Select User Command Set table (CMD1) */
-	ret = mipi_dsi_generic_write(dsi, (u8[]){ WRMAUCCTR, 0x00 }, 2);
-	if (ret < 0)
-		goto fail;
-
 	/* Software reset */
 	ret = mipi_dsi_dcs_soft_reset(dsi);
 	if (ret < 0) {
@@ -212,7 +166,21 @@ static int rad_panel_enable(struct drm_panel *panel)
 		goto fail;
 	}
 
-	usleep_range(15000, 17000);
+	usleep_range(120000, 125000);
+
+	ret = mipi_dsi_generic_write(dsi, (u8[]){ WRMAUCCTR, 0x72 }, 2);
+	if (ret < 0)
+		goto fail;
+
+	/* Use 8-bit brightness mode */
+	ret = mipi_dsi_generic_write(dsi, (u8[]){ 0x4D, 0x65 }, 2);
+	if (ret < 0)
+		goto fail;
+
+	/* Select User Command Set table (CMD1) */
+	ret = mipi_dsi_generic_write(dsi, (u8[]){ WRMAUCCTR, 0x00 }, 2);
+	if (ret < 0)
+		goto fail;
 
 	/* Set DSI mode */
 	ret = mipi_dsi_generic_write(dsi, (u8[]){ 0xC2, 0x0B }, 2);
@@ -331,6 +299,7 @@ static int rad_bl_update_status(struct backlight_device *bl)
 {
 	struct mipi_dsi_device *dsi = bl_get_data(bl);
 	struct rad_panel *rad = mipi_dsi_get_drvdata(dsi);
+	u8 payload[2] = { 0x00, bl->props.brightness & 0xff };
 	int ret;
 
 	if (!rad->prepared)
@@ -338,7 +307,8 @@ static int rad_bl_update_status(struct backlight_device *bl)
 
 	dsi->mode_flags &= ~MIPI_DSI_MODE_LPM;
 
-	ret = mipi_dsi_dcs_set_display_brightness(dsi, bl->props.brightness);
+	ret = mipi_dsi_dcs_write(dsi, MIPI_DCS_SET_DISPLAY_BRIGHTNESS,
+				 payload, sizeof(payload));
 	if (ret < 0)
 		return ret;
 
