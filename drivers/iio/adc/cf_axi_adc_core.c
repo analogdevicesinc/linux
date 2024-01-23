@@ -510,9 +510,17 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 
 	switch (m) {
 	case IIO_CHAN_INFO_CALIBPHASE:
+		ret = conv->read_raw(indio_dev, chan, val, val2, m);
+		if (ret >= 0)
+			return ret;
+
 		phase = 1;
 		fallthrough;
 	case IIO_CHAN_INFO_CALIBSCALE:
+		ret = conv->read_raw(indio_dev, chan, val, val2, m);
+		if (ret >= 0)
+			return ret;
+
 		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_2(channel));
 		/*  format is 1.1.14 (sign, integer and fractional bits) */
 
@@ -544,6 +552,10 @@ static int axiadc_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT_PLUS_MICRO;
 
 	case IIO_CHAN_INFO_CALIBBIAS:
+		ret = conv->read_raw(indio_dev, chan, val, val2, m);
+		if (ret >= 0)
+			return ret;
+
 		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(channel));
 		*val = (short)ADI_TO_DCFILT_OFFSET(tmp);
 
@@ -608,14 +620,23 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 	struct axiadc_converter *conv = to_converter(st->dev_spi);
 	unsigned fract, tmp, phase = 0, channel;
 	unsigned long long llval;
+	int ret;
 
 	channel = axiadc_chan_to_regoffset(chan);
 
 	switch (mask) {
 	case IIO_CHAN_INFO_CALIBPHASE:
+		ret = conv->write_raw(indio_dev, chan, val, val2, mask);
+		if (ret == 0)
+			return 0;
+
 		phase = 1;
 		fallthrough;
 	case IIO_CHAN_INFO_CALIBSCALE:
+		ret = conv->write_raw(indio_dev, chan, val, val2, mask);
+		if (ret == 0)
+			return 0;
+
 		/*  format is 1.1.14 (sign, integer and fractional bits) */
 		switch (val) {
 		case 1:
@@ -678,6 +699,10 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 		return 0;
 
 	case IIO_CHAN_INFO_CALIBBIAS:
+		ret = conv->write_raw(indio_dev, chan, val, val2, mask);
+		if (ret == 0)
+			return 0;
+
 		tmp = axiadc_read(st, ADI_REG_CHAN_CNTRL_1(channel));
 		tmp &= ~ADI_DCFILT_OFFSET(~0);
 		tmp |= ADI_DCFILT_OFFSET((short)val);
