@@ -115,7 +115,6 @@
 		BIT(IIO_CHAN_INFO_CALIBBIAS) |			\
 		BIT(IIO_CHAN_INFO_CALIBPHASE) |			\
 		BIT(IIO_CHAN_INFO_SCALE),			\
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_OFFSET),	\
 	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
 	.ext_info = ad4858_ext_info,				\
 	.address = index,					\
@@ -730,9 +729,6 @@ static int ad4858_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_CALIBSCALE:
 		ad4858_get_gain(adc, chan->channel, val);
 		return IIO_VAL_INT;
-	case IIO_CHAN_INFO_OFFSET:
-		*val = 0;
-		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
 		ret = ad4858_spi_reg_read(adc,
 			AD4858_REG_CHX_SOFTSPAN(chan->channel), &softspan);
@@ -764,8 +760,6 @@ static int ad4858_write_raw(struct iio_dev *indio_dev,
 		return ad4858_set_sampling_freq(adc, val);
 	case IIO_CHAN_INFO_CALIBSCALE:
 		return ad4858_set_gain(adc, chan->channel, val);
-	case IIO_CHAN_INFO_OFFSET:
-		return 0;
 	case IIO_CHAN_INFO_CALIBBIAS:
 		return ad4858_set_offset(adc, chan->channel, val);
 	case IIO_CHAN_INFO_CALIBPHASE:
