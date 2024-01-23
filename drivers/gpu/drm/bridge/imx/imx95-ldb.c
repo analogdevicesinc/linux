@@ -42,7 +42,8 @@ struct imx95_ldb {
 	struct ldb base;
 	struct device *dev;
 	struct imx95_ldb_channel channel[MAX_LDB_CHAN_NUM];
-	struct clk *clk_pixel;
+	struct clk *clk_ch[MAX_LDB_CHAN_NUM];
+	struct clk *clk_di[MAX_LDB_CHAN_NUM];
 	int active_chno;
 };
 
@@ -89,8 +90,8 @@ imx95_ldb_bridge_mode_set(struct drm_bridge *bridge,
 	if (ret < 0)
 		dev_err(dev, "failed to initialize PHY: %d\n", ret);
 
-	/* set pixel clock rate (ldb_pll_div7) */
-	clk_set_rate(imx95_ldb->clk_pixel, di_clk);
+	/* set lvds di clock rate */
+	clk_set_rate(imx95_ldb->clk_di[ldb_ch->chno], di_clk);
 
 	if (is_split) {
 		imx95_ldb_ch =
@@ -141,7 +142,12 @@ imx95_ldb_bridge_atomic_enable(struct drm_bridge *bridge,
 	bool is_split = ldb_channel_is_split_link(ldb_ch);
 	int ret;
 
-	clk_prepare_enable(imx95_ldb->clk_pixel);
+	clk_prepare_enable(imx95_ldb->clk_ch[ldb_ch->chno]);
+	clk_prepare_enable(imx95_ldb->clk_di[ldb_ch->chno]);
+	if (is_split) {
+		clk_prepare_enable(imx95_ldb->clk_ch[ldb_ch->chno ^ 1]);
+		clk_prepare_enable(imx95_ldb->clk_di[ldb_ch->chno ^ 1]);
+	}
 
 	if (ldb_ch->chno == 0 || is_split) {
 		ldb->ldb_ctrl &= ~LDB_CH0_MODE_EN_MASK;
@@ -210,7 +216,12 @@ imx95_ldb_bridge_atomic_disable(struct drm_bridge *bridge,
 			dev_err(dev, "failed to power off PHY: %d\n", ret);
 	}
 
-	clk_disable_unprepare(imx95_ldb->clk_pixel);
+	if (is_split) {
+		clk_disable_unprepare(imx95_ldb->clk_di[ldb_ch->chno ^ 1]);
+		clk_disable_unprepare(imx95_ldb->clk_ch[ldb_ch->chno ^ 1]);
+	}
+	clk_disable_unprepare(imx95_ldb->clk_di[ldb_ch->chno]);
+	clk_disable_unprepare(imx95_ldb->clk_ch[ldb_ch->chno]);
 
 	ret = pm_runtime_put(dev);
 	if (ret < 0)
@@ -327,9 +338,9 @@ imx95_ldb_bridge_mode_valid(struct drm_bridge *bridge,
 
 	if ((next_bridge->ops & DRM_BRIDGE_OP_DETECT) &&
 	    (next_bridge->ops & DRM_BRIDGE_OP_EDID)) {
-		if (imx95_ldb->clk_pixel) {
+		if (imx95_ldb->clk_di[ldb_ch->chno]) {
 			pixel_clock_rate = mode->clock * 1000;
-			rounded_rate = clk_round_rate(imx95_ldb->clk_pixel,
+			rounded_rate = clk_round_rate(imx95_ldb->clk_di[ldb_ch->chno],
 						      pixel_clock_rate);
 			if (rounded_rate != pixel_clock_rate)
 				return MODE_CLOCK_RANGE;
@@ -393,10 +404,22 @@ static int imx95_ldb_probe(struct platform_device *pdev)
 	if (!imx95_ldb)
 		return -ENOMEM;
 
-	imx95_ldb->clk_pixel = devm_clk_get(dev, "pixel");
-	if (IS_ERR(imx95_ldb->clk_pixel))
-		return dev_err_probe(dev, PTR_ERR(imx95_ldb->clk_pixel),
-				     "failed to get pixel clock \n");
+	for (i = 0; i < MAX_LDB_CHAN_NUM; i++) {
+		char clk_name_ldb_ch[8], clk_name_ldb_di[8];
+
+		snprintf(clk_name_ldb_ch, sizeof(clk_name_ldb_ch), "ldb_ch%d", i);
+		snprintf(clk_name_ldb_di, sizeof(clk_name_ldb_di), "ldb_di%d", i);
+
+		imx95_ldb->clk_ch[i] = devm_clk_get(dev, clk_name_ldb_ch);
+		if (IS_ERR(imx95_ldb->clk_ch[i]))
+			return dev_err_probe(dev, PTR_ERR(imx95_ldb->clk_ch[i]),
+					     "failed to get ldb ch%d clock\n", i);
+
+		imx95_ldb->clk_di[i] = devm_clk_get(dev, clk_name_ldb_di);
+		if (IS_ERR(imx95_ldb->clk_di[i]))
+			return dev_err_probe(dev, PTR_ERR(imx95_ldb->clk_di[i]),
+					     "failed to get ldb di%d clock\n", i);
+	}
 
 	imx95_ldb->dev = dev;
 
