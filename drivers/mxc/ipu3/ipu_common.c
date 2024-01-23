@@ -1,6 +1,6 @@
 /*
  * Copyright 2005-2016 Freescale Semiconductor, Inc. All Rights Reserved.
- * Copyright 2020,2021,2024 NXP
+ * Copyright 2020,2021,2023,2024 NXP
  */
 /*
  * The code contained herein is licensed under the GNU General Public
@@ -139,6 +139,16 @@ static inline bool idma_is_set(struct ipu_soc *ipu, uint32_t reg, uint32_t dma)
 {
 	return !!(ipu_idmac_read(ipu, reg) & idma_mask(dma));
 }
+
+static inline int get_chan_id(ipu_channel_t ch)
+{
+	int chan_id = IPU_CHAN_ID(ch);
+
+	if (chan_id <= 0 || chan_id >= IPU_MAX_CH)
+		return -EINVAL;
+
+	return chan_id;
+};
 
 static int ipu_clk_setup_enable(struct ipu_soc *ipu)
 {
@@ -736,16 +746,22 @@ void ipu_dump_registers(struct ipu_soc *ipu)
  */
 int32_t ipu_init_channel(struct ipu_soc *ipu, ipu_channel_t channel, ipu_channel_params_t *params)
 {
-	int ret = 0;
+	int ret = 0, chan_id;
 	bool bad_pixfmt;
 	uint32_t ipu_conf, reg, in_g_pixel_fmt, sec_dma;
 
-	dev_dbg(ipu->dev, "init channel = %d\n", IPU_CHAN_ID(channel));
+	chan_id = get_chan_id(channel);
+	if (chan_id < 0) {
+		dev_err(ipu->dev, "failed to get chan id to init: %d\n", chan_id);
+		return chan_id;
+	}
+
+	dev_dbg(ipu->dev, "init channel = %d\n", chan_id);
 
 	ret = pm_runtime_get_sync(ipu->dev);
 	if (ret < 0) {
 		dev_err(ipu->dev, "ch = %d, pm_runtime_get failed:%d!\n",
-				IPU_CHAN_ID(channel), ret);
+			chan_id, ret);
 		dump_stack();
 		return ret;
 	}
@@ -765,9 +781,9 @@ int32_t ipu_init_channel(struct ipu_soc *ipu, ipu_channel_t channel, ipu_channel
 	ipu_cm_write(ipu, 0xFFFFFFFF, IPU_INT_CTRL(9));
 	ipu_cm_write(ipu, 0xFFFFFFFF, IPU_INT_CTRL(10));
 
-	if (ipu->channel_init_mask & (1L << IPU_CHAN_ID(channel))) {
+	if (ipu->channel_init_mask & (1L << chan_id)) {
 		dev_warn(ipu->dev, "Warning: channel already initialized %d\n",
-			IPU_CHAN_ID(channel));
+			 chan_id);
 	}
 
 	ipu_conf = ipu_cm_read(ipu, IPU_CONF);
@@ -906,9 +922,9 @@ int32_t ipu_init_channel(struct ipu_soc *ipu, ipu_channel_t channel, ipu_channel
 					ret = -EINVAL;
 					goto err;
 				}
-				ipu->thrd_chan_en[IPU_CHAN_ID(channel)] = true;
+				ipu->thrd_chan_en[chan_id] = true;
 			}
-			ipu->sec_chan_en[IPU_CHAN_ID(channel)] = true;
+			ipu->sec_chan_en[chan_id] = true;
 		}
 
 		reg = ipu_cm_read(ipu, IPU_FS_PROC_FLOW1);
@@ -932,7 +948,7 @@ int32_t ipu_init_channel(struct ipu_soc *ipu, ipu_channel_t channel, ipu_channel
 		ipu_cm_write(ipu, reg , IPU_FS_PROC_FLOW1);
 
 		if (params->mem_prp_vf_mem.graphics_combine_en)
-			ipu->sec_chan_en[IPU_CHAN_ID(channel)] = true;
+			ipu->sec_chan_en[chan_id] = true;
 		_ipu_ic_init_prpvf(ipu, params, false);
 		_ipu_vdi_init(ipu, channel, params);
 		break;
@@ -985,10 +1001,10 @@ int32_t ipu_init_channel(struct ipu_soc *ipu, ipu_channel_t channel, ipu_channel
 					ret = -EINVAL;
 					goto err;
 				}
-				ipu->thrd_chan_en[IPU_CHAN_ID(channel)] = true;
+				ipu->thrd_chan_en[chan_id] = true;
 			}
 
-			ipu->sec_chan_en[IPU_CHAN_ID(channel)] = true;
+			ipu->sec_chan_en[chan_id] = true;
 		}
 
 		_ipu_ic_init_pp(ipu, params);
@@ -1020,7 +1036,7 @@ int32_t ipu_init_channel(struct ipu_soc *ipu, ipu_channel_t channel, ipu_channel
 		}
 
 		if (params->mem_dp_bg_sync.alpha_chan_en)
-			ipu->thrd_chan_en[IPU_CHAN_ID(channel)] = true;
+			ipu->thrd_chan_en[chan_id] = true;
 
 		ipu->dc_di_assignment[5] = params->mem_dp_bg_sync.di;
 		_ipu_dp_init(ipu, channel, params->mem_dp_bg_sync.in_pixel_fmt,
@@ -1038,7 +1054,7 @@ int32_t ipu_init_channel(struct ipu_soc *ipu, ipu_channel_t channel, ipu_channel
 			     params->mem_dp_fg_sync.out_pixel_fmt);
 
 		if (params->mem_dp_fg_sync.alpha_chan_en)
-			ipu->thrd_chan_en[IPU_CHAN_ID(channel)] = true;
+			ipu->thrd_chan_en[chan_id] = true;
 
 		ipu->dc_use_count++;
 		ipu->dp_use_count++;
@@ -1071,7 +1087,7 @@ int32_t ipu_init_channel(struct ipu_soc *ipu, ipu_channel_t channel, ipu_channel
 		break;
 	}
 
-	ipu->channel_init_mask |= 1L << IPU_CHAN_ID(channel);
+	ipu->channel_init_mask |= 1L << chan_id;
 
 	ipu_cm_write(ipu, ipu_conf, IPU_CONF);
 
@@ -1093,13 +1109,18 @@ void ipu_uninit_channel(struct ipu_soc *ipu, ipu_channel_t channel)
 	uint32_t in_dma, out_dma = 0;
 	uint32_t ipu_conf;
 	uint32_t dc_chan = 0;
-	int ret;
+	int ret, chan_id;
+
+	chan_id = get_chan_id(channel);
+	if (chan_id < 0) {
+		dev_err(ipu->dev, "failed to get chan id to uninit: %d\n", chan_id);
+		return;
+	}
 
 	mutex_lock(&ipu->mutex_lock);
 
-	if ((ipu->channel_init_mask & (1L << IPU_CHAN_ID(channel))) == 0) {
-		dev_dbg(ipu->dev, "Channel already uninitialized %d\n",
-			IPU_CHAN_ID(channel));
+	if ((ipu->channel_init_mask & (1L << chan_id)) == 0) {
+		dev_dbg(ipu->dev, "Channel already uninitialized %d\n", chan_id);
 		mutex_unlock(&ipu->mutex_lock);
 		return;
 	}
@@ -1112,8 +1133,7 @@ void ipu_uninit_channel(struct ipu_soc *ipu, ipu_channel_t channel)
 	if (idma_is_set(ipu, IDMAC_CHA_EN(in_dma), in_dma) ||
 	    idma_is_set(ipu, IDMAC_CHA_EN(out_dma), out_dma)) {
 		dev_err(ipu->dev,
-			"Channel %d is not disabled, disable first\n",
-			IPU_CHAN_ID(channel));
+			"Channel %d is not disabled, disable first\n", chan_id);
 		mutex_unlock(&ipu->mutex_lock);
 		return;
 	}
@@ -1135,8 +1155,8 @@ void ipu_uninit_channel(struct ipu_soc *ipu, ipu_channel_t channel)
 				IPU_CHA_TRB_MODE_SEL(ipu->devtype, out_dma));
 
 	if (_ipu_is_ic_chan(in_dma) || _ipu_is_dp_graphic_chan(in_dma)) {
-		ipu->sec_chan_en[IPU_CHAN_ID(channel)] = false;
-		ipu->thrd_chan_en[IPU_CHAN_ID(channel)] = false;
+		ipu->sec_chan_en[chan_id] = false;
+		ipu->thrd_chan_en[chan_id] = false;
 	}
 
 	switch (channel) {
@@ -1290,7 +1310,7 @@ void ipu_uninit_channel(struct ipu_soc *ipu, ipu_channel_t channel)
 
 	ipu_cm_write(ipu, ipu_conf, IPU_CONF);
 
-	ipu->channel_init_mask &= ~(1L << IPU_CHAN_ID(channel));
+	ipu->channel_init_mask &= ~(1L << chan_id);
 
 	/*
 	 * Disable pixel clk and its parent clock(if the parent clock
@@ -1310,7 +1330,7 @@ void ipu_uninit_channel(struct ipu_soc *ipu, ipu_channel_t channel)
 	ret = pm_runtime_put_sync_suspend(ipu->dev);
 	if (ret < 0) {
 		dev_err(ipu->dev, "ch = %d, pm_runtime_put failed:%d!\n",
-				IPU_CHAN_ID(channel), ret);
+			chan_id, ret);
 		dump_stack();
 	}
 
@@ -1381,6 +1401,14 @@ int32_t ipu_init_channel_buffer(struct ipu_soc *ipu, ipu_channel_t channel,
 	uint32_t reg;
 	uint32_t dma_chan;
 	uint32_t burst_size;
+	int chan_id;
+
+	chan_id = get_chan_id(channel);
+	if (chan_id < 0) {
+		dev_err(ipu->dev, "failed to get chan id to init buffer: %d\n",
+			chan_id);
+		return chan_id;
+	}
 
 	dma_chan = channel_2_dma(channel, type);
 	if (!idma_is_valid(dma_chan))
@@ -1428,7 +1456,7 @@ int32_t ipu_init_channel_buffer(struct ipu_soc *ipu, ipu_channel_t channel,
 	/* Set correlative channel parameter of local alpha channel */
 	if ((_ipu_is_ic_graphic_chan(dma_chan) ||
 	     _ipu_is_dp_graphic_chan(dma_chan)) &&
-	    (ipu->thrd_chan_en[IPU_CHAN_ID(channel)] == true)) {
+	    ipu->thrd_chan_en[chan_id]) {
 		_ipu_ch_param_set_alpha_use_separate_channel(ipu, dma_chan, true);
 		_ipu_ch_param_set_alpha_buffer_memory(ipu, dma_chan);
 		_ipu_ch_param_set_alpha_condition_read(ipu, dma_chan);
@@ -1904,6 +1932,22 @@ int32_t ipu_link_channels(struct ipu_soc *ipu, ipu_channel_t src_ch, ipu_channel
 	uint32_t fs_proc_flow2;
 	uint32_t fs_proc_flow3;
 	uint32_t fs_disp_flow1;
+	int src_chan_id;
+	int dest_chan_id;
+
+	src_chan_id = get_chan_id(src_ch);
+	if (src_chan_id < 0) {
+		dev_err(ipu->dev, "failed to get source chan id: %d\n",
+			src_chan_id);
+		return src_chan_id;
+	}
+
+	dest_chan_id = get_chan_id(dest_ch);
+	if (dest_chan_id < 0) {
+		dev_err(ipu->dev, "failed to get destination chan id: %d\n",
+			dest_chan_id);
+		return dest_chan_id;
+	}
 
 	mutex_lock(&ipu->mutex_lock);
 
@@ -1916,79 +1960,79 @@ int32_t ipu_link_channels(struct ipu_soc *ipu, ipu_channel_t src_ch, ipu_channel
 	case CSI_MEM0:
 		fs_proc_flow3 &= ~FS_SMFC0_DEST_SEL_MASK;
 		fs_proc_flow3 |=
-			proc_dest_sel[IPU_CHAN_ID(dest_ch)] <<
+			proc_dest_sel[dest_chan_id] <<
 			FS_SMFC0_DEST_SEL_OFFSET;
 		break;
 	case CSI_MEM1:
 		fs_proc_flow3 &= ~FS_SMFC1_DEST_SEL_MASK;
 		fs_proc_flow3 |=
-			proc_dest_sel[IPU_CHAN_ID(dest_ch)] <<
+			proc_dest_sel[dest_chan_id] <<
 			FS_SMFC1_DEST_SEL_OFFSET;
 		break;
 	case CSI_MEM2:
 		fs_proc_flow3 &= ~FS_SMFC2_DEST_SEL_MASK;
 		fs_proc_flow3 |=
-			proc_dest_sel[IPU_CHAN_ID(dest_ch)] <<
+			proc_dest_sel[dest_chan_id] <<
 			FS_SMFC2_DEST_SEL_OFFSET;
 		break;
 	case CSI_MEM3:
 		fs_proc_flow3 &= ~FS_SMFC3_DEST_SEL_MASK;
 		fs_proc_flow3 |=
-			proc_dest_sel[IPU_CHAN_ID(dest_ch)] <<
+			proc_dest_sel[dest_chan_id] <<
 			FS_SMFC3_DEST_SEL_OFFSET;
 		break;
 	case CSI_PRP_ENC_MEM:
 		fs_proc_flow2 &= ~FS_PRPENC_DEST_SEL_MASK;
 		fs_proc_flow2 |=
-			proc_dest_sel[IPU_CHAN_ID(dest_ch)] <<
+			proc_dest_sel[dest_chan_id] <<
 			FS_PRPENC_DEST_SEL_OFFSET;
 		break;
 	case CSI_PRP_VF_MEM:
 		fs_proc_flow2 &= ~FS_PRPVF_DEST_SEL_MASK;
 		fs_proc_flow2 |=
-			proc_dest_sel[IPU_CHAN_ID(dest_ch)] <<
+			proc_dest_sel[dest_chan_id] <<
 			FS_PRPVF_DEST_SEL_OFFSET;
 		break;
 	case MEM_PP_MEM:
 		fs_proc_flow2 &= ~FS_PP_DEST_SEL_MASK;
 		fs_proc_flow2 |=
-		    proc_dest_sel[IPU_CHAN_ID(dest_ch)] <<
+		    proc_dest_sel[dest_chan_id] <<
 		    FS_PP_DEST_SEL_OFFSET;
 		break;
 	case MEM_ROT_PP_MEM:
 		fs_proc_flow2 &= ~FS_PP_ROT_DEST_SEL_MASK;
 		fs_proc_flow2 |=
-		    proc_dest_sel[IPU_CHAN_ID(dest_ch)] <<
+		    proc_dest_sel[dest_chan_id] <<
 		    FS_PP_ROT_DEST_SEL_OFFSET;
 		break;
 	case MEM_PRP_ENC_MEM:
 		fs_proc_flow2 &= ~FS_PRPENC_DEST_SEL_MASK;
 		fs_proc_flow2 |=
-		    proc_dest_sel[IPU_CHAN_ID(dest_ch)] <<
+		    proc_dest_sel[dest_chan_id] <<
 		    FS_PRPENC_DEST_SEL_OFFSET;
 		break;
 	case MEM_ROT_ENC_MEM:
 		fs_proc_flow2 &= ~FS_PRPENC_ROT_DEST_SEL_MASK;
 		fs_proc_flow2 |=
-		    proc_dest_sel[IPU_CHAN_ID(dest_ch)] <<
+		    proc_dest_sel[dest_chan_id] <<
 		    FS_PRPENC_ROT_DEST_SEL_OFFSET;
 		break;
 	case MEM_PRP_VF_MEM:
 		fs_proc_flow2 &= ~FS_PRPVF_DEST_SEL_MASK;
 		fs_proc_flow2 |=
-		    proc_dest_sel[IPU_CHAN_ID(dest_ch)] <<
+		    proc_dest_sel[dest_chan_id] <<
 		    FS_PRPVF_DEST_SEL_OFFSET;
 		break;
 	case MEM_VDI_PRP_VF_MEM:
 		fs_proc_flow2 &= ~FS_PRPVF_DEST_SEL_MASK;
 		fs_proc_flow2 |=
-		    proc_dest_sel[IPU_CHAN_ID(dest_ch)] <<
+		    proc_dest_sel[dest_chan_id] <<
 		    FS_PRPVF_DEST_SEL_OFFSET;
 		break;
 	case MEM_ROT_VF_MEM:
 		fs_proc_flow2 &= ~FS_PRPVF_ROT_DEST_SEL_MASK;
 		fs_proc_flow2 |=
-		    proc_dest_sel[IPU_CHAN_ID(dest_ch)] <<
+		    proc_dest_sel[dest_chan_id] <<
 		    FS_PRPVF_ROT_DEST_SEL_OFFSET;
 		break;
 	case MEM_VDOA_MEM:
@@ -2013,74 +2057,74 @@ int32_t ipu_link_channels(struct ipu_soc *ipu, ipu_channel_t src_ch, ipu_channel
 		if (MEM_VDOA_MEM == src_ch)
 			fs_proc_flow1 |= FS_PP_SRC_SEL_VDOA;
 		else
-			fs_proc_flow1 |= proc_src_sel[IPU_CHAN_ID(src_ch)] <<
+			fs_proc_flow1 |= proc_src_sel[src_chan_id] <<
 						FS_PP_SRC_SEL_OFFSET;
 		break;
 	case MEM_ROT_PP_MEM:
 		fs_proc_flow1 &= ~FS_PP_ROT_SRC_SEL_MASK;
 		fs_proc_flow1 |=
-		    proc_src_sel[IPU_CHAN_ID(src_ch)] <<
+		    proc_src_sel[src_chan_id] <<
 		    FS_PP_ROT_SRC_SEL_OFFSET;
 		break;
 	case MEM_PRP_ENC_MEM:
 		fs_proc_flow1 &= ~FS_PRP_SRC_SEL_MASK;
 		fs_proc_flow1 |=
-		    proc_src_sel[IPU_CHAN_ID(src_ch)] << FS_PRP_SRC_SEL_OFFSET;
+		    proc_src_sel[src_chan_id] << FS_PRP_SRC_SEL_OFFSET;
 		break;
 	case MEM_ROT_ENC_MEM:
 		fs_proc_flow1 &= ~FS_PRPENC_ROT_SRC_SEL_MASK;
 		fs_proc_flow1 |=
-		    proc_src_sel[IPU_CHAN_ID(src_ch)] <<
+		    proc_src_sel[src_chan_id] <<
 		    FS_PRPENC_ROT_SRC_SEL_OFFSET;
 		break;
 	case MEM_PRP_VF_MEM:
 		fs_proc_flow1 &= ~FS_PRP_SRC_SEL_MASK;
 		fs_proc_flow1 |=
-		    proc_src_sel[IPU_CHAN_ID(src_ch)] << FS_PRP_SRC_SEL_OFFSET;
+		    proc_src_sel[src_chan_id] << FS_PRP_SRC_SEL_OFFSET;
 		break;
 	case MEM_VDI_PRP_VF_MEM:
 		fs_proc_flow1 &= ~FS_PRP_SRC_SEL_MASK;
 		fs_proc_flow1 |=
-		    proc_src_sel[IPU_CHAN_ID(src_ch)] << FS_PRP_SRC_SEL_OFFSET;
+		    proc_src_sel[src_chan_id] << FS_PRP_SRC_SEL_OFFSET;
 		break;
 	case MEM_ROT_VF_MEM:
 		fs_proc_flow1 &= ~FS_PRPVF_ROT_SRC_SEL_MASK;
 		fs_proc_flow1 |=
-		    proc_src_sel[IPU_CHAN_ID(src_ch)] <<
+		    proc_src_sel[src_chan_id] <<
 		    FS_PRPVF_ROT_SRC_SEL_OFFSET;
 		break;
 	case MEM_DC_SYNC:
 		fs_disp_flow1 &= ~FS_DC1_SRC_SEL_MASK;
 		fs_disp_flow1 |=
-		    disp_src_sel[IPU_CHAN_ID(src_ch)] << FS_DC1_SRC_SEL_OFFSET;
+		    disp_src_sel[src_chan_id] << FS_DC1_SRC_SEL_OFFSET;
 		break;
 	case MEM_BG_SYNC:
 		fs_disp_flow1 &= ~FS_DP_SYNC0_SRC_SEL_MASK;
 		fs_disp_flow1 |=
-		    disp_src_sel[IPU_CHAN_ID(src_ch)] <<
+		    disp_src_sel[src_chan_id] <<
 		    FS_DP_SYNC0_SRC_SEL_OFFSET;
 		break;
 	case MEM_FG_SYNC:
 		fs_disp_flow1 &= ~FS_DP_SYNC1_SRC_SEL_MASK;
 		fs_disp_flow1 |=
-		    disp_src_sel[IPU_CHAN_ID(src_ch)] <<
+		    disp_src_sel[src_chan_id] <<
 		    FS_DP_SYNC1_SRC_SEL_OFFSET;
 		break;
 	case MEM_DC_ASYNC:
 		fs_disp_flow1 &= ~FS_DC2_SRC_SEL_MASK;
 		fs_disp_flow1 |=
-		    disp_src_sel[IPU_CHAN_ID(src_ch)] << FS_DC2_SRC_SEL_OFFSET;
+		    disp_src_sel[src_chan_id] << FS_DC2_SRC_SEL_OFFSET;
 		break;
 	case MEM_BG_ASYNC0:
 		fs_disp_flow1 &= ~FS_DP_ASYNC0_SRC_SEL_MASK;
 		fs_disp_flow1 |=
-		    disp_src_sel[IPU_CHAN_ID(src_ch)] <<
+		    disp_src_sel[src_chan_id] <<
 		    FS_DP_ASYNC0_SRC_SEL_OFFSET;
 		break;
 	case MEM_FG_ASYNC0:
 		fs_disp_flow1 &= ~FS_DP_ASYNC1_SRC_SEL_MASK;
 		fs_disp_flow1 |=
-		    disp_src_sel[IPU_CHAN_ID(src_ch)] <<
+		    disp_src_sel[src_chan_id] <<
 		    FS_DP_ASYNC1_SRC_SEL_OFFSET;
 		break;
 	case MEM_VDI_MEM:
@@ -2290,12 +2334,18 @@ int32_t ipu_enable_channel(struct ipu_soc *ipu, ipu_channel_t channel)
 	uint32_t sec_dma;
 	uint32_t thrd_dma;
 	uint32_t di = 0;
+	int chan_id;
+
+	chan_id = get_chan_id(channel);
+	if (chan_id < 0) {
+		dev_err(ipu->dev, "failed to get chan id to enable: %d\n", chan_id);
+		return chan_id;
+	}
 
 	mutex_lock(&ipu->mutex_lock);
 
-	if (ipu->channel_enable_mask & (1L << IPU_CHAN_ID(channel))) {
-		dev_err(ipu->dev, "Warning: channel already enabled %d\n",
-			IPU_CHAN_ID(channel));
+	if (ipu->channel_enable_mask & (1L << chan_id)) {
+		dev_err(ipu->dev, "Warning: channel already enabled %d\n", chan_id);
 		mutex_unlock(&ipu->mutex_lock);
 		return -EACCES;
 	}
@@ -2393,14 +2443,14 @@ int32_t ipu_enable_channel(struct ipu_soc *ipu, ipu_channel_t channel)
 		ipu_idmac_write(ipu, reg | idma_mask(out_dma), IDMAC_CHA_EN(out_dma));
 	}
 
-	if ((ipu->sec_chan_en[IPU_CHAN_ID(channel)]) &&
+	if (ipu->sec_chan_en[chan_id] &&
 		((channel == MEM_PP_MEM) || (channel == MEM_PRP_VF_MEM) ||
 		 (channel == MEM_VDI_PRP_VF_MEM))) {
 		sec_dma = channel_2_dma(channel, IPU_GRAPH_IN_BUFFER);
 		reg = ipu_idmac_read(ipu, IDMAC_CHA_EN(sec_dma));
 		ipu_idmac_write(ipu, reg | idma_mask(sec_dma), IDMAC_CHA_EN(sec_dma));
 	}
-	if ((ipu->thrd_chan_en[IPU_CHAN_ID(channel)]) &&
+	if (ipu->thrd_chan_en[chan_id] &&
 		((channel == MEM_PP_MEM) || (channel == MEM_PRP_VF_MEM))) {
 		thrd_dma = channel_2_dma(channel, IPU_ALPHA_IN_BUFFER);
 		reg = ipu_idmac_read(ipu, IDMAC_CHA_EN(thrd_dma));
@@ -2409,7 +2459,7 @@ int32_t ipu_enable_channel(struct ipu_soc *ipu, ipu_channel_t channel)
 		sec_dma = channel_2_dma(channel, IPU_GRAPH_IN_BUFFER);
 		reg = ipu_idmac_read(ipu, IDMAC_SEP_ALPHA);
 		ipu_idmac_write(ipu, reg | idma_mask(sec_dma), IDMAC_SEP_ALPHA);
-	} else if ((ipu->thrd_chan_en[IPU_CHAN_ID(channel)]) &&
+	} else if (ipu->thrd_chan_en[chan_id] &&
 		   ((channel == MEM_BG_SYNC) || (channel == MEM_FG_SYNC))) {
 		thrd_dma = channel_2_dma(channel, IPU_ALPHA_IN_BUFFER);
 		reg = ipu_idmac_read(ipu, IDMAC_CHA_EN(thrd_dma));
@@ -2431,7 +2481,7 @@ int32_t ipu_enable_channel(struct ipu_soc *ipu, ipu_channel_t channel)
 		_ipu_is_vdi_out_chan(out_dma))
 		_ipu_ic_enable_task(ipu, channel);
 
-	ipu->channel_enable_mask |= 1L << IPU_CHAN_ID(channel);
+	ipu->channel_enable_mask |= 1L << chan_id;
 
 	if (ipu->prg_clk)
 		clk_prepare_enable(ipu->prg_clk);
@@ -2548,12 +2598,18 @@ int32_t ipu_disable_channel(struct ipu_soc *ipu, ipu_channel_t channel, bool wai
 	uint32_t thrd_dma = NO_DMA;
 	uint16_t fg_pos_x, fg_pos_y;
 	unsigned long lock_flags;
+	int chan_id;
+
+	chan_id = get_chan_id(channel);
+	if (chan_id < 0) {
+		dev_err(ipu->dev, "failed to get chan id to disable: %d\n", chan_id);
+		return chan_id;
+	}
 
 	mutex_lock(&ipu->mutex_lock);
 
-	if ((ipu->channel_enable_mask & (1L << IPU_CHAN_ID(channel))) == 0) {
-		dev_dbg(ipu->dev, "Channel already disabled %d\n",
-			IPU_CHAN_ID(channel));
+	if ((ipu->channel_enable_mask & (1L << chan_id)) == 0) {
+		dev_dbg(ipu->dev, "Channel already disabled %d\n", chan_id);
 		mutex_unlock(&ipu->mutex_lock);
 		return -EACCES;
 	}
@@ -2570,9 +2626,9 @@ int32_t ipu_disable_channel(struct ipu_soc *ipu, ipu_channel_t channel, bool wai
 		return -EINVAL;
 	}
 
-	if (ipu->sec_chan_en[IPU_CHAN_ID(channel)])
+	if (ipu->sec_chan_en[chan_id])
 		sec_dma = channel_2_dma(channel, IPU_GRAPH_IN_BUFFER);
-	if (ipu->thrd_chan_en[IPU_CHAN_ID(channel)]) {
+	if (ipu->thrd_chan_en[chan_id]) {
 		sec_dma = channel_2_dma(channel, IPU_GRAPH_IN_BUFFER);
 		thrd_dma = channel_2_dma(channel, IPU_ALPHA_IN_BUFFER);
 	}
@@ -2614,10 +2670,10 @@ int32_t ipu_disable_channel(struct ipu_soc *ipu, ipu_channel_t channel, bool wai
 					in_dma) ||
 		       idma_is_set(ipu, IDMAC_CHA_BUSY(ipu->devtype, out_dma),
 					out_dma) ||
-			(ipu->sec_chan_en[IPU_CHAN_ID(channel)] &&
+			(ipu->sec_chan_en[chan_id] &&
 			idma_is_set(ipu, IDMAC_CHA_BUSY(ipu->devtype, sec_dma),
 					sec_dma)) ||
-			(ipu->thrd_chan_en[IPU_CHAN_ID(channel)] &&
+			(ipu->thrd_chan_en[chan_id] &&
 			idma_is_set(ipu, IDMAC_CHA_BUSY(ipu->devtype, thrd_dma),
 					thrd_dma))) {
 			uint32_t irq = 0xffffffff;
@@ -2626,11 +2682,11 @@ int32_t ipu_disable_channel(struct ipu_soc *ipu, ipu_channel_t channel, bool wai
 			if (idma_is_set(ipu, IDMAC_CHA_BUSY(ipu->devtype,
 					out_dma), out_dma))
 				irq = out_dma;
-			if (ipu->sec_chan_en[IPU_CHAN_ID(channel)] &&
+			if (ipu->sec_chan_en[chan_id] &&
 				idma_is_set(ipu, IDMAC_CHA_BUSY(ipu->devtype,
 						sec_dma), sec_dma))
 				irq = sec_dma;
-			if (ipu->thrd_chan_en[IPU_CHAN_ID(channel)] &&
+			if (ipu->thrd_chan_en[chan_id] &&
 				idma_is_set(ipu, IDMAC_CHA_BUSY(ipu->devtype,
 						thrd_dma), thrd_dma))
 				irq = thrd_dma;
@@ -2695,13 +2751,13 @@ int32_t ipu_disable_channel(struct ipu_soc *ipu, ipu_channel_t channel, bool wai
 		ipu_cm_write(ipu, tri_cur_buf_mask(out_dma),
 				IPU_CHA_TRIPLE_CUR_BUF(ipu->devtype, out_dma));
 	}
-	if (ipu->sec_chan_en[IPU_CHAN_ID(channel)] && idma_is_valid(sec_dma)) {
+	if (ipu->sec_chan_en[chan_id] && idma_is_valid(sec_dma)) {
 		reg = ipu_idmac_read(ipu, IDMAC_CHA_EN(sec_dma));
 		ipu_idmac_write(ipu, reg & ~idma_mask(sec_dma), IDMAC_CHA_EN(sec_dma));
 		ipu_cm_write(ipu, idma_mask(sec_dma),
 				IPU_CHA_CUR_BUF(ipu->devtype, sec_dma));
 	}
-	if (ipu->thrd_chan_en[IPU_CHAN_ID(channel)] && idma_is_valid(thrd_dma)) {
+	if (ipu->thrd_chan_en[chan_id] && idma_is_valid(thrd_dma)) {
 		reg = ipu_idmac_read(ipu, IDMAC_CHA_EN(thrd_dma));
 		ipu_idmac_write(ipu, reg & ~idma_mask(thrd_dma), IDMAC_CHA_EN(thrd_dma));
 		if (channel == MEM_BG_SYNC || channel == MEM_FG_SYNC) {
@@ -2729,17 +2785,17 @@ int32_t ipu_disable_channel(struct ipu_soc *ipu, ipu_channel_t channel, bool wai
 		_ipu_clear_buffer_ready(ipu, channel, IPU_OUTPUT_BUFFER, 0);
 		_ipu_clear_buffer_ready(ipu, channel, IPU_OUTPUT_BUFFER, 1);
 	}
-	if (ipu->sec_chan_en[IPU_CHAN_ID(channel)] && idma_is_valid(sec_dma)) {
+	if (ipu->sec_chan_en[chan_id] && idma_is_valid(sec_dma)) {
 		_ipu_clear_buffer_ready(ipu, channel, IPU_GRAPH_IN_BUFFER, 0);
 		_ipu_clear_buffer_ready(ipu, channel, IPU_GRAPH_IN_BUFFER, 1);
 	}
-	if (ipu->thrd_chan_en[IPU_CHAN_ID(channel)] && idma_is_valid(thrd_dma)) {
+	if (ipu->thrd_chan_en[chan_id] && idma_is_valid(thrd_dma)) {
 		_ipu_clear_buffer_ready(ipu, channel, IPU_ALPHA_IN_BUFFER, 0);
 		_ipu_clear_buffer_ready(ipu, channel, IPU_ALPHA_IN_BUFFER, 1);
 	}
 	spin_unlock_irqrestore(&ipu->rdy_reg_spin_lock, lock_flags);
 
-	ipu->channel_enable_mask &= ~(1L << IPU_CHAN_ID(channel));
+	ipu->channel_enable_mask &= ~(1L << chan_id);
 
 	if (ipu->prg_clk)
 		clk_disable_unprepare(ipu->prg_clk);
@@ -3217,6 +3273,19 @@ int32_t ipu_swap_channel(struct ipu_soc *ipu, ipu_channel_t from_ch, ipu_channel
 	unsigned long lock_flags;
 	int from_dma = channel_2_dma(from_ch, IPU_INPUT_BUFFER);
 	int to_dma = channel_2_dma(to_ch, IPU_INPUT_BUFFER);
+	int to_chan_id, from_chan_id;
+
+	to_chan_id = get_chan_id(to_ch);
+	if (to_chan_id < 0) {
+		dev_err(ipu->dev, "failed to get TO chan id: %d\n", to_chan_id);
+		return to_chan_id;
+	}
+
+	from_chan_id = get_chan_id(from_ch);
+	if (from_chan_id < 0) {
+		dev_err(ipu->dev, "failed to get FROM chan id: %d\n", from_chan_id);
+		return from_chan_id;
+	}
 
 	mutex_lock(&ipu->mutex_lock);
 
@@ -3224,7 +3293,7 @@ int32_t ipu_swap_channel(struct ipu_soc *ipu, ipu_channel_t from_ch, ipu_channel
 	reg = ipu_idmac_read(ipu, IDMAC_CHA_EN(to_dma));
 	ipu_idmac_write(ipu, reg | idma_mask(to_dma), IDMAC_CHA_EN(to_dma));
 
-	ipu->channel_enable_mask |= 1L << IPU_CHAN_ID(to_ch);
+	ipu->channel_enable_mask |= 1L << to_chan_id;
 
 	/* switch dp dc */
 	_ipu_dp_dc_disable(ipu, from_ch, true);
@@ -3237,7 +3306,7 @@ int32_t ipu_swap_channel(struct ipu_soc *ipu, ipu_channel_t from_ch, ipu_channel
 	ipu_cm_write(ipu, tri_cur_buf_mask(from_dma),
 				IPU_CHA_TRIPLE_CUR_BUF(ipu->devtype, from_dma));
 
-	ipu->channel_enable_mask &= ~(1L << IPU_CHAN_ID(from_ch));
+	ipu->channel_enable_mask &= ~(1L << from_chan_id);
 
 	spin_lock_irqsave(&ipu->rdy_reg_spin_lock, lock_flags);
 	_ipu_clear_buffer_ready(ipu, from_ch, IPU_VIDEO_IN_BUFFER, 0);
