@@ -458,7 +458,7 @@ static void ad4630_fill_scale_tbl(struct ad4630_state *st)
 	int val, val2, tmp0, tmp1, i;
 	u64 tmp2;
 
-	val2 = st->chip->base_word_len;
+	val2 = st->chip->modes[st->out_data].channels->scan_type.realbits;
 	for (i = 0; i < ARRAY_SIZE(ad4630_gains); i++) {
 		val = (st->vref * 2) / 1000;
 		/* Multiply by MILLI here to avoid losing precision */
@@ -1467,11 +1467,6 @@ static int ad4630_probe(struct spi_device *spi)
 		dev_err_probe(&spi->dev, PTR_ERR(st->pga_gpios),
 			      "Failed to get PGA GPIOs\n");
 
-	if (st->pga_gpios) {
-		ad4630_fill_scale_tbl(st);
-		ad4630_set_pga_gain(indio_dev, 0);
-	}
-
 	ret = ad4630_reset(st);
 	if (ret)
 		return ret;
@@ -1479,6 +1474,11 @@ static int ad4630_probe(struct spi_device *spi)
 	ret = ad4630_config(st);
 	if (ret)
 		return ret;
+
+	if (st->pga_gpios) {
+		ad4630_fill_scale_tbl(st);
+		ad4630_set_pga_gain(indio_dev, 0);
+	}
 
 	ret = ad4630_pwm_get(st);
 	if (ret)
