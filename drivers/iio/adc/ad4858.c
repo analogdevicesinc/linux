@@ -417,7 +417,59 @@ static const struct iio_enum axi_crc_control_enum = {
 	.get = axi_crc_control_get,
 };
 
+static ssize_t ad4858_read_shdr_en(struct iio_dev *indio_dev,
+	uintptr_t private, const struct iio_chan_spec *chan,
+	char *buf)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad4858_dev *adc = conv->phy;
+	unsigned int reg;
+	int ret;
+
+	ret = ad4858_spi_reg_read(adc, AD4858_REG_SEAMLESS_HDR, &reg);
+	if (ret)
+		return ret;
+
+	reg &= BIT(chan->address);
+
+	return sysfs_emit(buf, "%d\n", reg ? 1 : 0);
+}
+
+static ssize_t ad4858_write_shdr_en(struct iio_dev *indio_dev,
+	uintptr_t private, const struct iio_chan_spec *chan,
+	const char *buf, size_t len)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad4858_dev *adc = conv->phy;
+	unsigned int reg;
+	bool readin;
+	int ret;
+
+	ret = kstrtobool(buf, &readin);
+	if (ret)
+		return ret;
+
+	ret = ad4858_spi_reg_read(adc, AD4858_REG_SEAMLESS_HDR, &reg);
+	if (ret)
+		return ret;
+
+	if (readin)
+		reg |= BIT(chan->address);
+	else
+		reg &= ~BIT(chan->address);
+
+	ret = ad4858_spi_reg_write(adc, AD4858_REG_SEAMLESS_HDR, reg);
+
+	return ret ? ret : len;
+}
+
 static struct iio_chan_spec_ext_info ad4858_ext_info[] = {
+	{
+		.name = "seamless_high_dynamic_range_en",
+		.read = ad4858_read_shdr_en,
+		.write = ad4858_write_shdr_en,
+		.shared = IIO_SEPARATE,
+	},
 	IIO_ENUM("oversampling_ratio", IIO_SHARED_BY_ALL,
 		 &ad4858_os_ratio),
 	IIO_ENUM_AVAILABLE_SHARED("oversampling_ratio", IIO_SHARED_BY_ALL,
