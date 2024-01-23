@@ -66,7 +66,7 @@ static bool wait_until_neutron_ready(struct neutron_device *ndev, int time_ms)
 	return 0;
 }
 
-struct rproc *neutron_get_rproc(struct neutron_device *ndev)
+static struct rproc *neutron_get_rproc(struct neutron_device *ndev)
 {
 	phandle rproc_phandle;
 	struct rproc *rproc;
@@ -135,7 +135,7 @@ int neutron_rproc_shutdown(struct neutron_device *ndev)
 	return rproc_shutdown(rproc);
 }
 
-void neutron_rproc_put(struct neutron_device *ndev)
+static void neutron_rproc_put(struct neutron_device *ndev)
 {
 	if (!ndev->rproc)
 		return;
@@ -324,7 +324,7 @@ static void neutron_mbox_rx_callback(struct neutron_device *ndev, void *data)
 		neutron_inference_done(ndev);
 }
 
-int neutron_dev_clk_get(struct neutron_device *ndev)
+static int neutron_dev_clk_get(struct neutron_device *ndev)
 {
 	int ret = -ENODEV;
 

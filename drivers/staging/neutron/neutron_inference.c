@@ -70,7 +70,7 @@ static void poll_result_callback(struct timer_list *poll_timer)
 		mod_timer(&inf->poll_timer, jiffies + usecs_to_jiffies(500));
 }
 
-int neutron_inference_run(struct neutron_inference *inf)
+static int neutron_inference_run(struct neutron_inference *inf)
 {
 	struct neutron_device *ndev;
 	struct neutron_mbox_tx_msg msg;
