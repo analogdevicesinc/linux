@@ -111,7 +111,7 @@
 {								\
 	.type = IIO_VOLTAGE,					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
-		BIT(IIO_CHAN_INFO_HARDWAREGAIN) |		\
+		BIT(IIO_CHAN_INFO_CALIBSCALE) |		\
 		BIT(IIO_CHAN_INFO_CALIBBIAS) |			\
 		BIT(IIO_CHAN_INFO_CALIBPHASE) |			\
 		BIT(IIO_CHAN_INFO_SCALE),			\
@@ -727,7 +727,7 @@ static int ad4858_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		*val = adc->sampling_freq;
 		return IIO_VAL_INT;
-	case IIO_CHAN_INFO_HARDWAREGAIN:
+	case IIO_CHAN_INFO_CALIBSCALE:
 		ad4858_get_gain(adc, chan->channel, val);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_OFFSET:
@@ -762,7 +762,7 @@ static int ad4858_write_raw(struct iio_dev *indio_dev,
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		return ad4858_set_sampling_freq(adc, val);
-	case IIO_CHAN_INFO_HARDWAREGAIN:
+	case IIO_CHAN_INFO_CALIBSCALE:
 		return ad4858_set_gain(adc, chan->channel, val);
 	case IIO_CHAN_INFO_OFFSET:
 		return 0;
