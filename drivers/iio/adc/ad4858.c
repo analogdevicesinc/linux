@@ -789,12 +789,6 @@ static int ad4858_reg_access(struct iio_dev *indio_dev,
 	return ad4858_spi_reg_write(adc, reg, writeval);
 }
 
-static const struct iio_info ad4858_info = {
-	.read_raw = ad4858_read_raw,
-	.write_raw = ad4858_write_raw,
-	.debugfs_reg_access = &ad4858_reg_access,
-};
-
 static void ad4858_regulator_disable(void *data)
 {
 	regulator_disable(data);
