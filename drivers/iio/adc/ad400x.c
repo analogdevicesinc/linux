@@ -33,11 +33,50 @@
 #define AD400X_TURBO_MODE(x)	FIELD_PREP(BIT_MASK(1), x)
 #define AD400X_HIGH_Z_MODE(x)	FIELD_PREP(BIT_MASK(2), x)
 
+#define AD400X_CHANNEL(real_bits)					\
+	{								\
+		.type = IIO_VOLTAGE,					\
+		.indexed = 1,						\
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
+			BIT(IIO_CHAN_INFO_SCALE) |			\
+			BIT(IIO_CHAN_INFO_OFFSET),			\
+		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
+		.scan_type = {						\
+			.sign = 's',					\
+			.realbits = real_bits,				\
+			.storagebits = 32,				\
+		},							\
+	}								\
+
 enum ad400x_ids {
 	ID_AD4003,
 	ID_AD4007,
 	ID_AD4011,
 	ID_AD4020,
+};
+
+struct ad400x_chip_info {
+	struct iio_chan_spec chan_spec;
+	int max_rate;
+};
+
+static const struct ad400x_chip_info ad400x_chips[] = {
+	[ID_AD4003] = {
+		.chan_spec = AD400X_CHANNEL(18),
+		.max_rate  = 2000000,
+	},
+	[ID_AD4007] = {
+		.chan_spec = AD400X_CHANNEL(18),
+		.max_rate  = 1000000,
+	},
+	[ID_AD4011] = {
+		.chan_spec = AD400X_CHANNEL(18),
+		.max_rate  =  500000,
+	},
+	[ID_AD4020] = {
+		.chan_spec = AD400X_CHANNEL(20),
+		.max_rate  = 1800000,
+	},
 };
 
 struct ad400x_state {
@@ -50,6 +89,7 @@ struct ad400x_state {
 	struct spi_message spi_msg;
 	struct spi_transfer spi_transfer;
 
+	const struct ad400x_chip_info *chip;
 	bool turbo_mode;
 	bool high_z_mode;
 
@@ -156,29 +196,6 @@ static int ad400x_set_mode(struct ad400x_state *st)
 	return ret;
 }
 
-#define AD400X_CHANNEL(real_bits)					\
-	{								\
-		.type = IIO_VOLTAGE,					\
-		.indexed = 1,						\
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
-			BIT(IIO_CHAN_INFO_SCALE) |			\
-			BIT(IIO_CHAN_INFO_OFFSET),			\
-		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
-		.scan_type = {						\
-			.sign = 's',					\
-			.realbits = real_bits,				\
-			.storagebits = 32,				\
-		},							\
-	}								\
-
-static const struct iio_chan_spec ad400x_channels[] = {
-	AD400X_CHANNEL(18),
-};
-
-static const struct iio_chan_spec ad4020_channel[] = {
-	AD400X_CHANNEL(20),
-};
-
 static int ad400x_single_conversion(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, int *val)
 {
@@ -273,10 +290,10 @@ static const struct iio_info ad400x_info = {
 };
 
 static const struct spi_device_id ad400x_id[] = {
-	{"ad4003", ID_AD4003},
-	{"ad4007", ID_AD4007},
-	{"ad4011", ID_AD4011},
-	{"ad4020", ID_AD4020},
+	{ "ad4003", (kernel_ulong_t)&ad400x_chips[ID_AD4003] },
+	{ "ad4007", (kernel_ulong_t)&ad400x_chips[ID_AD4007] },
+	{ "ad4011", (kernel_ulong_t)&ad400x_chips[ID_AD4011] },
+	{ "ad4020", (kernel_ulong_t)&ad400x_chips[ID_AD4020] },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad400x_id);
@@ -327,23 +344,21 @@ static void ad400x_regulator_disable(void *reg)
 
 static int ad400x_probe(struct spi_device *spi)
 {
+	const struct ad400x_chip_info *chip;
 	struct ad400x_state *st;
 	struct iio_dev *indio_dev;
-	enum ad400x_ids dev_id;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
 		return -ENOMEM;
 
-	dev_id = (enum ad400x_ids)device_get_match_data(&spi->dev);
-	if (!dev_id) {
-		dev_id = (enum ad400x_ids)spi_get_device_id(spi)->driver_data;
-		if (!dev_id)
-			return -EINVAL;
-	}
+	chip = (const struct ad400x_chip_info *)device_get_match_data(&spi->dev);
+	if (!chip)
+		return -EINVAL;
 
 	st = iio_priv(indio_dev);
+	st->chip = chip;
 	st->spi = spi;
 	mutex_init(&st->lock);
 
@@ -365,12 +380,9 @@ static int ad400x_probe(struct spi_device *spi)
 	indio_dev->setup_ops = &ad400x_buffer_setup_ops;
 	indio_dev->info = &ad400x_info;
 
-	if (dev_id == ID_AD4020)
-		indio_dev->channels = ad4020_channel;
-	else
-		indio_dev->channels = ad400x_channels;
-
+	indio_dev->channels = &st->chip->chan_spec;
 	indio_dev->num_channels = 1;
+
 	st->num_bits = indio_dev->channels->scan_type.realbits;
 
 	/* Set turbo mode */
@@ -388,10 +400,10 @@ static int ad400x_probe(struct spi_device *spi)
 }
 
 static const struct of_device_id ad400x_of_match[] = {
-	{ .compatible = "adi,ad4003" },
-	{ .compatible = "adi,ad4007" },
-	{ .compatible = "adi,ad4011" },
-	{ .compatible = "adi,ad4020" },
+	{ .compatible = "adi,ad4003", .data = (struct ad400x_chip_info *)&ad400x_chips[ID_AD4003] },
+	{ .compatible = "adi,ad4007", .data = (struct ad400x_chip_info *)&ad400x_chips[ID_AD4007] },
+	{ .compatible = "adi,ad4011", .data = (struct ad400x_chip_info *)&ad400x_chips[ID_AD4011] },
+	{ .compatible = "adi,ad4020", .data = (struct ad400x_chip_info *)&ad400x_chips[ID_AD4020] },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, ad400x_of_match);
