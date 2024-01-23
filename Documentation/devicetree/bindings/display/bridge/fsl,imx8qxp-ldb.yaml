@@ -58,11 +58,19 @@ properties:
     items:
       - description: pixel clock
       - description: bypass clock
+      - description: pixel mapper DI0 clock gate
+      - description: pixel mapper DI1 clock gate
+      - description: serializer channel0 gate
+      - description: serializer channel1 gate
 
   clock-names:
     items:
       - const: pixel
       - const: bypass
+      - const: ldb_di0
+      - const: ldb_di1
+      - const: ldb_ch0
+      - const: ldb_ch1
 
   power-domains:
     maxItems: 1
@@ -138,14 +146,33 @@ allOf:
       properties:
         compatible:
           contains:
+            enum:
+              - fsl,imx8qm-ldb
+              - fsl,imx8qxp-ldb
+    then:
+      properties:
+        clocks:
+          maxItems: 2
+        clock-names:
+          items:
+            - const: pixel
+            - const: bypass
+
+  - if:
+      properties:
+        compatible:
+          contains:
             const: fsl,imx95-ldb
     then:
       properties:
         clocks:
-          maxItems: 1
+          maxItems: 4
         clock-names:
           items:
-            - const: pixel
+            - const: ldb_di0
+            - const: ldb_di1
+            - const: ldb_ch0
+            - const: ldb_ch1
 
 additionalProperties: false
 
