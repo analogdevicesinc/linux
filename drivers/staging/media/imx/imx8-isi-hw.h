@@ -421,6 +421,19 @@
 #define  CHNL_FLOW_CTRL_FC_NUMER_MASK		0xFF0000
 #define  CHNL_FLOW_CTRL_FC_NUMER_OFFSET		0
 
+/* The AXI limit register offset */
+#define AXI_LIMIT_CONTROL_OFFSET		0x12c
+#define AXI_LIMIT_THRESH1_OFFSET		0x134
+
+/* The AXI limit enable register config */
+#define AXI_LIMIT_LCDIF0_EN			BIT(0)
+#define AXI_LIMIT_LCDIF1_EN			BIT(1)
+#define AXI_LIMIT_ISI_EN			BIT(2)
+#define AXI_LIMIT_DEWARP_EN			BIT(3)
+
+/* The AXI isi limit thresh */
+#define AXI_LIMIT_ISI_THRESH			0x10
+
 enum isi_csi_coeff {
 	YUV2RGB = 0,
 	RGB2YUV,
