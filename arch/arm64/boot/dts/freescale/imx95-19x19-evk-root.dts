@@ -45,13 +45,3 @@
 &usdhc2 {
 	status = "okay";
 };
-
-&scmi_iomuxc {
-	/* Add this to lpuart1 in case need use uart3 for inmate linux */
-	pinctrl_uart3: uart3grp {
-		fsl,pins = <
-			IMX95_PAD_GPIO_IO14__LPUART3_TX      0x31e
-			IMX95_PAD_GPIO_IO15__LPUART3_RX      0x31e
-		>;
-	};
-};
