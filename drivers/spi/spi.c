@@ -3908,6 +3908,8 @@ static int __spi_validate(struct spi_device *spi, struct spi_message *message)
 	if (list_empty(&message->transfers))
 		return -EINVAL;
 
+	message->spi = spi;
+
 	if (spi->cs_index_mask)
 		cs_num = ffs(spi->cs_index_mask) - 1;
 
@@ -3924,9 +3926,6 @@ static int __spi_validate(struct spi_device *spi, struct spi_message *message)
 		int ret;
 
 		maxsize = (spi->bits_per_word + 7) / 8;
-
-		/* spi_split_transfers_maxsize() requires message->spi */
-		message->spi = spi;
 
 		ret = spi_split_transfers_maxsize(ctlr, message, maxsize,
 						  GFP_KERNEL);
@@ -4063,8 +4062,6 @@ static int __spi_async(struct spi_device *spi, struct spi_message *message)
 	 */
 	if (!ctlr->transfer)
 		return -ENOTSUPP;
-
-	message->spi = spi;
 
 	SPI_STATISTICS_INCREMENT_FIELD(ctlr->pcpu_statistics, spi_async);
 	SPI_STATISTICS_INCREMENT_FIELD(spi->pcpu_statistics, spi_async);
@@ -4241,8 +4238,6 @@ static int __spi_sync(struct spi_device *spi, struct spi_message *message)
 	status = __spi_validate(spi, message);
 	if (status != 0)
 		return status;
-
-	message->spi = spi;
 
 	SPI_STATISTICS_INCREMENT_FIELD(ctlr->pcpu_statistics, spi_sync);
 	SPI_STATISTICS_INCREMENT_FIELD(spi->pcpu_statistics, spi_sync);
