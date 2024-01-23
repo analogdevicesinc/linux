@@ -49,7 +49,7 @@
 #define ENETC_RSS_CFGE_DATA_SIZE(n)	(n)
 
 #define NTMP_REQ_RESP_LEN(req, resp)	(((req) << 20 & NTMP_REQ_LEN_MASK) | \
-					 ((resp) & NTMP_REQ_LEN_MASK))
+					 ((resp) & NTMP_RESP_LEN_MASK))
 
 static inline u32 netc_cbdr_read(void __iomem *reg)
 {
@@ -161,14 +161,8 @@ static int netc_xmit_ntmp_cmd(struct netc_cbdr *cbdr, union netc_cbd *cbd)
 
 	spin_lock_irqsave(&cbdr->ring_lock, flags);
 
-	if (unlikely(!netc_get_free_cbd_num(cbdr))) {
+	if (unlikely(!netc_get_free_cbd_num(cbdr)))
 		netc_clean_cbdr(cbdr);
-		/* Check again */
-		if (unlikely(!netc_get_free_cbd_num(cbdr))) {
-			err = -ENOSPC;
-			goto err_unlock;
-		}
-	}
 
 	i = cbdr->next_to_use;
 	ring_cbd = netc_get_cbd(cbdr, i);
@@ -188,14 +182,14 @@ static int netc_xmit_ntmp_cmd(struct netc_cbdr *cbdr, union netc_cbd *cbd)
 		goto err_unlock;
 	}
 
-	netc_clean_cbdr(cbdr);
-
 	/* Check the writeback error status */
 	status = le16_to_cpu(ring_cbd->ntmp_resp_hdr.error_rr) & NTMP_RESP_HDR_ERR;
 	if (unlikely(status)) {
 		dev_err(cbdr->dma_dev, "Command BD error: 0x%04x\n", status);
 		err = -EIO;
 	}
+
+	netc_clean_cbdr(cbdr);
 
 err_unlock:
 	spin_unlock_irqrestore(&cbdr->ring_lock, flags);
@@ -264,7 +258,6 @@ int ntmp_maft_add_entry(struct netc_cbdr *cbdr, u32 entry_id,
 		return -ENOMEM;
 
 	/* Set mac address filter table request data buffer */
-	memset(req, 0, data_size);
 	req->entry_id = cpu_to_le32(entry_id);
 	ether_addr_copy(req->keye.mac_addr, mac_addr);
 	req->cfge.si_bitmap = cpu_to_le16(si_bitmap);
@@ -303,7 +296,6 @@ int ntmp_maft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 		return -ENOMEM;
 
 	/* Set mac address filter table request data buffer */
-	memset(req, 0, sizeof(*req));
 	req->entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */
@@ -351,7 +343,6 @@ int ntmp_maft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 		return -ENOMEM;
 
 	/* Set mac address filter table request data buffer */
-	memset(req, 0, sizeof(*req));
 	req->entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */
@@ -396,7 +387,6 @@ int ntmp_rsst_query_or_update_entry(struct netc_cbdr *cbdr, u32 *table,
 		return -ENOMEM;
 
 	/* Set the request data buffer */
-	memset(req, 0, data_size);
 	if (query) {
 		len = NTMP_REQ_RESP_LEN(sizeof(*req), data_size);
 		ntmp_fill_request_headr(&cbd, dma, len, NTMP_RSST_ID,
@@ -458,7 +448,6 @@ int ntmp_tgst_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 	if (!tmp)
 		return -ENOMEM;
 
-	memset(req, 0, sizeof(*req));
 	req->entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */
@@ -532,7 +521,6 @@ int ntmp_tgst_delete_admin_gate_list(struct netc_cbdr *cbdr, u32 entry_id)
 	/* Set the request data buffer and set the admin control list len
 	 * to zero to delete the existing admin control list.
 	 */
-	memset(req, 0, sizeof(*req));
 	req->crd.update_act = cpu_to_le16(1);
 	req->crd.tbl_ver = 0;
 	req->entry_id = cpu_to_le32(entry_id);
@@ -554,6 +542,23 @@ int ntmp_tgst_delete_admin_gate_list(struct netc_cbdr *cbdr, u32 entry_id)
 }
 EXPORT_SYMBOL_GPL(ntmp_tgst_delete_admin_gate_list);
 
+static u64 ntmp_adjust_base_time(struct netc_cbdr *cbdr, u64 base_time, u32 cycle_time)
+{
+	u64 current_time, delta, n;
+	u32 time_high, time_low;
+
+	time_low = netc_cbdr_read(cbdr->regs.sictr0);
+	time_high = netc_cbdr_read(cbdr->regs.sictr1);
+	current_time = (u64)time_high << 32 | time_low;
+	if (base_time >= current_time)
+		return base_time;
+
+	delta = current_time - base_time;
+	n = DIV_ROUND_UP_ULL(delta, cycle_time);
+
+	return base_time + (n * (u64)cycle_time);
+}
+
 int ntmp_tgst_update_admin_gate_list(struct netc_cbdr *cbdr, u32 entry_id,
 				     struct ntmp_tgst_cfg *cfg)
 {
@@ -563,6 +568,7 @@ int ntmp_tgst_update_admin_gate_list(struct netc_cbdr *cbdr, u32 entry_id,
 	struct tgst_ge *ge;
 	u32 len, data_size;
 	dma_addr_t dma;
+	u64 base_time;
 	int i, err;
 	void *tmp;
 
@@ -576,11 +582,11 @@ int ntmp_tgst_update_admin_gate_list(struct netc_cbdr *cbdr, u32 entry_id,
 	ge = cfge->ge;
 
 	/* Set the request data buffer */
-	memset(req, 0, data_size);
 	req->crd.update_act = cpu_to_le16(1);
 	req->crd.tbl_ver = 0;
 	req->entry_id = cpu_to_le32(entry_id);
-	cfge->admin_bt = cpu_to_le64(cfg->base_time);
+	base_time = ntmp_adjust_base_time(cbdr, cfg->base_time, cfg->cycle_time);
+	cfge->admin_bt = cpu_to_le64(base_time);
 	cfge->admin_ct = cpu_to_le32(cfg->cycle_time);
 	cfge->admin_ct_ext = cpu_to_le32(cfg->cycle_time_extension);
 	cfge->admin_cl_len = cpu_to_le16(cfg->num_entries);
@@ -624,7 +630,6 @@ int ntmp_rpt_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_rpt_cfg *cf
 	if (!tmp)
 		return -ENOMEM;
 
-	memset(req, 0, data_size);
 	req->crd.update_act = cpu_to_le16(0xf);
 	req->entry_id = cpu_to_le32(cfg->rp_eid);
 	req->cfge.cbs = cpu_to_le32(cfg->cbs);
@@ -669,7 +674,6 @@ int ntmp_rpt_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 		return -ENOMEM;
 
 	/* Request data */
-	memset(req, 0, sizeof(*req));
 	req->entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */
@@ -735,7 +739,6 @@ int ntmp_rpt_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 	if (!tmp)
 		return -ENOMEM;
 
-	memset(req, 0, sizeof(*req));
 	req->entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */
@@ -771,7 +774,6 @@ int ntmp_isit_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_isit_cfg *
 	if (!tmp)
 		return -ENOMEM;
 
-	memset(req, 0, sizeof(*req));
 	if (!add)
 		req->crd.update_act = cpu_to_le16(1);
 	else
@@ -841,7 +843,6 @@ int ntmp_isit_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 	if (!tmp)
 		return -ENOMEM;
 
-	memset(req, 0, sizeof(*req));
 	req->ak.entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */
@@ -891,7 +892,6 @@ int ntmp_isit_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 	if (!tmp)
 		return -ENOMEM;
 
-	memset(req, 0, sizeof(*req));
 	req->ak.entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */
@@ -926,7 +926,6 @@ int ntmp_ist_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_ist_cfg *cf
 		return -ENOMEM;
 
 	/* Fill up NTMP request data buffer */
-	memset(req, 0, sizeof(*req));
 	req->crd.update_act = cpu_to_le16(1);
 	req->entry_id = cpu_to_le32(cfg->is_eid);
 	req->cfge.sfe = cfg->sfe;
@@ -937,7 +936,7 @@ int ntmp_ist_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_ist_cfg *cf
 	req->cfge.isc_eid = cpu_to_le32(cfg->isc_eid);
 	req->cfge.si_bitmap = cpu_to_le16(cfg->si_bitmap);
 	req->cfge.orp = cfg->orp;
-	req->cfge.osgi = cfg->orp;
+	req->cfge.osgi = cfg->osgi;
 
 	/* Request header */
 	len = NTMP_REQ_RESP_LEN(data_size, 0);
@@ -975,7 +974,6 @@ int ntmp_ist_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 		return -ENOMEM;
 
 	/* Fill up NTMP request data buffer */
-	memset(req, 0, data_size);
 	req->entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */
@@ -1036,7 +1034,6 @@ int ntmp_ist_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 		return -ENOMEM;
 
 	/* Fill up NTMP request data buffer */
-	memset(req, 0, data_size);
 	req->entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */
@@ -1071,7 +1068,6 @@ int ntmp_isft_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_isft_cfg *
 	if (!tmp)
 		return -ENOMEM;
 
-	memset(req, 0, data_size);
 	req->crd.update_act = cpu_to_le16(1);
 	if (add)
 		req->crd.query_act = 1;
@@ -1146,7 +1142,6 @@ int ntmp_isft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 	if (!tmp)
 		return -ENOMEM;
 
-	memset(req, 0, sizeof(*req));
 	req->ak.entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */
@@ -1206,7 +1201,6 @@ int ntmp_isft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 		return -ENOMEM;
 
 	/* Fill up NTMP request data buffer */
-	memset(req, 0, data_size);
 	req->ak.entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */
@@ -1252,7 +1246,7 @@ static u32 ntmp_sgclt_find_free_entry_id(struct netc_cbdr *cbdr, u32 entry_size)
 		entry_id = find_first_zero_bit(cbdr->sgclt_used_words,
 					       cbdr->sgclt_words_num);
 		if (entry_id == cbdr->sgclt_words_num)
-			return -1;
+			return NTMP_NULL_ENTRY_ID;
 
 		next_eid = find_next_bit(cbdr->sgclt_used_words,
 					 cbdr->sgclt_words_num,
@@ -1262,7 +1256,7 @@ static u32 ntmp_sgclt_find_free_entry_id(struct netc_cbdr *cbdr, u32 entry_size)
 		 next_eid != cbdr->sgclt_words_num);
 
 	if (size < entry_size)
-		return -1;
+		return NTMP_NULL_ENTRY_ID;
 
 	for (i = entry_id; i < entry_id + entry_size; i++)
 		set_bit(i, cbdr->sgclt_used_words);
@@ -1284,9 +1278,10 @@ static int ntmp_sgclt_add_entry(struct netc_cbdr *cbdr, struct ntmp_sgclt_cfg *s
 	u32 data_size, entry_size, len;
 	struct sgclt_req_add *req;
 	u64 total_interval = 0;
-	int i, entry_id, err;
 	union netc_cbd cbd;
 	dma_addr_t dma;
+	u32 entry_id;
+	int i, err;
 	void *tmp;
 
 	data_size = struct_size(req, cfge.ge, sgcl->num_gates);
@@ -1295,7 +1290,6 @@ static int ntmp_sgclt_add_entry(struct netc_cbdr *cbdr, struct ntmp_sgclt_cfg *s
 		return -ENOMEM;
 
 	/* Fill up NTMP request data buffer */
-	memset(req, 0, data_size);
 	req->cfge.ct = cpu_to_le32(sgcl->ct);
 	req->cfge.ext_gtst = 1;
 	if (sgcl->init_ipv >= 0) {
@@ -1337,7 +1331,7 @@ static int ntmp_sgclt_add_entry(struct netc_cbdr *cbdr, struct ntmp_sgclt_cfg *s
 
 	entry_size = 1 + (sgcl->num_gates + 1) / 2;
 	entry_id = ntmp_sgclt_find_free_entry_id(cbdr, entry_size);
-	if (entry_id < 0) {
+	if (entry_id == NTMP_NULL_ENTRY_ID) {
 		dev_err(cbdr->dma_dev,
 			"Not enough free words in the SGCL table!\n");
 		err = -ENOSPC;
@@ -1387,7 +1381,6 @@ int ntmp_sgclt_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 		return -ENOMEM;
 
 	/* Fill up NTMP request data buffer */
-	memset(req, 0, data_size);
 	req->entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */
@@ -1449,7 +1442,6 @@ static int ntmp_sgclt_delete_entry(struct netc_cbdr *cbdr, u32 entry_id, u32 ent
 		return -ENOMEM;
 
 	/* Fill up NTMP request data buffer */
-	memset(req, 0, data_size);
 	req->entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */
@@ -1476,14 +1468,17 @@ int ntmp_sgit_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_sgit_cfg *
 	union netc_cbd cbd;
 	u32 data_size, len;
 	dma_addr_t dma;
+	u64 base_time;
 	void *tmp;
 	int err;
 
+	base_time = sgi->admin_bt;
 	if (sgcl) {
 		err = ntmp_sgclt_add_entry(cbdr, sgcl);
 		if (err)
 			return err;
 		sgi->admin_sgcl_eid = sgcl->sgcl_eid;
+		base_time = ntmp_adjust_base_time(cbdr, sgi->admin_bt, sgcl->ct);
 	}
 
 	data_size = sizeof(*req);
@@ -1491,11 +1486,10 @@ int ntmp_sgit_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_sgit_cfg *
 	if (!tmp)
 		return -ENOMEM;
 
-	memset(req, 0, data_size);
 	req->crd.update_act = cpu_to_le16(7);
 	req->entry_id = cpu_to_le32(sgi->sgi_eid);
 	req->acfge.admin_sgcl_eid = cpu_to_le32(sgi->admin_sgcl_eid);
-	req->acfge.admin_bt = cpu_to_le64(sgi->admin_bt);
+	req->acfge.admin_bt = cpu_to_le64(base_time);
 	req->acfge.admin_ct_ext = cpu_to_le32(sgi->admin_ct_ext);
 	/* Specify the gate state to be open before the admin stream
 	 * control list takes affect.
@@ -1544,7 +1538,6 @@ int ntmp_sgit_query_entry(struct netc_cbdr *cbdr, u32 sgi_eid,
 	if (!tmp)
 		return -ENOMEM;
 
-	memset(req, 0, sizeof(*req));
 	req->entry_id = cpu_to_le32(sgi_eid);
 
 	/* Request header */
@@ -1637,7 +1630,6 @@ int ntmp_sgit_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 	}
 
 	/* Fill up NTMP request data buffer */
-	memset(req, 0, data_size);
 	req->entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */
@@ -1727,7 +1719,6 @@ int ntmp_isct_operate_entry(struct netc_cbdr *cbdr, u32 entry_id, int cmd,
 	if (!tmp)
 		return -ENOMEM;
 
-	memset(req, 0, sizeof(*req));
 	if (cmd & NTMP_CMD_UPDATE)
 		req->crd.update_act = cpu_to_le16(1);
 	req->entry_id = cpu_to_le32(entry_id);
@@ -1788,7 +1779,6 @@ int ntmp_ipft_add_entry(struct netc_cbdr *cbdr, struct ntmp_ipft_key *key,
 		return -ENOMEM;
 
 	/* Fill up NTMP request data buffer */
-	memset(req, 0, sizeof(*req));
 	req->crd.update_act = cpu_to_le16(3);
 	req->crd.query_act = 1;
 	req->keye.precedence = cpu_to_le16(key->precedence);
@@ -1869,8 +1859,6 @@ int ntmp_ipft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 	if (!tmp)
 		return -ENOMEM;
 
-	/* Fill up NTMP request data buffer */
-	memset(req, 0, sizeof(*req));
 	/* Full Query */
 	req->crd.query_act = 0;
 	req->entry_id = cpu_to_le32(entry_id);
@@ -1957,7 +1945,6 @@ int ntmp_ipft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 		return -ENOMEM;
 
 	/* Set mac address filter table request data buffer */
-	memset(req, 0, sizeof(*req));
 	req->entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */

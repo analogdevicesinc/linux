@@ -22,6 +22,9 @@
 #define NTMP_TGST_MAX_ENTRY_NUM		64
 #define NTMP_SGCLT_MAX_GE_NUM		256
 
+#define NTMP_TGST_MAX_CT_PLUS_CT_EXT	0xffffffffU
+#define NTMP_SGIT_MAX_CT_PLUS_CT_EXT	0X3fffffff
+
 #define NTMP_ISIT_KEY_TYPE0_SMAC_VLAN	0
 #define NTMP_ISIT_KEY_TYPE1_DMAC_VLAN	1
 #define NTMP_ISIT_FRMAE_UNTAG		0
@@ -111,6 +114,10 @@ struct netc_cbdr_regs {
 	void __iomem *bar0;
 	void __iomem *bar1;
 	void __iomem *lenr;
+
+	/* station interface current time register */
+	void __iomem *sictr0;
+	void __iomem *sictr1;
 };
 
 struct netc_cbdr {

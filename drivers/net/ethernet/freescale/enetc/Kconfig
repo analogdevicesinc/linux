@@ -25,6 +25,22 @@ config FSL_ENETC
 
 	  If compiled as module (M), the module name is fsl-enetc.
 
+config FSL_ENETC4
+	tristate "ENETC4 PF driver"
+	depends on PCI_MSI && FSL_NETC_PRB_IERB
+	select MDIO_DEVRES
+	select FSL_ENETC_CORE
+	select FSL_ENETC_MDIO
+	select PHYLINK
+	select PCS_LYNX
+	select DIMLIB
+	help
+	  This driver supports the revision 4 of NXP ENETC (Ethernet Controller)
+	  PCIe physical function (PF) devices, managing ENETC Ports at a
+	  privileged level.
+
+	  If compiled as module (M), the module name is fsl-enetc4.
+
 config FSL_ENETC_VF
 	tristate "ENETC VF driver"
 	depends on PCI_MSI
@@ -79,7 +95,7 @@ config FSL_ENETC_PTP_CLOCK
 
 config FSL_ENETC_QOS
 	bool "ENETC hardware Time-sensitive Network support"
-	depends on (FSL_ENETC || FSL_ENETC_VF) && (NET_SCH_TAPRIO || NET_SCH_CBS)
+	depends on (FSL_ENETC || FSL_ENETC4 || FSL_ENETC_VF) && (NET_SCH_TAPRIO || NET_SCH_CBS)
 	help
 	  There are Time-Sensitive Network(TSN) capabilities(802.1Qbv/802.1Qci
 	  /802.1Qbu etc.) supported by ENETC. These TSN capabilities can be set
@@ -89,6 +105,7 @@ config FSL_ENETC_QOS
 
 config FSL_NTMP
 	bool "NETC NTMP driver"
+	depends on FSL_ENETC4 || FSL_ENETC_VF
 	help
 	  Some NETC functionality is controlled using control messages
 	  sent to the hardware using BD ring interface with 32 bytes

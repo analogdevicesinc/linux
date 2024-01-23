@@ -3,8 +3,8 @@
 
 #include "enetc.h"
 
-int enetc_setup_cbdr(struct device *dev, struct enetc_hw *hw, int bd_count,
-		     struct enetc_cbdr *cbdr)
+static int enetc_setup_cbdr(struct device *dev, struct enetc_hw *hw,
+			    int bd_count, struct enetc_cbdr *cbdr)
 {
 	int size = bd_count * sizeof(struct enetc_cbd);
 
@@ -44,9 +44,38 @@ int enetc_setup_cbdr(struct device *dev, struct enetc_hw *hw, int bd_count,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(enetc_setup_cbdr);
 
-void enetc_teardown_cbdr(struct enetc_cbdr *cbdr)
+static int enetc4_setup_cbdr(struct device *dev, struct enetc_hw *hw,
+			     int bd_count, struct netc_cbdr *cbdr)
+{
+	struct netc_cbdr_regs regs;
+
+	regs.pir = hw->reg + ENETC_SICBDRPIR;
+	regs.cir = hw->reg + ENETC_SICBDRCIR;
+	regs.mr = hw->reg + ENETC_SICBDRMR;
+	regs.bar0 = hw->reg + ENETC_SICBDRBAR0;
+	regs.bar1 = hw->reg + ENETC_SICBDRBAR1;
+	regs.lenr = hw->reg + ENETC_SICBDRLENR;
+	regs.sictr0 =  hw->reg + ENETC_SICTR0;
+	regs.sictr1 =  hw->reg + ENETC_SICTR1;
+
+	return netc_setup_cbdr(dev, bd_count, &regs, cbdr);
+}
+
+int enetc_init_cbdr(struct enetc_si *si)
+{
+	if (is_enetc_rev1(si))
+		return enetc_setup_cbdr(&si->pdev->dev, &si->hw,
+					ENETC_CBDR_DEFAULT_SIZE,
+					&si->cbd_ring);
+	else
+		return enetc4_setup_cbdr(&si->pdev->dev, &si->hw,
+					 NETC_CBDR_BD_NUM,
+					 &si->cbdr);
+}
+EXPORT_SYMBOL_GPL(enetc_init_cbdr);
+
+static void enetc_teardown_cbdr(struct enetc_cbdr *cbdr)
 {
 	int size = cbdr->bd_count * sizeof(struct enetc_cbd);
 
@@ -58,7 +87,20 @@ void enetc_teardown_cbdr(struct enetc_cbdr *cbdr)
 	cbdr->bd_base = NULL;
 	cbdr->dma_dev = NULL;
 }
-EXPORT_SYMBOL_GPL(enetc_teardown_cbdr);
+
+static void enetc4_teardown_cbdr(struct netc_cbdr *cbdr)
+{
+	netc_free_cbdr(cbdr);
+}
+
+void enetc_free_cbdr(struct enetc_si *si)
+{
+	if (is_enetc_rev1(si))
+		enetc_teardown_cbdr(&si->cbd_ring);
+	else
+		enetc4_teardown_cbdr(&si->cbdr);
+}
+EXPORT_SYMBOL_GPL(enetc_free_cbdr);
 
 static void enetc_clean_cbdr(struct enetc_cbdr *ring)
 {
