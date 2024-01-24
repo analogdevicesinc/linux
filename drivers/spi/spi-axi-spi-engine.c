@@ -628,6 +628,8 @@ static int spi_engine_transfer_one_message(struct spi_master *master,
 		return -ENOMEM;
 	spi_engine_compile_message(spi_engine, msg, false, p);
 
+	mod_timer(&spi_engine->watchdog_timer, jiffies + 5 * HZ);
+
 	spin_lock_irqsave(&spi_engine->lock, flags);
 	spi_engine->sync_id = (spi_engine->sync_id + 1) & 0xff;
 	spi_engine_program_add_cmd(p, false,
@@ -655,8 +657,6 @@ static int spi_engine_transfer_one_message(struct spi_master *master,
 		spi_engine->base + SPI_ENGINE_REG_INT_ENABLE);
 	spi_engine->int_enable = int_enable;
 	spin_unlock_irqrestore(&spi_engine->lock, flags);
-
-	mod_timer(&spi_engine->watchdog_timer, jiffies + 5*HZ);
 
 	return 0;
 }
