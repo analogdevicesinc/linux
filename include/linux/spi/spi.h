@@ -20,7 +20,7 @@
 #include <linux/u64_stats_sync.h>
 
 /* Max no. of CS supported per spi device */
-#define SPI_CS_CNT_MAX 4
+#define SPI_CS_CNT_MAX 16
 
 /* chip select mask */
 #define SPI_PARALLEL_CS_MASK	(BIT(0) | BIT(1))
