@@ -262,6 +262,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-ft5406.dtbo \
 	rpi-lm75.dtbo \
 	rpi-ltc2497.dtbo \
+	rpi-ltc2664.dtbo \
 	rpi-ltc2688.dtbo \
 	rpi-ltc2991.dtbo \
 	rpi-ltc6952.dtbo \
