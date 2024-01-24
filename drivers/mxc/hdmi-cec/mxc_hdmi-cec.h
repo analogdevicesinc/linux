@@ -35,4 +35,6 @@
 #define HDMICEC_IOC_GETPHYADDRESS	\
 				_IOR(HDMICEC_IOC_MAGIC, 4, unsigned char[4])
 
+void mxc_hdmi_cec_handle(u16 cec_stat);
+
 #endif				/* !_HDMICEC_H_ */
