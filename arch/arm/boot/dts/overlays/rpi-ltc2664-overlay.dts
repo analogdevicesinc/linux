@@ -1,0 +1,79 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Overlay for the 4 channel LTC2664 DAC
+ *
+ * Copyright 2024 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+};
+
+&{/} {
+	vcc: fixedregulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+	};
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	ltc2688: ltc2688@0 {
+		compatible = "adi,ltc2664";
+		reg = <0>;
+		spi-max-frequency = <5000000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		vcc-supply = <&vcc>;
+		iovcc-supply = <&vcc>;
+
+		adi,manual-span-operation-config = <7>;
+
+		channel@0 {
+			reg = <0>;
+			adi,output-range-microvolt = <(-10000000) 10000000>;
+		};
+
+		channel@1 {
+			reg = <1>;
+			adi,output-range-microvolt = <(-10000000) 10000000>;
+			adi,toggle-mode;
+		};
+
+		channel@2 {
+			reg = <2>;
+			adi,output-range-microvolt = <(-10000000) 10000000>;
+		};
+
+		channel@3 {
+			reg = <3>;
+			adi,output-range-microvolt = <(-10000000) 10000000>;
+		};
+	};
+};
+
+/ {
+	__overrides__ {
+		cs_pin = <&ltc2688>,"reg:0";
+	};
+};
