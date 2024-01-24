@@ -279,7 +279,7 @@ static int mipi_dsi_pkt_read(struct mipi_dsi_info *mipi_dsi,
 	return 0;
 }
 
-int mipi_dsi_dcs_cmd(struct mipi_dsi_info *mipi_dsi,
+static int mipi_dsi_dcs_cmd(struct mipi_dsi_info *mipi_dsi,
 				u8 cmd, const u32 *param, int num)
 {
 	int err = 0;

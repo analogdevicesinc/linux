@@ -522,7 +522,7 @@ static int mipi_dsi_power_on(struct mxc_dispdrv_handle *disp)
 	return 0;
 }
 
-void mipi_dsi_power_off(struct mxc_dispdrv_handle *disp)
+static void mipi_dsi_power_off(struct mxc_dispdrv_handle *disp)
 {
 	int err;
 	struct mipi_dsi_info *mipi_dsi = mxc_dispdrv_getdata(disp);

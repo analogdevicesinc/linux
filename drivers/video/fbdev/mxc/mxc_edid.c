@@ -187,7 +187,7 @@ const struct fb_videomode mxc_cea_mode[64] = {
  * pixclock, since for many CEA modes, 2 frequencies are supported
  * e.g. 640x480 @ 60Hz or 59.94Hz
  */
-int mxc_edid_fb_mode_is_equal(bool use_aspect,
+static int mxc_edid_fb_mode_is_equal(bool use_aspect,
 			const struct fb_videomode *mode1,
 			const struct fb_videomode *mode2)
 {

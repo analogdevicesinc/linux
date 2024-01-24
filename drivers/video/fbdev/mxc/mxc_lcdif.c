@@ -89,7 +89,7 @@ static int lcdif_init(struct mxc_dispdrv_handle *disp,
 	return ret;
 }
 
-void lcdif_deinit(struct mxc_dispdrv_handle *disp)
+static void lcdif_deinit(struct mxc_dispdrv_handle *disp)
 {
 	/*TODO*/
 }

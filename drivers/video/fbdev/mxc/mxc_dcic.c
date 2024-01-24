@@ -194,7 +194,7 @@ static void dcic_enable(struct dcic_data *dcic)
 	writel(val, &dcic->regs->dcicc);
 }
 
-void dcic_disable(struct dcic_data *dcic)
+static void dcic_disable(struct dcic_data *dcic)
 {
 	u32 val;
 
