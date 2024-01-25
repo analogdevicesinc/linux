@@ -21,6 +21,7 @@
 #include <linux/slab.h>
 #include <linux/of_graph.h>
 #include <linux/videodev2.h>
+#include <linux/regmap.h>
 #include <media/v4l2-device.h>
 #include <media/v4l2-ioctl.h>
 #include <media/v4l2-mem2mem.h>
@@ -986,6 +987,40 @@ static int mxc_isi_m2m_g_fmt_vid_out(struct file *file, void *fh,
 	return 0;
 }
 
+static void mxc_isi_axi_limit_set(struct mxc_isi_m2m_dev *isi_m2m)
+{
+	u32 val = 0;
+
+	if (!isi_m2m->gpr)
+		return;
+
+	regmap_read(isi_m2m->gpr, AXI_LIMIT_CONTROL_OFFSET, &val);
+	isi_m2m->saved_axi_limit_isi_en = val;
+	val |= AXI_LIMIT_ISI_EN;
+	regmap_write(isi_m2m->gpr, AXI_LIMIT_CONTROL_OFFSET, val);
+
+	regmap_read(isi_m2m->gpr, AXI_LIMIT_THRESH1_OFFSET, &val);
+	isi_m2m->saved_axi_isi_thresh = val;
+	val |= AXI_LIMIT_ISI_THRESH;
+	regmap_write(isi_m2m->gpr, AXI_LIMIT_THRESH1_OFFSET, val);
+}
+
+static void mxc_isi_axi_limit_clear(struct mxc_isi_m2m_dev *isi_m2m)
+{
+	u32 val = 0;
+
+	if (!isi_m2m->gpr)
+		return;
+
+	val = isi_m2m->saved_axi_limit_isi_en;
+	regmap_write(isi_m2m->gpr, AXI_LIMIT_CONTROL_OFFSET, val);
+
+	val = isi_m2m->saved_axi_isi_thresh;
+	regmap_write(isi_m2m->gpr, AXI_LIMIT_THRESH1_OFFSET, val);
+
+	isi_m2m->saved_axi_limit_isi_en = 0;
+	isi_m2m->saved_axi_isi_thresh = 0;
+}
 static int mxc_isi_m2m_streamon(struct file *file, void *priv,
 			     enum v4l2_buf_type type)
 {
@@ -1011,6 +1046,8 @@ static int mxc_isi_m2m_streamon(struct file *file, void *priv,
 		mxc_isi_channel_config_loc(mxc_isi, src_f, dst_f);
 	}
 
+	mxc_isi_axi_limit_set(isi_m2m);
+
 	ret = v4l2_m2m_ioctl_streamon(file, priv, type);
 
 	return ret;
@@ -1025,6 +1062,8 @@ static int mxc_isi_m2m_streamoff(struct file *file, void *priv,
 
 	if (type == V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE)
 		mxc_isi_channel_disable_loc(mxc_isi);
+
+	mxc_isi_axi_limit_clear(isi_m2m);
 
 	ret = v4l2_m2m_ioctl_streamoff(file, priv, type);
 
@@ -1278,12 +1317,36 @@ void mxc_isi_m2m_ctrls_delete(struct mxc_isi_m2m_dev *isi_m2m)
 	}
 }
 
+static int mxc_isi_m2m_get_blk_ctl_regmap(struct mxc_isi_m2m_dev *isi_m2m)
+{
+	struct device *dev = &isi_m2m->pdev->dev;
+	struct device_node *np = dev->of_node;
+	struct property *prop;
+	int sz, ret = 0;
+
+	prop = of_find_property(np, "fsl,gpr", &sz);
+	if (!prop) {
+		dev_err(dev, "%s missed gpr node!\n", __func__);
+		return -EINVAL;
+	}
+
+	isi_m2m->gpr = syscon_regmap_lookup_by_phandle(np, "fsl,gpr");
+	if (IS_ERR(isi_m2m->gpr)) {
+		ret = PTR_ERR(isi_m2m->gpr);
+		isi_m2m->gpr = NULL;
+		dev_err(dev, "%s failed to get regmap of blk ctl!\n", __func__);
+	}
+
+	return ret;
+}
+
 static int isi_m2m_probe(struct platform_device *pdev)
 {
 	struct mxc_isi_dev *mxc_isi;
 	struct mxc_isi_m2m_dev *isi_m2m;
 	struct v4l2_device *v4l2_dev;
 	struct video_device *vdev;
+	struct device_node *parent;
 	int ret = -ENOMEM;
 
 	isi_m2m = devm_kzalloc(&pdev->dev, sizeof(*isi_m2m), GFP_KERNEL);
@@ -1313,6 +1376,9 @@ static int isi_m2m_probe(struct platform_device *pdev)
 	isi_m2m->ycbcr_enc = V4L2_MAP_YCBCR_ENC_DEFAULT(isi_m2m->colorspace);
 	isi_m2m->xfer_func = V4L2_XFER_FUNC_SRGB;
 
+	isi_m2m->saved_axi_limit_isi_en = 0;
+	isi_m2m->saved_axi_isi_thresh = 0;
+
 	spin_lock_init(&isi_m2m->slock);
 	mutex_init(&isi_m2m->lock);
 
@@ -1321,6 +1387,20 @@ static int isi_m2m_probe(struct platform_device *pdev)
 	if (IS_ERR(isi_m2m->m2m_dev)) {
 		dev_err(&pdev->dev, "%s fail to get m2m device\n", __func__);
 		return PTR_ERR(isi_m2m->m2m_dev);
+	}
+
+	/* get the media_blk_ctl regmap, just an work around to fix the isi
+	 * m2m case met system hung issue on imx8mp platform. isi m2m needs
+	 * to use media_blk_ctl registers to configure the isi axi limit
+	 * when do isi m2m.
+	 */
+	isi_m2m->gpr = NULL;
+	parent = of_get_parent(isi_m2m->pdev->dev.of_node);
+	if (of_device_is_compatible(parent, "fsl,imx8mp-isi")) {
+		ret = mxc_isi_m2m_get_blk_ctl_regmap(isi_m2m);
+		if (ret)
+			dev_err(&pdev->dev, "%s failed to find gpr regmap\n",
+				__func__);
 	}
 
 	/* V4L2 device */
