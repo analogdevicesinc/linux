@@ -3025,11 +3025,11 @@ static int wave6_vpu_enc_check_conf_win_size_param(struct vpu_instance *vpu_inst
 			conf_win.left, conf_win.top, conf_win.right, conf_win.bottom);
 		return -EINVAL;
 	}
-	if ((conf_win.right - conf_win.left) > width) {
+	if ((conf_win.right + conf_win.left) > width) {
 		dev_err(dev, "conf_win.left: %d, conf_win.right: %d, width: %d\n", conf_win.left, conf_win.right, width);
 		return -EINVAL;
 	}
-	if ((conf_win.bottom - conf_win.top) > height) {
+	if ((conf_win.bottom + conf_win.top) > height) {
 		dev_err(dev, "conf_win.top: %d, conf_win.bottom: %d, height: %d\n", conf_win.top, conf_win.bottom, height);
 		return -EINVAL;
 	}

@@ -1202,7 +1202,10 @@ static int wave6_vpu_enc_s_fmt_out(struct file *file, void *fh, struct v4l2_form
 	inst->xfer_func = pix_mp->xfer_func;
 
 	wave6_update_pix_fmt(&inst->dst_fmt, pix_mp->width, pix_mp->height);
-
+	inst->crop.left = 0;
+	inst->crop.top = 0;
+	inst->crop.width = inst->dst_fmt.width;
+	inst->crop.height = inst->dst_fmt.height;
 	return 0;
 }
 
@@ -1252,12 +1255,7 @@ static int wave6_vpu_enc_g_selection(struct file *file, void *fh, struct v4l2_se
 		s->r.height = inst->dst_fmt.height;
 		break;
 	case V4L2_SEL_TGT_CROP:
-		s->r.left = 0;
-		s->r.top = 0;
-		s->r.width = inst->dst_fmt.width;
-		s->r.height = inst->dst_fmt.height;
-		dev_dbg(inst->dev->dev, "V4L2_SEL_TGT_CROP width : %d | height : %d\n",
-			s->r.width, s->r.height);
+		s->r = inst->crop;
 		break;
 	default:
 		return -EINVAL;
@@ -1279,11 +1277,16 @@ static int wave6_vpu_enc_s_selection(struct file *file, void *fh, struct v4l2_se
 	dev_dbg(inst->dev->dev, "V4L2_SEL_TGT_CROP width : %d | height : %d\n",
 		s->r.width, s->r.height);
 
-	s->r.left = 0;
-	s->r.top = 0;
-	s->r.width = inst->src_fmt.width;
-	s->r.height = inst->src_fmt.height;
+	if (s->r.width > inst->dst_fmt.width ||
+	    s->r.height > inst->dst_fmt.height)
+		return -EINVAL;
 
+	s->r.left = ALIGN(s->r.left, 2);
+	s->r.top = ALIGN(s->r.top, 2);
+	s->r.width = ALIGN(s->r.width, 2);
+	s->r.height = ALIGN(s->r.height, 2);
+
+	inst->crop = s->r;
 	return 0;
 }
 
@@ -2011,6 +2014,12 @@ static void wave6_set_enc_open_param(struct enc_open_param *open_param,
 	output->max_qp_b = input->max_qp_b;
 	output->intra_period = input->intra_period;
 	output->forced_idr_header = inst->repeat_seq_header;
+	output->conf_win.top = inst->crop.top;
+	output->conf_win.left = inst->crop.left;
+	output->conf_win.right = inst->dst_fmt.width - inst->crop.left
+				 - inst->crop.width;
+	output->conf_win.bottom = inst->dst_fmt.height - inst->crop.top
+				  - inst->crop.height;
 
 	switch (inst->std) {
 	case W_AVC_ENC:
@@ -2622,6 +2631,10 @@ static int wave6_vpu_open_enc(struct file *filp)
 	v4l2_ctrl_handler_setup(v4l2_ctrl_hdl);
 
 	wave6_set_default_format(&inst->src_fmt, &inst->dst_fmt);
+	inst->crop.left = 0;
+	inst->crop.top = 0;
+	inst->crop.width = inst->dst_fmt.width;
+	inst->crop.height = inst->dst_fmt.height;
 	inst->colorspace = V4L2_COLORSPACE_DEFAULT;
 	inst->ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
 	inst->quantization = V4L2_QUANTIZATION_DEFAULT;
