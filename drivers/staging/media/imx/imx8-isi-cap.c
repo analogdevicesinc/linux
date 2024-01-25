@@ -769,10 +769,12 @@ static int mxc_isi_capture_release(struct file *file)
 
 label:
 	mutex_lock(&mxc_isi->lock);
-	mxc_isi->cap_enabled = false;
+	if (atomic_read(&mxc_isi->usage_count) == 0) {
+		mxc_isi->cap_enabled = false;
+		pm_runtime_put(dev);
+	}
 	mutex_unlock(&mxc_isi->lock);
 
-	pm_runtime_put(dev);
 	return (ret) ? ret : 0;
 }
 
