@@ -51,15 +51,17 @@ void sec_raise_irq(struct adi_sec *sec, unsigned int irq)
 	adi_sec_writel(sid, sec, ADI_SEC_REG_RAISE);
 	spin_unlock_irqrestore(&sec->lock, flags);
 }
+
 EXPORT_SYMBOL(sec_raise_irq);
 
-void sec_enable_ssi(struct adi_sec *sec, unsigned int sid, bool fault, bool source)
+void sec_enable_ssi(struct adi_sec *sec, unsigned int sid, bool fault,
+		    bool source)
 {
 	unsigned long flags;
 	u32 val;
 	u32 offset;
 
-	offset = ADI_SEC_REG_SCTL_BASE + 8*sid;
+	offset = ADI_SEC_REG_SCTL_BASE + 8 * sid;
 
 	spin_lock_irqsave(&sec->lock, flags);
 	val = adi_sec_readl(sec, offset);
@@ -75,6 +77,7 @@ void sec_enable_ssi(struct adi_sec *sec, unsigned int sid, bool fault, bool sour
 	adi_sec_writel(val, sec, offset);
 	spin_unlock_irqrestore(&sec->lock, flags);
 }
+
 EXPORT_SYMBOL(sec_enable_ssi);
 
 void sec_enable_sci(struct adi_sec *sec, unsigned int coreid)
@@ -84,11 +87,12 @@ void sec_enable_sci(struct adi_sec *sec, unsigned int coreid)
 	u32 offset;
 
 	if (coreid == 0 || coreid > sec->cores) {
-		dev_err(sec->dev, "Invalid core ID given to %s: %d\n", __func__, coreid);
+		dev_err(sec->dev, "Invalid core ID given to %s: %d\n",
+			__func__, coreid);
 		return;
 	}
 
-	offset = ADI_SEC_REG_CCTL_BASE + coreid*ADI_SEC_CCTL_SIZE;
+	offset = ADI_SEC_REG_CCTL_BASE + coreid * ADI_SEC_CCTL_SIZE;
 
 	spin_lock_irqsave(&sec->lock, flags);
 	val = adi_sec_readl(sec, offset);
@@ -96,20 +100,23 @@ void sec_enable_sci(struct adi_sec *sec, unsigned int coreid)
 	adi_sec_writel(val, sec, offset);
 	spin_unlock_irqrestore(&sec->lock, flags);
 }
+
 EXPORT_SYMBOL(sec_enable_sci);
 
-void sec_set_ssi_coreid(struct adi_sec *sec, unsigned int sid, unsigned int coreid)
+void sec_set_ssi_coreid(struct adi_sec *sec, unsigned int sid,
+			unsigned int coreid)
 {
 	unsigned long flags;
 	u32 val;
 	u32 offset;
 
 	if (coreid == 0 || coreid > sec->cores) {
-		dev_err(sec->dev, "Invalid core ID given to %s: %d\n", __func__, coreid);
+		dev_err(sec->dev, "Invalid core ID given to %s: %d\n",
+			__func__, coreid);
 		return;
 	}
 
-	offset = ADI_SEC_REG_SCTL_BASE + 8*sid;
+	offset = ADI_SEC_REG_SCTL_BASE + 8 * sid;
 
 	spin_lock_irqsave(&sec->lock, flags);
 	val = adi_sec_readl(sec, offset);
@@ -118,6 +125,7 @@ void sec_set_ssi_coreid(struct adi_sec *sec, unsigned int sid, unsigned int core
 	adi_sec_writel(val, sec, offset);
 	spin_unlock_irqrestore(&sec->lock, flags);
 }
+
 EXPORT_SYMBOL(sec_set_ssi_coreid);
 
 struct adi_sec *get_adi_sec_from_node(struct device *dev)
@@ -140,16 +148,18 @@ struct adi_sec *get_adi_sec_from_node(struct device *dev)
 
 	ret = dev_get_drvdata(&sec_pdev->dev);
 
-cleanup:
+      cleanup:
 	of_node_put(sec_node);
 	return ret;
 }
+
 EXPORT_SYMBOL(get_adi_sec_from_node);
 
 void put_adi_sec(struct adi_sec *sec)
 {
 	put_device(sec->dev);
 }
+
 EXPORT_SYMBOL(put_adi_sec);
 
 static int adi_sec_probe(struct platform_device *pdev)
@@ -192,7 +202,8 @@ static int adi_sec_probe(struct platform_device *pdev)
 	adi_rcu_set_sec(adi_rcu, adi_sec);
 
 	if (of_property_read_u32(np, "adi,sharc-cores", &adi_sec->cores)) {
-		dev_warn(dev, "Missing property adi,sharc-cores, default to 0\n");
+		dev_warn(dev,
+			 "Missing property adi,sharc-cores, default to 0\n");
 		adi_sec->cores = 0;
 	}
 
@@ -209,7 +220,9 @@ static int adi_sec_probe(struct platform_device *pdev)
 	/* Initialize each core */
 	for (cores = 0; cores < adi_sec->cores; ++cores) {
 		adi_sec_writel(0x02, adi_sec,
-			ADI_SEC_REG_CCTL_BASE + (cores+1)*ADI_SEC_CCTL_SIZE);
+			       ADI_SEC_REG_CCTL_BASE + (cores +
+							1) *
+			       ADI_SEC_CCTL_SIZE);
 	}
 	udelay(100);
 
@@ -232,7 +245,7 @@ static int adi_sec_probe(struct platform_device *pdev)
 
 	return 0;
 
-free_rcu:
+      free_rcu:
 	put_adi_rcu(adi_rcu);
 	return ret;
 }
@@ -249,19 +262,21 @@ static int adi_sec_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id adi_sec_match[] = {
-	{ .compatible = "adi,system-event-controller" },
+	{.compatible = "adi,system-event-controller" },
 	{ }
 };
+
 MODULE_DEVICE_TABLE(of, adi_sec_match);
 
 static struct platform_driver adi_sec_driver = {
 	.probe = adi_sec_probe,
 	.remove = adi_sec_remove,
 	.driver = {
-		.name = "adi-system-event-controller",
-		.of_match_table = of_match_ptr(adi_sec_match)
-	},
+		   .name = "adi-system-event-controller",
+		   .of_match_table = of_match_ptr(adi_sec_match)
+		    },
 };
+
 module_platform_driver(adi_sec_driver);
 
 MODULE_DESCRIPTION("System Event Controller for ADI SC5xx SoCs");

@@ -53,14 +53,14 @@
 #define ADI_RCU_CTL_SYSRST		BIT(0)
 
 /* Bit values for the RCU0_MSG register */
-#define RCU0_MSG_C0IDLE			0x00000100		/* Core 0 Idle */
-#define RCU0_MSG_C1IDLE			0x00000200		/* Core 1 Idle */
-#define RCU0_MSG_C2IDLE			0x00000400		/* Core 2 Idle */
-#define RCU0_MSG_CRR0			0x00001000		/* Core 0 reset request */
-#define RCU0_MSG_CRR1			0x00002000		/* Core 1 reset request */
-#define RCU0_MSG_CRR2			0x00004000		/* Core 2 reset request */
-#define RCU0_MSG_C1ACTIVATE		0x00080000		/* Core 1 Activated */
-#define RCU0_MSG_C2ACTIVATE		0x00100000		/* Core 2 Activated */
+#define RCU0_MSG_C0IDLE			0x00000100	/* Core 0 Idle */
+#define RCU0_MSG_C1IDLE			0x00000200	/* Core 1 Idle */
+#define RCU0_MSG_C2IDLE			0x00000400	/* Core 2 Idle */
+#define RCU0_MSG_CRR0			0x00001000	/* Core 0 reset request */
+#define RCU0_MSG_CRR1			0x00002000	/* Core 1 reset request */
+#define RCU0_MSG_CRR2			0x00004000	/* Core 2 reset request */
+#define RCU0_MSG_C1ACTIVATE		0x00080000	/* Core 1 Activated */
+#define RCU0_MSG_C2ACTIVATE		0x00100000	/* Core 2 Activated */
 
 struct adi_rcu;
 struct adi_sec;
