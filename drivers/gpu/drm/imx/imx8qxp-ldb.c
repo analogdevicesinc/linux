@@ -13,6 +13,7 @@
 #include <linux/of_device.h>
 #include <linux/phy/phy.h>
 #include <linux/phy/phy-mixel-lvds-combo.h>
+#include <linux/platform_device.h>
 #include <linux/pm_domain.h>
 #include <linux/regmap.h>
 

@@ -24,6 +24,7 @@
 #include <linux/of.h>
 #include <linux/of_graph.h>
 #include <linux/of_platform.h>
+#include <linux/platform_device.h>
 
 struct seiko_adapter {
 	struct device		*dev;

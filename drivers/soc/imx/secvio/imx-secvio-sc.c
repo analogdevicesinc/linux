@@ -29,6 +29,7 @@
 #include <linux/fs.h>
 #include <linux/uaccess.h>
 #include <linux/of_device.h>
+#include <linux/of_platform.h>
 #include <linux/platform_device.h>
 #include <linux/nvmem-consumer.h>
 #include <linux/miscdevice.h>

@@ -12,6 +12,7 @@
 #include <linux/of_device.h>
 #include <linux/phy/phy.h>
 #include <linux/phy/phy-mixel-lvds.h>
+#include <linux/platform_device.h>
 
 #include <drm/bridge/fsl_imx_ldb.h>
 #include <drm/drm_atomic_helper.h>

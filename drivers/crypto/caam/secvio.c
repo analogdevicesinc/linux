@@ -13,6 +13,7 @@
 #include <linux/of.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
+#include <linux/platform_device.h>
 
 /* The driver is matched with node caam_snvs to get regmap
  * It will then retrieve interruption and tamper alarm configuration from

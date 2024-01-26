@@ -23,6 +23,8 @@
  * eventually disappear once the API is integrated into "real" software.
  */
 
+#include <linux/platform_device.h>
+
 #include "compat.h"
 #include "regs.h"
 #include "intern.h"

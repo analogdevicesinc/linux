@@ -10,6 +10,7 @@
 #include <linux/of_device.h>
 #include <linux/phy/phy.h>
 #include <linux/phy/phy-mipi-dphy.h>
+#include <linux/platform_device.h>
 #include <linux/pm_runtime.h>
 
 #include <drm/bridge/dw_mipi_dsi.h>

@@ -31,6 +31,8 @@
  *   application.
  */
 
+#include <linux/platform_device.h>
+
 #include "compat.h"
 #include "regs.h"
 #include "jr.h"
