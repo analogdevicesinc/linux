@@ -352,6 +352,17 @@ int vsi_v4l2_send_reschange(struct vsi_v4l2_ctx *ctx)
 	v4l2_event_queue_fh(&ctx->fh, &event);
 	ctx->reschanged_need_notify = false;
 	ctx->reschange_notified = true;
+
+	if (ctx->need_capture_on) {
+		int ret;
+
+		ret = vb2_streamon(&ctx->output_que, V4L2_BUF_TYPE_VIDEO_CAPTURE);
+		if (!ret) {
+			ctx->output_que.last_buffer_dequeued = true;
+			wake_up(&ctx->output_que.done_wq);
+		}
+	}
+
 	return 0;
 }
 

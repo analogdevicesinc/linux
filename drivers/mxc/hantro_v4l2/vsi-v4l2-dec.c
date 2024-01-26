@@ -396,6 +396,10 @@ static int vsi_dec_streamoff(
 		return -EBUSY;
 	if (!binputqueue(type)) {
 		vb2_clear_last_buffer_dequeued(q);
+		if (ctx->need_capture_on && vb2_is_streaming(q)) {
+			return_all_buffers(q, VB2_BUF_STATE_ERROR, 1);
+			vb2_streamoff(q, type);
+		}
 		ctx->need_capture_on = false;
 		if (!vb2_is_streaming(q)) {
 			vsi_dec_return_queued_buffers(q);
