@@ -1701,6 +1701,7 @@ static int __spi_pump_transfer_message(struct spi_controller *ctlr,
 		struct spi_message *msg, bool was_busy)
 {
 	struct spi_transfer *xfer;
+	u32 cs_num = 0;
 	int ret;
 
 	if (!was_busy && ctlr->auto_runtime_pm) {
@@ -1739,13 +1740,40 @@ static int __spi_pump_transfer_message(struct spi_controller *ctlr,
 
 	trace_spi_message_start(msg);
 
-	ret = spi_split_transfers_maxsize(ctlr, msg,
-					  spi_max_transfer_size(msg->spi),
-					  GFP_KERNEL | GFP_DMA);
-	if (ret) {
-		msg->status = ret;
-		spi_finalize_current_message(ctlr);
-		return ret;
+	if (msg->spi->cs_index_mask)
+		cs_num = ffs(msg->spi->cs_index_mask) - 1;
+
+	/*
+	 * If an SPI controller does not support toggling the CS line on each
+	 * transfer (indicated by the SPI_CS_WORD flag) or we are using a GPIO
+	 * for the CS line, we can emulate the CS-per-word hardware function by
+	 * splitting transfers into one-word transfers and ensuring that
+	 * cs_change is set for each transfer.
+	 */
+	if ((msg->spi->mode & SPI_CS_WORD) &&
+	    (!(ctlr->mode_bits & SPI_CS_WORD) || spi_get_csgpiod(msg->spi, cs_num))) {
+		ret = spi_split_transfers_maxwords(ctlr, msg, 1, GFP_KERNEL);
+		if (ret) {
+			msg->status = ret;
+			spi_finalize_current_message(ctlr);
+			return ret;
+		}
+
+		list_for_each_entry(xfer, &msg->transfers, transfer_list) {
+			/* Don't change cs_change on the last entry in the list */
+			if (list_is_last(&xfer->transfer_list, &msg->transfers))
+				break;
+			xfer->cs_change = 1;
+		}
+	} else {
+		ret = spi_split_transfers_maxsize(ctlr, msg,
+						  spi_max_transfer_size(msg->spi),
+						  GFP_KERNEL | GFP_DMA);
+		if (ret) {
+			msg->status = ret;
+			spi_finalize_current_message(ctlr);
+			return ret;
+		}
 	}
 
 	if (ctlr->prepare_message) {
@@ -3907,42 +3935,11 @@ static int __spi_validate(struct spi_device *spi, struct spi_message *message)
 	struct spi_controller *ctlr = spi->controller;
 	struct spi_transfer *xfer;
 	int w_size;
-	u32 cs_num = 0;
 
 	if (list_empty(&message->transfers))
 		return -EINVAL;
 
 	message->spi = spi;
-
-	if (spi->cs_index_mask)
-		cs_num = ffs(spi->cs_index_mask) - 1;
-
-	/*
-	 * If an SPI controller does not support toggling the CS line on each
-	 * transfer (indicated by the SPI_CS_WORD flag) or we are using a GPIO
-	 * for the CS line, we can emulate the CS-per-word hardware function by
-	 * splitting transfers into one-word transfers and ensuring that
-	 * cs_change is set for each transfer.
-	 */
-	if ((spi->mode & SPI_CS_WORD) && (!(ctlr->mode_bits & SPI_CS_WORD) ||
-					  spi_get_csgpiod(spi, cs_num))) {
-		size_t maxsize;
-		int ret;
-
-		maxsize = (spi->bits_per_word + 7) / 8;
-
-		ret = spi_split_transfers_maxsize(ctlr, message, maxsize,
-						  GFP_KERNEL);
-		if (ret)
-			return ret;
-
-		list_for_each_entry(xfer, &message->transfers, transfer_list) {
-			/* Don't change cs_change on the last entry in the list */
-			if (list_is_last(&xfer->transfer_list, &message->transfers))
-				break;
-			xfer->cs_change = 1;
-		}
-	}
 
 	/*
 	 * Half-duplex links include original MicroWire, and ones with
