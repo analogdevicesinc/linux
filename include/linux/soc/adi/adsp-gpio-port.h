@@ -53,30 +53,35 @@ struct adsp_gpio_port {
 };
 
 /* may need lock depending on register */
-static inline u32 __adsp_gpio_readl(struct adsp_gpio_port *port, size_t offset)
+static inline u32 __adsp_gpio_readl(struct adsp_gpio_port *port,
+				    size_t offset)
 {
 	return readl(port->regs + offset);
 }
 
 /* may need lock depending on register */
-static inline void __adsp_gpio_writel(struct adsp_gpio_port *port, u32 val, size_t offset)
+static inline void __adsp_gpio_writel(struct adsp_gpio_port *port, u32 val,
+				      size_t offset)
 {
 	writel(val, port->regs + offset);
 }
 
 /* may need lock depending on register */
-static inline u16 __adsp_gpio_readw(struct adsp_gpio_port *port, size_t offset)
+static inline u16 __adsp_gpio_readw(struct adsp_gpio_port *port,
+				    size_t offset)
 {
 	return readw(port->regs + offset);
 }
 
 /* may need lock depending on register */
-static inline void __adsp_gpio_writew(struct adsp_gpio_port *port, u16 val, size_t offset)
+static inline void __adsp_gpio_writew(struct adsp_gpio_port *port, u16 val,
+				      size_t offset)
 {
 	writew(val, port->regs + offset);
 }
 
-static inline struct adsp_gpio_port *to_adsp_gpio_port(struct gpio_chip *chip)
+static inline struct adsp_gpio_port *to_adsp_gpio_port(struct gpio_chip
+						       *chip)
 {
 	return container_of(chip, struct adsp_gpio_port, gpio);
 }

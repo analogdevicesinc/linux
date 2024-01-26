@@ -71,16 +71,18 @@ struct adi_tru *get_adi_tru_from_node(struct device *dev)
 	if (!ret)
 		ret = ERR_PTR(-EPROBE_DEFER);
 
-cleanup:
+      cleanup:
 	of_node_put(tru_node);
 	return ret;
 }
+
 EXPORT_SYMBOL(get_adi_tru_from_node);
 
 void put_adi_tru(struct adi_tru *tru)
 {
 	put_device(tru->dev);
 }
+
 EXPORT_SYMBOL(put_adi_tru);
 
 int adi_tru_trigger_device(struct adi_tru *tru, struct device *dev)
@@ -89,16 +91,19 @@ int adi_tru_trigger_device(struct adi_tru *tru, struct device *dev)
 	u32 master = 0;
 
 	if (of_property_read_u32(np, "adi,tru-master-id", &master)) {
-		dev_err(tru->dev, "dts entry %s is missing a adi,tru-master-id",
+		dev_err(tru->dev,
+			"dts entry %s is missing a adi,tru-master-id",
 			np->full_name);
 		return -ENOENT;
 	}
 
 	return adi_tru_trigger(tru, master);
 }
+
 EXPORT_SYMBOL(adi_tru_trigger_device);
 
-static int adi_tru_smc_trigger(struct adi_tru *tru, u32 master) {
+static int adi_tru_smc_trigger(struct adi_tru *tru, u32 master)
+{
 	struct arm_smccc_res res;
 	arm_smccc_smc(ADI_TRU_SMC_TRIGGER, master, 0, 0, 0, 0, 0, 0, &res);
 	return (res.a0 == 0) ? 0 : -EINVAL;
@@ -107,7 +112,8 @@ static int adi_tru_smc_trigger(struct adi_tru *tru, u32 master) {
 int adi_tru_trigger(struct adi_tru *tru, u32 master)
 {
 	if (master == 0 || master > tru->max_master_id) {
-		dev_err(tru->dev, "Invalid master ID to trigger %d\n", master);
+		dev_err(tru->dev, "Invalid master ID to trigger %d\n",
+			master);
 		return -ERANGE;
 	}
 
@@ -117,6 +123,7 @@ int adi_tru_trigger(struct adi_tru *tru, u32 master)
 	writel(master, tru->ioaddr + ADI_TRU_REG_MTR);
 	return 0;
 }
+
 EXPORT_SYMBOL(adi_tru_trigger);
 
 /**
@@ -129,21 +136,24 @@ EXPORT_SYMBOL(adi_tru_trigger);
 int adi_tru_set_trigger_by_id(struct adi_tru *tru, u32 master, u32 slave)
 {
 	if (slave > tru->max_slave_id) {
-		dev_err(tru->dev, "Invalid slave ID %d passed to %s", slave, __func__);
+		dev_err(tru->dev, "Invalid slave ID %d passed to %s",
+			slave, __func__);
 		return -ERANGE;
 	}
 
 	if (master > tru->max_master_id || master == 0) {
-		dev_err(tru->dev, "Invalid master ID %d passed to %s", slave, __func__);
+		dev_err(tru->dev, "Invalid master ID %d passed to %s",
+			slave, __func__);
 		return -ERANGE;
 	}
 
 	if (!tru->use_smc) {
-		dev_info(tru->dev, "Connecting master %d to slave %d\n", master, slave);
-		writel(master, tru->ioaddr + (slave*4));
-	}
-	else {
-		dev_err(tru->dev, "Cannot dynamically adjust TRU configuration when "
+		dev_info(tru->dev, "Connecting master %d to slave %d\n",
+			 master, slave);
+		writel(master, tru->ioaddr + (slave * 4));
+	} else {
+		dev_err(tru->dev,
+			"Cannot dynamically adjust TRU configuration when "
 			"TRU control from OPTEE is enabled\n");
 	}
 	return 0;
@@ -165,19 +175,21 @@ int adi_tru_set_trigger_by_id(struct adi_tru *tru, u32 master, u32 slave)
  * then parse the phandles and pass the node here, then put the node back.
  */
 int adi_tru_set_trigger(struct adi_tru *tru, struct device_node *master,
-	struct device_node *slave)
+			struct device_node *slave)
 {
 	u32 mid = 0;
 	u32 sid = 0;
 
 	if (of_property_read_u32(master, "adi,tru-master-id", &mid)) {
-		dev_err(tru->dev, "dts entry %s is missing a adi,tru-master-id",
+		dev_err(tru->dev,
+			"dts entry %s is missing a adi,tru-master-id",
 			master->full_name);
 		return -ENOENT;
 	}
 
 	if (of_property_read_u32(slave, "adi,tru-slave-id", &sid)) {
-		dev_err(tru->dev, "dts entry %s is missing a adi,tru-slave-id",
+		dev_err(tru->dev,
+			"dts entry %s is missing a adi,tru-slave-id",
 			slave->full_name);
 		return -ENOENT;
 	}
@@ -206,7 +218,8 @@ int adi_tru_probe(struct platform_device *pdev)
 	if (!tru->use_smc) {
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 		if (!res) {
-			dev_err(dev, "Missing TRU base address (reg property in device tree)\n");
+			dev_err(dev,
+				"Missing TRU base address (reg property in device tree)\n");
 			return -ENODEV;
 		}
 
@@ -220,15 +233,17 @@ int adi_tru_probe(struct platform_device *pdev)
 
 	master = ADI_TRU_DEFAULT_MAX_MASTER_ID;
 	if (of_property_read_u32(np, "adi,max-master-id", &master)) {
-		dev_warn(dev, "Missing adi,max-master-id property, using default %d\n",
-			ADI_TRU_DEFAULT_MAX_MASTER_ID);
+		dev_warn(dev,
+			 "Missing adi,max-master-id property, using default %d\n",
+			 ADI_TRU_DEFAULT_MAX_MASTER_ID);
 	}
 	tru->max_master_id = master;
 
 	slave = ADI_TRU_DEFAULT_MAX_SLAVE_ID;
 	if (of_property_read_u32(np, "adi,max-slave-id", &slave)) {
-		dev_warn(dev, "Missing adi,max-slave-id property, using default %d\n",
-			ADI_TRU_DEFAULT_MAX_SLAVE_ID);
+		dev_warn(dev,
+			 "Missing adi,max-slave-id property, using default %d\n",
+			 ADI_TRU_DEFAULT_MAX_SLAVE_ID);
 	}
 	tru->max_slave_id = slave;
 
@@ -255,7 +270,8 @@ int adi_tru_probe(struct platform_device *pdev)
 			ret = adi_tru_set_trigger(tru, child, child);
 			if (ret) {
 				of_node_put(child);
-				dev_err(dev, "Invalid static trigger map in TRU device tree entry\n");
+				dev_err(dev,
+					"Invalid static trigger map in TRU device tree entry\n");
 				return ret;
 			}
 		}
@@ -273,8 +289,8 @@ int adi_tru_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id adi_tru_dt_ids[] = {
-	{ .compatible = "adi,trigger-routing-unit" },
-	{},
+	{.compatible = "adi,trigger-routing-unit" },
+	{ },
 };
 
 MODULE_DEVICE_TABLE(of, adi_tru_dt_ids);
@@ -283,10 +299,11 @@ static struct platform_driver adi_tru_driver = {
 	.probe = adi_tru_probe,
 	.remove = adi_tru_remove,
 	.driver = {
-		.name = "adi-trigger-routing-unit",
-		.of_match_table = of_match_ptr(adi_tru_dt_ids),
-	},
+		   .name = "adi-trigger-routing-unit",
+		   .of_match_table = of_match_ptr(adi_tru_dt_ids),
+		    },
 };
+
 module_platform_driver(adi_tru_driver);
 
 MODULE_DESCRIPTION("ADI Trigger Routing Unit driver");
