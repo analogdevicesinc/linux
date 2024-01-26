@@ -216,8 +216,8 @@ static const struct clk_parent_data emacb_free_mux[] = {
 
 static const struct clk_parent_data emac_ptp_free_mux[] = {
 	{
-		.fw_name = "main_pll_c1",
-		.name = "main_pll_c1",
+		.fw_name = "main_pll_c3",
+		.name = "main_pll_c3",
 	},
 	{
 		.fw_name = "peri_pll_c3",
