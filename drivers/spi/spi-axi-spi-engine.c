@@ -180,7 +180,10 @@ static void spi_engine_update_xfer_len(struct spi_engine *spi_engine,
 				       struct spi_transfer *xfer)
 {
 	unsigned int word_length = spi_engine->word_length;
-	unsigned int word_len_bytes = word_length / 8;
+	unsigned int word_len_bytes = 1;
+
+	if (word_length > 8)
+		word_len_bytes = word_length / 8;
 
 	if ((xfer->len * 8) < word_length)
 		xfer->len = 1;
