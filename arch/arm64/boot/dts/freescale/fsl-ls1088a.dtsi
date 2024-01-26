@@ -230,7 +230,9 @@
 
 		dcfg: dcfg@1e00000 {
 			compatible = "fsl,ls1088a-dcfg", "syscon";
-			reg = <0x0 0x1e00000 0x0 0x10000>;
+			reg = <0x0 0x1e00000 0x0 0x10000>,
+			      <0x7 0x00100000 0x0 0x10000>;
+			reg-names = "dcfg_ccsr", "dcfg_dcsr";
 			little-endian;
 		};
 
