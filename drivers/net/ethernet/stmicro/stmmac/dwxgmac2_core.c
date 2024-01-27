@@ -1806,6 +1806,7 @@ static void dwxgmac3_est_irq_status(void __iomem *ioaddr,
 {
 	u32 status, value, feqn, hbfq, hbfs, btrl;
 	u32 txqcnt_mask = (1 << txqcnt) - 1;
+	int i;
 
 	status = readl(ioaddr + XGMAC_MTL_EST_STATUS);
 
@@ -1849,6 +1850,11 @@ static void dwxgmac3_est_irq_status(void __iomem *ioaddr,
 		hbfs = value & XGMAC_SZ_CAP_HBFS_MASK;
 
 		x->mtl_est_hlbf++;
+
+		for (i = 0; i < txqcnt; i++) {
+			if (feqn & BIT(i))
+				x->mtl_est_txq_hlbf[i]++;
+		}
 
 		/* Clear Interrupt */
 		writel(feqn, ioaddr + XGMAC_MTL_EST_FRM_SZ_ERR);
