@@ -381,16 +381,61 @@ static void qm_get_version(struct qman *qm, u16 *id, u8 *major, u8 *minor,
 	*cfg = v2 & 0xff;
 }
 
-static void qm_set_memory(struct qman *qm, enum qm_memory memory, u64 ba,
-			int enable, int prio, int stash, u32 size)
+/* Configure the FQD/PFDR private memory areas in the corresponding BAR
+ * registers. The registers can be set only once per SoC reset.
+ *
+ * For cases such as kexec where the memory might have already been
+ * initialized, verify that the provided base address matches the
+ * configured one.
+ *
+ * Returns 0 on success (BAR registers didn't need to be initialized or were
+ * already initialized), or a negative error code on failure (the provided
+ * base address does not match the pre-programmed one, or couldn't zero out
+ * the memory).
+ */
+static int qm_set_memory(struct qman *qm, enum qm_memory memory, u64 ba,
+			 int enable, int prio, int stash, u32 size,
+			 bool *need_cleanup)
 {
 	u32 offset = (memory == qm_memory_fqd) ? REG_FQD_BARE : REG_PFDR_BARE;
 	u32 exp = ilog2(size);
+	u32 bar, bare;
+	void *ptr;
+
 	/* choke if size isn't within range */
 	DPA_ASSERT((size >= 4096) && (size <= 1073741824) &&
 			is_power_of_2(size));
 	/* choke if 'ba' has lower-alignment than 'size' */
 	DPA_ASSERT(!(ba & (size - 1)));
+
+	/* Check to see if the QMan has already been initialized */
+	bar = __qm_in(qm, offset + REG_offset_BAR);
+	if (bar) {
+		/* Make sure the base address hasn't changed */
+		bare = __qm_in(qm, offset);
+		if (bare != upper_32_bits(ba) || bar != lower_32_bits(ba)) {
+			pr_err("Attempted to reinitialize QMan with different BAR, got 0x%llx read BARE=0x%x BAR=0x%x\n",
+			       ba, bare, bar);
+			return -ENOMEM;
+		}
+
+		pr_devel("QMan BAR previously initialized with BARE=0x%x BAR=0x%x\n",
+			 bare, bar);
+
+		*need_cleanup = true;
+
+		return 0;
+	}
+
+	/* Need to temporarily map the area to make sure it is zeroed */
+	ptr = memremap(ba, size, MEMREMAP_WB);
+	if (!ptr) {
+		pr_crit("memremap() of QMan private memory failed\n");
+		return -ENOMEM;
+	}
+	memset(ptr, 0, size);
+	memunmap(ptr);
+
 	__qm_out(qm, offset, upper_32_bits(ba));
 	__qm_out(qm, offset + REG_offset_BAR, lower_32_bits(ba));
 	__qm_out(qm, offset + REG_offset_AR,
@@ -398,6 +443,7 @@ static void qm_set_memory(struct qman *qm, enum qm_memory memory, u64 ba,
 		(prio ? 0x40000000 : 0) |
 		(stash ? 0x20000000 : 0) |
 		(exp - 1));
+	return 0;
 }
 
 static void qm_set_pfdr_threshold(struct qman *qm, u32 th, u8 k)
@@ -740,7 +786,7 @@ static int __bind_irq(void)
 	return 0;
 }
 
-int qman_init_ccsr(struct device_node *node)
+int qman_init_ccsr(struct device_node *node, bool *need_cleanup)
 {
 	int ret;
 	if (!qman_have_ccsr())
@@ -753,10 +799,24 @@ int qman_init_ccsr(struct device_node *node)
 	qm_out(QCSP_BAR, 0x0);
 #endif
 	/* FQD memory */
-	qm_set_memory(qm, qm_memory_fqd, fqd_a, 1, 0, 0, fqd_sz);
+	ret = qm_set_memory(qm, qm_memory_fqd, fqd_a, 1, 0, 0, fqd_sz,
+			    need_cleanup);
+	if (ret < 0)
+		return ret;
+
 	/* PFDR memory */
-	qm_set_memory(qm, qm_memory_pfdr, pfdr_a, 1, 0, 0, pfdr_sz);
-	qm_init_pfdr(qm, 8, pfdr_sz / 64 - 8);
+	ret = qm_set_memory(qm, qm_memory_pfdr, pfdr_a, 1, 0, 0, pfdr_sz,
+			    need_cleanup);
+	if (ret < 0)
+		return ret;
+
+	/* Don't reinitialize the PFDRs if the PFDR BAR was pre-configured */
+	if (!*need_cleanup) {
+		ret = qm_init_pfdr(qm, 8, pfdr_sz / 64 - 8);
+		if (ret)
+			return ret;
+	}
+
 	/* thresholds */
 	qm_set_pfdr_threshold(qm, 512, 64);
 	qm_set_sfdr_threshold(qm, 128);

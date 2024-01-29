@@ -237,17 +237,40 @@ static void bm_set_pool(struct bman *bm, u8 pool, u32 swdet, u32 swdxt,
 	bm_out(POOL_HWDXT(pool), __generate_thresh(hwdxt, 1));
 }
 
-static void bm_set_memory(struct bman *bm, u64 ba, int prio, u32 size)
+static int bm_set_memory(struct bman *bm, u64 ba, int prio, u32 size,
+			 bool *need_cleanup)
 {
-	u32 exp = ilog2(size);
+	u32 bar, bare, exp = ilog2(size);
+
 	/* choke if size isn't within range */
 	DPA_ASSERT((size >= 4096) && (size <= 1073741824) &&
 			is_power_of_2(size));
 	/* choke if '[e]ba' has lower-alignment than 'size' */
 	DPA_ASSERT(!(ba & (size - 1)));
+
+	/* Check to see if the BMan has already been initialized */
+	bar = bm_in(FBPR_BAR);
+	if (bar) {
+		/* Make sure the base address hasn't changed */
+		bare = bm_in(FBPR_BARE);
+		if (bare != upper_32_bits(ba) || bar != lower_32_bits(ba)) {
+			pr_err("Attempted to reinitialize BMan with different BAR, got 0x%llx read BARE=0x%x BAR=0x%x\n",
+			       ba, bare, bar);
+			return -ENOMEM;
+		}
+
+		pr_devel("BMan FBPR BAR previously initialized with BARE=0x%x BAR=0x%x\n",
+			 bare, bar);
+
+		*need_cleanup = true;
+		return 0;
+	}
+
 	bm_out(FBPR_BARE, upper_32_bits(ba));
 	bm_out(FBPR_BAR, lower_32_bits(ba));
 	bm_out(FBPR_AR, (prio ? 0x40000000 : 0) | (exp - 1));
+
+	return 0;
 }
 
 /*****************/
@@ -457,15 +480,20 @@ static int __bind_irq(void)
 	return 0;
 }
 
-int bman_init_ccsr(struct device_node *node)
+int bman_init_ccsr(struct device_node *node, bool *need_cleanup)
 {
 	int ret;
+
 	if (!bman_have_ccsr())
 		return 0;
 	if (node != bm_node)
 		return -EINVAL;
+
 	/* FBPR memory */
-	bm_set_memory(bm, fbpr_a, 0, fbpr_sz);
+	ret = bm_set_memory(bm, fbpr_a, 0, fbpr_sz, need_cleanup);
+	if (ret)
+		return ret;
+
 	pr_info("bman-fbpr addr %pad size 0x%zx\n", &fbpr_a, fbpr_sz);
 
 	ret = __bind_irq();

@@ -212,7 +212,7 @@ extern u16 qman_portal_max;
 
 #ifdef CONFIG_FSL_QMAN_CONFIG
 /* Hooks from qman_driver.c to qman_config.c */
-int qman_init_ccsr(struct device_node *node);
+int qman_init_ccsr(struct device_node *node, bool *need_cleanup);
 void qman_liodn_fixup(u16 channel);
 int qman_set_sdest(u16 channel, unsigned int cpu_idx);
 size_t get_qman_fqd_size(void);
@@ -230,15 +230,18 @@ int qm_get_wpm(int *wpm);
 struct qman_portal *qman_create_portal(
 			struct qman_portal *portal,
 			const struct qm_portal_config *config,
-			const struct qman_cgrs *cgrs);
+			const struct qman_cgrs *cgrs,
+			bool need_cleanup);
 
 struct qman_portal *qman_create_affine_portal(
 			const struct qm_portal_config *config,
-			const struct qman_cgrs *cgrs);
+			const struct qman_cgrs *cgrs,
+			bool need_cleanup);
 struct qman_portal *qman_create_affine_slave(struct qman_portal *redirect,
 								int cpu);
 const struct qm_portal_config *qman_destroy_affine_portal(void);
 void qman_destroy_portal(struct qman_portal *qm);
+void qman_enable_irqs(void);
 
 /* Hooks from fsl_usdpaa.c to qman_driver.c */
 struct qm_portal_config *qm_get_unused_portal(void);

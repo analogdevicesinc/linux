@@ -613,13 +613,14 @@ void qm_put_unused_portal(struct qm_portal_config *pcfg)
 	spin_unlock(&unused_pcfgs_lock);
 }
 
-static struct qman_portal *init_pcfg(struct qm_portal_config *pcfg)
+static struct qman_portal *init_pcfg(struct qm_portal_config *pcfg,
+				     bool need_cleanup)
 {
 	struct qman_portal *p;
 
 	pcfg->iommu_domain = NULL;
 	portal_set_cpu(pcfg, pcfg->public_cfg.cpu);
-	p = qman_create_affine_portal(pcfg, NULL);
+	p = qman_create_affine_portal(pcfg, NULL, need_cleanup);
 	if (p) {
 		u32 irq_sources = 0;
 		/* Determine what should be interrupt-vs-poll driven */
@@ -733,13 +734,14 @@ __init int qman_init(void)
 	struct device_node *dn;
 	struct qm_portal_config *pcfg;
 	struct qman_portal *p;
-	int cpu, ret;
+	int cpu, ret, i;
 	const u32 *clk;
 	struct cpumask offline_cpus;
+	bool need_cleanup = false;
 
 	/* Initialise the Qman (CCSR) device */
 	for_each_compatible_node(dn, NULL, "fsl,qman") {
-		if (!qman_init_ccsr(dn))
+		if (!qman_init_ccsr(dn, &need_cleanup))
 			pr_info("Qman err interrupt handler present\n");
 		else
 			pr_err("Qman CCSR setup failed\n");
@@ -850,7 +852,7 @@ __init int qman_init(void)
 	}
 	list_for_each_entry(pcfg, &unshared_pcfgs, list) {
 		pcfg->public_cfg.is_shared = 0;
-		p = init_pcfg(pcfg);
+		p = init_pcfg(pcfg, need_cleanup);
 		if (!p) {
 			pr_crit("Unable to configure portals\n");
 			return 0;
@@ -858,7 +860,7 @@ __init int qman_init(void)
 	}
 	list_for_each_entry(pcfg, &shared_pcfgs, list) {
 		pcfg->public_cfg.is_shared = 1;
-		p = init_pcfg(pcfg);
+		p = init_pcfg(pcfg, need_cleanup);
 		if (p)
 			shared_portals[num_shared_portals++] = p;
 	}
@@ -878,6 +880,24 @@ __init int qman_init(void)
 		return ret;
 	}
 #endif
+
+	if (need_cleanup) {
+		size_t num_fqs = get_qman_fqd_size() / 64;
+
+		pr_info("QMan wasn't reset prior to boot, shutting down %zu FQs\n",
+			num_fqs);
+
+		for (i = 0; i < num_fqs; i++) {
+			ret = qman_shutdown_fq(i);
+			if (ret) {
+				pr_err("QMan: Failed to shutdown frame queue %d: %pe\n",
+				       i, ERR_PTR(ret));
+			}
+		}
+		pr_info("QMan: shutdown finished, enabling IRQs\n");
+		qman_enable_irqs();
+	}
+
 	return 0;
 }
 

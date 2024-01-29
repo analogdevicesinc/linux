@@ -449,6 +449,21 @@ static inline void hw_ccgr_query_to_cpu(struct qm_mcr_ceetm_ccgr_query *ccgr_q)
 			be32_to_cpu(ccgr_q->cm_query.cscn_targ_swp[i]);
 }
 
+void qman_enable_irqs(void)
+{
+	struct qman_portal *p;
+	int i;
+
+	for (i = 0; i < NR_CPUS; i++) {
+		if (affine_portals[i]) {
+			p = (struct qman_portal *)affine_portals[i];
+			qm_isr_status_clear(&p->p, 0xffffffff);
+			qm_isr_uninhibit(&p->p);
+		}
+	}
+	pr_debug("QMan: IRQs enabled\n");
+}
+
 /* In the case that slow- and fast-path handling are both done by qman_poll()
  * (ie. because there is no interrupt handling), we ought to balance how often
  * we do the fast-path poll versus the slow-path poll. We'll use two decrementer
@@ -572,7 +587,8 @@ struct dev_pm_domain qman_portal_device_pm_domain = {
 struct qman_portal *qman_create_portal(
 			struct qman_portal *portal,
 			const struct qm_portal_config *config,
-			const struct qman_cgrs *cgrs)
+			const struct qman_cgrs *cgrs,
+			bool need_cleanup)
 {
 	struct qm_portal *__p;
 	char buf[16];
@@ -696,8 +712,8 @@ struct qman_portal *qman_create_portal(
 	qm_isr_disable_write(__p, isdr);
 	portal->irq_sources = 0;
 	qm_isr_enable_write(__p, portal->irq_sources);
-	qm_isr_status_clear(__p, 0xffffffff);
 	snprintf(portal->irqname, MAX_IRQNAME, IRQNAME, config->public_cfg.cpu);
+	qm_isr_inhibit(__p);
 	if (request_irq(config->public_cfg.irq, portal_isr, 0, portal->irqname,
 				portal)) {
 		pr_err("request_irq() failed\n");
@@ -745,8 +761,12 @@ struct qman_portal *qman_create_portal(
 	 * If left enabled they cause problems with sleep mode. Since
 	 * they are not used in push mode we can safely turn them off
 	 */
+	qm_isr_status_clear(__p, 0xffffffff);
 	qm_isr_disable_write(__p, QM_DQAVAIL_MASK);
-	qm_isr_uninhibit(__p);
+	if (!need_cleanup) {
+		pr_info("QMan doesn't need cleanup, uninhibiting IRQs\n");
+		qm_isr_uninhibit(__p);
+	}
 	/* Write a sane SDQCR */
 	qm_dqrr_sdqcr_set(__p, portal->sdqcr);
 	return portal;
@@ -780,13 +800,14 @@ fail_eqcr:
 
 struct qman_portal *qman_create_affine_portal(
 			const struct qm_portal_config *config,
-			const struct qman_cgrs *cgrs)
+			const struct qman_cgrs *cgrs,
+			bool need_cleanup)
 {
 	struct qman_portal *res;
 	struct qman_portal *portal;
 
 	portal = &per_cpu(qman_affine_portal, config->public_cfg.cpu);
-	res = qman_create_portal(portal, config, cgrs);
+	res = qman_create_portal(portal, config, cgrs, need_cleanup);
 	if (res) {
 		spin_lock(&affine_mask_lock);
 		cpumask_set_cpu(config->public_cfg.cpu, &affine_mask);
