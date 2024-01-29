@@ -122,6 +122,11 @@ jobs:
         ARCH: arm64
         IMAGE: Image
         CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
+      versal_adi_default:
+        DEFCONFIG: adi_versal_defconfig
+        ARCH: arm64
+        IMAGE: Image
+        CHECK_ALL_ADI_DRIVERS_HAVE_BEEN_BUILT: 1
       zynq_pluto:
         DEFCONFIG: zynq_pluto_defconfig
         ARCH: arm
