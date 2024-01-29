@@ -225,7 +225,7 @@ int vsi_dec_output_on(struct vsi_v4l2_ctx *ctx)
 
 	if (!ctx->need_output_on)
 		return 0;
-	if (ctx->input_que.queued_count < ctx->input_que.min_buffers_needed)
+	if (ctx->input_que.queued_count < ctx->input_que.min_queued_buffers)
 		return 0;
 
 	v4l2_klog(LOGLVL_FLOW, "%llx:%s start streaming", ctx->ctxid, __func__);
@@ -1152,7 +1152,7 @@ static int v4l2_dec_open(struct file *filp)
 	q = &ctx->input_que;
 	q->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
 	q->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
-	q->min_buffers_needed = 1;
+	q->min_queued_buffers = 1;
 	q->drv_priv = &ctx->fh;
 	q->lock = &ctx->ctxlock;
 	q->buf_struct_size = sizeof(struct vsi_vpu_buf);		//used to alloc mem control structures in reqbuf
@@ -1176,7 +1176,7 @@ static int v4l2_dec_open(struct file *filp)
 	q->mem_ops = &vb2_dma_contig_memops;
 	q->memory = VB2_MEMORY_UNKNOWN;
 	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
-	q->min_buffers_needed = 1;
+	q->min_queued_buffers = 1;
 	INIT_LIST_HEAD(&ctx->output_list);
 	ret = vb2_queue_init(q);
 	if (ret) {

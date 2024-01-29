@@ -245,8 +245,8 @@ static int vsi_enc_trystartenc(struct vsi_v4l2_ctx *ctx)
 		if ((ctx->status == VSI_STATUS_INIT ||
 			ctx->status == ENC_STATUS_STOPPED ||
 			ctx->status == ENC_STATUS_EOS) &&
-			ctx->input_que.queued_count >= ctx->input_que.min_buffers_needed &&
-			ctx->output_que.queued_count >= ctx->output_que.min_buffers_needed) {
+			ctx->input_que.queued_count >= ctx->input_que.min_queued_buffers &&
+			ctx->output_que.queued_count >= ctx->output_que.min_queued_buffers) {
 			ret = vsiv4l2_execcmd(ctx, V4L2_DAEMON_VIDIOC_STREAMON, NULL);
 			if (ret == 0) {
 				ctx->status = ENC_STATUS_ENCODING;
@@ -1457,7 +1457,7 @@ static int v4l2_enc_open(struct file *filp)
 	q = &ctx->input_que;
 	q->type = V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE;
 	q->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
-	q->min_buffers_needed = MIN_FRAME_4ENC;
+	q->min_queued_buffers = MIN_FRAME_4ENC;
 	q->drv_priv = &ctx->fh;
 	q->lock = &ctx->ctxlock;
 	q->buf_struct_size = sizeof(struct vsi_vpu_buf);		//used to alloc mem control structures in reqbuf
@@ -1474,7 +1474,7 @@ static int v4l2_enc_open(struct file *filp)
 	q = &ctx->output_que;
 	q->type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
 	q->io_modes = VB2_MMAP | VB2_USERPTR | VB2_DMABUF;
-	q->min_buffers_needed = 1;
+	q->min_queued_buffers = 1;
 	q->drv_priv = &ctx->fh;
 	q->lock = &ctx->ctxlock;
 	q->buf_struct_size = sizeof(struct vsi_vpu_buf);
