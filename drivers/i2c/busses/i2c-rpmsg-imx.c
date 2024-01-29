@@ -115,6 +115,8 @@ struct i2c_rpmsg_info {
 	const struct i2c_rpmsg_devtype_data *devtype_data;
 	struct completion cmd_complete;
 	struct mutex lock;
+	struct workqueue_struct *wq;
+	struct work_struct work;
 
 	u8 bus_id;
 	u16 addr;
@@ -283,47 +285,6 @@ static int i2c_rpmsg_write(struct i2c_msg *msg, struct i2c_rpmsg_info *info,
 	return ret;
 }
 
-static int i2c_rpmsg_probe(struct rpmsg_device *rpdev)
-{
-	int ret = 0;
-
-	if (!rpdev) {
-		dev_info(&rpdev->dev, "%s failed, rpdev=NULL\n", __func__);
-		return -EINVAL;
-	}
-
-	i2c_rpmsg.rpdev = rpdev;
-
-	mutex_init(&i2c_rpmsg.lock);
-	init_completion(&i2c_rpmsg.cmd_complete);
-
-	dev_info(&rpdev->dev, "new channel: 0x%x -> 0x%x!\n",
-						rpdev->src, rpdev->dst);
-
-	return ret;
-}
-
-static void i2c_rpmsg_remove(struct rpmsg_device *rpdev)
-{
-	i2c_rpmsg.rpdev = NULL;
-	dev_info(&rpdev->dev, "i2c rpmsg driver is removed\n");
-}
-
-static struct rpmsg_device_id i2c_rpmsg_id_table[] = {
-	{ .name	= "rpmsg-i2c-channel" },
-	{ },
-};
-
-static struct rpmsg_driver i2c_rpmsg_driver = {
-	.drv.name	= "i2c-rpmsg",
-	.drv.owner	= THIS_MODULE,
-	.id_table	= i2c_rpmsg_id_table,
-	.probe		= i2c_rpmsg_probe,
-	.remove		= i2c_rpmsg_remove,
-	.callback	= i2c_rpmsg_cb,
-};
-
-
 static int i2c_rpbus_xfer(struct i2c_adapter *adapter,
 			  struct i2c_msg *msgs, int num)
 {
@@ -469,15 +430,73 @@ static struct platform_driver imx_rpmsg_i2c_driver = {
 	.remove		= i2c_rpbus_remove
 };
 
-static int __init imx_rpmsg_i2c_driver_init(void)
+static void i2c_rpmsg_work(struct work_struct *work)
+{
+	platform_driver_register(&imx_rpmsg_i2c_driver);
+};
+
+static int i2c_rpmsg_probe(struct rpmsg_device *rpdev)
 {
 	int ret = 0;
 
-	ret = register_rpmsg_driver(&i2c_rpmsg_driver);
-	if (ret < 0)
-		return ret;
+	if (!rpdev) {
+		dev_err(&rpdev->dev, "%s failed, rpdev=NULL\n", __func__);
+		return -EINVAL;
+	}
 
-	return platform_driver_register(&(imx_rpmsg_i2c_driver));
+	i2c_rpmsg.rpdev = rpdev;
+
+	mutex_init(&i2c_rpmsg.lock);
+	init_completion(&i2c_rpmsg.cmd_complete);
+
+	dev_info(&rpdev->dev, "new channel: 0x%x -> 0x%x!\n",
+		 rpdev->src, rpdev->dst);
+
+	i2c_rpmsg.wq = create_singlethread_workqueue("rpmsg-i2c");
+	if (!i2c_rpmsg.wq) {
+		dev_err(&rpdev->dev, "workqueue create failed\n");
+		return -ENOMEM;
+	}
+	INIT_WORK(&i2c_rpmsg.work, i2c_rpmsg_work);
+	queue_work(i2c_rpmsg.wq, &i2c_rpmsg.work);
+
+	return ret;
+}
+
+static void i2c_rpmsg_remove(struct rpmsg_device *rpdev)
+{
+	i2c_rpmsg.rpdev = NULL;
+
+	cancel_work_sync(&i2c_rpmsg.work);
+	flush_workqueue(i2c_rpmsg.wq);
+	if (i2c_rpmsg.wq)
+		destroy_workqueue(i2c_rpmsg.wq);
+
+	platform_driver_unregister(&imx_rpmsg_i2c_driver);
+	dev_info(&rpdev->dev, "i2c rpmsg driver is removed\n");
+}
+
+static struct rpmsg_device_id i2c_rpmsg_id_table[] = {
+	{ .name	= "rpmsg-i2c-channel" },
+	{ },
+};
+
+static struct rpmsg_driver i2c_rpmsg_driver = {
+	.drv.name	= "i2c-rpmsg",
+	.drv.owner	= THIS_MODULE,
+	.id_table	= i2c_rpmsg_id_table,
+	.probe		= i2c_rpmsg_probe,
+	.remove		= i2c_rpmsg_remove,
+	.callback	= i2c_rpmsg_cb,
+};
+
+static int __init imx_rpmsg_i2c_driver_init(void)
+{
+	int ret;
+
+	ret = register_rpmsg_driver(&i2c_rpmsg_driver);
+
+	return ret;
 }
 subsys_initcall(imx_rpmsg_i2c_driver_init);
 
