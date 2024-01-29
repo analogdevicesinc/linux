@@ -109,31 +109,31 @@ struct adi_twi_regs {
 };
 
 struct adi_twi_iface {
-	int			irq;
-	spinlock_t		lock;
-	char			read_write;
-	u8			command;
-	u8			*transPtr;
-	int			readNum;
-	int			writeNum;
-	int			cur_mode;
-	int			manual_stop;
-	int			result;
-	unsigned int		twi_clk;
-	struct i2c_adapter	adap;
-	struct completion	complete;
-	struct i2c_msg		*pmsg;
-	int			msg_num;
-	int			cur_msg;
-	u16			saved_clkdiv;
-	u16			saved_control;
+	int irq;
+	spinlock_t lock;
+	char read_write;
+	u8 command;
+	u8 *transPtr;
+	int readNum;
+	int writeNum;
+	int cur_mode;
+	int manual_stop;
+	int result;
+	unsigned int twi_clk;
+	struct i2c_adapter adap;
+	struct completion complete;
+	struct i2c_msg *pmsg;
+	int msg_num;
+	int cur_msg;
+	u16 saved_clkdiv;
+	u16 saved_control;
 	struct adi_twi_regs __iomem *regs_base;
 	struct clk *sclk;
 };
 
 static void adi_twi_handle_interrupt(struct adi_twi_iface *iface,
-					unsigned short twi_int_status,
-					bool polling)
+				     unsigned short twi_int_status,
+				     bool polling)
 {
 	u16 writeValue;
 	unsigned short mast_stat = ioread16(&iface->regs_base->master_stat);
@@ -144,30 +144,47 @@ static void adi_twi_handle_interrupt(struct adi_twi_iface *iface,
 			 * combine mode.
 			 */
 			if (iface->cur_mode == TWI_I2C_MODE_COMBINED) {
-				writeValue = ioread16(&iface->regs_base->master_ctl) | MDIR;
-				iowrite16(writeValue, &iface->regs_base->master_ctl);
+				writeValue =
+				    ioread16(&iface->regs_base->
+					     master_ctl) | MDIR;
+				iowrite16(writeValue,
+					  &iface->regs_base->master_ctl);
 			} else if (iface->manual_stop) {
-				writeValue = ioread16(&iface->regs_base->master_ctl) | STOP;
-				iowrite16(writeValue, &iface->regs_base->master_ctl);
-			} else if (iface->cur_mode == TWI_I2C_MODE_REPEAT &&
-				   iface->cur_msg + 1 < iface->msg_num) {
+				writeValue =
+				    ioread16(&iface->regs_base->
+					     master_ctl) | STOP;
+				iowrite16(writeValue,
+					  &iface->regs_base->master_ctl);
+			} else if (iface->cur_mode == TWI_I2C_MODE_REPEAT
+				   && iface->cur_msg + 1 < iface->msg_num) {
 
-				if (iface->pmsg[iface->cur_msg + 1].flags & I2C_M_RD) {
-					writeValue = ioread16(&iface->regs_base->master_ctl)
-							      | MDIR;
-					iowrite16(writeValue, &iface->regs_base->master_ctl);
+				if (iface->pmsg[iface->cur_msg + 1].
+				    flags & I2C_M_RD) {
+					writeValue =
+					    ioread16(&iface->regs_base->
+						     master_ctl)
+					    | MDIR;
+					iowrite16(writeValue,
+						  &iface->regs_base->
+						  master_ctl);
 				} else {
-					writeValue = ioread16(&iface->regs_base->master_ctl)
-							      & ~MDIR;
-					iowrite16(writeValue, &iface->regs_base->master_ctl);
+					writeValue =
+					    ioread16(&iface->regs_base->
+						     master_ctl)
+					    & ~MDIR;
+					iowrite16(writeValue,
+						  &iface->regs_base->
+						  master_ctl);
 				}
 
 			}
 		}
 		/* Transmit next data */
 		while (iface->writeNum > 0 &&
-		       (ioread16(&iface->regs_base->fifo_stat) & XMTSTAT) != XMT_FULL) {
-			iowrite16(*(iface->transPtr++), &iface->regs_base->xmt_data8);
+		       (ioread16(&iface->regs_base->fifo_stat) & XMTSTAT) !=
+		       XMT_FULL) {
+			iowrite16(*(iface->transPtr++),
+				  &iface->regs_base->xmt_data8);
 			iface->writeNum--;
 		}
 	}
@@ -175,7 +192,8 @@ static void adi_twi_handle_interrupt(struct adi_twi_iface *iface,
 		while (iface->readNum > 0 &&
 		       (ioread16(&iface->regs_base->fifo_stat) & RCVSTAT)) {
 			/* Receive next data */
-			*(iface->transPtr) = ioread16(&iface->regs_base->rcv_data8);
+			*(iface->transPtr) =
+			    ioread16(&iface->regs_base->rcv_data8);
 			if (iface->cur_mode == TWI_I2C_MODE_COMBINED) {
 				/* Change combine mode into sub mode after
 				 * read first data.
@@ -197,18 +215,28 @@ static void adi_twi_handle_interrupt(struct adi_twi_iface *iface,
 				 * Flush FIFO before issuing the STOP condition
 				 */
 				ioread16(&iface->regs_base->rcv_data16);
-				writeValue = ioread16(&iface->regs_base->master_ctl) | STOP;
-				iowrite16(writeValue, &iface->regs_base->master_ctl);
-			} else if (iface->cur_mode == TWI_I2C_MODE_REPEAT &&
-					iface->cur_msg + 1 < iface->msg_num) {
-				if (iface->pmsg[iface->cur_msg + 1].flags & I2C_M_RD) {
-					writeValue = ioread16(&iface->regs_base->master_ctl) |
-						     MDIR;
-					iowrite16(writeValue, &iface->regs_base->master_ctl);
+				writeValue =
+				    ioread16(&iface->regs_base->
+					     master_ctl) | STOP;
+				iowrite16(writeValue,
+					  &iface->regs_base->master_ctl);
+			} else if (iface->cur_mode == TWI_I2C_MODE_REPEAT
+				   && iface->cur_msg + 1 < iface->msg_num) {
+				if (iface->pmsg[iface->cur_msg + 1].
+				    flags & I2C_M_RD) {
+					writeValue =
+					    ioread16(&iface->regs_base->
+						     master_ctl) | MDIR;
+					iowrite16(writeValue,
+						  &iface->regs_base->
+						  master_ctl);
 				} else {
-					writeValue = ioread16(&iface->regs_base->master_ctl) &
-						     ~MDIR;
-					iowrite16(writeValue, &iface->regs_base->master_ctl);
+					writeValue =
+					    ioread16(&iface->regs_base->
+						     master_ctl) & ~MDIR;
+					iowrite16(writeValue,
+						  &iface->regs_base->
+						  master_ctl);
 				}
 			}
 		}
@@ -239,13 +267,16 @@ static void adi_twi_handle_interrupt(struct adi_twi_iface *iface,
 			int cnt = 9;
 
 			do {
-				iowrite16(SCLOVR, &iface->regs_base->master_ctl);
+				iowrite16(SCLOVR,
+					  &iface->regs_base->master_ctl);
 				udelay(6);
 				iowrite16(0, &iface->regs_base->master_ctl);
 				udelay(6);
-			} while ((ioread16(&iface->regs_base->master_stat) & SDASEN) && cnt--);
+			} while ((ioread16(&iface->regs_base->master_stat) &
+				  SDASEN) && cnt--);
 
-			iowrite16(SDAOVR | SCLOVR, &iface->regs_base->master_ctl);
+			iowrite16(SDAOVR | SCLOVR,
+				  &iface->regs_base->master_ctl);
 			udelay(6);
 			iowrite16(SDAOVR, &iface->regs_base->master_ctl);
 			udelay(6);
@@ -256,8 +287,8 @@ static void adi_twi_handle_interrupt(struct adi_twi_iface *iface,
 		 * not an err, return 1.
 		 */
 		if (iface->cur_mode == TWI_I2C_MODE_STANDARD &&
-			iface->transPtr == NULL &&
-			(twi_int_status & MCOMP) && (mast_stat & DNAK))
+		    iface->transPtr == NULL &&
+		    (twi_int_status & MCOMP) && (mast_stat & DNAK))
 			iface->result = 1;
 
 		if (!polling)
@@ -266,9 +297,9 @@ static void adi_twi_handle_interrupt(struct adi_twi_iface *iface,
 	}
 	if (twi_int_status & MCOMP) {
 		if (twi_int_status & (XMTSERV | RCVSERV) &&
-			(ioread16(&iface->regs_base->master_ctl) & MEN) == 0 &&
-			(iface->cur_mode == TWI_I2C_MODE_REPEAT ||
-			iface->cur_mode == TWI_I2C_MODE_COMBINED)) {
+		    (ioread16(&iface->regs_base->master_ctl) & MEN) == 0 &&
+		    (iface->cur_mode == TWI_I2C_MODE_REPEAT ||
+		     iface->cur_mode == TWI_I2C_MODE_COMBINED)) {
 			iface->result = -1;
 			iowrite16(0, &iface->regs_base->int_mask);
 			iowrite16(0, &iface->regs_base->master_ctl);
@@ -279,27 +310,34 @@ static void adi_twi_handle_interrupt(struct adi_twi_iface *iface,
 				 */
 				iface->readNum = 1;
 				iface->manual_stop = 1;
-				writeValue = ioread16(&iface->regs_base->master_ctl) | (0xff << 6);
-				iowrite16(writeValue, &iface->regs_base->master_ctl);
+				writeValue =
+				    ioread16(&iface->regs_base->
+					     master_ctl) | (0xff << 6);
+				iowrite16(writeValue,
+					  &iface->regs_base->master_ctl);
 			} else {
 				/* set the readd number in other
 				 * combine mode.
 				 */
-				writeValue = (ioread16(&iface->regs_base->master_ctl)
-					     & (~(0xff << 6))) | (iface->readNum << 6);
-				iowrite16(writeValue, &iface->regs_base->master_ctl);
+				writeValue =
+				    (ioread16(&iface->regs_base->master_ctl)
+				     & (~(0xff << 6))) | (iface->readNum << 6);
+				iowrite16(writeValue,
+					  &iface->regs_base->master_ctl);
 			}
 			/* remove restart bit and enable master receive */
-			writeValue = ioread16(&iface->regs_base->master_ctl) & ~RSTART;
+			writeValue =
+			    ioread16(&iface->regs_base->master_ctl) & ~RSTART;
 			iowrite16(writeValue, &iface->regs_base->master_ctl);
 		} else if (iface->cur_mode == TWI_I2C_MODE_REPEAT &&
-				iface->cur_msg + 1 < iface->msg_num) {
+			   iface->cur_msg + 1 < iface->msg_num) {
 			iface->cur_msg++;
 			iface->transPtr = iface->pmsg[iface->cur_msg].buf;
 			iface->writeNum = iface->readNum =
-				iface->pmsg[iface->cur_msg].len;
+			    iface->pmsg[iface->cur_msg].len;
 			/* Set Transmit device address */
-			iowrite16(iface->pmsg[iface->cur_msg].addr, &iface->regs_base->master_addr);
+			iowrite16(iface->pmsg[iface->cur_msg].addr,
+				  &iface->regs_base->master_addr);
 			if (iface->pmsg[iface->cur_msg].flags & I2C_M_RD)
 				iface->read_write = I2C_SMBUS_READ;
 			else {
@@ -307,28 +345,35 @@ static void adi_twi_handle_interrupt(struct adi_twi_iface *iface,
 				/* Transmit first data */
 				if (iface->writeNum > 0) {
 					iowrite16(*(iface->transPtr++),
-						 &iface->regs_base->xmt_data8);
+						  &iface->regs_base->xmt_data8);
 					iface->writeNum--;
 				}
 			}
 
 			if (iface->pmsg[iface->cur_msg].len <= 255) {
-				writeValue = (ioread16(&iface->regs_base->master_ctl)
-					     & (~(0xff << 6)))
-					     | (iface->pmsg[iface->cur_msg].len << 6);
-				iowrite16(writeValue, &iface->regs_base->master_ctl);
+				writeValue =
+				    (ioread16(&iface->regs_base->master_ctl)
+				     & (~(0xff << 6)))
+				    | (iface->pmsg[iface->cur_msg].len << 6);
+				iowrite16(writeValue,
+					  &iface->regs_base->master_ctl);
 				iface->manual_stop = 0;
 			} else {
-				writeValue = (ioread16(&iface->regs_base->master_ctl)
-					     | (0xff << 6));
-				iowrite16(writeValue, &iface->regs_base->master_ctl);
+				writeValue =
+				    (ioread16(&iface->regs_base->master_ctl)
+				     | (0xff << 6));
+				iowrite16(writeValue,
+					  &iface->regs_base->master_ctl);
 				iface->manual_stop = 1;
 			}
-			
+
 			/* remove restart bit before last message */
 			if (iface->cur_msg + 1 == iface->msg_num) {
-				writeValue = ioread16(&iface->regs_base->master_ctl) & ~RSTART;
-				iowrite16(writeValue, &iface->regs_base->master_ctl);
+				writeValue =
+				    ioread16(&iface->regs_base->
+					     master_ctl) & ~RSTART;
+				iowrite16(writeValue,
+					  &iface->regs_base->master_ctl);
 			}
 
 		} else {
@@ -375,7 +420,7 @@ static irqreturn_t adi_twi_interrupt_entry(int irq, void *dev_id)
  * One i2c master transfer
  */
 static int adi_twi_do_master_xfer(struct i2c_adapter *adap,
-				struct i2c_msg *msgs, int num, bool polling)
+				  struct i2c_msg *msgs, int num, bool polling)
 {
 	struct adi_twi_iface *iface = adap->algo_data;
 	struct i2c_msg *pmsg;
@@ -421,16 +466,19 @@ static int adi_twi_do_master_xfer(struct i2c_adapter *adap,
 		iface->read_write = I2C_SMBUS_WRITE;
 		/* Transmit first data */
 		if (iface->writeNum > 0) {
-			iowrite16(*(iface->transPtr++), &iface->regs_base->xmt_data8);
+			iowrite16(*(iface->transPtr++),
+				  &iface->regs_base->xmt_data8);
 			iface->writeNum--;
 		}
 	}
 
 	/* clear int stat */
-	iowrite16(MERR | MCOMP | XMTSERV | RCVSERV, &iface->regs_base->int_stat);
+	iowrite16(MERR | MCOMP | XMTSERV | RCVSERV,
+		  &iface->regs_base->int_stat);
 
 	/* Interrupt mask . Enable XMT, RCV interrupt */
-	iowrite16(MCOMP | MERR | RCVSERV | XMTSERV, &iface->regs_base->int_mask);
+	iowrite16(MCOMP | MERR | RCVSERV | XMTSERV,
+		  &iface->regs_base->int_mask);
 
 	if (pmsg->len <= 255)
 		iowrite16(pmsg->len << 6, &iface->regs_base->master_ctl);
@@ -441,10 +489,10 @@ static int adi_twi_do_master_xfer(struct i2c_adapter *adap,
 
 	/* Master enable */
 	writeValue = ioread16(&iface->regs_base->master_ctl) |
-		     MEN |
-		     ((iface->msg_num > 1) ? RSTART : 0) |
-		     ((iface->read_write == I2C_SMBUS_READ) ? MDIR : 0) |
-		     ((iface->twi_clk > 100) ? FAST : 0);
+	    MEN |
+	    ((iface->msg_num > 1) ? RSTART : 0) |
+	    ((iface->read_write == I2C_SMBUS_READ) ? MDIR : 0) |
+	    ((iface->twi_clk > 100) ? FAST : 0);
 
 	iowrite16(writeValue, &iface->regs_base->master_ctl);
 
@@ -452,8 +500,8 @@ static int adi_twi_do_master_xfer(struct i2c_adapter *adap,
 		int timeout = 50000;
 
 		for (;;) {
-			irqreturn_t handled = adi_twi_handle_all_interrupts(
-								iface, true);
+			irqreturn_t handled =
+			    adi_twi_handle_all_interrupts(iface, true);
 			if (handled == IRQ_HANDLED && iface->result)
 				break;
 			if (--timeout == 0) {
@@ -462,10 +510,10 @@ static int adi_twi_do_master_xfer(struct i2c_adapter *adap,
 				break;
 			}
 		}
-	} else { /* interrupt driven */
+	} else {		/* interrupt driven */
 		while (!iface->result) {
 			if (!wait_for_completion_timeout(&iface->complete,
-				adap->timeout)) {
+							 adap->timeout)) {
 				iface->result = -1;
 				dev_err(&adap->dev, "master transfer timeout");
 			}
@@ -484,13 +532,13 @@ static int adi_twi_do_master_xfer(struct i2c_adapter *adap,
  * Generic i2c master transfer entrypoint
  */
 static int adi_twi_master_xfer(struct i2c_adapter *adap,
-				struct i2c_msg *msgs, int num)
+			       struct i2c_msg *msgs, int num)
 {
 	return adi_twi_do_master_xfer(adap, msgs, num, false);
 }
 
 static int adi_twi_master_xfer_atomic(struct i2c_adapter *adap,
-				struct i2c_msg *msgs, int num)
+				      struct i2c_msg *msgs, int num)
 {
 	return adi_twi_do_master_xfer(adap, msgs, num, true);
 }
@@ -499,9 +547,9 @@ static int adi_twi_master_xfer_atomic(struct i2c_adapter *adap,
  * One I2C SMBus transfer
  */
 int adi_twi_do_smbus_xfer(struct i2c_adapter *adap, u16 addr,
-			unsigned short flags, char read_write,
-			u8 command, int size, union i2c_smbus_data *data,
-			bool polling)
+			  unsigned short flags, char read_write,
+			  u8 command, int size, union i2c_smbus_data *data,
+			  bool polling)
 {
 	struct adi_twi_iface *iface = adap->algo_data;
 	int rc = 0;
@@ -552,13 +600,13 @@ int adi_twi_do_smbus_xfer(struct i2c_adapter *adap, u16 addr,
 			iface->writeNum = 2;
 			iface->cur_mode = TWI_I2C_MODE_STANDARDSUB;
 		}
-		iface->transPtr = (u8 *)&data->word;
+		iface->transPtr = (u8 *) & data->word;
 		break;
 	case I2C_SMBUS_PROC_CALL:
 		iface->writeNum = 2;
 		iface->readNum = 2;
 		iface->cur_mode = TWI_I2C_MODE_COMBINED;
-		iface->transPtr = (u8 *)&data->word;
+		iface->transPtr = (u8 *) & data->word;
 		break;
 	case I2C_SMBUS_BLOCK_DATA:
 		if (read_write == I2C_SMBUS_READ) {
@@ -578,7 +626,7 @@ int adi_twi_do_smbus_xfer(struct i2c_adapter *adap, u16 addr,
 			iface->writeNum = data->block[0];
 			iface->cur_mode = TWI_I2C_MODE_STANDARDSUB;
 		}
-		iface->transPtr = (u8 *)&data->block[1];
+		iface->transPtr = (u8 *) & data->block[1];
 		break;
 	default:
 		return -1;
@@ -598,7 +646,8 @@ int adi_twi_do_smbus_xfer(struct i2c_adapter *adap, u16 addr,
 	iowrite16(0, &iface->regs_base->fifo_ctl);
 
 	/* clear int stat */
-	iowrite16(MERR | MCOMP | XMTSERV | RCVSERV, &iface->regs_base->int_stat);
+	iowrite16(MERR | MCOMP | XMTSERV | RCVSERV,
+		  &iface->regs_base->int_stat);
 
 	/* Set Transmit device address */
 	iowrite16(addr, &iface->regs_base->master_addr);
@@ -616,7 +665,8 @@ int adi_twi_do_smbus_xfer(struct i2c_adapter *adap, u16 addr,
 		iowrite16(writeValue, &iface->regs_base->int_mask);
 
 		if (iface->writeNum + 1 <= 255)
-			iowrite16((iface->writeNum + 1) << 6, &iface->regs_base->master_ctl);
+			iowrite16((iface->writeNum + 1) << 6,
+				  &iface->regs_base->master_ctl);
 		else {
 			iowrite16(0xff << 6, &iface->regs_base->master_ctl);
 			iface->manual_stop = 1;
@@ -629,14 +679,17 @@ int adi_twi_do_smbus_xfer(struct i2c_adapter *adap, u16 addr,
 		break;
 	case TWI_I2C_MODE_COMBINED:
 		iowrite16(iface->command, &iface->regs_base->xmt_data8);
-		iowrite16(MCOMP | MERR | RCVSERV | XMTSERV, &iface->regs_base->int_mask);
+		iowrite16(MCOMP | MERR | RCVSERV | XMTSERV,
+			  &iface->regs_base->int_mask);
 
 		if (iface->writeNum > 0)
-			iowrite16((iface->writeNum + 1) << 6, &iface->regs_base->master_ctl);
+			iowrite16((iface->writeNum + 1) << 6,
+				  &iface->regs_base->master_ctl);
 		else
 			iowrite16(0x1 << 6, &iface->regs_base->master_ctl);
 		/* Master enable */
-		writeValue = ioread16(&iface->regs_base->master_ctl) | MEN | RSTART;
+		writeValue =
+		    ioread16(&iface->regs_base->master_ctl) | MEN | RSTART;
 		if (iface->twi_clk > 100)
 			writeValue |= FAST;
 		iowrite16(writeValue, &iface->regs_base->master_ctl);
@@ -653,22 +706,31 @@ int adi_twi_do_smbus_xfer(struct i2c_adapter *adap, u16 addr,
 						  &iface->regs_base->xmt_data8);
 					if (iface->writeNum <= 255)
 						iowrite16(iface->writeNum << 6,
-							  &iface->regs_base->master_ctl);
+							  &iface->regs_base->
+							  master_ctl);
 					else {
-						iowrite16(0xff << 6, &iface->regs_base->master_ctl);
+						iowrite16(0xff << 6,
+							  &iface->regs_base->
+							  master_ctl);
 						iface->manual_stop = 1;
 					}
 					iface->writeNum--;
 				} else {
-					iowrite16(iface->command, &iface->regs_base->xmt_data8);
-					iowrite16(1 << 6, &iface->regs_base->master_ctl);
+					iowrite16(iface->command,
+						  &iface->regs_base->xmt_data8);
+					iowrite16(1 << 6,
+						  &iface->regs_base->
+						  master_ctl);
 				}
 			} else {
 				if (iface->readNum > 0 && iface->readNum <= 255)
 					iowrite16(iface->readNum << 6,
-						  &iface->regs_base->master_ctl);
+						  &iface->regs_base->
+						  master_ctl);
 				else if (iface->readNum > 255) {
-					iowrite16(0xff << 6, &iface->regs_base->master_ctl);
+					iowrite16(0xff << 6,
+						  &iface->regs_base->
+						  master_ctl);
 					iface->manual_stop = 1;
 				} else
 					break;
@@ -683,8 +745,8 @@ int adi_twi_do_smbus_xfer(struct i2c_adapter *adap, u16 addr,
 
 		/* Master enable */
 		writeValue = ioread16(&iface->regs_base->master_ctl) | MEN |
-			     ((iface->read_write == I2C_SMBUS_READ) ? MDIR : 0) |
-			     ((iface->twi_clk > 100) ? FAST : 0);
+		    ((iface->read_write == I2C_SMBUS_READ) ? MDIR : 0) |
+		    ((iface->twi_clk > 100) ? FAST : 0);
 		iowrite16(writeValue, &iface->regs_base->master_ctl);
 		break;
 	}
@@ -693,8 +755,8 @@ int adi_twi_do_smbus_xfer(struct i2c_adapter *adap, u16 addr,
 		int timeout = 50000;
 
 		for (;;) {
-			irqreturn_t handled = adi_twi_handle_all_interrupts(
-								iface, true);
+			irqreturn_t handled =
+			    adi_twi_handle_all_interrupts(iface, true);
 			if (handled == IRQ_HANDLED && iface->result)
 				break;
 			if (--timeout == 0) {
@@ -703,10 +765,10 @@ int adi_twi_do_smbus_xfer(struct i2c_adapter *adap, u16 addr,
 				break;
 			}
 		}
-	} else { /* interrupt driven */
+	} else {		/* interrupt driven */
 		while (!iface->result) {
 			if (!wait_for_completion_timeout(&iface->complete,
-				adap->timeout)) {
+							 adap->timeout)) {
 				iface->result = -1;
 				dev_err(&adap->dev, "smbus transfer timeout");
 			}
@@ -722,19 +784,19 @@ int adi_twi_do_smbus_xfer(struct i2c_adapter *adap, u16 addr,
  * Generic I2C SMBus transfer entrypoint
  */
 int adi_twi_smbus_xfer(struct i2c_adapter *adap, u16 addr,
-			unsigned short flags, char read_write,
-			u8 command, int size, union i2c_smbus_data *data)
+		       unsigned short flags, char read_write,
+		       u8 command, int size, union i2c_smbus_data *data)
 {
 	return adi_twi_do_smbus_xfer(adap, addr, flags,
-			read_write, command, size, data, false);
+				     read_write, command, size, data, false);
 }
 
 int adi_twi_smbus_xfer_atomic(struct i2c_adapter *adap, u16 addr,
-			unsigned short flags, char read_write,
-			u8 command, int size, union i2c_smbus_data *data)
+			      unsigned short flags, char read_write,
+			      u8 command, int size, union i2c_smbus_data *data)
 {
 	return adi_twi_do_smbus_xfer(adap, addr, flags,
-			read_write, command, size, data, true);
+				     read_write, command, size, data, true);
 }
 
 /*
@@ -743,17 +805,17 @@ int adi_twi_smbus_xfer_atomic(struct i2c_adapter *adap, u16 addr,
 static u32 adi_twi_functionality(struct i2c_adapter *adap)
 {
 	return I2C_FUNC_SMBUS_QUICK | I2C_FUNC_SMBUS_BYTE |
-	       I2C_FUNC_SMBUS_BYTE_DATA | I2C_FUNC_SMBUS_WORD_DATA |
-	       I2C_FUNC_SMBUS_BLOCK_DATA | I2C_FUNC_SMBUS_PROC_CALL |
-	       I2C_FUNC_I2C | I2C_FUNC_SMBUS_I2C_BLOCK;
+	    I2C_FUNC_SMBUS_BYTE_DATA | I2C_FUNC_SMBUS_WORD_DATA |
+	    I2C_FUNC_SMBUS_BLOCK_DATA | I2C_FUNC_SMBUS_PROC_CALL |
+	    I2C_FUNC_I2C | I2C_FUNC_SMBUS_I2C_BLOCK;
 }
 
 static const struct i2c_algorithm adi_twi_algorithm = {
-	.master_xfer	    = adi_twi_master_xfer,
+	.master_xfer = adi_twi_master_xfer,
 	.master_xfer_atomic = adi_twi_master_xfer_atomic,
-	.smbus_xfer	    = adi_twi_smbus_xfer,
-	.smbus_xfer_atomic  = adi_twi_smbus_xfer_atomic,
-	.functionality	    = adi_twi_functionality,
+	.smbus_xfer = adi_twi_smbus_xfer,
+	.smbus_xfer_atomic = adi_twi_smbus_xfer_atomic,
+	.functionality = adi_twi_functionality,
 };
 
 #ifdef CONFIG_PM_SLEEP
@@ -777,7 +839,7 @@ static int i2c_adi_twi_resume(struct device *dev)
 	struct adi_twi_iface *iface = dev_get_drvdata(dev);
 
 	int rc = request_irq(iface->irq, adi_twi_interrupt_entry,
-		0, to_platform_device(dev)->name, iface);
+			     0, to_platform_device(dev)->name, iface);
 	if (rc) {
 		dev_err(dev, "Can't get IRQ %d !\n", iface->irq);
 		return -ENODEV;
@@ -802,10 +864,11 @@ static SIMPLE_DEV_PM_OPS(i2c_adi_twi_pm,
 #ifdef CONFIG_OF
 static const struct of_device_id adi_twi_of_match[] = {
 	{
-		.compatible = "adi,twi",
-	},
-	{},
+	 .compatible = "adi,twi",
+	  },
+	{ },
 };
+
 MODULE_DEVICE_TABLE(of, adi_twi_of_match);
 #endif
 
@@ -828,8 +891,7 @@ static int i2c_adi_twi_probe(struct platform_device *pdev)
 
 	match = of_match_device(of_match_ptr(adi_twi_of_match), &pdev->dev);
 	if (match) {
-		if (of_property_read_u32(node, "clock-khz",
-			&iface->twi_clk))
+		if (of_property_read_u32(node, "clock-khz", &iface->twi_clk))
 			iface->twi_clk = 50;
 	} else
 		iface->twi_clk = CONFIG_I2C_ADI_TWI_CLK_KHZ;
@@ -872,7 +934,7 @@ static int i2c_adi_twi_probe(struct platform_device *pdev)
 	p_adap->retries = 3;
 
 	rc = devm_request_irq(&pdev->dev, iface->irq, adi_twi_interrupt_entry,
-		0, pdev->name, iface);
+			      0, pdev->name, iface);
 	if (rc) {
 		dev_err(&pdev->dev, "Can't get IRQ %d !\n", iface->irq);
 		rc = -ENODEV;
@@ -886,7 +948,8 @@ static int i2c_adi_twi_probe(struct platform_device *pdev)
 		goto out_error;
 	}
 
-	writeValue = ((clk_get_rate(iface->sclk) / 1000 / 1000 + 5) / 10) & 0x7F;
+	writeValue =
+	    ((clk_get_rate(iface->sclk) / 1000 / 1000 + 5) / 10) & 0x7F;
 	iowrite16(writeValue, &iface->regs_base->control);
 
 	/*
@@ -910,7 +973,7 @@ static int i2c_adi_twi_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, iface);
 
 	dev_info(&pdev->dev, "ADI on-chip I2C TWI Controller, regs_base@%p\n",
-		iface->regs_base);
+		 iface->regs_base);
 
 	return 0;
 
@@ -932,13 +995,13 @@ static int i2c_adi_twi_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver i2c_adi_twi_driver = {
-	.probe		= i2c_adi_twi_probe,
-	.remove		= i2c_adi_twi_remove,
-	.driver		= {
-		.name	= "i2c-adi-twi",
-		.pm	= I2C_ADI_TWI_PM_OPS,
-		.of_match_table = of_match_ptr(adi_twi_of_match),
-	},
+	.probe = i2c_adi_twi_probe,
+	.remove = i2c_adi_twi_remove,
+	.driver = {
+		   .name = "i2c-adi-twi",
+		   .pm = I2C_ADI_TWI_PM_OPS,
+		   .of_match_table = of_match_ptr(adi_twi_of_match),
+		    },
 };
 
 static int __init i2c_adi_twi_init(void)

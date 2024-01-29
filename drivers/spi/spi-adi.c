@@ -26,190 +26,190 @@
 #include <linux/types.h>
 
 /* SPI_CONTROL */
-#define SPI_CTL_EN                  0x00000001    /* Enable */
-#define SPI_CTL_MSTR                0x00000002    /* Master/Slave */
-#define SPI_CTL_PSSE                0x00000004    /* controls modf error in master mode */
-#define SPI_CTL_ODM                 0x00000008    /* Open Drain Mode */
-#define SPI_CTL_CPHA                0x00000010    /* Clock Phase */
-#define SPI_CTL_CPOL                0x00000020    /* Clock Polarity */
-#define SPI_CTL_ASSEL               0x00000040    /* Slave Select Pin Control */
-#define SPI_CTL_SELST               0x00000080    /* Slave Select Polarity in-between transfers */
-#define SPI_CTL_EMISO               0x00000100    /* Enable MISO */
-#define SPI_CTL_SIZE                0x00000600    /* Word Transfer Size */
-#define SPI_CTL_SIZE08              0x00000000    /* SIZE: 8 bits */
-#define SPI_CTL_SIZE16              0x00000200    /* SIZE: 16 bits */
-#define SPI_CTL_SIZE32              0x00000400    /* SIZE: 32 bits */
-#define SPI_CTL_LSBF                0x00001000    /* LSB First */
-#define SPI_CTL_FCEN                0x00002000    /* Flow-Control Enable */
-#define SPI_CTL_FCCH                0x00004000    /* Flow-Control Channel Selection */
-#define SPI_CTL_FCPL                0x00008000    /* Flow-Control Polarity */
-#define SPI_CTL_FCWM                0x00030000    /* Flow-Control Water-Mark */
-#define SPI_CTL_FIFO0               0x00000000    /* FCWM: TFIFO empty or RFIFO Full */
-#define SPI_CTL_FIFO1               0x00010000    /* FCWM: TFIFO >= 75% empty, RFIFO >= 75% full */
-#define SPI_CTL_FIFO2               0x00020000    /* FCWM: TFIFO >= 50% empty, RFIFO >= 50% full */
-#define SPI_CTL_FMODE               0x00040000    /* Fast-mode Enable */
-#define SPI_CTL_MIOM                0x00300000    /* Multiple I/O Mode */
-#define SPI_CTL_MIO_DIS             0x00000000    /* MIOM: Disable */
-#define SPI_CTL_MIO_DUAL            0x00100000    /* MIOM: Enable DIOM (Dual I/O Mode) */
-#define SPI_CTL_MIO_QUAD            0x00200000    /* MIOM: Enable QUAD (Quad SPI Mode) */
-#define SPI_CTL_SOSI                0x00400000    /* Start on MOSI */
+#define SPI_CTL_EN                  0x00000001	/* Enable */
+#define SPI_CTL_MSTR                0x00000002	/* Master/Slave */
+#define SPI_CTL_PSSE                0x00000004	/* controls modf error in master mode */
+#define SPI_CTL_ODM                 0x00000008	/* Open Drain Mode */
+#define SPI_CTL_CPHA                0x00000010	/* Clock Phase */
+#define SPI_CTL_CPOL                0x00000020	/* Clock Polarity */
+#define SPI_CTL_ASSEL               0x00000040	/* Slave Select Pin Control */
+#define SPI_CTL_SELST               0x00000080	/* Slave Select Polarity in-between transfers */
+#define SPI_CTL_EMISO               0x00000100	/* Enable MISO */
+#define SPI_CTL_SIZE                0x00000600	/* Word Transfer Size */
+#define SPI_CTL_SIZE08              0x00000000	/* SIZE: 8 bits */
+#define SPI_CTL_SIZE16              0x00000200	/* SIZE: 16 bits */
+#define SPI_CTL_SIZE32              0x00000400	/* SIZE: 32 bits */
+#define SPI_CTL_LSBF                0x00001000	/* LSB First */
+#define SPI_CTL_FCEN                0x00002000	/* Flow-Control Enable */
+#define SPI_CTL_FCCH                0x00004000	/* Flow-Control Channel Selection */
+#define SPI_CTL_FCPL                0x00008000	/* Flow-Control Polarity */
+#define SPI_CTL_FCWM                0x00030000	/* Flow-Control Water-Mark */
+#define SPI_CTL_FIFO0               0x00000000	/* FCWM: TFIFO empty or RFIFO Full */
+#define SPI_CTL_FIFO1               0x00010000	/* FCWM: TFIFO >= 75% empty, RFIFO >= 75% full */
+#define SPI_CTL_FIFO2               0x00020000	/* FCWM: TFIFO >= 50% empty, RFIFO >= 50% full */
+#define SPI_CTL_FMODE               0x00040000	/* Fast-mode Enable */
+#define SPI_CTL_MIOM                0x00300000	/* Multiple I/O Mode */
+#define SPI_CTL_MIO_DIS             0x00000000	/* MIOM: Disable */
+#define SPI_CTL_MIO_DUAL            0x00100000	/* MIOM: Enable DIOM (Dual I/O Mode) */
+#define SPI_CTL_MIO_QUAD            0x00200000	/* MIOM: Enable QUAD (Quad SPI Mode) */
+#define SPI_CTL_SOSI                0x00400000	/* Start on MOSI */
 /* SPI_RX_CONTROL */
-#define SPI_RXCTL_REN               0x00000001    /* Receive Channel Enable */
-#define SPI_RXCTL_RTI               0x00000004    /* Receive Transfer Initiate */
-#define SPI_RXCTL_RWCEN             0x00000008    /* Receive Word Counter Enable */
-#define SPI_RXCTL_RDR               0x00000070    /* Receive Data Request */
-#define SPI_RXCTL_RDR_DIS           0x00000000    /* RDR: Disabled */
-#define SPI_RXCTL_RDR_NE            0x00000010    /* RDR: RFIFO not empty */
-#define SPI_RXCTL_RDR_25            0x00000020    /* RDR: RFIFO 25% full */
-#define SPI_RXCTL_RDR_50            0x00000030    /* RDR: RFIFO 50% full */
-#define SPI_RXCTL_RDR_75            0x00000040    /* RDR: RFIFO 75% full */
-#define SPI_RXCTL_RDR_FULL          0x00000050    /* RDR: RFIFO full */
-#define SPI_RXCTL_RDO               0x00000100    /* Receive Data Over-Run */
-#define SPI_RXCTL_RRWM              0x00003000    /* FIFO Regular Water-Mark */
-#define SPI_RXCTL_RWM_0             0x00000000    /* RRWM: RFIFO Empty */
-#define SPI_RXCTL_RWM_25            0x00001000    /* RRWM: RFIFO 25% full */
-#define SPI_RXCTL_RWM_50            0x00002000    /* RRWM: RFIFO 50% full */
-#define SPI_RXCTL_RWM_75            0x00003000    /* RRWM: RFIFO 75% full */
-#define SPI_RXCTL_RUWM              0x00070000    /* FIFO Urgent Water-Mark */
-#define SPI_RXCTL_UWM_DIS           0x00000000    /* RUWM: Disabled */
-#define SPI_RXCTL_UWM_25            0x00010000    /* RUWM: RFIFO 25% full */
-#define SPI_RXCTL_UWM_50            0x00020000    /* RUWM: RFIFO 50% full */
-#define SPI_RXCTL_UWM_75            0x00030000    /* RUWM: RFIFO 75% full */
-#define SPI_RXCTL_UWM_FULL          0x00040000    /* RUWM: RFIFO full */
+#define SPI_RXCTL_REN               0x00000001	/* Receive Channel Enable */
+#define SPI_RXCTL_RTI               0x00000004	/* Receive Transfer Initiate */
+#define SPI_RXCTL_RWCEN             0x00000008	/* Receive Word Counter Enable */
+#define SPI_RXCTL_RDR               0x00000070	/* Receive Data Request */
+#define SPI_RXCTL_RDR_DIS           0x00000000	/* RDR: Disabled */
+#define SPI_RXCTL_RDR_NE            0x00000010	/* RDR: RFIFO not empty */
+#define SPI_RXCTL_RDR_25            0x00000020	/* RDR: RFIFO 25% full */
+#define SPI_RXCTL_RDR_50            0x00000030	/* RDR: RFIFO 50% full */
+#define SPI_RXCTL_RDR_75            0x00000040	/* RDR: RFIFO 75% full */
+#define SPI_RXCTL_RDR_FULL          0x00000050	/* RDR: RFIFO full */
+#define SPI_RXCTL_RDO               0x00000100	/* Receive Data Over-Run */
+#define SPI_RXCTL_RRWM              0x00003000	/* FIFO Regular Water-Mark */
+#define SPI_RXCTL_RWM_0             0x00000000	/* RRWM: RFIFO Empty */
+#define SPI_RXCTL_RWM_25            0x00001000	/* RRWM: RFIFO 25% full */
+#define SPI_RXCTL_RWM_50            0x00002000	/* RRWM: RFIFO 50% full */
+#define SPI_RXCTL_RWM_75            0x00003000	/* RRWM: RFIFO 75% full */
+#define SPI_RXCTL_RUWM              0x00070000	/* FIFO Urgent Water-Mark */
+#define SPI_RXCTL_UWM_DIS           0x00000000	/* RUWM: Disabled */
+#define SPI_RXCTL_UWM_25            0x00010000	/* RUWM: RFIFO 25% full */
+#define SPI_RXCTL_UWM_50            0x00020000	/* RUWM: RFIFO 50% full */
+#define SPI_RXCTL_UWM_75            0x00030000	/* RUWM: RFIFO 75% full */
+#define SPI_RXCTL_UWM_FULL          0x00040000	/* RUWM: RFIFO full */
 /* SPI_TX_CONTROL */
-#define SPI_TXCTL_TEN               0x00000001    /* Transmit Channel Enable */
-#define SPI_TXCTL_TTI               0x00000004    /* Transmit Transfer Initiate */
-#define SPI_TXCTL_TWCEN             0x00000008    /* Transmit Word Counter Enable */
-#define SPI_TXCTL_TDR               0x00000070    /* Transmit Data Request */
-#define SPI_TXCTL_TDR_DIS           0x00000000    /* TDR: Disabled */
-#define SPI_TXCTL_TDR_NF            0x00000010    /* TDR: TFIFO not full */
-#define SPI_TXCTL_TDR_25            0x00000020    /* TDR: TFIFO 25% empty */
-#define SPI_TXCTL_TDR_50            0x00000030    /* TDR: TFIFO 50% empty */
-#define SPI_TXCTL_TDR_75            0x00000040    /* TDR: TFIFO 75% empty */
-#define SPI_TXCTL_TDR_EMPTY         0x00000050    /* TDR: TFIFO empty */
-#define SPI_TXCTL_TDU               0x00000100    /* Transmit Data Under-Run */
-#define SPI_TXCTL_TRWM              0x00003000    /* FIFO Regular Water-Mark */
-#define SPI_TXCTL_RWM_FULL          0x00000000    /* TRWM: TFIFO full */
-#define SPI_TXCTL_RWM_25            0x00001000    /* TRWM: TFIFO 25% empty */
-#define SPI_TXCTL_RWM_50            0x00002000    /* TRWM: TFIFO 50% empty */
-#define SPI_TXCTL_RWM_75            0x00003000    /* TRWM: TFIFO 75% empty */
-#define SPI_TXCTL_TUWM              0x00070000    /* FIFO Urgent Water-Mark */
-#define SPI_TXCTL_UWM_DIS           0x00000000    /* TUWM: Disabled */
-#define SPI_TXCTL_UWM_25            0x00010000    /* TUWM: TFIFO 25% empty */
-#define SPI_TXCTL_UWM_50            0x00020000    /* TUWM: TFIFO 50% empty */
-#define SPI_TXCTL_UWM_75            0x00030000    /* TUWM: TFIFO 75% empty */
-#define SPI_TXCTL_UWM_EMPTY         0x00040000    /* TUWM: TFIFO empty */
+#define SPI_TXCTL_TEN               0x00000001	/* Transmit Channel Enable */
+#define SPI_TXCTL_TTI               0x00000004	/* Transmit Transfer Initiate */
+#define SPI_TXCTL_TWCEN             0x00000008	/* Transmit Word Counter Enable */
+#define SPI_TXCTL_TDR               0x00000070	/* Transmit Data Request */
+#define SPI_TXCTL_TDR_DIS           0x00000000	/* TDR: Disabled */
+#define SPI_TXCTL_TDR_NF            0x00000010	/* TDR: TFIFO not full */
+#define SPI_TXCTL_TDR_25            0x00000020	/* TDR: TFIFO 25% empty */
+#define SPI_TXCTL_TDR_50            0x00000030	/* TDR: TFIFO 50% empty */
+#define SPI_TXCTL_TDR_75            0x00000040	/* TDR: TFIFO 75% empty */
+#define SPI_TXCTL_TDR_EMPTY         0x00000050	/* TDR: TFIFO empty */
+#define SPI_TXCTL_TDU               0x00000100	/* Transmit Data Under-Run */
+#define SPI_TXCTL_TRWM              0x00003000	/* FIFO Regular Water-Mark */
+#define SPI_TXCTL_RWM_FULL          0x00000000	/* TRWM: TFIFO full */
+#define SPI_TXCTL_RWM_25            0x00001000	/* TRWM: TFIFO 25% empty */
+#define SPI_TXCTL_RWM_50            0x00002000	/* TRWM: TFIFO 50% empty */
+#define SPI_TXCTL_RWM_75            0x00003000	/* TRWM: TFIFO 75% empty */
+#define SPI_TXCTL_TUWM              0x00070000	/* FIFO Urgent Water-Mark */
+#define SPI_TXCTL_UWM_DIS           0x00000000	/* TUWM: Disabled */
+#define SPI_TXCTL_UWM_25            0x00010000	/* TUWM: TFIFO 25% empty */
+#define SPI_TXCTL_UWM_50            0x00020000	/* TUWM: TFIFO 50% empty */
+#define SPI_TXCTL_UWM_75            0x00030000	/* TUWM: TFIFO 75% empty */
+#define SPI_TXCTL_UWM_EMPTY         0x00040000	/* TUWM: TFIFO empty */
 /* SPI_CLOCK */
-#define SPI_CLK_BAUD                0x0000FFFF    /* Baud Rate */
+#define SPI_CLK_BAUD                0x0000FFFF	/* Baud Rate */
 /* SPI_DELAY */
-#define SPI_DLY_STOP                0x000000FF    /* Transfer delay time */
-#define SPI_DLY_LEADX               0x00000100    /* Extended (1 SCK) LEAD Control */
-#define SPI_DLY_LAGX                0x00000200    /* Extended (1 SCK) LAG control */
+#define SPI_DLY_STOP                0x000000FF	/* Transfer delay time */
+#define SPI_DLY_LEADX               0x00000100	/* Extended (1 SCK) LEAD Control */
+#define SPI_DLY_LAGX                0x00000200	/* Extended (1 SCK) LAG control */
 /* SPI_SSEL */
-#define SPI_SLVSEL_SSE1             0x00000002    /* SPISSEL1 Enable */
-#define SPI_SLVSEL_SSE2             0x00000004    /* SPISSEL2 Enable */
-#define SPI_SLVSEL_SSE3             0x00000008    /* SPISSEL3 Enable */
-#define SPI_SLVSEL_SSE4             0x00000010    /* SPISSEL4 Enable */
-#define SPI_SLVSEL_SSE5             0x00000020    /* SPISSEL5 Enable */
-#define SPI_SLVSEL_SSE6             0x00000040    /* SPISSEL6 Enable */
-#define SPI_SLVSEL_SSE7             0x00000080    /* SPISSEL7 Enable */
-#define SPI_SLVSEL_SSEL1            0x00000200    /* SPISSEL1 Value */
-#define SPI_SLVSEL_SSEL2            0x00000400    /* SPISSEL2 Value */
-#define SPI_SLVSEL_SSEL3            0x00000800    /* SPISSEL3 Value */
-#define SPI_SLVSEL_SSEL4            0x00001000    /* SPISSEL4 Value */
-#define SPI_SLVSEL_SSEL5            0x00002000    /* SPISSEL5 Value */
-#define SPI_SLVSEL_SSEL6            0x00004000    /* SPISSEL6 Value */
-#define SPI_SLVSEL_SSEL7            0x00008000    /* SPISSEL7 Value */
+#define SPI_SLVSEL_SSE1             0x00000002	/* SPISSEL1 Enable */
+#define SPI_SLVSEL_SSE2             0x00000004	/* SPISSEL2 Enable */
+#define SPI_SLVSEL_SSE3             0x00000008	/* SPISSEL3 Enable */
+#define SPI_SLVSEL_SSE4             0x00000010	/* SPISSEL4 Enable */
+#define SPI_SLVSEL_SSE5             0x00000020	/* SPISSEL5 Enable */
+#define SPI_SLVSEL_SSE6             0x00000040	/* SPISSEL6 Enable */
+#define SPI_SLVSEL_SSE7             0x00000080	/* SPISSEL7 Enable */
+#define SPI_SLVSEL_SSEL1            0x00000200	/* SPISSEL1 Value */
+#define SPI_SLVSEL_SSEL2            0x00000400	/* SPISSEL2 Value */
+#define SPI_SLVSEL_SSEL3            0x00000800	/* SPISSEL3 Value */
+#define SPI_SLVSEL_SSEL4            0x00001000	/* SPISSEL4 Value */
+#define SPI_SLVSEL_SSEL5            0x00002000	/* SPISSEL5 Value */
+#define SPI_SLVSEL_SSEL6            0x00004000	/* SPISSEL6 Value */
+#define SPI_SLVSEL_SSEL7            0x00008000	/* SPISSEL7 Value */
 /* SPI_RWC */
-#define SPI_RWC_VALUE               0x0000FFFF    /* Received Word-Count */
+#define SPI_RWC_VALUE               0x0000FFFF	/* Received Word-Count */
 /* SPI_RWCR */
-#define SPI_RWCR_VALUE              0x0000FFFF    /* Received Word-Count Reload */
+#define SPI_RWCR_VALUE              0x0000FFFF	/* Received Word-Count Reload */
 /* SPI_TWC */
-#define SPI_TWC_VALUE               0x0000FFFF    /* Transmitted Word-Count */
+#define SPI_TWC_VALUE               0x0000FFFF	/* Transmitted Word-Count */
 /* SPI_TWCR */
-#define SPI_TWCR_VALUE              0x0000FFFF    /* Transmitted Word-Count Reload */
+#define SPI_TWCR_VALUE              0x0000FFFF	/* Transmitted Word-Count Reload */
 /* SPI_IMASK */
-#define SPI_IMSK_RUWM               0x00000002    /* Receive Urgent Water-Mark Interrupt Mask */
-#define SPI_IMSK_TUWM               0x00000004    /* Transmit Urgent Water-Mark Interrupt Mask */
-#define SPI_IMSK_ROM                0x00000010    /* Receive Over-Run Error Interrupt Mask */
-#define SPI_IMSK_TUM                0x00000020    /* Transmit Under-Run Error Interrupt Mask */
-#define SPI_IMSK_TCM                0x00000040    /* Transmit Collision Error Interrupt Mask */
-#define SPI_IMSK_MFM                0x00000080    /* Mode Fault Error Interrupt Mask */
-#define SPI_IMSK_RSM                0x00000100    /* Receive Start Interrupt Mask */
-#define SPI_IMSK_TSM                0x00000200    /* Transmit Start Interrupt Mask */
-#define SPI_IMSK_RFM                0x00000400    /* Receive Finish Interrupt Mask */
-#define SPI_IMSK_TFM                0x00000800    /* Transmit Finish Interrupt Mask */
+#define SPI_IMSK_RUWM               0x00000002	/* Receive Urgent Water-Mark Interrupt Mask */
+#define SPI_IMSK_TUWM               0x00000004	/* Transmit Urgent Water-Mark Interrupt Mask */
+#define SPI_IMSK_ROM                0x00000010	/* Receive Over-Run Error Interrupt Mask */
+#define SPI_IMSK_TUM                0x00000020	/* Transmit Under-Run Error Interrupt Mask */
+#define SPI_IMSK_TCM                0x00000040	/* Transmit Collision Error Interrupt Mask */
+#define SPI_IMSK_MFM                0x00000080	/* Mode Fault Error Interrupt Mask */
+#define SPI_IMSK_RSM                0x00000100	/* Receive Start Interrupt Mask */
+#define SPI_IMSK_TSM                0x00000200	/* Transmit Start Interrupt Mask */
+#define SPI_IMSK_RFM                0x00000400	/* Receive Finish Interrupt Mask */
+#define SPI_IMSK_TFM                0x00000800	/* Transmit Finish Interrupt Mask */
 /* SPI_IMASKCL */
-#define SPI_IMSK_CLR_RUW            0x00000002    /* Receive Urgent Water-Mark Interrupt Mask */
-#define SPI_IMSK_CLR_TUWM           0x00000004    /* Transmit Urgent Water-Mark Interrupt Mask */
-#define SPI_IMSK_CLR_ROM            0x00000010    /* Receive Over-Run Error Interrupt Mask */
-#define SPI_IMSK_CLR_TUM            0x00000020    /* Transmit Under-Run Error Interrupt Mask */
-#define SPI_IMSK_CLR_TCM            0x00000040    /* Transmit Collision Error Interrupt Mask */
-#define SPI_IMSK_CLR_MFM            0x00000080    /* Mode Fault Error Interrupt Mask */
-#define SPI_IMSK_CLR_RSM            0x00000100    /* Receive Start Interrupt Mask */
-#define SPI_IMSK_CLR_TSM            0x00000200    /* Transmit Start Interrupt Mask */
-#define SPI_IMSK_CLR_RFM            0x00000400    /* Receive Finish Interrupt Mask */
-#define SPI_IMSK_CLR_TFM            0x00000800    /* Transmit Finish Interrupt Mask */
+#define SPI_IMSK_CLR_RUW            0x00000002	/* Receive Urgent Water-Mark Interrupt Mask */
+#define SPI_IMSK_CLR_TUWM           0x00000004	/* Transmit Urgent Water-Mark Interrupt Mask */
+#define SPI_IMSK_CLR_ROM            0x00000010	/* Receive Over-Run Error Interrupt Mask */
+#define SPI_IMSK_CLR_TUM            0x00000020	/* Transmit Under-Run Error Interrupt Mask */
+#define SPI_IMSK_CLR_TCM            0x00000040	/* Transmit Collision Error Interrupt Mask */
+#define SPI_IMSK_CLR_MFM            0x00000080	/* Mode Fault Error Interrupt Mask */
+#define SPI_IMSK_CLR_RSM            0x00000100	/* Receive Start Interrupt Mask */
+#define SPI_IMSK_CLR_TSM            0x00000200	/* Transmit Start Interrupt Mask */
+#define SPI_IMSK_CLR_RFM            0x00000400	/* Receive Finish Interrupt Mask */
+#define SPI_IMSK_CLR_TFM            0x00000800	/* Transmit Finish Interrupt Mask */
 /* SPI_IMASKST */
-#define SPI_IMSK_SET_RUWM           0x00000002    /* Receive Urgent Water-Mark Interrupt Mask */
-#define SPI_IMSK_SET_TUWM           0x00000004    /* Transmit Urgent Water-Mark Interrupt Mask */
-#define SPI_IMSK_SET_ROM            0x00000010    /* Receive Over-Run Error Interrupt Mask */
-#define SPI_IMSK_SET_TUM            0x00000020    /* Transmit Under-Run Error Interrupt Mask */
-#define SPI_IMSK_SET_TCM            0x00000040    /* Transmit Collision Error Interrupt Mask */
-#define SPI_IMSK_SET_MFM            0x00000080    /* Mode Fault Error Interrupt Mask */
-#define SPI_IMSK_SET_RSM            0x00000100    /* Receive Start Interrupt Mask */
-#define SPI_IMSK_SET_TSM            0x00000200    /* Transmit Start Interrupt Mask */
-#define SPI_IMSK_SET_RFM            0x00000400    /* Receive Finish Interrupt Mask */
-#define SPI_IMSK_SET_TFM            0x00000800    /* Transmit Finish Interrupt Mask */
+#define SPI_IMSK_SET_RUWM           0x00000002	/* Receive Urgent Water-Mark Interrupt Mask */
+#define SPI_IMSK_SET_TUWM           0x00000004	/* Transmit Urgent Water-Mark Interrupt Mask */
+#define SPI_IMSK_SET_ROM            0x00000010	/* Receive Over-Run Error Interrupt Mask */
+#define SPI_IMSK_SET_TUM            0x00000020	/* Transmit Under-Run Error Interrupt Mask */
+#define SPI_IMSK_SET_TCM            0x00000040	/* Transmit Collision Error Interrupt Mask */
+#define SPI_IMSK_SET_MFM            0x00000080	/* Mode Fault Error Interrupt Mask */
+#define SPI_IMSK_SET_RSM            0x00000100	/* Receive Start Interrupt Mask */
+#define SPI_IMSK_SET_TSM            0x00000200	/* Transmit Start Interrupt Mask */
+#define SPI_IMSK_SET_RFM            0x00000400	/* Receive Finish Interrupt Mask */
+#define SPI_IMSK_SET_TFM            0x00000800	/* Transmit Finish Interrupt Mask */
 /* SPI_STATUS */
-#define SPI_STAT_SPIF               0x00000001    /* SPI Finished */
-#define SPI_STAT_RUWM               0x00000002    /* Receive Urgent Water-Mark Breached */
-#define SPI_STAT_TUWM               0x00000004    /* Transmit Urgent Water-Mark Breached */
-#define SPI_STAT_ROE                0x00000010    /* Receive Over-Run Error Indication */
-#define SPI_STAT_TUE                0x00000020    /* Transmit Under-Run Error Indication */
-#define SPI_STAT_TCE                0x00000040    /* Transmit Collision Error Indication */
-#define SPI_STAT_MODF               0x00000080    /* Mode Fault Error Indication */
-#define SPI_STAT_RS                 0x00000100    /* Receive Start Indication */
-#define SPI_STAT_TS                 0x00000200    /* Transmit Start Indication */
-#define SPI_STAT_RF                 0x00000400    /* Receive Finish Indication */
-#define SPI_STAT_TF                 0x00000800    /* Transmit Finish Indication */
-#define SPI_STAT_RFS                0x00007000    /* SPI_RFIFO status */
-#define SPI_STAT_RFIFO_EMPTY        0x00000000    /* RFS: RFIFO Empty */
-#define SPI_STAT_RFIFO_25           0x00001000    /* RFS: RFIFO 25% Full */
-#define SPI_STAT_RFIFO_50           0x00002000    /* RFS: RFIFO 50% Full */
-#define SPI_STAT_RFIFO_75           0x00003000    /* RFS: RFIFO 75% Full */
-#define SPI_STAT_RFIFO_FULL         0x00004000    /* RFS: RFIFO Full */
-#define SPI_STAT_TFS                0x00070000    /* SPI_TFIFO status */
-#define SPI_STAT_TFIFO_FULL         0x00000000    /* TFS: TFIFO full */
-#define SPI_STAT_TFIFO_25           0x00010000    /* TFS: TFIFO 25% empty */
-#define SPI_STAT_TFIFO_50           0x00020000    /* TFS: TFIFO 50% empty */
-#define SPI_STAT_TFIFO_75           0x00030000    /* TFS: TFIFO 75% empty */
-#define SPI_STAT_TFIFO_EMPTY        0x00040000    /* TFS: TFIFO empty */
-#define SPI_STAT_FCS                0x00100000    /* Flow-Control Stall Indication */
-#define SPI_STAT_RFE                0x00400000    /* SPI_RFIFO Empty */
-#define SPI_STAT_TFF                0x00800000    /* SPI_TFIFO Full */
+#define SPI_STAT_SPIF               0x00000001	/* SPI Finished */
+#define SPI_STAT_RUWM               0x00000002	/* Receive Urgent Water-Mark Breached */
+#define SPI_STAT_TUWM               0x00000004	/* Transmit Urgent Water-Mark Breached */
+#define SPI_STAT_ROE                0x00000010	/* Receive Over-Run Error Indication */
+#define SPI_STAT_TUE                0x00000020	/* Transmit Under-Run Error Indication */
+#define SPI_STAT_TCE                0x00000040	/* Transmit Collision Error Indication */
+#define SPI_STAT_MODF               0x00000080	/* Mode Fault Error Indication */
+#define SPI_STAT_RS                 0x00000100	/* Receive Start Indication */
+#define SPI_STAT_TS                 0x00000200	/* Transmit Start Indication */
+#define SPI_STAT_RF                 0x00000400	/* Receive Finish Indication */
+#define SPI_STAT_TF                 0x00000800	/* Transmit Finish Indication */
+#define SPI_STAT_RFS                0x00007000	/* SPI_RFIFO status */
+#define SPI_STAT_RFIFO_EMPTY        0x00000000	/* RFS: RFIFO Empty */
+#define SPI_STAT_RFIFO_25           0x00001000	/* RFS: RFIFO 25% Full */
+#define SPI_STAT_RFIFO_50           0x00002000	/* RFS: RFIFO 50% Full */
+#define SPI_STAT_RFIFO_75           0x00003000	/* RFS: RFIFO 75% Full */
+#define SPI_STAT_RFIFO_FULL         0x00004000	/* RFS: RFIFO Full */
+#define SPI_STAT_TFS                0x00070000	/* SPI_TFIFO status */
+#define SPI_STAT_TFIFO_FULL         0x00000000	/* TFS: TFIFO full */
+#define SPI_STAT_TFIFO_25           0x00010000	/* TFS: TFIFO 25% empty */
+#define SPI_STAT_TFIFO_50           0x00020000	/* TFS: TFIFO 50% empty */
+#define SPI_STAT_TFIFO_75           0x00030000	/* TFS: TFIFO 75% empty */
+#define SPI_STAT_TFIFO_EMPTY        0x00040000	/* TFS: TFIFO empty */
+#define SPI_STAT_FCS                0x00100000	/* Flow-Control Stall Indication */
+#define SPI_STAT_RFE                0x00400000	/* SPI_RFIFO Empty */
+#define SPI_STAT_TFF                0x00800000	/* SPI_TFIFO Full */
 /* SPI_ILAT */
-#define SPI_ILAT_RUWMI              0x00000002    /* Receive Urgent Water Mark Interrupt */
-#define SPI_ILAT_TUWMI              0x00000004    /* Transmit Urgent Water Mark Interrupt */
-#define SPI_ILAT_ROI                0x00000010    /* Receive Over-Run Error Indication */
-#define SPI_ILAT_TUI                0x00000020    /* Transmit Under-Run Error Indication */
-#define SPI_ILAT_TCI                0x00000040    /* Transmit Collision Error Indication */
-#define SPI_ILAT_MFI                0x00000080    /* Mode Fault Error Indication */
-#define SPI_ILAT_RSI                0x00000100    /* Receive Start Indication */
-#define SPI_ILAT_TSI                0x00000200    /* Transmit Start Indication */
-#define SPI_ILAT_RFI                0x00000400    /* Receive Finish Indication */
-#define SPI_ILAT_TFI                0x00000800    /* Transmit Finish Indication */
+#define SPI_ILAT_RUWMI              0x00000002	/* Receive Urgent Water Mark Interrupt */
+#define SPI_ILAT_TUWMI              0x00000004	/* Transmit Urgent Water Mark Interrupt */
+#define SPI_ILAT_ROI                0x00000010	/* Receive Over-Run Error Indication */
+#define SPI_ILAT_TUI                0x00000020	/* Transmit Under-Run Error Indication */
+#define SPI_ILAT_TCI                0x00000040	/* Transmit Collision Error Indication */
+#define SPI_ILAT_MFI                0x00000080	/* Mode Fault Error Indication */
+#define SPI_ILAT_RSI                0x00000100	/* Receive Start Indication */
+#define SPI_ILAT_TSI                0x00000200	/* Transmit Start Indication */
+#define SPI_ILAT_RFI                0x00000400	/* Receive Finish Indication */
+#define SPI_ILAT_TFI                0x00000800	/* Transmit Finish Indication */
 /* SPI_ILATCL */
-#define SPI_ILAT_CLR_RUWMI          0x00000002    /* Receive Urgent Water Mark Interrupt */
-#define SPI_ILAT_CLR_TUWMI          0x00000004    /* Transmit Urgent Water Mark Interrupt */
-#define SPI_ILAT_CLR_ROI            0x00000010    /* Receive Over-Run Error Indication */
-#define SPI_ILAT_CLR_TUI            0x00000020    /* Transmit Under-Run Error Indication */
-#define SPI_ILAT_CLR_TCI            0x00000040    /* Transmit Collision Error Indication */
-#define SPI_ILAT_CLR_MFI            0x00000080    /* Mode Fault Error Indication */
-#define SPI_ILAT_CLR_RSI            0x00000100    /* Receive Start Indication */
-#define SPI_ILAT_CLR_TSI            0x00000200    /* Transmit Start Indication */
-#define SPI_ILAT_CLR_RFI            0x00000400    /* Receive Finish Indication */
-#define SPI_ILAT_CLR_TFI            0x00000800    /* Transmit Finish Indication */
+#define SPI_ILAT_CLR_RUWMI          0x00000002	/* Receive Urgent Water Mark Interrupt */
+#define SPI_ILAT_CLR_TUWMI          0x00000004	/* Transmit Urgent Water Mark Interrupt */
+#define SPI_ILAT_CLR_ROI            0x00000010	/* Receive Over-Run Error Indication */
+#define SPI_ILAT_CLR_TUI            0x00000020	/* Transmit Under-Run Error Indication */
+#define SPI_ILAT_CLR_TCI            0x00000040	/* Transmit Collision Error Indication */
+#define SPI_ILAT_CLR_MFI            0x00000080	/* Mode Fault Error Indication */
+#define SPI_ILAT_CLR_RSI            0x00000100	/* Receive Start Indication */
+#define SPI_ILAT_CLR_TSI            0x00000200	/* Transmit Start Indication */
+#define SPI_ILAT_CLR_RFI            0x00000400	/* Receive Finish Indication */
+#define SPI_ILAT_CLR_TFI            0x00000800	/* Transmit Finish Indication */
 
 /*
  * adi spi3 registers layout
@@ -243,9 +243,12 @@ struct adi_spi_regs {
 struct adi_spi_master;
 
 struct adi_spi_transfer_ops {
-	void (*write)(struct adi_spi_master *master, struct spi_transfer *xfer);
-	void (*read)(struct adi_spi_master *master, struct spi_transfer *xfer);
-	void (*duplex)(struct adi_spi_master *master, struct spi_transfer *xfer);
+	void (*write)(struct adi_spi_master * master,
+		      struct spi_transfer * xfer);
+	void (*read)(struct adi_spi_master * master,
+		     struct spi_transfer * xfer);
+	void (*duplex)(struct adi_spi_master * master,
+		       struct spi_transfer * xfer);
 };
 
 /* runtime info for spi master */
@@ -302,12 +305,12 @@ static u32 hz_to_spi_clock(u32 sclk, u32 speed_hz)
 }
 
 static void adi_spi_u8_write(struct adi_spi_master *drv,
-	struct spi_transfer *xfer)
+			     struct spi_transfer *xfer)
 {
 	size_t i;
 
 	for (i = 0; i < xfer->len; ++i) {
-		iowrite32(*(u8 *)(xfer->tx_buf + i), &drv->regs->tfifo);
+		iowrite32(*(u8 *) (xfer->tx_buf + i), &drv->regs->tfifo);
 		while (ioread32(&drv->regs->status) & SPI_STAT_RFE)
 			cpu_relax();
 		ioread32(&drv->regs->rfifo);
@@ -315,12 +318,12 @@ static void adi_spi_u8_write(struct adi_spi_master *drv,
 }
 
 static void adi_spi_u16_write(struct adi_spi_master *drv,
-	struct spi_transfer *xfer)
+			      struct spi_transfer *xfer)
 {
 	size_t i;
 
 	for (i = 0; i < xfer->len; ++i) {
-		iowrite32(*(u16 *)(xfer->tx_buf + 2*i), &drv->regs->tfifo);
+		iowrite32(*(u16 *) (xfer->tx_buf + 2 * i), &drv->regs->tfifo);
 		while (ioread32(&drv->regs->status) & SPI_STAT_RFE)
 			cpu_relax();
 		ioread32(&drv->regs->rfifo);
@@ -328,12 +331,12 @@ static void adi_spi_u16_write(struct adi_spi_master *drv,
 }
 
 static void adi_spi_u32_write(struct adi_spi_master *drv,
-	struct spi_transfer *xfer)
+			      struct spi_transfer *xfer)
 {
 	size_t i;
 
 	for (i = 0; i < xfer->len; ++i) {
-		iowrite32(*(u32 *)(xfer->tx_buf + 4*i), &drv->regs->tfifo);
+		iowrite32(*(u32 *) (xfer->tx_buf + 4 * i), &drv->regs->tfifo);
 		while (ioread32(&drv->regs->status) & SPI_STAT_RFE)
 			cpu_relax();
 		ioread32(&drv->regs->rfifo);
@@ -341,114 +344,117 @@ static void adi_spi_u32_write(struct adi_spi_master *drv,
 }
 
 static void adi_spi_u8_read(struct adi_spi_master *drv,
-	struct spi_transfer *xfer)
+			    struct spi_transfer *xfer)
 {
 	size_t i;
 
 	for (i = 0; i < xfer->len; ++i) {
 		while (ioread32(&drv->regs->status) & SPI_STAT_RFE)
 			cpu_relax();
-		*(u8 *)(xfer->rx_buf + i) = ioread32(&drv->regs->rfifo);
+		*(u8 *) (xfer->rx_buf + i) = ioread32(&drv->regs->rfifo);
 	}
 }
 
 static void adi_spi_u16_read(struct adi_spi_master *drv,
-	struct spi_transfer *xfer)
+			     struct spi_transfer *xfer)
 {
 	size_t i;
 
 	for (i = 0; i < xfer->len; ++i) {
 		while (ioread32(&drv->regs->status) & SPI_STAT_RFE)
 			cpu_relax();
-		*(u16 *)(xfer->rx_buf + 2*i) = ioread32(&drv->regs->rfifo);
+		*(u16 *) (xfer->rx_buf + 2 * i) = ioread32(&drv->regs->rfifo);
 	}
 }
 
 static void adi_spi_u32_read(struct adi_spi_master *drv,
-	struct spi_transfer *xfer)
+			     struct spi_transfer *xfer)
 {
 	size_t i;
 
 	for (i = 0; i < xfer->len; ++i) {
 		while (ioread32(&drv->regs->status) & SPI_STAT_RFE)
 			cpu_relax();
-		*(u32 *)(xfer->rx_buf + 4*i) = ioread32(&drv->regs->rfifo);
+		*(u32 *) (xfer->rx_buf + 4 * i) = ioread32(&drv->regs->rfifo);
 	}
 }
 
 static void adi_spi_u8_duplex(struct adi_spi_master *drv,
-	struct spi_transfer *xfer)
+			      struct spi_transfer *xfer)
 {
 	size_t i;
 
 	for (i = 0; i < xfer->len; ++i) {
-		iowrite32(*(u8 *)(xfer->tx_buf + i), &drv->regs->tfifo);
+		iowrite32(*(u8 *) (xfer->tx_buf + i), &drv->regs->tfifo);
 		while (ioread32(&drv->regs->status) & SPI_STAT_RFE)
 			cpu_relax();
-		*(u8 *)(xfer->rx_buf + i) = ioread32(&drv->regs->rfifo);
+		*(u8 *) (xfer->rx_buf + i) = ioread32(&drv->regs->rfifo);
 	}
 }
 
 static void adi_spi_u16_duplex(struct adi_spi_master *drv,
-	struct spi_transfer *xfer)
+			       struct spi_transfer *xfer)
 {
 	size_t i;
 
 	for (i = 0; i < xfer->len; ++i) {
-		iowrite32(*(u16 *)(xfer->tx_buf + 2*i), &drv->regs->tfifo);
+		iowrite32(*(u16 *) (xfer->tx_buf + 2 * i), &drv->regs->tfifo);
 		while (ioread32(&drv->regs->status) & SPI_STAT_RFE)
 			cpu_relax();
-		*(u16 *)(xfer->rx_buf + 2*i) = ioread32(&drv->regs->rfifo);
+		*(u16 *) (xfer->rx_buf + 2 * i) = ioread32(&drv->regs->rfifo);
 	}
 }
 
 static void adi_spi_u32_duplex(struct adi_spi_master *drv,
-	struct spi_transfer *xfer)
+			       struct spi_transfer *xfer)
 {
 	size_t i;
 
 	for (i = 0; i < xfer->len; ++i) {
-		iowrite32(*(u32 *)(xfer->tx_buf + 4*i), &drv->regs->tfifo);
+		iowrite32(*(u32 *) (xfer->tx_buf + 4 * i), &drv->regs->tfifo);
 		while (ioread32(&drv->regs->status) & SPI_STAT_RFE)
 			cpu_relax();
-		*(u32 *)(xfer->rx_buf + 4*i) = ioread32(&drv->regs->rfifo);
+		*(u32 *) (xfer->rx_buf + 4 * i) = ioread32(&drv->regs->rfifo);
 	}
 }
 
 static const struct adi_spi_transfer_ops adi_spi_transfer_ops_u8 = {
-	.write  = adi_spi_u8_write,
-	.read   = adi_spi_u8_read,
+	.write = adi_spi_u8_write,
+	.read = adi_spi_u8_read,
 	.duplex = adi_spi_u8_duplex,
 };
 
 static const struct adi_spi_transfer_ops adi_spi_transfer_ops_u16 = {
-	.write  = adi_spi_u16_write,
-	.read   = adi_spi_u16_read,
+	.write = adi_spi_u16_write,
+	.read = adi_spi_u16_read,
 	.duplex = adi_spi_u16_duplex,
 };
 
 static const struct adi_spi_transfer_ops adi_spi_transfer_ops_u32 = {
-	.write  = adi_spi_u32_write,
-	.read   = adi_spi_u32_read,
+	.write = adi_spi_u32_write,
+	.read = adi_spi_u32_read,
 	.duplex = adi_spi_u32_duplex,
 };
 
 static int adi_spi_pio_xfer(struct spi_master *master, struct spi_device *spi,
-	struct spi_transfer *xfer)
+			    struct spi_transfer *xfer)
 {
 	struct adi_spi_master *drv = spi_master_get_devdata(master);
 
 	if (!xfer->rx_buf) {
 		iowrite32(SPI_RXCTL_REN, &drv->regs->rx_control);
-		iowrite32(SPI_TXCTL_TEN | SPI_TXCTL_TTI, &drv->regs->tx_control);
+		iowrite32(SPI_TXCTL_TEN | SPI_TXCTL_TTI,
+			  &drv->regs->tx_control);
 		drv->ops->write(drv, xfer);
 	} else if (!xfer->tx_buf) {
 		iowrite32(0, &drv->regs->tx_control);
-		iowrite32(SPI_RXCTL_REN | SPI_RXCTL_RTI, &drv->regs->rx_control);
+		iowrite32(SPI_RXCTL_REN | SPI_RXCTL_RTI,
+			  &drv->regs->rx_control);
 		drv->ops->read(drv, xfer);
 	} else {
 		iowrite32(SPI_RXCTL_REN, &drv->regs->rx_control);
-		iowrite32(SPI_TXCTL_TEN | SPI_TXCTL_TTI, &drv->regs->tx_control);
+		iowrite32(SPI_TXCTL_TEN | SPI_TXCTL_TTI,
+			  &drv->regs->tx_control);
 		drv->ops->duplex(drv, xfer);
 	}
 
@@ -467,7 +473,9 @@ static void adi_spi_rx_dma_isr(void *data)
 	struct dma_tx_state state;
 	enum dma_status status;
 
-	status = dmaengine_tx_status(drv_data->master->dma_rx, drv_data->rx_cookie, &state);
+	status =
+	    dmaengine_tx_status(drv_data->master->dma_rx, drv_data->rx_cookie,
+				&state);
 	if (status == DMA_ERROR)
 		dev_err(&drv_data->master->dev, "spi rx dma error\n");
 
@@ -485,7 +493,8 @@ static void adi_spi_tx_dma_isr(void *data)
 	struct dma_tx_state state;
 	enum dma_status status;
 
-	status = dmaengine_tx_status(drv->master->dma_tx, drv->tx_cookie, &state);
+	status =
+	    dmaengine_tx_status(drv->master->dma_tx, drv->tx_cookie, &state);
 	if (status == DMA_ERROR)
 		dev_err(&drv->master->dev, "spi tx dma error\n");
 
@@ -493,7 +502,7 @@ static void adi_spi_tx_dma_isr(void *data)
 
 	if (drv->cur_transfer->rx_buf) {
 		iowrite32(SPI_RXCTL_REN | SPI_RXCTL_RTI | SPI_RXCTL_RDR_NE,
-				&drv->regs->rx_control);
+			  &drv->regs->rx_control);
 		dma_async_issue_pending(drv->master->dma_rx);
 	} else {
 		spi_finalize_current_transfer(drv->master);
@@ -501,17 +510,20 @@ static void adi_spi_tx_dma_isr(void *data)
 }
 
 static int adi_spi_dma_xfer(struct spi_master *master, struct spi_device *spi,
-	struct spi_transfer *xfer)
+			    struct spi_transfer *xfer)
 {
 	struct adi_spi_master *drv = spi_master_get_devdata(master);
 	struct dma_async_tx_descriptor *tx_desc;
 	struct dma_async_tx_descriptor *rx_desc;
 
 	if (xfer->tx_buf) {
-		tx_desc = dmaengine_prep_slave_sg(master->dma_tx, xfer->tx_sg.sgl,
-			xfer->tx_sg.nents, DMA_MEM_TO_DEV, 0);
+		tx_desc =
+		    dmaengine_prep_slave_sg(master->dma_tx, xfer->tx_sg.sgl,
+					    xfer->tx_sg.nents, DMA_MEM_TO_DEV,
+					    0);
 		if (!tx_desc) {
-			dev_err(drv->dev, "Unable to allocate TX DMA descriptor\n");
+			dev_err(drv->dev,
+				"Unable to allocate TX DMA descriptor\n");
 			goto error;
 		}
 
@@ -522,15 +534,18 @@ static int adi_spi_dma_xfer(struct spi_master *master, struct spi_device *spi,
 		drv->tx_cookie = dmaengine_submit(tx_desc);
 
 		iowrite32(SPI_TXCTL_TEN | SPI_TXCTL_TTI | SPI_TXCTL_TDR_NF,
-			&drv->regs->tx_control);
+			  &drv->regs->tx_control);
 		dma_async_issue_pending(master->dma_tx);
 	}
 
 	if (xfer->rx_buf) {
-		rx_desc = dmaengine_prep_slave_sg(master->dma_rx, xfer->rx_sg.sgl,
-			xfer->rx_sg.nents, DMA_DEV_TO_MEM, 0);
+		rx_desc =
+		    dmaengine_prep_slave_sg(master->dma_rx, xfer->rx_sg.sgl,
+					    xfer->rx_sg.nents, DMA_DEV_TO_MEM,
+					    0);
 		if (!rx_desc) {
-			dev_err(drv->dev, "Unable to allocate RX DMA descriptor\n");
+			dev_err(drv->dev,
+				"Unable to allocate RX DMA descriptor\n");
 			goto error;
 		}
 
@@ -538,7 +553,7 @@ static int adi_spi_dma_xfer(struct spi_master *master, struct spi_device *spi,
 		rx_desc->callback_param = drv;
 		drv->rx_cookie = dmaengine_submit(rx_desc);
 		iowrite32(SPI_RXCTL_REN | SPI_RXCTL_RTI | SPI_RXCTL_RDR_NE,
-			&drv->regs->rx_control);
+			  &drv->regs->rx_control);
 		dma_async_issue_pending(master->dma_rx);
 	}
 
@@ -550,7 +565,7 @@ error:
 }
 
 static bool adi_spi_can_dma(struct spi_master *master, struct spi_device *spi,
-	struct spi_transfer *xfer)
+			    struct spi_transfer *xfer)
 {
 	struct adi_spi_device *chip = spi_get_ctldata(spi);
 
@@ -559,8 +574,9 @@ static bool adi_spi_can_dma(struct spi_master *master, struct spi_device *spi,
 	return false;
 }
 
-static int adi_spi_transfer_one(struct spi_master *master, struct spi_device *spi,
-	struct spi_transfer *xfer)
+static int adi_spi_transfer_one(struct spi_master *master,
+				struct spi_device *spi,
+				struct spi_transfer *xfer)
 {
 	struct adi_spi_master *drv = spi_master_get_devdata(master);
 	u32 cr;
@@ -569,9 +585,11 @@ static int adi_spi_transfer_one(struct spi_master *master, struct spi_device *sp
 
 	cr = ioread32(&drv->regs->control) & ~SPI_CTL_MIOM;
 
-	if (xfer->rx_nbits == SPI_NBITS_QUAD || xfer->tx_nbits == SPI_NBITS_QUAD)
+	if (xfer->rx_nbits == SPI_NBITS_QUAD
+	    || xfer->tx_nbits == SPI_NBITS_QUAD)
 		cr |= SPI_CTL_MIO_QUAD;
-	else if (xfer->rx_nbits == SPI_NBITS_DUAL || xfer->tx_nbits == SPI_NBITS_DUAL)
+	else if (xfer->rx_nbits == SPI_NBITS_DUAL
+		 || xfer->tx_nbits == SPI_NBITS_DUAL)
 		cr |= SPI_CTL_MIO_DUAL;
 
 	iowrite32(cr, &drv->regs->control);
@@ -585,19 +603,23 @@ static int adi_spi_transfer_one(struct spi_master *master, struct spi_device *sp
  * Settings like clock speed and bits per word are assumed to be the same for all
  * transfers in a message. tx_nbits and rx_nbits can change, however
  */
-static int adi_spi_prepare_message(struct spi_master *master, struct spi_message *msg)
+static int adi_spi_prepare_message(struct spi_master *master,
+				   struct spi_message *msg)
 {
 	struct adi_spi_master *drv = spi_master_get_devdata(master);
 	struct adi_spi_device *chip = spi_get_ctldata(msg->spi);
-	struct dma_slave_config dma_config = {0};
+	struct dma_slave_config dma_config = { 0 };
 	struct spi_transfer *xfer;
 	int ret;
 	u32 cr, cr_width;
 	u32 words;
 
-	xfer = list_first_entry(&msg->transfers, struct spi_transfer, transfer_list);
+	xfer =
+	    list_first_entry(&msg->transfers, struct spi_transfer,
+			     transfer_list);
 	words = DIV_ROUND_UP(xfer->bits_per_word, 8);
-	iowrite32(hz_to_spi_clock(drv->sclk_rate, xfer->speed_hz), &drv->regs->clock);
+	iowrite32(hz_to_spi_clock(drv->sclk_rate, xfer->speed_hz),
+		  &drv->regs->clock);
 
 	switch (words) {
 	case 1:
@@ -613,7 +635,8 @@ static int adi_spi_prepare_message(struct spi_master *master, struct spi_message
 		drv->ops = &adi_spi_transfer_ops_u32;
 		break;
 	default:
-		dev_err(&master->dev, "invalid word size in incoming message\n");
+		dev_err(&master->dev,
+			"invalid word size in incoming message\n");
 		return -EINVAL;
 	}
 
@@ -643,7 +666,8 @@ static int adi_spi_prepare_message(struct spi_master *master, struct spi_message
 	return 0;
 }
 
-static int adi_spi_unprepare_message(struct spi_master *master, struct spi_message *msg)
+static int adi_spi_unprepare_message(struct spi_master *master,
+				     struct spi_message *msg)
 {
 	struct adi_spi_master *drv = spi_master_get_devdata(master);
 
@@ -715,10 +739,11 @@ static irqreturn_t spi_irq_err(int irq, void *dev_id)
 
 static const struct of_device_id adi_spi_of_match[] = {
 	{
-		.compatible = "adi,spi3",
-	},
-	{},
+	 .compatible = "adi,spi3",
+	  },
+	{ },
 };
+
 MODULE_DEVICE_TABLE(of, adi_spi_of_match);
 
 static int adi_spi_probe(struct platform_device *pdev)
@@ -729,9 +754,9 @@ static int adi_spi_probe(struct platform_device *pdev)
 	struct resource *mem;
 	struct irq_domain *irq_domain;
 	struct device_node *irq_of_node;
-	struct irq_fwspec spi_fwspec = { 
-	    .param_count = 3,
-	    .param = {0, 132, 4},
+	struct irq_fwspec spi_fwspec = {
+		.param_count = 3,
+		.param = { 0, 132, 4 },
 	};
 	int virq;
 	struct clk *sclk;
@@ -752,8 +777,7 @@ static int adi_spi_probe(struct platform_device *pdev)
 
 	/* the mode bits supported by this driver */
 	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_LSB_FIRST |
-				SPI_TX_DUAL | SPI_TX_QUAD |
-				SPI_RX_DUAL | SPI_RX_QUAD;
+	    SPI_TX_DUAL | SPI_TX_QUAD | SPI_RX_DUAL | SPI_RX_QUAD;
 
 	master->dev.of_node = dev->of_node;
 	master->bus_num = -1;
@@ -780,21 +804,23 @@ static int adi_spi_probe(struct platform_device *pdev)
 		return PTR_ERR(drv_data->regs);
 	}
 
-	irq_of_node = of_find_node_by_name(NULL,"interrupt-controller");
+	irq_of_node = of_find_node_by_name(NULL, "interrupt-controller");
 	if (!irq_of_node) {
-	    dev_err(dev, "could not find node interrupt-controller\n");
-	    return -ENODEV;
+		dev_err(dev, "could not find node interrupt-controller\n");
+		return -ENODEV;
 	}
-	
+
 	irq_domain = irq_find_host(irq_of_node);
-	if(!irq_domain) {
-	    dev_err(dev, "could not get irq domain from interrupt-controller\n");
-	    return -ENODATA;
+	if (!irq_domain) {
+		dev_err(dev,
+			"could not get irq domain from interrupt-controller\n");
+		return -ENODATA;
 	}
 
 	spi_fwspec.fwnode = irq_domain->fwnode;
 	virq = irq_create_fwspec_mapping(&spi_fwspec);
-	ret = devm_request_irq(dev, virq, spi_irq_err, 0, "SPI ERROR", drv_data);
+	ret =
+	    devm_request_irq(dev, virq, spi_irq_err, 0, "SPI ERROR", drv_data);
 	if (ret) {
 		dev_err(dev, "could not request spi error irq\n");
 		return ret;
@@ -831,7 +857,7 @@ static int adi_spi_probe(struct platform_device *pdev)
 	}
 
 	dev_info(dev, "registered ADI SPI controller %s\n",
-					dev_name(&master->dev));
+		 dev_name(&master->dev));
 	return ret;
 
 err_free_rx_dma:
@@ -875,13 +901,13 @@ static const struct dev_pm_ops adi_spi_pm_ops = {
 
 MODULE_ALIAS("platform:adi-spi3");
 static struct platform_driver adi_spi_driver = {
-	.driver	= {
-		.name	= "adi-spi3",
-		.pm     = &adi_spi_pm_ops,
-		.of_match_table = adi_spi_of_match,
-	},
-	.probe      = adi_spi_probe,
-	.remove		= adi_spi_remove,
+	.driver = {
+		   .name = "adi-spi3",
+		   .pm = &adi_spi_pm_ops,
+		   .of_match_table = adi_spi_of_match,
+		    },
+	.probe = adi_spi_probe,
+	.remove = adi_spi_remove,
 };
 
 module_platform_driver(adi_spi_driver);

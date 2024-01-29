@@ -17,7 +17,8 @@
 #include <linux/platform_device.h>
 #include <linux/soc/adi/adsp-gpio-port.h>
 
-static int adsp_gpio_direction_input(struct gpio_chip *chip, unsigned int offset)
+static int adsp_gpio_direction_input(struct gpio_chip *chip,
+				     unsigned int offset)
 {
 	struct adsp_gpio_port *port = to_adsp_gpio_port(chip);
 
@@ -26,8 +27,8 @@ static int adsp_gpio_direction_input(struct gpio_chip *chip, unsigned int offset
 	return 0;
 }
 
-static int adsp_gpio_direction_output(struct gpio_chip *chip, unsigned int offset,
-	int value)
+static int adsp_gpio_direction_output(struct gpio_chip *chip,
+				      unsigned int offset, int value)
 {
 	struct adsp_gpio_port *port = to_adsp_gpio_port(chip);
 
@@ -49,7 +50,8 @@ static int adsp_gpio_direction_output(struct gpio_chip *chip, unsigned int offse
 	return 0;
 }
 
-static void adsp_gpio_set_value(struct gpio_chip *chip, unsigned int offset, int value)
+static void adsp_gpio_set_value(struct gpio_chip *chip, unsigned int offset,
+				int value)
 {
 	struct adsp_gpio_port *port = to_adsp_gpio_port(chip);
 
@@ -59,18 +61,25 @@ static void adsp_gpio_set_value(struct gpio_chip *chip, unsigned int offset, int
 	 */
 	if (port->open_drain & BIT(offset)) {
 		if (value) {
-			__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_DIR_CLEAR);
-			__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_INEN_SET);
+			__adsp_gpio_writew(port, BIT(offset),
+					   ADSP_PORT_REG_DIR_CLEAR);
+			__adsp_gpio_writew(port, BIT(offset),
+					   ADSP_PORT_REG_INEN_SET);
 		} else {
-			__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_INEN_CLEAR);
-			__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_DATA_CLEAR);
-			__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_DIR_SET);
+			__adsp_gpio_writew(port, BIT(offset),
+					   ADSP_PORT_REG_INEN_CLEAR);
+			__adsp_gpio_writew(port, BIT(offset),
+					   ADSP_PORT_REG_DATA_CLEAR);
+			__adsp_gpio_writew(port, BIT(offset),
+					   ADSP_PORT_REG_DIR_SET);
 		}
 	} else {
 		if (value)
-			__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_DATA_SET);
+			__adsp_gpio_writew(port, BIT(offset),
+					   ADSP_PORT_REG_DATA_SET);
 		else
-			__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_DATA_CLEAR);
+			__adsp_gpio_writew(port, BIT(offset),
+					   ADSP_PORT_REG_DATA_CLEAR);
 	}
 }
 
@@ -146,16 +155,17 @@ static int adsp_gpio_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id adsp_gpio_of_match[] = {
-	{ .compatible = "adi,adsp-port-gpio", },
+	{.compatible = "adi,adsp-port-gpio", },
 	{ },
 };
+
 MODULE_DEVICE_TABLE(of, adsp_gpio_of_match);
 
 static struct platform_driver adsp_gpio_driver = {
 	.driver = {
-		.name = "adsp-port-gpio",
-		.of_match_table = adsp_gpio_of_match,
-	},
+		   .name = "adsp-port-gpio",
+		   .of_match_table = adsp_gpio_of_match,
+		    },
 	.probe = adsp_gpio_probe,
 };
 

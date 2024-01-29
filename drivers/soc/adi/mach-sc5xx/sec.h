@@ -41,20 +41,22 @@
 #define ADI_SEC_REG_SCTL_BASE		0x800
 
 /* Register bits */
-#define ADI_SEC_CCTL_EN				0x00000001		/* SCI Enable */
+#define ADI_SEC_CCTL_EN				0x00000001	/* SCI Enable */
 
-#define ADI_SEC_SCTL_SRC_EN         0x00000004    /* SEN: Enable */
-#define ADI_SEC_SCTL_FAULT_EN       0x00000002    /* FEN: Enable */
-#define ADI_SEC_SCTL_INT_EN         0x00000001    /* IEN: Enable */
+#define ADI_SEC_SCTL_SRC_EN         0x00000004	/* SEN: Enable */
+#define ADI_SEC_SCTL_FAULT_EN       0x00000002	/* FEN: Enable */
+#define ADI_SEC_SCTL_INT_EN         0x00000001	/* IEN: Enable */
 
-#define ADI_SEC_SCTL_CTG			0x0F000000    /* Core Target Select */
+#define ADI_SEC_SCTL_CTG			0x0F000000	/* Core Target Select */
 
 struct adi_sec;
 
 void sec_raise_irq(struct adi_sec *sec, unsigned int irq);
 void sec_enable_sci(struct adi_sec *sec, unsigned int coreid);
-void sec_enable_ssi(struct adi_sec *sec, unsigned int sid, bool fault, bool source);
-void sec_set_ssi_coreid(struct adi_sec *sec, unsigned int sid, unsigned int coreid);
+void sec_enable_ssi(struct adi_sec *sec, unsigned int sid, bool fault,
+		    bool source);
+void sec_set_ssi_coreid(struct adi_sec *sec, unsigned int sid,
+			unsigned int coreid);
 struct adi_sec *get_adi_sec_from_node(struct device *dev);
 void put_adi_sec(struct adi_sec *sec);
 

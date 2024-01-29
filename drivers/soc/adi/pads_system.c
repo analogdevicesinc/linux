@@ -106,19 +106,21 @@ int adi_pads_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id pads_dt_ids[] = {
-	{ .compatible = "adi,pads-system-config", },
+	{.compatible = "adi,pads-system-config", },
 	{ }
 };
+
 MODULE_DEVICE_TABLE(of, pads_dt_ids);
 
 static struct platform_driver pads_driver = {
 	.driver = {
-		.name = "adi-pads-system-config",
-		.of_match_table = pads_dt_ids,
-	},
+		   .name = "adi-pads-system-config",
+		   .of_match_table = pads_dt_ids,
+		    },
 	.probe = adi_pads_probe,
 	.remove = adi_pads_remove,
 };
+
 module_platform_driver(pads_driver);
 
 MODULE_AUTHOR("Greg Malysa <greg.malysa@timesys.com>");

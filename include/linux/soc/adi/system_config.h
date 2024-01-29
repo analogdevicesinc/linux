@@ -46,12 +46,14 @@ struct system_config {
 };
 
 struct regmap *__regmap_init_system_config(struct device *dev,
-	struct system_config *config,
-	struct lock_class_key *lock_key, const char *lock_name);
+					   struct system_config *config,
+					   struct lock_class_key *lock_key,
+					   const char *lock_name);
 
 struct regmap *__devm_regmap_init_system_config(struct device *dev,
-	struct system_config *config,
-	struct lock_class_key *lock_key, const char *lock_name);
+						struct system_config *config,
+						struct lock_class_key *lock_key,
+						const char *lock_name);
 
 #define regmap_init_system_config(dev, config) \
 	__regmap_lockdep_wrapper(__regmap_init_system_config, #config, dev, config)
@@ -61,9 +63,10 @@ struct regmap *__devm_regmap_init_system_config(struct device *dev,
 		dev, config)
 
 struct regmap *system_config_regmap_lookup_by_phandle(struct device_node *np,
-	const char *property);
+						      const char *property);
 
-int system_config_probe(struct platform_device *pdev, struct system_config *config);
+int system_config_probe(struct platform_device *pdev,
+			struct system_config *config);
 int system_config_remove(struct platform_device *pdev);
 
 #endif

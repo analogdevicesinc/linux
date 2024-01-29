@@ -51,6 +51,7 @@ void adi_rcu_writel(u32 val, struct adi_rcu *rcu, int offset)
 {
 	writel(val, rcu->ioaddr + offset);
 }
+
 EXPORT_SYMBOL(adi_rcu_writel);
 
 void adi_rcu_msg_set(struct adi_rcu *rcu, u32 bits)
@@ -90,12 +91,14 @@ cleanup:
 	of_node_put(rcu_node);
 	return ret;
 }
+
 EXPORT_SYMBOL(get_adi_rcu_from_node);
 
 void put_adi_rcu(struct adi_rcu *rcu)
 {
 	put_device(rcu->dev);
 }
+
 EXPORT_SYMBOL(put_adi_rcu);
 
 void adi_rcu_set_sec(struct adi_rcu *rcu, struct adi_sec *sec)
@@ -110,6 +113,7 @@ int adi_rcu_check_coreid_valid(struct adi_rcu *rcu, int coreid)
 		return -EINVAL;
 	return 0;
 }
+
 EXPORT_SYMBOL(adi_rcu_check_coreid_valid);
 
 int adi_rcu_reset_core(struct adi_rcu *rcu, int coreid)
@@ -122,12 +126,12 @@ int adi_rcu_reset_core(struct adi_rcu *rcu, int coreid)
 		return ret;
 
 	// First put core in reset.
-    // Clear CRSTAT bit for given coreid.
+	// Clear CRSTAT bit for given coreid.
 	adi_rcu_writel(1 << coreid, rcu, ADI_RCU_REG_CRSTAT);
 
 	// Set SIDIS to disable the system interface
 	val = adi_rcu_readl(rcu, ADI_RCU_REG_SIDIS);
-	adi_rcu_writel(val | (1 << (coreid-1)), rcu, ADI_RCU_REG_SIDIS);
+	adi_rcu_writel(val | (1 << (coreid - 1)), rcu, ADI_RCU_REG_SIDIS);
 
 	// Wait for access to coreX have been disabled and all the pending
 	// transactions have completed
@@ -138,12 +142,11 @@ int adi_rcu_reset_core(struct adi_rcu *rcu, int coreid)
 	adi_rcu_writel(val | (1 << coreid), rcu, ADI_RCU_REG_CRCTL);
 
 	// Poll until Core is in reset
-	while (!(adi_rcu_readl(rcu, ADI_RCU_REG_CRSTAT) & (1 << coreid)))
-		;
+	while (!(adi_rcu_readl(rcu, ADI_RCU_REG_CRSTAT) & (1 << coreid))) ;
 
 	// Clear SIDIS to reenable the system interface
 	val = adi_rcu_readl(rcu, ADI_RCU_REG_SIDIS);
-	adi_rcu_writel(val & ~(1 << (coreid-1)), rcu, ADI_RCU_REG_SIDIS);
+	adi_rcu_writel(val & ~(1 << (coreid - 1)), rcu, ADI_RCU_REG_SIDIS);
 
 	udelay(50);
 
@@ -156,6 +159,7 @@ int adi_rcu_reset_core(struct adi_rcu *rcu, int coreid)
 
 	return 0;
 }
+
 EXPORT_SYMBOL(adi_rcu_reset_core);
 
 int adi_rcu_start_core(struct adi_rcu *rcu, int coreid)
@@ -170,10 +174,11 @@ int adi_rcu_start_core(struct adi_rcu *rcu, int coreid)
 	adi_rcu_msg_clear(rcu, RCU0_MSG_C0IDLE << coreid);
 
 	// Notify CCES
-	adi_rcu_msg_set(rcu, RCU0_MSG_C1ACTIVATE << (coreid-1));
+	adi_rcu_msg_set(rcu, RCU0_MSG_C1ACTIVATE << (coreid - 1));
 
 	return 0;
 }
+
 EXPORT_SYMBOL(adi_rcu_start_core);
 
 int adi_rcu_is_core_idle(struct adi_rcu *rcu, int coreid)
@@ -182,8 +187,10 @@ int adi_rcu_is_core_idle(struct adi_rcu *rcu, int coreid)
 
 	if (ret)
 		return ret;
-	return !!(adi_rcu_readl(rcu, ADI_RCU_REG_MSG) & (RCU0_MSG_C0IDLE << coreid));
+	return !!(adi_rcu_readl(rcu, ADI_RCU_REG_MSG) &
+		  (RCU0_MSG_C0IDLE << coreid));
 }
+
 EXPORT_SYMBOL(adi_rcu_is_core_idle);
 
 int adi_rcu_stop_core(struct adi_rcu *rcu, int coreid, int coreirq)
@@ -211,7 +218,6 @@ int adi_rcu_stop_core(struct adi_rcu *rcu, int coreid, int coreirq)
 		sec_enable_sci(rcu->sec, coreid);
 		sec_raise_irq(rcu->sec, coreirq);
 	}
-
 	// Wait until the specific core enter into IDLE bit(8:10)
 	// DSP should set the IDLE bit to 1 manully in ISR
 	do {
@@ -222,18 +228,22 @@ int adi_rcu_stop_core(struct adi_rcu *rcu, int coreid, int coreirq)
 	} while (time_before(jiffies, timeout));
 
 	if (is_timeout)
-		dev_warn(rcu->dev, "Timeout waiting for remote core %d to IDLE!\n", coreid);
+		dev_warn(rcu->dev,
+			 "Timeout waiting for remote core %d to IDLE!\n",
+			 coreid);
 
 	// Clear core reset request bit in RCU_MSG bit(12:14)
 	adi_rcu_msg_clear(rcu, RCU0_MSG_CRR0 << coreid);
 
 	// Clear Activate bit when stop SHARC core
-	adi_rcu_msg_clear(rcu, RCU0_MSG_C1ACTIVATE << (coreid-1));
+	adi_rcu_msg_clear(rcu, RCU0_MSG_C1ACTIVATE << (coreid - 1));
 	return 0;
 }
+
 EXPORT_SYMBOL(adi_rcu_stop_core);
 
-static int adi_rcu_reboot(struct notifier_block *nb, unsigned long mode, void *cmd)
+static int adi_rcu_reboot(struct notifier_block *nb, unsigned long mode,
+			  void *cmd)
 {
 	struct adi_rcu *adi_rcu = to_adi_rcu(nb);
 	u32 val;
@@ -272,10 +282,12 @@ static int adi_rcu_probe(struct platform_device *pdev)
 		return PTR_ERR(base);
 	}
 
-	if (of_property_read_u32(np, "adi,sharc-min", &adi_rcu->sharc_min_coreid))
+	if (of_property_read_u32
+	    (np, "adi,sharc-min", &adi_rcu->sharc_min_coreid))
 		adi_rcu->sharc_min_coreid = 1;
 
-	if (of_property_read_u32(np, "adi,sharc-max", &adi_rcu->sharc_max_coreid))
+	if (of_property_read_u32
+	    (np, "adi,sharc-max", &adi_rcu->sharc_max_coreid))
 		adi_rcu->sharc_max_coreid = 2;
 
 	adi_rcu->ioaddr = base;
@@ -285,7 +297,8 @@ static int adi_rcu_probe(struct platform_device *pdev)
 	if (of_property_read_bool(np, "adi,enable-reboot")) {
 		ret = register_restart_handler(&adi_rcu->reboot_notifier);
 		if (ret) {
-			dev_err(dev, "Unable to register restart handler: %d\n", ret);
+			dev_err(dev, "Unable to register restart handler: %d\n",
+				ret);
 			return ret;
 		}
 	}
@@ -305,19 +318,21 @@ static int adi_rcu_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id adi_rcu_match[] = {
-	{ .compatible = "adi,reset-controller" },
-	{}
+	{.compatible = "adi,reset-controller" },
+	{ }
 };
+
 MODULE_DEVICE_TABLE(of, adi_rcu_match);
 
 static struct platform_driver adi_rcu_driver = {
 	.probe = adi_rcu_probe,
 	.remove = adi_rcu_remove,
 	.driver = {
-		.name = "ADI Reset Control Unit",
-		.of_match_table = of_match_ptr(adi_rcu_match),
-	},
+		   .name = "ADI Reset Control Unit",
+		   .of_match_table = of_match_ptr(adi_rcu_match),
+		    },
 };
+
 module_platform_driver(adi_rcu_driver);
 
 MODULE_DESCRIPTION("Analog Devices RCU driver");

@@ -119,10 +119,11 @@ static struct adi_dma_hw adi_mdma_data = {
 };
 
 static const struct of_device_id dma_dt_ids[] = {
-	{ .compatible = "adi,dma-controller", .data = &adi_peripheral_dma_data },
-	{ .compatible = "adi,mdma-controller", .data = &adi_mdma_data },
+	{.compatible = "adi,dma-controller",.data = &adi_peripheral_dma_data },
+	{.compatible = "adi,mdma-controller",.data = &adi_mdma_data },
 	{ }
 };
+
 MODULE_DEVICE_TABLE(of, dma_dt_ids);
 
 static void __adi_dma_enable_irqs(struct adi_dma_channel *);
@@ -134,22 +135,25 @@ static irqreturn_t adi_dma_error_handler(int irq, void *id);
 static irqreturn_t adi_dma_thread_handler(int irq, void *id);
 static void __process_descriptor(struct adi_dma_descriptor *desc);
 
-static int init_channel_interrupts(struct adi_dma *dma, struct device_node *node,
-	struct adi_dma_channel *channel)
+static int init_channel_interrupts(struct adi_dma *dma,
+				   struct device_node *node,
+				   struct adi_dma_channel *channel)
 {
 	int irq;
 	int ret;
 
 	irq = of_irq_get_byname(node, "complete");
 	if (irq <= 0) {
-		dev_err(dma->dev, "Missing complete IRQ for channel %s\n", node->full_name);
+		dev_err(dma->dev, "Missing complete IRQ for channel %s\n",
+			node->full_name);
 		return irq ? irq : -ENOENT;
 	}
 
 	channel->src_irq = irq;
 
 	ret = devm_request_threaded_irq(dma->dev, irq, adi_dma_handler,
-		adi_dma_thread_handler, 0, "dma controller irq", channel);
+					adi_dma_thread_handler, 0,
+					"dma controller irq", channel);
 	if (ret) {
 		dev_err(dma->dev, "Failed to request IRQ %d\n", ret);
 		return ret;
@@ -157,14 +161,16 @@ static int init_channel_interrupts(struct adi_dma *dma, struct device_node *node
 
 	irq = of_irq_get_byname(node, "error");
 	if (irq <= 0) {
-		dev_err(dma->dev, "Missing error IRQ for channel %s\n", node->full_name);
+		dev_err(dma->dev, "Missing error IRQ for channel %s\n",
+			node->full_name);
 		return irq ? irq : -ENOENT;
 	}
 
 	channel->src_err_irq = irq;
 
 	ret = devm_request_threaded_irq(dma->dev, irq, adi_dma_error_handler,
-		adi_dma_thread_handler, 0, "dma controller error irq", channel);
+					adi_dma_thread_handler, 0,
+					"dma controller error irq", channel);
 	if (ret) {
 		dev_err(dma->dev, "Failed to request IRQ %d\n", ret);
 		return ret;
@@ -173,7 +179,8 @@ static int init_channel_interrupts(struct adi_dma *dma, struct device_node *node
 	if (dma->hw_cfg->has_mdma) {
 		irq = of_irq_get_byname(node, "complete2");
 		if (irq <= 0) {
-			dev_err(dma->dev, "Missing complete2 IRQ for channel %s\n",
+			dev_err(dma->dev,
+				"Missing complete2 IRQ for channel %s\n",
 				node->full_name);
 			return irq ? irq : -ENOENT;
 		}
@@ -181,7 +188,8 @@ static int init_channel_interrupts(struct adi_dma *dma, struct device_node *node
 		channel->dest_irq = irq;
 
 		ret = devm_request_threaded_irq(dma->dev, irq, adi_dma_handler,
-			adi_dma_thread_handler, 0, "dma controller irq", channel);
+						adi_dma_thread_handler, 0,
+						"dma controller irq", channel);
 		if (ret) {
 			dev_err(dma->dev, "Failed to request IRQ %d\n", ret);
 			return ret;
@@ -189,14 +197,19 @@ static int init_channel_interrupts(struct adi_dma *dma, struct device_node *node
 
 		irq = of_irq_get_byname(node, "error2");
 		if (irq <= 0) {
-			dev_err(dma->dev, "Missing error2 IRQ for channel %s\n", node->full_name);
+			dev_err(dma->dev, "Missing error2 IRQ for channel %s\n",
+				node->full_name);
 			return irq ? irq : -ENOENT;
 		}
 
 		channel->dest_err_irq = irq;
 
-		ret = devm_request_threaded_irq(dma->dev, irq, adi_dma_error_handler,
-			adi_dma_thread_handler, 0, "dma controller error irq", channel);
+		ret =
+		    devm_request_threaded_irq(dma->dev, irq,
+					      adi_dma_error_handler,
+					      adi_dma_thread_handler, 0,
+					      "dma controller error irq",
+					      channel);
 		if (ret) {
 			dev_err(dma->dev, "Failed to request IRQ %d\n", ret);
 			return ret;
@@ -218,7 +231,8 @@ static int init_channel(struct adi_dma *dma, struct device_node *node)
 		return -ENOMEM;
 
 	if (of_property_read_u32(node, "adi,id", &channel->id)) {
-		dev_err(dma->dev, "Missing adi,id for channel %s\n", node->full_name);
+		dev_err(dma->dev, "Missing adi,id for channel %s\n",
+			node->full_name);
 		return -ENOENT;
 	}
 
@@ -244,7 +258,8 @@ static int init_channel(struct adi_dma *dma, struct device_node *node)
 
 	if (dma->hw_cfg->has_mdma) {
 		if (of_property_read_u32(node, "adi,dest-offset", &offset)) {
-			dev_err(dma->dev, "Missing adi,dest-offset for channel %s\n",
+			dev_err(dma->dev,
+				"Missing adi,dest-offset for channel %s\n",
 				node->full_name);
 			return -ENOENT;
 		}
@@ -259,7 +274,6 @@ static int init_channel(struct adi_dma *dma, struct device_node *node)
 		if (ret)
 			return ret;
 	}
-
 	// start with interrupts disabled, enable them when transactions appear
 	channel->running = 1;
 	__adi_dma_disable_irqs(channel);
@@ -271,7 +285,8 @@ static int init_channel(struct adi_dma *dma, struct device_node *node)
 	return 0;
 }
 
-static struct adi_dma_descriptor *to_adi_desc(struct dma_async_tx_descriptor *tx)
+static struct adi_dma_descriptor *to_adi_desc(struct dma_async_tx_descriptor
+					      *tx)
 {
 	return container_of(tx, struct adi_dma_descriptor, tx);
 }
@@ -300,7 +315,8 @@ static int adi_dma_desc_free(struct dma_async_tx_descriptor *tx)
 	dev_dbg(dma->dev, "%s: free desc %p\n", __func__, desc);
 
 	if (desc->memset)
-		dmam_free_coherent(dma->dev, ADI_MEMSET_SIZE, desc->memset, desc->src);
+		dmam_free_coherent(dma->dev, ADI_MEMSET_SIZE, desc->memset,
+				   desc->src);
 
 	devm_kfree(dma->dev, desc);
 	return 0;
@@ -311,7 +327,7 @@ static int adi_dma_desc_free(struct dma_async_tx_descriptor *tx)
  * attached directly to a peripheral
  */
 static void get_txn_align(dma_addr_t src, dma_addr_t dst, size_t size,
-	u32 *conf, u32 *shift)
+			  u32 * conf, u32 * shift)
 {
 	if (dst % 32 == 0 && src % 32 == 0 && size % 32 == 0) {
 		*conf = WDSIZE_256;
@@ -342,8 +358,9 @@ static void get_txn_align(dma_addr_t src, dma_addr_t dst, size_t size,
  * performance
  */
 static void get_periph_align(struct adi_dma_channel *adi_chan,
-	enum dma_transfer_direction direction, dma_addr_t mem, size_t len,
-	u32 *conf, u32 *shift)
+			     enum dma_transfer_direction direction,
+			     dma_addr_t mem, size_t len, u32 * conf,
+			     u32 * shift)
 {
 	struct dma_slave_config *cfg = &adi_chan->config;
 	u32 mburst, pburst;
@@ -399,9 +416,9 @@ static void get_periph_align(struct adi_dma_channel *adi_chan,
 		 * it defaults to mburst = 1
 		 * */
 		if (mburst != 1)
-		    dev_err(adi_chan->dma->dev,
-			    "%s: invalid mem-side burst config %u, defaulting to 1 byte\n",
-			    __func__, mburst);
+			dev_err(adi_chan->dma->dev,
+				"%s: invalid mem-side burst config %u, defaulting to 1 byte\n",
+				__func__, mburst);
 		lconf = WDSIZE_8;
 		*shift = 0;
 		break;
@@ -424,8 +441,9 @@ static void get_periph_align(struct adi_dma_channel *adi_chan,
 		 * it defaults to mburst = 1
 		 * */
 		if (pburst != 1)
-		    dev_err(adi_chan->dma->dev,
-			"%s: invalid burst length %u, defaulting to 1 byte\n", __func__, pburst);
+			dev_err(adi_chan->dma->dev,
+				"%s: invalid burst length %u, defaulting to 1 byte\n",
+				__func__, pburst);
 		lconf |= PSIZE_8;
 		break;
 	}
@@ -447,7 +465,8 @@ static dma_cookie_t adi_submit(struct dma_async_tx_descriptor *tx)
 	list_add_tail(&adi_desc->node, &adi_chan->pending);
 	spin_unlock_irqrestore(&adi_chan->lock, flags);
 
-	dev_dbg(adi_chan->dma->dev, "%s: produced cookie %d\n", __func__, cookie);
+	dev_dbg(adi_chan->dma->dev, "%s: produced cookie %d\n", __func__,
+		cookie);
 	return cookie;
 }
 
@@ -492,7 +511,8 @@ static void __process_descriptor(struct adi_dma_descriptor *desc)
 	dev_dbg(dma->dev, "%s: process desc at %p\n", __func__, desc);
 
 	if (get_dma_curr_irqstat(channel->iosrc) & DMA_RUN)
-		dev_err(dma->dev, "processing a new descriptor while running\n");
+		dev_err(dma->dev,
+			"processing a new descriptor while running\n");
 
 	// In sg mode we have to load the descriptor with new data from the scatterlist
 	// first
@@ -501,13 +521,15 @@ static void __process_descriptor(struct adi_dma_descriptor *desc)
 
 	channel->current_desc = desc;
 
-	dev_dbg(dma->dev, "dma config: src = 0x%llx, dst = 0x%llx\n", desc->src, desc->dest);
+	dev_dbg(dma->dev, "dma config: src = 0x%llx, dst = 0x%llx\n", desc->src,
+		desc->dest);
 
 	dev_dbg(dma->dev, "  xcount = %d, xmod = %d, cfg = 0x%x\n",
 		desc->xcnt, desc->xmod, desc->cfg);
 
 	if (desc->cfg & DMA2D) {
-		dev_dbg(dma->dev, "  ycount = %d, ymod = %d\n", desc->ycnt, desc->ymod);
+		dev_dbg(dma->dev, "  ycount = %d, ymod = %d\n", desc->ycnt,
+			desc->ymod);
 		set_dma_y_count(channel->iosrc, desc->ycnt);
 		set_dma_y_modify(channel->iosrc, desc->ymod);
 	}
@@ -536,7 +558,8 @@ static void __process_descriptor(struct adi_dma_descriptor *desc)
 			extra_config |= DI_EN_X;
 		}
 
-		dev_dbg(dma->dev, "  extracfg = 0x%x\n", desc->cfg | extra_config);
+		dev_dbg(dma->dev, "  extracfg = 0x%x\n",
+			desc->cfg | extra_config);
 
 		set_dma_start_addr(channel->iodest, desc->dest);
 		set_dma_x_count(channel->iodest, desc->xcnt);
@@ -544,7 +567,6 @@ static void __process_descriptor(struct adi_dma_descriptor *desc)
 		clear_dma_irqstat(channel->iodest);
 		set_dma_config(channel->iodest, desc->cfg | extra_config);
 	}
-
 	// For first descriptor enable IRQs again
 	__adi_dma_enable_irqs(channel);
 }
@@ -558,8 +580,9 @@ static void __issue_pending(struct adi_dma_channel *adi_chan)
 
 	if (!adi_chan->current_desc) {
 		if (!list_empty(&adi_chan->pending)) {
-			desc = list_first_entry(&adi_chan->pending, struct adi_dma_descriptor,
-				node);
+			desc =
+			    list_first_entry(&adi_chan->pending,
+					     struct adi_dma_descriptor, node);
 			list_del(&desc->node);
 			__process_descriptor(desc);
 		} else {
@@ -581,8 +604,9 @@ static void adi_dma_issue_pending(struct dma_chan *chan)
 	spin_unlock_irqrestore(&adi_chan->lock, flags);
 }
 
-static enum dma_status adi_dma_tx_status(struct dma_chan *chan, dma_cookie_t cookie,
-	struct dma_tx_state *txstate)
+static enum dma_status adi_dma_tx_status(struct dma_chan *chan,
+					 dma_cookie_t cookie,
+					 struct dma_tx_state *txstate)
 {
 	struct adi_dma_channel *adi_chan = to_adi_channel(chan);
 	struct adi_dma_descriptor *desc = adi_chan->current_desc;
@@ -748,7 +772,7 @@ static void adi_dma_synchronize(struct dma_chan *chan)
 }
 
 static int adi_dma_slave_config(struct dma_chan *chan,
-	struct dma_slave_config *config)
+				struct dma_slave_config *config)
 {
 	struct adi_dma_channel *adi_chan = to_adi_channel(chan);
 
@@ -776,7 +800,7 @@ static void __clear_and_reset(struct adi_dma_channel *channel)
 }
 
 static irqreturn_t __adi_dma_handler(struct adi_dma_channel *channel,
-	enum dmaengine_tx_result result)
+				     enum dmaengine_tx_result result)
 {
 	struct adi_dma_descriptor *desc;
 	u32 stat = 0;
@@ -790,37 +814,40 @@ static irqreturn_t __adi_dma_handler(struct adi_dma_channel *channel,
 
 	if (channel->iodest) {
 		stat2 = get_dma_curr_irqstat(channel->iodest);
-		dev_dbg(channel->dma->dev, "%s: got dest irqstat = 0x%x\n", __func__, stat);
+		dev_dbg(channel->dma->dev, "%s: got dest irqstat = 0x%x\n",
+			__func__, stat);
 	}
-
 	// If we're not running, clear interrupt status
 	if (!channel->running) {
 		__clear_and_reset(channel);
 		dev_err(channel->dma->dev,
-			"channel %d: received interrupt while not runnnig\n", channel->id);
+			"channel %d: received interrupt while not runnnig\n",
+			channel->id);
 		ret = IRQ_HANDLED;
 		goto done;
 	}
-
 	// DMA transaction still running, some peripherals will do this
 	// before the transaction is finished because they signal the DMA channel
 	// for more data on the same interrupt line
 	if (!(stat & DMA_DONE) && !(stat2 & DMA_DONE)) {
-		dev_err(channel->dma->dev, "channel %d: dma with not-done status 0x%x\n",
+		dev_err(channel->dma->dev,
+			"channel %d: dma with not-done status 0x%x\n",
 			channel->id, stat);
 		ret = IRQ_HANDLED;
 		goto done;
 	}
 
 	if (!channel->current_desc) {
-		dev_err(channel->dma->dev, "channel %d: interrupt with no active desc\n",
+		dev_err(channel->dma->dev,
+			"channel %d: interrupt with no active desc\n",
 			channel->id);
 		ret = IRQ_HANDLED;
 		goto done;
 	}
 
 	desc = channel->current_desc;
-	dev_dbg(channel->dma->dev, "%s: current descriptor %p\n", __func__, desc);
+	dev_dbg(channel->dma->dev, "%s: current descriptor %p\n", __func__,
+		desc);
 
 	if (desc->cyclic)
 		__clear_only(channel);
@@ -877,8 +904,9 @@ static irqreturn_t adi_dma_error_handler(int irq, void *id)
 	// wrong, then terminate, and then queue new descriptors
 	if (channel->current_desc) {
 		stat = get_dma_curr_irqstat(channel->iosrc);
-		dev_err(channel->dma->dev, "DMA error on channel %d, stat = 0x%x\n",
-			channel->id, stat);
+		dev_err(channel->dma->dev,
+			"DMA error on channel %d, stat = 0x%x\n", channel->id,
+			stat);
 		channel->current_desc->result.result = result;
 		__adi_dma_disable_irqs(channel);
 	}
@@ -902,13 +930,15 @@ static irqreturn_t adi_dma_thread_handler(int irq, void *id)
 		dmaengine_desc_get_callback(&channel->current_desc->tx, &cb);
 
 		spin_unlock_irqrestore(&channel->lock, flags);
-		dmaengine_desc_callback_invoke(&cb, &channel->current_desc->result);
+		dmaengine_desc_callback_invoke(&cb,
+					       &channel->current_desc->result);
 		return IRQ_HANDLED;
 	}
 
 	while (!list_empty(&channel->cb_pending)) {
-		desc = list_first_entry(&channel->cb_pending, struct adi_dma_descriptor,
-			cb_node);
+		desc =
+		    list_first_entry(&channel->cb_pending,
+				     struct adi_dma_descriptor, cb_node);
 		list_del(&desc->cb_node);
 
 		dma_cookie_complete(&desc->tx);
@@ -928,8 +958,8 @@ static irqreturn_t adi_dma_thread_handler(int irq, void *id)
 /*
  * This never generates 2D memcpy but can handle up to 4 GB anyway
  */
-static void adi_dma_memcpy_config(struct adi_dma_descriptor *desc, dma_addr_t dst,
-	dma_addr_t src, size_t size)
+static void adi_dma_memcpy_config(struct adi_dma_descriptor *desc,
+				  dma_addr_t dst, dma_addr_t src, size_t size)
 {
 	u32 conf, shift;
 	s16 mod;
@@ -953,7 +983,10 @@ static void adi_dma_memcpy_config(struct adi_dma_descriptor *desc, dma_addr_t ds
 }
 
 static struct dma_async_tx_descriptor *adi_prep_memcpy(struct dma_chan *chan,
-	dma_addr_t dst, dma_addr_t src, size_t len, unsigned long flags)
+						       dma_addr_t dst,
+						       dma_addr_t src,
+						       size_t len,
+						       unsigned long flags)
 {
 	struct adi_dma_channel *adi_chan = to_adi_channel(chan);
 	struct adi_dma *dma = adi_chan->dma;
@@ -980,7 +1013,9 @@ static struct dma_async_tx_descriptor *adi_prep_memcpy(struct dma_chan *chan,
 }
 
 static struct dma_async_tx_descriptor *adi_prep_memset(struct dma_chan *chan,
-	dma_addr_t dest, int value, size_t len, unsigned long flags)
+						       dma_addr_t dest,
+						       int value, size_t len,
+						       unsigned long flags)
 {
 	struct adi_dma_channel *adi_chan = to_adi_channel(chan);
 	struct adi_dma *dma = adi_chan->dma;
@@ -999,8 +1034,9 @@ static struct dma_async_tx_descriptor *adi_prep_memset(struct dma_chan *chan,
 
 	dev_dbg(dma->dev, "%s: using desc at %p\n", __func__, desc);
 
-	desc->memset = dmam_alloc_coherent(dma->dev, ADI_MEMSET_SIZE, &desc->src,
-		GFP_NOWAIT);
+	desc->memset =
+	    dmam_alloc_coherent(dma->dev, ADI_MEMSET_SIZE, &desc->src,
+				GFP_NOWAIT);
 	if (!desc->memset) {
 		dev_err(dma->dev, "%s, dmam_alloc_coherent failed\n", __func__);
 		devm_kfree(dma->dev, desc);
@@ -1033,8 +1069,14 @@ static struct dma_async_tx_descriptor *adi_prep_memset(struct dma_chan *chan,
 }
 
 static struct dma_async_tx_descriptor *adi_prep_slave_sg(struct dma_chan *chan,
-	struct scatterlist *sgl, unsigned int sg_len,
-	enum dma_transfer_direction direction, unsigned long flags, void *context)
+							 struct scatterlist
+							 *sgl,
+							 unsigned int sg_len,
+							 enum
+							 dma_transfer_direction
+							 direction,
+							 unsigned long flags,
+							 void *context)
 {
 	struct adi_dma_channel *adi_chan = to_adi_channel(chan);
 	struct adi_dma *dma = adi_chan->dma;
@@ -1058,8 +1100,13 @@ static struct dma_async_tx_descriptor *adi_prep_slave_sg(struct dma_chan *chan,
 }
 
 static struct dma_async_tx_descriptor *adi_prep_cyclic(struct dma_chan *chan,
-	dma_addr_t buf, size_t len, size_t period_len,
-	enum dma_transfer_direction direction, unsigned long flags)
+						       dma_addr_t buf,
+						       size_t len,
+						       size_t period_len,
+						       enum
+						       dma_transfer_direction
+						       direction,
+						       unsigned long flags)
 {
 	struct adi_dma_channel *adi_chan = to_adi_channel(chan);
 	struct adi_dma *dma = adi_chan->dma;
@@ -1077,8 +1124,8 @@ static struct dma_async_tx_descriptor *adi_prep_cyclic(struct dma_chan *chan,
 
 	if (len != ((len / period_len) * period_len)) {
 		dev_warn(dma->dev,
-			"%s: period length %zu does not divide total length %zu\n", __func__,
-			period_len, len);
+			 "%s: period length %zu does not divide total length %zu\n",
+			 __func__, period_len, len);
 	}
 
 	desc->xcnt = period_len >> shift;
@@ -1121,7 +1168,7 @@ static bool adi_dma_filter(struct dma_chan *chan, void *data)
 }
 
 static struct dma_chan *adi_dma_translate(struct of_phandle_args *args,
-	struct of_dma *ofdma)
+					  struct of_dma *ofdma)
 {
 	dma_cap_mask_t mask;
 	struct adi_dma_filter_data data;
@@ -1133,7 +1180,8 @@ static struct dma_chan *adi_dma_translate(struct of_phandle_args *args,
 	dma_cap_zero(mask);
 	dma_cap_set(DMA_SLAVE, mask);
 
-	return __dma_request_channel(&mask, adi_dma_filter, &data, ofdma->of_node);
+	return __dma_request_channel(&mask, adi_dma_filter, &data,
+				     ofdma->of_node);
 }
 
 static int adi_dma_probe(struct platform_device *pdev)
@@ -1179,8 +1227,9 @@ static int adi_dma_probe(struct platform_device *pdev)
 	dma->dma_device.device_terminate_all = adi_dma_terminate_all;
 	dma->dma_device.device_synchronize = adi_dma_synchronize;
 
-	buswidths = BIT(DMA_SLAVE_BUSWIDTH_1_BYTE) | BIT(DMA_SLAVE_BUSWIDTH_2_BYTES) |
-		BIT(DMA_SLAVE_BUSWIDTH_4_BYTES) | BIT(DMA_SLAVE_BUSWIDTH_8_BYTES);
+	buswidths =
+	    BIT(DMA_SLAVE_BUSWIDTH_1_BYTE) | BIT(DMA_SLAVE_BUSWIDTH_2_BYTES) |
+	    BIT(DMA_SLAVE_BUSWIDTH_4_BYTES) | BIT(DMA_SLAVE_BUSWIDTH_8_BYTES);
 
 	if (dma->hw_cfg->has_mdma) {
 		dev_info(dev, "Creating new MDMA controller instance\n");
@@ -1188,27 +1237,31 @@ static int adi_dma_probe(struct platform_device *pdev)
 		dma_cap_set(DMA_MEMSET, dma->dma_device.cap_mask);
 
 		buswidths |= BIT(DMA_SLAVE_BUSWIDTH_16_BYTES) |
-			BIT(DMA_SLAVE_BUSWIDTH_32_BYTES);
+		    BIT(DMA_SLAVE_BUSWIDTH_32_BYTES);
 
 		dma->dma_device.directions = BIT(DMA_MEM_TO_MEM);
 		dma->dma_device.src_addr_widths = buswidths;
 		dma->dma_device.dst_addr_widths = buswidths;
-		dma->dma_device.residue_granularity = DMA_RESIDUE_GRANULARITY_BURST;
+		dma->dma_device.residue_granularity =
+		    DMA_RESIDUE_GRANULARITY_BURST;
 		dma->dma_device.copy_align = 0;
 		dma->dma_device.fill_align = 0;
 
 		dma->dma_device.device_prep_dma_memcpy = adi_prep_memcpy;
 		dma->dma_device.device_prep_dma_memset = adi_prep_memset;
 	} else {
-		dev_info(dev, "Creating new peripheral DMA controller instance\n");
+		dev_info(dev,
+			 "Creating new peripheral DMA controller instance\n");
 		dma_cap_set(DMA_SLAVE, dma->dma_device.cap_mask);
 		dma_cap_set(DMA_CYCLIC, dma->dma_device.cap_mask);
 		dma_cap_set(DMA_PRIVATE, dma->dma_device.cap_mask);
 
-		dma->dma_device.directions = BIT(DMA_DEV_TO_MEM) | BIT(DMA_MEM_TO_DEV);
+		dma->dma_device.directions =
+		    BIT(DMA_DEV_TO_MEM) | BIT(DMA_MEM_TO_DEV);
 		dma->dma_device.src_addr_widths = buswidths;
 		dma->dma_device.dst_addr_widths = buswidths;
-		dma->dma_device.residue_granularity = DMA_RESIDUE_GRANULARITY_BURST;
+		dma->dma_device.residue_granularity =
+		    DMA_RESIDUE_GRANULARITY_BURST;
 
 		dma->dma_device.device_config = adi_dma_slave_config;
 		dma->dma_device.device_prep_slave_sg = adi_prep_slave_sg;
@@ -1229,7 +1282,8 @@ static int adi_dma_probe(struct platform_device *pdev)
 	dma->dma_device.dev = dev;
 	ret = dmaenginem_async_device_register(&dma->dma_device);
 	if (ret) {
-		dev_err(dev, "Unable to register async transaction DMA engine\n");
+		dev_err(dev,
+			"Unable to register async transaction DMA engine\n");
 		return ret;
 	}
 
@@ -1255,12 +1309,13 @@ static int adi_dma_remove(struct platform_device *pdev)
 
 static struct platform_driver dma_driver = {
 	.driver = {
-		.name = "adi-dma",
-		.of_match_table = dma_dt_ids,
-	},
+		   .name = "adi-dma",
+		   .of_match_table = dma_dt_ids,
+		    },
 	.probe = adi_dma_probe,
 	.remove = adi_dma_remove,
 };
+
 module_platform_driver(dma_driver);
 
 MODULE_AUTHOR("Greg Malysa <greg.malysa@timesys.com>");

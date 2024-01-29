@@ -61,7 +61,7 @@ static void sc5xx_cgu_pll_unprepare(struct clk_hw *hw)
 }
 
 static long sc5xx_cgu_pll_round_rate(struct clk_hw *hw, unsigned long rate,
-	unsigned long *parent_rate)
+				     unsigned long *parent_rate)
 {
 	struct clk_sc5xx_cgu_pll *pll = to_clk_sc5xx_cgu_pll(hw);
 	struct clk_hw *parent_hw;
@@ -81,8 +81,9 @@ static long sc5xx_cgu_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 		parent_inc = m / pll->max;
 		prate = clk_hw_round_rate(parent_hw, prate * (parent_inc + 1));
 	} else if (m == 0) {
-		pr_err("%s: Cannot use VCO to reduce parent clock rate, requested %lu, clamping to %lu\n",
-			__func__, rate, prate);
+		pr_err
+		    ("%s: Cannot use VCO to reduce parent clock rate, requested %lu, clamping to %lu\n",
+		     __func__, rate, prate);
 		return prate;
 	}
 
@@ -107,7 +108,7 @@ static long sc5xx_cgu_pll_round_rate(struct clk_hw *hw, unsigned long rate,
 }
 
 static unsigned long sc5xx_cgu_pll_recalc_rate(struct clk_hw *hw,
-	unsigned long parent_rate)
+					       unsigned long parent_rate)
 {
 	struct clk_sc5xx_cgu_pll *pll = to_clk_sc5xx_cgu_pll(hw);
 	u32 reg = readl(pll->base);
@@ -124,7 +125,7 @@ static unsigned long sc5xx_cgu_pll_recalc_rate(struct clk_hw *hw,
 }
 
 static int sc5xx_cgu_pll_set_rate(struct clk_hw *hw, unsigned long rate,
-	unsigned long parent_rate)
+				  unsigned long parent_rate)
 {
 	struct clk_sc5xx_cgu_pll *pll = to_clk_sc5xx_cgu_pll(hw);
 	u32 m;
@@ -138,8 +139,8 @@ static int sc5xx_cgu_pll_set_rate(struct clk_hw *hw, unsigned long rate,
 		m = 0;
 
 	// reminder for implementation: lock around read/modify to control reg
-	pr_err("%s: set_rate not permitted yet, but we would write %d to m\n", __func__,
-		m);
+	pr_err("%s: set_rate not permitted yet, but we would write %d to m\n",
+	       __func__, m);
 	return -ENOENT;
 }
 
@@ -153,8 +154,8 @@ static const struct clk_ops clk_sc5xx_cgu_pll_ops = {
 };
 
 struct clk *sc5xx_cgu_pll(const char *name, const char *parent_name,
-	void __iomem *base, u8 shift, u8 width, u32 m_offset, bool half_m,
-		spinlock_t *lock)
+			  void __iomem * base, u8 shift, u8 width, u32 m_offset,
+			  bool half_m, spinlock_t * lock)
 {
 	struct clk_sc5xx_cgu_pll *pll;
 	struct clk *clk;
@@ -174,7 +175,7 @@ struct clk *sc5xx_cgu_pll(const char *name, const char *parent_name,
 	pll->hw.init = &init;
 	pll->lock = lock;
 	pll->shift = shift;
-	pll->mask = GENMASK(width-1, 0) << shift;
+	pll->mask = GENMASK(width - 1, 0) << shift;
 	pll->max = pll->mask + 1;
 	pll->m_offset = m_offset;
 	pll->half_m = half_m;
@@ -182,9 +183,8 @@ struct clk *sc5xx_cgu_pll(const char *name, const char *parent_name,
 	clk = clk_register(NULL, &pll->hw);
 	if (IS_ERR(clk)) {
 		pr_err("%s: Failed to register, code %lu\n", __func__,
-			PTR_ERR(clk));
+		       PTR_ERR(clk));
 	}
 
 	return clk;
 }
-

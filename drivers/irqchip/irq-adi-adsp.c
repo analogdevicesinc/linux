@@ -77,10 +77,12 @@ int adsp_attach_pint_to_gpio(struct adsp_gpio_port *port)
 	struct of_phandle_args args;
 	int ret;
 
-	ret = of_parse_phandle_with_fixed_args(port->dev->of_node, "adi,pint", 1, 0,
-		&args);
+	ret =
+	    of_parse_phandle_with_fixed_args(port->dev->of_node, "adi,pint", 1,
+					     0, &args);
 	if (ret) {
-		dev_err(port->dev, "Missing or invalid adi,pint connection for %pOFn; "
+		dev_err(port->dev,
+			"Missing or invalid adi,pint connection for %pOFn; "
 			"attach a pint instance with one argument for port assignment\n",
 			port->dev->of_node);
 		return ret;
@@ -139,7 +141,7 @@ static void adsp_pint_dispatch_irq(struct irq_desc *desc)
 }
 
 static int adsp_pint_irq_map(struct irq_domain *domain, unsigned int irq,
-	irq_hw_number_t hwirq)
+			     irq_hw_number_t hwirq)
 {
 	struct adsp_pint *pint = domain->host_data;
 
@@ -253,7 +255,8 @@ static int adsp_pint_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	pint->regs = devm_ioremap_resource(dev, res);
 	if (IS_ERR(pint->regs)) {
-		dev_err(dev, "Could not find address range for interrupt controller\n");
+		dev_err(dev,
+			"Could not find address range for interrupt controller\n");
 		return PTR_ERR(pint->regs);
 	}
 
@@ -267,7 +270,7 @@ static int adsp_pint_probe(struct platform_device *pdev)
 	// @todo determine if we actually need a raw spinlock
 
 	pint->domain = irq_domain_add_linear(np, ADSP_PINT_IRQS,
-		&adsp_irq_domain_ops, pint);
+					     &adsp_irq_domain_ops, pint);
 	if (!pint->domain) {
 		dev_err(dev, "Could not create irq domain\n");
 		return -EINVAL;
@@ -279,7 +282,8 @@ static int adsp_pint_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	irq_set_chained_handler_and_data(pint->irq, adsp_pint_irq_handler, pint);
+	irq_set_chained_handler_and_data(pint->irq, adsp_pint_irq_handler,
+					 pint);
 	platform_set_drvdata(pdev, pint);
 
 	return 0;
@@ -295,16 +299,17 @@ static int adsp_pint_remove(struct platform_device *pdev)
 }
 
 static const struct of_device_id adsp_pint_of_match[] = {
-	{ .compatible = "adi,adsp-pint" },
+	{.compatible = "adi,adsp-pint" },
 	{ }
 };
+
 MODULE_DEVICE_TABLE(of, adsp_pint_of_match);
 
 static struct platform_driver adsp_pint_driver = {
 	.driver = {
-		.name = "adsp-port-pint",
-		.of_match_table = adsp_pint_of_match,
-	},
+		   .name = "adsp-port-pint",
+		   .of_match_table = adsp_pint_of_match,
+		    },
 	.probe = adsp_pint_probe,
 	.remove = adsp_pint_remove,
 };

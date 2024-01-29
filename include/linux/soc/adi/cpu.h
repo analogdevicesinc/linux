@@ -109,16 +109,16 @@ struct gptimer3_group_regs {
 /* The actual gptimer API */
 struct sc5xx_gptimer *gptimer_request(int id);
 int gptimer_free(struct sc5xx_gptimer *timer);
-void     set_gptimer_pwidth(struct sc5xx_gptimer *timer, uint32_t width);
-void     set_gptimer_period(struct sc5xx_gptimer *timer, uint32_t period);
+void set_gptimer_pwidth(struct sc5xx_gptimer *timer, uint32_t width);
+void set_gptimer_period(struct sc5xx_gptimer *timer, uint32_t period);
 uint32_t get_gptimer_count(struct sc5xx_gptimer *timer);
-void     set_gptimer_config(struct sc5xx_gptimer *timer, uint16_t config);
-void     enable_gptimers(uint16_t mask);
-void     disable_gptimers(uint16_t mask);
-void     map_gptimers(void);
+void set_gptimer_config(struct sc5xx_gptimer *timer, uint16_t config);
+void enable_gptimers(uint16_t mask);
+void disable_gptimers(uint16_t mask);
+void map_gptimers(void);
 uint16_t get_gptimer_status(void);
-void     set_gptimer_status(uint16_t value);
-void     set_spu_securep_msec(uint16_t n, bool msec);
-void     platform_ipi_init(void);
+void set_gptimer_status(uint16_t value);
+void set_spu_securep_msec(uint16_t n, bool msec);
+void platform_ipi_init(void);
 
 #endif /* __MACH_CPU_H */

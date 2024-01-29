@@ -90,27 +90,27 @@ struct adsp_pin_function {
  */
 static const struct adsp_pin_function pin_functions[] = {
 	{
-		.name = "gpio",
-		.mode = 0,
-	}, {
-		.name = "alt0",
-		.mode = 1,
-	}, {
-		.name = "alt1",
-		.mode = 2,
-	}, {
-		.name = "alt2",
-		.mode = 3,
-	}, {
-		.name = "alt3",
-		.mode = 4,
-	}
+	 .name = "gpio",
+	 .mode = 0,
+	  }, {
+	 .name = "alt0",
+	 .mode = 1,
+	 }, {
+	 .name = "alt1",
+	 .mode = 2,
+	 }, {
+	 .name = "alt2",
+	 .mode = 3,
+	 }, {
+	 .name = "alt3",
+	 .mode = 4,
+	 },
 };
 
 /*
  * One pinctrl instance per chip, unifies the interface to the port mux and pad
  * conf registers in the PORT instances
- * @todo pads registers should be routed through system configuration abstraction
+ * TODO:pads registers should be routed through system configuration abstraction
  *       to remove the need for feature testing/listing "missing" registers here
  */
 struct adsp_pinctrl {
@@ -140,7 +140,7 @@ static const struct pinconf_generic_params adsp_custom_bindings[] = {
 	/* Configure this pin as a toggle pin which flip each time a trigger event
 	 * is received by the pin controller from the TRU
 	 */
-	{"adi,tru-toggle", ADSP_PIN_CONFIG_TRU_TOGGLE, 0}
+	{ "adi,tru-toggle", ADSP_PIN_CONFIG_TRU_TOGGLE, 0 }
 };
 
 static const struct pin_config_item adsp_conf_items[] = {
@@ -148,7 +148,8 @@ static const struct pin_config_item adsp_conf_items[] = {
 };
 
 /* does not need lock */
-static void adsp_set_pin_gpio(struct adsp_gpio_port *port, unsigned int offset, bool gpio)
+static void adsp_set_pin_gpio(struct adsp_gpio_port *port,
+			      unsigned int offset, bool gpio)
 {
 	if (gpio)
 		__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_FER_CLEAR);
@@ -159,8 +160,9 @@ static void adsp_set_pin_gpio(struct adsp_gpio_port *port, unsigned int offset, 
 /*
  * Configure a pin either for gpio or an alternate function
  */
-static void adsp_portmux_setup(struct adsp_gpio_port *port, unsigned int offset,
-	const struct adsp_pin_function *func)
+static void adsp_portmux_setup(struct adsp_gpio_port *port,
+			       unsigned int offset,
+			       const struct adsp_pin_function *func)
 {
 	if (func->mode == 0) {
 		adsp_set_pin_gpio(port, offset, true);
@@ -172,7 +174,9 @@ static void adsp_portmux_setup(struct adsp_gpio_port *port, unsigned int offset,
 		spin_lock_irqsave(&port->lock, flags);
 
 		val = __adsp_gpio_readl(port, ADSP_PORT_REG_PORT_MUX);
-		val &= ~(ADSP_PORT_PORT_MUX_MASK << (ADSP_PORT_PORT_MUX_BITS * offset));
+		val &=
+		    ~(ADSP_PORT_PORT_MUX_MASK <<
+		      (ADSP_PORT_PORT_MUX_BITS * offset));
 		val |= f << (ADSP_PORT_PORT_MUX_BITS * offset);
 		__adsp_gpio_writel(port, val, ADSP_PORT_REG_PORT_MUX);
 
@@ -191,15 +195,17 @@ static int adsp_pinctrl_get_groups_count(struct pinctrl_dev *pctldev)
 }
 
 static const char *adsp_pinctrl_get_group_name(struct pinctrl_dev *pctldev,
-	unsigned int selector)
+					       unsigned int selector)
 {
 	struct adsp_pinctrl *adsp_pinctrl = pinctrl_dev_get_drvdata(pctldev);
 
 	return adsp_pinctrl->group_names[selector];
 }
 
-static int adsp_pinctrl_get_group_pins(struct pinctrl_dev *pctldev, unsigned int selector,
-	const unsigned int **pins, unsigned int *num_pins)
+static int adsp_pinctrl_get_group_pins(struct pinctrl_dev *pctldev,
+				       unsigned int selector,
+				       const unsigned int **pins,
+				       unsigned int *num_pins)
 {
 	struct adsp_pinctrl *adsp_pinctrl = pinctrl_dev_get_drvdata(pctldev);
 	*pins = &adsp_pinctrl->pins[selector];
@@ -208,8 +214,10 @@ static int adsp_pinctrl_get_group_pins(struct pinctrl_dev *pctldev, unsigned int
 }
 
 static int adsp_pinctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
-	struct device_node *np, struct pinctrl_map **map, unsigned int *reserved_maps,
-	unsigned int *num_maps)
+					  struct device_node *np,
+					  struct pinctrl_map **map,
+					  unsigned int *reserved_maps,
+					  unsigned int *num_maps)
 {
 	struct adsp_pinctrl *adsp_pinctrl = pinctrl_dev_get_drvdata(pctldev);
 	struct property *prop;
@@ -223,12 +231,15 @@ static int adsp_pinctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
 
 	num_pins = of_property_count_u32_elems(np, "pinmux");
 	if (num_pins <= 0) {
-		dev_err(adsp_pinctrl->dev, "Must have at least one `pinmux` entry in %pOFn.\n",
+		dev_err(adsp_pinctrl->dev,
+			"Must have at least one `pinmux` entry in %pOFn.\n",
 			np);
 		return -EINVAL;
 	}
 
-	ret = pinconf_generic_parse_dt_config(np, pctldev, &configs, &num_configs);
+	ret =
+	    pinconf_generic_parse_dt_config(np, pctldev, &configs,
+					    &num_configs);
 	if (ret)
 		return ret;
 
@@ -237,7 +248,9 @@ static int adsp_pinctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
 	if (num_configs)
 		reserve = reserve * 2;
 
-	ret = pinctrl_utils_reserve_map(pctldev, map, reserved_maps, num_maps, reserve);
+	ret =
+	    pinctrl_utils_reserve_map(pctldev, map, reserved_maps,
+				      num_maps, reserve);
 	if (ret)
 		goto exit;
 
@@ -253,14 +266,21 @@ static int adsp_pinctrl_dt_subnode_to_map(struct pinctrl_dev *pctldev,
 		}
 
 		group = adsp_pinctrl->group_names[pin];
-		ret = pinctrl_utils_add_map_mux(pctldev, map, reserved_maps, num_maps,
-			group, pin_functions[func].name);
+		ret =
+		    pinctrl_utils_add_map_mux(pctldev, map, reserved_maps,
+					      num_maps, group,
+					      pin_functions[func].name);
 		if (ret)
 			goto exit;
 
 		if (num_configs) {
-			ret = pinctrl_utils_add_map_configs(pctldev, map, reserved_maps, num_maps,
-				group, configs, num_configs, PIN_MAP_TYPE_CONFIGS_GROUP);
+			ret =
+			    pinctrl_utils_add_map_configs(pctldev, map,
+							  reserved_maps,
+							  num_maps, group,
+							  configs,
+							  num_configs,
+							  PIN_MAP_TYPE_CONFIGS_GROUP);
 			if (ret)
 				goto exit;
 		}
@@ -289,7 +309,9 @@ exit:
  * enables all sub-pins at once
  */
 static int adsp_pinctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
-	struct device_node *np, struct pinctrl_map **map, unsigned int *num_maps)
+				       struct device_node *np,
+				       struct pinctrl_map **map,
+				       unsigned int *num_maps)
 {
 	unsigned int reserved_maps;
 	struct device_node *child_np;
@@ -300,8 +322,9 @@ static int adsp_pinctrl_dt_node_to_map(struct pinctrl_dev *pctldev,
 	*num_maps = 0;
 
 	for_each_child_of_node(np, child_np) {
-		ret = adsp_pinctrl_dt_subnode_to_map(pctldev, child_np, map,
-					&reserved_maps, num_maps);
+		ret =
+		    adsp_pinctrl_dt_subnode_to_map(pctldev, child_np, map,
+						   &reserved_maps, num_maps);
 		if (ret < 0)
 			goto exit;
 	}
@@ -326,14 +349,17 @@ static int adsp_pinmux_get_functions_count(struct pinctrl_dev *pctldev)
 	return ADSP_NUMBER_OF_PIN_FUNCTIONS;
 }
 
-static const char *adsp_pinmux_get_function_name(struct pinctrl_dev *pctldev,
-	unsigned int selector)
+static const char *adsp_pinmux_get_function_name(struct pinctrl_dev
+						 *pctldev,
+						 unsigned int selector)
 {
 	return pin_functions[selector].name;
 }
 
 static int adsp_pinmux_get_function_groups(struct pinctrl_dev *pctldev,
-	unsigned int selector, const char * const **groups, unsigned * const num_groups)
+					   unsigned int selector,
+					   const char *const **groups,
+					   unsigned *const num_groups)
 {
 	struct adsp_pinctrl *adsp_pinctrl = pinctrl_dev_get_drvdata(pctldev);
 
@@ -343,8 +369,8 @@ static int adsp_pinmux_get_function_groups(struct pinctrl_dev *pctldev,
 }
 
 /* Each group is exactly 1 pin and group id == pin id */
-static int adsp_pinmux_set_mux(struct pinctrl_dev *pctldev, unsigned int func,
-	unsigned int group)
+static int adsp_pinmux_set_mux(struct pinctrl_dev *pctldev,
+			       unsigned int func, unsigned int group)
 {
 	struct adsp_gpio_port *port;
 	struct pinctrl_gpio_range *range;
@@ -363,7 +389,8 @@ static int adsp_pinmux_set_mux(struct pinctrl_dev *pctldev, unsigned int func,
 }
 
 static int adsp_pinmux_request_gpio(struct pinctrl_dev *pctldev,
-	struct pinctrl_gpio_range *range, unsigned int pin)
+				    struct pinctrl_gpio_range *range,
+				    unsigned int pin)
 {
 	struct adsp_gpio_port *port = to_adsp_gpio_port(range->gc);
 	u32 offset = pin - range->pin_base;
@@ -373,7 +400,8 @@ static int adsp_pinmux_request_gpio(struct pinctrl_dev *pctldev,
 }
 
 static void adsp_pinmux_release_gpio(struct pinctrl_dev *pctldev,
-	struct pinctrl_gpio_range *range, unsigned int pin)
+				     struct pinctrl_gpio_range *range,
+				     unsigned int pin)
 {
 	struct adsp_gpio_port *port = to_adsp_gpio_port(range->gc);
 	u32 offset = pin - range->pin_base;
@@ -400,7 +428,7 @@ static bool __adsp_pinconf_is_pue(struct adsp_pinctrl *p, unsigned int pin)
 		return 0;
 
 	val = readl(p->regs + offset);
-	bit = BIT(pin & (ADSP_PADS_PUD_PINS_PER_REG-1));
+	bit = BIT(pin & (ADSP_PADS_PUD_PINS_PER_REG - 1));
 	return !!(val & bit);
 }
 
@@ -413,7 +441,7 @@ static bool __adsp_pinconf_is_pde(struct adsp_pinctrl *p, unsigned int pin)
 		return 0;
 
 	val = readl(p->regs + offset);
-	bit = BIT(pin & (ADSP_PADS_PUD_PINS_PER_REG-1));
+	bit = BIT(pin & (ADSP_PADS_PUD_PINS_PER_REG - 1));
 	return !!(val & bit);
 }
 
@@ -426,8 +454,8 @@ static u32 __adsp_pinconf_get_ds(struct adsp_pinctrl *p, unsigned int pin)
 		return 0;
 
 	val = readl(p->regs + offset);
-	shift = (pin & (ADSP_PADS_DS_PINS_PER_REG-1)) * ADSP_PADS_DS_BITS;
-	mask = GENMASK(ADSP_PADS_DS_BITS-1, 0) << shift;
+	shift = (pin & (ADSP_PADS_DS_PINS_PER_REG - 1)) * ADSP_PADS_DS_BITS;
+	mask = GENMASK(ADSP_PADS_DS_BITS - 1, 0) << shift;
 	val = val & mask;
 
 	if (val == ADSP_PADS_DS_HIGH)
@@ -435,11 +463,8 @@ static u32 __adsp_pinconf_get_ds(struct adsp_pinctrl *p, unsigned int pin)
 	return 0;
 }
 
-/* seems we return -EINVAL for disabled static option, -ENOTSUPP for not supported,
- * and otherwise the argument is included in config
- */
 static int adsp_pinconf_get(struct pinctrl_dev *pctldev, unsigned int pin,
-	unsigned long *config)
+			    unsigned long *config)
 {
 	struct adsp_pinctrl *adsp_pinctrl = pinctrl_dev_get_drvdata(pctldev);
 	struct pinctrl_gpio_range *range;
@@ -499,7 +524,8 @@ static int adsp_pinconf_get(struct pinctrl_dev *pctldev, unsigned int pin,
 	return 0;
 }
 
-static void __adsp_pinconf_pue(struct adsp_pinctrl *p, unsigned int pin, bool state)
+static void __adsp_pinconf_pue(struct adsp_pinctrl *p, unsigned int pin,
+			       bool state)
 {
 	u32 offset = ADSP_PADS_PORTx_PUE(pin);
 	u32 val, bit;
@@ -512,7 +538,7 @@ static void __adsp_pinconf_pue(struct adsp_pinctrl *p, unsigned int pin, bool st
 	}
 
 	val = readl(p->regs + offset);
-	bit = BIT(pin & (ADSP_PADS_PUD_PINS_PER_REG-1));
+	bit = BIT(pin & (ADSP_PADS_PUD_PINS_PER_REG - 1));
 
 	if (state)
 		writel(val | bit, p->regs + offset);
@@ -520,7 +546,8 @@ static void __adsp_pinconf_pue(struct adsp_pinctrl *p, unsigned int pin, bool st
 		writel(val & ~bit, p->regs + offset);
 }
 
-static void __adsp_pinconf_pde(struct adsp_pinctrl *p, unsigned int pin, bool state)
+static void __adsp_pinconf_pde(struct adsp_pinctrl *p, unsigned int pin,
+			       bool state)
 {
 	u32 offset = ADSP_PADS_PORTx_PDE(pin);
 	u32 val, bit;
@@ -533,7 +560,7 @@ static void __adsp_pinconf_pde(struct adsp_pinctrl *p, unsigned int pin, bool st
 	}
 
 	val = readl(p->regs + offset);
-	bit = BIT(pin & (ADSP_PADS_PUD_PINS_PER_REG-1));
+	bit = BIT(pin & (ADSP_PADS_PUD_PINS_PER_REG - 1));
 
 	if (state)
 		writel(val | bit, p->regs + offset);
@@ -541,21 +568,22 @@ static void __adsp_pinconf_pde(struct adsp_pinctrl *p, unsigned int pin, bool st
 		writel(val & ~bit, p->regs + offset);
 }
 
-static void __adsp_pinconf_ds(struct adsp_pinctrl *p, unsigned int pin, bool high)
+static void __adsp_pinconf_ds(struct adsp_pinctrl *p, unsigned int pin,
+			      bool high)
 {
 	u32 offset = ADSP_PADS_PORTx_DS(pin);
 	u32 val, shift, mask;
 
 	if (p->ds_missing) {
 		dev_warn(p->dev,
-			"Drive strength is not supported by this PADS HW (tried to set drive strength for pin %d)\n",
-			pin);
+			 "Drive strength is not supported by this PADS HW (tried to set drive strength for pin %d)\n",
+			 pin);
 		return;
 	}
 
 	val = readl(p->regs + offset);
-	shift = (pin & (ADSP_PADS_DS_PINS_PER_REG-1)) * ADSP_PADS_DS_BITS;
-	mask = GENMASK(ADSP_PADS_DS_BITS-1, 0) << shift;
+	shift = (pin & (ADSP_PADS_DS_PINS_PER_REG - 1)) * ADSP_PADS_DS_BITS;
+	mask = GENMASK(ADSP_PADS_DS_BITS - 1, 0) << shift;
 	val = val & ~mask;
 
 	if (high)
@@ -565,7 +593,7 @@ static void __adsp_pinconf_ds(struct adsp_pinctrl *p, unsigned int pin, bool hig
 }
 
 static int adsp_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
-	unsigned long *config, unsigned int num_configs)
+			    unsigned long *config, unsigned int num_configs)
 {
 	struct adsp_pinctrl *adsp_pinctrl = pinctrl_dev_get_drvdata(pctldev);
 	struct pinctrl_gpio_range *range;
@@ -610,13 +638,18 @@ static int adsp_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
 
 			if (val) {
 				/* open drain with value of 1 => configure as input */
-				__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_DIR_CLEAR);
-				__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_INEN_SET);
+				__adsp_gpio_writew(port, BIT(offset),
+						   ADSP_PORT_REG_DIR_CLEAR);
+				__adsp_gpio_writew(port, BIT(offset),
+						   ADSP_PORT_REG_INEN_SET);
 			} else {
 				/* open drain with value of 0 => configure as output, drive 0 */
-				__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_INEN_CLEAR);
-				__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_DATA_CLEAR);
-				__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_DIR_SET);
+				__adsp_gpio_writew(port, BIT(offset),
+						   ADSP_PORT_REG_INEN_CLEAR);
+				__adsp_gpio_writew(port, BIT(offset),
+						   ADSP_PORT_REG_DATA_CLEAR);
+				__adsp_gpio_writew(port, BIT(offset),
+						   ADSP_PORT_REG_DIR_SET);
 			}
 
 			port->open_drain |= BIT(offset);
@@ -635,8 +668,10 @@ static int adsp_pinconf_set(struct pinctrl_dev *pctldev, unsigned int pin,
 			 */
 			if (port->open_drain & BIT(offset)) {
 				port->open_drain &= ~BIT(offset);
-				__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_DIR_CLEAR);
-				__adsp_gpio_writew(port, BIT(offset), ADSP_PORT_REG_INEN_SET);
+				__adsp_gpio_writew(port, BIT(offset),
+						   ADSP_PORT_REG_DIR_CLEAR);
+				__adsp_gpio_writew(port, BIT(offset),
+						   ADSP_PORT_REG_INEN_SET);
 			}
 
 			spin_unlock(&port->lock);
@@ -663,9 +698,8 @@ end:
 	return ret;
 }
 
-/* Config for all pins must match or we have an error regarding group structure */
-static int adsp_pinconf_group_get(struct pinctrl_dev *pctldev, unsigned int group,
-	unsigned long *config)
+static int adsp_pinconf_group_get(struct pinctrl_dev *pctldev,
+				  unsigned int group, unsigned long *config)
 {
 	const unsigned int *pins;
 	unsigned int npins, i;
@@ -691,8 +725,10 @@ static int adsp_pinconf_group_get(struct pinctrl_dev *pctldev, unsigned int grou
 	return 0;
 }
 
-static int adsp_pinconf_group_set(struct pinctrl_dev *pctldev, unsigned int group,
-	unsigned long *configs, unsigned int num_configs)
+static int adsp_pinconf_group_set(struct pinctrl_dev *pctldev,
+				  unsigned int group,
+				  unsigned long *configs,
+				  unsigned int num_configs)
 {
 	const unsigned int *pins;
 	unsigned int npins, i;
@@ -723,11 +759,11 @@ static const struct pinconf_ops adsp_confops = {
 };
 
 /*
- * We want to make one group per pin so that we can refer to the pins by group
+ * There should exist one group per pin so that it can be refered to the pins by group
  * later on when mux assignments are made
  */
 static int adsp_pinctrl_init_groups(struct adsp_pinctrl *adsp_pinctrl,
-	struct pinctrl_desc *desc)
+				    struct pinctrl_desc *desc)
 {
 	struct device *dev = adsp_pinctrl->dev;
 	struct pinctrl_pin_desc *all_pins;
@@ -742,19 +778,21 @@ static int adsp_pinctrl_init_groups(struct adsp_pinctrl *adsp_pinctrl,
 		return num_ports;
 
 	if (num_ports == 0) {
-		dev_err(dev, "pinctrl missing `adi,port-sizes` port size definition\n");
+		dev_err(dev,
+			"pinctrl missing `adi,port-sizes` port size definition\n");
 		return -ENOENT;
 	}
 
 	adsp_pinctrl->num_ports = num_ports;
 
-	adsp_pinctrl->pin_counts = devm_kcalloc(dev, sizeof(*adsp_pinctrl->pin_counts),
-		num_ports, GFP_KERNEL);
+	adsp_pinctrl->pin_counts =
+	    devm_kcalloc(dev, sizeof(*adsp_pinctrl->pin_counts), num_ports,
+			 GFP_KERNEL);
 	if (!adsp_pinctrl->pin_counts)
 		return -ENOMEM;
 
 	ret = of_property_read_u32_array(dev->of_node, "adi,port-sizes",
-		adsp_pinctrl->pin_counts, num_ports);
+					 adsp_pinctrl->pin_counts, num_ports);
 	if (ret)
 		return ret;
 
@@ -765,24 +803,27 @@ static int adsp_pinctrl_init_groups(struct adsp_pinctrl *adsp_pinctrl,
 
 	adsp_pinctrl->total_pins = pin_total;
 
-	all_pins = devm_kcalloc(dev, sizeof(*all_pins), adsp_pinctrl->total_pins,
-		GFP_KERNEL);
+	all_pins =
+	    devm_kcalloc(dev, sizeof(*all_pins), adsp_pinctrl->total_pins,
+			 GFP_KERNEL);
 
 	adsp_pinctrl->pins = devm_kcalloc(dev, sizeof(adsp_pinctrl->pins),
-		adsp_pinctrl->total_pins, GFP_KERNEL);
+					  adsp_pinctrl->total_pins, GFP_KERNEL);
 	if (!adsp_pinctrl->pins)
 		return -ENOMEM;
 
-	adsp_pinctrl->group_names = devm_kcalloc(dev, sizeof(*adsp_pinctrl->group_names),
-		adsp_pinctrl->total_pins, GFP_KERNEL);
+	adsp_pinctrl->group_names =
+	    devm_kcalloc(dev, sizeof(*adsp_pinctrl->group_names),
+			 adsp_pinctrl->total_pins, GFP_KERNEL);
 	if (!adsp_pinctrl->group_names)
 		return -ENOMEM;
 
 	i = 0;
 	for (port = 0; port < adsp_pinctrl->num_ports; ++port) {
 		for (pin = 0; pin < adsp_pinctrl->pin_counts[port]; ++pin) {
-			adsp_pinctrl->group_names[i] = devm_kasprintf(dev, GFP_KERNEL,
-				"p%c%zu", (char) ('A' + port), pin);
+			adsp_pinctrl->group_names[i] =
+			    devm_kasprintf(dev, GFP_KERNEL, "p%c%zu",
+					   (char)('A' + port), pin);
 			adsp_pinctrl->pins[i] = i;
 
 			all_pins[i].name = adsp_pinctrl->group_names[i];
@@ -801,14 +842,16 @@ static void adsp_set_nongpio_ds(struct adsp_pinctrl *p, int type, bool high)
 {
 	u32 val = readl(p->regs + ADSP_PADS_NONPORTS_DS);
 	u32 shift = ADSP_PADS_DS_BITS * type;
-	u32 mask = GENMASK(ADSP_PADS_DS_BITS-1, 0) << shift;
+	u32 mask = GENMASK(ADSP_PADS_DS_BITS - 1, 0) << shift;
 
 	val = val & ~mask;
 
 	if (high)
-		writel(val | (ADSP_PADS_DS_HIGH << shift), p->regs + ADSP_PADS_NONPORTS_DS);
+		writel(val | (ADSP_PADS_DS_HIGH << shift),
+		       p->regs + ADSP_PADS_NONPORTS_DS);
 	else
-		writel(val | (ADSP_PADS_DS_LOW << shift), p->regs + ADSP_PADS_NONPORTS_DS);
+		writel(val | (ADSP_PADS_DS_LOW << shift),
+		       p->regs + ADSP_PADS_NONPORTS_DS);
 }
 
 int adsp_pinctrl_probe(struct platform_device *pdev)
@@ -841,29 +884,36 @@ int adsp_pinctrl_probe(struct platform_device *pdev)
 	/* Different features are available in different hw revisions; no way to read this
 	 * from an ID register so the missing features need to be specified in dts
 	 */
-	adsp_pinctrl->ds_missing = of_property_read_bool(np, "adi,no-drive-strength");
-	adsp_pinctrl->pude_missing = of_property_read_bool(np, "adi,no-pull-up-down");
+	adsp_pinctrl->ds_missing =
+	    of_property_read_bool(np, "adi,no-drive-strength");
+	adsp_pinctrl->pude_missing =
+	    of_property_read_bool(np, "adi,no-pull-up-down");
 
 	/* Only if requested, adjust non-port drive strengths */
 	ret = of_property_read_u32(np, "adi,clkout-drive-strength", &val);
 	if (!ret)
-		adsp_set_nongpio_ds(adsp_pinctrl, ADSP_NONPORTS_DS_CKOUT, !!val);
+		adsp_set_nongpio_ds(adsp_pinctrl, ADSP_NONPORTS_DS_CKOUT,
+				    !!val);
 
 	ret = of_property_read_u32(np, "adi,resoutb-drive-strength", &val);
 	if (!ret)
-		adsp_set_nongpio_ds(adsp_pinctrl, ADSP_NONPORTS_DS_RESOUTB, !!val);
+		adsp_set_nongpio_ds(adsp_pinctrl, ADSP_NONPORTS_DS_RESOUTB,
+				    !!val);
 
 	ret = of_property_read_u32(np, "adi,faultb-drive-strength", &val);
 	if (!ret)
-		adsp_set_nongpio_ds(adsp_pinctrl, ADSP_NONPORTS_DS_FAULTB, !!val);
+		adsp_set_nongpio_ds(adsp_pinctrl, ADSP_NONPORTS_DS_FAULTB,
+				    !!val);
 
 	ret = of_property_read_u32(np, "adi,lp1ck-drive-strength", &val);
 	if (!ret)
-		adsp_set_nongpio_ds(adsp_pinctrl, ADSP_NONPORTS_DS_LP1CK, !!val);
+		adsp_set_nongpio_ds(adsp_pinctrl, ADSP_NONPORTS_DS_LP1CK,
+				    !!val);
 
 	ret = of_property_read_u32(np, "adi,lp0ck-drive-strength", &val);
 	if (!ret)
-		adsp_set_nongpio_ds(adsp_pinctrl, ADSP_NONPORTS_DS_LP0CK, !!val);
+		adsp_set_nongpio_ds(adsp_pinctrl, ADSP_NONPORTS_DS_LP0CK,
+				    !!val);
 
 	ret = of_property_read_u32(np, "adi,ospi-drive-strength", &val);
 	if (!ret)
@@ -885,8 +935,9 @@ int adsp_pinctrl_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	ret = devm_pinctrl_register_and_init(dev, pnctrl_desc, adsp_pinctrl,
-		&adsp_pinctrl->pin_dev);
+	ret =
+	    devm_pinctrl_register_and_init(dev, pnctrl_desc, adsp_pinctrl,
+					   &adsp_pinctrl->pin_dev);
 	if (ret)
 		return ret;
 
@@ -895,17 +946,18 @@ int adsp_pinctrl_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id adsp_pinctrl_of_match[] = {
-	{ .compatible = "adi,adsp-pinctrl", },
+	{.compatible = "adi,adsp-pinctrl", },
 	{ },
 };
+
 MODULE_DEVICE_TABLE(of, adsp_pinctrl_of_match);
 
 static struct platform_driver adsp_pinctrl_driver = {
 	.driver = {
-		.name = "adsp-pinctrl",
-		.of_match_table = adsp_pinctrl_of_match,
-		.suppress_bind_attrs = true,
-	},
+		   .name = "adsp-pinctrl",
+		   .of_match_table = adsp_pinctrl_of_match,
+		   .suppress_bind_attrs = true,
+		    },
 	.probe = adsp_pinctrl_probe,
 };
 

@@ -117,9 +117,10 @@ struct sc5xx_gptimer_controller {
 	struct counter_device counter_dev;
 };
 
-static struct sc5xx_gptimer_controller gptimer_controller = {0};
+static struct sc5xx_gptimer_controller gptimer_controller = { 0 };
 
-static struct clockevent_gptimer *to_clockevent_gptimer(struct clock_event_device *evt)
+static struct clockevent_gptimer *to_clockevent_gptimer(struct
+							clock_event_device *evt)
 {
 	return container_of(evt, struct clockevent_gptimer, evt);
 }
@@ -184,7 +185,8 @@ static bool gptimer_is_running(struct sc5xx_gptimer *timer)
  */
 static u64 read_cs_gptimer(struct clocksource *cs)
 {
-	struct clocksource_gptimer *gp = container_of(cs, struct clocksource_gptimer, cs);
+	struct clocksource_gptimer *gp =
+	    container_of(cs, struct clocksource_gptimer, cs);
 
 	return (u64) get_gptimer_count(gp->timer);
 }
@@ -198,7 +200,7 @@ static u64 notrace read_sched_gptimer(void)
  * Clockevent functions
  */
 static int gptimer_set_next_event(unsigned long cycles,
-	struct clock_event_device *evt)
+				  struct clock_event_device *evt)
 {
 	struct clockevent_gptimer *cevt = to_clockevent_gptimer(evt);
 
@@ -217,7 +219,7 @@ static int gptimer_set_state_periodic(struct clock_event_device *evt)
 
 	gptimer_disable(cevt->timer);
 	set_gptimer_config(cevt->timer, TIMER_OUT_DIS | TIMER_MODE_PWM_CONT |
-		TIMER_PULSE_HI | TIMER_IRQ_PER);
+			   TIMER_PULSE_HI | TIMER_IRQ_PER);
 
 	set_gptimer_period(cevt->timer, rate / HZ);
 	set_gptimer_pwidth(cevt->timer, rate / HZ - 1);
@@ -232,7 +234,7 @@ static int gptimer_set_state_oneshot(struct clock_event_device *evt)
 
 	gptimer_disable(cevt->timer);
 	set_gptimer_config(cevt->timer, TIMER_OUT_DIS | TIMER_MODE_PWM |
-		TIMER_PULSE_HI | TIMER_IRQ_DLY);
+			   TIMER_PULSE_HI | TIMER_IRQ_DLY);
 
 	/* gptimer_set_next_event will configure the period and delay */
 	return 0;
@@ -256,7 +258,7 @@ static irqreturn_t cevt_gptimer_handler(int irq, void *dev)
 }
 
 static int gptimer_counter_count_read(struct counter_device *counter,
-				struct counter_count *count, u64 *val)
+				      struct counter_count *count, u64 * val)
 {
 	uint32_t id = count->id;
 	struct sc5xx_gptimer *timer = &gptimer_controller.timers[id];
@@ -278,7 +280,7 @@ static struct counter_ops gptimer_counter_ops = {
  * @todo resource cleanup in error paths
  */
 static int __init sc5xx_gptimer_init(struct device_node *np,
-	struct sc5xx_gptimer *timer)
+				     struct sc5xx_gptimer *timer)
 {
 	int irq, id;
 	u32 offset;
@@ -287,20 +289,23 @@ static int __init sc5xx_gptimer_init(struct device_node *np,
 
 	irq = irq_of_parse_and_map(np, 0);
 	if (!irq) {
-		pr_err("%s: Unable to find irq for gptimer %pOFn\n", __func__, np);
+		pr_err("%s: Unable to find irq for gptimer %pOFn\n", __func__,
+		       np);
 		return -ENODEV;
 	}
 
 	ret = of_property_read_s32(np, "reg", &id);
 	if (ret) {
-		pr_err("%s: Missing reg property containing timer id for gptimer %pOFn\n",
-			__func__, np);
+		pr_err
+		    ("%s: Missing reg property containing timer id for gptimer %pOFn\n",
+		     __func__, np);
 		return -ENODEV;
 	}
 
 	ret = of_property_read_u32(np, "adi,offset", &offset);
 	if (ret) {
-		pr_err("%s: Missing adi,offset for gptimer %pOFn\n", __func__, np);
+		pr_err("%s: Missing adi,offset for gptimer %pOFn\n", __func__,
+		       np);
 		return -ENODEV;
 	}
 
@@ -312,11 +317,11 @@ static int __init sc5xx_gptimer_init(struct device_node *np,
 	 * @todo add period or other timing options to dts?
 	 */
 	if (!gptimer_is_running(timer) ||
-		of_property_read_bool(np, "adi,reset-timer")) {
+	    of_property_read_bool(np, "adi,reset-timer")) {
 		gptimer_disable(timer);
 
 		set_gptimer_config(timer, TIMER_OUT_DIS | TIMER_MODE_PWM_CONT |
-			TIMER_PULSE_HI | TIMER_IRQ_PER);
+				   TIMER_PULSE_HI | TIMER_IRQ_PER);
 		set_gptimer_period(timer, 0xFFFFFFFF);
 		set_gptimer_pwidth(timer, 0xFFFFFFFE);
 
@@ -340,7 +345,8 @@ static int __init sc5xx_gptimer_init(struct device_node *np,
 
 		ret = clocksource_register_hz(&cs->cs, clk_get_rate(clk));
 		if (ret) {
-			pr_err("%s: failed to register clocksource = %d\n", __func__, ret);
+			pr_err("%s: failed to register clocksource = %d\n",
+			       __func__, ret);
 			return ret;
 		}
 
@@ -361,7 +367,8 @@ static int __init sc5xx_gptimer_init(struct device_node *np,
 
 		cevt->evt = (struct clock_event_device) {
 			.name = "cevt_adi_gptimer",
-			.features = CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT,
+			.features =
+			    CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT,
 			.rating = 300,
 			.shift = 32,
 			.cpumask = cpumask_of(0),
@@ -378,14 +385,18 @@ static int __init sc5xx_gptimer_init(struct device_node *np,
 		imsk &= ~(1 << timer->id);
 		writew(imsk, gptimer_controller.base + GPTIMER_DATA_IMSK);
 
-		ret = request_irq(irq, cevt_gptimer_handler, IRQF_TIMER | IRQF_IRQPOLL,
-			"sc5xx gptimer clockevent", cevt);
+		ret =
+		    request_irq(irq, cevt_gptimer_handler,
+				IRQF_TIMER | IRQF_IRQPOLL,
+				"sc5xx gptimer clockevent", cevt);
 		if (ret) {
-			pr_err("%s: Could not register clockevent handler\n", __func__);
+			pr_err("%s: Could not register clockevent handler\n",
+			       __func__);
 			return ret;
 		}
 
-		clockevents_config_and_register(&cevt->evt, clk_get_rate(clk), 100, -1);
+		clockevents_config_and_register(&cevt->evt, clk_get_rate(clk),
+						100, -1);
 	}
 
 	return 0;
@@ -407,8 +418,9 @@ static int __init sc5xx_gptimer_controller_init(struct device_node *np)
 	int i, n;
 
 	if (gptimer_controller.base) {
-		pr_err("%s: Tried to initialize a second gptimer controller; check your device tree\n",
-			__func__);
+		pr_err
+		    ("%s: Tried to initialize a second gptimer controller; check your device tree\n",
+		     __func__);
 		return -EINVAL;
 	}
 
@@ -420,7 +432,8 @@ static int __init sc5xx_gptimer_controller_init(struct device_node *np)
 
 	clk = of_clk_get(np, 0);
 	if (IS_ERR(clk)) {
-		pr_err("%s: could not find sclk0_0 = %ld\n", __func__, PTR_ERR(clk));
+		pr_err("%s: could not find sclk0_0 = %ld\n", __func__,
+		       PTR_ERR(clk));
 		return PTR_ERR(clk);
 	}
 
@@ -435,8 +448,8 @@ static int __init sc5xx_gptimer_controller_init(struct device_node *np)
 
 	n = of_get_child_count(np);
 	gptimer_controller.num_timers = n;
-	gptimer_controller.timers = kcalloc(n, sizeof(*gptimer_controller.timers),
-		GFP_KERNEL);
+	gptimer_controller.timers =
+	    kcalloc(n, sizeof(*gptimer_controller.timers), GFP_KERNEL);
 
 	if (!gptimer_controller.timers) {
 		pr_err("%s: Unable to allocate memory for timers\n", __func__);
@@ -445,7 +458,8 @@ static int __init sc5xx_gptimer_controller_init(struct device_node *np)
 
 	i = 0;
 	for_each_child_of_node(np, timer_np) {
-		ret = sc5xx_gptimer_init(timer_np, &gptimer_controller.timers[i]);
+		ret =
+		    sc5xx_gptimer_init(timer_np, &gptimer_controller.timers[i]);
 		if (ret) {
 			of_node_put(timer_np);
 			return ret;
@@ -457,7 +471,8 @@ static int __init sc5xx_gptimer_controller_init(struct device_node *np)
 	return 0;
 }
 
-TIMER_OF_DECLARE(sc5xx_gptimers, "adi,sc5xx-gptimers", sc5xx_gptimer_controller_init);
+TIMER_OF_DECLARE(sc5xx_gptimers, "adi,sc5xx-gptimers",
+		 sc5xx_gptimer_controller_init);
 
 static int gptimer_counter_probe(struct platform_device *pdev)
 {
@@ -470,8 +485,9 @@ static int gptimer_counter_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	counts = devm_kcalloc(dev, gptimer_controller.num_timers, sizeof(*counts),
-		GFP_KERNEL);
+	counts =
+	    devm_kcalloc(dev, gptimer_controller.num_timers, sizeof(*counts),
+			 GFP_KERNEL);
 	if (!counts)
 		return -ENOMEM;
 
@@ -484,23 +500,26 @@ static int gptimer_counter_probe(struct platform_device *pdev)
 	gptimer_controller.counter_dev.parent = dev;
 	gptimer_controller.counter_dev.ops = &gptimer_counter_ops;
 	gptimer_controller.counter_dev.counts = counts;
-	gptimer_controller.counter_dev.num_counts = gptimer_controller.num_timers;
+	gptimer_controller.counter_dev.num_counts =
+	    gptimer_controller.num_timers;
 
 	//changed from devm_counter_register
 	return devm_counter_add(dev, &gptimer_controller.counter_dev);
 }
 
 static const struct of_device_id adsp_gptimer_counter_match[] = {
-	{ .compatible = "adi,gptimer-counter" },
+	{.compatible = "adi,gptimer-counter" },
 	{ },
 };
+
 MODULE_DEVICE_TABLE(of, adsp_gptimer_counter_match);
 
 static struct platform_driver gptimer_counter_driver = {
 	.probe = gptimer_counter_probe,
 	.driver = {
-		.name = "adsp-gptimer-counter",
-		.of_match_table = adsp_gptimer_counter_match,
-	},
+		   .name = "adsp-gptimer-counter",
+		   .of_match_table = adsp_gptimer_counter_match,
+		    },
 };
+
 module_platform_driver(gptimer_counter_driver);

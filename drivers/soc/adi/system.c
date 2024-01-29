@@ -27,7 +27,8 @@ struct system_context {
 	struct system_config *config;
 };
 
-static int regmap_system_read(void *context, unsigned int reg, unsigned int *val)
+static int regmap_system_read(void *context, unsigned int reg,
+			      unsigned int *val)
 {
 	struct system_context *ctx = context;
 	struct system_register *sreg = radix_tree_lookup(&ctx->tree, reg);
@@ -51,7 +52,8 @@ static int regmap_system_read(void *context, unsigned int reg, unsigned int *val
 	return regmap_read(ctx->regmap, sreg->offset, val);
 }
 
-static int regmap_system_write(void *context, unsigned int reg, unsigned int val)
+static int regmap_system_write(void *context, unsigned int reg,
+			       unsigned int val)
 {
 	struct system_context *ctx = context;
 	struct system_register *sreg = radix_tree_lookup(&ctx->tree, reg);
@@ -61,7 +63,7 @@ static int regmap_system_write(void *context, unsigned int reg, unsigned int val
 
 	if (sreg->is_bits) {
 		return regmap_update_bits(ctx->regmap, sreg->offset, sreg->mask,
-			(val << sreg->shift) & sreg->mask);
+					  (val << sreg->shift) & sreg->mask);
 	}
 
 	return regmap_write(ctx->regmap, sreg->offset, val);
@@ -119,8 +121,9 @@ static const struct regmap_bus regmap_system_bus = {
 };
 
 struct regmap *__regmap_init_system_config(struct device *dev,
-	struct system_config *config,
-	struct lock_class_key *lock_key, const char *lock_name)
+					   struct system_config *config,
+					   struct lock_class_key *lock_key,
+					   const char *lock_name)
 {
 	struct system_context *ctx = create_context(config);
 
@@ -128,12 +131,13 @@ struct regmap *__regmap_init_system_config(struct device *dev,
 		return ERR_CAST(ctx);
 
 	return __regmap_init(dev, &regmap_system_bus, ctx, &config->config,
-		lock_key, lock_name);
+			     lock_key, lock_name);
 }
 
 struct regmap *__devm_regmap_init_system_config(struct device *dev,
-	struct system_config *config,
-	struct lock_class_key *lock_key, const char *lock_name)
+						struct system_config *config,
+						struct lock_class_key *lock_key,
+						const char *lock_name)
 {
 	struct system_context *ctx = create_context(config);
 
@@ -141,14 +145,14 @@ struct regmap *__devm_regmap_init_system_config(struct device *dev,
 		return ERR_PTR(PTR_ERR(ctx));
 
 	return __devm_regmap_init(dev, &regmap_system_bus, ctx, &config->config,
-		lock_key, lock_name);
+				  lock_key, lock_name);
 }
 
 static DEFINE_SPINLOCK(system_config_lock);
 static LIST_HEAD(system_config_list);
 
 struct regmap *system_config_regmap_lookup_by_phandle(struct device_node *np,
-	const char *property)
+						      const char *property)
 {
 	struct system_config *config = NULL;
 	struct system_config *entry;
@@ -175,9 +179,11 @@ struct regmap *system_config_regmap_lookup_by_phandle(struct device_node *np,
 
 	return config->system_regmap;
 }
+
 EXPORT_SYMBOL_GPL(system_config_regmap_lookup_by_phandle);
 
-int system_config_probe(struct platform_device *pdev, struct system_config *config)
+int system_config_probe(struct platform_device *pdev,
+			struct system_config *config)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
@@ -225,6 +231,7 @@ int system_config_probe(struct platform_device *pdev, struct system_config *conf
 	spin_unlock_irqrestore(&system_config_lock, flags);
 	return 0;
 }
+
 EXPORT_SYMBOL_GPL(system_config_probe);
 
 int system_config_remove(struct platform_device *pdev)
@@ -237,4 +244,5 @@ int system_config_remove(struct platform_device *pdev)
 	spin_unlock_irqrestore(&system_config_lock, flags);
 	return 0;
 }
+
 EXPORT_SYMBOL_GPL(system_config_remove);
