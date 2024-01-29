@@ -12,10 +12,13 @@
 			#size-cells = <0>;
 			status = "okay";
 
-			adt7420@4b {
+			adt7420: adt7420@4b {
 				compatible = "adt7420";
 				reg = <0x4b>;
 			};
 		};
+	};
+	__overrides__ {
+		i2c_address = <&adt7420>,"reg:0";
 	};
 };
