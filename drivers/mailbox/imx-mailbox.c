@@ -14,6 +14,7 @@
 #include <linux/jiffies.h>
 #include <linux/kernel.h>
 #include <linux/mailbox_controller.h>
+#include <linux/mailbox/imx.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>

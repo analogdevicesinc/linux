@@ -138,7 +138,7 @@ static int pm_vlls_notify_m4(bool enter)
 	return pm_send_message(&msg, &pm_rpmsg, true);
 }
 
-void pm_shutdown_notify_m4(void)
+static void pm_shutdown_notify_m4(void)
 {
 	struct pm_rpmsg_data msg;
 
@@ -155,7 +155,7 @@ void pm_shutdown_notify_m4(void)
 	imx7ulp_poweroff();
 }
 
-void pm_reboot_notify_m4(void)
+static void pm_reboot_notify_m4(void)
 {
 	struct pm_rpmsg_data msg;
 
@@ -172,7 +172,7 @@ void pm_reboot_notify_m4(void)
 	mdelay(1000);
 }
 
-void  pm_heartbeat_off_notify_m4(bool enter)
+static void  pm_heartbeat_off_notify_m4(bool enter)
 {
 	struct pm_rpmsg_data msg;
 

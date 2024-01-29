@@ -146,7 +146,6 @@ static void __iomem *lpm_m4tcm_base;
 static void __iomem *m4_bootrom_base;
 
 static unsigned int lpm_ocram_size;
-static void __iomem *ccm_base;
 static void __iomem *lpsr_base;
 static void __iomem *console_base;
 static void __iomem *suspend_ocram_base;
@@ -865,11 +864,6 @@ static const struct platform_suspend_ops imx7_pm_ops = {
 	.enter = imx7_pm_enter,
 	.valid = imx7_pm_valid,
 };
-
-void __init imx7_pm_set_ccm_base(void __iomem *base)
-{
-	ccm_base = base;
-}
 
 static struct map_desc iram_tlb_io_desc __initdata = {
 	/* .virtual and .pfn are run-time assigned */

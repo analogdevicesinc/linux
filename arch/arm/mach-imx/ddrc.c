@@ -17,6 +17,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 
+#include "common.h"
 #include "hardware.h"
 
 #define DDRC_MSTR		0x0

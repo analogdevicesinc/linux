@@ -31,6 +31,7 @@
 #include <linux/slab.h>
 #include <linux/platform_device.h>
 
+#include "common.h"
 #include "hardware.h"
 #include "smc_sip.h"
 

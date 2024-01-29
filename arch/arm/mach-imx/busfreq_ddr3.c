@@ -102,8 +102,6 @@ extern int audio_bus_freq_mode;
 extern void mx6_ddr3_freq_change(u32 freq, void *ddr_settings,
 	bool dll_mode, void *iomux_offsets);
 
-extern unsigned long save_ttbr1(void);
-extern void restore_ttbr1(unsigned long ttbr1);
 extern unsigned long ddr_freq_change_iram_base;
 
 extern unsigned long ddr_freq_change_total_size;
@@ -214,7 +212,7 @@ unsigned long iomux_offsets_mx6dl[][2] = {
 	{0x4D8, 0x0},
 };
 
-int can_change_ddr_freq(void)
+static int can_change_ddr_freq(void)
 {
 	return 1;
 }

@@ -155,7 +155,7 @@ static battery_capacity dischargingTable[] = {
 	{3020,	0},
 };
 
-u32 calibrate_battery_capability_percent(struct max8903_data *data)
+static u32 calibrate_battery_capability_percent(struct max8903_data *data)
 {
 	u8 i;
 	pbattery_capacity pTable;
@@ -224,7 +224,7 @@ static void max8903_charger_update_status(struct max8903_data *data)
 	}
 }
 
-u32 calibration_voltage(struct max8903_data *data)
+static u32 calibration_voltage(struct max8903_data *data)
 {
 	u32 voltage_data = 0;
 	int adc_val = 0;

@@ -121,7 +121,7 @@ EXPORT_SYMBOL(imx_sema4_mutex_destroy);
  *
  * \see imx_sema4_mutex_unlock
  */
-int _imx_sema4_mutex_lock(struct imx_sema4_mutex *mutex_ptr)
+static int _imx_sema4_mutex_lock(struct imx_sema4_mutex *mutex_ptr)
 {
 	int ret = 0, i = 0;
 

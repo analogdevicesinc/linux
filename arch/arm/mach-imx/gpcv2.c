@@ -145,7 +145,7 @@ static int imx_gpcv2_irq_set_wake(struct irq_data *d, unsigned int on)
 	return 0;
 }
 
-void imx_gpcv2_mask_all(void)
+static void imx_gpcv2_mask_all(void)
 {
 	void __iomem *reg_imr1 = gpc_base + GPC_IMR1_CORE0;
 	int i;
@@ -156,7 +156,7 @@ void imx_gpcv2_mask_all(void)
 	}
 }
 
-void imx_gpcv2_restore_all(void)
+static void imx_gpcv2_restore_all(void)
 {
 	void __iomem *reg_imr1 = gpc_base + GPC_IMR1_CORE0;
 	int i;
@@ -165,7 +165,7 @@ void imx_gpcv2_restore_all(void)
 		writel_relaxed(gpcv2_saved_imrs[i], reg_imr1 + i * 4);
 }
 
-void imx_gpcv2_hwirq_unmask(unsigned int hwirq)
+static void imx_gpcv2_hwirq_unmask(unsigned int hwirq)
 {
 	void __iomem *reg;
 	u32 val;
@@ -176,7 +176,7 @@ void imx_gpcv2_hwirq_unmask(unsigned int hwirq)
 	writel_relaxed(val, reg);
 }
 
-void imx_gpcv2_hwirq_mask(unsigned int hwirq)
+static void imx_gpcv2_hwirq_mask(unsigned int hwirq)
 {
 	void __iomem *reg;
 	u32 val;
@@ -199,7 +199,7 @@ static void imx_gpcv2_irq_mask(struct irq_data *d)
 	irq_chip_mask_parent(d);
 }
 
-void imx_gpcv2_set_slot_ack(u32 index, enum imx_gpc_slot m_core,
+static void imx_gpcv2_set_slot_ack(u32 index, enum imx_gpc_slot m_core,
 				bool mode, bool ack)
 {
 	u32 val;
@@ -286,7 +286,7 @@ void imx_gpcv2_set_lpm_mode(enum mxc_cpu_pwr_mode mode)
 	spin_unlock_irqrestore(&gpcv2_lock, flags);
 }
 
-void imx_gpcv2_set_plat_power_gate_by_lpm(bool pdn)
+static void imx_gpcv2_set_plat_power_gate_by_lpm(bool pdn)
 {
 	u32 val = readl_relaxed(gpc_base + GPC_LPCR_A7_AD);
 
@@ -297,7 +297,7 @@ void imx_gpcv2_set_plat_power_gate_by_lpm(bool pdn)
 	writel_relaxed(val, gpc_base + GPC_LPCR_A7_AD);
 }
 
-void imx_gpcv2_set_m_core_pgc(bool enable, u32 offset)
+static void imx_gpcv2_set_m_core_pgc(bool enable, u32 offset)
 {
 	u32 val = readl_relaxed(gpc_base + offset) & (~BM_GPC_PGC_PCG);
 
@@ -324,41 +324,7 @@ void imx_gpcv2_set_core1_pdn_pup_by_software(bool pdn)
 	imx_gpcv2_set_m_core_pgc(false, GPC_PGC_C1);
 }
 
-void imx_gpcv2_set_cpu_power_gate_by_wfi(u32 cpu, bool pdn)
-{
-	unsigned long flags;
-	u32 val;
-
-	spin_lock_irqsave(&gpcv2_lock, flags);
-	val = readl_relaxed(gpc_base + GPC_LPCR_A7_AD);
-
-	if (cpu == 0) {
-		if (pdn) {
-			imx_gpcv2_set_m_core_pgc(true, GPC_PGC_C0);
-			val |= BM_LPCR_A7_AD_EN_C0_WFI_PDN |
-				BM_LPCR_A7_AD_EN_C0_IRQ_PUP;
-		} else {
-			imx_gpcv2_set_m_core_pgc(false, GPC_PGC_C0);
-			val &= ~(BM_LPCR_A7_AD_EN_C0_WFI_PDN |
-				BM_LPCR_A7_AD_EN_C0_IRQ_PUP);
-		}
-	}
-	if (cpu == 1) {
-		if (pdn) {
-			imx_gpcv2_set_m_core_pgc(true, GPC_PGC_C1);
-			val |= BM_LPCR_A7_AD_EN_C1_WFI_PDN |
-				BM_LPCR_A7_AD_EN_C1_IRQ_PUP;
-		} else {
-			imx_gpcv2_set_m_core_pgc(false, GPC_PGC_C1);
-			val &= ~(BM_LPCR_A7_AD_EN_C1_WFI_PDN |
-				BM_LPCR_A7_AD_EN_C1_IRQ_PUP);
-		}
-	}
-	writel_relaxed(val, gpc_base + GPC_LPCR_A7_AD);
-	spin_unlock_irqrestore(&gpcv2_lock, flags);
-}
-
-void imx_gpcv2_set_cpu_power_gate_by_lpm(u32 cpu, bool pdn)
+static void imx_gpcv2_set_cpu_power_gate_by_lpm(u32 cpu, bool pdn)
 {
 	unsigned long flags;
 	u32 val;
@@ -427,17 +393,6 @@ void imx_gpcv2_set_cpu_power_gate_in_idle(bool pdn)
 	spin_unlock_irqrestore(&gpcv2_lock, flags);
 }
 
-void imx_gpcv2_set_mix_phy_gate_by_lpm(u32 pdn_index, u32 pup_index)
-{
-	/* set power down slot */
-	writel_relaxed(1 << (FAST_MEGA_MIX * 2),
-		gpc_base + GPC_SLOT0_CFG + pdn_index * 4);
-
-	/* set power up slot */
-	writel_relaxed(1 << (FAST_MEGA_MIX * 2 + 1),
-		gpc_base + GPC_SLOT0_CFG + pup_index * 4);
-}
-
 unsigned int imx_gpcv2_is_mf_mix_off(void)
 {
 	return readl_relaxed(gpc_base + GPC_PGC_FM);
@@ -456,24 +411,6 @@ static void imx_gpcv2_mf_mix_off(void)
 	imx_gpcv2_set_slot_ack(1, FAST_MEGA_MIX, false, false);
 	imx_gpcv2_set_slot_ack(5, FAST_MEGA_MIX, true, false);
 	imx_gpcv2_set_m_core_pgc(true, GPC_PGC_FM);
-}
-
-int imx_gpcv2_mf_power_on(unsigned int irq, unsigned int on)
-{
-	struct irq_desc *desc = irq_to_desc(irq);
-	unsigned long hwirq = desc->irq_data.hwirq;
-	unsigned int idx = hwirq / 32;
-	unsigned long flags;
-	u32 mask = 1 << (hwirq % 32);
-
-	BUG_ON(idx >= IMR_NUM);
-
-	spin_lock_irqsave(&gpcv2_lock, flags);
-	gpcv2_mf_request_on[idx] = on ? gpcv2_mf_request_on[idx] | mask :
-				  gpcv2_mf_request_on[idx] & ~mask;
-	spin_unlock_irqrestore(&gpcv2_lock, flags);
-
-	return 0;
 }
 
 void imx_gpcv2_enable_rbc(bool enable)

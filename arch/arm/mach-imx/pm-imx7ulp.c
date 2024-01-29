@@ -646,7 +646,7 @@ void __init imx7ulp_pm_map_io(void)
 	}
 }
 
-void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
+static void __init imx7ulp_pm_common_init(const struct imx7ulp_pm_socdata
 				*socdata)
 {
 	struct device_node *np;

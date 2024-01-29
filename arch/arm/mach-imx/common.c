@@ -14,6 +14,7 @@
 #include <linux/of_net.h>
 #include <linux/slab.h>
 
+#include "common.h"
 #include "hardware.h"
 
 unsigned long iram_tlb_base_addr;
@@ -122,11 +123,6 @@ put_enet_node:
 	of_node_put(enet_np);
 	}
 }
-
-#ifndef CONFIG_HAVE_IMX_GPC
-int imx_gpc_mf_request_on(unsigned int irq, unsigned int on) { return 0; }
-EXPORT_SYMBOL_GPL(imx_gpc_mf_request_on);
-#endif
 
 #if !defined(CONFIG_SOC_IMX6SL)
 u32 imx6_lpddr2_freq_change_start, imx6_lpddr2_freq_change_end;

@@ -83,7 +83,6 @@ void imx_smp_prepare(void);
 static inline void imx_scu_map_io(void) {}
 static inline void imx_smp_prepare(void) {}
 #endif
-void imx6sx_set_m4_highfreq(bool high_freq);
 void imx_mu_enable_m4_irqs_in_gic(bool enable);
 #ifdef CONFIG_HAVE_IMX_GPC
 void imx_gpc_add_m4_wake_up_irq(u32 irq, bool enable);
@@ -93,11 +92,9 @@ static inline void imx_gpc_add_m4_wake_up_irq(u32 irq, bool enable) {}
 static inline unsigned int imx_gpc_is_m4_sleeping(void) { return 0; }
 #endif
 #ifdef CONFIG_HAVE_IMX_GPCV2
-int imx_gpcv2_mf_power_on(unsigned int irq, unsigned int on);
 void imx_gpcv2_set_core1_pdn_pup_by_software(bool pdn);
 void imx_gpcv2_add_m4_wake_up_irq(u32 hwirq, bool enable);
 #else
-static inline int imx_gpcv2_mf_power_on(unsigned int irq, unsigned int on) { return 0; }
 static inline void imx_gpcv2_set_core1_pdn_pup_by_software(bool pdn) {}
 static inline void imx_gpcv2_add_m4_wake_up_irq(u32 hwirq, bool enable) {}
 #endif
@@ -184,6 +181,28 @@ void imx6sx_pm_init(void);
 void imx6ul_pm_init(void);
 void imx7d_pm_init(void);
 void imx7ulp_pm_init(void);
+
+unsigned long save_ttbr1(void);
+void restore_ttbr1(unsigned long ttbr1);
+
+/* busfreq */
+int init_mmdc_lpddr2_settings(struct platform_device *busfreq_pdev);
+int init_mmdc_lpddr2_settings_mx6q(struct platform_device *busfreq_pdev);
+int init_mmdc_ddr3_settings_imx6_up(struct platform_device *busfreq_pdev);
+int init_mmdc_ddr3_settings_imx6_smp(struct platform_device *busfreq_pdev);
+int init_ddrc_ddr_settings(struct platform_device *busfreq_pdev);
+int update_ddr_freq_imx_smp(int ddr_rate);
+int update_ddr_freq_imx6_up(int ddr_rate);
+int update_lpddr2_freq(int ddr_rate);
+int update_lpddr2_freq_smp(int ddr_rate);
+
+#ifdef CONFIG_OPTEE
+/*
+ * Bus frequency management by OPTEE OS
+ */
+int update_freq_optee(int ddr_rate);
+int init_freq_optee(struct platform_device *busfreq_pdev);
+#endif
 
 #ifdef CONFIG_PM
 void imx51_pm_init(void);

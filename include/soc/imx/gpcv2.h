@@ -7,4 +7,6 @@
 #define IMX_GPCV2_NOTIFY_ON_CLK_ENABLED	0x80000001
 #define IMX_GPCV2_NOTIFY_OFF_ADB400	0x80000002
 
+void imx_gpcv2_raise_softirq(const struct cpumask *mask,
+					  unsigned int irq);
 #endif /* __SOC_IMX_GPC_H */

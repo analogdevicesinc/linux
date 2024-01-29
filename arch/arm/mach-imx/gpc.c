@@ -113,36 +113,6 @@ unsigned int imx_gpc_is_m4_sleeping(void)
 	return 0;
 }
 
-bool imx_gpc_usb_wakeup_enabled(void)
-{
-	if (!(cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull() ||
-	      cpu_is_imx6ulz() || cpu_is_imx6sll()))
-		return false;
-
-	/*
-	 * for SoC later than i.MX6SX, USB vbus wakeup
-	 * only needs weak 2P5 on, stop_mode_config is
-	 * NOT needed, so we check if is USB vbus wakeup
-	 * is enabled(assume irq #74 and #75) to decide
-	 * if to keep weak 2P5 on.
-	 */
-	if (gpc_wake_irqs[1] & GPC_USB_VBUS_WAKEUP_IRQ_MASK)
-		return true;
-
-	return false;
-}
-
-bool imx_gpc_enet_wakeup_enabled(void)
-{
-	if (!cpu_is_imx6q())
-		return false;
-
-	if (gpc_wake_irqs[3] & GPC_ENET_WAKEUP_IRQ_MASK)
-		return true;
-
-	return false;
-}
-
 unsigned int imx_gpc_is_mf_mix_off(void)
 {
 	return readl_relaxed(gpc_base + GPC_PGC_MF_PDN);
@@ -366,34 +336,6 @@ static const struct irq_domain_ops imx_gpc_domain_ops = {
 	.alloc		= imx_gpc_domain_alloc,
 	.free		= irq_domain_free_irqs_common,
 };
-
-int imx_gpc_mf_power_on(unsigned int irq, unsigned int on)
-{
-	struct irq_desc *d = irq_to_desc(irq);
-	unsigned int idx = d->irq_data.hwirq / 32;
-	unsigned long flags;
-	u32 mask;
-
-	mask = 1 << (d->irq_data.hwirq % 32);
-	spin_lock_irqsave(&gpc_lock, flags);
-	gpc_mf_request_on[idx] = on ? gpc_mf_request_on[idx] | mask :
-				  gpc_mf_request_on[idx] & ~mask;
-	spin_unlock_irqrestore(&gpc_lock, flags);
-
-	return 0;
-}
-
-int imx_gpc_mf_request_on(unsigned int irq, unsigned int on)
-{
-	if (cpu_is_imx6sx() || cpu_is_imx6ul() || cpu_is_imx6ull() ||
-	    cpu_is_imx6ulz() || cpu_is_imx6sll())
-		return imx_gpc_mf_power_on(irq, on);
-	else if (cpu_is_imx7d())
-		return imx_gpcv2_mf_power_on(irq, on);
-	else
-		return 0;
-}
-EXPORT_SYMBOL_GPL(imx_gpc_mf_request_on);
 
 void imx_gpc_switch_pupscr_clk(bool flag)
 {

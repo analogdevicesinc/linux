@@ -15,6 +15,8 @@
 #include <linux/smp.h>
 #include <linux/cpuidle.h>
 
+#include <soc/imx/gpcv2.h>
+
 #define FSL_SIP_GPC                     0xC2000000
 #define FSL_SIP_CONFIG_GPC_MASK         0x00
 #define FSL_SIP_CONFIG_GPC_UNMASK       0x01
@@ -219,7 +221,7 @@ static void imx8mq_gpcv2_irq_mask(struct irq_data *d)
 	irq_chip_mask_parent(d);
 }
 
-int imx8mq_gpcv2_irq_set_affinity(struct irq_data *d, const struct cpumask *cpumask,
+static int imx8mq_gpcv2_irq_set_affinity(struct irq_data *d, const struct cpumask *cpumask,
 		      bool force)
 {
 	struct arm_smccc_res res;

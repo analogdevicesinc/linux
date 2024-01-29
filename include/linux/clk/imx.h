@@ -11,5 +11,6 @@
 #include <linux/types.h>
 
 void imx6sl_set_wait_clk(bool enter);
+void imx6sx_set_m4_highfreq(bool high_freq);
 
 #endif
