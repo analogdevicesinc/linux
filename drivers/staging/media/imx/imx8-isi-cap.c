@@ -1664,7 +1664,7 @@ static int mxc_isi_register_cap_device(struct mxc_isi_cap_dev *isi_cap,
 	q->buf_struct_size = sizeof(struct mxc_isi_buffer);
 	q->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_MONOTONIC;
 	q->lock = &isi_cap->lock;
-	q->min_buffers_needed = 2;
+	q->min_queued_buffers = 2;
 	q->dev = &isi_cap->pdev->dev;
 
 	ret = vb2_queue_init(q);

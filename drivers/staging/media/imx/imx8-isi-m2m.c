@@ -1306,7 +1306,7 @@ static int mxc_isi_m2m_ctrls_create(struct mxc_isi_m2m_dev *isi_m2m)
 
 }
 
-void mxc_isi_m2m_ctrls_delete(struct mxc_isi_m2m_dev *isi_m2m)
+static void mxc_isi_m2m_ctrls_delete(struct mxc_isi_m2m_dev *isi_m2m)
 {
 	struct mxc_isi_ctrls *ctrls = &isi_m2m->ctrls;
 

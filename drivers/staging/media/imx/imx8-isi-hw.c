@@ -429,7 +429,7 @@ void mxc_isi_channel_set_chain_buf(struct mxc_isi_dev *mxc_isi)
 	}
 }
 
-void mxc_isi_channel_deinterlace_init(struct mxc_isi_dev *mxc_isi)
+static void mxc_isi_channel_deinterlace_init(struct mxc_isi_dev *mxc_isi)
 {
 	/* Config for Blending deinterlace */
 }

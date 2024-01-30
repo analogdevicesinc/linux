@@ -730,7 +730,7 @@ static int mxc_isi_probe(struct platform_device *pdev)
 
 	mxc_isi_channel_set_chain_buf(mxc_isi);
 
-	ret = of_platform_populate(dev->of_node, NULL, NULL, dev);
+	ret = devm_of_platform_populate(dev);
 	if (ret < 0)
 		dev_warn(dev, "Populate child platform device fail\n");
 
