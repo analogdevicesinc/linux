@@ -2996,8 +2996,9 @@ out:
 	return rate;
 }
 
-static int max9286_g_frame_interval(struct v4l2_subdev *sd,
-				    struct v4l2_subdev_frame_interval *fi)
+static int max9286_get_frame_interval(struct v4l2_subdev *sd,
+				      struct v4l2_subdev_state *state,
+				      struct v4l2_subdev_frame_interval *fi)
 {
 	struct sensor_data *max9286_data = subdev_to_sensor_data(sd);
 
@@ -3008,8 +3009,9 @@ static int max9286_g_frame_interval(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int max9286_s_frame_interval(struct v4l2_subdev *sd,
-				    struct v4l2_subdev_frame_interval *fi)
+static int max9286_set_frame_interval(struct v4l2_subdev *sd,
+				      struct v4l2_subdev_state *state,
+				      struct v4l2_subdev_frame_interval *fi)
 {
 	struct sensor_data *max9286_data = subdev_to_sensor_data(sd);
 	enum ov10635_mode mode = max9286_data->current_mode;
@@ -3090,6 +3092,8 @@ static const struct v4l2_subdev_pad_ops max9286_pad_ops = {
 	.set_fmt		= max9286_set_fmt,
 	.get_frame_desc		= max9286_get_frame_desc,
 	.set_frame_desc		= max9286_set_frame_desc,
+	.get_frame_interval     = max9286_get_frame_interval,
+	.set_frame_interval     = max9286_set_frame_interval,
 };
 
 static const struct v4l2_subdev_core_ops max9286_core_ops = {
@@ -3097,8 +3101,6 @@ static const struct v4l2_subdev_core_ops max9286_core_ops = {
 };
 
 static const struct v4l2_subdev_video_ops max9286_video_ops = {
-	.g_frame_interval = max9286_g_frame_interval,
-	.s_frame_interval = max9286_s_frame_interval,
 	.s_stream	  = max9286_s_stream,
 };
 
@@ -3112,8 +3114,8 @@ static const struct media_entity_operations max9286_sd_media_ops = {
 	.link_setup = max9286_link_setup,
 };
 
-ssize_t analog_test_pattern_show(struct device *dev,
-				 struct device_attribute *attr, char *buf)
+static ssize_t analog_test_pattern_show(struct device *dev,
+					struct device_attribute *attr, char *buf)
 {
 	struct v4l2_subdev *sd = dev_get_drvdata(dev);
 	struct sensor_data *max9286_data = subdev_to_sensor_data(sd);
