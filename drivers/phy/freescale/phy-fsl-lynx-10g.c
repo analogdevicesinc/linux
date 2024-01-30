@@ -516,6 +516,7 @@ struct lynx_info {
 	bool (*lane_supports_mode)(int lane, enum lynx_lane_mode mode);
 	int num_lanes;
 	bool has_hardcoded_usxgmii;
+	int index;
 };
 
 struct lynx_10g_priv {
@@ -675,6 +676,7 @@ static const struct lynx_info lynx_info_ls1028a = {
 	.lane_supports_mode = ls1028a_lane_supports_mode,
 	.num_lanes = 4,
 	.has_hardcoded_usxgmii = true,
+	.index = 1,
 };
 
 static int ls1046a_serdes1_get_pccr(enum lynx_lane_mode lane_mode, int lane,
@@ -769,6 +771,7 @@ static const struct lynx_info lynx_info_ls1046a_serdes1 = {
 	.get_pcvt_offset = ls1046a_serdes1_get_pcvt_offset,
 	.lane_supports_mode = ls1046a_serdes1_lane_supports_mode,
 	.num_lanes = 4,
+	.index = 1,
 };
 
 static int ls1046a_serdes2_get_pccr(enum lynx_lane_mode lane_mode, int lane,
@@ -825,6 +828,7 @@ static const struct lynx_info lynx_info_ls1046a_serdes2 = {
 	.get_pcvt_offset = ls1046a_serdes2_get_pcvt_offset,
 	.lane_supports_mode = ls1046a_serdes2_lane_supports_mode,
 	.num_lanes = 4,
+	.index = 2,
 };
 
 static int ls1088a_serdes1_get_pccr(enum lynx_lane_mode lane_mode, int lane,
@@ -942,6 +946,7 @@ static const struct lynx_info lynx_info_ls1088a_serdes1 = {
 	.get_pcvt_offset = ls1088a_serdes1_get_pcvt_offset,
 	.lane_supports_mode = ls1088a_serdes1_lane_supports_mode,
 	.num_lanes = 4,
+	.index = 1,
 };
 
 static int ls2088a_serdes1_get_pccr(enum lynx_lane_mode lane_mode, int lane,
@@ -1057,6 +1062,7 @@ static const struct lynx_info lynx_info_ls2088a_serdes1 = {
 	.get_pcvt_offset = ls2088a_serdes1_get_pcvt_offset,
 	.lane_supports_mode = ls2088a_serdes1_lane_supports_mode,
 	.num_lanes = 8,
+	.index = 1,
 };
 
 static int ls2088a_serdes2_get_pccr(enum lynx_lane_mode lane_mode, int lane,
@@ -1106,6 +1112,7 @@ static const struct lynx_info lynx_info_ls2088a_serdes2 = {
 	.get_pcvt_offset = ls2088a_serdes2_get_pcvt_offset,
 	.lane_supports_mode = ls2088a_serdes2_lane_supports_mode,
 	.num_lanes = 8,
+	.index = 2,
 };
 
 static int lynx_pccr_read(struct lynx_10g_lane *lane, enum lynx_lane_mode mode,
