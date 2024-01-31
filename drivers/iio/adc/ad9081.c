@@ -3778,10 +3778,13 @@ static ssize_t ad9081_debugfs_write(struct file *file,
 		else
 			ret = 0;
 
-		if (ad9081_link_is_dual(phy->jrx_link_tx) &&
-			phy->jrx_link_tx[1].logiclane_mapping[val] >=
-			phy->jrx_link_tx[1].jesd_param.jesd_l)
-			ret = -EINVAL;
+		if (ret && ad9081_link_is_dual(phy->jrx_link_tx)) {
+			if (phy->jrx_link_tx[1].logiclane_mapping[val] >=
+				phy->jrx_link_tx[1].jesd_param.jesd_l)
+				ret = -EINVAL;
+			else
+				ret = 0;
+		}
 
 		if (ret)
 			return ret;
