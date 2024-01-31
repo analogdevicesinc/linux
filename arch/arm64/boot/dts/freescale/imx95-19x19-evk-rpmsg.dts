@@ -1,0 +1,201 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+#include "imx95-19x19-evk.dts"
+
+/delete-node/ &lpi2c4;
+
+/ {
+	aliases {
+		i2c3 = &i2c_rpbus_1;
+	};
+
+	reserved-memory {
+		m7_reserved: m7@80000000 {
+			no-map;
+			reg = <0 0x80000000 0 0x1000000>;
+		};
+
+		micfil_reserved: micfil-rpmsg@81000000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x81000000 0 0x100000>;
+			no-map;
+		};
+
+		audio_reserved: audio-rpmsg@c0000000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0xc0000000 0 0x10000000>;
+			no-map;
+		};
+	};
+
+	sound-wm8962 {
+		status = "disabled";
+	};
+
+	sound-micfil {
+		status = "disabled";
+	};
+
+	sound-bt-sco {
+		status = "disabled";
+	};
+
+	rpmsg_audio: rpmsg_audio {
+		compatible = "fsl,imx95-rpmsg-audio";
+		model = "wm8962-audio";
+		fsl,rpmsg-channel-name = "rpmsg-audio-channel";
+		fsl,enable-lpa;
+		fsl,rpmsg-out;
+		fsl,rpmsg-in;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_sai3>;
+		assigned-clocks = <&scmi_clk IMX95_CLK_AUDIOPLL1_VCO>,
+				  <&scmi_clk IMX95_CLK_AUDIOPLL2_VCO>,
+				  <&scmi_clk IMX95_CLK_AUDIOPLL1>,
+				  <&scmi_clk IMX95_CLK_AUDIOPLL2>,
+				  <&scmi_clk IMX95_CLK_SAI3>;
+		assigned-clock-parents = <0>, <0>, <0>, <0>,
+					 <&scmi_clk IMX95_CLK_AUDIOPLL1>;
+		assigned-clock-rates = <3932160000>, <3612672000>,
+				       <393216000>, <361267200>,
+				       <12288000>;
+		clocks = <&scmi_clk IMX95_CLK_BUSWAKEUP>,
+			 <&scmi_clk IMX95_CLK_SAI3>,
+			 <&scmi_clk IMX95_CLK_BUSWAKEUP>,
+			 <&scmi_clk IMX95_CLK_AUDIOPLL1>,
+			 <&scmi_clk IMX95_CLK_AUDIOPLL2>;
+		clock-names = "ipg", "mclk", "dma", "pll8k", "pll11k";
+		audio-codec = <&wm8962>;
+		memory-region = <&audio_reserved>;
+		audio-routing =
+			"IN1R", "MICBIAS",
+			"IN3R", "MICBIAS";
+		fsl,lpa-widgets =
+			"HPOUTL", "HPOUTR", "Playback",
+			"Capture", "IN1R", "IN3R";
+		status = "okay";
+	};
+
+	rpmsg_micfil: rpmsg_micfil {
+		compatible = "fsl,imx95-rpmsg-audio";
+		model = "micfil-audio";
+		fsl,rpmsg-channel-name = "rpmsg-micfil-channel";
+		fsl,enable-lpa;
+		fsl,rpmsg-in;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pdm>;
+		assigned-clocks = <&scmi_clk IMX95_CLK_AUDIOPLL1_VCO>,
+				  <&scmi_clk IMX95_CLK_AUDIOPLL2_VCO>,
+				  <&scmi_clk IMX95_CLK_AUDIOPLL1>,
+				  <&scmi_clk IMX95_CLK_AUDIOPLL2>,
+				  <&scmi_clk IMX95_CLK_PDM>;
+		assigned-clock-parents = <0>, <0>, <0>, <0>,
+					<&scmi_clk IMX95_CLK_AUDIOPLL1>;
+		assigned-clock-rates = <3932160000>, <3612672000>,
+				       <393216000>, <361267200>,
+				       <49152000>;
+		clocks = <&scmi_clk IMX95_CLK_BUSAON>,
+			 <&scmi_clk IMX95_CLK_PDM>,
+			 <&scmi_clk IMX95_CLK_BUSAON>,
+			 <&scmi_clk IMX95_CLK_AUDIOPLL1>,
+			 <&scmi_clk IMX95_CLK_AUDIOPLL2>;
+		clock-names = "ipg", "mclk", "dma", "pll8k", "pll11k";
+		memory-region = <&micfil_reserved>;
+		status = "okay";
+	};
+
+	i2c_rpbus_1: i2c-rpbus-1 {
+		compatible = "fsl,i2c-rpbus-v2";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		status = "okay";
+
+		wm8962: codec@1a {
+			compatible = "wlf,wm8962";
+			reg = <0x1a>;
+			DCVDD-supply = <&reg_audio_pwr>;
+			DBVDD-supply = <&reg_audio_pwr>;
+			AVDD-supply = <&reg_audio_pwr>;
+			CPVDD-supply = <&reg_audio_pwr>;
+			MICVDD-supply = <&reg_audio_pwr>;
+			PLLVDD-supply = <&reg_audio_pwr>;
+			SPKVDD1-supply = <&reg_audio_pwr>;
+			SPKVDD2-supply = <&reg_audio_pwr>;
+			gpio-cfg = <
+				0x0000 /* 0:Default */
+				0x0000 /* 1:Default */
+				0x0000 /* 2:FN_DMICCLK */
+				0x0000 /* 3:Default */
+				0x0000 /* 4:FN_DMICCDAT */
+				0x0000 /* 5:Default */
+			>;
+		};
+
+		i2c4_gpio_expander_21: i2c4-gpio-expander@21 {
+			compatible = "nxp,pcal6408";
+			#gpio-cells = <2>;
+			gpio-controller;
+			reg = <0x21>;
+			interrupt-controller;
+			#interrupt-cells = <2>;
+			interrupt-parent = <&gpio2>;
+			interrupts = <18 IRQ_TYPE_LEVEL_LOW>;
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_i2c4_pcal6408>;
+			vcc-supply = <&reg_3p3v>;
+			status = "disabled";
+		};
+	};
+};
+
+&reg_audio_pwr {
+	/delete-property/ gpio;
+};
+
+&sai3 {
+	status = "disabled";
+};
+
+&micfil {
+	status = "disabled";
+};
+
+&edma1{
+	status = "disabled";
+};
+
+&edma2{
+	status = "disabled";
+};
+
+&lpuart5 {
+	status = "disabled";
+};
+
+&lpi2c2 {
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
+};
+
+&lpi2c3 {
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
+};
+
+&lpi2c5 {
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
+};
+
+&lpi2c6 {
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
+};
+
+&lpi2c7 {
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
+};
