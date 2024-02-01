@@ -291,6 +291,20 @@ M: Mirela Rabulea <mirela.rabulea@nxp.com>
 M: Alice Yuan <alice.yuan@nxp.com>
 F: drivers/media/i2c/os08a20/*
 
+capture/ox03c10
+M: Laurentiu Palcu <laurentiu.palcu@oss.nxp.com>
+R: Robert Chiras <robert.chiras@nxp.com>
+R: Mirela Rabulea <mirela.rabulea@nxp.com>
+R: Oliver Brown <oliver.brown@nxp.com>
+R: G.n. Zhou <guoniu.zhou@nxp.com>
+F: drivers/media/i2c/mx95mbcam.c
+F: Documentation/devicetree/bindings/media/i2c/nxp,mx95mbcam.yaml
+F: drivers/media/i2c/ox03c10*
+F: include/uapi/linux/ox03c10.h
+F: drivers/media/i2c/max96717*
+F: drivers/media/i2c/max96724*
+F: Documentation/devicetree/bindings/media/i2c/maxim,max96724.yaml
+
 capture/neoisp
 M: Aymen SGHAIER <aymen.sghaier@nxp.com>
 M: Julien Vuillaumier <julien.vuillaumier@nxp.com>
