@@ -194,6 +194,7 @@ struct adrv9002_tx_chan {
 	struct adi_adrv9001_DpdInitCfg *dpd_init;
 	struct adi_adrv9001_DpdCfg *dpd;
 	struct adi_adrv9001_TxAttenuationPinControlCfg *pin_cfg;
+	u8 port_sel;
 	u8 dac_boost_en;
 	u8 elb_en;
 	u8 ext_path_calib;
