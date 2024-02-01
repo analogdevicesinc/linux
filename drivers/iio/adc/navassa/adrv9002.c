@@ -623,10 +623,28 @@ static ssize_t adrv9002_attr_show(struct device *dev, struct device_attribute *a
 static void adrv9002_port_enable(const struct adrv9002_rf_phy *phy,
 				 const struct adrv9002_chan *c, bool enable)
 {
-	if (c->mux_ctl)
-		gpiod_set_value_cansleep(c->mux_ctl, enable);
-	if (c->mux_ctl_2)
-		gpiod_set_value_cansleep(c->mux_ctl_2, enable);
+	/*
+	 * Handle port muxes. Always terminate the ports at 50ohm when disabling and only
+	 * mux them again if the channel is enabled.
+	 */
+	if (!enable) {
+		if (c->mux_ctl)
+			gpiod_set_value_cansleep(c->mux_ctl, 0);
+		if (c->mux_ctl_2)
+			gpiod_set_value_cansleep(c->mux_ctl_2, 0);
+	} else if (c->enabled) {
+		bool ctl_assert = true;
+
+		/* Make sure to respect any possible TX port selection given by userspace. */
+		if (c->port == ADI_TX && chan_to_tx(c)->port_sel == ADRV9002_TX_B)
+			ctl_assert = false;
+
+		if (c->mux_ctl && ctl_assert)
+			gpiod_set_value_cansleep(c->mux_ctl, 1);
+		if (c->mux_ctl_2)
+			gpiod_set_value_cansleep(c->mux_ctl_2, 1);
+	}
+
 	/*
 	 * Nothing to do for channel 2 in rx2tx2 mode. The check is useful to have
 	 * it in here if the outer loop is looping through all the channels.
@@ -1417,24 +1435,27 @@ static int adrv9002_set_port_select(struct iio_dev *indio_dev,
 {
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	int c = ADRV_ADDRESS_CHAN(chan->address);
-	struct adrv9002_chan *tx = &phy->tx_channels[c].channel;
+	struct adrv9002_tx_chan *tx = &phy->tx_channels[c];
 	int ret = 0;
 
 	mutex_lock(&phy->lock);
-	if (!tx->enabled) {
+	if (!tx->channel.enabled) {
 		mutex_unlock(&phy->lock);
 		return -ENODEV;
 	}
 
 	if (mode == ADRV9002_TX_A) {
-		gpiod_set_value_cansleep(tx->mux_ctl, 1);
-		gpiod_set_value_cansleep(tx->mux_ctl_2, 1);
+		gpiod_set_value_cansleep(tx->channel.mux_ctl, 1);
+		gpiod_set_value_cansleep(tx->channel.mux_ctl_2, 1);
 	} else if (mode == ADRV9002_TX_B) {
-		gpiod_set_value_cansleep(tx->mux_ctl, 0);
-		gpiod_set_value_cansleep(tx->mux_ctl_2, 1);
+		gpiod_set_value_cansleep(tx->channel.mux_ctl, 0);
+		gpiod_set_value_cansleep(tx->channel.mux_ctl_2, 1);
 	} else {
 		ret = -EINVAL;
 	}
+
+	if (!ret)
+		tx->port_sel = mode;
 
 	mutex_unlock(&phy->lock);
 	return ret;
