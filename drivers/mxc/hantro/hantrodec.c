@@ -660,43 +660,6 @@ static void ReleasePostProcessor(hantrodec_t *dev, long Core)
 	up(&pp_core_sem);
 }
 
-static long ReserveDecPp(hantrodec_t *dev, struct file *filp, unsigned long format)
-{
-	/* reserve Core 0, DEC+PP for pipeline */
-	unsigned long flags;
-
-	long Core = 0;
-
-	/* check that Core has the requested dec format */
-	if (!CoreHasFormat(cfg, Core, format))
-		return -EFAULT;
-
-	/* check that Core has PP */
-	if (!CoreHasFormat(cfg, Core, DWL_CLIENT_TYPE_PP))
-		return -EFAULT;
-
-	/* reserve a Core */
-	if (down_interruptible(&dec_core_sem))
-		return -ERESTARTSYS;
-
-	/* wait until the Core is available */
-	if (wait_event_interruptible(hw_queue,	GetDecCore(Core, dev, filp) != 0)) {
-		up(&dec_core_sem);
-		return -ERESTARTSYS;
-	}
-
-	if (down_interruptible(&pp_core_sem)) {
-		ReleaseDecoder(dev, Core);
-		return -ERESTARTSYS;
-	}
-
-	spin_lock_irqsave(&owner_lock, flags);
-	pp_owner[Core] = filp;
-	spin_unlock_irqrestore(&owner_lock, flags);
-
-	return Core;
-}
-
 static long DecFlushRegs(hantrodec_t *dev, struct core_desc *Core)
 {
 	long ret = 0, i;
