@@ -142,7 +142,7 @@ static int max96752_get_dt_gmsl_links_params(struct max96752 *max96752)
 	return 0;
 }
 
-int max96752_set_link_params(struct max96752 *max96752)
+static int max96752_set_link_params(struct max96752 *max96752)
 {
 	struct device *dev = max96752->dev;
 	struct regmap *regmap = max96752->regmap;
