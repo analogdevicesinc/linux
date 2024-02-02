@@ -208,7 +208,9 @@ gckWLFE_WaitLink(IN gckHARDWARE Hardware,
         /* Command buffer address won't beyond 4GB. */
         gcmkSAFECASTVA(address, Address);
 
-        *logical++ = address;
+        *logical = address;
+
+        gcmkONERROR(gckOS_MemoryBarrier(Hardware->os, logical));
 
         gcmkTRACE_ZONE(gcvLEVEL_INFO, gcvZONE_HARDWARE, "0x%x: WAIT %u",
                        address, Hardware->waitCount);

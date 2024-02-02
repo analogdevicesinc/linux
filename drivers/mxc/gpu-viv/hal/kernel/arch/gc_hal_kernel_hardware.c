@@ -5343,6 +5343,8 @@ gckHARDWARE_Flush(IN gckHARDWARE Hardware, IN gceKERNEL_FLUSH Flush,
  32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27))) | (((gctUINT32) (0x03 & ((gctUINT32) ((((1 ? 31:27) - (0 ? 31:27) + 1) ==
  32) ? ~0U : (~(~0U << ((1 ? 31:27) - (0 ? 31:27) + 1))))))) << (0 ? 31:27)));
             }
+
+            gcmkONERROR(gckOS_MemoryBarrier(Hardware->os, --logical));
         }
 
         if (Bytes != gcvNULL) {

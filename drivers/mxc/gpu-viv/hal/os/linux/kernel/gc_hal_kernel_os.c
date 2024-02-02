@@ -3075,6 +3075,16 @@ _ExternalCacheOperation(IN gckOS Os, IN gceCACHEOPERATION Operation)
 gceSTATUS
 gckOS_MemoryBarrier(IN gckOS Os, IN gctPOINTER Address)
 {
+#if gcdWAR_WC
+    gctUINT32 data;
+
+    if (Address)
+        gckOS_ReadMappedPointer(Os, Address, &data);
+
+    (void)data;
+#endif
+
+
     _MemoryBarrier();
 
     _ExternalCacheOperation(Os, gcvCACHE_INVALIDATE);
