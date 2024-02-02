@@ -25,7 +25,7 @@ static struct iio_hw_triggered_buffer_device
 
 	adev = auxiliary_find_device(NULL, match, iio_hw_triggered_buffer_match);
 	if (!adev)
-		return ERR_PTR(-ENOENT);
+		return ERR_PTR(-EPROBE_DEFER);
 
 	return container_of(adev, struct iio_hw_triggered_buffer_device, adev);
 }
