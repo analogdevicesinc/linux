@@ -533,7 +533,7 @@ examples:
                <&scmi_clk IMX95_CLK_DISPAPB>,
                <&scmi_clk IMX95_CLK_DISPAXI>,
                <&scmi_clk IMX95_CLK_DISPOCRAM>,
-               <&scmi_clk IMX95_CLK_LDBPLL>,
+               <&ldb_pll_pixel>,
                <&scmi_clk IMX95_CLK_LDBPLL_VCO>;
       clock-names = "pix", "apb", "axi", "ocram", "ldb", "ldb_vco";
       power-domains = <&scmi_devpd IMX95_PD_DISPLAY>;
