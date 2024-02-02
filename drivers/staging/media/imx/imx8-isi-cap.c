@@ -1050,26 +1050,41 @@ static int mxc_isi_cap_g_parm(struct file *file, void *fh,
 			      struct v4l2_streamparm *a)
 {
 	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
+	struct v4l2_subdev_frame_interval ival = {
+		.which = V4L2_SUBDEV_FORMAT_ACTIVE,
+	};
 	struct v4l2_subdev *sd;
+	int ret;
 
 	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
 	if (!sd)
 		return -ENODEV;
 
-	return v4l2_g_parm_cap(video_devdata(file), sd, a);
+	ret = v4l2_subdev_call(sd, pad, get_frame_interval, NULL, &ival);
+	if (ret < 0) {
+		dev_err(&isi_cap->pdev->dev, "failed to call get_frame_interval\n");
+		return ret;
+	}
+
+	a->parm.capture.timeperframe = ival.interval;
+	return 0;
 }
 
 static int mxc_isi_cap_s_parm(struct file *file, void *fh,
 			      struct v4l2_streamparm *a)
 {
 	struct mxc_isi_cap_dev *isi_cap = video_drvdata(file);
+	struct v4l2_subdev_frame_interval ival = {
+		.which = V4L2_SUBDEV_FORMAT_ACTIVE,
+		.interval = a->parm.capture.timeperframe,
+	};
 	struct v4l2_subdev *sd;
 
 	sd = mxc_get_remote_subdev(&isi_cap->sd, __func__);
 	if (!sd)
 		return -ENODEV;
 
-	return v4l2_s_parm_cap(video_devdata(file), sd, a);
+	return v4l2_subdev_call(sd, pad, set_frame_interval, NULL, &ival);
 }
 
 
