@@ -7,6 +7,7 @@
 
 #include <linux/delay.h>
 #include <linux/device.h>
+#include <linux/mfd/maxim_serdes.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/workqueue.h>
