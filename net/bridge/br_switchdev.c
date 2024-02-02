@@ -345,6 +345,7 @@ br_switchdev_fdb_replay(const struct net_device *br_dev, const void *ctx,
 	return err;
 }
 
+#ifdef CONFIG_BRIDGE_VLAN_FILTERING
 static int br_switchdev_vlan_attr_replay(struct net_device *br_dev,
 					 const void *ctx,
 					 struct notifier_block *nb,
@@ -442,12 +443,14 @@ static int br_switchdev_vlan_replay_group(struct notifier_block *nb,
 
 	return 0;
 }
+#endif
 
 static int br_switchdev_vlan_replay(struct net_device *br_dev,
 				    const void *ctx, bool adding,
 				    struct notifier_block *nb,
 				    struct netlink_ext_ack *extack)
 {
+#ifdef CONFIG_BRIDGE_VLAN_FILTERING
 	struct net_bridge *br = netdev_priv(br_dev);
 	struct net_bridge_port *p;
 	unsigned long action;
@@ -486,6 +489,7 @@ static int br_switchdev_vlan_replay(struct net_device *br_dev,
 		if (err)
 			return err;
 	}
+#endif
 
 	return 0;
 }
