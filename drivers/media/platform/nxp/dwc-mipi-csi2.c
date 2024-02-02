@@ -1031,14 +1031,20 @@ static int dwc_csi_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 
 	memset(fd, 0, sizeof(*fd));
 
-	/*
-	 * Return virtual channel 0 as default value when remote subdev
-	 * don't implement .get_frame_desc subdev callback
-	 */
 	ret = v4l2_subdev_call(csidev->source_sd, pad, get_frame_desc,
 			       csidev->remote_pad, &source_fd);
-	if (ret < 0)
-		return (ret == -ENOIOCTLCMD) ? 0 : ret;
+	if (ret < 0) {
+		dev_info(csidev->dev,
+			"Remote sub-device on pad %d should implement .get_frame_desc! Forcing VC = 0 and DT = %x\n",
+			pad, csidev->csi_fmt->data_type);
+		fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+		fd->num_entries = 1;
+		fd->entry[0].pixelcode = csidev->csi_fmt->code;
+		fd->entry[0].bus.csi2.vc = 0;
+		fd->entry[0].bus.csi2.dt = csidev->csi_fmt->data_type;
+
+		return 0;
+	}
 
 	fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
 
