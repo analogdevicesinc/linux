@@ -4218,6 +4218,10 @@ static netdev_tx_t stmmac_tso_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct stmmac_tx_queue *tx_q;
 	u32 pay_len, mss, queue;
 	u8 proto_hdr_len, hdr;
+<<<<<<< HEAD
+=======
+	u32 pay_len, mss;
+>>>>>>> d3cc55dc8bb0 (net: stmmac: protect updates of 64-bit statistics counters)
 	dma_addr_t des;
 	bool set_ic;
 	int i;
