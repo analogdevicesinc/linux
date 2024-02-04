@@ -686,7 +686,7 @@ int cdns_hdmirx_phyinit(struct cdns_hdmirx_device *hdmirx)
 	return 0;
 }
 
-int hdmirx_config(struct cdns_hdmirx_device *hdmirx)
+static int hdmirx_config(struct cdns_hdmirx_device *hdmirx)
 {
 	struct S_HDMI_SCDC_GET_MSG *scdcData = &hdmirx->scdcData;
 	u8 clk_ratio, clk_ratio_detected;

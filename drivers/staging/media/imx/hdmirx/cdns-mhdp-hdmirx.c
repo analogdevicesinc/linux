@@ -87,7 +87,7 @@ bool cdns_hdmirx_check_alive(struct cdns_hdmirx_device *hdmirx)
 	return false;
 }
 
-int hdmirx_mailbox_read(struct cdns_hdmirx_device *hdmirx)
+static int hdmirx_mailbox_read(struct cdns_hdmirx_device *hdmirx)
 {
 	int val, ret;
 
@@ -244,20 +244,6 @@ int cdns_hdmirx_reg_write(struct cdns_hdmirx_device *hdmirx, u32 addr, u32 val)
 
 	return cdns_hdmirx_mailbox_send(hdmirx, MB_MODULE_ID_GENERAL,
 				      GENERAL_WRITE_REGISTER, sizeof(msg), msg);
-}
-
-int cdns_hdmirx_reg_write_bit(struct cdns_hdmirx_device *hdmirx, u16 addr,
-				   u8 start_bit, u8 bits_no, u32 val)
-{
-	u8 field[8];
-
-	put_unaligned_be16(addr, field);
-	field[2] = start_bit;
-	field[3] = bits_no;
-	put_unaligned_be32(val, field + 4);
-
-	return cdns_hdmirx_mailbox_send(hdmirx, MB_MODULE_ID_DP_TX,
-				      DPTX_WRITE_FIELD, sizeof(field), field);
 }
 
 int cdns_hdmirx_set_edid(struct cdns_hdmirx_device *hdmirx,

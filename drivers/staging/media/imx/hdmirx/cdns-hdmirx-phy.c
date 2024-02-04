@@ -85,17 +85,7 @@ static inline u16 read16(struct cdns_hdmirx_device *hdmirx, u32 addr)
 	return cdns_hdmirx_phy_reg_read(hdmirx, addr);
 }
 
-u16 inside_i(u16 value, u16 left_sharp_corner,
-		  u16 right_sharp_corner)
-{
-	if (value < left_sharp_corner)
-		return 0;
-	if (value > right_sharp_corner)
-		return 0;
-	return 1;
-}
-
-u16 inside_f(u32 value, u32 left_sharp_corner, u32 right_sharp_corner)
+static u16 inside_f(u32 value, u32 left_sharp_corner, u32 right_sharp_corner)
 {
 	if (value < left_sharp_corner)
 		return 0;
