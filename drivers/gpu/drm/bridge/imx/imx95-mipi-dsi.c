@@ -646,6 +646,12 @@ static int imx95_dsi_phy_pll_configure(struct imx95_dsi *dsi,
 		return ret;
 	}
 
+	ret = clk_prepare_enable(dsi->clk_ref);
+	if (ret < 0) {
+		dev_err(dsi->dev, "failed to enable ref clock: %d\n", ret);
+		return ret;
+	}
+
 	val = PHY_CFGCLKFREQRANGE(imx95_dsi_phy_pll_get_cfgclkrange(dsi)) |
 	      PHY_HSFREQRANGE(imx95_dsi_phy_pll_get_hsfreqrange(&opts->mipi_dphy));
 	imx95_dsi_phy_csr_write(dsi, PHY_FREQ_CONTROL, val);
@@ -804,6 +810,7 @@ static void imx95_dsi_phy_power_off(void *priv_data)
 	imx95_dsi_phy_csr_write(dsi, PHY_MODE_CONTROL, TX_RXZ_DSI_MODE);
 
 	clk_disable_unprepare(dsi->clk_cfg);
+	clk_disable_unprepare(dsi->clk_ref);
 
 	ret = mux_control_deselect(dsi->mux);
 	if (ret < 0)
