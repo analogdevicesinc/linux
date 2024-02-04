@@ -796,9 +796,6 @@ gc_idle_show(void *m, void *data)
     return len;
 }
 
-extern void
-gckKERNEL_DumpState(IN gckKERNEL Kernel);
-
 static gctUINT dumpDevice = 0;
 static gctUINT dumpCore   = 0;
 
