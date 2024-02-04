@@ -2249,7 +2249,9 @@ _Construct(IN gckKERNEL Kernel, IN gctSIZE_T MmuSize, OUT gckMMU *Mmu)
     gctPHYS_ADDR_T      physBase;
     gctSIZE_T           physSize;
     gctPHYS_ADDR_T      contiguousBase;
+#if !gcdCAPTURE_ONLY_MODE
     gctADDRESS          contiguousBaseAddress = 0;
+#endif
     gctSIZE_T           contiguousSize        = 0;
     gctADDRESS          gpuAddress            = 0;
     gctPHYS_ADDR_T      gpuPhysical;
@@ -2564,6 +2566,7 @@ _Construct(IN gckKERNEL Kernel, IN gctSIZE_T MmuSize, OUT gckMMU *Mmu)
 #endif
             }
 
+#if !gcdCAPTURE_ONLY_MODE
             if (contiguousSize && gpuContiguousBase != gcvINVALID_PHYSICAL_ADDRESS) {
                 /* Setup flat mapping for reserved memory (VIDMEM). */
                 gcmkONERROR(gckMMU_FillFlatMapping(mmu, gpuContiguousBase, contiguousSize,
@@ -2577,8 +2580,8 @@ _Construct(IN gckKERNEL Kernel, IN gctSIZE_T MmuSize, OUT gckMMU *Mmu)
                 if (device->showMemInfo)
                     gcmkPRINT("[Galcore]: system reserved pool%d CPU physical=0x%llx GPU physical=0x%llx virtual=0x%llx size=0x%llx",
                               i, contiguousBase, gpuContiguousBase, mmu->contiguousBaseAddresses[i], (gctUINT64)contiguousSize);
-
             }
+#endif
         }
 
         if (Kernel->device->externalSize && gpuExternalBase != gcvINVALID_PHYSICAL_ADDRESS) {
