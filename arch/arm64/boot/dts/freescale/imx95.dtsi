@@ -1797,7 +1797,7 @@
 			clock-names = "cfg", "bypass", "ref", "pclk", "pix";
 			assigned-clocks = <&scmi_clk IMX95_CLK_MIPIPHYCFG>,
 					  <&scmi_clk IMX95_CLK_MIPIPHYPLLBYPASS>;
-			assigned-clock-parents = <&osc_24m>,
+			assigned-clock-parents = <&scmi_clk IMX95_CLK_24M>,
 						 <&scmi_clk IMX95_CLK_VIDEOPLL1>;
 			mux-controls = <&mux 0>;
 			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
