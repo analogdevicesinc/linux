@@ -1791,14 +1791,16 @@
 			interrupts = <48>;
 			clocks = <&scmi_clk IMX95_CLK_MIPIPHYCFG>,
 				 <&scmi_clk IMX95_CLK_MIPIPHYPLLBYPASS>,
-				 <&osc_24m>,
+				 <&scmi_clk IMX95_CLK_MIPIPHYPLLREF>,
 				 <&scmi_clk IMX95_CLK_CAMAPB>,
 				 <&scmi_clk IMX95_CLK_DISP1PIX>;
 			clock-names = "cfg", "bypass", "ref", "pclk", "pix";
 			assigned-clocks = <&scmi_clk IMX95_CLK_MIPIPHYCFG>,
-					  <&scmi_clk IMX95_CLK_MIPIPHYPLLBYPASS>;
+					  <&scmi_clk IMX95_CLK_MIPIPHYPLLBYPASS>,
+					  <&scmi_clk IMX95_CLK_MIPIPHYPLLREF>;
 			assigned-clock-parents = <&scmi_clk IMX95_CLK_24M>,
-						 <&scmi_clk IMX95_CLK_VIDEOPLL1>;
+						 <&scmi_clk IMX95_CLK_VIDEOPLL1>,
+						 <&scmi_clk IMX95_CLK_24M>;
 			mux-controls = <&mux 0>;
 			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
 			nxp,disp-master-csr = <&display_master_csr>;
