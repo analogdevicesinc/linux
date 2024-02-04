@@ -148,7 +148,7 @@ typedef struct _gcsALLOCATOR_OPERATIONS {
             IN gctBOOL                Cacheable,
             IN gctSIZE_T              skipPages,
             IN gctSIZE_T              numPages,
-            IN struct vm_area_struct *vma);
+            IN struct vm_area_struct  *vma);
 
     /**************************************************************************
      **
@@ -229,7 +229,7 @@ typedef struct _gcsALLOCATOR_OPERATIONS {
                  IN PLINUX_MDL   Mdl,
                  IN gctSIZE_T    Offset,
                  IN gctSIZE_T    Bytes,
-                 OUT gctPOINTER *Logical);
+                 OUT gctPOINTER  *Logical);
 
     /**************************************************************************
      **
@@ -320,7 +320,7 @@ typedef struct _gcsALLOCATOR_OPERATIONS {
     (*Physical)(IN gckALLOCATOR     Allocator,
                 IN PLINUX_MDL       Mdl,
                 IN gctUINT32        Offset,
-                OUT gctPHYS_ADDR_T *Physical);
+                OUT gctPHYS_ADDR_T  *Physical);
 
     /**************************************************************************
      **
@@ -373,7 +373,7 @@ typedef struct _gcsALLOCATOR_OPERATIONS {
               IN PLINUX_MDL   Mdl,
               IN gctSIZE_T    Offset,
               IN gctSIZE_T    Bytes,
-              OUT gctPOINTER *SGT);
+              OUT gctPOINTER  *SGT);
 } gcsALLOCATOR_OPERATIONS;
 
 typedef struct _gcsALLOCATOR {
@@ -490,11 +490,53 @@ OnError:
 int
 alloc_sg_list_from_pages(struct scatterlist **sgl,
                          struct page        **pages,
-                         unsigned int         n_pages,
-                         unsigned long        offset,
-                         unsigned long        size,
-                         unsigned int        *nents);
+                         unsigned int       n_pages,
+                         unsigned long      offset,
+                         unsigned long      size,
+                         unsigned int       *nents);
 #endif
+
+gceSTATUS
+_DmaAlloctorInit(
+    IN gckOS           Os,
+    IN gcsDEBUGFS_DIR  *Parent,
+    OUT gckALLOCATOR   *Allocator
+    );
+
+gceSTATUS
+_UserMemoryAlloctorInit(
+    IN gckOS           Os,
+    IN gcsDEBUGFS_DIR  *Parent,
+    OUT gckALLOCATOR   *Allocator
+    );
+
+gceSTATUS
+_GFPAlloctorInit(
+    IN gckOS           Os,
+    IN gcsDEBUGFS_DIR  *Parent,
+    OUT gckALLOCATOR   *Allocator
+    );
+
+gceSTATUS
+_ReservedMemoryAllocatorInit(
+    IN gckOS           Os,
+    IN gcsDEBUGFS_DIR  *Parent,
+    OUT gckALLOCATOR   *Allocator
+    );
+
+gceSTATUS
+_DmabufAlloctorInit(
+    IN gckOS           Os,
+    IN gcsDEBUGFS_DIR  *Parent,
+    OUT gckALLOCATOR   *Allocator
+    );
+
+gceSTATUS
+_CMAFSLAlloctorInit(
+    IN gckOS          Os,
+    IN gcsDEBUGFS_DIR *Parent,
+    OUT gckALLOCATOR  *Allocator
+    );
 
 /*
  *   How to implement customer allocator

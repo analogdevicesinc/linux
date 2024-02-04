@@ -2851,7 +2851,7 @@ OnError:
 }
 
 /* Switch to security first, then switch to non-security mode. */
-static gceSTATUS
+gceSTATUS
 gckCOMMAND_SwitchSecurityMode(gckCOMMAND Command, gckHARDWARE Hardware)
 {
     gceSTATUS status = gcvSTATUS_OK;

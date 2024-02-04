@@ -124,7 +124,7 @@ sys_printf(IN void *obj, IN const char *fmt, ...)
  **************************** DEBUG SHOW FUNCTIONS *****************************
  *******************************************************************************/
 
-int
+static int
 gc_info_show(void *m, void *data)
 {
     gckGALDEVICE gal_device = galDevice;
@@ -171,7 +171,7 @@ gc_info_show(void *m, void *data)
     return len;
 }
 
-int
+static int
 gc_clients_show(void *m, void *data)
 {
     gckGALDEVICE    device = galDevice;
@@ -217,7 +217,7 @@ gc_clients_show(void *m, void *data)
     return len;
 }
 
-int
+static int
 gc_meminfo_show(void *m, void *data)
 {
     gckGALDEVICE    device = galDevice;
@@ -307,7 +307,7 @@ gc_meminfo_show(void *m, void *data)
     return len;
 }
 
-int
+static int
 gc_load_show(void *m, void *data)
 {
     int               len        = 0;
@@ -797,7 +797,7 @@ gc_idle_show(void *m, void *data)
 }
 
 extern void
-_DumpState(IN gckKERNEL Kernel);
+gckKERNEL_DumpState(IN gckKERNEL Kernel);
 
 static gctUINT dumpDevice = 0;
 static gctUINT dumpCore   = 0;
@@ -844,7 +844,7 @@ gc_dump_trigger_show(void *m, void *data)
 
         gcmkONERROR(gckHARDWARE_SetPowerState(Hardware, gcvPOWER_ON_AUTO));
 
-        _DumpState(kernel);
+        gckKERNEL_DumpState(kernel);
 
         switch (statesStored) {
         case gcvPOWER_OFF:
@@ -1298,80 +1298,80 @@ gc_poweroff_timeout_write(const char __user *buf, size_t count, void *data)
     return ret;
 }
 
-int
+static int
 gc_info_show_debugfs(struct seq_file *m, void *data)
 {
     return gc_info_show((void *)m, data);
 }
 
-int
+static int
 gc_clients_show_debugfs(struct seq_file *m, void *data)
 {
     return gc_clients_show((void *)m, data);
 }
 
-int
+static int
 gc_meminfo_show_debugfs(struct seq_file *m, void *data)
 {
     return gc_meminfo_show((void *)m, data);
 }
 
-int
+static int
 gc_idle_show_debugfs(struct seq_file *m, void *data)
 {
     return gc_idle_show((void *)m, data);
 }
 
-int
+static int
 gc_db_old_show_debugfs(struct seq_file *m, void *data)
 {
     return gc_db_old_show((void *)m, data, gcvTRUE);
 }
 
-int
+static int
 gc_db_show_debugfs(struct seq_file *m, void *data)
 {
     return gc_db_show((void *)m, data, gcvTRUE);
 }
 
-int
+static int
 gc_version_show_debugfs(struct seq_file *m, void *data)
 {
     return gc_version_show((void *)m, data);
 }
 
-int
+static int
 gc_vidmem_old_show_debugfs(struct seq_file *m, void *data)
 {
     return gc_vidmem_old_show((void *)m, data, gcvTRUE);
 }
 
-int
+static int
 gc_vidmem_show_debugfs(struct seq_file *m, void *data)
 {
     return gc_vidmem_show((void *)m, data, gcvTRUE);
 }
 
-int
+static int
 gc_dump_trigger_show_debugfs(struct seq_file *m, void *data)
 {
     return gc_dump_trigger_show((void *)m, data);
 }
 
-int
+static int
 gc_clk_show_debugfs(struct seq_file *m, void *data)
 {
     return gc_clk_show((void *)m, data);
 }
 
-int
+static int
 gc_poweroff_timeout_show_debugfs(struct seq_file *m, void *data)
 {
     return gc_poweroff_timeout_show((void *)m, data);
 }
 
 #if gcdENABLE_MP_SWITCH
-int
+static int
 gc_switch_core_count_debugfs(struct seq_file *m, void *data)
 {
     return gc_switch_core_count((void *)m, data);
@@ -1379,7 +1379,7 @@ gc_switch_core_count_debugfs(struct seq_file *m, void *data)
 #    endif
 
 #if VIVANTE_PROFILER
-int
+static int
 gc_load_show_debugfs(struct seq_file *m, void *data)
 {
     return gc_load_show((void *)m, data);

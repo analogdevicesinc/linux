@@ -778,7 +778,7 @@ gckPPU_GetPixel(IN gctUINT32 Format)
     return pixel;
 }
 
-gceSTATUS
+static gceSTATUS
 gckPPU_SetEVIS(IN gctUINT32 Start, IN gctUINT32 End,
                IN gctUINT32 Evis, IN OUT gctUINT32_PTR Inst)
 {
@@ -919,7 +919,7 @@ OnError:
     return status;
 }
 
-gceSTATUS
+static gceSTATUS
 gckPPU_SetTempReg(IN gctUINT32 Where, IN gctUINT32 Address, IN gctUINT32 Swizzle,
                   IN gctUINT32 Modifiers, OUT gctUINT32_PTR Inst)
 {

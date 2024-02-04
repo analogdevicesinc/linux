@@ -713,7 +713,7 @@ static DRIVER_ATTR_RW(gpu_govern);
 static DRIVER_ATTR(gpu_govern, S_IRUGO | S_IWUSR, gpu_govern_show, gpu_govern_store);
 #endif
 
-int init_gpu_opp_table(struct device *dev)
+static int init_gpu_opp_table(struct device *dev)
 {
     const struct property *prop;
     const __be32 *val;
@@ -801,7 +801,7 @@ int init_gpu_opp_table(struct device *dev)
     return ret;
 }
 
-int remove_gpu_opp_table(void)
+static int remove_gpu_opp_table(void)
 {
     struct imx_priv *priv = &imxPriv;
     struct device* dev = priv->imx_gpu_govern.dev;
@@ -1305,7 +1305,7 @@ static int patch_param(struct platform_device *pdev,
     return 0;
 }
 
-int init_priv(void)
+static int init_priv(void)
 {
     memset(&imxPriv, 0, sizeof(imxPriv));
 
@@ -1324,7 +1324,7 @@ int init_priv(void)
     return 0;
 }
 
-void
+static void
 free_priv(void)
 {
 #ifdef CONFIG_GPU_LOW_MEMORY_KILLER

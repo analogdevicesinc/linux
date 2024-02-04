@@ -1500,7 +1500,7 @@ gckKERNEL_DumpProcessDB(IN gckKERNEL Kernel)
     return gcvSTATUS_OK;
 }
 
-void
+static void
 _DumpCounter(IN gcsDATABASE_COUNTERS *Counter, IN gctCONST_STRING Name)
 {
     gcmkPRINT("%s:", Name);

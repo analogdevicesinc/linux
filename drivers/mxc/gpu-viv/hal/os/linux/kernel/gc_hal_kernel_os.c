@@ -272,7 +272,7 @@ _DestroyMdl(IN PLINUX_MDL Mdl)
 /*******************************************************************************
  ** Integer Id Management.
  */
-gceSTATUS
+static gceSTATUS
 _AllocateIntegerId(IN gcsINTEGER_DB_PTR Database,
                    IN gctPOINTER        KernelPointer,
                    OUT gctUINT32        *Id)
@@ -341,7 +341,7 @@ again:
     return gcvSTATUS_OK;
 }
 
-gceSTATUS
+static gceSTATUS
 _QueryIntegerId(IN gcsINTEGER_DB_PTR Database,
                 IN gctUINT32         Id,
                 OUT gctPOINTER       *KernelPointer)
@@ -373,7 +373,7 @@ _QueryIntegerId(IN gcsINTEGER_DB_PTR Database,
     return gcvSTATUS_NOT_FOUND;
 }
 
-gceSTATUS
+static gceSTATUS
 _DestroyIntegerId(IN gcsINTEGER_DB_PTR Database, IN gctUINT32 Id)
 {
     unsigned long flags = 0;
@@ -6114,7 +6114,7 @@ gckOS_VerifyThread(IN gckOS Os, IN gctTHREAD Thread)
  ******************************** Software Timer ******************************
  *****************************************************************************/
 
-void
+static void
 _TimerFunction(struct work_struct *work)
 {
     gcsOSTIMER_PTR timer = (gcsOSTIMER_PTR)work;

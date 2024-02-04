@@ -135,6 +135,15 @@ gckWLFE_Execute(IN gckHARDWARE Hardware,
                 IN gctADDRESS Address,
                 IN gctUINT32 Bytes);
 
+gceSTATUS
+gckWLFE_InvalidatePipe(gckHARDWARE Hardware,
+                       gctPOINTER Logical,
+                       gctADDRESS Address,
+                       gctUINT32 *Bytes);
+
+void
+gckWLFE_DoneInvalidatePipe(gckHARDWARE Hardware);
+
 /******************************************************************************/
 /* ASync FE commands. */
 

@@ -499,7 +499,7 @@ struct _gcsPLATFORM_PCIE default_platform = {
     },
 };
 
-gctINT
+static gctINT
 _QueryBarInfo(struct pci_dev *Pdev,
               gctPHYS_ADDR_T *BarAddr,
               gctUINT64      *BarSize,

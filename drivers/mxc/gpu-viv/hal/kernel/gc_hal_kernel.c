@@ -161,7 +161,7 @@ gctCONST_STRING _DispatchText[] = {
 
 #if gcdGPU_TIMEOUT && gcdINTERRUPT_STATISTIC
 #if gcdENABLE_RECOVERY_ALL_CORES
-gceSTATUS
+static gceSTATUS
 _ClearPendingIntr(IN gckKERNEL Kernel)
 {
     gceSTATUS status;
@@ -202,7 +202,7 @@ OnError:
 }
 #    endif
 
-void
+static void
 _MonitorTimerFunction(gctPOINTER Data)
 {
     gckKERNEL kernel = (gckKERNEL)Data;
@@ -347,7 +347,7 @@ _MonitorTimerFunction(gctPOINTER Data)
 }
 #endif
 
-void
+static void
 _DumpDriverConfigure(IN gckKERNEL Kernel)
 {
     gcmkPRINT_N(0, "**************************\n");
@@ -361,7 +361,7 @@ _DumpDriverConfigure(IN gckKERNEL Kernel)
 }
 
 void
-_DumpState(IN gckKERNEL Kernel)
+gckKERNEL_DumpState(IN gckKERNEL Kernel)
 {
     /* Dump GPU Debug registers. */
     gcmkVERIFY_OK(gckHARDWARE_DumpGPUState(Kernel->hardware));
@@ -411,7 +411,7 @@ gckKERNEL_GetHardwareType(IN gckKERNEL Kernel, OUT gceHARDWARE_TYPE *Type)
     return gcvSTATUS_OK;
 }
 
-gceSTATUS
+static gceSTATUS
 _SetRecovery(IN gckKERNEL Kernel, IN gctBOOL Recovery, IN gctUINT32 StuckDump)
 {
     Kernel->recovery = Recovery;
@@ -1591,7 +1591,7 @@ OnError:
  **  Private function to allocate the requested amount of video memory, output
  **  video memory handle.
  */
-gceSTATUS
+static gceSTATUS
 _AllocateLinearMemory(IN gckKERNEL Kernel, IN gctUINT32 ProcessID,
                       IN gcsHAL_INTERFACE *Interface)
 {
@@ -1699,7 +1699,7 @@ OnError:
  **
  **          Nothing.
  */
-gceSTATUS
+static gceSTATUS
 _ReleaseVideoMemory(IN gckKERNEL Kernel, IN gctUINT32 ProcessID, IN gctUINT32 Handle)
 {
     gceSTATUS        status;
@@ -2147,7 +2147,7 @@ OnError:
 MODULE_IMPORT_NS(DMA_BUF);
 #endif
 
-gceSTATUS
+static gceSTATUS
 _SetVidMemMetadata(IN gckKERNEL Kernel, IN gctUINT32 ProcessID,
                    INOUT gcsHAL_INTERFACE *Interface)
 {
@@ -3354,7 +3354,7 @@ gckKERNEL_Dispatch(IN gckKERNEL Kernel, IN gckDEVICE Device,
         if (power == gcvPOWER_ON) {
             Interface->u.ReadRegisterData.data = 1;
 
-            _DumpState(Kernel);
+            gckKERNEL_DumpState(Kernel);
         } else {
             Interface->u.ReadRegisterData.data = 0;
             status                             = gcvSTATUS_CHIP_NOT_READY;
@@ -4031,7 +4031,7 @@ gckKERNEL_Recovery(IN gckKERNEL Kernel)
             gcmkASSERT(kernel != gcvNULL);
 
             _DumpDriverConfigure(kernel);
-            _DumpState(kernel);
+            gckKERNEL_DumpState(kernel);
         }
 
         gcmkVERIFY_OK(gckOS_ReleaseMutex(Kernel->os, Kernel->device->stuckDumpMutex));
@@ -4041,7 +4041,7 @@ gckKERNEL_Recovery(IN gckKERNEL Kernel)
                                          gcvINFINITE));
 
         _DumpDriverConfigure(Kernel);
-        _DumpState(Kernel);
+        gckKERNEL_DumpState(Kernel);
 
         gcmkVERIFY_OK(gckOS_ReleaseMutex(Kernel->os, Kernel->device->stuckDumpMutex));
     }
@@ -4984,7 +4984,7 @@ _ListAdd(gcsLISTHEAD_PTR New, gcsLISTHEAD_PTR Prev, gcsLISTHEAD_PTR Next)
     Prev->next = New;
 }
 
-void
+static void
 _ListDel(gcsLISTHEAD_PTR Prev, gcsLISTHEAD_PTR Next)
 {
     Next->prev = Prev;

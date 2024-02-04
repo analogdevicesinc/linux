@@ -1002,11 +1002,6 @@ static void drv_exit(void)
     gcmkFOOTER_NO();
 }
 
-#if gcdENABLE_DRM
-int viv_drm_probe(struct device *dev);
-int viv_drm_remove(struct device *dev);
-#endif
-
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
 static int viv_dev_probe(struct platform_device *pdev)
 #else

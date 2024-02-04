@@ -110,8 +110,6 @@
 /* Queue size. */
 #define gcdNUM_RECORDS 6
 
-typedef struct _gcsPARSER_HANDLER *gckPARSER_HANDLER;
-
 typedef void (*HandlerFunction)(IN gckPARSER_HANDLER Handler,
                                 IN gctUINT32 Addr,
                                 IN gctUINT32 Data);
@@ -123,7 +121,6 @@ typedef struct _gcsPARSER_HANDLER {
     HandlerFunction function;
 } gcsPARSER_HANDLER;
 
-typedef struct _gcsPARSER *gckPARSER;
 typedef struct _gcsPARSER {
     gctUINT8_PTR      currentCmdBufferAddr;
 
