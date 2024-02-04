@@ -132,6 +132,21 @@ typedef struct _gcTA_HARDWARE
 }
 gcsTA_HARDWARE;
 
+gceSTATUS
+gctaHARDWARE_SetMMUStates(
+    IN gcTA_HARDWARE Hardware,
+    IN gctPOINTER MtlbAddress,
+    IN gceMMU_MODE Mode,
+    IN gctPOINTER SafeAddress,
+    IN gctPOINTER Logical,
+    IN OUT gctUINT32 *Bytes
+);
+
+gceSTATUS
+gctaHARDWARE_MmuEnable(
+    IN gcTA_HARDWARE Hardware
+);
+
 #ifdef __cplusplus
 }
 #endif

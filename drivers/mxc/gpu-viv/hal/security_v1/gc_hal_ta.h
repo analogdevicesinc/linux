@@ -130,6 +130,29 @@ gcTA_Dispatch(
     IN OUT gcsTA_INTERFACE *Interface
 );
 
+gceSTATUS
+gcTA_MapMemory(
+    IN gcTA TA,
+    IN gctUINT32 *PhysicalArray,
+    IN gctPHYS_ADDR_T Physical,
+    IN gctUINT32 PageCount,
+    OUT gctUINT32 *GPUAddress
+);
+
+gceSTATUS
+gcTA_UnmapMemory(
+    IN gcTA TA,
+    IN gctUINT32 GPUAddress,
+    IN gctUINT32 PageCount
+);
+
+gceSTATUS
+gcTA_StartCommand(
+    IN gcTA TA,
+    IN gctUINT32 Address,
+    IN gctUINT32 Bytes
+);
+
 /*************************************
 * Porting layer
 */
@@ -364,6 +387,12 @@ gctaMMU_FreePages(
     IN gcTA_MMU Mmu,
     IN gctUINT32 Address,
     IN gctUINT32 PageCount
+    );
+
+gceSTATUS
+gctaMMU_Enable(
+    IN gcTA_MMU Mmu,
+    IN gcTA TA
     );
 
 #ifdef __cplusplus
