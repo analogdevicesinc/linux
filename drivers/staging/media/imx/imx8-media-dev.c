@@ -622,7 +622,7 @@ static const struct v4l2_async_notifier_operations sd_async_notifier_ops = {
 	.complete = subdev_notifier_complete,
 };
 
-void mxc_sensor_notify(struct v4l2_subdev *sd, unsigned int notification,
+static void mxc_sensor_notify(struct v4l2_subdev *sd, unsigned int notification,
 		       void *arg)
 {
 }
@@ -723,7 +723,7 @@ mxc_md_parse_pcsi_entity(struct mxc_md *mxc_md, struct device_node *node)
 	return pcsidev;
 }
 
-struct mxc_hdmi_rx_info*
+static struct mxc_hdmi_rx_info*
 mxc_md_parse_hdmi_rx_entity(struct mxc_md *mxc_md, struct device_node *node)
 {
 	struct mxc_hdmi_rx_info *hdmi_rx;
