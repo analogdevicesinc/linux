@@ -643,9 +643,9 @@ static int sti_pwm_probe(struct platform_device *pdev)
 			return -ENOMEM;
 	}
 
-	chip->dev = dev;
-	chip->ops = &sti_pwm_ops;
-	chip->npwm = max(cdata->pwm_num_devs, cdata->cpt_num_devs);
+	pc->chip.dev = dev;
+	pc->chip.ops = &sti_pwm_ops;
+	pc->chip.npwm = max(cdata->pwm_num_devs, cdata->cpt_num_devs);
 
 	for (i = 0; i < cdata->cpt_num_devs; i++) {
 		struct sti_cpt_ddata *ddata = &cdata->ddata[i];
