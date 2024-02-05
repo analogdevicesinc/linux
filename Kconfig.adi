@@ -90,6 +90,7 @@ config KERNEL_ALL_ADI_DRIVERS
 	imply CHARGER_LTC4162L
 	imply GPIO_DS4520
 	imply RTC_DRV_MAX31335
+	imply REGULATOR_MAX77503
 
 source "drivers/clk/Kconfig.adi"
 source "drivers/hwmon/Kconfig.adi"
