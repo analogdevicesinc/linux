@@ -609,26 +609,6 @@ static bool ad9467_valid_test_mode(struct axiadc_converter *conv,
 	return true;
 }
 
-static ssize_t ad9467_show_scale_available(struct iio_dev *indio_dev,
-					   uintptr_t private,
-					   const struct iio_chan_spec *chan,
-					   char *buf)
-{
-	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	unsigned int scale[2];
-	int i, len = 0;
-
-	for (i = 0; i < conv->chip_info->num_scales; i++) {
-		ad9467_scale(conv, i, &scale[0], &scale[1]);
-		len += sprintf(buf + len, "%u.%09u ", scale[0], scale[1]);
-	}
-
-	/* replace last space with a newline */
-	buf[len - 1] = '\n';
-
-	return len;
-}
-
 static ssize_t ad9467_testmode_mode_available(struct iio_dev *indio_dev,
 					      uintptr_t private,
 					      const struct iio_chan_spec *chan,
@@ -785,10 +765,6 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{
 	 .name = "test_mode_available",
 	 .read = ad9467_testmode_mode_available,
-	 },
-	{
-	 .name = "scale_available",
-	 .read = ad9467_show_scale_available,
 	 },
 	{
 	 .name = "lvds_sync",
