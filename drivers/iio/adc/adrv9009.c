@@ -221,6 +221,7 @@ enum adrv9009_iio_dev_attr {
 	ADRV9009_JESD204_FSM_STATE,
 	ADRV9009_JESD204_FSM_RESUME,
 	ADRV9009_JESD204_FSM_CTRL,
+	ADRV9009_RADIO_CTRL_PIN_MODE_EN,
 };
 
 int adrv9009_spi_read(struct spi_device *spi, unsigned reg)
@@ -1574,6 +1575,19 @@ static ssize_t adrv9009_phy_store(struct device *dev,
 		}
 
 		break;
+	case ADRV9009_RADIO_CTRL_PIN_MODE_EN:
+		if (!phy->is_initialized) {
+			mutex_unlock(&phy->lock);
+			return -EBUSY;
+		}
+
+		ret = strtobool(buf, &enable);
+		if (ret)
+			break;
+		ret = TALISE_setRadioCtlPinMode(phy->talDevice,
+						enable ? phy->pin_options_mask : 0,
+						enable ? phy->orx_en_gpio_pinsel : 0);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -1592,6 +1606,8 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 	struct adrv9009_rf_phy *phy = iio_priv(indio_dev);
 	struct jesd204_dev *jdev = phy->jdev;
 	struct jesd204_link *links[3];
+	taliseRadioCtlCfg2_t orxEnGpioPinSel;
+	u8 pinOptionsMask;
 	int ret = 0;
 	int i, err, num_links;
 	bool paused;
@@ -1693,6 +1709,14 @@ static ssize_t adrv9009_phy_show(struct device *dev,
 
 		ret = sprintf(buf, "%d\n", phy->is_initialized);
 		break;
+	case ADRV9009_RADIO_CTRL_PIN_MODE_EN:
+		ret = TALISE_getRadioCtlPinMode(phy->talDevice,
+						&pinOptionsMask,
+						&orxEnGpioPinSel);
+		if (ret)
+			break;
+		ret = sprintf(buf, "%d\n", !!pinOptionsMask);
+		break;
 	default:
 		ret = -EINVAL;
 	}
@@ -1751,6 +1775,11 @@ static IIO_DEVICE_ATTR(multichip_sync, S_IWUSR,
 		       adrv9009_phy_store,
 		       ADRV9009_MCS);
 
+static IIO_DEVICE_ATTR(radio_pinctrl_en, 0644,
+		       adrv9009_phy_show,
+		       adrv9009_phy_store,
+		       ADRV9009_RADIO_CTRL_PIN_MODE_EN);
+
 /**
  * FIXME: these work only if working with all JESD204 links at once,
  * so, if one link has an error, the first will be shown, and all
@@ -1797,6 +1826,7 @@ static struct attribute *adrv9009_phy_attributes[] = {
 	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_phase_correction_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_fhm_en.dev_attr.attr,
+	&iio_dev_attr_radio_pinctrl_en.dev_attr.attr,
 	NULL,
 };
 
@@ -1812,6 +1842,7 @@ static struct attribute *adrv90081_phy_attributes[] = {
 	&iio_dev_attr_calibrate_rx_qec_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_rx_phase_correction_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_fhm_en.dev_attr.attr,
+	&iio_dev_attr_radio_pinctrl_en.dev_attr.attr,
 	NULL,
 };
 
@@ -1828,6 +1859,7 @@ static struct attribute *adrv90082_phy_attributes[] = {
 	&iio_dev_attr_calibrate_tx_lol_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_tx_lol_ext_en.dev_attr.attr,
 	&iio_dev_attr_calibrate_fhm_en.dev_attr.attr,
+	&iio_dev_attr_radio_pinctrl_en.dev_attr.attr,
 	NULL,
 };
 
@@ -4625,6 +4657,10 @@ static int adrv9009_phy_parse_dt(struct iio_dev *iodev, struct device *dev)
 	ADRV9009_OF_PROP("adi,aux-pll-lo-frequency_hz", &phy->aux_lo_frequency,
 			 2500000000ULL);
 
+	ADRV9009_OF_PROP("adi,radio-ctl-pin-mode-options-mask",
+			 &phy->pin_options_mask, TAL_TXRX_PIN_MODE);
+	ADRV9009_OF_PROP("adi,radio-ctl-pin-mode-orx-en-pinsel",
+			 &phy->orx_en_gpio_pinsel, TAL_ORX1ORX2_PAIR_NONE_SEL);
 
 	phy->loopFilter_stability = 3;
 
