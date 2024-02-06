@@ -242,6 +242,8 @@ struct adrv9009_rf_phy {
 	u32 			framer_b_m;
 	u32 			framer_b_f;
 	u32 			orx_channel_enabled;
+	u32			pin_options_mask;
+	u32			orx_en_gpio_pinsel;
 };
 
 int adrv9009_register_axi_converter(struct adrv9009_rf_phy *phy);
