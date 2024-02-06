@@ -234,6 +234,7 @@ struct ad9081_phy {
 	u32 adc_main_decimation[MAX_NUM_MAIN_DATAPATHS];
 	u32 adc_chan_decimation[MAX_NUM_CHANNELIZER];
 	u32 adc_dcm[2];
+	bool adc_invert_en[MAX_NUM_MAIN_DATAPATHS];
 	u64 adc_frequency_hz;
 	s64 rx_fddc_shift[MAX_NUM_CHANNELIZER];
 	s64 rx_cddc_shift[MAX_NUM_RX_NCO_CHAN_REGS][MAX_NUM_MAIN_DATAPATHS];
@@ -2263,6 +2264,10 @@ static int ad9081_setup_rx(struct spi_device *spi)
 	}
 
 	for_each_cddc(i, phy->rx_cddc_select) {
+		ret = adi_ad9081_adc_data_inversion_dc_coupling_set(&phy->ad9081,
+			BIT(i), phy->adc_invert_en[i]);
+		if (ret != 0)
+			return ret;
 		ret = adi_ad9081_adc_ddc_coarse_gain_set(
 			&phy->ad9081, BIT(i), phy->rx_cddc_gain_6db_en[i]);
 		if (ret != 0)
@@ -2277,7 +2282,6 @@ static int ad9081_setup_rx(struct spi_device *spi)
 			BIT(i), phy->rx_cddc_nco_channel_select_mode[i]);
 		if (ret != 0)
 			return ret;
-
 	}
 
 	for_each_fddc(i, phy->rx_fddc_select) {
@@ -4302,6 +4306,8 @@ static int ad9081_parse_dt_rx(struct ad9081_phy *phy, struct device_node *np)
 					     &phy->rx_cddc_nco_channel_select_mode[reg]);
 			ret = of_property_read_u32(of_chan, "adi,decimation",
 					     &phy->adc_main_decimation[reg]);
+			phy->adc_invert_en[reg] = of_property_read_bool(of_chan,
+				"adi,adc-invert-en");
 			if (ret) {
 				ad9081_dt_err(phy, "adi,decimation");
 				of_node_put(of_channels);
