@@ -1121,8 +1121,7 @@ static int bcm2835_spi_prepare_message(struct spi_controller *ctlr,
 		 * the SPI HW due to DLEN. Split up transfers (32-bit FIFO
 		 * aligned) if the limit is exceeded.
 		 */
-		ret = spi_split_transfers_maxsize(ctlr, msg, 65532,
-						  GFP_KERNEL | GFP_DMA);
+		ret = spi_split_transfers_maxsize(ctlr, msg, 65532);
 		if (ret)
 			return ret;
 	}

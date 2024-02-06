@@ -1011,9 +1011,7 @@ static int stm32_spi_prepare_msg(struct spi_controller *ctrl,
 	if (spi->cfg->set_number_of_data) {
 		int ret;
 
-		ret = spi_split_transfers_maxwords(ctrl, msg,
-						   STM32H7_SPI_TSIZE_MAX,
-						   GFP_KERNEL | GFP_DMA);
+		ret = spi_split_transfers_maxwords(ctrl, msg, spi->t_size_max);
 		if (ret)
 			return ret;
 	}
