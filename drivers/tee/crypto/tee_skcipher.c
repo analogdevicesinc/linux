@@ -464,7 +464,7 @@ static void tee_crypt_skcipher_alg_init(struct tee_crypt_skcipher_alg *t_alg)
 	alg->exit = tee_crypt_cra_exit;
 }
 
-int tee_crypt_algapi_init(void)
+static int tee_crypt_algapi_init(void)
 {
 	int i = 0, ret = 0;
 	bool registered = false;
@@ -491,7 +491,7 @@ int tee_crypt_algapi_init(void)
 	return ret;
 }
 
-void tee_crypt_algapi_exit(void)
+static void tee_crypt_algapi_exit(void)
 {
 	int i;
 
