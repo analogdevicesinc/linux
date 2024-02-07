@@ -142,7 +142,7 @@
 		};
 	};
 
-	timer {
+	timer: arm-arch-timer@0 {
 		compatible = "arm,armv8-timer";
 		interrupts = <GIC_PPI 13 IRQ_TYPE_LEVEL_LOW>, /* Physical Secure */
 			     <GIC_PPI 14 IRQ_TYPE_LEVEL_LOW>, /* Physical Non-Secure */
@@ -411,6 +411,15 @@
 				};
 			};
 
+			tpm4: tpm@29330000 {
+				compatible = "fsl,imx8ulp-tpm", "fsl,imx7ulp-tpm";
+				reg = <0x29330000 0x1000>;
+				interrupts = <GIC_SPI 86 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&sosc>, <&sosc>;
+				clock-names = "ipg", "per";
+				status = "disabled";
+			};
+
 			tpm5: tpm@29340000 {
 				compatible = "fsl,imx8ulp-tpm", "fsl,imx7ulp-tpm";
 				reg = <0x29340000 0x1000>;
@@ -636,6 +645,15 @@
 				assigned-clock-rates = <48000000>;
 				dmas = <&edma1 61 0 1>, <&edma1 62 0 0>;
 				dma-names = "rx", "tx";
+				status = "disabled";
+			};
+
+			tpm6: tpm@29820000 {
+				compatible = "fsl,imx8ulp-tpm", "fsl,imx7ulp-tpm";
+				reg = <0x29820000 0x1000>;
+				interrupts = <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&sosc>, <&sosc>;
+				clock-names = "ipg", "per";
 				status = "disabled";
 			};
 
