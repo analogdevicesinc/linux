@@ -25,8 +25,8 @@
 &dpmac1 {
 	sfp = <&sfp_cage>;
 	managed = "in-band-status";
-	phys = <&serdes1 2>;
-	phy-names = "serdes";
+	phys = <&serdes1 2>, <&ti_retimer 0>, <&ti_retimer 1>;
+	phy-names = "serdes", "retimer_tx", "retimer_rx";
 	pcs-handle = <&pcs1>;
 };
 
@@ -207,6 +207,18 @@
 				reg = <0x53>;
 				/* IRQ_RTC_B -> IRQ0_B(CPLD) -> IRQ00(CPU), active low */
 				interrupts-extended = <&extirq 0 IRQ_TYPE_LEVEL_LOW>;
+			};
+		};
+
+		i2c@5 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x5>;
+
+			ti_retimer: retimer@18 {
+				compatible = "ti,ds125df111";
+				reg = <0x18>;
+				#phy-cells = <1>;
 			};
 		};
 
