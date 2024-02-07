@@ -91,6 +91,7 @@ config KERNEL_ALL_ADI_DRIVERS
 	imply GPIO_DS4520
 	imply RTC_DRV_MAX31335
 	imply REGULATOR_MAX77503
+	imply REGULATOR_MAX77857
 
 source "drivers/clk/Kconfig.adi"
 source "drivers/hwmon/Kconfig.adi"
