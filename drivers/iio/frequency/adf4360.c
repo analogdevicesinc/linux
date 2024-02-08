@@ -558,7 +558,7 @@ static int __adf4360_power_down(struct adf4360_state *st, unsigned int mode)
 		break;
 	case ADF4360_POWER_DOWN_SOFT_ASYNC: /* fallthrough */
 	case ADF4360_POWER_DOWN_SOFT_SYNC:
-		val = st->regs[ADF4360_CTRL] & ~ADF4360_ADDR_MUXOUT_MSK;
+		val = st->regs[ADF4360_CTRL] & ~ADF4360_ADDR_PWR_DWN_MSK;
 		val |= ADF4360_POWERDOWN(mode);
 		ret = adf4360_write_reg(st, ADF4360_REG(ADF4360_CTRL), val);
 		break;
