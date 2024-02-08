@@ -7,6 +7,7 @@
 #include <linux/audit.h>
 
 #include <soc/imx/imx-secvio-sc.h>
+#include "imx-secvio-sc-int.h"
 
 int report_to_audit_notify(struct notifier_block *nb, unsigned long status,
 			   void *notif_info)

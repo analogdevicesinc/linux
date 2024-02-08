@@ -32,7 +32,7 @@
 #include <soc/imx/imx-secvio-sc.h>
 #include "imx-secvio-sc-int.h"
 
-int fuse_reader(struct device *dev, u32 id, u32 *value, u8 mul)
+static int fuse_reader(struct device *dev, u32 id, u32 *value, u8 mul)
 {
 	struct imx_secvio_sc_data *data = dev_get_drvdata(dev);
 	u32 size_to_read = mul * sizeof(u32);
@@ -53,7 +53,7 @@ int fuse_reader(struct device *dev, u32 id, u32 *value, u8 mul)
 	return 0;
 }
 
-int snvs_reader(struct device *dev, u32 id, u32 *value, u8 mul)
+static int snvs_reader(struct device *dev, u32 id, u32 *value, u8 mul)
 {
 	int ret;
 	u32 *v1, *v2, *v3, *v4, *v5;
@@ -92,7 +92,7 @@ int snvs_reader(struct device *dev, u32 id, u32 *value, u8 mul)
 	return ret;
 }
 
-int snvs_dgo_reader(struct device *dev, u32 id, u32 *value, u8 mul)
+static int snvs_dgo_reader(struct device *dev, u32 id, u32 *value, u8 mul)
 {
 	struct imx_secvio_sc_data *data = dev_get_drvdata(dev);
 	int ret;

@@ -137,7 +137,7 @@ inline int imx_secvio_sc_get_state(struct secvio_sc_notifier_info *info)
 }
 EXPORT_SYMBOL(imx_secvio_sc_get_state);
 
-int int_imx_secvio_sc_check_state(struct device *dev)
+static int int_imx_secvio_sc_check_state(struct device *dev)
 {
 	struct secvio_sc_notifier_info info = {0};
 	int ret = 0;
