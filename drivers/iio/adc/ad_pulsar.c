@@ -982,3 +982,4 @@ module_spi_driver(ad_pulsar_driver);
 MODULE_AUTHOR("Sergiu Cuciurean <sergiu.cuciurean@analog.com>");
 MODULE_DESCRIPTION("Analog Devices PulSAR ADC family driver");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(IIO_DMAENGINE_BUFFER);

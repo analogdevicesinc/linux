@@ -1645,3 +1645,4 @@ MODULE_AUTHOR("Marcelo Schmitt <marcelo.schmitt@analog.com>");
 MODULE_AUTHOR("Liviu Adace <liviu.adace@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD4630 and ADAQ4224 ADC family driver");
 MODULE_LICENSE("GPL v2");
+MODULE_IMPORT_NS(IIO_DMAENGINE_BUFFER);

@@ -627,3 +627,4 @@ module_spi_driver(ad400x_driver);
 MODULE_AUTHOR("Mircea Caprioru <mircea.caprioru@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD400x ADC driver");
 MODULE_LICENSE("GPL v2");
+MODULE_IMPORT_NS(IIO_DMAENGINE_BUFFER);
