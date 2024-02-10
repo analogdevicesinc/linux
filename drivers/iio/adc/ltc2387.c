@@ -381,3 +381,4 @@ module_platform_driver(ltc2387_driver);
 MODULE_AUTHOR("Sergiu Cuciurean <sergiu.cuciurean@analog.com>");
 MODULE_DESCRIPTION("Linear Technology LTC2387 ADC");
 MODULE_LICENSE("Dual BSD/GPL");
+MODULE_IMPORT_NS(IIO_DMAENGINE_BUFFER);
