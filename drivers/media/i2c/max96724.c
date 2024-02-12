@@ -701,7 +701,7 @@ static int max96724_pipe_setup(struct max96724_priv *priv, int pipe,
 	u8 pos_shift;
 
 	/* the pixel data is on VC0 */
-	format = v4l2_subdev_state_get_stream_format(state, pipe, 0);
+	format = v4l2_subdev_state_get_format(state, pipe, 0);
 	if (!format)
 		return -EINVAL;
 
@@ -882,8 +882,9 @@ static int max96724_setup_all_pipes(struct max96724_priv *priv, struct v4l2_subd
 	return 0;
 }
 
-static int max96724_g_frame_interval(struct v4l2_subdev *sd,
-				     struct v4l2_subdev_frame_interval *interval)
+static int max96724_get_frame_interval(struct v4l2_subdev *sd,
+				       struct v4l2_subdev_state *state,
+				       struct v4l2_subdev_frame_interval *interval)
 {
 	struct max96724_priv *priv = container_of(sd, struct max96724_priv, sd);
 
@@ -895,8 +896,9 @@ static int max96724_g_frame_interval(struct v4l2_subdev *sd,
 	return 0;
 }
 
-static int max96724_s_frame_interval(struct v4l2_subdev *sd,
-				     struct v4l2_subdev_frame_interval *interval)
+static int max96724_set_frame_interval(struct v4l2_subdev *sd,
+				       struct v4l2_subdev_state *state,
+				       struct v4l2_subdev_frame_interval *interval)
 {
 	struct max96724_priv *priv = container_of(sd, struct max96724_priv, sd);
 
@@ -907,11 +909,6 @@ static int max96724_s_frame_interval(struct v4l2_subdev *sd,
 
 	return 0;
 }
-
-static const struct v4l2_subdev_video_ops max96724_v4l2_video_ops = {
-	.g_frame_interval = max96724_g_frame_interval,
-	.s_frame_interval = max96724_s_frame_interval,
-};
 
 static int max96724_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_state *state,
 			    struct v4l2_subdev_format *format)
@@ -933,7 +930,7 @@ static int max96724_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_state *st
 	if (i == ARRAY_SIZE(max96724_formats))
 		format->format.code = max96724_formats[12].code;
 
-	sink_fmt = v4l2_subdev_state_get_stream_format(state, format->pad, format->stream);
+	sink_fmt = v4l2_subdev_state_get_format(state, format->pad, format->stream);
 	if (!sink_fmt)
 		return -EINVAL;
 
@@ -945,7 +942,7 @@ static int max96724_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_state *st
 		if (route->sink_pad != format->pad || route->sink_stream != format->stream)
 			continue;
 
-		source_fmt = v4l2_subdev_state_get_stream_format(state, route->source_pad,
+		source_fmt = v4l2_subdev_state_get_format(state, route->source_pad,
 								 route->source_stream);
 		if (!source_fmt)
 			return -EINVAL;
@@ -956,7 +953,7 @@ static int max96724_set_fmt(struct v4l2_subdev *sd, struct v4l2_subdev_state *st
 	return 0;
 }
 
-static int max96724_init_cfg(struct v4l2_subdev *sd, struct v4l2_subdev_state *sd_state)
+static int max96724_init_state(struct v4l2_subdev *sd, struct v4l2_subdev_state *sd_state)
 {
 	struct max96724_priv *priv = container_of(sd, struct max96724_priv, sd);
 	struct v4l2_subdev_krouting routing = {};
@@ -1247,12 +1244,13 @@ static int max96724_enum_mbus_code(struct v4l2_subdev *sd, struct v4l2_subdev_st
 }
 
 static const struct v4l2_subdev_pad_ops max96724_v4l2_pad_ops = {
-	.init_cfg		= max96724_init_cfg,
 	.enum_mbus_code		= max96724_enum_mbus_code,
 	.get_fmt		= v4l2_subdev_get_fmt,
 	.set_fmt		= max96724_set_fmt,
 	.set_routing		= max96724_set_routing,
 	.get_frame_desc		= max96724_get_frame_desc,
+	.get_frame_interval	= max96724_get_frame_interval,
+	.set_frame_interval	= max96724_set_frame_interval,
 	.enable_streams		= max96724_enable_streams,
 	.disable_streams	= max96724_disable_streams,
 };
@@ -1301,8 +1299,11 @@ static void max96724_notify_unbind(struct v4l2_async_notifier *notifier,
 }
 
 static const struct v4l2_subdev_ops max96724_v4l2_ops = {
-	.video = &max96724_v4l2_video_ops,
 	.pad = &max96724_v4l2_pad_ops,
+};
+
+static const struct v4l2_subdev_internal_ops max96724_internal_ops = {
+	.init_state = max96724_init_state,
 };
 
 static const struct v4l2_async_notifier_operations max96724_notify_ops = {
@@ -1380,6 +1381,7 @@ static int max96724_v4l2_init(struct max96724_priv *priv)
 	sd->ctrl_handler = &priv->ctrl_handler;
 	sd->entity.function = MEDIA_ENT_F_VID_IF_BRIDGE;
 	sd->entity.ops = &max96724_v4l2_media_ops;
+	sd->internal_ops = &max96724_internal_ops;
 
 	priv->pixrate_ctrl = v4l2_ctrl_new_std(&priv->ctrl_handler, &max96724_v4l2_ctrl_ops,
 					       V4L2_CID_PIXEL_RATE, 1, INT_MAX, 1, 50000000);
