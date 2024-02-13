@@ -533,8 +533,38 @@ static int max9296a_init_link(struct max_des_priv *des_priv,
 			      struct max_des_link *link)
 {
 	struct max9296a_priv *priv = des_to_priv(des_priv);
+	unsigned int index = link->index;
 	unsigned int mask;
 	int ret;
+
+	/* RLMS Register Setting for 6Gbps GMSL2 Rate */
+	ret = max9296a_write(priv, 0x143f + 0x100 * index, 0x3d);
+	if (ret)
+		return ret;
+
+	ret = max9296a_write(priv, 0x143e + 0x100 * index, 0xfd);
+	if (ret)
+		return ret;
+
+	ret = max9296a_write(priv, 0x1449 + 0x100 * index, 0xf5);
+	if (ret)
+		return ret;
+
+	ret = max9296a_write(priv, 0x14a3 + 0x100 * index, 0x30);
+	if (ret)
+		return ret;
+
+	ret = max9296a_write(priv, 0x14d8 + 0x100 * index, 0x07);
+	if (ret)
+		return ret;
+
+	ret = max9296a_write(priv, 0x14a5 + 0x100 * index, 0x70);
+	if (ret)
+		return ret;
+
+	ret = max9296a_update_bits(priv, 0x10, BIT(5), BIT(5));
+	if (ret)
+		return ret;
 
 	if (priv->info->supports_tunnel_mode) {
 		mask = BIT(0);
