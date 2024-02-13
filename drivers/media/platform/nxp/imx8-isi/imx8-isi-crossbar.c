@@ -403,6 +403,13 @@ static int mxc_isi_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 			}
 		}
 
+		if (!source_entry) {
+			dev_err(dev, "Failed to find stream from source frames desc, pad %u\n",
+				route->sink_pad);
+			ret = -EPIPE;
+			goto out_unlock;
+		}
+
 		fd->entry[fd->num_entries].stream = route->source_stream;
 		fd->entry[fd->num_entries].flags = source_entry->flags;
 		fd->entry[fd->num_entries].length = source_entry->length;
