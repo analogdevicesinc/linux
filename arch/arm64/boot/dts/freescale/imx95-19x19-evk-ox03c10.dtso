@@ -19,6 +19,8 @@
 		reg = <0x27>;
 		status = "okay";
 
+		rst-gpios = <&i2c3_gpio_expander_20 2 GPIO_ACTIVE_LOW>;
+
 		#address-cells = <1>;
 		#size-cells = <0>;
 
