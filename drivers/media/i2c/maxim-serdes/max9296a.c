@@ -529,6 +529,24 @@ static int max9296a_init_pipe(struct max_des_priv *des_priv,
 	return 0;
 }
 
+static int max9296a_init_link(struct max_des_priv *des_priv,
+			      struct max_des_link *link)
+{
+	struct max9296a_priv *priv = des_to_priv(des_priv);
+	unsigned int mask;
+	int ret;
+
+	if (priv->info->supports_tunnel_mode) {
+		mask = BIT(0);
+		ret = max9296a_update_bits(priv, 0x474, mask,
+					   link->tunnel_mode ? mask : 0);
+		if (ret)
+			return ret;
+	}
+
+	return 0;
+}
+
 static int max9296a_select_links(struct max_des_priv *des_priv,
 				 unsigned int mask)
 {
@@ -549,6 +567,7 @@ static const struct max_des_ops max9296a_ops = {
 	.init = max9296a_init,
 	.init_phy = max9296a_init_phy,
 	.init_pipe = max9296a_init_pipe,
+	.init_link = max9296a_init_link,
 	.update_pipe_remaps = max9296a_update_pipe_remaps,
 	.select_links = max9296a_select_links,
 };
