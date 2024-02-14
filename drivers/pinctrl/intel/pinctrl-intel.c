@@ -1526,7 +1526,7 @@ static int intel_pinctrl_probe_pwm(struct intel_pinctrl *pctrl,
 		.base_unit_bits = 22,
 		.bypass = true,
 	};
-	struct pwm_lpss_chip *pwm;
+	struct pwm_chip *chip;
 
 	if (!(community->features & PINCTRL_FEATURE_PWM))
 		return 0;
@@ -1534,8 +1534,8 @@ static int intel_pinctrl_probe_pwm(struct intel_pinctrl *pctrl,
 	if (!IS_REACHABLE(CONFIG_PWM_LPSS))
 		return 0;
 
-	pwm = devm_pwm_lpss_probe(pctrl->dev, community->regs + PWMC, &info);
-	return PTR_ERR_OR_ZERO(pwm);
+	chip = devm_pwm_lpss_probe(pctrl->dev, community->regs + PWMC, &info);
+	return PTR_ERR_OR_ZERO(chip);
 }
 
 static int intel_pinctrl_probe(struct platform_device *pdev,
