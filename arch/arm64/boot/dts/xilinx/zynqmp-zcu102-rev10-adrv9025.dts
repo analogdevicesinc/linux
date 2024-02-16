@@ -4,7 +4,7 @@
  * https://wiki.analog.com/resources/eval/user-guides/adrv9025
  * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9025
  *
- * hdl_project: <adrv9025/zcu102>
+ * hdl_project: <adrv9026/zcu102>
  * board_revision: <>
  *
  * Copyright (C) 2020-2023 Analog Devices Inc.
