@@ -78,42 +78,12 @@
 #define AD4170_SDO_ENABLE_MSK		BIT(4)
 #define AD4170_INT_REF_2_5V		2500000
 
-
 /* AD4170_REG_INTERFACE_CONFIG_B */
 #define AD4170_INTERFACE_CONFIG_B_SINGLE_INST_MSK		BIT(7)
 #define AD4170_INTERFACE_CONFIG_B_SHORT_INSTRUCTION_MSK		BIT(3)
-//#define AD4170_INTERFACE_CONFIG_B_SHORT_INSTRUCTION(x)		(((x) & 0x1) << 3)
 
-/* AD4170_REG_INTERFACE_CONFIG_C */
 #define AD4170_INTERFACE_CONFIG_C_CRC_MSK	GENMASK(7,6) | GENMASK (1,0)
-//define AD4170_INTERFACE_CONFIG_C_CRC(x)			(((~x) & 0x3) | (((x) << 6) & 0xC0))
-//#define AD4170_INTERFACE_CONFIG_C_STRICT_REG_ACCESS_MSK	NO_OS_BIT(5)
-//#define AD4170_INTERFACE_CONFIG_C_STRICT_REG_ACCESS(x)		(((x) & 0x1) << 5)
-//#define AD4170_CRC8_POLYNOMIAL					0x7
-//#define AD4170_CRC8_INITIAL_VALUE				0xA5
 
-/* AD4170_REG_INTERFACE_STATUS_A */
-//#define AD4170_INTERFACE_STATUS_A_NOT_READY_ERR_MSK		NO_OS_BIT(7)
-//#define AD4170_INTERFACE_STATUS_A_CLOCK_COUNT_ERR_MSK		NO_OS_BIT(4)
-//#define AD4170_INTERFACE_STATUS_A_CRC_ERR_MSK			NO_OS_BIT(3)
-//#define AD4170_INTERFACE_STATUS_A_INVALID_ACCESS_ERR_MSK	NO_OS_BIT(2)
-//#define AD4170_INTERFACE_STATUS_A_PARTIAL_ACCESS_ERR_MSK	NO_OS_BIT(1)
-//#define AD4170_INTERFACE_STATUS_A_ADDR_INVALID_ERR_MSK		NO_OS_BIT(0)
-
-/* AD4170_REG_PRODUCT_ID */
-//#define AD4170_PRODUCT_ID_L_VALUE				0x40
-//#define AD4170_PRODUCT_ID_H_VALUE				0x0
-
-/* AD4190_REG_PRODUCT_ID */
-//#define AD4190_PRODUCT_ID_L_VALUE				0x48
-//#define AD4190_PRODUCT_ID_H_VALUE				0x0
-
-/* AD4170_REG_DATA_STATUS */
-// #define AD4170_DATA_STATUS_MASTER_ERR_S_MSK			NO_OS_BIT(7)
-// #define AD4170_DATA_STATUS_POR_FLAG_S_MSK			NO_OS_BIT(6)
-// #define AD4170_DATA_STATUS_RDYB_MSK				NO_OS_BIT(5)
-// #define AD4170_DATA_STATUS_SETTLED_FIR_MSK			NO_OS_BIT(4)
-// #define AD4170_DATA_STATUS_CH_ACTIVE_MSK			NO_OS_GENMASK(3,0)
 
 /* AD4170_REG_PIN_MUXING */
 #define AD4170_PIN_MUXING_CHAN_TO_GPIO_MSK		BIT(14)
@@ -645,7 +615,8 @@ enum ad4170_pga_gain {
 	/** PGA Gain = 0.5 */
 	AD4170_PGA_GAIN_0P5,
 	/** PGA Gain = 1 Pre-charge Buffer. Input currents may increase when the pre-charge-buffer is used. */
-	AD4170_PGA_GAIN_1_PRECHARGE
+	AD4170_PGA_GAIN_1_PRECHARGE,
+	AD4170_PGA_GAIN_MAX
 };
 
 /**
@@ -698,7 +669,7 @@ enum ad4170_filter_type {
 	/** Sinc5 */
 	AD4170_FILT_SINC5 = 0x4,
 	/** Sinc3 */
-	AD4170_FILT_SINC3 = 0x6
+	AD4170_FILT_SINC3 = 0x6,
 };
 
 /**
@@ -723,7 +694,7 @@ struct ad4170_setup {
 	/** Selects Digital Filter Type. */
 	struct ad4170_filter filter;
 	/** Filter select word for Digital Filters. */
-	uint16_t filter_fs;
+	unsigned int filter_fs;
 	/** Digital Offset Adjustment Value. */
 	uint32_t offset;
 	/** Digital Gain Adjustment Value. */
@@ -904,7 +875,7 @@ struct ad4170_config {
 	/** Channel_En register settings. */
 	uint16_t channel_en;
 	/** Channel_Setup register settings. */
-	struct ad4170_channel_setup setup[AD4170_NUM_CHANNELS];
+	struct ad4170_channel_setup ch_setup[AD4170_NUM_CHANNELS];
 	/** Channel_Map register settings. */
 	struct ad4170_channel_map map[AD4170_NUM_CHANNELS];
 	/** Setups settings. */
@@ -976,7 +947,7 @@ static const unsigned int ad4170_reg_size[] = {
 	[AD4170_REF_CONTROL_REG]	= 2,
 	[AD4170_V_BIAS_REG]	= 2,
 	[AD4170_I_PULLUP_REG]	= 2,
-	[AD4170_CURRENT_SOURCE_X_REG(0)]	= 2,
+	[AD4170_CURRENT_SOURCE_X_REG(0)...AD4170_CURRENT_SOURCE_X_REG(AD4170_NUM_CURRENT_SOURCE - 1)]	= 2,
 	[AD4170_FIR_CONTROL_REG]	= 2,
 	[AD4170_COEFF_WRITE_DATA_REG]	= 4,
 	[AD4170_COEFF_READ_DATA_REG]	= 4,
