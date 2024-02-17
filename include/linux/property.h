@@ -191,7 +191,19 @@ struct fwnode_handle *device_get_named_child_node(const struct device *dev,
 						  const char *childname);
 
 struct fwnode_handle *fwnode_handle_get(struct fwnode_handle *fwnode);
-void fwnode_handle_put(struct fwnode_handle *fwnode);
+
+/**
+ * fwnode_handle_put - Drop reference to a device node
+ * @fwnode: Pointer to the device node to drop the reference to.
+ *
+ * This has to be used when terminating device_for_each_child_node() iteration
+ * with break or return to prevent stale device node references from being left
+ * behind.
+ */
+static inline void fwnode_handle_put(struct fwnode_handle *fwnode)
+{
+	fwnode_call_void_op(fwnode, put);
+}
 
 DEFINE_FREE(fwnode_handle, struct fwnode_handle *, fwnode_handle_put(_T))
 
