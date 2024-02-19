@@ -91,7 +91,7 @@ examples:
       interrupts = <48>;
       clocks = <&scmi_clk IMX95_CLK_MIPIPHYCFG>,
                <&scmi_clk IMX95_CLK_MIPIPHYPLLBYPASS>,
-               <&osc_24m>,
+               <&scmi_clk IMX95_CLK_MIPIPHYPLLREF>,
                <&scmi_clk IMX95_CLK_CAMAPB>,
                <&scmi_clk IMX95_CLK_DISP1PIX>;
       clock-names = "cfg", "bypass", "ref", "pclk", "pix";
