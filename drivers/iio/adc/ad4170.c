@@ -81,13 +81,7 @@ struct ad4170_state {
 	struct iio_trigger *trig;
 	int irq;
 	unsigned int		num_enabled_channels;
-	struct spi_message spi_msg;
-	struct spi_transfer		spi_xfer[8];
-	__be32				rx_buf[12] ____cacheline_aligned;
-	__be16				tx_buf[8];
-	__be32 data;
-	u8 buf_data[3];
-	u8			reset_buf[4];
+	u32 data;
 	u32 scale_tbl[10][2];
 	u32				irq_trigger;
 
@@ -346,7 +340,6 @@ static int ad4170_write_channel_setup(struct ad4170_state *st,
 	int slot;
 	int ret;
 
-
 	slot = 0;
 	//setup->afe.bipolar = true; ///done
 	//setup->afe.pga_gain = AD4170_PGA_GAIN_1; ///done
@@ -364,11 +357,9 @@ static int ad4170_write_channel_setup(struct ad4170_state *st,
 
 	chan_info->slot = slot;
 
-
 	ret = ad4170_write_slot_setup(st, slot, setup);
 	if (ret)
 		return ret;
-
 
 	/* Hardcode default setup for channel x and write it*/
 	ret = regmap_update_bits(st->regmap, AD4170_CHANNEL_SETUP_X_REG(channel),
@@ -387,7 +378,6 @@ static void ad4170_freq_to_fs(enum ad4170_filter_type filter_type,
 		&ad4170_filter_configs[filter_type];
 	u64 dividend, divisor;
 	int temp;
-
 
 	dividend = (u64)AD4170_INT_FREQ_16MHZ * MICRO;
 	divisor = filter_config->odr_div * ((u64)val* MICRO + val2); 
@@ -472,7 +462,6 @@ static int ad4170_get_filter_type(struct iio_dev *indio_dev,
 	struct ad4170_setup *setup= &st->chan_info[channel].setup;
 	enum ad4170_filter_type filter_type;
 
-
 	mutex_lock(&st->lock);
 	filter_type = setup->filter.filter_type;
 	mutex_unlock(&st->lock);
@@ -512,8 +501,6 @@ static const struct iio_chan_spec ad4170_channel_template = {
 	},
 };
 
-
-
 static int _ad4170_find_table_index(const unsigned int *tbl, size_t len,
 				    unsigned int val)
 {
@@ -525,8 +512,6 @@ static int _ad4170_find_table_index(const unsigned int *tbl, size_t len,
 
 	return -EINVAL;
 }
-
-
 
 #define ad4170_find_table_index(table, val) \
 	_ad4170_find_table_index(table, ARRAY_SIZE(table), val)
@@ -564,6 +549,7 @@ static int ad4170_set_channel_enable(struct ad4170_state *st,
 		return ret;
 
 	pr_err("ad4170 Channel %d %s\n", channel, status ? "enabled" : "disabled");
+
 	slot_info->enabled_channels += status ? 1 : -1;
 	chan_info->enabled = status;
 	return 0;
@@ -584,10 +570,12 @@ static int _ad4170_read_sample(struct iio_dev *indio_dev, unsigned int channel,
 	ret = ad4170_set_mode(st, AD4170_MODE_SINGLE);
 	if (ret)
 		return ret;
+
 	ret = wait_for_completion_timeout(&st->completion,
-					  msecs_to_jiffies(1000));
+					  HZ);
 	if (!ret)
-		return -ETIMEDOUT;
+		goto out;
+
 	ret = ad4170_set_mode(st, AD4170_MODE_IDLE);
 	if (ret)
 		return ret;
@@ -595,6 +583,7 @@ static int _ad4170_read_sample(struct iio_dev *indio_dev, unsigned int channel,
 	ret = regmap_read(st->regmap, AD4170_DATA_PER_CHANNEL_X_REG(channel), val);
 	if (ret)
 		return ret;
+out:
 	ret = ad4170_set_channel_enable(st, channel, false);
 	if (ret)
 		return ret;
@@ -686,7 +675,6 @@ static int ad4170_read_raw(struct iio_dev *indio_dev,
 		return -EINVAL;
 	}
 }
-
 
 static void ad4170_fill_scale_tbl(struct iio_dev * indio_dev, int channel)
 {
@@ -859,7 +847,6 @@ static int ad4170_update_scan_mode(struct iio_dev *indio_dev,
 	}
 
 	st->num_enabled_channels = num_enabled_channels;
-
 out:
 	mutex_unlock(&st->lock);
 
@@ -874,9 +861,6 @@ static const struct iio_info ad4170_info = {
 	.update_scan_mode = ad4170_update_scan_mode,
 	.debugfs_reg_access = ad4170_reg_access,
 };
-
-
-
 
 static int ad4170_soft_reset(struct ad4170_state *st)
 {
@@ -904,6 +888,7 @@ static inline bool ad4170_valid_external_frequency(u32 freq)
 	return (freq >= AD4170_EXT_FREQ_MHZ_MIN &&
 		freq <= AD4170_EXT_FREQ_MHZ_MAX);
 }
+
 static int ad4170_of_clock_select(struct ad4170_state *st)
 {
 	struct device_node *np = st->spi->dev.of_node;
@@ -923,7 +908,6 @@ static int ad4170_of_clock_select(struct ad4170_state *st)
 	} 
 	return clocksel;
 }
-
 
 static void ad4170_parse_digif_fw(struct iio_dev *indio_dev)
 {
@@ -985,7 +969,6 @@ static void ad4170_parse_digif_fw(struct iio_dev *indio_dev)
 		}
 	}
 }
-
 
 static int ad4170_parse_fw_setup(struct ad4170_state *st,
 				 struct fwnode_handle *child,
@@ -1084,9 +1067,9 @@ static int ad4170_parse_fw_channel(struct iio_dev *indio_dev,
 	chan_info->slot = AD4170_INVALID_SLOT;
 	chan_info->setup.filter.filter_type = AD4170_FILT_SINC5_AVG;
 	chan_info->setup.filter_fs = 0x4;
-	//chan_info->initialized = true;
-
+	
 	chan_info->setup.afe.bipolar = fwnode_property_read_bool(child, "bipolar");
+
 	ret = fwnode_property_read_u32_array(child, "diff-channels", pins,
 					     ARRAY_SIZE(pins));
 	if (ret)
@@ -1156,7 +1139,6 @@ static int ad4170_parse_fw_children(struct iio_dev *indio_dev)
 
 	return 0;
 }
-
 
 static int ad4170_parse_fw(struct iio_dev *indio_dev)
 {
@@ -1269,13 +1251,15 @@ static int ad4170_setup(struct iio_dev *indio_dev)
 			return ret;
 	}
 
+	ret = regmap_write(st->regmap, AD4170_CHANNEL_EN_REG, 0);
+	if (ret)
+		return ret;
 	return 0;
 }
 
 static const struct iio_trigger_ops ad4170_trigger_ops = {
 	.validate_device = iio_trigger_validate_own_device,
 };
-
 
 static irqreturn_t ad4170_interrupt(int irq, void *dev_id)
 {
@@ -1286,11 +1270,9 @@ static irqreturn_t ad4170_interrupt(int irq, void *dev_id)
 	/* Acknowledge the interrupt and call trig handler*/
 	if (iio_buffer_enabled(indio_dev))
 		iio_trigger_poll(st->trig);
-	else 
+	else
 		complete(&st->completion);
 	
-		
-
 	return IRQ_HANDLED;
 };
 
@@ -1314,9 +1296,6 @@ static int ad4170_buffer_postenable(struct iio_dev *indio_dev)
 	ret = ad4170_set_mode(st, AD4170_MODE_CONT);
 	if (ret)
 		goto out;
-
-
-
 out:
 	mutex_unlock(&st->lock);
 
@@ -1332,8 +1311,7 @@ static int ad4170_buffer_predisable(struct iio_dev *indio_dev)
 			ret = ad4170_set_channel_enable(st, i, false);
 			if (ret)
 				goto out;
-		}
-
+	}
 out:
 	return ret;
 }
@@ -1350,11 +1328,13 @@ static irqreturn_t ad4170_trigger_handler(int irq, void *p)
 	struct ad4170_state *st = iio_priv(indio_dev);
 	int ret;
 
-	ret = regmap_read(st->regmap, AD4170_DATA_24b_REG, &st->data);
+	ret = regmap_read(st->regmap, AD4170_DATA_24b_STATUS_REG, &st->data);
+	st->data >>= 8;
+
 	if(ret)
 		goto err_unlock;
 
-	iio_push_to_buffers_with_timestamp(indio_dev, &st->data,
+	iio_push_to_buffers_with_timestamp(indio_dev,  &st->data,
 					   iio_get_time_ns(indio_dev));
 
 	iio_trigger_notify_done(indio_dev->trig);
@@ -1388,7 +1368,7 @@ static int ad4170_triggered_buffer_alloc(struct iio_dev *indio_dev)
 
 	ret = request_irq(st->spi->irq, 
 			  &ad4170_interrupt,
-			  IRQF_TRIGGER_RISING | IRQF_ONESHOT,
+			  IRQF_TRIGGER_FALLING | IRQF_ONESHOT, 
 			  indio_dev->name, indio_dev);
 	if (ret)
 		return ret;
@@ -1397,9 +1377,8 @@ static int ad4170_triggered_buffer_alloc(struct iio_dev *indio_dev)
 					       &iio_pollfunc_store_time,
 					       &ad4170_trigger_handler,
 					       &ad4170_buffer_ops);
-
-
 }
+
 static int ad4170_probe(struct spi_device *spi)
 {
 
