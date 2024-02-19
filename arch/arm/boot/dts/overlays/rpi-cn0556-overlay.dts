@@ -111,42 +111,82 @@
 
 		channel@0 {
 			reg = <0>;
-			diff-channels = <0 1>;
+			diff-channels = <0 19>;
 		};
 
 		channel@1 {
 			reg = <1>;
-			diff-channels = <2 3>;
+			diff-channels = <1 19>;
 		};
 
 		channel@2 {
 			reg = <2>;
-			diff-channels = <4 5>;
+			diff-channels = <2 19>;
 		};
 
 		channel@3 {
 			reg = <3>;
-			diff-channels = <6 7>;
+			diff-channels = <3 19>;
 		};
 
 		channel@4 {
 			reg = <4>;
-			diff-channels = <8 9>;
+			diff-channels = <4 19>;
 		};
 
 		channel@5 {
 			reg = <5>;
-			diff-channels = <10 11>;
+			diff-channels = <5 19>;
 		};
 
 		channel@6 {
 			reg = <6>;
-			diff-channels = <12 13>;
+			diff-channels = <6 19>;
 		};
 
 		channel@7 {
 			reg = <7>;
-			diff-channels = <14 15>;
+			diff-channels = <7 19>;
+		};
+
+		channel@8 {
+			reg = <8>;
+			diff-channels = <8 19>;
+		};
+
+		channel@9 {
+			reg = <9>;
+			diff-channels = <9 19>;
+		};
+
+		channel@10 {
+			reg = <10>;
+			diff-channels = <10 19>;
+		};
+
+		channel@11 {
+			reg = <11>;
+			diff-channels = <11 19>;
+		};
+
+		channel@12 {
+			reg = <12>;
+			diff-channels = <12 19>;
+		};
+
+		channel@13 {
+			reg = <13>;
+			diff-channels = <13 19>;
+		};
+
+		channel@14 {
+			reg = <14>;
+			diff-channels = <14 19>;
+		};
+
+		channel@15 {
+			reg = <15>;
+			diff-channels = <15 19>;
 		};
 	};
 
