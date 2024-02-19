@@ -389,6 +389,59 @@ static ssize_t ad4858_get_axi_crc_status(struct iio_dev *indio_dev,
 	return sprintf(buf, "%s\n", axi_reg ? "error" : "ok");
 }
 
+static const char * const seamless_high_dynamic_range[] = {
+	[0] = "disable",
+	[1] = "enable",
+};
+
+static int seamless_high_dynamic_range_set(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, unsigned int item)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad4858_dev *adc = conv->phy;
+	unsigned int reg;
+	int ret;
+
+	ret = ad4858_spi_reg_read(adc, AD4858_REG_SEAMLESS_HDR, &reg);
+	if (ret)
+		return ret;
+
+	if (item)
+		reg |= BIT(chan->address);
+	else
+		reg &= ~BIT(chan->address);
+
+	ret = ad4858_spi_reg_write(adc, AD4858_REG_SEAMLESS_HDR, reg);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static int seamless_high_dynamic_range_get(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad4858_dev *adc = conv->phy;
+	unsigned int reg;
+	int ret;
+
+	ret = ad4858_spi_reg_read(adc, AD4858_REG_SEAMLESS_HDR, &reg);
+	if (ret)
+		return ret;
+
+	reg &= BIT(chan->address);
+
+	return reg ? 1 : 0;
+}
+
+static const struct iio_enum seamless_high_dynamic_range_enum = {
+	.items = seamless_high_dynamic_range,
+	.num_items = ARRAY_SIZE(seamless_high_dynamic_range),
+	.set = seamless_high_dynamic_range_set,
+	.get = seamless_high_dynamic_range_get,
+};
+
 static const struct iio_enum ad4858_os_ratio = {
 	.items = ad4858_os_ratios,
 	.num_items = ARRAY_SIZE(ad4858_os_ratios),
@@ -417,59 +470,7 @@ static const struct iio_enum axi_crc_control_enum = {
 	.get = axi_crc_control_get,
 };
 
-static ssize_t ad4858_read_shdr_en(struct iio_dev *indio_dev,
-	uintptr_t private, const struct iio_chan_spec *chan,
-	char *buf)
-{
-	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct ad4858_dev *adc = conv->phy;
-	unsigned int reg;
-	int ret;
-
-	ret = ad4858_spi_reg_read(adc, AD4858_REG_SEAMLESS_HDR, &reg);
-	if (ret)
-		return ret;
-
-	reg &= BIT(chan->address);
-
-	return sysfs_emit(buf, "%d\n", reg ? 1 : 0);
-}
-
-static ssize_t ad4858_write_shdr_en(struct iio_dev *indio_dev,
-	uintptr_t private, const struct iio_chan_spec *chan,
-	const char *buf, size_t len)
-{
-	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
-	struct ad4858_dev *adc = conv->phy;
-	unsigned int reg;
-	bool readin;
-	int ret;
-
-	ret = kstrtobool(buf, &readin);
-	if (ret)
-		return ret;
-
-	ret = ad4858_spi_reg_read(adc, AD4858_REG_SEAMLESS_HDR, &reg);
-	if (ret)
-		return ret;
-
-	if (readin)
-		reg |= BIT(chan->address);
-	else
-		reg &= ~BIT(chan->address);
-
-	ret = ad4858_spi_reg_write(adc, AD4858_REG_SEAMLESS_HDR, reg);
-
-	return ret ? ret : len;
-}
-
 static struct iio_chan_spec_ext_info ad4858_ext_info[] = {
-	{
-		.name = "seamless_high_dynamic_range_en",
-		.read = ad4858_read_shdr_en,
-		.write = ad4858_write_shdr_en,
-		.shared = IIO_SEPARATE,
-	},
 	IIO_ENUM("oversampling_ratio", IIO_SHARED_BY_ALL,
 		 &ad4858_os_ratio),
 	IIO_ENUM_AVAILABLE_SHARED("oversampling_ratio", IIO_SHARED_BY_ALL,
@@ -481,12 +482,14 @@ static struct iio_chan_spec_ext_info ad4858_ext_info[] = {
 	IIO_ENUM("softspan", IIO_SEPARATE, &ad4858_softspan_enum),
 	IIO_ENUM_AVAILABLE_SHARED("softspan", IIO_SHARED_BY_TYPE,
 				  &ad4858_softspan_enum),
-
 	IIO_ENUM("axi_crc_control", IIO_SHARED_BY_ALL,
 		 &axi_crc_control_enum),
 	IIO_ENUM_AVAILABLE_SHARED("axi_crc_control", IIO_SHARED_BY_ALL,
 				  &axi_crc_control_enum),
-
+	IIO_ENUM("seamless_high_dynamic_range", IIO_SEPARATE,
+		 &seamless_high_dynamic_range_enum),
+	IIO_ENUM_AVAILABLE_SHARED("seamless_high_dynamic_range", IIO_SHARED_BY_ALL,
+				  &seamless_high_dynamic_range_enum),
 	{
 		.name = "axi_crc_status",
 		.read = ad4858_get_axi_crc_status,
