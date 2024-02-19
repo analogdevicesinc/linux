@@ -65,7 +65,7 @@ config AD4170
 	depends on SPI
 	depends on GPIOLIB
 	select IIO_BUFFER
-	select IIO_KFIFO_BUF
+	select IIO_TRIGGERED_BUFFER
 	select REGMAP_SPI
 	depends on COMMON_CLK
 	help
