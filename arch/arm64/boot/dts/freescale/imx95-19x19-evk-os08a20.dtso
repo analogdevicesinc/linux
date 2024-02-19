@@ -31,7 +31,7 @@
 		clocks = <&scmi_clk IMX95_CLK_CCMCKO1>;
 		clock-names = "csi_mclk";
 		assigned-clocks = <&scmi_clk IMX95_CLK_CCMCKO1>;
-		assigned-clock-parents = <&osc_24m>;
+		assigned-clock-parents = <&scmi_clk IMX95_CLK_24M>;
 		assigned-clock-rates = <24000000>;
 		csi_id = <0>;
 		pwn-gpios = <&i2c3_gpio_expander_20 1 GPIO_ACTIVE_HIGH>;
