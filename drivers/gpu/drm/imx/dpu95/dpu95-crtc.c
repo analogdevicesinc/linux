@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0+
 
 /*
- * Copyright 2017-2020,2022,2023 NXP
+ * Copyright 2017-2020,2022-2024 NXP
  */
 
 #include <linux/irq.h>
@@ -294,6 +294,10 @@ static void dpu95_crtc_atomic_begin(struct drm_crtc *crtc,
 		fu_ops = dpu95_fu_get_ops(fu);
 
 		fu_ops->disable_src_buf(fu);
+
+		if (old_dpstate->is_top)
+			dpu95_ed_pec_src_sel(dpu_crtc->ed_cont,
+					     DPU95_LINK_ID_NONE);
 	}
 }
 
