@@ -2022,7 +2022,7 @@
 				clocks = <&scmi_clk IMX95_CLK_MIPIPHYCFG>;
 				clock-names = "phy_cfg";
 				assigned-clocks = <&scmi_clk IMX95_CLK_MIPIPHYCFG>;
-				assigned-clock-parents = <&osc_24m>;
+				assigned-clock-parents = <&scmi_clk IMX95_CLK_24M>;
 				assigned-clock-rate = <24000000>;
 				#phy-cells = <0>;
 				fsl,csis = <&mipi_csi0>;
