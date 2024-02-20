@@ -334,7 +334,7 @@
 	ldb_pll_pixel: ldb_pll_div7 {
 		#clock-cells = <0>;
 		compatible = "fixed-factor-clock";
-		clocks = <&lvds_csr IMX95_CLK_DISPMIX_LVDS_PLL_GATE>;
+		clocks = <&scmi_clk IMX95_CLK_LDBPLL>;
 		clock-div = <7>;
 		clock-mult = <1>;
 		clock-output-names = "ldb_pll_div7";
