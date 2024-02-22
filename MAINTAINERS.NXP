@@ -1133,7 +1133,7 @@ M: Ying Liu <victor.liu@nxp.com>
 F: drivers/pwm/
 
 tee
-M: Clement Faure <clement.faure@nxp.com>
+M: Sahil Malhotra <sahil.malhotra@nxp.com>
 F: drivers/tee/optee/
 
 hotfix
