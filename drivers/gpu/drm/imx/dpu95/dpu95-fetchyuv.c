@@ -223,7 +223,7 @@ int dpu95_fy_init(struct dpu95_soc *dpu, unsigned int index,
 	fu->id = id;
 	fu->index = index;
 	fu->type = type;
-	fu->association_bit = id == 3 ? VIDEO_PLANE(index) : INT_PLANE;
+	fu->association_bit = id == 3 ? INT_PLANE : VIDEO_PLANE(index);
 	fu->link_id = dpu95_fy_link_id[index];
 	fu->cap_mask = DPU95_FETCHYUV_CAP_MASK;
 	fu->reg_offset1 = 0x28;
