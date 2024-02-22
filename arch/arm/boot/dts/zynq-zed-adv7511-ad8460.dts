@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD8460
+ * https://www.analog.com/en/products/ad8460.html
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/platforms/zynq
+ * https://wiki.analog.com/resources/fpga/xilinx/kc705/ad8460
+ *
+ * hdl_project: <ad8460/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2012-2019 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+/ {
+	clocks {
+		sync_ext_clk: ext-clk {
+			#clock-cells = <0x0>;
+			compatible = "fixed-clock";
+			clock-frequency = <500000>;
+			clock-output-names = "sync_ext_clk";
+		};
+	};
+};
+
+&fpga_axi {
+
+	tx_dma: tx_dmac@44000000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44000000 0x1000>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+		#dma-cells = <1>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <32>;
+				adi,destination-bus-type = <2>;
+				adi,cyclic;
+			};
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	ad8460: dac@0 {
+		compatible = "adi,ad8460";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		adi,rset-ohms = <2000>;
+                adi,ilim-microamp = <100000 100000>;
+                adi,vlim-microvolt = <(-40000000) 40000000>;
+                adi,temp-lim-millicelsius = <150000>;
+
+		clocks = <&sync_ext_clk>;
+		clock-names = "sync_clk";
+
+		dma-names = "tx";
+		dmas = <&tx_dma 0>;
+	};
+};
