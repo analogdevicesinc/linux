@@ -2089,8 +2089,11 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0x4 0x4>;
-				clocks = <&lvds_csr IMX95_CLK_DISPMIX_LVDS_CH_GATE>;
-				clock-names = "pixel";
+				clocks = <&lvds_csr IMX95_CLK_DISPMIX_PIX_DI0_GATE>,
+					 <&lvds_csr IMX95_CLK_DISPMIX_PIX_DI1_GATE>,
+					 <&lvds_csr IMX95_CLK_DISPMIX_LVDS_CH0_GATE>,
+					 <&lvds_csr IMX95_CLK_DISPMIX_LVDS_CH1_GATE>;
+				clock-names = "ldb_di0", "ldb_di1", "ldb_ch0", "ldb_ch1";
 				status = "disabled";
 
 				channel@0 {
