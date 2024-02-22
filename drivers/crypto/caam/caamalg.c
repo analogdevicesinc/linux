@@ -883,7 +883,7 @@ static int tk_skcipher_setkey(struct crypto_skcipher *skcipher,
 		     &ctx->cdata.key_cmd_opt);
 
 	/* Retrieve the address of the data of the tagged object */
-	ctx->cdata.key_virt = &tag_obj->object;
+	ctx->cdata.key_virt = tag_obj->object;
 
 	/* Validate key length for AES algorithms */
 	ret = aes_check_keylen(ctx->cdata.key_real_len);

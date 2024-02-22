@@ -86,7 +86,7 @@ struct header_conf {
  */
 struct tagged_object {
 	struct header_conf header;
-	char object;
+	char object[];
 };
 
 bool is_key_type(u32 type);
