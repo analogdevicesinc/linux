@@ -4,7 +4,6 @@
  * Author: Ana-Maria Cusco <ana-maria.cusco@analog.com>
  */
 
-/* In development */
 #include <linux/bitfield.h>
 #include <linux/bitops.h>
 #include <linux/clk.h>
@@ -36,7 +35,6 @@
 #include "ad4170.h"
 
 #define EXIT_CONTINUOUS_READ_CMD 0xA5
-
 
 struct ad4170_slot_info {
 	struct ad4170_setup		setup;
@@ -79,11 +77,9 @@ struct ad4170_state {
 	struct ad4170_config cfg;
 	struct iio_chan_spec chan;
 	struct iio_trigger *trig;
-	int irq;
 	unsigned int		num_enabled_channels;
-	u32 data;
 	u32 scale_tbl[10][2];
-	u32				irq_trigger;
+	u32 data[AD4170_NUM_CHANNELS];
 
 };
 
@@ -333,14 +329,14 @@ static int ad4170_write_slot_setup(struct ad4170_state *st,
 }
 
 static int ad4170_write_channel_setup(struct ad4170_state *st,
-				      unsigned int channel, bool on_enable)
+				      unsigned int channel)
 {
 	struct ad4170_chan_info *chan_info = &st->chan_info[channel];
 	struct ad4170_setup *setup = &st->chan_info[channel].setup;
 	int slot;
 	int ret;
 
-	slot = 0;
+	slot = channel;
 	//setup->afe.bipolar = true; ///done
 	//setup->afe.pga_gain = AD4170_PGA_GAIN_1; ///done
 	setup->afe.ref_buf_m = AD4170_REF_BUF_PRE;
@@ -442,7 +438,7 @@ static int ad4170_set_filter_type(struct iio_dev *indio_dev,
 
 	setup->filter.filter_type = val;
 
-	ret = ad4170_write_channel_setup(st, channel, false);
+	ret = ad4170_write_channel_setup(st, channel);
 	if (ret) {
 		setup->filter_fs = old_fs;
 		setup->filter.filter_type = old_filter_type;
@@ -533,12 +529,6 @@ static int ad4170_set_channel_enable(struct ad4170_state *st,
 
 	if (chan_info->enabled == status)
 		return 0;
-	/* All channels have setup 0 assigned for the moment*/
-	if (status) {
-		ret = ad4170_write_channel_setup(st, channel, true);
-		if (ret)
-			return ret;
-	}
 
 	slot_info = &st->slots_info[chan_info->slot];
 
@@ -547,8 +537,6 @@ static int ad4170_set_channel_enable(struct ad4170_state *st,
                          status ? AD4170_CHANNEL_EN(channel) : 0);
 	if (ret)
 		return ret;
-
-	pr_err("ad4170 Channel %d %s\n", channel, status ? "enabled" : "disabled");
 
 	slot_info->enabled_channels += status ? 1 : -1;
 	chan_info->enabled = status;
@@ -772,7 +760,7 @@ static int ad4170_set_channel_pga(struct iio_dev *indio_dev,struct ad4170_state 
 	old_pga = setup->afe.pga_gain;
 	setup->afe.pga_gain = pga;
 
-	ret = ad4170_write_channel_setup(st, channel, false);
+	ret = ad4170_write_channel_setup(st, channel);
 	if (ret)
 		setup->afe.pga_gain = old_pga;
 
@@ -800,7 +788,7 @@ static int ad4170_set_channel_freq(struct ad4170_state *st,
 
 	setup->filter_fs = fs;
 
-	ret = ad4170_write_channel_setup(st, channel, false);
+	ret = ad4170_write_channel_setup(st, channel);
 	if (ret)
 		setup->filter_fs = old_fs;
 
@@ -915,12 +903,7 @@ static void ad4170_parse_digif_fw(struct iio_dev *indio_dev)
 	const char *function;
 	int ret, i;
 
-	st->cfg.pin_muxing.dig_aux1_ctrl = AD4170_DIG_AUX1_RDY;
-	st->dig_aux1_gpio = devm_gpiod_get_optional(&st->spi->dev, "dig-aux1", GPIOD_IN);
-	if (IS_ERR(st->dig_aux2_gpio)) 
-		dev_warn(&st->spi->dev, "Could not get dig-aux1-gpios\n");
-
-
+	st->cfg.pin_muxing.dig_aux1_ctrl = AD4170_DIG_AUX1_DISABLED;
 	ret = of_property_read_string(st->spi->dev.of_node, 
 					     "adi,dig-aux1-function", &function);
 	if (ret < 0) 
@@ -934,10 +917,6 @@ static void ad4170_parse_digif_fw(struct iio_dev *indio_dev)
 	}
 
 	st->cfg.pin_muxing.dig_aux2_ctrl = AD4170_DIG_AUX2_DISABLED;
-	st->dig_aux2_gpio = devm_gpiod_get_optional(&st->spi->dev, "dig-aux2", GPIOD_OUT_LOW);
-	if (IS_ERR(st->dig_aux2_gpio))
-		dev_warn(&st->spi->dev, "Could not get dig-aux2-gpios\n");
-
 
 	ret = of_property_read_string(st->spi->dev.of_node, 
 					     "adi,dig-aux2-function", &function);
@@ -952,10 +931,6 @@ static void ad4170_parse_digif_fw(struct iio_dev *indio_dev)
 	}
 
 	st->cfg.pin_muxing.sync_ctrl = AD4170_SYNC_STANDARD;
-	st->sync_gpio = devm_gpiod_get_optional(&st->spi->dev, "sync", GPIOD_IN);
-	if (IS_ERR(st->sync_gpio)) 
-		dev_warn(&st->spi->dev, "Could not get sync-gpios\n");
-
 
 	ret = of_property_read_string(st->spi->dev.of_node, 
 					     "adi,sync-function", &function);
@@ -1233,6 +1208,10 @@ static int ad4170_setup(struct iio_dev *indio_dev)
 		struct iio_chan_spec *chan = &indio_dev->channels[i];
 		unsigned int val;
 
+		ret = ad4170_write_channel_setup(st, i);
+		if (ret)
+			return ret;
+
 		val = FIELD_PREP(AD4170_CHANNEL_MAPN_AINP_MSK, chan->channel) |
 		      FIELD_PREP(AD4170_CHANNEL_MAPN_AINM_MSK, chan->channel2);
 
@@ -1283,16 +1262,6 @@ static int ad4170_buffer_postenable(struct iio_dev *indio_dev)
 
 	mutex_lock(&st->lock);
 
-	ret = regmap_update_bits(st->regmap, AD4170_ADC_CTRL_REG,
-				 AD4170_ADC_CTRL_CONT_READ_STATUS_EN_MSK, true);
-	if (ret)
-		goto out;
-
-	ret = regmap_update_bits(st->regmap, AD4170_ADC_CTRL_REG,
-				 AD4170_ADC_CTRL_MULTI_DATA_REG_SEL_MSK, true);
-	if (ret)
-		goto out;
-
 	ret = ad4170_set_mode(st, AD4170_MODE_CONT);
 	if (ret)
 		goto out;
@@ -1326,19 +1295,25 @@ static irqreturn_t ad4170_trigger_handler(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ad4170_state *st = iio_priv(indio_dev);
-	int ret;
+	int ret, i = 0;
+	int channel_idx;
+	int scan_index;
 
-	ret = regmap_read(st->regmap, AD4170_DATA_24b_STATUS_REG, &st->data);
-	st->data >>= 8;
-
-	if(ret)
-		goto err_unlock;
+	mutex_lock(&st->lock);
+	for_each_set_bit(scan_index, indio_dev->active_scan_mask,
+			 indio_dev->masklength) {
+		/* Read register data */
+		ret = regmap_read(st->regmap, AD4170_DATA_PER_CHANNEL_X_REG(scan_index), &st->data[i]);
+		if(ret)
+			goto out;
+		i++;
+	}
 
 	iio_push_to_buffers_with_timestamp(indio_dev,  &st->data,
-					   iio_get_time_ns(indio_dev));
-
+				iio_get_time_ns(indio_dev));
+out:
+	mutex_unlock(&st->lock);
 	iio_trigger_notify_done(indio_dev->trig);
-err_unlock:
 	return IRQ_HANDLED;
 }
 
