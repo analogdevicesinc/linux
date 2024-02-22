@@ -1,0 +1,101 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+# Copyright 2024 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/dac/adi,ad8460.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices AD8460 DAC
+
+maintainers:
+  - Mariel Tinaco <mariel.tinaco@analog.com>
+
+description: |
+  Analog Devices AD8460 110 V High Voltage, 1 A High Current, 
+  Arbitrary Waveform Generator with Integrated 14-Bit High Speed DAC
+  https://www.analog.com/media/en/technical-documentation/data-sheets/ad8460.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,ad8460
+
+  reg:
+    maxItems: 1
+
+  spi-max-frequency:
+    maximum: 20000000
+
+  vrefio:
+    description: Voltage reference to establish output scaling
+
+  clocks:
+    description: The clock for the DAC. This is the sync clock
+
+  clock-names:
+    items:
+      - const: sync_clk
+
+  adi,rset-ohms:
+    description: Specify value of external resistor connected to FS_ADJ pin 
+      to establish internal HVDAC's reference current I_REF
+    minimum: 2000
+    maximum: 20000
+
+  adi,ilim-microamp:
+    description: Specify the sinking and sourcing overcurrent limits
+    oneOf:
+      - items:
+          - enum: [50000, 100000, 300000, 500000, 1000000]
+          - enum: [50000, 100000, 300000, 500000, 1000000]
+
+  adi,vlim-microvolt:
+    description: Specify the positive and negative overvoltage limits
+    oneOf:
+      - items:
+          - enum: [-10000000, -20000000, -30000000, -40000000, -55000000]
+          - enum: [10000000, 20000000, 30000000, 40000000, 55000000]
+
+  adi,temp-lim-millicelsius:
+    description: Specify the overtemperature limits
+    minimum: 20000
+    maximum: 150000
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+
+allOf:
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
+additionalProperties: false
+
+examples:
+  - |
+
+    spi {
+          #address-cells = <1>;
+          #size-cells = <0>;
+          ad8460: dac@0 {
+                compatible = "adi,ad8460";
+                reg = <0>;
+                spi-max-frequency = <8000000>;
+                adi,rset-ohms = <2000>;
+                adi,ilim-microamp = <100000 100000>;
+                adi,vlim-microvolt = <(-40000000) 40000000>;
+                adi,temp-lim-millicelsius = <150000>;
+
+                clocks = <&sync_ext_clk>;
+                clock-names = "sync_clk";
+          };
+    };
+
+...
