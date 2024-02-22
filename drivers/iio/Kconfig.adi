@@ -204,3 +204,5 @@ config IIO_ALL_ADI_DRIVERS
 	imply ADRV9025
 	imply ADL5580
 	imply LTC2664
+	imply AD8460
+
