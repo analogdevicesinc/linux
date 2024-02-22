@@ -69,7 +69,7 @@ int dpu_pxlink_set_dc_sync_mode(struct dpu_soc *dpu, bool enable)
 }
 
 /* KACHUNK_CNT is needed for blit engine */
-int dpu_sc_misc_set_kachunk_cnt(struct dpu_soc *dpu, u32 cnt)
+static int dpu_sc_misc_set_kachunk_cnt(struct dpu_soc *dpu, u32 cnt)
 {
 	u32 rsc = dpu->id ? IMX_SC_R_DC_1 : IMX_SC_R_DC_0;
 
