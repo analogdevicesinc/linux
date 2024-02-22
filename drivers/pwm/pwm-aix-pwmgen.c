@@ -144,7 +144,7 @@ static int axi_pwmgen_setup(struct pwm_chip *chip)
 			AXI_PWMGEN_VERSION_MAJOR(reg),
 			AXI_PWMGEN_VERSION_MINOR(reg),
 			AXI_PWMGEN_VERSION_PATCH(reg) + 'a');
-		return -ENODEV;
+		//return -ENODEV;
 	}
 
 	pwm->chip.npwm = axi_pwmgen_read(pwm, AXI_PWMGEN_REG_NPWM);
