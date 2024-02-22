@@ -81,7 +81,7 @@
 			reg = <0>;
 			spi-max-frequency = <20000000>;
 			spi-cpol;
-			spi-cpha;
+			// spi-cpha;
 			vref-supply = <&vref>;
 			adi,sync-in-gpios = <&gpio0 88 GPIO_ACTIVE_LOW>;
 			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
