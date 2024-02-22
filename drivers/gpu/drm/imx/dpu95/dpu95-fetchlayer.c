@@ -23,10 +23,10 @@ static void dpu95_fl_shdldreq_sticky(struct dpu95_fetchunit *fu, u8 layer_mask)
 	dpu95_fu_write(fu, SHDLDREQCONTROL, SHDLDREQSTICKY(layer_mask));
 }
 
-void dpu95_fl_set_src_buf_dimensions(struct dpu95_fetchunit *fu,
-				     unsigned int w, unsigned int h,
-				     const struct drm_format_info *unused1,
-				     bool unused2)
+static void dpu95_fl_set_src_buf_dimensions(struct dpu95_fetchunit *fu,
+					    unsigned int w, unsigned int h,
+					    const struct drm_format_info *unused1,
+					    bool unused2)
 {
 	dpu95_fu_write(fu, SOURCEBUFFERDIMENSION(fu),
 		       LINEWIDTH(w) | LINECOUNT(h));
