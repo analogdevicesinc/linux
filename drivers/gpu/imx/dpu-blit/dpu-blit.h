@@ -64,4 +64,23 @@ struct dpu_bliteng {
 	u64 modifier;
 };
 
+void dpu_be_configure_prefetch(struct dpu_bliteng *dpu_be,
+							u32 width, u32 height,
+							u32 x_offset, u32 y_offset,
+							u32 stride, u32 format, u64 modifier,
+							u64 baddr, u64 uv_addr);
+int dpu_bliteng_get_empty_instance(struct dpu_bliteng **dpu_be,
+							struct device *dev);
+u32 *dpu_bliteng_get_cmd_list(struct dpu_bliteng *dpu_be);
+s32 dpu_bliteng_get_id(struct dpu_bliteng *dpu_be);
+void dpu_bliteng_set_id(struct dpu_bliteng *dpu_be, int id);
+void dpu_bliteng_set_dev(struct dpu_bliteng *dpu_be, struct device *dev);
+int dpu_be_get(struct dpu_bliteng *dpu_be);
+void dpu_be_put(struct dpu_bliteng *dpu_be);
+int dpu_be_get_fence(struct dpu_bliteng *dpu_be);
+int dpu_be_set_fence(struct dpu_bliteng *dpu_be, int fd);
+int dpu_be_blit(struct dpu_bliteng *dpu_be, u32 *cmdlist, u32 cmdnum);
+int dpu_bliteng_init(struct dpu_bliteng *dpu_bliteng);
+void dpu_bliteng_fini(struct dpu_bliteng *dpu_bliteng);
+
 #endif
