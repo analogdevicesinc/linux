@@ -80,6 +80,7 @@ struct ad4170_state {
 	unsigned int		num_enabled_channels;
 	u32 scale_tbl[10][2];
 	u32 data[AD4170_NUM_CHANNELS];
+	struct gpio_chip		gpiochip;
 
 };
 
@@ -345,8 +346,8 @@ static int ad4170_write_channel_setup(struct ad4170_state *st,
 	//setup->filter.filter_type = AD4170_FILT_SINC5_AVG; ///done
 	setup->filter.post_filter_sel = AD4170_POST_FILTER_NONE;
 	//setup->filter_fs = 0xFFFC; ///done
-	setup->offset = 0x0; 
-	setup->gain = 0x555555;
+	//setup->offset = 0x0; //done
+	//setup->gain = 0x555555; //done
 	setup->misc.chop_iexc = AD4170_CHOP_IEXC_OFF;
 	setup->misc.chop_adc = AD4170_CHOP_OFF;
 	//setup->misc.burnout = AD4170_BURNOUT_OFF; //done
@@ -485,6 +486,8 @@ static const struct iio_chan_spec ad4170_channel_template = {
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
 			      BIT(IIO_CHAN_INFO_SCALE) |
 			      BIT(IIO_CHAN_INFO_OFFSET) |
+			      BIT(IIO_CHAN_INFO_CALIBSCALE) |
+			      BIT(IIO_CHAN_INFO_CALIBBIAS) |
 			      BIT(IIO_CHAN_INFO_SAMP_FREQ),
 	.info_mask_separate_available = BIT(IIO_CHAN_INFO_SCALE) |
 					BIT(IIO_CHAN_INFO_SAMP_FREQ),
@@ -631,7 +634,32 @@ static void ad4170_channel_scale (struct iio_dev *indio_dev,
 
 	*val2 = ch_resolution + pga_gain;
 }
-	
+
+static int ad4170_get_offset(struct iio_dev *indio_dev, int addr, int *val)
+{
+	struct ad4170_state *st = iio_priv(indio_dev);
+	int ret;
+
+	ret = regmap_read(st->regmap, AD4170_OFFSET_X_REG(addr), val);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int ad4170_get_gain(struct iio_dev *indio_dev, int addr, int *val)
+{
+	struct ad4170_state *st = iio_priv(indio_dev);
+	int readval;
+	int ret;
+
+
+	ret = regmap_read(st->regmap, AD4170_GAIN_X_REG(addr), val);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
 
 static int ad4170_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
@@ -659,6 +687,12 @@ static int ad4170_read_raw(struct iio_dev *indio_dev,
 		mutex_unlock(&st->lock);
 
 		return IIO_VAL_INT_PLUS_NANO;
+	case IIO_CHAN_INFO_CALIBBIAS:
+		ad4170_get_offset(indio_dev, channel, val);
+		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_CALIBSCALE:
+		ad4170_get_gain(indio_dev, channel, val);
+		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
 	}
@@ -730,6 +764,9 @@ static int ad4170_write_raw_get_fmt(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_SCALE:
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		return IIO_VAL_INT_PLUS_NANO;
+	case IIO_CHAN_INFO_CALIBBIAS:
+	case IIO_CHAN_INFO_CALIBSCALE:
+		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
 	}
@@ -798,6 +835,34 @@ out:
 	return ret;
 }
 
+static int ad4170_set_gain(struct iio_dev *indio_dev, int addr, int val)
+{
+	struct ad4170_state *st = iio_priv(indio_dev);
+	int ret;
+
+	/* When writing to the GAIN_X registers, the ADC must be placed in standby mode or idle mode.*/
+	ret = ad4170_set_mode(st, AD4170_MODE_IDLE);
+	if (ret)
+		return ret;
+
+	val &= AD4170_GAIN_MSK;
+	return regmap_write(st->regmap, AD4170_GAIN_X_REG(addr), val);
+}
+
+static int ad4170_set_offset(struct iio_dev *indio_dev, int addr, int val)
+{
+	struct ad4170_state *st = iio_priv(indio_dev);
+	int ret;
+
+	/* When writing to the OFFSET_X registers, the ADC must be placed in standby mode or idle mode.*/
+	ret = ad4170_set_mode(st, AD4170_MODE_IDLE);
+	if (ret)
+		return ret;
+
+	val &= AD4170_OFFSET_MSK;
+	return regmap_write(st->regmap, AD4170_OFFSET_X_REG(addr), val);
+}
+
 static int ad4170_write_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan,
 			    int val, int val2, long info)
@@ -810,6 +875,10 @@ static int ad4170_write_raw(struct iio_dev *indio_dev,
 		return ad4170_set_channel_pga(indio_dev, st, channel, val, val2);
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		return ad4170_set_channel_freq(st, channel, val, val2);
+	case IIO_CHAN_INFO_CALIBBIAS:
+		return ad4170_set_offset(indio_dev, channel, val);
+	case IIO_CHAN_INFO_CALIBSCALE:
+		return ad4170_set_gain(indio_dev, channel, val);
 	default:
 		return -EINVAL;
 	}
@@ -1296,7 +1365,6 @@ static irqreturn_t ad4170_trigger_handler(int irq, void *p)
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ad4170_state *st = iio_priv(indio_dev);
 	int ret, i = 0;
-	int channel_idx;
 	int scan_index;
 
 	mutex_lock(&st->lock);
@@ -1354,6 +1422,123 @@ static int ad4170_triggered_buffer_alloc(struct iio_dev *indio_dev)
 					       &ad4170_buffer_ops);
 }
 
+static int ad4170_input_gpio(struct gpio_chip *chip, unsigned int offset)
+{
+	struct ad4170_state *st = gpiochip_get_data(chip);
+	unsigned int mask;
+	int ret;
+
+	mutex_lock(&st->lock);
+	mask = AD4170_GPIO_MODE_REG_MSK << 2 * offset;
+	ret = regmap_update_bits(st->regmap,
+				AD4170_GPIO_MODE_REG,
+				mask,
+				(AD4170_GPIO_INPUT << 2 * offset));
+	mutex_unlock(&st->lock);
+
+	return ret;
+}
+
+static int ad4170_output_gpio(struct gpio_chip *chip,
+			      unsigned int offset, int value)
+{
+	struct ad4170_state *st = gpiochip_get_data(chip);
+	unsigned int mask;
+	int ret, val;
+
+	mutex_lock(&st->lock);
+	mask = AD4170_GPIO_MODE_REG_MSK << 2 * offset;
+	ret = regmap_update_bits(st->regmap,
+				 AD4170_GPIO_MODE_REG,
+				 mask,
+				 (AD4170_GPIO_OUTPUT << 2 * offset));
+	if (ret < 0)
+		goto out;
+	ret = regmap_read(st->regmap, AD4170_GPIO_MODE_REG, &val);
+	if (ret < 0)
+		goto out;
+
+	ret = regmap_update_bits(st->regmap,
+				 AD4170_OUTPUT_DATA_REG,
+				 BIT(offset),
+				 (value << offset));
+out:
+	mutex_unlock(&st->lock);
+
+	return ret;
+}
+
+static int ad4170_get_gpio(struct gpio_chip *chip, unsigned int offset)
+{
+	struct ad4170_state *st = gpiochip_get_data(chip);
+	unsigned int val, mask;
+	int ret;
+
+	mutex_lock(&st->lock);
+	ret = regmap_read(st->regmap, AD4170_GPIO_MODE_REG, &val);
+	if (ret < 0)
+		goto out;
+
+	mask = AD4170_GPIO_MODE_REG_MSK << 2 * offset;
+	switch (val & mask) {
+	case AD4170_GPIO_INPUT:
+		ret = regmap_read(st->regmap, AD4170_INPUT_DATA_REG, &val);
+		break;
+	case AD4170_GPIO_OUTPUT:
+		ret = regmap_read(st->regmap, AD4170_OUTPUT_DATA_REG, &val);
+		break;
+	default:
+		ret = -EINVAL;
+	}
+
+	if (ret < 0)
+		goto out;
+
+	ret = !!(val & BIT(offset));
+
+out:
+	mutex_unlock(&st->lock);
+
+	return ret;
+}
+
+static void ad4170_set_gpio(struct gpio_chip *chip, unsigned int offset, int value)
+{
+	struct ad4170_state *st = gpiochip_get_data(chip);
+	unsigned int val, mask;
+	int ret;
+
+	mutex_lock(&st->lock);
+	mask = AD4170_GPIO_MODE_REG_MSK << 2 * offset;
+	ret = regmap_read(st->regmap, AD4170_GPIO_MODE_REG, &val);
+	if (ret < 0)
+		goto out;
+
+	if (((val & mask) >> 2 * offset) == AD4170_GPIO_OUTPUT)
+		regmap_update_bits(st->regmap,
+			     AD4170_OUTPUT_DATA_REG,
+			     BIT(offset),
+			     (value << offset));
+out:
+	mutex_unlock(&st->lock);
+}
+
+int ad4170_gpio_setup(struct ad4170_state *st)
+{
+	st->gpiochip.owner = THIS_MODULE;
+	st->gpiochip.label = AD4170_NAME;
+	st->gpiochip.base = -1;
+	st->gpiochip.ngpio = 4;
+	st->gpiochip.parent = &st->spi->dev;
+	st->gpiochip.can_sleep = true;
+	st->gpiochip.direction_input = ad4170_input_gpio;
+	st->gpiochip.direction_output = ad4170_output_gpio;
+	st->gpiochip.get = ad4170_get_gpio;
+	st->gpiochip.set = ad4170_set_gpio;
+
+	return devm_gpiochip_add_data(&st->spi->dev, &st->gpiochip, st);
+}
+
 static int ad4170_probe(struct spi_device *spi)
 {
 
@@ -1402,7 +1587,12 @@ static int ad4170_probe(struct spi_device *spi)
 	ret = ad4170_parse_fw(indio_dev);
 	if (ret)
 		return ret;
+
 	ret = ad4170_setup(indio_dev);
+	if (ret)
+		return ret;
+
+	ret = ad4170_gpio_setup(st);
 	if (ret)
 		return ret;
 
