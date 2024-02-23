@@ -28,7 +28,7 @@ static void ls1028a_phy_reset(u8 reset)
 	iowrite32(reset, scfg_base + 0x230);
 }
 
-int ls1028a_clocks_init(struct imx_mhdp_device *imx_mhdp)
+static int ls1028a_clocks_init(struct imx_mhdp_device *imx_mhdp)
 {
 	struct device *dev = imx_mhdp->mhdp.dev;
 	struct imx_hdp_clks *clks = &imx_mhdp->clks;

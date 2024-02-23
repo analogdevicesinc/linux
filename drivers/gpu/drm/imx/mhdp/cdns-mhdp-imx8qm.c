@@ -155,7 +155,7 @@ static void imx8qm_clk_mux(u8 is_dp)
 		imx_sc_misc_set_control(handle, IMX_SC_R_HDMI, IMX_SC_C_MODE, 0);
 }
 
-int imx8qm_clocks_init(struct imx_mhdp_device *imx_mhdp)
+static int imx8qm_clocks_init(struct imx_mhdp_device *imx_mhdp)
 {
 	struct device *dev = imx_mhdp->mhdp.dev;
 	struct imx_hdp_clks *clks = &imx_mhdp->clks;
@@ -588,8 +588,8 @@ void cdns_mhdp_pclk_rate_imx8qm(struct cdns_mhdp_device *mhdp)
 	imx8qm_pixel_link_mux(imx_mhdp);
 }
 
-int cdns_mhdp_firmware_write_section(struct imx_mhdp_device *imx_mhdp,
-					const u8 *data, int size, int addr)
+static int cdns_mhdp_firmware_write_section(struct imx_mhdp_device *imx_mhdp,
+					    const u8 *data, int size, int addr)
 {
 	int i;
 
