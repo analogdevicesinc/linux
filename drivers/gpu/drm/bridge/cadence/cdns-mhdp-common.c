@@ -152,7 +152,7 @@ bool cdns_mhdp_check_alive(struct cdns_mhdp_device *mhdp)
 }
 EXPORT_SYMBOL(cdns_mhdp_check_alive);
 
-int mhdp_mailbox_read(struct cdns_mhdp_device *mhdp)
+static int mhdp_mailbox_read(struct cdns_mhdp_device *mhdp)
 {
 	int val, ret;
 

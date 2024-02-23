@@ -26,8 +26,8 @@
 #include <linux/mutex.h>
 #include <linux/of_device.h>
 
-#include "cdns-mhdp-hdcp.h"
 #include "cdns-hdcp-common.h"
+#include "cdns-mhdp-hdcp.h"
 
 #define CDNS_DP_HPD_POLL_DWN_LOOP	5
 #define CDNS_DP_HPD_POLL_DWN_DLY_US	200
@@ -256,7 +256,7 @@ static void cdns_dp_mode_set(struct cdns_mhdp_device *mhdp)
 	return;
 }
 
-void cdns_dp_handle_hpd_irq(struct cdns_mhdp_device *mhdp)
+static void cdns_dp_handle_hpd_irq(struct cdns_mhdp_device *mhdp)
 {
 	u8 status[6];
 

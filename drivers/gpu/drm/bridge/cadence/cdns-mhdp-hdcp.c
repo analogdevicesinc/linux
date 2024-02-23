@@ -14,6 +14,7 @@
 #include <drm/drm_print.h>
 
 #include "cdns-mhdp.h"
+#include "cdns-mhdp-hdcp.h"
 
 static u32 mhdp_hdcp_bus_read(struct cdns_mhdp_device *mhdp, u32 offset)
 {

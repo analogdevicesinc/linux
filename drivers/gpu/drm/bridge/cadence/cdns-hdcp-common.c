@@ -15,6 +15,7 @@
 #include <linux/firmware.h>
 
 #include "cdns-mhdp-hdcp.h"
+#include "cdns-hdcp-common.h"
 
 /* Default will be to use KM unless it has been explicitly */
 #ifndef HDCP_USE_KMKEY

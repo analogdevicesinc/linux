@@ -182,7 +182,7 @@ static void hdmi_drm_info_set(struct cdns_mhdp_device *mhdp)
 				buf, HDMI_INFOFRAME_TYPE_DRM);
 }
 
-void cdns_hdmi_mode_set(struct cdns_mhdp_device *mhdp)
+static void cdns_hdmi_mode_set(struct cdns_mhdp_device *mhdp)
 {
 	struct drm_display_mode *mode = &mhdp->mode;
 	int ret;
@@ -488,9 +488,9 @@ static void cdns_hdmi_bridge_mode_set(struct drm_bridge *bridge,
 	mutex_unlock(&mhdp->lock);
 }
 
-bool cdns_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
-				 const struct drm_display_mode *mode,
-				 struct drm_display_mode *adjusted_mode)
+static bool cdns_hdmi_bridge_mode_fixup(struct drm_bridge *bridge,
+					const struct drm_display_mode *mode,
+					struct drm_display_mode *adjusted_mode)
 {
 	struct cdns_mhdp_device *mhdp = bridge->driver_private;
 	struct drm_connector_state *new_state = &mhdp->connector.new_state;
