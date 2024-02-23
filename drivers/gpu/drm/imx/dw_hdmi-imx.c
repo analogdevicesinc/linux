@@ -276,13 +276,13 @@ static int imx8mp_hdmimix_setup(struct imx_hdmi *hdmi)
 	return 0;
 }
 
-void imx8mp_hdmi_enable_audio(struct dw_hdmi *dw_hdmi, int channel,
-			      int width, int rate, int non_pcm)
+static void imx8mp_hdmi_enable_audio(struct dw_hdmi *dw_hdmi, int channel,
+				     int width, int rate, int non_pcm)
 {
 	imx8mp_hdmi_pai_enable(channel, width, rate, non_pcm);
 }
 
-void imx8mp_hdmi_disable_audio(struct dw_hdmi *dw_hdmi)
+static void imx8mp_hdmi_disable_audio(struct dw_hdmi *dw_hdmi)
 {
 	imx8mp_hdmi_pai_disable();
 }
