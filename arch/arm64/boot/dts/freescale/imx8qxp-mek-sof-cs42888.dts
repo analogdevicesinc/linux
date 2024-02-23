@@ -4,6 +4,8 @@
 #include "imx8qxp-mek-rpmsg.dts"
 
 / {
+	compatible = "fsl,imx8qxp-mek-bb";
+
 	reserved-memory {
 		/delete-node/ dsp_reserved;
 		/delete-node/ dsp_reserved_heap;
