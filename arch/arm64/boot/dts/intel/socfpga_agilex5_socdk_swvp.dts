@@ -42,10 +42,8 @@
 
 	memory {
 		device_type = "memory";
-		reg = <0x0 0x80000000 0x0 0x80000000>;
-		#address-cells = <0x2>;
-		#size-cells = <0x2>;
-		u-boot,dm-pre-reloc;
+		/* We expect the bootloader to fill in the reg */
+		reg = <0x0 0x0 0x0 0x0>;
 	};
 
 	extcon_usb1: extcon_usb1 {
