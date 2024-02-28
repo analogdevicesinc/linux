@@ -18,6 +18,22 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 	};
+
+	/delete-node/ regulator-audio-pwr;
+	/delete-node/ regulator-audio-slot;
+	/delete-node/ sound-wm8962;
+
+	sound-wm8904 {
+		compatible = "fsl,imx-audio-wm8904";
+		model = "wm8904-audio";
+		audio-cpu = <&sai3>;
+		audio-codec = <&wm8904>;
+		audio-routing =
+			"Headphone Jack", "HPOUTL",
+			"Headphone Jack", "HPOUTR",
+			"AMIC", "MICBIAS",
+			"IN2L", "AMIC";
+	};
 };
 
 &reg_can1_stby {
@@ -77,6 +93,22 @@
 &netc_emdio {
 	ethphy1: ethernet-phy@2 {
 		reg = <2>;
+	};
+};
+
+&i2c4_gpio_expander_21 {
+	status = "disabled";
+};
+
+&lpi2c4 {
+	/delete-node/ codec@1a;
+
+	wm8904: codec@1a {
+		#sound-dai-cells = <0>;
+		compatible = "wlf,wm8904";
+		reg = <0x1a>;
+		clocks = <&scmi_clk IMX95_CLK_SAI3>;
+		clock-names = "mclk";
 	};
 };
 
