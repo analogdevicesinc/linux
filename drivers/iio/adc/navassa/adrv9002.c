@@ -45,7 +45,6 @@
 #include "adi_adrv9001_gpio.h"
 #include "adi_adrv9001_gpio_types.h"
 #include "adi_adrv9001_mcs.h"
-#include "adi_adrv9001_mcs_types.h"
 #include "adi_adrv9001_orx.h"
 #include "adi_adrv9001_powermanagement.h"
 #include "adi_adrv9001_powermanagement_types.h"
@@ -54,7 +53,6 @@
 #include "adi_adrv9001_radio.h"
 #include "adi_adrv9001_radio_types.h"
 #include "adi_adrv9001_rx_gaincontrol.h"
-#include "adi_adrv9001_rx_gaincontrol_types.h"
 #include "adi_adrv9001_rx.h"
 #include "adi_adrv9001_rx_types.h"
 #include "adi_adrv9001_rxSettings_types.h"
@@ -68,7 +66,6 @@
 #include "adi_adrv9001_tx_types.h"
 #include "adi_adrv9001_txSettings_types.h"
 #include "adi_adrv9001_utilities.h"
-#include "adi_adrv9001_version.h"
 #include "adi_common_error_types.h"
 
 #define ALL_RX_CHANNEL_MASK	(ADI_ADRV9001_RX1 | ADI_ADRV9001_RX2 | \
