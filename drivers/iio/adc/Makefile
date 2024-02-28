@@ -15,6 +15,7 @@ obj-$(CONFIG_AD6676) += ad6676.o
 obj-$(CONFIG_AD7173) += ad7173.o
 obj-$(CONFIG_AD7091R5) += ad7091r5.o ad7091r-base.o
 obj-$(CONFIG_AD7124) += ad7124.o
+obj-$(CONFIG_AD7173) += ad7173.o
 obj-$(CONFIG_AD7192) += ad7192.o
 obj-$(CONFIG_AD7266) += ad7266.o
 obj-$(CONFIG_AD7280) += ad7280a.o
