@@ -12,7 +12,7 @@
 static int hdcprx_setconfig(struct cdns_hdmirx_device *hdmirx,
 			 struct hdcprx_config *cfg)
 {
-	u8 msg[3];
+	u8 msg[4];
 
 	msg[0] = cfg->activate;
 	msg[0] |= cfg->version << 1;
@@ -20,10 +20,12 @@ static int hdcprx_setconfig(struct cdns_hdmirx_device *hdmirx,
 	msg[0] |= cfg->use_secondary_link << 4;
 	msg[0] |= cfg->use_km_key << 5;
 	msg[1] = cfg->bcaps;
-	msg[2] = cfg->bstatus;
+
+	msg[2] = (cfg->bstatus >> 8) & 0xff;
+	msg[3] = cfg->bstatus & 0xff;
 
 	return cdns_hdmirx_mailbox_send(hdmirx, MB_MODULE_ID_HDCP_RX,
-				      HDCP_RX_SET_CONFIG, 3, msg);
+				      HDCP_RX_SET_CONFIG, sizeof(msg), msg);
 }
 
 static int hdcprx_getstatus(struct cdns_hdmirx_device *hdmirx,
