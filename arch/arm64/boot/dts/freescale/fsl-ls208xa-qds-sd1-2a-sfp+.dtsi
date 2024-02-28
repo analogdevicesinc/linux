@@ -1,0 +1,92 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2023 NXP
+ */
+
+&dpmac1 {
+	managed = "in-band-status";
+	phys = <&serdes1 7>;
+	phy-names = "serdes";
+	sfp = <&sfp1>;
+};
+
+&pcs_mdio1 {
+	status = "okay";
+};
+
+&dpmac2 {
+	managed = "in-band-status";
+	phys = <&serdes1 6>;
+	phy-names = "serdes";
+	sfp = <&sfp2>;
+};
+
+&pcs_mdio2 {
+	status = "okay";
+};
+
+&dpmac3 {
+	managed = "in-band-status";
+	phys = <&serdes1 5>;
+	phy-names = "serdes";
+	sfp = <&sfp3>;
+};
+
+&pcs_mdio3 {
+	status = "okay";
+};
+
+&dpmac4 {
+	managed = "in-band-status";
+	phys = <&serdes1 4>;
+	phy-names = "serdes";
+	sfp = <&sfp4>;
+};
+
+&pcs_mdio4 {
+	status = "okay";
+};
+
+&dpmac5 {
+	managed = "in-band-status";
+	phys = <&serdes1 3>;
+	phy-names = "serdes";
+	sfp = <&sfp5>;
+};
+
+&pcs_mdio5 {
+	status = "okay";
+};
+
+&dpmac6 {
+	managed = "in-band-status";
+	phys = <&serdes1 2>;
+	phy-names = "serdes";
+	sfp = <&sfp6>;
+};
+
+&pcs_mdio6 {
+	status = "okay";
+};
+
+&dpmac7 {
+	managed = "in-band-status";
+	phys = <&serdes1 1>;
+	phy-names = "serdes";
+	sfp = <&sfp7>;
+};
+
+&pcs_mdio7 {
+	status = "okay";
+};
+
+&dpmac8 {
+	managed = "in-band-status";
+	phys = <&serdes1 0>;
+	phy-names = "serdes";
+	sfp = <&sfp8>;
+};
+
+&pcs_mdio8 {
+	status = "okay";
+};
