@@ -8,6 +8,7 @@
 #include <linux/phy/phy.h>
 #include <linux/platform_device.h>
 #include <linux/workqueue.h>
+#include <linux/phy/phy-fsl-lynx.h>
 
 #include "phy-fsl-lynx-xgkr-algorithm.h"
 
@@ -270,19 +271,6 @@ struct lynx_pccr {
 	int offset;
 	int width;
 	int shift;
-};
-
-enum lynx_lane_mode {
-	LANE_MODE_UNKNOWN,
-	LANE_MODE_1000BASEX_SGMII,
-	LANE_MODE_1000BASEKX,
-	LANE_MODE_2500BASEX,
-	LANE_MODE_QSGMII,
-	LANE_MODE_10G_QXGMII,
-	LANE_MODE_USXGMII,
-	LANE_MODE_10GBASER,
-	LANE_MODE_10GBASEKR,
-	LANE_MODE_MAX,
 };
 
 static const struct lynx_10g_proto_conf lynx_10g_proto_conf[LANE_MODE_MAX] = {
