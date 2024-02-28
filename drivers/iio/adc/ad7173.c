@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
+<<<<<<< HEAD
  * AD717x and AD411x family SPI ADC driver
  *
  * Supported devices:
@@ -7,6 +8,9 @@
  *  AD7172-2/AD7172-4/AD7173-8/AD7175-2
  *  AD7175-8/AD7176-2/AD7177-2
  *
+=======
+ * AD7172-2/AD7173-8/AD7175-2/AD7176-2 SPI ADC driver
+>>>>>>> 269bfe0ce7b9 (iio: adc: ad7173: update AD7173 driver to upstream)
  * Copyright (C) 2015, 2024 Analog Devices, Inc.
  */
 
@@ -851,6 +855,11 @@ static int ad7173_read_raw(struct iio_dev *indio_dev,
 		if (ret < 0)
 			return ret;
 
+		/* disable channel after single conversion */
+		ret = ad_sd_write_reg(&st->sd, AD7173_REG_CH(chan->address), 2, 0);
+		if (ret < 0)
+			return ret;
+
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SCALE:
 
@@ -876,6 +885,7 @@ static int ad7173_read_raw(struct iio_dev *indio_dev,
 		default:
 			return -EINVAL;
 		}
+		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_OFFSET:
 
 		switch (chan->type) {
