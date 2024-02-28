@@ -4573,6 +4573,50 @@ static int adrv9002_iio_channels_get(struct adrv9002_rf_phy *phy)
 	return 0;
 }
 
+static const char * const clk_names[NUM_ADRV9002_CLKS] = {
+	[RX1_SAMPL_CLK] = "-rx1_sampl_clk",
+	[RX2_SAMPL_CLK] = "-rx2_sampl_clk",
+	[TX1_SAMPL_CLK] = "-tx1_sampl_clk",
+	[TX2_SAMPL_CLK] = "-tx2_sampl_clk",
+	[TDD1_INTF_CLK] = "-tdd1_intf_clk",
+	[TDD2_INTF_CLK] = "-tdd2_intf_clk"
+};
+
+static const struct bin_attribute *hop_attrs[] = {
+	&bin_attr_frequency_hopping_hop1_table_a,
+	&bin_attr_frequency_hopping_hop1_table_b,
+	&bin_attr_frequency_hopping_hop2_table_a,
+	&bin_attr_frequency_hopping_hop2_table_b
+};
+
+static const struct bin_attribute *dpd_fh_regions[] = {
+	&bin_attr_out_voltage0_dpd_frequency_hopping_regions,
+	&bin_attr_out_voltage1_dpd_frequency_hopping_regions,
+};
+
+static const struct bin_attribute *dpd_coeffs[ADRV9002_CHANN_MAX][ADRV9002_DPD_MAX_REGIONS] = {
+	[ADRV9002_CHANN_1] = {
+		&bin_attr_out_voltage0_dpd_region0_coefficients,
+		&bin_attr_out_voltage0_dpd_region1_coefficients,
+		&bin_attr_out_voltage0_dpd_region2_coefficients,
+		&bin_attr_out_voltage0_dpd_region3_coefficients,
+		&bin_attr_out_voltage0_dpd_region4_coefficients,
+		&bin_attr_out_voltage0_dpd_region5_coefficients,
+		&bin_attr_out_voltage0_dpd_region6_coefficients,
+		&bin_attr_out_voltage0_dpd_region7_coefficients
+	},
+	[ADRV9002_CHANN_2] = {
+		&bin_attr_out_voltage1_dpd_region0_coefficients,
+		&bin_attr_out_voltage1_dpd_region1_coefficients,
+		&bin_attr_out_voltage1_dpd_region2_coefficients,
+		&bin_attr_out_voltage1_dpd_region3_coefficients,
+		&bin_attr_out_voltage1_dpd_region4_coefficients,
+		&bin_attr_out_voltage1_dpd_region5_coefficients,
+		&bin_attr_out_voltage1_dpd_region6_coefficients,
+		&bin_attr_out_voltage1_dpd_region7_coefficients
+	}
+};
+
 int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 {
 	struct adi_common_ApiVersion api_version;
@@ -4582,46 +4626,6 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	int ret, c, r;
 	struct spi_device *spi = phy->spi;
 	struct iio_dev *indio_dev = phy->indio_dev;
-	const char * const clk_names[NUM_ADRV9002_CLKS] = {
-		[RX1_SAMPL_CLK] = "-rx1_sampl_clk",
-		[RX2_SAMPL_CLK] = "-rx2_sampl_clk",
-		[TX1_SAMPL_CLK] = "-tx1_sampl_clk",
-		[TX2_SAMPL_CLK] = "-tx2_sampl_clk",
-		[TDD1_INTF_CLK] = "-tdd1_intf_clk",
-		[TDD2_INTF_CLK] = "-tdd2_intf_clk"
-	};
-	const struct bin_attribute *hop_attrs[] = {
-		&bin_attr_frequency_hopping_hop1_table_a,
-		&bin_attr_frequency_hopping_hop1_table_b,
-		&bin_attr_frequency_hopping_hop2_table_a,
-		&bin_attr_frequency_hopping_hop2_table_b
-	};
-	const struct bin_attribute *dpd_fh_regions[] = {
-		&bin_attr_out_voltage0_dpd_frequency_hopping_regions,
-		&bin_attr_out_voltage1_dpd_frequency_hopping_regions,
-	};
-	const struct bin_attribute *dpd_coeffs[ADRV9002_CHANN_MAX][ADRV9002_DPD_MAX_REGIONS] = {
-		[ADRV9002_CHANN_1] = {
-			&bin_attr_out_voltage0_dpd_region0_coefficients,
-			&bin_attr_out_voltage0_dpd_region1_coefficients,
-			&bin_attr_out_voltage0_dpd_region2_coefficients,
-			&bin_attr_out_voltage0_dpd_region3_coefficients,
-			&bin_attr_out_voltage0_dpd_region4_coefficients,
-			&bin_attr_out_voltage0_dpd_region5_coefficients,
-			&bin_attr_out_voltage0_dpd_region6_coefficients,
-			&bin_attr_out_voltage0_dpd_region7_coefficients
-		},
-		[ADRV9002_CHANN_2] = {
-			&bin_attr_out_voltage1_dpd_region0_coefficients,
-			&bin_attr_out_voltage1_dpd_region1_coefficients,
-			&bin_attr_out_voltage1_dpd_region2_coefficients,
-			&bin_attr_out_voltage1_dpd_region3_coefficients,
-			&bin_attr_out_voltage1_dpd_region4_coefficients,
-			&bin_attr_out_voltage1_dpd_region5_coefficients,
-			&bin_attr_out_voltage1_dpd_region6_coefficients,
-			&bin_attr_out_voltage1_dpd_region7_coefficients
-		}
-	};
 
 	/* register channels clocks */
 	for (c = 0; c < ADRV9002_CHANN_MAX; c++) {
