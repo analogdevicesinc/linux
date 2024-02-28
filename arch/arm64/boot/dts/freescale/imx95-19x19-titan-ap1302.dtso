@@ -75,7 +75,7 @@
 	ap1302: ap1302_mipi@3c {
 		compatible = "onnn,ap130x";
 		reg = <0x3c>;
-		clocks = <&osc_24m>;
+		clocks = <&scmi_clk IMX95_CLK_24M>;
 		reset-gpios   = <&i2c7_pcal6524_23 20 GPIO_ACTIVE_LOW>;
 		isp_en-gpios  = <&adp5585gpio_isp 2 GPIO_ACTIVE_HIGH>;
 		DVDD-supply   = <&reg_dvdd_1v2>;
