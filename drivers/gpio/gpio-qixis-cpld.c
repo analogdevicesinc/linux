@@ -70,8 +70,9 @@ static int qixis_cpld_gpio_probe(struct platform_device *pdev)
 
 	switch (cfg->type) {
 	case LX2160ARDB_CPLD_GPIO:
-		config.reg_dat_base = base;
-		config.reg_set_base = base;
+	case LS1046AQDS_STAT_PRES2_CPLD_GPIO:
+		config.reg_dat_base = GPIO_REGMAP_ADDR(base);
+		config.reg_set_base = GPIO_REGMAP_ADDR(base);
 		break;
 	}
 
