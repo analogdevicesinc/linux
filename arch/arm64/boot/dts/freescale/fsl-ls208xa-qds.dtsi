@@ -9,6 +9,56 @@
  *
  */
 
+/ {
+	sfp1: sfp-1 {
+		compatible = "sff,sfp";
+		i2c-bus = <&sfp1_i2c>;
+		maximum-power-milliwatt = <2000>;
+	};
+
+	sfp2: sfp-2 {
+		compatible = "sff,sfp";
+		i2c-bus = <&sfp2_i2c>;
+		maximum-power-milliwatt = <2000>;
+	};
+
+	sfp3: sfp-3 {
+		compatible = "sff,sfp";
+		i2c-bus = <&sfp3_i2c>;
+		maximum-power-milliwatt = <2000>;
+	};
+
+	sfp4: sfp-4 {
+		compatible = "sff,sfp";
+		i2c-bus = <&sfp4_i2c>;
+		maximum-power-milliwatt = <2000>;
+	};
+
+	sfp5: sfp-5 {
+		compatible = "sff,sfp";
+		i2c-bus = <&sfp5_i2c>;
+		maximum-power-milliwatt = <2000>;
+	};
+
+	sfp6: sfp-6 {
+		compatible = "sff,sfp";
+		i2c-bus = <&sfp6_i2c>;
+		maximum-power-milliwatt = <2000>;
+	};
+
+	sfp7: sfp-7 {
+		compatible = "sff,sfp";
+		i2c-bus = <&sfp7_i2c>;
+		maximum-power-milliwatt = <2000>;
+	};
+
+	sfp8: sfp-8 {
+		compatible = "sff,sfp";
+		i2c-bus = <&sfp8_i2c>;
+		maximum-power-milliwatt = <2000>;
+	};
+};
+
 /* Update DPMAC connections to external PHYs, under SerDes 0x2a_0x49. */
 &dpmac9 {
 	phy-handle = <&mdio0_phy12>;
@@ -144,6 +194,67 @@
 			adt7481@4c {
 				compatible = "adi,adt7461";
 				reg = <0x4c>;
+			};
+		};
+
+		i2c@6 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x6>;
+
+			i2c-mux@75 {
+				compatible = "nxp,pca9547";
+				reg = <0x75>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				sfp1_i2c: i2c@0 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0x00>;
+				};
+
+				sfp2_i2c: i2c@1 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0x01>;
+				};
+
+				sfp3_i2c: i2c@2 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0x02>;
+				};
+
+				sfp4_i2c: i2c@3 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0x03>;
+				};
+
+				sfp5_i2c: i2c@4 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0x04>;
+				};
+
+				sfp6_i2c: i2c@5 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0x05>;
+				};
+
+				sfp7_i2c: i2c@6 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0x06>;
+				};
+
+				sfp8_i2c: i2c@7 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+					reg = <0x07>;
+				};
 			};
 		};
 	};
