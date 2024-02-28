@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+&mac9 { /* DTSEC9/10GEC1 */
+	pcsphy-handle = <&pcsphy6>;
+	pcs-handle-names = "xfi";
+	managed = "in-band-status";
+	phys = <&serdes1 3>;
+	phy-names = "serdes";
+	sfp = <&sfp1>;
+
+	/delete-property/ phy-connection-type;
+	/delete-property/ phy-handle;
+};
