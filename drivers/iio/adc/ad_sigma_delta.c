@@ -223,11 +223,11 @@ int ad_sd_calibrate(struct ad_sigma_delta *sigma_delta,
 		goto out;
 
 	sigma_delta->irq_dis = false;
-	enable_irq(sigma_delta->spi->irq);
+	enable_irq(sigma_delta->irq_line);
 	timeout = wait_for_completion_timeout(&sigma_delta->completion, 2 * HZ);
 	if (timeout == 0) {
 		sigma_delta->irq_dis = true;
-		disable_irq_nosync(sigma_delta->spi->irq);
+		disable_irq_nosync(sigma_delta->irq_line);
 		ret = -EIO;
 	} else {
 		ret = 0;
@@ -296,7 +296,7 @@ int ad_sigma_delta_single_conversion(struct iio_dev *indio_dev,
 	ad_sigma_delta_set_mode(sigma_delta, AD_SD_MODE_SINGLE);
 
 	sigma_delta->irq_dis = false;
-	enable_irq(sigma_delta->spi->irq);
+	enable_irq(sigma_delta->irq_line);
 	ret = wait_for_completion_interruptible_timeout(
 			&sigma_delta->completion, HZ);
 
@@ -316,7 +316,7 @@ int ad_sigma_delta_single_conversion(struct iio_dev *indio_dev,
 
 out:
 	if (!sigma_delta->irq_dis) {
-		disable_irq_nosync(sigma_delta->spi->irq);
+		disable_irq_nosync(sigma_delta->irq_line);
 		sigma_delta->irq_dis = true;
 	}
 
@@ -451,7 +451,7 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 	 */
 	if (iio_device_get_current_mode(indio_dev) == INDIO_BUFFER_HARDWARE) {
 		sigma_delta->irq_dis = false;
-		enable_irq(sigma_delta->spi->irq);
+		enable_irq(sigma_delta->irq_line);
 	}
 
 	return 0;
@@ -473,7 +473,7 @@ static int ad_sd_buffer_postdisable(struct iio_dev *indio_dev)
 		wait_for_completion_timeout(&sigma_delta->completion, HZ);
 
 		if (!sigma_delta->irq_dis) {
-			disable_irq_nosync(sigma_delta->spi->irq);
+			disable_irq_nosync(sigma_delta->irq_line);
 			sigma_delta->irq_dis = true;
 		}
 	}
@@ -576,7 +576,7 @@ static irqreturn_t ad_sd_trigger_handler(int irq, void *p)
 irq_handled:
 	iio_trigger_notify_done(indio_dev->trig);
 	sigma_delta->irq_dis = false;
-	enable_irq(sigma_delta->spi->irq);
+	enable_irq(sigma_delta->irq_line);
 
 	return IRQ_HANDLED;
 }
@@ -648,7 +648,7 @@ static int devm_ad_sd_probe_trigger(struct device *dev, struct iio_dev *indio_de
 	/* the IRQ core clears IRQ_DISABLE_UNLAZY flag when freeing an IRQ */
 	irq_set_status_flags(sigma_delta->spi->irq, IRQ_DISABLE_UNLAZY);
 
-	ret = devm_request_irq(dev, sigma_delta->spi->irq,
+	ret = devm_request_irq(dev, sigma_delta->irq_line,
 			       ad_sd_data_rdy_trig_poll,
 			       sigma_delta->info->irq_flags | IRQF_NO_AUTOEN,
 			       indio_dev->name,
@@ -730,6 +730,11 @@ int ad_sd_init(struct ad_sigma_delta *sigma_delta, struct iio_dev *indio_dev,
 			return -EINVAL;
 		}
 	}
+
+	if (info->irq_line)
+		sigma_delta->irq_line = info->irq_line;
+	else
+		sigma_delta->irq_line = spi->irq;
 
 	iio_device_set_drvdata(indio_dev, sigma_delta);
 
