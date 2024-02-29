@@ -5,11 +5,11 @@
 
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/adc/adi,ad4170.h>
 
 / 
 {
 	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
-
 
 	fragment@0 {
 		target-path = "/";
@@ -27,7 +27,6 @@
 	fragment@1 {
 		target = <&spi0>;
 		__overlay__ {
-			//reg = <1>;
 			cs-gpios = <&gpio 8 GPIO_ACTIVE_LOW>;
 			status = "okay";
 
@@ -42,15 +41,20 @@
 			interrupts = <25 IRQ_TYPE_EDGE_FALLING>;
 			interrupt-parent = <&gpio>;
 			interrupt-names = "adc_rdy";
-			// dig-aux1-gpios = <&gpio 25 GPIO_ACTIVE_LOW>;
-			// adi,dig-aux1-function = "rdy";
+			adi,dig-aux1-function = "rdy"; //AD4170_DIG_AUX1_RDY - syntax error;
+
+			//adi,gpio0-power-down-switch;
+			//adi,gpio1-power-down-switch;
+
 			channel@0 {
 				reg = <0>;
 
-				adi,reference-select = <2>;
+				adi,reference-select = <AD4170_REFIN_REFOUT>;
 
 				/* REFOUT, DGND */
 				diff-channels = <29 24>;
+				adi,chop-iexc = <AD4170_CHOP_IEXC_OFF>;
+				adi,chop-adc = <AD4170_CHOP_ACX_2PIN>;
 			};
 
 			channel@1 {
