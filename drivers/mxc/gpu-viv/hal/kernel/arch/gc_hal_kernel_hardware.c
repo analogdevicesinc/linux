@@ -2518,7 +2518,8 @@ gckHARDWARE_InitializeHardware(IN gckHARDWARE Hardware)
  32) ? ~0U : (~(~0U << ((1 ? 15:15) - (0 ? 15:15) + 1))))))) << (0 ? 15:15)));
     }
 
-    if (_IsHardwareMatch(Hardware, gcv7000, 0x6204) || _IsHardwareMatch(Hardware, gcv8000, 0x8002)) {
+    if (_IsHardwareMatch(Hardware, gcv7000, 0x6204) || _IsHardwareMatch(Hardware, gcv8000, 0x8002) ||
+        _IsHardwareMatch(Hardware, gcv7000, 0x6214)) {
             gctUINT32 org = 0;
             gcmkONERROR(gckOS_ReadRegisterEx(Hardware->os, Hardware->kernel,
                                              0x0010C, &org));
