@@ -20,6 +20,7 @@ properties:
   compatible:
     enum:
       - fsl,lx2160a-rdb-qixis-cpld-gpio
+      - fsl,ls1046a-qds-qixis-stat-pres2-cpld-gpio
 
   reg:
     maxItems: 1
