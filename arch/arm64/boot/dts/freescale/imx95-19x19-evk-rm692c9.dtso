@@ -29,7 +29,7 @@
 	panel@0 {
 		compatible = "raydium,rm692c9";
 		reg = <0>;
-		reset-gpio = <&adp5585gpio 4 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&adp5585gpio 4 GPIO_ACTIVE_LOW>;
 		dsi-lanes = <4>;
 		v3p3-supply = <&reg_3p3v>;
 		v1p8-supply = <&reg_1p8v>;
