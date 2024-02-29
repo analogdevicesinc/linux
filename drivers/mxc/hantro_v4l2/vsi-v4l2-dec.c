@@ -54,9 +54,9 @@ static int vsi_dec_querycap(
 	hwinfo = vsiv4l2_get_hwinfo();
 	if (hwinfo->decformat == 0)
 		return -ENODEV;
-	strlcpy(cap->driver, "vsi_v4l2", sizeof("vsi_v4l2"));
-	strlcpy(cap->card, "vsi_v4l2dec", sizeof("vsi_v4l2dec"));
-	strlcpy(cap->bus_info, "platform:vsi_v4l2dec", sizeof("platform:vsi_v4l2dec"));
+	strscpy(cap->driver, "vsi_v4l2", sizeof("vsi_v4l2"));
+	strscpy(cap->card, "vsi_v4l2dec", sizeof("vsi_v4l2dec"));
+	strscpy(cap->bus_info, "platform:vsi_v4l2dec", sizeof("platform:vsi_v4l2dec"));
 
 	cap->device_caps = V4L2_CAP_VIDEO_M2M | V4L2_CAP_STREAMING;
 	cap->capabilities = cap->device_caps | V4L2_CAP_DEVICE_CAPS;
@@ -598,7 +598,7 @@ static int vsi_dec_enum_fmt(struct file *file, void *prv, struct v4l2_fmtdesc *f
 		return -EINVAL;
 
 	if (pfmt->name && strlen(pfmt->name))
-		strlcpy(f->description, pfmt->name, strlen(pfmt->name) + 1);
+		strscpy(f->description, pfmt->name, strlen(pfmt->name) + 1);
 	f->pixelformat = pfmt->fourcc;
 	f->flags = pfmt->flag;
 	v4l2_klog(LOGLVL_CONFIG, "%s:%d:%d:%x", __func__, f->index, f->type, pfmt->fourcc);
