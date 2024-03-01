@@ -404,8 +404,8 @@ static void release_idr(struct idr *idr, int id)
     mutex_unlock(&gpufreq_cooling_lock);
 }
 
-struct thermal_cooling_device *device_gpu_cooling_register(struct device_node *np,
-                                                           unsigned long states)
+static struct thermal_cooling_device *device_gpu_cooling_register(struct device_node *np,
+                                                                  unsigned long states)
 {
     struct thermal_cooling_device *cdev;
     struct gpufreq_cooling_device *gpufreq_dev = NULL;
@@ -440,7 +440,7 @@ struct thermal_cooling_device *device_gpu_cooling_register(struct device_node *n
     return cdev;
 }
 
-void device_gpu_cooling_unregister(struct thermal_cooling_device *cdev)
+static void device_gpu_cooling_unregister(struct thermal_cooling_device *cdev)
 {
     struct gpufreq_cooling_device *gpufreq_dev = cdev->devdata;
 
