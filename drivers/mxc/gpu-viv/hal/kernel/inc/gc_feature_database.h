@@ -53,7 +53,7 @@
 *****************************************************************************/
 
 
-/*Auto created on 2024-01-15 14:05*/
+/*Auto created on 2024-02-27 13:54*/
 #ifndef _gc_feature_database_h_
 #define _gc_feature_database_h_
 
@@ -169,6 +169,7 @@ typedef struct
     gctUINT32 VIP_VERSION;
     gctUINT32 NN_COMMAND_BUFFER_SIZE;
     gctUINT32 DECOMP_VZ_GROUP_BITS;
+    gctUINT32 NN_LOOP1_DP_NUMBER;
     gctUINT32 REG_FastClear:1;
     gctUINT32 REG_SpecialAntiAliasing:1;
     gctUINT32 REG_Pipe3D:1;
@@ -598,6 +599,8 @@ typedef struct
     gctUINT32 MMU_40BIT_VA_FIX:1;
     gctUINT32 MMU_40BIT_VA_GRAPHICS:1;
     gctUINT32 ONE_OUTPUT_COMPOENT_FOR_MFU:1;
+    gctUINT32 SH_64BIT_VA_ENHANCEMENT:1;
+    gctUINT32 DX11_SH_RCP_SQRT_PRECISSION:1;
     gctUINT32 G2D_RGB_PLANAR:1;
     gctUINT32 G2D_RGB_PLANAR_SOURCE:1;
     gctUINT32 G2D_DEC400EX:1;
@@ -793,6 +796,7 @@ typedef struct
     gctUINT32 NNCMD_AXIID_OFFSET:1;
     gctUINT32 TC_SHADER_TRIGGER_NN:1;
     gctUINT32 TC_PROBE_COUNTER:1;
+    gctUINT32 NN_TILE_BRICK_MODE:1;
     gctUINT32 NN_PER3DTILE_BUBBLE_FIX:1;
     gctUINT32 NN_CACHELINE_MODE_PERF_FIX:1;
     gctUINT32 NN_CONV1x1_PERF_FIX:1;
@@ -930,8 +934,8 @@ typedef struct
     gctUINT32 IMAGE_PARTIAL_CACHE:1;
 } gcsFEATURE_DATABASE;
 
-#define FEATURE_BIT_START 118
-#define FEATURE_BIT_END 876
+#define FEATURE_BIT_START 119
+#define FEATURE_BIT_END 880
 static gcsFEATURE_DATABASE gChipInfo[] = {
     /* gc320_5007 */
     {
@@ -1044,6 +1048,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x0, /* gcFEATURE_BIT_REG_FastClear */
         0x1, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x0, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -1473,6 +1478,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -1668,6 +1675,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -1915,6 +1923,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x0, /* gcFEATURE_BIT_REG_FastClear */
         0x1, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x0, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -2344,6 +2353,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -2539,6 +2550,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -2786,6 +2798,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x0, /* gcFEATURE_BIT_REG_FastClear */
         0x1, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x0, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -3215,6 +3228,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -3410,6 +3425,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -3657,6 +3673,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x0, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x0, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -4086,6 +4103,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -4281,6 +4300,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -4528,6 +4548,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -4957,6 +4978,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -5152,6 +5175,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -5399,6 +5423,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x0, /* gcFEATURE_BIT_REG_FastClear */
         0x1, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x0, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -5828,6 +5853,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -6023,6 +6050,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -6270,6 +6298,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x0, /* gcFEATURE_BIT_REG_FastClear */
         0x1, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x0, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -6699,6 +6728,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -6894,6 +6925,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -7141,6 +7173,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -7570,6 +7603,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -7765,6 +7800,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -8012,6 +8048,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -8441,6 +8478,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -8636,6 +8675,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -8883,6 +8923,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -9312,6 +9353,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -9507,6 +9550,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -9754,6 +9798,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -10183,6 +10228,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -10378,6 +10425,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -10625,6 +10673,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -11054,6 +11103,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -11249,6 +11300,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -11496,6 +11548,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -11925,6 +11978,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -12120,6 +12175,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -12367,6 +12423,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -12796,6 +12853,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -12991,6 +13050,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -13238,6 +13298,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -13667,6 +13728,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -13862,6 +13925,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -14109,6 +14173,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -14538,6 +14603,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -14733,6 +14800,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -14980,6 +15048,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -15409,6 +15478,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -15604,6 +15675,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -15851,6 +15923,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -16280,6 +16353,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -16475,6 +16550,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -16722,6 +16798,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -17151,6 +17228,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -17346,6 +17425,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -17593,6 +17673,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -18022,6 +18103,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -18217,6 +18300,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -18464,6 +18548,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -18893,6 +18978,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -19088,6 +19175,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -19335,6 +19423,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -19764,6 +19853,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -19959,6 +20050,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -20206,6 +20298,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -20635,6 +20728,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -20830,6 +20925,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -21077,6 +21173,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -21506,6 +21603,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -21701,6 +21800,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -21948,6 +22048,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x0, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x0, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x1, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -22377,6 +22478,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -22572,6 +22675,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x0, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x0, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x0, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -22819,6 +22923,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x10, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x3, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x0, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -23248,6 +23353,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -23443,6 +23550,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x1, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x1, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x1, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
@@ -23690,6 +23798,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_VALUE_VIP_VERSION */
         0x0, /* gcFEATURE_VALUE_NN_COMMAND_BUFFER_SIZE */
         0x10, /* gcFEATURE_VALUE_DECOMP_VZ_GROUP_BITS */
+        0x3, /* gcFEATURE_VALUE_NN_LOOP1_DP_NUMBER */
         0x0, /* gcFEATURE_BIT_REG_FastClear */
         0x0, /* gcFEATURE_BIT_REG_SpecialAntiAliasing */
         0x1, /* gcFEATURE_BIT_REG_Pipe3D */
@@ -24119,6 +24228,8 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_FIX */
         0x0, /* gcFEATURE_BIT_MMU_40BIT_VA_GRAPHICS */
         0x0, /* gcFEATURE_BIT_ONE_OUTPUT_COMPOENT_FOR_MFU */
+        0x0, /* gcFEATURE_BIT_SH_64BIT_VA_ENHANCEMENT */
+        0x0, /* gcFEATURE_BIT_DX11_SH_RCP_SQRT_PRECISSION */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR */
         0x0, /* gcFEATURE_BIT_G2D_RGB_PLANAR_SOURCE */
         0x0, /* gcFEATURE_BIT_G2D_DEC400EX */
@@ -24314,6 +24425,7 @@ static gcsFEATURE_DATABASE gChipInfo[] = {
         0x0, /* gcFEATURE_BIT_NNCMD_AXIID_OFFSET */
         0x0, /* gcFEATURE_BIT_TC_SHADER_TRIGGER_NN */
         0x0, /* gcFEATURE_BIT_TC_PROBE_COUNTER */
+        0x0, /* gcFEATURE_BIT_NN_TILE_BRICK_MODE */
         0x1, /* gcFEATURE_BIT_NN_PER3DTILE_BUBBLE_FIX */
         0x1, /* gcFEATURE_BIT_NN_CACHELINE_MODE_PERF_FIX */
         0x1, /* gcFEATURE_BIT_NN_CONV1x1_PERF_FIX */
