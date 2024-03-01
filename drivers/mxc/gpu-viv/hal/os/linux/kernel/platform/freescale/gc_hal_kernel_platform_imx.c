@@ -175,7 +175,7 @@ static int force_contiguous_lowmem_shrink(IN gckKERNEL Kernel)
     int min_adj = 0;
     int selected_tasksize = 0;
     int selected_oom_adj;
-
+ 
     /* Return if we already have a oom crash pending
      */
     if (oom_crashpending &&
@@ -515,7 +515,7 @@ static ssize_t gpu3DClockScale_show(struct device_driver *dev, char *buf)
     }
 
     snprintf(buf, PAGE_SIZE, "%d\n", currentf);
-
+    
     return strlen(buf);
 }
 
@@ -975,7 +975,7 @@ static inline int get_power_imx8_subsystem(struct device *pdev)
 
     while ((core_node = of_parse_phandle(node, "cores", i++)) != NULL) {
         struct platform_device *pdev_gpu = NULL;
-
+        
         clk_shader = NULL;
         clk_core = NULL;
         clk_axi = NULL;
@@ -1052,7 +1052,7 @@ static inline int get_power_imx8_subsystem(struct device *pdev)
         else if (!gpu_ipcHandle) {
             sc_err_t sciErr;
             uint32_t mu_id;
-
+        
             sciErr = sc_ipc_getMuID(&mu_id);
 
             if (sciErr != SC_ERR_NONE) {

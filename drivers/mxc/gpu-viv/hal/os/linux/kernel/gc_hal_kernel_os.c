@@ -1167,7 +1167,7 @@ gckOS_UnmapMemory(IN gckOS        Os,
                   IN gctPOINTER   Logical)
 {
     gceSTATUS status = gcvSTATUS_OK;
-
+    
     gcmkHEADER_ARG("Os=%p Physical=0%p Bytes=0x%zx Logical=%p",
                    Os, Physical, Bytes, Logical);
 
