@@ -477,7 +477,7 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 		if (ret < 0)
 			return ret;
 
-		*val = 2 * (ret / 1000);
+		*val = 2 * (ret / 1000000);
 		*val2 = chan->scan_type.realbits;
 		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_SAMP_FREQ:
