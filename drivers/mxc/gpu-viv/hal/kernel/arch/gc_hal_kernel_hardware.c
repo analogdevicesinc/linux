@@ -458,6 +458,7 @@ OnError:
 #define gcdDISABLE_RA_CLOCK_GATING            0
 #define gcdDISABLE_RA_EZ_CLOCK_GATING         0
 #define gcdDISABLE_RA_HZ_CLOCK_GATING         0
+#define gcdDISABLE_RS_CLOCK_GATING            0
 #define gcdDISABLE_TX_CLOCK_GATING            0
 #define gcdDISABLE_TFB_CLOCK_GATING           0
 #define gcdDISABLE_GPIPE_CLOCK_GATING         0
@@ -593,6 +594,12 @@ _ConfigureModuleLevelClockGating(gckHARDWARE Hardware)
     data = ((((gctUINT32) (data)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 6:6) - (0 ? 6:6) + 1) ==
  32) ? ~0U : (~(~0U << ((1 ? 6:6) - (0 ? 6:6) + 1))))))) << (0 ? 6:6))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ? 6:6) - (0 ? 6:6) + 1) ==
  32) ? ~0U : (~(~0U << ((1 ? 6:6) - (0 ? 6:6) + 1))))))) << (0 ? 6:6)));
+#    endif
+
+#if gcdDISABLE_RS_CLOCK_GATING
+    data = ((((gctUINT32) (data)) & ~(((gctUINT32) (((gctUINT32) ((((1 ? 13:13) - (0 ? 13:13) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 13:13) - (0 ? 13:13) + 1))))))) << (0 ? 13:13))) | (((gctUINT32) ((gctUINT32) (1) & ((gctUINT32) ((((1 ? 13:13) - (0 ? 13:13) + 1) ==
+ 32) ? ~0U : (~(~0U << ((1 ? 13:13) - (0 ? 13:13) + 1))))))) << (0 ? 13:13)));
 #    endif
 
 #if gcdDISABLE_TX_CLOCK_GATING
