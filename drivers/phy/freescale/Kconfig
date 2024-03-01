@@ -62,6 +62,7 @@ config PHY_FSL_LYNX_10G
 	depends on ARCH_LAYERSCAPE || COMPILE_TEST
 	select PHY_FSL_LYNX_XGKR_ALGORITHM
 	select GENERIC_PHY
+	select FSL_GUTS
 	help
 	  Enable this to add support for the Lynx 10G SerDes PHY as found on
 	  NXP's Layerscape platform such as LS1088A or LS1028A.
