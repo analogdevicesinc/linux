@@ -1284,7 +1284,7 @@
 					 <&clk IMX8MM_CLK_DSI_CORE>,
 					 <&clk IMX8MM_CLK_DSI_PHY_REF>,
 					 <&clk IMX8MM_CLK_CSI1_CORE>,
-					 <&clk IMX8MM_CLK_CSI1_PHY_REF>;
+					 <&clk IMX8MM_CLK_DISP_APB_ROOT>;
 				clock-names = "csi-bridge-axi","csi-bridge-apb",
 					      "csi-bridge-core", "lcdif-axi",
 					      "lcdif-apb", "lcdif-pix",
@@ -1303,9 +1303,8 @@
 				clock-frequency = <333000000>;
 				clocks = <&clk IMX8MM_CLK_DISP_APB_ROOT>,
 					 <&clk IMX8MM_CLK_CSI1_ROOT>,
-					 <&clk IMX8MM_CLK_CSI1_PHY_REF>,
 					 <&clk IMX8MM_CLK_DISP_AXI_ROOT>;
-				clock-names = "pclk", "wrap", "phy", "axi";
+				clock-names = "pclk", "wrap", "axi";
 				power-domains = <&disp_blk_ctrl IMX8MM_DISPBLK_PD_MIPI_CSI>;
 				status = "disabled";
 
