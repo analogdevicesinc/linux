@@ -104,13 +104,6 @@ struct cvp_priv {
 	int	user_time_us;
 };
 
-static int altera_read_config_byte(struct altera_cvp_conf *conf,
-				   int where, u8 *val)
-{
-	return pci_read_config_byte(conf->pci_dev, conf->vsec_offset + where,
-				    val);
-}
-
 static int altera_read_config_dword(struct altera_cvp_conf *conf,
 				    int where, u32 *val)
 {
@@ -243,22 +236,27 @@ static int altera_cvp_v2_wait_for_credit(struct fpga_manager *mgr,
 	u32 timeout = V2_CREDIT_TIMEOUT_US / V2_CHECK_CREDIT_US;
 	struct altera_cvp_conf *conf = mgr->priv;
 	int ret;
-	u8 val;
+	u32 val;
+	u32 credit_mask = 0xFF;
 	u32 vse_cvp_tx_credits_offset = VSE_CVP_TX_CREDITS;
 
-	if (conf->device_family_type == SOCFPGA_CVP_V2_AGILEX5)
+	if (conf->device_family_type == SOCFPGA_CVP_V2_AGILEX5) {
 		vse_cvp_tx_credits_offset = VSE_CVP_AG5_TX_CREDITS;
+		credit_mask = 0xFFF;
+	}
 
 	do {
-		ret = altera_read_config_byte(conf, vse_cvp_tx_credits_offset, &val);
+		ret = altera_read_config_dword(conf, vse_cvp_tx_credits_offset, &val);
 		if (ret) {
 			dev_err(&conf->pci_dev->dev,
 				"Error reading CVP Credit Register\n");
 			return ret;
 		}
 
+		val = val & credit_mask;
+
 		/* Return if there is space in FIFO */
-		if (val - (u8)conf->sent_packets)
+		if (val - conf->sent_packets)
 			return 0;
 
 		ret = altera_cvp_chk_error(mgr, blocks * ALTERA_CVP_V2_SIZE);
@@ -561,6 +559,8 @@ static int altera_cvp_write_complete(struct fpga_manager *mgr,
 				     conf->priv->user_time_us);
 	if (ret)
 		dev_err(&mgr->dev, "PLD_CLK_IN_USE|USERMODE timeout\n");
+	else
+		dev_notice(&mgr->dev, "CVP write completed successfully.\n");
 
 	return ret;
 }
@@ -692,14 +692,18 @@ static int altera_cvp_probe(struct pci_dev *pdev,
 	if (conf->vsec_offset == V1_VSEC_OFFSET) {
 		conf->priv = &cvp_priv_v1;
 		conf->device_family_type = SOCFPGA_CVP_V1_OTHERS;
+		dev_notice(&pdev->dev, "V1 target SOCFPGA detected.\n");
 	} else {
 		/* Agilex7, Stratix10, Agilex5*/
 		conf->priv = &cvp_priv_v2;
 		pci_read_config_dword(pdev, offset + VSE_PCIE_SPECIFIC_HEADER, &regval);
-		if ((regval >> VSEC_LENGTH_BIT_OFFSET) == AGILEX5_VSEC_LENGTH)
+		if ((regval >> VSEC_LENGTH_BIT_OFFSET) == AGILEX5_VSEC_LENGTH) {
 			conf->device_family_type = SOCFPGA_CVP_V2_AGILEX5;
-		else
+			dev_notice(&pdev->dev, "V2 target SOCFPGA Agilex5 detected.\n");
+		} else {
 			conf->device_family_type = SOCFPGA_CVP_V2_OTHERS;
+			dev_notice(&pdev->dev, "V2 target SOCFPGA detected.\n");
+		}
 	}
 
 	conf->map = pci_iomap(pdev, CVP_BAR, 0);
