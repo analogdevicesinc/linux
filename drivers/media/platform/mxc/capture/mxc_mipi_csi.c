@@ -563,10 +563,10 @@ static int mipi_csis_clk_get(struct csi_state *state)
 		return -ENODEV;
 	}
 
-	state->phy_clk = devm_clk_get(dev, "phy_clk");
+	state->phy_clk = devm_clk_get_optional(dev, "phy_clk");
 	if (IS_ERR(state->phy_clk)) {
 		dev_err(dev, "Could not get mipi phy clock\n");
-		return -ENODEV;
+		return PTR_ERR(state->phy_clk);
 	}
 
 	state->disp_axi = devm_clk_get(dev, "disp_axi");
