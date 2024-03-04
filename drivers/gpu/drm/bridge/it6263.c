@@ -571,19 +571,22 @@ it6263_read_edid(void *data, u8 *buf, unsigned int block, size_t len)
 	return 0;
 }
 
-static struct edid *it6263_get_edid(struct it6263 *it6263)
+static const struct drm_edid *it6263_get_edid(struct it6263 *it6263)
 {
-	struct edid *edid;
+	const struct drm_edid *drm_edid;
+	const struct edid *edid;
 
-	edid = drm_do_get_edid(&it6263->connector, it6263_read_edid, it6263);
-	if (!edid) {
+	drm_edid = drm_edid_read_custom(&it6263->connector, it6263_read_edid, it6263);
+	if (!drm_edid) {
 		dev_warn(&it6263->hdmi_i2c->dev, "Failed to read EDID\n");
 		return NULL;
 	}
+
+	/* FIXME: This should use connector->display_info.is_hdmi. */
+	edid = drm_edid_raw(drm_edid);
 	it6263->is_hdmi = drm_detect_hdmi_monitor(edid);
 
-	return edid;
-
+	return drm_edid;
 }
 
 static enum drm_mode_status
@@ -610,17 +613,17 @@ static int it6263_connector_get_modes(struct drm_connector *connector)
 {
 	struct it6263 *it6263 = connector_to_it6263(connector);
 	u32 bus_format = MEDIA_BUS_FMT_RGB888_1X24;
-	struct edid *edid;
+	const struct drm_edid *drm_edid;
 	int num = 0;
 	int ret;
 
-	edid = it6263_get_edid(it6263);
-	if (!edid)
+	drm_edid = it6263_get_edid(it6263);
+	if (!drm_edid)
 		return 0;
 
-	drm_connector_update_edid_property(connector, edid);
-	num = drm_add_edid_modes(connector, edid);
-	kfree(edid);
+	drm_edid_connector_update(connector, drm_edid);
+	num = drm_edid_connector_add_modes(connector);
+	kfree(drm_edid);
 
 	ret = drm_display_info_set_bus_formats(&connector->display_info,
 					       &bus_format, 1);
@@ -839,8 +842,8 @@ it6263_bridge_detect(struct drm_bridge *bridge)
 	return connector_status_disconnected;
 }
 
-static struct edid
-*it6263_bridge_get_edid(struct drm_bridge *bridge,
+static const struct drm_edid *
+it6263_bridge_edid_read(struct drm_bridge *bridge,
 			struct drm_connector *connector)
 {
 	struct it6263 *it6263 = bridge_to_it6263(bridge);
@@ -870,7 +873,7 @@ static const struct drm_bridge_funcs it6263_bridge_funcs = {
 	.atomic_check = it6263_bridge_atomic_check,
 	.atomic_get_input_bus_fmts = it6263_bridge_atomic_get_input_bus_fmts,
 	.detect = it6263_bridge_detect,
-	.get_edid = it6263_bridge_get_edid,
+	.edid_read = it6263_bridge_edid_read,
 };
 
 static int it6263_check_chipid(struct it6263 *it6263)
