@@ -1188,10 +1188,7 @@ static int ap1302_stall(struct ap1302_device *ap1302, bool stall)
 			return ret;
 
 		msleep(200);
-
-		return ap1302_write(ap1302, AP1302_ADV_IRQ_SYS_INTE,
-			     AP1302_ADV_IRQ_SYS_INTE_SIPM |
-			     AP1302_ADV_IRQ_SYS_INTE_SIPS_FIFO_WRITE, NULL);
+		return ret;
 	} else {
 		return ap1302_write(ap1302, AP1302_SYS_START,
 				    AP1302_SYS_START_PLL_LOCK |
