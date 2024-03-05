@@ -133,6 +133,9 @@ static int compare_of(struct device *dev, void *data)
 {
 	struct device_node *np = data;
 
+	if (!dev->driver)
+		return false;
+
 	/* Special case for DI, dev->of_node may not be set yet */
 	if (strcmp(dev->driver->name, "imx-ipuv3-crtc") == 0) {
 		struct ipu_client_platformdata *pdata = dev->platform_data;
