@@ -1400,6 +1400,17 @@ config TOUCHSCREEN_HIMAX_HX83112B
 	  To compile this driver as a module, choose M here: the
 	  module will be called himax_hx83112b.
 
+config TOUCHSCREEN_FTS
+	tristate "Focaltech Touchscreen FT3518U"
+	depends on I2C
+	help
+	  Say Y here to enable support for Focaltech touch FT3518U
+	  panel.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called fts_ts.
 endif
 
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
