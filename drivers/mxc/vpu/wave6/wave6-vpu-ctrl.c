@@ -531,9 +531,8 @@ int wave6_vpu_ctrl_wait_done(struct device *dev, struct wave6_vpu_entity *entity
 	if (ctrl->state == WAVE6_VPU_STATE_ON)
 		return 0;
 
-	ret = read_poll_timeout(entity->read_reg, val, val != 0,
-				10, W6_VCPU_BOOT_TIMEOUT, false,
-				entity->dev, W6_VCPU_CUR_PC);
+	ret = read_poll_timeout(wave6_vpu_ctrl_get_state, val, val == WAVE6_VPU_STATE_ON,
+				10, W6_VCPU_BOOT_TIMEOUT, false, dev);
 	if (ret) {
 		dev_err(ctrl->dev, "fail to wait vcpu boot done\n");
 		wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_OFF);
