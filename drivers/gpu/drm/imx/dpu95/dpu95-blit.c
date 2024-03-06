@@ -684,3 +684,4 @@ int dpu95_bliteng_runtime_resume(struct dpu95_drm_device *dpu_drm)
 
 	return 0;
 }
+MODULE_IMPORT_NS(DMA_BUF);
