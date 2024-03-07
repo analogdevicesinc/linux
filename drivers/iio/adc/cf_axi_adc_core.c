@@ -695,20 +695,6 @@ static int axiadc_write_raw(struct iio_dev *indio_dev,
 	}
 }
 
-static int axiadc_read_label(struct iio_dev *indio_dev,
-			     const struct iio_chan_spec *chan, char *label)
-{
-	struct axiadc_state *st = iio_priv(indio_dev);
-	struct axiadc_converter *conv = to_converter(st->dev_spi);
-
-	if (conv && conv->read_label)
-		return conv->read_label(indio_dev, chan, label);
-	else if (chan->extend_name)
-		return sprintf(label, "%s\n", chan->extend_name);
-	else
-		return -ENOSYS;
-}
-
 static int axiadc_read_event_value(struct iio_dev *indio_dev,
 	const struct iio_chan_spec *chan, enum iio_event_type type,
 	enum iio_event_direction dir, enum iio_event_info info, int *val,
@@ -841,7 +827,7 @@ static int axiadc_channel_setup(struct iio_dev *indio_dev,
 	return 0;
 }
 
-static const struct iio_info axiadc_info = {
+static struct iio_info axiadc_info = {
 	.read_raw = &axiadc_read_raw,
 	.write_raw = &axiadc_write_raw,
 	.read_event_value = &axiadc_read_event_value,
@@ -850,7 +836,6 @@ static const struct iio_info axiadc_info = {
 	.write_event_config = &axiadc_write_event_config,
 	.debugfs_reg_access = &axiadc_reg_access,
 	.update_scan_mode = &axiadc_update_scan_mode,
-	.read_label = &axiadc_read_label,
 };
 
 struct axiadc_spidev {
@@ -1207,6 +1192,8 @@ static int axiadc_probe(struct platform_device *pdev)
 	axiadc_channel_setup(indio_dev, conv->chip_info->channel,
 			     st->dp_disable ? 0 : conv->chip_info->num_channels);
 
+	/* only have labels if really supported */
+	axiadc_info.read_label = conv->read_label;
 	st->iio_info = axiadc_info;
 	st->iio_info.attrs = conv->attrs;
 	indio_dev->info = &st->iio_info;
