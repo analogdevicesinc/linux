@@ -32,16 +32,25 @@
 #define AXI_PWMGEN_REG_CORE_MAGIC	0x0C
 #define AXI_PWMGEN_REG_CONFIG		0x10
 #define AXI_PWMGEN_REG_NPWM		0x14
-#define AXI_PWMGEN_CHX_PERIOD(ch)	(0x40 + (12 * (ch)))
-#define AXI_PWMGEN_CHX_DUTY(ch)		(0x44 + (12 * (ch)))
-#define AXI_PWMGEN_CHX_OFFSET(ch)	(0x48 + (12 * (ch)))
+#define AXI_PWMGEN_CHX_PERIOD(v, ch)	((v)->period_base + (v)->ch_step * (ch))
+#define AXI_PWMGEN_CHX_DUTY(v, ch)	((v)->duty_base + (v)->ch_step * (ch))
+#define AXI_PWMGEN_CHX_OFFSET(v, ch)	((v)->offset_base + (v)->ch_step * (ch))
 #define AXI_PWMGEN_REG_CORE_MAGIC_VAL	0x601A3471 /* Identification number to test during setup */
 #define AXI_PWMGEN_LOAD_CONFIG		BIT(1)
 #define AXI_PWMGEN_RESET		BIT(0)
 
+struct axi_pwm_variant {
+	u8 period_base;
+	u8 duty_base;
+	u8 offset_base;
+	u8 major_version;
+	u8 ch_step;
+};
+
 struct axi_pwmgen_ddata {
 	struct regmap *regmap;
 	unsigned long clk_rate_hz;
+	const struct axi_pwm_variant *variant;
 };
 
 static const struct regmap_config axi_pwmgen_regmap_config = {
@@ -50,12 +59,30 @@ static const struct regmap_config axi_pwmgen_regmap_config = {
 	.val_bits = 32,
 };
 
+static const struct axi_pwm_variant pwmgen_1_00_variant = {
+	.period_base = 0x40,
+	.duty_base = 0x44,
+	.offset_base = 0x48,
+	.major_version = 1,
+	.ch_step = 12,
+};
+
+static const struct axi_pwm_variant pwmgen_2_00_variant = {
+	.period_base = 0x40,
+	.duty_base = 0x80,
+	.offset_base = 0xC0,
+	.major_version = 2,
+	.ch_step = 4,
+};
+
+
 static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 			    const struct pwm_state *state)
 {
 	struct axi_pwmgen_ddata *ddata = pwmchip_get_drvdata(chip);
 	unsigned int ch = pwm->hwpwm;
 	struct regmap *regmap = ddata->regmap;
+	const struct axi_pwm_variant *variant = ddata->variant;
 	u64 period_cnt, duty_cnt;
 	int ret;
 
@@ -70,7 +97,7 @@ static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 		if (period_cnt == 0)
 			return -EINVAL;
 
-		ret = regmap_write(regmap, AXI_PWMGEN_CHX_PERIOD(ch), period_cnt);
+		ret = regmap_write(regmap, AXI_PWMGEN_CHX_PERIOD(variant, ch), period_cnt);
 		if (ret)
 			return ret;
 
@@ -78,15 +105,15 @@ static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 		if (duty_cnt > UINT_MAX)
 			duty_cnt = UINT_MAX;
 
-		ret = regmap_write(regmap, AXI_PWMGEN_CHX_DUTY(ch), duty_cnt);
+		ret = regmap_write(regmap, AXI_PWMGEN_CHX_DUTY(variant, ch), duty_cnt);
 		if (ret)
 			return ret;
 	} else {
-		ret = regmap_write(regmap, AXI_PWMGEN_CHX_PERIOD(ch), 0);
+		ret = regmap_write(regmap, AXI_PWMGEN_CHX_PERIOD(variant, ch), 0);
 		if (ret)
 			return ret;
 
-		ret = regmap_write(regmap, AXI_PWMGEN_CHX_DUTY(ch), 0);
+		ret = regmap_write(regmap, AXI_PWMGEN_CHX_DUTY(variant, ch), 0);
 		if (ret)
 			return ret;
 	}
@@ -99,11 +126,12 @@ static int axi_pwmgen_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 {
 	struct axi_pwmgen_ddata *ddata = pwmchip_get_drvdata(chip);
 	struct regmap *regmap = ddata->regmap;
+	const struct axi_pwm_variant *variant = ddata->variant;
 	unsigned int ch = pwm->hwpwm;
 	u32 cnt;
 	int ret;
 
-	ret = regmap_read(regmap, AXI_PWMGEN_CHX_PERIOD(ch), &cnt);
+	ret = regmap_read(regmap, AXI_PWMGEN_CHX_PERIOD(variant, ch), &cnt);
 	if (ret)
 		return ret;
 
@@ -111,7 +139,7 @@ static int axi_pwmgen_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	state->period = DIV_ROUND_UP_ULL((u64)cnt * NSEC_PER_SEC, ddata->clk_rate_hz);
 
-	ret = regmap_read(regmap, AXI_PWMGEN_CHX_DUTY(ch), &cnt);
+	ret = regmap_read(regmap, AXI_PWMGEN_CHX_DUTY(variant, ch), &cnt);
 	if (ret)
 		return ret;
 
@@ -127,7 +155,8 @@ static const struct pwm_ops axi_pwmgen_pwm_ops = {
 	.get_state = axi_pwmgen_get_state,
 };
 
-static int axi_pwmgen_setup(struct regmap *regmap, struct device *dev)
+static int axi_pwmgen_setup(struct regmap *regmap, struct device *dev, 
+			    const struct axi_pwm_variant *variant)
 {
 	int ret;
 	u32 val;
@@ -146,7 +175,7 @@ static int axi_pwmgen_setup(struct regmap *regmap, struct device *dev)
 	if (ret)
 		return ret;
 
-	if (ADI_AXI_PCORE_VER_MAJOR(val) != 1) {
+	if (ADI_AXI_PCORE_VER_MAJOR(val) != variant->major_version) {
 		return dev_err_probe(dev, -ENODEV, "Unsupported peripheral version %u.%u.%u\n",
 			ADI_AXI_PCORE_VER_MAJOR(val),
 			ADI_AXI_PCORE_VER_MINOR(val),
@@ -178,8 +207,13 @@ static int axi_pwmgen_probe(struct platform_device *pdev)
 	struct pwm_chip *chip;
 	struct axi_pwmgen_ddata *ddata;
 	struct clk *clk;
+	const struct axi_pwm_variant *variant;
 	void __iomem *io_base;
 	int ret;
+
+	variant = device_get_match_data(dev);
+	if (!variant)
+		return -EINVAL;
 
 	io_base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(io_base))
@@ -190,7 +224,7 @@ static int axi_pwmgen_probe(struct platform_device *pdev)
 		return dev_err_probe(dev, PTR_ERR(regmap),
 				     "failed to init register map\n");
 
-	ret = axi_pwmgen_setup(regmap, dev);
+	ret = axi_pwmgen_setup(regmap, dev, variant);
 	if (ret < 0)
 		return ret;
 
@@ -199,6 +233,7 @@ static int axi_pwmgen_probe(struct platform_device *pdev)
 		return PTR_ERR(chip);
 	ddata = pwmchip_get_drvdata(chip);
 	ddata->regmap = regmap;
+	ddata->variant = variant;
 
 	clk = devm_clk_get_enabled(dev, NULL);
 	if (IS_ERR(clk))
@@ -224,7 +259,8 @@ static int axi_pwmgen_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id axi_pwmgen_ids[] = {
-	{ .compatible = "adi,axi-pwmgen-1.00.a" },
+	{ .compatible = "adi,axi-pwmgen-1.00.a", .data = &pwmgen_1_00_variant },
+	{ .compatible = "adi,axi-pwmgen-2.00.a", .data = &pwmgen_2_00_variant },
 	{ }
 };
 MODULE_DEVICE_TABLE(of, axi_pwmgen_ids);
