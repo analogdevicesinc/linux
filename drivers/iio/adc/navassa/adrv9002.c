@@ -3493,18 +3493,42 @@ int adrv9002_intf_change_delay(const struct adrv9002_rf_phy *phy, const int chan
 	return api_call(phy, adi_adrv9001_Ssi_Delay_Configure, phy->ssi_type, &delays);
 }
 
+adi_adrv9001_SsiTestModeData_e adrv9002_get_test_pattern(const struct adrv9002_rf_phy *phy,
+							 unsigned int chan, bool rx, bool stop)
+{
+	const struct adrv9002_chan *tx = &phy->tx_channels[chan].channel;
+
+	if (stop)
+		return ADI_ADRV9001_SSI_TESTMODE_DATA_NORMAL;
+	if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS)
+		return ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE;
+	if (rx)
+		return ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS15;
+
+	/*
+	 * Some low rate profiles don't play well with prbs15. The reason is
+	 * still unclear. We suspect that the chip error checker might have
+	 * some time constrains and cannot reliable validate prbs15 full
+	 * sequences in the test time. Using a shorter sequence fixes the
+	 * problem...
+	 *
+	 * We use the same threshold as in the rx interface gain for narrow band.
+	 */
+	if (tx->rate < 1 * MEGA)
+		return ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS7;
+
+	return ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS15;
+}
+
 int adrv9002_check_tx_test_pattern(const struct adrv9002_rf_phy *phy, const int chann)
 {
 	int ret;
 	const struct adrv9002_chan *chan = &phy->tx_channels[chann].channel;
-	adi_adrv9001_SsiTestModeData_e test_data = phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS ?
-						ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE :
-						ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS7;
 	struct adi_adrv9001_TxSsiTestModeCfg cfg = {0};
 	struct adi_adrv9001_TxSsiTestModeStatus status = {0};
 	adi_adrv9001_SsiDataFormat_e data_fmt = ADI_ADRV9001_SSI_FORMAT_16_BIT_I_Q_DATA;
 
-	cfg.testData = test_data;
+	cfg.testData = adrv9002_get_test_pattern(phy, chann, false, false);
 
 	ret = api_call(phy, adi_adrv9001_Ssi_Tx_TestMode_Status_Inspect,
 		       chan->number, phy->ssi_type, data_fmt, &cfg, &status);
@@ -3556,21 +3580,7 @@ int adrv9002_intf_test_cfg(const struct adrv9002_rf_phy *phy, const int chann, c
 
 		chan = &phy->tx_channels[chann].channel;
 
-		if (stop)
-			cfg.testData = ADI_ADRV9001_SSI_TESTMODE_DATA_NORMAL;
-		else if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS)
-			/*
-			 * Some low rate profiles don't play well with prbs15. The reason is
-			 * still unclear. We suspect that the chip error checker might have
-			 * some time constrains and cannot reliable validate prbs15 full
-			 * sequences in the test time. Using a shorter sequence fixes the
-			 * problem...
-			 */
-			cfg.testData = ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS7;
-		else
-			/* CMOS */
-			cfg.testData = ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE;
-
+		cfg.testData = adrv9002_get_test_pattern(phy, chann, false, stop);
 		ret = api_call(phy, adi_adrv9001_Ssi_Tx_TestMode_Configure,
 			       chan->number, phy->ssi_type, data_fmt, &cfg);
 		if (ret)
@@ -3586,22 +3596,12 @@ int adrv9002_intf_test_cfg(const struct adrv9002_rf_phy *phy, const int chann, c
 
 		ret = api_call(phy, adi_adrv9001_Ssi_Tx_TestMode_Configure,
 			       chan->number, phy->ssi_type, data_fmt, &cfg);
-		if (ret)
-			return ret;
-
 	} else {
 		struct adi_adrv9001_RxSsiTestModeCfg cfg = {0};
 
 		chan = &phy->rx_channels[chann].channel;
 
-		if (stop)
-			cfg.testData = ADI_ADRV9001_SSI_TESTMODE_DATA_NORMAL;
-		else if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_LVDS)
-			cfg.testData = ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS15;
-		else
-			/* CMOS */
-			cfg.testData = ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE;
-
+		cfg.testData = adrv9002_get_test_pattern(phy, chann, true, stop);
 		ret = api_call(phy, adi_adrv9001_Ssi_Rx_TestMode_Configure,
 			       chan->number, phy->ssi_type, data_fmt, &cfg);
 		if (ret)
@@ -3617,11 +3617,9 @@ int adrv9002_intf_test_cfg(const struct adrv9002_rf_phy *phy, const int chann, c
 
 		ret = api_call(phy, adi_adrv9001_Ssi_Rx_TestMode_Configure,
 			       chan->number, phy->ssi_type, data_fmt, &cfg);
-		if (ret)
-			return ret;
 	}
 
-	return 0;
+	return ret;
 }
 
 static int adrv9002_intf_tuning(const struct adrv9002_rf_phy *phy)
