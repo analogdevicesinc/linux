@@ -338,26 +338,27 @@ static int adrv9002_axi_find_point(const u8 *field, const u8 sz, u8 *data_start)
 	return max_cnt;
 }
 
-static int adrv9002_axi_pn_check(const struct axiadc_converter *conv, const int off,
+static int adrv9002_axi_pn_check(const struct axiadc_converter *conv, const int chan,
 				 const int n_chan)
 {
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
-	int chan;
+	unsigned int off = chan ? ADI_RX2_REG_OFF : 0;
 	struct adrv9002_rf_phy *phy = conv->phy;
 	u32 reg;
+	int c;
 
 	/* reset result */
-	for (chan = 0; chan < n_chan; chan++)
-		axiadc_write(st, AIM_AXI_REG(off, ADI_REG_CHAN_STATUS(chan)),
+	for (c = 0; c < n_chan; c++)
+		axiadc_write(st, AIM_AXI_REG(off, ADI_REG_CHAN_STATUS(c)),
 			     ADI_PN_ERR | ADI_PN_OOS);
 
 	usleep_range(5000, 5005);
 
 	/* check for errors in any channel */
-	for (chan = 0; chan < n_chan; chan++) {
-		reg = axiadc_read(st, AIM_AXI_REG(off, ADI_REG_CHAN_STATUS(chan)));
+	for (c = 0; c < n_chan; c++) {
+		reg = axiadc_read(st, AIM_AXI_REG(off, ADI_REG_CHAN_STATUS(c)));
 		if (reg) {
-			dev_dbg(&phy->spi->dev, "pn error in c:%d, reg: %02X\n", chan, reg);
+			dev_dbg(&phy->spi->dev, "pn error in c:%d, reg: %02X\n", c, reg);
 			return 1;
 		}
 	}
@@ -365,30 +366,39 @@ static int adrv9002_axi_pn_check(const struct axiadc_converter *conv, const int 
 	return 0;
 }
 
-static void adrv9002_axi_tx_test_pattern_set(const struct axiadc_converter *conv, const int off,
-					     const int n_chan, u32 *ctrl_7)
+static int adrv9002_axi_tx_test_pattern_set(const struct axiadc_converter *conv, const int chan,
+					    const int n_chan, u32 *ctrl_7)
 {
+	unsigned int off = off = chan ? ADI_TX2_REG_OFF : ADI_TX1_REG_OFF;
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
 	struct adrv9002_rf_phy *phy = conv->phy;
+	adi_adrv9001_SsiTestModeData_e pattern;
 	int c, sel;
 
-	if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS)
-		/* RAMP nibble */
+	pattern = adrv9002_get_test_pattern(phy, chan, false, false);
+	if (pattern == ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE)
 		sel = 10;
-	else
-		/* pn7 */
+	else if (pattern == ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS15)
+		sel = 7;
+	else if (pattern == ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS7)
 		sel = 6;
+	else
+		return -EINVAL;
 
 	for (c = 0; c < n_chan; c++) {
 		ctrl_7[c] = axiadc_read(st, AIM_AXI_REG(off, ADI_TX_REG_CHAN_CTRL_7(c)));
 		axiadc_write(st, AIM_AXI_REG(off, ADI_TX_REG_CHAN_CTRL_7(c)), sel);
 		axiadc_write(st, AIM_AXI_REG(off, ADI_TX_REG_CTRL_1), 1);
 	}
+
+	return 0;
 }
 
-static void adrv9002_axi_tx_test_pattern_restore(const struct axiadc_converter *conv, const int off,
-						 const int n_chan, const u32 *saved_ctrl_7)
+static void adrv9002_axi_tx_test_pattern_restore(const struct axiadc_converter *conv,
+						 const int chan, const int n_chan,
+						 const u32 *saved_ctrl_7)
 {
+	unsigned int off = off = chan ? ADI_TX2_REG_OFF : ADI_TX1_REG_OFF;
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
 	int c;
 
@@ -397,18 +407,23 @@ static void adrv9002_axi_tx_test_pattern_restore(const struct axiadc_converter *
 			     saved_ctrl_7[c]);
 }
 
-static void adrv9002_axi_rx_test_pattern_pn_sel(const struct axiadc_converter *conv, const int off,
-						const int n_chan)
+static int adrv9002_axi_rx_test_pattern_pn_sel(const struct axiadc_converter *conv,
+					       const int chan, const int n_chan)
 {
 	struct axiadc_state *st = iio_priv(conv->indio_dev);
+	unsigned int off = chan ? ADI_RX2_REG_OFF : 0;
 	struct adrv9002_rf_phy *phy = conv->phy;
+	adi_adrv9001_SsiTestModeData_e pattern;
 	int c;
 	enum adc_pn_sel sel;
 
-	if (phy->ssi_type == ADI_ADRV9001_SSI_TYPE_CMOS)
+	pattern = adrv9002_get_test_pattern(phy, chan, true, false);
+	if (pattern == ADI_ADRV9001_SSI_TESTMODE_DATA_RAMP_NIBBLE)
 		sel = ADC_PN_RAMP_NIBBLE;
-	else
+	else if (pattern == ADI_ADRV9001_SSI_TESTMODE_DATA_PRBS15)
 		sel = ADC_PN15;
+	else
+		return -EINVAL;
 
 	for (c = 0; c < n_chan; c++)
 		/*
@@ -417,6 +432,8 @@ static void adrv9002_axi_rx_test_pattern_pn_sel(const struct axiadc_converter *c
 		 * reinitialize the device), TX tuning will fail...
 		 */
 		axiadc_write(st, AIM_AXI_REG(off, ADI_REG_CHAN_CNTRL_3(c)), ADI_ADC_PN_SEL(sel));
+
+	return 0;
 }
 
 static void adrv9002_axi_get_channel_range(struct axiadc_converter *conv, bool tx, int *end)
@@ -441,7 +458,7 @@ int adrv9002_axi_intf_tune(const struct adrv9002_rf_phy *phy, const bool tx, con
 			   u8 *clk_delay, u8 *data_delay)
 {
 	struct axiadc_converter *conv = spi_get_drvdata(phy->spi);
-	int ret, cnt, max_cnt = 0, off;
+	int ret, cnt, max_cnt = 0;
 	u8 field[8][8] = {0};
 	u8 clk, data;
 	u32 saved_ctrl_7[4];
@@ -449,12 +466,15 @@ int adrv9002_axi_intf_tune(const struct adrv9002_rf_phy *phy, const bool tx, con
 
 	adrv9002_axi_get_channel_range(conv, tx, &n_chan);
 	if (tx) {
-		off = chann ? ADI_TX2_REG_OFF : ADI_TX1_REG_OFF;
 		/* generate test pattern for tx test  */
-		adrv9002_axi_tx_test_pattern_set(conv, off, n_chan, saved_ctrl_7);
+		ret = adrv9002_axi_tx_test_pattern_set(conv, chann, n_chan, saved_ctrl_7);
+		if (ret)
+			return ret;
 	} else {
-		off = chann ? ADI_RX2_REG_OFF : 0;
-		adrv9002_axi_rx_test_pattern_pn_sel(conv, off, n_chan);
+		ret = adrv9002_axi_rx_test_pattern_pn_sel(conv, chann, n_chan);
+		if (ret)
+			return ret;
+
 		/* start test */
 		ret = adrv9002_intf_test_cfg(phy, chann, tx, false);
 		if (ret)
@@ -483,7 +503,7 @@ int adrv9002_axi_intf_tune(const struct adrv9002_rf_phy *phy, const bool tx, con
 			}
 			/* check result */
 			if (!tx)
-				ret = adrv9002_axi_pn_check(conv, off, n_chan);
+				ret = adrv9002_axi_pn_check(conv, chann, n_chan);
 			else
 				ret = adrv9002_check_tx_test_pattern(phy, chann);
 
@@ -500,7 +520,7 @@ int adrv9002_axi_intf_tune(const struct adrv9002_rf_phy *phy, const bool tx, con
 
 	/* stop tx pattern */
 	if (tx)
-		adrv9002_axi_tx_test_pattern_restore(conv, off, n_chan, saved_ctrl_7);
+		adrv9002_axi_tx_test_pattern_restore(conv, chann, n_chan, saved_ctrl_7);
 
 	for (clk = 0; clk < ARRAY_SIZE(field); clk++) {
 		cnt = adrv9002_axi_find_point(&field[clk][0], sizeof(*field), &data);

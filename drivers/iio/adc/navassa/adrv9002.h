@@ -307,6 +307,8 @@ int adrv9002_check_tx_test_pattern(const struct adrv9002_rf_phy *phy, const int 
 int adrv9002_intf_change_delay(const struct adrv9002_rf_phy *phy, const int channel, u8 clk_delay,
 			       u8 data_delay, const bool tx);
 int adrv9002_tx2_fixup(const struct adrv9002_rf_phy *phy);
+adi_adrv9001_SsiTestModeData_e adrv9002_get_test_pattern(const struct adrv9002_rf_phy *phy,
+							 unsigned int chan, bool rx, bool stop);
 /* phy lock must be held before entering the API */
 int adrv9002_channel_to_state(const struct adrv9002_rf_phy *phy, struct adrv9002_chan *chann,
 			      const adi_adrv9001_ChannelState_e state, const bool cache_state);
