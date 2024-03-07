@@ -71,11 +71,12 @@
 #define W6_REMAP_MAX_SIZE               (1024 * 1024)
 
 #define WAVE6_ARBUF_SIZE                (1024)
-#define WAVE6_MAX_CODE_BUF_SIZE         (1 * 1024 * 1024)
+#define WAVE6_MAX_CODE_BUF_SIZE         (4 * 1024 * 1024)
+#define WAVE6_EXTRA_CODE_BUF_SIZE       (256 * 1024)
 #define WAVE6_TEMPBUF_SIZE              (3 * 1024 * 1024)
 #define WAVE6_VUI_BUF_SIZE              (1024)
 
-#define SIZE_COMMON                     (WAVE6_MAX_CODE_BUF_SIZE)
+#define SIZE_COMMON                     (W6_REMAP_MAX_SIZE)
 
 //=====4. VPU REPORT MEMORY  ======================//
 #define WAVE6_UPPER_PROC_AXI_ID     0x0

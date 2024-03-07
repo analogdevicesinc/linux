@@ -216,12 +216,17 @@ static int wave6_vpu_ctrl_check_result(struct wave6_vpu_entity *entity)
 	return entity->read_reg(entity->dev, W6_RET_FAIL_REASON);
 }
 
+static u32 wave6_vpu_ctrl_get_code_buf_size(struct vpu_ctrl *ctrl)
+{
+	return min_t(u32, ctrl->boot_mem.size, WAVE6_MAX_CODE_BUF_SIZE);
+}
+
 static void wave6_vpu_ctrl_remap_code_buffer(struct vpu_ctrl *ctrl)
 {
 	dma_addr_t code_base = ctrl->boot_mem.dma_addr;
 	u32 i, reg_val, remap_size;
 
-	for (i = 0; i < WAVE6_MAX_CODE_BUF_SIZE / W6_REMAP_MAX_SIZE; i++) {
+	for (i = 0; i < wave6_vpu_ctrl_get_code_buf_size(ctrl) / W6_REMAP_MAX_SIZE; i++) {
 		remap_size = (W6_REMAP_MAX_SIZE >> 12) & 0x1ff;
 		reg_val = 0x80000000 |
 			  (WAVE6_UPPER_PROC_AXI_ID << 20) |
@@ -305,7 +310,7 @@ static void wave6_vpu_ctrl_load_firmware(const struct firmware *fw, void *contex
 		goto error;
 	}
 
-	if (fw->size * 2 > ctrl->boot_mem.size) {
+	if (fw->size + WAVE6_EXTRA_CODE_BUF_SIZE > wave6_vpu_ctrl_get_code_buf_size(ctrl)) {
 		dev_err(ctrl->dev, "firmware size (%ld > %zd) is too big\n",
 			fw->size, ctrl->boot_mem.size);
 		goto error;
