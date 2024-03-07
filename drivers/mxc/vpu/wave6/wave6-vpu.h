@@ -21,8 +21,8 @@ struct vpu_buffer {
 	struct v4l2_m2m_buffer v4l2_m2m_buf;
 	bool consumed;
 	bool used;
-	bool force_pic_type_enable;
-	enum enc_force_pic_type force_pic_type;
+	bool error;
+	bool force_key_frame;
 };
 
 enum vpu_fmt_type {
@@ -62,6 +62,9 @@ static inline bool wave6_vpu_both_queues_are_streaming(struct vpu_instance *inst
 	return vb2_is_streaming(vq_cap) && vb2_is_streaming(vq_out);
 }
 
+void wave6_update_pix_fmt(struct v4l2_pix_format_mplane *pix_mp,
+			  unsigned int width,
+			  unsigned int height);
 struct vb2_v4l2_buffer *wave6_get_dst_buf_by_addr(struct vpu_instance *inst,
 						  dma_addr_t addr);
 dma_addr_t wave6_get_dma_addr(struct vb2_v4l2_buffer *buf,

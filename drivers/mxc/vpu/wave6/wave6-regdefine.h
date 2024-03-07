@@ -113,6 +113,8 @@ enum W6_QUERY_OPT {
 #define W6_RET_CONF_DATE                              (W6_REG_BASE + 0x318)
 #define W6_RET_CONF_REVISION                          (W6_REG_BASE + 0x31C)
 #define W6_RET_CONF_TYPE                              (W6_REG_BASE + 0x320)
+#define W6_RET_FW_API_VERSION                         (W6_REG_BASE + 0x32C)
+#define W6_RET_SHA_ID                                 (W6_REG_BASE + 0x330)
 
 /************************************************************************/
 /* DECODER - CREATE_INSTANCE                                            */

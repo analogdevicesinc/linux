@@ -122,14 +122,19 @@ static void wave6_vpu_on_boot(struct device *dev)
 	hw_version = wave6_vdi_readl(vpu_dev, W6_RET_CONF_REVISION);
 
 	if (vpu_dev->product_code != product_code ||
-	    vpu_dev->fw_version != revision ||
+	    vpu_dev->fw_version != version ||
+	    vpu_dev->fw_revision != revision ||
 	    vpu_dev->hw_version != hw_version) {
 		vpu_dev->product_code = product_code;
-		vpu_dev->fw_version = revision;
+		vpu_dev->fw_version = version;
+		vpu_dev->fw_revision = revision;
 		vpu_dev->hw_version = hw_version;
-		dev_info(dev, "product: %08x(0x%x), fw_version : %08x(r%d), hw_version : 0x%x\n",
+		dev_info(dev, "product: %08x(0x%x), fw_version : %d.%d.%d(r%d), hw_version : 0x%x\n",
 			 vpu_dev->product, vpu_dev->product_code,
-			 version, revision,
+			 (version >> 24) & 0xFF,
+			 (version >> 16) & 0xFF,
+			 (version >> 0) & 0xFFFF,
+			 revision,
 			 vpu_dev->hw_version);
 	}
 }

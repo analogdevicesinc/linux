@@ -62,6 +62,8 @@ int wave6_vpu_build_up_enc_param(struct device *dev, struct vpu_instance *inst,
 
 int wave6_vpu_enc_init_seq(struct vpu_instance *vpu_inst);
 
+int wave6_vpu_enc_change_seq(struct vpu_instance *vpu_inst);
+
 int wave6_vpu_enc_get_seq_info(struct vpu_instance *vpu_inst, struct enc_initial_info *info);
 
 int wave6_vpu_enc_register_frame_buffer(struct vpu_instance *vpu_inst,

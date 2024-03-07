@@ -112,6 +112,25 @@ enum SET_PARAM_OPTION {
 	OPT_CHANGE_PARAM = 0x10,
 };
 
+enum SET_PARAM_ENABLE {
+	ENABLE_SET_QUANT_PARAM               = (1 << 27),
+	ENABLE_SET_QROUND_OFFSET             = (1 << 26),
+	ENABLE_SET_BG_PARAM                  = (1 << 22),
+	ENABLE_SET_RDO_BIAS_PARAM            = (1 << 21),
+	ENABLE_SET_VUI_HRD_PARAM             = (1 << 20),
+	ENABLE_SET_RC_VBV_BUFFER_SIZE        = (1 << 14),
+	ENABLE_SET_RC_MAX_BITRATE            = (1 << 13),
+	ENABLE_SET_MIN_MAX_QP                = (1 << 12),
+	ENABLE_SET_RC_PARAM                  = (1 << 11),
+	ENABLE_SET_RC_TARGET_RATE            = (1 << 10),
+	ENABLE_SET_SLICE_PARAM               = (1 <<  6),
+	ENABLE_SET_RDO_PARAM                 = (1 <<  5),
+	ENABLE_SET_TEMPORAL_QP_PARAM         = (1 <<  4),
+	ENABLE_SET_INTRA_PARAM               = (1 <<  2),
+	ENABLE_SET_GOP_PARAM                 = (1 <<  1),
+	ENABLE_SET_PPS_PARAM                 = (1 <<  0),
+};
+
 enum DEC_PIC_HDR_OPTION {
 	INIT_SEQ_NORMAL = 0x01,
 	INIT_SEQ_W_THUMBNAIL = 0x11,
@@ -142,7 +161,6 @@ enum DEC_PIC_OPTION {
 
 /* decoding_refresh_type */
 #define DEC_REFRESH_TYPE_NON_IRAP 0
-#define DEC_REFRESH_TYPE_CRA 1
 #define DEC_REFRESH_TYPE_IDR 2
 
 #define DEFAULT_NUM_TICKS_POC_DIFF 100
@@ -214,6 +232,13 @@ enum mirror_direction {
 	MIRDIR_VER, /* vertical mirroring */
 	MIRDIR_HOR, /* horizontal mirroring */
 	MIRDIR_HOR_VER /* horizontal and vertical mirroring */
+};
+
+enum chroma_format {
+	YUV400,
+	YUV420,
+	YUV422,
+	YUV444,
 };
 
 enum frame_buffer_format {
@@ -389,6 +414,12 @@ enum aux_buffer_type {
 	AUX_BUF_TYPE_MAX,
 };
 
+enum intra_refresh_mode {
+	INTRA_REFRESH_NONE = 0,
+	INTRA_REFRESH_ROW = 1,
+	INTRA_REFRESH_COLUMN = 2,
+};
+
 enum dec_update_fb_state {
 	UPDATE_FB_STATE_ALLOC_FBC = BIT(0),
 	UPDATE_FB_STATE_ALLOC_MV = BIT(1),
@@ -401,6 +432,7 @@ struct vpu_attr {
 	char product_name[8]; /* the product name in ascii code */
 	u32 product_version; /* the product version number */
 	u32 fw_version; /* the F/W version */
+	u32 fw_revision;
 	u32 support_decoders; /* bitmask: see <<vpuapi_h_cod_std>> */
 	u32 support_encoders; /* bitmask: see <<vpuapi_h_cod_std>> */
 	u32 support_bitstream_mode;
@@ -878,8 +910,9 @@ struct avc_vui_param {
 	u32 low_delay_hrd_flag: 1;
 	u32 pic_struct_present_flag: 1;
 	u32 bitstream_restriction_flag: 1;
+	u32 motion_vectors_over_pic_boundaries_flag: 1;
 	u32 max_bytes_per_pic_denom: 8;
-	u32 max_bits_per_mincu_denom: 8;
+	u32 max_bits_per_mb_denom: 8;
 	u32 reserved_2: 9;
 	u32 log2_max_mv_length_horizontal: 8;
 	u32 log2_max_mv_length_vertical: 8;
@@ -911,6 +944,12 @@ struct enc_open_param {
 	u32 inst_priority: 5;
 	struct instance_buffer inst_buffer;
 	bool enc_aud;
+};
+
+struct enc_change_param {
+	u32 enable;
+	u32 enc_bit_rate;
+	u32 max_bit_rate;
 };
 
 struct enc_initial_info {
@@ -957,7 +996,7 @@ struct enc_param {
 	int force_pic_qp_i;
 	int force_pic_qp_p;
 	int force_pic_qp_b;
-	int force_pic_type_enable; /* A flag to use a force picture type */
+	bool force_pic_type_enable; /* A flag to use a force picture type */
 	int force_pic_type;
 	int src_idx; /* A source frame buffer index */
 	int src_end_flag;
@@ -1021,6 +1060,7 @@ struct enc_output_info {
 	u32 pic_distortion_low;
 	u32 pic_distortion_high;
 	u32 non_ref_pic_flag: 1;
+	u32 encoding_success: 1;
 	struct enc_report_fme_sum fme_sum;
 	struct enc_report_mv_histo mv_histo;
 	struct report_cycle cycle;
@@ -1047,13 +1087,7 @@ enum GOP_PRESET_IDX {
 	PRESET_IDX_IBBBB = 7, /* consecutive B, cyclic gopsize = 4 */
 	PRESET_IDX_RA_IB = 8, /* random access, cyclic gopsize = 8 */
 	PRESET_IDX_IPP_SINGLE = 9, /* consecutive P, cyclic gopsize = 1, with single ref */
-	PRESET_IDX_IBPBP_SINGLE = 10, /* gopsize = 2, with single reference */
-	PRESET_IDX_IBBBP_SINGLE = 11, /* gopsize = 4, with single reference */
-	PRESET_IDX_IPPPP_SINGLE = 12, /* Consecutive P, cyclic gopsize = 4, with single reference */
-	PRESET_IDX_IBBP = 13, /* gopsize = 3 */
-	PRESET_IDX_IBBP_SINGLE = 14, /* gopsize = 3, with single reference */
-	PRESET_IDX_IBBBBBBBP = 15, /* gopsize = 8 */
-	PRESET_IDX_IBBBBBBBP_SINGLE = 16, /* gopsize = 8, with single reference */
+	PRESET_IDX_MAX,
 };
 
 struct sec_axi_info {
@@ -1091,6 +1125,7 @@ struct dec_info {
 
 struct enc_info {
 	struct enc_open_param open_param;
+	struct enc_change_param change_param;
 	struct enc_initial_info initial_info;
 	int num_frame_buffers;
 	int stride;
@@ -1126,6 +1161,7 @@ struct vpu_device {
 	int irq;
 	enum product_id	product;
 	u32 fw_version;
+	u32 fw_revision;
 	u32 hw_version;
 	struct vpu_attr	attr;
 	u32 last_performance_cycles;
@@ -1145,7 +1181,6 @@ struct vpu_instance;
 
 struct vpu_instance_ops {
 	int (*start_process)(struct vpu_instance *inst);
-	void (*stop_process)(struct vpu_instance *inst);
 	void (*finish_process)(struct vpu_instance *inst);
 };
 
@@ -1199,13 +1234,16 @@ struct vpu_instance {
 	unsigned int rc_mode;
 	struct enc_wave_param enc_param;
 	struct dec_scaler_info scaler_info;
-	bool force_pic_type_enable;
-	enum enc_force_pic_type force_pic_type;
+	bool force_key_frame;
+	bool error_recovery;
 	struct sar_info sar;
 
 	struct workqueue_struct *workqueue;
 	struct work_struct init_task;
 	atomic_t start_init_seq;
+
+	u32 dynamic_bit_rate;
+	u32 dynamic_max_bit_rate;
 	struct dentry *debugfs;
 };
 
@@ -1244,7 +1282,9 @@ int wave6_vpu_dec_flush_instance(struct vpu_instance *inst);
 int wave6_vpu_enc_open(struct vpu_instance *inst, struct enc_open_param *enc_op_param);
 int wave6_vpu_enc_close(struct vpu_instance *inst, u32 *fail_res);
 int wave6_vpu_enc_issue_seq_init(struct vpu_instance *inst);
+int wave6_vpu_enc_update_seq(struct vpu_instance *inst);
 int wave6_vpu_enc_complete_seq_init(struct vpu_instance *inst, struct enc_initial_info *info);
+int wave6_vpu_enc_complete_seq_update(struct vpu_instance *inst, struct enc_initial_info *info);
 int wave6_vpu_enc_get_aux_buffer_size(struct vpu_instance *inst,
 				      struct enc_aux_buffer_size_info info,
 				      uint32_t *size);

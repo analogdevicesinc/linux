@@ -28,16 +28,21 @@
 
 #define MAX_NUM_INSTANCE                32
 
+#define W6_MAX_PIC_STRIDE               (4096U*4)
+#define W6_DEF_DEC_PIC_WIDTH            720U
+#define W6_DEF_DEC_PIC_HEIGHT           480U
 #define W6_MIN_DEC_PIC_WIDTH            64U
 #define W6_MIN_DEC_PIC_HEIGHT           64U
 #define W6_MAX_DEC_PIC_WIDTH            4096U
-#define W6_MAX_DEC_PIC_HEIGHT           4096U
+#define W6_MAX_DEC_PIC_HEIGHT           2304U
 #define W6_DEC_PIC_SIZE_STEP            1
 
+#define W6_DEF_ENC_PIC_WIDTH            416U
+#define W6_DEF_ENC_PIC_HEIGHT           240U
 #define W6_MIN_ENC_PIC_WIDTH            256U
 #define W6_MIN_ENC_PIC_HEIGHT           128U
 #define W6_MAX_ENC_PIC_WIDTH            4096U
-#define W6_MAX_ENC_PIC_HEIGHT           4096U
+#define W6_MAX_ENC_PIC_HEIGHT           2304U
 #define W6_ENC_PIC_SIZE_STEP            8
 
 //  application specific configuration

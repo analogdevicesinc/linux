@@ -25,9 +25,13 @@ static int wave6_vpu_dbg_instance(struct seq_file *s, void *data)
 	if (seq_write(s, str, num))
 		return 0;
 
-	num = scnprintf(str, sizeof(str), "%s : product 0x%x, fw_version r%d, hw_version 0x%x\n",
-			dev_name(inst->dev->dev),
-			inst->dev->product_code, inst->dev->fw_version, inst->dev->hw_version);
+	num = scnprintf(str, sizeof(str),
+			"%s : product 0x%x, fw_version %d.%d.%d(r%d), hw_version 0x%x\n",
+			dev_name(inst->dev->dev), inst->dev->product_code,
+			(inst->dev->fw_version >> 24) & 0xFF,
+			(inst->dev->fw_version >> 16) & 0xFF,
+			(inst->dev->fw_version >> 0) & 0xFFFF,
+			inst->dev->fw_revision, inst->dev->hw_version);
 	if (seq_write(s, str, num))
 		return 0;
 

@@ -6,6 +6,53 @@
  */
 
 #include "wave6-vpu.h"
+#include <linux/math64.h>
+
+void wave6_update_pix_fmt(struct v4l2_pix_format_mplane *pix_mp,
+			  unsigned int width,
+			  unsigned int height)
+{
+	const struct v4l2_format_info *fmt_info;
+	unsigned int stride_y;
+	int i;
+
+	pix_mp->width = width;
+	pix_mp->height = height;
+	pix_mp->flags = 0;
+	pix_mp->field = V4L2_FIELD_NONE;
+	memset(pix_mp->reserved, 0, sizeof(pix_mp->reserved));
+
+	fmt_info = v4l2_format_info(pix_mp->pixelformat);
+	if (!fmt_info) {
+		pix_mp->plane_fmt[0].bytesperline = 0;
+		if (!pix_mp->plane_fmt[0].sizeimage)
+			pix_mp->plane_fmt[0].sizeimage = width * height;
+
+		return;
+	}
+
+	stride_y = width * fmt_info->bpp[0];
+	if (pix_mp->plane_fmt[0].bytesperline <= W6_MAX_PIC_STRIDE)
+		stride_y = max(stride_y, pix_mp->plane_fmt[0].bytesperline);
+	stride_y = round_up(stride_y, 32);
+	pix_mp->plane_fmt[0].bytesperline = stride_y;
+	pix_mp->plane_fmt[0].sizeimage = stride_y * height;
+
+	for (i = 1; i < fmt_info->comp_planes; i++) {
+		unsigned int stride_c, sizeimage_c;
+
+		stride_c = DIV_ROUND_UP(stride_y, fmt_info->hdiv) *
+			   fmt_info->bpp[i];
+		sizeimage_c = stride_c * DIV_ROUND_UP(height, fmt_info->vdiv);
+
+		if (fmt_info->mem_planes == 1) {
+			pix_mp->plane_fmt[0].sizeimage += sizeimage_c;
+		} else {
+			pix_mp->plane_fmt[i].bytesperline = stride_c;
+			pix_mp->plane_fmt[i].sizeimage = sizeimage_c;
+		}
+	}
+}
 
 struct vb2_v4l2_buffer *wave6_get_dst_buf_by_addr(struct vpu_instance *inst,
 						  dma_addr_t addr)
@@ -143,6 +190,9 @@ static void wave6_vpu_device_run_timeout(struct work_struct *work)
 	if (dst_buf)
 		v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_ERROR);
 
+	vb2_queue_error(v4l2_m2m_get_src_vq(inst->v4l2_fh.m2m_ctx));
+	vb2_queue_error(v4l2_m2m_get_dst_vq(inst->v4l2_fh.m2m_ctx));
+
 	v4l2_m2m_job_finish(inst->dev->m2m_dev, inst->v4l2_fh.m2m_ctx);
 }
 
@@ -167,20 +217,9 @@ void wave6_vpu_finish_job(struct vpu_instance *inst)
 	v4l2_m2m_job_finish(inst->dev->m2m_dev, inst->v4l2_fh.m2m_ctx);
 }
 
-static void wave6_vpu_job_abort(void *priv)
-{
-	struct vpu_instance *inst = priv;
-
-	dev_dbg(inst->dev->dev, "[%d]%s: state %d\n",
-		inst->id, __func__, inst->state);
-
-	inst->ops->stop_process(inst);
-}
-
 static const struct v4l2_m2m_ops wave6_vpu_m2m_ops = {
 	.device_run = wave6_vpu_device_run,
 	.job_ready = wave6_vpu_job_ready,
-	.job_abort = wave6_vpu_job_abort,
 };
 
 int wave6_vpu_init_m2m_dev(struct vpu_device *dev)

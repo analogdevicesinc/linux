@@ -291,7 +291,14 @@ static void wave6_vpu_ctrl_load_firmware(const struct firmware *fw, void *contex
 	u32 product_code;
 	int ret;
 
-	pm_runtime_resume_and_get(ctrl->dev);
+	ret = pm_runtime_resume_and_get(ctrl->dev);
+	if (ret) {
+		dev_err(ctrl->dev, "pm runtime resume fail, ret = %d\n", ret);
+		wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_OFF);
+		ctrl->current_entity = NULL;
+		release_firmware(fw);
+		return;
+	}
 
 	if (!fw || !fw->data) {
 		dev_err(ctrl->dev, "No firmware.\n");
@@ -456,7 +463,13 @@ int wave6_vpu_ctrl_resume_and_get(struct device *dev, struct wave6_vpu_entity *e
 
 	mutex_lock(&ctrl->ctrl_lock);
 
-	pm_runtime_resume_and_get(ctrl->dev);
+	ret = pm_runtime_resume_and_get(ctrl->dev);
+	if (ret) {
+		dev_err(dev, "pm runtime resume fail, ret = %d\n", ret);
+		mutex_unlock(&ctrl->ctrl_lock);
+		return ret;
+	}
+
 	entity->booted = false;
 
 	boot_flag = list_empty(&ctrl->entities) ? true : false;

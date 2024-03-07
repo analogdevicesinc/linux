@@ -255,6 +255,32 @@ static const struct vpu_format *wave6_find_vpu_fmt_by_idx(unsigned int idx,
 	return &wave6_vpu_enc_fmt_list[type][idx];
 }
 
+static u8 get_max_dec_frame_buffer(u32 gop_preset_idx)
+{
+	switch (gop_preset_idx) {
+	case PRESET_IDX_ALL_I:
+		return 1;
+	case PRESET_IDX_IPP:
+		return 3;
+	case PRESET_IDX_IBBB:
+		return 3;
+	case PRESET_IDX_IBPBP:
+		return 3;
+	case PRESET_IDX_IBBBP:
+		return 4;
+	case PRESET_IDX_IPPPP:
+		return 3;
+	case PRESET_IDX_IBBBB:
+		return 3;
+	case PRESET_IDX_RA_IB:
+		return 5;
+	case PRESET_IDX_IPP_SINGLE:
+		return 2;
+	default:
+		return 5;
+	}
+}
+
 static void wave6_vpu_enc_release_fb(struct vpu_instance *inst)
 {
 	int i;
@@ -536,115 +562,6 @@ static void wave6_set_csc(struct vpu_instance *inst, struct enc_param *pic_param
 	}
 }
 
-static void wave6_update_pix_fmt(struct v4l2_pix_format_mplane *pix_mp,
-				 unsigned int width,
-				 unsigned int height)
-{
-	pix_mp->flags = 0;
-	pix_mp->field = V4L2_FIELD_NONE;
-	memset(pix_mp->reserved, 0, sizeof(pix_mp->reserved));
-
-	switch (pix_mp->pixelformat) {
-	case V4L2_PIX_FMT_YUV420:
-	case V4L2_PIX_FMT_NV12:
-	case V4L2_PIX_FMT_NV21:
-		pix_mp->width = width;
-		pix_mp->height = height;
-		pix_mp->plane_fmt[0].bytesperline = round_up(width, 32);
-		pix_mp->plane_fmt[0].sizeimage = round_up(width, 32) * height * 3 / 2;
-		break;
-	case V4L2_PIX_FMT_YUV422P:
-	case V4L2_PIX_FMT_NV16:
-	case V4L2_PIX_FMT_NV61:
-		pix_mp->width = width;
-		pix_mp->height = height;
-		pix_mp->plane_fmt[0].bytesperline = round_up(width, 32);
-		pix_mp->plane_fmt[0].sizeimage = round_up(width, 32) * height * 2;
-		break;
-	case V4L2_PIX_FMT_YUYV:
-		pix_mp->width = width;
-		pix_mp->height = height;
-		pix_mp->plane_fmt[0].bytesperline = round_up(width, 32) * 2;
-		pix_mp->plane_fmt[0].sizeimage = round_up(width, 32) * height * 2;
-		break;
-	case V4L2_PIX_FMT_NV24:
-	case V4L2_PIX_FMT_NV42:
-		pix_mp->width = width;
-		pix_mp->height = height;
-		pix_mp->plane_fmt[0].bytesperline = round_up(width, 32);
-		pix_mp->plane_fmt[0].sizeimage = round_up(width, 32) * height * 3;
-		break;
-	case V4L2_PIX_FMT_YUV420M:
-		pix_mp->width = width;
-		pix_mp->height = height;
-		pix_mp->plane_fmt[0].bytesperline = round_up(width, 32);
-		pix_mp->plane_fmt[0].sizeimage = round_up(width, 32) * height;
-		pix_mp->plane_fmt[1].bytesperline = round_up(width, 32) / 2;
-		pix_mp->plane_fmt[1].sizeimage = round_up(width, 32) * height / 4;
-		pix_mp->plane_fmt[2].bytesperline = round_up(width, 32) / 2;
-		pix_mp->plane_fmt[2].sizeimage = round_up(width, 32) * height / 4;
-		break;
-	case V4L2_PIX_FMT_NV12M:
-	case V4L2_PIX_FMT_NV21M:
-		pix_mp->width = width;
-		pix_mp->height = height;
-		pix_mp->plane_fmt[0].bytesperline = round_up(width, 32);
-		pix_mp->plane_fmt[0].sizeimage = round_up(width, 32) * height;
-		pix_mp->plane_fmt[1].bytesperline = round_up(width, 32);
-		pix_mp->plane_fmt[1].sizeimage = round_up(width, 32) * height / 2;
-		break;
-	case V4L2_PIX_FMT_YUV422M:
-		pix_mp->width = width;
-		pix_mp->height = height;
-		pix_mp->plane_fmt[0].bytesperline = round_up(width, 32);
-		pix_mp->plane_fmt[0].sizeimage = round_up(width, 32) * height;
-		pix_mp->plane_fmt[1].bytesperline = round_up(width, 32) / 2;
-		pix_mp->plane_fmt[1].sizeimage = round_up(width, 32) * height / 2;
-		pix_mp->plane_fmt[2].bytesperline = round_up(width, 32) / 2;
-		pix_mp->plane_fmt[2].sizeimage = round_up(width, 32) * height / 2;
-		break;
-	case V4L2_PIX_FMT_NV16M:
-	case V4L2_PIX_FMT_NV61M:
-		pix_mp->width = width;
-		pix_mp->height = height;
-		pix_mp->plane_fmt[0].bytesperline = round_up(width, 32);
-		pix_mp->plane_fmt[0].sizeimage = round_up(width, 32) * height;
-		pix_mp->plane_fmt[1].bytesperline = round_up(width, 32);
-		pix_mp->plane_fmt[1].sizeimage = round_up(width, 32) * height;
-		break;
-	case V4L2_PIX_FMT_YUV24:
-	case V4L2_PIX_FMT_RGB24:
-		pix_mp->width = width;
-		pix_mp->height = height;
-		pix_mp->plane_fmt[0].bytesperline = round_up((width * 3), 16);
-		pix_mp->plane_fmt[0].sizeimage = round_up((width * 3), 16) * height;
-		break;
-	case V4L2_PIX_FMT_P010:
-		pix_mp->width = width;
-		pix_mp->height = height;
-		pix_mp->plane_fmt[0].bytesperline = round_up((width * 2), 32);
-		pix_mp->plane_fmt[0].sizeimage = round_up((width * 2), 32) * height * 3 / 2;
-		break;
-	case V4L2_PIX_FMT_ARGB32:
-	case V4L2_PIX_FMT_XRGB32:
-	case V4L2_PIX_FMT_RGBA32:
-	case V4L2_PIX_FMT_RGBX32:
-	case V4L2_PIX_FMT_ARGB2101010:
-		pix_mp->width = width;
-		pix_mp->height = height;
-		pix_mp->plane_fmt[0].bytesperline = round_up((width * 4), 16);
-		pix_mp->plane_fmt[0].sizeimage = round_up((width * 4), 16) * height;
-		break;
-	default:
-		pix_mp->width = width;
-		pix_mp->height = height;
-		pix_mp->plane_fmt[0].bytesperline = 0;
-		if (!pix_mp->plane_fmt[0].sizeimage)
-			pix_mp->plane_fmt[0].sizeimage = width * height;
-		break;
-	}
-}
-
 static int wave6_allocate_aux_buffer(struct vpu_instance *inst,
 				     enum aux_buffer_type type,
 				     int num)
@@ -695,6 +612,22 @@ static int wave6_allocate_aux_buffer(struct vpu_instance *inst,
 	return 0;
 }
 
+static void wave6_enc_update_seq_param(struct vpu_instance *inst)
+{
+	struct enc_info *p_enc_info = &inst->codec_info->enc_info;
+	struct enc_change_param *p_change_param = &p_enc_info->change_param;
+	struct enc_wave_param *p_param = &p_enc_info->open_param.wave_param;
+
+	memset(p_change_param, 0, sizeof(struct enc_change_param));
+
+	/*do we need check bitrate is out of maxmbs*/
+	if (p_param->enc_bit_rate != inst->dynamic_bit_rate) {
+		p_change_param->enable |= ENABLE_SET_RC_TARGET_RATE;
+		p_change_param->enc_bit_rate = inst->dynamic_bit_rate;
+		p_param->enc_bit_rate = inst->dynamic_bit_rate;
+	}
+}
+
 static int wave6_vpu_enc_start_encode(struct vpu_instance *inst)
 {
 	int ret = -EINVAL;
@@ -704,10 +637,24 @@ static int wave6_vpu_enc_start_encode(struct vpu_instance *inst)
 	struct vpu_buffer *dst_vbuf = NULL;
 	struct frame_buffer frame_buf;
 	struct enc_param pic_param;
+	struct enc_initial_info initial_info;
+	struct enc_info *p_enc_info = &inst->codec_info->enc_info;
 	u32 stride = inst->src_fmt.plane_fmt[0].bytesperline;
 	u32 luma_size = (stride * inst->dst_fmt.height);
 	u32 chroma_size;
 	u32 fail_res;
+
+	wave6_enc_update_seq_param(inst);
+	if (p_enc_info->change_param.enable) {
+		pr_info("start encode:dynamic change param\n");
+		wave6_vpu_enc_update_seq(inst);
+		if (wave6_vpu_wait_interrupt(inst, VPU_ENC_TIMEOUT) < 0) {
+			dev_err(inst->dev->dev, "failed to call wave6_vpu_wait_interrupt()\n");
+			goto exit;
+		}
+		pr_info("start encode:set dynamic change param successfully\n");
+		wave6_vpu_enc_complete_seq_update(inst, &initial_info);
+	}
 
 	memset(&pic_param, 0, sizeof(struct enc_param));
 	memset(&frame_buf, 0, sizeof(struct frame_buffer));
@@ -757,34 +704,25 @@ static int wave6_vpu_enc_start_encode(struct vpu_instance *inst)
 		}
 		frame_buf.stride = stride;
 		pic_param.src_idx = src_buf->vb2_buf.index;
+		if (src_vbuf->force_key_frame || inst->error_recovery) {
+			pic_param.force_pic_type_enable = true;
+			pic_param.force_pic_type = ENC_FORCE_PIC_TYPE_IDR;
+			inst->error_recovery = false;
+		}
 	}
 
 	pic_param.source_frame = &frame_buf;
 	pic_param.code_option.implicit_header_encode = 1;
-	if (src_vbuf) {
-		pic_param.force_pic_type_enable = src_vbuf->force_pic_type_enable;
-		pic_param.force_pic_type = src_vbuf->force_pic_type;
-
-		if (pic_param.force_pic_type_enable &&
-		    pic_param.force_pic_type == ENC_FORCE_PIC_TYPE_IDR) {
-			pic_param.code_option.implicit_header_encode = 0;
-			pic_param.code_option.encode_vcl = 1;
-			pic_param.code_option.encode_vps = 1;
-			pic_param.code_option.encode_sps = 1;
-			pic_param.code_option.encode_pps = 1;
-		}
-	}
 	wave6_set_csc(inst, &pic_param);
 
-	if (src_vbuf) {
+	if (src_vbuf)
 		src_vbuf->consumed = true;
-	}
 	if (dst_vbuf) {
 		dst_vbuf->consumed = true;
 		dst_vbuf->used = true;
 	}
 	ret = wave6_vpu_enc_start_one_frame(inst, &pic_param, &fail_res);
-	if (ret && fail_res != WAVE6_SYSERR_QUEUEING_FAIL) {
+	if (ret) {
 		dev_err(inst->dev->dev, "[%d] %s: fail %d\n", inst->id, __func__, ret);
 		wave6_vpu_set_instance_state(inst, VPU_INST_STATE_STOP);
 
@@ -803,19 +741,15 @@ exit:
 	return ret;
 }
 
-static void wave6_vpu_enc_stop_encode(struct vpu_instance *inst)
-{
-	dev_dbg(inst->dev->dev, "%s: state %d\n", __func__, inst->state);
-
-	wave6_vpu_set_instance_state(inst, VPU_INST_STATE_STOP);
-}
-
 static void wave6_handle_encoded_frame(struct vpu_instance *inst,
 				       struct enc_output_info *info)
 {
 	struct vb2_v4l2_buffer *src_buf;
 	struct vb2_v4l2_buffer *dst_buf;
 	struct vpu_buffer *vpu_buf;
+	enum vb2_buffer_state state;
+
+	state = info->encoding_success ? VB2_BUF_STATE_DONE : VB2_BUF_STATE_ERROR;
 
 	src_buf = v4l2_m2m_src_buf_remove_by_idx(inst->v4l2_fh.m2m_ctx,
 						 info->enc_src_idx);
@@ -837,11 +771,9 @@ static void wave6_handle_encoded_frame(struct vpu_instance *inst,
 	}
 
 	v4l2_m2m_buf_copy_metadata(src_buf, dst_buf, true);
-
-	v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_DONE);
+	v4l2_m2m_buf_done(src_buf, state);
 
 	vb2_set_plane_payload(&dst_buf->vb2_buf, 0, info->bitstream_size);
-
 	dst_buf->sequence = inst->sequence++;
 	dst_buf->field = V4L2_FIELD_NONE;
 	if (info->pic_type == PIC_TYPE_I)
@@ -852,7 +784,12 @@ static void wave6_handle_encoded_frame(struct vpu_instance *inst,
 		dst_buf->flags |= V4L2_BUF_FLAG_BFRAME;
 
 	v4l2_m2m_dst_buf_remove_by_buf(inst->v4l2_fh.m2m_ctx, dst_buf);
-	v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_DONE);
+	if (state == VB2_BUF_STATE_ERROR) {
+		dprintk(inst->dev->dev, "[%d] error frame %d\n", inst->id, inst->sequence);
+		inst->error_recovery = true;
+		inst->error_buf_num++;
+	}
+	v4l2_m2m_buf_done(dst_buf, state);
 	inst->processed_buf_num++;
 
 	dev_dbg(inst->dev->dev, "frame_cycle %8d\n", info->frame_cycle);
@@ -889,6 +826,24 @@ static void wave6_vpu_enc_finish_encode(struct vpu_instance *inst)
 
 	if (kfifo_out(&inst->dev->irq_status, &irq_status, sizeof(int)))
 		dev_dbg(inst->dev->dev, "irq_status %8d\n", irq_status);
+
+	if (irq_status == BIT(INT_WAVE6_ENC_SET_PARAM)) {
+		complete(&inst->dev->irq_done);
+		return;
+	}
+
+	if (irq_status != BIT(INT_WAVE6_ENC_PIC) &&
+	    irq_status != BIT(INT_WAVE6_ENC_SET_PARAM)) {
+		dev_dbg(inst->dev->dev, "Unexpected irq 0x%x\n", irq_status);
+
+		vb2_queue_error(v4l2_m2m_get_src_vq(inst->v4l2_fh.m2m_ctx));
+		vb2_queue_error(v4l2_m2m_get_dst_vq(inst->v4l2_fh.m2m_ctx));
+
+		wave6_vpu_set_instance_state(inst, VPU_INST_STATE_STOP);
+		inst->eos = true;
+
+		goto finish_encode;
+	}
 
 	ret = wave6_vpu_enc_get_output_info(inst, &info);
 	if (ret) {
@@ -1168,6 +1123,7 @@ static int wave6_vpu_enc_s_fmt_out(struct file *file, void *fh, struct v4l2_form
 	inst->crop.top = 0;
 	inst->crop.width = inst->dst_fmt.width;
 	inst->crop.height = inst->dst_fmt.height;
+
 	return 0;
 }
 
@@ -1249,6 +1205,7 @@ static int wave6_vpu_enc_s_selection(struct file *file, void *fh, struct v4l2_se
 	s->r.height = ALIGN(s->r.height, 2);
 
 	inst->crop = s->r;
+
 	return 0;
 }
 
@@ -1408,25 +1365,19 @@ static int wave6_vpu_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		}
 		break;
 	case V4L2_CID_MPEG_VIDEO_BITRATE:
-		p->enc_bit_rate = ctrl->val;
+		inst->dynamic_bit_rate = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE:
 		p->en_rate_control = ctrl->val;
+		break;
+	case V4L2_CID_MPEG_VIDEO_MB_RC_ENABLE:
+		p->en_cu_level_rate_control = ctrl->val;
 		break;
 	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
 		switch (ctrl->val) {
 		case V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN:
 			p->profile = HEVC_PROFILE_MAIN;
 			p->internal_bit_depth = 8;
-			break;
-		case V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_STILL_PICTURE:
-			p->profile = HEVC_PROFILE_STILLPICTURE;
-			p->en_still_picture = 1;
-			p->internal_bit_depth = 8;
-			break;
-		case V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_10:
-			p->profile = HEVC_PROFILE_MAIN10;
-			p->internal_bit_depth = 10;
 			break;
 		default:
 			return -EINVAL;
@@ -1486,9 +1437,6 @@ static int wave6_vpu_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		case V4L2_MPEG_VIDEO_HEVC_REFRESH_NONE:
 			p->decoding_refresh_type = DEC_REFRESH_TYPE_NON_IRAP;
 			break;
-		case V4L2_MPEG_VIDEO_HEVC_REFRESH_CRA:
-			p->decoding_refresh_type = DEC_REFRESH_TYPE_CRA;
-			break;
 		case V4L2_MPEG_VIDEO_HEVC_REFRESH_IDR:
 			p->decoding_refresh_type = DEC_REFRESH_TYPE_IDR;
 			break;
@@ -1517,10 +1465,6 @@ static int wave6_vpu_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH:
 			p->profile = H264_PROFILE_HP;
 			p->internal_bit_depth = 8;
-			break;
-		case V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_10:
-			p->profile = H264_PROFILE_HIGH10;
-			p->internal_bit_depth = 10;
 			break;
 		default:
 			return -EINVAL;
@@ -1576,6 +1520,9 @@ static int wave6_vpu_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		case V4L2_MPEG_VIDEO_H264_LEVEL_5_1:
 			p->level = 51;
 			break;
+		case V4L2_MPEG_VIDEO_H264_LEVEL_5_2:
+			p->level = 52;
+			break;
 		default:
 			return -EINVAL;
 		}
@@ -1613,11 +1560,18 @@ static int wave6_vpu_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MIN_BUFFERS_FOR_OUTPUT:
 		break;
 	case V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME:
-		inst->force_pic_type_enable = true;
-		inst->force_pic_type = ENC_FORCE_PIC_TYPE_IDR;
+		inst->force_key_frame = true;
 		break;
 	case V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR:
 		p->forced_idr_header = ctrl->val;
+		break;
+	case V4L2_CID_MPEG_VIDEO_INTRA_REFRESH_PERIOD_TYPE:
+		break;
+	case V4L2_CID_MPEG_VIDEO_INTRA_REFRESH_PERIOD:
+		if (ctrl->val) {
+			p->intra_refresh_mode = INTRA_REFRESH_ROW;
+			p->intra_refresh_arg = ctrl->val;
+		}
 		break;
 	default:
 		return -EINVAL;
@@ -1825,7 +1779,7 @@ error:
 	return pos;
 }
 
-static int enc_avc_vui_rbsp_buffer(struct vpu_instance *inst)
+static int enc_avc_vui_rbsp_buffer(struct vpu_instance *inst, u32 gop_preset_idx)
 {
 	struct avc_vui_param *vui;
 	struct vpu_buf *buf = &inst->vui_vbuf;
@@ -1884,8 +1838,22 @@ static int enc_avc_vui_rbsp_buffer(struct vpu_instance *inst)
 	put_bits(buf, 1, vui->vcl_hrd_parameters_present_flag, &pos);
 	vui->pic_struct_present_flag = 0;
 	put_bits(buf, 1, vui->pic_struct_present_flag, &pos);
-	vui->bitstream_restriction_flag = 0;
+	vui->bitstream_restriction_flag = 1;
 	put_bits(buf, 1, vui->bitstream_restriction_flag, &pos);
+	vui->motion_vectors_over_pic_boundaries_flag = 1;
+	put_bits(buf, 1, vui->motion_vectors_over_pic_boundaries_flag, &pos);
+	vui->max_bytes_per_pic_denom = 0;
+	put_ue(buf, vui->max_bytes_per_pic_denom, &pos);
+	vui->max_bits_per_mb_denom = 0;
+	put_ue(buf, vui->max_bits_per_mb_denom, &pos);
+	vui->log2_max_mv_length_horizontal = 11;
+	put_ue(buf, vui->log2_max_mv_length_horizontal, &pos);
+	vui->log2_max_mv_length_vertical = 10;
+	put_ue(buf, vui->log2_max_mv_length_vertical, &pos);
+	vui->max_num_reorder_frames = 0;
+	put_ue(buf, vui->max_num_reorder_frames, &pos);
+	vui->max_dec_frame_buffering = get_max_dec_frame_buffer(gop_preset_idx);
+	put_ue(buf, vui->max_dec_frame_buffering, &pos);
 
 	kfree(vui);
 
@@ -1898,6 +1866,10 @@ static void wave6_set_enc_open_param(struct enc_open_param *open_param,
 {
 	struct enc_wave_param *input = &inst->enc_param;
 	struct enc_wave_param *output = &open_param->wave_param;
+	u32 ctu_size = (inst->std == W_AVC_ENC) ? 16 : 64;
+	u32 num_ctu_row = ALIGN(inst->src_fmt.height, ctu_size) / ctu_size;
+
+	input->enc_bit_rate = inst->dynamic_bit_rate;
 
 	open_param->source_endian = VPU_SOURCE_ENDIAN;
 	if (inst->src_fmt.pixelformat == V4L2_PIX_FMT_YUV420 ||
@@ -1960,6 +1932,9 @@ static void wave6_set_enc_open_param(struct enc_open_param *open_param,
 	output->rc_mode = inst->rc_mode;
 	output->rc_initial_qp = input->qp;
 	output->en_rate_control = input->en_rate_control;
+	output->en_cu_level_rate_control = input->en_cu_level_rate_control;
+	output->max_intra_pic_bit = inst->dst_fmt.plane_fmt[0].sizeimage * 8;
+	output->max_inter_pic_bit = inst->dst_fmt.plane_fmt[0].sizeimage * 8;
 	output->enc_bit_rate = input->enc_bit_rate;
 	output->vbv_buffer_size = input->vbv_buffer_size;
 	if (inst->rc_mode == 0)
@@ -1982,12 +1957,23 @@ static void wave6_set_enc_open_param(struct enc_open_param *open_param,
 				 - inst->crop.width;
 	output->conf_win.bottom = inst->dst_fmt.height - inst->crop.top
 				  - inst->crop.height;
+	output->intra_refresh_mode = input->intra_refresh_mode;
+	if (input->intra_refresh_mode) {
+		// Calculate number of CTU rows based on number of frames.
+		if (input->intra_refresh_arg < num_ctu_row) {
+			output->intra_refresh_arg = (num_ctu_row + input->intra_refresh_arg - 1)
+						    / input->intra_refresh_arg;
+		} else {
+			output->intra_refresh_arg = 1;
+		}
+	}
 
 	switch (inst->std) {
 	case W_AVC_ENC:
 		open_param->enc_vui_rbsp = true;
 		open_param->vui_rbsp_data_addr = inst->vui_vbuf.daddr;
-		open_param->vui_rbsp_data_size = enc_avc_vui_rbsp_buffer(inst);
+		open_param->vui_rbsp_data_size =
+			enc_avc_vui_rbsp_buffer(inst, output->gop_preset_idx);
 		output->slice_mode = input->slice_mode;
 		output->slice_arg = input->slice_arg;
 		output->idr_period = input->idr_period;
@@ -2281,11 +2267,8 @@ static void wave6_vpu_enc_buf_queue(struct vb2_buffer *vb)
 	if (V4L2_TYPE_IS_OUTPUT(vb->type)) {
 		vbuf->sequence = inst->queued_src_buf_num++;
 
-		vpu_buf->force_pic_type_enable = inst->force_pic_type_enable;
-		vpu_buf->force_pic_type	= inst->force_pic_type;
-
-		inst->force_pic_type_enable = false;
-		inst->force_pic_type = ENC_FORCE_PIC_TYPE_I;
+		vpu_buf->force_key_frame = inst->force_key_frame;
+		inst->force_key_frame = false;
 	} else {
 		inst->queued_dst_buf_num++;
 	}
@@ -2411,14 +2394,16 @@ static void wave6_set_default_format(struct v4l2_pix_format_mplane *src_fmt,
 	if (vpu_fmt) {
 		src_fmt->pixelformat = vpu_fmt->v4l2_pix_fmt;
 		src_fmt->num_planes = vpu_fmt->num_planes;
-		wave6_update_pix_fmt(src_fmt, 416, 240);
+		wave6_update_pix_fmt(src_fmt, W6_DEF_ENC_PIC_WIDTH,
+					      W6_DEF_ENC_PIC_HEIGHT);
 	}
 
 	vpu_fmt = wave6_find_vpu_fmt_by_idx(0, VPU_FMT_TYPE_CODEC);
 	if (vpu_fmt) {
 		dst_fmt->pixelformat = vpu_fmt->v4l2_pix_fmt;
 		dst_fmt->num_planes = vpu_fmt->num_planes;
-		wave6_update_pix_fmt(dst_fmt, 416, 240);
+		wave6_update_pix_fmt(dst_fmt, W6_DEF_ENC_PIC_WIDTH,
+					      W6_DEF_ENC_PIC_HEIGHT);
 	}
 }
 
@@ -2458,7 +2443,6 @@ static int wave6_vpu_enc_queue_init(void *priv, struct vb2_queue *src_vq, struct
 
 static const struct vpu_instance_ops wave6_vpu_enc_inst_ops = {
 	.start_process = wave6_vpu_enc_start_encode,
-	.stop_process = wave6_vpu_enc_stop_encode,
 	.finish_process = wave6_vpu_enc_finish_encode,
 };
 
@@ -2493,12 +2477,12 @@ static int wave6_vpu_open_enc(struct file *filp)
 	v4l2_ctrl_handler_init(v4l2_ctrl_hdl, 50);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
 			       V4L2_CID_MPEG_VIDEO_HEVC_PROFILE,
-			       V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN_10, 0,
+			       V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN, 0,
 			       V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
 			       V4L2_CID_MPEG_VIDEO_HEVC_LEVEL,
 			       V4L2_MPEG_VIDEO_HEVC_LEVEL_5_1, 0,
-			       V4L2_MPEG_VIDEO_HEVC_LEVEL_1);
+			       V4L2_MPEG_VIDEO_HEVC_LEVEL_5);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP,
 			  0, 51, 1, 8);
@@ -2510,19 +2494,20 @@ static int wave6_vpu_open_enc(struct file *filp)
 			  0, 51, 1, 30);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
 			       V4L2_CID_MPEG_VIDEO_HEVC_REFRESH_TYPE,
-			       V4L2_MPEG_VIDEO_HEVC_REFRESH_IDR, 0,
+			       V4L2_MPEG_VIDEO_HEVC_REFRESH_IDR,
+			       (1 << V4L2_MPEG_VIDEO_HEVC_REFRESH_CRA),
 			       V4L2_MPEG_VIDEO_HEVC_REFRESH_IDR);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_HEVC_REFRESH_PERIOD,
 			  0, 2047, 1, 0);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
 			       V4L2_CID_MPEG_VIDEO_H264_PROFILE,
-			       V4L2_MPEG_VIDEO_H264_PROFILE_HIGH_10, 0,
+			       V4L2_MPEG_VIDEO_H264_PROFILE_HIGH, 0,
 			       V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE);
 	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
 			       V4L2_CID_MPEG_VIDEO_H264_LEVEL,
-			       V4L2_MPEG_VIDEO_H264_LEVEL_5_1, 0,
-			       V4L2_MPEG_VIDEO_H264_LEVEL_1_0);
+			       V4L2_MPEG_VIDEO_H264_LEVEL_5_2, 0,
+			       V4L2_MPEG_VIDEO_H264_LEVEL_5_0);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_H264_MIN_QP,
 			  0, 51, 1, 8);
@@ -2565,9 +2550,12 @@ static int wave6_vpu_open_enc(struct file *filp)
 			       V4L2_MPEG_VIDEO_BITRATE_MODE_CBR);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_BITRATE,
-			  0, 1500000000, 1, 0);
+			  0, 1500000000, 1, 2097152);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_FRAME_RC_ENABLE,
+			  0, 1, 1, 0);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_MB_RC_ENABLE,
 			  0, 1, 1, 0);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_GOP_SIZE,
@@ -2585,6 +2573,14 @@ static int wave6_vpu_open_enc(struct file *filp)
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR,
 			  0, 1, 1, 1);
+	v4l2_ctrl_new_std_menu(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
+			       V4L2_CID_MPEG_VIDEO_INTRA_REFRESH_PERIOD_TYPE,
+			       V4L2_CID_MPEG_VIDEO_INTRA_REFRESH_PERIOD_TYPE_CYCLIC,
+			       (1 << V4L2_CID_MPEG_VIDEO_INTRA_REFRESH_PERIOD_TYPE_RANDOM),
+			       V4L2_CID_MPEG_VIDEO_INTRA_REFRESH_PERIOD_TYPE_CYCLIC);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_INTRA_REFRESH_PERIOD,
+			  0, 2160, 1, 0);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
 			  V4L2_CID_MIN_BUFFERS_FOR_OUTPUT, 1, 32, 1, 1);
 
