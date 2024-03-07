@@ -276,7 +276,7 @@ static void adrv9002_axi_digital_tune_verbose(const struct adrv9002_rf_phy *phy,
 	if (tx)
 		ch = &phy->tx_channels[channel].channel;
 	else
-		ch = &phy->tx_channels[channel].channel;
+		ch = &phy->rx_channels[channel].channel;
 
 	pr_info("SAMPL CLK: %lu tuning: %s%d\n",
 	        clk_get_rate(ch->clk), tx ? "TX" : "RX",
