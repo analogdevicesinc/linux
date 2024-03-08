@@ -2870,9 +2870,6 @@ gckCOMMAND_SwitchSecurityMode(gckCOMMAND Command, gckHARDWARE Hardware)
 
     gcmkONERROR(gckHARDWARE_SwitchSecurityMode(Hardware, gcvNULL, gcvINVALID_ADDRESS, 1, 0, &reserveBytes));
 
-
-    gcmkONERROR(gckHARDWARE_SwitchSecurityMode(Hardware, gcvNULL, gcvINVALID_ADDRESS, 1, 0, &reserveBytes));
-
     gcmkONERROR(gckCOMMAND_Reserve(Command, reserveBytes, (gctPOINTER *)&pointer, &size));
 
     address = Command->address + Command->offset;
