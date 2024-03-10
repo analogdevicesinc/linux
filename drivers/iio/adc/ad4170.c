@@ -462,7 +462,7 @@ static const struct iio_enum ad4170_filter_type_enum = {
 
 static const struct iio_chan_spec_ext_info ad4170_filter_type_ext_info[] = {
 	IIO_ENUM("filter_type", IIO_SEPARATE, &ad4170_filter_type_enum),
-	IIO_ENUM_AVAILABLE("filter_type", &ad4170_filter_type_enum),
+	IIO_ENUM_AVAILABLE("filter_type", IIO_SHARED_BY_TYPE, &ad4170_filter_type_enum),
 	{ }
 };
 
@@ -1401,7 +1401,7 @@ static int ad4170_triggered_buffer_alloc(struct iio_dev *indio_dev)
 	indio_dev->modes |= INDIO_BUFFER_TRIGGERED;
 
 	st->trig = devm_iio_trigger_alloc(indio_dev->dev.parent, "%s-dev%d",
-					  indio_dev->name, indio_dev->id);
+					  indio_dev->name, iio_device_id(indio_dev));
 	if (!st->trig)
 		return -ENOMEM;
 
