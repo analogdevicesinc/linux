@@ -34,13 +34,19 @@ static u8 aie_get_broadcast_event(struct aie_partition *apart,
 {
 	const struct aie_event_attr *event_mod;
 	u32 bcoff, regoff;
+	u32 ttype;
 
-	if (module == AIE_CORE_MOD)
-		event_mod = apart->adev->core_events;
-	else if (module == AIE_MEM_MOD)
-		event_mod = apart->adev->mem_events;
-	else
+	ttype = apart->adev->ops->get_tile_type(apart->adev, loc);
+	if (ttype == AIE_TILE_TYPE_TILE) {
+		if (module == AIE_CORE_MOD)
+			event_mod = apart->adev->core_events;
+		else
+			event_mod = apart->adev->mem_events;
+	} else if (ttype == AIE_TILE_TYPE_MEMORY) {
+		event_mod = apart->adev->memtile_events;
+	} else {
 		event_mod = apart->adev->pl_events;
+	}
 
 	bcoff = event_mod->bc_regoff + event_mod->bc_event.regoff + bc_id * 4U;
 	regoff = aie_aperture_cal_regoff(apart->aperture, *loc, bcoff);
@@ -97,13 +103,20 @@ static void aie_clear_event_status(struct aie_partition *apart,
 {
 	const struct aie_event_attr *event_mod;
 	u32 status_off, regoff;
+	u32 ttype;
 
-	if (module == AIE_CORE_MOD)
-		event_mod = apart->adev->core_events;
-	else if (module == AIE_MEM_MOD)
-		event_mod = apart->adev->mem_events;
-	else
+	ttype = apart->adev->ops->get_tile_type(apart->adev, loc);
+
+	if (ttype == AIE_TILE_TYPE_TILE) {
+		if (module == AIE_CORE_MOD)
+			event_mod = apart->adev->core_events;
+		else
+			event_mod = apart->adev->mem_events;
+	} else if (ttype == AIE_TILE_TYPE_MEMORY) {
+		event_mod = apart->adev->memtile_events;
+	} else {
 		event_mod = apart->adev->pl_events;
+	}
 
 	if (event >= event_mod->num_events)
 		return;
@@ -126,13 +139,20 @@ static u32 aie_check_group_errors_enabled(struct aie_partition *apart,
 {
 	const struct aie_event_attr *event_mod;
 	u32 groff, regoff;
+	u32 ttype;
 
-	if (module == AIE_CORE_MOD)
-		event_mod = apart->adev->core_events;
-	else if (module == AIE_MEM_MOD)
-		event_mod = apart->adev->mem_events;
-	else
+	ttype = apart->adev->ops->get_tile_type(apart->adev, loc);
+
+	if (ttype == AIE_TILE_TYPE_TILE) {
+		if (module == AIE_CORE_MOD)
+			event_mod = apart->adev->core_events;
+		else
+			event_mod = apart->adev->mem_events;
+	} else if (ttype == AIE_TILE_TYPE_MEMORY) {
+		event_mod = apart->adev->memtile_events;
+	} else {
 		event_mod = apart->adev->pl_events;
+	}
 
 	groff = event_mod->group_regoff + event_mod->group_error.regoff;
 	regoff = aie_aperture_cal_regoff(apart->aperture, *loc, groff);
@@ -152,13 +172,20 @@ static void aie_set_error_event(struct aie_partition *apart,
 {
 	const struct aie_event_attr *event_mod;
 	u32 groff, regoff;
+	u32 ttype;
 
-	if (module == AIE_CORE_MOD)
-		event_mod = apart->adev->core_events;
-	else if (module == AIE_MEM_MOD)
-		event_mod = apart->adev->mem_events;
-	else
+	ttype = apart->adev->ops->get_tile_type(apart->adev, loc);
+
+	if (ttype == AIE_TILE_TYPE_TILE) {
+		if (module == AIE_CORE_MOD)
+			event_mod = apart->adev->core_events;
+		else
+			event_mod = apart->adev->mem_events;
+	} else if (ttype == AIE_TILE_TYPE_MEMORY) {
+		event_mod = apart->adev->memtile_events;
+	} else {
 		event_mod = apart->adev->pl_events;
+	}
 
 	groff = event_mod->group_regoff + event_mod->group_error.regoff;
 	regoff = aie_aperture_cal_regoff(apart->aperture, *loc, groff);
@@ -179,13 +206,20 @@ static u32 aie_get_error_event(struct aie_partition *apart,
 			       enum aie_module_type module, u8 index)
 {
 	const struct aie_event_attr *event_mod;
+	u32 ttype;
 
-	if (module == AIE_CORE_MOD)
-		event_mod = apart->adev->core_events;
-	else if (module == AIE_MEM_MOD)
-		event_mod = apart->adev->mem_events;
-	else
+	ttype = apart->adev->ops->get_tile_type(apart->adev, loc);
+
+	if (ttype == AIE_TILE_TYPE_TILE) {
+		if (module == AIE_CORE_MOD)
+			event_mod = apart->adev->core_events;
+		else
+			event_mod = apart->adev->mem_events;
+	} else if (ttype == AIE_TILE_TYPE_MEMORY) {
+		event_mod = apart->adev->memtile_events;
+	} else {
 		event_mod = apart->adev->pl_events;
+	}
 
 	return event_mod->base_error_event + index;
 }
@@ -193,23 +227,29 @@ static u32 aie_get_error_event(struct aie_partition *apart,
 /**
  * aie_get_bc_event() - get the broadcast event ID.
  * @apart: AIE partition pointer.
- * @loc: pointer to tile location.
+ * @ttype: tile type.
  * @module: module type.
  * @bc_id: broadcast line ID.
  * @return: broadcast event ID.
  */
-static u32 aie_get_bc_event(struct aie_partition *apart,
-			    struct aie_location *loc,
+static u32 aie_get_bc_event(struct aie_partition *apart, u32 ttype,
 			    enum aie_module_type module, u8 bc_id)
 {
 	const struct aie_event_attr *event_mod;
 
-	if (module == AIE_CORE_MOD)
-		event_mod = apart->adev->core_events;
-	else if (module == AIE_MEM_MOD)
-		event_mod = apart->adev->mem_events;
-	else
+	if (ttype == AIE_TILE_TYPE_TILE) {
+		if (module == AIE_CORE_MOD)
+			event_mod = apart->adev->core_events;
+		else
+			event_mod = apart->adev->mem_events;
+	} else if (ttype == AIE_TILE_TYPE_MEMORY) {
+		event_mod = apart->adev->memtile_events;
+	} else {
 		event_mod = apart->adev->pl_events;
+	}
+
+	if (!event_mod)
+		return 0;
 
 	return event_mod->base_bc_event + bc_id;
 }
@@ -457,15 +497,16 @@ bool aie_check_error_bitmap(struct aie_partition *apart,
  * @module: module type.
  * @sw: switch type.
  * @bc_id: broadcast ID.
+ * @status: tile status register.
  * @return: true if error was asserted, else return false.
  */
 static bool aie_tile_backtrack(struct aie_partition *apart,
 			       struct aie_location loc,
 			       enum aie_module_type module,
-			       enum aie_shim_switch_type sw, u8 bc_id)
+			       enum aie_shim_switch_type sw, u8 bc_id,
+			       u32 *status)
 {
 	unsigned long grenabled;
-	u32 status[4];
 	u8 n, grevent, eevent;
 	bool ret = false;
 
@@ -538,12 +579,20 @@ static void aie_map_l2_to_l1(struct aie_partition *apart, u32 set_pos,
 static bool aie_l1_backtrack(struct aie_partition *apart,
 			     struct aie_location loc, u32 set_pos)
 {
-	struct aie_location l1_ctrl;
+	u32 mem_srow, mem_erow, aie_srow, aie_erow;
 	enum aie_shim_switch_type sw;
-	u32 status;
-	u32 srow = apart->range.start.row + 1;
-	u32 erow = apart->range.start.row + apart->range.size.row;
+	struct aie_location l1_ctrl;
+	enum aie_module_type module;
 	bool ret = false;
+	u32 bc_event;
+	u32 status;
+
+	mem_srow = apart->adev->ttype_attr[AIE_TILE_TYPE_MEMORY].start_row;
+	mem_erow = mem_srow +
+		   apart->adev->ttype_attr[AIE_TILE_TYPE_MEMORY].num_rows;
+	aie_srow = apart->adev->ttype_attr[AIE_TILE_TYPE_TILE].start_row;
+	aie_erow = aie_srow +
+		   apart->adev->ttype_attr[AIE_TILE_TYPE_TILE].num_rows;
 
 	/*
 	 * Based on the set status bit find which level 1 interrupt
@@ -551,6 +600,9 @@ static bool aie_l1_backtrack(struct aie_partition *apart,
 	 */
 	l1_ctrl.row = 0;
 	aie_map_l2_to_l1(apart, set_pos, loc.col, &l1_ctrl.col, &sw);
+	module = (sw == AIE_SHIM_SWITCH_A) ? AIE_CORE_MOD : AIE_MEM_MOD;
+	loc = l1_ctrl;
+
 	/*
 	 * This should not be the case if the routing is generated based on
 	 * the partition. In case, the routing is generated with different
@@ -562,49 +614,51 @@ static bool aie_l1_backtrack(struct aie_partition *apart,
 
 	status = aie_get_l1_status(apart, &l1_ctrl, sw);
 
-	/* For now, support error broadcasts only */
-	if (status & BIT(AIE_ARRAY_TILE_ERROR_BC_ID)) {
-		struct aie_location temp;
-		enum aie_module_type module;
-		u32 bc_event;
-
-		if (sw == AIE_SHIM_SWITCH_A)
-			module = AIE_CORE_MOD;
-		else
-			module = AIE_MEM_MOD;
-
-		aie_clear_l1_intr(apart, &l1_ctrl, sw,
-				  AIE_ARRAY_TILE_ERROR_BC_ID);
-
-		temp.row = srow;
-		temp.col = l1_ctrl.col;
-		bc_event = aie_get_bc_event(apart, &temp, module,
-					    AIE_ARRAY_TILE_ERROR_BC_ID);
-		for (; temp.row < erow; temp.row++) {
-			u32 reg[4];
-
-			if (!aie_part_check_clk_enable_loc(apart, &temp))
-				break;
-
-			if (aie_tile_backtrack(apart, temp, module, sw,
-					       AIE_ARRAY_TILE_ERROR_BC_ID))
-				ret = true;
-
-			aie_read_event_status(apart, &temp, module, reg);
-			if (!(reg[bc_event / 32] & BIT(bc_event % 32)))
-				break;
-
-			aie_clear_event_status(apart, &temp, module, bc_event);
-		}
-	}
-
 	if (status & BIT(AIE_SHIM_TILE_ERROR_IRQ_ID)) {
+		u32 status[AIE_NUM_EVENT_STS_SHIMTILE] = {0};
+
 		aie_clear_l1_intr(apart, &l1_ctrl, sw,
 				  AIE_SHIM_TILE_ERROR_IRQ_ID);
 		if (aie_tile_backtrack(apart, l1_ctrl, AIE_PL_MOD, sw,
-				       AIE_SHIM_TILE_ERROR_IRQ_ID))
+				       AIE_SHIM_TILE_ERROR_IRQ_ID, status))
 			ret = true;
 	}
+
+	if (!(status & BIT(AIE_ARRAY_TILE_ERROR_BC_ID)))
+		return ret;
+
+	aie_clear_l1_intr(apart, &l1_ctrl, sw, AIE_ARRAY_TILE_ERROR_BC_ID);
+
+	if (sw != AIE_SHIM_SWITCH_A)
+		goto backtrack_aie_tile;
+
+	bc_event = aie_get_bc_event(apart, AIE_TILE_TYPE_MEMORY, AIE_MEM_MOD,
+				    AIE_ARRAY_TILE_ERROR_BC_ID);
+	for (loc.row = mem_srow; loc.row < mem_erow; loc.row++) {
+		u32 status[AIE_NUM_EVENT_STS_MEMTILE] = {0};
+
+		if (!aie_part_check_clk_enable_loc(apart, &loc))
+			continue;
+		ret |= aie_tile_backtrack(apart, loc, module, sw,
+					  AIE_ARRAY_TILE_ERROR_BC_ID, status);
+		aie_clear_event_status(apart, &loc, AIE_MEM_MOD, bc_event);
+	}
+
+backtrack_aie_tile:
+	bc_event = aie_get_bc_event(apart, AIE_TILE_TYPE_TILE, module,
+				    AIE_ARRAY_TILE_ERROR_BC_ID);
+	for (loc.row = aie_srow; loc.row < aie_erow; loc.row++) {
+		u32 status[AIE_NUM_EVENT_STS_CORETILE] = {0};
+
+		if (!aie_part_check_clk_enable_loc(apart, &loc))
+			continue;
+		ret |= aie_tile_backtrack(apart, loc, module, sw,
+					  AIE_ARRAY_TILE_ERROR_BC_ID, status);
+		if (!(status[bc_event / 32] & BIT(bc_event % 32)))
+			break;
+		aie_clear_event_status(apart, &loc, module, bc_event);
+	}
+
 	return ret;
 }
 
@@ -780,13 +834,6 @@ irqreturn_t aie_interrupt(int irq, void *data)
 	u32 *aperture_l2_mask = aperture->l2_mask.val;
 	int l2_mask_count = aperture->l2_mask.count;
 	int l2_mask_index = 0;
-
-	if (adev->dev_gen != AIE_DEVICE_GEN_AIE) {
-		dev_info_ratelimited(&adev->dev,
-				     "Error interrupt backtacking is not supported for %d hw generation.\n",
-				     adev->dev_gen);
-		return IRQ_NONE;
-	}
 
 	for (loc.col = aperture->range.start.col, loc.row = 0;
 	     loc.col < aperture->range.start.col + aperture->range.size.col;

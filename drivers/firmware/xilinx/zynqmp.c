@@ -491,10 +491,8 @@ static int zynqmp_pm_get_family_info(u32 *family, u32 *subfamily)
 		return ret;
 
 	idcode = ret_payload[1];
-	pm_family_code = FIELD_GET(GENMASK(FAMILY_CODE_MSB, FAMILY_CODE_LSB),
-				   idcode);
-	pm_sub_family_code = FIELD_GET(GENMASK(SUB_FAMILY_CODE_MSB,
-					       SUB_FAMILY_CODE_LSB), idcode);
+	pm_family_code = FIELD_GET(FAMILY_CODE_MASK, idcode);
+	pm_sub_family_code = FIELD_GET(SUB_FAMILY_CODE_MASK, idcode);
 	*family = pm_family_code;
 	*subfamily = pm_sub_family_code;
 
@@ -708,47 +706,6 @@ int zynqmp_pm_clock_getdivider(u32 clock_id, u32 *divider)
 	return ret;
 }
 EXPORT_SYMBOL_GPL(zynqmp_pm_clock_getdivider);
-
-/**
- * zynqmp_pm_clock_setrate() - Set the clock rate for given id
- * @clock_id:	ID of the clock
- * @rate:	rate value in hz
- *
- * This function is used by master to set rate for any clock.
- *
- * Return: Returns status, either success or error+reason
- */
-int zynqmp_pm_clock_setrate(u32 clock_id, u64 rate)
-{
-	return zynqmp_pm_invoke_fn(PM_CLOCK_SETRATE, clock_id,
-				   lower_32_bits(rate),
-				   upper_32_bits(rate),
-				   0, 0, NULL);
-}
-EXPORT_SYMBOL_GPL(zynqmp_pm_clock_setrate);
-
-/**
- * zynqmp_pm_clock_getrate() - Get the clock rate for given id
- * @clock_id:	ID of the clock
- * @rate:	rate value in hz
- *
- * This function is used by master to get rate
- * for any clock.
- *
- * Return: Returns status, either success or error+reason
- */
-int zynqmp_pm_clock_getrate(u32 clock_id, u64 *rate)
-{
-	u32 ret_payload[PAYLOAD_ARG_CNT];
-	int ret;
-
-	ret = zynqmp_pm_invoke_fn(PM_CLOCK_GETRATE, clock_id, 0,
-				  0, 0, 0, ret_payload);
-	*rate = ((u64)ret_payload[2] << 32) | ret_payload[1];
-
-	return ret;
-}
-EXPORT_SYMBOL_GPL(zynqmp_pm_clock_getrate);
 
 /**
  * zynqmp_pm_clock_setparent() - Set the clock parent for given id
@@ -1320,6 +1277,15 @@ EXPORT_SYMBOL_GPL(zynqmp_pm_pinctrl_get_config);
 int zynqmp_pm_pinctrl_set_config(const u32 pin, const u32 param,
 				 u32 value)
 {
+	int ret;
+
+	if (pm_family_code == ZYNQMP_FAMILY_CODE &&
+	    param == PM_PINCTRL_CONFIG_TRI_STATE) {
+		ret = zynqmp_pm_feature(PM_PINCTRL_CONFIG_PARAM_SET);
+		if (ret < PM_PINCTRL_PARAM_SET_VERSION)
+			return -EOPNOTSUPP;
+	}
+
 	return zynqmp_pm_invoke_fn(PM_PINCTRL_CONFIG_PARAM_SET, pin,
 				   param, value, 0, 0, NULL);
 }
@@ -2105,6 +2071,24 @@ int versal_pm_aes_dec_final(const u64 gcm_addr)
 				   0, 0, 0, NULL);
 }
 EXPORT_SYMBOL_GPL(versal_pm_aes_dec_final);
+
+int versal_pm_puf_registration(const u64 in_addr)
+{
+	return zynqmp_pm_invoke_fn(XPUF_API_PUF_REGISTRATION,
+				   lower_32_bits(in_addr),
+				   upper_32_bits(in_addr),
+				   0, 0, 0, NULL);
+}
+EXPORT_SYMBOL_GPL(versal_pm_puf_registration);
+
+int versal_pm_puf_regeneration(const u64 in_addr)
+{
+	return zynqmp_pm_invoke_fn(XPUF_API_PUF_REGENERATION,
+				   lower_32_bits(in_addr),
+				   upper_32_bits(in_addr),
+				   0, 0, 0, NULL);
+}
+EXPORT_SYMBOL_GPL(versal_pm_puf_regeneration);
 
 /**
  * zynqmp_pm_efuse_access - Provides access to efuse memory.
@@ -3174,7 +3158,6 @@ static const struct bin_attribute meta_header_attr = {
 static int zynqmp_firmware_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct device_node *np;
 	struct zynqmp_devinfo *devinfo;
 	int ret;
 
@@ -3263,14 +3246,12 @@ static int zynqmp_firmware_probe(struct platform_device *pdev)
 
 	zynqmp_pm_api_debugfs_init();
 
-	np = of_find_compatible_node(NULL, NULL, "xlnx,versal");
-	if (np) {
+	if (pm_family_code == VERSAL_FAMILY_CODE) {
 		em_dev = platform_device_register_data(&pdev->dev, "xlnx_event_manager",
-						       -1, NULL, 0);
+						       -1, &pm_sub_family_code, 4);
 		if (IS_ERR(em_dev))
 			dev_err_probe(&pdev->dev, PTR_ERR(em_dev), "EM register fail with error\n");
 	}
-	of_node_put(np);
 
 	return of_platform_populate(dev->of_node, NULL, NULL, dev);
 }

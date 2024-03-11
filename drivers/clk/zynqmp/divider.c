@@ -2,7 +2,8 @@
 /*
  * Zynq UltraScale+ MPSoC Divider support
  *
- *  Copyright (C) 2016-2019 Xilinx
+ * Copyright (C), 2016 - 2019 Xilinx
+ * Copyright (C), 2023 Advanced Micro Devices, Inc.
  *
  * Adjustable divider clock implementation
  */
@@ -110,8 +111,7 @@ static unsigned long zynqmp_clk_divider_recalc_rate(struct clk_hw *hw,
 	return DIV_ROUND_UP_ULL(parent_rate, value);
 }
 
-static void zynqmp_get_divider2_val(struct clk_hw *hw,
-				    unsigned long rate,
+static void zynqmp_get_divider2_val(struct clk_hw *hw, unsigned long rate,
 				    struct zynqmp_clk_divider *divider,
 				    u32 *bestdiv)
 {
@@ -174,6 +174,9 @@ static long zynqmp_clk_divider_round_rate(struct clk_hw *hw,
 	u32 div_type = divider->div_type;
 	u32 bestdiv;
 	int ret;
+	u8 width = 0;
+	u16 max;
+	struct device_node *np;
 
 	/* if read only, just return current value */
 	if (divider->flags & CLK_DIVIDER_READ_ONLY) {
@@ -193,23 +196,49 @@ static long zynqmp_clk_divider_round_rate(struct clk_hw *hw,
 		return DIV_ROUND_UP_ULL((u64)*prate, bestdiv);
 	}
 
-	bestdiv = zynqmp_divider_get_val(*prate, rate, divider->flags);
-
 	/*
-	 * In case of two divisors, compute best divider values and return
-	 * divider2 value based on compute value. div1 will  be automatically
-	 * set to optimum based on required total divider value.
+	 * Hack to use old algorithm for round rate div clocks. Currently PL
+	 * rate is getting changed because RPLL_TO_FPD clock is changing RPLL
+	 * rate for DP audio driver. Using old algorithm RPLL rate change is
+	 * less and its not affecting PL clocks more so as a temporary solution
+	 * use old algorithm for Versal and ZynqMP platforms.
+	 *
+	 * TBD: Remove this hack and use new algorithm for all platform once PL
+	 * clock issue is fixed with better way.
 	 */
-	if (div_type == TYPE_DIV2 &&
-	    (clk_hw_get_flags(hw) & CLK_SET_RATE_PARENT)) {
-		zynqmp_get_divider2_val(hw, rate, divider, &bestdiv);
+	np = of_find_compatible_node(NULL, NULL, "xlnx,versal-net");
+	if (np) {
+		max = divider->max_div;
+		while (max != 0) {
+			if ((max & 1) == 1)
+				width++;
+			max = max >> 1;
+		}
+
+		rate = divider_round_rate(hw, rate, prate, NULL, width, divider->flags);
+
+		if (divider->is_frac && (clk_hw_get_flags(hw) & CLK_SET_RATE_PARENT) &&
+		    (rate % *prate))
+			*prate = rate;
+	} else {
+		bestdiv = zynqmp_divider_get_val(*prate, rate, divider->flags);
+
+		/*
+		 * In case of two divisors, compute best divider values and return
+		 * divider2 value based on compute value. div1 will  be automatically
+		 * set to optimum based on required total divider value.
+		 */
+		if (div_type == TYPE_DIV2 && (clk_hw_get_flags(hw) &
+		    CLK_SET_RATE_PARENT))
+			zynqmp_get_divider2_val(hw, rate, divider, &bestdiv);
+
+		if ((clk_hw_get_flags(hw) & CLK_SET_RATE_PARENT) &&
+		    divider->is_frac)
+			bestdiv = rate % *prate ? 1 : bestdiv;
+
+		bestdiv = min_t(u32, bestdiv, divider->max_div);
+		*prate = rate * bestdiv;
 	}
-
-	if ((clk_hw_get_flags(hw) & CLK_SET_RATE_PARENT) && divider->is_frac)
-		bestdiv = rate % *prate ? 1 : bestdiv;
-
-	bestdiv = min_t(u32, bestdiv, divider->max_div);
-	*prate = rate * bestdiv;
 
 	return rate;
 }

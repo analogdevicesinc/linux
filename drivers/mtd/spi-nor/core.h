@@ -120,6 +120,12 @@
 		   SPI_MEM_OP_NO_ADDR,					\
 		   SPI_MEM_OP_NO_DATA)
 
+#define SPI_NOR_DIESEL_OP(buf)							\
+	SPI_MEM_OP(SPI_MEM_OP_CMD(SPINOR_OP_DIESEL, 0),			\
+		   SPI_MEM_OP_NO_ADDR,					\
+		   SPI_MEM_OP_NO_DUMMY,					\
+		   SPI_MEM_OP_DATA_OUT(1, buf, 0))
+
 /* Keep these in sync with the list in debugfs.c */
 enum spi_nor_option_flags {
 	SNOR_F_HAS_SR_TB	= BIT(0),
@@ -139,6 +145,7 @@ enum spi_nor_option_flags {
 	SNOR_F_HAS_STACKED      = BIT(14),
 	SNOR_F_HAS_PARALLEL	= BIT(15),
 	SNOR_F_HAS_SR_BP3_BIT5	= BIT(16),
+	SNOR_F_NO_WP		= BIT(17),
 };
 
 struct spi_nor_read_command {

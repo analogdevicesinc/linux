@@ -17,6 +17,7 @@
 #include <linux/ptp_clock_kernel.h>
 #include <linux/platform_device.h>
 #include <linux/of_irq.h>
+#include <linux/ptp/ptp_xilinx.h>
 
 /* Register offset definitions */
 #define XPTPTIMER_TOD_CONFIG_OFFSET	0x0000
@@ -30,8 +31,10 @@
 #define XPTPTIMER_TOD_SEC_SYS_OFST_0_OFFSET	0x0028
 #define XPTPTIMER_TOD_SEC_SYS_OFST_1_OFFSET	0x002C
 #define XPTPTIMER_TOD_NS_SYS_OFST_OFFSET	0x0030
-#define TOD_SYS_PERIOD_0                0x0130
-#define TOD_SYS_PERIOD_1                0x0134
+#define TOD_LEGACY_SYS_PERIOD_0		0x0130
+#define TOD_LEGACY_SYS_PERIOD_1		0x0134
+#define TOD_SYS_PERIOD_0		0x0034
+#define TOD_SYS_PERIOD_1		0x0038
 
 #define XPTPTIMER_SYS_SEC_0_OFFSET	0x0100
 #define XPTPTIMER_SYS_SEC_1_OFFSET	0x0104
@@ -51,7 +54,6 @@
 #define PORT0_SEC_OFFSET_1                     0x0254
 #define PORT0_NS_OFFSET_0                      0x0258
 
-
 #define XPTPTIMER_CFG_MAIN_TOD_EN	BIT(0)
 #define XPTPTIMER_CFG_ENABLE_PORT0	BIT(16)
 #define XPTPTIMER_CFG_AUTO_REF	BIT(4)
@@ -64,23 +66,14 @@
 #define XPTPTIMER_SNAPSHOT_MASK		BIT(0)
 #define XPTPTIMER_LOAD_TOD_MASK		BIT(0)
 #define XPTPTIMER_LOAD_OFFSET_MASK	BIT(1)
+#define XPTPTIMER_ENABLE_SNAPSHOT BIT(5)
+#define XPTPTIMER_EXTS_1PPS_INTR_MASK  BIT(16)
 
 /* TODO This should be derived from the system design */
 #define XPTPTIMER_CLOCK_PERIOD		4
 #define XPTPTIMER_PERIOD_SHIFT		48
 
 #define PPM_FRACTION	16
-
-struct xlnx_ptp_timer {
-	struct		device *dev;
-	void __iomem		*baseaddr;
-	struct ptp_clock	*ptp_clock;
-	struct ptp_clock_info	ptp_clock_info;
-	spinlock_t		reg_lock; /* For reg access */
-	u64			incr;
-	s64			timeoffset;
-	s32			static_delay;
-};
 
 /* I/O accessors */
 static inline u32 xlnx_ptp_ior(struct xlnx_ptp_timer *timer, off_t reg)
@@ -105,10 +98,16 @@ static inline void xlnx_tod_read(struct xlnx_ptp_timer *timer,
 	xlnx_ptp_iow(timer, XPTPTIMER_TOD_SNAPSHOT_OFFSET,
 		     XPTPTIMER_SNAPSHOT_MASK);
 
-	/* use TX port here */
-	nsec = xlnx_ptp_ior(timer, XPTPTIMER_PORT_TX_NS_SNAP_OFFSET);
-	secl = xlnx_ptp_ior(timer, XPTPTIMER_PORT_TX_SEC_0_SNAP_OFFSET);
-	sech = xlnx_ptp_ior(timer, XPTPTIMER_PORT_TX_SEC_1_SNAP_OFFSET);
+	if (timer->use_sys_timer_only) {
+		nsec = xlnx_ptp_ior(timer, XPTPTIMER_SYS_NS_OFFSET);
+		sech = xlnx_ptp_ior(timer, XPTPTIMER_SYS_SEC_1_OFFSET);
+		secl = xlnx_ptp_ior(timer, XPTPTIMER_SYS_SEC_0_OFFSET);
+	} else {
+		/* use TX port here */
+		nsec = xlnx_ptp_ior(timer, XPTPTIMER_PORT_TX_NS_SNAP_OFFSET);
+		secl = xlnx_ptp_ior(timer, XPTPTIMER_PORT_TX_SEC_0_SNAP_OFFSET);
+		sech = xlnx_ptp_ior(timer, XPTPTIMER_PORT_TX_SEC_1_SNAP_OFFSET);
+	}
 
 	ts->tv_nsec = nsec;
 	ts->tv_sec = (((u64)sech << 32) | secl) & XPTPTIMER_MAX_SEC_MASK;
@@ -176,8 +175,8 @@ static inline void xlnx_tod_period_write(struct xlnx_ptp_timer *timer, u64 adj)
 {
 	u32 adjhigh = upper_32_bits(adj);
 
-	xlnx_ptp_iow(timer, TOD_SYS_PERIOD_0, (u32)(adj));
-	xlnx_ptp_iow(timer, TOD_SYS_PERIOD_1, adjhigh);
+	xlnx_ptp_iow(timer, timer->period_0, (u32)(adj));
+	xlnx_ptp_iow(timer, timer->period_1, adjhigh);
 }
 
 static inline void xlnx_port_period_write(struct xlnx_ptp_timer *timer, u64 adj)
@@ -220,7 +219,10 @@ static int xlnx_ptp_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
 	adj >>= PPM_FRACTION; /* remove fractions */
 	adj = neg_adj ? (timer->incr - adj) : (timer->incr + adj);
 
-	xlnx_port_period_write(timer, adj);
+	if (timer->use_sys_timer_only)
+		xlnx_tod_period_write(timer, adj);
+	else
+		xlnx_port_period_write(timer, adj);
 
 	return 0;
 }
@@ -244,7 +246,8 @@ static int xlnx_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
 	spin_lock(&timer->reg_lock);
 
 	/* Fixed offset between system and port timer */
-	delta += timer->static_delay;
+	if (!timer->use_sys_timer_only)
+		delta += timer->static_delay;
 	cumulative_delta += delta;
 	timer->timeoffset = cumulative_delta;
 	if (cumulative_delta < 0) {
@@ -254,7 +257,10 @@ static int xlnx_ptp_adjtime(struct ptp_clock_info *ptp, s64 delta)
 	offset = ns_to_timespec64(cumulative_delta);
 	offset.tv_sec |= sign;
 
-	xlnx_port_offset_write(timer, (const struct timespec64 *)&offset);
+	if (timer->use_sys_timer_only)
+		xlnx_tod_offset_write(timer, (const struct timespec64 *)&offset);
+	else
+		xlnx_port_offset_write(timer, (const struct timespec64 *)&offset);
 
 	spin_unlock(&timer->reg_lock);
 
@@ -306,6 +312,28 @@ static int xlnx_ptp_settime(struct ptp_clock_info *ptp,
 static int xlnx_ptp_enable(struct ptp_clock_info *ptp,
 			   struct ptp_clock_request *rq, int on)
 {
+	struct xlnx_ptp_timer *timer = container_of(ptp, struct xlnx_ptp_timer,
+			ptp_clock_info);
+	u32 data;
+
+	switch (rq->type) {
+	case PTP_CLK_REQ_EXTTS:
+		timer->extts_enable = on;
+
+		data = xlnx_ptp_ior(timer, XPTPTIMER_TOD_CONFIG_OFFSET);
+
+		data &= ~(XPTPTIMER_ENABLE_SNAPSHOT);
+
+		if (on)
+			data |= XPTPTIMER_ENABLE_SNAPSHOT;
+
+		xlnx_ptp_iow(timer, XPTPTIMER_TOD_CONFIG_OFFSET, data);
+
+		return 0;
+	default:
+		break;
+	}
+
 	return -EOPNOTSUPP;
 }
 
@@ -313,13 +341,48 @@ static struct ptp_clock_info xlnx_ptp_clock_info = {
 	.owner		= THIS_MODULE,
 	.name		= "Xilinx Timer",
 	.max_adj	= 64000000,	/* Safe max adjutment for clock rate */
-	.n_ext_ts	= 0,
+	.n_ext_ts	= 1,
 	.adjfine	= xlnx_ptp_adjfine,
 	.adjtime	= xlnx_ptp_adjtime,
 	.gettime64	= xlnx_ptp_gettime,
 	.settime64	= xlnx_ptp_settime,
 	.enable		= xlnx_ptp_enable,
 };
+
+/**
+ * xlnx_ptp_timer_isr - Interrupt Service Routine
+ * @irq:               IRQ number
+ * @priv:              pointer to the timer structure
+ * Return:	       IRQ_HANDLED on success. IRQ_NONE on failure
+ */
+static irqreturn_t xlnx_ptp_timer_isr(int irq, void *priv)
+{
+	struct xlnx_ptp_timer *timer = priv;
+	struct ptp_clock_event event;
+	u32 sech, secl, nsec;
+	int status;
+	u64 sec;
+
+	memset(&event, 0, sizeof(event));
+	status = xlnx_ptp_ior(timer, XPTPTIMER_ISR_OFFSET);
+	if (status & XPTPTIMER_EXTS_1PPS_INTR_MASK) {
+		xlnx_ptp_iow(timer, XPTPTIMER_ISR_OFFSET,
+			     XPTPTIMER_EXTS_1PPS_INTR_MASK);
+		if (timer->extts_enable) {
+			event.type = PTP_CLOCK_EXTTS;
+			nsec = xlnx_ptp_ior(timer, XPTPTIMER_SYS_NS_OFFSET);
+			sech = xlnx_ptp_ior(timer, XPTPTIMER_SYS_SEC_1_OFFSET);
+			secl = xlnx_ptp_ior(timer, XPTPTIMER_SYS_SEC_0_OFFSET);
+
+			sec = (((u64)sech << 32) | secl) & XPTPTIMER_MAX_SEC_MASK;
+			event.timestamp = ktime_set(sec, nsec);
+			ptp_clock_event(timer->ptp_clock, &event);
+		}
+		return IRQ_HANDLED;
+	}
+
+	return IRQ_NONE;
+}
 
 static int xlnx_ptp_timer_probe(struct platform_device *pdev)
 {
@@ -347,6 +410,23 @@ static int xlnx_ptp_timer_probe(struct platform_device *pdev)
 		return err;
 	}
 
+	timer->use_sys_timer_only = of_property_read_bool(pdev->dev.of_node,
+							  "xlnx,has-timer-syncer");
+
+	timer->irq = irq_of_parse_and_map(pdev->dev.of_node, 0);
+	if (timer->irq <= 0) {
+		dev_warn(&pdev->dev, "could not determine Timer IRQ\n");
+	} else {
+		/* Enable interrupts */
+		err = devm_request_irq(timer->dev, timer->irq,
+				       xlnx_ptp_timer_isr,
+				       IRQF_SHARED,
+				       "xlnx_ptp_timer",
+				       timer);
+		if (err)
+			dev_warn(&pdev->dev, "Failed to request ptp timer irq\n");
+	}
+
 	spin_lock_init(&timer->reg_lock);
 
 	timer->ptp_clock_info = xlnx_ptp_clock_info;
@@ -357,6 +437,19 @@ static int xlnx_ptp_timer_probe(struct platform_device *pdev)
 		err = PTR_ERR(timer->ptp_clock);
 		dev_err(&pdev->dev, "Failed to register ptp clock\n");
 		return err;
+	}
+
+	if (timer->irq > 0)
+		/* Enable timer interrupt */
+		xlnx_ptp_iow(timer, XPTPTIMER_IER_OFFSET,
+			     XPTPTIMER_EXTS_1PPS_INTR_MASK);
+
+	timer->period_0 = TOD_LEGACY_SYS_PERIOD_0;
+	timer->period_1 = TOD_LEGACY_SYS_PERIOD_1;
+
+	if (of_device_is_compatible(pdev->dev.of_node, "xlnx,timer-syncer-1588-3.0")) {
+		timer->period_0 = TOD_SYS_PERIOD_0;
+		timer->period_1 = TOD_SYS_PERIOD_1;
 	}
 
 	xlnx_ptp_iow(timer, XPTPTIMER_TOD_CONFIG_OFFSET,
@@ -399,6 +492,7 @@ static int xlnx_ptp_timer_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, timer);
 
+	timer->phc_index = ptp_clock_index(timer->ptp_clock);
 	dev_info(&pdev->dev, "Xilinx PTP timer driver probed\n");
 
 	return 0;
@@ -408,6 +502,10 @@ static int xlnx_ptp_timer_remove(struct platform_device *pdev)
 {
 	struct xlnx_ptp_timer *timer = platform_get_drvdata(pdev);
 
+	if (timer->irq > 0)
+		/* Disable timer interrupt */
+		xlnx_ptp_iow(timer, XPTPTIMER_IER_OFFSET,
+			     (u32)~(XPTPTIMER_EXTS_1PPS_INTR_MASK));
 	ptp_clock_unregister(timer->ptp_clock);
 
 	return 0;
@@ -416,6 +514,7 @@ static int xlnx_ptp_timer_remove(struct platform_device *pdev)
 static const struct of_device_id timer_1588_of_match[] = {
 	{ .compatible = "xlnx,timer-syncer-1588-1.0", },
 	{ .compatible = "xlnx,timer-syncer-1588-2.0", },
+	{ .compatible = "xlnx,timer-syncer-1588-3.0", },
 		{ /* end of table */ }
 };
 MODULE_DEVICE_TABLE(of, timer_1588_of_match);

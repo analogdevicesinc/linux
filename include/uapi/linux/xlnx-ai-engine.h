@@ -115,6 +115,9 @@ enum aie_part_status {
 /* request a channel to broadcast to the whole partition */
 #define XAIE_BROADCAST_ALL		(1U << 0)
 
+/* Kernel utilization Signal*/
+#define SIGPERFUTIL			45U
+
 /**
  * struct aie_location - AIE location information
  * @col: column id
@@ -307,6 +310,49 @@ struct aie_dmabuf_bd_args {
 struct aie_tiles_array {
 	struct aie_location *locs;
 	__u32 num_tiles;
+};
+
+/**
+ * struct aie_column_args - AIE columns args
+ * @start_col : start column
+ * @num_cols : number of columns in aie
+ * @enable : enable/disable the columns
+ */
+struct aie_column_args {
+	__u32 start_col;
+	__u32 num_cols;
+	__u8 enable;
+};
+
+/**
+ * struct aie_occupancy - AIE performance utilization
+ * @loc: location of aie core tiles for which kernel utilization will be captured
+ * @perfcnt: stores performance counter value
+ * @active_cycle: stores number of active cycles over capture period
+ * @total_cycle: stores number of total cycles over capture period
+ */
+struct aie_occupancy {
+	struct aie_location loc;
+	__u8 perfcnt[2];
+	__u32 active_cycle;
+	__u32 total_cycle;
+};
+
+/**
+ * struct aie_perfinst_args - AIE performance utilization args
+ * @time_interval_ms: performance utilization time interval in milliseconds
+ * @range: performance utilization capture columns
+ * @util: stores the tile location and percentage of kernel utilization
+ * @task: task structure to raise signal to calculate the utilization
+ * @util_size: number of elements the util array
+ */
+
+struct aie_perfinst_args {
+	struct aie_range range;
+	struct aie_occupancy *util;
+	struct task_struct *task;
+	__u32 util_size;
+	__u32 time_interval_ms;
 };
 
 /**
@@ -642,5 +688,33 @@ struct aie_rsc_user_stat_array {
  */
 #define AIE_RSC_GET_STAT_IOCTL		_IOW(AIE_IOCTL_BASE, 0x1a, \
 					struct aie_rsc_user_stat_array)
+
+/**
+ * DOC: AIE_SET_COLUMN_CLOCK_IOCTL - enable/disable the column clock
+ *
+ * This ioctl is used to enable and disable the column clock.
+ * User passes an aie_tile_array, If enable is set, It will request the
+ * AI engine partition, the kernel driver will scan the partition to track
+ * which tiles are enabled or not. After that, if user want to request for
+ * more tiles, it will use this ioctl to request more tiles.
+ * If enable is set to zero, It will release the AI engine titles
+ * If the aie_tiles_array is empty, it means it will request/release for all
+ * tiles in the partition.
+ */
+#define AIE_SET_COLUMN_CLOCK_IOCTL	_IOW(AIE_IOCTL_BASE, 0x1b, \
+					struct aie_tiles_array)
+
+/**
+ * DOC: AIE_PERFORMANCE_UTILIZATION_IOCTL - capture kernel utilization
+ *
+ * This ioctl is used to capture kernel utilization of the core tiles in the
+ * partition if range is not mentioned in the performance instance structure by
+ * the user. If range is passed by the user, kernel utilization is captured for
+ * the core tiles in the range. The utilization is captured over period
+ * mentioned  by the user in timeinterval_ms.
+ */
+
+#define AIE_PERFORMANCE_UTILIZATION_IOCTL _IOW(AIE_IOCTL_BASE, 0x1c, \
+						struct aie_perfinst_args)
 
 #endif

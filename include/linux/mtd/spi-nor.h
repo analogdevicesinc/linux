@@ -52,6 +52,7 @@
 #define SPINOR_OP_GBULK		0x98    /* Global Block Unlock */
 #define SPINOR_OP_RDEAR		0xc8	/* Read Extended Address Register */
 #define SPINOR_OP_WREAR		0xc5	/* Write Extended Address Register */
+#define SPINOR_OP_DIESEL	0xc2	/* Software Die Select */
 
 /* 4-byte address opcodes - used on Spansion and some Macronix flashes. */
 #define SPINOR_OP_READ_4B	0x13	/* Read data bytes (low frequency) */
@@ -405,7 +406,6 @@ struct spi_nor {
 	u8			read_opcode;
 	u8			read_dummy;
 	u8			program_opcode;
-	u32			jedec_id;
 	u16			curbank;
 	enum spi_nor_protocol	read_proto;
 	enum spi_nor_protocol	write_proto;

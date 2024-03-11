@@ -9,6 +9,7 @@
 
 #include <linux/mutex.h>
 #include <linux/kref.h>
+#include <linux/rpmsg.h>
 
 #include "bitfield.h"
 #include "mc_cdx_pcol.h"
@@ -152,8 +153,6 @@ struct cdx_mcdi_cmd {
  * @mode: Poll for mcdi completion, or wait for an mcdi_event
  * @prev_seq: The last used sequence number
  * @new_epoch: Indicates start of day or start of MC reboot recovery
- * @logging_buffer: Buffer that may be used to build MCDI tracing messages
- * @logging_enabled: Whether to trace MCDI
  */
 struct cdx_mcdi_iface {
 	struct cdx_mcdi *cdx;
@@ -169,10 +168,6 @@ struct cdx_mcdi_iface {
 	enum cdx_mcdi_mode mode;
 	u8 prev_seq;
 	bool new_epoch;
-#ifdef CONFIG_MCDI_LOGGING
-	bool logging_enabled;
-	char *logging_buffer;
-#endif
 };
 
 /**

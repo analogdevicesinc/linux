@@ -35,6 +35,9 @@
 /* PM API versions */
 #define PM_API_VERSION_1	1
 #define PM_API_VERSION_2	2
+#define PM_API_VERSION_3	3
+
+#define PM_PINCTRL_PARAM_SET_VERSION   2
 
 /* Firmware feature check version mask */
 #define FIRMWARE_VERSION_MASK		0xFFFFU
@@ -47,10 +50,8 @@
 #define VERSAL_SUB_FAMILY_CODE		0x01
 #define VERSALNET_SUB_FAMILY_CODE	0x03
 
-#define FAMILY_CODE_LSB	21
-#define FAMILY_CODE_MSB	27
-#define SUB_FAMILY_CODE_LSB	19
-#define SUB_FAMILY_CODE_MSB	20
+#define FAMILY_CODE_MASK	GENMASK(27, 21)
+#define SUB_FAMILY_CODE_MASK	GENMASK(20, 19)
 
 #define API_ID_MASK		GENMASK(7, 0)
 #define MODULE_ID_MASK		GENMASK(11, 8)
@@ -83,6 +84,10 @@
 
 /* Secure Commands */
 #define PM_WRITE_AES_KEY		0x568
+
+/* XilPuf API commands module id + api id */
+#define XPUF_API_PUF_REGISTRATION    0xC01
+#define XPUF_API_PUF_REGENERATION    0xC02
 
 /* XilSEM commands */
 #define PM_XSEM_HEADER			0x300
@@ -138,14 +143,6 @@
 #define XILINX_ZYNQMP_PM_FPGA_ENCRYPTION_USERKEY	BIT(3)
 #define XILINX_ZYNQMP_PM_FPGA_ENCRYPTION_DEVKEY		BIT(4)
 
-/*
- * Node IDs for the Error Events.
- */
-#define EVENT_ERROR_PMC_ERR1	(0x28100000U)
-#define EVENT_ERROR_PMC_ERR2	(0x28104000U)
-#define EVENT_ERROR_PSM_ERR1	(0x28108000U)
-#define EVENT_ERROR_PSM_ERR2	(0x2810C000U)
-
 /* AIE Operation */
 #define XILINX_AIE_OPS_COL_RST				BIT(0)
 #define XILINX_AIE_OPS_SHIM_RST				BIT(1)
@@ -154,6 +151,8 @@
 #define XILINX_AIE_OPS_DIS_COL_CLK_BUFF			BIT(4)
 #define XILINX_AIE_OPS_ENB_AXI_MM_ERR_EVENT		BIT(5)
 #define XILINX_AIE_OPS_SET_L2_CTRL_NPI_INTR		BIT(6)
+#define XILINX_AIE_OPS_DATA_MEM_ZEROIZATION             BIT(8U)
+#define XILINX_AIE_OPS_MEM_TILE_ZEROIZATION             BIT(9U)
 
 enum pm_module_id {
 	PM_MODULE_ID = 0x0,
@@ -222,8 +221,7 @@ enum pm_api_id {
 	PM_CLOCK_GETSTATE = 38,
 	PM_CLOCK_SETDIVIDER = 39,
 	PM_CLOCK_GETDIVIDER = 40,
-	PM_CLOCK_SETRATE = 41,
-	PM_CLOCK_GETRATE = 42,
+	/* ID 41 and 42 is internal use for firmware */
 	PM_CLOCK_SETPARENT = 43,
 	PM_CLOCK_GETPARENT = 44,
 	PM_SECURE_IMAGE = 45,
@@ -803,6 +801,8 @@ int versal_pm_aes_dec_final(const u64 gcm_addr);
 int versal_pm_aes_enc_final(const u64 gcm_addr);
 int versal_pm_rsa_encrypt(const u64 in_params, const u64 in_addr);
 int versal_pm_rsa_decrypt(const u64 in_params, const u64 in_addr);
+int versal_pm_puf_registration(const u64 in_addr);
+int versal_pm_puf_regeneration(const u64 in_addr);
 #else
 static inline int zynqmp_pm_get_api_version(u32 *version)
 {
@@ -846,16 +846,6 @@ static inline int zynqmp_pm_clock_setdivider(u32 clock_id, u32 divider)
 }
 
 static inline int zynqmp_pm_clock_getdivider(u32 clock_id, u32 *divider)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_clock_setrate(u32 clock_id, u64 rate)
-{
-	return -ENODEV;
-}
-
-static inline int zynqmp_pm_clock_getrate(u32 clock_id, u64 *rate)
 {
 	return -ENODEV;
 }
@@ -1395,6 +1385,16 @@ static inline int versal_pm_rsa_encrypt(const u64 in_params, const u64 in_addr)
 }
 
 static inline int versal_pm_rsa_decrypt(const u64 in_params, const u64 in_addr)
+{
+	return -ENODEV;
+}
+
+static inline int versal_pm_puf_registration(const u64 in_addr)
+{
+	return -ENODEV;
+}
+
+static inline int versal_pm_puf_regeneration(const u64 in_addr)
 {
 	return -ENODEV;
 }

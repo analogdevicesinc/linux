@@ -9,21 +9,12 @@ if CDX_BUS
 
 config CDX_CONTROLLER
 	tristate "CDX bus controller"
+	select REMOTEPROC
 	select RPMSG
 	help
 	  CDX controller drives the CDX bus. It interacts with
 	  firmware to get the hardware devices and registers with
 	  the CDX bus. Say Y to enable the CDX hardware driver.
-
-	  If unsure, say N.
-
-config MCDI_LOGGING
-	bool "MCDI Logging for the CDX controller"
-	depends on CDX_CONTROLLER
-	help
-	  Enable MCDI Logging for
-	  the CDX Controller for debug
-	  purpose.
 
 	  If unsure, say N.
 

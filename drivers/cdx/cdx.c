@@ -63,6 +63,8 @@
 #include <linux/mm.h>
 #include <linux/xarray.h>
 #include <linux/cdx/cdx_bus.h>
+#include <linux/iommu.h>
+#include <linux/dma-map-ops.h>
 #include "cdx.h"
 
 /* Default DMA mask for devices on a CDX bus */
@@ -84,7 +86,7 @@ int cdx_dev_reset(struct device *dev)
 {
 	struct cdx_device *cdx_dev = to_cdx_device(dev);
 	struct cdx_controller *cdx = cdx_dev->cdx;
-	struct cdx_device_config dev_config;
+	struct cdx_device_config dev_config = {0};
 	struct cdx_driver *cdx_drv;
 	int ret;
 
@@ -120,7 +122,7 @@ static int reset_cdx_device(struct device *dev, void *data)
  *	  the passed function (cdx_unregister_device) to have this
  *	  as an argument.
  *
- * Return: -errno on failure, 0 on success.
+ * Return: 0 on success.
  */
 static int cdx_unregister_device(struct device *dev,
 				 void *data)
@@ -239,7 +241,7 @@ static int cdx_probe(struct device *dev)
 	int error;
 
 	error = cdx_drv->probe(cdx_dev);
-	if (error < 0) {
+	if (error) {
 		dev_err_probe(dev, error, "%s failed\n", __func__);
 		return error;
 	}
@@ -267,6 +269,7 @@ static void cdx_shutdown(struct device *dev)
 
 static int cdx_dma_configure(struct device *dev)
 {
+	struct cdx_driver *cdx_drv = to_cdx_driver(dev->driver);
 	struct cdx_device *cdx_dev = to_cdx_device(dev);
 	u32 input_id = cdx_dev->req_id;
 	int ret;
@@ -277,7 +280,21 @@ static int cdx_dma_configure(struct device *dev)
 		return ret;
 	}
 
+	if (!ret && !cdx_drv->driver_managed_dma) {
+		ret = iommu_device_use_default_domain(dev);
+		if (ret)
+			arch_teardown_dma_ops(dev);
+	}
+
 	return 0;
+}
+
+static void cdx_dma_cleanup(struct device *dev)
+{
+	struct cdx_driver *cdx_drv = to_cdx_driver(dev->driver);
+
+	if (!cdx_drv->driver_managed_dma)
+		iommu_device_unuse_default_domain(dev);
 }
 
 /* show configuration fields */
@@ -301,9 +318,9 @@ static ssize_t remove_store(struct device *dev,
 			    struct device_attribute *attr,
 			    const char *buf, size_t count)
 {
-	unsigned long val = 0;
+	bool val;
 
-	if (kstrtoul(buf, 0, &val) < 0)
+	if (kstrtobool(buf, &val) < 0)
 		return -EINVAL;
 
 	if (!val)
@@ -324,10 +341,10 @@ static DEVICE_ATTR_WO(remove);
 static ssize_t reset_store(struct device *dev, struct device_attribute *attr,
 			   const char *buf, size_t count)
 {
-	unsigned long val = 0;
-	int ret = 0;
+	bool val;
+	int ret;
 
-	if (kstrtoul(buf, 0, &val) < 0)
+	if (kstrtobool(buf, &val) < 0)
 		return -EINVAL;
 
 	if (!val)
@@ -356,32 +373,14 @@ static ssize_t driver_override_store(struct device *dev,
 				     const char *buf, size_t count)
 {
 	struct cdx_device *cdx_dev = to_cdx_device(dev);
-	const char *old = cdx_dev->driver_override;
-	char *driver_override;
-	char *cp;
+	int ret;
 
 	if (WARN_ON(dev->bus != &cdx_bus_type))
 		return -EINVAL;
 
-	if (count >= (PAGE_SIZE - 1))
-		return -EINVAL;
-
-	driver_override = kstrndup(buf, count, GFP_KERNEL);
-	if (!driver_override)
-		return -ENOMEM;
-
-	cp = strchr(driver_override, '\n');
-	if (cp)
-		*cp = '\0';
-
-	if (strlen(driver_override)) {
-		cdx_dev->driver_override = driver_override;
-	} else {
-		kfree(driver_override);
-		cdx_dev->driver_override = NULL;
-	}
-
-	kfree(old);
+	ret = driver_set_override(dev, &cdx_dev->driver_override, buf, count);
+	if (ret)
+		return ret;
 
 	return count;
 }
@@ -435,8 +434,8 @@ static ssize_t enable_store(struct bus_type *bus,
 {
 	struct cdx_controller *cdx;
 	unsigned long index;
-	bool enable = 0;
-	int ret = 0;
+	bool enable;
+	int ret;
 
 	if (kstrtobool(buf, &enable) < 0)
 		return -EINVAL;
@@ -457,10 +456,11 @@ static BUS_ATTR_WO(enable);
 static ssize_t rescan_store(struct bus_type *bus,
 			    const char *buf, size_t count)
 {
-	unsigned long index, val = 0;
 	struct cdx_controller *cdx;
+	unsigned long index;
+	bool val;
 
-	if (kstrtoul(buf, 0, &val) < 0)
+	if (kstrtobool(buf, &val) < 0)
 		return -EINVAL;
 
 	if (!val)
@@ -485,10 +485,10 @@ static BUS_ATTR_WO(rescan);
 static ssize_t reset_all_store(struct bus_type *bus,
 			       const char *buf, size_t count)
 {
-	unsigned long val = 0;
+	bool val;
 	int ret;
 
-	if (kstrtoul(buf, 0, &val) < 0)
+	if (kstrtobool(buf, &val) < 0)
 		return -EINVAL;
 
 	if (!val)
@@ -520,6 +520,7 @@ struct bus_type cdx_bus_type = {
 	.remove		= cdx_remove,
 	.shutdown	= cdx_shutdown,
 	.dma_configure	= cdx_dma_configure,
+	.dma_cleanup	= cdx_dma_cleanup,
 	.bus_groups	= cdx_bus_groups,
 	.dev_groups	= cdx_dev_groups,
 };
@@ -534,7 +535,7 @@ int __cdx_driver_register(struct cdx_driver *cdx_driver,
 	cdx_driver->driver.bus = &cdx_bus_type;
 
 	error = driver_register(&cdx_driver->driver);
-	if (error < 0) {
+	if (error) {
 		pr_err("driver_register() failed for %s: %d\n",
 		       cdx_driver->driver.name, error);
 		return error;
@@ -658,7 +659,7 @@ static int cdx_create_res_attr(struct cdx_device *cdx_dev, int num)
 {
 	struct bin_attribute *res_attr;
 	char *res_attr_name;
-	int retval;
+	int ret;
 
 	res_attr = kzalloc(sizeof(*res_attr) + CDX_RES_ATTR_NAME_LEN, GFP_ATOMIC);
 	if (!res_attr)
@@ -676,17 +677,16 @@ static int cdx_create_res_attr(struct cdx_device *cdx_dev, int num)
 	res_attr->attr.mode = 0600;
 	res_attr->size = cdx_resource_len(cdx_dev, num);
 	res_attr->private = (void *)(unsigned long)num;
-	retval = sysfs_create_bin_file(&cdx_dev->dev.kobj, res_attr);
-	if (retval)
+	ret = sysfs_create_bin_file(&cdx_dev->dev.kobj, res_attr);
+	if (ret)
 		kfree(res_attr);
 
-	return retval;
+	return ret;
 }
 
 int cdx_device_add(struct cdx_dev_params *dev_params)
 {
 	struct cdx_controller *cdx = dev_params->cdx;
-	struct irq_domain *cdx_msi_domain;
 	struct device *parent = cdx->dev;
 	struct cdx_device *cdx_dev;
 	int ret, i;
@@ -702,7 +702,6 @@ int cdx_device_add(struct cdx_dev_params *dev_params)
 
 	/* Populate CDX dev params */
 	cdx_dev->req_id = dev_params->req_id;
-	cdx_dev->num_msi = dev_params->num_msi;
 	cdx_dev->vendor = dev_params->vendor;
 	cdx_dev->device = dev_params->device;
 	cdx_dev->subsystem_vendor = dev_params->subsys_vendor;
@@ -714,35 +713,27 @@ int cdx_device_add(struct cdx_dev_params *dev_params)
 	cdx_dev->cdx = dev_params->cdx;
 	cdx_dev->dma_mask = CDX_DEFAULT_DMA_MASK;
 
-	/* Initiaize generic device */
+	/* Initialize generic device */
 	device_initialize(&cdx_dev->dev);
 	cdx_dev->dev.parent = parent;
 	cdx_dev->dev.bus = &cdx_bus_type;
 	cdx_dev->dev.dma_mask = &cdx_dev->dma_mask;
 	cdx_dev->dev.release = cdx_device_release;
+	cdx_dev->msi_write_pending = false;
+	mutex_init(&cdx_dev->irqchip_lock);
 
 	/* Set Name */
 	dev_set_name(&cdx_dev->dev, "cdx-%02x:%02x",
 		     ((cdx->id << CDX_CONTROLLER_ID_SHIFT) | (cdx_dev->bus_num & CDX_BUS_NUM_MASK)),
 		     cdx_dev->dev_num);
 
-	/* If CDX MSI domain is not created, create one. */
-	cdx_msi_domain = irq_find_host(parent->of_node);
-	if (!cdx_msi_domain) {
-		cdx_msi_domain = cdx_msi_domain_init(parent);
-		if (!cdx_msi_domain) {
-			dev_err(&cdx_dev->dev,
-				"cdx_msi_domain_init() failed");
-			ret = -ENODEV;
-			goto fail;
-		}
+	if (cdx->msi_domain) {
+		cdx_dev->num_msi = dev_params->num_msi;
+		dev_set_msi_domain(&cdx_dev->dev, cdx->msi_domain);
 	}
 
-	/* Set the MSI domain */
-	dev_set_msi_domain(&cdx_dev->dev, cdx_msi_domain);
-
 	ret = device_add(&cdx_dev->dev);
-	if (ret != 0) {
+	if (ret) {
 		dev_err(&cdx_dev->dev,
 			"cdx device add failed: %d", ret);
 		goto fail;
@@ -785,7 +776,7 @@ int cdx_register_controller(struct cdx_controller *cdx)
 
 	ret = xa_alloc(&cdx_controllers, &cdx->id, cdx,
 		       XA_LIMIT(0, MAX_CDX_CONTROLLERS - 1), GFP_KERNEL);
-	if (ret < 0) {
+	if (ret) {
 		dev_err(cdx->dev,
 			"No free index available. Maximum controllers already registered\n");
 		cdx->id = (u8)MAX_CDX_CONTROLLERS;

@@ -29,6 +29,7 @@
 
 	aliases {
 		serial0 = &serial0;
+		serial2 = &dcc;
 		i2c0 = &i2c0;
 		i2c1 = &i2c1;
 		mmc0 = &sdhci1;
@@ -77,6 +78,7 @@
 		spi-tx-bus-width = <8>;
 		spi-rx-bus-width = <8>;
 		spi-max-frequency = <20000000>;
+		no-wp;
 		partition@0 {
 			label = "spi0-flash0";
 			reg = <0 0x8000000>;
@@ -146,7 +148,7 @@
 			#phy-cells = <1>;
 			compatible = "ethernet-phy-id0283.bc30";
 			reg = <1>;
-		        adi,rx-internal-delay-ps = <2000>;
+			adi,rx-internal-delay-ps = <2000>;
 			adi,tx-internal-delay-ps = <2000>;
 			adi,fifo-depth-bits = <8>;
 			reset-gpios = <&gpio1 48 GPIO_ACTIVE_LOW>;

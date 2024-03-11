@@ -14,7 +14,6 @@
 #include <linux/mod_devicetable.h>
 
 #define MAX_CDX_DEV_RESOURCES	4
-#define CDX_ANY_ID (0xFFFF)
 #define CDX_CONTROLLER_ID_SHIFT 4
 #define CDX_BUS_NUM_MASK 0xF
 
@@ -81,6 +80,7 @@ struct cdx_ops {
  * struct cdx_controller: CDX controller object
  * @dev: Linux device associated with the CDX controller.
  * @priv: private data
+ * @msi_domain: MSI domain
  * @id: Controller ID
  * @enabled: state enabled/disabled
  * @ops: CDX controller ops
@@ -88,6 +88,7 @@ struct cdx_ops {
 struct cdx_controller {
 	struct device *dev;
 	void *priv;
+	struct irq_domain *msi_domain;
 	u32 id;
 	bool enabled;
 	struct cdx_ops *ops;
@@ -135,6 +136,8 @@ struct cdx_device {
 	u32 req_id;
 	u32 num_msi;
 	const char *driver_override;
+	struct mutex irqchip_lock;
+	bool msi_write_pending;
 };
 
 #define to_cdx_device(_dev) \

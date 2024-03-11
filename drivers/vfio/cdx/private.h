@@ -7,12 +7,11 @@
 #define VFIO_CDX_PRIVATE_H
 
 #define VFIO_CDX_OFFSET_SHIFT    40
-#define VFIO_CDX_OFFSET_MASK (((u64)(1) << VFIO_CDX_OFFSET_SHIFT) - 1)
 
-#define VFIO_CDX_OFFSET_TO_INDEX(off) ((off) >> VFIO_CDX_OFFSET_SHIFT)
-
-#define VFIO_CDX_INDEX_TO_OFFSET(index)	\
-	((u64)(index) << VFIO_CDX_OFFSET_SHIFT)
+static inline u64 vfio_cdx_index_to_offset(u32 index)
+{
+	return ((u64)(index) << VFIO_CDX_OFFSET_SHIFT);
+}
 
 struct vfio_cdx_irq {
 	u32			flags;
@@ -27,13 +26,10 @@ struct vfio_cdx_region {
 	u32			type;
 	u64			addr;
 	resource_size_t		size;
-	void __iomem		*ioaddr;
 };
 
 struct vfio_cdx_device {
 	struct vfio_device	vdev;
-	struct cdx_device	*cdx_dev;
-	struct device		*dev;
 	struct vfio_cdx_region	*regions;
 	struct vfio_cdx_irq	*cdx_irqs;
 	u32			irq_count;

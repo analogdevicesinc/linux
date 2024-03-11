@@ -14,7 +14,7 @@
 
 &{/} {
 	model = "X-PRC-09 revA";
-		     
+
 	aliases {
 		nvmem2 = &eeprom0;
 		nvmem3 = &eeprom1;
@@ -48,6 +48,7 @@
 			ti,tx-internal-delay = <0xa>;
 			ti,fifo-depth = <0x1>;
 			ti,dp83867-rxctrl-strap-quirk;
+			ti,min-output-impedance;
 			reset-assert-us = <0x96>;
 			reset-deassert-us = <0x118>;
 			reset-gpios = <&gpio1 48 GPIO_ACTIVE_LOW>;
@@ -100,7 +101,7 @@
 
 &qspi {
 	status = "okay"; /* u93 and u92 */
-	num-cs = <1>;
+	num-cs = <2>;
 	is-dual = <1>;
 	spi-rx-bus-width = <4>;
 	spi-tx-bus-width = <4>;
@@ -109,10 +110,11 @@
 
 	flash@0 {
 		compatible = "micron,m25p80", "jedec,spi-nor";
-		reg = <0>;
-		spi-tx-bus-width = <1>;
+		reg = <0>, <1>;
+		parallel-memories = /bits/ 64 <0x8000000 0x8000000>; /* 128MB */
+		spi-tx-bus-width = <4>;
 		spi-rx-bus-width = <4>;
-		spi-max-frequency = <10000000>;
+		spi-max-frequency = <150000000>;
 
 		partitions {
 			compatible = "fixed-partitions";

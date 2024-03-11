@@ -329,8 +329,7 @@ static int _ci_usb_phy_init(struct ci_hdrc *ci)
 
 		ret = phy_power_on(ci->phy);
 		if (ret) {
-			if (phy_exit(ci->phy) < 0)
-				dev_dbg(ci->dev, "phy exit failed\r\n");
+			phy_exit(ci->phy);
 			return ret;
 		}
 	} else {
@@ -347,20 +346,12 @@ static int _ci_usb_phy_init(struct ci_hdrc *ci)
  */
 static void ci_usb_phy_exit(struct ci_hdrc *ci)
 {
-	int ret;
-
 	if (ci->platdata->flags & CI_HDRC_OVERRIDE_PHY_CONTROL)
 		return;
 
 	if (ci->phy) {
-		ret = phy_power_off(ci->phy);
-		if (ret < 0)
-			dev_dbg(ci->dev, "phy poweroff failed\r\n");
-
-		ret = phy_exit(ci->phy);
-		if (ret < 0)
-			dev_dbg(ci->dev, "phy exit failed\r\n");
-
+		phy_power_off(ci->phy);
+		phy_exit(ci->phy);
 	} else {
 		usb_phy_shutdown(ci->usb_phy);
 	}
@@ -723,16 +714,13 @@ static int ci_get_platdata(struct device *dev,
 	if (usb_get_maximum_speed(dev) == USB_SPEED_FULL)
 		platdata->flags |= CI_HDRC_FORCE_FULLSPEED;
 
-	if (of_property_read_u32(dev->of_node, "phy-clkgate-delay-us",
-				 &platdata->phy_clkgate_delay_us))
-		dev_dbg(dev, "Missing phy-clkgate-delay-us property\n");
+	of_property_read_u32(dev->of_node, "phy-clkgate-delay-us",
+			     &platdata->phy_clkgate_delay_us);
 
 	platdata->itc_setting = 1;
 
-	if (of_property_read_u32(dev->of_node, "itc-setting",
-				 &platdata->itc_setting))
-		dev_dbg(dev, "Missing itc-setting property\n");
-
+	of_property_read_u32(dev->of_node, "itc-setting",
+			     &platdata->itc_setting);
 
 	ret = of_property_read_u32(dev->of_node, "ahb-burst-config",
 				&platdata->ahb_burst_config);

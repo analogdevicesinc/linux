@@ -199,6 +199,12 @@ int axienet_tsn_probe(struct platform_device *pdev,
 	if (ep_node)
 		lp->master = of_find_net_device_by_node(ep_node);
 
+	if (!lp->master) {
+		netdev_err(ndev, "Defer probe as EP is not probed\n");
+		ret = -EPROBE_DEFER;
+		goto err_1;
+	}
+
 	lp->abl_reg = axienet_ior(lp, XAE_TSN_ABL_OFFSET);
 
 	/* in ep only case tie the data path to eth1 */
@@ -251,7 +257,10 @@ int axienet_tsn_probe(struct platform_device *pdev,
 
 	return 0;
 err_1:
-	return -EINVAL;
+	if (lp->timer_priv)
+		axienet_ptp_timer_remove(lp->timer_priv);
+	of_node_put(ep_node);
+	return ret;
 }
 
 /**
@@ -323,6 +332,11 @@ int axienet_tsn_open(struct net_device *ndev)
 	int ret;
 	struct axienet_local *lp = netdev_priv(ndev);
 	struct phy_device *phydev = NULL;
+	struct net_device *emac0_ndev;
+	struct net_device *emac1_ndev;
+	struct axienet_local *ep_node;
+	u8 hw_addr_mask[ETH_ALEN];
+	int i;
 
 	axienet_device_reset(ndev);
 
@@ -357,6 +371,23 @@ int axienet_tsn_open(struct net_device *ndev)
 
 	if (lp->abl_reg & TSN_BRIDGEEP_EPONLY)
 		tsn_data_path_open(ndev);
+
+	if (lp->master) {
+		ep_node = netdev_priv(lp->master);
+		emac0_ndev = ep_node->slaves[0];
+		emac1_ndev = ep_node->slaves[1];
+
+		for (i = 0; i < ETH_ALEN; i++)
+			hw_addr_mask[i] = 0xFF;
+		hw_addr_mask[5] &= 0x000000F0;
+		if (!ether_addr_equal_masked(emac0_ndev->dev_addr, emac1_ndev->dev_addr,
+					     hw_addr_mask))
+			netdev_warn(ndev, "MSB 44 bits of the MAC addresses of TSN EMAC0 and TSN EMAC1 are different");
+		if (!ether_addr_equal_masked(emac0_ndev->dev_addr, ndev->dev_addr, hw_addr_mask))
+			netdev_warn(ndev, "MSB 44 bits of the MAC addresses of TSN EMAC0 and TSN EP are different");
+		if (!ether_addr_equal_masked(emac0_ndev->dev_addr, ndev->dev_addr, hw_addr_mask))
+			netdev_warn(ndev, "MSB 44 bits of the MAC addresses of TSN EMAC1 and TSN EP are different");
+	}
 
 	netif_tx_start_all_queues(ndev);
 

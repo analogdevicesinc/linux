@@ -68,8 +68,8 @@
 	pinctrl-names = "default", "gpio";
 	pinctrl-0 = <&pinctrl_i2c1_default>;
 	pinctrl-1 = <&pinctrl_i2c1_gpio>;
-	scl-gpios = <&gpio 24 GPIO_ACTIVE_HIGH>;
-	sda-gpios = <&gpio 25 GPIO_ACTIVE_HIGH>;
+	scl-gpios = <&gpio 24 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	sda-gpios = <&gpio 25 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 
 	u14: ina260@40 { /* u14 */
 		compatible = "ti,ina260";
@@ -188,6 +188,7 @@
 	phy-handle = <&phy0>;
 	phy-mode = "sgmii";
 	is-internal-pcspma;
+	assigned-clock-rates = <250000000>;
 };
 
 &gem1 { /* mdio mio50/51, gem mio38 - mio49 */
@@ -196,6 +197,7 @@
 	pinctrl-0 = <&pinctrl_gem1_default>;
 	phy-handle = <&phy1>;
 	phy-mode = "rgmii-id";
+	assigned-clock-rates = <250000000>;
 
 	mdio: mdio {
 		#address-cells = <1>;
@@ -248,6 +250,7 @@
 		conf-tx {
 			pins = "MIO36";
 			bias-disable;
+			output-enable;
 		};
 
 		mux {
@@ -299,6 +302,7 @@
 		conf-bootstrap {
 			pins = "MIO45", "MIO47", "MIO49";
 			bias-disable;
+			output-enable;
 			low-power-disable;
 		};
 
@@ -306,6 +310,7 @@
 			pins = "MIO38", "MIO39", "MIO40",
 				"MIO41", "MIO42", "MIO43";
 			bias-disable;
+			output-enable;
 			low-power-enable;
 		};
 
@@ -314,6 +319,7 @@
 			slew-rate = <SLEW_RATE_SLOW>;
 			power-source = <IO_STANDARD_LVCMOS18>;
 			bias-disable;
+			output-enable;
 		};
 
 		mux-mdio {
@@ -344,6 +350,7 @@
 			pins = "MIO54", "MIO56", "MIO57", "MIO58", "MIO59",
 			"MIO60", "MIO61", "MIO62", "MIO63";
 			bias-disable;
+			output-enable;
 			drive-strength = <4>;
 			slew-rate = <SLEW_RATE_SLOW>;
 		};
@@ -371,6 +378,7 @@
 			pins = "MIO66", "MIO68", "MIO69", "MIO70", "MIO71",
 			"MIO72", "MIO73", "MIO74", "MIO75";
 			bias-disable;
+			output-enable;
 			drive-strength = <4>;
 			slew-rate = <SLEW_RATE_SLOW>;
 		};

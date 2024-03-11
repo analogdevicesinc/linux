@@ -16,6 +16,9 @@ dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu104-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu104-revC.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu106-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu111-revA.dtb
+dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu1275-revA.dtb
+dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu1275-revB.dtb
+dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu1285-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-a2197-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-dlc21-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-e-a2197-00-revA.dtb
@@ -51,6 +54,9 @@ dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sc-vn-p-b2197-00-revA.dtb
 
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-vp-x-a2785-00-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-vpk120-revA.dtb
+dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu208-revA.dtb
+dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu216-revA.dtb
+
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu670-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-zcu670-revB.dtb
 
@@ -122,18 +128,29 @@ dtb-$(CONFIG_ARCH_ZYNQMP) += versal-vpk120-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += versal-vpk120-revB.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += versal-vpk180-revA.dtb
 
+versal-vck190-revB-x-ebm-01-revA-dtbs := versal-vck190-revA.dtb versal-x-ebm-01-revA.dtbo
+versal-vck190-revB-x-ebm-02-revA-dtbs := versal-vck190-revA.dtb versal-x-ebm-02-revA.dtbo
+versal-vck190-revB-x-ebm-03-revA-dtbs := versal-vck190-revA.dtb versal-x-ebm-03-revA.dtbo
+
+dtb-$(CONFIG_ARCH_ZYNQMP) += versal-vck190-revB-x-ebm-01-revA.dtb
+dtb-$(CONFIG_ARCH_ZYNQMP) += versal-vck190-revB-x-ebm-02-revA.dtb
+dtb-$(CONFIG_ARCH_ZYNQMP) += versal-vck190-revB-x-ebm-03-revA.dtb
+
 # Versal NET platforms
 dtb-$(CONFIG_ARCH_ZYNQMP) += versal-net-emu-rev1.9.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += versal-net-ipp-rev1.9-ospi.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += versal-net-ipp-rev1.9.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += versal-net-vn-p-b2197-00-revA.dtb
+dtb-$(CONFIG_ARCH_ZYNQMP) += versal-net-vn-x-b2197-00-revA.dtb
 
 versal-net-vn-p-b2197-00-revA-x-prc-07-revA-dtbs := versal-net-vn-p-b2197-00-revA.dtb x-prc-07-revA.dtbo
 versal-net-vn-p-b2197-00-revA-x-prc-07-i3c-revA-dtbs := versal-net-vn-p-b2197-00-revA.dtb x-prc-07-i3c-revA.dtbo
+versal-net-vn-p-b2197-00-revA-x-prc-08-revA-dtbs := versal-net-vn-p-b2197-00-revA.dtb x-prc-08-revA.dtbo
 versal-net-vn-p-b2197-00-revA-x-prc-09-revA-dtbs := versal-net-vn-p-b2197-00-revA.dtb x-prc-09-revA.dtbo
 versal-net-vn-p-b2197-00-revA-x-prc-09-i3c-revA-dtbs := versal-net-vn-p-b2197-00-revA.dtb x-prc-09-i3c-revA.dtbo
 
 dtb-$(CONFIG_ARCH_ZYNQMP) += versal-net-vn-p-b2197-00-revA-x-prc-07-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += versal-net-vn-p-b2197-00-revA-x-prc-07-i3c-revA.dtb
+dtb-$(CONFIG_ARCH_ZYNQMP) += versal-net-vn-p-b2197-00-revA-x-prc-08-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += versal-net-vn-p-b2197-00-revA-x-prc-09-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += versal-net-vn-p-b2197-00-revA-x-prc-09-i3c-revA.dtb

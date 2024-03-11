@@ -61,14 +61,14 @@
 	non-removable;
 	disable-wp;
 	bus-width = <8>;
-	xlnx,mio_bank = <0>;
+	xlnx,mio-bank = <0>;
 };
 
 &sdhci1 { /* sd1 MIO45-51 cd in place */
 	status = "okay";
 	no-1-8-v;
 	disable-wp;
-	xlnx,mio_bank = <1>;
+	xlnx,mio-bank = <1>;
 };
 
 &psgtr {
@@ -131,7 +131,7 @@
 		  "", "", "", "", "", /* 155 - 159 */
 		  "", "", "", "", "", /* 160 - 164 */
 		  "", "", "", "", "", /* 165 - 169 */
-		  "", "", "", ""; /* 170 - 174 */
+		  "", "", "", ""; /* 170 - 173 */
 };
 
 &i2c0 { /* MIO34/35 */

@@ -33,8 +33,6 @@
 		spi0 = &qspi;
 		spi1 = &spi0;
 		spi2 = &spi1;
-		usb0 = &usb0;
-		usb1 = &usb1;
 	};
 
 	chosen {
@@ -122,7 +120,7 @@
 		"", "", "", "", "", /* 155 - 159 */
 		"", "", "", "", "", /* 160 - 164 */
 		"", "", "", "", "", /* 165 - 169 */
-		"", "", "", ""; /* 170 - 174 */
+		"", "", "", ""; /* 170 - 173 */
 };
 
 &gem1 { /* gem1 MIO38-49, MDIO MIO50/51 */
@@ -159,8 +157,8 @@
 	pinctrl-names = "default", "gpio";
 	pinctrl-0 = <&pinctrl_i2c0_default>;
 	pinctrl-1 = <&pinctrl_i2c0_gpio>;
-	scl-gpios = <&gpio 34 GPIO_ACTIVE_HIGH>;
-	sda-gpios = <&gpio 35 GPIO_ACTIVE_HIGH>;
+	scl-gpios = <&gpio 34 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	sda-gpios = <&gpio 35 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 };
 
 &i2c1 { /* i2c1 MIO 24-25 */
@@ -170,8 +168,8 @@
 	pinctrl-names = "default", "gpio";
 	pinctrl-0 = <&pinctrl_i2c1_default>;
 	pinctrl-1 = <&pinctrl_i2c1_gpio>;
-	scl-gpios = <&gpio 24 GPIO_ACTIVE_HIGH>;
-	sda-gpios = <&gpio 25 GPIO_ACTIVE_HIGH>;
+	scl-gpios = <&gpio 24 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
+	sda-gpios = <&gpio 25 (GPIO_ACTIVE_HIGH | GPIO_OPEN_DRAIN)>;
 
 	/* Use for storing information about SC board */
 	eeprom: eeprom@54 { /* u34 - m24128 16kB */
@@ -270,13 +268,17 @@
 		};
 		partition@2240000 {
 			label = "SHA256";
-			reg = <0x2240000 0x10000>; /* 256B but 64KB sector */
+			reg = <0x2240000 0x40000>; /* 256B but 256KB sector */
 			read-only;
 			lock;
 		};
-		partition@2250000 {
+		partition@2280000 {
+			label = "Secure OS Storage";
+			reg = <0x2280000 0x20000>; /* 128KB */
+		};
+		partition@22A0000 {
 			label = "User";
-			reg = <0x2250000 0x1db0000>; /* 29.5 MB */
+			reg = <0x22A0000 0x1d60000>; /* 29.375 MB */
 		};
 	};
 };
@@ -298,21 +300,6 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart1_default>;
-};
-
-&usb0 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_usb0_default>;
-	phy-names = "usb3-phy";
-	phys = <&psgtr 2 PHY_TYPE_USB3 0 2>;
-};
-
-&dwc3_0 {
-	status = "okay";
-	dr_mode = "peripheral";
-	snps,usb3_lpm_capable;
-	maximum-speed = "super-speed";
 };
 
 &pinctrl0 { /* required by spec */
@@ -437,33 +424,6 @@
 		mux {
 			function = "ethernet1";
 			groups = "ethernet1_0_grp";
-		};
-	};
-
-	pinctrl_usb0_default: usb0-default {
-		conf {
-			groups = "usb0_0_grp";
-			power-source = <IO_STANDARD_LVCMOS18>;
-		};
-
-		conf-rx {
-			pins = "MIO52", "MIO53", "MIO55";
-			bias-high-impedance;
-			drive-strength = <12>;
-			slew-rate = <SLEW_RATE_FAST>;
-		};
-
-		conf-tx {
-			pins = "MIO54", "MIO56", "MIO57", "MIO58", "MIO59",
-			"MIO60", "MIO61", "MIO62", "MIO63";
-			bias-disable;
-			drive-strength = <4>;
-			slew-rate = <SLEW_RATE_SLOW>;
-		};
-
-		mux {
-			groups = "usb0_0_grp";
-			function = "usb0";
 		};
 	};
 };

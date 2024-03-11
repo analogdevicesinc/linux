@@ -8,6 +8,7 @@
 #include <linux/of_platform.h>
 #include <linux/slab.h>
 #include <linux/cdx/cdx_bus.h>
+#include <linux/irqdomain.h>
 
 #include "cdx_controller.h"
 #include "../cdx.h"
@@ -23,7 +24,8 @@ static void cdx_mcdi_request(struct cdx_mcdi *cdx,
 			     const struct cdx_dword *hdr, size_t hdr_len,
 			     const struct cdx_dword *sdu, size_t sdu_len)
 {
-	cdx_rpmsg_send(cdx, hdr, hdr_len, sdu, sdu_len);
+	if (cdx_rpmsg_send(cdx, hdr, hdr_len, sdu, sdu_len))
+		dev_err(&cdx->rpdev->dev, "Failed to send rpmsg data\n");
 }
 
 static const struct cdx_mcdi_ops mcdi_ops = {
@@ -53,7 +55,7 @@ static int cdx_bus_enable(struct cdx_controller *cdx, bool enable)
 	else
 		ret = cdx_mcdi_bus_disable(cdx->priv, 0);
 
-	if (ret == 0)
+	if (!ret)
 		cdx->enabled = enable;
 
 	return ret;
@@ -75,7 +77,7 @@ static int cdx_configure_device(struct cdx_controller *cdx,
 		addr = dev_config->msi.addr;
 
 		ret = cdx_mcdi_write_msi(cdx->priv, bus_num, dev_num,
-					 msi_index, data, addr);
+					 msi_index, addr, data);
 		break;
 	case CDX_DEV_RESET_CONF:
 		ret = cdx_mcdi_reset_device(cdx->priv, bus_num, dev_num);
@@ -89,7 +91,6 @@ static int cdx_configure_device(struct cdx_controller *cdx,
 					  dev_config->msi_enable);
 		break;
 	default:
-		dev_err(cdx->dev, "Invalid device configuration flag\n");
 		ret = -EINVAL;
 	}
 
@@ -125,7 +126,7 @@ static int cdx_scan_devices(struct cdx_controller *cdx)
 		ret = cdx_mcdi_get_num_devs(cdx_mcdi, bus_num);
 		if (ret < 0) {
 			dev_err(cdx->dev,
-				"CDX bus %d has no devices: %d\n", bus_num, ret);
+				"Get devices on CDX bus %d failed: %d\n", bus_num, ret);
 			ret = cdx_mcdi_bus_disable(cdx_mcdi, bus_num);
 			if (ret)
 				dev_err(cdx->dev,
@@ -200,6 +201,14 @@ static int xlnx_cdx_probe(struct platform_device *pdev)
 	cdx->priv = cdx_mcdi;
 	cdx->ops = &cdx_ops;
 
+	/* Create MSI domain */
+	cdx->msi_domain = cdx_msi_domain_init(&pdev->dev);
+	if (!cdx->msi_domain) {
+		dev_err(&pdev->dev, "cdx_msi_domain_init() failed");
+		ret = -ENODEV;
+		goto cdx_msi_fail;
+	}
+
 	ret = cdx_setup_rpmsg(pdev);
 	if (ret) {
 		if (ret != -EPROBE_DEFER)
@@ -211,6 +220,8 @@ static int xlnx_cdx_probe(struct platform_device *pdev)
 	return 0;
 
 cdx_rpmsg_fail:
+	irq_domain_remove(cdx->msi_domain);
+cdx_msi_fail:
 	kfree(cdx);
 cdx_alloc_fail:
 	cdx_mcdi_finish(cdx_mcdi);
@@ -227,6 +238,7 @@ static int xlnx_cdx_remove(struct platform_device *pdev)
 
 	cdx_destroy_rpmsg(pdev);
 
+	irq_domain_remove(cdx->msi_domain);
 	kfree(cdx);
 
 	cdx_mcdi_finish(cdx_mcdi);
@@ -257,7 +269,7 @@ static int __init cdx_controller_init(void)
 	int ret;
 
 	ret = platform_driver_register(&cdx_pdriver);
-	if (ret < 0)
+	if (ret)
 		pr_err("platform_driver_register() failed: %d\n", ret);
 
 	return ret;

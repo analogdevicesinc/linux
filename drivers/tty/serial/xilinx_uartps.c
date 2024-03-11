@@ -34,12 +34,12 @@
 #define TX_TIMEOUT		500000
 
 /* Rx Trigger level */
-static uint rx_trigger_level = 56;
+static int rx_trigger_level = 56;
 module_param(rx_trigger_level, uint, 0444);
 MODULE_PARM_DESC(rx_trigger_level, "Rx trigger level, 1-63 bytes");
 
 /* Rx Timeout */
-static uint rx_timeout = 10;
+static int rx_timeout = 10;
 module_param(rx_timeout, uint, 0444);
 MODULE_PARM_DESC(rx_timeout, "Rx timeout, 1-255");
 
@@ -1096,17 +1096,13 @@ static void cdns_uart_poll_put_char(struct uart_port *port, unsigned char c)
 static void cdns_uart_pm(struct uart_port *port, unsigned int state,
 		   unsigned int oldstate)
 {
-	int ret;
-
 	switch (state) {
 	case UART_PM_STATE_OFF:
 		pm_runtime_mark_last_busy(port->dev);
 		pm_runtime_put_autosuspend(port->dev);
 		break;
 	default:
-		ret = pm_runtime_get_sync(port->dev);
-		if (ret < 0)
-			dev_err(port->dev, "Failed to enable clocks\n");
+		pm_runtime_get_sync(port->dev);
 		break;
 	}
 }
