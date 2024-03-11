@@ -155,6 +155,62 @@
 		cpus = <&cpu0>, <&cpu1>, <&cpu2>, <&cpu3>;
 	};
 
+	pmu-tcu@16002000 {
+		compatible = "arm,smmu-v3-pmcg";
+		reg = <0x0 0x16002000 0x0 0x1000>,
+		<0x0 0x16022000 0x0 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <GIC_SPI 136 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	pmu-tbu@16042000 {
+		compatible = "arm,smmu-v3-pmcg";
+		reg = <0x0 0x16042000 0x0 0x1000>,
+		<0x0 0x16052000 0x0 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <GIC_SPI 138 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	pmu-tbu@16062000 {
+		compatible = "arm,smmu-v3-pmcg";
+		reg = <0x0 0x16062000 0x0 0x1000>,
+		<0x0 0x16072000 0x0 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <GIC_SPI 140 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	pmu-tbu@16082000 {
+		compatible = "arm,smmu-v3-pmcg";
+		reg = <0x0 0x16082000 0x0 0x1000>,
+		<0x0 0x16092000 0x0 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <GIC_SPI 142 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	pmu-tbu@160A2000 {
+		compatible = "arm,smmu-v3-pmcg";
+		reg = <0x0 0x160A2000 0x0 0x1000>,
+		<0x0 0x160B2000 0x0 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <GIC_SPI 144 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	pmu-tbu@160C2000 {
+		compatible = "arm,smmu-v3-pmcg";
+		reg = <0x0 0x160C2000 0x0 0x1000>,
+		<0x0 0x160D2000 0x0 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <GIC_SPI 146 IRQ_TYPE_EDGE_RISING>;
+	};
+
+	pmu-tbu@160E2000 {
+		compatible = "arm,smmu-v3-pmcg";
+		reg = <0x0 0x160E2000 0x0 0x1000>,
+		<0x0 0x160F2000 0x0 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <GIC_SPI 150 IRQ_TYPE_EDGE_RISING>;
+	};
+
 	soc: soc@0 {
 		compatible = "simple-bus";
 		ranges = <0 0 0 0xffffffff>;
