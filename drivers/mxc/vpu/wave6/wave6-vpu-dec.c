@@ -862,7 +862,7 @@ static int wave6_vpu_dec_try_fmt_cap(struct file *file, void *fh, struct v4l2_fo
 		height = inst->dst_fmt.height;
 	}
 
-	wave6_update_pix_fmt(pix_mp, width, height);
+	wave6_update_pix_fmt_cap(pix_mp, width, height, false);
 	pix_mp->colorspace = inst->colorspace;
 	pix_mp->ycbcr_enc = inst->ycbcr_enc;
 	pix_mp->quantization = inst->quantization;
@@ -982,7 +982,7 @@ static int wave6_vpu_dec_try_fmt_out(struct file *file, void *fh, struct v4l2_fo
 		pix_mp->num_planes = vpu_fmt->num_planes;
 	}
 
-	wave6_update_pix_fmt_cap(pix_mp, width, height, false);
+	wave6_update_pix_fmt(pix_mp, width, height);
 	pix_mp->colorspace = inst->colorspace;
 	pix_mp->ycbcr_enc = inst->ycbcr_enc;
 	pix_mp->quantization = inst->quantization;
