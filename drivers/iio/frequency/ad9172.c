@@ -213,6 +213,54 @@ static int ad9172_finalize_setup(struct ad9172_state *st)
 	return regmap_write(st->map, 0x596, 0x1c);
 }
 
+static int ad9172_setup_dac_clk(struct ad9172_state *st)
+{
+	uint8_t pll_lock_status = 0, dll_lock_stat = 0;
+	struct device *dev = regmap_get_device(st->map);
+	ad917x_handle_t *ad917x_h = &st->dac_h;
+	unsigned long pll_mult;
+	unsigned long long dac_clkin_hz;
+	int ret;
+
+	dac_clkin_hz = clk_get_rate_scaled(st->conv.clk[CLK_DAC],
+		&st->conv.clkscale[CLK_DAC]);
+
+	if (!st->pll_bypass) {
+		u64 tmp = dac_clkin_hz;
+
+		do_div(tmp, 1000);
+
+		pll_mult = DIV_ROUND_CLOSEST_ULL(st->dac_rate_khz, tmp);
+
+		ret = ad917x_set_dac_clk(ad917x_h, dac_clkin_hz * pll_mult,
+			1, dac_clkin_hz);
+	} else {
+		ret = ad917x_set_dac_clk(ad917x_h, dac_clkin_hz, 0,
+			dac_clkin_hz);
+	}
+
+	if (ret != 0) {
+		dev_err(dev, "ad917x_set_dac_clk failed (%d)\n", ret);
+		return ret;
+	}
+
+	dev_info(dev, "CLK Input rate Hz %llu\n", dac_clkin_hz);
+
+	msleep(100); /* Wait 100 ms for PLL to lock */
+
+	ret = ad917x_get_dac_clk_status(ad917x_h,
+		&pll_lock_status, &dll_lock_stat);
+	if (ret != 0) {
+		dev_err(dev, "ad917x_get_dac_clk_status failed (%d)\n", ret);
+		return ret;
+	}
+
+	dev_info(dev, "PLL lock status %x,  DLL lock status: %x\n",
+		 pll_lock_status, dll_lock_stat);
+
+	return 0;
+}
+
 static void ad9172_clk_disable(void *clk)
 {
 	clk_disable_unprepare(clk);
@@ -224,12 +272,11 @@ static int ad9172_setup(struct ad9172_state *st)
 	struct device *dev = regmap_get_device(map);
 	uint8_t revision[3] = {0, 0, 0};
 	adi_chip_id_t dac_chip_id;
-	uint8_t pll_lock_status = 0, dll_lock_stat = 0;
+	uint8_t pll_lock_status = 0;
 	int ret, i;
-	u64 dac_rate_Hz, dac_clkin_Hz;
+	u64 dac_rate_Hz;
 	unsigned long lane_rate_kHz;
 	ad917x_handle_t *ad917x_h = &st->dac_h;
-	unsigned long pll_mult;
 
 	st->interpolation = st->dac_interpolation *
 			    st->channel_interpolation;
@@ -266,41 +313,9 @@ static int ad9172_setup(struct ad9172_state *st)
 	dev_info(dev, "ad917x Revision: %d.%d.%d\n",
 		 revision[0], revision[1], revision[2]);
 
-	dac_clkin_Hz = clk_get_rate_scaled(st->conv.clk[CLK_DAC],
-		&st->conv.clkscale[CLK_DAC]);
-
-	dev_info(dev, "CLK Input rate %llu\n", dac_clkin_Hz);
-
-	if (!st->pll_bypass) {
-		u64 tmp = dac_clkin_Hz;
-
-		do_div(tmp, 1000);
-
-		pll_mult = DIV_ROUND_CLOSEST_ULL(st->dac_rate_khz, tmp);
-
-		ret = ad917x_set_dac_clk(ad917x_h, dac_clkin_Hz * pll_mult,
-			1, dac_clkin_Hz);
-	} else {
-		ret = ad917x_set_dac_clk(ad917x_h, dac_clkin_Hz, 0,
-			dac_clkin_Hz);
-	}
-
-	if (ret != 0) {
-		dev_err(dev, "ad917x_set_dac_clk failed (%d)\n", ret);
+	ret = ad9172_setup_dac_clk(st);
+	if (ret)
 		return ret;
-	}
-
-	msleep(100); /* Wait 100 ms for PLL to lock */
-
-	ret = ad917x_get_dac_clk_status(ad917x_h,
-		&pll_lock_status, &dll_lock_stat);
-	if (ret != 0) {
-		dev_err(dev, "ad917x_get_dac_clk_status failed (%d)\n", ret);
-		return ret;
-	}
-
-	dev_info(dev, "PLL lock status %x,  DLL lock status: %x\n",
-		 pll_lock_status, dll_lock_stat);
 
 	if (st->clock_output_config) {
 		/* DEBUG: route DAC clock to output, so we can meassure it */
@@ -1003,6 +1018,10 @@ static int ad9172_jesd204_link_init(struct jesd204_dev *jdev,
 
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
 		__LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
+
+	ret = ad9172_setup_dac_clk(st);
+	if (ret)
+		return ret;
 
 	lnk->num_converters = st->appJesdConfig.jesd_M;
 	lnk->num_lanes = st->appJesdConfig.jesd_L;
