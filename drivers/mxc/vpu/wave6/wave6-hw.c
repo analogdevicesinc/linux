@@ -3790,3 +3790,11 @@ void *wave6_vpu_get_sram(struct vpu_instance *vpu_inst, dma_addr_t *dma_addr, u3
 {
 	return wave6_vpu_ctrl_get_sram(vpu_inst->dev->ctrl, dma_addr, size);
 }
+
+u64 wave6_cycle_to_ns(struct vpu_device *vpu_dev, u64 cycle)
+{
+	if (!vpu_dev || !vpu_dev->vpu_clk_rate)
+		return 0;
+
+	return (cycle * NSEC_PER_SEC) / vpu_dev->vpu_clk_rate;
+}

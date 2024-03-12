@@ -709,6 +709,7 @@ static int wave6_vpu_enc_start_encode(struct vpu_instance *inst)
 			pic_param.force_pic_type = ENC_FORCE_PIC_TYPE_IDR;
 			inst->error_recovery = false;
 		}
+		src_vbuf->ts_start = ktime_get_raw();
 	}
 
 	pic_param.source_frame = &frame_buf;
@@ -747,6 +748,7 @@ static void wave6_handle_encoded_frame(struct vpu_instance *inst,
 	struct vb2_v4l2_buffer *src_buf;
 	struct vb2_v4l2_buffer *dst_buf;
 	struct vpu_buffer *vpu_buf;
+	struct vpu_buffer *dst_vpu_buf;
 	enum vb2_buffer_state state;
 
 	state = info->encoding_success ? VB2_BUF_STATE_DONE : VB2_BUF_STATE_ERROR;
@@ -770,6 +772,12 @@ static void wave6_handle_encoded_frame(struct vpu_instance *inst,
 		return;
 	}
 
+	dst_vpu_buf = wave6_to_vpu_buf(dst_buf);
+	dst_vpu_buf->ts_input = vpu_buf->ts_input;
+	dst_vpu_buf->ts_start = vpu_buf->ts_start;
+	dst_vpu_buf->ts_finish = ktime_get_raw();
+	dst_vpu_buf->hw_time = wave6_cycle_to_ns(inst->dev, info->cycle.frame_cycle);
+
 	v4l2_m2m_buf_copy_metadata(src_buf, dst_buf, true);
 	v4l2_m2m_buf_done(src_buf, state);
 
@@ -791,6 +799,9 @@ static void wave6_handle_encoded_frame(struct vpu_instance *inst,
 	}
 	v4l2_m2m_buf_done(dst_buf, state);
 	inst->processed_buf_num++;
+
+	dst_vpu_buf->ts_output = ktime_get_raw();
+	wave6_vpu_handle_performance(inst, dst_vpu_buf);
 
 	inst->total_frames++;
 	inst->total_frame_cycle += info->cycle.frame_cycle;
@@ -2278,6 +2289,7 @@ static void wave6_vpu_enc_buf_queue(struct vb2_buffer *vb)
 	if (V4L2_TYPE_IS_OUTPUT(vb->type)) {
 		vbuf->sequence = inst->queued_src_buf_num++;
 
+		vpu_buf->ts_input = ktime_get_raw();
 		vpu_buf->force_key_frame = inst->force_key_frame;
 		inst->force_key_frame = false;
 	} else {
@@ -2365,6 +2377,7 @@ static void wave6_vpu_enc_stop_streaming(struct vb2_queue *q)
 	v4l2_m2m_suspend(inst->dev->m2m_dev);
 
 	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
+		wave6_vpu_reset_performance(inst);
 		inst->queued_src_buf_num = 0;
 		inst->processed_buf_num = 0;
 		inst->error_buf_num = 0;

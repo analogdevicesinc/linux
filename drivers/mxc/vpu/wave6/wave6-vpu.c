@@ -139,6 +139,9 @@ static void wave6_vpu_on_boot(struct device *dev)
 			 revision,
 			 vpu_dev->hw_version);
 	}
+
+	if (vpu_dev->num_clks)
+		vpu_dev->vpu_clk_rate = clk_get_rate(vpu_dev->clks[0].clk);
 }
 
 static int wave6_vpu_probe(struct platform_device *pdev)

@@ -1171,6 +1171,7 @@ struct vpu_device {
 	int product_code;
 	struct clk_bulk_data *clks;
 	int num_clks;
+	unsigned long vpu_clk_rate;
 	struct completion irq_done;
 	struct kfifo irq_status;
 	struct delayed_work task_timer;
@@ -1183,6 +1184,17 @@ struct vpu_instance;
 struct vpu_instance_ops {
 	int (*start_process)(struct vpu_instance *inst);
 	void (*finish_process)(struct vpu_instance *inst);
+};
+
+struct vpu_performance_info {
+	ktime_t ts_first;
+	ktime_t ts_last;
+	s64 latency_first;
+	s64 latency_max;
+	s64 min_process_time;
+	s64 max_process_time;
+	u64 total_sw_time;
+	u64 total_hw_time;
 };
 
 struct vpu_instance {
@@ -1244,6 +1256,8 @@ struct vpu_instance {
 	struct work_struct init_task;
 	atomic_t start_init_seq;
 
+	struct vpu_performance_info performance;
+
 	u32 dynamic_bit_rate;
 	u32 dynamic_max_bit_rate;
 	struct dentry *debugfs;
@@ -1302,4 +1316,5 @@ const char *wave6_vpu_instance_state_name(u32 state);
 void wave6_vpu_set_instance_state(struct vpu_instance *inst, u32 state);
 void wave6_vpu_wait_active(struct vpu_instance *inst);
 void *wave6_vpu_get_sram(struct vpu_instance *vpu_inst, dma_addr_t *dma_addr, u32 *size);
+u64 wave6_cycle_to_ns(struct vpu_device *vpu_dev, u64 cycle);
 #endif

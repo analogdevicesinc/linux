@@ -185,6 +185,7 @@ static void wave6_handle_bitstream_buffer(struct vpu_instance *inst)
 		struct vpu_buffer *vpu_buf = wave6_to_vpu_buf(src_buf);
 		dma_addr_t rd_ptr = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
 
+		vpu_buf->ts_start = ktime_get_raw();
 		if (vpu_buf->consumed) {
 			dev_dbg(inst->dev->dev, "%s: Already consumed buffer\n",
 				__func__);
@@ -491,7 +492,8 @@ static int wave6_vpu_dec_start_decode(struct vpu_instance *inst)
 
 static void wave6_handle_decoded_frame(struct vpu_instance *inst,
 				       dma_addr_t addr,
-				       enum vb2_buffer_state state)
+				       enum vb2_buffer_state state,
+				       struct dec_output_info *info)
 {
 	struct vb2_v4l2_buffer *src_buf;
 	struct vb2_v4l2_buffer *dst_buf;
@@ -511,14 +513,20 @@ static void wave6_handle_decoded_frame(struct vpu_instance *inst,
 
 	dst_buf = wave6_get_dst_buf_by_addr(inst, addr);
 	if (dst_buf) {
-		if (wave6_to_vpu_buf(dst_buf)->used) {
+		struct vpu_buffer *dst_vpu_buf = wave6_to_vpu_buf(dst_buf);
+
+		if (dst_vpu_buf->used) {
 			dev_warn(inst->dev->dev, "[%d] duplication frame buffer\n", inst->id);
 			inst->sequence++;
 		}
 		v4l2_m2m_buf_copy_metadata(src_buf, dst_buf, true);
-		wave6_to_vpu_buf(dst_buf)->used = true;
+		dst_vpu_buf->used = true;
 		if (state == VB2_BUF_STATE_ERROR)
-			wave6_to_vpu_buf(dst_buf)->error = true;
+			dst_vpu_buf->error = true;
+		dst_vpu_buf->ts_input = vpu_buf->ts_input;
+		dst_vpu_buf->ts_start = vpu_buf->ts_start;
+		dst_vpu_buf->ts_finish = ktime_get_raw();
+		dst_vpu_buf->hw_time = wave6_cycle_to_ns(inst->dev, info->cycle.frame_cycle);
 	}
 
 	src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
@@ -585,6 +593,9 @@ static void wave6_handle_display_frame(struct vpu_instance *inst,
 		vb2_set_plane_payload(&dst_buf->vb2_buf, 2,
 				      inst->dst_fmt.plane_fmt[2].sizeimage);
 	}
+
+	vpu_buf->ts_output = ktime_get_raw();
+	wave6_vpu_handle_performance(inst, vpu_buf);
 
 	if (vpu_buf->error)
 		state = VB2_BUF_STATE_ERROR;
@@ -763,7 +774,7 @@ static void wave6_vpu_dec_finish_decode(struct vpu_instance *inst)
 
 	state = info.decoding_success ? VB2_BUF_STATE_DONE : VB2_BUF_STATE_ERROR;
 	if (info.frame_decoded_flag)
-		wave6_handle_decoded_frame(inst, info.frame_decoded_addr, state);
+		wave6_handle_decoded_frame(inst, info.frame_decoded_addr, state, &info);
 	else
 		wave6_handle_skipped_frame(inst);
 
@@ -1563,6 +1574,7 @@ static int wave6_vpu_dec_seek_header(struct vpu_instance *inst)
 static void wave6_vpu_dec_buf_queue_src(struct vb2_buffer *vb)
 {
 	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
+	struct vpu_buffer *vpu_buf = wave6_to_vpu_buf(vbuf);
 	struct vpu_instance *inst = vb2_get_drv_priv(vb->vb2_queue);
 
 	dev_dbg(inst->dev->dev, "type %4d index %4d size[0] %4ld size[1] : %4ld | size[2] : %4ld\n",
@@ -1570,6 +1582,7 @@ static void wave6_vpu_dec_buf_queue_src(struct vb2_buffer *vb)
 		vb2_plane_size(&vbuf->vb2_buf, 1), vb2_plane_size(&vbuf->vb2_buf, 2));
 
 	vbuf->sequence = inst->queued_src_buf_num++;
+	vpu_buf->ts_input = ktime_get_raw();
 
 	v4l2_m2m_buf_queue(inst->v4l2_fh.m2m_ctx, vbuf);
 }
@@ -1697,6 +1710,7 @@ static void wave6_vpu_dec_stop_streaming(struct vb2_queue *q)
 	v4l2_m2m_suspend(inst->dev->m2m_dev);
 
 	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
+		wave6_vpu_reset_performance(inst);
 		inst->queued_src_buf_num = 0;
 		inst->processed_buf_num = 0;
 		inst->error_buf_num = 0;

@@ -6,6 +6,7 @@
  */
 
 #include "wave6-vpu.h"
+#include "wave6-vpu-dbg.h"
 #include <linux/math64.h>
 
 void wave6_update_pix_fmt(struct v4l2_pix_format_mplane *pix_mp,
@@ -215,6 +216,60 @@ void wave6_vpu_finish_job(struct vpu_instance *inst)
 {
 	cancel_delayed_work(&inst->dev->task_timer);
 	v4l2_m2m_job_finish(inst->dev->m2m_dev, inst->v4l2_fh.m2m_ctx);
+}
+
+void wave6_vpu_handle_performance(struct vpu_instance *inst, struct vpu_buffer *vpu_buf)
+{
+	s64 latency, time_spent;
+
+	if (!inst || !vpu_buf)
+		return;
+
+	if (!inst->performance.ts_first)
+		inst->performance.ts_first = vpu_buf->ts_input;
+	inst->performance.ts_last = vpu_buf->ts_output;
+
+	latency = vpu_buf->ts_output - vpu_buf->ts_input;
+	time_spent = vpu_buf->ts_finish - vpu_buf->ts_start;
+
+	if (!inst->performance.latency_first)
+		inst->performance.latency_first = latency;
+	inst->performance.latency_max = max_t(s64, latency, inst->performance.latency_max);
+
+	if (!inst->performance.min_process_time)
+		inst->performance.min_process_time = time_spent;
+	else if (inst->performance.min_process_time > time_spent)
+		inst->performance.min_process_time = time_spent;
+
+	if (inst->performance.max_process_time < time_spent)
+		inst->performance.max_process_time = time_spent;
+
+	inst->performance.total_sw_time += time_spent;
+	inst->performance.total_hw_time += vpu_buf->hw_time;
+}
+
+void wave6_vpu_reset_performance(struct vpu_instance *inst)
+{
+	if (!inst)
+		return;
+
+	if (inst->processed_buf_num) {
+		s64 tmp;
+		s64 fps_act, fps_sw, fps_hw;
+		struct vpu_performance_info *perf = &inst->performance;
+
+		tmp = MSEC_PER_SEC * inst->processed_buf_num;
+		fps_act = DIV_ROUND_CLOSEST(tmp, (perf->ts_last - perf->ts_first) / NSEC_PER_MSEC);
+		fps_sw = DIV_ROUND_CLOSEST(tmp, perf->total_sw_time / NSEC_PER_MSEC);
+		fps_hw = DIV_ROUND_CLOSEST(tmp, perf->total_hw_time / NSEC_PER_MSEC);
+		dprintk(inst->dev->dev,
+			"[%d] fps actual: %lld, sw: %lld, hw: %lld, latency(ms) %llu.%06llu\n",
+			inst->id, fps_act, fps_sw, fps_hw,
+			perf->latency_first / NSEC_PER_MSEC,
+			perf->latency_first % NSEC_PER_MSEC);
+	}
+
+	memset(&inst->performance, 0, sizeof(inst->performance));
 }
 
 static const struct v4l2_m2m_ops wave6_vpu_m2m_ops = {

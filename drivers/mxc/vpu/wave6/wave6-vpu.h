@@ -23,6 +23,12 @@ struct vpu_buffer {
 	bool used;
 	bool error;
 	bool force_key_frame;
+
+	ktime_t ts_input;
+	ktime_t ts_start;
+	ktime_t ts_finish;
+	ktime_t ts_output;
+	u64 hw_time;
 };
 
 enum vpu_fmt_type {
@@ -75,6 +81,8 @@ void wave6_vpu_dec_unregister_device(struct vpu_device *dev);
 int  wave6_vpu_enc_register_device(struct vpu_device *dev);
 void wave6_vpu_enc_unregister_device(struct vpu_device *dev);
 void wave6_vpu_finish_job(struct vpu_instance *inst);
+void wave6_vpu_handle_performance(struct vpu_instance *inst, struct vpu_buffer *vpu_buf);
+void wave6_vpu_reset_performance(struct vpu_instance *inst);
 int wave6_vpu_init_m2m_dev(struct vpu_device *dev);
 void wave6_vpu_release_m2m_dev(struct vpu_device *dev);
 int wave6_vpu_subscribe_event(struct v4l2_fh *fh,
