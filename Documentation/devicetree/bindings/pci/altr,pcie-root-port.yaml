@@ -62,27 +62,6 @@ required:
 
 allOf:
   - $ref: /schemas/pci/pci-host-bridge.yaml#
-  - if:
-      properties:
-        compatible:
-          enum:
-            - altr,pcie-root-port-1.0
-    then:
-      properties:
-        reg:
-          maxItems: 2
-
-        reg-names:
-          maxItems: 2
-
-    else:
-      properties:
-        reg:
-          minItems: 3
-
-        reg-names:
-          minItems: 3
-
 
 unevaluatedProperties: false
 
@@ -105,10 +84,10 @@ examples:
         #address-cells = <3>;
         #size-cells = <2>;
         interrupt-map-mask = <0 0 0 7>;
-        interrupt-map = <0 0 0 1 &pcie_0 0 0 0 1>,
-                        <0 0 0 2 &pcie_0 0 0 0 2>,
-                        <0 0 0 3 &pcie_0 0 0 0 3>,
-                        <0 0 0 4 &pcie_0 0 0 0 4>;
+        interrupt-map = <0 0 0 1 &pcie_0 1>,
+                        <0 0 0 2 &pcie_0 2>,
+                        <0 0 0 3 &pcie_0 3>,
+                        <0 0 0 4 &pcie_0 4>;
         ranges = <0x82000000 0x00000000 0x00000000 0xc0000000 0x00000000 0x10000000>,
                  <0x82000000 0x00000000 0x10000000 0xd0000000 0x00000000 0x10000000>;
     };
