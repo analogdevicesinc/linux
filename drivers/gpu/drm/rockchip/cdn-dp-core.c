@@ -1246,7 +1246,7 @@ static int cdn_dp_probe(struct platform_device *pdev)
 	return 0;
 
 err_audio_deinit:
-	platform_device_unregister(dp->audio_pdev);
+	platform_device_unregister(dp->mhdp.audio_pdev);
 	return ret;
 }
 
