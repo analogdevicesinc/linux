@@ -11,6 +11,7 @@ drivers/gpu/drm/bridge/adv7511/adv7511_debugfs.o
 drivers/gpu/drm/tegra/fb.o
 drivers/media/i2c/adv7511-v4l2.o
 drivers/iio/adc/adi-axi-adc.o
+drivers/iio/industrialio-backend.o
 drivers/iio/adc/navassa/adrv9002_debugfs.o
 drivers/gpu/drm/i2c/adv7511_audio.o
 drivers/gpu/drm/i2c/adv7511_core.o

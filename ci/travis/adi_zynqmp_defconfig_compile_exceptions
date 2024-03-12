@@ -11,6 +11,7 @@ drivers/gpu/drm/tegra/fb.o
 drivers/media/platform/adi/imageon-bridge.o
 drivers/media/i2c/adv7511-v4l2.o
 drivers/iio/adc/adi-axi-adc.o
+drivers/iio/industrialio-backend.o
 drivers/iio/adc/max1027.o
 drivers/input/misc/adxl34x.o
 drivers/input/misc/adxl34x-i2c.o
