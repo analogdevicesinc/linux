@@ -16,6 +16,7 @@ drivers/hwmon/jc42.o
 drivers/hwmon/lm87.o
 drivers/hwmon/lm90.o
 drivers/iio/adc/adi-axi-adc.o
+drivers/iio/industrialio-backend.o
 drivers/iio/adc/adm1177.o
 drivers/iio/adc/madura/devices/adrv9025/private/src/adrv9025_dfe.o
 drivers/iio/adc/madura/devices/adrv9025/private/src/adrv9025_dynamic_slicer.o
