@@ -48,6 +48,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply AD7298
 	imply AD738X
 	imply AD7923
+	imply AD7944
 	imply AD7949
 	imply AD7476
 	imply AD7606_IFACE_PARALLEL
