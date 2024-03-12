@@ -62,7 +62,7 @@ static int hdcprx_notsync(struct cdns_hdmirx_device *hdmirx)
 void cdns_hdcprx_enable(struct cdns_hdmirx_device *hdmirx)
 {
     int ret;
-	int version = HDCPRX_VERSION_2;
+	int version = HDCPRX_VERSION_BOTH;
 	struct hdcprx_config config = { 0 };
 
 	config.activate = 1;
