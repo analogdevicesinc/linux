@@ -293,7 +293,8 @@ int wave6_vpu_build_up_dec_param(struct vpu_instance *vpu_inst,
 		p_dec_info->sec_axi_info.use_ip_enable = 1;
 		p_dec_info->sec_axi_info.use_lf_row_enable = 1;
 	}
-	p_dec_info->user_data_enable = (1 << DEC_USERDATA_FLAG_VUI);
+	p_dec_info->user_data_enable = BIT(DEC_USERDATA_FLAG_VUI) |
+				       BIT(DEC_USERDATA_FLAG_RECOVERY_POINT);
 	p_dec_info->user_data_buf_addr = vpu_inst->vui_vbuf.daddr;
 	p_dec_info->user_data_buf_size = vpu_inst->vui_vbuf.size;
 	switch (vpu_inst->std) {
