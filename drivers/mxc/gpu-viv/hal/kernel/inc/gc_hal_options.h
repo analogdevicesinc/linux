@@ -1538,6 +1538,20 @@
 #endif
 
 /*
+ *   gcdENABLE_GPU_WORK_PERIOD_TRACE
+ *       Creat tracepoint power/gpu_work_period, if set to 1.
+ *       Depends on kernel support.
+ *       Only support Linux OS currently.
+ */
+#ifndef gcdENABLE_GPU_WORK_PERIOD_TRACE
+#ifdef gcdANDROID
+#    define gcdENABLE_GPU_WORK_PERIOD_TRACE         1
+#    else
+#    define gcdENABLE_GPU_WORK_PERIOD_TRACE         0
+#    endif
+#endif
+
+/*
  *   gcdUSER_COMMAND_IN_EXCLUSIVE
  *       User command buffer can be able in exclusive local memory.
  */
