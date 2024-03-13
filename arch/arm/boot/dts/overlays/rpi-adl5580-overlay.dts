@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Overlay for the ADL5580 IIO Amplifier Driver
+ *
+ * Copyright 2024 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/iio/adi,adl5580.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2708", "brcm,bcm2709";
+};
+
+&{/} {
+	vcc: fixedregulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "avcc-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+	};
+	vee: fixedregulator@2 {
+		compatible = "regulator-fixed";
+		regulator-name = "avee-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+	};
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	adl5580: adl5580@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,adl5580";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		enable-gpios = <&gpio 22 GPIO_ACTIVE_HIGH>;
+		avcc-supply = <&vcc>;
+		avee-supply = <&vee>;
+
+		adi,prg-otrm = <ADL5580_OUT_CM_0P5V>;
+		adi,ms-otrm = <ADL5580_OUT_TERM_MODE3>;
+		adi,prg-itrm = <ADL5580_IN_CM_1P75V>;
+		adi,ms-itrm = <ADL5580_IN_TERM_MODE0>;
+		adi,prg-cpeak = <4>;
+	};
+};
+
+/ {
+	__overrides__ {
+		cs_pin = <&adl5580>,"reg:0";
+	};
+};
