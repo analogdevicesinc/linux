@@ -1,0 +1,17 @@
+# This document lists the code owners for all Linux repo sources, and it is
+# used automatically whenever Pull Requests are created, in next way:
+#  - People listed as CODEOWNERS are automatically added as reviewers to all
+#    PRs open to branches containing this file.
+#  - In addition to Code Owners, other reviewers can be added.
+#  - There can be different code owners for different branches.
+#  - PRs will require the approval of at least one code owner.
+#
+# For more details, you can refer [GitHub CodeOwners Documentation](ttps://github.blog/2017-07-06-introducing-code-owners/)
+#
+# The format of CODEOWNERS is: <pattern> + <mail address of one/more owners>
+#
+# In case of multiple matches, the last pattern matched will take precedence.
+
+##### Global code owners (for folders with no later match) #####
+
+*    nuno.sa@analog.com michael.hennerich@analog.com dragos.bogdan@analog.com bogdan.togorean@analog.com ciprian.hegbeli@analog.com darius.berghe@analog.com antoniu.miclaus@analog.com ramona.gradinariu@analog.com george.mois@analog.com ciprian.regus@analog.com marcelo.schmitt@analog.com
