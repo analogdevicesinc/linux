@@ -1,0 +1,96 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/amplifier/adi,adl5580.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+$title: Analog Devices ADL5580 configurable Gain Amplifier device tree bindings
+$maintainers:
+  - Michael Hennerich <michael.hennerich@analog.com>
+
+properties:
+  compatible:
+    enum:
+      - adi,adl5580
+
+  reg:
+    maxItems: 1
+
+  avcc-supply:
+    description: Analog Supply Voltage Input.
+
+  avee-supply:
+    description: Analog Negative Supply Voltage.
+
+  enable-gpios:
+    description:
+      If specified, can be used to enable/disable the amplifier. As the line is
+      active high, it should be marked GPIO_ACTIVE_HIGH.
+    maxItems: 1
+
+  adi,prg-otrm:
+    description: Enumerates programmable Output Common Mode Voltage
+        0 - 0.41V
+        1 - 0.51V
+        2 - 0.60V
+        3 - 0.70V
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3]
+
+  adi,ms-otrm:
+    description: Enumerates programmable Output Termination Mode.
+        0 - Internal VCM disabled, VCMO pin disconnected.
+        1 - Internal VCM enabled, VCMO pin disconnected.
+        2 - Internal VCM enabled, VCMO export.
+        3 - Internal VCM disabled, VCMO import. Default.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3]
+
+  adi,prg-itrm:
+    description: Enumerates programmable Input Common Mode Voltage
+        0 - 1.39V
+        1 - 1.53V
+        2 - 1.67V
+        3 - 1.80V
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3]
+
+  adi,ms-itrm:
+    description: Enumerates programmable Input Termination Mode.
+      0 - Internal VCM disabled, VCMI pin disconnected. Default.
+      1 - Internal VCM enabled, VCMI pin disconnected.
+      2 - Internal VCM enabled, VCMI export.
+      3 - Internal VCM disabled, VCMI import.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3]
+
+  adi,prg-cpeak:
+    description: Programmable flatness vs. operating bandwidth tuning option
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3, 4, 5, 6, 7]
+
+required:
+  - compatible
+  - reg
+
+examples:
+  - |
+
+    spi {
+          #address-cells = <1>;
+          #size-cells = <0>;
+          adl5580: adl5580@0 {
+                  compatible = "adi,adl5580";
+                  reg = <0>;
+                  spi-max-frequency = <1000000>;
+                  enable-gpios = <&gpio 22 GPIO_ACTIVE_HIGH>;
+                  avcc-supply = <&vcc>;
+                  avee-supply = <&vee>;
+
+                  adi,prg-otrm = <ADL5580_OUT_CM_0P5V>;
+                  adi,ms-otrm = <ADL5580_OUT_TERM_MODE3>;
+                  adi,prg-itrm = <ADL5580_IN_CM_1P75V>;
+                  adi,ms-itrm = <ADL5580_IN_TERM_MODE0>;
+                  adi,prg-cpeak = <4>;
+          };
+    };
