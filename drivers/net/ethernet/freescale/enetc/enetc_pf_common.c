@@ -307,8 +307,10 @@ void enetc_pf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 	ndev->vlan_features = NETIF_F_SG | NETIF_F_HW_CSUM |
 			      NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_GSO_UDP_L4;
 
-	if (si->num_rss)
+	if (si->num_rss) {
 		ndev->hw_features |= NETIF_F_RXHASH;
+		ndev->features |= NETIF_F_RXHASH;
+	}
 
 	/* If driver handles unicast address filtering, it should set
 	 * IFF_UNICAST_FLT in its priv_flags. (Refer to the description
