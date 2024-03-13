@@ -2,7 +2,7 @@
 /**
  * The JESD204 framework - finite state machine logic
  *
- * Copyright (c) 2019 Analog Devices Inc.
+ * Copyright (c) 2019-2024 Analog Devices Inc.
  */
 
 #include <linux/kernel.h>
@@ -1085,12 +1085,34 @@ static int __jesd204_fsm_start(struct jesd204_dev *jdev, unsigned int link_idx,
 				      JESD204_STATE_IDLE, resuming, true);
 }
 
+/**
+ * jesd204_fsm_start() - Start the JESD204 finite state machine for a specific link.
+ * @jdev:      Pointer to the JESD204 device structure.
+ * @link_idx:  Index of the link to start.
+ *
+ * This function starts the JESD204 finite state machine for the specified link
+ * of the given JESD204 device. It calls the internal __jesd204_fsm_start() function
+ * with the specified JESD204 device and link index. The 'force' parameter is set to
+ * false, indicating that the start operation should not be forced.
+ *
+ * Return: 0 on success, negative error code on failure.
+ */
 int jesd204_fsm_start(struct jesd204_dev *jdev, unsigned int link_idx)
 {
 	return __jesd204_fsm_start(jdev, link_idx, false);
 }
 EXPORT_SYMBOL_GPL(jesd204_fsm_start);
 
+/**
+ * jesd204_fsm_resume() - Resume the JESD204 state machine for a specific link
+ * @jdev:      Pointer to the JESD204 device structure.
+ * @link_idx:  Index of the link to resume.
+ *
+ * This function resumes the JESD204 state machine for the specified link
+ * of the given JESD204 device.
+ *
+ * Return: 0 on success, negative error code on failure.
+ */
 int jesd204_fsm_resume(struct jesd204_dev *jdev, unsigned int link_idx)
 {
 	return __jesd204_fsm_start(jdev, link_idx, true);
@@ -1397,6 +1419,15 @@ static int jesd204_fsm_table(struct jesd204_dev *jdev,
 	return ret;
 }
 
+/**
+ * jesd204_fsm_stop() - Stop the JESD204 finite state machine for a specific link.
+ * @jdev:     Pointer to the JESD204 device structure.
+ * @link_idx: Index of the link to stop the FSM for.
+ *
+ * This function stops the JESD204 finite state machine for the specified link
+ * in the JESD204 device. If the JESD204 device has not been initialized, the
+ * function returns without performing any action.
+ */
 void jesd204_fsm_stop(struct jesd204_dev *jdev, unsigned int link_idx)
 {
 	const struct jesd204_fsm_table_entry *start;
@@ -1443,6 +1474,13 @@ static void __jesd204_fsm_clear_errors(struct jesd204_dev *jdev,
 	jesd204_fsm(jdev, &data, handle_busy_flags);
 }
 
+/**
+ * jesd204_fsm_clear_errors() - Clear errors for a specific JESD204 link
+ * @jdev:      Pointer to the JESD204 device structure
+ * @link_idx:  Index of the JESD204 link to clear errors for
+ *
+ * This function clears errors for a specific JESD204 link in the JESD204 device.
+ */
 void jesd204_fsm_clear_errors(struct jesd204_dev *jdev, unsigned int link_idx)
 {
 	__jesd204_fsm_clear_errors(jdev, link_idx, true);
