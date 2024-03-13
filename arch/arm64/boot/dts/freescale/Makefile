@@ -315,6 +315,9 @@ dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-os08a20.dtb
 imx95-19x19-evk-adv7535-dtbs := imx95-19x19-evk.dtb imx95-19x19-evk-adv7535.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-adv7535.dtb
 
+imx95-19x19-evk-dsi-serdes-dtbs := imx95-19x19-evk.dtb imx95-19x19-evk-dsi-serdes.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-dsi-serdes.dtb
+
 imx95-19x19-evk-adv7535-ap1302-dtbs := imx95-19x19-evk.dtb \
 				       imx95-19x19-evk-adv7535.dtbo \
 				       imx95-19x19-evk-ap1302.dtbo

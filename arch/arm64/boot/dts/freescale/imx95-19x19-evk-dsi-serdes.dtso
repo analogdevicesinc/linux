@@ -1,0 +1,180 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2023 NXP
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/fsl,imx95-clock.h>
+
+&{/} {
+	hdmi-connector {
+		compatible = "hdmi-connector";
+		label = "hdmi";
+		type = "a";
+
+		port {
+			hdmi_connector_in: endpoint {
+				remote-endpoint = <&it6263_out>;
+			};
+		};
+	};
+};
+
+&display_pixel_link {
+	status = "okay";
+};
+
+&dpu {
+	assigned-clocks = <&scmi_clk IMX95_CLK_DISP1PIX>,
+			  <&scmi_clk IMX95_CLK_VIDEOPLL1_VCO>,
+			  <&scmi_clk IMX95_CLK_VIDEOPLL1>;
+	assigned-clock-parents = <&scmi_clk IMX95_CLK_VIDEOPLL1>;
+	assigned-clock-rates = <0>, <4008000000>, <445333334>;
+};
+
+&lpi2c2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	max96789: mipi_dsi_serializer@40 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "maxim,max96789";
+		reg = <0x40>;
+		status = "okay";
+
+		maxim,gmsl-links-types = <2 2>;
+		maxim,gmsl2-link-speed = <6>;
+		maxim,gmsl2-dual-link;
+
+		/* DSI port 0 */
+		max96789_dsi_bridge@0 {
+			reg = <0>;
+
+			compatible = "maxim,max96789-dsi";
+
+			port {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				max96789_dsi_a_in: endpoint@0 {
+					reg = <0>;
+
+					remote-endpoint = <&dsi_out>;
+					data-lanes = <1 2 3 4>;
+				};
+
+				max96789_video_out: endpoint@1 {
+					reg = <1>;
+
+					remote-endpoint = <&max96752_video_in>;
+				};
+			};
+		};
+
+		i2c-mux {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* gmsl a */
+			i2c@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				reg = <0>;
+
+				max96752: mipi_dsi_deserializer@48 {
+					compatible = "maxim,max96752";
+					reg = <0x48>;
+					status = "okay";
+
+					maxim,gmsl2-link-speed = <6>;
+					maxim,gmsl2-dual-link;
+
+					max96752_lvds_bridge {
+						compatible = "maxim,max96752-lvds";
+
+						port {
+							#address-cells = <1>;
+							#size-cells = <0>;
+
+							max96752_video_in: endpoint@0 {
+								reg = <0>;
+
+								remote-endpoint = <&max96789_video_out>;
+							};
+
+							max96752_lvds_a_out: endpoint@1 {
+								reg = <1>;
+
+								remote-endpoint = <&it6263_in>;
+							};
+						};
+					};
+
+					i2c-gate {
+						#address-cells = <1>;
+						#size-cells = <0>;
+
+						lvds-to-hdmi-bridge@4c {
+							compatible = "ite,it6263";
+							reg = <0x4c>;
+
+							ports {
+								#address-cells = <1>;
+								#size-cells = <0>;
+
+								port@0 {
+									reg = <0>;
+
+									it6263_in: endpoint {
+										remote-endpoint = <&max96752_lvds_a_out>;
+									};
+								};
+
+								port@1 {
+									reg = <1>;
+
+									it6263_out: endpoint {
+										remote-endpoint = <&hdmi_connector_in>;
+									};
+								};
+							};
+						};
+					};
+				};
+			};
+		};
+	};
+};
+
+&mipi_dsi {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@1 {
+			reg = <1>;
+
+			dsi_out: endpoint {
+				remote-endpoint = <&max96789_dsi_a_in>;
+			};
+		};
+	};
+};
+
+&pixel_interleaver {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	channel@0 {
+		reg = <0>;
+		status = "okay";
+	};
+};
