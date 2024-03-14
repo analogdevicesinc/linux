@@ -34,6 +34,9 @@
 #define AD9172_ATTR_CHAN_TONE_AMP(x) (4 << 8 | (x))
 #define AD9172_ATTR_CHAN_NCO_EN(x) (5 << 8 | (x))
 
+#define AD9172_CHANNEL_COUNT 6
+#define AD9172_MAINDAC_COUNT 2
+
 #define AD9172_ATTR_MAIN_NCO(x) (6 << 8 | (x))
 #define AD9172_ATTR_MAIN_PHASE(x) (7 << 8 | (x))
 #define AD9172_ATTR_MAIN_NCO_EN(x) (8 << 8 | (x))
@@ -69,6 +72,8 @@ struct ad9172_state {
 	u32 scrambling;
 	u32 sysref_mode;
 	u32 sysref_err_win;
+	s64 nco_ch_freq[AD9172_CHANNEL_COUNT];
+	s64 nco_main_freq[AD9172_MAINDAC_COUNT];
 	bool pll_bypass;
 	signal_type_t syncoutb_type;
 	signal_coupling_t sysref_coupling;
@@ -219,6 +224,7 @@ static int ad9172_setup_dac_clk(struct ad9172_state *st)
 	unsigned long pll_mult;
 	unsigned long long dac_clkin_hz;
 	int ret;
+	int i;
 
 	dac_clkin_hz = clk_get_rate_scaled(st->conv.clk[CLK_DAC],
 		&st->conv.clkscale[CLK_DAC]);
@@ -261,6 +267,23 @@ static int ad9172_setup_dac_clk(struct ad9172_state *st)
 
 	dev_info(dev, "PLL lock status %x,  DLL lock status: %x\n",
 		 pll_lock_status, dll_lock_stat);
+
+	for (i = 0; i < AD9172_CHANNEL_COUNT; i++) {
+		if (!(st->nco_channel_enable & BIT(i)) || !st->nco_ch_freq[i])
+			continue;
+		ret = ad917x_nco_set(&st->dac_h, AD917X_DAC_NONE, BIT(i),
+				     st->nco_ch_freq[i], 0, 0, 0);
+		if (ret)
+			return ret;
+	}
+	for (i = 0; i < AD9172_MAINDAC_COUNT; i++) {
+		if (!(st->nco_main_enable & BIT(i)) || !st->nco_main_freq[i])
+			continue;
+		ret = ad917x_nco_set(&st->dac_h, BIT(i), AD917X_CH_NONE,
+				     st->nco_main_freq[i], 0x1FFF, 0, 0);
+		if (ret)
+			return ret;
+	}
 
 	return 0;
 }
@@ -595,6 +618,9 @@ static ssize_t ad9172_attr_store(struct device *dev,
 		readin *= st->dac_interpolation;
 		ret = ad917x_nco_set(ad917x_h, AD917X_DAC_NONE, BIT(dest),
 				     readin, 0x1FFF, 0, 0);
+		if (ret)
+			break;
+		st->nco_ch_freq[dest] = readin;
 		st->nco_channel_enable |= BIT(dest);
 		break;
 	case AD9172_ATTR_CHAN_PHASE(0):
@@ -605,6 +631,9 @@ static ssize_t ad9172_attr_store(struct device *dev,
 	case AD9172_ATTR_MAIN_NCO(0):
 		ret = ad917x_nco_set(ad917x_h, BIT(dest), AD917X_CH_NONE,
 				     readin, 0x1FFF, 0, 0);
+		if (ret)
+			break;
+		st->nco_main_freq[dest] = readin;
 		st->nco_main_enable |= BIT(dest);
 		break;
 	case AD9172_ATTR_MAIN_PHASE(0):
