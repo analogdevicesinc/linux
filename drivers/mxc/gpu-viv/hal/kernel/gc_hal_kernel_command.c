@@ -2990,7 +2990,6 @@ gckCOMMAND_Commit(IN gckCOMMAND Command, IN gcsHAL_SUBCOMMIT *SubCommit,
 
 #if gcdCONTEXT_SWITCH_FORCE_USC_RESET
         if (Command->currContext != context
-            && delta != gcvNULL
             && Command->kernel->hardware->type == gcvHARDWARE_3D
             && gckHARDWARE_IsFeatureAvailable(Command->kernel->hardware, gcvFEATURE_BLT_ENGINE)
             && gckHARDWARE_IsFeatureAvailable(Command->kernel->hardware, gcvFEATURE_SECURITY))
