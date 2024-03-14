@@ -329,6 +329,9 @@ dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-rm692c9.dtb
 imx95-19x19-evk-ox03c10-dtbs := imx95-19x19-evk.dtb imx95-19x19-evk-ox03c10.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-ox03c10.dtb
 
+imx95-19x19-titan-ox03c10-dtbs := imx95-19x19-titan.dtb imx95-19x19-titan-ox03c10.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-titan-ox03c10.dtb
+
 imx95-19x19-evk-it6263-lvds0-dtbs := imx95-19x19-evk.dtb imx95-19x19-evk-it6263-lvds0.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-it6263-lvds0.dtb
 
