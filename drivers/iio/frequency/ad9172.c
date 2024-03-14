@@ -1102,6 +1102,13 @@ static int ad9172_jesd204_link_enable(struct jesd204_dev *jdev,
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
 		 __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
+	if (reason != JESD204_STATE_OP_REASON_INIT) {
+		ret = ad917x_jesd_enable_link(&st->dac_h, JESD_LINK_ALL, 0);
+		if (ret)
+			return ret;
+		return JESD204_STATE_CHANGE_DONE;
+	}
+
 	if (st->jesd_dual_link_mode || st->interpolation == 1)
 		dac_mask = AD917X_DAC0 | AD917X_DAC1;
 	else
@@ -1113,7 +1120,9 @@ static int ad9172_jesd204_link_enable(struct jesd204_dev *jdev,
 		return ret;
 	}
 
-	ad917x_jesd_set_sysref_enable(&st->dac_h, !!st->jesd_subclass);
+	ret = ad917x_jesd_set_sysref_enable(&st->dac_h, !!st->jesd_subclass);
+	if (ret)
+		return ret;
 
 	if (lnk->subclass == JESD204_SUBCLASS_1 &&
 	    st->sysref_mode == SYSREF_ONESHOT) {
@@ -1125,8 +1134,7 @@ static int ad9172_jesd204_link_enable(struct jesd204_dev *jdev,
 	}
 
 	/*Enable Link*/
-	ret = ad917x_jesd_enable_link(&st->dac_h, JESD_LINK_ALL,
-		reason == JESD204_STATE_OP_REASON_INIT);
+	ret = ad917x_jesd_enable_link(&st->dac_h, JESD_LINK_ALL, 1);
 	if (ret != 0) {
 		dev_err(dev, "Failed to enabled JESD204 link (%d)\n", ret);
 		return -EFAULT;
