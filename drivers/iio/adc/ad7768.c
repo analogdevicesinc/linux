@@ -8,6 +8,8 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/module.h>
+#include <linux/math64.h>
+#include <linux/units.h>
 #include <linux/spi/spi.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
@@ -464,22 +466,36 @@ static ssize_t ad7768_attr_sampl_freq_avail(struct device *dev,
 
 static IIO_DEV_ATTR_SAMP_FREQ_AVAIL(ad7768_attr_sampl_freq_avail);
 
+static ssize_t ad7768_scale(struct device *dev,
+			    struct device_attribute *attr,
+			    char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	const struct iio_chan_spec *chan = &indio_dev->channels[0];
+	struct ad7768_state *st = ad7768_get_data(indio_dev);
+	u64 vref_nv;
+	u64 scale;
+	int ret;
+
+	ret = regulator_get_voltage(st->vref);
+	if (ret < 0)
+		return ret;
+
+	vref_nv = (u64)ret * NANO * 2;
+	scale = div64_ul(vref_nv, BIT(chan->scan_type.realbits));
+
+	return scnprintf(buf, PAGE_SIZE, "0.%012llu\n", scale);
+}
+
+static IIO_DEVICE_ATTR(in_voltage_scale, 0644, ad7768_scale, NULL, 0);
+
 static int ad7768_read_raw(struct iio_dev *indio_dev,
 			   const struct iio_chan_spec *chan,
 			   int *val, int *val2, long info)
 {
 	struct ad7768_state *st = ad7768_get_data(indio_dev);
-	int ret;
 
 	switch (info) {
-	case IIO_CHAN_INFO_SCALE:
-		ret = regulator_get_voltage(st->vref);
-		if (ret < 0)
-			return ret;
-
-		*val = 2 * (ret / 1000000);
-		*val2 = chan->scan_type.realbits;
-		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		*val = st->sampling_freq;
 		return IIO_VAL_INT;
@@ -519,6 +535,7 @@ static struct iio_chan_spec_ext_info ad7768_ext_info[] = {
 
 static struct attribute *ad7768_attributes[] = {
 	&iio_dev_attr_sampling_frequency_available.dev_attr.attr,
+	&iio_dev_attr_in_voltage_scale.dev_attr.attr,
 	NULL
 };
 
@@ -536,7 +553,6 @@ static const struct iio_info ad7768_info = {
 #define AD7768_CHAN(index)						\
 	{								\
 		.type = IIO_VOLTAGE,					\
-		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),	\
 		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
 		.address = index,					\
 		.indexed = 1,						\
