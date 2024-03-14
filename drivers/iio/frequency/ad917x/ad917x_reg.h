@@ -80,6 +80,8 @@ int ad917x_register_read_block(ad917x_handle_t *h,
 #define AD917X_DLL_RST                BIT(0)
 #define AD917X_DLL_STATUS_REG         0x0C3
 #define AD917X_DLL_LOCK               BIT(0)
+#define AD917X_DLL_READY              0x0C7
+#define AD917X_DLL_READ_EN            BIT(0)
 
 #define AD917X_DIG_RESET_REG          0x100
 #define AD917X_DIG_PATH_PDN(x)        ((x) ? BIT(0) : 0)
