@@ -486,7 +486,14 @@ int ad917x_get_dac_clk_status(ad917x_handle_t *h,
 		*pll_lock_stat = tmp_reg & AD917X_DACPLL_LOCK;
 	}
 	if (dll_lock_stat != NULL) {
-
+		/* trigger update of status */
+		err = ad917x_register_write(h, AD917X_DLL_READY, 0x0);
+		if (err != API_ERROR_OK)
+			return err;
+		err = ad917x_register_write(h, AD917X_DLL_READY,
+					    AD917X_DLL_READ_EN);
+		if (err != API_ERROR_OK)
+			return err;
 		err = ad917x_register_read(h, AD917X_DLL_STATUS_REG, &tmp_reg);
 		if (err != API_ERROR_OK)
 			return err;
