@@ -120,6 +120,12 @@
 			no-map;
 		};
 
+		micfil_reserved: micfil-rpmsg@a8300000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0xa8300000 0 0x100000>;
+			no-map;
+		};
+
 		vdevbuffer: vdevbuffer@a8400000 {
 			compatible = "shared-dma-pool";
 			reg = <0 0xa8400000 0 0x100000>;
@@ -213,6 +219,15 @@
 		audio-routing =
 			"LINPUT1", "MICB",
 			"LINPUT3", "MICB";
+		status = "okay";
+	};
+
+	rpmsg_micfil: rpmsg_micfil {
+		compatible = "fsl,imx8ulp-rpmsg-audio";
+		model = "micfil-audio";
+		fsl,rpmsg-channel-name = "rpmsg-micfil-channel";
+		fsl,rpmsg-in;
+		memory-region = <&micfil_reserved>;
 		status = "okay";
 	};
 };
