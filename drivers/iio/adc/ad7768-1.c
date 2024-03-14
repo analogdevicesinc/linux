@@ -21,6 +21,9 @@
 #include <linux/sysfs.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi-engine.h>
+#include <linux/util_macros.h>
+#include <linux/units.h>
+#include <linux/rational.h>
 
 #include <linux/iio/buffer.h>
 #include <linux/iio/buffer-dma.h>
@@ -87,12 +90,19 @@
 /* AD7768_REG_GPIO_CONTROL */
 #define AD7768_GPIO_CONTROL_MSK		GENMASK(3, 0)
 #define AD7768_GPIO_UNIVERSAL_EN	BIT(7)
+#define AD7768_GPIO_PGIA_EN      	(AD7768_GPIO_UNIVERSAL_EN | GENMASK(2, 0))
 
 /* AD7768_REG_GPIO_WRITE */
 #define AD7768_GPIO_WRITE_MSK		GENMASK(3, 0)
+#define AD7768_GPIO_WRITE(x)		FIELD_PREP(AD7768_GPIO_WRITE_MSK, x)
 
 /* AD7768_REG_GPIO_READ */
 #define AD7768_GPIO_READ_MSK		GENMASK(3, 0)
+#define AD7768_GPIO_READ(x)			FIELD_PREP(AD7768_GPIO_READ_MSK, x)
+
+/* AD7768_REG_CONVLEN */
+#define AD7768_REG_CONVLEN_MSK		GENMASK(3, 3)
+#define AD7768_REG_CONVLEN(x)		FIELD_PREP(AD7768_REG_CONVLEN_MSK, x)
 
 #define AD7768_GPIO_INPUT(x)		0x00
 #define AD7768_GPIO_OUTPUT(x)		BIT(x)
@@ -100,12 +110,14 @@
 #define AD7768_RD_FLAG_MSK(x)		(BIT(6) | ((x) & 0x3F))
 #define AD7768_WR_FLAG_MSK(x)		((x) & 0x3F)
 
+#define AD7768_CHAN_INFO_NONE		0
+
+#define ADAQ776X_GAIN_MAX_NANO		(128 * NANO)
+#define ADAQ776X_MAX_GAIN_MODES		8
+
 enum {
 	SINC3_DEC_RATE,
 };
-
-
-
 
 enum ad7768_conv_mode {
 	AD7768_CONTINUOUS,
@@ -143,9 +155,62 @@ enum ad7768_dec_rate {
 	AD7768_DEC_RATE_128 = 2,
 	AD7768_DEC_RATE_256 = 3,
 	AD7768_DEC_RATE_512 = 4,
-	AD7768_DEC_RATE_1024 = 5,
-	AD7768_DEC_RATE_8 = 9,
-	AD7768_DEC_RATE_16 = 10
+	AD7768_DEC_RATE_1024 = 5
+};
+
+enum {
+	ID_AD7768_1,
+	ID_ADAQ7767_1,
+	ID_ADAQ7768_1,
+	ID_ADAQ7769_1,
+};
+
+enum {
+	AD7768_PGA_GAIN_0,
+	AD7768_PGA_GAIN_1,
+	AD7768_PGA_GAIN_2,
+	AD7768_PGA_GAIN_3,
+	AD7768_PGA_GAIN_4,
+	AD7768_PGA_GAIN_5,
+	AD7768_PGA_GAIN_6,
+	AD7768_PGA_GAIN_7,
+	AD7768_MAX_PGA_GAIN,
+};
+
+enum {
+	AD7768_AAF_IN1,
+	AD7768_AAF_IN2,
+	AD7768_AAF_IN3,
+};
+
+/*
+ * Gains computed as fractions of 1000 so they can be expressed by integers.
+ */
+static const int adaq7768_gains[7] = {
+	[AD7768_PGA_GAIN_0] = 325,
+	[AD7768_PGA_GAIN_1] = 650,
+	[AD7768_PGA_GAIN_2] = 1300,
+	[AD7768_PGA_GAIN_3] = 2600,
+	[AD7768_PGA_GAIN_4] = 5200,
+	[AD7768_PGA_GAIN_5] = 10400,
+	[AD7768_PGA_GAIN_6] = 20800
+};
+
+static const int adaq7769_gains[8] = {
+	[AD7768_PGA_GAIN_0] = 1000,
+	[AD7768_PGA_GAIN_1] = 2000,
+	[AD7768_PGA_GAIN_2] = 4000,
+	[AD7768_PGA_GAIN_3] = 8000,
+	[AD7768_PGA_GAIN_4] = 16000,
+	[AD7768_PGA_GAIN_5] = 32000,
+	[AD7768_PGA_GAIN_6] = 64000,
+	[AD7768_PGA_GAIN_7] = 128000
+};
+
+static const int ad7768_aaf_gains[3] = {
+	[AD7768_AAF_IN1] = 1000,
+	[AD7768_AAF_IN2] = 364,
+	[AD7768_AAF_IN3] = 143
 };
 
 static const char * const ad7768_vcm_modes[] = {
@@ -160,10 +225,13 @@ static const char * const ad7768_vcm_modes[] = {
 };
 static const char * const ad7768_filter_enum[] = {
 	[SINC5] = "SINC5",
-	[SINC5_DEC_X8] = "SINC5_DEC_X8",
 	[SINC5_DEC_X16] = "SINC5_DEC_X16",
 	[SINC3] = "SINC3",
 	[WIDEBAND] = "WIDEBAND",
+
+};
+static const char * const ad7768_filter_low_freq_enum[] = {
+	[SINC5_DEC_X8] = "SINC5_DEC_X8",
 
 };
 static const char * const ad7768_mclk_div_enum[] = {
@@ -179,9 +247,7 @@ static const char * const ad7768_dec_rate_enum[] = {
 	[AD7768_DEC_RATE_128]  = "AD7768_DEC_RATE_128",
 	[AD7768_DEC_RATE_256]  = "AD7768_DEC_RATE_256",
 	[AD7768_DEC_RATE_512]  = "AD7768_DEC_RATE_512",
-	[AD7768_DEC_RATE_1024] = "AD7768_DEC_RATE_1024",
-	[AD7768_DEC_RATE_8]    = "AD7768_DEC_RATE_8",
-	[AD7768_DEC_RATE_16]   = "AD7768_DEC_RATE_16",
+	[AD7768_DEC_RATE_1024] = "AD7768_DEC_RATE_1024"
 };
 
 static const char * const ad7768_pwr_mode_enum[] = {
@@ -236,6 +302,12 @@ static const struct iio_enum ad7768_mclk_div_iio_enum = {
 	.set = ad7768_set_mclk_div,
 	.get = ad7768_get_mclk_div,
 };
+/* In low latency mode, the filter attribute is read-only */
+static const struct iio_enum ad7768_flt_type_ll_iio_enum = {
+	.items = ad7768_filter_low_freq_enum,
+	.num_items = ARRAY_SIZE(ad7768_filter_low_freq_enum),
+	.get = ad7768_get_dig_fil,
+};
 static const struct iio_enum ad7768_flt_type_iio_enum = {
 	.items = ad7768_filter_enum,
 	.num_items = ARRAY_SIZE(ad7768_filter_enum),
@@ -271,28 +343,76 @@ static struct iio_chan_spec_ext_info ad7768_ext_info[] = {
 	{ },
 };
 
-static const struct iio_chan_spec ad7768_channels[] = {
-	{
-		.type = IIO_VOLTAGE,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
-		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),
-		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.ext_info = ad7768_ext_info,
-		.indexed = 1,
-		.channel = 0,
-		.scan_index = 0,
-		.scan_type = {
-			.sign = 's',
-			.realbits = 24,
-			.storagebits = 32,
-			.shift = 0,
-		},
-	},
+static struct iio_chan_spec_ext_info ad7768_low_latency_ext_info[] = {
+
+	IIO_ENUM("power_mode", IIO_SHARED_BY_ALL, &ad7768_pwr_mode_iio_enum),
+	IIO_ENUM_AVAILABLE("power_mode", IIO_SHARED_BY_ALL, &ad7768_pwr_mode_iio_enum),
+	IIO_ENUM("dec_rate", IIO_SHARED_BY_ALL, &ad7768_dec_rate_iio_enum),
+	IIO_ENUM_AVAILABLE("dec_rate", IIO_SHARED_BY_ALL, &ad7768_dec_rate_iio_enum),
+	IIO_ENUM("mclk_div", IIO_SHARED_BY_ALL, &ad7768_mclk_div_iio_enum),
+	IIO_ENUM_AVAILABLE("mclk_div", IIO_SHARED_BY_ALL, &ad7768_mclk_div_iio_enum),
+	IIO_ENUM("filter_type", IIO_SHARED_BY_ALL, &ad7768_flt_type_ll_iio_enum),
+	IIO_ENUM("common_mode_voltage", IIO_SHARED_BY_ALL, &ad7768_vcm_mode_enum),
+	IIO_ENUM_AVAILABLE("common_mode_voltage", IIO_SHARED_BY_ALL, &ad7768_vcm_mode_enum),
+	{ },
 };
 
+
+#define AD7768_CHAN(_idx, _msk_avail, _real_bits, _ext_info) {	\
+		.type = IIO_VOLTAGE,\
+		.info_mask_separate_available = _msk_avail,\
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),\
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),\
+		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
+		.ext_info = _ext_info,\
+		.indexed = 1,\
+		.channel = _idx,\
+		.scan_index = 0,\
+		.scan_type = {\
+			.sign = 's',\
+			.realbits = _real_bits,\
+			.storagebits = 32,\
+			.shift = 0,\
+		},\
+}
+
+static const struct iio_chan_spec ad7768_channels[] = {
+	AD7768_CHAN(0, AD7768_CHAN_INFO_NONE, 24, ad7768_ext_info),
+};
+
+static const struct iio_chan_spec adaq776x_channels[] = {
+	AD7768_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 24, ad7768_ext_info),
+};
+
+static const struct iio_chan_spec ad7768_low_latency_channels[] = {
+	AD7768_CHAN(0, AD7768_CHAN_INFO_NONE, 16, ad7768_low_latency_ext_info),
+};
+
+static const struct iio_chan_spec adaq776x_low_latency_channels[] = {
+	AD7768_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 16, ad7768_low_latency_ext_info),
+};
+
+struct ad7768_chip_info {
+	const char *name;
+	u8 grade;
+	bool has_variable_aaf;
+	bool has_pga;
+	int num_pga_modes;
+	int default_pga_mode;
+	int pgia_mode2pin_offset;
+	const int *pga_gains;
+	const struct iio_chan_spec *channel_spec[2];
+	const unsigned long *available_masks;
+	int num_channels;
+};
 struct ad7768_state {
+	const struct ad7768_chip_info *chip;
 	struct spi_device *spi;
-	struct regulator *vref;
+	struct regulator *regulator;
+	int bits_per_word;
+	int vref;
+	int pga_gain_mode;
+	int aaf_gain;
 	struct mutex lock;
 	struct clk *mclk;
 	struct gpio_chip gpiochip;
@@ -306,6 +426,7 @@ struct ad7768_state {
 	struct iio_trigger *trig;
 	struct gpio_desc *gpio_sync_in;
 	const char *labels[ARRAY_SIZE(ad7768_channels)];
+	int scale_tbl[ADAQ776X_MAX_GAIN_MODES][2];
 	struct gpio_desc *gpio_reset;
 	enum ad7768_mclk_div mclk_div;
 	enum ad7768_dec_rate dec_rate;
@@ -338,6 +459,9 @@ static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
 	unsigned char tx_data[4];
 	int ret;
 	tx_data[0] = AD7768_RD_FLAG_MSK(addr);
+	tx_data[1] = 0xFF;
+	tx_data[2] = 0xFF;
+	tx_data[3] = 0xFF;
 	xfer.tx_buf = tx_data;
 	ret = spi_sync_transfer(st->spi, &xfer, 1);
 	if (ret < 0)
@@ -355,9 +479,10 @@ static int ad7768_spi_reg_write(struct ad7768_state *st,
 		.len = 2,
 		.bits_per_word = 16,
 	};
-	unsigned char tx_data[2];
+	u8 tx_data[4];
 	tx_data[0] = AD7768_WR_FLAG_MSK(addr);
-	tx_data[1] = val & 0xFF;
+	tx_data[1] = val;
+	printk("reg write: %x%x%x", tx_data[0],  tx_data[1],  tx_data[2]);
 	xfer.tx_buf = tx_data;
 	return spi_sync_transfer(st->spi, &xfer, 1);
 }
@@ -410,15 +535,16 @@ static int ad7768_scan_direct(struct iio_dev *indio_dev)
 		if (!ret)
 			return -ETIMEDOUT;
 	}
-
 	ret = ad7768_spi_reg_read(st, AD7768_REG_ADC_DATA, &readval, 3);
 	if (ret < 0)
 		return ret;
+	if(st->filter_type == SINC5_DEC_X8)
+		readval = readval >> 8;
 	/*
 	 * Any SPI configuration of the AD7768-1 can only be
 	 * performed in continuous conversion mode.
 	 */
-	ret = ad7768_set_mode(st, AD7768_CONTINUOUS);
+ 	ret = ad7768_set_mode(st, AD7768_CONTINUOUS);
 	if (ret < 0)
 		return ret;
 
@@ -719,6 +845,7 @@ static int ad7768_set_mclk_div(struct iio_dev *dev,
 	ret = ad7768_spi_reg_read(st, AD7768_REG_POWER_CLOCK, &val, 1);
 	if (ret)
 		return ret;
+	printk("Got power clock %x", val);
 	mclk_div_value = (val & 0xcf) | AD7768_PWR_MCLK_DIV(mclk_div);
 
 	ret = ad7768_spi_reg_write(st, AD7768_REG_POWER_CLOCK, mclk_div_value);
@@ -727,14 +854,17 @@ static int ad7768_set_mclk_div(struct iio_dev *dev,
 	return 0;
 }
 
-static int ad7768_set_dig_fil(struct iio_dev *dev,
-			      const struct iio_chan_spec *chan,
-			      unsigned int filter)
+static int ad7768_set_filter_type(struct ad7768_state *st, unsigned int filter)
 {
-	struct ad7768_state *st = iio_priv(dev);
 	unsigned int mode,val;
 	int ret;
 	st->filter_type = filter;
+
+	if (st->filter_type == SINC5_DEC_X8)
+		st->bits_per_word = 16;
+	else
+		st->bits_per_word = 24;
+
 	ret = ad7768_spi_reg_read(st, AD7768_REG_DIGITAL_FILTER, &val, 1);
 	if (ret)
 		return ret;
@@ -745,10 +875,19 @@ static int ad7768_set_dig_fil(struct iio_dev *dev,
 		return ret;
 
 	/* A sync-in pulse is required every time the filter dec rate changes */
-	gpiod_set_value(st->gpio_sync_in, 1);
-	gpiod_set_value(st->gpio_sync_in, 0);
+	ret = ad7768_spi_reg_write(st, AD7768_REG_SYNC_RESET, 0x00);
+	return ret;
+}
 
-	return 0;
+static int ad7768_set_dig_fil(struct iio_dev *dev,
+			      const struct iio_chan_spec *chan,
+			      unsigned int filter)
+{
+	struct ad7768_state *st = iio_priv(dev);
+	if(filter != SINC5_DEC_X8)
+		return ad7768_set_filter_type(st, filter);
+
+	return -EINVAL;
 }
 
 static int ad7768_get_dig_fil(struct iio_dev *dev,
@@ -785,12 +924,64 @@ static int ad7768_set_vcm(struct iio_dev *dev,
 	return ret;
 }
 
+static int ad7768_calc_pga_gain(struct ad7768_state *st, int gain_int,
+				int gain_fract,
+				int precision)
+{
+	u64 gain_nano, tmp;
+	int gain_idx;
+
+	gain_nano = gain_int * NANO + gain_fract;
+
+	if (gain_nano < 0 || gain_nano > ADAQ776X_GAIN_MAX_NANO)
+		return -EINVAL;
+
+	tmp = DIV_ROUND_CLOSEST_ULL(gain_nano << precision, NANO);
+	gain_nano = DIV_ROUND_CLOSEST_ULL(st->vref * 2, tmp);
+	if(st->chip->has_variable_aaf)
+		/* remove the AAF gain from the gain */
+		gain_nano = DIV_ROUND_CLOSEST_ULL(gain_nano *  MILLI,
+						  ad7768_aaf_gains[st->aaf_gain]);
+	tmp = st->chip->num_pga_modes;
+	gain_idx = find_closest(gain_nano, st->chip->pga_gains, tmp);
+
+	return gain_idx;
+}
+
+static int ad7768_set_pga_gain(struct ad7768_state *st,
+			       int gain_mode)
+{
+	int ret;
+	int check_val;
+	int pgia_pins_value = abs(gain_mode - st->chip->pgia_mode2pin_offset);
+
+	/* Check GPIO control register */
+	ret = ad7768_spi_reg_read(st, AD7768_REG_GPIO_CONTROL, &check_val, 1);
+	if (ret < 0)
+		return ret;
+	if ((check_val & AD7768_GPIO_PGIA_EN) != AD7768_GPIO_PGIA_EN) {
+		/* Enable PGIA GPIOs and set them as output */
+		ret = ad7768_spi_reg_write(st, AD7768_REG_GPIO_CONTROL, AD7768_GPIO_PGIA_EN);
+		if (ret < 0)
+			return ret;
+	}
+
+	/* Write GPIOs 0-2 with the gain mode equivalente value */
+	ret = ad7768_spi_reg_write(st, AD7768_REG_GPIO_WRITE,
+				   AD7768_GPIO_WRITE(pgia_pins_value));
+	if (ret < 0)
+		return ret;
+	st->pga_gain_mode = gain_mode;
+	return 0;
+}
+
 static int ad7768_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
 			   int *val, int *val2, long info)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
-	int scale_uv, ret;
+	int ret;
+	int dec_rate;
 	int dec_rates_values[6] = {32,64,128,256,512,1024};
 	int mclk_div_rates[4] = {16,8,4,2};
 	switch (info) {
@@ -810,24 +1001,61 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 
 	case IIO_CHAN_INFO_SCALE:
-		scale_uv = regulator_get_voltage(st->vref);
-		if (scale_uv < 0)
-			return scale_uv;
-
-		*val = (scale_uv * 2) / 1000;
+		if (st->chip->has_pga) {
+			*val = st->scale_tbl[st->pga_gain_mode][0];
+			*val2 = st->scale_tbl[st->pga_gain_mode][1];
+			return IIO_VAL_INT_PLUS_NANO;
+		}
+		*val = (st->vref * 2) / 1000;
+		if (st->chip->has_variable_aaf)
+			*val = (*val * MILLI) / ad7768_aaf_gains[st->aaf_gain];
 		*val2 = chan->scan_type.realbits;
-
 		return IIO_VAL_FRACTIONAL_LOG2;
 
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		if(st->filter_type == SINC3)
-			*val = DIV_ROUND_CLOSEST(st->mclk_freq,
-						 (mclk_div_rates[st->mclk_div] * (st->sinc3_dec_rate+1)*32));
+			dec_rate =(st->sinc3_dec_rate + 1) * 32;
+		else if(st->filter_type == SINC5_DEC_X8)
+			dec_rate = 8;
+		else if(st->filter_type == SINC5_DEC_X16)
+			dec_rate = 16;
 		else
-			*val = DIV_ROUND_CLOSEST(st->mclk_freq,
-						 (mclk_div_rates[st->mclk_div] * dec_rates_values[st -> dec_rate]));
+			dec_rate = dec_rates_values[st->dec_rate];
+		*val = DIV_ROUND_CLOSEST(st->mclk_freq,
+					 (mclk_div_rates[st->mclk_div] * dec_rate));
 
 		return IIO_VAL_INT;
+	}
+
+	return -EINVAL;
+}
+
+static int ad7768_read_avail(struct iio_dev *indio_dev,
+			     struct iio_chan_spec const *chan,
+			     const int **vals, int *type, int *length,
+			     long info)
+{
+	struct ad7768_state *st = iio_priv(indio_dev);
+
+	switch (info) {
+	case IIO_CHAN_INFO_SCALE:
+		*vals = (int *)st->scale_tbl;
+		*length = st->chip->num_pga_modes * 2;
+		*type = IIO_VAL_INT_PLUS_NANO;
+		return IIO_AVAIL_LIST;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int ad7768_write_raw_get_fmt(struct iio_dev *indio_dev,
+				    struct iio_chan_spec const *chan, long mask)
+{
+	switch (mask) {
+	case IIO_CHAN_INFO_SCALE:
+		return IIO_VAL_INT_PLUS_NANO;
+	default:
+		return IIO_VAL_INT_PLUS_MICRO;
 	}
 
 	return -EINVAL;
@@ -838,9 +1066,16 @@ static int ad7768_write_raw(struct iio_dev *indio_dev,
 			    int val, int val2, long info)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
+	int gain_mode;
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
+	case IIO_CHAN_INFO_SCALE:
+		if(!st->chip->has_pga)
+			return -EPERM;
+		gain_mode = ad7768_calc_pga_gain(st, val, val2,
+						 chan->scan_type.realbits);
+		return ad7768_set_pga_gain(st, gain_mode);
 	default:
 		return -EINVAL;
 	}
@@ -856,12 +1091,14 @@ static int ad7768_read_label(struct iio_dev *indio_dev,
 
 static const struct iio_info ad7768_info = {
 	.read_raw = &ad7768_read_raw,
+	.read_avail = &ad7768_read_avail,
 	.write_raw = &ad7768_write_raw,
+	.write_raw_get_fmt = &ad7768_write_raw_get_fmt,
 	.read_label = ad7768_read_label,
 	.debugfs_reg_access = &ad7768_reg_access,
 };
 
-static int ad7768_setup(struct ad7768_state *st)
+static int ad7768_setup(struct ad7768_state *st, int low_latency_en)
 {
 	int ret;
 
@@ -883,10 +1120,12 @@ static int ad7768_setup(struct ad7768_state *st)
 	 * to 10. When the sequence is detected, the reset occurs.
 	 * See the datasheet, page 70.
 	 */
+	printk("SYNC reset 1 1");
 	ret = ad7768_spi_reg_write(st, AD7768_REG_SYNC_RESET, 0x3);
 	if (ret)
 		return ret;
 
+	printk("SYNC reset 2");
 	ret = ad7768_spi_reg_write(st, AD7768_REG_SYNC_RESET, 0x2);
 	if (ret)
 		return ret;
@@ -899,7 +1138,12 @@ static int ad7768_setup(struct ad7768_state *st)
 	ret = ad7768_gpio_init(st);
 	if (ret < 0)
 		return ret;
-	return 0;
+
+	if (low_latency_en)
+		ret = ad7768_set_filter_type(st, SINC5_DEC_X8);
+	else
+		ret = ad7768_set_filter_type(st, SINC5);
+	return ret;
 }
 
 static irqreturn_t ad7768_trigger_handler(int irq, void *p)
@@ -943,12 +1187,13 @@ static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 	struct ad7768_state *st = iio_priv(indio_dev);
 	struct spi_transfer xfer = {
 		.len = 1,
-		.bits_per_word = 32
 	};
 	unsigned int rx_data[2];
-	unsigned int tx_data[2];
 	struct spi_message msg;
 	int ret;
+
+	st->offload_xfer.len = roundup_pow_of_two(BITS_TO_BYTES(st->bits_per_word));
+	st->offload_xfer.bits_per_word = st->bits_per_word;
 
 	/*
 	* Write a 1 to the LSB of the INTERFACE_FORMAT register to enter
@@ -960,10 +1205,18 @@ static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 		return ret;
 
 	if (st->spi_is_dma_mapped) {
+
+		st->offload_xfer.rx_buf = rx_data;
+		spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
+
+		ret = spi_optimize_message(st->spi, &st->offload_msg);
+		if (ret < 0)
+			return ret;
+
 		spi_bus_lock(st->spi->master);
 
-		tx_data[0] = AD7768_RD_FLAG_MSK(AD7768_REG_ADC_DATA) << 24;
-		xfer.tx_buf = tx_data;
+		// tx_data[0] = AD7768_RD_FLAG_MSK(AD7768_REG_ADC_DATA) << 24;
+		// xfer.tx_buf = tx_data;
 		xfer.rx_buf = rx_data;
 		spi_message_init_with_transfers(&msg, &xfer, 1);
 		ret = spi_engine_offload_load_msg(st->spi, &msg);
@@ -1005,7 +1258,36 @@ static void ad7768_regulator_disable(void *data)
 {
 	struct ad7768_state *st = data;
 
-	regulator_disable(st->vref);
+	regulator_disable(st->regulator);
+}
+
+static void ad7768_fill_scale_tbl(struct ad7768_state *st)
+{
+	int val, val2, tmp0, tmp1, i;
+	unsigned long denominator, numerator;
+	u64 tmp2;
+
+	val2 = st->bits_per_word;
+	for (i = 0; i < st->chip->num_pga_modes; i++) {
+		/* Convert gain to a fraction format */
+		numerator = st->chip->pga_gains[i];
+		denominator = MILLI;
+		if(st->chip->has_variable_aaf) {
+			numerator *= ad7768_aaf_gains[st->aaf_gain];
+			denominator *= MILLI;
+		}
+		rational_best_approximation(numerator, denominator, __INT_MAX__, __INT_MAX__,
+					    &numerator,&denominator);
+
+		val = (st->vref * 2) / 1000;
+		/* Multiply by MILLI here to avoid losing precision */
+		val = mult_frac(val, denominator * MILLI, numerator);
+		/* Would multiply by NANO here but we already multiplied by MILLI */
+		tmp2 = shift_right((u64)val * MICRO, val2);
+		tmp0 = (int)div_s64_rem(tmp2, NANO, &tmp1);
+		st->scale_tbl[i][0] = tmp0; /* Integer part */
+		st->scale_tbl[i][1] = abs(tmp1); /* Fractional part */
+	}
 }
 
 static int ad7768_triggered_buffer_alloc(struct iio_dev *indio_dev)
@@ -1076,10 +1358,59 @@ static int ad7768_set_channel_label(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static const unsigned long ad7768_channel_masks[] = {
+	BIT(0),
+	0,
+};
+
+static const struct ad7768_chip_info ad7768_chip_info[] = {
+	[ID_AD7768_1] = {
+		.name = "ad7768-1",
+		.channel_spec = {ad7768_channels, ad7768_low_latency_channels},
+		.num_channels = 1,
+		.available_masks = ad7768_channel_masks,
+		.has_pga = false,
+		.has_variable_aaf = false
+	},
+	[ID_ADAQ7767_1] = {
+		.name = "adaq7767-1",
+		.channel_spec = {ad7768_channels, ad7768_low_latency_channels},
+		.num_channels = 1,
+		.available_masks = ad7768_channel_masks,
+		.has_pga = false,
+		.has_variable_aaf = true
+	},
+	[ID_ADAQ7768_1] = {
+		.name = "adaq7768-1",
+		.channel_spec = {adaq776x_channels, adaq776x_low_latency_channels},
+		.num_channels = 1,
+		.available_masks = ad7768_channel_masks,
+		.pga_gains = adaq7768_gains,
+		.default_pga_mode = AD7768_PGA_GAIN_2,
+		.num_pga_modes = ARRAY_SIZE(adaq7768_gains),
+		.pgia_mode2pin_offset = 6,
+		.has_pga = true,
+		.has_variable_aaf = false
+	},
+	[ID_ADAQ7769_1] = {
+		.name = "adaq7769-1",
+		.channel_spec = {adaq776x_channels, adaq776x_low_latency_channels},
+		.num_channels = 1,
+		.available_masks = ad7768_channel_masks,
+		.pga_gains = adaq7769_gains,
+		.default_pga_mode = AD7768_PGA_GAIN_0,
+		.num_pga_modes = ARRAY_SIZE(adaq7769_gains),
+		.pgia_mode2pin_offset = 0,
+		.has_pga = true,
+		.has_variable_aaf = true
+	}
+};
+
 static int ad7768_probe(struct spi_device *spi)
 {
 	struct ad7768_state *st;
 	struct iio_dev *indio_dev;
+	u32 val;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
@@ -1089,11 +1420,11 @@ static int ad7768_probe(struct spi_device *spi)
 	st = iio_priv(indio_dev);
 	st->spi = spi;
 
-	st->vref = devm_regulator_get(&spi->dev, "vref");
-	if (IS_ERR(st->vref))
-		return PTR_ERR(st->vref);
+	st->regulator = devm_regulator_get(&spi->dev, "vref");
+	if (IS_ERR(st->regulator))
+		return PTR_ERR(st->regulator);
 
-	ret = regulator_enable(st->vref);
+	ret = regulator_enable(st->regulator);
 	if (ret) {
 		dev_err(&spi->dev, "Failed to enable specified vref supply\n");
 		return ret;
@@ -1110,19 +1441,61 @@ static int ad7768_probe(struct spi_device *spi)
 	st->mclk_freq = clk_get_rate(st->mclk);
 	st->spi_is_dma_mapped = spi_engine_offload_supported(spi);
 	st->irq = spi->irq;
+	st->vref = regulator_get_voltage(st->regulator);
+
+	st->chip = device_get_match_data(&spi->dev);
+	if (!st->chip) {
+		st->chip = (void *)spi_get_device_id(spi)->driver_data;
+		if (!st->chip)
+			return dev_err_probe(&spi->dev, -ENODEV,
+					     "Could not find chip info data\n");
+	}
 
 	mutex_init(&st->lock);
 
-	indio_dev->channels = ad7768_channels;
-	indio_dev->num_channels = ARRAY_SIZE(ad7768_channels);
-	indio_dev->name = spi_get_device_id(spi)->name;
+	ret = device_property_read_u32(&spi->dev, "adi,low-latency", &val);
+	if (ret)
+		return ret;
+
+	indio_dev->channels = st->chip->channel_spec[val];
+	indio_dev->num_channels = st->chip->num_channels;
+	indio_dev->name = st->chip->name;
 	indio_dev->info = &ad7768_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
-	ret = ad7768_setup(st);
+	ret = ad7768_setup(st, val);
 	if (ret < 0) {
 		dev_err(&spi->dev, "AD7768 setup failed\n");
 		return ret;
+	}
+
+	st->aaf_gain = AD7768_AAF_IN1;
+
+	if (device_property_present(&spi->dev, "adi,aaf-gain")
+	    && st->chip->has_variable_aaf) {
+		ret = device_property_read_u32(&spi->dev, "adi,aaf-gain", &val);
+		if (ret)
+			return ret;
+
+		switch (val) {
+		case 1000:
+			st->aaf_gain = AD7768_AAF_IN1;
+			break;
+		case 364:
+			st->aaf_gain = AD7768_AAF_IN2;
+			break;
+		case 143:
+			st->aaf_gain = AD7768_AAF_IN3;
+			break;
+		default:
+			return dev_err_probe(&spi->dev, -EINVAL,
+					     "Invalid firmware provided gain\n");
+		}
+	}
+
+	if(st->chip->has_pga) {
+		ad7768_fill_scale_tbl(st);
+		ad7768_set_pga_gain(st, st->chip->default_pga_mode);
 	}
 
 	ret = ad7768_set_channel_label(indio_dev, ARRAY_SIZE(ad7768_channels));
@@ -1135,18 +1508,23 @@ static int ad7768_probe(struct spi_device *spi)
 		ret = ad7768_triggered_buffer_alloc(indio_dev);
 	if (ret)
 		return ret;
-
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
 static const struct spi_device_id ad7768_id_table[] = {
-	{ "ad7768-1", 0 },
+	{ "ad7768-1", (kernel_ulong_t)&ad7768_chip_info[ID_AD7768_1] },
+	{ "adaq7767-1", (kernel_ulong_t)&ad7768_chip_info[ID_ADAQ7767_1] },
+	{ "adaq7768-1", (kernel_ulong_t)&ad7768_chip_info[ID_ADAQ7768_1] },
+	{ "adaq7769-1", (kernel_ulong_t)&ad7768_chip_info[ID_ADAQ7769_1] },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad7768_id_table);
 
 static const struct of_device_id ad7768_of_match[] = {
-	{ .compatible = "adi,ad7768-1" },
+	{ .compatible = "adi,ad7768-1", .data = &ad7768_chip_info[ID_AD7768_1] },
+	{ .compatible = "adi,adaq7767-1", .data = &ad7768_chip_info[ID_ADAQ7767_1] },
+	{ .compatible = "adi,adaq7768-1", .data = &ad7768_chip_info[ID_ADAQ7768_1] },
+	{ .compatible = "adi,adaq7769-1", .data = &ad7768_chip_info[ID_ADAQ7769_1] },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, ad7768_of_match);
