@@ -174,7 +174,7 @@ enum {
 static const int ad7768_gains_frac[7][2] = {
 	[AD7768_PGA_GAIN_0] = { 13, 40 },
 	[AD7768_PGA_GAIN_1] = { 13, 20 },
-	[AD7768_PGA_GAIN_2] = { 3, 10 },
+	[AD7768_PGA_GAIN_2] = { 13, 10 },
 	[AD7768_PGA_GAIN_3] = { 13, 5 },
 	[AD7768_PGA_GAIN_4] = { 26, 5 },
 	[AD7768_PGA_GAIN_5] = { 52, 5 },
@@ -844,7 +844,7 @@ static int ad7768_calc_pga_gain(int gain_int, int gain_fract, int vref,
 
 	tmp = DIV_ROUND_CLOSEST_ULL(gain_nano << precision, NANO);
 	gain_nano = DIV_ROUND_CLOSEST_ULL(vref * 2, tmp);
-	gain_idx = find_closest(gain_nano, ad7768_gains,
+	gain_idx = find_closest_descending(gain_nano, ad7768_gains,
 				ARRAY_SIZE(ad7768_gains));
 
 	return gain_idx;
@@ -872,7 +872,7 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 			   int *val, int *val2, long info)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
-	int scale_uv, ret;
+	int ret;
     int dec_rates_values[6] = {32,64,128,256,512,1024};
     int mclk_div_rates[4] = {16,8,4,2};
 	switch (info) {
@@ -1133,8 +1133,7 @@ static void ad7768_fill_scale_tbl(struct ad7768_state *st)
 	int val, val2, tmp0, tmp1, i;
 	u64 tmp2;
 
-	// val2 = st->chip->modes[st->out_data].channels->scan_type.realbits;
-	val2 = 24; // TODO: put this somewhere else
+	val2 = st->chip->channel_spec[0].scan_type.realbits;
 	for (i = 0; i < ARRAY_SIZE(ad7768_gains); i++) {
 		val = (st->vref * 2) / 1000;
 		/* Multiply by MILLI here to avoid losing precision */
