@@ -316,7 +316,11 @@ static int wave6_vpu_runtime_resume(struct device *dev)
 		}
 	}
 
-	return wave6_vpu_ctrl_resume_and_get(vpu_dev->ctrl, &vpu_dev->entity);
+	ret = wave6_vpu_ctrl_resume_and_get(vpu_dev->ctrl, &vpu_dev->entity);
+	if (ret && vpu_dev->num_clks)
+		clk_bulk_disable_unprepare(vpu_dev->num_clks, vpu_dev->clks);
+
+	return ret;
 }
 #endif
 
@@ -324,11 +328,15 @@ static int wave6_vpu_runtime_resume(struct device *dev)
 static int wave6_vpu_suspend(struct device *dev)
 {
 	struct vpu_device *vpu_dev = dev_get_drvdata(dev);
+	int ret;
 
 	dprintk(dev, "suspend\n");
 	v4l2_m2m_suspend(vpu_dev->m2m_dev);
 
-	return pm_runtime_force_suspend(dev);
+	ret = pm_runtime_force_suspend(dev);
+	if (ret)
+		v4l2_m2m_resume(vpu_dev->m2m_dev);
+	return ret;
 }
 
 static int wave6_vpu_resume(struct device *dev)

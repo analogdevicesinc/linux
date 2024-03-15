@@ -497,6 +497,9 @@ int wave6_vpu_ctrl_resume_and_get(struct device *dev, struct wave6_vpu_entity *e
 	if (ctrl->state == WAVE6_VPU_STATE_ON)
 		wave6_vpu_ctrl_on_boot(entity);
 
+	if (ret)
+		pm_runtime_put_sync(ctrl->dev);
+
 	mutex_unlock(&ctrl->ctrl_lock);
 
 	return ret;
