@@ -384,7 +384,7 @@ static const struct imx_rproc_dcfg imx_rproc_cfg_imx93 = {
 static const struct imx_rproc_dcfg imx_rproc_cfg_imx95_m7 = {
 	.att		= imx_rproc_att_imx95_m7,
 	.att_size	= ARRAY_SIZE(imx_rproc_att_imx95_m7),
-	.method		= IMX_RPROC_NONE,
+	.method		= IMX_RPROC_SMC,
 };
 
 static int imx_rproc_start(struct rproc *rproc)
@@ -720,7 +720,8 @@ static u64 imx_rproc_get_boot_addr(struct rproc *rproc, const struct firmware *f
 	u16 shstrndx = elf_hdr_get_e_shstrndx(class, ehdr);
 	u64 sh_addr;
 
-	if (!of_device_is_compatible(dev->of_node, "fsl,imx93-cm33"))
+	if (!of_device_is_compatible(dev->of_node, "fsl,imx93-cm33")
+	    && !of_device_is_compatible(dev->of_node, "fsl,imx95-cm7"))
 		return rproc_elf_get_boot_addr(rproc, fw);
 
 	/* First, get the section header according to the elf class */
