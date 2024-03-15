@@ -124,18 +124,6 @@
 		regulator-max-microvolt = <3300000>;
 		gpio = <&i2c4_gpio_expander_21 1 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
-		regulator-always-on;
-	};
-
-	reg_audio_slot: regulator-audio-slot {
-		compatible = "regulator-fixed";
-		regulator-name = "audio-wm8962";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		gpio = <&i2c4_gpio_expander_21 7 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
-		regulator-always-on;
-		status = "disabled";
 	};
 
 	reg_m2_pwr: regulator-m2-pwr {
@@ -296,7 +284,6 @@
 		regulator-max-microvolt = <3300000>;
 		gpio = <&i2c5_gpio_expander_21 1 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
-		regulator-always-on;
 	};
 
 	reg_aqr_en: regulator-aqr-en {
@@ -315,7 +302,6 @@
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		gpio = <&i2c7_pcal6524 13 GPIO_ACTIVE_LOW>;
-		regulator-always-on;
 	};
 
 	reg_serdes_en: regulator-mac-en {
