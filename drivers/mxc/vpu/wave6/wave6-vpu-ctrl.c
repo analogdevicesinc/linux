@@ -409,9 +409,18 @@ static int wave6_vpu_ctrl_try_boot(struct vpu_ctrl *ctrl, struct wave6_vpu_entit
 		return 0;
 
 	if (entity->read_reg(entity->dev, W6_VPU_REG_GLOBAL_WR)) {
+		u32 val;
+
 		/* the vcpu may be booted by other vm */
 		wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_PREPARE);
-		return 0;
+		ret = read_poll_timeout(entity->read_reg, val, val != 0,
+					10, W6_VCPU_BOOT_TIMEOUT, false,
+					entity->dev, W6_VCPU_CUR_PC);
+		if (!ret)
+			wave6_vpu_ctrl_boot_done(ctrl);
+		else
+			wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_OFF);
+		return ret;
 	}
 	entity->write_reg(entity->dev, W6_VPU_REG_GLOBAL_WR, 1);
 
@@ -421,8 +430,11 @@ static int wave6_vpu_ctrl_try_boot(struct vpu_ctrl *ctrl, struct wave6_vpu_entit
 		return 0;
 	}
 
-	if (ctrl->state == WAVE6_VPU_STATE_SLEEP)
-		return wave6_vpu_ctrl_wakeup(ctrl, entity);
+	if (ctrl->state == WAVE6_VPU_STATE_SLEEP) {
+		ret = wave6_vpu_ctrl_wakeup(ctrl, entity);
+		entity->write_reg(entity->dev, W6_VPU_REG_GLOBAL_WR, 0);
+		return ret;
+	}
 
 	wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_PREPARE);
 	ctrl->current_entity = entity;
