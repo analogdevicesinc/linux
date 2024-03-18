@@ -22,7 +22,6 @@
 struct dpu_be_fence {
 	struct dma_fence base;
 	spinlock_t lock;
-	atomic_t refcnt;
 	bool signaled;
 };
 

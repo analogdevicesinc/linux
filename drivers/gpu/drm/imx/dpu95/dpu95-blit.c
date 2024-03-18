@@ -106,12 +106,9 @@ static irqreturn_t dpu95_bliteng_comctrl_sw_irq_handler(int irq, void *dev_id)
 	}
 
 	if (fence) {
-		/* Signal the fence when all triggered */
-		if (atomic_dec_and_test(&fence->refcnt)) {
-			dma_fence_signal(&fence->base);
-			fence->signaled = true;
-		}
-
+		/* Signal the fence when triggered */
+		dma_fence_signal(&fence->base);
+		fence->signaled = true;
 		dma_fence_put(&fence->base);
 	}
 
@@ -163,7 +160,6 @@ static int dpu95_be_get_fence(struct dpu_bliteng *dpu_be)
 	/* Init fence pointer */
 	fence->signaled = false;
 	spin_lock_init(&fence->lock);
-	atomic_set(&fence->refcnt, 0);
 
 	/* Init dma fence base data */
 	seqno = atomic64_inc_return(&dpu_be->seqno);
@@ -256,9 +252,6 @@ static int dpu95_be_set_fence(struct dpu_bliteng *dpu_be, int fd)
 
 	/* Setup the fence and active it asynchronously */
 	dpu95_be_emit_fence(dpu_be, fence, false);
-
-	/* Increase fence reference */
-	atomic_inc(&fence->refcnt);
 
 	return 0;
 }
