@@ -38,7 +38,8 @@ namespace Neutron {
 						   struct neutron_uapi_inference_args)
 #define NEUTRON_IOCTL_KERNEL_LOAD	NEUTRON_IOW(0x09, \
 						   struct neutron_uapi_inference_args)
-
+#define NEUTRON_IOCTL_INFERENCE_STATE	NEUTRON_IOW(0x0a, \
+						   struct neutron_uapi_result_status)
 
 /****************************************************************************
  * Types
@@ -52,7 +53,8 @@ enum neutron_uapi_status {
 	NEUTRON_UAPI_STATUS_RUNNING,
 	NEUTRON_UAPI_STATUS_DONE,
 	NEUTRON_UAPI_STATUS_ERROR,
-	NEUTRON_UAPI_STATUS_ABORTED,
+	NEUTRON_UAPI_STATUS_TIMEOUT,
+	NEUTRON_UAPI_STATUS_UNREADY,
 };
 
 /**
@@ -63,6 +65,16 @@ enum neutron_uapi_status {
 struct neutron_uapi_reg_config {
 	__u32 offset;
 	__u32 value;
+};
+
+/**
+ * struct neutron_uapi_result_status - Status of inference
+ * @status:      Status of inference job.
+ * @error_code:  Neutron error code when status is error.
+ */
+struct neutron_uapi_result_status {
+	enum neutron_uapi_status status;
+	__u32 error_code;
 };
 
 /**

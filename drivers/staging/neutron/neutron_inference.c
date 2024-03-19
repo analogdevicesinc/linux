@@ -34,9 +34,17 @@ static int neutron_inference_release(struct inode *inode,
 static unsigned int neutron_inference_poll(struct file *file,
 					   poll_table *wait);
 
+static long neutron_inference_ioctl(struct file *file,
+				    unsigned int cmd,
+				    unsigned long arg);
+
 static const struct file_operations neutron_inference_fops = {
 	.release        = &neutron_inference_release,
 	.poll           = &neutron_inference_poll,
+	.unlocked_ioctl	= &neutron_inference_ioctl,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl	= &neutron_inference_ioctl,
+#endif
 };
 
 /****************************************************************************
@@ -314,6 +322,50 @@ static unsigned int neutron_inference_poll(struct file *file,
 	if (inf->status == NEUTRON_UAPI_STATUS_DONE)
 		ret |= POLLIN;
 
+	return ret;
+}
+
+static long neutron_inference_ioctl(struct file *file,
+				    unsigned int cmd,
+				    unsigned long arg)
+{
+	struct neutron_inference *inf = file->private_data;
+	void __user *udata = (void __user *)arg;
+	struct neutron_device *ndev;
+	int ret = -EINVAL;
+
+	if (!inf || IS_ERR(inf))
+		return ret;
+
+	ndev = inf->ndev;
+
+	dev_dbg(ndev->dev, "Device ioctl. file=0x%pK, cmd=0x%x, arg=0x%lx\n",
+		file, cmd, arg);
+
+	switch (cmd) {
+	case NEUTRON_IOCTL_INFERENCE_STATE:
+		struct neutron_uapi_result_status uapi;
+		struct neutron_mbox_rx_msg rx_msg;
+
+		uapi.status = inf->status;
+		uapi.error_code = 0;
+
+		/* Read firmware return code if the job is done */
+		if (inf->status == NEUTRON_UAPI_STATUS_DONE) {
+			ndev->mbox->ops->recv_data(ndev->mbox, &rx_msg);
+			uapi.error_code = rx_msg.args[0];
+		}
+
+		if (copy_to_user(udata, &uapi, sizeof(uapi)))
+			break;
+		ret = 0;
+		break;
+
+	default:
+		dev_err(ndev->dev, "Invalid ioctl. cmd=%u, arg=%lu",
+			cmd, arg);
+		break;
+	}
 	return ret;
 }
 
