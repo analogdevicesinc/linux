@@ -1,0 +1,8 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+config GPIO_ADI_ADRV906X
+	bool "Analog Devices Inc, ADRV906x SoC GPIO support"
+	depends on PINCTRL_ADI_ADRV906X
+	default PINCTRL_ADI_ADRV906X
+	help
+	  Say yes here to add support for ADI's ADRV906x SoC GPIO controller.

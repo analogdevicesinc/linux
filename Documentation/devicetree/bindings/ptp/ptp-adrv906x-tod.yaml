@@ -1,0 +1,129 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/ptp/ptp-adrv906x-tod.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ADRV906X PTP Clock ToD Device Tree Bindings
+
+maintainers:
+  - Kim Holdt <kim.holdt@analog.com>
+
+properties:
+  compatible:
+    const: adi,adrv906x-tod
+
+  reg:
+    maxItems: 1
+
+  clock-names:
+      items:
+      - const: lc_clk
+      - const: gc_clk
+  clocks:
+    items:
+      - description: clock phandle for ToD counter local clock , refer to common clock bindings.
+      - description: clock phandle for Golden counter Clock
+
+  interrupts:
+    items:
+    - description: tod pps interrupt
+  interrupt-names:
+    items:
+    - description: pps
+
+  adi,max-adj:
+     description:
+       The maximum possible frequency adjustment, in parts per billion
+     minimum: 0
+     maximum: 1000000000
+
+  adrv906x-tod:
+    adi,default-tod-counter:
+    description:
+      default selected tod counter for the local tod and cdc output
+
+    adi,cdc-delay-value:
+      description:
+        this property is only for debugging or special use cases.
+        Instead, for normal operation, we need to configure this on the basis of the Ethernet interface speed
+        (which dictates the frequency for the Ethernet Subsystem) and the 'devclk' frequency
+        Default is 0
+      minimum: 0
+      maximum: 31
+
+    "^tod[0-2]:tod-counter@[0-2]+$":
+      type: object
+      description: ADRV906X ToD counters
+      properties:
+        reg:
+          maxItems: 1
+          description:
+            The index of the ToD counter
+          minimum: 0
+          maximum: 2
+
+        adi,pps-mode:
+          type: boolean
+          description:
+            The read and write trigger mode of the ToD counter.
+            If present, the ToD counter runs in the 1PPS trigger mode,
+            otherwise, the counter runs in the GC trigger mode.
+
+        adi,trigger-delay-tick:
+          description:
+            The trigger tick count for the GC trigger mode based on the clock-frequency,
+            Ignored if the tigger mode is 1PPS
+          minimum: 0
+          maximum: 0xFFFFFFFFFFFF
+
+        adi,ppsx-delay-offset-ns:
+          description:
+            Value of ppsx pulse start,
+            Default is 0
+          minimum: 0
+          maximum: 999999999
+
+        adi,ppsx-pulse-width-ns:
+          description:
+            Value of ppsx pulse width
+            Default is 10000000
+          minimum: 1
+          maximum: 20000000
+
+      required:
+        - adi,cdc-delay-value
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - interrupt-names
+  - clock-names
+  - clocks
+  - adrv906x-tod
+
+additionalProperties: false
+
+examples:
+  - |
+  ptpclk: ptpclk {
+    compatible = "adi,adi-tod";
+    reg = <EMAC_TOD_BASE 0xff>;
+    interrupts = <GIC_SPI TOD_IRQ IRQ_TYPE_LEVEL_HIGH>;
+    interrupt-names = "pps";
+    clocks = <&sysclk>, <&sysclk>; 
+    clock-names = "lc_clk", "gc_clk";
+    adi,max-adj = <50>;
+    adi-tod {
+      adi,default-tod-counter = <0>;
+      adi,cdc-delay-value = <0 0 0 0>;
+      tod0:tod-counter@0 {
+        reg = <0>;
+        adi,trigger-mode = <0>;
+        adi,trigger-delay-tick = <491520>;
+        adi,ppsx-delay-offset-ns = <0>;
+        adi,ppsx-pulse-width-ns = <10000000>;
+      };
+    };
+  };

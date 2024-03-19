@@ -1,0 +1,213 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright (c) 2024, Analog Devices Incorporated, All Rights Reserved
+ */
+
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/init.h>
+#include <linux/slab.h>
+#include "adrv906x-mac.h"
+
+static void adrv906x_tsu_set_tx_phy_delay(struct adrv906x_tsu *tsu, u32 delay)
+{
+	void __iomem *tsu_reg = tsu->reg_tsu;
+
+	iowrite32(delay, tsu_reg + TSU_STATIC_PHY_DELAY_TX);
+}
+
+static void adrv906x_tsu_set_rx_phy_delay(struct adrv906x_tsu *tsu, u32 delay)
+{
+	void __iomem *tsu_reg = tsu->reg_tsu;
+
+	iowrite32(delay, tsu_reg + TSU_STATIC_PHY_DELAY_RX);
+}
+
+void adrv906x_tsu_set_ptp_timestamping_mode(struct adrv906x_tsu *tsu, u32 mode)
+{
+	void __iomem *tsu_reg = tsu->reg_tsu;
+	unsigned int val;
+
+	val = ioread32(tsu_reg + TSU_TIMESTAMPING_MODE);
+	val &= ~PTP_TIMESTAMPING_MODE;
+	val |= (mode & PTP_TIMESTAMPING_MODE);
+
+	iowrite32(val, tsu_reg + TSU_TIMESTAMPING_MODE);
+}
+
+void adrv906x_tsu_set_speed(struct adrv906x_tsu *tsu, u32 mode)
+{
+	void __iomem *tsu_reg = tsu->reg_tsu;
+	unsigned int val;
+
+	val = ioread32(tsu_reg + TSU_TIMESTAMPING_MODE);
+	val &= ~CORE_SPEED;
+	val |= (mode & CORE_SPEED);
+
+	iowrite32(val, tsu_reg + TSU_TIMESTAMPING_MODE);
+}
+
+void adrv906x_mac_promiscuous_mode_en(struct adrv906x_mac *mac)
+{
+	void __iomem *emac_rx = mac->emac_rx;
+	unsigned int val;
+
+	val = ioread32(emac_rx) | PROMISCUOUS_MODE_EN;
+	iowrite32(val, emac_rx);
+}
+
+void adrv906x_mac_promiscuous_mode_dis(struct adrv906x_mac *mac)
+{
+	void __iomem *emac_rx = mac->emac_rx;
+	unsigned int val;
+
+	val = ioread32(emac_rx) & ~PROMISCUOUS_MODE_EN;
+	iowrite32(val, emac_rx);
+}
+
+void adrv906x_mac_rx_path_en(struct adrv906x_mac *mac)
+{
+	void __iomem *emac_rx = mac->emac_rx;
+	unsigned int val;
+
+	val = ioread32(emac_rx + MAC_RX_CTRL);
+	val |= MAC_RX_PATH_EN;
+	iowrite32(val, emac_rx + MAC_RX_CTRL);
+}
+
+void adrv906x_mac_rx_path_dis(struct adrv906x_mac *mac)
+{
+	void __iomem *emac_rx = mac->emac_rx;
+	unsigned int val;
+
+	val = ioread32(emac_rx + MAC_RX_CTRL);
+	val &= ~MAC_RX_PATH_EN;
+	iowrite32(val, emac_rx + MAC_RX_CTRL);
+}
+
+void adrv906x_mac_set_multicast_filter(struct adrv906x_mac *mac, unsigned long addr, int filter)
+{
+	void __iomem *emac_rx = mac->emac_rx;
+	unsigned long high = ((unsigned long long)addr >> 32) & 0xffff;
+	unsigned int val;
+
+	iowrite32(addr & 0xffffffff, emac_rx + CFG_MULT_ADDR0_LOW + filter * 4);
+	iowrite32(high, emac_rx + CFG_MULT_ADDR0_HIGH + filter * 4);
+	val = ioread32(emac_rx) | (PERMITTABLE_ADDRESS_EN << filter);
+	iowrite32(val, emac_rx);
+}
+
+static void adrv906x_mac_set_mfs(struct adrv906x_mac *mac, unsigned int mfs)
+{
+	unsigned int val_tx, val_rx;
+
+	val_tx = ioread32(mac->emac_tx + MAC_TX_CTRL);
+	val_rx = ioread32(mac->emac_rx + MAC_RX_CTRL);
+
+	val_tx &= ~MAC_TX_MFS;
+	val_tx |= FIELD_PREP(MAC_TX_MFS, mfs);
+	val_rx &= ~MAC_RX_MFS;
+	val_rx |= FIELD_PREP(MAC_RX_MFS, mfs);
+
+	iowrite32(val_tx, mac->emac_tx + MAC_TX_CTRL);
+	iowrite32(val_rx, mac->emac_rx + MAC_RX_CTRL);
+}
+
+static void adrv906x_mac_update_general_stats(void __iomem *base,
+					      struct adrv906x_mac_general_stats *gs)
+{
+	unsigned int val;
+
+	val = ioread32(base + GMAC_STAT_DROP_EVENTS);
+	gs->drop_events += val;
+	val = ioread32(base + GMAC_STAT_OCTETS);
+	gs->octets += val;
+	val = ioread32(base + GMAC_STAT_PKTS);
+	gs->pkts += val;
+	val = ioread32(base + GMAC_STAT_BROADCAST_PKTS);
+	gs->broadcast_pkts += val;
+	val = ioread32(base + GMAC_STAT_MULTICAST_PKTS);
+	gs->multicast_pkts += val;
+	val = ioread32(base + GMAC_STAT_UNICAST_PKTS);
+	gs->unicast_pkts += val;
+	val = ioread32(base + GMAC_STAT_UNDERSIZE_PKTS);
+	gs->undersize_pkts += val;
+	val = ioread32(base + GMAC_STAT_OVERSIZE_PKTS);
+	gs->oversize_pkts += val;
+	val = ioread32(base + GMAC_STAT_PKTS_64_OCTETS);
+	gs->pkts_64_octets += val;
+	val = ioread32(base + GMAC_STAT_PKTS_65TO127_OCTETS);
+	gs->pkts_65to127_octets += val;
+	val = ioread32(base + GMAC_STAT_PKTS_128TO255_OCTETS);
+	gs->pkts_128to255_octets += val;
+	val = ioread32(base + GMAC_STAT_PKTS_256TO511_OCTETS);
+	gs->pkts_256to511_octets += val;
+	val = ioread32(base + GMAC_STAT_PKTS_512TO1023_OCTETS);
+	gs->pkts_512to1023_octets += val;
+	val = ioread32(base + GMAC_STAT_PKTS_1024TO1518_OCTETS);
+	gs->pkts_1024to1518_octets += val;
+	val = ioread32(base + GMAC_STAT_PKTS_1519TOX_OCTETS);
+	gs->pkts_1519tox_octets += val;
+}
+
+static void adrv906x_mac_update_hw_stats(struct work_struct *work)
+{
+	struct adrv906x_mac *mac = container_of(work, struct adrv906x_mac, update_stats.work);
+	unsigned int val;
+
+	mutex_lock(&mac->mac_hw_stats_lock);
+	val = ioread32(mac->xmac + MAC_GENERAL_CONTROL);
+	val |= TX_STATS_SNAPSHOT_BIT | RX_STATS_SNAPSHOT_BIT;
+	iowrite32(val, mac->xmac + MAC_GENERAL_CONTROL);
+	val = ioread32(mac->emac_tx + MAC_TX_STAT_UNDERFLOW);
+	mac->hw_stats_tx.underflow += val;
+	val = ioread32(mac->emac_tx + MAC_TX_STAT_PADDED);
+	mac->hw_stats_tx.padded += val;
+	adrv906x_mac_update_general_stats(mac->emac_tx,
+					  &mac->hw_stats_tx.general_stats);
+
+	val = ioread32(mac->emac_rx + MAC_RX_STAT_OVERFLOW);
+	mac->hw_stats_rx.overflow += val;
+	val = ioread32(mac->emac_rx + MAC_RX_STAT_CRC_ERRORS);
+	mac->hw_stats_rx.crc_errors += val;
+	val = ioread32(mac->emac_rx + MAC_RX_STAT_MC_DROP);
+	mac->hw_stats_rx.mc_drop += val;
+	val = ioread32(mac->emac_rx + MAC_RX_STAT_FRAGMENTS);
+	mac->hw_stats_rx.fragments += val;
+	val = ioread32(mac->emac_rx + MAC_RX_STAT_JABBERS);
+	mac->hw_stats_rx.jabbers += val;
+	val = ioread32(mac->emac_rx + MAC_RX_STAT_MAC_FRAMING_ERROR);
+	mac->hw_stats_rx.mac_framing_error += val;
+	val = ioread32(mac->emac_rx + MAC_RX_STAT_RS_FRAMING_ERROR);
+	mac->hw_stats_rx.rs_framing_error += val;
+	adrv906x_mac_update_general_stats(mac->emac_rx,
+					  &mac->hw_stats_rx.general_stats);
+	mutex_unlock(&mac->mac_hw_stats_lock);
+
+	mod_delayed_work(system_long_wq, &mac->update_stats, msecs_to_jiffies(1000));
+}
+
+void adrv906x_mac_cleanup(struct adrv906x_mac *mac)
+{
+	mutex_destroy(&mac->mac_hw_stats_lock);
+	cancel_delayed_work(&mac->update_stats);
+}
+
+int adrv906x_mac_init(struct adrv906x_mac *mac, unsigned int size)
+{
+	adrv906x_mac_set_mfs(mac, size);
+
+	mac->id = ioread32(mac->xmac + MAC_IP_ID);
+	mac->version = ioread32(mac->xmac + MAC_IP_VERSION);
+	mac->cap = ioread32(mac->xmac + MAC_IP_CAPABILITIES);
+	adrv906x_tsu_set_tx_phy_delay(&mac->tsu, mac->tsu.phy_delay_tx);
+	adrv906x_tsu_set_rx_phy_delay(&mac->tsu, mac->tsu.phy_delay_rx);
+
+	mutex_init(&mac->mac_hw_stats_lock);
+	INIT_DELAYED_WORK(&mac->update_stats, adrv906x_mac_update_hw_stats);
+	mod_delayed_work(system_long_wq, &mac->update_stats, msecs_to_jiffies(1000));
+
+	return 0;
+}
+
+MODULE_LICENSE("GPL");

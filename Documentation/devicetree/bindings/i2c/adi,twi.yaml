@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/i2c/adi,twi.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices Inter IC (I2C) controller
+
+maintainers:
+  - Slawomir Kulig <slawomir.kulig@analog.com>
+
+properties:
+  compatible:
+    enum:
+      - adi,twi
+
+  "#address-cells":
+    const: 1
+
+  "#size-cells":
+    const: 0
+
+  reg:
+    maxItems: 1
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+  clock-khz:
+    description: Desired I2C bus clock frequency in kHz. If not specified,
+                 frequency defined by CONFIG_I2C_ADI_TWI_CLK_KHZ will be
+                 used (default 50 kHz).
+                 If timing parameters match, the bus clock frequency can
+                 be from 21 to 400 kHz.
+    default: 50
+    minimum: 21
+    maximum: 400
+
+required:
+  - compatible
+  - "#address-cells"
+  - "#size-cells"
+  - reg
+  - interrupts
+  - clock-khz
+  - clocks
+
+additionalProperties: false
+
+examples:
+  - |
+    i2c0: twi@I2C_0_BASE_UADDR {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        compatible = "adi,twi";
+        reg = <I2C_0_BASE 0xFF>;
+        interrupts = <GIC_SPI I2C_IRQ_S2F_0 IRQ_TYPE_LEVEL_HIGH>;
+        clock-khz = <100>;
+        clocks = <&sysclk>;
+        status = "disabled";
+    };

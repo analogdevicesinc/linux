@@ -1,0 +1,251 @@
+# SPDX-License-Identifier: GPL-2.0+
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/adi,adrv906x-net.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ADRV906X Gigabit Ethernet driver
+
+maintainers:
+  - Kim Holdt <kim.holdt@analog.com>
+  - Sheng Wang <sheng.wang@analog.com>
+
+description: |
+  Bindings for ADRV906X 10G/25G Network Interface Controller Device
+
+properties:
+  compatible:
+    const: adi,adrv906x-net
+  reg:
+    maxItems: 1
+    description: EMAC_CMN_BASE
+
+  ethernet-ports:
+    type: object
+    patternProperties:
+      '#address-cells':
+        const: 1
+      '#size-cells':
+        const: 0
+
+      "^port@[0-9]+$":
+        type: object
+        description: ADI NIC external ports
+        properties:
+          id:
+            $ref: /schemas/types.yaml#definitions/uint32
+            description: port id for the ethernet device
+          reg:
+            maxItems: 4
+            description: The address and size of the register must be in the below list order!
+                - description: The physical base address and size of the XMAC registers
+                - description: The physical base address and size of the EMAC TX control registers
+                - description: The physical base address and size of the EMAC RX control registers
+                - description: The physical base address and size of the TSU registers
+          macsec:
+            description: Physical base address for MACsec instance
+          interrupts:
+            description: macsecX interrupt. Do only populate macsec1 when the switch is enabled!
+          interrupt-names:
+            items:
+              - const: ts_event
+          ndma-handle:
+            maxItems: 1
+            description: phandle on NIC-DMA associated with the port
+          phy-handle:
+            maxItems: 1
+            description: phandle on PHY connected to the port
+          static-phy-delay-tx-ns, static-phy-delay-tx-frac-ns:
+            description: static phy delay for tx channel,
+              'static-phy-delay-tx-ns' is the integer portion in units of ns,
+              'static-phy-delay-tx-frac-ns' is the fractional portion in units of 2^(-16)ns.
+              for example, 1.125ns is represented by 1ns and the frac-ns = 0x2000
+            default: 0, 0
+            minimum: 0, 0
+            maximum: 0xFFFF, 0xFFFF
+          static-phy-delay-rx-ns, static-phy-delay-rx-frac-ns:
+            description: static phy delay for rx channel,
+              'static-phy-delay-rx-ns' is the integer portion in units of ns,
+              'static-phy-delay-rx-frac-ns' is the fractional portion in units of 2^(-16)ns.
+              for example, 1.125ns is represented by 1ns and the frac-ns = 0x2000
+            default: 0, 0
+            minimum: 0, 0
+            maximum: 0xFFFF, 0xFFFF
+        required:
+          - reg
+          - phy-handle
+          - phy-mode
+
+  mdio:
+    $ref: mdio.yaml#
+
+  ndmaX:
+    type: object
+    description: NDMA X supporting DDE DMA
+    properties:
+      id:
+        $ref: /schemas/types.yaml#definitions/uint32
+        description: NDMA device id number
+      reg:
+        maxItems: 4
+        description:
+          The physical base address(s) and size of the NDMA X's registers.
+          The 1st region is the NDMA TX register base and size.
+          The 2nd region is the DMA TX status register base and size.
+          The 3rd region is the NDMA RX register base and size.
+          The 4th region is the DMA RX data and status register base and size.
+      dmas:
+        maxItems: 1
+        description:
+          An array containing the related dma node and the dma channel allocated.
+      dma-names:
+        items:
+          - const: tx_data_X
+        description:
+          dma channels, they should be in this order.
+      reset-ctrl:
+        description:
+          control ndmaX tx & rx reset
+      interrupts:
+        items:
+          - description: dmaX rx done interrupt
+          - description: dmaX rx error interrupt
+          - description: dmaX tx status done interrupt
+          - description: dmaX tx status error interrupt
+      interrupt-names:
+        items:
+          - const: rx_dma_done
+          - const: rx_dma_error
+          - const: tx_status_dma_done
+          - const: tx_status_dma_error
+      interrupt-ctrl:
+        description: control register address for NDMA interrupt enable
+
+  oran_if:
+    description: support ORAN_IF module
+    reg: OIF_0_RX_CTRL, OIF_0_TX_CTRL, OIF_1_RX_CTRL, OIF_1_TX_CTRL
+
+  eth_switch:
+    type: object
+    description: Switch used for daisy-chain and 8t8r operational modes.
+    patternProperties:
+      '#address-cells':
+        const: 1
+      '#size-cells':
+        const: 1
+    reg:
+      maxItems: 2
+      description: Physical base address for switch and switch matching engine.
+    interrupts:
+      maxItems: 1
+      items:
+        - description: switchportX error interrupt
+    interrupt-names:
+      items:
+        - const: switch_error_X
+    pvid: (u16) Should be '1' but can have any valid VLAN ID.
+    vids: (u16) A list of up to 4 VLANs applied to all switch ports.
+      maxItems: 4
+      description:
+    pcpregen: 0x76543210 - consult the HW UM.
+    pcp2ipv: 0x76543210 - consult the HW UM.
+    "^switch-port@[0-2]+$":
+      description: A child node for each physical port on the built-in switch. Must be in numerical order!
+      id: 0-2
+      reg:
+        maxItems: 1
+        description: Physical base address for the specific switch port.
+
+required:
+  - compatible
+  - reg
+  - ndma
+  - dmas
+  - dma-names
+  - ethernet-ports
+  - mdio-handle
+  - phy-hanlde
+  - oran_if
+
+unevaluatedProperties: false
+
+examples:
+  - |
+  adi_nic_dev: adi_eth_node@EMAC_CMN_BASE_UADDR {
+    compatible = "adi,adrv906x-net";
+    reg = <EMAC_CMN_BASE 0x3004>;
+    
+    ethernet-ports {
+      #address-cells = <1>;
+      #size-cells = <1>;
+      port@0 {
+        id = <0>;
+        reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>, <EMAC_MAC_0_RX 0x9c>, <EMAC_PCS_0_TSU 0x44>;
+        macsec = <EMAC_MACSEC_0_BASE 0xa00>;
+        interrupts = <GIC_SPI MACSEC_IRQ_0 IRQ_TYPE_LEVEL_HIGH>;
+        interrupt-names = "ts_event";
+        ndma-handle = <&ndma0>;
+        phy-handle = <&adi_phy0>;
+        phy-mode = "rmii";
+        static-phy-delay-tx-ns = <0>;
+        static-phy-delay-tx-frac-ns = <0>;
+        static-phy-delay-rx-ns = <0>;
+        static-phy-delay-rx-frac-ns = <0>;
+      };
+      port@1 {
+        id = <1>;
+        reg = <EMAC_MAC_1_BASE 0x14>, <EMAC_MAC_1_TX 0x70>, <EMAC_MAC_1_RX 0x9c>, <EMAC_PCS_1_TSU 0x44>;
+        macsec = <EMAC_MACSEC_1_BASE 0xa00>;
+        interrupts = <GIC_SPI MACSEC_IRQ_1 IRQ_TYPE_LEVEL_HIGH>;
+        interrupt-names = "ts_event";
+        ndma-handle = <&ndma1>;
+        phy-handle = <&adi_phy1>;
+        phy-mode = "rmii";
+        static-phy-delay-tx-ns = <0>;
+        static-phy-delay-tx-frac-ns = <0>;
+        static-phy-delay-rx-ns = <0>;
+        static-phy-delay-rx-frac-ns = <0>;
+      };
+    };
+    
+    oran_if {
+      reg = <OIF_0_RX_CTRL 0x4>, <OIF_0_TX_CTRL 0x4>, <OIF_1_RX_CTRL 0x4>, <OIF_1_TX_CTRL 0x4>;
+    };
+    
+    eth_switch {
+      #address-cells = <1>;
+      #size-cells = <1>;
+      reg = <EMAC_SW_BASE 0x30 EMAC_SW_MAE_BASE 0x30>;
+      interrupt-names = "switch_error_0", "switch_error_1";
+      interrupts = <GIC_SPI, ETH_IRQ_PCS_RX_ERROR_0, IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI, ETH_IRQ_PCS_RX_ERROR_1, IRQ_TYPE_LEVEL_HIGH>;
+      pvid = /bits/ 16 <1>;
+      vids = /bits/ 16 <2 3 4 5>;
+      pcpregen = <0x77000000>;
+      pcp2ipv = <0x10000000>;
+      switch_port0:switch-port@0 {
+        id = <0>;
+        reg = <EMAC_SW_PORT_0_BASE 0x400>;
+      };
+      switch_port1:switch-port@1 {
+        id = <1>;
+        reg = <EMAC_SW_PORT_1_BASE 0x400>;
+      };
+      switch_port2:switch-port@2 {
+        id = <2>;
+        reg = <EMAC_SW_PORT_2_BASE 0x400>;
+      };
+    };
+  };
+
+  ndma0: ndma0@NIC_DMA_0_TX_UADDR {
+    id = <0>;
+    reg = <NIC_DMA_0_TX 0x100>, <NIC_DMA_0_BASE 0x80>, 
+          <NIC_DMA_0_RX 0x1000>, <NIC_DMA_0_BASE 0x80>;
+    dmas =  <&NIC_DMA_0 20>;
+    dma-names = "tx_data_0";
+    reset-ctrl = <&ndma_rst>;
+    interrupts = <GIC_SPI MS_DDE_DONE_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+    <GIC_SPI MS_DDE_ERR_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>;
+    interrupt-names = "rx_dma_done", "rx_dma_error";
+    interrupt-ctrl = <&ndma0_interrupt_ctrl>;
+  };

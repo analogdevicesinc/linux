@@ -1,0 +1,2 @@
+/* For now, Titan-4 is identical to Denali-4 */
+#include "adrv906x-denali-4.dts"

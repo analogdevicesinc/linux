@@ -1,0 +1,1484 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2022 - 2023, Analog Devices Incorporated, All Rights Reserved
+ */
+
+/dts-v1/;
+
+#include "adrv906x_irq_def.h"
+
+/ {
+    /* RegMap UIO Device: M4_memory */
+    uio-adrv906x-regmap-M4_memory@8000000 {
+        compatible = "generic-uio";
+        reg = <
+            0x8000000 0x60000 /* INST_ARM_MEMORY + MEMR_IDX_ARM_MEM_CODE_MEMORY_A_0*/
+            0x9000000 0x60000 /* INST_ARM_MEMORY + MEMR_IDX_ARM_MEM_CODE_MEMORY_B_0*/
+            0x30000000 0x60000 /* INST_ARM_MEMORY + MEMR_IDX_ARM_MEM_SYS_MEMORY_A_0*/
+            0x31000000 0x60000 /* INST_ARM_MEMORY + MEMR_IDX_ARM_MEM_SYS_MEMORY_B_0*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-M4_memory */
+    uio-adrv906x-regmap-sec-M4_memory@c000000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0xc000000 0x60000 /* INST_ALT_ARM_MEMORY + MEMR_IDX_ARM_MEM_CODE_MEMORY_A_0*/
+            0xd000000 0x60000 /* INST_ALT_ARM_MEMORY + MEMR_IDX_ARM_MEM_CODE_MEMORY_B_0*/
+            0x34000000 0x60000 /* INST_ALT_ARM_MEMORY + MEMR_IDX_ARM_MEM_SYS_MEMORY_A_0*/
+            0x35000000 0x60000 /* INST_ALT_ARM_MEMORY + MEMR_IDX_ARM_MEM_SYS_MEMORY_B_0*/
+        >;
+    };
+
+    /* RegMap UIO Device: antcal */
+    uio-adrv906x-regmap-antcal@2b000000 {
+        compatible = "generic-uio";
+        reg = <
+            0x2b000000 0x2f4 /* INST_ORAN_TOP_MMR_ANTENNA_CAL_ADAPT*/
+            0x2b000400 0x2000 /* INST_ORAN_TOP_MMR_ANTENNA_CAL_ADAPT_ANT_CAL_ADPT_DL_INJECTION_BUF_MEMORY*/
+            0x2b002400 0xc000 /* INST_ORAN_TOP_MMR_ANTENNA_CAL_ADAPT_ANT_CAL_ADPT_DL_CAPTURE_BUF_MEMORY*/
+            0x2b00e400 0x2000 /* INST_ORAN_TOP_MMR_ANTENNA_CAL_ADAPT_ANT_CAL_ADPT_UL_INJECTION_BUF_MEMORY*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-antcal */
+    uio-adrv906x-regmap-sec-antcal@2f000000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x2f000000 0x2f4 /* INST_SEC_ORAN_TOP_MMR_ANTENNA_CAL_ADAPT*/
+            0x2f000400 0x2000 /* INST_SEC_ORAN_TOP_MMR_ANTENNA_CAL_ADAPT_ANT_CAL_ADPT_DL_INJECTION_BUF_MEMORY*/
+            0x2f002400 0xc000 /* INST_SEC_ORAN_TOP_MMR_ANTENNA_CAL_ADAPT_ANT_CAL_ADPT_DL_CAPTURE_BUF_MEMORY*/
+            0x2f00e400 0x2000 /* INST_SEC_ORAN_TOP_MMR_ANTENNA_CAL_ADAPT_ANT_CAL_ADPT_UL_INJECTION_BUF_MEMORY*/
+        >;
+    };
+
+    /* RegMap UIO Device: antcal2 */
+    uio-adrv906x-regmap-antcal2@2b010400 {
+        compatible = "generic-uio";
+        reg = <
+            0x2b010400 0xc000 /* INST_ORAN_TOP_MMR_ANTENNA_CAL_ADAPT_ANT_CAL_ADPT_UL_CAPTURE_BUF_MEMORY*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-antcal2 */
+    uio-adrv906x-regmap-sec-antcal2@2f010400 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x2f010400 0xc000 /* INST_SEC_ORAN_TOP_MMR_ANTENNA_CAL_ADAPT_ANT_CAL_ADPT_UL_CAPTURE_BUF_MEMORY*/
+        >;
+    };
+
+    /* RegMap UIO Device: capture_buffer */
+    uio-adrv906x-regmap-capture_buffer@20400000 {
+        compatible = "generic-uio";
+        reg = <
+            0x20400000 0x150 /* INST_PROC_DFE_PERIP_CAPBUF*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-capture_buffer */
+    uio-adrv906x-regmap-sec-capture_buffer@24400000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x24400000 0x150 /* INST_SEC_PROC_DFE_PERIP_CAPBUF*/
+        >;
+    };
+
+    /* RegMap UIO Device: core */
+    uio-adrv906x-regmap-core@18290000 {
+        compatible = "generic-uio";
+        reg = <
+            0x18290000 0x1bbf /* INST_DIGITAL_CORE_SPI_ONLY_REGS*/
+            0x18210000 0x74 /* INST_DIGITAL_CORE_TELEMETRY*/
+            0x18300000 0xcc /* INST_DIGITAL_CORE_EAST_RFPLL*/
+            0x18400000 0xcc /* INST_DIGITAL_CORE_WEST_RFPLL*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-core */
+    uio-adrv906x-regmap-sec-core@1c290000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x1c290000 0x1bbf /* INST_SEC_DIGITAL_CORE_SPI_ONLY_REGS*/
+            0x1c210000 0x74 /* INST_SEC_DIGITAL_CORE_TELEMETRY*/
+            0x1c300000 0xcc /* INST_SEC_DIGITAL_CORE_EAST_RFPLL*/
+            0x1c400000 0xcc /* INST_SEC_DIGITAL_CORE_WEST_RFPLL*/
+        >;
+    };
+
+    /* RegMap UIO Device: core2 */
+    uio-adrv906x-regmap-core2@18009000 {
+        compatible = "generic-uio";
+        reg = <
+            0x18009000 0x4 /* INST_DIGITAL_CORE_CORE_0_SPI_PM_KEY*/
+            0x18109000 0x4 /* INST_DIGITAL_CORE_CORE_1_SPI_PM_KEY*/
+            0x18610000 0x40000 /* INST_DIGITAL_CORE_MPU_NCO_SUBSYS_REGS0_MPU_REGS*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-core2 */
+    uio-adrv906x-regmap-sec-core2@1c009000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x1c009000 0x4 /* INST_SEC_DIGITAL_CORE_CORE_0_SPI_PM_KEY*/
+            0x1c109000 0x4 /* INST_SEC_DIGITAL_CORE_CORE_1_SPI_PM_KEY*/
+            0x1c610000 0x40000 /* INST_SEC_DIGITAL_CORE_MPU_NCO_SUBSYS_REGS0_MPU_REGS*/
+        >;
+    };
+
+    /* RegMap UIO Device: datapath_debug */
+    uio-adrv906x-regmap-datapath_debug@2b02c400 {
+        compatible = "generic-uio";
+        reg = <
+            0x2b02c400 0x134 /* INST_ORAN_TOP_MMR_DATAPATH_DBG_CAPTURE0*/
+            0x2b02c800 0x134 /* INST_ORAN_TOP_MMR_DATAPATH_DBG_CAPTURE1*/
+            0x2b02cc00 0x3c /* INST_ORAN_TOP_MMR_DATAPATH_DBG_INJECT*/
+            0x2b02c000 0x18 /* INST_ORAN_TOP_MMR_DATAPATH_DBG_SHARED*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-datapath_debug */
+    uio-adrv906x-regmap-sec-datapath_debug@2f02c400 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x2f02c400 0x134 /* INST_SEC_ORAN_TOP_MMR_DATAPATH_DBG_CAPTURE0*/
+            0x2f02c800 0x134 /* INST_SEC_ORAN_TOP_MMR_DATAPATH_DBG_CAPTURE1*/
+            0x2f02cc00 0x3c /* INST_SEC_ORAN_TOP_MMR_DATAPATH_DBG_INJECT*/
+            0x2f02c000 0x18 /* INST_SEC_ORAN_TOP_MMR_DATAPATH_DBG_SHARED*/
+        >;
+    };
+
+    /* RegMap UIO Device: dfe_perip */
+    uio-adrv906x-regmap-dfe_perip@20100000 {
+        compatible = "generic-uio";
+        reg = <
+            0x20100000 0xc009c /* INST_PROC_DFE_PERIP_A55_SYS_CFG*/
+            0x20700000 0x8000 /* INST_PROC_DFE_PERIP_A55_TIMER0*/
+            0x20020000 0x4000 /* INST_PROC_DFE_PERIP_MDMA0_CH00*/
+            0x20270000 0x4000 /* INST_PROC_DFE_PERIP_DEBUG_DDE_INJ*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-dfe_perip */
+    uio-adrv906x-regmap-sec-dfe_perip@24100000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x24100000 0xc009c /* INST_SEC_PROC_DFE_PERIP_A55_SYS_CFG*/
+            0x24700000 0x8000 /* INST_SEC_PROC_DFE_PERIP_A55_TIMER0*/
+            0x24020000 0x4000 /* INST_SEC_PROC_DFE_PERIP_MDMA0_CH00*/
+            0x24270000 0x4000 /* INST_SEC_PROC_DFE_PERIP_DEBUG_DDE_INJ*/
+        >;
+    };
+
+    /* RegMap UIO Device: dfe_perip2 */
+    uio-adrv906x-regmap-dfe_perip2@20050000 {
+        compatible = "generic-uio";
+        reg = <
+            0x20050000 0x50 /* INST_PROC_DFE_PERIP_CAPBUFDDE*/
+            0x20271000 0x50 /* INST_PROC_DFE_PERIP_DEBUG_DDE_CAP0*/
+            0x20272000 0x50 /* INST_PROC_DFE_PERIP_DEBUG_DDE_CAP1*/
+            0x202a0000 0x50 /* INST_PROC_DFE_PERIP_PIMC_DDE*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-dfe_perip2 */
+    uio-adrv906x-regmap-sec-dfe_perip2@24050000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x24050000 0x50 /* INST_SEC_PROC_DFE_PERIP_CAPBUFDDE*/
+            0x24271000 0x50 /* INST_SEC_PROC_DFE_PERIP_DEBUG_DDE_CAP0*/
+            0x24272000 0x50 /* INST_SEC_PROC_DFE_PERIP_DEBUG_DDE_CAP1*/
+            0x24280000 0x50 /* INST_SEC_PROC_DFE_PERIP_ANTENNA_CAL_DDE*/
+        >;
+    };
+
+    /* RegMap UIO Device: dfe_perip3 */
+    uio-adrv906x-regmap-dfe_perip3@20280000 {
+        compatible = "generic-uio";
+        reg = <
+            0x20280000 0x50 /* INST_PROC_DFE_PERIP_ANTENNA_CAL_DDE*/
+            0x20052000 0x7f8 /* INST_PROC_DFE_PERIP_TRU*/
+            0x20218000 0x8dc /* INST_PROC_DFE_PERIP_GPIO_PINMUX_PAD*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-dfe_perip3 */
+    uio-adrv906x-regmap-sec-dfe_perip3@24052000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x24052000 0x7f8 /* INST_SEC_PROC_DFE_PERIP_TRU*/
+            0x24218000 0x8dc /* INST_SEC_PROC_DFE_PERIP_GPIO_PINMUX_PAD*/
+        >;
+    };
+
+    /* RegMap UIO Device: feature_filter */
+    uio-adrv906x-regmap-feature_filter@20728000 {
+        compatible = "generic-uio";
+        reg = <
+            0x20728000 0x90 /* INST_PROC_DFE_PERIP_FEATURE_FILTER*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-feature_filter */
+    uio-adrv906x-regmap-sec-feature_filter@24728000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x24728000 0x90 /* INST_SEC_PROC_DFE_PERIP_FEATURE_FILTER*/
+        >;
+    };
+
+    /* RegMap UIO Device: kfa */
+    uio-adrv906x-regmap-kfa@18609000 {
+        compatible = "generic-uio";
+        reg = <
+            0x18609000 0x288 /* INST_DIGITAL_CORE_KFA_TOP*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-kfa */
+    uio-adrv906x-regmap-sec-kfa@1c609000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x1c609000 0x288 /* INST_SEC_DIGITAL_CORE_KFA_TOP*/
+        >;
+    };
+
+    /* RegMap UIO Device: mailbox_a55_spi0_dst */
+    uio-adrv906x-regmap-mailbox_a55_spi0_dst@18690000 {
+        compatible = "generic-uio";
+        reg = <
+            0x18690000 0x1c /* INST_DIGITAL_CORE_A55_SPI1_CMD_MAILBOX*/
+            0x18691000 0x1c /* INST_DIGITAL_CORE_A55_SPI0_CMD_MAILBOX*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-mailbox_a55_spi0_dst */
+    uio-adrv906x-regmap-sec-mailbox_a55_spi0_dst@1c690000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x1c690000 0x1c /* INST_SEC_DIGITAL_CORE_A55_SPI1_CMD_MAILBOX*/
+            0x1c691000 0x1c /* INST_SEC_DIGITAL_CORE_A55_SPI0_CMD_MAILBOX*/
+        >;
+    };
+
+    /* RegMap UIO Device: mailbox_a55_spi0_src */
+    uio-adrv906x-regmap-mailbox_a55_spi0_src@18690000 {
+        compatible = "generic-uio";
+        reg = <
+            0x18690000 0x1c /* INST_DIGITAL_CORE_A55_SPI1_CMD_MAILBOX*/
+            0x18691000 0x1c /* INST_DIGITAL_CORE_A55_SPI0_CMD_MAILBOX*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-mailbox_a55_spi0_src */
+    uio-adrv906x-regmap-sec-mailbox_a55_spi0_src@1c690000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x1c690000 0x1c /* INST_SEC_DIGITAL_CORE_A55_SPI1_CMD_MAILBOX*/
+            0x1c691000 0x1c /* INST_SEC_DIGITAL_CORE_A55_SPI0_CMD_MAILBOX*/
+        >;
+    };
+
+    /* RegMap UIO Device: mailbox_a55tocore_dst */
+    uio-adrv906x-regmap-mailbox_a55tocore_dst@20711000 {
+        compatible = "generic-uio";
+        reg = <
+            0x20711000 0x1c /* INST_PROC_DFE_PERIP_A55TOCORE0_MAILBOX_DST*/
+            0x20713000 0x1c /* INST_PROC_DFE_PERIP_A55TOCORE1_MAILBOX_DST*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-mailbox_a55tocore_dst */
+    uio-adrv906x-regmap-sec-mailbox_a55tocore_dst@24711000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x24711000 0x1c /* INST_SEC_PROC_DFE_PERIP_A55TOCORE0_MAILBOX_DST*/
+            0x24713000 0x1c /* INST_SEC_PROC_DFE_PERIP_A55TOCORE1_MAILBOX_DST*/
+        >;
+    };
+
+    /* RegMap UIO Device: mailbox_a55tocore_src */
+    uio-adrv906x-regmap-mailbox_a55tocore_src@20710000 {
+        compatible = "generic-uio";
+        reg = <
+            0x20710000 0x1c /* INST_PROC_DFE_PERIP_A55TOCORE0_MAILBOX_SRC*/
+            0x20712000 0x1c /* INST_PROC_DFE_PERIP_A55TOCORE1_MAILBOX_SRC*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-mailbox_a55tocore_src */
+    uio-adrv906x-regmap-sec-mailbox_a55tocore_src@24710000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x24710000 0x1c /* INST_SEC_PROC_DFE_PERIP_A55TOCORE0_MAILBOX_SRC*/
+            0x24712000 0x1c /* INST_SEC_PROC_DFE_PERIP_A55TOCORE1_MAILBOX_SRC*/
+        >;
+    };
+
+    /* RegMap UIO Device: mailbox_coretoa55_dst */
+    uio-adrv906x-regmap-mailbox_coretoa55_dst@20715000 {
+        compatible = "generic-uio";
+        reg = <
+            0x20715000 0x1c /* INST_PROC_DFE_PERIP_CORE0TOA55_MAILBOX_DST*/
+            0x20717000 0x1c /* INST_PROC_DFE_PERIP_CORE1TOA55_MAILBOX_DST*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-mailbox_coretoa55_dst */
+    uio-adrv906x-regmap-sec-mailbox_coretoa55_dst@24715000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x24715000 0x1c /* INST_SEC_PROC_DFE_PERIP_CORE0TOA55_MAILBOX_DST*/
+            0x24717000 0x1c /* INST_SEC_PROC_DFE_PERIP_CORE1TOA55_MAILBOX_DST*/
+        >;
+    };
+
+    /* RegMap UIO Device: mailbox_coretoa55_src */
+    uio-adrv906x-regmap-mailbox_coretoa55_src@20714000 {
+        compatible = "generic-uio";
+        reg = <
+            0x20714000 0x1c /* INST_PROC_DFE_PERIP_CORE0TOA55_MAILBOX_SRC*/
+            0x20716000 0x1c /* INST_PROC_DFE_PERIP_CORE1TOA55_MAILBOX_SRC*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-mailbox_coretoa55_src */
+    uio-adrv906x-regmap-sec-mailbox_coretoa55_src@24714000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x24714000 0x1c /* INST_SEC_PROC_DFE_PERIP_CORE0TOA55_MAILBOX_SRC*/
+            0x24716000 0x1c /* INST_SEC_PROC_DFE_PERIP_CORE1TOA55_MAILBOX_SRC*/
+        >;
+    };
+
+    /* RegMap UIO Device: npd */
+    uio-adrv906x-regmap-npd@199c0000 {
+        compatible = "generic-uio";
+        reg = <
+            0x199c0000 0x200000 /* INST_SLICE_TX0_TX_DFE_TX_NPD*/
+            0x19bc0000 0x200000 /* INST_SLICE_TX1_TX_DFE_TX_NPD*/
+            0x19dc0000 0x200000 /* INST_SLICE_TX2_TX_DFE_TX_NPD*/
+            0x19fc0000 0x200000 /* INST_SLICE_TX3_TX_DFE_TX_NPD*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-npd */
+    uio-adrv906x-regmap-sec-npd@1d9c0000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x1d9c0000 0x200000 /* INST_SEC_SLICE_TX0_TX_DFE_TX_NPD*/
+            0x1dbc0000 0x200000 /* INST_SEC_SLICE_TX1_TX_DFE_TX_NPD*/
+            0x1ddc0000 0x200000 /* INST_SEC_SLICE_TX2_TX_DFE_TX_NPD*/
+            0x1dfc0000 0x200000 /* INST_SEC_SLICE_TX3_TX_DFE_TX_NPD*/
+        >;
+    };
+
+    /* RegMap UIO Device: oran_cduc */
+    uio-adrv906x-regmap-oran_cduc@2b030000 {
+        compatible = "generic-uio";
+        reg = <
+            0x2b030000 0x1f4 /* INST_ORAN_TOP_MMR_ORAN_CDUC*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-oran_cduc */
+    uio-adrv906x-regmap-sec-oran_cduc@2f030000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x2f030000 0x1f4 /* INST_SEC_ORAN_TOP_MMR_ORAN_CDUC*/
+        >;
+    };
+
+    /* RegMap UIO Device: oran_if */
+    uio-adrv906x-regmap-oran_if@2b100000 {
+        compatible = "generic-uio";
+        reg = <
+            0x2b100000 0x200000 /* INST_ORAN_TOP_MMR_ORAN_IF_RUE_COMMON*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-oran_if */
+    uio-adrv906x-regmap-sec-oran_if@2f100000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x2f100000 0x200000 /* INST_SEC_ORAN_TOP_MMR_ORAN_IF_RUE_COMMON*/
+        >;
+    };
+
+    /* RegMap UIO Device: rcu */
+    uio-adrv906x-regmap-rcu@2b02a000 {
+        compatible = "generic-uio";
+        reg = <
+            0x2b02a000 0x1cd0 /* INST_ORAN_TOP_MMR_RADIO_CONTROL*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-rcu */
+    uio-adrv906x-regmap-sec-rcu@2f02a000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x2f02a000 0x1cd0 /* INST_SEC_ORAN_TOP_MMR_RADIO_CONTROL*/
+        >;
+    };
+
+    /* RegMap UIO Device: serdes */
+    uio-adrv906x-regmap-serdes@2b390000 {
+        compatible = "generic-uio";
+        reg = <
+            0x2b390000 0x100 /* INST_EMAC_TOP_SERDES_PHY_RXDES_CH0*/
+            0x2b390800 0x100 /* INST_EMAC_TOP_SERDES_PHY_RXDES_CH1*/
+            0x2b392000 0x40 /* INST_EMAC_TOP_SERDES_PHY_TXSER_CH0*/
+            0x2b392800 0x40 /* INST_EMAC_TOP_SERDES_PHY_TXSER_CH1*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-serdes */
+    uio-adrv906x-regmap-sec-serdes@2f390000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x2f390000 0x100 /* INST_SEC_EMAC_TOP_SERDES_PHY_RXDES_CH0*/
+            0x2f390800 0x100 /* INST_SEC_EMAC_TOP_SERDES_PHY_RXDES_CH1*/
+            0x2f392000 0x40 /* INST_SEC_EMAC_TOP_SERDES_PHY_TXSER_CH0*/
+            0x2f392800 0x40 /* INST_SEC_EMAC_TOP_SERDES_PHY_TXSER_CH1*/
+        >;
+    };
+
+    /* RegMap UIO Device: serdes2 */
+    uio-adrv906x-regmap-serdes2@2b398000 {
+        compatible = "generic-uio";
+        reg = <
+            0x2b398000 0x100 /* INST_EMAC_TOP_SERDES_PHY_SERDES_4_PACK*/
+            0x2b3a0000 0xc9 /* INST_EMAC_TOP_ETH_PLL*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-serdes2 */
+    uio-adrv906x-regmap-sec-serdes2@2f398000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x2f398000 0x100 /* INST_SEC_EMAC_TOP_SERDES_PHY_SERDES_4_PACK*/
+            0x2f3a0000 0xc9 /* INST_SEC_EMAC_TOP_ETH_PLL*/
+        >;
+    };
+
+    /* RegMap UIO Device: slice_orx */
+    uio-adrv906x-regmap-slice_orx@18700000 {
+        compatible = "generic-uio";
+        reg = <
+            0x18700000 0x200000 /* INST_SLICE_ORX*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-slice_orx */
+    uio-adrv906x-regmap-sec-slice_orx@1c700000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x1c700000 0x200000 /* INST_SEC_SLICE_ORX*/
+        >;
+    };
+
+    /* RegMap UIO Device: slice_rx */
+    uio-adrv906x-regmap-slice_rx@19000000 {
+        compatible = "generic-uio";
+        reg = <
+            0x19000000 0x200000 /* INST_SLICE_RX0*/
+            0x19200000 0x200000 /* INST_SLICE_RX1*/
+            0x19400000 0x200000 /* INST_SLICE_RX2*/
+            0x19600000 0x200000 /* INST_SLICE_RX3*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-slice_rx */
+    uio-adrv906x-regmap-sec-slice_rx@1d000000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x1d000000 0x200000 /* INST_SEC_SLICE_RX0*/
+            0x1d200000 0x200000 /* INST_SEC_SLICE_RX1*/
+            0x1d400000 0x200000 /* INST_SEC_SLICE_RX2*/
+            0x1d600000 0x200000 /* INST_SEC_SLICE_RX3*/
+        >;
+    };
+
+    /* RegMap UIO Device: slice_tx */
+    uio-adrv906x-regmap-slice_tx@19800000 {
+        compatible = "generic-uio";
+        reg = <
+            0x19800000 0x200000 /* INST_SLICE_TX0*/
+            0x19a00000 0x200000 /* INST_SLICE_TX1*/
+            0x19c00000 0x200000 /* INST_SLICE_TX2*/
+            0x19e00000 0x200000 /* INST_SLICE_TX3*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-slice_tx */
+    uio-adrv906x-regmap-sec-slice_tx@1d800000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x1d800000 0x200000 /* INST_SEC_SLICE_TX0*/
+            0x1da00000 0x200000 /* INST_SEC_SLICE_TX1*/
+            0x1dc00000 0x200000 /* INST_SEC_SLICE_TX2*/
+            0x1de00000 0x200000 /* INST_SEC_SLICE_TX3*/
+        >;
+    };
+
+    /* RegMap UIO Device: stream_memory */
+    uio-adrv906x-regmap-stream_memory@18280000 {
+        compatible = "generic-uio";
+        reg = <
+            0x18280000 0x8000 /* INST_DIGITAL_CORE_CORE_STREAM_PROC_MEMORY*/
+            0x18600000 0x2000 /* INST_DIGITAL_CORE_KFA_STREAM_PROC_MEMORY*/
+            0x18720000 0x2000 /* INST_SLICE_ORX_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+            0x19020000 0x1000 /* INST_SLICE_RX0_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-stream_memory */
+    uio-adrv906x-regmap-sec-stream_memory@1c280000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x1c280000 0x8000 /* INST_SEC_DIGITAL_CORE_CORE_STREAM_PROC_MEMORY*/
+            0x1c600000 0x2000 /* INST_SEC_DIGITAL_CORE_KFA_STREAM_PROC_MEMORY*/
+            0x1c720000 0x2000 /* INST_SEC_SLICE_ORX_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+            0x1d020000 0x1000 /* INST_SEC_SLICE_RX0_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+        >;
+    };
+
+    /* RegMap UIO Device: stream_memory2 */
+    uio-adrv906x-regmap-stream_memory2@19220000 {
+        compatible = "generic-uio";
+        reg = <
+            0x19220000 0x1000 /* INST_SLICE_RX1_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+            0x19420000 0x1000 /* INST_SLICE_RX2_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+            0x19620000 0x1000 /* INST_SLICE_RX3_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+            0x19820000 0x2000 /* INST_SLICE_TX0_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-stream_memory2 */
+    uio-adrv906x-regmap-sec-stream_memory2@1d220000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x1d220000 0x1000 /* INST_SEC_SLICE_RX1_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+            0x1d420000 0x1000 /* INST_SEC_SLICE_RX2_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+            0x1d620000 0x1000 /* INST_SEC_SLICE_RX3_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+            0x1d820000 0x2000 /* INST_SEC_SLICE_TX0_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+        >;
+    };
+
+    /* RegMap UIO Device: stream_memory3 */
+    uio-adrv906x-regmap-stream_memory3@19a20000 {
+        compatible = "generic-uio";
+        reg = <
+            0x19a20000 0x2000 /* INST_SLICE_TX1_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+            0x19c20000 0x2000 /* INST_SLICE_TX2_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+            0x19e20000 0x2000 /* INST_SLICE_TX3_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+            0x199c0000 0x1000 /* INST_SLICE_TX0_TX_DFE_TX_NPD_NPD_MEM_STREAM_MEMORY*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-stream_memory3 */
+    uio-adrv906x-regmap-sec-stream_memory3@1da20000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x1da20000 0x2000 /* INST_SEC_SLICE_TX1_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+            0x1dc20000 0x2000 /* INST_SEC_SLICE_TX2_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+            0x1de20000 0x2000 /* INST_SEC_SLICE_TX3_SLICE_AHB_AHB_STREAM_PROC_MEMORY*/
+            0x1d9c0000 0x1000 /* INST_SEC_SLICE_TX0_TX_DFE_TX_NPD_NPD_MEM_STREAM_MEMORY*/
+        >;
+    };
+
+    /* RegMap UIO Device: stream_memory4 */
+    uio-adrv906x-regmap-stream_memory4@19bc0000 {
+        compatible = "generic-uio";
+        reg = <
+            0x19bc0000 0x1000 /* INST_SLICE_TX1_TX_DFE_TX_NPD_NPD_MEM_STREAM_MEMORY*/
+            0x19dc0000 0x1000 /* INST_SLICE_TX2_TX_DFE_TX_NPD_NPD_MEM_STREAM_MEMORY*/
+            0x19fc0000 0x1000 /* INST_SLICE_TX3_TX_DFE_TX_NPD_NPD_MEM_STREAM_MEMORY*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-stream_memory4 */
+    uio-adrv906x-regmap-sec-stream_memory4@1dbc0000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x1dbc0000 0x1000 /* INST_SEC_SLICE_TX1_TX_DFE_TX_NPD_NPD_MEM_STREAM_MEMORY*/
+            0x1ddc0000 0x1000 /* INST_SEC_SLICE_TX2_TX_DFE_TX_NPD_NPD_MEM_STREAM_MEMORY*/
+            0x1dfc0000 0x1000 /* INST_SEC_SLICE_TX3_TX_DFE_TX_NPD_NPD_MEM_STREAM_MEMORY*/
+        >;
+    };
+
+    /* RegMap UIO Device: stream_proc */
+    uio-adrv906x-regmap-stream_proc@18288000 {
+        compatible = "generic-uio";
+        reg = <
+            0x18288000 0x200 /* INST_DIGITAL_CORE_MAIN_STREAM_PROC*/
+            0x18608000 0x1c8 /* INST_DIGITAL_CORE_KFA_STREAM_PROC_REGS*/
+            0x18722000 0x1c8 /* INST_SLICE_ORX_SLICE_AHB_STREAM_PROC*/
+            0x19022000 0x1c8 /* INST_SLICE_RX0_SLICE_AHB_STREAM_PROC*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-stream_proc */
+    uio-adrv906x-regmap-sec-stream_proc@1c288000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x1c288000 0x200 /* INST_SEC_DIGITAL_CORE_MAIN_STREAM_PROC*/
+            0x1c608000 0x1c8 /* INST_SEC_DIGITAL_CORE_KFA_STREAM_PROC_REGS*/
+            0x1c722000 0x1c8 /* INST_SEC_SLICE_ORX_SLICE_AHB_STREAM_PROC*/
+            0x1d022000 0x1c8 /* INST_SEC_SLICE_RX0_SLICE_AHB_STREAM_PROC*/
+        >;
+    };
+
+    /* RegMap UIO Device: stream_proc2 */
+    uio-adrv906x-regmap-stream_proc2@19222000 {
+        compatible = "generic-uio";
+        reg = <
+            0x19222000 0x1c8 /* INST_SLICE_RX1_SLICE_AHB_STREAM_PROC*/
+            0x19422000 0x1c8 /* INST_SLICE_RX2_SLICE_AHB_STREAM_PROC*/
+            0x19622000 0x1c8 /* INST_SLICE_RX3_SLICE_AHB_STREAM_PROC*/
+            0x19822000 0x1c8 /* INST_SLICE_TX0_SLICE_AHB_STREAM_PROC*/
+        >;
+    };
+
+    /* RegMap UIO Device: stream_proc3 */
+    uio-adrv906x-regmap-stream_proc3@19a22000 {
+        compatible = "generic-uio";
+        reg = <
+            0x19a22000 0x1c8 /* INST_SLICE_TX1_SLICE_AHB_STREAM_PROC*/
+            0x19c22000 0x1c8 /* INST_SLICE_TX2_SLICE_AHB_STREAM_PROC*/
+            0x19e22000 0x1c8 /* INST_SLICE_TX3_SLICE_AHB_STREAM_PROC*/
+            0x199f4800 0x1c8 /* INST_SLICE_TX0_TX_DFE_TX_NPD_NPD_SP*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-stream_proc2 */
+    uio-adrv906x-regmap-sec-stream_proc2@1d222000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x1d222000 0x1c8 /* INST_SEC_SLICE_RX1_SLICE_AHB_STREAM_PROC*/
+            0x1d422000 0x1c8 /* INST_SEC_SLICE_RX2_SLICE_AHB_STREAM_PROC*/
+            0x1d622000 0x1c8 /* INST_SEC_SLICE_RX3_SLICE_AHB_STREAM_PROC*/
+            0x1d822000 0x1c8 /* INST_SEC_SLICE_TX0_SLICE_AHB_STREAM_PROC*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-stream_proc3 */
+    uio-adrv906x-regmap-sec-stream_proc3@1da22000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x1da22000 0x1c8 /* INST_SEC_SLICE_TX1_SLICE_AHB_STREAM_PROC*/
+            0x1dc22000 0x1c8 /* INST_SEC_SLICE_TX2_SLICE_AHB_STREAM_PROC*/
+            0x1de22000 0x1c8 /* INST_SEC_SLICE_TX3_SLICE_AHB_STREAM_PROC*/
+            0x1d9f4800 0x1c8 /* INST_SEC_SLICE_TX0_TX_DFE_TX_NPD_NPD_SP*/
+        >;
+    };
+
+    /* RegMap UIO Device: stream_proc4 */
+    uio-adrv906x-regmap-stream_proc4@19bf4800 {
+        compatible = "generic-uio";
+        reg = <
+            0x19bf4800 0x1c8 /* INST_SLICE_TX1_TX_DFE_TX_NPD_NPD_SP*/
+            0x19df4800 0x1c8 /* INST_SLICE_TX2_TX_DFE_TX_NPD_NPD_SP*/
+            0x19ff4800 0x1c8 /* INST_SLICE_TX3_TX_DFE_TX_NPD_NPD_SP*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-stream_proc4 */
+    uio-adrv906x-regmap-sec-stream_proc4@1dbf4800 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x1dbf4800 0x1c8 /* INST_SEC_SLICE_TX1_TX_DFE_TX_NPD_NPD_SP*/
+            0x1ddf4800 0x1c8 /* INST_SEC_SLICE_TX2_TX_DFE_TX_NPD_NPD_SP*/
+            0x1dff4800 0x1c8 /* INST_SEC_SLICE_TX3_TX_DFE_TX_NPD_NPD_SP*/
+        >;
+    };
+
+    /* RegMap UIO Device: xcorr */
+    uio-adrv906x-regmap-xcorr@21400000 {
+        compatible = "generic-uio";
+        reg = <
+            0x21400000 0x201050 /* INST_PROC_DFE_PERIP_XCORR*/
+        >;
+    };
+
+    /* RegMap UIO Device: sec-xcorr */
+    uio-adrv906x-regmap-sec-xcorr@25400000 {
+        compatible = "generic-uio";
+        status = "disabled";
+        reg = <
+            0x25400000 0x201050 /* INST_SEC_PROC_DFE_PERIP_XCORR*/
+        >;
+    };
+
+    /* UIO Device: L4 */
+    uio-adrv906x-L4@00100000 {
+        compatible = "generic-uio";
+        reg = <
+            0x00100000 0x10000 /* L4 profile region */
+        >;
+    };
+
+    /* RegMap UIO Device: telem_buff */
+    uio-adrv906x-regmap-telem_buff@18240000 {
+        compatible = "generic-uio";
+        reg = <
+            0x18240000 0x18000 /* Telem Buff Region*/
+        >;
+    };
+
+   /* RegMap UIO Device: sec-telem_buff */
+    uio-adrv906x-regmap-sec-telem_buff@1C240000 {
+        compatible = "generic-uio";
+        reg = <
+            0x1C240000 0x18000 /* Secondary Telem Buff Region*/
+        >;
+    };
+
+    /* Interrupt UIO Devices */
+    uio-adrv906x-interrupt-12 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI MDMA_CH0_DONE_INTR_0 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-13 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI MDMA_CH0_ERR_INTR_0 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-14 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI MDMA_CH1_DONE_INTR_0 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-15 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI MDMA_CH1_ERR_INTR_0 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-16 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI MDMA_CH0_DONE_INTR_1 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-17 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI MDMA_CH0_ERR_INTR_1 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-18 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI MDMA_CH1_DONE_INTR_1 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-19 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI MDMA_CH1_ERR_INTR_1 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-20 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI MDMA_CH0_DONE_INTR_2 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-21 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI MDMA_CH0_ERR_INTR_2 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-22 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI MDMA_CH1_DONE_INTR_2 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-23 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI MDMA_CH1_ERR_INTR_2 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-24 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI MDMA_CH0_DONE_INTR_3 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-25 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI MDMA_CH0_ERR_INTR_3 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-26 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI MDMA_CH1_DONE_INTR_3 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-27 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI MDMA_CH1_ERR_INTR_3 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-424 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_25 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-425 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_26 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-426 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_27 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-427 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_28 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-428 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_29 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-429 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_30 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-430 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_31 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-431 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_32 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-432 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_33 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-433 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_34 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-434 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_35 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-435 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_36 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-436 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_37 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-437 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_38 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-438 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_39 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-439 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_40 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-42 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI CBDDE_DONE_INTR_0 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-43 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI CBDDE_ERR_INTR_0 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-442 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_43 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-443 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_44 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-46 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI CB_DONE_INTR_0 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-446 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_47 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-55 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI FF_FEATURE_DONE_PIPED IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-49 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI MB_SPI0_TO_A55 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-40 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI A55_PERI_MAILBOX_INTERRUPT_PIPED_2 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-41 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI A55_PERI_MAILBOX_INTERRUPT_PIPED_3 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-c2c-interrupt-440 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_41 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-c2c-interrupt-441 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_42 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-48 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI XCORR_DONE_INT_PIPED IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-56 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI XCORR_ECC_ERROR_IRQ_PIPED IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-57 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI XCORR_ECC_ERROR_WARNING_PIPED IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-811 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI TX0_DFE_IRQ_9 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-812 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI TX0_DFE_IRQ_10 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-815 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI TX1_DFE_IRQ_9 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-816 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI TX1_DFE_IRQ_10 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-819 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI TX2_DFE_IRQ_9 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-820 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI TX2_DFE_IRQ_10 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-823 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI TX3_DFE_IRQ_9 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-824 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI TX3_DFE_IRQ_10 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-28 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI GPT_A55_IRQ_PIPED_0 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-29 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI GPT_A55_IRQ_PIPED_1 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-30 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI GPT_A55_IRQ_PIPED_2 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-31 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI GPT_A55_IRQ_PIPED_3 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-32 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI GPT_A55_IRQ_PIPED_4 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-33 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI GPT_A55_IRQ_PIPED_5 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-34 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI GPT_A55_IRQ_PIPED_6 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-35 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI GPT_A55_IRQ_PIPED_7 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-220 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI DEBUG_DDE_ERR_INTR_0 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-232 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI DEBUG_DDE_DONE_INTR_0 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-221 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI DEBUG_DDE_ERR_INTR_1 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-233 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI DEBUG_DDE_DONE_INTR_1 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-285 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI DEBUG_DDE_ERR_INTR_2 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-284 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI DEBUG_DDE_DONE_INTR_2 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-280 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI INJECT_DBG_ERROR IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-281 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI INJECT_DBG_STAT IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-771 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI CAPTURE_DBG_ERROR_0 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-772 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI CAPTURE_DBG_STAT_0 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-773 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI CAPTURE_DBG_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-774 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI CAPTURE_DBG_STAT_1 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-527 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_118 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-528 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_119 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-540 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_122 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-541 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_123 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-577 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_159 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-578 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_160 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-575 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_157 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-576 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_158 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-714 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_275 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-715 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_276 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-716 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_277 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-717 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_278 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-287 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI ANTENNA_CAL_DDE_DONE_INTR_0 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-286 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI ANTENNA_CAL_DDE_ERR_INTR_0 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-579 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_161 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-580 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_162 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-536 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI PIMC_DDE_DONE_INTR_0 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-537 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI PIMC_DDE_ERR_INTR_0 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-658 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_240 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-659 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_241 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-304 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_0 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-305 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_1 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-306 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_2 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-307 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_3 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-308 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_4 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-309 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_5 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-310 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_6 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-311 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_7 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-312 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_8 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-313 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_9 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-314 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_10 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-315 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_11 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-316 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_12 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-317 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_13 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-318 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_14 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-319 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_15 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-c2c-interrupt-594 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_176 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-595 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_177 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-596 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_178 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-597 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_179 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-598 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_180 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-599 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_181 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-600 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_182 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-601 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_183 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-602 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_184 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-603 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_185 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-604 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_186 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-605 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_187 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-606 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_188 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-607 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_189 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-608 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_190 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-609 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_191 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-96 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_PDS_TX0_ARM_IRQ_0 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-104 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_PDS_TX1_ARM_IRQ_0 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-112 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_PDS_TX2_ARM_IRQ_0 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-120 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_PDS_TX3_ARM_IRQ_0 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-160 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_PDS_RX0_ARM_IRQ_0 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-168 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_PDS_RX1_ARM_IRQ_0 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-176 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_PDS_RX2_ARM_IRQ_0 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-184 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_PDS_RX3_ARM_IRQ_0 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-224 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_PDS_ORX0_ARM_IRQ_0 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-240 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI I_STREAM_PROC_INTERRUPT_ARM_0 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-241 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI I_STREAM_PROC_INTERRUPT_ARM_1 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-242 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI I_STREAM_PROC_INTERRUPT_ARM_2 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-243 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI I_STREAM_PROC_INTERRUPT_ARM_3 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-244 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI I_STREAM_PROC_INTERRUPT_ARM_4 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-245 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI I_STREAM_PROC_INTERRUPT_ARM_5 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-246 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI I_STREAM_PROC_INTERRUPT_ARM_6 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-247 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI I_STREAM_PROC_INTERRUPT_ARM_7 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-c2c-interrupt-542 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_124 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-c2c-interrupt-543 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_125 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-c2c-interrupt-544 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_126 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-c2c-interrupt-545 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_127 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-c2c-interrupt-546 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_128 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-c2c-interrupt-547 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_129 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-c2c-interrupt-548 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_130 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-c2c-interrupt-549 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_131 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-810 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RC_DYN_GLBL_CNTRL_INTRPT IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-835 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RC_DYN_CNTRL0_INTRPT IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-836 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RC_DYN_CNTRL1_INTRPT IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-837 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI RC_DYN_CNTRL2_INTRPT IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-c2c-interrupt-728 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_289 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-745 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_306 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-746 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_307 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-747 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_308 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-c2c-interrupt-748 {
+        compatible = "generic-uio";
+        status = "disabled";
+        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_309 IRQ_TYPE_LEVEL_HIGH>;
+    };
+
+};

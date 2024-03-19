@@ -1,0 +1,47 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/dac/adi,pwm-dac.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices PWM DAC
+
+maintainers:
+  - Jie Zhang <jie.zhang@analog.com>
+
+properties:
+  compatible:
+    const: adi,pwm-dac
+
+  reg:
+    maxItems: 1
+
+  adi,iovdd-microvolt:
+    description: |
+      The IOVDD voltagge [mV]
+    minimum: 0
+    maximum: 5000000
+
+  adi,gpio-max-frequency:
+    description: |
+      The maximum frequency of GPIO [Hz]
+    minimum: 0
+    maximum: 0xffffffff
+
+additionalProperties: false
+
+required:
+  - compatible
+  - reg
+  - adi,iovdd-microvolt
+  - adi,gpio-max-frequency
+
+examples:
+  - |
+	dac@PWM_BASE_UADDR {
+		compatible = "adi,pwm-dac";
+		reg = <PWM_BASE 0x100>;
+		adi,iovdd-microvolt = <3300000>;
+		adi,gpio-max-frequency = <983040000>;
+	};
+...

@@ -1830,6 +1830,8 @@ static int macsec_add_rxsa(struct sk_buff *skb, struct genl_info *info)
 			   MACSEC_SALT_LEN);
 	}
 
+	nla_memcpy(rx_sa->key.id, tb_sa[MACSEC_SA_ATTR_KEYID], MACSEC_KEYID_LEN);
+
 	/* If h/w offloading is available, propagate to the device */
 	if (macsec_is_offloaded(netdev_priv(dev))) {
 		const struct macsec_ops *ops;
@@ -1844,8 +1846,8 @@ static int macsec_add_rxsa(struct sk_buff *skb, struct genl_info *info)
 		ctx.sa.assoc_num = assoc_num;
 		ctx.sa.rx_sa = rx_sa;
 		ctx.secy = secy;
-		memcpy(ctx.sa.key, nla_data(tb_sa[MACSEC_SA_ATTR_KEY]),
-		       secy->key_len);
+		nla_memcpy(ctx.sa.key, tb_sa[MACSEC_SA_ATTR_KEY],
+			   secy->key_len);
 
 		err = macsec_offload(ops->mdo_add_rxsa, &ctx);
 		memzero_explicit(ctx.sa.key, secy->key_len);
@@ -1853,7 +1855,6 @@ static int macsec_add_rxsa(struct sk_buff *skb, struct genl_info *info)
 			goto cleanup;
 	}
 
-	nla_memcpy(rx_sa->key.id, tb_sa[MACSEC_SA_ATTR_KEYID], MACSEC_KEYID_LEN);
 	rcu_assign_pointer(rx_sc->sa[assoc_num], rx_sa);
 
 	rtnl_unlock();
@@ -2073,6 +2074,8 @@ static int macsec_add_txsa(struct sk_buff *skb, struct genl_info *info)
 			   MACSEC_SALT_LEN);
 	}
 
+	nla_memcpy(tx_sa->key.id, tb_sa[MACSEC_SA_ATTR_KEYID], MACSEC_KEYID_LEN);
+
 	/* If h/w offloading is available, propagate to the device */
 	if (macsec_is_offloaded(netdev_priv(dev))) {
 		const struct macsec_ops *ops;
@@ -2087,8 +2090,8 @@ static int macsec_add_txsa(struct sk_buff *skb, struct genl_info *info)
 		ctx.sa.assoc_num = assoc_num;
 		ctx.sa.tx_sa = tx_sa;
 		ctx.secy = secy;
-		memcpy(ctx.sa.key, nla_data(tb_sa[MACSEC_SA_ATTR_KEY]),
-		       secy->key_len);
+		nla_memcpy(ctx.sa.key, tb_sa[MACSEC_SA_ATTR_KEY],
+			   secy->key_len);
 
 		err = macsec_offload(ops->mdo_add_txsa, &ctx);
 		memzero_explicit(ctx.sa.key, secy->key_len);
@@ -2096,7 +2099,6 @@ static int macsec_add_txsa(struct sk_buff *skb, struct genl_info *info)
 			goto cleanup;
 	}
 
-	nla_memcpy(tx_sa->key.id, tb_sa[MACSEC_SA_ATTR_KEYID], MACSEC_KEYID_LEN);
 	rcu_assign_pointer(tx_sc->sa[assoc_num], tx_sa);
 
 	rtnl_unlock();
