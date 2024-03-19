@@ -1,0 +1,47 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2024, Analog Devices Incorporated, All Rights Reserved
+ */
+
+partitions {
+	compatible = "fixed-partitions";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	partition@0{
+		label = "boot_a";
+		reg = <0x00000000 0x00040000>;
+	};
+	partition@40000{
+		label = "boot_b";
+		reg = <0x00040000 0x00040000>;
+	};
+	partition@80000{
+		label = "bootctrl";
+		reg = <0x00080000 0x00010000>;
+	};
+	partition@90000{
+		label = "bootcfg";
+		reg = <0x00090000 0x00010000>;
+	};
+	partition@A0000{
+		label = "fip_a";
+		reg = <0x000A0000 0x00200000>;
+	};
+	partition@2A0000{
+		label = "fip_b";
+		reg = <0x002A0000 0x00200000>;
+	};
+	partition@4A0000{
+		label = "kernel_a";
+		reg = <0x004A0000 0x03000000>;
+	};
+	partition@34A0000{
+		label = "kernel_b";
+		reg = <0x034A0000 0x03000000>;
+	};
+	partition@all{
+		label = "nor-flash-overlay";
+		reg = <0x0 0x08000000>;
+	};
+};

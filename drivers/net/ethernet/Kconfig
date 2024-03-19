@@ -18,6 +18,7 @@ config MDIO
 source "drivers/net/ethernet/3com/Kconfig"
 source "drivers/net/ethernet/actions/Kconfig"
 source "drivers/net/ethernet/adaptec/Kconfig"
+source "drivers/net/ethernet/adi/Kconfig"
 source "drivers/net/ethernet/aeroflex/Kconfig"
 source "drivers/net/ethernet/agere/Kconfig"
 source "drivers/net/ethernet/alacritech/Kconfig"

@@ -1,0 +1,114 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/spi/adi,spi3.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices SPI3 controller driver
+
+description: |
+  The ADI SPI3 controller is used to communicate with external devices using
+  the Serial Peripheral Interface. It supports full-duplex, half-duplex and
+  simplex synchronous serial communication with external devices. It supports
+  8, 16, 32-bit data size.
+
+maintainers:
+  - Greg Malysa <gmalysa@alumni.stanford.edu>
+  - Slawomir Kulig <slawomir.kulig@analog.com>
+
+allOf:
+  - $ref: "spi-controller.yaml#"
+
+properties:
+  compatible:
+    enum:
+      - adi,spi3
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+  
+  clock-names:
+    items:
+      - const: spi
+
+  interrupts:
+    maxItems: 1
+
+  resets:
+    maxItems: 1
+
+  dmas:
+    description: |
+      DMA specifiers for tx and rx dma.
+    items:
+      - description: rx DMA channel
+      - description: tx DMA channel
+
+  dma-names:
+    items:
+      - const: rx
+      - const: tx
+
+patternProperties:
+  "^[a-zA-Z][a-zA-Z0-9,+\\-._]{0,63}@[0-9a-f]+$":
+    type: object
+    # SPI slave nodes must be children of the SPI master node and can
+    # contain the following properties.
+    properties:
+      adi,enable-dma:
+        description: |
+          Use DMA for data transfers to/from SPI controller.
+      adi,open-drain-mode:
+        description: |
+          Enable ODM - Open Drain Mode for all output pins.
+      adi,psse: 
+        description: |
+          Enable PSSE - Controls signalling of MODF error.
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - interrupts
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    spi@f9068000 {
+      #address-cells = <1>;
+      #size-cells = <0>;
+      compatible = "adi,spi3";
+      reg = <0xf9068000 0xff>;
+      interrupts = <GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>;
+      clocks = <&adi_spi_v3_clk>;
+      clock-names = "spi";
+      dmas = <&pdma 0>, <&pdma 1>;
+      dma-names = "tx", "rx";
+      pinctrl-names = "default";
+      pinctrl-0 = <&spi3_default>;
+      cs-gpios = <0>, <&gpa 13 GPIO_ACTIVE_LOW>;
+      status = "disabled";
+
+      spidev@0 {
+        compatible = "rohm,dh2228fv";
+        reg = <0>;
+        spi-max-frequency = <4000000>;
+        spi-cpol;
+        spi-cpha;
+        adi,enable-dma;
+        adi,open-drain-mode;
+        adi,psse;
+      };
+
+      spidev@1 {
+        compatible = "rohm,dh2228fv";
+        reg = <1>;
+        spi-max-frequency = <4000000>;
+      };
+    };
+
+...

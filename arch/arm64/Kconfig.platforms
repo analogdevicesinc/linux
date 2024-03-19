@@ -292,6 +292,11 @@ config ARCH_ROCKCHIP
 	  This enables support for the ARMv8 based Rockchip chipsets,
 	  like the RK3368.
 
+config ARCH_ADRV906X
+	bool "ADI ADRV906X SoC"
+	help
+	 This enables support for Analog Devices Incorporated's ADRV906X SoC family.
+
 config ARCH_SEATTLE
 	bool "AMD Seattle SoC Family"
 	help

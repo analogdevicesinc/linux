@@ -1,0 +1,191 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2023, Analog Devices Incorporated, All Rights Reserved
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+#include "adrv906x_def.h"
+#include "adrv906x_irq_def.h"
+#include "adrv906x-uio-sec.dtsi"
+
+/ {
+	interrupt-parent = <&gic>;
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	model = "ADI ADRV906X Secondary SoC";
+	compatible = "adi,adrv906x";
+
+	aliases {
+		serial0 = &uart0;
+		serial4 = &uart4;
+	};
+
+	chosen {
+		bootargs = "console=ttyAMA0,4000000n8 earlycon=pl011,0x20065000 uio_pdrv_genirq.of_id=generic-uio";
+		stdout-path = &uart0;
+
+		boot {
+			dual-tile = <1>;
+			secondary-tile = <1>;
+			plat = "";
+
+			/* Populated by U-Boot. Intentionally left blank here. */
+			lifecycle-state {
+				description = "";
+				deployed = <0>;
+			};
+		};
+	};
+
+	/* Populated by U-Boot. Intentionally left blank here. */
+	memory {
+		device_type = "memory";
+		reg = <0x00000000 0x00000000>;
+	};
+
+	sram_memory {
+		device_type = "memory";
+		reg = <0x04100000 0x00400000>;
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+		cpu_off = <0x84000002>;
+		cpu_on = <0xc4000003>;
+	};
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&CPU0>;
+				};
+				core1 {
+					cpu = <&CPU1>;
+				};
+				core2 {
+					cpu = <&CPU2>;
+				};
+				core3 {
+					cpu = <&CPU3>;
+				};
+			};
+		};
+
+		CPU0:cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x0 0x0>;
+			enable-method = "psci";
+			next-level-cache = <&L2_0>;
+		};
+
+		CPU1:cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x0 0x100>;
+			enable-method = "psci";
+			next-level-cache = <&L2_0>;
+		};
+
+		CPU2:cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x0 0x200>;
+			enable-method = "psci";
+			next-level-cache = <&L2_0>;
+		};
+
+		CPU3:cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x0 0x300>;
+			enable-method = "psci";
+			next-level-cache = <&L2_0>;
+		};
+
+		L2_0: l2-cache0 {
+			compatible = "cache";
+		};
+	};
+
+	gic: interrupt-controller@SEC_GIC_BASE_UADDR {
+		compatible = "arm,gic-v3";
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		reg = <SEC_GIC_BASE 0x10000>, /* GICD */
+		<(SEC_GIC_BASE + 0x00040000) 0x80000>; /* GICR */
+		/*interrupts = <1 9 4>;*/
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI NCNTPSIRQ_0 IRQ_TYPE_LEVEL_LOW>, /* Physical Secure */
+		<GIC_PPI NCNTPNSIRQ_0 IRQ_TYPE_LEVEL_LOW>, /* Physical Non-Secure */
+		<GIC_PPI NCNTVIRQ_0 IRQ_TYPE_LEVEL_LOW>, /* Virtual */
+		<GIC_PPI NCNTHPIRQ_0 IRQ_TYPE_LEVEL_LOW>; /* Hypervisor */
+	};
+
+	/* Populated by U-Boot. Intentionally left blank here. */
+	sysclk: sysclk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+	};
+
+	uart0: uart@VIRTUAL_PL011_0_1_BASE_UADDR {
+		compatible = "arm,pl011", "arm,primecell";
+		reg = <VIRTUAL_PL011_0_1_BASE 0x1000>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_242 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "uartclk", "apb_pclk";
+	};
+
+	uart4: uart@SEC_PL011_3_BASE_UADDR {
+		compatible = "arm,pl011", "arm,primecell";
+		reg = <SEC_PL011_3_BASE 0x1000>;
+		interrupts = <GIC_SPI PL011_UART_INTR_3 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "uartclk", "apb_pclk";
+		status = "disabled";
+	};
+
+	/* Reserved memory regions */
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		sram0_res: sram-reserved@0 {
+			compatible = "adi,sram-access";
+			reg = <0x04100000 0x00400000>; /* 4 MB */
+		};
+
+		/* Base address populated by U-boot. Intentionally left blank here */
+		ddr0_res: ddr-reserved@0 {
+			compatible = "adi,sram-access";
+			reg = <0x00000000 0x01000000>; /* 16 MB */
+		};
+	};
+
+	/* Link reserved regions to User Space */
+	sram0_mmap: sram-mmap@0 {
+		compatible = "adi,sram-mmap";
+		memory-region = <&sram0_res>;
+	};
+
+	ddr0_mmap: ddr-mmap@0 {
+		compatible = "adi,sram-mmap";
+		memory-region = <&ddr0_res>;
+	};
+};
+

@@ -1,0 +1,21 @@
+Analog Device Inc. ADRV906x SoC GPIO Controller
+
+Required properties:
+- compatible: Compatible property value should be "adi,adrv906x-gpio".
+- reg: Physical base address of the controller and length of memory mapped
+  region.
+- #gpio-cells: Should be two. For consumer use see gpio.txt.
+- ngpios: Number of GPIO lines (0..n-1)
+- gpio-controller: Specifies that the node is a gpio controller.
+- pintmux: Specifies the base address for the pin interrupt mux associated with the GPIO controller
+
+Example:
+
+    gpio1: gpio@2021B000 {
+        compatible = "adi,adrv906x-gpio";
+        reg = <0x2021B000 0x1000>;
+        pintmux = <0x20102200>;
+        gpio-controller;
+        #gpio-cells = <2>;
+        ngpios = <ADI_ADRV906X_PIN_COUNT>;
+    }; 
