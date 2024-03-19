@@ -56,7 +56,7 @@ int dpu_bliteng_init(struct dpu_bliteng *dpu_bliteng);
 void dpu_bliteng_fini(struct dpu_bliteng *dpu_bliteng);
 int dpu_be_blit(struct dpu_bliteng *dpu_be,
     u32 *cmdlist, u32 cmdnum);
-int dpu_be_get_fence(struct dpu_bliteng *dpu_be);
+int dpu_be_get_fence(struct dpu_bliteng *dpu_be, int dpu_num);
 int dpu_be_set_fence(struct dpu_bliteng *dpu_be, int fd);
 
 static struct imx_drm_dpu_bliteng *imx_drm_dpu_bliteng_find_by_id(s32 id)
@@ -200,7 +200,7 @@ static int imx_drm_dpu_get_param_ioctl(struct drm_device *drm_dev, void *data,
 			ret = dpu_be_get(dpu_be);
 
 			if (fd == -1)
-				fd = dpu_be_get_fence(dpu_be);
+				fd = dpu_be_get_fence(dpu_be, imx_dpu_num);
 
 			dpu_be_set_fence(dpu_be, fd);
 			dpu_be_put(dpu_be);
