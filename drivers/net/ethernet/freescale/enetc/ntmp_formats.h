@@ -48,6 +48,40 @@ struct maft_resp_query {
 	struct maft_cfge_data cfge;
 };
 
+/* VLAM Address Filter table Request and Response Data Buffer Format */
+struct vaft_keye_data {
+	__le16 vlan_id; /* bit0~11: vlan_id */
+	u8 tpid:2;
+	u8 resv1:6;
+	u8 resv2;
+};
+
+struct vaft_cfge_data {
+	__le16 si_bitmap;
+	__le16 resv;
+};
+
+/* VLAN Address Filter Table Add action */
+struct vaft_req_add {
+	struct common_req_data crd;
+	__le32 entry_id;
+	struct vaft_keye_data keye;
+	struct vaft_cfge_data cfge;
+};
+
+/* VLAN Address Filter Table Query or Delete action */
+struct vaft_req_qd {
+	struct common_req_data crd;
+	__le32 entry_id;
+};
+
+/* VLAN Address Filter Table Response to Query action */
+struct vaft_resp_query {
+	__le32 entry_id;
+	struct vaft_keye_data keye;
+	struct vaft_cfge_data cfge;
+};
+
 /* RSS Table Request and Response Data Buffer Format */
 struct rsst_req_query {
 	struct common_req_data crd;

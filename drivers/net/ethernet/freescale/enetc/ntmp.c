@@ -361,6 +361,127 @@ int ntmp_maft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 }
 EXPORT_SYMBOL_GPL(ntmp_maft_delete_entry);
 
+int ntmp_vaft_add_entry(struct netc_cbdr *cbdr, u32 entry_id,
+			struct ntmp_vfe *vfe)
+{
+	struct vaft_req_add *req;
+	union netc_cbd cbd;
+	u32 len, data_size;
+	dma_addr_t dma;
+	void *tmp;
+	int err;
+
+	data_size = sizeof(*req);
+	tmp = ntmp_alloc_data_mem(cbdr, data_size, &dma, (void **)&req);
+	if (!tmp)
+		return -ENOMEM;
+
+	/* Set VLAN address filter table request data buffer */
+	req->entry_id = cpu_to_le32(entry_id);
+	req->keye.vlan_id = cpu_to_le16(vfe->vid);
+	req->keye.tpid = vfe->tpid;
+	req->cfge.si_bitmap = cpu_to_le16(vfe->si_bitmap);
+
+	len = NTMP_REQ_RESP_LEN(data_size, 0);
+	ntmp_fill_request_headr(&cbd, dma, len, NTMP_VAFT_ID,
+				NTMP_CMD_ADD, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(cbdr, &cbd);
+	if (err)
+		dev_err(cbdr->dma_dev, "Add VLAN filter table entry failed (%d)!", err);
+
+	ntmp_free_data_mem(cbdr, data_size, tmp, dma);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_vaft_add_entry);
+
+int ntmp_vaft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+			  struct ntmp_vfe *entry)
+{
+	struct vaft_resp_query *resp;
+	struct vaft_req_qd *req;
+	union netc_cbd cbd;
+	u32 len, data_size;
+	dma_addr_t dma;
+	void *tmp;
+	int err;
+
+	if (!entry || entry_id == NTMP_NULL_ENTRY_ID)
+		return -EINVAL;
+
+	data_size = sizeof(*resp);
+	tmp = ntmp_alloc_data_mem(cbdr, data_size, &dma, (void **)&req);
+	if (!tmp)
+		return -ENOMEM;
+
+	/* Set VLAN address filter table request data buffer */
+	req->entry_id = cpu_to_le32(entry_id);
+
+	/* Request header */
+	len = NTMP_REQ_RESP_LEN(sizeof(*req), data_size);
+	ntmp_fill_request_headr(&cbd, dma, len, NTMP_VAFT_ID,
+				NTMP_CMD_QUERY, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(cbdr, &cbd);
+	if (err) {
+		dev_err(cbdr->dma_dev, "Query VLAN filter table entry failed (%d)!", err);
+		goto end;
+	}
+
+	resp = (struct vaft_resp_query *)req;
+	if (unlikely(le32_to_cpu(resp->entry_id) != entry_id)) {
+		dev_err(cbdr->dma_dev,
+			"Entry ID doesn't match, query ID:0x%0x, response ID:0x%x\n",
+			entry_id, le32_to_cpu(resp->entry_id));
+		err = -EIO;
+		goto end;
+	}
+
+	entry->vid = le16_to_cpu(resp->keye.vlan_id);
+	entry->tpid = resp->keye.tpid;
+	entry->si_bitmap = le16_to_cpu(resp->cfge.si_bitmap);
+
+end:
+	ntmp_free_data_mem(cbdr, data_size, tmp, dma);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_vaft_query_entry);
+
+int ntmp_vaft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
+{
+	struct vaft_req_qd *req;
+	union netc_cbd cbd;
+	u32 len, data_size;
+	dma_addr_t dma;
+	void *tmp;
+	int err;
+
+	data_size = sizeof(*req);
+	tmp = ntmp_alloc_data_mem(cbdr, data_size, &dma, (void **)&req);
+	if (!tmp)
+		return -ENOMEM;
+
+	/* Set VLAN address filter table request data buffer */
+	req->entry_id = cpu_to_le32(entry_id);
+
+	/* Request header */
+	len = NTMP_REQ_RESP_LEN(data_size, 0);
+	ntmp_fill_request_headr(&cbd, dma, len, NTMP_VAFT_ID,
+				NTMP_CMD_DELETE, NTMP_AM_ENTRY_ID);
+
+	err = netc_xmit_ntmp_cmd(cbdr, &cbd);
+	if (err)
+		dev_err(cbdr->dma_dev,
+			"Delete VLAN filter table entry failed (%d)!", err);
+
+	ntmp_free_data_mem(cbdr, data_size, tmp, dma);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(ntmp_vaft_delete_entry);
+
 int ntmp_rsst_query_or_update_entry(struct netc_cbdr *cbdr, u32 *table,
 				    int count, bool query)
 {

@@ -142,6 +142,12 @@ struct ntmp_mfe {
 	u16 si_bitmap;
 };
 
+struct ntmp_vfe {
+	u16 vid;
+	u8 tpid;
+	u16 si_bitmap;
+};
+
 struct ntmp_tgst_ge {
 	u32 tc_gates;
 	u32 interval;
@@ -420,6 +426,11 @@ int ntmp_maft_add_entry(struct netc_cbdr *cbdr, u32 entry_id,
 int ntmp_maft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 			  struct ntmp_mfe *entry);
 int ntmp_maft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id);
+int ntmp_vaft_add_entry(struct netc_cbdr *cbdr, u32 entry_id,
+			struct ntmp_vfe *vfe);
+int ntmp_vaft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+			  struct ntmp_vfe *entry);
+int ntmp_vaft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id);
 int ntmp_rsst_query_or_update_entry(struct netc_cbdr *cbdr, u32 *table,
 				    int count, bool query);
 int ntmp_tgst_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
@@ -487,6 +498,23 @@ static inline int ntmp_maft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
 }
 
 static inline int ntmp_maft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int ntmp_vaft_add_entry(struct netc_cbdr *cbdr, u32 entry_id,
+				      struct ntmp_vfe *vfe)
+{
+	return 0;
+}
+
+static inline int ntmp_vaft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+					struct ntmp_vfe *entry)
+{
+	return 0;
+}
+
+static inline int ntmp_vaft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
 {
 	return 0;
 }

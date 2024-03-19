@@ -105,7 +105,7 @@ static void enetc_sync_mac_filters(struct enetc_si *si)
 	struct enetc_hw *hw = &si->hw;
 	int i, pos;
 
-	if (!pf->hw_ops->set_si_mac_filter)
+	if (!pf->hw_ops->set_si_mac_hash_filter)
 		return;
 
 	pos = EMETC_MAC_ADDR_FILT_RES;
@@ -119,7 +119,7 @@ static void enetc_sync_mac_filters(struct enetc_si *si)
 				enetc_clear_mac_flt_entry(si, pos);
 
 			/* Clean MAC hash filter. */
-			pf->hw_ops->set_si_mac_filter(hw, 0, i, 0);
+			pf->hw_ops->set_si_mac_hash_filter(hw, 0, i, 0);
 			continue;
 		}
 
@@ -128,7 +128,7 @@ static void enetc_sync_mac_filters(struct enetc_si *si)
 			int err;
 
 			/* Clean MAC hash filter. */
-			pf->hw_ops->set_si_mac_filter(hw, 0, i, 0);
+			pf->hw_ops->set_si_mac_hash_filter(hw, 0, i, 0);
 
 			err = enetc_set_mac_flt_entry(si, pos, f->mac_addr,
 						      BIT(0));
@@ -144,7 +144,7 @@ static void enetc_sync_mac_filters(struct enetc_si *si)
 		if (i == UC)
 			enetc_clear_mac_flt_entry(si, pos);
 
-		pf->hw_ops->set_si_mac_filter(hw, 0, i, *f->mac_hash_table);
+		pf->hw_ops->set_si_mac_hash_filter(hw, 0, i, *f->mac_hash_table);
 	}
 }
 
@@ -364,8 +364,8 @@ static const struct enetc_pf_hw_ops enetc_pf_hw_ops = {
 	.set_si_based_vlan = enetc_set_isol_vlan,
 	.set_si_vlan_promisc = enetc_set_vlan_promisc,
 	.set_si_mac_promisc = enetc_pf_set_si_mac_promisc,
-	.set_si_mac_filter = enetc_set_mac_ht_flt,
-	.set_si_vlan_filter = enetc_set_vlan_ht_filter,
+	.set_si_mac_hash_filter = enetc_set_mac_ht_flt,
+	.set_si_vlan_hash_filter = enetc_set_vlan_ht_filter,
 	.set_loopback = enetc_set_loopback,
 	.set_si_anti_spoofing = enetc_pf_set_si_anti_spoofing,
 	.set_tc_tsd = enetc_pf_set_tc_tsd,

@@ -32,14 +32,24 @@ struct enetc_pf_hw_ops {
 	void (*set_si_anti_spoofing)(struct enetc_hw *hw, int si, bool en);
 	void (*set_si_vlan_promisc)(struct enetc_hw *hw, char si_map);
 	void (*set_si_mac_promisc)(struct enetc_hw *hw, int si, int type, bool en);
-	void (*set_si_mac_filter)(struct enetc_hw *hw, int si, int type, u64 hash);
-	void (*set_si_vlan_filter)(struct enetc_hw *hw, int si, u64 hash);
+	void (*set_si_mac_hash_filter)(struct enetc_hw *hw, int si, int type, u64 hash);
+	void (*set_si_vlan_hash_filter)(struct enetc_hw *hw, int si, u64 hash);
 	void (*set_loopback)(struct net_device *ndev, bool en);
 	void (*set_tc_tsd)(struct enetc_hw *hw, int tc, bool en);
 	void (*set_tc_msdu)(struct enetc_hw *hw, u32 *max_sdu);
 	void (*reset_tc_msdu)(struct enetc_hw *hw);
 	bool (*get_time_gating)(struct enetc_hw *hw);
 	void (*set_time_gating)(struct enetc_hw *hw, bool en);
+};
+
+struct enetc_mac_list_entry {
+	struct ntmp_mfe mfe;
+	struct hlist_node node;
+};
+
+struct enetc_vlan_list_entry {
+	struct ntmp_vfe vfe;
+	struct hlist_node node;
 };
 
 struct enetc_pf {
@@ -64,6 +74,14 @@ struct enetc_pf {
 	const struct enetc_pf_hw_ops *hw_ops;
 
 	u8 mac_addr_base[ETH_ALEN];
+
+	struct hlist_head mac_list; /* MAC address filter table */
+	struct mutex mac_list_lock; /* mac_list lock */
+	int num_mac_fe;	/* number of mac address filter table entries */
+
+	struct hlist_head vlan_list; /* VLAN address filter table */
+	struct mutex vlan_list_lock; /* mac_list lock */
+	int num_vlan_fe; /* number of VLAN address filter table entries */
 };
 
 #define phylink_to_enetc_pf(config) \
@@ -94,6 +112,12 @@ int enetc_pf_set_features(struct net_device *ndev, netdev_features_t features);
 int enetc_pf_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 		      void *type_data);
 int enetc_sriov_configure(struct pci_dev *pdev, int num_vfs);
+void enetc_pf_flush_mac_exact_filter(struct enetc_pf *pf, int si_id,
+				     int mac_type);
+int enetc_pf_set_mac_exact_filter(struct enetc_pf *pf, int si_id,
+				  struct enetc_mac_entry *mac,
+				  int mac_cnt);
+
 static inline void enetc_pf_register_hw_ops(struct enetc_pf *pf,
 					    const struct enetc_pf_hw_ops *hw_ops)
 {

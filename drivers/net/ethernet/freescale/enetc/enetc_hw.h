@@ -716,6 +716,12 @@ static inline void enetc_load_primary_mac_addr(struct enetc_hw *hw,
 	eth_hw_addr_set(ndev, addr);
 }
 
+static inline void enetc_get_si_primary_mac(struct enetc_hw *hw, u8 *addr)
+{
+	*(u32 *)addr = __raw_readl(hw->reg + ENETC_SIPMAR0);
+	*(u16 *)(addr + 4) = __raw_readw(hw->reg + ENETC_SIPMAR1);
+}
+
 #define ENETC_SI_INT_IDX	0
 /* base index for Rx/Tx interrupts */
 #define ENETC_BDR_INT_BASE_IDX	1

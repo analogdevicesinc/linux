@@ -137,8 +137,8 @@ int enetc_vlan_rx_add_vid(struct net_device *ndev, __be16 prot, u16 vid)
 
 	idx = enetc_vid_hash_idx(vid);
 	if (!__test_and_set_bit(idx, si->vlan_ht_filter) &&
-	    pf->hw_ops->set_si_vlan_filter)
-		pf->hw_ops->set_si_vlan_filter(hw, 0, *si->vlan_ht_filter);
+	    pf->hw_ops->set_si_vlan_hash_filter)
+		pf->hw_ops->set_si_vlan_hash_filter(hw, 0, *si->vlan_ht_filter);
 
 	return 0;
 }
@@ -157,8 +157,8 @@ int enetc_vlan_rx_del_vid(struct net_device *ndev, __be16 prot, u16 vid)
 		idx = enetc_vid_hash_idx(vid);
 		enetc_refresh_vlan_ht_filter(si);
 		if (!test_bit(idx, si->vlan_ht_filter) &&
-		    pf->hw_ops->set_si_vlan_filter)
-			pf->hw_ops->set_si_vlan_filter(hw, 0, *si->vlan_ht_filter);
+		    pf->hw_ops->set_si_vlan_hash_filter)
+			pf->hw_ops->set_si_vlan_hash_filter(hw, 0, *si->vlan_ht_filter);
 	}
 
 	return 0;
@@ -582,114 +582,830 @@ void enetc_phylink_destroy(struct enetc_ndev_priv *priv)
 }
 
 /* Messaging */
-static u16 enetc_msg_pf_set_vf_primary_mac_addr(struct enetc_pf *pf,
-						int vf_id)
+static u16 enetc_msg_pf_set_vf_primary_mac_addr(struct enetc_pf *pf, int vf_id)
 {
 	struct enetc_vf_state *vf_state = &pf->vf_state[vf_id];
-	struct enetc_msg_swbd *msg = &pf->rxmsg[vf_id];
-	struct enetc_msg_cmd_set_primary_mac *cmd;
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
 	struct device *dev = &pf->si->pdev->dev;
-	u16 cmd_id;
+	struct enetc_msg_mac_exact_filter *msg;
+	union enetc_pf_msg pf_msg;
 	char *addr;
-	int err;
 
-	cmd = (struct enetc_msg_cmd_set_primary_mac *)msg->vaddr;
-	cmd_id = cmd->header.id;
-	if (cmd_id != ENETC_MSG_CMD_MNG_ADD)
-		return ENETC_MSG_CMD_STATUS_FAIL;
-
-	addr = cmd->mac.sa_data;
-	if (vf_state->flags & ENETC_VF_FLAG_PF_SET_MAC) {
+	msg = (struct enetc_msg_mac_exact_filter *)msg_swbd->vaddr;
+	addr = msg->mac[0].addr;
+	if (vf_state->flags & ENETC_VF_FLAG_PF_SET_MAC)
 		dev_warn(dev, "Attempt to override PF set mac addr for VF%d\n",
 			 vf_id);
-		goto end;
+
+	if (enetc_set_si_hw_addr(pf, vf_id + 1, addr))
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+	else
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
+
+	return pf_msg.code;
+}
+
+static struct enetc_mac_list_entry
+	*enetc_mac_list_lookup_entry(struct enetc_pf *pf, const unsigned char *addr)
+{
+	struct enetc_mac_list_entry *entry;
+
+	hlist_for_each_entry(entry, &pf->mac_list, node)
+		if (ether_addr_equal(entry->mfe.mac, addr))
+			return entry;
+
+	return NULL;
+}
+
+static inline void enetc_mac_list_add_entry(struct enetc_pf *pf,
+					    struct enetc_mac_list_entry *entry)
+{
+	hlist_add_head(&entry->node, &pf->mac_list);
+}
+
+static inline void enetc_mac_list_del_entry(struct enetc_mac_list_entry *entry)
+{
+	hlist_del(&entry->node);
+	kfree(entry);
+}
+
+static void enetc_mac_list_del_matched_entries(struct enetc_pf *pf, u16 si_bit,
+					       struct enetc_mac_entry *mac,
+					       int mac_cnt)
+{
+	struct enetc_mac_list_entry *entry;
+	int i;
+
+	for (i = 0; i < mac_cnt; i++) {
+		entry = enetc_mac_list_lookup_entry(pf, mac[i].addr);
+		if (entry) {
+			entry->mfe.si_bitmap &= ~si_bit;
+			if (!entry->mfe.si_bitmap) {
+				enetc_mac_list_del_entry(entry);
+				pf->num_mac_fe--;
+			}
+		}
+	}
+}
+
+int enetc_pf_set_mac_exact_filter(struct enetc_pf *pf, int si_id,
+				  struct enetc_mac_entry *mac,
+				  int mac_cnt)
+{
+	int mf_max_num = pf->caps.mac_filter_num;
+	struct enetc_mac_list_entry *entry;
+	struct enetc_si *si = pf->si;
+	int i = 0, used_cnt = 0;
+	u16 si_bit = BIT(si_id);
+	int mf_num;
+
+	guard(mutex)(&pf->mac_list_lock);
+
+	/* Check MAC filter table whether has enough available entries */
+	hlist_for_each_entry(entry, &pf->mac_list, node) {
+		for (i = 0; i < mac_cnt; i++) {
+			if (ether_addr_equal(entry->mfe.mac, mac[i].addr)) {
+				used_cnt++;
+
+				if (mf_max_num - used_cnt < mac_cnt)
+					return -ENOSPC;
+
+				break;
+			}
+		}
 	}
 
-	err = enetc_set_si_hw_addr(pf, vf_id + 1, addr);
+	mf_num = pf->num_mac_fe;
+	/* Update mac_list */
+	for (i = 0; i < mac_cnt; i++) {
+		entry = enetc_mac_list_lookup_entry(pf, mac[i].addr);
+		if (!entry) {
+			entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+			if (unlikely(!entry)) {
+				/* Restore MAC list to before update if an error occurs*/
+				enetc_mac_list_del_matched_entries(pf, si_bit, mac,
+								   i + 1);
+				return -ENOMEM;
+			}
+			ether_addr_copy(entry->mfe.mac, mac[i].addr);
+			entry->mfe.si_bitmap = si_bit;
+			enetc_mac_list_add_entry(pf, entry);
+			pf->num_mac_fe++;
+		} else {
+			entry->mfe.si_bitmap |= si_bit;
+		}
+	}
+
+	/* Clear MAC filter table */
+	for (i = 0; i < mf_num; i++)
+		ntmp_maft_delete_entry(&si->cbdr, i);
+
+	i = 0;
+	hlist_for_each_entry(entry, &pf->mac_list, node) {
+		ntmp_maft_add_entry(&si->cbdr, i, entry->mfe.mac,
+				    entry->mfe.si_bitmap);
+		i++;
+	}
+
+	return 0;
+}
+
+static u16 enetc_msg_pf_add_vf_mac_entries(struct enetc_pf *pf, int vf_id)
+{
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
+	struct enetc_msg_mac_exact_filter *msg;
+	struct enetc_si *si = pf->si;
+	union enetc_pf_msg pf_msg;
+	bool no_resource = false;
+	int err;
+
+	if (is_enetc_rev1(si)) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+		return pf_msg.code;
+	}
+
+	msg = (struct enetc_msg_mac_exact_filter *)msg_swbd->vaddr;
+	if (msg->mac_cnt > pf->caps.mac_filter_num) {
+		no_resource = true;
+		goto no_resource_check;
+	}
+
+	err = enetc_pf_set_mac_exact_filter(pf, vf_id + 1, msg->mac,
+					    msg->mac_cnt);
 	if (err)
-		return -ENETC_MSG_CMD_STATUS_FAIL;
+		no_resource = true;
 
-end:
-	return ENETC_MSG_CMD_STATUS_OK;
-}
-
-static u16 enetc_msg_psi_set_vsi_rx_mode(struct enetc_pf *pf, int vf_id)
-{
-	struct enetc_msg_swbd *msg = &pf->rxmsg[vf_id];
-	struct enetc_msg_config_mac_filter *cmd;
-	struct enetc_hw *hw = &pf->si->hw;
-	int si_id = vf_id + 1;
-
-	cmd = (struct enetc_msg_config_mac_filter *)msg->vaddr;
-	if (cmd->header.id != ENETC_MSG_CMD_MNG_ADD)
-		return ENETC_MSG_CMD_STATUS_FAIL;
-
-	if (!pf->hw_ops->set_si_mac_promisc || !pf->hw_ops->set_si_mac_filter)
-		return ENETC_MSG_CMD_STATUS_FAIL;
-
-	/* Set unicast promiscuous mode and hash filter. */
-	pf->hw_ops->set_si_mac_promisc(hw, si_id, UC, !!cmd->uc_promisc);
-	pf->hw_ops->set_si_mac_filter(hw, si_id, UC, *cmd->uc_hash_table);
-
-	/* Set multicast promiscuous mode and hash filter. */
-	pf->hw_ops->set_si_mac_promisc(hw, si_id, MC, !!cmd->mc_promisc);
-	pf->hw_ops->set_si_mac_filter(hw, si_id, MC, *cmd->mc_hash_table);
-
-	return ENETC_MSG_CMD_STATUS_OK;
-}
-
-static u16 enetc_msg_psi_set_vsi_vlan_filter(struct enetc_pf *pf, int vf_id)
-{
-	struct enetc_msg_swbd *msg = &pf->rxmsg[vf_id];
-	struct enetc_msg_config_vlan_filter *cmd;
-	struct enetc_hw *hw = &pf->si->hw;
-	int si_id = vf_id + 1;
-
-	if (!pf->hw_ops->set_si_vlan_filter)
-		return ENETC_MSG_CMD_STATUS_FAIL;
-
-	cmd = (struct enetc_msg_config_vlan_filter *)msg->vaddr;
-	if (cmd->vlan_promisc) {
-		/* Clear VLAN filter hash table. */
-		pf->hw_ops->set_si_vlan_filter(hw, si_id, 0);
-		enetc_set_si_vlan_promisc(pf, si_id, true);
-	} else {
-		/* Disable the VLAN promiscuous mode of the VSI if the VLAN
-		 * promiscuous mode is enabled before.
-		 */
-		if (pf->vlan_promisc_simap & BIT(si_id))
-			enetc_set_si_vlan_promisc(pf, si_id, false);
-
-		pf->hw_ops->set_si_vlan_filter(hw, si_id, *cmd->vlan_hash_table);
+no_resource_check:
+	if (no_resource) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_MAC_FILTER;
+		pf_msg.class_code = ENETC_PF_RC_MAC_FILTER_NO_RESOURCE;
+		return pf_msg.code;
 	}
 
-	return ENETC_MSG_CMD_STATUS_OK;
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
+
+	return pf_msg.code;
 }
 
-void enetc_msg_handle_rxmsg(struct enetc_pf *pf, int vf_id, u16 *status)
+static int enetc_msg_validate_delete_macs(struct enetc_pf *pf, u16 si_bit,
+					  struct enetc_mac_entry *mac,
+					  int mac_cnt)
 {
-	struct enetc_msg_swbd *msg = &pf->rxmsg[vf_id];
+	struct enetc_mac_list_entry *entry;
+	int i;
+
+	for (i = 0; i < mac_cnt; i++) {
+		entry = enetc_mac_list_lookup_entry(pf, mac[i].addr);
+		if (entry && (entry->mfe.si_bitmap & si_bit))
+			continue;
+
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static u16 enetc_msg_pf_del_vf_mac_entries(struct enetc_pf *pf, int vf_id)
+{
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
+	struct enetc_msg_mac_exact_filter *msg;
+	struct enetc_mac_list_entry *entry;
+	struct enetc_si *si = pf->si;
+	u16 si_bit = BIT(vf_id + 1);
+	union enetc_pf_msg pf_msg;
+	int i, mf_num, err;
+
+	if (is_enetc_rev1(si)) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+		return pf_msg.code;
+	}
+
+	msg = (struct enetc_msg_mac_exact_filter *)msg_swbd->vaddr;
+
+	guard(mutex)(&pf->mac_list_lock);
+
+	err = enetc_msg_validate_delete_macs(pf, si_bit, msg->mac,
+					     msg->mac_cnt);
+	if (err) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_MAC_FILTER;
+		pf_msg.class_code = ENETC_PF_RC_MAC_FILTER_MAC_NOT_FOUND;
+		return pf_msg.code;
+	}
+
+	mf_num = pf->num_mac_fe;
+	enetc_mac_list_del_matched_entries(pf, si_bit, msg->mac,
+					   msg->mac_cnt);
+
+	/* Clear MAC filter table */
+	for (i = 0; i < mf_num; i++)
+		ntmp_maft_delete_entry(&si->cbdr, i);
+
+	i = 0;
+	hlist_for_each_entry(entry, &pf->mac_list, node) {
+		ntmp_maft_add_entry(&si->cbdr, i, entry->mfe.mac,
+				    entry->mfe.si_bitmap);
+		i++;
+	}
+
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
+
+	return pf_msg.code;
+}
+
+static u16 enetc_msg_pf_set_vf_mac_hash_filter(struct enetc_pf *pf, int vf_id)
+{
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
 	struct device *dev = &pf->si->pdev->dev;
-	struct enetc_msg_cmd_header *cmd_hdr;
-	u16 cmd_type;
+	struct enetc_msg_mac_hash_filter *msg;
+	struct enetc_hw *hw = &pf->si->hw;
+	union enetc_pf_msg pf_msg;
+	int si_id = vf_id + 1;
+	u64 hash_tbl;
 
-	cmd_hdr = (struct enetc_msg_cmd_header *)msg->vaddr;
-	cmd_type = cmd_hdr->type;
+	if (!pf->hw_ops->set_si_mac_hash_filter) {
+		dev_err(dev, "MAC hash filter is not supported\n");
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+		return pf_msg.code;
+	}
 
-	switch (cmd_type) {
-	case ENETC_MSG_CMD_MNG_MAC:
-		*status = enetc_msg_pf_set_vf_primary_mac_addr(pf, vf_id);
+	msg = (struct enetc_msg_mac_hash_filter *)msg_swbd->vaddr;
+	/* Currently, hardware only supports 64 bits table size */
+	if (msg->size != ENETC_MAC_HASH_TABLE_SIZE_64) {
+		dev_err(dev, "MAC hash table size exceeds 64 bits\n");
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+		return pf_msg.code;
+	}
+
+	if (msg->type == ENETC_MAC_FILTER_TYPE_UC) {
+		hash_tbl = (u64)(msg->hash_tbl[1]) << 32 | msg->hash_tbl[0];
+		pf->hw_ops->set_si_mac_hash_filter(hw, si_id, UC, hash_tbl);
+	} else if (msg->type == ENETC_MAC_FILTER_TYPE_MC) {
+		hash_tbl = (u64)(msg->hash_tbl[1]) << 32 | msg->hash_tbl[0];
+		pf->hw_ops->set_si_mac_hash_filter(hw, si_id, MC, hash_tbl);
+	} else {
+		hash_tbl = (u64)(msg->hash_tbl[1]) << 32 | msg->hash_tbl[0];
+		pf->hw_ops->set_si_mac_hash_filter(hw, si_id, UC, hash_tbl);
+		hash_tbl = (u64)(msg->hash_tbl[3]) << 32 | msg->hash_tbl[2];
+		pf->hw_ops->set_si_mac_hash_filter(hw, si_id, MC, hash_tbl);
+	}
+
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
+
+	return pf_msg.code;
+}
+
+static bool enetc_msg_mac_type_check(int type, const u8 *addr)
+{
+	if (type == ENETC_MAC_FILTER_TYPE_UC)
+		return !is_multicast_ether_addr(addr);
+	else if (type == ENETC_MAC_FILTER_TYPE_MC)
+		return is_multicast_ether_addr(addr);
+	else
+		return true;
+}
+
+void enetc_pf_flush_mac_exact_filter(struct enetc_pf *pf, int si_id,
+				     int mac_type)
+{
+	struct enetc_mac_list_entry *entry;
+	struct enetc_si *si = pf->si;
+	u16 si_bit = BIT(si_id);
+	struct hlist_node *tmp;
+	int i, mf_num;
+
+	if (is_enetc_rev1(si))
+		return;
+
+	guard(mutex)(&pf->mac_list_lock);
+
+	mf_num = pf->num_mac_fe;
+	hlist_for_each_entry_safe(entry, tmp, &pf->mac_list, node) {
+		if (enetc_msg_mac_type_check(mac_type, entry->mfe.mac) &&
+		    entry->mfe.si_bitmap & si_bit) {
+			entry->mfe.si_bitmap &= ~si_bit;
+			if (!entry->mfe.si_bitmap) {
+				enetc_mac_list_del_entry(entry);
+				pf->num_mac_fe--;
+			}
+		}
+	}
+
+	for (i = 0; i < mf_num; i++)
+		ntmp_maft_delete_entry(&si->cbdr, i);
+
+	i = 0;
+	hlist_for_each_entry(entry, &pf->mac_list, node) {
+		ntmp_maft_add_entry(&si->cbdr, i, entry->mfe.mac,
+				    entry->mfe.si_bitmap);
+		i++;
+	}
+}
+
+static void enetc_pf_flush_si_mac_filter(struct enetc_pf *pf, int si_id,
+					 int mac_type)
+{
+	struct enetc_hw *hw = &pf->si->hw;
+
+	enetc_pf_flush_mac_exact_filter(pf, si_id, mac_type);
+
+	if (!pf->hw_ops->set_si_mac_hash_filter)
+		return;
+
+	if (mac_type & ENETC_MAC_FILTER_TYPE_UC)
+		pf->hw_ops->set_si_mac_hash_filter(hw, si_id, UC, 0);
+
+	if (mac_type & ENETC_MAC_FILTER_TYPE_MC)
+		pf->hw_ops->set_si_mac_hash_filter(hw, si_id, MC, 0);
+}
+
+static u16 enetc_msg_pf_flush_vf_mac_entries(struct enetc_pf *pf, int vf_id)
+{
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
+	struct enetc_msg_mac_filter_flush *msg;
+	struct enetc_si *si = pf->si;
+	union enetc_pf_msg pf_msg;
+
+	if (is_enetc_rev1(si)) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+		return pf_msg.code;
+	}
+
+	msg = (struct enetc_msg_mac_filter_flush *)msg_swbd->vaddr;
+	enetc_pf_flush_si_mac_filter(pf, vf_id + 1, msg->type);
+
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
+
+	return pf_msg.code;
+}
+
+static u16 enetc_msg_pf_set_vf_mac_promisc_mode(struct enetc_pf *pf, int vf_id)
+{
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
+	struct enetc_msg_mac_promsic_mode *msg;
+	struct enetc_hw *hw = &pf->si->hw;
+	union enetc_pf_msg pf_msg;
+	bool promisc_mode = false;
+	int si_id = vf_id + 1;
+	int mac_type;
+
+	if (!pf->hw_ops->set_si_mac_promisc) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+		return pf_msg.code;
+	}
+
+	msg = (struct enetc_msg_mac_promsic_mode *)msg_swbd->vaddr;
+	if (msg->type == ENETC_MAC_FILTER_TYPE_UC)
+		mac_type = ENETC_MAC_FILTER_TYPE_UC;
+	else if (msg->type == ENETC_MAC_FILTER_TYPE_MC)
+		mac_type = ENETC_MAC_FILTER_TYPE_MC;
+	else
+		mac_type = ENETC_MAC_FILTER_TYPE_ALL;
+
+	if (msg->promisc_mode == ENETC_MAC_PROMISC_MODE_ENABLE)
+		promisc_mode = true;
+
+	if (msg->flush_macs)
+		enetc_pf_flush_si_mac_filter(pf, si_id, msg->type);
+
+	if (mac_type & ENETC_MAC_FILTER_TYPE_UC)
+		pf->hw_ops->set_si_mac_promisc(hw, si_id, UC, promisc_mode);
+
+	if (mac_type & ENETC_MAC_FILTER_TYPE_MC)
+		pf->hw_ops->set_si_mac_promisc(hw, si_id, MC, promisc_mode);
+
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
+
+	return pf_msg.code;
+}
+
+static u16 enetc_msg_handle_mac_filter(struct enetc_msg_header *msg_hdr,
+				       struct enetc_pf *pf, int vf_id)
+{
+	union enetc_pf_msg pf_msg;
+
+	switch (msg_hdr->cmd_id) {
+	case ENETC_MSG_SET_PRIMARY_MAC:
+		return enetc_msg_pf_set_vf_primary_mac_addr(pf, vf_id);
+	case ENETC_MSG_ADD_EXACT_MAC_ENTRIES:
+		return enetc_msg_pf_add_vf_mac_entries(pf, vf_id);
+	case ENETC_MSG_DEL_EXACT_MAC_ENTRIES:
+		return enetc_msg_pf_del_vf_mac_entries(pf, vf_id);
+	case ENETC_MSG_SET_MAC_HASH_TABLE:
+		return enetc_msg_pf_set_vf_mac_hash_filter(pf, vf_id);
+	case ENETC_MSG_FLUSH_MAC_ENTRIES:
+		return enetc_msg_pf_flush_vf_mac_entries(pf, vf_id);
+	case ENETC_MSG_SET_MAC_PROMISC_MODE:
+		return enetc_msg_pf_set_vf_mac_promisc_mode(pf, vf_id);
+	default:
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+
+		return pf_msg.code;
+	}
+}
+
+static struct enetc_vlan_list_entry
+	*enetc_vlan_list_lookup_entry(struct enetc_pf *pf,
+				      struct enetc_vlan_entry *vlan)
+{
+	struct enetc_vlan_list_entry *entry;
+
+	hlist_for_each_entry(entry, &pf->vlan_list, node)
+		if (entry->vfe.vid == vlan->vid &&
+		    entry->vfe.tpid == vlan->tpid)
+			return entry;
+
+	return NULL;
+}
+
+static inline void enetc_vlan_list_add_entry(struct enetc_pf *pf,
+					     struct enetc_vlan_list_entry *entry)
+{
+	hlist_add_head(&entry->node, &pf->vlan_list);
+}
+
+static inline void enetc_vlan_list_del_entry(struct enetc_vlan_list_entry *entry)
+{
+	hlist_del(&entry->node);
+	kfree(entry);
+}
+
+static void enetc_vlan_list_del_matched_entries(struct enetc_pf *pf, u16 si_bit,
+						struct enetc_vlan_entry *vlan,
+						int vlan_cnt)
+{
+	struct enetc_vlan_list_entry *entry;
+	int i;
+
+	for (i = 0; i < vlan_cnt; i++) {
+		entry = enetc_vlan_list_lookup_entry(pf, &vlan[i]);
+		if (entry) {
+			entry->vfe.si_bitmap &= ~si_bit;
+			if (!entry->vfe.si_bitmap) {
+				enetc_vlan_list_del_entry(entry);
+				pf->num_vlan_fe--;
+			}
+		}
+	}
+}
+
+static int enetc_pf_set_vlan_exact_filter(struct enetc_pf *pf, int si_id,
+					  struct enetc_vlan_entry *vlan,
+					  int vlan_cnt)
+{
+	int vf_max_num = pf->caps.vlan_filter_num;
+	struct enetc_vlan_list_entry *entry;
+	struct enetc_si *si = pf->si;
+	int i = 0, used_cnt = 0;
+	u16 si_bit = BIT(si_id);
+	int vf_num;
+
+	guard(mutex)(&pf->vlan_list_lock);
+
+	/* Check VLAN filter table whether has enough available entries */
+	hlist_for_each_entry(entry, &pf->vlan_list, node) {
+		for (i = 0; i < vlan_cnt; i++) {
+			if (entry->vfe.vid == vlan[i].vid &&
+			    entry->vfe.tpid == vlan[i].tpid) {
+				used_cnt++;
+
+				if (vf_max_num - used_cnt < vlan_cnt)
+					return -ENOSPC;
+
+				break;
+			}
+		}
+	}
+
+	vf_num = pf->num_vlan_fe;
+	/* Update VLAN list */
+	for (i = 0; i < vlan_cnt; i++) {
+		entry = enetc_vlan_list_lookup_entry(pf, &vlan[i]);
+		if (!entry) {
+			entry = kzalloc(sizeof(*entry), GFP_KERNEL);
+			if (unlikely(!entry)) {
+				enetc_vlan_list_del_matched_entries(pf, si_bit, vlan,
+								    i + 1);
+				return -ENOMEM;
+			}
+			entry->vfe.vid = vlan[i].vid;
+			entry->vfe.tpid = vlan[i].tpid;
+			entry->vfe.si_bitmap = si_bit;
+			enetc_vlan_list_add_entry(pf, entry);
+			pf->num_vlan_fe++;
+		} else {
+			entry->vfe.si_bitmap |= si_bit;
+		}
+	}
+
+	/* Clear VLAN filter table */
+	for (i = 0; i < vf_num; i++)
+		ntmp_vaft_delete_entry(&si->cbdr, i);
+
+	i = 0;
+	hlist_for_each_entry(entry, &pf->vlan_list, node) {
+		ntmp_vaft_add_entry(&si->cbdr, i, &entry->vfe);
+		i++;
+	}
+
+	return 0;
+}
+
+static u16 enetc_msg_pf_add_vf_vlan_entries(struct enetc_pf *pf, int vf_id)
+{
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
+	struct enetc_msg_vlan_exact_filter *msg;
+	struct enetc_si *si = pf->si;
+	union enetc_pf_msg pf_msg;
+	bool no_resource = false;
+	int err;
+
+	if (is_enetc_rev1(si)) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+		return pf_msg.code;
+	}
+
+	msg = (struct enetc_msg_vlan_exact_filter *)msg_swbd->vaddr;
+	if (msg->vlan_cnt > pf->caps.vlan_filter_num) {
+		no_resource = true;
+		goto no_resource_check;
+	}
+
+	err = enetc_pf_set_vlan_exact_filter(pf, vf_id + 1, msg->vlan,
+					     msg->vlan_cnt);
+	if (err)
+		no_resource = true;
+
+no_resource_check:
+	if (no_resource) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_VLAN_FILTER;
+		pf_msg.class_code = ENETC_PF_RC_VLAN_FILTER_NO_RESOURCE;
+		return pf_msg.code;
+	}
+
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
+
+	return pf_msg.code;
+}
+
+static int enetc_msg_validate_delete_vlans(struct enetc_pf *pf, u16 si_bit,
+					   struct enetc_vlan_entry *vlan,
+					   int vlan_cnt)
+{
+	struct enetc_vlan_list_entry *entry;
+	int i;
+
+	for (i = 0; i < vlan_cnt; i++) {
+		entry = enetc_vlan_list_lookup_entry(pf, &vlan[i]);
+		if (entry && (entry->vfe.si_bitmap & si_bit))
+			continue;
+
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static u16 enetc_msg_pf_del_vf_vlan_entries(struct enetc_pf *pf, int vf_id)
+{
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
+	struct enetc_msg_vlan_exact_filter *msg;
+	struct enetc_vlan_list_entry *entry;
+	struct enetc_si *si = pf->si;
+	u16 si_bit = BIT(vf_id + 1);
+	union enetc_pf_msg pf_msg;
+	int i, vf_num, err;
+
+	if (is_enetc_rev1(si)) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+		return pf_msg.code;
+	}
+
+	msg = (struct enetc_msg_vlan_exact_filter *)msg_swbd->vaddr;
+	guard(mutex)(&pf->vlan_list_lock);
+
+	err = enetc_msg_validate_delete_vlans(pf, si_bit, msg->vlan,
+					      msg->vlan_cnt);
+	if (err) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_VLAN_FILTER;
+		pf_msg.class_code = ENETC_PF_RC_VLAN_FILTER_VLAN_NOT_FOUND;
+		return pf_msg.code;
+	}
+
+	vf_num = pf->num_vlan_fe;
+	enetc_vlan_list_del_matched_entries(pf, si_bit, msg->vlan,
+					    msg->vlan_cnt);
+
+	for (i = 0; i < vf_num; i++)
+		ntmp_vaft_delete_entry(&si->cbdr, i);
+
+	i = 0;
+	hlist_for_each_entry(entry, &pf->vlan_list, node) {
+		ntmp_vaft_add_entry(&si->cbdr, i, &entry->vfe);
+		i++;
+	}
+
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
+
+	return pf_msg.code;
+}
+
+static u16 enetc_msg_pf_set_vf_vlan_hash_filter(struct enetc_pf *pf, int vf_id)
+{
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
+	struct device *dev = &pf->si->pdev->dev;
+	struct enetc_msg_vlan_hash_filter *msg;
+	struct enetc_hw *hw = &pf->si->hw;
+	union enetc_pf_msg pf_msg;
+	int si_id = vf_id + 1;
+	u64 hash_tbl;
+
+	if (!pf->hw_ops->set_si_vlan_hash_filter) {
+		dev_err(dev, "VLAN hash filter is not supported\n");
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+		return pf_msg.code;
+	}
+
+	msg = (struct enetc_msg_vlan_hash_filter *)msg_swbd->vaddr;
+	/* Currently, hardware only supports 64 bits table size */
+	if (msg->size != ENETC_VLAN_HASH_TABLE_SIZE_64) {
+		dev_err(dev, "VLAN hash table size exceeds 64 bits\n");
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+		return pf_msg.code;
+	}
+
+	hash_tbl = (u64)(msg->hash_tbl[1]) << 32 | msg->hash_tbl[0];
+	pf->hw_ops->set_si_vlan_hash_filter(hw, si_id, hash_tbl);
+
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
+
+	return pf_msg.code;
+}
+
+static void enetc_pf_flush_vlan_exact_filter(struct enetc_pf *pf, int si_id)
+{
+	struct enetc_vlan_list_entry *entry;
+	struct enetc_si *si = pf->si;
+	u16 si_bit = BIT(si_id);
+	struct hlist_node *tmp;
+	int i, vf_num;
+
+	if (is_enetc_rev1(si))
+		return;
+
+	guard(mutex)(&pf->vlan_list_lock);
+
+	vf_num = pf->num_vlan_fe;
+	hlist_for_each_entry_safe(entry, tmp, &pf->vlan_list, node) {
+		if (entry->vfe.si_bitmap & si_bit) {
+			entry->vfe.si_bitmap &= ~si_bit;
+			if (!entry->vfe.si_bitmap) {
+				enetc_vlan_list_del_entry(entry);
+				pf->num_vlan_fe--;
+			}
+		}
+	}
+
+	for (i = 0; i < vf_num; i++)
+		ntmp_vaft_delete_entry(&si->cbdr, i);
+
+	i = 0;
+	hlist_for_each_entry(entry, &pf->vlan_list, node) {
+		ntmp_vaft_add_entry(&si->cbdr, i, &entry->vfe);
+		i++;
+	}
+}
+
+static void enetc_pf_flush_si_vlan_filter(struct enetc_pf *pf, int si_id)
+{
+	enetc_pf_flush_vlan_exact_filter(pf, si_id);
+	if (pf->hw_ops->set_si_vlan_hash_filter) {
+		struct enetc_hw *hw = &pf->si->hw;
+
+		pf->hw_ops->set_si_vlan_hash_filter(hw, si_id, 0);
+	}
+}
+
+static u16 enetc_msg_pf_flush_vf_vlan_entries(struct enetc_pf *pf, int vf_id)
+{
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
+	struct enetc_msg_vlan_filter_flush *msg;
+	struct enetc_si *si = pf->si;
+	union enetc_pf_msg pf_msg;
+
+	if (is_enetc_rev1(si)) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+		return pf_msg.code;
+	}
+
+	msg = (struct enetc_msg_vlan_filter_flush *)msg_swbd->vaddr;
+	enetc_pf_flush_si_vlan_filter(pf, vf_id + 1);
+
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
+
+	return pf_msg.code;
+}
+
+static u16 enetc_msg_pf_set_vf_vlan_promisc_mode(struct enetc_pf *pf, int vf_id)
+{
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
+	struct enetc_msg_vlan_promsic_mode *msg;
+	union enetc_pf_msg pf_msg;
+	bool promisc_mode = false;
+	int si_id = vf_id + 1;
+
+	msg = (struct enetc_msg_vlan_promsic_mode *)msg_swbd->vaddr;
+	if (msg->promisc_mode == ENETC_VLAN_PROMISC_MODE_ENABLE)
+		promisc_mode = true;
+
+	if (msg->flush_vlans)
+		enetc_pf_flush_si_vlan_filter(pf, si_id);
+
+	enetc_set_si_vlan_promisc(pf, si_id, promisc_mode);
+
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
+
+	return pf_msg.code;
+}
+
+static u16 enetc_msg_handle_vlan_filter(struct enetc_msg_header *msg_hdr,
+					struct enetc_pf *pf, int vf_id)
+{
+	union enetc_pf_msg pf_msg;
+
+	switch (msg_hdr->cmd_id) {
+	case ENETC_MSG_ADD_EXACT_VLAN_ENTRIES:
+		return enetc_msg_pf_add_vf_vlan_entries(pf, vf_id);
+	case ENETC_MSG_DEL_EXACT_VLAN_ENTRIES:
+		return enetc_msg_pf_del_vf_vlan_entries(pf, vf_id);
+	case ENETC_MSG_SET_VLAN_HASH_TABLE:
+		return enetc_msg_pf_set_vf_vlan_hash_filter(pf, vf_id);
+	case ENETC_MSG_FLUSH_VLAN_ENTRIES:
+		return enetc_msg_pf_flush_vf_vlan_entries(pf, vf_id);
+	case ENETC_MSG_SET_VLAN_PROMISC_MODE:
+		return enetc_msg_pf_set_vf_vlan_promisc_mode(pf, vf_id);
+	default:
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+
+		return pf_msg.code;
+	}
+}
+
+static bool enetc_msg_check_crc16(u8 *msg_addr, u32 msg_size)
+{
+	u8 *data_buf = msg_addr + 2;
+	u8 data_size = msg_size - 2;
+	u16 verify_val;
+
+	if (msg_size > ENETC_DEFAULT_MSG_SIZE)
+		return false;
+
+	verify_val = crc_itu_t(ENETC_CRC_INIT, data_buf, data_size);
+	verify_val = crc_itu_t(verify_val, msg_addr, 2);
+	if (verify_val)
+		return false;
+
+	return true;
+}
+
+void enetc_msg_handle_rxmsg(struct enetc_pf *pf, int vf_id, u16 *msg_code)
+{
+	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
+	struct device *dev = &pf->si->pdev->dev;
+	struct enetc_msg_header *msg_hdr;
+	union enetc_pf_msg pf_msg;
+	u32 msg_size;
+
+	msg_hdr = (struct enetc_msg_header *)msg_swbd->vaddr;
+	msg_size = ENETC_MSG_SIZE(msg_hdr->len);
+	if (!enetc_msg_check_crc16(msg_swbd->vaddr, msg_size)) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CRC_ERROR;
+		*msg_code = pf_msg.code;
+
+		dev_err(dev, "VSI to PSI Message CRC16 error\n");
+
+		return;
+	}
+
+	/* Currently, we don't support asynchronous action */
+	if (msg_hdr->cookie) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+		*msg_code = pf_msg.code;
+
+		dev_err(dev, "Cookie field is not supported yet\n");
+
+		return;
+	}
+
+	switch (msg_hdr->class_id) {
+	case ENETC_MSG_CLASS_ID_MAC_FILTER:
+		*msg_code = enetc_msg_handle_mac_filter(msg_hdr, pf, vf_id);
 		break;
-	case ENETC_MSG_CMD_MNG_RX_MAC_FILTER:
-		*status = enetc_msg_psi_set_vsi_rx_mode(pf, vf_id);
-		break;
-	case ENETC_MSG_CMD_MNG_RX_VLAN_FILTER:
-		*status = enetc_msg_psi_set_vsi_vlan_filter(pf, vf_id);
+	case ENETC_MSG_CLASS_ID_VLAN_FILTER:
+		*msg_code = enetc_msg_handle_vlan_filter(msg_hdr, pf, vf_id);
 		break;
 	default:
-		*status = ENETC_MSG_CMD_NOT_SUPPORT;
-		dev_err(dev, "command not supported (cmd_type: 0x%x)\n",
-			cmd_type);
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+		*msg_code = pf_msg.code;
 	}
 }
 

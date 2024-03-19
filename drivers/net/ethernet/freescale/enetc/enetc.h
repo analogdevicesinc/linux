@@ -17,6 +17,7 @@
 
 #include "enetc_hw.h"
 #include "enetc4_hw.h"
+#include "enetc_msg.h"
 
 #define ENETC_MAC_MAXFRM_SIZE	9600
 #define ENETC_MAX_MTU		(ENETC_MAC_MAXFRM_SIZE - \
@@ -211,12 +212,6 @@ static inline union enetc_rx_bd *enetc_rxbd_ext(union enetc_rx_bd *rxbd)
 	return ++rxbd;
 }
 
-struct enetc_msg_swbd {
-	void *vaddr;
-	dma_addr_t dma;
-	int size;
-};
-
 /* Credit-Based Shaper parameters */
 struct enetc_cbs_tc_cfg {
 	u8 tc;
@@ -284,8 +279,10 @@ struct enetc_si {
 	struct netc_cbdr cbdr;
 	struct dentry *debugfs_root;
 
-	int num_mac_fe;	/* number of mac address filter table entries */
+	struct workqueue_struct *workqueue;
+	struct work_struct rx_mode_task;
 	struct enetc_mac_filter mac_filter[MADDR_TYPE];
+	struct mutex msg_lock; /* mailbox message lock */
 
 	DECLARE_BITMAP(active_vlans, VLAN_N_VID);
 	DECLARE_BITMAP(vlan_ht_filter, ENETC_VLAN_HT_SIZE);
@@ -514,29 +511,6 @@ struct enetc_ndev_priv {
 	 * and link state updates
 	 */
 	struct mutex		mm_lock;
-};
-
-/* Messaging */
-
-/* VF-PF set primary MAC address message format */
-struct enetc_msg_cmd_set_primary_mac {
-	struct enetc_msg_cmd_header header;
-	struct sockaddr mac;
-};
-
-/* VSI-to-PSI Messaging: set MAC filter message format */
-struct enetc_msg_config_mac_filter {
-	struct enetc_msg_cmd_header header;
-	u8 uc_promisc;
-	u8 mc_promisc;
-	DECLARE_BITMAP(uc_hash_table, ENETC_MADDR_HASH_TBL_SZ);
-	DECLARE_BITMAP(mc_hash_table, ENETC_MADDR_HASH_TBL_SZ);
-};
-
-struct enetc_msg_config_vlan_filter {
-	struct enetc_msg_cmd_header header;
-	u8 vlan_promisc;
-	DECLARE_BITMAP(vlan_hash_table, ENETC_VLAN_HT_SIZE);
 };
 
 #define ENETC_CBD(R, i)	(&(((struct enetc_cbd *)((R).bd_base))[i]))

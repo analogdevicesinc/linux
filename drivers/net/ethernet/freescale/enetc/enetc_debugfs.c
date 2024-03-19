@@ -148,7 +148,7 @@ static int enetc_rx_mode_show(struct seq_file *s, void *data)
 		   val & PSIPMMR_SI_MAC_UP, (val & PSIPMMR_SI_MAC_MP) >> 16);
 
 	/* Use MAC hash filter */
-	if (!si->num_mac_fe) {
+	if (!pf->num_mac_fe) {
 		for (i = 0; i < pf->num_vfs + 1; i++)
 			enetc_show_si_mac_hash_filter(s, hw, i);
 
@@ -156,9 +156,9 @@ static int enetc_rx_mode_show(struct seq_file *s, void *data)
 	}
 
 	seq_printf(s, "The total number of entries in MAC filter table is %d.\n",
-		   si->num_mac_fe);
+		   pf->num_mac_fe);
 	/* Use MAC exact match table */
-	for (i = 0; i < si->num_mac_fe; i++) {
+	for (i = 0; i < pf->num_mac_fe; i++) {
 		struct ntmp_mfe entry;
 
 		err = ntmp_maft_query_entry(&si->cbdr, i, &entry);
