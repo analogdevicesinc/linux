@@ -524,15 +524,20 @@ int kbase_gpu_munmap(struct kbase_context *kctx, struct kbase_va_region *reg)
 		switch (alloc->imported.user_buf.state) {
 		case KBASE_USER_BUF_STATE_GPU_MAPPED: {
 			alloc->imported.user_buf.current_mapping_usage_count = 0;
-			kbase_user_buf_from_gpu_mapped_to_empty(kctx, reg);
+			kbase_mem_phy_alloc_ref_read(alloc) ?
+				      kbase_user_buf_from_gpu_mapped_to_pinned(kctx, reg) :
+				      kbase_user_buf_from_gpu_mapped_to_empty(kctx, reg);
 			break;
 		}
 		case KBASE_USER_BUF_STATE_DMA_MAPPED: {
-			kbase_user_buf_from_dma_mapped_to_empty(kctx, reg);
+			kbase_mem_phy_alloc_ref_read(alloc) ?
+				      kbase_user_buf_from_dma_mapped_to_pinned(kctx, reg) :
+				      kbase_user_buf_from_dma_mapped_to_empty(kctx, reg);
 			break;
 		}
 		case KBASE_USER_BUF_STATE_PINNED: {
-			kbase_user_buf_from_pinned_to_empty(kctx, reg);
+			if (!kbase_mem_phy_alloc_ref_read(alloc))
+				kbase_user_buf_from_pinned_to_empty(kctx, reg);
 			break;
 		}
 		case KBASE_USER_BUF_STATE_EMPTY: {
