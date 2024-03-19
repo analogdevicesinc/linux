@@ -1,0 +1,664 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2023, Analog Devices Incorporated, All Rights Reserved
+ */
+
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>                           /* GPIO_ACTIVE_LOW */
+#include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/pinctrl-adi-adrv906x-io-pad.h>
+
+#include "adrv906x_def.h"
+#include "adrv906x_irq_def.h"
+#include "adrv906x-uio.dtsi"
+
+/ {
+	model = "ADI ADRV906X SoC";
+	compatible = "adi,adrv906x";
+
+	interrupt-parent = <&gic>;
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	chosen {
+		/* Boot-related information.
+		 * Populated by U-Boot. Intentionally left blank here.
+		 */
+		boot {
+			device = "";
+			slot = "";
+			te-slot = "";
+			plat = "";
+			lifecycle-state {
+				description = "";
+				deployed = <0>;
+			};
+		};
+	};
+
+	aliases {
+		/* UART consoles */
+		serial0 = &uart0;
+		serial1 = &uart1;
+		serial3 = &uart3;
+		serial4 = &uart4;
+
+		/* Virtual UART: A55-to-M4 */
+		serial5 = &v_uart1_1;
+
+		/* Virtual UART: A55-to-A55
+		 * (applicable for dual-tile only)
+		 */
+		serial6 = &v_uart0_0;
+	};
+
+	psci {
+		compatible = "arm,psci-1.0";
+		method = "smc";
+		cpu_off = <0x84000002>;
+		cpu_on = <0xc4000003>;
+	};
+
+	firmware {
+		optee {
+			compatible = "linaro,optee-tz";
+			method = "smc";
+		};
+
+		sdei {
+			compatible = "arm,sdei-1.0";
+			method = "smc";
+		};
+	};
+
+	cpus {
+		#address-cells = <2>;
+		#size-cells = <0>;
+
+		cpu-map {
+			cluster0 {
+				core0 {
+					cpu = <&CPU0>;
+				};
+				core1 {
+					cpu = <&CPU1>;
+				};
+				core2 {
+					cpu = <&CPU2>;
+				};
+				core3 {
+					cpu = <&CPU3>;
+				};
+			};
+		};
+
+		CPU0:cpu@0 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x0 0x0>;
+			enable-method = "psci";
+			next-level-cache = <&L2_0>;
+		};
+
+		CPU1:cpu@1 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x0 0x100>;
+			enable-method = "psci";
+			next-level-cache = <&L2_0>;
+		};
+
+		CPU2:cpu@2 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x0 0x200>;
+			enable-method = "psci";
+			next-level-cache = <&L2_0>;
+		};
+
+		CPU3:cpu@3 {
+			device_type = "cpu";
+			compatible = "arm,cortex-a55";
+			reg = <0x0 0x300>;
+			enable-method = "psci";
+			next-level-cache = <&L2_0>;
+		};
+
+		L2_0: l2-cache0 {
+			compatible = "cache";
+		};
+	};
+
+	/* Populated by U-Boot. Intentionally left blank here. */
+	memory {
+		device_type = "memory";
+		reg = <0x00000000 0x00000000>;
+	};
+
+	/* Definition of primary and secondary regions
+	 * Secondary regions are only intended for a special use-case (dual-tile 
+	 * with no Linux on secondary, but DDR installed in secondary)
+	 */
+
+	/* L4 regions
+	 * U-boot will remove the secondary region for the regular use-case
+	 */
+	sram_memory {
+		device_type = "memory";
+		reg = <0x00100000 0x00400000>, /* Primary L4 */
+		      <0x04100000 0x00400000>; /* Secondary L4 */
+	};
+
+	/* Reserved memory regions
+	 * 1) U-boot will enable secondary regions only for the special use-case.
+	 *    They are intentionally left disabled by default.
+	 * 2) DDR base address (primary and secondary) is computed and 
+	 *    populated by U-boot. This value is intentionally left blank
+	 * 3) The size of each region is explicitly defined, except for the 
+	 *    secondary DDR region. U-boot will populate the whole secondary DDR
+	 *    region
+	 */
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+
+		/* Primary regions */
+		sram0_res: sram-reserved@0 {
+			compatible = "adi,sram-access";
+			reg = <0x00100000 0x00400000>; /* 4 MB */
+		};
+
+		ddr0_res: ddr-reserved@0 {
+			compatible = "adi,sram-access";
+			reg = <0x00000000 0x01000000>; /* 16 MB */
+		};
+
+		/* Secondary regions */
+		sram1_res: sram-reserved@1 {
+			compatible = "adi,sram-access";
+			reg = <0x04100000 0x00400000>; /* 4 MB */
+			status = "disabled";
+		};
+
+		ddr1_res: ddr-reserved@1 {
+			compatible = "adi,sram-access";
+			reg = <0x00000000 0x00000000>; /* Entire DDR */
+			status = "disabled";
+		};
+	};
+
+	/* Link reserved regions to User Space
+	 * U-boot will enable secondary regions only for the special use-case.
+	 * They are intentionally left disabled by default.
+	 */
+	sram0_mmap: sram-mmap@0 {
+		compatible = "adi,sram-mmap";
+		memory-region = <&sram0_res>;
+		status = "okay";
+	};
+
+	ddr0_mmap: ddr-mmap@0 {
+		compatible = "adi,sram-mmap";
+		memory-region = <&ddr0_res>;
+		status = "okay";
+	};
+
+	sram1_mmap: sram-mmap@1 {
+		compatible = "adi,sram-mmap";
+		memory-region = <&sram1_res>;
+		status = "disabled";
+	};
+
+	ddr1_mmap: ddr-mmap@1 {
+		compatible = "adi,sram-mmap";
+		memory-region = <&ddr1_res>;
+		status = "disabled";
+	};
+
+	gic: interrupt-controller@GIC_BASE_UADDR {
+		compatible = "arm,gic-v3";
+		#interrupt-cells = <3>;
+		interrupt-controller;
+		reg = <GIC_BASE 0x10000>, /* GICD */
+			<(GIC_BASE + 0x00040000) 0x80000>; /* GICR */
+	};
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI NCNTPSIRQ_0 IRQ_TYPE_LEVEL_LOW>, /* Physical Secure */
+				<GIC_PPI NCNTPNSIRQ_0 IRQ_TYPE_LEVEL_LOW>, /* Physical Non-Secure */
+				<GIC_PPI NCNTVIRQ_0 IRQ_TYPE_LEVEL_LOW>, /* Virtual */
+				<GIC_PPI NCNTHPIRQ_0 IRQ_TYPE_LEVEL_LOW>; /* Hypervisor */
+	};
+
+	/* System clock
+	 * Populated by U-Boot. Intentionally left blank here.
+	 */
+	sysclk: sysclk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+	};
+
+	/* eMMC/SD card clock
+	 * Populated by U-Boot. Intentionally left blank here.
+	 */
+	mmcclk: mmcclk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+	};
+
+	watchdog {
+		compatible = "arm,smc-wdt";
+		timeout-sec = <60>;
+	};
+
+	uart0: uart@PL011_0_BASE_UADDR {
+		compatible = "arm,pl011", "arm,primecell";
+		reg = <PL011_0_BASE 0x1000>;
+		interrupts = <GIC_SPI PL011_UART_INTR_0 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "uartclk", "apb_pclk";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_uart0>;
+		status = "disabled";
+	};
+
+	uart1: uart@PL011_1_BASE_UADDR {
+		compatible = "arm,pl011", "arm,primecell";
+		reg = <PL011_1_BASE 0x1000>;
+		interrupts = <GIC_SPI PL011_UART_INTR_1 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "uartclk", "apb_pclk";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_uart1>;
+		status = "disabled";
+	};
+
+	/* uart2 is intentionally not populated here. It is assigned to the
+	 * Cortex M4 processor.
+	 */
+
+	uart3: uart@PL011_2_BASE_UADDR {
+		compatible = "arm,pl011", "arm,primecell";
+		reg = <PL011_2_BASE 0x1000>;
+		interrupts = <GIC_SPI PL011_UART_INTR_2 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "uartclk", "apb_pclk";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_uart3>;
+		status = "disabled";
+	};
+
+	uart4: uart@PL011_3_BASE_UADDR {
+		compatible = "arm,pl011", "arm,primecell";
+		reg = <PL011_3_BASE 0x1000>;
+		interrupts = <GIC_SPI PL011_UART_INTR_3 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "uartclk", "apb_pclk";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_uart4>;
+		status = "disabled";
+	};
+
+	v_uart0_0: v_uart@VIRTUAL_PL011_0_0_BASE_UADDR {
+		compatible = "arm,pl011", "arm,primecell";
+		reg = <VIRTUAL_PL011_0_0_BASE 0x1000>;
+		interrupts = <GIC_SPI V_UART_INTR_0_0 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "uartclk", "apb_pclk";
+		status = "disabled";
+	};
+
+	v_uart1_1: v_uart@VIRTUAL_PL011_1_1_BASE_UADDR {
+		compatible = "arm,pl011", "arm,primecell";
+		reg = <VIRTUAL_PL011_1_1_BASE 0x1000>;
+		interrupts = <GIC_SPI V_UART_INTR_1_1 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "uartclk", "apb_pclk";
+		status = "okay";
+	};
+
+	pinctrl_primary: pinctrl@PINCTRL_BASE_UADDR {
+		reg = <PINCTRL_BASE 0x1000>;
+		compatible = "adi,adrv906x-pinctrl";
+	};
+
+	gpio0: gpio@GPIO_NS_BASE_UADDR {
+		compatible = "adi,adrv906x-gpio";
+		reg = <GPIO_NS_BASE 0x1000>;
+		pintmux = <PINTMUX_BASE>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		ngpios = <ADI_ADRV906X_PIN_COUNT>;
+		#interrupt-cells = <2>;
+		interrupt-controller;
+	};
+
+	/* QSPI */
+	qspi0: spi@QSPI_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,spi3";
+		reg = <QSPI_BASE 0xff>;
+		interrupts = <GIC_SPI IRQ_SPI_QUAD_ERR_PIPED IRQ_TYPE_LEVEL_HIGH>;
+		dmas = <&qspi0_dma 10>, <&qspi0_dma 11>;
+		dma-names = "tx", "rx";
+		clocks = <&sysclk>;
+		clock-names = "spi";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_qspi>;
+		status = "disabled";
+	};
+
+	/* QSPI: DMA */
+	qspi0_dma: dma@QSPI_0_TX_DDE_BASE_UADDR {
+		compatible = "adi,dma-controller";
+		reg = <QSPI_0_TX_DDE_BASE 0x2000>;
+		status = "disabled";
+		#dma-cells = <1>;
+
+		qspi_tx: channel@10 {
+			adi,id = <10>;
+			interrupts = <GIC_SPI IRQ_SPI_QUAD_TX_PIPED IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI IRQ_SPI_QUAD_TX_DDEERR_PIPED IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0>;
+			periph-intf-width = <1>;
+			adi,skip-interrupts = <0>;
+		};
+
+		qspi_rx: channel@11 {
+			adi,id = <11>;
+			interrupts = <GIC_SPI IRQ_SPI_QUAD_RX_PIPED IRQ_TYPE_LEVEL_HIGH>,
+					<GIC_SPI IRQ_SPI_QUAD_RX_DDEERR_PIPED IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0x1000>;
+			periph-intf-width = <1>;
+			adi,skip-interrupts = <0>;
+		};
+	};
+
+	/* SDHCI: EMMC regulator */
+	mmc0_regulator: fixed-regulator_1v8 {
+		compatible = "regulator-fixed";
+		regulator-name = "1V8";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+		status = "disabled";
+	};
+
+	/* SDHCI: SD regulator */
+	mmc1_regulator: fixed-regulator_3v3 {
+		compatible = "regulator-fixed";
+		regulator-name = "3V3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+		status = "disabled";
+	};
+
+	/* SDHCI: eMMC PHY */
+	mmc0_phy: phy@EMMC_0_PHY_BASE_UADDR {
+		compatible = "adi,sdhci-phy";
+		reg = <EMMC_0_PHY_BASE 0x100>;
+		#phy-cells = <0>;
+		adi,dcode-legacy = <0x78>;
+		adi,dcode-hs200 = <0x00>;
+		adi,dcode-hs400 = <0x08>;
+		status = "disabled";
+	};
+
+	/* SDHCI: eMMC interface */
+	mmc0: mmc@EMMC_0_BASE_UADDR {
+		compatible = "adi,dwcmshc-sdhci";
+		reg = <EMMC_0_BASE 0x300>;
+		interrupts = <GIC_SPI W_INTR_PIPED IRQ_TYPE_LEVEL_HIGH>; /* Status */
+		clocks = <&mmcclk>;
+		clock-names = "core";
+		phys = <&mmc0_phy>;
+		phy-names = "phy_adi_sdhci";
+		max-frequency = <196608000>;
+		bus-width = <8>;
+		vqmmc-supply = <&mmc0_regulator>;
+		status = "disabled";
+		enable-phy-config;
+		disable-wp;
+		non-removable;
+		no-sdio;
+		no-sd;
+		mmc-hs200-1_8v;
+		/* HS400 (write operation) does not work in emulation (Protium/Palladium) */
+//		mmc-hs400-1_8v;
+//		mmc-hs400-enhanced-strobe;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	/* SDHCI: SD interface */
+	mmc1: mmc@SD_0_BASE_UADDR {
+		compatible = "adi,dwcmshc-sdhci";
+		reg = <SD_0_BASE 0x300>;
+		interrupts = <GIC_SPI W_SD_INTR_PIPED IRQ_TYPE_EDGE_RISING>, /* Status */
+					<GIC_SPI W_SD_WAKEUP_INTR_PIPED IRQ_TYPE_EDGE_RISING>; /* Wakeup */
+		clocks = <&mmcclk>;
+		clock-names = "core";
+		max-frequency = <50000000>;
+		bus-width = <4>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_mmc1_sd>;
+		vmmc-supply = <&mmc1_regulator>;
+		status = "disabled";
+		disable-wp;
+		no-sdio;
+		no-mmc;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	emac0: ethernet@EMAC_1G_BASE_UADDR {
+		compatible = "adi,adrv906x-dwmac", "snps,dwmac-5.10a";
+		reg = <EMAC_1G_BASE 0x1168>;
+		interrupts = <GIC_SPI EMAC_1G_SBD_INTR_PIPED IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "macirq";
+		phy-mode = "rgmii";
+		snps,reset-gpio = <&gpio0 ADI_ADRV906X_PIN_88 GPIO_ACTIVE_LOW>;
+		snps,reset-delays-us = <1000 1000 1000>;
+		snps,tso;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_emac0>;
+		status = "disabled";
+		clock_divider {
+			reg = <EMAC_1G_YODA 0x04>;
+			base-clk-speed = <125>;
+		};
+	};
+
+	i2c0: twi@I2C_0_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <I2C_0_BASE 0xFF>;
+		interrupts = <GIC_SPI I2C_IRQ_S2F_PIPED_0 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c0>;
+		status = "disabled";
+	};
+
+	i2c1: twi@I2C_1_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <I2C_1_BASE 0xFF>;
+		interrupts = <GIC_SPI I2C_IRQ_S2F_PIPED_1 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c1>;
+		status = "disabled";
+	};
+
+	i2c2: twi@I2C_2_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <I2C_2_BASE 0xFF>;
+		interrupts = <GIC_SPI I2C_IRQ_S2F_PIPED_2 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c2>;
+		status = "disabled";
+	};
+
+	i2c3: twi@I2C_3_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <I2C_3_BASE 0xFF>;
+		interrupts = <GIC_SPI I2C_IRQ_S2F_PIPED_3 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c3>;
+		status = "disabled";
+	};
+
+	i2c4: twi@I2C_4_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <I2C_4_BASE 0xFF>;
+		interrupts = <GIC_SPI I2C_IRQ_S2F_PIPED_4 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c4>;
+		status = "disabled";
+	};
+
+	i2c5: twi@I2C_5_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <I2C_5_BASE 0xFF>;
+		interrupts = <GIC_SPI I2C_IRQ_S2F_PIPED_5 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c5>;
+		status = "disabled";
+	};
+
+	i2c6: twi@I2C_6_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <I2C_6_BASE 0xFF>;
+		interrupts = <GIC_SPI I2C_IRQ_S2F_PIPED_6 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c6>;
+		status = "disabled";
+	};
+
+	i2c7: twi@I2C_7_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,twi";
+		reg = <I2C_7_BASE 0xFF>;
+		interrupts = <GIC_SPI I2C_IRQ_S2F_PIPED_7 IRQ_TYPE_LEVEL_HIGH>;
+		clock-khz = <100>;
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c7>;
+		status = "disabled";
+	};
+
+	spi0: spi@SPI_0_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,spi3";
+		reg = <SPI_0_BASE 0xff>;
+		interrupts = <GIC_SPI IRQ_SPI_1_ERR_PIPED IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk>;
+		clock-names = "spi";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_spi0>;
+		status = "disabled";
+	};
+
+	spi1: spi@SPI_1_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,spi3";
+		reg = <SPI_1_BASE 0xff>;
+		interrupts = <GIC_SPI IRQ_SPI_2_ERR_PIPED IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk>;
+		clock-names = "spi";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_spi1>;
+		status = "disabled";
+	};
+
+	spi2: spi@SPI_2_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,spi3";
+		reg = <SPI_2_BASE 0xff>;
+		interrupts = <GIC_SPI IRQ_SPI_3_ERR_PIPED IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk>;
+		clock-names = "spi";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_spi2>;
+		status = "disabled";
+	};
+
+	spi3: spi@SPI_3_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,spi3";
+		reg = <SPI_3_BASE 0xff>;
+		interrupts = <GIC_SPI IRQ_SPI_4_ERR_PIPED IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk>;
+		clock-names = "spi";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_spi3>;
+		status = "disabled";
+	};
+
+	spi4: spi@SPI_4_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,spi3";
+		reg = <SPI_4_BASE 0xff>;
+		interrupts = <GIC_SPI IRQ_SPI_5_ERR_PIPED IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk>;
+		clock-names = "spi";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_spi4>;
+		status = "disabled";
+	};
+
+	spi5: spi@SPI_5_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,spi3";
+		reg = <SPI_5_BASE 0xff>;
+		interrupts = <GIC_SPI IRQ_SPI_6_ERR_PIPED IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sysclk>;
+		clock-names = "spi";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_spi5>;
+		status = "disabled";
+	};
+};
+
+#include "adrv906x-pinctrl.dtsi"

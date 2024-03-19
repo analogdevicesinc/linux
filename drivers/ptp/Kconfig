@@ -39,6 +39,28 @@ config PTP_1588_CLOCK_OPTIONAL
 	  If PTP support is disabled, this dependency will still be
 	  met, and drivers refer to dummy helpers.
 
+config PTP_1588_CLOCK_ADRV906X
+	tristate "ToD counter for ADRV906X"
+	depends on PTP_1588_CLOCK
+	help
+	  This driver adds support for using the hardware ToD module
+	  in the ADRV906X SoC as a PHC clock to get/set timestamps.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called adrv906x_ptp_tod.
+
+config PTP_1588_CLOCK_ADRV906X_SOC
+	tristate "PTP clock for ADRV906X"
+	depends on PTP_1588_CLOCK
+	select PTP_1588_CLOCK_ADRV906X
+	help
+	  This in an example driver that adds support for using the hardware
+	  ToD module in the ADRV906X SoC in combination with a clock chip to
+	  have a full PHC implementation.
+
+	  To compile this driver as a module, choose M here: the module
+	  will be called adrv906x_ptp_soc.
+
 config PTP_1588_CLOCK_DTE
 	tristate "Broadcom DTE as PTP clock"
 	depends on PTP_1588_CLOCK

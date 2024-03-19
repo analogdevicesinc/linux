@@ -1,0 +1,152 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2023, Analog Devices Incorporated, All Rights Reserved
+ */
+
+#include "adrv906x.dtsi"
+#include "adrv906x-sysc.dtsi"
+#include "adrv906x-protium.dtsi"
+
+/ {
+	model = "ADI ADRV906X Denali 8T8R Evaluation Kit";
+	compatible = "adi,adrv906x-denali-8", "adi,adrv906x";
+
+	chosen {
+		bootargs = "console=ttyAMA0,115200n8 earlycon=pl011,0x20060000 rootwait uio_pdrv_genirq.of_id=generic-uio panic=-1 reboot=w";
+		stdout-path = &uart0;
+	};
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&mmc0 {
+	status = "okay";
+};
+
+&mmc0_regulator {
+	status = "okay";
+};
+
+&mmc0_phy {
+	status = "okay";
+};
+
+&mmc1 {
+	status = "okay";
+};
+
+&mmc1_regulator {
+	status = "okay";
+};
+
+&qspi0 {
+	status = "okay";
+	storage,flash-handle = <&flash>;
+
+	flash: mt25q@0 {
+		compatible = "mt25qu02g", "jedec,spi-nor";
+		spi-max-frequency = <50000000>;
+		reg = <0>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+		adi,enable-dma;
+
+		#include "adrv906x-nor-flash-part.dtsi"
+	};
+};
+
+&qspi0_dma {
+	status = "okay";
+};
+
+&emac0 {
+	status = "disabled";
+	phy-mode = "rgmii";
+	/* Disabled for now to allow for Protium testing */
+	/* phy-handle = <&phy0>; */
+
+	/* Disabled for now to allow for Protium testing */
+	/*mdio0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
+		phy0: ethernet-phy@0 {
+			reg = <15>;
+		};
+	};*/
+};
+
+&i2c1 {
+	status = "disabled";
+
+	/* MAX6581 temp sensor. Bus addr can vary from board
+	 * to board, so four different entries are needed.
+	 */
+	temp-sensor@4c {
+		status = "disabled";
+		compatible = "maxim,max6581";
+		reg = <0x4c>;
+		smbus-timeout-disable;
+		extended-range-enable;
+		resistance-cancellation;
+		alert-mask = <0x7f>; 		/* Ignore all alerts */
+		over-temperature-mask = <0x7f>;	/* Ignore all alerts */
+	};
+	temp-sensor@4d {
+		status = "disabled";
+		compatible = "maxim,max6581";
+		reg = <0x4d>;
+		smbus-timeout-disable;
+		extended-range-enable;
+		resistance-cancellation;
+		alert-mask = <0x7f>;		/* Ignore all alerts */
+		over-temperature-mask = <0x7f>;	/* Ignore all alerts */
+	};
+	temp-sensor@4e {
+		status = "disabled";
+		compatible = "maxim,max6581";
+		reg = <0x4e>;
+		smbus-timeout-disable;
+		extended-range-enable;
+		resistance-cancellation;
+		alert-mask = <0x7f>;		/* Ignore all alerts */
+		over-temperature-mask = <0x7f>;	/* Ignore all alerts */
+	};
+	temp-sensor@4f {
+		status = "disabled";
+		compatible = "maxim,max6581";
+		reg = <0x4f>;
+		smbus-timeout-disable;
+		extended-range-enable;
+		resistance-cancellation;
+		alert-mask = <0x7f>;		/* Ignore all alerts */
+		over-temperature-mask = <0x7f>;	/* Ignore all alerts */
+	};
+
+	board-eeprom@50 {
+		status = "disabled";
+		compatible = "at,24c16";
+		reg = <0x50>;
+	};
+
+	rtc@68 {
+		status = "disabled";
+		compatible = "dallas,ds1339";
+		reg = <0x68>;
+	};
+};
+
+&pinctrl_hog {
+	adi,pins = <
+	GPIO_DEBUG_0_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	GPIO_DEBUG_1_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	GPIO_DEBUG_2_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	GPIO_DEBUG_3_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	GPIO_DEBUG_4_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	GPIO_DEBUG_5_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	GPIO_DEBUG_6_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	GPIO_DEBUG_7_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	>;
+};

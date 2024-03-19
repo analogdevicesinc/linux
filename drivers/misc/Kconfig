@@ -50,6 +50,16 @@ config AD525X_DPOT_SPI
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad525x_dpot-spi.
 
+config ADI_TRU
+	tristate "Analog Devices Trigger Routing Unit (TRU)"
+	depends on OF
+	help
+	  Say yes here to build support for Analog Devices Trigger Routing
+	  Unit.
+
+	  To compile this driver as a module, choose M here. The module will
+	  be called adi-tru.
+
 config DUMMY_IRQ
 	tristate "Dummy IRQ handler"
 	help
@@ -621,6 +631,7 @@ source "drivers/misc/vmw_vmci/Kconfig"
 source "drivers/misc/genwqe/Kconfig"
 source "drivers/misc/echo/Kconfig"
 source "drivers/misc/cxl/Kconfig"
+source "drivers/misc/adi/Kconfig"
 source "drivers/misc/ocxl/Kconfig"
 source "drivers/misc/bcm-vk/Kconfig"
 source "drivers/misc/cardreader/Kconfig"

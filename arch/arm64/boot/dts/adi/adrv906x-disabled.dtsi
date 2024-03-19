@@ -1,0 +1,473 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2023, Analog Devices Incorporated, All Rights Reserved
+ */
+
+/dts-v1/;
+
+/* Sandbox for all adrv906x devices that are not ready to be compiled in or enabled.
+ *
+ * TODO: Move these into adrv906x.dtsi as they become ready, and eventually remove
+ * this file.
+ */
+
+/ {
+	pmu {
+		compatible = "arm,armv8-pmuv3";
+		interrupts = <GIC_PPI NPMUIRQ_0 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gic>;
+	};
+
+	tru0: tru@TRU_BASE_UADDR {
+		compatible = "adi,tru";
+		reg = <TRU_BASE 0x800>;
+		/* TODO replace 100 with actual last trigger source ID */
+		adi,tru-last-source-id = <100>;
+		adi,tru-last-target-id = <79>;
+		/* each connection is <source target> */
+		/*
+		adi,tru-connections-preset = <1 2>,
+				<25 32>,
+				<3 4>;
+		adi,tru-connections-preset-locked;
+		*/
+	};
+
+	dac@PWM_BASE_UADDR {
+		compatible = "adi,pwm-dac";
+		reg = <PWM_BASE 0x100>;
+		adi,iovdd-microvolt = <3300000>;
+		adi,gpio-max-frequency = <983040000>;
+	};
+
+	adi_mdio: mdio@EMAC_PCS_0_BASE_UADDR {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,adrv906x-mdio";
+		reg = <EMAC_PCS_0_BASE 0x350 EMAC_PCS_1_BASE 0x350>;
+		adi_phy0: ethernet-phy@0 {
+			compatible = "ethernet-phy-ieee802.3-c45";
+			reg = <0>;
+		};
+		adi_phy1: ethernet-phy@1 {
+			compatible = "ethernet-phy-ieee802.3-c45";
+			reg = <1>;
+		};
+	};
+
+	adi_nic_dev: adi_eth_node@EMAC_CMN_BASE_UADDR {
+		compatible = "adi,adrv906x-eth";
+		reg = <EMAC_CMN_BASE 0x3004>;
+		ethernet-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				id = <0>;
+				reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>, <EMAC_MAC_0_RX 0x9c>, <EMAC_PCS_0_TSU 0x44>;
+				macsec = <EMAC_MACSEC_0_BASE 0xa00>;
+				interrupt-names = "ts_event";
+				interrupts = <GIC_SPI MACSEC_IRQ_0 IRQ_TYPE_LEVEL_HIGH>;
+				phy-handle = <&adi_phy0>;
+				phy-mode = "rmii";
+				nic-dma-handle = <&ndma0>;
+				static-phy-delay-tx-ns = <0>;
+				static-phy-delay-tx-frac-ns = <0>;
+				static-phy-delay-rx-ns = <0>;
+				static-phy-delay-rx-frac-ns = <0>;
+			};
+			port@1 {
+				id = <1>;
+				reg = <EMAC_MAC_1_BASE 0x14>, <EMAC_MAC_1_TX 0x70>, <EMAC_MAC_1_RX 0x9c>, <EMAC_PCS_1_TSU 0x44>;
+				macsec = <EMAC_MACSEC_1_BASE 0xa00>;
+				interrupt-names = "ts_event";
+				interrupts = <GIC_SPI MACSEC_IRQ_1 IRQ_TYPE_LEVEL_HIGH>;
+				phy-handle = <&adi_phy1>;
+				phy-mode = "rmii";
+				nic-dma-handle = <&nic_dma1>;
+				static-phy-delay-tx-ns = <0>;
+				static-phy-delay-tx-frac-ns = <0>;
+				static-phy-delay-rx-ns = <0>;
+				static-phy-delay-rx-frac-ns = <0>;
+			};
+		};
+
+		oran_if {
+			reg = <OIF_0_RX_CTRL 0x4>, <OIF_0_TX_CTRL 0x4>, <OIF_1_RX_CTRL 0x4>, <OIF_1_TX_CTRL 0x4>;
+		};
+
+		eth_switch {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <EMAC_SW_BASE 0x30 EMAC_SW_MAE_BASE 0x30>;
+			interrupt-names = "switch_error_0", "switch_error_1";
+			interrupts = <GIC_SPI ETH_IRQ_PCS_RX_ERROR_0 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI ETH_IRQ_PCS_RX_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;
+			pvid = /bits/ 16 <1>;
+			vids = /bits/ 16 <2 3 4 5>;
+			pcpregen = <0x77000000>;
+			pcp2ipv = <0x10000000>;
+			switch_port0:switch-port@0 {
+				id = <0>;
+				reg = <EMAC_SW_PORT_0_BASE 0x400>;
+			};
+			switch_port1:switch-port@1 {
+				id = <1>;
+				reg = <EMAC_SW_PORT_1_BASE 0x400>;
+			};
+			switch_port2:switch-port@2 {
+				id = <2>;
+				reg = <EMAC_SW_PORT_2_BASE 0x400>;
+			};
+
+		};
+	};
+
+	msp_reset_ctrl: reset@NIC_DMA_RST_CTRL_UADDR{
+		reg = <NIC_DMA_RST_CTRL 0x04>;
+		reg-names = "reset_ctrl";
+	};
+	ndma0_interrupt_ctrl: nic_dma0_intr_ctrl@NIC_DMA_0_INTR_CTRL_UADDR {
+		reg = <NIC_DMA_0_INTR_CTRL 0x20>;
+		reg-names = "nic-dma0_intr_ctrl";
+	};
+	ndma1_interrupt_ctrl: nic_dma1_intr_ctrl@NIC_DMA_1_INTR_CTRL_UADDR {
+		reg = <NIC_DMA_1_INTR_CTRL 0x20>;
+		reg-names ="nic-dma1_intr_ctrl";
+	};
+
+	ndma0: ndma0@NIC_DMA_0_TX_UADDR {
+		id = <0>;
+		reg = <NIC_DMA_0_TX 0x14>, <NIC_DMA_1_BASE 0x80>, 
+		      <NIC_DMA_0_RX 0x1000>, <NIC_DMA_1_BASE 0x80>;
+		dmas =  <&NDMA_0 20>;
+		dma-names = "tx_data_0";
+		reset-ctrl = <&msp_reset_ctrl>;
+		interrupts = <GIC_SPI MS_DDE_DONE_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI MS_DDE_ERR_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI MS_STAT_DDE_DONE_INTR_GATED_0 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI MS_STAT_DDE_ERR_INTR_GATED_0 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "rx_dma_done",
+		                  "rx_dma_error",
+						  "tx_status_dma_done",
+						  "tx_status_dma_error";
+		interrupt-ctrl = <&nic_dma0_interrupt_ctrl>;
+	};
+
+
+	ndma1: ndma1@NIC_DMA_1_TX_UADDR {
+		id = <1>;
+		reg = <NIC_DMA_1_TX 0x14>, <NIC_DMA_1_BASE 0x80>,
+		      <NIC_DMA_1_RX 0x1000>, <NIC_DMA_1_BASE 0x80>;
+		dmas =  <&NDMA_1 20>;
+		dma-names = "tx_data_1";
+		reset-ctrl = <&msp_reset_ctrl>;
+		interrupts = <GIC_SPI MS_DDE_DONE_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI MS_DDE_ERR_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI MS_STAT_DDE_DONE_INTR_GATED_1 IRQ_TYPE_LEVEL_HIGH>,
+					 <GIC_SPI MS_STAT_DDE_ERR_INTR_GATED_1 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "rx_dma_done",
+		                  "rx_dma_error",
+		                  "tx_status_dma_done",
+						  "tx_status_dma_error";
+		interrupt-ctrl = <&nic_dma1_interrupt_ctrl>;
+	};
+
+	/* TODO: hardware address should be pointered out for both ADRV906X and the Styx board */
+	/* TODO: enable ptp hardware clock block and test when avail */
+	ptpclk: ptpclk {
+		compatible = "adi,adrv906x-tod";
+		reg = <EMAC_TOD_BASE 0xff>;
+		interrupts = <GIC_SPI TOD_IRQ IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "pps";
+		clocks = <&sysclk>, <&sysclk>;
+		clock-names = "lc_clk", "gc_clk";
+		adi,max-adj = <50>;
+		adi-tod {
+			adi,default-tod-counter = <0>;
+			adi,cdc-delay-value = <0 0 0 0>;
+			tod0:adi-tod@0 {
+				reg = <0>;
+				/*adi,pps-mode;*/
+				adi,trigger-delay-tick = <491520>;
+				adi,ppsx-delay-offset-ns = <0>;
+				adi,ppsx-pulse-width-ns = <500000000>;
+			};
+		};
+	};
+
+	/* TODO: enable blocks below and test when avail*/
+	/* memory to memory DMA */
+	mdma: dma@MDMA_0_CH00_BASE_UADDR {
+		compatible = "adi,mdma-controller";
+		reg = <MDMA_0_CH00_BASE 0x1000>;
+		status = "okay";
+
+		mdma0: channel@0{
+			adi,id = <0>;
+			// The destination interrupts are used for primary complete detection
+			interrupts = <GIC_SPI MDMA_CH0_DONE_INTR_0 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI MDMA_CH0_ERR_INTR_0 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI MDMA_CH0_DONE_INTR_1 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI MDMA_CH0_ERR_INTR_1 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error", "complete2", "error2";
+			adi,src-offset = <0>;
+			adi,dest-offset = <0x80>;
+		};
+		mdma1: channel@1{
+			adi,id = <1>;
+			// The destination interrupts are used for primary complete detection
+			interrupts = <GIC_SPI MDMA_CH1_DONE_INTR_0 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI MDMA_CH1_ERR_INTR_0 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI MDMA_CH1_DONE_INTR_1 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI MDMA_CH1_ERR_INTR_1 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error", "complete2", "error2";
+			adi,src-offset = <0>;
+			adi,dest-offset = <0x80>;
+		};
+		mdma2: channel@2{
+			adi,id = <2>;
+			// The destination interrupts are used for primary complete detection
+			interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 286 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 206 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 285 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error", "complete2", "error2";
+			adi,src-offset = <0>;
+			adi,dest-offset = <0x80>;
+		};
+		mdma3: channel@3{
+			adi,id = <3>;
+			// The destination interrupts are used for primary complete detection
+			interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 286 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 206 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 285 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error", "complete2", "error2";
+			adi,src-offset = <0>;
+			adi,dest-offset = <0x80>;
+		};
+		mdma4: channel@4{
+			adi,id = <4>;
+			// The destination interrupts are used for primary complete detection
+			interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 286 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 206 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 285 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error", "complete2", "error2";
+			adi,src-offset = <0>;
+			adi,dest-offset = <0x80>;
+		};
+		mdma5: channel@5{
+			adi,id = <5>;
+			// The destination interrupts are used for primary complete detection
+			interrupts = <GIC_SPI 207 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 286 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 206 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 285 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error", "complete2", "error2";
+			adi,src-offset = <0>;
+			adi,dest-offset = <0x80>;
+		};
+	};
+
+	/* mac dma */
+	NDMA_0: dma@NIC_DMA_0_BASE_UADDR {
+		compatible = "adi,dma-controller";
+		reg = <NIC_DMA_0_BASE 0x50>;
+		status = "okay";
+		#dma-cells = <1>;
+
+		tx_data_0: channel@20 {
+			adi,id = <20>;
+			interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 261 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0x1000>;
+			adi,dde-descriptor-mode;
+			periph-intf-width = <8>;
+		};
+	};
+
+	NDMA_1: dma@NIC_DMA_1_BASE_UADDR {
+		compatible = "adi,dma-controller";
+		reg = <NIC_DMA_1_BASE 0x50>;
+		status = "okay";
+		#dma-cells = <1>;
+
+		tx_data_1: channel@23 {
+			adi,id = <23>;
+			interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 261 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0x1000>;
+			adi,dde-descriptor-mode;
+			periph-intf-width = <8>;
+		};
+	};
+
+	/* spi master */
+	spi_master: dma@SPI_MASTER_0_BASE_UADDR {
+		compatible = "adi,dma-controller";
+		reg = <SPI_MASTER_0_BASE 0x1000>;
+		status = "okay";
+		#dma-cells = <1>;
+
+		spi0_tx: channel@30 {
+			adi,id = <30>;
+			interrupts = <GIC_SPI IRQ_SPI_1_TX IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI IRQ_SPI_1_TX_DDEERR IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0>;
+		};
+
+		spi0_rx: channel@31 {
+			adi,id = <31>;
+			interrupts = <GIC_SPI IRQ_SPI_1_RX IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI IRQ_SPI_1_RX_DDEERR IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0x80>;
+		};
+
+		spi1_tx: channel@32 {
+			adi,id = <32>;
+			interrupts = <GIC_SPI IRQ_SPI_2_TX IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI IRQ_SPI_2_TX_DDEERR IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0x100>;
+		};
+
+		spi1_rx: channel@33 {
+			adi,id = <33>;
+			interrupts = <GIC_SPI IRQ_SPI_2_RX IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI IRQ_SPI_2_RX_DDEERR IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0x180>;
+		};
+
+		spi2_tx: channel@34 {
+			adi,id = <34>;
+			interrupts = <GIC_SPI IRQ_SPI_3_TX IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI IRQ_SPI_3_TX_DDEERR IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0x200>;
+		};
+
+		spi2_rx: channel@35 {
+			adi,id = <35>;
+			interrupts = <GIC_SPI IRQ_SPI_3_RX IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI IRQ_SPI_3_RX_DDEERR IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0x280>;
+		};
+
+		spi3_tx: channel@36 {
+			adi,id = <36>;
+			interrupts = <GIC_SPI IRQ_SPI_4_TX IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI IRQ_SPI_4_TX_DDEERR IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0x300>;
+		};
+
+		spi3_rx: channel@37 {
+			adi,id = <37>;
+			interrupts = <GIC_SPI IRQ_SPI_4_RX IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI IRQ_SPI_4_RX_DDEERR IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0x380>;
+		};
+
+		spi4_tx: channel@38 {
+			adi,id = <38>;
+			interrupts = <GIC_SPI IRQ_SPI_5_TX IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI IRQ_SPI_5_TX_DDEERR IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0x300>;
+		};
+
+		spi4_rx: channel@39 {
+			adi,id = <39>;
+			interrupts = <GIC_SPI IRQ_SPI_5_RX IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI IRQ_SPI_5_RX_DDEERR IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0x380>;
+		};
+		spi5_tx: channel@40 {
+			adi,id = <40>;
+			interrupts = <GIC_SPI IRQ_SPI_6_TX IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI IRQ_SPI_6_TX_DDEERR IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0x300>;
+		};
+
+		spi5_rx: channel@41 {
+			adi,id = <41>;
+			interrupts = <GIC_SPI IRQ_SPI_6_RX IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI IRQ_SPI_6_RX_DDEERR IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0x380>;
+		};
+
+	};
+
+	/* PMIC */
+	PMIC_RX: dma@PIMC_DDE_BASE_UADDR {
+		compatible = "adi,dma-controller";
+		reg = <PIMC_DDE_BASE 0x1000>;
+		status = "okay";
+		#dma-cells = <1>;
+
+		pmic_rx: channel@40 {
+			adi,id = <40>;
+			interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 261 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0>;
+		};
+	};
+
+	/* anttena calibration */
+	attenna_cal: dma@ANTENNA_CAL_DDE_BASE_UADDR {
+		compatible = "adi,dma-controller";
+		reg = <ANTENNA_CAL_DDE_BASE 0x1000>;
+		status = "okay";
+		#dma-cells = <1>;
+
+		att_cal: channel@50 {
+			adi,id = <50>;
+			interrupts = <GIC_SPI ANTENNA_CAL_DDE_ERR_INTR_0 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI ANTENNA_CAL_DDE_DONE_INTR_0 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0>;
+		};
+	};
+
+	/* debug inject */
+	debug_module: dma@DEBUG_DDE_INJ_BASE_UADDR {
+		compatible = "adi,dma-controller";
+		reg = <DEBUG_DDE_INJ_BASE 0x1000>;
+		status = "okay";
+		#dma-cells = <1>;
+
+		debug_inject: channel@60 {
+			adi,id = <60>;
+			interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 261 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0>;
+		};
+		debug_capture_0: channel@61 {
+			adi,id = <61>;
+			interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 261 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0>;
+		};
+		debug_capture_1: channel@62 {
+			adi,id = <62>;
+			interrupts = <GIC_SPI 121 IRQ_TYPE_LEVEL_HIGH>,
+						 <GIC_SPI 261 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "complete", "error";
+			adi,src-offset = <0>;
+		};
+
+	};
+};
