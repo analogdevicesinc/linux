@@ -100,9 +100,21 @@ struct neoisp_meta_params_s neoisp_default_params = {
 		.b_ctrl_offset = 0,
 		},
 	.hdr_merge = { .ctrl_enable = 0, },
-	.rgbir = { .ctrl_enable = 0, },
+	.rgbir = { .ctrl_enable = 0,
+		.ccm0_ccm = 1 << 8,
+		.ccm1_ccm = 1 << 8,
+		.ccm2_ccm = 1 << 8,
+		.ccm0_th_threshold = 0xff000u, /* default reset value */
+		.ccm1_th_threshold = 0xff000u, /* default reset value */
+		.ccm2_th_threshold = 0xff000u, /* default reset value */
+	},
 	.stat = {},
-	.ir_compress = { .ctrl_enable = 0, },
+	.ir_compress = { .ctrl_enable = 0,
+		.ctrl_obpp = 0,
+		.knee_point1_kneepoint = (1 << 20) - 1,
+		.knee_ratio01_ratio0 = 8u,
+		.knee_ratio4_ratio4 = 8u,
+	},
 	.bnr = {
 		.ctrl_enable = 1,
 		.ctrl_debug = 0,

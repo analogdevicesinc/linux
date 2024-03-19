@@ -26,6 +26,7 @@
 #define NEOISP_MIN_H             (64u)
 #define NEOISP_MAX_W             (4096u)
 #define NEOISP_MAX_H             (4096u)
+#define NEOISP_MAX_BPP           (4)
 #define NEOISP_ALIGN_W           (3)
 #define NEOISP_ALIGN_H           (3)
 #define NEOISP_FMT_CAP           (0)
@@ -36,7 +37,7 @@
 #define NEOISP_MAX_CTRLS         (1)
 #define NEOISP_CTRL_PARAMS       (0)
 
-#define NEOISP_FMT_VCAP_COUNT    (15)
+#define NEOISP_FMT_VCAP_COUNT    (16)
 #define NEOISP_FMT_VOUT_COUNT    (24)
 #define NEOISP_FMT_MCAP_COUNT    (1)
 #define NEOISP_FMT_MOUT_COUNT    (1)
@@ -67,6 +68,7 @@
 
 #define FMT_IS_YUV(x) ( \
 		((x) == V4L2_PIX_FMT_GREY) || \
+		((x) == V4L2_PIX_FMT_Y16)  || \
 		((x) == V4L2_PIX_FMT_NV12) || \
 		((x) == V4L2_PIX_FMT_NV21) || \
 		((x) == V4L2_PIX_FMT_NV16) || \
@@ -140,7 +142,6 @@ struct neoisp_fmt_s {
 	__u8 pl_divisors[VB2_MAX_PLANES];
 	__u8 ibpp;
 	__u8 is_rgb;
-	__u8 is_rgb_ir;
 	enum neoisp_fmt_type_e type;
 };
 
@@ -178,6 +179,9 @@ struct neoisp_node_group_s {
 	__u32 streaming_map; /* bitmap of which nodes are streaming */
 	struct media_pad pad[NEOISP_NODES_COUNT]; /* output pads first */
 	dma_addr_t params_dma_addr;
+	__u32 *any_buf;
+	dma_addr_t any_dma;
+	__u32 any_size;
 	struct neoisp_meta_params_s *params;
 };
 
