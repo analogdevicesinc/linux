@@ -529,10 +529,7 @@ loop:
 		 * one entry at a time, so h/w has an opportunity to produce new
 		 * entries well before the ring has been fully consumed, so
 		 * we're being *really* paranoid here. */
-		u64 now, then = mfatb();
-		do {
-			now = mfatb();
-		} while ((then + 10000) > now);
+		mdelay(1);
 		qm_mr_pvb_update(p);
 		msg = qm_mr_current(p);
 		if (!msg)

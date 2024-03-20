@@ -65,11 +65,6 @@
 		dcbt_ro(p); \
 	} while (0)
 
-static inline u64 mfatb(void)
-{
-	return get_cycles();
-}
-
 static inline u32 in_be32(volatile void *addr)
 {
 	return be32_to_cpu(*((volatile u32 *) addr));

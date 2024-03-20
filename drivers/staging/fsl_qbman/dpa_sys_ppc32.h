@@ -56,15 +56,4 @@
 		dcbt_ro(p); \
 	} while (0)
 
-static inline u64 mfatb(void)
-{
-	u32 hi, lo, chk;
-	do {
-		hi = mfspr(SPRN_ATBU);
-		lo = mfspr(SPRN_ATBL);
-		chk = mfspr(SPRN_ATBU);
-	} while (unlikely(hi != chk));
-	return ((u64)hi << 32) | (u64)lo;
-}
-
 #endif
