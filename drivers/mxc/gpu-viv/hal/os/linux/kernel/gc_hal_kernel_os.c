@@ -3001,24 +3001,23 @@ gckOS_TicksAfter(IN gctUINT32 Time1, IN gctUINT32 Time2, OUT gctBOOL_PTR IsAfter
 gceSTATUS
 gckOS_GetTime(OUT gctUINT64_PTR Time)
 {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 17, 0)
-    struct timespec64 tv;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)
+    struct timespec64 time;
 
     gcmkHEADER();
 
     /* Return the time of day in microseconds. */
-    ktime_get_real_ts64(&tv);
-    *Time = (tv.tv_sec * 1000000ULL) + (tv.tv_nsec / 1000);
+    ktime_get_boottime_ts64(&time);
 #else
-    struct timeval tv;
+    struct timespec time;
 
     gcmkHEADER();
 
     /* Return the time of day in microseconds. */
-    do_gettimeofday(&tv);
-    *Time = (tv.tv_sec * 1000000ULL) + tv.tv_usec;
-#endif
+   get_monotonic_boottime(&time);
 
+#endif
+    *Time = (time.tv_sec * 1000000ULL) + (time.tv_nsec / 1000);
     gcmkFOOTER_NO();
     return gcvSTATUS_OK;
 }
