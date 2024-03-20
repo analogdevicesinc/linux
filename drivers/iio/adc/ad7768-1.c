@@ -89,12 +89,15 @@
 /* AD7768_REG_GPIO_CONTROL */
 #define AD7768_GPIO_CONTROL_MSK		GENMASK(3, 0)
 #define AD7768_GPIO_UNIVERSAL_EN	BIT(7)
+#define AD7768_GPIO_PGIA_EN      	(AD7768_GPIO_UNIVERSAL_EN | GENMASK(2, 0))
 
 /* AD7768_REG_GPIO_WRITE */
 #define AD7768_GPIO_WRITE_MSK		GENMASK(3, 0)
+#define AD7768_GPIO_WRITE(x)		FIELD_PREP(AD7768_GPIO_WRITE_MSK, x)
 
 /* AD7768_REG_GPIO_READ */
 #define AD7768_GPIO_READ_MSK		GENMASK(3, 0)
+#define AD7768_GPIO_READ(x)			FIELD_PREP(AD7768_GPIO_READ_MSK, x)
 
 #define AD7768_GPIO_INPUT(x)		0x00
 #define AD7768_GPIO_OUTPUT(x)		BIT(x)
@@ -154,17 +157,19 @@ enum ad7768_dec_rate {
 
 enum {
 	ID_AD7768_1,
+	ID_ADAQ7767_1,
 	ID_ADAQ7768_1,
+	ID_ADAQ7769_1,
 };
 
 enum {
-	AD7768_PGA_GAIN_0 = 6,
-	AD7768_PGA_GAIN_1 = 5,
-	AD7768_PGA_GAIN_2 = 4,
-	AD7768_PGA_GAIN_3 = 3,
-	AD7768_PGA_GAIN_4 = 2,
-	AD7768_PGA_GAIN_5 = 1,
-	AD7768_PGA_GAIN_6 = 0,
+	AD7768_PGA_GAIN_0,
+	AD7768_PGA_GAIN_1,
+	AD7768_PGA_GAIN_2,
+	AD7768_PGA_GAIN_3,
+	AD7768_PGA_GAIN_4,
+	AD7768_PGA_GAIN_5,
+	AD7768_PGA_GAIN_6,
 	AD7768_MAX_PGA_GAIN,
 };
 
@@ -337,6 +342,8 @@ struct ad7768_chip_info {
 	const char *name;
 	u8 grade;
 	bool has_pga;
+	int default_pga_mode;
+	int pgia_mode2pin_offset;
 	const struct iio_chan_spec *channel_spec;
 	const unsigned long *available_masks;
 	int num_channels;
@@ -844,7 +851,7 @@ static int ad7768_calc_pga_gain(int gain_int, int gain_fract, int vref,
 
 	tmp = DIV_ROUND_CLOSEST_ULL(gain_nano << precision, NANO);
 	gain_nano = DIV_ROUND_CLOSEST_ULL(vref * 2, tmp);
-	gain_idx = find_closest_descending(gain_nano, ad7768_gains,
+	gain_idx = find_closest(gain_nano, ad7768_gains,
 				ARRAY_SIZE(ad7768_gains));
 
 	return gain_idx;
@@ -854,13 +861,23 @@ static int ad7768_set_pga_gain(struct ad7768_state *st,
 			      int gain_mode)
 {
 	int ret;
-	/* enable GPIOs and set as output */
-	ret = ad7768_spi_reg_write(st, AD7768_REG_GPIO_CONTROL, 0x87);
+	int check_val;
+	int pgia_pins_value = abs(gain_mode - st->chip->pgia_mode2pin_offset);
+
+	/* Check GPIO control register */
+	ret = ad7768_spi_reg_read(st, AD7768_REG_GPIO_CONTROL, &check_val, 1);
 	if (ret < 0)
 		return ret;
+	if ((check_val & AD7768_GPIO_PGIA_EN) != AD7768_GPIO_PGIA_EN)
+	{
+		/* Enable PGIA GPIOs and set them as output */
+		ret = ad7768_spi_reg_write(st, AD7768_REG_GPIO_CONTROL, AD7768_GPIO_PGIA_EN);
+		if (ret < 0)
+			return ret;	
+	}
 	
-	/* Write GPIOs 0-2 with the gain mode value */
-	ret = ad7768_spi_reg_write(st, AD7768_REG_GPIO_WRITE, gain_mode & 0x07);
+	/* Write GPIOs 0-2 with the gain mode equivalente value */
+	ret = ad7768_spi_reg_write(st, AD7768_REG_GPIO_WRITE, AD7768_GPIO_WRITE(pgia_pins_value));
 	if (ret < 0)
 		return ret;
 	st->pga_gain_mode = gain_mode;
@@ -1229,12 +1246,32 @@ static const struct ad7768_chip_info ad7768_chip_info[] = {
 		.available_masks = ad7768_channel_masks,
 		.has_pga = false
 	},
+	[ID_ADAQ7767_1] = {
+		.name = "adaq7767-1",
+		.grade = 0x03, // TODO: assert right value
+		.channel_spec = adaq7768_channels,
+		.num_channels = 1,
+		.available_masks = ad7768_channel_masks,
+		.has_pga = false
+	},
 	[ID_ADAQ7768_1] = {
 		.name = "adaq7768-1",
 		.grade = 0x03, // TODO: assert right value
 		.channel_spec = adaq7768_channels,
 		.num_channels = 1,
 		.available_masks = ad7768_channel_masks,
+		.default_pga_mode = AD7768_PGA_GAIN_2,
+		.pgia_mode2pin_offset = 6,
+		.has_pga = true
+	},
+	[ID_ADAQ7769_1] = {
+		.name = "adaq7768-1",
+		.grade = 0x03, // TODO: assert right value
+		.channel_spec = adaq7768_channels,
+		.num_channels = 1,
+		.available_masks = ad7768_channel_masks,
+		.default_pga_mode = 0,
+		.pgia_mode2pin_offset = 0,
 		.has_pga = true
 	}
 };
@@ -1299,8 +1336,18 @@ static int ad7768_probe(struct spi_device *spi)
 
 	if(st->chip->has_pga){
 		ad7768_fill_scale_tbl(st);
-		ad7768_set_pga_gain(st, AD7768_PGA_GAIN_0);
+		ad7768_set_pga_gain(st, st->chip->default_pga_mode);
 	}
+
+	/* A sync-in pulse is required every time the filter dec rate changes */
+	gpiod_set_value(st->gpio_sync_in, 1);
+	gpiod_set_value(st->gpio_sync_in, 0);
+	
+	unsigned int temppp;
+	ret = ad7768_spi_reg_read(st, AD7768_REG_GPIO_CONTROL, &temppp, 1);
+	dev_info(&spi->dev, "gpio control: %d\n", temppp);
+	ret = ad7768_spi_reg_read(st, AD7768_REG_GPIO_WRITE, &temppp, 1);
+	dev_info(&spi->dev, "gpio values: %d\n", temppp);
 
 	ret = ad7768_set_channel_label(indio_dev, ARRAY_SIZE(ad7768_channels));
 	if (ret)
@@ -1312,19 +1359,25 @@ static int ad7768_probe(struct spi_device *spi)
 		ret = ad7768_triggered_buffer_alloc(indio_dev);
 	if (ret)
 		return ret;
+
+	dev_info(&spi->dev, "bla: %u | %u | %u\n", GENMASK(3, 0),AD7768_GPIO_PGIA_EN,AD7768_GPIO_WRITE(AD7768_PGA_GAIN_2));
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
 static const struct spi_device_id ad7768_id_table[] = {
 	{ "ad7768-1", (kernel_ulong_t)&ad7768_chip_info[ID_AD7768_1] },
+	{ "adaq7767-1", (kernel_ulong_t)&ad7768_chip_info[ID_ADAQ7767_1] },
 	{ "adaq7768-1", (kernel_ulong_t)&ad7768_chip_info[ID_ADAQ7768_1] },
+	{ "adaq7769-1", (kernel_ulong_t)&ad7768_chip_info[ID_ADAQ7769_1] },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad7768_id_table);
 
 static const struct of_device_id ad7768_of_match[] = {
 	{ .compatible = "adi,ad7768-1", .data = &ad7768_chip_info[ID_AD7768_1] },
+	{ .compatible = "adi,adaq7767-1", .data = &ad7768_chip_info[ID_ADAQ7767_1] },
 	{ .compatible = "adi,adaq7768-1", .data = &ad7768_chip_info[ID_ADAQ7768_1] },
+	{ .compatible = "adi,adaq7769-1", .data = &ad7768_chip_info[ID_ADAQ7769_1] },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, ad7768_of_match);
