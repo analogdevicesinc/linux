@@ -1755,7 +1755,7 @@ void *stratix10_svc_allocate_memory(struct stratix10_svc_chan *chan,
 	struct gen_pool *genpool = chan->ctrl->genpool;
 	size_t s;
 	void *va;
-	unsigned int ret;
+	int ret;
 	struct iova *alloc;
 	dma_addr_t dma_addr;
 
