@@ -231,6 +231,10 @@ static int fsl_rpmsg_probe(struct platform_device *pdev)
 			dai_drv->capture.formats = SNDRV_PCM_FMTBIT_S32_LE;
 			if (of_device_is_compatible(np, "fsl,imx8mm-rpmsg-audio"))
 				dai_drv->capture.formats = SNDRV_PCM_FMTBIT_S16_LE;
+
+			if (of_device_is_compatible(np, "fsl,imx8ulp-rpmsg-audio") ||
+			    of_device_is_compatible(np, "fsl,imx93-rpmsg-audio"))
+				dai_drv->capture.rates = SNDRV_PCM_RATE_16000;
 		}
 	}
 
