@@ -701,6 +701,8 @@ struct _gckCOMMAND {
     gckFENCE                    fence;
 
     gctBOOL                     dummyDraw;
+
+    gctUINT32                   currPid;
 };
 
 typedef struct _gcsEVENT       *gcsEVENT_PTR;
