@@ -801,3 +801,9 @@ void ethtool_rxfh_context_lost(struct net_device *dev, u32 context_id)
 	kfree(ctx);
 }
 EXPORT_SYMBOL(ethtool_rxfh_context_lost);
+
+const char *ethtool_link_mode_str(enum ethtool_link_mode_bit_indices link_mode)
+{
+	return link_mode_names[link_mode];
+}
+EXPORT_SYMBOL(ethtool_link_mode_str);
