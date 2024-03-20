@@ -182,6 +182,15 @@
 			opp-suspend;
 		};
 
+		/* Only for Special Industrial part with 1.8G at OD */
+		opp-sc-1800000000 {
+			opp-hz = /bits/ 64 <1800000000>;
+			opp-microvolt = <950000>;
+			opp-supported-hw = <0x20>, <0x4>;
+			clock-latency-ns = <150000>;
+			opp-suspend;
+		};
+
 		opp-1800000000 {
 			opp-hz = /bits/ 64 <1800000000>;
 			opp-microvolt = <1000000>;
