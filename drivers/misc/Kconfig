@@ -71,6 +71,18 @@ config ADI_AXI_TDD
 	  the previous TDD engine, this core can only be used standalone mode,
 	  and is not embedded into other devices.
 
+config ADI_AXI_HSCI
+	bool "Analog Devices HSCI Interface Support"
+	depends on HAS_IOMEM
+	depends on OF
+	help
+	  The data hsci interface is found on some digitizer products.
+	  This option is usually not enabled manually but rather by other
+	  drivers that use the data hsci engine to manage interface transfers.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adi-axi-hsci.
+
 config DUMMY_IRQ
 	tristate "Dummy IRQ handler"
 	help

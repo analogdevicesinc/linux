@@ -10,6 +10,7 @@ obj-$(CONFIG_AD525X_DPOT_I2C)	+= ad525x_dpot-i2c.o
 obj-$(CONFIG_AD525X_DPOT_SPI)	+= ad525x_dpot-spi.o
 obj-$(CONFIG_ADI_AXI_DATA_OFFLOAD)	+= adi-axi-data-offload.o
 obj-$(CONFIG_ADI_AXI_TDD)	+= adi-axi-tdd.o
+obj-$(CONFIG_ADI_AXI_HSCI)	+= adi-axi-hsci.o
 obj-$(CONFIG_ATMEL_SSC)		+= atmel-ssc.o
 obj-$(CONFIG_DUMMY_IRQ)		+= dummy-irq.o
 obj-$(CONFIG_ICS932S401)	+= ics932s401.o
