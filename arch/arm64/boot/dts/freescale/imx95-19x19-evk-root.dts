@@ -26,6 +26,10 @@
 	};
 };
 
+&smmu {
+	status = "disabled";
+};
+
 &edma3 {
 	status = "disabled";
 };
