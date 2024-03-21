@@ -33,6 +33,7 @@
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/of_net.h>
+#include <linux/platform_device.h>
 #include <linux/etherdevice.h>
 #include <linux/kthread.h>
 #include <linux/percpu.h>

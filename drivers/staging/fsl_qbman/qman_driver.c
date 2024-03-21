@@ -29,12 +29,13 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "qman_private.h"
-
 #include <asm/smp.h>	/* hard_smp_processor_id() if !CONFIG_SMP */
 #ifdef CONFIG_HOTPLUG_CPU
 #include <linux/cpu.h>
 #endif
+#include <linux/platform_device.h>
+
+#include "qman_private.h"
 
 /* Global variable containing revision id (even on non-control plane systems
  * where CCSR isn't available) */

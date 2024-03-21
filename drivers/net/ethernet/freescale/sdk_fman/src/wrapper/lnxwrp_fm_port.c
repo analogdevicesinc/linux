@@ -42,6 +42,7 @@
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/of_address.h>
+#include <linux/platform_device.h>
 #include <linux/cdev.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>

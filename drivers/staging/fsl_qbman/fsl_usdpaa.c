@@ -16,6 +16,7 @@
 #include <linux/mm.h>
 #include <linux/of.h>
 #include <linux/memblock.h>
+#include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/mman.h>
 #include <linux/of_reserved_mem.h>

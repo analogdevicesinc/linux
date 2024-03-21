@@ -274,7 +274,8 @@ static int ceetm_config_ccg(struct qm_ceetm_ccg **ccg,
 
 	qm_cgr_cs_thres_set64(&ccg_params.cs_thres_in, cs_th, 1);
 	qm_cgr_cs_thres_set64(&ccg_params.cs_thres_out,
-			      cs_th * CEETM_CCGR_RATIO, 1);
+			      cs_th * CEETM_CCGR_RATIO_NUMERATOR /
+			      CEETM_CCGR_RATIO_DENOMINATOR, 1);
 
 	err = qman_ceetm_ccg_set(*ccg, ccg_mask, &ccg_params);
 	if (err)

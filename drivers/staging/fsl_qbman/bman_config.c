@@ -32,6 +32,7 @@
 #include <asm/cacheflush.h>
 #include "bman_private.h"
 #include <linux/of_reserved_mem.h>
+#include <linux/platform_device.h>
 
 /* Last updated for v00.79 of the BG */
 

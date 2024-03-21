@@ -29,8 +29,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "qman_low.h"
 #include <linux/dma-map-ops.h>
+#include <linux/platform_device.h>
+
+#include "qman_low.h"
 
 /* Compilation constants */
 #define DQRR_MAXFILL	15
@@ -685,7 +687,7 @@ struct qman_portal *qman_create_portal(
 		goto fail_devregister;
 	}
 
-	arch_setup_dma_ops(&portal->pdev->dev, 0, 0, NULL, true);
+	arch_setup_dma_ops(&portal->pdev->dev, 0, 0, true);
 
 	portal->pdev->dev.pm_domain = &qman_portal_device_pm_domain;
 	portal->pdev->dev.platform_data = portal;

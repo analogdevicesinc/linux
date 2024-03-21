@@ -33,6 +33,7 @@
 #include "qman_private.h"
 #include <linux/highmem.h>
 #include <linux/of_reserved_mem.h>
+#include <linux/platform_device.h>
 
 /* Last updated for v00.800 of the BG */
 

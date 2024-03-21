@@ -43,6 +43,7 @@
 #include <linux/module.h>
 #include <linux/of_mdio.h>
 #include <linux/of_net.h>
+#include <linux/platform_device.h>
 #include <linux/kthread.h>
 #include <linux/io.h>
 #include <linux/if_arp.h>	/* arp_hdr_len() */

@@ -40,7 +40,9 @@
 
 #include <linux/init.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/of_platform.h>
+#include <linux/platform_device.h>
 #include "dpaa_eth.h"
 #include "dpaa_eth_common.h"
 #include "dpaa_eth_base.h"

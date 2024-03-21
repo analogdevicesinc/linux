@@ -57,7 +57,8 @@
  * lower threshold is set to 7/8 of the superior one (as the default for WQ
  * scheduling).
  */
-#define CEETM_CCGR_RATIO	0.875
+#define CEETM_CCGR_RATIO_NUMERATOR	7
+#define CEETM_CCGR_RATIO_DENOMINATOR	8
 /* For functional purposes, there are num_tx_queues pfifo qdiscs through which
  * frames reach the driver. Their handles start from 1:21. Handles 1:1 to 1:20
  * are reserved for the maximum 32 CEETM channels (majors and minors are in

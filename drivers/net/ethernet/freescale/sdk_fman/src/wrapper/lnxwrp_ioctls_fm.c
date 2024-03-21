@@ -49,7 +49,9 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
+#include <linux/of.h>
 #include <linux/of_platform.h>
+#include <linux/platform_device.h>
 #include <linux/uaccess.h>
 #include <asm/errno.h>
 #ifndef CONFIG_FMAN_ARM

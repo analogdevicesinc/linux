@@ -39,7 +39,9 @@
 #endif
 
 #include <linux/string.h>
+#include <linux/of.h>
 #include <linux/of_platform.h>
+#include <linux/platform_device.h>
 #include <linux/net_tstamp.h>
 #include <linux/fsl/ptp_qoriq.h>
 
@@ -312,7 +314,7 @@ static int dpa_set_wol(struct net_device *net_dev, struct ethtool_wolinfo *wol)
 }
 #endif
 
-static int dpa_get_eee(struct net_device *net_dev, struct ethtool_eee *et_eee)
+static int dpa_get_eee(struct net_device *net_dev, struct ethtool_keee *et_eee)
 {
 	struct dpa_priv_s *priv;
 
@@ -330,7 +332,7 @@ static int dpa_get_eee(struct net_device *net_dev, struct ethtool_eee *et_eee)
 	return phy_ethtool_get_eee(priv->mac_dev->phy_dev, et_eee);
 }
 
-static int dpa_set_eee(struct net_device *net_dev, struct ethtool_eee *et_eee)
+static int dpa_set_eee(struct net_device *net_dev, struct ethtool_keee *et_eee)
 {
 	struct dpa_priv_s *priv;
 
