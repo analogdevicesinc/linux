@@ -345,17 +345,17 @@
 //	status = "okay";
 //};
 
-//&usb0_phy {
-//	reset-gpios = <&gpg 11 GPIO_ACTIVE_LOW>;
-//	status = "okay";
-//};//
+&usb0_phy {
+	reset-gpios = <&gpg 11 GPIO_ACTIVE_LOW>;
+	status = "okay";
+};
 
-//&usb0 {
-//	dr_mode = "host";
-//	pinctrl-names = "default";
-//	pinctrl-0 = <&usbc0_default>;
-//	status = "okay";
-//};
+&usb0 {
+	dr_mode = "host";
+	pinctrl-names = "default";
+	pinctrl-0 = <&usbc0_default>;
+	status = "okay";
+};
 
 &pinctrl0 {
 	uart0_default: uart0_default_pins {
