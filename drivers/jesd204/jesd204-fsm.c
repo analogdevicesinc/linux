@@ -150,6 +150,9 @@ static const struct jesd204_fsm_table_entry jesd204_start_links_states[] = {
 	JESD204_STATE_OP(CLOCKS_ENABLE),
 	JESD204_STATE_OP(LINK_ENABLE),
 	JESD204_STATE_OP(LINK_RUNNING),
+	JESD204_STATE_OP(OPT_POST_SETUP_STAGE1),
+	JESD204_STATE_OP(OPT_POST_SETUP_STAGE2),
+	JESD204_STATE_OP(OPT_POST_SETUP_STAGE3),
 	JESD204_STATE_OP_LAST(OPT_POST_RUNNING_STAGE),
 };
 
@@ -196,6 +199,12 @@ const char *jesd204_state_str(enum jesd204_dev_state state)
 		return "opt_setup_stage4";
 	case JESD204_STATE_OPT_SETUP_STAGE5:
 		return "opt_setup_stage5";
+	case JESD204_STATE_OPT_POST_SETUP_STAGE1:
+		return "opt_post_setup_stage1";
+	case JESD204_STATE_OPT_POST_SETUP_STAGE2:
+		return "opt_post_setup_stage2";
+	case JESD204_STATE_OPT_POST_SETUP_STAGE3:
+		return "opt_post_setup_stage3";
 	case JESD204_STATE_OPT_POST_RUNNING_STAGE:
 		return "opt_post_running_stage";
 	case JESD204_STATE_DONT_CARE:
