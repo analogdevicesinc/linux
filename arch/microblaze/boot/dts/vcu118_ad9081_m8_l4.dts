@@ -13,7 +13,11 @@
 #include "vcu118_ad9081.dts"
 
 &axi_ad9081_adxcvr_rx {
-	adi,sys-clk-select = <XCVR_CPLL>;
+	adi,sys-clk-select = <XCVR_QPLL>;
+};
+
+&axi_ad9081_adxcvr_tx {
+	adi,sys-clk-select = <XCVR_QPLL>;
 };
 
 &hmc7044 {
@@ -132,7 +136,7 @@
 				#address-cells = <1>;
 				#size-cells = <0>;
 				reg = <0>;
-				adi,logical-lane-mapping = /bits/ 8 <0 2 7 7 1 7 7 3>;
+				adi,logical-lane-mapping = /bits/ 8 <0 1 2 3 7 7 7 7>;
 				adi,link-mode = <9>;			/* JESD Quick Configuration Mode */
 				adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
 				adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
@@ -223,7 +227,7 @@
 					<&ad9081_rx_fddc_chan1 FDDC_I>, <&ad9081_rx_fddc_chan1 FDDC_Q>,
 					<&ad9081_rx_fddc_chan4 FDDC_I>, <&ad9081_rx_fddc_chan4 FDDC_Q>,
 					<&ad9081_rx_fddc_chan5 FDDC_I>, <&ad9081_rx_fddc_chan5 FDDC_Q>;
-				adi,logical-lane-mapping = /bits/ 8 <2 0 7 7 7 7 3 1>;
+				adi,logical-lane-mapping = /bits/ 8 <0 1 2 3 7 7 7 7>;
 				adi,link-mode = <10>;			/* JESD Quick Configuration Mode */
 				adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
 				adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
