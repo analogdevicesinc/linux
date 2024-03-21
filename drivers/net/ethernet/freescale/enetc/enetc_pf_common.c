@@ -1350,7 +1350,105 @@ static u16 enetc_msg_handle_vlan_filter(struct enetc_msg_header *msg_hdr,
 	}
 }
 
-static bool enetc_msg_check_crc16(u8 *msg_addr, u32 msg_size)
+static u16 enetc_msg_pf_reply_link_status(struct enetc_pf *pf)
+{
+	struct net_device *ndev = pf->si->ndev;
+	union enetc_pf_msg pf_msg;
+
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_LINK_STATUS;
+	if (netif_carrier_ok(ndev))
+		pf_msg.class_code = ENETC_PF_NC_LINK_STATUS_UP;
+	else
+		pf_msg.class_code = ENETC_PF_NC_LINK_STATUS_DOWN;
+
+	return pf_msg.code;
+}
+
+int enetc_pf_send_msg(struct enetc_pf *pf, u32 msg_code, u16 ms_mask)
+{
+	struct enetc_si *si = pf->si;
+	u32 psimsgsr;
+	int err;
+
+	psimsgsr = PSIMSGSR_SET_MC(msg_code);
+	psimsgsr |= ms_mask;
+
+	guard(mutex)(&si->msg_lock);
+	enetc_wr(&si->hw, ENETC_PSIMSGSR, psimsgsr);
+	err = read_poll_timeout(enetc_rd, psimsgsr,
+				!(psimsgsr & ms_mask),
+				100, 100000, false, &si->hw, ENETC_PSIMSGSR);
+
+	return err;
+}
+
+static void enetc_pf_send_link_status_msg(struct enetc_pf *pf, u16 ms_mask)
+{
+	struct device *dev = &pf->si->pdev->dev;
+	struct net_device *ndev = pf->si->ndev;
+	union enetc_pf_msg pf_msg = { 0 };
+	u32 msg_code;
+	int err;
+
+	if (!ms_mask)
+		return;
+
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_LINK_STATUS;
+	if (netif_carrier_ok(ndev))
+		pf_msg.class_code = ENETC_PF_NC_LINK_STATUS_UP;
+	else
+		pf_msg.class_code = ENETC_PF_NC_LINK_STATUS_DOWN;
+
+	msg_code = pf_msg.code;
+	err = enetc_pf_send_msg(pf, msg_code, ms_mask);
+	if (err)
+		dev_err(dev, "PF notifies link status failed\n");
+}
+
+static u16 enetc_msg_register_link_status_notify(struct enetc_pf *pf, int vf_id,
+						 bool notify)
+{
+	struct enetc_hw *hw = &pf->si->hw;
+	union enetc_pf_msg pf_msg;
+	u32 msg_code, val;
+
+	pf->vf_link_status_notify[vf_id] = notify;
+
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
+	msg_code = pf_msg.code;
+
+	/* Reply to VF */
+	val = ENETC_SIMSGSR_SET_MC(msg_code);
+	val |= ENETC_PSIMSGRR_MR(vf_id); /* w1c */
+	enetc_wr(hw, ENETC_PSIMSGRR, val);
+
+	/* Notify VF the current link status */
+	if (notify)
+		enetc_pf_send_link_status_msg(pf, PSIMSGSR_MS(vf_id));
+
+	return 0;
+}
+
+static u16 enetc_msg_handle_link_status(struct enetc_msg_header *msg_hdr,
+					struct enetc_pf *pf, int vf_id)
+{
+	union enetc_pf_msg pf_msg;
+
+	switch (msg_hdr->cmd_id) {
+	case ENETC_MSG_GET_CURRENT_LINK_STATUS:
+		return enetc_msg_pf_reply_link_status(pf);
+	case ENETC_MSG_REGISTER_LINK_CHANGE_NOTIFY:
+		return enetc_msg_register_link_status_notify(pf, vf_id, true);
+	case ENETC_MSG_UNREGISTER_LINK_CHANGE_NOTIFY:
+		return enetc_msg_register_link_status_notify(pf, vf_id, false);
+	default:
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+
+		return pf_msg.code;
+	}
+}
+
+static bool enetc_msg_check_crc16(void *msg_addr, u32 msg_size)
 {
 	u8 *data_buf = msg_addr + 2;
 	u8 data_size = msg_size - 2;
@@ -1402,6 +1500,9 @@ void enetc_msg_handle_rxmsg(struct enetc_pf *pf, int vf_id, u16 *msg_code)
 		break;
 	case ENETC_MSG_CLASS_ID_VLAN_FILTER:
 		*msg_code = enetc_msg_handle_vlan_filter(msg_hdr, pf, vf_id);
+		break;
+	case ENETC_MSG_CLASS_ID_LINK_STATUS:
+		*msg_code = enetc_msg_handle_link_status(msg_hdr, pf, vf_id);
 		break;
 	default:
 		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;

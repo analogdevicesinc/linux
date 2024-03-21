@@ -71,6 +71,14 @@ static inline u32 enetc_vsi_set_msize(u32 size)
 #define ENETC_SIMSGSR_SET_MC(val) ((val) << 16)
 #define ENETC_SIMSGSR_GET_MC(val) ((val) >> 16)
 
+#define ENETC_PSIMSGSR		0x208
+#define  PSIMSGSR_MS(n)		BIT((n) + 1) /* m = VF index */
+#define  PSIMSGSR_SET_MC(val)	((val) << 16)
+
+#define ENETC_VSIMSGRR		0x208
+#define  VSIMSGRR_MR		BIT(0)
+#define  VSIMSGRR_GET_MC(val)	((val) >> 16)
+
 /* SI statistics */
 #define ENETC_SIROCT	0x300
 #define ENETC_SIRFRM	0x308
@@ -96,7 +104,13 @@ static inline u32 enetc_vsi_set_msize(u32 size)
 
 #define ENETC_PSIIER	0xa00
 #define ENETC_PSIIER_MR_MASK	GENMASK(2, 1)
+
+#define ENETC_VSIIER	0xa00
+#define  VSIIER_MRIE	BIT(9)
+
 #define ENETC_PSIIDR	0xa08
+#define ENETC_VSIIDR	0xa08
+#define  VSIIDR_MR	BIT(9)
 #define ENETC_SITXIDR	0xa18
 #define ENETC_SIRXIDR	0xa28
 #define ENETC_SIMSIVR	0xa30

@@ -2489,6 +2489,8 @@ int enetc_configure_si(struct enetc_ndev_priv *priv)
 		enetc4_set_lso_flags_mask(hw);
 	}
 
+	mutex_init(&si->msg_lock);
+
 	/* set SI cache attributes */
 	enetc_wr(hw, ENETC_SICAR0,
 		 ENETC_SICAR_RD_COHERENT | ENETC_SICAR_WR_COHERENT);
@@ -2862,11 +2864,23 @@ static void enetc_clear_interrupts(struct enetc_ndev_priv *priv)
 static int enetc_phylink_connect(struct net_device *ndev)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_si *si = priv->si;
 	struct ethtool_keee edata;
 	int err;
 
 	if (!priv->phylink) {
 		/* phy-less mode */
+		if (si->pdev->is_virtfn && si->vf_register_msg_msix) {
+			err = si->vf_register_msg_msix(si);
+			if (err)
+				return err;
+
+			if (si->vf_register_link_status_notify)
+				si->vf_register_link_status_notify(si, true);
+
+			return 0;
+		}
+
 		netif_carrier_on(ndev);
 		return 0;
 	}
@@ -2938,6 +2952,7 @@ int enetc_open(struct net_device *ndev)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
 	struct enetc_bdr_resource *tx_res, *rx_res;
+	struct enetc_si *si = priv->si;
 	bool extended;
 	int err;
 
@@ -2974,8 +2989,18 @@ int enetc_open(struct net_device *ndev)
 err_alloc_rx:
 	enetc_free_tx_resources(tx_res, priv->num_tx_rings);
 err_alloc_tx:
-	if (priv->phylink)
+	if (priv->phylink) {
 		phylink_disconnect_phy(priv->phylink);
+	} else {
+		if (si->pdev->is_virtfn && si->vf_free_msg_msix) {
+			if (si->vf_register_link_status_notify)
+				si->vf_register_link_status_notify(si, false);
+
+			si->vf_free_msg_msix(si);
+
+			return 0;
+		}
+	}
 err_phy_connect:
 	enetc_free_irqs(priv);
 
@@ -3014,6 +3039,7 @@ EXPORT_SYMBOL_GPL(enetc_stop);
 int enetc_close(struct net_device *ndev)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_si *si = priv->si;
 
 	enetc_stop(ndev);
 
@@ -3021,6 +3047,13 @@ int enetc_close(struct net_device *ndev)
 		phylink_stop(priv->phylink);
 		phylink_disconnect_phy(priv->phylink);
 	} else {
+		if (si->pdev->is_virtfn && si->vf_free_msg_msix) {
+			if (si->vf_register_link_status_notify)
+				si->vf_register_link_status_notify(si, false);
+
+			si->vf_free_msg_msix(si);
+		}
+
 		netif_carrier_off(ndev);
 	}
 

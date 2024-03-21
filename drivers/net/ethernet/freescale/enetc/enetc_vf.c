@@ -100,6 +100,33 @@ static int enetc_msg_vsi_send(struct enetc_si *si, struct enetc_msg_swbd *msg)
 	return err;
 }
 
+static int enetc_msg_vf_register_link_status_notify(struct enetc_si *si, bool notify)
+{
+	struct device *dev = &si->pdev->dev;
+	struct enetc_msg_link_status *msg;
+	struct enetc_msg_swbd msg_swbd;
+	u8 cmd_id;
+	int err;
+
+	msg_swbd.size = ALIGN(sizeof(*msg), ENETC_MSG_ALIGN);
+	msg_swbd.vaddr = dma_alloc_coherent(dev, msg_swbd.size,
+					    &msg_swbd.dma, GFP_KERNEL);
+	if (!msg_swbd.vaddr)
+		return -ENOMEM;
+
+	cmd_id = notify ? ENETC_MSG_REGISTER_LINK_CHANGE_NOTIFY :
+			  ENETC_MSG_UNREGISTER_LINK_CHANGE_NOTIFY;
+	enetc_msg_vf_fill_common_header(&msg_swbd, ENETC_MSG_CLASS_ID_LINK_STATUS,
+					cmd_id, 0, 0);
+
+	/* send the command and wait */
+	err = enetc_msg_vsi_send(si, &msg_swbd);
+
+	dma_free_coherent(dev, msg_swbd.size, msg_swbd.vaddr, msg_swbd.dma);
+
+	return err;
+}
+
 static int enetc_msg_vsi_set_primary_mac_addr(struct enetc_ndev_priv *priv,
 					      struct sockaddr *saddr)
 {
@@ -594,6 +621,101 @@ static void enetc_vf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 	enetc_load_primary_mac_addr(&si->hw, ndev);
 }
 
+static void enetc_vf_enable_mr_int(struct enetc_hw *hw, bool en)
+{
+	u32 val;
+
+	val = enetc_rd(hw, ENETC_VSIIER);
+	val = u32_replace_bits(val, en ? 1 : 0, VSIIER_MRIE);
+	enetc_wr(hw, ENETC_VSIIER, val);
+}
+
+static void enetc_vf_msg_handle_link_status(struct enetc_si *si, u8 class_code)
+{
+	struct net_device *ndev = si->ndev;
+
+	switch (class_code) {
+	case ENETC_PF_NC_LINK_STATUS_UP:
+		if (!netif_carrier_ok(ndev)) {
+			netif_carrier_on(ndev);
+			netdev_info(ndev, "Link is Up\n");
+		}
+		break;
+	case ENETC_PF_NC_LINK_STATUS_DOWN:
+		if (netif_carrier_ok(ndev)) {
+			netif_carrier_off(ndev);
+			netdev_info(ndev, "Link is Down\n");
+		}
+		break;
+	}
+}
+
+static void enetc_vf_msg_task(struct work_struct *work)
+{
+	struct enetc_si *si = container_of(work, struct enetc_si, msg_task);
+	struct enetc_hw *hw = &si->hw;
+	union enetc_pf_msg pf_msg;
+	u32 val;
+
+	val = enetc_rd(hw, ENETC_VSIMSGRR);
+	pf_msg.code = VSIMSGRR_GET_MC(val);
+	switch (pf_msg.class_id) {
+	case ENETC_MSG_CLASS_ID_LINK_STATUS:
+		enetc_vf_msg_handle_link_status(si, pf_msg.class_code);
+		break;
+	default:
+		dev_err(&si->pdev->dev,
+			"Unknown Message Class ID (0x%02x) from PF\n",
+			pf_msg.class_id);
+	}
+
+	enetc_wr(hw, ENETC_VSIIDR, VSIIDR_MR);
+	enetc_vf_enable_mr_int(hw, true);
+}
+
+static irqreturn_t enetc_vf_msg_msix_handler(int irq, void *data)
+{
+	struct enetc_si *si = (struct enetc_si *)data;
+
+	enetc_vf_enable_mr_int(&si->hw, false);
+	queue_work(si->workqueue, &si->msg_task);
+
+	return IRQ_HANDLED;
+}
+
+static int enetc_vf_register_msg_msix(struct enetc_si *si)
+{
+	int irq, err;
+
+	snprintf(si->msg_int_name, sizeof(si->msg_int_name), "%s-pfmsg",
+		 si->ndev->name);
+	irq = pci_irq_vector(si->pdev, ENETC_SI_INT_IDX);
+	err = request_irq(irq, enetc_vf_msg_msix_handler, 0,
+			  si->msg_int_name, si);
+	if (err) {
+		dev_err(&si->pdev->dev,
+			"VF messaging: request_irq() failed!\n");
+		return err;
+	}
+
+	/* set one IRQ entry for PSI-to-VSI messaging */
+	enetc_wr(&si->hw, ENETC_SIMSIVR, ENETC_SI_INT_IDX);
+
+	/* Enable message received interrupt */
+	enetc_vf_enable_mr_int(&si->hw, true);
+
+	return 0;
+}
+
+static void enetc_vf_free_msg_msix(struct enetc_si *si)
+{
+	int irq = pci_irq_vector(si->pdev, ENETC_SI_INT_IDX);
+
+	cancel_work_sync(&si->msg_task);
+	enetc_vf_enable_mr_int(&si->hw, false);
+	free_irq(irq, si);
+}
+
 static int enetc_vf_probe(struct pci_dev *pdev,
 			  const struct pci_device_id *ent)
 {
@@ -608,13 +730,20 @@ static int enetc_vf_probe(struct pci_dev *pdev,
 		return dev_err_probe(&pdev->dev, err, "PCI probing failed\n");
 
 	si = pci_get_drvdata(pdev);
-	mutex_init(&si->msg_lock);
 	INIT_WORK(&si->rx_mode_task, enetc_vf_do_set_rx_mode);
 	snprintf(wq_name, sizeof(wq_name), "enetc-%s", pci_name(pdev));
 	si->workqueue = create_singlethread_workqueue(wq_name);
 	if (!si->workqueue) {
 		err = -ENOMEM;
 		goto err_create_wq;
+	}
+
+	if (!is_enetc_rev1(si)) {
+		INIT_WORK(&si->msg_task, enetc_vf_msg_task);
+		si->vf_register_msg_msix = enetc_vf_register_msg_msix;
+		si->vf_free_msg_msix = enetc_vf_free_msg_msix;
+		si->vf_register_link_status_notify =
+			enetc_msg_vf_register_link_status_notify;
 	}
 
 	enetc_get_si_caps(si);

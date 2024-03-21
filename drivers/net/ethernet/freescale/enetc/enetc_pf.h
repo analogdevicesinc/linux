@@ -60,8 +60,7 @@ struct enetc_pf {
 	struct enetc_vf_state *vf_state;
 
 	struct enetc_msg_swbd rxmsg[ENETC_MAX_NUM_VFS];
-	struct work_struct msg_task;
-	char msg_int_name[ENETC_INT_NAME_MAX];
+	bool vf_link_status_notify[ENETC_MAX_NUM_VFS];
 
 	char vlan_promisc_simap; /* bitmap of SIs in VLAN promisc mode */
 
@@ -117,6 +116,7 @@ void enetc_pf_flush_mac_exact_filter(struct enetc_pf *pf, int si_id,
 int enetc_pf_set_mac_exact_filter(struct enetc_pf *pf, int si_id,
 				  struct enetc_mac_entry *mac,
 				  int mac_cnt);
+int enetc_pf_send_msg(struct enetc_pf *pf, u32 msg_code, u16 ms_mask);
 
 static inline void enetc_pf_register_hw_ops(struct enetc_pf *pf,
 					    const struct enetc_pf_hw_ops *hw_ops)

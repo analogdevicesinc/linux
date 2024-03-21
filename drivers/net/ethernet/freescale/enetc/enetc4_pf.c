@@ -565,6 +565,29 @@ static void enetc4_enable_mac(struct enetc_pf *pf, bool en)
 	enetc_port_mac_wr(si, ENETC4_PM_CMD_CFG(0), val);
 }
 
+static void enetc4_pf_send_link_status_msg(struct enetc_pf *pf, bool up)
+{
+	struct device *dev = &pf->si->pdev->dev;
+	union enetc_pf_msg pf_msg;
+	u16 ms_mask = 0;
+	int i, err;
+
+	for (i = 0; i < pf->num_vfs; i++)
+		if (pf->vf_link_status_notify[i])
+			ms_mask |= PSIMSGSR_MS(i);
+
+	if (!ms_mask)
+		return;
+
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_LINK_STATUS;
+	pf_msg.class_code = up ? ENETC_PF_NC_LINK_STATUS_UP :
+				 ENETC_PF_NC_LINK_STATUS_DOWN;
+
+	err = enetc_pf_send_msg(pf, pf_msg.code, ms_mask);
+	if (err)
+		dev_err(dev, "PF notifies link status failed\n");
+}
+
 static void enetc4_pl_mac_link_up(struct phylink_config *config,
 				  struct phy_device *phy, unsigned int mode,
 				  phy_interface_t interface, int speed,
@@ -609,6 +632,8 @@ static void enetc4_pl_mac_link_up(struct phylink_config *config,
 
 	if (si->hw_features & ENETC_SI_F_QBU)
 		enetc_mm_link_state_update(priv, true);
+
+	enetc4_pf_send_link_status_msg(pf, true);
 }
 
 static void enetc4_pl_mac_link_down(struct phylink_config *config,
@@ -624,6 +649,7 @@ static void enetc4_pl_mac_link_down(struct phylink_config *config,
 	if (si->hw_features & ENETC_SI_F_QBU)
 		enetc_mm_link_state_update(priv, false);
 
+	enetc4_pf_send_link_status_msg(pf, false);
 	enetc4_enable_mac(pf, false);
 }
 

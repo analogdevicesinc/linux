@@ -11,6 +11,7 @@
 /* Common Class ID for PSI-TO-VSI and VSI-TO-PSI messages */
 #define ENETC_MSG_CLASS_ID_MAC_FILTER		0x20
 #define ENETC_MSG_CLASS_ID_VLAN_FILTER		0x21
+#define ENETC_MSG_CLASS_ID_LINK_STATUS		0x80
 
 /* Class ID for PSI-TO-VSI messages */
 #define ENETC_MSG_CLASS_ID_CMD_SUCCESS		0x1
@@ -34,6 +35,10 @@
 #define ENETC_PF_RC_VLAN_FILTER_DUPLICATE_VLAN		0x1
 #define ENETC_PF_RC_VLAN_FILTER_VLAN_NOT_FOUND		0x2
 #define ENETC_PF_RC_VLAN_FILTER_NO_RESOURCE		0x3
+
+/* Class-specific notification codes for link status */
+#define ENETC_PF_NC_LINK_STATUS_UP			0x0
+#define ENETC_PF_NC_LINK_STATUS_DOWN			0x1
 
 #define ENETC_MAC_FILTER_TYPE_UC	BIT(0)
 #define ENETC_MAC_FILTER_TYPE_MC	BIT(1)
@@ -71,6 +76,12 @@ enum enetc_msg_vlan_filter_cmd_id {
 	ENETC_MSG_SET_VLAN_HASH_TABLE,
 	ENETC_MSG_FLUSH_VLAN_ENTRIES,
 	ENETC_MSG_SET_VLAN_PROMISC_MODE,
+};
+
+enum enetc_msg_link_status_cmd_id {
+	ENETC_MSG_GET_CURRENT_LINK_STATUS,
+	ENETC_MSG_REGISTER_LINK_CHANGE_NOTIFY,
+	ENETC_MSG_UNREGISTER_LINK_CHANGE_NOTIFY,
 };
 
 struct enetc_msg_swbd {
@@ -186,6 +197,15 @@ struct enetc_msg_vlan_promsic_mode {
 	u8 flush_vlans:1;
 	u8 promisc_mode:1;
 	u8 resv:6;
+};
+
+/* message format of class_id 0x80, cmd_id 0x0~0x2
+ * cmd_id 0x0: get the current link status
+ * cmd_id 0x1: register to link status change notification
+ * cmd_id 0x2: unregister from link status change notification
+ */
+struct enetc_msg_link_status {
+	struct enetc_msg_header hdr;
 };
 
 #pragma pack()

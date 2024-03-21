@@ -32,6 +32,8 @@
 
 #define ENETC_CBD_DATA_MEM_ALIGN 64
 
+#define ENETC_INT_NAME_MAX	(IFNAMSIZ + 8)
+
 struct enetc_tx_swbd {
 	union {
 		struct sk_buff *skb;
@@ -281,14 +283,21 @@ struct enetc_si {
 
 	struct workqueue_struct *workqueue;
 	struct work_struct rx_mode_task;
+	struct work_struct msg_task;
 	struct enetc_mac_filter mac_filter[MADDR_TYPE];
 	struct mutex msg_lock; /* mailbox message lock */
+	char msg_int_name[ENETC_INT_NAME_MAX];
 
 	DECLARE_BITMAP(active_vlans, VLAN_N_VID);
 	DECLARE_BITMAP(vlan_ht_filter, ENETC_VLAN_HT_SIZE);
 
 	int (*set_rss_table)(struct enetc_si *si, const u32 *table, int count);
 	int (*get_rss_table)(struct enetc_si *si, u32 *table, int count);
+
+	/* Notice, only for VSI/VF to use */
+	int (*vf_register_msg_msix)(struct enetc_si *si);
+	void (*vf_free_msg_msix)(struct enetc_si *si);
+	int (*vf_register_link_status_notify)(struct enetc_si *si, bool notify);
 };
 
 static inline bool is_enetc_rev1(struct enetc_si *si)
@@ -344,7 +353,6 @@ static inline int enetc4_pf_to_port(struct pci_dev *pf_pdev)
 }
 
 #define ENETC_MAX_NUM_TXQS	8
-#define ENETC_INT_NAME_MAX	(IFNAMSIZ + 8)
 
 struct enetc_int_vector {
 	void __iomem *rbier;

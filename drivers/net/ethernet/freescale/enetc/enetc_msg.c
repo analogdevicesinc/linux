@@ -20,18 +20,18 @@ static void enetc_msg_enable_mr_int(struct enetc_hw *hw)
 static irqreturn_t enetc_msg_psi_msix(int irq, void *data)
 {
 	struct enetc_si *si = (struct enetc_si *)data;
-	struct enetc_pf *pf = enetc_si_priv(si);
 
 	enetc_msg_disable_mr_int(&si->hw);
-	schedule_work(&pf->msg_task);
+	schedule_work(&si->msg_task);
 
 	return IRQ_HANDLED;
 }
 
 static void enetc_msg_task(struct work_struct *work)
 {
-	struct enetc_pf *pf = container_of(work, struct enetc_pf, msg_task);
-	struct enetc_hw *hw = &pf->si->hw;
+	struct enetc_si *si = container_of(work, struct enetc_si, msg_task);
+	struct enetc_pf *pf = enetc_si_priv(si);
+	struct enetc_hw *hw = &si->hw;
 	unsigned long mr_mask;
 	int i;
 
@@ -52,6 +52,12 @@ static void enetc_msg_task(struct work_struct *work)
 				continue;
 
 			enetc_msg_handle_rxmsg(pf, i, &msg_code);
+
+			/* If msg_code is 0, it means that PF has already replied
+			 * to VF, and we don't need to reply here.
+			 */
+			if (!msg_code)
+				continue;
 
 			psimsgrr = ENETC_SIMSGSR_SET_MC(msg_code);
 			psimsgrr |= ENETC_PSIMSGRR_MR(i); /* w1c */
@@ -110,10 +116,10 @@ int enetc_msg_psi_init(struct enetc_pf *pf)
 	int vector, i, err;
 
 	/* register message passing interrupt handler */
-	snprintf(pf->msg_int_name, sizeof(pf->msg_int_name), "%s-vfmsg",
+	snprintf(si->msg_int_name, sizeof(si->msg_int_name), "%s-vfmsg",
 		 si->ndev->name);
 	vector = pci_irq_vector(si->pdev, ENETC_SI_INT_IDX);
-	err = request_irq(vector, enetc_msg_psi_msix, 0, pf->msg_int_name, si);
+	err = request_irq(vector, enetc_msg_psi_msix, 0, si->msg_int_name, si);
 	if (err) {
 		dev_err(&si->pdev->dev,
 			"PSI messaging: request_irq() failed!\n");
@@ -124,7 +130,7 @@ int enetc_msg_psi_init(struct enetc_pf *pf)
 	enetc_wr(&si->hw, ENETC_SIMSIVR, ENETC_SI_INT_IDX);
 
 	/* initialize PSI mailbox */
-	INIT_WORK(&pf->msg_task, enetc_msg_task);
+	INIT_WORK(&si->msg_task, enetc_msg_task);
 
 	for (i = 0; i < pf->num_vfs; i++) {
 		err = enetc_msg_alloc_mbx(si, i);
@@ -151,7 +157,7 @@ void enetc_msg_psi_free(struct enetc_pf *pf)
 	struct enetc_si *si = pf->si;
 	int i;
 
-	cancel_work_sync(&pf->msg_task);
+	cancel_work_sync(&si->msg_task);
 
 	/* disable MR interrupts */
 	enetc_msg_disable_mr_int(&si->hw);
