@@ -52,7 +52,7 @@
 		interrupt-parent = <&gic>;
 		interrupts = <0 93 1>;
 		assigned-clocks = <&zynqmp_clk 71>; // PL0_REF
-		assigned-clock-rates = <250000000>;
+		assigned-clock-rates = <300000000>;
 		resets = <&zynqmp_reset 116>; // ZYNQMP_RESET_PS_PL0
 		reset-names = "reset";
 	};
