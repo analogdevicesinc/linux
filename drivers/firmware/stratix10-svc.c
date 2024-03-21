@@ -1765,7 +1765,7 @@ void *stratix10_svc_allocate_memory(struct stratix10_svc_chan *chan,
 
 	if(chan->ctrl->is_smmu_enabled == true) {
 		s = PAGE_ALIGN(size);
-		va = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO, get_order(s));
+		va = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO | __GFP_DMA, get_order(s));
 		if (!va) {
 			pr_debug("%s get_free_pages_failes\n",__func__);
 			return ERR_PTR(-ENOMEM);
