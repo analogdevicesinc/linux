@@ -633,6 +633,9 @@ static unsigned int msi_domain_get_hwsize(struct device *dev, unsigned int domid
 static inline void irq_chip_write_msi_msg(struct irq_data *data,
 					  struct msi_msg *msg)
 {
+	struct msi_desc *desc = irq_data_get_msi_desc(data);
+
+	desc->msg = *msg;
 	data->chip->irq_write_msi_msg(data, msg);
 }
 
