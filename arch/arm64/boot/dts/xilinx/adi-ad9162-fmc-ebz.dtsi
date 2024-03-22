@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for AD916x-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * Copyright (C) 2024 Analog Devices Inc.
+ */
+
+/ {
+	clocks {
+		ad9516_clkin: clock@0 {
+			compatible = "fixed-clock";
+
+			clock-frequency = <2000000000>;
+			clock-output-names = "clkin";
+			#clock-cells = <0>;
+		};
+	};
+};
+
+
+&fmc_spi {
+	clk_ad9516: ad9516@0 {
+		compatible = "adi,ad9516-1";
+		reg = <0>;
+
+		spi-max-frequency = <10000000>;
+
+		firmware = "ad9144_fmc_ebz_ad9516.stp";
+
+		clocks = <&ad9516_clkin>, <&ad9516_clkin>;
+		clock-names = "refclk", "clkin";
+
+		clock-output-names = "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7";
+		#clock-cells = <1>;
+	};
+        
+        dac0_ad9163: ad9162@0 {
+		#address-cells = <1>;
+	        #size-cells = <0>;
+                compatible = "adi,ad9163";
+                reg = <0>;
+                spi-max-frequency = <1000000>;
+                clocks = <&adf4355_clk 0>;
+                clock-names = "dac_clk";
+
+                adi,full-scale-current-mircoamp = <40000>;
+                dac_clk-clock-scales = <1 10>;
+
+                jesd204-device;
+                #jesd204-cells = <2>;
+                jesd204-top-device = <0>; /* This is the TOP device */
+                jesd204-link-ids = <0>;
+                jesd204-inputs = <&axi_ad9163_core 0 0>;
+
+                adi,subclass = <0>;			/* JESD SUBCLASS 0,1,2 */
+                adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
+                adi,converters-per-device = <2>;	/* JESD M */
+                adi,octets-per-frame = <1>;		/* JESD F */
+                adi,frames-per-multiframe = <32>;	/* JESD K */
+                adi,converter-resolution = <16>;	/* JESD N */
+                adi,bits-per-sample = <16>;		/* JESD NP' */
+                adi,control-bits-per-sample = <0>;	/* JESD CS */
+                adi,lanes-per-device = <4>;		/* JESD L */
+                adi,samples-per-converter-per-frame = <1>; /* JESD S */
+
+                adi,interpolation = <2>;
+        };
+ };
