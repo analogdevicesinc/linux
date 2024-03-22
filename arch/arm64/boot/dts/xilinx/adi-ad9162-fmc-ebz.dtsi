@@ -7,38 +7,118 @@
 
 / {
 	clocks {
-		ad9516_clkin: clock@0 {
-			compatible = "fixed-clock";
+                adf4355_clkin: clock@0 {
+		        compatible = "fixed-clock";
 
-			clock-frequency = <2000000000>;
+			clock-frequency = <122880000>;
 			clock-output-names = "clkin";
+			#clock-cells = <0>;
+		};
+
+                adf4355_out_div4: hmc365 {
+			compatible = "fixed-factor-clock";
+
+			clock-div = <4>;
+			clock-mult = <1>;
+			clocks = <&adf4355_clk>;
+
+			#clock-cells = <0>;
+		};
+
+                ad9508_clkin: clock@1 {
+			compatible = "fixed-factor-clock";
+
+			clock-div = <2>;
+			clock-mult = <1>;
+			clocks = <&adf4355_out_div4>;
+
 			#clock-cells = <0>;
 		};
 	};
 };
 
+#include <dt-bindings/iio/frequency/ad9508.h>
 
 &fmc_spi {
-	clk_ad9516: ad9516@0 {
-		compatible = "adi,ad9516-1";
-		reg = <0>;
+        adf4355_clk: adf4355@2 {
+		compatible = "adi,adf4355-2";
+		reg = <2>;
 
 		spi-max-frequency = <10000000>;
 
-		firmware = "ad9144_fmc_ebz_ad9516.stp";
+		clocks = <&adf4355_clkin>;
+		clock-names = "clkin";
+		clock-scales = <1 2>;
 
-		clocks = <&ad9516_clkin>, <&ad9516_clkin>;
-		clock-names = "refclk", "clkin";
+		clock-output-names = "adf4355_pll";
+		#clock-cells = <0>;
 
-		clock-output-names = "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7";
-		#clock-cells = <1>;
+		adi,charge-pump-current = <900>;
+		adi,muxout-select = <6>;
+		adi,output-a-power = <3>;
+		adi,output-b-power = <3>;
+		adi,charge-pump-negative-bleed-enable;
+		adi,reference-differential-input-enable;
+		adi,muxout-level-3v3-enable;
+		adi,power-up-frequency = /bits/ 64 <3932160000>;
+		adi,output-a-enable;
+		adi,output-b-enable;
+		adi,clock-shift = <1>;
 	};
-        
-        dac0_ad9163: ad9162@0 {
+
+        ad9508_clk: ad9508@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,ad9508";
+		reg = <0>;
+		spi-cpol;
+		spi-cpha;
+
+		clocks = <&ad9508_clkin>;
+
+		spi-max-frequency = <10000000>;
+		clock-output-names = "ad9508-1_out0", "ad9508-1_out1", "ad9508-1_out2", "ad9508-1_out3";
+		adi,spi-3wire-enable;
+
+		ad9508_0_c0:channel@0 {
+			reg = <0>;
+			adi,extended-name = "REF_CLK";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_HSTL)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <32>;
+		};
+
+		// ad9508_0_c1:channel@1 {
+		// 	reg = <1>;
+		// 	adi,extended-name = "PLL_REF";
+		// 	adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_HSTL)>;
+		// 	adi,divider-phase = <0>;
+		// 	adi,channel-divider = <1>;
+		// };
+
+		ad9508_0_c2:channel@2 {
+			reg = <2>;
+			adi,extended-name = "SYSREF2";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_HSTL)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <1>;
+		};
+
+		ad9508_0_c3:channel@3 {
+			reg = <3>;
+			adi,extended-name = "SYSREF";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_HSTL)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <1>;
+		};
+        };
+
+        dac0_ad9163: ad9162@1 {
 		#address-cells = <1>;
 	        #size-cells = <0>;
                 compatible = "adi,ad9163";
-                reg = <0>;
+                reg = <1>;
                 spi-max-frequency = <1000000>;
                 clocks = <&adf4355_clk 0>;
                 clock-names = "dac_clk";

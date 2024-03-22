@@ -19,7 +19,7 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			reg = <0>;
-			
+
 			eeprom@50 {
 				compatible = "at24,24c02";
 				reg = <0x50>;
@@ -96,7 +96,7 @@
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84a60000 0x1000>;
 
-			clocks = <&clk_ad9516 9>;
+			clocks = <&ad9508_clk 1>;
 			clock-names = "conv";
 
 			adi,sys-clk-select = <XCVR_CPLL>;
