@@ -1448,6 +1448,80 @@ static u16 enetc_msg_handle_link_status(struct enetc_msg_header *msg_hdr,
 	}
 }
 
+static u16 enetc_msg_pf_reply_link_speed(struct enetc_pf *pf)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(pf->si->ndev);
+	struct ethtool_link_ksettings link_info = {0};
+	union enetc_pf_msg pf_msg;
+
+	rtnl_lock();
+	if (!priv->phylink ||
+	    phylink_ethtool_ksettings_get(priv->phylink, &link_info)) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+		rtnl_unlock();
+
+		return pf_msg.code;
+	}
+	rtnl_unlock();
+
+	pf_msg.class_id = ENETC_MSG_CLASS_ID_LINK_SPEED;
+
+	switch (link_info.base.speed) {
+	case SPEED_10:
+		if (link_info.base.duplex == DUPLEX_HALF)
+			pf_msg.class_code = ENETC_MSG_SPEED_10M_HD;
+		else
+			pf_msg.class_code = ENETC_MSG_SPEED_10M_FD;
+		break;
+	case SPEED_100:
+		if (link_info.base.duplex == DUPLEX_HALF)
+			pf_msg.class_code = ENETC_MSG_SPEED_100M_HD;
+		else
+			pf_msg.class_code = ENETC_MSG_SPEED_100M_FD;
+		break;
+	case SPEED_1000:
+		pf_msg.class_code = ENETC_MSG_SPEED_1000M;
+		break;
+	case SPEED_2500:
+		pf_msg.class_code = ENETC_MSG_SPEED_2500M;
+		break;
+	case SPEED_5000:
+		pf_msg.class_code = ENETC_MSG_SPEED_5G;
+		break;
+	case SPEED_10000:
+		pf_msg.class_code = ENETC_MSG_SPEED_10G;
+		break;
+	case SPEED_25000:
+		pf_msg.class_code = ENETC_MSG_SPEED_25G;
+		break;
+	case SPEED_50000:
+		pf_msg.class_code = ENETC_MSG_SPEED_50G;
+		break;
+	case SPEED_100000:
+		pf_msg.class_code = ENETC_MSG_SPEED_100G;
+		break;
+	default:
+		pf_msg.class_code = ENETC_MSG_SPEED_UNKNOWN;
+	}
+
+	return pf_msg.code;
+}
+
+static u16 enetc_msg_handle_link_speed(struct enetc_msg_header *msg_hdr,
+				       struct enetc_pf *pf, int vf_id)
+{
+	union enetc_pf_msg pf_msg;
+
+	switch (msg_hdr->cmd_id) {
+	case ENETC_MSG_GET_CURRENT_LINK_SPEED:
+		return enetc_msg_pf_reply_link_speed(pf);
+	default:
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
+
+		return pf_msg.code;
+	}
+}
+
 static bool enetc_msg_check_crc16(void *msg_addr, u32 msg_size)
 {
 	u8 *data_buf = msg_addr + 2;
@@ -1503,6 +1577,9 @@ void enetc_msg_handle_rxmsg(struct enetc_pf *pf, int vf_id, u16 *msg_code)
 		break;
 	case ENETC_MSG_CLASS_ID_LINK_STATUS:
 		*msg_code = enetc_msg_handle_link_status(msg_hdr, pf, vf_id);
+		break;
+	case ENETC_MSG_CLASS_ID_LINK_SPEED:
+		*msg_code = enetc_msg_handle_link_speed(msg_hdr, pf, vf_id);
 		break;
 	default:
 		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;

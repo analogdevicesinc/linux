@@ -12,6 +12,7 @@
 #define ENETC_MSG_CLASS_ID_MAC_FILTER		0x20
 #define ENETC_MSG_CLASS_ID_VLAN_FILTER		0x21
 #define ENETC_MSG_CLASS_ID_LINK_STATUS		0x80
+#define ENETC_MSG_CLASS_ID_LINK_SPEED		0x81
 
 /* Class ID for PSI-TO-VSI messages */
 #define ENETC_MSG_CLASS_ID_CMD_SUCCESS		0x1
@@ -82,6 +83,27 @@ enum enetc_msg_link_status_cmd_id {
 	ENETC_MSG_GET_CURRENT_LINK_STATUS,
 	ENETC_MSG_REGISTER_LINK_CHANGE_NOTIFY,
 	ENETC_MSG_UNREGISTER_LINK_CHANGE_NOTIFY,
+};
+
+enum enetc_msg_link_speed_cmd_id {
+	ENETC_MSG_GET_CURRENT_LINK_SPEED,
+	ENETC_MSG_REGISTER_SPEED_CHANGE_NOTIFY,
+	ENETC_MSG_UNREGISTER_SPEED_CHANGE_NOTIFY,
+};
+
+enum enetc_msg_link_speed_val {
+	ENETC_MSG_SPEED_UNKNOWN,
+	ENETC_MSG_SPEED_10M_HD,
+	ENETC_MSG_SPEED_10M_FD,
+	ENETC_MSG_SPEED_100M_HD,
+	ENETC_MSG_SPEED_100M_FD,
+	ENETC_MSG_SPEED_1000M,
+	ENETC_MSG_SPEED_2500M,
+	ENETC_MSG_SPEED_5G,
+	ENETC_MSG_SPEED_10G,
+	ENETC_MSG_SPEED_25G,
+	ENETC_MSG_SPEED_50G,
+	ENETC_MSG_SPEED_100G,
 };
 
 struct enetc_msg_swbd {
@@ -205,6 +227,15 @@ struct enetc_msg_vlan_promsic_mode {
  * cmd_id 0x2: unregister from link status change notification
  */
 struct enetc_msg_link_status {
+	struct enetc_msg_header hdr;
+};
+
+/* message format of class_id 0x80, cmd_id 0x0~0x2
+ * cmd_id 0x0: get the current link speed
+ * cmd_id 0x1: register to link speed change notification
+ * cmd_id 0x2: unregister from link speed change notification
+ */
+struct enetc_msg_link_speed {
 	struct enetc_msg_header hdr;
 };
 
