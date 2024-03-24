@@ -139,6 +139,7 @@
 #define IMX219_DEFAULT_LINK_FREQ_4LANE	364000000
 
 /* IMX219 native and active pixel array size. */
+#define IMX219_NATIVE_FORMAT		MEDIA_BUS_FMT_SRGGB10_1X10
 #define IMX219_NATIVE_WIDTH		3296U
 #define IMX219_NATIVE_HEIGHT		2480U
 #define IMX219_PIXEL_ARRAY_LEFT		8U
@@ -336,6 +337,7 @@ static const struct imx219_mode supported_modes[] = {
 };
 enum imx219_pad_ids {
 	IMX219_PAD_SOURCE,
+	IMX219_PAD_IMAGE,
 	IMX219_NUM_PADS,
 };
 
@@ -413,7 +415,7 @@ static enum binning_mode imx219_get_binning(struct imx219 *imx219, u8 *bin_h,
 	const struct v4l2_mbus_framefmt *format =
 		v4l2_subdev_state_get_format(state, IMX219_PAD_SOURCE);
 	const struct v4l2_rect *crop =
-		v4l2_subdev_state_get_crop(state, IMX219_PAD_SOURCE);
+		v4l2_subdev_state_get_crop(state, IMX219_PAD_IMAGE);
 
 	*bin_h = crop->width / format->width;
 	*bin_v = crop->height / format->height;
@@ -680,7 +682,7 @@ static int imx219_set_framefmt(struct imx219 *imx219,
 	int ret = 0;
 
 	format = v4l2_subdev_state_get_format(state, IMX219_PAD_SOURCE);
-	crop = v4l2_subdev_state_get_crop(state, IMX219_PAD_SOURCE);
+	crop = v4l2_subdev_state_get_crop(state, IMX219_PAD_IMAGE);
 	bpp = imx219_get_format_bpp(format->code);
 
 	cci_write(imx219->regmap, IMX219_REG_X_ADD_STA_A,
@@ -834,6 +836,16 @@ static int imx219_enum_mbus_code(struct v4l2_subdev *sd,
 {
 	struct imx219 *imx219 = to_imx219(sd);
 
+	switch (code->pad) {
+	case IMX219_PAD_IMAGE:
+		if (code->index > 0)
+			return -EINVAL;
+
+		code->code = IMX219_NATIVE_FORMAT;
+
+		return 0;
+	}
+
 	if (code->index >= (ARRAY_SIZE(imx219_mbus_formats) / 4))
 		return -EINVAL;
 
@@ -848,6 +860,19 @@ static int imx219_enum_frame_size(struct v4l2_subdev *sd,
 {
 	struct imx219 *imx219 = to_imx219(sd);
 	u32 code;
+
+	switch (fse->pad) {
+	case IMX219_PAD_IMAGE:
+		if (fse->code != IMX219_NATIVE_FORMAT || fse->index > 0)
+			return -EINVAL;
+
+		fse->min_width = IMX219_NATIVE_WIDTH;
+		fse->max_width = IMX219_NATIVE_WIDTH;
+		fse->min_height = IMX219_NATIVE_HEIGHT;
+		fse->max_height = IMX219_NATIVE_HEIGHT;
+
+		return 0;
+	}
 
 	if (fse->index >= ARRAY_SIZE(supported_modes))
 		return -EINVAL;
@@ -871,9 +896,17 @@ static int imx219_set_pad_format(struct v4l2_subdev *sd,
 	struct imx219 *imx219 = to_imx219(sd);
 	const struct imx219_mode *mode;
 	struct v4l2_mbus_framefmt *format;
+	struct v4l2_rect *compose;
 	struct v4l2_rect *crop;
 	unsigned int bin_h, bin_v;
 	u32 prev_line_len;
+
+	/*
+	 * The driver is mode-based, the format can be set on the source pad
+	 * only.
+	 */
+	if (fmt->pad != IMX219_PAD_SOURCE)
+		return v4l2_subdev_get_fmt(sd, state, fmt);
 
 	format = v4l2_subdev_state_get_format(state, IMX219_PAD_SOURCE);
 	prev_line_len = format->width + imx219->hblank->val;
@@ -893,11 +926,38 @@ static int imx219_set_pad_format(struct v4l2_subdev *sd,
 	bin_h = min(IMX219_PIXEL_ARRAY_WIDTH / format->width, 2U);
 	bin_v = min(IMX219_PIXEL_ARRAY_HEIGHT / format->height, 2U);
 
-	crop = v4l2_subdev_state_get_crop(state, IMX219_PAD_SOURCE);
+	crop = v4l2_subdev_state_get_crop(state, IMX219_PAD_IMAGE);
 	crop->width = format->width * bin_h;
 	crop->height = format->height * bin_v;
 	crop->left = (IMX219_NATIVE_WIDTH - crop->width) / 2;
 	crop->top = (IMX219_NATIVE_HEIGHT - crop->height) / 2;
+
+	/*
+	 * No mode use digital crop, the source pad crop rectangle size and
+	 * format are thus identical to the image pad compose rectangle.
+	 */
+	crop = v4l2_subdev_state_get_crop(state, IMX219_PAD_SOURCE);
+	crop->left = 0;
+	crop->top = 0;
+	crop->width = format->width;
+	crop->height = format->height;
+
+	/*
+	 * The compose rectangle models binning, its size is the sensor output
+	 * size.
+	 */
+	compose = v4l2_subdev_state_get_compose(state, IMX219_PAD_IMAGE);
+	compose->left = 0;
+	compose->top = 0;
+	compose->width = format->width;
+	compose->height = format->height;
+
+	/* The image pad models the pixel array, and thus has a fixed size. */
+	format = v4l2_subdev_state_get_format(state, IMX219_PAD_IMAGE);
+	*format = fmt->format;
+	format->code = IMX219_NATIVE_FORMAT;
+	format->width = IMX219_NATIVE_WIDTH;
+	format->height = IMX219_NATIVE_HEIGHT;
 
 	if (fmt->which == V4L2_SUBDEV_FORMAT_ACTIVE) {
 		int exposure_max;
@@ -949,10 +1009,20 @@ static int imx219_get_selection(struct v4l2_subdev *sd,
 {
 	switch (sel->target) {
 	case V4L2_SEL_TGT_CROP:
-		sel->r = *v4l2_subdev_state_get_crop(state, IMX219_PAD_SOURCE);
+		sel->r = *v4l2_subdev_state_get_crop(state, sel->pad);
+		return 0;
+
+	case V4L2_SEL_TGT_COMPOSE:
+		if (sel->pad != IMX219_PAD_IMAGE)
+			return -EINVAL;
+
+		sel->r = *v4l2_subdev_state_get_compose(state, sel->pad);
 		return 0;
 
 	case V4L2_SEL_TGT_NATIVE_SIZE:
+		if (sel->pad != IMX219_PAD_IMAGE)
+			return -EINVAL;
+
 		sel->r.top = 0;
 		sel->r.left = 0;
 		sel->r.width = IMX219_NATIVE_WIDTH;
@@ -962,6 +1032,18 @@ static int imx219_get_selection(struct v4l2_subdev *sd,
 
 	case V4L2_SEL_TGT_CROP_DEFAULT:
 	case V4L2_SEL_TGT_CROP_BOUNDS:
+		if (sel->pad == IMX219_PAD_SOURCE) {
+			struct v4l2_rect *compose =
+				v4l2_subdev_state_get_compose(state,
+							      IMX219_PAD_IMAGE);
+
+			sel->r.top = 0;
+			sel->r.left = 0;
+			sel->r.width = compose->width;
+			sel->r.height = compose->height;
+			return 0;
+		}
+
 		sel->r.top = IMX219_PIXEL_ARRAY_TOP;
 		sel->r.left = IMX219_PIXEL_ARRAY_LEFT;
 		sel->r.width = IMX219_PIXEL_ARRAY_WIDTH;
@@ -996,6 +1078,9 @@ static int imx219_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 {
 	struct v4l2_subdev_state *state;
 	u32 code;
+
+	if (pad != IMX219_PAD_SOURCE)
+		return -EINVAL;
 
 	state = v4l2_subdev_lock_and_get_active_state(sd);
 	code = v4l2_subdev_state_get_format(state, IMX219_PAD_SOURCE)->code;
@@ -1279,6 +1364,8 @@ static int imx219_probe(struct i2c_client *client)
 
 	/* Initialize pads */
 	imx219->pads[IMX219_PAD_SOURCE].flags = MEDIA_PAD_FL_SOURCE;
+	imx219->pads[IMX219_PAD_IMAGE].flags = MEDIA_PAD_FL_SINK |
+					       MEDIA_PAD_FL_INTERNAL;
 
 	ret = media_entity_pads_init(&imx219->sd.entity,
 				     ARRAY_SIZE(imx219->pads), imx219->pads);
