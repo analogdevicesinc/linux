@@ -1309,6 +1309,13 @@ loop:
 #else
 		fq = (void *)(uintptr_t)dq->contextB;
 #endif
+		if (!fq) {
+			pr_err("QMan: no fq for dq->verb=0x%x, dq->stat=0x%x, dq->contextB=0x%x\n",
+				dq->verb, dq->stat, dq->contextB);
+			res = qman_cb_dqrr_consume;
+			goto skip;
+		}
+
 		/* Now let the callback do its stuff */
 		res = fq->cb.dqrr(p, fq, dq);
 
@@ -1317,6 +1324,7 @@ loop:
 		if (res == qman_cb_dqrr_stop)
 			goto done;
 	}
+skip:
 	/* Interpret 'dq' from a driver perspective. */
 	/* Parking isn't possible unless HELDACTIVE was set. NB,
 	 * FORCEELIGIBLE implies HELDACTIVE, so we only need to
