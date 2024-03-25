@@ -1691,10 +1691,8 @@ static void wave6_vpu_dec_stop_streaming(struct vb2_queue *q)
 		inst->id, V4L2_TYPE_IS_OUTPUT(q->type) ? "output" : "capture",
 		inst->queued_src_buf_num, inst->sequence);
 
-	wave6_vpu_return_buffers(inst, q->type, VB2_BUF_STATE_ERROR);
-
 	if (inst->state == VPU_INST_STATE_NONE)
-		return;
+		goto exit;
 
 	v4l2_m2m_suspend(inst->dev->m2m_dev);
 
@@ -1716,6 +1714,9 @@ static void wave6_vpu_dec_stop_streaming(struct vb2_queue *q)
 	}
 
 	v4l2_m2m_resume(inst->dev->m2m_dev);
+
+exit:
+	wave6_vpu_return_buffers(inst, q->type, VB2_BUF_STATE_ERROR);
 }
 
 static int wave6_vpu_dec_buf_init(struct vb2_buffer *vb)
