@@ -131,7 +131,13 @@ The Fault Queue bits select how many consecutive temperature faults must occur
 before overtemperature or undertemperature faults are indicated in the
 corresponding status bits.
 
-Notes
------
+PEC (packet error checking) can be enabled from the "pec" device attribute.
+If PEC is enabled, a PEC byte is appended to the end of each message transfer.
+This is a CRC-8 byte that is calculated on all of the message bytes (including
+the address/read/write byte). The last device to transmit a data byte also
+transmits the PEC byte. The master transmits the PEC byte after a write
+transaction, and the MAX31827 transmits the PEC byte after a read transaction.
 
-PEC is not implemented.
+The read PEC error is handled inside the i2c_smbus_read_word_swapped() function.
+To check if the write had any PEC error a read is performed on the configuration
+register, to check the PEC Error bit.
