@@ -613,11 +613,11 @@ static int ad4630_set_avg_frame_len(struct iio_dev *dev,
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, AD4630_REG_AVG, avg_len);
+	ret = regmap_write(st->regmap, AD4630_REG_AVG, avg_len + 1);
 	if (ret)
 		goto out_error;
 
-	ret = ad4630_update_sample_fetch_trigger(st, avg_len);
+	ret = ad4630_update_sample_fetch_trigger(st, avg_len + 1);
 out_error:
 	iio_device_release_direct_mode(dev);
 
@@ -640,7 +640,7 @@ static int ad4630_get_avg_frame_len(struct iio_dev *dev,
 	if (ret)
 		return ret;
 
-	return avg_len;
+	return avg_len - 1;
 }
 
 static int ad4630_sampling_enable(const struct ad4630_state *st, bool enable)
@@ -752,7 +752,7 @@ out_error:
 }
 
 static const char *const ad4630_average_modes[] = {
-	"0", "2", "4", "8", "16", "32",	"64", "128", "256", "512", "1024",
+	"2", "4", "8", "16", "32", "64", "128", "256", "512", "1024",
 	"2048", "4096", "8192", "16384", "32768", "65536"
 };
 
@@ -1479,6 +1479,11 @@ static int ad4630_probe(struct spi_device *spi)
 		ad4630_fill_scale_tbl(st);
 		ad4630_set_pga_gain(indio_dev, 0);
 	}
+
+	/* Set default averaging mode to 2 samples */
+	ret = regmap_write(st->regmap, AD4630_REG_AVG, 0x01);
+	if (ret)
+		return ret;
 
 	ret = ad4630_pwm_get(st);
 	if (ret)
