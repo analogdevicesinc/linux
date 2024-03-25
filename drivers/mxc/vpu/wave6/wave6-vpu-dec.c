@@ -1715,6 +1715,7 @@ static void wave6_vpu_dec_stop_streaming(struct vb2_queue *q)
 		inst->processed_buf_num = 0;
 		inst->error_buf_num = 0;
 		inst->state_in_seek = inst->state;
+		v4l2_m2m_set_src_buffered(inst->v4l2_fh.m2m_ctx, false);
 		wave6_vpu_set_instance_state(inst, VPU_INST_STATE_SEEK);
 		inst->sequence = 0;
 	} else {

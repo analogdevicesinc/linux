@@ -2382,6 +2382,7 @@ static void wave6_vpu_enc_stop_streaming(struct vb2_queue *q)
 		inst->processed_buf_num = 0;
 		inst->error_buf_num = 0;
 		inst->sequence = 0;
+		v4l2_m2m_set_src_buffered(inst->v4l2_fh.m2m_ctx, false);
 	} else {
 		inst->eos = false;
 		inst->queued_dst_buf_num = 0;
