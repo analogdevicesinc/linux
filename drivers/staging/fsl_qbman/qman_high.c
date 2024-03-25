@@ -481,21 +481,26 @@ static inline unsigned int __poll_portal_fast(struct qman_portal *p,
 static irqreturn_t portal_isr(__always_unused int irq, void *ptr)
 {
 	struct qman_portal *p = ptr;
-	/*
-	 * The CSCI/CCSCI source is cleared inside __poll_portal_slow(), because
-	 * it could race against a Query Congestion State command also given
-	 * as part of the handling of this interrupt source. We mustn't
+	u32 clear = 0, is;
+
+	is = qm_isr_status_read(&p->p) & p->irq_sources;
+
+	/* DQRR-handling if it's interrupt-driven */
+	if (is & QM_PIRQ_DQRI) {
+		__poll_portal_fast(p, CONFIG_FSL_QMAN_POLL_LIMIT);
+		clear = QM_DQAVAIL_MASK | QM_PIRQ_DQRI;
+	}
+
+	/* Handling of anything else that's interrupt-driven.
+	 * The CSCI/CCSCI source is cleared inside __poll_portal_slow(),
+	 * because it could race against a Query Congestion State command also
+	 * given as part of the handling of this interrupt source. We mustn't
 	 * clear it a second time in this top-level function.
 	 */
-	u32 clear = QM_DQAVAIL_MASK | (p->irq_sources &
-		~(QM_PIRQ_CSCI | QM_PIRQ_CCSCI));
-	u32 is = qm_isr_status_read(&p->p) & p->irq_sources;
-	/* DQRR-handling if it's interrupt-driven */
-	if (is & QM_PIRQ_DQRI)
-		__poll_portal_fast(p, CONFIG_FSL_QMAN_POLL_LIMIT);
-	/* Handling of anything else that's interrupt-driven */
-	clear |= __poll_portal_slow(p, is);
+	clear |= __poll_portal_slow(p, is) & QM_PIRQ_SLOW;
+
 	qm_isr_status_clear(&p->p, clear);
+
 	return IRQ_HANDLED;
 }
 
