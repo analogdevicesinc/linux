@@ -48,6 +48,7 @@ struct s10_priv {
 	struct s10_svc_buf svc_bufs[NUM_SVC_BUFS];
 	unsigned long status;
 	unsigned int fw_version;
+	bool is_smmu_enabled;
 };
 
 static int s10_svc_send_msg(struct s10_priv *priv,
@@ -135,7 +136,8 @@ static void s10_unlock_bufs(struct s10_priv *priv, void *kaddr)
 
 	for (i = 0; i < NUM_SVC_BUFS; i++)
 		if (priv->svc_bufs[i].buf == kaddr) {
-			dma_unmap_single(priv->client.dev, priv->svc_bufs[i].dma_addr, SVC_BUF_SIZE, DMA_TO_DEVICE);
+			if (priv->is_smmu_enabled == true)
+				dma_unmap_single(priv->client.dev, priv->svc_bufs[i].dma_addr, SVC_BUF_SIZE, DMA_TO_DEVICE);
 			clear_bit_unlock(SVC_BUF_LOCK,
 					 &priv->svc_bufs[i].lock);
 			return;
@@ -306,7 +308,8 @@ static int s10_send_buf(struct fpga_manager *mgr, const char *buf, size_t count)
 
 	svc_buf = priv->svc_bufs[i].buf;
 	memcpy(svc_buf, buf, xfer_sz);
-	priv->svc_bufs[i].dma_addr = dma_map_single(dev, svc_buf, SVC_BUF_SIZE, DMA_TO_DEVICE);
+	if (priv->is_smmu_enabled == true)
+		priv->svc_bufs[i].dma_addr = dma_map_single(dev, svc_buf, SVC_BUF_SIZE, DMA_TO_DEVICE);
 
 	ret = s10_svc_send_msg(priv, COMMAND_RECONFIG_DATA_SUBMIT,
 			       svc_buf, xfer_sz, s10_receive_callback);
@@ -451,6 +454,7 @@ static int s10_probe(struct platform_device *pdev)
 	struct s10_priv *priv;
 	struct fpga_manager *mgr;
 	int ret;
+	struct device_node *node = pdev->dev.of_node;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -460,6 +464,11 @@ static int s10_probe(struct platform_device *pdev)
 	priv->client.dev = dev;
 	priv->client.receive_cb = NULL;
 	priv->client.priv = priv;
+	priv->is_smmu_enabled = false;
+
+	if (of_device_is_compatible(node, "intel,agilex5-soc-fpga-mgr"))
+		priv->is_smmu_enabled = true;
+
 
 	priv->chan = stratix10_svc_request_channel_byname(&priv->client,
 							  SVC_CLIENT_FPGA);
@@ -531,6 +540,7 @@ static int s10_remove(struct platform_device *pdev)
 static const struct of_device_id s10_of_match[] = {
 	{.compatible = "intel,stratix10-soc-fpga-mgr"},
 	{.compatible = "intel,agilex-soc-fpga-mgr"},
+	{.compatible = "intel,agilex5-soc-fpga-mgr"},
 	{},
 };
 

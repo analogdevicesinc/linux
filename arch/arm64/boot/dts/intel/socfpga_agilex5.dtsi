@@ -1022,7 +1022,7 @@
 				iommus = <&smmu 10>;
 
 				fpga_mgr: fpga-mgr {
-					compatible = "intel,agilex-soc-fpga-mgr";
+					compatible = "intel,agilex5-soc-fpga-mgr";
 				};
 
 				fcs: fcs {
