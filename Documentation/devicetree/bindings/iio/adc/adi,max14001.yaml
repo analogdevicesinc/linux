@@ -1,0 +1,83 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+# Copyright 2023 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/adi,max14001.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: MAX14001 ADC device driver
+
+maintainers:
+  - Kim Seer Paller <kimseer.paller@analog.com>
+
+description: |
+    Single channel 10 bit ADC with SPI interface. Datasheet
+    can be found here:
+      https://www.analog.com/media/en/technical-documentation/data-sheets/MAX14001-MAX14002.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,max14001
+
+  reg:
+    maxItems: 1
+
+  spi-max-frequency:
+    maximum: 5000000
+
+  vref-supply:
+    description: Voltage reference to establish input scaling.
+
+  adi,use-fadc:
+    $ref: /schemas/types.yaml#/definitions/flag
+    type: boolean
+    description: If set, the filtered ADC data (FADC register) will be read,
+                  otherwise the unfiltered ADC data (ADC register) will be read.
+
+  adi,inrush-mode:
+    $ref: /schemas/types.yaml#/definitions/flag
+    type: boolean
+    description: If set, the device will use FAST inrush mode,
+                  otherwise the device will use ADC controlled inrush mode.
+
+  adi,filter:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [ 0, 1, 2, 3 ]
+    description: |
+      0: Filtering off
+      1: Average 2 readings
+      2: Average 4 readings
+      3: Average 8 readings
+
+  adi,current-source:
+    $ref: /schemas/types.yaml#/definitions/flag
+    type: boolean
+    description: If set, the 70uA current source will be connected to the REFIN pin,
+                  otherwise the current source will be turned off.
+
+allOf:
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
+required:
+  - compatible
+  - reg
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        status = "okay";
+
+        adc@0 {
+            compatible = "adi,max14001";
+            reg = <0>;
+            spi-max-frequency = <5000000>;
+            vref-supply = <&vref_reg>;
+            adi,use-fadc;
+        };
+    };
+...
