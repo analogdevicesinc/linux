@@ -277,6 +277,7 @@ struct qm_portal {
 	struct qm_mc mc;
 } QM_PORTAL_ALIGNMENT;
 
+u32 qm_portal_get_sdqcr(struct qm_portal *p);
 
 /* ---------------- */
 /* --- EQCR API --- */
@@ -1301,6 +1302,7 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 	int orl_empty, drain = 0;
 	bool drained = false;
 	unsigned long start;
+	u32 old_sdqcr;
 	bool timeout;
 	u8 state;
 	u32 result;
@@ -1422,6 +1424,10 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 				pr_err("QMan: timed out waiting for retire notification on FQID %u\n",
 				       fqid);
 			}
+
+			/* Restore SDQCR */
+			old_sdqcr = qm_portal_get_sdqcr(channel_portal);
+			qm_dqrr_sdqcr_set(channel_portal, old_sdqcr);
 		}
 		if (result != QM_MCR_RESULT_OK &&
 		    result !=  QM_MCR_RESULT_PENDING) {
@@ -1451,8 +1457,6 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 				fq_empty = qm_dqrr_drain_wait(portal[0], fqid, DQCR_EXPIRED);
 			} while (!fq_empty);
 		}
-
-		qm_dqrr_sdqcr_set(channel_portal, 0);
 
 		/* Wait for the ORL to have been completely drained */
 		while (orl_empty == 0) {

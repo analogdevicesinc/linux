@@ -1630,6 +1630,14 @@ u32 qman_p_static_dequeue_get(struct qman_portal *p)
 }
 EXPORT_SYMBOL(qman_p_static_dequeue_get);
 
+u32 qm_portal_get_sdqcr(struct qm_portal *p)
+{
+	struct qman_portal *portal = container_of(p, struct qman_portal, p);
+
+	return qman_p_static_dequeue_get(portal);
+}
+EXPORT_SYMBOL(qm_portal_get_sdqcr);
+
 u32 qman_static_dequeue_get(void)
 {
 	struct qman_portal *p = get_affine_portal();
