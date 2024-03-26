@@ -86,6 +86,27 @@ static struct vhost_vsock *vhost_vsock_get(u32 guest_cid)
 	return NULL;
 }
 
+#ifdef CONFIG_VHOST_XEN
+static void vhost_vsock_unmap_desc(struct vhost_virtqueue *vq, int count)
+{
+	int i;
+
+	for (i = 0; i < count; i++) {
+		if (vq->iov[i].iov_base)
+			vhost_xen_unmap_desc(vq, vq->iov[i].iov_base, vq->iov[i].iov_len);
+	}
+
+	/*
+	 * Alternatively we could unmap *all* mapped at this point descriptors
+	 * (including indirect) in one go instead of unmapping one by one.
+	 * But we must be sure that doing that we won't end up unmapping
+	 * descriptors which are still in use. This depends on the place(s)
+	 * from which current function gets called.
+	 */
+	/*vhost_xen_unmap_desc_all(vq);*/
+}
+#endif
+
 static void
 vhost_transport_do_send_pkt(struct vhost_vsock *vsock,
 			    struct vhost_virtqueue *vq)
@@ -156,7 +177,11 @@ vhost_transport_do_send_pkt(struct vhost_vsock *vsock,
 			break;
 		}
 
+#ifdef CONFIG_VHOST_XEN
+		iov_iter_kvec(&iov_iter, ITER_DEST, (struct kvec *)&vq->iov[out], in, iov_len);
+#else
 		iov_iter_init(&iov_iter, ITER_DEST, &vq->iov[out], in, iov_len);
+#endif
 		offset = VIRTIO_VSOCK_SKB_CB(skb)->offset;
 		payload_len = skb->len - offset;
 		hdr = virtio_vsock_hdr(skb);
@@ -213,6 +238,10 @@ vhost_transport_do_send_pkt(struct vhost_vsock *vsock,
 		 */
 		virtio_transport_deliver_tap_pkt(skb);
 
+#ifdef CONFIG_VHOST_XEN
+		/* Descriptors must be unmapped as soon as they are not used */
+		vhost_vsock_unmap_desc(vq, out + in);
+#endif
 		vhost_add_used(vq, head, sizeof(*hdr) + payload_len);
 		added = true;
 
@@ -349,7 +378,11 @@ vhost_vsock_alloc_skb(struct vhost_virtqueue *vq,
 	if (!skb)
 		return NULL;
 
+#ifdef CONFIG_VHOST_XEN
+	iov_iter_kvec(&iov_iter, ITER_SOURCE, (struct kvec *)vq->iov, out, len);
+#else
 	iov_iter_init(&iov_iter, ITER_SOURCE, vq->iov, out, len);
+#endif
 
 	hdr = virtio_vsock_hdr(skb);
 	nbytes = copy_from_iter(hdr, sizeof(*hdr), &iov_iter);
@@ -540,6 +573,10 @@ static void vhost_vsock_handle_tx_kick(struct vhost_work *work)
 		else
 			kfree_skb(skb);
 
+#ifdef CONFIG_VHOST_XEN
+		/* Descriptors must be unmapped as soon as they are not used */
+		vhost_vsock_unmap_desc(vq, out + in);
+#endif
 		vhost_add_used(vq, head, 0);
 		added = true;
 	} while(likely(!vhost_exceeds_weight(vq, ++pkts, total_len)));

@@ -565,6 +565,9 @@ void vhost_dev_init(struct vhost_dev *dev,
 		vq->heads = NULL;
 		vq->dev = dev;
 		mutex_init(&vq->mutex);
+#ifdef CONFIG_VHOST_XEN
+		INIT_LIST_HEAD(&vq->desc_maps);
+#endif
 		vhost_vq_reset(dev, vq);
 		if (vq->handle_kick)
 			vhost_poll_init(&vq->poll, vq->handle_kick,
@@ -1036,6 +1039,9 @@ void vhost_dev_cleanup(struct vhost_dev *dev)
 		if (dev->vqs[i]->call_ctx.ctx)
 			eventfd_ctx_put(dev->vqs[i]->call_ctx.ctx);
 		vhost_vq_reset(dev, dev->vqs[i]);
+#ifdef CONFIG_VHOST_XEN
+		vhost_xen_unmap_desc_all(dev->vqs[i]);
+#endif
 	}
 	vhost_dev_free_iovecs(dev);
 	if (dev->log_ctx)
@@ -1826,6 +1832,14 @@ static long vhost_set_memory(struct vhost_dev *d, struct vhost_memory __user *m)
 	for (region = newmem->regions;
 	     region < newmem->regions + mem.nregions;
 	     region++) {
+
+#ifdef CONFIG_VHOST_XEN
+		if (region->guest_phys_addr & XEN_GRANT_DMA_ADDR_OFF) {
+			pr_err("%s: Skip pseudo memory region for Xen grant mappings\n", __func__);
+			continue;
+		}
+#endif
+
 		if (vhost_iotlb_add_range(newumem,
 					  region->guest_phys_addr,
 					  region->guest_phys_addr +
@@ -2421,6 +2435,15 @@ static int translate_desc(struct vhost_virtqueue *vq, u64 addr, u32 len,
 	u64 s = 0, last = addr + len - 1;
 	int ret = 0;
 
+#ifdef CONFIG_VHOST_XEN
+	iov->iov_len = len;
+	iov->iov_base = vhost_xen_map_desc(vq, addr, len, access);
+	if (IS_ERR(iov->iov_base))
+		return PTR_ERR(iov->iov_base);
+	else
+		return 1;
+#endif
+
 	while ((u64)len > s) {
 		u64 size;
 		if (unlikely(ret >= iov_size)) {
@@ -2500,7 +2523,12 @@ static int get_indirect(struct vhost_virtqueue *vq,
 			vq_err(vq, "Translation failure %d in indirect.\n", ret);
 		return ret;
 	}
+
+#ifdef CONFIG_VHOST_XEN
+	iov_iter_kvec(&from, ITER_SOURCE, (struct kvec *)vq->indirect, ret, len);
+#else
 	iov_iter_init(&from, ITER_SOURCE, vq->indirect, ret, len);
+#endif
 	count = len / sizeof desc;
 	/* Buffers are chained via a 16 bit next field, so
 	 * we can have at most 2^16 of these. */
@@ -2562,6 +2590,12 @@ static int get_indirect(struct vhost_virtqueue *vq,
 			*out_num += ret;
 		}
 	} while ((i = next_desc(vq, &desc)) != -1);
+
+#ifdef CONFIG_VHOST_XEN
+	if (vq->indirect)
+		vhost_xen_unmap_desc(vq, vq->indirect->iov_base, vq->indirect->iov_len);
+#endif
+
 	return 0;
 }
 

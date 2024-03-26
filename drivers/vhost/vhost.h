@@ -148,6 +148,15 @@ struct vhost_virtqueue {
 	bool user_be;
 #endif
 	u32 busyloop_timeout;
+
+#ifdef CONFIG_VHOST_XEN
+	/*
+	 * Contains virtio descriptors mapped by using Xen specific mappings
+	 * in order to handle current request. To be unmapped once the request
+	 * is processed.
+	 */
+	struct list_head desc_maps;
+#endif
 };
 
 struct vhost_msg_node {
@@ -246,6 +255,24 @@ int vhost_init_device_iotlb(struct vhost_dev *d);
 
 void vhost_iotlb_map_free(struct vhost_iotlb *iotlb,
 			  struct vhost_iotlb_map *map);
+
+#define XEN_GRANT_DMA_ADDR_OFF    (1ULL << 63)
+
+#ifdef CONFIG_VHOST_XEN
+void vhost_xen_unmap_desc(struct vhost_virtqueue *vq, void *ptr, u32 size);
+void vhost_xen_unmap_desc_all(struct vhost_virtqueue *vq);
+void *vhost_xen_map_desc(struct vhost_virtqueue *vq, u64 addr, u32 size,
+			 int access);
+#else
+static inline void vhost_xen_unmap_desc(struct vhost_virtqueue *vq, void *ptr,
+					u32 size) {}
+static inline void vhost_xen_unmap_desc_all(struct vhost_virtqueue *vq) {}
+static inline void *vhost_xen_map_desc(struct vhost_virtqueue *vq, u64 addr,
+				       u32 size, int access)
+{
+	return ERR_PTR(-ENODEV);
+}
+#endif
 
 #define vq_err(vq, fmt, ...) do {                                  \
 		pr_debug(pr_fmt(fmt), ##__VA_ARGS__);       \
