@@ -515,7 +515,7 @@ static inline void qman_stop_dequeues_ex(struct qman_portal *p)
 	PORTAL_IRQ_UNLOCK(p, irqflags);
 }
 
-static int drain_mr_fqrni(struct qm_portal *p)
+int drain_mr_fqrni(struct qm_portal *p)
 {
 	const struct qm_mr_entry *msg;
 loop:
@@ -549,6 +549,7 @@ loop:
 	qm_mr_cci_consume(p, 1);
 	goto loop;
 }
+EXPORT_SYMBOL(drain_mr_fqrni);
 
 #ifdef CONFIG_SUSPEND
 static int _qman_portal_suspend_noirq(struct device *dev)

@@ -32,6 +32,7 @@
 #include "qman_private.h"
 
 struct qm_portal *qm_get_portal_for_channel(u16 channel);
+int drain_mr_fqrni(struct qm_portal *p);
 
 /***************************/
 /* Portal register assists */
@@ -1292,6 +1293,9 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 		DPA_ASSERT((mcr->verb & QM_MCR_VERB_MASK) ==
 			   QM_MCR_VERB_ALTER_RETIRE);
 		result = mcr->result; /* Make a copy as we reuse MCR below */
+
+		if (result == QM_MCR_RESULT_OK)
+			drain_mr_fqrni(channel_portal);
 
 		if (result == QM_MCR_RESULT_PENDING) {
 			/* Need to wait for the FQRN in the message ring, which
