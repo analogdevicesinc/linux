@@ -3159,6 +3159,31 @@ static u64 adrv9002_get_init_carrier(const struct adrv9002_chan *c)
 	return DIV_ROUND_CLOSEST_ULL(lo_freq, c->ext_lo->divider);
 }
 
+static int adrv9002_ext_lna_set(const struct adrv9002_rf_phy *phy,
+				struct adrv9002_rx_chan *rx)
+{
+	struct adi_adrv9001_RxChannelCfg *rx_cfg = phy->curr_profile->rx.rxChannelCfg;
+	struct adi_adrv9001_RxProfile *p = &rx_cfg[rx->channel.idx].profile;
+	int ret;
+
+	if (!p->lnaConfig.externalLnaPresent)
+		return 0;
+
+	ret = api_call(phy, adi_adrv9001_Rx_ExternalLna_Configure, rx->channel.number,
+		       &p->lnaConfig, p->gainTableType);
+	if (ret)
+		return ret;
+
+	/* min gain index may have changed */
+	rx->agc.minGainIndex =  p->lnaConfig.minGainIndex;
+	/*
+	 * Also make sure to update the AGC LNA settling delay. Otherwise we would overwrite it
+	 * when configuring AGC.
+	 */
+	rx->agc.extLna.settlingDelay = p->lnaConfig.settlingDelay;
+	return 0;
+}
+
 static int adrv9002_init_dpd(const struct adrv9002_rf_phy *phy, const struct adrv9002_tx_chan *tx)
 {
 	if (!tx->elb_en || !tx->dpd_init || !tx->dpd_init->enable)
@@ -3207,6 +3232,11 @@ static int adrv9002_radio_init(const struct adrv9002_rf_phy *phy)
 		if (!c->enabled)
 			continue;
 
+		if (c->port == ADI_RX) {
+			ret = adrv9002_ext_lna_set(phy, chan_to_rx(c));
+			if (ret)
+				return ret;
+		}
 		/*
 		 * For some low rate profiles, the intermediate frequency is non 0.
 		 * In these cases, forcing it 0, will cause a firmware error. Hence, we need to
