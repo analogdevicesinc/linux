@@ -3243,6 +3243,14 @@ static u64 adrv9002_get_init_carrier(const struct adrv9002_chan *c)
 	return DIV_ROUND_CLOSEST_ULL(lo_freq, c->ext_lo->divider);
 }
 
+static int adrv9002_init_dpd(const struct adrv9002_rf_phy *phy, const struct adrv9002_tx_chan *tx)
+{
+	if (!tx->elb_en || !tx->dpd_init || !tx->dpd_init->enable)
+		return 0;
+
+	return api_call(phy, adi_adrv9001_dpd_Initial_Configure, tx->channel.number, tx->dpd_init);
+}
+
 /*
  * All of these structures are taken from TES when exporting the default profile to C code. Consider
  * about having all of these configurable through devicetree.
@@ -3307,13 +3315,7 @@ static int adrv9002_radio_init(const struct adrv9002_rf_phy *phy)
 			return ret;
 
 		if (c->port == ADI_TX) {
-			struct adrv9002_tx_chan *tx = chan_to_tx(c);
-
-			if (!tx->elb_en || !tx->dpd_init || !tx->dpd_init->enable)
-				continue;
-
-			ret = api_call(phy, adi_adrv9001_dpd_Initial_Configure,
-				       c->number, tx->dpd_init);
+			ret = adrv9002_init_dpd(phy, chan_to_tx(c));
 			if (ret)
 				return ret;
 		}
