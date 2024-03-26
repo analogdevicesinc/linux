@@ -29,10 +29,15 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <linux/iopoll.h>
+
 #include "qman_private.h"
 
 struct qm_portal *qm_get_portal_for_channel(u16 channel);
 int drain_mr_fqrni(struct qm_portal *p);
+
+#define QM_MC_DELAY_US		1
+#define QM_MC_TIMEOUT_US	10000
 
 /***************************/
 /* Portal register assists */
@@ -1243,13 +1248,21 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 	u32 result;
 	u32 channel;
 	u16 dest_wq;
+	int err;
 
 	/* Determine the state of the FQID */
 	mcc = qm_mc_start(portal[0]);
 	mcc->queryfq_np.fqid = cpu_to_be32(fqid);
 	qm_mc_commit(portal[0], QM_MCC_VERB_QUERYFQ_NP);
-	while (!(mcr = qm_mc_result(portal[0])))
-		cpu_relax();
+
+	err = read_poll_timeout_atomic(qm_mc_result, mcr, mcr, QM_MC_DELAY_US,
+				       QM_MC_TIMEOUT_US, false, portal[0]);
+	if (err) {
+		pr_err("QMan: Failed to query FQ non-programmable fields for FQID %u: %pe\n",
+		       fqid, ERR_PTR(err));
+		return err;
+	}
+
 	DPA_ASSERT((mcr->verb & QM_MCR_VERB_MASK) == QM_MCR_VERB_QUERYFQ_NP);
 	state = mcr->queryfq_np.state & QM_MCR_NP_STATE_MASK;
 	if (state == QM_MCR_NP_STATE_OOS)
@@ -1259,8 +1272,15 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 	mcc = qm_mc_start(portal[0]);
 	mcc->queryfq.fqid = cpu_to_be32(fqid);
 	qm_mc_commit(portal[0], QM_MCC_VERB_QUERYFQ);
-	while (!(mcr = qm_mc_result(portal[0])))
-		cpu_relax();
+
+	err = read_poll_timeout_atomic(qm_mc_result, mcr, mcr, QM_MC_DELAY_US,
+				       QM_MC_TIMEOUT_US, false, portal[0]);
+	if (err) {
+		pr_err("QMan: Failed to query FQ programmable fields for FQID %u: %pe\n",
+		       fqid, ERR_PTR(err));
+		return err;
+	}
+
 	DPA_ASSERT((mcr->verb & QM_MCR_VERB_MASK) == QM_MCR_VERB_QUERYFQ);
 
 	/* Need to store these since the MCR gets reused */
@@ -1287,8 +1307,15 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 		mcc = qm_mc_start(channel_portal);
 		mcc->alterfq.fqid = cpu_to_be32(fqid);
 		qm_mc_commit(channel_portal, QM_MCC_VERB_ALTER_RETIRE);
-		while (!(mcr = qm_mc_result(channel_portal)))
-			cpu_relax();
+
+		err = read_poll_timeout_atomic(qm_mc_result, mcr, mcr,
+					       QM_MC_DELAY_US, QM_MC_TIMEOUT_US,
+					       false, channel_portal);
+		if (err) {
+			pr_err("QMan: Failed to retire FQID %u: %pe\n", fqid,
+			       ERR_PTR(err));
+			return err;
+		}
 
 		DPA_ASSERT((mcr->verb & QM_MCR_VERB_MASK) ==
 			   QM_MCR_VERB_ALTER_RETIRE);
@@ -1416,8 +1443,15 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 		mcc = qm_mc_start(portal[0]);
 		mcc->alterfq.fqid = cpu_to_be32(fqid);
 		qm_mc_commit(portal[0], QM_MCC_VERB_ALTER_OOS);
-		while (!(mcr = qm_mc_result(portal[0])))
-			cpu_relax();
+
+		err = read_poll_timeout_atomic(qm_mc_result, mcr, mcr, QM_MC_DELAY_US,
+					       QM_MC_TIMEOUT_US, false, portal[0]);
+		if (err) {
+			pr_err("QMan: Failed to put FQID %u out of service: %pe\n",
+			       fqid, ERR_PTR(err));
+			return err;
+		}
+
 		DPA_ASSERT((mcr->verb & QM_MCR_VERB_MASK) ==
 			   QM_MCR_VERB_ALTER_OOS);
 		if (mcr->result != QM_MCR_RESULT_OK) {
@@ -1431,8 +1465,16 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 		mcc = qm_mc_start(portal[0]);
 		mcc->alterfq.fqid = cpu_to_be32(fqid);
 		qm_mc_commit(portal[0], QM_MCC_VERB_ALTER_OOS);
-		while (!(mcr = qm_mc_result(portal[0])))
-			cpu_relax();
+
+		err = read_poll_timeout_atomic(qm_mc_result, mcr, mcr,
+					       QM_MC_DELAY_US, QM_MC_TIMEOUT_US,
+					       false, portal[0]);
+		if (err) {
+			pr_err("QMan: Failed to put FQID %u out of service: %pe\n",
+			       fqid, ERR_PTR(err));
+			return err;
+		}
+
 		DPA_ASSERT((mcr->verb & QM_MCR_VERB_MASK) ==
 			   QM_MCR_VERB_ALTER_OOS);
 		if (mcr->result) {
