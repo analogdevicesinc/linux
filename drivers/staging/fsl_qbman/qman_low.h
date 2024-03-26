@@ -31,6 +31,8 @@
 
 #include "qman_private.h"
 
+struct qm_portal *qm_get_portal_for_channel(u16 channel);
+
 /***************************/
 /* Portal register assists */
 /***************************/
@@ -1232,11 +1234,11 @@ static inline void __qm_isr_write(struct qm_portal *portal, enum qm_isr_reg n,
 static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 				 u32 fqid)
 {
-
+	int orl_empty, fq_empty, drain = 0;
+	struct qm_portal *channel_portal;
 	struct qm_mc_command *mcc;
 	struct qm_mc_result *mcr;
 	u8 state;
-	int orl_empty, fq_empty, i, drain = 0;
 	u32 result;
 	u32 channel;
 	u16 dest_wq;
@@ -1264,17 +1266,29 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 	dest_wq = be16_to_cpu(mcr->queryfq.fqd.dest_wq);
 	channel = dest_wq>>3;
 
+	if (channel < qm_channel_pool1) {
+		channel_portal = qm_get_portal_for_channel(channel);
+		if (channel_portal == NULL) {
+			pr_err("QMan: Can't find portal for dedicated channel 0x%x\n",
+			       channel);
+			return -EIO;
+		}
+	} else {
+		channel_portal = portal[0];
+	}
+
 	switch (state) {
 	case QM_MCR_NP_STATE_TEN_SCHED:
 	case QM_MCR_NP_STATE_TRU_SCHED:
 	case QM_MCR_NP_STATE_ACTIVE:
 	case QM_MCR_NP_STATE_PARKED:
 		orl_empty = 0;
-		mcc = qm_mc_start(portal[0]);
+		mcc = qm_mc_start(channel_portal);
 		mcc->alterfq.fqid = cpu_to_be32(fqid);
-		qm_mc_commit(portal[0], QM_MCC_VERB_ALTER_RETIRE);
-		while (!(mcr = qm_mc_result(portal[0])))
+		qm_mc_commit(channel_portal, QM_MCC_VERB_ALTER_RETIRE);
+		while (!(mcr = qm_mc_result(channel_portal)))
 			cpu_relax();
+
 		DPA_ASSERT((mcr->verb & QM_MCR_VERB_MASK) ==
 			   QM_MCR_VERB_ALTER_RETIRE);
 		result = mcr->result; /* Make a copy as we reuse MCR below */
@@ -1298,47 +1312,39 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 				return -EBUSY;
 			}
 			/* Set the sdqcr to drain this channel */
-			if (channel < qm_channel_pool1)
-				for (i = 0; i < portal_count; i++)
-					qm_dqrr_sdqcr_set(portal[i],
+			if (channel < qm_channel_pool1) {
+				qm_dqrr_sdqcr_set(channel_portal,
 						  QM_SDQCR_TYPE_ACTIVE |
 						  QM_SDQCR_CHANNELS_DEDICATED);
-			else
-				for (i = 0; i < portal_count; i++)
-					qm_dqrr_sdqcr_set(
-						portal[i],
-						QM_SDQCR_TYPE_ACTIVE |
-						QM_SDQCR_CHANNELS_POOL_CONV
-						(channel));
+			} else {
+				qm_dqrr_sdqcr_set(channel_portal,
+						  QM_SDQCR_TYPE_ACTIVE |
+						  QM_SDQCR_CHANNELS_POOL_CONV(channel));
+			}
 			while (!found_fqrn) {
 				/* Keep draining DQRR while checking the MR*/
-				for (i = 0; i < portal_count; i++) {
-					qm_dqrr_pvb_update(portal[i]);
-					dqrr = qm_dqrr_current(portal[i]);
-					while (dqrr) {
-						qm_dqrr_cdc_consume_1ptr(
-							portal[i], dqrr, 0);
-						qm_dqrr_pvb_update(portal[i]);
-						qm_dqrr_next(portal[i]);
-						dqrr = qm_dqrr_current(
-							portal[i]);
-					}
-					/* Process message ring too */
-					qm_mr_pvb_update(portal[i]);
-					msg = qm_mr_current(portal[i]);
-					while (msg) {
-						if ((msg->verb &
-						     QM_MR_VERB_TYPE_MASK)
-						    == QM_MR_VERB_FQRN)
-							found_fqrn = 1;
-						qm_mr_next(portal[i]);
-						qm_mr_cci_consume_to_current(
-							portal[i]);
-						qm_mr_pvb_update(portal[i]);
-						msg = qm_mr_current(portal[i]);
-					}
-					cpu_relax();
+				qm_dqrr_pvb_update(channel_portal);
+				dqrr = qm_dqrr_current(channel_portal);
+				while (dqrr) {
+					qm_dqrr_cdc_consume_1ptr(channel_portal,
+								 dqrr, 0);
+					qm_dqrr_pvb_update(channel_portal);
+					qm_dqrr_next(channel_portal);
+					dqrr = qm_dqrr_current(channel_portal);
 				}
+				/* Process message ring too */
+				qm_mr_pvb_update(channel_portal);
+				msg = qm_mr_current(channel_portal);
+				while (msg) {
+					if ((msg->verb & QM_MR_VERB_TYPE_MASK) ==
+					    QM_MR_VERB_FQRN)
+						found_fqrn = 1;
+					qm_mr_next(channel_portal);
+					qm_mr_cci_consume_to_current(channel_portal);
+					qm_mr_pvb_update(channel_portal);
+					msg = qm_mr_current(channel_portal);
+				}
+				cpu_relax();
 			}
 		}
 		if (result != QM_MCR_RESULT_OK &&
@@ -1384,8 +1390,8 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 				}
 			} while (fq_empty == 0);
 		}
-		for (i = 0; i < portal_count; i++)
-			qm_dqrr_sdqcr_set(portal[i], 0);
+
+		qm_dqrr_sdqcr_set(channel_portal, 0);
 
 		/* Wait for the ORL to have been completely drained */
 		while (orl_empty == 0) {

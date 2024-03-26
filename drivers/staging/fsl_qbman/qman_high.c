@@ -927,6 +927,26 @@ const struct qman_portal_config *qman_get_portal_config(void)
 }
 EXPORT_SYMBOL(qman_get_portal_config);
 
+struct qm_portal *qm_get_portal_for_channel(u16 channel)
+{
+	const struct qman_portal_config *pcfg;
+	struct qman_portal *p;
+	int i;
+
+	for (i = 0; i < num_possible_cpus(); i++) {
+		p = (struct qman_portal *)affine_portals[i];
+		if (!p)
+			continue;
+
+		pcfg = qman_p_get_portal_config(p);
+		if (pcfg->channel == channel)
+			return &p->p;
+	}
+
+	return NULL;
+}
+EXPORT_SYMBOL(qm_get_portal_for_channel);
+
 /* Inline helper to reduce nesting in __poll_portal_slow() */
 static inline void fq_state_change(struct qman_portal *p, struct qman_fq *fq,
 				const struct qm_mr_entry *msg, u8 verb)
