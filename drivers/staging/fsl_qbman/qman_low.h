@@ -1236,6 +1236,60 @@ static inline void __qm_isr_write(struct qm_portal *portal, enum qm_isr_reg n,
 #endif
 }
 
+static inline int _qm_mr_consume_and_match_verb(struct qm_portal *p, int v)
+{
+	const struct qm_mr_entry *msg;
+	int found = 0;
+
+	qm_mr_pvb_update(p);
+	msg = qm_mr_current(p);
+	while (msg) {
+		if ((msg->verb & QM_MR_VERB_TYPE_MASK) == v)
+			found = 1;
+		qm_mr_next(p);
+		qm_mr_cci_consume_to_current(p);
+		qm_mr_pvb_update(p);
+		msg = qm_mr_current(p);
+	}
+	return found;
+}
+
+static inline int _qm_dqrr_consume_and_match(struct qm_portal *p, u32 fqid,
+					     int s, bool wait)
+{
+	const struct qm_dqrr_entry *dqrr;
+	int found = 0;
+
+	do {
+		qm_dqrr_pvb_update(p);
+		dqrr = qm_dqrr_current(p);
+		if (!dqrr)
+			cpu_relax();
+	} while (wait && !dqrr);
+
+	while (dqrr) {
+		if (qm_fqid_get(dqrr) == fqid && (dqrr->stat & s))
+			found = 1;
+		qm_dqrr_cdc_consume_1ptr(p, dqrr, 0);
+		qm_dqrr_pvb_update(p);
+		qm_dqrr_next(p);
+		dqrr = qm_dqrr_current(p);
+	}
+	return found;
+}
+
+#define qm_mr_drain(p, V) \
+	_qm_mr_consume_and_match_verb(p, QM_MR_VERB_##V)
+
+#define qm_dqrr_drain(p, f, S) \
+	_qm_dqrr_consume_and_match(p, f, QM_DQRR_STAT_##S, false)
+
+#define qm_dqrr_drain_wait(p, f, S) \
+	_qm_dqrr_consume_and_match(p, f, QM_DQRR_STAT_##S, true)
+
+#define qm_dqrr_drain_nomatch(p) \
+	_qm_dqrr_consume_and_match(p, 0, 0, false)
+
 /* Cleanup FQs */
 static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 				 u32 fqid)
@@ -1329,8 +1383,6 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 			   will only occur once the FQ has been drained.  In
 			   order for the FQ to drain the portal needs to be set
 			   to dequeue from the channel the FQ is scheduled on */
-			const struct qm_mr_entry *msg;
-			const struct qm_dqrr_entry *dqrr = NULL;
 			int found_fqrn = 0;
 
 			/* Flag that we need to drain FQ */
@@ -1354,27 +1406,9 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 			}
 			while (!found_fqrn) {
 				/* Keep draining DQRR while checking the MR*/
-				qm_dqrr_pvb_update(channel_portal);
-				dqrr = qm_dqrr_current(channel_portal);
-				while (dqrr) {
-					qm_dqrr_cdc_consume_1ptr(channel_portal,
-								 dqrr, 0);
-					qm_dqrr_pvb_update(channel_portal);
-					qm_dqrr_next(channel_portal);
-					dqrr = qm_dqrr_current(channel_portal);
-				}
+				qm_dqrr_drain_nomatch(channel_portal);
 				/* Process message ring too */
-				qm_mr_pvb_update(channel_portal);
-				msg = qm_mr_current(channel_portal);
-				while (msg) {
-					if ((msg->verb & QM_MR_VERB_TYPE_MASK) ==
-					    QM_MR_VERB_FQRN)
-						found_fqrn = 1;
-					qm_mr_next(channel_portal);
-					qm_mr_cci_consume_to_current(channel_portal);
-					qm_mr_pvb_update(channel_portal);
-					msg = qm_mr_current(channel_portal);
-				}
+				found_fqrn = qm_mr_drain(channel_portal, FQRN);
 				cpu_relax();
 			}
 		}
@@ -1396,29 +1430,11 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 			/* FQ is Not Empty, drain using volatile DQ commands */
 			fq_empty = 0;
 			do {
-				const struct qm_dqrr_entry *dqrr = NULL;
 				u32 vdqcr = fqid | QM_VDQCR_NUMFRAMES_SET(3);
 				qm_dqrr_vdqcr_set(portal[0], vdqcr);
 
-				/* Wait for a dequeue to occur */
-				while (dqrr == NULL) {
-					qm_dqrr_pvb_update(portal[0]);
-					dqrr = qm_dqrr_current(portal[0]);
-					if (!dqrr)
-						cpu_relax();
-				}
-				/* Process the dequeues, making sure to
-				   empty the ring completely */
-				while (dqrr) {
-					if (be32_to_cpu(dqrr->fqid) == fqid &&
-					    dqrr->stat & QM_DQRR_STAT_FQ_EMPTY)
-						fq_empty = 1;
-					qm_dqrr_cdc_consume_1ptr(portal[0],
-								 dqrr, 0);
-					qm_dqrr_pvb_update(portal[0]);
-					qm_dqrr_next(portal[0]);
-					dqrr = qm_dqrr_current(portal[0]);
-				}
+				fq_empty = qm_dqrr_drain_wait(portal[0], fqid,
+							      FQ_EMPTY);
 			} while (fq_empty == 0);
 		}
 
@@ -1426,18 +1442,7 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 
 		/* Wait for the ORL to have been completely drained */
 		while (orl_empty == 0) {
-			const struct qm_mr_entry *msg;
-			qm_mr_pvb_update(portal[0]);
-			msg = qm_mr_current(portal[0]);
-			while (msg) {
-				if ((msg->verb & QM_MR_VERB_TYPE_MASK) ==
-				    QM_MR_VERB_FQRL)
-					orl_empty = 1;
-				qm_mr_next(portal[0]);
-				qm_mr_cci_consume_to_current(portal[0]);
-				qm_mr_pvb_update(portal[0]);
-				msg = qm_mr_current(portal[0]);
-			}
+			orl_empty = qm_mr_drain(portal[0], FQRL);
 			cpu_relax();
 		}
 		mcc = qm_mc_start(portal[0]);
