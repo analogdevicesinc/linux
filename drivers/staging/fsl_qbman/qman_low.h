@@ -1299,6 +1299,7 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 	struct qm_mc_command *mcc;
 	struct qm_mc_result *mcr;
 	int orl_empty, drain = 0;
+	bool drained = false;
 	unsigned long start;
 	bool timeout;
 	u8 state;
@@ -1458,26 +1459,9 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 			orl_empty = qm_mr_drain(portal[0], FQRL);
 			cpu_relax();
 		}
-		mcc = qm_mc_start(portal[0]);
-		mcc->alterfq.fqid = cpu_to_be32(fqid);
-		qm_mc_commit(portal[0], QM_MCC_VERB_ALTER_OOS);
 
-		err = read_poll_timeout_atomic(qm_mc_result, mcr, mcr, QM_MC_DELAY_US,
-					       QM_MC_TIMEOUT_US, false, portal[0]);
-		if (err) {
-			pr_err("QMan: Failed to put FQID %u out of service: %pe\n",
-			       fqid, ERR_PTR(err));
-			return err;
-		}
-
-		DPA_ASSERT((mcr->verb & QM_MCR_VERB_MASK) ==
-			   QM_MCR_VERB_ALTER_OOS);
-		if (mcr->result != QM_MCR_RESULT_OK) {
-			pr_err("OOS after drain Failed on FQID 0x%x, result 0x%x\n",
-			       fqid, mcr->result);
-			return -1;
-		}
-		return 0;
+		drained = true;
+		fallthrough;
 	case QM_MCR_NP_STATE_RETIRED:
 		/* Send OOS Command */
 		mcc = qm_mc_start(portal[0]);
@@ -1496,7 +1480,8 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 		DPA_ASSERT((mcr->verb & QM_MCR_VERB_MASK) ==
 			   QM_MCR_VERB_ALTER_OOS);
 		if (mcr->result != QM_MCR_RESULT_OK) {
-			pr_err("OOS Failed on FQID 0x%x\n", fqid);
+			pr_err("OOS%s failed on FQID 0x%x\n",
+			       drained ? " after drain" : "", fqid);
 			return -1;
 		}
 		return 0;
