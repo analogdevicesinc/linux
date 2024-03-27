@@ -175,6 +175,12 @@ enum {
 	AD7768_MAX_PGA_GAIN,
 };
 
+enum {
+	AD7768_AAF_IN1,
+	AD7768_AAF_IN2,
+	AD7768_AAF_IN3,
+};
+
 /*
  * Gains computed as fractions of 1000 so they can be expressed by integers.
  */
@@ -197,6 +203,12 @@ static const int adaq7769_gains[8] = {
 	[AD7768_PGA_GAIN_5] = 32000,
 	[AD7768_PGA_GAIN_6] = 64000,
 	[AD7768_PGA_GAIN_7] = 128000
+};
+
+static const int ad7768_aaf_gains[3] = {
+	[AD7768_AAF_IN1] = 1000,
+	[AD7768_AAF_IN2] = 364,
+	[AD7768_AAF_IN3] = 143
 };
 
 static const char * const ad7768_vcm_modes[] = {
@@ -340,6 +352,7 @@ static const struct iio_chan_spec adaq776x_channels[] = {
 struct ad7768_chip_info {
 	const char *name;
 	u8 grade;
+	bool has_variable_aaf;
 	bool has_pga;
 	int num_pga_modes;
 	int default_pga_mode;
@@ -355,6 +368,7 @@ struct ad7768_state {
 	struct regulator *regulator;
 	int vref;
 	int pga_gain_mode;
+	int aaf_gain;
 	struct mutex lock;
 	struct clk *mclk;
 	struct gpio_chip gpiochip;
@@ -917,6 +931,8 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 			return IIO_VAL_INT_PLUS_NANO;
 		}
 		*val = (st->vref * 2) / 1000;
+		if (st->chip->has_variable_aaf)
+			*val = (*val * MILLI) / ad7768_aaf_gains[st->aaf_gain];
 		*val2 = chan->scan_type.realbits;
 		return IIO_VAL_FRACTIONAL_LOG2;
 
@@ -1158,6 +1174,10 @@ static void ad7768_fill_scale_tbl(struct ad7768_state *st)
 		/* Convert gain to a fraction format */
 		numerator = st->chip->pga_gains[i];
 		denominator = MILLI;
+		if(st->chip->has_variable_aaf) {
+			numerator *= ad7768_aaf_gains[st->aaf_gain];
+			denominator *= MILLI;
+		}
 		rational_best_approximation(numerator, denominator, __INT_MAX__, __INT_MAX__,&numerator,&denominator);
 		
 		val = (st->vref * 2) / 1000;
@@ -1250,14 +1270,16 @@ static const struct ad7768_chip_info ad7768_chip_info[] = {
 		.channel_spec = ad7768_channels,
 		.num_channels = 1,
 		.available_masks = ad7768_channel_masks,
-		.has_pga = false
+		.has_pga = false,
+		.has_variable_aaf = false
 	},
 	[ID_ADAQ7767_1] = {
 		.name = "adaq7767-1",
 		.channel_spec = adaq776x_channels,
 		.num_channels = 1,
 		.available_masks = ad7768_channel_masks,
-		.has_pga = false
+		.has_pga = false,
+		.has_variable_aaf = true
 	},
 	[ID_ADAQ7768_1] = {
 		.name = "adaq7768-1",
@@ -1268,7 +1290,8 @@ static const struct ad7768_chip_info ad7768_chip_info[] = {
 		.default_pga_mode = AD7768_PGA_GAIN_2,
 		.num_pga_modes = ARRAY_SIZE(adaq7768_gains),
 		.pgia_mode2pin_offset = 6,
-		.has_pga = true
+		.has_pga = true,
+		.has_variable_aaf = false
 	},
 	[ID_ADAQ7769_1] = {
 		.name = "adaq7769-1",
@@ -1279,7 +1302,8 @@ static const struct ad7768_chip_info ad7768_chip_info[] = {
 		.default_pga_mode = AD7768_PGA_GAIN_0,
 		.num_pga_modes = ARRAY_SIZE(adaq7769_gains),
 		.pgia_mode2pin_offset = 0,
-		.has_pga = true
+		.has_pga = true,
+		.has_variable_aaf = true
 	}
 };
 
@@ -1339,6 +1363,32 @@ static int ad7768_probe(struct spi_device *spi)
 	if (ret < 0) {
 		dev_err(&spi->dev, "AD7768 setup failed\n");
 		return ret;
+	}
+
+	st->aaf_gain = AD7768_AAF_IN1;
+
+	if (device_property_present(&spi->dev, "adi,aaf-gain") && st->chip->has_variable_aaf) {
+		u32 val;
+
+		ret = device_property_read_u32(&spi->dev, "adi,aaf-gain", &val);
+		pr_info("aaf: %d\n", val);
+		if (ret)
+			return ret;
+
+		switch (val) {
+		case 1000:
+			st->aaf_gain = AD7768_AAF_IN1;
+			break;
+		case 364:
+			st->aaf_gain = AD7768_AAF_IN2;
+			break;
+		case 143:
+			st->aaf_gain = AD7768_AAF_IN3;
+			break;
+		default:
+			return dev_err_probe(&spi->dev, -EINVAL,
+							"Invalid firmware provided gain\n");
+		}
 	}
 
 	if(st->chip->has_pga){
