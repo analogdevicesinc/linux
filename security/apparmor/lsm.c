@@ -469,8 +469,10 @@ static int apparmor_file_open(struct file *file)
 	 * Cache permissions granted by the previous exec check, with
 	 * implicit read and executable mmap which are required to
 	 * actually execute the image.
+	 *
+	 * Illogically, FMODE_EXEC is in f_flags, not f_mode.
 	 */
-	if (current->in_execve) {
+	if (file->f_flags & __FMODE_EXEC) {
 		fctx->allow = MAY_EXEC | MAY_READ | AA_EXEC_MMAP;
 		return 0;
 	}
@@ -777,12 +779,12 @@ static int apparmor_sb_pivotroot(const struct path *old_path,
 }
 
 static int apparmor_getselfattr(unsigned int attr, struct lsm_ctx __user *lx,
-				size_t *size, u32 flags)
+				u32 *size, u32 flags)
 {
 	int error = -ENOENT;
 	struct aa_task_ctx *ctx = task_ctx(current);
 	struct aa_label *label = NULL;
-	char *value;
+	char *value = NULL;
 
 	switch (attr) {
 	case LSM_ATTR_CURRENT:
@@ -922,7 +924,7 @@ fail:
 }
 
 static int apparmor_setselfattr(unsigned int attr, struct lsm_ctx *ctx,
-				size_t size, u32 flags)
+				u32 size, u32 flags)
 {
 	int rc;
 

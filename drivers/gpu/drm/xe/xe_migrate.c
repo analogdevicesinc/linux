@@ -12,7 +12,8 @@
 #include <drm/ttm/ttm_tt.h>
 #include <drm/xe_drm.h>
 
-#include "generated/xe_wa_oob.h"
+#include <generated/xe_wa_oob.h>
+
 #include "instructions/xe_mi_commands.h"
 #include "regs/xe_gpu_commands.h"
 #include "tests/xe_test.h"
@@ -71,6 +72,16 @@ struct xe_migrate {
 #define NUM_KERNEL_PDE 17
 #define NUM_PT_SLOTS 32
 #define LEVEL0_PAGE_TABLE_ENCODE_SIZE SZ_2M
+#define MAX_NUM_PTE 512
+
+/*
+ * Although MI_STORE_DATA_IMM's "length" field is 10-bits, 0x3FE is the largest
+ * legal value accepted.  Since that instruction field is always stored in
+ * (val-2) format, this translates to 0x400 dwords for the true maximum length
+ * of the instruction.  Subtracting the instruction header (1 dword) and
+ * address (2 dwords), that leaves 0x3FD dwords (0x1FE qwords) for PTE values.
+ */
+#define MAX_PTE_PER_SDI 0x1FE
 
 /**
  * xe_tile_migrate_engine() - Get this tile's migrate engine.
@@ -170,11 +181,6 @@ static int xe_migrate_prepare_vm(struct xe_tile *tile, struct xe_migrate *m,
 	if (!IS_DGFX(xe)) {
 		/* Write out batch too */
 		m->batch_base_ofs = NUM_PT_SLOTS * XE_PAGE_SIZE;
-		if (xe->info.has_usm) {
-			batch = tile->primary_gt->usm.bb_pool->bo;
-			m->usm_batch_base_ofs = m->batch_base_ofs;
-		}
-
 		for (i = 0; i < batch->size;
 		     i += vm->flags & XE_VM_FLAG_64K ? XE_64K_PAGE_SIZE :
 		     XE_PAGE_SIZE) {
@@ -184,6 +190,24 @@ static int xe_migrate_prepare_vm(struct xe_tile *tile, struct xe_migrate *m,
 			xe_map_wr(xe, &bo->vmap, map_ofs + level * 8, u64,
 				  entry);
 			level++;
+		}
+		if (xe->info.has_usm) {
+			xe_tile_assert(tile, batch->size == SZ_1M);
+
+			batch = tile->primary_gt->usm.bb_pool->bo;
+			m->usm_batch_base_ofs = m->batch_base_ofs + SZ_1M;
+			xe_tile_assert(tile, batch->size == SZ_512K);
+
+			for (i = 0; i < batch->size;
+			     i += vm->flags & XE_VM_FLAG_64K ? XE_64K_PAGE_SIZE :
+			     XE_PAGE_SIZE) {
+				entry = vm->pt_ops->pte_encode_bo(batch, i,
+								  pat_index, 0);
+
+				xe_map_wr(xe, &bo->vmap, map_ofs + level * 8, u64,
+					  entry);
+				level++;
+			}
 		}
 	} else {
 		u64 batch_addr = xe_bo_addr(batch, 0, XE_PAGE_SIZE);
@@ -347,7 +371,7 @@ struct xe_migrate *xe_migrate_init(struct xe_tile *tile)
 		m->q = xe_exec_queue_create(xe, vm, logical_mask, 1, hwe,
 					    EXEC_QUEUE_FLAG_KERNEL |
 					    EXEC_QUEUE_FLAG_PERMANENT |
-					    EXEC_QUEUE_FLAG_HIGH_PRIORITY);
+					    EXEC_QUEUE_FLAG_HIGH_PRIORITY, 0);
 	} else {
 		m->q = xe_exec_queue_create_class(xe, primary_gt, vm,
 						  XE_ENGINE_CLASS_COPY,
@@ -438,13 +462,13 @@ static u32 pte_update_size(struct xe_migrate *m,
 	} else {
 		/* Clip L0 to available size */
 		u64 size = min(*L0, (u64)avail_pts * SZ_2M);
-		u64 num_4k_pages = DIV_ROUND_UP(size, XE_PAGE_SIZE);
+		u32 num_4k_pages = (size + XE_PAGE_SIZE - 1) >> XE_PTE_SHIFT;
 
 		*L0 = size;
 		*L0_ofs = xe_migrate_vm_addr(pt_ofs, 0);
 
 		/* MI_STORE_DATA_IMM */
-		cmds += 3 * DIV_ROUND_UP(num_4k_pages, 0x1ff);
+		cmds += 3 * DIV_ROUND_UP(num_4k_pages, MAX_PTE_PER_SDI);
 
 		/* PDE qwords */
 		cmds += num_4k_pages * 2;
@@ -472,14 +496,14 @@ static void emit_pte(struct xe_migrate *m,
 	/* Indirect access needs compression enabled uncached PAT index */
 	if (GRAPHICS_VERx100(xe) >= 2000)
 		pat_index = is_comp_pte ? xe->pat.idx[XE_CACHE_NONE_COMPRESSION] :
-					  xe->pat.idx[XE_CACHE_NONE];
+					  xe->pat.idx[XE_CACHE_WB];
 	else
 		pat_index = xe->pat.idx[XE_CACHE_WB];
 
 	ptes = DIV_ROUND_UP(size, XE_PAGE_SIZE);
 
 	while (ptes) {
-		u32 chunk = min(0x1ffU, ptes);
+		u32 chunk = min(MAX_PTE_PER_SDI, ptes);
 
 		bb->cs[bb->len++] = MI_STORE_DATA_IMM | MI_SDI_NUM_QW(chunk);
 		bb->cs[bb->len++] = ofs;
@@ -760,14 +784,14 @@ struct dma_fence *xe_migrate_copy(struct xe_migrate *m,
 		if (src_is_vram && xe_migrate_allow_identity(src_L0, &src_it))
 			xe_res_next(&src_it, src_L0);
 		else
-			emit_pte(m, bb, src_L0_pt, src_is_vram, true, &src_it, src_L0,
-				 src);
+			emit_pte(m, bb, src_L0_pt, src_is_vram, copy_system_ccs,
+				 &src_it, src_L0, src);
 
 		if (dst_is_vram && xe_migrate_allow_identity(src_L0, &dst_it))
 			xe_res_next(&dst_it, src_L0);
 		else
-			emit_pte(m, bb, dst_L0_pt, dst_is_vram, true, &dst_it, src_L0,
-				 dst);
+			emit_pte(m, bb, dst_L0_pt, dst_is_vram, copy_system_ccs,
+				 &dst_it, src_L0, dst);
 
 		if (copy_system_ccs)
 			emit_pte(m, bb, ccs_pt, false, false, &ccs_it, ccs_size, src);
@@ -1009,8 +1033,8 @@ struct dma_fence *xe_migrate_clear(struct xe_migrate *m,
 		if (clear_vram && xe_migrate_allow_identity(clear_L0, &src_it))
 			xe_res_next(&src_it, clear_L0);
 		else
-			emit_pte(m, bb, clear_L0_pt, clear_vram, true, &src_it, clear_L0,
-				 dst);
+			emit_pte(m, bb, clear_L0_pt, clear_vram, clear_system_ccs,
+				 &src_it, clear_L0, dst);
 
 		bb->cs[bb->len++] = MI_BATCH_BUFFER_END;
 		update_idx = bb->len;
@@ -1098,7 +1122,7 @@ static void write_pgtable(struct xe_tile *tile, struct xe_bb *bb, u64 ppgtt_ofs,
 	 * This shouldn't be possible in practice.. might change when 16K
 	 * pages are used. Hence the assert.
 	 */
-	xe_tile_assert(tile, update->qwords <= 0x1ff);
+	xe_tile_assert(tile, update->qwords < MAX_NUM_PTE);
 	if (!ppgtt_ofs)
 		ppgtt_ofs = xe_migrate_vram_ofs(tile_to_xe(tile),
 						xe_bo_addr(update->pt_bo, 0,
@@ -1107,7 +1131,7 @@ static void write_pgtable(struct xe_tile *tile, struct xe_bb *bb, u64 ppgtt_ofs,
 	do {
 		u64 addr = ppgtt_ofs + ofs * 8;
 
-		chunk = min(update->qwords, 0x1ffU);
+		chunk = min(size, MAX_PTE_PER_SDI);
 
 		/* Ensure populatefn can do memset64 by aligning bb->cs */
 		if (!(bb->len & 1))
@@ -1204,8 +1228,11 @@ static bool no_in_syncs(struct xe_vm *vm, struct xe_exec_queue *q,
 	}
 	if (q) {
 		fence = xe_exec_queue_last_fence_get(q, vm);
-		if (!test_bit(DMA_FENCE_FLAG_SIGNALED_BIT, &fence->flags))
+		if (!test_bit(DMA_FENCE_FLAG_SIGNALED_BIT, &fence->flags)) {
+			dma_fence_put(fence);
 			return false;
+		}
+		dma_fence_put(fence);
 	}
 
 	return true;
@@ -1283,7 +1310,7 @@ xe_migrate_update_pgtables(struct xe_migrate *m,
 		batch_size = 6 + num_updates * 2;
 
 	for (i = 0; i < num_updates; i++) {
-		u32 num_cmds = DIV_ROUND_UP(updates[i].qwords, 0x1ff);
+		u32 num_cmds = DIV_ROUND_UP(updates[i].qwords, MAX_PTE_PER_SDI);
 
 		/* align noop + MI_STORE_DATA_IMM cmd prefix */
 		batch_size += 4 * num_cmds + updates[i].qwords * 2;

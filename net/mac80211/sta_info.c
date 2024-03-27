@@ -404,7 +404,10 @@ void sta_info_free(struct ieee80211_local *local, struct sta_info *sta)
 	int i;
 
 	for (i = 0; i < ARRAY_SIZE(sta->link); i++) {
-		if (!(sta->sta.valid_links & BIT(i)))
+		struct link_sta_info *link_sta;
+
+		link_sta = rcu_access_pointer(sta->link[i]);
+		if (!link_sta)
 			continue;
 
 		sta_remove_link(sta, i, false);
@@ -909,6 +912,8 @@ static int sta_info_insert_finish(struct sta_info *sta) __acquires(RCU)
 
 	if (ieee80211_vif_is_mesh(&sdata->vif))
 		mesh_accept_plinks_update(sdata);
+
+	ieee80211_check_fast_xmit(sta);
 
 	return 0;
  out_remove:
@@ -1561,7 +1566,8 @@ void sta_info_stop(struct ieee80211_local *local)
 }
 
 
-int __sta_info_flush(struct ieee80211_sub_if_data *sdata, bool vlans)
+int __sta_info_flush(struct ieee80211_sub_if_data *sdata, bool vlans,
+		     int link_id)
 {
 	struct ieee80211_local *local = sdata->local;
 	struct sta_info *sta, *tmp;
@@ -1575,12 +1581,18 @@ int __sta_info_flush(struct ieee80211_sub_if_data *sdata, bool vlans)
 	WARN_ON(vlans && !sdata->bss);
 
 	list_for_each_entry_safe(sta, tmp, &local->sta_list, list) {
-		if (sdata == sta->sdata ||
-		    (vlans && sdata->bss == sta->sdata->bss)) {
-			if (!WARN_ON(__sta_info_destroy_part1(sta)))
-				list_add(&sta->free_list, &free_list);
-			ret++;
-		}
+		if (sdata != sta->sdata &&
+		    (!vlans || sdata->bss != sta->sdata->bss))
+			continue;
+
+		if (link_id >= 0 && sta->sta.valid_links &&
+		    !(sta->sta.valid_links & BIT(link_id)))
+			continue;
+
+		if (!WARN_ON(__sta_info_destroy_part1(sta)))
+			list_add(&sta->free_list, &free_list);
+
+		ret++;
 	}
 
 	if (!list_empty(&free_list)) {

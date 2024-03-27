@@ -2,6 +2,8 @@
 #ifndef __LINUX_PWM_H
 #define __LINUX_PWM_H
 
+#include <linux/cdev.h>
+#include <linux/device.h>
 #include <linux/err.h>
 #include <linux/mutex.h>
 #include <linux/of.h>
@@ -271,12 +273,16 @@ struct pwm_ops {
  * @id: unique number of this PWM chip
  * @npwm: number of PWMs controlled by this chip
  * @of_xlate: request a PWM device given a device tree PWM specifier
- * @of_pwm_n_cells: number of cells expected in the device tree PWM specifier
  * @atomic: can the driver's ->apply() be called in atomic context
+ * @uses_pwmchip_alloc: signals if pwmchip_allow was used to allocate this chip
+ * @operational: signals if the chip can be used (or is already deregistered)
+ * @nonatomic_lock: mutex for nonatomic chips
+ * @atomic_lock: mutex for atomic chips
  * @pwms: array of PWM devices allocated by the framework
  */
 struct pwm_chip {
-	struct device *dev;
+	struct device dev;
+	struct cdev cdev;
 	const struct pwm_ops *ops;
 	struct module *owner;
 	unsigned int id;
@@ -284,12 +290,37 @@ struct pwm_chip {
 
 	struct pwm_device * (*of_xlate)(struct pwm_chip *chip,
 					const struct of_phandle_args *args);
-	unsigned int of_pwm_n_cells;
 	bool atomic;
 
 	/* only used internally by the PWM framework */
-	struct pwm_device *pwms;
+	bool uses_pwmchip_alloc;
+	bool operational;
+	union {
+		/*
+		 * depending on the chip being atomic or not either the mutex or
+		 * the spinlock is used. It protects .operational and
+		 * synchronizes calls to the .ops->apply and .ops->get_state()
+		 */
+		struct mutex nonatomic_lock;
+		struct spinlock atomic_lock;
+	};
+	struct pwm_device pwms[] __counted_by(npwm);
 };
+
+static inline struct device *pwmchip_parent(const struct pwm_chip *chip)
+{
+	return chip->dev.parent;
+}
+
+static inline void *pwmchip_get_drvdata(struct pwm_chip *chip)
+{
+	return dev_get_drvdata(&chip->dev);
+}
+
+static inline void pwmchip_set_drvdata(struct pwm_chip *chip, void *data)
+{
+	dev_set_drvdata(&chip->dev, data);
+}
 
 #if IS_ENABLED(CONFIG_PWM)
 /* PWM user APIs */
@@ -380,6 +411,10 @@ static inline bool pwm_might_sleep(struct pwm_device *pwm)
 int pwm_capture(struct pwm_device *pwm, struct pwm_capture *result,
 		unsigned long timeout);
 
+void pwmchip_put(struct pwm_chip *chip);
+struct pwm_chip *pwmchip_alloc(struct device *parent, unsigned int npwm, size_t sizeof_priv);
+struct pwm_chip *devm_pwmchip_alloc(struct device *parent, unsigned int npwm, size_t sizeof_priv);
+
 int __pwmchip_add(struct pwm_chip *chip, struct module *owner);
 #define pwmchip_add(chip) __pwmchip_add(chip, THIS_MODULE)
 void pwmchip_remove(struct pwm_chip *chip);
@@ -450,6 +485,24 @@ static inline int pwm_capture(struct pwm_device *pwm,
 			      unsigned long timeout)
 {
 	return -EINVAL;
+}
+
+static inline void pwmchip_put(struct pwm_chip *chip)
+{
+}
+
+static inline struct pwm_chip *pwmchip_alloc(struct device *parent,
+					     unsigned int npwm,
+					     size_t sizeof_priv)
+{
+	return ERR_PTR(-EINVAL);
+}
+
+static inline struct pwm_chip *devm_pwmchip_alloc(struct device *parent,
+						  unsigned int npwm,
+						  size_t sizeof_priv)
+{
+	return pwmchip_alloc(parent, npwm, sizeof_priv);
 }
 
 static inline int pwmchip_add(struct pwm_chip *chip)
@@ -582,18 +635,5 @@ static inline void pwm_remove_table(struct pwm_lookup *table, size_t num)
 {
 }
 #endif
-
-#ifdef CONFIG_PWM_SYSFS
-void pwmchip_sysfs_export(struct pwm_chip *chip);
-void pwmchip_sysfs_unexport(struct pwm_chip *chip);
-#else
-static inline void pwmchip_sysfs_export(struct pwm_chip *chip)
-{
-}
-
-static inline void pwmchip_sysfs_unexport(struct pwm_chip *chip)
-{
-}
-#endif /* CONFIG_PWM_SYSFS */
 
 #endif /* __LINUX_PWM_H */

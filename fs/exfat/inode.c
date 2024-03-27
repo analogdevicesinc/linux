@@ -94,7 +94,7 @@ int __exfat_write_inode(struct inode *inode, int sync)
 		ep2->dentry.stream.start_clu = EXFAT_FREE_CLUSTER;
 	}
 
-	exfat_update_dir_chksum_with_entry_set(&es);
+	exfat_update_dir_chksum(&es);
 	return exfat_put_dentry_set(&es, sync);
 }
 
@@ -501,7 +501,7 @@ static ssize_t exfat_direct_IO(struct kiocb *iocb, struct iov_iter *iter)
 	struct inode *inode = mapping->host;
 	struct exfat_inode_info *ei = EXFAT_I(inode);
 	loff_t pos = iocb->ki_pos;
-	loff_t size = iocb->ki_pos + iov_iter_count(iter);
+	loff_t size = pos + iov_iter_count(iter);
 	int rw = iov_iter_rw(iter);
 	ssize_t ret;
 
@@ -525,11 +525,10 @@ static ssize_t exfat_direct_IO(struct kiocb *iocb, struct iov_iter *iter)
 	 */
 	ret = blockdev_direct_IO(iocb, inode, iter, exfat_get_block);
 	if (ret < 0) {
-		if (rw == WRITE)
+		if (rw == WRITE && ret != -EIOCBQUEUED)
 			exfat_write_failed(mapping, size);
 
-		if (ret != -EIOCBQUEUED)
-			return ret;
+		return ret;
 	} else
 		size = pos + ret;
 

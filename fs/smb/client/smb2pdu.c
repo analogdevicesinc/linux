@@ -178,6 +178,7 @@ cifs_chan_skip_or_disable(struct cifs_ses *ses,
 		}
 
 		ses->chans[chan_index].server = NULL;
+		server->terminate = true;
 		spin_unlock(&ses->chan_lock);
 
 		/*
@@ -188,14 +189,12 @@ cifs_chan_skip_or_disable(struct cifs_ses *ses,
 		 */
 		cifs_put_tcp_session(server, from_reconnect);
 
-		server->terminate = true;
 		cifs_signal_cifsd_for_reconnect(server, false);
 
 		/* mark primary server as needing reconnect */
 		pserver = server->primary_server;
 		cifs_signal_cifsd_for_reconnect(pserver, false);
 skip_terminate:
-		mutex_unlock(&ses->session_mutex);
 		return -EHOSTDOWN;
 	}
 
@@ -400,18 +399,28 @@ skip_sess_setup:
 		goto out;
 	}
 
+	spin_lock(&ses->ses_lock);
+	if (ses->flags & CIFS_SES_FLAG_SCALE_CHANNELS) {
+		spin_unlock(&ses->ses_lock);
+		mutex_unlock(&ses->session_mutex);
+		goto skip_add_channels;
+	}
+	ses->flags |= CIFS_SES_FLAG_SCALE_CHANNELS;
+	spin_unlock(&ses->ses_lock);
+
 	if (!rc &&
-	    (server->capabilities & SMB2_GLOBAL_CAP_MULTI_CHANNEL)) {
+	    (server->capabilities & SMB2_GLOBAL_CAP_MULTI_CHANNEL) &&
+	    server->ops->query_server_interfaces) {
 		mutex_unlock(&ses->session_mutex);
 
 		/*
 		 * query server network interfaces, in case they change
 		 */
 		xid = get_xid();
-		rc = SMB3_request_interfaces(xid, tcon, false);
+		rc = server->ops->query_server_interfaces(xid, tcon, false);
 		free_xid(xid);
 
-		if (rc == -EOPNOTSUPP) {
+		if (rc == -EOPNOTSUPP && ses->chan_count > 1) {
 			/*
 			 * some servers like Azure SMB server do not advertise
 			 * that multichannel has been disabled with server
@@ -429,17 +438,22 @@ skip_sess_setup:
 		if (ses->chan_max > ses->chan_count &&
 		    ses->iface_count &&
 		    !SERVER_IS_CHAN(server)) {
-			if (ses->chan_count == 1)
+			if (ses->chan_count == 1) {
 				cifs_server_dbg(VFS, "supports multichannel now\n");
+				queue_delayed_work(cifsiod_wq, &tcon->query_interfaces,
+						 (SMB_INTERFACE_POLL_INTERVAL * HZ));
+			}
 
 			cifs_try_adding_channels(ses);
-			queue_delayed_work(cifsiod_wq, &tcon->query_interfaces,
-					   (SMB_INTERFACE_POLL_INTERVAL * HZ));
 		}
 	} else {
 		mutex_unlock(&ses->session_mutex);
 	}
+
 skip_add_channels:
+	spin_lock(&ses->ses_lock);
+	ses->flags &= ~CIFS_SES_FLAG_SCALE_CHANNELS;
+	spin_unlock(&ses->ses_lock);
 
 	if (smb2_command != SMB2_INTERNAL_CMD)
 		mod_delayed_work(cifsiod_wq, &server->reconnect, 0);
@@ -718,7 +732,7 @@ assemble_neg_contexts(struct smb2_negotiate_req *req,
 	pneg_ctxt += sizeof(struct smb2_posix_neg_context);
 	neg_context_count++;
 
-	if (server->compress_algorithm) {
+	if (server->compression.requested) {
 		build_compression_ctxt((struct smb2_compression_capabilities_context *)
 				pneg_ctxt);
 		ctxt_len = ALIGN(sizeof(struct smb2_compression_capabilities_context), 8);
@@ -766,6 +780,9 @@ static void decode_compress_ctx(struct TCP_Server_Info *server,
 			 struct smb2_compression_capabilities_context *ctxt)
 {
 	unsigned int len = le16_to_cpu(ctxt->DataLength);
+	__le16 alg;
+
+	server->compression.enabled = false;
 
 	/*
 	 * Caller checked that DataLength remains within SMB boundary. We still
@@ -776,15 +793,22 @@ static void decode_compress_ctx(struct TCP_Server_Info *server,
 		pr_warn_once("server sent bad compression cntxt\n");
 		return;
 	}
+
 	if (le16_to_cpu(ctxt->CompressionAlgorithmCount) != 1) {
-		pr_warn_once("Invalid SMB3 compress algorithm count\n");
+		pr_warn_once("invalid SMB3 compress algorithm count\n");
 		return;
 	}
-	if (le16_to_cpu(ctxt->CompressionAlgorithms[0]) > 3) {
-		pr_warn_once("unknown compression algorithm\n");
+
+	alg = ctxt->CompressionAlgorithms[0];
+
+	/* 'NONE' (0) compressor type is never negotiated */
+	if (alg == 0 || le16_to_cpu(alg) > 3) {
+		pr_warn_once("invalid compression algorithm '%u'\n", alg);
 		return;
 	}
-	server->compress_algorithm = ctxt->CompressionAlgorithms[0];
+
+	server->compression.alg = alg;
+	server->compression.enabled = true;
 }
 
 static int decode_encrypt_ctx(struct TCP_Server_Info *server,
@@ -1523,6 +1547,11 @@ SMB2_sess_sendreceive(struct SMB2_sess_data *sess_data)
 			    &sess_data->buf0_type,
 			    CIFS_LOG_ERROR | CIFS_SESS_OP, &rsp_iov);
 	cifs_small_buf_release(sess_data->iov[0].iov_base);
+	if (rc == 0)
+		sess_data->ses->expired_pwd = false;
+	else if ((rc == -EACCES) || (rc == -EKEYEXPIRED) || (rc == -EKEYREVOKED))
+		sess_data->ses->expired_pwd = true;
+
 	memcpy(&sess_data->iov[0], &rsp_iov, sizeof(struct kvec));
 
 	return rc;
@@ -2391,8 +2420,13 @@ create_durable_v2_buf(struct cifs_open_parms *oparms)
 	 */
 	buf->dcontext.Timeout = cpu_to_le32(oparms->tcon->handle_timeout);
 	buf->dcontext.Flags = cpu_to_le32(SMB2_DHANDLE_FLAG_PERSISTENT);
-	generate_random_uuid(buf->dcontext.CreateGuid);
-	memcpy(pfid->create_guid, buf->dcontext.CreateGuid, 16);
+
+	/* for replay, we should not overwrite the existing create guid */
+	if (!oparms->replay) {
+		generate_random_uuid(buf->dcontext.CreateGuid);
+		memcpy(pfid->create_guid, buf->dcontext.CreateGuid, 16);
+	} else
+		memcpy(buf->dcontext.CreateGuid, pfid->create_guid, 16);
 
 	/* SMB2_CREATE_DURABLE_HANDLE_REQUEST is "DH2Q" */
 	buf->Name[0] = 'D';
@@ -2697,6 +2731,17 @@ add_query_id_context(struct kvec *iov, unsigned int *num_iovec)
 	return 0;
 }
 
+static void add_ea_context(struct cifs_open_parms *oparms,
+			   struct kvec *rq_iov, unsigned int *num_iovs)
+{
+	struct kvec *iov = oparms->ea_cctx;
+
+	if (iov && iov->iov_base && iov->iov_len) {
+		rq_iov[(*num_iovs)++] = *iov;
+		memset(iov, 0, sizeof(*iov));
+	}
+}
+
 static int
 alloc_path_with_tree_prefix(__le16 **out_path, int *out_size, int *out_len,
 			    const char *treename, const __le16 *path)
@@ -2765,7 +2810,14 @@ int smb311_posix_mkdir(const unsigned int xid, struct inode *inode,
 	int flags = 0;
 	unsigned int total_len;
 	__le16 *utf16_path = NULL;
-	struct TCP_Server_Info *server = cifs_pick_channel(ses);
+	struct TCP_Server_Info *server;
+	int retries = 0, cur_sleep = 1;
+
+replay_again:
+	/* reinitialize for possible replay */
+	flags = 0;
+	n_iov = 2;
+	server = cifs_pick_channel(ses);
 
 	cifs_dbg(FYI, "mkdir\n");
 
@@ -2869,6 +2921,10 @@ int smb311_posix_mkdir(const unsigned int xid, struct inode *inode,
 	/* no need to inc num_remote_opens because we close it just below */
 	trace_smb3_posix_mkdir_enter(xid, tcon->tid, ses->Suid, full_path, CREATE_NOT_FILE,
 				    FILE_WRITE_ATTRIBUTES);
+
+	if (retries)
+		smb2_set_replay(server, &rqst);
+
 	/* resource #4: response buffer */
 	rc = cifs_send_recv(xid, ses, server,
 			    &rqst, &resp_buftype, flags, &rsp_iov);
@@ -2906,6 +2962,11 @@ err_free_req:
 	cifs_small_buf_release(req);
 err_free_path:
 	kfree(utf16_path);
+
+	if (is_replayable_error(rc) &&
+	    smb2_should_replay(tcon, &retries, &cur_sleep))
+		goto replay_again;
+
 	return rc;
 }
 
@@ -3047,6 +3108,7 @@ SMB2_open_init(struct cifs_tcon *tcon, struct TCP_Server_Info *server,
 	}
 
 	add_query_id_context(iov, &n_iov);
+	add_ea_context(oparms, iov, &n_iov);
 
 	if (n_iov > 2) {
 		/*
@@ -3101,12 +3163,19 @@ SMB2_open(const unsigned int xid, struct cifs_open_parms *oparms, __le16 *path,
 	struct smb2_create_rsp *rsp = NULL;
 	struct cifs_tcon *tcon = oparms->tcon;
 	struct cifs_ses *ses = tcon->ses;
-	struct TCP_Server_Info *server = cifs_pick_channel(ses);
+	struct TCP_Server_Info *server;
 	struct kvec iov[SMB2_CREATE_IOV_SIZE];
 	struct kvec rsp_iov = {NULL, 0};
 	int resp_buftype = CIFS_NO_BUFFER;
 	int rc = 0;
 	int flags = 0;
+	int retries = 0, cur_sleep = 1;
+
+replay_again:
+	/* reinitialize for possible replay */
+	flags = 0;
+	server = cifs_pick_channel(ses);
+	oparms->replay = !!(retries);
 
 	cifs_dbg(FYI, "create/open\n");
 	if (!ses || !server)
@@ -3127,6 +3196,9 @@ SMB2_open(const unsigned int xid, struct cifs_open_parms *oparms, __le16 *path,
 
 	trace_smb3_open_enter(xid, tcon->tid, tcon->ses->Suid, oparms->path,
 		oparms->create_options, oparms->desired_access);
+
+	if (retries)
+		smb2_set_replay(server, &rqst);
 
 	rc = cifs_send_recv(xid, ses, server,
 			    &rqst, &resp_buftype, flags,
@@ -3181,6 +3253,11 @@ SMB2_open(const unsigned int xid, struct cifs_open_parms *oparms, __le16 *path,
 creat_exit:
 	SMB2_open_free(&rqst);
 	free_rsp_buf(resp_buftype, rsp);
+
+	if (is_replayable_error(rc) &&
+	    smb2_should_replay(tcon, &retries, &cur_sleep))
+		goto replay_again;
+
 	return rc;
 }
 
@@ -3305,6 +3382,22 @@ SMB2_ioctl(const unsigned int xid, struct cifs_tcon *tcon, u64 persistent_fid,
 	int resp_buftype = CIFS_NO_BUFFER;
 	int rc = 0;
 	int flags = 0;
+	int retries = 0, cur_sleep = 1;
+
+	if (!tcon)
+		return -EIO;
+
+	ses = tcon->ses;
+	if (!ses)
+		return -EIO;
+
+replay_again:
+	/* reinitialize for possible replay */
+	flags = 0;
+	server = cifs_pick_channel(ses);
+
+	if (!server)
+		return -EIO;
 
 	cifs_dbg(FYI, "SMB2 IOCTL\n");
 
@@ -3314,17 +3407,6 @@ SMB2_ioctl(const unsigned int xid, struct cifs_tcon *tcon, u64 persistent_fid,
 	/* zero out returned data len, in case of error */
 	if (plen)
 		*plen = 0;
-
-	if (!tcon)
-		return -EIO;
-
-	ses = tcon->ses;
-	if (!ses)
-		return -EIO;
-
-	server = cifs_pick_channel(ses);
-	if (!server)
-		return -EIO;
 
 	if (smb3_encryption_required(tcon))
 		flags |= CIFS_TRANSFORM_REQ;
@@ -3339,6 +3421,9 @@ SMB2_ioctl(const unsigned int xid, struct cifs_tcon *tcon, u64 persistent_fid,
 			     in_data, indatalen, max_out_data_len);
 	if (rc)
 		goto ioctl_exit;
+
+	if (retries)
+		smb2_set_replay(server, &rqst);
 
 	rc = cifs_send_recv(xid, ses, server,
 			    &rqst, &resp_buftype, flags,
@@ -3409,6 +3494,11 @@ SMB2_ioctl(const unsigned int xid, struct cifs_tcon *tcon, u64 persistent_fid,
 ioctl_exit:
 	SMB2_ioctl_free(&rqst);
 	free_rsp_buf(resp_buftype, rsp);
+
+	if (is_replayable_error(rc) &&
+	    smb2_should_replay(tcon, &retries, &cur_sleep))
+		goto replay_again;
+
 	return rc;
 }
 
@@ -3480,13 +3570,20 @@ __SMB2_close(const unsigned int xid, struct cifs_tcon *tcon,
 	struct smb_rqst rqst;
 	struct smb2_close_rsp *rsp = NULL;
 	struct cifs_ses *ses = tcon->ses;
-	struct TCP_Server_Info *server = cifs_pick_channel(ses);
+	struct TCP_Server_Info *server;
 	struct kvec iov[1];
 	struct kvec rsp_iov;
 	int resp_buftype = CIFS_NO_BUFFER;
 	int rc = 0;
 	int flags = 0;
 	bool query_attrs = false;
+	int retries = 0, cur_sleep = 1;
+
+replay_again:
+	/* reinitialize for possible replay */
+	flags = 0;
+	query_attrs = false;
+	server = cifs_pick_channel(ses);
 
 	cifs_dbg(FYI, "Close\n");
 
@@ -3511,6 +3608,9 @@ __SMB2_close(const unsigned int xid, struct cifs_tcon *tcon,
 			     query_attrs);
 	if (rc)
 		goto close_exit;
+
+	if (retries)
+		smb2_set_replay(server, &rqst);
 
 	rc = cifs_send_recv(xid, ses, server,
 			    &rqst, &resp_buftype, flags, &rsp_iov);
@@ -3545,6 +3645,11 @@ close_exit:
 			cifs_dbg(VFS, "handle cancelled close fid 0x%llx returned error %d\n",
 				 persistent_fid, tmp_rc);
 	}
+
+	if (is_replayable_error(rc) &&
+	    smb2_should_replay(tcon, &retries, &cur_sleep))
+		goto replay_again;
+
 	return rc;
 }
 
@@ -3675,12 +3780,19 @@ query_info(const unsigned int xid, struct cifs_tcon *tcon,
 	struct TCP_Server_Info *server;
 	int flags = 0;
 	bool allocated = false;
+	int retries = 0, cur_sleep = 1;
 
 	cifs_dbg(FYI, "Query Info\n");
 
 	if (!ses)
 		return -EIO;
+
+replay_again:
+	/* reinitialize for possible replay */
+	flags = 0;
+	allocated = false;
 	server = cifs_pick_channel(ses);
+
 	if (!server)
 		return -EIO;
 
@@ -3701,6 +3813,9 @@ query_info(const unsigned int xid, struct cifs_tcon *tcon,
 
 	trace_smb3_query_info_enter(xid, persistent_fid, tcon->tid,
 				    ses->Suid, info_class, (__u32)info_type);
+
+	if (retries)
+		smb2_set_replay(server, &rqst);
 
 	rc = cifs_send_recv(xid, ses, server,
 			    &rqst, &resp_buftype, flags, &rsp_iov);
@@ -3744,6 +3859,11 @@ query_info(const unsigned int xid, struct cifs_tcon *tcon,
 qinf_exit:
 	SMB2_query_info_free(&rqst);
 	free_rsp_buf(resp_buftype, rsp);
+
+	if (is_replayable_error(rc) &&
+	    smb2_should_replay(tcon, &retries, &cur_sleep))
+		goto replay_again;
+
 	return rc;
 }
 
@@ -3844,7 +3964,7 @@ SMB2_change_notify(const unsigned int xid, struct cifs_tcon *tcon,
 		u32 *plen /* returned data len */)
 {
 	struct cifs_ses *ses = tcon->ses;
-	struct TCP_Server_Info *server = cifs_pick_channel(ses);
+	struct TCP_Server_Info *server;
 	struct smb_rqst rqst;
 	struct smb2_change_notify_rsp *smb_rsp;
 	struct kvec iov[1];
@@ -3852,6 +3972,12 @@ SMB2_change_notify(const unsigned int xid, struct cifs_tcon *tcon,
 	int resp_buftype = CIFS_NO_BUFFER;
 	int flags = 0;
 	int rc = 0;
+	int retries = 0, cur_sleep = 1;
+
+replay_again:
+	/* reinitialize for possible replay */
+	flags = 0;
+	server = cifs_pick_channel(ses);
 
 	cifs_dbg(FYI, "change notify\n");
 	if (!ses || !server)
@@ -3876,6 +4002,10 @@ SMB2_change_notify(const unsigned int xid, struct cifs_tcon *tcon,
 
 	trace_smb3_notify_enter(xid, persistent_fid, tcon->tid, ses->Suid,
 				(u8)watch_tree, completion_filter);
+
+	if (retries)
+		smb2_set_replay(server, &rqst);
+
 	rc = cifs_send_recv(xid, ses, server,
 			    &rqst, &resp_buftype, flags, &rsp_iov);
 
@@ -3910,6 +4040,11 @@ SMB2_change_notify(const unsigned int xid, struct cifs_tcon *tcon,
 	if (rqst.rq_iov)
 		cifs_small_buf_release(rqst.rq_iov[0].iov_base); /* request */
 	free_rsp_buf(resp_buftype, rsp_iov.iov_base);
+
+	if (is_replayable_error(rc) &&
+	    smb2_should_replay(tcon, &retries, &cur_sleep))
+		goto replay_again;
+
 	return rc;
 }
 
@@ -4152,10 +4287,16 @@ SMB2_flush(const unsigned int xid, struct cifs_tcon *tcon, u64 persistent_fid,
 	struct smb_rqst rqst;
 	struct kvec iov[1];
 	struct kvec rsp_iov = {NULL, 0};
-	struct TCP_Server_Info *server = cifs_pick_channel(ses);
+	struct TCP_Server_Info *server;
 	int resp_buftype = CIFS_NO_BUFFER;
 	int flags = 0;
 	int rc = 0;
+	int retries = 0, cur_sleep = 1;
+
+replay_again:
+	/* reinitialize for possible replay */
+	flags = 0;
+	server = cifs_pick_channel(ses);
 
 	cifs_dbg(FYI, "flush\n");
 	if (!ses || !(ses->server))
@@ -4175,6 +4316,10 @@ SMB2_flush(const unsigned int xid, struct cifs_tcon *tcon, u64 persistent_fid,
 		goto flush_exit;
 
 	trace_smb3_flush_enter(xid, persistent_fid, tcon->tid, ses->Suid);
+
+	if (retries)
+		smb2_set_replay(server, &rqst);
+
 	rc = cifs_send_recv(xid, ses, server,
 			    &rqst, &resp_buftype, flags, &rsp_iov);
 
@@ -4189,6 +4334,11 @@ SMB2_flush(const unsigned int xid, struct cifs_tcon *tcon, u64 persistent_fid,
  flush_exit:
 	SMB2_flush_free(&rqst);
 	free_rsp_buf(resp_buftype, rsp_iov.iov_base);
+
+	if (is_replayable_error(rc) &&
+	    smb2_should_replay(tcon, &retries, &cur_sleep))
+		goto replay_again;
+
 	return rc;
 }
 
@@ -4668,7 +4818,7 @@ smb2_async_writev(struct cifs_writedata *wdata,
 	struct cifs_io_parms *io_parms = NULL;
 	int credit_request;
 
-	if (!wdata->server)
+	if (!wdata->server || wdata->replay)
 		server = wdata->server = cifs_pick_channel(tcon->ses);
 
 	/*
@@ -4753,6 +4903,8 @@ smb2_async_writev(struct cifs_writedata *wdata,
 	rqst.rq_nvec = 1;
 	rqst.rq_iter = wdata->iter;
 	rqst.rq_iter_size = iov_iter_count(&rqst.rq_iter);
+	if (wdata->replay)
+		smb2_set_replay(server, &rqst);
 #ifdef CONFIG_CIFS_SMB_DIRECT
 	if (wdata->mr)
 		iov[0].iov_len += sizeof(struct smbd_buffer_descriptor_v1);
@@ -4826,17 +4978,20 @@ SMB2_write(const unsigned int xid, struct cifs_io_parms *io_parms,
 	int flags = 0;
 	unsigned int total_len;
 	struct TCP_Server_Info *server;
+	int retries = 0, cur_sleep = 1;
 
+replay_again:
+	/* reinitialize for possible replay */
+	flags = 0;
 	*nbytes = 0;
-
-	if (n_vec < 1)
-		return rc;
-
 	if (!io_parms->server)
 		io_parms->server = cifs_pick_channel(io_parms->tcon->ses);
 	server = io_parms->server;
 	if (server == NULL)
 		return -ECONNABORTED;
+
+	if (n_vec < 1)
+		return rc;
 
 	rc = smb2_plain_req_init(SMB2_WRITE, io_parms->tcon, server,
 				 (void **) &req, &total_len);
@@ -4871,6 +5026,9 @@ SMB2_write(const unsigned int xid, struct cifs_io_parms *io_parms,
 	rqst.rq_iov = iov;
 	rqst.rq_nvec = n_vec + 1;
 
+	if (retries)
+		smb2_set_replay(server, &rqst);
+
 	rc = cifs_send_recv(xid, io_parms->tcon->ses, server,
 			    &rqst,
 			    &resp_buftype, flags, &rsp_iov);
@@ -4895,6 +5053,11 @@ SMB2_write(const unsigned int xid, struct cifs_io_parms *io_parms,
 
 	cifs_small_buf_release(req);
 	free_rsp_buf(resp_buftype, rsp);
+
+	if (is_replayable_error(rc) &&
+	    smb2_should_replay(io_parms->tcon, &retries, &cur_sleep))
+		goto replay_again;
+
 	return rc;
 }
 
@@ -5077,6 +5240,9 @@ int SMB2_query_directory_init(const unsigned int xid,
 	case SMB_FIND_FILE_POSIX_INFO:
 		req->FileInformationClass = SMB_FIND_FILE_POSIX_INFO;
 		break;
+	case SMB_FIND_FILE_FULL_DIRECTORY_INFO:
+		req->FileInformationClass = FILE_FULL_DIRECTORY_INFORMATION;
+		break;
 	default:
 		cifs_tcon_dbg(VFS, "info level %u isn't supported\n",
 			info_level);
@@ -5146,6 +5312,9 @@ smb2_parse_query_directory(struct cifs_tcon *tcon,
 		/* note that posix payload are variable size */
 		info_buf_size = sizeof(struct smb2_posix_info);
 		break;
+	case SMB_FIND_FILE_FULL_DIRECTORY_INFO:
+		info_buf_size = sizeof(FILE_FULL_DIRECTORY_INFO);
+		break;
 	default:
 		cifs_tcon_dbg(VFS, "info level %u isn't supported\n",
 			 srch_inf->info_level);
@@ -5206,8 +5375,14 @@ SMB2_query_directory(const unsigned int xid, struct cifs_tcon *tcon,
 	struct kvec rsp_iov;
 	int rc = 0;
 	struct cifs_ses *ses = tcon->ses;
-	struct TCP_Server_Info *server = cifs_pick_channel(ses);
+	struct TCP_Server_Info *server;
 	int flags = 0;
+	int retries = 0, cur_sleep = 1;
+
+replay_again:
+	/* reinitialize for possible replay */
+	flags = 0;
+	server = cifs_pick_channel(ses);
 
 	if (!ses || !(ses->server))
 		return -EIO;
@@ -5226,6 +5401,9 @@ SMB2_query_directory(const unsigned int xid, struct cifs_tcon *tcon,
 				       srch_inf->info_level);
 	if (rc)
 		goto qdir_exit;
+
+	if (retries)
+		smb2_set_replay(server, &rqst);
 
 	rc = cifs_send_recv(xid, ses, server,
 			    &rqst, &resp_buftype, flags, &rsp_iov);
@@ -5261,6 +5439,11 @@ SMB2_query_directory(const unsigned int xid, struct cifs_tcon *tcon,
 qdir_exit:
 	SMB2_query_directory_free(&rqst);
 	free_rsp_buf(resp_buftype, rsp);
+
+	if (is_replayable_error(rc) &&
+	    smb2_should_replay(tcon, &retries, &cur_sleep))
+		goto replay_again;
+
 	return rc;
 }
 
@@ -5327,8 +5510,14 @@ send_set_info(const unsigned int xid, struct cifs_tcon *tcon,
 	int rc = 0;
 	int resp_buftype;
 	struct cifs_ses *ses = tcon->ses;
-	struct TCP_Server_Info *server = cifs_pick_channel(ses);
+	struct TCP_Server_Info *server;
 	int flags = 0;
+	int retries = 0, cur_sleep = 1;
+
+replay_again:
+	/* reinitialize for possible replay */
+	flags = 0;
+	server = cifs_pick_channel(ses);
 
 	if (!ses || !server)
 		return -EIO;
@@ -5356,6 +5545,8 @@ send_set_info(const unsigned int xid, struct cifs_tcon *tcon,
 		return rc;
 	}
 
+	if (retries)
+		smb2_set_replay(server, &rqst);
 
 	rc = cifs_send_recv(xid, ses, server,
 			    &rqst, &resp_buftype, flags,
@@ -5371,6 +5562,11 @@ send_set_info(const unsigned int xid, struct cifs_tcon *tcon,
 
 	free_rsp_buf(resp_buftype, rsp);
 	kfree(iov);
+
+	if (is_replayable_error(rc) &&
+	    smb2_should_replay(tcon, &retries, &cur_sleep))
+		goto replay_again;
+
 	return rc;
 }
 
@@ -5423,12 +5619,18 @@ SMB2_oplock_break(const unsigned int xid, struct cifs_tcon *tcon,
 	int rc;
 	struct smb2_oplock_break *req = NULL;
 	struct cifs_ses *ses = tcon->ses;
-	struct TCP_Server_Info *server = cifs_pick_channel(ses);
+	struct TCP_Server_Info *server;
 	int flags = CIFS_OBREAK_OP;
 	unsigned int total_len;
 	struct kvec iov[1];
 	struct kvec rsp_iov;
 	int resp_buf_type;
+	int retries = 0, cur_sleep = 1;
+
+replay_again:
+	/* reinitialize for possible replay */
+	flags = CIFS_OBREAK_OP;
+	server = cifs_pick_channel(ses);
 
 	cifs_dbg(FYI, "SMB2_oplock_break\n");
 	rc = smb2_plain_req_init(SMB2_OPLOCK_BREAK, tcon, server,
@@ -5453,14 +5655,20 @@ SMB2_oplock_break(const unsigned int xid, struct cifs_tcon *tcon,
 	rqst.rq_iov = iov;
 	rqst.rq_nvec = 1;
 
+	if (retries)
+		smb2_set_replay(server, &rqst);
+
 	rc = cifs_send_recv(xid, ses, server,
 			    &rqst, &resp_buf_type, flags, &rsp_iov);
 	cifs_small_buf_release(req);
-
 	if (rc) {
 		cifs_stats_fail_inc(tcon, SMB2_OPLOCK_BREAK_HE);
 		cifs_dbg(FYI, "Send error in Oplock Break = %d\n", rc);
 	}
+
+	if (is_replayable_error(rc) &&
+	    smb2_should_replay(tcon, &retries, &cur_sleep))
+		goto replay_again;
 
 	return rc;
 }
@@ -5547,9 +5755,15 @@ SMB311_posix_qfs_info(const unsigned int xid, struct cifs_tcon *tcon,
 	int rc = 0;
 	int resp_buftype;
 	struct cifs_ses *ses = tcon->ses;
-	struct TCP_Server_Info *server = cifs_pick_channel(ses);
+	struct TCP_Server_Info *server;
 	FILE_SYSTEM_POSIX_INFO *info = NULL;
 	int flags = 0;
+	int retries = 0, cur_sleep = 1;
+
+replay_again:
+	/* reinitialize for possible replay */
+	flags = 0;
+	server = cifs_pick_channel(ses);
 
 	rc = build_qfs_info_req(&iov, tcon, server,
 				FS_POSIX_INFORMATION,
@@ -5564,6 +5778,9 @@ SMB311_posix_qfs_info(const unsigned int xid, struct cifs_tcon *tcon,
 	memset(&rqst, 0, sizeof(struct smb_rqst));
 	rqst.rq_iov = &iov;
 	rqst.rq_nvec = 1;
+
+	if (retries)
+		smb2_set_replay(server, &rqst);
 
 	rc = cifs_send_recv(xid, ses, server,
 			    &rqst, &resp_buftype, flags, &rsp_iov);
@@ -5584,6 +5801,11 @@ SMB311_posix_qfs_info(const unsigned int xid, struct cifs_tcon *tcon,
 
 posix_qfsinf_exit:
 	free_rsp_buf(resp_buftype, rsp_iov.iov_base);
+
+	if (is_replayable_error(rc) &&
+	    smb2_should_replay(tcon, &retries, &cur_sleep))
+		goto replay_again;
+
 	return rc;
 }
 
@@ -5598,9 +5820,15 @@ SMB2_QFS_info(const unsigned int xid, struct cifs_tcon *tcon,
 	int rc = 0;
 	int resp_buftype;
 	struct cifs_ses *ses = tcon->ses;
-	struct TCP_Server_Info *server = cifs_pick_channel(ses);
+	struct TCP_Server_Info *server;
 	struct smb2_fs_full_size_info *info = NULL;
 	int flags = 0;
+	int retries = 0, cur_sleep = 1;
+
+replay_again:
+	/* reinitialize for possible replay */
+	flags = 0;
+	server = cifs_pick_channel(ses);
 
 	rc = build_qfs_info_req(&iov, tcon, server,
 				FS_FULL_SIZE_INFORMATION,
@@ -5615,6 +5843,9 @@ SMB2_QFS_info(const unsigned int xid, struct cifs_tcon *tcon,
 	memset(&rqst, 0, sizeof(struct smb_rqst));
 	rqst.rq_iov = &iov;
 	rqst.rq_nvec = 1;
+
+	if (retries)
+		smb2_set_replay(server, &rqst);
 
 	rc = cifs_send_recv(xid, ses, server,
 			    &rqst, &resp_buftype, flags, &rsp_iov);
@@ -5635,6 +5866,11 @@ SMB2_QFS_info(const unsigned int xid, struct cifs_tcon *tcon,
 
 qfsinf_exit:
 	free_rsp_buf(resp_buftype, rsp_iov.iov_base);
+
+	if (is_replayable_error(rc) &&
+	    smb2_should_replay(tcon, &retries, &cur_sleep))
+		goto replay_again;
+
 	return rc;
 }
 
@@ -5649,9 +5885,15 @@ SMB2_QFS_attr(const unsigned int xid, struct cifs_tcon *tcon,
 	int rc = 0;
 	int resp_buftype, max_len, min_len;
 	struct cifs_ses *ses = tcon->ses;
-	struct TCP_Server_Info *server = cifs_pick_channel(ses);
+	struct TCP_Server_Info *server;
 	unsigned int rsp_len, offset;
 	int flags = 0;
+	int retries = 0, cur_sleep = 1;
+
+replay_again:
+	/* reinitialize for possible replay */
+	flags = 0;
+	server = cifs_pick_channel(ses);
 
 	if (level == FS_DEVICE_INFORMATION) {
 		max_len = sizeof(FILE_SYSTEM_DEVICE_INFO);
@@ -5682,6 +5924,9 @@ SMB2_QFS_attr(const unsigned int xid, struct cifs_tcon *tcon,
 	memset(&rqst, 0, sizeof(struct smb_rqst));
 	rqst.rq_iov = &iov;
 	rqst.rq_nvec = 1;
+
+	if (retries)
+		smb2_set_replay(server, &rqst);
 
 	rc = cifs_send_recv(xid, ses, server,
 			    &rqst, &resp_buftype, flags, &rsp_iov);
@@ -5720,6 +5965,11 @@ SMB2_QFS_attr(const unsigned int xid, struct cifs_tcon *tcon,
 
 qfsattr_exit:
 	free_rsp_buf(resp_buftype, rsp_iov.iov_base);
+
+	if (is_replayable_error(rc) &&
+	    smb2_should_replay(tcon, &retries, &cur_sleep))
+		goto replay_again;
+
 	return rc;
 }
 
@@ -5737,7 +5987,13 @@ smb2_lockv(const unsigned int xid, struct cifs_tcon *tcon,
 	unsigned int count;
 	int flags = CIFS_NO_RSP_BUF;
 	unsigned int total_len;
-	struct TCP_Server_Info *server = cifs_pick_channel(tcon->ses);
+	struct TCP_Server_Info *server;
+	int retries = 0, cur_sleep = 1;
+
+replay_again:
+	/* reinitialize for possible replay */
+	flags = CIFS_NO_RSP_BUF;
+	server = cifs_pick_channel(tcon->ses);
 
 	cifs_dbg(FYI, "smb2_lockv num lock %d\n", num_lock);
 
@@ -5768,6 +6024,9 @@ smb2_lockv(const unsigned int xid, struct cifs_tcon *tcon,
 	rqst.rq_iov = iov;
 	rqst.rq_nvec = 2;
 
+	if (retries)
+		smb2_set_replay(server, &rqst);
+
 	rc = cifs_send_recv(xid, tcon->ses, server,
 			    &rqst, &resp_buf_type, flags,
 			    &rsp_iov);
@@ -5778,6 +6037,10 @@ smb2_lockv(const unsigned int xid, struct cifs_tcon *tcon,
 		trace_smb3_lock_err(xid, persist_fid, tcon->tid,
 				    tcon->ses->Suid, rc);
 	}
+
+	if (is_replayable_error(rc) &&
+	    smb2_should_replay(tcon, &retries, &cur_sleep))
+		goto replay_again;
 
 	return rc;
 }

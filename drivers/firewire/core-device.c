@@ -118,10 +118,9 @@ static int textual_leaf_to_string(const u32 *block, char *buf, size_t size)
  * @buf:	where to put the string
  * @size:	size of @buf, in bytes
  *
- * The string is taken from a minimal ASCII text descriptor leaf after
- * the immediate entry with @key.  The string is zero-terminated.
- * An overlong string is silently truncated such that it and the
- * zero byte fit into @size.
+ * The string is taken from a minimal ASCII text descriptor leaf just after the entry with the
+ * @key. The string is zero-terminated. An overlong string is silently truncated such that it
+ * and the zero byte fit into @size.
  *
  * Returns strlen(buf) or a negative error code.
  */
@@ -323,7 +322,8 @@ static ssize_t show_immediate(struct device *dev,
 	if (value < 0)
 		return -ENOENT;
 
-	return snprintf(buf, buf ? PAGE_SIZE : 0, "0x%06x\n", value);
+	// Note that this function is also called by init_fw_attribute_group() with NULL pointer.
+	return buf ? sysfs_emit(buf, "0x%06x\n", value) : 0;
 }
 
 #define IMMEDIATE_ATTR(name, key)				\
@@ -358,6 +358,7 @@ static ssize_t show_text_leaf(struct device *dev,
 		}
 	}
 
+	// Note that this function is also called by init_fw_attribute_group() with NULL pointer.
 	if (buf) {
 		bufsize = PAGE_SIZE - 1;
 	} else {
@@ -368,8 +369,17 @@ static ssize_t show_text_leaf(struct device *dev,
 	for (i = 0; i < ARRAY_SIZE(directories) && !!directories[i]; ++i) {
 		int result = fw_csr_string(directories[i], attr->key, buf, bufsize);
 		// Detected.
-		if (result >= 0)
+		if (result >= 0) {
 			ret = result;
+		} else if (i == 0 && attr->key == CSR_VENDOR) {
+			// Sony DVMC-DA1 has configuration ROM such that the descriptor leaf entry
+			// in the root directory follows to the directory entry for vendor ID
+			// instead of the immediate value for vendor ID.
+			result = fw_csr_string(directories[i], CSR_DIRECTORY | attr->key, buf,
+					       bufsize);
+			if (result >= 0)
+				ret = result;
+		}
 	}
 
 	if (ret >= 0) {
@@ -482,7 +492,7 @@ static ssize_t is_local_show(struct device *dev,
 {
 	struct fw_device *device = fw_device(dev);
 
-	return sprintf(buf, "%u\n", device->is_local);
+	return sysfs_emit(buf, "%u\n", device->is_local);
 }
 
 static int units_sprintf(char *buf, const u32 *directory)

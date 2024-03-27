@@ -20,6 +20,7 @@
 #include "xe_gt_mcr.h"
 #include "xe_macros.h"
 #include "xe_module.h"
+#include "xe_sriov.h"
 #include "xe_tile.h"
 
 #define XEHP_MTCFG_ADDR		XE_REG(0x101800)
@@ -105,7 +106,7 @@ static void xe_resize_vram_bar(struct xe_device *xe)
 
 	pci_bus_for_each_resource(root, root_res, i) {
 		if (root_res && root_res->flags & (IORESOURCE_MEM | IORESOURCE_MEM_64) &&
-		    root_res->start > 0x100000000ull)
+		    (u64)root_res->start > 0x100000000ul)
 			break;
 	}
 
@@ -272,8 +273,8 @@ int xe_mmio_probe_vram(struct xe_device *xe)
 		drm_info(&xe->drm, "VRAM[%u, %u]: Actual physical size %pa, usable size exclude stolen %pa, CPU accessible size %pa\n", id,
 			 tile->id, &tile->mem.vram.actual_physical_size, &tile->mem.vram.usable_size, &tile->mem.vram.io_size);
 		drm_info(&xe->drm, "VRAM[%u, %u]: DPA range: [%pa-%llx], io range: [%pa-%llx]\n", id, tile->id,
-			 &tile->mem.vram.dpa_base, tile->mem.vram.dpa_base + tile->mem.vram.actual_physical_size,
-			 &tile->mem.vram.io_start, tile->mem.vram.io_start + tile->mem.vram.io_size);
+			 &tile->mem.vram.dpa_base, tile->mem.vram.dpa_base + (u64)tile->mem.vram.actual_physical_size,
+			 &tile->mem.vram.io_start, tile->mem.vram.io_start + (u64)tile->mem.vram.io_size);
 
 		/* calculate total size using tile size to get the correct HW sizing */
 		total_size += tile_size;
@@ -363,13 +364,19 @@ static int xe_verify_lmem_ready(struct xe_device *xe)
 {
 	struct xe_gt *gt = xe_root_mmio_gt(xe);
 
+	if (!IS_DGFX(xe))
+		return 0;
+
+	if (IS_SRIOV_VF(xe))
+		return 0;
+
 	/*
 	 * The boot firmware initializes local memory and assesses its health.
 	 * If memory training fails, the punit will have been instructed to
 	 * keep the GT powered down; we won't be able to communicate with it
 	 * and we should not continue with driver initialization.
 	 */
-	if (IS_DGFX(xe) && !(xe_mmio_read32(gt, GU_CNTL) & LMEM_INIT)) {
+	if (!(xe_mmio_read32(gt, GU_CNTL) & LMEM_INIT)) {
 		drm_err(&xe->drm, "VRAM not initialized by firmware\n");
 		return -ENODEV;
 	}

@@ -505,6 +505,13 @@ static int acp_card_rt5682s_hw_params(struct snd_pcm_substream *substream,
 
 	clk_set_rate(drvdata->wclk, srate);
 	clk_set_rate(drvdata->bclk, srate * ch * format);
+	if (!drvdata->soc_mclk) {
+		ret = acp_clk_enable(drvdata, srate, ch * format);
+		if (ret < 0) {
+			dev_err(rtd->card->dev, "Failed to enable HS clk: %d\n", ret);
+			return ret;
+		}
+	}
 
 	return 0;
 }
@@ -821,8 +828,8 @@ static const struct snd_soc_ops acp_card_maxim_ops = {
 };
 
 SND_SOC_DAILINK_DEF(max98388,
-		    DAILINK_COMP_ARRAY(COMP_CODEC("i2c-ADS8388:00", "max98388-aif1"),
-				       COMP_CODEC("i2c-ADS8388:01", "max98388-aif1")));
+		    DAILINK_COMP_ARRAY(COMP_CODEC("i2c-ADS8388:00", MAX98388_CODEC_DAI),
+				       COMP_CODEC("i2c-ADS8388:01", MAX98388_CODEC_DAI)));
 
 static const struct snd_kcontrol_new max98388_controls[] = {
 	SOC_DAPM_PIN_SWITCH("Left Spk"),
@@ -1273,7 +1280,7 @@ static const struct snd_soc_ops acp_8821_ops = {
 
 SND_SOC_DAILINK_DEF(nau8821,
 		    DAILINK_COMP_ARRAY(COMP_CODEC("i2c-NVTN2020:00",
-						  "nau8821-hifi")));
+						  NAU8821_CODEC_DAI)));
 
 /* Declare DMIC codec components */
 SND_SOC_DAILINK_DEF(dmic_codec,
@@ -1464,8 +1471,13 @@ int acp_sofdsp_dai_links_create(struct snd_soc_card *card)
 	if (drv_data->amp_cpu_id == I2S_SP) {
 		links[i].name = "acp-amp-codec";
 		links[i].id = AMP_BE_ID;
-		links[i].cpus = sof_sp_virtual;
-		links[i].num_cpus = ARRAY_SIZE(sof_sp_virtual);
+		if (drv_data->platform == RENOIR) {
+			links[i].cpus = sof_sp;
+			links[i].num_cpus = ARRAY_SIZE(sof_sp);
+		} else {
+			links[i].cpus = sof_sp_virtual;
+			links[i].num_cpus = ARRAY_SIZE(sof_sp_virtual);
+		}
 		links[i].platforms = sof_component;
 		links[i].num_platforms = ARRAY_SIZE(sof_component);
 		links[i].dpcm_playback = 1;

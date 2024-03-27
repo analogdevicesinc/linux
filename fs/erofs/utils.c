@@ -81,7 +81,7 @@ struct erofs_workgroup *erofs_insert_workgroup(struct super_block *sb,
 repeat:
 	xa_lock(&sbi->managed_pslots);
 	pre = __xa_cmpxchg(&sbi->managed_pslots, grp->index,
-			   NULL, grp, GFP_NOFS);
+			   NULL, grp, GFP_KERNEL);
 	if (pre) {
 		if (xa_is_err(pre)) {
 			pre = ERR_PTR(xa_err(pre));
@@ -129,7 +129,7 @@ static bool erofs_try_to_release_workgroup(struct erofs_sb_info *sbi,
 	 * the XArray. Otherwise some cached pages could be still attached to
 	 * the orphan old workgroup when the new one is available in the tree.
 	 */
-	if (erofs_try_to_free_all_cached_pages(sbi, grp))
+	if (erofs_try_to_free_all_cached_folios(sbi, grp))
 		goto out;
 
 	/*

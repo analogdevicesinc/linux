@@ -25,8 +25,6 @@
 #include "misc.h"
 #include "ctree.h"
 #include "fs.h"
-#include "disk-io.h"
-#include "transaction.h"
 #include "btrfs_inode.h"
 #include "bio.h"
 #include "ordered-data.h"
@@ -34,8 +32,7 @@
 #include "extent_io.h"
 #include "extent_map.h"
 #include "subpage.h"
-#include "zoned.h"
-#include "file-item.h"
+#include "messages.h"
 #include "super.h"
 
 static struct bio_set btrfs_compressed_bioset;
@@ -141,16 +138,16 @@ static int compression_decompress_bio(struct list_head *ws,
 }
 
 static int compression_decompress(int type, struct list_head *ws,
-               const u8 *data_in, struct page *dest_page,
-               unsigned long start_byte, size_t srclen, size_t destlen)
+		const u8 *data_in, struct page *dest_page,
+		unsigned long dest_pgoff, size_t srclen, size_t destlen)
 {
 	switch (type) {
 	case BTRFS_COMPRESS_ZLIB: return zlib_decompress(ws, data_in, dest_page,
-						start_byte, srclen, destlen);
+						dest_pgoff, srclen, destlen);
 	case BTRFS_COMPRESS_LZO:  return lzo_decompress(ws, data_in, dest_page,
-						start_byte, srclen, destlen);
+						dest_pgoff, srclen, destlen);
 	case BTRFS_COMPRESS_ZSTD: return zstd_decompress(ws, data_in, dest_page,
-						start_byte, srclen, destlen);
+						dest_pgoff, srclen, destlen);
 	case BTRFS_COMPRESS_NONE:
 	default:
 		/*
@@ -284,7 +281,7 @@ static void end_bbio_comprssed_read(struct btrfs_bio *bbio)
 static noinline void end_compressed_writeback(const struct compressed_bio *cb)
 {
 	struct inode *inode = &cb->bbio.inode->vfs_inode;
-	struct btrfs_fs_info *fs_info = btrfs_sb(inode->i_sb);
+	struct btrfs_fs_info *fs_info = inode_to_fs_info(inode);
 	unsigned long index = cb->start >> PAGE_SHIFT;
 	unsigned long end_index = (cb->start + cb->len - 1) >> PAGE_SHIFT;
 	struct folio_batch fbatch;
@@ -415,7 +412,7 @@ static noinline int add_ra_bio_pages(struct inode *inode,
 				     struct compressed_bio *cb,
 				     int *memstall, unsigned long *pflags)
 {
-	struct btrfs_fs_info *fs_info = btrfs_sb(inode->i_sb);
+	struct btrfs_fs_info *fs_info = inode_to_fs_info(inode);
 	unsigned long end_index;
 	struct bio *orig_bio = &cb->orig_bbio->bio;
 	u64 cur = cb->orig_bbio->file_offset + orig_bio->bi_iter.bi_size;
@@ -441,7 +438,7 @@ static noinline int add_ra_bio_pages(struct inode *inode,
 	 * This makes readahead less effective, so here disable readahead for
 	 * subpage for now, until full compressed write is supported.
 	 */
-	if (btrfs_sb(inode->i_sb)->sectorsize < PAGE_SIZE)
+	if (fs_info->sectorsize < PAGE_SIZE)
 		return 0;
 
 	end_index = (i_size_read(inode) - 1) >> PAGE_SHIFT;
@@ -1037,14 +1034,23 @@ static int btrfs_decompress_bio(struct compressed_bio *cb)
  * start_byte tells us the offset into the compressed data we're interested in
  */
 int btrfs_decompress(int type, const u8 *data_in, struct page *dest_page,
-		     unsigned long start_byte, size_t srclen, size_t destlen)
+		     unsigned long dest_pgoff, size_t srclen, size_t destlen)
 {
+	struct btrfs_fs_info *fs_info = page_to_fs_info(dest_page);
 	struct list_head *workspace;
+	const u32 sectorsize = fs_info->sectorsize;
 	int ret;
+
+	/*
+	 * The full destination page range should not exceed the page size.
+	 * And the @destlen should not exceed sectorsize, as this is only called for
+	 * inline file extents, which should not exceed sectorsize.
+	 */
+	ASSERT(dest_pgoff + destlen <= PAGE_SIZE && destlen <= sectorsize);
 
 	workspace = get_workspace(type, 0);
 	ret = compression_decompress(type, workspace, data_in, dest_page,
-				     start_byte, srclen, destlen);
+				     dest_pgoff, srclen, destlen);
 	put_workspace(type, workspace);
 
 	return ret;
@@ -1469,11 +1475,6 @@ static void heuristic_collect_sample(struct inode *inode, u64 start, u64 end,
 
 /*
  * Compression heuristic.
- *
- * For now is's a naive and optimistic 'return true', we'll extend the logic to
- * quickly (compared to direct compression) detect data characteristics
- * (compressible/incompressible) to avoid wasting CPU time on incompressible
- * data.
  *
  * The following types of analysis can be performed:
  * - detect mostly zero data

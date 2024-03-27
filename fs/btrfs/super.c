@@ -34,13 +34,11 @@
 #include "disk-io.h"
 #include "transaction.h"
 #include "btrfs_inode.h"
-#include "print-tree.h"
 #include "props.h"
 #include "xattr.h"
 #include "bio.h"
 #include "export.h"
 #include "compression.h"
-#include "rcu-string.h"
 #include "dev-replace.h"
 #include "free-space-cache.h"
 #include "backref.h"
@@ -1457,6 +1455,14 @@ static int btrfs_reconfigure(struct fs_context *fc)
 
 	btrfs_info_to_ctx(fs_info, &old_ctx);
 
+	/*
+	 * This is our "bind mount" trick, we don't want to allow the user to do
+	 * anything other than mount a different ro/rw and a different subvol,
+	 * all of the mount options should be maintained.
+	 */
+	if (mount_reconfigure)
+		ctx->mount_opt = old_ctx.mount_opt;
+
 	sync_filesystem(sb);
 	set_bit(BTRFS_FS_STATE_REMOUNTING, &fs_info->fs_state);
 
@@ -1759,7 +1765,7 @@ static int btrfs_statfs(struct dentry *dentry, struct kstatfs *buf)
 		buf->f_bavail = 0;
 
 	buf->f_type = BTRFS_SUPER_MAGIC;
-	buf->f_bsize = dentry->d_sb->s_blocksize;
+	buf->f_bsize = fs_info->sectorsize;
 	buf->f_namelen = BTRFS_NAME_LEN;
 
 	/* We treat it as constant endianness (it doesn't matter _which_)
@@ -2195,7 +2201,9 @@ static long btrfs_control_ioctl(struct file *file, unsigned int cmd,
 	vol = memdup_user((void __user *)arg, sizeof(*vol));
 	if (IS_ERR(vol))
 		return PTR_ERR(vol);
-	vol->name[BTRFS_PATH_NAME_MAX] = '\0';
+	ret = btrfs_check_ioctl_vol_args_path(vol);
+	if (ret < 0)
+		goto out;
 
 	switch (cmd) {
 	case BTRFS_IOC_SCAN_DEV:
@@ -2237,6 +2245,7 @@ static long btrfs_control_ioctl(struct file *file, unsigned int cmd,
 		break;
 	}
 
+out:
 	kfree(vol);
 	return ret;
 }

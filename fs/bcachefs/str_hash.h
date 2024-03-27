@@ -160,20 +160,15 @@ static inline bool is_visible_key(struct bch_hash_desc desc, subvol_inum inum, s
 }
 
 static __always_inline int
-bch2_hash_lookup(struct btree_trans *trans,
+bch2_hash_lookup_in_snapshot(struct btree_trans *trans,
 		 struct btree_iter *iter,
 		 const struct bch_hash_desc desc,
 		 const struct bch_hash_info *info,
 		 subvol_inum inum, const void *key,
-		 unsigned flags)
+		 unsigned flags, u32 snapshot)
 {
 	struct bkey_s_c k;
-	u32 snapshot;
 	int ret;
-
-	ret = bch2_subvolume_get_snapshot(trans, inum.subvol, &snapshot);
-	if (ret)
-		return ret;
 
 	for_each_btree_key_upto_norestart(trans, *iter, desc.btree_id,
 			   SPOS(inum.inum, desc.hash_key(info, key), snapshot),
@@ -192,6 +187,19 @@ bch2_hash_lookup(struct btree_trans *trans,
 	bch2_trans_iter_exit(trans, iter);
 
 	return ret ?: -BCH_ERR_ENOENT_str_hash_lookup;
+}
+
+static __always_inline int
+bch2_hash_lookup(struct btree_trans *trans,
+		 struct btree_iter *iter,
+		 const struct bch_hash_desc desc,
+		 const struct bch_hash_info *info,
+		 subvol_inum inum, const void *key,
+		 unsigned flags)
+{
+	u32 snapshot;
+	return  bch2_subvolume_get_snapshot(trans, inum.subvol, &snapshot) ?:
+		bch2_hash_lookup_in_snapshot(trans, iter, desc, info, inum, key, flags, snapshot);
 }
 
 static __always_inline int
@@ -251,7 +259,7 @@ int bch2_hash_needs_whiteout(struct btree_trans *trans,
 }
 
 static __always_inline
-int bch2_hash_set_snapshot(struct btree_trans *trans,
+int bch2_hash_set_in_snapshot(struct btree_trans *trans,
 			   const struct bch_hash_desc desc,
 			   const struct bch_hash_info *info,
 			   subvol_inum inum, u32 snapshot,
@@ -320,17 +328,12 @@ int bch2_hash_set(struct btree_trans *trans,
 		  struct bkey_i *insert,
 		  bch_str_hash_flags_t str_hash_flags)
 {
-	u32 snapshot;
-	int ret;
-
-	ret = bch2_subvolume_get_snapshot(trans, inum.subvol, &snapshot);
-	if (ret)
-		return ret;
-
 	insert->k.p.inode = inum.inum;
 
-	return bch2_hash_set_snapshot(trans, desc, info, inum,
-				      snapshot, insert, str_hash_flags, 0);
+	u32 snapshot;
+	return  bch2_subvolume_get_snapshot(trans, inum.subvol, &snapshot) ?:
+		bch2_hash_set_in_snapshot(trans, desc, info, inum,
+					  snapshot, insert, str_hash_flags, 0);
 }
 
 static __always_inline

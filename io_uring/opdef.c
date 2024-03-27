@@ -35,6 +35,7 @@
 #include "rw.h"
 #include "waitid.h"
 #include "futex.h"
+#include "truncate.h"
 
 static int io_no_issue(struct io_kiocb *req, unsigned int issue_flags)
 {
@@ -471,9 +472,14 @@ const struct io_issue_def io_issue_defs[] = {
 	},
 	[IORING_OP_FIXED_FD_INSTALL] = {
 		.needs_file		= 1,
-		.audit_skip		= 1,
 		.prep			= io_install_fixed_fd_prep,
 		.issue			= io_install_fixed_fd,
+	},
+	[IORING_OP_FTRUNCATE] = {
+		.needs_file		= 1,
+		.hash_reg_file		= 1,
+		.prep			= io_ftruncate_prep,
+		.issue			= io_ftruncate,
 	},
 };
 
@@ -712,6 +718,9 @@ const struct io_cold_def io_cold_defs[] = {
 	},
 	[IORING_OP_FIXED_FD_INSTALL] = {
 		.name			= "FIXED_FD_INSTALL",
+	},
+	[IORING_OP_FTRUNCATE] = {
+		.name			= "FTRUNCATE",
 	},
 };
 

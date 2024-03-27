@@ -607,11 +607,26 @@ static struct sk_buff *macsec_encrypt(struct sk_buff *skb,
 		return ERR_PTR(-EINVAL);
 	}
 
-	ret = skb_ensure_writable_head_tail(skb, dev);
-	if (unlikely(ret < 0)) {
-		macsec_txsa_put(tx_sa);
-		kfree_skb(skb);
-		return ERR_PTR(ret);
+	if (unlikely(skb_headroom(skb) < MACSEC_NEEDED_HEADROOM ||
+		     skb_tailroom(skb) < MACSEC_NEEDED_TAILROOM)) {
+		struct sk_buff *nskb = skb_copy_expand(skb,
+						       MACSEC_NEEDED_HEADROOM,
+						       MACSEC_NEEDED_TAILROOM,
+						       GFP_ATOMIC);
+		if (likely(nskb)) {
+			consume_skb(skb);
+			skb = nskb;
+		} else {
+			macsec_txsa_put(tx_sa);
+			kfree_skb(skb);
+			return ERR_PTR(-ENOMEM);
+		}
+	} else {
+		skb = skb_unshare(skb, GFP_ATOMIC);
+		if (!skb) {
+			macsec_txsa_put(tx_sa);
+			return ERR_PTR(-ENOMEM);
+		}
 	}
 
 	unprotected_len = skb->len;
@@ -3504,18 +3519,13 @@ static int macsec_dev_init(struct net_device *dev)
 	struct net_device *real_dev = macsec->real_dev;
 	int err;
 
-	dev->tstats = netdev_alloc_pcpu_stats(struct pcpu_sw_netstats);
-	if (!dev->tstats)
-		return -ENOMEM;
-
 	err = gro_cells_init(&macsec->gro_cells, dev);
-	if (err) {
-		free_percpu(dev->tstats);
+	if (err)
 		return err;
-	}
 
 	dev->features = real_dev->features & MACSEC_FEATURES;
 	dev->features |= NETIF_F_LLTX | NETIF_F_GSO_SOFTWARE;
+	dev->pcpu_stat_type = NETDEV_PCPU_STAT_TSTATS;
 
 	macsec_set_head_tail_room(dev);
 
@@ -3535,7 +3545,6 @@ static void macsec_dev_uninit(struct net_device *dev)
 	struct macsec_dev *macsec = macsec_priv(dev);
 
 	gro_cells_destroy(&macsec->gro_cells);
-	free_percpu(dev->tstats);
 }
 
 static netdev_features_t macsec_fix_features(struct net_device *dev,
@@ -3738,7 +3747,7 @@ static void macsec_get_stats64(struct net_device *dev,
 
 static int macsec_get_iflink(const struct net_device *dev)
 {
-	return macsec_priv(dev)->real_dev->ifindex;
+	return READ_ONCE(macsec_priv(dev)->real_dev->ifindex);
 }
 
 static const struct net_device_ops macsec_netdev_ops = {

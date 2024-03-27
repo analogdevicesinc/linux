@@ -157,7 +157,7 @@ static void drm_test_mm_init(struct kunit *test)
 
 	/* After creation, it should all be one massive hole */
 	if (!assert_one_hole(test, &mm, 0, size)) {
-		KUNIT_FAIL(test, "");
+		KUNIT_FAIL(test, "mm not one hole on creation");
 		goto out;
 	}
 
@@ -171,14 +171,14 @@ static void drm_test_mm_init(struct kunit *test)
 
 	/* After filling the range entirely, there should be no holes */
 	if (!assert_no_holes(test, &mm)) {
-		KUNIT_FAIL(test, "");
+		KUNIT_FAIL(test, "mm has holes when filled");
 		goto out;
 	}
 
 	/* And then after emptying it again, the massive hole should be back */
 	drm_mm_remove_node(&tmp);
 	if (!assert_one_hole(test, &mm, 0, size)) {
-		KUNIT_FAIL(test, "");
+		KUNIT_FAIL(test, "mm does not have single hole after emptying");
 		goto out;
 	}
 
@@ -188,13 +188,13 @@ out:
 
 static void drm_test_mm_debug(struct kunit *test)
 {
+	struct drm_printer p = drm_dbg_printer(NULL, DRM_UT_CORE, test->name);
 	struct drm_mm mm;
 	struct drm_mm_node nodes[2];
 
 	/* Create a small drm_mm with a couple of nodes and a few holes, and
 	 * check that the debug iterator doesn't explode over a trivial drm_mm.
 	 */
-
 	drm_mm_init(&mm, 0, 4096);
 
 	memset(nodes, 0, sizeof(nodes));
@@ -209,6 +209,9 @@ static void drm_test_mm_debug(struct kunit *test)
 	KUNIT_ASSERT_FALSE_MSG(test, drm_mm_reserve_node(&mm, &nodes[1]),
 			       "failed to reserve node[0] {start=%lld, size=%lld)\n",
 			       nodes[0].start, nodes[0].size);
+
+	drm_mm_print(&mm, &p);
+	KUNIT_SUCCEED(test);
 }
 
 static bool expect_insert(struct kunit *test, struct drm_mm *mm,

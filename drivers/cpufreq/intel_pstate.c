@@ -25,6 +25,7 @@
 #include <linux/acpi.h>
 #include <linux/vmalloc.h>
 #include <linux/pm_qos.h>
+#include <linux/bitfield.h>
 #include <trace/events/power.h>
 
 #include <asm/cpu.h>
@@ -201,8 +202,6 @@ struct global_params {
  * @prev_aperf:		Last APERF value read from APERF MSR
  * @prev_mperf:		Last MPERF value read from MPERF MSR
  * @prev_tsc:		Last timestamp counter (TSC) value
- * @prev_cummulative_iowait: IO Wait time difference from last and
- *			current sample
  * @sample:		Storage for storing last Sample data
  * @min_perf_ratio:	Minimum capacity in terms of PERF or HWP ratios
  * @max_perf_ratio:	Maximum capacity in terms of PERF or HWP ratios
@@ -241,7 +240,6 @@ struct cpudata {
 	u64	prev_aperf;
 	u64	prev_mperf;
 	u64	prev_tsc;
-	u64	prev_cummulative_iowait;
 	struct sample sample;
 	int32_t	min_perf_ratio;
 	int32_t	max_perf_ratio;
@@ -529,6 +527,30 @@ static int intel_pstate_cppc_get_scaling(int cpu)
 }
 #endif /* CONFIG_ACPI_CPPC_LIB */
 
+static int intel_pstate_freq_to_hwp_rel(struct cpudata *cpu, int freq,
+					unsigned int relation)
+{
+	if (freq == cpu->pstate.turbo_freq)
+		return cpu->pstate.turbo_pstate;
+
+	if (freq == cpu->pstate.max_freq)
+		return cpu->pstate.max_pstate;
+
+	switch (relation) {
+	case CPUFREQ_RELATION_H:
+		return freq / cpu->pstate.scaling;
+	case CPUFREQ_RELATION_C:
+		return DIV_ROUND_CLOSEST(freq, cpu->pstate.scaling);
+	}
+
+	return DIV_ROUND_UP(freq, cpu->pstate.scaling);
+}
+
+static int intel_pstate_freq_to_hwp(struct cpudata *cpu, int freq)
+{
+	return intel_pstate_freq_to_hwp_rel(cpu, freq, CPUFREQ_RELATION_L);
+}
+
 /**
  * intel_pstate_hybrid_hwp_adjust - Calibrate HWP performance levels.
  * @cpu: Target CPU.
@@ -546,6 +568,7 @@ static void intel_pstate_hybrid_hwp_adjust(struct cpudata *cpu)
 	int perf_ctl_scaling = cpu->pstate.perf_ctl_scaling;
 	int perf_ctl_turbo = pstate_funcs.get_turbo(cpu->cpu);
 	int scaling = cpu->pstate.scaling;
+	int freq;
 
 	pr_debug("CPU%d: perf_ctl_max_phys = %d\n", cpu->cpu, perf_ctl_max_phys);
 	pr_debug("CPU%d: perf_ctl_turbo = %d\n", cpu->cpu, perf_ctl_turbo);
@@ -559,16 +582,16 @@ static void intel_pstate_hybrid_hwp_adjust(struct cpudata *cpu)
 	cpu->pstate.max_freq = rounddown(cpu->pstate.max_pstate * scaling,
 					 perf_ctl_scaling);
 
-	cpu->pstate.max_pstate_physical =
-			DIV_ROUND_UP(perf_ctl_max_phys * perf_ctl_scaling,
-				     scaling);
+	freq = perf_ctl_max_phys * perf_ctl_scaling;
+	cpu->pstate.max_pstate_physical = intel_pstate_freq_to_hwp(cpu, freq);
 
-	cpu->pstate.min_freq = cpu->pstate.min_pstate * perf_ctl_scaling;
+	freq = cpu->pstate.min_pstate * perf_ctl_scaling;
+	cpu->pstate.min_freq = freq;
 	/*
 	 * Cast the min P-state value retrieved via pstate_funcs.get_min() to
 	 * the effective range of HWP performance levels.
 	 */
-	cpu->pstate.min_pstate = DIV_ROUND_UP(cpu->pstate.min_freq, scaling);
+	cpu->pstate.min_pstate = intel_pstate_freq_to_hwp(cpu, freq);
 }
 
 static inline void update_turbo_state(void)
@@ -2528,13 +2551,12 @@ static void intel_pstate_update_perf_limits(struct cpudata *cpu,
 	 * abstract values to represent performance rather than pure ratios.
 	 */
 	if (hwp_active && cpu->pstate.scaling != perf_ctl_scaling) {
-		int scaling = cpu->pstate.scaling;
 		int freq;
 
 		freq = max_policy_perf * perf_ctl_scaling;
-		max_policy_perf = DIV_ROUND_UP(freq, scaling);
+		max_policy_perf = intel_pstate_freq_to_hwp(cpu, freq);
 		freq = min_policy_perf * perf_ctl_scaling;
-		min_policy_perf = DIV_ROUND_UP(freq, scaling);
+		min_policy_perf = intel_pstate_freq_to_hwp(cpu, freq);
 	}
 
 	pr_debug("cpu:%d min_policy_perf:%d max_policy_perf:%d\n",
@@ -2908,18 +2930,7 @@ static int intel_cpufreq_target(struct cpufreq_policy *policy,
 
 	cpufreq_freq_transition_begin(policy, &freqs);
 
-	switch (relation) {
-	case CPUFREQ_RELATION_L:
-		target_pstate = DIV_ROUND_UP(freqs.new, cpu->pstate.scaling);
-		break;
-	case CPUFREQ_RELATION_H:
-		target_pstate = freqs.new / cpu->pstate.scaling;
-		break;
-	default:
-		target_pstate = DIV_ROUND_CLOSEST(freqs.new, cpu->pstate.scaling);
-		break;
-	}
-
+	target_pstate = intel_pstate_freq_to_hwp_rel(cpu, freqs.new, relation);
 	target_pstate = intel_cpufreq_update_pstate(policy, target_pstate, false);
 
 	freqs.new = target_pstate * cpu->pstate.scaling;
@@ -2937,7 +2948,7 @@ static unsigned int intel_cpufreq_fast_switch(struct cpufreq_policy *policy,
 
 	update_turbo_state();
 
-	target_pstate = DIV_ROUND_UP(target_freq, cpu->pstate.scaling);
+	target_pstate = intel_pstate_freq_to_hwp(cpu, target_freq);
 
 	target_pstate = intel_cpufreq_update_pstate(policy, target_pstate, true);
 
@@ -2973,6 +2984,9 @@ static void intel_cpufreq_adjust_perf(unsigned int cpunum,
 
 	if (min_pstate < cpu->min_perf_ratio)
 		min_pstate = cpu->min_perf_ratio;
+
+	if (min_pstate > cpu->max_perf_ratio)
+		min_pstate = cpu->max_perf_ratio;
 
 	max_pstate = min(cap_pstate, cpu->max_perf_ratio);
 	if (max_pstate < min_pstate)
@@ -3391,14 +3405,31 @@ static bool intel_pstate_hwp_is_enabled(void)
 	return !!(value & 0x1);
 }
 
-static const struct x86_cpu_id intel_epp_balance_perf[] = {
+#define POWERSAVE_MASK			GENMASK(7, 0)
+#define BALANCE_POWER_MASK		GENMASK(15, 8)
+#define BALANCE_PERFORMANCE_MASK	GENMASK(23, 16)
+#define PERFORMANCE_MASK		GENMASK(31, 24)
+
+#define HWP_SET_EPP_VALUES(powersave, balance_power, balance_perf, performance) \
+	(FIELD_PREP_CONST(POWERSAVE_MASK, powersave) |\
+	 FIELD_PREP_CONST(BALANCE_POWER_MASK, balance_power) |\
+	 FIELD_PREP_CONST(BALANCE_PERFORMANCE_MASK, balance_perf) |\
+	 FIELD_PREP_CONST(PERFORMANCE_MASK, performance))
+
+#define HWP_SET_DEF_BALANCE_PERF_EPP(balance_perf) \
+	(HWP_SET_EPP_VALUES(HWP_EPP_POWERSAVE, HWP_EPP_BALANCE_POWERSAVE,\
+	 balance_perf, HWP_EPP_PERFORMANCE))
+
+static const struct x86_cpu_id intel_epp_default[] = {
 	/*
 	 * Set EPP value as 102, this is the max suggested EPP
 	 * which can result in one core turbo frequency for
 	 * AlderLake Mobile CPUs.
 	 */
-	X86_MATCH_INTEL_FAM6_MODEL(ALDERLAKE_L, 102),
-	X86_MATCH_INTEL_FAM6_MODEL(SAPPHIRERAPIDS_X, 32),
+	X86_MATCH_INTEL_FAM6_MODEL(ALDERLAKE_L, HWP_SET_DEF_BALANCE_PERF_EPP(102)),
+	X86_MATCH_INTEL_FAM6_MODEL(SAPPHIRERAPIDS_X, HWP_SET_DEF_BALANCE_PERF_EPP(32)),
+	X86_MATCH_INTEL_FAM6_MODEL(METEORLAKE_L, HWP_SET_EPP_VALUES(HWP_EPP_POWERSAVE,
+							HWP_EPP_BALANCE_POWERSAVE, 115, 16)),
 	{}
 };
 
@@ -3496,11 +3527,24 @@ hwp_cpu_matched:
 	intel_pstate_sysfs_expose_params();
 
 	if (hwp_active) {
-		const struct x86_cpu_id *id = x86_match_cpu(intel_epp_balance_perf);
+		const struct x86_cpu_id *id = x86_match_cpu(intel_epp_default);
 		const struct x86_cpu_id *hybrid_id = x86_match_cpu(intel_hybrid_scaling_factor);
 
-		if (id)
-			epp_values[EPP_INDEX_BALANCE_PERFORMANCE] = id->driver_data;
+		if (id) {
+			epp_values[EPP_INDEX_POWERSAVE] =
+					FIELD_GET(POWERSAVE_MASK, id->driver_data);
+			epp_values[EPP_INDEX_BALANCE_POWERSAVE] =
+					FIELD_GET(BALANCE_POWER_MASK, id->driver_data);
+			epp_values[EPP_INDEX_BALANCE_PERFORMANCE] =
+					FIELD_GET(BALANCE_PERFORMANCE_MASK, id->driver_data);
+			epp_values[EPP_INDEX_PERFORMANCE] =
+					FIELD_GET(PERFORMANCE_MASK, id->driver_data);
+			pr_debug("Updated EPPs powersave:%x balanced power:%x balanced perf:%x performance:%x\n",
+				 epp_values[EPP_INDEX_POWERSAVE],
+				 epp_values[EPP_INDEX_BALANCE_POWERSAVE],
+				 epp_values[EPP_INDEX_BALANCE_PERFORMANCE],
+				 epp_values[EPP_INDEX_PERFORMANCE]);
+		}
 
 		if (hybrid_id) {
 			hybrid_scaling_factor = hybrid_id->driver_data;

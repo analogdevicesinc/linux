@@ -16,6 +16,7 @@
 #include "xfs_rtbitmap.h"
 #include "xfs_bit.h"
 #include "xfs_bmap.h"
+#include "xfs_sb.h"
 #include "scrub/scrub.h"
 #include "scrub/common.h"
 #include "scrub/trace.h"
@@ -118,7 +119,7 @@ xfsum_load(
 	xfs_rtsumoff_t		sumoff,
 	union xfs_suminfo_raw	*rawinfo)
 {
-	return xfile_obj_load(sc->xfile, rawinfo,
+	return xfile_load(sc->xfile, rawinfo,
 			sizeof(union xfs_suminfo_raw),
 			sumoff << XFS_WORDLOG);
 }
@@ -129,7 +130,7 @@ xfsum_store(
 	xfs_rtsumoff_t		sumoff,
 	const union xfs_suminfo_raw rawinfo)
 {
-	return xfile_obj_store(sc->xfile, &rawinfo,
+	return xfile_store(sc->xfile, &rawinfo,
 			sizeof(union xfs_suminfo_raw),
 			sumoff << XFS_WORDLOG);
 }
@@ -141,7 +142,7 @@ xfsum_copyout(
 	union xfs_suminfo_raw	*rawinfo,
 	unsigned int		nr_words)
 {
-	return xfile_obj_load(sc->xfile, rawinfo, nr_words << XFS_WORDLOG,
+	return xfile_load(sc->xfile, rawinfo, nr_words << XFS_WORDLOG,
 			sumoff << XFS_WORDLOG);
 }
 

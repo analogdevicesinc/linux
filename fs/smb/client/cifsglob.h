@@ -50,6 +50,11 @@
 #define CIFS_DEF_ACTIMEO (1 * HZ)
 
 /*
+ * max sleep time before retry to server
+ */
+#define CIFS_MAX_SLEEP 2000
+
+/*
  * max attribute cache timeout (jiffies) - 2^30
  */
 #define CIFS_MAX_ACTIMEO (1 << 30)
@@ -82,7 +87,7 @@
 #define SMB_INTERFACE_POLL_INTERVAL	600
 
 /* maximum number of PDUs in one compound */
-#define MAX_COMPOUND 5
+#define MAX_COMPOUND 7
 
 /*
  * Default number of credits to keep available for SMB3.
@@ -148,6 +153,24 @@ enum securityEnum {
 	Kerberos,		/* Kerberos via SPNEGO */
 };
 
+enum cifs_reparse_type {
+	CIFS_REPARSE_TYPE_NFS,
+	CIFS_REPARSE_TYPE_WSL,
+	CIFS_REPARSE_TYPE_DEFAULT = CIFS_REPARSE_TYPE_NFS,
+};
+
+static inline const char *cifs_reparse_type_str(enum cifs_reparse_type type)
+{
+	switch (type) {
+	case CIFS_REPARSE_TYPE_NFS:
+		return "nfs";
+	case CIFS_REPARSE_TYPE_WSL:
+		return "wsl";
+	default:
+		return "unknown";
+	}
+}
+
 struct session_key {
 	unsigned int len;
 	char *response;
@@ -203,6 +226,10 @@ struct cifs_open_info_data {
 			struct reparse_posix_data *posix;
 		};
 	} reparse;
+	struct {
+		__u8		eas[SMB2_WSL_MAX_QUERY_EA_RESP_SIZE];
+		unsigned int	eas_len;
+	} wsl;
 	char *symlink_target;
 	struct cifs_sid posix_owner;
 	struct cifs_sid posix_group;
@@ -211,19 +238,6 @@ struct cifs_open_info_data {
 		struct smb311_posix_qinfo posix_fi;
 	};
 };
-
-static inline bool cifs_open_data_reparse(struct cifs_open_info_data *data)
-{
-	struct smb2_file_all_info *fi = &data->fi;
-	u32 attrs = le32_to_cpu(fi->Attributes);
-	bool ret;
-
-	ret = data->reparse_point || (attrs & ATTR_REPARSE);
-	if (ret)
-		attrs |= ATTR_REPARSE;
-	fi->Attributes = cpu_to_le32(attrs);
-	return ret;
-}
 
 /*
  *****************************************************************
@@ -341,6 +355,9 @@ struct smb_version_operations {
 	/* informational QFS call */
 	void (*qfs_tcon)(const unsigned int, struct cifs_tcon *,
 			 struct cifs_sb_info *);
+	/* query for server interfaces */
+	int (*query_server_interfaces)(const unsigned int, struct cifs_tcon *,
+				       bool);
 	/* check if a path is accessible or not */
 	int (*is_path_accessible)(const unsigned int, struct cifs_tcon *,
 				  struct cifs_sb_info *, const char *);
@@ -366,7 +383,8 @@ struct smb_version_operations {
 			    struct cifs_open_info_data *data);
 	/* set size by path */
 	int (*set_path_size)(const unsigned int, struct cifs_tcon *,
-			     const char *, __u64, struct cifs_sb_info *, bool);
+			     const char *, __u64, struct cifs_sb_info *, bool,
+				 struct dentry *);
 	/* set size by file handle */
 	int (*set_file_size)(const unsigned int, struct cifs_tcon *,
 			     struct cifsFileInfo *, __u64, bool);
@@ -396,7 +414,7 @@ struct smb_version_operations {
 		     struct cifs_sb_info *);
 	/* unlink file */
 	int (*unlink)(const unsigned int, struct cifs_tcon *, const char *,
-		      struct cifs_sb_info *);
+		      struct cifs_sb_info *, struct dentry *);
 	/* open, rename and delete file */
 	int (*rename_pending_delete)(const char *, struct dentry *,
 				     const unsigned int);
@@ -754,7 +772,11 @@ struct TCP_Server_Info {
 	unsigned int	max_write;
 	unsigned int	min_offload;
 	unsigned int	retrans;
-	__le16	compress_algorithm;
+	struct {
+		bool requested; /* "compress" mount option set*/
+		bool enabled; /* actually negotiated with server */
+		__le16 alg; /* preferred alg negotiated with server */
+	} compression;
 	__u16	signing_algorithm;
 	__le16	cipher_type;
 	 /* save initital negprot hash */
@@ -1027,6 +1049,8 @@ struct cifs_chan {
 	__u8 signkey[SMB3_SIGN_KEY_SIZE];
 };
 
+#define CIFS_SES_FLAG_SCALE_CHANNELS (0x1)
+
 /*
  * Session structure.  One of these for each uid session with a particular host
  */
@@ -1059,6 +1083,8 @@ struct cifs_ses {
 	enum securityEnum sectype; /* what security flavor was specified? */
 	bool sign;		/* is signing required? */
 	bool domainAuto:1;
+	bool expired_pwd;  /* track if access denied or expired pwd so can know if need to update */
+	unsigned int flags;
 	__u16 session_flags;
 	__u8 smb3signingkey[SMB3_SIGN_KEY_SIZE];
 	__u8 smb3encryptionkey[SMB3_ENC_DEC_KEY_SIZE];
@@ -1370,6 +1396,8 @@ struct cifs_open_parms {
 	struct cifs_fid *fid;
 	umode_t mode;
 	bool reconnect:1;
+	bool replay:1; /* indicates that this open is for a replay */
+	struct kvec *ea_cctx;
 };
 
 struct cifs_fid {
@@ -1411,6 +1439,7 @@ struct cifsFileInfo {
 	bool invalidHandle:1;	/* file closed via session abend */
 	bool swapfile:1;
 	bool oplock_break_cancelled:1;
+	bool status_file_deleted:1; /* file has been deleted */
 	unsigned int oplock_epoch; /* epoch from the lease break */
 	__u32 oplock_level; /* oplock/lease level from the lease break */
 	int count;
@@ -1501,6 +1530,7 @@ struct cifs_writedata {
 	struct smbd_mr			*mr;
 #endif
 	struct cifs_credits		credits;
+	bool				replay;
 };
 
 /*
@@ -1561,7 +1591,6 @@ struct cifsInodeInfo {
 	spinlock_t writers_lock;
 	unsigned int writers;		/* Number of writers on this inode */
 	unsigned long time;		/* jiffies of last update of inode */
-	u64  server_eof;		/* current file size on server -- protected by i_lock */
 	u64  uniqueid;			/* server inode number */
 	u64  createtime;		/* creation time on server */
 	__u8 lease_key[SMB2_LEASE_KEY_SIZE];	/* lease key for this inode */
@@ -1831,6 +1860,13 @@ static inline bool is_retryable_error(int error)
 	return false;
 }
 
+static inline bool is_replayable_error(int error)
+{
+	if (error == -EAGAIN || error == -ECONNABORTED)
+		return true;
+	return false;
+}
+
 
 /* cifs_get_writable_file() flags */
 #define FIND_WR_ANY         0
@@ -2071,6 +2107,8 @@ extern struct workqueue_struct *cifsoplockd_wq;
 extern struct workqueue_struct *deferredclose_wq;
 extern __u32 cifs_lock_secret;
 
+extern mempool_t *cifs_sm_req_poolp;
+extern mempool_t *cifs_req_poolp;
 extern mempool_t *cifs_mid_poolp;
 
 /* Operations for different SMB versions */
@@ -2261,6 +2299,17 @@ static inline void cifs_sg_set_buf(struct sg_table *sgtable,
 	}
 }
 
+#define CIFS_OPARMS(_cifs_sb, _tcon, _path, _da, _cd, _co, _mode) \
+	((struct cifs_open_parms) { \
+		.tcon = _tcon, \
+		.path = _path, \
+		.desired_access = (_da), \
+		.disposition = (_cd), \
+		.create_options = cifs_create_options(_cifs_sb, (_co)), \
+		.mode = (_mode), \
+		.cifs_sb = _cifs_sb, \
+	})
+
 struct smb2_compound_vars {
 	struct cifs_open_parms oparms;
 	struct kvec rsp_iov[MAX_COMPOUND];
@@ -2272,6 +2321,7 @@ struct smb2_compound_vars {
 	struct kvec close_iov;
 	struct smb2_file_rename_info rename_info;
 	struct smb2_file_link_info link_info;
+	struct kvec ea_iov;
 };
 
 #endif	/* _CIFS_GLOB_H */

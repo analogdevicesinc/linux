@@ -92,7 +92,7 @@ static noinline void print_cycle(struct printbuf *out, struct lock_graph *g)
 			continue;
 
 		bch2_btree_trans_to_text(out, i->trans);
-		bch2_prt_task_backtrace(out, task, i == g->g ? 5 : 1);
+		bch2_prt_task_backtrace(out, task, i == g->g ? 5 : 1, GFP_NOWAIT);
 	}
 }
 
@@ -227,7 +227,7 @@ static noinline int break_cycle(struct lock_graph *g, struct printbuf *cycle)
 			prt_printf(&buf, "backtrace:");
 			prt_newline(&buf);
 			printbuf_indent_add(&buf, 2);
-			bch2_prt_task_backtrace(&buf, trans->locking_wait.task, 2);
+			bch2_prt_task_backtrace(&buf, trans->locking_wait.task, 2, GFP_NOWAIT);
 			printbuf_indent_sub(&buf, 2);
 			prt_newline(&buf);
 		}
@@ -747,7 +747,8 @@ void bch2_trans_downgrade(struct btree_trans *trans)
 		return;
 
 	trans_for_each_path(trans, path, i)
-		bch2_btree_path_downgrade(trans, path);
+		if (path->ref)
+			bch2_btree_path_downgrade(trans, path);
 }
 
 int bch2_trans_relock(struct btree_trans *trans)

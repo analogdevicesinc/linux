@@ -17,7 +17,6 @@ subdir-ccflags-y += $(call cc-option, -Wunused-const-variable)
 subdir-ccflags-y += $(call cc-option, -Wpacked-not-aligned)
 subdir-ccflags-y += $(call cc-option, -Wformat-overflow)
 subdir-ccflags-y += $(call cc-option, -Wformat-truncation)
-subdir-ccflags-y += $(call cc-option, -Wstringop-overflow)
 subdir-ccflags-y += $(call cc-option, -Wstringop-truncation)
 # The following turn off the warnings enabled by -Wextra
 ifeq ($(findstring 2, $(KBUILD_EXTRA_WARN)),)
@@ -369,6 +368,9 @@ i915-y += \
 	display/intel_vrr.o \
 	display/vlv_dsi.o \
 	display/vlv_dsi_pll.o
+
+i915-$(CONFIG_DRM_I915_DP_TUNNEL) += \
+	display/intel_dp_tunnel.o
 
 i915-y += \
 	i915_perf.o

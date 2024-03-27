@@ -469,7 +469,7 @@ static inline int ra_alloc_folio(struct readahead_control *ractl, pgoff_t index,
 
 	if (!folio)
 		return -ENOMEM;
-	mark = round_up(mark, 1UL << order);
+	mark = round_down(mark, 1UL << order);
 	if (index == mark)
 		folio_set_readahead(folio);
 	err = filemap_add_folio(ractl->mapping, folio, index, gfp);
@@ -500,10 +500,8 @@ void page_cache_ra_order(struct readahead_control *ractl,
 
 	if (new_order < MAX_PAGECACHE_ORDER) {
 		new_order += 2;
-		if (new_order > MAX_PAGECACHE_ORDER)
-			new_order = MAX_PAGECACHE_ORDER;
-		while ((1 << new_order) > ra->size)
-			new_order--;
+		new_order = min_t(unsigned int, MAX_PAGECACHE_ORDER, new_order);
+		new_order = min_t(unsigned int, new_order, ilog2(ra->size));
 	}
 
 	filemap_invalidate_lock_shared(mapping);
@@ -516,9 +514,6 @@ void page_cache_ra_order(struct readahead_control *ractl,
 		/* Don't allocate pages past EOF */
 		while (index + (1UL << order) - 1 > limit)
 			order--;
-		/* THP machinery does not support order-1 */
-		if (order == 1)
-			order = 0;
 		err = ra_alloc_folio(ractl, index, mark, order, gfp);
 		if (err)
 			break;
@@ -575,7 +570,7 @@ static void ondemand_readahead(struct readahead_control *ractl,
 	 * It's the expected callback index, assume sequential access.
 	 * Ramp up sizes, and push forward the readahead window.
 	 */
-	expected = round_up(ra->start + ra->size - ra->async_size,
+	expected = round_down(ra->start + ra->size - ra->async_size,
 			1UL << order);
 	if (index == expected || index == (ra->start + ra->size)) {
 		ra->start += ra->size;
