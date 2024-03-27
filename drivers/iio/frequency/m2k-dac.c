@@ -51,6 +51,7 @@
 #define M2K_DAC_REG_RAW_PATTERN_CHAN_B_MASK	GENMASK(31, 16)
 #define M2K_DAC_TRIGGER_START_ENABLE		BIT(14)
 #define M2K_DAC_TRIGGER_STOP_ENABLE		BIT(15)
+#define M2K_DAC_TRIGGER_STATUS			GENMASK(15, 14)
 #define M2K_DAC_RAW_PATTERN_MASK(chan_num)	(!(chan_num) ? M2K_DAC_REG_RAW_PATTERN_CHAN_A_MASK :\
 							     M2K_DAC_REG_RAW_PATTERN_CHAN_B_MASK)
 #define M2K_DAC_RAW_PATTERN(x, chan_num)	(!(chan_num) ? FIELD_PREP(M2K_DAC_REG_RAW_PATTERN_CHAN_A_MASK, x) :\
@@ -471,6 +472,8 @@ static int m2k_dac_set_trig_src(struct iio_dev *indio_dev,
 	m2k_dac_reg_update(indio_dev, M2K_DAC_REG_INSTRUMENT_TRIGGER, 0x0,
 			   M2K_DAC_TRIGGER_SOURCE_MASK);
 
+	/* Option To <2> is not made available, latter options are shifted */
+	val = (val > 1) ? (val + 1) : val;
 	val = BIT(val) << 15;
 	m2k_dac_reg_update(indio_dev, M2K_DAC_REG_INSTRUMENT_TRIGGER, val,
 			   M2K_DAC_TRIGGER_SOURCE_MASK);
@@ -489,16 +492,18 @@ static int m2k_dac_get_trig_src(struct iio_dev *indio_dev,
 
 	val = ioread32(m2k_dac->regs + M2K_DAC_REG_INSTRUMENT_TRIGGER);
 
-	if (val & M2K_DAC_TRIGGER_SOURCE_MASK)
-		return fls(val) - 16;
+	if (val & M2K_DAC_TRIGGER_SOURCE_MASK) {
+		val = fls(val) - 16;
+		/* Option To <2> is not made available, latter options are shifted */
+		return (val > 1) ? (val - 1) : val;
+	}
 
 	return 0;
 }
 
 static const char * const m2k_dac_trig_src_items[] = {
 	"none",
-	"trigger-i_0",
-	"trigger-i_1",
+	"trigger-Ti",
 	"trigger-adc",
 	"trigger-la",
 };
@@ -551,70 +556,38 @@ static const struct iio_enum m2k_dac_raw_enable_enum = {
 	.get = m2k_dac_get_raw_enable,
 };
 
-static int m2k_dac_get_start_trigger(struct iio_dev *indio_dev,
-				     const struct iio_chan_spec *chan)
+static int m2k_dac_get_trigger_status(struct iio_dev *indio_dev,
+				      const struct iio_chan_spec *chan)
 {
 	struct m2k_dac_ch *ch = iio_priv(indio_dev);
 	struct m2k_dac *m2k_dac = ch->dac;
 	unsigned int val;
 
 	val = ioread32(m2k_dac->regs + M2K_DAC_REG_INSTRUMENT_TRIGGER);
-	return FIELD_GET(M2K_DAC_TRIGGER_START_ENABLE, val);
+	return FIELD_GET(M2K_DAC_TRIGGER_STATUS, val);
 }
 
-static int m2k_dac_set_start_trigger(struct iio_dev *indio_dev,
-				     const struct iio_chan_spec *chan,
-				     unsigned int val)
+static int m2k_dac_set_trigger_status(struct iio_dev *indio_dev,
+				      const struct iio_chan_spec *chan,
+				      unsigned int val)
 {
 	m2k_dac_reg_update(indio_dev, M2K_DAC_REG_INSTRUMENT_TRIGGER,
-			   FIELD_PREP(M2K_DAC_TRIGGER_START_ENABLE, val),
-			   M2K_DAC_TRIGGER_START_ENABLE);
+			   FIELD_PREP(M2K_DAC_TRIGGER_STATUS, val),
+			   M2K_DAC_TRIGGER_STATUS);
 	return 0;
 }
 
-static const char * const m2k_dac_start_trigger_items[] = {
+static const char * const m2k_dac_trigger_status_items[] = {
 	"disabled",
-	"enabled",
+	"start",
+	"stop",
 };
 
-static const struct iio_enum m2k_dac_start_trigger_enum = {
-	.items = m2k_dac_start_trigger_items,
-	.num_items = ARRAY_SIZE(m2k_dac_start_trigger_items),
-	.set = m2k_dac_set_start_trigger,
-	.get = m2k_dac_get_start_trigger,
-};
-
-static int m2k_dac_get_stop_trigger(struct iio_dev *indio_dev,
-				    const struct iio_chan_spec *chan)
-{
-	struct m2k_dac_ch *ch = iio_priv(indio_dev);
-	struct m2k_dac *m2k_dac = ch->dac;
-	unsigned int val;
-
-	val = ioread32(m2k_dac->regs + M2K_DAC_REG_INSTRUMENT_TRIGGER);
-	return FIELD_GET(M2K_DAC_TRIGGER_STOP_ENABLE, val);
-}
-
-static int m2k_dac_set_stop_trigger(struct iio_dev *indio_dev,
-				    const struct iio_chan_spec *chan,
-				    unsigned int val)
-{
-	m2k_dac_reg_update(indio_dev, M2K_DAC_REG_INSTRUMENT_TRIGGER,
-			   FIELD_PREP(M2K_DAC_TRIGGER_STOP_ENABLE, val),
-			   M2K_DAC_TRIGGER_STOP_ENABLE);
-	return 0;
-}
-
-static const char * const m2k_dac_stop_trigger_items[] = {
-	"disabled",
-	"enabled",
-};
-
-static const struct iio_enum m2k_dac_stop_trigger_enum = {
-	.items = m2k_dac_stop_trigger_items,
-	.num_items = ARRAY_SIZE(m2k_dac_stop_trigger_items),
-	.set = m2k_dac_set_stop_trigger,
-	.get = m2k_dac_get_stop_trigger,
+static const struct iio_enum m2k_dac_trigger_status_enum = {
+	.items = m2k_dac_trigger_status_items,
+	.num_items = ARRAY_SIZE(m2k_dac_trigger_status_items),
+	.set = m2k_dac_set_trigger_status,
+	.get = m2k_dac_get_trigger_status,
 };
 
 static const struct iio_chan_spec_ext_info m2k_dac_ext_info[] = {
@@ -628,10 +601,8 @@ static const struct iio_chan_spec_ext_info m2k_dac_ext_info[] = {
 			   &m2k_dac_trig_condition_enum),
 	IIO_ENUM_AVAILABLE("raw_enable", IIO_SEPARATE, &m2k_dac_raw_enable_enum),
 	IIO_ENUM("raw_enable", IIO_SEPARATE, &m2k_dac_raw_enable_enum),
-	IIO_ENUM_AVAILABLE("start_trigger", IIO_SEPARATE, &m2k_dac_start_trigger_enum),
-	IIO_ENUM("start_trigger", IIO_SEPARATE, &m2k_dac_start_trigger_enum),
-	IIO_ENUM_AVAILABLE("stop_trigger", IIO_SEPARATE, &m2k_dac_stop_trigger_enum),
-	IIO_ENUM("stop_trigger", IIO_SEPARATE, &m2k_dac_stop_trigger_enum),
+	IIO_ENUM_AVAILABLE("trigger_status", IIO_SEPARATE, &m2k_dac_trigger_status_enum),
+	IIO_ENUM("trigger_status", IIO_SEPARATE, &m2k_dac_trigger_status_enum),
 	{ },
 };
 
