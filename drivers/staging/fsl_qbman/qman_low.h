@@ -1495,7 +1495,7 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 
 		DPA_ASSERT((mcr->verb & QM_MCR_VERB_MASK) ==
 			   QM_MCR_VERB_ALTER_OOS);
-		if (mcr->result) {
+		if (mcr->result != QM_MCR_RESULT_OK) {
 			pr_err("OOS Failed on FQID 0x%x\n", fqid);
 			return -1;
 		}
