@@ -38,6 +38,7 @@ int drain_mr_fqrni(struct qm_portal *p);
 
 #define QM_MC_DELAY_US		1
 #define QM_MC_TIMEOUT_US	10000
+#define FQRN_WAIT_TIMEOUT	msecs_to_jiffies(1000)
 
 /***************************/
 /* Portal register assists */
@@ -1298,6 +1299,8 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 	struct qm_mc_command *mcc;
 	struct qm_mc_result *mcr;
 	int orl_empty, drain = 0;
+	unsigned long start;
+	bool timeout;
 	u8 state;
 	u32 result;
 	u32 channel;
@@ -1404,12 +1407,19 @@ static inline int qm_shutdown_fq(struct qm_portal **portal, int portal_count,
 						  QM_SDQCR_TYPE_ACTIVE |
 						  QM_SDQCR_CHANNELS_POOL_CONV(channel));
 			}
-			while (!found_fqrn) {
+			start = jiffies;
+			timeout = false;
+			while (!found_fqrn && !timeout) {
 				/* Keep draining DQRR while checking the MR*/
 				qm_dqrr_drain_nomatch(channel_portal);
 				/* Process message ring too */
 				found_fqrn = qm_mr_drain(channel_portal, FQRN);
+				timeout = jiffies > start + FQRN_WAIT_TIMEOUT;
 				cpu_relax();
+			}
+			if (timeout) {
+				pr_err("QMan: timed out waiting for retire notification on FQID %u\n",
+				       fqid);
 			}
 		}
 		if (result != QM_MCR_RESULT_OK &&
