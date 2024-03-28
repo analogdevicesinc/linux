@@ -31,6 +31,9 @@
 		ethernet6 = &enet6;
 		ethernet7 = &enet7;
 		rtc1 = &ftm_alarm0;
+		qman_fqd = &qman_fqd;
+		bman_fbpr = &bman_fbpr;
+		qman_pfdr = &qman_pfdr;
 	};
 
 	cpus {
