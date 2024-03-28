@@ -45,6 +45,8 @@
 #define ADI_EXT_SYNC_DISARM		(1 << 2)
 #define ADI_MANUAL_SYNC_REQUEST		(1 << 8)
 
+#define ADI_REG_CNTRL_3			0x004c
+
 #define ADI_REG_CLK_FREQ			0x0054
 #define ADI_CLK_FREQ(x)			(((x) & 0xFFFFFFFF) << 0)
 #define ADI_TO_CLK_FREQ(x)		(((x) >> 0) & 0xFFFFFFFF)
