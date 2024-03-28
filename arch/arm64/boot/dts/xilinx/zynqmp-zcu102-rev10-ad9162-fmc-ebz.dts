@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices AD9163-FMC-EBZ
+ * Analog Devices ad9164-FMC-EBZ
  * https://www.analog.com/en/resources/evaluation-hardware-and-software/evaluation-boards-kits/EVAL-AD916X.html
  * Linux driver: https://wiki.analog.com/resources/tools-software/linux-drivers/iio-pll/ad9162
  *
- * hdl_project: <dac_fmc_ebz/zcu102> with device=AD9163 and mode=04 in common/config.tcl
+ * hdl_project: <dac_fmc_ebz/zcu102> with device=ad9164 and mode=04 in common/config.tcl
  * board_revision: <1.0>
  *
  * Copyright (C) 2024 Analog Devices Inc.
@@ -62,37 +62,41 @@
 /*
  * e de fapt 0x44A04000 dac_jesd204_transport, adica instanta de ad_ip_jesd204_tpl_dac
 */
-		axi_ad9163_core: axi-ad9163-hpc@84a04000 {
-			compatible = "adi,axi-ad9163-1.0";
+		axi_ad9164_core: axi-ad9164-hpc@84a04000 {
+			compatible = "adi,axi-ad9164-1.0";
 			reg = <0x84a04000 0x10000>;
 			dmas = <&tx_dma 0>;
 			dma-names = "tx";
-			spibus-connected = <&dac0_ad9163>;
+			spibus-connected = <&dac0_ad9164>;
 			adi,axi-pl-fifo-enable;
+
+			/* jesd204-fsm support */
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9164_jesd 0 0>;
 		};
 /*
  * e de fapt 0x44A90000 dac_jesd204_link
 */
-		axi_ad9163_jesd: axi-jesd204-tx@84a90000 {
+		axi_ad9164_jesd: axi-jesd204-tx@84a90000 {
 			compatible = "adi,axi-jesd204-tx-1.0";
 			reg = <0x84a90000 0x4000>;
 
 			interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&axi_ad9163_adxcvr 1>, <&axi_ad9163_adxcvr 0>;
+			clocks = <&zynqmp_clk 71>, <&axi_ad9164_adxcvr 1>, <&axi_ad9164_adxcvr 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
-
-			adi,octets-per-frame = <1>;
-			adi,frames-per-multiframe = <32>;
-			adi,converter-resolution = <16>;
-			adi,bits-per-sample = <16>;
-			adi,converters-per-device = <4>;
 
 			#clock-cells = <0>;
 			clock-output-names = "jesd_dac_lane_clk";
+
+			/* jesd204-fsm support */
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&axi_ad9164_adxcvr 0 0>;
 		};
 
-		axi_ad9163_adxcvr: axi-adxcvr-tx@84a60000 {
+		axi_ad9164_adxcvr: axi-adxcvr-tx@84a60000 {
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x84a60000 0x1000>;
 
@@ -105,6 +109,11 @@
 
 			#clock-cells = <1>;
 			clock-output-names = "dac_gt_clk", "tx_out_clk";
+
+			/* jesd204-fsm support */
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-inputs = <&ad9508_clk 0 0>;
 		};
 
 		axi_sysid_0: axi-sysid-0@85000000 {
@@ -116,12 +125,13 @@
 
 &spi0 {
 	status = "okay";
+	is-decoded-cs = <0>;
 };
 
 #define fmc_spi spi0
 
 #include "adi-ad9162-fmc-ebz.dtsi"
 
-//&dac0_ad9163 {
-//	txen-gpios = <&gpio 99 0>, <&gpio 102 0>;
-//};
+&dac0_ad9164 {
+	txen-gpios = <&gpio 99 0>, <&gpio 102 0>;
+};

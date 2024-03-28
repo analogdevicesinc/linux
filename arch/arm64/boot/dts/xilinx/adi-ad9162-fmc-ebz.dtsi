@@ -7,44 +7,48 @@
 
 / {
 	clocks {
-                adf4355_clkin: clock@0 {
-		        compatible = "fixed-clock";
+    adf4355_clkin: clock@0 {
+		  compatible = "fixed-clock";
 
-			clock-frequency = <122880000>;
+			clock-frequency = <120000000>;
 			clock-output-names = "clkin";
-			#clock-cells = <0>;
-		};
-
-                adf4355_out_div4: hmc365 {
-			compatible = "fixed-factor-clock";
-
-			clock-div = <4>;
-			clock-mult = <1>;
-			clocks = <&adf4355_clk>;
 
 			#clock-cells = <0>;
 		};
 
-                ad9508_clkin: clock@1 {
-			compatible = "fixed-factor-clock";
+    // adf4355_out_div4: hmc365 {
+		// 	compatible = "fixed-factor-clock";
 
-			clock-div = <2>;
-			clock-mult = <1>;
-			clocks = <&adf4355_out_div4>;
+		// 	clock-div = <2>;
+		// 	clock-mult = <1>;
+		// 	clocks = <&adf4355_clkin>;
 
-			#clock-cells = <0>;
-		};
+		// 	#clock-cells = <0>;
+		// };
+
+    // ad9508_clkin: clock@1 {
+		// 	compatible = "fixed-factor-clock";
+
+		// 	clock-div = <2>;
+		// 	clock-mult = <1>;
+		// 	clocks = <&adf4355_out_div4>;
+
+		// 	#clock-cells = <0>;
+		// };
 	};
 };
 
 #include <dt-bindings/iio/frequency/ad9508.h>
 
-&fmc_spi {
-        adf4355_clk: adf4355@2 {
-		compatible = "adi,adf4355-2";
+&spi0 {
+  adf4355_clk: adf4355@2 {
+		compatible = "adi,adf4355";
 		reg = <2>;
-
+		// spi-cpol;
+		// spi-cpha;
 		spi-max-frequency = <10000000>;
+
+		// adi,spi-3wire-enable;
 
 		clocks = <&adf4355_clkin>;
 		clock-names = "clkin";
@@ -59,43 +63,75 @@
 		adi,output-b-power = <3>;
 		adi,charge-pump-negative-bleed-enable;
 		adi,reference-differential-input-enable;
+		// adi,reference-div2-enable;
 		adi,muxout-level-3v3-enable;
-		adi,power-up-frequency = /bits/ 64 <3932160000>;
+		adi,power-up-frequency = /bits/ 64 <3840000000>;
 		adi,output-a-enable;
 		adi,output-b-enable;
 		adi,clock-shift = <1>;
 	};
 
-        ad9508_clk: ad9508@0 {
+	adf4355_out_div4: hmc365 {
+		#clock-cells = <0>;
+		compatible = "fixed-factor-clock";
+		clock-div = <2>;
+		clock-mult = <1>;
+		clocks = <&adf4355_clk>;
+		};
+
+	// adf4355_out_div8: hmc365-1 {
+	// 	#clock-cells = <0>;
+	// 	compatible = "fixed-factor-clock";
+	// 	clock-div = <2>;
+	// 	clock-mult = <1>;
+	// 	clocks = <&adf4355_out_div4>;
+	// 	};
+
+		// div2_in: hmc361 {
+		// #clock-cells = <0>;
+		// compatible = "fixed-factor-clock";
+		// clock-div = <2>;
+		// clock-mult = <1>;
+		// clocks = <&adf4355_out_div4>;
+		// };
+
+  ad9508_clk: ad9508@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
 		compatible = "adi,ad9508";
+
 		reg = <0>;
 		spi-cpol;
 		spi-cpha;
+		adi,spi-3wire-enable;
 
-		clocks = <&ad9508_clkin>;
+		clocks = <&adf4355_out_div4>;
 
 		spi-max-frequency = <10000000>;
 		clock-output-names = "ad9508-1_out0", "ad9508-1_out1", "ad9508-1_out2", "ad9508-1_out3";
-		adi,spi-3wire-enable;
+
+		/* jesd204-fsm support */
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-sysref-provider;
+		adi,jesd204-max-sysref-frequency-hz = <2000000>; /* 2 MHz */
 
 		ad9508_0_c0:channel@0 {
 			reg = <0>;
 			adi,extended-name = "REF_CLK";
 			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_HSTL)>;
 			adi,divider-phase = <0>;
-			adi,channel-divider = <32>;
+			adi,channel-divider = <1>;
 		};
 
-		// ad9508_0_c1:channel@1 {
-		// 	reg = <1>;
-		// 	adi,extended-name = "PLL_REF";
-		// 	adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_HSTL)>;
-		// 	adi,divider-phase = <0>;
-		// 	adi,channel-divider = <1>;
-		// };
+		ad9508_0_c1:channel@1 {
+			reg = <1>;
+			adi,extended-name = "PLL_REF";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_HSTL)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <1>;
+		};
 
 		ad9508_0_c2:channel@2 {
 			reg = <2>;
@@ -112,37 +148,53 @@
 			adi,divider-phase = <0>;
 			adi,channel-divider = <1>;
 		};
-        };
+  };
 
-        dac0_ad9163: ad9162@1 {
-		#address-cells = <1>;
-	        #size-cells = <0>;
-                compatible = "adi,ad9163";
-                reg = <1>;
-                spi-max-frequency = <1000000>;
-                clocks = <&adf4355_clk 0>;
-                clock-names = "dac_clk";
 
-                adi,full-scale-current-mircoamp = <40000>;
-                dac_clk-clock-scales = <1 10>;
+		dac0_ad9164: ad9164@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-cpol;
+			spi-cpha;
+			adi,spi-3wire-enable;
 
-                jesd204-device;
-                #jesd204-cells = <2>;
-                jesd204-top-device = <0>; /* This is the TOP device */
-                jesd204-link-ids = <0>;
-                jesd204-inputs = <&axi_ad9163_core 0 0>;
+			compatible = "adi,ad9164";
+			reg = <1>;
+			spi-max-frequency = <1000000>;
+			clocks = <&adf4355_clk 0>;
+			clock-names = "dac_clk";
 
-                adi,subclass = <0>;			/* JESD SUBCLASS 0,1,2 */
-                adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
-                adi,converters-per-device = <2>;	/* JESD M */
-                adi,octets-per-frame = <1>;		/* JESD F */
-                adi,frames-per-multiframe = <32>;	/* JESD K */
-                adi,converter-resolution = <16>;	/* JESD N */
-                adi,bits-per-sample = <16>;		/* JESD NP' */
-                adi,control-bits-per-sample = <0>;	/* JESD CS */
-                adi,lanes-per-device = <4>;		/* JESD L */
-                adi,samples-per-converter-per-frame = <1>; /* JESD S */
+			adi,full-scale-current-mircoamp = <40000>;
+			dac_clk-clock-scales = <1 10>;
 
-                adi,interpolation = <2>;
-        };
+			jesd204-device;
+			#jesd204-cells = <2>;
+			jesd204-top-device = <0>; /* This is the TOP device */
+			jesd204-link-ids = <0>;
+			jesd204-inputs = <&axi_ad9164_core 0 0>;
+
+			adi,dac-rate-khz = <2949120>;
+			adi,jesd-link-mode = <8>;
+
+			adi,jesd-subclass = <1>;
+			adi,dac-interpolation = <1>;
+			adi,channel-interpolation = <1>;
+			adi,clock-output-divider = <1>;
+			adi,syncoutb-signal-type-lvds-enable;
+			adi,scrambling = <1>;
+			adi,sysref-mode = <2>; /* SYSREF_CONTINUOUS */
+
+			adi,subclass = <0>;			/* JESD SUBCLASS 0,1,2 */
+			adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
+			adi,converters-per-device = <2>;	/* JESD M */
+			adi,octets-per-frame = <1>;		/* JESD F */
+			adi,frames-per-multiframe = <32>;	/* JESD K */
+			adi,converter-resolution = <16>;	/* JESD N */
+			adi,bits-per-sample = <16>;		/* JESD NP' */
+			adi,control-bits-per-sample = <0>;	/* JESD CS */
+			adi,lanes-per-device = <4>;		/* JESD L */
+			adi,samples-per-converter-per-frame = <1>; /* JESD S */
+
+			// adi,interpolation = <2>;
+		};
  };
