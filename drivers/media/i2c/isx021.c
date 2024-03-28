@@ -21,7 +21,7 @@
 #include <media/v4l2-subdev.h>
 
 #define ISX021_WIDTH	1920
-#define ISX021_HEIGHT	1080
+#define ISX021_HEIGHT	1280
 
 #define PLUS_10(x)  ((x)+(x)/10)
 
