@@ -26,6 +26,7 @@
 #define PLUS_10(x)  ((x)+(x)/10)
 
 #define V4L2_CID_FSYNC		(V4L2_CID_USER_BASE | 0x1002)
+#define V4L2_CID_TPG		(V4L2_CID_USER_BASE | 0x1003)
 
 static const char * const isx021_supply_names[] = {
 	"dvdd",
@@ -33,6 +34,11 @@ static const char * const isx021_supply_names[] = {
 
 static const char * const isx021_ctrl_fsync_options[] = {
 	"Internal", "External",
+};
+
+static const char * const isx021_ctrl_test_pattern_options[] = {
+	"Disabled",
+	"Enabled",
 };
 
 struct isx021 {
@@ -542,6 +548,24 @@ static int isx021_set_fsync_trigger_mode(struct isx021 *sensor)
   return ret;
 }
 
+static int isx021_set_tpg(struct isx021 *sensor, s32 val)
+{
+	u32 enabled = 0;
+	int ret = 0;
+
+	if (val)
+		enabled = 1;
+
+	ret = isx021_write(sensor, 0xbe14, enabled);
+	if (ret)
+  	{
+		return ret;
+  	}
+	ret = isx021_write(sensor, 0xbf60, enabled);
+
+	return ret;
+}
+
 /* -----------------------------------------------------------------------------
  * Controls
  */
@@ -578,6 +602,10 @@ static int isx021_s_ctrl(struct v4l2_ctrl *ctrl)
 		sensor->trigger_mode = ctrl->val;
 		break;
 
+	case V4L2_CID_TPG:
+		isx021_set_tpg(sensor, ctrl->val);
+		break;
+
 	default:
 		ret = -EINVAL;
 		break;
@@ -598,6 +626,16 @@ static const struct v4l2_ctrl_config isx021_ctrl_fsync = {
 	.max = ARRAY_SIZE(isx021_ctrl_fsync_options) - 1,
 	.def = 0,
 	.qmenu = isx021_ctrl_fsync_options,
+};
+
+static const struct v4l2_ctrl_config isx021_ctrl_tpg = {
+	.ops = &isx021_ctrl_ops,
+	.id = V4L2_CID_TPG,
+	.name = "Test Pattern Generator",
+	.type = V4L2_CTRL_TYPE_MENU,
+	.max = ARRAY_SIZE(isx021_ctrl_test_pattern_options) - 1,
+	.def = 0,
+	.qmenu = isx021_ctrl_test_pattern_options,
 };
 
 static int isx021_ctrls_init(struct isx021 *sensor)
@@ -634,6 +672,9 @@ static int isx021_ctrls_init(struct isx021 *sensor)
 
 	v4l2_ctrl_new_custom(&sensor->ctrls,
 				     &isx021_ctrl_fsync, NULL);
+
+	v4l2_ctrl_new_custom(&sensor->ctrls,
+				     &isx021_ctrl_tpg, NULL);
 
 	if (sensor->ctrls.error) {
 		dev_err(sensor->dev, "failed to add controls (%d)\n",
