@@ -255,6 +255,8 @@ dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk.dtb \
 			  imx93-11x11-evk-ld.dtb \
 			  imx93-11x11-evk-rpmsg.dtb imx93-11x11-evk-rpmsg-lpv.dtb
 
+dtb-$(CONFIG_ARCH_MXC) += imx91-11x11-evk.dtb
+
 imx93-11x11-evk-pmic-pf0900-dtbs := imx93-11x11-evk.dtb imx93-11x11-evk-pmic-pf0900.dtbo
 imx93-11x11-evk-pmic-pf0900-root-dtbs := imx93-11x11-evk-root.dtb imx93-11x11-evk-pmic-pf0900.dtbo
 imx93-11x11-evk-pmic-pf0900-flexio-i2c-dtbs := imx93-11x11-evk-flexio-i2c.dtb imx93-11x11-evk-pmic-pf0900.dtbo
