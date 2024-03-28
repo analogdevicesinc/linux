@@ -86,6 +86,7 @@ enum imx_pcie_variants {
 	IMX8MQ_EP,
 	IMX8MM_EP,
 	IMX8MP_EP,
+	IMX8Q_EP,
 	IMX95_EP,
 };
 
@@ -1009,7 +1010,7 @@ static int imx_pcie_host_init(struct dw_pcie_rp *pp)
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
 	struct device *dev = pci->dev;
 	struct imx_pcie *imx_pcie = to_imx_pcie(pci);
-	int ret;
+	int ret, submode;
 
 	if (imx_pcie->vpcie) {
 		ret = regulator_enable(imx_pcie->vpcie);
@@ -1040,7 +1041,11 @@ static int imx_pcie_host_init(struct dw_pcie_rp *pp)
 			goto err_clk_disable;
 		}
 
-		ret = phy_set_mode_ext(imx_pcie->phy, PHY_MODE_PCIE, PHY_MODE_PCIE_RC);
+		if (imx_pcie->drvdata->mode == DW_PCIE_EP_TYPE)
+			submode = PHY_MODE_PCIE_EP;
+		else
+			submode = PHY_MODE_PCIE_RC;
+		ret = phy_set_mode_ext(imx_pcie->phy, PHY_MODE_PCIE, submode);
 		if (ret) {
 			dev_err(dev, "unable to set PCIe PHY mode\n");
 			goto err_phy_exit;
@@ -1094,11 +1099,20 @@ static void imx_pcie_host_exit(struct dw_pcie_rp *pp)
 static u64 imx_pcie_cpu_addr_fixup(struct dw_pcie *pcie, u64 cpu_addr)
 {
 	struct imx_pcie *imx_pcie = to_imx_pcie(pcie);
+	struct dw_pcie_ep *ep = &pcie->ep;
 	struct dw_pcie_rp *pp = &pcie->pp;
 	struct resource_entry *entry;
 
 	if (!(imx_pcie->drvdata->flags & IMX_PCIE_FLAG_CPU_ADDR_FIXUP))
 		return cpu_addr;
+
+	/* TODO Temp method to support i.MX8Q PCIe EP mode */
+	if (imx_pcie->drvdata->mode == DW_PCIE_EP_TYPE) {
+		if (ep->phys_base == 0x60000000)
+			return (cpu_addr - 0x20000000); /* PCIEA */
+		else
+			return (cpu_addr + 0x10000000); /* PCIEB */
+	}
 
 	entry = resource_list_first_type(&pp->bridge->windows, IORESOURCE_MEM);
 	if (!entry)
@@ -1154,6 +1168,16 @@ static const struct pci_epc_features imx8m_pcie_epc_features = {
 	.bar[BAR_1] = { .type = BAR_RESERVED, },
 	.bar[BAR_3] = { .type = BAR_RESERVED, },
 	.align = SZ_64K,
+};
+
+static const struct pci_epc_features imx8q_pcie_epc_features = {
+	.linkup_notifier = false,
+	.msi_capable = true,
+	.msix_capable = false,
+	.bar[BAR_1] = { .type = BAR_RESERVED, },
+	.bar[BAR_3] = { .type = BAR_RESERVED, },
+	.bar[BAR_5] = { .type = BAR_RESERVED, },
+	.align = SZ_4K,
 };
 
 /*
@@ -1750,6 +1774,15 @@ static const struct imx_pcie_drvdata drvdata[] = {
 		.clk_names = imx8q_clks,
 		.clks_cnt = ARRAY_SIZE(imx8q_clks),
 	},
+	[IMX8Q_EP] = {
+		.variant = IMX8Q_EP,
+		.flags = IMX_PCIE_FLAG_HAS_PHYDRV |
+			 IMX_PCIE_FLAG_CPU_ADDR_FIXUP,
+		.mode = DW_PCIE_EP_TYPE,
+		.clk_names = imx8q_clks,
+		.clks_cnt = ARRAY_SIZE(imx8q_clks),
+		.epc_features = &imx8q_pcie_epc_features,
+	},
 	[IMX95] = {
 		.variant = IMX95,
 		.flags = IMX_PCIE_FLAG_HAS_SERDES |
@@ -1833,6 +1866,7 @@ static const struct of_device_id imx_pcie_of_match[] = {
 	{ .compatible = "fsl,imx8mq-pcie-ep", .data = &drvdata[IMX8MQ_EP], },
 	{ .compatible = "fsl,imx8mm-pcie-ep", .data = &drvdata[IMX8MM_EP], },
 	{ .compatible = "fsl,imx8mp-pcie-ep", .data = &drvdata[IMX8MP_EP], },
+	{ .compatible = "fsl,imx8q-pcie-ep", .data = &drvdata[IMX8Q_EP], },
 	{ .compatible = "fsl,imx95-pcie-ep", .data = &drvdata[IMX95_EP], },
 	{},
 };
