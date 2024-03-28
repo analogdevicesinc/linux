@@ -909,7 +909,39 @@ static const struct v4l2_subdev_pad_ops isx021_subdev_pad_ops = {
 	.init_cfg = isx021_init_cfg,
 };
 
+#ifdef CONFIG_VIDEO_ADV_DEBUG
+static int isx021_s_register(struct v4l2_subdev *sd,
+			     const struct v4l2_dbg_register *reg)
+{
+	struct isx021 *sensor = container_of(sd, struct isx021, subdev);
+
+	return isx021_write(sensor, reg->reg, reg->val);
+}
+
+static int isx021_g_register(struct v4l2_subdev *sd,
+			     struct v4l2_dbg_register *reg)
+{
+	struct isx021 *sensor = container_of(sd, struct isx021, subdev);
+	u8 aux;
+	int ret;
+
+	reg->size = 1;
+	ret = isx021_read(sensor, reg->reg, &aux);
+	reg->val = aux;
+
+	return ret;
+}
+#endif
+
+static const struct v4l2_subdev_core_ops isx021_core_ops = {
+#ifdef CONFIG_VIDEO_ADV_DEBUG
+	.g_register = isx021_g_register,
+	.s_register = isx021_s_register,
+#endif
+};
+
 static const struct v4l2_subdev_ops isx021_subdev_ops = {
+	.core = &isx021_core_ops,
 	.video = &isx021_subdev_video_ops,
 	.pad = &isx021_subdev_pad_ops,
 };
