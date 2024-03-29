@@ -132,7 +132,7 @@ config KEYSTONE_REMOTEPROC
 	tristate "Keystone Remoteproc support"
 	depends on ARCH_KEYSTONE
 	help
-	  Say Y here here to support Keystone remote processors (DSP)
+	  Say Y here to support Keystone remote processors (DSP)
 	  via the remote processor framework.
 
 	  It's safe to say N here if you're not interested in the Keystone
@@ -377,6 +377,12 @@ config XLNX_R5_REMOTEPROC
 	  processor framework.
 
 	  It's safe to say N if not interested in using RPU r5f cores.
+
+config ADI_REMOTEPROC
+	tristate "ADI remoteproc support"
+	depends on ARCH_SC59X_64 || ARCH_SC5XX || COMPILE_TEST
+	help
+	  Say y here to support ADI's remote processors (SHARC DSP Core onSC5XX) via the remote processor framework.
 
 endif # REMOTEPROC
 
