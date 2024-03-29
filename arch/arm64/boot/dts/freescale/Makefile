@@ -247,7 +247,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx93-14x14-evk.dtb \
 			  imx93-14x14-evk-i3c.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk.dtb \
 			  imx93-11x11-evk-inmate.dtb imx93-11x11-evk-root.dtb imx93-11x11-evk-flexio-i2c.dtb \
-			  imx93-11x11-evk-lpspi.dtb imx93-11x11-evk-lpspi-slave.dtb \
+			  imx93-11x11-evk-i2c-spi-slave.dtb \
 			  imx93-11x11-evk-i3c.dtb imx93-11x11-evk-lpuart.dtb \
 			  imx93-11x11-evk-mqs.dtb imx93-11x11-evk-aud-hat.dtb \
 			  imx93-11x11-evk-rm67199.dtb imx93-11x11-evk-boe-wxga-lvds-panel.dtb \
@@ -258,8 +258,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk.dtb \
 imx93-11x11-evk-pmic-pf0900-dtbs := imx93-11x11-evk.dtb imx93-11x11-evk-pmic-pf0900.dtbo
 imx93-11x11-evk-pmic-pf0900-root-dtbs := imx93-11x11-evk-root.dtb imx93-11x11-evk-pmic-pf0900.dtbo
 imx93-11x11-evk-pmic-pf0900-flexio-i2c-dtbs := imx93-11x11-evk-flexio-i2c.dtb imx93-11x11-evk-pmic-pf0900.dtbo
-imx93-11x11-evk-pmic-pf0900-lpspi-dtbs := imx93-11x11-evk-lpspi.dtb imx93-11x11-evk-pmic-pf0900.dtbo
-imx93-11x11-evk-pmic-pf0900-lpspi-slave-dtbs := imx93-11x11-evk-lpspi-slave.dtb imx93-11x11-evk-pmic-pf0900.dtbo
+imx93-11x11-evk-pmic-pf0900-i2c-spi-slave-dtbs := imx93-11x11-evk-i2c-spi-slave.dtb imx93-11x11-evk-pmic-pf0900.dtbo
 imx93-11x11-evk-pmic-pf0900-i3c-dtbs := imx93-11x11-evk-i3c.dtb imx93-11x11-evk-pmic-pf0900.dtbo
 imx93-11x11-evk-pmic-pf0900-lpuart-dtbs := imx93-11x11-evk-lpuart.dtb imx93-11x11-evk-pmic-pf0900.dtbo
 imx93-11x11-evk-pmic-pf0900-mqs-dtbs := imx93-11x11-evk-mqs.dtb imx93-11x11-evk-pmic-pf0900.dtbo
@@ -275,8 +274,7 @@ imx93-11x11-evk-pmic-pf0900-rpmsg-lpv-dtbs := imx93-11x11-evk-rpmsg-lpv.dtb imx9
 dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-root.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-flexio-i2c.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-lpspi.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-lpspi-slave.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-i2c-spi-slave.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-i3c.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-lpuart.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk-pmic-pf0900-mqs.dtb
