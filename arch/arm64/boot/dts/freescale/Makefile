@@ -261,7 +261,8 @@ dtb-$(CONFIG_ARCH_MXC) += imx91-11x11-evk.dtb \
 			  imx91-11x11-evk-mqs.dtb imx91-11x11-evk-aud-hat.dtb \
 			  imx91-11x11-evk-tianma-wvga-panel.dtb \
 			  imx91-11x11-evk-ld.dtb \
-			  imx91-11x11-evk-i2c-spi-slave.dtb
+			  imx91-11x11-evk-i2c-spi-slave.dtb \
+			  imx91-11x11-evk-i3c.dtb
 
 imx93-11x11-evk-pmic-pf0900-dtbs := imx93-11x11-evk.dtb imx93-11x11-evk-pmic-pf0900.dtbo
 imx93-11x11-evk-pmic-pf0900-root-dtbs := imx93-11x11-evk-root.dtb imx93-11x11-evk-pmic-pf0900.dtbo
