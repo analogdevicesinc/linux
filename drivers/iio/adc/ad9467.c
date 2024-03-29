@@ -5,6 +5,7 @@
  * Copyright 2012-2020 Analog Devices Inc.
  */
 
+#include <linux/bitfield.h>
 #include <linux/module.h>
 #include <linux/device.h>
 #include <linux/kernel.h>
@@ -682,12 +683,21 @@ static ssize_t ad9467_lvds_sync_write(struct iio_dev *indio_dev,
 	int ret;
 
 	mutex_lock(&indio_dev->mlock);
-
-	ret = ad9467_spi_write(conv->spi, 0x15, 0x50);
+	if (conv->num_lanes == 1)
+		ret = ad9467_spi_write(conv->spi, 0x15, 0x50);
+	else
+		ret = ad9467_spi_write(conv->spi, 0x15, 0x54);
 	if (ret)
 		return ret;
 
-	axiadc_write(st, ADI_REG_CNTRL, 0x108);
+	// set bit 2 of ADI_REG_CNTRL_3 to let the HDL know that the CNV is not used
+	axiadc_write(st, ADI_REG_CNTRL_3, 0x2);
+
+	// enable the sync
+	if (conv->num_lanes == 1)
+		axiadc_write(st, ADI_REG_CNTRL, 0x108);
+	else
+		axiadc_write(st, ADI_REG_CNTRL, 0x208);
 
 	do {
 		if (axiadc_read(st, ADI_REG_SYNC_STATUS) == 0)
@@ -698,9 +708,16 @@ static ssize_t ad9467_lvds_sync_write(struct iio_dev *indio_dev,
 
 	if (timeout) {
 		dev_info(&conv->spi->dev, "Success: Pattern correct and Locked!\n");
-		ret = ad9467_spi_write(conv->spi, 0x15, 0x40);
+		if (conv->num_lanes == 1)
+			ret = ad9467_spi_write(conv->spi, 0x15, 0x40);
+		else
+			ret = ad9467_spi_write(conv->spi, 0x15, 0x44);
 	} else {
 		dev_info(&conv->spi->dev, "LVDS Sync Timeout.\n");
+		if (conv->num_lanes == 1)
+			ret = ad9467_spi_write(conv->spi, 0x15, 0x40);
+		else
+			ret = ad9467_spi_write(conv->spi, 0x15, 0x44);
 		ret = -ETIME;
 	}
 
@@ -756,6 +773,161 @@ mutex_unlock:
 	return ret ? ret : len;
 }
 
+static ssize_t ad4080_dig_fil_read(struct iio_dev *indio_dev,
+				     uintptr_t private,
+				     const struct iio_chan_spec *chan,
+				     char *buf){
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	int ret;
+
+	ret = ad9467_spi_read(conv->spi, 0x29);
+	if (ret < 0)
+		return ret;
+
+	ret = FIELD_GET(GENMASK(1, 0), ret);
+
+	return ret < 0 ? ret : sysfs_emit(buf, "%u\n", ret);
+}
+
+
+static ssize_t ad4080_dig_fil_write(struct iio_dev *indio_dev,
+				     uintptr_t private,
+				     const struct iio_chan_spec *chan,
+				     const char *buf, size_t len){
+
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	int ret;
+	unsigned int data;
+
+	ret = kstrtou32(buf, 10, &data);
+	if (ret)
+		return ret;
+
+	mutex_lock(&indio_dev->mlock);
+	if(!data)
+		ret = ad9467_spi_write(conv->spi, 0x16, 0x81);
+	else
+		ret = ad9467_spi_write(conv->spi, 0x16, 0x71);
+
+	ret = ad9467_spi_read(conv->spi, 0x29);
+	data = (ret & 0x78) | data; // mask dec_rate value
+	ret = ad9467_spi_write(conv->spi, 0x29, data);
+	mutex_unlock(&indio_dev->mlock);
+	return ret ? ret : len;
+}
+
+static ssize_t ad4080_dec_rate_read(struct iio_dev *indio_dev,
+				     uintptr_t private,
+				     const struct iio_chan_spec *chan,
+				     char *buf){
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	int ret;
+
+	ret = ad9467_spi_read(conv->spi, 0x29);
+	if (ret < 0)
+		return ret;
+
+	ret = FIELD_GET(GENMASK(6, 3), ret);
+
+	return ret < 0 ? ret : sysfs_emit(buf, "%u\n", ret);
+}
+
+static ssize_t ad4080_dec_rate_write(struct iio_dev *indio_dev,
+				     uintptr_t private,
+				     const struct iio_chan_spec *chan,
+				     const char *buf, size_t len){
+
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	int ret;
+	unsigned int data;
+
+	ret = kstrtou32(buf, 10, &data);
+	if (ret)
+		return ret;
+
+	mutex_lock(&indio_dev->mlock);
+	ret = ad9467_spi_read(conv->spi, 0x29);
+	data = (ret & 0x3) | (data << 3); // mask dec_rate value
+	ret = ad9467_spi_write(conv->spi, 0x29, data);
+	mutex_unlock(&indio_dev->mlock);
+	return ret ? ret : len;
+}
+
+enum ad4080_filter_sel {
+	FILTER_DISABLE,
+	SINC_1,
+	SINC_5,
+	SINC_5_SINC_COMP
+};
+
+enum ad4080_dec_rate {
+	DEC_2,
+	DEC_4,
+	DEC_8,
+	DEC_16,
+	DEC_32,
+	DEC_64,
+	DEC_128,
+	DEC_256,
+	DEC_512,
+	DEC_1024
+};
+
+static const char *const ad4080_filter_sel_enum[] = {
+	[FILTER_DISABLE]   = "FILTER_DISABLE",
+	[SINC_1]           = "SINC_1",
+	[SINC_5]           = "SINC_5",
+	[SINC_5_SINC_COMP] = "SINC_5_SINC_COMP",
+};
+static const char *const ad4080_dec_rate_enum[] = {
+	[DEC_2]    = "DEC_2" ,
+	[DEC_4]    = "DEC_4" ,
+	[DEC_8]    = "DEC_8"  ,
+	[DEC_16]   = "DEC_16"  ,
+	[DEC_32]   = "DEC_32" ,
+	[DEC_64]   = "DEC_64"  ,
+	[DEC_128]  = "DEC_128",
+	[DEC_256]  = "DEC_256",
+	[DEC_512]  = "DEC_512" ,
+	[DEC_1024] = "DEC_1024",
+};
+
+static ssize_t ad4080_filt_mode_available(struct iio_dev *indio_dev,
+					      uintptr_t private,
+					      const struct iio_chan_spec *chan,
+					      char *buf)
+{
+	size_t len = 0;
+	int i;
+
+	for (i = 0; i <= SINC_5_SINC_COMP; ++i) {
+			len += sprintf(buf + len, "%s ", ad4080_filter_sel_enum[i]);
+	}
+
+	/* replace last space with a newline */
+	buf[len - 1] = '\n';
+
+	return len;
+}
+
+static ssize_t ad4080_dec_rate_available(struct iio_dev *indio_dev,
+					      uintptr_t private,
+					      const struct iio_chan_spec *chan,
+					      char *buf)
+{
+	size_t len = 0;
+	int i;
+
+	for (i = 0; i <= DEC_1024; ++i) {
+			len += sprintf(buf + len, "%s ", ad4080_dec_rate_enum[i]);
+	}
+
+	/* replace last space with a newline */
+	buf[len - 1] = '\n';
+
+	return len;
+}
+
 static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{
 	 .name = "test_mode",
@@ -776,6 +948,24 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	 .read = ad9467_lvds_cnv_en_read,
 	 .write = ad9467_lvds_cnv_en_write,
 	},
+	{
+	 .name = "filter_status",
+	 .read = ad4080_dig_fil_read,
+	 .write = ad4080_dig_fil_write,
+	},
+	{
+	 .name = "dec_rate",
+	 .read = ad4080_dec_rate_read,
+	 .write = ad4080_dec_rate_write,
+	},
+	{
+	 .name = "filter_mode_available",
+	 .read = ad4080_filt_mode_available,
+	 },
+		{
+	 .name = "dec_rate_available",
+	 .read = ad4080_dec_rate_available,
+	 },
 	{},
 };
 
@@ -1257,7 +1447,7 @@ static int mach1_post_setup(struct iio_dev *indio_dev)
 	reg_cntrl |= ADI_NUM_LANES(conv->num_lanes);
 
 	axiadc_write(st, ADI_REG_CNTRL, reg_cntrl);
-
+	axiadc_write(st, ADI_REG_CNTRL_3, 0x2); // in the default mode the CNV is not used as a start of transfer flag
 	return 0;
 }
 
@@ -1340,7 +1530,13 @@ static int ad9467_setup(struct axiadc_converter *st, unsigned int chip_id)
 		st->adc_output_mode |= AD9643_DEF_OUTPUT_MODE;
 		return 0;
 	case CHIPID_MACH1:
-		ad9467_spi_write(spi, 0x16, 0x61);
+		if(st->num_lanes == 1)
+			ad9467_spi_write(spi, 0x16, 0x41);
+		else
+			ad9467_spi_write(spi, 0x16, 0x01);
+
+		ad9467_spi_write(spi, 0x19, 0x03); // GPO_1_EN and GPO_0_EN as output.
+		ad9467_spi_write(spi, 0x1a, 0x30); // GPIO_1_SEL to 0011: Filter Result Ready (Active Low).
 		return 0;
 	default:
 		dev_err(&spi->dev, "Unrecognized CHIP_ID 0x%X\n", chip_id);
