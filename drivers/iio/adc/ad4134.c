@@ -84,6 +84,9 @@ static int _ad4134_set_odr(struct ad4134_state *st, unsigned int odr)
 	struct pwm_state state;
 	int ret;
 
+	if (!st->odr_pwm)
+		return 0;
+
 	if (odr < AD4134_ODR_MIN || odr > AD4134_ODR_MAX)
 		return -EINVAL;
 
@@ -112,6 +115,9 @@ static int ad4134_set_odr(struct iio_dev *indio_dev, unsigned int odr)
 {
 	struct ad4134_state *st = iio_priv(indio_dev);
 	int ret;
+
+	if (IS_ERR(st->odr_pwm))
+		return 0;
 
 	ret = iio_device_claim_direct_mode(indio_dev);
 	if (ret)
@@ -219,6 +225,10 @@ static const struct iio_chan_spec ad4134_channels[] = {
 	AD4134_CHANNEL(1),
 	AD4134_CHANNEL(2),
 	AD4134_CHANNEL(3),
+	AD4134_CHANNEL(4),
+	AD4134_CHANNEL(5),
+	AD4134_CHANNEL(6),
+	AD4134_CHANNEL(7),
 };
 
 static const unsigned long ad4134_channel_masks[] = {
@@ -326,21 +336,24 @@ static int ad4134_setup(struct ad4134_state *st)
 
 	st->odr_pwm = devm_pwm_get(dev, "odr_pwm");
 	if (IS_ERR(st->odr_pwm))
-		return dev_err_probe(dev, PTR_ERR(st->odr_pwm),
-				     "Failed to find ODR PWM\n");
+	//	return dev_err_probe(dev, PTR_ERR(st->odr_pwm),
+	//			     "Failed to find ODR PWM\n");
+		pr_err("%s: %d: Failed to find ODR PWM\n", __FUNCTION__, __LINE__);
 
-	ret = _ad4134_set_odr(st, AD4134_ODR_DEFAULT);
-	if (ret)
-		return dev_err_probe(dev, ret, "Failed to initialize ODR\n");
+	if (!IS_ERR(st->odr_pwm)) {
+		ret = _ad4134_set_odr(st, AD4134_ODR_DEFAULT);
+		if (ret)
+			return dev_err_probe(dev, ret, "Failed to initialize ODR\n");
 
-	ret = pwm_enable(st->odr_pwm);
-	if (ret)
-		return ret;
+		ret = pwm_enable(st->odr_pwm);
+		if (ret)
+			return ret;
 
-	ret = devm_add_action_or_reset(dev, ad4134_disable_pwm, st->odr_pwm);
-	if (ret)
-		return dev_err_probe(dev, ret,
-				     "Failed to add ODR PWM disable action\n");
+		ret = devm_add_action_or_reset(dev, ad4134_disable_pwm, st->odr_pwm);
+		if (ret)
+			return dev_err_probe(dev, ret,
+					"Failed to add ODR PWM disable action\n");
+	}
 
 	ret = regmap_update_bits(st->regmap, AD4134_DATA_PACKET_CONFIG_REG,
 				 AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
