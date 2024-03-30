@@ -277,11 +277,11 @@
 
 //};
 
-//&i2s4 {
-//	pinctrl-names = "default";
-//	pinctrl-0 = <&sru_dai1>;
-//	status = "okay";
-//};
+&i2s4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&sru_dai1>;
+	status = "okay";
+};
 
 &sru_ctrl_dai1 {
 	status = "okay";
