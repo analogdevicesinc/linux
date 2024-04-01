@@ -194,7 +194,7 @@ static int mixel_lvds_combo_phy_init(struct phy *phy)
 	mutex_lock(&lvds_phy->lock);
 	val = phy_csr_read(phy, PHY_CTRL);
 	val &= ~(CCM_MASK | CA_MASK);
-	val |= (CCM(0x5) | CA(0x4) | RFB);
+	val |= (CCM(0x6) | CA(0x4) | RFB);
 	phy_csr_write(phy, PHY_CTRL, val);
 
 	val = phy_csr_read(phy, DPI);
