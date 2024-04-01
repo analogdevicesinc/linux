@@ -148,6 +148,13 @@
 		device_type = "soc";
 		interrupt-parent = <&intc>;
 
+		base_fpga_region {
+			#address-cells = <0x2>;
+			#size-cells = <0x2>;
+			compatible = "fpga-region";
+			fpga-mgr = <&fpga_mgr>;
+		};
+
 		clkmgr: clock-controller@10d10000 {
 			compatible = "intel,agilex5-clkmgr";
 			reg = <0x10d10000 0x1000>;
@@ -1005,6 +1012,24 @@
 			cdns,trigger-address = <0x00000000>;
 			clocks = <&qspi_clk>;
 			status = "disabled";
+		};
+
+		firmware {
+			svc {
+				compatible = "intel,agilex5-svc";
+				method = "smc";
+				memory-region = <&service_reserved>;
+				iommus = <&smmu 10>;
+
+				fpga_mgr: fpga-mgr {
+					compatible = "intel,agilex-soc-fpga-mgr";
+				};
+
+				fcs: fcs {
+					compatible = "intel,agilex-soc-fcs";
+					platform = "agilex";
+				};
+			};
 		};
 	};
 };
