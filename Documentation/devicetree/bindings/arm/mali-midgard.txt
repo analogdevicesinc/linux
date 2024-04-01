@@ -112,7 +112,10 @@ for details.
 -  idvs-group-size : Override the IDVS group size value. Tasks are sent to
 		     cores in groups of N + 1, so i.e. 0xF means 16 tasks.
 		     Valid values are between 0 to 0x3F (including).
--  l2-size : Override L2 cache size on GPU that supports it
+-  l2-size : Override L2 cache size on GPU that supports it. Value should be larger than the minimum
+             size 1KiB and smaller than the maximum size. Maximum size is Hardware integration dependent.
+             The value passed should be of log2(Cache Size in Bytes).
+             For example for a 1KiB of cache size, 0xa should be passed.
 -  l2-hash : Override L2 hash function on GPU that supports it
 -  l2-hash-values : Override L2 hash function using provided hash values, on GPUs that supports it.
 		    It is mutually exclusive with 'l2-hash'. Only one or the other must be
@@ -238,7 +241,7 @@ gpu@0xfc010000 {
     ...
     pbha {
         int-id-override = <2 0x32>, <9 0x05>, <16 0x32>;
-        propagate-bits = /bits/ 4 <0x03>;
+        propagate-bits = /bits/ 8 <0x03>;
     };
     ...
 };

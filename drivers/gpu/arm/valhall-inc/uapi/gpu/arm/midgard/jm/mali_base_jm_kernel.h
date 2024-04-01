@@ -30,15 +30,11 @@
  * See base_mem_alloc_flags.
  */
 
-/* Used as BASE_MEM_FIXED in other backends */
-#define BASE_MEM_RESERVED_BIT_8 ((base_mem_alloc_flags)1 << 8)
+/* Unused bit for JM, only used in CSF for BASE_MEM_FIXED */
+#define BASE_MEM_UNUSED_BIT_8 ((base_mem_alloc_flags)1 << 8)
 
-/**
- * BASE_MEM_RESERVED_BIT_19 - Bit 19 is reserved.
- *
- * Do not remove, use the next unreserved bit for new flags
- */
-#define BASE_MEM_RESERVED_BIT_19 ((base_mem_alloc_flags)1 << 19)
+/* Unused bit for JM, only used in CSF for BASE_CSF_EVENT */
+#define BASE_MEM_UNUSED_BIT_19 ((base_mem_alloc_flags)1 << 19)
 
 /**
  * BASE_MEM_TILER_ALIGN_TOP - Memory starting from the end of the initial commit is aligned
@@ -64,9 +60,15 @@
 	(BASEP_MEM_PERMANENT_KERNEL_MAPPING | BASEP_MEM_NO_USER_FREE | BASE_MEM_FLAG_MAP_FIXED | \
 	 BASEP_MEM_PERFORM_JIT_TRIM)
 
-/* A mask of all currently reserved flags
- */
-#define BASE_MEM_FLAGS_RESERVED (BASE_MEM_RESERVED_BIT_8 | BASE_MEM_RESERVED_BIT_19)
+/* A mask of all flags that should not be queried */
+#define BASE_MEM_DONT_QUERY \
+	(BASE_MEM_COHERENT_SYSTEM_REQUIRED | BASE_MEM_IMPORT_SHARED | BASE_MEM_SAME_VA)
+
+/* A mask of all currently reserved flags */
+#define BASE_MEM_FLAGS_RESERVED ((base_mem_alloc_flags)0)
+
+/* A mask of all bits that are not used by a flag on JM */
+#define BASE_MEM_FLAGS_UNUSED (BASE_MEM_UNUSED_BIT_8 | BASE_MEM_UNUSED_BIT_19)
 
 /* Similar to BASE_MEM_TILER_ALIGN_TOP, memory starting from the end of the
  * initial commit is aligned to 'extension' pages, where 'extension' must be a power

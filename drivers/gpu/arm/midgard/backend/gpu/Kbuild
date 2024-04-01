@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 #
-# (C) COPYRIGHT 2014-2022 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -47,12 +47,7 @@ endif
 mali_kbase-$(CONFIG_MALI_DEVFREQ) += \
     backend/gpu/mali_kbase_devfreq.o
 
-ifneq ($(CONFIG_MALI_REAL_HW),y)
-    mali_kbase-y += backend/gpu/mali_kbase_model_linux.o
-endif
+mali_kbase-$(CONFIG_MALI_NO_MALI) += backend/gpu/mali_kbase_model_linux.o
 
 # NO_MALI Dummy model interface
 mali_kbase-$(CONFIG_MALI_NO_MALI) += backend/gpu/mali_kbase_model_dummy.o
-# HW error simulation
-mali_kbase-$(CONFIG_MALI_NO_MALI) += backend/gpu/mali_kbase_model_error_generator.o
-

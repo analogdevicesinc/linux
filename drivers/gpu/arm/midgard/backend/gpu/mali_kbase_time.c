@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -30,10 +30,7 @@
 #include <mali_kbase_config_defaults.h>
 #include <linux/version_compat_defs.h>
 #include <asm/arch_timer.h>
-
-#if !IS_ENABLED(CONFIG_MALI_REAL_HW)
-#include <backend/gpu/mali_kbase_model_linux.h>
-#endif
+#include <linux/mali_hw_access.h>
 
 struct kbase_timeout_info {
 	char *selector_str;
@@ -47,6 +44,7 @@ static struct kbase_timeout_info timeout_info[KBASE_TIMEOUT_SELECTOR_COUNT] = {
 	[CSF_PM_TIMEOUT] = { "CSF_PM_TIMEOUT", CSF_PM_TIMEOUT_CYCLES },
 	[CSF_GPU_RESET_TIMEOUT] = { "CSF_GPU_RESET_TIMEOUT", CSF_GPU_RESET_TIMEOUT_CYCLES },
 	[CSF_CSG_SUSPEND_TIMEOUT] = { "CSF_CSG_SUSPEND_TIMEOUT", CSF_CSG_SUSPEND_TIMEOUT_CYCLES },
+	[CSF_CSG_TERM_TIMEOUT] = { "CSF_CSG_TERM_TIMEOUT", CSF_CSG_TERM_TIMEOUT_CYCLES },
 	[CSF_FIRMWARE_BOOT_TIMEOUT] = { "CSF_FIRMWARE_BOOT_TIMEOUT",
 					CSF_FIRMWARE_BOOT_TIMEOUT_CYCLES },
 	[CSF_FIRMWARE_PING_TIMEOUT] = { "CSF_FIRMWARE_PING_TIMEOUT",
@@ -307,11 +305,7 @@ static void get_cpu_gpu_time(struct kbase_device *kbdev, u64 *cpu_ts, u64 *gpu_t
 
 u64 kbase_arch_timer_get_cntfrq(struct kbase_device *kbdev)
 {
-	u64 freq = arch_timer_get_cntfrq();
-
-#if !IS_ENABLED(CONFIG_MALI_REAL_HW)
-	freq = midgard_model_arch_timer_get_cntfrq(kbdev->model);
-#endif
+	u64 freq = mali_arch_timer_get_cntfrq();
 
 	dev_dbg(kbdev->dev, "System Timer Freq = %lluHz", freq);
 

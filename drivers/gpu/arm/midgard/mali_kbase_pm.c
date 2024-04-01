@@ -200,10 +200,15 @@ int kbase_pm_driver_suspend(struct kbase_device *kbdev)
 	mutex_unlock(&kbdev->pm.lock);
 
 #ifdef CONFIG_MALI_ARBITER_SUPPORT
-#if !MALI_USE_CSF
 	if (kbdev->arb.arb_if) {
-		unsigned int i;
 		unsigned long flags;
+
+#if MALI_USE_CSF
+		spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+		kbase_disjoint_state_up(kbdev);
+		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+#else
+		unsigned int i;
 
 		spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 		kbdev->js_data.runpool_irq.submit_allowed = 0;
@@ -211,8 +216,8 @@ int kbase_pm_driver_suspend(struct kbase_device *kbdev)
 		for (i = 0; i < kbdev->gpu_props.num_job_slots; i++)
 			kbase_job_slot_softstop(kbdev, i, NULL);
 		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+#endif
 	}
-#endif /* !MALI_USE_CSF */
 #endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
 	/* From now on, the active count will drop towards zero. Sometimes,

@@ -24,12 +24,13 @@
 
 #include <mali_kbase.h>
 #include <hw_access/mali_kbase_hw_access.h>
+#include <linux/mali_hw_access.h>
 
 u64 kbase_reg_get_gpu_id(struct kbase_device *kbdev)
 {
 	u32 val[2] = { 0 };
 
-	val[0] = readl(kbdev->reg);
+	val[0] = mali_readl(kbdev->reg);
 
 
 	return (u64)val[0] | ((u64)val[1] << 32);
@@ -45,7 +46,7 @@ u32 kbase_reg_read32(struct kbase_device *kbdev, u32 reg_enum)
 					      KBASE_REGMAP_PERM_READ | KBASE_REGMAP_WIDTH_32_BIT)))
 		return 0;
 
-	val = readl(kbdev->regmap.regs[reg_enum]);
+	val = mali_readl(kbdev->regmap.regs[reg_enum]);
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	if (unlikely(kbdev->io_history.enabled))
@@ -69,8 +70,8 @@ u64 kbase_reg_read64(struct kbase_device *kbdev, u32 reg_enum)
 					      KBASE_REGMAP_PERM_READ | KBASE_REGMAP_WIDTH_64_BIT)))
 		return 0;
 
-	val = (u64)readl(kbdev->regmap.regs[reg_enum]) |
-	      ((u64)readl(kbdev->regmap.regs[reg_enum] + 4) << 32);
+	val = (u64)mali_readl(kbdev->regmap.regs[reg_enum]) |
+	      ((u64)mali_readl(kbdev->regmap.regs[reg_enum] + 4) << 32);
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	if (unlikely(kbdev->io_history.enabled)) {
@@ -101,9 +102,9 @@ u64 kbase_reg_read64_coherent(struct kbase_device *kbdev, u32 reg_enum)
 		return 0;
 
 	do {
-		hi1 = readl(kbdev->regmap.regs[reg_enum] + 4);
-		lo = readl(kbdev->regmap.regs[reg_enum]);
-		hi2 = readl(kbdev->regmap.regs[reg_enum] + 4);
+		hi1 = mali_readl(kbdev->regmap.regs[reg_enum] + 4);
+		lo = mali_readl(kbdev->regmap.regs[reg_enum]);
+		hi2 = mali_readl(kbdev->regmap.regs[reg_enum] + 4);
 	} while (hi1 != hi2);
 
 	val = lo | (((u64)hi1) << 32);
@@ -131,7 +132,7 @@ void kbase_reg_write32(struct kbase_device *kbdev, u32 reg_enum, u32 value)
 					      KBASE_REGMAP_PERM_WRITE | KBASE_REGMAP_WIDTH_32_BIT)))
 		return;
 
-	writel(value, kbdev->regmap.regs[reg_enum]);
+	mali_writel(value, kbdev->regmap.regs[reg_enum]);
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	if (unlikely(kbdev->io_history.enabled))
@@ -151,8 +152,8 @@ void kbase_reg_write64(struct kbase_device *kbdev, u32 reg_enum, u64 value)
 					      KBASE_REGMAP_PERM_WRITE | KBASE_REGMAP_WIDTH_64_BIT)))
 		return;
 
-	writel(value & 0xFFFFFFFF, kbdev->regmap.regs[reg_enum]);
-	writel(value >> 32, kbdev->regmap.regs[reg_enum] + 4);
+	mali_writel(value & 0xFFFFFFFF, kbdev->regmap.regs[reg_enum]);
+	mali_writel(value >> 32, kbdev->regmap.regs[reg_enum] + 4);
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	if (unlikely(kbdev->io_history.enabled)) {

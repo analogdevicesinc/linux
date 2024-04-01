@@ -74,7 +74,7 @@ void kbase_synchronize_irqs(struct kbase_device *kbdev);
  * Return: 0 on success. Error code (negative) on failure.
  */
 int kbase_validate_interrupts(struct kbase_device *const kbdev);
-#endif /* CONFIG_MALI_REAL_HW */
+#endif /* IS_ENABLED(CONFIG_MALI_REAL_HW) */
 #endif /* CONFIG_MALI_DEBUG */
 
 /**

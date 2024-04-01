@@ -776,7 +776,7 @@ static bool page_fault_try_alloc(struct kbase_context *kctx, struct kbase_va_reg
 		return false;
 	}
 
-	if (kctx->kbdev->pagesize_2mb && new_pages >= NUM_PAGES_IN_2MB_LARGE_PAGE) {
+	if (kbase_is_large_pages_enabled() && new_pages >= NUM_PAGES_IN_2MB_LARGE_PAGE) {
 		root_pool = &kctx->mem_pools.large[region->gpu_alloc->group_id];
 		*grow_2mb_pool = true;
 	} else {
@@ -923,7 +923,7 @@ void kbase_mmu_page_fault_worker(struct work_struct *data)
 	int err;
 	bool grown = false;
 	size_t pages_to_grow;
-	bool grow_2mb_pool;
+	bool grow_2mb_pool = false;
 	struct kbase_sub_alloc *prealloc_sas[2] = { NULL, NULL };
 	int i;
 	size_t current_backed_size;
@@ -1093,7 +1093,7 @@ void kbase_mmu_page_fault_worker(struct work_struct *data)
 	}
 
 page_fault_retry:
-	if (kbdev->pagesize_2mb) {
+	if (kbase_is_large_pages_enabled()) {
 		/* Preallocate (or re-allocate) memory for the sub-allocation structs if necessary */
 		for (i = 0; i != ARRAY_SIZE(prealloc_sas); ++i) {
 			if (!prealloc_sas[i]) {
@@ -1390,7 +1390,7 @@ page_fault_retry:
 		 * Otherwise fail the allocation.
 		 */
 		if (pages_to_grow > 0) {
-			if (kbdev->pagesize_2mb && grow_2mb_pool) {
+			if (kbase_is_large_pages_enabled() && grow_2mb_pool) {
 				/* Round page requirement up to nearest 2 MB */
 				struct kbase_mem_pool *const lp_mem_pool =
 					&kctx->mem_pools.large[group_id];
@@ -1603,6 +1603,7 @@ static int mmu_get_lowest_valid_pgd(struct kbase_device *kbdev, struct kbase_mmu
 
 	return err;
 }
+KBASE_ALLOW_ERROR_INJECTION_TEST_API(mmu_get_lowest_valid_pgd, ERRNO);
 
 /*
  * On success, sets out_pgd to the PGD for the specified level of translation
@@ -1708,6 +1709,8 @@ static void mmu_insert_pages_failure_recovery(struct kbase_device *kbdev,
 		mmu_mode->entries_invalidate(&page[idx], pcount);
 
 		if (!num_of_valid_entries) {
+			mmu_mode->set_num_valid_entries(page, 0);
+
 			kbase_kunmap(p, page);
 
 			/* No CPU and GPU cache maintenance is done here as caller would do the
@@ -2549,6 +2552,7 @@ int kbase_mmu_insert_pages(struct kbase_device *kbdev, struct kbase_mmu_table *m
 }
 
 KBASE_EXPORT_TEST_API(kbase_mmu_insert_pages);
+KBASE_ALLOW_ERROR_INJECTION_TEST_API(kbase_mmu_insert_pages, ERRNO);
 
 int kbase_mmu_insert_pages_skip_status_update(struct kbase_device *kbdev,
 					      struct kbase_mmu_table *mmut, u64 vpfn,
@@ -2606,6 +2610,7 @@ int kbase_mmu_insert_aliased_pages(struct kbase_device *kbdev, struct kbase_mmu_
 
 	return 0;
 }
+KBASE_ALLOW_ERROR_INJECTION_TEST_API(kbase_mmu_insert_aliased_pages, ERRNO);
 
 void kbase_mmu_update(struct kbase_device *kbdev, struct kbase_mmu_table *mmut, int as_nr)
 {
@@ -2744,6 +2749,8 @@ static void kbase_mmu_update_and_free_parent_pgds(struct kbase_device *kbdev,
 
 		kbdev->mmu_mode->entries_invalidate(&current_page[index], 1);
 		if (current_valid_entries == 1 && current_level != MIDGARD_MMU_LEVEL(0)) {
+			kbdev->mmu_mode->set_num_valid_entries(current_page, 0);
+
 			kbase_kunmap(p, current_page);
 
 			/* Check if fine grained GPU cache maintenance is being used */
@@ -2864,8 +2871,7 @@ static int kbase_mmu_teardown_pgd_pages(struct kbase_device *kbdev, struct kbase
 		phys_addr_t pgd = mmut->pgd;
 		struct page *p = phys_to_page(pgd);
 
-		if (count > nr)
-			count = nr;
+		count = MIN(nr, count);
 
 		/* need to check if this is a 2MB page or a small page */
 		for (level = MIDGARD_MMU_TOPLEVEL; level <= MIDGARD_MMU_BOTTOMLEVEL; level++) {
@@ -2876,23 +2882,12 @@ static int kbase_mmu_teardown_pgd_pages(struct kbase_device *kbdev, struct kbase
 			if (mmu_mode->ate_is_valid(page[index], level))
 				break; /* keep the mapping */
 			else if (!mmu_mode->pte_is_valid(page[index], level)) {
-				/* nothing here, advance */
-				switch (level) {
-				case MIDGARD_MMU_LEVEL(0):
-					count = 134217728;
-					break;
-				case MIDGARD_MMU_LEVEL(1):
-					count = 262144;
-					break;
-				case MIDGARD_MMU_LEVEL(2):
-					count = 512;
-					break;
-				case MIDGARD_MMU_LEVEL(3):
-					count = 1;
-					break;
-				}
-				if (count > nr)
-					count = nr;
+				dev_warn(kbdev->dev, "Invalid PTE found @ level %d for VA %llx",
+					 level, vpfn << PAGE_SHIFT);
+				/* nothing here, advance to the next PTE of the current level */
+				count = (1 << ((3 - level) * 9));
+				count -= (vpfn & (count - 1));
+				count = MIN(nr, count);
 				goto next;
 			}
 			next_pgd = mmu_mode->pte_to_phy_addr(
@@ -2947,6 +2942,8 @@ static int kbase_mmu_teardown_pgd_pages(struct kbase_device *kbdev, struct kbase
 		mmu_mode->entries_invalidate(&page[index], pcount);
 
 		if (!num_of_valid_entries) {
+			mmu_mode->set_num_valid_entries(page, 0);
+
 			kbase_kunmap(p, page);
 
 			/* Check if fine grained GPU cache maintenance is being used */
@@ -3110,6 +3107,7 @@ int kbase_mmu_teardown_pages(struct kbase_device *kbdev, struct kbase_mmu_table 
 	return mmu_teardown_pages(kbdev, mmut, vpfn, phys, nr_phys_pages, nr_virt_pages, as_nr,
 				  false);
 }
+KBASE_EXPORT_TEST_API(kbase_mmu_teardown_pages);
 
 int kbase_mmu_teardown_imported_pages(struct kbase_device *kbdev, struct kbase_mmu_table *mmut,
 				      u64 vpfn, struct tagged_addr *phys, size_t nr_phys_pages,

@@ -277,16 +277,16 @@ static int kbase_pbha_read_int_id_override_property(struct kbase_device *kbdev,
 static int kbase_pbha_read_propagate_bits_property(struct kbase_device *kbdev,
 						   const struct device_node *pbha_node)
 {
-	u32 bits = 0;
+	u8 bits = 0;
 	int err;
 
 	if (!kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_PBHA_HWU))
 		return 0;
 
-	err = of_property_read_u32(pbha_node, "propagate-bits", &bits);
+	err = of_property_read_u8(pbha_node, "propagate-bits", &bits);
 
 	if (err == -EINVAL) {
-		err = of_property_read_u32(pbha_node, "propagate_bits", &bits);
+		err = of_property_read_u8(pbha_node, "propagate_bits", &bits);
 	}
 
 	if (err < 0) {

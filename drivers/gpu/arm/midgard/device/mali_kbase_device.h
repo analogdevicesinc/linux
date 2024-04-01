@@ -58,6 +58,9 @@ void kbase_increment_device_id(void);
  * When a device file is opened for the first time,
  * load firmware and initialize hardware counter components.
  *
+ * It is safe for this function to be called multiple times without ill
+ * effects. Only the first call would be effective.
+ *
  * Return: 0 on success. An error code on failure.
  */
 int kbase_device_firmware_init_once(struct kbase_device *kbdev);

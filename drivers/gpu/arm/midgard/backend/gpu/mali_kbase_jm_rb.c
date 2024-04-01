@@ -1437,7 +1437,7 @@ void kbase_backend_reset(struct kbase_device *kbdev, ktime_t *end_timestamp)
 			 * then leave it in the RB and next time we're kicked
 			 * it will be processed again from the starting state.
 			 */
-			if (keep_in_jm_rb) {
+			if (!kbase_is_gpu_removed(kbdev) && keep_in_jm_rb) {
 				katom->protected_state.exit = KBASE_ATOM_EXIT_PROTECTED_CHECK;
 				/* As the atom was not removed, increment the
 				 * index so that we read the correct atom in the

@@ -115,7 +115,7 @@ struct kbasep_printer *kbasep_printer_buffer_init(struct kbase_device *kbdev,
 
 	if (kbpr) {
 		if (kfifo_alloc(&kbpr->fifo, KBASEP_PRINTER_BUFFER_MAX_SIZE, GFP_KERNEL)) {
-			kfree(kbpr);
+			vfree(kbpr);
 			return NULL;
 		}
 		kbpr->kbdev = kbdev;

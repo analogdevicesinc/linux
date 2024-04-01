@@ -129,14 +129,14 @@ void kbase_pm_set_debug_core_mask(struct kbase_device *kbdev, u64 new_core_mask)
  * kbase_pm_set_debug_core_mask - Set the debug core mask.
  *
  * @kbdev: The kbase device structure for the device (must be a valid pointer)
- * @new_core_mask_js0: The core mask to use for job slot 0
- * @new_core_mask_js1: The core mask to use for job slot 1
- * @new_core_mask_js2: The core mask to use for job slot 2
+ * @new_core_mask: The core mask to use, as an array where each element refers
+ *                 to a job slot.
+ * @new_core_mask_size: Number of elements in the core mask array.
  *
  * This determines which cores the power manager is allowed to use.
  */
-void kbase_pm_set_debug_core_mask(struct kbase_device *kbdev, u64 new_core_mask_js0,
-				  u64 new_core_mask_js1, u64 new_core_mask_js2);
+void kbase_pm_set_debug_core_mask(struct kbase_device *kbdev, u64 *new_core_mask,
+				  size_t new_core_mask_size);
 #endif /* MALI_USE_CSF */
 
 /**

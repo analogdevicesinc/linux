@@ -32,6 +32,10 @@ typedef int vm_fault_t;
 
 #define MEMORY_GROUP_MANAGER_NR_GROUPS (16)
 
+#define PTE_PBHA_SHIFT (59)
+#define PTE_PBHA_MASK ((uint64_t)0xf << PTE_PBHA_SHIFT)
+#define PTE_RES_BIT_MULTI_AS_SHIFT (63)
+
 struct memory_group_manager_device;
 struct memory_group_manager_import_data;
 

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -171,16 +171,11 @@ struct kbase_gpu_metrics {
  *
  * @link:                    Links the object in kbase_device::gpu_metrics::active_list
  *                           or kbase_device::gpu_metrics::inactive_list.
- * @first_active_start_time: Records the time at which the application first became
+ * @active_start_time:       Records the time at which the application first became
  *                           active in the current work period.
- * @last_active_start_time:  Records the time at which the application last became
- *                           active in the current work period.
- * @last_active_end_time:    Records the time at which the application last became
- *                           inactive in the current work period.
- * @total_active:            Tracks the time for which application has been active
- *                           in the current work period.
- * @prev_wp_active_end_time: Records the time at which the application last became
- *                           inactive in the previous work period.
+ * @active_end_time:         Records the time at which the application last became
+ *                           inactive in the current work period, or the time of the end of
+ *                           previous work period if the application remained active.
  * @aid:                     Unique identifier for an application.
  * @kctx_count:              Counter to keep a track of the number of Kbase contexts
  *                           created for an application. There may be multiple Kbase
@@ -188,19 +183,14 @@ struct kbase_gpu_metrics {
  *                           metrics context.
  * @active_cnt:              Counter that is updated every time the GPU activity starts
  *                           and ends in the current work period for an application.
- * @flags:                   Flags to track the state of GPU metrics context.
  */
 struct kbase_gpu_metrics_ctx {
 	struct list_head link;
-	u64 first_active_start_time;
-	u64 last_active_start_time;
-	u64 last_active_end_time;
-	u64 total_active;
-	u64 prev_wp_active_end_time;
+	u64 active_start_time;
+	u64 active_end_time;
 	unsigned int aid;
 	unsigned int kctx_count;
 	u8 active_cnt;
-	u8 flags;
 };
 #endif
 
@@ -548,11 +538,7 @@ struct kbase_mem_pool {
 	u8 group_id;
 	spinlock_t pool_lock;
 	struct list_head page_list;
-#if KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE
-	struct shrinker reclaim;
-#else
-	struct shrinker *reclaim;
-#endif
+	DEFINE_KBASE_SHRINKER reclaim;
 	atomic_t isolation_in_progress_cnt;
 
 	struct kbase_mem_pool *next_pool;
@@ -843,8 +829,6 @@ struct kbase_mem_migrate {
  * @as_free:               Bitpattern of free/available GPU address spaces.
  * @mmu_mask_change:       Lock to serialize the access to MMU interrupt mask
  *                         register used in the handling of Bus & Page faults.
- * @pagesize_2mb:          Boolean to determine whether 2MiB page sizes are
- *                         supported and used where possible.
  * @gpu_props:             Object containing complete information about the
  *                         configuration/properties of GPU HW device in use.
  * @hw_issues_mask:        List of SW workarounds for HW issues
@@ -1145,8 +1129,6 @@ struct kbase_device {
 	u16 as_free;
 
 	spinlock_t mmu_mask_change;
-
-	bool pagesize_2mb;
 
 	struct kbase_gpu_props gpu_props;
 
@@ -1991,11 +1973,8 @@ struct kbase_context {
 
 	struct kbase_mem_pool_group mem_pools;
 
-#if KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE
-	struct shrinker reclaim;
-#else
-	struct shrinker *reclaim;
-#endif
+	DEFINE_KBASE_SHRINKER reclaim;
+
 	struct list_head evict_list;
 	atomic_t evict_nents;
 

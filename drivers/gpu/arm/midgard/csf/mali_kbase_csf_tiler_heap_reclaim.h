@@ -66,8 +66,10 @@ void kbase_csf_tiler_heap_reclaim_ctx_init(struct kbase_context *kctx);
  * @kbdev: Pointer to the device.
  *
  * This function must be called only when a kbase device is initialized.
+ *
+ * Return: 0 if issuing reclaim_mgr init was successful, otherwise an error code.
  */
-void kbase_csf_tiler_heap_reclaim_mgr_init(struct kbase_device *kbdev);
+int kbase_csf_tiler_heap_reclaim_mgr_init(struct kbase_device *kbdev);
 
 /**
  * kbase_csf_tiler_heap_reclaim_mgr_term - Termination call for the tiler heap reclaim manger.

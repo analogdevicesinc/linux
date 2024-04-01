@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2021-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2021-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -229,7 +229,7 @@ static void kbasep_hwcnt_backend_csf_if_fw_get_prfcnt_info(
 
 	*prfcnt_info = (struct kbase_hwcnt_backend_csf_if_prfcnt_info){
 		.l2_count = KBASE_DUMMY_MODEL_MAX_MEMSYS_BLOCKS,
-		.core_mask = (1ull << KBASE_DUMMY_MODEL_MAX_SHADER_CORES) - 1,
+		.sc_core_mask = (1ull << KBASE_DUMMY_MODEL_MAX_SHADER_CORES) - 1,
 		.prfcnt_hw_size =
 			KBASE_DUMMY_MODEL_MAX_NUM_HARDWARE_BLOCKS * KBASE_DUMMY_MODEL_BLOCK_SIZE,
 		.prfcnt_fw_size =
@@ -290,11 +290,12 @@ static void kbasep_hwcnt_backend_csf_if_fw_get_prfcnt_info(
 		.dump_bytes = fw_ctx->buf_bytes,
 		.prfcnt_block_size = prfcnt_block_size,
 		.l2_count = kbdev->gpu_props.num_l2_slices,
-		.core_mask = kbasep_hwcnt_backend_csf_core_mask(&kbdev->gpu_props),
+		.sc_core_mask = kbasep_hwcnt_backend_csf_core_mask(&kbdev->gpu_props),
 		.csg_count = fw_block_count > 1 ? csg_count : 0,
 		.clk_cnt = fw_ctx->clk_cnt,
 		.clearing_samples = true,
 	};
+
 
 	/* Block size must be multiple of counter size. */
 	WARN_ON((prfcnt_info->prfcnt_block_size % KBASE_HWCNT_VALUE_HW_BYTES) != 0);
@@ -513,10 +514,15 @@ kbasep_hwcnt_backend_csf_if_fw_ring_buf_free(struct kbase_hwcnt_backend_csf_if_c
 			fw_ring_buf->phys, fw_ring_buf->num_pages, fw_ring_buf->num_pages,
 			MCU_AS_NR));
 
+		/* Clear the dump ring_buf content to zeros */
+		memset(fw_ring_buf->cpu_dump_base, 0, fw_ring_buf->num_pages * PAGE_SIZE);
 		vunmap(fw_ring_buf->cpu_dump_base);
 
+		/* After zeroing, the ring_buf pages are dirty so need to pass the 'dirty' flag
+		 * as true when freeing the pages to the Global pool.
+		 */
 		kbase_mem_pool_free_pages(&fw_ctx->kbdev->mem_pools.small[KBASE_MEM_GROUP_CSF_FW],
-					  fw_ring_buf->num_pages, fw_ring_buf->phys, false, false);
+					  fw_ring_buf->num_pages, fw_ring_buf->phys, true, false);
 
 		kfree(fw_ring_buf->phys);
 

@@ -431,7 +431,7 @@ static int kbase_devfreq_init_core_mask_table(struct kbase_device *kbdev)
 		err = of_property_read_u64(node, "opp-hz-real", real_freqs);
 #endif
 		if (err < 0) {
-			dev_warn(kbdev->dev, "Failed to read opp-hz-real property with error %d\n",
+			dev_warn(kbdev->dev, "Failed to read opp-hz-real property with error %d",
 				 err);
 			continue;
 		}
@@ -439,8 +439,8 @@ static int kbase_devfreq_init_core_mask_table(struct kbase_device *kbdev)
 		err = of_property_read_u32_array(node, "opp-microvolt", opp_volts,
 						 kbdev->nr_regulators);
 		if (err < 0) {
-			dev_warn(kbdev->dev,
-				 "Failed to read opp-microvolt property with error %d\n", err);
+			dev_warn(kbdev->dev, "Failed to read opp-microvolt property with error %d",
+				 err);
 			continue;
 		}
 #endif
@@ -450,10 +450,11 @@ static int kbase_devfreq_init_core_mask_table(struct kbase_device *kbdev)
 		if (core_mask != shader_present && corestack_driver_control) {
 			dev_warn(
 				kbdev->dev,
-				"Ignoring OPP %llu - Dynamic Core Scaling not supported on this GPU\n",
+				"Ignoring OPP %llu - Dynamic Core Scaling not supported on this GPU",
 				opp_freq);
 			continue;
 		}
+
 
 		core_count_p = of_get_property(node, "opp-core-count", NULL);
 		if (core_count_p) {

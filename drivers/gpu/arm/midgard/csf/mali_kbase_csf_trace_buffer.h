@@ -180,6 +180,15 @@ unsigned int kbase_csf_firmware_trace_buffer_read_data(struct firmware_trace_buf
 void kbase_csf_firmware_trace_buffer_discard(struct firmware_trace_buffer *trace_buffer);
 
 /**
+ * kbase_csf_firmware_trace_buffer_discard_all - Discard all data from a trace buffer
+ *
+ * @trace_buffer: Trace buffer handle
+ *
+ * Discard all the data in the trace buffer to make it empty.
+ */
+void kbase_csf_firmware_trace_buffer_discard_all(struct firmware_trace_buffer *trace_buffer);
+
+/**
  * kbase_csf_firmware_trace_buffer_get_active_mask64 - Get trace buffer active mask
  *
  * @tb: Trace buffer handle

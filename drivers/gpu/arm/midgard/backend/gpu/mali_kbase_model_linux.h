@@ -48,12 +48,8 @@
 /*
  * Include Model definitions
  */
-
-#if IS_ENABLED(CONFIG_MALI_NO_MALI)
 #include <backend/gpu/mali_kbase_model_dummy.h>
-#endif /* IS_ENABLED(CONFIG_MALI_NO_MALI) */
 
-#if !IS_ENABLED(CONFIG_MALI_REAL_HW)
 /**
  * kbase_gpu_device_create() - Generic create function.
  *
@@ -117,15 +113,6 @@ void midgard_model_write_reg(void *h, u32 addr, u32 value);
 void midgard_model_read_reg(void *h, u32 addr, u32 *const value);
 
 /**
- * midgard_model_arch_timer_get_cntfrq - Get Model specific System Timer Frequency
- *
- * @h: Model handle.
- *
- * Return: Frequency in Hz
- */
-u64 midgard_model_arch_timer_get_cntfrq(void *h);
-
-/**
  * gpu_device_raise_irq() - Private IRQ raise function.
  *
  * @model: Model handle.
@@ -155,6 +142,5 @@ void gpu_device_set_data(void *model, void *data);
  * Return: Pointer to the data carried by model.
  */
 void *gpu_device_get_data(void *model);
-#endif /* !IS_ENABLED(CONFIG_MALI_REAL_HW) */
 
 #endif /* _KBASE_MODEL_LINUX_H_ */

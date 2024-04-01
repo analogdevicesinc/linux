@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2018-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -1550,7 +1550,6 @@ static bool global_request_complete(struct kbase_device *const kbdev, u32 const 
 	unsigned long flags;
 
 	kbase_csf_scheduler_spin_lock(kbdev, &flags);
-
 	if ((kbase_csf_firmware_global_output(global_iface, GLB_ACK) & req_mask) ==
 	    (kbase_csf_firmware_global_input_read(global_iface, GLB_REQ) & req_mask))
 		complete = true;
@@ -1888,6 +1887,7 @@ static void kbase_csf_firmware_reload_worker(struct work_struct *work)
 {
 	struct kbase_device *kbdev =
 		container_of(work, struct kbase_device, csf.firmware_reload_work);
+	unsigned long flags;
 	int err;
 
 	dev_info(kbdev->dev, "reloading firmware");
@@ -1906,7 +1906,9 @@ static void kbase_csf_firmware_reload_worker(struct work_struct *work)
 		return;
 
 	/* Reboot the firmware */
+	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 	kbase_csf_firmware_enable_mcu(kbdev);
+	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 }
 
 void kbase_csf_firmware_trigger_reload(struct kbase_device *kbdev)
@@ -2253,8 +2255,9 @@ int kbase_csf_firmware_early_init(struct kbase_device *kbdev)
 
 	kbdev->csf.glb_init_request_pending = true;
 
+	init_rwsem(&kbdev->csf.pmode_sync_sem);
 	mutex_init(&kbdev->csf.reg_lock);
-	kbase_csf_pending_gpuq_kicks_init(kbdev);
+	kbase_csf_pending_gpuq_kick_queues_init(kbdev);
 
 	kbdev->csf.fw = (struct kbase_csf_mcu_fw){ .data = NULL };
 
@@ -2263,7 +2266,7 @@ int kbase_csf_firmware_early_init(struct kbase_device *kbdev)
 
 void kbase_csf_firmware_early_term(struct kbase_device *kbdev)
 {
-	kbase_csf_pending_gpuq_kicks_term(kbdev);
+	kbase_csf_pending_gpuq_kick_queues_term(kbdev);
 	mutex_destroy(&kbdev->csf.reg_lock);
 }
 
@@ -2772,6 +2775,7 @@ int kbase_csf_firmware_ping_wait(struct kbase_device *const kbdev, unsigned int 
 	return wait_for_global_request_with_timeout(kbdev, GLB_REQ_PING_MASK, wait_timeout_ms);
 }
 
+
 int kbase_csf_firmware_set_timeout(struct kbase_device *const kbdev, u64 const timeout)
 {
 	const struct kbase_csf_global_iface *const global_iface = &kbdev->csf.global_iface;
@@ -2809,8 +2813,6 @@ void kbase_csf_enter_protected_mode(struct kbase_device *kbdev)
 int kbase_csf_wait_protected_mode_enter(struct kbase_device *kbdev)
 {
 	int err;
-
-	lockdep_assert_held(&kbdev->mmu_hw_mutex);
 
 	err = wait_for_global_request(kbdev, GLB_REQ_PROTM_ENTER_MASK);
 
@@ -2877,6 +2879,7 @@ void kbase_csf_firmware_enable_mcu(struct kbase_device *kbdev)
 {
 	struct kbase_csf_global_iface *iface = &kbdev->csf.global_iface;
 
+	lockdep_assert_held(&kbdev->hwaccess_lock);
 		/* Clear the HALT bit before triggering the boot of MCU firmware */
 		kbase_csf_firmware_global_input_mask(iface, GLB_REQ, 0, GLB_REQ_HALT_MASK);
 
@@ -3156,6 +3159,9 @@ void kbase_csf_firmware_mcu_shared_mapping_term(struct kbase_device *kbdev,
 	}
 
 	if (csf_mapping->phys) {
+		/* This is on module unload path, so the pages can be left uncleared before
+		 * returning them back to kbdev memory pool.
+		 */
 		kbase_mem_pool_free_pages(&kbdev->mem_pools.small[KBASE_MEM_GROUP_CSF_FW],
 					  csf_mapping->num_pages, csf_mapping->phys, false, false);
 	}

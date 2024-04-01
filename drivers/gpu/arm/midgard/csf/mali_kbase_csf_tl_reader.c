@@ -152,13 +152,22 @@ static bool tl_reader_overflow_check(struct kbase_csf_tl_reader *self, u16 event
  *
  * Reset the reader to the default state, i.e. set all the
  * mutable fields to zero.
+ *
+ * NOTE: this function expects the irq spinlock to be held.
  */
 static void tl_reader_reset(struct kbase_csf_tl_reader *self)
 {
+	lockdep_assert_held(&self->read_lock);
+
 	self->got_first_event = false;
 	self->is_active = false;
 	self->expected_event_id = 0;
 	self->tl_header.btc = 0;
+
+	/* There might be data left in the trace buffer from the previous
+	 * tracing session. We don't want it to leak into this session.
+	 */
+	kbase_csf_firmware_trace_buffer_discard_all(self->trace_buffer);
 }
 
 int kbase_csf_tl_reader_flush_buffer(struct kbase_csf_tl_reader *self)
@@ -325,21 +334,16 @@ static int tl_reader_update_enable_bit(struct kbase_csf_tl_reader *self, bool va
 
 void kbase_csf_tl_reader_init(struct kbase_csf_tl_reader *self, struct kbase_tlstream *stream)
 {
-	self->timer_interval = KBASE_CSF_TL_READ_INTERVAL_DEFAULT;
+	*self = (struct kbase_csf_tl_reader){
+		.timer_interval = KBASE_CSF_TL_READ_INTERVAL_DEFAULT,
+		.stream = stream,
+		.kbdev = NULL, /* This will be initialized by tl_reader_init_late() */
+		.is_active = false,
+	};
 
 	kbase_timer_setup(&self->read_timer, kbasep_csf_tl_reader_read_callback);
 
-	self->stream = stream;
-
-	/* This will be initialized by tl_reader_init_late() */
-	self->kbdev = NULL;
-	self->trace_buffer = NULL;
-	self->tl_header.data = NULL;
-	self->tl_header.size = 0;
-
 	spin_lock_init(&self->read_lock);
-
-	tl_reader_reset(self);
 }
 
 void kbase_csf_tl_reader_term(struct kbase_csf_tl_reader *self)
@@ -349,13 +353,19 @@ void kbase_csf_tl_reader_term(struct kbase_csf_tl_reader *self)
 
 int kbase_csf_tl_reader_start(struct kbase_csf_tl_reader *self, struct kbase_device *kbdev)
 {
+	unsigned long flags;
 	int rcode;
 
+	spin_lock_irqsave(&self->read_lock, flags);
+
 	/* If already running, early exit. */
-	if (self->is_active)
+	if (self->is_active) {
+		spin_unlock_irqrestore(&self->read_lock, flags);
 		return 0;
+	}
 
 	if (tl_reader_init_late(self, kbdev)) {
+		spin_unlock_irqrestore(&self->read_lock, flags);
 #if IS_ENABLED(CONFIG_MALI_NO_MALI)
 		dev_warn(kbdev->dev, "CSFFW timeline is not available for MALI_NO_MALI builds!");
 		return 0;
@@ -367,6 +377,9 @@ int kbase_csf_tl_reader_start(struct kbase_csf_tl_reader *self, struct kbase_dev
 	tl_reader_reset(self);
 
 	self->is_active = true;
+
+	spin_unlock_irqrestore(&self->read_lock, flags);
+
 	/* Set bytes to copy to the header size. This is to trigger copying
 	 * of the header to the user space.
 	 */

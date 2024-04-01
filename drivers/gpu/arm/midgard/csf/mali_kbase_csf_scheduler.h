@@ -235,7 +235,8 @@ void kbase_csf_scheduler_early_term(struct kbase_device *kbdev);
  * No explicit re-initialization is done for CSG & CS interface I/O pages;
  * instead, that happens implicitly on firmware reload.
  *
- * Should be called only after initiating the GPU reset.
+ * Should be called either after initiating the GPU reset or when MCU reset is
+ * expected to follow such as GPU_LOST case.
  */
 void kbase_csf_scheduler_reset(struct kbase_device *kbdev);
 
@@ -486,6 +487,48 @@ static inline bool kbase_csf_scheduler_all_csgs_idle(struct kbase_device *kbdev)
 			    kbdev->csf.scheduler.csg_inuse_bitmap,
 			    kbdev->csf.global_iface.group_num);
 }
+
+/**
+ * kbase_csf_scheduler_enqueue_sync_update_work() - Add a context to the list
+ *                                                  of contexts to handle
+ *                                                  SYNC_UPDATE events.
+ *
+ * @kctx: The context to handle SYNC_UPDATE event
+ *
+ * This function wakes up kbase_csf_scheduler_kthread() to handle pending
+ * SYNC_UPDATE events for all contexts.
+ */
+void kbase_csf_scheduler_enqueue_sync_update_work(struct kbase_context *kctx);
+
+/**
+ * kbase_csf_scheduler_enqueue_protm_event_work() - Add a group to the list
+ *                                                  of groups to handle
+ *                                                  PROTM requests.
+ *
+ * @group: The group to handle protected mode request
+ *
+ * This function wakes up kbase_csf_scheduler_kthread() to handle pending
+ * protected mode requests for all groups.
+ */
+void kbase_csf_scheduler_enqueue_protm_event_work(struct kbase_queue_group *group);
+
+/**
+ * kbase_csf_scheduler_enqueue_kcpuq_work() - Wake up kbase_csf_scheduler_kthread() to process
+ *                                            pending commands for a KCPU queue.
+ *
+ * @queue: The queue to process pending commands for
+ */
+void kbase_csf_scheduler_enqueue_kcpuq_work(struct kbase_kcpu_command_queue *queue);
+
+/**
+ * kbase_csf_scheduler_wait_for_kthread_pending_work - Wait until a pending work has completed in
+ *                                                     kbase_csf_scheduler_kthread().
+ *
+ * @kbdev: Instance of a GPU platform device that implements a CSF interface
+ * @pending: The work to wait for
+ */
+void kbase_csf_scheduler_wait_for_kthread_pending_work(struct kbase_device *kbdev,
+						       atomic_t *pending);
 
 /**
  * kbase_csf_scheduler_invoke_tick() - Invoke the scheduling tick

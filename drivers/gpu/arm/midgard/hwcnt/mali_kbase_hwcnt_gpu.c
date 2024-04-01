@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2018-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -169,7 +169,7 @@ static int kbasep_hwcnt_backend_gpu_metadata_create(const struct kbase_hwcnt_gpu
 	/* Calculate number of block instances that aren't cores */
 	non_core_block_count = 2 + gpu_info->l2_count;
 	/* Calculate number of block instances that are shader cores */
-	sc_block_count = (size_t)fls64(gpu_info->core_mask);
+	sc_block_count = (size_t)fls64(gpu_info->sc_core_mask);
 	/* Determine the total number of cores */
 	core_block_count = sc_block_count;
 
@@ -277,7 +277,7 @@ static int kbasep_hwcnt_backend_gpu_metadata_create(const struct kbase_hwcnt_gpu
 	kbase_hwcnt_set_avail_mask(&desc.avail_mask, 0, 0);
 	kbase_hwcnt_set_avail_mask_bits(&desc.avail_mask, 0, non_core_block_count, U64_MAX);
 	kbase_hwcnt_set_avail_mask_bits(&desc.avail_mask, non_core_block_count, sc_block_count,
-					gpu_info->core_mask);
+					gpu_info->sc_core_mask);
 
 
 	return kbase_hwcnt_metadata_create(&desc, metadata);
@@ -294,7 +294,7 @@ static size_t kbasep_hwcnt_backend_jm_dump_bytes(const struct kbase_hwcnt_gpu_in
 {
 	WARN_ON(!gpu_info);
 
-	return (2 + gpu_info->l2_count + (size_t)fls64(gpu_info->core_mask)) *
+	return (2 + gpu_info->l2_count + (size_t)fls64(gpu_info->sc_core_mask)) *
 	       gpu_info->prfcnt_values_per_block * KBASE_HWCNT_VALUE_HW_BYTES;
 }
 
@@ -384,6 +384,7 @@ bool kbase_hwcnt_is_block_type_shader(const enum kbase_hwcnt_gpu_v5_block_type b
 	return false;
 }
 
+
 bool kbase_hwcnt_is_block_type_memsys(const enum kbase_hwcnt_gpu_v5_block_type blk_type)
 {
 	if (blk_type == KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_MEMSYS ||
@@ -466,9 +467,7 @@ int kbase_hwcnt_jm_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 		else
 			hw_res_available = true;
 
-		/*
-		 * Skip block if no values in the destination block are enabled.
-		 */
+		/* Skip block if no values in the destination block are enabled. */
 		if (kbase_hwcnt_enable_map_block_enabled(dst_enable_map, blk, blk_inst)) {
 			u64 *dst_blk = kbase_hwcnt_dump_buffer_block_instance(dst, blk, blk_inst);
 			const u64 *src_blk = dump_src + src_offset;
@@ -592,7 +591,7 @@ int kbase_hwcnt_jm_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 int kbase_hwcnt_csf_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 			     blk_stt_t *src_block_stt,
 			     const struct kbase_hwcnt_enable_map *dst_enable_map,
-			     size_t num_l2_slices, u64 shader_present_bitmap, bool accumulate)
+			     size_t num_l2_slices, u64 powered_shader_core_mask, bool accumulate)
 {
 	const struct kbase_hwcnt_metadata *metadata;
 	const u64 *dump_src = src;
@@ -614,9 +613,7 @@ int kbase_hwcnt_csf_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 		blk_stt_t *dst_blk_stt =
 			kbase_hwcnt_dump_buffer_block_state_instance(dst, blk, blk_inst);
 
-		/*
-		 * Skip block if no values in the destination block are enabled.
-		 */
+		/* Skip block if no values in the destination block are enabled. */
 		if (kbase_hwcnt_enable_map_block_enabled(dst_enable_map, blk, blk_inst)) {
 			u64 *dst_blk = kbase_hwcnt_dump_buffer_block_instance(dst, blk, blk_inst);
 			const u64 *src_blk = dump_src + src_offset;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -106,6 +106,7 @@
 #include <linux/clk-provider.h>
 #include <linux/delay.h>
 #include <linux/log2.h>
+#include <linux/mali_hw_access.h>
 
 #include <mali_kbase_config.h>
 
@@ -151,13 +152,19 @@ static const struct mali_kbase_capability_def kbase_caps_table[MALI_KBASE_NUM_CA
 #if MALI_USE_CSF
 	{ 1, 0 }, /* SYSTEM_MONITOR */
 	{ 1, 0 }, /* JIT_PRESSURE_LIMIT */
+	{ 1, 22 }, /* MEM_DONT_NEED */
 	{ 1, 0 }, /* MEM_GROW_ON_GPF */
-	{ 1, 0 } /* MEM_PROTECTED */
+	{ 1, 0 }, /* MEM_PROTECTED */
+	{ 1, 26 }, /* MEM_IMPORT_SYNC_ON_MAP_UNMAP */
+	{ 1, 26 } /* MEM_KERNEL_SYNC */
 #else
 	{ 11, 15 }, /* SYSTEM_MONITOR */
 	{ 11, 25 }, /* JIT_PRESSURE_LIMIT */
+	{ 11, 40 }, /* MEM_DONT_NEED */
 	{ 11, 2 }, /* MEM_GROW_ON_GPF */
-	{ 11, 2 } /* MEM_PROTECTED */
+	{ 11, 2 }, /* MEM_PROTECTED */
+	{ 11, 43 }, /* MEM_IMPORT_SYNC_ON_MAP_UNMAP */
+	{ 11, 43 } /* MEM_KERNEL_SYNC */
 #endif
 };
 
@@ -1416,7 +1423,7 @@ static int kbase_api_sticky_resource_map(struct kbase_context *kctx,
 	if (ret != 0)
 		return -EFAULT;
 
-	kbase_gpu_vm_lock(kctx);
+	kbase_gpu_vm_lock_with_pmode_sync(kctx);
 
 	for (i = 0; i < map->count; i++) {
 		if (!kbase_sticky_resource_acquire(kctx, gpu_addr[i])) {
@@ -1433,7 +1440,7 @@ static int kbase_api_sticky_resource_map(struct kbase_context *kctx,
 		}
 	}
 
-	kbase_gpu_vm_unlock(kctx);
+	kbase_gpu_vm_unlock_with_pmode_sync(kctx);
 
 	return ret;
 }
@@ -1453,7 +1460,7 @@ static int kbase_api_sticky_resource_unmap(struct kbase_context *kctx,
 	if (ret != 0)
 		return -EFAULT;
 
-	kbase_gpu_vm_lock(kctx);
+	kbase_gpu_vm_lock_with_pmode_sync(kctx);
 
 	for (i = 0; i < unmap->count; i++) {
 		if (!kbase_sticky_resource_release_force(kctx, NULL, gpu_addr[i])) {
@@ -1462,7 +1469,7 @@ static int kbase_api_sticky_resource_unmap(struct kbase_context *kctx,
 		}
 	}
 
-	kbase_gpu_vm_unlock(kctx);
+	kbase_gpu_vm_unlock_with_pmode_sync(kctx);
 
 	return ret;
 }
@@ -1518,6 +1525,12 @@ static int kbasep_cs_queue_bind(struct kbase_context *kctx, union kbase_ioctl_cs
 static int kbasep_cs_queue_kick(struct kbase_context *kctx, struct kbase_ioctl_cs_queue_kick *kick)
 {
 	return kbase_csf_queue_kick(kctx, kick);
+}
+
+static int kbasep_queue_group_clear_faults(struct kbase_context *kctx,
+					   struct kbase_ioctl_queue_group_clear_faults *faults)
+{
+	return kbase_csf_queue_group_clear_faults(kctx, faults);
 }
 
 static int kbasep_cs_queue_group_create_1_6(struct kbase_context *kctx,
@@ -1589,6 +1602,8 @@ static int kbasep_cs_queue_group_create_1_18(struct kbase_context *kctx,
 static int kbasep_cs_queue_group_create(struct kbase_context *kctx,
 					union kbase_ioctl_cs_queue_group_create *create)
 {
+	/* create->in.reserved only present pre-TDRX configuration. */
+
 	if (create->in.reserved != 0) {
 		dev_warn(kctx->kbdev->dev, "Invalid reserved field not 0 in queue group create\n");
 		return -EINVAL;
@@ -2090,6 +2105,11 @@ static long kbase_kfile_ioctl(struct kbase_file *kfile, unsigned int cmd, unsign
 		KBASE_HANDLE_IOCTL_IN(KBASE_IOCTL_KCPU_QUEUE_ENQUEUE, kbasep_kcpu_queue_enqueue,
 				      struct kbase_ioctl_kcpu_queue_enqueue, kctx);
 		break;
+	case KBASE_IOCTL_QUEUE_GROUP_CLEAR_FAULTS:
+		KBASE_HANDLE_IOCTL_IN(KBASE_IOCTL_QUEUE_GROUP_CLEAR_FAULTS,
+				      kbasep_queue_group_clear_faults,
+				      struct kbase_ioctl_queue_group_clear_faults, kctx);
+		break;
 	case KBASE_IOCTL_CS_TILER_HEAP_INIT:
 		KBASE_HANDLE_IOCTL_INOUT(KBASE_IOCTL_CS_TILER_HEAP_INIT, kbasep_cs_tiler_heap_init,
 					 union kbase_ioctl_cs_tiler_heap_init, kctx);
@@ -2547,6 +2567,9 @@ static ssize_t core_mask_show(struct device *dev, struct device_attribute *attr,
 	struct kbase_device *kbdev;
 	unsigned long flags;
 	ssize_t ret = 0;
+#if !MALI_USE_CSF
+	size_t i;
+#endif
 
 	CSTD_UNUSED(attr);
 
@@ -2565,21 +2588,146 @@ static ssize_t core_mask_show(struct device *dev, struct device_attribute *attr,
 	ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret),
 			 "Current in use core mask : 0x%llX\n", kbdev->pm.backend.shaders_avail);
 #else
-	ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret), "Current core mask (JS0) : 0x%llX\n",
-			 kbdev->pm.debug_core_mask[0]);
-	ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret), "Current core mask (JS1) : 0x%llX\n",
-			 kbdev->pm.debug_core_mask[1]);
-	ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret), "Current core mask (JS2) : 0x%llX\n",
-			 kbdev->pm.debug_core_mask[2]);
+	for (i = 0; i < BASE_JM_MAX_NR_SLOTS; i++) {
+		if (PAGE_SIZE < ret)
+			goto out_unlock;
+
+		ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret),
+				 "Current core mask (JS%zu) : 0x%llX\n", i,
+				 kbdev->pm.debug_core_mask[i]);
+	}
 #endif /* MALI_USE_CSF */
 
 	ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret), "Available core mask : 0x%llX\n",
 			 kbdev->gpu_props.shader_present);
-
+#if !MALI_USE_CSF
+out_unlock:
+#endif
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
 	return ret;
 }
+
+#if MALI_USE_CSF
+struct kbase_core_mask {
+	u64 new_core_mask;
+};
+
+static int core_mask_parse(struct kbase_device *const kbdev, const char *const buf,
+			   struct kbase_core_mask *const mask)
+{
+	int err = kstrtou64(buf, 0, &mask->new_core_mask);
+
+	if (err)
+		dev_err(kbdev->dev, "Couldn't process core mask write operation.\n");
+
+	return err;
+}
+
+static int core_mask_set(struct kbase_device *kbdev, struct kbase_core_mask *const new_mask)
+{
+	u64 new_core_mask = new_mask->new_core_mask;
+	u64 shader_present = kbdev->gpu_props.shader_present;
+
+	lockdep_assert_held(&kbdev->pm.lock);
+	lockdep_assert_held(&kbdev->hwaccess_lock);
+
+	if ((new_core_mask & shader_present) != new_core_mask) {
+		dev_err(kbdev->dev,
+			"Invalid core mask 0x%llX: Includes non-existent cores (present = 0x%llX)",
+			new_core_mask, shader_present);
+		return -EINVAL;
+
+	} else if (!(new_core_mask & shader_present & kbdev->pm.backend.ca_cores_enabled)) {
+		dev_err(kbdev->dev,
+			"Invalid core mask 0x%llX: No intersection with currently available cores (present = 0x%llX, CA enabled = 0x%llX)",
+			new_core_mask, kbdev->gpu_props.shader_present,
+			kbdev->pm.backend.ca_cores_enabled);
+		return -EINVAL;
+	}
+
+
+	if (kbdev->pm.debug_core_mask != new_core_mask)
+		kbase_pm_set_debug_core_mask(kbdev, new_core_mask);
+
+	return 0;
+}
+#else
+struct kbase_core_mask {
+	u64 new_core_mask[BASE_JM_MAX_NR_SLOTS];
+};
+
+static int core_mask_parse(struct kbase_device *const kbdev, const char *const buf,
+			   struct kbase_core_mask *const mask)
+{
+	int items;
+
+	items = sscanf(buf, "%llx %llx %llx", &mask->new_core_mask[0], &mask->new_core_mask[1],
+		       &mask->new_core_mask[2]);
+
+	if (items != 1 && items != BASE_JM_MAX_NR_SLOTS) {
+		dev_err(kbdev->dev, "Couldn't process core mask write operation.\n"
+				    "Use format <core_mask>\n"
+				    "or <core_mask_js0> <core_mask_js1> <core_mask_js2>\n");
+		return -EINVAL;
+	}
+
+	/* If only one value was provided, set all other core masks equal to the value. */
+	if (items == 1) {
+		size_t i;
+
+		for (i = 1; i < BASE_JM_MAX_NR_SLOTS; i++)
+			mask->new_core_mask[i] = mask->new_core_mask[0];
+	}
+
+	return 0;
+}
+
+static int core_mask_set(struct kbase_device *kbdev, struct kbase_core_mask *const new_mask)
+{
+	u64 shader_present = kbdev->gpu_props.shader_present;
+	u64 group_core_mask = kbdev->gpu_props.coherency_info.group.core_mask;
+	u64 *new_core_mask = &new_mask->new_core_mask[0];
+	size_t i;
+
+	for (i = 0; i < BASE_JM_MAX_NR_SLOTS; ++i) {
+		if ((new_core_mask[i] & shader_present) != new_core_mask[i]) {
+			dev_err(kbdev->dev,
+				"Invalid core mask 0x%llX for JS %zu: Includes non-existent cores (present = 0x%llX)",
+				new_core_mask[i], i, shader_present);
+			return -EINVAL;
+
+		} else if (!(new_core_mask[i] & shader_present &
+			     kbdev->pm.backend.ca_cores_enabled)) {
+			dev_err(kbdev->dev,
+				"Invalid core mask 0x%llX for JS %zu: No intersection with currently available cores (present = 0x%llX, CA enabled = 0x%llX)",
+				new_core_mask[i], i, kbdev->gpu_props.shader_present,
+				kbdev->pm.backend.ca_cores_enabled);
+			return -EINVAL;
+		} else if (!(new_core_mask[i] & group_core_mask)) {
+			dev_err(kbdev->dev,
+				"Invalid core mask 0x%llX for JS %zu: No intersection with group 0 core mask 0x%llX",
+				new_core_mask[i], i, group_core_mask);
+			return -EINVAL;
+		} else if (!(new_core_mask[i] & kbdev->gpu_props.curr_config.shader_present)) {
+			dev_err(kbdev->dev,
+				"Invalid core mask 0x%llX for JS %zu: No intersection with current core mask 0x%llX",
+				new_core_mask[i], i, kbdev->gpu_props.curr_config.shader_present);
+			return -EINVAL;
+		}
+	}
+
+	for (i = 0; i < BASE_JM_MAX_NR_SLOTS; i++) {
+		if (kbdev->pm.debug_core_mask[i] != new_core_mask[i]) {
+			kbase_pm_set_debug_core_mask(kbdev, new_core_mask, BASE_JM_MAX_NR_SLOTS);
+			break;
+		}
+	}
+
+	return 0;
+}
+
+#endif
 
 /**
  * core_mask_store - Store callback for the core_mask sysfs file.
@@ -2597,18 +2745,10 @@ static ssize_t core_mask_store(struct device *dev, struct device_attribute *attr
 			       size_t count)
 {
 	struct kbase_device *kbdev;
-#if MALI_USE_CSF
-	u64 new_core_mask;
-#else
-	u64 new_core_mask[3];
-	u64 group_core_mask;
-	int i;
-#endif /* MALI_USE_CSF */
+	struct kbase_core_mask core_mask = {};
 
-	int items;
-	ssize_t err = (ssize_t)count;
+	int err;
 	unsigned long flags;
-	u64 shader_present;
 
 	CSTD_UNUSED(attr);
 
@@ -2617,102 +2757,22 @@ static ssize_t core_mask_store(struct device *dev, struct device_attribute *attr
 	if (!kbdev)
 		return -ENODEV;
 
-#if MALI_USE_CSF
-	items = sscanf(buf, "%llx", &new_core_mask);
-
-	if (items != 1) {
-		dev_err(kbdev->dev, "Couldn't process core mask write operation.\n"
-				    "Use format <core_mask>\n");
-		err = -EINVAL;
-		goto end;
-	}
-#else
-	items = sscanf(buf, "%llx %llx %llx", &new_core_mask[0], &new_core_mask[1],
-		       &new_core_mask[2]);
-
-	if (items != 1 && items != 3) {
-		dev_err(kbdev->dev, "Couldn't process core mask write operation.\n"
-				    "Use format <core_mask>\n"
-				    "or <core_mask_js0> <core_mask_js1> <core_mask_js2>\n");
-		err = -EINVAL;
-		goto end;
-	}
-
-	if (items == 1)
-		new_core_mask[1] = new_core_mask[2] = new_core_mask[0];
-#endif
+	err = core_mask_parse(kbdev, buf, &core_mask);
+	if (err)
+		return err;
 
 	mutex_lock(&kbdev->pm.lock);
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 
-	shader_present = kbdev->gpu_props.shader_present;
+	err = core_mask_set(kbdev, &core_mask);
 
-#if MALI_USE_CSF
-	if ((new_core_mask & shader_present) != new_core_mask) {
-		dev_err(dev,
-			"Invalid core mask 0x%llX: Includes non-existent cores (present = 0x%llX)",
-			new_core_mask, shader_present);
-		err = -EINVAL;
-		goto unlock;
-
-	} else if (!(new_core_mask & shader_present & kbdev->pm.backend.ca_cores_enabled)) {
-		dev_err(dev,
-			"Invalid core mask 0x%llX: No intersection with currently available cores (present = 0x%llX, CA enabled = 0x%llX\n",
-			new_core_mask, kbdev->gpu_props.shader_present,
-			kbdev->pm.backend.ca_cores_enabled);
-		err = -EINVAL;
-		goto unlock;
-	}
-
-	if (kbdev->pm.debug_core_mask != new_core_mask)
-		kbase_pm_set_debug_core_mask(kbdev, new_core_mask);
-#else
-	group_core_mask = kbdev->gpu_props.coherency_info.group.core_mask;
-
-	for (i = 0; i < 3; ++i) {
-		if ((new_core_mask[i] & shader_present) != new_core_mask[i]) {
-			dev_err(dev,
-				"Invalid core mask 0x%llX for JS %d: Includes non-existent cores (present = 0x%llX)",
-				new_core_mask[i], i, shader_present);
-			err = -EINVAL;
-			goto unlock;
-
-		} else if (!(new_core_mask[i] & shader_present &
-			     kbdev->pm.backend.ca_cores_enabled)) {
-			dev_err(dev,
-				"Invalid core mask 0x%llX for JS %d: No intersection with currently available cores (present = 0x%llX, CA enabled = 0x%llX\n",
-				new_core_mask[i], i, kbdev->gpu_props.shader_present,
-				kbdev->pm.backend.ca_cores_enabled);
-			err = -EINVAL;
-			goto unlock;
-		} else if (!(new_core_mask[i] & group_core_mask)) {
-			dev_err(dev,
-				"Invalid core mask 0x%llX for JS %d: No intersection with group 0 core mask 0x%llX\n",
-				new_core_mask[i], i, group_core_mask);
-			err = -EINVAL;
-			goto unlock;
-		} else if (!(new_core_mask[i] & kbdev->gpu_props.curr_config.shader_present)) {
-			dev_err(dev,
-				"Invalid core mask 0x%llX for JS %d: No intersection with current core mask 0x%llX\n",
-				new_core_mask[i], i, kbdev->gpu_props.curr_config.shader_present);
-			err = -EINVAL;
-			goto unlock;
-		}
-	}
-
-	if (kbdev->pm.debug_core_mask[0] != new_core_mask[0] ||
-	    kbdev->pm.debug_core_mask[1] != new_core_mask[1] ||
-	    kbdev->pm.debug_core_mask[2] != new_core_mask[2]) {
-		kbase_pm_set_debug_core_mask(kbdev, new_core_mask[0], new_core_mask[1],
-					     new_core_mask[2]);
-	}
-#endif /* MALI_USE_CSF */
-
-unlock:
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 	mutex_unlock(&kbdev->pm.lock);
-end:
-	return err;
+
+	if (err)
+		return err;
+
+	return count;
 }
 
 /*
@@ -3481,12 +3541,8 @@ int kbase_pm_gpu_freq_init(struct kbase_device *kbdev)
 		/* convert found frequency to KHz */
 		found_freq /= 1000;
 
-		/* If lowest frequency in OPP table is still higher
-		 * than the reference, then keep the reference frequency
-		 * as the one to use for scaling .
-		 */
-		if (found_freq < lowest_freq_khz)
-			lowest_freq_khz = found_freq;
+		/* always use the lowest freqency from opp table */
+		lowest_freq_khz = found_freq;
 	}
 #else
 	dev_err(kbdev->dev, "No operating-points-v2 node or operating-points property in DT");
@@ -4469,7 +4525,7 @@ static int kbase_common_reg_map(struct kbase_device *kbdev)
 		goto out_region;
 	}
 
-	kbdev->reg = ioremap(kbdev->reg_start, kbdev->reg_size);
+	kbdev->reg = mali_ioremap(kbdev->reg_start, kbdev->reg_size);
 	if (!kbdev->reg) {
 		dev_err(kbdev->dev, "Can't remap register window\n");
 		err = -EINVAL;
@@ -4487,7 +4543,7 @@ out_region:
 static void kbase_common_reg_unmap(struct kbase_device *const kbdev)
 {
 	if (kbdev->reg) {
-		iounmap(kbdev->reg);
+		mali_iounmap(kbdev->reg);
 		release_mem_region(kbdev->reg_start, kbdev->reg_size);
 		kbdev->reg = NULL;
 		kbdev->reg_start = 0;
@@ -5089,6 +5145,7 @@ static struct dentry *init_debugfs(struct kbase_device *kbdev)
 		dev_err(kbdev->dev, "Unable to create quirks_gpu debugfs entry\n");
 		return dentry;
 	}
+
 
 	dentry = debugfs_ctx_defaults_init(kbdev);
 	if (IS_ERR_OR_NULL(dentry))

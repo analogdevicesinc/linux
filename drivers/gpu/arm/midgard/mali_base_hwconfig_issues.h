@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -462,22 +462,6 @@ __attribute__((unused)) static const enum base_hw_issue base_hw_issues_tBAx_r0p2
 	BASE_HW_ISSUE_END
 };
 
-__attribute__((unused)) static const enum base_hw_issue base_hw_issues_tBAx_r1p0[] = {
-	BASE_HW_ISSUE_9435,
-	BASE_HW_ISSUE_TSIX_2033,
-	BASE_HW_ISSUE_TTRX_1337,
-	BASE_HW_ISSUE_TTRX_2968_TTRX_3162,
-	BASE_HW_ISSUE_TTRX_921,
-	BASE_HW_ISSUE_TTRX_3414,
-	BASE_HW_ISSUE_TTRX_3083,
-	BASE_HW_ISSUE_TTRX_3470,
-	BASE_HW_ISSUE_TTRX_3464,
-	BASE_HW_ISSUE_TITANHW_2710,
-	BASE_HW_ISSUE_GPU2022PRO_148,
-	BASE_HW_ISSUE_TITANHW_2938,
-	BASE_HW_ISSUE_END
-};
-
 __attribute__((unused)) static const enum base_hw_issue base_hw_issues_model_tBAx[] = {
 	BASE_HW_ISSUE_5736,	      BASE_HW_ISSUE_9435,	  BASE_HW_ISSUE_TSIX_2033,
 	BASE_HW_ISSUE_TTRX_1337,      BASE_HW_ISSUE_TTRX_3414,	  BASE_HW_ISSUE_TTRX_3083,
@@ -512,7 +496,13 @@ __attribute__((unused)) static const enum base_hw_issue base_hw_issues_model_tGR
 __attribute__((unused)) static const enum base_hw_issue base_hw_issues_tVAx_r0p0[] = {
 	BASE_HW_ISSUE_TSIX_2033,    BASE_HW_ISSUE_TTRX_1337,	BASE_HW_ISSUE_GPU2019_3878,
 	BASE_HW_ISSUE_GPU2019_3901, BASE_HW_ISSUE_TITANHW_2710, BASE_HW_ISSUE_GPU2022PRO_148,
-	BASE_HW_ISSUE_TITANHW_2938, BASE_HW_ISSUE_TITANHW_2938, BASE_HW_ISSUE_END
+	BASE_HW_ISSUE_TITANHW_2938, BASE_HW_ISSUE_END
+};
+
+__attribute__((unused)) static const enum base_hw_issue base_hw_issues_tVAx_r0p1[] = {
+	BASE_HW_ISSUE_TSIX_2033,    BASE_HW_ISSUE_TTRX_1337,	BASE_HW_ISSUE_GPU2019_3878,
+	BASE_HW_ISSUE_GPU2019_3901, BASE_HW_ISSUE_TITANHW_2710, BASE_HW_ISSUE_GPU2022PRO_148,
+	BASE_HW_ISSUE_TITANHW_2938, BASE_HW_ISSUE_END
 };
 
 __attribute__((unused)) static const enum base_hw_issue base_hw_issues_model_tVAx[] = {

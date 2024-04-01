@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -1415,10 +1415,28 @@ int kbase_update_region_flags(struct kbase_context *kctx, struct kbase_va_region
 void kbase_gpu_vm_lock(struct kbase_context *kctx);
 
 /**
+ * kbase_gpu_vm_lock_with_pmode_sync() - Wrapper of kbase_gpu_vm_lock.
+ * @kctx:  KBase context
+ *
+ * Same as kbase_gpu_vm_lock for JM GPU.
+ * Additionally acquire P.mode read-write semaphore for CSF GPU.
+ */
+void kbase_gpu_vm_lock_with_pmode_sync(struct kbase_context *kctx);
+
+/**
  * kbase_gpu_vm_unlock() - Release the per-context region list lock
  * @kctx:  KBase context
  */
 void kbase_gpu_vm_unlock(struct kbase_context *kctx);
+
+/**
+ * kbase_gpu_vm_unlock_with_pmode_sync() - Wrapper of kbase_gpu_vm_unlock.
+ * @kctx:  KBase context
+ *
+ * Same as kbase_gpu_vm_unlock for JM GPU.
+ * Additionally release P.mode read-write semaphore for CSF GPU.
+ */
+void kbase_gpu_vm_unlock_with_pmode_sync(struct kbase_context *kctx);
 
 int kbase_alloc_phy_pages(struct kbase_va_region *reg, size_t vsize, size_t size);
 
@@ -1657,7 +1675,7 @@ int kbase_alloc_phy_pages_helper(struct kbase_mem_phy_alloc *alloc, size_t nr_pa
  *
  * @prealloc_sa:        Information about the partial allocation if the amount of memory requested
  *                      is not a multiple of 2MB. One instance of struct kbase_sub_alloc must be
- *                      allocated by the caller if kbdev->pagesize_2mb is enabled.
+ *                      allocated by the caller if large pages are enabled.
  *
  * Allocates @nr_pages_requested and updates the alloc object. This function does not allocate new
  * pages from the kernel, and therefore will never trigger the OoM killer. Therefore, it can be
@@ -1685,9 +1703,9 @@ int kbase_alloc_phy_pages_helper(struct kbase_mem_phy_alloc *alloc, size_t nr_pa
  * This ensures that the pool can be grown to the required size and that the allocation can
  * complete without another thread using the newly grown pages.
  *
- * If kbdev->pagesize_2mb is enabled and the allocation is >= 2MB, then @pool must be one of the
- * pools from alloc->imported.native.kctx->mem_pools.large[]. Otherwise it must be one of the
- * mempools from alloc->imported.native.kctx->mem_pools.small[].
+ * If large (2MiB) pages are enabled and the allocation is >= 2MiB, then @pool
+ * must be one of the pools from alloc->imported.native.kctx->mem_pools.large[]. Otherwise it
+ * must be one of the mempools from alloc->imported.native.kctx->mem_pools.small[].
  *
  * @prealloc_sa is used to manage the non-2MB sub-allocation. It has to be pre-allocated because we
  * must not sleep (due to the usage of kmalloc()) whilst holding pool->pool_lock.  @prealloc_sa
@@ -2601,4 +2619,7 @@ static inline base_mem_alloc_flags kbase_mem_group_id_set(int id)
 {
 	return BASE_MEM_GROUP_ID_SET(id);
 }
+
+bool kbase_is_large_pages_enabled(void);
+
 #endif /* _KBASE_MEM_H_ */

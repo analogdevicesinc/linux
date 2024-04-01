@@ -227,16 +227,6 @@ config MALI_CORESTACK
 
 	  If unsure, say N.
 
-comment "Platform options"
-	depends on MALI_MIDGARD && MALI_EXPERT
-
-config MALI_ERROR_INJECT
-	bool "Enable No Mali error injection"
-	depends on MALI_MIDGARD && MALI_EXPERT && MALI_NO_MALI
-	default n
-	help
-	  Enables insertion of errors to test module failure and recovery mechanisms.
-
 comment "Debug options"
 	depends on MALI_MIDGARD && MALI_EXPERT
 

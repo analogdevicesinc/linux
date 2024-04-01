@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2018-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -617,6 +617,7 @@ void kbase_csf_firmware_trigger_mcu_sleep(struct kbase_device *kbdev);
  */
 bool kbase_csf_firmware_is_mcu_in_sleep(struct kbase_device *kbdev);
 #endif
+
 
 /**
  * kbase_csf_firmware_trigger_reload() - Trigger the reboot of MCU firmware, for

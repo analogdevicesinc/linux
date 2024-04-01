@@ -520,6 +520,14 @@ void kbase_csf_firmware_trace_buffer_discard(struct firmware_trace_buffer *trace
 }
 EXPORT_SYMBOL(kbase_csf_firmware_trace_buffer_discard);
 
+void kbase_csf_firmware_trace_buffer_discard_all(struct firmware_trace_buffer *trace_buffer)
+{
+	if (WARN_ON(!trace_buffer))
+		return;
+
+	*(trace_buffer->cpu_va.extract_cpu_va) = *(trace_buffer->cpu_va.insert_cpu_va);
+}
+
 static void update_trace_buffer_active_mask64(struct firmware_trace_buffer *tb, u64 mask)
 {
 	unsigned int i;

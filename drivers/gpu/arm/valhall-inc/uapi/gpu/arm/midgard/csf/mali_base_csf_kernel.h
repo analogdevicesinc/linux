@@ -46,7 +46,11 @@
  */
 #define BASE_MEM_CSF_EVENT ((base_mem_alloc_flags)1 << 19)
 
-#define BASE_MEM_RESERVED_BIT_20 ((base_mem_alloc_flags)1 << 20)
+/* Unused bit for CSF, only used in JM for BASE_MEM_TILER_ALIGN_TOP */
+#define BASE_MEM_UNUSED_BIT_20 ((base_mem_alloc_flags)1 << 20)
+
+/* Unused bit for CSF, only used in JM for BASE_MEM_FLAG_MAP_FIXED */
+#define BASE_MEM_UNUSED_BIT_27 ((base_mem_alloc_flags)1 << 27)
 
 /* Must be FIXABLE memory: its GPU VA will be determined at a later point,
  * at which time it will be at a fixed GPU VA.
@@ -62,9 +66,15 @@
  */
 #define BASEP_MEM_FLAGS_KERNEL_ONLY (BASEP_MEM_PERMANENT_KERNEL_MAPPING | BASEP_MEM_NO_USER_FREE)
 
-/* A mask of all currently reserved flags
- */
-#define BASE_MEM_FLAGS_RESERVED BASE_MEM_RESERVED_BIT_20
+/* A mask of all flags that should not be queried */
+#define BASE_MEM_DONT_QUERY \
+	(BASE_MEM_COHERENT_SYSTEM_REQUIRED | BASE_MEM_IMPORT_SHARED | BASE_MEM_SAME_VA)
+
+/* A mask of all currently reserved flags */
+#define BASE_MEM_FLAGS_RESERVED ((base_mem_alloc_flags)0)
+
+/* A mask of all bits that are not used by a flag on CSF */
+#define BASE_MEM_FLAGS_UNUSED (BASE_MEM_UNUSED_BIT_20 | BASE_MEM_UNUSED_BIT_27)
 
 /* Special base mem handles specific to CSF.
  */
@@ -474,7 +484,26 @@ struct base_gpu_queue_error_fatal_payload {
 };
 
 /**
- * enum base_gpu_queue_group_error_type - GPU Fatal error type.
+ * struct base_gpu_queue_error_fault_payload - Recoverable fault
+ *        error information related to GPU command queue.
+ *
+ * @sideband:     Additional information about this recoverable fault.
+ * @status:       Recoverable fault information.
+ *                This consists of exception type (least significant byte) and
+ *                data (remaining bytes). One example of exception type is
+ *                INSTR_INVALID_PC (0x50).
+ * @csi_index:    Index of the CSF interface the queue is bound to.
+ * @padding:      Padding to make multiple of 64bits
+ */
+struct base_gpu_queue_error_fault_payload {
+	__u64 sideband;
+	__u32 status;
+	__u8 csi_index;
+	__u8 padding[3];
+};
+
+/**
+ * enum base_gpu_queue_group_error_type - GPU error type.
  *
  * @BASE_GPU_QUEUE_GROUP_ERROR_FATAL:       Fatal error associated with GPU
  *                                          command queue group.
@@ -484,7 +513,9 @@ struct base_gpu_queue_error_fatal_payload {
  *                                          progress timeout.
  * @BASE_GPU_QUEUE_GROUP_ERROR_TILER_HEAP_OOM: Fatal error due to running out
  *                                             of tiler heap memory.
- * @BASE_GPU_QUEUE_GROUP_ERROR_FATAL_COUNT: The number of fatal error types
+ * @BASE_GPU_QUEUE_GROUP_QUEUE_ERROR_FAULT: Fault error reported for GPU
+ *                                          command queue.
+ * @BASE_GPU_QUEUE_GROUP_ERROR_FATAL_COUNT: The number of GPU error types
  *
  * This type is used for &struct_base_gpu_queue_group_error.error_type.
  */
@@ -493,6 +524,7 @@ enum base_gpu_queue_group_error_type {
 	BASE_GPU_QUEUE_GROUP_QUEUE_ERROR_FATAL,
 	BASE_GPU_QUEUE_GROUP_ERROR_TIMEOUT,
 	BASE_GPU_QUEUE_GROUP_ERROR_TILER_HEAP_OOM,
+	BASE_GPU_QUEUE_GROUP_QUEUE_ERROR_FAULT,
 	BASE_GPU_QUEUE_GROUP_ERROR_FATAL_COUNT
 };
 
@@ -512,6 +544,7 @@ struct base_gpu_queue_group_error {
 	union {
 		struct base_gpu_queue_group_error_fatal_payload fatal_group;
 		struct base_gpu_queue_error_fatal_payload fatal_queue;
+		struct base_gpu_queue_error_fault_payload fault_queue;
 	} payload;
 };
 

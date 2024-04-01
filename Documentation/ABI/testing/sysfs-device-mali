@@ -341,8 +341,7 @@ Description:
                 device-driver that supports a CSF GPU.
 
 		Used to enable firmware logs, logging levels valid values
-		are indicated using 'min and 'max' attribute values
-		values that are read-only.
+		are indicated using 'min' and 'max' attributes, which are read-only.
 
 		Log level can be set using the 'cur' read, write attribute,
 		we can use a valid log level value from min and max range values

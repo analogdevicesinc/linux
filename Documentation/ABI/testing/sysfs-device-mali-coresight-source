@@ -19,7 +19,7 @@ Description:
 
 What:		/sys/bus/coresight/devices/mali-source-etm/is_enabled
 Description:
-        Attribute used to check if Coresight Source ITM is enabled.
+        Attribute used to check if Coresight Source ETM is enabled.
 
 What:		/sys/bus/coresight/devices/mali-source-etm/trcconfigr
 Description:

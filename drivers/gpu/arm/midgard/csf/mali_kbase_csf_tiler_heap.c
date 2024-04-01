@@ -218,7 +218,7 @@ static void remove_unlinked_chunk(struct kbase_context *kctx,
 	if (WARN_ON(!list_empty(&chunk->link)))
 		return;
 
-	kbase_gpu_vm_lock(kctx);
+	kbase_gpu_vm_lock_with_pmode_sync(kctx);
 	kbase_vunmap(kctx, &chunk->map);
 	/* KBASE_REG_DONT_NEED regions will be confused with ephemeral regions (inc freed JIT
 	 * regions), and so we must clear that flag too before freeing.
@@ -231,7 +231,7 @@ static void remove_unlinked_chunk(struct kbase_context *kctx,
 	chunk->region->flags &= ~KBASE_REG_DONT_NEED;
 #endif
 	kbase_mem_free_region(kctx, chunk->region);
-	kbase_gpu_vm_unlock(kctx);
+	kbase_gpu_vm_unlock_with_pmode_sync(kctx);
 
 	kfree(chunk);
 }
@@ -1058,6 +1058,7 @@ static bool delete_chunk_physical_pages(struct kbase_csf_tiler_heap *heap, u64 c
 	struct kbase_csf_tiler_heap_chunk *chunk = NULL;
 
 	lockdep_assert_held(&heap->kctx->csf.tiler_heaps.lock);
+	lockdep_assert_held(&kctx->kbdev->csf.scheduler.lock);
 
 	chunk = find_chunk(heap, chunk_gpu_va);
 	if (unlikely(!chunk)) {

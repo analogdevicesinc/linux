@@ -32,7 +32,7 @@
  */
 #define ENTRY_IS_ATE_L3 3ULL
 #define ENTRY_IS_ATE_L02 1ULL
-#define ENTRY_IS_INVAL 2ULL
+#define ENTRY_IS_INVAL 0ULL
 #define ENTRY_IS_PTE 3ULL
 
 #define ENTRY_ACCESS_RW (1ULL << 6) /* bits 6:7 */

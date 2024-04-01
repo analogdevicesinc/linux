@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2018-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -857,11 +857,11 @@ static void kbase_csf_firmware_reload_worker(struct work_struct *work)
 		container_of(work, struct kbase_device, csf.firmware_reload_work);
 	unsigned long flags;
 
+	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 	/* Reboot the firmware */
 	kbase_csf_firmware_enable_mcu(kbdev);
 
 	/* Tell MCU state machine to transit to next state */
-	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 	kbdev->csf.firmware_reloaded = true;
 	kbase_pm_update_state(kbdev);
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
@@ -934,7 +934,7 @@ static u32 convert_dur_to_idle_count(struct kbase_device *kbdev, const u32 dur_n
 	/* add the source flag */
 	reg_val_u32 = GLB_IDLE_TIMER_TIMER_SOURCE_SET(
 		reg_val_u32, (src_system_timestamp ? GLB_IDLE_TIMER_TIMER_SOURCE_SYSTEM_TIMESTAMP :
-							  GLB_IDLE_TIMER_TIMER_SOURCE_GPU_COUNTER));
+							GLB_IDLE_TIMER_TIMER_SOURCE_GPU_COUNTER));
 
 	return reg_val_u32;
 }
@@ -1118,15 +1118,16 @@ int kbase_csf_firmware_early_init(struct kbase_device *kbdev)
 	INIT_WORK(&kbdev->csf.firmware_reload_work, kbase_csf_firmware_reload_worker);
 	INIT_WORK(&kbdev->csf.fw_error_work, firmware_error_worker);
 
+	init_rwsem(&kbdev->csf.pmode_sync_sem);
 	mutex_init(&kbdev->csf.reg_lock);
-	kbase_csf_pending_gpuq_kicks_init(kbdev);
+	kbase_csf_pending_gpuq_kick_queues_init(kbdev);
 
 	return 0;
 }
 
 void kbase_csf_firmware_early_term(struct kbase_device *kbdev)
 {
-	kbase_csf_pending_gpuq_kicks_term(kbdev);
+	kbase_csf_pending_gpuq_kick_queues_term(kbdev);
 	mutex_destroy(&kbdev->csf.reg_lock);
 }
 
@@ -1308,6 +1309,7 @@ int kbase_csf_firmware_ping_wait(struct kbase_device *const kbdev, unsigned int 
 	return wait_for_global_request(kbdev, GLB_REQ_PING_MASK);
 }
 
+
 int kbase_csf_firmware_set_timeout(struct kbase_device *const kbdev, u64 const timeout)
 {
 	const struct kbase_csf_global_iface *const global_iface = &kbdev->csf.global_iface;
@@ -1370,6 +1372,8 @@ void kbase_csf_firmware_trigger_mcu_halt(struct kbase_device *kbdev)
 
 void kbase_csf_firmware_enable_mcu(struct kbase_device *kbdev)
 {
+	lockdep_assert_held(&kbdev->hwaccess_lock);
+
 	/* Trigger the boot of MCU firmware, Use the AUTO mode as
 	 * otherwise on fast reset, to exit protected mode, MCU will
 	 * not reboot by itself to enter normal mode.

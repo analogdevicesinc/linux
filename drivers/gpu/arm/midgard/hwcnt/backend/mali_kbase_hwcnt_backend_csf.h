@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2021-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2021-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -30,8 +30,10 @@
 #include "hwcnt/backend/mali_kbase_hwcnt_backend.h"
 #include "hwcnt/backend/mali_kbase_hwcnt_backend_csf_if.h"
 #include "hwcnt/mali_kbase_hwcnt_watchdog_if.h"
+#include "hwcnt/mali_kbase_hwcnt_types.h"
 
 struct kbase_hwcnt_physical_enable_map;
+struct kbase_hwcnt_backend_csf;
 
 /**
  * kbase_hwcnt_backend_csf_create() - Create a CSF hardware counter backend
@@ -123,11 +125,12 @@ void kbase_hwcnt_backend_csf_on_before_reset(struct kbase_hwcnt_backend_interfac
  *                                                 this function is called.
  * @iface: Non-NULL pointer to HWC backend interface.
  * @num_l2_slices: Current number of L2 slices allocated to the GPU.
- * @shader_present_bitmap: Current shader-present bitmap that is allocated to the GPU.
+ * @powered_shader_core_mask: The common mask between the debug_core_mask
+ *                            and the shader_present_bitmap.
  */
 void kbase_hwcnt_backend_csf_set_hw_availability(struct kbase_hwcnt_backend_interface *iface,
 						 size_t num_l2_slices,
-						 uint64_t shader_present_bitmap);
+						 uint64_t powered_shader_core_mask);
 
 /** kbasep_hwcnt_backend_csf_process_enable_map() - Process the enable_map to
  *                                                  guarantee headers are
@@ -173,5 +176,22 @@ void kbase_hwcnt_backend_csf_on_prfcnt_enable(struct kbase_hwcnt_backend_interfa
  * @iface: Non-NULL pointer to HWC backend interface.
  */
 void kbase_hwcnt_backend_csf_on_prfcnt_disable(struct kbase_hwcnt_backend_interface *iface);
+
+/**
+ * kbasep_hwcnt_backend_csf_update_block_state - Update block state of a block instance with
+ *                              information from a sample.
+ * @backend:                    CSF hardware counter backend.
+ * @enable_mask:                Counter enable mask for the block whose state is being updated.
+ * @exiting_protm:              Whether or not the sample is taken when the GPU is exiting
+ *                              protected mode.
+ * @block_idx:                  Index of block within the ringbuffer.
+ * @block_state:                Pointer to existing block state of the block whose state is being
+ *                              updated.
+ * @fw_in_protected_mode:       Whether or not GPU is in protected mode during sampling.
+ */
+void kbasep_hwcnt_backend_csf_update_block_state(struct kbase_hwcnt_backend_csf *backend,
+						 const u32 enable_mask, bool exiting_protm,
+						 size_t block_idx, blk_stt_t *const block_state,
+						 bool fw_in_protected_mode);
 
 #endif /* _KBASE_HWCNT_BACKEND_CSF_H_ */

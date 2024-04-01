@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2018-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -250,7 +250,7 @@
 
 #define GLB_ACK 0x0000 /* () Global acknowledge */
 #define GLB_DB_ACK 0x0008 /* () Global doorbell acknowledge */
-#define GLB_HALT_STATUS 0x0010 /* () Global halt status */
+#define GLB_FATAL_STATUS 0x0010 /* () Global fatal error status */
 #define GLB_PRFCNT_STATUS 0x0014 /* () Performance counter status */
 #define GLB_PRFCNT_INSERT 0x0018 /* () Performance counter buffer insert index */
 #define GLB_DEBUG_FWUTF_RESULT GLB_DEBUG_ARG_OUT0 /* () Firmware debug test result */
@@ -1422,6 +1422,12 @@
 #define GLB_REQ_PRFCNT_OVERFLOW_SET(reg_val, value)    \
 	(((reg_val) & ~GLB_REQ_PRFCNT_OVERFLOW_MASK) | \
 	 (((value) << GLB_REQ_PRFCNT_OVERFLOW_SHIFT) & GLB_REQ_PRFCNT_OVERFLOW_MASK))
+#define GLB_ACK_FATAL_SHIFT GPU_U(27)
+#define GLB_ACK_FATAL_MASK (GPU_U(0x1) << GLB_ACK_FATAL_SHIFT)
+#define GLB_ACK_FATAL_GET(reg_val) (((reg_val)&GLB_ACK_FATAL_MASK) >> GLB_ACK_FATAL_SHIFT)
+#define GLB_ACK_FATAL_SET(reg_val, value)     \
+	(~(~(reg_val) | GLB_ACK_FATAL_MASK) | \
+	 (((value) << GLB_ACK_FATAL_SHIFT) & GLB_ACK_FATAL_MASK))
 #define GLB_REQ_DEBUG_CSF_REQ_SHIFT 30
 #define GLB_REQ_DEBUG_CSF_REQ_MASK (0x1 << GLB_REQ_DEBUG_CSF_REQ_SHIFT)
 #define GLB_REQ_DEBUG_CSF_REQ_GET(reg_val) \
@@ -1821,6 +1827,20 @@
 #define GLB_DEBUG_REQ_RUN_MODE_SET(reg_val, value)    \
 	(((reg_val) & ~GLB_DEBUG_REQ_RUN_MODE_MASK) | \
 	 (((value) << GLB_DEBUG_REQ_RUN_MODE_SHIFT) & GLB_DEBUG_REQ_RUN_MODE_MASK))
+
+/* GLB_FATAL_STATUS register */
+#define GLB_FATAL_STATUS_VALUE_SHIFT GPU_U(0)
+#define GLB_FATAL_STATUS_VALUE_MASK (GPU_U(0xFFFFFFFF) << GLB_FATAL_STATUS_VALUE_SHIFT)
+#define GLB_FATAL_STATUS_VALUE_GET(reg_val) \
+	(((reg_val)&GLB_FATAL_STATUS_VALUE_MASK) >> GLB_FATAL_STATUS_VALUE_SHIFT)
+
+enum glb_fatal_status {
+	GLB_FATAL_STATUS_VALUE_OK,
+	GLB_FATAL_STATUS_VALUE_ASSERT,
+	GLB_FATAL_STATUS_VALUE_UNEXPECTED_EXCEPTION,
+	GLB_FATAL_STATUS_VALUE_HANG,
+	GLB_FATAL_STATUS_VALUE_COUNT
+};
 
 /* GLB_DEBUG_ACK register */
 #define GLB_DEBUG_ACK_DEBUG_RUN_SHIFT GPU_U(23)

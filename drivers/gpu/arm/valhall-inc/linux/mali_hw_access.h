@@ -1,7 +1,7 @@
-// SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
+/* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2021-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -19,25 +19,20 @@
  *
  */
 
-#include <mali_kbase.h>
-#include <mali_kbase_defs.h>
-#include <mali_kbase_config.h>
-#include "mali_kbase_config_platform.h"
-#include <device/mali_kbase_device.h>
-#include <mali_kbase_hwaccess_time.h>
-#include <gpu/mali_kbase_gpu_regmap.h>
+#ifndef _MALI_HW_ACCESS_H_
+#define _MALI_HW_ACCESS_H_
 
-#include <linux/kthread.h>
-#include <linux/timer.h>
-#include <linux/jiffies.h>
-#include <linux/wait.h>
-#include <linux/delay.h>
-#include <linux/gcd.h>
 #include <asm/arch_timer.h>
+#include <linux/io.h>
 
-struct kbase_platform_funcs_conf platform_funcs = {
-	.platform_init_func = NULL,
-	.platform_term_func = NULL,
-	.platform_late_init_func = NULL,
-	.platform_late_term_func = NULL,
-};
+
+#define mali_readl(addr) readl(addr)
+#define mali_readq(addr) readq(addr)
+#define mali_writel(val, addr) writel(val, addr)
+#define mali_writeq(val, addr) writeq(val, addr)
+#define mali_ioremap(addr, size) ioremap(addr, size)
+#define mali_iounmap(addr) iounmap(addr)
+#define mali_arch_timer_get_cntfrq() arch_timer_get_cntfrq()
+
+
+#endif /* _MALI_HW_ACCESS_H_ */

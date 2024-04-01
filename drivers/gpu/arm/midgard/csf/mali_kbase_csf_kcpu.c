@@ -41,10 +41,6 @@ static DEFINE_SPINLOCK(kbase_csf_fence_lock);
 
 #define FENCE_WAIT_TIMEOUT_MS 3000
 
-static void kcpu_queue_process(struct kbase_kcpu_command_queue *kcpu_queue, bool drain_queue);
-
-static void kcpu_queue_process_worker(struct work_struct *data);
-
 static int kbase_kcpu_map_import_prepare(struct kbase_kcpu_command_queue *kcpu_queue,
 					 struct base_kcpu_command_import_info *import_info,
 					 struct kbase_kcpu_command *current_command)
@@ -443,6 +439,16 @@ static void kbase_kcpu_jit_allocate_finish(struct kbase_kcpu_command_queue *queu
 	kfree(cmd->info.jit_alloc.info);
 }
 
+static void enqueue_kcpuq_work(struct kbase_kcpu_command_queue *queue)
+{
+	struct kbase_context *const kctx = queue->kctx;
+
+	if (!atomic_read(&kctx->prioritized))
+		queue_work(kctx->csf.kcpu_queues.kcpu_wq, &queue->work);
+	else
+		kbase_csf_scheduler_enqueue_kcpuq_work(queue);
+}
+
 /**
  * kbase_kcpu_jit_retry_pending_allocs() - Retry blocked JIT_ALLOC commands
  *
@@ -462,9 +468,7 @@ static void kbase_kcpu_jit_retry_pending_allocs(struct kbase_context *kctx)
 	 * kbase_csf_kcpu_queue_context.jit_lock .
 	 */
 	list_for_each_entry(blocked_queue, &kctx->csf.kcpu_queues.jit_blocked_queues, jit_blocked)
-		queue_work(atomic_read(&kctx->prioritized) ? kctx->csf.kcpu_wq_high_prio :
-								   kctx->csf.kcpu_wq_normal_prio,
-			   &blocked_queue->work);
+		enqueue_kcpuq_work(blocked_queue);
 }
 
 static int kbase_kcpu_jit_free_process(struct kbase_kcpu_command_queue *queue,
@@ -715,11 +719,8 @@ static int kbase_csf_queue_group_suspend_process(struct kbase_context *kctx,
 static enum kbase_csf_event_callback_action event_cqs_callback(void *param)
 {
 	struct kbase_kcpu_command_queue *kcpu_queue = (struct kbase_kcpu_command_queue *)param;
-	struct kbase_context *kctx = kcpu_queue->kctx;
 
-	queue_work(atomic_read(&kctx->prioritized) ? kctx->csf.kcpu_wq_high_prio :
-							   kctx->csf.kcpu_wq_normal_prio,
-		   &kcpu_queue->work);
+	enqueue_kcpuq_work(kcpu_queue);
 
 	return KBASE_CSF_EVENT_CALLBACK_KEEP;
 }
@@ -1320,9 +1321,7 @@ static void kbase_csf_fence_wait_callback(struct dma_fence *fence, struct dma_fe
 				  fence->seqno);
 
 	/* Resume kcpu command queue processing. */
-	queue_work(atomic_read(&kctx->prioritized) ? kctx->csf.kcpu_wq_high_prio :
-							   kctx->csf.kcpu_wq_normal_prio,
-		   &kcpu_queue->work);
+	enqueue_kcpuq_work(kcpu_queue);
 }
 
 static void kbasep_kcpu_fence_wait_cancel(struct kbase_kcpu_command_queue *kcpu_queue,
@@ -1396,9 +1395,7 @@ static void fence_timeout_callback(struct timer_list *timer)
 	kbase_sync_fence_info_get(fence, &info);
 
 	if (info.status == 1) {
-		queue_work(atomic_read(&kctx->prioritized) ? kctx->csf.kcpu_wq_high_prio :
-								   kctx->csf.kcpu_wq_normal_prio,
-			   &kcpu_queue->work);
+		enqueue_kcpuq_work(kcpu_queue);
 	} else if (info.status == 0) {
 		dev_warn(kctx->kbdev->dev, "fence has not yet signalled in %ums",
 			 FENCE_WAIT_TIMEOUT_MS);
@@ -1687,9 +1684,7 @@ static void fence_signal_timeout_cb(struct timer_list *timer)
 		if (atomic_read(&kcpu_queue->fence_signal_pending_cnt) > 1)
 			fence_signal_timeout_start(kcpu_queue);
 
-		queue_work(atomic_read(&kctx->prioritized) ? kctx->csf.kcpu_wq_high_prio :
-								   kctx->csf.kcpu_wq_normal_prio,
-			   &kcpu_queue->timeout_work);
+		queue_work(kctx->csf.kcpu_queues.kcpu_wq, &kcpu_queue->timeout_work);
 	}
 }
 
@@ -1968,7 +1963,7 @@ static void kcpu_queue_process_worker(struct work_struct *data)
 		container_of(data, struct kbase_kcpu_command_queue, work);
 
 	mutex_lock(&queue->lock);
-	kcpu_queue_process(queue, false);
+	kbase_csf_kcpu_queue_process(queue, false);
 	mutex_unlock(&queue->lock);
 }
 
@@ -2001,7 +1996,7 @@ static int delete_queue(struct kbase_context *kctx, u32 id)
 		/* Drain the remaining work for this queue first and go past
 		 * all the waits.
 		 */
-		kcpu_queue_process(queue, true);
+		kbase_csf_kcpu_queue_process(queue, true);
 
 		/* All commands should have been processed */
 		WARN_ON(queue->num_pending_cmds);
@@ -2017,11 +2012,20 @@ static int delete_queue(struct kbase_context *kctx, u32 id)
 		mutex_unlock(&queue->lock);
 
 		cancel_work_sync(&queue->timeout_work);
+
+		/*
+		 * Drain a pending request to process this queue in
+		 * kbase_csf_scheduler_kthread() if any. By this point the
+		 * queue would be empty so this would be a no-op.
+		 */
+		kbase_csf_scheduler_wait_for_kthread_pending_work(kctx->kbdev,
+								  &queue->pending_kick);
+
 		cancel_work_sync(&queue->work);
 
 		mutex_destroy(&queue->lock);
 
-		kfree(queue);
+		vfree(queue);
 	} else {
 		dev_dbg(kctx->kbdev->dev, "Attempt to delete a non-existent KCPU queue");
 		mutex_unlock(&kctx->csf.kcpu_queues.lock);
@@ -2074,7 +2078,7 @@ KBASE_TLSTREAM_TL_KBASE_KCPUQUEUE_EXECUTE_JIT_FREE_END(struct kbase_device *kbde
 	KBASE_TLSTREAM_TL_KBASE_ARRAY_END_KCPUQUEUE_EXECUTE_JIT_FREE_END(kbdev, queue);
 }
 
-static void kcpu_queue_process(struct kbase_kcpu_command_queue *queue, bool drain_queue)
+void kbase_csf_kcpu_queue_process(struct kbase_kcpu_command_queue *queue, bool drain_queue)
 {
 	struct kbase_device *kbdev = queue->kctx->kbdev;
 	bool process_next = true;
@@ -2194,10 +2198,10 @@ static void kcpu_queue_process(struct kbase_kcpu_command_queue *queue, bool drai
 				KBASE_TLSTREAM_TL_KBASE_KCPUQUEUE_EXECUTE_MAP_IMPORT_START(kbdev,
 											   queue);
 
-				kbase_gpu_vm_lock(queue->kctx);
+				kbase_gpu_vm_lock_with_pmode_sync(queue->kctx);
 				meta = kbase_sticky_resource_acquire(queue->kctx,
 								     cmd->info.import.gpu_va);
-				kbase_gpu_vm_unlock(queue->kctx);
+				kbase_gpu_vm_unlock_with_pmode_sync(queue->kctx);
 
 				if (meta == NULL) {
 					queue->has_error = true;
@@ -2214,10 +2218,10 @@ static void kcpu_queue_process(struct kbase_kcpu_command_queue *queue, bool drai
 
 			KBASE_TLSTREAM_TL_KBASE_KCPUQUEUE_EXECUTE_UNMAP_IMPORT_START(kbdev, queue);
 
-			kbase_gpu_vm_lock(queue->kctx);
+			kbase_gpu_vm_lock_with_pmode_sync(queue->kctx);
 			ret = kbase_sticky_resource_release(queue->kctx, NULL,
 							    cmd->info.import.gpu_va);
-			kbase_gpu_vm_unlock(queue->kctx);
+			kbase_gpu_vm_unlock_with_pmode_sync(queue->kctx);
 
 			if (!ret) {
 				queue->has_error = true;
@@ -2235,10 +2239,10 @@ static void kcpu_queue_process(struct kbase_kcpu_command_queue *queue, bool drai
 			KBASE_TLSTREAM_TL_KBASE_KCPUQUEUE_EXECUTE_UNMAP_IMPORT_FORCE_START(kbdev,
 											   queue);
 
-			kbase_gpu_vm_lock(queue->kctx);
+			kbase_gpu_vm_lock_with_pmode_sync(queue->kctx);
 			ret = kbase_sticky_resource_release_force(queue->kctx, NULL,
 								  cmd->info.import.gpu_va);
-			kbase_gpu_vm_unlock(queue->kctx);
+			kbase_gpu_vm_unlock_with_pmode_sync(queue->kctx);
 
 			if (!ret) {
 				queue->has_error = true;
@@ -2637,7 +2641,7 @@ int kbase_csf_kcpu_queue_enqueue(struct kbase_context *kctx,
 		}
 
 		queue->num_pending_cmds += enq->nr_commands;
-		kcpu_queue_process(queue, false);
+		kbase_csf_kcpu_queue_process(queue, false);
 	}
 
 out:
@@ -2648,20 +2652,11 @@ out:
 
 int kbase_csf_kcpu_queue_context_init(struct kbase_context *kctx)
 {
-	kctx->csf.kcpu_wq_high_prio = alloc_workqueue("mali_kcpu_wq_%i_high_prio",
-						      WQ_UNBOUND | WQ_HIGHPRI, 0, kctx->tgid);
-	if (kctx->csf.kcpu_wq_high_prio == NULL) {
+	kctx->csf.kcpu_queues.kcpu_wq =
+		alloc_workqueue("mali_kcpu_wq_%i_%i", 0, 0, kctx->tgid, kctx->id);
+	if (kctx->csf.kcpu_queues.kcpu_wq == NULL) {
 		dev_err(kctx->kbdev->dev,
 			"Failed to initialize KCPU queue high-priority workqueue");
-		return -ENOMEM;
-	}
-
-	kctx->csf.kcpu_wq_normal_prio =
-		alloc_workqueue("mali_kcpu_wq_%i_normal_prio", 0, 0, kctx->tgid);
-	if (kctx->csf.kcpu_wq_normal_prio == NULL) {
-		dev_err(kctx->kbdev->dev,
-			"Failed to initialize KCPU queue normal-priority workqueue");
-		destroy_workqueue(kctx->csf.kcpu_wq_high_prio);
 		return -ENOMEM;
 	}
 
@@ -2683,8 +2678,7 @@ void kbase_csf_kcpu_queue_context_term(struct kbase_context *kctx)
 
 	mutex_destroy(&kctx->csf.kcpu_queues.lock);
 
-	destroy_workqueue(kctx->csf.kcpu_wq_normal_prio);
-	destroy_workqueue(kctx->csf.kcpu_wq_high_prio);
+	destroy_workqueue(kctx->csf.kcpu_queues.kcpu_wq);
 }
 KBASE_EXPORT_TEST_API(kbase_csf_kcpu_queue_context_term);
 
@@ -2722,6 +2716,7 @@ kbase_csf_kcpu_queue_metadata_new(struct kbase_context *kctx, u64 fence_context)
 early_ret:
 	return metadata;
 }
+KBASE_ALLOW_ERROR_INJECTION_TEST_API(kbase_csf_kcpu_queue_metadata_new, ERRNO_NULL);
 
 int kbase_csf_kcpu_queue_new(struct kbase_context *kctx, struct kbase_ioctl_kcpu_queue_new *newq)
 {
@@ -2748,8 +2743,7 @@ int kbase_csf_kcpu_queue_new(struct kbase_context *kctx, struct kbase_ioctl_kcpu
 		goto out;
 	}
 
-	queue = kzalloc(sizeof(*queue), GFP_KERNEL);
-
+	queue = vzalloc(sizeof(*queue));
 	if (!queue) {
 		ret = -ENOMEM;
 		goto out;
@@ -2759,25 +2753,23 @@ int kbase_csf_kcpu_queue_new(struct kbase_context *kctx, struct kbase_ioctl_kcpu
 	{
 		.kctx = kctx, .start_offset = 0, .num_pending_cmds = 0, .enqueue_failed = false,
 		.command_started = false, .has_error = false, .id = idx,
-
 #if IS_ENABLED(CONFIG_SYNC_FILE)
-
 		.fence_context = dma_fence_context_alloc(1), .fence_seqno = 0,
 		.fence_wait_processed = false,
 #endif /* IS_ENABLED(CONFIG_SYNC_FILE) */
 	};
 
 	mutex_init(&queue->lock);
-
 	INIT_WORK(&queue->work, kcpu_queue_process_worker);
+	INIT_LIST_HEAD(&queue->high_prio_work);
+	atomic_set(&queue->pending_kick, 0);
 	INIT_WORK(&queue->timeout_work, kcpu_queue_timeout_worker);
 	INIT_LIST_HEAD(&queue->jit_blocked);
 
 	if (IS_ENABLED(CONFIG_SYNC_FILE)) {
 		metadata = kbase_csf_kcpu_queue_metadata_new(kctx, queue->fence_context);
-
 		if (!metadata) {
-			kfree(queue);
+			vfree(queue);
 			ret = -ENOMEM;
 			goto out;
 		}
@@ -2802,7 +2794,6 @@ int kbase_csf_kcpu_queue_new(struct kbase_context *kctx, struct kbase_ioctl_kcpu
 					      queue->num_pending_cmds);
 
 	KBASE_KTRACE_ADD_CSF_KCPU(kctx->kbdev, KCPU_QUEUE_CREATE, queue, queue->fence_context, 0);
-
 out:
 	mutex_unlock(&kctx->csf.kcpu_queues.lock);
 

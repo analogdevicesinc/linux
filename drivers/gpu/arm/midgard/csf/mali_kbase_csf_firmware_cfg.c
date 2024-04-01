@@ -367,10 +367,10 @@ int kbase_csf_firmware_cfg_fw_wa_init(struct kbase_device *kbdev)
 	 */
 	entry_count = of_property_count_u32_elems(kbdev->dev->of_node, "quirks-ext");
 
-	if (entry_count == -EINVAL)
+	if (entry_count < 0)
 		entry_count = of_property_count_u32_elems(kbdev->dev->of_node, "quirks_ext");
 
-	if (entry_count == -EINVAL || entry_count == -ENODATA)
+	if (entry_count < 0)
 		return 0;
 
 	entry_bytes = (size_t)entry_count * sizeof(u32);

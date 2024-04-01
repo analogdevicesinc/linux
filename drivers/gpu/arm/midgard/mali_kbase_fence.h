@@ -35,8 +35,37 @@
 #include <linux/version_compat_defs.h>
 
 #if MALI_USE_CSF
+/* Number of digits needed to express the max value of given unsigned type.
+ *
+ * Details: The number of digits needed to express the max value of given type is log10(t_max) + 1
+ * sizeof(t) == log2(t_max)/8
+ * log10(t_max) == log2(t_max) / log2(10)
+ * log2(t_max) == sizeof(type) * 8
+ * 1/log2(10) is approx (1233 >> 12)
+ * Hence, number of digits for given type == log10(t_max) + 1 == sizeof(type) * 8 * (1233 >> 12) + 1
+ */
+#define MAX_DIGITS_FOR_UNSIGNED_TYPE(t) ((((sizeof(t) * BITS_PER_BYTE) * 1233) >> 12) + 1)
+
+/* Number of digits needed to express the max value of given signed type,
+ * including the sign character,
+ */
+#define MAX_DIGITS_FOR_SIGNED_TYPE(t) (MAX_DIGITS_FOR_UNSIGNED_TYPE(t) + 1)
+
+/* Max number of characters for id member of kbase_device struct. */
+#define MAX_KBDEV_ID_LEN MAX_DIGITS_FOR_UNSIGNED_TYPE(u32)
+/* Max number of characters for tgid member of kbase_context struct. */
+#define MAX_KCTX_TGID_LEN MAX_DIGITS_FOR_SIGNED_TYPE(pid_t)
+/* Max number of characters for id member of kbase_context struct. */
+#define MAX_KCTX_ID_LEN MAX_DIGITS_FOR_UNSIGNED_TYPE(u32)
+/* Max number of characters for fence_context member of kbase_kcpu_command_queue struct. */
+#define MAX_KCTX_QUEUE_FENCE_CTX_LEN MAX_DIGITS_FOR_UNSIGNED_TYPE(u64)
+/* Max number of characters for timeline name fixed format, including null character. */
+#define FIXED_FORMAT_LEN (9)
+
 /* Maximum number of characters in DMA fence timeline name. */
-#define MAX_TIMELINE_NAME (32)
+#define MAX_TIMELINE_NAME                                                                        \
+	(MAX_KBDEV_ID_LEN + MAX_KCTX_TGID_LEN + MAX_KCTX_ID_LEN + MAX_KCTX_QUEUE_FENCE_CTX_LEN + \
+	 FIXED_FORMAT_LEN)
 
 /**
  * struct kbase_kcpu_dma_fence_meta - Metadata structure for dma fence objects containing

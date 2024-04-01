@@ -51,10 +51,6 @@ static inline vm_fault_t vmf_insert_pfn_prot(struct vm_area_struct *vma, unsigne
 }
 #endif
 
-#define PTE_PBHA_SHIFT (59)
-#define PTE_PBHA_MASK ((uint64_t)0xf << PTE_PBHA_SHIFT)
-#define PTE_RES_BIT_MULTI_AS_SHIFT (63)
-
 #define IMPORTED_MEMORY_ID (MEMORY_GROUP_MANAGER_NR_GROUPS - 1)
 
 /**

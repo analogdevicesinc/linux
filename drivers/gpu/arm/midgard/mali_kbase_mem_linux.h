@@ -57,6 +57,8 @@ struct kbase_va_region *kbase_mem_alloc(struct kbase_context *kctx, u64 va_pages
 /**
  * kbase_mem_query - Query properties of a GPU memory region
  *
+ * Note: Does not currently report the BASE_MEM_SAME_VA flag for any memory allocation.
+ *
  * @kctx:     The kernel context
  * @gpu_addr: A GPU address contained within the memory region
  * @query:    The type of query, from KBASE_MEM_QUERY_* flags, which could be

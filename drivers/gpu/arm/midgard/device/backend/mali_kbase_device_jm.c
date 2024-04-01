@@ -217,10 +217,8 @@ static const struct kbase_device_init dev_init[] = {
 	{ kbase_gpu_device_create, kbase_gpu_device_destroy, "Dummy model initialization failed" },
 #else /* !IS_ENABLED(CONFIG_MALI_REAL_HW) */
 	{ kbase_get_irqs, NULL, "IRQ search failed" },
-#endif /* !IS_ENABLED(CONFIG_MALI_REAL_HW) */
-#if !IS_ENABLED(CONFIG_MALI_NO_MALI)
 	{ registers_map, registers_unmap, "Register map failed" },
-#endif /* !IS_ENABLED(CONFIG_MALI_NO_MALI) */
+#endif /* !IS_ENABLED(CONFIG_MALI_REAL_HW) */
 #if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
 	{ kbase_gpu_metrics_init, kbase_gpu_metrics_term, "GPU metrics initialization failed" },
 #endif /* IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD) */

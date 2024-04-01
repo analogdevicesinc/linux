@@ -68,7 +68,7 @@ struct kbase_hwcnt_backend_csf_if_enable {
  * @prfcnt_block_size: Bytes of each performance counter block.
  * @l2_count:          The MMU L2 cache count.
  * @csg_count:         The total number of CSGs in the system
- * @core_mask:         Shader core mask.
+ * @sc_core_mask:         Shader core mask.
  * @clk_cnt:           Clock domain count in the system.
  * @clearing_samples:  Indicates whether counters are cleared after each sample
  *                     is taken.
@@ -80,7 +80,7 @@ struct kbase_hwcnt_backend_csf_if_prfcnt_info {
 	size_t prfcnt_block_size;
 	size_t l2_count;
 	u32 csg_count;
-	u64 core_mask;
+	u64 sc_core_mask;
 	u8 clk_cnt;
 	bool clearing_samples;
 };

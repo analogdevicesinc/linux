@@ -165,7 +165,7 @@ static int kbasep_hwcnt_backend_jm_gpu_info_init(struct kbase_device *kbdev,
 #endif
 
 	info->l2_count = l2_count;
-	info->core_mask = core_mask;
+	info->sc_core_mask = core_mask;
 	info->prfcnt_values_per_block = KBASE_HWCNT_V5_DEFAULT_VALUES_PER_BLOCK;
 
 	/* Determine the number of available clock domains. */
@@ -186,7 +186,7 @@ static void kbasep_hwcnt_backend_jm_init_layout(const struct kbase_hwcnt_gpu_inf
 	WARN_ON(!gpu_info);
 	WARN_ON(!phys_layout);
 
-	shader_core_cnt = fls64(gpu_info->core_mask);
+	shader_core_cnt = fls64(gpu_info->sc_core_mask);
 
 	*phys_layout = (struct kbase_hwcnt_jm_physical_layout){
 		.fe_cnt = KBASE_HWCNT_V5_FE_BLOCK_COUNT,
@@ -195,7 +195,7 @@ static void kbasep_hwcnt_backend_jm_init_layout(const struct kbase_hwcnt_gpu_inf
 		.shader_cnt = shader_core_cnt,
 		.block_cnt = KBASE_HWCNT_V5_FE_BLOCK_COUNT + KBASE_HWCNT_V5_TILER_BLOCK_COUNT +
 			     gpu_info->l2_count + shader_core_cnt,
-		.shader_avail_mask = gpu_info->core_mask,
+		.shader_avail_mask = gpu_info->sc_core_mask,
 		.headers_per_block = KBASE_HWCNT_V5_HEADERS_PER_BLOCK,
 		.values_per_block = gpu_info->prfcnt_values_per_block,
 		.counters_per_block =
@@ -384,14 +384,12 @@ kbasep_hwcnt_backend_jm_dump_enable_nolock(struct kbase_hwcnt_backend *backend,
 
 	enable = (struct kbase_instr_hwcnt_enable)
 	{
-		.fe_bm = phys_enable_map.fe_bm,
-		.shader_bm = phys_enable_map.shader_bm,
-		.tiler_bm = phys_enable_map.tiler_bm,
-		.mmu_l2_bm = phys_enable_map.mmu_l2_bm,
+		.fe_bm = phys_enable_map.fe_bm, .shader_bm = phys_enable_map.shader_bm,
+		.tiler_bm = phys_enable_map.tiler_bm, .mmu_l2_bm = phys_enable_map.mmu_l2_bm,
 		.counter_set = phys_counter_set,
 #if IS_ENABLED(CONFIG_MALI_NO_MALI)
 		/* The dummy model needs the CPU mapping. */
-		.dump_buffer = (uintptr_t)backend_jm->cpu_dump_va,
+			.dump_buffer = (uintptr_t)backend_jm->cpu_dump_va,
 #else
 		.dump_buffer = backend_jm->gpu_dump_va,
 #endif /* CONFIG_MALI_NO_MALI */
@@ -411,7 +409,7 @@ kbasep_hwcnt_backend_jm_dump_enable_nolock(struct kbase_hwcnt_backend *backend,
 
 	backend_jm->debug_core_mask = kbase_pm_ca_get_debug_core_mask(kbdev);
 	backend_jm->max_l2_slices = backend_jm->info->hwcnt_gpu_info.l2_count;
-	backend_jm->max_core_mask = backend_jm->info->hwcnt_gpu_info.core_mask;
+	backend_jm->max_core_mask = backend_jm->info->hwcnt_gpu_info.sc_core_mask;
 
 	backend_jm->pm_core_mask = kbase_pm_ca_get_instr_core_mask(kbdev);
 

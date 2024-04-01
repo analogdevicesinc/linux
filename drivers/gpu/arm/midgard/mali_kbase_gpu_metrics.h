@@ -106,7 +106,7 @@ void kbase_gpu_metrics_ctx_init(struct kbase_device *kbdev,
  * @kctx:         Pointer to the Kbase context contributing data to the GPU metrics context.
  * @timestamp_ns: CPU timestamp at which the GPU activity started.
  *
- * The provided timestamp would be later used as the "start_time_ns" for the
+ * The provided timestamp is used as the "start_time_ns" for the
  * power/gpu_work_period tracepoint if this is the first GPU activity for the GPU
  * metrics context in the current work period.
  *
@@ -122,9 +122,9 @@ void kbase_gpu_metrics_ctx_start_activity(struct kbase_context *kctx, u64 timest
  * @kctx:         Pointer to the Kbase context contributing data to the GPU metrics context.
  * @timestamp_ns: CPU timestamp at which the GPU activity ended.
  *
- * The provided timestamp would be later used as the "end_time_ns" for the
- * power/gpu_work_period tracepoint if this is the last GPU activity for the GPU
- * metrics context in the current work period.
+ * The provided timestamp is used as the "end_time_ns" for the power/gpu_work_period
+ * tracepoint if this is the last GPU activity for the GPU metrics context
+ * in the current work period.
  *
  * Note: The caller must appropriately serialize the call to this function with the
  *       call to other GPU metrics functions declared in this file.
@@ -138,8 +138,8 @@ void kbase_gpu_metrics_ctx_end_activity(struct kbase_context *kctx, u64 timestam
  * @kbdev: Pointer to the GPU device.
  * @ts:    Timestamp at which the tracepoint is being emitted.
  *
- * This function would loop through all the active GPU metrics contexts and emit a
- * power/gpu_work_period tracepoint for them.
+ * This function would loop through all GPU metrics contexts in the active list and
+ * emit a power/gpu_work_period tracepoint if the GPU work in the context still active.
  * The GPU metrics context that is found to be inactive since the last tracepoint
  * was emitted would be moved to the inactive list.
  * The current work period would be considered as over and a new work period would

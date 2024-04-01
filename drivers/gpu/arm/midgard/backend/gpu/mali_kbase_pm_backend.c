@@ -36,6 +36,9 @@
 #include <linux/version_compat_defs.h>
 #include <linux/pm_runtime.h>
 #include <mali_kbase_reset_gpu.h>
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
+#include <csf/mali_kbase_csf_scheduler.h>
+#endif /* !CONFIG_MALI_ARBITER_SUPPORT */
 #endif /* !MALI_USE_CSF */
 #include <hwcnt/mali_kbase_hwcnt_context.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
@@ -860,9 +863,11 @@ void kbase_pm_set_debug_core_mask(struct kbase_device *kbdev, u64 new_core_mask)
 }
 KBASE_EXPORT_TEST_API(kbase_pm_set_debug_core_mask);
 #else
-void kbase_pm_set_debug_core_mask(struct kbase_device *kbdev, u64 new_core_mask_js0,
-				  u64 new_core_mask_js1, u64 new_core_mask_js2)
+void kbase_pm_set_debug_core_mask(struct kbase_device *kbdev, u64 *new_core_mask,
+				  size_t new_core_mask_size)
 {
+	size_t i;
+
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 	lockdep_assert_held(&kbdev->pm.lock);
 
@@ -870,13 +875,14 @@ void kbase_pm_set_debug_core_mask(struct kbase_device *kbdev, u64 new_core_mask_
 		dev_warn_once(
 			kbdev->dev,
 			"Change of core mask not supported for slot 0 as dummy job WA is enabled");
-		new_core_mask_js0 = kbdev->pm.debug_core_mask[0];
+		new_core_mask[0] = kbdev->pm.debug_core_mask[0];
 	}
 
-	kbdev->pm.debug_core_mask[0] = new_core_mask_js0;
-	kbdev->pm.debug_core_mask[1] = new_core_mask_js1;
-	kbdev->pm.debug_core_mask[2] = new_core_mask_js2;
-	kbdev->pm.debug_core_mask_all = new_core_mask_js0 | new_core_mask_js1 | new_core_mask_js2;
+	kbdev->pm.debug_core_mask_all = 0;
+	for (i = 0; i < new_core_mask_size; i++) {
+		kbdev->pm.debug_core_mask[i] = new_core_mask[i];
+		kbdev->pm.debug_core_mask_all |= new_core_mask[i];
+	}
 
 	kbase_pm_update_dynamic_cores_onoff(kbdev);
 }
@@ -962,7 +968,9 @@ void kbase_hwaccess_pm_resume(struct kbase_device *kbdev)
 void kbase_pm_handle_gpu_lost(struct kbase_device *kbdev)
 {
 	unsigned long flags;
-#if !MALI_USE_CSF
+#if MALI_USE_CSF
+	unsigned long flags_sched;
+#else
 	ktime_t end_timestamp = ktime_get_raw();
 #endif
 	struct kbase_arbiter_vm_state *arb_vm_state = kbdev->pm.arb_vm_state;
@@ -981,24 +989,41 @@ void kbase_pm_handle_gpu_lost(struct kbase_device *kbdev)
 		 */
 		WARN(!kbase_is_gpu_removed(kbdev), "GPU is still available after GPU lost event\n");
 
-		/* Full GPU reset will have been done by hypervisor, so
-		 * cancel
-		 */
+#if MALI_USE_CSF
+		/* Full GPU reset will have been done by hypervisor, so cancel */
+		kbase_reset_gpu_prevent_and_wait(kbdev);
+
+		spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+		kbase_csf_scheduler_spin_lock(kbdev, &flags_sched);
+		atomic_set(&kbdev->hwaccess.backend.reset_gpu, KBASE_RESET_GPU_NOT_PENDING);
+		kbase_csf_scheduler_spin_unlock(kbdev, flags_sched);
+		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+
+		kbase_synchronize_irqs(kbdev);
+
+		/* Scheduler reset happens outside of spinlock due to the mutex it acquires */
+		kbase_csf_scheduler_reset(kbdev);
+
+		/* Update kbase status */
+		spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+		kbdev->protected_mode = false;
+		kbase_pm_update_state(kbdev);
+		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+#else
+		/* Full GPU reset will have been done by hypervisor, so cancel */
 		atomic_set(&kbdev->hwaccess.backend.reset_gpu, KBASE_RESET_GPU_NOT_PENDING);
 		hrtimer_cancel(&kbdev->hwaccess.backend.reset_timer);
+
 		kbase_synchronize_irqs(kbdev);
 
 		/* Clear all jobs running on the GPU */
 		spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 		kbdev->protected_mode = false;
-#if !MALI_USE_CSF
 		kbase_backend_reset(kbdev, &end_timestamp);
 		kbase_pm_metrics_update(kbdev, NULL);
-#endif
 		kbase_pm_update_state(kbdev);
 		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
-#if !MALI_USE_CSF
 		/* Cancel any pending HWC dumps */
 		spin_lock_irqsave(&kbdev->hwcnt.lock, flags);
 		if (kbdev->hwcnt.backend.state == KBASE_INSTR_STATE_DUMPING ||
@@ -1008,12 +1033,11 @@ void kbase_pm_handle_gpu_lost(struct kbase_device *kbdev)
 			wake_up(&kbdev->hwcnt.backend.wait);
 		}
 		spin_unlock_irqrestore(&kbdev->hwcnt.lock, flags);
-#endif
+#endif /* MALI_USE_CSF */
 	}
 	mutex_unlock(&arb_vm_state->vm_state_lock);
 	mutex_unlock(&kbdev->pm.lock);
 }
-
 #endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
 #if MALI_USE_CSF && defined(KBASE_PM_RUNTIME)
@@ -1069,7 +1093,7 @@ static int pm_handle_mcu_sleep_on_runtime_suspend(struct kbase_device *kbdev)
 	 */
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 	if (kbdev->pm.backend.gpu_sleep_mode_active && kbdev->pm.backend.exit_gpu_sleep_mode &&
-	    !work_pending(&kbdev->csf.scheduler.gpu_idle_work)) {
+	    !atomic_read(&kbdev->csf.scheduler.pending_gpu_idle_work)) {
 		u32 glb_req =
 			kbase_csf_firmware_global_input_read(&kbdev->csf.global_iface, GLB_REQ);
 		u32 glb_ack = kbase_csf_firmware_global_output(&kbdev->csf.global_iface, GLB_ACK);

@@ -149,15 +149,19 @@
  *   from the parent process.
  * 11.40:
  * - Remove KBASE_IOCTL_HWCNT_READER_SETUP and KBASE_HWCNT_READER_* ioctls.
+ * - Made the BASE_MEM_DONT_NEED memory flag queryable.
  * 11.41:
  * - Disallows changing the sharability on the GPU of imported dma-bufs to
  *   BASE_MEM_COHERENT_SYSTEM using KBASE_IOCTL_MEM_FLAGS_CHANGE.
  * 11.42:
  * - Implement full block state support for hardware counters.
+ * 11.43:
+ * - Made the BASE_MEM_IMPORT_SYNC_ON_MAP_UNMAP and BASE_MEM_KERNEL_SYNC memory
+ *   flags queryable.
  */
 
 #define BASE_UK_VERSION_MAJOR 11
-#define BASE_UK_VERSION_MINOR 42
+#define BASE_UK_VERSION_MINOR 43
 
 /**
  * struct kbase_ioctl_version_check - Check version compatibility between
