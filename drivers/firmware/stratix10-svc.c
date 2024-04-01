@@ -1675,7 +1675,6 @@ int stratix10_svc_send(struct stratix10_svc_chan *chan, void *msg)
 				if (p_mem->vaddr == p_msg->payload) {
 					p_data->paddr = p_mem->paddr;
 					p_data->size = p_msg->payload_length;
-					break;
 				}
 			if (p_msg->payload_output) {
 				list_for_each_entry(p_mem, &svc_data_mem, node)
@@ -1789,7 +1788,8 @@ void *stratix10_svc_allocate_memory(struct stratix10_svc_chan *chan,
 		dma_addr = iova_dma_addr(&chan->ctrl->carveout.domain, alloc);
 
 		ret = iommu_map(chan->ctrl->domain, dma_addr, virt_to_phys(va),
-				s, IOMMU_READ | IOMMU_WRITE, GFP_KERNEL);
+				s, IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO | IOMMU_CACHE,
+				GFP_KERNEL);
 		if (ret < 0) {
 			pr_debug("%s IOMMU map failed\n",__func__);
 			free_iova(&chan->ctrl->carveout.domain,
@@ -1922,7 +1922,7 @@ static int stratix10_svc_drv_probe(struct platform_device *pdev)
 		if (iommu_present(&platform_bus_type)) {
 			controller->is_smmu_enabled = true;
 			pr_debug("Intel Service Layer Driver: IOMMU Present\n");
-			controller->domain = iommu_domain_alloc(&platform_bus_type);
+			controller->domain = iommu_get_dma_domain(dev);
 
 			if (!controller->domain) {
 				pr_debug("Intel Service Layer Driver: Error IOMMU domain\n");

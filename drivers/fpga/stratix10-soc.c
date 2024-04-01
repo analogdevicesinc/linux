@@ -11,6 +11,7 @@
 #include <linux/of.h>
 #include <linux/of_platform.h>
 #include <linux/platform_device.h>
+#include <linux/dma-mapping.h>
 
 /*
  * FPGA programming requires a higher level of privilege (EL3), per the SoC
@@ -36,6 +37,7 @@ typedef void (*s10_callback)(struct stratix10_svc_client *client,
  */
 struct s10_svc_buf {
 	char *buf;
+	dma_addr_t dma_addr;
 	unsigned long lock;
 };
 
@@ -133,6 +135,7 @@ static void s10_unlock_bufs(struct s10_priv *priv, void *kaddr)
 
 	for (i = 0; i < NUM_SVC_BUFS; i++)
 		if (priv->svc_bufs[i].buf == kaddr) {
+			dma_unmap_single(priv->client.dev, priv->svc_bufs[i].dma_addr, SVC_BUF_SIZE, DMA_TO_DEVICE);
 			clear_bit_unlock(SVC_BUF_LOCK,
 					 &priv->svc_bufs[i].lock);
 			return;
@@ -303,6 +306,8 @@ static int s10_send_buf(struct fpga_manager *mgr, const char *buf, size_t count)
 
 	svc_buf = priv->svc_bufs[i].buf;
 	memcpy(svc_buf, buf, xfer_sz);
+	priv->svc_bufs[i].dma_addr = dma_map_single(dev, svc_buf, SVC_BUF_SIZE, DMA_TO_DEVICE);
+
 	ret = s10_svc_send_msg(priv, COMMAND_RECONFIG_DATA_SUBMIT,
 			       svc_buf, xfer_sz, s10_receive_callback);
 	if (ret < 0) {
