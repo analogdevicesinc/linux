@@ -54,6 +54,10 @@
 	status = "okay";
 };
 
+&lpuart7 {
+	status = "disabled";
+};
+
 &dsp {
 	compatible = "fsl,imx8ulp-dsp";
 	memory-reserved = <&dsp_reserved0>;
@@ -63,9 +67,9 @@
 	pinctrl-0 = <&pinctrl_sai5>;
 	pinctrl-1 = <&pinctrl_sai5>;
 
-	assigned-clocks = <&cgc2 IMX8ULP_CLK_HIFI_SEL>, <&cgc1 IMX8ULP_CLK_SAI5_SEL>, <&cgc2 IMX8ULP_CLK_HIFI_DIVCORE>;
-	assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4_PFD0>,  <&cgc1 IMX8ULP_CLK_SPLL3_PFD1_DIV1>;
-	assigned-clock-rates = <0>, <0>, <475200000>;
+	assigned-clocks = <&pcc4 IMX8ULP_CLK_LPUART7>, <&cgc2 IMX8ULP_CLK_HIFI_SEL>, <&cgc1 IMX8ULP_CLK_SAI5_SEL>, <&cgc2 IMX8ULP_CLK_HIFI_DIVCORE>;
+	assigned-clock-parents = <&cgc1 IMX8ULP_CLK_SOSC_DIV2>, <&cgc2 IMX8ULP_CLK_PLL4_PFD0>,  <&cgc1 IMX8ULP_CLK_SPLL3_PFD1_DIV1>;
+	assigned-clock-rates = <24000000>, <0>, <0>, <475200000>;
 
 	clocks = <&cgc2 IMX8ULP_CLK_HIFI_DIVCORE>,
 			<&cgc2 IMX8ULP_CLK_LPAV_BUS_DIV>,
@@ -77,14 +81,16 @@
 			<&pcc5 IMX8ULP_CLK_DMA2_CH0>, <&pcc5 IMX8ULP_CLK_DMA2_CH1>,
 			<&pcc5 IMX8ULP_CLK_DMA2_CH2>, <&pcc5 IMX8ULP_CLK_DMA2_CH3>,
 			<&pcc5 IMX8ULP_CLK_DMA2_CH4>, <&pcc5 IMX8ULP_CLK_DMA2_CH5>,
-			<&pcc5 IMX8ULP_CLK_DMA2_CH6>, <&pcc5 IMX8ULP_CLK_DMA2_CH7>;
+			<&pcc5 IMX8ULP_CLK_DMA2_CH6>, <&pcc5 IMX8ULP_CLK_DMA2_CH7>,
+			<&pcc4 IMX8ULP_CLK_LPUART7>;
 	clock-names = "core", "ipg", "ocram", "mu",
 				"bus", "mclk0", "mclk1",
 				"edma-mp-clk",
 						"edma2-chan0-clk", "edma2-chan1-clk",
 						"edma2-chan2-clk", "edma2-chan3-clk",
 						"edma2-chan4-clk", "edma2-chan5-clk",
-						"edma2-chan6-clk", "edma2-chan7-clk";
+						"edma2-chan6-clk", "edma2-chan7-clk",
+						"lpuart7";
 
 	mbox-names = "txdb0", "txdb1", "rxdb0", "rxdb1";
 	mboxes = <&mu3 2 0>,
