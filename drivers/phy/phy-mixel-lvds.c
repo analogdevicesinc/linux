@@ -159,7 +159,7 @@ static int mixel_lvds_phy_init(struct phy *phy)
 	mutex_lock(&priv->lock);
 	val = phy_read(phy, PHY_CTRL);
 	val &= ~(M_MASK | CCM_MASK | CA_MASK | TST_MASK | NB | PD);
-	val |= (M(0x0) | CCM(0x5) | CA(0x4) | TST(0x25) | RFB);
+	val |= (M(0x0) | CCM(0x6) | CA(0x4) | TST(0x25) | RFB);
 	phy_write(phy, PHY_CTRL, val);
 	mutex_unlock(&priv->lock);
 	clk_disable_unprepare(priv->phy_clk);
