@@ -54,7 +54,6 @@
 	non-removable;
 	wakeup-source;
 	vmmc-supply = <&reg_usdhc1_vmmc>;
-	fsl,sdio-async-interrupt-enabled;
 	status = "okay";
 
 	wifi_wake_host {

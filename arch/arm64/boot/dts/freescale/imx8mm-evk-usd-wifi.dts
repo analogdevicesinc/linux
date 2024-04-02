@@ -49,7 +49,6 @@
 	keep-power-in-suspend;
 	non-removable;
 	wakeup-source;
-	fsl,sdio-async-interrupt-enabled;
 };
 
 &usdhc1 {
