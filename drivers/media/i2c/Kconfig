@@ -652,6 +652,19 @@ config VIDEO_OX03C10_LIB
 
 	  To compile this library as a module, choose M here: the module will be called ox03c10.
 
+config VIDEO_OX03C10_DRV
+	tristate "OmniVision OX03C10 sensor support"
+	select VIDEO_OX03C10_LIB
+	select V4L2_FWNODE
+	select VIDEO_V4L2_SUBDEV_API
+	select MEDIA_CONTROLLER
+	depends on I2C
+	depends on VIDEO_DEV
+	depends on OF_GPIO
+	help
+	  This is a Video4Linux2 sensor driver for the OmniVision
+	  OX03C10 camera.
+
 config VIDEO_RDACM20
 	tristate "IMI RDACM20 camera support"
 	select VIDEO_MAX9271_LIB
