@@ -578,6 +578,11 @@ static const struct ub960_format_info ub960_formats[] = {
 	{ .code = MEDIA_BUS_FMT_SGBRG12_1X12, .bpp = 12, .datatype = MIPI_CSI2_DT_RAW12, },
 	{ .code = MEDIA_BUS_FMT_SGRBG12_1X12, .bpp = 12, .datatype = MIPI_CSI2_DT_RAW12, },
 	{ .code = MEDIA_BUS_FMT_SRGGB12_1X12, .bpp = 12, .datatype = MIPI_CSI2_DT_RAW12, },
+
+	{ .code = MEDIA_BUS_FMT_SBGGR16_1X16, .bpp = 16, .datatype = MIPI_CSI2_DT_RAW16, },
+	{ .code = MEDIA_BUS_FMT_SGBRG16_1X16, .bpp = 16, .datatype = MIPI_CSI2_DT_RAW16, },
+	{ .code = MEDIA_BUS_FMT_SGRBG16_1X16, .bpp = 16, .datatype = MIPI_CSI2_DT_RAW16, },
+	{ .code = MEDIA_BUS_FMT_SRGGB16_1X16, .bpp = 16, .datatype = MIPI_CSI2_DT_RAW16, },
 };
 
 static const struct ub960_format_info *ub960_find_format(u32 code)
