@@ -6,6 +6,11 @@
 
 #define ENETC_PF_NUM_RINGS	8
 
+/* This means the ENETC PF is owned by M core, but its VFs are
+ * owned by A core.
+ */
+#define ENETC_PF_VIRTUAL_DEVID	0x080b
+
 enum enetc_vf_flags {
 	ENETC_VF_FLAG_PF_SET_MAC	= BIT(0),
 	ENETC_VF_FLAG_TRUSTED		= BIT(1)
@@ -127,6 +132,15 @@ static inline void enetc_pf_register_hw_ops(struct enetc_pf *pf,
 					    const struct enetc_pf_hw_ops *hw_ops)
 {
 	pf->hw_ops = hw_ops;
+}
+
+static inline bool enetc_pf_is_owned_by_mcore(struct pci_dev *pdev)
+{
+	if (pdev->vendor == PCI_VENDOR_ID_NXP2 &&
+	    pdev->device == ENETC_PF_VIRTUAL_DEVID)
+		return true;
+
+	return false;
 }
 
 static inline bool enetc_pf_is_vf_trusted(struct enetc_pf *pf, int vf_id)

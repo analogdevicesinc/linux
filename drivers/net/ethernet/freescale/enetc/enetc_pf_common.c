@@ -1661,9 +1661,21 @@ void enetc_msg_handle_rxmsg(struct enetc_pf *pf, int vf_id, u16 *msg_code)
 #ifdef CONFIG_PCI_IOV
 int enetc_sriov_configure(struct pci_dev *pdev, int num_vfs)
 {
-	struct enetc_si *si = pci_get_drvdata(pdev);
-	struct enetc_pf *pf = enetc_si_priv(si);
+	struct enetc_si *si;
+	struct enetc_pf *pf;
 	int err;
+
+	if (enetc_pf_is_owned_by_mcore(pdev)) {
+		err = pci_sriov_configure_simple(pdev, num_vfs);
+		if (err < 0)
+			dev_err(&pdev->dev,
+				"pci_sriov_configure_simple err %d\n", err);
+
+		return err;
+	}
+
+	si = pci_get_drvdata(pdev);
+	pf = enetc_si_priv(si);
 
 	if (!num_vfs) {
 		pci_disable_sriov(pdev);

@@ -871,6 +871,9 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 	char wq_name[24];
 	int err;
 
+	if (enetc_pf_is_owned_by_mcore(pdev))
+		return 0;
+
 	err = netc_ierb_get_init_status();
 	if (err) {
 		if (err != -EPROBE_DEFER)
@@ -1021,9 +1024,17 @@ err_pci_probe:
 
 static void enetc4_pf_remove(struct pci_dev *pdev)
 {
-	struct enetc_si *si = pci_get_drvdata(pdev);
-	struct enetc_pf *pf = enetc_si_priv(si);
 	struct enetc_ndev_priv *priv;
+	struct enetc_si *si;
+	struct enetc_pf *pf;
+
+	if (enetc_pf_is_owned_by_mcore(pdev)) {
+		pci_sriov_configure_simple(pdev, 0);
+		return;
+	}
+
+	si = pci_get_drvdata(pdev);
+	pf = enetc_si_priv(si);
 
 	enetc_remove_debugfs(si);
 	priv = netdev_priv(si->ndev);
@@ -1053,6 +1064,7 @@ static void enetc4_pf_remove(struct pci_dev *pdev)
 /* Only ENETC PF Function can be probed. */
 static const struct pci_device_id enetc4_pf_id_table[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_NXP2, PCI_DEVICE_ID_NXP2_ENETC_PF) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_NXP2, ENETC_PF_VIRTUAL_DEVID) },
 	{ 0, } /* End of table. */
 };
 MODULE_DEVICE_TABLE(pci, enetc4_pf_id_table);
@@ -1062,6 +1074,9 @@ static int __maybe_unused enetc4_pf_suspend(struct device *dev)
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct enetc_ndev_priv *priv;
 	struct enetc_si *si;
+
+	if (enetc_pf_is_owned_by_mcore(pdev))
+		return 0;
 
 	si = pci_get_drvdata(pdev);
 	if (!netif_running(si->ndev))
@@ -1081,6 +1096,9 @@ static int __maybe_unused enetc4_pf_resume(struct device *dev)
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct enetc_ndev_priv *priv;
 	struct enetc_si *si;
+
+	if (enetc_pf_is_owned_by_mcore(pdev))
+		return 0;
 
 	si = pci_get_drvdata(pdev);
 	if (!netif_running(si->ndev))
