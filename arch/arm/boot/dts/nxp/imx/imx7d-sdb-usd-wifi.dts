@@ -52,7 +52,6 @@
 	pinctrl-2 = <&pinctrl_usdhc1_200mhz>, <&pinctrl_usdhc1_vsel_gpio>;
 	/delete-property/ cd-gpios;
 	/delete-property/ wp-gpios;
-	fsl,sdio-async-interrupt-enabled;
 	/*
 	 * Here config the vsel pad as an normal gpio, and use
 	 * the vqmmc(gpio-regulator) method to do the IO voltage switch.

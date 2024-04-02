@@ -83,7 +83,6 @@
 &usdhc1 {
 	#address-cells = <1>;
 	#size-cells = <0>;
-	fsl,sdio-async-interrupt-enabled;
 	non-removable;
 	mmc-pwrseq = <&usdhc1_pwrseq>;
 
