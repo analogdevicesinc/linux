@@ -1,0 +1,60 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+#include "imx95-19x19-evk.dts"
+
+/ {
+	aliases {
+		/delete-property/ ethernet0;
+		/delete-property/ ethernet1;
+	};
+};
+
+/delete-node/ &netcmix_blk_ctrl;
+/delete-node/ &pcie_4ca00000;
+/delete-node/ &pcie_4cb00000;
+/delete-node/ &netc_prb_ierb;
+/delete-node/ &pinctrl_enetc0;
+
+/ {
+	soc {
+		netc_bus0: pcie@88224000 {
+			compatible = "nxp,netc-rpmsg-pci-host-ecam";
+			reg = <0x0 0x88224000 0x0 0x100000>;
+			/* Must be 3. */
+			#address-cells = <3>;
+			/* Must be 2. */
+			#size-cells = <2>;
+			msi-parent = <&its>;
+			device_type = "pci";
+			bus-range = <0x0 0x0>;
+			msi-map = <0x80 &its 0x64 0x1>, //ENETC2 PF
+				  <0x90 &its 0x65 0x1>, //ENETC2 VF0
+				  <0xa0 &its 0x66 0x1>; //ENETC2 VF1
+
+				  /* ENETC2 - non-prefetchable memory */
+			ranges = <0x82000000 0x0 0x4cc80000  0x0 0x4cc80000  0x0 0x40000
+				  /* ENETC2: VF0-1 BAR0 - non-prefetchable memory */
+				  0x82000000 0x0 0x4cd60000  0x0 0x4cd60000  0x0 0x20000
+				  /* ENETC2: VF0-1 BAR2 - prefetchable memory */
+				  0xc2000000 0x0 0x4cdc0000  0x0 0x4cdc0000  0x0 0x20000>;
+			power-domains = <&scmi_devpd IMX95_PD_NETC>;
+
+			enetc2: ethernet@10,0 {
+				compatible = "pci1131,080b";
+				reg = <0x008000 0 0 0 0>;
+			};
+		};
+
+	};
+};
+
+&lpi2c5 {
+	status = "disabled";
+};
+
+&lpi2c7 {
+	status = "disabled";
+};

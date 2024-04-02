@@ -2818,7 +2818,7 @@
 			};
 		};
 
-		netc_prb_ierb@4cde0000 {
+		netc_prb_ierb: netc-prb-ierb@4cde0000 {
 			compatible = "fsl,imx95-netc-prb-ierb";
 			reg = <0x0 0x4cde0000 0x0 0x10000>,
 			      <0x0 0x4cdf0000 0x0 0x10000>;
