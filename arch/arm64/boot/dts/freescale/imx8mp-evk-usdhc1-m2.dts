@@ -95,7 +95,6 @@
 	wakeup-source;
 	mmc-pwrseq = <&usdhc1_pwrseq>;
 	vmmc-supply = <&reg_usdhc1_vmmc>;
-	fsl,sdio-async-interrupt-enabled;
 	status = "okay";
 
 	wifi_wake_host {
