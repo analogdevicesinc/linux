@@ -76,6 +76,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply ADAR3000
 	imply ADRV9009
 	imply ADRV9001
+	imply AD4080
 	imply AD9467
 	imply AD9680
 	imply ADMC
