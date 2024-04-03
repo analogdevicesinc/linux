@@ -148,12 +148,20 @@ static void sys_freq_scaling(enum mode_type new_mode)
 		/* increase the voltage first */
 		regulator_set_voltage_tol(soc_reg, VDD_SOC_OD_VOLTAGE, 0);
 
+		/* Increase the NIC_AXI first */
+		clk_set_parent(path[NIC_AXI].clk, clks[SYS_PLL_PFD0].clk);
+		clk_set_rate(path[NIC_AXI].clk, path[NIC_AXI].mode_rate[OD_MODE]);
+
 		for (i = 0; i < CLK_PATH_END; i++) {
+			/* NIC_AXI has been changed before, skip it */
+			if (i == NIC_AXI)
+				continue;
+
 			if (i == M33_ROOT) {
 				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD0_DIV2].clk);
 			} else if (i == MEDIA_AXI || i == A55_PERIPH) {
 				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1].clk);
-			} else if (i == ML_AXI || i == NIC_AXI) {
+			} else if (i == ML_AXI) {
 				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD0].clk);
 			} else if (i == WAKEUP_AXI) {
 				clk_set_parent(path[i].clk, path[i].initial_rate > 312500000 ?
