@@ -563,6 +563,16 @@ config ADRV9025
 	  To compile this driver as a module, choose M here: the module will be
 	  called adrv9025_drv.
 
+config AD4080
+	tristate "Analog Devices AD4080 high speed ADC"
+	depends on SPI
+	select CF_AXI_ADC
+	help
+	  Say yes here to build support for Analog Devices AD4080
+	  high speed, low noise, low distortion, 20-bit, Easy Drive,
+	  successive approximation register (SAR) analog-to-digital
+	  converter (ADC). Provides direct access via sysfs.
+
 config AD6676
 	tristate "Analog Devices AD6676 Wideband IF Receiver driver"
 	depends on SPI
