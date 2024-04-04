@@ -71,6 +71,7 @@ zynqmp-smk-k26-revA-sck-kv-g-revA-dtbs := zynqmp-smk-k26-revA.dtb zynqmp-sck-kv-
 zynqmp-smk-k26-revA-sck-kv-g-revB-dtbs := zynqmp-smk-k26-revA.dtb zynqmp-sck-kv-g-revB.dtbo
 zynqmp-sm-k26-revA-sck-kv-g-revB-gmsl-dtbs := zynqmp-sm-k26-revA-sck-kv-g-revB.dtb gmsl.dtbo
 zynqmp-sm-k26-revA-gmsl-mqnic-dtbs := zynqmp-sm-k26-revA.dtb gmsl-k26.dtbo mqnic-k26.dtbo
+zynqmp-sm-k26-revA-gmsl-mqnic-imu-dtbs := zynqmp-sm-k26-revA.dtb gmsl-k26-imu.dtbo mqnic-k26-imu.dtbo
 zynqmp-sm-k26-revA-gmsl-mqnic-1frmbuf-dtbs := zynqmp-sm-k26-revA.dtb gmsl-k26-des1-mod1frmbuf.dtbo mqnic-k26.dtbo
 zynqmp-sm-k26-revA-gmsl-k26-2des-modfrmbuf-dtbs := zynqmp-sm-k26-revA.dtb gmsl-k26-2des-modfrmbuf.dtbo mqnic-k26.dtbo
 zynqmp-sm-k26-revA-gmsl-mqnic-pwm-dtbs := zynqmp-sm-k26-revA.dtb gmsl-k26-pwm.dtbo mqnic-k26.dtbo
@@ -87,6 +88,7 @@ zynqmp-smk-k24-revA-sck-kv-g-revB-dtbs := zynqmp-smk-k24-revA.dtb zynqmp-sck-kv-
 
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-sck-kv-g-revA.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-gmsl-mqnic.dtb
+dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-gmsl-mqnic-imu.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-gmsl-mqnic-1frmbuf.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-gmsl-k26-2des-modfrmbuf.dtb
 dtb-$(CONFIG_ARCH_ZYNQMP) += zynqmp-sm-k26-revA-gmsl-mqnic-pwm.dtb
