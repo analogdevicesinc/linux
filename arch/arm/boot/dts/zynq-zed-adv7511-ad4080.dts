@@ -1,0 +1,171 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ad4080
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/axi-adc-hdl
+ * https://wiki.analog.com/resources/eval/ad4080-fmc-250ebz
+ * https://wiki.analog.com/resources/fpga/xilinx/fmc/ad4080
+ *
+ * hdl_project: <ad4080_fmc/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2016-2019 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/iio/frequency/ad9508.h>
+
+&usb0 {
+	dr_mode = "otg";
+};
+
+&fpga_axi {
+	rx_dma: rx-dmac@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44A30000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	ad4080: ad4080@44a00000 {
+		compatible = "adi,axi-adc-10.0.a";
+		reg = <0x44A00000 0x10000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+
+		spibus-connected = <&adc_ad4080>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+&spi1 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+
+/ {
+	adf4350_clkin: adf4350_clkin {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <25000000>;
+	};
+
+	adf4350_clkout: adf4350_clkout {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <400000000>;
+	};
+
+	gpio-control@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		out-gpios = <&gpio0 96 0>;
+		channel@0 {
+			reg = <0>;
+			label = "SYNC_N";
+		};
+	};
+};
+
+&fmc_spi {
+	adc_ad4080: adc_ad4080@0 {
+		compatible = "adi,ad4080";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		clocks = <&clk0_ad9508 2>;
+		clock-names = "adc_clk";
+		num_lanes = <1>;
+	};
+
+};
+
+&spi1 {
+	adf4350: adf4350@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "adi,adf4350";
+		reg = <1>;
+		spi-max-frequency = <10000000>;
+		clocks = <&adf4350_clkin>;
+		clock-names = "clkin";
+		adi,reference-div-factor = <1>;
+		adi,channel-spacing = <100000>;
+		adi,lock-detect-function-integer-n-enable;
+		adi,anti-backlash-3ns-enable;
+		adi,muxout-select = <6>;
+		adi,power-up-frequency = <400000000>;
+		adi,phase-detector-polarity-positive-enable;
+		adi,charge-pump-current = <5000>;
+		adi,output-power = <1>;
+		lock_detect-gpios = <&gpio0 89 0>;
+	};
+
+	clk0_ad9508: ad9508@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		#clock-cells = <1>;
+		compatible = "adi,ad9508";
+		reg = <0>;
+		spi-cpol;
+		spi-cpha;
+
+		clocks = <&adf4350_clkout>;
+
+		spi-max-frequency = <10000000>;
+		clock-output-names = "ad9508-1_out0", "ad9508-1_out1", "ad9508-1_out2", "ad9508-1_out3";
+		sync-gpios = <&gpio0 93 0>;
+
+		ad9508_0_c0:channel@0 {
+			reg = <0>;
+			adi,extended-name = "CNV_COPY";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_LVDS_1_25)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <10>;
+		};
+
+		ad9508_0_c1:channel@1 {
+			reg = <1>;
+			adi,extended-name = "CLK10M";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_LVDS_1_00)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <40>;
+		};
+
+		ad9508_0_c2:channel@2 {
+			reg = <2>;
+			adi,extended-name = "CNV";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_LVDS_1_25)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <10>;
+		};
+
+		ad9508_0_c3:channel@3 {
+			reg = <3>;
+			adi,extended-name = "MACH1_CLK";
+			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_LVDS_1_25)>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <1>;
+		};
+
+	};
+};
