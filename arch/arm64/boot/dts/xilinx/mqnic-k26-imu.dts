@@ -19,6 +19,27 @@
 
 &amba {
 
+	axi_quad_spi_0: axi_quad_spi@80010000 {
+                        bits-per-word = <8>;
+                        clock-names = "ext_spi_clk", "s_axi_aclk";
+                        clocks = <&misc_clk_2>, <&zynqmp_clk 73>;
+                        compatible = "xlnx,axi-quad-spi-3.2", "xlnx,xps-spi-2.00.a";
+                        fifo-size = <16>;
+                        interrupt-names = "ip2intc_irpt";
+                        interrupt-parent = <&gic>;
+                        interrupts = <0 91 1>;
+                        num-cs = <0x1>;
+                        reg = <0x0 0x80010000 0x0 0x10000>;
+                        xlnx,num-ss-bits = <0x1>;
+                        xlnx,spi-mode = <0>;
+	};
+
+	misc_clk_2: misc_clk_2 {
+		#clock-cells = <0>;
+		clock-frequency = <99998800>;
+		compatible = "fixed-clock";
+	};
+
 	afi0: afi0 {
 		compatible = "xlnx,afi-fpga";
 		config-afi =
@@ -58,17 +79,14 @@
 	};
 };
 
-&spi0 {
-	status = "okay";
-	spi-3wire = <0>;
-	spi-max-frequency = <2000000>;
-
+&axi_quad_spi_0 {
 	ad9545_clock: ad9545@0 {
 		compatible = "adi,ad9545";
 		reg = <0>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
+		spi-max-frequency = <2000000>;
 
 		adi,ref-crystal;
 		adi,ref-frequency-hz = <52000000>;
