@@ -2264,10 +2264,12 @@ static int ad9081_setup_rx(struct spi_device *spi)
 	}
 
 	for_each_cddc(i, phy->rx_cddc_select) {
-		ret = adi_ad9081_adc_data_inversion_dc_coupling_set(&phy->ad9081,
-			BIT(i), phy->adc_invert_en[i]);
-		if (ret != 0)
-			return ret;
+		if ((conv->id == CHIPID_AD9081 || conv->id == CHIPID_AD9988) && phy->adc_invert_en[i]) {
+			ret = adi_ad9081_adc_data_inversion_dc_coupling_set(&phy->ad9081,
+				BIT(i), phy->adc_invert_en[i]);
+			if (ret != 0)
+				return ret;
+		}
 		ret = adi_ad9081_adc_ddc_coarse_gain_set(
 			&phy->ad9081, BIT(i), phy->rx_cddc_gain_6db_en[i]);
 		if (ret != 0)
