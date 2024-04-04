@@ -827,23 +827,6 @@ static void imx219_stop_streaming(struct imx219 *imx219)
 	pm_runtime_put(&client->dev);
 }
 
-static int imx219_set_stream(struct v4l2_subdev *sd, int enable)
-{
-	struct imx219 *imx219 = to_imx219(sd);
-	struct v4l2_subdev_state *state;
-	int ret = 0;
-
-	state = v4l2_subdev_lock_and_get_active_state(sd);
-
-	if (enable)
-		ret = imx219_start_streaming(imx219, state);
-	else
-		imx219_stop_streaming(imx219);
-
-	v4l2_subdev_unlock_state(state);
-	return ret;
-}
-
 static void imx219_update_pad_format(struct imx219 *imx219,
 				     const struct imx219_mode *mode,
 				     struct v4l2_mbus_framefmt *fmt, u32 code)
@@ -1237,9 +1220,25 @@ static int imx219_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 	return 0;
 }
 
-static const struct v4l2_subdev_video_ops imx219_video_ops = {
-	.s_stream = imx219_set_stream,
-};
+static int imx219_enable_streams(struct v4l2_subdev *sd,
+				 struct v4l2_subdev_state *state, u32 pad,
+				 u64 streams_mask)
+{
+	struct imx219 *imx219 = to_imx219(sd);
+
+	return imx219_start_streaming(imx219, state);
+}
+
+static int imx219_disable_streams(struct v4l2_subdev *sd,
+				 struct v4l2_subdev_state *state, u32 pad,
+				 u64 streams_mask)
+{
+	struct imx219 *imx219 = to_imx219(sd);
+
+	imx219_stop_streaming(imx219);
+
+	return 0;
+}
 
 static const struct v4l2_subdev_pad_ops imx219_pad_ops = {
 	.enum_mbus_code = imx219_enum_mbus_code,
@@ -1248,10 +1247,11 @@ static const struct v4l2_subdev_pad_ops imx219_pad_ops = {
 	.get_selection = imx219_get_selection,
 	.enum_frame_size = imx219_enum_frame_size,
 	.get_frame_desc = imx219_get_frame_desc,
+	.enable_streams = imx219_enable_streams,
+	.disable_streams = imx219_disable_streams,
 };
 
 static const struct v4l2_subdev_ops imx219_subdev_ops = {
-	.video = &imx219_video_ops,
 	.pad = &imx219_pad_ops,
 };
 
