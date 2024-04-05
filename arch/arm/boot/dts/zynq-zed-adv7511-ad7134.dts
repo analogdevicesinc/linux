@@ -53,6 +53,19 @@
 		#clock-cells = <0>;
 		clock-frequency = <48000000>;
 	};
+
+	one-bit-adc-dac@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		out-gpios = <&gpio0 104 GPIO_ACTIVE_HIGH>;
+
+		channel@0 {
+			reg = <0>;
+			label = "gpio-cs";
+		};
+	};
 };
 
 &fpga_axi {

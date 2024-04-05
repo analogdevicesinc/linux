@@ -25,6 +25,11 @@
 
 #define AD4134_NAME				"ad4134"
 
+#define AD4134_IF_CONFIG_B_REG					0x01
+#define AD4134_IF_CONFIG_B_SINGLE_INSTR			BIT(7)
+#define AD4134_IF_CONFIG_B_MASTER_SLAVE_RD_CTRL	BIT(5)
+#define AD4134_IF_CONFIG_B_DIG_IF_RESET			BIT(1)
+
 #define AD4134_DEVICE_CONFIG_REG		0x02
 #define AD4134_DEVICE_CONFIG_POWER_MODE_MASK	BIT(0)
 #define AD4134_POWER_MODE_HIGH_PERF		0b1
@@ -41,7 +46,7 @@
 #define AD4134_ODR_MAX				1496000
 #define AD4134_ODR_DEFAULT			300000
 
-#define AD4134_NUM_CHANNELS			4
+#define AD4134_NUM_CHANNELS			8
 #define AD4134_REAL_BITS			24
 #define AD4134_WORD_BITS			32
 
@@ -285,6 +290,7 @@ static int ad4134_setup(struct ad4134_state *st)
 {
 	struct device *dev = &st->spi->dev;
 	struct gpio_desc *reset_gpio;
+	//struct gpio_desc *cs_gpio;
 	struct clk *clk;
 	int ret;
 
@@ -369,10 +375,16 @@ static int ad4134_setup(struct ad4134_state *st)
 	if (ret)
 		return ret;
 
-	return regmap_update_bits(st->regmap, AD4134_DEVICE_CONFIG_REG,
+	 ret = regmap_update_bits(st->regmap, AD4134_DEVICE_CONFIG_REG,
 				  AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
 				  FIELD_PREP(AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
 					     AD4134_POWER_MODE_HIGH_PERF));
+	if (ret)
+		return ret;
+
+	return regmap_update_bits(st->regmap, AD4134_IF_CONFIG_B_REG,
+				AD4134_IF_CONFIG_B_DIG_IF_RESET,
+				AD4134_IF_CONFIG_B_DIG_IF_RESET);
 }
 
 static const struct regmap_config ad4134_regmap_config = {
@@ -474,14 +486,23 @@ static int ad4134_probe(struct spi_device *spi)
 
 	ret = devm_iio_dmaengine_buffer_setup(dev, indio_dev, "rx",
 					      IIO_BUFFER_DIRECTION_IN);
-	if (ret)
-		return dev_err_probe(dev, ret,
-				     "Failed to allocate IIO DMA buffer\n");
+	if (ret) {
+		indio_dev->channels = 0;
+		indio_dev->num_channels = 0;
+		indio_dev->available_scan_masks = 0;
+		indio_dev->name = "ad4134_2nd";
+		indio_dev->modes = 0;
+		indio_dev->setup_ops = 0;
+		return devm_iio_device_register(dev, indio_dev);
+	}
+
+//		return dev_err_probe(dev, ret,
+				 //    "Failed to allocate IIO DMA buffer\n");
 
 	st->spi_engine_fwnode = fwnode_find_reference(fwnode, "adi,spi-engine", 0);
-	if (IS_ERR(st->spi_engine_fwnode))
-		return dev_err_probe(dev, PTR_ERR(st->spi_engine_fwnode),
-				     "Failed to find SPI engine node\n");
+	//if (IS_ERR(st->spi_engine_fwnode))
+	//	return dev_err_probe(dev, PTR_ERR(st->spi_engine_fwnode),
+	//			     "Failed to find SPI engine node\n");
 
 	component_match_add_release(dev, &match, ad4134_spi_engine_release_fwnode,
 				    ad4134_spi_engine_compare_fwnode,
