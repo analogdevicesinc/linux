@@ -145,6 +145,10 @@ Adding channels:
 	- adi,set-rate-parent: Propagate clock rate change to parent. If set,
 		this will, if needed, change rate of parent (PLL2) to fulfill
 		the frequency rate request.
+	- adi,max-deviation-ppm: Maximum allowed deviation in parts-per-million
+		when changing channel output frequencies. A rate change request
+		that would cause deviation larger than allowed value for any
+		output channel with this property, is blocked.
 
 Example:
 
