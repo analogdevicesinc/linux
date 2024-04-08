@@ -41,6 +41,7 @@
 #include "mali_kbase_mem_migrate.h"
 
 #include <linux/version_compat_defs.h>
+#include <linux/vmalloc.h>
 #include <linux/sched/mm.h>
 #include <linux/kref.h>
 
