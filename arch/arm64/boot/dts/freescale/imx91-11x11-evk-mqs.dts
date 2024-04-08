@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+#include "imx91-11x11-evk.dts"
+
+/ {
+	reg_audio_switch: regulator-audio-switch {
+		compatible = "regulator-fixed";
+		regulator-name = "audio-switch";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&adp5585gpio 2 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-always-on;
+	};
+
+	sound-micfil {
+		status = "disabled";
+	};
+
+	sound-bt-sco {
+		status = "disabled";
+	};
+
+	sound-mqs {
+		compatible = "fsl,imx6sx-sdb-mqs",
+			     "fsl,imx-audio-mqs";
+		model = "mqs-audio";
+		audio-cpu = <&sai1>;
+		audio-codec = <&mqs1>;
+	};
+};
+
+&sai1 {
+	#sound-dai-cells = <0>;
+	clocks = <&clk IMX91_CLK_SAI1_IPG>, <&clk IMX91_CLK_DUMMY>,
+		 <&clk IMX91_CLK_SAI1_GATE>, <&clk IMX91_CLK_DUMMY>,
+		 <&clk IMX91_CLK_DUMMY>, <&clk IMX91_CLK_AUDIO_PLL>;
+	clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3", "pll8k";
+	assigned-clocks = <&clk IMX91_CLK_SAI1>;
+	assigned-clock-parents = <&clk IMX91_CLK_AUDIO_PLL>;
+	assigned-clock-rates = <24576000>;
+	status = "okay";
+};
+
+&mqs1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_mqs1>;
+	clocks = <&clk IMX91_CLK_MQS1_GATE>;
+	clock-names = "mclk";
+	status = "okay";
+};
+
+&micfil {
+	status = "disabled";
+};
+
+&iomuxc {
+	pinctrl_mqs1: mqs1grp {
+		fsl,pins = <
+			MX91_PAD_PDM_CLK__MQS1_LEFT			0x31e
+			MX91_PAD_PDM_BIT_STREAM0__MQS1_RIGHT		0x31e
+		>;
+	};
+};
