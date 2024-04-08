@@ -22,6 +22,7 @@
 
 #include <linux/version.h>
 #include <linux/v4l2-controls.h>
+#include <linux/vmalloc.h>
 #include <linux/imx_vpu.h>
 #include "vsi-v4l2.h"
 
