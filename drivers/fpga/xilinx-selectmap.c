@@ -17,9 +17,20 @@
 #include <linux/of.h>
 #include <linux/platform_device.h>
 
+#define IP_DATA_REG	0x18
+
+enum xilinx_selectmap_device_ids {
+	ID_XC7S_SELMAP,
+	ID_XC7A_SELMAP,
+	ID_XC7K_SELMAP,
+	ID_XC7V_SELMAP,
+	ID_ADI_8_SELMAP,
+};
+
 struct xilinx_selectmap_conf {
 	struct xilinx_fpga_core core;
 	void __iomem *base;
+	enum xilinx_selectmap_device_ids id;
 };
 
 #define to_xilinx_selectmap_conf(obj) \
@@ -31,8 +42,16 @@ static int xilinx_selectmap_write(struct xilinx_fpga_core *core,
 	struct xilinx_selectmap_conf *conf = to_xilinx_selectmap_conf(core);
 	size_t i;
 
-	for (i = 0; i < count; ++i)
-		writeb(buf[i], conf->base);
+	switch (conf->id) {
+	case ID_ADI_8_SELMAP:
+		for (i = 0; i < count; ++i)
+			writeb(buf[i], conf->base + IP_DATA_REG);
+		break;
+	default:
+		for (i = 0; i < count; ++i)
+			writeb(buf[i], conf->base);
+		break;
+	}
 
 	return 0;
 }
@@ -49,6 +68,7 @@ static int xilinx_selectmap_probe(struct platform_device *pdev)
 
 	conf->core.dev = &pdev->dev;
 	conf->core.write = xilinx_selectmap_write;
+	conf->id = (enum xilinx_selectmap_device_ids)device_get_match_data(&pdev->dev);
 
 	base = devm_platform_get_and_ioremap_resource(pdev, 0, NULL);
 	if (IS_ERR(base))
@@ -72,10 +92,11 @@ static int xilinx_selectmap_probe(struct platform_device *pdev)
 }
 
 static const struct of_device_id xlnx_selectmap_of_match[] = {
-	{ .compatible = "xlnx,fpga-xc7s-selectmap", }, // Spartan-7
-	{ .compatible = "xlnx,fpga-xc7a-selectmap", }, // Artix-7
-	{ .compatible = "xlnx,fpga-xc7k-selectmap", }, // Kintex-7
-	{ .compatible = "xlnx,fpga-xc7v-selectmap", }, // Virtex-7
+	{ .compatible = "xlnx,fpga-xc7s-selectmap", .data = (void *)ID_XC7S_SELMAP, }, // Spartan-7
+	{ .compatible = "xlnx,fpga-xc7a-selectmap", .data = (void *)ID_XC7A_SELMAP, }, // Artix-7
+	{ .compatible = "xlnx,fpga-xc7k-selectmap", .data = (void *)ID_XC7K_SELMAP, }, // Kintex-7
+	{ .compatible = "xlnx,fpga-xc7v-selectmap", .data = (void *)ID_XC7V_SELMAP, }, // Virtex-7
+	{ .compatible = "adi,fpga-8-selectmap", .data = (void *)ID_ADI_8_SELMAP, }, // ADI 8bit version 
 	{},
 };
 MODULE_DEVICE_TABLE(of, xlnx_selectmap_of_match);
