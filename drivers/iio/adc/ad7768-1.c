@@ -321,8 +321,6 @@ static struct iio_chan_spec_ext_info ad7768_ext_info[] = {
 	{ },
 };
 
-// static const struct iio_chan_spec ad7768_channels[] = {
-
 #define AD47768_CHAN(_idx, _msk_avail) {	\
 		.type = IIO_VOLTAGE,\
 		.info_mask_separate_available = _msk_avail,\
@@ -1277,7 +1275,7 @@ static const struct ad7768_chip_info ad7768_chip_info[] = {
 	},
 	[ID_ADAQ7767_1] = {
 		.name = "adaq7767-1",
-		.channel_spec = adaq776x_channels,
+		.channel_spec = ad7768_channels,
 		.num_channels = 1,
 		.available_masks = ad7768_channel_masks,
 		.has_pga = false,
