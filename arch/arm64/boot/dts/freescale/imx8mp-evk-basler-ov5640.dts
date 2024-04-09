@@ -59,7 +59,6 @@
 &ov5640_1 {
 	powerdown-gpios = <&gpio2 11 GPIO_ACTIVE_HIGH>;
 	reset-gpios = <&gpio1 6 GPIO_ACTIVE_LOW>;
-	csi_id = <1>;
 
 	status = "okay";
 };

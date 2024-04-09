@@ -67,7 +67,6 @@
 
 &ov5640_1 {
 	pinctrl-0 = <&pinctrl_csi1_pwn>, <&pinctrl_csi1_rst>, <&pinctrl_csi_mclk>;
-	csi_id = <1>;
 
 	status = "okay";
 };
