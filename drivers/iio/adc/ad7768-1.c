@@ -866,7 +866,9 @@ static int ad7768_calc_pga_gain(struct ad7768_state *st, int gain_int, int gain_
 
 	tmp = DIV_ROUND_CLOSEST_ULL(gain_nano << precision, NANO);
 	gain_nano = DIV_ROUND_CLOSEST_ULL(st->vref * 2, tmp);
-	
+	if(st->chip->has_variable_aaf)
+		/* remove the AAF gain from the gain */
+		gain_nano = DIV_ROUND_CLOSEST_ULL(gain_nano *  MILLI, ad7768_aaf_gains[st->aaf_gain]);
 	tmp = st->chip->num_pga_modes;
 	gain_idx = find_closest(gain_nano, st->chip->pga_gains, tmp);
 
