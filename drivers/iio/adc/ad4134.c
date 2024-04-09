@@ -37,6 +37,7 @@
 #define AD4134_DATA_PACKET_CONFIG_REG		0x11
 #define AD4134_DATA_PACKET_CONFIG_FRAME_MASK	GENMASK(5, 4)
 #define AD4134_DATA_FRAME_24BIT_CRC		0b11
+#define AD4134_DATA_FRAME_24BIT		    0b10
 
 #define AD4134_DIG_IF_CFG_REG			0x12
 #define AD4134_DIF_IF_CFG_FORMAT_MASK		GENMASK(1, 0)
@@ -60,6 +61,20 @@ enum ad4134_regulators {
 	AD4134_NUM_REGULATORS
 };
 
+static ssize_t ad7134_set_sync(struct iio_dev *indio_dev,uintptr_t private,const struct iio_chan_spec *chan,const char *buf, size_t len);
+static ssize_t ad7134_get_sync(struct iio_dev *indio_dev,uintptr_t private,const struct iio_chan_spec *chan, char *buf);
+
+static struct iio_chan_spec_ext_info ad7134_ext_info[] = {
+
+	{
+	 .name = "ad7134_sync",
+	 .write = ad7134_set_sync,
+	 .read = ad7134_get_sync,
+	 .shared = true,
+	 },
+	{ },
+};
+
 struct ad4134_state {
 	struct fwnode_handle		*spi_engine_fwnode;
 	struct regmap			*regmap;
@@ -80,7 +95,34 @@ struct ad4134_state {
 	unsigned int			odr;
 	unsigned long			sys_clk_rate;
 	int				refin_mv;
+	struct gpio_desc *cs_gpio;
 };
+
+static ssize_t ad7134_get_sync(struct iio_dev *indio_dev,
+				    uintptr_t private,
+				    const struct iio_chan_spec *chan, char *buf)
+{
+	return sprintf(buf, "enable\n");
+}
+
+static ssize_t ad7134_set_sync(struct iio_dev *indio_dev,
+				     uintptr_t private,
+				     const struct iio_chan_spec *chan,
+				     const char *buf, size_t len)
+{
+	struct ad4134_state *st = iio_priv(indio_dev);
+	int ret;
+
+    gpiod_set_value_cansleep(st->cs_gpio, 1);
+	ret = regmap_update_bits(st->regmap, AD4134_IF_CONFIG_B_REG,
+				 (AD4134_IF_CONFIG_B_DIG_IF_RESET |  AD4134_IF_CONFIG_B_SINGLE_INSTR),
+				 (AD4134_IF_CONFIG_B_DIG_IF_RESET |  AD4134_IF_CONFIG_B_SINGLE_INSTR));
+	if (ret)
+		return ret;
+	gpiod_set_value_cansleep(st->cs_gpio, 0);
+
+	return ret ? ret : len;
+}
 
 static int ad4134_samp_freq_avail[] = { AD4134_ODR_MIN, 1, AD4134_ODR_MAX };
 
@@ -209,7 +251,8 @@ static const struct iio_info ad4134_info = {
 };
 
 #define AD4134_CHANNEL(index) {						\
-	.type = IIO_VOLTAGE,						\
+	.type = IIO_VOLTAGE,							 \
+	.ext_info = ad7134_ext_info,						\
 	.indexed = 1,							\
 	.channel = (index),						\
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ) |	\
@@ -225,6 +268,23 @@ static const struct iio_info ad4134_info = {
 	},								\
 }
 
+/*#define AD4134_CHANNEL(index) {						\
+	.type = IIO_VOLTAGE,						\
+	.indexed = 1,							\
+	.channel = (index),						\
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ) |	\
+				    BIT(IIO_CHAN_INFO_SCALE),		\
+	.info_mask_shared_by_type_available =				\
+				    BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
+	.scan_index = (index),						\
+	.scan_type = {							\
+		.sign = 's',						\
+		.realbits = AD4134_REAL_BITS,				\
+		.storagebits = 24,					\
+		.shift = 0		\
+	},								\
+}
+*/
 static const struct iio_chan_spec ad4134_channels[] = {
 	AD4134_CHANNEL(0),
 	AD4134_CHANNEL(1),
@@ -336,10 +396,16 @@ static int ad4134_setup(struct ad4134_state *st)
 		return dev_err_probe(dev, PTR_ERR(reset_gpio),
 				     "Failed to find reset GPIO\n");
 
+	st->cs_gpio = devm_gpiod_get_optional(dev, "gpio-cs", GPIOD_OUT_LOW);
+	if (IS_ERR(st->cs_gpio))
+		return dev_err_probe(dev, PTR_ERR(st->cs_gpio),
+				     "Failed to find cs-gpio \n");
+
 	fsleep(AD4134_RESET_TIME_US);
 
+	printk("ad4134_Before_reset_gpio_0");
 	gpiod_set_value_cansleep(reset_gpio, 0);
-
+    printk("ad4134_After_reset_gpio_0");
 	st->odr_pwm = devm_pwm_get(dev, "odr_pwm");
 	if (IS_ERR(st->odr_pwm))
 	//	return dev_err_probe(dev, PTR_ERR(st->odr_pwm),
@@ -382,9 +448,7 @@ static int ad4134_setup(struct ad4134_state *st)
 	if (ret)
 		return ret;
 
-	return regmap_update_bits(st->regmap, AD4134_IF_CONFIG_B_REG,
-				AD4134_IF_CONFIG_B_DIG_IF_RESET,
-				AD4134_IF_CONFIG_B_DIG_IF_RESET);
+	return 0;
 }
 
 static const struct regmap_config ad4134_regmap_config = {
@@ -465,6 +529,7 @@ static int ad4134_probe(struct spi_device *spi)
 	st->buf_read_xfer.rx_buf = (void *)-1;
 	st->buf_read_xfer.len = 1;
 	st->buf_read_xfer.bits_per_word = AD4134_WORD_BITS;
+	//st->buf_read_xfer.bits_per_word = 24;
 	spi_message_init_with_transfers(&st->buf_read_msg,
 					&st->buf_read_xfer, 1);
 
@@ -475,7 +540,7 @@ static int ad4134_probe(struct spi_device *spi)
 	indio_dev->channels = ad4134_channels;
 	indio_dev->num_channels = ARRAY_SIZE(ad4134_channels);
 	indio_dev->available_scan_masks = ad4134_channel_masks;
-	indio_dev->name = AD4134_NAME;
+	indio_dev->name = spi->dev.of_node->name;
 	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
 	indio_dev->setup_ops = &ad4134_buffer_ops;
 	indio_dev->info = &ad4134_info;
@@ -490,12 +555,13 @@ static int ad4134_probe(struct spi_device *spi)
 		indio_dev->channels = 0;
 		indio_dev->num_channels = 0;
 		indio_dev->available_scan_masks = 0;
-		indio_dev->name = "ad4134_2nd";
+		indio_dev->name = spi->dev.of_node->name;
 		indio_dev->modes = 0;
 		indio_dev->setup_ops = 0;
+		printk("Device_name: %s",indio_dev->name);
 		return devm_iio_device_register(dev, indio_dev);
 	}
-
+printk("Device_name: %s",indio_dev->name);
 //		return dev_err_probe(dev, ret,
 				 //    "Failed to allocate IIO DMA buffer\n");
 
