@@ -10,5 +10,8 @@ dtb-$(CONFIG_ARCH_INTEL_SOCFPGA) += socfpga_agilex_n6000.dtb \
 				socfpga_agilex5_socdk_nand.dtb \
 				socfpga_agilex5_socdk_swvp.dtb \
 				socfpga_agilex7m_socdk.dtb \
+				socfpga_agilex7f_socdk_pcie_root_port.dtb \
+				socfpga_agilex7i_socdk_pcie_root_port.dtb \
+				socfpga_agilex7m_socdk_pcie_root_port.dtb \
 				socfpga_n5x_socdk.dtb
 dtb-$(CONFIG_ARCH_KEEMBAY) += keembay-evm.dtb
