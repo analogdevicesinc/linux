@@ -110,6 +110,9 @@
 #define DPNI_CMDID_SECY_SET_STATE			DPNI_CMD(0x2a3)
 #define DPNI_CMDID_SECY_SET_PROTECT			DPNI_CMD(0x2a4)
 #define DPNI_CMDID_SECY_SET_REPLAY_PROTECT		DPNI_CMD(0x2a5)
+#define DPNI_CMDID_SECY_ADD_TX_SA			DPNI_CMD(0x2a6)
+#define DPNI_CMDID_SECY_REMOVE_TX_SA			DPNI_CMD(0x2a7)
+#define DPNI_CMDID_SECY_SET_ACTIVE_TX_SA		DPNI_CMD(0x2a8)
 
 /* Macros for accessing command fields smaller than 1byte */
 #define DPNI_MASK(field)	\
@@ -776,6 +779,23 @@ struct dpni_cmd_secy_set_replay_protect {
 	u8 flags;
 	__le16 res;
 	__le32 replay_window;
+};
+
+struct dpni_cmd_secy_add_tx_sa {
+	u8 key[32];
+	__le32 next_pn;
+	u8 secy_id;
+	u8 an;
+};
+
+struct dpni_cmd_secy_remove_tx_sa {
+	u8 secy_id;
+	u8 an;
+};
+
+struct dpni_cmd_secy_set_tx_sa {
+	u8 secy_id;
+	u8 an;
 };
 
 #endif /* _FSL_DPNI_CMD_H */

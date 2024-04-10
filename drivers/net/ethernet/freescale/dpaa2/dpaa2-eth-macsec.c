@@ -186,11 +186,87 @@ err_open_dev:
 	return err;
 }
 
+static int dpaa2_mdo_add_txsa(struct macsec_context *ctx)
+{
+	struct dpaa2_eth_priv *priv = macsec_netdev_priv(ctx->netdev);
+	struct macsec_tx_sa_cfg cfg = { 0 };
+	int err, i;
+
+	cfg.next_pn = ctx->sa.tx_sa->next_pn_halves.lower;
+	for (i = 0; i < ctx->secy->key_len; i++)
+		cfg.key[i] = ctx->sa.key[i];
+	cfg.an = ctx->sa.assoc_num;
+
+	err = dpni_secy_add_tx_sa(priv->mc_io, 0, priv->mc_token, priv->secy_id, &cfg);
+	if (err) {
+		netdev_err(priv->net_dev, "dpni_secy_add_tx_sa() failed with %d\n", err);
+		return err;
+	}
+
+	if (ctx->secy->tx_sc.encoding_sa == ctx->sa.assoc_num) {
+		err = dpni_secy_set_active_tx_sa(priv->mc_io, 0, priv->mc_token,
+						 priv->secy_id, ctx->sa.assoc_num);
+		if (err) {
+			netdev_err(priv->net_dev,
+				   "dpni_secy_set_active_tx_sa(secy_id %d, assoc_num %d) failed with %d\n",
+				   priv->secy_id, ctx->sa.assoc_num, err);
+			goto err_remove_tx_sa;
+		}
+	}
+
+	return 0;
+
+err_remove_tx_sa:
+	dpni_secy_remove_tx_sa(priv->mc_io, 0, priv->mc_token, priv->secy_id, ctx->sa.assoc_num);
+
+	return err;
+}
+
+static int dpaa2_mdo_upd_txsa(struct macsec_context *ctx)
+{
+	struct dpaa2_eth_priv *priv = macsec_netdev_priv(ctx->netdev);
+	int err;
+
+	if (ctx->sa.update_pn)
+		return -EOPNOTSUPP;
+
+	if (ctx->secy->tx_sc.encoding_sa == ctx->sa.assoc_num) {
+		err = dpni_secy_set_active_tx_sa(priv->mc_io, 0, priv->mc_token,
+						 priv->secy_id, ctx->sa.assoc_num);
+		if (err) {
+			netdev_err(priv->net_dev,
+				   "dpni_secy_set_active_tx_sa(secy_id %d, assoc_num %d) failed with %d\n",
+				   priv->secy_id, ctx->sa.assoc_num, err);
+			return err;
+		}
+	}
+
+	return 0;
+}
+
+static int dpaa2_mdo_del_txsa(struct macsec_context *ctx)
+{
+	struct dpaa2_eth_priv *priv = macsec_netdev_priv(ctx->netdev);
+	int err;
+
+	err = dpni_secy_remove_tx_sa(priv->mc_io, 0, priv->mc_token,
+				     priv->secy_id, ctx->sa.assoc_num);
+	if (err) {
+		netdev_err(priv->net_dev, "dpni_secy_remove_tx_sa() failed with %d\n", err);
+		return err;
+	}
+
+	return 0;
+}
+
 static const struct macsec_ops dpaa2_eth_macsec_ops = {
 	.mdo_dev_open = dpaa2_mdo_dev_open,
 	.mdo_dev_stop = dpaa2_mdo_dev_stop,
 	.mdo_add_secy = dpaa2_mdo_add_secy,
 	.mdo_del_secy = dpaa2_mdo_del_secy,
+	.mdo_add_txsa = dpaa2_mdo_add_txsa,
+	.mdo_upd_txsa = dpaa2_mdo_upd_txsa,
+	.mdo_del_txsa = dpaa2_mdo_del_txsa,
 };
 
 int dpaa2_eth_macsec_init(struct dpaa2_eth_priv *priv)

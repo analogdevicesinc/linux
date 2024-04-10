@@ -2446,3 +2446,81 @@ int dpni_secy_set_replay_protection(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 
 
 	return mc_send_command(mc_io, &cmd);
 }
+
+/**
+ * dpni_secy_add_tx_sa() - Add a Tx Secure Association to a specific SeCy
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @cfg:        Configuration parameters for the new Tx SA
+ * @secy_id:    unique ID of the SeCy
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_secy_add_tx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 secy_id, struct macsec_tx_sa_cfg *cfg)
+{
+	struct dpni_cmd_secy_add_tx_sa *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+	int i;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_ADD_TX_SA, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_add_tx_sa *)cmd.params;
+	for (i = 0; i < 32; i++)
+		cmd_params->key[i] = cfg->key[i];
+	cmd_params->next_pn = cpu_to_le32(cfg->next_pn);
+	cmd_params->secy_id = secy_id;
+	cmd_params->an = cfg->an;
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_secy_remove_tx_sa() - Remove a Tx Secure Association for a specific SeCy
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @an:    Association number
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_secy_remove_tx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			   u8 secy_id, u8 an)
+{
+	struct dpni_cmd_secy_remove_tx_sa *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_REMOVE_TX_SA, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_remove_tx_sa *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->an = an;
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_secy_set_active_tx_sa() - Set the active SA used by the SecY's
+ *                                 transmitting-SC to send frames
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @cfg:        Configuration parameters for the new Tx SA
+ * @secy_id:    unique ID of the SeCy
+ * @assoc_num:  association number of the Tx SA
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_secy_set_active_tx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			       u8 secy_id, u8 assoc_num)
+{
+	struct dpni_cmd_secy_set_tx_sa *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_SET_ACTIVE_TX_SA, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_set_tx_sa *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->an = assoc_num;
+
+	return mc_send_command(mc_io, &cmd);
+}

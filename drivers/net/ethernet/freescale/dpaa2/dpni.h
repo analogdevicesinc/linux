@@ -1264,4 +1264,25 @@ int dpni_secy_set_tx_protection(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 toke
 int dpni_secy_set_replay_protection(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
 				    u8 secy_id, bool en, u32 window);
 
+/**
+ * struct macsec_tx_sa_cfg - transmitting-SA configuration
+ *
+ * @an: Association Number (AN). 2-bits value (0-3)
+ * @key: Key used for protecting outgoing frames
+ * @next_pn: The PN field value for the first outgoing frame from this SA
+ */
+struct macsec_tx_sa_cfg {
+	u8 key[32];
+	u32 next_pn;
+	u8 an;
+};
+
+int dpni_secy_add_tx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 secy_id, struct macsec_tx_sa_cfg *cfg);
+
+int dpni_secy_remove_tx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			   u8 secy_id, u8 an);
+
+int dpni_secy_set_active_tx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			       u8 secy_id, u8 assoc_num);
 #endif /* __FSL_DPNI_H */
