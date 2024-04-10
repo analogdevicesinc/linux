@@ -582,6 +582,11 @@ void dpaa2_eth_receive_skb(struct dpaa2_eth_priv *priv,
 	if (likely(dpaa2_fd_get_frc(fd) & DPAA2_FD_FRC_FASV)) {
 		status = le32_to_cpu(fas->status);
 		dpaa2_eth_validate_rx_csum(priv, status, skb);
+
+		if (priv->secy_id && (status & DPAA2_FAS_MS)) {
+			dst_hold(&priv->md_dst->dst);
+			skb_dst_set(skb, &priv->md_dst->dst);
+		}
 	}
 
 	skb->protocol = eth_type_trans(skb, priv->net_dev);
@@ -819,7 +824,8 @@ static int dpaa2_eth_ptp_parse(struct sk_buff *skb,
 static void dpaa2_eth_enable_tx_tstamp(struct dpaa2_eth_priv *priv,
 				       struct dpaa2_fd *fd,
 				       void *buf_start,
-				       struct sk_buff *skb)
+				       struct sk_buff *skb,
+				       bool memset_faead)
 {
 	struct ptp_tstamp origin_timestamp;
 	u8 msgtype, twostep, udp;
@@ -844,6 +850,10 @@ static void dpaa2_eth_enable_tx_tstamp(struct dpaa2_eth_priv *priv,
 	 */
 	ctrl = DPAA2_FAEAD_A2V | DPAA2_FAEAD_UPDV | DPAA2_FAEAD_UPD;
 	faead = dpaa2_get_faead(buf_start, true);
+	if (memset_faead) {
+		faead->conf_fqid = 0;
+		faead->ctrl = 0;
+	}
 	faead->ctrl = cpu_to_le32(ctrl);
 
 	if (skb->cb[0] == TX_TSTAMP_ONESTEP_SYNC) {
@@ -1421,6 +1431,39 @@ err_sgt_get:
 	return err;
 }
 
+static void dpaa2_eth_mark_macsec(struct dpaa2_eth_priv *priv, struct sk_buff *skb,
+				  struct dpaa2_fd *fd, int num_fds,
+				  bool memset_faead)
+{
+	struct dpaa2_faead *faead;
+	struct dpaa2_fd *crr_fd;
+	dma_addr_t fd_addr;
+	void *buf_start;
+	u32 ctrl, frc;
+	int i;
+
+	for (i = 0; i < num_fds; i++) {
+		crr_fd = &fd[i];
+		fd_addr = dpaa2_fd_get_addr(crr_fd);
+		buf_start = dpaa2_iova_to_virt(priv->iommu_domain, fd_addr);
+
+		frc = dpaa2_fd_get_frc(crr_fd);
+		dpaa2_fd_set_frc(crr_fd, frc | DPAA2_FD_FRC_FAEADV);
+
+		ctrl = dpaa2_fd_get_ctrl(fd);
+		dpaa2_fd_set_ctrl(fd, ctrl | DPAA2_FD_CTRL_ASAL);
+
+		faead = dpaa2_get_faead(buf_start, true);
+		if (memset_faead) {
+			faead->conf_fqid = 0;
+			faead->ctrl = 0;
+		}
+		ctrl = le32_to_cpu(faead->ctrl);
+		ctrl |= DPAA2_FAEAD_MCVV | DPAA2_FAEAD_A2V | DPAA2_FAEAD_MCV;
+		faead->ctrl = cpu_to_le32(ctrl);
+	}
+}
+
 static netdev_tx_t __dpaa2_eth_tx(struct sk_buff *skb,
 				  struct net_device *net_dev)
 {
@@ -1430,6 +1473,7 @@ static netdev_tx_t __dpaa2_eth_tx(struct sk_buff *skb,
 	struct rtnl_link_stats64 *percpu_stats;
 	unsigned int needed_headroom;
 	int num_fds = 1, max_retries;
+	bool memset_faead = true;
 	struct dpaa2_eth_fq *fq;
 	struct netdev_queue *nq;
 	int err, i, ch_id = 0;
@@ -1485,8 +1529,13 @@ static netdev_tx_t __dpaa2_eth_tx(struct sk_buff *skb,
 		goto err_build_fd;
 	}
 
-	if (swa && skb->cb[0])
-		dpaa2_eth_enable_tx_tstamp(priv, fd, swa, skb);
+	if (swa && skb->cb[0]) {
+		dpaa2_eth_enable_tx_tstamp(priv, fd, swa, skb, memset_faead);
+		memset_faead = false;
+	}
+
+	if (dpaa2_macsec_skb_is_offload(skb))
+		dpaa2_eth_mark_macsec(priv, skb, fd, num_fds, memset_faead);
 
 	/* Tracing point */
 	for (i = 0; i < num_fds; i++)

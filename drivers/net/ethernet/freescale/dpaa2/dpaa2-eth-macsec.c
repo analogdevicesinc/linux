@@ -264,11 +264,26 @@ static int dpaa2_mdo_add_rxsc(struct macsec_context *ctx)
 	struct dpaa2_eth_priv *priv = macsec_netdev_priv(ctx->netdev);
 	int err;
 
+	if (priv->md_dst) {
+		netdev_err(priv->net_dev, "MACSec offload supports only one RX SC\n");
+		return -EOPNOTSUPP;
+	}
+
+	/* This metadata will be used to direct packets towards the macsec
+	 * software interface based on the Rx SC SCI value. Since we limit the
+	 * number of Rx SCs to one, we will use the same metadata for all
+	 * MACSec packets.
+	 */
+	priv->md_dst = metadata_dst_alloc(0, METADATA_MACSEC, GFP_KERNEL);
+	if (!priv->md_dst)
+		return -ENOMEM;
+	priv->md_dst->u.macsec_info.sci = ctx->rx_sc->sci;
+
 	err = dpni_secy_add_rx_sc(priv->mc_io, 0, priv->mc_token, priv->secy_id,
 				  sci_to_cpu(ctx->rx_sc->sci));
 	if (err) {
 		netdev_err(priv->net_dev, "dpni_secy_add_rx_sc() failed with %d\n", err);
-		return err;
+		goto err_free_md_dst;
 	}
 
 	err = dpni_secy_set_rx_sc_state(priv->mc_io, 0, priv->mc_token,
@@ -284,6 +299,9 @@ static int dpaa2_mdo_add_rxsc(struct macsec_context *ctx)
 err_remove_rxsc:
 	dpni_secy_remove_rx_sc(priv->mc_io, 0, priv->mc_token, priv->secy_id,
 			       sci_to_cpu(ctx->rx_sc->sci));
+
+err_free_md_dst:
+	metadata_dst_free(priv->md_dst);
 
 	return err;
 }
@@ -603,6 +621,7 @@ static const struct macsec_ops dpaa2_eth_macsec_ops = {
 	.mdo_get_tx_sa_stats = dpaa2_mdo_get_tx_sa_stats,
 	.mdo_get_rx_sc_stats = dpaa2_mdo_get_rx_sc_stats,
 	.mdo_get_rx_sa_stats = dpaa2_mdo_get_rx_sa_stats,
+	.rx_uses_md_dst = true,
 };
 
 int dpaa2_eth_macsec_init(struct dpaa2_eth_priv *priv)
@@ -622,6 +641,10 @@ int dpaa2_eth_macsec_init(struct dpaa2_eth_priv *priv)
 	if (!capable)
 		return 0;
 
+	priv->sec.secy = NULL;
+	priv->secy_id = 0;
+	priv->md_dst = NULL;
+
 	net_dev->features |= NETIF_F_HW_MACSEC;
 	net_dev->macsec_ops = &dpaa2_eth_macsec_ops;
 	netif_keep_dst(net_dev);
@@ -634,4 +657,11 @@ void dpaa2_eth_macsec_deinit(struct dpaa2_eth_priv *priv)
 
 	net_dev->features &= !NETIF_F_HW_MACSEC;
 	net_dev->macsec_ops = NULL;
+
+	if (priv->md_dst)
+		metadata_dst_free(priv->md_dst);
+
+	priv->sec.secy = NULL;
+	priv->secy_id = 0;
+	priv->md_dst = NULL;
 }
