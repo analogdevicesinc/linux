@@ -154,13 +154,20 @@ static unsigned int spi_engine_get_clk_div(struct spi_engine *spi_engine,
 	else
 		speed = spi->max_speed_hz;
 
-	clk_div = DIV_ROUND_UP(clk_get_rate(spi_engine->ref_clk),
-		speed * 2);
+	clk_div = DIV_ROUND_UP ( 1 + clk_get_rate(spi_engine->ref_clk), (1 + speed) * 2  );
+
+	printk("ad4134_clk_div: %lu", clk_div);	
 	if (clk_div > 255)
 		clk_div = 255;
 	else if (clk_div > 0)
 		clk_div -= 1;
-
+	printk("ad4134_speed_hz: %lu", speed);
+	printk("ad4134_xfer_speed_hz: %lu", xfer->speed_hz);
+	printk("ad4134_clk_get_rate: %lu", clk_get_rate(spi_engine->ref_clk));
+	printk("ad4134_max_speed_hz: %lu", spi->max_speed_hz);
+	printk("ad4134_clk_div: %lu", clk_div);
+	printk("ad4134_end");
+	
 	return clk_div;
 }
 

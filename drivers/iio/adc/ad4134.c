@@ -136,8 +136,10 @@ static int _ad4134_set_odr(struct ad4134_state *st, unsigned int odr)
 
 	if (odr < AD4134_ODR_MIN || odr > AD4134_ODR_MAX)
 		return -EINVAL;
-
+    
 	pwm_get_state(st->odr_pwm, &state);
+
+	printk("ad4134__ad4134_set_odr");
 
 	/*
 	 * fDIGCLK = fSYSCLK / 2
@@ -146,8 +148,11 @@ static int _ad4134_set_odr(struct ad4134_state *st, unsigned int odr)
 	 * See datasheet page 10, Table 3. Data Interface Timing with Gated DCLK.
 	 */
 	state.duty_cycle = DIV_ROUND_CLOSEST_ULL(PICO * 6, st->sys_clk_rate);
+	printk("ad4134__ad4134_set_odr_duty %lu ", state.duty_cycle);
 	state.period = DIV_ROUND_CLOSEST_ULL(PICO, odr);
+	printk("ad4134__ad4134_set_odr_period %lu ", state.period);
 	state.time_unit = PWM_UNIT_PSEC;
+	printk("ad4134__ad4134_set_odr_time %lu ", state.time_unit);
 
 	ret = pwm_apply_state(st->odr_pwm, &state);
 	if (ret)
@@ -177,6 +182,7 @@ static int ad4134_set_odr(struct iio_dev *indio_dev, unsigned int odr)
 	mutex_unlock(&st->lock);
 
 	iio_device_release_direct_mode(indio_dev);
+	printk("ad4134__ad4134_set_odr");
 
 	return ret;
 }
@@ -355,6 +361,7 @@ static int ad4134_setup(struct ad4134_state *st)
 	int ret;
 
 	clk = devm_clk_get(dev, "sys_clk");
+	printk("ad4134_clk %s", clk);
 	if (IS_ERR(clk))
 		return dev_err_probe(dev, PTR_ERR(clk), "Failed to find SYS clock\n");
 
@@ -368,6 +375,7 @@ static int ad4134_setup(struct ad4134_state *st)
 				     "Failed to add SYS clock disable action\n");
 
 	st->sys_clk_rate = clk_get_rate(clk);
+	printk("ad4134_sys_clk %lu", st->sys_clk_rate);
 	if (!st->sys_clk_rate)
 		return dev_err_probe(dev, -EINVAL, "Failed to get SYS clock rate\n");
 
@@ -380,7 +388,8 @@ static int ad4134_setup(struct ad4134_state *st)
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to enable regulators\n");
 
-	ret = regulator_get_voltage(st->regulators[AD4134_REFIN_REGULATOR].consumer);
+	ret = regulator_get_voltage(st->regulators[AD4134_REFIN_REGULATOR].consumer);\
+	printk("ad4134_regulator %lu", ret);
 	if (ret < 0)
 		return ret;
 
@@ -392,11 +401,13 @@ static int ad4134_setup(struct ad4134_state *st)
 				     "Failed to add regulators disable action\n");
 
 	reset_gpio = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_HIGH);
+	printk("ad4134_reset_gpio %lu", reset_gpio);
 	if (IS_ERR(reset_gpio))
 		return dev_err_probe(dev, PTR_ERR(reset_gpio),
 				     "Failed to find reset GPIO\n");
 
 	st->cs_gpio = devm_gpiod_get_optional(dev, "gpio-cs", GPIOD_OUT_LOW);
+	printk("ad4134_cs_gpio %lu", st->cs_gpio);
 	if (IS_ERR(st->cs_gpio))
 		return dev_err_probe(dev, PTR_ERR(st->cs_gpio),
 				     "Failed to find cs-gpio \n");
@@ -412,6 +423,7 @@ static int ad4134_setup(struct ad4134_state *st)
 	//			     "Failed to find ODR PWM\n");
 		pr_err("%s: %d: Failed to find ODR PWM\n", __FUNCTION__, __LINE__);
 
+	printk("ad4134_Before_initialize_ODR");
 	if (!IS_ERR(st->odr_pwm)) {
 		ret = _ad4134_set_odr(st, AD4134_ODR_DEFAULT);
 		if (ret)
@@ -420,20 +432,22 @@ static int ad4134_setup(struct ad4134_state *st)
 		ret = pwm_enable(st->odr_pwm);
 		if (ret)
 			return ret;
-
+	printk("ad4134_After_initialize_ODR");
 		ret = devm_add_action_or_reset(dev, ad4134_disable_pwm, st->odr_pwm);
 		if (ret)
 			return dev_err_probe(dev, ret,
 					"Failed to add ODR PWM disable action\n");
 	}
-
+printk("ad4134_Before_reg_0x11");
 	ret = regmap_update_bits(st->regmap, AD4134_DATA_PACKET_CONFIG_REG,
 				 AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
 				 FIELD_PREP(AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
 					    AD4134_DATA_FRAME_24BIT_CRC));
+
 	if (ret)
 		return ret;
 
+printk("ad4134_Before_reg_0x12");
 	ret = regmap_update_bits(st->regmap, AD4134_DIG_IF_CFG_REG,
 				 AD4134_DIF_IF_CFG_FORMAT_MASK,
 				 FIELD_PREP(AD4134_DIF_IF_CFG_FORMAT_MASK,
@@ -441,6 +455,7 @@ static int ad4134_setup(struct ad4134_state *st)
 	if (ret)
 		return ret;
 
+printk("ad4134_Before_reg_0x02");
 	 ret = regmap_update_bits(st->regmap, AD4134_DEVICE_CONFIG_REG,
 				  AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
 				  FIELD_PREP(AD4134_DEVICE_CONFIG_POWER_MODE_MASK,
