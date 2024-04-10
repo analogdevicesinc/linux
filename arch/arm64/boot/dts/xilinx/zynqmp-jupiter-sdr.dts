@@ -411,13 +411,6 @@
 		line-name = "adrv9002-clksrc";
 	};
 
-	fan_en {
-		gpio-hog;
-		gpios = <144 GPIO_ACTIVE_HIGH>;
-		output-high;
-		line-name = "fan-en";
-	};
-
 	fan_ctl {
 		gpio-hog;
 		gpios = <145 GPIO_ACTIVE_HIGH>;
