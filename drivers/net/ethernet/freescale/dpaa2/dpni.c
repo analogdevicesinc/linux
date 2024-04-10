@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /* Copyright 2013-2016 Freescale Semiconductor Inc.
- * Copyright 2016 NXP
- * Copyright 2020 NXP
+ * Copyright 2016, 2020, 2024 NXP
  */
 #include <linux/kernel.h>
 #include <linux/errno.h>
@@ -2269,5 +2268,181 @@ int dpni_set_single_step_cfg(struct fsl_mc_io *mc_io,
 	cmd_params->flags = cpu_to_le16(flags);
 
 	/* send command to mc*/
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_is_macsec_capable() - Verify is a specific DPNI is MACSec capable which
+ *  is only true if the DPNI is connected to a DPMAC with MACSec offload
+ *  capabilities.
+ * @mc_io:          Pointer to opaque I/O object
+ * @cmd_flags:      Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:          Token of dpni object
+ * @macsec_capable: 1 if the DPNI supports MACSec offload, 0 otherwise
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_is_macsec_capable(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			   int *macsec_capable)
+{
+	struct dpni_rsp_is_macsec_capable *rsp_params;
+	struct fsl_mc_command cmd = { 0 };
+	int err;
+
+	/* prepare command */
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_IS_MACSEC_CAPABLE,
+					  cmd_flags,
+					  token);
+
+	/* send command to mc*/
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	/* retrieve response parameters */
+	rsp_params = (struct dpni_rsp_is_macsec_capable *)cmd.params;
+	*macsec_capable = dpni_get_field(rsp_params->en, MACSEC);
+
+	return 0;
+}
+
+/**
+ * dpni_add_secy() - Add a new SecY to the MACsec block of the connected MAC
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @cfg:        Configuration parameters for the new SeCy
+ * @secy_id:    unique ID of the SeCy
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_add_secy(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+		  const struct macsec_secy_cfg *cfg, u8 *secy_id)
+{
+	struct dpni_cmd_add_secy *cmd_params;
+	struct dpni_rsp_add_secy *rsp_params;
+	struct fsl_mc_command cmd = { 0 };
+	int err;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_ADD_SECY, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_add_secy *)cmd.params;
+	cmd_params->tx_sci = cpu_to_le64(cfg->tx_sci);
+	cmd_params->co_offset = cfg->cs.co_offset;
+	cmd_params->max_rx_sc = cfg->max_rx_sc;
+	dpni_set_field(cmd_params->flags, SECY_CIPHER_SUITE, cfg->cs.cipher_suite);
+	dpni_set_field(cmd_params->flags, SECY_CONFIDENTIALITY, cfg->cs.confidentiality);
+	dpni_set_field(cmd_params->flags, SECY_IS_PTP, cfg->is_ptp);
+	dpni_set_field(cmd_params->flags, SECY_VALIDATION_MODE, cfg->validation_mode);
+
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	rsp_params = (struct dpni_rsp_add_secy *)cmd.params;
+	*secy_id = rsp_params->secy_id;
+
+	return 0;
+}
+
+/**
+ * dpni_remove_secy() - Remove a SecY
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_remove_secy(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token, u8 secy_id)
+{
+	struct dpni_cmd_remove_secy *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+	int err;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_REMOVE_SECY, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_remove_secy *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	return 0;
+}
+
+/**
+ * dpni_secy_set_state() - Change the state of a specific SecY
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @active:     Required state
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_secy_set_state(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 secy_id, bool active)
+{
+	struct dpni_cmd_secy_set_state *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_SET_STATE, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_set_state *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	dpni_set_field(cmd_params->flags, SECY_ACTIVE, active ? 1 : 0);
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_secy_set_tx_protection() - Change the state of a specific SecY
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @active:     Required state
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+
+int dpni_secy_set_tx_protection(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+				u8 secy_id, bool protect)
+{
+	struct dpni_cmd_secy_set_protect *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_SET_PROTECT, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_set_protect *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	dpni_set_field(cmd_params->flags, SECY_TX_PROTECT, protect ? 1 : 0);
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_secy_set_replay_protection - Enable/disable the replay protection on a SeCy
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @en:         Required state for the replay protection
+ * @window:     Replay window size
+ *
+ * This APIs needs to be used only when all the RX SCs are disabled. It will
+ * return an error otherwise.
+ * Return:      '0' on Success; Error code otherwise.
+ */
+
+int dpni_secy_set_replay_protection(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+				    u8 secy_id, bool en, u32 window)
+{
+	struct dpni_cmd_secy_set_replay_protect *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_SET_REPLAY_PROTECT, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_set_replay_protect *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->replay_window = cpu_to_le32(window);
+	dpni_set_field(cmd_params->flags, SECY_REPLAY_PROTECT_EN, en ? 1 : 0);
+
 	return mc_send_command(mc_io, &cmd);
 }

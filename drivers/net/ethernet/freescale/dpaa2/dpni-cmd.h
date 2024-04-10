@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
 /* Copyright 2013-2016 Freescale Semiconductor Inc.
- * Copyright 2016 NXP
- * Copyright 2020 NXP
+ * Copyright 2016, 2020, 2024 NXP
  */
 #ifndef _FSL_DPNI_CMD_H
 #define _FSL_DPNI_CMD_H
@@ -104,6 +103,13 @@
 
 #define DPNI_CMDID_SET_SINGLE_STEP_CFG			DPNI_CMD(0x279)
 #define DPNI_CMDID_GET_SINGLE_STEP_CFG			DPNI_CMD_V2(0x27a)
+
+#define DPNI_CMDID_IS_MACSEC_CAPABLE			DPNI_CMD(0x2a0)
+#define DPNI_CMDID_ADD_SECY				DPNI_CMD(0x2a1)
+#define DPNI_CMDID_REMOVE_SECY				DPNI_CMD(0x2a2)
+#define DPNI_CMDID_SECY_SET_STATE			DPNI_CMD(0x2a3)
+#define DPNI_CMDID_SECY_SET_PROTECT			DPNI_CMD(0x2a4)
+#define DPNI_CMDID_SECY_SET_REPLAY_PROTECT		DPNI_CMD(0x2a5)
 
 /* Macros for accessing command fields smaller than 1byte */
 #define DPNI_MASK(field)	\
@@ -710,6 +716,66 @@ struct dpni_cmd_vlan_id {
 	u8 flow_id;
 	u8 pad;
 	__le16 vlan_id;
+};
+
+#define DPNI_MACSEC_SHIFT	0
+#define DPNI_MACSEC_SIZE	1
+
+struct dpni_rsp_is_macsec_capable {
+	u8 en;
+};
+
+#define DPNI_SECY_CIPHER_SUITE_SIZE		1
+#define DPNI_SECY_CIPHER_SUITE_SHIFT		0
+
+#define DPNI_SECY_CONFIDENTIALITY_SIZE		1
+#define DPNI_SECY_CONFIDENTIALITY_SHIFT		1
+
+#define DPNI_SECY_IS_PTP_SIZE			1
+#define DPNI_SECY_IS_PTP_SHIFT			2
+
+#define DPNI_SECY_VALIDATION_MODE_SIZE		2
+#define DPNI_SECY_VALIDATION_MODE_SHIFT		3
+
+struct dpni_cmd_add_secy {
+	__le64 tx_sci;
+	u8 flags;
+	u8 co_offset;
+	u8 max_rx_sc;
+};
+
+struct dpni_rsp_add_secy {
+	u8 secy_id;
+};
+
+struct dpni_cmd_remove_secy {
+	u8 secy_id;
+};
+
+#define DPNI_SECY_ACTIVE_SIZE		1
+#define DPNI_SECY_ACTIVE_SHIFT		0
+
+struct dpni_cmd_secy_set_state {
+	u8 secy_id;
+	u8 flags;
+};
+
+#define DPNI_SECY_TX_PROTECT_SIZE	1
+#define DPNI_SECY_TX_PROTECT_SHIFT	0
+
+struct dpni_cmd_secy_set_protect {
+	u8 secy_id;
+	u8 flags;
+};
+
+#define DPNI_SECY_REPLAY_PROTECT_EN_SIZE	1
+#define DPNI_SECY_REPLAY_PROTECT_EN_SHIFT	0
+
+struct dpni_cmd_secy_set_replay_protect {
+	u8 secy_id;
+	u8 flags;
+	__le16 res;
+	__le32 replay_window;
 };
 
 #endif /* _FSL_DPNI_CMD_H */

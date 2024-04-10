@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
 /* Copyright 2014-2016 Freescale Semiconductor Inc.
- * Copyright 2016-2022 NXP
+ * Copyright 2016-2022, 2024 NXP
  */
 
 #ifndef __DPAA2_ETH_H
@@ -13,6 +13,7 @@
 #include <linux/net_tstamp.h>
 #include <net/devlink.h>
 #include <net/xdp.h>
+#include <net/macsec.h>
 
 #include <soc/fsl/dpaa2-io.h>
 #include <soc/fsl/dpaa2-fd.h>
@@ -550,6 +551,10 @@ struct dpaa2_eth_fds {
 	struct dpaa2_fd array[DPAA2_ETH_ENQUEUE_MAX_FDS];
 };
 
+struct dpaa2_eth_macsec {
+	struct macsec_secy *secy;
+};
+
 /* Driver private data */
 struct dpaa2_eth_priv {
 	struct net_device *net_dev;
@@ -642,6 +647,9 @@ struct dpaa2_eth_priv {
 
 	struct dpaa2_eth_fds __percpu *fd;
 	bool ceetm_en;
+
+	struct dpaa2_eth_macsec sec;
+	u8 secy_id;
 };
 
 struct dpaa2_eth_devlink_priv {
@@ -725,6 +733,7 @@ enum dpaa2_eth_rx_dist {
 
 #define DPNI_PTP_ONESTEP_VER_MAJOR 8
 #define DPNI_PTP_ONESTEP_VER_MINOR 2
+
 #define DPAA2_PTP_SINGLE_STEP_ENABLE	BIT(31)
 #define DPAA2_PTP_SINGLE_STEP_CH	BIT(7)
 #define DPAA2_PTP_SINGLE_CORRECTION_OFF(v) ((v) << 8)
@@ -738,8 +747,12 @@ enum dpaa2_eth_rx_dist {
 #define DPNI_NUM_TX_TCS_VER_MAJOR	7
 #define DPNI_NUM_TX_TCS_VER_MINOR	3
 
+#define DPNI_MACSEC_VER_MAJOR		8
+#define DPNI_MACSEC_VER_MINOR		5
+
 #define DPAA2_ETH_FEATURE_ONESTEP_CFG_DIRECT	BIT(0)
 #define DPAA2_ETH_FEATURE_GET_NUM_TX_TCS	BIT(1)
+#define DPAA2_ETH_FEATURE_MACSEC		BIT(2)
 
 static inline bool dpaa2_eth_tx_pause_enabled(u64 link_options)
 {
@@ -876,5 +889,8 @@ bool dpaa2_xsk_tx(struct dpaa2_eth_priv *priv,
 void *dpaa2_eth_sgt_get(struct dpaa2_eth_priv *priv);
 
 void dpaa2_eth_sgt_recycle(struct dpaa2_eth_priv *priv, void *sgt_buf);
+
+int dpaa2_eth_macsec_init(struct dpaa2_eth_priv *priv);
+void dpaa2_eth_macsec_deinit(struct dpaa2_eth_priv *priv);
 
 #endif	/* __DPAA2_H */

@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
 /* Copyright 2013-2016 Freescale Semiconductor Inc.
- * Copyright 2016 NXP
- * Copyright 2020 NXP
+ * Copyright 2016, 2020, 2024 NXP
  */
 #ifndef __FSL_DPNI_H
 #define __FSL_DPNI_H
@@ -1183,5 +1182,86 @@ int dpni_add_vlan_id(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
 
 int dpni_remove_vlan_id(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
 			u16 vlan_id);
+
+int dpni_is_macsec_capable(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			   int *macsec_capable);
+
+/**
+ * enum macsec_validation_mode - validation function for received frames
+ *
+ * @MACSEC_SECY_VALIDATION_DISABLE: disable the validation function
+ * @MACSEC_SECY_VALIDATION_CHECK: enable the validation function but only for
+ *      checking without filtering out invalid frames
+ * @MACSEC_SECY_VALIDATION_STRICT: enable the validation function and also
+ *      strictly filter out those invalid frames
+ */
+enum macsec_validation_mode {
+	MACSEC_SECY_VALIDATION_DISABLE = 0x00,
+	MACSEC_SECY_VALIDATION_CHECK = 0x01,
+	MACSEC_SECY_VALIDATION_STRICT = 0x02
+};
+
+/* enum macsec_cipher_suite - Cipher Suite used for protecting transmitted
+ *      frames and decrypting received frames
+ *
+ * @MACSEC_CIPHER_SUITE_GCM_AES_128: GCM-AES-128
+ * @MACSEC_CIPHER_SUITE_GCM_AES_256: GCM-AES-256
+ */
+enum macsec_cipher_suite {
+	MACSEC_CIPHER_SUITE_GCM_AES_128 = 0x00,
+	MACSEC_CIPHER_SUITE_GCM_AES_256 = 0x01
+};
+
+/**
+ *struct macsec_cipher_suite_cfg - Cipher Suite configuration
+ *
+ *@cipher_suite                         Cipher Suite
+ *@confidentiality:                     '1' for enabling confidentiality
+ *                                      protection; 0 for disabling
+ *@confidentiality_offset:              Number of bytes from the frame data
+ *                                      start that are not confidentiality
+ *                                      protected
+ */
+struct macsec_cipher_suite_cfg {
+	enum macsec_cipher_suite cipher_suite;
+	int confidentiality;
+	u8 co_offset;
+};
+
+/**
+ * struct macsec_secy_cfg - SecY configuration
+ *
+ * @cs: Cipher Suite configuration
+ * @tx_sci: SCI of transmitting channel. It should be composed of 48-bytes
+ *          source MAC address concatenated with 16-bit port id.  In case of
+ *          point-to-point mode, this field has no meaning.
+ * @is_ptp: Point-to-Point mode. In this mode the SCI is not presented in the
+ *          outgoing frame; Instead, the second end-point should be configured
+ *          to point-to-point mode as well and be set with the same key.
+ * @validation_mode: Validation mode for received frames.
+ * @max_rx_sc: Maximum number of receiving-SC that can be created on this SecY.
+ *             Ignored in point-to-point mode.
+ */
+struct macsec_secy_cfg {
+	struct macsec_cipher_suite_cfg cs;
+	u64 tx_sci;
+	int is_ptp;
+	enum macsec_validation_mode validation_mode;
+	u8 max_rx_sc;
+};
+
+int dpni_add_secy(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+		  const struct macsec_secy_cfg *cfg, u8 *secy_id);
+
+int dpni_remove_secy(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token, u8 secy_id);
+
+int dpni_secy_set_state(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 secy_id, bool active);
+
+int dpni_secy_set_tx_protection(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+				u8 secy_id, bool protect);
+
+int dpni_secy_set_replay_protection(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+				    u8 secy_id, bool en, u32 window);
 
 #endif /* __FSL_DPNI_H */

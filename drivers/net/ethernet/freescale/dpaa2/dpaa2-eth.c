@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /* Copyright 2014-2016 Freescale Semiconductor Inc.
- * Copyright 2016-2022 NXP
+ * Copyright 2016-2022, 2024 NXP
  */
 #include <linux/init.h>
 #include <linux/module.h>
@@ -48,6 +48,10 @@ static void dpaa2_eth_detect_features(struct dpaa2_eth_priv *priv)
 	if (dpaa2_eth_cmp_dpni_ver(priv, DPNI_NUM_TX_TCS_VER_MAJOR,
 				   DPNI_NUM_TX_TCS_VER_MINOR) >= 0)
 		priv->features |= DPAA2_ETH_FEATURE_GET_NUM_TX_TCS;
+
+	if (dpaa2_eth_cmp_dpni_ver(priv, DPNI_MACSEC_VER_MAJOR,
+				   DPNI_MACSEC_VER_MINOR) >= 0)
+		priv->features |= DPAA2_ETH_FEATURE_MACSEC;
 }
 
 static void dpaa2_update_ptp_onestep_indirect(struct dpaa2_eth_priv *priv,
@@ -4692,6 +4696,10 @@ static int dpaa2_eth_connect_mac(struct dpaa2_eth_priv *priv)
 	if (IS_ERR(dpmac_dev) || dpmac_dev->dev.type != &fsl_mc_bus_dpmac_type)
 		return 0;
 
+#if IS_ENABLED(CONFIG_MACSEC)
+	dpaa2_eth_macsec_init(priv);
+#endif
+
 	dpaa2_mac_driver_detach(dpmac_dev);
 
 	mac = kzalloc(sizeof(struct dpaa2_mac), GFP_KERNEL);
@@ -4751,6 +4759,10 @@ static void dpaa2_eth_disconnect_mac(struct dpaa2_eth_priv *priv)
 	dpaa2_mac_close(mac);
 	dpaa2_mac_driver_attach(mac->mc_dev);
 	kfree(mac);
+
+#if IS_ENABLED(CONFIG_MACSEC)
+	dpaa2_eth_macsec_deinit(priv);
+#endif
 }
 
 static irqreturn_t dpni_irq0_handler_thread(int irq_num, void *arg)
