@@ -121,6 +121,13 @@
 #define DPNI_CMDID_SECY_SET_RX_SA_NEXT_PN		DPNI_CMD(0x2ae)
 #define DPNI_CMDID_SECY_SET_RX_SA_STATE			DPNI_CMD(0x2af)
 
+#define DPNI_CMDID_SECY_GET_STATS			DPNI_CMD(0x2b0)
+#define DPNI_CMDID_SECY_GET_TX_SC_STATS			DPNI_CMD(0x2b1)
+#define DPNI_CMDID_SECY_GET_TX_SA_STATS			DPNI_CMD(0x2b2)
+#define DPNI_CMDID_SECY_GET_RX_SC_STATS			DPNI_CMD(0x2b3)
+#define DPNI_CMDID_SECY_GET_RX_SA_STATS			DPNI_CMD(0x2b4)
+#define DPNI_CMDID_GET_MACSEC_STATS			DPNI_CMD(0x2b5)
+
 /* Macros for accessing command fields smaller than 1byte */
 #define DPNI_MASK(field)	\
 	GENMASK(DPNI_##field##_SHIFT + DPNI_##field##_SIZE - 1, \
@@ -847,6 +854,38 @@ struct dpni_cmd_secy_set_rx_sa_state {
 	u8 an;
 	u8 en;
 	u8 res[5];
+	__le64 sci;
+};
+
+struct dpni_cmd_secy_get_stats {
+	u8 secy_id;
+	u8 page;
+};
+
+struct dpni_cmd_secy_get_tx_sc_stats {
+	u8 secy_id;
+};
+
+struct dpni_cmd_secy_get_tx_sa_stats {
+	u8 secy_id;
+	u8 an;
+};
+
+struct dpni_rsp_stats32 {
+	__le32 counter[DPNI_STATISTICS_32_CNT];
+};
+
+struct dpni_cmd_secy_get_rx_sc_stats {
+	u8 secy_id;
+	u8 page;
+	u8 res[6];
+	__le64 sci;
+};
+
+struct dpni_cmd_secy_get_rx_sa_stats {
+	u8 secy_id;
+	u8 an;
+	u8 res[6];
 	__le64 sci;
 };
 

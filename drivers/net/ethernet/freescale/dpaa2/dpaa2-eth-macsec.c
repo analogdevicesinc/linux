@@ -417,6 +417,173 @@ static int dpaa2_mdo_del_rxsa(struct macsec_context *ctx)
 	return 0;
 }
 
+static int dpaa2_mdo_get_dev_stats(struct macsec_context *ctx)
+{
+	struct dpaa2_eth_priv *priv = macsec_netdev_priv(ctx->netdev);
+	struct net_device *net_dev = priv->net_dev;
+	union macsec_global_stats global_stats;
+	union macsec_secy_stats stats;
+	int err;
+
+	/* Get and display statistics from page #0 */
+	memset(&stats, 0, sizeof(stats));
+	err = dpni_secy_get_stats(priv->mc_io, 0, priv->mc_token, priv->secy_id, 0, &stats);
+	if (err) {
+		netdev_err(net_dev, "dpni_secy_get_stats() failed with %d\n", err);
+		return err;
+	}
+
+	netdev_info(net_dev, "Per SecY statistics:\n");
+	netdev_info(net_dev, "\tcnt_ing_bytes : %llu\n", stats.raw.counter[0]);
+	netdev_info(net_dev, "\tcnt_ing_ucast_frames : %llu\n", stats.raw.counter[1]);
+	netdev_info(net_dev, "\tcnt_ing_mcast_frames : %llu\n", stats.raw.counter[2]);
+	netdev_info(net_dev, "\tcnt_ing_bcast_frames : %llu\n", stats.raw.counter[3]);
+	netdev_info(net_dev, "\tcnt_egr_bytes : %llu\n", stats.raw.counter[4]);
+	netdev_info(net_dev, "\tcnt_egr_ucast_frames : %llu\n", stats.raw.counter[5]);
+	netdev_info(net_dev, "\tcnt_egr_mcast_frames : %llu\n", stats.raw.counter[6]);
+
+	/* Get and display statistics from page #1 */
+	memset(&stats, 0, sizeof(stats));
+	err = dpni_secy_get_stats(priv->mc_io, 0, priv->mc_token, priv->secy_id, 1, &stats);
+	if (err) {
+		netdev_err(net_dev, "dpni_secy_get_stats() failed with %d\n", err);
+		return err;
+	}
+
+	netdev_info(net_dev, "\tcnt_egr_bcast_frames: %llu\n", stats.raw.counter[0]);
+
+	/* Get global MACSec statistics (not per SecY) */
+	memset(&global_stats, 0, sizeof(global_stats));
+	err = dpni_get_macsec_stats(priv->mc_io, 0, priv->mc_token, &global_stats);
+	if (err) {
+		netdev_err(net_dev, "dpni_get_macsec_stats() failed with %d\n", err);
+		return err;
+	}
+
+	netdev_info(net_dev, "MACSec global statistics:\n");
+	netdev_info(net_dev, "\tin_without_tag_frames: %u\n",
+		    global_stats.page_0.in_without_tag_frames);
+	netdev_info(net_dev, "\tin_kay_frames: %u\n",
+		    global_stats.page_0.in_kay_frames);
+	netdev_info(net_dev, "\tin_bag_tag_frames: %u\n",
+		    global_stats.page_0.in_bag_tag_frames);
+	netdev_info(net_dev, "\tin_sci_not_found_frames: %u\n",
+		    global_stats.page_0.in_sci_not_found_frames);
+	netdev_info(net_dev, "\tin_unsupported_ec_frames: %u\n",
+		    global_stats.page_0.in_unsupported_ec_frames);
+	netdev_info(net_dev, "\tin_too_long_frames: %u\n",
+		    global_stats.page_0.in_too_long_frames);
+	netdev_info(net_dev, "\tout_discarded_frames: %u\n",
+		    global_stats.page_0.out_discarded_frames);
+
+	return 0;
+}
+
+static int dpaa2_mdo_get_tx_sc_stats(struct macsec_context *ctx)
+{
+	struct dpaa2_eth_priv *priv = macsec_netdev_priv(ctx->netdev);
+	struct net_device *net_dev = priv->net_dev;
+	union macsec_secy_tx_sc_stats stats;
+	int err;
+
+	memset(&stats, 0, sizeof(stats));
+	err = dpni_secy_get_tx_sc_stats(priv->mc_io, 0, priv->mc_token, priv->secy_id, &stats);
+	if (err) {
+		netdev_err(net_dev, "dpni_secy_get_tx_sc_stats() failed with %d\n", err);
+		return err;
+	}
+
+	ctx->stats.tx_sc_stats->OutPktsProtected = stats.page_0.protected_frames;
+	ctx->stats.tx_sc_stats->OutPktsEncrypted = stats.page_0.encrypted_frames;
+	ctx->stats.tx_sc_stats->OutOctetsProtected = stats.page_0.protected_bytes;
+	ctx->stats.tx_sc_stats->OutOctetsEncrypted = stats.page_0.encrypted_bytes;
+
+	return 0;
+}
+
+static int dpaa2_mdo_get_tx_sa_stats(struct macsec_context *ctx)
+{
+	struct dpaa2_eth_priv *priv = macsec_netdev_priv(ctx->netdev);
+	struct net_device *net_dev = priv->net_dev;
+	union macsec_secy_tx_sa_stats stats;
+	int err;
+
+	memset(&stats, 0, sizeof(stats));
+	err = dpni_secy_get_tx_sa_stats(priv->mc_io, 0, priv->mc_token, priv->secy_id,
+					ctx->sa.assoc_num, &stats);
+	if (err) {
+		netdev_err(net_dev, "dpni_secy_get_tx_sa_stats() failed with %d\n", err);
+		return err;
+	}
+
+	ctx->stats.tx_sa_stats->OutPktsProtected = stats.page_0.protected_frames;
+	ctx->stats.tx_sa_stats->OutPktsEncrypted = stats.page_0.encrypted_frames;
+
+	return 0;
+}
+
+static int dpaa2_mdo_get_rx_sc_stats(struct macsec_context *ctx)
+{
+	struct dpaa2_eth_priv *priv = macsec_netdev_priv(ctx->netdev);
+	struct net_device *net_dev = priv->net_dev;
+	union macsec_secy_rx_sc_stats stats;
+	int err;
+
+	memset(&stats, 0, sizeof(stats));
+	err = dpni_secy_get_rx_sc_stats(priv->mc_io, 0, priv->mc_token, priv->secy_id,
+					sci_to_cpu(ctx->rx_sc->sci), 0, &stats);
+	if (err) {
+		netdev_err(net_dev, "dpni_secy_get_rx_sc_stats() failed with %d\n", err);
+		return err;
+	}
+
+	ctx->stats.rx_sc_stats->InPktsUnusedSA = stats.page_0.unused_frames;
+	ctx->stats.rx_sc_stats->InPktsNotUsingSA = stats.page_0.not_using_sa_frames;
+	ctx->stats.rx_sc_stats->InPktsInvalid = stats.page_0.invalid_frames;
+	ctx->stats.rx_sc_stats->InPktsNotValid = stats.page_0.not_valid_frames;
+	ctx->stats.rx_sc_stats->InPktsLate = stats.page_0.late_frames;
+	ctx->stats.rx_sc_stats->InPktsDelayed = stats.page_0.delayed_frames;
+	ctx->stats.rx_sc_stats->InPktsUnchecked = stats.page_0.unchecked_frames;
+
+	memset(&stats, 0, sizeof(stats));
+	err = dpni_secy_get_rx_sc_stats(priv->mc_io, 0, priv->mc_token, priv->secy_id,
+					sci_to_cpu(ctx->rx_sc->sci), 1, &stats);
+	if (err) {
+		netdev_err(net_dev, "dpni_secy_get_rx_sc_stats() failed with %d\n", err);
+		return err;
+	}
+
+	ctx->stats.rx_sc_stats->InPktsOK = stats.page_1.ok_frames;
+	ctx->stats.rx_sc_stats->InOctetsValidated = stats.page_1.validated_bytes;
+	ctx->stats.rx_sc_stats->InOctetsDecrypted = stats.page_1.decrypted_bytes;
+
+	return 0;
+}
+
+static int dpaa2_mdo_get_rx_sa_stats(struct macsec_context *ctx)
+{
+	struct dpaa2_eth_priv *priv = macsec_netdev_priv(ctx->netdev);
+	struct net_device *net_dev = priv->net_dev;
+	union macsec_secy_rx_sa_stats stats;
+	int err;
+
+	memset(&stats, 0, sizeof(stats));
+	err = dpni_secy_get_rx_sa_stats(priv->mc_io, 0, priv->mc_token, priv->secy_id,
+					sci_to_cpu(ctx->rx_sc->sci), ctx->sa.assoc_num, &stats);
+	if (err) {
+		netdev_err(net_dev, "dpni_secy_get_rx_sa_stats() failed with %d\n", err);
+		return err;
+	}
+
+	ctx->stats.rx_sa_stats->InPktsUnusedSA = stats.page_0.unused_sa_frames;
+	ctx->stats.rx_sa_stats->InPktsNotUsingSA = stats.page_0.not_using_sa_frames;
+	ctx->stats.rx_sa_stats->InPktsInvalid = stats.page_0.invalid_frames;
+	ctx->stats.rx_sa_stats->InPktsNotValid = stats.page_0.not_valid_frames;
+	ctx->stats.rx_sa_stats->InPktsOK = stats.page_0.ok_frames;
+
+	return 0;
+}
+
 static const struct macsec_ops dpaa2_eth_macsec_ops = {
 	.mdo_dev_open = dpaa2_mdo_dev_open,
 	.mdo_dev_stop = dpaa2_mdo_dev_stop,
@@ -431,6 +598,11 @@ static const struct macsec_ops dpaa2_eth_macsec_ops = {
 	.mdo_add_txsa = dpaa2_mdo_add_txsa,
 	.mdo_upd_txsa = dpaa2_mdo_upd_txsa,
 	.mdo_del_txsa = dpaa2_mdo_del_txsa,
+	.mdo_get_dev_stats = dpaa2_mdo_get_dev_stats,
+	.mdo_get_tx_sc_stats = dpaa2_mdo_get_tx_sc_stats,
+	.mdo_get_tx_sa_stats = dpaa2_mdo_get_tx_sa_stats,
+	.mdo_get_rx_sc_stats = dpaa2_mdo_get_rx_sc_stats,
+	.mdo_get_rx_sa_stats = dpaa2_mdo_get_rx_sa_stats,
 };
 
 int dpaa2_eth_macsec_init(struct dpaa2_eth_priv *priv)

@@ -2429,6 +2429,8 @@ static void dpaa2_eth_add_uc_hw_addr(const struct net_device *net_dev,
 	int err;
 
 	netdev_for_each_uc_addr(ha, net_dev) {
+		if (ether_addr_equal(ha->addr, net_dev->dev_addr))
+			continue;
 		err = dpni_add_mac_addr(priv->mc_io, 0, priv->mc_token,
 					ha->addr);
 		if (err)

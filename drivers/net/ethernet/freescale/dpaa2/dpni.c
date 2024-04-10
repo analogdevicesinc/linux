@@ -2710,3 +2710,214 @@ int dpni_secy_set_rx_sa_state(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
 
 	return mc_send_command(mc_io, &cmd);
 }
+
+/**
+ * dpni_secy_get_stats() - Get per SeCy statistics
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @page:       Page number of the inquired statistics
+ * @stats:      Union holding the statistics
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_secy_get_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 secy_id, u8 page, union macsec_secy_stats *stats)
+{
+	struct dpni_cmd_secy_get_stats *cmd_params;
+	struct dpni_rsp_get_statistics *rsp_params;
+	struct fsl_mc_command cmd = { 0 };
+	int i, err;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_GET_STATS, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_get_stats *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->page = page;
+
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	rsp_params = (struct dpni_rsp_get_statistics *)cmd.params;
+	for (i = 0; i < DPNI_STATISTICS_CNT; i++)
+		stats->raw.counter[i] = le64_to_cpu(rsp_params->counter[i]);
+
+	return 0;
+}
+
+/**
+ * dpni_secy_get_tx_sc_stats() - Get per Tx SC statistics
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @stats:      Union holding the statistics
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+
+int dpni_secy_get_tx_sc_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, union macsec_secy_tx_sc_stats *stats)
+{
+	struct dpni_cmd_secy_get_tx_sc_stats *cmd_params;
+	struct dpni_rsp_get_statistics *rsp_params;
+	struct fsl_mc_command cmd = { 0 };
+	int i, err;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_GET_TX_SC_STATS, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_get_tx_sc_stats *)cmd.params;
+	cmd_params->secy_id = secy_id;
+
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	rsp_params = (struct dpni_rsp_get_statistics *)cmd.params;
+	for (i = 0; i < DPNI_STATISTICS_CNT; i++)
+		stats->raw.counter[i] = le64_to_cpu(rsp_params->counter[i]);
+
+	return 0;
+}
+
+/**
+ * dpni_secy_get_tx_sa_stats() - Get per Tx SA statistics
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @an:         Association number of the SA
+ * @stats:      Union holding the statistics
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+
+int dpni_secy_get_tx_sa_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u8 an, union macsec_secy_tx_sa_stats *stats)
+{
+	struct dpni_cmd_secy_get_tx_sa_stats *cmd_params;
+	struct dpni_rsp_stats32 *rsp_params;
+	struct fsl_mc_command cmd = { 0 };
+	int i, err;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_GET_TX_SA_STATS, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_get_tx_sa_stats *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->an = an;
+
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	rsp_params = (struct dpni_rsp_stats32 *)cmd.params;
+	for (i = 0; i < DPNI_STATISTICS_32_CNT; i++)
+		stats->raw.counter[i] = le32_to_cpu(rsp_params->counter[i]);
+
+	return 0;
+}
+
+/**
+ * dpni_secy_get_rx_sc_stats() - Get per Rx SC statistics
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @sci:        SCI for the Rx channel
+ * @page:       Page number of the inquired statistics
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+
+int dpni_secy_get_rx_sc_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u64 sci, u8 page,
+			      union macsec_secy_rx_sc_stats *stats)
+{
+	struct dpni_cmd_secy_get_rx_sc_stats *cmd_params;
+	struct dpni_rsp_get_statistics *rsp_params;
+	struct fsl_mc_command cmd = { 0 };
+	int i, err;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_GET_RX_SC_STATS, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_get_rx_sc_stats *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->sci = cpu_to_le64(sci);
+	cmd_params->page = page;
+
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	rsp_params = (struct dpni_rsp_get_statistics *)cmd.params;
+	for (i = 0; i < DPNI_STATISTICS_CNT; i++)
+		stats->raw.counter[i] = le64_to_cpu(rsp_params->counter[i]);
+
+	return 0;
+}
+
+/**
+ * dpni_secy_get_rx_sa_stats() - Get per Rx SA statistics
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @sci:        SCI for the Rx channel
+ * @an:         Association number of the SA
+ * @stats:      Union holding the statistics
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+
+int dpni_secy_get_rx_sa_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u64 sci, u8 an, union macsec_secy_rx_sa_stats *stats)
+{
+	struct dpni_cmd_secy_get_rx_sa_stats *cmd_params;
+	struct dpni_rsp_stats32 *rsp_params;
+	struct fsl_mc_command cmd = { 0 };
+	int i, err;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_GET_RX_SA_STATS, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_get_rx_sa_stats *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->sci = cpu_to_le64(sci);
+	cmd_params->an = an;
+
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	rsp_params = (struct dpni_rsp_stats32 *)cmd.params;
+	for (i = 0; i < DPNI_STATISTICS_32_CNT; i++)
+		stats->raw.counter[i] = le32_to_cpu(rsp_params->counter[i]);
+
+	return 0;
+}
+
+/**
+ * dpni_get_macsec_stats() - Get MACSec global statistics
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @stats:      Union holding the statistics
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+
+int dpni_get_macsec_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			  union macsec_global_stats *stats)
+{
+	struct dpni_rsp_stats32 *rsp_params;
+	struct fsl_mc_command cmd = { 0 };
+	int i, err;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_GET_MACSEC_STATS, cmd_flags, token);
+
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	rsp_params = (struct dpni_rsp_stats32 *)cmd.params;
+	for (i = 0; i < DPNI_STATISTICS_32_CNT; i++)
+		stats->raw.counter[i] = le32_to_cpu(rsp_params->counter[i]);
+
+	return 0;
+}

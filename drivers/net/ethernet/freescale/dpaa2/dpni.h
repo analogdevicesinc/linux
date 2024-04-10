@@ -405,6 +405,7 @@ int dpni_get_tx_data_offset(struct fsl_mc_io	*mc_io,
 			    u16			*data_offset);
 
 #define DPNI_STATISTICS_CNT		7
+#define DPNI_STATISTICS_32_CNT		14
 
 /**
  * union dpni_statistics - Union describing the DPNI statistics
@@ -1320,4 +1321,197 @@ int dpni_secy_set_rx_sa_next_pn(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 toke
 int dpni_secy_set_rx_sa_state(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
 			      u8 secy_id, u64 sci, u8 an, bool active);
 
+/**
+ * union macsec_secy_stats - per SecY statistics
+ *
+ * @page_0: Page_0 statistics structure
+ * @page_0.cnt_ing_bytes: Count ingress bytes on the controlled port
+ * @page_0.cnt_ing_ucast_frames: Count ingress unicast-frames on the controlled port
+ * @page_0.cnt_ing_mcast_frames: Count ingress multicast-frames on the controlled port
+ * @page_0.cnt_ing_bcast_frames: Count ingress broadcast-frames on the controlled port
+ * @page_0.cnt_egr_bytes: Count egress bytes
+ * @page_0.cnt_egr_ucast_frames: Count egress unicast-frames
+ * @page_0.cnt_egr_mcast_frames: Count egress multicast-frames
+ *
+ * @page_1: Page_1 statistics structure
+ * @page_1.cnt_egr_bcast_frames: Count egress broadcast-frames
+ *
+ */
+union macsec_secy_stats {
+	struct {
+		u64 cnt_ing_bytes;
+		u64 cnt_ing_ucast_frames;
+		u64 cnt_ing_mcast_frames;
+		u64 cnt_ing_bcast_frames;
+		u64 cnt_egr_bytes;
+		u64 cnt_egr_ucast_frames;
+		u64 cnt_egr_mcast_frames;
+	} page_0;
+	struct {
+		u64 cnt_egr_bcast_frames;
+	} page_1;
+	struct {
+		u64 counter[DPNI_STATISTICS_CNT];
+	} raw;
+};
+
+int dpni_secy_get_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 secy_id, u8 page, union macsec_secy_stats *stats);
+
+/**
+ * union macsec_secy_tx_sc_stats - per Tx SC statistics
+ *
+ * @page_0: Page_0 statistics structure
+ * @page_0.protected_frames: Count protected frames.
+ * @page_0.encrypted_frames: Count encrypted frames.
+ * @page_0.protected_bytes: Count total bytes of all protected frames.
+ * @page_0.encrypted_bytes: Count total bytes of all encrypted frames.
+ */
+union macsec_secy_tx_sc_stats {
+	struct {
+		u64 protected_frames;
+		u64 encrypted_frames;
+		u64 protected_bytes;
+		u64 encrypted_bytes;
+	} page_0;
+	struct {
+		u64 counter[DPNI_STATISTICS_CNT];
+	} raw;
+};
+
+int dpni_secy_get_tx_sc_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, union macsec_secy_tx_sc_stats *stats);
+
+/**
+ * union macsec_secy_tx_sa_stats - per Tx SA statistics
+ *
+ * @page_0: Page_0 statistics structure
+ * @page_0.protected_frames: Count protected frames.
+ * @page_0.encrypted_frames: Count encrypted frames.
+ */
+union macsec_secy_tx_sa_stats {
+	struct {
+		u32 protected_frames;
+		u32 encrypted_frames;
+	} page_0;
+	struct {
+		u32 counter[DPNI_STATISTICS_32_CNT];
+	} raw;
+};
+
+int dpni_secy_get_tx_sa_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u8 an, union macsec_secy_tx_sa_stats *stats);
+
+/**
+ * union macsec_secy_rx_sc_stats - per Rx SC statistics
+ *
+ * @page_0: Page_0 statistics structure
+ * @page_0.unused_frames: Count frames received on the SC's disabled SAs where
+ *                        the SecY validateFrame property is not 'Strict' and
+ *                        the frame C bit is not set
+ * @page_0.not_using_sa_frames: Count frames received on the SC's disabled SAs
+ *                              where the SecY validateFrame property is
+ *                              'Strict' or the frame C bit is set
+ * @page_0.invalid_frames: Count frames that failed integrity check where the
+ *                         SecY validateFrame property is 'Check'
+ * @page_0.not_valid_frames: Count frames that failed integrity check where the
+ *                           SecY validateFrame property is 'Strict' or the
+ *                           frame C bit is set
+ * @page_0.late_frames: Count frames discarded on the SC's SA due to PN field
+ *                      value lower then the SA lowestPN property where the
+ *                      SecY replay protection is enabled
+ * @page_0.delayed_frames: Count frames discarded on the SC's SA due to PN
+ *                         field value lower then the SA lowestPN property
+ *                         where the SecY replay protection is disabled and
+ *                         where the frame does not satisfying the conditions
+ *                         for increasing MACSEC_SECY_CNT_RX_SC_INVALID_FRAME
+ *                         or MACSEC_SECY_CNT_RX_SC_NOT_VALID_FRAME counters
+ * @page_0.unchecked_frames: Count frames that failed integrity check having C
+ *                           bit not set where the SecY validateFrame property
+ *                           is 'Disabled'
+ *
+ * @page_1: Page_1 statistics structure
+ * @page_1.ok_frames: Count frames that passed integrity check having PN field
+ *                    value above the SA lowestPN property
+ * @page_1.validated_bytes: Count bytes of frames that passed integrity check
+ *                          having E bit not set where the SecY validateFrame
+ *                          property is not 'Disabled'
+ * @page_1.decrypted_bytes: Count bytes of frames that passed integrity check
+ *                          having E bit set where the SecY validateFrame
+ *                          property is not 'Disabled'
+ */
+union macsec_secy_rx_sc_stats {
+	struct {
+		u64 unused_frames;
+		u64 not_using_sa_frames;
+		u64 invalid_frames;
+		u64 not_valid_frames;
+		u64 late_frames;
+		u64 delayed_frames;
+		u64 unchecked_frames;
+	} page_0;
+	struct {
+		u64 ok_frames;
+		u64 validated_bytes;
+		u64 decrypted_bytes;
+	} page_1;
+	struct {
+		u64 counter[DPNI_STATISTICS_CNT];
+	} raw;
+};
+
+int dpni_secy_get_rx_sc_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u64 sci, u8 page,
+			      union macsec_secy_rx_sc_stats *stats);
+
+/**
+ * enum macsec_secy_rx_sa_counter - per Rx SA statistics
+ *
+ * @page_0.unused_sa_frames: Count frames received when the SA is disabled
+ *                           where the SecY validateFrame property is not
+ *                           'Strict' and the frame C bit is not set
+ * @page_0.not_using_sa_frames: Count frames received when the SA is disabled
+ *                              where the SecY validateFrame property is
+ *                              'Strict' or the frame C bit is set
+ * @page_0.invalid_frames: Count frames that failed integrity check where the
+ *                         SecY validateFrame property is 'Check'
+ * @page_0.not_valid_frames: Count frames that failed integrity check where the
+ *                           SecY validateFrame property is 'Strict' or the
+ *                           frame C bit is set
+ * @page_0.ok_frames: Count frames that passed integrity check having PN field
+ *                    value above the SA lowestPN property
+ */
+union macsec_secy_rx_sa_stats {
+	struct {
+		u32 unused_sa_frames;
+		u32 not_using_sa_frames;
+		u32 invalid_frames;
+		u32 not_valid_frames;
+		u32 ok_frames;
+	} page_0;
+	struct {
+		u32 counter[DPNI_STATISTICS_32_CNT];
+	} raw;
+};
+
+int dpni_secy_get_rx_sa_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u64 sci, u8 an, union macsec_secy_rx_sa_stats *stats);
+
+union macsec_global_stats {
+	struct {
+		u32 in_without_tag_frames;
+		u32 in_kay_frames;
+		u32 in_bag_tag_frames;
+		u32 in_sci_not_found_frames;
+		u32 in_unsupported_ec_frames;
+		u32 in_too_long_frames;
+		u32 out_discarded_frames;
+	} page_0;
+	struct {
+		u32 counter[DPNI_STATISTICS_32_CNT];
+	} raw;
+};
+
+int dpni_get_macsec_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			  union macsec_global_stats *stats);
 #endif /* __FSL_DPNI_H */
