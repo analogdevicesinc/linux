@@ -259,11 +259,175 @@ static int dpaa2_mdo_del_txsa(struct macsec_context *ctx)
 	return 0;
 }
 
+static int dpaa2_mdo_add_rxsc(struct macsec_context *ctx)
+{
+	struct dpaa2_eth_priv *priv = macsec_netdev_priv(ctx->netdev);
+	int err;
+
+	err = dpni_secy_add_rx_sc(priv->mc_io, 0, priv->mc_token, priv->secy_id,
+				  sci_to_cpu(ctx->rx_sc->sci));
+	if (err) {
+		netdev_err(priv->net_dev, "dpni_secy_add_rx_sc() failed with %d\n", err);
+		return err;
+	}
+
+	err = dpni_secy_set_rx_sc_state(priv->mc_io, 0, priv->mc_token,
+					priv->secy_id, sci_to_cpu(ctx->rx_sc->sci),
+					ctx->rx_sc->active);
+	if (err) {
+		netdev_err(priv->net_dev, "dpni_secy_set_rx_sc_state() failed with %d\n", err);
+		goto err_remove_rxsc;
+	}
+
+	return 0;
+
+err_remove_rxsc:
+	dpni_secy_remove_rx_sc(priv->mc_io, 0, priv->mc_token, priv->secy_id,
+			       sci_to_cpu(ctx->rx_sc->sci));
+
+	return err;
+}
+
+static int dpaa2_mdo_upd_rxsc(struct macsec_context *ctx)
+{
+	struct dpaa2_eth_priv *priv = macsec_netdev_priv(ctx->netdev);
+	struct net_device *net_dev = priv->net_dev;
+	int err;
+
+	err = dpni_secy_set_rx_sc_state(priv->mc_io, 0, priv->mc_token,
+					priv->secy_id, sci_to_cpu(ctx->rx_sc->sci),
+					ctx->rx_sc->active);
+	if (err) {
+		netdev_err(priv->net_dev, "dpni_secy_set_rx_sc_state() failed with %d\n", err);
+		return err;
+	}
+	netdev_err(net_dev, "Changed RX SC active state to %s\n",
+		   ctx->rx_sc->active ? "on" : "off");
+
+	return 0;
+}
+
+static int dpaa2_mdo_del_rxsc(struct macsec_context *ctx)
+{
+	struct dpaa2_eth_priv *priv = macsec_netdev_priv(ctx->netdev);
+	struct net_device *net_dev = priv->net_dev;
+	int err;
+
+	err = dpni_secy_remove_rx_sc(priv->mc_io, 0, priv->mc_token,
+				     priv->secy_id, sci_to_cpu(ctx->rx_sc->sci));
+	if (err) {
+		netdev_err(priv->net_dev, "dpni_secy_remove_rx_sc() failed with %d\n", err);
+		return err;
+	}
+	netdev_err(net_dev, "Removed RX SC with SCI 0x%llx\n", sci_to_cpu(ctx->rx_sc->sci));
+
+	return 0;
+}
+
+static int dpaa2_mdo_add_rxsa(struct macsec_context *ctx)
+{
+	struct dpaa2_eth_priv *priv = macsec_netdev_priv(ctx->netdev);
+	struct net_device *net_dev = priv->net_dev;
+	struct macsec_rx_sa_cfg cfg = { 0 };
+	int err, i;
+
+	cfg.lowest_pn = ctx->sa.tx_sa->next_pn_halves.lower;
+	for (i = 0; i < ctx->secy->key_len; i++)
+		cfg.key[i] = ctx->sa.key[i];
+	cfg.an = ctx->sa.assoc_num;
+
+	err = dpni_secy_add_rx_sa(priv->mc_io, 0, priv->mc_token, priv->secy_id,
+				  sci_to_cpu(ctx->sa.rx_sa->sc->sci), &cfg);
+	if (err) {
+		netdev_err(net_dev, "dpni_secy_add_rx_sa() failed with %d\n", err);
+		return err;
+	}
+
+	err = dpni_secy_set_rx_sa_next_pn(priv->mc_io, 0, priv->mc_token, priv->secy_id,
+					  sci_to_cpu(ctx->sa.rx_sa->sc->sci),
+					  ctx->sa.assoc_num,
+					  ctx->sa.rx_sa->next_pn_halves.lower);
+	if (err) {
+		netdev_err(net_dev, "dpni_secy_set_rx_sa_next_pn() failed with %d\n", err);
+		goto err_remove_rx_sa;
+	}
+
+	err = dpni_secy_set_rx_sa_state(priv->mc_io, 0, priv->mc_token, priv->secy_id,
+					sci_to_cpu(ctx->sa.rx_sa->sc->sci), ctx->sa.assoc_num,
+					ctx->sa.rx_sa->active);
+	if (err) {
+		netdev_err(net_dev, "dpni_secy_set_rx_sa_state() failed with %d\n", err);
+		goto err_remove_rx_sa;
+	}
+
+	netdev_err(net_dev, "Added RX SA %d for SCI 0x%llx, active %s, next_pn %d\n",
+		   ctx->sa.assoc_num, sci_to_cpu(ctx->sa.rx_sa->sc->sci),
+		   ctx->sa.rx_sa->active ? "on" : "off",
+		   ctx->sa.rx_sa->next_pn_halves.lower);
+
+	return 0;
+
+err_remove_rx_sa:
+	dpni_secy_remove_rx_sa(priv->mc_io, 0, priv->mc_token, priv->secy_id,
+			       sci_to_cpu(ctx->sa.rx_sa->sc->sci), ctx->sa.assoc_num);
+
+	return err;
+}
+
+static int dpaa2_mdo_upd_rxsa(struct macsec_context *ctx)
+{
+	struct dpaa2_eth_priv *priv = macsec_netdev_priv(ctx->netdev);
+	struct net_device *net_dev = priv->net_dev;
+	int err;
+
+	if (ctx->sa.update_pn)
+		return -EOPNOTSUPP;
+
+	err = dpni_secy_set_rx_sa_state(priv->mc_io, 0, priv->mc_token, priv->secy_id,
+					sci_to_cpu(ctx->sa.rx_sa->sc->sci), ctx->sa.assoc_num,
+					ctx->sa.rx_sa->active);
+	if (err) {
+		netdev_err(net_dev, "dpni_secy_set_rx_sa_state() failed with %d\n", err);
+		return err;
+	}
+
+	netdev_err(net_dev, "Changed RX SA %d for with SCI 0x%llx, active %s\n",
+		   ctx->sa.assoc_num, sci_to_cpu(ctx->sa.rx_sa->sc->sci),
+		   ctx->sa.rx_sa->active ? "on" : "off");
+
+	return 0;
+}
+
+static int dpaa2_mdo_del_rxsa(struct macsec_context *ctx)
+{
+	struct dpaa2_eth_priv *priv = macsec_netdev_priv(ctx->netdev);
+	struct net_device *net_dev = priv->net_dev;
+	int err;
+
+	err = dpni_secy_remove_rx_sa(priv->mc_io, 0, priv->mc_token, priv->secy_id,
+				     sci_to_cpu(ctx->sa.rx_sa->sc->sci), ctx->sa.assoc_num);
+	if (err) {
+		netdev_err(net_dev, "dpni_secy_remove_rx_sa() failed with %d\n", err);
+		return err;
+	}
+
+	netdev_err(net_dev, "Removed RX SA %d for SCI 0x%llx\n",
+		   ctx->sa.assoc_num, sci_to_cpu(ctx->sa.rx_sa->sc->sci));
+
+	return 0;
+}
+
 static const struct macsec_ops dpaa2_eth_macsec_ops = {
 	.mdo_dev_open = dpaa2_mdo_dev_open,
 	.mdo_dev_stop = dpaa2_mdo_dev_stop,
 	.mdo_add_secy = dpaa2_mdo_add_secy,
 	.mdo_del_secy = dpaa2_mdo_del_secy,
+	.mdo_add_rxsc = dpaa2_mdo_add_rxsc,
+	.mdo_upd_rxsc = dpaa2_mdo_upd_rxsc,
+	.mdo_del_rxsc = dpaa2_mdo_del_rxsc,
+	.mdo_add_rxsa = dpaa2_mdo_add_rxsa,
+	.mdo_upd_rxsa = dpaa2_mdo_upd_rxsa,
+	.mdo_del_rxsa = dpaa2_mdo_del_rxsa,
 	.mdo_add_txsa = dpaa2_mdo_add_txsa,
 	.mdo_upd_txsa = dpaa2_mdo_upd_txsa,
 	.mdo_del_txsa = dpaa2_mdo_del_txsa,

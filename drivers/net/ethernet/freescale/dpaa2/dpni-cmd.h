@@ -113,6 +113,13 @@
 #define DPNI_CMDID_SECY_ADD_TX_SA			DPNI_CMD(0x2a6)
 #define DPNI_CMDID_SECY_REMOVE_TX_SA			DPNI_CMD(0x2a7)
 #define DPNI_CMDID_SECY_SET_ACTIVE_TX_SA		DPNI_CMD(0x2a8)
+#define DPNI_CMDID_SECY_ADD_RX_SC			DPNI_CMD(0x2a9)
+#define DPNI_CMDID_SECY_REMOVE_RX_SC			DPNI_CMD(0x2aa)
+#define DPNI_CMDID_SECY_SET_RX_SC_STATE			DPNI_CMD(0x2ab)
+#define DPNI_CMDID_SECY_ADD_RX_SA			DPNI_CMD(0x2ac)
+#define DPNI_CMDID_SECY_REMOVE_RX_SA			DPNI_CMD(0x2ad)
+#define DPNI_CMDID_SECY_SET_RX_SA_NEXT_PN		DPNI_CMD(0x2ae)
+#define DPNI_CMDID_SECY_SET_RX_SA_STATE			DPNI_CMD(0x2af)
 
 /* Macros for accessing command fields smaller than 1byte */
 #define DPNI_MASK(field)	\
@@ -796,6 +803,51 @@ struct dpni_cmd_secy_remove_tx_sa {
 struct dpni_cmd_secy_set_tx_sa {
 	u8 secy_id;
 	u8 an;
+};
+
+struct dpni_cmd_secy_rx_sc {
+	u8 secy_id;
+	u8 res[7];
+	__le64 sci;
+};
+
+struct dpni_cmd_secy_set_rx_sc_state {
+	u8 secy_id;
+	u8 en;
+	u8 res[6];
+	__le64 sci;
+};
+
+struct dpni_cmd_secy_add_rx_sa {
+	u8 key[32];
+	__le32 lowest_pn;
+	u8 secy_id;
+	u8 an;
+	__le16 res;
+	__le64 sci;
+};
+
+struct dpni_cmd_secy_remove_rx_sa {
+	u8 secy_id;
+	u8 an;
+	u8 res[6];
+	__le64 sci;
+};
+
+struct dpni_cmd_secy_set_rx_sa_next_pn {
+	u8 secy_id;
+	u8 an;
+	__le16 res;
+	__le32 next_pn;
+	__le64 sci;
+};
+
+struct dpni_cmd_secy_set_rx_sa_state {
+	u8 secy_id;
+	u8 an;
+	u8 en;
+	u8 res[5];
+	__le64 sci;
 };
 
 #endif /* _FSL_DPNI_CMD_H */

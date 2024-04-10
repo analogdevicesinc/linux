@@ -1285,4 +1285,39 @@ int dpni_secy_remove_tx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
 
 int dpni_secy_set_active_tx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
 			       u8 secy_id, u8 assoc_num);
+
+int dpni_secy_add_rx_sc(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 secy_id, u64 sci);
+
+int dpni_secy_remove_rx_sc(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			   u8 secy_id, u64 sci);
+
+int dpni_secy_set_rx_sc_state(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u64 sci, bool active);
+
+/**
+ * struct macsec_rx_sa_cfg - receiving-SA configuration
+ *
+ * @key: Key used for decrypting received frames
+ * @lowest_pn: Initial lowest PN field allowed for received frames
+ * @an: Association Number (AN). 2-bits value (0-3)
+ */
+struct macsec_rx_sa_cfg {
+	u8 key[32];
+	u32 lowest_pn;
+	u8 an;
+};
+
+int dpni_secy_add_rx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token, u8 secy_id,
+			u64 sci, struct macsec_rx_sa_cfg *cfg);
+
+int dpni_secy_remove_rx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			   u8 secy_id, u64 sci, u8 an);
+
+int dpni_secy_set_rx_sa_next_pn(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+				u8 secy_id, u64 sci, u8 an, u32 next_pn);
+
+int dpni_secy_set_rx_sa_state(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u64 sci, u8 an, bool active);
+
 #endif /* __FSL_DPNI_H */
