@@ -1319,7 +1319,7 @@ static struct v4l2_ctrl_config vsi_v4l2_encctrl_defs[] = {
 		.min = 0,
 		.max = 1,
 		.step = 1,
-		.def = 0,
+		.def = 1,
 	},
 	{
 		.id = V4L2_CID_MPEG_VIDEO_MB_RC_ENABLE,
