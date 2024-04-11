@@ -19,6 +19,7 @@
 
 struct xe_bo;
 struct xe_sync_entry;
+struct xe_user_fence;
 struct xe_vm;
 
 #define XE_VMA_READ_ONLY	DRM_GPUVA_USERBITS
@@ -29,6 +30,9 @@ struct xe_vm;
 #define XE_VMA_PTE_4K		(DRM_GPUVA_USERBITS << 5)
 #define XE_VMA_PTE_2M		(DRM_GPUVA_USERBITS << 6)
 #define XE_VMA_PTE_1G		(DRM_GPUVA_USERBITS << 7)
+#define XE_VMA_PTE_64K		(DRM_GPUVA_USERBITS << 8)
+#define XE_VMA_PTE_COMPACT	(DRM_GPUVA_USERBITS << 9)
+#define XE_VMA_DUMPABLE		(DRM_GPUVA_USERBITS << 10)
 
 /** struct xe_userptr - User pointer */
 struct xe_userptr {
@@ -80,11 +84,8 @@ struct xe_vma {
 		struct work_struct destroy_work;
 	};
 
-	/** @usm: unified shared memory state */
-	struct {
-		/** @tile_invalidated: VMA has been invalidated */
-		u8 tile_invalidated;
-	} usm;
+	/** @tile_invalidated: VMA has been invalidated */
+	u8 tile_invalidated;
 
 	/** @tile_mask: Tile mask of where to create binding for this VMA */
 	u8 tile_mask;
@@ -102,6 +103,12 @@ struct xe_vma {
 	 * @pat_index: The pat index to use when encoding the PTEs for this vma.
 	 */
 	u16 pat_index;
+
+	/**
+	 * @ufence: The user fence that was provided with MAP.
+	 * Needs to be signalled before UNMAP can be processed.
+	 */
+	struct xe_user_fence *ufence;
 };
 
 /**
@@ -157,6 +164,11 @@ struct xe_vm {
 	 * VM
 	 */
 	struct rw_semaphore lock;
+	/**
+	 * @snap_mutex: Mutex used to guard insertions and removals from gpuva,
+	 * so we can take a snapshot safely from devcoredump.
+	 */
+	struct mutex snap_mutex;
 
 	/**
 	 * @rebind_list: list of VMAs that need rebinding. Protected by the
@@ -164,9 +176,6 @@ struct xe_vm {
 	 * vm resv).
 	 */
 	struct list_head rebind_list;
-
-	/** @rebind_fence: rebind fence from execbuf */
-	struct dma_fence *rebind_fence;
 
 	/**
 	 * @destroy_work: worker to destroy VM, needed as a dma_fence signaling
@@ -180,30 +189,6 @@ struct xe_vm {
 	 * Used to implement conflict tracking between independent bind engines.
 	 */
 	struct xe_range_fence_tree rftree[XE_MAX_TILES_PER_DEVICE];
-
-	/** @async_ops: async VM operations (bind / unbinds) */
-	struct {
-		/** @list: list of pending async VM ops */
-		struct list_head pending;
-		/** @work: worker to execute async VM ops */
-		struct work_struct work;
-		/** @lock: protects list of pending async VM ops and fences */
-		spinlock_t lock;
-		/** @fence: fence state */
-		struct {
-			/** @context: context of async fence */
-			u64 context;
-			/** @seqno: seqno of async fence */
-			u32 seqno;
-		} fence;
-		/** @error: error state for async VM ops */
-		int error;
-		/**
-		 * @munmap_rebind_inflight: an munmap style VM bind is in the
-		 * middle of a set of ops which requires a rebind at the end.
-		 */
-		bool munmap_rebind_inflight;
-	} async_ops;
 
 	const struct xe_pt_ops *pt_ops;
 
@@ -276,6 +261,11 @@ struct xe_vm {
 		bool capture_once;
 	} error_capture;
 
+	/**
+	 * @tlb_flush_seqno: Required TLB flush seqno for the next exec.
+	 * protected by the vm resv.
+	 */
+	u64 tlb_flush_seqno;
 	/** @batch_invalidate_tlb: Always invalidate TLB before batch start */
 	bool batch_invalidate_tlb;
 	/** @xef: XE file handle for tracking this VM's drm client */
@@ -286,12 +276,10 @@ struct xe_vm {
 struct xe_vma_op_map {
 	/** @vma: VMA to map */
 	struct xe_vma *vma;
-	/** @immediate: Immediate bind */
-	bool immediate;
-	/** @read_only: Read only */
-	bool read_only;
 	/** @is_null: is NULL binding */
 	bool is_null;
+	/** @dumpable: whether BO is dumped on GPU hang */
+	bool dumpable;
 	/** @pat_index: The pat index to use for this operation. */
 	u16 pat_index;
 };

@@ -5,7 +5,7 @@
  * Copyright 2006-2007	Jiri Benc <jbenc@suse.cz>
  * Copyright 2007	Johannes Berg <johannes@sipsolutions.net>
  * Copyright 2013-2014  Intel Mobile Communications GmbH
- * Copyright (C) 2018-2022 Intel Corporation
+ * Copyright (C) 2018-2024 Intel Corporation
  *
  * Transmit and frame generation functions.
  */
@@ -133,6 +133,7 @@ static __le16 ieee80211_duration(struct ieee80211_tx_data *tx,
 	mrate = sband->bitrates[0].bitrate;
 	for (i = 0; i < sband->n_bitrates; i++) {
 		struct ieee80211_rate *r = &sband->bitrates[i];
+		u32 flag;
 
 		if (r->bitrate > txrate->bitrate)
 			break;
@@ -145,28 +146,24 @@ static __le16 ieee80211_duration(struct ieee80211_tx_data *tx,
 
 		switch (sband->band) {
 		case NL80211_BAND_2GHZ:
-		case NL80211_BAND_LC: {
-			u32 flag;
+		case NL80211_BAND_LC:
 			if (tx->sdata->deflink.operating_11g_mode)
 				flag = IEEE80211_RATE_MANDATORY_G;
 			else
 				flag = IEEE80211_RATE_MANDATORY_B;
-			if (r->flags & flag)
-				mrate = r->bitrate;
 			break;
-		}
 		case NL80211_BAND_5GHZ:
 		case NL80211_BAND_6GHZ:
-			if (r->flags & IEEE80211_RATE_MANDATORY_A)
-				mrate = r->bitrate;
+			flag = IEEE80211_RATE_MANDATORY_A;
 			break;
-		case NL80211_BAND_S1GHZ:
-		case NL80211_BAND_60GHZ:
-			/* TODO, for now fall through */
-		case NUM_NL80211_BANDS:
+		default:
+			flag = 0;
 			WARN_ON(1);
 			break;
 		}
+
+		if (r->flags & flag)
+			mrate = r->bitrate;
 	}
 	if (rate == -1) {
 		/* No matching basic rate found; use highest suitable mandatory
@@ -2393,9 +2390,15 @@ netdev_tx_t ieee80211_monitor_start_xmit(struct sk_buff *skb,
 
 	if (chanctx_conf)
 		chandef = &chanctx_conf->def;
-	else if (!local->use_chanctx)
-		chandef = &local->_oper_chandef;
 	else
+		goto fail_rcu;
+
+	/*
+	 * If driver/HW supports IEEE80211_CHAN_CAN_MONITOR we still
+	 * shouldn't transmit on disabled channels.
+	 */
+	if (!cfg80211_chandef_usable(local->hw.wiphy, chandef,
+				     IEEE80211_CHAN_DISABLED))
 		goto fail_rcu;
 
 	/*
@@ -3927,6 +3930,7 @@ begin:
 			goto begin;
 
 		skb = __skb_dequeue(&tx.skbs);
+		info = IEEE80211_SKB_CB(skb);
 
 		if (!skb_queue_empty(&tx.skbs)) {
 			spin_lock_bh(&fq->lock);
@@ -3958,7 +3962,8 @@ begin:
 			ieee80211_free_txskb(&local->hw, skb);
 			goto begin;
 		} else {
-			vif = NULL;
+			info->control.vif = NULL;
+			return skb;
 		}
 		break;
 	case NL80211_IFTYPE_AP_VLAN:
@@ -3971,7 +3976,7 @@ begin:
 	}
 
 encap_out:
-	IEEE80211_SKB_CB(skb)->control.vif = vif;
+	info->control.vif = vif;
 
 	if (tx.sta &&
 	    wiphy_ext_feature_isset(local->hw.wiphy, NL80211_EXT_FEATURE_AQL)) {
@@ -5031,16 +5036,24 @@ static u8 __ieee80211_beacon_update_cntdwn(struct beacon_data *beacon)
 	return beacon->cntdwn_current_counter;
 }
 
-u8 ieee80211_beacon_update_cntdwn(struct ieee80211_vif *vif)
+u8 ieee80211_beacon_update_cntdwn(struct ieee80211_vif *vif, unsigned int link_id)
 {
 	struct ieee80211_sub_if_data *sdata = vif_to_sdata(vif);
+	struct ieee80211_link_data *link;
 	struct beacon_data *beacon = NULL;
 	u8 count = 0;
 
+	if (WARN_ON(link_id >= IEEE80211_MLD_MAX_NUM_LINKS))
+		return 0;
+
 	rcu_read_lock();
 
+	link = rcu_dereference(sdata->link[link_id]);
+	if (!link)
+		goto unlock;
+
 	if (sdata->vif.type == NL80211_IFTYPE_AP)
-		beacon = rcu_dereference(sdata->deflink.u.ap.beacon);
+		beacon = rcu_dereference(link->u.ap.beacon);
 	else if (sdata->vif.type == NL80211_IFTYPE_ADHOC)
 		beacon = rcu_dereference(sdata->u.ibss.presp);
 	else if (ieee80211_vif_is_mesh(&sdata->vif))
@@ -5082,9 +5095,11 @@ unlock:
 }
 EXPORT_SYMBOL(ieee80211_beacon_set_cntdwn);
 
-bool ieee80211_beacon_cntdwn_is_complete(struct ieee80211_vif *vif)
+bool ieee80211_beacon_cntdwn_is_complete(struct ieee80211_vif *vif,
+					 unsigned int link_id)
 {
 	struct ieee80211_sub_if_data *sdata = vif_to_sdata(vif);
+	struct ieee80211_link_data *link;
 	struct beacon_data *beacon = NULL;
 	u8 *beacon_data;
 	size_t beacon_data_len;
@@ -5093,9 +5108,17 @@ bool ieee80211_beacon_cntdwn_is_complete(struct ieee80211_vif *vif)
 	if (!ieee80211_sdata_running(sdata))
 		return false;
 
+	if (WARN_ON(link_id >= IEEE80211_MLD_MAX_NUM_LINKS))
+		return 0;
+
 	rcu_read_lock();
+
+	link = rcu_dereference(sdata->link[link_id]);
+	if (!link)
+		goto out;
+
 	if (vif->type == NL80211_IFTYPE_AP) {
-		beacon = rcu_dereference(sdata->deflink.u.ap.beacon);
+		beacon = rcu_dereference(link->u.ap.beacon);
 		if (WARN_ON(!beacon || !beacon->tail))
 			goto out;
 		beacon_data = beacon->tail;
@@ -5281,7 +5304,7 @@ ieee80211_beacon_get_ap(struct ieee80211_hw *hw,
 
 	if (beacon->cntdwn_counter_offsets[0]) {
 		if (!is_template)
-			ieee80211_beacon_update_cntdwn(vif);
+			ieee80211_beacon_update_cntdwn(vif, link->link_id);
 
 		ieee80211_set_beacon_cntdwn(sdata, beacon, link);
 	}

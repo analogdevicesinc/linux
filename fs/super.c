@@ -274,9 +274,10 @@ static void destroy_super_work(struct work_struct *work)
 {
 	struct super_block *s = container_of(work, struct super_block,
 							destroy_work);
-	int i;
-
-	for (i = 0; i < SB_FREEZE_LEVELS; i++)
+	security_sb_free(s);
+	put_user_ns(s->s_user_ns);
+	kfree(s->s_subtype);
+	for (int i = 0; i < SB_FREEZE_LEVELS; i++)
 		percpu_free_rwsem(&s->s_writers.rw_sem[i]);
 	kfree(s);
 }
@@ -296,9 +297,6 @@ static void destroy_unused_super(struct super_block *s)
 	super_unlock_excl(s);
 	list_lru_destroy(&s->s_dentry_lru);
 	list_lru_destroy(&s->s_inode_lru);
-	security_sb_free(s);
-	put_user_ns(s->s_user_ns);
-	kfree(s->s_subtype);
 	shrinker_free(s->s_shrink);
 	/* no delays needed */
 	destroy_super_work(&s->destroy_work);
@@ -409,9 +407,6 @@ static void __put_super(struct super_block *s)
 		WARN_ON(s->s_dentry_lru.node);
 		WARN_ON(s->s_inode_lru.node);
 		WARN_ON(!list_empty(&s->s_mounts));
-		security_sb_free(s);
-		put_user_ns(s->s_user_ns);
-		kfree(s->s_subtype);
 		call_rcu(&s->rcu, destroy_super_rcu);
 	}
 }
@@ -1532,16 +1527,16 @@ int setup_bdev_super(struct super_block *sb, int sb_flags,
 		struct fs_context *fc)
 {
 	blk_mode_t mode = sb_open_mode(sb_flags);
-	struct bdev_handle *bdev_handle;
+	struct file *bdev_file;
 	struct block_device *bdev;
 
-	bdev_handle = bdev_open_by_dev(sb->s_dev, mode, sb, &fs_holder_ops);
-	if (IS_ERR(bdev_handle)) {
+	bdev_file = bdev_file_open_by_dev(sb->s_dev, mode, sb, &fs_holder_ops);
+	if (IS_ERR(bdev_file)) {
 		if (fc)
 			errorf(fc, "%s: Can't open blockdev", fc->source);
-		return PTR_ERR(bdev_handle);
+		return PTR_ERR(bdev_file);
 	}
-	bdev = bdev_handle->bdev;
+	bdev = file_bdev(bdev_file);
 
 	/*
 	 * This really should be in blkdev_get_by_dev, but right now can't due
@@ -1549,7 +1544,7 @@ int setup_bdev_super(struct super_block *sb, int sb_flags,
 	 * writable from userspace even for a read-only block device.
 	 */
 	if ((mode & BLK_OPEN_WRITE) && bdev_read_only(bdev)) {
-		bdev_release(bdev_handle);
+		bdev_fput(bdev_file);
 		return -EACCES;
 	}
 
@@ -1560,11 +1555,11 @@ int setup_bdev_super(struct super_block *sb, int sb_flags,
 	if (atomic_read(&bdev->bd_fsfreeze_count) > 0) {
 		if (fc)
 			warnf(fc, "%pg: Can't mount, blockdev is frozen", bdev);
-		bdev_release(bdev_handle);
+		bdev_fput(bdev_file);
 		return -EBUSY;
 	}
 	spin_lock(&sb_lock);
-	sb->s_bdev_handle = bdev_handle;
+	sb->s_bdev_file = bdev_file;
 	sb->s_bdev = bdev;
 	sb->s_bdi = bdi_get(bdev->bd_disk->bdi);
 	if (bdev_stable_writes(bdev))
@@ -1680,7 +1675,7 @@ void kill_block_super(struct super_block *sb)
 	generic_shutdown_super(sb);
 	if (bdev) {
 		sync_blockdev(bdev);
-		bdev_release(sb->s_bdev_handle);
+		bdev_fput(sb->s_bdev_file);
 	}
 }
 
