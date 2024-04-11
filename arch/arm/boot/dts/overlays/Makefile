@@ -235,6 +235,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	rpi-adar1000.dtbo \
 	rpi-adgs1408.dtbo \
 	rpi-adl5580.dtbo \
+	rpi-adp1050.dtbo \
 	rpi-adxl313-spi.dtbo \
 	rpi-adxl313-i2c.dtbo \
 	rpi-adxl345.dtbo \
