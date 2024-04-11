@@ -817,6 +817,17 @@ config MOXART_WDT
 	  To compile this driver as a module, choose M here: the
 	  module will be called moxart_wdt.
 
+config ADI_WATCHDOG
+	tristate "adi watchdog"
+	select WATCHDOG_CORE
+	help
+	  This is the driver for the hardware watchdog
+	  on the adi sc5xx family processors, if you wish to have
+	  watchdog support enabled, say Y, otherwise say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adi_wdt.
+
 config ST_LPC_WATCHDOG
 	tristate "STMicroelectronics LPC Watchdog"
 	depends on ARCH_STI || COMPILE_TEST
