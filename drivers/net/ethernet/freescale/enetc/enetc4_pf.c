@@ -335,6 +335,7 @@ static const struct net_device_ops enetc4_ndev_ops = {
 	.ndo_set_vf_vlan	= enetc_pf_set_vf_vlan,
 	.ndo_set_vf_spoofchk	= enetc_pf_set_vf_spoofchk,
 	.ndo_set_vf_trust	= enetc_pf_set_vf_trust,
+	.ndo_get_vf_config	= enetc_pf_get_vf_config,
 	.ndo_set_features	= enetc_pf_set_features,
 	.ndo_eth_ioctl		= enetc_ioctl,
 	.ndo_setup_tc		= enetc_pf_setup_tc,
@@ -719,6 +720,15 @@ static void enetc4_pf_set_si_based_vlan(struct enetc_hw *hw, int si,
 	enetc_port_wr(hw, ENETC4_PSIVLANR(si), val);
 }
 
+static void enetc4_pf_get_si_based_vlan(struct enetc_hw *hw, int si,
+					u32 *vid, u32 *pcp)
+{
+	u32 val = enetc_port_rd(hw, ENETC4_PSIVLANR(si));
+
+	*vid = val & PSIVLANR_VID;
+	*pcp = (val & PSIVLANR_PCP) >> PSIVLANR_PCP_OFF;
+}
+
 static void enetc4_pf_set_si_anti_spoofing(struct enetc_hw *hw, int si, bool en)
 {
 	u32 val = enetc_port_rd(hw, ENETC4_PSICFGR0(si));
@@ -813,6 +823,7 @@ static const struct enetc_pf_hw_ops enetc4_pf_hw_ops = {
 	.set_si_primary_mac = enetc4_pf_set_si_primary_mac,
 	.get_si_primary_mac = enetc4_pf_get_si_primary_mac,
 	.set_si_based_vlan = enetc4_pf_set_si_based_vlan,
+	.get_si_based_vlan = enetc4_pf_get_si_based_vlan,
 	.set_si_anti_spoofing = enetc4_pf_set_si_anti_spoofing,
 	.set_si_vlan_promisc = enetc4_pf_set_si_vlan_promisc,
 	.set_si_mac_promisc = enetc4_pf_set_si_mac_promisc,

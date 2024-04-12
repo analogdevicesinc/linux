@@ -30,6 +30,7 @@ struct enetc_pf_hw_ops {
 	void (*set_si_primary_mac)(struct enetc_hw *hw, int si, const u8 *addr);
 	void (*get_si_primary_mac)(struct enetc_hw *hw, int si, u8 *addr);
 	void (*set_si_based_vlan)(struct enetc_hw *hw, int si, u16 vlan, u8 qos);
+	void (*get_si_based_vlan)(struct enetc_hw *hw, int si, u32 *vlan, u32 *qos);
 	void (*set_si_anti_spoofing)(struct enetc_hw *hw, int si, bool en);
 	void (*set_si_vlan_promisc)(struct enetc_hw *hw, char si_map);
 	void (*set_si_mac_promisc)(struct enetc_hw *hw, int si, int type, bool en);
@@ -109,6 +110,8 @@ int enetc_pf_set_vf_vlan(struct net_device *ndev, int vf, u16 vlan,
 			 u8 qos, __be16 proto);
 int enetc_pf_set_vf_spoofchk(struct net_device *ndev, int vf, bool en);
 int enetc_pf_set_vf_trust(struct net_device *ndev, int vf, bool setting);
+int enetc_pf_get_vf_config(struct net_device *ndev, int vf,
+			   struct ifla_vf_info *ivi);
 int enetc_pf_set_features(struct net_device *ndev, netdev_features_t features);
 int enetc_pf_setup_tc(struct net_device *ndev, enum tc_setup_type type,
 		      void *type_data);

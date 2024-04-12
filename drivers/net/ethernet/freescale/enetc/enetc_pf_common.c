@@ -248,6 +248,33 @@ int enetc_pf_set_vf_trust(struct net_device *ndev, int vf, bool setting)
 	return 0;
 }
 
+int enetc_pf_get_vf_config(struct net_device *ndev, int vf,
+			   struct ifla_vf_info *ivi)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
+	struct enetc_hw *hw = &pf->si->hw;
+	struct enetc_vf_state *vf_state;
+
+	if (vf >= pf->num_vfs)
+		return -EINVAL;
+
+	vf_state = &pf->vf_state[vf];
+
+	ivi->vf = vf;
+
+	if (pf->hw_ops->get_si_primary_mac)
+		pf->hw_ops->get_si_primary_mac(hw, vf + 1, ivi->mac);
+
+	if (pf->hw_ops->get_si_based_vlan)
+		pf->hw_ops->get_si_based_vlan(hw, vf + 1, &ivi->vlan,
+					      &ivi->qos);
+
+	ivi->trusted = !!(vf_state->flags & ENETC_VF_FLAG_TRUSTED);
+
+	return 0;
+}
+
 int enetc_pf_set_features(struct net_device *ndev, netdev_features_t features)
 {
 	netdev_features_t changed = ndev->features ^ features;
