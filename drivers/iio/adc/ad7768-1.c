@@ -906,8 +906,9 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 	int ret;
-    int dec_rates_values[6] = {32,64,128,256,512,1024};
-    int mclk_div_rates[4] = {16,8,4,2};
+	int dec_rate;
+	int dec_rates_values[6] = {32,64,128,256,512,1024};
+	int mclk_div_rates[4] = {16,8,4,2};
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
 		ret = iio_device_claim_direct_mode(indio_dev);
@@ -936,11 +937,16 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 		*val2 = chan->scan_type.realbits;
 		return IIO_VAL_FRACTIONAL_LOG2;
 
-	case IIO_CHAN_INFO_SAMP_FREQ:
-	if(st->filter_type == SINC3)
-		*val = DIV_ROUND_CLOSEST(st->mclk_freq, (mclk_div_rates[st->mclk_div] * (st->sinc3_dec_rate+1)*32));
-	 else 
-		*val = DIV_ROUND_CLOSEST(st->mclk_freq, (mclk_div_rates[st->mclk_div] * dec_rates_values[st -> dec_rate]));
+	case IIO_CHAN_INFO_SAMP_FREQ: 
+		if(st->filter_type == SINC3)
+			dec_rate =(st->sinc3_dec_rate + 1) * 32;
+		else if(st->filter_type == SINC5_DEC_X8)
+			dec_rate = 8;
+		else if(st->filter_type == SINC5_DEC_X16)
+			dec_rate = 16;
+		else 
+			dec_rate = dec_rates_values[st->dec_rate];
+		*val = DIV_ROUND_CLOSEST(st->mclk_freq, (mclk_div_rates[st->mclk_div] * dec_rate));
 	
 		return IIO_VAL_INT;
 	}
@@ -1406,7 +1412,6 @@ static int ad7768_probe(struct spi_device *spi)
 		ret = ad7768_triggered_buffer_alloc(indio_dev);
 	if (ret)
 		return ret;
-
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
