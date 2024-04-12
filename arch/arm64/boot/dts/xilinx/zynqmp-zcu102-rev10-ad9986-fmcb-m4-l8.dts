@@ -160,7 +160,7 @@
 		#size-cells = <0>;
 		compatible = "adi,ad9986";
 		reg = <0>;
-		spi-max-frequency = <50000000>;
+		spi-max-frequency = <5000000>;
 
 		/* Clocks */
 		clocks = <&hmc7044 2>;
@@ -170,12 +170,12 @@
 		#clock-cells = <1>;
 
 		/* GPIO */
-		reset-gpios = <&gpio 133 0>;
-		sysref-req-gpios = <&gpio 121 0>;
-		rx2-enable-gpios = <&gpio 135 0>;
-		rx1-enable-gpios = <&gpio 134 0>;
-		tx2-enable-gpios = <&gpio 137 0>;
-		tx1-enable-gpios = <&gpio 136 0>;
+		sysref-req-gpios = <&gpio 121 0>; // hmc_gpio1 - gpio 43
+		reset-gpios = <&gpio 133 0>;      // rstb - gpio 55
+		rx1-enable-gpios = <&gpio 134 0>; // rxen[0] - gpio 56
+		rx2-enable-gpios = <&gpio 135 0>; // rxen[1] - gpio 57
+		tx1-enable-gpios = <&gpio 136 0>; // txen[0] - gpio 58
+		tx2-enable-gpios = <&gpio 137 0>; // txen[1] - gpio 59
 
 		/* JESD204-FSM */
 		jesd204-device;
