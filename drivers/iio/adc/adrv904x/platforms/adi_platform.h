@@ -405,6 +405,7 @@ ADI_API_EX adi_hal_Err_e (*adi_hal_BbicRegistersWrite)( void* const     devHalCf
                                                         const uint32_t  data[],
                                                         const uint32_t  numDataWords);
 
+#ifndef __KERNEL__
 /**
  * \brief Returns the ID of the calling thread.
  *
@@ -412,6 +413,7 @@ ADI_API_EX adi_hal_Err_e (*adi_hal_BbicRegistersWrite)( void* const     devHalCf
  * of the calling thread.
  */
 ADI_API_EX adi_hal_thread_t (*adi_hal_ThreadSelf)(void);
+#endif
 
 /**
  * \brief Before being used a mutex must be initialized with this function. The mutex is
