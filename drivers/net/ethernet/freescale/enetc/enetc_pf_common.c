@@ -229,6 +229,25 @@ int enetc_pf_set_vf_spoofchk(struct net_device *ndev, int vf, bool en)
 	return 0;
 }
 
+int enetc_pf_set_vf_trust(struct net_device *ndev, int vf, bool setting)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
+	struct enetc_vf_state *vf_state;
+
+	if (vf >= pf->num_vfs)
+		return -EINVAL;
+
+	vf_state = &pf->vf_state[vf];
+
+	if (setting)
+		vf_state->flags |= ENETC_VF_FLAG_TRUSTED;
+	else
+		vf_state->flags &= ~ENETC_VF_FLAG_TRUSTED;
+
+	return 0;
+}
+
 int enetc_pf_set_features(struct net_device *ndev, netdev_features_t features)
 {
 	netdev_features_t changed = ndev->features ^ features;
@@ -593,9 +612,14 @@ static u16 enetc_msg_pf_set_vf_primary_mac_addr(struct enetc_pf *pf, int vf_id)
 
 	msg = (struct enetc_msg_mac_exact_filter *)msg_swbd->vaddr;
 	addr = msg->mac[0].addr;
-	if (vf_state->flags & ENETC_VF_FLAG_PF_SET_MAC)
+	if (vf_state->flags & ENETC_VF_FLAG_PF_SET_MAC) {
 		dev_warn(dev, "Attempt to override PF set mac addr for VF%d\n",
 			 vf_id);
+		if (!enetc_pf_is_vf_trusted(pf, vf_id)) {
+			pf_msg.class_id = ENETC_MSG_CLASS_ID_PERMISSION_DENY;
+			return pf_msg.code;
+		}
+	}
 
 	if (enetc_set_si_hw_addr(pf, vf_id + 1, addr))
 		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
@@ -822,6 +846,11 @@ static u16 enetc_msg_pf_set_vf_mac_hash_filter(struct enetc_pf *pf, int vf_id)
 	int si_id = vf_id + 1;
 	u64 hash_tbl;
 
+	if (!enetc_pf_is_vf_trusted(pf, vf_id)) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_PERMISSION_DENY;
+		return pf_msg.code;
+	}
+
 	if (!pf->hw_ops->set_si_mac_hash_filter) {
 		dev_err(dev, "MAC hash filter is not supported\n");
 		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
@@ -947,6 +976,11 @@ static u16 enetc_msg_pf_set_vf_mac_promisc_mode(struct enetc_pf *pf, int vf_id)
 	bool promisc_mode = false;
 	int si_id = vf_id + 1;
 	int mac_type;
+
+	if (!enetc_pf_is_vf_trusted(pf, vf_id)) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_PERMISSION_DENY;
+		return pf_msg.code;
+	}
 
 	if (!pf->hw_ops->set_si_mac_promisc) {
 		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
@@ -1219,6 +1253,11 @@ static u16 enetc_msg_pf_set_vf_vlan_hash_filter(struct enetc_pf *pf, int vf_id)
 	int si_id = vf_id + 1;
 	u64 hash_tbl;
 
+	if (!enetc_pf_is_vf_trusted(pf, vf_id)) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_PERMISSION_DENY;
+		return pf_msg.code;
+	}
+
 	if (!pf->hw_ops->set_si_vlan_hash_filter) {
 		dev_err(dev, "VLAN hash filter is not supported\n");
 		pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_NOT_SUPPORT;
@@ -1312,6 +1351,11 @@ static u16 enetc_msg_pf_set_vf_vlan_promisc_mode(struct enetc_pf *pf, int vf_id)
 	union enetc_pf_msg pf_msg;
 	bool promisc_mode = false;
 	int si_id = vf_id + 1;
+
+	if (!enetc_pf_is_vf_trusted(pf, vf_id)) {
+		pf_msg.class_id = ENETC_MSG_CLASS_ID_PERMISSION_DENY;
+		return pf_msg.code;
+	}
 
 	msg = (struct enetc_msg_vlan_promsic_mode *)msg_swbd->vaddr;
 	if (msg->promisc_mode == ENETC_VLAN_PROMISC_MODE_ENABLE)
