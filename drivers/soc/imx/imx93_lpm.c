@@ -14,6 +14,8 @@
 #include <linux/suspend.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
+#include <linux/firmware/imx/ele_base_msg.h>
+#include <linux/firmware/imx/se_fw_inc.h>
 
 #define FSL_SIP_DDR_DVFS                0xc2000004
 #define DDR_DFS_GET_FSP_COUNT		0x10
@@ -130,6 +132,7 @@ static unsigned int num_fsp;
 static unsigned int fsp_table[3];
 static struct regulator *soc_reg;
 static struct regmap *regmap;
+static struct device *se_dev;
 DEFINE_MUTEX(mode_mutex);
 
 /* both HWFFC & SWFFC need to call this function */
@@ -160,7 +163,9 @@ static void sys_freq_scaling(enum mode_type new_mode)
 
 	if (new_mode == OD_MODE) {
 		/* increase the voltage first */
+		ele_voltage_change_req(se_dev, true);
 		regulator_set_voltage_tol(soc_reg, VDD_SOC_OD_VOLTAGE, 0);
+		ele_voltage_change_req(se_dev, false);
 
 		/* Increase the NIC_AXI first */
 		clk_set_parent(path[NIC_AXI].clk, clks[SYS_PLL_PFD0].clk);
@@ -253,7 +258,9 @@ static void sys_freq_scaling(enum mode_type new_mode)
 		/* Scaling down the ddr frequency. */
 		scaling_dram_freq(new_mode == LD_MODE ? 0x1 : 0x2);
 
+		ele_voltage_change_req(se_dev, true);
 		regulator_set_voltage_tol(soc_reg, VDD_SOC_LD_VOLTAGE, 0);
+		ele_voltage_change_req(se_dev, false);
 
 		pr_info("System switching to LD/SWFFC mode...\n");
 	}
@@ -448,6 +455,12 @@ static int imx93_lpm_probe(struct platform_device *pdev)
 	soc_reg = devm_regulator_get(&pdev->dev, "soc");
 	if (IS_ERR(soc_reg))
 		return PTR_ERR(soc_reg);
+
+	se_dev = get_se_dev("se-fw2");
+	if (!se_dev) {
+		dev_err(&pdev->dev, "get se-fw2 failed\n");
+		return -ENODEV;
+	}
 
 	/*
 	 * initial auto clock gating ssi strap, set to 32768 by default,
