@@ -227,10 +227,10 @@
 			status = "disabled";
 		};
 
-//		gptimer_counter: gptimer-counters@0 {
-//			compatible = "adi,gptimer-counter";
-//			status = "okay";
-//		};
+		gptimer_counter: gptimer-counters@0 {
+			compatible = "adi,gptimer-counter";
+			status = "okay";
+		};
 
 		rcu: rcu@3108c000 {
 			compatible = "adi,reset-controller";
