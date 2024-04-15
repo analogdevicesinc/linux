@@ -33,13 +33,9 @@
 
 /* ADF4382_REG0 */
 #define ADF4382_ADDR_ASC_MSK			BIT(2)
-#define ADF4382_ADDR_ASC(x)			FIELD_PREP(ADF4382_ADDR_ASC_MSK, x)
 #define ADF4382_ADDR_ASC_R_MSK			BIT(5)
-#define ADF4382_ADDR_ASC_R(x)			FIELD_PREP(ADF4382_ADDR_ASC_R_MSK, x)
 #define ADF4382_SDO_ACT_MSK			BIT(3)
-#define ADF4382_SDO_ACT(x)			FIELD_PREP(ADF4382_SDO_ACT_MSK, x)
 #define ADF4382_SDO_ACT_R_MSK			BIT(4)
-#define ADF4382_SDO_ACT_R(x)			FIELD_PREP(ADF4382_SDO_ACT_R_MSK, x)
 #define ADF4382_RESET_CMD			0x81
 
 /* ADF4382 REG0000 Bit Definition */
@@ -152,9 +148,7 @@
 /* ADF4382 REG0020 Map */
 #define ADF4382_EN_AUTOCAL_MSK			BIT(7)
 #define ADF4382_EN_RDBLR_MSK			BIT(6)
-#define ADF4382_EN_RDBLR(x)			FIELD_PREP(ADF4382_EN_RDBLR_MSK, x)
 #define ADF4382_R_DIV_MSK			GENMASK(5, 0)
-#define ADF4382_R_DIV(x)			FIELD_PREP(ADF4382_R_DIV_MSK, x)
 
 /* ADF4382 REG0021 Map */
 #define ADF4382_PHASE_WORD_LSB_MSK		GENMASK(7, 0)
@@ -305,7 +299,6 @@
 #define ADF4382_SPARE_3D_MSK			BIT(7)
 #define ADF4382_SYNC_SP_DB_MSK			BIT(6)
 #define ADF4382_CMOS_OV_MSK			BIT(5)
-#define ADF4382_CMOS_OV(x)			FIELD_PREP(ADF4382_CMOS_OV_MSK, x)
 #define ADF4382_READ_MODE_MSK			BIT(4)
 #define ADF4382_CNTR_DIV_WORD_MSB_MSK		GENMASK(3, 0)
 
@@ -1304,12 +1297,14 @@ static int adf4382_init(struct adf4382_state *st)
 	if (st->spi->mode & SPI_3WIRE || st->spi_3wire_en)
 		en = false;
 
-	ret = regmap_write(st->regmap, 0x00, ADF4382_SDO_ACT(en) |
-					     ADF4382_SDO_ACT_R(en));
+	ret = regmap_write(st->regmap, 0x00,
+			   FIELD_PREP(ADF4382_SDO_ACT_MSK, en) |
+			   FIELD_PREP(ADF4382_SDO_ACT_R_MSK, en));
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, 0x3D, ADF4382_CMOS_OV(st->cmos_3v3));
+	ret = regmap_write(st->regmap, 0x3D, 
+			   FIELD_PREP(ADF4382_CMOS_OV_MSK, st->cmos_3v3));
 	if (ret)
 		return ret;
 
@@ -1319,8 +1314,8 @@ static int adf4382_init(struct adf4382_state *st)
 
 	ret = regmap_write(st->regmap, 0x20,
 			   ADF4382_EN_AUTOCAL_MSK |
-			   ADF4382_EN_RDBLR(st->ref_doubler_en) |
-			   ADF4382_R_DIV(st->ref_div));
+			   FIELD_PREP(ADF4382_EN_RDBLR_MSK, st->ref_doubler_en) |
+			   FIELD_PREP(ADF4382_R_DIV_MSK, st->ref_div));
 	if (ret)
 		return ret;
 
