@@ -811,8 +811,9 @@ static int ad7768_set_dig_fil(struct iio_dev *dev,
 		return ret;
 
 	/* A sync-in pulse is required every time the filter dec rate changes */
-	gpiod_set_value(st->gpio_sync_in, 1);
-	gpiod_set_value(st->gpio_sync_in, 0);
+	ret = ad7768_spi_reg_write(st, AD7768_REG_SYNC_RESET, 0x00);
+	if(ret)
+		return ret;
 
 	return 0;
 }
