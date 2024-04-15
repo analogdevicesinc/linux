@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/panel/tianma,tm050rdh03.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Tianma TM050RDH03 5.0" WVGA TFT LCD panel
+
+maintainers:
+  - Liu Ying <victor.liu@nxp.com>
+
+description: |
+  This panel can be put into standby mode by setting the input STBYB signal to
+  zero.
+
+allOf:
+  - $ref: panel-common.yaml#
+
+properties:
+  compatible:
+    const: tianma,tm050rdh03
+
+  standby-gpios:
+    maxItems: 1
+    description: |
+      Standby mode.
+      STBYB="1": Normal operation mode.
+      STBYB="0": Standby mode. Timing controller and source driver will be
+                 turned off. All outputs are High-Z.
+
+  backlight: true
+  power-supply: true
+  port: true
+
+required:
+  - compatible
+  - port
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    panel {
+        compatible = "tianma,tm050rdh03";
+        standby-gpios = <&gpio2 27 GPIO_ACTIVE_LOW>;    /* STBYB */
+        backlight = <&backlight>;
+        power-supply = <&reg_vrpi_3v3>;
+
+        port {
+            panel_in: endpoint {
+                remote-endpoint = <&display_out>;
+            };
+        };
+    };
+
+...
