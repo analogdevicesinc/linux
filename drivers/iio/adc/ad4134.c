@@ -38,7 +38,8 @@
 #define AD4134_DATA_PACKET_CONFIG_FRAME_MASK	GENMASK(5, 4)
 #define AD4134_DATA_FRAME_24BIT_CRC		0b11
 #define AD4134_DATA_FRAME_24BIT		    0b10
-#define AD4134_DATA_FRAME_16BIT_CRC		    0b01
+#define AD4134_DATA_FRAME_16BIT_CRC		0b01
+#define AD4134_DATA_FRAME_16BIT			0b00
 
 #define AD4134_DIG_IF_CFG_REG			0x12
 #define AD4134_DIF_IF_CFG_FORMAT_MASK		GENMASK(1, 0)
@@ -54,7 +55,7 @@
 
 #define AD4134_NUM_CHANNELS			8
 #define AD4134_REAL_BITS			16
-#define AD4134_WORD_BITS			24
+#define AD4134_WORD_BITS			16
 
 #define AD4134_RESET_TIME_US			10000000
 
@@ -153,7 +154,7 @@ static int _ad4134_set_odr(struct ad4134_state *st, unsigned int odr)
 	 * tODR_HIGH_TIME = 3 * tDIGCLK
 	 * See datasheet page 10, Table 3. Data Interface Timing with Gated DCLK.
 	 */
-	state.duty_cycle = DIV_ROUND_CLOSEST_ULL(PICO * 6, st->sys_clk_rate);
+	state.duty_cycle = DIV_ROUND_CLOSEST_ULL(PICO * 6, st->sys_clk_rate) - 1;
 	printk("ad4134__ad4134_set_odr_duty %lu ", state.duty_cycle);
 	state.period = DIV_ROUND_CLOSEST_ULL(PICO, odr);
 	printk("ad4134__ad4134_set_odr_period %lu ", state.period);
@@ -294,7 +295,7 @@ static const struct iio_info ad4134_info = {
 		.sign = 's',						\
 		.realbits = 16,				\
 		.storagebits = 32,					\
-		.shift = 8		\
+		.shift = 0		\
 	},								\
 }
 
@@ -449,7 +450,7 @@ printk("ad4134_Before_reg_0x11");
 	ret = regmap_update_bits(st->regmap, AD4134_DATA_PACKET_CONFIG_REG,
 				 AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
 				 FIELD_PREP(AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
-					    AD4134_DATA_FRAME_16BIT_CRC));
+					    AD4134_DATA_FRAME_16BIT	));
 
 	if (ret)
 		return ret;
