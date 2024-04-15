@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0
 /*
  * adf4382 driver
  *
- * Copyright 2022 Analog Devices Inc.
+ * Copyright 2022-2024 Analog Devices Inc.
  */
 
 #include <linux/bitfield.h>
@@ -736,20 +736,20 @@ static int adf4382_set_freq(struct adf4382_state *st)
 		int_mode = 0;
 		en_bleed = 1;
 
-		if (pfd_freq_hz <= 40000000)
+		if (pfd_freq_hz <= 40000000) {
 			ldwin_pw = 7;
-		else if (pfd_freq_hz <= 50000000)
+		} else if (pfd_freq_hz <= 50000000) {
 			ldwin_pw = 6;
-		else if (pfd_freq_hz <= 100000000)
+		} else if (pfd_freq_hz <= 100000000) {
 			ldwin_pw = 5;
-		else if (pfd_freq_hz <= 200000000)
+		} else if (pfd_freq_hz <= 200000000) {
 			ldwin_pw = 4;
-		else if (pfd_freq_hz <= 250000000)
+		} else if (pfd_freq_hz <= 250000000) {
 			if (st->freq >= 5000000000 && st->freq < 6400000000)
 				ldwin_pw = 3;
 			else
 				ldwin_pw = 2;
-
+		}
 	} else {
 		int_mode = 1;
 		en_bleed = 0;
@@ -1534,4 +1534,4 @@ module_spi_driver(adf4382_driver);
 MODULE_AUTHOR("Antoniu Miclaus <antoniu.miclaus@analog.com>");
 MODULE_AUTHOR("Ciprian Hegbeli <ciprian.hegbeli@analog.com>");
 MODULE_DESCRIPTION("Analog Devices ADF4382");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
