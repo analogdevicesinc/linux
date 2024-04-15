@@ -34,6 +34,8 @@ static const struct soc_device_attribute imx8_soc[] = {
 	}, {
 		.soc_id   = "i.MX91P",
 	}, {
+		.soc_id   = "i.MX91",
+	}, {
 		/* sentinel */
 	},
 };
@@ -619,7 +621,8 @@ static int mxc_isi_soc_match(struct mxc_isi_dev *mxc_isi,
 		}
 	} else if (!strcmp(match->soc_id, "i.MX8MP") ||
 		   !strcmp(match->soc_id, "i.MX8ULP") ||
-		   !strcmp(match->soc_id, "i.MX93")) {
+		   !strcmp(match->soc_id, "i.MX93") ||
+		   !strcmp(match->soc_id, "i.MX91")) {
 		memcpy(ier_reg, &mxc_imx8_isi_ier_v2, sizeof(*ier_reg));
 		mxc_isi->buf_active_reverse = true;
 	}
