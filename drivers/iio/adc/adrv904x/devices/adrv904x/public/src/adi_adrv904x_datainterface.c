@@ -8636,7 +8636,7 @@ cleanup :
     ADI_ADRV904X_API_EXIT(&device->common, recoveryAction);
 }
 
-
+#ifndef __KERNEL__
 /* Open 'filePath' for logging serdes cal status.
  * 
  * Create the file if required. Ensure the header information is written to start of the file.
@@ -8689,7 +8689,7 @@ static FILE* adrv904x_openSerdesCalStatusLogFile(const adi_adrv904x_GenericStrBu
     /* Success */
     return filePtr;    
 }
-
+#endif
 ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_SerdesInitCalStatusGet(adi_adrv904x_Device_t* const              device,
                                                                      const adi_adrv904x_GenericStrBuf_t* const filePath,
                                                                      const uint8_t                             laneNumber,
@@ -8769,10 +8769,10 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_SerdesInitCalStatusGet(adi_adrv904
         /* No log file has been supplied; We're done. */
         goto cleanup;
     }
-    
+#ifndef __KERNEL__
     /* Log file supplied; Write data to it. */
     filePtr = adrv904x_openSerdesCalStatusLogFile(filePath);
-
+#endif
     if (filePtr == NULL)
     {
         recoveryAction = ADI_ADRV904X_ERR_ACT_CHECK_PARAM;
@@ -8904,10 +8904,10 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_SerdesTrackingCalStatusGet(adi_adr
         /* No log file has been supplied; We're done. */
         goto cleanup;
     }
-    
+#ifndef __KERNEL__
     /* Log file supplied; Write data to it. */
     filePtr = adrv904x_openSerdesCalStatusLogFile(filePath);
-    
+#endif
     if (filePtr == NULL)
     {
         recoveryAction = ADI_ADRV904X_ERR_ACT_CHECK_PARAM;
