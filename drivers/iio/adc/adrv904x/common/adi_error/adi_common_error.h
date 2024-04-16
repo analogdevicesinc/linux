@@ -173,7 +173,7 @@ if (ptr == NULL)                            \
                                     ADI_COMMON_ERROR_VARIABLE_TYPE variable,        /* Explicit Type Conversion; variable stored as int64_t via ADI_COMMON_ERROR_VARIABLE_TYPE */ \
                                     ADI_STRING(errMsg));                        \
                                                                                 \
-        (void)adi_common_ErrLog (   commonDev,                                  \
+        (void)adi_adrv904x_ErrLog (   commonDev,                                  \
                                     (uint32_t) errSource,                           /* Explicit Type Conversion; errSource stored as uint32_t */    \
                                     (adi_common_ErrAction_e) recoveryAction,        /* Explicit Type Conversion;recoveryAction stored as adi_common_ErrAction_e */  \
                                     (int64_t) errCode,                              /* Explicit Type Conversion; errCode stored as int64_t */   \
