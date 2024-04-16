@@ -165,7 +165,9 @@ typedef struct adi_hal_LogCfg
 {
     uint8_t                 interfaceEnabled;                       /*!< Interface Enabled Flag */
     uint32_t                logMask;                                /*!< Logging BitMask */
+#ifndef __KERNEL__
     FILE*                   logfd;                                  /*!< File Pointer for Log File */
+#endif
     char                    logFileName[ADI_HAL_STRING_LENGTH];     /*!< Log File Name */
     uint32_t                currentLineNumber;                      /*!< Current Line Number */
     adi_hal_LogConsole_e    logConsole;                             /*!< Logging to Console Flag */
@@ -224,6 +226,7 @@ typedef struct adi_hal_I2cCfg
     char drvName[ADI_HAL_STRING_LENGTH];
 } adi_hal_I2cCfg_t;
 
+#ifndef __KERNEL__
 /**
  * \brief Data structure for EEPROM configuration
  */
@@ -233,6 +236,7 @@ typedef struct adi_hal_EepromCfg
     FILE* fd;
     char drvName[ADI_HAL_STRING_LENGTH];
 } adi_hal_EepromCfg_t;
+#endif
 
 /**
  * \brief Data structure for memory Fpga Driver configuration
@@ -285,8 +289,17 @@ typedef struct adi_hal_Cfg
     adi_hal_HwResetCfg_t    hwResetCfg;                         /*!< HW Reset Configuration */
     adi_hal_I2cCfg_t        i2cCfg;                             /*!< I2C Configuration */
     adi_hal_TimerCfg_t      timerCfg;                           /*!< Timer Configuration */
+#ifndef __KERNEL__
     adi_hal_EepromCfg_t     eepromCfg;                          /*!< Eeprom Configuration */
+#endif
     int32_t                 error;                              /*!< Operating System Error Code */
+
+#ifdef __KERNEL__
+    struct spi_device *spi;
+    struct gpio_desc *reset_gpio;
+    struct gpio_desc *int_gpio;
+#endif
+
 } adi_hal_Cfg_t;
 
 /**
@@ -302,5 +315,46 @@ typedef struct adi_hal_BoardInfo
     uint8_t pcbName[ADI_HAL_STRING_LENGTH];         /* PCB Name */
     uint8_t bomRev[ADI_HAL_STRING_LENGTH];          /* BOM Revision */
 } adi_hal_BoardInfo_t;
+
+#ifdef __KERNEL__
+typedef struct linux_hal_fileio
+{
+    adi_hal_Cfg_t *hal;
+    const struct firmware *fw;
+    char *ptr, *start, *end;
+} FILE;
+
+FILE* fopen (const char * filename, const char *mode);
+
+struct tm* gmtime(const ktime_t *timer);
+
+extern int fseek (FILE * stream, long int offset, int origin);
+extern long int ftell (FILE *stream);
+
+extern int fclose (FILE *stream);
+extern char * fgets(char *dst, int num, FILE *stream);
+extern size_t fread(void *ptr, size_t size, size_t count, FILE *stream);
+extern size_t fwrite (const void * ptr, size_t size, size_t count, FILE *stream);
+extern int ferror (FILE *stream);
+extern int fprintf(FILE *stream, const char *fmt, ...);
+extern int fflush(FILE *stream);
+
+extern FILE* __fopen (adi_hal_Cfg_t *hal, const char * filename, const char *mode);
+#define fopen(filename, mode) __fopen(device->common.devHalInfo, filename, mode)
+
+extern void *__adrv904x_calloc(size_t size, size_t nmemb);
+
+extern long int_20db_to_mag(long a, int mdB);
+
+extern void time(ktime_t *second);
+extern struct tm* __gmtime (adi_hal_Cfg_t *hal, const ktime_t *timer);
+#define gmtime(timer) __gmtime(device->common.devHalInfo, timer)
+
+extern void *__adrv904x_malloc(size_t size);
+#define malloc(size) __adrv904x_malloc(size)
+
+extern unsigned int __adrv904x_log2(unsigned int v);
+#define log2(v) __adrv904x_log2(v)
+#endif
 
 #endif /* __ADI_PLATFORM_TYPES_H__*/
