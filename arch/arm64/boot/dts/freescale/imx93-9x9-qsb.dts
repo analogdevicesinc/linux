@@ -118,11 +118,21 @@
 		regulator-max-microvolt = <3300000>;
 	};
 
+	reg_m2_pwr: regulator-m2-pwr {
+		compatible = "regulator-fixed";
+		regulator-name = "M.2-power";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pcal6524 13 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
 	reg_usdhc3_vmmc: regulator-usdhc3 {
 		compatible = "regulator-fixed";
 		regulator-name = "WLAN_EN";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
+		vin-supply = <&reg_m2_pwr>;
 		gpio = <&pcal6524 20 GPIO_ACTIVE_HIGH>;
 		/*
 		 * IW612 wifi chip needs more delay than other wifi chips to complete
@@ -347,6 +357,12 @@
 		interrupts = <26 IRQ_TYPE_LEVEL_LOW>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_pcal6524>;
+
+		m2-pcm-level-shifter-hog {
+			gpio-hog;
+			gpios = <19 GPIO_ACTIVE_HIGH>;
+			output-high;
+		};
 	};
 
 	pmic@25 {
@@ -435,7 +451,6 @@
 	/* BT */
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart5>;
-	pinctrl-assert-gpios = <&pcal6524 19 GPIO_ACTIVE_HIGH>;
 	status = "okay";
 
 	bluetooth {
@@ -533,7 +548,6 @@
 	pinctrl-2 = <&pinctrl_usdhc3_200mhz>;
 	mmc-pwrseq = <&usdhc3_pwrseq>;
 	vmmc-supply = <&reg_usdhc3_vmmc>;
-	pinctrl-assert-gpios = <&pcal6524 13 GPIO_ACTIVE_HIGH>;
 	bus-width = <4>;
 	keep-power-in-suspend;
 	non-removable;
