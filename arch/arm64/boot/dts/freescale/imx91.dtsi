@@ -446,7 +446,7 @@
 			};
 
 			tempsense0: thermal-sensor@44482000 {
-				compatible = "fsl,imx95-tdc", "fsl,imx91-tdc";
+				compatible = "fsl,imx91-tmu";
 				reg = <0x44482000 0x1000>;
 				#thermal-sensor-cells = <0>;
 				clocks = <&clk IMX91_CLK_TMC_GATE>;
