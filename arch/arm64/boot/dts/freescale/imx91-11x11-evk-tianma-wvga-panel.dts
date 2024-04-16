@@ -1,0 +1,61 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include "imx91-11x11-evk.dts"
+
+/ {
+	backlight: backlight {
+		/* Do not use PWM backlight due to DPI HAT HW circuit issue */
+		compatible = "gpio-backlight";
+		gpios = <&pcal6524 8 GPIO_ACTIVE_HIGH>;
+		pinctrl-assert-gpios = <&gpio2 26 GPIO_ACTIVE_LOW>;    /* PWM low */
+	};
+
+	panel {
+		compatible = "tianma,tm050rdh03";
+		standby-gpios = <&gpio2 27 GPIO_ACTIVE_LOW>;	/* STBYB */
+		backlight = <&backlight>;
+		power-supply = <&reg_vrpi_3v3>;
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&display_out>;
+			};
+		};
+	};
+};
+
+&lcdif {
+	assigned-clock-rates = <300000000>, <30000000>, <400000000>, <133333333>;
+	status = "okay";
+};
+
+&media_blk_ctrl {
+	status = "okay";
+};
+
+&parallel_disp_fmt {
+	pinctrl-names = "default";
+	pinctrl-assert-gpios = <&adp5585gpio 4 GPIO_ACTIVE_HIGH>;	/* EXP_SEL RPi */
+	pinctrl-0 = <&pinctrl_lcdif>;
+	fsl,interface-pix-fmt = "rgb666";
+	status = "okay";
+
+	ports {
+		port@1 {
+			reg = <1>;
+
+			display_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+};
+
+/* pin conflicts */
+&sai3 {
+	status = "disabled";
+};
