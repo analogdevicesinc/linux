@@ -908,6 +908,11 @@ M: Z.q. Hou <zhiqiang.hou@nxp.com>
 F: Documentation/devicetree/bindings/pci/layerscape-pci.txt
 F: drivers/pci/controller/dwc/pci-layerscape*
 
+pcie/rpmsg
+M: Wei Fang <wei.fang@nxp.com>
+R: Clark Wang <xiaoning.wang@nxp.com>
+F: drivers/pci/controller/pci-nxp-rpmsg.c
+
 perf
 M: Xu Yang <xu.yang_2@nxp.com>
 F: drivers/perf/
