@@ -96,10 +96,6 @@
 	status = "disabled";
 };
 
-&lpuart6 {
-	pinctrl-assert-gpios = <&pca6416_1 10 GPIO_ACTIVE_LOW>;
-};
-
 &sai5 {
 	status = "disabled";
 };
