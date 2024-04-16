@@ -109,6 +109,7 @@ typedef enum adi_hal_LogConsole
 typedef enum adi_hal_Platforms
 {
     ADI_ADS10_PLATFORM = 0U,        /*!< ADS10 Platform */
+    ADI_LINUX,        		    /*!< Linux Platform */
     ADI_UNKNOWN_PLATFORM
 } adi_hal_Platforms_e;
 
