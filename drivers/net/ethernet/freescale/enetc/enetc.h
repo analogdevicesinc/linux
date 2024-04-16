@@ -467,7 +467,6 @@ struct enetc_ndev_priv {
 	struct net_device *ndev;
 	struct device *dev; /* dma-mapping device */
 	struct enetc_si *si;
-	struct clk *ipg_clk; /* NETC system clock */
 	struct clk *ref_clk; /* RGMII/RMII reference clock */
 
 	int bdr_int_num; /* number of Rx/Tx ring interrupts */

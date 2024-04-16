@@ -837,28 +837,6 @@ static const struct enetc_pf_hw_ops enetc4_pf_hw_ops = {
 	.set_time_gating = enetc4_pf_set_time_gating,
 };
 
-static int enetc4_pf_enable_clk(struct enetc_ndev_priv *priv, bool en)
-{
-	int ret;
-
-	if (en) {
-		ret = clk_prepare_enable(priv->ipg_clk);
-		if (ret)
-			return ret;
-
-		ret = clk_prepare_enable(priv->ref_clk);
-		if (ret) {
-			clk_disable_unprepare(priv->ipg_clk);
-			return ret;
-		}
-	} else {
-		clk_disable_unprepare(priv->ipg_clk);
-		clk_disable_unprepare(priv->ref_clk);
-	}
-
-	return 0;
-}
-
 static int enetc4_pf_probe(struct pci_dev *pdev,
 			   const struct pci_device_id *ent)
 {
@@ -888,22 +866,10 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 	priv = netdev_priv(ndev);
 	mutex_init(&priv->mm_lock);
 
-	priv->ipg_clk = devm_clk_get(dev, "ipg_clk");
-	if (IS_ERR(priv->ipg_clk)) {
-		dev_err(dev, "Get ipg_clk failed\n");
-		return PTR_ERR(priv->ipg_clk);
-	}
-
 	priv->ref_clk = devm_clk_get_optional(dev, "enet_ref_clk");
 	if (IS_ERR(priv->ref_clk)) {
 		dev_err(dev, "Get enet_ref_clk failed\n");
 		return PTR_ERR(priv->ref_clk);
-	}
-
-	err = enetc4_pf_enable_clk(priv, true);
-	if (err) {
-		dev_err(dev, "Enable clocks failed\n");
-		return err;
 	}
 
 	pinctrl_pm_select_default_state(&pdev->dev);
@@ -1007,8 +973,6 @@ err_alloc_msix:
 	enetc4_free_cls_rules(priv);
 err_alloc_cls_rules:
 err_config_si:
-	si->ndev = NULL;
-	free_netdev(ndev);
 err_init_address:
 	enetc_free_cbdr(si);
 err_init_cbdr:
@@ -1017,7 +981,7 @@ err_create_wq:
 err_map_pf_space:
 	enetc_pci_remove(pdev);
 err_pci_probe:
-	enetc4_pf_enable_clk(priv, false);
+	free_netdev(ndev);
 
 	return err;
 }
@@ -1052,13 +1016,11 @@ static void enetc4_pf_remove(struct pci_dev *pdev)
 	enetc4_free_cls_rules(priv);
 	enetc_free_cbdr(si);
 
-	free_netdev(si->ndev);
-
 	destroy_workqueue(si->workqueue);
 
 	enetc_pci_remove(pdev);
 
-	enetc4_pf_enable_clk(priv, false);
+	free_netdev(priv->ndev);
 }
 
 /* Only ENETC PF Function can be probed. */

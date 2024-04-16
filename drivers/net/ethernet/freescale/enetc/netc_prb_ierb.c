@@ -6,7 +6,7 @@
  * Copyright 2023 NXP
  * Copyright (C) 2023 Wei Fang <wei.fang@nxp.com>
  */
-
+#include <linux/clk.h>
 #include <linux/debugfs.h>
 #include <linux/delay.h>
 #include <linux/fsl/netc_prb_ierb.h>
@@ -78,6 +78,7 @@
 struct netc_prb_ierb {
 	void __iomem *prb_base;
 	void __iomem *ierb_base;
+	struct clk *ipg_clk;
 
 	bool ierb_init;
 	struct regmap *netcmix;
@@ -397,41 +398,55 @@ static int netc_prb_check_error(struct netc_prb_ierb *pi)
 static int netc_prb_ierb_probe(struct platform_device *pdev)
 {
 	struct device_node *node = pdev->dev.of_node;
+	struct device *dev = &pdev->dev;
 	struct netc_prb_ierb *pi;
 	struct regmap *netcmix;
 	void __iomem *regs;
 	int err;
 
 	if (!node || !of_device_is_available(node)) {
-		dev_info(&pdev->dev, "Device is disabled, skipping\n");
+		dev_info(dev, "Device is disabled, skipping\n");
 		return -ENODEV;
 	}
 
-	pi = devm_kzalloc(&pdev->dev, sizeof(*pi), GFP_KERNEL);
+	pi = devm_kzalloc(dev, sizeof(*pi), GFP_KERNEL);
 	if (!pi)
 		return -ENOMEM;
+
+	pi->ipg_clk = devm_clk_get_optional(dev, "ipg_clk");
+	if (IS_ERR(pi->ipg_clk)) {
+		dev_err(dev, "Get ipg_clk failed\n");
+		err = PTR_ERR(pi->ipg_clk);
+		goto free_pi;
+	}
+
+	err = clk_prepare_enable(pi->ipg_clk);
+	if (err) {
+		dev_err(dev, "Enable ipg_clk failed\n");
+		goto disable_ipg_clk;
+	}
 
 	netcmix = syscon_regmap_lookup_by_compatible("fsl,imx95-netcmix-blk-ctrl");
 	if (IS_ERR(netcmix)) {
 		err = PTR_ERR(netcmix);
-		dev_err(&pdev->dev, "No syscon regmap\n");
-		goto free_bc;
+		dev_err(dev, "No syscon regmap\n");
+		goto disable_ipg_clk;
 	}
 	pi->netcmix = netcmix;
 
 	regs = devm_platform_ioremap_resource_byname(pdev, "ierb_base");
 	if (IS_ERR(regs)) {
 		err = PTR_ERR(regs);
-		dev_err(&pdev->dev, "Missing IERB resource.\n");
-		goto free_bc;
+		dev_err(dev, "Missing IERB resource.\n");
+		goto disable_ipg_clk;
 	}
 	pi->ierb_base = regs;
 
 	regs = devm_platform_ioremap_resource_byname(pdev, "prb_base");
 	if (IS_ERR(regs)) {
 		err = PTR_ERR(regs);
-		dev_err(&pdev->dev, "Missing PRB resource.\n");
-		goto free_bc;
+		dev_err(dev, "Missing PRB resource.\n");
+		goto disable_ipg_clk;
 	}
 	pi->prb_base = regs;
 	pi->pdev = pdev;
@@ -442,21 +457,22 @@ static int netc_prb_ierb_probe(struct platform_device *pdev)
 
 	err = netc_ierb_init(pdev);
 	if (err) {
-		dev_err(&pdev->dev, "Initializing IERB failed.\n");
-		goto free_bc;
+		dev_err(dev, "Initializing IERB failed.\n");
+		goto disable_ipg_clk;
 	}
 
 	if (netc_prb_check_error(pi) < 0)
-		dev_warn(&pdev->dev,
-			 "The current IERB configuration is invalid.\n");
+		dev_warn(dev, "The current IERB configuration is invalid.\n");
 
 	netc_pi = pi;
 	netc_prb_ierb_create_debugfs(pi);
 
 	return 0;
 
-free_bc:
-	devm_kfree(&pdev->dev, pi);
+disable_ipg_clk:
+	clk_disable_unprepare(pi->ipg_clk);
+free_pi:
+	devm_kfree(dev, pi);
 
 	return err;
 }
@@ -467,6 +483,7 @@ static int netc_prb_ierb_remove(struct platform_device *pdev)
 
 	pi = platform_get_drvdata(pdev);
 	netc_prb_ierb_remove_debugfs(pi);
+	clk_disable_unprepare(pi->ipg_clk);
 	devm_kfree(&pdev->dev, pi);
 	netc_pi = NULL;
 
