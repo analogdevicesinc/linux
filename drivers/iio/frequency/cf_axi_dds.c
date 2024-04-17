@@ -2121,6 +2121,13 @@ static const struct axidds_core_info adrv9025_1_00_a_info = {
 	.complex_modified = true,
 };
 
+static const struct axidds_core_info adrv904x_1_00_a_info = {
+	.version = ADI_AXI_PCORE_VER(9, 1, 'b'),
+	.name = "ADRV904X",
+	.standalone = true,
+	.complex_modified = true,
+};
+
 /* Match table for of_platform binding */
 static const struct of_device_id cf_axi_dds_of_match[] = {
 	{ .compatible = "adi,axi-ad9122-6.00.a", .data = &ad9122_6_00_a_info},
@@ -2176,6 +2183,9 @@ static const struct of_device_id cf_axi_dds_of_match[] = {
 	},{
 	    .compatible = "adi,axi-adrv9025-tx-1.0",
 	    .data = &adrv9025_1_00_a_info,
+	},{
+	    .compatible = "adi,axi-adrv904x-tx-1.0",
+	    .data = &adrv904x_1_00_a_info,
 	},
 	{ },
 };
