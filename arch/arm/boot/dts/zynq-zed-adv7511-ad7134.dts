@@ -107,7 +107,7 @@
 			compatible = "adi,ad4134-spi-engine";
 			reg = <0>;
 
-			spi-max-frequency = <48000000>;
+			spi-max-frequency = <50000000>; //48000000
 
 			spi-cpha;
 		};

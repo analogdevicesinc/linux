@@ -154,7 +154,8 @@ static unsigned int spi_engine_get_clk_div(struct spi_engine *spi_engine,
 	else
 		speed = spi->max_speed_hz;
 
-	clk_div = DIV_ROUND_UP ( 1 + clk_get_rate(spi_engine->ref_clk), (1 + speed) * 2  );
+	//clk_div = DIV_ROUND_UP ( 1 + clk_get_rate(spi_engine->ref_clk), (1 + speed) * 2  );
+	clk_div = DIV_ROUND_CLOSEST(clk_get_rate(spi_engine->ref_clk), speed * 2);
 
 	printk("ad4134_clk_div: %lu", clk_div);	
 	if (clk_div > 255)
@@ -353,18 +354,27 @@ int spi_engine_offload_load_msg(struct spi_device *spi,
 
 	size = sizeof(*p->instructions) * (p_dry.length + 2);
 
+    printk("ad4134_offload_load_msg - size %lu", size);
+
 	p = kzalloc(sizeof(*p) + size, GFP_KERNEL);
+	printk("ad4134_offload_load_msg - p %lu", p);
 	if (!p)
 		return -ENOMEM;
 
 	cmd_addr = spi_engine->base + SPI_ENGINE_REG_OFFLOAD_CMD_MEM(0);
+	printk("ad4134_offload_load_msg - cmd_addr %s", cmd_addr);
 	sdo_addr = spi_engine->base + SPI_ENGINE_REG_OFFLOAD_SDO_MEM(0);
+	printk("ad4134_offload_load_msg - sdo_addr %s", sdo_addr);
 
 	spi_engine_compile_message(spi_engine, msg, false, p);
+	printk("ad4134_offload_load_msg - spi_engine_compile_message ");
 	spi_engine_program_add_cmd(p, false, SPI_ENGINE_CMD_SYNC(0));
+	printk("ad4134_offload_load_msg - spi_engine_program_add_cmd - SPI_ENGINE_CMD_SYNC(0) ");
 
 	writel(1, spi_engine->base + SPI_ENGINE_REG_OFFLOAD_RESET(0));
+	printk("ad4134_offload_load_msg -SPI_ENGINE_REG_OFFLOAD_RESET(0) ");
 	writel(0, spi_engine->base + SPI_ENGINE_REG_OFFLOAD_RESET(0));
+	printk("ad4134_offload_load_msg -SPI_ENGINE_REG_OFFLOAD_RESET(0) ");
 	j = 0;
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
 		if (!xfer->tx_buf)
