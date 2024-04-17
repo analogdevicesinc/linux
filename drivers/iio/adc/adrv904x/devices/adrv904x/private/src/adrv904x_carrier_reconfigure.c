@@ -7468,7 +7468,11 @@ ADI_API adi_adrv904x_ErrAction_e adrv904x_CarrierDelaySlotShuffleSet(   adi_adrv
     ADI_VARIABLE_LOG(&device->common, ADI_HAL_LOG_MSG, "Diagnositic timer end = %d clocks", end);
 #endif 
     /* Convert timer to us and store */
+#ifndef __KERNEL__
     diag.procTime_us = (uint32_t)((end - start) * 1e6 / ADI_LIBRARY_CLOCKS_PER_SEC);
+#else
+    diag.procTime_us = (uint32_t)((end - start) / 1000);
+#endif
 #if (ADI_ENABLE_DELAY_MATCHING_LOG_PRINTS == 1)
     ADI_VARIABLE_LOG(&device->common, ADI_HAL_LOG_MSG, "---------------------------------------------------------------", 0);
     ADI_VARIABLE_LOG(&device->common, ADI_HAL_LOG_MSG, "Delay Matching Done:", 0);
