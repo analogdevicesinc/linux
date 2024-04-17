@@ -326,6 +326,12 @@
 				pinctrl-names = "default";
 				pinctrl-0 = <&pinctrl_max7310>;
 				reset-gpios = <&gpio1 15 GPIO_ACTIVE_LOW>;
+
+				uart3-cts-iomux-hog {
+					gpio-hog;
+					gpios = <4 GPIO_ACTIVE_HIGH>;
+					output-high;
+				};
 			};
 
 			max7310_c: gpio@34 {
@@ -333,6 +339,12 @@
 				reg = <0x34>;
 				gpio-controller;
 				#gpio-cells = <2>;
+
+				uart3-rxtx-iomux-hog {
+					gpio-hog;
+					gpios = <3 GPIO_ACTIVE_HIGH>;
+					output-high;
+				};
 			};
 
 			light-sensor@44 {
@@ -1121,8 +1133,6 @@
 &uart3 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_uart3_1>;
-	pinctrl-assert-gpios = <&max7310_b 4 GPIO_ACTIVE_HIGH>, /* CTS */
-			       <&max7310_c 3 GPIO_ACTIVE_HIGH>; /* RXD and TXD */
 	fsl,uart-has-rtscts;
 	status = "okay";
 	/* for DTE mode, add below change */
