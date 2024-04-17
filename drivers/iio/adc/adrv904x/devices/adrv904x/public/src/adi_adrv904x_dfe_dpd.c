@@ -1195,7 +1195,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_DfeDpdCaptureDataFromBufMemGet(adi
     cleanup:
     ADI_ADRV904X_API_EXIT(&device->common, recoveryAction);
 }
-
+#ifndef __KERNEL__
 ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_DfeDpdCalSpecificStatusGet(adi_adrv904x_Device_t* const               device,
                                                                          const adi_adrv904x_Channels_e              channel,
                                                                          adi_adrv904x_DfeAppCalDpdStatus_t* const   calDpdSpecStatus)
@@ -1319,7 +1319,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_DfeDpdCalSpecificStatusGet(adi_adr
     cleanup:
     ADI_ADRV904X_API_EXIT(&device->common, recoveryAction);
 }
-
+#endif
 ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_DpdStabilityCfgSet(adi_adrv904x_Device_t* const                   device,
                                                                  const uint32_t                                 dpdTxChannelMask,
                                                                  adi_adrv904x_DfeAppCalDpdStabilityCfg_t* const dpdStabilityCfg)

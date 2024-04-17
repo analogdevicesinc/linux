@@ -425,7 +425,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_DfeDpdActiveModelTableGet(adi_adrv
 ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_DfeDpdCaptureDataFromBufMemGet(adi_adrv904x_Device_t*  const              device, 
                                                                              const adi_adrv904x_Channels_e              orxChannelSel,
                                                                              adi_adrv904x_DfeAppDpdCaptureData_t* const dpdCaptureData);
-
+#ifndef __KERNEL__
 /**
 * \brief Returns the status of the Dpd Cal Specific status
 *
@@ -448,7 +448,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_DfeDpdCaptureDataFromBufMemGet(adi
 ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_DfeDpdCalSpecificStatusGet(adi_adrv904x_Device_t* const               device,
                                                                          const adi_adrv904x_Channels_e              channel,
                                                                          adi_adrv904x_DfeAppCalDpdStatus_t* const   calDpdSpecStatus);
-
+#endif
 /**
 * \brief Sets the DPD Stability Configuration
 *
