@@ -514,6 +514,7 @@ adi_adrv904x_ErrAction_e adrv904x_DpdTrackingConfigSetRangeCheck(adi_adrv904x_De
         return recoveryAction;
     }
 
+#ifndef __KERNEL__
     if ((dpdTrackCfg->wbRegAlpha < 0.0f) ||
         (dpdTrackCfg->wbRegAlpha > 1.0f))
     {
@@ -535,6 +536,7 @@ adi_adrv904x_ErrAction_e adrv904x_DpdTrackingConfigSetRangeCheck(adi_adrv904x_De
                                "Invalid wbRegBeta is selected. Valid value is within 0.0 and 1.0 ");
         return recoveryAction;
     }
+#endif
 
     if ((dpdTrackCfg->bwDetCfg.bwDetEn != 0u) &&
         (dpdTrackCfg->bwDetCfg.bwDetEn != 1u))
@@ -556,7 +558,7 @@ adi_adrv904x_ErrAction_e adrv904x_DpdTrackingConfigSetRangeCheck(adi_adrv904x_De
                                "Invalid corrLagMax is selected. Valid value is within 0:4095 ");
         return recoveryAction;
     }
-
+#ifndef __KERNEL__
     if ((dpdTrackCfg->bwDetCfg.loBwBeta2Thres < 0.0f) ||
         (dpdTrackCfg->bwDetCfg.loBwBeta2Thres > 1.0f))
     {
@@ -589,7 +591,7 @@ adi_adrv904x_ErrAction_e adrv904x_DpdTrackingConfigSetRangeCheck(adi_adrv904x_De
                                "Invalid alphaTrack is selected. Valid value is within 0.0 and 1.0 ");
         return recoveryAction;
     }
-
+#endif
     recoveryAction = ADI_ADRV904X_ERR_ACT_NONE;
 
     return recoveryAction;
