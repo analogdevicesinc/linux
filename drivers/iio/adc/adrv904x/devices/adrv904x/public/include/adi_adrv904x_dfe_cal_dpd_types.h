@@ -466,8 +466,10 @@ typedef struct adi_adrv904x_DfeAppCalDpdTrackCfg
     uint8_t                    ctc1CaptureWeighting[ADI_ADRV904X_DFE_APP_CAL_CTC1_MAX_PEAK_RANK_RATIO_NUM]; /*!< ctc1: Capture weights for peak rank ratios (Manual mode) */
     uint8_t                    wbRegEnable;                                                    /*!< Enable wideband regularization for maintaining in-band gain flatness */
     uint8_t                    wbRegMode;                                                      /*!< 0: same wideband data for all channels, 1: Two set of wideband data (one set per chip side) */
+#ifndef __KERNEL__
     float                      wbRegAlpha;                                                     /*!< alpha, the scaling factor for features computed using captured samples, shall be within [0, 1] */
     float                      wbRegBeta;                                                      /*!< beta, the scaling factor for features computed using wideband training samples, shall be within [0, 1] */
+#endif
     uint16_t                   estSizeOfCoefBias;                                              /*!< To estimate the bias of the delta coefficient of a DPD feature in direct learning mode */
     uint8_t                    useLegacyGainPhaseComp;                                         /*!< Fall back to legacy gain and phase compensation if it's 1 */
     adi_adrv904x_DfeAppCalDpdBwDetCfg_t   bwDetCfg;                                                       /*!< BW detctor configuration */
