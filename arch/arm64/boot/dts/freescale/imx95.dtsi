@@ -2751,18 +2751,12 @@
 				  /* ENETC0~2: VF0-1 BAR2 - prefetchable memory */
 				  0xc2000000 0x0 0x4cd80000  0x0 0x4cd80000  0x0 0x60000>;
 			power-domains = <&scmi_devpd IMX95_PD_NETC>;
-			assigned-clocks = <&scmi_clk IMX95_CLK_ENET>,
-					  <&scmi_clk IMX95_CLK_ENETREF>;
-			assigned-clock-parents = <&scmi_clk IMX95_CLK_SYSPLL1_PFD2>,
-						 <&scmi_clk IMX95_CLK_SYSPLL1_PFD0>;
-			assigned-clock-rates = <666666666>, <250000000>;
 
 			enetc_port0: ethernet@0,0 {
 				compatible = "fsl,imx95-enetc";
 				reg = <0x000000 0 0 0 0>;
-				clocks = <&scmi_clk IMX95_CLK_ENET>,
-					 <&scmi_clk IMX95_CLK_ENETREF>;
-				clock-names = "ipg_clk", "enet_ref_clk";
+				clocks = <&scmi_clk IMX95_CLK_ENETREF>;
+				clock-names = "enet_ref_clk";
 				nvmem-cells = <&eth_mac0>;
 				nvmem-cell-names = "mac-address";
 				status = "disabled";
@@ -2771,9 +2765,8 @@
 			enetc_port1: ethernet@8,0 {
 				compatible = "fsl,imx95-enetc";
 				reg = <0x004000 0 0 0 0>;
-				clocks = <&scmi_clk IMX95_CLK_ENET>,
-					 <&scmi_clk IMX95_CLK_ENETREF>;
-				clock-names = "ipg_clk", "enet_ref_clk";
+				clocks = <&scmi_clk IMX95_CLK_ENETREF>;
+				clock-names = "enet_ref_clk";
 				nvmem-cells = <&eth_mac1>;
 				nvmem-cell-names = "mac-address";
 				status = "disabled";
@@ -2782,8 +2775,6 @@
 			enetc_port2: ethernet@10,0 {
 				compatible = "fsl,imx95-enetc";
 				reg = <0x008000 0 0 0 0>;
-				clocks = <&scmi_clk IMX95_CLK_ENET>;
-				clock-names = "ipg_clk";
 				nvmem-cells = <&eth_mac2>;
 				nvmem-cell-names = "mac-address";
 				status = "disabled";
@@ -2824,6 +2815,13 @@
 			      <0x0 0x4cdf0000 0x0 0x10000>;
 			reg-names = "ierb_base", "prb_base";
 			power-domains = <&scmi_devpd IMX95_PD_NETC>;
+			assigned-clocks = <&scmi_clk IMX95_CLK_ENET>,
+					  <&scmi_clk IMX95_CLK_ENETREF>;
+			assigned-clock-parents = <&scmi_clk IMX95_CLK_SYSPLL1_PFD2>,
+						 <&scmi_clk IMX95_CLK_SYSPLL1_PFD0>;
+			assigned-clock-rates = <666666666>, <250000000>;
+			clocks = <&scmi_clk IMX95_CLK_ENET>;
+			clock-names = "ipg_clk";
 		};
 
 		neutron_core: imx95-neutron-remoteproc@4ab00000 {
