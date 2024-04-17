@@ -6134,7 +6134,11 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_TxCarrierGainAdjustSet(adi_adrv904
     }
 
     /* Convert from mdB to 7.16. (reg value = 10**(value in mdB/1000/20)) * 2^16) */
+#ifndef __KERNEL__
     bfValue = (uint32_t)((double)pow(10, (double)gain_mdB / 1000U / 20U) * DIG_GAIN_MULT);
+#else
+    bfValue = (uint32_t)int_20db_to_mag(DIG_GAIN_MULT, gain_mdB);
+#endif
 
     /* Write out the enable */
     for (txIdx = 0U; txIdx < ADI_ADRV904X_MAX_TXCHANNELS; txIdx++)
@@ -6424,7 +6428,11 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_TxCarrierBandAttenSet(adi_adrv904x
                 {
                     /* Convert from the requested atten level (milli-dB) to equivalent */
                     /* Convert from mdB to 0.8. (reg value = 10**(value in mdB/1000/20)) * 2^8) */
+#ifndef __KERNEL__
                     attenRegVal = (uint32_t)((double)pow(10, (0.0 - (double)atten_mdB) / 1000U / 20U) * DIG_GAIN_MULT);
+#else
+		    attenRegVal = (uint32_t)int_20db_to_mag(DIG_GAIN_MULT, 0 - atten_mdB);
+#endif
                    
                     if (attenRegVal > 255U)
                     {

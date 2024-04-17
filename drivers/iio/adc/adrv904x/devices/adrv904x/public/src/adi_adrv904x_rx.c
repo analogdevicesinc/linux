@@ -4023,7 +4023,11 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxCarrierGainAdjustSet(adi_adrv904
     }
 
     /* Convert from mdB to 7.16. (reg value = 10**(value in mdB/1000/20)) * 2^16) */
+#ifndef __KERNEL__
     bfValue = (uint32_t)((double)pow(10, (double)gain_mdB / 1000U / 20U) * DIG_GAIN_MULT);
+#else
+    bfValue = (uint32_t)int_20db_to_mag(DIG_GAIN_MULT, gain_mdB);
+#endif
 
     /* Write out the enable */
     for (rxIdx = 0U; rxIdx < ADI_ADRV904X_MAX_RX_ONLY; rxIdx++)
