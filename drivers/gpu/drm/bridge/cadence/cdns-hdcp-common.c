@@ -223,7 +223,7 @@ static u8 cdns_hdcp_handle_status(u16 status)
 
 static int cdns_hdcp_set_config(struct cdns_mhdp_device *mhdp, u8 hdcp_config)
 {
-	u8 bus_config, retEvents;
+	u8 bus_config;
 	u16 hdcp_port_status;
 	int ret;
 
@@ -254,7 +254,7 @@ static int cdns_hdcp_set_config(struct cdns_mhdp_device *mhdp, u8 hdcp_config)
 
 	/* Wait until HDCP_TX_STATUS EVENT appears */
 	DRM_DEBUG_KMS("INFO: wait4event -> HDCPTX_STATUS_EVENT\n");
-	retEvents = wait4event(mhdp, &mhdp->hdcp.events, HDCPTX_STATUS_EVENT, HDCP_EVENT_TO_DEF);
+	wait4event(mhdp, &mhdp->hdcp.events, HDCPTX_STATUS_EVENT, HDCP_EVENT_TO_DEF);
 
 	/* Set TX STATUS REQUEST */
 	DRM_DEBUG_KMS("INFO: Getting port status\n");
@@ -329,10 +329,10 @@ static int cdns_hdcp_check_receviers(struct cdns_mhdp_device *mhdp)
 	DRM_INFO("INFO: Waiting for Receiver ID valid event\n");
 	ret_events = 0;
 	do {
-		u8 events = 0;
 		u8 hdcp_last_error = 0;
-		events = check_event(ret_events,
-				     HDCPTX_IS_RECEIVER_ID_VALID_EVENT);
+
+		check_event(ret_events, HDCPTX_IS_RECEIVER_ID_VALID_EVENT);
+
 		DRM_DEBUG_KMS("INFO: Waiting HDCPTX_IS_RECEIVER_ID_VALID_EVENT\n");
 		ret_events = wait4event(mhdp, &mhdp->hdcp.events,
 					HDCPTX_IS_RECEIVER_ID_VALID_EVENT,
