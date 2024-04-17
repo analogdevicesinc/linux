@@ -6,6 +6,7 @@
 #include <stdint.h>
 #endif
 
+#ifndef __KERNEL__
 static float byteSwapFloat(float val)
 {
     float retVal;
@@ -19,6 +20,7 @@ static float byteSwapFloat(float val)
 
     return retVal;
 }
+#endif
 
 void adrv904x_CpuCmd_SerdesCalStatusGet_swap(struct adrv904x_CpuCmd_SerdesCalStatusGet* _struct)
 {
@@ -67,7 +69,7 @@ void adrv904x_SerdesTrackingCalStatus_swap(struct adi_adrv904x_SerdesTrackingCal
     /* _struct->outerDown << Field length is 1 byte no endianness swap required */
 
     /* _struct->b << Field length is 1 byte no endianness swap required */
-
+#ifndef __KERNEL__
     for(int i = 0; i < 2; i++)
     {
         _struct->ps[i] = byteSwapFloat(_struct->ps[i]);
@@ -77,6 +79,7 @@ void adrv904x_SerdesTrackingCalStatus_swap(struct adi_adrv904x_SerdesTrackingCal
     {
         _struct->yVector[i] = byteSwapFloat(_struct->yVector[i]);
     }
+#endif
 }
 
 void adrv904x_SerdesInitCalStatus_swap(struct adi_adrv904x_SerdesInitCalStatus* _struct)
