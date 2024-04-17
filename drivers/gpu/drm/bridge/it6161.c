@@ -745,13 +745,12 @@ static void hdmi_tx_generate_blank_timing(struct it6161 *it6161)
 static void it6161_hdmi_tx_abort_ddc(struct it6161 *it6161)
 {
 	struct device *dev = &it6161->i2c_hdmi_tx->dev;
-	u8 sw_reset, ddc_master, retry = 2;
+	u8 sw_reset, retry = 2;
 	u8 uc, timeout, i;
 
 	DRM_DEV_DEBUG_DRIVER(dev, "ddc abort\n");
 	/* save the sw reset, ddc master and cp desire setting */
 	sw_reset = it6161_hdmi_tx_read(it6161, REG_TX_SW_RST);
-	ddc_master = it6161_hdmi_tx_read(it6161, REG_TX_DDC_MASTER_CTRL);
 
 	it6161_hdmi_tx_write(it6161, REG_TX_SW_RST, sw_reset | B_TX_HDCP_RST_HDMITX);
 	it6161_hdmi_tx_write(it6161, REG_TX_DDC_MASTER_CTRL, B_TX_MASTERDDC | B_TX_MASTERHOST);
@@ -1590,11 +1589,9 @@ static void setHDMITX_LPCMAudio(u8 AudioSrcNum, u8 AudSWL, u8 bAudInterface)
 
 static void setHDMITX_NLPCMAudio(u8 bAudInterface)
 {
-	u8 AudioEnable, AudioFormat;
+	u8 AudioEnable;
 	u8 i;
 
-	/* NLPCM must use standard I2S mode. */
-	AudioFormat = 0x01;
 	if (bAudInterface == SPDIF)
 		AudioEnable = M_TX_AUD_24BIT | B_TX_AUD_SPDIF;
 	else
