@@ -15,7 +15,7 @@
 };
 
 &iomuxc {
-	pinctrl_usdhc3_gpio: usdhc3grpgpio {
+	pinctrl_usdhc3_vsel: usdhc3vselgpio {
 		fsl,pins = <
 			IMX8QM_USDHC2_VSELECT_LSIO_GPIO4_IO10	0x00000021
 		>;
@@ -35,15 +35,25 @@
 
 &usdhc3 {
 	pinctrl-names = "default", "state_100mhz", "state_200mhz";
-	pinctrl-0 = <&pinctrl_usdhc3>,<&pinctrl_usdhc3_gpio>;
-	pinctrl-1 = <&pinctrl_usdhc3>,<&pinctrl_usdhc3_gpio>;
-	pinctrl-2 = <&pinctrl_usdhc3>,<&pinctrl_usdhc3_gpio>;
+	pinctrl-0 = <&pinctrl_usdhc3>;
+	pinctrl-1 = <&pinctrl_usdhc3>;
+	pinctrl-2 = <&pinctrl_usdhc3>;
 	bus-width = <4>;
-	pinctrl-assert-gpios = <&lsio_gpio4 10 GPIO_ACTIVE_HIGH>;
 	pm-ignore-notify;
 	keep-power-in-suspend;
 	non-removable;
 	cap-power-off-card;
 	vmmc-supply = <&reg_usdhc3_vmmc>;
 	status = "okay";
+};
+
+&lsio_gpio4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usdhc3_vsel>;
+
+	usdhc3-vsel-hog {
+		gpio-hog;
+		gpios = <10 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
 };
