@@ -1230,11 +1230,16 @@ static int v4l2_dec_mmap(struct file *filp, struct vm_area_struct *vma)
 
 static __poll_t vsi_dec_poll(struct file *file, poll_table *wait)
 {
+	__poll_t req_events = poll_requested_events(wait);
 	__poll_t ret = 0;
 	struct v4l2_fh *fh = file->private_data;
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(file->private_data);
 	int dstn = atomic_read(&ctx->dstframen);
 	int srcn = atomic_read(&ctx->srcframen);
+	struct vb2_queue *src_q, *dst_q;
+
+	src_q = &ctx->input_que;
+	dst_q = &ctx->output_que;
 
 	/*
 	 * poll_wait() MUST be called on the first invocation on all the
@@ -1254,6 +1259,18 @@ static __poll_t vsi_dec_poll(struct file *file, poll_table *wait)
 		v4l2_klog(LOGLVL_BRIEF, "%s event", __func__);
 		ret |= EPOLLPRI;
 	}
+	if (req_events & (EPOLLOUT | EPOLLWRNORM | EPOLLIN | EPOLLRDNORM)) {
+		/*
+		 * There has to be at least one buffer queued on each queued_list, which
+		 * means either in driver already or waiting for driver to claim it
+		 * and start processing.
+		 */
+		if ((!vb2_is_streaming(src_q) || src_q->error || list_empty(&src_q->queued_list)) &&
+		    (!vb2_is_streaming(dst_q) || dst_q->error ||
+		     (list_empty(&dst_q->queued_list) && !dst_q->last_buffer_dequeued)))
+			return EPOLLERR;
+	}
+
 	if (ctx->output_que.last_buffer_dequeued)
 		ret |= (EPOLLIN | EPOLLRDNORM);
 	if (vb2_is_streaming(&ctx->output_que))
