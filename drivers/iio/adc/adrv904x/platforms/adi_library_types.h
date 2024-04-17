@@ -61,10 +61,11 @@ typedef time64_t time_t;
 /* stdio.h */
 #ifndef __KERNEL__
 #define ADI_LIBRARY_PRINTF                              printf
+#define ADI_LIBRARY_FPRINTF                             fprintf
 #else
 #define ADI_LIBRARY_PRINTF                              printk
+#define ADI_LIBRARY_FPRINTF                            adrv904x_fprintf
 #endif
-#define ADI_LIBRARY_FPRINTF                             fprintf
 #ifndef __KERNEL__
 #define ADI_LIBRARY_SPRINTF                             sprintf
 #endif
@@ -73,18 +74,19 @@ typedef time64_t time_t;
 #define ADI_LIBRARY_VPRINTF                             vprintf
 #endif
 #define ADI_LIBRARY_VSNPRINTF                           vsnprintf
-#define ADI_LIBRARY_FFLUSH                              fflush
-#define ADI_LIBRARY_FSEEK                               __adrv904x_fseek
-#define ADI_LIBRARY_FREAD                               __adrv904x_fread
-#define ADI_LIBRARY_FWRITE                              __adrv904x_fwrite
+#define ADI_LIBRARY_FFLUSH                              adrv904x_fflush
+#define ADI_LIBRARY_FSEEK                               adrv904x_fseek
+#define ADI_LIBRARY_FREAD                               adrv904x_fread
+#define ADI_LIBRARY_FWRITE                              adrv904x_fwrite
 #define ADI_LIBRARY_FOPEN                               fopen
 #define ADI_LIBRARY_FOPEN_S                             fopen_s
-#define ADI_LIBRARY_FCLOSE                              __adrv904x_fclose
-#define ADI_LIBRARY_FTELL                               __adrv904x_ftell
-#define ADI_LIBRARY_FERROR                              ferror
+#define ADI_LIBRARY_FCLOSE                              adrv904x_fclose
+#define ADI_LIBRARY_FTELL                               adrv904x_ftell
+#define ADI_LIBRARY_FERROR                              adrv904x_ferror
 #ifndef __KERNEL__
 #define ADI_LIBRARY_SETVBUF                             setvbuf
 #endif
+#define ADI_LIBRARY_FGETS                               adrv904x_fgets
 
 /* stdlib.h */
 #ifndef __KERNEL__
@@ -95,7 +97,7 @@ typedef time64_t time_t;
 #define ADI_LIBRARY_ABS                                 abs
 #else
 #define ADI_LIBRARY_FREE                                kfree
-#define ADI_LIBRARY_CALLOC                              __adrv904x_calloc
+#define ADI_LIBRARY_CALLOC                              adrv904x_calloc
 #endif
 
 /* stdarg.h */
@@ -137,7 +139,11 @@ typedef time64_t time_t;
 
 /* time.h */
 
+#ifndef __KERNEL__
 #define ADI_LIBRARY_TIME                                time
+#else
+#define ADI_LIBRARY_TIME                                adrv904x_time
+#endif
 #define ADI_LIBRARY_LOCALTIME_R                         localtime_r
 #define ADI_LIBRARY_MKTIME                              mktime
 #define ADI_LIBRARY_CTIME                               ctime
