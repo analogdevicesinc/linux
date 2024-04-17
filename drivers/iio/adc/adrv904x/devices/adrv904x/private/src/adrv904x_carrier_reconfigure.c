@@ -3667,7 +3667,11 @@ ADI_API adi_adrv904x_ErrAction_e adrv904x_CducDelayConfigurationCalculate(  adi_
         if ((carrierConfigs->channelMask & (1U << txIdx)) > 0U)
         {
             /* TPGSWE-7944: Store calculated latency into device profile */
+#ifndef __KERNEL__
             uint32_t clkCddcCducInkHz = tmpDly.jesdFrequency_kHz * pow(2, tmpDly.clkToJesdRatioLog2);
+#else
+            uint32_t clkCddcCducInkHz = tmpDly.jesdFrequency_kHz * (1 << tmpDly.clkToJesdRatioLog2);
+#endif
             device->devStateInfo.txCarrierLatencySolved.channel[txIdx].clkCddcCducInkHz = clkCddcCducInkHz;
 
             for (uint8_t carrierIdx = 0U; carrierIdx < ADI_ADRV904X_MAX_CARRIERS; carrierIdx++)
@@ -3744,7 +3748,11 @@ ADI_API adi_adrv904x_ErrAction_e adrv904x_CddcDelayConfigurationCalculate(  adi_
         if ((carrierConfigs->channelMask & (1U << rxIdx)) > 0U)
         {
             /* TPGSWE-7944: Store calculated latency into device profile */
+#ifndef __KERNEL__
             uint32_t clkCddcCducInkHz = tmpDly.jesdFrequency_kHz * pow(2, tmpDly.clkToJesdRatioLog2);
+#else
+            uint32_t clkCddcCducInkHz = tmpDly.jesdFrequency_kHz * (1 << tmpDly.clkToJesdRatioLog2);
+#endif
             device->devStateInfo.rxCarrierLatencySolved.channel[rxIdx].clkCddcCducInkHz = clkCddcCducInkHz;
 
             for (uint8_t carrierIdx = 0U; carrierIdx < ADI_ADRV904X_MAX_CARRIERS; carrierIdx++)
