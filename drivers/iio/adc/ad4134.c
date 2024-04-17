@@ -64,6 +64,10 @@
 
 #define AD4134_RESET_TIME_US			10000000
 
+enum {
+	ODR_SET_FREQ,
+};
+
 enum ad4134_regulators {
 	AD4134_AVDD5_REGULATOR,
 	AD4134_AVDD1V8_REGULATOR,
@@ -89,6 +93,8 @@ static ssize_t ad7134_set_sync(struct iio_dev *indio_dev,uintptr_t private,const
 static ssize_t ad7134_get_sync(struct iio_dev *indio_dev,uintptr_t private,const struct iio_chan_spec *chan, char *buf);
 static int ad7134_set_dig_fil(struct iio_dev *dev, const struct iio_chan_spec *chan, unsigned int filter);
 static int ad7134_get_dig_fil(struct iio_dev *dev, const struct iio_chan_spec *chan);
+static ssize_t ad7134_ext_info_write(struct iio_dev *indio_dev,uintptr_t private, const struct iio_chan_spec *chan, const char *buf, size_t len);
+static ssize_t ad7134_ext_info_read(struct iio_dev *indio_dev, uintptr_t private, const struct iio_chan_spec *chan, char *buf);
 
 static const struct iio_enum ad7134_flt_type_iio_enum = {
 	.items = ad7134_filter_enum,
@@ -106,8 +112,16 @@ static struct iio_chan_spec_ext_info ad7134_ext_info[] = {
 	 .name = "ad7134_sync",
 	 .write = ad7134_set_sync,
 	 .read = ad7134_get_sync,
-	 .shared = true,
+	 .shared = IIO_SHARED_BY_ALL,
 	 },
+
+	 {
+	 .name = "odr_set_freq",
+	 .read = ad7134_ext_info_read,
+	 .write = ad7134_ext_info_write,
+	 .shared =  IIO_SHARED_BY_ALL,
+	 .private = ODR_SET_FREQ,
+	},
 	{ },
 };
 
@@ -202,6 +216,33 @@ static int ad7134_get_dig_fil(struct iio_dev *dev,
 		return FIELD_GET(AD4134_CHAN_DIG_FILTER_SEL_CONFIG_FRAME_MASK_CH0, readval);
 }
 
+static ssize_t ad7134_ext_info_read(struct iio_dev *indio_dev,
+				    uintptr_t private,
+				    const struct iio_chan_spec *chan, char *buf)
+{
+
+	int ret = -EINVAL;
+	long long val;
+    struct pwm_state state;
+	struct ad4134_state *st = iio_priv(indio_dev);
+
+    mutex_lock(&st->lock);
+
+	switch (private) {
+		case ODR_SET_FREQ:
+		   printk("ad4134_in_case");
+			val = st->odr;
+	    break;
+
+	    default:
+			ret = -EINVAL;
+		}
+
+	mutex_unlock(&st->lock);
+
+	return sprintf(buf, "%lld\n", val);
+}
+
 static int ad4134_samp_freq_avail[] = { AD4134_ODR_MIN, 1, AD4134_ODR_MAX };
 
 static int _ad4134_set_odr(struct ad4134_state *st, unsigned int odr)
@@ -262,6 +303,36 @@ static int ad4134_set_odr(struct iio_dev *indio_dev, unsigned int odr)
 	printk("ad4134__ad4134_set_odr");
 
 	return ret;
+}
+
+
+static ssize_t ad7134_ext_info_write(struct iio_dev *indio_dev,
+				     uintptr_t private,
+				     const struct iio_chan_spec *chan,
+				     const char *buf, size_t len)
+{
+	int ret = -EINVAL;
+	long long readin;
+	struct ad4134_state *st = iio_priv(indio_dev);
+
+	mutex_lock(&st->lock);
+
+	switch (private) {
+		case ODR_SET_FREQ:
+			ret = kstrtoll(buf, 10, &readin);
+			if (ret)
+				goto out;
+			readin = clamp_t(long long, readin, 0, 1500000);
+			ret = _ad4134_set_odr(st, readin);
+	    break;
+
+	    default:
+			ret = -EINVAL;
+		}
+out:
+	mutex_unlock(&st->lock);
+
+	return ret ? ret : len;
 }
 
 static int ad4134_read_raw(struct iio_dev *indio_dev,
