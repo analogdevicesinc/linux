@@ -760,6 +760,13 @@
 		>;
 	};
 
+	pinctrl_pcie0: pcie0grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO32__HSIOMIX_TOP_PCIE1_CLKREQ_B		0x40000b1e
+			IMX95_PAD_GPIO_IO33__GPIO5_IO_BIT13			0x31e
+		>;
+	};
+
 	pinctrl_pdm: pdmgrp {
 		fsl,pins = <
 			IMX95_PAD_PDM_CLK__AONMIX_TOP_PDM_CLK				0x31e
@@ -949,6 +956,15 @@
 			IMX95_PAD_SD3_DATA3__USDHC3_DATA3			0x13fe
 		>;
 	};
+};
+
+&pcie0 {
+	pinctrl-0 = <&pinctrl_pcie0>;
+	pinctrl-names = "default";
+	fsl,refclk-pad-mode = <IMX8_PCIE_REFCLK_PAD_OUTPUT>;
+	reset-gpio = <&gpio5 13 GPIO_ACTIVE_LOW>;
+	vpcie-supply = <&reg_m2_pwr>;
+	status = "okay";
 };
 
 &vpuctrl {
