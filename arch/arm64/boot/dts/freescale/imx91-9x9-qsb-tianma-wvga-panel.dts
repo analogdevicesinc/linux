@@ -1,0 +1,126 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pwm/pwm.h>
+#include "imx91-pinfunc.h"
+#include "imx91-9x9-qsb.dts"
+
+/ {
+	backlight: backlight {
+		compatible = "pwm-backlight";
+		pwms = <&tpm1 3 40000 PWM_POLARITY_INVERTED>;	/* 25KHz PWM */
+		brightness-levels = <0 100>;
+		num-interpolated-steps = <100>;
+		default-brightness-level = <80>;
+		power-supply = <&reg_exp_5v>;
+	};
+
+	panel {
+		compatible = "tianma,tm050rdh03";
+		standby-gpios = <&pcal6524 8 GPIO_ACTIVE_LOW>;	/* STBYB(IOEXP_IO27) */
+		backlight = <&backlight>;
+		power-supply = <&reg_exp_3v3>;
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&display_out>;
+			};
+		};
+	};
+};
+
+&gpio2 {
+	/* avoid power leakage */
+	disp-clk-hog {
+		gpio-hog;
+		gpios = <0 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+
+	disp-de-hog {
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+
+	disp-vsync-hog {
+		gpio-hog;
+		gpios = <2 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+
+	disp-hsync-hog {
+		gpio-hog;
+		gpios = <3 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+};
+
+&iomuxc {
+	pinctrl_tpm1_ch3: tpm1ch3grp {
+		fsl,pins = <
+			MX91_PAD_UART2_TXD__TPM1_CH3	0x31e
+		>;
+	};
+};
+
+&lcdif {
+	assigned-clock-rates = <300000000>, <30000000>, <400000000>, <133333333>;
+	status = "okay";
+};
+
+&media_blk_ctrl {
+	status = "okay";
+};
+
+&parallel_disp_fmt {
+	pinctrl-names = "default", "gpio";
+	pinctrl-0 = <&pinctrl_lcdif>;
+	pinctrl-1 = <&pinctrl_lcdif_gpio>;
+	fsl,interface-pix-fmt = "rgb666";
+	status = "okay";
+
+	ports {
+		port@1 {
+			reg = <1>;
+
+			display_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+};
+
+&pcal6524 {
+	exp-sel-sxa-hog {
+		gpio-hog;
+		gpios = <22 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+
+	sai3-tx-rx-sel-sxa-hog {
+		gpio-hog;
+		gpios = <14 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+
+	sai3-en-b-hog {
+		gpio-hog;
+		gpios = <23 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+};
+
+/* pin conflicts */
+&sai3 {
+	status = "disabled";
+};
+
+&tpm1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_tpm1_ch3>;
+	status = "okay";
+};
