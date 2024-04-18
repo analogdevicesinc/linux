@@ -5,6 +5,7 @@
  * Copyright 2022 Analog Devices Inc.
  */
 #include <linux/bitfield.h>
+#include <linux/bitops.h>
 #include <linux/clk.h>
 #include <linux/debugfs.h>
 #include <linux/delay.h>
@@ -20,6 +21,7 @@
 #include <linux/limits.h>
 #include <linux/kconfig.h>
 #include <linux/kernel.h>
+#include <linux/log2.h>
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
 #include <linux/property.h>
@@ -28,7 +30,7 @@
 #include <linux/regmap.h>
 #include <linux/sysfs.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/spi-engine.h>
+#include <linux/spi/spi-engine-ex.h>
 #include <linux/util_macros.h>
 #include <linux/units.h>
 #include <linux/types.h>
@@ -719,9 +721,13 @@ static int ad4630_buffer_preenable(struct iio_dev *indio_dev)
 	if (ret)
 		goto out_error;
 
+	ret = spi_optimize_message(st->spi, &st->offload_msg);
+	if (ret < 0)
+		goto out_error;
+
 	spi_bus_lock(st->spi->master);
-	spi_engine_offload_load_msg(st->spi, &st->offload_msg);
-	spi_engine_offload_enable(st->spi, true);
+	spi_engine_ex_offload_load_msg(st->spi, &st->offload_msg);
+	spi_engine_ex_offload_enable(st->spi, true);
 	ad4630_sampling_enable(st, true);
 
 	return 0;
@@ -741,9 +747,10 @@ static int ad4630_buffer_postdisable(struct iio_dev *indio_dev)
 	if (ret)
 		goto out_error;
 
-	spi_engine_offload_enable(st->spi, false);
+	spi_engine_ex_offload_enable(st->spi, false);
 	spi_bus_unlock(st->spi->master);
 
+	spi_unoptimize_message(&st->offload_msg);
 	ret = regmap_read(st->regmap, AD4630_REG_ACCESS, &dummy);
 out_error:
 	pm_runtime_mark_last_busy(&st->spi->dev);
@@ -1171,7 +1178,6 @@ static void ad4630_prepare_spi_sampling_msg(struct ad4630_state *st,
 	 */
 	st->offload_xfer.speed_hz = AD4630_SPI_SAMPLING_SPEED;
 	st->offload_xfer.rx_buf = (void *)-1;
-	st->offload_xfer.len = 1;
 
 	/*
 	 * In host mode, for a 16-bit data-word, the device adds an additional
@@ -1197,6 +1203,8 @@ static void ad4630_prepare_spi_sampling_msg(struct ad4630_state *st,
 	}
 
 	st->offload_xfer.bits_per_word = st->bits_per_word;
+	st->offload_xfer.len = roundup_pow_of_two(BITS_TO_BYTES(st->bits_per_word));
+
 	spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
 }
 
