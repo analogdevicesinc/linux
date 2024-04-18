@@ -859,25 +859,12 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 		return err;
 	}
 
-	ndev = alloc_etherdev_mq(sizeof(struct enetc_ndev_priv), ENETC_MAX_NUM_TXQS);
-	if (!ndev)
-		return -ENOMEM;
-
-	priv = netdev_priv(ndev);
-	mutex_init(&priv->mm_lock);
-
-	priv->ref_clk = devm_clk_get_optional(dev, "enet_ref_clk");
-	if (IS_ERR(priv->ref_clk)) {
-		dev_err(dev, "Get enet_ref_clk failed\n");
-		return PTR_ERR(priv->ref_clk);
-	}
-
-	pinctrl_pm_select_default_state(&pdev->dev);
+	pinctrl_pm_select_default_state(dev);
 
 	err = enetc_pci_probe(pdev, KBUILD_MODNAME, sizeof(*pf));
 	if (err) {
 		dev_err(dev, "PCIe probing failed\n");
-		goto err_pci_probe;
+		return err;
 	}
 
 	/* si is the private data. */
@@ -885,7 +872,7 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 	if (!si->hw.port || !si->hw.global) {
 		err = -ENODEV;
 		dev_err(dev, "Couldn't map PF only space!\n");
-		goto err_map_pf_space;
+		goto err_enetc_pci_probe;
 	}
 
 	pf = enetc_si_priv(si);
@@ -919,6 +906,23 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 	enetc4_get_port_caps(pf);
 	enetc4_configure_port(pf);
 	enetc_get_si_caps(si);
+
+	ndev = alloc_etherdev_mqs(sizeof(struct enetc_ndev_priv),
+				  si->num_tx_rings, si->num_rx_rings);
+	if (!ndev) {
+		err = -ENOMEM;
+		goto err_alloc_ndev;
+	}
+
+	priv = netdev_priv(ndev);
+	mutex_init(&priv->mm_lock);
+	priv->ref_clk = devm_clk_get_optional(dev, "enet_ref_clk");
+	if (IS_ERR(priv->ref_clk)) {
+		dev_err(dev, "Get enet_ref_clk failed\n");
+		err = PTR_ERR(priv->ref_clk);
+		goto err_clk_get;
+	}
+
 	enetc_pf_netdev_setup(si, ndev, &enetc4_ndev_ops);
 
 	enetc_init_si_rings_params(priv);
@@ -973,15 +977,16 @@ err_alloc_msix:
 	enetc4_free_cls_rules(priv);
 err_alloc_cls_rules:
 err_config_si:
+err_clk_get:
+	free_netdev(ndev);
+err_alloc_ndev:
 err_init_address:
 	enetc_free_cbdr(si);
 err_init_cbdr:
 	destroy_workqueue(si->workqueue);
 err_create_wq:
-err_map_pf_space:
+err_enetc_pci_probe:
 	enetc_pci_remove(pdev);
-err_pci_probe:
-	free_netdev(ndev);
 
 	return err;
 }
@@ -1014,13 +1019,12 @@ static void enetc4_pf_remove(struct pci_dev *pdev)
 	enetc_free_msix(priv);
 
 	enetc4_free_cls_rules(priv);
+	free_netdev(si->ndev);
 	enetc_free_cbdr(si);
 
 	destroy_workqueue(si->workqueue);
 
 	enetc_pci_remove(pdev);
-
-	free_netdev(priv->ndev);
 }
 
 /* Only ENETC PF Function can be probed. */
