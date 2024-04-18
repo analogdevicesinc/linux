@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/fsl,imx95-clock.h>
+#include <dt-bindings/gpio/gpio.h>
+
+&lpi2c4 {
+	pinctrl-assert-gpios = <&pcal6524 16 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
