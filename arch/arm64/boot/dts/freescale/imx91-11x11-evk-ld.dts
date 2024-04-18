@@ -1,0 +1,43 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+#include "imx91-11x11-evk.dts"
+
+&flexspi1 {
+	assigned-clocks = <&clk IMX91_CLK_FLEXSPI1>;
+	assigned-clock-parents = <&clk IMX91_CLK_SYS_PLL_PFD1>;
+	assigned-clock-rates = <266000000>;
+};
+
+&lpm {
+	clocks = <&clk IMX91_CLK_DUMMY>, <&clk IMX91_CLK_WAKEUP_AXI>,
+		 <&clk IMX91_CLK_NIC_AXI>, <&clk IMX91_CLK_MEDIA_AXI>,
+		 <&clk IMX91_CLK_A55_PERIPH>, <&clk IMX91_CLK_A55_CORE>, <&clk IMX91_CLK_DUMMY>,
+		 <&clk IMX91_CLK_SYS_PLL_PFD0>, <&clk IMX91_CLK_SYS_PLL_PFD0_DIV2>,
+		 <&clk IMX91_CLK_SYS_PLL_PFD1>, <&clk IMX91_CLK_SYS_PLL_PFD1_DIV2>,
+		 <&clk IMX91_CLK_SYS_PLL_PFD2>, <&clk IMX91_CLK_SYS_PLL_PFD2_DIV2>;
+	no-od-mode;
+	ld-mode-enabled;
+	soc-supply = <&buck1>;
+	status = "okay";
+};
+
+&usdhc1 {
+	assigned-clocks = <&clk IMX91_CLK_USDHC1>;
+	assigned-clock-parents = <&clk IMX91_CLK_SYS_PLL_PFD1>;
+	assigned-clock-rates = <266000000>;
+};
+
+&usdhc2 {
+	assigned-clocks = <&clk IMX91_CLK_USDHC2>;
+	assigned-clock-parents = <&clk IMX91_CLK_SYS_PLL_PFD1>;
+	assigned-clock-rates = <266000000>;
+};
+
+&usdhc3 {
+	assigned-clocks = <&clk IMX91_CLK_USDHC3>;
+	assigned-clock-parents = <&clk IMX91_CLK_SYS_PLL_PFD1>;
+	assigned-clock-rates = <266000000>;
+};
