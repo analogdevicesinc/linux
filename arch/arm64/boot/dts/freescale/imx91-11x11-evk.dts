@@ -87,6 +87,15 @@
 		vin-supply = <&buck4>;
 	};
 
+	reg_vrpi_5v: regulator-vrpi-5v {
+		compatible = "regulator-fixed";
+		regulator-name = "VRPI_5V";
+		gpio = <&pcal6524 8 GPIO_ACTIVE_HIGH>;
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		enable-active-high;
+	};
+
 	reg_usdhc3_vmmc: regulator-usdhc3 {
 		compatible = "regulator-fixed";
 		regulator-name = "WLAN_EN";
@@ -749,7 +758,6 @@
 			MX91_PAD_GPIO_IO19__MEDIAMIX_DISP_DATA15	0x31e
 			MX91_PAD_GPIO_IO20__MEDIAMIX_DISP_DATA16	0x31e
 			MX91_PAD_GPIO_IO21__MEDIAMIX_DISP_DATA17	0x31e
-			MX91_PAD_GPIO_IO26__GPIO2_IO26			0x31e
 			MX91_PAD_GPIO_IO27__GPIO2_IO27			0x31e
 		>;
 	};
