@@ -1946,6 +1946,11 @@ gckHARDWARE_Construct(IN gckOS Os, IN gckKERNEL Kernel, OUT gckHARDWARE *Hardwar
 
     _SetHardwareOptions(hardware);
 
+    if (hardware->identity.chipModel == 0x7000 && hardware->identity.chipRevision == 0x6214
+        && hardware->identity.customerID == 0x30) {
+        hardware->supportUscReset = gcvTRUE;
+    }
+
     hardware->hasQchannel = gckHARDWARE_IsFeatureAvailable(hardware, gcvFEATURE_Q_CHANNEL_SUPPORT);
 
     /* Bypass Qchannel power management. */

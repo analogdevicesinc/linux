@@ -2988,13 +2988,12 @@ gckCOMMAND_Commit(IN gckCOMMAND Command, IN gcsHAL_SUBCOMMIT *SubCommit,
 #endif
 
 #if gcdCONTEXT_SWITCH_FORCE_USC_RESET
-        if (Command->currPid && Command->currPid != ProcessId
+        if (Command->kernel->hardware->supportUscReset
+            && Command->currPid && Command->currPid != ProcessId
 #if gcdLOCAL_MEMORY_USAGE
             && SubCommit->useLocalMem
 #endif
-            && Command->kernel->hardware->type == gcvHARDWARE_3D
-            && gckHARDWARE_IsFeatureAvailable(Command->kernel->hardware, gcvFEATURE_BLT_ENGINE)
-            && gckHARDWARE_IsFeatureAvailable(Command->kernel->hardware, gcvFEATURE_SECURITY))
+            && Command->kernel->hardware->type == gcvHARDWARE_3D)
             switchSecurityMode = gcvTRUE;
 #endif
 
