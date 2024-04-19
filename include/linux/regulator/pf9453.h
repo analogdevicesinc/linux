@@ -1,0 +1,176 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+/* Copyright 2024 NXP. */
+
+#ifndef __LINUX_REG_PF9453_H__
+#define __LINUX_REG_PF9453_H__
+
+#include <linux/regmap.h>
+
+enum pf9453_chip_type {
+	PF9453_TYPE_PF9453 = 0,
+	PF9453_TYPE_AMOUNT,
+};
+
+enum {
+	PF9453_BUCK1 = 0,
+	PF9453_BUCK2,
+	PF9453_BUCK3,
+	PF9453_BUCK4,
+	PF9453_LDO1,
+	PF9453_LDO2,
+	PF9453_LDOSNVS,
+	PF9453_REGULATOR_CNT,
+};
+
+enum {
+	PF9453_DVS_LEVEL_RUN = 0,
+	PF9453_DVS_LEVEL_STANDBY,
+	PF9453_DVS_LEVEL_DPSTANDBY,
+	PF9453_DVS_LEVEL_MAX,
+};
+
+#define PF9453_BUCK1_VOLTAGE_NUM	0x80
+#define PF9453_BUCK2_VOLTAGE_NUM	0x80
+#define PF9453_BUCK3_VOLTAGE_NUM	0x80
+#define PF9453_BUCK4_VOLTAGE_NUM	0x80
+
+#define PF9453_LDO1_VOLTAGE_NUM		0x3b
+#define PF9453_LDO2_VOLTAGE_NUM		0x65
+#define PF9453_LDOSNVS_VOLTAGE_NUM	0x59
+
+enum {
+	PF9453_REG_DEV_ID              = 0x00,
+	PF9453_REG_OTP_VER             = 0x01,
+	PF9453_REG_INT1                = 0x02,
+	PF9453_REG_INT1_MSK            = 0x03,
+	PF9453_REG_INT1_STATUS         = 0x04,
+	PF9453_REG_VRFLT1_INT          = 0x05,
+	PF9453_REG_VRFLT1_MASK         = 0x06,
+	PF9453_REG_PWRON_STAT          = 0x07,
+	PF9453_REG_RESET_CTRL          = 0x08,
+	PF9453_REG_SW_RST              = 0x09,
+	PF9453_REG_PWR_CTRL            = 0x0a,
+	PF9453_REG_CONFIG1             = 0x0b,
+	PF9453_REG_CONFIG2             = 0x0c,
+	PF9453_REG_32K_CONFIG          = 0x0d,
+	PF9453_REG_BUCK1CTRL           = 0x10,
+	PF9453_REG_BUCK1OUT            = 0x11,
+	PF9453_REG_BUCK2CTRL           = 0x14,
+	PF9453_REG_BUCK2OUT            = 0x15,
+	PF9453_REG_BUCK2OUT_STBY       = 0x1D,
+	PF9453_REG_BUCK2OUT_MAX_LIMIT  = 0x1F,
+	PF9453_REG_BUCK2OUT_MIN_LIMIT  = 0x20,
+	PF9453_REG_BUCK3CTRL           = 0x21,
+	PF9453_REG_BUCK3OUT            = 0x22,
+	PF9453_REG_BUCK4CTRL           = 0x2e,
+	PF9453_REG_BUCK4OUT            = 0x2f,
+	PF9453_REG_LDO1OUT_L           = 0x36,
+	PF9453_REG_LDO1CFG             = 0x37,
+	PF9453_REG_LDO1OUT_H           = 0x38,
+	PF9453_REG_LDOSNVS_CFG1        = 0x39,
+	PF9453_REG_LDOSNVS_CFG2        = 0x3a,
+	PF9453_REG_LDO2CFG             = 0x3b,
+	PF9453_REG_LDO2OUT             = 0x3c,
+	PF9453_REG_BUCK_POK            = 0x3d,
+	PF9453_REG_LSW_CTRL1           = 0x40,
+	PF9453_REG_LSW_CTRL2           = 0x41,
+	PF9453_REG_LOCK                = 0x4e,
+	PF9453_MAX_REG,
+};
+
+#define PF9453_UNLOCK_KEY               0x5c
+#define PF9453_LOCK_KEY			0x0
+
+/* PF9453 BUCK ENMODE bits */
+#define BUCK_ENMODE_OFF			0x00
+#define BUCK_ENMODE_ONREQ		0x01
+#define BUCK_ENMODE_ONREQ_STBY		0x02
+#define BUCK_ENMODE_ONREQ_STBY_DPSTBY	0x03
+
+/* PF9453 BUCK ENMODE bits */
+#define LDO_ENMODE_OFF			0x00
+#define LDO_ENMODE_ONREQ		0x01
+#define LDO_ENMODE_ONREQ_STBY		0x02
+#define LDO_ENMODE_ONREQ_STBY_DPSTBY	0x03
+
+/* PF9453_REG_BUCK1_CTRL bits */
+#define BUCK1_LPMODE			0x30
+#define BUCK1_AD			0x08
+#define BUCK1_FPWM			0x04
+#define BUCK1_ENMODE_MASK		0x03
+
+/* PF9453_REG_BUCK2_CTRL bits */
+#define BUCK2_RAMP_MASK			0xC0
+#define BUCK2_RAMP_25MV			0x0
+#define BUCK2_RAMP_12P5MV		0x1
+#define BUCK2_RAMP_6P25MV		0x2
+#define BUCK2_RAMP_3P125MV		0x3
+#define BUCK2_LPMODE			0x30
+#define BUCK2_AD			0x08
+#define BUCK2_FPWM			0x04
+#define BUCK2_ENMODE_MASK		0x03
+
+/* PF9453_REG_BUCK3_CTRL bits */
+#define BUCK3_LPMODE			0x30
+#define BUCK3_AD			0x08
+#define BUCK3_FPWM			0x04
+#define BUCK3_ENMODE_MASK		0x03
+
+/* PF9453_REG_BUCK4_CTRL bits */
+#define BUCK4_LPMODE                    0x30
+#define BUCK4_AD			0x08
+#define BUCK4_FPWM			0x04
+#define BUCK4_ENMODE_MASK		0x03
+
+/* PF9453_REG_BUCK123_PRESET_EN bit */
+#define BUCK123_PRESET_EN		0x80
+
+/* PF9453_BUCK1OUT bits */
+#define BUCK1OUT_MASK			0x7F
+
+/* PF9453_BUCK2OUT bits */
+#define BUCK2OUT_MASK			0x7F
+#define BUCK2OUT_STBY_MASK		0x7F
+
+/* PF9453_REG_BUCK3OUT bits */
+#define BUCK3OUT_MASK			0x7F
+
+/* PF9453_REG_BUCK4OUT bits */
+#define BUCK4OUT_MASK			0x7F
+
+/* PF9453_REG_LDO1_VOLT bits */
+#define LDO1_EN_MASK			0x3
+#define LDO1OUT_MASK			0x7F
+
+/* PF9453_REG_LDO2_VOLT bits */
+#define LDO2_EN_MASK			0x3
+#define LDO2OUT_MASK			0x7F
+
+/* PF9453_REG_LDOSNVS_VOLT bits */
+#define LDOSNVS_EN_MASK			0x1
+#define LDOSNVSCFG1_MASK		0x7F
+
+/* PF9453_REG_IRQ bits */
+#define IRQ_RSVD			0x80
+#define IRQ_RSTB			0x40
+#define IRQ_ONKEY			0x20
+#define IRQ_RESETKEY			0x10
+#define IRQ_VR_FLT1			0x08
+#define IRQ_LOWVSYS			0x04
+#define IRQ_THERM_100			0x02
+#define IRQ_THERM_80			0x01
+
+/* PF9453_REG_RESET_CTRL bits */
+#define WDOG_B_CFG_MASK			0xC0
+#define WDOG_B_CFG_NONE			0x00
+#define WDOG_B_CFG_WARM			0x40
+#define WDOG_B_CFG_COLD			0x80
+
+/* PF9453_REG_CONFIG2 bits */
+#define I2C_LT_MASK			0x03
+#define I2C_LT_FORCE_DISABLE		0x00
+#define I2C_LT_ON_STANDBY_RUN		0x01
+#define I2C_LT_ON_RUN			0x02
+#define I2C_LT_FORCE_ENABLE		0x03
+
+#endif /* __LINUX_REG_PF9453_H__ */
