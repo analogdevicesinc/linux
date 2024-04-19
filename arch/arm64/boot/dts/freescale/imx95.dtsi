@@ -1969,6 +1969,12 @@
 			reg = <0x0 0x4add0000 0x0 0x10000>;
 			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
 			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+
+			interrupt-parent = <&gic>;
+			interrupts =
+				<GIC_SPI 251 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 252 IRQ_TYPE_LEVEL_HIGH>,
+				<GIC_SPI 253 IRQ_TYPE_LEVEL_HIGH>;
 		};
 
 		ocram_c: ocram@4af80000 {
