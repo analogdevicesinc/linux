@@ -373,3 +373,30 @@
 &axi_data_offload_tx {
 	/delete-property/ adi,oneshot;
 };
+
+&iio_axi_tdd_0 {
+	adi,attribute-names =
+		"version", "core_id", "scratch", "magic",
+		"sync_soft", "sync_external", "sync_internal", "sync_reset",
+		"enable", "startup_delay_raw", "startup_delay_ms",
+		"burst_count", "frame_length_raw", "frame_length_ms",
+		"state", "internal_sync_period_raw", "internal_sync_period_ms",
+		"out_channel0_enable", "out_channel0_polarity",
+		"out_channel0_on_raw", "out_channel0_on_ms",
+		"out_channel0_off_raw", "out_channel0_off_ms",
+		"out_channel1_enable", "out_channel1_polarity",
+		"out_channel1_on_raw", "out_channel1_on_ms",
+		"out_channel1_off_raw", "out_channel1_off_ms",
+		"out_channel2_enable", "out_channel2_polarity",
+		"out_channel2_on_raw", "out_channel2_on_ms",
+		"out_channel2_off_raw", "out_channel2_off_ms",
+		"out_channel3_enable", "out_channel3_polarity",
+		"out_channel3_on_raw", "out_channel3_on_ms",
+		"out_channel3_off_raw", "out_channel3_off_ms",
+		"out_channel4_enable", "out_channel4_polarity",
+		"out_channel4_on_raw", "out_channel4_on_ms",
+		"out_channel4_off_raw", "out_channel4_off_ms",
+		"out_channel5_enable", "out_channel5_polarity",
+		"out_channel5_on_raw", "out_channel5_on_ms",
+		"out_channel5_off_raw", "out_channel5_off_ms";
+};
