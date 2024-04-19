@@ -340,8 +340,8 @@ dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-rm692c9.dtb
 imx95-19x19-evk-ox03c10-dtbs := imx95-19x19-evk.dtb imx95-19x19-evk-ox03c10.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-ox03c10.dtb
 
-imx95-19x19-titan-ox03c10-dtbs := imx95-19x19-titan.dtb imx95-19x19-titan-ox03c10.dtbo
-dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-titan-ox03c10.dtb
+imx95-19x19-verdin-ox03c10-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-ox03c10.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-ox03c10.dtb
 
 imx95-19x19-evk-it6263-lvds0-dtbs := imx95-19x19-evk.dtb imx95-19x19-evk-it6263-lvds0.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-it6263-lvds0.dtb
@@ -363,30 +363,30 @@ dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-jdi-wuxga-lvds-panel.dtb
 imx95-19x19-evk-jtag-dtbs := imx95-19x19-evk.dtb imx95-19x19-evk-jtag.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-jtag.dtb
 
-dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-titan.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin.dtb
 
-imx95-19x19-titan-adv7535-dtbs := imx95-19x19-titan.dtb imx95-19x19-titan-adv7535.dtbo
-dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-titan-adv7535.dtb
+imx95-19x19-verdin-adv7535-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-adv7535.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-adv7535.dtb
 
-imx95-19x19-titan-lt8912-dtbs := imx95-19x19-titan.dtb imx95-19x19-titan-lt8912.dtbo
-dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-titan-lt8912.dtb
+imx95-19x19-verdin-lt8912-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-lt8912.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-lt8912.dtb
 
-imx95-19x19-titan-panel-cap-touch-10inch-lvds-dtbs := imx95-19x19-titan.dtb imx95-19x19-titan-panel-cap-touch-10inch-lvds.dtbo
-dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-titan-panel-cap-touch-10inch-lvds.dtb
+imx95-19x19-verdin-panel-cap-touch-10inch-lvds-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-panel-cap-touch-10inch-lvds.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-panel-cap-touch-10inch-lvds.dtb
 
-imx95-19x19-titan-ap1302-dtbs := imx95-19x19-titan.dtb imx95-19x19-titan-ap1302.dtbo
-dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-titan-ap1302.dtb
+imx95-19x19-verdin-ap1302-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-ap1302.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-ap1302.dtb
 
-imx95-19x19-titan-adv7535-ap1302-dtbs := imx95-19x19-titan.dtb \
-				       imx95-19x19-titan-adv7535.dtbo \
-				       imx95-19x19-titan-ap1302.dtbo
-dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-titan-adv7535-ap1302.dtb
+imx95-19x19-verdin-adv7535-ap1302-dtbs := imx95-19x19-verdin.dtb \
+				       imx95-19x19-verdin-adv7535.dtbo \
+				       imx95-19x19-verdin-ap1302.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-adv7535-ap1302.dtb
 
-imx95-19x19-titan-os08a20-dtbs := imx95-19x19-titan.dtb imx95-19x19-titan-os08a20.dtbo
-dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-titan-os08a20.dtb
+imx95-19x19-verdin-os08a20-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-os08a20.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-os08a20.dtb
 
-imx95-19x19-titan-rm692c9-dtbs := imx95-19x19-titan.dtb imx95-19x19-titan-rm692c9.dtbo
-dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-titan-rm692c9.dtb
+imx95-19x19-verdin-rm692c9-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-rm692c9.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-rm692c9.dtb
 
 imx8mm-venice-gw72xx-0x-imx219-dtbs	:= imx8mm-venice-gw72xx-0x.dtb imx8mm-venice-gw72xx-0x-imx219.dtbo
 imx8mm-venice-gw72xx-0x-rpidsi-dtbs	:= imx8mm-venice-gw72xx-0x.dtb imx8mm-venice-gw72xx-0x-rpidsi.dtbo

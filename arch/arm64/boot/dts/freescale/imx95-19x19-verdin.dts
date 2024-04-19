@@ -97,7 +97,7 @@
 };
 
 &lpi2c4 {
-	/delete-node/ codec@1a;
+	/delete-node/ audio-codec@1a;
 
 	wm8904: codec@1a {
 		#sound-dai-cells = <0>;
