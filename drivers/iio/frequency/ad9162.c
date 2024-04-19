@@ -241,11 +241,11 @@ static int ad916x_setup_jesd(struct ad9162_state *st)
 	int ret;
 
 	/* check nco only mode */
-	if (st->dc_test_mode) {
-		dev_dbg(dev,
-			"Device in nco only mode. No need to setup jesd\n");
-		return 0;
-	}
+	// if (st->dc_test_mode) {
+	// 	dev_info(dev,
+	// 		"Device in nco only mode. No need to setup jesd\n");
+	// 	return 0;
+	// }
 
 	/* JESD Link Config */
 
@@ -289,6 +289,14 @@ static int ad916x_setup_jesd(struct ad9162_state *st)
 	if (st->jesd_param.jesd_M == 2)
 		st->conv.id = ID_AD9162_COMPLEX;
 
+
+	lane_rate_kHz = div_u64(ad916x_h->dac_freq_hz * 20 *
+				st->jesd_param.jesd_M,
+				st->jesd_param.jesd_L *
+				st->interpolation * 1000);
+
+	dev_info(dev, "lane_rate_khz: %ld", lane_rate_kHz);
+
 	/*
 	 * When using the jesd204-fsm the remaining setup steps ore handled
 	 * in the Link states, so return here.
@@ -317,6 +325,7 @@ static int ad916x_setup_jesd(struct ad9162_state *st)
 				st->jesd_param.jesd_L *
 				st->interpolation * 1000);
 
+	dev_info(dev, "lane_rate_khz: %ld", lane_rate_kHz);
 	ret = clk_set_rate(st->conv.clk[CLK_DATA], lane_rate_kHz);
 	if (ret < 0) {
 		dev_err(dev, "Failed to set lane rate to %lu kHz: %d\n",
@@ -360,7 +369,7 @@ static int ad9162_jesd204_link_init(struct jesd204_dev *jdev,
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
 
-	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
+	dev_info(dev, "%s:%d link_num %u reason %s\n", __func__,
 		__LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
 	link = &st->jesd204_link;
@@ -392,7 +401,7 @@ static int ad9162_jesd204_clks_enable(struct jesd204_dev *jdev,
 	struct ad9162_state *st = priv->st;
 	int ret;
 
-	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
+	dev_info(dev, "%s:%d link_num %u reason %s\n", __func__,
 		__LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
 	if (reason == JESD204_STATE_OP_REASON_INIT) {
@@ -436,7 +445,7 @@ static int ad9162_jesd204_link_enable(struct jesd204_dev *jdev,
 	struct ad9162_state *st = priv->st;
 	int ret;
 
-	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
+	dev_info(dev, "%s:%d link_num %u reason %s\n", __func__,
 		 __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
 	ret = ad916x_jesd_enable_link(&st->dac_h,
@@ -461,7 +470,7 @@ static int ad9162_jesd204_link_running(struct jesd204_dev *jdev,
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
 
-	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__,
+	dev_info(dev, "%s:%d link_num %u reason %s\n", __func__,
 		 __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
 	ret = ad916x_jesd_link_status(st);
@@ -491,7 +500,7 @@ static const struct jesd204_dev_data jesd204_ad9162_init = {
 	},
 
 	.max_num_links = 1,
-	.num_retries = 2,
+	.num_retries = 4,
 	.sizeof_priv = sizeof(struct ad9162_jesd204_priv),
 };
 
@@ -509,6 +518,7 @@ static int ad9162_setup(struct ad9162_state *st)
 	ret = ad916x_init(ad916x_h);
 	if (ret != 0)
 		return ret;
+	dev_info(dev, "AD916x after init");
 
 	ret = ad916x_get_chip_id(ad916x_h, &dac_chip_id);
 	if (ret != 0)
@@ -540,9 +550,11 @@ static int ad9162_setup(struct ad9162_state *st)
 	dac_rate_Hz = clk_get_rate_scaled(st->conv.clk[CLK_DAC],
 					  &st->conv.clkscale[CLK_DAC]);
 
+	dev_info(dev, "AD916x dac_rate_Hz: %lld", dac_rate_Hz);
 	ret = ad916x_dac_set_clk_frequency(ad916x_h, dac_rate_Hz);
 	if (ret != 0)
 		return ret;
+	dev_info(dev, "AD916x after ad916x_dac_set_clk_frequency");
 
 	/* check for dc test mode */
 	if (device_property_read_bool(dev, "adi,dc-test-en")) {
@@ -556,7 +568,7 @@ static int ad9162_setup(struct ad9162_state *st)
 
 	st->interpolation = 1;
 
-	dev_dbg(dev, "DAC CLK rate: %llu\n", dac_rate_Hz);
+	dev_info(dev, "DAC CLK rate: %llu\n", dac_rate_Hz);
 
 	/* enable temperature sensor */
 	ret = ad916x_register_write(ad916x_h, AD9162_REG_TEMP_CTRL,
@@ -583,13 +595,14 @@ static int ad9162_setup(struct ad9162_state *st)
 	return 0;
 }
 
-static int ad9162_get_clks(struct cf_axi_converter *conv)
+static int ad9162_get_clks(struct spi_device *spi, struct cf_axi_converter *conv)
 {
 	struct clk *clk;
 	int i, ret;
 
 	for (i = 0; i < ARRAY_SIZE(ad9162_clks); i++) {
 		clk = devm_clk_get(&conv->spi->dev, ad9162_clks[i].name);
+		dev_info(&spi->dev, "Searching for clock: %s", ad9162_clks[i].name);
 		if (IS_ERR(clk) && PTR_ERR(clk) != -ENOENT)
 			return PTR_ERR(clk);
 
@@ -1084,7 +1097,7 @@ static int ad9162_probe(struct spi_device *spi)
 		priv->st = st;
 	}
 
-	ret = ad9162_get_clks(conv);
+	ret = ad9162_get_clks(spi, conv);
 	if (ret < 0) {
 		dev_err(&spi->dev, "Failed to get clocks, %d\n", ret);
 		goto out;

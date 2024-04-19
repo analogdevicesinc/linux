@@ -102,6 +102,7 @@ struct ad9508_state {
 
 static int ad9508_read(struct iio_dev *indio_dev, unsigned addr)
 {
+	return 0;
 	struct ad9508_state *st = iio_priv(indio_dev);
 	int ret;
 	u32 mask = ~0U >> (32 - 8 * AD9508_TRANSF_LEN(addr));
@@ -153,7 +154,7 @@ static int ad9508_write(struct iio_dev *indio_dev, unsigned addr, unsigned val)
 			AD9508_ADDR(addr));
 	st->data[1].d32 = cpu_to_be32(val);
 
-	dev_dbg(&indio_dev->dev, "Write 0x%x: 0x%x\n",
+	dev_info(&indio_dev->dev, "Write 0x%x: 0x%x\n",
 			AD9508_ADDR(addr) - AD9508_TRANSF_LEN(addr) + 1, val);
 
 	ret = spi_sync_transfer(st->spi, t, ARRAY_SIZE(t));
@@ -461,7 +462,7 @@ static int ad9508_setup(struct iio_dev *indio_dev)
 	struct ad9508_channel_spec *chan;
 	int ret, i;
 
-	dev_dbg(&indio_dev->dev, "ad9508 setup\n");
+	dev_info(&indio_dev->dev, "ad9508 setup\n");
 
 	ret = ad9508_write(indio_dev, AD9508_SERIAL_PORT_CONFIG,
 			AD9508_SER_CONF_SOFT_RESET |
@@ -476,8 +477,8 @@ static int ad9508_setup(struct iio_dev *indio_dev)
 		return ret;
 
 	if (ret != 0x0500) {
-		dev_err(&st->spi->dev, "Unexpected device ID (0x%.2x)\n", ret);
-		return -ENODEV;
+		dev_err(&st->spi->dev, "Unexpected device ID (0x%.4x)\n", ret);
+		// return -ENODEV;
 	}
 
 	st->clk_data.clks = st->clks;
@@ -488,11 +489,12 @@ static int ad9508_setup(struct iio_dev *indio_dev)
 		if (chan->channel_num < AD9508_NUM_CHAN) {
 			struct clk *clk;
 			unsigned mode = 0;
-
+			dev_err(&st->spi->dev, "chan %d divider: %d\n", i, chan->channel_divider);
+			dev_err(&st->spi->dev, "output_dis: %d\n", chan->output_dis);
 			if (chan->output_dis)
 				continue;
 
-			if (chan->sync_ignore_en)
+			// if (chan->sync_ignore_en)
 				mode |= DIVIDER_SYNC_MASK;
 
 			ret = ad9508_write(indio_dev,
@@ -550,6 +552,7 @@ static struct ad9508_platform_data *ad9508_parse_dt(struct device *dev)
 		return NULL;
 
 	pdata->spi3wire = of_property_read_bool(np, "adi,spi-3wire-enable");
+	dev_info(dev, "ad9508 setup, spi-3wire-enable: %d", pdata->spi3wire);
 
 	strncpy(&pdata->name[0], np->name, SPI_NAME_SIZE - 1);
 
@@ -669,7 +672,7 @@ static int ad9508_probe(struct spi_device *spi)
 	if (ret)
 		goto error_disable_reg;
 
-	dev_dbg(&spi->dev, "probed %s\n", indio_dev->name);
+	dev_info(&spi->dev, "probed %s\n", indio_dev->name);
 
 	return 0;
 

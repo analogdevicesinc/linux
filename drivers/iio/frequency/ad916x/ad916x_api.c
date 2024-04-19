@@ -304,7 +304,7 @@ ADI_API int ad916x_transmit_enable_pin(ad916x_handle_t *h,
 		tmp_reg &= ~(0x0F);
 		tmp_reg |= AD916x_FLD_TX_EN_ZERO_DATA_DAC;
 		break;
-	case ZERO_DATA_IN_PATH:	
+	case ZERO_DATA_IN_PATH:
 		tmp_reg &= ~(0x0F);
 		tmp_reg |= AD916x_FLD_TX_EN_ZERO_DATA_PATH;
 		break;

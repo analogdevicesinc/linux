@@ -246,11 +246,14 @@ struct child_clk {
 
 static int adf5355_spi_write(struct adf5355_state *st, u32 val)
 {
+	int ret = 0;
 	st->val = cpu_to_be32(val);
 
-	dev_dbg(&st->spi->dev, "[%d] 0x%.8X\n", val & 0xF, val);
+	dev_info(&st->spi->dev, "[%d] 0x%.8X\n", val & 0xF, val);
 
-	return spi_write(st->spi, &st->val, 4);
+	ret = spi_write(st->spi, &st->val, 4);
+	dev_info(&st->spi->dev, "spi_write return: %d", ret);
+	return ret;
 }
 
 static int adf5355_sync_config(struct adf5355_state *st, bool sync_all)
@@ -539,7 +542,7 @@ static int adf5355_set_freq(struct adf5355_state *st, unsigned long long freq,
 	st->freq_req = freq;
 	st->freq_req_chan = channel;
 
-	dev_dbg(&st->spi->dev, "VCO: %llu Hz, PFD %lu Hz\n"
+	dev_info(&st->spi->dev, "VCO: %llu Hz, PFD %lu Hz\n"
 		"INT %d, FRACT1 %d, FRACT2 %d\n"
 		"MOD2 %d, RF_DIV %d\nPRESCALER %s\n",
 		freq, st->fpfd, st->integer, st->fract1,st->fract2, st->mod2,
@@ -627,7 +630,7 @@ static ssize_t adf5355_read(struct iio_dev *indio_dev,
 		/* PLL unlocked? return error */
 		if (gpio_is_valid(st->pdata->gpio_lock_detect))
 			if (!gpio_get_value(st->pdata->gpio_lock_detect)) {
-				dev_dbg(&st->spi->dev, "PLL un-locked\n");
+				dev_info(&st->spi->dev, "PLL un-locked\n");
 				ret = -EBUSY;
 			}
 		break;
@@ -907,7 +910,7 @@ static int adf5355_probe(struct spi_device *spi)
 	st->spi = spi;
 	st->pdata = pdata;
 	st->clk = clk;
-
+	// dev_info(&spi->dev, "SPI_GET_DEVICEID: %d\n", spi_get_device_id(spi)->driver_data);
 	switch (spi_get_device_id(spi)->driver_data) {
 	case ADF5356:
 		st->is_5356 = true;
@@ -949,9 +952,13 @@ static int adf5355_probe(struct spi_device *spi)
 	indio_dev->channels = st->is_5355 ? adf5355_chan : adf4355_chan;
 	indio_dev->num_channels = 2;
 
+	dev_info(&spi->dev, "before adf5355_setup!");
 	ret = adf5355_setup(st, 0);
-	if (ret)
+	if (ret) {
+		dev_err(&spi->dev, "adf5355_setup returned: %d", ret);
 		goto error_disable_reg;
+	}
+
 
 	if (gpio_is_valid(pdata->gpio_lock_detect)) {
 		ret = devm_gpio_request(&spi->dev, pdata->gpio_lock_detect,

@@ -437,7 +437,7 @@ static void adxcvr_work_func(struct work_struct *work)
 
 	div40_rate = st->lane_rate * (1000 / 40);
 
-	dev_dbg(st->dev, "%s: setting MMCM on %s rate %lu\n",
+	dev_info(st->dev, "%s: setting MMCM on %s rate %lu\n",
 		__func__, st->tx_enable ? "TX" : "RX", div40_rate);
 
 	if (__clk_is_enabled(st->lane_rate_div40_clk))
@@ -462,7 +462,7 @@ static int adxcvr_reset(struct adxcvr_state *st)
 		adxcvr_write(st, ADXCVR_REG_RESETN, 0);
 		udelay(2);
 		adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
-		dev_dbg(st->dev, "%s: %s %s Reset\n",
+		dev_info(st->dev, "%s: %s %s Reset\n",
 			__func__,
 			adxcvr_sys_clock_sel_names[st->sys_clk_sel],
 			st->tx_enable ? "TX" : "RX");
@@ -480,7 +480,7 @@ static int adxcvr_clk_enable(struct clk_hw *hw)
 	unsigned int status;
 	int bufstatus_err;
 
-	dev_dbg(st->dev, "%s: %s\n", __func__, st->tx_enable ? "TX" : "RX");
+	dev_info(st->dev, "%s: %s\n", __func__, st->tx_enable ? "TX" : "RX");
 
 	ret = adxcvr_reset(st);
 	if (ret < 0)
@@ -523,7 +523,7 @@ static void adxcvr_clk_disable(struct clk_hw *hw)
 	struct adxcvr_state *st =
 		container_of(hw, struct adxcvr_state, lane_clk_hw);
 
-	dev_dbg(st->dev, "%s: %s", __func__, st->tx_enable ? "TX" : "RX");
+	dev_info(st->dev, "%s: %s", __func__, st->tx_enable ? "TX" : "RX");
 
 	adxcvr_write(st, ADXCVR_REG_RESETN, 0);
 }
@@ -537,7 +537,7 @@ static unsigned long adxcvr_clk_recalc_rate(struct clk_hw *hw,
 	unsigned int *tx_out_div;
 	unsigned int out_div;
 
-	dev_dbg(st->dev, "%s: Parent Rate %lu Hz",
+	dev_info(st->dev, "%s: Parent Rate %lu Hz",
 		__func__, parent_rate);
 
 	if (st->tx_enable) {
@@ -583,7 +583,7 @@ static long adxcvr_clk_round_rate(struct clk_hw *hw,
 	if (st->ref_is_div40)
 		*prate = rate * (1000 / 40);
 
-	dev_dbg(st->dev, "%s: Rate %lu kHz Parent Rate %lu Hz",
+	dev_info(st->dev, "%s: Rate %lu kHz Parent Rate %lu Hz",
 		__func__, rate, *prate);
 
 	/* Just check if we can support the requested rate */
@@ -609,7 +609,7 @@ static int adxcvr_clk_set_rate(struct clk_hw *hw,
 	unsigned int i;
 	int ret;
 
-	dev_dbg(st->dev, "%s: Rate %lu kHz Parent Rate %lu Hz",
+	dev_info(st->dev, "%s: Rate %lu kHz Parent Rate %lu Hz",
 		__func__, rate, parent_rate);
 
 	clk25_div = DIV_ROUND_CLOSEST(parent_rate, 25000000);
@@ -737,7 +737,7 @@ static unsigned long adxcvr_qpll_recalc_rate(struct clk_hw *hw,
 		container_of(hw, struct adxcvr_state, qpll_clk_hw);
 	struct xilinx_xcvr_qpll_config qpll_conf;
 
-	dev_dbg(st->dev, "%s: Parent Rate %lu Hz",
+	dev_info(st->dev, "%s: Parent Rate %lu Hz",
 		__func__, parent_rate);
 
 	xilinx_xcvr_qpll_read_config(&st->xcvr, st->sys_clk_sel,
@@ -1082,6 +1082,8 @@ static int adxcvr_probe(struct platform_device *pdev)
 	st->tx_enable = !!(synth_conf & BIT(8));
 	st->num_lanes = synth_conf & 0xff;
 	st->qpll_enable = !!(synth_conf & BIT(20));
+
+	dev_info(&pdev->dev, "tx_enable: %d, num_lanes: %d, qpll_enable: %d", st->tx_enable, st->num_lanes, st->qpll_enable);
 
 	xcvr_type = (synth_conf >> 16) & 0xf;
 
