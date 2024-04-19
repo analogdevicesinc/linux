@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 #ifndef __gc_hal_kernel_hardware_func_flop_reset_h_
 #define __gc_hal_kernel_hardware_func_flop_reset_h_
 #ifdef __cplusplus

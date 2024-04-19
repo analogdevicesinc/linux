@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 #include "gc_hal_kernel_precomp.h"
 
 #define _GC_OBJ_ZONE gcvZONE_POWER

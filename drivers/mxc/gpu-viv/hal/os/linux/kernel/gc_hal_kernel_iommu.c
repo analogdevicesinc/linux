@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 #include "gc_hal_kernel_linux.h"
 #include "gc_hal_kernel_device.h"
 

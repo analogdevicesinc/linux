@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 #include "gc_hal_kernel_precomp.h"
 #include "gc_hal_kernel_context.h"
 #include "gc_hal_kernel_preemption.h"

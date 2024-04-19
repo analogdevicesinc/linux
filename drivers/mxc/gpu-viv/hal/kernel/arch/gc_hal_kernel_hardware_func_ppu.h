@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 //#include "gc_hal_user_hardware_precomp.h"
 //#include "gc_hal_user.h"
 

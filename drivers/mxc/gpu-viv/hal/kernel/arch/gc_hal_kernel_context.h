@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 #ifndef __gc_hal_kernel_context_h_
 #define __gc_hal_kernel_context_h_
 

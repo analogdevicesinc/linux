@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 #include <gc_hal.h>
 #include <gc_feature_database.h>
 #include "gc_hal_kernel_hardware_func_flop_reset.h"

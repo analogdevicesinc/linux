@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 /*
  *
  * gckCONTEXT object initialization for architecture dependent user HAL layers.

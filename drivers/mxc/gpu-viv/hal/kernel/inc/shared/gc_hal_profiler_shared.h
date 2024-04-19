@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 #ifndef __gc_hal_profiler_shared_h_
 #define __gc_hal_profiler_shared_h_
 

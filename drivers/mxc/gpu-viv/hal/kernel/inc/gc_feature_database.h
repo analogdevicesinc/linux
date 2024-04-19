@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 /*Auto created on 2024-02-27 13:54*/
 #ifndef _gc_feature_database_h_
 #define _gc_feature_database_h_

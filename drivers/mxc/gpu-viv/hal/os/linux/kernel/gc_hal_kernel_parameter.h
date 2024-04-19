@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 #ifndef _GC_HAL_KERNEL_PARAMETER_H_
 #define _GC_HAL_KERNEL_PARAMETER_H_
 

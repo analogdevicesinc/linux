@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 /*
  * Interface specification between user and kernel level HAL layers.
  */

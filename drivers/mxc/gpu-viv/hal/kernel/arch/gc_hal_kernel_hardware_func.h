@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 #ifndef __gc_hal_kernel_hardware_func_h_
 #define __gc_hal_kernel_hardware_func_h_
 #include "gc_hal.h"

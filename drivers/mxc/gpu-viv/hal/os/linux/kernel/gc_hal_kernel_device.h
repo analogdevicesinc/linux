@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 #ifndef __gc_hal_kernel_device_h_
 #define __gc_hal_kernel_device_h_
 

@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 #include "gc_hal_kernel_linux.h"
 
 #define _GC_OBJ_ZONE gcvZONE_OS

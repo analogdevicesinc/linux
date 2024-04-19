@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 #ifndef _GC_HAL_SECURITY_INTERFACE_H_
 #define _GC_HAL_SECURITY_INTERFACE_H_
 struct kernel_start_command {

@@ -52,7 +52,6 @@
 *
 *****************************************************************************/
 
-
 #ifndef _gc_hal_kernel_platform_h_
 #define _gc_hal_kernel_platform_h_
 #include <linux/mm.h>
