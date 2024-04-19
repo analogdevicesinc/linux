@@ -122,8 +122,8 @@
 		regulator-name = "can2-stby";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
-		gpio = <&pcal6524 14 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
+		gpio = <&pcal6524 14 GPIO_ACTIVE_LOW>;
+		enable-active-low;
 	};
 
 	reg_usdhc2_vmmc: regulator-usdhc2 {
