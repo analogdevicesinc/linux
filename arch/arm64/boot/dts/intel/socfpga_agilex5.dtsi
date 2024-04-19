@@ -280,27 +280,33 @@
 				};
 				queue2 {
 					snps,weight = <0x0B>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue3 {
 					snps,weight = <0x0C>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue4 {
 					snps,weight = <0x0D>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue5 {
 					snps,weight = <0x0E>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue6 {
 					snps,weight = <0x0F>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 					snps,tbs-enable;
 				};
 				queue7 {
 					snps,weight = <0x10>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 					snps,tbs-enable;
 				};
@@ -426,27 +432,33 @@
 				};
 				queue2 {
 					snps,weight = <0x0B>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue3 {
 					snps,weight = <0x0C>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue4 {
 					snps,weight = <0x0D>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue5 {
 					snps,weight = <0x0E>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue6 {
 					snps,weight = <0x0F>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 					snps,tbs-enable;
 				};
 				queue7 {
 					snps,weight = <0x10>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 					snps,tbs-enable;
 				};
@@ -572,27 +584,33 @@
 				};
 				queue2 {
 					snps,weight = <0x0B>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue3 {
 					snps,weight = <0x0C>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue4 {
 					snps,weight = <0x0D>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue5 {
 					snps,weight = <0x0E>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 				};
 				queue6 {
 					snps,weight = <0x0F>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 					snps,tbs-enable;
 				};
 				queue7 {
 					snps,weight = <0x10>;
+					snps,coe-unsupported;
 					snps,dcb-algorithm;
 					snps,tbs-enable;
 				};
