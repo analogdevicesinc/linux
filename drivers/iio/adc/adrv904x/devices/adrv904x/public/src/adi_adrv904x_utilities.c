@@ -533,6 +533,16 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxGainTableLoad(adi_adrv904x_Devic
 
             /* Parse the first line of the Rx Gain Table file which contains the version info */
 #ifdef __GNUC__
+#ifdef __KERNEL__
+            // Copy the substring before the comma, should be Version
+            strncpy(headerStr1, rxGainTableLineBuffer, 7);
+            if (sscanf(rxGainTableLineBuffer,
+                       "Version,%u,%u,%u,%u",
+                       (uint32_t*)&tableVersion.majorVer,
+                       (uint32_t*)&tableVersion.minorVer,
+                       (uint32_t*)&tableVersion.maintenanceVer,
+                       (uint32_t*)&tableVersion.buildVer) != (NUM_COLUMNS - 1))
+#else
             if (sscanf(rxGainTableLineBuffer,
                        "%[^,],%u,%u,%u,%u",
                        headerStr1,
@@ -540,6 +550,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxGainTableLoad(adi_adrv904x_Devic
                        (uint32_t*)&tableVersion.minorVer,
                        (uint32_t*)&tableVersion.maintenanceVer,
                        (uint32_t*)&tableVersion.buildVer) != NUM_COLUMNS)
+#endif
 #else
                     if (sscanf_s(rxGainTableLineBuffer,
                                  "%[^,],%d,%d,%d,%d",
@@ -594,6 +605,16 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxGainTableLoad(adi_adrv904x_Devic
 
             /* Parse the second line of the Rx Gain Table file which contains the checksum info */
 #ifdef __GNUC__
+#ifdef __KERNEL__
+            // Copy the substring before the comma, should be Version
+            strncpy(headerStr1, rxGainTableLineBuffer, 8);
+            if (sscanf(rxGainTableLineBuffer,
+                       "Checksum,%u,%u,%u,%u",
+                       (uint32_t*)&checksum[0],
+                       (uint32_t*)&checksum[1],
+                       (uint32_t*)&checksum[2],
+                       (uint32_t*)&checksum[3]) != NUM_COLUMNS -1)
+#else
             if (sscanf(rxGainTableLineBuffer,
                        "%[^,],%u,%u,%u,%u",
                        headerStr1,
@@ -601,6 +622,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxGainTableLoad(adi_adrv904x_Devic
                        (uint32_t*)&checksum[1],
                        (uint32_t*)&checksum[2],
                        (uint32_t*)&checksum[3]) != NUM_COLUMNS)
+#endif
 #else
                 if (sscanf_s(rxGainTableLineBuffer,
                              "%[^,],%d,%d,%d,%d",
@@ -655,11 +677,27 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxGainTableLoad(adi_adrv904x_Devic
                                 headerStr5,
                                 (uint32_t)sizeof(headerStr5)) != NUM_COLUMNS)
 #endif
+#ifdef __KERNEL__
+		for(unsigned int z = 0; z < HEADER_BUFFER_SIZE; z++) {
+			headerStr1[z] = '\0';
+			headerStr2[z] = '\0';
+			headerStr3[z] = '\0';
+			headerStr4[z] = '\0';
+			headerStr5[z] = '\0';
+		}
+
+            strncpy(headerStr1, rxGainTableLineBuffer, 10);
+            strncpy(headerStr2, &rxGainTableLineBuffer[11], 15);
+            strncpy(headerStr3, &rxGainTableLineBuffer[27], 11);
+            strncpy(headerStr4, &rxGainTableLineBuffer[39], 12);
+            strncpy(headerStr5, &rxGainTableLineBuffer[52], 12);
+#else
                 {
                     recoveryAction = ADI_ADRV904X_ERR_ACT_CHECK_PARAM;
                     ADI_PARAM_ERROR_REPORT(&device->common, recoveryAction, rxGainTableInfo[arrayIndex].filePath, "Invalid Rx Gain Table Format Detected");
                     goto cleanup;
                 }
+#endif
 
             /* Verify that Gain Table Format is correct */
             if (ADI_LIBRARY_STRSTR(headerStr1, "Gain Index") == NULL)
