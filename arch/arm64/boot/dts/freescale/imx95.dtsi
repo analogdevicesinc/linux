@@ -3012,6 +3012,10 @@
 		};
 	};
 
+	rpmsg-lifecycle {
+		compatible = "nxp,rpmsg-lifecycle";
+	};
+
 	ele_fw2: se-fw2 {
 		compatible = "fsl,imx95-se-fw";
 		mbox-names = "tx", "rx";
