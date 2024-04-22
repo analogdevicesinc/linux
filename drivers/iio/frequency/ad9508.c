@@ -154,7 +154,7 @@ static int ad9508_write(struct iio_dev *indio_dev, unsigned addr, unsigned val)
 			AD9508_ADDR(addr));
 	st->data[1].d32 = cpu_to_be32(val);
 
-	dev_info(&indio_dev->dev, "Write 0x%x: 0x%x\n",
+	dev_info(&indio_dev->dev, "AD9508 Write 0x%x: 0x%x\n",
 			AD9508_ADDR(addr) - AD9508_TRANSF_LEN(addr) + 1, val);
 
 	ret = spi_sync_transfer(st->spi, t, ARRAY_SIZE(t));
@@ -176,8 +176,9 @@ static int ad9508_set_channel_div_enable(struct iio_dev *indio_dev, unsigned cha
 	else
 		ret |= DIVIDER_PD;
 
-	return ad9508_write(indio_dev,
-			    AD9508_CHANNEL_OUT_DRIVER(chan), ret);
+	return 0;
+//	return ad9508_write(indio_dev,
+//			    AD9508_CHANNEL_OUT_DRIVER(chan), ret);
 }
 
 static int ad9508_get_channel_div_enable(struct iio_dev *indio_dev, unsigned chan)

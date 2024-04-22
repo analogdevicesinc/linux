@@ -241,11 +241,11 @@ static int ad916x_setup_jesd(struct ad9162_state *st)
 	int ret;
 
 	/* check nco only mode */
-	// if (st->dc_test_mode) {
-	// 	dev_info(dev,
-	// 		"Device in nco only mode. No need to setup jesd\n");
-	// 	return 0;
-	// }
+	 if (st->dc_test_mode) {
+	 	dev_info(dev,
+	 		"Device in nco only mode. No need to setup jesd\n");
+	 	return 0;
+	 }
 
 	/* JESD Link Config */
 
@@ -288,14 +288,6 @@ static int ad916x_setup_jesd(struct ad9162_state *st)
 
 	if (st->jesd_param.jesd_M == 2)
 		st->conv.id = ID_AD9162_COMPLEX;
-
-
-	lane_rate_kHz = div_u64(ad916x_h->dac_freq_hz * 20 *
-				st->jesd_param.jesd_M,
-				st->jesd_param.jesd_L *
-				st->interpolation * 1000);
-
-	dev_info(dev, "lane_rate_khz: %ld", lane_rate_kHz);
 
 	/*
 	 * When using the jesd204-fsm the remaining setup steps ore handled
