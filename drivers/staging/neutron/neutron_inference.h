@@ -43,7 +43,7 @@ enum neutron_cmd_type {
  * @node:			Inference node in queue
  * @inf_arg:			Inference arguments
  * @poll_mode:			Whether use polling mode to read inference result
- * @struct timer_list:		Poll timer to check inference status
+ * @poll_timer:			Poll timer to check inference status
  */
 struct neutron_inference {
 	struct neutron_device    *ndev;
@@ -53,7 +53,7 @@ struct neutron_inference {
 	enum neutron_uapi_status status;
 	struct list_head         node;
 	bool                     poll_mode;
-	struct timer_list        poll_timer;
+	struct hrtimer           poll_timer;
 	unsigned int             poll_count;
 	enum   neutron_cmd_type  cmd_type;
 	struct neutron_uapi_inference_args  args;
