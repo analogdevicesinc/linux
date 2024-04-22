@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices ADAQ4224
+ * Analog Devices ADAQ4224 without isolated power supply
  *
  * hdl_project: <ad4630_fmc/zed>
- * board_revision: <B>
+ * board_revision: <3>
  *
  * Copyright (C) 2023 Analog Devices Inc.
  */
@@ -18,8 +18,8 @@
 	vref: regulator-vref {
 		compatible = "regulator-fixed";
 		regulator-name = "fixed-supply";
-		regulator-min-microvolt = <5000000>;
-		regulator-max-microvolt = <5000000>;
+		regulator-min-microvolt = <4096000>;
+		regulator-max-microvolt = <4096000>;
 		regulator-always-on;
 	};
 
@@ -50,14 +50,13 @@
 };
 
 &fpga_axi {
-	i2c@44c00000 {
+	i2c@41620000 {
 		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
-		reg = <0x44c00000 0x10000>;
+		reg = <0x41620000 0x10000>;
 		interrupt-parent = <&intc>;
-		interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
 		clock-names = "pclk";
-
 		#size-cells = <0>;
 		#address-cells = <1>;
 
@@ -65,8 +64,18 @@
 			compatible = "adi,max31827";
 			reg = <0x5f>;
 			vref-supply = <&vio>;
+			adi,comp-int;
+			adi,alarm-pol = <0>;
+			adi,fault-q = <1>;
+			adi,timeout-enable;
+		};
+
+		eeprom1: eeprom@50 {
+			compatible = "at24,24c02";
+			reg = <0x50>;
 		};
 	};
+
 	rx_dma: rx-dmac@44a30000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44a30000 0x1000>;
@@ -103,7 +112,6 @@
 		label = "ad463x_cnv";
 		#pwm-cells = <2>;
 		clocks = <&cnv_ext_clk>;
-
 	};
 
 	axi_spi_engine: spi@44a00000 {
@@ -114,7 +122,6 @@
 		clocks = <&clkc 15>, <&spi_clk>;
 		clock-names = "s_axi_aclk", "spi_clk";
 		num-cs = <1>;
-
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
 
@@ -129,18 +136,14 @@
 			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
 			adi,pga-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>,
 					<&gpio0 88 GPIO_ACTIVE_HIGH>;
-			adi,lane-mode = <1>;
-			adi,clock-mode = <1>;
+			adi,lane-mode = <0>;
+			adi,clock-mode = <0>;
 			adi,out-data-mode = <0>;
-			adi,dual-data-rate;
 			adi,spi-trigger;
-
 			clocks = <&cnv_ext_clk>;
 			clock-names = "trigger_clock";
-
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
-
 			pwm-names = "spi_trigger", "cnv";
 			pwms = <&axi_pwm_gen 0 0>, <&axi_pwm_gen 1 0>;
 		};
