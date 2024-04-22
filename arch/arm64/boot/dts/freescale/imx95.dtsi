@@ -3037,6 +3037,12 @@
 					reg = <0x00c000 0 0 0 0>;
 					status = "disabled";
 				};
+
+				rcec@1,0 {
+					compatible = "pci1131,e001";
+					reg = <0x000800 0 0 0 0>;
+					interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_HIGH>;
+				};
 			};
 
 			pcie_4cb00000: pcie@4cb00000 {
