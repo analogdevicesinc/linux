@@ -949,7 +949,7 @@ void adi_init_ring(struct adi_dev *pkte_dev);
 void adi_configure_cdr(struct adi_dev *pkte_dev);
 void adi_source_data(struct adi_dev *pkte_dev, u32 size);
 void adi_config_sa_para(struct adi_dev *pkte_dev);
-void adi_config_sa_key(struct adi_dev *pkte_dev, u32 Key[]);
+void adi_config_sa_key(struct adi_dev *pkte_dev, const u32 Key[]);
 void adi_config_state(struct adi_dev *pkte_dev, u32 IV[]);
 void adi_write(struct adi_dev *pkte_dev, u32 offset, u32 value);
 
@@ -966,9 +966,9 @@ extern wait_queue_head_t wq_ready;
 extern bool ready;
 extern struct adi_drv adi;
 
-extern u32 Key[8];
-extern u32 IV[4];
-extern u32 IDigest[8];
-extern u32 ODigest[8];
+extern const u32 Key[8];
+extern const u32 IDigest[8];
+extern const u32 ODigest[8];
 
+extern u32 IV[4];
 #endif

@@ -13,31 +13,22 @@
  * Nathan Barrett-Morrison <nathan.morrison@timesys.com>
  */
 
-#include <linux/err.h>
-#include <linux/device.h>
 #include <linux/module.h>
-#include <linux/init.h>
-#include <linux/errno.h>
-#include <linux/interrupt.h>
 #include <linux/kernel.h>
+#include <linux/err.h>
 #include <linux/irq.h>
-#include <linux/io.h>
 #include <linux/platform_device.h>
 #include <linux/scatterlist.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
-#include <linux/delay.h>
 #include <linux/crypto.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_address.h>
 #include <linux/mutex.h>
 #include <crypto/scatterwalk.h>
-#include <crypto/algapi.h>
 #include <crypto/hash.h>
 #include <crypto/internal/hash.h>
-#include <asm/unaligned.h>
-#include <linux/io.h>
 
 #include "adi_crc.h"
 
@@ -53,36 +44,36 @@ DEFINE_MUTEX(crc_mutex);
 #define CRC_MAX_DMA_DESC	   100
 
 struct adi_crypto_crc {
-	struct list_head	list;
-	struct device		*dev;
-	spinlock_t		lock;
+	struct list_head list;
+	struct device *dev;
+	spinlock_t lock;
 
-	int			irq;
-	struct dma_chan	*dma_ch;
-	u32			poly;
-	struct crc_register	*regs;
+	int irq;
+	struct dma_chan *dma_ch;
+	u32 poly;
+	struct crc_register *regs;
 
-	struct ahash_request	*req;        /* current request in operation */
-	struct dma_desc_array	*sg_cpu;     /* virt addr of sg dma descriptors */
-	dma_addr_t		sg_dma;      /* phy addr of sg dma descriptors */
+	struct ahash_request *req;	/* current request in operation */
+	struct dma_desc_array *sg_cpu;	/* virt addr of sg dma descriptors */
+	dma_addr_t sg_dma;	/* phy addr of sg dma descriptors */
 };
 
 static struct adi_crypto_crc_list {
-	struct list_head	dev_list;
-	spinlock_t		lock;
+	struct list_head dev_list;
+	spinlock_t lock;
 } crc_list;
 
 struct adi_crypto_crc_reqctx {
-	struct adi_crypto_crc	*crc;
+	struct adi_crypto_crc *crc;
 
-	unsigned int		total;		/* total request bytes */
-	struct scatterlist	sg_list[1];     /* chained sg list */
+	unsigned int total;	/* total request bytes */
+	struct scatterlist sg_list[1];	/* chained sg list */
 };
 
 struct adi_crypto_crc_ctx {
-	struct adi_crypto_crc	*crc;
-	u32			key;
-	u8			xmit_buf[BUFLEN] __aligned(sizeof(u32));
+	struct adi_crypto_crc *crc;
+	u32 key;
+	u8 xmit_buf[BUFLEN] __aligned(sizeof(u32));
 };
 
 static int adi_crypto_crc_init_hw(struct adi_crypto_crc *crc, u32 key)
@@ -151,7 +142,7 @@ static int adi_crypto_crc_import(struct ahash_request *req, const void *in)
 static void adi_crypto_crc_config_dma(struct adi_crypto_crc *crc)
 {
 	struct adi_crypto_crc_reqctx *ctx = ahash_request_ctx(crc->req);
-	struct dma_slave_config dma_config = {0};
+	struct dma_slave_config dma_config = { 0 };
 	struct dma_async_tx_descriptor *desc;
 	int ret;
 
@@ -172,7 +163,7 @@ static void adi_crypto_crc_config_dma(struct adi_crypto_crc *crc)
 	}
 
 	desc = dmaengine_prep_slave_sg(crc->dma_ch, ctx->sg_list, 1,
-		DMA_MEM_TO_DEV, 0);
+				       DMA_MEM_TO_DEV, 0);
 
 	if (!desc) {
 		dev_err(crc->dev, "Unable to prep DMA engine\n");
@@ -202,11 +193,11 @@ static int adi_crypto_crc_update(struct ahash_request *req)
 
 	if (ctx->total + req->nbytes <= BUFLEN) {
 		ret = mutex_lock_interruptible(&crc_mutex);
-		if(ret)
+		if (ret)
 			return ret;
 
-		scatterwalk_map_and_copy(crc_ctx->xmit_buf + ctx->total, req->src,
-					0, req->nbytes, 0);
+		scatterwalk_map_and_copy(crc_ctx->xmit_buf + ctx->total,
+					 req->src, 0, req->nbytes, 0);
 
 		ctx->total += req->nbytes;
 
@@ -243,11 +234,11 @@ static int adi_crypto_crc_final(struct ahash_request *req)
 	dev_dbg(crc->dev, "%s @ %d\n", __func__, __LINE__);
 
 	ret = mutex_lock_interruptible(&crc_mutex);
-	if(ret)
+	if (ret)
 		return ret;
 
 	put_unaligned_be32(readl(&crc->regs->result) ^ 0xFFFFFFFF,
-			crc->req->result);
+			   crc->req->result);
 
 	mutex_unlock(&crc_mutex);
 
@@ -278,11 +269,11 @@ static int adi_crypto_crc_digest(struct ahash_request *req)
 
 	dev_dbg(crc->dev, "%s @ %d\n", __func__, __LINE__);
 
-	return adi_crypto_crc_init(req) ?: adi_crypto_crc_finup(req);
+	return adi_crypto_crc_init(req) ? : adi_crypto_crc_finup(req);
 }
 
-static int adi_crypto_crc_setkey(struct crypto_ahash *tfm, const u8 *key,
-			unsigned int keylen)
+static int adi_crypto_crc_setkey(struct crypto_ahash *tfm, const u8 * key,
+				 unsigned int keylen)
 {
 	struct adi_crypto_crc_ctx *crc_ctx = crypto_ahash_ctx(tfm);
 
@@ -310,29 +301,28 @@ static void adi_crypto_crc_cra_exit(struct crypto_tfm *tfm)
 }
 
 static struct ahash_alg algs = {
-	.init		= adi_crypto_crc_init,
-	.update		= adi_crypto_crc_update,
-	.final		= adi_crypto_crc_final,
-	.finup		= adi_crypto_crc_finup,
-	.digest		= adi_crypto_crc_digest,
-	.setkey		= adi_crypto_crc_setkey,
-	.export		= adi_crypto_crc_export,
-	.import		= adi_crypto_crc_import,
-	.halg.digestsize	= CHKSUM_DIGEST_SIZE,
-	.halg.statesize		= sizeof(struct adi_crypto_crc_reqctx),
-	.halg.base	= {
-		.cra_name		= "hmac(crc32)",
-		.cra_driver_name	= DRIVER_NAME,
-		.cra_priority		= 100,
-		.cra_flags		= CRYPTO_ALG_TYPE_AHASH |
-						CRYPTO_ALG_ASYNC |
-						CRYPTO_ALG_OPTIONAL_KEY,
-		.cra_blocksize		= CHKSUM_BLOCK_SIZE,
-		.cra_ctxsize		= sizeof(struct adi_crypto_crc_ctx),
-		.cra_module		= THIS_MODULE,
-		.cra_init		= adi_crypto_crc_cra_init,
-		.cra_exit		= adi_crypto_crc_cra_exit,
-	}
+	.init = adi_crypto_crc_init,
+	.update = adi_crypto_crc_update,
+	.final = adi_crypto_crc_final,
+	.finup = adi_crypto_crc_finup,
+	.digest = adi_crypto_crc_digest,
+	.setkey = adi_crypto_crc_setkey,
+	.export = adi_crypto_crc_export,
+	.import = adi_crypto_crc_import,
+	.halg.digestsize = CHKSUM_DIGEST_SIZE,
+	.halg.statesize = sizeof(struct adi_crypto_crc_reqctx),
+	.halg.base = {
+		      .cra_name = "hmac(crc32)",
+		      .cra_driver_name = DRIVER_NAME,
+		      .cra_priority = 100,
+		      .cra_flags = CRYPTO_ALG_TYPE_AHASH |
+		      CRYPTO_ALG_ASYNC | CRYPTO_ALG_OPTIONAL_KEY,
+		      .cra_blocksize = CHKSUM_BLOCK_SIZE,
+		      .cra_ctxsize = sizeof(struct adi_crypto_crc_ctx),
+		      .cra_module = THIS_MODULE,
+		      .cra_init = adi_crypto_crc_cra_init,
+		      .cra_exit = adi_crypto_crc_cra_exit,
+		       }
 };
 
 static irqreturn_t adi_crypto_crc_handler(int irq, void *dev_id)
@@ -366,7 +356,7 @@ static irqreturn_t adi_crypto_crc_handler(int irq, void *dev_id)
  *	@state: requested suspend state
  */
 static __maybe_unused int adi_crypto_crc_suspend(struct platform_device *pdev,
-				pm_message_t state)
+						 pm_message_t state)
 {
 	struct adi_crypto_crc *crc = platform_get_drvdata(pdev);
 	int i = 100000;
@@ -385,10 +375,11 @@ static __maybe_unused int adi_crypto_crc_suspend(struct platform_device *pdev,
 #ifdef CONFIG_OF
 static const struct of_device_id adi_crypto_of_match[] = {
 	{
-		.compatible = "adi,hmac-crc",
-	},
-	{},
+	 .compatible = "adi,hmac-crc",
+	  },
+	{ },
 };
+
 MODULE_DEVICE_TABLE(of, adi_crypto_of_match);
 #endif
 
@@ -419,9 +410,9 @@ static int adi_crypto_crc_probe(struct platform_device *pdev)
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	crc->regs = devm_ioremap_resource(dev, res);
-	if (IS_ERR((void *)crc->regs)) {
+	if (IS_ERR(crc->regs)) {
 		dev_err(&pdev->dev, "Cannot map CRC IO\n");
-		return PTR_ERR((void *)crc->regs);
+		return PTR_ERR(crc->regs);
 	}
 
 	crc->irq = platform_get_irq(pdev, 0);
@@ -431,8 +422,8 @@ static int adi_crypto_crc_probe(struct platform_device *pdev)
 	}
 
 	ret = devm_request_threaded_irq(dev, crc->irq,
-			adi_crypto_crc_handler, NULL,
-			IRQF_SHARED, dev_name(dev), crc);
+					adi_crypto_crc_handler, NULL,
+					IRQF_SHARED, dev_name(dev), crc);
 	if (ret) {
 		dev_err(&pdev->dev, "Unable to request ADI crc irq\n");
 		return ret;
@@ -447,7 +438,8 @@ static int adi_crypto_crc_probe(struct platform_device *pdev)
 		return -ENOENT;
 	}
 
-	crc->sg_cpu = dma_alloc_coherent(&pdev->dev, PAGE_SIZE, &crc->sg_dma, GFP_KERNEL);
+	crc->sg_cpu =
+	    dma_alloc_coherent(&pdev->dev, PAGE_SIZE, &crc->sg_dma, GFP_KERNEL);
 	if (crc->sg_cpu == NULL) {
 		dev_err(&pdev->dev, "DMA alloc failed\n");
 		ret = -ENOMEM;
@@ -485,7 +477,8 @@ static int adi_crypto_crc_probe(struct platform_device *pdev)
 
 out_error_dma:
 	if (crc->sg_cpu)
-		dma_free_coherent(&pdev->dev, PAGE_SIZE, crc->sg_cpu, crc->sg_dma);
+		dma_free_coherent(&pdev->dev, PAGE_SIZE, crc->sg_cpu,
+				  crc->sg_dma);
 	dma_release_channel(crc->dma_ch);
 
 	return ret;
@@ -500,7 +493,6 @@ static int adi_crypto_crc_remove(struct platform_device *pdev)
 	struct adi_crypto_crc *crc = platform_get_drvdata(pdev);
 
 	dev_dbg(crc->dev, "%s @ %d\n", __func__, __LINE__);
-
 	if (!crc)
 		return -ENODEV;
 
@@ -515,13 +507,13 @@ static int adi_crypto_crc_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver adi_crypto_crc_driver = {
-	.probe     = adi_crypto_crc_probe,
-	.remove    = adi_crypto_crc_remove,
-	.suspend   = adi_crypto_crc_suspend,
-	.driver    = {
-		.name  = DRIVER_NAME,
-		.of_match_table = of_match_ptr(adi_crypto_of_match),
-	},
+	.probe = adi_crypto_crc_probe,
+	.remove = adi_crypto_crc_remove,
+	.suspend = adi_crypto_crc_suspend,
+	.driver = {
+		   .name = DRIVER_NAME,
+		   .of_match_table = of_match_ptr(adi_crypto_of_match),
+		    },
 };
 
 /**
