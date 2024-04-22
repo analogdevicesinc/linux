@@ -33,20 +33,29 @@
 	status = "disabled";
 };
 
-/*
- * The simulated 256 bytes-size slave-eeprom is instantiated
- * at 7 bit address 0x64 on lpi2c4.
- */
+/* lpi2c4 work as a lpi2c master bus */
 &lpi2c4 {
 	clock-frequency = <400000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpi2c4>;
 	status = "okay";
 
+};
+
+/*
+ * lpi2c6 work as a lpi2c slave bus.
+ * The simulated 256 bytes-size slave-eeprom is instantiated
+ * at 7 bit address 0x64 on lpi2c6.
+ */
+&lpi2c6 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c6>;
+	status = "okay";
+
 	eeprom@64 {
 		compatible = "linux,slave-24c02";
 		reg = <(0x64 | I2C_OWN_SLAVE_ADDRESS)>;
-		status = "okay";
 	};
 };
 
@@ -87,6 +96,13 @@
 		fsl,pins = <
 			MX93_PAD_GPIO_IO02__LPI2C4_SDA			0x40000b9e
 			MX93_PAD_GPIO_IO03__LPI2C4_SCL			0x40000b9e
+		>;
+	};
+
+	pinctrl_lpi2c6: lpi2c6grp {
+		fsl,pins = <
+			MX93_PAD_GPIO_IO04__LPI2C6_SDA			0x40000b9e
+			MX93_PAD_GPIO_IO05__LPI2C6_SCL			0x40000b9e
 		>;
 	};
 
