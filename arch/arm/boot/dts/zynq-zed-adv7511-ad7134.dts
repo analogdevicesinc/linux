@@ -133,7 +133,11 @@
 	status = "okay";
 
 	ad4134_0: adc_0@0 {
-		compatible = "adi,ad4134";
+		//compatible = "adi,ad4134";
+		//compatible = "adi,ad7134-16";
+		//compatible = "adi,ad7134-16CRC";
+		//compatible = "adi,ad7134-24";
+		compatible = "adi,ad7134-24CRC";
 		reg = <0>;
 
 		spi-max-frequency = <10000000>;
@@ -159,7 +163,11 @@
 	};
 
 	ad4134_1: adc_1@1 {
-		compatible = "adi,ad4134";
+		//compatible = "adi,ad4134";
+		//compatible = "adi,ad7134-16";
+		//compatible = "adi,ad7134-16CRC";
+		//compatible = "adi,ad7134-24";
+		compatible = "adi,ad7134-24CRC";
 		reg = <1>;
 
 		spi-max-frequency = <10000000>;
