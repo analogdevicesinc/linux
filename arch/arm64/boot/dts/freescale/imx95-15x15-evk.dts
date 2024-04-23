@@ -530,6 +530,7 @@
 		reset-gpios = <&pcal6524 4 GPIO_ACTIVE_LOW>;
 		reset-assert-us = <10000>;
 		reset-deassert-us = <80000>;
+		realtek,clkout-disable;
 	};
 
 	ethphy1: ethernet-phy@2 {
@@ -538,6 +539,7 @@
 		reset-gpios = <&pcal6524 5 GPIO_ACTIVE_LOW>;
 		reset-assert-us = <10000>;
 		reset-deassert-us = <80000>;
+		realtek,clkout-disable;
 	};
 };
 

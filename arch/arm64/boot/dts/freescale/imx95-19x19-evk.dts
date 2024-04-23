@@ -736,6 +736,7 @@
 		reset-gpios = <&i2c5_gpio_expander_21 2 GPIO_ACTIVE_LOW>;
 		reset-assert-us = <10000>;
 		reset-deassert-us = <80000>;
+		realtek,clkout-disable;
 	};
 
 	ethphy2: ethernet-phy@8 {
