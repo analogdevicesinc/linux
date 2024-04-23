@@ -37,14 +37,14 @@
 			rx_link_clk: rx_link_clk {
 				#clock-cells = <0x0>;
 				compatible = "fixed-clock";
-				clock-frequency = <150000000>;
+				clock-frequency = <100000000>;
 				clock-output-names = "rx_link_clk";
 			};
 
 			tx_link_clk: tx_link_clk {
 				#clock-cells = <0x0>;
 				compatible = "fixed-clock";
-				clock-frequency = <150000000>;
+				clock-frequency = <100000000>;
 				clock-output-names = "tx_link_clk";
 			};
 
@@ -132,19 +132,19 @@
 						hmc7044_c6: channel@6 {
 							reg = <6>;
 							adi,extended-name = "CORE_CLK_TX";
-							adi,divider = <8>;
+							adi,divider = <24>;
 							adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 						};
 						hmc7044_c8: channel@8 {
 							reg = <8>;
 							adi,extended-name = "FPGA_REFCLK";
-							adi,divider = <8>;
+							adi,divider = <12>;
 							adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 						};
 						hmc7044_c10: channel@10 {
 							reg = <10>;
 							adi,extended-name = "CORE_CLK_RX";
-							adi,divider = <8>;
+							adi,divider = <24>;
 							adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 						};
 						hmc7044_c13: channel@13 {
@@ -194,7 +194,7 @@
 							#size-cells = <0>;
 							#address-cells = <1>;
 
-							adi,dac-frequency-hz = /bits/ 64 <4800000000>;
+							adi,dac-frequency-hz = /bits/ 64 <6400000000>;
 
 							adi,main-data-paths {
 								#address-cells = <1>;
@@ -260,21 +260,21 @@
 									#size-cells = <0>;
 									reg = <0>;
 
-									// adi,logical-lane-mapping = /bits/ 8 <7 5 0 1 6 2 3 4>;
-									adi,logical-lane-mapping = /bits/ 8 <7 7 0 1 7 2 3 7>;
-									adi,link-mode = <9>;			/* JESD Quick Configuration Mode */
-									adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
+									adi,logical-lane-mapping = /bits/ 8 <7 5 0 1 6 2 3 4>;
+									// adi,logical-lane-mapping = /bits/ 8 <7 7 0 1 7 2 3 7>;
+									adi,link-mode = <15>;			/* JESD Quick Configuration Mode */
+									adi,subclass = <0>;			/* JESD SUBCLASS 0,1,2 */
 									adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
 									adi,dual-link = <0>;			/* JESD Dual Link Mode */
 
 									adi,converters-per-device = <8>;	/* JESD M */
-									adi,octets-per-frame = <4>;		/* JESD F */
+									adi,octets-per-frame = <2>;		/* JESD F */
 
 									adi,frames-per-multiframe = <32>;	/* JESD K */
 									adi,converter-resolution = <16>;	/* JESD N */
 									adi,bits-per-sample = <16>;		/* JESD NP' */
 									adi,control-bits-per-sample = <0>;	/* JESD CS */
-									adi,lanes-per-device = <4>;		/* JESD L */
+									adi,lanes-per-device = <8>;		/* JESD L */
 									adi,samples-per-converter-per-frame = <1>; /* JESD S */
 									adi,high-density = <0>;			/* JESD HD */
 								};
@@ -285,7 +285,7 @@
 							#size-cells = <0>;
 							#address-cells = <1>;
 
-							adi,adc-frequency-hz = /bits/ 64 <2400000000>;
+							adi,adc-frequency-hz = /bits/ 64 <3200000000>;
 
 							adi,main-data-paths {
 								#address-cells = <1>;
@@ -359,22 +359,22 @@
 										<&ad9081_rx_fddc_chan4 FDDC_I>, <&ad9081_rx_fddc_chan4 FDDC_Q>,
 										<&ad9081_rx_fddc_chan5 FDDC_I>, <&ad9081_rx_fddc_chan5 FDDC_Q>;
 
-									// adi,logical-lane-mapping = /bits/ 8 <5 7 0 1 2 3 4 6>;
-									adi,logical-lane-mapping = /bits/ 8 <7 7 0 1 2 3 7 7>;
+									adi,logical-lane-mapping = /bits/ 8 <5 7 0 1 2 3 4 6>;
+									// adi,logical-lane-mapping = /bits/ 8 <7 7 0 1 2 3 7 7>;
 
-									adi,link-mode = <10>;			/* JESD Quick Configuration Mode */
-									adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
+									adi,link-mode = <16>;			/* JESD Quick Configuration Mode */
+									adi,subclass = <0>;			/* JESD SUBCLASS 0,1,2 */
 									adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
 									adi,dual-link = <0>;			/* JESD Dual Link Mode */
 
 									adi,converters-per-device = <8>;	/* JESD M */
-									adi,octets-per-frame = <4>;		/* JESD F */
+									adi,octets-per-frame = <2>;		/* JESD F */
 
 									adi,frames-per-multiframe = <32>;	/* JESD K */
 									adi,converter-resolution = <16>;	/* JESD N */
 									adi,bits-per-sample = <16>;		/* JESD NP' */
 									adi,control-bits-per-sample = <0>;	/* JESD CS */
-									adi,lanes-per-device = <4>;		/* JESD L */
+									adi,lanes-per-device = <8>;		/* JESD L */
 									adi,samples-per-converter-per-frame = <1>; /* JESD S */
 									adi,high-density = <0>;			/* JESD HD */
 								};
@@ -407,11 +407,11 @@
 								<0x10800000 0x00100000>,
 								<0x10900000 0x00100000>,
 								<0x10A00000 0x00100000>,
-								<0x10B00000 0x00100000>;
-								// <0x10C00000 0x00100000>,
-								// <0x10D00000 0x00100000>,
-								// <0x10E00000 0x00100000>,
-								// <0x10F00000 0x00100000>;
+								<0x10B00000 0x00100000>,
+								<0x10C00000 0x00100000>,
+								<0x10D00000 0x00100000>,
+								<0x10E00000 0x00100000>,
+								<0x10F00000 0x00100000>;
 								// <0x10000000 0x00002000>,
 								// <0x10200000 0x00002000>;
 								// <0x00084000 0x00002000>,
@@ -421,8 +421,8 @@
 								// <0x0008C000 0x00002000>,
 								// <0x0008E000 0x00002000>;
 					reg-names = "adxcvr",  "adxcfg-0", "adxcfg-1",
-															   "adxcfg-2", "adxcfg-3";
-																//  "adxcfg-4", "adxcfg-5", "adxcfg-6", "adxcfg-7";
+															   "adxcfg-2", "adxcfg-3",
+																 "adxcfg-4", "adxcfg-5", "adxcfg-6", "adxcfg-7";
 
 					clocks = <&hmc7044 8>, <&tx_link_clk>;
 					clock-names = "ref", "link";
@@ -471,11 +471,11 @@
 							<0x10000000 0x00100000>,
 							<0x10100000 0x00100000>,
 							<0x10200000 0x00100000>,
-							<0x10300000 0x00100000>;
-							// <0x10400000 0x00100000>,
-							// <0x10500000 0x00100000>,
-							// <0x10600000 0x00100000>,
-							// <0x10700000 0x00100000>;
+							<0x10300000 0x00100000>,
+							<0x10400000 0x00100000>,
+							<0x10500000 0x00100000>,
+							<0x10600000 0x00100000>,
+							<0x10700000 0x00100000>;
 							// <0x01000000 0x00002000>,
 							// <0x01020000 0x00002000>;
 							// <0x00044000 0x00002000>,
@@ -485,9 +485,9 @@
 							// <0x0004C000 0x00002000>,
 							// <0x0004E000 0x00002000>;
 				reg-names = "adxcvr", "adxcfg-0", "adxcfg-1",
-															"adxcfg-2", "adxcfg-3";
-															// "adxcfg-4",
-															// "adxcfg-5", "adxcfg-6", "adxcfg-7";
+															"adxcfg-2", "adxcfg-3",
+															"adxcfg-4",
+															"adxcfg-5", "adxcfg-6", "adxcfg-7";
 
 				clocks = <&hmc7044 8>, <&rx_link_clk>;
 				clock-names = "ref", "link";
