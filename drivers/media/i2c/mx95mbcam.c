@@ -329,8 +329,6 @@ static int mx95mbcam_probe(struct i2c_client *client)
 	if (IS_ERR(priv->ser))
 		return PTR_ERR(priv->ser);
 
-	i2c_set_clientdata(client, priv);
-
 	if (!max96717_is_dev_id_valid(priv->ser))
 		return -ENODEV;
 
