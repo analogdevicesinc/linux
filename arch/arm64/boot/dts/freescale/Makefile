@@ -256,7 +256,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk.dtb \
 			  imx93-11x11-evk-rpmsg.dtb imx93-11x11-evk-rpmsg-lpv.dtb
 
 dtb-$(CONFIG_ARCH_MXC) += imx91-11x11-evk.dtb \
-			  imx91-11x11-evk-flexspi-m2.dtb \
+			  imx91-11x11-evk-flexspi-m2.dtb imx91-11x11-evk-flexspi-nand-m2.dtb \
 			  imx91-11x11-evk-lpuart.dtb \
 			  imx91-11x11-evk-mqs.dtb imx91-11x11-evk-aud-hat.dtb \
 			  imx91-11x11-evk-tianma-wvga-panel.dtb \
