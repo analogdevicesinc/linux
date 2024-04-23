@@ -159,6 +159,13 @@ static int adi_read_hash_to_dest(struct adi_dev *pkte_dev, u32 packet_size,
 		break;
 	}
 
+
+	/* Check if buffer is about to overflow */
+	if (read_iter > PKTE_BUFLEN){
+		dev_err(pkte_dev->dev, "Attempted to overwrite destination buffer!\n");
+		return -ENOMEM;
+	}
+
 	for (i = 0; i < read_iter; i++) {
 		*dest_data_buf =
 		    adi_read(pkte_dev, data_buf_offset);
@@ -462,12 +469,11 @@ static void adi_prepare_secret_key(struct adi_dev *pkte_dev,
 	memcpy(&pkte->source[pkte_dev->ring_pos_consume][0],
 	       pkte_dev->secret_key, pkte_dev->secret_keylen);
 	source_bytewise = (u8 *) & pkte->source[pkte_dev->ring_pos_consume][0];
-	//XOR padded key with ipad
+	/* XOR padded key with ipad */
 	for (i = 0; i < INNER_OUTER_KEY_SIZE; i++)
 		*(source_bytewise + i) ^= 0x36;
-	//Hash XOR result
+	/* Hash XOR result */
 	adi_process_packet(pkte_dev, INNER_OUTER_KEY_SIZE, 0);
-
 	if (!(pkte_dev->flags & PKTE_HOST_MODE)) {
 		pkte_ctl_stat =
 		    adi_read(pkte_dev,
@@ -725,8 +731,8 @@ static void adi_finish_req(struct ahash_request *req, int err)
 			goto finish_req_err;
 
 		if (PKTE_FLAGS_HMAC & pkte_dev->flags) {
-			//Compute the outer hash of the HMAC (Result).  From RFC2104:
-			//HASH(Key XOR opad, HASH(Key XOR ipad, text))
+			/* Compute the outer hash of the HMAC (Result).  From RFC2104:
+			 * HASH(Key XOR opad, HASH(Key XOR ipad, text)) */
 			dev_dbg(pkte_dev->dev,
 				"%s processing req for hmac %lx\n", __func__,
 				pkte_dev->flags);
@@ -734,18 +740,18 @@ static void adi_finish_req(struct ahash_request *req, int err)
 
 			memset(&pkte->source[pkte_dev->ring_pos_consume][0], 0,
 			       INNER_OUTER_KEY_SIZE);
-			//Copy secret key
+			/* Copy secret key */
 			memcpy(&pkte->source[pkte_dev->ring_pos_consume][0],
 			       pkte_dev->secret_key, pkte_dev->secret_keylen);
 			source_bytewise =
 			    (u8 *) & pkte->source[pkte_dev->
 						  ring_pos_consume][0];
-			//XOR with Opad
+			/* XOR with Opad */
 			for (i = 0; i < INNER_OUTER_KEY_SIZE; i++)
 				*(source_bytewise + i) ^= 0x5c;
 			digestLength = pkte->pPkteList.pCommand.digest_length;
 
-			//Endian Swap!
+			/* Endian Swap! */
 			if (pkte->pPkteList.pCommand.hash == hash_md5) {
 				for (i = 0; i < digestLength; i++)
 					*((u32 *) (source_bytewise +

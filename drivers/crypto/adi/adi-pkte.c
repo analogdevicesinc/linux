@@ -667,7 +667,6 @@ static int adi_probe(struct platform_device *pdev)
 		return PTR_ERR(pkte_dev->io_base);
 
 	pkte_dev->phys_base = res->start;
-
 	ret = adi_get_of_match(pkte_dev, dev);
 	if (ret)
 		return ret;
@@ -677,7 +676,6 @@ static int adi_probe(struct platform_device *pdev)
 		return irq;
 
 	pkte_dev->dev = dev;
-
 	ret = of_property_read_string(np, "mode", &mode);
 	if (ret < 0) {
 		if (ret != -EINVAL)
@@ -714,14 +712,11 @@ static int adi_probe(struct platform_device *pdev)
 
 	//Disable interrupts until we're using the PKTE
 	pkte_int_cfg = adi_read(pkte_dev, INT_CFG_OFFSET);
-
 	/* PKTE0 Interrupt Level Sensitive */
 	adi_write(pkte_dev, INT_CFG_OFFSET,
 		  pkte_int_cfg & ~BITM_PKTE_INT_CFG_TYPE);
-
 	/* PKTE0 Interrupt Clear Register */
 	adi_write(pkte_dev, INT_CLR_OFFSET, 0x00071E03);
-
 	/* Disable All Interrupts */
 	adi_write(pkte_dev, IMSK_DIS_OFFSET,
 		  BITM_PKTE_IMSK_EN_IFERR |
