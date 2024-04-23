@@ -173,15 +173,15 @@ static void netc_ierb_init_ldid(struct platform_device *pdev)
 		netc_reg_write(pi->ierb_base, IERB_VFAUXR(1), 2);
 		/* ENETC1 PF */
 		netc_reg_write(pi->ierb_base, IERB_EFAUXR(1), 3);
-		/* ENETC1 VF0 : Disabled */
-		netc_reg_write(pi->ierb_base, IERB_VFAUXR(2), 0);
-		/* ENETC1 VF1 : Disabled */
-		netc_reg_write(pi->ierb_base, IERB_VFAUXR(3), 0);
+		/* ENETC1 VF0 : Disabled on 19x19 board dts */
+		netc_reg_write(pi->ierb_base, IERB_VFAUXR(2), 5);
+		/* ENETC1 VF1 : Disabled on 19x19 board dts */
+		netc_reg_write(pi->ierb_base, IERB_VFAUXR(3), 6);
 		/* ENETC2 PF */
 		netc_reg_write(pi->ierb_base, IERB_EFAUXR(2), 4);
-		/* ENETC2 VF0 */
+		/* ENETC2 VF0 : Disabled on 15x15 board dts */
 		netc_reg_write(pi->ierb_base, IERB_VFAUXR(4), 5);
-		/* ENETC2 VF1 */
+		/* ENETC2 VF1 : Disabled on 15x15 board dts */
 		netc_reg_write(pi->ierb_base, IERB_VFAUXR(5), 6);
 		/* NETC TIMER */
 		netc_reg_write(pi->ierb_base, IERB_T0FAUXR, 7);
