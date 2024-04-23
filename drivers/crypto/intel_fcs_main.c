@@ -3881,6 +3881,7 @@ static int fcs_driver_probe(struct platform_device *pdev)
 			}
 
 			intel_fcs_smmu_init(priv);
+			stratix10_svc_done(priv->chan);
 		}
 	}
 
