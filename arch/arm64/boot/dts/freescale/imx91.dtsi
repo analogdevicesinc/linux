@@ -1024,8 +1024,8 @@
 				assigned-clock-parents = <&clk IMX91_CLK_SYS_PLL_PFD1>;
 				assigned-clock-rates = <400000000>;
 				bus-width = <8>;
-				fsl,tuning-start-tap = <40>;
-				fsl,tuning-step= <1>;
+				fsl,tuning-start-tap = <1>;
+				fsl,tuning-step= <2>;
 				status = "disabled";
 			};
 
@@ -1041,7 +1041,7 @@
 				assigned-clock-parents = <&clk IMX91_CLK_SYS_PLL_PFD1>;
 				assigned-clock-rates = <400000000>;
 				bus-width = <4>;
-				fsl,tuning-start-tap = <20>;
+				fsl,tuning-start-tap = <1>;
 				fsl,tuning-step= <2>;
 				status = "disabled";
 			};
@@ -1107,7 +1107,7 @@
 				assigned-clock-parents = <&clk IMX91_CLK_SYS_PLL_PFD1>;
 				assigned-clock-rates = <400000000>;
 				bus-width = <4>;
-				fsl,tuning-start-tap = <20>;
+				fsl,tuning-start-tap = <1>;
 				fsl,tuning-step= <2>;
 				status = "disabled";
 			};
