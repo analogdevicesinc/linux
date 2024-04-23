@@ -26,9 +26,7 @@
 
 	/delete-node/ reg_serdes_stby;
 	/delete-node/ regulator-mac-stby;
-	/delete-node/ reg_m2_pwr;
 	/delete-node/ reg_slot_pwr;
-	/delete-node/ regulator-m2-pwr;
 	/delete-node/ regulator-slot-pwr;
 	/delete-node/ regulator-audio-pwr;
 	/delete-node/ regulator-audio-slot;
@@ -75,8 +73,12 @@
 	gpio = <&i2c7_pcal6524_23 21 GPIO_ACTIVE_HIGH>;
 };
 
+&reg_m2_pwr {
+	gpio = <&gpio2 4 GPIO_ACTIVE_LOW>;
+	/delete-property/ enable-active-high;
+};
+
 &reg_pcie0 {
-	/delete-property/ vin-supply;
 	gpio = <&i2c7_pcal6524_23 18 GPIO_ACTIVE_HIGH>;
 };
 
@@ -127,8 +129,14 @@
 };
 
 &netc_emdio {
-	ethphy1: ethernet-phy@2 {
-		reg = <2>;
+	ethphy1: ethernet-phy@7 {
+		compatible = "ethernet-phy-ieee802.3-c45";
+		reg = <7>;
+		reset-gpios = <&i2c7_pcal6524_23 23 GPIO_ACTIVE_LOW>;
+		reset-assert-us = <200>;
+		reset-deassert-us = <2000>;
+		tx-internal-delay-ps = <1800>;
+		rx-internal-delay-ps = <1666>;
 	};
 };
 
@@ -206,7 +214,20 @@
 	};
 };
 
+&lpspi7 {
+	status = "disabled";
+};
+
 &scmi_iomuxc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_hog>;
+
+	pinctrl_hog: hoggrp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO04__GPIO2_IO_BIT4	0x3fe
+		>;
+	};
+
 	pinctrl_enetc1: enetc1grp {
 		fsl,pins = <
 			IMX95_PAD_ENET2_TD3__NETCMIX_TOP_ETH1_RGMII_TD3		0x57e
