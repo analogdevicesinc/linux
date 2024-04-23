@@ -23,6 +23,11 @@
 	model = "NXP i.MX95 15X15 board";
 	compatible = "fsl,imx95-15x15-evk", "fsl,imx95";
 
+	aliases {
+		ethernet0 = &enetc_port0;
+		ethernet1 = &enetc_port1;
+	};
+
 	chosen {
 		stdout-path = &lpuart1;
 		#address-cells = <2>;
