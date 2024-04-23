@@ -342,7 +342,7 @@ static int mx95mbcam_probe(struct i2c_client *client)
 		return ret;
 	}
 
-	priv->sensor = ox03c10_init(client);
+	priv->sensor = ox03c10_init_with_dummy_client(client, true);
 	if (IS_ERR(priv->sensor))
 		return PTR_ERR(priv->sensor);
 
