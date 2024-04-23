@@ -126,6 +126,10 @@ static int __maybe_unused rpmsg_lifecycle_pm_notify(bool enter)
 	if (pm_suspend_target_state != PM_SUSPEND_MEM)
 		return 0;
 
+	/* Bypass if no lifecycle device */
+	if (!life_cycle_rpdev)
+		return 0;
+
 	msg.data = enter ? PM_RPMSG_SUSPEND : PM_RPMSG_ACTIVE;
 	msg.header.cate = IMX_RMPSG_LIFECYCLE;
 	msg.header.major = IMX_RMPSG_MAJOR;
