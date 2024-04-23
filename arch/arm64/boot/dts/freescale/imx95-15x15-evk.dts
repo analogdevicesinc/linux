@@ -756,7 +756,7 @@
 
 	pinctrl_mipi_dsi_csi: mipidsigrp {
 		fsl,pins = <
-			IMX95_PAD_CCM_CLKO3__GPIO4_IO_BIT28			0x31e
+			IMX95_PAD_XSPI1_DATA6__GPIO5_IO_BIT6			0x31e
 		>;
 	};
 
