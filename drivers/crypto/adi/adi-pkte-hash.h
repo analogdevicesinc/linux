@@ -16,6 +16,10 @@
 
 #define NUM_HASH_CATEGORIES 2
 extern struct adi_algs_info adi_algs_info_adi[NUM_HASH_CATEGORIES];
+struct adi_hash_cmd_params {
+	u8 hash_cmd;
+	u32 packet_size;
+};
 
 void adi_write_packet(struct adi_dev *pkte_dev, u32 *source);
 

@@ -18,6 +18,7 @@
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/minmax.h>
 #include <linux/platform_device.h>
 
 #include <crypto/engine.h>
@@ -45,7 +46,7 @@ static int adi_prepare_req(struct crypto_engine *engine, void *areq);
 
 void adi_write_packet(struct adi_dev *pkte_dev, u32 * source)
 {
-	u32 i, n_length, SIZE, nPadLength, nTotalSize;
+	u32 i, w_iter, n_length, packet_size, n_pad_len;
 	u32 *source_offset;
 	u32 data_offset;
 	u8 ibuf_increment;
@@ -59,62 +60,128 @@ void adi_write_packet(struct adi_dev *pkte_dev, u32 * source)
 	data_offset += DATAIO_BUF_OFFSET;
 
 	n_length = pkte_dev->src_bytes_available;
-	SIZE = (n_length > 128) ? 128 : (n_length);
-
-	for (i = 0; i < (!!(SIZE % 4) + SIZE / 4); i++) {
+	packet_size = min(n_length, 128);
+	w_iter = (!!(packet_size % 4) + packet_size / 4);
+	for (i = 0; i < w_iter ; i++) {
 		adi_write(pkte_dev, data_offset, *source_offset);
 		data_offset += 4;
 		source_offset++;
 	}
 
-	dev_dbg(pkte_dev->dev, "%s: wrote %x bytes\n", __func__, SIZE);
+	dev_dbg(pkte_dev->dev, "%s: wrote %x bytes\n", __func__, packet_size);
 
 	switch (pkte->pPkteList.pCommand.opcode) {
 	case opcode_hash:
-		//Nothing to do
-		break;
+		break; //Nothing to do
 	default:
 		//Pad to 16 byte alignment/boundaries
-		if (SIZE % 16 != 0) {
-			nTotalSize = ((SIZE / 16) + 1) * 16;
-			nPadLength = nTotalSize - SIZE;
-			for (i = 0; i < nPadLength; i++) {
+		if (packet_size % 16 != 0) {
+			u32 n_total_size;
+			n_total_size = ((packet_size / 16) + 1) * 16;
+			n_pad_len = n_total_size - packet_size;
+			for (i = 0; i < n_pad_len; i++) {
 				writeb(0x00, pkte_dev->io_base + data_offset);
 				data_offset++;
 			}
 		}
+
 		break;
 	}
 
-	pkte->pPkteList.pSource += SIZE / 4;
-
-	ibuf_increment = SIZE + nPadLength;
+	pkte->pPkteList.pSource += packet_size / 4;
+	ibuf_increment = packet_size + n_pad_len;
 	if (ibuf_increment % 4)
 		ibuf_increment += (4 - ibuf_increment % 4);
 
-	if (ibuf_increment > pkte_dev->src_bytes_available)
-		pkte_dev->src_bytes_available = 0;
-	else
-		pkte_dev->src_bytes_available -= ibuf_increment;
-
+	pkte_dev->src_bytes_available -= min(ibuf_increment, pkte_dev->src_bytes_available);
 	adi_write(pkte_dev, INBUF_INCR_OFFSET, ibuf_increment);
 }
 
-static void adi_read_packet(struct adi_dev *pkte_dev, u32 * destination)
+static const struct adi_hash_cmd_params hash_params[] = {
+	{
+		.hash_cmd = hash_md5,
+		.packet_size = 4 * 4,
+	},
+	{
+		.hash_cmd = hash_sha1,
+		.packet_size = 5 * 4,
+	},
+	{
+		.hash_cmd = hash_sha224,
+		.packet_size = 7 * 4,
+	},
+	{
+		.hash_cmd = hash_sha256,
+		.packet_size = 8 * 4,
+	},
+
+};
+
+static int adi_get_hash_packet_size(int hash_type)
 {
-	u8 pos, ibuf_increment;
-	u32 n_length, SIZE;
-	u32 *dest_data_buf;
-	u32 data_buf_offset, imsk_stat_offset;
-	u32 i;
+	if((hash_type < ARRAY_SIZE(hash_params)) && (hash_type > 0))
+		return hash_params[hash_type].packet_size;
+
+	//invalid hash command
+	return -EINVAL;
+}
+
+static int adi_read_hash_to_dest(struct adi_dev *pkte_dev, u32 packet_size,
+		u32* destination, u32 data_buf_offset)
+{
+	u32 read_iter, dest_offset_incr, hash_packet_size, final_packet_size;
 	struct ADI_PKTE_DEVICE *pkte;
+	u32 *dest_data_buf;
+	u32 i;
 
 	pkte = pkte_dev->pkte_device;
 	dest_data_buf = destination;
+	hash_packet_size = adi_get_hash_packet_size(pkte->pPkteList.pCommand.hash);
+
+	if(hash_packet_size < 0)
+		return hash_packet_size;
+
+	switch (pkte->pPkteList.pCommand.opcode) {
+	case opcode_hash:
+		final_packet_size = hash_packet_size;
+		read_iter = final_packet_size/4;
+		dest_offset_incr = 4;
+		break;
+	case opcode_encrypt_hash:
+		final_packet_size = packet_size + hash_packet_size;
+		read_iter = final_packet_size/4;
+		dest_offset_incr = 1;
+		break;
+	default:
+		final_packet_size = packet_size;
+		read_iter = (final_packet_size/16 + final_packet_size%16) * 16;
+		dest_offset_incr = 1;
+		break;
+	}
+
+	for (i = 0; i < read_iter; i++) {
+		*dest_data_buf =
+		    adi_read(pkte_dev, data_buf_offset);
+		data_buf_offset += dest_offset_incr;
+		dest_data_buf++;
+	}
+
+	return final_packet_size;
+}
+
+static int adi_read_packet(struct adi_dev *pkte_dev, u32 * destination)
+{
+	u32 data_buf_offset, imsk_stat_offset;
+	u32 n_length, packet_size;
+	u8 pos, ibuf_increment;
+	struct ADI_PKTE_DEVICE *pkte;
+
+	pkte = pkte_dev->pkte_device;
 	imsk_stat_offset = adi_read(pkte_dev, IMSK_STAT_OFFSET);
-	pos =
-	    pkte_dev->flags & PKTE_AUTONOMOUS_MODE ? pkte_dev->
-	    ring_pos_consume : 0;
+	if(pkte_dev->flags & PKTE_AUTONOMOUS_MODE)
+		pos = pkte_dev->ring_pos_consume;
+	else
+		pos = 0;
 
 	if ((imsk_stat_offset & BITM_PKTE_IMSK_EN_OPDN) !=
 	    BITM_PKTE_IMSK_EN_OPDN) {
@@ -127,76 +194,20 @@ static void adi_read_packet(struct adi_dev *pkte_dev, u32 * destination)
 								     pkte->
 								     pPkteList.
 								     pDestination));
-		SIZE = (n_length > 128) ? 128 : n_length;
+		packet_size = min(n_length, 128);
+		packet_size = adi_read_hash_to_dest(pkte_dev, packet_size,
+				destination, data_buf_offset);
+		if (packet_size < 0)
+			return -EINVAL;
 
-		if (pkte->pPkteList.pCommand.opcode == opcode_hash) {
-			if (pkte->pPkteList.pCommand.hash == hash_md5)
-				SIZE = 4 * 4;	/* Destination will be 4 word hash value */
-
-			if (pkte->pPkteList.pCommand.hash == hash_sha1)
-				SIZE = 5 * 4;	/* Destination will be 5 word hash value */
-
-			if (pkte->pPkteList.pCommand.hash == hash_sha224)
-				SIZE = 7 * 4;	/* Destination will be 7 word hash value */
-
-			if (pkte->pPkteList.pCommand.hash == hash_sha256)
-				SIZE = 8 * 4;	/* Destination will be 8 word hash value */
-
-			if (SIZE % 4) {
-				dev_err(pkte_dev->dev,
-					"%s: Unhandled Case - 4-byte alignment would fail\n",
-					__func__);
-			} else {
-				for (i = 0; i < SIZE / 4; i++) {
-					*dest_data_buf =
-					    adi_read(pkte_dev, data_buf_offset);
-					dev_dbg(pkte_dev->dev, "%s read %x\n",
-						__func__, *dest_data_buf);
-					data_buf_offset += 4;
-					dest_data_buf++;
-				}
-			}
-		} else if (pkte->pPkteList.pCommand.opcode ==
-			   opcode_encrypt_hash) {
-			if (pkte->pPkteList.pCommand.hash == hash_md5)
-				SIZE = SIZE + 4 * 4;	/* Destination will be 4 word hash value */
-
-			if (pkte->pPkteList.pCommand.hash == hash_sha1)
-				SIZE = SIZE + 5 * 4;	/* Destination will be 5 word hash value */
-
-			if (pkte->pPkteList.pCommand.hash == hash_sha224)
-				SIZE = SIZE + 7 * 4;	/* Destination will be 7 word hash value */
-
-			if (pkte->pPkteList.pCommand.hash == hash_sha256)
-				SIZE = SIZE + 8 * 4;	/* Destination will be 8 word hash value */
-
-			for (i = 0; i < SIZE; i++) {
-				*dest_data_buf =
-				    adi_read(pkte_dev, data_buf_offset);
-				data_buf_offset++;
-				dest_data_buf++;
-			}
-		} else {
-
-			/*For encryption 16 byte boundary is required */
-			if (SIZE % 16 != 0)
-				SIZE = ((SIZE / 16) + 1) * 16;
-
-			for (i = 0; i < SIZE; i++) {
-				*dest_data_buf =
-				    adi_read(pkte_dev, data_buf_offset);
-				data_buf_offset++;
-				dest_data_buf++;
-			}
-		}
-
-		//pkte->pPkteList.pDestination = pkte->pPkteList.pDestination + SIZE/4;
-		ibuf_increment = SIZE;
-		if (ibuf_increment % 4)
-			ibuf_increment = ((ibuf_increment / 4) + 1) * 4;
+		ibuf_increment = packet_size;
+		if (ibuf_increment%4)
+			ibuf_increment = ((ibuf_increment/4) + 1) * 4;
 
 		adi_write(pkte_dev, OUTBUF_DECR_OFFSET, ibuf_increment);
 	}
+
+	return 0;
 }
 
 static void adi_append_sg(struct adi_request_ctx *rctx,
@@ -694,7 +705,6 @@ static void adi_finish_req(struct ahash_request *req, int err)
 	u32 pkte_ctl_stat;
 
 	dev_dbg(pkte_dev->dev, "%s flags %lx\n", __func__, pkte_dev->flags);
-
 	pkte = pkte_dev->pkte_device;
 
 	if (!err && (PKTE_FLAGS_FINAL & pkte_dev->flags)) {
@@ -710,8 +720,10 @@ static void adi_finish_req(struct ahash_request *req, int err)
 			cond_resched();
 		}
 
-		//if(pkte_dev->flags & PKTE_HOST_MODE)
-		adi_read_packet(pkte_dev, &pkte->pPkteList.pDestination[0]);
+		err = adi_read_packet(pkte_dev, &pkte->pPkteList.pDestination[0]);
+		if(err)
+			goto finish_req_err;
+
 		if (PKTE_FLAGS_HMAC & pkte_dev->flags) {
 			//Compute the outer hash of the HMAC (Result).  From RFC2104:
 			//HASH(Key XOR opad, HASH(Key XOR ipad, text))
@@ -777,14 +789,17 @@ static void adi_finish_req(struct ahash_request *req, int err)
 				    BITM_PKTE_CTL_STAT_PERDY;
 				cond_resched();
 			}
-			adi_read_packet(pkte_dev,
+			err = adi_read_packet(pkte_dev,
 					&pkte->pPkteList.pDestination[0]);
+			if(err)
+				goto finish_req_err;
 		}
 
 		adi_copy_hash(req);
 		err = adi_finish(req);
 	}
 
+finish_req_err:
 	crypto_finalize_hash_request(pkte_dev->engine, req, err);
 }
 
@@ -846,7 +861,7 @@ static int adi_one_request(struct crypto_engine *engine, void *areq)
 	if (err != -EINPROGRESS)
 		adi_finish_req(req, err);
 
-	return 0;
+	return err;
 
 }
 
