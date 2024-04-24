@@ -74,13 +74,8 @@ imx93_ldb_encoder_atomic_mode_set(struct drm_encoder *encoder,
 {
 	struct imx93_ldb_channel *imx93_ldb_ch = enc_to_imx93_ldb_ch(encoder);
 	struct imx93_ldb *imx93_ldb = imx93_ldb_ch->imx93_ldb;
-	struct ldb *ldb = &imx93_ldb->base;
 	struct drm_display_mode *mode = &crtc_state->adjusted_mode;
 	unsigned long serial_clk;
-
-	if (mode->clock > 80000)
-		dev_warn(ldb->dev,
-			 "%s: mode exceeds 80 MHz pixel clock\n", __func__);
 
 	serial_clk = mode->clock * 7000UL;
 	clk_set_rate(imx93_ldb->clk_root, serial_clk);
@@ -127,11 +122,22 @@ imx93_ldb_encoder_atomic_check(struct drm_encoder *encoder,
 	return 0;
 }
 
+static enum
+drm_mode_status imx93_ldb_mode_valid(struct drm_encoder *crtc,
+				     const struct drm_display_mode *mode)
+{
+	if (mode->clock > 80000)
+		return MODE_CLOCK_HIGH;
+
+	return MODE_OK;
+}
+
 static const struct drm_encoder_helper_funcs imx93_ldb_encoder_helper_funcs = {
 	.atomic_mode_set = imx93_ldb_encoder_atomic_mode_set,
 	.enable = imx93_ldb_encoder_enable,
 	.disable = imx93_ldb_encoder_disable,
 	.atomic_check = imx93_ldb_encoder_atomic_check,
+	.mode_valid = imx93_ldb_mode_valid,
 };
 
 static const struct of_device_id imx93_ldb_dt_ids[] = {
