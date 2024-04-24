@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 NXP
+ * Copyright 2018,2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -50,8 +50,10 @@
 /* regs bit fields */
 #define CTRL_SFTRST			BIT(31)
 #define CTRL_CLKGATE			BIT(30)
+#define CTRL_READ_WRITEB		BIT(28)
 #define CTRL_SHIFT_DIR(x)		REG_PUT((x), 26, 26)
 #define CTRL_SHIFT_NUM(x)		REG_PUT((x), 25, 21)
+#define CTRL_DVI_MODE			BIT(20)
 #define CTRL_BYPASS_COUNT		BIT(19)
 #define CTRL_VSYNC_MODE			BIT(18)
 #define CTRL_DOTCLK_MODE		BIT(17)
@@ -69,12 +71,14 @@
 #define CTRL_DF24			BIT(1)
 #define CTRL_RUN			BIT(0)
 
+#define CTRL1_COMBINE_MPU_WR_STRB	BIT(27)
 #define CTRL1_RECOVERY_ON_UNDERFLOW	BIT(24)
 #define CTRL1_FIFO_CLEAR		BIT(21)
 #define CTRL1_SET_BYTE_PACKAGING(x)	REG_PUT((x), 19, 16)
 #define CTRL1_GET_BYTE_PACKAGING(x)	REG_GET((x), 19, 16)
 #define CTRL1_CUR_FRAME_DONE_IRQ_EN	BIT(13)
 #define CTRL1_CUR_FRAME_DONE_IRQ	BIT(9)
+#define CTRL1_MODE86			BIT(1)
 
 #define REQ_1	0
 #define REQ_2	1
@@ -90,6 +94,11 @@
 #define TRANSFER_COUNT_GET_VCOUNT(x)	(((x) >> 16) & 0xffff)
 #define TRANSFER_COUNT_SET_HCOUNT(x)	((x) & 0xffff)
 #define TRANSFER_COUNT_GET_HCOUNT(x)	((x) & 0xffff)
+
+#define TIMING_CMD_HOLD(x)		REG_PUT((x), 31, 24)
+#define TIMING_CMD_SETUP(x)		REG_PUT((x), 23, 16)
+#define TIMING_DATA_HOLD(x)		REG_PUT((x), 15, 8)
+#define TIMING_DATA_SETUP(x)		REG_PUT((x), 7, 0)
 
 #define VDCTRL0_ENABLE_PRESENT		BIT(28)
 #define VDCTRL0_VSYNC_ACT_HIGH		BIT(27)

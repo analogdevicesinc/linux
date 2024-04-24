@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 NXP
+ * Copyright 2018,2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -27,6 +27,7 @@
 #include <video/imx-lcdif.h>
 
 #include "lcdif-plane.h"
+#include "lcdif-kms.h"
 
 static uint32_t lcdif_pixel_formats[] = {
 	DRM_FORMAT_XRGB8888,
@@ -53,6 +54,7 @@ static int lcdif_plane_atomic_check(struct drm_plane *plane,
 	struct drm_framebuffer *fb = plane_state->fb;
 	struct drm_framebuffer *old_fb = old_state->fb;
 	struct drm_crtc_state *crtc_state;
+	bool use_i80;
 
 	/* 'fb' should also be NULL which has been checked in
 	 * the core sanity check function 'drm_atomic_plane_check()'
@@ -92,6 +94,17 @@ static int lcdif_plane_atomic_check(struct drm_plane *plane,
 			crtc_state->mode_changed = true;
 	}
 
+	/* Add affected connectors to check if we use i80 mode or not. */
+	ret = drm_atomic_add_affected_connectors(state, plane_state->crtc);
+	if (ret)
+		return ret;
+
+	use_i80 = lcdif_drm_connector_is_self_refresh_aware(state);
+
+	/* Do not support cropping in i80 mode. */
+	if (use_i80 && (plane_state->src_w >> 16 != fb->width))
+		return -EINVAL;
+
 	return 0;
 }
 
@@ -106,6 +119,7 @@ static void lcdif_plane_atomic_update(struct drm_plane *plane,
 	struct drm_gem_dma_object *gem_obj = NULL;
 	u32 fb_addr, src_off, src_w, fb_idx, cpp, stride;
 	bool crop;
+	bool use_i80 = lcdif_drm_connector_is_self_refresh_aware(state);
 
 	/* plane and crtc is disabling */
 	if (!fb)
@@ -129,7 +143,7 @@ static void lcdif_plane_atomic_update(struct drm_plane *plane,
 		return;
 	}
 
-	lcdif_set_fb_addr(lcdif, fb_idx, fb_addr);
+	lcdif_set_fb_addr(lcdif, fb_idx, fb_addr, use_i80);
 
 	/* Config pixel format and horizontal cropping
 	 * if CRTC needs a full modeset which needs to
@@ -148,7 +162,9 @@ static void lcdif_plane_atomic_update(struct drm_plane *plane,
 		crop  = src_w != stride ? true : false;
 		lcdif_set_fb_hcrop(lcdif, src_w, stride, crop);
 
-		lcdif_enable_controller(lcdif);
+		lcdif_enable_controller(lcdif, use_i80);
+	} else if (use_i80) {
+		lcdif_enable_controller(lcdif, use_i80);
 	}
 }
 

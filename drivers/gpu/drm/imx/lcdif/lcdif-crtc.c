@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 NXP
+ * Copyright 2018,2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,7 +22,9 @@
 #include <drm/drm_atomic.h>
 #include <drm/drm_edid.h>
 #include <drm/drm_vblank.h>
+#include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_self_refresh_helper.h>
 #include <video/imx-lcdif.h>
 #include <video/videomode.h>
 
@@ -159,6 +161,7 @@ static void lcdif_crtc_atomic_enable(struct drm_crtc *crtc,
 	struct drm_display_mode *mode = &crtc->state->adjusted_mode;
 	struct imx_crtc_state *imx_crtc_state = to_imx_crtc_state(crtc->state);
 	struct videomode vm;
+	bool use_i80 = lcdif_drm_connector_is_self_refresh_aware(state);
 
 	drm_display_mode_to_videomode(mode, &vm);
 
@@ -174,7 +177,7 @@ static void lcdif_crtc_atomic_enable(struct drm_crtc *crtc,
 
 	pm_runtime_get_sync(lcdif_crtc->dev->parent);
 
-	lcdif_set_mode(lcdif, &vm);
+	lcdif_set_mode(lcdif, &vm, use_i80);
 
 	/* config LCDIF output bus format */
 	lcdif_set_bus_fmt(lcdif, imx_crtc_state->bus_format);
@@ -188,8 +191,14 @@ static void lcdif_crtc_atomic_enable(struct drm_crtc *crtc,
 static void lcdif_crtc_atomic_disable(struct drm_crtc *crtc,
 				      struct drm_atomic_state *state)
 {
+	struct drm_crtc_state *old_crtc_state = drm_atomic_get_old_crtc_state(state,
+									      crtc);
 	struct lcdif_crtc *lcdif_crtc = to_lcdif_crtc(crtc);
 	struct lcdif_soc *lcdif = dev_get_drvdata(lcdif_crtc->dev->parent);
+	bool use_i80 = lcdif_drm_connector_is_self_refresh_aware(state);
+
+	if (old_crtc_state->self_refresh_active)
+		return;
 
 	spin_lock_irq(&crtc->dev->event_lock);
 	if (crtc->state->event) {
@@ -200,7 +209,7 @@ static void lcdif_crtc_atomic_disable(struct drm_crtc *crtc,
 
 	drm_crtc_vblank_off(crtc);
 
-	lcdif_disable_controller(lcdif);
+	lcdif_disable_controller(lcdif, use_i80);
 
 	pm_runtime_put(lcdif_crtc->dev->parent);
 }
@@ -337,6 +346,13 @@ static int lcdif_crtc_init(struct lcdif_crtc *lcdif_crtc,
 
 	disable_irq(lcdif_crtc->vbl_irq);
 
+	ret = drm_self_refresh_helper_init(&lcdif_crtc->base);
+	if (ret) {
+		dev_err(lcdif_crtc->dev,
+			"failed to init self refresh helper: %d\n", ret);
+		goto primary_plane_deinit;
+	}
+
 	return 0;
 
 primary_plane_deinit:
@@ -379,6 +395,8 @@ static void lcdif_crtc_unbind(struct device *dev, struct device *master,
 {
 	struct drm_device *drm = data;
 	struct lcdif_crtc *lcdif_crtc = dev_get_drvdata(dev);
+
+	drm_self_refresh_helper_cleanup(&lcdif_crtc->base);
 
 	lcdif_plane_deinit(drm, lcdif_crtc->plane[0]);
 }
