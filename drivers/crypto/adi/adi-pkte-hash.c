@@ -220,6 +220,7 @@ static int adi_read_packet(struct adi_dev *pkte_dev, u32 * destination)
 static void adi_append_sg(struct adi_request_ctx *rctx,
 			  struct adi_dev *pkte_dev)
 {
+	u32 *pkte_buf, pkte_buf_index;
 	size_t count;
 	struct ADI_PKTE_DEVICE *pkte;
 
@@ -227,27 +228,23 @@ static void adi_append_sg(struct adi_request_ctx *rctx,
 
 	while ((rctx->bufcnt < rctx->buflen) && rctx->total) {
 		count = min(rctx->sg->length - rctx->offset, rctx->total);
+		/* Check if the page has data, if not, skip to next
+		 * (if this is not the last entry)*/
+		if (count <= 0)
+			goto next_sg_entry;
+
+		/* Since buflen > bufcnt for the loop to be true, above can only be
+		 * possible if the page does not contain any data - i.e,
+		 * sg->length = 0 */
 		count = min(count, rctx->buflen - rctx->bufcnt);
-
-		if (count <= 0) {
-			if ((rctx->sg->length == 0) && !sg_is_last(rctx->sg)) {
-				rctx->sg = sg_next(rctx->sg);
-				continue;
-			} else {
-				break;
-			}
-		}
-
-		scatterwalk_map_and_copy(((u8 *) & pkte->
-					  source[pkte_dev->
-						 ring_pos_produce][0]) +
-					 rctx->bufcnt, rctx->sg, rctx->offset,
+		pkte_buf_index = pkte_dev->ring_pos_produce;
+		pkte_buf = &pkte->source[pkte_buf_index][0] + rctx->bufcnt;
+		scatterwalk_map_and_copy(pkte_buf, rctx->sg, rctx->offset,
 					 count, 0);
 
 		rctx->bufcnt += count;
 		rctx->offset += count;
 		rctx->total -= count;
-
 		if (pkte_dev->flags & (PKTE_TCM_MODE | PKTE_AUTONOMOUS_MODE)) {
 			if (rctx->bufcnt >= PKTE_BUFLEN) {
 				pkte_dev->ring_pos_produce++;
@@ -257,6 +254,7 @@ static void adi_append_sg(struct adi_request_ctx *rctx,
 			}
 		}
 
+next_sg_entry:
 		if (rctx->offset == rctx->sg->length) {
 			rctx->sg = sg_next(rctx->sg);
 			if (rctx->sg)
