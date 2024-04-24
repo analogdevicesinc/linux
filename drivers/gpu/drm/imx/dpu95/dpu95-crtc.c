@@ -281,21 +281,15 @@ static void dpu95_crtc_atomic_begin(struct drm_crtc *crtc,
 	}
 }
 
-static void dpu95_crtc_atomic_flush_scalers(struct drm_crtc *crtc)
+static void dpu95_crtc_atomic_flush_hscaler(struct drm_crtc *crtc)
 {
 	struct dpu95_plane *dplane = to_dpu95_plane(crtc->primary);
 	struct dpu95_hscaler *hs = dplane->grp->hs;
-	struct dpu95_vscaler *vs = dplane->grp->vs;
 	const struct dpu95_hscaler_ops *hs_ops;
-	const struct dpu95_vscaler_ops *vs_ops;
 
 	hs_ops = dpu95_hs_get_ops(hs);
 	if (!hs_ops->is_enabled(hs))
 		hs_ops->set_no_stream_id(hs);
-
-	vs_ops = dpu95_vs_get_ops(vs);
-	if (!vs_ops->is_enabled(vs))
-		vs_ops->set_no_stream_id(vs);
 }
 
 static void dpu95_crtc_atomic_flush(struct drm_crtc *crtc,
@@ -339,7 +333,7 @@ static void dpu95_crtc_atomic_flush(struct drm_crtc *crtc,
 			fu_ops->set_no_stream_id(fu);
 	}
 
-	dpu95_crtc_atomic_flush_scalers(crtc);
+	dpu95_crtc_atomic_flush_hscaler(crtc);
 
 	if (!need_modeset && crtc->state->active) {
 		enable_irq(dpu_crtc->ed_cont_shdld_irq);
@@ -636,7 +630,6 @@ int dpu95_crtc_init(struct dpu95_drm_device *dpu_drm,
 	plane_grp->cf[stream_id] = dpu_crtc->cf_cont;
 	plane_grp->ed[stream_id] = dpu_crtc->ed_cont;
 	plane_grp->hs = dpu95_hs_get(dpu_crtc->dpu, 4);
-	plane_grp->vs = dpu95_vs_get(dpu_crtc->dpu, 4);
 
 	/* each CRTC has a primary plane */
 	dpu_primary = &dpu_drm->dpu_primary[stream_id];

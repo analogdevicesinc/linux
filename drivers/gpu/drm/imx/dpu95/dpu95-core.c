@@ -207,23 +207,6 @@ static const struct dpu95_units dpu_lbs = {
 	.hw_init = dpu95_lb_hw_init,
 };
 
-/* Vertical Scaler */
-static const unsigned int vs_ids[] = {4, 9};
-static const enum dpu95_unit_type vs_types[] = {DPU95_DISP, DPU95_BLIT};
-static const unsigned long vs_ofss[] = {0x280000, 0xc0000};
-static const unsigned long vs_aux_ofss[] = {0x281000, 0xc1000};
-
-static const struct dpu95_units dpu_vss = {
-	.ids = vs_ids,
-	.types = vs_types,
-	.ofss = vs_ofss,
-	.aux_ofss = vs_aux_ofss,
-	.cnt = ARRAY_SIZE(vs_ids),
-	.name = "VScaler",
-	.init = dpu95_vs_init,
-	.hw_init = dpu95_vs_hw_init,
-};
-
 static const struct dpu95_units *dpu_all_units[] = {
 	&dpu_cfs,
 	&dpu_dbs,
@@ -234,7 +217,6 @@ static const struct dpu95_units *dpu_all_units[] = {
 	&dpu_fys,
 	&dpu_hss,
 	&dpu_lbs,
-	&dpu_vss,
 };
 
 static void dpu95_dm_extdst0_dm_allow_all(struct dpu95_soc *dpu)

@@ -52,7 +52,7 @@
 #define CLKEN_MASK			(0x3 << 24)
 #define CLKEN(n)			((n) << CLKEN_MASK_SHIFT)
 
-/* H/Vscaler register fields */
+/* Hscaler register fields */
 #define SCALE_FACTOR_MASK		0xfffff
 #define SCALE_FACTOR(n)			((n) & 0xfffff)
 #define PHASE_OFFSET_MASK		0x1fffff
@@ -178,7 +178,6 @@ enum dpu95_link_id {
 	DPU95_LINK_ID_EXTDST5		= 0x05,
 	DPU95_LINK_ID_FETCHECO9		= 0x07,
 	DPU95_LINK_ID_HSCALER9		= 0x08,
-	DPU95_LINK_ID_VSCALER9		= 0x09,
 	DPU95_LINK_ID_FILTER9		= 0x0a,
 	DPU95_LINK_ID_CONSTFRAME0	= 0x0c,
 	DPU95_LINK_ID_CONSTFRAME4	= 0x0d,
@@ -201,7 +200,6 @@ enum dpu95_link_id {
 	DPU95_LINK_ID_FETCHECO2		= 0x22,
 	DPU95_LINK_ID_MATRIX4		= 0x23,
 	DPU95_LINK_ID_HSCALER4		= 0x24,
-	DPU95_LINK_ID_VSCALER4		= 0x25,
 };
 
 enum dpu95_db_modecontrol {
@@ -429,7 +427,6 @@ struct dpu95_soc {
 	struct dpu95_fetchunit		*fy[4];
 	struct dpu95_hscaler		*hs[2];
 	struct dpu95_layerblend		*lb[6];
-	struct dpu95_vscaler		*vs[2];
 };
 
 struct dpu95_units {
@@ -604,39 +601,6 @@ int dpu95_lb_init(struct dpu95_soc *dpu, unsigned int index,
 		  unsigned int id, enum dpu95_unit_type type,
 		  unsigned long pec_base, unsigned long base);
 
-/* Vertical Scaler Unit */
-struct dpu95_vscaler;
-
-struct dpu95_vscaler_ops {
-	bool (*is_enabled)(struct dpu95_vscaler *vs);
-	void (*set_stream_id)(struct dpu95_vscaler *hs, unsigned int stream_id);
-	unsigned int (*get_stream_id)(struct dpu95_vscaler *hs);
-	void (*set_no_stream_id)(struct dpu95_vscaler *hs);
-	bool (*has_stream_id)(struct dpu95_vscaler *hs);
-};
-
-const struct dpu95_vscaler_ops *dpu95_vs_get_ops(struct dpu95_vscaler *vs);
-
-enum dpu95_link_id dpu95_vs_get_link_id(struct dpu95_vscaler *vs);
-void dpu95_vs_pec_dynamic_src_sel(struct dpu95_vscaler *vs,
-				  enum dpu95_link_id src);
-void dpu95_vs_pec_clken(struct dpu95_vscaler *vs, enum dpu95_pec_clken clken);
-void dpu95_vs_setup1(struct dpu95_vscaler *vs,
-		     unsigned int src_w, unsigned int dst_w, bool deinterlace);
-void dpu95_vs_setup2(struct dpu95_vscaler *vs, bool deinterlace);
-void dpu95_vs_output_size(struct dpu95_vscaler *vs, u32 line_num);
-void dpu95_vs_filter_mode(struct dpu95_vscaler *vs,
-			  enum dpu95_scaler_filter_mode m);
-void dpu95_vs_scale_mode(struct dpu95_vscaler *vs,
-			 enum dpu95_scaler_scale_mode m);
-void dpu95_vs_mode(struct dpu95_vscaler *vs, enum dpu95_scaler_mode m);
-unsigned int dpu95_vs_get_id(struct dpu95_vscaler *vs);
-struct dpu95_vscaler *dpu95_vs_get(struct dpu95_soc *dpu, unsigned int id);
-void dpu95_vs_hw_init(struct dpu95_soc *dpu, unsigned int index);
-int dpu95_vs_init(struct dpu95_soc *dpu, unsigned int index,
-		  unsigned int id, enum dpu95_unit_type type,
-		  unsigned long pec_base, unsigned long base);
-
 struct dpu95_fetchunit_ops {
 	void (*set_pec_dynamic_src_sel)(struct dpu95_fetchunit *fu,
 					enum dpu95_link_id src);
@@ -684,7 +648,6 @@ struct dpu95_fetchunit_ops {
 
 	struct dpu95_fetchunit *(*get_fetcheco)(struct dpu95_fetchunit *fu);
 	struct dpu95_hscaler *(*get_hscaler)(struct dpu95_fetchunit *fu);
-	struct dpu95_vscaler *(*get_vscaler)(struct dpu95_fetchunit *fu);
 
 	void (*set_layerblend)(struct dpu95_fetchunit *fu,
 			       struct dpu95_layerblend *lb);
@@ -720,9 +683,7 @@ struct dpu95_plane_grp {
 	struct dpu95_constframe	*cf[2];
 	struct dpu95_extdst	*ed[2];
 	struct dpu95_hscaler	*hs;
-	struct dpu95_vscaler	*vs;
 	bool			hs_used;
-	bool			vs_used;
 };
 
 #endif /* __DRM_DPU95_H__ */

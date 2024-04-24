@@ -241,7 +241,6 @@ struct dpu95_fetchunit {
 	struct dpu95_fetchunit_ops ops;
 	struct dpu95_fetchunit *fe;
 	struct dpu95_hscaler *hs;
-	struct dpu95_vscaler *vs;
 	struct dpu95_layerblend *lb;
 	u32 reg_offset1;
 	u32 reg_offset2;

@@ -130,9 +130,6 @@ drm_plane_state_to_baseaddr(struct drm_plane_state *state)
 
 	dma_obj = drm_fb_dma_get_gem_obj(fb, 0);
 
-	if (fb->flags & DRM_MODE_FB_INTERLACED)
-		y /= 2;
-
 	return dma_obj->dma_addr + fb->offsets[0] + fb->pitches[0] * y +
 	       fb->format->cpp[0] * x;
 }
@@ -150,9 +147,6 @@ drm_plane_state_to_uvbaseaddr(struct drm_plane_state *state)
 	x /= fb->format->hsub;
 	y /= fb->format->vsub;
 
-	if (fb->flags & DRM_MODE_FB_INTERLACED)
-		y /= 2;
-
 	return dma_obj->dma_addr + fb->offsets[1] + fb->pitches[1] * y +
 	       fb->format->cpp[1] * x;
 }
@@ -164,6 +158,29 @@ static int dpu95_plane_check_no_off_screen(struct drm_plane_state *state,
 	    state->dst.x2 > crtc_state->adjusted_mode.hdisplay ||
 	    state->dst.y2 > crtc_state->adjusted_mode.vdisplay) {
 		dpu95_plane_dbg(state->plane, "no off screen\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int dpu95_plane_check_no_vscaling(struct drm_plane_state *state)
+{
+	u32 src_h = drm_rect_height(&state->src) >> 16;
+	u32 dst_h = drm_rect_height(&state->dst);
+
+	if (src_h != dst_h) {
+		dpu95_plane_dbg(state->plane, "no vertical scaling\n");
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int dpu95_plane_check_no_deinterlacing(struct drm_plane_state *state)
+{
+	if (state->fb->flags & DRM_MODE_FB_INTERLACED) {
+		dpu95_plane_dbg(state->plane, "no deinterlacing\n");
 		return -EINVAL;
 	}
 
@@ -187,8 +204,7 @@ static int dpu95_plane_check_max_source_resolution(struct drm_plane_state *state
 		}
 	} else {
 		/* with scaling */
-		if (src_w > DPU95_PLANE_MAX_PIX_CNT_WITH_SCALER ||
-		    src_h > DPU95_PLANE_MAX_PIX_CNT_WITH_SCALER) {
+		if (src_w > DPU95_PLANE_MAX_PIX_CNT_WITH_SCALER) {
 			dpu95_plane_dbg(state->plane,
 					"invalid source resolution with scale\n");
 			return -EINVAL;
@@ -201,7 +217,6 @@ static int dpu95_plane_check_max_source_resolution(struct drm_plane_state *state
 static int dpu95_plane_check_source_alignment(struct drm_plane_state *state)
 {
 	struct drm_framebuffer *fb = state->fb;
-	bool fb_is_interlaced = !!(fb->flags & DRM_MODE_FB_INTERLACED);
 	u32 src_w = drm_rect_width(&state->src) >> 16;
 	u32 src_h = drm_rect_height(&state->src) >> 16;
 	u32 src_x = state->src.x1 >> 16;
@@ -218,11 +233,11 @@ static int dpu95_plane_check_source_alignment(struct drm_plane_state *state)
 		}
 	}
 	if (fb->format->vsub == 2) {
-		if (src_h % (fb_is_interlaced ? 4 : 2)) {
+		if (src_h % 2) {
 			dpu95_plane_dbg(state->plane, "bad uv height\n");
 			return -EINVAL;
 		}
-		if (src_y % (fb_is_interlaced ? 4 : 2)) {
+		if (src_y % 2) {
 			dpu95_plane_dbg(state->plane, "bad uv yoffset\n");
 			return -EINVAL;
 		}
@@ -370,6 +385,14 @@ static int dpu95_plane_atomic_check(struct drm_plane *plane,
 	if (ret)
 		return ret;
 
+	ret = dpu95_plane_check_no_vscaling(new_plane_state);
+	if (ret)
+		return ret;
+
+	ret = dpu95_plane_check_no_deinterlacing(new_plane_state);
+	if (ret)
+		return ret;
+
 	ret = dpu95_plane_check_max_source_resolution(new_plane_state);
 	if (ret)
 		return ret;
@@ -411,10 +434,8 @@ static void dpu95_plane_atomic_update(struct drm_plane *plane,
 	dma_addr_t baseaddr, uv_baseaddr;
 	enum dpu95_link_id fu_link;
 	enum dpu95_link_id lb_src_link, stage_link;
-	enum dpu95_link_id vs_link;
-	unsigned int src_w, src_h, dst_w, dst_h;
-	bool need_fetcheco = false, need_hscaler = false, need_vscaler = false;
-	bool fb_is_interlaced;
+	unsigned int src_w, src_h, dst_w;
+	bool need_fetcheco = false, need_hscaler = false;
 
 	/*
 	 * Do nothing since the plane is disabled by
@@ -427,21 +448,15 @@ static void dpu95_plane_atomic_update(struct drm_plane *plane,
 	if (!new_state->crtc->state->active)
 		return;
 
-	fb_is_interlaced = !!(fb->flags & DRM_MODE_FB_INTERLACED);
-
 	src_w = drm_rect_width(&new_state->src) >> 16;
 	src_h = drm_rect_height(&new_state->src) >> 16;
 	dst_w = drm_rect_width(&new_state->dst);
-	dst_h = drm_rect_height(&new_state->dst);
 
 	if (fb->format->num_planes > 1)
 		need_fetcheco = true;
 
 	if (src_w != dst_w)
 		need_hscaler = true;
-
-	if (src_h != dst_h || fb_is_interlaced)
-		need_vscaler = true;
 
 	baseaddr = drm_plane_state_to_baseaddr(new_state);
 	if (need_fetcheco)
@@ -455,14 +470,13 @@ static void dpu95_plane_atomic_update(struct drm_plane *plane,
 	fu_ops->set_numbuffers(fu, 16);
 	fu_ops->set_burstlength(fu, 16);
 	fu_ops->set_src_stride(fu, fb->pitches[0]);
-	fu_ops->set_src_buf_dimensions(fu, src_w, src_h, fb->format,
-				       fb_is_interlaced);
+	fu_ops->set_src_buf_dimensions(fu, src_w, src_h, fb->format, false);
 	fu_ops->set_fmt(fu, fb->format, new_state->color_encoding,
-			new_state->color_range, fb_is_interlaced);
+			new_state->color_range, false);
 	fu_ops->set_pixel_blend_mode(fu, new_state->pixel_blend_mode,
 				     new_state->alpha, fb->format->has_alpha);
 	fu_ops->enable_src_buf(fu);
-	fu_ops->set_framedimensions(fu, src_w, src_h, fb_is_interlaced);
+	fu_ops->set_framedimensions(fu, src_w, src_h, false);
 	fu_ops->set_baseaddress(fu, baseaddr);
 	fu_ops->set_stream_id(fu, dpu_crtc->stream_id);
 
@@ -483,10 +497,10 @@ static void dpu95_plane_atomic_update(struct drm_plane *plane,
 		fe_ops->set_burstlength(fu, 16);
 		fe_ops->set_src_stride(fe, fb->pitches[1]);
 		fe_ops->set_fmt(fe, fb->format, new_state->color_encoding,
-				new_state->color_range, fb_is_interlaced);
+				new_state->color_range, false);
 		fe_ops->set_src_buf_dimensions(fe, src_w, src_h,
-					       fb->format, fb_is_interlaced);
-		fe_ops->set_framedimensions(fe, src_w, src_h, fb_is_interlaced);
+					       fb->format, false);
+		fe_ops->set_framedimensions(fe, src_w, src_h, false);
 		fe_ops->set_baseaddress(fe, uv_baseaddr);
 		fe_ops->enable_src_buf(fe);
 
@@ -496,35 +510,11 @@ static void dpu95_plane_atomic_update(struct drm_plane *plane,
 			fu_ops->set_pec_dynamic_src_sel(fu, DPU95_LINK_ID_NONE);
 	}
 
-	/* VScaler comes first */
-	if (need_vscaler) {
-		struct dpu95_vscaler *vs = fu_ops->get_vscaler(fu);
-		const struct dpu95_vscaler_ops *vs_ops;
-
-		dpu95_vs_pec_dynamic_src_sel(vs, fu_link);
-		dpu95_vs_pec_clken(vs, CLKEN_AUTOMATIC);
-		dpu95_vs_setup1(vs, src_h, new_state->crtc_h, fb_is_interlaced);
-		dpu95_vs_setup2(vs, fb_is_interlaced);
-		dpu95_vs_output_size(vs, dst_h);
-		dpu95_vs_filter_mode(vs, SCALER_LINEAR);
-		dpu95_vs_scale_mode(vs, SCALER_UPSCALE);
-		dpu95_vs_mode(vs, SCALER_ACTIVE);
-
-		vs_ops = dpu95_vs_get_ops(vs);
-		vs_ops->set_stream_id(vs, dpu_crtc->stream_id);
-
-		vs_link = dpu95_vs_get_link_id(vs);
-		lb_src_link = vs_link;
-
-		dpu95_plane_dbg(plane, "uses VScaler%u\n", dpu95_vs_get_id(vs));
-	}
-
-	/* and then, HScaler */
 	if (need_hscaler) {
 		struct dpu95_hscaler *hs = fu_ops->get_hscaler(fu);
 		const struct dpu95_hscaler_ops *hs_ops;
 
-		dpu95_hs_pec_dynamic_src_sel(hs, need_vscaler ? vs_link : fu_link);
+		dpu95_hs_pec_dynamic_src_sel(hs, fu_link);
 		dpu95_hs_pec_clken(hs, CLKEN_AUTOMATIC);
 		dpu95_hs_setup1(hs, src_w, dst_w);
 		dpu95_hs_output_size(hs, dst_w);
