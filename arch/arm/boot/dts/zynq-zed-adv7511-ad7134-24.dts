@@ -107,7 +107,7 @@
 			compatible = "adi,ad4134-spi-engine";
 			reg = <0>;
 
-			spi-max-frequency = <50000000>; //48000000
+			spi-max-frequency = <50000000>;
 
 			spi-cpha;
 		};
@@ -133,11 +133,7 @@
 	status = "okay";
 
 	ad4134_0: adc_0@0 {
-		//compatible = "adi,ad4134";
-		//compatible = "adi,ad7134-16";
-		//compatible = "adi,ad7134-16CRC";
-		//compatible = "adi,ad7134-24";
-		compatible = "adi,ad7134-24CRC";
+		compatible = "adi,ad4134";
 		reg = <0>;
 
 		spi-max-frequency = <10000000>;
@@ -160,14 +156,12 @@
 		refin-supply = <&refin>;
 
 		adi,spi-engine = <&ad4134_spi_engine>;
+		ad7134,adc-frame = "ad7134_24";
 	};
 
 	ad4134_1: adc_1@1 {
-		//compatible = "adi,ad4134";
-		//compatible = "adi,ad7134-16";
-		//compatible = "adi,ad7134-16CRC";
-		//compatible = "adi,ad7134-24";
-		compatible = "adi,ad7134-24CRC";
+		compatible = "adi,ad4134";
+
 		reg = <1>;
 
 		spi-max-frequency = <10000000>;
@@ -181,5 +175,6 @@
 		avdd1v8-supply = <&avdd1v8>;
 		iovdd-supply = <&iovdd>;
 		refin-supply = <&refin>;
+		ad7134,adc-frame = "ad7134_24";
 	};
 };
