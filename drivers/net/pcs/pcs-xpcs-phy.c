@@ -369,6 +369,9 @@ void xpcs_phy_reg_lock(struct dw_xpcs *xpcs)
 	u16 val;
 	unsigned long orig_jiffies;
 
+	if (xpcs_phy_read(xpcs, XPCS_PHY_MAC_ADAPTER, XPCS_PHY_REG(MAC_ADAPTER_LOCK_PHY)) & MAC_ADAPTER_LOCK_LOCK)
+		return;
+
 	xpcs_phy_write(xpcs, XPCS_PHY_MAC_ADAPTER, XPCS_PHY_REG(MAC_ADAPTER_LOCK_PHY), MAC_ADAPTER_LOCK_LOCK);
 	xpcs_phy_write(xpcs, XPCS_PHY_MAC_ADAPTER, XPCS_PHY_REG(MAC_ADAPTER_LOCK_MPLLA), MAC_ADAPTER_LOCK_LOCK);
 	xpcs_phy_write(xpcs, XPCS_PHY_MAC_ADAPTER, XPCS_PHY_REG(MAC_ADAPTER_LOCK_MPLLB), MAC_ADAPTER_LOCK_LOCK);
@@ -411,6 +414,8 @@ int xpcs_phy_usxgmii_pma_config(struct dw_xpcs *xpcs)
 {
 	unsigned long orig_jiffies = jiffies;
 	u16 val;
+
+	xpcs_phy_reg_lock(xpcs);
 
 	/* 1.6 Turn off C37 auto-negotiation */
 	val = xpcs_read(xpcs, MDIO_MMD_VEND2, XPCS_PHY_REG(MII_CTRL));
