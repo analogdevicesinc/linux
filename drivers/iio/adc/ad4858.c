@@ -442,6 +442,59 @@ static const struct iio_enum seamless_high_dynamic_range_enum = {
 	.get = seamless_high_dynamic_range_get,
 };
 
+static const char * const channel_sleep[] = {
+	[0] = "disable",
+	[1] = "enable",
+};
+
+static int channel_sleep_set(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan, unsigned int item)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad4858_dev *adc = conv->phy;
+	unsigned int reg;
+	int ret;
+
+	ret = ad4858_spi_reg_read(adc, AD4858_REG_CH_SLEEP, &reg);
+	if (ret)
+		return ret;
+
+	if (item)
+		reg |= BIT(chan->address);
+	else
+		reg &= ~BIT(chan->address);
+
+	ret = ad4858_spi_reg_write(adc, AD4858_REG_CH_SLEEP, reg);
+	if (ret)
+		return ret;
+
+	return 0;
+}
+
+static int channel_sleep_get(struct iio_dev *indio_dev,
+	const struct iio_chan_spec *chan)
+{
+	struct axiadc_converter *conv = iio_device_get_drvdata(indio_dev);
+	struct ad4858_dev *adc = conv->phy;
+	unsigned int reg;
+	int ret;
+
+	ret = ad4858_spi_reg_read(adc, AD4858_REG_CH_SLEEP, &reg);
+	if (ret)
+		return ret;
+
+	reg &= BIT(chan->address);
+
+	return reg ? 1 : 0;
+}
+
+static const struct iio_enum channel_sleep_enum = {
+	.items = channel_sleep,
+	.num_items = ARRAY_SIZE(channel_sleep),
+	.set = channel_sleep_set,
+	.get = channel_sleep_get,
+};
+
 static const struct iio_enum ad4858_os_ratio = {
 	.items = ad4858_os_ratios,
 	.num_items = ARRAY_SIZE(ad4858_os_ratios),
@@ -488,8 +541,12 @@ static struct iio_chan_spec_ext_info ad4858_ext_info[] = {
 				  &axi_crc_control_enum),
 	IIO_ENUM("seamless_high_dynamic_range", IIO_SEPARATE,
 		 &seamless_high_dynamic_range_enum),
-	IIO_ENUM_AVAILABLE_SHARED("seamless_high_dynamic_range", IIO_SHARED_BY_ALL,
+	IIO_ENUM_AVAILABLE_SHARED("seamless_high_dynamic_range", IIO_SHARED_BY_TYPE,
 				  &seamless_high_dynamic_range_enum),
+	IIO_ENUM("sleep", IIO_SEPARATE,
+		 &channel_sleep_enum),
+	IIO_ENUM_AVAILABLE_SHARED("sleep", IIO_SHARED_BY_TYPE,
+				  &channel_sleep_enum),
 	{
 		.name = "axi_crc_status",
 		.read = ad4858_get_axi_crc_status,
