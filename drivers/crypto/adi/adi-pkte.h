@@ -14,17 +14,14 @@
 #ifndef ADI_PKTE_H
 #define ADI_PKTE_H
 
-//#define PKTE_USE_SRAM
-#ifdef PKTE_USE_SRAM
-	#define PKTE_SRAM_ADDRESS        0x20001000
-#endif
-
 #define PKTE_MAX_KEY_SIZE      (AES_KEYSIZE_256 * 8)
 #define PKTE_BUFLEN            (8 * 1024)
 #define PKTE_RING_BUFFERS      4
 
 #define PKTE_OP_UPDATE         1
 #define PKTE_OP_FINAL          2
+
+#define PKTE_OP_TIMEOUT		10
 
 #define PKTE_FLAGS_HMAC_KEY_PREPARED BIT(8)
 #define PKTE_FLAGS_HMAC              BIT(9)
