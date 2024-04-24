@@ -75,7 +75,7 @@ u32 *dpu_bliteng_get_cmd_list(struct dpu_bliteng *dpu_be);
 s32 dpu_bliteng_get_id(struct dpu_bliteng *dpu_be);
 void dpu_bliteng_set_id(struct dpu_bliteng *dpu_be, int id);
 void dpu_bliteng_set_dev(struct dpu_bliteng *dpu_be, struct device *dev);
-int dpu_be_get(struct dpu_bliteng *dpu_be);
+void dpu_be_get(struct dpu_bliteng *dpu_be);
 void dpu_be_put(struct dpu_bliteng *dpu_be);
 int dpu_be_get_fence(struct dpu_bliteng *dpu_be, int dpu_num);
 int dpu_be_set_fence(struct dpu_bliteng *dpu_be, int fd);
