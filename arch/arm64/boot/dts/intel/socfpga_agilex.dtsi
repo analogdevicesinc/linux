@@ -130,7 +130,7 @@
 		compatible = "usb-nop-xceiv";
 	};
 
-	soc {
+	soc0: soc {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "simple-bus";
