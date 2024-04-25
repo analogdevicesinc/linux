@@ -45,6 +45,8 @@
 #include "adi-pkte.h"
 #include "adi-pkte-skcipher.h"
 
+#define BITM_CIPHER_TYPE	0x38	/* bitmask for isolating cipher used */
+
 enum CIPHER_MODE {
 	UNUSED = 0 << 0,	/* not a bitmask */
 	CBC = 1 << 1,
@@ -56,54 +58,43 @@ enum CIPHER_MODE {
 	DECRYPT = 1 << 7,
 };
 
+u32 aes_key_length_lut[] = {
+	aes_key_length256,
+	aes_key_length192,
+	aes_key_length128,
+};
+
 struct adi_crypt_reqctx {
 	enum CIPHER_MODE mode;
 };
 
-static int adi_crypt_prepare_req(struct skcipher_request *req)
+static inline int aes_get_key_length(u32 keylen)
 {
-	struct adi_ctx *ctx;
-	struct adi_dev *crypt;
+	u32 aes_index;
+
+	aes_index = (keylen >> 6) - 1;
+	if((aes_index >= ARRAY_SIZE(aes_key_length_lut)) ||
+			(aes_index < 0))
+		return -EINVAL;
+	return aes_key_length_lut[aes_index];
+}
+
+static int adi_crypt_configure_pkte(struct adi_dev *pkte_dev,
+		struct skcipher_request *req)
+{
 	struct adi_crypt_reqctx *rctx;
-	struct scatter_walk in;
-	int i, ivsize, pos;
 	struct ADI_PKTE_DEVICE *pkte;
-
-#ifdef DEBUG_PKTE
-	char temp[256];
-#endif
-
-	ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
-	ivsize = crypto_skcipher_ivsize(crypto_skcipher_reqtfm(req));
-	crypt = ctx->pkte_dev;
-	pkte = crypt->pkte_device;
-
-	if (!req)
-		return -EINVAL;
-
-	if (!crypt)
-		return -ENODEV;
-
-	if (crypt->flags & PKTE_TCM_MODE) {
-		dev_err(crypt->dev, "%s: PKTE_TCM_MODE Currently untested",
-			__func__);
-		return -EINVAL;
-	}
-
-	if (crypt->flags & PKTE_HOST_MODE) {
-		dev_err(crypt->dev, "%s: PKTE_HOST_MODE Currently untested",
-			__func__);
-		return -EINVAL;
-	}
+	struct adi_ctx *ctx;
+	u32 i;
 
 	rctx = skcipher_request_ctx(req);
-
+	ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
+	pkte = pkte_dev->pkte_device;
 	if (!(ctx->flags_skcipher & PKTE_FLAGS_STARTED)) {
-
-		crypt->src_count_set = 0;
-		crypt->src_bytes_available = 0;
-		crypt->ring_pos_produce = 0;
-		crypt->ring_pos_consume = 0;
+		pkte_dev->src_count_set = 0;
+		pkte_dev->src_bytes_available = 0;
+		pkte_dev->ring_pos_produce = 0;
+		pkte_dev->ring_pos_consume = 0;
 		ready = 0;
 		processing = 0;
 
@@ -117,45 +108,37 @@ static int adi_crypt_prepare_req(struct skcipher_request *req)
 			pkte->pPkteList.pCommand.opcode = opcode_decrypt;
 			pkte->pPkteList.pCommand.direction = dir_inbound;
 		} else {
-			dev_err(crypt->dev, "%s: Unsupported Operation\n",
+			dev_err(pkte_dev->dev, "%s: Unsupported Operation\n",
 				__func__);
 		}
 
-		if (rctx->mode & AES) {
-			switch ((ctx->keylen * 8)) {
-			case 256:
-				pkte->pPkteList.pCommand.aes_key_length =
-				    aes_key_length256;
-				break;
-			case 192:
-				pkte->pPkteList.pCommand.aes_key_length =
-				    aes_key_length192;
-				break;
-			case 128:
-				pkte->pPkteList.pCommand.aes_key_length =
-				    aes_key_length128;
-				break;
-			default:
-				dev_err(crypt->dev,
-					"%s: Keylen %d unsupported\n", __func__,
-					ctx->keylen);
-			}
-		} else {
+		switch (rctx->mode & BITM_CIPHER_TYPE) {
+		case AES:
 			pkte->pPkteList.pCommand.aes_key_length =
-			    aes_key_length_other;
-		}
+				aes_get_key_length(ctx->keylen);
+			if (pkte->pPkteList.pCommand.aes_key_length < 0) {
+				dev_err(pkte_dev->dev, "Unsupported AES key length\n");
+				return -EINVAL;
+			}
 
-		if (rctx->mode & AES) {
 			pkte->pPkteList.pCommand.cipher = cipher_aes;
 			pkte->pPkteList.pCommand.aes_des_key = aes_key;
-		} else if (rctx->mode & DES) {
+			break;
+		case DES:
+			pkte->pPkteList.pCommand.aes_key_length =
+			    aes_key_length_other;
 			pkte->pPkteList.pCommand.cipher = cipher_des;
 			pkte->pPkteList.pCommand.aes_des_key = des_key;
-		} else if (rctx->mode & TDES) {
+			break;
+		case TDES:
+			pkte->pPkteList.pCommand.aes_key_length =
+			    aes_key_length_other;
 			pkte->pPkteList.pCommand.cipher = cipher_tdes;
 			pkte->pPkteList.pCommand.aes_des_key = des_key;
-		} else {
-			dev_err(crypt->dev, "%s: Unsupported Mode\n", __func__);
+			break;
+		default:
+			dev_err(pkte_dev->dev, "%s: Unsupported Mode\n", __func__);
+			return -EINVAL;
 		}
 
 		if (rctx->mode & CBC)
@@ -168,98 +151,146 @@ static int adi_crypt_prepare_req(struct skcipher_request *req)
 		pkte->pPkteList.pCommand.digest_length = digest_length0;
 		pkte->pPkteList.pCommand.hash_source = hash_source_no_load;
 		pkte->pPkteList.pCommand.final_hash_condition = final_hash;
-
-		adi_reset_state(crypt);
-		adi_start_engine(crypt);
+		adi_reset_state(pkte_dev);
+		adi_start_engine(pkte_dev);
 	}
 
-	pkte->pPkteList.pSource = &pkte->source[crypt->ring_pos_consume][0];
-
-	if (crypt->flags & (PKTE_TCM_MODE | PKTE_AUTONOMOUS_MODE))
-		adi_configure_cdr(crypt);
+	pkte->pPkteList.pSource = &pkte->source[pkte_dev->ring_pos_consume][0];
+	if (pkte_dev->flags & (PKTE_TCM_MODE | PKTE_AUTONOMOUS_MODE))
+		adi_configure_cdr(pkte_dev);
 
 	pkte->pPkteList.pDestination = &pkte->destination[0];
 
-	dev_dbg(crypt->dev, "Setting key...\n");
-	adi_config_sa_key(crypt, ctx->key);
+	return 0;
+}
 
+static void adi_crypt_prepare_IV(struct adi_dev *pkte_dev,
+		struct adi_crypt_reqctx *rctx, u32 cryptlen)
+{
+
+	u8 *pkte_src, cpy_len, pos = 0;
+	struct ADI_PKTE_DEVICE *pkte;
+
+	pkte = pkte_dev->pkte_device;
+	if ((rctx->mode & DES) || (rctx->mode & TDES)) {
+		pos = (cryptlen - 8) / 4;
+		cpy_len = 8;
+		IV[2] = 0;
+		IV[3] = 0;
+	} else {
+		pos = (cryptlen - 16) / 4;
+		cpy_len = 16;
+	}
+
+	pkte_src = (u8 *) &pkte->source[pkte_dev->ring_pos_consume][pos];
+	memcpy((u8 *) &IV[0], pkte_src, cpy_len);
+}
+
+#ifdef DEBUG_PKTE
+static void adi_crypt_debug_print_consume(struct adi_dev *pkte_dev,
+		struct skcipher_request req);
+{
+	struct ADI_PKTE_DEVICE pkte;
+	u32 i, read_iter;
+	char temp[256];
+
+	read_iter = req->cryptlen / 4;
+	for (i = 0; i < read_iter; i++)
+		dev_info(pkte_dev->dev, "SRC %x\n",
+			pkte->source[pkte_dev->ring_pos_consume][i]);
+}
+#endif
+
+static int adi_crypt_prepare_req(struct skcipher_request *req)
+{
+	struct adi_crypt_reqctx *rctx;
+	struct ADI_PKTE_DEVICE *pkte;
+	struct scatter_walk in;
+	struct adi_dev *pkte_dev;
+	struct adi_ctx *ctx;
+	u32 ivsize;
+
+
+	ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
+	ivsize = crypto_skcipher_ivsize(crypto_skcipher_reqtfm(req));
+	pkte_dev = ctx->pkte_dev;
+	pkte = pkte_dev->pkte_device;
+
+	if (!req)
+		return -EINVAL;
+
+	if (!pkte_dev)
+		return -ENODEV;
+
+	if (pkte_dev->flags & PKTE_TCM_MODE) {
+		dev_err(pkte_dev->dev, "%s: PKTE_TCM_MODE Currently untested",
+			__func__);
+		return -EINVAL;
+	}
+
+	if (pkte_dev->flags & PKTE_HOST_MODE) {
+		dev_err(pkte_dev->dev, "%s: PKTE_HOST_MODE Currently untested",
+			__func__);
+		return -EINVAL;
+	}
+
+	adi_crypt_configure_pkte(pkte_dev, req);
+	dev_dbg(pkte_dev->dev, "Setting key...\n");
+	adi_config_sa_key(pkte_dev, ctx->key);
 	if (rctx->mode & CBC) {
 		if ((ctx->flags_skcipher & PKTE_FLAGS_STARTED)) {
 			if ((rctx->mode & ENCRYPT)) {
-
-				if ((rctx->mode & DES) || (rctx->mode & TDES)) {
-					pos =
-					    (crypt->src_bytes_available -
-					     8) / 4;
-					memcpy((u8 *) & IV[0],
-					       &pkte->destination[pos], 8);
-					IV[2] = 0;
-					IV[3] = 0;
-				} else {
-					pos =
-					    (crypt->src_bytes_available -
-					     16) / 4;
-					memcpy((u8 *) & IV[0],
-					       &pkte->destination[pos], 16);
-				}
-
-				//Feed previous result into IV
-				adi_config_state(crypt, IV);
-			} else {
-				//Feed previous result into IV
-				adi_config_state(crypt, IV);
+				adi_crypt_prepare_IV(pkte_dev, rctx,
+						pkte_dev->src_bytes_available);
+				/* Feed previous result into IV */
+				adi_config_state(pkte_dev, IV);
 			}
+
 		} else {
-			adi_config_state(crypt, (u32 *) req->iv);
+			adi_config_state(pkte_dev, (u32 *) req->iv);
 		}
 	}
 
-	adi_source_data(crypt, req->cryptlen);
-	crypt->src_bytes_available = req->cryptlen;
+	adi_source_data(pkte_dev, req->cryptlen);
+	pkte_dev->src_bytes_available = req->cryptlen;
 
-	dev_dbg(crypt->dev, "Started writing (via scatterwalk) %d bytes...\n",
+	dev_dbg(pkte_dev->dev, "Started writing (via scatterwalk) %d bytes...\n",
 		req->cryptlen);
 
 	scatterwalk_start(&in, req->src);
-	scatterwalk_copychunks(&pkte->source[crypt->ring_pos_consume][0],
+	scatterwalk_copychunks(&pkte->source[pkte_dev->ring_pos_consume][0],
 			       &in, req->cryptlen, 0);
 
-	if (rctx->mode & CBC) {
-		if (rctx->mode & DECRYPT) {
-			if ((rctx->mode & DES) || (rctx->mode & TDES)) {
-				pos = (req->cryptlen - 8) / 4;
-				memcpy((u8 *) & IV[0],
-				       &pkte->source[crypt->
-						     ring_pos_consume][pos], 8);
-				IV[2] = 0;
-				IV[3] = 0;
-			} else {
-				pos = (req->cryptlen - 16) / 4;
-				memcpy((u8 *) & IV[0],
-				       &pkte->source[crypt->
-						     ring_pos_consume][pos],
-				       16);
-			}
-		}
-	}
+	if (rctx->mode & (CBC | DECRYPT))
+		adi_crypt_prepare_IV(pkte_dev, rctx, req->cryptlen);
+
 #ifdef DEBUG_PKTE
-	for (i = 0; i < req->cryptlen / 4; i++)
-		dev_dbg(crypt->dev, "SRC %x\n",
-			pkte->source[crypt->ring_pos_consume][i]);
+	adi_crypt_debug_print_consume(pkte_dev, req);
 #endif
 
-	adi_write(crypt, CDSC_CNT_OFFSET, 1);
-
-	adi_write(crypt, BUF_THRESH_OFFSET,
+	adi_write(pkte_dev, CDSC_CNT_OFFSET, 1);
+	adi_write(pkte_dev, BUF_THRESH_OFFSET,
 		  (u32) 128 << BITP_PKTE_BUF_THRESH_INBUF | (u32) 128 <<
 		  BITP_PKTE_BUF_THRESH_OUTBUF);
 
-	adi_write(crypt, INT_EN_OFFSET, BITM_PKTE_IMSK_EN_RDRTHRSH);
-
+	adi_write(pkte_dev, INT_EN_OFFSET, BITM_PKTE_IMSK_EN_RDRTHRSH);
 	ctx->flags_skcipher |= PKTE_FLAGS_STARTED;
-
 	return 0;
 }
+
+#ifdef DEBUG_PKTE
+static void adi_crypt_debug_print_consume(struct adi_dev *pkte_dev,
+		struct skcipher_request req);
+{
+	u32 i read_iter;
+
+	read_iter = req->cryptlen / 4;
+	for (i = 0; i < read_iter; i++)
+		dev_dbg(pkte_dev->dev, "DST %x\n",
+			pkte_dev->pkte_device->destination[i]);
+
+}
+#endif
 
 static int adi_crypt_cipher_one_req(struct crypto_engine *engine, void *areq)
 {
@@ -267,43 +298,46 @@ static int adi_crypt_cipher_one_req(struct crypto_engine *engine, void *areq)
 						    struct skcipher_request,
 						    base);
 	struct adi_ctx *ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
-	struct adi_dev *crypt = ctx->pkte_dev;
+	struct adi_dev *pkte_dev = ctx->pkte_dev;
 	int err = 0;
 	struct scatter_walk out;
 
-	if (!crypt)
+	if (!pkte_dev)
 		return -ENODEV;
 
 	err = adi_crypt_prepare_cipher_req(engine, areq);
 	if (err)
 		return err;
 
-	if (crypt->flags & (PKTE_TCM_MODE | PKTE_HOST_MODE)) {
+	if (pkte_dev->flags & (PKTE_TCM_MODE | PKTE_HOST_MODE)) {
 		wait_event_interruptible(wq_processing, processing == 0);
 		processing = 1;
 	}
 
-	while (!(adi_read(crypt, STAT_OFFSET) & BITM_PKTE_STAT_OUTPTDN)) ;
 
-	while (!(adi_read(crypt, CTL_STAT_OFFSET) & BITM_PKTE_CTL_STAT_PERDY)) ;
+	err = adi_wait_for_bit(pkte_dev, STAT_OFFSET, BITM_PKTE_STAT_OUTPTDN);
+	if(err)
+		return err;
+
+	err = adi_wait_for_bit(pkte_dev, CTL_STAT_OFFSET, BITM_PKTE_CTL_STAT_PERDY);
+	if(err)
+		return err;
 
 	scatterwalk_start(&out, req->dst);
-	scatterwalk_copychunks(crypt->pkte_device->destination, &out,
+	scatterwalk_copychunks(pkte_dev->pkte_device->destination, &out,
 			       req->cryptlen, 1);
 
 #ifdef DEBUG_PKTE
-	for (i = 0; i < req->cryptlen / 4; i++)
-		dev_dbg(crypt->dev, "DST %x\n",
-			crypt->pkte_device->destination[i]);
+	adi_crypt_debug_print_dest(pkte_dev, req);
 #endif
-	crypto_finalize_skcipher_request(crypt->engine, req, err);
+	crypto_finalize_skcipher_request(pkte_dev->engine, req, err);
 
-	if (crypt->flags & (PKTE_TCM_MODE | PKTE_AUTONOMOUS_MODE)) {
-		crypt->ring_pos_consume++;
-		if (adi_read(crypt, RDSC_CNT_OFFSET))
-			adi_write(crypt, RDSC_DECR_OFFSET, 0x1);
-		if (crypt->ring_pos_consume >= PKTE_RING_BUFFERS)
-			crypt->ring_pos_consume = 0;
+	if (pkte_dev->flags & (PKTE_TCM_MODE | PKTE_AUTONOMOUS_MODE)) {
+		pkte_dev->ring_pos_consume++;
+		if (adi_read(pkte_dev, RDSC_CNT_OFFSET))
+			adi_write(pkte_dev, RDSC_DECR_OFFSET, 0x1);
+		if (pkte_dev->ring_pos_consume >= PKTE_RING_BUFFERS)
+			pkte_dev->ring_pos_consume = 0;
 	}
 
 	return 0;
@@ -396,16 +430,16 @@ static int adi_crypt(struct skcipher_request *req, unsigned long mode)
 {
 	struct adi_ctx *ctx = crypto_skcipher_ctx(crypto_skcipher_reqtfm(req));
 	struct adi_crypt_reqctx *rctx = skcipher_request_ctx(req);
-	struct adi_dev *crypt = adi_find_dev(ctx);
+	struct adi_dev *pkte_dev = adi_find_dev(ctx);
 
 	pr_debug("%s len=%d\n", __func__, req->cryptlen);
 
-	if (!crypt)
+	if (!pkte_dev)
 		return -ENODEV;
 
 	rctx->mode = mode;
 
-	return crypto_transfer_skcipher_request_to_engine(crypt->engine, req);
+	return crypto_transfer_skcipher_request_to_engine(pkte_dev->engine, req);
 }
 
 static int adi_crypt_aes_cbc_decrypt(struct skcipher_request *req)

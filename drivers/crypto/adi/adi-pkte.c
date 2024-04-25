@@ -127,6 +127,28 @@ void adi_reset_state(struct adi_dev *hdev)
 			 PKTE_FLAGS_HMAC | PKTE_FLAGS_HMAC_KEY_PREPARED);
 }
 
+int adi_wait_for_bit(struct adi_dev *pkte_dev, u32 reg_offset,
+		u32 bitmask)
+{
+	u32 start_time, elapsed_time;
+	u32 pkte_status;
+
+	start_time = ktime_get_seconds();
+	pkte_status = adi_read(pkte_dev, reg_offset) & bitmask;
+	while (!pkte_status) {
+		elapsed_time = ktime_get_seconds() - start_time;
+		if(elapsed_time == PKTE_OP_TIMEOUT)
+			return -EIO;
+
+		pkte_status = adi_read(pkte_dev, reg_offset) & bitmask;
+		/* Be nice to others and don't block */
+		cond_resched();
+	}
+
+	return 0;
+}
+
+
 static irqreturn_t adi_irq_handler(int irq, void *dev_id)
 {
 	struct adi_dev *pkte_dev = dev_id;

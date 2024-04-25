@@ -339,27 +339,6 @@ static void pkte_continue_op(struct adi_dev *pkte_dev, int *dev_final_hash)
 	}
 }
 
-static int adi_wait_for_bit(struct adi_dev *pkte_dev, u32 reg_offset,
-		u32 bitmask)
-{
-	u32 start_time, elapsed_time;
-	u32 pkte_status;
-
-	start_time = ktime_get_seconds();
-	pkte_status = adi_read(pkte_dev, reg_offset) & bitmask;
-	while (!pkte_status) {
-		elapsed_time = ktime_get_seconds() - start_time;
-		if(elapsed_time == PKTE_OP_TIMEOUT)
-			return -EIO;
-
-		pkte_status = adi_read(pkte_dev, reg_offset) & bitmask;
-		/* Be nice to others and don't block */
-		cond_resched();
-	}
-
-	return 0;
-}
-
 #ifdef DEBUG_PKTE
 static void print_packet_debug(struct adi_dev *pkte_dev)
 {
