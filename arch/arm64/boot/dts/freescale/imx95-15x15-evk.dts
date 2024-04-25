@@ -34,7 +34,7 @@
 		cooling-min-state = <0>;
 		cooling-max-state = <3>;
 		#cooling-cells = <2>;
-		pwms = <&tpm6 2 4000000 PWM_POLARITY_INVERTED>;
+		pwms = <&tpm6 0 4000000 PWM_POLARITY_INVERTED>;
 		cooling-levels = <64 128 192 255>;
 	};
 
