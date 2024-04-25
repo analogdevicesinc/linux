@@ -743,6 +743,12 @@
 		>;
 	};
 
+	pinctrl_touch: touchgrp {
+		fsl,pins = <
+			IMX95_PAD_XSPI1_DATA7__GPIO5_IO_BIT7			0x31e
+		>;
+	};
+
 	pinctrl_pdm: pdmgrp {
 		fsl,pins = <
 			IMX95_PAD_PDM_CLK__AONMIX_TOP_PDM_CLK				0x31e
