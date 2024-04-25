@@ -1,5 +1,3 @@
-//#define DEBUG
-
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Packet engine driver for Analog Devices Incorporated
