@@ -1479,7 +1479,8 @@ static int ad4630_probe(struct spi_device *spi)
 
 	ret = ad4630_config(st);
 	if (ret)
-		return ret;
+		return dev_err_probe(&spi->dev, ret,
+				     "Config failed: %d\n", ret);
 
 	if (st->pga_gpios) {
 		ad4630_fill_scale_tbl(st);
@@ -1496,7 +1497,8 @@ static int ad4630_probe(struct spi_device *spi)
 
 	ret = ad4630_pwm_get(st);
 	if (ret)
-		return ret;
+		return dev_err_probe(&spi->dev, ret,
+				     "Failed to get PWM: %d\n", ret);
 
 	indio_dev->name = st->chip->name;
 	indio_dev->info = &ad4630_info;
