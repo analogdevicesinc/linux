@@ -334,6 +334,8 @@ static long neutron_inference_ioctl(struct file *file,
 	void __user *udata = (void __user *)arg;
 	struct neutron_device *ndev;
 	int ret = -EINVAL;
+	struct neutron_uapi_result_status uapi;
+	struct neutron_mbox_rx_msg rx_msg;
 
 	if (!inf || IS_ERR(inf))
 		return ret;
@@ -345,9 +347,6 @@ static long neutron_inference_ioctl(struct file *file,
 
 	switch (cmd) {
 	case NEUTRON_IOCTL_INFERENCE_STATE:
-		struct neutron_uapi_result_status uapi;
-		struct neutron_mbox_rx_msg rx_msg;
-
 		uapi.status = inf->status;
 		uapi.error_code = 0;
 
