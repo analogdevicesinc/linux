@@ -15,6 +15,8 @@ struct ox03c10 {
 
 	struct ox03c10_mode *cur_mode;
 
+	bool streaming;
+
 	/* this needs to be the last element in the structure */
 	struct v4l2_ctrl *ctrls[];
 };

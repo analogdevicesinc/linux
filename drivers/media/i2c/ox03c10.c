@@ -370,23 +370,34 @@ static struct ox03c10_mode ox03c10_modes[] = {
 
 static int ox03c10_exposure_set(struct ox03c10 *sensor, struct ox03c10_exposure *exp)
 {
-	int ret;
+	int ret = 0;
 
-	ret = regmap_write(sensor->rmap, OX03C10_AEC_HCG_CTRL_01, (exp->dcg >> 8) & 0xff);
+	if (sensor->streaming)
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x00); /* set group hold 0 */
+
+	ret |= regmap_write(sensor->rmap, OX03C10_AEC_HCG_CTRL_01, (exp->dcg >> 8) & 0xff);
 	ret |= regmap_write(sensor->rmap, OX03C10_AEC_HCG_CTRL_02, exp->dcg & 0xff);
 	ret |= regmap_write(sensor->rmap, OX03C10_AEC_SPD_CTRL_01, (exp->spd >> 8) & 0xff);
 	ret |= regmap_write(sensor->rmap, OX03C10_AEC_SPD_CTRL_02, exp->spd & 0xff);
 	ret |= regmap_write(sensor->rmap, OX03C10_AEC_VS_CTRL_01, (exp->vs >> 8) & 0xff);
 	ret |= regmap_write(sensor->rmap, OX03C10_AEC_VS_CTRL_02, exp->vs & 0xff);
 
+	if (sensor->streaming) {
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x10); /* end group hold 0 */
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xA0); /* apply on VBlank */
+	}
+
 	return ret ? -EIO : 0;
 }
 
 static int ox03c10_analogue_gain_set(struct ox03c10 *sensor, struct ox03c10_analog_gain *gain)
 {
-	int ret;
+	int ret = 0;
 
-	ret = regmap_write(sensor->rmap, OX03C10_AEC_HCG_CTRL_08, (gain->hcg >> 4) & 0xf);
+	if (sensor->streaming)
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x01); /* set group hold 1 */
+
+	ret |= regmap_write(sensor->rmap, OX03C10_AEC_HCG_CTRL_08, (gain->hcg >> 4) & 0xf);
 	ret |= regmap_write(sensor->rmap, OX03C10_AEC_HCG_CTRL_09, (gain->hcg & 0xf) << 4);
 	ret |= regmap_write(sensor->rmap, OX03C10_AEC_SPD_CTRL_08, (gain->spd >> 4) & 0xf);
 	ret |= regmap_write(sensor->rmap, OX03C10_AEC_SPD_CTRL_09, (gain->spd & 0xf) << 4);
@@ -395,14 +406,22 @@ static int ox03c10_analogue_gain_set(struct ox03c10 *sensor, struct ox03c10_anal
 	ret |= regmap_write(sensor->rmap, OX03C10_AEC_VS_CTRL_08, (gain->vs >> 4) & 0xf);
 	ret |= regmap_write(sensor->rmap, OX03C10_AEC_VS_CTRL_09, (gain->vs & 0xf) << 4);
 
+	if (sensor->streaming) {
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x11); /* end group hold 1 */
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xA1); /* apply on VBlank */
+	}
+
 	return ret ? -EIO : 0;
 }
 
 static int ox03c10_digital_gain_set(struct ox03c10 *sensor, struct ox03c10_digital_gain *gain)
 {
-	int ret;
+	int ret = 0;
 
-	ret = regmap_write(sensor->rmap, OX03C10_AEC_HCG_CTRL_0A, (gain->hcg >> 10) & 0xf);
+	if (sensor->streaming)
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x02); /* set group hold 2 */
+
+	ret |= regmap_write(sensor->rmap, OX03C10_AEC_HCG_CTRL_0A, (gain->hcg >> 10) & 0xf);
 	ret |= regmap_write(sensor->rmap, OX03C10_AEC_HCG_CTRL_0B, (gain->hcg >> 2) & 0xff);
 	ret |= regmap_write(sensor->rmap, OX03C10_AEC_HCG_CTRL_0C, (gain->hcg & 0x3) << 6);
 	ret |= regmap_write(sensor->rmap, OX03C10_AEC_SPD_CTRL_0A, (gain->spd >> 10) & 0xf);
@@ -414,6 +433,11 @@ static int ox03c10_digital_gain_set(struct ox03c10 *sensor, struct ox03c10_digit
 	ret |= regmap_write(sensor->rmap, OX03C10_AEC_VS_CTRL_0A, (gain->vs >> 10) & 0xf);
 	ret |= regmap_write(sensor->rmap, OX03C10_AEC_VS_CTRL_0B, (gain->vs >> 2) & 0xff);
 	ret |= regmap_write(sensor->rmap, OX03C10_AEC_VS_CTRL_0C, (gain->vs & 0x3) << 6);
+
+	if (sensor->streaming) {
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x12); /* end group hold 2 */
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xA2); /* apply on VBlank */
+	}
 
 	return ret ? -EIO : 0;
 }
@@ -429,6 +453,9 @@ static int ox03c10_wb_gain_set(struct ox03c10 *sensor, struct ox03c10_wb_capture
 		OX03C10_AWB_GAIN_VS_0
 	};
 
+	if (sensor->streaming)
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x03); /* set group hold 3 */
+
 	for (i = 0, gain = wb_gain + i * sizeof(struct ox03c10_wb_capture_gain); i < 4; i++) {
 		ret |= regmap_write(sensor->rmap, base_addr[i] + 0, (gain->b >> 8) & 0xff);
 		ret |= regmap_write(sensor->rmap, base_addr[i] + 1, gain->b & 0xff);
@@ -440,12 +467,20 @@ static int ox03c10_wb_gain_set(struct ox03c10 *sensor, struct ox03c10_wb_capture
 		ret |= regmap_write(sensor->rmap, base_addr[i] + 7, gain->r & 0xff);
 	}
 
+	if (sensor->streaming) {
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x13); /* end group hold 3 */
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xA3); /* apply on VBlank */
+	}
+
 	return ret ? -EIO : 0;
 }
 
 static int ox03c10_pwl_enable(struct ox03c10 *sensor, bool en)
 {
 	int ret;
+
+	if (sensor->streaming)
+		return -EBUSY;
 
 	ret = regmap_update_bits(sensor->rmap, OX03C10_FORMAT_REG_1F, BIT(5), en ? BIT(5) : 0);
 	ret |= regmap_update_bits(sensor->rmap, OX03C10_ISP_CTRL_02, BIT(6), en ? BIT(6) : 0);
@@ -455,6 +490,9 @@ static int ox03c10_pwl_enable(struct ox03c10 *sensor, bool en)
 
 static int ox03c10_pwl_params_set(struct ox03c10 *sensor, struct ox03c10_pwl_ctrl *pwl_ctrl)
 {
+	if (sensor->streaming)
+		return -EBUSY;
+
 	return regmap_update_bits(sensor->rmap, OX03C10_FORMAT_REG_1F, 0xD8,
 				  (pwl_ctrl->pack24bit_sel << 6) | (pwl_ctrl->pwl_mode << 3));
 }
@@ -462,6 +500,9 @@ static int ox03c10_pwl_params_set(struct ox03c10 *sensor, struct ox03c10_pwl_ctr
 static int ox03c10_pwl_lut_set(struct ox03c10 *sensor, u8 *lut)
 {
 	int i, ret = 0;
+
+	if (sensor->streaming)
+		return -EBUSY;
 
 	for (i = 0; i < OX03C10_PWL_LUT_SIZE; i++)
 		ret |= regmap_write(sensor->rmap, OX03C10_PWL0_0_1 + i, lut[i]);
@@ -718,6 +759,8 @@ int ox03c10_streaming_start(struct ox03c10 *sensor, bool start)
 	} else {
 		ret |= regmap_write(sensor->rmap, OX03C10_SMIA_R0100, 1);
 	}
+
+	sensor->streaming = start;
 
 	return ret ? -EIO : 0;
 }
