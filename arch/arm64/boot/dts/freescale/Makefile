@@ -353,6 +353,9 @@ dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-netc-rpmsg.dtb
 imx95-19x19-evk-os08a20-dtbs := imx95-19x19-evk.dtb imx95-19x19-evk-os08a20.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-os08a20.dtb
 
+imx95-19x19-evk-ox05b1s-dtbs := imx95-19x19-evk.dtb imx95-19x19-evk-ox05b1s.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-ox05b1s.dtb
+
 imx95-19x19-evk-ti-serdes-dtbs := imx95-19x19-evk.dtb imx95-19x19-evk-ti-serdes.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-ti-serdes.dtb
 
