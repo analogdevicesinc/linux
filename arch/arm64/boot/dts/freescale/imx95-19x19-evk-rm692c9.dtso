@@ -60,7 +60,7 @@
 	#size-cells = <0>;
 	clock-frequency = <400000>;
 
-	focaltech_touch: focaltech@38 {
+	focaltech_touch: touchscreen@38 {
 		compatible = "focaltech,ft3518u";
 		reg = <0x38>;
 		pinctrl-names = "default";
