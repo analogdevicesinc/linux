@@ -624,23 +624,18 @@
 
 		opp-1000000000 {
 			opp-hz = /bits/ 64 <1000000000>;
-			opp-hz-real = /bits/ 64 <1000000000>, /bits/ 64 <500000000>;
+			opp-hz-real = /bits/ 64 <1000000000>, /bits/ 64 <133333333>;
 		};
 
 		opp-800000000 {
 			opp-hz = /bits/ 64 <800000000>;
-			opp-hz-real = /bits/ 64 <800000000>, /bits/ 64 <500000000>;
+			opp-hz-real = /bits/ 64 <800000000>, /bits/ 64 <133333333>;
+		};
+		opp-500000000 {
+			opp-hz = /bits/ 64 <500000000>;
+			opp-hz-real = /bits/ 64 <500000000>, /bits/ 64 <133333333>;
 		};
 
-		opp-667000000 {
-			opp-hz = /bits/ 64 <667000000>;
-			opp-hz-real = /bits/ 64 <667000000>, /bits/ 64 <400000000>;
-		};
-
-		opp-400000000 {
-			opp-hz = /bits/ 64 <400000000>;
-			opp-hz-real = /bits/ 64 <400000000>, /bits/ 64 <250000000>;
-		};
 	};
 
 	usbphynop: usbphynop {
@@ -2841,7 +2836,6 @@
 			    static-coefficient = <2427750>;
 			    dynamic-coefficient = <4687>;
 			    ts = <20000 2000 (-20) 2>;
-			    thermal-zone = "gpu";
 			};
 		};
 
