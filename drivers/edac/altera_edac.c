@@ -2086,9 +2086,9 @@ static int altr_edac_device_add(struct altr_arria10_edac *edac,
 	int seu_irq;
 	int rc = 0;
 
-	seu_irq = platform_get_irq_byname(pdev, "seu");
+	seu_irq = platform_get_irq_byname(pdev, "sdm_seu");
 	if (seu_irq < 0) {
-		dev_warn(&pdev->dev, "no %s IRQ defined\n", "seu");
+		dev_warn(&pdev->dev, "no %s IRQ defined\n", "sdm_seu");
 		return 0;
 	}
 
