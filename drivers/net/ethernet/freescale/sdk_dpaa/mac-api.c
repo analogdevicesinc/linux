@@ -471,6 +471,14 @@ static int xgmac_init_phy(struct net_device *net_dev,
 	struct phy_device *phy_dev;
 	__ETHTOOL_DECLARE_LINK_MODE_MASK(mask) = { 0, };
 
+	/* The internal connection to the serdes is XGMII, but this isn't
+	 * really correct for the phy mode (which is the external connection).
+	 * However, this is how all older device trees say that they want
+	 * XAUI, so just convert it for them.
+	 */
+	if (mac_dev->phy_if == PHY_INTERFACE_MODE_XGMII)
+		mac_dev->phy_if = PHY_INTERFACE_MODE_XAUI;
+
 	/* Pass a void link state handler for both fixed and dynamic links */
 	phy_dev = of_phy_connect(net_dev, mac_dev->phy_node,
 				 &adjust_link_void, 0, mac_dev->phy_if);
@@ -502,6 +510,14 @@ static int memac_init_phy(struct net_device *net_dev,
 	struct phy_device       *phy_dev;
 	__ETHTOOL_DECLARE_LINK_MODE_MASK(mask) = { 0, };
 	void (*adjust_link_handler)(struct net_device *);
+
+	/* The internal connection to the serdes is XGMII, but this isn't
+	 * really correct for the phy mode (which is the external connection).
+	 * However, this is how all older device trees say that they want
+	 * 10GBASE-R (aka XFI), so just convert it for them.
+	 */
+	if (mac_dev->phy_if == PHY_INTERFACE_MODE_XGMII)
+		mac_dev->phy_if = PHY_INTERFACE_MODE_10GBASER;
 
 	if ((macdev2enetinterface(mac_dev) == e_ENET_MODE_XGMII_10000) ||
 	    (macdev2enetinterface(mac_dev) == e_ENET_MODE_SGMII_2500)) {
@@ -546,7 +562,7 @@ static int memac_init_phy(struct net_device *net_dev,
 	}
 
 	/* Unless the PHY is capable of rate adaptation */
-	if (mac_dev->phy_if != PHY_INTERFACE_MODE_XGMII ||
+	if (mac_dev->phy_if != PHY_INTERFACE_MODE_10GBASER ||
 	    ((phy_dev->drv->phy_id & GENMASK(31, 10)) != PHY_VEND_AQUANTIA)) {
 		/* Remove any features not supported by the controller */
 		ethtool_convert_legacy_u32_to_link_mode(mask,
