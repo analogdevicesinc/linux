@@ -107,6 +107,18 @@ properties:
             maximum: 14
             description: Manual EQ level
 
+	ti,bc-gpio:
+            $ref: /schemas/types.yaml#/definitions/uint32
+            enum:
+              - 0 # GPIO0
+              - 1 # GPIO1
+              - 2 # GPIO2
+              - 3 # GPIO3
+            description:
+              Back channel GPIO select. The deserializer can link GPIO
+	      pin input data on up to four available slots to send on
+	      the back channel per each remote serializer connection.
+
           serializer:
             type: object
             description: FPD-Link Serializer node
