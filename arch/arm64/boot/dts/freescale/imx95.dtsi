@@ -2852,11 +2852,18 @@
 			power-domain-names = "gpumix", "gpuperf";
 			operating-points-v2 = <&gpu_opp_table>;
 			#cooling-cells = <2>;
-			power_model {
+			simple_power: power_model@0 {
 			    compatible = "arm,mali-simple-power-model";
-			    static-coefficient = <2427750>;
-			    dynamic-coefficient = <4687>;
+			    static-coefficient = <1065895>;
+			    dynamic-coefficient = <1013>;
+			    reference_voltage = <920>;
 			    ts = <20000 2000 (-20) 2>;
+			    thermal-zone = "ana";
+			};
+
+			ipa_power:power_model@1 {
+			    compatible = "arm,mali-tvax-power-model";
+			    reference_voltage = <920>;
 			};
 		};
 
