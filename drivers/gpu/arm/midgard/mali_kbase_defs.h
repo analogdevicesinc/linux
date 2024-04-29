@@ -1383,7 +1383,11 @@ struct kbase_device {
 #endif
 
 	struct notifier_block pcm_prioritized_process_nb;
+	struct dev_pm_domain_list  *pd_list;
+	struct device *dev_gpuperf;
 };
+#define DOMAIN_GPU_PWR  0
+#define DOMAIN_GPU_PERF 1
 
 /**
  * enum kbase_file_state - Initialization state of a file opened by @kbase_open

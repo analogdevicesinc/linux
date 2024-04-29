@@ -32,6 +32,7 @@
 
 #include <linux/version.h>
 #include <linux/pm_opp.h>
+#include <linux/pm_domain.h>
 #include "mali_kbase_devfreq.h"
 
 /**
@@ -177,6 +178,7 @@ static int kbase_devfreq_target(struct device *dev, unsigned long *target_freq, 
 	}
 #endif
 
+#ifdef IMX_USE_CCF
 	for (i = 0; i < kbdev->nr_clocks; i++) {
 		if (kbdev->clocks[i]) {
 			err = clk_set_rate(kbdev->clocks[i], freqs[i]);
@@ -192,6 +194,26 @@ static int kbase_devfreq_target(struct device *dev, unsigned long *target_freq, 
 			}
 		}
 	}
+#else
+#if KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE
+	if (kbdev->dev_gpuperf) {
+		err = dev_pm_genpd_set_performance_state(kbdev->dev_gpuperf, nominal_freq/1000);
+		/* For ENODEV or EOPNOTSUPP do not return error code */
+		if (err && !((err == -ENODEV) || (err == -EOPNOTSUPP))) {
+			dev_err(dev, "Failed to set opp (%d) (target %lu)\n",
+					err, nominal_freq/1000);
+			return err;
+		}
+		dev_dbg(dev, "gpu freq set target %lukHz\n", nominal_freq/1000);
+		for (i = 0; i < kbdev->nr_clocks; i++) {
+#if IS_ENABLED(CONFIG_REGULATOR)
+			original_freqs[i] = kbdev->current_freqs[i];
+#endif
+			kbdev->current_freqs[i] = freqs[i];
+		}
+	}
+#endif
+#endif
 
 	kbase_devfreq_set_core_mask(kbdev, core_mask);
 
