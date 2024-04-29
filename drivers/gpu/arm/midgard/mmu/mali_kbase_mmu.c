@@ -2330,7 +2330,16 @@ static int mmu_insert_pages_no_flush(struct kbase_device *kbdev, struct kbase_mm
 		if (count > remain)
 			count = remain;
 
-		if (!vindex && is_huge_head(*phys))
+		/* There are 3 conditions to satisfy in order to create a level 2 ATE:
+		 *
+		 * - The GPU VA is aligned to 2 MB.
+		 * - The physical address is tagged as the head of a 2 MB region,
+		 *   which guarantees a contiguous physical address range.
+		 * - There are actually 2 MB of virtual and physical pages to map,
+		 *   i.e. 512 entries for the MMU page table.
+		 */
+
+		if (!vindex && is_huge_head(*phys) && (count == KBASE_MMU_PAGE_ENTRIES))
 			cur_level = MIDGARD_MMU_LEVEL(2);
 		else
 			cur_level = MIDGARD_MMU_BOTTOMLEVEL;
