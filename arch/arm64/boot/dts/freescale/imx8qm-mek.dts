@@ -1055,18 +1055,9 @@
 	};
 };
 
-&phyx2_0{
-	fsl,refclk-pad-mode = <IMX8_PCIE_REFCLK_PAD_INPUT>;
-	status = "okay";
-};
-
-&phyx2_1{
-	fsl,refclk-pad-mode = <IMX8_PCIE_REFCLK_PAD_INPUT>;
-	status = "okay";
-};
-
-&phyx1{
-	fsl,refclk-pad-mode = <IMX8_PCIE_REFCLK_PAD_INPUT>;
+&hsio_phy {
+	fsl,hsio-cfg = "pciea-pcieb-sata";
+	fsl,refclk-pad-mode = "input";
 	status = "okay";
 };
 
@@ -1076,6 +1067,8 @@
 	reset-gpio = <&lsio_gpio4 29 GPIO_ACTIVE_LOW>;
 	host-wake-gpio = <&lsio_gpio4 28 GPIO_ACTIVE_LOW>;
 	vpcie-supply = <&reg_pciea>;
+	phys = <&hsio_phy 0 PHY_TYPE_PCIE 0>;
+	phy-names = "pcie-phy";
 	status = "okay";
 };
 
@@ -1083,7 +1076,9 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcieb>;
 	reset-gpio = <&lsio_gpio5 0 GPIO_ACTIVE_LOW>;
-	status = "okay";
+	phys = <&hsio_phy 1 PHY_TYPE_PCIE 1>;
+	phy-names = "pcie-phy";
+	status = "disabled";
 };
 
 &sata {
