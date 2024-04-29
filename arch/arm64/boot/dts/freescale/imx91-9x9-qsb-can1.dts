@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+#include "imx91-9x9-qsb.dts"
+
+/{
+	reg_can_stby: regulator-can-stby {
+		compatible = "regulator-fixed";
+		regulator-name = "can-stby";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio1 10 GPIO_ACTIVE_LOW>;
+		enable-active-low;
+	};
+};
+
+&pcal6524 {
+	/* SW select the can pins. Or set SW4[3] to 1 on board */
+	mic-can-sel-hog {
+		/delete-property/ output-low;
+		output-high;
+	};
+};
+
+
+&flexcan1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexcan1>;
+	xceiver-supply = <&reg_can_stby>;
+	status = "okay";
+};
+
+/* PDM MIC use A port, conflict with CAN1, which use the B port */
+&micfil {
+	status = "disabled";
+};
+
+&iomuxc {
+	pinctrl_flexcan1: flexcan1grp {
+		fsl,pins = <
+			MX91_PAD_PDM_CLK__CAN1_TX		0x139e
+			MX91_PAD_PDM_BIT_STREAM0__CAN1_RX	0x139e
+			MX91_PAD_PDM_BIT_STREAM1__GPIO1_IO10	0x31e
+		>;
+	};
+};
