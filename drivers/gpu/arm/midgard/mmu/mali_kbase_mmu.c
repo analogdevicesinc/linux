@@ -1180,10 +1180,14 @@ page_fault_retry:
 		 */
 		op_param.mmu_sync_info = mmu_sync_info;
 		op_param.kctx_id = kctx->id;
-		/* Can safely skip the invalidate for all levels in case
-		 * of duplicate page faults.
+		/* Usually it is safe to skip the MMU cache invalidate for all levels
+		 * in case of duplicate page faults. But for the pathological scenario
+		 * where the faulty VA gets mapped by the time page fault worker runs it
+		 * becomes imperative to invalidate MMU cache for all levels, otherwise
+		 * there is a possibility of repeated page faults on GPUs which supports
+		 * fine grained MMU cache invalidation.
 		 */
-		op_param.flush_skip_levels = 0xF;
+		op_param.flush_skip_levels = 0x0;
 		op_param.vpfn = fault_pfn;
 		op_param.nr = 1;
 		spin_lock_irqsave(&kbdev->hwaccess_lock, hwaccess_flags);
@@ -1217,10 +1221,14 @@ page_fault_retry:
 		/* See comment [1] about UNLOCK usage */
 		op_param.mmu_sync_info = mmu_sync_info;
 		op_param.kctx_id = kctx->id;
-		/* Can safely skip the invalidate for all levels in case
-		 * of duplicate page faults.
+		/* Usually it is safe to skip the MMU cache invalidate for all levels
+		 * in case of duplicate page faults. But for the pathological scenario
+		 * where the faulty VA gets mapped by the time page fault worker runs it
+		 * becomes imperative to invalidate MMU cache for all levels, otherwise
+		 * there is a possibility of repeated page faults on GPUs which supports
+		 * fine grained MMU cache invalidation.
 		 */
-		op_param.flush_skip_levels = 0xF;
+		op_param.flush_skip_levels = 0x0;
 		op_param.vpfn = fault_pfn;
 		op_param.nr = 1;
 		spin_lock_irqsave(&kbdev->hwaccess_lock, hwaccess_flags);
@@ -1701,6 +1709,12 @@ static void mmu_insert_pages_failure_recovery(struct kbase_device *kbdev,
 
 		if (!num_of_valid_entries) {
 			kbase_kunmap(p, page);
+
+			/* No CPU and GPU cache maintenance is done here as caller would do the
+			 * complete flush of GPU cache and invalidation of TLB before the PGD
+			 * page is freed. CPU cache flush would be done when the PGD page is
+			 * returned to the memory pool.
+			 */
 
 			kbase_mmu_add_to_free_pgds_list(mmut, p);
 
@@ -2723,13 +2737,21 @@ static void kbase_mmu_update_and_free_parent_pgds(struct kbase_device *kbdev,
 		if (current_valid_entries == 1 && current_level != MIDGARD_MMU_LEVEL(0)) {
 			kbase_kunmap(p, current_page);
 
-			/* Ensure the cacheline containing the last valid entry
-			 * of PGD is invalidated from the GPU cache, before the
-			 * PGD page is freed.
-			 */
-			kbase_mmu_sync_pgd_gpu(kbdev, mmut->kctx,
-					       current_pgd + (index * sizeof(u64)), sizeof(u64),
-					       flush_op);
+			/* Check if fine grained GPU cache maintenance is being used */
+			if (flush_op == KBASE_MMU_OP_FLUSH_PT) {
+				/* Ensure the invalidated PTE is visible in memory right away */
+				kbase_mmu_sync_pgd_cpu(kbdev,
+						       kbase_dma_addr(p) + (index * sizeof(u64)),
+						       sizeof(u64));
+				/* Invalidate the GPU cache for the whole PGD page and not just for
+				 * the cacheline containing the invalidated PTE, as the PGD page is
+				 * going to be freed. There is an extremely remote possibility that
+				 * other cachelines (containing all invalid PTEs) of PGD page are
+				 * also present in the GPU cache.
+				 */
+				kbase_mmu_sync_pgd_gpu(kbdev, mmut->kctx, current_pgd,
+						       512 * sizeof(u64), KBASE_MMU_OP_FLUSH_PT);
+			}
 
 			kbase_mmu_add_to_free_pgds_list(mmut, p);
 		} else {
@@ -2918,12 +2940,21 @@ static int kbase_mmu_teardown_pgd_pages(struct kbase_device *kbdev, struct kbase
 		if (!num_of_valid_entries) {
 			kbase_kunmap(p, page);
 
-			/* Ensure the cacheline(s) containing the last valid entries
-			 * of PGD is invalidated from the GPU cache, before the
-			 * PGD page is freed.
-			 */
-			kbase_mmu_sync_pgd_gpu(kbdev, mmut->kctx, pgd + (index * sizeof(u64)),
-					       pcount * sizeof(u64), flush_op);
+			/* Check if fine grained GPU cache maintenance is being used */
+			if (flush_op == KBASE_MMU_OP_FLUSH_PT) {
+				/* Ensure the invalidated ATEs are visible in memory right away */
+				kbase_mmu_sync_pgd_cpu(kbdev,
+						       kbase_dma_addr(p) + (index * sizeof(u64)),
+						       pcount * sizeof(u64));
+				/* Invalidate the GPU cache for the whole PGD page and not just for
+				 * the cachelines containing the invalidated ATEs, as the PGD page
+				 * is going to be freed. There is an extremely remote possibility
+				 * that other cachelines (containing all invalid ATEs) of PGD page
+				 * are also present in the GPU cache.
+				 */
+				kbase_mmu_sync_pgd_gpu(kbdev, mmut->kctx, pgd, 512 * sizeof(u64),
+						       KBASE_MMU_OP_FLUSH_PT);
+			}
 
 			kbase_mmu_add_to_free_pgds_list(mmut, p);
 
