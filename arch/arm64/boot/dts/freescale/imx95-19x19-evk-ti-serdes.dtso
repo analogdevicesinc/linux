@@ -94,6 +94,7 @@
 				i2c-alias = <0x44>;
 
 				ti,rx-mode = <3>;
+				ti,bc-gpio = <0>;
 
 				serializer1: serializer {
 					compatible = "ti,ds90ub953-q1";
@@ -153,6 +154,7 @@
 				i2c-alias = <0x45>;
 
 				ti,rx-mode = <3>;
+				ti,bc-gpio = <0>;
 
 				serializer2: serializer {
 					compatible = "ti,ds90ub953-q1";
@@ -212,6 +214,7 @@
 				i2c-alias = <0x46>;
 
 				ti,rx-mode = <3>;
+				ti,bc-gpio = <0>;
 
 				serializer3: serializer {
 					compatible = "ti,ds90ub953-q1";
@@ -271,6 +274,7 @@
 				i2c-alias = <0x47>;
 
 				ti,rx-mode = <3>;
+				ti,bc-gpio = <0>;
 
 				serializer4: serializer {
 					compatible = "ti,ds90ub953-q1";
