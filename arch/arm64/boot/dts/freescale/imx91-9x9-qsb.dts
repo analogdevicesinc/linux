@@ -104,6 +104,24 @@
 		reset-gpios = <&pcal6524 12 GPIO_ACTIVE_LOW>;
 	};
 
+	wm8524: audio-codec {
+		#sound-dai-cells = <0>;
+		compatible = "wlf,wm8524";
+		wlf,mute-gpios = <&pcal6524 2 GPIO_ACTIVE_LOW>;
+		clocks = <&clk IMX91_CLK_SAI1>;
+		clock-names = "mclk";
+	};
+
+	sound-wm8524 {
+		compatible = "fsl,imx-audio-wm8524";
+		model = "wm8524-audio";
+		audio-cpu = <&sai1>;
+		audio-codec = <&wm8524>;
+		audio-routing =
+			"Line Out Jack", "LINEVOUTL",
+			"Line Out Jack", "LINEVOUTR";
+	};
+
 	sound-micfil {
 		compatible = "fsl,imx-audio-card";
 		model = "micfil-audio";
@@ -202,6 +220,32 @@
 		#interrupt-cells = <2>;
 		interrupt-parent = <&gpio3>;
 		interrupts = <26 IRQ_TYPE_LEVEL_LOW>;
+
+		sai1-en-hog {
+			gpio-hog;
+			gpios = <9 GPIO_ACTIVE_HIGH>;
+			output-low;
+		};
+
+		/*
+		 * MIC/CAN_SEL selects pins between MIC and CAN.
+		 * Default DT selects the MIC pins.
+		 */
+		mic-can-sel-hog {
+			gpio-hog;
+			gpios = <17 GPIO_ACTIVE_HIGH>;
+			output-low;
+		};
+
+		/*
+		 * M2/SAI1_SEL selects SAI1 pins between audio DAC and M.2.
+		 * Default DT selects the audio DAC.
+		 */
+		m2-sai1-sel-hog  {
+			gpio-hog;
+			gpios = <18 GPIO_ACTIVE_HIGH>;
+			output-low;
+		};
 	};
 
 	pmic@32 {
@@ -297,7 +341,6 @@
 	#sound-dai-cells = <0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pdm>;
-	pinctrl-assert-gpios = <&pcal6524 17 GPIO_ACTIVE_LOW>;
 	assigned-clocks = <&clk IMX91_CLK_PDM>;
 	assigned-clock-parents = <&clk IMX91_CLK_AUDIO_PLL>;
 	assigned-clock-rates = <49152000>;
@@ -316,7 +359,6 @@
 	#sound-dai-cells = <0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_sai1>;
-	pinctrl-assert-gpios = <&pcal6524 9 GPIO_ACTIVE_LOW>;
 	assigned-clocks = <&clk IMX91_CLK_SAI1>;
 	assigned-clock-parents = <&clk IMX91_CLK_AUDIO_PLL>;
 	assigned-clock-rates = <24576000>;
