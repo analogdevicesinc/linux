@@ -527,6 +527,7 @@ struct ub960_data {
 	} reg_current;
 
 	bool streaming;
+	bool fsync_enabled;
 
 	u8 stored_fwd_ctl;
 
@@ -2553,6 +2554,110 @@ static int ub960_configure_ports_for_streaming(struct ub960_data *priv,
 	return 0;
 }
 
+static void ub960_set_fsync_period(struct ub960_data *priv)
+{
+	struct ub960_rxport *rxport = priv->rxports[0];
+	struct v4l2_fract *interval = &priv->interval;
+	struct device *dev = &priv->client->dev;
+	u32 frame_period;
+	u32 fsync;
+	u8 fs_htime_0, fs_ltime_0, fs_ltime_1;
+
+	if (priv->fsync_enabled)
+		return;
+
+	/*
+	 * FrameSync Mode
+	 * [7:4] = 0000 : Internal Generated FrameSync,
+	 *		  use Back-channel frame clock from port 0
+	 * [7:4] = 0001 : Internal Generated FrameSync,
+	 *		  use Back-channel frame clock from port 1
+	 * [7:4] = 0010 : Internal Generated FrameSync,
+	 *		  use Back-channel frame clock from port 2
+	 * [7:4] = 0011 : Internal Generated FrameSync,
+	 *		  use Back-channel frame clock from port 3
+	 * [7:4] = 01xx : Internal Generated FrameSync, use 25MHz clock
+	 * [7:4] = 1000 : External FrameSync from GPIO0
+	 * [7:4] = 1001 : External FrameSync from GPIO1
+	 * [7:4] = 1010 : External FrameSync from GPIO2
+	 * [7:4] = 1011 : External FrameSync from GPIO3
+	 * [7:4] = 1100 : External FrameSync from GPIO4
+	 * [7:4] = 1101 : External FrameSync from GPIO5
+	 * [7:4] = 1110 : External FrameSync from GPIO6
+	 * [7:4] = 1111 : External FrameSync from GPIO7
+	 */
+	ub960_update_bits(priv, UB960_SR_FS_CTL, GENMASK(7, 4), 0);
+
+	/*
+	 * Initial State
+	 * [2] = 0 : FrameSync initial state is 0
+	 * [2] = 1 : FrameSync initial state is 1
+	 */
+	ub960_update_bits(priv, UB960_SR_FS_CTL, BIT(2), 0);
+
+	switch (rxport->rx_mode) {
+	case RXPORT_MODE_RAW10:
+	case RXPORT_MODE_RAW12_HF:
+	case RXPORT_MODE_RAW12_LF:
+		frame_period = 12000;
+		break;
+
+	case RXPORT_MODE_CSI2_NONSYNC:
+		frame_period = 100;
+		break;
+
+	case RXPORT_MODE_CSI2_SYNC:
+		frame_period = 600;
+		break;
+	default:
+		dev_warn(dev, "Invalid rx mode(%u)\n", rxport->rx_mode);
+		frame_period = 600;
+		break;
+	}
+
+	/* 1s/fps/frame_period(ns) */
+	fsync = div_u64((u64)interval->numerator * 1000 * 1000 * 1000,
+			interval->denominator * frame_period);
+
+	dev_dbg(dev, "fsync period %u (frame period %u)\n", fsync, frame_period);
+
+	fs_htime_0 = (fsync >> 16) & 0xff;
+	fs_ltime_1 = (fsync >> 8) & 0xff;
+	fs_ltime_0 = (fsync >> 0) & 0xff;
+
+	ub960_write(priv, UB960_SR_FS_HIGH_TIME_0, fs_htime_0);
+	ub960_write(priv, UB960_SR_FS_LOW_TIME_1, fs_ltime_1);
+	ub960_write(priv, UB960_SR_FS_LOW_TIME_0, fs_ltime_0);
+
+	/*
+	 * FrameSync Generation Enable
+	 * [0] = 0 : FrameSync disabled
+	 * [0] = 1 : FrameSync enabled
+	 *
+	 * FrameSync Generation Mode
+	 * [1] = 0: Hi/Lo
+	 *	    In Hi/Lo mode, the FrameSync generator will use the
+	 *	    FS_HIGH_TIME[15:0] and FS_LOW_TIME[15:0] register
+	 *	    values to separately control the High and Low periods
+	 *	    for the generated FrameSync signal
+	 * [1] = 1: 50/50
+	 *	    In 50/50 mode, the FrameSync generator will use the
+	 *	    values in the FS_HIGH_TIME_0, FS_LOW_TIME_1 and
+	 *	    FS_LOW_TIME_0 registers as a 24-bit value for both
+	 *	    the High and Low periods of the generated FrameSync
+	 *	    signal.
+
+	 */
+	ub960_update_bits(priv, UB960_SR_FS_CTL, BIT(0) | BIT(1), 0x3);
+	priv->fsync_enabled = true;
+}
+
+static void ub960_fsync_disabled(struct ub960_data *priv)
+{
+	ub960_write(priv, UB960_SR_FS_CTL, 0);
+	priv->fsync_enabled = false;
+}
+
 static void ub960_update_streaming_status(struct ub960_data *priv)
 {
 	unsigned int i;
@@ -2583,6 +2688,8 @@ static int ub960_enable_streams(struct v4l2_subdev *sd,
 		if (ret)
 			return ret;
 	}
+
+	ub960_set_fsync_period(priv);
 
 	/* Enable TX port if not yet enabled */
 	if (!priv->stream_enable_mask[source_pad]) {
@@ -2726,9 +2833,11 @@ static int ub960_disable_streams(struct v4l2_subdev *sd,
 
 	priv->stream_enable_mask[source_pad] &= ~source_streams_mask;
 
-	if (!priv->stream_enable_mask[source_pad])
+	if (!priv->stream_enable_mask[source_pad]) {
 		ub960_disable_tx_port(priv,
 				      ub960_pad_to_port(priv, source_pad));
+		ub960_fsync_disabled(priv);
+	}
 
 	ub960_update_streaming_status(priv);
 
