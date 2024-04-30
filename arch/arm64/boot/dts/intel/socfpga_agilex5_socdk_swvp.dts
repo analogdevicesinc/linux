@@ -182,7 +182,7 @@
 
 &dwc3_0 {
 	extcon = <&extcon_usb1>;
-	dr_mode = "otg";
+	dr_mode = "host";
 };
 
 &watchdog0 {
