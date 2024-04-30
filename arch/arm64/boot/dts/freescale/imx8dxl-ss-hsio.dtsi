@@ -17,6 +17,25 @@
 				     "hsio_phyx1_apb_clk";
 		power-domains = <&pd IMX_SC_R_SERDES_1>;
 	};
+
+	hsio_phy: phy@5f1a0000 {
+		compatible = "fsl,imx8qxp-hsio";
+		reg = <0x5f1a0000 0x10000>,
+		      <0x5f120000 0x10000>,
+		      <0x5f140000 0x10000>,
+		      <0x5f160000 0x10000>;
+		reg-names = "reg", "phy", "ctrl", "misc";
+		clocks = <&phyx1_lpcg IMX_LPCG_CLK_0>,
+			 <&phyx1_lpcg IMX_LPCG_CLK_4>,
+			 <&phyx1_crr1_lpcg IMX_LPCG_CLK_4>,
+			 <&pcieb_crr3_lpcg IMX_LPCG_CLK_4>,
+			 <&misc_crr5_lpcg IMX_LPCG_CLK_4>;
+		clock-names = "pclk0", "apb_pclk0", "phy0_crr", "ctl0_crr",
+			      "misc_crr";
+		power-domains = <&pd IMX_SC_R_SERDES_1>;
+		#phy-cells = <3>;
+		status = "disabled";
+	};
 };
 
 &pcieb {
