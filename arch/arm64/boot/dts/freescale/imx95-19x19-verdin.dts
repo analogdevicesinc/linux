@@ -134,6 +134,10 @@
 	/delete-property/ reset-gpios;
 };
 
+&mt35xu01gbba {
+		spi-max-frequency = <133000000>;
+};
+
 &netc_emdio {
 	ethphy1: ethernet-phy@7 {
 		compatible = "ethernet-phy-ieee802.3-c45";
