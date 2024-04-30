@@ -291,6 +291,11 @@ M: Mirela Rabulea <mirela.rabulea@nxp.com>
 M: Alice Yuan <alice.yuan@nxp.com>
 F: drivers/media/i2c/os08a20/*
 
+capture/ox05b1s
+M: Mirela Rabulea <mirela.rabulea@nxp.com>
+F: drivers/media/i2c/ox05b1s/*
+F: Documentation/devicetree/bindings/media/i2c/ovti,ox05b1s.yaml
+
 capture/ox03c10
 M: Laurentiu Palcu <laurentiu.palcu@oss.nxp.com>
 R: Robert Chiras <robert.chiras@nxp.com>
