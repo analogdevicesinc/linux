@@ -468,6 +468,13 @@
 			compatible = "adp5585-gpio";
 			gpio-controller;
 			#gpio-cells = <2>;
+
+			/* EXP_SEL selects pins between board and RPi */
+			exp-sel-hog {
+				gpio-hog;
+				gpios = <4 GPIO_ACTIVE_HIGH>;
+				output-low;
+			};
 		};
 
 		adp5585pwm: pwm-adp5585 {
