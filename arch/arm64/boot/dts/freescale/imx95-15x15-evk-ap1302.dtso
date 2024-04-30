@@ -47,10 +47,18 @@
 	};
 };
 
+&pcal6524 {
+	mipi-csi-minisas-sel-hog {
+		gpio-hog;
+		gpios = <16 GPIO_ACTIVE_HIGH>;
+		output-low;
+		status = "okay";
+	};
+};
+
 &lpi2c4 {
 	#address-cells = <1>;
 	#size-cells = <0>;
-	pinctrl-assert-gpios = <&pcal6524 16 GPIO_ACTIVE_LOW>;
 	status = "okay";
 
 	adp5585_isp: mfd-isp@34 {
