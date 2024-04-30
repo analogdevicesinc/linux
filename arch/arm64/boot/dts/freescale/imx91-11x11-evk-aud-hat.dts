@@ -153,6 +153,12 @@
 
 };
 
+&adp5585gpio {
+	exp-sel-hog {
+		status = "disabled";
+	};
+};
+
 &sai3 {
 	#sound-dai-cells = <0>;
 	pinctrl-names = "default";
