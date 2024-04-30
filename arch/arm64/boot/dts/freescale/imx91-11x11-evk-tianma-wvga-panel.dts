@@ -31,6 +31,14 @@
 	};
 };
 
+&adp5585gpio {
+	/* EXP_SEL RPi */
+	exp-sel-hog {
+		/delete-property/ output-low;
+		output-high;
+	};
+};
+
 &iomuxc {
 	pinctrl_tpm5_ch3: tpm5ch3grp {
 		fsl,pins = <
@@ -50,7 +58,6 @@
 
 &parallel_disp_fmt {
 	pinctrl-names = "default";
-	pinctrl-assert-gpios = <&adp5585gpio 4 GPIO_ACTIVE_HIGH>;	/* EXP_SEL RPi */
 	pinctrl-0 = <&pinctrl_lcdif>;
 	fsl,interface-pix-fmt = "rgb666";
 	status = "okay";
