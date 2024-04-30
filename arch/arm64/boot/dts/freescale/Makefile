@@ -243,7 +243,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek.dtb imx8qm-mek-ov5640.dtb \
 			  imx8qm-lpddr4-val-lpspi.dtb imx8qm-lpddr4-val-lpspi-slave.dtb \
 			  imx8qm-mek-dsi-rm67191.dtb imx8qm-mek-dsi-rm67199.dtb \
 			  imx8qm-lpddr4-val-dp.dtb\
-			  imx8qp-lpddr4-val.dtb imx8dm-lpddr4-val.dtb imx8qm-pcieax2pciebx1.dtb \
+			  imx8qp-lpddr4-val.dtb imx8dm-lpddr4-val.dtb \
 			  imx8qm-mek-cockpit-a53.dtb imx8qm-mek-cockpit-a72.dtb \
 			  imx8qm-mek-dsi-serdes-rpmsg.dtb \
 			  imx8qm-mek-dsi-serdes.dtb imx8qm-mek-dsi-serdes-dual-display-rpmsg.dtb \
@@ -267,7 +267,6 @@ imx8qm-mek-revd-ca53-dtbs := imx8qm-mek-ca53.dtb imx8qm-mek-revd.dtbo
 imx8qm-mek-revd-ca72-dtbs := imx8qm-mek-ca72.dtb imx8qm-mek-revd.dtbo
 imx8qm-mek-revd-dsi-rm67191-dtbs := imx8qm-mek-dsi-rm67191.dtb imx8qm-mek-revd.dtbo
 imx8qm-mek-revd-dsi-rm67199-dtbs := imx8qm-mek-dsi-rm67199.dtb imx8qm-mek-revd.dtbo
-imx8qm-pcieax2pciebx1-revd-dtbs := imx8qm-pcieax2pciebx1.dtb imx8qm-mek-revd.dtbo
 imx8qm-mek-revd-root-dtbs := imx8qm-mek-root.dtb imx8qm-mek-revd.dtbo
 
 dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek-revd.dtb
@@ -286,7 +285,6 @@ dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek-revd-ca53.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek-revd-ca72.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek-revd-dsi-rm67191.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek-revd-dsi-rm67199.dtb
-dtb-$(CONFIG_ARCH_MXC) += imx8qm-pcieax2pciebx1-revd.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx8qm-mek-revd-root.dtb
 
 dtb-$(CONFIG_ARCH_MXC) += imx8qxp-ai_ml.dtb
