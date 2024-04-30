@@ -14,6 +14,8 @@
 &pcieb_ep{
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pcieb>;
-	ext_osc = <1>;
+	vpcie-supply = <&reg_pcieb>;
+	phys = <&hsio_phy 0 PHY_TYPE_PCIE 0>;
+	phy-names = "pcie-phy";
 	status = "okay";
 };
