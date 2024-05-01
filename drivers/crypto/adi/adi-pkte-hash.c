@@ -43,25 +43,26 @@
 static int adi_one_request(struct crypto_engine *engine, void *areq);
 static int adi_prepare_req(struct crypto_engine *engine, void *areq);
 
-
-static int align_packet_16byte(struct adi_dev *pkte_dev, u32 packet_size, u32 *data_offset)
+static int align_packet_16byte(struct adi_dev *pkte_dev, u32 packet_size,
+			       u32 *data_offset)
 {
 	u32 i, n_pad_len = 0;
+	u32 n_total_size;
 
-	if (packet_size % 16 != 0) {
-		u32 n_total_size;
-		n_total_size = ((packet_size / 16) + 1) * 16;
-		n_pad_len = n_total_size - packet_size;
-		for (i = 0; i < n_pad_len; i++) {
-			writeb(0x00, pkte_dev->io_base + *data_offset);
-			*data_offset += 1;
-		}
+	if (packet_size % 16 == 0)
+		return 0;
+
+	n_total_size = ((packet_size / 16) + 1) * 16;
+	n_pad_len = n_total_size - packet_size;
+	for (i = 0; i < n_pad_len; i++) {
+		writeb(0x00, pkte_dev->io_base + *data_offset);
+		*data_offset += 1;
 	}
 
 	return n_pad_len;
 }
 
-void adi_write_packet(struct adi_dev *pkte_dev, u32 * source)
+void adi_write_packet(struct adi_dev *pkte_dev, u32 *source)
 {
 	u32 i, w_iter, n_length, packet_size, n_pad_len = 0;
 	u32 *source_offset;
@@ -79,7 +80,7 @@ void adi_write_packet(struct adi_dev *pkte_dev, u32 * source)
 	n_length = pkte_dev->src_bytes_available;
 	packet_size = min(n_length, 128);
 	w_iter = (!!(packet_size % 4) + packet_size / 4);
-	for (i = 0; i < w_iter ; i++) {
+	for (i = 0; i < w_iter; i++) {
 		adi_write(pkte_dev, data_offset, *source_offset);
 		data_offset += 4;
 		source_offset++;
@@ -89,48 +90,49 @@ void adi_write_packet(struct adi_dev *pkte_dev, u32 * source)
 
 	//Pad to 16 byte alignment/boundaries
 	if (pkte->pPkteList.pCommand.opcode != opcode_hash)
-		n_pad_len = align_packet_16byte(pkte_dev, packet_size, &data_offset);
+		n_pad_len =
+		    align_packet_16byte(pkte_dev, packet_size, &data_offset);
 
 	pkte->pPkteList.pSource += packet_size / 4;
 	ibuf_increment = packet_size + n_pad_len;
 	if (ibuf_increment % 4)
 		ibuf_increment += (4 - ibuf_increment % 4);
 
-	pkte_dev->src_bytes_available -= min(ibuf_increment, pkte_dev->src_bytes_available);
+	pkte_dev->src_bytes_available -=
+	    min(ibuf_increment, pkte_dev->src_bytes_available);
 	adi_write(pkte_dev, INBUF_INCR_OFFSET, ibuf_increment);
 }
 
 static const struct adi_hash_cmd_params hash_params[] = {
 	{
-		.hash_cmd = hash_md5,
-		.packet_size = 4 * 4,
-	},
+	 .hash_cmd = hash_md5,
+	 .packet_size = 4 * 4,
+	  },
 	{
-		.hash_cmd = hash_sha1,
-		.packet_size = 5 * 4,
-	},
+	 .hash_cmd = hash_sha1,
+	 .packet_size = 5 * 4,
+	  },
 	{
-		.hash_cmd = hash_sha224,
-		.packet_size = 7 * 4,
-	},
+	 .hash_cmd = hash_sha224,
+	 .packet_size = 7 * 4,
+	  },
 	{
-		.hash_cmd = hash_sha256,
-		.packet_size = 8 * 4,
-	},
+	 .hash_cmd = hash_sha256,
+	 .packet_size = 8 * 4,
+	  },
 
 };
 
 static int adi_get_hash_packet_size(int hash_type)
 {
-	if((hash_type < ARRAY_SIZE(hash_params)) && (hash_type > 0))
+	if ((hash_type < ARRAY_SIZE(hash_params)) && (hash_type > 0))
 		return hash_params[hash_type].packet_size;
 
-	//invalid hash command
 	return -EINVAL;
 }
 
 static int adi_read_hash_to_dest(struct adi_dev *pkte_dev, u32 packet_size,
-		u32* destination, u32 data_buf_offset)
+				 u32 *destination, u32 data_buf_offset)
 {
 	u32 read_iter, dest_offset_incr, hash_packet_size, final_packet_size;
 	struct ADI_PKTE_DEVICE *pkte;
@@ -139,39 +141,40 @@ static int adi_read_hash_to_dest(struct adi_dev *pkte_dev, u32 packet_size,
 
 	pkte = pkte_dev->pkte_device;
 	dest_data_buf = destination;
-	hash_packet_size = adi_get_hash_packet_size(pkte->pPkteList.pCommand.hash);
+	hash_packet_size =
+	    adi_get_hash_packet_size(pkte->pPkteList.pCommand.hash);
 
-	if(hash_packet_size < 0)
+	if (hash_packet_size < 0)
 		return hash_packet_size;
 
 	switch (pkte->pPkteList.pCommand.opcode) {
 	case opcode_hash:
 		final_packet_size = hash_packet_size;
-		read_iter = final_packet_size/4;
+		read_iter = final_packet_size / 4;
 		dest_offset_incr = 4;
 		break;
 	case opcode_encrypt_hash:
 		final_packet_size = packet_size + hash_packet_size;
-		read_iter = final_packet_size/4;
+		read_iter = final_packet_size / 4;
 		dest_offset_incr = 1;
 		break;
 	default:
 		final_packet_size = packet_size;
-		read_iter = (final_packet_size/16 + final_packet_size%16) * 16;
+		read_iter =
+		    (final_packet_size / 16 + final_packet_size % 16) * 16;
 		dest_offset_incr = 1;
 		break;
 	}
 
-
 	/* Check if buffer is about to overflow */
-	if (read_iter > PKTE_BUFLEN){
-		dev_err(pkte_dev->dev, "Attempted to overwrite destination buffer!\n");
+	if (read_iter > PKTE_BUFLEN) {
+		dev_err(pkte_dev->dev,
+			"Attempted to overwrite destination buffer!\n");
 		return -ENOMEM;
 	}
 
 	for (i = 0; i < read_iter; i++) {
-		*dest_data_buf =
-		    adi_read(pkte_dev, data_buf_offset);
+		*dest_data_buf = adi_read(pkte_dev, data_buf_offset);
 		data_buf_offset += dest_offset_incr;
 		dest_data_buf++;
 	}
@@ -179,7 +182,7 @@ static int adi_read_hash_to_dest(struct adi_dev *pkte_dev, u32 packet_size,
 	return final_packet_size;
 }
 
-static int adi_read_packet(struct adi_dev *pkte_dev, u32 * destination)
+static int adi_read_packet(struct adi_dev *pkte_dev, u32 *destination)
 {
 	u32 data_buf_offset, imsk_stat_offset;
 	u32 n_length, packet_size;
@@ -187,35 +190,32 @@ static int adi_read_packet(struct adi_dev *pkte_dev, u32 * destination)
 	struct ADI_PKTE_DEVICE *pkte;
 
 	pkte = pkte_dev->pkte_device;
-	imsk_stat_offset = adi_read(pkte_dev, IMSK_STAT_OFFSET);
-	if(pkte_dev->flags & PKTE_AUTONOMOUS_MODE)
+	if (pkte_dev->flags & PKTE_AUTONOMOUS_MODE)
 		pos = pkte_dev->ring_pos_consume;
 	else
 		pos = 0;
 
-	if ((imsk_stat_offset & BITM_PKTE_IMSK_EN_OPDN) !=
-	    BITM_PKTE_IMSK_EN_OPDN) {
-		data_buf_offset = DATAIO_BUF_OFFSET;
+	imsk_stat_offset = adi_read(pkte_dev, IMSK_STAT_OFFSET);
+	imsk_stat_offset &= BITM_PKTE_IMSK_EN_OPDN;
+	if (imsk_stat_offset == BITM_PKTE_IMSK_EN_OPDN)
+		return 0;
 
-		n_length =
-		    (pkte->pPkteDescriptor.CmdDescriptor[pos].PE_DEST_ADDR +
-		     pkte->pPkteList.nSrcSize - adi_physical_address(pkte_dev,
-								     (void *)
-								     pkte->
-								     pPkteList.
-								     pDestination));
-		packet_size = min(n_length, 128);
-		packet_size = adi_read_hash_to_dest(pkte_dev, packet_size,
-				destination, data_buf_offset);
-		if (packet_size < 0)
-			return -EINVAL;
+	data_buf_offset = DATAIO_BUF_OFFSET;
+	n_length =
+	    (pkte->pPkteDescriptor.CmdDescriptor[pos].PE_DEST_ADDR +
+	     pkte->pPkteList.nSrcSize - adi_physical_address(pkte_dev, (void *)
+							     pkte->pPkteList.pDestination));
+	packet_size = min(n_length, 128);
+	packet_size = adi_read_hash_to_dest(pkte_dev, packet_size,
+					    destination, data_buf_offset);
+	if (packet_size < 0)
+		return -EINVAL;
 
-		ibuf_increment = packet_size;
-		if (ibuf_increment%4)
-			ibuf_increment = ((ibuf_increment/4) + 1) * 4;
+	ibuf_increment = packet_size;
+	if (ibuf_increment % 4)
+		ibuf_increment = ((ibuf_increment / 4) + 1) * 4;
 
-		adi_write(pkte_dev, OUTBUF_DECR_OFFSET, ibuf_increment);
-	}
+	adi_write(pkte_dev, OUTBUF_DECR_OFFSET, ibuf_increment);
 
 	return 0;
 }
@@ -232,13 +232,15 @@ static void adi_append_sg(struct adi_request_ctx *rctx,
 	while ((rctx->bufcnt < rctx->buflen) && rctx->total) {
 		count = min(rctx->sg->length - rctx->offset, rctx->total);
 		/* Check if the page has data, if not, skip to next
-		 * (if this is not the last entry)*/
+		 * (if this is not the last entry)
+		 */
 		if (count <= 0)
 			goto next_sg_entry;
 
 		/* Since buflen > bufcnt for the loop to be true, above can only be
 		 * possible if the page does not contain any data - i.e,
-		 * sg->length = 0 */
+		 * sg->length = 0
+		 */
 		count = min(count, rctx->buflen - rctx->bufcnt);
 		pkte_buf_index = pkte_dev->ring_pos_produce;
 		pkte_buf = &pkte->source[pkte_buf_index][0] + rctx->bufcnt;
@@ -305,7 +307,8 @@ static void set_packet_final(struct adi_dev *pkte_dev, int *dev_final_hash)
 		pCmd->final_hash_condition = final_hash;
 	} else {
 		pCmd->final_hash_condition = final_hash;
-		*dev_final_hash = 0x1 | (final_hash << BITP_PKTE_CTL_STAT_HASHFINAL);
+		*dev_final_hash =
+		    0x1 | (final_hash << BITP_PKTE_CTL_STAT_HASHFINAL);
 		adi_write(pkte_dev, CTL_STAT_OFFSET, *dev_final_hash);
 	}
 }
@@ -318,23 +321,24 @@ static void pkte_continue_op(struct adi_dev *pkte_dev, int *dev_final_hash)
 	dev_dbg(pkte_dev->dev, "%s hash_source_state set\n", __func__);
 	if (pkte_dev->flags & PKTE_AUTONOMOUS_MODE) {
 		pos = pkte_dev->ring_pos_consume;
-		sa_record = &pkte_dev->pkte_device->pPkteDescriptor.SARecord[pos];
+		sa_record =
+		    &pkte_dev->pkte_device->pPkteDescriptor.SARecord[pos];
 		*dev_final_hash = sa_record->SA_Para.SA_CMD0;
 		*dev_final_hash &= ~BITM_PKTE_SA_CMD0_HASHSRC;
 		*dev_final_hash |=
-			hash_source_state << BITP_PKTE_SA_CMD0_HASHSRC;
-		sa_record->SA_Para.SA_CMD0 = *dev_final_hash;
-	} else {
-		//Set HASHSRC to hash_source_state
-		*dev_final_hash = adi_read(pkte_dev, SA_CMD_OFFSET(0));
-		*dev_final_hash &= ~BITM_PKTE_SA_CMD0_HASHSRC;
-		*dev_final_hash |=
 		    hash_source_state << BITP_PKTE_SA_CMD0_HASHSRC;
-		pos = pkte_dev->ring_pos_consume;
-		sa_record = &pkte_dev->pkte_device->pPkteDescriptor.SARecord[pos];
 		sa_record->SA_Para.SA_CMD0 = *dev_final_hash;
-		adi_write(pkte_dev, SA_CMD_OFFSET(0), *dev_final_hash);
+		return;
 	}
+
+	/* Set HASHSRC to hash_source_state */
+	*dev_final_hash = adi_read(pkte_dev, SA_CMD_OFFSET(0));
+	*dev_final_hash &= ~BITM_PKTE_SA_CMD0_HASHSRC;
+	*dev_final_hash |= hash_source_state << BITP_PKTE_SA_CMD0_HASHSRC;
+	pos = pkte_dev->ring_pos_consume;
+	sa_record = &pkte_dev->pkte_device->pPkteDescriptor.SARecord[pos];
+	sa_record->SA_Para.SA_CMD0 = *dev_final_hash;
+	adi_write(pkte_dev, SA_CMD_OFFSET(0), *dev_final_hash);
 }
 
 #ifdef DEBUG_PKTE
@@ -379,11 +383,13 @@ static int adi_process_packet(struct adi_dev *pkte_dev,
 	}
 
 	err = adi_wait_for_bit(pkte_dev, STAT_OFFSET, BITM_PKTE_STAT_OUTPTDN);
-	if(err)
+	if (err)
 		return err;
 
-	err = adi_wait_for_bit(pkte_dev, CTL_STAT_OFFSET, BITM_PKTE_CTL_STAT_PERDY);
-	if(err)
+	err =
+	    adi_wait_for_bit(pkte_dev, CTL_STAT_OFFSET,
+			     BITM_PKTE_CTL_STAT_PERDY);
+	if (err)
 		return err;
 
 	pkte->pPkteList.pSource = &pkte->source[pkte_dev->ring_pos_consume][0];
@@ -400,7 +406,8 @@ static int adi_process_packet(struct adi_dev *pkte_dev,
 		adi_config_sa_para(pkte_dev);
 
 	/* Continue with previous operation if pkte
-	 * had already started, else start now */
+	 * had already started, else start now
+	 */
 	if (pkte_dev->flags & PKTE_FLAGS_STARTED)
 		pkte_continue_op(pkte_dev, &dev_final_hash);
 	else
@@ -417,12 +424,13 @@ static int adi_process_packet(struct adi_dev *pkte_dev,
 	}
 
 	if (pkte_dev->flags & PKTE_HOST_MODE) {
-		adi_write(pkte_dev, CDSC_CNT_OFFSET, 1);
-		adi_write(pkte_dev, SA_RDY_OFFSET,
-			  adi_physical_address(pkte_dev,
-					       (void *)&pkte->pPkteDescriptor.
-					       State));
+		struct STATE *pkte_state;
+		u32 pkte_state_addr;
 
+		pkte_state = &pkte->pPkteDescriptor.State;
+		pkte_state_addr = adi_physical_address(pkte_dev, (void *)pkte_state);
+		adi_write(pkte_dev, CDSC_CNT_OFFSET, 1);
+		adi_write(pkte_dev, SA_RDY_OFFSET, pkte_state_addr);
 		adi_write(pkte_dev, BUF_THRESH_OFFSET,
 			  128 << BITP_PKTE_BUF_THRESH_INBUF |
 			  128 << BITP_PKTE_BUF_THRESH_OUTBUF);
@@ -450,7 +458,7 @@ static int adi_process_packet(struct adi_dev *pkte_dev,
 }
 
 static int adi_prepare_secret_key(struct adi_dev *pkte_dev,
-				   struct adi_request_ctx *rctx)
+				  struct adi_request_ctx *rctx)
 {
 	struct ADI_PKTE_DEVICE *pkte;
 	u8 *source_bytewise;
@@ -467,7 +475,7 @@ static int adi_prepare_secret_key(struct adi_dev *pkte_dev,
 	memcpy(&pkte->source[pkte_dev->ring_pos_consume][0],
 	       pkte_dev->secret_key, pkte_dev->secret_keylen);
 
-	source_bytewise = (u8 *) & pkte->source[pkte_dev->ring_pos_consume][0];
+	source_bytewise = (u8 *) &pkte->source[pkte_dev->ring_pos_consume][0];
 	/* XOR padded key with ipad */
 	for (i = 0; i < INNER_OUTER_KEY_SIZE; i++)
 		*(source_bytewise + i) ^= 0x36;
@@ -478,14 +486,18 @@ static int adi_prepare_secret_key(struct adi_dev *pkte_dev,
 		return err;
 
 	if (!(pkte_dev->flags & PKTE_HOST_MODE)) {
-		err = adi_wait_for_bit(pkte_dev, STAT_OFFSET, BITM_PKTE_STAT_OUTPTDN);
-		if(err)
+		err =
+		    adi_wait_for_bit(pkte_dev, STAT_OFFSET,
+				     BITM_PKTE_STAT_OUTPTDN);
+		if (err)
 			return err;
 
 	}
 
-	err = adi_wait_for_bit(pkte_dev, CTL_STAT_OFFSET, BITM_PKTE_CTL_STAT_PERDY);
-	if(err)
+	err =
+	    adi_wait_for_bit(pkte_dev, CTL_STAT_OFFSET,
+			     BITM_PKTE_CTL_STAT_PERDY);
+	if (err)
 		return err;
 
 	pkte_dev->ring_pos_produce++;
@@ -494,7 +506,7 @@ static int adi_prepare_secret_key(struct adi_dev *pkte_dev,
 }
 
 #ifdef DEBUG_PKTE
-static void adi_printkey(const u8 * key, unsigned int keylen,
+static void adi_printkey(const u8 *key, unsigned int keylen,
 			 struct adi_dev *pkte_dev)
 {
 	char dev_final_hash[256];
@@ -509,7 +521,7 @@ static void adi_printkey(const u8 * key, unsigned int keylen,
 #endif
 
 static int adi_setkey(struct crypto_ahash *tfm,
-		      const u8 * key, unsigned int keylen)
+		      const u8 *key, unsigned int keylen)
 {
 	struct adi_ctx *ctx = crypto_ahash_ctx(tfm);
 	struct adi_dev *pkte_dev = adi_find_dev(ctx);
@@ -529,13 +541,12 @@ static int adi_setkey(struct crypto_ahash *tfm,
 
 		memcpy(pkte_dev->secret_key, key, keylen);
 		pkte_dev->secret_keylen = keylen;
+		return 0;
 
-	} else {
-		dev_err(pkte_dev->dev, "Key length exceeds limit!\n");
-		return -ENOMEM;
 	}
 
-	return 0;
+	dev_err(pkte_dev->dev, "Key length exceeds limit!\n");
+	return -ENOMEM;
 }
 
 static int adi_init(struct ahash_request *req)
@@ -635,8 +646,8 @@ static int adi_update_req(struct adi_dev *pkte_dev)
 		bufcnt = rctx->bufcnt;
 		rctx->bufcnt = 0;
 		err = adi_process_packet(pkte_dev, bufcnt, 1);
-			if (err)
-				return err;
+		if (err)
+			return err;
 	}
 
 	return err;
@@ -667,11 +678,11 @@ static void adi_copy_hash(struct ahash_request *req)
 	//Endian Swap!
 	if (pkte->pPkteList.pCommand.hash == hash_md5) {
 		memcpy(hash, pkte->pPkteList.pDestination, rctx->digcnt);
-	} else {
-		for (i = 0; i < rctx->digcnt / 4; i++)
-			hash[i] =
-			    __builtin_bswap32(pkte->pPkteList.pDestination[i]);
+		return;
 	}
+
+	for (i = 0; i < rctx->digcnt / 4; i++)
+		hash[i] = __builtin_bswap32(pkte->pPkteList.pDestination[i]);
 
 }
 
@@ -704,94 +715,92 @@ static void adi_finish_req(struct ahash_request *req, int err)
 	dev_dbg(pkte_dev->dev, "%s flags %lx\n", __func__, pkte_dev->flags);
 	pkte = pkte_dev->pkte_device;
 
-	if (!err && (PKTE_FLAGS_FINAL & pkte_dev->flags)) {
-		wait_event_interruptible(wq_ready, ready == 1);
+	if (err)
+		goto finish_req_err;
 
-		err = adi_wait_for_bit(pkte_dev, CTL_STAT_OFFSET, BITM_PKTE_CTL_STAT_PERDY);
-		if(err)
-			goto finish_req_err;
+	if (!(PKTE_FLAGS_FINAL & pkte_dev->flags))
+		goto finish_req;
 
-		err = adi_read_packet(pkte_dev, &pkte->pPkteList.pDestination[0]);
-		if(err)
-			goto finish_req_err;
+	wait_event_interruptible(wq_ready, ready == 1);
+	err =
+	    adi_wait_for_bit(pkte_dev, CTL_STAT_OFFSET,
+			     BITM_PKTE_CTL_STAT_PERDY);
+	if (err)
+		goto finish_req_err;
 
-		if (PKTE_FLAGS_HMAC & pkte_dev->flags) {
-			/* Compute the outer hash of the HMAC (Result).  From RFC2104:
-			 * HASH(Key XOR opad, HASH(Key XOR ipad, text)) */
-			dev_dbg(pkte_dev->dev,
-				"%s processing req for hmac %lx\n", __func__,
-				pkte_dev->flags);
-			adi_prep_engine(pkte_dev, hash_mode_standard);
+	err = adi_read_packet(pkte_dev, &pkte->pPkteList.pDestination[0]);
+	if (err)
+		goto finish_req_err;
 
-			memset(&pkte->source[pkte_dev->ring_pos_consume][0], 0,
-			       INNER_OUTER_KEY_SIZE);
-			/* Copy secret key */
-			memcpy(&pkte->source[pkte_dev->ring_pos_consume][0],
-			       pkte_dev->secret_key, pkte_dev->secret_keylen);
-			source_bytewise =
-			    (u8 *) & pkte->source[pkte_dev->
-						  ring_pos_consume][0];
-			/* XOR with Opad */
-			for (i = 0; i < INNER_OUTER_KEY_SIZE; i++)
-				*(source_bytewise + i) ^= 0x5c;
-			digestLength = pkte->pPkteList.pCommand.digest_length;
+	if (!(PKTE_FLAGS_HMAC & pkte_dev->flags))
+		goto finish_req;
 
-			/* Endian Swap! */
-			if (pkte->pPkteList.pCommand.hash == hash_md5) {
-				for (i = 0; i < digestLength; i++)
-					*((u32 *) (source_bytewise +
-						   INNER_OUTER_KEY_SIZE +
-						   i * 4)) =
-					    pkte->pPkteList.pDestination[i];
-			} else {
-				for (i = 0; i < digestLength; i++)
-					*((u32 *) (source_bytewise +
-						   INNER_OUTER_KEY_SIZE +
-						   i * 4)) =
-					    __builtin_bswap32(pkte->pPkteList.
-							      pDestination[i]);
-			}
+	/* Compute the outer hash of the HMAC (Result).  From RFC2104:
+	 * HASH(Key XOR opad, HASH(Key XOR ipad, text))
+	 */
+	dev_dbg(pkte_dev->dev,
+		"%s processing req for hmac %lx\n", __func__, pkte_dev->flags);
+	adi_prep_engine(pkte_dev, hash_mode_standard);
 
-			err = adi_process_packet(pkte_dev,
-					   INNER_OUTER_KEY_SIZE +
-					   (digestLength * 4), 1);
-			if(err)
-				goto finish_req_err;
+	memset(&pkte->source[pkte_dev->ring_pos_consume][0], 0,
+	       INNER_OUTER_KEY_SIZE);
+	/* Copy secret key */
+	memcpy(&pkte->source[pkte_dev->ring_pos_consume][0],
+	       pkte_dev->secret_key, pkte_dev->secret_keylen);
+	source_bytewise = (u8 *) &pkte->source[pkte_dev->ring_pos_consume][0];
+	/* XOR with Opad */
+	for (i = 0; i < INNER_OUTER_KEY_SIZE; i++)
+		*(source_bytewise + i) ^= 0x5c;
+	digestLength = pkte->pPkteList.pCommand.digest_length;
 
-			if (!(pkte_dev->flags & PKTE_HOST_MODE)) {
-				pkte_ctl_stat =
-				    adi_read(pkte_dev,
-					     CTL_STAT_OFFSET) &
-				    BITM_PKTE_STAT_OUTPTDN;
-				while (!pkte_ctl_stat) {
-					pkte_ctl_stat =
-					    adi_read(pkte_dev,
-						     CTL_STAT_OFFSET) &
-					    BITM_PKTE_STAT_OUTPTDN;
-					cond_resched();
-				}
-			}
+	/* Endian Swap! */
+	if (pkte->pPkteList.pCommand.hash == hash_md5) {
+		for (i = 0; i < digestLength; i++)
+			*((u32 *) (source_bytewise +
+				   INNER_OUTER_KEY_SIZE +
+				   i * 4)) = pkte->pPkteList.pDestination[i];
+	} else {
+		for (i = 0; i < digestLength; i++)
+			*((u32 *) (source_bytewise +
+				   INNER_OUTER_KEY_SIZE +
+				   i * 4)) =
+			    __builtin_bswap32(pkte->pPkteList.pDestination[i]);
+	}
 
+	err = adi_process_packet(pkte_dev,
+				 INNER_OUTER_KEY_SIZE + (digestLength * 4), 1);
+	if (err)
+		goto finish_req_err;
+
+	if (!(pkte_dev->flags & PKTE_HOST_MODE)) {
+		pkte_ctl_stat =
+		    adi_read(pkte_dev,
+			     CTL_STAT_OFFSET) & BITM_PKTE_STAT_OUTPTDN;
+		while (!pkte_ctl_stat) {
 			pkte_ctl_stat =
 			    adi_read(pkte_dev,
-				     CTL_STAT_OFFSET) &
-			    BITM_PKTE_CTL_STAT_PERDY;
-			while (!pkte_ctl_stat) {
-				pkte_ctl_stat =
-				    adi_read(pkte_dev,
-					     CTL_STAT_OFFSET) &
-				    BITM_PKTE_CTL_STAT_PERDY;
-				cond_resched();
-			}
-			err = adi_read_packet(pkte_dev,
-					&pkte->pPkteList.pDestination[0]);
-			if(err)
-				goto finish_req_err;
+				     CTL_STAT_OFFSET) & BITM_PKTE_STAT_OUTPTDN;
+			cond_resched();
 		}
 
-		adi_copy_hash(req);
-		err = adi_finish(req);
 	}
+
+	pkte_ctl_stat =
+	    adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_CTL_STAT_PERDY;
+	while (!pkte_ctl_stat) {
+		pkte_ctl_stat =
+		    adi_read(pkte_dev,
+			     CTL_STAT_OFFSET) & BITM_PKTE_CTL_STAT_PERDY;
+		cond_resched();
+	}
+
+	err = adi_read_packet(pkte_dev, &pkte->pPkteList.pDestination[0]);
+	if (err)
+		goto finish_req_err;
+
+finish_req:
+	adi_copy_hash(req);
+	err = adi_finish(req);
 
 finish_req_err:
 	crypto_finalize_hash_request(pkte_dev->engine, req, err);
@@ -856,7 +865,6 @@ static int adi_one_request(struct crypto_engine *engine, void *areq)
 		adi_finish_req(req, err);
 
 	return err;
-
 }
 
 static int adi_enqueue(struct ahash_request *req, unsigned int op)
