@@ -79,17 +79,12 @@ struct adi_crypto_crc_ctx {
 static int adi_crypto_crc_init_hw(struct adi_crypto_crc *crc, u32 key)
 {
 	dev_dbg(crc->dev, "%s @ %d\n", __func__, __LINE__);
-
 	writel(0, &crc->regs->datacntrld);
-
 	writel(BYTMIRR | (MODE_CALC_CRC << OPMODE_OFFSET), &crc->regs->control);
-
 	writel(key, &crc->regs->curresult);
-
 	/* setup CRC interrupts */
 	writel(CMPERRI | DCNTEXPI, &crc->regs->status);
 	writel(CMPERRI | DCNTEXPI, &crc->regs->intrenset);
-
 	return 0;
 }
 
@@ -105,12 +100,11 @@ static int adi_crypto_crc_init(struct ahash_request *req)
 		crc_ctx->crc = crc;
 		break;
 	}
-	spin_unlock_bh(&crc_list.lock);
 
+	spin_unlock_bh(&crc_list.lock);
 	ctx->crc = crc;
 	ctx->total = 0;
 	memset(ctx->sg_list, 0, 2 * sizeof(ctx->sg_list[0]));
-
 	dev_dbg(crc->dev, "init: digest size: %d\n",
 		crypto_ahash_digestsize(tfm));
 
@@ -123,7 +117,6 @@ static int adi_crypto_crc_export(struct ahash_request *req, void *out)
 	struct adi_crypto_crc *crc = ctx->crc;
 
 	dev_dbg(crc->dev, "%s @ %d\n", __func__, __LINE__);
-
 	memcpy(out, ctx, sizeof(*ctx));
 	return 0;
 }
@@ -134,7 +127,6 @@ static int adi_crypto_crc_import(struct ahash_request *req, const void *in)
 	struct adi_crypto_crc *crc = ctx->crc;
 
 	dev_dbg(crc->dev, "%s @ %d\n", __func__, __LINE__);
-
 	memcpy(ctx, in, sizeof(*ctx));
 	return 0;
 }
@@ -147,18 +139,15 @@ static void adi_crypto_crc_config_dma(struct adi_crypto_crc *crc)
 	int ret;
 
 	dev_dbg(crc->dev, "%s @ %d\n", __func__, __LINE__);
-
 	dma_map_sg(crc->dev, ctx->sg_list, 1, DMA_TO_DEVICE);
-
 	dma_config.direction = DMA_DEV_TO_MEM;
 	dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 	dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_4_BYTES;
 	dma_config.src_maxburst = 1;
 	dma_config.dst_maxburst = 1;
-
 	ret = dmaengine_slave_config(crc->dma_ch, &dma_config);
 	if (ret) {
-		dev_err(crc->dev, "Error configuring DMA channel\n");
+		dev_err(crc->dev, "Error configuring DMA channel(%d)\n", ret);
 		return;
 	}
 
@@ -176,50 +165,41 @@ static void adi_crypto_crc_config_dma(struct adi_crypto_crc *crc)
 
 static int adi_crypto_crc_update(struct ahash_request *req)
 {
-	u32 reg;
 	struct crypto_ahash *tfm = crypto_ahash_reqtfm(req);
 	struct adi_crypto_crc_ctx *crc_ctx = crypto_ahash_ctx(tfm);
 	struct adi_crypto_crc_reqctx *ctx = ahash_request_ctx(req);
 	struct adi_crypto_crc *crc = ctx->crc;
 	int ret = 0;
+	u32 reg;
 
 	dev_dbg(crc->dev, "%s @ %d\n", __func__, __LINE__);
-
-	//TODO Someday: Add ping pong buffers so we can prep multiple
-	//xmit buffers while the engine is busy processing the first 4KB chunk
-
+	/* TODO Someday: Add ping pong buffers so we can prep multiple
+	 * xmit buffers while the engine is busy processing the first 4KB chunk
+	 */
 	if (!req->nbytes)
 		return 0;
 
-	if (ctx->total + req->nbytes <= BUFLEN) {
-		ret = mutex_lock_interruptible(&crc_mutex);
-		if (ret)
-			return ret;
+	if (ctx->total + req->nbytes > BUFLEN)
+		return -ENOBUFS;
 
-		scatterwalk_map_and_copy(crc_ctx->xmit_buf + ctx->total,
-					 req->src, 0, req->nbytes, 0);
+	ret = mutex_lock_interruptible(&crc_mutex);
+	if (ret)
+		return ret;
 
-		ctx->total += req->nbytes;
+	scatterwalk_map_and_copy(crc_ctx->xmit_buf + ctx->total,
+				 req->src, 0, req->nbytes, 0);
 
-		sg_init_one(ctx->sg_list, crc_ctx->xmit_buf, ctx->total);
-
-		crc->req = req;
-
-		/* set CRC data count before start DMA */
-		writel((ctx->total & ~0x3) >> 2, &crc->regs->datacnt);
-
-		/* setup and enable CRC DMA */
-		adi_crypto_crc_config_dma(crc);
-
-		/* finally kick off CRC operation */
-		reg = readl(&crc->regs->control);
-		writel(reg | BLKEN, &crc->regs->control);
-
-		ctx->total = 0;
-	} else {
-		ret = -ENOBUFS;
-	}
-
+	ctx->total += req->nbytes;
+	sg_init_one(ctx->sg_list, crc_ctx->xmit_buf, ctx->total);
+	crc->req = req;
+	/* set CRC data count before start DMA */
+	writel((ctx->total & ~0x3) >> 2, &crc->regs->datacnt);
+	/* setup and enable CRC DMA */
+	adi_crypto_crc_config_dma(crc);
+	/* finally kick off CRC operation */
+	reg = readl(&crc->regs->control);
+	writel(reg | BLKEN, &crc->regs->control);
+	ctx->total = 0;
 	return ret;
 }
 
@@ -232,7 +212,6 @@ static int adi_crypto_crc_final(struct ahash_request *req)
 	int ret;
 
 	dev_dbg(crc->dev, "%s @ %d\n", __func__, __LINE__);
-
 	ret = mutex_lock_interruptible(&crc_mutex);
 	if (ret)
 		return ret;
@@ -241,9 +220,7 @@ static int adi_crypto_crc_final(struct ahash_request *req)
 			   crc->req->result);
 
 	mutex_unlock(&crc_mutex);
-
 	crc_ctx->key = 0;
-
 	return 0;
 }
 
@@ -268,11 +245,10 @@ static int adi_crypto_crc_digest(struct ahash_request *req)
 	struct adi_crypto_crc *crc = ctx->crc;
 
 	dev_dbg(crc->dev, "%s @ %d\n", __func__, __LINE__);
-
 	return adi_crypto_crc_init(req) ? : adi_crypto_crc_finup(req);
 }
 
-static int adi_crypto_crc_setkey(struct crypto_ahash *tfm, const u8 * key,
+static int adi_crypto_crc_setkey(struct crypto_ahash *tfm, const u8 *key,
 				 unsigned int keylen)
 {
 	struct adi_crypto_crc_ctx *crc_ctx = crypto_ahash_ctx(tfm);
@@ -281,7 +257,6 @@ static int adi_crypto_crc_setkey(struct crypto_ahash *tfm, const u8 * key,
 		return -EINVAL;
 
 	crc_ctx->key = get_unaligned_be32(key);
-
 	return 0;
 }
 
@@ -322,7 +297,7 @@ static struct ahash_alg algs = {
 		      .cra_module = THIS_MODULE,
 		      .cra_init = adi_crypto_crc_cra_init,
 		      .cra_exit = adi_crypto_crc_cra_exit,
-		       }
+		}
 };
 
 static irqreturn_t adi_crypto_crc_handler(int irq, void *dev_id)
@@ -343,7 +318,6 @@ static irqreturn_t adi_crypto_crc_handler(int irq, void *dev_id)
 		dma_unmap_sg(crc->dev, ctx->sg_list, 1, DMA_TO_DEVICE);
 		dev_dbg(crc->dev, "%s @ %d\n", __func__, __LINE__);
 		mutex_unlock(&crc_mutex);
-
 		return IRQ_HANDLED;
 	}
 
@@ -362,7 +336,6 @@ static __maybe_unused int adi_crypto_crc_suspend(struct platform_device *pdev,
 	int i = 100000;
 
 	dev_dbg(crc->dev, "%s @ %d\n", __func__, __LINE__);
-
 	while ((readl(&crc->regs->control) & BLKEN) && --i)
 		cpu_relax();
 
@@ -407,7 +380,6 @@ static int adi_crypto_crc_probe(struct platform_device *pdev)
 
 	INIT_LIST_HEAD(&crc->list);
 	spin_lock_init(&crc->lock);
-
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	crc->regs = devm_ioremap_resource(dev, res);
 	if (IS_ERR(crc->regs)) {
@@ -456,11 +428,9 @@ static int adi_crypto_crc_probe(struct platform_device *pdev)
 		dev_warn(&pdev->dev, "init crc poly timeout\n");
 
 	platform_set_drvdata(pdev, crc);
-
 	spin_lock(&crc_list.lock);
 	list_add(&crc->list, &crc_list.dev_list);
 	spin_unlock(&crc_list.lock);
-
 	if (list_is_singular(&crc_list.dev_list)) {
 		ret = crypto_register_ahash(&algs);
 		if (ret) {
@@ -472,7 +442,6 @@ static int adi_crypto_crc_probe(struct platform_device *pdev)
 	}
 
 	dev_info(&pdev->dev, "initialized\n");
-
 	return 0;
 
 out_error_dma:
@@ -480,7 +449,6 @@ out_error_dma:
 		dma_free_coherent(&pdev->dev, PAGE_SIZE, crc->sg_cpu,
 				  crc->sg_dma);
 	dma_release_channel(crc->dma_ch);
-
 	return ret;
 }
 
@@ -499,10 +467,8 @@ static int adi_crypto_crc_remove(struct platform_device *pdev)
 	spin_lock(&crc_list.lock);
 	list_del(&crc->list);
 	spin_unlock(&crc_list.lock);
-
 	crypto_unregister_ahash(&algs);
 	dma_release_channel(crc->dma_ch);
-
 	return 0;
 }
 
@@ -527,10 +493,8 @@ static int __init adi_crypto_crc_mod_init(void)
 	int ret;
 
 	pr_info("ADI hardware CRC crypto driver\n");
-
 	INIT_LIST_HEAD(&crc_list.dev_list);
 	spin_lock_init(&crc_list.lock);
-
 	ret = platform_driver_register(&adi_crypto_crc_driver);
 	if (ret) {
 		pr_err("unable to register driver\n");
