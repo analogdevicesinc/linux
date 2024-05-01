@@ -11,8 +11,7 @@
  * Contact: Greg Malysa <greg.malysa@timesys.com>
  */
 
-#include <asm/cacheflush.h>
-
+#include <linux/cacheflush.h>
 #include <linux/clk.h>
 #include <linux/crypto.h>
 #include <linux/delay.h>
@@ -127,8 +126,7 @@ void adi_reset_state(struct adi_dev *hdev)
 			 PKTE_FLAGS_HMAC | PKTE_FLAGS_HMAC_KEY_PREPARED);
 }
 
-int adi_wait_for_bit(struct adi_dev *pkte_dev, u32 reg_offset,
-		u32 bitmask)
+int adi_wait_for_bit(struct adi_dev *pkte_dev, u32 reg_offset, u32 bitmask)
 {
 	u32 start_time, elapsed_time;
 	u32 pkte_status;
@@ -137,7 +135,7 @@ int adi_wait_for_bit(struct adi_dev *pkte_dev, u32 reg_offset,
 	pkte_status = adi_read(pkte_dev, reg_offset) & bitmask;
 	while (!pkte_status) {
 		elapsed_time = ktime_get_seconds() - start_time;
-		if(elapsed_time == PKTE_OP_TIMEOUT)
+		if (elapsed_time == PKTE_OP_TIMEOUT)
 			return -EIO;
 
 		pkte_status = adi_read(pkte_dev, reg_offset) & bitmask;
@@ -148,12 +146,13 @@ int adi_wait_for_bit(struct adi_dev *pkte_dev, u32 reg_offset,
 	return 0;
 }
 
-
 static irqreturn_t adi_irq_handler(int irq, void *dev_id)
 {
 	struct adi_dev *pkte_dev = dev_id;
 	u32 pkte_imsk_stat, pkte_imsk_disable;
+	struct ADI_PKTE_LIST *pkte_list;
 
+	pkte_list = &pkte_dev->pkte_device->pPkteList;
 	pkte_imsk_stat = adi_read(pkte_dev, IMSK_STAT_OFFSET);
 	dev_dbg(pkte_dev->dev, "%s %x\n", __func__, pkte_imsk_stat);
 	if (pkte_imsk_stat & BITM_PKTE_IMSK_EN_RINGERR) {
@@ -178,8 +177,7 @@ static irqreturn_t adi_irq_handler(int irq, void *dev_id)
 		adi_write(pkte_dev, IMSK_DIS_OFFSET,
 			  pkte_imsk_disable | BITM_PKTE_IMSK_EN_RDRTHRSH);
 
-		if (pkte_dev->pkte_device->pPkteList.pCommand.
-		    final_hash_condition == final_hash) {
+		if (pkte_list->pCommand.final_hash_condition == final_hash) {
 			ready = 1;
 			pkte_dev->flags |= PKTE_FLAGS_COMPLETE;
 			wake_up_interruptible(&wq_ready);
@@ -199,8 +197,7 @@ static irqreturn_t adi_irq_handler(int irq, void *dev_id)
 			  BITM_PKTE_IMSK_EN_IBUFTHRSH);
 		adi_write(pkte_dev, RDSC_DECR_OFFSET, 0x1);
 
-		if (pkte_dev->pkte_device->pPkteList.pCommand.
-		    final_hash_condition == final_hash) {
+		if (pkte_list->pCommand.final_hash_condition == final_hash) {
 			ready = 1;
 			pkte_dev->flags |= PKTE_FLAGS_COMPLETE;
 			wake_up_interruptible(&wq_ready);
@@ -213,9 +210,7 @@ static irqreturn_t adi_irq_handler(int irq, void *dev_id)
 	if (pkte_imsk_stat & BITM_PKTE_IMSK_EN_IBUFTHRSH) {
 		if (pkte_dev->src_bytes_available) {
 #ifdef CONFIG_CRYPTO_DEV_ADI_HASH
-			adi_write_packet(pkte_dev,
-					 &pkte_dev->pkte_device->pPkteList.
-					 pSource[0]);
+			adi_write_packet(pkte_dev, &pkte_list->pSource[0]);
 #endif
 			adi_write(pkte_dev, INT_CLR_OFFSET,
 				  BITM_PKTE_IMSK_EN_IBUFTHRSH);
@@ -252,88 +247,93 @@ static void adi_init_state(struct adi_dev *pkte_dev)
 void adi_init_spe(struct adi_dev *pkte_dev)
 {
 	u8 pos;
-	struct PE_CDR *commandDesc;
+	struct PE_CDR *pkte_command_desc;
+	struct ADI_PKTE_DESCRIPTOR *pkte_desc;
 
-	pos =
-	    pkte_dev->flags & PKTE_AUTONOMOUS_MODE ? pkte_dev->
-	    ring_pos_consume : 0;
-	commandDesc =
-	    &pkte_dev->pkte_device->pPkteDescriptor.CmdDescriptor[pos];
+	pkte_desc = &pkte_dev->pkte_device->pPkteDescriptor;
 
-	adi_write(pkte_dev, CTL_STAT_OFFSET, commandDesc->PE_CTRL_STAT);
-	adi_write(pkte_dev, SRC_ADDR_OFFSET, commandDesc->PE_SOURCE_ADDR);
-	adi_write(pkte_dev, DEST_ADDR_OFFSET, commandDesc->PE_DEST_ADDR);
-	adi_write(pkte_dev, SA_ADDR_OFFSET, commandDesc->PE_SA_ADDR);
-	adi_write(pkte_dev, STATE_ADDR_OFFSET, commandDesc->PE_STATE_ADDR);
-	adi_write(pkte_dev, USERID_OFFSET, commandDesc->PE_USER_ID);
+	if (pkte_dev->flags & PKTE_AUTONOMOUS_MODE)
+		pos = pkte_dev->ring_pos_consume;
+	else
+		pos = 0;
+
+	pkte_command_desc = &pkte_desc->CmdDescriptor[pos];
+
+	adi_write(pkte_dev, CTL_STAT_OFFSET, pkte_command_desc->PE_CTRL_STAT);
+	adi_write(pkte_dev, SRC_ADDR_OFFSET, pkte_command_desc->PE_SOURCE_ADDR);
+	adi_write(pkte_dev, DEST_ADDR_OFFSET, pkte_command_desc->PE_DEST_ADDR);
+	adi_write(pkte_dev, SA_ADDR_OFFSET, pkte_command_desc->PE_SA_ADDR);
+	adi_write(pkte_dev, STATE_ADDR_OFFSET, pkte_command_desc->PE_STATE_ADDR);
+	adi_write(pkte_dev, USERID_OFFSET, pkte_command_desc->PE_USER_ID);
 }
 
 static void adi_init_sa(struct adi_dev *pkte_dev)
 {
-	struct SA *SARec;
+	struct ADI_PKTE_DESCRIPTOR *pkte_desc;
+	struct SA *sa_rec;
 
-	SARec =
-	    &pkte_dev->pkte_device->pPkteDescriptor.SARecord[pkte_dev->
-							     ring_pos_consume];
-	adi_write(pkte_dev, SA_CMD_OFFSET(0), SARec->SA_Para.SA_CMD0);
-	adi_write(pkte_dev, SA_CMD_OFFSET(1), SARec->SA_Para.SA_CMD1);
-	adi_write(pkte_dev, SA_KEY_OFFSET(0), SARec->SA_Key.SA_KEY0);
-	adi_write(pkte_dev, SA_KEY_OFFSET(1), SARec->SA_Key.SA_KEY1);
-	adi_write(pkte_dev, SA_KEY_OFFSET(2), SARec->SA_Key.SA_KEY2);
-	adi_write(pkte_dev, SA_KEY_OFFSET(3), SARec->SA_Key.SA_KEY3);
-	adi_write(pkte_dev, SA_KEY_OFFSET(4), SARec->SA_Key.SA_KEY4);
-	adi_write(pkte_dev, SA_KEY_OFFSET(5), SARec->SA_Key.SA_KEY5);
-	adi_write(pkte_dev, SA_KEY_OFFSET(6), SARec->SA_Key.SA_KEY6);
-	adi_write(pkte_dev, SA_KEY_OFFSET(7), SARec->SA_Key.SA_KEY7);
+	pkte_desc = &pkte_dev->pkte_device->pPkteDescriptor;
+	sa_rec = &pkte_desc->SARecord[pkte_dev->ring_pos_consume];
+	adi_write(pkte_dev, SA_CMD_OFFSET(0), sa_rec->SA_Para.SA_CMD0);
+	adi_write(pkte_dev, SA_CMD_OFFSET(1), sa_rec->SA_Para.SA_CMD1);
+	adi_write(pkte_dev, SA_KEY_OFFSET(0), sa_rec->SA_Key.SA_KEY0);
+	adi_write(pkte_dev, SA_KEY_OFFSET(1), sa_rec->SA_Key.SA_KEY1);
+	adi_write(pkte_dev, SA_KEY_OFFSET(2), sa_rec->SA_Key.SA_KEY2);
+	adi_write(pkte_dev, SA_KEY_OFFSET(3), sa_rec->SA_Key.SA_KEY3);
+	adi_write(pkte_dev, SA_KEY_OFFSET(4), sa_rec->SA_Key.SA_KEY4);
+	adi_write(pkte_dev, SA_KEY_OFFSET(5), sa_rec->SA_Key.SA_KEY5);
+	adi_write(pkte_dev, SA_KEY_OFFSET(6), sa_rec->SA_Key.SA_KEY6);
+	adi_write(pkte_dev, SA_KEY_OFFSET(7), sa_rec->SA_Key.SA_KEY7);
 	adi_write(pkte_dev, SA_IDIGEST_OFFSET(0),
-		  SARec->SA_Idigest.SA_IDIGEST0);
+		  sa_rec->SA_Idigest.SA_IDIGEST0);
 	adi_write(pkte_dev, SA_IDIGEST_OFFSET(1),
-		  SARec->SA_Idigest.SA_IDIGEST1);
+		  sa_rec->SA_Idigest.SA_IDIGEST1);
 	adi_write(pkte_dev, SA_IDIGEST_OFFSET(2),
-		  SARec->SA_Idigest.SA_IDIGEST2);
+		  sa_rec->SA_Idigest.SA_IDIGEST2);
 	adi_write(pkte_dev, SA_IDIGEST_OFFSET(3),
-		  SARec->SA_Idigest.SA_IDIGEST3);
+		  sa_rec->SA_Idigest.SA_IDIGEST3);
 	adi_write(pkte_dev, SA_IDIGEST_OFFSET(4),
-		  SARec->SA_Idigest.SA_IDIGEST4);
+		  sa_rec->SA_Idigest.SA_IDIGEST4);
 	adi_write(pkte_dev, SA_IDIGEST_OFFSET(5),
-		  SARec->SA_Idigest.SA_IDIGEST5);
+		  sa_rec->SA_Idigest.SA_IDIGEST5);
 	adi_write(pkte_dev, SA_IDIGEST_OFFSET(6),
-		  SARec->SA_Idigest.SA_IDIGEST6);
+		  sa_rec->SA_Idigest.SA_IDIGEST6);
 	adi_write(pkte_dev, SA_IDIGEST_OFFSET(7),
-		  SARec->SA_Idigest.SA_IDIGEST7);
+		  sa_rec->SA_Idigest.SA_IDIGEST7);
 	adi_write(pkte_dev, SA_ODIGEST_OFFSET(0),
-		  SARec->SA_Odigest.SA_ODIGEST0);
+		  sa_rec->SA_Odigest.SA_ODIGEST0);
 	adi_write(pkte_dev, SA_ODIGEST_OFFSET(1),
-		  SARec->SA_Odigest.SA_ODIGEST1);
+		  sa_rec->SA_Odigest.SA_ODIGEST1);
 	adi_write(pkte_dev, SA_ODIGEST_OFFSET(2),
-		  SARec->SA_Odigest.SA_ODIGEST2);
+		  sa_rec->SA_Odigest.SA_ODIGEST2);
 	adi_write(pkte_dev, SA_ODIGEST_OFFSET(3),
-		  SARec->SA_Odigest.SA_ODIGEST3);
+		  sa_rec->SA_Odigest.SA_ODIGEST3);
 	adi_write(pkte_dev, SA_ODIGEST_OFFSET(4),
-		  SARec->SA_Odigest.SA_ODIGEST4);
+		  sa_rec->SA_Odigest.SA_ODIGEST4);
 	adi_write(pkte_dev, SA_ODIGEST_OFFSET(5),
-		  SARec->SA_Odigest.SA_ODIGEST5);
+		  sa_rec->SA_Odigest.SA_ODIGEST5);
 	adi_write(pkte_dev, SA_ODIGEST_OFFSET(6),
-		  SARec->SA_Odigest.SA_ODIGEST6);
+		  sa_rec->SA_Odigest.SA_ODIGEST6);
 	adi_write(pkte_dev, SA_ODIGEST_OFFSET(7),
-		  SARec->SA_Odigest.SA_ODIGEST7);
+		  sa_rec->SA_Odigest.SA_ODIGEST7);
 }
 
 void adi_init_ring(struct adi_dev *pkte_dev)
 {
-	u32 addr;
 	struct ADI_PKTE_DEVICE *pkte;
+	struct ADI_PKTE_DESCRIPTOR *pkte_desc;
+	u32 addr;
 
 	pkte = pkte_dev->pkte_device;
+	pkte_desc = &pkte->pPkteDescriptor;
 	addr =
 	    adi_physical_address(pkte_dev,
-				 (void *)&pkte->pPkteDescriptor.
-				 CmdDescriptor[0]);
+				 (void *)&pkte_desc->CmdDescriptor[0]);
 	adi_write(pkte_dev, CDRBASE_ADDR_OFFSET, addr);
 	addr =
 	    adi_physical_address(pkte_dev,
-				 (void *)&pkte->pPkteDescriptor.
-				 ResultDescriptor[0]);
+				 (void *)&pkte_desc->ResultDescriptor[0]);
+
 	adi_write(pkte_dev, RDRBASE_ADDR_OFFSET, addr);
 	addr = (PKTE_RING_BUFFERS - 1) << BITP_PKTE_RING_CFG_RINGSZ;
 	adi_write(pkte_dev, RING_CFG_OFFSET, addr);
@@ -346,143 +346,147 @@ void adi_init_ring(struct adi_dev *pkte_dev)
 void adi_source_data(struct adi_dev *pkte_dev, u32 size)
 {
 	u8 pos;
-	struct PE_CDR *commandDesc;
+	struct PE_CDR *pkte_command_desc;
 	struct ADI_PKTE_DEVICE *pkte;
 
 	pkte = pkte_dev->pkte_device;
-	pos =
-	    pkte_dev->flags & PKTE_AUTONOMOUS_MODE ? pkte_dev->
-	    ring_pos_consume : 0;
-	commandDesc = &pkte->pPkteDescriptor.CmdDescriptor[pos];
 
+	if (pkte_dev->flags & PKTE_AUTONOMOUS_MODE)
+		pos = pkte_dev->ring_pos_consume;
+	else
+		pos = 0;
+
+	pkte_command_desc = &pkte->pPkteDescriptor.CmdDescriptor[pos];
 	if ((!pkte_dev->src_count_set) ||
 	    (pkte_dev->flags & (PKTE_TCM_MODE | PKTE_AUTONOMOUS_MODE))) {
 		pkte_dev->src_count_set = 1;
 		pkte->pPkteList.nSrcSize = size;
-		commandDesc->PE_LENGTH =
+		pkte_command_desc->PE_LENGTH =
 		    BITM_PKTE_LEN_HSTRDY | pkte->pPkteList.nSrcSize;
+
 		if (!(pkte_dev->flags & PKTE_AUTONOMOUS_MODE))
-			adi_write(pkte_dev, LEN_OFFSET, commandDesc->PE_LENGTH);
+			adi_write(pkte_dev, LEN_OFFSET, pkte_command_desc->PE_LENGTH);
 		dev_dbg(pkte_dev->dev, "%s: LEN set to %x\n", __func__,
-			commandDesc->PE_LENGTH);
+			pkte_command_desc->PE_LENGTH);
 	}
 }
 
 void adi_configure_cdr(struct adi_dev *pkte_dev)
 {
-	u8 pos;
-	struct PE_CDR *commandDesc;
-	struct SA *SARec;
 	struct ADI_PKTE_DEVICE *pkte;
+	struct ADI_PKTE_DESCRIPTOR *pkte_desc;
+	struct PE_CDR *pkte_command_desc;
+	struct SA *sa_rec;
+	u8 pos;
+	void *var_addr;
 
 	pkte = pkte_dev->pkte_device;
-	SARec = &pkte->pPkteDescriptor.SARecord[pkte_dev->ring_pos_consume];
-	pos =
-	    pkte_dev->flags & PKTE_AUTONOMOUS_MODE ? pkte_dev->
-	    ring_pos_consume : 0;
-	commandDesc = &pkte->pPkteDescriptor.CmdDescriptor[pos];
+	pkte_desc = &pkte->pPkteDescriptor;
+	sa_rec = &pkte_desc->SARecord[pkte_dev->ring_pos_consume];
+	if (pkte_dev->flags & PKTE_AUTONOMOUS_MODE)
+		pos = pkte_dev->ring_pos_consume;
+	else
+		pos = 0;
 
-	commandDesc->PE_CTRL_STAT =
+	pkte_command_desc = &pkte_desc->CmdDescriptor[pos];
+	pkte_command_desc->PE_CTRL_STAT =
 	    0x1 | (pkte->pPkteList.pCommand.final_hash_condition << 4);
-	commandDesc->PE_SOURCE_ADDR =
-	    adi_physical_address(pkte_dev,
-				 (void *)&pkte->source[pkte_dev->
-						       ring_pos_consume][0]);
-	commandDesc->PE_DEST_ADDR =
+
+	var_addr = (void *)&pkte->source[pkte_dev->ring_pos_consume][0];
+	pkte_command_desc->PE_SOURCE_ADDR =
+		adi_physical_address(pkte_dev, var_addr);
+
+	pkte_command_desc->PE_DEST_ADDR =
 	    adi_physical_address(pkte_dev, (void *)&pkte->destination[0]);
-	commandDesc->PE_SA_ADDR =
-	    adi_physical_address(pkte_dev, (void *)&SARec->SA_Para.SA_CMD0);
-	commandDesc->PE_STATE_ADDR =
-	    adi_physical_address(pkte_dev,
-				 (void *)&pkte->pPkteDescriptor.State.
-				 STATE_IV0);
-	commandDesc->PE_USER_ID = pkte->pPkteList.nUserID;
+
+	pkte_command_desc->PE_SA_ADDR =
+	    adi_physical_address(pkte_dev, (void *)&sa_rec->SA_Para.SA_CMD0);
+
+	pkte_command_desc->PE_STATE_ADDR =
+	    adi_physical_address(pkte_dev, (void *)&pkte_desc->State.STATE_IV0);
+
+	pkte_command_desc->PE_USER_ID = pkte->pPkteList.nUserID;
 }
 
 void adi_config_sa_para(struct adi_dev *pkte_dev)
 {
-	struct SA *SARec;
 	struct ADI_PKTE_DEVICE *pkte;
+	struct ADI_PKTE_COMMAND *pkte_cmd;
+	struct SA *sa_rec;
 
 	pkte = pkte_dev->pkte_device;
-	SARec = &pkte->pPkteDescriptor.SARecord[pkte_dev->ring_pos_consume];
-	SARec->SA_Para.SA_CMD0 =
-	    (pkte->pPkteList.pCommand.opcode << BITP_PKTE_SA_CMD0_OPCD) |
-	    (pkte->pPkteList.pCommand.direction << BITP_PKTE_SA_CMD0_DIR) |
+	pkte_cmd = &pkte->pPkteList.pCommand;
+	sa_rec = &pkte->pPkteDescriptor.SARecord[pkte_dev->ring_pos_consume];
+	sa_rec->SA_Para.SA_CMD0 =
+	    (pkte_cmd->opcode << BITP_PKTE_SA_CMD0_OPCD) |
+	    (pkte_cmd->direction << BITP_PKTE_SA_CMD0_DIR) |
 	    (0x0 << BITP_PKTE_SA_CMD0_OPGRP) |
 	    (0x3 << BITP_PKTE_SA_CMD0_PADTYPE) |
-	    (pkte->pPkteList.pCommand.cipher << BITP_PKTE_SA_CMD0_CIPHER) |
-	    (pkte->pPkteList.pCommand.hash << BITP_PKTE_SA_CMD0_HASH) |
+	    (pkte_cmd->cipher << BITP_PKTE_SA_CMD0_CIPHER) |
+	    (pkte_cmd->hash << BITP_PKTE_SA_CMD0_HASH) |
 	    0x1 << BITP_PKTE_SA_CMD0_SCPAD |
-	    (pkte->pPkteList.pCommand.
-	     digest_length << BITP_PKTE_SA_CMD0_DIGESTLEN) | (0x2 <<
-							      BITP_PKTE_SA_CMD0_IVSRC)
-	    | (pkte->pPkteList.pCommand.
-	       hash_source << BITP_PKTE_SA_CMD0_HASHSRC) | 0x0 <<
-	    BITP_PKTE_SA_CMD0_SVIV | 0x1 << BITP_PKTE_SA_CMD0_SVHASH;
+	    (pkte_cmd->digest_length << BITP_PKTE_SA_CMD0_DIGESTLEN) |
+	    (0x2 << BITP_PKTE_SA_CMD0_IVSRC) |
+	    (pkte_cmd->hash_source << BITP_PKTE_SA_CMD0_HASHSRC) |
+	    0x0 << BITP_PKTE_SA_CMD0_SVIV | 0x1 << BITP_PKTE_SA_CMD0_SVHASH;
 
-	SARec->SA_Para.SA_CMD1 =
+	sa_rec->SA_Para.SA_CMD1 =
 	    0x1 << BITP_PKTE_SA_CMD1_CPYDGST |
-	    (pkte->pPkteList.pCommand.hash_mode << BITP_PKTE_SA_CMD1_HMAC) |
-	    (pkte->pPkteList.pCommand.
-	     cipher_mode << BITP_PKTE_SA_CMD1_CIPHERMD) | (pkte->pPkteList.
-							   pCommand.
-							   aes_key_length <<
-							   BITP_PKTE_SA_CMD1_AESKEYLEN)
-	    | (pkte->pPkteList.pCommand.
-	       aes_des_key << BITP_PKTE_SA_CMD1_AESDECKEY);
+	    (pkte_cmd->hash_mode << BITP_PKTE_SA_CMD1_HMAC) |
+	    (pkte_cmd->cipher_mode << BITP_PKTE_SA_CMD1_CIPHERMD) |
+	    (pkte_cmd->aes_key_length << BITP_PKTE_SA_CMD1_AESKEYLEN) |
+	    (pkte_cmd->aes_des_key << BITP_PKTE_SA_CMD1_AESDECKEY);
 }
 
 void adi_config_sa_key(struct adi_dev *pkte_dev, const u32 Key[])
 {
-	struct SA *SARec;
+	struct SA *sa_rec;
+	struct ADI_PKTE_DESCRIPTOR *pkte_desc;
 
-	SARec =
-	    &pkte_dev->pkte_device->pPkteDescriptor.SARecord[pkte_dev->
-							     ring_pos_consume];
-	SARec->SA_Key.SA_KEY0 = Key[0];
-	SARec->SA_Key.SA_KEY1 = Key[1];
-	SARec->SA_Key.SA_KEY2 = Key[2];
-	SARec->SA_Key.SA_KEY3 = Key[3];
-	SARec->SA_Key.SA_KEY4 = Key[4];
-	SARec->SA_Key.SA_KEY5 = Key[5];
-	SARec->SA_Key.SA_KEY6 = Key[6];
-	SARec->SA_Key.SA_KEY7 = Key[7];
+	pkte_desc = &pkte_dev->pkte_device->pPkteDescriptor;
+	sa_rec = &pkte_desc->SARecord[pkte_dev->ring_pos_consume];
+	sa_rec->SA_Key.SA_KEY0 = Key[0];
+	sa_rec->SA_Key.SA_KEY1 = Key[1];
+	sa_rec->SA_Key.SA_KEY2 = Key[2];
+	sa_rec->SA_Key.SA_KEY3 = Key[3];
+	sa_rec->SA_Key.SA_KEY4 = Key[4];
+	sa_rec->SA_Key.SA_KEY5 = Key[5];
+	sa_rec->SA_Key.SA_KEY6 = Key[6];
+	sa_rec->SA_Key.SA_KEY7 = Key[7];
 }
 
 static void adi_config_idigest(struct adi_dev *pkte_dev, const u32 Idigest[])
 {
-	struct SA *SARec;
+	struct SA *sa_rec;
+	struct ADI_PKTE_DESCRIPTOR *pkte_desc;
 
-	SARec =
-	    &pkte_dev->pkte_device->pPkteDescriptor.SARecord[pkte_dev->
-							     ring_pos_consume];
-
-	SARec->SA_Idigest.SA_IDIGEST0 = Idigest[0];
-	SARec->SA_Idigest.SA_IDIGEST1 = Idigest[1];
-	SARec->SA_Idigest.SA_IDIGEST2 = Idigest[2];
-	SARec->SA_Idigest.SA_IDIGEST3 = Idigest[3];
-	SARec->SA_Idigest.SA_IDIGEST4 = Idigest[4];
-	SARec->SA_Idigest.SA_IDIGEST5 = Idigest[5];
-	SARec->SA_Idigest.SA_IDIGEST6 = Idigest[6];
-	SARec->SA_Idigest.SA_IDIGEST7 = Idigest[7];
+	pkte_desc = &pkte_dev->pkte_device->pPkteDescriptor;
+	sa_rec = &pkte_desc->SARecord[pkte_dev->ring_pos_consume];
+	sa_rec->SA_Idigest.SA_IDIGEST0 = Idigest[0];
+	sa_rec->SA_Idigest.SA_IDIGEST1 = Idigest[1];
+	sa_rec->SA_Idigest.SA_IDIGEST2 = Idigest[2];
+	sa_rec->SA_Idigest.SA_IDIGEST3 = Idigest[3];
+	sa_rec->SA_Idigest.SA_IDIGEST4 = Idigest[4];
+	sa_rec->SA_Idigest.SA_IDIGEST5 = Idigest[5];
+	sa_rec->SA_Idigest.SA_IDIGEST6 = Idigest[6];
+	sa_rec->SA_Idigest.SA_IDIGEST7 = Idigest[7];
 }
 
 static void adi_config_odigest(struct adi_dev *pkte_dev, const u32 Odigest[])
 {
-	struct SA *SARec;
+	struct SA *sa_rec;
+	struct ADI_PKTE_DESCRIPTOR *pkte_desc;
 
-	SARec =
-	    &pkte_dev->pkte_device->pPkteDescriptor.SARecord[pkte_dev->
-							     ring_pos_consume];
-	SARec->SA_Odigest.SA_ODIGEST0 = Odigest[0];
-	SARec->SA_Odigest.SA_ODIGEST1 = Odigest[1];
-	SARec->SA_Odigest.SA_ODIGEST2 = Odigest[2];
-	SARec->SA_Odigest.SA_ODIGEST3 = Odigest[3];
-	SARec->SA_Odigest.SA_ODIGEST4 = Odigest[4];
-	SARec->SA_Odigest.SA_ODIGEST5 = Odigest[5];
-	SARec->SA_Odigest.SA_ODIGEST6 = Odigest[6];
-	SARec->SA_Odigest.SA_ODIGEST7 = Odigest[7];
+	pkte_desc = &pkte_dev->pkte_device->pPkteDescriptor;
+	sa_rec = &pkte_desc->SARecord[pkte_dev->ring_pos_consume];
+	sa_rec->SA_Odigest.SA_ODIGEST0 = Odigest[0];
+	sa_rec->SA_Odigest.SA_ODIGEST1 = Odigest[1];
+	sa_rec->SA_Odigest.SA_ODIGEST2 = Odigest[2];
+	sa_rec->SA_Odigest.SA_ODIGEST3 = Odigest[3];
+	sa_rec->SA_Odigest.SA_ODIGEST4 = Odigest[4];
+	sa_rec->SA_Odigest.SA_ODIGEST5 = Odigest[5];
+	sa_rec->SA_Odigest.SA_ODIGEST6 = Odigest[6];
+	sa_rec->SA_Odigest.SA_ODIGEST7 = Odigest[7];
 }
 
 void adi_config_state(struct adi_dev *pkte_dev, u32 IV[])
@@ -529,6 +533,7 @@ void adi_start_engine(struct adi_dev *pkte_dev)
 			memcpy(&pkte->pPkteDescriptor.SARecord[i],
 			       &pkte->pPkteDescriptor.SARecord[0],
 			       sizeof(struct SA));
+
 			memcpy(&pkte->pPkteDescriptor.CmdDescriptor[i],
 			       &pkte->pPkteDescriptor.CmdDescriptor[0],
 			       sizeof(struct PE_CDR));
@@ -540,7 +545,6 @@ void adi_start_engine(struct adi_dev *pkte_dev)
 
 	//Reset and release the packet engine
 	adi_reset_pkte(pkte_dev);
-
 	pkte_cfg = adi_read(pkte_dev, CFG_OFFSET);
 	if (pkte_dev->flags & PKTE_HOST_MODE) {
 		dev_dbg(pkte_dev->dev, "%s PKTE_HOST_MODE selected\n",
@@ -570,7 +574,6 @@ int adi_hw_init(struct adi_dev *pkte_dev)
 	pkte_dev->src_bytes_available = 0;
 	ready = 0;
 	processing = 0;
-
 	//Continue with previous operation
 	if (!(pkte_dev->flags & PKTE_FLAGS_STARTED))
 		adi_start_engine(pkte_dev);
@@ -580,17 +583,20 @@ int adi_hw_init(struct adi_dev *pkte_dev)
 
 static int adi_unregister_algs(struct adi_dev *pkte_dev)
 {
-	unsigned int i, j;
+	struct adi_algs_info *adi_algs;
+	struct ahash_engine_alg *alg;
+	u32 i, j;
 
 	if (!pkte_dev)
 		return 0;
 
+	adi_algs = pkte_dev->pdata->algs_info;
 #ifdef CONFIG_CRYPTO_DEV_ADI_HASH
 	for (i = 0; i < pkte_dev->pdata->algs_info_size; i++)
-		for (j = 0; j < pkte_dev->pdata->algs_info[i].size; j++)
-			crypto_engine_unregister_ahash(&pkte_dev->pdata->
-						       algs_info[i].
-						       algs_list[j]);
+		for (j = 0; j < pkte_dev->pdata->algs_info[i].size; j++) {
+			alg = adi_algs[i].algs_list;
+			crypto_engine_unregister_ahash(&alg[j]);
+		}
 
 #endif
 
@@ -602,20 +608,21 @@ static int adi_unregister_algs(struct adi_dev *pkte_dev)
 
 static int adi_register_algs(struct adi_dev *pkte_dev)
 {
+	struct adi_algs_info *adi_algs;
+	struct ahash_engine_alg *alg;
 	unsigned int i, j;
 	int err;
 
+	adi_algs = pkte_dev->pdata->algs_info;
 #ifdef CONFIG_CRYPTO_DEV_ADI_HASH
 	for (i = 0; i < pkte_dev->pdata->algs_info_size; i++) {
 		for (j = 0; j < pkte_dev->pdata->algs_info[i].size; j++) {
-			err =
-			    crypto_engine_register_ahash(&pkte_dev->pdata->
-							 algs_info[i].
-							 algs_list[j]);
+			alg = adi_algs[i].algs_list;
+			err = crypto_engine_register_ahash(&alg[j]);
 			if (err) {
 				dev_err(pkte_dev->dev,
 					"Could not register hash alg\n");
-				if ((i == 0) && (j == 0))
+				if (!i && !j)
 					return err;
 
 				goto err_algs;
@@ -830,7 +837,7 @@ static struct platform_driver adi_driver = {
 	.driver = {
 		   .name = "adi-pkte",
 		   .of_match_table = adi_of_match,
-		    }
+		}
 };
 
 module_platform_driver(adi_driver);
