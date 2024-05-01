@@ -11,8 +11,7 @@
  * Contact: Greg Malysa <greg.malysa@timesys.com>
  */
 
-#include <asm/cacheflush.h>
-
+#include <linux/cacheflush.h>
 #include <linux/clk.h>
 #include <linux/crypto.h>
 #include <linux/delay.h>
@@ -73,7 +72,7 @@ static inline int aes_get_key_length(u32 keylen)
 	u32 aes_index;
 
 	aes_index = (keylen >> 6) - 1;
-	if((aes_index >= ARRAY_SIZE(aes_key_length_lut)) ||
+	if ((aes_index >= ARRAY_SIZE(aes_key_length_lut)) ||
 			(aes_index < 0))
 		return -EINVAL;
 	return aes_key_length_lut[aes_index];
@@ -316,11 +315,11 @@ static int adi_crypt_cipher_one_req(struct crypto_engine *engine, void *areq)
 
 
 	err = adi_wait_for_bit(pkte_dev, STAT_OFFSET, BITM_PKTE_STAT_OUTPTDN);
-	if(err)
+	if (err)
 		return err;
 
 	err = adi_wait_for_bit(pkte_dev, CTL_STAT_OFFSET, BITM_PKTE_CTL_STAT_PERDY);
-	if(err)
+	if (err)
 		return err;
 
 	scatterwalk_start(&out, req->dst);
@@ -366,7 +365,7 @@ static int adi_init_skcipher(struct crypto_skcipher *tfm)
 }
 
 #ifdef DEBUG_PKTE
-static void adi_print_key(const u8 * key, unsigned int keylen)
+static void adi_print_key(const u8 *key, unsigned int keylen)
 {
 	int i, j;
 	char temp[256];
@@ -379,7 +378,7 @@ static void adi_print_key(const u8 * key, unsigned int keylen)
 }
 #endif
 
-static int adi_crypt_setkey(struct crypto_skcipher *tfm, const u8 * key,
+static int adi_crypt_setkey(struct crypto_skcipher *tfm, const u8 *key,
 			    unsigned int keylen)
 {
 	struct adi_ctx *ctx = crypto_skcipher_ctx(tfm);
@@ -395,7 +394,7 @@ static int adi_crypt_setkey(struct crypto_skcipher *tfm, const u8 * key,
 	return 0;
 }
 
-static int adi_crypt_aes_setkey(struct crypto_skcipher *tfm, const u8 * key,
+static int adi_crypt_aes_setkey(struct crypto_skcipher *tfm, const u8 *key,
 				unsigned int keylen)
 {
 	pr_debug("%s, keylen %d (%d %d %d)\n", __func__,
@@ -408,7 +407,7 @@ static int adi_crypt_aes_setkey(struct crypto_skcipher *tfm, const u8 * key,
 		return adi_crypt_setkey(tfm, key, keylen);
 }
 
-static int adi_crypt_des_setkey(struct crypto_skcipher *tfm, const u8 * key,
+static int adi_crypt_des_setkey(struct crypto_skcipher *tfm, const u8 *key,
 				unsigned int keylen)
 {
 	pr_debug("%s, keylen %d\n", __func__, keylen);
@@ -417,7 +416,7 @@ static int adi_crypt_des_setkey(struct crypto_skcipher *tfm, const u8 * key,
 	    adi_crypt_setkey(tfm, key, keylen);
 }
 
-static int adi_crypt_tdes_setkey(struct crypto_skcipher *tfm, const u8 * key,
+static int adi_crypt_tdes_setkey(struct crypto_skcipher *tfm, const u8 *key,
 				 unsigned int keylen)
 {
 	pr_debug("%s, keylen %d\n", __func__, keylen);
