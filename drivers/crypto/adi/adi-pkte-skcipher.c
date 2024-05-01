@@ -99,7 +99,7 @@ static int adi_crypt_configure_pkte(struct adi_dev *pkte_dev,
 		processing = 0;
 
 		for (i = 0; i < 4; i++)
-			IV[i] = 0;
+			pkte_dev->IV[i] = 0;
 
 		if (rctx->mode & ENCRYPT) {
 			pkte->pPkteList.pCommand.opcode = opcode_encrypt;
@@ -175,15 +175,15 @@ static void adi_crypt_prepare_IV(struct adi_dev *pkte_dev,
 	if ((rctx->mode & DES) || (rctx->mode & TDES)) {
 		pos = (cryptlen - 8) / 4;
 		cpy_len = 8;
-		IV[2] = 0;
-		IV[3] = 0;
+		pkte_dev->IV[2] = 0;
+		pkte_dev->IV[3] = 0;
 	} else {
 		pos = (cryptlen - 16) / 4;
 		cpy_len = 16;
 	}
 
 	pkte_src = (u8 *) &pkte->source[pkte_dev->ring_pos_consume][pos];
-	memcpy((u8 *) &IV[0], pkte_src, cpy_len);
+	memcpy((u8 *) &pkte_dev->IV, pkte_src, cpy_len);
 }
 
 #ifdef DEBUG_PKTE
@@ -243,7 +243,7 @@ static int adi_crypt_prepare_req(struct skcipher_request *req)
 				adi_crypt_prepare_IV(pkte_dev, rctx,
 						pkte_dev->src_bytes_available);
 				/* Feed previous result into IV */
-				adi_config_state(pkte_dev, IV);
+				adi_config_state(pkte_dev, pkte_dev->IV);
 			}
 
 		} else {

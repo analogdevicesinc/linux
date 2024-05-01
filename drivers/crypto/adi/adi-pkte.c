@@ -56,11 +56,6 @@ struct adi_drv adi = {
 	.lock = __SPIN_LOCK_UNLOCKED(adi.lock),
 };
 
-const u32 Key[8] = { 0x0, 0x0, 0x0, 0x0, 0, 0, 0, 0 };
-const u32 IDigest[8] = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 };
-const u32 ODigest[8] = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 };
-
-u32 IV[4] = { 0x0, 0x0, 0x0, 0x0 };
 
 struct adi_dev *adi_find_dev(struct adi_ctx *ctx)
 {
@@ -445,14 +440,14 @@ void adi_config_sa_key(struct adi_dev *pkte_dev, const u32 Key[])
 
 	pkte_desc = &pkte_dev->pkte_device->pPkteDescriptor;
 	sa_rec = &pkte_desc->SARecord[pkte_dev->ring_pos_consume];
-	sa_rec->SA_Key.SA_KEY0 = Key[0];
-	sa_rec->SA_Key.SA_KEY1 = Key[1];
-	sa_rec->SA_Key.SA_KEY2 = Key[2];
-	sa_rec->SA_Key.SA_KEY3 = Key[3];
-	sa_rec->SA_Key.SA_KEY4 = Key[4];
-	sa_rec->SA_Key.SA_KEY5 = Key[5];
-	sa_rec->SA_Key.SA_KEY6 = Key[6];
-	sa_rec->SA_Key.SA_KEY7 = Key[7];
+	sa_rec->SA_Key.SA_KEY0 = pkte_dev->Key[0];
+	sa_rec->SA_Key.SA_KEY1 = pkte_dev->Key[1];
+	sa_rec->SA_Key.SA_KEY2 = pkte_dev->Key[2];
+	sa_rec->SA_Key.SA_KEY3 = pkte_dev->Key[3];
+	sa_rec->SA_Key.SA_KEY4 = pkte_dev->Key[4];
+	sa_rec->SA_Key.SA_KEY5 = pkte_dev->Key[5];
+	sa_rec->SA_Key.SA_KEY6 = pkte_dev->Key[6];
+	sa_rec->SA_Key.SA_KEY7 = pkte_dev->Key[7];
 }
 
 static void adi_config_idigest(struct adi_dev *pkte_dev, const u32 Idigest[])
@@ -462,14 +457,14 @@ static void adi_config_idigest(struct adi_dev *pkte_dev, const u32 Idigest[])
 
 	pkte_desc = &pkte_dev->pkte_device->pPkteDescriptor;
 	sa_rec = &pkte_desc->SARecord[pkte_dev->ring_pos_consume];
-	sa_rec->SA_Idigest.SA_IDIGEST0 = Idigest[0];
-	sa_rec->SA_Idigest.SA_IDIGEST1 = Idigest[1];
-	sa_rec->SA_Idigest.SA_IDIGEST2 = Idigest[2];
-	sa_rec->SA_Idigest.SA_IDIGEST3 = Idigest[3];
-	sa_rec->SA_Idigest.SA_IDIGEST4 = Idigest[4];
-	sa_rec->SA_Idigest.SA_IDIGEST5 = Idigest[5];
-	sa_rec->SA_Idigest.SA_IDIGEST6 = Idigest[6];
-	sa_rec->SA_Idigest.SA_IDIGEST7 = Idigest[7];
+	sa_rec->SA_Idigest.SA_IDIGEST0 = pkte_dev->Idigest[0];
+	sa_rec->SA_Idigest.SA_IDIGEST1 = pkte_dev->Idigest[1];
+	sa_rec->SA_Idigest.SA_IDIGEST2 = pkte_dev->Idigest[2];
+	sa_rec->SA_Idigest.SA_IDIGEST3 = pkte_dev->Idigest[3];
+	sa_rec->SA_Idigest.SA_IDIGEST4 = pkte_dev->Idigest[4];
+	sa_rec->SA_Idigest.SA_IDIGEST5 = pkte_dev->Idigest[5];
+	sa_rec->SA_Idigest.SA_IDIGEST6 = pkte_dev->Idigest[6];
+	sa_rec->SA_Idigest.SA_IDIGEST7 = pkte_dev->Idigest[7];
 }
 
 static void adi_config_odigest(struct adi_dev *pkte_dev, const u32 Odigest[])
@@ -479,14 +474,14 @@ static void adi_config_odigest(struct adi_dev *pkte_dev, const u32 Odigest[])
 
 	pkte_desc = &pkte_dev->pkte_device->pPkteDescriptor;
 	sa_rec = &pkte_desc->SARecord[pkte_dev->ring_pos_consume];
-	sa_rec->SA_Odigest.SA_ODIGEST0 = Odigest[0];
-	sa_rec->SA_Odigest.SA_ODIGEST1 = Odigest[1];
-	sa_rec->SA_Odigest.SA_ODIGEST2 = Odigest[2];
-	sa_rec->SA_Odigest.SA_ODIGEST3 = Odigest[3];
-	sa_rec->SA_Odigest.SA_ODIGEST4 = Odigest[4];
-	sa_rec->SA_Odigest.SA_ODIGEST5 = Odigest[5];
-	sa_rec->SA_Odigest.SA_ODIGEST6 = Odigest[6];
-	sa_rec->SA_Odigest.SA_ODIGEST7 = Odigest[7];
+	sa_rec->SA_Odigest.SA_ODIGEST0 = pkte_dev->Odigest[0];
+	sa_rec->SA_Odigest.SA_ODIGEST1 = pkte_dev->Odigest[1];
+	sa_rec->SA_Odigest.SA_ODIGEST2 = pkte_dev->Odigest[2];
+	sa_rec->SA_Odigest.SA_ODIGEST3 = pkte_dev->Odigest[3];
+	sa_rec->SA_Odigest.SA_ODIGEST4 = pkte_dev->Odigest[4];
+	sa_rec->SA_Odigest.SA_ODIGEST5 = pkte_dev->Odigest[5];
+	sa_rec->SA_Odigest.SA_ODIGEST6 = pkte_dev->Odigest[6];
+	sa_rec->SA_Odigest.SA_ODIGEST7 = pkte_dev->Odigest[7];
 }
 
 void adi_config_state(struct adi_dev *pkte_dev, u32 IV[])
@@ -498,10 +493,10 @@ void adi_config_state(struct adi_dev *pkte_dev, u32 IV[])
 	dev_dbg(pkte_dev->dev, "%s IV: %x %x %x %x\n", __func__, IV[0], IV[1],
 		IV[2], IV[3]);
 #endif
-	pkte->pPkteDescriptor.State.STATE_IV0 = IV[0];
-	pkte->pPkteDescriptor.State.STATE_IV1 = IV[1];
-	pkte->pPkteDescriptor.State.STATE_IV2 = IV[2];
-	pkte->pPkteDescriptor.State.STATE_IV3 = IV[3];
+	pkte->pPkteDescriptor.State.STATE_IV0 = pkte_dev->IV[0];
+	pkte->pPkteDescriptor.State.STATE_IV1 = pkte_dev->IV[1];
+	pkte->pPkteDescriptor.State.STATE_IV2 = pkte_dev->IV[2];
+	pkte->pPkteDescriptor.State.STATE_IV3 = pkte_dev->IV[3];
 	pkte->pPkteDescriptor.State.STATE_BYTE_CNT0 = 0x0;
 	pkte->pPkteDescriptor.State.STATE_BYTE_CNT1 = 0x0;
 	pkte->pPkteDescriptor.State.STATE_IDIGEST0 = 0x0;
@@ -523,10 +518,10 @@ void adi_start_engine(struct adi_dev *pkte_dev)
 	//Set up configuration structures
 	adi_configure_cdr(pkte_dev);
 	adi_config_sa_para(pkte_dev);
-	adi_config_sa_key(pkte_dev, Key);
-	adi_config_idigest(pkte_dev, IDigest);
-	adi_config_odigest(pkte_dev, ODigest);
-	adi_config_state(pkte_dev, IV);
+	adi_config_sa_key(pkte_dev, pkte_dev->Key);
+	adi_config_idigest(pkte_dev, pkte_dev->Idigest);
+	adi_config_odigest(pkte_dev, pkte_dev->Odigest);
+	adi_config_state(pkte_dev, pkte_dev->IV);
 	//Copy command descriptor into all command descriptor rings
 	if (pkte_dev->flags & (PKTE_AUTONOMOUS_MODE | PKTE_TCM_MODE)) {
 		for (i = 1; i < PKTE_RING_BUFFERS; i++) {
@@ -794,6 +789,10 @@ static int adi_probe(struct platform_device *pdev)
 		goto err_algs;
 	}
 
+	memset(&pkte_dev->Key, 0, sizeof(u32) * 8);
+	memset(&pkte_dev->Idigest, 0, sizeof(u32) * 8);
+	memset(&pkte_dev->Odigest, 0, sizeof(u32) * 8);
+	memset(&pkte_dev->IV, 0, sizeof(u32) * 4);
 	return 0;
 
 err_algs:

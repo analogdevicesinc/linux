@@ -932,6 +932,11 @@ struct adi_dev {
 
 	u8			secret_key[PKTE_MAX_KEY_SIZE];
 	int			secret_keylen;
+
+	u32 Key[8];
+	u32 Idigest[8];
+	u32 Odigest[8];
+	u32 IV[4];
 };
 
 struct adi_drv {
@@ -965,9 +970,4 @@ extern wait_queue_head_t wq_ready;
 extern bool ready;
 extern struct adi_drv adi;
 
-extern const u32 Key[8];
-extern const u32 IDigest[8];
-extern const u32 ODigest[8];
-
-extern u32 IV[4];
 #endif
