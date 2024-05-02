@@ -1,0 +1,53 @@
+name: adsp linux build test
+run-name: ${{ github.actor }} pushed a change ( ${{ github.sha }} )
+on: [push]
+jobs:
+  build:
+    name: ${{ matrix.boards.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        boards:
+          [
+            {
+              "name": "sc598",
+              "config": "sc598-som-ezkit_defconfig",
+              "cross_compile": "aarch64-linux-gnu",
+              "arch": "arm64"
+            },
+            {
+              "name": "sc594",
+              "config": "sc594-som-ezkit_defconfig",
+              "cross_compile": "arm-linux-gnueabi",
+              "arch": "arm"
+            },
+            {
+              "name": "sc589",
+              "config": "sc589-ezkit_defconfig",
+              "cross_compile": "arm-linux-gnueabi",
+              "arch": "arm"
+            },
+            {
+              "name": "sc584",
+              "config": "sc584-ezkit_defconfig",
+              "cross_compile": "arm-linux-gnueabi",
+              "arch": "arm"
+            },
+            {
+              "name": "sc573",
+              "config": "sc573-ezkit_defconfig",
+              "cross_compile": "arm-linux-gnueabi",
+              "arch": "arm"
+            }
+          ]
+    steps:
+      - name: Setup toolchain
+        run: |
+          sudo apt-get update && sudo apt-get install gcc-${{ matrix.boards.cross_compile }}
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - name: Build ${{ matrix.boards.name }}
+        run: |
+          make ARCH=${{ matrix.boards.arch }} ${{ matrix.boards.config }}
+          make ARCH=${{ matrix.boards.arch }} CROSS_COMPILE=${{ matrix.boards.cross_compile }}- -j$(nproc)
+
