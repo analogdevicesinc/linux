@@ -4560,6 +4560,7 @@ static int ad9081_setup_chip_info_tbl(struct ad9081_phy *phy,
 
 	switch (m) {
 	case 0:
+	case 1:
 	case 2:
 	case 4:
 	case 6:
