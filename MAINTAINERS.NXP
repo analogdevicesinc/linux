@@ -57,11 +57,11 @@ Maintainers List
 
 base
 M: Aisheng Dong <aisheng.dong@nxp.com>
-M: Li Yang <leoyang.li@nxp.com>
+M: Frank Li <frank.li@nxp.com>
 
 core
 M: Aisheng Dong <aisheng.dong@nxp.com>
-M: Li Yang <leoyang.li@nxp.com>
+M: Frank Li <frank.li@nxp.com>
 
 adc
 M: Haibo Chen <haibo.chen@nxp.com>
@@ -70,7 +70,7 @@ F: drivers/iio/adc/
 
 arch/core
 M: Dong Aisheng <aisheng.dong@nxp.com>
-M: Li Yang <leoyang.li@nxp.com>
+M: Frank Li <frank.li@nxp.com>
 F: arch/arm/
 X: arch/arm/boot/dts/
 X: arch/arm/mach-imx/
@@ -92,7 +92,7 @@ F: include/linux/mx8_mu.h
 F: include/soc/imx/
 
 arch/qoriq
-M: Li Yang <leoyang.li@nxp.com>
+M: Frank Li <frank.li@nxp.com>
 F: Documentation/devicetree/bindings/powerpc/fsl/
 F: arch/powerpc/platforms/
 F: arch/powerpc/sysdev/
@@ -341,18 +341,18 @@ F: include/dt-bindings/clock/s32v234-clock.h
 
 config/arm
 M: Dong Aisheng <aisheng.dong@nxp.com>
-M: Li Yang <leoyang.li@nxp.com>
+M: Frank Li <frank.li@nxp.com>
 M: Ionut Vicovan <ionut.vicovan@nxp.com>
 F: arch/arm/configs/
 
 config/arm64
 M: Dong Aisheng <aisheng.dong@nxp.com>
-M: Li Yang <leoyang.li@nxp.com>
+M: Frank Li <frank.li@nxp.com>
 M: Ionut Vicovan <ionut.vicovan@nxp.com>
 F: arch/arm64/configs/
 
 config/powerpc
-M: Li Yang <leoyang.li@nxp.com>
+M: Frank Li <frank.li@nxp.com>
 F: arch/powerpc/configs/
 
 crypto/core
@@ -621,7 +621,7 @@ R: Peng Fan <peng.fan@nxp.com>
 F: arch/arm64/boot/dts/freescale/imx9*
 
 dts/qoriq
-M: Li Yang <leoyang.li@nxp.com>
+M: Frank Li <frank.li@nxp.com>
 F: Documentation/devicetree/bindings/arm/freescale/fsl,layerscape-dcfg.txt
 F: Documentation/devicetree/bindings/arm/fsl.yaml
 F: arch/arm/boot/dts/ls1021a-qds.dts
@@ -632,7 +632,7 @@ F: arch/arm64/boot/dts/freescale/qoriq*
 F: arch/powerpc/boot/dts/
 
 dts/s32
-M: Li Yang <leoyang.li@nxp.com>
+M: Frank Li <frank.li@nxp.com>
 F: arch/arm64/boot/dts/freescale/s32*
 
 edac
@@ -1011,7 +1011,7 @@ F: drivers/ata/
 script
 M: Ting Liu <ting.liu@nxp.com>
 M: Aisheng Dong <aisheng.dong@nxp.com>
-M: Li Yang <leoyang.li@nxp.com>
+M: Frank Li <frank.li@nxp.com>
 F: MAINTAINERS.NXP
 F: scripts/get_maintainer_nxp.sh
 
@@ -1149,4 +1149,4 @@ F: drivers/tee/optee/
 
 hotfix
 M: Aisheng Dong <aisheng.dong@nxp.com>
-M: Li Yang <leoyang.li@nxp.com>
+M: Frank Li <frank.li@nxp.com>
