@@ -364,6 +364,7 @@ struct ad7768_state {
 	const struct ad7768_chip_info *chip;
 	struct spi_device *spi;
 	struct regulator *regulator;
+	int bits_per_word;
 	int vref;
 	int pga_gain_mode;
 	int aaf_gain;
@@ -801,6 +802,12 @@ static int ad7768_set_dig_fil(struct iio_dev *dev,
 	unsigned int mode,val;
 	int ret;
     st->filter_type = filter;
+	
+	if (st->filter_type == SINC5_DEC_X8)
+		st->bits_per_word = 16;
+	else
+		st->bits_per_word = 24;
+
     ret = ad7768_spi_reg_read(st, AD7768_REG_DIGITAL_FILTER, &val, 1);
 	if (ret)
 		return ret;
@@ -1105,7 +1112,6 @@ static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 	struct ad7768_state *st = iio_priv(indio_dev);
 	struct spi_transfer xfer = {
 		.len = 1,
-		.bits_per_word = 32
 	};
 	unsigned int rx_data[2];
 	unsigned int tx_data[2];
@@ -1116,16 +1122,24 @@ static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 	* Write a 1 to the LSB of the INTERFACE_FORMAT register to enter
 	* continuous read mode. Subsequent data reads do not require an
 	* initial 8-bit write to query the ADC_DATA register.
+	* If filter type is SINC DEC8, is requeired that the CONVLEN be
+	* 16 Bits. In this case, it Also needs to write 1 to the BIT3
 	*/
-	ret =  ad7768_spi_reg_write(st, AD7768_REG_INTERFACE_FORMAT, 0x01);
+	if(st->filter_type == SINC5_DEC_X8){
+		xfer.bits_per_word = 16;
+		ret =  ad7768_spi_reg_write(st, AD7768_REG_INTERFACE_FORMAT, 0x01);
+	}else{
+		xfer.bits_per_word = 24;
+		ret =  ad7768_spi_reg_write(st, AD7768_REG_INTERFACE_FORMAT, 0x01);
+	}
 	if (ret)
 		return ret;
 
 	if (st->spi_is_dma_mapped) {
 		spi_bus_lock(st->spi->master);
 
-		tx_data[0] = AD7768_RD_FLAG_MSK(AD7768_REG_ADC_DATA) << 24;
-		xfer.tx_buf = tx_data;
+		// tx_data[0] = AD7768_RD_FLAG_MSK(AD7768_REG_ADC_DATA) << 24;
+		// xfer.tx_buf = tx_data;
 		xfer.rx_buf = rx_data;
 		spi_message_init_with_transfers(&msg, &xfer, 1);
 		ret = spi_engine_offload_load_msg(st->spi, &msg);
@@ -1372,13 +1386,13 @@ static int ad7768_probe(struct spi_device *spi)
 		return ret;
 	}
 
+	st->bits_per_word = 24;
 	st->aaf_gain = AD7768_AAF_IN1;
 
 	if (device_property_present(&spi->dev, "adi,aaf-gain") && st->chip->has_variable_aaf) {
 		u32 val;
 
 		ret = device_property_read_u32(&spi->dev, "adi,aaf-gain", &val);
-		pr_info("aaf: %d\n", val);
 		if (ret)
 			return ret;
 
@@ -1413,6 +1427,8 @@ static int ad7768_probe(struct spi_device *spi)
 		ret = ad7768_triggered_buffer_alloc(indio_dev);
 	if (ret)
 		return ret;
+	unsigned int value;
+	int i;
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
