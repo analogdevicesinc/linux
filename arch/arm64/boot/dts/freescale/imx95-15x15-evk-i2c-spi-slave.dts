@@ -14,10 +14,8 @@
  */
 
 /{
-	aliases {
-		sound-wm8962 {
+	sound-wm8962 {
 		status = "disabled";
-		};
 	};
 };
 
