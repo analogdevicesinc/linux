@@ -34,9 +34,9 @@
 };
 
 &adp5585gpio {
-	lpspi-select-hog {
-		gpio-hog;
-		gpios = <4 GPIO_ACTIVE_HIGH>;
+	/* EXP_SEL RPi */
+	exp-sel-hog {
+		/delete-property/ output-low;
 		output-high;
 	};
 };
