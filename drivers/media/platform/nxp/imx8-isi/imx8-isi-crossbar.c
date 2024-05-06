@@ -34,6 +34,7 @@ static int mxc_isi_crossbar_gasket_enable(struct mxc_isi_crossbar *xbar,
 	const struct mxc_gasket_ops *gasket_ops = isi->pdata->gasket_ops;
 	const struct v4l2_mbus_framefmt *fmt;
 	struct v4l2_mbus_frame_desc fd;
+	unsigned int stream;
 	int ret;
 
 	if (!gasket_ops)
@@ -53,13 +54,12 @@ static int mxc_isi_crossbar_gasket_enable(struct mxc_isi_crossbar *xbar,
 		return ret;
 	}
 
-	if (fd.num_entries != 1) {
-		dev_err(isi->dev, "invalid frame descriptor for '%s':%u\n",
-			remote_sd->name, remote_pad);
-		return -EINVAL;
-	}
-
-	fmt = v4l2_subdev_state_get_format(state, port, 0);
+	/*
+	 * For single or multiple stream, only the first stream be used
+	 * since gasket enable callback be called only once.
+	 */
+	stream = fd.num_entries > 0 ? fd.entry[0].stream : 0;
+	fmt = v4l2_subdev_state_get_format(state, port, stream);
 	if (!fmt)
 		return -EINVAL;
 
