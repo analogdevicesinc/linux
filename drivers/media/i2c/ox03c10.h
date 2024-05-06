@@ -36,7 +36,6 @@ struct ox03c10_mode {
 };
 
 int ox03c10_v4l2_controls_init(struct ox03c10 *ox03c10);
-void ox03c10_deinit(struct ox03c10 *sensor);
 struct ox03c10 *ox03c10_init(struct i2c_client *client);
 int ox03c10_streaming_start(struct ox03c10 *sensor, bool start);
 struct v4l2_ctrl_handler *ox03c10_ctrl_handler_get(struct ox03c10 *sensor);
