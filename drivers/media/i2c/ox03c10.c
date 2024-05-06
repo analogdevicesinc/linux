@@ -751,7 +751,8 @@ static int ox03c10_sensor_init(struct ox03c10 *sensor)
 	return 0;
 }
 
-struct ox03c10 *ox03c10_init(struct i2c_client *client)
+struct ox03c10 *ox03c10_init_with_dummy_client(struct i2c_client *client,
+					       bool use_dummy)
 {
 	struct device *dev = &client->dev;
 	struct ox03c10 *sensor;
@@ -765,9 +766,15 @@ struct ox03c10 *ox03c10_init(struct i2c_client *client)
 
 	sensor->dev = dev;
 
-	sensor->client = devm_i2c_new_dummy_device(dev, client->adapter, OX03C10_I2C_ADDR);
-	if (IS_ERR(sensor->client))
-		return ERR_PTR(-ENODEV);
+	if (use_dummy) {
+		sensor->client =
+			devm_i2c_new_dummy_device(dev, client->adapter,
+						  OX03C10_I2C_ADDR);
+		if (IS_ERR(sensor->client))
+			return ERR_PTR(-ENODEV);
+	} else {
+		sensor->client = client;
+	}
 
 	sensor->rmap = devm_regmap_init_i2c(sensor->client, &ox03c10_sensor_regmap_cfg);
 	if (IS_ERR(sensor->rmap)) {
@@ -785,7 +792,7 @@ struct ox03c10 *ox03c10_init(struct i2c_client *client)
 error:
 	return ERR_PTR(ret);
 }
-EXPORT_SYMBOL(ox03c10_init);
+EXPORT_SYMBOL(ox03c10_init_with_dummy_client);
 
 struct v4l2_ctrl_handler *ox03c10_ctrl_handler_get(struct ox03c10 *sensor)
 {
