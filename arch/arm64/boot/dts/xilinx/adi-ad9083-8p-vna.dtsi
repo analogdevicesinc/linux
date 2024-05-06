@@ -114,6 +114,22 @@
 		mux-gpios = <&gpio_expander 19 0>;
 	};
 
+	/* gpio_dac02 */
+	mux11: mux-controller11 {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&gpio_expander 22 1>;
+	};
+
+	/* gpio_sw8 */
+	mux12: mux-controller12 {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&gpio_expander 23 1>;
+	};
+
 	vna_mux0: mux-rfin-group {
 		compatible = "adi,gen_mux";
 		mux-controls = <&mux1>;
@@ -203,6 +219,19 @@
 		label = "mux-dac1-rfout";
 	};
 
+	freq_src_mux5: mux-dac-sw3-freq-src-sel {
+		compatible = "adi,gen_mux";
+		mux-controls = <&mux11>;
+		mux-state-names = "rf-dac02-out ", "rf-dac0-out";
+		label = "mux-rf-dac-sw3-in";
+	};
+
+	freq_src_mux6: mux-lfhf-freq-src-sel {
+		compatible = "adi,gen_mux";
+		mux-controls = <&mux12>;
+		mux-state-names = "rf-dac02-out", "rf-amp-out";
+		label = "mux-lf-hf-sw-out";
+	};
 
 	port-rfin-en@0 {
 		compatible = "adi,one-bit-adc-dac";
@@ -249,7 +278,6 @@
 
 	misc-gpio@1 {
 		compatible = "adi,one-bit-adc-dac";
-		in-gpios = <&gpio_expander 22 1>, <&gpio_expander 23 1>;
 		out-gpios = <&gpio 113 0>, <&gpio_expander 18 1>, <&gpio 128 0>,
 		            <&gpio 118 1>, <&gpio 114 1>, <&gpio 126 1>;
 
@@ -257,35 +285,27 @@
 		#size-cells = <0>;
 		label = "misc-gpio-ctrl";
 
-		channel@0 { /* active-low */
-			reg = <0>;
-			label = "ADRF6780_SIG_ALARM";
-		};
-		channel@1 { /* active-low */
-			reg = <1>;
-			label = "ADRF6780_LO_ALARM";
-		};
-		channel@2 {
+		channel@0 {
 			reg = <2>;
 			label = "ADL5960x_SYNC";
 		};
-		channel@3 { /* Inverted */
+		channel@1 { /* Inverted */
 			reg = <3>;
 			label = "AD9528_REF_SEL";
 		};
-		channel@4 {
+		channel@2 {
 			reg = <4>;
 			label = "ADMV8818_SFL";
 		};
-		channel@5 {
+		channel@3 {
 			reg = <5>;
 			label = "ADRF6780_SIG_RSTN";
 		};
-		channel@6 {
+		channel@4 {
 			reg = <6>;
 			label = "ADRF6780_LO_RSTN";
 		};
-		channel@7 {
+		channel@5 {
 			reg = <7>;
 			label = "SEQ_SHDNN";
 		};
