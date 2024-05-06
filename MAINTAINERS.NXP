@@ -305,6 +305,12 @@ F: drivers/media/i2c/max96717*
 F: drivers/media/i2c/max96724*
 F: Documentation/devicetree/bindings/media/i2c/maxim,max96724.yaml
 
+capture/ds90ub
+M: G.n. Zhou <guoniu.zhou@nxp.com>
+F: Documentation/devicetree/bindings/media/i2c/ti,ds90*
+F: drivers/media/i2c/ds90*
+F: include/media/i2c/ds90*
+
 capture/neoisp
 M: Aymen SGHAIER <aymen.sghaier@nxp.com>
 M: Julien Vuillaumier <julien.vuillaumier@nxp.com>
