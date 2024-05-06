@@ -6,8 +6,7 @@ scriptDir="$(dirname $(readlink -f $0))"
 mfile=$scriptDir/../MAINTAINERS.NXP
 pl_script="./scripts/get_maintainer.pl"
 maillist="\
-linux-devel@linux.nxdi.nxp.com (Linux Factory Review List)
-lnxrevli@nxp.com (i.MX Review List)"
+lnxrevli@nxp.com (Linux Factory Review List)"
 
 usage() {
 cat <<EOF
@@ -107,6 +106,6 @@ if $sendemail;then
        exit
    fi
    # display email sending command first in case users want to modify
-   echo git send-email --no-chain-reply-to --no-signed-off-by-cc --quiet --suppress-cc=all $email_confirm $email_from --to=$emails $email_to $email_cc --cc=linux-devel@linux.nxdi.nxp.com,lnxrevli@nxp.com $patches
-   git send-email --no-chain-reply-to --no-signed-off-by-cc --quiet --suppress-cc=all $email_confirm $email_from --to=$emails $email_to $email_cc --cc=linux-devel@linux.nxdi.nxp.com,lnxrevli@nxp.com $patches
+   echo git send-email --no-chain-reply-to --no-signed-off-by-cc --quiet --suppress-cc=all $email_confirm $email_from --to=$emails $email_to $email_cc --cc=lnxrevli@nxp.com $patches
+   git send-email --no-chain-reply-to --no-signed-off-by-cc --quiet --suppress-cc=all $email_confirm $email_from --to=$emails $email_to $email_cc --cc=lnxrevli@nxp.com $patches
 fi
