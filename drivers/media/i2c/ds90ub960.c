@@ -513,6 +513,7 @@ struct ub960_data {
 
 	struct v4l2_ctrl_handler   ctrl_handler;
 	struct v4l2_async_notifier notifier;
+	struct v4l2_fract interval;
 
 	u32 tx_data_rate;		/* Nominal data rate (Gb/s) */
 	s64 tx_link_freq[1];
@@ -2918,6 +2919,34 @@ static int ub960_set_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int ub960_get_frame_interval(struct v4l2_subdev *sd,
+				    struct v4l2_subdev_state *state,
+				    struct v4l2_subdev_frame_interval *fi)
+{
+	struct ub960_data *priv = sd_to_ub960(sd);
+
+	if (ub960_pad_is_sink(priv, fi->pad))
+		return -EINVAL;
+
+	fi->interval = priv->interval;
+
+	return 0;
+}
+
+static int ub960_set_frame_interval(struct v4l2_subdev *sd,
+				    struct v4l2_subdev_state *state,
+				    struct v4l2_subdev_frame_interval *fi)
+{
+	struct ub960_data *priv = sd_to_ub960(sd);
+
+	if (ub960_pad_is_sink(priv, fi->pad))
+		return -EINVAL;
+
+	priv->interval = fi->interval;
+
+	return 0;
+}
+
 static int ub960_init_state(struct v4l2_subdev *sd,
 			    struct v4l2_subdev_state *state)
 {
@@ -2950,6 +2979,9 @@ static const struct v4l2_subdev_pad_ops ub960_pad_ops = {
 
 	.get_fmt = v4l2_subdev_get_fmt,
 	.set_fmt = ub960_set_fmt,
+
+	.get_frame_interval = ub960_get_frame_interval,
+	.set_frame_interval = ub960_set_frame_interval,
 };
 
 static int ub960_log_status(struct v4l2_subdev *sd)
@@ -3926,6 +3958,9 @@ static int ub960_probe(struct i2c_client *client)
 	priv->reg_current.indirect_target = 0xff;
 	priv->reg_current.rxport = 0xff;
 	priv->reg_current.txport = 0xff;
+
+	priv->interval.numerator = 1;
+	priv->interval.denominator = 30;
 
 	ret = ub960_get_hw_resources(priv);
 	if (ret)
