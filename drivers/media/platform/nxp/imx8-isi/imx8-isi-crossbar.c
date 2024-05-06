@@ -447,6 +447,7 @@ static int mxc_isi_crossbar_enable_streams(struct v4l2_subdev *sd,
 	u64 sink_streams;
 	u32 sink_pad;
 	u32 remote_pad;
+	u8 stream_index;
 	int ret;
 
 	remote_sd = mxc_isi_crossbar_xlate_streams(xbar, state, pad, streams_mask,
@@ -468,12 +469,16 @@ static int mxc_isi_crossbar_enable_streams(struct v4l2_subdev *sd,
 			return ret;
 	}
 
+	stream_index = clamp_t(u8, ffs(sink_streams), 1, xbar->num_sources);
+
 	/*
-	 * For enabled streams, return directly to support ISI stream
-	 * duplicated feature
+	 * For enabled streams, increase the stream counter and return
+	 * directly to support ISI stream duplicated feature
 	 */
-	if (input->enabled_streams & sink_streams)
+	if (input->enabled_streams & sink_streams) {
+		input->enabled_count[(stream_index - 1)]++;
 		return 0;
+	}
 
 	ret = v4l2_subdev_enable_streams(remote_sd, remote_pad, sink_streams);
 	if (ret < 0) {
@@ -483,6 +488,7 @@ static int mxc_isi_crossbar_enable_streams(struct v4l2_subdev *sd,
 	}
 
 	input->enabled_streams |= sink_streams;
+	input->enabled_count[(stream_index - 1)]++;
 
 	return 0;
 }
@@ -497,6 +503,7 @@ static int mxc_isi_crossbar_disable_streams(struct v4l2_subdev *sd,
 	u64 sink_streams;
 	u32 sink_pad;
 	u32 remote_pad;
+	u8 stream_index;
 	int ret = 0;
 
 	remote_sd = mxc_isi_crossbar_xlate_streams(xbar, state, pad, streams_mask,
@@ -506,9 +513,14 @@ static int mxc_isi_crossbar_disable_streams(struct v4l2_subdev *sd,
 		return PTR_ERR(remote_sd);
 
 	input = &xbar->inputs[sink_pad];
+	stream_index = clamp_t(u8, ffs(sink_streams), 1, xbar->num_sources);
 
-	/* For disabled streams, return directly. */
-	if (!(input->enabled_streams & sink_streams))
+	/*
+	 * For disabled streams or stream which counter is non-zero,
+	 * decrease the stream counter and return directly.
+	 */
+	if (!(input->enabled_streams & sink_streams) ||
+	    --input->enabled_count[(stream_index - 1)])
 		return 0;
 
 	ret = v4l2_subdev_disable_streams(remote_sd, remote_pad, sink_streams);
@@ -554,6 +566,37 @@ static const struct media_entity_operations mxc_isi_cross_entity_ops = {
  * Init & cleanup
  */
 
+static int mxc_isi_input_stream_alloc(struct mxc_isi_crossbar *xbar)
+{
+	unsigned int i;
+
+	/*
+	 * Track per-stream enable counts to support multiplexed streams
+	 */
+	for (i = 0; i < xbar->num_sinks; ++i) {
+		struct mxc_isi_input *input = &xbar->inputs[i];
+
+		input->enabled_count = kcalloc(xbar->num_sources,
+					       sizeof(*input->enabled_count),
+					       GFP_KERNEL);
+		if (!input->enabled_count) {
+			dev_err(xbar->isi->dev,
+				"failed to alloc memory for ISI input(%d)\n", i);
+			return -ENOMEM;
+		}
+	}
+
+	return 0;
+}
+
+static void mxc_isi_input_stream_free(struct mxc_isi_crossbar *xbar)
+{
+	unsigned int i;
+
+	for (i = 0; i < xbar->num_sinks; ++i)
+		kfree(xbar->inputs[i].enabled_count);
+}
+
 int mxc_isi_crossbar_init(struct mxc_isi_dev *isi)
 {
 	struct mxc_isi_crossbar *xbar = &isi->crossbar;
@@ -592,6 +635,10 @@ int mxc_isi_crossbar_init(struct mxc_isi_dev *isi)
 		goto err_free;
 	}
 
+	ret = mxc_isi_input_stream_alloc(xbar);
+	if (ret)
+		goto err_free;
+
 	for (i = 0; i < xbar->num_sinks; ++i)
 		xbar->pads[i].flags = MEDIA_PAD_FL_SINK
 				    | MEDIA_PAD_FL_MUST_CONNECT;
@@ -600,7 +647,7 @@ int mxc_isi_crossbar_init(struct mxc_isi_dev *isi)
 
 	ret = media_entity_pads_init(&sd->entity, num_pads, xbar->pads);
 	if (ret)
-		goto err_free;
+		goto err_free_cnt;
 
 	ret = v4l2_subdev_init_finalize(sd);
 	if (ret < 0)
@@ -610,6 +657,8 @@ int mxc_isi_crossbar_init(struct mxc_isi_dev *isi)
 
 err_entity:
 	media_entity_cleanup(&sd->entity);
+err_free_cnt:
+	mxc_isi_input_stream_free(xbar);
 err_free:
 	kfree(xbar->pads);
 	kfree(xbar->inputs);
@@ -619,6 +668,7 @@ err_free:
 
 void mxc_isi_crossbar_cleanup(struct mxc_isi_crossbar *xbar)
 {
+	mxc_isi_input_stream_free(xbar);
 	media_entity_cleanup(&xbar->sd.entity);
 	kfree(xbar->pads);
 	kfree(xbar->inputs);
