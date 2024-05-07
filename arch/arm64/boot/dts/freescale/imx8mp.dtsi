@@ -1879,7 +1879,7 @@
 			};
 
 			hdmiphy: hdmiphy@32fdff00 {
-				compatible = "fsl,samsung-hdmi-phy";
+				compatible = "fsl,imx8mp-hdmi-phy";
 				reg = <0x32fdff00 0x100>;
 				clocks = <&clk IMX8MP_CLK_HDMI_APB>,
 					 <&clk IMX8MP_CLK_HDMI_24M>;
