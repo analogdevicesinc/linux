@@ -4,6 +4,7 @@
  */
 
 #include "imx8ulp-evk.dts"
+#include <dt-bindings/i3c/i3c.h>
 
 &fec {
 	status = "disabled";
@@ -24,11 +25,6 @@
 	pinctrl-assert-gpios = <&pca6416_1 10 GPIO_ACTIVE_HIGH>;
 	i2c-scl-hz = <400000>;
 	status = "okay";
-
-	lsm6dso_i3c: imu@6a,208006c0000 {
-		reg = <0x6a 0x208 0x6c0000>;
-		assigned-address = <0x6a>;
-	};
 };
 
 &iomuxc1 {
