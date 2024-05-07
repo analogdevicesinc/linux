@@ -893,6 +893,48 @@ static const struct ad4630_out_mode ad4630_24_modes[] = {
 	}
 };
 
+static const struct ad4630_out_mode adaq4216_modes[] = {
+	[AD4630_16_DIFF] = {
+		.channels = {
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 0, NULL),
+		},
+		.data_width = 16,
+	},
+	[AD4630_16_DIFF_8_COM] = {
+		.channels = {
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 8, NULL),
+		},
+		.data_width = 24,
+	},
+	[AD4630_30_AVERAGED_DIFF] = {
+		.channels = {
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 30, 2, ad4630_ext_info),
+		},
+		.data_width = 32,
+	}
+};
+
+static const struct ad4630_out_mode adaq4220_modes[] = {
+	[AD4630_16_DIFF] = {
+		.channels = {
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 20, 0, NULL),
+		},
+		.data_width = 20,
+	},
+	[AD4630_16_DIFF_8_COM] = {
+		.channels = {
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 8, NULL),
+		},
+		.data_width = 24,
+	},
+	[AD4630_30_AVERAGED_DIFF] = {
+		.channels = {
+			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 30, 2, ad4630_ext_info),
+		},
+		.data_width = 32,
+	}
+};
+
 static const struct ad4630_out_mode adaq4224_modes[] = {
 	[AD4630_24_DIFF] = {
 		.channels = {
@@ -1000,7 +1042,7 @@ static const struct ad4630_chip_info ad4630_chip_info[] = {
 	},
 	[ID_ADAQ4216] = {
 		.available_masks = ad4030_channel_masks,
-		.modes = adaq4224_modes,
+		.modes = adaq4216_modes,
 		.out_modes_mask = GENMASK(3, 0),
 		.name = "adaq4216",
 		.grade = 0x1E,
@@ -1012,7 +1054,7 @@ static const struct ad4630_chip_info ad4630_chip_info[] = {
 	},
 	[ID_ADAQ4220] = {
 		.available_masks = ad4030_channel_masks,
-		.modes = adaq4224_modes,
+		.modes = adaq4220_modes,
 		.out_modes_mask = GENMASK(3, 0),
 		.name = "adaq4220",
 		.grade = 0x1D,
