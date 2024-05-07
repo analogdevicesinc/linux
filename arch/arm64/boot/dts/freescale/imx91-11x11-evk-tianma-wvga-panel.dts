@@ -39,6 +39,33 @@
 	};
 };
 
+&gpio2 {
+	/* avoid power leakage */
+	disp-clk-hog {
+		gpio-hog;
+		gpios = <0 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+
+	disp-de-hog {
+		gpio-hog;
+		gpios = <1 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+
+	disp-vsync-hog {
+		gpio-hog;
+		gpios = <2 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+
+	disp-hsync-hog {
+		gpio-hog;
+		gpios = <3 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+};
+
 &iomuxc {
 	pinctrl_tpm5_ch3: tpm5ch3grp {
 		fsl,pins = <
@@ -57,8 +84,9 @@
 };
 
 &parallel_disp_fmt {
-	pinctrl-names = "default";
+	pinctrl-names = "default", "gpio";
 	pinctrl-0 = <&pinctrl_lcdif>;
+	pinctrl-1 = <&pinctrl_lcdif_gpio>;
 	fsl,interface-pix-fmt = "rgb666";
 	status = "okay";
 
