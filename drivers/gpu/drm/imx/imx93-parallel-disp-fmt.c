@@ -9,6 +9,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/pinctrl/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/regmap.h>
 #include <drm/drm_atomic_helper.h>
@@ -34,6 +35,9 @@ struct imx93_pdf {
 	struct drm_bridge *bridge;
 	enum imx93_pdf_format format;
 	u32 bus_format;
+	struct pinctrl *pinctrl;
+	struct pinctrl_state *default_state;
+	struct pinctrl_state *gpio_state;
 };
 
 static inline struct imx93_pdf *enc_to_pdf(struct drm_encoder *e)
@@ -47,6 +51,16 @@ static void imx93_pdf_encoder_enable(struct drm_encoder *encoder)
 
 	regmap_update_bits(pdf->regmap, DISPLAY_MUX_CTRL, PARALLEL_DISP_FORMAT,
 			   pdf->format);
+
+	pinctrl_select_state(pdf->pinctrl, pdf->default_state);
+}
+
+static void imx93_pdf_encoder_disable(struct drm_encoder *encoder)
+{
+	struct imx93_pdf *pdf = enc_to_pdf(encoder);
+
+	if (pdf->gpio_state)
+		pinctrl_select_state(pdf->pinctrl, pdf->gpio_state);
 }
 
 static int
@@ -89,6 +103,7 @@ imx93_pdf_encoder_atomic_check(struct drm_encoder *encoder,
 static const struct drm_encoder_helper_funcs imx93_pdf_encoder_helper_funcs = {
 	.atomic_check = imx93_pdf_encoder_atomic_check,
 	.enable = imx93_pdf_encoder_enable,
+	.disable = imx93_pdf_encoder_disable,
 };
 
 static int imx93_pdf_register(struct drm_device *drm, struct imx93_pdf *pdf)
@@ -139,6 +154,28 @@ static int imx93_pdf_bind(struct device *dev, struct device *master, void *data)
 			bus_format = MEDIA_BUS_FMT_RGB888_1X24;
 	}
 	pdf->bus_format = bus_format;
+
+	pdf->pinctrl = devm_pinctrl_get(dev);
+	if (IS_ERR(pdf->pinctrl))
+		return dev_err_probe(dev, PTR_ERR(pdf->pinctrl),
+				     "failed to get pinctrl\n");
+
+	pdf->default_state = pinctrl_lookup_state(pdf->pinctrl, "default");
+	if (IS_ERR(pdf->default_state)) {
+		ret = PTR_ERR(pdf->default_state);
+		dev_err(dev, "failed to find default pinctrl state: %d\n", ret);
+		return ret;
+	}
+
+	pdf->gpio_state = pinctrl_lookup_state(pdf->pinctrl, "gpio");
+	if (IS_ERR(pdf->gpio_state)) {
+		ret = PTR_ERR(pdf->gpio_state);
+		dev_dbg(dev, "failed to find gpio pinctrl state: %d\n", ret);
+		pdf->gpio_state = NULL;
+	}
+
+	if (pdf->gpio_state)
+		pinctrl_select_state(pdf->pinctrl, pdf->gpio_state);
 
 	/* port@1 is the output port */
 	ret = drm_of_find_panel_or_bridge(np, 1, 0, &panel, &pdf->bridge);
