@@ -99,7 +99,7 @@
 				reg = <2>;
 				isp_out: endpoint {
 					remote-endpoint = <&mipi_csi0_ep>;
-					data-lanes = <1 2>;
+					data-lanes = <1 2 3 4>;
 				};
 			};
 		};
@@ -136,7 +136,7 @@
 			reg = <0>;
 			mipi_csi0_ep: endpoint {
 				remote-endpoint = <&isp_out>;
-				data-lanes = <1 2>;
+				data-lanes = <1 2 3 4>;
 				clock-lanes = <0>;
 			};
 		};
