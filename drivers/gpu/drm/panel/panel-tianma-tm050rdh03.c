@@ -136,7 +136,7 @@ static int tm050rdh03_probe(struct platform_device *pdev)
 				     "failed to get regulator\n");
 
 	p->stbyb_gpio = devm_gpiod_get_optional(&pdev->dev, "standby",
-						GPIOD_OUT_LOW);
+						GPIOD_ASIS);
 	if (IS_ERR(p->stbyb_gpio))
 		return dev_err_probe(&pdev->dev, PTR_ERR(p->stbyb_gpio),
 				     "failed to get standby gpio\n");
