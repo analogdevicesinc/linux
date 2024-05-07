@@ -4,6 +4,7 @@
  */
 
 #include "imx93-9x9-qsb.dts"
+#include <dt-bindings/i3c/i3c.h>
 
 /{
 	aliases {
@@ -13,17 +14,6 @@
 
 /delete-node/&lpi2c1;
 
-/*
- * When add i2c devices on i3c bus, the reg property should be changed to:
- *         reg = <0x1a 0x00 0x50>;
- * The first byte is still the address of the i2c device;
- * The second byte is always 0x00;
- * The third byte is the communication speed of this i2c device;
- *         0x20 means 1MHz(FM+);
- *         0x50 means 400KHz(FM);
- * In compatibility mode, I3C will use the slowest setting of all targets
- * for i2c communication.
- */
 &i3c1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i3c1>;
@@ -33,7 +23,7 @@
 	/* i2c device */
 	codec: wm8962@1a {
 		compatible = "wlf,wm8962";
-		reg = <0x1a 0x00 0x50>;
+		reg = <0x1a 0x00 (I2C_FM | I2C_NO_FILTER_LOW_FREQUENCY)>;
 		clocks = <&clk IMX93_CLK_SAI3_GATE>;
 		DCVDD-supply = <&reg_audio_pwr>;
 		DBVDD-supply = <&reg_audio_pwr>;
@@ -55,7 +45,7 @@
 
 	ptn5110: tcpc@50 {
 		compatible = "nxp,ptn5110";
-		reg = <0x50 0x00 0x50>;
+		reg = <0x50 0x00 (I2C_FM | I2C_NO_FILTER_LOW_FREQUENCY)>;
 		interrupt-parent = <&gpio3>;
 		interrupts = <26 IRQ_TYPE_LEVEL_LOW>;
 		status = "okay";
@@ -79,19 +69,13 @@
 			self-powered;
 		};
 	};
-
-	/* i3c device with static i2c address*/
-	lsm6dso_i3c: imu@6a,208006c0000 {
-		reg = <0x6a 0x208 0x6c0000>;
-		assigned-address = <0x6a>;
-	};
 };
 
 &iomuxc {
 	pinctrl_i3c1: i3c1grp {
 		fsl,pins = <
-			MX93_PAD_I2C1_SCL__I3C1_SCL	0x4000019e
-			MX93_PAD_I2C1_SDA__I3C1_SDA	0x4000019e
+			MX93_PAD_I2C1_SCL__I3C1_SCL	0x40000186
+			MX93_PAD_I2C1_SDA__I3C1_SDA	0x40000186
 		>;
 	};
 };
