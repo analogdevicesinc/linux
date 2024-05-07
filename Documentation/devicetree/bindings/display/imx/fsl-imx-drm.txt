@@ -331,9 +331,14 @@ Required properties:
   Documentation/devicetree/bindings/media/video-interfaces.txt.
   Port 0 is the input port connected to the display controller,
   port 1 is the output port connected to a panel or a bridge.
+- pinctrl-names: Must contain a "default" entry and an optional "gpio" entry.
+		 The "gpio" entry is used to select state for certain display
+		 pins to GPIO to avoid power leakage from them.
+- pinctrl-0: a phandle pointing to the pin settings for the "default" entry.
 Optional properties:
 - fsl,interface-pix-fmt: How this display is connected to the
   display interface, can be "rgb565", "rgb666" and "rgb888".
+- pinctrl-1: a phandle pointing to the pin settings for the "gpio" entry.
 
 LCDIF mux display support
 =========================
