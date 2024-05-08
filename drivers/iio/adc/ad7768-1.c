@@ -355,7 +355,7 @@ struct ad7768_chip_info {
 	int num_pga_modes;
 	int default_pga_mode;
 	int pgia_mode2pin_offset;
-	int *pga_gains;
+	const int *pga_gains;
 	const struct iio_chan_spec *channel_spec;
 	const unsigned long *available_masks;
 	int num_channels;
@@ -1114,7 +1114,6 @@ static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 		.len = 1,
 	};
 	unsigned int rx_data[2];
-	unsigned int tx_data[2];
 	struct spi_message msg;
 	int ret;
 
@@ -1427,8 +1426,6 @@ static int ad7768_probe(struct spi_device *spi)
 		ret = ad7768_triggered_buffer_alloc(indio_dev);
 	if (ret)
 		return ret;
-	unsigned int value;
-	int i;
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
