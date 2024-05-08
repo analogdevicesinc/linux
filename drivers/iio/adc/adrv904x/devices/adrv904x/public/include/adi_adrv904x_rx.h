@@ -1269,10 +1269,18 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxRssiEnable(adi_adrv904x_Device_t
  *
  * \retval adi_adrv904x_ErrAction_e - ADI_ADRV904X_ERR_ACT_NONE if Successful
  */
+#ifndef __KERNEL__
 ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxRssiReadBack(adi_adrv904x_Device_t* const device,
                                                              const uint16_t               meterSel,
                                                              const uint32_t               channelSel,
                                                              float* const                 pPwrMeasDb,
                                                              float* const                 pPwrMeasLinear);
+#else
+ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxRssiReadBack(adi_adrv904x_Device_t* const device,
+                                                             const uint16_t               meterSel,
+                                                             const uint32_t               channelSel,
+                                                             uint8_t* const               pPwrMeasDb,
+                                                             int64_t* const               pPwrMeasLinear);
+#endif
 
 #endif /* _ADI_ADRV904X_RX_H_ */

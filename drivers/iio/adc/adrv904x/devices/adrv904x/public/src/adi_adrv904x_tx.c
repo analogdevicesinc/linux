@@ -6352,8 +6352,12 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_TxCarrierGainAdjustGet(adi_adrv904
 
     if (bfValue != 0U)
     {
+#ifndef __KERNEL__
         /* Convert from 7.16 to mdB.  value in mdB = (1000*20*log10(reg value/2^16)) */
         *gain_mdB = (int32_t)(1000U * 20U * log10((double)bfValue / DIG_GAIN_MULT));
+#else
+	*gain_mdB = (1000 * 20 * (int64_t)(intlog10(bfValue) - 80807124ULL)) >> 24;
+#endif
     }
 
 cleanup:
@@ -6543,8 +6547,12 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_TxCarrierBandAttenGet(adi_adrv904x
           
     /* Convert from 0.8 to mdB.  value in mdB = (1000*20*log10(reg value/2^8)) */
     if (bfValue > 0)
-    {        
+    {
+#ifndef __KERNEL__
         *atten_mdB = 0 - (1000U * 20U * (double)log10((double)bfValue / DIG_GAIN_MULT));
+#else
+	*atten_mdB = 0 - ((1000 * 20 * (int64_t)(intlog10(bfValue) - 80807124ULL)) >> 24);
+#endif
     }
     else
     {

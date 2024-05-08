@@ -3962,8 +3962,12 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxCarrierRssiPowerRead(adi_adrv904
     }
 
     /* The bfValue is in 0.36 bit format. Convert it to mdb */
+#ifndef __KERNEL__
     *gain_mdB = 10 * log10(bfValue / pow(2,36)) * 1000;
-    
+#else
+    *gain_mdB = (10 * (int64_t)(intlog10(bfValue) - 181816029ULL) * 1000) >> 24;
+#endif
+
 cleanup:
     ADI_ADRV904X_API_EXIT(&device->common, recoveryAction);
 }
@@ -4237,7 +4241,11 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxCarrierGainAdjustGet(adi_adrv904
     if (bfValue != 0U)
     {
         /* Convert from 7.16 to mdB.  value in mdB = (1000*20*log10(reg value/2^16)) */
+#ifndef __KERNEL__
         *gain_mdB = (int32_t)(1000U * 20U * log10((double)bfValue / DIG_GAIN_MULT));
+#else
+	*gain_mdB = (1000 * 20 * (int64_t)(intlog10(bfValue) - 80807124ULL)) >> 24;
+#endif
     }
 
 cleanup:
@@ -5279,11 +5287,19 @@ cleanup :
 }
 
 
+#ifndef __KERNEL__
 ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxRssiReadBack(adi_adrv904x_Device_t* const device,
                                                              const uint16_t               meterSel,
                                                              const uint32_t               channelSel,
                                                              float* const                 pPwrMeasDb,
                                                              float* const                 pPwrMeasLinear)
+#else
+ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxRssiReadBack(adi_adrv904x_Device_t* const device,
+                                                             const uint16_t               meterSel,
+                                                             const uint32_t               channelSel,
+                                                             uint8_t* const               pPwrMeasDb,
+                                                             int64_t* const               pPwrMeasLinear)
+#endif
 {
         adi_adrv904x_ErrAction_e recoveryAction = ADI_ADRV904X_ERR_ACT_NONE;
     adrv904x_DfeSvcCmdDfeMtrRssiReadback_t cmdStruct;
@@ -5356,8 +5372,13 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxRssiReadBack(adi_adrv904x_Device
         goto cleanup;
     }
 
+#ifndef __KERNEL__
     *pPwrMeasDb     = (float)respStruct.pwrMeasDb / 4.0f;
     *pPwrMeasLinear = 10 * log10(respStruct.pwrMeasLinear / pow(2,36));
+#else
+    *pPwrMeasDb = respStruct.pwrMeasDb / 4;
+    *pPwrMeasLinear = (10 * (int64_t)(intlog10(respStruct.pwrMeasLinear) - 181816029ULL)) >> 24;
+#endif
 cleanup :
     ADI_ADRV904X_API_EXIT(&device->common, recoveryAction);
 }
