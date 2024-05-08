@@ -9,6 +9,90 @@
 	#address-cells = <1>;
 	#size-cells = <1>;
 
+	pciea: pcie@5f000000 {
+		compatible = "fsl,imx8q-pcie","snps,dw-pcie";
+		reg = <0x5f000000 0x10000>, /* Controller reg */
+		      <0x6ff00000 0x80000>; /* PCI cfg space */
+		reg-names = "dbi", "config";
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		bus-range = <0x00 0xff>;
+		ranges = <0x81000000 0 0x00000000 0x6ff80000 0 0x00010000>,
+			 <0x82000000 0 0x40000000 0x60000000 0 0x0ff00000>;
+		num-lanes = <1>;
+		num-viewport = <4>;
+		interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "msi";
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0x7>;
+		interrupt-map =  <0 0 0 1 &gic 0 73 4>,
+				 <0 0 0 2 &gic 0 74 4>,
+				 <0 0 0 3 &gic 0 75 4>,
+				 <0 0 0 4 &gic 0 76 4>;
+		clocks = <&pciea_lpcg 2>,
+			 <&pciea_lpcg 0>,
+			 <&pciea_lpcg 1>;
+		clock-names = "dbi", "mstr", "slv";
+		power-domains = <&pd IMX_SC_R_PCIE_A>;
+		fsl,max-link-speed = <3>;
+		status = "disabled";
+	};
+
+	pcieb: pcie@5f010000 {
+		compatible = "fsl,imx8q-pcie","snps,dw-pcie";
+		reg = <0x5f010000 0x10000>, /* Controller reg */
+		      <0x7ff00000 0x80000>; /* PCI cfg space */
+		reg-names = "dbi", "config";
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		bus-range = <0x00 0xff>;
+		ranges = <0x81000000 0 0x00000000 0x7ff80000 0 0x00010000>,
+			 <0x82000000 0 0x80000000 0x70000000 0 0x0ff00000>;
+		num-lanes = <1>;
+		num-viewport = <4>;
+		interrupts = <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "msi";
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0x7>;
+		interrupt-map =  <0 0 0 1 &gic 0 105 4>,
+				 <0 0 0 2 &gic 0 106 4>,
+				 <0 0 0 3 &gic 0 107 4>,
+				 <0 0 0 4 &gic 0 108 4>;
+		clocks = <&pcieb_lpcg 2>,
+			 <&pcieb_lpcg 0>,
+			 <&pcieb_lpcg 1>;
+		clock-names = "dbi", "mstr", "slv";
+		power-domains = <&pd IMX_SC_R_PCIE_B>;
+		fsl,max-link-speed = <3>;
+		status = "disabled";
+	};
+
+	sata: sata@5f020000 {
+		compatible = "fsl,imx8qm-ahci";
+		reg = <0x5f020000 0x10000>; /* Controller reg */
+		reg-names = "reg";
+		interrupts = <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sata_lpcg 0>,
+			 <&sata_crr4_lpcg 0>;
+		clock-names = "sata", "sata_ref";
+		power-domains = <&pd IMX_SC_R_SATA_0>;
+		/*
+		 * Since "REXT" pin is only present for first lane PHY
+		 * and its calibration result will be stored, and shared
+		 * by the PHY used by SATA.
+		 *
+		 * Add the calibration PHYs for SATA here, although only
+		 * the third lane PHY is used by SATA.
+		 */
+		phys = <&hsio_phy 2 PHY_TYPE_SATA 0>,
+		       <&hsio_phy 0 PHY_TYPE_PCIE 0>,
+		       <&hsio_phy 1 PHY_TYPE_PCIE 1>;
+		phy-names = "sata-phy", "cali-phy0", "cali-phy1";
+		status = "disabled";
+	};
+
 	pciea_lpcg: clock-controller@5f050000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x5f050000 0x10000>;
@@ -89,205 +173,33 @@
 		power-domains = <&pd IMX_SC_R_SATA_0>;
 	};
 
-	phyx2_csr: csr@5f110000 {
-		compatible = "syscon";
-		reg = <0x5f110000 0x8>;
-	};
-
-	pciea_csr: csr@5f130000 {
-		compatible = "syscon";
-		reg = <0x5f130000 0x18>;
-	};
-
-	sata_csr: csr@5f150000 {
-		compatible = "syscon";
-		reg = <0x5f150000 0x8>;
-	};
-
-	phyx2_0: pcie-phy@5f180000 {
-		compatible = "fsl,imx8qm-pcie-phy";
-		reg = <0x5f180000 0x10000>;
-		ctrl-csr = <&pciea_csr>;
-		phy-csr = <&phyx2_csr>;
-		misc-csr = <&misc_csr>;
-		clocks = <&phyx2_lpcg 2>, <&phyx2_lpcg 0>, <&pciea_crr2_lpcg 0>,
-			 <&phyx2_crr0_lpcg 0>, <&misc_crr5_lpcg 0>;
-		clock-names = "apb_pclk", "pipe_pclk", "ctrl_ips_clk",
-			      "phy_ips_clk", "misc_ips_clk";
-		power-domains = <&pd IMX_SC_R_SERDES_0>;
-		#phy-cells = <0>;
-		hsio-cfg = <PCIEAX1PCIEBX1SATA>;
-		status = "disabled";
-	};
-
-	phyx2_1: pcie-phy@5f190000 {
-		compatible = "fsl,imx8qm-pcie-phy";
-		reg = <0x5f190000 0x10000>;
-		ctrl-csr = <&pcieb_csr>;
-		phy-csr = <&phyx2_csr>;
-		misc-csr = <&misc_csr>;
-		clocks = <&phyx2_lpcg 3>, <&phyx2_lpcg 1>, <&pcieb_crr3_lpcg 0>,
-			 <&phyx2_crr0_lpcg 0>, <&misc_crr5_lpcg 0>;
-		clock-names = "apb_pclk", "pipe_pclk", "ctrl_ips_clk",
-			      "phy_ips_clk", "misc_ips_clk";
-		power-domains = <&pd IMX_SC_R_SERDES_0>;
-		#phy-cells = <0>;
-		hsio-cfg = <PCIEAX1PCIEBX1SATA>;
-		status = "disabled";
-	};
-
-	phyx1: pcie-phy@5f1a0000 {
-		compatible = "fsl,imx8qm-pcie-phy";
-		reg = <0x5f1a0000 0x10000>;
-		ctrl-csr = <&sata_csr>;
-		phy-csr = <&phyx1_csr>;
-		misc-csr = <&misc_csr>;
-		clocks = <&phyx1_lpcg 0>, <&sata_crr4_lpcg 0>,
-			 <&phyx1_crr1_lpcg 0>, <&misc_crr5_lpcg 0>;
-		clock-names = "pipe_pclk", "ctrl_ips_clk",
-			      "phy_ips_clk", "misc_ips_clk";
-		power-domains = <&pd IMX_SC_R_SERDES_1>;
-		#phy-cells = <0>;
-		hsio-cfg = <PCIEAX1PCIEBX1SATA>;
-		status = "disabled";
-	};
-
-	pciea: pcie@5f000000 {
-		compatible = "fsl,imx8qm-pcie","snps,dw-pcie";
-		reg = <0x5f000000 0x10000>, /* Controller reg */
-		      <0x6ff00000 0x80000>; /* PCI cfg space */
-		reg-names = "dbi", "config";
-		#address-cells = <3>;
-		#size-cells = <2>;
-		device_type = "pci";
-		bus-range = <0x00 0xff>;
-		ranges = <0x81000000 0 0x00000000 0x6ff80000 0 0x00010000 /* downstream I/O */
-			  0x82000000 0 0x60000000 0x60000000 0 0x0ff00000>; /* non-prefetchable memory */
-		num-lanes = <1>;
-		num-viewport = <4>;
-		interrupts = <GIC_SPI 70 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>; /* eDMA */
-		interrupt-names = "msi", "dma";
-		#interrupt-cells = <1>;
-		interrupt-map-mask = <0 0 0 0x7>;
-		interrupt-map =  <0 0 0 1 &gic 0 73 4>,
-				 <0 0 0 2 &gic 0 74 4>,
-				 <0 0 0 3 &gic 0 75 4>,
-				 <0 0 0 4 &gic 0 76 4>;
-		clocks = <&pciea_lpcg 0>,
-			 <&pciea_lpcg 1>,
-			 <&pciea_lpcg 2>;
-		clock-names = "pcie", "pcie_bus", "pcie_inbound_axi";
-		power-domains = <&pd IMX_SC_R_PCIE_A>;
-		fsl,max-link-speed = <3>;
-		hsio-cfg = <PCIEAX1PCIEBX1SATA>;
-		local-addr = <0x40000000>;
-		ctrl-csr = <&pciea_csr>;
-		phys = <&phyx2_0>;
-		phy-names = "pcie-phy";
-		status = "disabled";
-	};
-
-	pciea_ep: pcie_ep@5f000000 {
-		compatible = "fsl,imx8qm-pcie-ep";
-		reg = <0x5f000000 0x00010000>,
-		      <0x60000000 0x10000000>;
-		reg-names = "regs", "addr_space";
-		num-lanes = <1>;
-		interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>; /* eDMA */
-		interrupt-names = "dma";
-		/*
-		 * Set these clocks in default, then clocks should be
-		 * refined for exact hw design of imx8 pcie.
-		 */
-		clocks = <&pciea_lpcg 0>,
-			 <&pciea_lpcg 1>,
-			 <&pciea_lpcg 2>;
-		clock-names = "pcie", "pcie_bus", "pcie_inbound_axi";
-		power-domains = <&pd IMX_SC_R_PCIE_A>;
-		fsl,max-link-speed = <3>;
-		hsio-cfg = <PCIEAX1PCIEBX1SATA>;
-		local-addr = <0x40000000>;
-		ctrl-csr = <&pciea_csr>;
-		phys = <&phyx2_0>;
-		phy-names = "pcie-phy";
-		num-ib-windows = <6>;
-		num-ob-windows = <6>;
-		status = "disabled";
-	};
-
-	pcieb: pcie@5f010000 {
-		compatible = "fsl,imx8qm-pcie","snps,dw-pcie";
-		reg = <0x5f010000 0x10000>, /* Controller reg */
-		      <0x7ff00000 0x80000>; /* PCI cfg space */
-		reg-names = "dbi", "config";
-		#address-cells = <3>;
-		#size-cells = <2>;
-		device_type = "pci";
-		bus-range = <0x00 0xff>;
-		ranges = <0x81000000 0 0x00000000 0x7ff80000 0 0x00010000 /* downstream I/O */
-			  0x82000000 0 0x70000000 0x70000000 0 0x0ff00000>; /* non-prefetchable memory */
-		num-lanes = <1>;
-		num-viewport = <4>;
-		interrupts = <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>,
-				<GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>; /* eDMA */
-		interrupt-names = "msi", "dma";
-		#interrupt-cells = <1>;
-		interrupt-map-mask = <0 0 0 0x7>;
-		interrupt-map =  <0 0 0 1 &gic 0 105 4>,
-				 <0 0 0 2 &gic 0 106 4>,
-				 <0 0 0 3 &gic 0 107 4>,
-				 <0 0 0 4 &gic 0 108 4>;
-		clocks = <&pcieb_lpcg 0>,
-			 <&pcieb_lpcg 1>,
-			 <&pcieb_lpcg 2>;
-		clock-names = "pcie", "pcie_bus", "pcie_inbound_axi";
-		power-domains = <&pd IMX_SC_R_PCIE_B>;
-		fsl,max-link-speed = <3>;
-		hsio-cfg = <PCIEAX1PCIEBX1SATA>;
-		local-addr = <0x80000000>;
-		ctrl-csr = <&pcieb_csr>;
-		/*
-		 * FIXME
-		 * Since "REXT" pin is only present for "lane 0" of
-		 * "PHY Instance 0", and its calibration result will be
-		 * stored, and shared with "lane 1" of "PHY Instance 0"
-		 * and "lane0" of "PHY Instance 1".
-		 *
-		 * Add the "lane 0" of "PHY Instance 0" here, although
-		 * only "lane 1" of "PHY Instance 0" is used by PCIeb.
-		 */
-		phys = <&phyx2_1>;
-		phy-names = "pcie-phy";
-		status = "disabled";
-	};
-
-	sata: sata@5f020000 {
-		compatible = "fsl,imx8qm-ahci";
-		reg = <0x5f020000 0x10000>, /* Controller reg */
-		      <0x5f1a0000 0x10000>; /* PHY reg */
-		reg-names = "ctl", "phy";
-		interrupts = <GIC_SPI 88 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&sata_lpcg 0>,
+	hsio_phy: phy@5f180000 {
+		compatible = "fsl,imx8qm-hsio";
+		reg = <0x5f180000 0x30000>,
+		      <0x5f110000 0x20000>,
+		      <0x5f130000 0x30000>,
+		      <0x5f160000 0x10000>;
+		reg-names = "reg", "phy", "ctrl", "misc";
+		clocks = <&phyx2_lpcg 0>,
+			 <&phyx2_lpcg 1>,
+			 <&phyx2_lpcg 2>,
+			 <&phyx2_lpcg 3>,
+			 <&phyx1_lpcg 0>,
 			 <&phyx1_lpcg 1>,
 			 <&phyx1_lpcg 2>,
-			 <&sata_crr4_lpcg 0>;
-		clock-names = "sata", "epcs_tx", "epcs_rx", "sata_ref";
-		power-domains = <&pd IMX_SC_R_SATA_0>;
-		fsl,sc_rsrc_id = <IMX_SC_R_SATA_0>;
-		iommus = <&smmu 0x13 0x7f80>;
-		ctrl-csr = <&sata_csr>;
-		/*
-		 * Since "REXT" pin is only present for "lane 0" of
-		 * "PHY Instance 0", and its calibration result will be
-		 * stored, and shared with "lane 1" of "PHY Instance 0"
-		 * and "lane0" of "PHY Instance 1".
-		 *
-		 * Add the "lane 0" of "PHY Instance 0" here, although
-		 * only "lane 0" of "PHY Instance 1" is used by SATA.
-		 */
-		phys = <&phyx1>, <&phyx2_0>, <&phyx2_1>;
-		phy-names = "sata-phy", "cali-phy0", "cali-phy1";
+			 <&phyx1_lpcg 3>,
+			 <&phyx2_crr0_lpcg 0>,
+			 <&phyx1_crr1_lpcg 0>,
+			 <&pciea_crr2_lpcg 0>,
+			 <&pcieb_crr3_lpcg 0>,
+			 <&sata_crr4_lpcg 0>,
+			 <&misc_crr5_lpcg 0>;
+		clock-names = "pclk0", "pclk1", "apb_pclk0", "apb_pclk1",
+			      "pclk2", "epcs_tx", "epcs_rx", "apb_pclk2",
+			      "phy0_crr", "phy1_crr", "ctl0_crr",
+			      "ctl1_crr", "ctl2_crr", "misc_crr";
+		power-domains = <&pd IMX_SC_R_SERDES_0>, <&pd IMX_SC_R_SERDES_1>;
+		#phy-cells = <3>;
 		status = "disabled";
 	};
 };
