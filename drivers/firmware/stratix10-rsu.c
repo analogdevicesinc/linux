@@ -14,6 +14,7 @@
 #include <linux/firmware/intel/stratix10-svc-client.h>
 #include <linux/string.h>
 #include <linux/sysfs.h>
+#include <linux/dma-mapping.h>
 
 #define RSU_STATE_MASK			GENMASK_ULL(31, 0)
 #define RSU_VERSION_MASK		GENMASK_ULL(63, 32)
@@ -74,6 +75,8 @@ typedef void (*rsu_callback)(struct stratix10_svc_client *client,
  * @max_retry: the preset max retry value
  * @spt0_address: address of spt0
  * @spt1_address: address of spt1
+ * @is_smmu_enabled: flag to indicate whether is smmu_enabled for device
+ * @rsu_dma_handle: handle for dma memory operations
  * @get_spt_response_buf: response from sdm for get_spt command
  */
 struct stratix10_rsu_priv {
@@ -112,6 +115,8 @@ struct stratix10_rsu_priv {
 	unsigned long spt0_address;
 	unsigned long spt1_address;
 
+	bool is_smmu_enabled;
+	dma_addr_t rsu_dma_handle;
 	unsigned int *get_spt_response_buf;
 };
 
@@ -332,6 +337,12 @@ static void rsu_get_spt_callback(struct stratix10_svc_client *client,
 	struct stratix10_rsu_priv *priv = client->priv;
 	unsigned long *mbox_err = (unsigned long *)data->kaddr1;
 	unsigned long *resp_len = (unsigned long *)data->kaddr2;
+
+	if (priv->is_smmu_enabled) {
+		dma_unmap_single(client->dev, priv->rsu_dma_handle,
+			 RSU_GET_SPT_RESP_LEN, DMA_FROM_DEVICE);
+			priv->rsu_dma_handle = 0;
+	}
 
 	if (data->status != BIT(SVC_STATUS_OK) || (*mbox_err) ||
 	    (*resp_len != RSU_GET_SPT_RESP_LEN))
@@ -891,11 +902,23 @@ static int stratix10_rsu_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct stratix10_rsu_priv *priv;
+	struct device_node *fw_np;
+	struct device_node *np;
 	int ret;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
+
+	fw_np = of_find_node_by_name(NULL, "firmware");
+	if (!fw_np)
+		return -ENODEV;
+
+	np = of_find_node_by_name(fw_np, "svc");
+	if (np && of_get_property(np, "altr,smmu_enable_quirk", NULL))
+		priv->is_smmu_enabled = true;
+	else
+		priv->is_smmu_enabled = false;
 
 	priv->client.dev = dev;
 	priv->client.receive_cb = NULL;
@@ -988,13 +1011,34 @@ static int stratix10_rsu_probe(struct platform_device *pdev)
 
 	if (IS_ERR(priv->get_spt_response_buf)) {
 		dev_err(dev, "failed to allocate get spt buffer\n");
-	} else {
-		ret = rsu_send_msg(priv, COMMAND_MBOX_SEND_CMD,
-				   RSU_GET_SPT_CMD, rsu_get_spt_callback);
+		stratix10_svc_free_channel(priv->chan);
+		return -ENOMEM;
+	}
+
+	if (priv->is_smmu_enabled) {
+		priv->rsu_dma_handle = dma_map_single(dev, priv->get_spt_response_buf,
+			 RSU_GET_SPT_RESP_LEN, DMA_FROM_DEVICE);
+		ret = dma_mapping_error(dev, priv->rsu_dma_handle);
 		if (ret) {
-			dev_err(dev, "Error, getting SPT table %i\n", ret);
+			dev_err(dev,
+				 "Error, dma_mapping to get_spt_response_buf %i\n", ret);
+			stratix10_svc_free_memory(priv->chan, priv->get_spt_response_buf);
 			stratix10_svc_free_channel(priv->chan);
+			return ret;
 		}
+	}
+
+	ret = rsu_send_msg(priv, COMMAND_MBOX_SEND_CMD,
+				RSU_GET_SPT_CMD, rsu_get_spt_callback);
+	if (ret) {
+		dev_err(dev, "Error, getting SPT table %i\n", ret);
+		if (priv->is_smmu_enabled) {
+			dma_unmap_single(dev, priv->rsu_dma_handle,
+				RSU_GET_SPT_RESP_LEN, DMA_FROM_DEVICE);
+			priv->rsu_dma_handle = 0;
+		}
+		stratix10_svc_free_memory(priv->chan, priv->get_spt_response_buf);
+		stratix10_svc_free_channel(priv->chan);
 	}
 
 	return ret;
