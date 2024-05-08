@@ -2911,7 +2911,9 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_OrxNcoFreqCalculate(adi_adrv904x_D
     uint8_t  validRangeSynthesisBw = 0U;
 
     const uint32_t ORX_ADC_RATE_GUARD_REGION_KHZ = 100000U; /* Distance between the RF synthesis BW edges and multiples of FS/2 */
+#ifndef __KERNEL__
     const float    HB_FILTER_PASSBAND_EDGE       = 0.44f;
+#endif
 
     /* Check device pointer is not null */
     ADI_ADRV904X_NULL_DEVICE_PTR_RETURN(device);
@@ -2980,9 +2982,15 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_OrxNcoFreqCalculate(adi_adrv904x_D
         goto cleanup;
     }
 
+#ifndef __KERNEL__
     passbandEdgeShift = (int32_t)((HB_FILTER_PASSBAND_EDGE *
                                   device->initExtract.orx.orxChannelCfg[orxChannelIdx].orxOutputRate_kHz) -
                                   ((float)(txSynthesisBwUpper_kHz - centreTxSynthesisBw_kHz)));
+#else
+    passbandEdgeShift = (int32_t)((44 *
+                                  device->initExtract.orx.orxChannelCfg[orxChannelIdx].orxOutputRate_kHz) -
+                                  ((txSynthesisBwUpper_kHz - centreTxSynthesisBw_kHz)*100))/100;
+#endif
     /* If passbandEdgeShift is less than 0, the synthesis BW is greater than the 88% bandwidth supported by the ORx*/
     if (passbandEdgeShift < 0)
     {
