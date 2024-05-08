@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -161,7 +161,7 @@ static inline int gpu_metrics_ctx_init(struct kbase_context *kctx)
 	put_cred(cred);
 
 	/* Return early if this is not a Userspace created context */
-	if (unlikely(!kctx->kfile))
+	if (unlikely(!kctx->filp))
 		return 0;
 
 	/* Serialize against the other threads trying to create/destroy Kbase contexts. */
@@ -200,7 +200,7 @@ static inline void gpu_metrics_ctx_term(struct kbase_context *kctx)
 	unsigned long flags;
 
 	/* Return early if this is not a Userspace created context */
-	if (unlikely(!kctx->kfile))
+	if (unlikely(!kctx->filp))
 		return;
 
 	/* Serialize against the other threads trying to create/destroy Kbase contexts. */
@@ -2615,7 +2615,7 @@ static void kbase_js_move_to_tree(struct kbase_jd_atom *katom)
  *
  * Remove all post dependencies of an atom from the context ringbuffers.
  *
- * The original atom's event_code will be propogated to all dependent atoms.
+ * The original atom's event_code will be propagated to all dependent atoms.
  *
  * Context: Caller must hold the HW access lock
  */

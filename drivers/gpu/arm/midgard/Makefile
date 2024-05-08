@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 #
-# (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -41,11 +41,12 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
         CONFIG_MALI_GATOR_SUPPORT ?= y
         CONFIG_MALI_ARBITRATION ?= n
         CONFIG_MALI_PARTITION_MANAGER ?= n
-        CONFIG_MALI_64BIT_HW_ACCESS ?= n
+
 
         ifneq ($(CONFIG_MALI_NO_MALI),y)
-            # Prevent misuse when CONFIG_MALI_NO_MALI=y
+            # Prevent misuse when CONFIG_MALI_NO_MALI!=y
             CONFIG_MALI_REAL_HW ?= y
+        else
             CONFIG_MALI_CORESIGHT = n
         endif
 

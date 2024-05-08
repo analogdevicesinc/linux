@@ -288,7 +288,7 @@ static int kbasep_migrate_page_allocated_mapped(struct page *old_page, struct pa
 	kbase_gpu_vm_lock_with_pmode_sync(kctx);
 
 	/* Unmap the old physical range. */
-	unmap_mapping_range(kctx->kfile->filp->f_inode->i_mapping,
+	unmap_mapping_range(kctx->filp->f_inode->i_mapping,
 			    (loff_t)(page_md->data.mapped.vpfn / GPU_PAGES_PER_CPU_PAGE)
 				    << PAGE_SHIFT,
 			    PAGE_SIZE, 1);
@@ -675,12 +675,12 @@ void kbase_mem_migrate_init(struct kbase_device *kbdev)
 	 */
 	if (kbase_page_migration_enabled < 0) {
 		if (kbase_is_large_pages_enabled())
-			static_branch_enable(&page_migration_static_key);
+			static_branch_inc(&page_migration_static_key);
 	} else {
 		dev_info(kbdev->dev, "Page migration support explicitly %s at insmod.",
 			 kbase_page_migration_enabled ? "enabled" : "disabled");
 		if (kbase_page_migration_enabled)
-			static_branch_enable(&page_migration_static_key);
+			static_branch_inc(&page_migration_static_key);
 	}
 
 	spin_lock_init(&mem_migrate->free_pages_lock);

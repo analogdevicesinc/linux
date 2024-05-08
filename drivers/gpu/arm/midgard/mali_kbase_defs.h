@@ -1391,9 +1391,6 @@ struct kbase_device {
  * @KBASE_FILE_COMPLETE:        Indicates if the setup for context has
  *                              completed, i.e. flags have been set for the
  *                              context.
- * @KBASE_FILE_DESTROY_CTX:     Indicates that destroying of context has begun or
- *                              is complete. This state can only be reached after
- *                              @KBASE_FILE_COMPLETE.
  *
  * The driver allows only limited interaction with user-space until setup
  * is complete.
@@ -1403,8 +1400,7 @@ enum kbase_file_state {
 	KBASE_FILE_VSN_IN_PROGRESS,
 	KBASE_FILE_NEED_CTX,
 	KBASE_FILE_CTX_IN_PROGRESS,
-	KBASE_FILE_COMPLETE,
-	KBASE_FILE_DESTROY_CTX
+	KBASE_FILE_COMPLETE
 };
 
 /**
@@ -1414,12 +1410,6 @@ enum kbase_file_state {
  *                       allocated from the probe method of the Mali driver.
  * @filp:                Pointer to the struct file corresponding to device file
  *                       /dev/malixx instance, passed to the file's open method.
- * @owner:               Pointer to the file table structure of a process that
- *                       created the instance of /dev/malixx device file. Set to
- *                       NULL when that process closes the file instance. No more
- *                       file operations would be allowed once set to NULL.
- *                       It would be updated only in the Userspace context, i.e.
- *                       when @kbase_open or @kbase_flush is called.
  * @kctx:                Object representing an entity, among which GPU is
  *                       scheduled and which gets its own GPU address space.
  *                       Invalid until @setup_state is KBASE_FILE_COMPLETE.
@@ -1428,44 +1418,13 @@ enum kbase_file_state {
  *                       @setup_state is KBASE_FILE_NEED_CTX.
  * @setup_state:         Initialization state of the file. Values come from
  *                       the kbase_file_state enumeration.
- * @destroy_kctx_work:   Work item for destroying the @kctx, enqueued only when
- *                       @fops_count and @map_count becomes zero after /dev/malixx
- *                       file was previously closed by the @owner.
- * @lock:                Lock to serialize the access to members like @owner, @fops_count,
- *                       @map_count.
- * @fops_count:          Counter that is incremented at the beginning of a method
- *                       defined for @kbase_fops and is decremented at the end.
- *                       So the counter keeps a track of the file operations in progress
- *                       for /dev/malixx file, that are being handled by the Kbase.
- *                       The counter is needed to defer the context termination as
- *                       Userspace can close the /dev/malixx file and flush() method
- *                       can get called when some other file operation is in progress.
- * @map_count:           Counter to keep a track of the memory mappings present on
- *                       /dev/malixx file instance. The counter is needed to defer the
- *                       context termination as Userspace can close the /dev/malixx
- *                       file and flush() method can get called when mappings are still
- *                       present.
- * @zero_fops_count_wait: Waitqueue used to wait for the @fops_count to become 0.
- *                        Currently needed only for the "mem_view" debugfs file.
- * @event_queue:          Wait queue used for blocking the thread, which consumes
- *                        the base_jd_event corresponding to an atom, when there
- *                        are no more posted events.
  */
 struct kbase_file {
 	struct kbase_device *kbdev;
 	struct file *filp;
-	fl_owner_t owner;
 	struct kbase_context *kctx;
 	unsigned long api_version;
 	atomic_t setup_state;
-	struct work_struct destroy_kctx_work;
-	spinlock_t lock;
-	int fops_count;
-	int map_count;
-#if IS_ENABLED(CONFIG_DEBUG_FS)
-	wait_queue_head_t zero_fops_count_wait;
-#endif
-	wait_queue_head_t event_queue;
 };
 #if MALI_JIT_PRESSURE_LIMIT_BASE
 /**
@@ -1647,8 +1606,8 @@ struct kbase_sub_alloc {
 /**
  * struct kbase_context - Kernel base context
  *
- * @kfile:                Pointer to the object representing the /dev/malixx device
- *                        file instance.
+ * @filp:                 Pointer to the struct file corresponding to device file
+ *                        /dev/malixx instance, passed to the file's open method.
  * @kbdev:                Pointer to the Kbase device for which the context is created.
  * @kctx_list_link:       Node into Kbase device list of contexts.
  * @mmu:                  Structure holding details of the MMU tables for this
@@ -1701,6 +1660,9 @@ struct kbase_sub_alloc {
  *                        used in conjunction with @cookies bitmask mainly for
  *                        providing a mechansim to have the same value for CPU &
  *                        GPU virtual address.
+ * @event_queue:          Wait queue used for blocking the thread, which consumes
+ *                        the base_jd_event corresponding to an atom, when there
+ *                        are no more posted events.
  * @tgid:                 Thread group ID of the process whose thread created
  *                        the context (by calling KBASE_IOCTL_VERSION_CHECK or
  *                        KBASE_IOCTL_SET_FLAGS, depending on the @api_version).
@@ -1912,7 +1874,7 @@ struct kbase_sub_alloc {
  * is made on the device file.
  */
 struct kbase_context {
-	struct kbase_file *kfile;
+	struct file *filp;
 	struct kbase_device *kbdev;
 	struct list_head kctx_list_link;
 	struct kbase_mmu_table mmu;
@@ -1964,6 +1926,7 @@ struct kbase_context {
 	DECLARE_BITMAP(cookies, BITS_PER_LONG);
 	struct kbase_va_region *pending_regions[BITS_PER_LONG];
 
+	wait_queue_head_t event_queue;
 	pid_t tgid;
 	pid_t pid;
 	atomic_t prioritized;

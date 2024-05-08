@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2023-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -40,7 +40,7 @@ u32 kbase_reg_read32(struct kbase_device *kbdev, u32 reg_enum)
 {
 	u32 val;
 
-	if (WARN_ON(!kbdev->pm.backend.gpu_powered))
+	if (WARN_ON(!kbase_reg_is_powered_access_allowed(kbdev, reg_enum)))
 		return 0;
 	if (unlikely(!kbase_reg_is_accessible(kbdev, reg_enum,
 					      KBASE_REGMAP_PERM_READ | KBASE_REGMAP_WIDTH_32_BIT)))
@@ -64,14 +64,13 @@ u64 kbase_reg_read64(struct kbase_device *kbdev, u32 reg_enum)
 {
 	u64 val;
 
-	if (WARN_ON(!kbdev->pm.backend.gpu_powered))
+	if (WARN_ON(!kbase_reg_is_powered_access_allowed(kbdev, reg_enum)))
 		return 0;
 	if (unlikely(!kbase_reg_is_accessible(kbdev, reg_enum,
 					      KBASE_REGMAP_PERM_READ | KBASE_REGMAP_WIDTH_64_BIT)))
 		return 0;
 
-	val = (u64)mali_readl(kbdev->regmap.regs[reg_enum]) |
-	      ((u64)mali_readl(kbdev->regmap.regs[reg_enum] + 4) << 32);
+	val = mali_readq(kbdev->regmap.regs[reg_enum]);
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	if (unlikely(kbdev->io_history.enabled)) {
@@ -91,23 +90,14 @@ KBASE_EXPORT_TEST_API(kbase_reg_read64);
 u64 kbase_reg_read64_coherent(struct kbase_device *kbdev, u32 reg_enum)
 {
 	u64 val;
-#if !IS_ENABLED(CONFIG_MALI_64BIT_HW_ACCESS)
-	u32 hi1, hi2, lo;
-#endif
 
-	if (WARN_ON(!kbdev->pm.backend.gpu_powered))
+	if (WARN_ON(!kbase_reg_is_powered_access_allowed(kbdev, reg_enum)))
 		return 0;
 	if (unlikely(!kbase_reg_is_accessible(kbdev, reg_enum,
 					      KBASE_REGMAP_PERM_READ | KBASE_REGMAP_WIDTH_64_BIT)))
 		return 0;
 
-	do {
-		hi1 = mali_readl(kbdev->regmap.regs[reg_enum] + 4);
-		lo = mali_readl(kbdev->regmap.regs[reg_enum]);
-		hi2 = mali_readl(kbdev->regmap.regs[reg_enum] + 4);
-	} while (hi1 != hi2);
-
-	val = lo | (((u64)hi1) << 32);
+	val = mali_readq_coherent(kbdev->regmap.regs[reg_enum]);
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	if (unlikely(kbdev->io_history.enabled)) {
@@ -126,7 +116,7 @@ KBASE_EXPORT_TEST_API(kbase_reg_read64_coherent);
 
 void kbase_reg_write32(struct kbase_device *kbdev, u32 reg_enum, u32 value)
 {
-	if (WARN_ON(!kbdev->pm.backend.gpu_powered))
+	if (WARN_ON(!kbase_reg_is_powered_access_allowed(kbdev, reg_enum)))
 		return;
 	if (unlikely(!kbase_reg_is_accessible(kbdev, reg_enum,
 					      KBASE_REGMAP_PERM_WRITE | KBASE_REGMAP_WIDTH_32_BIT)))
@@ -146,14 +136,13 @@ KBASE_EXPORT_TEST_API(kbase_reg_write32);
 
 void kbase_reg_write64(struct kbase_device *kbdev, u32 reg_enum, u64 value)
 {
-	if (WARN_ON(!kbdev->pm.backend.gpu_powered))
+	if (WARN_ON(!kbase_reg_is_powered_access_allowed(kbdev, reg_enum)))
 		return;
 	if (unlikely(!kbase_reg_is_accessible(kbdev, reg_enum,
 					      KBASE_REGMAP_PERM_WRITE | KBASE_REGMAP_WIDTH_64_BIT)))
 		return;
 
-	mali_writel(value & 0xFFFFFFFF, kbdev->regmap.regs[reg_enum]);
-	mali_writel(value >> 32, kbdev->regmap.regs[reg_enum] + 4);
+	mali_writeq(value, kbdev->regmap.regs[reg_enum]);
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 	if (unlikely(kbdev->io_history.enabled)) {

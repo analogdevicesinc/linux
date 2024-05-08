@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -158,10 +158,16 @@
  * 11.43:
  * - Made the BASE_MEM_IMPORT_SYNC_ON_MAP_UNMAP and BASE_MEM_KERNEL_SYNC memory
  *   flags queryable.
+ * 11.44:
+ * - Made the SAME_VA memory flag queryable.
+ * 11.45:
+ * - Re-allow child process to do supported file operations (like mmap, ioctl
+ *   read, poll) on the file descriptor of mali device that was inherited
+ *   from the parent process.
  */
 
 #define BASE_UK_VERSION_MAJOR 11
-#define BASE_UK_VERSION_MINOR 43
+#define BASE_UK_VERSION_MINOR 45
 
 /**
  * struct kbase_ioctl_version_check - Check version compatibility between

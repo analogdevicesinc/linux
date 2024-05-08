@@ -517,7 +517,7 @@ unsigned long kbase_context_get_unmapped_area(struct kbase_context *const kctx,
 		kbase_gpu_vm_unlock(kctx);
 #ifndef CONFIG_64BIT
 	} else {
-		return current->mm->get_unmapped_area(kctx->kfile->filp, addr, len, pgoff, flags);
+		return current->mm->get_unmapped_area(kctx->filp, addr, len, pgoff, flags);
 #endif
 	}
 

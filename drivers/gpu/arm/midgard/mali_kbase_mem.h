@@ -2094,7 +2094,8 @@ bool kbase_has_exec_va_zone(struct kbase_context *kctx);
  * kbase_map_external_resource - Map an external resource to the GPU.
  * @kctx:              kbase context.
  * @reg:               External resource to map.
- * @locked_mm:         The mm_struct which has been locked for this operation.
+ * @locked_mm:         The mm_struct which has been locked for this operation,
+ *                     or NULL if none is available.
  *
  * On successful mapping, the VA region and the gpu_alloc refcounts will be
  * increased, making it safe to use and store both values directly.
@@ -2359,12 +2360,15 @@ int kbase_sticky_resource_init(struct kbase_context *kctx);
  * kbase_sticky_resource_acquire - Acquire a reference on a sticky resource.
  * @kctx:     kbase context.
  * @gpu_addr: The GPU address of the external resource.
+ * @locked_mm:         The mm_struct which has been locked for this operation,
+ *                     or NULL if none is available.
  *
  * Return: The metadata object which represents the binding between the
  * external resource and the kbase context on success or NULL on failure.
  */
 struct kbase_ctx_ext_res_meta *kbase_sticky_resource_acquire(struct kbase_context *kctx,
-							     u64 gpu_addr);
+							     u64 gpu_addr,
+							     struct mm_struct *locked_mm);
 
 /**
  * kbase_sticky_resource_release - Release a reference on a sticky resource.
@@ -2518,19 +2522,19 @@ void kbase_mem_umm_unmap(struct kbase_context *kctx, struct kbase_va_region *reg
 			 struct kbase_mem_phy_alloc *alloc);
 
 /**
- * kbase_mem_do_sync_imported - Sync caches for imported memory
+ * kbase_sync_imported_umm - Sync caches for imported UMM memory
  * @kctx: Pointer to the kbase context
  * @reg: Pointer to the region with imported memory to sync
  * @sync_fn: The type of sync operation to perform
  *
- * Sync CPU caches for supported (currently only dma-buf (UMM)) memory.
+ * Sync CPU caches for supported dma-buf (UMM) memory.
  * Attempting to sync unsupported imported memory types will result in an error
  * code, -EINVAL.
  *
  * Return: 0 on success, or a negative error code.
  */
-int kbase_mem_do_sync_imported(struct kbase_context *kctx, struct kbase_va_region *reg,
-			       enum kbase_sync_type sync_fn);
+int kbase_sync_imported_umm(struct kbase_context *kctx, struct kbase_va_region *reg,
+			    enum kbase_sync_type sync_fn);
 
 /**
  * kbase_mem_copy_to_pinned_user_pages - Memcpy from source input page to

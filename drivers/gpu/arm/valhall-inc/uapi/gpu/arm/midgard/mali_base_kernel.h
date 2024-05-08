@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -618,15 +618,15 @@ struct base_gpu_props {
 #define BASE_TIMEINFO_TIMESTAMP_FLAG (1U << 1)
 /* For GPU cycle counter */
 #define BASE_TIMEINFO_CYCLE_COUNTER_FLAG (1U << 2)
-/* Specify kernel GPU register timestamp */
-#define BASE_TIMEINFO_KERNEL_SOURCE_FLAG (1U << 30)
-/* Specify userspace cntvct_el0 timestamp source */
-#define BASE_TIMEINFO_USER_SOURCE_FLAG (1U << 31)
 
-#define BASE_TIMEREQUEST_ALLOWED_FLAGS                                         \
-	(BASE_TIMEINFO_MONOTONIC_FLAG | BASE_TIMEINFO_TIMESTAMP_FLAG |         \
-	 BASE_TIMEINFO_CYCLE_COUNTER_FLAG | BASE_TIMEINFO_KERNEL_SOURCE_FLAG | \
-	 BASE_TIMEINFO_USER_SOURCE_FLAG)
+/* Specify TimeReques flags allowed if time source is cpu/gpu register */
+#define BASE_TIMEREQUEST_CPU_GPU_SRC_ALLOWED_FLAGS                     \
+	(BASE_TIMEINFO_MONOTONIC_FLAG | BASE_TIMEINFO_TIMESTAMP_FLAG | \
+	 BASE_TIMEINFO_CYCLE_COUNTER_FLAG)
+
+/* Specify TimeReques flags allowed if time source is system(user) space */
+#define BASE_TIMEREQUEST_SYSTEM_SRC_ALLOWED_FLAGS \
+	(BASE_TIMEINFO_MONOTONIC_FLAG | BASE_TIMEINFO_TIMESTAMP_FLAG)
 
 /* Maximum number of source allocations allowed to create an alias allocation.
  * This needs to be 4096 * 6 to allow cube map arrays with up to 4096 array

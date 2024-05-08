@@ -151,6 +151,44 @@ static void mmu_invalidate(struct kbase_device *kbdev, struct kbase_context *kct
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 }
 
+/**
+ * mmu_invalidate_on_teardown() - Perform an invalidate operation on MMU caches on page
+ *                                table teardown.
+ * @kbdev:      The Kbase device.
+ * @kctx:       The Kbase context.
+ * @vpfn:       The virtual page frame number at which teardown is done.
+ * @num_pages:  The number of entries that were invalidated in top most level PGD, that
+ *              was affected by the teardown operation.
+ * @level:      The top most PGD level that was touched on teardown.
+ * @as_nr:      GPU address space number for which invalidate is required.
+ *
+ * Perform an MMU invalidate operation after the teardown of top most level PGD on a
+ * particular address space by issuing a UNLOCK command.
+ */
+static inline void mmu_invalidate_on_teardown(struct kbase_device *kbdev,
+					      struct kbase_context *kctx, u64 vpfn,
+					      size_t num_pages, int level, int as_nr)
+{
+	u32 invalidate_range_num_pages = num_pages;
+	u64 invalidate_range_start_vpfn = vpfn;
+	struct kbase_mmu_hw_op_param op_param;
+
+	if (level != MIDGARD_MMU_BOTTOMLEVEL) {
+		invalidate_range_num_pages = 1 << ((3 - level) * 9);
+		invalidate_range_start_vpfn = vpfn - (vpfn & (invalidate_range_num_pages - 1));
+	}
+
+	op_param = (struct kbase_mmu_hw_op_param){
+		.vpfn = invalidate_range_start_vpfn,
+		.nr = invalidate_range_num_pages,
+		.mmu_sync_info = CALLER_MMU_ASYNC,
+		.kctx_id = kctx ? kctx->id : 0xFFFFFFFF,
+		.flush_skip_levels = (1ULL << level) - 1,
+	};
+
+	mmu_invalidate(kbdev, kctx, as_nr, &op_param);
+}
+
 /* Perform a flush/invalidate on a particular address space
  */
 static void mmu_flush_invalidate_as(struct kbase_device *kbdev, struct kbase_as *as,
@@ -318,14 +356,16 @@ static int kbase_mmu_update_pages_no_flush(struct kbase_device *kbdev, struct kb
  * @mmut:     GPU MMU page table.
  * @pgds:     Physical addresses of page directories to be freed.
  * @vpfn:     The virtual page frame number.
- * @level:    The level of MMU page table.
+ * @level:    The level of MMU page table that needs to be updated.
  * @flush_op: The type of MMU flush operation to perform.
  * @dirty_pgds: Flags to track every level where a PGD has been updated.
+ * @as_nr:     GPU address space number for which invalidate is required.
  */
 static void kbase_mmu_update_and_free_parent_pgds(struct kbase_device *kbdev,
 						  struct kbase_mmu_table *mmut, phys_addr_t *pgds,
 						  u64 vpfn, int level,
-						  enum kbase_mmu_op_type flush_op, u64 *dirty_pgds);
+						  enum kbase_mmu_op_type flush_op, u64 *dirty_pgds,
+						  int as_nr);
 
 static void kbase_mmu_account_freed_pgd(struct kbase_device *kbdev, struct kbase_mmu_table *mmut)
 {
@@ -1713,6 +1753,9 @@ static void mmu_insert_pages_failure_recovery(struct kbase_device *kbdev,
 
 			kbase_kunmap(p, page);
 
+			kbase_mmu_update_and_free_parent_pgds(kbdev, mmut, pgds, vpfn, level - 1,
+							      KBASE_MMU_OP_NONE, dirty_pgds, 0);
+
 			/* No CPU and GPU cache maintenance is done here as caller would do the
 			 * complete flush of GPU cache and invalidation of TLB before the PGD
 			 * page is freed. CPU cache flush would be done when the PGD page is
@@ -1721,8 +1764,6 @@ static void mmu_insert_pages_failure_recovery(struct kbase_device *kbdev,
 
 			kbase_mmu_add_to_free_pgds_list(mmut, p);
 
-			kbase_mmu_update_and_free_parent_pgds(kbdev, mmut, pgds, vpfn, level,
-							      KBASE_MMU_OP_NONE, dirty_pgds);
 			vpfn += count;
 			continue;
 		}
@@ -2341,7 +2382,6 @@ static int mmu_insert_pages_no_flush(struct kbase_device *kbdev, struct kbase_mm
 		 * - There are actually 2 MB of virtual and physical pages to map,
 		 *   i.e. 512 entries for the MMU page table.
 		 */
-
 		if (!vindex && is_huge_head(*phys) && (count == KBASE_MMU_PAGE_ENTRIES))
 			cur_level = MIDGARD_MMU_LEVEL(2);
 		else
@@ -2728,60 +2768,65 @@ KBASE_EXPORT_TEST_API(kbase_mmu_disable);
 static void kbase_mmu_update_and_free_parent_pgds(struct kbase_device *kbdev,
 						  struct kbase_mmu_table *mmut, phys_addr_t *pgds,
 						  u64 vpfn, int level,
-						  enum kbase_mmu_op_type flush_op, u64 *dirty_pgds)
+						  enum kbase_mmu_op_type flush_op, u64 *dirty_pgds,
+						  int as_nr)
 {
-	int current_level;
+	phys_addr_t current_pgd = pgds[level];
+	struct page *p = phys_to_page(current_pgd);
+	u64 *current_page = kbase_kmap(p);
+	unsigned int current_valid_entries = kbdev->mmu_mode->get_num_valid_entries(current_page);
+	unsigned int index = (vpfn >> ((3 - level) * 9)) & 0x1FFU;
 
 	lockdep_assert_held(&mmut->mmu_lock);
 
-	for (current_level = level - 1; current_level >= MIDGARD_MMU_LEVEL(0); current_level--) {
-		phys_addr_t current_pgd = pgds[current_level];
-		struct page *p = phys_to_page(current_pgd);
+	/* We need to track every level that needs updating */
+	if (dirty_pgds)
+		*dirty_pgds |= 1ULL << level;
 
-		u64 *current_page = kbase_kmap(p);
-		unsigned int current_valid_entries =
-			kbdev->mmu_mode->get_num_valid_entries(current_page);
-		unsigned int index = (vpfn >> ((3 - current_level) * 9)) & 0x1FFU;
+	kbdev->mmu_mode->entries_invalidate(&current_page[index], 1);
+	if (current_valid_entries == 1 && level != MIDGARD_MMU_LEVEL(0)) {
+		kbdev->mmu_mode->set_num_valid_entries(current_page, 0);
 
-		/* We need to track every level that needs updating */
-		if (dirty_pgds)
-			*dirty_pgds |= 1ULL << current_level;
+		kbase_kunmap(p, current_page);
 
-		kbdev->mmu_mode->entries_invalidate(&current_page[index], 1);
-		if (current_valid_entries == 1 && current_level != MIDGARD_MMU_LEVEL(0)) {
-			kbdev->mmu_mode->set_num_valid_entries(current_page, 0);
+		kbase_mmu_update_and_free_parent_pgds(kbdev, mmut, pgds, vpfn, level - 1, flush_op,
+						      dirty_pgds, as_nr);
 
-			kbase_kunmap(p, current_page);
-
-			/* Check if fine grained GPU cache maintenance is being used */
-			if (flush_op == KBASE_MMU_OP_FLUSH_PT) {
-				/* Ensure the invalidated PTE is visible in memory right away */
-				kbase_mmu_sync_pgd_cpu(kbdev,
-						       kbase_dma_addr(p) + (index * sizeof(u64)),
-						       sizeof(u64));
-				/* Invalidate the GPU cache for the whole PGD page and not just for
-				 * the cacheline containing the invalidated PTE, as the PGD page is
-				 * going to be freed. There is an extremely remote possibility that
-				 * other cachelines (containing all invalid PTEs) of PGD page are
-				 * also present in the GPU cache.
-				 */
-				kbase_mmu_sync_pgd_gpu(kbdev, mmut->kctx, current_pgd,
-						       512 * sizeof(u64), KBASE_MMU_OP_FLUSH_PT);
-			}
-
-			kbase_mmu_add_to_free_pgds_list(mmut, p);
-		} else {
-			current_valid_entries--;
-
-			kbdev->mmu_mode->set_num_valid_entries(current_page, current_valid_entries);
-
-			kbase_kunmap(p, current_page);
-
-			kbase_mmu_sync_pgd(kbdev, mmut->kctx, current_pgd + (index * sizeof(u64)),
-					   kbase_dma_addr(p) + (index * sizeof(u64)), sizeof(u64),
-					   flush_op);
-			break;
+		/* Check if fine grained GPU cache maintenance is being used */
+		if (flush_op == KBASE_MMU_OP_FLUSH_PT) {
+			/* Ensure the invalidated PTE is visible in memory right away */
+			kbase_mmu_sync_pgd_cpu(kbdev, kbase_dma_addr(p) + (index * sizeof(u64)),
+					       sizeof(u64));
+			/* Invalidate the GPU cache for the whole PGD page and not just for
+			 * the cacheline containing the invalidated PTE, as the PGD page is
+			 * going to be freed. There is an extremely remote possibility that
+			 * other cachelines (containing all invalid PTEs) of PGD page are
+			 * also present in the GPU cache.
+			 */
+			kbase_mmu_sync_pgd_gpu(kbdev, mmut->kctx, current_pgd, 512 * sizeof(u64),
+					       KBASE_MMU_OP_FLUSH_PT);
 		}
+
+		kbase_mmu_add_to_free_pgds_list(mmut, p);
+	} else {
+		current_valid_entries--;
+
+		kbdev->mmu_mode->set_num_valid_entries(current_page, current_valid_entries);
+
+		kbase_kunmap(p, current_page);
+
+		kbase_mmu_sync_pgd(kbdev, mmut->kctx, current_pgd + (index * sizeof(u64)),
+				   kbase_dma_addr(p) + (index * sizeof(u64)), sizeof(u64),
+				   flush_op);
+
+		/* When fine grained GPU cache maintenance is used then invalidate the MMU caches
+		 * now as the top most level PGD entry, affected by the teardown operation, has
+		 * been invalidated (both in memory as well as in GPU L2 cache). This is to avoid
+		 * the possibility of invalid ATEs being reloaded into the GPU L2 cache whilst the
+		 * teardown is happening.
+		 */
+		if (flush_op == KBASE_MMU_OP_FLUSH_PT)
+			mmu_invalidate_on_teardown(kbdev, mmut->kctx, vpfn, 1, level, as_nr);
 	}
 }
 
@@ -2822,12 +2867,10 @@ static void mmu_flush_invalidate_teardown_pages(struct kbase_device *kbdev,
 	}
 #if MALI_USE_CSF
 	else {
-		/* Partial GPU cache flush with MMU cache invalidation */
+		/* Partial GPU cache flush of the pages that were unmapped */
 		unsigned long irq_flags;
 		unsigned int i;
 		bool flush_done = false;
-
-		mmu_invalidate(kbdev, kctx, as_nr, op_param);
 
 		for (i = 0; !flush_done && i < phys_page_nr; i++) {
 			spin_lock_irqsave(&kbdev->hwaccess_lock, irq_flags);
@@ -2848,7 +2891,7 @@ static void mmu_flush_invalidate_teardown_pages(struct kbase_device *kbdev,
 static int kbase_mmu_teardown_pgd_pages(struct kbase_device *kbdev, struct kbase_mmu_table *mmut,
 					u64 vpfn, size_t nr, u64 *dirty_pgds,
 					struct list_head *free_pgds_list,
-					enum kbase_mmu_op_type flush_op)
+					enum kbase_mmu_op_type flush_op, int as_nr)
 {
 	struct kbase_mmu_mode const *mmu_mode = kbdev->mmu_mode;
 
@@ -2946,6 +2989,15 @@ static int kbase_mmu_teardown_pgd_pages(struct kbase_device *kbdev, struct kbase
 
 			kbase_kunmap(p, page);
 
+			/* To avoid the invalid ATEs from the PGD page (that is going to be freed)
+			 * from getting reloaded into the GPU L2 cache whilst the teardown is
+			 * happening, the fine grained GPU L2 cache maintenance is done in the top
+			 * to bottom level PGD order. MMU cache invalidation is done after
+			 * invalidating the entry of top most level PGD, affected by the teardown.
+			 */
+			kbase_mmu_update_and_free_parent_pgds(kbdev, mmut, pgds, vpfn, level - 1,
+							      flush_op, dirty_pgds, as_nr);
+
 			/* Check if fine grained GPU cache maintenance is being used */
 			if (flush_op == KBASE_MMU_OP_FLUSH_PT) {
 				/* Ensure the invalidated ATEs are visible in memory right away */
@@ -2964,9 +3016,6 @@ static int kbase_mmu_teardown_pgd_pages(struct kbase_device *kbdev, struct kbase
 
 			kbase_mmu_add_to_free_pgds_list(mmut, p);
 
-			kbase_mmu_update_and_free_parent_pgds(kbdev, mmut, pgds, vpfn, level,
-							      flush_op, dirty_pgds);
-
 			vpfn += count;
 			nr -= count;
 			continue;
@@ -2977,6 +3026,12 @@ static int kbase_mmu_teardown_pgd_pages(struct kbase_device *kbdev, struct kbase
 		kbase_mmu_sync_pgd(kbdev, mmut->kctx, pgd + (index * sizeof(u64)),
 				   kbase_dma_addr(p) + (index * sizeof(u64)), pcount * sizeof(u64),
 				   flush_op);
+
+		/* When fine grained GPU cache maintenance is used then invalidation of MMU cache
+		 * is done inline for every bottom level PGD touched in the teardown.
+		 */
+		if (flush_op == KBASE_MMU_OP_FLUSH_PT)
+			mmu_invalidate_on_teardown(kbdev, mmut->kctx, vpfn, pcount, level, as_nr);
 next:
 		kbase_kunmap(p, page);
 		vpfn += count;
@@ -3070,7 +3125,7 @@ static int mmu_teardown_pages(struct kbase_device *kbdev, struct kbase_mmu_table
 	mutex_lock(&mmut->mmu_lock);
 
 	err = kbase_mmu_teardown_pgd_pages(kbdev, mmut, vpfn, nr_virt_pages, &dirty_pgds,
-					   &free_pgds_list, flush_op);
+					   &free_pgds_list, flush_op, as_nr);
 
 	/* Set up MMU operation parameters. See above about MMU cache flush strategy. */
 	op_param = (struct kbase_mmu_hw_op_param){
@@ -3622,14 +3677,12 @@ int kbase_mmu_migrate_page(struct tagged_addr old_phys, struct tagged_addr new_p
 				ret = kbase_mmu_hw_do_unlock_no_addr(kbdev, as, &op_param);
 		}
 	}
-	spin_unlock_irqrestore(&kbdev->hwaccess_lock, hwaccess_flags);
-	/* Releasing locks before checking the migration transaction error state */
-	mutex_unlock(&kbdev->mmu_hw_mutex);
 
-	spin_lock_irqsave(&kbdev->hwaccess_lock, hwaccess_flags);
 	/* Release the transition prevention in L2 by ending the transaction */
 	mmu_page_migration_transaction_end(kbdev);
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, hwaccess_flags);
+	/* Releasing locks before checking the migration transaction error state */
+	mutex_unlock(&kbdev->mmu_hw_mutex);
 
 	/* Checking the final migration transaction error state */
 	if (ret < 0) {

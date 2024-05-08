@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2023-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -757,6 +757,21 @@ enum kbase_regmap_enum_v9_0 {
 enum kbase_regmap_enum_v9_2 {
 	GPU_CONTROL__L2_CONFIG = NR_V9_0_REGS, /* (RW) 32-bit 0x48 */
 	NR_V9_2_REGS,
+};
+
+enum kbase_regmap_enum_v9_14 {
+	PTM_AW_IRQ_CLEAR = NR_V9_2_REGS, /* (RW) 32-bit 0x1FFC8 */
+	PTM_AW_IRQ_INJECTION, /* (RW) 32-bit 0x1FFD4 */
+	PTM_AW_IRQ_MASK, /* (RW) 32-bit 0x1FFCC */
+	PTM_AW_IRQ_RAWSTAT, /* (RO) 32-bit 0x1FFC4 */
+	PTM_AW_IRQ_STATUS, /* (RO) 32-bit 0x1FFD0 */
+	PTM_AW_MESSAGE__PTM_INCOMING_MESSAGE0, /* (RO) 32-bit 0x1FFD8 */
+	PTM_AW_MESSAGE__PTM_INCOMING_MESSAGE1, /* (RO) 32-bit 0x1FFDC */
+	PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE0, /* (RW) 32-bit 0x1FFE4 */
+	PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE1, /* (RW) 32-bit 0x1FFE8 */
+	PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE_STATUS, /* (RO) 32-bit 0x1FFE0 */
+	PTM_ID, /* (RO) 32-bit 0x1FFC0 */
+	NR_V9_14_REGS,
 };
 
 #endif /* _MALI_KBASE_REGMAP_JM_ENUMS_H_ */

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -71,15 +71,15 @@ static const char *const kbasep_ktrace_code_string[] = {
 
 static void kbasep_ktrace_format_header(char *buffer, int sz, s32 written)
 {
-	written += MAX(snprintf(buffer + written, (size_t)MAX(sz - written, 0),
-				"secs,thread_id,cpu,code,kctx,"),
+	written += MAX(scnprintf(buffer + written, (size_t)MAX(sz - written, 0),
+				 "secs,thread_id,cpu,code,kctx,"),
 		       0);
 
 	kbasep_ktrace_backend_format_header(buffer, sz, &written);
 
-	written += MAX(snprintf(buffer + written, (size_t)MAX(sz - written, 0),
-				",info_val,ktrace_version=%u.%u", KBASE_KTRACE_VERSION_MAJOR,
-				KBASE_KTRACE_VERSION_MINOR),
+	written += MAX(scnprintf(buffer + written, (size_t)MAX(sz - written, 0),
+				 ",info_val,ktrace_version=%u.%u", KBASE_KTRACE_VERSION_MAJOR,
+				 KBASE_KTRACE_VERSION_MINOR),
 		       0);
 
 	buffer[sz - 1] = 0;
@@ -93,21 +93,21 @@ static void kbasep_ktrace_format_msg(struct kbase_ktrace_msg *trace_msg, char *b
 	 *
 	 * secs,thread_id,cpu,code,
 	 */
-	written += MAX(snprintf(buffer + written, (size_t)MAX(sz - written, 0), "%d.%.6d,%d,%d,%s,",
-				(int)trace_msg->timestamp.tv_sec,
-				(int)(trace_msg->timestamp.tv_nsec / 1000), trace_msg->thread_id,
-				trace_msg->cpu,
-				kbasep_ktrace_code_string[trace_msg->backend.gpu.code]),
+	written += MAX(scnprintf(buffer + written, (size_t)MAX(sz - written, 0),
+				 "%d.%.6d,%d,%d,%s,", (int)trace_msg->timestamp.tv_sec,
+				 (int)(trace_msg->timestamp.tv_nsec / 1000), trace_msg->thread_id,
+				 trace_msg->cpu,
+				 kbasep_ktrace_code_string[trace_msg->backend.gpu.code]),
 		       0);
 
 	/* kctx part: */
 	if (trace_msg->kctx_tgid) {
-		written += MAX(snprintf(buffer + written, (size_t)MAX(sz - written, 0), "%d_%u",
-					trace_msg->kctx_tgid, trace_msg->kctx_id),
+		written += MAX(scnprintf(buffer + written, (size_t)MAX(sz - written, 0), "%d_%u",
+					 trace_msg->kctx_tgid, trace_msg->kctx_id),
 			       0);
 	}
 	/* Trailing comma */
-	written += MAX(snprintf(buffer + written, (size_t)MAX(sz - written, 0), ","), 0);
+	written += MAX(scnprintf(buffer + written, (size_t)MAX(sz - written, 0), ","), 0);
 
 	/* Backend parts */
 	kbasep_ktrace_backend_format_msg(trace_msg, buffer, sz, &written);
@@ -119,8 +119,8 @@ static void kbasep_ktrace_format_msg(struct kbase_ktrace_msg *trace_msg, char *b
 	 * Note that the last column is empty, it's simply to hold the ktrace
 	 * version in the header
 	 */
-	written += MAX(snprintf(buffer + written, (size_t)MAX(sz - written, 0), ",0x%.16llx",
-				(unsigned long long)trace_msg->info_val),
+	written += MAX(scnprintf(buffer + written, (size_t)MAX(sz - written, 0), ",0x%.16llx",
+				 (unsigned long long)trace_msg->info_val),
 		       0);
 	buffer[sz - 1] = 0;
 }

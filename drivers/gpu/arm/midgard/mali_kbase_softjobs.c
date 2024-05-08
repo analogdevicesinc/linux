@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -1408,7 +1408,7 @@ static void kbase_ext_res_process(struct kbase_jd_atom *katom, bool map)
 
 		gpu_addr = ext_res->ext_res[i].ext_resource & ~(__u64)BASE_EXT_RES_ACCESS_EXCLUSIVE;
 		if (map) {
-			if (!kbase_sticky_resource_acquire(katom->kctx, gpu_addr))
+			if (!kbase_sticky_resource_acquire(katom->kctx, gpu_addr, NULL))
 				goto failed_loop;
 		} else {
 			if (!kbase_sticky_resource_release_force(katom->kctx, NULL, gpu_addr))

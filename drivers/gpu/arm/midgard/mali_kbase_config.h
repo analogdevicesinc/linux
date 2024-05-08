@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -166,8 +166,9 @@ struct kbase_pm_callback_conf {
 	 *
 	 * The system integrator can decide whether to either do nothing, just switch off
 	 * the clocks to the GPU, or to completely power down the GPU.
-	 * The platform specific private pointer kbase_device::platform_context can be accessed and modified in here. It is the
-	 * platform \em callbacks responsibility to initialize and terminate this pointer if used (see @ref kbase_platform_funcs_conf).
+	 * The platform specific private pointer kbase_device::platform_context can be
+	 * accessed and modified in here. It is the platform \em callbacks responsibility
+	 * to initialize and terminate this pointer if used (see @ref kbase_platform_funcs_conf).
 	 *
 	 * If runtime PM is enabled and @power_runtime_gpu_idle_callback is used
 	 * then this callback should power off the GPU (or switch off the clocks
@@ -179,15 +180,18 @@ struct kbase_pm_callback_conf {
 
 	/** Callback for when the GPU is about to become active and power must be supplied.
 	 *
-	 * This function must not return until the GPU is powered and clocked sufficiently for register access to
-	 * succeed.  The return value specifies whether the GPU was powered down since the call to power_off_callback.
-	 * If the GPU state has been lost then this function must return 1, otherwise it should return 0.
-	 * The platform specific private pointer kbase_device::platform_context can be accessed and modified in here. It is the
-	 * platform \em callbacks responsibility to initialize and terminate this pointer if used (see @ref kbase_platform_funcs_conf).
+	 * This function must not return until the GPU is powered and clocked sufficiently
+	 * for register access to succeed. The return value specifies whether the GPU was
+	 * powered down since the call to power_off_callback.
+	 * If the GPU is in reset state it should return 2, if the GPU state has been lost
+	 * then this function must return 1, otherwise it should return 0.
+	 * The platform specific private pointer kbase_device::platform_context can be
+	 * accessed and modified in here. It is the platform \em callbacks responsibility
+	 * to initialize and terminate this pointer if used (see @ref kbase_platform_funcs_conf).
 	 *
 	 * The return value of the first call to this function is ignored.
 	 *
-	 * @return 1 if the GPU state may have been lost, 0 otherwise.
+	 * @return 2 if GPU in reset state, 1 if the GPU state may have been lost, 0 otherwise.
 	 */
 	int (*power_on_callback)(struct kbase_device *kbdev);
 
@@ -223,9 +227,11 @@ struct kbase_pm_callback_conf {
 
 	/** Callback for handling runtime power management initialization.
 	 *
-	 * The runtime power management callbacks @ref power_runtime_off_callback and @ref power_runtime_on_callback
-	 * will become active from calls made to the OS from within this function.
-	 * The runtime calls can be triggered by calls from @ref power_off_callback and @ref power_on_callback.
+	 * The runtime power management callbacks @ref power_runtime_off_callback
+	 * and @ref power_runtime_on_callback will become active from calls made
+	 * to the OS from within this function.
+	 * The runtime calls can be triggered by calls from @ref power_off_callback
+	 * and @ref power_on_callback.
 	 * Note: for linux the kernel must have CONFIG_PM_RUNTIME enabled to use this feature.
 	 *
 	 * @return 0 on success, else int error code.
@@ -234,8 +240,9 @@ struct kbase_pm_callback_conf {
 
 	/** Callback for handling runtime power management termination.
 	 *
-	 * The runtime power management callbacks @ref power_runtime_off_callback and @ref power_runtime_on_callback
-	 * should no longer be called by the OS on completion of this function.
+	 * The runtime power management callbacks @ref power_runtime_off_callback
+	 * and @ref power_runtime_on_callback should no longer be called by the
+	 * OS on completion of this function.
 	 * Note: for linux the kernel must have CONFIG_PM_RUNTIME enabled to use this feature.
 	 */
 	void (*power_runtime_term_callback)(struct kbase_device *kbdev);

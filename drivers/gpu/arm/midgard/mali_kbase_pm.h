@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -33,13 +33,12 @@ struct kbase_device;
 #define PM_ENABLE_IRQS 0x01
 #define PM_HW_ISSUES_DETECT 0x02
 
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
-/* In the case that the GPU was granted by the Arbiter, it will have
+/* Case 1: the GPU was granted by the Arbiter, it will have
  * already been reset. The following flag ensures it is not reset
  * twice.
+ * Case 2: GPU already in reset state after power on, then no soft-reset is needed.
  */
 #define PM_NO_RESET 0x04
-#endif
 
 /**
  * kbase_pm_init - Initialize the power management framework.
@@ -149,6 +148,18 @@ int kbase_pm_context_active_handle_suspend(struct kbase_device *kbdev,
 					   enum kbase_pm_suspend_handler suspend_handler);
 
 /**
+ * kbase_pm_context_active_handle_suspend_locked - Same as kbase_pm_context_active_handle_suspend(),
+ *                                                 except that pm.lock is held by the caller.
+ *
+ * @kbdev:     The kbase device structure for the device (must be a valid pointer)
+ * @suspend_handler: The handler code for how to handle a suspend that might occur
+ *
+ * Return: 0 on success, non-zero othrewise.
+ */
+int kbase_pm_context_active_handle_suspend_locked(struct kbase_device *kbdev,
+						  enum kbase_pm_suspend_handler suspend_handler);
+
+/**
  * kbase_pm_context_idle - Decrement the reference count of active contexts.
  *
  * @kbdev:     The kbase device structure for the device (must be a valid pointer)
@@ -158,6 +169,14 @@ int kbase_pm_context_active_handle_suspend(struct kbase_device *kbdev,
  * code should ensure that it does not access the GPU's registers.
  */
 void kbase_pm_context_idle(struct kbase_device *kbdev);
+
+/**
+ * kbase_pm_context_idle_locked - Same as kbase_pm_context_idle(), except that
+ *                                pm.lock is held by the caller.
+ *
+ * @kbdev:     The kbase device structure for the device (must be a valid pointer)
+ */
+void kbase_pm_context_idle_locked(struct kbase_device *kbdev);
 
 /* NOTE: kbase_pm_is_active() is in mali_kbase.h, because it is an inline
  * function

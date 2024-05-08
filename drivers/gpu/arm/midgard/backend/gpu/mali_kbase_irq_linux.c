@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -22,6 +22,7 @@
 #include <mali_kbase.h>
 #include <device/mali_kbase_device.h>
 #include <backend/gpu/mali_kbase_irq_internal.h>
+
 
 #include <linux/interrupt.h>
 
@@ -163,13 +164,9 @@ static irqreturn_t kbase_gpu_irq_handler(int irq, void *data)
 static irqreturn_t kbase_combined_irq_handler(int irq, void *data)
 {
 	irqreturn_t irq_state = IRQ_NONE;
-
-	if (kbase_job_irq_handler(irq, data) == IRQ_HANDLED)
-		irq_state = IRQ_HANDLED;
-	if (kbase_mmu_irq_handler(irq, data) == IRQ_HANDLED)
-		irq_state = IRQ_HANDLED;
-	if (kbase_gpu_irq_handler(irq, data) == IRQ_HANDLED)
-		irq_state = IRQ_HANDLED;
+	irq_state |= kbase_job_irq_handler(irq, data);
+	irq_state |= kbase_mmu_irq_handler(irq, data);
+	irq_state |= kbase_gpu_irq_handler(irq, data);
 
 	return irq_state;
 }
@@ -212,8 +209,7 @@ int kbase_set_custom_irq_handler(struct kbase_device *kbdev, irq_handler_t custo
 	if (!handler)
 		handler = kbase_get_interrupt_handler(kbdev, irq_tag);
 
-	if (request_irq(kbdev->irqs[irq].irq, handler,
-			kbdev->irqs[irq].flags | ((kbdev->nr_irqs == 1) ? 0 : IRQF_SHARED),
+	if (request_irq(kbdev->irqs[irq].irq, handler, kbdev->irqs[irq].flags | IRQF_SHARED,
 			kbdev->irqs[irq].name, kbase_tag(kbdev, irq)) != 0) {
 		result = -EINVAL;
 		dev_err(kbdev->dev, "Can't request interrupt %u (index %u)\n", kbdev->irqs[irq].irq,
@@ -396,8 +392,8 @@ static int validate_interrupt(struct kbase_device *const kbdev, u32 tag)
 
 		/* restore original interrupt */
 		if (request_irq(kbdev->irqs[irq].irq, kbase_get_interrupt_handler(kbdev, tag),
-				kbdev->irqs[irq].flags | ((kbdev->nr_irqs == 1) ? 0 : IRQF_SHARED),
-				kbdev->irqs[irq].name, kbase_tag(kbdev, irq))) {
+				kbdev->irqs[irq].flags | IRQF_SHARED, kbdev->irqs[irq].name,
+				kbase_tag(kbdev, irq))) {
 			dev_err(kbdev->dev, "Can't restore original interrupt %u (index %u)\n",
 				kbdev->irqs[irq].irq, tag);
 			err = -EINVAL;
@@ -449,10 +445,10 @@ int kbase_install_interrupts(struct kbase_device *kbdev)
 	u32 i;
 
 	for (i = 0; i < kbdev->nr_irqs; i++) {
-		const int result = request_irq(
-			kbdev->irqs[i].irq, kbase_get_interrupt_handler(kbdev, i),
-			kbdev->irqs[i].flags | ((kbdev->nr_irqs == 1) ? 0 : IRQF_SHARED),
-			kbdev->irqs[i].name, kbase_tag(kbdev, i));
+		const int result = request_irq(kbdev->irqs[i].irq,
+					       kbase_get_interrupt_handler(kbdev, i),
+					       kbdev->irqs[i].flags | IRQF_SHARED,
+					       kbdev->irqs[i].name, kbase_tag(kbdev, i));
 		if (result) {
 			dev_err(kbdev->dev, "Can't request interrupt %u (index %u)\n",
 				kbdev->irqs[i].irq, i);

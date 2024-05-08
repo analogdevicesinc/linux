@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014, 2018-2021, 2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014, 2018-2021, 2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -27,7 +27,8 @@
  *
  * @multiplier:		Numerator of the converter's fraction.
  * @divisor:		Denominator of the converter's fraction.
- * @offset:		Converter's offset term.
+ * @gpu_timestamp_offset: Cached CPU to GPU TS offset computed whenever whole system
+ *                        enters into standby mode where CPU Monotonic time is suspend.
  * @device_scaled_timeouts: Timeouts in milliseconds that were scaled to be
  *                          consistent with the minimum MCU frequency. This
  *                          array caches the results of all of the conversions
@@ -55,7 +56,7 @@ struct kbase_backend_time {
 #if MALI_USE_CSF
 	u64 multiplier;
 	u64 divisor;
-	s64 offset;
+	s64 gpu_timestamp_offset;
 #endif
 	unsigned int device_scaled_timeouts[KBASE_TIMEOUT_SELECTOR_COUNT];
 };
@@ -70,6 +71,40 @@ struct kbase_backend_time {
  * Return: The CPU timestamp.
  */
 u64 __maybe_unused kbase_backend_time_convert_gpu_to_cpu(struct kbase_device *kbdev, u64 gpu_ts);
+
+/**
+ * kbase_backend_update_gpu_timestamp_offset() - Updates GPU timestamp offset register with the
+ *                                               cached value.
+ *
+ * @kbdev:	Kbase device pointer
+ *
+ * Compute the new cached value for GPU timestamp offset if the previously cached value has been
+ * invalidated and update the GPU timestamp offset register with the cached value.
+ */
+void kbase_backend_update_gpu_timestamp_offset(struct kbase_device *kbdev);
+
+/**
+ * kbase_backend_invalidate_gpu_timestamp_offset() - Invalidate cached GPU timestamp offset value
+ *
+ * @kbdev:	Kbase device pointer
+ *
+ * This function invalidates cached GPU timestamp offset value whenever system suspend
+ * is about to happen where CPU TS counter will be stopped.
+ */
+void kbase_backend_invalidate_gpu_timestamp_offset(struct kbase_device *kbdev);
+
+#if MALI_UNIT_TEST
+/**
+ * kbase_backend_read_gpu_timestamp_offset_reg() - Read GPU TIMESTAMP OFFSET Register
+ *
+ * @kbdev:	Kbase device pointer
+ *
+ * This function read GPU TIMESTAMP OFFSET Register with proper register access
+ *
+ * Return: GPU TIMESTAMP OFFSET Register value, as unsigned 64 bit value
+ */
+u64 kbase_backend_read_gpu_timestamp_offset_reg(struct kbase_device *kbdev);
+#endif
 #endif
 
 /**

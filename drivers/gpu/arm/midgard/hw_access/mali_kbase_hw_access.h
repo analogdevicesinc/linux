@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2023-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -127,6 +127,25 @@ bool kbase_reg_is_valid(struct kbase_device *kbdev, u32 reg_enum);
  * Return: boolean if register is accessible
  */
 bool kbase_reg_is_accessible(struct kbase_device *kbdev, u32 reg_enum, u32 flags);
+
+/**
+ * kbase_reg_is_powered_access_allowed - check if registered is accessible given
+ * current power state
+ *
+ * @kbdev:    Kbase device pointer
+ * @reg_enum: Register enum
+ *
+ * Return: boolean if register is accessible
+ */
+bool kbase_reg_is_powered_access_allowed(struct kbase_device *kbdev, u32 reg_enum);
+
+/**
+ * kbase_reg_is_init - check if regmap is initialized
+ *
+ * @kbdev:     Kbase device pointer
+ * Return:     boolean if regmap is initialized
+ */
+bool kbase_reg_is_init(struct kbase_device *kbdev);
 
 /**
  * kbase_reg_get_offset - get register offset from enum

@@ -386,4 +386,11 @@ static inline long kbase_pin_user_pages_remote(struct task_struct *tsk, struct m
 
 #endif
 
+#if (KERNEL_VERSION(4, 20, 0) <= LINUX_VERSION_CODE)
+#include <linux/compiler_attributes.h>
+#endif
+#ifndef __maybe_unused
+#define __maybe_unused __attribute__((unused))
+#endif
+
 #endif /* _VERSION_COMPAT_DEFS_H_ */

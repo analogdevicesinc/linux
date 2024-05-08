@@ -27,14 +27,6 @@
 #include <mali_kbase_reset_gpu.h>
 #include <mmu/mali_kbase_mmu.h>
 
-bool kbase_is_gpu_removed(struct kbase_device *kbdev)
-{
-	if (!IS_ENABLED(CONFIG_MALI_ARBITER_SUPPORT))
-		return false;
-
-	return (KBASE_REG_READ(kbdev, GPU_CONTROL_ENUM(GPU_ID)) == 0);
-}
-
 /**
  * busy_wait_cache_operation - Wait for a pending cache flush to complete
  *

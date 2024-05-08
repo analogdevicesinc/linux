@@ -226,7 +226,10 @@ enum {
  *
  * Based on 10s timeout at 100MHz, scaled from a 50MHz GPU system.
  */
-#if IS_ENABLED(CONFIG_MALI_IS_FPGA)
+#if IS_ENABLED(CONFIG_MALI_VECTOR_DUMP)
+/* Set a large value to avoid timing out while vector dumping */
+#define KCPU_FENCE_SIGNAL_TIMEOUT_CYCLES (250000000000ull)
+#elif IS_ENABLED(CONFIG_MALI_IS_FPGA)
 #define KCPU_FENCE_SIGNAL_TIMEOUT_CYCLES (2500000000ull)
 #else
 #define KCPU_FENCE_SIGNAL_TIMEOUT_CYCLES (1000000000ull)

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2023-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -2240,6 +2240,56 @@ static void kbase_regmap_v9_2_init(struct kbase_device *kbdev)
 	kbdev->regmap.regs[GPU_CONTROL__L2_CONFIG] = kbdev->reg + 0x48;
 }
 
+static void kbase_regmap_v9_14_init(struct kbase_device *kbdev)
+{
+	if (kbdev->regmap.regs == NULL && kbdev->regmap.flags == NULL) {
+		kbdev->regmap.size = NR_V9_14_REGS;
+		kbdev->regmap.regs =
+			kcalloc(kbdev->regmap.size, sizeof(void __iomem *), GFP_KERNEL);
+		kbdev->regmap.flags = kcalloc(kbdev->regmap.size, sizeof(u32), GFP_KERNEL);
+	}
+
+	if (WARN_ON(kbdev->regmap.regs == NULL))
+		return;
+	if (WARN_ON(kbdev->regmap.flags == NULL))
+		return;
+
+	kbase_regmap_v9_2_init(kbdev);
+
+	kbdev->regmap.flags[PTM_AW_IRQ_CLEAR] = KBASE_REGMAP_WIDTH_32_BIT | KBASE_REGMAP_PERM_READ |
+						KBASE_REGMAP_PERM_WRITE;
+	kbdev->regmap.flags[PTM_AW_IRQ_INJECTION] =
+		KBASE_REGMAP_WIDTH_32_BIT | KBASE_REGMAP_PERM_READ | KBASE_REGMAP_PERM_WRITE;
+	kbdev->regmap.flags[PTM_AW_IRQ_MASK] = KBASE_REGMAP_WIDTH_32_BIT | KBASE_REGMAP_PERM_READ |
+					       KBASE_REGMAP_PERM_WRITE;
+	kbdev->regmap.flags[PTM_AW_IRQ_RAWSTAT] = KBASE_REGMAP_WIDTH_32_BIT |
+						  KBASE_REGMAP_PERM_READ;
+	kbdev->regmap.flags[PTM_AW_IRQ_STATUS] = KBASE_REGMAP_WIDTH_32_BIT | KBASE_REGMAP_PERM_READ;
+	kbdev->regmap.flags[PTM_AW_MESSAGE__PTM_INCOMING_MESSAGE0] = KBASE_REGMAP_WIDTH_32_BIT |
+								     KBASE_REGMAP_PERM_READ;
+	kbdev->regmap.flags[PTM_AW_MESSAGE__PTM_INCOMING_MESSAGE1] = KBASE_REGMAP_WIDTH_32_BIT |
+								     KBASE_REGMAP_PERM_READ;
+	kbdev->regmap.flags[PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE0] =
+		KBASE_REGMAP_WIDTH_32_BIT | KBASE_REGMAP_PERM_READ | KBASE_REGMAP_PERM_WRITE;
+	kbdev->regmap.flags[PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE1] =
+		KBASE_REGMAP_WIDTH_32_BIT | KBASE_REGMAP_PERM_READ | KBASE_REGMAP_PERM_WRITE;
+	kbdev->regmap.flags[PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE_STATUS] =
+		KBASE_REGMAP_WIDTH_32_BIT | KBASE_REGMAP_PERM_READ;
+	kbdev->regmap.flags[PTM_ID] = KBASE_REGMAP_WIDTH_32_BIT | KBASE_REGMAP_PERM_READ;
+
+	kbdev->regmap.regs[PTM_AW_IRQ_CLEAR] = kbdev->reg + 0x1ffc8;
+	kbdev->regmap.regs[PTM_AW_IRQ_INJECTION] = kbdev->reg + 0x1ffd4;
+	kbdev->regmap.regs[PTM_AW_IRQ_MASK] = kbdev->reg + 0x1ffcc;
+	kbdev->regmap.regs[PTM_AW_IRQ_RAWSTAT] = kbdev->reg + 0x1ffc4;
+	kbdev->regmap.regs[PTM_AW_IRQ_STATUS] = kbdev->reg + 0x1ffd0;
+	kbdev->regmap.regs[PTM_AW_MESSAGE__PTM_INCOMING_MESSAGE0] = kbdev->reg + 0x1ffd8;
+	kbdev->regmap.regs[PTM_AW_MESSAGE__PTM_INCOMING_MESSAGE1] = kbdev->reg + 0x1ffdc;
+	kbdev->regmap.regs[PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE0] = kbdev->reg + 0x1ffe4;
+	kbdev->regmap.regs[PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE1] = kbdev->reg + 0x1ffe8;
+	kbdev->regmap.regs[PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE_STATUS] = kbdev->reg + 0x1ffe0;
+	kbdev->regmap.regs[PTM_ID] = kbdev->reg + 0x1ffc0;
+}
+
 u32 kbase_regmap_backend_init(struct kbase_device *kbdev)
 {
 	int i = 0;
@@ -2254,6 +2304,7 @@ u32 kbase_regmap_backend_init(struct kbase_device *kbdev)
 		{ GPU_ID_ARCH_MAKE(7, 2, 0), kbase_regmap_v7_2_init },
 		{ GPU_ID_ARCH_MAKE(9, 0, 0), kbase_regmap_v9_0_init },
 		{ GPU_ID_ARCH_MAKE(9, 2, 0), kbase_regmap_v9_2_init },
+		{ GPU_ID_ARCH_MAKE(9, 14, 0), kbase_regmap_v9_14_init },
 	};
 
 	for (i = 0; i < ARRAY_SIZE(init_array) - 1; i++) {
@@ -2967,6 +3018,18 @@ static char *enum_strings[] = {
 	[GPU_CONTROL__CORE_FEATURES] = "GPU_CONTROL__CORE_FEATURES",
 	[GPU_CONTROL__THREAD_TLS_ALLOC] = "GPU_CONTROL__THREAD_TLS_ALLOC",
 	[GPU_CONTROL__L2_CONFIG] = "GPU_CONTROL__L2_CONFIG",
+	[PTM_AW_IRQ_CLEAR] = "PTM_AW_IRQ_CLEAR",
+	[PTM_AW_IRQ_INJECTION] = "PTM_AW_IRQ_INJECTION",
+	[PTM_AW_IRQ_MASK] = "PTM_AW_IRQ_MASK",
+	[PTM_AW_IRQ_RAWSTAT] = "PTM_AW_IRQ_RAWSTAT",
+	[PTM_AW_IRQ_STATUS] = "PTM_AW_IRQ_STATUS",
+	[PTM_AW_MESSAGE__PTM_INCOMING_MESSAGE0] = "PTM_AW_MESSAGE__PTM_INCOMING_MESSAGE0",
+	[PTM_AW_MESSAGE__PTM_INCOMING_MESSAGE1] = "PTM_AW_MESSAGE__PTM_INCOMING_MESSAGE1",
+	[PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE0] = "PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE0",
+	[PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE1] = "PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE1",
+	[PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE_STATUS] =
+		"PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE_STATUS",
+	[PTM_ID] = "PTM_ID",
 };
 
 const char *kbase_reg_get_enum_string(u32 reg_enum)

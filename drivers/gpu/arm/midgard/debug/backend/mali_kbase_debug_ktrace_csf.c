@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -27,8 +27,8 @@
 
 void kbasep_ktrace_backend_format_header(char *buffer, int sz, s32 *written)
 {
-	*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
-				 "group,slot,prio,csi,kcpu"),
+	*written += MAX(scnprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
+				  "group,slot,prio,csi,kcpu"),
 			0);
 }
 
@@ -44,38 +44,39 @@ void kbasep_ktrace_backend_format_msg(struct kbase_ktrace_msg *trace_msg, char *
 	if (be_msg->gpu.flags & KBASE_KTRACE_FLAG_CSF_GROUP) {
 		const s8 slot = be_msg->gpu.csg_nr;
 		/* group,slot, */
-		*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), "%u,%d,",
-					 be_msg->gpu.group_handle, slot),
+		*written += MAX(scnprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
+					  "%u,%d,", be_msg->gpu.group_handle, slot),
 				0);
 
 		/* prio */
 		if (slot >= 0)
-			*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
-						 "%u", be_msg->gpu.slot_prio),
+			*written += MAX(scnprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
+						  "%u", be_msg->gpu.slot_prio),
 					0);
 
 		/* , */
-		*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), ","), 0);
+		*written +=
+			MAX(scnprintf(buffer + *written, (size_t)MAX(sz - *written, 0), ","), 0);
 	} else {
 		/* No group,slot,prio fields, but ensure ending with "," */
 		*written +=
-			MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), ",,,"), 0);
+			MAX(scnprintf(buffer + *written, (size_t)MAX(sz - *written, 0), ",,,"), 0);
 	}
 
 	/* queue parts: csi */
 	if (trace_msg->backend.gpu.flags & KBASE_KTRACE_FLAG_CSF_QUEUE)
-		*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), "%d",
-					 be_msg->gpu.csi_index),
+		*written += MAX(scnprintf(buffer + *written, (size_t)MAX(sz - *written, 0), "%d",
+					  be_msg->gpu.csi_index),
 				0);
 
 	/* , */
-	*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), ","), 0);
+	*written += MAX(scnprintf(buffer + *written, (size_t)MAX(sz - *written, 0), ","), 0);
 
 	if (be_msg->gpu.flags & KBASE_KTRACE_FLAG_CSF_KCPU) {
 		/* kcpu data */
-		*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
-					 "kcpu %d (0x%llx)", be_msg->kcpu.id,
-					 be_msg->kcpu.extra_info_val),
+		*written += MAX(scnprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
+					  "kcpu %d (0x%llx)", be_msg->kcpu.id,
+					  be_msg->kcpu.extra_info_val),
 				0);
 	}
 

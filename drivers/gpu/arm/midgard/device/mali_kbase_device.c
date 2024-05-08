@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -504,13 +504,26 @@ int kbase_device_early_init(struct kbase_device *kbdev)
 	/* Ensure we can access the GPU registers */
 	kbase_pm_register_access_enable(kbdev);
 
-	/* Initialize GPU_ID props */
-	kbase_gpuprops_parse_gpu_id(&kbdev->gpu_props.gpu_id, kbase_reg_get_gpu_id(kbdev));
-
-	/* Initialize register mapping LUTs */
-	err = kbase_regmap_init(kbdev);
-	if (err)
+	/*
+	 * If -EPERM is returned, it means the device backend is not supported, but
+	 * device initialization can continue.
+	 */
+	err = kbase_device_backend_init(kbdev);
+	if (err != 0 && err != -EPERM)
 		goto pm_runtime_term;
+
+	/*
+	 * Initialize register mapping LUTs. This would have been initialized on HW
+	 * Arbitration but not on PV or non-arbitration devices.
+	 */
+	if (!kbase_reg_is_init(kbdev)) {
+		/* Initialize GPU_ID props */
+		kbase_gpuprops_parse_gpu_id(&kbdev->gpu_props.gpu_id, kbase_reg_get_gpu_id(kbdev));
+
+		err = kbase_regmap_init(kbdev);
+		if (err)
+			goto backend_term;
+	}
 
 	/* Set the list of features available on the current HW
 	 * (identified by the GPU_ID register)
@@ -520,7 +533,7 @@ int kbase_device_early_init(struct kbase_device *kbdev)
 	/* Find out GPU properties based on the GPU feature registers. */
 	err = kbase_gpuprops_init(kbdev);
 	if (err)
-		goto regmap_term;
+		goto backend_term;
 
 	/* Get the list of workarounds for issues on the current HW
 	 * (identified by the GPU_ID register and impl_tech in THREAD_FEATURES)
@@ -533,13 +546,16 @@ int kbase_device_early_init(struct kbase_device *kbdev)
 	kbase_pm_register_access_disable(kbdev);
 
 #ifdef CONFIG_MALI_ARBITER_SUPPORT
-	if (kbdev->arb.arb_if)
-		err = kbase_arbiter_pm_install_interrupts(kbdev);
-	else
+	if (kbdev->arb.arb_if) {
+		if (kbdev->pm.arb_vm_state)
+			err = kbase_arbiter_pm_install_interrupts(kbdev);
+	} else {
 		err = kbase_install_interrupts(kbdev);
+	}
 #else
 	err = kbase_install_interrupts(kbdev);
 #endif
+
 	if (err)
 		goto gpuprops_term;
 
@@ -547,9 +563,13 @@ int kbase_device_early_init(struct kbase_device *kbdev)
 
 gpuprops_term:
 	kbase_gpuprops_term(kbdev);
-regmap_term:
+backend_term:
+	kbase_device_backend_term(kbdev);
 	kbase_regmap_term(kbdev);
 pm_runtime_term:
+	if (kbdev->pm.backend.gpu_powered)
+		kbase_pm_register_access_disable(kbdev);
+
 	kbase_pm_runtime_term(kbdev);
 platform_device_term:
 	kbasep_platform_device_term(kbdev);
@@ -568,8 +588,11 @@ void kbase_device_early_term(struct kbase_device *kbdev)
 		kbase_release_interrupts(kbdev);
 #else
 	kbase_release_interrupts(kbdev);
-#endif /* CONFIG_MALI_ARBITER_SUPPORT */
+#endif
+
 	kbase_gpuprops_term(kbdev);
+	kbase_device_backend_term(kbdev);
+	kbase_regmap_term(kbdev);
 	kbase_pm_runtime_term(kbdev);
 	kbasep_platform_device_term(kbdev);
 	kbase_ktrace_term(kbdev);

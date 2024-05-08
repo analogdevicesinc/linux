@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -396,7 +396,7 @@ static void kbase_pm_gpu_poweroff_wait_wq(struct work_struct *data)
 		backend->poweron_required = false;
 		kbdev->pm.backend.l2_desired = true;
 #if MALI_USE_CSF
-		kbdev->pm.backend.mcu_desired = true;
+		kbdev->pm.backend.mcu_desired = kbdev->pm.backend.mcu_poweron_required;
 #endif
 		kbase_pm_update_state(kbdev);
 		kbase_pm_update_cores_state_nolock(kbdev);
@@ -1009,6 +1009,9 @@ void kbase_pm_handle_gpu_lost(struct kbase_device *kbdev)
 		kbdev->protected_mode = false;
 		kbase_pm_update_state(kbdev);
 		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+
+		/* Cancel any pending HWC dumps */
+		kbase_hwcnt_backend_csf_on_unrecoverable_error(&kbdev->hwcnt_gpu_iface);
 #else
 		/* Full GPU reset will have been done by hypervisor, so cancel */
 		atomic_set(&kbdev->hwaccess.backend.reset_gpu, KBASE_RESET_GPU_NOT_PENDING);
@@ -1087,26 +1090,15 @@ static int pm_handle_mcu_sleep_on_runtime_suspend(struct kbase_device *kbdev)
 	}
 
 	/* Check if a Doorbell mirror interrupt occurred meanwhile.
-	 * Also check if GPU idle work item is pending. If FW had sent the GPU idle notification
-	 * after the wake up of MCU then it can be assumed that Userspace submission didn't make
-	 * GPU non-idle, so runtime suspend doesn't need to be aborted.
 	 */
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
-	if (kbdev->pm.backend.gpu_sleep_mode_active && kbdev->pm.backend.exit_gpu_sleep_mode &&
-	    !atomic_read(&kbdev->csf.scheduler.pending_gpu_idle_work)) {
-		u32 glb_req =
-			kbase_csf_firmware_global_input_read(&kbdev->csf.global_iface, GLB_REQ);
-		u32 glb_ack = kbase_csf_firmware_global_output(&kbdev->csf.global_iface, GLB_ACK);
-
-		/* Only abort the runtime suspend if GPU idle event is not pending */
-		if (!((glb_req ^ glb_ack) & GLB_REQ_IDLE_EVENT_MASK)) {
-			dev_dbg(kbdev->dev,
-				"DB mirror interrupt occurred during runtime suspend after L2 power up");
-			kbdev->pm.backend.gpu_wakeup_override = false;
-			kbdev->pm.backend.runtime_suspend_abort_reason = ABORT_REASON_DB_MIRROR_IRQ;
-			spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
-			return -EBUSY;
-		}
+	if (kbdev->pm.backend.gpu_sleep_mode_active && kbdev->pm.backend.exit_gpu_sleep_mode) {
+		dev_dbg(kbdev->dev,
+			"DB mirror interrupt occurred during runtime suspend after L2 power up");
+		kbdev->pm.backend.gpu_wakeup_override = false;
+		kbdev->pm.backend.runtime_suspend_abort_reason = ABORT_REASON_DB_MIRROR_IRQ;
+		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+		return -EBUSY;
 	}
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 	/* Need to release the kbdev->pm.lock to avoid lock ordering issue

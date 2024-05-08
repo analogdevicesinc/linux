@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 #
-# (C) COPYRIGHT 2012-2023 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2012-2024 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -80,6 +80,7 @@ endmenu
 
 config MALI_CSF_SUPPORT
 	bool "Enable Mali CSF based GPU support"
+	depends on MALI_MIDGARD
 	default n
 	help
 	  Enables support for CSF based GPUs.
@@ -307,7 +308,7 @@ endchoice
 
 config MALI_PRFCNT_SET_SELECT_VIA_DEBUG_FS
 	bool "Enable runtime selection of performance counters set via debugfs"
-	depends on MALI_MIDGARD && MALI_EXPERT && DEBUG_FS
+	depends on MALI_MIDGARD && MALI_EXPERT && DEBUG_FS && !MALI_CSF_SUPPORT
 	default n
 	help
 	  Select this option to make the secondary set of performance counters

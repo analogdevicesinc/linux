@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2023-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -46,6 +46,8 @@
 #define MMU_AS_BASE_ENUM(n) MMU_AS_ENUM(n, TRANSTAB)
 #define MMU_AS_OFFSET(n, regname) ENUM_OFFSET(n, MMU_AS_ENUM(0, regname), MMU_AS_ENUM(1, regname))
 #define MMU_AS_BASE_OFFSET(n) MMU_AS_OFFSET(n, TRANSTAB)
+
+#define PTM_AW_MESSAGE_ENUM(regname) PTM_AW_MESSAGE__##regname
 
 /* register value macros */
 /* GPU_STATUS values */
@@ -294,5 +296,12 @@
 #define GPU_IRQ_REG_COMMON                                                       \
 	(GPU_FAULT | MULTIPLE_GPU_FAULTS | RESET_COMPLETED | POWER_CHANGED_ALL | \
 	 PRFCNT_SAMPLE_COMPLETED)
+
+#define WINDOW_IRQ_MESSAGE (1U << 0)
+#define WINDOW_IRQ_INVALID_ACCESS (1U << 1)
+#define WINDOW_IRQ_GPU (1U << 2)
+#define WINDOW_IRQ_JOB (1U << 3)
+#define WINDOW_IRQ_MMU (1U << 4)
+#define WINDOW_IRQ_EVENT (1U << 5)
 
 #endif /* _MALI_KBASE_REGMAP_JM_MACROS_H_ */

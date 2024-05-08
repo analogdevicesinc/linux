@@ -338,14 +338,6 @@ int kbase_hwcnt_jm_metadata_create(const struct kbase_hwcnt_gpu_info *gpu_info,
 	return 0;
 }
 
-void kbase_hwcnt_jm_metadata_destroy(const struct kbase_hwcnt_metadata *metadata)
-{
-	if (!metadata)
-		return;
-
-	kbase_hwcnt_metadata_destroy(metadata);
-}
-
 int kbase_hwcnt_csf_metadata_create(const struct kbase_hwcnt_gpu_info *gpu_info,
 				    enum kbase_hwcnt_set counter_set,
 				    const struct kbase_hwcnt_metadata **out_metadata)
@@ -363,14 +355,6 @@ int kbase_hwcnt_csf_metadata_create(const struct kbase_hwcnt_gpu_info *gpu_info,
 	*out_metadata = metadata;
 
 	return 0;
-}
-
-void kbase_hwcnt_csf_metadata_destroy(const struct kbase_hwcnt_metadata *metadata)
-{
-	if (!metadata)
-		return;
-
-	kbase_hwcnt_metadata_destroy(metadata);
 }
 
 bool kbase_hwcnt_is_block_type_shader(const enum kbase_hwcnt_gpu_v5_block_type blk_type)
@@ -417,7 +401,7 @@ bool kbase_hwcnt_is_block_type_fe(const enum kbase_hwcnt_gpu_v5_block_type blk_t
 
 int kbase_hwcnt_jm_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 			    const struct kbase_hwcnt_enable_map *dst_enable_map, u64 pm_core_mask,
-			    u64 debug_core_mask, u64 max_core_mask, size_t max_l2_slices,
+			    u64 debug_core_mask, size_t max_l2_slices,
 			    const struct kbase_hwcnt_curr_config *curr_config, bool accumulate)
 {
 	const struct kbase_hwcnt_metadata *metadata;
@@ -580,7 +564,6 @@ int kbase_hwcnt_jm_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 			/* Shift each core mask right by 1 */
 			core_mask >>= 1;
 			debug_core_mask >>= 1;
-			max_core_mask >>= 1;
 			shader_present >>= 1;
 		}
 	}

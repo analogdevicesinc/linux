@@ -30,6 +30,7 @@
 #include <linux/wait.h>
 #include <linux/workqueue.h>
 #include <linux/completion.h>
+#include <linux/version_compat_defs.h>
 
 #ifndef BASE_MAX_NR_CLOCKS_REGULATORS
 #define BASE_MAX_NR_CLOCKS_REGULATORS 2
@@ -296,9 +297,11 @@ static bool kbasep_hwcnt_backend_csf_backend_exists(struct kbase_hwcnt_backend_c
 }
 
 void kbase_hwcnt_backend_csf_set_hw_availability(struct kbase_hwcnt_backend_interface *iface,
-						 size_t num_l2_slices, u64 powered_shader_core_mask)
+						 size_t num_l2_slices, u64 shader_present,
+						 u64 power_core_mask)
 {
 	struct kbase_hwcnt_backend_csf_info *csf_info;
+	u64 norm_shader_present = power_core_mask & shader_present;
 
 	if (!iface)
 		return;
@@ -309,16 +312,17 @@ void kbase_hwcnt_backend_csf_set_hw_availability(struct kbase_hwcnt_backend_inte
 	if (!csf_info || !csf_info->backend)
 		return;
 
+
 	if (WARN_ON(csf_info->backend->enable_state != KBASE_HWCNT_BACKEND_CSF_DISABLED))
 		return;
 
 	if (WARN_ON(num_l2_slices > csf_info->backend->phys_layout.mmu_l2_cnt) ||
-	    WARN_ON((powered_shader_core_mask & csf_info->backend->phys_layout.shader_avail_mask) !=
-		    powered_shader_core_mask))
+	    WARN_ON((norm_shader_present & csf_info->backend->phys_layout.shader_avail_mask) !=
+		    norm_shader_present))
 		return;
 
 	csf_info->backend->num_l2_slices = num_l2_slices;
-	csf_info->backend->powered_shader_core_mask = powered_shader_core_mask;
+	csf_info->backend->powered_shader_core_mask = norm_shader_present;
 }
 
 /**
@@ -454,17 +458,20 @@ static void kbasep_hwcnt_backend_csf_init_layout(
 }
 
 static void
-kbasep_hwcnt_backend_csf_reset_internal_buffers(struct kbase_hwcnt_backend_csf *backend_csf)
+kbasep_hwcnt_backend_csf_reset_internal_buffers(struct kbase_hwcnt_backend_csf *backend_csf,
+						bool user_bufs)
 {
 	size_t user_buf_bytes = backend_csf->info->metadata->dump_buf_bytes;
 	size_t block_state_bytes = backend_csf->phys_layout.block_cnt *
 				   KBASE_HWCNT_BLOCK_STATE_BYTES * KBASE_HWCNT_BLOCK_STATE_STRIDE;
 
-	memset(backend_csf->to_user_buf, 0, user_buf_bytes);
 	memset(backend_csf->accum_buf, 0, user_buf_bytes);
 	memset(backend_csf->old_sample_buf, 0, backend_csf->info->prfcnt_info.dump_bytes);
 	memset(backend_csf->block_states, 0, block_state_bytes);
-	memset(backend_csf->to_user_block_states, 0, block_state_bytes);
+	if (user_bufs) {
+		memset(backend_csf->to_user_buf, 0, user_buf_bytes);
+		memset(backend_csf->to_user_block_states, 0, block_state_bytes);
+	}
 }
 
 static void
@@ -1221,11 +1228,6 @@ static void kbasep_hwcnt_backend_csf_dump_disable(struct kbase_hwcnt_backend *ba
 						 backend_csf->ring_buf, 0,
 						 backend_csf->info->ring_buf_cnt, false);
 
-	/* Reset accumulator, old_sample_buf and user_sample to all-0 to prepare
-	 * for next enable.
-	 */
-	kbasep_hwcnt_backend_csf_reset_internal_buffers(backend_csf);
-
 	/* Disabling HWCNT is an indication that blocks have been powered off. This is important to
 	 * know for L2, CSHW, and Tiler blocks, as this is currently the only way a backend can
 	 * know if they are being powered off.
@@ -1261,6 +1263,12 @@ static void kbasep_hwcnt_backend_csf_dump_disable(struct kbase_hwcnt_backend *ba
 		kbase_hwcnt_block_state_set(&backend_csf->accum_all_blk_stt,
 					    KBASE_HWCNT_STATE_UNKNOWN);
 	}
+
+	/* Reset accumulator, old_sample_buf and block_states to all-0 to prepare for next enable.
+	 * Reset user buffers if ownership is transferred to the caller (i.e. dump_buffer
+	 * is provided).
+	 */
+	kbasep_hwcnt_backend_csf_reset_internal_buffers(backend_csf, dump_buffer);
 }
 
 /* CSF backend implementation of kbase_hwcnt_backend_dump_request_fn */
@@ -1285,6 +1293,11 @@ static int kbasep_hwcnt_backend_csf_dump_request(struct kbase_hwcnt_backend *bac
 		backend_csf->dump_state = KBASE_HWCNT_BACKEND_CSF_DUMP_COMPLETED;
 		*dump_time_ns = kbasep_hwcnt_backend_csf_timestamp_ns(backend);
 		kbasep_hwcnt_backend_csf_cc_update(backend_csf);
+		/* There is a possibility that the transition to enabled state will remain
+		 * during multiple dumps, hence append the OFF state.
+		 */
+		kbase_hwcnt_block_state_append(&backend_csf->accum_all_blk_stt,
+					       KBASE_HWCNT_STATE_OFF);
 		backend_csf->user_requested = true;
 		backend_csf->info->csf_if->unlock(backend_csf->info->csf_if->ctx, flags);
 		return 0;
@@ -1474,6 +1487,12 @@ static int kbasep_hwcnt_backend_csf_dump_get(struct kbase_hwcnt_backend *backend
 		kbase_hwcnt_block_state_set(&backend_csf->sampled_all_blk_stt,
 					    KBASE_HWCNT_STATE_UNKNOWN);
 	}
+
+	/* Clear consumed user buffers. */
+	memset(backend_csf->to_user_buf, 0, backend_csf->info->metadata->dump_buf_bytes);
+	memset(backend_csf->to_user_block_states, 0,
+	       backend_csf->phys_layout.block_cnt * KBASE_HWCNT_BLOCK_STATE_BYTES *
+		       KBASE_HWCNT_BLOCK_STATE_STRIDE);
 
 	return ret;
 }
@@ -2121,7 +2140,7 @@ void kbase_hwcnt_backend_csf_metadata_term(struct kbase_hwcnt_backend_interface 
 
 	csf_info = (struct kbase_hwcnt_backend_csf_info *)iface->info;
 	if (csf_info->metadata) {
-		kbase_hwcnt_csf_metadata_destroy(csf_info->metadata);
+		kbase_hwcnt_metadata_destroy(csf_info->metadata);
 		csf_info->metadata = NULL;
 	}
 }

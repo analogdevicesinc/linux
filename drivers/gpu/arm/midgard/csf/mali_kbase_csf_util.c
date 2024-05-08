@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2023-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -224,7 +224,7 @@ __attribute__((format(__printf__, 2, 3))) void kbasep_print(struct kbasep_printe
 	va_list arglist;
 
 	va_start(arglist, fmt);
-	len = vsnprintf(buffer, KBASEP_PRINT_FORMAT_BUFFER_MAX_SIZE, fmt, arglist);
+	len = vscnprintf(buffer, KBASEP_PRINT_FORMAT_BUFFER_MAX_SIZE, fmt, arglist);
 	if (len <= 0) {
 		pr_err("message write to the buffer failed");
 		goto exit;

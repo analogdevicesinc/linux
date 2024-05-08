@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2013-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2013-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -237,7 +237,11 @@ static int debug_mem_open(struct inode *i, struct file *file)
 	int ret;
 	enum kbase_memory_zone idx;
 
-	if (!kbase_file_inc_fops_count_unless_closed(kctx->kfile))
+#if (KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE)
+	if (get_file_rcu(kctx->filp) == 0)
+#else
+	if (get_file_rcu(&kctx->filp) == 0)
+#endif
 		return -ENOENT;
 
 	/* Check if file was opened in write mode. GPU memory contents
@@ -297,7 +301,7 @@ out:
 	}
 	seq_release(i, file);
 open_fail:
-	kbase_file_dec_fops_count(kctx->kfile);
+	fput(kctx->filp);
 
 	return ret;
 }
@@ -327,7 +331,7 @@ static int debug_mem_release(struct inode *inode, struct file *file)
 		kfree(mem_data);
 	}
 
-	kbase_file_dec_fops_count(kctx->kfile);
+	fput(kctx->filp);
 
 	return 0;
 }

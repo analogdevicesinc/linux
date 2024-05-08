@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -258,7 +258,7 @@ static struct page *example_mgm_alloc_page(struct memory_group_manager_device *m
 	} else {
 		struct mgm_groups *data = mgm_dev->data;
 
-		dev_err(data->dev, "alloc_pages failed\n");
+		dev_dbg(data->dev, "alloc_pages failed\n");
 	}
 
 	return p;

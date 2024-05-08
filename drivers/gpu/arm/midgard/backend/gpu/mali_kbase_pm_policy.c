@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -127,7 +127,7 @@ void kbase_pm_update_active(struct kbase_device *kbdev)
 			pm->backend.poweroff_wait_in_progress = false;
 			pm->backend.l2_desired = true;
 #if MALI_USE_CSF
-			pm->backend.mcu_desired = true;
+			pm->backend.mcu_desired = pm->backend.mcu_poweron_required;
 #endif
 
 			spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);

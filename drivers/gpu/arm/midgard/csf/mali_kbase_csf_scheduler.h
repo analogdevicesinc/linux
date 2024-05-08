@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -634,11 +634,8 @@ int kbase_csf_scheduler_handle_runtime_suspend(struct kbase_device *kbdev);
  * @kbdev: Pointer to the device
  *
  * This function is called when a GPU idle IRQ has been raised.
- *
- * Return: true if the PM state machine needs to be invoked after the processing
- *         of GPU idle irq, otherwise false.
  */
-bool kbase_csf_scheduler_process_gpu_idle_event(struct kbase_device *kbdev);
+void kbase_csf_scheduler_process_gpu_idle_event(struct kbase_device *kbdev);
 
 /**
  * kbase_csf_scheduler_get_nr_active_csgs() - Get the number of active CSGs

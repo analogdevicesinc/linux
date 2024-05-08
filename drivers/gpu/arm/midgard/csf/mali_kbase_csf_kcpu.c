@@ -2200,7 +2200,7 @@ void kbase_csf_kcpu_queue_process(struct kbase_kcpu_command_queue *queue, bool d
 
 				kbase_gpu_vm_lock_with_pmode_sync(queue->kctx);
 				meta = kbase_sticky_resource_acquire(queue->kctx,
-								     cmd->info.import.gpu_va);
+								     cmd->info.import.gpu_va, NULL);
 				kbase_gpu_vm_unlock_with_pmode_sync(queue->kctx);
 
 				if (meta == NULL) {
@@ -2703,8 +2703,8 @@ kbase_csf_kcpu_queue_metadata_new(struct kbase_context *kctx, u64 fence_context)
 	};
 
 	/* Please update MAX_TIMELINE_NAME macro when making changes to the string. */
-	n = snprintf(metadata->timeline_name, MAX_TIMELINE_NAME, "%u-%d_%u-%llu-kcpu",
-		     kctx->kbdev->id, kctx->tgid, kctx->id, fence_context);
+	n = scnprintf(metadata->timeline_name, MAX_TIMELINE_NAME, "%u-%d_%u-%llu-kcpu",
+		      kctx->kbdev->id, kctx->tgid, kctx->id, fence_context);
 	if (WARN_ON(n >= MAX_TIMELINE_NAME)) {
 		kfree(metadata);
 		metadata = NULL;

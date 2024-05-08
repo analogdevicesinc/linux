@@ -153,13 +153,13 @@ static void kbasep_mem_page_size_init(struct kbase_device *kbdev)
 	switch (large_page_conf) {
 	case LARGE_PAGE_AUTO: {
 		if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_LARGE_PAGE_ALLOC))
-			static_branch_enable(&large_pages_static_key);
+			static_branch_inc(&large_pages_static_key);
 		dev_info(kbdev->dev, "Large page allocation set to %s after hardware feature check",
 			 static_branch_unlikely(&large_pages_static_key) ? "true" : "false");
 		break;
 	}
 	case LARGE_PAGE_ON: {
-		static_branch_enable(&large_pages_static_key);
+		static_branch_inc(&large_pages_static_key);
 		if (!kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_LARGE_PAGE_ALLOC))
 			dev_warn(kbdev->dev,
 				 "Enabling large page allocations on unsupporting GPU!");
@@ -727,19 +727,105 @@ void kbase_sync_single(struct kbase_context *kctx, struct tagged_addr t_cpu_pa,
 	}
 }
 
+static int kbase_get_sync_scope_params(struct kbase_context *kctx, unsigned long start, size_t size,
+				       u64 *page_off, u64 *page_cnt, u64 *offset)
+{
+	u64 tmp_off;
+	struct kbase_cpu_mapping *map =
+		kbasep_find_enclosing_cpu_mapping(kctx, start, size, &tmp_off);
+
+	if (!map) {
+		dev_dbg(kctx->kbdev->dev, "%s: Can't find CPU mapping 0x%016lX", __func__, start);
+		return -EINVAL;
+	}
+
+	*page_off = tmp_off >> PAGE_SHIFT;
+	tmp_off &= ~PAGE_MASK;
+	*page_cnt = (size + tmp_off + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
+	*offset = tmp_off;
+
+	return 0;
+}
+
+static int kbase_sync_imported_user_buf(struct kbase_context *kctx, struct kbase_va_region *reg,
+					struct basep_syncset *sset, enum kbase_sync_type sync_fn)
+{
+	unsigned long start = (uintptr_t)sset->user_addr;
+	size_t size = (size_t)sset->size;
+	dma_addr_t *dma_addr = reg->gpu_alloc->imported.user_buf.dma_addrs;
+	u64 page_off = 0, page_count = 0, offset = 0;
+	u64 i;
+	size_t sz;
+	int err;
+
+	lockdep_assert_held(&kctx->reg_lock);
+
+	if (sync_fn != KBASE_SYNC_TO_CPU && sync_fn != KBASE_SYNC_TO_DEVICE) {
+		dev_dbg(kctx->kbdev->dev, "%s: Unknown kbase sync_fn type!", __func__);
+		return -EINVAL;
+	}
+
+	/* Early return if the imported user_buffer is not yet mapped to GPU */
+	if (reg->gpu_alloc->imported.user_buf.state != KBASE_USER_BUF_STATE_GPU_MAPPED)
+		return -EINVAL;
+
+	err = kbase_get_sync_scope_params(kctx, start, size, &page_off, &page_count, &offset);
+	if (err)
+		return err;
+
+	/* Check the sync is inside the imported range */
+	if ((page_off >= reg->gpu_alloc->nents) ||
+	    ((page_off + page_count) > reg->gpu_alloc->nents))
+		return -EINVAL;
+
+	dma_addr = reg->gpu_alloc->imported.user_buf.dma_addrs;
+	/* Sync first page */
+	sz = MIN(((size_t)PAGE_SIZE - offset), size);
+	if (sync_fn == KBASE_SYNC_TO_CPU)
+		dma_sync_single_for_cpu(kctx->kbdev->dev, dma_addr[page_off] + offset, sz,
+					DMA_BIDIRECTIONAL);
+	else
+		dma_sync_single_for_device(kctx->kbdev->dev, dma_addr[page_off] + offset, sz,
+					   DMA_BIDIRECTIONAL);
+
+	/* Calculate the size for last page */
+	sz = ((start + size - 1) & ~PAGE_MASK) + 1;
+
+	/* Sync middle pages (if any) */
+	for (i = 1; page_count > 2 && i < page_count - 1; i++) {
+		if (sync_fn == KBASE_SYNC_TO_CPU)
+			dma_sync_single_for_cpu(kctx->kbdev->dev, dma_addr[page_off + i], PAGE_SIZE,
+						DMA_BIDIRECTIONAL);
+		else
+			dma_sync_single_for_device(kctx->kbdev->dev, dma_addr[page_off + i],
+						   PAGE_SIZE, DMA_BIDIRECTIONAL);
+	}
+
+	/* Sync last page (if any) */
+	if (page_count > 1) {
+		i = page_off + page_count - 1;
+		if (sync_fn == KBASE_SYNC_TO_CPU)
+			dma_sync_single_for_cpu(kctx->kbdev->dev, dma_addr[i], sz,
+						DMA_BIDIRECTIONAL);
+		else
+			dma_sync_single_for_device(kctx->kbdev->dev, dma_addr[i], sz,
+						   DMA_BIDIRECTIONAL);
+	}
+
+	return 0;
+}
+
 static int kbase_do_syncset(struct kbase_context *kctx, struct basep_syncset *sset,
 			    enum kbase_sync_type sync_fn)
 {
 	int err = 0;
 	struct kbase_va_region *reg;
-	struct kbase_cpu_mapping *map;
 	unsigned long start;
 	size_t size;
 	struct tagged_addr *cpu_pa;
 	struct tagged_addr *gpu_pa;
-	u64 page_off, page_count;
+	u64 page_off = 0, page_count = 0, offset = 0;
 	u64 i;
-	u64 offset;
 	size_t sz;
 
 	kbase_os_mem_map_lock(kctx);
@@ -762,7 +848,10 @@ static int kbase_do_syncset(struct kbase_context *kctx, struct basep_syncset *ss
 	 * memory may be cached.
 	 */
 	if (kbase_mem_is_imported(reg->gpu_alloc->type)) {
-		err = kbase_mem_do_sync_imported(kctx, reg, sync_fn);
+		if (reg->gpu_alloc->type == KBASE_MEM_TYPE_IMPORTED_USER_BUF)
+			err = kbase_sync_imported_user_buf(kctx, reg, sset, sync_fn);
+		else
+			err = kbase_sync_imported_umm(kctx, reg, sync_fn);
 		goto out_unlock;
 	}
 
@@ -772,17 +861,10 @@ static int kbase_do_syncset(struct kbase_context *kctx, struct basep_syncset *ss
 	start = (uintptr_t)sset->user_addr;
 	size = (size_t)sset->size;
 
-	map = kbasep_find_enclosing_cpu_mapping(kctx, start, size, &offset);
-	if (!map) {
-		dev_warn(kctx->kbdev->dev, "Can't find CPU mapping 0x%016lX for VA 0x%016llX",
-			 start, sset->mem_handle.basep.handle);
-		err = -EINVAL;
+	err = kbase_get_sync_scope_params(kctx, start, size, &page_off, &page_count, &offset);
+	if (err)
 		goto out_unlock;
-	}
 
-	page_off = offset >> PAGE_SHIFT;
-	offset &= ~PAGE_MASK;
-	page_count = (size + offset + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
 	cpu_pa = kbase_get_cpu_phy_pages(reg);
 	gpu_pa = kbase_get_gpu_phy_pages(reg);
 
@@ -791,7 +873,6 @@ static int kbase_do_syncset(struct kbase_context *kctx, struct basep_syncset *ss
 		err = -EINVAL;
 		goto out_unlock;
 	}
-
 	if (page_off >= reg->gpu_alloc->nents) {
 		/* Start of sync range is outside the physically backed region
 		 * so nothing to do
@@ -3945,9 +4026,6 @@ int kbase_map_external_resource(struct kbase_context *kctx, struct kbase_va_regi
 	case KBASE_MEM_TYPE_IMPORTED_USER_BUF: {
 		user_buf_original_state = reg->gpu_alloc->imported.user_buf.state;
 
-		if ((reg->gpu_alloc->imported.user_buf.mm != locked_mm) && (!reg->gpu_alloc->nents))
-			return -EINVAL;
-
 		/* This function is reachable through many code paths, and the imported
 		 * memory handle could be in any of the possible states: consider all
 		 * of them as a valid starting point, and progress through all stages
@@ -3957,19 +4035,31 @@ int kbase_map_external_resource(struct kbase_context *kctx, struct kbase_va_regi
 		 * Error recovery restores the original state and goes no further.
 		 */
 		switch (user_buf_original_state) {
-		case KBASE_USER_BUF_STATE_EMPTY:
-		case KBASE_USER_BUF_STATE_PINNED:
+		case KBASE_USER_BUF_STATE_EMPTY: {
+			if (reg->gpu_alloc->imported.user_buf.mm != locked_mm)
+				return -EINVAL;
+			err = kbase_user_buf_from_empty_to_gpu_mapped(kctx, reg);
+			break;
+		}
+		case KBASE_USER_BUF_STATE_PINNED: {
+			if (!reg->gpu_alloc->nents)
+				return -EINVAL;
+			err = kbase_user_buf_from_pinned_to_gpu_mapped(kctx, reg);
+			break;
+		}
 		case KBASE_USER_BUF_STATE_DMA_MAPPED: {
-			if (user_buf_original_state == KBASE_USER_BUF_STATE_EMPTY)
-				err = kbase_user_buf_from_empty_to_gpu_mapped(kctx, reg);
-			else if (user_buf_original_state == KBASE_USER_BUF_STATE_PINNED)
-				err = kbase_user_buf_from_pinned_to_gpu_mapped(kctx, reg);
-			else
-				err = kbase_user_buf_from_dma_mapped_to_gpu_mapped(kctx, reg);
-
-			if (err)
-				return err;
-
+			/* If the imported handle has not pinned any physical pages yet:
+			 * this function can only be called within the context of a user
+			 * process, which must be the same process as the one that
+			 * originally created the memory handle.
+			 *
+			 * In all other transitions: make sure that the imported handle
+			 * has already pinned physical pages before proceeding to mapping
+			 * operations.
+			 */
+			if (!reg->gpu_alloc->nents)
+				return -EINVAL;
+			err = kbase_user_buf_from_dma_mapped_to_gpu_mapped(kctx, reg);
 			break;
 		}
 		case KBASE_USER_BUF_STATE_GPU_MAPPED: {
@@ -3983,6 +4073,8 @@ int kbase_map_external_resource(struct kbase_context *kctx, struct kbase_va_regi
 				reg->gpu_alloc->imported.user_buf.state);
 			return -EINVAL;
 		}
+		if (err)
+			return err;
 
 		/* If the state was valid and the transition is happening, then the handle
 		 * must be in GPU_MAPPED state now and the reference counter of GPU mappings
@@ -4050,13 +4142,8 @@ void kbase_unmap_external_resource(struct kbase_context *kctx, struct kbase_va_r
 	kbase_va_region_alloc_put(kctx, reg);
 }
 
-static inline u64 kbasep_get_va_gpu_addr(struct kbase_va_region *reg)
-{
-	return reg->start_pfn << PAGE_SHIFT;
-}
-
-struct kbase_ctx_ext_res_meta *kbase_sticky_resource_acquire(struct kbase_context *kctx,
-							     u64 gpu_addr)
+struct kbase_ctx_ext_res_meta *
+kbase_sticky_resource_acquire(struct kbase_context *kctx, u64 gpu_addr, struct mm_struct *locked_mm)
 {
 	struct kbase_ctx_ext_res_meta *meta = NULL;
 	struct kbase_ctx_ext_res_meta *walker;
@@ -4095,7 +4182,7 @@ struct kbase_ctx_ext_res_meta *kbase_sticky_resource_acquire(struct kbase_contex
 		/* Map the external resource to the GPU allocation of the region
 		 * and acquire the reference to the VA region
 		 */
-		if (kbase_map_external_resource(kctx, meta->reg, NULL))
+		if (kbase_map_external_resource(kctx, meta->reg, locked_mm))
 			goto fail_map;
 		meta->ref = 1;
 

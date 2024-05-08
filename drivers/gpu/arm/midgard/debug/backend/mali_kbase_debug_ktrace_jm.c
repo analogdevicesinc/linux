@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -27,8 +27,8 @@
 
 void kbasep_ktrace_backend_format_header(char *buffer, int sz, s32 *written)
 {
-	*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
-				 "katom,gpu_addr,jobslot,refcount"),
+	*written += MAX(scnprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
+				  "katom,gpu_addr,jobslot,refcount"),
 			0);
 }
 
@@ -37,34 +37,34 @@ void kbasep_ktrace_backend_format_msg(struct kbase_ktrace_msg *trace_msg, char *
 {
 	/* katom */
 	if (trace_msg->backend.gpu.flags & KBASE_KTRACE_FLAG_JM_ATOM)
-		*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
-					 "atom %u (ud: 0x%llx 0x%llx)",
-					 trace_msg->backend.gpu.atom_number,
-					 trace_msg->backend.gpu.atom_udata[0],
-					 trace_msg->backend.gpu.atom_udata[1]),
+		*written += MAX(scnprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
+					  "atom %u (ud: 0x%llx 0x%llx)",
+					  trace_msg->backend.gpu.atom_number,
+					  trace_msg->backend.gpu.atom_udata[0],
+					  trace_msg->backend.gpu.atom_udata[1]),
 				0);
 
 	/* gpu_addr */
 	if (trace_msg->backend.gpu.flags & KBASE_KTRACE_FLAG_BACKEND)
-		*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
-					 ",%.8llx,", trace_msg->backend.gpu.gpu_addr),
+		*written += MAX(scnprintf(buffer + *written, (size_t)MAX(sz - *written, 0),
+					  ",%.8llx,", trace_msg->backend.gpu.gpu_addr),
 				0);
 	else
 		*written +=
-			MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), ",,"), 0);
+			MAX(scnprintf(buffer + *written, (size_t)MAX(sz - *written, 0), ",,"), 0);
 
 	/* jobslot */
 	if (trace_msg->backend.gpu.flags & KBASE_KTRACE_FLAG_JM_JOBSLOT)
-		*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), "%d",
-					 trace_msg->backend.gpu.jobslot),
+		*written += MAX(scnprintf(buffer + *written, (size_t)MAX(sz - *written, 0), "%d",
+					  trace_msg->backend.gpu.jobslot),
 				0);
 
-	*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), ","), 0);
+	*written += MAX(scnprintf(buffer + *written, (size_t)MAX(sz - *written, 0), ","), 0);
 
 	/* refcount */
 	if (trace_msg->backend.gpu.flags & KBASE_KTRACE_FLAG_JM_REFCOUNT)
-		*written += MAX(snprintf(buffer + *written, (size_t)MAX(sz - *written, 0), "%d",
-					 trace_msg->backend.gpu.refcount),
+		*written += MAX(scnprintf(buffer + *written, (size_t)MAX(sz - *written, 0), "%d",
+					  trace_msg->backend.gpu.refcount),
 				0);
 }
 

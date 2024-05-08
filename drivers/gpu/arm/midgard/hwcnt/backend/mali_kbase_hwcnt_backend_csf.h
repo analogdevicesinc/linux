@@ -125,12 +125,12 @@ void kbase_hwcnt_backend_csf_on_before_reset(struct kbase_hwcnt_backend_interfac
  *                                                 this function is called.
  * @iface: Non-NULL pointer to HWC backend interface.
  * @num_l2_slices: Current number of L2 slices allocated to the GPU.
- * @powered_shader_core_mask: The common mask between the debug_core_mask
- *                            and the shader_present_bitmap.
+ * @shader_present: Shader_present of the current configuration.
+ * @power_core_mask: Mask containing changed shader core power state.
  */
 void kbase_hwcnt_backend_csf_set_hw_availability(struct kbase_hwcnt_backend_interface *iface,
-						 size_t num_l2_slices,
-						 uint64_t powered_shader_core_mask);
+						 size_t num_l2_slices, u64 shader_present,
+						 u64 power_core_mask);
 
 /** kbasep_hwcnt_backend_csf_process_enable_map() - Process the enable_map to
  *                                                  guarantee headers are

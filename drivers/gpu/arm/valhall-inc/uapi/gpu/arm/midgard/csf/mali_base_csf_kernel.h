@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -67,8 +67,7 @@
 #define BASEP_MEM_FLAGS_KERNEL_ONLY (BASEP_MEM_PERMANENT_KERNEL_MAPPING | BASEP_MEM_NO_USER_FREE)
 
 /* A mask of all flags that should not be queried */
-#define BASE_MEM_DONT_QUERY \
-	(BASE_MEM_COHERENT_SYSTEM_REQUIRED | BASE_MEM_IMPORT_SHARED | BASE_MEM_SAME_VA)
+#define BASE_MEM_DONT_QUERY (BASE_MEM_COHERENT_SYSTEM_REQUIRED | BASE_MEM_IMPORT_SHARED)
 
 /* A mask of all currently reserved flags */
 #define BASE_MEM_FLAGS_RESERVED ((base_mem_alloc_flags)0)
@@ -513,7 +512,7 @@ struct base_gpu_queue_error_fault_payload {
  *                                          progress timeout.
  * @BASE_GPU_QUEUE_GROUP_ERROR_TILER_HEAP_OOM: Fatal error due to running out
  *                                             of tiler heap memory.
- * @BASE_GPU_QUEUE_GROUP_QUEUE_ERROR_FAULT: Fault error reported for GPU
+ * @BASE_GPU_QUEUE_GROUP_QUEUE_ERROR_FAULT: Fault error associated with GPU
  *                                          command queue.
  * @BASE_GPU_QUEUE_GROUP_ERROR_FATAL_COUNT: The number of GPU error types
  *
@@ -552,8 +551,7 @@ struct base_gpu_queue_group_error {
  * enum base_csf_notification_type - Notification type
  *
  * @BASE_CSF_NOTIFICATION_EVENT:                 Notification with kernel event
- * @BASE_CSF_NOTIFICATION_GPU_QUEUE_GROUP_ERROR: Notification with GPU fatal
- *                                               error
+ * @BASE_CSF_NOTIFICATION_GPU_QUEUE_GROUP_ERROR: Notification with GPU error
  * @BASE_CSF_NOTIFICATION_CPU_QUEUE_DUMP:        Notification with dumping cpu
  *                                               queue
  * @BASE_CSF_NOTIFICATION_COUNT:                 The number of notification type

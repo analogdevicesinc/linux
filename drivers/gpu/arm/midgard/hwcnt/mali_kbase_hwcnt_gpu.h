@@ -262,13 +262,6 @@ int kbase_hwcnt_jm_metadata_create(const struct kbase_hwcnt_gpu_info *info,
 				   size_t *out_dump_bytes);
 
 /**
- * kbase_hwcnt_jm_metadata_destroy() - Destroy JM GPU hardware counter metadata.
- *
- * @metadata: Pointer to metadata to destroy.
- */
-void kbase_hwcnt_jm_metadata_destroy(const struct kbase_hwcnt_metadata *metadata);
-
-/**
  * kbase_hwcnt_csf_metadata_create() - Create hardware counter metadata for the
  *                                     CSF GPUs.
  * @info:           Non-NULL pointer to info struct.
@@ -283,13 +276,6 @@ int kbase_hwcnt_csf_metadata_create(const struct kbase_hwcnt_gpu_info *info,
 				    const struct kbase_hwcnt_metadata **out_metadata);
 
 /**
- * kbase_hwcnt_csf_metadata_destroy() - Destroy CSF GPU hardware counter
- *                                      metadata.
- * @metadata: Pointer to metadata to destroy.
- */
-void kbase_hwcnt_csf_metadata_destroy(const struct kbase_hwcnt_metadata *metadata);
-
-/**
  * kbase_hwcnt_jm_dump_get() - Copy or accumulate enabled counters from the raw
  *                             dump buffer in src into the dump buffer
  *                             abstraction in dst.
@@ -300,9 +286,6 @@ void kbase_hwcnt_csf_metadata_destroy(const struct kbase_hwcnt_metadata *metadat
  * @dst_enable_map:  Non-NULL pointer to enable map specifying enabled values.
  * @pm_core_mask:    PM state synchronized shaders core mask with the dump.
  * @debug_core_mask: User-set mask of cores to be used by the GPU.
- * @max_core_mask:   Core mask of all cores allocated to the GPU (non
- *                   virtualized platforms) or resource group (virtualized
- *                   platforms).
  * @max_l2_slices:   Maximum number of L2 slices allocated to the GPU (non
  *                   virtualised platforms) or resource group (virtualized
  *                   platforms).
@@ -319,9 +302,8 @@ void kbase_hwcnt_csf_metadata_destroy(const struct kbase_hwcnt_metadata *metadat
  */
 int kbase_hwcnt_jm_dump_get(struct kbase_hwcnt_dump_buffer *dst, u64 *src,
 			    const struct kbase_hwcnt_enable_map *dst_enable_map,
-			    const u64 pm_core_mask, u64 debug_core_mask, u64 max_core_mask,
-			    size_t max_l2_slices, const struct kbase_hwcnt_curr_config *curr_config,
-			    bool accumulate);
+			    const u64 pm_core_mask, u64 debug_core_mask, size_t max_l2_slices,
+			    const struct kbase_hwcnt_curr_config *curr_config, bool accumulate);
 
 /**
  * kbase_hwcnt_csf_dump_get() - Copy or accumulate enabled counters from the raw

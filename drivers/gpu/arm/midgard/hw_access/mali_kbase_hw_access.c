@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2023-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -24,8 +24,49 @@
 
 #include <mali_kbase.h>
 #include "mali_kbase_hw_access.h"
+#include "mali_kbase_hw_access_regmap.h"
 
 #include <uapi/gpu/arm/midgard/gpu/mali_kbase_gpu_id.h>
+
+#define KBASE_REGMAP_ACCESS_ALWAYS_POWERED (1U << 16)
+
+static u32 always_powered_regs[] = {
+#if MALI_USE_CSF
+#else /* MALI_USE_CSF */
+	PTM_AW_IRQ_CLEAR,
+	PTM_AW_IRQ_INJECTION,
+	PTM_AW_IRQ_MASK,
+	PTM_AW_IRQ_RAWSTAT,
+	PTM_AW_IRQ_STATUS,
+	PTM_AW_MESSAGE__PTM_INCOMING_MESSAGE0,
+	PTM_AW_MESSAGE__PTM_INCOMING_MESSAGE1,
+	PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE0,
+	PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE1,
+	PTM_AW_MESSAGE__PTM_OUTGOING_MESSAGE_STATUS,
+	PTM_ID,
+#endif /* MALI_USE_CSF */
+};
+
+static void kbasep_reg_setup_always_powered_registers(struct kbase_device *kbdev)
+{
+	u32 i;
+
+	for (i = 0; i < ARRAY_SIZE(always_powered_regs); i++) {
+		u32 reg_enum = always_powered_regs[i];
+
+		if (!kbase_reg_is_valid(kbdev, reg_enum))
+			continue;
+
+		kbdev->regmap.flags[reg_enum] |= KBASE_REGMAP_ACCESS_ALWAYS_POWERED;
+	}
+}
+
+bool kbase_reg_is_powered_access_allowed(struct kbase_device *kbdev, u32 reg_enum)
+{
+	if (kbdev->regmap.flags[reg_enum] & KBASE_REGMAP_ACCESS_ALWAYS_POWERED)
+		return true;
+	return kbdev->pm.backend.gpu_powered;
+}
 
 bool kbase_reg_is_size64(struct kbase_device *kbdev, u32 reg_enum)
 {
@@ -65,6 +106,11 @@ bool kbase_reg_is_accessible(struct kbase_device *kbdev, u32 reg_enum, u32 flags
 #endif
 
 	return true;
+}
+
+bool kbase_reg_is_init(struct kbase_device *kbdev)
+{
+	return (kbdev->regmap.regs != NULL) && (kbdev->regmap.flags != NULL);
 }
 
 int kbase_reg_get_offset(struct kbase_device *kbdev, u32 reg_enum, u32 *offset)
@@ -108,12 +154,12 @@ int kbase_regmap_init(struct kbase_device *kbdev)
 		return -ENOMEM;
 	}
 
+	kbasep_reg_setup_always_powered_registers(kbdev);
+
 	dev_info(kbdev->dev, "Register LUT %08x initialized for GPU arch 0x%08x\n", lut_arch_id,
 		 kbdev->gpu_props.gpu_id.arch_id);
 
-#if IS_ENABLED(CONFIG_MALI_64BIT_HW_ACCESS) && IS_ENABLED(CONFIG_MALI_REAL_HW)
-	dev_info(kbdev->dev, "64-bit HW access enabled\n");
-#endif
+
 	return 0;
 }
 

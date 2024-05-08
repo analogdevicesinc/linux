@@ -61,8 +61,7 @@
 	 BASEP_MEM_PERFORM_JIT_TRIM)
 
 /* A mask of all flags that should not be queried */
-#define BASE_MEM_DONT_QUERY \
-	(BASE_MEM_COHERENT_SYSTEM_REQUIRED | BASE_MEM_IMPORT_SHARED | BASE_MEM_SAME_VA)
+#define BASE_MEM_DONT_QUERY (BASE_MEM_COHERENT_SYSTEM_REQUIRED | BASE_MEM_IMPORT_SHARED)
 
 /* A mask of all currently reserved flags */
 #define BASE_MEM_FLAGS_RESERVED ((base_mem_alloc_flags)0)

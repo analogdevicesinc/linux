@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -332,7 +332,11 @@ union kbase_pm_policy_data {
  *                   cores may be different, but there should be transitions in
  *                   progress that will eventually achieve this state (assuming
  *                   that the policy doesn't change its mind in the mean time).
- * @mcu_desired: True if the micro-control unit should be powered on
+ * @mcu_desired: True if the micro-control unit should be powered on by the MCU state
+ *               machine. Updated as per the value of @mcu_poweron_required.
+ * @mcu_poweron_required: Boolean flag updated mainly by the CSF Scheduler code,
+ *                        before updating the PM active count, to indicate to the
+ *                        PM code that micro-control unit needs to be powered up/down.
  * @policy_change_clamp_state_to_off: Signaling the backend is in PM policy
  *                change transition, needs the mcu/L2 to be brought back to the
  *                off state and remain in that state until the flag is cleared.
@@ -485,6 +489,7 @@ struct kbase_pm_backend_data {
 	u64 shaders_desired_mask;
 #if MALI_USE_CSF
 	bool mcu_desired;
+	bool mcu_poweron_required;
 	bool policy_change_clamp_state_to_off;
 	unsigned int csf_pm_sched_flags;
 	struct mutex policy_change_lock;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2018-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -658,8 +658,8 @@ static int kbasep_hwcnt_backend_jm_dump_get(struct kbase_hwcnt_backend *backend,
 #endif /* CONFIG_MALI_NO_MALI */
 	errcode = kbase_hwcnt_jm_dump_get(dst, backend_jm->to_user_buf, dst_enable_map,
 					  backend_jm->pm_core_mask, backend_jm->debug_core_mask,
-					  backend_jm->max_core_mask, backend_jm->max_l2_slices,
-					  &backend_jm->curr_config, accumulate);
+					  backend_jm->max_l2_slices, &backend_jm->curr_config,
+					  accumulate);
 
 	if (errcode)
 		return errcode;
@@ -862,7 +862,7 @@ static void kbasep_hwcnt_backend_jm_info_destroy(const struct kbase_hwcnt_backen
 	if (!info)
 		return;
 
-	kbase_hwcnt_jm_metadata_destroy(info->metadata);
+	kbase_hwcnt_metadata_destroy(info->metadata);
 	kfree(info);
 }
 

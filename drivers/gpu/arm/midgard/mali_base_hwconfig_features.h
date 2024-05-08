@@ -27,6 +27,8 @@
 #ifndef _BASE_HWCONFIG_FEATURES_H_
 #define _BASE_HWCONFIG_FEATURES_H_
 
+#include <linux/version_compat_defs.h>
+
 enum base_hw_feature {
 	BASE_HW_FEATURE_FLUSH_REDUCTION,
 	BASE_HW_FEATURE_PROTECTED_DEBUG_MODE,
@@ -45,55 +47,55 @@ enum base_hw_feature {
 	BASE_HW_FEATURE_END
 };
 
-__attribute__((unused)) static const enum base_hw_feature base_hw_features_generic[] = {
+__maybe_unused static const enum base_hw_feature base_hw_features_generic[] = {
 	BASE_HW_FEATURE_END
 };
 
-__attribute__((unused)) static const enum base_hw_feature base_hw_features_tMIx[] = {
+__maybe_unused static const enum base_hw_feature base_hw_features_tMIx[] = {
 	BASE_HW_FEATURE_THREAD_GROUP_SPLIT, BASE_HW_FEATURE_FLUSH_REDUCTION, BASE_HW_FEATURE_END
 };
 
-__attribute__((unused)) static const enum base_hw_feature base_hw_features_tHEx[] = {
+__maybe_unused static const enum base_hw_feature base_hw_features_tHEx[] = {
 	BASE_HW_FEATURE_THREAD_GROUP_SPLIT, BASE_HW_FEATURE_FLUSH_REDUCTION,
 	BASE_HW_FEATURE_PROTECTED_DEBUG_MODE, BASE_HW_FEATURE_END
 };
 
-__attribute__((unused)) static const enum base_hw_feature base_hw_features_tSIx[] = {
+__maybe_unused static const enum base_hw_feature base_hw_features_tSIx[] = {
 	BASE_HW_FEATURE_THREAD_GROUP_SPLIT, BASE_HW_FEATURE_FLUSH_REDUCTION,
 	BASE_HW_FEATURE_PROTECTED_DEBUG_MODE, BASE_HW_FEATURE_END
 };
 
-__attribute__((unused)) static const enum base_hw_feature base_hw_features_tDVx[] = {
+__maybe_unused static const enum base_hw_feature base_hw_features_tDVx[] = {
 	BASE_HW_FEATURE_THREAD_GROUP_SPLIT, BASE_HW_FEATURE_FLUSH_REDUCTION,
 	BASE_HW_FEATURE_PROTECTED_DEBUG_MODE, BASE_HW_FEATURE_END
 };
 
-__attribute__((unused)) static const enum base_hw_feature base_hw_features_tNOx[] = {
+__maybe_unused static const enum base_hw_feature base_hw_features_tNOx[] = {
 	BASE_HW_FEATURE_THREAD_GROUP_SPLIT,   BASE_HW_FEATURE_FLUSH_REDUCTION,
 	BASE_HW_FEATURE_PROTECTED_DEBUG_MODE, BASE_HW_FEATURE_TLS_HASHING,
 	BASE_HW_FEATURE_IDVS_GROUP_SIZE,      BASE_HW_FEATURE_END
 };
 
-__attribute__((unused)) static const enum base_hw_feature base_hw_features_tGOx[] = {
+__maybe_unused static const enum base_hw_feature base_hw_features_tGOx[] = {
 	BASE_HW_FEATURE_THREAD_GROUP_SPLIT,   BASE_HW_FEATURE_FLUSH_REDUCTION,
 	BASE_HW_FEATURE_PROTECTED_DEBUG_MODE, BASE_HW_FEATURE_TLS_HASHING,
 	BASE_HW_FEATURE_IDVS_GROUP_SIZE,      BASE_HW_FEATURE_CORE_FEATURES,
 	BASE_HW_FEATURE_THREAD_TLS_ALLOC,     BASE_HW_FEATURE_END
 };
 
-__attribute__((unused)) static const enum base_hw_feature base_hw_features_tTRx[] = {
+__maybe_unused static const enum base_hw_feature base_hw_features_tTRx[] = {
 	BASE_HW_FEATURE_FLUSH_REDUCTION,	BASE_HW_FEATURE_PROTECTED_DEBUG_MODE,
 	BASE_HW_FEATURE_IDVS_GROUP_SIZE,	BASE_HW_FEATURE_CLEAN_ONLY_SAFE,
 	BASE_HW_FEATURE_FLUSH_INV_SHADER_OTHER, BASE_HW_FEATURE_END
 };
 
-__attribute__((unused)) static const enum base_hw_feature base_hw_features_tNAx[] = {
+__maybe_unused static const enum base_hw_feature base_hw_features_tNAx[] = {
 	BASE_HW_FEATURE_FLUSH_REDUCTION,	BASE_HW_FEATURE_PROTECTED_DEBUG_MODE,
 	BASE_HW_FEATURE_IDVS_GROUP_SIZE,	BASE_HW_FEATURE_CLEAN_ONLY_SAFE,
 	BASE_HW_FEATURE_FLUSH_INV_SHADER_OTHER, BASE_HW_FEATURE_END
 };
 
-__attribute__((unused)) static const enum base_hw_feature base_hw_features_tBEx[] = {
+__maybe_unused static const enum base_hw_feature base_hw_features_tBEx[] = {
 	BASE_HW_FEATURE_FLUSH_REDUCTION,
 	BASE_HW_FEATURE_PROTECTED_DEBUG_MODE,
 	BASE_HW_FEATURE_IDVS_GROUP_SIZE,
@@ -103,7 +105,7 @@ __attribute__((unused)) static const enum base_hw_feature base_hw_features_tBEx[
 	BASE_HW_FEATURE_END
 };
 
-__attribute__((unused)) static const enum base_hw_feature base_hw_features_tBAx[] = {
+__maybe_unused static const enum base_hw_feature base_hw_features_tBAx[] = {
 	BASE_HW_FEATURE_FLUSH_REDUCTION,
 	BASE_HW_FEATURE_PROTECTED_DEBUG_MODE,
 	BASE_HW_FEATURE_IDVS_GROUP_SIZE,
@@ -113,31 +115,31 @@ __attribute__((unused)) static const enum base_hw_feature base_hw_features_tBAx[
 	BASE_HW_FEATURE_END
 };
 
-__attribute__((unused)) static const enum base_hw_feature base_hw_features_tODx[] = {
+__maybe_unused static const enum base_hw_feature base_hw_features_tODx[] = {
 	BASE_HW_FEATURE_FLUSH_REDUCTION, BASE_HW_FEATURE_PROTECTED_DEBUG_MODE,
 	BASE_HW_FEATURE_L2_CONFIG, BASE_HW_FEATURE_CLEAN_ONLY_SAFE, BASE_HW_FEATURE_END
 };
 
-__attribute__((unused)) static const enum base_hw_feature base_hw_features_tGRx[] = {
+__maybe_unused static const enum base_hw_feature base_hw_features_tGRx[] = {
 	BASE_HW_FEATURE_FLUSH_REDUCTION, BASE_HW_FEATURE_PROTECTED_DEBUG_MODE,
 	BASE_HW_FEATURE_L2_CONFIG,	 BASE_HW_FEATURE_CLEAN_ONLY_SAFE,
 	BASE_HW_FEATURE_CORE_FEATURES,	 BASE_HW_FEATURE_END
 };
 
-__attribute__((unused)) static const enum base_hw_feature base_hw_features_tVAx[] = {
+__maybe_unused static const enum base_hw_feature base_hw_features_tVAx[] = {
 	BASE_HW_FEATURE_FLUSH_REDUCTION, BASE_HW_FEATURE_PROTECTED_DEBUG_MODE,
 	BASE_HW_FEATURE_L2_CONFIG,	 BASE_HW_FEATURE_CLEAN_ONLY_SAFE,
 	BASE_HW_FEATURE_CORE_FEATURES,	 BASE_HW_FEATURE_END
 };
 
-__attribute__((unused)) static const enum base_hw_feature base_hw_features_tTUx[] = {
+__maybe_unused static const enum base_hw_feature base_hw_features_tTUx[] = {
 	BASE_HW_FEATURE_FLUSH_REDUCTION, BASE_HW_FEATURE_PROTECTED_DEBUG_MODE,
 	BASE_HW_FEATURE_L2_CONFIG,	 BASE_HW_FEATURE_CLEAN_ONLY_SAFE,
 	BASE_HW_FEATURE_L2_SLICE_HASH,	 BASE_HW_FEATURE_GPU_SLEEP,
 	BASE_HW_FEATURE_CORE_FEATURES,	 BASE_HW_FEATURE_END
 };
 
-__attribute__((unused)) static const enum base_hw_feature base_hw_features_tTIx[] = {
+__maybe_unused static const enum base_hw_feature base_hw_features_tTIx[] = {
 	BASE_HW_FEATURE_FLUSH_REDUCTION,
 	BASE_HW_FEATURE_PROTECTED_DEBUG_MODE,
 	BASE_HW_FEATURE_L2_CONFIG,
@@ -149,7 +151,7 @@ __attribute__((unused)) static const enum base_hw_feature base_hw_features_tTIx[
 	BASE_HW_FEATURE_END
 };
 
-__attribute__((unused)) static const enum base_hw_feature base_hw_features_tKRx[] = {
+__maybe_unused static const enum base_hw_feature base_hw_features_tKRx[] = {
 	BASE_HW_FEATURE_FLUSH_REDUCTION,  BASE_HW_FEATURE_PROTECTED_DEBUG_MODE,
 	BASE_HW_FEATURE_L2_CONFIG,	  BASE_HW_FEATURE_CLEAN_ONLY_SAFE,
 	BASE_HW_FEATURE_L2_SLICE_HASH,	  BASE_HW_FEATURE_GPU_SLEEP,

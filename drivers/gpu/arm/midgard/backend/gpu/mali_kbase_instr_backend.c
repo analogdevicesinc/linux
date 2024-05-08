@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -28,6 +28,8 @@
 #include <mali_kbase_hwaccess_instr.h>
 #include <device/mali_kbase_device.h>
 #include <backend/gpu/mali_kbase_instr_internal.h>
+
+#define WAIT_FOR_DUMP_TIMEOUT_MS 5000
 
 static int wait_prfcnt_ready(struct kbase_device *kbdev)
 {
@@ -163,6 +165,7 @@ int kbase_instr_hwcnt_disable_internal(struct kbase_context *kctx)
 {
 	unsigned long flags, pm_flags;
 	struct kbase_device *kbdev = kctx->kbdev;
+	const unsigned long timeout = msecs_to_jiffies(WAIT_FOR_DUMP_TIMEOUT_MS);
 
 	while (1) {
 		spin_lock_irqsave(&kbdev->hwaccess_lock, pm_flags);
@@ -199,7 +202,8 @@ int kbase_instr_hwcnt_disable_internal(struct kbase_context *kctx)
 		spin_unlock_irqrestore(&kbdev->hwaccess_lock, pm_flags);
 
 		/* Ongoing dump/setup - wait for its completion */
-		wait_event(kbdev->hwcnt.backend.wait, kbdev->hwcnt.backend.triggered != 0);
+		wait_event_timeout(kbdev->hwcnt.backend.wait, kbdev->hwcnt.backend.triggered != 0,
+				   timeout);
 	}
 
 	kbdev->hwcnt.backend.state = KBASE_INSTR_STATE_DISABLED;
@@ -319,8 +323,19 @@ int kbase_instr_hwcnt_wait_for_dump(struct kbase_context *kctx)
 	unsigned long flags;
 	int err;
 
+	unsigned long remaining;
+	const unsigned long timeout = msecs_to_jiffies(WAIT_FOR_DUMP_TIMEOUT_MS);
+
 	/* Wait for dump & cache clean to complete */
-	wait_event(kbdev->hwcnt.backend.wait, kbdev->hwcnt.backend.triggered != 0);
+	remaining = wait_event_timeout(kbdev->hwcnt.backend.wait,
+				       kbdev->hwcnt.backend.triggered != 0, timeout);
+	if (remaining == 0) {
+		err = -ETIME;
+		/* Set the backend state so it's clear things have gone bad (could be a HW issue)
+		 */
+		kbdev->hwcnt.backend.state = KBASE_INSTR_STATE_UNRECOVERABLE_ERROR;
+		goto timed_out;
+	}
 
 	spin_lock_irqsave(&kbdev->hwcnt.lock, flags);
 
@@ -336,7 +351,7 @@ int kbase_instr_hwcnt_wait_for_dump(struct kbase_context *kctx)
 	}
 
 	spin_unlock_irqrestore(&kbdev->hwcnt.lock, flags);
-
+timed_out:
 	return err;
 }
 
