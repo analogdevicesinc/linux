@@ -39,6 +39,25 @@
 		status = "disabled";
 	};
 
+	pciea_ep: pcie-ep@5f000000 {
+		compatible = "fsl,imx8q-pcie-ep";
+		reg = <0x5f000000 0x00010000>,
+		      <0x60000000 0x10000000>;
+		reg-names = "dbi", "addr_space";
+		num-lanes = <1>;
+		interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "dma";
+		clocks = <&pciea_lpcg 2>,
+			 <&pciea_lpcg 0>,
+			 <&pciea_lpcg 1>;
+		clock-names = "dbi", "mstr", "slv";
+		power-domains = <&pd IMX_SC_R_PCIE_A>;
+		fsl,max-link-speed = <3>;
+		num-ib-windows = <6>;
+		num-ob-windows = <6>;
+		status = "disabled";
+	};
+
 	pcieb: pcie@5f010000 {
 		compatible = "fsl,imx8q-pcie","snps,dw-pcie";
 		reg = <0x5f010000 0x10000>, /* Controller reg */
