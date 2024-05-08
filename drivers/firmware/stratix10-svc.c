@@ -1684,7 +1684,9 @@ int stratix10_svc_send(struct stratix10_svc_chan *chan, void *msg)
 				list_for_each_entry(p_mem, &svc_data_mem, node)
 					if (p_mem->vaddr == p_msg->payload_output) {
 						p_data->paddr_output =
-							p_mem->paddr;
+							(p_msg->command == COMMAND_MBOX_SEND_CMD
+							&& chan->ctrl->is_smmu_enabled) ?
+							virt_to_phys(p_mem->vaddr) : p_mem->paddr;
 						p_data->size_output =
 							p_msg->payload_length_output;
 						break;
