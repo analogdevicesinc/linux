@@ -978,6 +978,12 @@ static bool lynx_28g_cdr_lock_check(struct lynx_28g_lane *lane)
 	if (rrstctl & LYNX_28G_LNaRRSTCTL_CDR_LOCK)
 		return true;
 
+	/* Omit resetting the receiver unless the lane is up. Otherwise,
+	 * if powered down, it won't complete the operation.
+	 */
+	if (!lane->init || !lane->powered_up)
+		return false;
+
 	dev_dbg(&lane->phy->dev, "CDR unlocked, resetting lane receiver...\n");
 
 	lynx_28g_lane_rmw(lane, LNaRRSTCTL,
