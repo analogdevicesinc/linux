@@ -1,0 +1,45 @@
+// SPDX-License-Identifier:     GPL-2.0
+/*
+ * Copyright (C) 2023, Intel Corporation
+ */
+#include "socfpga_agilex5_socdk.dts"
+
+/ {
+	model = "SoCFPGA Agilex5 SoCDK - debug daughter card";
+	compatible = "intel,socfpga-agilex5-socdk", "intel,socfpga-agilex";
+
+	leds {
+		hps0 {
+			label = "hps_led0";
+			gpios = <&portb 12 GPIO_ACTIVE_HIGH>;
+		};
+		hps1 {
+			status = "disabled";
+		};
+	};
+};
+
+&gpio0 {
+	status = "disabled";
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&gmac0 {
+	status = "okay";
+};
+
+&gmac2 {
+	status = "disabled";
+};
+
+&spi0 {
+	status= "okay";
+	spidev@0{
+		compatible = "rohm,dh2228fv";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+	};
+};
