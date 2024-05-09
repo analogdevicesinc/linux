@@ -65,7 +65,7 @@
 		compatible = "gpio-mux";
 		#mux-control-cells = <0>;
 
-		mux-gpios = <&gpio_expander 0 0>;
+		mux-gpios = <&gpio_expander 0 1>;
 	};
 
 	/* gpio_sw5 */
@@ -167,7 +167,7 @@
 		clock-output-names = "clk-mux-out-siglo";
 
 		mux-controls = <&mux4>;
-		mux-state-names = "rf8", "rf16";
+		mux-state-names = "rf8", "rf16"; /* Inverted */
 		label = "mux-adf4371-siglo";
 	};
 
@@ -187,7 +187,7 @@
 		compatible = "adi,gen_mux";
 		mux-controls = <&mux0>;
 		mux-state-names =
-			"rf_dac0_direct", "j7_in", "upconv", "disabled";
+			"upconv", "rf_dac0_direct", "disabled", "j7_in";
 		label = "mux-freq-src-sel";
 	};
 
@@ -208,7 +208,7 @@
 	freq_src_mux3: mux-dac0-freq-src-sel {
 		compatible = "adi,gen_mux";
 		mux-controls = <&mux9>;
-		mux-state-names = "rf_if_dac0", "rf_dac0_direct";
+		mux-state-names = "rf_dac0_direct", "rf_if_dac0";
 		label = "mux-dac0-rfout";
 	};
 
@@ -222,7 +222,7 @@
 	freq_src_mux5: mux-dac-sw3-freq-src-sel {
 		compatible = "adi,gen_mux";
 		mux-controls = <&mux11>;
-		mux-state-names = "rf-dac02-out ", "rf-dac0-out";
+		mux-state-names = "rf-dac02-out", "rf-dac0-out";
 		label = "mux-rf-dac-sw3-in";
 	};
 
