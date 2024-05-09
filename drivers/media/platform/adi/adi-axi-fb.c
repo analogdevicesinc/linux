@@ -13,8 +13,9 @@
 #include <linux/fpga/adi-axi-common.h>
 
 /* DMA defines */
-#define DMAC_REG_CTRL				0x400
-#define DMAC_REG_START_TRANSFER			0x408
+#define DMAC_REG_SCRATCH			0x008
+#define DMAC_REG_CONTROL			0x400
+#define DMAC_REG_TRANSFER_SUBMIT		0x408
 #define DMAC_REG_FLAGS				0x40c
 #define DMAC_REG_DEST_ADDRESS			0x410
 #define DMAC_REG_SRC_ADDRESS			0x414
@@ -22,19 +23,19 @@
 #define DMAC_REG_Y_LENGTH			0x41c
 #define DMAC_REG_DEST_STRIDE			0x420
 #define DMAC_REG_SRC_STRIDE			0x424
-#define DMAC_REG_FRAME_LOCK_CONFIG		0x454
-#define DMAC_REG_FRAME_LOCK_STRIDE		0x458
+#define DMAC_REG_FRAMELOCK_CONFIG		0x458
+#define DMAC_REG_FRAMELOCK_STRIDE		0x45c
 
 #define DMAC_CTRL_ENABLE			BIT(0)
+#define DMAC_CTRL_FLOCK				BIT(3)
 #define DMAC_TRANSFER_SUBMIT			BIT(0)
-#define DMAC_FLOCK_WAIT_WRITER			BIT(9)
+#define DMAC_FLOCK_WAIT_WRITER			BIT(1)
 
 #define DMAC_FLAGS_CYCLIC			BIT(0)
 #define DMAC_FLAGS_TLAST			BIT(1)
-#define DMAC_FLAGS_FLOCK			BIT(3)
 
-#define DMAC_DEFAULT_FLAGS (DMAC_FLAGS_FLOCK | DMAC_FLAGS_CYCLIC | \
-			    DMAC_FLAGS_TLAST)
+#define DMAC_DEFAULT_CTRL (DMAC_CTRL_FLOCK | DMAC_CTRL_ENABLE)
+#define DMAC_DEFAULT_FLAGS (DMAC_FLAGS_TLAST | DMAC_FLAGS_CYCLIC)
 
 struct hdl_subdev {
 	void __iomem *tx_dma_regs;
@@ -92,39 +93,56 @@ static void adi_fb_init(struct frame_buffer *buff, int dma_dir)
 		base_addr = buff->hdl_subdev.rx_dma_regs;
 		dir = DMAC_REG_DEST_ADDRESS;
 		stride = DMAC_REG_DEST_STRIDE;
-		flock_cfg = ((buff->distance) << 16) | ((buff->mode) << 8) |
-			    (buff->num_frames);
+		flock_cfg = ((buff->distance) << 16) | ((buff->num_frames) << 8) |
+			    (buff->mode);
 	} else {
 		base_addr = buff->hdl_subdev.tx_dma_regs;
 		dir = DMAC_REG_SRC_ADDRESS;
 		stride = DMAC_REG_SRC_STRIDE;
-		flock_cfg = ((buff->distance) << 16) | ((buff->mode) << 8) |
-			    DMAC_FLOCK_WAIT_WRITER | (buff->num_frames);
+		flock_cfg = ((buff->distance) << 16) | ((buff->num_frames) << 8) |
+			    DMAC_FLOCK_WAIT_WRITER | (buff->mode);
 	}
 
 	/* reset DMAC */
-	adi_fb_reg_clr(base_addr, DMAC_REG_CTRL, DMAC_CTRL_ENABLE);
+	adi_fb_reg_clr(base_addr, DMAC_REG_CONTROL, DMAC_CTRL_ENABLE);
+
+	/* Test scratch */
+	printk("framelock: scratch: %x %x", adi_fb_reg_read(base_addr, DMAC_REG_SCRATCH), dma_dir);
+	adi_fb_reg_write(base_addr, DMAC_REG_SCRATCH, 0xDEADBEEF);
+	printk("framelock: scratch: %x %x", adi_fb_reg_read(base_addr, DMAC_REG_SCRATCH), dma_dir);
 
 	/* Init DMAC */
-	adi_fb_reg_set(base_addr, DMAC_REG_CTRL, DMAC_CTRL_ENABLE);
+	printk("framelock: flags: %x", DMAC_DEFAULT_FLAGS);
 	adi_fb_reg_write(base_addr, DMAC_REG_FLAGS, DMAC_DEFAULT_FLAGS);
+	printk("framelock: control: %x", DMAC_DEFAULT_CTRL);
+	adi_fb_reg_set(base_addr, DMAC_REG_CONTROL, DMAC_DEFAULT_CTRL);
 
+	if (dma_dir == RX_DMA) {
+		printk("framelock: src_addr: %x", buff->video_ram_buf.start);
+	} else {
+		printk("framelock: dst_addr: %x", buff->video_ram_buf.start);
+	}
 	adi_fb_reg_write(base_addr, dir, buff->video_ram_buf.start);
 	/* h size */
+	printk("framelock: x-length: %x", ((buff->resolution[0] * buff->dwidth) - 1));
 	adi_fb_reg_write(base_addr, DMAC_REG_X_LENGTH,
 			 ((buff->resolution[0] * buff->dwidth) - 1));
 	/* h offset */
+	printk("framelock: h-offset: %x", buff->line_stride);
 	adi_fb_reg_write(base_addr, stride, buff->line_stride);
 	/* v size */
+	printk("framelock: y-length: %x", (buff->resolution[1] - 1));
 	adi_fb_reg_write(base_addr, DMAC_REG_Y_LENGTH,
 			 (buff->resolution[1] - 1));
 
-	adi_fb_reg_write(base_addr, DMAC_REG_FRAME_LOCK_CONFIG, flock_cfg);
+	printk("framelock: flock config: %x", flock_cfg);
+	adi_fb_reg_write(base_addr, DMAC_REG_FRAMELOCK_CONFIG, flock_cfg);
 	/* total active */
-	adi_fb_reg_write(base_addr, DMAC_REG_FRAME_LOCK_STRIDE,
+	printk("framelock: stride: %x", buff->frame_stride);
+	adi_fb_reg_write(base_addr, DMAC_REG_FRAMELOCK_STRIDE,
 			buff->frame_stride);
 	/* submit transfer */
-	adi_fb_reg_set(base_addr, DMAC_REG_START_TRANSFER,
+	adi_fb_reg_set(base_addr, DMAC_REG_TRANSFER_SUBMIT,
 		       DMAC_TRANSFER_SUBMIT);
 }
 
@@ -142,6 +160,8 @@ static int frame_buffer_probe(struct platform_device *pdev)
 	struct resource *res;
 	int ret;
 	u32 tmp;
+
+	printk("framelock: probe start");
 
 	frm_buff = devm_kzalloc(&pdev->dev, sizeof(struct frame_buffer),
 				GFP_KERNEL);
@@ -291,6 +311,7 @@ static int frame_buffer_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
+	printk("framelock: probe end");
 	return 0;
 }
 
