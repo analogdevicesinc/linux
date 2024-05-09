@@ -52,8 +52,8 @@
 #define FPGA_CONFIG_POLL_COUNT_FAST		50
 #define FPGA_CONFIG_POLL_COUNT_SLOW		58
 #define AGILEX5_SDM_DMA_ADDR_OFFSET		0x80000000
-#define BYTE_TO_WORD_SIZE              4
-#define IOMMU_LIMIT_ADDR 			0x20000000
+#define BYTE_TO_WORD_SIZE				4
+#define IOMMU_LIMIT_ADDR			0x20000000
 #define IOMMU_STARTING_ADDR			0x0
 
 /* stratix10 service layer clients */
@@ -1777,17 +1777,18 @@ void *stratix10_svc_allocate_memory(struct stratix10_svc_chan *chan,
 	if (!pmem)
 		return ERR_PTR(-ENOMEM);
 
-	if(chan->ctrl->is_smmu_enabled == true) {
+	if (chan->ctrl->is_smmu_enabled == true) {
 		s = PAGE_ALIGN(size);
 		va = (void *)__get_free_pages(GFP_KERNEL | __GFP_ZERO | __GFP_DMA, get_order(s));
 		if (!va) {
-			pr_debug("%s get_free_pages_failes\n",__func__);
+			pr_debug("%s get_free_pages_failes\n", __func__);
 			return ERR_PTR(-ENOMEM);
 		}
 
 		alloc = alloc_iova(&chan->ctrl->carveout.domain,
-					s >> chan->ctrl->carveout.shift ,
-					chan->ctrl->carveout.limit >> chan->ctrl->carveout.shift , true);
+					s >> chan->ctrl->carveout.shift,
+					chan->ctrl->carveout.limit >> chan->ctrl->carveout.shift,
+					true);
 
 		dma_addr = iova_dma_addr(&chan->ctrl->carveout.domain, alloc);
 
@@ -1795,9 +1796,10 @@ void *stratix10_svc_allocate_memory(struct stratix10_svc_chan *chan,
 				s, IOMMU_READ | IOMMU_WRITE | IOMMU_MMIO | IOMMU_CACHE,
 				GFP_KERNEL);
 		if (ret < 0) {
-			pr_debug("%s IOMMU map failed\n",__func__);
+			pr_debug("%s IOMMU map failed\n", __func__);
 			free_iova(&chan->ctrl->carveout.domain,
-					iova_pfn(&chan->ctrl->carveout.domain, dma_addr));
+						iova_pfn(&chan->ctrl->carveout.domain,
+									dma_addr));
 			free_pages((unsigned long)va, get_order(size));
 			return ERR_PTR(-ENOMEM);
 		}
@@ -1841,9 +1843,11 @@ void stratix10_svc_free_memory(struct stratix10_svc_chan *chan, void *kaddr)
 
 	list_for_each_entry(pmem, &svc_data_mem, node)
 		if (pmem->vaddr == kaddr) {
-			if(chan->ctrl->is_smmu_enabled) {
+			if (chan->ctrl->is_smmu_enabled) {
 				iommu_unmap(chan->ctrl->domain, pmem->paddr, pmem->size);
-				free_iova(&chan->ctrl->carveout.domain, iova_pfn(&chan->ctrl->carveout.domain, pmem->paddr));
+				free_iova(&chan->ctrl->carveout.domain,
+							iova_pfn(&chan->ctrl->carveout.domain,
+										pmem->paddr));
 				free_pages((unsigned long)pmem->vaddr, get_order(pmem->size));
 			} else {
 				gen_pool_free(chan->ctrl->genpool,
@@ -2061,7 +2065,7 @@ static int stratix10_svc_drv_remove(struct platform_device *pdev)
 	struct stratix10_svc_controller *ctrl = platform_get_drvdata(pdev);
 	struct stratix10_svc *svc = ctrl->svc;
 
-	if(ctrl->domain) {
+	if (ctrl->domain) {
 		put_iova_domain(&ctrl->carveout.domain);
 		iova_cache_put();
 		iommu_detach_device(ctrl->domain, &pdev->dev);
