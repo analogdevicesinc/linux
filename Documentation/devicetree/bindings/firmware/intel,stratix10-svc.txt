@@ -32,6 +32,13 @@ the firmware node.
 	Documentation/devicetree/bindings/reserved-memory/reserved-memory.txt
 	for details
 
+Optional properties:
+-------------------
+The svc node has the following optional properties, must be located under
+the firmware node.
+
+- altr,smmu_enable_quirk: set when SMMU is enabled for the platform.
+
 Example:
 -------
 
