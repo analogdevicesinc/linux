@@ -6,6 +6,7 @@ dtb-$(CONFIG_ARCH_INTEL_SOCFPGA) += socfpga_agilex_n6000.dtb \
 				socfpga_agilex_n6010.dtb \
 				socfpga_agilex5_socdk.dtb \
 				socfpga_agilex5_socdk_debug.dtb \
+				socfpga_agilex5_socdk_emmc.dtb \
 				socfpga_agilex5_socdk_nand.dtb \
 				socfpga_agilex5_socdk_swvp.dtb \
 				socfpga_agilex7m_socdk.dtb \
