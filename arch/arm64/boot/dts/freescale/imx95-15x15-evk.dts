@@ -5,6 +5,7 @@
 
 /dts-v1/;
 
+#include <dt-bindings/leds/common.h>
 #include <dt-bindings/phy/phy-imx8-pcie.h>
 #include <dt-bindings/pwm/pwm.h>
 #include <dt-bindings/usb/pd.h>
@@ -406,11 +407,20 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 		reg = <0x62>;
+		nxp,inverted-out;
 
-		led_baclklight: led@0 {
-			label = "backlight";
+		led_backlight0: led@0 {
 			reg = <0>;
-			linux,default-trigger = "none";
+			function = LED_FUNCTION_BACKLIGHT;
+			color = <LED_COLOR_ID_WHITE>;
+			function-enumerator = <0>;
+		};
+
+		led_backlight1: led@1 {
+			reg = <1>;
+			function = LED_FUNCTION_BACKLIGHT;
+			color = <LED_COLOR_ID_WHITE>;
+			function-enumerator = <1>;
 		};
 	};
 };
