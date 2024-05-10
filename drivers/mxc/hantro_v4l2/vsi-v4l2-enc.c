@@ -87,7 +87,7 @@ static int vsi_enc_reqbufs(
 	if (!binputqueue(p->type) && p->count == 0)
 		set_bit(CTX_FLAG_ENC_FLUSHBUF, &ctx->flag);
 	v4l2_klog(LOGLVL_BRIEF, "%llx:%s:%d ask for %d buffer, got %d:%d:%d",
-		ctx->ctxid, __func__, p->type, p->count, q->num_buffers, ret, ctx->status);
+		ctx->ctxid, __func__, p->type, p->count, vb2_get_num_buffers(q), ret, ctx->status);
 	return ret;
 }
 
@@ -114,7 +114,7 @@ static int vsi_enc_create_bufs(struct file *filp, void *priv,
 		set_bit(CTX_FLAG_ENC_FLUSHBUF, &ctx->flag);
 	v4l2_klog(LOGLVL_BRIEF, "%llx:%s:%d create for %d buffer, got %d:%d:%d\n",
 		ctx->ctxid, __func__, create->format.type, create->count,
-		q->num_buffers, ret, ctx->status);
+		vb2_get_num_buffers(q), ret, ctx->status);
 	return ret;
 }
 

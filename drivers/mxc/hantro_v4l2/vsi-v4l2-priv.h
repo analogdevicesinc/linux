@@ -542,7 +542,7 @@ static inline void printbufinfo(struct vb2_queue *vq)
 	struct vsi_v4l2_ctx *ctx = fh_to_ctx(vq->drv_priv);
 
 	v4l2_klog(LOGLVL_VERBOSE, "#################################################");
-	v4l2_klog(LOGLVL_VERBOSE, "que has %d vb2 buffers, que count = %d", vq->num_buffers, vq->queued_count);
+	v4l2_klog(LOGLVL_VERBOSE, "que has %d vb2 buffers, que count = %d", vb2_get_num_buffers(vq), vq->queued_count);
 	v4l2_klog(LOGLVL_VERBOSE, "input_list:");
 	if (!list_empty(&ctx->input_list)) {
 		list_for_each_entry_safe(buf, node, &ctx->input_list, list) {
@@ -582,7 +582,7 @@ static inline void return_all_buffers(struct vb2_queue *vq, int status, int bRel
 	else
 		plist = &ctx->output_list;
 
-	for (i = 0; i < vq->num_buffers; ++i) {
+	for (i = 0; i < vb2_get_num_buffers(vq); ++i) {
 		if (vq->bufs[i]->state == VB2_BUF_STATE_ACTIVE) {
 			v4l2_klog(LOGLVL_FLOW, "return buffer %d", i);
 			vb2_buffer_done(vq->bufs[i], status);
@@ -602,8 +602,8 @@ static inline void print_queinfo(struct vb2_queue *q)
 {
 	int i, k;
 
-	v4l2_klog(LOGLVL_VERBOSE, "got %d buffer", q->num_buffers);
-	for (i = 0; i < q->num_buffers; i++) {
+	v4l2_klog(LOGLVL_VERBOSE, "got %d buffer", vb2_get_num_buffers(q));
+	for (i = 0; i < vb2_get_num_buffers(q); i++) {
 		struct vb2_buffer	*buf = q->bufs[i];
 
 		v4l2_klog(LOGLVL_VERBOSE, "buf %d%p has %d planes", i, buf, buf->num_planes);

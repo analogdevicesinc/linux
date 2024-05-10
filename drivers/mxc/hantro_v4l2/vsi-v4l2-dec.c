@@ -84,7 +84,7 @@ static int vsi_dec_reqbufs(
 		q = &ctx->output_que;
 	ret = vb2_reqbufs(q, p);
 	v4l2_klog(LOGLVL_CONFIG, "%llx:%s:%d ask for %d buffer, got %d:%d",
-		ctx->ctxid, __func__, p->type, p->count, q->num_buffers, ret);
+		ctx->ctxid, __func__, p->type, p->count, vb2_get_num_buffers(q), ret);
 	if (ret == 0) {
 		print_queinfo(q);
 		if (p->count == 0 && binputqueue(p->type)) {

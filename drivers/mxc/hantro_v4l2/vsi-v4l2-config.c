@@ -2106,11 +2106,11 @@ int vsiv4l2_buffer_config(
 		sizes[i] = get_plane_size(psize, i, planes);
 
 	if (isencoder(ctx)) {
-		if (*nbuffers + vq->num_buffers < ctx->mediacfg.encparams.specific.enc_h26x_cmd.gopSize)
-			*nbuffers = ctx->mediacfg.encparams.specific.enc_h26x_cmd.gopSize - vq->num_buffers;
+		if (*nbuffers + vb2_get_num_buffers(vq) < ctx->mediacfg.encparams.specific.enc_h26x_cmd.gopSize)
+			*nbuffers = ctx->mediacfg.encparams.specific.enc_h26x_cmd.gopSize - vb2_get_num_buffers(vq);
 	} else {
-		if (!binputqueue(vq->type) && *nbuffers + vq->num_buffers < ctx->mediacfg.minbuf_4capture)
-			*nbuffers = ctx->mediacfg.minbuf_4capture - vq->num_buffers;
+		if (!binputqueue(vq->type) && *nbuffers + vb2_get_num_buffers(vq) < ctx->mediacfg.minbuf_4capture)
+			*nbuffers = ctx->mediacfg.minbuf_4capture - vb2_get_num_buffers(vq);
 	}
 
 	v4l2_klog(LOGLVL_BRIEF, "%llx:%d::%s:%d:%d:%d:%d:%d", ctx->ctxid, vq->type, __func__,

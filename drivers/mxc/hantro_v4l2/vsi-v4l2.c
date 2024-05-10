@@ -568,7 +568,7 @@ int vsi_v4l2_bufferdone(struct vsi_v4l2_msg *pmsg)
 	v4l2_klog(LOGLVL_FLOW, "%llx:%s:%lx:%d:%d",
 		ctx->ctxid, __func__, ctx->flag, inbufidx, outbufidx);
 	//write comes over once, so avoid this problem.
-	if (inbufidx >= 0 && inbufidx < ctx->input_que.num_buffers) {
+	if (inbufidx >= 0 && inbufidx < vb2_get_num_buffers(&ctx->input_que)) {
 		if (mutex_lock_interruptible(&ctx->ctxlock)) {
 			ret = -EBUSY;
 			goto out;
@@ -578,7 +578,7 @@ int vsi_v4l2_bufferdone(struct vsi_v4l2_msg *pmsg)
 		if (!vb) {
 			v4l2_klog(LOGLVL_ERROR, "%llx:%s:%lx:%d:%d, input vb is NULL pointer\n",
 				  ctx->ctxid, __func__, ctx->flag, inbufidx,
-				  ctx->input_que.num_buffers);
+				  vb2_get_num_buffers(&ctx->input_que));
 			mutex_unlock(&ctx->ctxlock);
 			goto out;
 		}
@@ -604,7 +604,7 @@ int vsi_v4l2_bufferdone(struct vsi_v4l2_msg *pmsg)
 		}
 		mutex_unlock(&ctx->ctxlock);
 	}
-	if (outbufidx >= 0 && outbufidx < ctx->output_que.num_buffers) {
+	if (outbufidx >= 0 && outbufidx < vb2_get_num_buffers(&ctx->output_que)) {
 		if (mutex_lock_interruptible(&ctx->ctxlock)) {
 			ret = -EBUSY;
 			goto out;
@@ -622,7 +622,7 @@ int vsi_v4l2_bufferdone(struct vsi_v4l2_msg *pmsg)
 		if (!vb) {
 			v4l2_klog(LOGLVL_ERROR, "%llx:%s:%lx:%d:%d, output vb is NULL pointer\n",
 				  ctx->ctxid, __func__, ctx->flag, outbufidx,
-				  ctx->output_que.num_buffers);
+				  vb2_get_num_buffers(&ctx->output_que));
 			mutex_unlock(&ctx->ctxlock);
 			goto out;
 		}
