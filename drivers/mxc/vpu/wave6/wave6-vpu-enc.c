@@ -2322,7 +2322,7 @@ static int wave6_vpu_enc_start_streaming(struct vb2_queue *q, unsigned int count
 		fmt->pixelformat >> 8,
 		fmt->pixelformat >> 16,
 		fmt->pixelformat >> 24,
-		fmt->width, fmt->height, q->num_buffers);
+		fmt->width, fmt->height, vb2_get_num_buffers(q));
 
 	if (!vb2_is_streaming(vq_peer))
 		return 0;

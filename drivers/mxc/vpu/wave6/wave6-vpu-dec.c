@@ -1690,7 +1690,7 @@ exit:
 		fmt->pixelformat >> 8,
 		fmt->pixelformat >> 16,
 		fmt->pixelformat >> 24,
-		fmt->width, fmt->height, q->num_buffers, ret);
+		fmt->width, fmt->height, vb2_get_num_buffers(q), ret);
 
 	return ret;
 }
