@@ -48,6 +48,14 @@
 	status = "okay";
 };
 
+&i3c0 {
+	status = "okay";
+};
+
+&i3c1 {
+	status = "okay";
+};
+
 &gmac0 {
 	status = "okay";
 	phy-mode = "rgmii-id";

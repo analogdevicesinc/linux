@@ -77,6 +77,14 @@
 	};
 };
 
+&i3c0 {
+	status = "okay";
+};
+
+&i3c1 {
+	status = "okay";
+};
+
 &mmc {
 	status = "okay";
 	bus-width = <4>;
