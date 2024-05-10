@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2024 NXP
+ */
+
+/ {
+	backlight_lvds1: backlight-lvds1 {
+		compatible = "led-backlight";
+		leds = <&led_backlight1>;
+		brightness-levels = <0 4 8 16 32 64 128 255>;
+		default-brightness-level = <6>;
+	};
+
+	panel_lvds1: panel-lvds1 {
+		compatible = "boe,ev121wxm-n10-1850";
+		backlight = <&backlight_lvds1>;
+		power-supply = <&reg_vcc_12v>;
+		enable-gpios = <&pcal6524 8 GPIO_ACTIVE_HIGH>;
+
+		port {
+			panel_lvds1_in: endpoint {
+				remote-endpoint = <&lvds1_out>;
+			};
+		};
+	};
+};
+
+&display_pixel_link {
+	status = "okay";
+};
+
+&ldb {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	assigned-clocks = <&scmi_clk IMX95_CLK_LDBPLL_VCO>,
+			  <&scmi_clk IMX95_CLK_LDBPLL>;
+	assigned-clock-rates = <2982000000>, <497000000>;
+	status = "okay";
+
+	channel@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <1>;
+		status = "okay";
+
+		port@1 {
+			reg = <1>;
+
+			lvds1_out: endpoint {
+				remote-endpoint = <&panel_lvds1_in>;
+			};
+		};
+	};
+};
+
+&ldb1_phy {
+	status = "okay";
+};
+
+&lpi2c4 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	exc80h60_lvds1: touch@2a {
+		compatible = "eeti,exc80h60";
+		reg = <0x2a>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_ctp_int1>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
+		reset-gpios = <&pcal6524 9 GPIO_ACTIVE_HIGH>;
+		touchscreen-size-x = <4096>;
+		touchscreen-size-y = <4096>;
+	};
+};
+
+&pixel_interleaver {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	channel@1 {
+		reg = <1>;
+		status = "okay";
+	};
+};
+
+&scmi_iomuxc {
+	pinctrl_ctp_int1: ctp_int_grp {
+		fsl,pins = <
+			IMX95_PAD_XSPI1_DATA3__GPIO5_IO_BIT3    0x31e
+		>;
+	};
+};
