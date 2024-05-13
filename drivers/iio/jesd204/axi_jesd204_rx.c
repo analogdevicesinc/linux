@@ -384,12 +384,23 @@ static int __axi_jesd204_rx_laneinfo_64b66b_read(struct axi_jesd204_rx *jesd,
 {
 	int ret = pos;
 	u8 extend_multiblock;
+	u32 octets_per_multiframe, lane_latency;
 
 	extend_multiblock = JESD204_EMB_STATE_GET(lane_status);
+
+	octets_per_multiframe = readl_relaxed(jesd->base + JESD204_RX_REG_LINK_CONF0);
+	octets_per_multiframe &= 0xffff;
+	octets_per_multiframe += 1;
 
 	ret += scnprintf(buf + ret, PAGE_SIZE - ret,
 			 "State of Extended multiblock alignment:%s\n",
 			 axi_jesd204_rx_emb_state_label[extend_multiblock]);
+
+	lane_latency = readl_relaxed(jesd->base + JESD204_RX_REG_LANE_LATENCY(lane));
+	ret += scnprintf(buf + ret, PAGE_SIZE - ret,
+			"Lane Latency: %u (min/max 64/%u)",
+			lane_latency,
+			octets_per_multiframe);
 
 	return ret;
 }
