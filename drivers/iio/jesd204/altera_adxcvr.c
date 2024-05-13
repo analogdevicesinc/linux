@@ -95,6 +95,7 @@ struct adxcvr_state {
 	struct jesd204_dev	*jdev;
 	unsigned int 		version;
 	bool			is_s10;
+	bool			is_agilex;
 	bool			is_transmit;
 	bool			skip_pll_reconfig;
 	u32			lanes_per_link;
@@ -418,7 +419,8 @@ static void adxcvr_finalize_lane_rate_change(struct adxcvr_state *st)
 		mdelay(1);
 	} while (timeout--);
 
-	if (timeout < 0) {
+	/* For Agilex, rx_lockedtodata only gets asserted after there is data coming on the lanes*/
+	if (timeout < 0 && !st->is_agilex) {
 		status = adxcvr_read(st, ADXCVR_REG_STATUS2);
 		dev_err(st->dev, "Link activation error:\n");
 		dev_err(st->dev, "\tLink PLL %slocked\n",
@@ -429,6 +431,21 @@ static void adxcvr_finalize_lane_rate_change(struct adxcvr_state *st)
 				(status & ADXCVR_STATUS2_XCVR(i)) ?
 					"" : "not ");
 		}
+	}
+
+	/* Reset twice for Agilex workaround */
+	if (st->is_agilex && st->is_transmit) {
+		dev_info(st->dev, "Agilex workaround, resetting TX again\n");
+		adxcvr_write(st, ADXCVR_REG_RESETN, 0);
+		mdelay(5);
+		timeout = 1000;
+		adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
+		do {
+			mdelay(1);
+			status = adxcvr_read(st, ADXCVR_REG_STATUS);
+			if (status == ADXCVR_STATUS)
+				break;
+		} while (timeout--);
 	}
 }
 
@@ -546,6 +563,9 @@ static int adxcvr_dummy_pll_set_rate(struct clk_hw *clk_hw,
 	adxcvr_pre_lane_rate_change(st);
 
 	if (st->is_transmit) {
+		adxcvr_post_lane_rate_change(st, rate);
+		st->lane_rate = rate;
+		return 0;
 		atx_pll_acquire_arbitration(st);
 		atx_pll_update(st, XCVR_REG_CALIB_ATX_PLL_EN,
 			XCVR_CALIB_ATX_PLL_EN_MASK, XCVR_CALIB_ATX_PLL_EN);
@@ -640,8 +660,10 @@ static int adxcvr_probe(struct platform_device *pdev)
 	mem_adxcvr = platform_get_resource_byname(pdev,
 					IORESOURCE_MEM, "adxcvr");
 	st->adxcvr_regs = devm_ioremap_resource(&pdev->dev, mem_adxcvr);
-	if (IS_ERR(st->adxcvr_regs))
+	if (IS_ERR(st->adxcvr_regs)) {
+		dev_err(&pdev->dev, "Failed to get adxcvr resource\n");
 		return PTR_ERR(st->adxcvr_regs);
+	}
 
 	st->version = adxcvr_read(st, ADXCVR_REG_VERSION);
 
@@ -662,30 +684,36 @@ static int adxcvr_probe(struct platform_device *pdev)
 						IORESOURCE_MEM, adxcfg_name);
 		st->adxcfg_regs[lane] = devm_ioremap_resource(&pdev->dev,
 							      mem_adxcfg);
-		if (IS_ERR(st->adxcfg_regs[lane]))
+		if (IS_ERR(st->adxcfg_regs[lane])) {
+			dev_err(&pdev->dev, "Failed to get adxcfg_regs[%d] resource\n", lane);
 			return PTR_ERR(st->adxcfg_regs[lane]);
+		}
 	}
 
 	st->link_clk = devm_clk_get(&pdev->dev, "link");
 	if (IS_ERR(st->link_clk) && PTR_ERR(st->link_clk) != -ENOENT)
 		return PTR_ERR(st->link_clk);
 
-	if (st->is_transmit) {
-		mem_atx_pll = platform_get_resource_byname(pdev,
-					IORESOURCE_MEM, "atx-pll");
-		st->atx_pll_regs = devm_ioremap_resource(&pdev->dev,
-							 mem_atx_pll);
-		if (IS_ERR(st->atx_pll_regs))
-			return PTR_ERR(st->atx_pll_regs);
-	}
+	// if (st->is_transmit) {
+	// 	mem_atx_pll = platform_get_resource_byname(pdev,
+	// 				IORESOURCE_MEM, "atx-pll");
+	// 	st->atx_pll_regs = devm_ioremap_resource(&pdev->dev,
+	// 						 mem_atx_pll);
+	// 	if (IS_ERR(st->atx_pll_regs))
+	// 		return PTR_ERR(st->atx_pll_regs);
+	// }
 
 	st->skip_pll_reconfig = of_property_read_bool(pdev->dev.of_node,
 		"adi,skip-pll-reconfiguration");
+	dev_info(&pdev->dev, "Skip pll reconfig: %d", st->skip_pll_reconfig);
 
 	st->is_s10 = of_property_read_bool(pdev->dev.of_node,
 		"adi,stratix10");
 	if (st->is_s10)
 		st->skip_pll_reconfig = true;
+
+	st->is_agilex = of_property_read_bool(pdev->dev.of_node,
+		"adi,agilex");
 
 	st->dev = &pdev->dev;
 	platform_set_drvdata(pdev, st);
