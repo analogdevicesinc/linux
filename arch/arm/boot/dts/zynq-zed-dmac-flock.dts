@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AXI DMAC FRAMELOCK
+ * https://www.analogdevicesinc.github.io/library/axi_dmac
+ *
+ * hdl_project: <dmac_flock/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2024 Analog Devices Inc.
+ */
+/dts-v1/;
+
+/*
+#include <dt-bindings/dma/axi-dmac.h>
+*/
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+&fpga_axi {
+	adi_flock: adi-fb {
+		compatible = "adi,axi-framebuffer-1.00.a";
+		memory-region = <&reserved>;
+		reg = <0x43000000 0x1000>, <0x43c20000 0x1000>;
+		reg-names = "tx_dma", "rx_dma";
+		adi,flock-resolution = <1920>, <1080>;
+		adi,flock-distance = <0>;
+		adi,flock-mode = <0>;
+		adi,flock-dwidth = <4>;
+		adi,flock-frm-buf-nr = <3>;
+	};
+	
+	reserved-memory {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges;
+		reserved: buffer@0 {
+			no-map;
+			reg = <0x1C000000 0x2000000>;
+		};
+	};
+};
+
+&eeprom1 {
+	status = "disabled";
+};
