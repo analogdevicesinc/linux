@@ -119,7 +119,7 @@
 						hmc7044_c2: channel@2 {
 							reg = <2>;
 							adi,extended-name = "DEV_REFCLK";
-							adi,divider = <8>;
+							adi,divider = <12>;
 							adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 						};
 						hmc7044_c3: channel@3 {
@@ -260,10 +260,9 @@
 									#size-cells = <0>;
 									reg = <0>;
 
-									adi,logical-lane-mapping = /bits/ 8 <7 5 0 1 6 2 3 4>;
-									// adi,logical-lane-mapping = /bits/ 8 <7 7 0 1 7 2 3 7>;
+									adi,logical-lane-mapping = /bits/ 8 <0 2 7 6 1 5 4 3>;
 									adi,link-mode = <15>;			/* JESD Quick Configuration Mode */
-									adi,subclass = <0>;			/* JESD SUBCLASS 0,1,2 */
+									adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
 									adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
 									adi,dual-link = <0>;			/* JESD Dual Link Mode */
 
@@ -360,10 +359,9 @@
 										<&ad9081_rx_fddc_chan5 FDDC_I>, <&ad9081_rx_fddc_chan5 FDDC_Q>;
 
 									adi,logical-lane-mapping = /bits/ 8 <5 7 0 1 2 3 4 6>;
-									// adi,logical-lane-mapping = /bits/ 8 <7 7 0 1 2 3 7 7>;
 
 									adi,link-mode = <16>;			/* JESD Quick Configuration Mode */
-									adi,subclass = <0>;			/* JESD SUBCLASS 0,1,2 */
+									adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
 									adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
 									adi,dual-link = <0>;			/* JESD Dual Link Mode */
 
@@ -412,17 +410,10 @@
 								<0x10D00000 0x00100000>,
 								<0x10E00000 0x00100000>,
 								<0x10F00000 0x00100000>;
-								// <0x10000000 0x00002000>,
-								// <0x10200000 0x00002000>;
-								// <0x00084000 0x00002000>,
-								// <0x00086000 0x00002000>,
-								// <0x00088000 0x00002000>,
-								// <0x0008A000 0x00002000>,
-								// <0x0008C000 0x00002000>,
-								// <0x0008E000 0x00002000>;
 					reg-names = "adxcvr",  "adxcfg-0", "adxcfg-1",
 															   "adxcfg-2", "adxcfg-3",
-																 "adxcfg-4", "adxcfg-5", "adxcfg-6", "adxcfg-7";
+																 "adxcfg-4", "adxcfg-5",
+																 "adxcfg-6", "adxcfg-7";
 
 					clocks = <&hmc7044 8>, <&tx_link_clk>;
 					clock-names = "ref", "link";
@@ -431,7 +422,8 @@
 					clock-output-names = "jesd204_tx_lane_clock";
 
 					adi,stratix10;
-					// adi,skip-pll-reconfiguration;
+					adi,agilex;
+					adi,skip-pll-reconfiguration;
 
 					jesd204-device;
 					#jesd204-cells = <2>;
@@ -476,18 +468,10 @@
 							<0x10500000 0x00100000>,
 							<0x10600000 0x00100000>,
 							<0x10700000 0x00100000>;
-							// <0x01000000 0x00002000>,
-							// <0x01020000 0x00002000>;
-							// <0x00044000 0x00002000>,
-							// <0x00046000 0x00002000>,
-							// <0x00048000 0x00002000>,
-							// <0x0004A000 0x00002000>,
-							// <0x0004C000 0x00002000>,
-							// <0x0004E000 0x00002000>;
 				reg-names = "adxcvr", "adxcfg-0", "adxcfg-1",
 															"adxcfg-2", "adxcfg-3",
-															"adxcfg-4",
-															"adxcfg-5", "adxcfg-6", "adxcfg-7";
+															"adxcfg-4", "adxcfg-5",
+															"adxcfg-6", "adxcfg-7";
 
 				clocks = <&hmc7044 8>, <&rx_link_clk>;
 				clock-names = "ref", "link";
@@ -496,7 +480,8 @@
 				clock-output-names = "jesd204_rx_lane_clock";
 
 				adi,stratix10;
-				// adi,skip-pll-reconfiguration;
+				adi,agilex;
+				adi,skip-pll-reconfiguration;
 
 				jesd204-device;
 				#jesd204-cells = <2>;
