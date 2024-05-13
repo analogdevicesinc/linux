@@ -77,6 +77,8 @@ struct clk_hw *agilex_register_pll(const struct stratix10_pll_clock *clks,
 				void __iomem *reg);
 struct clk_hw *n5x_register_pll(const struct stratix10_pll_clock *clks,
 			     void __iomem *reg);
+struct clk_hw *agilex5_register_pll(const struct stratix10_pll_clock *clks,
+				void __iomem *reg);
 struct clk_hw *s10_register_periph(const struct stratix10_perip_c_clock *clks,
 				void __iomem *reg);
 struct clk_hw *n5x_register_periph(const struct n5x_perip_c_clock *clks,

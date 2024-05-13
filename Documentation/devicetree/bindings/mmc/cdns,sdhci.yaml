@@ -16,6 +16,7 @@ properties:
           - amd,pensando-elba-sd4hc
           - microchip,mpfs-sd4hc
           - socionext,uniphier-sd4hc
+          - intel,agilex5-sd4hc
       - const: cdns,sd4hc
 
   reg:

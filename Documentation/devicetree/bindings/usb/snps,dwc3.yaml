@@ -410,6 +410,11 @@ properties:
     description:
       Enable USB remote wakeup.
 
+  snps,dma_set_40_bit_mask_quirk:
+    description:
+      Set dma bit-mask to 40 bits.
+    type: boolean
+
 unevaluatedProperties: false
 
 required:

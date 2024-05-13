@@ -1,0 +1,197 @@
+// SPDX-License-Identifier:     GPL-2.0
+/*
+ * Copyright (C) 2023, Intel Corporation
+ */
+#include "socfpga_agilex5.dtsi"
+
+/ {
+	model = "SoCFPGA Agilex5 SoCDK";
+	compatible = "intel,socfpga-agilex5-socdk", "intel,socfpga-agilex";
+
+	aliases {
+		serial0 = &uart0;
+		ethernet0 = &gmac0;
+		ethernet2 = &gmac2;
+	};
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		hps0 {
+			label = "hps_led0";
+			gpios = <&portb 20 GPIO_ACTIVE_HIGH>;
+		};
+
+		hps1 {
+			label = "hps_led1";
+			gpios = <&portb 19 GPIO_ACTIVE_HIGH>;
+		};
+
+		hps2 {
+			label = "hps_led2";
+			gpios = <&portb 21 GPIO_ACTIVE_HIGH>;
+		};
+	};
+
+	memory {
+		device_type = "memory";
+		reg = <0x0 0x80000000 0x0 0x80000000>;
+		#address-cells = <0x2>;
+		#size-cells = <0x2>;
+		u-boot,dm-pre-reloc;
+	};
+};
+
+&gpio1 {
+	status = "okay";
+};
+
+&i2c0 {
+	status = "okay";
+};
+
+&gmac0 {
+	status = "okay";
+	phy-mode = "rgmii-id";
+	phy-handle = <&emac0_phy0>;
+
+	max-frame-size = <9000>;
+
+	mdio0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
+		emac0_phy0: ethernet-phy@0 {
+			reg = <0>;
+		};
+	};
+};
+
+&gmac2 {
+	status = "disabled";
+	phy-mode = "rgmii-id";
+	phy-handle = <&emac2_phy0>;
+
+	max-frame-size = <9000>;
+
+	mdio0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
+		emac2_phy0: ethernet-phy@0 {
+			reg = <0>;
+		};
+	};
+};
+
+&osc1 {
+	clock-frequency = <25000000>;
+};
+
+&uart0 {
+	status = "okay";
+};
+
+&watchdog0 {
+	status = "okay";
+};
+
+&watchdog1 {
+	status = "okay";
+};
+
+&watchdog2 {
+	status = "okay";
+};
+
+&watchdog3 {
+	status = "okay";
+};
+
+&watchdog4 {
+	status = "okay";
+};
+
+&nand {
+	status = "okay";
+
+	flash@0 {
+		#address-cells = <1>;
+		#size-cells = <1>;
+		reg = <0>;
+		nand-bus-width = <8>;
+
+		partition@0 {
+			label = "u-boot";
+			reg = <0 0x200000>;
+		};
+		partition@200000 {
+			label = "root";
+			reg = <0x200000 0xffe00000>;
+		};
+	};
+};
+
+&temp_volt {
+        voltage {
+                #address-cells = <1>;
+                #size-cells = <0>;
+                input@2 {
+                        label = "0.8V VCC";
+                        reg = <2>;
+                };
+
+                input@3 {
+                        label = "1.8V VCCIO_SDM";
+                        reg = <3>;
+                };
+
+                input@4 {
+                        label = "1.8V VCCPT";
+                        reg = <4>;
+                };
+
+                input@5 {
+                        label = "1.2V VCCCRCORE";
+                        reg = <5>;
+                };
+
+                input@6 {
+                        label = "0.9V VCCH";
+                        reg = <6>;
+                };
+
+                input@7 {
+                        label = "0.8V VCCL";
+                        reg = <7>;
+                };
+        };
+
+        temperature {
+                #address-cells = <1>;
+                #size-cells = <0>;
+
+                input@0 {
+                        label = "Main Die SDM";
+                        reg = <0x0>;
+                };
+
+                input@10001 {
+                        label = "Main Die corner bottom left max";
+                        reg = <0x10001>;
+                };
+
+                input@30001 {
+                        label = "Main Die corner bottom right max";
+                        reg = <0x30001>;
+                };
+
+                input@40001 {
+                        label = "Main Die corner top right max";
+                        reg = <0x40001>;
+                };
+        };
+};
