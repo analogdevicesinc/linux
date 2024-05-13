@@ -95,6 +95,7 @@ struct adxcvr_state {
 	struct jesd204_dev	*jdev;
 	unsigned int 		version;
 	bool			is_s10;
+	bool			is_agilex;
 	bool			is_transmit;
 	bool			skip_pll_reconfig;
 	u32			lanes_per_link;
@@ -418,14 +419,9 @@ static void adxcvr_finalize_lane_rate_change(struct adxcvr_state *st)
 		mdelay(1);
 	} while (timeout--);
 
-	// timeout = 5000;
-	// do {
-	// 	mdelay(1);
-	// } while(timeout--);
-
-	if (timeout < 0) {
+	/* For Agilex, rx_lockedtodata only gets asserted after there is data coming on the lanes*/
+	if (timeout < 0 && !st->is_agilex) {
 		status = adxcvr_read(st, ADXCVR_REG_STATUS2);
-		dev_info(st->dev, "Locked_to_data: %x\n", status);
 		dev_err(st->dev, "Link activation error:\n");
 		dev_err(st->dev, "\tLink PLL %slocked\n",
 			(status & ADXCVR_STATUS2_XCVR(st->lanes_per_link)) ?
@@ -435,6 +431,21 @@ static void adxcvr_finalize_lane_rate_change(struct adxcvr_state *st)
 				(status & ADXCVR_STATUS2_XCVR(i)) ?
 					"" : "not ");
 		}
+	}
+
+	/* Reset twice for Agilex workaround */
+	if (st->is_agilex && st->is_transmit) {
+		dev_info(st->dev, "Agilex workaround, resetting TX again\n");
+		adxcvr_write(st, ADXCVR_REG_RESETN, 0);
+		mdelay(5);
+		timeout = 1000;
+		adxcvr_write(st, ADXCVR_REG_RESETN, ADXCVR_RESETN);
+		do {
+			mdelay(1);
+			status = adxcvr_read(st, ADXCVR_REG_STATUS);
+			if (status == ADXCVR_STATUS)
+				break;
+		} while (timeout--);
 	}
 }
 
@@ -694,12 +705,15 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	st->skip_pll_reconfig = of_property_read_bool(pdev->dev.of_node,
 		"adi,skip-pll-reconfiguration");
-	dev_info(&pdev->dev, "Skipp pll reconfig: %d", st->skip_pll_reconfig);
+	dev_info(&pdev->dev, "Skip pll reconfig: %d", st->skip_pll_reconfig);
 
 	st->is_s10 = of_property_read_bool(pdev->dev.of_node,
 		"adi,stratix10");
 	if (st->is_s10)
 		st->skip_pll_reconfig = true;
+
+	st->is_agilex = of_property_read_bool(pdev->dev.of_node,
+		"adi,agilex");
 
 	st->dev = &pdev->dev;
 	platform_set_drvdata(pdev, st);
@@ -732,10 +746,6 @@ static int adxcvr_probe(struct platform_device *pdev)
 			VERSION_MAJOR(st->version),
 			VERSION_MINOR(st->version),
 			VERSION_LETTER(st->version));
-
-	int status;
-	status = adxcvr_read(st, ADXCVR_REG_STATUS2);
-	dev_info(st->dev, "Locked_to_data2: %x\n", status);
 
 	return 0;
 }
