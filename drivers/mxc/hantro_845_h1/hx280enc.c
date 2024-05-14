@@ -142,7 +142,7 @@ typedef struct {
 	u32 reg_corrupt;
 	struct semaphore core_suspend_sem;
 
-	volatile u8 *hwregs;
+	void __iomem *hwregs;
 	struct fasync_struct *async_queue;
 	unsigned int mirror_regs[512];
 	struct device *dev;
@@ -189,7 +189,7 @@ static int hantro_h1_clk_disable(struct device *dev)
 
 static int hantro_h1_ctrlblk_reset(struct device *dev)
 {
-	volatile u8 *iobase;
+	void __iomem *iobase;
 	u32 val;
 
 	if (hx280enc_data.skip_blkctrl)
@@ -197,7 +197,7 @@ static int hantro_h1_ctrlblk_reset(struct device *dev)
 
 	//config H1
 	hantro_h1_clk_enable(dev);
-	iobase = (volatile u8 *)ioremap(BLK_CTL_BASE, 0x10000);
+	iobase = ioremap(BLK_CTL_BASE, 0x10000);
 
 	val = ioread32(iobase);
 	val &= (~0x4);
@@ -362,11 +362,11 @@ static void ReleaseEncoder(hx280enc_t *dev, struct file *filp)
 	wake_up_interruptible_all(&enc_hw_queue);
 }
 
-static long EncRefreshRegs(hx280enc_t *dev, unsigned int *regs)
+static long EncRefreshRegs(hx280enc_t *dev, u32 *regs)
 {
 	long ret;
 
-	ret = copy_to_user(regs, dev->mirror_regs, dev->iosize);
+	ret = copy_to_user((void __user *)regs, dev->mirror_regs, dev->iosize);
 	if (ret) {
 		PDEBUG("%s: copy_to_user failed, returned %li\n", __func__, ret);
 		return -EFAULT;
@@ -392,7 +392,7 @@ static int hx280enc_write_regs(struct enc_regs_buffer *regs)
 	}
 
 	reg_buf = &dev->mirror_regs[regs->offset / 4];
-	ret = copy_from_user((void *)reg_buf, (void *)regs->regs, regs->size);
+	ret = copy_from_user((void *)reg_buf, (void __user *)regs->regs, regs->size);
 	if (ret)
 		return ret;
 
@@ -427,7 +427,7 @@ static int hx280enc_read_regs(struct enc_regs_buffer *regs)
 	for (i = 0; i < regs->size / 4; i++)
 		reg_buf[i] = ioread32((dev->hwregs + regs->offset) + i * 4);
 
-	ret = copy_to_user((void *)regs->regs, (void *)reg_buf, regs->size);
+	ret = copy_to_user((void __user *)regs->regs, (void *)reg_buf, regs->size);
 
 	return ret;
 }
@@ -453,18 +453,18 @@ static long hx280enc_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 	* "write" is reversed
 	*/
 	if (_IOC_DIR(cmd) & _IOC_READ)
-		err = !access_ok((void *) arg, _IOC_SIZE(cmd));
+		err = !access_ok((void __user *)arg, _IOC_SIZE(cmd));
 	else if (_IOC_DIR(cmd) & _IOC_WRITE)
-		err = !access_ok((void *) arg, _IOC_SIZE(cmd));
+		err = !access_ok((void __user *)arg, _IOC_SIZE(cmd));
 	if (err)
 		return -EFAULT;
 
 	switch (_IOC_NR(cmd))	{
 	case _IOC_NR(HX280ENC_IOCGHWOFFSET):
-		__put_user(hx280enc_data.iobaseaddr, (unsigned long *) arg);
+		__put_user(hx280enc_data.iobaseaddr, (u32 __user *)arg);
 		break;
 	case _IOC_NR(HX280ENC_IOCGHWIOSIZE):
-		__put_user(hx280enc_data.iosize, (unsigned int *) arg);
+		__put_user(hx280enc_data.iosize, (u32 __user *)arg);
 	break;
 	case _IOC_NR(HX280ENC_IOCH_ENC_RESERVE): {
 		int ret;
@@ -478,7 +478,7 @@ static long hx280enc_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 		ReleaseEncoder(&hx280enc_data, filp);
 		break;
 	case _IOC_NR(HX280ENC_IOCG_CORE_WAIT): {
-		unsigned int *regs = (unsigned int *)arg;
+		u32 *regs = (u32 *)arg;
 		unsigned int ret1, ret2;
 
 		ret1 = WaitEncReady(&hx280enc_data);
@@ -492,7 +492,7 @@ static long hx280enc_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 	case _IOC_NR(HX280ENC_IOC_WRITE_REGS): {
 		struct enc_regs_buffer regs;
 
-		err = copy_from_user(&regs, (void *)arg, sizeof(regs));
+		err = copy_from_user(&regs, (void __user *)arg, sizeof(regs));
 		if (err)
 			return err;
 
@@ -504,7 +504,7 @@ static long hx280enc_ioctl(struct file *filp, unsigned int cmd, unsigned long ar
 	case _IOC_NR(HX280ENC_IOC_READ_REGS): {
 		struct enc_regs_buffer regs;
 
-		err = copy_from_user(&regs, (void *)arg, sizeof(regs));
+		err = copy_from_user(&regs, (void __user *)arg, sizeof(regs));
 		if (err)
 			return err;
 
@@ -769,7 +769,7 @@ static int ReserveIO(void)
 		PDEBUG(KERN_INFO "hx280enc: failed to reserve HW regs\n");
 		return -EBUSY;
 	}
-	hx280enc_data.hwregs = (volatile u8 *) ioremap(hx280enc_data.iobaseaddr, hx280enc_data.iosize);
+	hx280enc_data.hwregs = ioremap(hx280enc_data.iobaseaddr, hx280enc_data.iosize);
 	if (hx280enc_data.hwregs == NULL)	{
 		PDEBUG(KERN_INFO "hx280enc: failed to ioremap HW regs\n");
 		ReleaseIO();
@@ -804,7 +804,7 @@ static void ReleaseIO(void)
 	if (hx280enc_data.is_valid == 0)
 		return;
 	if (hx280enc_data.hwregs)
-		iounmap((void *) hx280enc_data.hwregs);
+		iounmap(hx280enc_data.hwregs);
 	release_mem_region(hx280enc_data.iobaseaddr, hx280enc_data.iosize);
 }
 
