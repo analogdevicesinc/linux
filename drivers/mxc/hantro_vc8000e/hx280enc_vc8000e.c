@@ -73,7 +73,7 @@ static bool hantro_skip_blkctrl;
 
 /********variables declaration related with race condition**********/
 
-struct semaphore enc_core_sem;
+static struct semaphore enc_core_sem;
 static DECLARE_WAIT_QUEUE_HEAD(hw_queue);
 static DEFINE_SPINLOCK(owner_lock);
 static DECLARE_WAIT_QUEUE_HEAD(enc_wait_queue);
@@ -93,7 +93,7 @@ static DECLARE_WAIT_QUEUE_HEAD(enc_wait_queue);
 
 /*for all cores, the core info should be listed here for subsequent use*/
 /*base_addr, iosize, irq, resource_shared*/
-CORE_CONFIG core_array[] = {
+static CORE_CONFIG core_array[] = {
 	{CORE_0_IO_ADDR, CORE_0_IO_SIZE, INT_PIN_CORE_0, RESOURCE_SHARED_INTER_CORES}, //core_0 (VC8000E)
 	//{CORE_1_IO_ADDR, CORE_1_IO_SIZE, INT_PIN_CORE_1, RESOURCE_SHARED_INTER_CORES} //core_1 (VC8000EJ)
 };
@@ -114,7 +114,7 @@ typedef struct {
 	u32 irq_status;
 	char *buffer;
 	unsigned int buffsize;
-	volatile u8 *hwregs;
+	void __iomem *hwregs;
 	u32 reg_buf[CORE_0_IO_SIZE/4];
 	struct semaphore core_suspend_sem;
 	u32 reg_corrupt;
@@ -178,7 +178,7 @@ static int hantro_vc8000e_clk_disable(struct device *dev)
 
 static int hantro_vc8000e_ctrlblk_reset(struct device *dev)
 {
-	volatile u8 *iobase;
+	void __iomem *iobase;
 	u32 val;
 
 	if (hantro_skip_blkctrl)
@@ -186,7 +186,7 @@ static int hantro_vc8000e_ctrlblk_reset(struct device *dev)
 
 	//config vc8000e
 	hantro_vc8000e_clk_enable(dev);
-	iobase = (volatile u8 *)ioremap(BLK_CTL_BASE, 0x10000);
+	iobase = ioremap(BLK_CTL_BASE, 0x10000);
 
 	val = ioread32(iobase);
 	val &= (~0x4);
@@ -422,7 +422,7 @@ static int hantroenc_write_regs(struct enc_regs_buffer *regs)
 
 	dev = &hantroenc_data[regs->core_id];
 	reg_buf = &dev->reg_buf[regs->offset / 4];
-	ret = copy_from_user(reg_buf, (void *)regs->regs, regs->size);
+	ret = copy_from_user(reg_buf, (void __user *)regs->regs, regs->size);
 	if (ret)
 		return ret;
 
@@ -456,7 +456,7 @@ static int hantroenc_read_regs(struct enc_regs_buffer *regs)
 	for (i = 0; i < regs->size / 4; i++)
 		reg_buf[i] = ioread32((dev->hwregs + regs->offset) + i * 4);
 
-	ret = copy_to_user((void *)regs->regs, reg_buf, regs->size);
+	ret = copy_to_user((void __user *)regs->regs, reg_buf, regs->size);
 
 	return ret;
 }
@@ -494,9 +494,9 @@ static long hantroenc_ioctl(struct file *filp,
 	* "write" is reversed
 	*/
 	if (_IOC_DIR(cmd) & _IOC_READ)
-		err = !access_ok((void *) arg, _IOC_SIZE(cmd));
+		err = !access_ok((void __user *)arg, _IOC_SIZE(cmd));
 	else if (_IOC_DIR(cmd) & _IOC_WRITE)
-		err = !access_ok((void *) arg, _IOC_SIZE(cmd));
+		err = !access_ok((void __user *)arg, _IOC_SIZE(cmd));
 	if (err)
 		return -EFAULT;
 
@@ -504,52 +504,52 @@ static long hantroenc_ioctl(struct file *filp,
 	case _IOC_NR(HX280ENC_IOCGHWOFFSET): {
 		u32 id;
 
-		__get_user(id, (u32 *)arg);
+		__get_user(id, (u32 __user *)arg);
 
 		if (id >= total_core_num)
 			return -EFAULT;
 
-		__put_user(hantroenc_data[id].core_cfg.base_addr, (unsigned long *) arg);
+		__put_user(hantroenc_data[id].core_cfg.base_addr, (u32 __user *)arg);
 		break;
 	}
 	case _IOC_NR(HX280ENC_IOCGHWIOSIZE):	{
 		u32 id;
 		u32 io_size;
 
-		__get_user(id, (u32 *)arg);
+		__get_user(id, (u32 __user *)arg);
 
 		if (id >= total_core_num)
 			return -EFAULT;
 
 		io_size = hantroenc_data[id].core_cfg.iosize;
-		__put_user(io_size, (u32 *) arg);
+		__put_user(io_size, (u32 __user *)arg);
 
 		return 0;
 	}
 	case _IOC_NR(HX280ENC_IOCGSRAMOFFSET):
-		__put_user(sram_base, (unsigned long *) arg);
+		__put_user(sram_base, (u32 __user *)arg);
 		break;
 	case _IOC_NR(HX280ENC_IOCGSRAMEIOSIZE):
-		__put_user(sram_size, (unsigned int *) arg);
+		__put_user(sram_size, (u32 __user *)arg);
 		break;
 	case _IOC_NR(HX280ENC_IOCG_CORE_NUM):
-		__put_user(total_core_num, (unsigned int *) arg);
+		__put_user(total_core_num, (u32 __user *)arg);
 		break;
 	case _IOC_NR(HX280ENC_IOCH_ENC_RESERVE): {
 		u32 core_info;
 		int ret;
 
 		PDEBUG("Reserve ENC Cores\n");
-		__get_user(core_info, (u32 *)arg);
+		__get_user(core_info, (u32 __user *)arg);
 		ret = ReserveEncoder(hantroenc_data, &core_info, filp);
 		if (ret == 0)
-			__put_user(core_info, (u32 *) arg);
+			__put_user(core_info, (u32 __user *)arg);
 		return ret;
 	}
 	case _IOC_NR(HX280ENC_IOCH_ENC_RELEASE): {
 		u32 core_info;
 
-		__get_user(core_info, (u32 *)arg);
+		__get_user(core_info, (u32 __user *)arg);
 
 		PDEBUG("Release ENC Core\n");
 
@@ -561,7 +561,7 @@ static long hantroenc_ioctl(struct file *filp,
 		u32 core_id;
 		u32 reg_value;
 
-		__get_user(core_id, (u32 *)arg);
+		__get_user(core_id, (u32 __user *)arg);
 		PDEBUG("Enable ENC Core\n");
 
 		if (hantroenc_data[core_id].is_reserved == 0)
@@ -576,9 +576,9 @@ static long hantroenc_ioctl(struct file *filp,
 		if (down_interruptible(&hantroenc_data[core_id].core_suspend_sem))
 			return -ERESTARTSYS;
 
-		reg_value = (u32)ioread32((void *)(hantroenc_data[core_id].hwregs + 0x14));
+		reg_value = (u32)ioread32(hantroenc_data[core_id].hwregs + 0x14);
 		reg_value |= 0x01;
-		iowrite32(reg_value, (void *)(hantroenc_data[core_id].hwregs + 0x14));
+		iowrite32(reg_value, hantroenc_data[core_id].hwregs + 0x14);
 
 		break;
 	}
@@ -589,7 +589,7 @@ static long hantroenc_ioctl(struct file *filp,
 		u32 i;
 		u8 core_mapping;
 
-		__get_user(core_info, (u32 *)arg);
+		__get_user(core_info, (u32 __user *)arg);
 
 		i = 0;
 		core_mapping = (u8)(core_info&0xFF);
@@ -607,10 +607,10 @@ static long hantroenc_ioctl(struct file *filp,
 		}
 		err = WaitEncReady(hantroenc_data, &core_info, &irq_status);
 		if (err == 0) {
-			__put_user(irq_status, (unsigned int *)arg);
+			__put_user(irq_status, (u32 __user *)arg);
 			return core_info;//return core_id
 		} else {
-			__put_user(0, (unsigned int *)arg);
+			__put_user(0, (u32 __user *)arg);
 			return -1;
 		}
 
@@ -619,7 +619,7 @@ static long hantroenc_ioctl(struct file *filp,
 	case _IOC_NR(HX280ENC_IOC_WRITE_REGS): {
 		struct enc_regs_buffer regs;
 
-		err = copy_from_user(&regs, (void *)arg, sizeof(regs));
+		err = copy_from_user(&regs, (void __user *)arg, sizeof(regs));
 		if (err)
 			return err;
 
@@ -631,7 +631,7 @@ static long hantroenc_ioctl(struct file *filp,
 	case _IOC_NR(HX280ENC_IOC_READ_REGS): {
 		struct enc_regs_buffer regs;
 
-		err = copy_from_user(&regs, (void *)arg, sizeof(regs));
+		err = copy_from_user(&regs, (void __user *)arg, sizeof(regs));
 		if (err)
 			return err;
 
@@ -814,7 +814,7 @@ static int hantro_enc_suspend(struct device *dev, pm_message_t state)
 		if (hantroenc_data[i].irq_status & 0x04) {
 			reg_buf = hantroenc_data[i].reg_buf;
 			for (j = 0; j < hantroenc_data[i].core_cfg.iosize; j += 4)
-				reg_buf[j/4] = ioread32((void *)(hantroenc_data[i].hwregs + j));
+				reg_buf[j / 4] = ioread32(hantroenc_data[i].hwregs + j);
 		}
 
 		up(&hantroenc_data[i].core_suspend_sem);
@@ -838,7 +838,7 @@ static int hantro_enc_resume(struct device *dev)
 
 		if (hantroenc_data[i].irq_status & 0x04) {
 			for (j = 0; j < hantroenc_data[i].core_cfg.iosize; j += 4)
-				iowrite32(reg_buf[j/4], (void *)(hantroenc_data[i].hwregs + j));
+				iowrite32(reg_buf[j / 4], hantroenc_data[i].hwregs + j);
 			hantroenc_data[i].reg_corrupt = 0;
 		}
 	}
@@ -1001,9 +1001,8 @@ static int ReserveIO(void)
 			continue;
 		}
 
-		hantroenc_data[i].hwregs =
-			(volatile u8 *) ioremap(hantroenc_data[i].core_cfg.base_addr,
-		hantroenc_data[i].core_cfg.iosize);
+		hantroenc_data[i].hwregs = ioremap(hantroenc_data[i].core_cfg.base_addr,
+						   hantroenc_data[i].core_cfg.iosize);
 
 		if (hantroenc_data[i].hwregs == NULL) {
 			pr_err("hantroenc: failed to ioremap HW regs\n");
@@ -1012,7 +1011,7 @@ static int ReserveIO(void)
 		}
 
 		/*read hwid and check validness and store it*/
-		hwid = (u32)ioread32((void *)hantroenc_data[i].hwregs);
+		hwid = (u32)ioread32(hantroenc_data[i].hwregs);
 		PDEBUG("hwid=0x%08x\n", hwid);
 
 		/* check for encoder HW ID */
@@ -1052,7 +1051,7 @@ static void ReleaseIO(void)
 		//if (hantroenc_data[i].is_valid == 0)
 		//   continue;
 		if (hantroenc_data[i].hwregs)
-			iounmap((void *) hantroenc_data[i].hwregs);
+			iounmap(hantroenc_data[i].hwregs);
 		release_mem_region(hantroenc_data[i].core_cfg.base_addr, hantroenc_data[i].core_cfg.iosize);
 	}
 }
@@ -1076,7 +1075,7 @@ static irqreturn_t hantroenc_isr(int irq, void *dev_id)
 		u32 wClr;
 
 		pr_err("hantroenc_isr:received IRQ but core is not reserved!\n");
-		irq_status = (u32)ioread32((void *)(dev->hwregs + 0x04));
+		irq_status = (u32)ioread32(dev->hwregs + 0x04);
 		if (irq_status & 0x01) {
 			/*  Disable HW when buffer over-flow happen
 			*  HW behavior changed in over-flow
@@ -1084,20 +1083,20 @@ static irqreturn_t hantroenc_isr(int irq, void *dev_id)
 			*    new version:  ask SW cleanup HWIF_ENC_E when buffer over-flow
 			*/
 			if (irq_status & 0x20)
-				iowrite32(0, (void *)(dev->hwregs + 0x14));
+				iowrite32(0, dev->hwregs + 0x14);
 
 			/* clear all IRQ bits. (hwId >= 0x80006100) means IRQ is cleared by writting 1 */
-			hwId = ioread32((void *)dev->hwregs);
+			hwId = ioread32(dev->hwregs);
 			majorId = (hwId & 0x0000FF00) >> 8;
 			wClr = (majorId >= 0x61) ? irq_status : (irq_status & (~0x1FD));
-			iowrite32(wClr, (void *)(dev->hwregs + 0x04));
+			iowrite32(wClr, dev->hwregs + 0x04);
 		}
 		spin_unlock_irqrestore(&owner_lock, flags);
 		return IRQ_HANDLED;
 	}
 	spin_unlock_irqrestore(&owner_lock, flags);
 
-	irq_status = (u32)ioread32((void *)(dev->hwregs + 0x04));
+	irq_status = (u32)ioread32(dev->hwregs + 0x04);
 	if (irq_status & 0x01) {
 		u32 hwId;
 		u32 majorId;
@@ -1108,13 +1107,13 @@ static irqreturn_t hantroenc_isr(int irq, void *dev_id)
 		*    new version:  ask SW cleanup HWIF_ENC_E when buffer over-flow
 		*/
 		if (irq_status & 0x20)
-			iowrite32(0, (void *)(dev->hwregs + 0x14));
+			iowrite32(0, dev->hwregs + 0x14);
 
 		/* clear all IRQ bits. (hwId >= 0x80006100) means IRQ is cleared by writting 1 */
-		hwId = ioread32((void *)dev->hwregs);
+		hwId = ioread32(dev->hwregs);
 		majorId = (hwId & 0x0000FF00) >> 8;
 		wClr = (majorId >= 0x61) ? irq_status : (irq_status & (~0x1FD));
-		iowrite32(wClr, (void *)(dev->hwregs + 0x04));
+		iowrite32(wClr, dev->hwregs + 0x04);
 
 		spin_lock_irqsave(&owner_lock, flags);
 		dev->irq_received = 1;
@@ -1140,9 +1139,9 @@ static void ResetAsic(hantroenc_t *dev)
 	for (n = 0; n < total_core_num; n++) {
 		if (dev[n].is_valid == 0)
 			continue;
-		iowrite32(0, (void *)(dev[n].hwregs + 0x14));
+		iowrite32(0, dev[n].hwregs + 0x14);
 		for (i = 4; i < dev[n].core_cfg.iosize; i += 4)
-			iowrite32(0, (void *)(dev[n].hwregs + i));
+			iowrite32(0, dev[n].hwregs + i);
 	}
 }
 
