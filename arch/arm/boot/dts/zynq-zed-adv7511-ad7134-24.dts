@@ -48,22 +48,12 @@
 		regulator-always-on;
 	};
 
-	sys_clk: sys-clk {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <48000000>;
-	};
-
-	one-bit-adc-dac@0 {
-		compatible = "adi,one-bit-adc-dac";
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		out-gpios = <&gpio0 104 GPIO_ACTIVE_HIGH>;
-
-		channel@0 {
-			reg = <0>;
-			label = "gpio-cs";
+	clocks {
+		cnv_ext_clk: ext-clk {
+			#clock-cells = <0x0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "cnv_ext_clk";
 		};
 	};
 };
@@ -117,7 +107,9 @@
 		compatible = "adi,axi-pwmgen";
 		reg = <0x44b00000 0x10000>;
 		#pwm-cells = <2>;
-		clocks = <&clkc 15>;
+		clocks = <&cnv_ext_clk>;
+		//clocks = <&spi_clk>;
+		//clocks = <&clkc 15>;
 	};
 
 	spi_clk: axi_clkgen@44b10000 {
@@ -126,6 +118,7 @@
 		#clock-cells = <0>;
 		clocks = <&clkc 15>, <&clkc 15>;
 		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "spi_clk";
 	};
 };
 
@@ -141,14 +134,15 @@
 		reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
 		gpio-cs-gpios = <&gpio0 104 GPIO_ACTIVE_HIGH>;
 
-		clocks = <&sys_clk>;
-		clock-names = "sys_clk";
+		clocks = <&cnv_ext_clk>;
+		clock-names = "cnv_ext_clk";
 
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
 
-		pwms = <&ad4134_odr_generator 0 0>;
-		pwm-names = "odr_pwm";
+		pwms = <&ad4134_odr_generator 0 0
+				&ad4134_odr_generator 1 0>;
+		pwm-names = "trigger_pwm","odr_pwm";
 
 		avdd5-supply = <&avdd5>;
 		avdd1v8-supply = <&avdd1v8>;
@@ -168,8 +162,8 @@
 
 		reset-gpios = <&gpio0 87 GPIO_ACTIVE_LOW>;
 
-		clocks = <&sys_clk>;
-		clock-names = "sys_clk";
+		clocks = <&cnv_ext_clk>;
+		clock-names = "cnv_ext_clk";
 
 		avdd5-supply = <&avdd5>;
 		avdd1v8-supply = <&avdd1v8>;
