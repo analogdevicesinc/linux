@@ -24,6 +24,7 @@
 #include <mali_kbase_defs.h>
 #include <device/mali_kbase_device.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_domain.h>
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/regulator/consumer.h>
@@ -138,7 +139,20 @@ static void pm_callback_power_off(struct kbase_device *kbdev)
 static int kbase_device_runtime_init(struct kbase_device *kbdev)
 {
 	int ret = 0;
+	struct dev_pm_domain_attach_data pd_data = {
+		.pd_names   = (const char *[]) {"gpumix", "gpuperf"},
+		.num_pd_names = 2,
+	};
 
+	ret = dev_pm_domain_attach_list(kbdev->dev, &pd_data, &kbdev->pd_list);
+	if (ret < 0)
+		dev_dbg(kbdev->dev, "%s: didn't attach perf power domains, ret=%d", __func__, ret);
+	else if (ret == 2)
+		kbdev->dev_gpuperf = kbdev->pd_list->pd_devs[DOMAIN_GPU_PERF];
+
+	dev_dbg(kbdev->dev, "get perf domain ret=%d, perf=%p\n", ret, kbdev->dev_gpuperf);
+
+	ret = 0;
 	pm_runtime_set_autosuspend_delay(kbdev->dev, AUTO_SUSPEND_DELAY);
 	pm_runtime_use_autosuspend(kbdev->dev);
 
@@ -161,6 +175,11 @@ static void kbase_device_runtime_disable(struct kbase_device *kbdev)
 {
 
 	pm_runtime_disable(kbdev->dev);
+	if (kbdev->pd_list) {
+		dev_pm_domain_detach_list(kbdev->pd_list);
+		kbdev->pd_list = NULL;
+		kbdev->dev_gpuperf = NULL;
+	}
 }
 #endif /* KBASE_PM_RUNTIME */
 
