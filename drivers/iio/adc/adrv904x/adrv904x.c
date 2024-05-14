@@ -2459,7 +2459,7 @@ static int adrv904x_probe(struct spi_device *spi)
 		}
 	}
 
-	if (adi_hal_PlatformSetup(ADI_LINUX) != ADI_HAL_ERR_OK)
+	if (adrv904x_hal_PlatformSetup(ADI_LINUX) != ADI_HAL_ERR_OK)
 	{
 		dev_err(&spi->dev, "error HAL function(s) not implemented \n");
 		return -EINVAL;

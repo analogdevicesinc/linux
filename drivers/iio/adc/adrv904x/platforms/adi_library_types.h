@@ -67,13 +67,13 @@ typedef time64_t time_t;
 #endif
 #define ADI_LIBRARY_VSNPRINTF                           vsnprintf
 #define ADI_LIBRARY_FFLUSH                              fflush
-#define ADI_LIBRARY_FSEEK                               fseek
-#define ADI_LIBRARY_FREAD                               fread
-#define ADI_LIBRARY_FWRITE                              fwrite
+#define ADI_LIBRARY_FSEEK                               __adrv904x_fseek
+#define ADI_LIBRARY_FREAD                               __adrv904x_fread
+#define ADI_LIBRARY_FWRITE                              __adrv904x_fwrite
 #define ADI_LIBRARY_FOPEN                               fopen
 #define ADI_LIBRARY_FOPEN_S                             fopen_s
-#define ADI_LIBRARY_FCLOSE                              fclose
-#define ADI_LIBRARY_FTELL                               ftell
+#define ADI_LIBRARY_FCLOSE                              __adrv904x_fclose
+#define ADI_LIBRARY_FTELL                               __adrv904x_ftell
 #define ADI_LIBRARY_FERROR                              ferror
 #ifndef __KERNEL__
 #define ADI_LIBRARY_SETVBUF                             setvbuf

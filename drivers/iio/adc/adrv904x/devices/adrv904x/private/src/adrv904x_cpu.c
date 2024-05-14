@@ -568,7 +568,7 @@ static adi_adrv904x_ErrAction_e adrv904x_CpuCmdStatusWait(adi_adrv904x_Device_t*
         if (((*cmdStatusByte & CPU_PENDING) > 0U) &&
             (eventCheck < numEventChecks))
         {
-            recoveryAction = (adi_adrv904x_ErrAction_e) adi_common_hal_Wait_us(&device->common, waitInterval_us) ;
+            recoveryAction = (adi_adrv904x_ErrAction_e) adi_adrv904x_hal_Wait_us(&device->common, waitInterval_us) ;
             if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
             {
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Request Issue");
@@ -755,7 +755,7 @@ ADI_API adi_adrv904x_ErrAction_e adrv904x_CpuCmdWrite(adi_adrv904x_Device_t* con
 
         if (cpuCommandBusy == ADI_TRUE)
         {
-            recoveryAction = (adi_adrv904x_ErrAction_e) adi_common_hal_Wait_us(&device->common, waitInterval_us);
+            recoveryAction = (adi_adrv904x_ErrAction_e) adi_adrv904x_hal_Wait_us(&device->common, waitInterval_us);
             if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
             {
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Request Issue");

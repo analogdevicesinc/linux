@@ -528,7 +528,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxGainTableLoad(adi_adrv904x_Devic
 
 
         /* Check for empty Rx Gain Table */
-        if (fgets(rxGainTableLineBuffer, sizeof(rxGainTableLineBuffer), rxGainTableFilePtr) != NULL)
+        if (__adrv904x_fgets(rxGainTableLineBuffer, sizeof(rxGainTableLineBuffer), rxGainTableFilePtr) != NULL)
         {
 
             /* Parse the first line of the Rx Gain Table file which contains the version info */
@@ -596,7 +596,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxGainTableLoad(adi_adrv904x_Devic
             }
 #endif
 
-            if (fgets(rxGainTableLineBuffer, sizeof(rxGainTableLineBuffer), rxGainTableFilePtr) == NULL)
+            if (__adrv904x_fgets(rxGainTableLineBuffer, sizeof(rxGainTableLineBuffer), rxGainTableFilePtr) == NULL)
             {
                 recoveryAction = ADI_ADRV904X_ERR_ACT_CHECK_PARAM;
                 ADI_PARAM_ERROR_REPORT(&device->common, recoveryAction, rxGainTableFilePtr, "Empty Rx Gain Table Detected");
@@ -647,7 +647,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxGainTableLoad(adi_adrv904x_Devic
                 goto cleanup;
             }
 
-            if (fgets(rxGainTableLineBuffer, sizeof(rxGainTableLineBuffer), rxGainTableFilePtr) == NULL)
+            if (__adrv904x_fgets(rxGainTableLineBuffer, sizeof(rxGainTableLineBuffer), rxGainTableFilePtr) == NULL)
             {
                 recoveryAction = ADI_ADRV904X_ERR_ACT_CHECK_PARAM;
                 ADI_PARAM_ERROR_REPORT(&device->common, recoveryAction, rxGainTableFilePtr, "Empty Rx Gain Table Detected");
@@ -744,7 +744,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxGainTableLoad(adi_adrv904x_Devic
             }
 
             /* Loop until the gain table end is reached or no. of lines scanned exceeds maximum */
-            while ((fgets(rxGainTableLineBuffer, sizeof(rxGainTableLineBuffer), rxGainTableFilePtr) != NULL) &&
+            while ((__adrv904x_fgets(rxGainTableLineBuffer, sizeof(rxGainTableLineBuffer), rxGainTableFilePtr) != NULL) &&
                    (lineCount <  ADI_ADRV904X_RX_GAIN_TABLE_SIZE_ROWS))
             {
 #ifdef __GNUC__
@@ -2764,7 +2764,7 @@ static adi_adrv904x_ErrAction_e adrv904x_CpuMemDumpBinWrite(adi_adrv904x_Device_
                         }
                         if (exceptionValue == (uint32_t)ADRV904X_CPU_NO_EXCEPTION)
                         {
-                            recoveryAction = (adi_adrv904x_ErrAction_e) adi_common_hal_Wait_us(&device->common, waitInterval_us);
+                            recoveryAction = (adi_adrv904x_ErrAction_e) adi_adrv904x_hal_Wait_us(&device->common, waitInterval_us);
                             if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
                             {
                                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Request Issue");
@@ -2807,7 +2807,7 @@ static adi_adrv904x_ErrAction_e adrv904x_CpuMemDumpBinWrite(adi_adrv904x_Device_
                     }
                     if (dfeExceptionFlag == (uint32_t)ADRV904X_DFE_PLATFORM_NO_EXCEPTION)
                     {
-                        recoveryAction = (adi_adrv904x_ErrAction_e) adi_common_hal_Wait_us(&device->common, waitInterval_us);
+                        recoveryAction = (adi_adrv904x_ErrAction_e) adi_adrv904x_hal_Wait_us(&device->common, waitInterval_us);
                         if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
                         {
                             ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Request Issue for DFE CPU");
@@ -3691,7 +3691,7 @@ static adi_adrv904x_ErrAction_e adrv904x_CpuMemDumpBinWrite(adi_adrv904x_Device_
         else
         {
             count++;
-            recoveryAction = (adi_adrv904x_ErrAction_e)adi_common_hal_Wait_us(&device->common, DFE_EXCEPTION_DONE_WAIT_US);
+            recoveryAction = (adi_adrv904x_ErrAction_e)adi_adrv904x_hal_Wait_us(&device->common, DFE_EXCEPTION_DONE_WAIT_US);
             if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
             {
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Request Issue");
@@ -4324,7 +4324,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_JrxRepairSwCEnableGet(adi_adrv904x
             }
 
             /* SwC set Command is still in progress. Wait the specified wait interval, then check again for status. */
-            recoveryAction = (adi_adrv904x_ErrAction_e) adi_common_hal_Wait_us(&device->common, ADI_ADRV904X_TRACKCALDISABLE_INTERVAL_US);
+            recoveryAction = (adi_adrv904x_ErrAction_e) adi_adrv904x_hal_Wait_us(&device->common, ADI_ADRV904X_TRACKCALDISABLE_INTERVAL_US);
             if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
             {
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Issue");
@@ -4439,7 +4439,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_JrxRepairSwCEnableSet(adi_adrv904x
         }
 
         /* SwC set Command is still in progress. Wait the specified wait interval, then check again for status. */
-        recoveryAction = (adi_adrv904x_ErrAction_e) adi_common_hal_Wait_us(&device->common, ADI_ADRV904X_TRACKCALDISABLE_INTERVAL_US);
+        recoveryAction = (adi_adrv904x_ErrAction_e) adi_adrv904x_hal_Wait_us(&device->common, ADI_ADRV904X_TRACKCALDISABLE_INTERVAL_US);
         if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
         {
             ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Issue");
@@ -5104,7 +5104,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxGainTableChecksumRead(adi_adrv90
         goto cleanup;
     }
 
-    if (fgets(rxGainTableLineBuffer, sizeof(rxGainTableLineBuffer), rxGainTableFilePtr) == NULL)
+    if (__adrv904x_fgets(rxGainTableLineBuffer, sizeof(rxGainTableLineBuffer), rxGainTableFilePtr) == NULL)
     {
         recoveryAction = ADI_ADRV904X_ERR_ACT_CHECK_PARAM;
         ADI_PARAM_ERROR_REPORT(&device->common, recoveryAction, rxGainTableFilePtr, "Empty Rx Gain Table Detected");
@@ -5146,7 +5146,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxGainTableChecksumRead(adi_adrv90
     }
 
 
-    if (fgets(rxGainTableLineBuffer, sizeof(rxGainTableLineBuffer), rxGainTableFilePtr) == NULL)
+    if (__adrv904x_fgets(rxGainTableLineBuffer, sizeof(rxGainTableLineBuffer), rxGainTableFilePtr) == NULL)
     {
         recoveryAction = ADI_ADRV904X_ERR_ACT_CHECK_PARAM;
         ADI_PARAM_ERROR_REPORT(&device->common, recoveryAction, rxGainTableFilePtr, "Empty Rx Gain Table Detected");
@@ -5671,7 +5671,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RadioSequencerImageReload(adi_adrv
             if (stopComplete == 0U)
             {
                 /* Wait a bit before running the check again */
-                recoveryAction = (adi_adrv904x_ErrAction_e)adi_common_hal_Wait_us(&device->common, RS_STOP_WAIT_INTERVAL_US);
+                recoveryAction = (adi_adrv904x_ErrAction_e)adi_adrv904x_hal_Wait_us(&device->common, RS_STOP_WAIT_INTERVAL_US);
                 if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
                 {
                     ADI_API_ERROR_REPORT(&device->common, recoveryAction, "Error while waiting for Radio Sequencer to stop");
@@ -5770,7 +5770,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RadioSequencerImageReload(adi_adrv
         if (stopComplete == 0U)
         {
             /* Wait a bit before running the check again */
-            recoveryAction = (adi_adrv904x_ErrAction_e)adi_common_hal_Wait_us(&device->common, RS_STOP_WAIT_INTERVAL_US);
+            recoveryAction = (adi_adrv904x_ErrAction_e)adi_adrv904x_hal_Wait_us(&device->common, RS_STOP_WAIT_INTERVAL_US);
             if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
             {
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "Error while waiting for Radio Sequencer to stop");

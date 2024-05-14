@@ -24,11 +24,11 @@
 *
 *           Basic Sequence:
 *
-*           1) adi_hal_DevHalCfgCreate()    -> Interfaces Defined are Hardware/Feature Specific
-*           2) adi_hal_HwOpen()             -> Enable all Selected HAL Interfaces & Features
+*           1) adrv904x_DevHalCfgCreate()    -> Interfaces Defined are Hardware/Feature Specific
+*           2) adrv904x_HwOpen()             -> Enable all Selected HAL Interfaces & Features
 *           3) Use Device                   -> Hardware Ready for Use
-*           4) adi_hal_HwClose()            -> Release all Resources, i.e. Clean-up Task
-*           5) adi_hal_DevHalCfgFree()      -> Free Memory, i.e. Clean-up Task
+*           4) adrv904x_HwClose()            -> Release all Resources, i.e. Clean-up Task
+*           5) adrv904x_DevHalCfgFree()      -> Free Memory, i.e. Clean-up Task
 *
 *           Logging Feature is per HAL Configuration (i.e. Each ADI Device has its own log file)
 *
@@ -89,15 +89,15 @@
  * configuration must be obtained via this function and must be supplied as the \p devHalCfg
  * parameter to all other HAL API functions.
  *
- * \post After creation the returned devHalCfg needs to be opened with adi_hal_HwOpen before being
+ * \post After creation the returned devHalCfg needs to be opened with adrv904x_HwOpen before being
  * used.
  *
  * \post To prevent resource leakage all HAL configurations must eventually be freed using
- *  adi_hal_DevHalCfgFree.
+ *  adrv904x_DevHalCfgFree.
  *
  * \retval void* - Pointer to Object Containing HAL Configuration
  */
-ADI_API_EX void* (*adi_hal_DevHalCfgCreate)(const uint32_t interfaceMask, const uint8_t spiChipSelect, const char* const logFilename);
+ADI_API_EX void* (*adrv904x_DevHalCfgCreate)(const uint32_t interfaceMask, const uint8_t spiChipSelect, const char* const logFilename);
 
 /**
  * \brief Prepares the HAL interfaces associated with the devHalCfg handle for use.
@@ -110,57 +110,57 @@ ADI_API_EX void* (*adi_hal_DevHalCfgCreate)(const uint32_t interfaceMask, const 
  * call (e.g. adi_adrv904x_HwOpen).
  *
  * \pre The value of \param devHalCfg has been previously returned from a call to
- * adi_hal_DevHalCfgCreate.
+ * adrv904x_DevHalCfgCreate.
  *
  * \retval adi_hal_Err_e - ADI_HAL_ERR_OK if successful
  */
-ADI_API_EX adi_hal_Err_e (*adi_hal_HwOpen)(void* const devHalCfg);
+ADI_API_EX adi_hal_Err_e (*adrv904x_HwOpen)(void* const devHalCfg);
 
 /**
  * \brief Notifies the HAL that the configuration is no longer required and that any resources
- * acquired for that configuration may be released. Must be called before adi_hal_DevHalCfgFree.
+ * acquired for that configuration may be released. Must be called before adrv904x_DevHalCfgFree.
  *
  * Applications do not need to call this function directly. Closing is done by closing the ADI
  * device to which the devHalCfg was assigned. i.e by calling a device-specific HwClose function
  * (e.g. adi_adrv904x_HwClose).
  *
  * \pre The value of \param devHalCfg has been previously returned from a call to
- * adi_hal_DevHalCfgCreate.
+ * adrv904x_DevHalCfgCreate.
  *
- * \pre The value of \param devHalCfg has been opened with adi_hal_HwOpen.
+ * \pre The value of \param devHalCfg has been opened with adrv904x_HwOpen.
  *
- * \post After this call the configuration must be freed using adi_hal_DevHalCfgFree.
- * \post After this call no function except adi_hal_DevHalCfgFree may be called in relation to this
+ * \post After this call the configuration must be freed using adrv904x_DevHalCfgFree.
+ * \post After this call no function except adrv904x_DevHalCfgFree may be called in relation to this
  * devHalCfg. The devHalCfg may not be re-opened.
  *
  * \retval adi_hal_Err_e - ADI_HAL_ERR_OK if successful
  */
-ADI_API_EX adi_hal_Err_e (*adi_hal_HwClose)(void* const devHalCfg);
+ADI_API_EX adi_hal_Err_e (*adrv904x_HwClose)(void* const devHalCfg);
 
 /**
  * \brief Performs a reset (which may be a physical power-on reset or power-cycle) of the device
  * addressed by the HAL configuration's SPI interface.
  *
  * \pre The value of \param devHalCfg has been previously returned from a call to
- * adi_hal_DevHalCfgCreate.
+ * adrv904x_DevHalCfgCreate.
  *
  * \retval adi_hal_Err_e - ADI_HAL_ERR_OK if successful
  */
-ADI_API_EX adi_hal_Err_e (*adi_hal_HwReset)(void* const devHalCfg, const uint8_t pinLevel);
+ADI_API_EX adi_hal_Err_e (*adrv904x_HwReset)(void* const devHalCfg, const uint8_t pinLevel);
 
 /**
  * \brief Indicate that the client is finished with a HAL configuration itself. The configuration
- * can only be freed after first being closed with adi_hal_HwClose. After this function the
+ * can only be freed after first being closed with adrv904x_HwClose. After this function the
  * supplied HAL configuration handle may no longer be used with any HAL API function.
  *
  * \pre The value of \param devHalCfg has been previously returned from a call to
- * adi_hal_DevHalCfgCreate.
+ * adrv904x_DevHalCfgCreate.
  *
- * \pre The \param devHalCfg has been closed with adi_hal_HwClose.
+ * \pre The \param devHalCfg has been closed with adrv904x_HwClose.
  *
  * \retval adi_hal_Err_e - ADI_HAL_ERR_OK if successful
  */
-ADI_API_EX adi_hal_Err_e (*adi_hal_DevHalCfgFree)(void* devHalCfg);
+ADI_API_EX adi_hal_Err_e (*adrv904x_DevHalCfgFree)(void* devHalCfg);
 
 /**
  * \brief Function to write the the specified data to the device I2C port
@@ -208,7 +208,7 @@ ADI_API_EX adi_hal_Err_e(*adi_hal_I2cRead)(void* const devHalCfg, const uint8_t 
  *
  * \retval adi_hal_Err_e - ADI_HAL_ERR_OK if successful
  */
-ADI_API_EX adi_hal_Err_e (*adi_hal_SpiWrite)(void* const devHalCfg, const uint8_t txData[], const uint32_t numTxBytes);
+ADI_API_EX adi_hal_Err_e (*adrv904x_hal_SpiWrite)(void* const devHalCfg, const uint8_t txData[], const uint32_t numTxBytes);
 
 /**
  * \brief Function to read data from the device via SPI port
@@ -226,7 +226,7 @@ ADI_API_EX adi_hal_Err_e (*adi_hal_SpiWrite)(void* const devHalCfg, const uint8_
  *
  * \retval adi_hal_Err_e - ADI_HAL_ERR_OK if successful
  */
-ADI_API_EX adi_hal_Err_e (*adi_hal_SpiRead)(void* const     devHalCfg,
+ADI_API_EX adi_hal_Err_e (*adrv904x_hal_SpiRead)(void* const     devHalCfg,
                                             const uint8_t   txData[],
                                             uint8_t         rxData[],
                                             const uint32_t  numRxBytes);
@@ -255,7 +255,7 @@ ADI_API_EX adi_hal_Err_e (*adi_hal_LogStatusGet)(void* const devHalCfg, adi_hal_
 * \retval adi_hal_Err_e - ADI_HAL_ERR_OK if successful
 *
 */
-ADI_API_EX adi_hal_Err_e (*adi_hal_LogFileOpen)(void* const devHalCfg, const char* const filename);
+ADI_API_EX adi_hal_Err_e (*adrv904x_LogFileOpen)(void* const devHalCfg, const char* const filename);
 
 /**
 * \brief Service to Close a Log File
@@ -265,31 +265,31 @@ ADI_API_EX adi_hal_Err_e (*adi_hal_LogFileOpen)(void* const devHalCfg, const cha
 * \retval adi_hal_Err_e - ADI_HAL_ERR_OK if successful
 *
 */
-ADI_API_EX adi_hal_Err_e (*adi_hal_LogFileClose)(void* const devHalCfg);
+ADI_API_EX adi_hal_Err_e (*adrv904x_LogFileClose)(void* const devHalCfg);
 
 /**
 * \brief Sets the log level, allowing the end user to select the granularity of
 *        what events get logged.
 *
 * \param devHalCfg  Pointer to device instance specific platform settings
-* \param logMask    Bitwise Mask of adi_hal_LogLevel_e values to capture messages of a specific type
+* \param logMask    Bitwise Mask of adrv904x_LogLevel_e values to capture messages of a specific type
 *
 * \retval adi_hal_Err_e - ADI_HAL_ERR_OK if successful
 *
 */
-ADI_API_EX adi_hal_Err_e (*adi_hal_LogLevelSet)(void* const devHalCfg, const uint32_t logMask);
+ADI_API_EX adi_hal_Err_e (*adrv904x_LogLevelSet)(void* const devHalCfg, const uint32_t logMask);
 
 /**
  * \brief Gets the currently set log level: the mask of different types of log
  *         events that are currently enabled to be logged.
  *
  * \param devHalCfg Pointer to device instance specific platform settings
- * \param logMask   Bitwise Mask of adi_hal_LogLevel_e values to capture messages of a specific type
+ * \param logMask   Bitwise Mask of adrv904x_LogLevel_e values to capture messages of a specific type
  *
  * \retval adi_hal_Err_e - ADI_HAL_ERR_OK if successful
  *
  */
-ADI_API_EX adi_hal_Err_e (*adi_hal_LogLevelGet)(void* const devHalCfg, uint32_t* const logMask);
+ADI_API_EX adi_hal_Err_e (*adrv904x_LogLevelGet)(void* const devHalCfg, uint32_t* const logMask);
 
 /**
  * \brief Service to Set to Logging to Console Flag
@@ -318,8 +318,8 @@ ADI_API_EX adi_hal_Err_e (*adi_hal_LogConsoleSet)(void* const devHalCfg, const a
 * \retval adi_hal_Err_e - ADI_HAL_ERR_OK if successful
 *
 */
-ADI_API_EX adi_hal_Err_e (*adi_hal_LogWrite)(   void* const                 devHalCfg,
-                                                const adi_hal_LogLevel_e    logLevel,
+ADI_API_EX adi_hal_Err_e (*adrv904x_LogWrite)(   void* const                 devHalCfg,
+                                                const adrv904x_LogLevel_e    logLevel,
                                                 const uint8_t               indent,
                                                 const char* const           comment,
                                                 va_list                     argp);
@@ -332,7 +332,7 @@ ADI_API_EX adi_hal_Err_e (*adi_hal_LogWrite)(   void* const                 devH
 *
 * \retval ADI_HAL_ERR_OK Function completed successfully
 */
-ADI_API_EX adi_hal_Err_e (*adi_hal_Wait_us)(void* const devHalCfg, const uint32_t time_us);
+ADI_API_EX adi_hal_Err_e (*adrv904x_Wait_us)(void* const devHalCfg, const uint32_t time_us);
 
 /**
 * \brief Provides a blocking delay of the current thread
@@ -343,7 +343,7 @@ ADI_API_EX adi_hal_Err_e (*adi_hal_Wait_us)(void* const devHalCfg, const uint32_
 * \retval ADI_HAL_ERR_OK Function completed successfully
 *
 */
-ADI_API_EX adi_hal_Err_e (*adi_hal_Wait_ms)(void* const devHalCfg, const uint32_t time_ms);
+ADI_API_EX adi_hal_Err_e (*adrv904x_Wait_ms)(void* const devHalCfg, const uint32_t time_ms);
 
 /**
  * \brief Function to read a single BBIC control register
@@ -518,7 +518,7 @@ ADI_API_EX void* (*adi_hal_TlsGet)(const adi_hal_TlsType_e tlsType);
  * 
  * \retval adi_hal_Err_e - ADI_HAL_ERR_OK if successful
  */
-ADI_API_EX adi_hal_Err_e adi_hal_PlatformSetup(const adi_hal_Platforms_e platform);
+ADI_API_EX adi_hal_Err_e adrv904x_hal_PlatformSetup(const adi_hal_Platforms_e platform);
 
 
 /**

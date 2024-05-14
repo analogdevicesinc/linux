@@ -36,7 +36,7 @@
     if (!ADI_COMMON_DEVICE_STATE_IS_TC(*(commonDev)))                            \
     {            							         \
             adi_adrv904x_LogWrite((commonDev),                                   \
-                                (adi_hal_LogLevel_e) (logLevel),                 \
+                                (adrv904x_LogLevel_e) (logLevel),                 \
                                 "%s(...)",                                       \
                                 __func__);                                       \
     }
@@ -56,7 +56,7 @@
     if (!ADI_COMMON_DEVICE_STATE_IS_TC(*(commonDev)))                            \
     {                                                                            \
         adi_adrv904x_LogWrite((commonDev),                                         \
-                            (adi_hal_LogLevel_e) (logLevel),                     \
+                            (adrv904x_LogLevel_e) (logLevel),                     \
                             message,                                             \
                             ##__VA_ARGS__);                                      \
     }
@@ -149,7 +149,7 @@ ADI_API void adi_adrv904x_LogConsoleSet(const adi_common_Device_t* const commonD
 *
 */
 ADI_API void adi_adrv904x_LogWrite(   const adi_common_Device_t* const    commonDev,
-                                    const adi_hal_LogLevel_e            logLevel,
+                                    const adrv904x_LogLevel_e            logLevel,
                                     const char*                         comment,
                                     ...);
 

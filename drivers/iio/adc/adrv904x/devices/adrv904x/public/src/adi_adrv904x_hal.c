@@ -496,7 +496,7 @@ static adi_adrv904x_ErrAction_e adrv904x_SpiFlushWithRead(adi_adrv904x_Device_t*
 
     ADI_ADRV904X_NULL_PTR_REPORT_RETURN(&device->common, rxData);
     
-    halError = adi_hal_SpiRead(device->common.devHalInfo, &txData[0U], rxData, byteCount);
+    halError = adrv904x_hal_SpiRead(device->common.devHalInfo, &txData[0U], rxData, byteCount);
     if (ADI_HAL_ERR_OK == halError)
     {
         recoveryAction  = ADI_ADRV904X_ERR_ACT_NONE;
@@ -1101,7 +1101,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_SpiFlush(adi_adrv904x_Device_t* co
         goto cleanup;
     }
 
-        halError = adi_hal_SpiWrite(device->common.devHalInfo, &data[0U], *count);
+        halError = adrv904x_hal_SpiWrite(device->common.devHalInfo, &data[0U], *count);
     if (ADI_HAL_ERR_OK == halError)
     {
         recoveryAction  = ADI_ADRV904X_ERR_ACT_NONE;

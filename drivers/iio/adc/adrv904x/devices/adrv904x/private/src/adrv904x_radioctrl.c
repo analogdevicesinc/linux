@@ -1642,7 +1642,7 @@ ADI_API adi_adrv904x_ErrAction_e adrv904x_StreamTrigger(adi_adrv904x_Device_t* c
 
         if (cpuCommandBusy == ADI_TRUE)
         {
-            recoveryAction = (adi_adrv904x_ErrAction_e) adi_common_hal_Wait_us(&device->common, waitInterval_us);
+            recoveryAction = (adi_adrv904x_ErrAction_e) adi_adrv904x_hal_Wait_us(&device->common, waitInterval_us);
             if (ADI_ADRV904X_ERR_ACT_NONE != recoveryAction)
             {
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Request Issue");
@@ -1727,7 +1727,7 @@ ADI_API adi_adrv904x_ErrAction_e adrv904x_TxStreamTrigger(adi_adrv904x_Device_t*
 
         if (rdStreamId != UNUSED_STREAM_ID)
         {
-            recoveryAction = (adi_adrv904x_ErrAction_e)adi_common_hal_Wait_us(&device->common, 1);
+            recoveryAction = (adi_adrv904x_ErrAction_e)adi_adrv904x_hal_Wait_us(&device->common, 1);
             if (ADI_ADRV904X_ERR_ACT_NONE != recoveryAction)
             {
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Request Issue");
@@ -1803,7 +1803,7 @@ ADI_API adi_adrv904x_ErrAction_e adrv904x_RxStreamTrigger(adi_adrv904x_Device_t*
 
         if (rdStreamId != UNUSED_STREAM_ID)
         {
-            recoveryAction = (adi_adrv904x_ErrAction_e)adi_common_hal_Wait_us(&device->common, 1);
+            recoveryAction = (adi_adrv904x_ErrAction_e)adi_adrv904x_hal_Wait_us(&device->common, 1);
             if (ADI_ADRV904X_ERR_ACT_NONE != recoveryAction)
             {
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Request Issue");
@@ -3012,7 +3012,7 @@ ADI_API adi_adrv904x_ErrAction_e adrv904x_RadioSequencerStart(adi_adrv904x_Devic
             if (startComplete == 0U)
             {
                 /* Wait a bit before running the check again */
-                recoveryAction = (adi_adrv904x_ErrAction_e)adi_common_hal_Wait_us(&device->common, RS_START_WAIT_INTERVAL_US);
+                recoveryAction = (adi_adrv904x_ErrAction_e)adi_adrv904x_hal_Wait_us(&device->common, RS_START_WAIT_INTERVAL_US);
                 if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
                 {
                     ADI_API_ERROR_REPORT(&device->common, recoveryAction, "Error while waiting for Radio Sequencer to start");

@@ -80,7 +80,7 @@ typedef enum adi_hal_LogErr
 /**
  *  \brief  Log Level Message Categories
  */
-typedef enum adi_hal_LogLevel
+typedef enum adrv904x_LogLevel
 {
     ADI_HAL_LOG_NONE        = 0x0UL,    /*!< No Logging Flag */
     ADI_HAL_LOG_MSG         = 0x1UL,    /*!< Message Logging Flag */
@@ -92,7 +92,7 @@ typedef enum adi_hal_LogLevel
     ADI_HAL_LOG_HAL         = 0x40UL,   /*!< HAL API Entry Flag */
     ADI_HAL_LOG_SPI         = 0x80UL,   /*!< SPI Transaction Flag */
     ADI_HAL_LOG_ALL         = 0xFFUL    /*!< All Logging Enabled */
-} adi_hal_LogLevel_e;
+} adrv904x_LogLevel_e;
 
 /**
  * \brief Enum type for Console Logging
@@ -210,11 +210,11 @@ typedef struct adi_hal_SpiCfg
 /**
  * \brief Data structure for Hardware reset pin functionality
  */
-    typedef struct adi_hal_HwResetCfg
+    typedef struct adrv904x_HwResetCfg
 {
     uint8_t     interfaceEnabled;   /*!<  */
     uint32_t    resetPinIndex;      /*!<  */
-} adi_hal_HwResetCfg_t;
+} adrv904x_HwResetCfg_t;
 
 /**
  * \brief Data structure for I2C configuration
@@ -286,7 +286,7 @@ typedef struct adi_hal_Cfg
     adi_hal_SpiCfg_t        spiCfg;                             /*!< SPI Configuration */
     adi_hal_LogCfg_t        logCfg;                             /*!< LOG Configuration */
     adi_hal_BbicCfg_t       bbicCfg;                            /*!< BBIC Configuration */
-    adi_hal_HwResetCfg_t    hwResetCfg;                         /*!< HW Reset Configuration */
+    adrv904x_HwResetCfg_t    hwResetCfg;                         /*!< HW Reset Configuration */
     adi_hal_I2cCfg_t        i2cCfg;                             /*!< I2C Configuration */
     adi_hal_TimerCfg_t      timerCfg;                           /*!< Timer Configuration */
 #ifndef __KERNEL__
@@ -328,19 +328,19 @@ FILE* fopen (const char * filename, const char *mode);
 
 struct tm* gmtime(const ktime_t *timer);
 
-extern int fseek (FILE * stream, long int offset, int origin);
-extern long int ftell (FILE *stream);
+extern int __adrv904x_fseek (FILE * stream, long int offset, int origin);
+extern long int __adrv904x_ftell (FILE *stream);
 
-extern int fclose (FILE *stream);
-extern char * fgets(char *dst, int num, FILE *stream);
-extern size_t fread(void *ptr, size_t size, size_t count, FILE *stream);
-extern size_t fwrite (const void * ptr, size_t size, size_t count, FILE *stream);
+extern int __adrv904x_fclose (FILE *stream);
+extern char * __adrv904x_fgets(char *dst, int num, FILE *stream);
+extern size_t __adrv904x_fread(void *ptr, size_t size, size_t count, FILE *stream);
+extern size_t __adrv904x_fwrite (const void * ptr, size_t size, size_t count, FILE *stream);
 extern int ferror (FILE *stream);
 extern int fprintf(FILE *stream, const char *fmt, ...);
 extern int fflush(FILE *stream);
 
-extern FILE* __fopen (adi_hal_Cfg_t *hal, const char * filename, const char *mode);
-#define fopen(filename, mode) __fopen(device->common.devHalInfo, filename, mode)
+extern FILE* __adrv904x_fopen (adi_hal_Cfg_t *hal, const char * filename, const char *mode);
+#define fopen(filename, mode) __adrv904x_fopen(device->common.devHalInfo, filename, mode)
 
 extern void *__adrv904x_calloc(size_t size, size_t nmemb);
 

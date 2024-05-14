@@ -54,9 +54,9 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_Unlock(adi_adrv904x_Device_t* cons
 * This function must be called on the device before any other function is called. The
 * function must not be called more than once on the same device.
 *
-* Uses adi_common_hal_HwOpen internally. See that function for important relevant information.
+* Uses adi_adrv904x_hal_HwOpen internally. See that function for important relevant information.
 *
-* This API shall call the ADI HAL function adi_hal_HwOpen for
+* This API shall call the ADI HAL function adrv904x_HwOpen for
 * ADRV904X Hardware initialization.  This HAL function initializes all the external
 * hardware blocks required in the operation of the ADRV904X device.
 * This API will also set the HAL timeout limit for the HAL driver as per API
@@ -84,11 +84,11 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_HwOpen(adi_adrv904x_Device_t* cons
 /**
 * \brief Performs a hardware shutdown for ADRV904X Device.
 *
-* This API shall call the ADI HAL function adi_hal_HwClose for
+* This API shall call the ADI HAL function adrv904x_HwClose for
 * ADRV904X Hardware shutdown.  This HAL function shuts down all the external
 * hardware blocks required in the operation of the ADRV904X device.
 *
-* Uses adi_common_hal_HwClose internally. See that function for important relevant information.
+* Uses adi_adrv904x_hal_HwClose internally. See that function for important relevant information.
 *
 * \pre This function may be called any time after device->common.devHalInfo has been
 * initialized with user values

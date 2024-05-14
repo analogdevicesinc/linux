@@ -55,7 +55,7 @@ static thread_to_value_t store = { NULL };
  * \retval ADI_HAL_NULL_PTR The function has been called with a null pointer
  * \retval ADI_HAL_LOGGING_FAIL If the function failed to open or write to the specified filename
  */
-adi_hal_Err_e linux_LogFileOpen(void *devHalCfg, const char *filename)
+adi_hal_Err_e linux_adrv904x_LogFileOpen(void *devHalCfg, const char *filename)
 {
 	return ADI_HAL_OK;
 }
@@ -68,7 +68,7 @@ adi_hal_Err_e linux_LogFileOpen(void *devHalCfg, const char *filename)
  * \retval ADI_HAL_OK Function completed successfully, no action required
  * \retval ADI_HAL_NULL_PTR The function has been called with a null pointer
  */
-adi_hal_Err_e linux_LogFileFlush(void *devHalCfg)
+adi_hal_Err_e linux_adrv904x_LogFileFlush(void *devHalCfg)
 {
 	return ADI_HAL_OK;
 }
@@ -82,7 +82,7 @@ adi_hal_Err_e linux_LogFileFlush(void *devHalCfg)
  * \retval ADI_HAL_NULL_PTR The function has been called with a null pointer
  * \retval ADI_HAL_LOGGING_FAIL Error while flushing or closing the log file.
  */
-adi_hal_Err_e linux_LogFileClose(void *devHalCfg)
+adi_hal_Err_e linux_adrv904x_LogFileClose(void *devHalCfg)
 {
 	return ADI_HAL_OK;
 }
@@ -125,7 +125,7 @@ adi_hal_Err_e linux_LogConsoleSet(void* devHalCfg, const adi_hal_LogConsole_e lo
  * \retval ADI_ADRV904X_ERR_ACT_CHECK_PARAM   Recovery action for bad parameter check
  * \retval ADI_ADRV904X_ERR_ACT_NONE          Function completed successfully, no action required
  */
-adi_hal_Err_e linux_LogLevelSet(void *devHalCfg, const uint32_t logMask)
+adi_hal_Err_e linux_adrv904x_LogLevelSet(void *devHalCfg, const uint32_t logMask)
 {
 	adi_hal_Cfg_t *halCfg = NULL;
 
@@ -150,7 +150,7 @@ adi_hal_Err_e linux_LogLevelSet(void *devHalCfg, const uint32_t logMask)
  * \retval ADI_HAL_OK Function completed successfully, no action required
  * \retval ADI_HAL_NULL_PTR The function has been called with a null pointer
  */
-adi_hal_Err_e linux_LogLevelGet(void *devHalCfg, uint32_t* const logMask)
+adi_hal_Err_e linux_adrv904x_LogLevelGet(void *devHalCfg, uint32_t* const logMask)
 {
 	int32_t halError = (int32_t)ADI_HAL_OK;
 	adi_hal_Cfg_t *halCfg = NULL;
@@ -184,7 +184,7 @@ adi_hal_Err_e linux_LogLevelGet(void *devHalCfg, uint32_t* const logMask)
  * \retval ADI_HAL_LOGGING_FAIL If the function failed to flush to write
  */
 
-adi_hal_Err_e linux_LogWrite(void *devHalCfg, const adi_hal_LogLevel_e logLevel,
+adi_hal_Err_e linux_adrv904x_LogWrite(void *devHalCfg, const adrv904x_LogLevel_e logLevel,
 			const uint8_t indent, const char* const comment,
 			va_list argp)
 {
@@ -296,7 +296,7 @@ adi_hal_Err_e linux_LogWrite(void *devHalCfg, const adi_hal_LogLevel_e logLevel,
  * \retval ADI_HAL_NULL_PTR the function has been called with a null pointer
  * \retval ADI_HAL_SPI_FAIL the device driver was not opened successfully
  */
-adi_hal_Err_e linux_SpiOpen(void *devHalCfg)
+adi_hal_Err_e linux_adrv904x_SpiOpen(void *devHalCfg)
 {
 	return ADI_HAL_OK;
 }
@@ -313,7 +313,7 @@ adi_hal_Err_e linux_SpiOpen(void *devHalCfg)
  * \retval ADI_HAL_NULL_PTR the function has been called with a null pointer
  * \retval ADI_HAL_SPI_FAIL the device driver was not closed successfully
  */
-adi_hal_Err_e linux_SpiClose(void *devHalCfg)
+adi_hal_Err_e linux_adrv904x_SpiClose(void *devHalCfg)
 {
 	return ADI_HAL_OK;
 }
@@ -329,7 +329,7 @@ adi_hal_Err_e linux_SpiClose(void *devHalCfg)
  * \retval ADI_HAL_NULL_PTR the function has been called with a null pointer
  * \retval ADI_HAL_SPI_FAIL the SPI initialization failed
  */
-int32_t linux_SpiInit(void *devHalCfg)
+int32_t linux_adrv904x_SpiInit(void *devHalCfg)
 {
 	return ADI_HAL_OK;
 }
@@ -348,7 +348,7 @@ int32_t linux_SpiInit(void *devHalCfg)
  * \retval ADI_HAL_NULL_PTR the function has been called with a null pointer
  * \retval ADI_HAL_SPI_FAIL the data was not written successfully
  */
-adi_hal_Err_e linux_SpiWrite(void *devHalCfg, const uint8_t txData[],
+adi_hal_Err_e linux_adrv904x_SpiWrite(void *devHalCfg, const uint8_t txData[],
 		       uint32_t numTxBytes)
 {
 	static const uint32_t MAX_SIZE = 4096;
@@ -400,7 +400,7 @@ adi_hal_Err_e linux_SpiWrite(void *devHalCfg, const uint8_t txData[],
  * \retval ADI_HAL_NULL_PTR the function has been called with a null pointer
  * \retval ADI_HAL_SPI_FAIL the data was not read successfully
  */
-adi_hal_Err_e linux_SpiRead(void *devHalCfg, const uint8_t txData[], uint8_t rxData[],
+adi_hal_Err_e linux_adrv904x_SpiRead(void *devHalCfg, const uint8_t txData[], uint8_t rxData[],
 		      uint32_t numTxRxBytes)
 {
 	static const uint32_t MAX_SIZE = 4096;
@@ -445,7 +445,7 @@ adi_hal_Err_e linux_SpiRead(void *devHalCfg, const uint8_t txData[], uint8_t rxD
  *
  * \retval ADI_HAL_OK Function completed successfully
  */
-int32_t linux_TimerOpen(void *devHalCfg)
+int32_t linux_adrv904x_TimerOpen(void *devHalCfg)
 {
 	/* ADI ZC706 platform does not require any timer open /close */
 	return (int32_t)ADI_HAL_OK;
@@ -459,7 +459,7 @@ int32_t linux_TimerOpen(void *devHalCfg)
  *
  * \retval ADI_HAL_OK Function completed successfully
  */
-int32_t linux_TimerClose(void *devHalCfg)
+int32_t linux_adrv904x_TimerClose(void *devHalCfg)
 {
 	/* ADI ZC706 platform does not require any timer open /close */
 	return (int32_t)ADI_HAL_OK;
@@ -473,7 +473,7 @@ int32_t linux_TimerClose(void *devHalCfg)
  *
  * \retval ADI_HAL_OK Function completed successfully
  */
-int32_t linux_TimerInit(void *devHalCfg)
+int32_t linux_adrv904x_TimerInit(void *devHalCfg)
 {
 	/* ADI ZC706 platform does not require any timer init */
 	return (int32_t)ADI_HAL_OK;
@@ -488,7 +488,7 @@ int32_t linux_TimerInit(void *devHalCfg)
  * \retval ADI_HAL_OK Function completed successfully
  * \retval ADI_HAL_NULL_PTR the function has been called with a null pointer
  */
-adi_hal_Err_e linux_TimerWait_us(void *devHalCfg, const uint32_t time_us)
+adi_hal_Err_e linux_adrv904x_TimerWait_us(void *devHalCfg, const uint32_t time_us)
 {
 	int32_t halError = (int32_t)ADI_HAL_OK;
 
@@ -506,7 +506,7 @@ adi_hal_Err_e linux_TimerWait_us(void *devHalCfg, const uint32_t time_us)
  * \retval ADI_HAL_OK Function completed successfully
  * \retval ADI_HAL_NULL_PTR the function has been called with a null pointer
  */
-adi_hal_Err_e linux_TimerWait_ms(void *devHalCfg, const uint32_t time_ms)
+adi_hal_Err_e linux_adrv904x_TimerWait_ms(void *devHalCfg, const uint32_t time_ms)
 {
 	int32_t halError = (int32_t)ADI_HAL_OK;
 
@@ -524,7 +524,7 @@ adi_hal_Err_e linux_TimerWait_ms(void *devHalCfg, const uint32_t time_ms)
  * \retval ADI_HAL_NULL_PTR The function has been called with a null pointer
  * \retval errors returned by other function calls.
  */
-adi_hal_Err_e linux_HwOpen(void *devHalCfg)
+adi_hal_Err_e linux_adrv904x_HwOpen(void *devHalCfg)
 {
 	return ADI_HAL_OK;
 }
@@ -628,7 +628,7 @@ adi_hal_Err_e linux_tls_set(const adi_hal_TlsType_e tlsType, void* const value)
  * \retval ADI_HAL_OK Function completed successfully, no action required
  * \retval ADI_HAL_NULL_PTR The function has been called with a null pointer
  */
-adi_hal_Err_e linux_HwClose(void *devHalCfg)
+adi_hal_Err_e linux_adrv904x_HwClose(void *devHalCfg)
 {
 	return ADI_HAL_OK;
 }
@@ -646,7 +646,7 @@ adi_hal_Err_e linux_HwClose(void *devHalCfg)
  * \retval ADI_HAL_OK Function completed successfully, no action required
  * \retval ADI_HAL_NULL_PTR The function has been called with a null pointer
  */
-adi_hal_Err_e linux_HwReset(void *devHalCfg, uint8_t pinLevel)
+adi_hal_Err_e linux_adrv904x_HwReset(void *devHalCfg, uint8_t pinLevel)
 {
 	adi_hal_Cfg_t *halCfg;
 
@@ -666,46 +666,46 @@ adi_hal_Err_e linux_HwReset(void *devHalCfg, uint8_t pinLevel)
  */
 
 /* Initialization interface to open, init, close drivers and pointers to resources */
-adi_hal_Err_e (*adi_hal_HwOpen)(void *devHalCfg) = NULL;
-adi_hal_Err_e (*adi_hal_HwClose)(void *devHalCfg) = NULL;
-adi_hal_Err_e (*adi_hal_HwReset)(void *devHalCfg, uint8_t pinLevel) = NULL;
-adi_hal_Err_e (*adi_hal_SpiInit)(void *devHalCfg) =
+adi_hal_Err_e (*adrv904x_HwOpen)(void *devHalCfg) = NULL;
+adi_hal_Err_e (*adrv904x_HwClose)(void *devHalCfg) = NULL;
+adi_hal_Err_e (*adrv904x_HwReset)(void *devHalCfg, uint8_t pinLevel) = NULL;
+adi_hal_Err_e (*adrv904x_SpiInit)(void *devHalCfg) =
 	NULL; /* TODO: remove?  called by HwOpen() */
-void *(*adi_hal_DevHalCfgCreate)(uint32_t interfaceMask, uint8_t spiChipSelect,
+void *(*adrv904x_DevHalCfgCreate)(uint32_t interfaceMask, uint8_t spiChipSelect,
 				 const char *logFilename) = NULL;
-adi_hal_Err_e (*adi_hal_DevHalCfgFree)(void *devHalCfg) = NULL;
-adi_hal_Err_e (*adi_hal_HwVerify)(void *devHalCfg) = NULL;
+adi_hal_Err_e (*adrv904x_DevHalCfgFree)(void *devHalCfg) = NULL;
+adi_hal_Err_e (*adrv904x_HwVerify)(void *devHalCfg) = NULL;
 
 /* SPI Interface */
-adi_hal_Err_e (*adi_hal_SpiWrite)(void *devHalCfg, const uint8_t txData[],
+adi_hal_Err_e (*adrv904x_hal_SpiWrite)(void *devHalCfg, const uint8_t txData[],
 			    uint32_t numTxBytes) = NULL;
 
-adi_hal_Err_e (*adi_hal_SpiRead)(void *devHalCfg, const uint8_t txData[],
+adi_hal_Err_e (*adrv904x_hal_SpiRead)(void *devHalCfg, const uint8_t txData[],
 			   uint8_t rxData[], uint32_t numRxBytes) = NULL;
 
 /* Custom SPI streaming interface*/
-adi_hal_Err_e (*adi_hal_CustomSpiStreamWrite)(void *devHalCfg, const uint16_t address,
+adi_hal_Err_e (*adrv904x_CustomSpiStreamWrite)(void *devHalCfg, const uint16_t address,
 					const uint8_t txData[],
 					uint32_t numTxBytes,
 					uint8_t numBytesofAddress,
 					uint8_t numBytesOfDataPerStream) = NULL;
 
-adi_hal_Err_e (*adi_hal_CustomSpiStreamRead)(void *devHalCfg, const uint16_t address,
+adi_hal_Err_e (*adrv904x_CustomSpiStreamRead)(void *devHalCfg, const uint16_t address,
 				       uint8_t rxData[], uint32_t numRxBytes,
 				       uint8_t numBytesofAddress,
 				       uint8_t numBytesOfDataPerStream) = NULL;
 
 /* Logging interface */
-adi_hal_Err_e (*adi_hal_LogFileOpen)(void *devHalCfg, const char *filename) = NULL;
+adi_hal_Err_e (*adrv904x_LogFileOpen)(void *devHalCfg, const char *filename) = NULL;
 
-adi_hal_Err_e (*adi_hal_LogLevelSet)(void *devHalCfg, const uint32_t logMask) = NULL;
+adi_hal_Err_e (*adrv904x_LogLevelSet)(void *devHalCfg, const uint32_t logMask) = NULL;
 
-adi_hal_Err_e (*adi_hal_LogLevelGet)(void *devHalCfg, uint32_t *const logMask) = NULL;
+adi_hal_Err_e (*adrv904x_LogLevelGet)(void *devHalCfg, uint32_t *const logMask) = NULL;
 
-adi_hal_Err_e (*adi_hal_LogWrite)(void *devHalCfg, const adi_hal_LogLevel_e    logLevel,
+adi_hal_Err_e (*adrv904x_LogWrite)(void *devHalCfg, const adrv904x_LogLevel_e    logLevel,
 			    const uint8_t indent, const char *comment, va_list args) = NULL;
 
-adi_hal_Err_e (*adi_hal_LogFileClose)(void *devHalCfg) = NULL;
+adi_hal_Err_e (*adrv904x_LogFileClose)(void *devHalCfg) = NULL;
 
 adi_hal_Err_e (*adi_hal_LogStatusGet)(void* const devHalCfg,
 				adi_hal_LogStatusGet_t* const logStatus) = NULL;
@@ -714,9 +714,9 @@ adi_hal_Err_e (*adi_hal_LogConsoleSet)(void* const devHalCfg,
 				const adi_hal_LogConsole_e logConsoleFlag) = NULL;
 
 /* Timer interface */
-adi_hal_Err_e (*adi_hal_Wait_ms)(void *devHalCfg, uint32_t time_ms) = NULL;
+adi_hal_Err_e (*adrv904x_Wait_ms)(void *devHalCfg, uint32_t time_ms) = NULL;
 
-adi_hal_Err_e (*adi_hal_Wait_us)(void *devHalCfg, uint32_t time_us) = NULL;
+adi_hal_Err_e (*adrv904x_Wait_us)(void *devHalCfg, uint32_t time_us) = NULL;
 
 /* Mutexes */
 adi_hal_Err_e (*adi_hal_MutexInit)(adi_hal_mutex_t* const mutex) = NULL;
@@ -735,33 +735,33 @@ adi_hal_Err_e (*adi_hal_TlsSet)(const adi_hal_TlsType_e tlsType, void* const val
  *
  * \return
  */
-adi_hal_Err_e adi_hal_PlatformSetup(adi_hal_Platforms_e platform)
+adi_hal_Err_e adrv904x_hal_PlatformSetup(adi_hal_Platforms_e platform)
 {
 	adi_hal_Err_e error = ADI_HAL_OK;
 
 	switch (platform)
 	{
 	case ADI_LINUX:
-		adi_hal_HwOpen = linux_HwOpen;
-		adi_hal_HwClose = linux_HwClose;
-		adi_hal_HwReset = linux_HwReset;
+		adrv904x_HwOpen = linux_adrv904x_HwOpen;
+		adrv904x_HwClose = linux_adrv904x_HwClose;
+		adrv904x_HwReset = linux_adrv904x_HwReset;
 
-		adi_hal_SpiWrite = linux_SpiWrite;
-		adi_hal_SpiRead = linux_SpiRead;
+		adrv904x_hal_SpiWrite = linux_adrv904x_SpiWrite;
+		adrv904x_hal_SpiRead = linux_adrv904x_SpiRead;
 
-		adi_hal_LogFileOpen = linux_LogFileOpen;
-		adi_hal_LogLevelSet = linux_LogLevelSet;
-		adi_hal_LogLevelGet = linux_LogLevelGet;
-		adi_hal_LogWrite = linux_LogWrite;
-		adi_hal_LogFileClose = linux_LogFileClose;
+		adrv904x_LogFileOpen = linux_adrv904x_LogFileOpen;
+		adrv904x_LogLevelSet = linux_adrv904x_LogLevelSet;
+		adrv904x_LogLevelGet = linux_adrv904x_LogLevelGet;
+		adrv904x_LogWrite = linux_adrv904x_LogWrite;
+		adrv904x_LogFileClose = linux_adrv904x_LogFileClose;
 		adi_hal_LogStatusGet = linux_LogStatusGet;
 		adi_hal_LogConsoleSet = linux_LogConsoleSet;
 
-		adi_hal_Wait_us = linux_TimerWait_us;
-		adi_hal_Wait_ms = linux_TimerWait_ms;
+		adrv904x_Wait_us = linux_adrv904x_TimerWait_us;
+		adrv904x_Wait_ms = linux_adrv904x_TimerWait_ms;
 
-		adi_hal_SpiInit = linux_HwOpen;
-		adi_hal_HwVerify = linux_HwOpen;
+		adrv904x_SpiInit = linux_adrv904x_HwOpen;
+		adrv904x_HwVerify = linux_adrv904x_HwOpen;
 
 		adi_hal_MutexInit = linux_mutex_init;
 		adi_hal_MutexDestroy = linux_mutex_destroy;
@@ -785,7 +785,7 @@ adi_hal_Err_e adi_hal_PlatformSetup(adi_hal_Platforms_e platform)
  *
  */
 
-int fseek (FILE * stream, long int offset, int origin)
+int __adrv904x_fseek (FILE * stream, long int offset, int origin)
 {
 	char *ptr;
 
@@ -811,12 +811,12 @@ int fseek (FILE * stream, long int offset, int origin)
 	return 0;
 }
 
-long int ftell (FILE *stream)
+long int __adrv904x_ftell (FILE *stream)
 {
 	return stream->ptr - stream->start;
 }
 
-FILE* __fopen (adi_hal_Cfg_t *hal, const char * filename, const char *mode)
+FILE* __adrv904x_fopen (adi_hal_Cfg_t *hal, const char * filename, const char *mode)
 {
 	int ret;
 
@@ -833,7 +833,7 @@ FILE* __fopen (adi_hal_Cfg_t *hal, const char * filename, const char *mode)
 	return stream;
 }
 
-int fclose (FILE *stream)
+int __adrv904x_fclose (FILE *stream)
 {
 	if (stream == NULL)
 		return -ENODEV;
@@ -846,7 +846,7 @@ int fclose (FILE *stream)
 	return 0;
 }
 
-char * fgets(char *dst, int num, FILE *stream)
+char * __adrv904x_fgets(char *dst, int num, FILE *stream)
 {
 	char *p;
 	int c;
@@ -869,7 +869,7 @@ char * fgets(char *dst, int num, FILE *stream)
 	return p;
 }
 
-size_t fread(void *ptr, size_t size, size_t count, FILE *stream)
+size_t __adrv904x_fread(void *ptr, size_t size, size_t count, FILE *stream)
 {
 	int total = size * count;
 
@@ -882,7 +882,7 @@ size_t fread(void *ptr, size_t size, size_t count, FILE *stream)
 	return total;
 }
 
-size_t fwrite (const void * ptr, size_t size, size_t count, FILE *stream)
+size_t __adrv904x_fwrite (const void * ptr, size_t size, size_t count, FILE *stream)
 {
 	return 0;
 }

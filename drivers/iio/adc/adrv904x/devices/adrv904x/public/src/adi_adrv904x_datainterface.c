@@ -299,7 +299,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxOrxDataCaptureStart( adi_adrv904
             if (eventCheck < numEventChecks) /* Don't wait on last iteration */
             {
                 /* Wait the specified wait interval, then check again for status. */
-                recoveryAction = (adi_adrv904x_ErrAction_e) adi_common_hal_Wait_us(&device->common, waitInterval_us);
+                recoveryAction = (adi_adrv904x_ErrAction_e) adi_adrv904x_hal_Wait_us(&device->common, waitInterval_us);
                 if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
                 {
                     ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Issue");
@@ -336,7 +336,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RxOrxDataCaptureStart( adi_adrv904
         if (eventCheck < numEventChecks) /* Don't wait on last iteration */
         {
             /* Wait the specified wait interval, then check again for status. */
-            recoveryAction = (adi_adrv904x_ErrAction_e) adi_common_hal_Wait_us(&device->common, waitInterval_us);
+            recoveryAction = (adi_adrv904x_ErrAction_e) adi_adrv904x_hal_Wait_us(&device->common, waitInterval_us);
             if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
             {
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Issue");
@@ -8072,7 +8072,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RunEyeSweep_v2(adi_adrv904x_Device
         }
 
         /* Eye Sweep is still in progress. Wait the specified wait interval, then check again for status. */
-        recoveryAction = (adi_adrv904x_ErrAction_e) adi_common_hal_Wait_us(&device->common, ADI_ADRV904X_RUNEYESWEEP_INTERVAL_US);
+        recoveryAction = (adi_adrv904x_ErrAction_e) adi_adrv904x_hal_Wait_us(&device->common, ADI_ADRV904X_RUNEYESWEEP_INTERVAL_US);
         if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
         {
             ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Issue");
@@ -8247,7 +8247,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RunVerticalEyeSweep_v2(adi_adrv904
         }
 
         /* Eye Sweep is still in progress. Wait the specified wait interval, then check again for status. */
-        recoveryAction = (adi_adrv904x_ErrAction_e) adi_common_hal_Wait_us(&device->common, ADI_ADRV904X_RUNEYESWEEP_INTERVAL_US);
+        recoveryAction = (adi_adrv904x_ErrAction_e) adi_adrv904x_hal_Wait_us(&device->common, ADI_ADRV904X_RUNEYESWEEP_INTERVAL_US);
         if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
         {
             ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Issue");

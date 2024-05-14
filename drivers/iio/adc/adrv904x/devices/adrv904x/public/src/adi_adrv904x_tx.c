@@ -335,7 +335,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_TxAttenSet(adi_adrv904x_Device_t* 
             data1[5U] = (uint8_t)(attenRegVal >> 8U);
             data1[7U] = addrLsb;
             data1[8U] = attenLsb;
-            halError = adi_hal_SpiWrite(device->common.devHalInfo, data1, DATA_TRANSACTION_1_SIZE);
+            halError = adrv904x_hal_SpiWrite(device->common.devHalInfo, data1, DATA_TRANSACTION_1_SIZE);
             recoveryAction = (adi_adrv904x_ErrAction_e) adi_common_hal_ErrCodeConvert(halError);
             if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
             {
@@ -354,7 +354,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_TxAttenSet(adi_adrv904x_Device_t* 
     if (latchMask == 0xFFU)
     {
         dataFF[2U] = latchMask;
-        halError = adi_hal_SpiWrite(device->common.devHalInfo, dataFF, DATA_TRANSATCTION_FF_SIZE);
+        halError = adrv904x_hal_SpiWrite(device->common.devHalInfo, dataFF, DATA_TRANSATCTION_FF_SIZE);
         recoveryAction = (adi_adrv904x_ErrAction_e) adi_common_hal_ErrCodeConvert(halError);
         if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
         {
@@ -369,7 +369,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_TxAttenSet(adi_adrv904x_Device_t* 
     {
         data2[2U] = latchMask;
         data2[5U] = latchMask;
-        halError = adi_hal_SpiWrite(device->common.devHalInfo, data2, DATA_TRANSACTION_2_SIZE);
+        halError = adrv904x_hal_SpiWrite(device->common.devHalInfo, data2, DATA_TRANSACTION_2_SIZE);
         recoveryAction = (adi_adrv904x_ErrAction_e) adi_common_hal_ErrCodeConvert(halError);
         if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
         {

@@ -500,7 +500,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_DfeCpuStartStatusCheck(adi_adrv904
         else
         {
             /* Wait interval then check again */
-            recoveryAction = (adi_adrv904x_ErrAction_e) adi_common_hal_Wait_us(&device->common, waitInterval_us);
+            recoveryAction = (adi_adrv904x_ErrAction_e) adi_adrv904x_hal_Wait_us(&device->common, waitInterval_us);
             if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
             {
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "Wait failed");
@@ -730,7 +730,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_DfePrepareLoad(adi_adrv904x_Device
     }
 
     /* Give L4 RAMs time to initialize*/
-    recoveryAction = (adi_adrv904x_ErrAction_e) adi_common_hal_Wait_us(&device->common, L4_INIT_TIME_US);
+    recoveryAction = (adi_adrv904x_ErrAction_e) adi_adrv904x_hal_Wait_us(&device->common, L4_INIT_TIME_US);
     if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
     {
         ADI_API_ERROR_REPORT(&device->common, recoveryAction, "HAL Wait Request Issue");
