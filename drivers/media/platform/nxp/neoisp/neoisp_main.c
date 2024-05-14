@@ -312,6 +312,8 @@ static int neoisp_set_packetizer(struct neoisp_dev_s *neoispd)
 		pck->ctrl_cam0_order0 = 2;
 		pck->ctrl_cam0_order1 = 0;
 		pck->ctrl_cam0_order2 = 1;
+		/* remove 0-padding */
+		pck->ctrl_cam0_a0s = 0;
 		break;
 	case V4L2_PIX_FMT_NV21:
 		pck->ctrl_cam0_type = 0;
@@ -320,6 +322,8 @@ static int neoisp_set_packetizer(struct neoisp_dev_s *neoispd)
 		pck->ctrl_cam0_order0 = 2;
 		pck->ctrl_cam0_order1 = 1;
 		pck->ctrl_cam0_order2 = 0;
+		/* remove 0-padding */
+		pck->ctrl_cam0_a0s = 0;
 		break;
 	case V4L2_PIX_FMT_NV16:
 		pck->ctrl_cam0_type = 0;
@@ -328,6 +332,8 @@ static int neoisp_set_packetizer(struct neoisp_dev_s *neoispd)
 		pck->ctrl_cam0_order0 = 2;
 		pck->ctrl_cam0_order1 = 0;
 		pck->ctrl_cam0_order2 = 1;
+		/* remove 0-padding */
+		pck->ctrl_cam0_a0s = 0;
 		break;
 	case V4L2_PIX_FMT_NV61:
 		pck->ctrl_cam0_type = 0;
@@ -336,6 +342,8 @@ static int neoisp_set_packetizer(struct neoisp_dev_s *neoispd)
 		pck->ctrl_cam0_order0 = 2;
 		pck->ctrl_cam0_order1 = 1;
 		pck->ctrl_cam0_order2 = 0;
+		/* remove 0-padding */
+		pck->ctrl_cam0_a0s = 0;
 		break;
 	case V4L2_PIX_FMT_YUYV:
 		pck->ctrl_cam0_type = 1;
@@ -344,6 +352,8 @@ static int neoisp_set_packetizer(struct neoisp_dev_s *neoispd)
 		pck->ctrl_cam0_order0 = 0;
 		pck->ctrl_cam0_order1 = 1;
 		pck->ctrl_cam0_order2 = 3;
+		/* remove 0-padding */
+		pck->ctrl_cam0_a0s = 0;
 		break;
 	case V4L2_PIX_FMT_YVYU:
 		pck->ctrl_cam0_type = 1;
@@ -352,6 +362,8 @@ static int neoisp_set_packetizer(struct neoisp_dev_s *neoispd)
 		pck->ctrl_cam0_order0 = 0;
 		pck->ctrl_cam0_order1 = 3;
 		pck->ctrl_cam0_order2 = 1;
+		/* remove 0-padding */
+		pck->ctrl_cam0_a0s = 0;
 		break;
 	case V4L2_PIX_FMT_UYVY:
 		pck->ctrl_cam0_type = 1;
@@ -360,6 +372,8 @@ static int neoisp_set_packetizer(struct neoisp_dev_s *neoispd)
 		pck->ctrl_cam0_order0 = 1;
 		pck->ctrl_cam0_order1 = 0;
 		pck->ctrl_cam0_order2 = 2;
+		/* remove 0-padding */
+		pck->ctrl_cam0_a0s = 0;
 		break;
 	case V4L2_PIX_FMT_YUVX32:
 		pck->ctrl_cam0_type = 1;
@@ -408,6 +422,8 @@ static int neoisp_set_packetizer(struct neoisp_dev_s *neoispd)
 		pck->ctrl_cam0_order0 = 2;
 		pck->ctrl_cam0_order1 = 1;
 		pck->ctrl_cam0_order2 = 0;
+		/* remove 0-padding */
+		pck->ctrl_cam0_a0s = 0;
 		break;
 	default: /* all other pixel formats */
 		pck->ctrl_cam0_type = 1;
@@ -416,6 +432,8 @@ static int neoisp_set_packetizer(struct neoisp_dev_s *neoispd)
 		pck->ctrl_cam0_order0 = 0;
 		pck->ctrl_cam0_order1 = 1;
 		pck->ctrl_cam0_order2 = 2;
+		/* remove 0-padding */
+		pck->ctrl_cam0_a0s = 0;
 		break;
 	}
 
