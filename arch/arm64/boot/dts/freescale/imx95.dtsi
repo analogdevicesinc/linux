@@ -2848,7 +2848,8 @@
 			interrupt-names = "gpu", "job", "mmu";
 			clocks = <&scmi_clk IMX95_CLK_GPU>, <&scmi_clk IMX95_CLK_GPUAPB>;
 			clock-names = "gpu", "gpu_apb";
-			power-domains = <&scmi_devpd IMX95_PD_GPU>;
+			power-domains = <&scmi_devpd IMX95_PD_GPU>, <&scmi_perf IMX95_PERF_GPU>;
+			power-domain-names = "gpumix", "gpuperf";
 			operating-points-v2 = <&gpu_opp_table>;
 			#cooling-cells = <2>;
 			power_model {
