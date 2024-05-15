@@ -395,7 +395,7 @@ static int neoisp_set_packetizer(struct neoisp_dev_s *neoispd)
 		/* add 0-padding */
 		pck->ctrl_cam0_a0s = 8;
 		break;
-	case V4L2_PIX_FMT_BGRX32:
+	case V4L2_PIX_FMT_XBGR32:
 		pck->ctrl_cam0_type = 1;
 		pck->ch12_ctrl_cam0_subsample = 0;
 		/* set channels orders */

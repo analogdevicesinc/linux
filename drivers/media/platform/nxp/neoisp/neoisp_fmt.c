@@ -54,7 +54,7 @@ const struct neoisp_fmt_s formats_vcap[NEOISP_FMT_VCAP_COUNT] = {
 		.is_rgb = 1,
 		.type = NEOISP_FMT_VIDEO_CAPTURE
 	}, {
-		.fourcc = V4L2_PIX_FMT_BGRX32,    /* 32-bit BGRX 8-8-8-8 */
+		.fourcc = V4L2_PIX_FMT_XBGR32,    /* 32-bit BGRX 8-8-8-8 */
 		.align = 32,
 		.bit_depth = 32,
 		.num_planes = 1,
