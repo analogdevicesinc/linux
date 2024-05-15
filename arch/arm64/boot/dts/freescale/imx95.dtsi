@@ -2823,10 +2823,11 @@
 		mali: gpu@4d900000 {
 			compatible = "arm,mali-valhall";
 			reg = <0 0x4d900000 0 0x700000>, <0 0x4d810000 0 0x10000>;
+			reg-names = "gpu_base", "gpumix_blk_ctrl";
 			interrupts = <GIC_SPI 288 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 289 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 290 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-names = "GPU", "JOB", "MMU";
+			interrupt-names = "gpu", "job", "mmu";
 			clocks = <&scmi_clk IMX95_CLK_GPU>, <&scmi_clk IMX95_CLK_GPUAPB>;
 			clock-names = "gpu", "gpu_apb";
 			power-domains = <&scmi_devpd IMX95_PD_GPU>;
