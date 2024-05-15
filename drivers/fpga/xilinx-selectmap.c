@@ -26,6 +26,7 @@ enum xilinx_selectmap_device_ids {
 	ID_XC7V_SELMAP,
 	ID_ADI_8_SELMAP,
 	ID_ADI_16_SELMAP,
+	ID_ADI_32_SELMAP,
 };
 
 struct xilinx_selectmap_conf {
@@ -43,6 +44,7 @@ static int xilinx_selectmap_write(struct xilinx_fpga_core *core,
 	struct xilinx_selectmap_conf *conf = to_xilinx_selectmap_conf(core);
 	size_t i;
 	const u16 *buf16 = (u16 *)buf;
+	const u32 *buf32 = (u32 *)buf;
 
 	switch (conf->id) {
 	case ID_ADI_8_SELMAP:
@@ -52,6 +54,10 @@ static int xilinx_selectmap_write(struct xilinx_fpga_core *core,
 	case ID_ADI_16_SELMAP:
 		for (i = 0; i < (count/2)+1; ++i)
 			writew(cpu_to_be16(buf16[i]), conf->base + IP_DATA_REG);
+		break;
+	case ID_ADI_32_SELMAP:
+		for (i = 0; i < (count/4)+1; ++i)
+			writel(cpu_to_be32(buf32[i]), conf->base + IP_DATA_REG);
 		break;
 	default:
 		for (i = 0; i < count; ++i)
@@ -104,6 +110,7 @@ static const struct of_device_id xlnx_selectmap_of_match[] = {
 	{ .compatible = "xlnx,fpga-xc7v-selectmap", .data = (void *)ID_XC7V_SELMAP, }, // Virtex-7
 	{ .compatible = "adi,fpga-8-selectmap", .data = (void *)ID_ADI_8_SELMAP, }, // ADI 8bit version 
 	{ .compatible = "adi,fpga-16-selectmap", .data = (void *)ID_ADI_16_SELMAP, }, // ADI 16bit version
+	{ .compatible = "adi,fpga-32-selectmap", .data = (void *)ID_ADI_32_SELMAP, }, // ADI 32bit version
 	{},
 };
 MODULE_DEVICE_TABLE(of, xlnx_selectmap_of_match);
