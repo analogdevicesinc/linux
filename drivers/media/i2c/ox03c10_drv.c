@@ -40,10 +40,7 @@ static int ox03c10_enum_mbus_code(struct v4l2_subdev *sd,
 				  struct v4l2_subdev_state *state,
 				  struct v4l2_subdev_mbus_code_enum *code)
 {
-	if (code->pad != 0)
-		return -EINVAL;
-
-	if (code->index > 1)
+	if (code->pad != 0 || code->index > 0)
 		return -EINVAL;
 
 	code->code = MEDIA_BUS_FMT_SBGGR16_1X16;
