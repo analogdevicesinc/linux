@@ -353,6 +353,20 @@ _GetProcessID(void)
 #endif
 }
 
+#if gcdENABLE_GPU_WORK_PERIOD_TRACE
+static inline gctINT
+_GetUserID(void)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0)
+    return from_kuid_munged(current_user_ns(), current_uid());
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 27)
+    return current_uid();
+#else
+    return current->uid;
+#endif
+}
+#endif
+
 static inline void
 _MemoryBarrier(void)
 {

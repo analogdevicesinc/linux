@@ -3826,6 +3826,13 @@ gckKERNEL_AttachProcess(IN gckKERNEL Kernel, IN gctBOOL Attach)
     /* Get current process ID. */
     gcmkONERROR(gckOS_GetProcessID(&processID));
 
+#if gcdENABLE_GPU_WORK_PERIOD_TRACE
+    if (Attach) {
+        /* Get Android Application UID */
+        gcmkONERROR(gckOS_GetApplicationUserID(Kernel->core));
+    }
+#endif
+
     gcmkONERROR(gckKERNEL_AttachProcessEx(Kernel, Attach, processID));
 
     /* Success. */
