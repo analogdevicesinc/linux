@@ -68,8 +68,7 @@ examples:
         interrupt-parent = <&gic>;
         clocks = <&cameramix_csr IMX95_CLK_CAMBLK_ISP_AXI>,
                  <&cameramix_csr IMX95_CLK_CAMBLK_ISP_PIXEL>,
-                 <&cameramix_csr IMX95_CLK_CAMBLK_ISP>,
-                 <&scmi_clk IMX95_CLK_CAMCM0>;
-        clock-names = "camblk_isp_axi", "camblk_isp_pixel", "camblk_isp", "camcm0";
+                 <&cameramix_csr IMX95_CLK_CAMBLK_ISP>;
+        clock-names = "camblk_isp_axi", "camblk_isp_pixel", "camblk_isp";
         power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
     };
