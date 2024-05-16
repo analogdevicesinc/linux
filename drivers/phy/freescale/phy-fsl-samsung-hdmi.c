@@ -689,9 +689,9 @@ static int __maybe_unused fsl_samsung_hdmi_phy_resume(struct device *dev)
 
 }
 
-static DEFINE_RUNTIME_DEV_PM_OPS(fsl_samsung_hdmi_phy_pm_ops,
-				 fsl_samsung_hdmi_phy_suspend,
-				 fsl_samsung_hdmi_phy_resume, NULL);
+static UNIVERSAL_DEV_PM_OPS(fsl_samsung_hdmi_phy_pm_ops,
+			    fsl_samsung_hdmi_phy_suspend,
+			    fsl_samsung_hdmi_phy_resume, NULL);
 
 static const struct of_device_id fsl_samsung_hdmi_phy_of_match[] = {
 	{
