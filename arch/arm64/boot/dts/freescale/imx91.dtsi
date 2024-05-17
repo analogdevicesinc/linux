@@ -101,7 +101,7 @@
 	};
 
 	thermal_zones: thermal-zones {
-		a55 {
+		cpu-thermal {
 			polling-delay-passive = <250>;
 			polling-delay = <2000>;
 			thermal-sensors = <&tempsense0>;
