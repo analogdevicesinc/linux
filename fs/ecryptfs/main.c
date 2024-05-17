@@ -531,6 +531,7 @@ static int ecryptfs_get_tree(struct fs_context *fc)
 	s->s_blocksize = path.dentry->d_sb->s_blocksize;
 	s->s_magic = ECRYPTFS_SUPER_MAGIC;
 	s->s_stack_depth = path.dentry->d_sb->s_stack_depth + 1;
+	s->s_time_gran = path.dentry->d_sb->s_time_gran;
 
 	rc = -EINVAL;
 	if (s->s_stack_depth > FILESYSTEM_MAX_STACK_DEPTH) {
