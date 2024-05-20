@@ -260,3 +260,22 @@
 		};
 	};
 };
+
+&spi0 {
+	status = "okay";
+
+	flash: m25p128@0 {
+		compatible = "st,m25p80";
+		reg = <0>;
+		spi-max-frequency = <25000000>;
+		m25p,fast-read;
+		status = "okay";
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		partition@0 {
+		label = "spi_flash_part0";
+		reg = <0x0 0x100000>;
+		};
+	};
+};

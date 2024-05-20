@@ -88,7 +88,7 @@
 		ranges;
 		#interrupt-cells = <3>;
 		#address-cells = <2>;
-		#size-cells = <2>;
+		#size-cells =<2>;
 		interrupt-controller;
 		#redistributor-regions = <1>;
 		redistributor-stride = <0x0 0x20000>;
@@ -687,7 +687,7 @@
 			status = "disabled";
 		};
 
-		i3c0: i3c@10da0000 {
+		i3c0: i3c-master@10da0000 {
 			compatible = "snps,dw-i3c-master-1.00a";
 			reg = <0x10da0000 0x1000>;
 			#address-cells = <3>;
@@ -697,7 +697,7 @@
 			status = "disabled";
 		};
 
-		i3c1: i3c@10da1000 {
+		i3c1: i3c-master@10da1000 {
 			compatible = "snps,dw-i3c-master-1.00a";
 			reg = <0x10da1000 0x1000>;
 			#address-cells = <3>;
@@ -851,26 +851,9 @@
 			reg-io-width = <4>;
 			num-cs = <4>;
 			clocks = <&clkmgr AGILEX5_L4_MAIN_CLK>;
-			dmas = <&dmac0 2>, <&dmac0 3>;
-			dma-names = "tx", "rx";
+			dmas = <&dmac0 16>, <&dmac0 17>;
+			dma-names ="tx", "rx";
 			status = "disabled";
-
-			flash: m25p128@0 {
-				status = "okay";
-				compatible = "st,m25p80";
-				spi-max-frequency = <25000000>;
-				m25p,fast-read;
-				reg = <0>;
-
-				#address-cells = <1>;
-				#size-cells = <1>;
-
-				partition@0 {
-				label = "spi_flash_part0";
-				reg = <0x0 0x100000>;
-				};
-			};
-
 		};
 
 		spi1: spi@10da5000 {
@@ -884,6 +867,8 @@
 			reg-io-width = <4>;
 			num-cs = <4>;
 			clocks = <&clkmgr AGILEX5_L4_MAIN_CLK>;
+			dmas = <&dmac0 20>, <&dmac0 21>;
+			dma-names ="tx", "rx";
 			status = "disabled";
 		};
 
