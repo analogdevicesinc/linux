@@ -104,16 +104,16 @@ static bool s10_free_buffers(struct fpga_manager *mgr)
 }
 
 /*
- * Returns count of how many buffers are not in use.
+ * Returns count of how many buffers are not in locked state.
  */
-static uint s10_free_buffer_count(struct fpga_manager *mgr)
+static uint s10_get_unlocked_buffer_count(struct fpga_manager *mgr)
 {
 	struct s10_priv *priv = mgr->priv;
 	uint num_free = 0;
 	uint i;
 
 	for (i = 0; i < NUM_SVC_BUFS; i++)
-		if (!priv->svc_bufs[i].buf)
+		if (!priv->svc_bufs[i].lock)
 			num_free++;
 
 	return num_free;
@@ -216,7 +216,6 @@ static int s10_ops_write_init(struct fpga_manager *mgr,
 	struct s10_priv *priv = mgr->priv;
 	struct device *dev = priv->client.dev;
 	struct stratix10_svc_command_config_type ctype;
-	char *kbuf;
 	uint i;
 	int ret;
 
@@ -257,16 +256,8 @@ static int s10_ops_write_init(struct fpga_manager *mgr,
 		goto init_error;
 	}
 
-	/* Allocate buffers from the service layer's pool. */
+	/* Init buffer lock */
 	for (i = 0; i < NUM_SVC_BUFS; i++) {
-		kbuf = stratix10_svc_allocate_memory(priv->chan, SVC_BUF_SIZE);
-		if (IS_ERR(kbuf)) {
-			s10_free_buffers(mgr);
-			ret = -ENOMEM;
-			goto init_error;
-		}
-
-		priv->svc_bufs[i].buf = kbuf;
 		priv->svc_bufs[i].lock = 0;
 	}
 
@@ -340,7 +331,7 @@ static int s10_ops_write(struct fpga_manager *mgr, const char *buf,
 	 * Loop waiting for buffers to be returned.  When a buffer is returned,
 	 * reuse it to send more data or free if if all data has been sent.
 	 */
-	while (count > 0 || s10_free_buffer_count(mgr) != NUM_SVC_BUFS) {
+	while (true) {
 		reinit_completion(&priv->status_return_completion);
 
 		if (count > 0) {
@@ -351,7 +342,7 @@ static int s10_ops_write(struct fpga_manager *mgr, const char *buf,
 			count -= sent;
 			buf += sent;
 		} else {
-			if (s10_free_buffers(mgr))
+			if (s10_get_unlocked_buffer_count(mgr) == NUM_SVC_BUFS)
 				return 0;
 
 			ret = s10_svc_send_msg(
@@ -384,9 +375,6 @@ static int s10_ops_write(struct fpga_manager *mgr, const char *buf,
 			break;
 		}
 	}
-
-	if (!s10_free_buffers(mgr))
-		dev_err(dev, "%s not all buffers were freed\n", __func__);
 
 	if (ret < 0)
 		stratix10_svc_done(priv->chan);
@@ -453,8 +441,9 @@ static int s10_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct s10_priv *priv;
 	struct fpga_manager *mgr;
-	int ret;
+	int ret, i;
 	struct device_node *node = pdev->dev.of_node;
+	char *kbuf;
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
@@ -467,7 +456,8 @@ static int s10_probe(struct platform_device *pdev)
 	priv->is_smmu_enabled = false;
 
 	if (of_device_is_compatible(node, "intel,agilex5-soc-fpga-mgr"))
-		priv->is_smmu_enabled = true;
+		priv->is_smmu_enabled = device_property_read_bool(dev,
+									"altr,smmu_enable_quirk");
 
 
 	priv->chan = stratix10_svc_request_channel_byname(&priv->client,
@@ -506,16 +496,20 @@ static int s10_probe(struct platform_device *pdev)
 		goto probe_err;
 	}
 
-	ret = wait_for_completion_timeout(
-		&priv->status_return_completion, S10_RECONFIG_TIMEOUT);
-	if (!ret) {
-		dev_err(dev, "timeout waiting for firmware version\n");
-		stratix10_svc_done(priv->chan);
-		ret = -ETIMEDOUT;
-		goto probe_err;
-	}
-
 	ret = 0;
+
+	/* Allocate buffers from the service layer's pool. */
+	for (i = 0; i < NUM_SVC_BUFS; i++) {
+		kbuf = stratix10_svc_allocate_memory(priv->chan, SVC_BUF_SIZE);
+		if (IS_ERR(kbuf)) {
+			s10_free_buffers(mgr);
+			ret = PTR_ERR(kbuf);
+			goto probe_err;
+		}
+
+		priv->svc_bufs[i].buf = kbuf;
+		priv->svc_bufs[i].lock = 0;
+	}
 
 	stratix10_svc_done(priv->chan);
 	platform_set_drvdata(pdev, mgr);
@@ -530,6 +524,13 @@ static int s10_remove(struct platform_device *pdev)
 {
 	struct fpga_manager *mgr = platform_get_drvdata(pdev);
 	struct s10_priv *priv = mgr->priv;
+	int i;
+
+	for (i = 0; i < NUM_SVC_BUFS; i++) {
+		if (priv->svc_bufs[i].buf)
+			stratix10_svc_free_memory(priv->chan,
+					  priv->svc_bufs[i].buf);
+	}
 
 	fpga_mgr_unregister(mgr);
 	stratix10_svc_free_channel(priv->chan);
