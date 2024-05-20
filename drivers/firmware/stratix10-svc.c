@@ -1964,7 +1964,7 @@ static int stratix10_svc_drv_probe(struct platform_device *pdev)
 				 IOMMU_STARTING_ADDR);
 
 			controller->carveout.shift = iova_shift(&controller->carveout.domain);
-			controller->carveout.limit = IOMMU_LIMIT_ADDR;
+			controller->carveout.limit = IOMMU_LIMIT_ADDR - PAGE_SIZE;
 		} else {
 			pr_debug("Intel Service Layer Driver: IOMMU Not Present\n");
 			ret = -ENODEV;
