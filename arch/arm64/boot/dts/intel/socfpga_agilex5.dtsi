@@ -1158,6 +1158,7 @@
 
 				fpga_mgr: fpga-mgr {
 					compatible = "intel,agilex5-soc-fpga-mgr";
+					altr,smmu_enable_quirk;
 				};
 
 				fcs: fcs {
