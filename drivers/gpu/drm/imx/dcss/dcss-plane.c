@@ -300,7 +300,6 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 	struct drm_framebuffer *fb = new_plane_state->fb;
 	struct drm_gem_dma_object *dma_obj;
 	struct drm_crtc_state *crtc_state;
-	int hdisplay, vdisplay;
 	int min, max;
 	int ret;
 
@@ -312,9 +311,6 @@ static int dcss_plane_atomic_check(struct drm_plane *plane,
 
 	crtc_state = drm_atomic_get_existing_crtc_state(state,
 							new_plane_state->crtc);
-
-	hdisplay = crtc_state->adjusted_mode.hdisplay;
-	vdisplay = crtc_state->adjusted_mode.vdisplay;
 
 	if (!dcss_plane_is_source_size_allowed(new_plane_state->src_w >> 16,
 					       new_plane_state->src_h >> 16,

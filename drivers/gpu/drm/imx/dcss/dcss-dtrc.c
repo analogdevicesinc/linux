@@ -116,11 +116,6 @@ struct dcss_dtrc {
 static irqreturn_t dcss_dtrc_irq_handler(int irq, void *data)
 {
 	struct dcss_dtrc_ch *ch = data;
-	u32 b0, b1, curr_bank;
-
-	b0 = dcss_readl(ch->base_reg + DCSS_DTRC_DCTL) & 0x1;
-	b1 = dcss_readl(ch->base_reg + DTRC_F1_OFS + DCSS_DTRC_DCTL) & 0x1;
-	curr_bank = dcss_readl(ch->base_reg + DCSS_DTRC_DTCTRL) >> 31;
 
 	dcss_update(1, 1, ch->base_reg + DCSS_DTRC_FDINTR);
 
@@ -497,13 +492,9 @@ bool dcss_dtrc_is_running(struct dcss_dtrc *dtrc)
 static void dcss_dtrc_ch_switch_banks(struct dcss_dtrc *dtrc, int dtrc_ch)
 {
 	struct dcss_dtrc_ch *ch = &dtrc->ch[dtrc_ch];
-	u32 b0, b1;
 
 	if (!ch->running)
 		return;
-
-	b0 = dcss_readl(ch->base_reg + DCSS_DTRC_DCTL) & 0x1;
-	b1 = dcss_readl(ch->base_reg + DTRC_F1_OFS + DCSS_DTRC_DCTL) & 0x1;
 
 	ch->curr_frame = dcss_readl(ch->base_reg + DCSS_DTRC_DTCTRL) >> 31;
 

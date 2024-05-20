@@ -83,7 +83,7 @@ void dcss_rdsrc_exit(struct dcss_rdsrc *rdsrc)
 void dcss_rdsrc_setup(struct dcss_rdsrc *rdsrc, u32 pix_format, u32 dst_xres,
 		      u32 dst_yres, u32 base_addr)
 {
-	u32 buf_size, pitch, bpp;
+	u32 pitch, bpp;
 
 	/* since the scaler output is YUV444, the RDSRC output has to match */
 	bpp = 4;
@@ -93,7 +93,6 @@ void dcss_rdsrc_setup(struct dcss_rdsrc *rdsrc, u32 pix_format, u32 dst_xres,
 	rdsrc->ctrl_status |= TSIZE_256 << RDSRC_T_SIZE_POS;
 	rdsrc->ctrl_status |= BPP_32_10BIT_OUTPUT << RDSRC_BPP_POS;
 
-	buf_size = dst_xres * dst_yres * bpp;
 	pitch = dst_xres * bpp;
 
 	rdsrc->buf_addr = base_addr;
