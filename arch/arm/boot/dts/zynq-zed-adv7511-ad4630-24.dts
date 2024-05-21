@@ -110,7 +110,7 @@
 			vref-supply = <&vref>;
 			spi-max-frequency = <80000000>;
 			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
-			adi,lane-mode = <0>;
+			adi,lane-mode = <1>;
 			adi,clock-mode = <0>;
 			adi,out-data-mode = <0>;
 			adi,spi-trigger;

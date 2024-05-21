@@ -136,7 +136,7 @@
 			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
 			adi,pga-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>,
 					<&gpio0 88 GPIO_ACTIVE_HIGH>;
-			adi,lane-mode = <0>;
+			adi,lane-mode = <1>;
 			adi,clock-mode = <0>;
 			adi,out-data-mode = <0>;
 			adi,spi-trigger;
