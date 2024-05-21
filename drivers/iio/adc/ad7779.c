@@ -25,6 +25,8 @@
 #include <linux/iio/kfifo_buf.h>
 #include <linux/iio/sysfs.h>
 
+#include "cf_axi_adc.h"
+
 #define AD777X_SPI_READ_CMD			BIT(7)
 
 #define AD777X_DISABLE_SD			BIT(7)
@@ -96,6 +98,11 @@
 
 #define AD777X_SPIMODE_MAX_SAMP_FREQ		(16 * HZ_PER_KHZ)
 
+/* AXI CONTROL REGS VALUES FOR DATA LINES */
+#define AXI_CTRL_4_LINES			0x400
+#define AXI_CTRL_2_LINES			0x200
+#define AXI_CTRL_1_LINE				0x100
+
 #define GAIN_REL				0x555555
 #define AD777X_FREQ_MSB_MSK			GENMASK(15, 8)
 #define AD777X_FREQ_LSB_MSK			GENMASK(7, 0)
@@ -107,6 +114,12 @@
 
 #define AD777X_CRC8_POLY			0x07
 DECLARE_CRC8_TABLE(ad777x_crc8_table);
+
+enum ad777x_data_lines {
+	AD777x_4LINES,
+	AD777x_2LINES,
+	AD777x_1LINE,
+};
 
 enum ad777x_filter {
 	AD777X_SINC3,
@@ -136,6 +149,7 @@ struct ad777x_state {
 	struct regulator		*vref;
 	unsigned int			sampling_freq;
 	enum ad777x_power_mode		power_mode;
+	enum ad777x_data_lines		data_lines;
 	enum ad777x_filter		filter_enabled;
 	unsigned int			active_ch;
 	unsigned int			spidata_mode;
@@ -156,6 +170,29 @@ static const char * const ad777x_filter_type[] = {
 	[AD777X_SINC3] = "sinc3_filter",
 	[AD777X_SINC5] = "sinc5_filter",
 };
+
+static const char * const ad777x_data_lines_modes[] = {
+	[AD777x_4LINES] = "4_data_lines",
+	[AD777x_2LINES] = "2_data_lines",
+	[AD777x_1LINE]  = "1_data_line",
+};
+
+static bool ad777x_has_axi_adc(struct device *dev)
+{
+	return device_property_present(dev, "spibus-connected");
+}
+
+static struct ad777x_state *ad777x_get_data(struct iio_dev *indio_dev)
+{
+	struct axiadc_converter *conv;
+
+	if (ad777x_has_axi_adc(&indio_dev->dev)) {
+		conv = iio_device_get_drvdata(indio_dev);
+		return conv->phy;
+	}
+
+	return iio_priv(indio_dev);
+}
 
 static int ad777x_spi_read(struct ad777x_state *st, u8 reg, u8 *rbuf)
 {
@@ -241,7 +278,7 @@ static int ad777x_reg_access(struct iio_dev *indio_dev,
 			     unsigned int writeval,
 			     unsigned int *readval)
 {
-	struct ad777x_state *st = iio_priv(indio_dev);
+	struct ad777x_state *st = ad777x_get_data(indio_dev);
 
 	if (readval)
 		return ad777x_spi_read(st, reg, (u8 *)readval);
@@ -324,10 +361,75 @@ static int ad777x_set_sampling_frequency(struct ad777x_state *st,
 	return 0;
 }
 
+static int ad777x_set_data_lines(struct iio_dev *indio_dev,
+				 struct iio_chan_spec const *chan,
+				 unsigned int mode)
+{
+	struct ad777x_state *st = ad777x_get_data(indio_dev);
+	struct axiadc_state *axi_adc_st = iio_priv(indio_dev);
+	int ret;
+
+	if (st->spidata_mode)
+		return 0;
+
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	ret = ad777x_spi_write_mask(st, AD777X_REG_DOUT_FORMAT,
+				    AD777X_DOUT_FORMAT_MSK,
+				    FIELD_PREP(AD777X_DOUT_FORMAT_MSK,
+					       mode));
+	switch (mode) {
+	case AD777x_4LINES:
+		ret = ad777x_set_sampling_frequency(st,
+						    AD777X_DEFAULT_SAMPLING_FREQ);
+		if (ret)
+			return ret;
+		axiadc_write(axi_adc_st, ADI_REG_CNTRL, AXI_CTRL_4_LINES);
+		break;
+	case AD777x_2LINES:
+		ret = ad777x_set_sampling_frequency(st,
+						    AD777X_DEFAULT_SAMPLING_2LINE);
+		if (ret)
+			return ret;
+		axiadc_write(axi_adc_st, ADI_REG_CNTRL, AXI_CTRL_2_LINES);
+		break;
+	case AD777x_1LINE:
+		ret = ad777x_set_sampling_frequency(st,
+						    AD777X_DEFAULT_SAMPLING_1LINE);
+		if (ret)
+			return ret;
+		axiadc_write(axi_adc_st, ADI_REG_CNTRL, AXI_CTRL_1_LINE);
+		break;
+	default:
+		return -EINVAL;
+	}
+	iio_device_release_direct_mode(indio_dev);
+
+	st->data_lines = mode;
+
+	return 0;
+}
+
+static int ad777x_get_data_lines(struct iio_dev *indio_dev,
+				 struct iio_chan_spec const *chan)
+{
+	struct ad777x_state *st = ad777x_get_data(indio_dev);
+	u8 temp;
+	int ret;
+
+	ret = ad777x_spi_read(st, AD777X_REG_DOUT_FORMAT, &temp);
+	if (ret)
+		return ret;
+
+	return FIELD_GET(AD777X_DOUT_FORMAT_MSK, temp);
+}
+
 static int ad777x_get_filter(struct iio_dev *indio_dev,
 			     struct iio_chan_spec const *chan)
 {
-	struct ad777x_state *st = iio_priv(indio_dev);
+	struct ad777x_state *st = ad777x_get_data(indio_dev);
 	u8 temp;
 	int ret;
 
@@ -342,8 +444,8 @@ static int ad777x_set_filter(struct iio_dev *indio_dev,
 			     struct iio_chan_spec const *chan,
 			     unsigned int mode)
 {
-	struct ad777x_state *st = iio_priv(indio_dev);
-	int ret;
+	struct ad777x_state *st = ad777x_get_data(indio_dev);
+	int ret = 0;
 
 	ret = ad777x_spi_write_mask(st,
 				    AD777X_REG_GENERAL_USER_CONFIG_2,
@@ -458,7 +560,7 @@ static int ad777x_read_raw(struct iio_dev *indio_dev,
 			   int *val2,
 			   long mask)
 {
-	struct ad777x_state *st = iio_priv(indio_dev);
+	struct ad777x_state *st = ad777x_get_data(indio_dev);
 	int ret;
 
 	ret = iio_device_claim_direct_mode(indio_dev);
@@ -498,7 +600,7 @@ static int ad777x_write_raw(struct iio_dev *indio_dev,
 			    int val2,
 			    long mask)
 {
-	struct ad777x_state *st = iio_priv(indio_dev);
+	struct ad777x_state *st = ad777x_get_data(indio_dev);
 
 	switch (mask) {
 	case IIO_CHAN_INFO_CALIBSCALE:
@@ -515,7 +617,7 @@ static int ad777x_write_raw(struct iio_dev *indio_dev,
 static int ad777x_update_scan_mode(struct iio_dev *indio_dev,
 				   const unsigned long *scan_mask)
 {
-	struct ad777x_state *st = iio_priv(indio_dev);
+	struct ad777x_state *st = ad777x_get_data(indio_dev);
 
 	bitmap_copy((unsigned long *)&st->active_ch, scan_mask, AD777X_NUM_CHANNELS);
 
@@ -525,7 +627,7 @@ static int ad777x_update_scan_mode(struct iio_dev *indio_dev,
 static int ad777x_buffer_postenable(struct iio_dev *indio_dev)
 {
 	int ret;
-	struct ad777x_state *st = iio_priv(indio_dev);
+	struct ad777x_state *st = ad777x_get_data(indio_dev);
 
 	ret = ad777x_spi_write_mask(st,
 				    AD777X_REG_GENERAL_USER_CONFIG_3,
@@ -541,7 +643,7 @@ static int ad777x_buffer_postenable(struct iio_dev *indio_dev)
 static int ad777x_buffer_predisable(struct iio_dev *indio_dev)
 {
 	int ret;
-	struct ad777x_state *st = iio_priv(indio_dev);
+	struct ad777x_state *st = ad777x_get_data(indio_dev);
 
 	disable_irq_nosync(st->spi->irq);
 	ret = ad777x_spi_write(st,
@@ -553,7 +655,7 @@ static int ad777x_buffer_predisable(struct iio_dev *indio_dev)
 static irqreturn_t ad777x_irq_handler(int irq, void *data)
 {
 	struct iio_dev *indio_dev = data;
-	struct ad777x_state *st = iio_priv(indio_dev);
+	struct ad777x_state *st = ad777x_get_data(indio_dev);
 	int ret;
 	__be32 tmp[8];
 	int i;
@@ -622,6 +724,13 @@ static const struct iio_info ad777x_info = {
 	.update_scan_mode = &ad777x_update_scan_mode,
 };
 
+static const struct iio_enum ad777x_data_lines_enum = {
+	.items = ad777x_data_lines_modes,
+	.num_items = ARRAY_SIZE(ad777x_data_lines_modes),
+	.get = ad777x_get_data_lines,
+	.set = ad777x_set_data_lines,
+};
+
 static const struct iio_enum ad777x_filter_enum = {
 	.items = ad777x_filter_type,
 	.num_items = ARRAY_SIZE(ad777x_filter_type),
@@ -629,12 +738,45 @@ static const struct iio_enum ad777x_filter_enum = {
 	.set = ad777x_set_filter,
 };
 
-static const struct iio_chan_spec_ext_info ad777x_ext_filter[] = {
+static const struct iio_chan_spec_ext_info ad777x_ext_info[] = {
+	IIO_ENUM("data_lines", IIO_SHARED_BY_ALL, &ad777x_data_lines_enum),
+	IIO_ENUM_AVAILABLE("data_lines", IIO_SHARED_BY_ALL,
+				  &ad777x_data_lines_enum),
+	{ },
+};
+
+static const struct iio_chan_spec_ext_info ad777x_ext_only_filter[] = {
 	IIO_ENUM("filter_type", IIO_SHARED_BY_ALL, &ad777x_filter_enum),
 	IIO_ENUM_AVAILABLE("filter_type", IIO_SHARED_BY_ALL,
 				  &ad777x_filter_enum),
 	{ }
 };
+
+static const struct iio_chan_spec_ext_info ad777x_ext_info_filter[] = {
+	IIO_ENUM("data_lines", IIO_SHARED_BY_ALL, &ad777x_data_lines_enum),
+	IIO_ENUM_AVAILABLE("data_lines", IIO_SHARED_BY_ALL,
+				  &ad777x_data_lines_enum),
+	IIO_ENUM("filter_type", IIO_SHARED_BY_ALL, &ad777x_filter_enum),
+	IIO_ENUM_AVAILABLE("filter_type", IIO_SHARED_BY_ALL,
+				  &ad777x_filter_enum),
+	{ },
+};
+
+#define AD777x_CHAN(index, _ext_info)					       \
+	{								       \
+		.type = IIO_VOLTAGE,					       \
+		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),       \
+		.address = (index),					       \
+		.indexed = 1,						       \
+		.channel = (index),					       \
+		.scan_index = (index),					       \
+		.ext_info = (_ext_info),				       \
+		.scan_type = {						       \
+			.sign = 's',					       \
+			.realbits = 24,					       \
+			.storagebits = 32,				       \
+		},							       \
+	}
 
 #define AD777x_CHAN_S(index, _ext_info)					       \
 	{								       \
@@ -654,11 +796,17 @@ static const struct iio_chan_spec_ext_info ad777x_ext_filter[] = {
 		},							       \
 	}
 
+#define AD777x_CHAN_NO_FILTER(index)					       \
+	AD777x_CHAN(index, ad777x_ext_info)
+
+#define AD777x_CHAN_FILTER(index)					       \
+	AD777x_CHAN(index, ad777x_ext_info_filter)
+
 #define AD777x_CHAN_NO_FILTER_S(index)					       \
 	AD777x_CHAN_S(index, NULL)
 
 #define AD777x_CHAN_FILTER_S(index)					       \
-	AD777x_CHAN_S(index, ad777x_ext_filter)
+	AD777x_CHAN_S(index, ad777x_ext_only_filter)
 
 static const struct iio_chan_spec ad777x_channels[] = {
 	AD777x_CHAN_NO_FILTER_S(0),
@@ -682,6 +830,34 @@ static const struct iio_chan_spec ad777x_channels_filter[] = {
 	AD777x_CHAN_FILTER_S(7),
 };
 
+static const struct axiadc_chip_info conv_chip_info = {
+	.name = "ad777x_axi_adc",
+	.max_rate = 4096000UL,
+	.num_channels = 8,
+	.channel[0] = AD777x_CHAN_NO_FILTER(0),
+	.channel[1] = AD777x_CHAN_NO_FILTER(1),
+	.channel[2] = AD777x_CHAN_NO_FILTER(2),
+	.channel[3] = AD777x_CHAN_NO_FILTER(3),
+	.channel[4] = AD777x_CHAN_NO_FILTER(4),
+	.channel[5] = AD777x_CHAN_NO_FILTER(5),
+	.channel[6] = AD777x_CHAN_NO_FILTER(6),
+	.channel[7] = AD777x_CHAN_NO_FILTER(7),
+};
+
+static const struct axiadc_chip_info conv_chip_info_filter = {
+	.name = "ad777x_axi_adc",
+	.max_rate = 4096000UL,
+	.num_channels = 8,
+	.channel[0] = AD777x_CHAN_FILTER(0),
+	.channel[1] = AD777x_CHAN_FILTER(1),
+	.channel[2] = AD777x_CHAN_FILTER(2),
+	.channel[3] = AD777x_CHAN_FILTER(3),
+	.channel[4] = AD777x_CHAN_FILTER(4),
+	.channel[5] = AD777x_CHAN_FILTER(5),
+	.channel[6] = AD777x_CHAN_FILTER(6),
+	.channel[7] = AD777x_CHAN_FILTER(7),
+};
+
 const struct iio_buffer_setup_ops ad777x_buffer_setup_ops = {
 	.postenable = ad777x_buffer_postenable,
 	.predisable = ad777x_buffer_predisable,
@@ -695,6 +871,30 @@ static void ad777x_clk_disable(void *data)
 static void ad777x_reg_disable(void *data)
 {
 	regulator_disable(data);
+}
+
+static int ad777x_register_axi(struct ad777x_state *st)
+{
+	struct axiadc_converter *conv;
+
+	conv = devm_kzalloc(&st->spi->dev, sizeof(*conv), GFP_KERNEL);
+	if (!conv)
+		return -ENOMEM;
+
+	conv->spi = st->spi;
+	conv->clk = st->mclk;
+	if (strcmp(st->chip_info->name, "ad7771") == 0)
+		conv->chip_info = &conv_chip_info_filter;
+	else
+		conv->chip_info = &conv_chip_info;
+	conv->reg_access = &ad777x_reg_access;
+	conv->write_raw = &ad777x_write_raw;
+	conv->read_raw = &ad777x_read_raw;
+	conv->phy = st;
+	st->spidata_mode = 0;
+	spi_set_drvdata(st->spi, conv);
+
+	return 0;
 }
 
 static int ad777x_register(struct ad777x_state *st, struct iio_dev *indio_dev)
@@ -766,6 +966,7 @@ static int ad777x_powerup(struct ad777x_state *st, struct gpio_desc *start_gpio)
 
 	st->power_mode = AD777X_HIGH_POWER;
 	st->crc_enabled = true;
+	st->data_lines = AD777x_4LINES;
 	ret = ad777x_set_sampling_frequency(st, AD777X_DEFAULT_SAMPLING_FREQ);
 	if (ret)
 		return ret;
@@ -807,13 +1008,9 @@ static int ad777x_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	st->mclk = devm_clk_get(&spi->dev, "mclk");
+	st->mclk = devm_clk_get_enabled(&spi->dev, "mclk");
 	if (IS_ERR(st->mclk))
 		return PTR_ERR(st->mclk);
-
-	ret = clk_prepare_enable(st->mclk);
-	if (ret < 0)
-		return ret;
 
 	ret = devm_add_action_or_reset(&spi->dev, ad777x_clk_disable,
 				       st->mclk);
@@ -845,6 +1042,8 @@ static int ad777x_probe(struct spi_device *spi)
 
 	if (spi->irq)
 		ret = ad777x_register(st, indio_dev);
+	else
+		ret = ad777x_register_axi(st);
 
 	return ret;
 }
@@ -852,7 +1051,7 @@ static int ad777x_probe(struct spi_device *spi)
 static int __maybe_unused ad777x_suspend(struct device *dev)
 {
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
-	struct ad777x_state *st = iio_priv(indio_dev);
+	struct ad777x_state *st = ad777x_get_data(indio_dev);
 	int ret;
 
 	ret = ad777x_spi_write_mask(st, AD777X_REG_GENERAL_USER_CONFIG_1,
@@ -869,7 +1068,7 @@ static int __maybe_unused ad777x_suspend(struct device *dev)
 static int __maybe_unused ad777x_resume(struct device *dev)
 {
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
-	struct ad777x_state *st = iio_priv(indio_dev);
+	struct ad777x_state *st = ad777x_get_data(indio_dev);
 	int ret;
 
 	ret = ad777x_spi_write_mask(st, AD777X_REG_GENERAL_USER_CONFIG_1,
