@@ -5,7 +5,13 @@ The fpga_mgr node has the following mandatory property, must be located under
 firmware/svc node.
 
 - compatible : should contain "intel,stratix10-soc-fpga-mgr" or
-	       "intel,agilex-soc-fpga-mgr"
+	       "intel,agilex-soc-fpga-mgr" or "intel,agilex5-soc-fpga-mgr"
+
+Optional properties:
+The svc node has the following optional properties, must be located under
+the fpga_mgr node.
+
+- altr,smmu_enable_quirk: set when SMMU is enabled for the platform.
 
 Example:
 
