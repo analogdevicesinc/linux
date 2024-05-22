@@ -119,7 +119,7 @@
 		compatible = "gpio-mux";
 		#mux-control-cells = <0>;
 
-		mux-gpios = <&gpio_expander 22 1>;
+		mux-gpios = <&gpio_expander 22 0>;
 	};
 
 	/* gpio_sw8 */
