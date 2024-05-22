@@ -350,7 +350,7 @@ static int ad4170_write_channel_setup(struct ad4170_state *st,
 	setup->filter.post_filter_sel = AD4170_POST_FILTER_NONE;
 	//setup->filter_fs = 0xFFFC; ///done
 	//setup->offset = 0x0; //done
-	//setup->gain = 0x555555; //done
+	setup->gain = 0x555555;
 	//setup->misc.chop_iexc = AD4170_CHOP_IEXC_OFF; //done
 	//setup->misc.chop_adc = AD4170_CHOP_OFF; //done
 	//setup->misc.burnout = AD4170_BURNOUT_OFF; //done
