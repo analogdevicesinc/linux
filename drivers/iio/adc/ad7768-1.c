@@ -445,7 +445,10 @@ static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
 	};
 	unsigned char tx_data[4];
 	int ret;
-	tx_data[0] = AD7768_RD_FLAG_MSK(addr);
+	tx_data[0] = BIT(7) | (AD7768_RD_FLAG_MSK(addr) >> 1);
+	tx_data[1] = (AD7768_RD_FLAG_MSK(addr) << 7) | 0x7F;
+	tx_data[2] = 0xFF;
+	tx_data[3] = 0xFF;
 	xfer.tx_buf = tx_data;
 	ret = spi_sync_transfer(st->spi, &xfer, 1);
 	if (ret < 0)
@@ -460,12 +463,15 @@ static int ad7768_spi_reg_write(struct ad7768_state *st,
 {
 	struct spi_transfer xfer = {
 		.rx_buf = st->data.buf,
-		.len = 2,
-		.bits_per_word = 16,
+		.len = 4,
+		.bits_per_word = 32,
 	};
-	unsigned char tx_data[2];
-	tx_data[0] = AD7768_WR_FLAG_MSK(addr);
-	tx_data[1] = val & 0xFF;
+	u8 tx_data[4];
+	tx_data[0] = BIT(7) | (AD7768_WR_FLAG_MSK(addr) >> 1);
+	tx_data[1] = (AD7768_WR_FLAG_MSK(addr) << 7) | ((val & 0xFF) >> 1) ;
+	tx_data[2] = (val & 0xFF) << 7 | 0x7F;
+	tx_data[3] = 0xFF;
+	printk("reg write: %x%x%x", tx_data[0],  tx_data[1],  tx_data[2]);
 	xfer.tx_buf = tx_data;
 	return spi_sync_transfer(st->spi, &xfer, 1);
 }
@@ -820,6 +826,7 @@ static int ad7768_set_mclk_div(struct iio_dev *dev, const struct iio_chan_spec *
 	ret = ad7768_spi_reg_read(st, AD7768_REG_POWER_CLOCK, &val, 1);
 	if (ret)
 		return ret;
+	printk("Got power clock %x", val);
 	mclk_div_value = (val & 0xcf) | AD7768_PWR_MCLK_DIV(mclk_div);
 
 	ret = ad7768_spi_reg_write(st, AD7768_REG_POWER_CLOCK, mclk_div_value);
@@ -1091,10 +1098,12 @@ static int ad7768_setup(struct ad7768_state *st, int low_latency_en)
 	 * to 10. When the sequence is detected, the reset occurs.
 	 * See the datasheet, page 70.
 	 */
+	printk("SYNC reset 1 1");
 	ret = ad7768_spi_reg_write(st, AD7768_REG_SYNC_RESET, 0x3);
 	if (ret)
 		return ret;
 
+	printk("SYNC reset 2");
 	ret = ad7768_spi_reg_write(st, AD7768_REG_SYNC_RESET, 0x2);
 	if (ret)
 		return ret;
