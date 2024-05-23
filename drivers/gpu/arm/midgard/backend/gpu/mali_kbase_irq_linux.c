@@ -214,7 +214,7 @@ int kbase_set_custom_irq_handler(struct kbase_device *kbdev, irq_handler_t custo
 
 	if (request_irq(kbdev->irqs[irq].irq, handler,
 			kbdev->irqs[irq].flags | ((kbdev->nr_irqs == 1) ? 0 : IRQF_SHARED),
-			dev_name(kbdev->dev), kbase_tag(kbdev, irq)) != 0) {
+			kbdev->irqs[irq].name, kbase_tag(kbdev, irq)) != 0) {
 		result = -EINVAL;
 		dev_err(kbdev->dev, "Can't request interrupt %u (index %u)\n", kbdev->irqs[irq].irq,
 			irq_tag);
@@ -397,7 +397,7 @@ static int validate_interrupt(struct kbase_device *const kbdev, u32 tag)
 		/* restore original interrupt */
 		if (request_irq(kbdev->irqs[irq].irq, kbase_get_interrupt_handler(kbdev, tag),
 				kbdev->irqs[irq].flags | ((kbdev->nr_irqs == 1) ? 0 : IRQF_SHARED),
-				dev_name(kbdev->dev), kbase_tag(kbdev, irq))) {
+				kbdev->irqs[irq].name, kbase_tag(kbdev, irq))) {
 			dev_err(kbdev->dev, "Can't restore original interrupt %u (index %u)\n",
 				kbdev->irqs[irq].irq, tag);
 			err = -EINVAL;
@@ -452,7 +452,7 @@ int kbase_install_interrupts(struct kbase_device *kbdev)
 		const int result = request_irq(
 			kbdev->irqs[i].irq, kbase_get_interrupt_handler(kbdev, i),
 			kbdev->irqs[i].flags | ((kbdev->nr_irqs == 1) ? 0 : IRQF_SHARED),
-			dev_name(kbdev->dev), kbase_tag(kbdev, i));
+			kbdev->irqs[i].name, kbase_tag(kbdev, i));
 		if (result) {
 			dev_err(kbdev->dev, "Can't request interrupt %u (index %u)\n",
 				kbdev->irqs[i].irq, i);

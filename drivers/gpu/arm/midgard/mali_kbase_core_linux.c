@@ -547,6 +547,8 @@ static int get_irqs(struct kbase_device *kbdev, struct platform_device *pdev)
 		struct irq_data *irqdata;
 		int irq;
 
+		snprintf(kbdev->irqs[i].name, 32, "%s-%s",
+				irq_names_caps[i], dev_name(kbdev->dev));
 		/* We recommend using Upper case for the irq names in dts, but if
 		 * there are devices in the world using Lower case then we should
 		 * avoid breaking support for them. So try using names in Upper case
@@ -558,6 +560,8 @@ static int get_irqs(struct kbase_device *kbdev, struct platform_device *pdev)
 			static const char *const irq_names[] = { "job", "mmu", "gpu" };
 
 			irq = platform_get_irq_byname(pdev, irq_names[i]);
+			snprintf(kbdev->irqs[i].name, 32, "%s-%s",
+					irq_names[i], dev_name(kbdev->dev));
 		}
 
 		if (irq < 0)
