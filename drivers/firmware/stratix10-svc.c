@@ -68,6 +68,7 @@ struct stratix10_svc_chan;
 /**
  * struct stratix10_svc - svc private data
  * @stratix10_svc_rsu: pointer to stratix10 RSU device
+ * @intel_svc_fcs: pointer to fcs client device
  */
 struct stratix10_svc {
 	struct platform_device *stratix10_svc_rsu;
@@ -151,6 +152,7 @@ struct stratix10_svc_data {
  * @sdm_lock: only allows a single command single response to SDM
  * @domain: pointer to allocated iommu domain
  * @is_smmu_enabled: flag to indicate whether is smmu_enabled for device
+ * @sdm_dma_addr_offset: dma addr offset to append to the IOVA sent to SDM
  * @carveout: iova_domain used to allocate iova addr that is accessible by SDM
  * @svc: manages the list of client svc drivers
  *
@@ -184,6 +186,9 @@ struct stratix10_svc_controller {
  * @scl: pointer to service client which owns the channel
  * @name: service client name associated with the channel
  * @lock: protect access to the channel
+ * @task: pointer to the thread task which handles SMC or HVC call
+ * @svc_fifo: svc fifo circular buffer
+ * @svc_fifo_lock: svc fifo lock
  *
  * This struct is used by service client to communicate with service layer, each
  * service client has its own channel created by service controller.
