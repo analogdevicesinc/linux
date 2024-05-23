@@ -161,6 +161,18 @@ config MALI_CORESIGHT
 	bool "Enable Kbase CoreSight tracing support"
 	default n
 
+config MALI_HW_ERRATA_1485982_NOT_AFFECTED
+	bool "Disable workaround for BASE_HW_ISSUE_GPU2017_1336"
+	depends on MALI_MIDGARD
+	default y
+	help
+	  This option disables the default workaround for GPU2017-1336. The
+	  workaround keeps the L2 cache powered up except for powerdown and reset.
+
+	  The workaround introduces a limitation that will prevent the running of
+	  protected mode content on fully coherent platforms, as the switch to IO
+	  coherency mode requires the L2 to be turned off.
+
 menuconfig MALI_EXPERT
 	depends on MALI_MIDGARD
 	bool "Enable Expert Settings"
@@ -350,18 +362,6 @@ config MALI_PWRSOFT_765
 
 	  If using kernel >= v4.10 then say N, otherwise if devfreq cooling
 	  changes have been backported say Y to avoid compilation errors.
-
-config MALI_HW_ERRATA_1485982_NOT_AFFECTED
-	bool "Disable workaround for BASE_HW_ISSUE_GPU2017_1336"
-	depends on MALI_MIDGARD && MALI_EXPERT
-	default n
-	help
-	  This option disables the default workaround for GPU2017-1336. The
-	  workaround keeps the L2 cache powered up except for powerdown and reset.
-
-	  The workaround introduces a limitation that will prevent the running of
-	  protected mode content on fully coherent platforms, as the switch to IO
-	  coherency mode requires the L2 to be turned off.
 
 config MALI_HW_ERRATA_1485982_USE_CLOCK_ALTERNATIVE
 	bool "Use alternative workaround for BASE_HW_ISSUE_GPU2017_1336"
