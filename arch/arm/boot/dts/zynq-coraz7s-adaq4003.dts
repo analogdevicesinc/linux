@@ -55,7 +55,7 @@
 			dma-names = "rx";
 			pwms = <&adc_trigger 0 0>;
 			pwm-names = "cnv";
-			vref-supply = <&vref>;
+			ref-supply = <&vref>;
 			adi,high-z-input;
 			adi,gain-milli = /bits/ 16 <454>;
 
