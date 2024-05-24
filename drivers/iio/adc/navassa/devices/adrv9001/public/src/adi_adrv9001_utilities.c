@@ -42,7 +42,7 @@
 #include "adrv9001_bf.h"
 
 #ifdef __KERNEL__
-#define printf(...)	pr_info(__VA_ARGS__)
+#define printf(...)     pr_info(__VA_ARGS__)
 #endif
 
 #define ADI_ADRV9001_ARM_BINARY_IMAGE_FILE_SIZE_BYTES (303*1024)

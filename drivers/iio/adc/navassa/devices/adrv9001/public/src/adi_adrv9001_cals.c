@@ -1002,7 +1002,7 @@ int32_t adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_MaxArray_Set(adi_adrv90
 	ADI_API_RETURN(device);
 }
 int32_t adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_UniqueArray_Set(adi_adrv9001_Device_t *device,
-	const uint8_t *memStartAddress,
+	uint8_t *memStartAddress,
 	uint32_t maskChannel1,
 	uint32_t maskChannel2)
 {
