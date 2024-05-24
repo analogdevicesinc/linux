@@ -2622,7 +2622,7 @@ static int adrv9002_init_cals_handle(struct adrv9002_rf_phy *phy)
 		return ret;
 
 	ret = api_call(phy, adi_adrv9001_cals_InitCals_WarmBoot_Coefficients_UniqueArray_Set,
-		       fw->data, phy->init_cals.chanInitCalMask[0],
+		       (u8 *)fw->data, phy->init_cals.chanInitCalMask[0],
 		       phy->init_cals.chanInitCalMask[1]);
 	release_firmware(fw);
 	if (ret)
