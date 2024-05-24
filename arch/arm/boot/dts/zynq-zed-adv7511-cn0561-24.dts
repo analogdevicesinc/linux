@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Analog Devices AD4134
+ * Analog Devices AD7134
  * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad4134
  * https://wiki.analog.com/resources/eval/user-guides/ad4134
  *
- * hdl_project: <ad4134_fmc/zed>
+ * hdl_project: <ad7134_fmc/zed>
  *
- * Copyright (C) 2022 Analog Devices, Inc.
+ * Copyright (C) 2024 Analog Devices, Inc.
  */
 /dts-v1/;
 
@@ -48,11 +48,65 @@
 		regulator-always-on;
 	};
 
-	sys_clk: sys-clk {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <48000000>;
+	clocks {
+		cnv_ext_clk: ext-clk {
+			#clock-cells = <0x0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "cnv_ext_clk";
+		};
 	};
+
+	ad4134_control@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		out-gpios = <&ad4134_0 0 0>, <&ad4134_0 1 0>, <&ad4134_0 2 0>, <&ad4134_0 3 0>,
+					<&ad4134_0 4 0>, <&ad4134_0 5 0>, <&ad4134_0 6 0>, <&ad4134_0 7 0>;
+		
+		label = "ad4134";
+
+		channel@0 {
+			reg = <0>;
+			label = "GPIO0";
+		};
+
+		channel@1 {
+			reg = <1>;
+			label = "GPIO1";
+		};
+
+		channel@2 {
+			reg = <2>;
+			label = "GPIO2";
+		};
+
+		channel@3 {
+			reg = <3>;
+			label = "GPIO3";
+		};
+
+		channel@4 {
+			reg = <4>;
+			label = "GPIO4";
+		};
+
+		channel@5 {
+			reg = <5>;
+			label = "GPIO5";
+		};
+
+		channel@6 {
+			reg = <6>;
+			label = "GPIO6";
+		};
+
+		channel@7 {
+			reg = <7>;
+			label = "GPIO7";
+		};
+	}; 
 };
 
 &fpga_axi {
@@ -94,7 +148,7 @@
 			compatible = "adi,ad4134-spi-engine";
 			reg = <0>;
 
-			spi-max-frequency = <48000000>;
+			spi-max-frequency = <50000000>;
 
 			spi-cpha;
 		};
@@ -104,7 +158,7 @@
 		compatible = "adi,axi-pwmgen";
 		reg = <0x44b00000 0x10000>;
 		#pwm-cells = <2>;
-		clocks = <&clkc 15>;
+		clocks = <&cnv_ext_clk>;
 	};
 
 	spi_clk: axi_clkgen@44b10000 {
@@ -113,28 +167,31 @@
 		#clock-cells = <0>;
 		clocks = <&clkc 15>, <&clkc 15>;
 		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "spi_clk";
 	};
 };
 
 &spi0 {
 	status = "okay";
 
-	ad4134: adc@0 {
+	ad4134_0: adc_0@0 {
 		compatible = "adi,ad4134";
 		reg = <0>;
 
-		spi-max-frequency = <1000000>;
+		spi-max-frequency = <10000000>;
 
 		reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
+		gpio-cs-gpios = <&gpio0 104 GPIO_ACTIVE_HIGH>;
 
-		clocks = <&sys_clk>;
-		clock-names = "sys_clk";
+		clocks = <&cnv_ext_clk>;
+		clock-names = "cnv_ext_clk";
 
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
 
-		pwms = <&ad4134_odr_generator 0 0>;
-		pwm-names = "odr_pwm";
+		pwms = <&ad4134_odr_generator 0 0
+				&ad4134_odr_generator 1 0>;
+		pwm-names = "trigger_pwm","odr_pwm";
 
 		avdd5-supply = <&avdd5>;
 		avdd1v8-supply = <&avdd1v8>;
@@ -142,5 +199,9 @@
 		refin-supply = <&refin>;
 
 		adi,spi-engine = <&ad4134_spi_engine>;
+		ad7134,adc-frame = "ad7134_24";
+
+		gpio-controller;
+		#gpio-cells = <2>;
 	};
 };
