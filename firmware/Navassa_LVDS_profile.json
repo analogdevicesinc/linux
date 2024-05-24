@@ -1182,7 +1182,7 @@
     "mcsMode": 0,
     "mcsInterfaceType": 0,
     "adcTypeMonitor": 1,
-    "pllLockTime_us": 750,
+    "pllLockTime_us": 380,
     "pllPhaseSyncWait_us": 0,
     "pllModulus": {
       "modulus": [ 8388593, 8388593, 8388593, 8388593, 8388593 ],
