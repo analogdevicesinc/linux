@@ -19,7 +19,7 @@
 
 #include "adi_adrv9001_common.h"
 #include "adi_common.h"
-#include "adi_adrv9001_user.h"
+#include <adi_adrv9001_user.h>
 
 #define ADI_ADRV9001_NUM_TXRX_CHANNELS         0x4
 #define ADI_ADRV9001_NUM_RX_CHANNELS           0x2
@@ -47,6 +47,8 @@ typedef enum adi_adrv9001_PartNumber
     ADI_ADRV9001_PART_NUMBER_ADRV9002   = 0x0,
     ADI_ADRV9001_PART_NUMBER_ADRV9003   = 0xC,
     ADI_ADRV9001_PART_NUMBER_ADRV9004   = 0x8,
+    ADI_ADRV9001_PART_NUMBER_ADRV9005   = 0x0006,
+    ADI_ADRV9001_PART_NUMBER_ADRV9006   = 0x1989
 } adi_adrv9001_PartNumber_e;
 
 /**

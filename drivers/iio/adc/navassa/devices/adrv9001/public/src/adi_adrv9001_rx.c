@@ -596,10 +596,26 @@ static __maybe_unused int32_t __maybe_unused adi_adrv9001_Rx_Rssi_Read_Validate(
                                                                  uint32_t *rxRssiPower_mdB,
                                                                  adi_common_ChannelNumber_e rxChannel)
 {
-    ADI_NULL_PTR_RETURN(&device->common, rxRssiPower_mdB);
+	adi_adrv9001_ChannelState_e state = ADI_ADRV9001_CHANNEL_STANDBY;
 
-    /* Check that the requested channel mask is valid */
-    ADI_RANGE_CHECK(device, rxChannel, ADI_CHANNEL_1, ADI_CHANNEL_2);
+	/* Check device pointer is not null */
+	ADI_ENTRY_EXPECT(device);
+
+	ADI_NULL_PTR_RETURN(&device->common, rxRssiPower_mdB);
+
+	/* Check that the requested channel mask is valid */
+	ADI_RANGE_CHECK(device, rxChannel, ADI_CHANNEL_1, ADI_CHANNEL_2);
+
+	ADI_EXPECT(adi_adrv9001_Radio_Channel_State_Get, device, ADI_RX, rxChannel, &state);
+	if (ADI_ADRV9001_CHANNEL_RF_ENABLED != state)
+	{
+		ADI_ERROR_REPORT(device,
+			ADI_COMMON_ERRSRC_API,
+			ADI_COMMON_ERR_API_FAIL,
+			ADI_COMMON_ACT_ERR_CHECK_PARAM,
+			state,
+			"Error attempting to read RSSI. Specified channel must be in RF_ENABLED state");
+	}
 
     ADI_API_RETURN(device);
 }
@@ -2127,6 +2143,11 @@ int32_t adi_adrv9001_Rx_Rssi_Manual_Configure(adi_adrv9001_Device_t* adrv9001,
 
 	ADI_PERFORM_VALIDATION(adi_adrv9001_Rx_Rssi_Manual_Configure_Validate, adrv9001, channel, rssiInterval);
 
+	if (ADI_CHANNEL_2 == channel)
+	{
+		instance = ADRV9001_BF_RXB2_CORE;
+	}
+
     /* RSSI Tap Point select and mode */
     ADI_MSG_EXPECT("Error selecting RSSI tap point", adrv9001_NvsRegmapRxb_DcsgPmDsel_Set, adrv9001, instance, setRssiTapPoint);
     ADI_MSG_EXPECT("Error setting RSSI Mode", adrv9001_NvsRegmapRxb_DcsgPmMode_Set, adrv9001, instance, setRssiMode);
@@ -2160,6 +2181,11 @@ int32_t adi_adrv9001_Rx_Rssi_Manual_Status_Get(adi_adrv9001_Device_t *adrv9001,
 	adrv9001_BfNvsRegmapRxb_e instance = ADRV9001_BF_RXB1_CORE;
 
 	ADI_PERFORM_VALIDATION(adi_adrv9001_Rx_Rssi_Manual_Status_Get_Validate, adrv9001, channel);
+
+	if (ADI_CHANNEL_2 == channel)
+	{
+		instance = ADRV9001_BF_RXB2_CORE;
+	}
 
     if (manualRssiReadMode == ADI_ADRV9001_RSSI_READ_HIGH_SPEED_MODE)
     {
