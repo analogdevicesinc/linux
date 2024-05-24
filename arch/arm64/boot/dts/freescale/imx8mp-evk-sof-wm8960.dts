@@ -58,20 +58,14 @@
 
 	power-domains = <&audiomix_pd>;
 
-	assigned-clocks = <&clk IMX8MP_CLK_SAI3>;
-	assigned-clock-parents = <&clk IMX8MP_AUDIO_PLL1_OUT>;
-	assigned-clock-rates = <12288000>;
 	clocks = <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_OCRAMA_IPG>,
 		<&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_DSP_ROOT>,
 		<&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_DSPDBG_ROOT>,
-		<&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI3_IPG>, <&clk IMX8MP_CLK_DUMMY>,
-		<&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI3_MCLK1>, <&clk IMX8MP_CLK_DUMMY>,
-		<&clk IMX8MP_CLK_DUMMY>,
+		<&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI3_IPG>,
 		<&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SDMA3_ROOT>;
 
 	clock-names = "ipg", "ocram", "core",
-		"sai3_bus", "sai3_mclk0", "sai3_mclk1", "sai3_mclk2", "sai3_mclk3",
-		"sdma3_root";
+		"sai3_bus", "sdma3_root";
 
 	mbox-names = "txdb0", "txdb1", "rxdb0", "rxdb1";
 	mboxes = <&mu2 2 0>, <&mu2 2 1>,
@@ -96,6 +90,11 @@
 &wm8960 {
 	#sound-dai-cells = <0>;
 	status = "okay";
+
+
+	assigned-clocks = <&clk IMX8MP_CLK_SAI3>;
+	assigned-clock-parents = <&clk IMX8MP_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <12288000>;
 
 	port {
 		bitclock-master;
