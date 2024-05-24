@@ -125,6 +125,11 @@
 				adi,axi-dds-default-scale = <0x800>;
 				adi,axi-dds-default-frequency = <2000000>;
 			};
+
+			axi_sysid_0: axi-sysid-0@18000 {
+				compatible = "adi,axi-sysid-1.00.a";
+				reg = <0x00018000 0x8000>;
+			};
 		};
 	};
 };
