@@ -154,13 +154,15 @@ static unsigned int spi_engine_get_clk_div(struct spi_engine *spi_engine,
 	else
 		speed = spi->max_speed_hz;
 
-	clk_div = DIV_ROUND_UP(clk_get_rate(spi_engine->ref_clk),
+	clk_div = DIV_ROUND_CLOSEST(clk_get_rate(spi_engine->ref_clk),
 		speed * 2);
 	if (clk_div > 255)
 		clk_div = 255;
 	else if (clk_div > 0)
 		clk_div -= 1;
 
+	printk("ref_clk %u", clk_get_rate(spi_engine->ref_clk));
+	printk("clk div %u", clk_div);
 	return clk_div;
 }
 
@@ -196,6 +198,7 @@ static void spi_engine_gen_xfer(struct spi_engine_program *p, bool dry,
 {
 	unsigned int len = xfer->len;
 
+	printk("6");
 	while (len) {
 		unsigned int n = min(len, 256U);
 		unsigned int flags = 0;
@@ -244,7 +247,7 @@ static void spi_engine_gen_cs(struct spi_engine_program *p, bool dry,
 	if (assert)
 		mask ^= BIT(spi_get_chipselect(spi, 0));
 
-	spi_engine_program_add_cmd(p, dry, SPI_ENGINE_CMD_ASSERT(1, mask));
+	spi_engine_program_add_cmd(p, dry, SPI_ENGINE_CMD_ASSERT(0, mask));
 }
 
 static int spi_engine_compile_message(struct spi_engine *spi_engine,
@@ -370,9 +373,11 @@ int spi_engine_offload_load_msg(struct spi_device *spi,
 			writel(buf[i], sdo_addr);
 	}
 
-	for (i = 0; i < p->length; i++)
+	for (i = 0; i < p->length; i++){
+	// for (i = 3; i < p->length; i++){
+		printk("inst: %d | cmd_addr: %d", p->instructions[i], (uint32_t)cmd_addr);
 		writel(p->instructions[i], cmd_addr);
-
+	}
 	kfree(p);
 
 	return 0;
@@ -734,6 +739,7 @@ static int spi_engine_probe(struct platform_device *pdev)
 	master->dev.of_node = pdev->dev.of_node;
 	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_3WIRE;
 	master->max_speed_hz = clk_get_rate(spi_engine->ref_clk) / 2;
+	printk("max speed %d", master->max_speed_hz);
 	master->bits_per_word_mask = GENMASK(31, 0);
 	master->transfer_one_message = spi_engine_transfer_one_message;
 	master->num_chipselect = 8;
