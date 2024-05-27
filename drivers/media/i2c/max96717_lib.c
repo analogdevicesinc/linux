@@ -304,6 +304,12 @@ int max96717_soft_bpp_override(struct max96717 *ser, int bpp)
 }
 EXPORT_SYMBOL(max96717_soft_bpp_override);
 
+int max96717_set_i2c_speed(struct max96717 *ser, enum max96717_i2c_speed speed)
+{
+	return regmap_update_bits(ser->rmap, MAX96717_CC_I2C_1, MST_BT_MASK, speed << MST_BT_SHIFT);
+}
+EXPORT_SYMBOL(max96717_set_i2c_speed);
+
 int max96717_hw_init(struct max96717 *ser, unsigned int reset_pin, unsigned int clock_pin)
 {
 	struct regmap *rmap = ser->rmap;

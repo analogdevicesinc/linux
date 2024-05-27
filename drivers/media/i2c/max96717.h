@@ -35,6 +35,17 @@ enum max96717_gmsl_speed {
 	MAX96717_GMSL_6G,
 };
 
+enum max96717_i2c_speed {
+	MAX96717_I2C_BPS_9920,
+	MAX96717_I2C_BPS_33200,
+	MAX96717_I2C_BPS_99200,
+	MAX96717_I2C_BPS_123000,
+	MAX96717_I2C_BPS_203000,
+	MAX96717_I2C_BPS_397000,
+	MAX96717_I2C_BPS_625000,
+	MAX96717_I2C_BPS_980000,
+};
+
 struct max96717 *max96717_init(struct i2c_client *client);
 bool max96717_is_dev_id_valid(struct max96717 *ser);
 int max96717_hw_init(struct max96717 *ser, unsigned int reset_pin, unsigned int clock_pin);
@@ -51,5 +62,6 @@ int max96717_stream_id_set(struct max96717 *ser, int id);
 int max96717_gmsl_speed_set(struct max96717 *ser, enum max96717_gmsl_speed speed);
 int max96717_double_mode_en(struct max96717 *ser);
 int max96717_soft_bpp_override(struct max96717 *ser, int bpp);
+int max96717_set_i2c_speed(struct max96717 *ser, enum max96717_i2c_speed speed);
 
 #endif
