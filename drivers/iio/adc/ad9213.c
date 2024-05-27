@@ -768,13 +768,12 @@ static int ad9213_probe(struct spi_device *spi)
 	return ret;
 }
 
-static int ad9213_remove(struct spi_device *spi)
+static void ad9213_remove(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev = spi_get_drvdata(spi);
 
 	iio_device_unregister(indio_dev);
 
-	return 0;
 }
 
 static const struct spi_device_id ad9213_id[] = {
@@ -802,4 +801,4 @@ module_spi_driver(ad9213_driver);
 
 MODULE_AUTHOR("Dragos Bogdan <dragos.bogdan@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD9213 ADC");
-MODULE_LICENSE("GPL v2"); 
+MODULE_LICENSE("GPL v2");
