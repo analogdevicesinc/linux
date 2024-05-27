@@ -56,6 +56,18 @@ enum max96724_gmsl_speed {
 	MAX96724_GMSL_6G		= 2,
 };
 
+
+enum max96724_i2c_speed {
+	MAX96724_I2C_BPS_9920,
+	MAX96724_I2C_BPS_33200,
+	MAX96724_I2C_BPS_99200,
+	MAX96724_I2C_BPS_123000,
+	MAX96724_I2C_BPS_203000,
+	MAX96724_I2C_BPS_397000,
+	MAX96724_I2C_BPS_625000,
+	MAX96724_I2C_BPS_980000,
+};
+
 struct max96724_source {
 	struct v4l2_subdev *sd;
 	struct fwnode_handle *fwnode;
@@ -568,6 +580,7 @@ static int max96724_chip_init(struct max96724_priv *priv)
 {
 	unsigned int locked_links;
 	struct device *dev = &priv->client->dev;
+	int i;
 
 	/* Disable remote control channel on all links. */
 	regmap_write(priv->rmap, MAX96724_DEV_REG3, 0xff);
@@ -587,6 +600,11 @@ static int max96724_chip_init(struct max96724_priv *priv)
 
 	/* Disable all video pipes */
 	regmap_write(priv->rmap, MAX96724_VIDEO_PIPE_SEL_VIDEO_PIPE_EN, 0);
+
+	/* Set I2C speed on al GMSL ports to 980kbps */
+	for (i = 0; i < 4; i++)
+		regmap_update_bits(priv->rmap, MAX96724_CC_G2P0_I2C_1(i), MST_BT_P0_A_MASK,
+				   MAX96724_I2C_BPS_980000 << MST_BT_P0_A_SHIFT);
 
 	locked_links = max96724_reset_gmsl_links(priv);
 	if (locked_links == 0) {
