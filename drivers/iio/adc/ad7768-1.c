@@ -445,8 +445,8 @@ static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
 	};
 	unsigned char tx_data[4];
 	int ret;
-	tx_data[0] = BIT(7) | (AD7768_RD_FLAG_MSK(addr) >> 1);
-	tx_data[1] = (AD7768_RD_FLAG_MSK(addr) << 7) | 0x7F;
+	tx_data[0] = AD7768_RD_FLAG_MSK(addr);
+	tx_data[1] = 0xFF;
 	tx_data[2] = 0xFF;
 	tx_data[3] = 0xFF;
 	xfer.tx_buf = tx_data;
@@ -463,14 +463,12 @@ static int ad7768_spi_reg_write(struct ad7768_state *st,
 {
 	struct spi_transfer xfer = {
 		.rx_buf = st->data.buf,
-		.len = 4,
-		.bits_per_word = 32,
+		.len = 2,
+		.bits_per_word = 16,
 	};
 	u8 tx_data[4];
-	tx_data[0] = BIT(7) | (AD7768_WR_FLAG_MSK(addr) >> 1);
-	tx_data[1] = (AD7768_WR_FLAG_MSK(addr) << 7) | ((val & 0xFF) >> 1) ;
-	tx_data[2] = (val & 0xFF) << 7 | 0x7F;
-	tx_data[3] = 0xFF;
+	tx_data[0] = AD7768_WR_FLAG_MSK(addr);
+	tx_data[1] = val;
 	printk("reg write: %x%x%x", tx_data[0],  tx_data[1],  tx_data[2]);
 	xfer.tx_buf = tx_data;
 	return spi_sync_transfer(st->spi, &xfer, 1);
