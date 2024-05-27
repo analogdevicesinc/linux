@@ -478,12 +478,12 @@ static int imx_drm_dpu95_set_cmdlist_ioctl(struct drm_device *drm_dev, void *dat
 		return -EFAULT;
 	}
 
-	dpu95_be_get(dpu_blit_eng);
 	ret = pm_runtime_resume_and_get(dpu_blit_eng->dev);
 	if (ret < 0) {
 		drm_err(drm_dev, "failed to get device RPM: %d\n", ret);
 		return ret;
 	}
+	dpu95_be_get(dpu_blit_eng);
 
 	cmd_nr = req->cmd_nr;
 	cmd = (u32 *)(unsigned long)req->cmd;
@@ -522,12 +522,12 @@ static int imx_drm_dpu95_wait_ioctl(struct drm_device *drm_dev, void *data,
 	if (id != 0)
 		return -EINVAL;
 
-	dpu95_be_get(dpu_blit_eng);
 	ret = pm_runtime_resume_and_get(dpu_blit_eng->dev);
 	if (ret < 0) {
 		drm_err(drm_dev, "failed to get device RPM: %d\n", ret);
 		return ret;
 	}
+	dpu95_be_get(dpu_blit_eng);
 
 	dpu95_be_wait(dpu_blit_eng);
 
