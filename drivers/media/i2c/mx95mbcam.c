@@ -309,6 +309,7 @@ static int mx95mbcam_init(struct mx95mbcam_priv *priv)
 	ret |= max96717_soft_bpp_override(priv->ser, 16); /* RAW16 bpp */
 	ret |= max96717_vc_filter(priv->ser, BIT(0)); /* process only VC0 */
 	ret |= max96717_stream_id_set(priv->ser, 0);
+	ret |= max96717_set_i2c_speed(priv->ser, MAX96717_I2C_BPS_980000);
 
 	return ret ? -EIO : 0;
 }
