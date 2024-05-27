@@ -14,7 +14,7 @@
 
 			adt7420: adt7420@4b {
 				compatible = "adt7420";
-				reg = <0x4b>;
+				reg = <0x48>
 			};
 		};
 	};
