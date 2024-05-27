@@ -12,9 +12,9 @@
 			#size-cells = <0>;
 			status = "okay";
 
-			adt7420: adt7420@4b {
+			adt7420: adt7420@48 {
 				compatible = "adt7420";
-				reg = <0x4b>;
+				reg = <0x48>;
 			};
 		};
 	};
