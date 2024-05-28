@@ -1688,17 +1688,25 @@ static struct platform_driver imx_pcie_driver = {
 	.shutdown = imx_pcie_shutdown,
 };
 
+static bool imx_pcie_match_device(struct pci_bus *bus)
+{
+	/* Bus parent is the PCI bridge, its parent is this platform driver */
+	if (!bus->dev.parent || !bus->dev.parent->parent)
+		return false;
+
+	/* Make sure we only quirk devices associated with this driver */
+	if (bus->dev.parent->parent->driver != &imx_pcie_driver.driver)
+		return false;
+
+	return true;
+}
+
 static void imx_pcie_quirk(struct pci_dev *dev)
 {
 	struct pci_bus *bus = dev->bus;
 	struct dw_pcie_rp *pp = bus->sysdata;
 
-	/* Bus parent is the PCI bridge, its parent is this platform driver */
-	if (!bus->dev.parent || !bus->dev.parent->parent)
-		return;
-
-	/* Make sure we only quirk devices associated with this driver */
-	if (bus->dev.parent->parent->driver != &imx_pcie_driver.driver)
+	if (!imx_pcie_match_device(bus))
 		return;
 
 	if (pci_is_root_bus(bus)) {
