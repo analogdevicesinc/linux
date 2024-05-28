@@ -31,6 +31,8 @@
 		i2c5 = &lpi2c6;
 		i2c6 = &lpi2c7;
 		i2c7 = &lpi2c8;
+		ethernet0 = &fec;
+		ethernet1 = &eqos;
 		mmc0 = &usdhc1;
 		mmc1 = &usdhc2;
 		mmc2 = &usdhc3;
