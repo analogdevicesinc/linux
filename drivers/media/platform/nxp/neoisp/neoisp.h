@@ -78,6 +78,8 @@
 		((x) == V4L2_PIX_FMT_VUYX32) || \
 		((x) == V4L2_PIX_FMT_VYUY))
 
+#define NEOISP_SUSPEND_TIMEOUT_MS (500)
+
 /* For logging only */
 #define NODE_NAME(node) \
 	(node_desc[(node)->id].ent_name + sizeof(NEOISP_NAME))
