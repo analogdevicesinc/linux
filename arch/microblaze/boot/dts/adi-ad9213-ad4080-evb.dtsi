@@ -183,6 +183,7 @@
 			adi,subclass = <1>;
 			adi,high-density = <0>;
 			adi,samples-per-converter-per-frame = <16>;
+			reset-gpios = <&axi_gpio 45 GPIO_ACTIVE_HIGH>;
 		};
 	};
 
@@ -231,9 +232,11 @@
 		status = "okay";
 
                 ltc2664: ltc2664@0 {
+
                          reg = <0>;
                          #address-cells = <1>;
                          #size-cells = <0>;
+
                          compatible = "adi,ltc2664";
                          spi-max-frequency = <10000000>;
 

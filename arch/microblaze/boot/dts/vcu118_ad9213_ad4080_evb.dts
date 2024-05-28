@@ -18,6 +18,58 @@
 
 / {
 	model = "Analog Devices AD9213-ad4080-EVB @Xilinx/vcu118";
+
+	one-bit-adc-dac@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		out-gpios = <&axi_gpio 55 GPIO_ACTIVE_HIGH>,
+				    <&axi_gpio 54 GPIO_ACTIVE_HIGH>,
+				    <&axi_gpio 53 GPIO_ACTIVE_HIGH>,
+				    <&axi_gpio 51 GPIO_ACTIVE_HIGH>,
+				    <&axi_gpio 50 GPIO_ACTIVE_HIGH>,
+				    <&axi_gpio 49 GPIO_ACTIVE_HIGH>,
+				    <&axi_gpio 48 GPIO_ACTIVE_HIGH>,
+				    <&axi_gpio 47 GPIO_ACTIVE_HIGH>,
+				    <&axi_gpio 46 GPIO_ACTIVE_HIGH>;
+		channel@0 {
+			reg = <0>;
+			label = "ltc2644_tgp";
+		};
+		channel@1 {
+			reg = <1>;
+			label = "ltc2644_clr";
+		};
+		channel@2 {
+			reg = <2>;
+			label = "ltc2644_ldac";
+		};
+		channel@3 {
+			reg = <3>;
+			label = "ada4945_disable";
+		};
+		channel@4 {
+			reg = <4>;
+			label = "adg5419_ctrl";
+		};
+		channel@5 {
+			reg = <5>;
+			label = "adrf5203_ctrl[2]";
+		};
+		channel@6 {
+			reg = <6>;
+			label = "adrf5203_ctrl[1]";
+		};
+		channel@7 {
+			reg = <7>;
+			label = "adrf5203_ctrl[0]";
+		};
+		channel@8 {
+			reg = <8>;
+			label = "hmc7044_sync_req";
+		};
+	};
 };
 
 &axi_intc {
