@@ -1439,8 +1439,6 @@ static netdev_tx_t __dpaa2_eth_tx(struct sk_buff *skb,
 	percpu_extras = this_cpu_ptr(priv->percpu_extras);
 	fd = (this_cpu_ptr(priv->fd))->array;
 
-	needed_headroom = dpaa2_eth_needed_headroom(skb);
-
 	/* We'll be holding a back-reference to the skb until Tx Confirmation;
 	 * we don't want that overwritten by a concurrent Tx with a cloned skb.
 	 */
@@ -1450,6 +1448,8 @@ static netdev_tx_t __dpaa2_eth_tx(struct sk_buff *skb,
 		percpu_stats->tx_dropped++;
 		return NETDEV_TX_OK;
 	}
+
+	needed_headroom = dpaa2_eth_needed_headroom(skb);
 
 	/* Setup the FD fields */
 
