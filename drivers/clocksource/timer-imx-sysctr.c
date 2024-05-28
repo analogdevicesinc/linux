@@ -26,19 +26,49 @@
 
 #define SYS_CTR_CLK_DIV		0x3
 
+#define SYS_CTR_IMX95		BIT(0)
+
 struct sysctr_private {
 	u32 cmpcr;
 	u32 lo_off;
 	u32 hi_off;
+	u32 flag;
 };
+
+static inline bool sysctr_is_imx95(struct sysctr_private *priv)
+{
+	return priv->flag & SYS_CTR_IMX95 ? true : false;
+}
+
+static void sysctr_timer_read_write(void __iomem *addr, u32 mask, u32 val, int count)
+{
+	u32 i = 0;
+
+	while ((readl(addr) & mask) != val) {
+		writel(val, addr);
+		count--;
+		if (count <= 0) {
+			pr_err("%s:%p:%x write failed, retry: %u\n",
+			       __func__, (addr), val, i++);
+			count = 1000;
+		}
+	}
+}
 
 static void sysctr_timer_enable(struct clock_event_device *evt, bool enable)
 {
 	struct timer_of *to = to_timer_of(evt);
 	struct sysctr_private *priv = to->private_data;
 	void __iomem *base = timer_of_base(to);
+	u32 val;
 
-	writel(enable ? priv->cmpcr | SYS_CTR_EN : priv->cmpcr, base + CMPCR);
+	val = enable ? priv->cmpcr | SYS_CTR_EN : priv->cmpcr;
+	writel(val, base + CMPCR);
+
+	if (!sysctr_is_imx95(priv))
+		return;
+
+	sysctr_timer_read_write(base + CMPCR, val, val, 1000);
 }
 
 static void sysctr_irq_acknowledge(struct clock_event_device *evt)
@@ -71,6 +101,7 @@ static int sysctr_set_next_event(unsigned long delta,
 				 struct clock_event_device *evt)
 {
 	struct timer_of *to = to_timer_of(evt);
+	struct sysctr_private *priv = to->private_data;
 	void __iomem *base = timer_of_base(to);
 	u32 cmp_hi, cmp_lo;
 	u64 next;
@@ -87,7 +118,18 @@ static int sysctr_set_next_event(unsigned long delta,
 	writel_relaxed(cmp_hi, base + CMPCV_HI);
 	writel_relaxed(cmp_lo, base + CMPCV_LO);
 
+	if (sysctr_is_imx95(priv))
+		disable_irq_nosync(evt->irq);
+
 	sysctr_timer_enable(evt, true);
+
+	if (!sysctr_is_imx95(priv))
+		return 0;
+
+	sysctr_timer_read_write(base + CMPCV_HI, GENMASK(31, 0), cmp_hi, 1000);
+	sysctr_timer_read_write(base + CMPCV_LO, GENMASK(31, 0), cmp_lo, 1000);
+
+	enable_irq(evt->irq);
 
 	return 0;
 }
@@ -197,6 +239,7 @@ static int __init sysctr_timer_imx95_init(struct device_node *np)
 	priv = to_sysctr.private_data;
 	priv->lo_off = CNTCV_LO_IMX95;
 	priv->hi_off = CNTCV_HI_IMX95;
+	priv->flag = SYS_CTR_IMX95;
 
 	clockevents_config_and_register(&to_sysctr.clkevt,
 					timer_of_rate(&to_sysctr),
