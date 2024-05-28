@@ -85,7 +85,7 @@
 			spi-max-frequency = <80000000>;
 			vdd-supply = <&adc_vdd>;
 			vio-supply = <&adc_vio>;
-			vref-supply = <&adc_vref>;
+			ref-supply = <&adc_vref>;
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
 			clocks = <&spi_clk>;
