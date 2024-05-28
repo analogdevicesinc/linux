@@ -522,6 +522,20 @@ static int ox03c10_pwl_lut_set(struct ox03c10 *sensor, u8 *lut)
 	return regmap_bulk_write(sensor->rmap, OX03C10_PWL0_0_1, lut, OX03C10_PWL_LUT_SIZE);
 }
 
+static int ox03c10_hflip_enable(struct ox03c10 *sensor, bool en)
+{
+	int ret;
+
+	if (sensor->streaming)
+		return -EBUSY;
+
+	ret = regmap_update_bits(sensor->rmap, OX03C10_REG_WIN_09, BIT(0), BIT(0));
+	ret |= regmap_update_bits(sensor->rmap, OX03C10_TIMING_CTRL_REG_20, BIT(5),
+				  en ? 0 : BIT(5));
+
+	return ret ? -EIO : 0;
+}
+
 static int ox03c10_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct ox03c10 *sensor = container_of(ctrl->handler, struct ox03c10, ctrl_handler);
@@ -547,6 +561,9 @@ static int ox03c10_s_ctrl(struct v4l2_ctrl *ctrl)
 
 	case V4L2_CID_OX03C10_PWL_KNEE_POINTS_LUT:
 		return ox03c10_pwl_lut_set(sensor, ctrl->p_new.p);
+
+	case V4L2_CID_HFLIP:
+		return ox03c10_hflip_enable(sensor, ctrl->val);
 
 	default:
 		return -EINVAL;
@@ -724,6 +741,8 @@ int ox03c10_v4l2_controls_init(struct ox03c10 *sensor)
 			  vblank, vblank, 1, vblank);
 
 	v4l2_ctrl_new_std(ctrl_handler, &ox03c10_ctrl_ops, V4L2_CID_AUTO_WHITE_BALANCE, 0, 1, 1, 0);
+
+	v4l2_ctrl_new_std(ctrl_handler, &ox03c10_ctrl_ops, V4L2_CID_HFLIP, 0, 1, 1, 0);
 
 	ret = v4l2_fwnode_device_parse(sensor->dev, &props);
 	if (ret)
