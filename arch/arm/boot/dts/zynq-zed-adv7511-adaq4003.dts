@@ -1,0 +1,112 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADAQ4003
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad400x
+ * https://wiki.analog.com/resources/eval/user-guides/ad400x
+ *
+ * hdl_project: <pulsar_adc/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2016-2024 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+/ {
+	adc_vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL 5V Vref";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	adc_vdd: regulator-vdd {
+		compatible = "regulator-fixed";
+		regulator-name = "Eval VDD supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	adc_vio: regulator-vio {
+		compatible = "regulator-fixed";
+		regulator-name = "Eval VIO supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+};
+
+&fpga_axi {
+	rx_dma: rx-dmac@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x1000>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 17>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <1>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	axi_pwm_gen: axi-pwm-gen@44b00000 {
+		compatible = "adi,axi-pwmgen";
+		reg = <0x44b00000 0x1000>;
+		label = "adc_conversion_trigger";
+		#pwm-cells = <2>;
+		clocks = <&spi_clk>;
+	};
+
+	spi_clk: axi-clkgen@44a70000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44a70000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 15>;
+		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "spi_clk";
+	};
+
+	axi_spi_engine_0: spi@44a00000 {
+		compatible = "adi,axi-spi-engine-1.00.a";
+		reg = <0x44a00000 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15 &spi_clk>;
+		clock-names = "s_axi_aclk", "spi_clk";
+		num-cs = <1>;
+
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		adaq4003: adc@0 {
+			compatible = "adi,adaq4003";
+			reg = <0>;
+			spi-max-frequency = <80000000>;
+			vdd-supply = <&adc_vdd>;
+			vio-supply = <&adc_vio>;
+			vref-supply = <&adc_vref>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			clocks = <&spi_clk>;
+			clock-names = "ref_clk";
+			pwms = <&axi_pwm_gen 0 0>;
+			pwm-names = "cnv";
+			adi,high-z-input;
+			adi,gain-milli = /bits/ 16 <454>;
+		};
+	};
+};
