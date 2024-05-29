@@ -501,6 +501,7 @@ struct cdns_nand_ctrl {
 	unsigned long assigned_cs;
 	struct list_head chips;
 	u8 bch_metadata_size;
+	bool is_ecc;
 };
 
 struct cdns_nand_chip {
@@ -1279,6 +1280,19 @@ cadence_nand_cdma_transfer(struct cdns_nand_ctrl *cdns_ctrl, u8 chip_nr,
 		ctype = CDMA_CT_RD;
 	else
 		ctype = CDMA_CT_WR;
+
+	/* Workaround to force disable ECC while using the Command DMA mode.
+	 * if chip->ecc.engine_type=NAND_ECC_ENGINE_TYPE_NONE is used to disable
+	 * the ECC then Generic work mode and Slave DMA interface is used by nand
+	 * framework for page read/write and we don't want that because Agilex5
+	 * A0 silicon NAND SDMA address range is 4K, while the page size on some
+	 * NAND Flash device could be more.
+	 * So keeping chip->ecc.engine_type = NAND_ECC_ENGINE_TYPE_ON_HOST to
+	 * use Command DMA mode for page read/write and do not enable ecc here.
+	 */
+
+	if(!cdns_ctrl->is_ecc)
+		with_ecc = false;
 
 	cadence_nand_set_ecc_enable(cdns_ctrl, with_ecc);
 
@@ -3046,6 +3060,11 @@ static int cadence_nand_dt_probe(struct platform_device *ofdev)
 			 val);
 	}
 	cdns_ctrl->board_delay = val;
+
+	if(of_property_read_bool(ofdev->dev.of_node, "disable-ecc"))
+		cdns_ctrl->is_ecc = false;
+	else
+		cdns_ctrl->is_ecc = true;
 
 	ret = cadence_nand_init(cdns_ctrl);
 	if (ret)

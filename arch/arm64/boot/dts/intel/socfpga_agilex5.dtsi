@@ -763,13 +763,14 @@
 		nand: nand-controller@10b80000 {
 			compatible = "cdns,hp-nfc";
 			reg = <0x10b80000 0x10000>,
-					<0x10840000 0x10000>;
+					<0x10840000 0x1000>;
 			reg-names = "reg", "sdma";
 			#address-cells = <1>;
 			#size-cells = <0>;
 			interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clkmgr AGILEX5_NAND_NF_CLK>;
 			cdns,board-delay-ps = <4830>;
+			clock-names = "nf_clk";
 			iommus = <&smmu 4>;
 			status = "disabled";
 		};
