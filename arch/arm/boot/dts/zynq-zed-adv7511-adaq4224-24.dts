@@ -62,6 +62,7 @@
 
 		max31827: max31827@5f {
 			compatible = "adi,max31827";
+			label = "adaq4224-temp";
 			reg = <0x5f>;
 			vref-supply = <&vio>;
 			adi,comp-int;
@@ -127,6 +128,7 @@
 
 		adaq4224: adaq4224@0 {
 			compatible = "adi,adaq4224";
+			label = "adaq4224";
 			reg = <0>;
 			vdd-supply = <&vref>;
 			vdd_1_8-supply = <&vdd_1_8>;
