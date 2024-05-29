@@ -1,4 +1,4 @@
-// SPDX-License-Identifier:     GPL-2.0
+// SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (C) 2023, Intel Corporation
  */
@@ -6,7 +6,7 @@
 
 / {
 	model = "SoCFPGA Agilex5 SoCDK";
-	compatible = "intel,socfpga-agilex5-socdk", "intel,socfpga-agilex";
+	compatible = "intel,socfpga-agilex5-socdk", "intel,socfpga-agilex5";
 
 	aliases {
 		serial0 = &uart0;
@@ -24,20 +24,12 @@
 
 	leds {
 		compatible = "gpio-leds";
-		hps0 {
-			label = "hps_led0";
-			gpios = <&portb 20 GPIO_ACTIVE_HIGH>;
-		};
 
 		hps1 {
 			label = "hps_led1";
-			gpios = <&portb 19 GPIO_ACTIVE_HIGH>;
+			gpios = <&porta 11 GPIO_ACTIVE_HIGH>;
 		};
 
-		hps2 {
-			label = "hps_led2";
-			gpios = <&portb 21 GPIO_ACTIVE_HIGH>;
-		};
 	};
 
 	memory {
@@ -45,20 +37,15 @@
 		/* We expect the bootloader to fill in the reg */
 		reg = <0x0 0x0 0x0 0x0>;
 	};
-
-	extcon_usb1: extcon_usb1 {
-		compatible = "linux,extcon-usb-gpio";
-		id-gpio = <&portb 23 GPIO_ACTIVE_HIGH>;
-	};
 };
 
-&gpio1 {
+&gpio0 {
 	status = "okay";
 };
 
 &gmac0 {
-	status = "okay";
-	phy-mode = "rgmii";
+	status = "disabled";
+	phy-mode = "rgmii-id";
 	phy-handle = <&emac0_phy0>;
 
 	max-frame-size = <9000>;
@@ -75,7 +62,7 @@
 
 &gmac2 {
 	status = "okay";
-	phy-mode = "rgmii";
+	phy-mode = "rgmii-id";
 	phy-handle = <&emac2_phy0>;
 
 	max-frame-size = <9000>;
@@ -90,12 +77,22 @@
 	};
 };
 
+&i3c0 {
+	status = "okay";
+};
+
+&i3c1 {
+	status = "okay";
+};
+
 &mmc {
 	status = "okay";
 	bus-width = <4>;
+	no-1-8-v;
+	cap-sd-highspeed;
+	cap-mmc-highspeed;
+	disable-wp;
 	sd-uhs-sdr50;
-	sdhci-caps = <0x00000000 0x0000c800>;
-	sdhci-caps-mask = <0x00002000 0x0000ff00>;
 	no-sdio;
 	cdns,phy-use-ext-lpbk-dqs = <1>;
 	cdns,phy-use-lpbk-dqs = <1>;
@@ -135,34 +132,6 @@
 	cdns,hrs07-idelay-val = <0>;
 };
 
-&i2c0 {
-	status = "okay";
-};
-
-&i2c1 {
-	status = "okay";
-};
-
-&i2c2 {
-	status = "okay";
-};
-
-&i2c3 {
-	status = "okay";
-};
-
-&i2c4 {
-	status = "okay";
-};
-
-&i3c0 {
-	status = "okay";
-};
-
-&i3c1 {
-	status = "okay";
-};
-
 &osc1 {
 	clock-frequency = <25000000>;
 };
@@ -181,28 +150,28 @@
 };
 
 &dwc3_0 {
-	extcon = <&extcon_usb1>;
 	dr_mode = "host";
+};
+
+&smmu {
+	status = "okay";
 };
 
 &watchdog0 {
 	status = "okay";
 };
-
 &watchdog1 {
 	status = "okay";
 };
-
 &watchdog2 {
 	status = "okay";
 };
-
 &watchdog3 {
 	status = "okay";
 };
-
 &watchdog4 {
 	status = "okay";
+	disable-over-current;
 };
 
 &qspi {
@@ -227,6 +196,7 @@
 			compatible = "fixed-partitions";
 			#address-cells = <1>;
 			#size-cells = <1>;
+			rsu-handle = <&qspi_boot>;
 
 			qspi_boot: partition@0 {
 				label = "u-boot";
@@ -241,42 +211,63 @@
 	};
 };
 
-&nand {
-	status = "okay";
-	disable-ecc;
-
-	flash@0 {
+&temp_volt {
+	voltage {
 		#address-cells = <1>;
-		#size-cells = <1>;
-		reg = <0>;
-		nand-bus-width = <8>;
-
-		partition@0 {
-			label = "u-boot";
-			reg = <0 0x200000>;
+		#size-cells = <0>;
+		input@2 {
+			label = "0.8V VCC";
+			reg = <2>;
 		};
-		partition@200000 {
-			label = "root";
-			reg = <0x200000 0xffe00000>;
+
+		input@3 {
+			label = "1.8V VCCIO_SDM";
+			reg = <3>;
+		};
+
+		input@4 {
+			label = "1.8V VCCPT";
+			reg = <4>;
+		};
+
+		input@5 {
+			label = "1.2V VCCCRCORE";
+			reg = <5>;
+		};
+
+		input@6 {
+			label = "0.9V VCCH";
+			reg = <6>;
+		};
+
+		input@7 {
+			label = "0.8V VCCL";
+			reg = <7>;
 		};
 	};
-};
 
-&spi0 {
-	status = "okay";
-
-	flash: m25p128@0 {
-		compatible = "st,m25p80";
-		reg = <0>;
-		spi-max-frequency = <25000000>;
-		m25p,fast-read;
-		status = "okay";
+	temperature {
 		#address-cells = <1>;
-		#size-cells = <1>;
+		#size-cells = <0>;
 
-		partition@0 {
-		label = "spi_flash_part0";
-		reg = <0x0 0x100000>;
+		input@0 {
+			label = "Main Die SDM";
+			reg = <0x0>;
+		};
+
+		input@10001 {
+			label = "Main Die corner bottom left max";
+			reg = <0x10001>;
+		};
+
+		input@30001 {
+			label = "Main Die corner bottom right max";
+			reg = <0x30001>;
+		};
+
+		input@40001 {
+			label = "Main Die corner top right max";
+			reg = <0x40001>;
 		};
 	};
 };

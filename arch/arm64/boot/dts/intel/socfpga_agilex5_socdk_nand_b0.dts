@@ -120,7 +120,8 @@
 
 &nand {
 	status = "okay";
-	disable-ecc;
+        reg = <0x10b80000 0x10000>,
+                <0x10840000 0x10000>;
 
 	flash@0 {
 		#address-cells = <1>;
