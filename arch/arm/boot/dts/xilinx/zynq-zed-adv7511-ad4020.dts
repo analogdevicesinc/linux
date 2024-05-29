@@ -8,7 +8,7 @@
  * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/pulsar_adc
  * board_revision: <>
  *
- * Copyright (C) 2016-2019 Analog Devices Inc.
+ * Copyright (C) 2016-2024 Analog Devices Inc.
  */
 /dts-v1/;
 
@@ -16,11 +16,27 @@
 #include "zynq-zed-adv7511.dtsi"
 
 / {
-	vref: regulator-vref {
+	adc_vref: regulator-vref {
 		compatible = "regulator-fixed";
-		regulator-name = "fixed-supply";
-		regulator-min-microvolt = <2500000>;
-		regulator-max-microvolt = <2500000>;
+		regulator-name = "EVAL 5V Vref";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	adc_vdd: regulator-vdd {
+		compatible = "regulator-fixed";
+		regulator-name = "Eval VDD supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	adc_vio: regulator-vio {
+		compatible = "regulator-fixed";
+		regulator-name = "Eval VIO supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
 		regulator-always-on;
 	};
 };
@@ -30,6 +46,7 @@
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44a30000 0x1000>;
 		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
 		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 17>;
 
@@ -47,7 +64,7 @@
 		};
 	};
 
-	adc_trigger: pwm@44b00000 {
+	axi_pwm_gen: axi-pwm-gen@44b00000 {
 		compatible = "adi,axi-pwmgen";
 		reg = <0x44b00000 0x1000>;
 		label = "adc_conversion_trigger";
@@ -69,7 +86,7 @@
 		reg = <0x44a00000 0x1000>;
 		interrupt-parent = <&intc>;
 		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clkc 15>, <&spi_clk>;
+		clocks = <&clkc 15 &spi_clk>;
 		clock-names = "s_axi_aclk", "spi_clk";
 		num-cs = <1>;
 
@@ -79,17 +96,17 @@
 		ad4020: adc@0 {
 			compatible = "adi,ad4020";
 			reg = <0>;
-			spi-max-frequency = <102000000>;
-
-			clocks = <&spi_clk>;
-			clock-names = "ref_clk";
+			spi-max-frequency = <80000000>;
+			vdd-supply = <&adc_vdd>;
+			vio-supply = <&adc_vio>;
+			vref-supply = <&adc_vref>;
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
-			pwms = <&adc_trigger 0 0>;
+			clocks = <&spi_clk>;
+			clock-names = "ref_clk";
+			pwms = <&axi_pwm_gen 0 0>;
 			pwm-names = "cnv";
-
-			vref-supply = <&vref>;
-			#io-channel-cells = <1>;
+			adi,high-z-input;
 		};
 	};
 };
