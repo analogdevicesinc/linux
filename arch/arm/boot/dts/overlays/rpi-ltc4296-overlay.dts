@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Overlay for the LTC4296
+ *
+ * Copyright 2024 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2711";
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	ltc4296: ltc4296@0 {
+		compatible = "adi,ltc4296";
+		reg = <0>;
+		spi-max-frequency = <500000>;
+	};
+};
