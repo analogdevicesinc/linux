@@ -1322,11 +1322,7 @@ static int ad4630_config(struct ad4630_state *st)
 	if (ret)
 		return ret;
 
-	if (lane_mode == AD4630_ONE_LANE_PER_CH && data_rate &&
-	    st->chip->modes[st->out_data].data_width == 32)
-		st->max_rate = AD4630_MAX_RATE_1_LANE;
-	else
-		st->max_rate = AD4630_MAX_RATE;
+	st->max_rate = AD4630_MAX_RATE;
 
 	ad4630_prepare_spi_sampling_msg(st, clock_mode, lane_mode, data_rate);
 
