@@ -399,8 +399,20 @@ static ssize_t iio_show_fixed_type(struct device *dev,
 				   struct device_attribute *attr,
 				   char *buf)
 {
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct iio_dev_attr *this_attr = to_iio_dev_attr(attr);
+<<<<<<< HEAD
 	u8 type = this_attr->c->scan_type.endianness;
+=======
+	const struct iio_scan_type *scan_type;
+	u8 type;
+
+	scan_type = iio_get_current_scan_type(indio_dev, this_attr->c);
+	if (IS_ERR(scan_type))
+		return PTR_ERR(scan_type);
+
+	type = scan_type->endianness;
+>>>>>>> d8f2bb50845f (iio: add support for multiple scan types per channel)
 
 	if (type == IIO_CPU) {
 #ifdef __LITTLE_ENDIAN
@@ -731,20 +743,32 @@ static ssize_t enable_show(struct device *dev, struct device_attribute *attr,
 	return sysfs_emit(buf, "%d\n", iio_buffer_is_active(buffer));
 }
 
-static unsigned int iio_storage_bytes_for_si(struct iio_dev *indio_dev,
-					     unsigned int scan_index)
+static int iio_storage_bytes_for_si(struct iio_dev *indio_dev,
+				    unsigned int scan_index)
 {
 	const struct iio_chan_spec *ch;
 	unsigned int bytes;
 
 	ch = iio_find_channel_from_si(indio_dev, scan_index);
+<<<<<<< HEAD
 	bytes = ch->scan_type.storagebits / 8;
 	if (ch->scan_type.repeat > 1)
 		bytes *= ch->scan_type.repeat;
+=======
+	scan_type = iio_get_current_scan_type(indio_dev, ch);
+	if (IS_ERR(scan_type))
+		return PTR_ERR(scan_type);
+
+	bytes = scan_type->storagebits / 8;
+
+	if (scan_type->repeat > 1)
+		bytes *= scan_type->repeat;
+
+>>>>>>> d8f2bb50845f (iio: add support for multiple scan types per channel)
 	return bytes;
 }
 
-static unsigned int iio_storage_bytes_for_timestamp(struct iio_dev *indio_dev)
+static int iio_storage_bytes_for_timestamp(struct iio_dev *indio_dev)
 {
 	struct iio_dev_opaque *iio_dev_opaque = to_iio_dev_opaque(indio_dev);
 
@@ -762,6 +786,9 @@ static int iio_compute_scan_bytes(struct iio_dev *indio_dev,
 	for_each_set_bit(i, mask,
 			 indio_dev->masklength) {
 		length = iio_storage_bytes_for_si(indio_dev, i);
+		if (length < 0)
+			return length;
+
 		bytes = ALIGN(bytes, length);
 		bytes += length;
 		largest = max(largest, length);
@@ -769,6 +796,9 @@ static int iio_compute_scan_bytes(struct iio_dev *indio_dev,
 
 	if (timestamp) {
 		length = iio_storage_bytes_for_timestamp(indio_dev);
+		if (length < 0)
+			return length;
+
 		bytes = ALIGN(bytes, length);
 		bytes += length;
 		largest = max(largest, length);
@@ -1047,14 +1077,22 @@ static int iio_buffer_update_demux(struct iio_dev *indio_dev,
 				       indio_dev->masklength,
 				       in_ind + 1);
 		while (in_ind != out_ind) {
-			length = iio_storage_bytes_for_si(indio_dev, in_ind);
+			ret = iio_storage_bytes_for_si(indio_dev, in_ind);
+			if (ret < 0)
+				goto error_clear_mux_table;
+
+			length = ret;
 			/* Make sure we are aligned */
 			in_loc = roundup(in_loc, length) + length;
 			in_ind = find_next_bit(indio_dev->active_scan_mask,
 					       indio_dev->masklength,
 					       in_ind + 1);
 		}
-		length = iio_storage_bytes_for_si(indio_dev, in_ind);
+		ret = iio_storage_bytes_for_si(indio_dev, in_ind);
+		if (ret < 0)
+			goto error_clear_mux_table;
+
+		length = ret;
 		out_loc = roundup(out_loc, length);
 		in_loc = roundup(in_loc, length);
 		ret = iio_buffer_add_demux(buffer, &p, in_loc, out_loc, length);
@@ -1065,7 +1103,11 @@ static int iio_buffer_update_demux(struct iio_dev *indio_dev,
 	}
 	/* Relies on scan_timestamp being last */
 	if (buffer->scan_timestamp) {
-		length = iio_storage_bytes_for_timestamp(indio_dev);
+		ret = iio_storage_bytes_for_timestamp(indio_dev);
+		if (ret < 0)
+			goto error_clear_mux_table;
+
+		length = ret;
 		out_loc = roundup(out_loc, length);
 		in_loc = roundup(in_loc, length);
 		ret = iio_buffer_add_demux(buffer, &p, in_loc, out_loc, length);
@@ -1867,6 +1909,22 @@ static long iio_device_buffer_ioctl(struct iio_dev *indio_dev, struct file *filp
 	}
 }
 
+static int iio_channel_validate_scan_type(struct device *dev, int ch,
+					  const struct iio_scan_type *scan_type)
+{
+	/* Verify that sample bits fit into storage */
+	if (scan_type->storagebits < scan_type->realbits + scan_type->shift) {
+		dev_err(dev,
+			"Channel %d storagebits (%d) < shifted realbits (%d + %d)\n",
+			ch, scan_type->storagebits,
+			scan_type->realbits,
+			scan_type->shift);
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int __iio_buffer_alloc_sysfs_and_mask(struct iio_buffer *buffer,
 					     struct iio_dev *indio_dev,
 					     int index)
@@ -1892,6 +1950,7 @@ static int __iio_buffer_alloc_sysfs_and_mask(struct iio_buffer *buffer,
 			if (channels[i].scan_index < 0)
 				continue;
 
+<<<<<<< HEAD
 			/* Verify that sample bits fit into storage */
 			if (channels[i].scan_type.storagebits <
 			    channels[i].scan_type.realbits +
@@ -1903,6 +1962,35 @@ static int __iio_buffer_alloc_sysfs_and_mask(struct iio_buffer *buffer,
 					channels[i].scan_type.shift);
 				ret = -EINVAL;
 				goto error_cleanup_dynamic;
+=======
+			if (channels[i].has_ext_scan_type) {
+				int j;
+
+				/*
+				 * get_current_scan_type is required when using
+				 * extended scan types.
+				 */
+				if (!indio_dev->info->get_current_scan_type) {
+					ret = -EINVAL;
+					goto error_cleanup_dynamic;
+				}
+
+				for (j = 0; j < channels[i].num_ext_scan_type; j++) {
+					scan_type = &channels[i].ext_scan_type[j];
+
+					ret = iio_channel_validate_scan_type(
+						&indio_dev->dev, i, scan_type);
+					if (ret)
+						goto error_cleanup_dynamic;
+				}
+			} else {
+				scan_type = &channels[i].scan_type;
+
+				ret = iio_channel_validate_scan_type(
+						&indio_dev->dev, i, scan_type);
+				if (ret)
+					goto error_cleanup_dynamic;
+>>>>>>> d8f2bb50845f (iio: add support for multiple scan types per channel)
 			}
 
 			ret = iio_buffer_add_channel_sysfs(indio_dev, buffer,
