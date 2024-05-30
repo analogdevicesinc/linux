@@ -35,15 +35,15 @@
 				    <&axi_gpio 46 GPIO_ACTIVE_HIGH>;
 		channel@0 {
 			reg = <0>;
-			label = "ltc2644_tgp";
+			label = "ltc2664_tgp";
 		};
 		channel@1 {
 			reg = <1>;
-			label = "ltc2644_clr";
+			label = "ltc2664_clr";
 		};
 		channel@2 {
 			reg = <2>;
-			label = "ltc2644_ldac";
+			label = "ltc2664_ldac";
 		};
 		channel@3 {
 			reg = <3>;
@@ -77,14 +77,13 @@
 };
 
 &amba_pl {
-
-	rx_dma: rx-dmac@44B00000 {
+	ad9213_rx_dma: ad9213-dmac@44B00000 {
 		#dma-cells = <1>;
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x44B00000 0x1000>;
 		#clock-cells = <0>;
 		interrupt-parent = <&axi_intc>;
-		interrupts = <12 2>;
+		interrupts = <8 2>;
 		clocks = <&clk_bus_0>;
 
 		adi,channels {
@@ -101,10 +100,43 @@
 		};
 	};
 
+	ad4080_rx_dma: ad4080-dmac@44A30000 {
+		#dma-cells = <1>;
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44A30000 0x1000>;
+		#clock-cells = <0>;
+		interrupt-parent = <&axi_intc>;
+		interrupts = <7 2>;
+		clocks = <&clk_bus_0>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	ad4080: ad4080@44A00000 {
+		compatible = "adi,axi-adc-10.0.a";
+		reg = <0x44A00000 0x10000>;
+		dmas = <&ad4080_rx_dma 0>;
+		dma-names = "rx";
+
+		spibus-connected = <&adc_ad4080>;
+	};
+
+
 	axi_ad9213_jesd_rx: axi-jesd204-rx@44a90000 {
 		compatible = "adi,axi-jesd204-rx-1.0";
 		interrupt-parent = <&axi_intc>;
-		interrupts = <13 2>;
+		interrupts = <16 2>;
 		reg = <0x44a90000 0x4000>;
 		clocks = <&clk_bus_0>, <&hmc7044 11>, <&axi_ad9213_adxcvr 1>, <&axi_ad9213_adxcvr 0>;
 		clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
@@ -139,7 +171,7 @@
 	rx_ad9213_tpl_core_tpl: axi-adrv9213-rx-hpc@44a10000 {
 		compatible = "xlnx,axi-ad-mc-adc-1.00.a";
 		reg = <0x44a10000 0x2000>;
-		dmas = <&rx_dma 0>;
+		dmas = <&ad9213_rx_dma 0>;
 		dma-names = "ad-mc-adc-dma";
 	};
 };
