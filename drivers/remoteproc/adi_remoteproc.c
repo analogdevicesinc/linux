@@ -132,10 +132,10 @@ static struct adi_sharc_resource_table _rsc_table_template = {
 	},
 };
 
-enum adi_rproc_rpmsg_state {
-	ADI_RP_RPMSG_SYNCED = 0,
-	ADI_RP_RPMSG_WAITING = 1,
-	ADI_RP_RPMSG_TIMED_OUT = 2,
+enum adi_rproc_rproc_state {
+	ADI_REMOTEPROC_SYNCED = 0,
+	ADI_REMOTEPROC_WAITING = 1,
+	ADI_REMOTEPROC_TIMED_OUT = 2,
 };
 
 struct adi_rproc_data {
@@ -156,7 +156,7 @@ struct adi_rproc_data {
 	void __iomem *L1_shared_base;
 	void __iomem *L2_shared_base;
 	struct workqueue_struct *core_workqueue;
-	enum adi_rproc_rpmsg_state rpmsg_state;
+	enum adi_rproc_rproc_state rproc_state;
 	u64 l1_da_range[2];
 	u64 l2_da_range[2];
 	u32 verify;
@@ -164,18 +164,27 @@ struct adi_rproc_data {
 	struct sharc_resource_table *loaded_rsc_table;
 };
 
+/*
+ * Load first instruction to be executed after reset
+ */
 static int adi_core_set_svect(struct adi_rproc_data *rproc_data,
 					unsigned long svect)
 {
-	int coreid = rproc_data->core_id;
+	uint32_t core_id = !!svect && rproc_data->core_id;
 
-	if (svect && (coreid == 1))
-		adi_rcu_writel(svect, rproc_data->rcu, ADI_RCU_REG_SVECT1);
-	else if (svect && (coreid == 2))
-		adi_rcu_writel(svect, rproc_data->rcu, ADI_RCU_REG_SVECT2);
-	else {
-		dev_err(rproc_data->dev, "%s, invalid svect:0x%lx, cord_id:%d\n",
-						__func__, svect, coreid);
+	switch (core_id) {
+	case 1:
+		adi_rcu_writel(svect, rproc_data->rcu,
+				ADI_RCU_REG_SVECT1);
+		break;
+	case 2:
+		adi_rcu_writel(svect, rproc_data->rcu,
+				ADI_RCU_REG_SVECT2);
+		break;
+	default:
+		dev_err(rproc_data->dev,
+			"%s, invalid svect:0x%lx, cord_id:%d\n",
+			__func__, svect, core_id);
 		return -EINVAL;
 	}
 
@@ -188,18 +197,18 @@ static int adi_core_start(struct adi_rproc_data *rproc_data)
 {
 	int ret = 0;
 
-	if (rproc_data->adi_rsc_table != NULL) {
-		rproc_data->rpmsg_state = ADI_RP_RPMSG_WAITING;
-		ret = devm_request_threaded_irq(rproc_data->dev,
-						rproc_data->icc_irq, NULL,
-						sharc_virtio_irq_threaded_handler,
-						rproc_data->icc_irq_flags,
-						"ICC virtio IRQ", rproc_data);
-	}
-	if (ret) {
-		dev_err(rproc_data->dev, "Fail to request ICC IRQ\n");
+	if (!rproc_data->adi_rsc_table) {
+		dev_err(rproc_data->dev,
+				"Could not start core, no resource table\n");
 		return -ENOENT;
 	}
+
+	rproc_data->rproc_state = ADI_REMOTEPROC_WAITING;
+	ret = devm_request_threaded_irq(rproc_data->dev,
+					rproc_data->icc_irq, NULL,
+					sharc_virtio_irq_threaded_handler,
+					rproc_data->icc_irq_flags,
+					"ICC virtio IRQ", rproc_data);
 
 	return adi_rcu_start_core(rproc_data->rcu, rproc_data->core_id);
 }
@@ -211,11 +220,15 @@ static int adi_core_reset(struct adi_rproc_data *rproc_data)
 
 static int adi_core_stop(struct adi_rproc_data *rproc_data)
 {
+	if (!rproc_data->adi_rsc_table)
+		goto adi_stop_ret;
+
 	/* After time out the irq is already released */
-	if (rproc_data->adi_rsc_table != NULL) {
-		if (rproc_data->rpmsg_state != ADI_RP_RPMSG_TIMED_OUT)
-			devm_free_irq(rproc_data->dev, rproc_data->icc_irq, rproc_data);
-	}
+	if (rproc_data->rproc_state == ADI_REMOTEPROC_TIMED_OUT)
+		goto adi_stop_ret;
+
+	devm_free_irq(rproc_data->dev, rproc_data->icc_irq, rproc_data);
+adi_stop_ret:
 	return adi_rcu_stop_core(rproc_data->rcu,
 				 rproc_data->core_id, rproc_data->core_irq);
 }
@@ -230,6 +243,11 @@ static int is_empty(struct ldr_hdr *hdr)
 	return hdr->bcode_flag.bFlag_ignore || (hdr->byte_count == 0);
 }
 
+static int is_final_and_empty(struct ldr_hdr *hdr)
+{
+	return is_final(hdr) && is_empty(hdr);
+}
+
 static void load_callback(void *p)
 {
 	struct completion *cmp = p;
@@ -237,56 +255,23 @@ static void load_callback(void *p)
 	complete(cmp);
 }
 
-/* @todo this needs to return status */
-/* @todo the error paths here leak tremendously, this needs further cleanup */
-static void ldr_load(struct adi_rproc_data *rproc_data)
+static int verify_buffer(struct adi_rproc_data *rproc_data)
 {
-	struct ldr_hdr *block_hdr = NULL;
-	struct ldr_hdr *next_hdr = NULL;
-	uint8_t *virbuf = (uint8_t *) rproc_data->mem_virt;
-	dma_addr_t phybuf = rproc_data->mem_handle;
-	int offset;
+
+	uint8_t ret = 0;
+//	uint8_t *virbuf, *phybuf;
+
+//	phybuf = (uint8_t *) rproc_data->mem_handle;
+//	virbuf = (uint8_t *) rproc_data->virt;
+
+
+
+//				if (rproc_data->verify) {
 // part of verify buffer code
 //	int i;
 //	uint32_t verfied = 0;
 //	uint8_t *pCompareBuffer;
 //	uint8_t *pVerifyBuffer;
-	struct dma_chan *chan = dma_find_channel(DMA_MEMCPY);
-	struct dma_async_tx_descriptor *tx;
-	struct completion cmp;
-
-	if (!chan) {
-		dev_err(rproc_data->dev, "Could not find dma memcpy channel\n");
-		return;
-	}
-
-	init_completion(&cmp);
-
-	do {
-		/* read the header */
-		block_hdr = (struct ldr_hdr *) virbuf;
-		offset = sizeof(struct ldr_hdr) + (block_hdr->bcode_flag.bFlag_fill ?
-					       0 : block_hdr->byte_count);
-		next_hdr = (struct ldr_hdr *) (virbuf + offset);
-		tx = NULL;
-
-		/* Overwrite the ldr_load_addr */
-		if (block_hdr->bcode_flag.bFlag_first)
-			rproc_data->ldr_load_addr = (unsigned long)block_hdr->target_addr;
-
-		if (!is_empty(block_hdr)) {
-			if (block_hdr->bcode_flag.bFlag_fill) {
-				tx = dmaengine_prep_dma_memset(chan,
-							       block_hdr->target_addr,
-							       block_hdr->argument,
-							       block_hdr->byte_count, 0);
-			} else {
-				tx = dmaengine_prep_dma_memcpy(chan,
-							       block_hdr->target_addr,
-							       phybuf + sizeof(struct ldr_hdr),
-							       block_hdr->byte_count, 0);
-
-//				if (rproc_data->verify) {
 //					@todo implement verification
 //					pCompareBuffer = virbuf + sizeof(struct ldr_hdr);
 //					pVerifyBuffer = virbuf + rproc_data->fw_size;
@@ -308,36 +293,103 @@ static void ldr_load(struct adi_rproc_data *rproc_data)
 //						}
 //					}
 //				}
-			}
 
-			if (!tx) {
-				dev_err(rproc_data->dev, "Failed to allocate dma transaction\n");
-				return;
-			}
+	return 0;
+}
 
-			if (is_final(block_hdr) || (is_final(next_hdr) && is_empty(next_hdr))) {
-				tx->callback = load_callback;
-				tx->callback_param = &cmp;
-			}
-			dmaengine_submit(tx);
-			dma_async_issue_pending(chan);
-		}
+/* @todo this needs to return status */
+/* @todo the error paths here leak tremendously, this needs further cleanup */
+static int ldr_load(struct adi_rproc_data *rproc_data)
+{
+	struct ldr_hdr *block_hdr = NULL;
+	struct ldr_hdr *next_hdr = NULL;
+	uint8_t *virbuf = (uint8_t *) rproc_data->mem_virt;
+	dma_addr_t phybuf = rproc_data->mem_handle;
+	int offset;
+	uint32_t byte_cnt_offset;
+	struct dma_chan *chan = dma_find_channel(DMA_MEMCPY);
+	struct dma_async_tx_descriptor *tx;
+	int final_hdr_empty;
+	struct completion cmp;
 
-		if (is_final(block_hdr)) {
-			wait_for_completion(&cmp);
-			break;
-		}
+	if (!chan) {
+		dev_err(rproc_data->dev, "Could not find dma memcpy channel\n");
+		return -ENODEV;
+	}
 
+	init_completion(&cmp);
+
+
+	/* ldr data is organised as blocks, verify the current block
+	 * and estimate the next block to be read based on the
+	 * information obtained regarding the current one */
+	offset = 0;
+	while (1) {
+		int blkhdr_dma_init_val;
+		dma_addr_t blkhdr_dma_src;
+
+		/* read the header */
 		virbuf += offset;
 		phybuf += offset;
-	} while (1);
+		block_hdr = (struct ldr_hdr *) virbuf;
+		if (block_hdr->bcode_flag.bFlag_fill)
+			byte_cnt_offset = 0;
+		else
+			byte_cnt_offset = block_hdr->byte_count;
 
-//	if (rproc_data->verify) {
-//		if (verfied == 0)
-//			dev_err(rproc_data->dev, "success to verify all the data\n");
-//		else
-//			dev_err(rproc_data->dev, "fail to verify all the data %d\n", verfied);
-//	}
+		offset = sizeof(struct ldr_hdr) + byte_cnt_offset;
+		next_hdr = (struct ldr_hdr *) (virbuf + offset);
+		tx = NULL;
+		/* Overwrite the ldr_load_addr */
+		if (block_hdr->bcode_flag.bFlag_first)
+			rproc_data->ldr_load_addr =
+				(unsigned long) block_hdr->target_addr;
+
+		/* Skip empty blocks if they are not final */
+		if (is_empty(block_hdr)) {
+			if (!is_final(block_hdr))
+				continue;
+
+			wait_for_completion(&cmp);
+			return 0;
+		}
+
+		if (block_hdr->bcode_flag.bFlag_fill) {
+			blkhdr_dma_init_val = block_hdr->argument;
+			tx = dmaengine_prep_dma_memset(chan,
+					       block_hdr->target_addr,
+					       blkhdr_dma_init_val,
+					       block_hdr->byte_count, 0);
+		} else {
+			blkhdr_dma_src = phybuf + sizeof(struct ldr_hdr);
+			tx = dmaengine_prep_dma_memcpy(chan,
+					       block_hdr->target_addr,
+					       blkhdr_dma_src,
+					       block_hdr->byte_count, 0);
+		}
+
+		if (!tx) {
+			dev_err(rproc_data->dev,
+					"Failed to allocate dma transaction\n");
+			return -ENOMEM;
+		}
+
+		/* Prepare in advance for an empty final block */
+		final_hdr_empty = !!(is_final_and_empty(next_hdr));
+		if (is_final(block_hdr) || final_hdr_empty) {
+			tx->callback = load_callback;
+			tx->callback_param = &cmp;
+		}
+
+		dmaengine_submit(tx);
+		dma_async_issue_pending(chan);
+		if (is_final(block_hdr)) {
+			wait_for_completion(&cmp);
+			return 0;
+		}
+
+	}
+
 }
 
 static int adi_valid_firmware(struct rproc *rproc, const struct firmware *fw)
@@ -381,25 +433,23 @@ static int adi_ldr_load(struct adi_rproc_data *rproc_data,
 							  fw->size * MEMORY_COUNT,
 							  &rproc_data->mem_handle,
 							  GFP_KERNEL);
-		if (rproc_data->mem_virt == NULL) {
+		if (!rproc_data->mem_virt) {
 			dev_err(rproc_data->dev, "Unable to allocate memory\n");
 			return -ENOMEM;
 		}
 	}
 
 	memcpy((char *)rproc_data->mem_virt, fw->data, fw->size);
-
 	enable_spu();
 	ldr_load(rproc_data);
 	disable_spu();
-
 	return 0;
 }
 
 /*
  * adi_rproc_load: parse and load ADI SHARC LDR file into memory
  *
- * This function would be called when user run the start command
+ * This function would be called when user runs the start command
  * echo start > /sys/class/remoteproc/remoteprocX/state
  */
 static int adi_rproc_load(struct rproc *rproc, const struct firmware *fw)
@@ -433,9 +483,10 @@ static int adi_rproc_load(struct rproc *rproc, const struct firmware *fw)
  */
 static int adi_rproc_start(struct rproc *rproc)
 {
-	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
+	struct adi_rproc_data *rproc_data;
 	int ret;
 
+	rproc_data = (struct adi_rproc_data *)rproc->priv;
 	ret = adi_core_set_svect(rproc_data, rproc_data->ldr_load_addr);
 	if (ret)
 		return ret;
@@ -719,36 +770,50 @@ static irqreturn_t sharc_virtio_irq_threaded_handler(int irq, void *p)
 /* kick a virtqueue */
 static void adi_rproc_kick(struct rproc *rproc, int vqid)
 {
-	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
+	struct adi_rproc_data *rproc_data;
+	struct adi_resource_table_hdr *hdr;
+	uint32_t core_init = 0;
 	int wait_time;
 
+	rproc_data = (struct adi_rproc_data *)rproc->priv;
 	/* On first kick check if remote core has done its initialization */
-	if (rproc_data->rpmsg_state == ADI_RP_RPMSG_WAITING) {
-		for (wait_time = 0; wait_time < CORE_INIT_TIMEOUT_MS; wait_time += 20) {
-			if (rproc_data->adi_rsc_table->adi_table_hdr.initialized ==
-			    ADI_RSC_TABLE_INIT_MAGIC) {
-				rproc_data->rpmsg_state = ADI_RP_RPMSG_SYNCED;
-				break;
-			}
-			msleep(20);
-		}
-		if (rproc_data->rpmsg_state != ADI_RP_RPMSG_SYNCED) {
-			rproc_data->rpmsg_state = ADI_RP_RPMSG_TIMED_OUT;
-			devm_free_irq(rproc_data->dev, rproc_data->icc_irq, rproc_data);
-			dev_info(rproc_data->dev,
-					 "Core%d rpmsg init timeout, probably not supported.\n",
-					 rproc_data->core_id);
-		}
+	if (rproc_data->rproc_state != ADI_REMOTEPROC_WAITING) {
+		if (rproc_data->rproc_state == ADI_REMOTEPROC_SYNCED)
+			adi_tru_trigger_device(rproc_data->tru, rproc_data->dev);
+
+		return;
 	}
 
-	if (rproc_data->rpmsg_state == ADI_RP_RPMSG_SYNCED)
+	hdr = &rproc_data->adi_rsc_table->adi_table_hdr;
+	core_init = hdr->initialized;
+	for (wait_time = 0; wait_time < CORE_INIT_TIMEOUT_MS; wait_time += 20) {
+		core_init = hdr->initialized;
+		if (core_init == ADI_RSC_TABLE_INIT_MAGIC) {
+			rproc_data->rproc_state = ADI_REMOTEPROC_SYNCED;
+			break;
+		}
+
+		msleep(20);
+	}
+
+	if (rproc_data->rproc_state == ADI_REMOTEPROC_SYNCED) {
 		adi_tru_trigger_device(rproc_data->tru, rproc_data->dev);
+		return;
+	}
+
+	rproc_data->rproc_state = ADI_REMOTEPROC_TIMED_OUT;
+	devm_free_irq(rproc_data->dev, rproc_data->icc_irq,
+			rproc_data);
+	dev_info(rproc_data->dev,
+			 "Core%d rpmsg init timeout, probably not supported.\n",
+			 rproc_data->core_id);
 }
 
 static int adi_rproc_sanity_check(struct rproc *rproc, const struct firmware *fw)
 {
-	struct adi_rproc_data *rproc_data = (struct adi_rproc_data *)rproc->priv;
+	struct adi_rproc_data *rproc_data;
 
+	rproc_data = (struct adi_rproc_data *)rproc->priv;
 	/* Check if it is a LDR or ELF file */
 	rproc_data->firmware_format = adi_valid_firmware(rproc, fw);
 
@@ -865,11 +930,12 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	rproc_data = (struct adi_rproc_data *)rproc->priv;
 	platform_set_drvdata(pdev, rproc);
 
-	/* for now device addresses are represented as 32 bits and expanded to 64
-	 * here in driver code
+	/* for now device addresses are represented as 32 bits and expanded to
+	 * 64 here in driver code
 	 */
 	if (of_property_read_u32_array(np, "adi,l1-da", addr, 2)) {
-		dev_err(dev, "Missing adi,l1-da with L1 device address range information\n");
+		dev_err(dev,
+		"Missing adi,l1-da with L1 device address range information\n");
 		ret = -ENODEV;
 		goto free_rproc;
 	}
@@ -877,7 +943,8 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	rproc_data->l1_da_range[1] = addr[1];
 
 	if (of_property_read_u32_array(np, "adi,l2-da", addr, 2)) {
-		dev_err(dev, "Missing adi,l2-da with L2 device address range information\n");
+		dev_err(dev,
+		"Missing adi,l2-da with L2 device address range information\n");
 		ret = -ENODEV;
 		goto free_rproc;
 	}
@@ -887,11 +954,14 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	/* Get ADI resource table address */
 	node = of_parse_phandle(np, "adi,rsc-table", 0);
 	if (node) {
+		u32 irq_flags = 0;
+
 		dev_info(&pdev->dev, "Resource table set, enable rpmsg\n");
 		rmem = of_reserved_mem_lookup(node);
 		of_node_put(node);
 		if (!rmem) {
-			dev_err(&pdev->dev, "Translating adi,rsc-table failed\n");
+			dev_err(&pdev->dev,
+					"Translating adi,rsc-table failed\n");
 			ret = -ENOMEM;
 			goto free_adi_rcu;
 		}
@@ -912,8 +982,8 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 			goto free_adi_rcu;
 		}
 
-		rproc_data->icc_irq_flags = IRQF_PERCPU | IRQF_SHARED | IRQF_ONESHOT;
-
+		irq_flags = IRQF_PERCPU | IRQF_SHARED | IRQF_ONESHOT;
+		rproc_data->icc_irq_flags = irq_flags;
 	} else {
 		rproc_data->adi_rsc_table = NULL;
 	}
@@ -975,8 +1045,8 @@ static int adi_remoteproc_probe(struct platform_device *pdev)
 	rproc_data->firmware_name = name;
 	rproc_data->mem_virt = NULL;
 	rproc_data->fw_size = 0;
-	rproc_data->ldr_load_addr = SHARC_IDLE_ADDR;
-	rproc_data->rpmsg_state = ADI_RP_RPMSG_TIMED_OUT;
+	rproc_data->ldr_load_addr = SHARC_IDLE_ADDR; //start core as idle
+	rproc_data->rproc_state = ADI_REMOTEPROC_TIMED_OUT;
 
 	ret = rproc_add(rproc);
 	if (ret) {
