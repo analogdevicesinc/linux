@@ -136,7 +136,7 @@
 	axi_ad9213_jesd_rx: axi-jesd204-rx@44a90000 {
 		compatible = "adi,axi-jesd204-rx-1.0";
 		interrupt-parent = <&axi_intc>;
-		interrupts = <16 2>;
+		interrupts = <6 2>;
 		reg = <0x44a90000 0x4000>;
 		clocks = <&clk_bus_0>, <&hmc7044 11>, <&axi_ad9213_adxcvr 1>, <&axi_ad9213_adxcvr 0>;
 		clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
