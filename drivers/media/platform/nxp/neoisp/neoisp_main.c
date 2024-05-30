@@ -1781,6 +1781,8 @@ static int neoisp_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, neoisp_dev);
 
+	pm_runtime_set_autosuspend_delay(&pdev->dev, NEOISP_SUSPEND_TIMEOUT_MS);
+	pm_runtime_use_autosuspend(&pdev->dev);
 	pm_runtime_enable(&pdev->dev);
 	ret = pm_runtime_resume_and_get(&pdev->dev);
 	if (ret < 0) {
@@ -1814,6 +1816,9 @@ static int neoisp_probe(struct platform_device *pdev)
 	if (ret)
 		goto disable_nodes_err;
 
+	pm_runtime_mark_last_busy(&pdev->dev);
+	pm_runtime_put_autosuspend(&pdev->dev);
+
 	dev_info(&pdev->dev, "probe: done (%d)\n", ret);
 	return ret;
 
@@ -1821,6 +1826,7 @@ disable_nodes_err:
 	while (num_groups-- > 0)
 		neoisp_destroy_node_group(&neoisp_dev->node_group[num_groups]);
 err_pm:
+	pm_runtime_dont_use_autosuspend(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
 	dev_err(&pdev->dev, "probe: error %d\n", ret);
@@ -1835,6 +1841,7 @@ static int neoisp_remove(struct platform_device *pdev)
 	for (i = NEOISP_NODE_GROUPS_COUNT - 1; i >= 0; i--)
 		neoisp_destroy_node_group(&neoisp_dev->node_group[i]);
 
+	pm_runtime_dont_use_autosuspend(&pdev->dev);
 	pm_runtime_disable(&pdev->dev);
 
 	return 0;
