@@ -1805,6 +1805,7 @@ static int neoisp_probe(struct platform_device *pdev)
 			goto disable_nodes_err;
 	}
 
+	spin_lock_init(&neoisp_dev->hw_lock);
 	ret = neoisp_init_hw(neoisp_dev);
 	if (ret)
 		goto disable_nodes_err;
