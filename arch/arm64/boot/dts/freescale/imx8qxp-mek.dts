@@ -11,4 +11,15 @@
 / {
 	model = "Freescale i.MX8QXP MEK";
 	compatible = "fsl,imx8qxp-mek", "fsl,imx8qxp";
+
+	reserved-memory {
+		gpu_reserved: gpu_reserved@880000000 {
+			no-map;
+			reg = <0x8 0x80000000 0 0x10000000>;
+		};
+	};
+};
+
+&imx8_gpu_ss {
+	memory-region=<&gpu_reserved>;
 };
