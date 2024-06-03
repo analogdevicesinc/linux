@@ -265,7 +265,7 @@ static void load_callback(void *p)
   *
   * In case of Direct Code Execution and Single block boot streams it is possible
   * to verify the block header via an xor checksum of the bcode_flag field.
- */
+  */
 
 static int adi_verify_ldr_hdr(struct adi_rproc_data *rproc_data,
 		struct ldr_hdr *block_hdr)
@@ -295,22 +295,23 @@ static int adi_verify_ldr_hdr(struct adi_rproc_data *rproc_data,
 		expected_xor_checksum = block_hdr->bcode_flag.bHdrCHK;
 		curr_hdr_xor_checksum = 0;
 		flag_mask = 0xFF000000;
-		for (i=4; i>0; i--) {
+		for (i = 4; i > 0; i--) {
 			/* dont include checksum */
-			if (3!=i) {
+			if (i != 3) {
 				flag_byte = flag_mask & *(uint32_t *) block_flags;
 				/* eg 0xAB000000, mask is 0xFF000000,
 				 * to convert into uint8_t,
-				 * shift by ((4-1)x2)x4=24 bits */
+				 * shift by ((4-1)x2)x4=24 bits
+				 */
 				flag_byte = flag_byte >> (((i-1)*2*4));
 				/* truncate and XOR */
 				curr_hdr_xor_checksum ^= (uint8_t) flag_byte;
 			}
-			/*next byte*/
+			/* next byte */
 			flag_mask = flag_mask >> 8;
 		}
 
-		if(expected_xor_checksum != curr_hdr_xor_checksum) {
+		if (expected_xor_checksum != curr_hdr_xor_checksum) {
 			dev_err(rproc_data->dev, "Expected ldr xor:%08x got:%08x\n",
 					expected_xor_checksum,
 					curr_hdr_xor_checksum);
@@ -322,11 +323,11 @@ static int adi_verify_ldr_hdr(struct adi_rproc_data *rproc_data,
 	/* Check if size offset leads to next header, unless final (should have
 	 * same core id since part of same stream and block is not final)
 	 */
-	if(block_flags->bFlag_final)
+	if (block_flags->bFlag_final)
 		return 0;
 
 	next_hdr = block_hdr + 1;
-	if(!block_flags->bFlag_fill)
+	if (!block_flags->bFlag_fill)
 		next_hdr = (struct ldr_hdr *)((uint8_t *) next_hdr +
 				block_hdr->byte_count);
 
@@ -362,7 +363,8 @@ static int ldr_load(struct adi_rproc_data *rproc_data)
 
 	/* ldr data is organised as blocks, verify the current block
 	 * and estimate the next block to be read based on the
-	 * information obtained regarding the current one */
+	 * information obtained regarding the current one
+	 */
 	offset = 0;
 	while (1) {
 		int blkhdr_dma_init_val;
