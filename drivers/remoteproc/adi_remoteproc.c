@@ -87,6 +87,12 @@ struct adi_sharc_resource_table {
 	struct sharc_resource_table rsc_table;
 } __packed;
 
+/* LDR recipient Core ID */
+uint8_t ldr_core_id[3] = {
+	0xAD,
+	0xAC,
+	0xAB,
+};
 
 #define VRING_ALIGN 0x1000
 #define VRING_DEFAULT_SIZE 0x800
@@ -255,50 +261,87 @@ static void load_callback(void *p)
 	complete(cmp);
 }
 
-static int verify_buffer(struct adi_rproc_data *rproc_data)
+ /*
+  * We validate if the current and next header checksum are valid based
+  * on the current header block. This way we validate the current block
+  * header integrity and validity of the block size with respect to the stream.
+  *
+  * In case of Direct Code Execution and Single block boot streams it is possible
+  * to verify the block header via an xor checksum of the bcode_flag field.
+ */
+
+static int verify_hdr(struct adi_rproc_data *rproc_data,
+		struct ldr_hdr *block_hdr)
 {
+	struct bcode_flag_t *block_flags;
+	struct ldr_hdr *next_hdr;
+	uint8_t expected_core_id;
+	uint8_t hdr_xor;
 
-	uint8_t ret = 0;
-//	uint8_t *virbuf, *phybuf;
+	block_flags = &block_hdr->bcode_flag;
 
-//	phybuf = (uint8_t *) rproc_data->mem_handle;
-//	virbuf = (uint8_t *) rproc_data->virt;
+	 /* Verify core id */
+	expected_core_id = ldr_core_id[rproc_data->core_id];
+	if (expected_core_id != block_flags->bHdrSIGN) {
+		pr_err("Wrong core being loaded!\n");
+		return -EINVAL;
+	}
 
+	/* Check packet type - if direct / single block, check checksum */
+	hdr_xor = !!(block_flags->bFlag_first && block_flags->bFlag_final);
+	if (hdr_xor) {
+		uint8_t curr_hdr_xor_checksum;
+		uint8_t expected_xor_checksum;
+		uint32_t flag_mask, flag_byte;
+		int i;
 
+		expected_xor_checksum = block_hdr->bcode_flag.bHdrCHK;
+		curr_hdr_xor_checksum = 0;
+		flag_mask = 0xFF000000;
+		for (i=4; i>0; i--) {
+			/* dont include checksum */
+			if (3!=i) {
+				flag_byte = flag_mask & *(uint32_t *) block_flags;
+				/* eg 0xAB000000, mask is 0xFF000000,
+				 * to convert into uint8_t,
+				 * shift by ((4-1)x2)x4=24 bits */
+				flag_byte = flag_byte >> (((i-1)*2*4));
+				/* truncate and XOR */
+				curr_hdr_xor_checksum ^= (uint8_t) flag_byte;
+			}
+			/*next byte*/
+			flag_mask = flag_mask >> 8;
+		}
 
-//				if (rproc_data->verify) {
-// part of verify buffer code
-//	int i;
-//	uint32_t verfied = 0;
-//	uint8_t *pCompareBuffer;
-//	uint8_t *pVerifyBuffer;
-//					@todo implement verification
-//					pCompareBuffer = virbuf + sizeof(struct ldr_hdr);
-//					pVerifyBuffer = virbuf + rproc_data->fw_size;
-//
-//					dma_memcpy(phybuf + rproc_data->fw_size,
-//							   block_hdr->target_addr,
-//							   block_hdr->byte_count);
-//
-//					/* check the data */
-//					for (i = 0; i < block_hdr->byte_count; i++) {
-//						if (pCompareBuffer[i] != pVerifyBuffer[i]) {
-//							dev_err(rproc_data->dev,
-//								    "dirty data, compare[%d]:0x%x,"
-//									"verify[%d]:0x%x\n",
-//									i, pCompareBuffer[i], i,
-//									pVerifyBuffer[i]);
-//							verfied++;
-//							break;
-//						}
-//					}
-//				}
+		if(expected_xor_checksum != curr_hdr_xor_checksum) {
+			dev_err(rproc_data->dev, "Expected ldr xor:%08x got:%08x\n",
+					expected_xor_checksum,
+					curr_hdr_xor_checksum);
+			return -EINVAL;
+		}
+
+	}
+
+	/* Check if size offset leads to next header, unless final (should have
+	 * same core id since part of same stream and block is not final)
+	 */
+	if(block_flags->bFlag_final)
+		return 0;
+
+	next_hdr = block_hdr + 1;
+	if(!block_flags->bFlag_fill)
+		next_hdr = (struct ldr_hdr *)((uint8_t *) next_hdr +
+				block_hdr->byte_count);
+
+	if (expected_core_id != next_hdr->bcode_flag.bHdrSIGN) {
+		dev_err(rproc_data->dev,
+				"Next block does not belong to this core!\n");
+		return -EINVAL;
+	}
 
 	return 0;
 }
 
-/* @todo this needs to return status */
-/* @todo the error paths here leak tremendously, this needs further cleanup */
 static int ldr_load(struct adi_rproc_data *rproc_data)
 {
 	struct ldr_hdr *block_hdr = NULL;
@@ -350,6 +393,10 @@ static int ldr_load(struct adi_rproc_data *rproc_data)
 			if (!is_final(block_hdr))
 				continue;
 
+			if (rproc_data->verify)
+				dev_info(rproc_data->dev,
+						"Verified and loaded ldr\n");
+
 			wait_for_completion(&cmp);
 			return 0;
 		}
@@ -361,11 +408,19 @@ static int ldr_load(struct adi_rproc_data *rproc_data)
 					       blkhdr_dma_init_val,
 					       block_hdr->byte_count, 0);
 		} else {
+			if (rproc_data->verify) {
+				int verify_stat = verify_hdr(rproc_data,
+						block_hdr);
+				if (verify_stat)
+					return verify_stat;
+			}
+
 			blkhdr_dma_src = phybuf + sizeof(struct ldr_hdr);
 			tx = dmaengine_prep_dma_memcpy(chan,
 					       block_hdr->target_addr,
 					       blkhdr_dma_src,
 					       block_hdr->byte_count, 0);
+
 		}
 
 		if (!tx) {
@@ -385,10 +440,16 @@ static int ldr_load(struct adi_rproc_data *rproc_data)
 		dma_async_issue_pending(chan);
 		if (is_final(block_hdr)) {
 			wait_for_completion(&cmp);
+			if (rproc_data->verify)
+				dev_info(rproc_data->dev,
+						"Verified and loaded ldr\n");
+
 			return 0;
 		}
 
 	}
+
+	return 0;
 
 }
 
