@@ -38,6 +38,7 @@ struct max96752_lvds {
 
 	enum max96752_lvds_bus_format bus_format;
 	bool dual_channel;
+	u32 oldi_ssr;
 };
 
 static void max96752_lvds_bridge_atomic_pre_enable(struct drm_bridge *bridge,
@@ -58,6 +59,7 @@ static int max96752_lvds_bridge_attach(struct drm_bridge *bridge,
 				       enum drm_bridge_attach_flags flags)
 {
 	struct max96752_lvds *max96752_lvds = container_of(bridge, struct max96752_lvds, bridge);
+	struct max96752 *mfd = max96752_lvds->max96752_mfd;
 	struct device *dev = max96752_lvds->dev;
 
 	max96752_lvds->panel_bridge = devm_drm_of_get_bridge(dev, dev->of_node, 0, 1);
@@ -66,6 +68,14 @@ static int max96752_lvds_bridge_attach(struct drm_bridge *bridge,
 			PTR_ERR(max96752_lvds->panel_bridge));
 
 		return PTR_ERR(max96752_lvds->panel_bridge);
+	}
+
+	/* enable spread spectrum, if needed */
+	if (max96752_lvds->oldi_ssr) {
+		regmap_update_bits(mfd->regmap, MAX96752_DPLL_OLDI_DPLL_3,
+				   OLDI_CONFIG_SPREAD_BIT_RATIO_MASK,
+				   max96752_lvds->oldi_ssr << OLDI_CONFIG_SPREAD_BIT_RATIO_SHIFT);
+		regmap_update_bits(mfd->regmap, MAX96752_VRX_OLDI2, SSEN, SSEN);
 	}
 
 	return drm_bridge_attach(bridge->encoder, max96752_lvds->panel_bridge, bridge, flags);
@@ -121,6 +131,7 @@ static int max96752_lvds_dt_parse(struct max96752_lvds *max96752_lvds)
 {
 	struct device *dev = max96752_lvds->dev;
 	struct device_node *dt_port;
+	int ret;
 
 	dt_port = of_graph_get_port_by_id(dev->of_node, 0);
 	if (!dt_port) {
@@ -131,6 +142,16 @@ static int max96752_lvds_dt_parse(struct max96752_lvds *max96752_lvds)
 	of_node_put(dt_port);
 
 	max96752_lvds->dual_channel = of_property_read_bool(dev->of_node, "maxim,dual-channel");
+
+	ret = of_property_read_u32(dev->of_node, "maxim,oldi-ssr", &max96752_lvds->oldi_ssr);
+	if (ret && ret != -EINVAL)
+		return ret;
+
+	if (max96752_lvds->oldi_ssr > 5) {
+		dev_err(dev, "SSR value provided is out of range.\n");
+		return -EINVAL;
+	}
+
 	max96752_lvds->bridge.driver_private = max96752_lvds;
 	max96752_lvds->bridge.funcs = &max96752_lvds_bridge_funcs;
 	max96752_lvds->bridge.of_node = dev->of_node;
