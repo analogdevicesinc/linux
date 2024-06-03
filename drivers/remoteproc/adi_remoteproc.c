@@ -176,7 +176,7 @@ struct adi_rproc_data {
 static int adi_core_set_svect(struct adi_rproc_data *rproc_data,
 					unsigned long svect)
 {
-	uint32_t core_id = !!svect && rproc_data->core_id;
+	uint32_t core_id = !!svect * rproc_data->core_id;
 
 	switch (core_id) {
 	case 1:
@@ -226,9 +226,6 @@ static int adi_core_reset(struct adi_rproc_data *rproc_data)
 
 static int adi_core_stop(struct adi_rproc_data *rproc_data)
 {
-	if (!rproc_data->adi_rsc_table)
-		goto adi_stop_ret;
-
 	/* After time out the irq is already released */
 	if (rproc_data->rproc_state == ADI_REMOTEPROC_TIMED_OUT)
 		goto adi_stop_ret;
@@ -270,7 +267,7 @@ static void load_callback(void *p)
   * to verify the block header via an xor checksum of the bcode_flag field.
  */
 
-static int verify_hdr(struct adi_rproc_data *rproc_data,
+static int adi_verify_ldr_hdr(struct adi_rproc_data *rproc_data,
 		struct ldr_hdr *block_hdr)
 {
 	struct bcode_flag_t *block_flags;
@@ -409,7 +406,7 @@ static int ldr_load(struct adi_rproc_data *rproc_data)
 					       block_hdr->byte_count, 0);
 		} else {
 			if (rproc_data->verify) {
-				int verify_stat = verify_hdr(rproc_data,
+				int verify_stat = adi_verify_ldr_hdr(rproc_data,
 						block_hdr);
 				if (verify_stat)
 					return verify_stat;
