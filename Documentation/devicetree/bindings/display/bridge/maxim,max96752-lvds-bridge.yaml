@@ -29,6 +29,19 @@ properties:
     description: Indicates whether to activate dual-channel LVDS output or not.
     type: boolean
 
+  maxim,oldi-ssr:
+    $ref: /schemas/types.yaml#/definitions/uint32
+    description: |
+      Spread spectrum OLDI output clock ratio:
+        0 - spread spectrum off
+        1 - 0.25%
+        2 - 0.5%
+        3 - 1%
+        4 - 2%
+        5 - 4%
+    enum: [0, 1, 2, 3, 4, 5]
+    default: 0
+
   port:
     $ref: /schemas/graph.yaml#/$defs/port-base
     unevaluatedProperties: false
