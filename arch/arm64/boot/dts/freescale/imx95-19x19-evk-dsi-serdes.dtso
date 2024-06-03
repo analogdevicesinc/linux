@@ -97,6 +97,8 @@
 					max96752_lvds_bridge {
 						compatible = "maxim,max96752-lvds";
 
+						maxim,oldi-ssr = <2>;
+
 						port {
 							#address-cells = <1>;
 							#size-cells = <0>;
