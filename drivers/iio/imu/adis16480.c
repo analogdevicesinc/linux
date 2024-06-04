@@ -926,6 +926,23 @@ static const struct iio_chan_spec adis16495_channels[] = {
 	ADIS16480_DELTVEL_CHANNEL_NO_SCAN(Z),
 };
 
+static const struct iio_chan_spec adis16545_channels[] = {
+	ADIS16480_GYRO_CHANNEL(X),
+	ADIS16480_GYRO_CHANNEL(Y),
+	ADIS16480_GYRO_CHANNEL(Z),
+	ADIS16480_ACCEL_CHANNEL(X),
+	ADIS16480_ACCEL_CHANNEL(Y),
+	ADIS16480_ACCEL_CHANNEL(Z),
+	ADIS16480_TEMP_CHANNEL(),
+	ADIS16480_DELTANG_CHANNEL(X),
+	ADIS16480_DELTANG_CHANNEL(Y),
+	ADIS16480_DELTANG_CHANNEL(Z),
+	ADIS16480_DELTVEL_CHANNEL(X),
+	ADIS16480_DELTVEL_CHANNEL(Y),
+	ADIS16480_DELTVEL_CHANNEL(Z),
+	IIO_CHAN_SOFT_TIMESTAMP(17),
+};
+
 enum adis16480_variant {
 	ADIS16375,
 	ADIS16480,
@@ -1476,6 +1493,9 @@ static irqreturn_t adis16480_trigger_handler(int irq, void *p)
 			 */
 			st->data[i++] = cpu_to_be16(!valid);
 			break;
+		case ADIS16480_SCAN_DELTANG_X ... ADIS16480_SCAN_DELTVEL_Z:
+			buff_offset = ADIS16480_SCAN_DELTANG_X;
+			fallthrough;
 		case ADIS16480_SCAN_GYRO_X ... ADIS16480_SCAN_ACCEL_Z:
 			/* The lower register data is sequenced first */
 			st->data[i++] = buffer[2 * (bit - buff_offset) + offset + 3];
