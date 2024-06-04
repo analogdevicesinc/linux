@@ -36,7 +36,6 @@ struct pwm_gpio {
 	bool changing;
 	bool running;
 	bool level;
-	struct pwm_chip chip;
 };
 
 static void pwm_gpio_round(struct pwm_state *dest, const struct pwm_state *src)
@@ -102,7 +101,7 @@ static enum hrtimer_restart pwm_gpio_timer(struct hrtimer *gpio_timer)
 static int pwm_gpio_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 			  const struct pwm_state *state)
 {
-	struct pwm_gpio *gpwm = container_of(chip, struct pwm_gpio, chip);
+	struct pwm_gpio *gpwm = pwmchip_get_drvdata(chip);
 	bool invert = state->polarity == PWM_POLARITY_INVERSED;
 
 	if (state->duty_cycle && state->duty_cycle < hrtimer_resolution)
@@ -155,7 +154,7 @@ static int pwm_gpio_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 static int pwm_gpio_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 			       struct pwm_state *state)
 {
-	struct pwm_gpio *gpwm = container_of(chip, struct pwm_gpio, chip);
+	struct pwm_gpio *gpwm = pwmchip_get_drvdata(chip);
 
 	guard(spinlock_irqsave)(&gpwm->lock);
 
@@ -186,11 +185,11 @@ static int pwm_gpio_probe(struct platform_device *pdev)
 	struct pwm_gpio *gpwm;
 	int ret;
 
-	gpwm = devm_kzalloc(&pdev->dev, sizeof(*gpwm), GFP_KERNEL);
-	if (IS_ERR(gpwm))
-		return PTR_ERR(gpwm);
+	chip = devm_pwmchip_alloc(dev, 1, sizeof(*gpwm));
+	if (IS_ERR(chip))
+		return PTR_ERR(chip);
 
-	chip = &gpwm->chip;
+	gpwm = pwmchip_get_drvdata(chip);
 
 	spin_lock_init(&gpwm->lock);
 
@@ -205,10 +204,8 @@ static int pwm_gpio_probe(struct platform_device *pdev)
 				     "%pfw: sleeping GPIO not supported\n",
 				     dev_fwnode(dev));
 
-	chip->dev = dev;
 	chip->ops = &pwm_gpio_ops;
 	chip->atomic = true;
-	chip->npwm = 1;
 
 	hrtimer_init(&gpwm->gpio_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
 	ret = devm_add_action_or_reset(dev, pwm_gpio_disable_hrtimer, gpwm);
