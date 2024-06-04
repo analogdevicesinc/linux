@@ -24,6 +24,7 @@ properties:
     enum:
       - fsl,imx8ulp-se-fw
       - fsl,imx93-se-fw
+      - fsl,imx8dxl-se-fw
 
   mboxes:
     description:
