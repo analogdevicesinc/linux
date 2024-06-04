@@ -12,6 +12,13 @@
 #include "neoisp.h"
 #include "neoisp_regs.h"
 
+#define NEOISP_PIPELINE0_BPP    (20) /* internal bit depth for input 0 path */
+#define NEOISP_PIPELINE1_BPP    (16) /* internal bit depth for input 1 path */
+#define NEOISP_HDR_SHIFT_MAX    (7)  /* hdr decompress block ratio field format is u7.5 */
+#define NEOISP_HDR_SHIFT_RADIX  (5)  /* hdr decompress block ratio field format is u7.5 */
+#define NEOISP_OBWB_SHIFT_RADIX (8)  /* obwb block gain field format is u8.8 */
+#define NEOISP_HDR_KNPOINT_MAX  GENMASK(15, 0) /* knee point field is 16 bits */
+
 /* block offset */
 #define ISP_OFF_POS (0UL)
 #define ISP_OFF_MASK (0xFFFFUL << ISP_OFF_POS)

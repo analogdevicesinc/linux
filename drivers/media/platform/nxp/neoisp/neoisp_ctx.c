@@ -64,9 +64,6 @@ struct neoisp_meta_params_s neoisp_default_params = {
 	},
 	.regs = {
 	.decompress_input0 = { .ctrl_enable = 1,
-		.knee_point1 = (1 << 16) - 1, /* default ibpp is 16 */
-		.knee_ratio0 = 1 << 4,
-		.knee_ratio4 = 1 << 4,
 	},
 	.decompress_input1 = { .ctrl_enable = 0 },
 	.obwb[0] = {
@@ -135,7 +132,7 @@ struct neoisp_meta_params_s neoisp_default_params = {
 		.cpeak_peak_sel = 0,
 		.cpeak_peak_low = 1 << 7,
 		.cpeak_peak_high = 1 << 8,
-		.cedge_th0_edge_th0 = 10,
+		.cedge_th0_edge_th0 = 20,
 		.cedge_scale_scale = 1 << 10,
 		.cedge_scale_shift = 10,
 		.cedges_th0_edge_th0 = 20,
@@ -146,12 +143,12 @@ struct neoisp_meta_params_s neoisp_default_params = {
 		.cedgea_scale_shift = 10,
 		.cluma_x_th0_th = 20,
 		.cluma_y_th_luma_y_th0 = 10,
-		.cluma_y_th_luma_y_th1 = 0,
+		.cluma_y_th_luma_y_th1 = 1 << 8,
 		.cluma_scale_scale = 1 << 10,
 		.cluma_scale_shift = 10,
 		.calpha_gain_gain = 1 << 8,
 		.calpha_gain_offset = 0,
-		.stretch_gain = 32 << 8,
+		.stretch_gain = 1 << 8,
 	},
 	.vignetting_ctrl = { .ctrl_enable = 0, },
 	.ctemp  = { .ctrl_enable = 0, },

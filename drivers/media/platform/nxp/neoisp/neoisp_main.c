@@ -434,13 +434,56 @@ static int neoisp_set_packetizer(struct neoisp_dev_s *neoispd)
 	return 0;
 }
 
-static void neoisp_update_hdr_decompress(struct neoisp_reg_params_s *regp, __u32 ibpp)
+/*
+ * The pixel depth is NEOISP_PIPELINE0_BPP (20 bits) in pipeline0 and
+ * NEOISP_PIPELINE1_BPP (16 bits) in pipeline1.
+ * Input pixel may have a depth ranging from 8 to 20 bits, so a gain may
+ * have to be applied to reach that target.
+ * Gain can be applied in:
+ *    HDR Decompression block using ratio register whose format is u7.5
+ *       giving a maximum gain of ~128 corresponding
+ *       to a maximum bitshift of NEOISP_HDR_SHIFT_MAX (7 bits).
+ *    OBWB0/1 blocks that are used solely to apply additional gain
+ *       when HDR Decompression gain limit is reached.
+ * If HDR Decompression gain is sufficient, then OBWB0/1 is set to 1 (u8.8 format).
+ */
+static void neoisp_update_pipeline_bit_width(struct neoisp_reg_params_s *regp, __u32 ibpp)
 {
-	/* 16 bits per pixel is already in default configuration */
-	if (ibpp < 16) { /* 8, 10, 12 or 14 */
-		regp->decompress_input0.knee_point1 = 1 << ibpp;
-		regp->decompress_input0.knee_ratio0 = (1 << (20 - ibpp)) - 1;
-	}
+	__u32 hdr_shift, hdr_ratio0, obwb_shift, obwb_gain;
+
+	/* input path 0 */
+	hdr_shift = min(NEOISP_PIPELINE0_BPP - ibpp, NEOISP_HDR_SHIFT_MAX);
+	obwb_shift = NEOISP_PIPELINE0_BPP - ibpp - hdr_shift;
+
+	regp->decompress_input0.knee_point1 = min((1u << ibpp), NEOISP_HDR_KNPOINT_MAX);
+	regp->decompress_input0.knee_offset0 = 0;
+	hdr_ratio0 = (1 << (hdr_shift + NEOISP_HDR_SHIFT_RADIX)) - 1;
+	regp->decompress_input0.knee_ratio0 = hdr_ratio0;
+	regp->decompress_input0.knee_ratio4 = hdr_ratio0;
+	regp->decompress_input0.knee_npoint0 = 0;
+
+	obwb_gain = 1 << (obwb_shift + NEOISP_OBWB_SHIFT_RADIX);
+	regp->obwb[0].b_ctrl_gain = obwb_gain;
+	regp->obwb[0].gb_ctrl_gain = obwb_gain;
+	regp->obwb[0].gr_ctrl_gain = obwb_gain;
+	regp->obwb[0].r_ctrl_gain = obwb_gain;
+
+	/* input path 1 */
+	hdr_shift = min(NEOISP_PIPELINE1_BPP - ibpp, NEOISP_HDR_SHIFT_MAX);
+	obwb_shift = NEOISP_PIPELINE1_BPP - ibpp - hdr_shift;
+
+	regp->decompress_input1.knee_point1 = min((1u << ibpp), NEOISP_HDR_KNPOINT_MAX);
+	regp->decompress_input1.knee_offset0 = 0;
+	hdr_ratio0 = (1 << (hdr_shift + NEOISP_HDR_SHIFT_RADIX)) - 1;
+	regp->decompress_input1.knee_ratio0 = hdr_ratio0;
+	regp->decompress_input1.knee_ratio4 = hdr_ratio0;
+	regp->decompress_input1.knee_npoint0 = 0;
+
+	obwb_gain = 1 << (obwb_shift + NEOISP_OBWB_SHIFT_RADIX);
+	regp->obwb[1].b_ctrl_gain = obwb_gain;
+	regp->obwb[1].gb_ctrl_gain = obwb_gain;
+	regp->obwb[1].gr_ctrl_gain = obwb_gain;
+	regp->obwb[1].r_ctrl_gain = obwb_gain;
 }
 
 /*
@@ -1144,7 +1187,7 @@ static int neoisp_node_streamon(struct file *file, void *priv,
 	 * Check if this is input0 node to preload default params
 	 */
 	if (node->id == NEOISP_INPUT0_NODE)
-		neoisp_update_hdr_decompress(&params->regs, node->neoisp_format->bit_depth);
+		neoisp_update_pipeline_bit_width(&params->regs, node->neoisp_format->bit_depth);
 
 	if (node->id == NEOISP_FRAME_NODE) {
 		if (FMT_IS_YUV(pixfmt))
