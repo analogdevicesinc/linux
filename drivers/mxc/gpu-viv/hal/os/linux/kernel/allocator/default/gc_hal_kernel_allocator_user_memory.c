@@ -316,6 +316,7 @@ import_pfn_map(gckOS Os, struct device *dev, struct um_desc *um,
     struct page          **pages     = gcvNULL;
     int                    result    = 0;
     size_t                 pageCount = 0;
+    unsigned int           data      = 0;
 
     if (!current->mm)
         return -ENOTTY;
@@ -354,8 +355,15 @@ import_pfn_map(gckOS Os, struct device *dev, struct um_desc *um,
 
         ret = follow_pfn(vma, addr, &pfns[i]);
         if (ret < 0) {
-            up_read(&current_mm_mmap_sem);
-            goto err;
+            /* Case maybe provides unmapped addr. */
+            ret = gckOS_ReadMappedPointer(Os, (gctPOINTER)addr, &data);
+            if (!ret)
+                ret = follow_pfn(vma, addr, &pfns[i]);
+
+            if (ret < 0) {
+                up_read(&current_mm_mmap_sem);
+                goto err;
+            }
         }
 #else
         /* protect pfns[i] */
@@ -395,8 +403,17 @@ import_pfn_map(gckOS Os, struct device *dev, struct um_desc *um,
         pte = pte_offset_map_lock(current->mm, pmd, addr, &ptl);
 
         if (!pte_present(*pte)) {
-            pte_unmap_unlock(pte, ptl);
-            goto err;
+            if (pte)
+                pte_unmap_unlock(pte, ptl);
+
+            /* Case maybe provides unmapped addr. */
+            if (gcmIS_SUCCESS(gckOS_ReadMappedPointer(Os, (gctPOINTER)addr, &data)))
+                pte = pte_offset_map_lock(current->mm, pmd, addr, &ptl);
+
+            if (!pte_present(*pte)) {
+                pte_unmap_unlock(pte, ptl);
+                goto err;
+            }
         }
 
         pfns[i] = pte_pfn(*pte);
