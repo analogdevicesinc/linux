@@ -6,6 +6,7 @@
 menuconfig HWMON
 	tristate "Hardware Monitoring support"
 	depends on HAS_IOMEM
+	depends on I2C || I2C=n
 	default y
 	help
 	  Hardware monitoring devices let you monitor the hardware health
