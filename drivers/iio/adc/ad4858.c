@@ -33,6 +33,8 @@
 #define AD4858_REG_INTERFACE_CONFIG_B	0x01
 #define AD4858_REG_DEVICE_CONFIG	0x02
 #define AD4858_REG_CHIP_TYPE		0x03
+#define AD4858_REG_PRODUCT_ID_L		0x04
+#define AD4858_REG_PRODUCT_ID_H		0x05
 #define AD4858_REG_CHIP_GRADE		0x06
 #define AD4858_REG_SCRATCHPAD		0x0A
 #define AD4858_REG_SPI_REVISION		0x0B
@@ -98,6 +100,15 @@
 #define AD4858_STATUS_RESET		BIT(6)
 #define AD4858_STATUS_READY		BIT(7)
 
+#define AD4858_TEST_PAT			BIT(2)
+
+#define AD4858_PACKET_SIZE_20		0
+#define AD4858_PACKET_SIZE_24		1
+#define AD4858_PACKET_SIZE_32		2
+
+#define AD4857_PACKET_SIZE_16		0
+#define AD4857_PACKET_SIZE_24		1
+
 #define AD4858_AXI_REG_CNTRL_3		0x4C
 #define AD4858_AXI_PACKET_CONFIG	GENMASK(1, 0)
 #define AD4858_AXI_OVERSAMPLE_EN	BIT(2)
@@ -107,11 +118,19 @@
 
 #define AD4858_AXI_ADC_TWOS_COMPLEMENT	0x01
 
-#define AD4858_IIO_CHANNEL(index)				\
+#define AD4858_PRODUCT_ID		0x60
+#define AD4857_PRODUCT_ID		0x61
+
+enum ad4858_type {
+	ID_AD4858,
+	ID_AD4857,
+};
+
+#define AD4858_IIO_CHANNEL(index, real, storage)		\
 {								\
 	.type = IIO_VOLTAGE,					\
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
-		BIT(IIO_CHAN_INFO_CALIBSCALE) |		\
+		BIT(IIO_CHAN_INFO_CALIBSCALE) |			\
 		BIT(IIO_CHAN_INFO_CALIBBIAS) |			\
 		BIT(IIO_CHAN_INFO_CALIBPHASE) |			\
 		BIT(IIO_CHAN_INFO_SCALE),			\
@@ -123,12 +142,34 @@
 	.scan_index = index,					\
 	.scan_type = {						\
 		.sign = 's',					\
-		.realbits = 20,					\
-		.storagebits = 32,				\
+		.realbits = real,				\
+		.storagebits = storage,				\
+	},							\
+}
+
+#define AD4857_IIO_CHANNEL(index, real, storage)		\
+{								\
+	.type = IIO_VOLTAGE,					\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |		\
+		BIT(IIO_CHAN_INFO_CALIBSCALE) |			\
+		BIT(IIO_CHAN_INFO_CALIBBIAS) |			\
+		BIT(IIO_CHAN_INFO_CALIBPHASE) |			\
+		BIT(IIO_CHAN_INFO_SCALE),			\
+	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
+	.ext_info = ad4857_ext_info,				\
+	.address = index,					\
+	.indexed = 1,						\
+	.channel = index,					\
+	.scan_index = index,					\
+	.scan_type = {						\
+		.sign = 's',					\
+		.realbits = real,				\
+		.storagebits = storage,				\
 	},							\
 }
 
 struct ad4858_dev {
+	enum ad4858_type	type;
 	unsigned int		sampling_freq;
 	struct regulator	*refin;
 	struct spi_device	*spi;
@@ -145,6 +186,10 @@ static const char *const ad4858_os_ratios[] = {
 
 static const char *const ad4858_packet_fmts[] = {
 	"20-bit", "24-bit", "32-bit"
+};
+
+static const char *const ad4857_packet_fmts[] = {
+	"16-bit", "24-bit"
 };
 
 static int ad4858_spi_reg_write(struct ad4858_dev *adc, unsigned int addr,
@@ -509,6 +554,13 @@ static const struct iio_enum ad4858_packet_fmt = {
 	.get = ad4858_get_packet_format,
 };
 
+static const struct iio_enum ad4857_packet_fmt = {
+	.items = ad4857_packet_fmts,
+	.num_items = ARRAY_SIZE(ad4857_packet_fmts),
+	.set = ad4858_set_packet_format,
+	.get = ad4858_get_packet_format,
+};
+
 static const struct iio_enum ad4858_softspan_enum = {
 	.items = ad4858_softspan,
 	.num_items = ARRAY_SIZE(ad4858_softspan),
@@ -532,6 +584,38 @@ static struct iio_chan_spec_ext_info ad4858_ext_info[] = {
 		 &ad4858_packet_fmt),
 	IIO_ENUM_AVAILABLE_SHARED("packet_format", IIO_SHARED_BY_ALL,
 				  &ad4858_packet_fmt),
+	IIO_ENUM("softspan", IIO_SEPARATE, &ad4858_softspan_enum),
+	IIO_ENUM_AVAILABLE_SHARED("softspan", IIO_SHARED_BY_TYPE,
+				  &ad4858_softspan_enum),
+	IIO_ENUM("axi_crc_control", IIO_SHARED_BY_ALL,
+		 &axi_crc_control_enum),
+	IIO_ENUM_AVAILABLE_SHARED("axi_crc_control", IIO_SHARED_BY_ALL,
+				  &axi_crc_control_enum),
+	IIO_ENUM("seamless_high_dynamic_range", IIO_SEPARATE,
+		 &seamless_high_dynamic_range_enum),
+	IIO_ENUM_AVAILABLE_SHARED("seamless_high_dynamic_range", IIO_SHARED_BY_TYPE,
+				  &seamless_high_dynamic_range_enum),
+	IIO_ENUM("sleep", IIO_SEPARATE,
+		 &channel_sleep_enum),
+	IIO_ENUM_AVAILABLE_SHARED("sleep", IIO_SHARED_BY_TYPE,
+				  &channel_sleep_enum),
+	{
+		.name = "axi_crc_status",
+		.read = ad4858_get_axi_crc_status,
+		.shared = IIO_SHARED_BY_ALL,
+	},
+	{},
+};
+
+static struct iio_chan_spec_ext_info ad4857_ext_info[] = {
+	IIO_ENUM("oversampling_ratio", IIO_SHARED_BY_ALL,
+		 &ad4858_os_ratio),
+	IIO_ENUM_AVAILABLE_SHARED("oversampling_ratio", IIO_SHARED_BY_ALL,
+				  &ad4858_os_ratio),
+	IIO_ENUM("packet_format", IIO_SHARED_BY_ALL,
+		 &ad4857_packet_fmt),
+	IIO_ENUM_AVAILABLE_SHARED("packet_format", IIO_SHARED_BY_ALL,
+				  &ad4857_packet_fmt),
 	IIO_ENUM("softspan", IIO_SEPARATE, &ad4858_softspan_enum),
 	IIO_ENUM_AVAILABLE_SHARED("softspan", IIO_SHARED_BY_TYPE,
 				  &ad4858_softspan_enum),
@@ -760,6 +844,7 @@ static int ad4858_setup(struct ad4858_dev *adc)
 		.bits_per_word = 8,
 		.cs_change = 1,
 	};
+	unsigned int product_id;
 	int ret;
 
 	ret = ad4858_set_sampling_freq(adc, 500000);
@@ -781,6 +866,23 @@ static int ad4858_setup(struct ad4858_dev *adc)
 				   AD4858_SDO_ENABLE);
 	if (ret < 0)
 		return ret;
+
+	ret = ad4858_spi_reg_read(adc, AD4858_REG_PRODUCT_ID_L, &product_id);
+	if (ret < 0)
+		return ret;
+
+	switch (product_id) {
+	case AD4858_PRODUCT_ID:
+		adc->type = ID_AD4858;
+		break;
+	case AD4857_PRODUCT_ID:
+		adc->type = ID_AD4857;
+		break;
+	default:
+		dev_err(&adc->spi->dev, "Unknown product ID: 0x%02X\n",
+			product_id);
+		return -EIO;
+	}
 
 	ret = ad4858_spi_reg_write(adc, AD4858_REG_DEVICE_CTRL,
 				   AD4858_ECHO_CLOCK_MODE);
@@ -960,8 +1062,17 @@ static int ad4858_post_setup(struct iio_dev *indio_dev)
 	else
 		lane_num = 1;
 
-	axiadc_write(st, AD4858_AXI_REG_CNTRL_3, 2);
-	ret = ad4858_spi_reg_write(adc, AD4858_REG_PACKET, 6);
+	if (adc->type == ID_AD4858) {
+		axiadc_write(st, AD4858_AXI_REG_CNTRL_3,
+			AD4858_PACKET_SIZE_32);
+		ret = ad4858_spi_reg_write(adc, AD4858_REG_PACKET,
+			AD4858_TEST_PAT | AD4858_PACKET_SIZE_32);
+	} else {
+		axiadc_write(st, AD4858_AXI_REG_CNTRL_3,
+			AD4857_PACKET_SIZE_24);
+		ret = ad4858_spi_reg_write(adc, AD4858_REG_PACKET,
+			AD4858_TEST_PAT | AD4857_PACKET_SIZE_24);
+	}
 	if (ret < 0)
 		return ret;
 
@@ -1029,18 +1140,33 @@ static int ad4858_read_label(struct iio_dev *indio_dev,
 	return sprintf(label, "%d\n", chan->channel);
 }
 
-static const struct axiadc_chip_info adc_chip_info = {
-	.name = "ad4858",
-	.max_rate = 1000000UL,
-	.num_channels = 8,
-	.channel[0] = AD4858_IIO_CHANNEL(0),
-	.channel[1] = AD4858_IIO_CHANNEL(1),
-	.channel[2] = AD4858_IIO_CHANNEL(2),
-	.channel[3] = AD4858_IIO_CHANNEL(3),
-	.channel[4] = AD4858_IIO_CHANNEL(4),
-	.channel[5] = AD4858_IIO_CHANNEL(5),
-	.channel[6] = AD4858_IIO_CHANNEL(6),
-	.channel[7] = AD4858_IIO_CHANNEL(7),
+static const struct axiadc_chip_info adc_chip_info[] = {
+	[ID_AD4858] = {
+		.name = "ad4858",
+		.max_rate = 1000000UL,
+		.num_channels = 8,
+		.channel[0] = AD4858_IIO_CHANNEL(0, 20, 32),
+		.channel[1] = AD4858_IIO_CHANNEL(1, 20, 32),
+		.channel[2] = AD4858_IIO_CHANNEL(2, 20, 32),
+		.channel[3] = AD4858_IIO_CHANNEL(3, 20, 32),
+		.channel[4] = AD4858_IIO_CHANNEL(4, 20, 32),
+		.channel[5] = AD4858_IIO_CHANNEL(5, 20, 32),
+		.channel[6] = AD4858_IIO_CHANNEL(6, 20, 32),
+		.channel[7] = AD4858_IIO_CHANNEL(7, 20, 32),
+	},
+	[ID_AD4857] = {
+		.name = "ad4857",
+		.max_rate = 1000000UL,
+		.num_channels = 8,
+		.channel[0] = AD4857_IIO_CHANNEL(0, 16, 16),
+		.channel[1] = AD4857_IIO_CHANNEL(1, 16, 16),
+		.channel[2] = AD4857_IIO_CHANNEL(2, 16, 16),
+		.channel[3] = AD4857_IIO_CHANNEL(3, 16, 16),
+		.channel[4] = AD4857_IIO_CHANNEL(4, 16, 16),
+		.channel[5] = AD4857_IIO_CHANNEL(5, 16, 16),
+		.channel[6] = AD4857_IIO_CHANNEL(6, 16, 16),
+		.channel[7] = AD4857_IIO_CHANNEL(7, 16, 16),
+	},
 };
 
 static int ad4858_probe(struct spi_device *spi)
@@ -1116,7 +1242,7 @@ static int ad4858_probe(struct spi_device *spi)
 
 	conv->spi = spi;
 	conv->clk = adc->sampl_clk;
-	conv->chip_info = &adc_chip_info;
+	conv->chip_info = &adc_chip_info[adc->type];
 	conv->adc_output_mode = AD4858_AXI_ADC_TWOS_COMPLEMENT;
 	conv->reg_access = &ad4858_reg_access;
 	conv->write_raw = &ad4858_write_raw;
@@ -1133,6 +1259,7 @@ static int ad4858_probe(struct spi_device *spi)
 
 static const struct of_device_id ad4858_of_match[] = {
 	{ .compatible = "adi,ad4858" },
+	{ .compatible = "adi,ad4857" },
 	{}
 };
 
