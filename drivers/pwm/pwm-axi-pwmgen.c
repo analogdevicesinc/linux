@@ -28,8 +28,8 @@
 #include <linux/pwm.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
-#include <linux/version.h>
 
+#define AXI_PWMGEN_REG_CORE_VERSION	0x00
 #define AXI_PWMGEN_REG_ID		0x04
 #define AXI_PWMGEN_REG_SCRATCHPAD	0x08
 #define AXI_PWMGEN_REG_CORE_MAGIC	0x0C
@@ -42,98 +42,30 @@
 #define AXI_PWMGEN_LOAD_CONFIG		BIT(1)
 #define AXI_PWMGEN_REG_CONFIG_RESET	BIT(0)
 
-/*
- * This driver has some cpp magic to make it work on older and newer kernels.
- * Relevant changes are:
- *   v6.9-rc1~146^2~164 ("pwm: Provide pwmchip_alloc() function and a devm variant of it")
- *   v6.9-rc1~100^2^6   ("clk: Add a devm variant of clk_rate_exclusive_get()")
- *   v6.8-rc1~96^2~14   ("pwm: Make it possible to apply PWM changes in atomic context")
- *   v6.7-rc1~28^2~30   ("pwm: Manage owner assignment implicitly for drivers")
- *   v6.2-rc1~26^2~12   ("pwm: Make .get_state() callback return an error code")
- * Define some cpp symbols for these. This allows to forward port using
- * unifdef(1).
- */
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0)
-# define PWM_MISSING_PWMCHIP_ALLOC
-# define MISSING_DEVM_CLK_RATE_EXCLUSIVE_GET
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 8, 0)
-# define PWM_MISSING_ATOMIC
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 7, 0)
-# define PWM_EXPLICIT_OWNER
-#endif
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 2, 0)
-# define PWM_GET_STATE_VOID
-#endif
-
-/* Another difference compared to the mainline driver is support for pwm_state::phase. */
-#define PWM_HAS_PHASE_SUPPORT
-
-#ifdef MISSING_DEVM_CLK_RATE_EXCLUSIVE_GET
-static void devm_clk_rate_exclusive_put(void *data)
-{
-	struct clk *clk = data;
-
-	clk_rate_exclusive_put(clk);
-}
-
-static int devm_clk_rate_exclusive_get(struct device *dev, struct clk *clk)
-{
-	int ret;
-
-	ret = clk_rate_exclusive_get(clk);
-	if (ret)
-		return ret;
-
-	return devm_add_action_or_reset(dev, devm_clk_rate_exclusive_put, clk);
-}
-#endif
-
 struct axi_pwmgen_ddata {
 	struct regmap *regmap;
 	unsigned long clk_rate_hz;
-#ifdef PWM_MISSING_PWMCHIP_ALLOC
-	struct pwm_chip chip;
-#endif
 };
 
 static const struct regmap_config axi_pwmgen_regmap_config = {
 	.reg_bits = 32,
 	.reg_stride = 4,
 	.val_bits = 32,
-	.max_register = 0xFC,
 };
-
-static struct axi_pwmgen_ddata *axi_pwmgen_ddata_from_chip(struct pwm_chip *chip)
-{
-#ifdef PWM_MISSING_PWMCHIP_ALLOC
-	return container_of(chip, struct axi_pwmgen_ddata, chip);
-#else
-	return pwmchip_get_drvdata(chip);
-#endif
-}
 
 static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 			    const struct pwm_state *state)
 {
-	struct axi_pwmgen_ddata *ddata = axi_pwmgen_ddata_from_chip(chip);
+	struct axi_pwmgen_ddata *ddata = pwmchip_get_drvdata(chip);
 	unsigned int ch = pwm->hwpwm;
 	struct regmap *regmap = ddata->regmap;
-	u64 period_cnt, duty_cnt;
+	u64 period_cnt, duty_cnt, phase_cnt;
 	int ret;
 
 	if (state->polarity != PWM_POLARITY_NORMAL)
 		return -EINVAL;
 
 	if (state->enabled) {
-#ifdef PWM_HAS_PHASE_SUPPORT
-		u64 phase_cnt;
-
-#endif
 		period_cnt = mul_u64_u64_div_u64(state->period, ddata->clk_rate_hz, NSEC_PER_SEC);
 		if (period_cnt > UINT_MAX)
 			period_cnt = UINT_MAX;
@@ -152,7 +84,6 @@ static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 		ret = regmap_write(regmap, AXI_PWMGEN_CHX_DUTY(ch), duty_cnt);
 		if (ret)
 			return ret;
-#ifdef PWM_HAS_PHASE_SUPPORT
 
 		phase_cnt = mul_u64_u64_div_u64(state->phase, ddata->clk_rate_hz, NSEC_PER_SEC);
 		if (duty_cnt > UINT_MAX)
@@ -161,7 +92,6 @@ static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 		ret = regmap_write(regmap, AXI_PWMGEN_CHX_OFFSET(ch), phase_cnt);
 		if (ret)
 			return ret;
-#endif
 	} else {
 		ret = regmap_write(regmap, AXI_PWMGEN_CHX_PERIOD(ch), 0);
 		if (ret)
@@ -175,16 +105,10 @@ static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 	return regmap_write(regmap, AXI_PWMGEN_REG_CONFIG, AXI_PWMGEN_LOAD_CONFIG);
 }
 
-static
-#ifdef PWM_GET_STATE_VOID
-void
-#else
-int
-#endif
-axi_pwmgen_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
+static int axi_pwmgen_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 				struct pwm_state *state)
 {
-	struct axi_pwmgen_ddata *ddata = axi_pwmgen_ddata_from_chip(chip);
+	struct axi_pwmgen_ddata *ddata = pwmchip_get_drvdata(chip);
 	struct regmap *regmap = ddata->regmap;
 	unsigned int ch = pwm->hwpwm;
 	u32 cnt;
@@ -192,11 +116,7 @@ axi_pwmgen_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	ret = regmap_read(regmap, AXI_PWMGEN_CHX_PERIOD(ch), &cnt);
 	if (ret)
-		return
-#ifndef PWM_GET_STATE_VOID
-			ret
-#endif
-			;
+		return ret;
 
 	state->enabled = cnt != 0;
 
@@ -204,41 +124,24 @@ axi_pwmgen_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	ret = regmap_read(regmap, AXI_PWMGEN_CHX_DUTY(ch), &cnt);
 	if (ret)
-		return
-#ifndef PWM_GET_STATE_VOID
-			ret
-#endif
-			;
-
+		return ret;
 
 	state->duty_cycle = DIV_ROUND_UP_ULL((u64)cnt * NSEC_PER_SEC, ddata->clk_rate_hz);
 
-#ifdef PWM_HAS_PHASE_SUPPORT
 	ret = regmap_read(regmap, AXI_PWMGEN_CHX_OFFSET(ch), &cnt);
 	if (ret)
-		return
-#ifndef PWM_GET_STATE_VOID
-			ret
-#endif
-			;
+		return ret;
 
 	state->phase = DIV_ROUND_UP_ULL((u64)cnt * NSEC_PER_SEC, ddata->clk_rate_hz);
-#endif
+
 	state->polarity = PWM_POLARITY_NORMAL;
 
-	return
-#ifndef PWM_GET_STATE_VOID
-		0
-#endif
-		;
+	return 0;
 }
 
 static const struct pwm_ops axi_pwmgen_pwm_ops = {
 	.apply = axi_pwmgen_apply,
 	.get_state = axi_pwmgen_get_state,
-#ifdef PWM_EXPLICIT_OWNER
-	.owner = THIS_MODULE,
-#endif
 };
 
 static int axi_pwmgen_setup(struct regmap *regmap, struct device *dev)
@@ -255,7 +158,7 @@ static int axi_pwmgen_setup(struct regmap *regmap, struct device *dev)
 			"failed to read expected value from register: got %08x, expected %08x\n",
 			val, AXI_PWMGEN_REG_CORE_MAGIC_VAL);
 
-	ret = regmap_read(regmap, ADI_AXI_REG_VERSION, &val);
+	ret = regmap_read(regmap, AXI_PWMGEN_REG_CORE_VERSION, &val);
 	if (ret)
 		return ret;
 
@@ -267,7 +170,7 @@ static int axi_pwmgen_setup(struct regmap *regmap, struct device *dev)
 	}
 
 	/* Enable the core */
-	ret = regmap_clear_bits(regmap, AXI_PWMGEN_REG_CONFIG, AXI_PWMGEN_REG_CONFIG_RESET);
+	ret = regmap_update_bits(regmap, AXI_PWMGEN_REG_CONFIG, AXI_PWMGEN_REG_CONFIG_RESET, 0);
 	if (ret)
 		return ret;
 
@@ -302,19 +205,10 @@ static int axi_pwmgen_probe(struct platform_device *pdev)
 	if (ret < 0)
 		return ret;
 
-#ifdef PWM_MISSING_PWMCHIP_ALLOC
-	ddata = devm_kzalloc(dev, sizeof(*ddata), GFP_KERNEL);
-	if (!ddata)
-		return -ENOMEM;
-	chip = &ddata->chip;
-	chip->npwm = ret;
-	chip->dev = dev;
-#else
 	chip = devm_pwmchip_alloc(dev, ret, sizeof(*ddata));
 	if (IS_ERR(chip))
 		return PTR_ERR(chip);
 	ddata = pwmchip_get_drvdata(chip);
-#endif
 	ddata->regmap = regmap;
 
 	clk = devm_clk_get_enabled(dev, NULL);
@@ -331,9 +225,7 @@ static int axi_pwmgen_probe(struct platform_device *pdev)
 				     "Invalid clock rate: %lu\n", ddata->clk_rate_hz);
 
 	chip->ops = &axi_pwmgen_pwm_ops;
-#ifndef PWM_MISSING_ATOMIC
 	chip->atomic = true;
-#endif
 
 	ret = devm_pwmchip_add(dev, chip);
 	if (ret)
