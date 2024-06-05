@@ -2889,6 +2889,7 @@ static int adrv9002_rx_validate_profile(struct adrv9002_rf_phy *phy, unsigned in
 static int adrv9002_tx_validate_profile(struct adrv9002_rf_phy *phy, unsigned int idx,
 					const struct adi_adrv9001_TxProfile *tx_cfg)
 {
+	struct adrv9002_tx_chan *tx = &phy->tx_channels[idx];
 	struct device *dev = &phy->spi->dev;
 	struct adrv9002_rx_chan *rx;
 
@@ -2918,7 +2919,7 @@ static int adrv9002_tx_validate_profile(struct adrv9002_rf_phy *phy, unsigned in
 		 * validate against RX1 since in this mode RX2 cannot be enabled without RX1. The
 		 * same goes for the rate that must be the same.
 		 */
-		if (!phy->tx_only && !rx1->enabled) {
+		if (tx->rx_ref_clk && !rx1->enabled) {
 			/*
 			 * pretty much means that in this case either all channels are
 			 * disabled, which obviously does not make sense, or RX1 must
@@ -2929,7 +2930,7 @@ static int adrv9002_tx_validate_profile(struct adrv9002_rf_phy *phy, unsigned in
 			return -EINVAL;
 		}
 
-		if (!phy->tx_only && tx_cfg[idx].txInputRate_Hz != rx1->rate) {
+		if (tx->rx_ref_clk  && tx_cfg[idx].txInputRate_Hz != rx1->rate) {
 			/*
 			 * pretty much means that in this case, all ports must have
 			 * the same rate. We match against RX1 since RX2 can be disabled
@@ -2940,7 +2941,7 @@ static int adrv9002_tx_validate_profile(struct adrv9002_rf_phy *phy, unsigned in
 			return -EINVAL;
 		}
 
-		if (phy->tx_only && idx && tx_cfg[idx].txInputRate_Hz != tx1->rate) {
+		if (!tx->rx_ref_clk  && idx && tx_cfg[idx].txInputRate_Hz != tx1->rate) {
 			dev_err(dev, "In rx2tx2, TX%d rate=%u must be equal to TX1, rate=%ld\n",
 				idx + 1, tx_cfg[idx].txInputRate_Hz, tx1->rate);
 			return -EINVAL;
@@ -2955,19 +2956,20 @@ static int adrv9002_tx_validate_profile(struct adrv9002_rf_phy *phy, unsigned in
 		return 0;
 	}
 
-	if (phy->tx_only)
+	if (!tx->rx_ref_clk)
 		return 0;
 
 	/* Alright, RX clock is driving us... */
-	rx = &phy->rx_channels[idx];
+	rx = &phy->rx_channels[tx->rx_ref_clk - 1];
 	if (!rx->channel.enabled) {
-		dev_err(dev, "TX%d cannot be enabled while RX%d is disabled", idx + 1, idx + 1);
+		dev_err(dev, "TX%d cannot be enabled while RX%d is disabled", idx + 1,
+			rx->channel.number);
 		return -EINVAL;
 	}
 
 	if (tx_cfg[idx].txInputRate_Hz != rx->channel.rate) {
-		dev_err(dev, "TX%d rate=%u must be equal to RX%d, rate=%ld\n",
-			idx + 1, tx_cfg[idx].txInputRate_Hz, idx + 1, rx->channel.rate);
+		dev_err(dev, "TX%d rate=%u must be equal to RX%d, rate=%ld\n", idx + 1,
+			tx_cfg[idx].txInputRate_Hz, rx->channel.number, rx->channel.rate);
 		return -EINVAL;
 	}
 

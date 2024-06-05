@@ -43,6 +43,8 @@ struct iio_chan_spec;
 #define ADRV9002_DPD_FH_MAX_REGIONS	(ADRV9002_DPD_MAX_REGIONS - 1)
 #define ADRV9002_INIT_CALS_COEFFS_MAX	\
 	(ADI_ADRV9001_WB_MAX_NUM_UNIQUE_CALS * ADI_ADRV9001_WB_MAX_NUM_COEFF)
+#define ADRV9002_RX1_REF_CLK		1
+#define ADRV9002_RX2_REF_CLK		2
 
 enum {
 	ADRV9002_CHANN_1,
@@ -194,6 +196,12 @@ struct adrv9002_tx_chan {
 	struct adi_adrv9001_DpdInitCfg *dpd_init;
 	struct adi_adrv9001_DpdCfg *dpd;
 	struct adi_adrv9001_TxAttenuationPinControlCfg *pin_cfg;
+	/*
+	 * 0 - Independent
+	 * 1 - Driven by RX1
+	 * 2 - Driven by RX2
+	 */
+	unsigned int rx_ref_clk;
 	u8 port_sel;
 	u8 dac_boost_en;
 	u8 elb_en;
@@ -282,11 +290,6 @@ struct adrv9002_rf_phy {
 	u8				rx2tx2;
 	/* ssi type of the axi cores - cannot really change at runtime */
 	enum adi_adrv9001_SsiType	ssi_type;
-	/*
-	 * Tells if TX only profiles are valid. If not set, it means that TX1/TX2 SSI clocks are
-	 * derived from RX1/RX2 which means that TX cannot be enabled if RX is not...
-	 */
-	u8				tx_only;
 	bool				mcs_run;
 #ifdef CONFIG_DEBUG_FS
 	struct adi_adrv9001_SsiCalibrationCfg ssi_delays;
