@@ -460,6 +460,23 @@ static const struct iio_buffer_setup_ops ad4134_buffer_ops = {
 	.predisable = ad4134_buffer_predisable,
 };
 
+static int ad4134_get_ADC_count(struct ad4134_state *st)
+{
+	struct device *controller_dev = &st->spi->controller->dev;
+	struct fwnode_handle *child;
+	unsigned int adc_count = 0;
+
+	device_for_each_child_node(controller_dev, child) {
+		if (fwnode_property_match_string(child, "compatible",
+						 "adi,ad4134") >= 0)
+			adc_count++;
+		if (fwnode_property_match_string(child, "compatible",
+						 "adi,ad7134") >= 0)
+			adc_count++;
+	}
+	return adc_count;
+}
+
 static void ad4134_disable_regulators(void *data)
 {
 	struct ad4134_state *st = data;
