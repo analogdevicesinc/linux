@@ -47,9 +47,10 @@
 #define NUM_LANES(x)			FIELD_PREP(NUM_LANES_MASK, x)
 #define SDR_DDR_MASK			BIT(16)
 #define SDR_DDR(x)			FIELD_PREP(SDR_DDR_MASK, x)
-#define TX_ONLY_MASK			BIT(10)
-#define TX_ONLY(x)			FIELD_GET(TX_ONLY_MASK, x)
-
+#define TX_REF_CLK_MASK			GENMASK(11, 10)
+#define TX_REF_CLK(x)			FIELD_GET(TX_REF_CLK_MASK, x)
+#define TX_FLEX_REF_CLK_MASK		BIT(14)
+#define TX_FLEX_REF_CLK(x)		FIELD_GET(TX_FLEX_REF_CLK_MASK, x)
 #define IS_CMOS(cfg)			((cfg) & (ADI_CMOS_OR_LVDS_N))
 
 #define AIM_CHAN(_chan, _mod, _si, _bits, _sign)			\
@@ -206,6 +207,10 @@ int adrv9002_axi_interface_set(const struct adrv9002_rf_phy *phy, const u8 n_lan
 	return 0;
 }
 
+static const char * const adrv9002_tx_clk[ADRV9002_RX2_REF_CLK + 1] = {
+	"OWN REF", "RX1 REF", "RX2 REF"
+};
+
 static int adrv9002_post_setup(struct iio_dev *indio_dev)
 {
 	struct axiadc_state *st = iio_priv(indio_dev);
@@ -247,12 +252,35 @@ static int adrv9002_post_setup(struct iio_dev *indio_dev)
 	else
 		phy->ssi_type = ADI_ADRV9001_SSI_TYPE_CMOS;
 
-	/*
-	 * Get tx core config to check if we support tx only profiles. 1 means that it's not
-	 * supported...
-	 */
-	axi_config = axiadc_read(st, AIM_AXI_REG(ADI_TX1_REG_OFF, ADI_REG_CONFIG));
-	phy->tx_only = !TX_ONLY(axi_config);
+	/* Get tx reference clock. It maybe be driven by it's own reference clock, RX1 or RX2 */
+	for (i = 0; i < phy->chip->n_tx; i++) {
+		unsigned int addr_off = i ? ADI_TX2_REG_OFF : ADI_TX1_REG_OFF;
+		struct adrv9002_tx_chan *tx = &phy->tx_channels[i];
+
+		axi_config = axiadc_read(st, AIM_AXI_REG(addr_off, ADI_REG_CONFIG));
+		/*
+		 * Does the HW supports fully configurable TX clocks assignments? If not, fallback
+		 * to the old behavior. That is, 0 on bit 10 still means TX own reference and 1
+		 * means driven by the RX on the same channel.
+		 */
+		if (TX_FLEX_REF_CLK(axi_config)) {
+			tx->rx_ref_clk = TX_REF_CLK(axi_config);
+			/*
+			 * Sanity check as this is directly used to dereference RX ports from
+			 * the channel array.
+			 */
+			if (tx->rx_ref_clk > ADRV9002_RX2_REF_CLK)
+				return -EINVAL;
+		} else {
+			/* only bit 10 matters in legacy designs */
+			tx->rx_ref_clk = TX_REF_CLK(axi_config) & BIT(0);
+			if (tx->rx_ref_clk && i)
+				tx->rx_ref_clk = ADRV9002_RX1_REF_CLK + i;
+		}
+
+		dev_dbg(&phy->spi->dev, "Tx%d SSI clk driven by %s\n", tx->channel.number,
+			adrv9002_tx_clk[tx->rx_ref_clk]);
+	}
 
 	ret = adrv9002_post_init(phy);
 	if (ret)
