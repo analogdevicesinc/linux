@@ -28,7 +28,7 @@
 
 #define MAX_NUM_INSTANCE                32
 
-#define W6_MAX_PIC_STRIDE               (4096U*4)
+#define W6_MAX_PIC_STRIDE               (4096U * 4)
 #define W6_DEF_DEC_PIC_WIDTH            720U
 #define W6_DEF_DEC_PIC_HEIGHT           480U
 #define W6_MIN_DEC_PIC_WIDTH            64U
@@ -44,9 +44,14 @@
 #define W6_MAX_ENC_PIC_WIDTH            4096U
 #define W6_MAX_ENC_PIC_HEIGHT           2304U
 #define W6_ENC_PIC_SIZE_STEP            8
+#define W6_ENC_CROP_X_POS_STEP          32
+#define W6_ENC_CROP_Y_POS_STEP          2
+
+#define W6_VPU_POLL_TIMEOUT             300000
 
 //  application specific configuration
 #define W6_VPU_TIMEOUT                  6000
+#define W6_VPU_TIMEOUT_CYCLE_COUNT      (8000000 * 4 * 4)
 #define VPU_ENC_TIMEOUT                 6000
 #define VPU_DEC_TIMEOUT                 6000
 
@@ -72,11 +77,9 @@
 
 #define WAVE6_ARBUF_SIZE                (1024)
 #define WAVE6_MAX_CODE_BUF_SIZE         (4 * 1024 * 1024)
+#define WAVE6_CODE_BUF_SIZE             (1 * 1024 * 1024)
 #define WAVE6_EXTRA_CODE_BUF_SIZE       (256 * 1024)
 #define WAVE6_TEMPBUF_SIZE              (3 * 1024 * 1024)
-#define WAVE6_VUI_BUF_SIZE              (1024)
-
-#define SIZE_COMMON                     (W6_REMAP_MAX_SIZE)
 
 //=====4. VPU REPORT MEMORY  ======================//
 #define WAVE6_UPPER_PROC_AXI_ID     0x0

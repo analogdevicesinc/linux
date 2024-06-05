@@ -21,6 +21,7 @@ enum W6_VPU_COMMAND {
 	W6_ENC_PIC          = 0x0100,
 	W6_ENC_SET_PARAM    = 0x0200,
 	W6_DEC_SET_DISP_BUF = 0x0400,
+	W6_INIT_WORK_BUF    = 0x1000,
 	W6_GET_VPU_INFO     = 0x4000,
 	W6_QUERY            = 0x4000,
 	W6_UPDATE_BS        = 0x8000,
@@ -88,6 +89,8 @@ enum W6_QUERY_OPT {
 #define W6_CMD_QUEUE_FULL_IDC                         (W6_REG_BASE + 0x214)
 #define W6_CMD_QUEUE_EMPTY_IDC                        (W6_REG_BASE + 0x218)
 #define W6_CMD_DONE_INST                              (W6_REG_BASE + 0x21C)
+#define W6_CMD_INIT_VPU_SEC_AXI_BASE_CORE0            (W6_REG_BASE + 0x364)
+#define W6_CMD_INIT_VPU_SEC_AXI_SIZE_CORE0            (W6_REG_BASE + 0x368)
 #define W6_RET_INSTANCE_ID                            (W6_REG_BASE + 0x220)
 #define W6_RET_CMD_CQ_IN_TICK                         (W6_REG_BASE + 0x23C)
 #define W6_RET_CMD_FW_RUN_TICK                        (W6_REG_BASE + 0x240)
@@ -119,8 +122,6 @@ enum W6_QUERY_OPT {
 /************************************************************************/
 /* DECODER - CREATE_INSTANCE                                            */
 /************************************************************************/
-#define W6_CMD_DEC_CREATE_INST_WORK_BASE              (W6_REG_BASE + 0x300)
-#define W6_CMD_DEC_CREATE_INST_WORK_SIZE              (W6_REG_BASE + 0x304)
 #define W6_CMD_DEC_CREATE_INST_BS_PARAM               (W6_REG_BASE + 0x310)
 #define W6_CMD_DEC_CREATE_INST_ADDR_EXT               (W6_REG_BASE + 0x318)
 #define W6_CMD_DEC_CREATE_INST_DISP_MODE              (W6_REG_BASE + 0x31C)
@@ -128,8 +129,7 @@ enum W6_QUERY_OPT {
 #define W6_CMD_DEC_CREATE_INST_PRIORITY               (W6_REG_BASE + 0x334)
 #define W6_CMD_DEC_CREATE_INST_TEMP_BASE              (W6_REG_BASE + 0x348)
 #define W6_CMD_DEC_CREATE_INST_TEMP_SIZE              (W6_REG_BASE + 0x34C)
-#define W6_CMD_DEC_CREATE_INST_SEC_AXI_BASE_CORE0     (W6_REG_BASE + 0x364)
-#define W6_CMD_DEC_CREATE_INST_SEC_AXI_SIZE_CORE0     (W6_REG_BASE + 0x368)
+#define W6_CMD_DEC_CREATE_INST_TIMEOUT_CYCLE_COUNT    (W6_REG_BASE + 0x3A8)
 
 /************************************************************************/
 /* DECODER - INIT_SEQ                                                   */
@@ -139,9 +139,6 @@ enum W6_QUERY_OPT {
 #define W6_CMD_DEC_INIT_SEQ_BS_WR_PTR                 (W6_REG_BASE + 0x304)
 #define W6_CMD_DEC_INIT_SEQ_BS_OPTION                 (W6_REG_BASE + 0x308)
 #define W6_CMD_DEC_INIT_USERDATA_MASK                 (W6_REG_BASE + 0x314)
-#define W6_CMD_DEC_INIT_USERDATA_BASE                 (W6_REG_BASE + 0x320)
-#define W6_CMD_DEC_INIT_USERDATA_SIZE                 (W6_REG_BASE + 0x324)
-#define W6_CMD_DEC_INIT_USERDATA_PARAM                (W6_REG_BASE + 0x328)
 
 /************************************************************************/
 /* DECODER - SET_FB                                                     */
@@ -341,16 +338,11 @@ enum W6_QUERY_OPT {
 #define W6_CMD_DEC_PIC_SEQ_CHANGE_ENABLE_FLAG         (W6_REG_BASE + 0x310)
 #define W6_CMD_DEC_PIC_USERDATA_MASK                  (W6_REG_BASE + 0x314)
 #define W6_CMD_DEC_PIC_TEMPORAL_ID_PLUS1              (W6_REG_BASE + 0x318)
-#define W6_CMD_DEC_PIC_USERDATA_BASE                  (W6_REG_BASE + 0x320)
-#define W6_CMD_DEC_PIC_USERDATA_SIZE                  (W6_REG_BASE + 0x324)
-#define W6_CMD_DEC_PIC_USERDATA_PARAM                 (W6_REG_BASE + 0x328)
 #define W6_CMD_DEC_PIC_TIMESTAMP                      (W6_REG_BASE + 0x32C)
 
 /************************************************************************/
 /* DECODER - GET_RESULT                                                 */
 /************************************************************************/
-#define W6_RET_DEC_USERDATA_BASE                      (W6_REG_BASE + 0x300)
-#define W6_RET_DEC_USERDATA_SIZE                      (W6_REG_BASE + 0x304)
 #define W6_RET_DEC_BS_RD_PTR                          (W6_REG_BASE + 0x30C)
 #define W6_RET_DEC_SEQ_PARAM                          (W6_REG_BASE + 0x310)
 #define W6_RET_DEC_COLOR_SAMPLE_INFO                  (W6_REG_BASE + 0x314)
@@ -362,7 +354,6 @@ enum W6_QUERY_OPT {
 #define W6_RET_DEC_NUM_REORDER_DELAY                  (W6_REG_BASE + 0x32C)
 #define W6_RET_DEC_FB_UPDATE_REQ_INFO                 (W6_REG_BASE + 0x330)
 #define W6_RET_DEC_NOTIFICATION                       (W6_REG_BASE + 0x334)
-#define W6_RET_DEC_USERDATA_IDC                       (W6_REG_BASE + 0x338)
 #define W6_RET_DEC_PIC_SIZE                           (W6_REG_BASE + 0x33C)
 #define W6_RET_DEC_CROP_TOP_BOTTOM                    (W6_REG_BASE + 0x340)
 #define W6_RET_DEC_CROP_LEFT_RIGHT                    (W6_REG_BASE + 0x344)
@@ -389,6 +380,7 @@ enum W6_QUERY_OPT {
 #define W6_RET_DEC_NUM_REQUIRED_COL_BUF               (W6_REG_BASE + 0x3E4)
 #define W6_RET_DEC_DISP_LINEAR_ADDR_0                 (W6_REG_BASE + 0x3E8)
 #define W6_RET_DEC_DISP_LINEAR_ADDR_30                (W6_REG_BASE + 0x460)
+#define W6_RET_DEC_COLOR_CONFIG                       (W6_REG_BASE + 0x57C)
 
 /************************************************************************/
 /* DECODER - QUERY : GET_FLUSH_CMD_INFO                                 */
@@ -402,8 +394,6 @@ enum W6_QUERY_OPT {
 /************************************************************************/
 /* ENCODER - CREATE_INSTANCE                                            */
 /************************************************************************/
-#define W6_CMD_ENC_CREATE_INST_WORK_BASE              (W6_REG_BASE + 0x300)
-#define W6_CMD_ENC_CREATE_INST_WORK_SIZE              (W6_REG_BASE + 0x304)
 #define W6_CMD_ENC_CREATE_INST_BS_PARAM               (W6_REG_BASE + 0x310)
 #define W6_CMD_ENC_CREATE_INST_SRC_OPT                (W6_REG_BASE + 0x314)
 #define W6_CMD_ENC_CREATE_INST_ADDR_EXT               (W6_REG_BASE + 0x318)
@@ -412,8 +402,7 @@ enum W6_QUERY_OPT {
 #define W6_CMD_ENC_CREATE_INST_TEMP_BASE              (W6_REG_BASE + 0x348)
 #define W6_CMD_ENC_CREATE_INST_TEMP_SIZE              (W6_REG_BASE + 0x34C)
 #define W6_CMD_ENC_CREATE_INST_AR_TABLE_BASE          (W6_REG_BASE + 0x358)
-#define W6_CMD_ENC_CREATE_INST_SEC_AXI_BASE_CORE0     (W6_REG_BASE + 0x364)
-#define W6_CMD_ENC_CREATE_INST_SEC_AXI_SIZE_CORE0     (W6_REG_BASE + 0x368)
+#define W6_CMD_ENC_CREATE_INST_TIMEOUT_CYCLE_COUNT    (W6_REG_BASE + 0x3A8)
 
 /************************************************************************/
 /* ENCODER - SET_PARAM                                                  */
@@ -521,6 +510,8 @@ enum W6_QUERY_OPT {
 #define W6_CMD_ENC_SET_PARAM_SCL_SRC_SIZE             (W6_REG_BASE + 0x4B4)
 #define W6_CMD_ENC_SET_PARAM_SCL_PARAM                (W6_REG_BASE + 0x4B8)
 #define W6_CMD_ENC_SET_PARAM_COLOR_PARAM              (W6_REG_BASE + 0x4F8)
+#define W6_CMD_ENC_SET_PARAM_SAR_PARAM                (W6_REG_BASE + 0x4FC)
+#define W6_CMD_ENC_SET_PARAM_SAR_EXTENDED             (W6_REG_BASE + 0x500)
 
 /************************************************************************/
 /* ENCODER - SET_FB                                                     */
@@ -748,9 +739,9 @@ enum W6_QUERY_OPT {
 #define W6_RET_ENC_NUM_REQUIRED_COL_BUF               (W6_REG_BASE + 0x404)
 
 /************************************************************************/
-/* ENCODER - QUERY (GET_BS_WR_PTR)                                      */
+/* COMMON - CTRL BUFFER                                                 */
 /************************************************************************/
-#define W6_RET_ENC_GET_BS_RD_PTR                      (W6_REG_BASE + 0x300)
-#define W6_RET_ENC_GET_BS_WR_PTR                      (W6_REG_BASE + 0x304)
+#define W6_CMD_SET_CTRL_WORK_BUF_ADDR                 (W6_REG_BASE + 0x5F0)
+#define W6_CMD_SET_CTRL_WORK_BUF_SIZE                 (W6_REG_BASE + 0x5F4)
 
 #endif /* __WAVE6_REGISTER_DEFINE_H__ */

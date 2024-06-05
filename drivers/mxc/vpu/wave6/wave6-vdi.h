@@ -14,14 +14,15 @@
 #include <linux/device.h>
 
 /* system register write */
-#define vpu_write_reg(VPU_INST, ADDR, DATA) wave6_vdi_writel(VPU_INST, ADDR, DATA)
+#define vpu_write_reg(VPU_DEV, ADDR, DATA) wave6_vdi_writel(VPU_DEV, ADDR, DATA)
 /* system register read */
-#define vpu_read_reg(CORE, ADDR) wave6_vdi_readl(CORE, ADDR)
+#define vpu_read_reg(VPU_DEV, ADDR) wave6_vdi_readl(VPU_DEV, ADDR)
 
 struct vpu_buf {
 	size_t size;
 	dma_addr_t daddr;
 	void *vaddr;
+	struct device *dev;
 };
 
 struct vpu_dma_buf {

@@ -41,17 +41,17 @@ int wave6_vpu_dec_update_fb(struct vpu_instance *inst, struct frame_buffer *fb, 
 int wave6_vpu_dec_get_update_fb_info(struct vpu_instance *inst,
 				     struct dec_update_fb_info *info);
 
-int wave6_vpu_dec_init_seq(struct vpu_instance *vpu_inst);
+int wave6_vpu_dec_init_seq(struct vpu_instance *inst);
 
-int wave6_vpu_dec_get_seq_info(struct vpu_instance *vpu_inst, struct dec_initial_info *info);
+int wave6_vpu_dec_get_seq_info(struct vpu_instance *inst, struct dec_initial_info *info);
 
-int wave6_vpu_decode(struct vpu_instance *vpu_inst, struct dec_param *option, u32 *fail_res);
+int wave6_vpu_decode(struct vpu_instance *inst, struct dec_param *option, u32 *fail_res);
 
 int wave6_vpu_dec_get_result(struct vpu_instance *inst, struct dec_output_info *result);
 
-int wave6_vpu_dec_fini_seq(struct vpu_instance *vpu_inst, u32 *fail_res);
+int wave6_vpu_dec_fini_seq(struct vpu_instance *inst, u32 *fail_res);
 
-dma_addr_t wave6_vpu_dec_get_rd_ptr(struct vpu_instance *vpu_inst);
+dma_addr_t wave6_vpu_dec_get_rd_ptr(struct vpu_instance *inst);
 
 int wave6_vpu_dec_flush(struct vpu_instance *inst);
 
@@ -60,21 +60,21 @@ int wave6_vpu_dec_flush(struct vpu_instance *inst);
 int wave6_vpu_build_up_enc_param(struct device *dev, struct vpu_instance *inst,
 				 struct enc_open_param *param);
 
-int wave6_vpu_enc_init_seq(struct vpu_instance *vpu_inst);
+int wave6_vpu_enc_init_seq(struct vpu_instance *inst);
 
-int wave6_vpu_enc_change_seq(struct vpu_instance *vpu_inst);
+int wave6_vpu_enc_change_seq(struct vpu_instance *inst);
 
-int wave6_vpu_enc_get_seq_info(struct vpu_instance *vpu_inst, struct enc_initial_info *info);
+int wave6_vpu_enc_get_seq_info(struct vpu_instance *inst, struct enc_initial_info *info);
 
-int wave6_vpu_enc_register_frame_buffer(struct vpu_instance *vpu_inst,
+int wave6_vpu_enc_register_frame_buffer(struct vpu_instance *inst,
 					struct frame_buffer *fb_arr);
 
-int wave6_vpu_encode(struct vpu_instance *vpu_inst, struct enc_param *option, u32 *fail_res);
+int wave6_vpu_encode(struct vpu_instance *inst, struct enc_param *option, u32 *fail_res);
 
-int wave6_vpu_enc_get_result(struct vpu_instance *vpu_inst, struct enc_output_info *result);
+int wave6_vpu_enc_get_result(struct vpu_instance *inst, struct enc_output_info *result);
 
-int wave6_vpu_enc_fini_seq(struct vpu_instance *vpu_inst, u32 *fail_res);
+int wave6_vpu_enc_fini_seq(struct vpu_instance *inst, u32 *fail_res);
 
-int wave6_vpu_enc_check_open_param(struct vpu_instance *vpu_inst, struct enc_open_param *pop);
+int wave6_vpu_enc_check_open_param(struct vpu_instance *inst, struct enc_open_param *pop);
 
 #endif /* __WAVE6_FUNCTION_H__ */

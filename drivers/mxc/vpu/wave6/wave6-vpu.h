@@ -89,5 +89,4 @@ int wave6_vpu_subscribe_event(struct v4l2_fh *fh,
 			      const struct v4l2_event_subscription *sub);
 void wave6_vpu_return_buffers(struct vpu_instance *inst,
 			      unsigned int type, enum vb2_buffer_state state);
-
 #endif

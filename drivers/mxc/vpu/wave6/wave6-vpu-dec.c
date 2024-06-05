@@ -127,14 +127,14 @@ static void wave6_vpu_dec_release_fb(struct vpu_instance *inst)
 	int i;
 
 	for (i = 0; i < WAVE6_MAX_FBS; i++) {
-		wave6_vdi_free_dma_memory(inst->dev, &inst->frame_vbuf[i]);
+		wave6_free_dma(&inst->frame_vbuf[i]);
 		memset(&inst->frame_buf[i], 0, sizeof(struct frame_buffer));
-		wave6_vdi_free_dma_memory(inst->dev, &inst->aux_vbuf[AUX_BUF_FBC_Y_TBL][i]);
-		wave6_vdi_free_dma_memory(inst->dev, &inst->aux_vbuf[AUX_BUF_FBC_C_TBL][i]);
-		wave6_vdi_free_dma_memory(inst->dev, &inst->aux_vbuf[AUX_BUF_MV_COL][i]);
-		wave6_vdi_free_dma_memory(inst->dev, &inst->aux_vbuf[AUX_BUF_DEF_CDF][i]);
-		wave6_vdi_free_dma_memory(inst->dev, &inst->aux_vbuf[AUX_BUF_SEG_MAP][i]);
-		wave6_vdi_free_dma_memory(inst->dev, &inst->aux_vbuf[AUX_BUF_PRE_ENT][i]);
+		wave6_free_dma(&inst->aux_vbuf[AUX_BUF_FBC_Y_TBL][i]);
+		wave6_free_dma(&inst->aux_vbuf[AUX_BUF_FBC_C_TBL][i]);
+		wave6_free_dma(&inst->aux_vbuf[AUX_BUF_MV_COL][i]);
+		wave6_free_dma(&inst->aux_vbuf[AUX_BUF_DEF_CDF][i]);
+		wave6_free_dma(&inst->aux_vbuf[AUX_BUF_SEG_MAP][i]);
+		wave6_free_dma(&inst->aux_vbuf[AUX_BUF_PRE_ENT][i]);
 	}
 }
 
@@ -164,9 +164,6 @@ static void wave6_vpu_dec_destroy_instance(struct vpu_instance *inst)
 	}
 
 	wave6_vpu_dec_release_fb(inst);
-	wave6_vdi_free_dma_memory(inst->dev, &inst->work_vbuf);
-	wave6_vdi_free_dma_memory(inst->dev, &inst->temp_vbuf);
-	wave6_vdi_free_dma_memory(inst->dev, &inst->vui_vbuf);
 
 	wave6_vpu_set_instance_state(inst, VPU_INST_STATE_NONE);
 
@@ -183,15 +180,15 @@ static void wave6_handle_bitstream_buffer(struct vpu_instance *inst)
 	src_buf = v4l2_m2m_next_src_buf(inst->v4l2_fh.m2m_ctx);
 	if (src_buf) {
 		struct vpu_buffer *vpu_buf = wave6_to_vpu_buf(src_buf);
-		dma_addr_t rd_ptr = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, 0);
+		dma_addr_t rd_ptr = wave6_get_dma_addr(src_buf, 0);
 
-		vpu_buf->ts_start = ktime_get_raw();
 		if (vpu_buf->consumed) {
 			dev_dbg(inst->dev->dev, "%s: Already consumed buffer\n",
 				__func__);
 			return;
 		}
 
+		vpu_buf->ts_start = ktime_get_raw();
 		vpu_buf->consumed = true;
 		wave6_vpu_dec_set_rd_ptr(inst, rd_ptr, true);
 
@@ -207,7 +204,7 @@ static void wave6_handle_bitstream_buffer(struct vpu_instance *inst)
 
 	ret = wave6_vpu_dec_update_bitstream_buffer(inst, src_size);
 	if (ret) {
-		dev_dbg(inst->dev->dev, "%s: Update bitstream buffer fail %d\n",
+		dev_err(inst->dev->dev, "%s: Update bitstream buffer fail %d\n",
 			__func__, ret);
 		return;
 	}
@@ -245,16 +242,16 @@ static int wave6_allocate_aux_buffer(struct vpu_instance *inst,
 
 	ret = wave6_vpu_dec_get_aux_buffer_size(inst, size_info, &size);
 	if (ret) {
-		dev_dbg(inst->dev->dev, "%s: Get size fail\n", __func__);
+		dev_err(inst->dev->dev, "%s: Get size fail\n", __func__);
 		return ret;
 	}
 
 	num = min_t(u32, num, WAVE6_MAX_FBS);
 	for (i = 0; i < num; i++) {
 		inst->aux_vbuf[type][i].size = size;
-		ret = wave6_vdi_allocate_dma_memory(inst->dev, &inst->aux_vbuf[type][i]);
+		ret = wave6_alloc_dma(inst->dev->dev, &inst->aux_vbuf[type][i]);
 		if (ret) {
-			dev_dbg(inst->dev->dev, "%s: Alloc fail\n", __func__);
+			dev_err(inst->dev->dev, "%s: Alloc fail\n", __func__);
 			return ret;
 		}
 
@@ -269,7 +266,7 @@ static int wave6_allocate_aux_buffer(struct vpu_instance *inst,
 
 	ret = wave6_vpu_dec_register_aux_buffer(inst, buf_info);
 	if (ret) {
-		dev_dbg(inst->dev->dev, "%s: Register fail\n", __func__);
+		dev_err(inst->dev->dev, "%s: Register fail\n", __func__);
 		return ret;
 	}
 
@@ -301,22 +298,22 @@ static void wave6_vpu_dec_handle_dst_buffer(struct vpu_instance *inst)
 
 		if (inst->dst_fmt.num_planes == 1) {
 			buf_size = vb2_plane_size(&dst_buf->vb2_buf, 0);
-			buf_addr_y = vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 0);
+			buf_addr_y = wave6_get_dma_addr(dst_buf, 0);
 			buf_addr_cb = buf_addr_y + luma_size;
 			buf_addr_cr = buf_addr_cb + chroma_size;
 		} else if (inst->dst_fmt.num_planes == 2) {
 			buf_size = vb2_plane_size(&dst_buf->vb2_buf, 0) +
 				   vb2_plane_size(&dst_buf->vb2_buf, 1);
-			buf_addr_y = vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 0);
-			buf_addr_cb = vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 1);
+			buf_addr_y = wave6_get_dma_addr(dst_buf, 0);
+			buf_addr_cb = wave6_get_dma_addr(dst_buf, 1);
 			buf_addr_cr = buf_addr_cb + chroma_size;
 		} else if (inst->dst_fmt.num_planes == 3) {
 			buf_size = vb2_plane_size(&dst_buf->vb2_buf, 0) +
 				   vb2_plane_size(&dst_buf->vb2_buf, 1) +
 				   vb2_plane_size(&dst_buf->vb2_buf, 2);
-			buf_addr_y = vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 0);
-			buf_addr_cb = vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 1);
-			buf_addr_cr = vb2_dma_contig_plane_dma_addr(&dst_buf->vb2_buf, 2);
+			buf_addr_y = wave6_get_dma_addr(dst_buf, 0);
+			buf_addr_cb = wave6_get_dma_addr(dst_buf, 1);
+			buf_addr_cr = wave6_get_dma_addr(dst_buf, 2);
 		}
 		disp_buffer.buf_y = buf_addr_y;
 		disp_buffer.buf_cb = buf_addr_cb;
@@ -331,7 +328,7 @@ static void wave6_vpu_dec_handle_dst_buffer(struct vpu_instance *inst)
 
 		ret = wave6_vpu_dec_register_display_buffer_ex(inst, disp_buffer);
 		if (ret)
-			dev_dbg(inst->dev->dev, "fail wave6_vpu_dec_register_display_buffer_ex %d", ret);
+			dev_err(inst->dev->dev, "fail register display buffer %d", ret);
 
 		vpu_buf->consumed = true;
 	}
@@ -416,46 +413,25 @@ static enum v4l2_ycbcr_encoding to_v4l2_ycbcr_encoding(u32 matrix_coeffs)
 static void wave6_update_color_info(struct vpu_instance *inst,
 				    struct dec_initial_info *initial_info)
 {
-	struct dec_user_data_entry *entry;
-	struct vpu_buf *buf = &inst->vui_vbuf;
-	u32 vui_base;
+	struct wave_color_param *color = &initial_info->color;
 
-	entry = (struct dec_user_data_entry *)buf->vaddr;
+	if (!color->video_signal_type_present_flag)
+		goto set_default_all;
 
-	if (!(initial_info->user_data.header & (1 << DEC_USERDATA_FLAG_VUI)))
-		goto set_default;
+	inst->quantization = to_v4l2_quantization(color->color_range);
 
-	vui_base = entry[DEC_USERDATA_FLAG_VUI].offset;
-	if (inst->std == W_HEVC_DEC) {
-		struct hevc_vui_param *vui;
+	if (!color->color_description_present_flag)
+		goto set_default_color;
 
-		vui = (struct hevc_vui_param *)(buf->vaddr + vui_base);
-		if (!vui->video_signal_type_present_flag)
-			goto set_default;
+	inst->colorspace = to_v4l2_colorspace(color->color_primaries);
+	inst->xfer_func = to_v4l2_xfer_func(color->transfer_characteristics);
+	inst->ycbcr_enc = to_v4l2_ycbcr_encoding(color->matrix_coefficients);
 
-		inst->colorspace = to_v4l2_colorspace(vui->colour_primaries);
-		inst->ycbcr_enc = to_v4l2_ycbcr_encoding(vui->matrix_coeffs);
-		inst->quantization = to_v4l2_quantization(vui->video_full_range_flag);
-		inst->xfer_func = to_v4l2_xfer_func(vui->transfer_characteristics);
-	} else if (inst->std == W_AVC_DEC) {
-		struct avc_vui_param *vui;
-
-		vui = (struct avc_vui_param *)(buf->vaddr + vui_base);
-		if (!vui->video_signal_type_present_flag)
-			goto set_default;
-
-		inst->colorspace = to_v4l2_colorspace(vui->colour_primaries);
-		inst->ycbcr_enc = to_v4l2_ycbcr_encoding(vui->matrix_coeffs);
-		inst->quantization = to_v4l2_quantization(vui->video_full_range_flag);
-		inst->xfer_func = to_v4l2_xfer_func(vui->transfer_characteristics);
-	}
-
-	return;
-
-set_default:
+set_default_all:
+	inst->quantization = V4L2_QUANTIZATION_DEFAULT;
+set_default_color:
 	inst->colorspace = V4L2_COLORSPACE_DEFAULT;
 	inst->ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
-	inst->quantization = V4L2_QUANTIZATION_DEFAULT;
 	inst->xfer_func = V4L2_XFER_FUNC_DEFAULT;
 }
 
@@ -473,31 +449,31 @@ static int wave6_vpu_dec_start_decode(struct vpu_instance *inst)
 	ret = wave6_vpu_dec_start_one_frame(inst, &pic_param, &fail_res);
 	if (ret) {
 		struct vb2_v4l2_buffer *src_buf = NULL;
-		struct vb2_v4l2_buffer *dst_buf = NULL;
 
 		dev_err(inst->dev->dev, "[%d] %s: fail %d\n", inst->id, __func__, ret);
 		wave6_vpu_set_instance_state(inst, VPU_INST_STATE_STOP);
 
 		src_buf = v4l2_m2m_src_buf_remove(inst->v4l2_fh.m2m_ctx);
-		dst_buf = v4l2_m2m_dst_buf_remove(inst->v4l2_fh.m2m_ctx);
-		dst_buf->sequence = inst->sequence++;
-		v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
-		v4l2_m2m_buf_done(dst_buf, VB2_BUF_STATE_ERROR);
-		inst->processed_buf_num++;
-		inst->error_buf_num++;
+		if (src_buf) {
+			v4l2_m2m_buf_done(src_buf, VB2_BUF_STATE_ERROR);
+			inst->sequence++;
+			inst->processed_buf_num++;
+			inst->error_buf_num++;
+		}
 	}
 
 	return ret;
 }
 
 static void wave6_handle_decoded_frame(struct vpu_instance *inst,
-				       dma_addr_t addr,
-				       enum vb2_buffer_state state,
 				       struct dec_output_info *info)
 {
 	struct vb2_v4l2_buffer *src_buf;
 	struct vb2_v4l2_buffer *dst_buf;
 	struct vpu_buffer *vpu_buf;
+	enum vb2_buffer_state state;
+
+	state = info->decoding_success ? VB2_BUF_STATE_DONE : VB2_BUF_STATE_ERROR;
 
 	src_buf = v4l2_m2m_next_src_buf(inst->v4l2_fh.m2m_ctx);
 	if (!src_buf) {
@@ -511,7 +487,7 @@ static void wave6_handle_decoded_frame(struct vpu_instance *inst,
 		return;
 	}
 
-	dst_buf = wave6_get_dst_buf_by_addr(inst, addr);
+	dst_buf = wave6_get_dst_buf_by_addr(inst, info->frame_decoded_addr);
 	if (dst_buf) {
 		struct vpu_buffer *dst_vpu_buf = wave6_to_vpu_buf(dst_buf);
 
@@ -616,8 +592,6 @@ static void wave6_handle_display_frames(struct vpu_instance *inst,
 		wave6_handle_display_frame(inst,
 					   info->disp_frame_addr[i],
 					   VB2_BUF_STATE_DONE);
-
-	dev_dbg(inst->dev->dev, "frame_cycle %8d\n", info->frame_cycle);
 }
 
 static void wave6_handle_discard_frames(struct vpu_instance *inst,
@@ -709,9 +683,9 @@ static void wave6_vpu_dec_handle_source_change(struct vpu_instance *inst,
 
 	wave6_update_color_info(inst, info);
 	wave6_update_pix_fmt(&inst->src_fmt, info->pic_width, info->pic_height);
-	wave6_update_pix_fmt_cap(&inst->dst_fmt, info->pic_width,
-						 info->pic_height,
-						 true);
+	wave6_update_pix_fmt_cap(&inst->dst_fmt,
+				 info->pic_width, info->pic_height,
+				 true);
 	v4l2_event_queue_fh(&inst->v4l2_fh, &vpu_event_src_ch);
 }
 
@@ -727,24 +701,19 @@ static void wave6_vpu_dec_handle_decoding_warn_error(struct vpu_instance *inst,
 			inst->id, inst->processed_buf_num, info->error_reason);
 }
 
-static void wave6_vpu_dec_finish_decode(struct vpu_instance *inst)
+static void wave6_vpu_dec_finish_decode(struct vpu_instance *inst, int irq_status)
 {
 	struct dec_output_info info;
 	struct v4l2_m2m_ctx *m2m_ctx = inst->v4l2_fh.m2m_ctx;
 	int ret;
-	int irq_status;
-	enum vb2_buffer_state state;
-
-	if (kfifo_out(&inst->dev->irq_status, &irq_status, sizeof(int)))
-		dev_dbg(inst->dev->dev, "irq_status %8d\n", irq_status);
 
 	ret = wave6_vpu_dec_get_output_info(inst, &info);
 	if (ret)
 		goto finish_decode;
 
 	dev_dbg(inst->dev->dev, "dec %d dis %d noti_flag %d stream_end %d\n",
-				info.frame_decoded_flag, info.frame_display_flag,
-				info.notification_flag, info.stream_end_flag);
+		info.frame_decoded_flag, info.frame_display_flag,
+		info.notification_flag, info.stream_end_flag);
 
 	if (info.notification_flag & DEC_NOTI_FLAG_NO_FB) {
 		wave6_vpu_dec_retry_one_frame(inst);
@@ -772,9 +741,8 @@ static void wave6_vpu_dec_finish_decode(struct vpu_instance *inst)
 
 	wave6_vpu_dec_handle_decoding_warn_error(inst, &info);
 
-	state = info.decoding_success ? VB2_BUF_STATE_DONE : VB2_BUF_STATE_ERROR;
 	if (info.frame_decoded_flag)
-		wave6_handle_decoded_frame(inst, info.frame_decoded_addr, state, &info);
+		wave6_handle_decoded_frame(inst, &info);
 	else
 		wave6_handle_skipped_frame(inst);
 
@@ -860,10 +828,10 @@ static int wave6_vpu_dec_try_fmt_cap(struct file *file, void *fh, struct v4l2_fo
 		pix_mp->pixelformat = inst->dst_fmt.pixelformat;
 		pix_mp->num_planes = inst->dst_fmt.num_planes;
 	} else {
-		width = clamp(pix_mp->width, vpu_fmt->min_width,
-					     round_up(inst->src_fmt.width, 32));
-		height = clamp(pix_mp->height, vpu_fmt->min_height,
-					       inst->src_fmt.height);
+		width = clamp(pix_mp->width,
+			      vpu_fmt->min_width, round_up(inst->src_fmt.width, 32));
+		height = clamp(pix_mp->height,
+			       vpu_fmt->min_height, inst->src_fmt.height);
 		pix_mp->pixelformat = vpu_fmt->v4l2_pix_fmt;
 		pix_mp->num_planes = vpu_fmt->num_planes;
 	}
@@ -1038,9 +1006,9 @@ static int wave6_vpu_dec_s_fmt_out(struct file *file, void *fh, struct v4l2_form
 	inst->quantization = pix_mp->quantization;
 	inst->xfer_func = pix_mp->xfer_func;
 
-	wave6_update_pix_fmt_cap(&inst->dst_fmt, pix_mp->width,
-						 pix_mp->height,
-						 true);
+	wave6_update_pix_fmt_cap(&inst->dst_fmt,
+				 pix_mp->width, pix_mp->height,
+				 true);
 
 	return 0;
 }
@@ -1150,8 +1118,8 @@ static int wave6_vpu_dec_s_selection(struct file *file, void *fh, struct v4l2_se
 		scale_height = round_down(scale_height, step);
 	}
 
-	if ((scale_width < inst->src_fmt.width) ||
-	    (scale_height < inst->src_fmt.height))
+	if (scale_width < inst->src_fmt.width ||
+	    scale_height < inst->src_fmt.height)
 		inst->scaler_info.enable = true;
 
 	if (inst->scaler_info.enable) {
@@ -1283,13 +1251,8 @@ static const struct v4l2_ctrl_config wave6_vpu_thumbnail_mode = {
 static void wave6_set_dec_openparam(struct dec_open_param *open_param,
 				    struct vpu_instance *inst)
 {
-	open_param->inst_buffer.work_base = inst->work_vbuf.daddr;
-	open_param->inst_buffer.work_size = inst->work_vbuf.size;
-	open_param->inst_buffer.temp_base = inst->temp_vbuf.daddr;
-	open_param->inst_buffer.temp_size = inst->temp_vbuf.size;
-	wave6_vpu_get_sram(inst,
-			   &open_param->inst_buffer.sec_base_core0,
-			   &open_param->inst_buffer.sec_size_core0);
+	open_param->inst_buffer.temp_base = inst->dev->temp_vbuf.daddr;
+	open_param->inst_buffer.temp_size = inst->dev->temp_vbuf.size;
 	open_param->bitstream_mode = BS_MODE_PIC_END;
 	open_param->stream_endian = VPU_STREAM_ENDIAN;
 	open_param->frame_endian = VPU_FRAME_ENDIAN;
@@ -1301,7 +1264,6 @@ static int wave6_vpu_dec_create_instance(struct vpu_instance *inst)
 	int ret;
 	u32 fail_res;
 	struct dec_open_param open_param;
-	struct vpu_attr *attr = &inst->dev->attr;
 
 	memset(&open_param, 0, sizeof(struct dec_open_param));
 
@@ -1321,39 +1283,12 @@ static int wave6_vpu_dec_create_instance(struct vpu_instance *inst)
 		goto error_pm;
 	}
 
-	if (attr->support_command_queue)
-		inst->work_vbuf.size = WAVE637DEC_WORKBUF_SIZE_FOR_CQ;
-	else
-		inst->work_vbuf.size = WAVE637DEC_WORKBUF_SIZE;
-	ret = wave6_vdi_allocate_dma_memory(inst->dev, &inst->work_vbuf);
-	if (ret) {
-		dev_err(inst->dev->dev, "alloc work of size %zu failed\n",
-			inst->work_vbuf.size);
-		goto error_pm;
-	}
-
-	inst->temp_vbuf.size = ALIGN(WAVE6_TEMPBUF_SIZE, 4096);
-	ret = wave6_vdi_allocate_dma_memory(inst->dev, &inst->temp_vbuf);
-	if (ret) {
-		dev_err(inst->dev->dev, "alloc temp of size %zu failed\n",
-			inst->temp_vbuf.size);
-		goto error_tbuf;
-	}
-
-	inst->vui_vbuf.size = ALIGN(WAVE6_VUI_BUF_SIZE, 4096);
-	ret = wave6_vdi_allocate_dma_memory(inst->dev, &inst->vui_vbuf);
-	if (ret) {
-		dev_err(inst->dev->dev, "alloc vui of size %zu failed\n",
-			inst->vui_vbuf.size);
-		goto error_vuibuf;
-	}
-
 	wave6_set_dec_openparam(&open_param, inst);
 
 	ret = wave6_vpu_dec_open(inst, &open_param);
 	if (ret) {
 		dev_err(inst->dev->dev, "failed create instance : %d\n", ret);
-		goto error_dec_open;
+		goto error_pm;
 	}
 
 	dprintk(inst->dev->dev, "[%d] decoder\n", inst->id);
@@ -1375,12 +1310,6 @@ static int wave6_vpu_dec_create_instance(struct vpu_instance *inst)
 
 error_wq:
 	wave6_vpu_dec_close(inst, &fail_res);
-error_dec_open:
-	wave6_vdi_free_dma_memory(inst->dev, &inst->vui_vbuf);
-error_vuibuf:
-	wave6_vdi_free_dma_memory(inst->dev, &inst->temp_vbuf);
-error_tbuf:
-	wave6_vdi_free_dma_memory(inst->dev, &inst->work_vbuf);
 error_pm:
 	pm_runtime_put_sync(inst->dev->dev);
 
@@ -1411,7 +1340,7 @@ static int wave6_vpu_dec_prepare_fb(struct vpu_instance *inst)
 		unsigned int ch_size = ALIGN(fb_stride / 2, 32) * fb_height;
 
 		vframe->size = l_size + ch_size;
-		ret = wave6_vdi_allocate_dma_memory(inst->dev, vframe);
+		ret = wave6_alloc_dma(inst->dev->dev, vframe);
 		if (ret) {
 			dev_err(inst->dev->dev, "alloc FBC buffer fail : %zu\n",
 				vframe->size);
@@ -1457,7 +1386,7 @@ static int wave6_vpu_dec_prepare_fb(struct vpu_instance *inst)
 		}
 	}
 	if ((inst->std == W_AV1_DEC || inst->std == W_VP9_DEC) &&
-	    (attr->support_command_queue)) {
+	    attr->support_command_queue) {
 		ret = wave6_allocate_aux_buffer(inst, AUX_BUF_PRE_ENT, 1);
 		if (ret) {
 			dev_err(inst->dev->dev, "alloc PRE_ENT buffer fail\n");
@@ -1700,9 +1629,9 @@ static void wave6_vpu_dec_stop_streaming(struct vb2_queue *q)
 	struct vpu_instance *inst = vb2_get_drv_priv(q);
 	struct v4l2_m2m_ctx *m2m_ctx = inst->v4l2_fh.m2m_ctx;
 
-	dprintk(inst->dev->dev, "[%d] %s, input %d, decode %d\n",
+	dprintk(inst->dev->dev, "[%d] %s, input %d, decode %d, error %d\n",
 		inst->id, V4L2_TYPE_IS_OUTPUT(q->type) ? "output" : "capture",
-		inst->queued_src_buf_num, inst->sequence);
+		inst->queued_src_buf_num, inst->sequence, inst->error_buf_num);
 
 	if (inst->state == VPU_INST_STATE_NONE)
 		goto exit;
@@ -1772,17 +1701,17 @@ static void wave6_set_default_format(struct v4l2_pix_format_mplane *src_fmt,
 	if (vpu_fmt) {
 		src_fmt->pixelformat = vpu_fmt->v4l2_pix_fmt;
 		src_fmt->num_planes = vpu_fmt->num_planes;
-		wave6_update_pix_fmt(src_fmt, W6_DEF_DEC_PIC_WIDTH,
-					      W6_DEF_DEC_PIC_HEIGHT);
+		wave6_update_pix_fmt(src_fmt,
+				     W6_DEF_DEC_PIC_WIDTH, W6_DEF_DEC_PIC_HEIGHT);
 	}
 
 	vpu_fmt = wave6_find_vpu_fmt_by_idx(0, VPU_FMT_TYPE_RAW);
 	if (vpu_fmt) {
 		dst_fmt->pixelformat = vpu_fmt->v4l2_pix_fmt;
 		dst_fmt->num_planes = vpu_fmt->num_planes;
-		wave6_update_pix_fmt_cap(dst_fmt, W6_DEF_DEC_PIC_WIDTH,
-						  W6_DEF_DEC_PIC_HEIGHT,
-						  true);
+		wave6_update_pix_fmt_cap(dst_fmt,
+					 W6_DEF_DEC_PIC_WIDTH, W6_DEF_DEC_PIC_HEIGHT,
+					 true);
 	}
 }
 
