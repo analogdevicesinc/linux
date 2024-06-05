@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
-/* Copyright 2019 NXP */
+/* Copyright 2019, 2024 NXP */
 #ifndef DPAA2_MAC_H
 #define DPAA2_MAC_H
 
@@ -32,6 +32,9 @@ struct dpaa2_mac {
 	size_t num_lanes;
 
 	int phy_req_state;
+	u32 *cnt_idx_dma_mem;
+	u64 *cnt_values_dma_mem;
+	dma_addr_t cnt_idx_iova, cnt_values_iova;
 };
 
 static inline bool dpaa2_mac_is_type_phy(struct dpaa2_mac *mac)

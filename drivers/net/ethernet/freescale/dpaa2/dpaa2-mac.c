@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
-/* Copyright 2019 NXP */
+/* Copyright 2019, 2024 NXP */
 
 #include <linux/acpi.h>
 #include <linux/pcs-lynx.h>
@@ -16,7 +16,14 @@
 #define DPMAC_PROTOCOL_CHANGE_VER_MAJOR		4
 #define DPMAC_PROTOCOL_CHANGE_VER_MINOR		8
 
+#define DPMAC_STATS_BUNDLE_VER_MAJOR		4
+#define DPMAC_STATS_BUNDLE_VER_MINOR		10
+
 #define DPAA2_MAC_FEATURE_PROTOCOL_CHANGE	BIT(0)
+#define DPAA2_MAC_FEATURE_STATS_BUNDLE		BIT(1)
+
+static void dpaa2_mac_setup_stats(struct dpaa2_mac *mac);
+static void dpaa2_mac_clear_stats(struct dpaa2_mac *mac);
 
 static int dpaa2_mac_cmp_ver(struct dpaa2_mac *mac,
 			     u16 ver_major, u16 ver_minor)
@@ -33,6 +40,10 @@ static void dpaa2_mac_detect_features(struct dpaa2_mac *mac)
 	if (dpaa2_mac_cmp_ver(mac, DPMAC_PROTOCOL_CHANGE_VER_MAJOR,
 			      DPMAC_PROTOCOL_CHANGE_VER_MINOR) >= 0)
 		mac->features |= DPAA2_MAC_FEATURE_PROTOCOL_CHANGE;
+
+	if (dpaa2_mac_cmp_ver(mac, DPMAC_STATS_BUNDLE_VER_MAJOR,
+			      DPMAC_STATS_BUNDLE_VER_MINOR) >= 0)
+		mac->features |= DPAA2_MAC_FEATURE_STATS_BUNDLE;
 }
 
 static int phy_mode(enum dpmac_eth_if eth_if, phy_interface_t *if_mode)
@@ -547,6 +558,8 @@ int dpaa2_mac_open(struct dpaa2_mac *mac)
 	mac->fw_node = fw_node;
 	net_dev->dev.of_node = to_of_node(mac->fw_node);
 
+	dpaa2_mac_setup_stats(mac);
+
 	return 0;
 
 err_close_dpmac:
@@ -557,6 +570,8 @@ err_close_dpmac:
 void dpaa2_mac_close(struct dpaa2_mac *mac)
 {
 	struct fsl_mc_device *dpmac_dev = mac->mc_dev;
+
+	dpaa2_mac_clear_stats(mac);
 
 	dpmac_close(mac->mc_io, 0, dpmac_dev->mc_handle);
 	if (mac->fw_node)
@@ -596,6 +611,80 @@ static char dpaa2_mac_ethtool_stats[][ETH_GSTRING_LEN] = {
 
 #define DPAA2_MAC_NUM_STATS	ARRAY_SIZE(dpaa2_mac_ethtool_stats)
 
+#define DPAA2_MAC_STATS_INDEX_DMA_SIZE (DPAA2_MAC_NUM_STATS * sizeof(u32))
+#define DPAA2_MAC_STATS_VALUE_DMA_SIZE (DPAA2_MAC_NUM_STATS * sizeof(u64))
+
+static void dpaa2_mac_setup_stats(struct dpaa2_mac *mac)
+{
+	struct device *dev = mac->net_dev->dev.parent;
+	u32 *cnt_idx;
+	int i;
+
+	if (!(mac->features & DPAA2_MAC_FEATURE_STATS_BUNDLE))
+		return;
+
+	mac->cnt_idx_dma_mem = kzalloc(DPAA2_MAC_STATS_INDEX_DMA_SIZE, GFP_KERNEL);
+	if (!mac->cnt_idx_dma_mem)
+		goto out;
+
+	mac->cnt_values_dma_mem = kzalloc(DPAA2_MAC_STATS_VALUE_DMA_SIZE, GFP_KERNEL);
+	if (!mac->cnt_values_dma_mem)
+		goto err_alloc_values;
+
+	cnt_idx = mac->cnt_idx_dma_mem;
+	for (i = 0; i < DPAA2_MAC_NUM_STATS; i++)
+		*cnt_idx++ = cpu_to_le32((u32)i);
+
+	mac->cnt_idx_iova = dma_map_single(dev, mac->cnt_idx_dma_mem,
+					   DPAA2_MAC_STATS_INDEX_DMA_SIZE,
+					   DMA_TO_DEVICE);
+	if (dma_mapping_error(dev, mac->cnt_idx_iova))
+		goto err_dma_map_idx;
+
+	mac->cnt_values_iova = dma_map_single(dev, mac->cnt_values_dma_mem,
+					      DPAA2_MAC_STATS_VALUE_DMA_SIZE,
+					      DMA_FROM_DEVICE);
+	if (dma_mapping_error(dev, mac->cnt_values_iova))
+		goto err_dma_map_values;
+
+	return;
+
+err_dma_map_values:
+	dma_unmap_single(dev, mac->cnt_idx_iova, DPAA2_MAC_STATS_INDEX_DMA_SIZE,
+			 DMA_TO_DEVICE);
+err_dma_map_idx:
+	kfree(mac->cnt_values_dma_mem);
+err_alloc_values:
+	kfree(mac->cnt_idx_dma_mem);
+out:
+	mac->cnt_idx_dma_mem = NULL;
+	mac->cnt_values_dma_mem = NULL;
+}
+
+static void dpaa2_mac_clear_stats(struct dpaa2_mac *mac)
+{
+	struct device *dev = mac->net_dev->dev.parent;
+
+	if (!(mac->features & DPAA2_MAC_FEATURE_STATS_BUNDLE))
+		return;
+
+	if (mac->cnt_idx_dma_mem) {
+		dma_unmap_single(dev, mac->cnt_idx_iova,
+				 DPAA2_MAC_STATS_INDEX_DMA_SIZE,
+				 DMA_TO_DEVICE);
+		kfree(mac->cnt_idx_dma_mem);
+		mac->cnt_idx_dma_mem = NULL;
+	}
+
+	if (mac->cnt_values_dma_mem) {
+		dma_unmap_single(dev, mac->cnt_values_iova,
+				 DPAA2_MAC_STATS_VALUE_DMA_SIZE,
+				 DMA_FROM_DEVICE);
+		kfree(mac->cnt_values_dma_mem);
+		mac->cnt_values_dma_mem = NULL;
+	}
+}
+
 int dpaa2_mac_get_sset_count(void)
 {
 	return DPAA2_MAC_NUM_STATS;
@@ -614,10 +703,37 @@ void dpaa2_mac_get_strings(u8 *data)
 
 void dpaa2_mac_get_ethtool_stats(struct dpaa2_mac *mac, u64 *data)
 {
+	struct device *dev = mac->net_dev->dev.parent;
 	struct fsl_mc_device *dpmac_dev = mac->mc_dev;
+	u64 *cnt_values;
 	int i, err;
 	u64 value;
 
+	if (!(mac->features & DPAA2_MAC_FEATURE_STATS_BUNDLE))
+		goto fallback;
+
+	if (!mac->cnt_idx_dma_mem || !mac->cnt_values_dma_mem)
+		goto fallback;
+
+	err = dpmac_get_statistics(mac->mc_io, 0, dpmac_dev->mc_handle,
+				   mac->cnt_idx_iova, mac->cnt_values_iova,
+				   DPAA2_MAC_NUM_STATS);
+	if (err)
+		goto fallback;
+
+	dma_sync_single_for_cpu(dev, mac->cnt_values_iova,
+				DPAA2_MAC_STATS_VALUE_DMA_SIZE,
+				DMA_FROM_DEVICE);
+
+	cnt_values = mac->cnt_values_dma_mem;
+	for (i = 0; i < DPAA2_MAC_NUM_STATS; i++)
+		*(data + i) = le64_to_cpu(*cnt_values++);
+
+	return;
+
+fallback:
+
+	/* Fallback and retrieve each counter one by one */
 	for (i = 0; i < DPAA2_MAC_NUM_STATS; i++) {
 		err = dpmac_get_counter(mac->mc_io, 0, dpmac_dev->mc_handle,
 					i, &value);
