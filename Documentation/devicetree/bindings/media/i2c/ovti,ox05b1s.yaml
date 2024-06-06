@@ -19,6 +19,7 @@ properties:
     items:
       - enum:
           - ovti,ox05b1s
+          - ovti,os08a20
 
   reg:
     maxItems: 1
