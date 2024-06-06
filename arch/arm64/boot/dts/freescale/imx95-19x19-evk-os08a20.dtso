@@ -6,17 +6,8 @@
 /dts-v1/;
 /plugin/;
 
-#include <dt-bindings/clock/fsl,imx95-clock.h>
 #include <dt-bindings/gpio/gpio.h>
-#include "imx95-pinfunc.h"
-
-&scmi_iomuxc {
-	pinctrl_csi_mclk: csi_mclk {
-		fsl,pins = <
-			IMX95_PAD_CCM_CLKO1__CCMSRCGPCMIX_TOP_CLKO_1	0x39e
-		>;
-	};
-};
+#include "imx95-clock.h"
 
 &lpi2c3 {
 	#address-cells = <1>;
@@ -24,20 +15,14 @@
 	status = "okay";
 
 	os08a20: os08a20_mipi@36 {
-		compatible = "ovti,os08a20_mipi";
+		compatible = "ovti,os08a20";
 		reg = <0x36>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_csi_mclk>;
 		clocks = <&scmi_clk IMX95_CLK_CCMCKO1>;
 		clock-names = "csi_mclk";
 		assigned-clocks = <&scmi_clk IMX95_CLK_CCMCKO1>;
 		assigned-clock-parents = <&scmi_clk IMX95_CLK_24M>;
 		assigned-clock-rates = <24000000>;
-		csi_id = <0>;
-		pwn-gpios = <&i2c3_gpio_expander_20 1 GPIO_ACTIVE_HIGH>;
-		rst-gpios = <&i2c3_gpio_expander_20 2 GPIO_ACTIVE_LOW>;
-		mclk = <24000000>;
-		mclk_source = <0>;
+		reset-gpios = <&i2c3_gpio_expander_20 2 GPIO_ACTIVE_LOW>;
 		status = "okay";
 
 		port {
