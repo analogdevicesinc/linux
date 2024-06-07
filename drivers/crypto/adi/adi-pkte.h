@@ -956,7 +956,7 @@ void adi_config_state(struct adi_dev *pkte_dev, u32 IV[]);
 void adi_write(struct adi_dev *pkte_dev, u32 offset, u32 value);
 
 u32 adi_read(struct adi_dev *pkte_dev, u32 offset);
-u32 adi_physical_address(struct adi_dev *pkte_dev, void *variableAddress);
+u32 adi_physical_address(struct adi_dev *pkte_dev, u32 var_addr);
 int adi_wait_for_bit(struct adi_dev *pkte_dev, u32 reg_offset,
 		u32 bitmask);
 

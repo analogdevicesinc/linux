@@ -117,7 +117,8 @@ static int adi_crypt_configure_pkte(struct adi_dev *pkte_dev,
 			pkte->pPkteList.pCommand.aes_key_length =
 				aes_get_key_length(ctx->keylen);
 			if (pkte->pPkteList.pCommand.aes_key_length < 0) {
-				dev_err(pkte_dev->dev, "Unsupported AES key length\n");
+				dev_err(pkte_dev->dev,
+						"Unsupported AES key length\n");
 				return -EINVAL;
 			}
 
@@ -258,14 +259,11 @@ static int adi_crypt_prepare_req(struct skcipher_request *req)
 
 	adi_source_data(pkte_dev, req->cryptlen);
 	pkte_dev->src_bytes_available = req->cryptlen;
-
 	dev_dbg(pkte_dev->dev, "Started writing (via scatterwalk) %d bytes...\n",
 		req->cryptlen);
-
 	scatterwalk_start(&in, req->src);
 	scatterwalk_copychunks(&pkte->source[pkte_dev->ring_pos_consume][0],
 			       &in, req->cryptlen, 0);
-
 	if (rctx->mode & (CBC | DECRYPT))
 		adi_crypt_prepare_IV(pkte_dev, rctx, req->cryptlen, IV_SRC);
 
@@ -274,7 +272,6 @@ static int adi_crypt_prepare_req(struct skcipher_request *req)
 #endif
 
 	/* Let the engine validate the command descriptor */
-	pr_info("Letting engine know theres a cmd desc to process\n");
 	adi_write(pkte_dev, CDSC_CNT_OFFSET, 1);
 	adi_write(pkte_dev, BUF_THRESH_OFFSET,
 		  (u32) 128 << BITP_PKTE_BUF_THRESH_INBUF |

@@ -86,15 +86,12 @@ void adi_write(struct adi_dev *pkte_dev, u32 offset, u32 value)
 	writel(value, pkte_dev->io_base + offset);
 }
 
-u32 adi_physical_address(struct adi_dev *pkte_dev, void *var_addr)
+u32 adi_physical_address(struct adi_dev *pkte_dev, u32 var_addr)
 {
-	u32 var_addr_32 = *((u32 *) var_addr);
-	u32 pkte_device_32 = *((u32 *) pkte_dev->pkte_device);
-
 #ifdef PKTE_USE_SRAM
-	return PKTE_SRAM_ADDRESS + var_addr_32 - pkte_device_32;
+	return PKTE_SRAM_ADDRESS + var_addr - ((u32)pkte_dev->pkte_device);
 #else
-	return pkte_dev->dma_handle + var_addr_32 - pkte_device_32;
+	return pkte_dev->dma_handle + var_addr - ((u32)pkte_dev->pkte_device);
 #endif
 }
 
@@ -108,13 +105,13 @@ static void adi_reset_pkte(struct adi_dev *pkte_dev)
 	adi_write(pkte_dev, CFG_OFFSET, pkte_cfg & ~0x03);
 }
 
-void adi_reset_state(struct adi_dev *hdev)
+void adi_reset_state(struct adi_dev *pkte_dev)
 {
-	hdev->src_count_set = 0;
-	hdev->src_bytes_available = 0;
-	hdev->ring_pos_produce = 0;
-	hdev->ring_pos_consume = 0;
-	hdev->flags &= ~(PKTE_FLAGS_STARTED |
+	pkte_dev->src_count_set = 0;
+	pkte_dev->src_bytes_available = 0;
+	pkte_dev->ring_pos_produce = 0;
+	pkte_dev->ring_pos_consume = 0;
+	pkte_dev->flags &= ~(PKTE_FLAGS_STARTED |
 			 PKTE_FLAGS_COMPLETE |
 			 PKTE_FLAGS_FINAL |
 			 PKTE_FLAGS_FINUP |
@@ -329,11 +326,11 @@ void adi_init_ring(struct adi_dev *pkte_dev)
 	pkte_desc = &pkte->pPkteDescriptor;
 	addr =
 	    adi_physical_address(pkte_dev,
-				 (void *)&pkte_desc->CmdDescriptor[0]);
+				 (u32)&pkte_desc->CmdDescriptor[0]);
 	adi_write(pkte_dev, CDRBASE_ADDR_OFFSET, addr);
 	addr =
 	    adi_physical_address(pkte_dev,
-				 (void *)&pkte_desc->ResultDescriptor[0]);
+				 (u32)&pkte_desc->ResultDescriptor[0]);
 
 	adi_write(pkte_dev, RDRBASE_ADDR_OFFSET, addr);
 	addr = (PKTE_RING_BUFFERS - 1) << BITP_PKTE_RING_CFG_RINGSZ;
@@ -379,7 +376,7 @@ void adi_configure_cdr(struct adi_dev *pkte_dev)
 	struct PE_CDR *pkte_command_desc;
 	struct SA *sa_rec;
 	u8 pos;
-	void *var_addr;
+	u32 var_addr;
 
 	pkte = pkte_dev->pkte_device;
 	pkte_desc = &pkte->pPkteDescriptor;
@@ -393,18 +390,18 @@ void adi_configure_cdr(struct adi_dev *pkte_dev)
 	pkte_command_desc->PE_CTRL_STAT =
 	    0x1 | (pkte->pPkteList.pCommand.final_hash_condition << 4);
 
-	var_addr = (void *)&pkte->source[pkte_dev->ring_pos_consume][0];
+	var_addr = (u32)&pkte->source[pkte_dev->ring_pos_consume][0];
 	pkte_command_desc->PE_SOURCE_ADDR =
 		adi_physical_address(pkte_dev, var_addr);
 
 	pkte_command_desc->PE_DEST_ADDR =
-	    adi_physical_address(pkte_dev, (void *)&pkte->destination[0]);
+	    adi_physical_address(pkte_dev, (u32)&pkte->destination[0]);
 
 	pkte_command_desc->PE_SA_ADDR =
-	    adi_physical_address(pkte_dev, (void *)&sa_rec->SA_Para.SA_CMD0);
+	    adi_physical_address(pkte_dev, (u32)&sa_rec->SA_Para.SA_CMD0);
 
 	pkte_command_desc->PE_STATE_ADDR =
-	    adi_physical_address(pkte_dev, (void *)&pkte_desc->State.STATE_IV0);
+	    adi_physical_address(pkte_dev, (u32)&pkte_desc->State.STATE_IV0);
 
 	pkte_command_desc->PE_USER_ID = pkte->pPkteList.nUserID;
 }
@@ -496,8 +493,9 @@ void adi_config_state(struct adi_dev *pkte_dev, u32 IV[])
 
 	pkte = pkte_dev->pkte_device;
 #ifdef DEBUG_PKTE
-	dev_dbg(pkte_dev->dev, "%s IV: %x %x %x %x\n", __func__, IV[0], IV[1],
-		IV[2], IV[3]);
+	dev_dbg(pkte_dev->dev, "%s IV: %x %x %x %x\n", __func__,
+			pkte_dev->IV[0], pkte_dev->IV[1],
+			pkte_dev->IV[2], pkte_dev->IV[3]);
 #endif
 	pkte->pPkteDescriptor.State.STATE_IV0 = pkte_dev->IV[0];
 	pkte->pPkteDescriptor.State.STATE_IV1 = pkte_dev->IV[1];
