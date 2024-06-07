@@ -2,7 +2,7 @@
 # Makefile for Freesecale PPFE driver
 #
 
-ccflags-y +=  -I $(srctree)/$(src)/include  -I $(srctree)/$(src)
+ccflags-y +=  -I $(src)/include  -I $(src)
 
 obj-$(CONFIG_FSL_PPFE) += pfe.o
 
