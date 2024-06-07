@@ -154,8 +154,7 @@ static unsigned int spi_engine_get_clk_div(struct spi_engine *spi_engine,
 	else
 		speed = spi->max_speed_hz;
 
-	clk_div = DIV_ROUND_UP(clk_get_rate(spi_engine->ref_clk),
-		speed * 2);
+	clk_div = DIV_ROUND_CLOSEST(clk_get_rate(spi_engine->ref_clk), speed * 2);
 	if (clk_div > 255)
 		clk_div = 255;
 	else if (clk_div > 0)
