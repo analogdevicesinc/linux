@@ -73,16 +73,16 @@ config AD4630
 	  To compile this driver as a module, choose M here: the module will be
 	  called ad4630.
 
-config AD4858
-	tristate "Analog Device AD4858 DAQ Driver"
+config AD485X
+	tristate "Analog Device AD485x DAQ Driver"
 	select IIO_BUFFER
 	select IIO_TRIGGERED_BUFFER
 	help
-	  Say yes here to build support for Analog Devices AD4858 high speed
-	  data acquisition (DAQ) system.
+	  Say yes here to build support for Analog Devices AD485x high speed
+	  data acquisition system (DAS).
 
 	  To compile this driver as a module, choose M here: the module will be
-	  called ad4858.
+	  called ad485x.
 
 config AD7091R5
 	tristate "Analog Devices AD7091R5 ADC Driver"
