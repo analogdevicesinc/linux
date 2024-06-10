@@ -9,5 +9,5 @@
 };
 
 &ad485x {
-	compatible = "adi,ad4857";
+	compatible = "adi,ad4852";
 };
