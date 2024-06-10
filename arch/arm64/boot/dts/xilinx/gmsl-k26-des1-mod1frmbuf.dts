@@ -10,7 +10,8 @@
 #define BRD_KRIA
 //#define BRD_ZCU
 
-#define GMSL_CAM_ISX021
+//#define GMSL_CAM_ISX021
+#define GMSL_CAM_IMX490
 
 //GMSL defines
 #define GMSL_CAMERA_NUM 4
@@ -50,6 +51,7 @@
 #define GMSL_SER_6_HEX_ADDR	0x43
 #define GMSL_SER_7_HEX_ADDR	0x44
 
+#ifdef GMSL_CAM_ISX021
 #define GMSL_CAM_0_HEX_ADDR	0x1b
 #define GMSL_CAM_1_HEX_ADDR	0x1c
 #define GMSL_CAM_2_HEX_ADDR	0x1d
@@ -58,6 +60,18 @@
 #define GMSL_CAM_5_HEX_ADDR	0x1c
 #define GMSL_CAM_6_HEX_ADDR	0x1d
 #define GMSL_CAM_7_HEX_ADDR	0x1e
+#endif
+
+#ifdef GMSL_CAM_IMX490
+#define GMSL_CAM_0_HEX_ADDR	0x6e
+#define GMSL_CAM_1_HEX_ADDR	0x6f
+#define GMSL_CAM_2_HEX_ADDR	0x70
+#define GMSL_CAM_3_HEX_ADDR	0x71
+#define GMSL_CAM_4_HEX_ADDR	0x72
+#define GMSL_CAM_5_HEX_ADDR	0x73
+#define GMSL_CAM_6_HEX_ADDR	0x74
+#define GMSL_CAM_7_HEX_ADDR	0x75
+#endif
 
 #define _CONCAT(a, b) a ## b
 #define CONCAT(a, b) _CONCAT(a, b)
@@ -480,7 +494,7 @@ serializer_3_i2c_bus: &deserializer_i2c_3 {};
 &serializer_0_i2c_bus {
 	#define SER_INDEX 0
 	#define SER_I2C_ADDR_POLL_0 GMSL_CAM_0_HEX_ADDR
-#if defined(GMSL_CAM_ISX021)
+#if defined(GMSL_CAM_ISX021) || defined(GMSL_CAM_IMX490)
 	#define SER_HEX_REG 0x62
 	#define SER_COMPAT "maxim,max9295a"
 #endif
@@ -492,7 +506,7 @@ serializer_3_i2c_bus: &deserializer_i2c_3 {};
 &serializer_1_i2c_bus {
 	#define SER_INDEX 1
 	#define SER_I2C_ADDR_POLL_0 GMSL_CAM_1_HEX_ADDR
-#if defined(GMSL_CAM_ISX021)
+#if defined(GMSL_CAM_ISX021) || defined(GMSL_CAM_IMX490)
 	#define SER_HEX_REG 0x62
 	#define SER_COMPAT "maxim,max9295a"
 #endif
@@ -504,7 +518,7 @@ serializer_3_i2c_bus: &deserializer_i2c_3 {};
 &serializer_2_i2c_bus {
 	#define SER_INDEX 2
 	#define SER_I2C_ADDR_POLL_0 GMSL_CAM_2_HEX_ADDR
-#if defined(GMSL_CAM_ISX021)
+#if defined(GMSL_CAM_ISX021) || defined(GMSL_CAM_IMX490)
 	#define SER_HEX_REG 0x62
 	#define SER_COMPAT "maxim,max9295a"
 #endif
@@ -516,7 +530,7 @@ serializer_3_i2c_bus: &deserializer_i2c_3 {};
 &serializer_3_i2c_bus {
 	#define SER_INDEX 3
 	#define SER_I2C_ADDR_POLL_0 GMSL_CAM_3_HEX_ADDR
-#if defined(GMSL_CAM_ISX021)
+#if defined(GMSL_CAM_ISX021) || defined(GMSL_CAM_IMX490)
 	#define SER_HEX_REG 0x62
 	#define SER_COMPAT "maxim,max9295a"
 #endif
@@ -547,6 +561,10 @@ camera_3_i2c_bus: &serializer_3_i2c_0 {};
 	#define ISX021_INDEX 0
 	#include "gmsl-isx021.dtsi"
 #endif
+#if defined(GMSL_CAM_IMX490)
+	#define IMX490_INDEX 0
+	#include "gmsl-imx490.dtsi"
+#endif
 };
 #endif
 
@@ -559,6 +577,10 @@ camera_3_i2c_bus: &serializer_3_i2c_0 {};
 #if defined(GMSL_CAM_ISX021)
 	#define ISX021_INDEX 1
 	#include "gmsl-isx021.dtsi"
+#endif
+#if defined(GMSL_CAM_IMX490)
+	#define IMX490_INDEX 1
+	#include "gmsl-imx490.dtsi"
 #endif
 };
 #endif
@@ -573,6 +595,10 @@ camera_3_i2c_bus: &serializer_3_i2c_0 {};
 	#define ISX021_INDEX 2
 	#include "gmsl-isx021.dtsi"
 #endif
+#if defined(GMSL_CAM_IMX490)
+	#define IMX490_INDEX 2
+	#include "gmsl-imx490.dtsi"
+#endif
 };
 #endif
 
@@ -585,6 +611,10 @@ camera_3_i2c_bus: &serializer_3_i2c_0 {};
 #if defined(GMSL_CAM_ISX021)
 	#define ISX021_INDEX 3
 	#include "gmsl-isx021.dtsi"
+#endif
+#if defined(GMSL_CAM_IMX490)
+	#define IMX490_INDEX 3
+	#include "gmsl-imx490.dtsi"
 #endif
 };
 #endif

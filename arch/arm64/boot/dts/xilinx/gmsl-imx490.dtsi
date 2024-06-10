@@ -1,0 +1,73 @@
+#ifndef IMX490_HEX_REG
+#define IMX490_HEX_REG 0x6d
+#endif
+
+#ifdef IMX490_INDEX
+#define IMX490_SER_INDEX  IMX490_INDEX
+#define IMX490_SER_LABEL  CONCAT(serializer_, IMX490_SER_INDEX)
+#define IMX490_FSYNC_LABEL CONCAT(IMX490_SER_LABEL, _mfp3_fsync)
+#define IMX490_RCLK_LABEL CONCAT(IMX490_SER_LABEL, _mfp4_rclk)
+#define IMX490_OUT_LABEL CONCAT(cam_out, IMX490_INDEX)
+#define IMX490_IN_LABEL CONCAT(ser_in, IMX490_INDEX)
+#define IMX490_LABEL CONCAT(camera, IMX490_INDEX)
+#endif
+
+#if !defined(IMX490_SER_LABEL)
+#error
+#endif
+
+#if !defined(IMX490_FSYNC_LABEL)
+#error
+#endif
+
+#if !defined(IMX490_RCLK_LABEL)
+#error
+#endif
+
+#if !defined(IMX490_OUT_LABEL)
+#error
+#endif
+
+#if !defined(IMX490_IN_LABEL)
+#error
+#endif
+
+#if !defined(IMX490_LABEL)
+#error
+#endif
+
+IMX490_LABEL: imx490@IMX490_HEX_REG {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	compatible = "sony,imx490";
+	reg = <IMX490_HEX_REG>;
+	clocks = <&ov_clk_12M>;
+	clock-names = "xclk";
+	dvdd-supply = <&ov_1_5V>;
+	pinctrl-0 = <&IMX490_RCLK_LABEL &IMX490_FSYNC_LABEL>;
+	pinctrl-names = "default";
+	reset-gpios = <&IMX490_SER_LABEL 8 GPIO_ACTIVE_LOW>;
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+
+			IMX490_OUT_LABEL: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				remote-endpoint = <&IMX490_IN_LABEL>;
+			};
+		};
+	};
+};
+
+#undef IMX490_HEX_REG
+#undef IMX490_INDEX
+#undef Ox03A_SER_INDEX
+#undef IMX490_SER_LABEL
+#undef IMX490_FSYNC_LABEL
+#undef IMX490_RCLK_LABEL
+#undef IMX490_LABEL
+#undef IMX490_OUT_LABEL
+#undef IMX490_IN_LABEL
