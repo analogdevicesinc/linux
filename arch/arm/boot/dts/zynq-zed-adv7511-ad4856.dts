@@ -5,9 +5,9 @@
 #include "zynq-zed-adv7511-ad485x.dtsi"
 
 &dma_channel {
-	adi,source-bus-width = <128>;
+	adi,source-bus-width = <256>;
 };
 
 &ad485x {
-	compatible = "adi,ad4857";
+	compatible = "adi,ad4856";
 };
