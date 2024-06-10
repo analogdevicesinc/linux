@@ -218,6 +218,14 @@
 			};
 		};
 
+		axi_pwmgen: axi_pwmgen@80080000 {
+                        compatible = "adi,axi-pwmgen";
+                        reg = <0x80080000 0x1000>;
+                        label = "pwm_out1";
+                        #pwm-cells = <2>;
+                        clocks = <&pwm_clk>;
+                };
+
 		misc_clk_0: misc_clk_0 {
 			#clock-cells = <0>;
 			clock-frequency = <200000000>;
@@ -235,9 +243,9 @@
 			reset-gpios = <&gpio 80 GPIO_ACTIVE_LOW>;
 			reg = <0x84a60000 0x10000>;
 			xlnx,dma-addr-width = <32>;
-			xlnx,max-height = <1080>;
-			xlnx,max-width = <1920>;
-			xlnx,pixels-per-clock = <2>;
+			xlnx,max-height = <2160>;
+			xlnx,max-width = <3840>;
+			xlnx,pixels-per-clock = <4>;
 			xlnx,s-axi-ctrl-addr-width = <0x7>;
 			xlnx,s-axi-ctrl-data-width = <0x20>;
 			xlnx,vid-formats = "bgr888", "uyvy", "yuyv", "nv16";
