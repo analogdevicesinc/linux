@@ -875,7 +875,7 @@ struct ADI_PKTE_DEVICE {
 };
 
 struct adi_ctx {
-	struct crypto_engine_ctx enginectx;
+	struct crypto_engine_op enginectx;
 	struct adi_dev          *pkte_dev;
 	int                     keylen;
 	__be32                  key[AES_KEYSIZE_256 / sizeof(u32)];
@@ -901,7 +901,7 @@ struct adi_request_ctx {
 };
 
 struct adi_algs_info {
-	struct ahash_alg	*algs_list;
+	struct ahash_engine_alg	*algs_list;
 	size_t			size;
 };
 
