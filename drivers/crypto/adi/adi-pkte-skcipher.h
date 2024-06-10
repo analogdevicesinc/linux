@@ -18,6 +18,6 @@
 
 
 int adi_crypt_prepare_cipher_req(struct crypto_engine *engine, void *areq);
-extern struct skcipher_alg crypto_algs[NUM_CRYPTO_ALGS];
+extern struct skcipher_engine_alg crypto_algs[NUM_CRYPTO_ALGS];
 
 #endif

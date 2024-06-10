@@ -130,8 +130,14 @@ int adi_wait_for_bit(struct adi_dev *pkte_dev, u32 reg_offset, u32 bitmask)
 	pkte_status = adi_read(pkte_dev, reg_offset) & bitmask;
 	while (!pkte_status) {
 		elapsed_time = ktime_get_seconds() - start_time;
-		if (elapsed_time == PKTE_OP_TIMEOUT)
+		if (elapsed_time == PKTE_OP_TIMEOUT) {
+			dev_err(pkte_dev->dev,
+					"Timeout while waiting for bit!\n");
+			dev_err(pkte_dev->dev,
+					"read:%08x\n",
+					adi_read(pkte_dev, reg_offset));
 			return -EIO;
+		}
 
 		pkte_status = adi_read(pkte_dev, reg_offset) & bitmask;
 		/* Be nice to others and don't block */
@@ -596,7 +602,7 @@ static int adi_unregister_algs(struct adi_dev *pkte_dev)
 #endif
 
 #ifdef CONFIG_CRYPTO_DEV_ADI_SKCIPHER
-	crypto_unregister_skciphers(crypto_algs, ARRAY_SIZE(crypto_algs));
+	crypto_engine_unregister_skciphers(crypto_algs, ARRAY_SIZE(crypto_algs));
 #endif
 	return 0;
 }
@@ -627,7 +633,7 @@ static int adi_register_algs(struct adi_dev *pkte_dev)
 #endif
 
 #ifdef CONFIG_CRYPTO_DEV_ADI_SKCIPHER
-	err = crypto_register_skciphers(crypto_algs, ARRAY_SIZE(crypto_algs));
+	err = crypto_engine_register_skciphers(crypto_algs, ARRAY_SIZE(crypto_algs));
 	if (err) {
 		dev_err(pkte_dev->dev, "Could not register skcipher alg\n");
 		goto err_algs;

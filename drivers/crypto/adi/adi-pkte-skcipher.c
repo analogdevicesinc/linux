@@ -45,7 +45,8 @@
 #include "adi-pkte-skcipher.h"
 
 #define BITM_CIPHER_TYPE	0x38	/* bitmask for isolating cipher used */
-
+#define IV_SRC	1
+#define IV_DES	0
 enum CIPHER_MODE {
 	UNUSED = 0 << 0,	/* not a bitmask */
 	CBC = 1 << 1,
@@ -159,14 +160,13 @@ static int adi_crypt_configure_pkte(struct adi_dev *pkte_dev,
 		adi_configure_cdr(pkte_dev);
 
 	pkte->pPkteList.pDestination = &pkte->destination[0];
-
 	return 0;
 }
 
 static void adi_crypt_prepare_IV(struct adi_dev *pkte_dev,
-		struct adi_crypt_reqctx *rctx, u32 cryptlen)
+		struct adi_crypt_reqctx *rctx, u32 cryptlen,
+		u8 iv_dest)
 {
-
 	u8 *pkte_src, cpy_len, pos = 0;
 	struct ADI_PKTE_DEVICE *pkte;
 
@@ -181,7 +181,11 @@ static void adi_crypt_prepare_IV(struct adi_dev *pkte_dev,
 		cpy_len = 16;
 	}
 
-	pkte_src = (u8 *) &pkte->source[pkte_dev->ring_pos_consume][pos];
+	if(iv_dest)
+		pkte_src = (u8 *) &pkte->source[pkte_dev->ring_pos_consume][pos];
+	else
+		pkte_src = (u8 *) &pkte->destination[pos];
+
 	memcpy((u8 *) &pkte_dev->IV, pkte_src, cpy_len);
 }
 
@@ -214,6 +218,7 @@ static int adi_crypt_prepare_req(struct skcipher_request *req)
 	ivsize = crypto_skcipher_ivsize(crypto_skcipher_reqtfm(req));
 	pkte_dev = ctx->pkte_dev;
 	pkte = pkte_dev->pkte_device;
+	rctx = skcipher_request_ctx(req);
 
 	if (!req)
 		return -EINVAL;
@@ -240,11 +245,12 @@ static int adi_crypt_prepare_req(struct skcipher_request *req)
 		if ((ctx->flags_skcipher & PKTE_FLAGS_STARTED)) {
 			if ((rctx->mode & ENCRYPT)) {
 				adi_crypt_prepare_IV(pkte_dev, rctx,
-						pkte_dev->src_bytes_available);
-				/* Feed previous result into IV */
-				adi_config_state(pkte_dev, pkte_dev->IV);
+						pkte_dev->src_bytes_available,
+						IV_DES);
 			}
 
+			/* Feed previous result into IV */
+			adi_config_state(pkte_dev, pkte_dev->IV);
 		} else {
 			adi_config_state(pkte_dev, (u32 *) req->iv);
 		}
@@ -261,16 +267,18 @@ static int adi_crypt_prepare_req(struct skcipher_request *req)
 			       &in, req->cryptlen, 0);
 
 	if (rctx->mode & (CBC | DECRYPT))
-		adi_crypt_prepare_IV(pkte_dev, rctx, req->cryptlen);
+		adi_crypt_prepare_IV(pkte_dev, rctx, req->cryptlen, IV_SRC);
 
 #ifdef DEBUG_PKTE
 	adi_crypt_debug_print_consume(pkte_dev, req);
 #endif
 
+	/* Let the engine validate the command descriptor */
+	pr_info("Letting engine know theres a cmd desc to process\n");
 	adi_write(pkte_dev, CDSC_CNT_OFFSET, 1);
 	adi_write(pkte_dev, BUF_THRESH_OFFSET,
-		  (u32) 128 << BITP_PKTE_BUF_THRESH_INBUF | (u32) 128 <<
-		  BITP_PKTE_BUF_THRESH_OUTBUF);
+		  (u32) 128 << BITP_PKTE_BUF_THRESH_INBUF |
+		  (u32) 128 << BITP_PKTE_BUF_THRESH_OUTBUF);
 
 	adi_write(pkte_dev, INT_EN_OFFSET, BITM_PKTE_IMSK_EN_RDRTHRSH);
 	ctx->flags_skcipher |= PKTE_FLAGS_STARTED;
@@ -291,6 +299,29 @@ static void adi_crypt_debug_print_consume(struct adi_dev *pkte_dev,
 }
 #endif
 
+static u8 adi_crypt_check_error(struct adi_dev *pkte_dev) {
+	u32 pkte_err, pkte_err_mask;
+
+	pkte_err_mask = BITM_PKTE_CTL_STAT_EXTERRCD |
+		BITM_PKTE_CTL_STAT_EXTERR |
+		BITM_PKTE_CTL_STAT_SQNMERR |
+		BITM_PKTE_CTL_STAT_PADERR |
+		BITM_PKTE_CTL_STAT_AUTHERR;
+	pkte_err = adi_read(pkte_dev, CTL_STAT_OFFSET) & pkte_err_mask;
+	if (pkte_err)
+		return -EINVAL;
+
+	pkte_err_mask = BITM_PKTE_STAT_EXTERR |
+		BITM_PKTE_STAT_SNUMERR |
+		BITM_PKTE_STAT_PADERR |
+		BITM_PKTE_STAT_AUTHERR;
+	pkte_err = adi_read(pkte_dev, STAT_OFFSET) & pkte_err_mask;
+	if(pkte_err)
+		return -EINVAL;
+
+	return 0;
+}
+
 static int adi_crypt_cipher_one_req(struct crypto_engine *engine, void *areq)
 {
 	struct skcipher_request *req = container_of(areq,
@@ -300,6 +331,7 @@ static int adi_crypt_cipher_one_req(struct crypto_engine *engine, void *areq)
 	struct adi_dev *pkte_dev = ctx->pkte_dev;
 	int err = 0;
 	struct scatter_walk out;
+	u8 pkte_err;
 
 	if (!pkte_dev)
 		return -ENODEV;
@@ -313,12 +345,28 @@ static int adi_crypt_cipher_one_req(struct crypto_engine *engine, void *areq)
 		processing = 1;
 	}
 
+	pkte_err = adi_crypt_check_error(pkte_dev);
+	if(pkte_err) {
+		u32 pkte_stat, pkte_ctl_stat;
 
-	err = adi_wait_for_bit(pkte_dev, STAT_OFFSET, BITM_PKTE_STAT_OUTPTDN);
+		pkte_stat = adi_read(pkte_dev, STAT_OFFSET);
+		pkte_ctl_stat = adi_read(pkte_dev, CTL_STAT_OFFSET);
+		dev_err(pkte_dev->dev,
+			"Something went wrong while processing packet!\n");
+		dev_err(pkte_dev->dev,
+				"PKTE STAT:%08x\nPKTE CTL STAT:%80x\n",
+				pkte_stat,
+				pkte_ctl_stat);
+		return -EINVAL;
+	}
+
+	err = adi_wait_for_bit(pkte_dev, CTL_STAT_OFFSET,
+			BITM_PKTE_CTL_STAT_PERDY);
 	if (err)
 		return err;
 
-	err = adi_wait_for_bit(pkte_dev, CTL_STAT_OFFSET, BITM_PKTE_CTL_STAT_PERDY);
+	err = adi_wait_for_bit(pkte_dev, STAT_OFFSET,
+			BITM_PKTE_STAT_OUTPTDN);
 	if (err)
 		return err;
 
@@ -356,11 +404,7 @@ static int adi_init_skcipher(struct crypto_skcipher *tfm)
 	struct adi_ctx *ctx = crypto_skcipher_ctx(tfm);
 
 	crypto_skcipher_set_reqsize(tfm, sizeof(struct adi_crypt_reqctx));
-
-	ctx->enginectx.do_one_request = adi_crypt_cipher_one_req;
-
 	ctx->flags_skcipher &= ~PKTE_FLAGS_STARTED;
-
 	return 0;
 }
 
@@ -585,110 +629,140 @@ static int adi_crypt_tdes_ecb_encrypt(struct skcipher_request *req)
 	return adi_crypt(req, ECB | TDES | ENCRYPT);
 }
 
-struct skcipher_alg crypto_algs[NUM_CRYPTO_ALGS] = {
+struct skcipher_engine_alg crypto_algs[NUM_CRYPTO_ALGS] = {
 	{
-	 .base.cra_name = "cbc(aes)",
-	 .base.cra_driver_name = "adi-cbc-aes",
-	 .base.cra_priority = 1000,
-	 .base.cra_flags = CRYPTO_ALG_ASYNC,
-	 .base.cra_blocksize = AES_BLOCK_SIZE,
-	 .base.cra_ctxsize = sizeof(struct adi_ctx),
-	 .base.cra_alignmask = 0,
-	 .base.cra_module = THIS_MODULE,
-
-	 .init = adi_init_skcipher,
-	 .min_keysize = AES_MIN_KEY_SIZE,
-	 .max_keysize = AES_MAX_KEY_SIZE,
-	 .ivsize = AES_BLOCK_SIZE,
-	 .setkey = adi_crypt_aes_setkey,
-	 .encrypt = adi_crypt_aes_cbc_encrypt,
-	 .decrypt = adi_crypt_aes_cbc_decrypt,
+		.base = {
+			 .base.cra_name = "cbc(aes)",
+			 .base.cra_driver_name = "adi-cbc-aes",
+			 .base.cra_priority = 1000,
+			 .base.cra_flags = CRYPTO_ALG_ASYNC |
+				 CRYPTO_ALG_KERN_DRIVER_ONLY,
+			 .base.cra_blocksize = AES_BLOCK_SIZE,
+			 .base.cra_ctxsize = sizeof(struct adi_ctx),
+			 .base.cra_alignmask = 0,
+			 .base.cra_module = THIS_MODULE,
+		},
+	 .base.init = adi_init_skcipher,
+	 .base.min_keysize = AES_MIN_KEY_SIZE,
+	 .base.max_keysize = AES_MAX_KEY_SIZE,
+	 .base.ivsize = AES_BLOCK_SIZE,
+	 .base.setkey = adi_crypt_aes_setkey,
+	 .base.encrypt = adi_crypt_aes_cbc_encrypt,
+	 .base.decrypt = adi_crypt_aes_cbc_decrypt,
+	 .op = {
+		 .do_one_request = adi_crypt_cipher_one_req,
+	 },
+	},
+	{
+		.base = {
+			 .base.cra_name = "cbc(des)",
+			 .base.cra_driver_name = "adi-cbc-des",
+			 .base.cra_priority = 1000,
+			 .base.cra_flags = CRYPTO_ALG_ASYNC |
+				 CRYPTO_ALG_KERN_DRIVER_ONLY,
+			 .base.cra_blocksize = DES_BLOCK_SIZE,
+			 .base.cra_ctxsize = sizeof(struct adi_ctx),
+			 .base.cra_alignmask = 0,
+			 .base.cra_module = THIS_MODULE,
+		},
+	 .base.init = adi_init_skcipher,
+	 .base.min_keysize = DES_BLOCK_SIZE,
+	 .base.max_keysize = DES_BLOCK_SIZE,
+	 .base.ivsize = DES_BLOCK_SIZE,
+	 .base.setkey = adi_crypt_des_setkey,
+	 .base.encrypt = adi_crypt_des_cbc_encrypt,
+	 .base.decrypt = adi_crypt_des_cbc_decrypt,
+	 .op = {
+		 .do_one_request = adi_crypt_cipher_one_req,
+	 },
 	  },
 	{
-	 .base.cra_name = "cbc(des)",
-	 .base.cra_driver_name = "adi-cbc-des",
-	 .base.cra_priority = 1000,
-	 .base.cra_flags = CRYPTO_ALG_ASYNC,
-	 .base.cra_blocksize = DES_BLOCK_SIZE,
-	 .base.cra_ctxsize = sizeof(struct adi_ctx),
-	 .base.cra_alignmask = 0,
-	 .base.cra_module = THIS_MODULE,
-
-	 .init = adi_init_skcipher,
-	 .min_keysize = DES_BLOCK_SIZE,
-	 .max_keysize = DES_BLOCK_SIZE,
-	 .ivsize = DES_BLOCK_SIZE,
-	 .setkey = adi_crypt_des_setkey,
-	 .encrypt = adi_crypt_des_cbc_encrypt,
-	 .decrypt = adi_crypt_des_cbc_decrypt,
+		.base = {
+			 .base.cra_name = "cbc(des3_ede)",
+			 .base.cra_driver_name = "adi-cbc-des3",
+			 .base.cra_priority = 1000,
+			 .base.cra_flags = CRYPTO_ALG_ASYNC |
+				 CRYPTO_ALG_KERN_DRIVER_ONLY,
+			 .base.cra_blocksize = DES_BLOCK_SIZE,
+			 .base.cra_ctxsize = sizeof(struct adi_ctx),
+			 .base.cra_alignmask = 0,
+			 .base.cra_module = THIS_MODULE,
+		},
+	 .base.init = adi_init_skcipher,
+	 .base.min_keysize = 3 * DES_BLOCK_SIZE,
+	 .base.max_keysize = 3 * DES_BLOCK_SIZE,
+	 .base.ivsize = DES_BLOCK_SIZE,
+	 .base.setkey = adi_crypt_tdes_setkey,
+	 .base.encrypt = adi_crypt_tdes_cbc_encrypt,
+	 .base.decrypt = adi_crypt_tdes_cbc_decrypt,
+	 .op = {
+		 .do_one_request = adi_crypt_cipher_one_req,
+	 },
 	  },
 	{
-	 .base.cra_name = "cbc(des3_ede)",
-	 .base.cra_driver_name = "adi-cbc-des3",
-	 .base.cra_priority = 1000,
-	 .base.cra_flags = CRYPTO_ALG_ASYNC,
-	 .base.cra_blocksize = DES_BLOCK_SIZE,
-	 .base.cra_ctxsize = sizeof(struct adi_ctx),
-	 .base.cra_alignmask = 0,
-	 .base.cra_module = THIS_MODULE,
-
-	 .init = adi_init_skcipher,
-	 .min_keysize = 3 * DES_BLOCK_SIZE,
-	 .max_keysize = 3 * DES_BLOCK_SIZE,
-	 .ivsize = DES_BLOCK_SIZE,
-	 .setkey = adi_crypt_tdes_setkey,
-	 .encrypt = adi_crypt_tdes_cbc_encrypt,
-	 .decrypt = adi_crypt_tdes_cbc_decrypt,
+		.base = {
+			 .base.cra_name = "ecb(aes)",
+			 .base.cra_driver_name = "adi-ecb-aes",
+			 .base.cra_priority = 1000,
+			 .base.cra_flags = CRYPTO_ALG_ASYNC |
+				 CRYPTO_ALG_KERN_DRIVER_ONLY,
+			 .base.cra_blocksize = AES_BLOCK_SIZE,
+			 .base.cra_ctxsize = sizeof(struct adi_ctx),
+			 .base.cra_alignmask = 0,
+			 .base.cra_module = THIS_MODULE,
+		},
+	 .base.init = adi_init_skcipher,
+	 .base.min_keysize = AES_MIN_KEY_SIZE,
+	 .base.max_keysize = AES_MAX_KEY_SIZE,
+	 .base.setkey = adi_crypt_aes_setkey,
+	 .base.encrypt = adi_crypt_aes_ecb_encrypt,
+	 .base.decrypt = adi_crypt_aes_ecb_decrypt,
+	 .op = {
+		 .do_one_request = adi_crypt_cipher_one_req,
+	 },
 	  },
 	{
-	 .base.cra_name = "ecb(aes)",
-	 .base.cra_driver_name = "adi-ecb-aes",
-	 .base.cra_priority = 1000,
-	 .base.cra_flags = CRYPTO_ALG_ASYNC,
-	 .base.cra_blocksize = AES_BLOCK_SIZE,
-	 .base.cra_ctxsize = sizeof(struct adi_ctx),
-	 .base.cra_alignmask = 0,
-	 .base.cra_module = THIS_MODULE,
-
-	 .init = adi_init_skcipher,
-	 .min_keysize = AES_MIN_KEY_SIZE,
-	 .max_keysize = AES_MAX_KEY_SIZE,
-	 .setkey = adi_crypt_aes_setkey,
-	 .encrypt = adi_crypt_aes_ecb_encrypt,
-	 .decrypt = adi_crypt_aes_ecb_decrypt,
-	  },
+		.base = {
+			 .base.cra_name = "ecb(des)",
+			 .base.cra_driver_name = "adi-ecb-des",
+			 .base.cra_priority = 1000,
+			 .base.cra_flags = CRYPTO_ALG_ASYNC |
+				 CRYPTO_ALG_KERN_DRIVER_ONLY,
+			 .base.cra_blocksize = DES_BLOCK_SIZE,
+			 .base.cra_ctxsize = sizeof(struct adi_ctx),
+			 .base.cra_alignmask = 0,
+			 .base.cra_module = THIS_MODULE,
+		},
+	 .base.init = adi_init_skcipher,
+	 .base.min_keysize = DES_BLOCK_SIZE,
+	 .base.max_keysize = DES_BLOCK_SIZE,
+	 .base.setkey = adi_crypt_des_setkey,
+	 .base.encrypt = adi_crypt_des_ecb_encrypt,
+	 .base.decrypt = adi_crypt_des_ecb_decrypt,
+	 .op = {
+		 .do_one_request = adi_crypt_cipher_one_req,
+	 },
+	},
 	{
-	 .base.cra_name = "ecb(des)",
-	 .base.cra_driver_name = "adi-ecb-des",
-	 .base.cra_priority = 1000,
-	 .base.cra_flags = CRYPTO_ALG_ASYNC,
-	 .base.cra_blocksize = DES_BLOCK_SIZE,
-	 .base.cra_ctxsize = sizeof(struct adi_ctx),
-	 .base.cra_alignmask = 0,
-	 .base.cra_module = THIS_MODULE,
-
-	 .init = adi_init_skcipher,
-	 .min_keysize = DES_BLOCK_SIZE,
-	 .max_keysize = DES_BLOCK_SIZE,
-	 .setkey = adi_crypt_des_setkey,
-	 .encrypt = adi_crypt_des_ecb_encrypt,
-	 .decrypt = adi_crypt_des_ecb_decrypt,
-	  },
-	{
-	 .base.cra_name = "ecb(des3_ede)",
-	 .base.cra_driver_name = "adi-ecb-des3",
-	 .base.cra_priority = 1000,
-	 .base.cra_flags = CRYPTO_ALG_ASYNC,
-	 .base.cra_blocksize = DES_BLOCK_SIZE,
-	 .base.cra_ctxsize = sizeof(struct adi_ctx),
-	 .base.cra_alignmask = 0,
-	 .base.cra_module = THIS_MODULE,
-
-	 .init = adi_init_skcipher,
-	 .min_keysize = 3 * DES_BLOCK_SIZE,
-	 .max_keysize = 3 * DES_BLOCK_SIZE,
-	 .setkey = adi_crypt_tdes_setkey,
-	 .encrypt = adi_crypt_tdes_ecb_encrypt,
-	 .decrypt = adi_crypt_tdes_ecb_decrypt,
+		.base = {
+			 .base.cra_name = "ecb(des3_ede)",
+			 .base.cra_driver_name = "adi-ecb-des3",
+			 .base.cra_priority = 1000,
+			 .base.cra_flags = CRYPTO_ALG_ASYNC |
+				 CRYPTO_ALG_KERN_DRIVER_ONLY,
+			 .base.cra_blocksize = DES_BLOCK_SIZE,
+			 .base.cra_ctxsize = sizeof(struct adi_ctx),
+			 .base.cra_alignmask = 0,
+			 .base.cra_module = THIS_MODULE,
+		},
+	 .base.init = adi_init_skcipher,
+	 .base.min_keysize = 3 * DES_BLOCK_SIZE,
+	 .base.max_keysize = 3 * DES_BLOCK_SIZE,
+	 .base.setkey = adi_crypt_tdes_setkey,
+	 .base.encrypt = adi_crypt_tdes_ecb_encrypt,
+	 .base.decrypt = adi_crypt_tdes_ecb_decrypt,
+	 .op = {
+		 .do_one_request = adi_crypt_cipher_one_req,
+	 },
 	  },
 };
