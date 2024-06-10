@@ -1,3 +1,5 @@
+//#define DEBUG
+
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Packet engine driver for Analog Devices Incorporated
@@ -11,9 +13,8 @@
  * Contact: Greg Malysa <greg.malysa@timesys.com>
  */
 
-#include <asm/cacheflush.h>
-
 #include <linux/clk.h>
+#include <linux/sched.h>
 #include <linux/crypto.h>
 #include <linux/delay.h>
 #include <linux/interrupt.h>
@@ -44,6 +45,12 @@
 
 #include "adi-pkte.h"
 #include "adi-pkte-hash.h"
+
+
+static int adi_one_request(struct crypto_engine *engine, void *areq);
+static int adi_prepare_req(struct crypto_engine *engine, void *areq);
+
+
 
 void adi_write_packet(struct adi_dev *pkte_dev, u32 *source)
 {
@@ -130,7 +137,7 @@ static void adi_read_packet(struct adi_dev *pkte_dev, u32 *destination)
 		nLength = (u32)(pkte->pPkteDescriptor.CmdDescriptor[pos].PE_DEST_ADDR +
 				pkte->pPkteList.nSrcSize -
 				adi_physical_address(pkte_dev,
-				(u32)pkte->pPkteList.pDestination));
+				(void *)pkte->pPkteList.pDestination));
 		SIZE = (nLength > 128) ? 128:nLength;
 
 		if (pkte->pPkteList.pCommand.opcode == opcode_hash) {
@@ -147,7 +154,7 @@ static void adi_read_packet(struct adi_dev *pkte_dev, u32 *destination)
 				SIZE = 8*4;  /* Destination will be 8 word hash value */
 
 			if (SIZE % 4) {
-				dev_dbg(pkte_dev->dev,
+				dev_err(pkte_dev->dev,
 					"%s: Unhandled Case - 4-byte alignment would fail\n",
 					__func__);
 			} else {
@@ -275,6 +282,7 @@ static int adi_process_packet(struct adi_dev *pkte_dev,
 {
 	unsigned int len32;
 	u32 temp, pos;
+	u32 pkte_ctl_stat;
 #ifdef DEBUG_PKTE
 	char tempString[8192];
 	int i = 0, j = 0;
@@ -311,11 +319,18 @@ static int adi_process_packet(struct adi_dev *pkte_dev,
 		processing = 1;
 	}
 
-	while (!(adi_read(pkte_dev, STAT_OFFSET) & BITM_PKTE_STAT_OUTPTDN))
-		;
+	pkte_ctl_stat = adi_read(pkte_dev, STAT_OFFSET) & BITM_PKTE_STAT_OUTPTDN;
+	while (!pkte_ctl_stat) {
+		pkte_ctl_stat =
+			adi_read(pkte_dev, STAT_OFFSET) & BITM_PKTE_STAT_OUTPTDN;
+		cond_resched();
+	}
 
-	while (!(adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_CTL_STAT_PERDY))
-		;
+	pkte_ctl_stat = adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_CTL_STAT_PERDY;
+	while (!pkte_ctl_stat) {
+		pkte_ctl_stat = adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_CTL_STAT_PERDY;
+		cond_resched();
+	}
 
 	pkte->pPkteList.pSource = &pkte->source[pkte_dev->ring_pos_consume][0];
 
@@ -363,8 +378,13 @@ static int adi_process_packet(struct adi_dev *pkte_dev,
 
 
 #ifndef PKTE_USE_SRAM
-	//The dma_alloc_coherent region does not appear to be uncached on the SC594
-	//Let's manually flush the cache before we trigger the DMA operation
+	/* The dma_alloc_coherent region does not appear to be uncached on the SC594
+	 * Let's manually flush the cache before we trigger the DMA operation
+	 */
+
+
+//NO ONE SEEMS TO BE DOING THIS OTHER THAN MEMORY MANAGEMENT CODE
+/*
 	if (current->mm) {
 		int i;
 
@@ -376,8 +396,8 @@ static int adi_process_packet(struct adi_dev *pkte_dev,
 					  ((long)pkte) + sizeof(struct ADI_PKTE_DEVICE));
 		}
 	}
+*/
 #endif
-
 	if (pkte_dev->flags & (PKTE_TCM_MODE | PKTE_AUTONOMOUS_MODE)) {
 		pkte_dev->ring_pos_consume++;
 
@@ -392,7 +412,7 @@ static int adi_process_packet(struct adi_dev *pkte_dev,
 		adi_write(pkte_dev, CDSC_CNT_OFFSET, 1);
 
 		adi_write(pkte_dev, SA_RDY_OFFSET,
-			  adi_physical_address(pkte_dev, (u32)&pkte->pPkteDescriptor.State));
+			  adi_physical_address(pkte_dev, (void *)&pkte->pPkteDescriptor.State));
 
 		adi_write(pkte_dev, BUF_THRESH_OFFSET,
 			  (u32)128<<BITP_PKTE_BUF_THRESH_INBUF |
@@ -407,15 +427,13 @@ static int adi_process_packet(struct adi_dev *pkte_dev,
 		adi_write(pkte_dev, CDSC_CNT_OFFSET, 1);
 		adi_write(pkte_dev, INT_EN_OFFSET, BITM_PKTE_IMSK_EN_RDRTHRSH);
 	} else if (pkte_dev->flags & PKTE_AUTONOMOUS_MODE) {
-
 		adi_write(pkte_dev, CDSC_CNT_OFFSET, 1);
-
 		adi_write(pkte_dev, BUF_THRESH_OFFSET,
 			  (u32)128<<BITP_PKTE_BUF_THRESH_INBUF |
 			  (u32)128<<BITP_PKTE_BUF_THRESH_OUTBUF);
-
 		if (final)
 			adi_write(pkte_dev, INT_EN_OFFSET, BITM_PKTE_IMSK_EN_RDRTHRSH);
+
 	}
 
 	return 0;
@@ -426,50 +444,69 @@ static void adi_prepare_secret_key(struct adi_dev *pkte_dev, struct adi_request_
 	u32 i;
 	u8 *source_bytewise;
 	struct ADI_PKTE_DEVICE *pkte;
+	u32 pkte_ctl_stat;
 
 	pkte = pkte_dev->pkte_device;
 
-	//Compute the inner hash of the HMAC (Result).  From RFC2104:
-	//HASH(Key XOR opad, HASH(Key XOR ipad, text))
+	/* Compute the inner hash of the HMAC (Result).  From RFC2104:
+	 * HASH(Key XOR opad, HASH(Key XOR ipad, text))
+	 */
 	adi_prep_engine(pkte_dev, hash_mode_standard);
 	memset(&pkte->source[pkte_dev->ring_pos_consume][0], 0, INNER_OUTER_KEY_SIZE);
 	memcpy(&pkte->source[pkte_dev->ring_pos_consume][0],
 		pkte_dev->secret_key, pkte_dev->secret_keylen);
 	source_bytewise = (u8 *)&pkte->source[pkte_dev->ring_pos_consume][0];
+	//XOR padded key with ipad
 	for (i = 0; i < INNER_OUTER_KEY_SIZE; i++)
-		*(source_bytewise+i) ^= 0x36;
+		*(source_bytewise + i) ^= 0x36;
+
+	//Hash XOR result
 	adi_process_packet(pkte_dev, INNER_OUTER_KEY_SIZE, 0);
 
 	if (!(pkte_dev->flags & PKTE_HOST_MODE)) {
-		while (!(adi_read(pkte_dev, STAT_OFFSET) & BITM_PKTE_STAT_OUTPTDN))
-			;
+		pkte_ctl_stat = adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_STAT_OUTPTDN;
+		while (!pkte_ctl_stat) {
+			pkte_ctl_stat =
+				adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_STAT_OUTPTDN;
+			cond_resched();
+		}
 	}
 
-	while (!(adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_CTL_STAT_PERDY))
-		;
+	pkte_ctl_stat = adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_CTL_STAT_PERDY;
+	while (!pkte_ctl_stat) {
+		pkte_ctl_stat = adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_CTL_STAT_PERDY;
+		cond_resched();
+	}
 
 	pkte_dev->ring_pos_produce++;
-
 	pkte_dev->flags |= PKTE_FLAGS_HMAC_KEY_PREPARED;
 }
+
+//#ifdef DEBUG_PKTE
+static void adi_printkey(const u8 *key, unsigned int keylen, struct adi_dev *pkte_dev)
+{
+	char temp[256];
+	int i = 0, j = 0;
+
+	for (i = 0, j = 0; i < keylen; i++)
+		j += sprintf(&temp[j], "%c ", key[i]);
+	temp[j] = 0;
+	dev_dbg(pkte_dev->dev, "%s HMAC key: %s\n", __func__, temp);
+}
+//#endif
 
 static int adi_setkey(struct crypto_ahash *tfm,
 				 const u8 *key, unsigned int keylen)
 {
 	struct adi_ctx *ctx = crypto_ahash_ctx(tfm);
 	struct adi_dev *pkte_dev = adi_find_dev(ctx);
-	char temp[256];
-	int i = 0, j = 0;
 
 
 	if (keylen <= PKTE_MAX_KEY_SIZE) {
 
-#ifdef DEBUG_PKTE
-		for (i = 0, j = 0; i < keylen; i++)
-			j += sprintf(&temp[j], "%x ", key[i]);
-		temp[j] = 0;
-		dev_dbg(pkte_dev->dev, "%s HMAC key: %s\n", __func__, temp);
-#endif
+//#ifdef DEBUG_PKTE
+		adi_printkey(key, keylen, pkte_dev);
+//#endif
 
 		if (keylen > INNER_OUTER_KEY_SIZE) {
 			dev_err(pkte_dev->dev,
@@ -482,6 +519,7 @@ static int adi_setkey(struct crypto_ahash *tfm,
 		pkte_dev->secret_keylen = keylen;
 
 	} else {
+		dev_err(pkte_dev->dev, "Key length exceeds limit!\n");
 		return -ENOMEM;
 	}
 
@@ -609,7 +647,6 @@ static int adi_final_req(struct adi_dev *pkte_dev)
 static void adi_copy_hash(struct ahash_request *req)
 {
 	struct adi_request_ctx *rctx = ahash_request_ctx(req);
-	struct adi_dev *pkte_dev = rctx->pkte_dev;
 	u32 *hash = (u32 *)rctx->digest;
 	u32 i;
 	struct ADI_PKTE_DEVICE *pkte;
@@ -637,7 +674,7 @@ static int adi_finish(struct ahash_request *req)
 	adi_reset_state(pkte_dev);
 
 	if (!req->result) {
-		dev_dbg(pkte_dev->dev, "%s: error\n", __func__);
+		dev_err(pkte_dev->dev, "%s: error\n", __func__);
 		return -EINVAL;
 	}
 
@@ -653,29 +690,38 @@ static void adi_finish_req(struct ahash_request *req, int err)
 	u32 i, digestLength;
 	u8 *source_bytewise;
 	struct ADI_PKTE_DEVICE *pkte;
+	u32 pkte_ctl_stat;
+
+
+	dev_dbg(pkte_dev->dev, "%s flags %lx\n", __func__, pkte_dev->flags);
 
 	pkte = pkte_dev->pkte_device;
 
 	if (!err && (PKTE_FLAGS_FINAL & pkte_dev->flags)) {
 		wait_event_interruptible(wq_ready, ready == 1);
-		while (!(adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_CTL_STAT_PERDY))
-			;
+		pkte_ctl_stat = adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_CTL_STAT_PERDY;
+		while (!pkte_ctl_stat) {
+			pkte_ctl_stat = adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_CTL_STAT_PERDY;
+			cond_resched();
+		}
 
 		//if(pkte_dev->flags & PKTE_HOST_MODE)
 		adi_read_packet(pkte_dev, &pkte->pPkteList.pDestination[0]);
-
 		if (PKTE_FLAGS_HMAC & pkte_dev->flags) {
 			//Compute the outer hash of the HMAC (Result).  From RFC2104:
 			//HASH(Key XOR opad, HASH(Key XOR ipad, text))
+			dev_dbg(pkte_dev->dev, "%s processing req for hmac %lx\n", __func__, pkte_dev->flags);
 			adi_prep_engine(pkte_dev, hash_mode_standard);
+
 			memset(&pkte->source[pkte_dev->ring_pos_consume][0], 0,
 			       INNER_OUTER_KEY_SIZE);
+			//Copy secret key
 			memcpy(&pkte->source[pkte_dev->ring_pos_consume][0],
 			       pkte_dev->secret_key, pkte_dev->secret_keylen);
 			source_bytewise = (u8 *)&pkte->source[pkte_dev->ring_pos_consume][0];
+			//XOR with Opad
 			for (i = 0; i < INNER_OUTER_KEY_SIZE; i++)
 				*(source_bytewise+i) ^= 0x5c;
-
 			digestLength = pkte->pPkteList.pCommand.digest_length;
 
 			//Endian Swap!
@@ -691,12 +737,19 @@ static void adi_finish_req(struct ahash_request *req, int err)
 
 			adi_process_packet(pkte_dev, INNER_OUTER_KEY_SIZE+(digestLength*4), 1);
 			if (!(pkte_dev->flags & PKTE_HOST_MODE)) {
-				while (!(adi_read(pkte_dev, STAT_OFFSET) & BITM_PKTE_STAT_OUTPTDN))
-					;
+				pkte_ctl_stat = adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_STAT_OUTPTDN;
+				while (!pkte_ctl_stat) {
+					pkte_ctl_stat =
+						adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_STAT_OUTPTDN;
+					cond_resched();
+				}
 			}
-			while (!(adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_CTL_STAT_PERDY))
-				;
 
+			pkte_ctl_stat = adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_CTL_STAT_PERDY;
+			while (!pkte_ctl_stat) {
+				pkte_ctl_stat = adi_read(pkte_dev, CTL_STAT_OFFSET) & BITM_PKTE_CTL_STAT_PERDY;
+				cond_resched();
+			}
 			adi_read_packet(pkte_dev, &pkte->pPkteList.pDestination[0]);
 		}
 
@@ -706,9 +759,6 @@ static void adi_finish_req(struct ahash_request *req, int err)
 
 	crypto_finalize_hash_request(pkte_dev->engine, req, err);
 }
-
-static int adi_one_request(struct crypto_engine *engine, void *areq);
-static int adi_prepare_req(struct crypto_engine *engine, void *areq);
 
 static int adi_handle_queue(struct adi_dev *pkte_dev,
 				   struct ahash_request *req)
@@ -747,9 +797,13 @@ static int adi_one_request(struct crypto_engine *engine, void *areq)
 	struct adi_request_ctx *rctx;
 	int err = 0;
 
-
 	if (!pkte_dev)
 		return -ENODEV;
+
+
+	err = adi_prepare_req(engine, areq);
+	if(err)
+		return err;
 
 	pkte_dev->req = req;
 
@@ -796,8 +850,10 @@ static int adi_update(struct ahash_request *req)
 	rctx->offset = 0;
 
 	if (unlikely(pkte_dev->flags & PKTE_FLAGS_HMAC)) {
-		if (!(pkte_dev->flags & PKTE_FLAGS_HMAC_KEY_PREPARED))
+		if (!(pkte_dev->flags & PKTE_FLAGS_HMAC_KEY_PREPARED)) {
+			dev_dbg(pkte_dev->dev, "preparing secret key\n");
 			adi_prepare_secret_key(pkte_dev, rctx);
+		}
 	}
 
 	if ((rctx->bufcnt + rctx->total <= rctx->buflen)) {
@@ -865,13 +921,12 @@ static int adi_cra_init_algs(struct crypto_tfm *tfm,
 				 sizeof(struct adi_request_ctx));
 
 	pkte_dev->secret_keylen = 0;
-	if (algs_hmac_name)
+	if (algs_hmac_name) {
+		dev_dbg(pkte_dev->dev, "registering HMAC: %s\n", algs_hmac_name);
 		pkte_dev->flags |= PKTE_FLAGS_HMAC;
+	}
 
-	ctx->enginectx.op.do_one_request = adi_one_request;
-	ctx->enginectx.op.prepare_request = adi_prepare_req;
-	ctx->enginectx.op.unprepare_request = NULL;
-
+	ctx->enginectx.do_one_request = adi_one_request;
 	return 0;
 }
 
@@ -902,16 +957,16 @@ static int adi_cra_sha256_init(struct crypto_tfm *tfm)
 
 
 
-static struct ahash_alg algs_md5_sha1[] = {
+static struct ahash_engine_alg algs_md5_sha1[] = {
 	{
-		.init = adi_init,
-		.update = adi_update,
-		.final = adi_final,
-		.finup = adi_finup,
-		.digest = adi_digest,
-		.export = adi_export,
-		.import = adi_import,
-		.halg = {
+		.base.init = adi_init,
+		.base.update = adi_update,
+		.base.final = adi_final,
+		.base.finup = adi_finup,
+		.base.digest = adi_digest,
+		.base.export = adi_export,
+		.base.import = adi_import,
+		.base.halg = {
 			.digestsize = MD5_DIGEST_SIZE,
 			.statesize = sizeof(struct adi_request_ctx),
 			.base = {
@@ -922,22 +977,22 @@ static struct ahash_alg algs_md5_sha1[] = {
 					     CRYPTO_ALG_KERN_DRIVER_ONLY,
 				.cra_blocksize = MD5_HMAC_BLOCK_SIZE,
 				.cra_ctxsize = sizeof(struct adi_ctx),
-				.cra_alignmask = 3,
 				.cra_init = adi_cra_init,
 				.cra_module = THIS_MODULE,
 			}
-		}
+		},
+		.op.do_one_request = adi_one_request,
 	},
 	{
-		.init = adi_init,
-		.update = adi_update,
-		.final = adi_final,
-		.finup = adi_finup,
-		.digest = adi_digest,
-		.export = adi_export,
-		.import = adi_import,
-		.setkey = adi_setkey,
-		.halg = {
+		.base.init = adi_init,
+		.base.update = adi_update,
+		.base.final = adi_final,
+		.base.finup = adi_finup,
+		.base.digest = adi_digest,
+		.base.export = adi_export,
+		.base.import = adi_import,
+		.base.setkey = adi_setkey,
+		.base.halg = {
 			.digestsize = MD5_DIGEST_SIZE,
 			.statesize = sizeof(struct adi_request_ctx),
 			.base = {
@@ -948,21 +1003,22 @@ static struct ahash_alg algs_md5_sha1[] = {
 					     CRYPTO_ALG_KERN_DRIVER_ONLY,
 				.cra_blocksize = MD5_HMAC_BLOCK_SIZE,
 				.cra_ctxsize = sizeof(struct adi_ctx),
-				.cra_alignmask = 3,
 				.cra_init = adi_cra_md5_init,
 				.cra_module = THIS_MODULE,
 			}
-		}
+		},
+		.op.do_one_request = adi_one_request,
 	},
 	{
-		.init = adi_init,
-		.update = adi_update,
-		.final = adi_final,
-		.finup = adi_finup,
-		.digest = adi_digest,
-		.export = adi_export,
-		.import = adi_import,
-		.halg = {
+		.base.init = adi_init,
+		.base.update = adi_update,
+		.base.final = adi_final,
+		.base.finup = adi_finup,
+		.base.digest = adi_digest,
+		.base.export = adi_export,
+		.base.import = adi_import,
+		.base.halg = {
+			.digestsize = MD5_DIGEST_SIZE,
 			.digestsize = SHA1_DIGEST_SIZE,
 			.statesize = sizeof(struct adi_request_ctx),
 			.base = {
@@ -973,22 +1029,22 @@ static struct ahash_alg algs_md5_sha1[] = {
 					     CRYPTO_ALG_KERN_DRIVER_ONLY,
 				.cra_blocksize = SHA1_BLOCK_SIZE,
 				.cra_ctxsize = sizeof(struct adi_ctx),
-				.cra_alignmask = 3,
 				.cra_init = adi_cra_init,
 				.cra_module = THIS_MODULE,
 			}
-		}
+		},
+		.op.do_one_request = adi_one_request,
 	},
 	{
-		.init = adi_init,
-		.update = adi_update,
-		.final = adi_final,
-		.finup = adi_finup,
-		.digest = adi_digest,
-		.export = adi_export,
-		.import = adi_import,
-		.setkey = adi_setkey,
-		.halg = {
+		.base.init = adi_init,
+		.base.update = adi_update,
+		.base.final = adi_final,
+		.base.finup = adi_finup,
+		.base.digest = adi_digest,
+		.base.export = adi_export,
+		.base.import = adi_import,
+		.base.setkey = adi_setkey,
+		.base.halg = {
 			.digestsize = SHA1_DIGEST_SIZE,
 			.statesize = sizeof(struct adi_request_ctx),
 			.base = {
@@ -999,24 +1055,24 @@ static struct ahash_alg algs_md5_sha1[] = {
 					     CRYPTO_ALG_KERN_DRIVER_ONLY,
 				.cra_blocksize = SHA1_BLOCK_SIZE,
 				.cra_ctxsize = sizeof(struct adi_ctx),
-				.cra_alignmask = 3,
 				.cra_init = adi_cra_sha1_init,
 				.cra_module = THIS_MODULE,
 			}
-		}
+		},
+		.op.do_one_request = adi_one_request,
 	},
 };
 
-static struct ahash_alg algs_sha224_sha256[] = {
+static struct ahash_engine_alg algs_sha224_sha256[] = {
 	{
-		.init = adi_init,
-		.update = adi_update,
-		.final = adi_final,
-		.finup = adi_finup,
-		.digest = adi_digest,
-		.export = adi_export,
-		.import = adi_import,
-		.halg = {
+		.base.init = adi_init,
+		.base.update = adi_update,
+		.base.final = adi_final,
+		.base.finup = adi_finup,
+		.base.digest = adi_digest,
+		.base.export = adi_export,
+		.base.import = adi_import,
+		.base.halg = {
 			.digestsize = SHA224_DIGEST_SIZE,
 			.statesize = sizeof(struct adi_request_ctx),
 			.base = {
@@ -1027,22 +1083,22 @@ static struct ahash_alg algs_sha224_sha256[] = {
 					     CRYPTO_ALG_KERN_DRIVER_ONLY,
 				.cra_blocksize = SHA224_BLOCK_SIZE,
 				.cra_ctxsize = sizeof(struct adi_ctx),
-				.cra_alignmask = 3,
 				.cra_init = adi_cra_init,
 				.cra_module = THIS_MODULE,
 			}
-		}
+		},
+		.op.do_one_request = adi_one_request,
 	},
 	{
-		.init = adi_init,
-		.update = adi_update,
-		.final = adi_final,
-		.finup = adi_finup,
-		.digest = adi_digest,
-		.setkey = adi_setkey,
-		.export = adi_export,
-		.import = adi_import,
-		.halg = {
+		.base.init = adi_init,
+		.base.update = adi_update,
+		.base.final = adi_final,
+		.base.finup = adi_finup,
+		.base.digest = adi_digest,
+		.base.export = adi_export,
+		.base.import = adi_import,
+		.base.setkey = adi_setkey,
+		.base.halg = {
 			.digestsize = SHA224_DIGEST_SIZE,
 			.statesize = sizeof(struct adi_request_ctx),
 			.base = {
@@ -1053,21 +1109,21 @@ static struct ahash_alg algs_sha224_sha256[] = {
 					     CRYPTO_ALG_KERN_DRIVER_ONLY,
 				.cra_blocksize = SHA224_BLOCK_SIZE,
 				.cra_ctxsize = sizeof(struct adi_ctx),
-				.cra_alignmask = 3,
 				.cra_init = adi_cra_sha224_init,
 				.cra_module = THIS_MODULE,
 			}
-		}
+		},
+		.op.do_one_request = adi_one_request,
 	},
 	{
-		.init = adi_init,
-		.update = adi_update,
-		.final = adi_final,
-		.finup = adi_finup,
-		.digest = adi_digest,
-		.export = adi_export,
-		.import = adi_import,
-		.halg = {
+		.base.init = adi_init,
+		.base.update = adi_update,
+		.base.final = adi_final,
+		.base.finup = adi_finup,
+		.base.digest = adi_digest,
+		.base.export = adi_export,
+		.base.import = adi_import,
+		.base.halg = {
 			.digestsize = SHA256_DIGEST_SIZE,
 			.statesize = sizeof(struct adi_request_ctx),
 			.base = {
@@ -1078,22 +1134,22 @@ static struct ahash_alg algs_sha224_sha256[] = {
 					     CRYPTO_ALG_KERN_DRIVER_ONLY,
 				.cra_blocksize = SHA256_BLOCK_SIZE,
 				.cra_ctxsize = sizeof(struct adi_ctx),
-				.cra_alignmask = 3,
 				.cra_init = adi_cra_init,
 				.cra_module = THIS_MODULE,
 			}
-		}
+		},
+		.op.do_one_request = adi_one_request,
 	},
 	{
-		.init = adi_init,
-		.update = adi_update,
-		.final = adi_final,
-		.finup = adi_finup,
-		.digest = adi_digest,
-		.export = adi_export,
-		.import = adi_import,
-		.setkey = adi_setkey,
-		.halg = {
+		.base.init = adi_init,
+		.base.update = adi_update,
+		.base.final = adi_final,
+		.base.finup = adi_finup,
+		.base.digest = adi_digest,
+		.base.export = adi_export,
+		.base.import = adi_import,
+		.base.setkey = adi_setkey,
+		.base.halg = {
 			.digestsize = SHA256_DIGEST_SIZE,
 			.statesize = sizeof(struct adi_request_ctx),
 			.base = {
@@ -1104,11 +1160,11 @@ static struct ahash_alg algs_sha224_sha256[] = {
 					     CRYPTO_ALG_KERN_DRIVER_ONLY,
 				.cra_blocksize = SHA256_BLOCK_SIZE,
 				.cra_ctxsize = sizeof(struct adi_ctx),
-				.cra_alignmask = 3,
 				.cra_init = adi_cra_sha256_init,
 				.cra_module = THIS_MODULE,
 			}
-		}
+		},
+		.op.do_one_request = adi_one_request,
 	},
 };
 
