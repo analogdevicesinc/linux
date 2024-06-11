@@ -134,9 +134,10 @@ static int adi_get_hash_packet_size(int hash_type)
 static int adi_read_hash_to_dest(struct adi_dev *pkte_dev, u32 packet_size,
 				 u32 *destination, u32 data_buf_offset)
 {
-	u32 read_iter, dest_offset_incr, hash_packet_size, final_packet_size;
+	u32 read_iter, dest_offset_incr, final_packet_size;
 	struct ADI_PKTE_DEVICE *pkte;
 	u32 *dest_data_buf;
+	int hash_packet_size;
 	u32 i;
 
 	pkte = pkte_dev->pkte_device;
