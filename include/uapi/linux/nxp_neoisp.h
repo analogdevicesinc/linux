@@ -548,7 +548,7 @@ struct neoisp_meta_params_s {
 #define NEO_CTEMP_PIX_CNT_CNT           (64)
 #define NEO_RGBIR_HIST_CNT              (256)
 #define NEO_HIST_STAT_CNT               (512)
-#define NEO_DRC_LOCAL_SUM_CNT           (256)
+#define NEO_DRC_LOCAL_SUM_CNT           (1024)
 #define NEO_DRC_GLOBAL_HIST_ROI_CNT     (416)
 
 struct neoisp_reg_stats_crois_s {
