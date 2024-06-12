@@ -726,7 +726,7 @@ static ssize_t adf4371_write(struct iio_dev *indio_dev,
 			break;
 
 		ret = regmap_update_bits(st->regmap, ADF4371_REG(0x20),
-					 ADF4371_AUX_FREQ_SEL_MSK,
+					 ADF4371_MUXOUT_EN_MSK,
 					 ADF4371_MUXOUT_EN(muxout_en));
 		if (ret < 0)
 			break;
