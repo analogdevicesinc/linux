@@ -3,13 +3,13 @@ variables:
 
 trigger:
 - main
-- master
+- next_stable
 - staging/*
 - 20*
 
 pr:
 - main
-- master
+- next_stable
 - 20*
 
 pool:
