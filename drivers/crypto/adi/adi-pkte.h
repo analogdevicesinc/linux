@@ -875,7 +875,7 @@ struct ADI_PKTE_DEVICE {
 };
 
 struct adi_ctx {
-	struct crypto_engine_op enginectx;
+	struct crypto_engine_ctx enginectx;
 	struct adi_dev          *pkte_dev;
 	int                     keylen;
 	__be32                  key[AES_KEYSIZE_256 / sizeof(u32)];
@@ -901,7 +901,7 @@ struct adi_request_ctx {
 };
 
 struct adi_algs_info {
-	struct ahash_engine_alg	*algs_list;
+	struct ahash_alg	*algs_list;
 	size_t			size;
 };
 
@@ -954,7 +954,7 @@ void adi_config_state(struct adi_dev *pkte_dev, u32 IV[]);
 void adi_write(struct adi_dev *pkte_dev, u32 offset, u32 value);
 
 u32 adi_read(struct adi_dev *pkte_dev, u32 offset);
-u32 adi_physical_address(struct adi_dev *pkte_dev, void *variableAddress);
+u32 adi_physical_address(struct adi_dev *pkte_dev, u32 variableAddress);
 
 struct adi_dev *adi_find_dev(struct adi_ctx *ctx);
 

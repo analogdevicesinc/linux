@@ -21,7 +21,7 @@
 #include <linux/iopoll.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/reset.h>
 
@@ -92,16 +92,12 @@ void adi_write(struct adi_dev *pkte_dev, u32 offset, u32 value)
 	writel(value, pkte_dev->io_base + offset);
 }
 
-u32 adi_physical_address(struct adi_dev *pkte_dev, void *variableAddress)
+u32 adi_physical_address(struct adi_dev *pkte_dev, u32 variableAddress)
 {
-
-	u32 variableAddress_32 = *((u32 *)variableAddress);
-	u32 pkte_device_32 = *((u32 *)pkte_dev->pkte_device);
-
 #ifdef PKTE_USE_SRAM
-	return PKTE_SRAM_ADDRESS + variableAddress_32 - pkte_device_32;
+	return PKTE_SRAM_ADDRESS + variableAddress - ((u32)pkte_dev->pkte_device);
 #else
-	return pkte_dev->dma_handle + variableAddress_32 - pkte_device_32;
+	return pkte_dev->dma_handle + variableAddress - ((u32)pkte_dev->pkte_device);
 #endif
 }
 
@@ -280,9 +276,9 @@ void adi_init_ring(struct adi_dev *pkte_dev)
 
 	pkte = pkte_dev->pkte_device;
 
-	temp = adi_physical_address(pkte_dev, (void *)&pkte->pPkteDescriptor.CmdDescriptor[0]);
+	temp = adi_physical_address(pkte_dev, (u32)&pkte->pPkteDescriptor.CmdDescriptor[0]);
 	adi_write(pkte_dev, CDRBASE_ADDR_OFFSET, temp);
-	temp = adi_physical_address(pkte_dev, (void *)&pkte->pPkteDescriptor.ResultDescriptor[0]);
+	temp = adi_physical_address(pkte_dev, (u32)&pkte->pPkteDescriptor.ResultDescriptor[0]);
 	adi_write(pkte_dev, RDRBASE_ADDR_OFFSET, temp);
 	temp = (PKTE_RING_BUFFERS-1)<<BITP_PKTE_RING_CFG_RINGSZ;
 	adi_write(pkte_dev, RING_CFG_OFFSET, temp);
@@ -325,11 +321,11 @@ void adi_configure_cdr(struct adi_dev *pkte_dev)
 
 	commandDesc->PE_CTRL_STAT = (u32)0x1 | (pkte->pPkteList.pCommand.final_hash_condition<<4);
 	commandDesc->PE_SOURCE_ADDR = adi_physical_address(pkte_dev,
-		(void *)&pkte->source[pkte_dev->ring_pos_consume][0]);
-	commandDesc->PE_DEST_ADDR = adi_physical_address(pkte_dev, (void *)&pkte->destination[0]);
-	commandDesc->PE_SA_ADDR = adi_physical_address(pkte_dev, (void *)&SARec->SA_Para.SA_CMD0);
+		(u32)&pkte->source[pkte_dev->ring_pos_consume][0]);
+	commandDesc->PE_DEST_ADDR = adi_physical_address(pkte_dev, (u32)&pkte->destination[0]);
+	commandDesc->PE_SA_ADDR = adi_physical_address(pkte_dev, (u32)&SARec->SA_Para.SA_CMD0);
 	commandDesc->PE_STATE_ADDR = adi_physical_address(pkte_dev,
-		(void *)&pkte->pPkteDescriptor.State.STATE_IV0);
+		(u32)&pkte->pPkteDescriptor.State.STATE_IV0);
 	commandDesc->PE_USER_ID = pkte->pPkteList.nUserID;
 }
 
@@ -507,29 +503,6 @@ int adi_hw_init(struct adi_dev *pkte_dev)
 	return 0;
 }
 
-
-static int adi_unregister_algs(struct adi_dev *pkte_dev)
-{
-	unsigned int i, j;
-
-
-	if(!pkte_dev)
-		return 0;
-
-#ifdef CONFIG_CRYPTO_DEV_ADI_HASH
-	for (i = 0; i < pkte_dev->pdata->algs_info_size; i++)
-		for (j = 0; j < pkte_dev->pdata->algs_info[i].size; j++)
-			crypto_engine_unregister_ahash(
-				&pkte_dev->pdata->algs_info[i].algs_list[j]);
-
-#endif
-
-#ifdef CONFIG_CRYPTO_DEV_ADI_SKCIPHER
-	crypto_unregister_skciphers(crypto_algs, ARRAY_SIZE(crypto_algs));
-#endif
-	return 0;
-}
-
 static int adi_register_algs(struct adi_dev *pkte_dev)
 {
 	unsigned int i, j;
@@ -538,13 +511,10 @@ static int adi_register_algs(struct adi_dev *pkte_dev)
 #ifdef CONFIG_CRYPTO_DEV_ADI_HASH
 	for (i = 0; i < pkte_dev->pdata->algs_info_size; i++) {
 		for (j = 0; j < pkte_dev->pdata->algs_info[i].size; j++) {
-			err = crypto_engine_register_ahash(
+			err = crypto_register_ahash(
 				&pkte_dev->pdata->algs_info[i].algs_list[j]);
 			if (err) {
 				dev_err(pkte_dev->dev, "Could not register hash alg\n");
-				if ((i == 0) && (j==0))
-					return err;
-
 				goto err_algs;
 			}
 		}
@@ -564,10 +534,39 @@ static int adi_register_algs(struct adi_dev *pkte_dev)
 
 err_algs:
 
-	adi_unregister_algs(pkte_dev);
+#ifdef CONFIG_CRYPTO_DEV_ADI_HASH
+	for (; i--; ) {
+		for (; j--;)
+			crypto_unregister_ahash(
+				&pkte_dev->pdata->algs_info[i].algs_list[j]);
+	}
+#endif
+
+#ifdef CONFIG_CRYPTO_DEV_ADI_SKCIPHER
+	crypto_unregister_skciphers(crypto_algs, ARRAY_SIZE(crypto_algs));
+#endif
+
 	return err;
 }
 
+static int adi_unregister_algs(struct adi_dev *pkte_dev)
+{
+	unsigned int i, j;
+
+#ifdef CONFIG_CRYPTO_DEV_ADI_HASH
+	for (i = 0; i < pkte_dev->pdata->algs_info_size; i++) {
+		for (j = 0; j < pkte_dev->pdata->algs_info[i].size; j++)
+			crypto_unregister_ahash(
+				&pkte_dev->pdata->algs_info[i].algs_list[j]);
+	}
+#endif
+
+#ifdef CONFIG_CRYPTO_DEV_ADI_SKCIPHER
+	crypto_unregister_skciphers(crypto_algs, ARRAY_SIZE(crypto_algs));
+#endif
+
+	return 0;
+}
 
 static const struct adi_pdata adi_pdata_adi = {
 #ifdef CONFIG_CRYPTO_DEV_ADI_HASH
@@ -686,7 +685,7 @@ static int adi_probe(struct platform_device *pdev)
 					IRQF_SHARED,
 					dev_name(dev), pkte_dev);
 	if (ret) {
-		dev_err(dev, "Cannot get IRQ\n");
+		dev_dbg(dev, "Cannot grab IRQ\n");
 		return ret;
 	}
 
@@ -699,25 +698,18 @@ static int adi_probe(struct platform_device *pdev)
 	/* Initialize crypto engine */
 	pkte_dev->engine = crypto_engine_alloc_init(dev, 1);
 	if (!pkte_dev->engine) {
-		dev_err(dev, "Cannot Initialize crypto engine(%d)\n", ret);
 		ret = -ENOMEM;
 		goto err_engine;
 	}
 
-	/* start crypto engine */
 	ret = crypto_engine_start(pkte_dev->engine);
-	if (ret) {
-		dev_err(dev, "Cannot start crypto engine(%d)\n", ret);
+	if (ret)
 		goto err_engine_start;
-	}
 
 	/* Register algos */
 	ret = adi_register_algs(pkte_dev);
-	if (ret) {
-		dev_err(dev, "Cannot register algorithms crypto engine(%d)\n",
-				ret);
+	if (ret)
 		goto err_algs;
-	}
 
 	return 0;
 

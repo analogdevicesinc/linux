@@ -66,7 +66,8 @@ static int adi_crypt_prepare_req(struct skcipher_request *req)
 	struct adi_dev *crypt;
 	struct adi_crypt_reqctx *rctx;
 	struct scatter_walk in;
-	int i, ivsize, pos;
+	int ret;
+	int i, j, ivsize, pos;
 	struct ADI_PKTE_DEVICE *pkte;
 
 #ifdef DEBUG_PKTE
@@ -253,14 +254,11 @@ static int adi_crypt_cipher_one_req(struct crypto_engine *engine, void *areq)
 			crypto_skcipher_reqtfm(req));
 	struct adi_dev *crypt = ctx->pkte_dev;
 	int err = 0;
+	unsigned int i;
 	struct scatter_walk out;
 
 	if (!crypt)
 		return -ENODEV;
-
-	err = adi_crypt_prepare_cipher_req(engine, areq);
-	if(err)
-		return err;
 
 
 	if (crypt->flags & (PKTE_TCM_MODE | PKTE_HOST_MODE)) {
@@ -295,7 +293,7 @@ static int adi_crypt_cipher_one_req(struct crypto_engine *engine, void *areq)
 	return 0;
 }
 
-int adi_crypt_prepare_cipher_req(struct crypto_engine *engine,
+static int adi_crypt_prepare_cipher_req(struct crypto_engine *engine,
 					 void *areq)
 {
 	struct skcipher_request *req = container_of(areq,
@@ -309,40 +307,36 @@ int adi_crypt_prepare_cipher_req(struct crypto_engine *engine,
 static int adi_init_skcipher(struct crypto_skcipher *tfm)
 {
 	struct adi_ctx *ctx = crypto_skcipher_ctx(tfm);
+	struct adi_dev *crypt = ctx->pkte_dev;
 
 	crypto_skcipher_set_reqsize(tfm, sizeof(struct adi_crypt_reqctx));
 
 
-	ctx->enginectx.do_one_request = adi_crypt_cipher_one_req;
+	ctx->enginectx.op.do_one_request = adi_crypt_cipher_one_req;
+	ctx->enginectx.op.prepare_request = adi_crypt_prepare_cipher_req;
+	ctx->enginectx.op.unprepare_request = NULL;
 
 	ctx->flags_skcipher &= ~PKTE_FLAGS_STARTED;
 
 	return 0;
 }
 
-
-#ifdef DEBUG_PKTE
-static void adi_print_key(const u8* key, unsigned int keylen) {
-	int i,j;
-	char temp[256];
-
-	for (i = 0, j = 0; i < keylen; i++)
-		j += sprintf(&temp[j], "%x ", key[i]);
-	temp[j] = 0;
-	pr_debug("%s Crypto key: %s\n", __func__, temp);
-
-}
-#endif
-
 static int adi_crypt_setkey(struct crypto_skcipher *tfm, const u8 *key,
 			     unsigned int keylen)
 {
 	struct adi_ctx *ctx = crypto_skcipher_ctx(tfm);
+	struct adi_dev *crypt = ctx->pkte_dev;
+	int i, j;
+	char temp[256];
 
 	if (keylen <= PKTE_MAX_KEY_SIZE) {
 #ifdef DEBUG_PKTE
-		adi_print_key(key, keylen);
+		for (i = 0, j = 0; i < keylen; i++)
+			j += sprintf(&temp[j], "%x ", key[i]);
+		temp[j] = 0;
+		pr_debug("%s Crypto key: %s\n", __func__, temp);
 #endif
+
 		memcpy(ctx->key, key, keylen);
 		ctx->keylen = keylen;
 	}
