@@ -784,6 +784,8 @@
 		};
 
 		gpio1: gpio@10C03300 {
+			compatible = "snps,dw-apb-gpio";
+			reg = <0x10c03300 0x100>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			resets = <&rst GPIO1_RESET>;
