@@ -20,7 +20,7 @@
 
 # make $(src) as absolute path if it is not already, by prefixing $(srctree)
 # This is to prevent any build issue due to wrong path.
-src:=$(if $(patsubst /%,,$(src)),$(srctree)/$(src),$(src))
+src:=$(if $(patsubst /%,,$(src)),$(src),$(src))
 
 #
 # Prevent misuse when Kernel configurations are not present by default
