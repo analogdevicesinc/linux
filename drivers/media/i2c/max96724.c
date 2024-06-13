@@ -596,6 +596,11 @@ static int max96724_chip_init(struct max96724_priv *priv)
 	dev_info(dev, "GMSL link mask: configured = 0x%x, locked = 0x%x\n",
 		 priv->gmsl_link_mask, locked_links);
 
+	/* Disable links that didn't lock. Perhaps user didn't connect all sensors. */
+	regmap_update_bits(priv->rmap, MAX96724_DEV_REG6,
+			   LINK_EN_A | LINK_EN_B | LINK_EN_C | LINK_EN_D,
+			   locked_links);
+
 	/* Disable remote control channel on all links. */
 	regmap_write(priv->rmap, MAX96724_DEV_REG3, 0xff);
 
