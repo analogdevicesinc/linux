@@ -511,6 +511,7 @@ enum kbase_jit_report_flags { KBASE_JIT_REPORT_ON_ALLOC_OR_FREE = (1u << 0) };
 /**
  * kbase_set_phy_alloc_page_status - Set the page migration status of the underlying
  *                                   physical allocation.
+ * @kctx:   Pointer to Kbase context.
  * @alloc:  the physical allocation containing the pages whose metadata is going
  *          to be modified
  * @status: the status the pages should end up in
@@ -519,7 +520,7 @@ enum kbase_jit_report_flags { KBASE_JIT_REPORT_ON_ALLOC_OR_FREE = (1u << 0) };
  * proper states are set. Instead, it is only used when we change the allocation
  * to NOT_MOVABLE or from NOT_MOVABLE to ALLOCATED_MAPPED
  */
-void kbase_set_phy_alloc_page_status(struct kbase_mem_phy_alloc *alloc,
+void kbase_set_phy_alloc_page_status(struct kbase_context *kctx, struct kbase_mem_phy_alloc *alloc,
 				     enum kbase_page_status status);
 
 static inline void kbase_mem_phy_alloc_gpu_mapped(struct kbase_mem_phy_alloc *alloc)
