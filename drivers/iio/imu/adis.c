@@ -304,11 +304,17 @@ EXPORT_SYMBOL_NS(__adis_enable_irq, IIO_ADISLIB);
  */
 int __adis_check_status(struct adis *adis)
 {
-	u16 status;
+	unsigned int status = 0;
 	int ret;
 	int i;
+	/* default to 2 bytes */
+	unsigned int reg_size = 2;
 
-	ret = __adis_read_reg_16(adis, adis->data->diag_stat_reg, &status);
+	if (adis->data->diag_stat_size)
+		reg_size = adis->data->diag_stat_size;
+
+	ret = adis->ops->read(adis, adis->data->diag_stat_reg, &status,
+			      reg_size);
 	if (ret)
 		return ret;
 
@@ -317,7 +323,7 @@ int __adis_check_status(struct adis *adis)
 	if (status == 0)
 		return 0;
 
-	for (i = 0; i < 16; ++i) {
+	for (i = 0; i < (reg_size * 8); ++i) {
 		if (status & BIT(i)) {
 			dev_err(&adis->spi->dev, "%s.\n",
 				adis->data->status_error_msgs[i]);
