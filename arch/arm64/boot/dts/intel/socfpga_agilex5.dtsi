@@ -148,11 +148,12 @@
 		compatible = "usb-nop-xceiv";
 	};
 
-	pmu {
+	pmu0: pmu {
 		compatible = "arm,armv8-pmuv3";
 		interrupt-parent = <&intc>;
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_LOW>;
 		cpus = <&cpu0>, <&cpu1>, <&cpu2>, <&cpu3>;
+		status = "disabled";
 	};
 
 	pmu-tcu@16002000 {
