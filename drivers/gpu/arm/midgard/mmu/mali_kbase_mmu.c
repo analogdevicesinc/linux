@@ -3676,24 +3676,30 @@ int kbase_mmu_migrate_page(struct tagged_addr old_phys, struct tagged_addr new_p
 
 	/* Unlock MMU region.
 	 *
-	 * Notice that GPUs which don't issue flush commands via GPU control
-	 * still need an additional GPU cache flush here, this time only
-	 * for the page table, because the function call above to sync PGDs
-	 * won't have any effect on them.
+	 * For GPUs without FLUSH_PA_RANGE support, the GPU caches were completely
+	 * cleaned and invalidated after locking the virtual address range affected
+	 * by the migration. As long as the lock is in place, GPU access to the
+	 * locked range would remain blocked. So there is no need to clean and
+	 * invalidate the GPU caches again after the copying the page contents
+	 * of old page and updating the page table entry to point to new page.
+	 *
+	 * For GPUs with FLUSH_PA_RANGE support, the contents of old page would
+	 * have been evicted from the GPU caches after locking the virtual address
+	 * range. The page table entry contents also would have been invalidated
+	 * from the GPU's L2 cache by kbase_mmu_sync_pgd() after the page table
+	 * update.
+	 *
+	 * If kbase_mmu_hw_do_unlock_no_addr() fails, GPU reset will be triggered which
+	 * would remove the MMU lock and so there is no need to rollback page migration
+	 * and the failure can be ignored.
 	 */
 	spin_lock_irqsave(&kbdev->hwaccess_lock, hwaccess_flags);
 	if (kbdev->pm.backend.gpu_ready && mmut->kctx->as_nr >= 0) {
 		int as_nr = mmut->kctx->as_nr;
 		struct kbase_as *as = &kbdev->as[as_nr];
+		int local_ret = kbase_mmu_hw_do_unlock_no_addr(kbdev, as, &op_param);
 
-		if (mmu_flush_cache_on_gpu_ctrl(kbdev)) {
-			ret = kbase_mmu_hw_do_unlock(kbdev, as, &op_param);
-		} else {
-			ret = kbase_gpu_cache_flush_and_busy_wait(kbdev,
-								  GPU_COMMAND_CACHE_CLN_INV_L2);
-			if (!ret)
-				ret = kbase_mmu_hw_do_unlock_no_addr(kbdev, as, &op_param);
-		}
+		CSTD_UNUSED(local_ret);
 	}
 
 	/* Release the transition prevention in L2 by ending the transaction */
@@ -3701,12 +3707,6 @@ int kbase_mmu_migrate_page(struct tagged_addr old_phys, struct tagged_addr new_p
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, hwaccess_flags);
 	/* Releasing locks before checking the migration transaction error state */
 	mutex_unlock(&kbdev->mmu_hw_mutex);
-
-	/* Checking the final migration transaction error state */
-	if (ret < 0) {
-		dev_err(kbdev->dev, "%s: failed to unlock MMU region.", __func__);
-		goto undo_mappings;
-	}
 
 	/* Undertaking metadata transfer, while we are holding the mmu_lock */
 	spin_lock(&page_md->migrate_lock);
