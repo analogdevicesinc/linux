@@ -178,7 +178,7 @@ static void hdmi_drm_info_set(struct cdns_mhdp_device *mhdp)
 	}
 
 	buf[0] = 0;
-	cdns_mhdp_infoframe_set(mhdp, 3, sizeof(buf),
+	cdns_mhdp_infoframe_set(mhdp, 2, sizeof(buf),
 				buf, HDMI_INFOFRAME_TYPE_DRM);
 }
 
