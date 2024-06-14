@@ -406,7 +406,7 @@ static const struct spi_device_id ltc235x_id[] = {
 	{ "ltc2358-18", (kernel_ulong_t)&ltc235x_chip_info[ID_LTC2358_18] },
 	{ },
 };
-MODULE_DEVICE_TABLE(spi, ltc2358_id);
+MODULE_DEVICE_TABLE(spi, ltc235x_id);
 
 static const struct of_device_id ltc235x_of_match[] = {
 	{ .compatible = "adi,ltc2353-16",
