@@ -7,6 +7,7 @@
 #ifndef _JESD204_H_
 #define _JESD204_H_
 
+#include <linux/kconfig.h>
 #include <linux/kern_levels.h>
 #include <dt-bindings/jesd204/device-states.h>
 
@@ -249,7 +250,7 @@ struct jesd204_dev_data {
 	struct jesd204_state_op			state_ops[__JESD204_MAX_OPS];
 };
 
-#ifdef CONFIG_JESD204
+#if IS_ENABLED(CONFIG_JESD204)
 
 struct jesd204_dev *devm_jesd204_dev_register(struct device *dev,
 					      const struct jesd204_dev_data *i);
@@ -400,7 +401,7 @@ static inline void jesd204_copy_link_params(struct jesd204_link *dst,
 
 #endif /* #ifdef CONFIG_JESD204 */
 
-#if defined(CONFIG_PRINTK) && defined(CONFIG_JESD204)
+#if defined(CONFIG_PRINTK) && IS_ENABLED(CONFIG_JESD204)
 
 __printf(3, 4)
 void jesd204_printk(const char *level, const struct jesd204_dev *jdev,
