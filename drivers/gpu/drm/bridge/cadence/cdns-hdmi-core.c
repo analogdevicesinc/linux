@@ -182,6 +182,29 @@ static void hdmi_drm_info_set(struct cdns_mhdp_device *mhdp)
 				buf, HDMI_INFOFRAME_TYPE_DRM);
 }
 
+static void hdmi_spd_info_set(struct cdns_mhdp_device *mhdp)
+{
+	struct hdmi_spd_infoframe frame;
+	u8 buf[32];
+	int ret;
+
+	ret = hdmi_spd_infoframe_init(&frame, "NXP", "i.MX8 HDMI");
+	if (ret < 0) {
+		DRM_DEBUG_KMS("No SPD infoframe\n");
+		return;
+	}
+
+	ret = hdmi_spd_infoframe_pack(&frame, buf + 1, sizeof(buf) - 1);
+	if (ret < 0) {
+		DRM_DEBUG_KMS("couldn't pack SPD infoframe\n");
+		return;
+	}
+
+	buf[0] = 0;
+	cdns_mhdp_infoframe_set(mhdp, 4, sizeof(buf),
+				buf, HDMI_INFOFRAME_TYPE_SPD);
+}
+
 static void cdns_hdmi_mode_set(struct cdns_mhdp_device *mhdp)
 {
 	struct drm_display_mode *mode = &mhdp->mode;
@@ -224,6 +247,8 @@ static void cdns_hdmi_mode_set(struct cdns_mhdp_device *mhdp)
 	hdmi_vendor_info_set(mhdp, mode);
 
 	hdmi_drm_info_set(mhdp);
+
+	hdmi_spd_info_set(mhdp);
 
 	ret = cdns_hdmi_mode_config(mhdp, mode, &mhdp->video_info);
 	if (ret < 0) {
