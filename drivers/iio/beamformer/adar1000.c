@@ -2632,12 +2632,19 @@ static const struct of_device_id adar1000_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, adar1000_of_match);
 
+static const struct spi_device_id adar1000_id[] = {
+	{ "adar1000" },
+	{ }
+}
+MODULE_DEVICE_TABLE(spi, adar1000_id_table);
+
 static struct spi_driver adar1000_driver = {
 	.driver = {
 		.name	= "adar1000",
 		.of_match_table = adar1000_of_match,
 	},
-	.probe		= adar1000_probe,
+	.probe = adar1000_probe,
+	.id_table = adar1000_id,
 };
 module_spi_driver(adar1000_driver);
 
