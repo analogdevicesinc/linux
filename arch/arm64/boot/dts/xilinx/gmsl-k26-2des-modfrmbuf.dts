@@ -10,14 +10,15 @@
 #define BRD_KRIA
 //#define BRD_ZCU
 
-#define GMSL_CAM_ISX021
+//#define GMSL_CAM_ISX021
+#define GMSL_CAM_IMX490
 //#define GMSL_CAM_OVX03A
 
 //GMSL defines
-#define GMSL_CAMERA_NUM 8
+#define GMSL_CAMERA_NUM 4
 #define GMSL_PHY	0x1
 #define GMSL_CAMERA_DES1 4
-#define GMSL_CAMERA_DES2 4
+#define GMSL_CAMERA_DES2 0
 
 #if (GMSL_CAMERA_NUM >= 1)
 #define GMSL_CAMERA_0
@@ -53,6 +54,7 @@
 #define GMSL_SER_6_HEX_ADDR	0x43
 #define GMSL_SER_7_HEX_ADDR	0x44
 
+#ifdef GMSL_CAM_ISX021
 #define GMSL_CAM_0_HEX_ADDR	0x1b
 #define GMSL_CAM_1_HEX_ADDR	0x1c
 #define GMSL_CAM_2_HEX_ADDR	0x1d
@@ -61,6 +63,18 @@
 #define GMSL_CAM_5_HEX_ADDR	0x1c
 #define GMSL_CAM_6_HEX_ADDR	0x1d
 #define GMSL_CAM_7_HEX_ADDR	0x1e
+#endif
+
+#ifdef GMSL_CAM_IMX490
+#define GMSL_CAM_0_HEX_ADDR	0x6e
+#define GMSL_CAM_1_HEX_ADDR	0x6f
+#define GMSL_CAM_2_HEX_ADDR	0x70
+#define GMSL_CAM_3_HEX_ADDR	0x71
+#define GMSL_CAM_4_HEX_ADDR	0x72
+#define GMSL_CAM_5_HEX_ADDR	0x73
+#define GMSL_CAM_6_HEX_ADDR	0x74
+#define GMSL_CAM_7_HEX_ADDR	0x75
+#endif
 
 #define _CONCAT(a, b) a ## b
 #define CONCAT(a, b) _CONCAT(a, b)
@@ -126,7 +140,7 @@
 		gmsl_aggregator_0: gmsl_aggregator@0 {
 			compatible = "maxim,aggregator";
 			max,num-source-slots = <1>;
-			max,num-sink-slots = <GMSL_CAMERA_NUM>;
+			max,num-sink-slots = <GMSL_CAMERA_DES1>;
 			ports {
 				#address-cells = <1>;
 				#size-cells = <0>;
@@ -175,6 +189,7 @@
 			};
 		};
 
+#if (GMSL_CAMERA_DES2 > 0)
 		gmsl_aggregator_1: gmsl_aggregator@1 {
 			compatible = "maxim,aggregator";
 			max,num-source-slots = <1>;
@@ -226,6 +241,7 @@
 #endif
 			};
 		};
+#endif
 
 		mipi_csi2_rx_subsyst_0: mipi_csi2_rx_subsystem@84a00000 {
 			clock-names = "lite_aclk", "dphy_clk_200M", "video_aclk";
@@ -272,6 +288,7 @@
 			};
 		};
 
+#if (GMSL_CAMERA_DES2 > 0)
 		mipi_csi2_rx_subsyst_1: mipi_csi2_rx_subsystem@84a20000 {
 			clock-names = "lite_aclk", "dphy_clk_200M", "video_aclk";
 			clocks = <&zynqmp_clk 71>, <&misc_clk_0>, <&zynqmp_clk 71>;
@@ -316,6 +333,15 @@
 				};
 			};
 		};
+#endif
+
+	        axi_pwmgen: axi_pwmgen@80080000 {
+                        compatible = "adi,axi-pwmgen";
+                        reg = <0x80080000 0x1000>;
+                        label = "pwm_out1";
+                        #pwm-cells = <2>;
+                        clocks = <&pwm_clk>;
+                };
 
 		misc_clk_0: misc_clk_0 {
 			#clock-cells = <0>;
@@ -334,15 +360,16 @@
 			reset-gpios = <&gpio 80 GPIO_ACTIVE_LOW>;
 			reg = <0x84a60000 0x10000>;
 			xlnx,dma-addr-width = <32>;
-			xlnx,max-height = <1080>;
-			xlnx,max-width = <1920>;
-			xlnx,pixels-per-clock = <2>;
+			xlnx,max-height = <2160>;
+			xlnx,max-width = <3840>;
+			xlnx,pixels-per-clock = <4>;
 			xlnx,s-axi-ctrl-addr-width = <0x7>;
 			xlnx,s-axi-ctrl-data-width = <0x20>;
 			xlnx,vid-formats = "bgr888", "uyvy", "yuyv", "nv16";
 			xlnx,video-width = <8>;
 		};
 
+#if (GMSL_CAMERA_DES2 > 0)
 		v_frmbuf_wr_1: v_frmbuf_wr@84a80000 {
 			#dma-cells = <1>;
 			clock-names = "ap_clk";
@@ -354,14 +381,15 @@
 			reset-gpios = <&gpio 81 GPIO_ACTIVE_LOW>;
 			reg = <0x84a80000 0x10000>;
 			xlnx,dma-addr-width = <32>;
-			xlnx,max-height = <1080>;
-			xlnx,max-width = <1920>;
-			xlnx,pixels-per-clock = <2>;
+			xlnx,max-height = <2160>;
+			xlnx,max-width = <3840>;
+			xlnx,pixels-per-clock = <4>;
 			xlnx,s-axi-ctrl-addr-width = <0x7>;
 			xlnx,s-axi-ctrl-data-width = <0x20>;
 			xlnx,vid-formats = "bgr888", "uyvy", "yuyv", "nv16";
 			xlnx,video-width = <8>;
 		};
+#endif
 
 		vcap_mipi_csi2_rx_subsyst_0 {
 			compatible = "xlnx,video";
@@ -381,6 +409,7 @@
 			};
 		};
 
+#if (GMSL_CAMERA_DES2 > 0)
 		vcap_mipi_csi2_rx_subsyst_1 {
 			compatible = "xlnx,video";
 			dma-names = "port0";
@@ -399,12 +428,9 @@
 				};
 			};
 		};
-
+#endif
 	};
 };
-
-	
-
 
 #ifdef BRD_ZCU
 &i2c1{
@@ -526,6 +552,7 @@
 			};
 		};
 
+#if (GMSL_CAMERA_DES2 > 0)
 		i2c@4 {
 			#address-cells = <1>;
 			#size-cells = <0>;
@@ -608,6 +635,7 @@
 				};
 			};
 		};
+#endif
 	};
 };
 #endif
@@ -638,6 +666,7 @@
 #endif
 };
 
+#if (GMSL_CAMERA_DES2 > 0)
 &deserializer_2 {
 	phy@GMSL_PHY {
 		reg = <GMSL_PHY>;
@@ -663,6 +692,7 @@
 	#include "gmsl-deserializer-channel-2.dtsi"
 #endif
 };
+#endif
 
 &deserializer {
 	i2c-alias-pool = <
@@ -714,6 +744,7 @@
 	};
 };
 
+#if (GMSL_CAMERA_DES2 > 0)
 &deserializer_2 {
 	i2c-alias-pool = <
 		GMSL_SER_4_HEX_ADDR
@@ -763,6 +794,7 @@
 #endif
 	};
 };
+#endif
 
 #if defined(GMSL_CAMERA_0)
 serializer_0_i2c_bus: &deserializer_i2c_0 {};
@@ -777,6 +809,7 @@ serializer_2_i2c_bus: &deserializer_i2c_2 {};
 serializer_3_i2c_bus: &deserializer_i2c_3 {};
 #endif
 
+#if (GMSL_CAMERA_DES2 > 0)
 #if defined(GMSL_CAMERA_4)
 serializer_4_i2c_bus: &deserializer_i2c_4 {};
 #endif
@@ -789,12 +822,13 @@ serializer_6_i2c_bus: &deserializer_i2c_6 {};
 #if defined(GMSL_CAMERA_7)
 serializer_7_i2c_bus: &deserializer_i2c_7 {};
 #endif
+#endif
 
 #if defined(GMSL_CAMERA_0)
 &serializer_0_i2c_bus {
 	#define SER_INDEX 0
 	#define SER_I2C_ADDR_POLL_0 GMSL_CAM_0_HEX_ADDR
-#if defined(GMSL_CAM_ISX021)
+#if defined(GMSL_CAM_ISX021) || defined(GMSL_CAM_IMX490)
 	#define SER_HEX_REG 0x62
 	#define SER_COMPAT "maxim,max9295a"
 #endif
@@ -806,7 +840,7 @@ serializer_7_i2c_bus: &deserializer_i2c_7 {};
 &serializer_1_i2c_bus {
 	#define SER_INDEX 1
 	#define SER_I2C_ADDR_POLL_0 GMSL_CAM_1_HEX_ADDR
-#if defined(GMSL_CAM_ISX021)
+#if defined(GMSL_CAM_ISX021) || defined(GMSL_CAM_IMX490)
 	#define SER_HEX_REG 0x62
 	#define SER_COMPAT "maxim,max9295a"
 #endif
@@ -818,7 +852,7 @@ serializer_7_i2c_bus: &deserializer_i2c_7 {};
 &serializer_2_i2c_bus {
 	#define SER_INDEX 2
 	#define SER_I2C_ADDR_POLL_0 GMSL_CAM_2_HEX_ADDR
-#if defined(GMSL_CAM_ISX021)
+#if defined(GMSL_CAM_ISX021) || defined(GMSL_CAM_IMX490)
 	#define SER_HEX_REG 0x62
 	#define SER_COMPAT "maxim,max9295a"
 #endif
@@ -830,7 +864,7 @@ serializer_7_i2c_bus: &deserializer_i2c_7 {};
 &serializer_3_i2c_bus {
 	#define SER_INDEX 3
 	#define SER_I2C_ADDR_POLL_0 GMSL_CAM_3_HEX_ADDR
-#if defined(GMSL_CAM_ISX021)
+#if defined(GMSL_CAM_ISX021) || defined(GMSL_CAM_IMX490)
 	#define SER_HEX_REG 0x62
 	#define SER_COMPAT "maxim,max9295a"
 #endif
@@ -838,6 +872,7 @@ serializer_7_i2c_bus: &deserializer_i2c_7 {};
 };
 #endif
 
+#if (GMSL_CAMERA_DES2 > 0)
 #if defined(GMSL_CAMERA_4)
 &serializer_4_i2c_bus {
 	#define SER_INDEX 0
@@ -885,6 +920,7 @@ serializer_7_i2c_bus: &deserializer_i2c_7 {};
 	#include "gmsl-serializer-2.dtsi"
 };
 #endif
+#endif
 
 #if defined(GMSL_CAMERA_0)
 camera_0_i2c_bus: &serializer_0_i2c_0 {};
@@ -899,6 +935,7 @@ camera_2_i2c_bus: &serializer_2_i2c_0 {};
 camera_3_i2c_bus: &serializer_3_i2c_0 {};
 #endif
 
+#if (GMSL_CAMERA_DES2 > 0)
 #if defined(GMSL_CAMERA_4)
 camera_4_i2c_bus: &serializer_2_0_i2c_0 {};
 #endif
@@ -911,6 +948,7 @@ camera_6_i2c_bus: &serializer_2_2_i2c_0 {};
 #if defined(GMSL_CAMERA_7)
 camera_7_i2c_bus: &serializer_2_3_i2c_0 {};
 #endif
+#endif
 
 #if defined(GMSL_CAMERA_0)
 &camera_0_i2c_bus {
@@ -921,6 +959,10 @@ camera_7_i2c_bus: &serializer_2_3_i2c_0 {};
 #if defined(GMSL_CAM_ISX021)
 	#define ISX021_INDEX 0
 	#include "gmsl-isx021.dtsi"
+#endif
+#if defined(GMSL_CAM_IMX490)
+	#define IMX490_INDEX 0
+	#include "gmsl-imx490.dtsi"
 #endif
 };
 #endif
@@ -935,6 +977,10 @@ camera_7_i2c_bus: &serializer_2_3_i2c_0 {};
 	#define ISX021_INDEX 1
 	#include "gmsl-isx021.dtsi"
 #endif
+#if defined(GMSL_CAM_IMX490)
+	#define IMX490_INDEX 1
+	#include "gmsl-imx490.dtsi"
+#endif
 };
 #endif
 
@@ -947,6 +993,10 @@ camera_7_i2c_bus: &serializer_2_3_i2c_0 {};
 #if defined(GMSL_CAM_ISX021)
 	#define ISX021_INDEX 2
 	#include "gmsl-isx021.dtsi"
+#endif
+#if defined(GMSL_CAM_IMX490)
+	#define IMX490_INDEX 2
+	#include "gmsl-imx490.dtsi"
 #endif
 };
 #endif
@@ -961,9 +1011,14 @@ camera_7_i2c_bus: &serializer_2_3_i2c_0 {};
 	#define ISX021_INDEX 3
 	#include "gmsl-isx021.dtsi"
 #endif
+#if defined(GMSL_CAM_IMX490)
+	#define IMX490_INDEX 3
+	#include "gmsl-imx490.dtsi"
+#endif
 };
 #endif
 
+#if (GMSL_CAMERA_DES2 > 0)
 #if defined(GMSL_CAMERA_4)
 &camera_4_i2c_bus {
 #if defined(GMSL_CAM_OVX03A)
@@ -1014,6 +1069,7 @@ camera_7_i2c_bus: &serializer_2_3_i2c_0 {};
 	#include "gmsl-isx021-2.dtsi"
 #endif
 };
+#endif
 #endif
 
 &sdhci0 {
