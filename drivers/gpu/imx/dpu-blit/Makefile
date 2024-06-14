@@ -1,4 +1,4 @@
-ccflags-y += -I $(srctree)/$(src)/../dpu/
+ccflags-y += -I $(src)/../dpu/
 
 imx-dpu-blit-objs := dpu-blit.o
 
