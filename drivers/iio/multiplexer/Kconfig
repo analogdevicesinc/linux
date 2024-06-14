@@ -16,7 +16,7 @@ config IIO_MUX
 	  module will be called iio-mux.
 
 config IIO_GEN_MUX
-	tristate "IIO generic multiplexer driver"
+	bool "IIO generic multiplexer driver"
 	select MULTIPLEXER
 	depends on OF
 	help
