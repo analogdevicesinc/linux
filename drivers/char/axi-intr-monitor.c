@@ -220,3 +220,5 @@ static struct platform_driver axi_intr_mon_driver = {
 	},
 };
 module_platform_driver(axi_intr_mon_driver);
+
+MODULE_LICENSE("GPL");
