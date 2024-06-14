@@ -6,6 +6,7 @@
  */
 
 #include <linux/module.h>
+#include "linux/mod_devicetable.h"
 #include <linux/device.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
@@ -1307,12 +1308,28 @@ static const struct of_device_id ad9467_of_match[] = {
 };
 MODULE_DEVICE_TABLE(of, ad9467_of_match);
 
+static const struct spi_device_id ad9467_ids[] = {
+	{ "ad9467", (kernel_ulong_t)&ad9467_chip_tbl[ID_AD9467], },
+	{ "ad9643", (kernel_ulong_t)&ad9467_chip_tbl[ID_AD9643], },
+	{ "ad9250", (kernel_ulong_t)&ad9467_chip_tbl[ID_AD9250], },
+	{ "ad9250_2", (kernel_ulong_t)&ad9467_chip_tbl[ID_AD9250_2], },
+	{ "ad9265", (kernel_ulong_t)&ad9467_chip_tbl[ID_AD9265], },
+	{ "ad9683", (kernel_ulong_t)&ad9467_chip_tbl[ID_AD9683], },
+	{ "ad9434", (kernel_ulong_t)&ad9467_chip_tbl[ID_AD9434], },
+	{ "ad9625", (kernel_ulong_t)&ad9467_chip_tbl[ID_AD9625], },
+	{ "ad9652", (kernel_ulong_t)&ad9467_chip_tbl[ID_AD9652], },
+	{ "ad9649", (kernel_ulong_t)&ad9467_chip_tbl[ID_AD9649], },
+	{}
+};
+MODULE_DEVICE_TABLE(spi, ad9467_ids);
+
 static struct spi_driver ad9467_driver = {
 	.driver = {
 		.name = "ad9467",
 		.of_match_table = ad9467_of_match,
 	},
 	.probe = ad9467_probe,
+	.id_table = ad9467_ids,
 };
 module_spi_driver(ad9467_driver);
 
