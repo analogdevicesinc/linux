@@ -29,6 +29,8 @@ struct vpu_buffer {
 	ktime_t ts_finish;
 	ktime_t ts_output;
 	u64 hw_time;
+
+	u32 average_qp;
 };
 
 enum vpu_fmt_type {

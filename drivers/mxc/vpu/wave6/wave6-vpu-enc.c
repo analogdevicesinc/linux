@@ -791,6 +791,8 @@ static void wave6_handle_encoded_frame(struct vpu_instance *inst,
 	dst_vpu_buf->ts_output = ktime_get_raw();
 	wave6_vpu_handle_performance(inst, dst_vpu_buf);
 
+	dst_vpu_buf->average_qp = info->avg_ctu_qp;
+
 	v4l2_m2m_buf_copy_metadata(src_buf, dst_buf, true);
 	v4l2_m2m_buf_done(src_buf, state);
 
@@ -2186,6 +2188,21 @@ static void wave6_vpu_enc_buf_queue(struct vb2_buffer *vb)
 	v4l2_m2m_buf_queue(inst->v4l2_fh.m2m_ctx, vbuf);
 }
 
+static void wave6_vpu_enc_buf_finish(struct vb2_buffer *vb)
+{
+	struct vpu_instance *inst = vb2_get_drv_priv(vb->vb2_queue);
+	struct vb2_v4l2_buffer *vbuf = to_vb2_v4l2_buffer(vb);
+	struct vpu_buffer *vpu_buf = wave6_to_vpu_buf(vbuf);
+	struct v4l2_ctrl *ctrl;
+
+	if (V4L2_TYPE_IS_OUTPUT(vb->type))
+		return;
+
+	ctrl = v4l2_ctrl_find(inst->v4l2_fh.ctrl_handler, V4L2_CID_MPEG_VIDEO_AVERAGE_QP);
+	if (ctrl)
+		v4l2_ctrl_s_ctrl(ctrl, vpu_buf->average_qp);
+}
+
 static int wave6_vpu_enc_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct vpu_instance *inst = vb2_get_drv_priv(q);
@@ -2292,6 +2309,7 @@ static const struct vb2_ops wave6_vpu_enc_vb2_ops = {
 	.wait_prepare = vb2_ops_wait_prepare,
 	.wait_finish = vb2_ops_wait_finish,
 	.buf_queue = wave6_vpu_enc_buf_queue,
+	.buf_finish = wave6_vpu_enc_buf_finish,
 	.start_streaming = wave6_vpu_enc_start_streaming,
 	.stop_streaming = wave6_vpu_enc_stop_streaming,
 };
@@ -2536,6 +2554,7 @@ static int wave6_vpu_open_enc(struct file *filp)
 			  0, 2160, 1, 0);
 	v4l2_ctrl_new_std(v4l2_ctrl_hdl, &wave6_vpu_enc_ctrl_ops,
 			  V4L2_CID_MIN_BUFFERS_FOR_OUTPUT, 1, 32, 1, 1);
+	v4l2_ctrl_new_std(v4l2_ctrl_hdl, NULL, V4L2_CID_MPEG_VIDEO_AVERAGE_QP, 0, 51, 1, 0);
 
 	if (v4l2_ctrl_hdl->error) {
 		ret = -ENODEV;
