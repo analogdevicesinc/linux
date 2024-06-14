@@ -2508,7 +2508,7 @@ static const struct of_device_id adrv9025_of_match[] = {
 	{ .compatible = "adi,adrv9029" },
 	{},
 };
-MODULE_DEVICE_TABLE(of, ad9081_of_match);
+MODULE_DEVICE_TABLE(of, adrv9025_of_match);
 
 static struct spi_driver adrv9025_driver = {
 	.driver = {
