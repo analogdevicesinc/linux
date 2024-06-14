@@ -481,7 +481,7 @@ config AD9208
 	  Provides direct access via sysfs.
 
 config AD9361
-	tristate "Analog Devices AD9361, AD9364 RF Agile Transceiver driver"
+	bool "Analog Devices AD9361, AD9364 RF Agile Transceiver driver"
 	depends on SPI
 	depends on COMMON_CLK
 	help
