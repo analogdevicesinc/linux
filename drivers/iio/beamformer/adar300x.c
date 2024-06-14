@@ -301,6 +301,7 @@ enum adar300x_beamstate_mode_ctrl {
 };
 
 struct adar300x_chip_info {
+	const struct attribute_group	*attr_group;
 	unsigned int			chip_id;
 	unsigned int			num_channels;
 	const struct iio_chan_spec	*channels;
@@ -1541,7 +1542,7 @@ static int ad300x_reset(struct gpio_desc *gpio_reset)
 	return 0;
 }
 
-static int adar300x_probe(struct spi_device *spi, const struct attribute_group *attr_group)
+static int adar3000_probe(struct spi_device *spi)
 {
 	struct device_node		*child, *np = spi->dev.of_node;
 	int				ret, cnt = 0, num_dev;
@@ -1557,6 +1558,10 @@ static int adar300x_probe(struct spi_device *spi, const struct attribute_group *
 		dev_err(&spi->dev, "Number of devices is incorrect (%d)\n", num_dev);
 		return -ENODEV;
 	}
+
+	info = of_device_get_match_data(&spi->dev);
+	if (!info)
+		return -ENODEV;
 
 	regmap = devm_regmap_init_spi(spi, &adar300x_regmap_config);
 	if (IS_ERR(regmap)) {
@@ -1585,10 +1590,6 @@ static int adar300x_probe(struct spi_device *spi, const struct attribute_group *
 		if (!indio_dev)
 			return -ENOMEM;
 
-		info = of_device_get_match_data(&spi->dev);
-		if (!info)
-			return -ENODEV;
-
 		st = iio_priv(indio_dev);
 		st->spi = spi;
 		st->chip_info = info;
@@ -1603,7 +1604,7 @@ static int adar300x_probe(struct spi_device *spi, const struct attribute_group *
 		indio_dev->name = child->name;
 		indio_dev->channels = st->chip_info->channels;
 		indio_dev->num_channels = st->chip_info->num_channels;
-		adar300x_info.attrs = attr_group;
+		adar300x_info.attrs = st->chip_info->attr_group;
 		indio_dev->info = &adar300x_info;
 		indio_dev->modes = INDIO_DIRECT_MODE;
 		indio_dev->available_scan_masks = adar300x_available_scan_masks;
@@ -2057,61 +2058,6 @@ DECLARE_ADAR3000_CHANNELS(adar3000_channels);
 DECLARE_ADAR3000_CHANNELS(adar3001_channels);
 DECLARE_ADAR3000_CHANNELS(adar3002_channels);
 
-static const struct adar300x_chip_info adar3000_chip_info_tbl[] = {
-	[ID_ADAR3000] = {
-		.chip_id = ID_ADAR3000,
-		.channels = adar3000_channels,
-		.num_channels = ARRAY_SIZE(adar3000_channels),
-		.unpacked_beamst_len = 8,
-		.packed_beamst_len = 6,
-		.product_id = ADAR3000_PRODUCT_ID,
-	},
-	[ID_ADAR3001] = {
-		.chip_id = ID_ADAR3001,
-		.channels = adar3001_channels,
-		.num_channels = ARRAY_SIZE(adar3002_channels),
-		.unpacked_beamst_len = 8,
-		.packed_beamst_len = 6,
-		.product_id = ADAR3000_PRODUCT_ID,
-	},
-	[ID_ADAR3002] = {
-		.chip_id = ID_ADAR3002,
-		.channels = adar3002_channels,
-		.num_channels = ARRAY_SIZE(adar3002_channels),
-		.unpacked_beamst_len = 8,
-		.packed_beamst_len = 6,
-		.product_id = ADAR3000_PRODUCT_ID,
-	},
-};
-
-static int adar3000_probe(struct spi_device *spi)
-{
-	return adar300x_probe(spi, &adar3000_attribute_group);
-}
-
-static const struct of_device_id adar3000_of_match[] = {
-	{ .compatible = "adi,adar3000",
-		.data = &adar3000_chip_info_tbl[ID_ADAR3000], },
-	{ .compatible = "adi,adar3001",
-		.data = &adar3000_chip_info_tbl[ID_ADAR3001], },
-	{ .compatible = "adi,adar3002",
-		.data = &adar3000_chip_info_tbl[ID_ADAR3002], },
-	{ }
-};
-
-MODULE_DEVICE_TABLE(of, adar3000_of_match);
-
-static struct spi_driver adar3000_driver = {
-	.driver = {
-		.name	= "adar3000",
-		.of_match_table = adar3000_of_match,
-	},
-	.probe = adar3000_probe,
-};
-
-/* ADAR3003 */
-module_spi_driver(adar3000_driver);
-
 enum adar3003_iio_dev_attr {
 	ADAR3003_EL0VH,
 	ADAR3003_EL1VH,
@@ -2232,6 +2178,7 @@ static IIO_DEVICE_ATTR(el2vh_fifo_wr, 0644,
 static IIO_DEVICE_ATTR(el3vh_fifo_wr, 0644,
 		       adar300x_fifo_ptr_show, NULL, ADAR300x_FIFO_WR3);
 
+/* adar3003 */
 static struct attribute *adar3003_attributes[] = {
 	&iio_dev_attr_el0vh_update.dev_attr.attr,
 	&iio_dev_attr_el1vh_update.dev_attr.attr,
@@ -2369,8 +2316,36 @@ static const struct iio_chan_spec name[] = {			\
 
 DECLARE_ADAR3003_CHANNELS(adar3003_channels);
 
-static const struct adar300x_chip_info adar3003_chip_info_tbl[] = {
+static const struct adar300x_chip_info adar3000_chip_info_tbl[] = {
+	[ID_ADAR3000] = {
+		.attr_group = &adar3000_attribute_group,
+		.chip_id = ID_ADAR3000,
+		.channels = adar3000_channels,
+		.num_channels = ARRAY_SIZE(adar3000_channels),
+		.unpacked_beamst_len = 8,
+		.packed_beamst_len = 6,
+		.product_id = ADAR3000_PRODUCT_ID,
+	},
+	[ID_ADAR3001] = {
+		.attr_group = &adar3000_attribute_group,
+		.chip_id = ID_ADAR3001,
+		.channels = adar3001_channels,
+		.num_channels = ARRAY_SIZE(adar3002_channels),
+		.unpacked_beamst_len = 8,
+		.packed_beamst_len = 6,
+		.product_id = ADAR3000_PRODUCT_ID,
+	},
+	[ID_ADAR3002] = {
+		.attr_group = &adar3000_attribute_group,
+		.chip_id = ID_ADAR3002,
+		.channels = adar3002_channels,
+		.num_channels = ARRAY_SIZE(adar3002_channels),
+		.unpacked_beamst_len = 8,
+		.packed_beamst_len = 6,
+		.product_id = ADAR3000_PRODUCT_ID,
+	},
 	[ID_ADAR3003] = {
+		.attr_group = &adar3003_attribute_group,
 		.chip_id = ID_ADAR3003,
 		.channels = adar3003_channels,
 		.num_channels = ARRAY_SIZE(adar3003_channels),
@@ -2380,28 +2355,28 @@ static const struct adar300x_chip_info adar3003_chip_info_tbl[] = {
 	},
 };
 
-static const struct of_device_id adar3003_of_match[] = {
+static const struct of_device_id adar3000_of_match[] = {
+	{ .compatible = "adi,adar3000",
+		.data = &adar3000_chip_info_tbl[ID_ADAR3000], },
+	{ .compatible = "adi,adar3001",
+		.data = &adar3000_chip_info_tbl[ID_ADAR3001], },
+	{ .compatible = "adi,adar3002",
+		.data = &adar3000_chip_info_tbl[ID_ADAR3002], },
 	{ .compatible = "adi,adar3003",
-		.data = &adar3003_chip_info_tbl[ID_ADAR3003], },
+		.data = &adar3000_chip_info_tbl[ID_ADAR3003], },
 	{ }
 };
 
 MODULE_DEVICE_TABLE(of, adar3000_of_match);
 
-static int adar3003_probe(struct spi_device *spi)
-{
-	return adar300x_probe(spi, &adar3003_attribute_group);
-}
-
-static struct spi_driver adar3003_driver = {
+static struct spi_driver adar3000_driver = {
 	.driver = {
-		.name	= "adar3003",
-		.of_match_table = adar3003_of_match,
+		.name	= "adar3000",
+		.of_match_table = adar3000_of_match,
 	},
-	.probe = adar3003_probe,
+	.probe = adar3000_probe,
 };
-
-module_spi_driver(adar3003_driver);
+module_spi_driver(adar3000_driver);
 
 MODULE_AUTHOR("Cristian Pop <cristian.pop@analog.com>");
 MODULE_DESCRIPTION("Analog Devices ADAR300x Beamformer");
