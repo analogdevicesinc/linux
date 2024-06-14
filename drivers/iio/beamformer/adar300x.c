@@ -7,6 +7,7 @@
 
 #include <linux/bitfield.h>
 #include <linux/module.h>
+#include "linux/mod_devicetable.h"
 #include <linux/of_device.h>
 #include <linux/regmap.h>
 #include <linux/spi/spi.h>
@@ -2366,8 +2367,16 @@ static const struct of_device_id adar3000_of_match[] = {
 		.data = &adar3000_chip_info_tbl[ID_ADAR3003], },
 	{ }
 };
-
 MODULE_DEVICE_TABLE(of, adar3000_of_match);
+
+static const struct spi_device_id adar3000_ids[] = {
+	{ "adar3000", (kernel_ulong_t)&adar3000_chip_info_tbl[ID_ADAR3000], },
+	{ "adar3001", (kernel_ulong_t)&adar3000_chip_info_tbl[ID_ADAR3001], },
+	{ "adar3002", (kernel_ulong_t)&adar3000_chip_info_tbl[ID_ADAR3002], },
+	{ "adar3003", (kernel_ulong_t)&adar3000_chip_info_tbl[ID_ADAR3003],},
+	{ }
+};
+MODULE_DEVICE_TABLE(spi, adar3000_ids);
 
 static struct spi_driver adar3000_driver = {
 	.driver = {
@@ -2375,6 +2384,7 @@ static struct spi_driver adar3000_driver = {
 		.of_match_table = adar3000_of_match,
 	},
 	.probe = adar3000_probe,
+	.id_table = adar3000_ids,
 };
 module_spi_driver(adar3000_driver);
 
