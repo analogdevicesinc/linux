@@ -859,7 +859,7 @@ static const struct of_device_id m2k_dac_of_match[] = {
 	},
 	{ },
 };
-MODULE_DEVICE_TABLE(of, m2k_dac_match);
+MODULE_DEVICE_TABLE(of, m2k_dac_of_match);
 
 static struct platform_driver m2k_dac_driver = {
 	.driver = {
