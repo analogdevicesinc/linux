@@ -1056,7 +1056,7 @@ static const struct of_device_id axi_jesd204_tx_of_match[] = {
 	{ .compatible = "adi,axi-jesd204-tx-1.3" },
 	{ /* end of list */ },
 };
-MODULE_DEVICE_TABLE(of, adxcvr_of_match);
+MODULE_DEVICE_TABLE(of, axi_jesd204_tx_of_match);
 
 static struct platform_driver axi_jesd204_tx_driver = {
 	.probe = axi_jesd204_tx_probe,
