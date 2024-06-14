@@ -9,6 +9,7 @@
 #include <linux/component.h>
 #include <linux/device.h>
 #include <linux/dmaengine.h>
+#include <linux/gpio/driver.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/pwm.h>
@@ -52,6 +53,11 @@
 #define AD4134_CHAN_DIG_FILTER_SEL_FRAME_MASK_CH1	GENMASK(3, 2)
 #define AD4134_CHAN_DIG_FILTER_SEL_FRAME_MASK_CH2	GENMASK(5, 4)
 #define AD4134_CHAN_DIG_FILTER_SEL_FRAME_MASK_CH3	GENMASK(7, 6)
+
+#define AD4134_GPIO_INPUT(x)			0x00
+#define AD4134_GPIO_OUTPUT(x)			BIT(x)
+#define AD4134_GPIO_DIR_CONTROL			0x20
+#define AD4134_GPIO_DATA			0x21
 
 #define AD4134_SINC6_FILTER			0b01010101
 
@@ -212,6 +218,7 @@ struct ad4134_state {
 	struct spi_message		buf_read_msg;
 	struct spi_transfer		buf_read_xfer;
 	struct gpio_desc		*cs_gpio;
+	struct gpio_chip		gpiochip;
 
 	unsigned int			odr;
 	unsigned int			filter_type;
@@ -408,6 +415,98 @@ out:
 	mutex_unlock(&st->lock);
 
 	return ret ? ret : len;
+}
+
+static int ad4134_input_gpio(struct gpio_chip *chip, unsigned int offset)
+{
+	struct ad4134_state *st = gpiochip_get_data(chip);
+	int ret;
+
+	mutex_lock(&st->lock);
+	ret = regmap_update_bits(st->regmap, AD4134_GPIO_DIR_CONTROL,
+				 BIT(offset), AD4134_GPIO_INPUT(offset));
+
+	mutex_unlock(&st->lock);
+
+	return ret;
+}
+
+static int ad4134_output_gpio(struct gpio_chip *chip,
+			      unsigned int offset, int value)
+{
+	struct ad4134_state *st = gpiochip_get_data(chip);
+	int ret;
+
+	mutex_lock(&st->lock);
+
+	ret = regmap_update_bits(st->regmap, AD4134_GPIO_DIR_CONTROL,
+				 BIT(offset), AD4134_GPIO_OUTPUT(offset));
+	if (ret < 0)
+		goto out;
+
+	ret = regmap_update_bits(st->regmap, AD4134_GPIO_DATA, BIT(offset),
+				 (value << offset));
+out:
+	mutex_unlock(&st->lock);
+
+	return ret;
+}
+
+static int ad4134_get_gpio(struct gpio_chip *chip, unsigned int offset)
+{
+	struct ad4134_state *st = gpiochip_get_data(chip);
+	unsigned int val;
+	int ret;
+
+	mutex_lock(&st->lock);
+	ret = regmap_read(st->regmap, AD4134_GPIO_DIR_CONTROL, &val);
+	if (ret < 0)
+		goto out;
+
+	ret = regmap_read(st->regmap, AD4134_GPIO_DATA, &val);
+	if (ret < 0)
+		goto out;
+
+	ret = !!(val & BIT(offset));
+
+out:
+	mutex_unlock(&st->lock);
+
+	return ret;
+}
+
+static void ad4134_set_gpio(struct gpio_chip *chip, unsigned int offset, int value)
+{
+	struct ad4134_state *st = gpiochip_get_data(chip);
+	unsigned int val;
+	int ret;
+
+	mutex_lock(&st->lock);
+	ret = regmap_read(st->regmap, AD4134_GPIO_DIR_CONTROL, &val);
+	if (ret < 0)
+		goto out;
+
+	if (val & BIT(offset))
+		regmap_update_bits(st->regmap, AD4134_GPIO_DATA, BIT(offset),
+				   (value << offset));
+
+out:
+	mutex_unlock(&st->lock);
+}
+
+int ad4134_gpio_setup(struct ad4134_state *st)
+{
+	st->gpiochip.label = "ad4134";
+	st->gpiochip.base = -1;
+	st->gpiochip.ngpio = 8;
+	st->gpiochip.parent = &st->spi->dev;
+	st->gpiochip.can_sleep = true;
+	st->gpiochip.direction_input = ad4134_input_gpio;
+	st->gpiochip.direction_output = ad4134_output_gpio;
+	st->gpiochip.get = ad4134_get_gpio;
+	st->gpiochip.set = ad4134_set_gpio;
+
+	return devm_gpiochip_add_data(&st->spi->dev, &st->gpiochip, st);
 }
 
 static int ad4134_read_raw(struct iio_dev *indio_dev,
@@ -833,6 +932,13 @@ static int ad4134_probe(struct spi_device *spi)
 	ret = ad4134_setup(st);
 	if (ret)
 		return ret;
+
+	if (device_property_present(&st->spi->dev, "gpio-controller")) {
+		ret = ad4134_gpio_setup(st);
+		if (ret < 0)
+			return dev_err_probe(&spi->dev, ret,
+					     "Failed to setup GPIOs\n");
+	}
 
 	indio_dev->name = spi->dev.of_node->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
