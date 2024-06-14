@@ -525,7 +525,7 @@ static irqreturn_t ad5686_trigger_handler(int irq, void *p)
 	for_each_set_bit(i, indio_dev->active_scan_mask, indio_dev->masklength) {
 		val = (sample[1] << 8) + sample[0];
 
-		chan = iio_find_channel_from_si(indio_dev, i);
+		chan = &indio_dev->channels[i];
 		ret = st->write(st, AD5686_CMD_WRITE_INPUT_N_UPDATE_N,
 				chan->address, val << chan->scan_type.shift);
 	}
