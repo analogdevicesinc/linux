@@ -627,6 +627,7 @@ void jesd204_printk(const char *level, const struct jesd204_dev *jdev,
 
 	va_end(args);
 }
+EXPORT_SYMBOL_GPL(jesd204_printk);
 
 static int jesd204_dev_alloc_links(struct jesd204_dev_top *jdev_top)
 {
