@@ -38,17 +38,16 @@
 			};
 		};
 	};
-	
-	axi_ad3552r: axi-ad3552r@44a74000 {
+
+	axi_ad3552r: axi-ad3552r@44a70000 {
 		compatible = "adi,axi-ad3552r";
-		reg = <0x44a74000 0x1000>;
-		
+		reg = <0x44a70000 0x1000>;
+
         reset-gpios = <&gpio0 92 GPIO_ACTIVE_LOW>;
 
 		clocks = <&ref_clk>;
-		
+
         dmas = <&dac_tx_dma 0>;
 		dma-names = "tx";
 	};
 };
-
