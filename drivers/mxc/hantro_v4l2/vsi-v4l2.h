@@ -228,6 +228,7 @@ struct v4l2_daemon_enc_buffers {
 
 	u32 bytesused;	//valid bytes in buffer from user app.
 	s64 timestamp;
+	u32 average_qp;
 };
 
 struct v4l2_daemon_enc_general_cmd {

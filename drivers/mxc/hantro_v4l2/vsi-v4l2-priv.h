@@ -255,6 +255,7 @@ struct vsi_v4l2_device {
 struct vsi_vpu_buf {
 	struct vb2_v4l2_buffer vb;
 	struct list_head list;
+	u32 average_qp;
 };
 
 struct vsi_queued_buf {

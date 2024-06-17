@@ -632,6 +632,9 @@ int vsi_v4l2_bufferdone(struct vsi_v4l2_msg *pmsg)
 		if (vb->state == VB2_BUF_STATE_ACTIVE) {
 			vb->planes[0].bytesused = bytesused[0];
 			if (isencoder(ctx)) {
+				struct vsi_vpu_buf *vsibuf = vb_to_vsibuf(vb);
+
+				vsibuf->average_qp = pmsg->params.enc_params.io_buffer.average_qp;
 				vb->timestamp = pmsg->params.enc_params.io_buffer.timestamp;
 				ctx->vbufflag[outbufidx] = pmsg->param_type;
 				v4l2_klog(LOGLVL_FLOW,  "enc output framed %d size = %d,flag=%lx, timestamp=%lld",

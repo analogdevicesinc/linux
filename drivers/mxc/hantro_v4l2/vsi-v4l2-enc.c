@@ -820,6 +820,18 @@ static void vsi_enc_stop_streaming(struct vb2_queue *vq)
 
 static void vsi_enc_buf_finish(struct vb2_buffer *vb)
 {
+	struct vb2_queue *vq = vb->vb2_queue;
+	struct vsi_v4l2_ctx *ctx = fh_to_ctx(vq->drv_priv);
+	struct vsi_vpu_buf *vsibuf;
+	struct v4l2_ctrl *ctrl;
+
+	if (V4L2_TYPE_IS_OUTPUT(vb->type))
+		return;
+
+	vsibuf = vb_to_vsibuf(vb);
+	ctrl = v4l2_ctrl_find(ctx->fh.ctrl_handler, V4L2_CID_MPEG_VIDEO_AVERAGE_QP);
+	if (ctrl)
+		v4l2_ctrl_s_ctrl(ctrl, vsibuf->average_qp);
 }
 
 static void vsi_enc_buf_cleanup(struct vb2_buffer *vb)
@@ -1418,6 +1430,8 @@ static int vsi_setup_enc_ctrls(struct v4l2_ctrl_handler *handler)
 			break;
 		}
 	}
+
+	v4l2_ctrl_new_std(handler, NULL, V4L2_CID_MPEG_VIDEO_AVERAGE_QP, 0, 127, 1, 0);
 
 	v4l2_ctrl_handler_setup(handler);
 	return handler->error;
