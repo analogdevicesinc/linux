@@ -84,7 +84,7 @@
 #define LTC6952_PD8(x)		FIELD_PREP(LTC6952_PD8_MSK, x)
 
 #define LTC6952_PD_MSK(ch)	GENMASK(((ch) & 0x03) * 2 + 1, ((ch) & 0x03) * 2)
-#define LTC6952_PD(ch, x)	((x) << ((ch) & 0x03))
+#define LTC6952_PD(ch, x)	((x) << ((ch) & 0x03) * 2)
 
 /* LTC6952_REG6 */
 #define LTC6952_RAO_MSK		BIT(7)
@@ -615,6 +615,23 @@ static int ltc6952_setup(struct iio_dev *indio_dev)
 	/* Resets all registers to default values */
 	ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x02),
 				 LTC6952_POR_MSK, LTC6952_POR(1));
+	if (ret < 0)
+		goto err_unlock;
+
+	ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x02),
+				 LTC6952_POR_MSK, LTC6952_POR(0));
+	if (ret < 0)
+		goto err_unlock;
+
+	ret = ltc6952_write(indio_dev, LTC6952_REG(0x03), 0xFF);
+	if (ret < 0)
+		goto err_unlock;
+
+	ret = ltc6952_write(indio_dev, LTC6952_REG(0x04), 0xFF);
+	if (ret < 0)
+		goto err_unlock;
+
+	ret = ltc6952_write(indio_dev, LTC6952_REG(0x05), 0x3F);
 	if (ret < 0)
 		goto err_unlock;
 
