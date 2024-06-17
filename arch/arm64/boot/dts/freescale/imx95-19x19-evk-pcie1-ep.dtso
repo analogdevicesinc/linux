@@ -6,6 +6,11 @@
 /dts-v1/;
 /plugin/;
 
+&smmu {
+       status = "disabled";
+};
+
+
 &pcie1 {
 	status = "disabled";
 };
