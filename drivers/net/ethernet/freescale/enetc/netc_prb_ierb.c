@@ -90,6 +90,8 @@ struct netc_prb_ierb {
 	struct dentry *debugfs_root;
 	u32 *ifmode;
 	u32 *rmii_clk_dir;
+
+	struct device *emdio;
 };
 
 static struct netc_prb_ierb *netc_pi;
@@ -214,6 +216,37 @@ static int netc_ierb_init(struct platform_device *pdev)
 
 	return 0;
 }
+
+void netc_prb_ierb_register_emdio(struct device *emdio)
+{
+	netc_pi->emdio = emdio;
+}
+EXPORT_SYMBOL_GPL(netc_prb_ierb_register_emdio);
+
+int netc_prb_ierb_check_emdio_state(void)
+{
+	if (!netc_pi->emdio)
+		return -EPROBE_DEFER;
+
+	if (IS_ERR(netc_pi->emdio))
+		return PTR_ERR(netc_pi->emdio);
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(netc_prb_ierb_check_emdio_state);
+
+int netc_prb_ierb_add_emdio_consumer(struct device *consumer)
+{
+	struct device_link *link;
+
+	link = device_link_add(consumer, netc_pi->emdio, DL_FLAG_PM_RUNTIME |
+			       DL_FLAG_AUTOREMOVE_SUPPLIER);
+	if (!link)
+		return -EINVAL;
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(netc_prb_ierb_add_emdio_consumer);
 
 int netc_ierb_get_init_status(void)
 {
@@ -512,8 +545,17 @@ static int netc_prb_ierb_probe(struct platform_device *pdev)
 	netc_pi = pi;
 	netc_prb_ierb_create_debugfs(pi);
 
+	err = of_platform_populate(node, NULL, NULL, dev);
+	if (err) {
+		dev_err(dev, "of_platform_populate failed\n");
+		goto remove_debugfs;
+	}
+
 	return 0;
 
+remove_debugfs:
+	netc_prb_ierb_remove_debugfs(pi);
+	netc_pi = NULL;
 disable_ipg_clk:
 	clk_disable_unprepare(pi->ipg_clk);
 free_pi:
@@ -522,17 +564,15 @@ free_pi:
 	return err;
 }
 
-static int netc_prb_ierb_remove(struct platform_device *pdev)
+static void netc_prb_ierb_remove(struct platform_device *pdev)
 {
-	struct netc_prb_ierb *pi;
+	struct netc_prb_ierb *pi = platform_get_drvdata(pdev);
 
-	pi = platform_get_drvdata(pdev);
+	of_platform_depopulate(&pdev->dev);
 	netc_prb_ierb_remove_debugfs(pi);
+	netc_pi = NULL;
 	clk_disable_unprepare(pi->ipg_clk);
 	devm_kfree(&pdev->dev, pi);
-	netc_pi = NULL;
-
-	return 0;
 }
 
 static const struct of_device_id netc_prb_ierb_match[] = {

@@ -1208,6 +1208,10 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 		return err;
 	}
 
+	err = netc_prb_ierb_check_emdio_state();
+	if (err)
+		return err;
+
 	pinctrl_pm_select_default_state(dev);
 
 	err = enetc_pci_probe(pdev, KBUILD_MODNAME, sizeof(*pf));
@@ -1248,8 +1252,16 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 
 	enetc_create_debugfs(si);
 
+	err = netc_prb_ierb_add_emdio_consumer(dev);
+	if (err) {
+		dev_err(dev, "Failed to add EMDIO consumer\n");
+		goto err_add_emdio_consumer;
+	}
+
 	return 0;
 
+err_add_emdio_consumer:
+	enetc_remove_debugfs(si);
 err_netdev_create:
 	enetc4_pf_deinit(pf);
 err_pf_init:

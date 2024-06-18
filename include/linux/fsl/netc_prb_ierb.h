@@ -13,6 +13,9 @@
 
 int netc_ierb_get_init_status(void);
 u64 netc_ierb_get_clk_config(void);
+void netc_prb_ierb_register_emdio(struct device *emdio);
+int netc_prb_ierb_check_emdio_state(void);
+int netc_prb_ierb_add_emdio_consumer(struct device *consumer);
 
 #else
 
@@ -22,6 +25,20 @@ static inline int netc_ierb_get_init_status(void)
 }
 
 static inline u64 netc_ierb_get_clk_config(void)
+{
+	return 0;
+}
+
+static inline void netc_prb_ierb_register_emdio(struct device *emdio)
+{
+}
+
+static inline int netc_prb_ierb_check_emdio_state(void)
+{
+	return 0;
+}
+
+static inline int netc_prb_ierb_add_emdio_consumer(struct device *consumer)
 {
 	return 0;
 }
