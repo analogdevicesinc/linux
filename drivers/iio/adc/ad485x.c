@@ -795,6 +795,27 @@ static int ad485x_setup(struct ad485x_dev *adc)
 	case AD4857_PRODUCT_ID:
 		adc->type = ID_AD4857;
 		break;
+	case AD4856_PRODUCT_ID:
+		adc->type = ID_AD4856;
+		break;
+	case AD4855_PRODUCT_ID:
+		adc->type = ID_AD4855;
+		break;
+	case AD4854_PRODUCT_ID:
+		adc->type = ID_AD4854;
+		break;
+	case AD4853_PRODUCT_ID:
+		adc->type = ID_AD4853;
+		break;
+	case AD4852_PRODUCT_ID:
+		adc->type = ID_AD4852;
+		break;
+	case AD4851_PRODUCT_ID:
+		adc->type = ID_AD4851;
+		break;
+	case AD4858I_PRODUCT_ID:
+		adc->type = ID_AD4858I;
+		break;
 	default:
 		dev_err(&adc->spi->dev, "Unknown product ID: 0x%02X\n",
 			product_id);
