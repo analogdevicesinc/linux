@@ -52,6 +52,38 @@
 	};
 };
 
+&pmu0 {
+	status = "disabled";
+};
+
+&pmu0_tcu {
+	status = "disabled";
+};
+
+&pmu0_tbu0 {
+	status = "disabled";
+};
+
+&pmu0_tbu1 {
+	status = "disabled";
+};
+
+&pmu0_tbu2 {
+	status = "disabled";
+};
+
+&pmu0_tbu3 {
+	status = "disabled";
+};
+
+&pmu0_tbu4 {
+	status = "disabled";
+};
+
+&pmu0_tbu5 {
+	status = "disabled";
+};
+
 &gpio1 {
 	status = "okay";
 };
