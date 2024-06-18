@@ -58,21 +58,21 @@
 };
 
 &lpi2c6 {
-       #address-cells = <1>;
-       #size-cells = <0>;
-       clock-frequency = <400000>;
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <400000>;
 
-       focaltech_touch: touchscreen@38 {
-               compatible = "focaltech,ft3518u";
-               reg = <0x38>;
-               pinctrl-names = "default";
-               pinctrl-0 = <&pinctrl_touch>;
-               irq-gpio = <&gpio5 7 GPIO_ACTIVE_HIGH>;
-               touchscreen-size-x = <1080>;
-               touchscreen-size-y = <1920>;
-               max-touch-number = <10>;
-               status = "okay";
-       };
+	focaltech_touch: touchscreen@38 {
+		compatible = "focaltech,ft3518u";
+		reg = <0x38>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_touch>;
+		irq-gpio = <&gpio5 7 GPIO_ACTIVE_HIGH>;
+		touchscreen-size-x = <1080>;
+		touchscreen-size-y = <2340>;
+		max-touch-number = <10>;
+		status = "okay";
+	};
 };
 
 &pixel_interleaver {

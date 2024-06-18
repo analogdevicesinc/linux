@@ -67,7 +67,7 @@
 		pinctrl-0 = <&pinctrl_mipi_dsi_csi>;
 		irq-gpio = <&gpio3 27 GPIO_ACTIVE_HIGH>;
 		touchscreen-size-x = <1080>;
-		touchscreen-size-y = <1920>;
+		touchscreen-size-y = <2340>;
 		max-touch-number = <10>;
 		status = "okay";
 	};
