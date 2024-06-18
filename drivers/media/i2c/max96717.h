@@ -63,5 +63,6 @@ int max96717_gmsl_speed_set(struct max96717 *ser, enum max96717_gmsl_speed speed
 int max96717_double_mode_en(struct max96717 *ser);
 int max96717_soft_bpp_override(struct max96717 *ser, int bpp);
 int max96717_set_i2c_speed(struct max96717 *ser, enum max96717_i2c_speed speed);
+int max96717_reset_chip(struct max96717 *ser);
 
 #endif

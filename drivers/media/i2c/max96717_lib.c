@@ -310,6 +310,12 @@ int max96717_set_i2c_speed(struct max96717 *ser, enum max96717_i2c_speed speed)
 }
 EXPORT_SYMBOL(max96717_set_i2c_speed);
 
+int max96717_reset_chip(struct max96717 *ser)
+{
+	return regmap_write(ser->rmap, MAX96717_TCTRL_CTRL0, RESET_ALL);
+}
+EXPORT_SYMBOL(max96717_reset_chip);
+
 int max96717_hw_init(struct max96717 *ser, unsigned int reset_pin, unsigned int clock_pin)
 {
 	struct regmap *rmap = ser->rmap;
