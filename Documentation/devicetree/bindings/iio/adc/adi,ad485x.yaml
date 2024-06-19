@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2022 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/adc/adi,ad485x.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices AD485X DAS family device driver
+
+maintainers:
+  - Sergiu Cuciurean <sergiu.cuciurean@analog.com>
+  - Dragos Bogdan <dragos.bogdan@analog.com>
+  - Antoniu Miclaus <antoniu.miclaus@analog.com>
+
+description: |
+  Analog Devices AD485X DAS family
+
+  https://www.analog.com/media/en/technical-documentation/data-sheets/ad4858.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,ad4858
+      - adi,ad4857
+      - adi,ad4856
+      - adi,ad4855
+      - adi,ad4854
+      - adi,ad4853
+      - adi,ad4852
+      - adi,ad4851
+      - adi,ad4858i
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    description:
+      Sampling clock
+
+  clock-names:
+    const: scki
+
+  dmas:
+    maxItems: 1
+
+  dma-names:
+    const: rx
+
+  pwms:
+    maxItems: 1
+
+  pwm-names:
+    const: cnv
+
+  refin-supply: true
+
+  spi-max-frequency:
+    maximum: 100000000
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - clock-names
+  - dmas
+  - dma-names
+  - pwms
+  - pwm-names
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        adc@0{
+            compatible = "adi,ad4858";
+            reg = <0>;
+            spi-max-frequency = <10000000>;
+            refin-supply = <&refin>;
+            clocks = <&ref_clk>;
+            clock-names = "scki";
+            dmas = <&rx_dma 0>;
+            dma-names = "rx";
+            pwms = <&axi_pwm_gen 0 0>;
+            pwm-names = "cnv";
+        };
+    };
+...
