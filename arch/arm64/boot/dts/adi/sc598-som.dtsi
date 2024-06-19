@@ -204,10 +204,10 @@
 	status = "okay";
 	cs-gpios = <&gpa 5 GPIO_ACTIVE_LOW>;
 
-	flash: is25lp512@0 {
+	flash: is25lp01g@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "is25lp512", "jedec,spi-nor";
+		compatible = "is25lp01g", "jedec,spi-nor";
 		reg = <0>;
 		spi-cpha;
 		spi-cpol;
