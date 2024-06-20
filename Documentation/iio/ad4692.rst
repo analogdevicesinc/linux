@@ -1,0 +1,158 @@
+.. SPDX-License-Identifier: GPL-2.0
+===============
+AD4692 driver
+===============
+
+This driver supports Analog Device's AD4692's family on SPI bus.
+
+1. Supported devices
+====================
+
+* `AD4692 <https://www.analog.comm/AD4692>`
+* `AD4692 <https://www.analog.comm/AD4691>`
+* `AD4692 <https://www.analog.comm/AD4694>`
+* `AD4692 <https://www.analog.comm/AD4693>`
+
+Each supported device is a MUX SAR ADC incorporating accumulators per-channel
+and a flexible channel sequencer to enable a diverse range of space-constrained
+precision measurement applications.
+
+2. Device attributes
+====================
+
+The AD4692 family includes 5 ADC operating modes and an internal oscillator that
+require fewer microcontroller resources to manage convert-start timing and data
+readback. An autonomous sampling mode allows the controller SPI to initiate and
+terminate conversions through software with minimal digital I/O lines.
+With the CNV and SPI burst modes, the controller can trigger a pre-determined
+number of samples via hardware (CNV) or software (SPI), and the AD4692 will
+automatically cease sampling based off user programmable conditions.
+
+The AD4692 also includes a Manual Mode which is based on a PWM signal (CNV)
+where between CNV pulses a command code is sent on the MOSI line and on the
+MISO line the result from the previous command is received.
+
+Each IIO device, has a device folder under ``/sys/bus/iio/devices/iio:deviceX``,
+where X is the IIO index of the device. Under these folders reside a set of
+device files, depending on the characteristics and features of the hardware
+device in questions. These files are consistently generalized and documented in
+the IIO ABI documentation.
+
+The following tables show the ad4692 related device files, found in the
+specific device folder path ``/sys/bus/iio/devices/iio:deviceX``.
+
++-----------------------------------+-------------------------------------------+
+| Voltage measurement related files | Description                               |
++-----------------------------------+-------------------------------------------+
+| in_voltageX_raw                   | Raw voltage channel value.                |
++-----------------------------------+-------------------------------------------+
+| scale                             | Scale for the voltage sensor channels.    |
++-----------------------------------+-------------------------------------------+
+
++-------------------------------+---------------------------------------------------------+
+| Miscellaneous device files    | Description                                             |
++-------------------------------+---------------------------------------------------------+
+| name                          | Name of the IIO device.                                 |
++-------------------------------+---------------------------------------------------------+
+| sampling_frequency            | Currently selected sample rate.                         |
++-------------------------------+---------------------------------------------------------+
+
+Channels processed values
+-------------------------
+
+A channel value can be read from its _raw attribute. The value returned is the
+raw value as reported by the devices. To get the processed value of the channel,
+apply the following formula:
+
+.. code-block:: bash
+
+        processed value = (_raw + _offset) * _scale
+
+Where _offset and _scale are device attributes. If no _offset attribute is
+present, simply assume its value is 0.
+
+The ad4692 driver offers data for one type of channel, the table below shows
+the measurement units for the processed value, which is defined by the IIO
+framework:
+
++-------------------------------------+---------------------------+
+| Channel type                        | Measurement unit          |
++-------------------------------------+---------------------------+
+| Voltage			      | milliVolts		  |
++-------------------------------------+---------------------------+
+
+Usage examples
+--------------
+
+Show device name:
+
+.. code-block:: bash
+
+	root:/sys/bus/iio/devices/iio:device1> cat name
+        ad4692
+
+Show voltage channels value:
+
+.. code-block:: bash
+
+        root:/sys/bus/iio/devices/iio:device1> cat in_voltage0_raw
+        32776
+        root:/sys/bus/iio/devices/iio:device1> cat in_voltage1_raw
+        28960
+        root:/sys/bus/iio/devices/iio:device1> cat in_voltage2_raw
+        4660
+        root:/sys/bus/iio/devices/iio:device1> cat scale
+        0.076293945
+
+- X-axis acceleration = in_accel_x_raw * in_accel_scale = −0.010209188 m/s^2
+- Y-axis acceleration = in_accel_y_raw * in_accel_scale = −1.115262214 m/s^2
+- Z-axis acceleration = in_accel_z_raw * in_accel_scale = 9.666833453 m/s^2
+
+3. Device buffers
+=================
+
+This driver supports IIO buffers.
+
+All devices support retrieving the raw voltage measurements using buffers.
+
+Usage examples
+--------------
+
+Set device trigger in current_trigger, if not already set:
+
+.. code-block:: bash
+
+        root:/sys/bus/iio/devices/iio:device1> cat trigger/current_trigger
+
+        root:/sys/bus/iio/devices/iio:device1> echo ad4692-dev0 > trigger/current_trigger
+        root:/sys/bus/iio/devices/iio:device1> cat trigger/current_trigger
+        ad4692-dev0
+
+Select channels for buffer read:
+
+.. code-block:: bash
+
+        root:/sys/bus/iio/devices/iio:device1> echo 1 > scan_elements/in_voltage0_en
+        root:/sys/bus/iio/devices/iio:device1> echo 1 > scan_elements/in_voltage1_en
+        root:/sys/bus/iio/devices/iio:device1> echo 1 > scan_elements/in_voltage2_en
+
+Set the number of samples to be stored in the buffer:
+
+.. code-block:: bash
+
+        root:/sys/bus/iio/devices/iio:device1> echo 10 > buffer/length
+
+Enable buffer readings:
+
+.. code-block:: bash
+
+        root:/sys/bus/iio/devices/iio:device1> echo 1 > buffer/enable
+
+See ``Documentation/iio/iio_devbuf.rst`` for more information about how buffered
+data is structured.
+
+4. IIO Interfacing Tools
+========================
+
+See ``Documentation/iio/iio_tools.rst`` for the description of the available IIO
+interfacing tools.

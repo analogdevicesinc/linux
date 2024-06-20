@@ -73,6 +73,18 @@ config AD4630
 	  To compile this driver as a module, choose M here: the module will be
 	  called ad4630.
 
+config AD4692
+	tristate "Analog Devices AD4692 ADC Driver"
+	depends on SPI_MASTER
+	select REGMAP_SPI
+	select IIO_BUFFER
+	help
+	  Say yes here to build support for Analog Devices AD4692 MuxSAR
+	  SPI analog to digital converters (ADC).
+
+	  To compile this driver as a module, choose M here: the module will be
+	  called ad4692.
+
 config AD7091R5
 	tristate "Analog Devices AD7091R5 ADC Driver"
 	depends on I2C

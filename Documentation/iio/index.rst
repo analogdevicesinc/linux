@@ -19,5 +19,6 @@ Industrial I/O Kernel Drivers
 
    adis16475
    adis16480
+   ad4692
    bno055
    ep93xx_adc
