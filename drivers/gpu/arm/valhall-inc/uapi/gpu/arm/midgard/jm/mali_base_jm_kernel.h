@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -53,15 +53,17 @@
  * must be less than BASE_MEM_FLAGS_NR_BITS !!!
  */
 
-/* A mask of all the flags which are only valid for allocations within kbase,
- * and may not be passed from user space.
+/* A mask of all the flags which are only valid within kbase,
+ * and may not be passed to/from user space.
  */
 #define BASEP_MEM_FLAGS_KERNEL_ONLY                                                              \
 	(BASEP_MEM_PERMANENT_KERNEL_MAPPING | BASEP_MEM_NO_USER_FREE | BASE_MEM_FLAG_MAP_FIXED | \
 	 BASEP_MEM_PERFORM_JIT_TRIM)
 
-/* A mask of all flags that should not be queried */
-#define BASE_MEM_DONT_QUERY (BASE_MEM_COHERENT_SYSTEM_REQUIRED | BASE_MEM_IMPORT_SHARED)
+/* A mask of flags that, when provied, cause other flags to be
+ * enabled but are not enabled themselves
+ */
+#define BASE_MEM_FLAGS_ACTION_MODIFIERS (BASE_MEM_COHERENT_SYSTEM_REQUIRED | BASE_MEM_IMPORT_SHARED)
 
 /* A mask of all currently reserved flags */
 #define BASE_MEM_FLAGS_RESERVED ((base_mem_alloc_flags)0)
@@ -119,10 +121,6 @@
  * option.
  */
 #define BASE_JD_ATOM_COUNT 256
-
-/* Maximum number of concurrent render passes.
- */
-#define BASE_JD_RP_COUNT (256)
 
 /* Set/reset values for a software event */
 #define BASE_JD_SOFT_EVENT_SET ((unsigned char)1)
@@ -363,40 +361,6 @@ typedef __u32 base_jd_core_req;
  */
 #define BASE_JD_REQ_JOB_SLOT ((base_jd_core_req)1 << 17)
 
-/* SW-only requirement: The atom is the start of a renderpass.
- *
- * If this bit is set then the job chain will be soft-stopped if it causes the
- * GPU to write beyond the end of the physical pages backing the tiler heap, and
- * committing more memory to the heap would exceed an internal threshold. It may
- * be resumed after running one of the job chains attached to an atom with
- * BASE_JD_REQ_END_RENDERPASS set and the same renderpass ID. It may be
- * resumed multiple times until it completes without memory usage exceeding the
- * threshold.
- *
- * Usually used with BASE_JD_REQ_T.
- */
-#define BASE_JD_REQ_START_RENDERPASS ((base_jd_core_req)1 << 18)
-
-/* SW-only requirement: The atom is the end of a renderpass.
- *
- * If this bit is set then the atom incorporates the CPU address of a
- * base_jd_fragment object instead of the GPU address of a job chain.
- *
- * Which job chain is run depends upon whether the atom with the same renderpass
- * ID and the BASE_JD_REQ_START_RENDERPASS bit set completed normally or
- * was soft-stopped when it exceeded an upper threshold for tiler heap memory
- * usage.
- *
- * It also depends upon whether one of the job chains attached to the atom has
- * already been run as part of the same renderpass (in which case it would have
- * written unresolved multisampled and otherwise-discarded output to temporary
- * buffers that need to be read back). The job chain for doing a forced read and
- * forced write (from/to temporary buffers) is run as many times as necessary.
- *
- * Usually used with BASE_JD_REQ_FS.
- */
-#define BASE_JD_REQ_END_RENDERPASS ((base_jd_core_req)1 << 19)
-
 /* SW-only requirement: The atom needs to run on a limited core mask affinity.
  *
  * If this bit is set then the kbase_context.limited_core_mask will be applied
@@ -412,7 +376,6 @@ typedef __u32 base_jd_core_req;
 	   BASE_JD_REQ_EVENT_COALESCE | BASE_JD_REQ_COHERENT_GROUP |                          \
 	   BASE_JD_REQ_SPECIFIC_COHERENT_GROUP | BASE_JD_REQ_FS_AFBC | BASE_JD_REQ_PERMON |   \
 	   BASE_JD_REQ_SKIP_CACHE_START | BASE_JD_REQ_SKIP_CACHE_END | BASE_JD_REQ_JOB_SLOT | \
-	   BASE_JD_REQ_START_RENDERPASS | BASE_JD_REQ_END_RENDERPASS |                        \
 	   BASE_JD_REQ_LIMITED_CORE_MASK))
 
 /* Mask of all bits in base_jd_core_req that control the type of the atom.
@@ -469,62 +432,6 @@ typedef __u8 base_atom_id;
 struct base_dependency {
 	base_atom_id atom_id;
 	base_jd_dep_type dependency_type;
-};
-
-/**
- * struct base_jd_fragment - Set of GPU fragment job chains used for rendering.
- *
- * @norm_read_norm_write: Job chain for full rendering.
- *                        GPU address of a fragment job chain to render in the
- *                        circumstance where the tiler job chain did not exceed
- *                        its memory usage threshold and no fragment job chain
- *                        was previously run for the same renderpass.
- *                        It is used no more than once per renderpass.
- * @norm_read_forced_write: Job chain for starting incremental
- *                          rendering.
- *                          GPU address of a fragment job chain to render in
- *                          the circumstance where the tiler job chain exceeded
- *                          its memory usage threshold for the first time and
- *                          no fragment job chain was previously run for the
- *                          same renderpass.
- *                          Writes unresolved multisampled and normally-
- *                          discarded output to temporary buffers that must be
- *                          read back by a subsequent forced_read job chain
- *                          before the renderpass is complete.
- *                          It is used no more than once per renderpass.
- * @forced_read_forced_write: Job chain for continuing incremental
- *                            rendering.
- *                            GPU address of a fragment job chain to render in
- *                            the circumstance where the tiler job chain
- *                            exceeded its memory usage threshold again
- *                            and a fragment job chain was previously run for
- *                            the same renderpass.
- *                            Reads unresolved multisampled and
- *                            normally-discarded output from temporary buffers
- *                            written by a previous forced_write job chain and
- *                            writes the same to temporary buffers again.
- *                            It is used as many times as required until
- *                            rendering completes.
- * @forced_read_norm_write: Job chain for ending incremental rendering.
- *                          GPU address of a fragment job chain to render in the
- *                          circumstance where the tiler job chain did not
- *                          exceed its memory usage threshold this time and a
- *                          fragment job chain was previously run for the same
- *                          renderpass.
- *                          Reads unresolved multisampled and normally-discarded
- *                          output from temporary buffers written by a previous
- *                          forced_write job chain in order to complete a
- *                          renderpass.
- *                          It is used no more than once per renderpass.
- *
- * This structure is referenced by the main atom structure if
- * BASE_JD_REQ_END_RENDERPASS is set in the base_jd_core_req.
- */
-struct base_jd_fragment {
-	__u64 norm_read_norm_write;
-	__u64 norm_read_forced_write;
-	__u64 forced_read_forced_write;
-	__u64 forced_read_norm_write;
 };
 
 /**
@@ -591,9 +498,7 @@ typedef __u8 base_jd_prio;
  * struct base_jd_atom_v2 - Node of a dependency graph used to submit a
  *                          GPU job chain or soft-job to the kernel driver.
  *
- * @jc:            GPU address of a job chain or (if BASE_JD_REQ_END_RENDERPASS
- *                 is set in the base_jd_core_req) the CPU address of a
- *                 base_jd_fragment object.
+ * @jc:            GPU address of a job chain.
  * @udata:         User data.
  * @extres_list:   List of external resources.
  * @nr_extres:     Number of external resources or JIT allocations.
@@ -612,9 +517,6 @@ typedef __u8 base_jd_prio;
  *                 specified.
  * @jobslot:       Job slot to use when BASE_JD_REQ_JOB_SLOT is specified.
  * @core_req:      Core requirements.
- * @renderpass_id: Renderpass identifier used to associate an atom that has
- *                 BASE_JD_REQ_START_RENDERPASS set in its core requirements
- *                 with an atom that has BASE_JD_REQ_END_RENDERPASS set.
  * @padding:       Unused. Must be zero.
  *
  * This structure has changed since UK 10.2 for which base_jd_core_req was a
@@ -642,8 +544,7 @@ struct base_jd_atom_v2 {
 	__u8 device_nr;
 	__u8 jobslot;
 	base_jd_core_req core_req;
-	__u8 renderpass_id;
-	__u8 padding[7];
+	__u8 padding[8];
 };
 
 /**
@@ -651,9 +552,7 @@ struct base_jd_atom_v2 {
  *                          at the beginning.
  *
  * @seq_nr:        Sequence number of logical grouping of atoms.
- * @jc:            GPU address of a job chain or (if BASE_JD_REQ_END_RENDERPASS
- *                 is set in the base_jd_core_req) the CPU address of a
- *                 base_jd_fragment object.
+ * @jc:            GPU address of a job chain.
  * @udata:         User data.
  * @extres_list:   List of external resources.
  * @nr_extres:     Number of external resources or JIT allocations.
@@ -835,11 +734,6 @@ enum {
  * @BASE_JD_EVENT_REMOVED_FROM_NEXT: raised when an atom that was configured in
  *                                   the GPU has to be retried (but it has not
  *                                   started) due to e.g., GPU reset
- * @BASE_JD_EVENT_END_RP_DONE: this is used for incremental rendering to signal
- *                             the completion of a renderpass. This value
- *                             shouldn't be returned to userspace but I haven't
- *                             seen where it is reset back to JD_EVENT_DONE.
- *
  * HW and low-level SW events are represented by event codes.
  * The status of jobs which succeeded are also represented by
  * an event code (see @BASE_JD_EVENT_DONE).
@@ -938,8 +832,6 @@ enum base_jd_event_code {
 	BASE_JD_EVENT_RANGE_KERNEL_ONLY_START = BASE_JD_SW_EVENT | BASE_JD_SW_EVENT_KERNEL | 0x000,
 	BASE_JD_EVENT_REMOVED_FROM_NEXT = BASE_JD_SW_EVENT | BASE_JD_SW_EVENT_KERNEL |
 					  BASE_JD_SW_EVENT_JOB | 0x000,
-	BASE_JD_EVENT_END_RP_DONE = BASE_JD_SW_EVENT | BASE_JD_SW_EVENT_KERNEL |
-				    BASE_JD_SW_EVENT_JOB | 0x001,
 
 	BASE_JD_EVENT_RANGE_KERNEL_ONLY_END = BASE_JD_SW_EVENT | BASE_JD_SW_EVENT_KERNEL |
 					      BASE_JD_SW_EVENT_RESERVED | 0x3FF

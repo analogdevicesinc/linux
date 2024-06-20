@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2018-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -470,14 +470,15 @@ unsigned int kbase_csf_firmware_trace_buffer_read_data(struct firmware_trace_buf
 	} else {
 		unsigned int bytes_copied_head, bytes_copied_tail;
 
-		bytes_copied_tail = min_t(unsigned int, num_bytes, (buffer_size - extract_offset));
+		bytes_copied_tail =
+			min_t(unsigned int, num_bytes, size_sub(buffer_size, extract_offset));
 		memcpy(data, &data_cpu_va[extract_offset], bytes_copied_tail);
 
 		bytes_copied_head =
 			min_t(unsigned int, (num_bytes - bytes_copied_tail), insert_offset);
 		memcpy(&data[bytes_copied_tail], data_cpu_va, bytes_copied_head);
 
-		bytes_copied = bytes_copied_head + bytes_copied_tail;
+		bytes_copied = size_add(bytes_copied_head, bytes_copied_tail);
 		extract_offset += bytes_copied;
 		if (extract_offset >= buffer_size)
 			extract_offset = bytes_copied_head;

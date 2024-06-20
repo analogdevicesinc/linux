@@ -114,6 +114,27 @@ enum kbase_pm_runtime_suspend_abort_reason {
 	ABORT_REASON_NON_IDLE_CGS
 };
 
+/* The following indices point to the corresponding bits stored in
+ * &kbase_pm_backend_data.gpu_sleep_allowed. They denote the conditions that
+ * would be checked against to determine the level of support for GPU sleep
+ * and firmware sleep-on-idle.
+ */
+#define KBASE_GPU_SUPPORTS_GPU_SLEEP ((uint8_t)0)
+#define KBASE_GPU_SUPPORTS_FW_SLEEP_ON_IDLE ((uint8_t)1)
+#define KBASE_GPU_PERF_COUNTERS_COLLECTION_ENABLED ((uint8_t)2)
+#define KBASE_GPU_IGNORE_IDLE_EVENT ((uint8_t)3)
+#define KBASE_GPU_NON_IDLE_OFF_SLOT_GROUPS_AVAILABLE ((uint8_t)4)
+
+/* FW sleep-on-idle could be enabled if
+ * &kbase_pm_backend_data.gpu_sleep_allowed is equal to this value.
+ */
+#define KBASE_GPU_FW_SLEEP_ON_IDLE_ALLOWED                             \
+	((uint8_t)((1 << KBASE_GPU_SUPPORTS_GPU_SLEEP) |               \
+		   (1 << KBASE_GPU_SUPPORTS_FW_SLEEP_ON_IDLE) |        \
+		   (0 << KBASE_GPU_PERF_COUNTERS_COLLECTION_ENABLED) | \
+		   (0 << KBASE_GPU_IGNORE_IDLE_EVENT) |                \
+		   (0 << KBASE_GPU_NON_IDLE_OFF_SLOT_GROUPS_AVAILABLE)))
+
 /**
  * struct kbasep_pm_metrics - Metrics data collected for use by the power
  *                            management framework.
@@ -304,7 +325,7 @@ union kbase_pm_policy_data {
  *                                     called previously.
  *                                     See &struct kbase_pm_callback_conf.
  * @ca_cores_enabled: Cores that are currently available
- * @apply_hw_issue_TITANHW_2938_wa: Indicates if the workaround for BASE_HW_ISSUE_TITANHW_2938
+ * @apply_hw_issue_TITANHW_2938_wa: Indicates if the workaround for KBASE_HW_ISSUE_TITANHW_2938
  *                                  needs to be applied when unmapping memory from GPU.
  * @mcu_state: The current state of the micro-control unit, only applicable
  *             to GPUs that have such a component
@@ -350,10 +371,9 @@ union kbase_pm_policy_data {
  * @core_idle_work: Work item used to wait for undesired cores to become inactive.
  *                  The work item is enqueued when Host controls the power for
  *                  shader cores and down scaling of cores is performed.
- * @gpu_sleep_supported: Flag to indicate that if GPU sleep feature can be
- *                       supported by the kernel driver or not. If this
- *                       flag is not set, then HW state is directly saved
- *                       when GPU idle notification is received.
+ * @gpu_sleep_allowed: Bitmask to indicate the conditions that would be
+ *                     used to determine what support for GPU sleep is
+ *                     available.
  * @gpu_sleep_mode_active: Flag to indicate that the GPU needs to be in sleep
  *                         mode. It is set when the GPU idle notification is
  *                         received and is cleared when HW state has been
@@ -497,7 +517,7 @@ struct kbase_pm_backend_data {
 	struct work_struct core_idle_work;
 
 #ifdef KBASE_PM_RUNTIME
-	bool gpu_sleep_supported;
+	unsigned long gpu_sleep_allowed;
 	bool gpu_sleep_mode_active;
 	bool exit_gpu_sleep_mode;
 	bool gpu_idled;

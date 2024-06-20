@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2017-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2017-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -116,7 +116,7 @@ static ssize_t param_string_set(struct file *file, const char __user *user_buf, 
 		goto end;
 	}
 
-	buf_size = min(param->size - 1, count);
+	buf_size = min(size_sub(param->size, 1), count);
 	if (copy_from_user(param->addr.str, user_buf, buf_size)) {
 		ret = -EFAULT;
 		goto end;

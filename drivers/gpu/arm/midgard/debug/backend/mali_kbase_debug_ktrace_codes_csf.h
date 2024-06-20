@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -211,6 +211,9 @@ KBASE_KTRACE_CODE_MAKE_CODE(SCHEDULER_EVICT_CTX_SLOTS_START),
 	/* info_val = scheduler state */
 	KBASE_KTRACE_CODE_MAKE_CODE(SCHED_BUSY), KBASE_KTRACE_CODE_MAKE_CODE(SCHED_INACTIVE),
 	KBASE_KTRACE_CODE_MAKE_CODE(SCHED_SUSPENDED), KBASE_KTRACE_CODE_MAKE_CODE(SCHED_SLEEPING),
+
+	/* info_val == true if FW Sleep-on-Idle is enabled, false otherwise */
+	KBASE_KTRACE_CODE_MAKE_CODE(FIRMWARE_SLEEP_ON_IDLE_CHANGED),
 
 /* info_val = mcu state */
 #define KBASEP_MCU_STATE(n) KBASE_KTRACE_CODE_MAKE_CODE(PM_MCU_##n),

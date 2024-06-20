@@ -68,6 +68,12 @@ bool kbase_alloc_page_metadata(struct kbase_device *kbdev, struct page *p, dma_a
 	if (!IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT))
 		return false;
 
+	/* Composite large-page is excluded from migration, trigger a warn if a development
+	 * wrongly leads to it.
+	 */
+	if (is_huge_head(as_tagged(page_to_phys(p))) || is_partial(as_tagged(page_to_phys(p))))
+		dev_WARN(kbdev->dev, "%s: migration-metadata attempted on large-page.", __func__);
+
 	page_md = kzalloc(sizeof(struct kbase_page_metadata), GFP_KERNEL);
 	if (!page_md)
 		return false;

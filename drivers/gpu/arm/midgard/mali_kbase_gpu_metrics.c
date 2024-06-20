@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2023-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -39,9 +39,6 @@ static inline void validate_tracepoint_data(struct kbase_gpu_metrics_ctx *gpu_me
 					    u64 start_time, u64 end_time, u64 total_active)
 {
 #ifdef CONFIG_MALI_DEBUG
-	WARN(total_active > NSEC_PER_SEC, "total_active %llu > 1 second for aid %u active_cnt %u",
-	     total_active, gpu_metrics_ctx->aid, gpu_metrics_ctx->active_cnt);
-
 	WARN(start_time >= end_time, "start_time %llu >= end_time %llu for aid %u active_cnt %u",
 	     start_time, end_time, gpu_metrics_ctx->aid, gpu_metrics_ctx->active_cnt);
 

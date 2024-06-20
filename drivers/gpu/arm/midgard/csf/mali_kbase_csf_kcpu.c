@@ -371,7 +371,7 @@ static int kbase_kcpu_jit_allocate_prepare(struct kbase_kcpu_command_queue *kcpu
 		goto out;
 	}
 
-	if (copy_from_user(info, data, sizeof(*info) * count) != 0) {
+	if (copy_from_user(info, data, size_mul(sizeof(*info), count)) != 0) {
 		ret = -EINVAL;
 		goto out_free;
 	}
@@ -563,7 +563,7 @@ static int kbase_kcpu_jit_free_prepare(struct kbase_kcpu_command_queue *kcpu_que
 		goto out_free;
 	}
 
-	if (copy_from_user(ids, data, sizeof(*ids) * count)) {
+	if (copy_from_user(ids, data, size_mul(sizeof(*ids), count))) {
 		ret = -EINVAL;
 		goto out_free;
 	}
@@ -852,7 +852,8 @@ static int kbase_kcpu_cqs_wait_prepare(struct kbase_kcpu_command_queue *queue,
 	if (!objs)
 		return -ENOMEM;
 
-	if (copy_from_user(objs, u64_to_user_ptr(cqs_wait_info->objs), nr_objs * sizeof(*objs))) {
+	if (copy_from_user(objs, u64_to_user_ptr(cqs_wait_info->objs),
+			   size_mul(nr_objs, sizeof(*objs)))) {
 		kfree(objs);
 		return -ENOMEM;
 	}
@@ -957,7 +958,8 @@ static int kbase_kcpu_cqs_set_prepare(struct kbase_kcpu_command_queue *kcpu_queu
 	if (!objs)
 		return -ENOMEM;
 
-	if (copy_from_user(objs, u64_to_user_ptr(cqs_set_info->objs), nr_objs * sizeof(*objs))) {
+	if (copy_from_user(objs, u64_to_user_ptr(cqs_set_info->objs),
+			   size_mul(nr_objs, sizeof(*objs)))) {
 		kfree(objs);
 		return -ENOMEM;
 	}
@@ -1115,7 +1117,7 @@ static int kbase_kcpu_cqs_wait_operation_prepare(
 		return -ENOMEM;
 
 	if (copy_from_user(objs, u64_to_user_ptr(cqs_wait_operation_info->objs),
-			   nr_objs * sizeof(*objs))) {
+			   size_mul(nr_objs, sizeof(*objs)))) {
 		kfree(objs);
 		return -ENOMEM;
 	}
@@ -1280,7 +1282,7 @@ static int kbase_kcpu_cqs_set_operation_prepare(
 		return -ENOMEM;
 
 	if (copy_from_user(objs, u64_to_user_ptr(cqs_set_operation_info->objs),
-			   nr_objs * sizeof(*objs))) {
+			   size_mul(nr_objs, sizeof(*objs)))) {
 		kfree(objs);
 		return -ENOMEM;
 	}

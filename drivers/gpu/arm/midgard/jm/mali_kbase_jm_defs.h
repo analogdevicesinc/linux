@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -308,11 +308,11 @@ enum kbase_atom_gpu_rb_state {
  *                      powered down and GPU shall come out of fully
  *                      coherent mode before entering protected mode.
  * @KBASE_ATOM_ENTER_PROTECTED_SET_COHERENCY: Prepare coherency change;
- *                      for BASE_HW_ISSUE_TGOX_R1_1234 also request L2 power on
+ *                      for KBASE_HW_ISSUE_TGOX_R1_1234 also request L2 power on
  *                      so that coherency register contains correct value when
  *                      GPU enters protected mode.
  * @KBASE_ATOM_ENTER_PROTECTED_FINISHED: End state; for
- *                      BASE_HW_ISSUE_TGOX_R1_1234 check
+ *                      KBASE_HW_ISSUE_TGOX_R1_1234 check
  *                      that L2 is powered up and switch GPU to protected mode.
  */
 enum kbase_atom_enter_protected_state {
@@ -500,10 +500,6 @@ enum kbase_atom_exit_protected_state {
  *                         is snapshot of the age_count counter in kbase
  *                         context.
  * @jobslot: Job slot to use when BASE_JD_REQ_JOB_SLOT is specified.
- * @renderpass_id:Renderpass identifier used to associate an atom that has
- *                 BASE_JD_REQ_START_RENDERPASS set in its core requirements
- *                 with an atom that has BASE_JD_REQ_END_RENDERPASS set.
- * @jc_fragment:          Set of GPU fragment job chains
  */
 struct kbase_jd_atom {
 	struct work_struct work;
@@ -564,8 +560,6 @@ struct kbase_jd_atom {
 	enum base_jd_event_code event_code;
 	base_jd_core_req core_req;
 	u8 jobslot;
-	u8 renderpass_id;
-	struct base_jd_fragment jc_fragment;
 
 	u32 ticks;
 	int sched_priority;
@@ -677,71 +671,6 @@ static inline bool kbase_jd_atom_is_earlier(const struct kbase_jd_atom *katom_a,
 #define KBASE_JD_DEP_QUEUE_SIZE 256
 
 /**
- * enum kbase_jd_renderpass_state - State of a renderpass
- * @KBASE_JD_RP_COMPLETE: Unused or completed renderpass. Can only transition to
- *                        START.
- * @KBASE_JD_RP_START:    Renderpass making a first attempt at tiling.
- *                        Can transition to PEND_OOM or COMPLETE.
- * @KBASE_JD_RP_PEND_OOM: Renderpass whose first attempt at tiling used too much
- *                        memory and has a soft-stop pending. Can transition to
- *                        OOM or COMPLETE.
- * @KBASE_JD_RP_OOM:      Renderpass whose first attempt at tiling used too much
- *                        memory and therefore switched to incremental
- *                        rendering. The fragment job chain is forced to run.
- *                        Can only transition to RETRY.
- * @KBASE_JD_RP_RETRY:    Renderpass making a second or subsequent attempt at
- *                        tiling. Can transition to RETRY_PEND_OOM or COMPLETE.
- * @KBASE_JD_RP_RETRY_PEND_OOM: Renderpass whose second or subsequent attempt at
- *                              tiling used too much memory again and has a
- *                              soft-stop pending. Can transition to RETRY_OOM
- *                              or COMPLETE.
- * @KBASE_JD_RP_RETRY_OOM: Renderpass whose second or subsequent attempt at
- *                         tiling used too much memory again. The fragment job
- *                         chain is forced to run. Can only transition to RETRY.
- *
- * A state machine is used to control incremental rendering.
- */
-enum kbase_jd_renderpass_state {
-	KBASE_JD_RP_COMPLETE, /* COMPLETE => START */
-	KBASE_JD_RP_START, /* START => PEND_OOM or COMPLETE */
-	KBASE_JD_RP_PEND_OOM, /* PEND_OOM => OOM or COMPLETE */
-	KBASE_JD_RP_OOM, /* OOM => RETRY */
-	KBASE_JD_RP_RETRY, /* RETRY => RETRY_PEND_OOM or COMPLETE */
-	KBASE_JD_RP_RETRY_PEND_OOM, /* RETRY_PEND_OOM => RETRY_OOM or COMPLETE */
-	KBASE_JD_RP_RETRY_OOM /* RETRY_OOM => RETRY */
-};
-
-/**
- * struct kbase_jd_renderpass - Data for a renderpass
- * @state:        Current state of the renderpass. If KBASE_JD_RP_COMPLETE then
- *                all other members are invalid.
- *                Both the job dispatcher context and hwaccess_lock must be
- *                locked to modify this so that it can be read with either
- *                (or both) locked.
- * @start_katom:  Address of the atom that is the start of a renderpass.
- *                Both the job dispatcher context and hwaccess_lock must be
- *                locked to modify this so that it can be read with either
- *                (or both) locked.
- * @end_katom:    Address of the atom that is the end of a renderpass, or NULL
- *                if that atom hasn't been added to the job scheduler yet.
- *                The job dispatcher context and hwaccess_lock must be
- *                locked to modify this so that it can be read with either
- *                (or both) locked.
- * @oom_reg_list: A list of region structures which triggered out-of-memory.
- *                The hwaccess_lock must be locked to access this.
- *
- * Atoms tagged with BASE_JD_REQ_START_RENDERPASS or BASE_JD_REQ_END_RENDERPASS
- * are associated with an object of this type, which is created and maintained
- * by kbase to keep track of each renderpass.
- */
-struct kbase_jd_renderpass {
-	enum kbase_jd_renderpass_state state;
-	struct kbase_jd_atom *start_katom;
-	struct kbase_jd_atom *end_katom;
-	struct list_head oom_reg_list;
-};
-
-/**
  * struct kbase_jd_context  - per context object encapsulating all the
  *                            Job dispatcher related state.
  * @lock:                     lock to serialize the updates made to the
@@ -751,9 +680,6 @@ struct kbase_jd_renderpass {
  * @atoms:                    Array of the objects representing atoms,
  *                            containing the complete state and attributes
  *                            of an atom.
- * @renderpasses:             Array of renderpass state for incremental
- *                            rendering, indexed by user-specified renderpass
- *                            ID.
  * @job_nr:                   Tracks the number of atoms being processed by the
  *                            kbase. This includes atoms that are not tracked by
  *                            scheduler: 'not ready to run' & 'dependency-only'
@@ -803,7 +729,6 @@ struct kbase_jd_context {
 	struct mutex lock;
 	struct kbasep_js_kctx_info sched_info;
 	struct kbase_jd_atom atoms[BASE_JD_ATOM_COUNT];
-	struct kbase_jd_renderpass renderpasses[BASE_JD_RP_COUNT];
 	struct workqueue_struct *job_done_wq;
 
 	wait_queue_head_t zero_jobs_wait;

@@ -255,6 +255,42 @@ enum {
  */
 #define DEFAULT_PROGRESS_TIMEOUT_CYCLES (2500000000ull)
 
+/* MIN value of iterators' suspend timeout*/
+#define CSG_SUSPEND_TIMEOUT_FIRMWARE_MS_MIN (200)
+#if CSG_SUSPEND_TIMEOUT_FIRMWARE_MS_MIN <= 0
+#error "CSG_SUSPEND_TIMEOUT_FIRMWARE_MS_MIN should be larger than 0"
+#endif
+
+/* MAX value of iterators' suspend timeout*/
+#define CSG_SUSPEND_TIMEOUT_FIRMWARE_MS_MAX (60000)
+#if CSG_SUSPEND_TIMEOUT_FIRMWARE_MS_MAX >= (0xFFFFFFFF)
+#error "CSG_SUSPEND_TIMEOUT_FIRMWARE_MS_MAX should be less than U32_MAX"
+#endif
+
+/* Firmware iterators' suspend timeout, default 4000ms. Customer can update this by
+ * using debugfs -- csg_suspend_timeout
+ */
+#if IS_ENABLED(CONFIG_MALI_REAL_HW) && !IS_ENABLED(CONFIG_MALI_IS_FPGA)
+#define CSG_SUSPEND_TIMEOUT_FIRMWARE_MS (4000)
+#else
+#define CSG_SUSPEND_TIMEOUT_FIRMWARE_MS (31000)
+#endif
+#if (CSG_SUSPEND_TIMEOUT_FIRMWARE_MS < CSG_SUSPEND_TIMEOUT_FIRMWARE_MS_MIN) || \
+	(CSG_SUSPEND_TIMEOUT_FIRMWARE_MS > CSG_SUSPEND_TIMEOUT_FIRMWARE_MS_MAX)
+#error "CSG_SUSPEND_TIMEOUT_FIRMWARE_MS is out of range"
+#endif
+
+/* Additional time in milliseconds added to the firmware iterators' suspend timeout,
+ * default 100ms
+ */
+#define CSG_SUSPEND_TIMEOUT_HOST_ADDED_MS (100)
+
+/* Host side CSG suspend timeout */
+#define CSG_SUSPEND_TIMEOUT_MS (CSG_SUSPEND_TIMEOUT_FIRMWARE_MS + CSG_SUSPEND_TIMEOUT_HOST_ADDED_MS)
+
+/* MAX allowed timeout value(ms) on host side, should be less than ANR timeout */
+#define MAX_TIMEOUT_MS (4500)
+
 #else /* MALI_USE_CSF */
 
 /* A default timeout in clock cycles to be used when an invalid timeout
@@ -326,14 +362,6 @@ enum {
  * which is 10 seconds (assuming the GPU is usually clocked at ~1000 MHZ).
  */
 #define DEFAULT_PROGRESS_TIMEOUT ((u64)10 * 1000 * 1024 * 1024)
-
-/* Default threshold at which to switch to incremental rendering
- *
- * Fraction of the maximum size of an allocation that grows on GPU page fault
- * that can be used up before the driver switches to incremental rendering,
- * in 256ths. 0 means disable incremental rendering.
- */
-#define DEFAULT_IR_THRESHOLD (192)
 
 /* Waiting time in clock cycles for the completion of a MMU operation.
  *

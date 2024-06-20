@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 #
-# (C) COPYRIGHT 2012-2023 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2012-2024 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -69,7 +69,7 @@ endif
 #
 
 # Driver version string which is returned to userspace via an ioctl
-MALI_RELEASE_NAME ?= '"r49p0-00eac0"'
+MALI_RELEASE_NAME ?= '"r50p0-00eac0"'
 # Set up defaults if not defined by build system
 ifeq ($(CONFIG_MALI_DEBUG), y)
     MALI_UNIT_TEST = 1
@@ -104,7 +104,6 @@ endif
 #
 # Experimental features must default to disabled, e.g.:
 # MALI_EXPERIMENTAL_FEATURE ?= 0
-MALI_INCREMENTAL_RENDERING_JM ?= 0
 
 #
 # ccflags
@@ -117,7 +116,6 @@ ccflags-y = \
     -DMALI_COVERAGE=$(MALI_COVERAGE) \
     -DMALI_RELEASE_NAME=$(MALI_RELEASE_NAME) \
     -DMALI_JIT_PRESSURE_LIMIT_BASE=$(MALI_JIT_PRESSURE_LIMIT_BASE) \
-    -DMALI_INCREMENTAL_RENDERING_JM=$(MALI_INCREMENTAL_RENDERING_JM) \
     -DMALI_PLATFORM_DIR=$(MALI_PLATFORM_DIR)
 
 
@@ -211,6 +209,7 @@ endif
 
 
 INCLUDE_SUBDIR = \
+    $(src)/arbiter/Kbuild \
     $(src)/context/Kbuild \
     $(src)/debug/Kbuild \
     $(src)/device/Kbuild \
@@ -227,9 +226,6 @@ ifeq ($(CONFIG_MALI_CSF_SUPPORT),y)
     INCLUDE_SUBDIR += $(src)/csf/Kbuild
 endif
 
-ifeq ($(CONFIG_MALI_ARBITER_SUPPORT),y)
-    INCLUDE_SUBDIR += $(src)/arbiter/Kbuild
-endif
 
 ifeq ($(CONFIG_MALI_DEVFREQ),y)
     ifeq ($(CONFIG_DEVFREQ_THERMAL),y)

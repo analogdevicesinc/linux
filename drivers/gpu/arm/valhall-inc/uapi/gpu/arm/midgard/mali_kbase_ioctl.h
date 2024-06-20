@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2017-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2017-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -169,7 +169,7 @@ struct kbase_ioctl_hwcnt_reader_setup {
  * struct kbase_ioctl_hwcnt_values - Values to set dummy the dummy counters to.
  * @data:    Counter samples for the dummy model.
  * @size:    Size of the counter sample data.
- * @padding: Padding.
+ * @padding: Currently unused, must be zero
  */
 struct kbase_ioctl_hwcnt_values {
 	__u64 data;
@@ -193,7 +193,7 @@ struct kbase_ioctl_disjoint_query {
  * struct kbase_ioctl_get_ddk_version - Query the kernel version
  * @version_buffer: Buffer to receive the kernel version string
  * @size: Size of the buffer
- * @padding: Padding
+ * @padding: Currently unused, must be zero
  *
  * The ioctl will return the number of bytes written into version_buffer
  * (which includes a NULL byte) or a negative error code

@@ -143,9 +143,8 @@ static int kbase_dump_cpu_gpu_time(struct kbase_jd_atom *katom)
 	 * delay suspend until we process the atom (which may be at the end of a
 	 * long chain of dependencies
 	 */
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
-	atomic_inc(&kctx->kbdev->pm.gpu_users_waiting);
-#endif /* CONFIG_MALI_ARBITER_SUPPORT */
+	if (kbase_has_arbiter(kctx->kbdev))
+		atomic_inc(&kctx->kbdev->pm.gpu_users_waiting);
 	pm_active_err = kbase_pm_context_active_handle_suspend(
 		kctx->kbdev, KBASE_PM_SUSPEND_HANDLER_DONT_REACTIVATE);
 	if (pm_active_err) {
@@ -163,11 +162,8 @@ static int kbase_dump_cpu_gpu_time(struct kbase_jd_atom *katom)
 		kbasep_add_waiting_soft_job(katom);
 
 		return pm_active_err;
-	}
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
-	else
+	} else if (kbase_has_arbiter(kctx->kbdev))
 		atomic_dec(&kctx->kbdev->pm.gpu_users_waiting);
-#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
 	kbase_backend_get_gpu_time(kctx->kbdev, &cycle_counter, &system_time, &ts);
 
@@ -553,7 +549,7 @@ static int kbase_debug_copy_prepare(struct kbase_jd_atom *katom)
 		goto out_cleanup;
 	}
 
-	ret = copy_from_user(user_buffers, user_structs, sizeof(*user_buffers) * nr);
+	ret = copy_from_user(user_buffers, user_structs, size_mul(sizeof(*user_buffers), nr));
 	if (ret) {
 		ret = -EFAULT;
 		goto out_cleanup;
@@ -1235,7 +1231,7 @@ static int kbase_jit_free_prepare(struct kbase_jd_atom *katom)
 			goto free_info;
 		}
 
-		if (copy_from_user(ids, data, sizeof(*ids) * count) != 0) {
+		if (copy_from_user(ids, data, size_mul(sizeof(*ids), count)) != 0) {
 			ret = -EINVAL;
 			goto free_info;
 		}
@@ -1688,9 +1684,8 @@ void kbase_resume_suspended_soft_jobs(struct kbase_device *kbdev)
 		if (kbase_process_soft_job(katom_iter) == 0) {
 			kbase_finish_soft_job(katom_iter);
 			resched |= kbase_jd_done_nolock(katom_iter, true);
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
-			atomic_dec(&kbdev->pm.gpu_users_waiting);
-#endif /* CONFIG_MALI_ARBITER_SUPPORT */
+			if (kbase_has_arbiter(kctx->kbdev))
+				atomic_dec(&kbdev->pm.gpu_users_waiting);
 		}
 		mutex_unlock(&kctx->jctx.lock);
 	}

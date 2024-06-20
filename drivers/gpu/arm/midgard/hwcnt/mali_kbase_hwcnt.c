@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2018-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -599,6 +599,9 @@ int kbase_hwcnt_accumulator_acquire(struct kbase_hwcnt_context *hctx,
 		return errcode;
 	}
 
+	/* Inform the backend that counter collection has been enabled. */
+	hctx->iface->acquire(hctx->accum.backend);
+
 	spin_lock_irqsave(&hctx->state_lock, flags);
 
 	WARN_ON(hctx->disable_count == 0);
@@ -645,6 +648,9 @@ void kbase_hwcnt_accumulator_release(struct kbase_hwcnt_accumulator *accum)
 	kbasep_hwcnt_context_disable(hctx, false);
 
 	mutex_unlock(&hctx->accum_lock);
+
+	/* Inform the backend that counter collection has been disabled. */
+	hctx->iface->release(hctx->accum.backend);
 
 	kbasep_hwcnt_accumulator_term(hctx);
 

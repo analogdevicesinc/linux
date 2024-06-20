@@ -105,8 +105,8 @@ static inline void kbase_process_page_usage_inc(struct kbase_context *kctx, int 
 
 /* Index of chosen MEMATTR for this region (0..7) */
 #define KBASE_REG_MEMATTR_MASK (7ul << 16)
-#define KBASE_REG_MEMATTR_INDEX(x) (((x)&7) << 16)
-#define KBASE_REG_MEMATTR_VALUE(x) (((x)&KBASE_REG_MEMATTR_MASK) >> 16)
+#define KBASE_REG_MEMATTR_INDEX(x) (((x) & 7) << 16)
+#define KBASE_REG_MEMATTR_VALUE(x) (((x) & KBASE_REG_MEMATTR_MASK) >> 16)
 
 /* AS<n>_MEMATTR values from MMU_MEMATTR_STAGE1: */
 /* Use GPU implementation-defined caching policy. */
@@ -483,6 +483,26 @@ struct kbase_page_metadata {
 			struct kbase_mmu_table *mmut;
 			/* GPU virtual page frame number info is in GPU_PAGE_SIZE units */
 			u64 pgd_vpfn_level;
+#if GPU_PAGES_PER_CPU_PAGE > 1
+			/**
+			 * @pgd_link: Link to the &kbase_mmu_table.pgd_pages_list
+			 */
+			struct list_head pgd_link;
+			/**
+			 * @pgd_page: Back pointer to the PGD page that the metadata is
+			 *            associated with
+			 */
+			struct page *pgd_page;
+			/**
+			 * @allocated_sub_pages: Bitmap representing the allocation status
+			 *                       of sub pages in the @pgd_page
+			 */
+			DECLARE_BITMAP(allocated_sub_pages, GPU_PAGES_PER_CPU_PAGE);
+			/**
+			 * @num_allocated_sub_pages: The number of allocated sub pages in @pgd_page
+			 */
+			s8 num_allocated_sub_pages;
+#endif
 		} pt_mapped;
 		struct {
 			struct kbase_device *kbdev;
@@ -622,9 +642,6 @@ static inline struct kbase_mem_phy_alloc *kbase_mem_phy_alloc_put(struct kbase_m
  * @nr_pages:        The size of the region in pages.
  * @initial_commit:  Initial commit, for aligning the start address and
  *                   correctly growing KBASE_REG_TILER_ALIGN_TOP regions.
- * @threshold_pages: If non-zero and the amount of memory committed to a region
- *                   that can grow on page fault exceeds this number of pages
- *                   then the driver switches to incremental rendering.
  * @flags:           Flags
  * @extension:    Number of pages allocated on page fault.
  * @cpu_alloc: The physical memory we mmap to the CPU when mapping this region.
@@ -661,8 +678,7 @@ struct kbase_va_region {
 	void *user_data;
 	size_t nr_pages;
 	size_t initial_commit;
-	size_t threshold_pages;
-	unsigned long flags;
+	base_mem_alloc_flags flags;
 	size_t extension;
 	struct kbase_mem_phy_alloc *cpu_alloc;
 	struct kbase_mem_phy_alloc *gpu_alloc;
@@ -916,10 +932,12 @@ static inline struct kbase_mem_phy_alloc *kbase_alloc_create(struct kbase_contex
 	atomic_set(&alloc->gpu_mappings, 0);
 	atomic_set(&alloc->kernel_mappings, 0);
 	alloc->nents = 0;
-	alloc->pages = (void *)(alloc + 1);
-	/* fill pages with invalid address value */
-	for (i = 0; i < nr_pages; i++)
-		alloc->pages[i] = as_tagged(KBASE_INVALID_PHYSICAL_ADDRESS);
+	if (type != KBASE_MEM_TYPE_ALIAS) {
+		alloc->pages = (void *)(alloc + 1);
+		/* fill pages with invalid address value */
+		for (i = 0; i < nr_pages; i++)
+			alloc->pages[i] = as_tagged(KBASE_INVALID_PHYSICAL_ADDRESS);
+	}
 	INIT_LIST_HEAD(&alloc->mappings);
 	alloc->type = type;
 	alloc->group_id = group_id;
@@ -1309,7 +1327,7 @@ struct page *kbase_mem_alloc_page(struct kbase_mem_pool *pool, const bool alloc_
  */
 void kbase_mem_pool_free_page(struct kbase_mem_pool *pool, struct page *p);
 
-bool kbase_check_alloc_flags(unsigned long flags);
+bool kbase_check_alloc_flags(struct kbase_context *kctx, unsigned long flags);
 bool kbase_check_import_flags(unsigned long flags);
 
 static inline bool kbase_import_size_is_valid(struct kbase_device *kbdev, u64 va_pages)
@@ -1801,8 +1819,8 @@ static inline dma_addr_t kbase_dma_addr_from_tagged(struct tagged_addr tagged_pa
 	phys_addr_t pa = as_phys_addr_t(tagged_pa);
 	struct page *page = pfn_to_page(PFN_DOWN(pa));
 	dma_addr_t dma_addr = (is_huge(tagged_pa) || is_partial(tagged_pa)) ?
-					    kbase_dma_addr_as_priv(page) :
-					    kbase_dma_addr(page);
+				      kbase_dma_addr_as_priv(page) :
+				      kbase_dma_addr(page);
 
 	return dma_addr;
 }

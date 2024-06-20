@@ -46,7 +46,6 @@ static struct kbase_timeout_info timeout_info[KBASE_TIMEOUT_SELECTOR_COUNT] = {
 							       CSF_FIRMWARE_PING_TIMEOUT_CYCLES) },
 	[CSF_PM_TIMEOUT] = { "CSF_PM_TIMEOUT", CSF_PM_TIMEOUT_CYCLES },
 	[CSF_GPU_RESET_TIMEOUT] = { "CSF_GPU_RESET_TIMEOUT", CSF_GPU_RESET_TIMEOUT_CYCLES },
-	[CSF_CSG_SUSPEND_TIMEOUT] = { "CSF_CSG_SUSPEND_TIMEOUT", CSF_CSG_SUSPEND_TIMEOUT_CYCLES },
 	[CSF_CSG_TERM_TIMEOUT] = { "CSF_CSG_TERM_TIMEOUT", CSF_CSG_TERM_TIMEOUT_CYCLES },
 	[CSF_FIRMWARE_BOOT_TIMEOUT] = { "CSF_FIRMWARE_BOOT_TIMEOUT",
 					CSF_FIRMWARE_BOOT_TIMEOUT_CYCLES },
@@ -235,6 +234,15 @@ void kbase_device_set_timeout_ms(struct kbase_device *kbdev, enum kbase_timeout_
 			 timeout_info[selector].selector_str);
 	}
 	selector_str = timeout_info[selector].selector_str;
+
+#if MALI_USE_CSF
+	if (IS_ENABLED(CONFIG_MALI_REAL_HW) && !IS_ENABLED(CONFIG_MALI_IS_FPGA) &&
+	    unlikely(timeout_ms >= MAX_TIMEOUT_MS)) {
+		dev_warn(kbdev->dev, "%s is capped from %dms to %dms\n",
+			 timeout_info[selector].selector_str, timeout_ms, MAX_TIMEOUT_MS);
+		timeout_ms = MAX_TIMEOUT_MS;
+	}
+#endif
 
 	kbdev->backend_time.device_scaled_timeouts[selector] = timeout_ms;
 	dev_dbg(kbdev->dev, "\t%-35s: %ums\n", selector_str, timeout_ms);

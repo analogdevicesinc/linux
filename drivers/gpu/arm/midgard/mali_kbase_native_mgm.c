@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -122,12 +122,16 @@ static vm_fault_t kbase_native_mgm_vmf_insert_pfn_prot(struct memory_group_manag
 }
 
 static u64 kbase_native_mgm_update_gpu_pte(struct memory_group_manager_device *mgm_dev,
-					   unsigned int group_id, int mmu_level, u64 pte)
+					   unsigned int group_id, unsigned int pbha_id,
+					   unsigned int pte_flags, int mmu_level, u64 pte)
 {
 	if (WARN_ON(group_id >= MEMORY_GROUP_MANAGER_NR_GROUPS))
 		return pte;
 
-	pte |= ((u64)group_id << PTE_PBHA_SHIFT) & PTE_PBHA_MASK;
+	if ((pte_flags & BIT(MMA_VIOLATION)) && pbha_id) {
+		pr_warn_once("MMA violation! Applying PBHA override workaround to PTE\n");
+		pte |= ((u64)pbha_id << PTE_PBHA_SHIFT) & PTE_PBHA_MASK;
+	}
 
 	/* Address could be translated into a different bus address here */
 	pte |= ((u64)1 << PTE_RES_BIT_MULTI_AS_SHIFT);
@@ -150,14 +154,24 @@ static u64 kbase_native_mgm_pte_to_original_pte(struct memory_group_manager_devi
 	return pte;
 }
 
+static bool kbase_native_mgm_get_import_memory_cached_access_permitted(
+	struct memory_group_manager_device *mgm_dev,
+	struct memory_group_manager_import_data *import_data)
+{
+	CSTD_UNUSED(mgm_dev);
+	CSTD_UNUSED(import_data);
+
+	return true;
+}
+
 struct memory_group_manager_device kbase_native_mgm_dev = {
-	.ops = {
-		.mgm_alloc_page = kbase_native_mgm_alloc,
-		.mgm_free_page = kbase_native_mgm_free,
-		.mgm_get_import_memory_id = NULL,
-		.mgm_vmf_insert_pfn_prot = kbase_native_mgm_vmf_insert_pfn_prot,
-		.mgm_update_gpu_pte = kbase_native_mgm_update_gpu_pte,
-		.mgm_pte_to_original_pte = kbase_native_mgm_pte_to_original_pte,
-	},
+	.ops = { .mgm_alloc_page = kbase_native_mgm_alloc,
+		 .mgm_free_page = kbase_native_mgm_free,
+		 .mgm_get_import_memory_id = NULL,
+		 .mgm_vmf_insert_pfn_prot = kbase_native_mgm_vmf_insert_pfn_prot,
+		 .mgm_update_gpu_pte = kbase_native_mgm_update_gpu_pte,
+		 .mgm_pte_to_original_pte = kbase_native_mgm_pte_to_original_pte,
+		 .mgm_get_import_memory_cached_access_permitted =
+			 kbase_native_mgm_get_import_memory_cached_access_permitted },
 	.data = NULL
 };

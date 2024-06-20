@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -516,7 +516,8 @@ static ssize_t reader_changes_copy_to_user(struct reader_changes *const changes,
 	do {
 		changes_tail = changes->tail;
 		changes_count = reader_changes_count_locked(changes);
-		read_size = min(changes_count * entry_size, buffer_size & ~(entry_size - 1));
+		read_size =
+			min(size_mul(changes_count, entry_size), buffer_size & ~(entry_size - 1));
 
 		if (!read_size)
 			break;
@@ -743,7 +744,6 @@ int kbase_kinstr_jm_get_fd(struct kbase_kinstr_jm *const ctx, union kbase_kinstr
 	size_t const change_size = sizeof(struct kbase_kinstr_jm_atom_state_change);
 	int status;
 	int fd;
-	size_t i;
 
 	if (!ctx || !jm_fd_arg)
 		return -EINVAL;
@@ -752,10 +752,6 @@ int kbase_kinstr_jm_get_fd(struct kbase_kinstr_jm *const ctx, union kbase_kinstr
 
 	if (!is_power_of_2(in->count))
 		return -EINVAL;
-
-	for (i = 0; i < sizeof(in->padding); ++i)
-		if (in->padding[i])
-			return -EINVAL;
 
 	status = reader_init(&reader, ctx, in->count);
 	if (status < 0)

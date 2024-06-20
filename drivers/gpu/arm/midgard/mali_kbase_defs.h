@@ -28,8 +28,8 @@
 #define _KBASE_DEFS_H_
 
 #include <mali_kbase_config.h>
-#include <mali_base_hwconfig_features.h>
-#include <mali_base_hwconfig_issues.h>
+#include <mali_kbase_hwconfig_features.h>
+#include <mali_kbase_hwconfig_issues.h>
 #include <mali_kbase_mem_lowlevel.h>
 #include <mmu/mali_kbase_mmu_hw.h>
 #include <backend/gpu/mali_kbase_instr_defs.h>
@@ -52,17 +52,11 @@
 #include <linux/version_compat_defs.h>
 
 
-#if IS_ENABLED(CONFIG_DEBUG_FS)
-#include <linux/debugfs.h>
-#endif /* CONFIG_DEBUG_FS */
-
 #ifdef CONFIG_MALI_DEVFREQ
 #include <linux/devfreq.h>
 #endif /* CONFIG_MALI_DEVFREQ */
 
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
 #include <arbiter/mali_kbase_arbiter_defs.h>
-#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
 #include <linux/memory_group_manager.h>
 
@@ -73,6 +67,7 @@
 #include <linux/file.h>
 #include <linux/sizes.h>
 #include <linux/clk.h>
+#include <linux/debugfs.h>
 #include <linux/regulator/consumer.h>
 
 /** Number of milliseconds before we time out on a GPU soft/hard reset */
@@ -290,24 +285,33 @@ struct kbase_fault {
 #define MAX_PAGES_FOR_FREE_PGDS ((size_t)9)
 
 /* Maximum number of pointers to free PGDs */
-#define MAX_FREE_PGDS ((PAGE_SIZE / sizeof(struct page *)) * MAX_PAGES_FOR_FREE_PGDS)
+#define MAX_FREE_PGDS ((PAGE_SIZE / sizeof(phys_addr_t)) * MAX_PAGES_FOR_FREE_PGDS)
 
 /**
  * struct kbase_mmu_table  - object representing a set of GPU page tables
- * @mmu_lock:             Lock to serialize the accesses made to multi level GPU
- *                        page tables
- * @pgd:                  Physical address of the page allocated for the top
- *                        level page table of the context, this is used for
- *                        MMU HW programming as the address translation will
- *                        start from the top level page table.
- * @group_id:             A memory group ID to be passed to a platform-specific
- *                        memory group manager.
- *                        Valid range is 0..(MEMORY_GROUP_MANAGER_NR_GROUPS-1).
- * @kctx:                 If this set of MMU tables belongs to a context then
- *                        this is a back-reference to the context, otherwise
- *                        it is NULL.
- * @scratch_mem:          Scratch memory used for MMU operations, which are
- *                        serialized by the @mmu_lock.
+ * @mmu_lock:                Lock to serialize the accesses made to multi level GPU
+ *                           page tables
+ * @pgd:                     Physical address of the page allocated for the top
+ *                           level page table of the context, this is used for
+ *                           MMU HW programming as the address translation will
+ *                           start from the top level page table.
+ * @group_id:                A memory group ID to be passed to a platform-specific
+ *                           memory group manager.
+ *                           Valid range is 0..(MEMORY_GROUP_MANAGER_NR_GROUPS-1).
+ * @kctx:                    If this set of MMU tables belongs to a context then
+ *                           this is a back-reference to the context, otherwise
+ *                           it is NULL.
+ * @scratch_mem:             Scratch memory used for MMU operations, which are
+ *                           serialized by the @mmu_lock.
+ * @pgd_pages_list:          List head to link all 16K/64K pages allocated for the PGDs of mmut.
+ *                           These pages will be used to allocate 4KB PGD pages for
+ *                           the GPU page table.
+ *                           Linked with &kbase_page_metadata.data.pt_mapped.pgd_link.
+ * @last_allocated_pgd_page: Pointer to PGD page from where the last sub page
+ *                           was allocated for mmut.
+ * @last_freed_pgd_page:     Pointer to PGD page to which the last freed 4K sub page
+ *                           was returned for mmut.
+ * @num_free_pgd_sub_pages:  The total number of free 4K PGD pages in the mmut.
  */
 struct kbase_mmu_table {
 	struct mutex mmu_lock;
@@ -325,7 +329,7 @@ struct kbase_mmu_table {
 			 * @levels: Array of PGD pages, large enough to copy one PGD
 			 *          for each level of the MMU table.
 			 */
-			u64 levels[MIDGARD_MMU_BOTTOMLEVEL][PAGE_SIZE / sizeof(u64)];
+			u64 levels[MIDGARD_MMU_BOTTOMLEVEL][GPU_PAGE_SIZE / sizeof(u64)];
 		} teardown_pages;
 		/**
 		 * @free_pgds: Scratch memory used for insertion, update and teardown
@@ -334,11 +338,18 @@ struct kbase_mmu_table {
 		 */
 		struct {
 			/** @pgds: Array of pointers to PGDs to free. */
-			struct page *pgds[MAX_FREE_PGDS];
+			phys_addr_t pgds[MAX_FREE_PGDS];
 			/** @head_index: Index of first free element in the PGDs array. */
 			size_t head_index;
 		} free_pgds;
 	} scratch_mem;
+
+#if GPU_PAGES_PER_CPU_PAGE > 1
+	struct list_head pgd_pages_list;
+	struct page *last_allocated_pgd_page;
+	struct page *last_freed_pgd_page;
+	u32 num_free_pgd_sub_pages;
+#endif
 };
 
 #if MALI_USE_CSF
@@ -364,14 +375,9 @@ static inline int kbase_as_has_page_fault(struct kbase_as *as, struct kbase_faul
  *
  * @used_pages:   Tracks usage of OS shared memory. Updated when OS memory is
  *                allocated/freed.
- * @ir_threshold: Fraction of the maximum size of an allocation that grows
- *                on GPU page fault that can be used before the driver
- *                switches to incremental rendering, in 1/256ths.
- *                0 means disabled.
  */
 struct kbasep_mem_device {
 	atomic_t used_pages;
-	atomic_t ir_threshold;
 };
 
 struct kbase_clk_rate_listener;
@@ -476,9 +482,7 @@ struct kbase_pm_device_data {
 #if MALI_USE_CSF
 	bool runtime_active;
 #endif
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
 	atomic_t gpu_lost;
-#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 	wait_queue_head_t zero_active_count_wait;
 	wait_queue_head_t resume_wait;
 
@@ -494,10 +498,8 @@ struct kbase_pm_device_data {
 	void (*callback_power_runtime_term)(struct kbase_device *kbdev);
 	u32 dvfs_period;
 	struct kbase_pm_backend_data backend;
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
 	struct kbase_arbiter_vm_state *arb_vm_state;
 	atomic_t gpu_users_waiting;
-#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 	struct kbase_clk_rate_trace_manager clk_rtm;
 };
 
@@ -939,7 +941,7 @@ struct kbase_mem_migrate {
  * @ipa.last_sample_time:  Records the time when counters, used for dynamic
  *                         energy estimation, were last sampled.
  * @previous_frequency:    Previous frequency of GPU clock used for
- *                         BASE_HW_ISSUE_GPU2017_1336 workaround, This clock is
+ *                         KBASE_HW_ISSUE_GPU2017_1336 workaround, This clock is
  *                         restored when L2 is powered on.
  * @job_fault_debug:       Flag to control the dumping of debug data for job faults,
  *                         set when the 'job_fault' debugfs file is opened.
@@ -1061,7 +1063,8 @@ struct kbase_mem_migrate {
  *                          KCPU queue. These structures may outlive kbase module
  *                          itself. Therefore, in such a case, a warning should be
  *                          be produced.
- * @va_region_slab:         kmem_cache (slab) for allocated kbase_va_region structures.
+ * @va_region_slab:         kmem_cache (slab) for allocated @kbase_va_region structures.
+ * @page_metadata_slab:     kmem_cache (slab) for allocated @kbase_page_metadata structures.
  * @fence_signal_timeout_enabled: Global flag for whether fence signal timeout tracking
  *                                is enabled.
  * @pcm_prioritized_process_nb: Notifier block for the Priority Control Manager
@@ -1132,8 +1135,8 @@ struct kbase_device {
 
 	struct kbase_gpu_props gpu_props;
 
-	unsigned long hw_issues_mask[(BASE_HW_ISSUE_END + BITS_PER_LONG - 1) / BITS_PER_LONG];
-	unsigned long hw_features_mask[(BASE_HW_FEATURE_END + BITS_PER_LONG - 1) / BITS_PER_LONG];
+	unsigned long hw_issues_mask[(KBASE_HW_ISSUE_END + BITS_PER_LONG - 1) / BITS_PER_LONG];
+	unsigned long hw_features_mask[(KBASE_HW_FEATURE_END + BITS_PER_LONG - 1) / BITS_PER_LONG];
 
 	struct {
 		atomic_t count;
@@ -1148,6 +1151,12 @@ struct kbase_device {
 	 *                         restore to L2_CONFIG upon GPU reset.
 	 */
 	u8 pbha_propagate_bits;
+
+	/**
+	 * @mma_wa_id: The PBHA ID to use for the PBHA OVERRIDE based workaround for MMA violation.
+	 *
+	 */
+	u32 mma_wa_id;
 
 #if MALI_USE_CSF
 	struct kbase_hwcnt_backend_csf_if hwcnt_backend_csf_if_fw;
@@ -1235,7 +1244,6 @@ struct kbase_device {
 	atomic_t job_fault_debug;
 #endif /* !MALI_USE_CSF */
 
-#if IS_ENABLED(CONFIG_DEBUG_FS)
 	struct dentry *mali_debugfs_directory;
 	struct dentry *debugfs_ctx_directory;
 	struct dentry *debugfs_instr_directory;
@@ -1257,7 +1265,6 @@ struct kbase_device {
 		u32 reg_offset;
 	} regs_dump_debugfs_data;
 #endif /* !MALI_CUSTOMER_RELEASE */
-#endif /* CONFIG_DEBUG_FS */
 
 	atomic_t ctx_num;
 
@@ -1348,9 +1355,7 @@ struct kbase_device {
 	} dummy_job_wa;
 	bool dummy_job_wa_loaded;
 
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
 	struct kbase_arbiter_device arb;
-#endif
 	/* Priority Control Manager device */
 	struct priority_control_manager_device *pcm_dev;
 
@@ -1363,6 +1368,9 @@ struct kbase_device {
 	atomic_t live_fence_metadata;
 #endif
 	struct kmem_cache *va_region_slab;
+#if GPU_PAGES_PER_CPU_PAGE > 1
+	struct kmem_cache *page_metadata_slab;
+#endif
 
 #if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
 	/**
@@ -2110,6 +2118,18 @@ static inline u64 kbase_get_lock_region_min_size_log2(struct kbase_gpu_props con
 		return 12; /* 4 kB */
 
 	return 15; /* 32 kB */
+}
+
+/**
+ * kbase_has_arbiter - Check whether GPU has an arbiter.
+ *
+ * @kbdev: KBase device.
+ *
+ * Return: True if there is an arbiter, False otherwise.
+ */
+static inline bool kbase_has_arbiter(struct kbase_device *kbdev)
+{
+	return (bool)kbdev->arb.arb_if;
 }
 
 /* Conversion helpers for setting up high resolution timers */

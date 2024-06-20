@@ -26,6 +26,9 @@
 #include <linux/highmem.h>
 #include <linux/timer.h>
 #include <linux/iopoll.h>
+#include <linux/bitmap.h>
+#include <linux/math64.h>
+#include <linux/moduleparam.h>
 
 #if (KERNEL_VERSION(4, 4, 267) < LINUX_VERSION_CODE)
 #include <linux/overflow.h>
@@ -176,6 +179,7 @@ static inline void kbase_kunmap_atomic(void *address)
  */
 #define check_mul_overflow(a, b, d) __builtin_mul_overflow(a, b, d)
 #define check_add_overflow(a, b, d) __builtin_add_overflow(a, b, d)
+#define check_sub_overflow(a, b, d) __builtin_sub_overflow(a, b, d)
 #endif
 
 /*
@@ -355,8 +359,10 @@ static inline long kbase_pin_user_pages_remote(struct task_struct *tsk, struct m
 #if KERNEL_VERSION(6, 0, 0) > LINUX_VERSION_CODE
 #define KBASE_REGISTER_SHRINKER(reclaim, name, priv_data) register_shrinker(reclaim)
 
+/* clang-format off */
 #elif ((KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE) && \
 	!(defined(__ANDROID_COMMON_KERNEL__) && (KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE)))
+/* clang-format on */
 #define KBASE_REGISTER_SHRINKER(reclaim, name, priv_data) register_shrinker(reclaim, name)
 
 #else
@@ -367,9 +373,10 @@ static inline long kbase_pin_user_pages_remote(struct task_struct *tsk, struct m
 	} while (0)
 
 #endif /* KERNEL_VERSION(6, 0, 0) > LINUX_VERSION_CODE */
-
+/* clang-format off */
 #if ((KERNEL_VERSION(6, 7, 0) > LINUX_VERSION_CODE) && \
 	!(defined(__ANDROID_COMMON_KERNEL__) && (KERNEL_VERSION(6, 6, 0) == LINUX_VERSION_CODE)))
+/* clang-format on */
 #define KBASE_UNREGISTER_SHRINKER(reclaim) unregister_shrinker(&reclaim)
 #define KBASE_GET_KBASE_DATA_FROM_SHRINKER(s, type, var) container_of(s, type, var)
 #define DEFINE_KBASE_SHRINKER struct shrinker
@@ -386,11 +393,131 @@ static inline long kbase_pin_user_pages_remote(struct task_struct *tsk, struct m
 
 #endif
 
+static inline int kbase_param_set_uint_minmax(const char *val, const struct kernel_param *kp,
+					      unsigned int min, unsigned int max)
+{
+#if (KERNEL_VERSION(5, 15, 0) > LINUX_VERSION_CODE)
+	uint uint_val;
+	int ret;
+
+	if (!val)
+		return -EINVAL;
+
+	ret = kstrtouint(val, 0, &uint_val);
+
+	if (ret == 0) {
+		if (uint_val < min || uint_val > max)
+			return -EINVAL;
+
+		*((uint *)kp->arg) = uint_val;
+	}
+
+	return ret;
+#else
+	return param_set_uint_minmax(val, kp, min, max);
+#endif
+}
+
 #if (KERNEL_VERSION(4, 20, 0) <= LINUX_VERSION_CODE)
 #include <linux/compiler_attributes.h>
 #endif
 #ifndef __maybe_unused
 #define __maybe_unused __attribute__((unused))
+#endif
+
+#if KERNEL_VERSION(5, 4, 103) <= LINUX_VERSION_CODE
+#define mali_sysfs_emit(buf, fmt, ...) sysfs_emit(buf, fmt, __VA_ARGS__)
+#else
+#define mali_sysfs_emit(buf, fmt, ...) scnprintf(buf, PAGE_SIZE, fmt, __VA_ARGS__)
+#endif
+
+#if KERNEL_VERSION(5, 10, 0) > LINUX_VERSION_CODE
+#include <linux/devfreq.h>
+#include <linux/of_platform.h>
+
+static inline struct devfreq *devfreq_get_devfreq_by_node(struct device_node *node)
+{
+	struct platform_device *pdev = of_find_device_by_node(node);
+
+	if (!pdev || !node)
+		return NULL;
+
+	return devfreq_get_devfreq_by_phandle(&pdev->dev, 0);
+}
+#endif
+
+#if (KERNEL_VERSION(5, 16, 0) <= LINUX_VERSION_CODE &&       \
+	KERNEL_VERSION(5, 18, 0) > LINUX_VERSION_CODE) ||       \
+	(KERNEL_VERSION(5, 11, 0) <= LINUX_VERSION_CODE &&   \
+	KERNEL_VERSION(5, 15, 85) >= LINUX_VERSION_CODE) || \
+	(KERNEL_VERSION(5, 10, 200) >= LINUX_VERSION_CODE)
+/*
+ * Kernel revisions
+ *  - up to 5.10.200
+ *  - between 5.11.0 and 5.15.85 inclusive
+ *  - between 5.16.0 and 5.17.15 inclusive
+ * do not provide an implementation of
+ * size_add, size_sub and size_mul.
+ * The implementations below provides
+ * backward compatibility implementations of these functions.
+ */
+
+static inline size_t __must_check size_mul(size_t factor1, size_t factor2)
+{
+	size_t ret_val;
+
+	if (check_mul_overflow(factor1, factor2, &ret_val))
+		return SIZE_MAX;
+	return ret_val;
+}
+
+static inline size_t __must_check size_add(size_t addend1, size_t addend2)
+{
+	size_t ret_val;
+
+	if (check_add_overflow(addend1, addend2, &ret_val))
+		return SIZE_MAX;
+	return ret_val;
+}
+
+static inline size_t __must_check size_sub(size_t minuend, size_t subtrahend)
+{
+	size_t ret_val;
+
+	if (minuend == SIZE_MAX || subtrahend == SIZE_MAX ||
+	    check_sub_overflow(minuend, subtrahend, &ret_val))
+		return SIZE_MAX;
+	return ret_val;
+}
+#endif
+
+#if KERNEL_VERSION(5, 5, 0) > LINUX_VERSION_CODE
+static inline unsigned long bitmap_get_value8(const unsigned long *map, unsigned long start)
+{
+	const size_t index = BIT_WORD(start);
+	const unsigned long offset = start % BITS_PER_LONG;
+
+	return (map[index] >> offset) & 0xFF;
+}
+
+static inline unsigned long find_next_clump8(unsigned long *clump, const unsigned long *addr,
+					     unsigned long size, unsigned long offset)
+{
+	offset = find_next_bit(addr, size, offset);
+	if (offset == size)
+		return size;
+
+	offset = round_down(offset, 8);
+	*clump = bitmap_get_value8(addr, offset);
+
+	return offset;
+}
+
+#define find_first_clump8(clump, bits, size) find_next_clump8((clump), (bits), (size), 0)
+
+#define for_each_set_clump8(start, clump, bits, size)                                 \
+	for ((start) = find_first_clump8(&(clump), (bits), (size)); (start) < (size); \
+	     (start) = find_next_clump8(&(clump), (bits), (size), (start) + 8))
 #endif
 
 #endif /* _VERSION_COMPAT_DEFS_H_ */

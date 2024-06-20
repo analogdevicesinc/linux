@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -821,6 +821,21 @@ bool kbase_pm_is_mcu_desired(struct kbase_device *kbdev);
  */
 bool kbase_pm_is_mcu_inactive(struct kbase_device *kbdev, enum kbase_mcu_state state);
 
+#ifdef KBASE_PM_RUNTIME
+
+/**
+ * kbase_pm_enable_mcu_db_notification - Enable the Doorbell notification on
+ *                                       MCU side
+ *
+ * @kbdev: Pointer to the device.
+ *
+ * This function is called to re-enable the Doorbell notification on MCU side
+ * when MCU needs to beome active again.
+ */
+void kbase_pm_enable_mcu_db_notification(struct kbase_device *kbdev);
+
+#endif /* KBASE_PM_RUNTIME */
+
 /**
  * kbase_pm_idle_groups_sched_suspendable - Check whether the scheduler can be
  *                                        suspended to low power state when all
@@ -963,11 +978,29 @@ static inline bool kbase_pm_gpu_sleep_allowed(struct kbase_device *kbdev)
 	 * A high positive value of autosuspend_delay can be used to keep the
 	 * GPU in sleep state for a long time.
 	 */
-	if (unlikely(!kbdev->dev->power.autosuspend_delay ||
-		     (kbdev->dev->power.autosuspend_delay < 0)))
+	if (unlikely(kbdev->dev->power.autosuspend_delay <= 0))
 		return false;
 
-	return kbdev->pm.backend.gpu_sleep_supported;
+	return test_bit(KBASE_GPU_SUPPORTS_GPU_SLEEP, &kbdev->pm.backend.gpu_sleep_allowed);
+}
+
+/**
+ * kbase_pm_fw_sleep_on_idle_allowed - Check if FW sleep-on-idle could be enabled
+ *
+ * @kbdev: Device pointer
+ *
+ * This function should be called whenever the conditions that impact
+ * FW sleep-on-idle support change so that it could be enabled/disabled
+ * accordingly.
+ *
+ * Return: true if FW sleep-on-idle is allowed
+ */
+static inline bool kbase_pm_fw_sleep_on_idle_allowed(struct kbase_device *kbdev)
+{
+	if (unlikely(kbdev->dev->power.autosuspend_delay <= 0))
+		return false;
+
+	return kbdev->pm.backend.gpu_sleep_allowed == KBASE_GPU_FW_SLEEP_ON_IDLE_ALLOWED;
 }
 
 /**

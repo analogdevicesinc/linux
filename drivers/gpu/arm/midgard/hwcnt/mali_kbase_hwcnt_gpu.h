@@ -169,7 +169,7 @@ enum kbase_hwcnt_physical_set {
 /**
  * struct kbase_hwcnt_gpu_info - Information about hwcnt blocks on the GPUs.
  * @l2_count:                L2 cache count.
- * @sc_core_mask:               Shader core mask. May be sparse.
+ * @sc_core_mask:            Shader core mask. May be sparse.
  * @clk_cnt:                 Number of clock domains available.
  * @csg_cnt:                 Number of CSGs available.
  * @prfcnt_values_per_block: Total entries (header + counters) of performance

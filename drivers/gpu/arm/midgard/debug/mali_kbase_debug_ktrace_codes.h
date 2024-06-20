@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -149,13 +149,17 @@ KBASE_KTRACE_CODE_MAKE_CODE(CORE_CTX_DESTROY),
 	KBASE_KTRACE_CODE_MAKE_CODE(SCHED_RETAIN_CTX_NOLOCK),
 	/* info_val == kctx->refcount */
 	KBASE_KTRACE_CODE_MAKE_CODE(SCHED_RELEASE_CTX),
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
 	/*
 	 * Arbitration events
 	 */
-	KBASE_KTRACE_CODE_MAKE_CODE(ARB_GPU_LOST), KBASE_KTRACE_CODE_MAKE_CODE(ARB_VM_STATE),
+	KBASE_KTRACE_CODE_MAKE_CODE(ARB_VM_STATE),
 	KBASE_KTRACE_CODE_MAKE_CODE(ARB_VM_EVT),
-#endif
+	KBASE_KTRACE_CODE_MAKE_CODE(ARB_GPU_GRANTED),
+	KBASE_KTRACE_CODE_MAKE_CODE(ARB_GPU_LOST),
+	KBASE_KTRACE_CODE_MAKE_CODE(ARB_GPU_STARTED),
+	KBASE_KTRACE_CODE_MAKE_CODE(ARB_GPU_STOP_REQUESTED),
+	KBASE_KTRACE_CODE_MAKE_CODE(ARB_GPU_STOPPED),
+	KBASE_KTRACE_CODE_MAKE_CODE(ARB_GPU_REQUESTED),
 
 #if MALI_USE_CSF
 #include "debug/backend/mali_kbase_debug_ktrace_codes_csf.h"

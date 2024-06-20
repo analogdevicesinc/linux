@@ -23,8 +23,8 @@
  * Run-time work-arounds helpers
  */
 
-#include <mali_base_hwconfig_features.h>
-#include <mali_base_hwconfig_issues.h>
+#include <mali_kbase_hwconfig_features.h>
+#include <mali_kbase_hwconfig_issues.h>
 #include <hw_access/mali_kbase_hw_access_regmap.h>
 #include "mali_kbase.h"
 #include "mali_kbase_hw.h"
@@ -92,7 +92,7 @@ void kbase_hw_set_features_mask(struct kbase_device *kbdev)
 		break;
 	}
 
-	for (; *features != BASE_HW_FEATURE_END; features++)
+	for (; *features != KBASE_HW_FEATURE_END; features++)
 		set_bit(*features, &kbdev->hw_features_mask[0]);
 
 #if defined(CONFIG_MALI_VECTOR_DUMP)
@@ -103,8 +103,8 @@ void kbase_hw_set_features_mask(struct kbase_device *kbdev)
 	 * in the implementation of flush reduction optimization due to
 	 * unclear or ambiguous ARCH spec.
 	 */
-	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_CLEAN_ONLY_SAFE))
-		clear_bit(BASE_HW_FEATURE_FLUSH_REDUCTION, &kbdev->hw_features_mask[0]);
+	if (kbase_hw_has_feature(kbdev, KBASE_HW_FEATURE_CLEAN_ONLY_SAFE))
+		clear_bit(KBASE_HW_FEATURE_FLUSH_REDUCTION, &kbdev->hw_features_mask[0]);
 #endif
 }
 
@@ -113,7 +113,7 @@ void kbase_hw_set_features_mask(struct kbase_device *kbdev)
  * @kbdev: Device pointer
  *
  * Return: pointer to an array of hardware issues, terminated by
- * BASE_HW_ISSUE_END.
+ * KBASE_HW_ISSUE_END.
  *
  * In debugging versions of the driver, unknown versions of a known GPU will
  * be treated as the most recent known version not later than the actual
@@ -424,7 +424,7 @@ int kbase_hw_set_issues_mask(struct kbase_device *kbdev)
 		 gpu_id->product_major, gpu_id->arch_major, gpu_id->arch_minor, gpu_id->arch_rev,
 		 gpu_id->version_major, gpu_id->version_minor, gpu_id->version_status);
 
-	for (; *issues != BASE_HW_ISSUE_END; issues++)
+	for (; *issues != KBASE_HW_ISSUE_END; issues++)
 		set_bit(*issues, &kbdev->hw_issues_mask[0]);
 
 	return 0;

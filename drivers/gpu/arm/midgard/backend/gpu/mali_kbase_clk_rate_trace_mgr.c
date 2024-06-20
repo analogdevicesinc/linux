@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -50,12 +50,20 @@ static struct kbase_clk_rate_trace_op_conf *
 get_clk_rate_trace_callbacks(__maybe_unused struct kbase_device *kbdev)
 {
 	/* base case */
+	const void *arbiter_if_node;
 	struct kbase_clk_rate_trace_op_conf *callbacks =
 		(struct kbase_clk_rate_trace_op_conf *)CLK_RATE_TRACE_OPS;
-#if defined(CONFIG_MALI_ARBITER_SUPPORT) && defined(CONFIG_OF)
-	const void *arbiter_if_node;
+
+	/* Nothing left to do here if there is no Arbiter/virtualization or if
+	 * CONFIG_OF is not enabled.
+	 */
+	if (!IS_ENABLED(CONFIG_OF))
+		return callbacks;
 
 	if (WARN_ON(!kbdev) || WARN_ON(!kbdev->dev))
+		return callbacks;
+
+	if (!kbase_has_arbiter(kbdev))
 		return callbacks;
 
 	arbiter_if_node = of_get_property(kbdev->dev->of_node, "arbiter-if", NULL);
@@ -68,8 +76,6 @@ get_clk_rate_trace_callbacks(__maybe_unused struct kbase_device *kbdev)
 	else
 		dev_dbg(kbdev->dev,
 			"Arbitration supported but disabled by platform. Leaving clk rate callbacks as default.\n");
-
-#endif
 
 	return callbacks;
 }

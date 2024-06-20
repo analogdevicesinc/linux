@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2022-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -58,7 +58,7 @@ static void debug_zone_mem_allocs_show(struct kbase_reg_zone *zone, struct seq_f
 	for (p = rb_first(rbtree); p; p = rb_next(p)) {
 		reg = rb_entry(p, struct kbase_va_region, rblink);
 		if (!(reg->flags & KBASE_REG_FREE)) {
-			seq_printf(sfile, "%16llx, %16zx, %16zx, %8lx, %s\n",
+			seq_printf(sfile, "%16llx, %16zx, %16zx, %8llx, %s\n",
 				   reg->start_pfn << PAGE_SHIFT, reg->nr_pages << PAGE_SHIFT,
 				   kbase_reg_current_backed_size(reg) << PAGE_SHIFT, reg->flags,
 				   type_names[reg->gpu_alloc->type]);

@@ -131,6 +131,26 @@ static void kbasep_hwcnt_backend_csf_if_fw_unlock(struct kbase_hwcnt_backend_csf
 	kbase_csf_scheduler_spin_unlock(kbdev, flags);
 }
 
+static void kbasep_hwcnt_backend_csf_if_fw_acquire(struct kbase_hwcnt_backend_csf_if_ctx *ctx)
+{
+	struct kbase_hwcnt_backend_csf_if_fw_ctx *fw_ctx =
+		(struct kbase_hwcnt_backend_csf_if_fw_ctx *)ctx;
+
+	/* Mark performance counters collection as enabled */
+	set_bit(KBASE_GPU_PERF_COUNTERS_COLLECTION_ENABLED,
+		&fw_ctx->kbdev->pm.backend.gpu_sleep_allowed);
+}
+
+static void kbasep_hwcnt_backend_csf_if_fw_release(struct kbase_hwcnt_backend_csf_if_ctx *ctx)
+{
+	struct kbase_hwcnt_backend_csf_if_fw_ctx *fw_ctx =
+		(struct kbase_hwcnt_backend_csf_if_fw_ctx *)ctx;
+
+	/* Mark performance counters collection as disabled */
+	clear_bit(KBASE_GPU_PERF_COUNTERS_COLLECTION_ENABLED,
+		  &fw_ctx->kbdev->pm.backend.gpu_sleep_allowed);
+}
+
 /**
  * kbasep_hwcnt_backend_csf_if_fw_on_freq_change() - On freq change callback
  *
@@ -813,6 +833,8 @@ int kbase_hwcnt_backend_csf_if_fw_create(struct kbase_device *kbdev,
 	if_fw->assert_lock_held = kbasep_hwcnt_backend_csf_if_fw_assert_lock_held;
 	if_fw->lock = kbasep_hwcnt_backend_csf_if_fw_lock;
 	if_fw->unlock = kbasep_hwcnt_backend_csf_if_fw_unlock;
+	if_fw->acquire = kbasep_hwcnt_backend_csf_if_fw_acquire;
+	if_fw->release = kbasep_hwcnt_backend_csf_if_fw_release;
 	if_fw->get_prfcnt_info = kbasep_hwcnt_backend_csf_if_fw_get_prfcnt_info;
 	if_fw->ring_buf_alloc = kbasep_hwcnt_backend_csf_if_fw_ring_buf_alloc;
 	if_fw->ring_buf_sync = kbasep_hwcnt_backend_csf_if_fw_ring_buf_sync;

@@ -51,10 +51,7 @@
 #include "backend/gpu/mali_kbase_irq_internal.h"
 #include "mali_kbase_regs_history_debugfs.h"
 #include "mali_kbase_pbha.h"
-
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
 #include "arbiter/mali_kbase_arbiter_pm.h"
-#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
 #if defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_NO_MALI)
 
@@ -68,6 +65,22 @@
 static DEFINE_MUTEX(kbase_dev_list_lock);
 static LIST_HEAD(kbase_dev_list);
 static unsigned int kbase_dev_nr;
+
+static unsigned int mma_wa_id;
+
+static int set_mma_wa_id(const char *val, const struct kernel_param *kp)
+{
+	return kbase_param_set_uint_minmax(val, kp, 1, 15);
+}
+
+static const struct kernel_param_ops mma_wa_id_ops = {
+	.set = set_mma_wa_id,
+	.get = param_get_uint,
+};
+
+module_param_cb(mma_wa_id, &mma_wa_id_ops, &mma_wa_id, 0444);
+__MODULE_PARM_TYPE(mma_wa_id, "uint");
+MODULE_PARM_DESC(mma_wa_id, "PBHA ID for MMA workaround. Valid range is from 1 to 15.");
 
 struct kbase_device *kbase_device_alloc(void)
 {
@@ -304,6 +317,10 @@ int kbase_device_misc_init(struct kbase_device *const kbdev)
 	err = kbase_device_all_as_init(kbdev);
 	if (err)
 		goto dma_set_mask_failed;
+
+	/* Set mma_wa_id if it has been passed in as a module parameter */
+	if ((kbdev->gpu_props.gpu_id.arch_id >= GPU_ID_ARCH_MAKE(14, 8, 0)) && mma_wa_id != 0)
+		kbdev->mma_wa_id = mma_wa_id;
 
 	err = kbase_pbha_read_dtb(kbdev);
 	if (err)
@@ -545,17 +562,12 @@ int kbase_device_early_init(struct kbase_device *kbdev)
 	/* We're done accessing the GPU registers for now. */
 	kbase_pm_register_access_disable(kbdev);
 
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
-	if (kbdev->arb.arb_if) {
+	if (kbase_has_arbiter(kbdev)) {
 		if (kbdev->pm.arb_vm_state)
 			err = kbase_arbiter_pm_install_interrupts(kbdev);
 	} else {
 		err = kbase_install_interrupts(kbdev);
 	}
-#else
-	err = kbase_install_interrupts(kbdev);
-#endif
-
 	if (err)
 		goto gpuprops_term;
 
@@ -581,15 +593,10 @@ ktrace_term:
 
 void kbase_device_early_term(struct kbase_device *kbdev)
 {
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
-	if (kbdev->arb.arb_if)
+	if (kbase_has_arbiter(kbdev))
 		kbase_arbiter_pm_release_interrupts(kbdev);
 	else
 		kbase_release_interrupts(kbdev);
-#else
-	kbase_release_interrupts(kbdev);
-#endif
-
 	kbase_gpuprops_term(kbdev);
 	kbase_device_backend_term(kbdev);
 	kbase_regmap_term(kbdev);

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -95,13 +95,16 @@ DEFINE_MALI_ADD_EVENT(PM_RUNTIME_RESUME_CALLBACK);
 #undef KBASEP_L2_STATE
 DEFINE_MALI_ADD_EVENT(SCHED_RETAIN_CTX_NOLOCK);
 DEFINE_MALI_ADD_EVENT(SCHED_RELEASE_CTX);
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
 
-DEFINE_MALI_ADD_EVENT(ARB_GPU_LOST);
 DEFINE_MALI_ADD_EVENT(ARB_VM_STATE);
 DEFINE_MALI_ADD_EVENT(ARB_VM_EVT);
+DEFINE_MALI_ADD_EVENT(ARB_GPU_GRANTED);
+DEFINE_MALI_ADD_EVENT(ARB_GPU_LOST);
+DEFINE_MALI_ADD_EVENT(ARB_GPU_STARTED);
+DEFINE_MALI_ADD_EVENT(ARB_GPU_STOP_REQUESTED);
+DEFINE_MALI_ADD_EVENT(ARB_GPU_STOPPED);
+DEFINE_MALI_ADD_EVENT(ARB_GPU_REQUESTED);
 
-#endif
 #if MALI_USE_CSF
 #include "backend/mali_kbase_debug_linux_ktrace_csf.h"
 #else

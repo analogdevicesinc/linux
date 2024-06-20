@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2018-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2018-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -17,65 +17,6 @@
  * along with this program; if not, you can access it online at
  * http://www.gnu.org/licenses/gpl-2.0.html.
  *
- */
-
-/*
- * Hardware counter types.
- * Contains structures for describing the physical layout of hardware counter
- * dump buffers and enable maps within a system.
- *
- * Also contains helper functions for manipulation of these dump buffers and
- * enable maps.
- *
- * Through use of these structures and functions, hardware counters can be
- * enabled, copied, accumulated, and generally manipulated in a generic way,
- * regardless of the physical counter dump layout.
- *
- * Terminology:
- *
- * Hardware Counter System:
- *   A collection of hardware counter blocks, making a full hardware counter
- *   system.
- * Hardware Counter Block:
- *   A block of hardware counters (e.g. shader block, tiler block).
- * Hardware Counter Block Instance:
- *   An instance of a Hardware Counter Block (e.g. an MP4 GPU might have
- *   4 shader block instances).
- *
- * Block Header:
- *   A header value inside a counter block. Headers don't count anything,
- *   so it is only valid to copy or zero them. Headers are always the first
- *   values in the block.
- * Block Counter:
- *   A counter value inside a counter block. Counters can be zeroed, copied,
- *   or accumulated. Counters are always immediately after the headers in the
- *   block.
- * Block Value:
- *   A catch-all term for block headers and block counters.
- *
- * Enable Map:
- *   An array of u64 bitfields, where each bit either enables exactly one
- *   block value, or is unused (padding). Note that this is derived from
- *   the client configuration, and is not obtained from the hardware.
- * Dump Buffer:
- *   An array of u64 values, where each u64 corresponds either to one block
- *   value, or is unused (padding).
- * Block State Buffer:
- *   An array of blk_stt_t values, where each blk_stt_t corresponds to one block
- *   instance and is used to track the on/off power state transitions, as well has
- *   hardware resource availability, and whether the block was operating
- *   in normal or protected mode.
- * Availability Mask:
- *   A bitfield, where each bit corresponds to whether a block instance is
- *   physically available (e.g. an MP3 GPU may have a sparse core mask of
- *   0b1011, meaning it only has 3 cores but for hardware counter dumps has the
- *   same dump buffer layout as an MP4 GPU with a core mask of 0b1111. In this
- *   case, the availability mask might be 0b1011111 (the exact layout will
- *   depend on the specific hardware architecture), with the 3 extra early bits
- *   corresponding to other block instances in the hardware counter system).
- * Metadata:
- *   Structure describing the physical layout of the enable map and dump buffers
- *   for a specific hardware counter system.
  */
 
 #ifndef _KBASE_HWCNT_TYPES_H_

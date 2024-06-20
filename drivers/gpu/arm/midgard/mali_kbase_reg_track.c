@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2023-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -648,7 +648,7 @@ int kbase_add_va_region_rbtree(struct kbase_device *kbdev, struct kbase_va_regio
 		} else if (!kbase_is_region_free(tmp)) {
 			dev_warn(
 				dev,
-				"!(tmp->flags & KBASE_REG_FREE): tmp->start_pfn=0x%llx tmp->flags=0x%lx tmp->nr_pages=0x%zx gpu_pfn=0x%llx nr_pages=0x%zx\n",
+				"!(tmp->flags & KBASE_REG_FREE): tmp->start_pfn=0x%llx tmp->flags=0x%llx tmp->nr_pages=0x%zx gpu_pfn=0x%llx nr_pages=0x%zx\n",
 				tmp->start_pfn, tmp->flags, tmp->nr_pages, gpu_pfn, nr_pages);
 			err = -ENOMEM;
 			goto exit;

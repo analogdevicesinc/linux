@@ -271,6 +271,11 @@ void __kbase_tlstream_tl_arbiter_granted(
 	const void *gpu
 );
 
+void __kbase_tlstream_tl_arbiter_lost(
+	struct kbase_tlstream *stream,
+	const void *gpu
+);
+
 void __kbase_tlstream_tl_arbiter_started(
 	struct kbase_tlstream *stream,
 	const void *gpu
@@ -1545,6 +1550,25 @@ struct kbase_tlstream;
 		u32 enabled = (u32)atomic_read(&kbdev->timeline_flags);	\
 		if (enabled & TLSTREAM_ENABLED)	\
 			__kbase_tlstream_tl_arbiter_granted(	\
+				__TL_DISPATCH_STREAM(kbdev, obj),	\
+				gpu	\
+				);	\
+	} while (0)
+
+/**
+ * KBASE_TLSTREAM_TL_ARBITER_LOST - Received a gpu lost event from the arbiter
+ *
+ * @kbdev: Kbase device
+ * @gpu: Name of the GPU object
+ */
+#define KBASE_TLSTREAM_TL_ARBITER_LOST(	\
+	kbdev,	\
+	gpu	\
+	)	\
+	do {	\
+		u32 enabled = (u32)atomic_read(&kbdev->timeline_flags);	\
+		if (enabled & TLSTREAM_ENABLED)	\
+			__kbase_tlstream_tl_arbiter_lost(	\
 				__TL_DISPATCH_STREAM(kbdev, obj),	\
 				gpu	\
 				);	\

@@ -100,7 +100,7 @@ void kbase_mmu_report_mcu_as_fault_and_reset(struct kbase_device *kbdev, struct 
 	u32 as_no;
 
 	/* terminal fault, print info about the fault */
-	if (kbdev->gpu_props.gpu_id.product_model <= GPU_ID_MODEL_MAKE(13, 0)) {
+	if (kbdev->gpu_props.gpu_id.product_model < GPU_ID_MODEL_MAKE(14, 0)) {
 		dev_err(kbdev->dev,
 			"Unexpected Page fault in firmware address space at VA 0x%016llX\n"
 			"raw fault status: 0x%X\n"
@@ -114,22 +114,6 @@ void kbase_mmu_report_mcu_as_fault_and_reset(struct kbase_device *kbdev, struct 
 			FAULT_SOURCE_ID_UTLB_ID_GET(source_id),
 			fault_source_id_internal_requester_get(kbdev, source_id),
 			fault_source_id_core_type_description_get(kbdev, source_id),
-			fault_source_id_internal_requester_get_str(kbdev, source_id, access_type));
-	} else {
-		dev_err(kbdev->dev,
-			"Unexpected Page fault in firmware address space at VA 0x%016llX\n"
-			"raw fault status: 0x%X\n"
-			"exception type 0x%X: %s\n"
-			"access type 0x%X: %s\n"
-			"source id 0x%X (type:idx:IR 0x%X:0x%X:0x%X): %s %u, %s\n",
-			fault->addr, fault->status, exception_type,
-			kbase_gpu_exception_name(exception_type), access_type,
-			kbase_gpu_access_type_name(fault->status), source_id,
-			FAULT_SOURCE_ID_CORE_TYPE_GET(source_id),
-			FAULT_SOURCE_ID_CORE_INDEX_GET(source_id),
-			fault_source_id_internal_requester_get(kbdev, source_id),
-			fault_source_id_core_type_description_get(kbdev, source_id),
-			FAULT_SOURCE_ID_CORE_INDEX_GET(source_id),
 			fault_source_id_internal_requester_get_str(kbdev, source_id, access_type));
 	}
 
@@ -163,7 +147,7 @@ void kbase_gpu_report_bus_fault_and_kill(struct kbase_context *kctx, struct kbas
 	const uintptr_t fault_addr = fault->addr;
 
 	/* terminal fault, print info about the fault */
-	if (kbdev->gpu_props.gpu_id.product_model <= GPU_ID_MODEL_MAKE(13, 0)) {
+	if (kbdev->gpu_props.gpu_id.product_model < GPU_ID_MODEL_MAKE(14, 0)) {
 		dev_err(kbdev->dev,
 			"GPU bus fault in AS%u at PA %pK\n"
 			"PA_VALID: %s\n"
@@ -179,25 +163,6 @@ void kbase_gpu_report_bus_fault_and_kill(struct kbase_context *kctx, struct kbas
 			FAULT_SOURCE_ID_UTLB_ID_GET(source_id),
 			fault_source_id_internal_requester_get(kbdev, source_id),
 			fault_source_id_core_type_description_get(kbdev, source_id),
-			fault_source_id_internal_requester_get_str(kbdev, source_id, access_type),
-			kctx->pid);
-	} else {
-		dev_err(kbdev->dev,
-			"GPU bus fault in AS%u at PA %pK\n"
-			"PA_VALID: %s\n"
-			"raw fault status: 0x%X\n"
-			"exception type 0x%X: %s\n"
-			"access type 0x%X: %s\n"
-			"source id 0x%X (type:idx:IR 0x%X:0x%X:0x%X): %s %u, %s\n"
-			"pid: %d\n",
-			as_no, (void *)fault_addr, addr_valid, status, exception_type,
-			kbase_gpu_exception_name(exception_type), access_type,
-			kbase_gpu_access_type_name(access_type), source_id,
-			FAULT_SOURCE_ID_CORE_TYPE_GET(source_id),
-			FAULT_SOURCE_ID_CORE_INDEX_GET(source_id),
-			fault_source_id_internal_requester_get(kbdev, source_id),
-			fault_source_id_core_type_description_get(kbdev, source_id),
-			FAULT_SOURCE_ID_CORE_INDEX_GET(source_id),
 			fault_source_id_internal_requester_get_str(kbdev, source_id, access_type),
 			kctx->pid);
 	}
@@ -246,7 +211,7 @@ void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx, struct kbase_as
 		unsigned int as_no = as->number;
 
 		/* terminal fault, print info about the fault */
-		if (kbdev->gpu_props.gpu_id.product_model <= GPU_ID_MODEL_MAKE(13, 0)) {
+		if (kbdev->gpu_props.gpu_id.product_model < GPU_ID_MODEL_MAKE(14, 0)) {
 			dev_err(kbdev->dev,
 				"Unhandled Page fault in AS%u at VA 0x%016llX\n"
 				"Reason: %s\n"
@@ -265,26 +230,6 @@ void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx, struct kbase_as
 				fault_source_id_internal_requester_get_str(kbdev, source_id,
 									   access_type),
 				kctx->pid);
-		} else {
-			dev_err(kbdev->dev,
-				"Unhandled Page fault in AS%u at VA 0x%016llX\n"
-				"Reason: %s\n"
-				"raw fault status: 0x%X\n"
-				"exception type 0x%X: %s\n"
-				"access type 0x%X: %s\n"
-				"source id 0x%X (type:idx:IR 0x%X:0x%X:0x%X): %s %u, %s\n"
-				"pid: %d\n",
-				as_no, fault->addr, reason_str, status, exception_type,
-				kbase_gpu_exception_name(exception_type), access_type,
-				kbase_gpu_access_type_name(status), source_id,
-				FAULT_SOURCE_ID_CORE_TYPE_GET(source_id),
-				FAULT_SOURCE_ID_CORE_INDEX_GET(source_id),
-				fault_source_id_internal_requester_get(kbdev, source_id),
-				fault_source_id_core_type_description_get(kbdev, source_id),
-				FAULT_SOURCE_ID_CORE_INDEX_GET(source_id),
-				fault_source_id_internal_requester_get_str(kbdev, source_id,
-									   access_type),
-				kctx->pid);
 		}
 	}
 
@@ -294,6 +239,14 @@ void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx, struct kbase_as
 	 * will abort all jobs and stop any hw counter dumping
 	 */
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
+	/* Update the page fault counter value in firmware visible memory, just before disabling
+	 * the MMU which would in turn unblock the MCU firmware.
+	 */
+	if (kbdev->csf.page_fault_cnt_ptr) {
+		spin_lock(&kbdev->mmu_mask_change);
+		*kbdev->csf.page_fault_cnt_ptr = ++kbdev->csf.page_fault_cnt;
+		spin_unlock(&kbdev->mmu_mask_change);
+	}
 	kbase_mmu_disable(kctx);
 	kbase_ctx_flag_set(kctx, KCTX_AS_DISABLED_ON_FAULT);
 	kbase_debug_csf_fault_notify(kbdev, kctx, DF_GPU_PAGE_FAULT);
@@ -485,15 +438,6 @@ void kbase_mmu_interrupt(struct kbase_device *kbdev, u32 irq_stat)
 	new_mask |= tmp;
 	kbase_reg_write32(kbdev, MMU_CONTROL_ENUM(IRQ_MASK), new_mask);
 	spin_unlock_irqrestore(&kbdev->mmu_mask_change, flags);
-}
-
-int kbase_mmu_switch_to_ir(struct kbase_context *const kctx, struct kbase_va_region *const reg)
-{
-	CSTD_UNUSED(kctx);
-	CSTD_UNUSED(reg);
-
-	/* Can't soft-stop the provoking job */
-	return -EPERM;
 }
 
 /**

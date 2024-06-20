@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -48,7 +48,7 @@ int kbase_backend_gpuprops_get(struct kbase_device *kbdev, struct kbasep_gpuprop
 	/* Not a valid register on TMIX */
 
 	/* TGOx specific register */
-	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_THREAD_TLS_ALLOC))
+	if (kbase_hw_has_feature(kbdev, KBASE_HW_FEATURE_THREAD_TLS_ALLOC))
 		regdump->thread_tls_alloc =
 			kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(THREAD_TLS_ALLOC));
 #endif /* !MALI_USE_CSF */
@@ -64,7 +64,7 @@ int kbase_backend_gpuprops_get(struct kbase_device *kbdev, struct kbasep_gpuprop
 	/* AMBA_FEATURES enum is mapped to COHERENCY_FEATURES enum */
 	regdump->coherency_features = KBASE_REG_READ(kbdev, GPU_CONTROL_ENUM(COHERENCY_FEATURES));
 
-	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_CORE_FEATURES))
+	if (kbase_hw_has_feature(kbdev, KBASE_HW_FEATURE_CORE_FEATURES))
 		regdump->core_features = KBASE_REG_READ(kbdev, GPU_CONTROL_ENUM(CORE_FEATURES));
 
 #if MALI_USE_CSF
@@ -116,7 +116,7 @@ int kbase_backend_gpuprops_get_curr_config(struct kbase_device *kbdev,
 int kbase_backend_gpuprops_get_l2_features(struct kbase_device *kbdev,
 					   struct kbasep_gpuprops_regdump *regdump)
 {
-	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_L2_CONFIG)) {
+	if (kbase_hw_has_feature(kbdev, KBASE_HW_FEATURE_L2_CONFIG)) {
 		regdump->l2_features = KBASE_REG_READ(kbdev, GPU_CONTROL_ENUM(L2_FEATURES));
 		regdump->l2_config = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(L2_CONFIG));
 

@@ -132,11 +132,15 @@ static int kbase_backend_late_init(struct kbase_device *kbdev)
 
 fail_update_l2_features:
 	kbase_backend_devfreq_term(kbdev);
-fail_devfreq_init:
-	kbasep_pm_metrics_term(kbdev);
-fail_pm_metrics_init:
-	kbase_ipa_control_term(kbdev);
 
+fail_devfreq_init:
+	{
+		kbasep_pm_metrics_term(kbdev);
+	}
+fail_pm_metrics_init:
+	{
+		kbase_ipa_control_term(kbdev);
+	}
 #ifdef CONFIG_MALI_DEBUG
 #if IS_ENABLED(CONFIG_MALI_REAL_HW)
 fail_interrupt_test:

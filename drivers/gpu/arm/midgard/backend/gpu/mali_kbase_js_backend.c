@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -46,7 +46,7 @@ static inline bool timer_callback_should_run(struct kbase_device *kbdev, int nr_
 	}
 #endif /* CONFIG_MALI_DEBUG */
 
-	if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_9435)) {
+	if (kbase_hw_has_issue(kbdev, KBASE_HW_ISSUE_9435)) {
 		/* Timeouts would have to be 4x longer (due to micro-
 		 * architectural design) to support OpenCL conformance tests, so
 		 * only run the timer when there's:
@@ -100,7 +100,7 @@ static enum hrtimer_restart timer_callback(struct hrtimer *timer)
 			/* The current version of the model doesn't support
 			 * Soft-Stop
 			 */
-			if (!kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_5736)) {
+			if (!kbase_hw_has_issue(kbdev, KBASE_HW_ISSUE_5736)) {
 				u32 ticks = atom->ticks++;
 
 #if !defined(CONFIG_MALI_JOB_DUMP) && !defined(CONFIG_MALI_VECTOR_DUMP)

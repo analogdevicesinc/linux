@@ -65,7 +65,7 @@ const char *fault_source_id_internal_requester_get_str(struct kbase_device *kbde
 	if (older_source_id_fmt)
 		utlb_id = FAULT_SOURCE_ID_UTLB_ID_GET(source_id);
 
-	if (strcmp(source_id_enc_core_type_get_str(kbdev, source_id), "shader") == 0) {
+	if (!strcmp(source_id_enc_core_type_get_str(kbdev, source_id), "shader")) {
 		if (utlb_id == 0) {
 			if (access_type == AS_FAULTSTATUS_ACCESS_TYPE_READ)
 				return decode_fault_source_shader_r_t(
@@ -75,7 +75,7 @@ const char *fault_source_id_internal_requester_get_str(struct kbase_device *kbde
 					ir, kbdev->gpu_props.gpu_id.arch_id);
 		} else
 			return "Load/store cache";
-	} else if (strcmp(source_id_enc_core_type_get_str(kbdev, source_id), "tiler")) {
+	} else if (!strcmp(source_id_enc_core_type_get_str(kbdev, source_id), "tiler")) {
 #if MALI_USE_CSF
 		if (utlb_id == 0) {
 			if (access_type == AS_FAULTSTATUS_ACCESS_TYPE_READ)
@@ -92,14 +92,14 @@ const char *fault_source_id_internal_requester_get_str(struct kbase_device *kbde
 #endif
 	}
 #if MALI_USE_CSF
-	else if (strcmp(source_id_enc_core_type_get_str(kbdev, source_id), "csf")) {
+	else if (!strcmp(source_id_enc_core_type_get_str(kbdev, source_id), "csf")) {
 		if (access_type == AS_FAULTSTATUS_ACCESS_TYPE_READ)
 			return decode_fault_source_csf_r_t(ir, kbdev->gpu_props.gpu_id.arch_id);
 		else
 			return decode_fault_source_csf_w_t(ir, kbdev->gpu_props.gpu_id.arch_id);
 	}
 #else
-	else if (strcmp(source_id_enc_core_type_get_str(kbdev, source_id), "jm"))
+	else if (!strcmp(source_id_enc_core_type_get_str(kbdev, source_id), "jm"))
 		return decode_fault_source_jm_t(ir, kbdev->gpu_props.gpu_id.arch_id);
 #endif
 	else if (!strcmp(source_id_enc_core_type_get_str(kbdev, source_id), "I2c") ||

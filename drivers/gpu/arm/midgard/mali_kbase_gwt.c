@@ -178,20 +178,16 @@ int kbase_gpu_gwt_dump(struct kbase_context *kctx, union kbase_ioctl_cinstr_gwt_
 	__user void *user_addr = (__user void *)(uintptr_t)gwt_dump->in.addr_buffer;
 	__user void *user_sizes = (__user void *)(uintptr_t)gwt_dump->in.size_buffer;
 
+	/* We don't have any valid user space buffer to copy the write modified addresses. */
+	if (!gwt_dump->in.len || !gwt_dump->in.addr_buffer || !gwt_dump->in.size_buffer)
+		return -EINVAL;
+
 	kbase_gpu_vm_lock(kctx);
 
 	if (!kctx->gwt_enabled) {
 		kbase_gpu_vm_unlock(kctx);
 		/* gwt_dump shouldn't be called when gwt is disabled */
 		return -EPERM;
-	}
-
-	if (!gwt_dump->in.len || !gwt_dump->in.addr_buffer || !gwt_dump->in.size_buffer) {
-		kbase_gpu_vm_unlock(kctx);
-		/* We don't have any valid user space buffer to copy the
-		 * write modified addresses.
-		 */
-		return -EINVAL;
 	}
 
 	if (list_empty(&kctx->gwt_snapshot_list) && !list_empty(&kctx->gwt_current_list)) {
@@ -227,14 +223,14 @@ int kbase_gpu_gwt_dump(struct kbase_context *kctx, union kbase_ioctl_cinstr_gwt_
 
 		if (count) {
 			err = copy_to_user((user_addr + (ubuf_count * sizeof(u64))),
-					   (void *)addr_buffer, count * sizeof(u64));
+					   (void *)addr_buffer, size_mul(count, sizeof(u64)));
 			if (err) {
 				dev_err(kctx->kbdev->dev, "Copy to user failure\n");
 				kbase_gpu_vm_unlock(kctx);
 				return err;
 			}
 			err = copy_to_user((user_sizes + (ubuf_count * sizeof(u64))),
-					   (void *)num_page_buffer, count * sizeof(u64));
+					   (void *)num_page_buffer, size_mul(count, sizeof(u64)));
 			if (err) {
 				dev_err(kctx->kbdev->dev, "Copy to user failure\n");
 				kbase_gpu_vm_unlock(kctx);

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -28,6 +28,8 @@
 #include <mali_kbase.h>
 #include <linux/seq_file.h>
 #include <linux/version_compat_defs.h>
+#include <mali_kbase_reset_gpu.h>
+#include <mali_kbase_config_defaults.h>
 
 #define MAX_SCHED_STATE_STRING_LEN (16)
 /**
@@ -268,6 +270,87 @@ static const struct file_operations kbasep_csf_debugfs_scheduler_state_fops = {
 	.open = simple_open,
 	.llseek = default_llseek,
 };
+static int kbasep_csf_debugfs_eviction_timeout_get(void *data, u64 *val)
+{
+	struct kbase_device *const kbdev = data;
+	unsigned long flags;
+
+	kbase_csf_scheduler_spin_lock(kbdev, &flags);
+	*val = kbdev->csf.csg_suspend_timeout_ms - CSG_SUSPEND_TIMEOUT_HOST_ADDED_MS;
+	kbase_csf_scheduler_spin_unlock(kbdev, flags);
+
+	return 0;
+}
+
+static int kbasep_csf_debugfs_eviction_timeout_set(void *data, u64 val)
+{
+	struct kbase_device *const kbdev = data;
+	unsigned long flags_schd, flags_hw;
+	u64 dur_ms = val;
+	int ret = 0;
+
+	if (unlikely(dur_ms < CSG_SUSPEND_TIMEOUT_FIRMWARE_MS_MIN ||
+		     dur_ms > CSG_SUSPEND_TIMEOUT_FIRMWARE_MS_MAX)) {
+		dev_err(kbdev->dev, "Invalid CSG suspend timeout input (%llu)", dur_ms);
+		return -EFAULT;
+	}
+	dur_ms = dur_ms + CSG_SUSPEND_TIMEOUT_HOST_ADDED_MS;
+
+	/* The 'fw_load_lock' is taken to synchronize against the deferred
+	 * loading of FW, update will take effect after firmware gets loaded.
+	 */
+	mutex_lock(&kbdev->fw_load_lock);
+	if (unlikely(!kbdev->csf.firmware_inited)) {
+		kbase_csf_scheduler_spin_lock(kbdev, &flags_schd);
+		kbdev->csf.csg_suspend_timeout_ms = (unsigned int)dur_ms;
+		kbase_csf_scheduler_spin_unlock(kbdev, flags_schd);
+		mutex_unlock(&kbdev->fw_load_lock);
+		dev_info(kbdev->dev, "CSF set csg suspend timeout deferred till fw is loaded");
+		goto end;
+	}
+	mutex_unlock(&kbdev->fw_load_lock);
+
+	/* Firmware reloading is triggered by silent reset, and then update will take effect.
+	 */
+	kbase_csf_scheduler_pm_active(kbdev);
+	if (kbase_csf_scheduler_killable_wait_mcu_active(kbdev)) {
+		dev_err(kbdev->dev,
+			"Unable to activate the MCU, the csg suspend timeout value shall remain unchanged");
+		kbase_csf_scheduler_pm_idle(kbdev);
+		ret = -EFAULT;
+		goto exit;
+	}
+	spin_lock_irqsave(&kbdev->hwaccess_lock, flags_hw);
+	if (kbase_reset_gpu_silent(kbdev)) {
+		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags_hw);
+		dev_err(kbdev->dev, "CSF set csg suspend timeout pending reset, try again");
+		kbase_csf_scheduler_pm_idle(kbdev);
+		ret = -EFAULT;
+		goto exit;
+	}
+	/* GPU reset is placed and it will take place only after hwaccess_lock is released,
+	 * update on host side should be done after GPU reset is placed and before it takes place.
+	 */
+	kbase_csf_scheduler_spin_lock(kbdev, &flags_schd);
+	kbdev->csf.csg_suspend_timeout_ms = (unsigned int)dur_ms;
+	kbase_csf_scheduler_spin_unlock(kbdev, flags_schd);
+	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags_hw);
+	/* Keep PM active until reset finished to allow FW reloading to take place,
+	 * and then update request will be sent to FW during initialization.
+	 */
+	kbase_reset_gpu_wait(kbdev);
+	kbase_csf_scheduler_pm_idle(kbdev);
+
+end:
+	dev_info(kbdev->dev, "CSF set csg suspend timeout: %u ms", (unsigned int)dur_ms);
+
+exit:
+	return ret;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(kbasep_csf_debugfs_eviction_timeout_fops,
+			 &kbasep_csf_debugfs_eviction_timeout_get,
+			 &kbasep_csf_debugfs_eviction_timeout_set, "%llu\n");
 
 void kbase_csf_debugfs_init(struct kbase_device *kbdev)
 {
@@ -280,6 +363,8 @@ void kbase_csf_debugfs_init(struct kbase_device *kbdev)
 			    &kbasep_csf_debugfs_scheduling_timer_kick_fops);
 	debugfs_create_file("scheduler_state", 0644, kbdev->mali_debugfs_directory, kbdev,
 			    &kbasep_csf_debugfs_scheduler_state_fops);
+	debugfs_create_file("eviction_timeout_ms", 0644, kbdev->mali_debugfs_directory, kbdev,
+			    &kbasep_csf_debugfs_eviction_timeout_fops);
 
 	kbase_csf_tl_reader_debugfs_init(kbdev);
 }

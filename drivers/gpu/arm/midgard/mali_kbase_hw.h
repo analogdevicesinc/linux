@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2012-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2012-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -23,8 +23,8 @@
  * DOC: Run-time work-arounds helpers
  */
 
-#ifndef _KBASE_HW_H_
-#define _KBASE_HW_H_
+#ifndef _MALI_KBASE_HW_H_
+#define _MALI_KBASE_HW_H_
 
 #include "mali_kbase_defs.h"
 
@@ -47,7 +47,7 @@
  * @kbdev: Device pointer
  */
 #define kbase_hw_has_l2_slice_hash_feature(kbdev) \
-	test_bit(BASE_HW_FEATURE_L2_SLICE_HASH, &(kbdev)->hw_features_mask[0])
+	test_bit(KBASE_HW_FEATURE_L2_SLICE_HASH, &(kbdev)->hw_features_mask[0])
 
 /**
  * kbase_hw_set_issues_mask - Set the hardware issues mask based on the GPU ID
@@ -73,4 +73,4 @@ int kbase_hw_set_issues_mask(struct kbase_device *kbdev);
  */
 void kbase_hw_set_features_mask(struct kbase_device *kbdev);
 
-#endif /* _KBASE_HW_H_ */
+#endif /* _MALI_KBASE_HW_H_ */

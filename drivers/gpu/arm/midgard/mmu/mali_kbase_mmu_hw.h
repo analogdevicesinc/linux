@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -42,7 +42,7 @@ struct kbase_context;
  * enum kbase_mmu_fault_type - MMU fault type descriptor.
  * @KBASE_MMU_FAULT_TYPE_UNKNOWN:         unknown fault
  * @KBASE_MMU_FAULT_TYPE_PAGE:            page fault
- * @KBASE_MMU_FAULT_TYPE_BUS:             nus fault
+ * @KBASE_MMU_FAULT_TYPE_BUS:             bus fault
  * @KBASE_MMU_FAULT_TYPE_PAGE_UNEXPECTED: page_unexpected fault
  * @KBASE_MMU_FAULT_TYPE_BUS_UNEXPECTED:  bus_unexpected fault
  */

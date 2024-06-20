@@ -74,6 +74,13 @@ config MALI_NO_MALI_DEFAULT_GPU
 	help
 	  This option sets the default GPU to identify as for No Mali builds.
 
+config MALI_IS_FPGA
+	bool "Enable build of Mali kernel driver for FPGA"
+	depends on MALI_MIDGARD
+	default n
+	help
+	  This is the default HW backend.
+
 menu "Platform specific options"
 source "$(MALI_KCONFIG_EXT_PREFIX)drivers/gpu/arm/midgard/platform/Kconfig"
 endmenu
@@ -163,7 +170,7 @@ config MALI_CORESIGHT
 	default n
 
 config MALI_HW_ERRATA_1485982_NOT_AFFECTED
-	bool "Disable workaround for BASE_HW_ISSUE_GPU2017_1336"
+	bool "Disable workaround for KBASE_HW_ISSUE_GPU2017_1336"
 	depends on MALI_MIDGARD
 	default y
 	help
@@ -355,7 +362,7 @@ config MALI_PWRSOFT_765
 	  changes have been backported say Y to avoid compilation errors.
 
 config MALI_HW_ERRATA_1485982_USE_CLOCK_ALTERNATIVE
-	bool "Use alternative workaround for BASE_HW_ISSUE_GPU2017_1336"
+	bool "Use alternative workaround for KBASE_HW_ISSUE_GPU2017_1336"
 	depends on MALI_MIDGARD && MALI_EXPERT && !MALI_HW_ERRATA_1485982_NOT_AFFECTED
 	default n
 	help

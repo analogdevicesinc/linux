@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -437,7 +437,7 @@ int kbase_gpuprops_update_l2_features(struct kbase_device *kbdev)
 {
 	int err = 0;
 
-	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_L2_CONFIG)) {
+	if (kbase_hw_has_feature(kbdev, KBASE_HW_FEATURE_L2_CONFIG)) {
 		struct kbasep_gpuprops_regdump *regdump = &PRIV_DATA_REGDUMP(kbdev);
 
 		/* Check for L2 cache size & hash overrides */
@@ -699,7 +699,7 @@ static void kbase_populate_user_data(struct kbase_device *kbdev, struct gpu_prop
 		data->thread_props.max_thread_group_split = THREAD_MTGS_DEFAULT;
 	}
 
-	if (!kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_THREAD_GROUP_SPLIT))
+	if (!kbase_hw_has_feature(kbdev, KBASE_HW_FEATURE_THREAD_GROUP_SPLIT))
 		data->thread_props.max_thread_group_split = 0;
 
 	/* Raw Register Values */

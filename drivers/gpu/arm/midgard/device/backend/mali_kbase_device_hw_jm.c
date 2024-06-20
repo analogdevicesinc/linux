@@ -30,7 +30,7 @@
 
 bool kbase_is_gpu_removed(struct kbase_device *kbdev)
 {
-	if (!IS_ENABLED(CONFIG_MALI_ARBITER_SUPPORT))
+	if (!kbase_has_arbiter(kbdev))
 		return false;
 
 	return (KBASE_REG_READ(kbdev, GPU_CONTROL_ENUM(GPU_ID)) == 0);
@@ -103,7 +103,7 @@ void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)
 		 * cores.
 		 */
 		if (kbdev->pm.backend.l2_always_on ||
-		    kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_TTRX_921))
+		    kbase_hw_has_issue(kbdev, KBASE_HW_ISSUE_TTRX_921))
 			kbase_pm_power_changed(kbdev);
 	}
 

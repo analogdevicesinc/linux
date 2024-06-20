@@ -231,14 +231,13 @@ void kbase_destroy_context(struct kbase_context *kctx)
 	if (WARN_ON(!kbdev))
 		return;
 
-		/* Context termination could happen whilst the system suspend of
+	/* Context termination could happen whilst the system suspend of
 	 * the GPU device is ongoing or has completed. It has been seen on
 	 * Customer side that a hang could occur if context termination is
 	 * not blocked until the resume of GPU device.
 	 */
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
-	atomic_inc(&kbdev->pm.gpu_users_waiting);
-#endif /* CONFIG_MALI_ARBITER_SUPPORT */
+	if (kbase_has_arbiter(kbdev))
+		atomic_inc(&kbdev->pm.gpu_users_waiting);
 	while (kbase_pm_context_active_handle_suspend(kbdev,
 						      KBASE_PM_SUSPEND_HANDLER_DONT_INCREASE)) {
 		dev_dbg(kbdev->dev, "Suspend in progress when destroying context");
@@ -255,9 +254,8 @@ void kbase_destroy_context(struct kbase_context *kctx)
 	 */
 	wait_event(kbdev->pm.resume_wait, !kbase_pm_is_resuming(kbdev));
 
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
-	atomic_dec(&kbdev->pm.gpu_users_waiting);
-#endif /* CONFIG_MALI_ARBITER_SUPPORT */
+	if (kbase_has_arbiter(kbdev))
+		atomic_dec(&kbdev->pm.gpu_users_waiting);
 
 	kbase_mem_pool_group_mark_dying(&kctx->mem_pools);
 

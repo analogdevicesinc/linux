@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -35,7 +35,7 @@ void kbase_create_timeline_objects(struct kbase_device *kbdev)
 	u32 const num_sb_entries = kbdev->gpu_props.gpu_id.arch_major >= 11 ? 16 : 8;
 	u32 const supports_gpu_sleep =
 #ifdef KBASE_PM_RUNTIME
-		kbdev->pm.backend.gpu_sleep_supported;
+		test_bit(KBASE_GPU_SUPPORTS_GPU_SLEEP, &kbdev->pm.backend.gpu_sleep_allowed);
 #else
 		false;
 #endif /* KBASE_PM_RUNTIME */

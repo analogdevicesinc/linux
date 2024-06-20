@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2022-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -443,7 +443,7 @@ kbase_debug_coresight_csf_config_create(void *client_data,
 	}
 
 	config = kzalloc(sizeof(struct kbase_debug_coresight_csf_config), GFP_KERNEL);
-	if (WARN_ON(!client))
+	if (WARN_ON(!config))
 		return NULL;
 
 	config->client = client;

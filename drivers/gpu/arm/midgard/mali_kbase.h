@@ -339,21 +339,6 @@ void kbase_job_slot_ctx_priority_check_locked(struct kbase_context *kctx,
 					      struct kbase_jd_atom *katom);
 
 /**
- * kbase_job_slot_softstop_start_rp() - Soft-stop the atom at the start
- *                                      of a renderpass.
- * @kctx: Pointer to a kernel base context.
- * @reg:  Reference of a growable GPU memory region in the same context.
- *        Takes ownership of the reference if successful.
- *
- * Used to switch to incremental rendering if we have nearly run out of
- * virtual address space in a growable memory region and the atom currently
- * executing on a job slot is the tiler job chain at the start of a renderpass.
- *
- * Return: 0 if successful, otherwise a negative error code.
- */
-int kbase_job_slot_softstop_start_rp(struct kbase_context *kctx, struct kbase_va_region *reg);
-
-/**
  * kbase_job_slot_softstop - Soft-stop the specified job slot
  *
  * @kbdev:         The kbase device
@@ -489,9 +474,7 @@ void kbasep_as_do_poke(struct work_struct *work);
  * or a dmb was executed recently (to ensure the value is most up-to-date).
  * However, without a lock the value could change afterwards.
  *
- * Return:
- * * false if a suspend is not in progress
- * * !=false otherwise
+ * Return: False if a suspend is not in progress, true otherwise,
  */
 static inline bool kbase_pm_is_suspending(struct kbase_device *kbdev)
 {
@@ -514,21 +497,20 @@ static inline bool kbase_pm_is_resuming(struct kbase_device *kbdev)
 	return kbdev->pm.resuming;
 }
 
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
 /*
  * Check whether a gpu lost is in progress
  *
  * @kbdev: The kbase device structure for the device (must be a valid pointer)
  *
  * Indicates whether a gpu lost has been received and jobs are no longer
- * being scheduled
+ * being scheduled.
  *
- * Return: false if gpu is lost
- * Return: != false otherwise
+ * Return: false if GPU is already lost or if no Arbiter is present (as GPU will
+ *         always be present in this case), true otherwise.
  */
 static inline bool kbase_pm_is_gpu_lost(struct kbase_device *kbdev)
 {
-	return (atomic_read(&kbdev->pm.gpu_lost) == 0 ? false : true);
+	return (kbdev->arb.arb_if && ((bool)atomic_read(&kbdev->pm.gpu_lost)));
 }
 
 /*
@@ -549,7 +531,6 @@ static inline void kbase_pm_set_gpu_lost(struct kbase_device *kbdev, bool gpu_lo
 	if (new_val != cur_val)
 		KBASE_KTRACE_ADD(kbdev, ARB_GPU_LOST, NULL, (u64)new_val);
 }
-#endif
 
 /**
  * kbase_pm_is_active - Determine whether the GPU is active

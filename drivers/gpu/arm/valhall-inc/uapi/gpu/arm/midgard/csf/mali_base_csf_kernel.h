@@ -61,13 +61,15 @@
  * must be less than BASE_MEM_FLAGS_NR_BITS !!!
  */
 
-/* A mask of all the flags which are only valid for allocations within kbase,
- * and may not be passed from user space.
+/* A mask of all the flags which are only valid within kbase,
+ * and may not be passed to/from user space.
  */
 #define BASEP_MEM_FLAGS_KERNEL_ONLY (BASEP_MEM_PERMANENT_KERNEL_MAPPING | BASEP_MEM_NO_USER_FREE)
 
-/* A mask of all flags that should not be queried */
-#define BASE_MEM_DONT_QUERY (BASE_MEM_COHERENT_SYSTEM_REQUIRED | BASE_MEM_IMPORT_SHARED)
+/* A mask of flags that, when provied, cause other flags to be
+ * enabled but are not enabled themselves
+ */
+#define BASE_MEM_FLAGS_ACTION_MODIFIERS (BASE_MEM_COHERENT_SYSTEM_REQUIRED | BASE_MEM_IMPORT_SHARED)
 
 /* A mask of all currently reserved flags */
 #define BASE_MEM_FLAGS_RESERVED ((base_mem_alloc_flags)0)

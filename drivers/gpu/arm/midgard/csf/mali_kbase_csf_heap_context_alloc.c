@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -180,8 +180,9 @@ void kbase_csf_heap_context_allocator_term(struct kbase_csf_heap_context_allocat
 u64 kbase_csf_heap_context_allocator_alloc(struct kbase_csf_heap_context_allocator *const ctx_alloc)
 {
 	struct kbase_context *const kctx = ctx_alloc->kctx;
-	u64 flags = BASE_MEM_PROT_GPU_RD | BASE_MEM_PROT_GPU_WR | BASE_MEM_PROT_CPU_WR |
-		    BASEP_MEM_NO_USER_FREE | BASE_MEM_PROT_CPU_RD;
+	base_mem_alloc_flags flags = BASE_MEM_PROT_GPU_RD | BASE_MEM_PROT_GPU_WR |
+				     BASE_MEM_PROT_CPU_WR | BASEP_MEM_NO_USER_FREE |
+				     BASE_MEM_PROT_CPU_RD;
 	u64 nr_pages = PFN_UP(MAX_TILER_HEAPS * ctx_alloc->heap_context_size_aligned);
 	u64 heap_gpu_va = 0;
 

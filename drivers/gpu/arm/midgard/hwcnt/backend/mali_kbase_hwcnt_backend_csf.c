@@ -1709,6 +1709,22 @@ static void kbasep_hwcnt_backend_csf_term(struct kbase_hwcnt_backend *backend)
 	kbasep_hwcnt_backend_csf_destroy(backend_csf);
 }
 
+static void kbasep_hwcnt_backend_csf_acquire(const struct kbase_hwcnt_backend *backend)
+{
+	struct kbase_hwcnt_backend_csf *backend_csf = (struct kbase_hwcnt_backend_csf *)backend;
+	struct kbase_hwcnt_backend_csf_info *csf_info = backend_csf->info;
+
+	csf_info->csf_if->acquire(csf_info->csf_if->ctx);
+}
+
+static void kbasep_hwcnt_backend_csf_release(const struct kbase_hwcnt_backend *backend)
+{
+	struct kbase_hwcnt_backend_csf *backend_csf = (struct kbase_hwcnt_backend_csf *)backend;
+	struct kbase_hwcnt_backend_csf_info *csf_info = backend_csf->info;
+
+	csf_info->csf_if->release(csf_info->csf_if->ctx);
+}
+
 /**
  * kbasep_hwcnt_backend_csf_info_destroy() - Destroy a CSF backend info.
  * @info: Pointer to info to destroy.
@@ -2167,6 +2183,8 @@ int kbase_hwcnt_backend_csf_create(struct kbase_hwcnt_backend_csf_if *csf_if, u3
 	iface->metadata = kbasep_hwcnt_backend_csf_metadata;
 	iface->init = kbasep_hwcnt_backend_csf_init;
 	iface->term = kbasep_hwcnt_backend_csf_term;
+	iface->acquire = kbasep_hwcnt_backend_csf_acquire;
+	iface->release = kbasep_hwcnt_backend_csf_release;
 	iface->timestamp_ns = kbasep_hwcnt_backend_csf_timestamp_ns;
 	iface->dump_enable = kbasep_hwcnt_backend_csf_dump_enable;
 	iface->dump_enable_nolock = kbasep_hwcnt_backend_csf_dump_enable_nolock;

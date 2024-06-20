@@ -77,7 +77,16 @@ void kbase_pm_policy_init(struct kbase_device *kbdev)
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 	kbdev->pm.backend.pm_current_policy = default_policy;
 	kbdev->pm.backend.csf_pm_sched_flags = default_policy->pm_sched_flags;
+
+#ifdef KBASE_PM_RUNTIME
+	if (kbase_pm_idle_groups_sched_suspendable(kbdev))
+		clear_bit(KBASE_GPU_IGNORE_IDLE_EVENT, &kbdev->pm.backend.gpu_sleep_allowed);
+	else
+		set_bit(KBASE_GPU_IGNORE_IDLE_EVENT, &kbdev->pm.backend.gpu_sleep_allowed);
+#endif /* KBASE_PM_RUNTIME */
+
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+
 #else
 	CSTD_UNUSED(flags);
 	kbdev->pm.backend.pm_current_policy = default_policy;
@@ -400,6 +409,13 @@ void kbase_pm_set_policy(struct kbase_device *kbdev, const struct kbase_pm_polic
 	/* New policy in place, release the clamping on mcu/L2 off state */
 	kbdev->pm.backend.policy_change_clamp_state_to_off = false;
 	kbase_pm_update_state(kbdev);
+
+#ifdef KBASE_PM_RUNTIME
+	if (kbase_pm_idle_groups_sched_suspendable(kbdev))
+		clear_bit(KBASE_GPU_IGNORE_IDLE_EVENT, &kbdev->pm.backend.gpu_sleep_allowed);
+	else
+		set_bit(KBASE_GPU_IGNORE_IDLE_EVENT, &kbdev->pm.backend.gpu_sleep_allowed);
+#endif /* KBASE_PM_RUNTIME */
 #endif
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 

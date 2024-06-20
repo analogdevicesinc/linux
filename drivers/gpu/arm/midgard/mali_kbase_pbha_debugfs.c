@@ -234,7 +234,7 @@ void kbase_pbha_debugfs_init(struct kbase_device *kbdev)
 		debugfs_create_file("int_id_overrides", mode, debugfs_pbha_dir, kbdev,
 				    &pbha_int_id_overrides_fops);
 #if MALI_USE_CSF
-		if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_PBHA_HWU))
+		if (kbase_hw_has_feature(kbdev, KBASE_HW_FEATURE_PBHA_HWU))
 			debugfs_create_file("propagate_bits", mode, debugfs_pbha_dir, kbdev,
 					    &pbha_propagate_bits_fops);
 #endif /* MALI_USE_CSF */

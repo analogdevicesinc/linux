@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -29,6 +29,7 @@
 #include <linux/poll.h>
 #include <linux/version_compat_defs.h>
 #include <linux/anon_inodes.h>
+#include <linux/overflow.h>
 
 /* Explicitly include epoll header for old kernels. Not required from 4.16. */
 #if KERNEL_VERSION(4, 16, 0) > LINUX_VERSION_CODE
@@ -169,7 +170,7 @@ static inline int copy_stream_header(char __user *buffer, size_t size, ssize_t *
 				     const char *hdr, size_t hdr_size, size_t *hdr_btc)
 {
 	const size_t offset = hdr_size - *hdr_btc;
-	const size_t copy_size = MIN((size_t)((ssize_t)size - *copy_len), *hdr_btc);
+	const size_t copy_size = MIN(size_sub((ssize_t)size, *copy_len), *hdr_btc);
 
 	if (!*hdr_btc)
 		return 0;

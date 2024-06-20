@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -529,8 +529,8 @@ int kbase_mmu_hw_do_flush(struct kbase_device *kbdev, struct kbase_as *as,
 		return ret;
 
 #if MALI_USE_CSF && !IS_ENABLED(CONFIG_MALI_NO_MALI)
-	/* WA for the BASE_HW_ISSUE_GPU2019_3901. */
-	if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_GPU2019_3901) &&
+	/* WA for the KBASE_HW_ISSUE_GPU2019_3901. */
+	if (kbase_hw_has_issue(kbdev, KBASE_HW_ISSUE_GPU2019_3901) &&
 	    mmu_cmd == AS_COMMAND_COMMAND_FLUSH_MEM) {
 		ret = apply_hw_issue_GPU2019_3901_wa(kbdev, &mmu_cmd, as->number);
 		if (ret) {
@@ -634,6 +634,15 @@ void kbase_mmu_hw_clear_fault(struct kbase_device *kbdev, struct kbase_as *as,
 		pf_bf_mask |= MMU_BUS_ERROR(as->number);
 #endif
 	kbase_reg_write32(kbdev, MMU_CONTROL_ENUM(IRQ_CLEAR), pf_bf_mask);
+
+#if MALI_USE_CSF
+	/* For valid page faults, this function is called just before unblocking the MMU (which
+	 * would in turn unblock the MCU firmware) and so this is an opportune location to
+	 * update the page fault counter value in firmware visible memory.
+	 */
+	if (likely(type == KBASE_MMU_FAULT_TYPE_PAGE) && kbdev->csf.page_fault_cnt_ptr)
+		*kbdev->csf.page_fault_cnt_ptr = ++kbdev->csf.page_fault_cnt;
+#endif
 
 unlock:
 	spin_unlock_irqrestore(&kbdev->mmu_mask_change, flags);

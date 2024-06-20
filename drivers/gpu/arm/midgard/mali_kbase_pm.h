@@ -120,12 +120,10 @@ enum kbase_pm_suspend_handler {
 	 * (e.g. guarantee it's going to be idled very soon after)
 	 */
 	KBASE_PM_SUSPEND_HANDLER_DONT_REACTIVATE,
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
 	/** Special case when Arbiter has notified we can use GPU.
 	 * Active count should always start at 0 in this case.
 	 */
 	KBASE_PM_SUSPEND_HANDLER_VM_GPU_GRANTED,
-#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 };
 
 /**
@@ -234,7 +232,7 @@ void kbase_pm_vsync_callback(int buffer_updated, void *data);
  * kbase components to complete the suspend.
  *
  * Despite kbase_pm_suspend(), it will ignore to update Arbiter
- * status if MALI_ARBITER_SUPPORT is enabled.
+ * status if there is one.
  *
  * @note the mechanisms used here rely on all user-space threads being frozen
  * by the OS before we suspend. Otherwise, an IOCTL could occur that powers up
@@ -258,11 +256,10 @@ int kbase_pm_driver_suspend(struct kbase_device *kbdev);
  * Also called when using VM arbiter, when GPU access has been granted.
  *
  * Despite kbase_pm_resume(), it will ignore to update Arbiter
- * status if MALI_ARBITER_SUPPORT is enabled.
+ * status if there is one.
  */
 void kbase_pm_driver_resume(struct kbase_device *kbdev, bool arb_gpu_start);
 
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
 /**
  * kbase_pm_handle_gpu_lost() - Handle GPU Lost for the VM
  * @kbdev: Device pointer
@@ -273,6 +270,5 @@ void kbase_pm_driver_resume(struct kbase_device *kbdev, bool arb_gpu_start);
  * Kill any running tasks and put the driver into a GPU powered-off state.
  */
 void kbase_pm_handle_gpu_lost(struct kbase_device *kbdev);
-#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
 #endif /* _KBASE_PM_H_ */

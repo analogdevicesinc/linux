@@ -116,10 +116,14 @@
  *   from the parent process.
  * 1.30:
  * - Implement support for setting GPU Timestamp Offset register.
+ * 1.31:
+ * - Reject non-protected allocations containing the BASE_MEM_PROTECTED memory flag.
+ * - Reject allocations containing the BASE_MEM_DONT_NEED memory flag (it is only settable).
+ * - Reject allocations containing the BASE_MEM_UNUSED_BIT_xx memory flags.
  */
 
 #define BASE_UK_VERSION_MAJOR 1
-#define BASE_UK_VERSION_MINOR 30
+#define BASE_UK_VERSION_MINOR 31
 
 /**
  * struct kbase_ioctl_version_check - Check version compatibility between

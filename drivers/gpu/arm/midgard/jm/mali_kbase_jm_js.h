@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -568,22 +568,6 @@ bool kbase_js_complete_atom_wq(struct kbase_context *kctx, struct kbase_jd_atom 
 struct kbase_jd_atom *kbase_js_complete_atom(struct kbase_jd_atom *katom, ktime_t *end_timestamp);
 
 /**
- * kbase_js_atom_blocked_on_x_dep - Decide whether to ignore a cross-slot
- *                                  dependency
- * @katom:	Pointer to an atom in the slot ringbuffer
- *
- * A cross-slot dependency is ignored if necessary to unblock incremental
- * rendering. If the atom at the start of a renderpass used too much memory
- * and was soft-stopped then the atom at the end of a renderpass is submitted
- * to hardware regardless of its dependency on the start-of-renderpass atom.
- * This can happen multiple times for the same pair of atoms.
- *
- * Return: true to block the atom or false to allow it to be submitted to
- * hardware.
- */
-bool kbase_js_atom_blocked_on_x_dep(struct kbase_jd_atom *katom);
-
-/**
  * kbase_js_sched - Submit atoms from all available contexts.
  *
  * @kbdev:    Device pointer
@@ -809,8 +793,7 @@ static inline bool
 kbasep_js_has_atom_finished(const struct kbasep_js_atom_retained_state *katom_retained_state)
 {
 	return (bool)(katom_retained_state->event_code != BASE_JD_EVENT_STOPPED &&
-		      katom_retained_state->event_code != BASE_JD_EVENT_REMOVED_FROM_NEXT &&
-		      katom_retained_state->event_code != BASE_JD_EVENT_END_RP_DONE);
+		      katom_retained_state->event_code != BASE_JD_EVENT_REMOVED_FROM_NEXT);
 }
 
 /**

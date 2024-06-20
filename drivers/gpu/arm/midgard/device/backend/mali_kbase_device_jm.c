@@ -32,10 +32,6 @@
 #include <hwcnt/backend/mali_kbase_hwcnt_backend_jm_watchdog.h>
 #include <backend/gpu/mali_kbase_model_linux.h>
 
-#ifdef CONFIG_MALI_ARBITER_SUPPORT
-#include <arbiter/mali_kbase_arbiter_pm.h>
-#endif
-
 #include <mali_kbase.h>
 #include <backend/gpu/mali_kbase_irq_internal.h>
 #include <backend/gpu/mali_kbase_jm_internal.h>

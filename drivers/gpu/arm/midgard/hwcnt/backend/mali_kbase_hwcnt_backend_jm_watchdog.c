@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2021-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2021-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -315,6 +315,14 @@ kbasep_hwcnt_backend_jm_watchdog_term_partial(struct kbase_hwcnt_backend_jm_watc
 	}
 
 	kfree(wd_backend);
+}
+
+static void kbasep_hwcnt_backend_jm_watchdog_acquire(const struct kbase_hwcnt_backend *backend)
+{
+}
+
+static void kbasep_hwcnt_backend_jm_watchdog_release(const struct kbase_hwcnt_backend *backend)
+{
 }
 
 /* Job manager watchdog backend, implementation of kbase_hwcnt_backend_term_fn
@@ -807,6 +815,8 @@ int kbase_hwcnt_backend_jm_watchdog_create(struct kbase_hwcnt_backend_interface 
 		.metadata = kbasep_hwcnt_backend_jm_watchdog_metadata,
 		.init = kbasep_hwcnt_backend_jm_watchdog_init,
 		.term = kbasep_hwcnt_backend_jm_watchdog_term,
+		.acquire = kbasep_hwcnt_backend_jm_watchdog_acquire,
+		.release = kbasep_hwcnt_backend_jm_watchdog_release,
 		.timestamp_ns = kbasep_hwcnt_backend_jm_watchdog_timestamp_ns,
 		.dump_enable = kbasep_hwcnt_backend_jm_watchdog_dump_enable,
 		.dump_enable_nolock = kbasep_hwcnt_backend_jm_watchdog_dump_enable_nolock,
