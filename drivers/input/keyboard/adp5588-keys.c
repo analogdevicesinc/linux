@@ -719,7 +719,7 @@ static int adp5588_probe(struct i2c_client *client)
 	struct input_dev *input;
 	struct gpio_desc *gpio;
 	unsigned int revid;
-	int ret;
+	int ret, gpio_mode_only;
 	int error;
 
 	if (!i2c_check_functionality(client->adapter,
@@ -739,13 +739,17 @@ static int adp5588_probe(struct i2c_client *client)
 	kpad->client = client;
 	kpad->input = input;
 
-	error = adp5588_fw_parse(kpad);
-	if (error)
-		return error;
+	gpio_mode_only = device_property_present(&client->dev, "gpio-only");
+	if(!gpio_mode_only) {
+		error = adp5588_fw_parse(kpad);
+		if (error)
+			return error;
 
-	error = devm_regulator_get_enable(&client->dev, "vcc");
-	if (error)
-		return error;
+		error = devm_regulator_get_enable(&client->dev, "vcc");
+		if (error)
+			return error;
+
+	}
 
 	gpio = devm_gpiod_get_optional(&client->dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(gpio))
@@ -790,6 +794,11 @@ static int adp5588_probe(struct i2c_client *client)
 	if (error)
 		return error;
 
+	if(!client->irq && gpio_mode_only) {
+		dev_info(&client->dev, "Rev.%d, started as GPIO only\n", revid);
+		return 0;
+	}
+
 	error = devm_request_threaded_irq(&client->dev, client->irq,
 					  adp5588_hard_irq, adp5588_thread_irq,
 					  IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
@@ -798,6 +807,13 @@ static int adp5588_probe(struct i2c_client *client)
 		dev_err(&client->dev, "failed to request irq %d: %d\n",
 			client->irq, error);
 		return error;
+	}
+
+
+	if(gpio_mode_only) {
+		dev_info(&client->dev, "Rev.%d irq %d, started as GPIO only\n",
+				revid, client->irq);
+		return 0;
 	}
 
 	dev_info(&client->dev, "Rev.%d keypad, irq %d\n", revid, client->irq);

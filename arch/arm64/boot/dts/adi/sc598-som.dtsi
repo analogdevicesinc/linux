@@ -255,21 +255,13 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&i2c2_pins>;
 
-	ssw0: gpio@34 {
-		compatible = "adi,adp5588";
+	gpio@34 {
+		compatible = "adi,adp5587-keys";
 		gpio-controller;
+		gpio-only;
 		#gpio-cells = <2>;
 		reg = <0x34>;
 		status = "okay";
-
-		pinctrl-names = "default";
-		pinctrl-0 = <&ssw0pullups>;
-
-		ssw0pullups: pinmux {
-			bias-pull-up;
-			pins = "gpio0", "gpio1", "gpio2", "gpio3",
-				"gpio4", "gpio5", "gpio6", "gpio8", "gpio9";
-		};
 
 		uart0 {
 			gpio-hog;
