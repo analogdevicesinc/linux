@@ -1126,6 +1126,13 @@ S:	Supported
 F:	Documentation/devicetree/bindings/iio/adc/adi,ad400x.yaml
 F:	drivers/iio/dac/ad400x.c
 
+ANALOG DEVICES INC AD4692 DRIVER
+M:	Radu Sabau <radu.sabau@anlog.com>
+L:	linux-iio@vger.kernel.org
+S:	Supported
+W:	http://ez.analog.com/community/linux-device-drivers
+F:	Documentation/devicetree/bindings/iio/adc/adi,ad4692.yaml
+
 AMD SENSOR FUSION HUB DRIVER
 M:	Basavaraj Natikar <basavaraj.natikar@amd.com>
 L:	linux-input@vger.kernel.org
