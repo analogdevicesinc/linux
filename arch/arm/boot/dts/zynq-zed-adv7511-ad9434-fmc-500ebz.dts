@@ -52,3 +52,12 @@
 #define fmc_spi spi0
 
 #include "adi-ad9434-fmc-500ebz.dtsi"
+
+/*
+ * It is limited because of Zed board; check AC DC switching characteristics:
+ * 464MHz is the limit.
+ * 2.156ns is the adc_clk period in HDL
+ */
+&ad9517_ref_clk {
+	clock-frequency = <463820000>; // 463.82MHz
+};
