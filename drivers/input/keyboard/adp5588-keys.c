@@ -740,7 +740,7 @@ static int adp5588_probe(struct i2c_client *client)
 	kpad->input = input;
 
 	gpio_mode_only = device_property_present(&client->dev, "gpio-only");
-	if(!gpio_mode_only) {
+	if (!gpio_mode_only) {
 		error = adp5588_fw_parse(kpad);
 		if (error)
 			return error;
@@ -794,7 +794,7 @@ static int adp5588_probe(struct i2c_client *client)
 	if (error)
 		return error;
 
-	if(!client->irq && gpio_mode_only) {
+	if (!client->irq && gpio_mode_only) {
 		dev_info(&client->dev, "Rev.%d, started as GPIO only\n", revid);
 		return 0;
 	}
@@ -810,7 +810,7 @@ static int adp5588_probe(struct i2c_client *client)
 	}
 
 
-	if(gpio_mode_only) {
+	if (gpio_mode_only) {
 		dev_info(&client->dev, "Rev.%d irq %d, started as GPIO only\n",
 				revid, client->irq);
 		return 0;
