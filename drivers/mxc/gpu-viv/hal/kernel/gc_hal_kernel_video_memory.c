@@ -1722,7 +1722,7 @@ _AllocateVirtualChunk(IN gckKERNEL Kernel,
 
     gcmkVERIFY_ARGUMENT(Node != gcvNULL);
     gcmkVERIFY_ARGUMENT(VidMemBlock != gcvNULL);
-    gcmkVERIFY_ARGUMENT(Bytes > 0);
+    gcmkVERIFY_ARGUMENT(Bytes != gcvNULL && *Bytes > 0);
     gcmkVERIFY_ARGUMENT(Type < gcvVIDMEM_TYPE_COUNT);
 
     gcmkONERROR(gckOS_AcquireMutex(Kernel->os, VidMemBlock->mutex, gcvINFINITE));

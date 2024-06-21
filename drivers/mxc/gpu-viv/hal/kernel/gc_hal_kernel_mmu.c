@@ -759,8 +759,9 @@ gckMMU_FillFlatMappingWithPage16M(IN gckMMU Mmu, IN gctUINT64 PhysBase, IN gctSI
             stlbLogical = (gctUINT32_PTR)((gctUINT8_PTR)curStlbChunk->logical +
                                           (stlbOffset * gcdMMU_STLB_16M_SIZE));
 
-            if (stlbPhyBase != (mtlbEntry & gcdMMU_MTLB_ENTRY_STLB_MASK))
+            if (stlbPhyBase != (mtlbEntry & gcdMMU_MTLB_ENTRY_STLB_MASK)) {
                 gcmkASSERT(0);
+            }
         }
 
 #if gcdDUMP_IN_KERNEL
@@ -1157,8 +1158,9 @@ gckMMU_FillFlatMappingWithPage1M(IN gckMMU Mmu, IN gctUINT64 PhysBase, IN gctSIZ
             stlbLogical = (gctUINT32_PTR)((gctUINT8_PTR)curStlbChunk->logical +
                                           (stlbOffset * gcdMMU_STLB_1M_SIZE));
 
-            if (stlbPhyBase != (mtlbEntry & gcdMMU_MTLB_ENTRY_STLB_MASK))
+            if (stlbPhyBase != (mtlbEntry & gcdMMU_MTLB_ENTRY_STLB_MASK)) {
                 gcmkASSERT(0);
+            }
         }
 
 #if gcdDUMP_IN_KERNEL
@@ -1465,8 +1467,9 @@ gckMMU_FillFlatMappingWithPage64K(IN gckMMU Mmu, IN gctUINT64 PhysBase, IN gctSI
             stlbLogical = (gctUINT32_PTR)((gctUINT8_PTR)curStlbChunk->logical +
                                           (stlbOffset * gcdMMU_STLB_64K_SIZE));
 
-            if (stlbPhyBase != (mtlbEntry & gcdMMU_MTLB_ENTRY_STLB_MASK))
+            if (stlbPhyBase != (mtlbEntry & gcdMMU_MTLB_ENTRY_STLB_MASK)) {
                 gcmkASSERT(0);
+            }
         }
 
 #if gcdDUMP_IN_KERNEL
@@ -1775,8 +1778,9 @@ gckMMU_FillFlatMappingWithPage4K(IN gckMMU Mmu, IN gctUINT64 PhysBase, IN gctSIZ
             stlbLogical = (gctUINT32_PTR)((gctUINT8_PTR)curStlbChunk->logical +
                                           (stlbOffset * gcdMMU_STLB_4K_SIZE));
 
-            if (stlbPhyBase != (mtlbEntry & gcdMMU_MTLB_ENTRY_STLB_MASK))
+            if (stlbPhyBase != (mtlbEntry & gcdMMU_MTLB_ENTRY_STLB_MASK)) {
                 gcmkASSERT(0);
+            }
         }
 
 #if gcdDUMP_IN_KERNEL
