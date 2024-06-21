@@ -60,7 +60,7 @@
 	status = "okay";
 	phy-mode = "rgmii-id";
 	phy-handle = <&emac0_phy0>;
-
+	/delete-property/ dma-coherent;
 	max-frame-size = <9000>;
 
 	mdio0 {
@@ -77,7 +77,7 @@
 	status = "disabled";
 	phy-mode = "rgmii-id";
 	phy-handle = <&emac2_phy0>;
-
+	/delete-property/ dma-coherent;
 	max-frame-size = <9000>;
 
 	mdio0 {
