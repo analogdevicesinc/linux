@@ -17,11 +17,17 @@ static inline void closure_put_after_sub(struct closure *cl, int flags)
 {
 	int r = flags & CLOSURE_REMAINING_MASK;
 
-	BUG_ON(flags & CLOSURE_GUARD_MASK);
-	BUG_ON(!r && (flags & ~CLOSURE_DESTRUCTOR));
+	if (WARN(flags & CLOSURE_GUARD_MASK,
+		 "closure has guard bits set: %x (%u)",
+		 flags & CLOSURE_GUARD_MASK, (unsigned) __fls(r)))
+		r &= ~CLOSURE_GUARD_MASK;
 
 	if (!r) {
 		smp_acquire__after_ctrl_dep();
+
+		WARN(flags & ~CLOSURE_DESTRUCTOR,
+		     "closure ref hit 0 with incorrect flags set: %x (%u)",
+		     flags & ~CLOSURE_DESTRUCTOR, (unsigned) __fls(flags));
 
 		cl->closure_get_happened = false;
 
@@ -138,6 +144,43 @@ void __sched __closure_sync(struct closure *cl)
 	__set_current_state(TASK_RUNNING);
 }
 EXPORT_SYMBOL(__closure_sync);
+
+int __sched __closure_sync_timeout(struct closure *cl, unsigned long timeout)
+{
+	struct closure_syncer s = { .task = current };
+	int ret = 0;
+
+	cl->s = &s;
+	continue_at(cl, closure_sync_fn, NULL);
+
+	while (1) {
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		if (s.done)
+			break;
+		if (!timeout) {
+			/*
+			 * Carefully undo the continue_at() - but only if it
+			 * hasn't completed, i.e. the final closure_put() hasn't
+			 * happened yet:
+			 */
+			unsigned old, new, v = atomic_read(&cl->remaining);
+			do {
+				old = v;
+				if (!old || (old & CLOSURE_RUNNING))
+					goto success;
+
+				new = old + CLOSURE_REMAINING_INITIALIZER;
+			} while ((v = atomic_cmpxchg(&cl->remaining, old, new)) != old);
+			ret = -ETIME;
+		}
+
+		timeout = schedule_timeout(timeout);
+	}
+success:
+	__set_current_state(TASK_RUNNING);
+	return ret;
+}
+EXPORT_SYMBOL(__closure_sync_timeout);
 
 #ifdef CONFIG_DEBUG_CLOSURES
 

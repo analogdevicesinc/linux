@@ -535,6 +535,10 @@ int smb2_allocate_rsp_buf(struct ksmbd_work *work)
 	if (cmd == SMB2_QUERY_INFO_HE) {
 		struct smb2_query_info_req *req;
 
+		if (get_rfc1002_len(work->request_buf) <
+		    offsetof(struct smb2_query_info_req, OutputBufferLength))
+			return -EINVAL;
+
 		req = smb2_get_msg(work->request_buf);
 		if ((req->InfoType == SMB2_O_INFO_FILE &&
 		     (req->FileInfoClass == FILE_FULL_EA_INFORMATION ||
@@ -624,6 +628,12 @@ smb2_get_name(const char *src, const int maxlen, struct nls_table *local_nls)
 	if (IS_ERR(name)) {
 		pr_err("failed to get name %ld\n", PTR_ERR(name));
 		return name;
+	}
+
+	if (*name == '\\') {
+		pr_err("not allow directory name included leading slash\n");
+		kfree(name);
+		return ERR_PTR(-EINVAL);
 	}
 
 	ksmbd_conv_path_to_unix(name);
@@ -1922,7 +1932,7 @@ int smb2_tree_connect(struct ksmbd_work *work)
 	struct ksmbd_session *sess = work->sess;
 	char *treename = NULL, *name = NULL;
 	struct ksmbd_tree_conn_status status;
-	struct ksmbd_share_config *share;
+	struct ksmbd_share_config *share = NULL;
 	int rc = -EINVAL;
 
 	WORK_BUFFERS(work, req, rsp);
@@ -1984,7 +1994,12 @@ int smb2_tree_connect(struct ksmbd_work *work)
 	write_unlock(&sess->tree_conns_lock);
 	rsp->StructureSize = cpu_to_le16(16);
 out_err1:
-	rsp->Capabilities = 0;
+	if (server_conf.flags & KSMBD_GLOBAL_FLAG_DURABLE_HANDLE && share &&
+	    test_share_config_flag(share,
+				   KSMBD_SHARE_FLAG_CONTINUOUS_AVAILABILITY))
+		rsp->Capabilities = SMB2_SHARE_CAP_CONTINUOUS_AVAILABILITY;
+	else
+		rsp->Capabilities = 0;
 	rsp->Reserved = 0;
 	/* default manual caching */
 	rsp->ShareFlags = SMB2_SHAREFLAG_MANUAL_CACHING;
@@ -2352,7 +2367,8 @@ static int smb2_set_ea(struct smb2_ea_info *eabuf, unsigned int buf_len,
 			if (rc > 0) {
 				rc = ksmbd_vfs_remove_xattr(idmap,
 							    path,
-							    attr_name);
+							    attr_name,
+							    get_write);
 
 				if (rc < 0) {
 					ksmbd_debug(SMB,
@@ -2367,7 +2383,7 @@ static int smb2_set_ea(struct smb2_ea_info *eabuf, unsigned int buf_len,
 		} else {
 			rc = ksmbd_vfs_setxattr(idmap, path, attr_name, value,
 						le16_to_cpu(eabuf->EaValueLength),
-						0, true);
+						0, get_write);
 			if (rc < 0) {
 				ksmbd_debug(SMB,
 					    "ksmbd_vfs_setxattr is failed(%d)\n",
@@ -2459,7 +2475,7 @@ static int smb2_remove_smb_xattrs(const struct path *path)
 		    !strncmp(&name[XATTR_USER_PREFIX_LEN], STREAM_PREFIX,
 			     STREAM_PREFIX_LEN)) {
 			err = ksmbd_vfs_remove_xattr(idmap, path,
-						     name);
+						     name, true);
 			if (err)
 				ksmbd_debug(SMB, "remove xattr failed : %s\n",
 					    name);
@@ -2833,20 +2849,11 @@ int smb2_open(struct ksmbd_work *work)
 	}
 
 	if (req->NameLength) {
-		if ((req->CreateOptions & FILE_DIRECTORY_FILE_LE) &&
-		    *(char *)req->Buffer == '\\') {
-			pr_err("not allow directory name included leading slash\n");
-			rc = -EINVAL;
-			goto err_out2;
-		}
-
 		name = smb2_get_name((char *)req + le16_to_cpu(req->NameOffset),
 				     le16_to_cpu(req->NameLength),
 				     work->conn->local_nls);
 		if (IS_ERR(name)) {
 			rc = PTR_ERR(name);
-			if (rc != -ENOMEM)
-				rc = -ENOENT;
 			name = NULL;
 			goto err_out2;
 		}
@@ -3367,9 +3374,9 @@ int smb2_open(struct ksmbd_work *work)
 	 * after daccess, saccess, attrib_only, and stream are
 	 * initialized.
 	 */
-	write_lock(&fp->f_ci->m_lock);
+	down_write(&fp->f_ci->m_lock);
 	list_add(&fp->node, &fp->f_ci->m_fp_list);
-	write_unlock(&fp->f_ci->m_lock);
+	up_write(&fp->f_ci->m_lock);
 
 	/* Check delete pending among previous fp before oplock break */
 	if (ksmbd_inode_pending_delete(fp)) {
@@ -3498,7 +3505,9 @@ int smb2_open(struct ksmbd_work *work)
 	memcpy(fp->client_guid, conn->ClientGUID, SMB2_CLIENT_GUID_SIZE);
 
 	if (dh_info.type == DURABLE_REQ_V2 || dh_info.type == DURABLE_REQ) {
-		if (dh_info.type == DURABLE_REQ_V2 && dh_info.persistent)
+		if (dh_info.type == DURABLE_REQ_V2 && dh_info.persistent &&
+		    test_share_config_flag(work->tcon->share_conf,
+					   KSMBD_SHARE_FLAG_CONTINUOUS_AVAILABILITY))
 			fp->is_persistent = true;
 		else
 			fp->is_durable = true;

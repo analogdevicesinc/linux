@@ -429,7 +429,6 @@ static const struct pci_device_id ahci_pci_tbl[] = {
 	{ PCI_VDEVICE(INTEL, 0x02d7), board_ahci_pcs_quirk }, /* Comet Lake PCH RAID */
 	/* Elkhart Lake IDs 0x4b60 & 0x4b62 https://sata-io.org/product/8803 not tested yet */
 	{ PCI_VDEVICE(INTEL, 0x4b63), board_ahci_pcs_quirk }, /* Elkhart Lake AHCI */
-	{ PCI_VDEVICE(INTEL, 0x7ae2), board_ahci_pcs_quirk }, /* Alder Lake-P AHCI */
 
 	/* JMicron 360/1/3/5/6, match class to avoid IDE function */
 	{ PCI_VENDOR_ID_JMICRON, PCI_ANY_ID, PCI_ANY_ID, PCI_ANY_ID,
@@ -666,6 +665,87 @@ static int mobile_lpm_policy = -1;
 module_param(mobile_lpm_policy, int, 0644);
 MODULE_PARM_DESC(mobile_lpm_policy, "Default LPM policy for mobile chipsets");
 
+static char *ahci_mask_port_map;
+module_param_named(mask_port_map, ahci_mask_port_map, charp, 0444);
+MODULE_PARM_DESC(mask_port_map,
+		 "32-bits port map masks to ignore controllers ports. "
+		 "Valid values are: "
+		 "\"<mask>\" to apply the same mask to all AHCI controller "
+		 "devices, and \"<pci_dev>=<mask>,<pci_dev>=<mask>,...\" to "
+		 "specify different masks for the controllers specified, "
+		 "where <pci_dev> is the PCI ID of an AHCI controller in the "
+		 "form \"domain:bus:dev.func\"");
+
+static void ahci_apply_port_map_mask(struct device *dev,
+				     struct ahci_host_priv *hpriv, char *mask_s)
+{
+	unsigned int mask;
+
+	if (kstrtouint(mask_s, 0, &mask)) {
+		dev_err(dev, "Invalid port map mask\n");
+		return;
+	}
+
+	hpriv->mask_port_map = mask;
+}
+
+static void ahci_get_port_map_mask(struct device *dev,
+				   struct ahci_host_priv *hpriv)
+{
+	char *param, *end, *str, *mask_s;
+	char *name;
+
+	if (!strlen(ahci_mask_port_map))
+		return;
+
+	str = kstrdup(ahci_mask_port_map, GFP_KERNEL);
+	if (!str)
+		return;
+
+	/* Handle single mask case */
+	if (!strchr(str, '=')) {
+		ahci_apply_port_map_mask(dev, hpriv, str);
+		goto free;
+	}
+
+	/*
+	 * Mask list case: parse the parameter to apply the mask only if
+	 * the device name matches.
+	 */
+	param = str;
+	end = param + strlen(param);
+	while (param && param < end && *param) {
+		name = param;
+		param = strchr(name, '=');
+		if (!param)
+			break;
+
+		*param = '\0';
+		param++;
+		if (param >= end)
+			break;
+
+		if (strcmp(dev_name(dev), name) != 0) {
+			param = strchr(param, ',');
+			if (param)
+				param++;
+			continue;
+		}
+
+		mask_s = param;
+		param = strchr(mask_s, ',');
+		if (param) {
+			*param = '\0';
+			param++;
+		}
+
+		ahci_apply_port_map_mask(dev, hpriv, mask_s);
+	}
+
+free:
+	kfree(str);
+}
+
 static void ahci_pci_save_initial_config(struct pci_dev *pdev,
 					 struct ahci_host_priv *hpriv)
 {
@@ -687,6 +767,10 @@ static void ahci_pci_save_initial_config(struct pci_dev *pdev,
 		dev_info(&pdev->dev,
 			  "Disabling your PATA port. Use the boot option 'ahci.marvell_enable=0' to avoid this.\n");
 	}
+
+	/* Handle port map masks passed as module parameter. */
+	if (ahci_mask_port_map)
+		ahci_get_port_map_mask(&pdev->dev, hpriv);
 
 	ahci_save_initial_config(&pdev->dev, hpriv);
 }
@@ -1650,6 +1734,14 @@ static void ahci_update_initial_lpm_policy(struct ata_port *ap)
 	 */
 	if (ap->pflags & ATA_PFLAG_EXTERNAL)
 		return;
+
+	/* If no LPM states are supported by the HBA, do not bother with LPM */
+	if ((ap->host->flags & ATA_HOST_NO_PART) &&
+	    (ap->host->flags & ATA_HOST_NO_SSC) &&
+	    (ap->host->flags & ATA_HOST_NO_DEVSLP)) {
+		ata_port_dbg(ap, "no LPM states supported, not enabling LPM\n");
+		return;
+	}
 
 	/* user modified policy via module param */
 	if (mobile_lpm_policy != -1) {
