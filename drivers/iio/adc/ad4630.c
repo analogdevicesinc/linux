@@ -1566,7 +1566,7 @@ static int ad4630_probe(struct spi_device *spi)
 	return 0;
 }
 
-static int __maybe_unused ad4630_runtime_suspend(struct device *dev)
+static int ad4630_runtime_suspend(struct device *dev)
 {
 	u32 val = FIELD_PREP(AD4630_POWER_MODE_MSK, AD4630_LOW_POWER_MODE);
 	struct ad4630_state *st = dev_get_drvdata(dev);
@@ -1574,7 +1574,7 @@ static int __maybe_unused ad4630_runtime_suspend(struct device *dev)
 	return regmap_write(st->regmap, AD4630_REG_DEVICE_CONFIG, val);
 }
 
-static int __maybe_unused ad4630_runtime_resume(struct device *dev)
+static int ad4630_runtime_resume(struct device *dev)
 {
 	struct ad4630_state *st = dev_get_drvdata(dev);
 	int ret;
@@ -1627,7 +1627,7 @@ static struct spi_driver ad4630_driver = {
 	.driver = {
 		.name = "ad4630",
 		.of_match_table = ad4630_of_match,
-		.pm = &ad4630_pm_ops,
+		.pm = pm_ptr(&ad4630_pm_ops),
 	},
 	.probe = ad4630_probe,
 	.id_table = ad4630_id_table,
