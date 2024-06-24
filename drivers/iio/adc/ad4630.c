@@ -1470,7 +1470,7 @@ static int ad4630_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 	st->spi = spi;
-	spi_set_drvdata(spi, indio_dev);
+	spi_set_drvdata(spi, st);
 
 	st->chip = spi_get_device_match_data(spi);
 	if (!st->chip)
@@ -1569,16 +1569,14 @@ static int ad4630_probe(struct spi_device *spi)
 static int __maybe_unused ad4630_runtime_suspend(struct device *dev)
 {
 	u32 val = FIELD_PREP(AD4630_POWER_MODE_MSK, AD4630_LOW_POWER_MODE);
-	struct iio_dev *indio_dev = dev_get_drvdata(dev);
-	struct ad4630_state *st = iio_priv(indio_dev);
+	struct ad4630_state *st = dev_get_drvdata(dev);
 
 	return regmap_write(st->regmap, AD4630_REG_DEVICE_CONFIG, val);
 }
 
 static int __maybe_unused ad4630_runtime_resume(struct device *dev)
 {
-	struct iio_dev *indio_dev = dev_get_drvdata(dev);
-	struct ad4630_state *st = iio_priv(indio_dev);
+	struct ad4630_state *st = dev_get_drvdata(dev);
 	int ret;
 
 	ret = regmap_write(st->regmap, AD4630_REG_DEVICE_CONFIG,
