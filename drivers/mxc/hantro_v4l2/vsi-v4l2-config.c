@@ -1655,6 +1655,8 @@ static int vsiv4l2_setfmt_dec(struct vsi_v4l2_ctx *ctx, struct v4l2_format *fmt)
 	if (ret != 0)
 		return ret;
 	targetfmt = vsi_find_format(ctx, fmt);
+	if (!targetfmt)
+		return -EINVAL;
 	if (binputqueue(fmt->type)) {
 		pcfg->decparams.dec_info.io_buffer.srcwidth = pix->width;
 		pcfg->decparams.dec_info.io_buffer.srcheight = pix->height;

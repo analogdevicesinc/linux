@@ -271,7 +271,6 @@ static void release_ctx(struct vsi_v4l2_ctx *ctx, int notifydaemon)
 	mutex_unlock(&ctx->ctxlock);
 
 	put_ctx(ctx);
-	ctx = NULL;
 }
 
 void vsi_remove_ctx(struct vsi_v4l2_ctx *ctx)
@@ -1003,12 +1002,6 @@ static struct platform_driver v4l2_drm_platform_driver = {
 		.of_match_table = v4l2_of_match,
 	},
 	.id_table = v4l2_platform_ids,
-};
-
-static const struct platform_device_info v4l2_platform_info = {
-	.name		= DRIVER_NAME,
-	.id		= -1,
-	.dma_mask	= ~0ULL,
 };
 
 module_platform_driver(v4l2_drm_platform_driver);

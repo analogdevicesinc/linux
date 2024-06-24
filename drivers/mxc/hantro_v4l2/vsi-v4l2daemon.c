@@ -237,14 +237,26 @@ static int vsi_v4l2_sendcmd(
 	v4l2_klog(LOGLVL_VERBOSE, "%s:%lx:%d:%x", __func__, instid, cmdid, param_type);
 	if (msgsize == 0) {
 		msghdr = kzalloc(sizeof(struct vsi_v4l2_msg_hdr), GFP_KERNEL);
+		if (!msghdr) {
+			mutex_unlock(&cmd_lock);
+			return -ENOMEM;
+		}
 		msghdr->inst_id = instid;
 		msghdr->cmd_id = cmdid;
 		msghdr->codec_fmt = codecformat;
 		msghdr->param_type = param_type;
 		mid = msghdr->seq_id = g_seqid;
-		idr_alloc(cmdarray, (void *)msghdr, 1, 0, GFP_KERNEL);
+		if (idr_alloc(cmdarray, (void *)msghdr, 1, 0, GFP_KERNEL) < 0) {
+			kfree(msghdr);
+			mutex_unlock(&cmd_lock);
+			return -ENOMEM;
+		}
 	} else {
 		pmsg = kzalloc(sizeof(struct vsi_v4l2_msg), GFP_KERNEL);
+		if (!pmsg) {
+			mutex_unlock(&cmd_lock);
+			return -ENOMEM;
+		}
 		pmsg->inst_id = instid;
 		pmsg->cmd_id = cmdid;
 		pmsg->codec_fmt = codecformat;
@@ -252,7 +264,11 @@ static int vsi_v4l2_sendcmd(
 		mid = pmsg->seq_id = g_seqid;
 		pmsg->size = msgsize;
 		memcpy((void *)&pmsg->params, msgcontent, msgsize);
-		idr_alloc(cmdarray, (void *)pmsg, 1, 0, GFP_KERNEL);
+		if (idr_alloc(cmdarray, (void *)pmsg, 1, 0, GFP_KERNEL) < 0) {
+			kfree(pmsg);
+			mutex_unlock(&cmd_lock);
+			return -ENOMEM;
+		}
 	}
 	g_seqid++;
 	if (g_seqid >= SEQID_UPLIMT)
@@ -672,6 +688,8 @@ static ssize_t v4l2_msg_write(struct file *fh, const char __user *buf, size_t si
 		return size;
 	}
 	pmsg = kzalloc(sizeof(struct vsi_v4l2_msg), GFP_KERNEL);
+	if (!pmsg)
+		goto error;
 	if (copy_from_user((void *)pmsg,
 		(void __user *)buf, sizeof(struct vsi_v4l2_msg_hdr)) != 0) {
 		kfree(pmsg);
