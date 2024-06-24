@@ -1472,13 +1472,10 @@ static int ad4630_probe(struct spi_device *spi)
 	st->spi = spi;
 	spi_set_drvdata(spi, indio_dev);
 
-	st->chip = device_get_match_data(dev);
-	if (!st->chip) {
-		st->chip = (void *)spi_get_device_id(spi)->driver_data;
-		if (!st->chip)
-			return dev_err_probe(dev, -ENODEV,
-					     "Could not find chip info data\n");
-	}
+	st->chip = spi_get_device_match_data(spi);
+	if (!st->chip)
+		return dev_err_probe(dev, -ENODEV,
+				     "Could not find chip info data\n");
 
 	st->regmap = devm_regmap_init(&spi->dev, &ad4630_regmap_bus, st,
 				      &ad4630_regmap_config);
