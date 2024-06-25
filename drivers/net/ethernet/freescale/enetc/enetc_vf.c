@@ -565,6 +565,8 @@ static const struct net_device_ops enetc_ndev_ops = {
 	.ndo_set_features	= enetc_vf_set_features,
 	.ndo_eth_ioctl		= enetc_ioctl,
 	.ndo_setup_tc		= enetc_vf_setup_tc,
+	.ndo_bpf		= enetc_setup_bpf,
+	.ndo_xdp_xmit		= enetc_xdp_xmit,
 };
 
 static void enetc_vf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
@@ -590,6 +592,7 @@ static void enetc_vf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 		ndev->max_mtu = ENETC4_MAX_MTU;
 		priv->active_offloads |= ENETC_F_CHECKSUM | ENETC_F_LSO;
 		priv->max_frags_bd = ENETC4_MAX_SKB_FRAGS;
+		priv->shared_tx_rings = true;
 	}
 
 	ndev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM |
@@ -605,6 +608,10 @@ static void enetc_vf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 			 NETIF_F_GSO_UDP_L4;
 	ndev->vlan_features = NETIF_F_SG | NETIF_F_HW_CSUM |
 			      NETIF_F_TSO | NETIF_F_TSO6 | NETIF_F_GSO_UDP_L4;
+
+	ndev->xdp_features = NETDEV_XDP_ACT_BASIC | NETDEV_XDP_ACT_REDIRECT |
+			     NETDEV_XDP_ACT_NDO_XMIT | NETDEV_XDP_ACT_RX_SG |
+			     NETDEV_XDP_ACT_NDO_XMIT_SG;
 
 	/* If driver handles unicast address filtering, it should set
 	 * IFF_UNICAST_FLT in its priv_flags. (Refer to the description
