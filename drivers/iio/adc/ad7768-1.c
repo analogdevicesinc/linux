@@ -20,7 +20,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/sysfs.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/spi-engine.h>
+#include <linux/spi/spi-engine-ex.h>
 #include <linux/util_macros.h>
 #include <linux/units.h>
 #include <linux/rational.h>
@@ -395,6 +395,8 @@ struct ad7768_chip_info {
 struct ad7768_state {
 	const struct ad7768_chip_info *chip;
 	struct spi_device *spi;
+	struct spi_message offload_msg;
+	struct spi_transfer offload_xfer;
 	struct regulator *regulator;
 	int bits_per_word;
 	int vref;
@@ -1161,14 +1163,14 @@ static irqreturn_t ad7768_interrupt(int irq, void *dev_id)
 static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
-	struct spi_transfer xfer = {
-		.len = 1,
-	};
-	unsigned int rx_data[2];
-	struct spi_message msg;
+	// struct spi_transfer xfer = {
+	// 	.len = 1,
+	// };
+	// unsigned int rx_data[2];
 	int ret;
 
-	xfer.bits_per_word = st->bits_per_word;
+	st->offload_xfer.len = 1;
+	st->offload_xfer.bits_per_word = st->bits_per_word;
 
 	/*
 	* Write a 1 to the LSB of the INTERFACE_FORMAT register to enter
@@ -1184,12 +1186,17 @@ static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 
 		// tx_data[0] = AD7768_RD_FLAG_MSK(AD7768_REG_ADC_DATA) << 24;
 		// xfer.tx_buf = tx_data;
-		xfer.rx_buf = rx_data;
-		spi_message_init_with_transfers(&msg, &xfer, 1);
-		ret = spi_engine_offload_load_msg(st->spi, &msg);
+		st->offload_xfer.rx_buf = (void *)-1;
+
+		spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
+		ret = spi_optimize_message(st->spi, &st->offload_msg);
 		if (ret < 0)
 			return ret;
-		spi_engine_offload_enable(st->spi, true);
+
+		ret = spi_engine_ex_offload_load_msg(st->spi, &st->offload_msg);
+		if (ret < 0)
+			return ret;
+		spi_engine_ex_offload_enable(st->spi, true);
 	}
 
 	return ret;
@@ -1201,10 +1208,10 @@ static int ad7768_buffer_predisable(struct iio_dev *indio_dev)
 	unsigned int regval;
 
 	if (st->spi_is_dma_mapped) {
-		spi_engine_offload_enable(st->spi, false);
+		spi_engine_ex_offload_enable(st->spi, false);
 		spi_bus_unlock(st->spi->master);
 	}
-
+	spi_unoptimize_message(&st->offload_msg);
 	/*
 	 * To exit continuous read mode, perform a single read of the ADC_DATA
 	 * reg (0x2C), which allows further configuration of the device.
@@ -1405,7 +1412,7 @@ static int ad7768_probe(struct spi_device *spi)
 		return PTR_ERR(st->mclk);
 
 	st->mclk_freq = clk_get_rate(st->mclk);
-	st->spi_is_dma_mapped = spi_engine_offload_supported(spi);
+	st->spi_is_dma_mapped = spi_engine_ex_offload_supported(spi);
 	st->irq = spi->irq;
 	st->vref = regulator_get_voltage(st->regulator);
 
@@ -1462,6 +1469,19 @@ static int ad7768_probe(struct spi_device *spi)
 		ad7768_fill_scale_tbl(st);
 		ad7768_set_pga_gain(st, st->chip->default_pga_mode);
 	}
+
+	ad7768_spi_reg_write(st, AD7768_REG_SCRATCH_PAD, 0x22);
+	ad7768_spi_reg_read(st, AD7768_REG_SCRATCH_PAD, &val, 1);
+	printk("SCRATCH PAD: %x\n", val);
+	ad7768_spi_reg_write(st, AD7768_REG_SCRATCH_PAD, 0x22);
+	ad7768_spi_reg_read(st, AD7768_REG_SCRATCH_PAD, &val, 1);
+	printk("SCRATCH PAD: %x\n", val);
+	ad7768_spi_reg_write(st, AD7768_REG_SCRATCH_PAD, 0x22);
+	ad7768_spi_reg_read(st, AD7768_REG_SCRATCH_PAD, &val, 1);
+	printk("SCRATCH PAD: %x\n", val);
+	ad7768_spi_reg_write(st, AD7768_REG_SCRATCH_PAD, 0x22);
+	ad7768_spi_reg_read(st, AD7768_REG_SCRATCH_PAD, &val, 1);
+	printk("SCRATCH PAD: %x\n", val);
 
 	ret = ad7768_set_channel_label(indio_dev, ARRAY_SIZE(ad7768_channels));
 	if (ret)
