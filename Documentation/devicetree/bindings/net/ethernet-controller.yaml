@@ -101,6 +101,8 @@ properties:
 
       # 10GBASE-KR, XFI, SFI
       - 10gbase-kr
+      - 25gbase-kr
+      - 40gbase-kr4
       - usxgmii
       - 10gbase-r
       - 25gbase-r
@@ -162,6 +164,7 @@ properties:
     enum:
       - auto
       - in-band-status
+      - c73
 
   fixed-link:
     oneOf:

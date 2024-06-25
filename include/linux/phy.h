@@ -129,6 +129,8 @@ extern const int phy_10gbit_features_array[1];
  * @PHY_INTERFACE_MODE_QUSGMII: Quad Universal SGMII
  * @PHY_INTERFACE_MODE_1000BASEKX: 1000Base-KX - with Clause 73 AN
  * @PHY_INTERFACE_MODE_10G_QXGMII: 10G-QXGMII - 4 ports over 10G USXGMII
+ * @PHY_INTERFACE_MODE_25GKR: 25GBASE-KR - with Clause 73 AN
+ * @PHY_INTERFACE_MODE_40GKR4: 40GBASE-KR4 - with Clause 73 AN
  * @PHY_INTERFACE_MODE_MAX: Book keeping
  *
  * Describes the interface between the MAC and PHY.
@@ -171,6 +173,8 @@ typedef enum {
 	PHY_INTERFACE_MODE_1000BASEKX,
 	PHY_INTERFACE_MODE_10G_QXGMII,
 	PHY_INTERFACE_MODE_2500SGMII,
+	PHY_INTERFACE_MODE_25GKR,
+	PHY_INTERFACE_MODE_40GKR4,
 	PHY_INTERFACE_MODE_MAX,
 } phy_interface_t;
 
@@ -296,6 +300,10 @@ static inline const char *phy_modes(phy_interface_t interface)
 		return "qusgmii";
 	case PHY_INTERFACE_MODE_10G_QXGMII:
 		return "10g-qxgmii";
+	case PHY_INTERFACE_MODE_25GKR:
+		return "25gbase-kr";
+	case PHY_INTERFACE_MODE_40GKR4:
+		return "40gbase-kr4";
 	default:
 		return "unknown";
 	}
