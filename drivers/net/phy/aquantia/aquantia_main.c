@@ -52,6 +52,9 @@
 #define MDIO_AN_VEND_PROV_DOWNSHIFT_MASK	GENMASK(3, 0)
 #define MDIO_AN_VEND_PROV_DOWNSHIFT_DFLT	4
 
+#define MDIO_PHYXS_VEND_PROV2			0xc441
+#define MDIO_PHYXS_VEND_PROV2_USX_AN		BIT(3)
+
 #define MDIO_AN_TX_VEND_STATUS1			0xc800
 #define MDIO_AN_TX_VEND_STATUS1_RATE_MASK	GENMASK(3, 1)
 #define MDIO_AN_TX_VEND_STATUS1_10BASET		0
@@ -195,6 +198,109 @@ static int aqr_config_aneg(struct phy_device *phydev)
 		changed = true;
 
 	return genphy_c45_check_and_restart_aneg(phydev, changed);
+}
+
+static int aqr_set_low_power(struct phy_device *phydev, bool enable)
+{
+	int val = enable ? VEND1_GLOBAL_SC_LOW_POWER : 0;
+	int err;
+
+	err = phy_write_mmd(phydev, MDIO_MMD_VEND1, VEND1_GLOBAL_SC, val);
+	if (err)
+		return err;
+
+	mdelay(10);
+
+	return 0;
+}
+
+static const struct aqr_syscfg aqr_syscfg[PHY_INTERFACE_MODE_MAX] = {
+	[PHY_INTERFACE_MODE_SGMII] = {
+		.val = VEND1_GLOBAL_CFG_SERDES_SILENCE |
+		       VEND1_GLOBAL_CFG_AN_ENABLE |
+		       VEND1_GLOBAL_CFG_SERDES_MODE_SGMII,
+		.start_reg = VEND1_GLOBAL_CFG_100M,
+		.end_reg = VEND1_GLOBAL_CFG_1G,
+		.start_rate = VEND1_GLOBAL_STARTUP_RATE_1G,
+	},
+	[PHY_INTERFACE_MODE_2500BASEX] = {
+		.val = FIELD_PREP_CONST(VEND1_GLOBAL_CFG_RATE_ADAPT,
+					VEND1_GLOBAL_CFG_RATE_ADAPT_PAUSE) |
+		       VEND1_GLOBAL_CFG_SERDES_SILENCE |
+		       VEND1_GLOBAL_CFG_SERDES_MODE_OCSGMII,
+		.start_reg = VEND1_GLOBAL_CFG_100M,
+		.end_reg = VEND1_GLOBAL_CFG_2_5G,
+		.start_rate = VEND1_GLOBAL_STARTUP_RATE_2_5G,
+	},
+	[PHY_INTERFACE_MODE_10GBASER] = {
+		.val = FIELD_PREP_CONST(VEND1_GLOBAL_CFG_RATE_ADAPT,
+					VEND1_GLOBAL_CFG_RATE_ADAPT_PAUSE) |
+		       VEND1_GLOBAL_CFG_SERDES_MODE_XFI,
+		.start_reg = VEND1_GLOBAL_CFG_100M,
+		.end_reg = VEND1_GLOBAL_CFG_10G,
+		.start_rate = VEND1_GLOBAL_STARTUP_RATE_10G,
+	},
+	[PHY_INTERFACE_MODE_USXGMII] = {
+		.val = FIELD_PREP_CONST(VEND1_GLOBAL_CFG_RATE_ADAPT,
+					VEND1_GLOBAL_CFG_RATE_ADAPT_USX) |
+		       VEND1_GLOBAL_CFG_SERDES_MODE_XFI,
+		.start_reg = VEND1_GLOBAL_CFG_100M,
+		.end_reg = VEND1_GLOBAL_CFG_10G,
+		.start_rate = VEND1_GLOBAL_STARTUP_RATE_10G,
+	},
+};
+
+/* Sets up protocol on system side before calling aqr_config_aneg */
+static int aqr_config_aneg_set_proto(struct phy_device *phydev)
+{
+	const struct aqr_syscfg *syscfg = &aqr_syscfg[phydev->interface];
+	int err, val, i;
+
+	if (!syscfg->start_reg)
+		return 0;
+
+	/* set PHY in low power mode so we can configure protocols */
+	err = aqr_set_low_power(phydev, true);
+	if (err)
+		return err;
+
+	/* set the default rate to enable the SI link */
+	err = phy_write_mmd(phydev, MDIO_MMD_VEND1, VEND1_GLOBAL_STARTUP_RATE,
+			    syscfg->start_rate);
+	if (err)
+		return err;
+
+	for (i = syscfg->start_reg; i <= syscfg->end_reg; i++) {
+		val = phy_read_mmd(phydev, MDIO_MMD_VEND1, i);
+		if (val < 0)
+			return val;
+
+		/* Do not set up protocols for speeds that are not supported by
+		 * FW. Enabling these protocols leads to link issues on system
+		 * side.
+		 */
+		if (!val)
+			continue;
+
+		err = phy_write_mmd(phydev, MDIO_MMD_VEND1, i, syscfg->val);
+		if (err)
+			return err;
+	}
+
+	if (phydev->interface == PHY_INTERFACE_MODE_USXGMII) {
+		err = phy_write_mmd(phydev, MDIO_MMD_PHYXS,
+				    MDIO_PHYXS_VEND_PROV2,
+				    MDIO_PHYXS_VEND_PROV2_USX_AN);
+		if (err)
+			return err;
+	}
+
+	/* wake PHY back up */
+	err = aqr_set_low_power(phydev, false);
+	if (err)
+		return err;
+
+	return aqr_config_aneg(phydev);
 }
 
 static int aqr_config_intr(struct phy_device *phydev)
@@ -933,7 +1039,7 @@ static struct phy_driver aqr_driver[] = {
 	PHY_ID_MATCH_MODEL(PHY_ID_AQR112),
 	.name		= "Aquantia AQR112",
 	.probe		= aqr107_probe,
-	.config_aneg    = aqr_config_aneg,
+	.config_aneg    = aqr_config_aneg_set_proto,
 	.config_intr	= aqr_config_intr,
 	.handle_interrupt = aqr_handle_interrupt,
 	.get_tunable    = aqr107_get_tunable,
@@ -956,7 +1062,7 @@ static struct phy_driver aqr_driver[] = {
 	PHY_ID_MATCH_MODEL(PHY_ID_AQR412),
 	.name		= "Aquantia AQR412",
 	.probe		= aqr107_probe,
-	.config_aneg    = aqr_config_aneg,
+	.config_aneg    = aqr_config_aneg_set_proto,
 	.config_intr	= aqr_config_intr,
 	.handle_interrupt = aqr_handle_interrupt,
 	.get_tunable    = aqr107_get_tunable,
