@@ -1,0 +1,123 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD4696
+ *
+ * hdl_project: <ad469x_fmc/zed>
+ *
+ * Copyright (C) 2024 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pwm/pwm.h>
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+/ {
+	vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+};
+
+&fpga_axi {
+	rx_dma: rx-dmac@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x1000>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clock-names = "s_axi_aclk", "m_dest_axi_aclk", "s_axis_aclk";
+		clocks = <&clkc 15>, <&clkc 15>, <&spi_clk>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <1>;
+				adi,destination-bus-width = <32>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	adc_trigger: pwm@44b00000 {
+		compatible = "adi,axi-pwmgen";
+		reg = <0x44b00000 0x1000>;
+		#pwm-cells = <2>;
+		clocks = <&spi_clk>;
+	};
+
+	spi_clk: axi-clkgen@44a70000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44a70000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 15>;
+		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "spi_clk";
+	};
+
+	axi_spi_engine_0: spi@44a00000 {
+		compatible = "adi,axi-spi-engine-1.00.a";
+		reg = <0x44a00000 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>, <&spi_clk>;
+		clock-names = "s_axi_aclk", "spi_clk";
+		num-cs = <1>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ad4696: adc@0 {
+			compatible = "adi,ad4696";
+			reg = <0>;
+			spi-max-frequency = <80000000>;
+			spi-cpha;
+			spi-cpol;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			pwms = <&adc_trigger 0 0>;
+			pwm-names = "cnv";
+			clocks = <&spi_clk>;
+			clock-names = "ref_clk";
+			vref-supply = <&vref>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+			#io-channel-cells = <1>;
+
+			channel@0 {
+				reg = <0>;
+				bipolar;
+				adi,osr = <0>;
+				adi,pair-select = <2>;
+			};
+			channel@2 {
+				reg = <2>;
+				adi,osr = <1>;
+				adi,pair-select = <0>;
+			};
+
+			channel@3 {
+				reg = <3>;
+				adi,osr = <2>;
+				adi,pair-select = <0>;
+			};
+
+			channel@4 {
+				reg = <4>;
+				adi,osr = <3>;
+				adi,pair-select = <1>;
+			};
+		};
+	};
+};
