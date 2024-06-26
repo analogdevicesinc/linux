@@ -101,8 +101,8 @@
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
 
-		ad463x: ad463x@0 {
-			compatible = "adi,ad463x";
+		ad4630_24: ad4630-24@0 {
+			compatible = "adi,ad4630-24";
 			reg = <0>;
 			vdd-supply = <&vref>;
 			vdd_1_8-supply = <&vdd_1_8>;

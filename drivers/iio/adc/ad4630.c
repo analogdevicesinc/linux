@@ -1038,35 +1038,6 @@ static const struct ad4630_chip_info ad4630_chip_info[] = {
 	}
 };
 
-static const struct ad4630_chip_info ad463x_chip_info = {
-	.name = "ad463x"
-};
-
-static int ad4630_detect_chip_info(struct ad4630_state *st)
-{
-	int ret, c;
-	u32 grade;
-
-	ret = regmap_read(st->regmap, AD4630_REG_CHIP_GRADE, &grade);
-	if (ret)
-		return ret;
-
-	grade = FIELD_GET(AD4630_MSK_CHIP_GRADE, grade);
-
-	for (c = 0; c < ARRAY_SIZE(ad4630_chip_info); c++) {
-		if (ad4630_chip_info[c].grade == grade)
-			break;
-	}
-
-	if (c == ARRAY_SIZE(ad4630_chip_info))
-		return dev_err_probe(&st->spi->dev, -EINVAL,
-				     "Unknown grade(%u)\n", grade);
-
-	st->chip = &ad4630_chip_info[c];
-
-	return 0;
-}
-
 static void ad4630_clk_disable(void *data)
 {
 	clk_disable_unprepare(data);
@@ -1246,22 +1217,18 @@ static void ad4630_prepare_spi_sampling_msg(struct ad4630_state *st,
 
 static int ad4630_config(struct ad4630_state *st)
 {
-	u32 clock_mode = 0, lane_mode = 0, reg_modes = 0;
+	u32 clock_mode = 0, lane_mode = 0, reg_modes = 0, grade;
 	bool data_rate;
 	struct device *dev = &st->spi->dev;
 	int ret;
 
-	/*
-	 * !FIXME: This looks very hacky... We need to check with the BU
-	 * what's the usecase for this and how can we handle it before removing
-	 * this code. If there's a valid usecase for it, we need to check upstream
-	 * how can this be handled.
-	 */
-	if (!strcmp(st->chip->name, "ad463x")) {
-		ret = ad4630_detect_chip_info(st);
-		if (ret)
-			return ret;
-	}
+	ret = regmap_read(st->regmap, AD4630_REG_CHIP_GRADE, &grade);
+	if (ret)
+		return ret;
+
+	if (st->chip->grade != FIELD_GET(AD4630_MSK_CHIP_GRADE, grade))
+		dev_warn(dev, "Unknown grade(%u). Expected(%u)\n", grade,
+			 st->chip->grade);
 
 	ret = device_property_read_u32(dev, "adi,lane-mode", &lane_mode);
 	if (!ret) {
@@ -1470,15 +1437,12 @@ static int ad4630_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 	st->spi = spi;
-	spi_set_drvdata(spi, indio_dev);
+	spi_set_drvdata(spi, st);
 
-	st->chip = device_get_match_data(dev);
-	if (!st->chip) {
-		st->chip = (void *)spi_get_device_id(spi)->driver_data;
-		if (!st->chip)
-			return dev_err_probe(dev, -ENODEV,
-					     "Could not find chip info data\n");
-	}
+	st->chip = spi_get_device_match_data(spi);
+	if (!st->chip)
+		return dev_err_probe(dev, -ENODEV,
+				     "Could not find chip info data\n");
 
 	st->regmap = devm_regmap_init(&spi->dev, &ad4630_regmap_bus, st,
 				      &ad4630_regmap_config);
@@ -1569,19 +1533,17 @@ static int ad4630_probe(struct spi_device *spi)
 	return 0;
 }
 
-static int __maybe_unused ad4630_runtime_suspend(struct device *dev)
+static int ad4630_runtime_suspend(struct device *dev)
 {
 	u32 val = FIELD_PREP(AD4630_POWER_MODE_MSK, AD4630_LOW_POWER_MODE);
-	struct iio_dev *indio_dev = dev_get_drvdata(dev);
-	struct ad4630_state *st = iio_priv(indio_dev);
+	struct ad4630_state *st = dev_get_drvdata(dev);
 
 	return regmap_write(st->regmap, AD4630_REG_DEVICE_CONFIG, val);
 }
 
-static int __maybe_unused ad4630_runtime_resume(struct device *dev)
+static int ad4630_runtime_resume(struct device *dev)
 {
-	struct iio_dev *indio_dev = dev_get_drvdata(dev);
-	struct ad4630_state *st = iio_priv(indio_dev);
+	struct ad4630_state *st = dev_get_drvdata(dev);
 	int ret;
 
 	ret = regmap_write(st->regmap, AD4630_REG_DEVICE_CONFIG,
@@ -1608,7 +1570,6 @@ static const struct spi_device_id ad4630_id_table[] = {
 	{ "adaq4216", (kernel_ulong_t)&ad4630_chip_info[ID_ADAQ4216] },
 	{ "adaq4220", (kernel_ulong_t)&ad4630_chip_info[ID_ADAQ4220] },
 	{ "adaq4224", (kernel_ulong_t)&ad4630_chip_info[ID_ADAQ4224] },
-	{ "ad463x", (kernel_ulong_t)&ad463x_chip_info },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad4630_id_table);
@@ -1623,7 +1584,6 @@ static const struct of_device_id ad4630_of_match[] = {
 	{ .compatible = "adi,adaq4216", .data = &ad4630_chip_info[ID_ADAQ4216] },
 	{ .compatible = "adi,adaq4220", .data = &ad4630_chip_info[ID_ADAQ4220] },
 	{ .compatible = "adi,adaq4224", .data = &ad4630_chip_info[ID_ADAQ4224] },
-	{ .compatible = "adi,ad463x", .data = &ad463x_chip_info},
 	{}
 };
 MODULE_DEVICE_TABLE(of, ad4630_of_match);
@@ -1632,7 +1592,7 @@ static struct spi_driver ad4630_driver = {
 	.driver = {
 		.name = "ad4630",
 		.of_match_table = ad4630_of_match,
-		.pm = &ad4630_pm_ops,
+		.pm = pm_ptr(&ad4630_pm_ops),
 	},
 	.probe = ad4630_probe,
 	.id_table = ad4630_id_table,
