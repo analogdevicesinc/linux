@@ -1,0 +1,45 @@
+What:		/sys/bus/iio/devices/iio:deviceX/filter_type_available
+KernelVersion:  5.15
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading returns a list with the possible filter modes. Only supported by
+		AD7771.
+
+		  * "sinc3"	- The digital sinc3 filter implements three main notches, one at
+				the maximum ODR (128 kHz or 32 kHz, depending on the
+				power mode) and another two at the ODR frequency selected to
+				stop noise aliasing into the pass band.
+
+		  * "sinc5"	- The sinc5 filter implements five notches, one at
+				the maximum ODR (128 kHz or 32 kHz, depending on the
+				power mode) and another four at the ODR frequency
+				selected to stop noise aliasing into the pass band.
+
+What:		/sys/bus/iio/devices/iio:deviceX/filter_type
+KernelVersion:  5.15
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Set the filter mode of the differential channel. The current sampling_frequency
+		is set according to the filter range. Only supported by AD7771.
+
+What:		/sys/bus/iio/devices/iio:deviceX/data_lines_available
+KernelVersion:  5.15
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Reading returns a list with the possible number of output lines on which
+		data is shifted.
+
+			* "4_data_lines"- The data is sent on all 4 output data lines,
+					two channels on each.
+
+			* "2_data_lines"- The data is sent on the first two output data lines,
+					four channels on each.
+
+			* "1_data_line" - The data from all the channels is sent only on the
+					first output data line.
+
+What:		/sys/bus/iio/devices/iio:deviceX/data_lines
+KernelVersion:  5.15
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Sets the number of output data lines.
