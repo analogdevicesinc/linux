@@ -1093,7 +1093,7 @@ int neoisp_set_params(struct neoisp_dev_s *neoispd, struct neoisp_meta_params_s 
  */
 int neoisp_program_ctx(struct neoisp_dev_s *neoispd, __u32 ctx_id)
 {
-	struct neoisp_meta_params_s *params = &neoispd->node_group[ctx_id].params[VB2_MAX_FRAME];
+	struct neoisp_meta_params_s *params = neoispd->node_group[ctx_id].params;
 
 	return neoisp_set_params(neoispd, params, true);
 }
@@ -1101,65 +1101,71 @@ int neoisp_program_ctx(struct neoisp_dev_s *neoispd, __u32 ctx_id)
 /*
  * neoisp_update_ctx is used to update parameters to a saved context with ctx_id index
  */
-int neoisp_update_ctx(struct neoisp_dev_s *neoispd, __u32 ctx_id, struct neoisp_meta_params_s *new)
+int neoisp_update_ctx(struct neoisp_dev_s *neoispd, __u32 ctx_id)
 {
-	struct neoisp_meta_params_s *par = &neoispd->node_group[ctx_id].params[VB2_MAX_FRAME];
+	struct neoisp_meta_params_s *new, *params = neoispd->node_group[ctx_id].params;
+	struct neoisp_buffer_s *buf = neoispd->queued_job.buf[NEOISP_PARAMS_NODE];
+
+	if (IS_ERR_OR_NULL(buf))
+		return 0; /* no params buffer provided */
+
+	new = (struct neoisp_meta_params_s *)vb2_plane_vaddr(&buf->vb.vb2_buf, 0);
 
 	/* update selected blocks wrt feature config flag */
 	if (new->features_cfg.hdr_decompress_input0_cfg)
-		memcpy(&par->regs.decompress_input0, &new->regs.decompress_input0,
+		memcpy(&params->regs.decompress_input0, &new->regs.decompress_input0,
 				sizeof(new->regs.decompress_input0));
 	if (new->features_cfg.hdr_decompress_input1_cfg)
-		memcpy(&par->regs.decompress_input1, &new->regs.decompress_input1,
+		memcpy(&params->regs.decompress_input1, &new->regs.decompress_input1,
 				sizeof(new->regs.decompress_input1));
 	if (new->features_cfg.obwb0_cfg)
-		memcpy(&par->regs.obwb[0], &new->regs.obwb[0], sizeof(new->regs.obwb[0]));
+		memcpy(&params->regs.obwb[0], &new->regs.obwb[0], sizeof(new->regs.obwb[0]));
 	if (new->features_cfg.obwb1_cfg)
-		memcpy(&par->regs.obwb[1], &new->regs.obwb[1], sizeof(new->regs.obwb[1]));
+		memcpy(&params->regs.obwb[1], &new->regs.obwb[1], sizeof(new->regs.obwb[1]));
 	if (new->features_cfg.obwb2_cfg)
-		memcpy(&par->regs.obwb[2], &new->regs.obwb[2], sizeof(new->regs.obwb[2]));
+		memcpy(&params->regs.obwb[2], &new->regs.obwb[2], sizeof(new->regs.obwb[2]));
 	if (new->features_cfg.hdr_merge_cfg)
-		memcpy(&par->regs.hdr_merge, &new->regs.hdr_merge, sizeof(new->regs.hdr_merge));
+		memcpy(&params->regs.hdr_merge, &new->regs.hdr_merge, sizeof(new->regs.hdr_merge));
 	if (new->features_cfg.rgbir_cfg)
-		memcpy(&par->regs.rgbir, &new->regs.rgbir, sizeof(new->regs.rgbir));
+		memcpy(&params->regs.rgbir, &new->regs.rgbir, sizeof(new->regs.rgbir));
 	if (new->features_cfg.stat_cfg)
-		memcpy(&par->regs.stat, &new->regs.stat, sizeof(new->regs.stat));
+		memcpy(&params->regs.stat, &new->regs.stat, sizeof(new->regs.stat));
 	if (new->features_cfg.ir_compress_cfg)
-		memcpy(&par->regs.ir_compress, &new->regs.ir_compress,
+		memcpy(&params->regs.ir_compress, &new->regs.ir_compress,
 				sizeof(new->regs.ir_compress));
 	if (new->features_cfg.bnr_cfg)
-		memcpy(&par->regs.bnr, &new->regs.bnr, sizeof(new->regs.bnr));
+		memcpy(&params->regs.bnr, &new->regs.bnr, sizeof(new->regs.bnr));
 	if (new->features_cfg.vignetting_ctrl_cfg)
-		memcpy(&par->regs.vignetting_ctrl, &new->regs.vignetting_ctrl,
+		memcpy(&params->regs.vignetting_ctrl, &new->regs.vignetting_ctrl,
 				sizeof(new->regs.vignetting_ctrl));
 	if (new->features_cfg.ctemp_cfg)
-		memcpy(&par->regs.ctemp, &new->regs.ctemp, sizeof(new->regs.ctemp));
+		memcpy(&params->regs.ctemp, &new->regs.ctemp, sizeof(new->regs.ctemp));
 	if (new->features_cfg.demosaic_cfg)
-		memcpy(&par->regs.demosaic, &new->regs.demosaic, sizeof(new->regs.demosaic));
+		memcpy(&params->regs.demosaic, &new->regs.demosaic, sizeof(new->regs.demosaic));
 	if (new->features_cfg.rgb2yuv_cfg)
-		memcpy(&par->regs.rgb2yuv, &new->regs.rgb2yuv, sizeof(new->regs.rgb2yuv));
+		memcpy(&params->regs.rgb2yuv, &new->regs.rgb2yuv, sizeof(new->regs.rgb2yuv));
 	if (new->features_cfg.dr_comp_cfg)
-		memcpy(&par->regs.drc, &new->regs.drc, sizeof(new->regs.drc));
+		memcpy(&params->regs.drc, &new->regs.drc, sizeof(new->regs.drc));
 	if (new->features_cfg.nr_cfg)
-		memcpy(&par->regs.nrc, &new->regs.nrc, sizeof(new->regs.nrc));
+		memcpy(&params->regs.nrc, &new->regs.nrc, sizeof(new->regs.nrc));
 	if (new->features_cfg.af_cfg)
-		memcpy(&par->regs.afc, &new->regs.afc, sizeof(new->regs.afc));
+		memcpy(&params->regs.afc, &new->regs.afc, sizeof(new->regs.afc));
 	if (new->features_cfg.ee_cfg)
-		memcpy(&par->regs.eec, &new->regs.eec, sizeof(new->regs.eec));
+		memcpy(&params->regs.eec, &new->regs.eec, sizeof(new->regs.eec));
 	if (new->features_cfg.df_cfg)
-		memcpy(&par->regs.dfc, &new->regs.dfc, sizeof(new->regs.dfc));
+		memcpy(&params->regs.dfc, &new->regs.dfc, sizeof(new->regs.dfc));
 	if (new->features_cfg.convmed_cfg)
-		memcpy(&par->regs.convf, &new->regs.convf, sizeof(new->regs.convf));
+		memcpy(&params->regs.convf, &new->regs.convf, sizeof(new->regs.convf));
 	if (new->features_cfg.cas_cfg)
-		memcpy(&par->regs.cas, &new->regs.cas, sizeof(new->regs.cas));
+		memcpy(&params->regs.cas, &new->regs.cas, sizeof(new->regs.cas));
 	if (new->features_cfg.gcm_cfg)
-		memcpy(&par->regs.gcm, &new->regs.gcm, sizeof(new->regs.gcm));
+		memcpy(&params->regs.gcm, &new->regs.gcm, sizeof(new->regs.gcm));
 	if (new->features_cfg.vignetting_table_cfg)
-		memcpy(&par->mems.vt, &new->mems.vt, sizeof(new->mems.vt));
+		memcpy(&params->mems.vt, &new->mems.vt, sizeof(new->mems.vt));
 	if (new->features_cfg.drc_global_tonemap_cfg)
-		memcpy(&par->mems.gtm, &new->mems.gtm, sizeof(new->mems.gtm));
+		memcpy(&params->mems.gtm, &new->mems.gtm, sizeof(new->mems.gtm));
 	if (new->features_cfg.drc_local_tonemap_cfg)
-		memcpy(&par->mems.ltm, &new->mems.ltm, sizeof(new->mems.ltm));
+		memcpy(&params->mems.ltm, &new->mems.ltm, sizeof(new->mems.ltm));
 
 	return 0;
 }

@@ -212,13 +212,6 @@ static int neoisp_node_buffer_prepare(struct vb2_buffer *vb)
 		vb2_set_plane_payload(vb, i, size);
 	}
 
-	if (node->id == NEOISP_PARAMS_NODE) {
-		void *dst = &node->node_group->params[vb->index];
-		void *src = vb2_plane_vaddr(vb, 0);
-
-		memcpy(dst, src, sizeof(struct neoisp_meta_params_s));
-	}
-
 	return 0;
 }
 
@@ -610,14 +603,12 @@ static void neoisp_reset_hw(struct neoisp_dev_s *neoispd, bool is_hw)
 }
 
 static void neoisp_queue_job(struct neoisp_dev_s *neoispd,
-		struct neoisp_node_group_s *node_group,
-		struct neoisp_meta_params_s *params)
+		struct neoisp_node_group_s *node_group)
 {
 	static __u32 prev_ctx_id = NEOISP_NODE_GROUPS_COUNT + 1; /* init to invalid id */
 
 	neoisp_set_packetizer(neoispd);
-	if (!IS_ERR_OR_NULL(params))
-		neoisp_update_ctx(neoispd, node_group->id, params);
+	neoisp_update_ctx(neoispd, node_group->id);
 
 	neoisp_program_ctx(neoispd, node_group->id);
 
@@ -631,12 +622,11 @@ static void neoisp_queue_job(struct neoisp_dev_s *neoispd,
 
 static int neoisp_schedule_internal(struct neoisp_node_group_s *node_group, unsigned long flags)
 {
-	struct neoisp_meta_params_s *params = NULL;
 	struct neoisp_dev_s *neoispd = node_group->neoisp_dev;
 	struct neoisp_buffer_s *buf[NEOISP_NODES_COUNT];
 	struct neoisp_node_s *node;
 	unsigned long flags1;
-	int i, params_index;
+	int i;
 	__u8 staggered_input = 0; /* FIXME compute the actual flag */
 	__u8 rgbir_input = 0; /* FIXME compute the actual flag */
 
@@ -669,12 +659,6 @@ static int neoisp_schedule_internal(struct neoisp_node_group_s *node_group, unsi
 			list_first_entry_or_null(&node->ready_queue, struct neoisp_buffer_s,
 					ready_list);
 		spin_unlock_irqrestore(&node->ready_lock, flags1);
-
-		/* Exit early if no params buffer and not disabled. */
-		if (!buf[NEOISP_PARAMS_NODE])
-			return 0;
-		params_index = buf[NEOISP_PARAMS_NODE]->vb.vb2_buf.index;
-		params = &node_group->params[params_index];
 	}
 
 	for (i = 0; i < NEOISP_NODES_COUNT; i++) {
@@ -734,7 +718,7 @@ static int neoisp_schedule_internal(struct neoisp_node_group_s *node_group, unsi
 	 */
 	dev_dbg(&neoispd->pdev->dev, "Have buffers - starting hardware\n");
 
-	neoisp_queue_job(neoispd, node_group, params);
+	neoisp_queue_job(neoispd, node_group);
 
 	return 1;
 }
@@ -1169,7 +1153,7 @@ static int neoisp_s_fmt_vid_out(struct file *file, void *priv,
 
 static void neoisp_set_ctx_default_params(struct neoisp_dev_s *neoispd, int ctx_id)
 {
-	memcpy(&neoispd->node_group[ctx_id].params[VB2_MAX_FRAME],
+	memcpy(neoispd->node_group[ctx_id].params,
 		&neoisp_default_params,
 		sizeof(neoisp_default_params));
 }
@@ -1179,7 +1163,7 @@ static int neoisp_node_streamon(struct file *file, void *priv,
 {
 	struct neoisp_node_s *node = video_drvdata(file);
 	struct neoisp_dev_s *neoispd = node->node_group->neoisp_dev;
-	struct neoisp_meta_params_s *params = &node->node_group->params[VB2_MAX_FRAME];
+	struct neoisp_meta_params_s *params = node->node_group->params;
 	__u32 pixfmt = node->format.fmt.pix_mp.pixelformat;
 
 	dev_dbg(&neoispd->pdev->dev, "Stream on for node %s\n", NODE_NAME(node));
@@ -1682,9 +1666,8 @@ static int neoisp_init_group(struct neoisp_dev_s *neoispd, struct neoisp_info_s 
 	if (ret)
 		goto err_unregister_nodes;
 
-	node_group->params =
-		dma_alloc_coherent(mdev->dev,
-				sizeof(struct neoisp_meta_params_s) * (VB2_MAX_FRAME + 1),
+	node_group->params = dma_alloc_coherent(mdev->dev,
+				sizeof(struct neoisp_meta_params_s),
 				&node_group->params_dma_addr, GFP_KERNEL);
 	if (!node_group->params) {
 		dev_err(mdev->dev, "Unable to allocate cached params buffers.\n");
@@ -1716,7 +1699,7 @@ static void neoisp_destroy_node_group(struct neoisp_node_group_s *node_group)
 
 	if (node_group->params) {
 		dma_free_coherent(&neoispd->pdev->dev,
-				sizeof(struct neoisp_meta_params_s) * (VB2_MAX_FRAME + 1),
+				sizeof(struct neoisp_meta_params_s),
 				node_group->params,
 				node_group->params_dma_addr);
 	}
@@ -1746,9 +1729,7 @@ static int neoisp_init_ctx(struct neoisp_dev_s *neoispd)
 		ptr[i] = 1 << 8;
 
 	for (i = 0; i < NEOISP_NODE_GROUPS_COUNT; i++)
-		memcpy(&neoispd->node_group[i].params[VB2_MAX_FRAME],
-			&neoisp_default_params,
-			sizeof(neoisp_default_params));
+		neoisp_set_ctx_default_params(neoispd, i);
 
 	return 0;
 }

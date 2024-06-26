@@ -61,6 +61,6 @@ enum isp_block_map_e {
 int neoisp_set_params(struct neoisp_dev_s *neoispd, struct neoisp_meta_params_s *p, bool force);
 void neoisp_set_gcm(struct neoisp_reg_params_s *p, struct neoisp_dev_s *neoispd);
 int neoisp_program_ctx(struct neoisp_dev_s *neoispd, __u32 ctx_id);
-int neoisp_update_ctx(struct neoisp_dev_s *neoispd, __u32 ctx_id, struct neoisp_meta_params_s *new);
+int neoisp_update_ctx(struct neoisp_dev_s *neoispd, __u32 ctx_id);
 
 #endif /* NEOISP_CTX_H */
