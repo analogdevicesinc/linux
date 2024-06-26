@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+/*
+ * Analog Devices AD7134
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad4134
+ * https://wiki.analog.com/resources/eval/user-guides/ad4134
+ *
+ * hdl_project: <ad7134_fmc/zed>
+ *
+ * Copyright (C) 2024 Analog Devices, Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed-adv7511-ad7134-24.dts"
+
+&spi0 {
+	status = "okay";
+
+    ad4134_0: adc_0@0 {
+        ad7134,adc-frame = "ad7134_16CRC";
+    };
+
+    ad4134_1: adc_1@1 {
+        ad7134,adc-frame = "ad7134_16CRC";
+    };
+};
