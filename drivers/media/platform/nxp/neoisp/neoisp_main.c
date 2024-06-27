@@ -488,15 +488,19 @@ static int neoisp_set_pipe_conf(struct neoisp_dev_s *neoispd)
 	struct neoisp_buffer_s *buf_out = neoispd->queued_job.buf[NEOISP_FRAME_NODE];
 	struct neoisp_node_s *nd = &neoispd->queued_job.node_group->node[NEOISP_FRAME_NODE];
 	struct neoisp_mparam_conf_s *cfg = &mod_params.conf;
-	__u32 width, height, obpp, ibpp, hoffset, voffset;
+	__u32 width, height, obpp, ibpp, hoffset, voffset, inp0_stride;
 	__u32 out_pixfmt = nd->format.fmt.pix_mp.pixelformat;
+	dma_addr_t inp0_addr;
 
 	width = nd->format.fmt.pix_mp.width;
 	height = nd->format.fmt.pix_mp.height;
 	obpp = (nd->neoisp_format->bit_depth + 7) / 8;
 	nd = &neoispd->queued_job.node_group->node[NEOISP_INPUT0_NODE];
 	ibpp = (nd->neoisp_format->bit_depth + 7) / 8;
+	inp0_stride = nd->format.fmt.pix_mp.plane_fmt[0].bytesperline;
 	cfg->img_conf_cam0_ibpp0 = nd->neoisp_format->ibpp;
+	/* take crop into account if any */
+	inp0_addr = get_addr(buf, 0) + (nd->crop.left * ibpp) + (nd->crop.top * inp0_stride);
 
 	/*
 	 * Set Head Color selection
@@ -552,33 +556,33 @@ static int neoisp_set_pipe_conf(struct neoisp_dev_s *neoispd)
 			NEO_PIPE_CONF_IMG_SIZE_CAM0_WIDTH_SET(width)
 			| NEO_PIPE_CONF_IMG_SIZE_CAM0_HEIGHT_SET(height));
 	regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_IMG0_IN_LS_CAM0_IDX],
-			NEO_PIPE_CONF_IMG0_IN_LS_CAM0_LS_SET(ibpp * width));
+			NEO_PIPE_CONF_IMG0_IN_LS_CAM0_LS_SET(inp0_stride));
 	/* raw image addr from video output input0 node buffer */
 	regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_IMG0_IN_ADDR_CAM0_IDX],
-			NEO_PIPE_CONF_IMG_ADDR_CAM0_SET(get_addr(buf, 0)));
+			NEO_PIPE_CONF_ADDR_SET(inp0_addr));
 	regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_IMG1_IN_ADDR_CAM0_IDX], 0u);
 	regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_IMG1_IN_LS_CAM0_IDX], 0u);
 
-	/* rgb/yuv output image address */
+	/* planar/multiplanar output image addresses */
 	if (out_pixfmt == V4L2_PIX_FMT_NV12 || out_pixfmt == V4L2_PIX_FMT_NV21 ||
 		out_pixfmt == V4L2_PIX_FMT_NV16 || out_pixfmt == V4L2_PIX_FMT_NV61) {
 		regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH0_ADDR_CAM0_IDX],
-				NEO_PIPE_CONF_IMG_ADDR_CAM0_SET(get_addr(buf_out, 0)));
+				NEO_PIPE_CONF_ADDR_SET(get_addr(buf_out, 0)));
 		regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH0_LS_CAM0_IDX],
-				NEO_PIPE_CONF_IMG0_IN_LS_CAM0_LS_SET(obpp * width));
+				NEO_PIPE_CONF_OUTCH0_LS_CAM0_LS_SET(obpp * width));
 
 		regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH1_ADDR_CAM0_IDX],
-				NEO_PIPE_CONF_IMG_ADDR_CAM0_SET(get_addr(buf_out, 1)));
+				NEO_PIPE_CONF_ADDR_SET(get_addr(buf_out, 1)));
 		regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH1_LS_CAM0_IDX],
-				NEO_PIPE_CONF_IMG0_IN_LS_CAM0_LS_SET(obpp * width));
+				NEO_PIPE_CONF_OUTCH1_LS_CAM0_LS_SET(obpp * width));
 	} else {
 		regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH0_ADDR_CAM0_IDX], 0u);
 		regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH0_LS_CAM0_IDX], 0u);
 
 		regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH1_ADDR_CAM0_IDX],
-				NEO_PIPE_CONF_IMG_ADDR_CAM0_SET(get_addr(buf_out, 0)));
+				NEO_PIPE_CONF_ADDR_SET(get_addr(buf_out, 0)));
 		regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH1_LS_CAM0_IDX],
-				NEO_PIPE_CONF_IMG0_IN_LS_CAM0_LS_SET(obpp * width));
+				NEO_PIPE_CONF_OUTCH1_LS_CAM0_LS_SET(obpp * width));
 	}
 	regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTIR_LS_CAM0_IDX], 0u);
 
@@ -722,6 +726,7 @@ static int neoisp_schedule_internal(struct neoisp_node_group_s *node_group, unsi
 
 	return 1;
 }
+
 /* Try and schedule a job for just a single node group. */
 static void neoisp_schedule_one(struct neoisp_node_group_s *node_group)
 {
@@ -1144,10 +1149,90 @@ static int neoisp_s_fmt_vid_out(struct file *file, void *priv,
 	node->neoisp_format =
 		neoisp_find_pixel_format(f->fmt.pix_mp.pixelformat, NEOISP_FMT_VIDEO_OUTPUT);
 
+	node->crop.top = 0;
+	node->crop.left = 0;
+	node->crop.width = f->fmt.pix_mp.width;
+	node->crop.height = f->fmt.pix_mp.height;
 	dev_dbg(&neoispd->pdev->dev,
 			"Set output format for node %s to %x\n",
 			NODE_NAME(node),
 			f->fmt.pix_mp.pixelformat);
+	return 0;
+}
+
+static int neoisp_g_selection(struct file *file, void *fh, struct v4l2_selection *sel)
+{
+	struct neoisp_node_s *node = video_drvdata(file);
+
+	if (sel->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)
+		return -EINVAL;
+
+	switch (sel->target) {
+	case V4L2_SEL_TGT_CROP_DEFAULT:
+	case V4L2_SEL_TGT_CROP_BOUNDS:
+		sel->r.top = 0;
+		sel->r.left = 0;
+		sel->r.width = node->format.fmt.pix_mp.width;
+		sel->r.height = node->format.fmt.pix_mp.height;
+		break;
+	case V4L2_SEL_TGT_CROP:
+		sel->r.top = node->crop.top;
+		sel->r.left = node->crop.left;
+		sel->r.width = node->crop.width;
+		sel->r.height = node->crop.height;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int neoisp_s_selection(struct file *file, void *fh, struct v4l2_selection *sel)
+{
+	struct neoisp_node_s *node = video_drvdata(file);
+	__u32 winput, hinput;
+
+	if (sel->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)
+		return -EINVAL;
+
+	dev_dbg(&node->node_group->neoisp_dev->pdev->dev,
+		">>> Buffer Type: %u Target: %u Rect: %ux%u@%d.%d\n",
+		sel->type, sel->target,
+		sel->r.width, sel->r.height, sel->r.left, sel->r.top);
+
+	switch (sel->target) {
+	case V4L2_SEL_TGT_CROP:
+		winput = node->format.fmt.pix_mp.width;
+		hinput = node->format.fmt.pix_mp.height;
+
+		/* left and width should be multiple of 16 */
+		sel->r.left = (sel->r.left / 16) * 16;
+		sel->r.width = (sel->r.width / 16) * 16;
+		/* top and height should be even */
+		sel->r.top = (sel->r.top / 2) * 2;
+		sel->r.height = (sel->r.height / 2) * 2;
+
+		sel->r.top = clamp_t(int, sel->r.top, 0, hinput - NEOISP_MIN_H);
+		sel->r.left = clamp_t(int, sel->r.left, 0, winput - NEOISP_MIN_W);
+		sel->r.width = clamp(sel->r.width, NEOISP_MIN_W, winput - sel->r.left);
+		sel->r.height = clamp(sel->r.height, NEOISP_MIN_H, hinput - sel->r.top);
+
+		node->crop.top = sel->r.top;
+		node->crop.left = sel->r.left;
+		node->crop.width = sel->r.width;
+		node->crop.height = sel->r.height;
+		break;
+
+	default:
+		return -EINVAL;
+	}
+
+	dev_dbg(&node->node_group->neoisp_dev->pdev->dev,
+		"<<< Buffer Type: %u Target: %u Rect: %ux%u@%d.%d\n",
+		sel->type, sel->target,
+		sel->r.width, sel->r.height, sel->r.left, sel->r.top);
+
 	return 0;
 }
 
@@ -1174,6 +1259,14 @@ static int neoisp_node_streamon(struct file *file, void *priv,
 		neoisp_update_pipeline_bit_width(&params->regs, node->neoisp_format->bit_depth);
 
 	if (node->id == NEOISP_FRAME_NODE) {
+		struct neoisp_node_s *in0_node = &node->node_group->node[NEOISP_INPUT0_NODE];
+
+		if ((node->format.fmt.pix_mp.width != in0_node->crop.width)
+				|| (node->format.fmt.pix_mp.height != in0_node->crop.height)) {
+			dev_err(&neoispd->pdev->dev, "Crop size and output size does not match\n");
+			return -EPIPE;
+		}
+
 		if (FMT_IS_YUV(pixfmt))
 			neoisp_config_gcm_for_yuv(&params->regs);
 		else
@@ -1223,6 +1316,8 @@ static const struct v4l2_ioctl_ops neoisp_ioctl_ops = {
 	.vidioc_s_fmt_meta_out		= neoisp_s_fmt_meta_out,
 	.vidioc_try_fmt_meta_out	= neoisp_try_fmt_meta_out,
 
+	.vidioc_g_selection		= neoisp_g_selection,
+	.vidioc_s_selection		= neoisp_s_selection,
 	.vidioc_reqbufs			= vb2_ioctl_reqbufs,
 	.vidioc_querybuf		= vb2_ioctl_querybuf,
 	.vidioc_qbuf			= vb2_ioctl_qbuf,
@@ -1509,6 +1604,9 @@ static void node_set_default_format(struct neoisp_node_s *node)
 		neoisp_try_fmt(&f, node);
 		node->format = f;
 	}
+	node->crop.width = NEOISP_DEF_W;
+	node->crop.height = NEOISP_DEF_H;
+
 	node->neoisp_format = neoisp_find_pixel_format(node->format.fmt.pix_mp.pixelformat,
 			NEOISP_FMT_VIDEO_OUTPUT | NEOISP_FMT_VIDEO_CAPTURE
 			| NEOISP_FMT_META_OUTPUT | NEOISP_FMT_META_CAPTURE);

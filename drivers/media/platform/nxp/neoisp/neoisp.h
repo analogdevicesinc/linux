@@ -164,6 +164,7 @@ struct neoisp_node_s {
 	struct vb2_queue queue;
 	struct v4l2_format format;
 	const struct neoisp_fmt_s *neoisp_format;
+	struct v4l2_rect crop;
 };
 
 struct neoisp_node_group_s {
