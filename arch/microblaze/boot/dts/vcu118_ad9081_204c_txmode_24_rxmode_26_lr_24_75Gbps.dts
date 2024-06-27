@@ -123,12 +123,12 @@
 				adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
 			};
 			ad9081_tx_fddc_chan2: channel@2 {
-				reg = <0>;
+				reg = <2>;
 				adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
 				adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
 			};
 			ad9081_tx_fddc_chan3: channel@3 {
-				reg = <1>;
+				reg = <3>;
 				adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
 				adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
 			};
@@ -142,7 +142,7 @@
 				#size-cells = <0>;
 				reg = <0>;
 				adi,logical-lane-mapping = /bits/ 8 <0 2 7 6 1 5 4 3>;
-				adi,link-mode = <23>;			/* JESD Quick Configuration Mode */
+				adi,link-mode = <24>;			/* JESD Quick Configuration Mode */
 				adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
 				adi,version = <2>;			/* JESD VERSION 0=204A,1=204B,2=204C */
 				adi,dual-link = <0>;			/* JESD Dual Link Mode */
@@ -232,7 +232,7 @@
 					<&ad9081_rx_fddc_chan4 FDDC_I>, <&ad9081_rx_fddc_chan4 FDDC_Q>,
 					<&ad9081_rx_fddc_chan5 FDDC_I>, <&ad9081_rx_fddc_chan5 FDDC_Q>;
 				adi,logical-lane-mapping = /bits/ 8 <2 0 7 6 5 4 3 1>;
-				adi,link-mode = <25>;			/* JESD Quick Configuration Mode */
+				adi,link-mode = <26>;			/* JESD Quick Configuration Mode */
 				adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
 				adi,version = <2>;			/* JESD VERSION 0=204A,1=204B,2=204C */
 				adi,dual-link = <0>;			/* JESD Dual Link Mode */
