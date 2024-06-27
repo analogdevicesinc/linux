@@ -504,11 +504,11 @@ static ssize_t period_store(struct device *pwm_dev,
 	if (ret)
 		return ret;
 
-	mutex_lock(&export->lock);
+	guard(mutex)(&export->lock);
+
 	pwm_get_state(pwm, &state);
 	state.period = val;
 	ret = pwm_apply_might_sleep(pwm, &state);
-	mutex_unlock(&export->lock);
 
 	return ret ? : size;
 }
@@ -539,11 +539,11 @@ static ssize_t duty_cycle_store(struct device *pwm_dev,
 	if (ret)
 		return ret;
 
-	mutex_lock(&export->lock);
+	guard(mutex)(&export->lock);
+
 	pwm_get_state(pwm, &state);
 	state.duty_cycle = val;
 	ret = pwm_apply_might_sleep(pwm, &state);
-	mutex_unlock(&export->lock);
 
 	return ret ? : size;
 }
@@ -608,7 +608,7 @@ static ssize_t enable_store(struct device *pwm_dev,
 	if (ret)
 		return ret;
 
-	mutex_lock(&export->lock);
+	guard(mutex)(&export->lock);
 
 	pwm_get_state(pwm, &state);
 
@@ -620,14 +620,11 @@ static ssize_t enable_store(struct device *pwm_dev,
 		state.enabled = true;
 		break;
 	default:
-		ret = -EINVAL;
-		goto unlock;
+		return -EINVAL;
 	}
 
 	ret = pwm_apply_might_sleep(pwm, &state);
 
-unlock:
-	mutex_unlock(&export->lock);
 	return ret ? : size;
 }
 
@@ -671,11 +668,11 @@ static ssize_t polarity_store(struct device *pwm_dev,
 	else
 		return -EINVAL;
 
-	mutex_lock(&export->lock);
+	guard(mutex)(&export->lock);
+
 	pwm_get_state(pwm, &state);
 	state.polarity = polarity;
 	ret = pwm_apply_might_sleep(pwm, &state);
-	mutex_unlock(&export->lock);
 
 	return ret ? : size;
 }
