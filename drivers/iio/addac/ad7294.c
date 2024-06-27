@@ -13,14 +13,25 @@
 #include <linux/regmap.h>
 
 #define AD7294_REG_CMD	  0x00
-#define AD7294_REG_DAC_A  0x01
+#define AD7294_REG_RESULT 0x01
+#define AD7294_REG_DAC(x) ((x) + 0x01)
 
-#define AD7294_DAC_CHAN(chan_id)                                    \
+#define AD7294_VALUE_MASK GENMASK(11, 0)
+
+#define AD7294_DAC_CHAN(_chan_id)                                   \
 	{                                                           \
-		.type = IIO_VOLTAGE, .channel = chan_id,            \
+		.type = IIO_VOLTAGE, .channel = _chan_id,           \
 		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),       \
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_RAW), \
 		.indexed = 1, .output = 1,                          \
+	}
+
+#define AD7294_ADC_CHAN(_type, _chan_id)                            \
+	{                                                           \
+		.type = _type, .channel = _chan_id,                 \
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),       \
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_RAW), \
+		.indexed = 1, .output = 0,                          \
 	}
 
 bool ad7294_readable_reg(struct device *dev, unsigned int reg)
@@ -46,6 +57,12 @@ struct iio_chan_spec ad7294_chan_spec[] = {
 	AD7294_DAC_CHAN(1),
 	AD7294_DAC_CHAN(2),
 	AD7294_DAC_CHAN(3),
+	AD7294_ADC_CHAN(IIO_VOLTAGE, 0),
+	AD7294_ADC_CHAN(IIO_VOLTAGE, 1),
+	AD7294_ADC_CHAN(IIO_VOLTAGE, 2),
+	AD7294_ADC_CHAN(IIO_VOLTAGE, 3),
+	AD7294_ADC_CHAN(IIO_CURRENT, 4),
+	AD7294_ADC_CHAN(IIO_CURRENT, 5),
 };
 
 static int ad7294_read_raw(struct iio_dev *indio_dev,
@@ -53,15 +70,34 @@ static int ad7294_read_raw(struct iio_dev *indio_dev,
 			   int *val2, long mask)
 {
 	struct ad7294_data *data = iio_priv(indio_dev);
+	int ret;
+	unsigned int regval, reg_channel_mask;
 
+	guard(mutex)(&data->lock);
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
-		switch (chan->type) {
-		case IIO_VOLTAGE:
+		if (chan->output) {
+			if (chan->type != IIO_VOLTAGE)
+				return -EINVAL;
 			*val = data->dac_value[chan->channel];
 			return IIO_VAL_INT;
-		default:
-			return -EINVAL;
+		} else {
+			if (chan->type != IIO_VOLTAGE &&
+			    chan->type != IIO_CURRENT)
+				return -EINVAL;
+			/* TODO: Potential endianess issue here */
+			reg_channel_mask = BIT(chan->channel) << 8;
+			ret = regmap_write(data->regmap, AD7294_REG_CMD,
+					   reg_channel_mask);
+			if (ret)
+				return ret;
+			/* TODO: Potential endianess issue here */
+			ret = regmap_read(data->regmap, AD7294_REG_RESULT,
+					  &regval);
+			if (ret)
+				return ret;
+			*val = regval & AD7294_VALUE_MASK;
+			return IIO_VAL_INT;
 		}
 	}
 	return -EINVAL;
@@ -82,15 +118,15 @@ static int ad7294_write_raw(struct iio_dev *indio_dev,
 			if (val < 0 || val > 0xFFF || val2)
 				return -EINVAL;
 			ret = regmap_write(data->regmap,
-					   AD7294_REG_DAC_A + chan->channel,
-					   val);
+					   AD7294_REG_DAC(chan->channel), val);
 			if (ret)
 				return ret;
 			data->dac_value[chan->channel] = val;
+			return 0;
 		}
 	}
 
-	return 0;
+	return -EINVAL;
 }
 
 static int ad7294_reg_access(struct iio_dev *indio_dev, unsigned reg,
@@ -118,7 +154,7 @@ static int ad7294_probe(struct i2c_client *client,
 	indio_dev =
 		devm_iio_device_alloc(&client->dev, sizeof(struct ad7294_data));
 	if (!indio_dev)
-		return -1;
+		return -ENOMEM;
 	indio_dev->name = "ad7294";
 	indio_dev->info = &ad7294_info;
 	indio_dev->channels = ad7294_chan_spec;
