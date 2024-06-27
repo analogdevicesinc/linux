@@ -4,6 +4,7 @@
  *
  * Copyright 2017 Analog Devices Inc.
  */
+#include "linux/byteorder/little_endian.h"
 #include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -395,9 +396,9 @@ struct ad7768_chip_info {
 struct ad7768_state {
 	const struct ad7768_chip_info *chip;
 	struct spi_device *spi;
-	struct spi_message offload_msg;
-	struct spi_transfer offload_xfer;
 	struct regulator *regulator;
+	struct spi_transfer offload_xfer;
+	struct spi_message offload_msg;
 	int bits_per_word;
 	int vref;
 	int pga_gain_mode;
@@ -429,7 +430,7 @@ struct ad7768_state {
 	 */
 	union {
 		unsigned char buf[6];
-		__be32 word;
+		__le32 word;
 		struct {
 			__be32 chan;
 			s64 timestamp;
@@ -443,10 +444,10 @@ static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
 	struct spi_transfer xfer = {
 		.rx_buf = st->data.buf,
 		.len = len + 1,
-		.bits_per_word = (len == 3 ? 32 : 16),
 	};
 	unsigned char tx_data[4];
 	int ret;
+
 	tx_data[0] = AD7768_RD_FLAG_MSK(addr);
 	tx_data[1] = 0xFF;
 	tx_data[2] = 0xFF;
@@ -455,7 +456,7 @@ static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
 	ret = spi_sync_transfer(st->spi, &xfer, 1);
 	if (ret < 0)
 		return ret;
-	*data = (len == 1 ? st->data.buf[0] : st->data.word);
+	*data = (len == 1 ? st->data.buf[1] : cpu_to_be32(st->data.word));
 	return ret;
 }
 
@@ -466,12 +467,10 @@ static int ad7768_spi_reg_write(struct ad7768_state *st,
 	struct spi_transfer xfer = {
 		.rx_buf = st->data.buf,
 		.len = 2,
-		.bits_per_word = 16,
 	};
 	u8 tx_data[4];
 	tx_data[0] = AD7768_WR_FLAG_MSK(addr);
 	tx_data[1] = val;
-	printk("reg write: %x%x%x", tx_data[0],  tx_data[1],  tx_data[2]);
 	xfer.tx_buf = tx_data;
 	return spi_sync_transfer(st->spi, &xfer, 1);
 }
@@ -533,7 +532,7 @@ static int ad7768_scan_direct(struct iio_dev *indio_dev)
 	 * Any SPI configuration of the AD7768-1 can only be
 	 * performed in continuous conversion mode.
 	 */
-	ret = ad7768_set_mode(st, AD7768_CONTINUOUS);
+ 	ret = ad7768_set_mode(st, AD7768_CONTINUOUS);
 	if (ret < 0)
 		return ret;
 
@@ -826,7 +825,6 @@ static int ad7768_set_mclk_div(struct iio_dev *dev, const struct iio_chan_spec *
 	ret = ad7768_spi_reg_read(st, AD7768_REG_POWER_CLOCK, &val, 1);
 	if (ret)
 		return ret;
-	printk("Got power clock %x", val);
 	mclk_div_value = (val & 0xcf) | AD7768_PWR_MCLK_DIV(mclk_div);
 
 	ret = ad7768_spi_reg_write(st, AD7768_REG_POWER_CLOCK, mclk_div_value);
@@ -970,6 +968,7 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 			return ret;
 
 		ret = ad7768_scan_direct(indio_dev);
+
 		if (ret >= 0)
 			*val = sign_extend32(ret, chan->scan_type.realbits - 1);
 
@@ -1098,12 +1097,10 @@ static int ad7768_setup(struct ad7768_state *st, int low_latency_en)
 	 * to 10. When the sequence is detected, the reset occurs.
 	 * See the datasheet, page 70.
 	 */
-	printk("SYNC reset 1 1");
 	ret = ad7768_spi_reg_write(st, AD7768_REG_SYNC_RESET, 0x3);
 	if (ret)
 		return ret;
 
-	printk("SYNC reset 2");
 	ret = ad7768_spi_reg_write(st, AD7768_REG_SYNC_RESET, 0x2);
 	if (ret)
 		return ret;
@@ -1163,14 +1160,11 @@ static irqreturn_t ad7768_interrupt(int irq, void *dev_id)
 static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
-	// struct spi_transfer xfer = {
-	// 	.len = 1,
-	// };
-	// unsigned int rx_data[2];
+	unsigned int rx_data[2];
 	int ret;
 
-	st->offload_xfer.len = 1;
-	st->offload_xfer.bits_per_word = st->bits_per_word;
+	st->offload_xfer.len = roundup_pow_of_two(BITS_TO_BYTES(st->bits_per_word));
+	st->offload_xfer.bits_per_word = st->bits_per_word; 
 
 	/*
 	* Write a 1 to the LSB of the INTERFACE_FORMAT register to enter
@@ -1182,16 +1176,15 @@ static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 		return ret;
 
 	if (st->spi_is_dma_mapped) {
-		spi_bus_lock(st->spi->master);
-
-		// tx_data[0] = AD7768_RD_FLAG_MSK(AD7768_REG_ADC_DATA) << 24;
-		// xfer.tx_buf = tx_data;
-		st->offload_xfer.rx_buf = (void *)-1;
-
+		
+		st->offload_xfer.rx_buf = rx_data;
 		spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
+
 		ret = spi_optimize_message(st->spi, &st->offload_msg);
 		if (ret < 0)
 			return ret;
+		
+		spi_bus_lock(st->spi->master);
 
 		ret = spi_engine_ex_offload_load_msg(st->spi, &st->offload_msg);
 		if (ret < 0)
@@ -1212,6 +1205,7 @@ static int ad7768_buffer_predisable(struct iio_dev *indio_dev)
 		spi_bus_unlock(st->spi->master);
 	}
 	spi_unoptimize_message(&st->offload_msg);
+
 	/*
 	 * To exit continuous read mode, perform a single read of the ADC_DATA
 	 * reg (0x2C), which allows further configuration of the device.
@@ -1469,19 +1463,6 @@ static int ad7768_probe(struct spi_device *spi)
 		ad7768_fill_scale_tbl(st);
 		ad7768_set_pga_gain(st, st->chip->default_pga_mode);
 	}
-
-	ad7768_spi_reg_write(st, AD7768_REG_SCRATCH_PAD, 0x22);
-	ad7768_spi_reg_read(st, AD7768_REG_SCRATCH_PAD, &val, 1);
-	printk("SCRATCH PAD: %x\n", val);
-	ad7768_spi_reg_write(st, AD7768_REG_SCRATCH_PAD, 0x22);
-	ad7768_spi_reg_read(st, AD7768_REG_SCRATCH_PAD, &val, 1);
-	printk("SCRATCH PAD: %x\n", val);
-	ad7768_spi_reg_write(st, AD7768_REG_SCRATCH_PAD, 0x22);
-	ad7768_spi_reg_read(st, AD7768_REG_SCRATCH_PAD, &val, 1);
-	printk("SCRATCH PAD: %x\n", val);
-	ad7768_spi_reg_write(st, AD7768_REG_SCRATCH_PAD, 0x22);
-	ad7768_spi_reg_read(st, AD7768_REG_SCRATCH_PAD, &val, 1);
-	printk("SCRATCH PAD: %x\n", val);
 
 	ret = ad7768_set_channel_label(indio_dev, ARRAY_SIZE(ad7768_channels));
 	if (ret)
