@@ -294,19 +294,15 @@ EXPORT_SYMBOL_GPL(pwm_adjust_config);
 int pwm_capture(struct pwm_device *pwm, struct pwm_capture *result,
 		unsigned long timeout)
 {
-	int err;
-
 	if (!pwm || !pwm->chip->ops)
 		return -EINVAL;
 
 	if (!pwm->chip->ops->capture)
 		return -ENOSYS;
 
-	mutex_lock(&pwm_lock);
-	err = pwm->chip->ops->capture(pwm->chip, pwm, result, timeout);
-	mutex_unlock(&pwm_lock);
+	guard(mutex)(&pwm_lock);
 
-	return err;
+	return pwm->chip->ops->capture(pwm->chip, pwm, result, timeout);
 }
 EXPORT_SYMBOL_GPL(pwm_capture);
 
@@ -318,18 +314,14 @@ static struct pwm_chip *pwmchip_find_by_name(const char *name)
 	if (!name)
 		return NULL;
 
-	mutex_lock(&pwm_lock);
+	guard(mutex)(&pwm_lock);
 
 	idr_for_each_entry_ul(&pwm_chips, chip, tmp, id) {
 		const char *chip_name = dev_name(pwmchip_parent(chip));
 
-		if (chip_name && strcmp(chip_name, name) == 0) {
-			mutex_unlock(&pwm_lock);
+		if (chip_name && strcmp(chip_name, name) == 0)
 			return chip;
-		}
 	}
-
-	mutex_unlock(&pwm_lock);
 
 	return NULL;
 }
@@ -407,14 +399,14 @@ static struct pwm_device *pwm_request_from_chip(struct pwm_chip *chip,
 	if (!chip || index >= chip->npwm)
 		return ERR_PTR(-EINVAL);
 
-	mutex_lock(&pwm_lock);
+	guard(mutex)(&pwm_lock);
+
 	pwm = &chip->pwms[index];
 
 	err = pwm_device_request(pwm, label);
 	if (err < 0)
-		pwm = ERR_PTR(err);
+		return ERR_PTR(err);
 
-	mutex_unlock(&pwm_lock);
 	return pwm;
 }
 
@@ -1140,11 +1132,11 @@ int __pwmchip_add(struct pwm_chip *chip, struct module *owner)
 
 	chip->owner = owner;
 
-	mutex_lock(&pwm_lock);
+	guard(mutex)(&pwm_lock);
 
 	ret = idr_alloc(&pwm_chips, chip, 0, 0, GFP_KERNEL);
 	if (ret < 0)
-		goto err_idr_alloc;
+		return ret;
 
 	chip->id = ret;
 
@@ -1157,8 +1149,6 @@ int __pwmchip_add(struct pwm_chip *chip, struct module *owner)
 	if (ret)
 		goto err_device_add;
 
-	mutex_unlock(&pwm_lock);
-
 	return 0;
 
 err_device_add:
@@ -1166,9 +1156,6 @@ err_device_add:
 		of_pwmchip_remove(chip);
 
 	idr_remove(&pwm_chips, chip->id);
-err_idr_alloc:
-
-	mutex_unlock(&pwm_lock);
 
 	return ret;
 }
@@ -1187,11 +1174,8 @@ void pwmchip_remove(struct pwm_chip *chip)
 	if (IS_ENABLED(CONFIG_OF))
 		of_pwmchip_remove(chip);
 
-	mutex_lock(&pwm_lock);
-
-	idr_remove(&pwm_chips, chip->id);
-
-	mutex_unlock(&pwm_lock);
+	scoped_guard(mutex, &pwm_lock)
+		idr_remove(&pwm_chips, chip->id);
 
 	device_del(&chip->dev);
 }
@@ -1247,15 +1231,11 @@ static struct pwm_chip *fwnode_to_pwmchip(struct fwnode_handle *fwnode)
 	struct pwm_chip *chip;
 	unsigned long id, tmp;
 
-	mutex_lock(&pwm_lock);
+	guard(mutex)(&pwm_lock);
 
 	idr_for_each_entry_ul(&pwm_chips, chip, tmp, id)
-		if (pwmchip_parent(chip) && device_match_fwnode(pwmchip_parent(chip), fwnode)) {
-			mutex_unlock(&pwm_lock);
+		if (pwmchip_parent(chip) && device_match_fwnode(pwmchip_parent(chip), fwnode))
 			return chip;
-		}
-
-	mutex_unlock(&pwm_lock);
 
 	return ERR_PTR(-EPROBE_DEFER);
 }
@@ -1570,11 +1550,11 @@ void pwm_put(struct pwm_device *pwm)
 
 	chip = pwm->chip;
 
-	mutex_lock(&pwm_lock);
+	guard(mutex)(&pwm_lock);
 
 	if (!test_and_clear_bit(PWMF_REQUESTED, &pwm->flags)) {
 		pr_warn("PWM device already freed\n");
-		goto out;
+		return;
 	}
 
 	if (chip->ops->free)
@@ -1585,8 +1565,6 @@ void pwm_put(struct pwm_device *pwm)
 	put_device(&chip->dev);
 
 	module_put(chip->owner);
-out:
-	mutex_unlock(&pwm_lock);
 }
 EXPORT_SYMBOL_GPL(pwm_put);
 
