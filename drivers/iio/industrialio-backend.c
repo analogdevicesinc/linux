@@ -189,6 +189,23 @@ int iio_backend_data_format_set(struct iio_backend *back, unsigned int chan,
 EXPORT_SYMBOL_NS_GPL(iio_backend_data_format_set, IIO_BACKEND);
 
 /**
+ * iio_backend_data_source_get - Configure the channel data format
+ * @back: Backend device
+ * @chan: Channel number
+ *
+ * Get the current data source.
+ *
+ * RETURNS:
+ * Data source, as enum iio_backend_data_source value,
+ * negative error number on failure.
+ */
+int iio_backend_data_source_get(struct iio_backend *back, unsigned int chan)
+{
+	return iio_backend_op_call(back, data_source_get, chan);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_data_source_get, IIO_BACKEND);
+
+/**
  * iio_backend_data_source_set - Select data source
  * @back: Backend device
  * @chan: Channel number
@@ -532,6 +549,101 @@ static int __devm_iio_backend_get(struct device *dev, struct iio_backend *back)
 
 	return 0;
 }
+
+/**
+ * iio_backend_qspi_get_stream_state - Get DAC QSPI stream state
+ * @back: Backend device
+ * @chan: IIO channel
+ *
+ * RETURNS:
+ * enum iio_qspi_stream_state or negative integer on error.
+ */
+int iio_backend_qspi_get_stream_state(struct iio_backend *back,
+				      const struct iio_chan_spec *chan)
+{
+	return iio_backend_op_call(back, qspi_get_stream_state, chan);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_qspi_get_stream_state, IIO_BACKEND);
+
+/**
+ * iio_backend_qspi_set_stream_state - Set DAC QSPI stream state
+ * @back: Backend device
+ * @chan: IIO channel
+ * @mode: enum iio_qspi_stream_state stream state
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_qspi_set_stream_state(struct iio_backend *back,
+				       const struct iio_chan_spec *chan,
+				       enum iio_qspi_stream_state state)
+{
+	return iio_backend_op_call(back, qspi_set_stream_state, chan, state);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_qspi_set_stream_state, IIO_BACKEND);
+
+/**
+ * iio_backend_qspi_update_chan_reg_addr - Set DAC QSPI channel register address
+ * @back: Backend device
+ * @chan_address: Channel register address
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_qspi_update_chan_reg_addr(struct iio_backend *back,
+				         u32 chan_address)
+{
+	return iio_backend_op_call(back, qspi_update_chan_reg_addr,
+				   chan_address);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_qspi_update_chan_reg_addr, IIO_BACKEND);
+
+/**
+ * iio_backend_qspi_write_reg - Write on DAC QSPI register
+ * @back: Backend device
+ * @reg: Register address
+ * @val: Register value
+ * @xfer_type: Transfer type, combination of 8, 16 bit, SDR or DDR
+ */
+void iio_backend_qspi_write_reg(struct iio_backend *back, u32 reg, u32 val,
+				enum iio_qspi_transfer_type xfer_type)
+{
+	iio_backend_void_op_call(back, qspi_write_reg, reg, val, xfer_type);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_qspi_write_reg, IIO_BACKEND);
+
+/**
+ * iio_backend_qspi_write_reg - Write on DAC QSPI register
+ * @back: Backend device
+ * @reg: Register address
+ * @xfer_type: Transfer type, combination of 8, 16 bit, SDR or DDR
+ *
+ * RETURNS:
+ * The read register value.
+ */
+u32 iio_backend_qspi_read_reg(struct iio_backend *back, u32 reg,
+			      enum iio_qspi_transfer_type xfer_type)
+{
+	return iio_backend_op_call(back, qspi_read_reg, reg, xfer_type);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_qspi_read_reg, IIO_BACKEND);
+
+/**
+ * iio_backend_qspi_write_reg - Write on DAC QSPI register
+ * @back: Backend device
+ * @reg: Register address
+ * @reg: Register bitmask
+ * @val: Masked bitfield value
+ * @xfer_type: Transfer type, combination of 8, 16 bit, SDR or DDR
+ */
+void iio_backend_qspi_update_reg_bits(struct iio_backend *back, u32 reg,
+				      u32 mask, u32 val,
+				      enum iio_qspi_transfer_type xfer_type)
+{
+	iio_backend_void_op_call(back, qspi_update_reg_bits,
+				 reg, mask, val, xfer_type);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_qspi_update_reg_bits, IIO_BACKEND);
 
 /**
  * devm_iio_backend_get - Device managed backend device get

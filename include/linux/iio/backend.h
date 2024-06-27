@@ -19,6 +19,9 @@ enum iio_backend_data_type {
 enum iio_backend_data_source {
 	IIO_BACKEND_INTERNAL_CONTINUOS_WAVE,
 	IIO_BACKEND_EXTERNAL,
+	IIO_BACKEND_QSPI_ADC,
+	IIO_BACKEND_QSPI_DMA,
+	IIO_BACKEND_QSPI_RAMP,
 	IIO_BACKEND_DATA_SOURCE_MAX
 };
 
@@ -63,6 +66,19 @@ enum iio_backend_sample_trigger {
 	IIO_BACKEND_SAMPLE_TRIGGER_MAX
 };
 
+enum iio_qspi_transfer_type {
+	IIO_QSPI_TFER_8BIT_SDR,
+	IIO_QSPI_TFER_8BIT_DDR,
+	IIO_QSPI_TFER_16BIT_SDR,
+	IIO_QSPI_TFER_16BIT_DDR,
+};
+
+enum iio_qspi_stream_state {
+	IIO_QSPI_STREAM_STATE_START,
+	IIO_QSPI_STREAM_STATE_STOP,
+	IIO_QSPI_STREAM_STATE_SYNCED,
+};
+
 /**
  * struct iio_backend_ops - operations structure for an iio_backend
  * @enable: Enable backend.
@@ -91,6 +107,7 @@ struct iio_backend_ops {
 			       const struct iio_backend_data_fmt *data);
 	int (*data_source_set)(struct iio_backend *back, unsigned int chan,
 			       enum iio_backend_data_source data);
+	int (*data_source_get)(struct iio_backend *back, unsigned int chan);
 	int (*set_sample_rate)(struct iio_backend *back, unsigned int chan,
 			       u64 sample_rate_hz);
 	int (*test_pattern_set)(struct iio_backend *back,
@@ -113,6 +130,20 @@ struct iio_backend_ops {
 			    const char *buf, size_t len);
 	int (*ext_info_get)(struct iio_backend *back, uintptr_t private,
 			    const struct iio_chan_spec *chan, char *buf);
+	int (*qspi_set_stream_state)(struct iio_backend *back,
+				     const struct iio_chan_spec *chan,
+				     enum iio_qspi_stream_state state);
+	int (*qspi_get_stream_state)(struct iio_backend *back,
+				     const struct iio_chan_spec *chan);
+	int (*qspi_update_chan_reg_addr)(struct iio_backend *back,
+					 u32 chan_address);
+	u32 (*qspi_read_reg)(struct iio_backend *back, u32 reg,
+			     enum iio_qspi_transfer_type xfer_type);
+	void (*qspi_write_reg)(struct iio_backend *back, u32 reg, u32 val,
+			       enum iio_qspi_transfer_type xfer_type);
+	void (*qspi_update_reg_bits)(struct iio_backend *back, u32 reg,
+				     u32 mask, u32 val,
+				     enum iio_qspi_transfer_type xfer_type);
 };
 
 int iio_backend_chan_enable(struct iio_backend *back, unsigned int chan);
@@ -122,6 +153,7 @@ int iio_backend_data_format_set(struct iio_backend *back, unsigned int chan,
 				const struct iio_backend_data_fmt *data);
 int iio_backend_data_source_set(struct iio_backend *back, unsigned int chan,
 				enum iio_backend_data_source data);
+int iio_backend_data_source_get(struct iio_backend *back, unsigned int chan);
 int iio_backend_set_sampling_freq(struct iio_backend *back, unsigned int chan,
 				  u64 sample_rate_hz);
 int iio_backend_test_pattern_set(struct iio_backend *back,
@@ -136,6 +168,20 @@ int iio_backend_data_sample_trigger(struct iio_backend *back,
 int devm_iio_backend_request_buffer(struct device *dev,
 				    struct iio_backend *back,
 				    struct iio_dev *indio_dev);
+int iio_backend_qspi_get_stream_state(struct iio_backend *back,
+				      const struct iio_chan_spec *chan);
+int iio_backend_qspi_set_stream_state(struct iio_backend *back,
+				      const struct iio_chan_spec *chan,
+				      enum iio_qspi_stream_state state);
+int iio_backend_qspi_update_chan_reg_addr(struct iio_backend *back,
+				          u32 chan_address);
+void iio_backend_qspi_write_reg(struct iio_backend *back, u32 reg, u32 val,
+				enum iio_qspi_transfer_type xfer_type);
+u32 iio_backend_qspi_read_reg(struct iio_backend *back, u32 reg,
+			      enum iio_qspi_transfer_type xfer_type);
+void iio_backend_qspi_update_reg_bits(struct iio_backend *back, u32 reg,
+				      u32 mask, u32 val,
+				      enum iio_qspi_transfer_type xfer_type);
 ssize_t iio_backend_ext_info_set(struct iio_dev *indio_dev, uintptr_t private,
 				 const struct iio_chan_spec *chan,
 				 const char *buf, size_t len);
