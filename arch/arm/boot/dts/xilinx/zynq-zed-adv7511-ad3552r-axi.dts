@@ -1,0 +1,80 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AXI-AD3551R
+ *
+ * hdl_project: <ad3552r_fmc/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2024 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	clocks {
+		ext_clk: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+		};
+	};
+};
+
+&amba {
+
+	ref_clk: clk@44B00000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44B00000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 15>;
+		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "ref_clk";
+	};
+
+	dac_tx_dma: dma-controller@0x44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x10000>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <32>;
+				adi,destination-bus-type = <1>;
+			};
+		};
+	};
+
+	backend: controller@44a70000 {
+		compatible = "adi,axi-dac-9.1.b";
+		reg = <0x44a70000 0x1000>;
+		dmas = <&dac_tx_dma 0>;
+		dma-names = "tx";
+		#io-backend-cells = <0>;
+		clocks = <&ref_clk>;
+		bus-type = <1>;  /* IIO QSPI */
+	};
+
+	axi-ad3552r {
+		compatible = "adi,ad3552r";
+		reset-gpios = <&gpio0 92 GPIO_ACTIVE_LOW>;
+		io-backends = <&backend>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		channel@0 {
+			reg = <0>;
+			adi,output-range-microvolt = <(-10000000) (10000000)>;
+		};
+	};
+};
