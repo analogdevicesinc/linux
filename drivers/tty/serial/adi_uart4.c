@@ -1,4 +1,3 @@
-
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * ADI UART4 Serial Driver
@@ -185,11 +184,6 @@ static struct adi_uart4_serial_port *adi_uart4_serial_ports[ADI_UART_NR_PORTS];
 
 #define DMA_RX_FLUSH_JIFFIES	(msecs_to_jiffies(50))
 
-#define uart_circ_chars_pending(circ)	\
-	(CIRC_CNT((circ)->head, (circ)->tail, UART_XMIT_SIZE))
-
-#define uart_circ_empty(circ)		((circ)->head == (circ)->tail)
-
 static void adi_uart4_serial_dma_tx_chars(struct adi_uart4_serial_port *uart);
 static void adi_uart4_serial_dma_tx(void *data);
 static void adi_uart4_serial_tx_chars(struct adi_uart4_serial_port *uart);
@@ -209,7 +203,8 @@ static unsigned int adi_uart4_serial_get_mctrl(struct uart_port *port)
 		return TIOCM_DSR | TIOCM_CAR;
 }
 
-static void adi_uart4_serial_set_mctrl(struct uart_port *port, unsigned int mctrl)
+static void adi_uart4_serial_set_mctrl(struct uart_port *port,
+		unsigned int mctrl)
 {
 	struct adi_uart4_serial_port *uart = to_adi_serial_port(port);
 
@@ -382,17 +377,16 @@ static void adi_uart4_serial_tx_chars(struct adi_uart4_serial_port *uart)
 	}
 
 	if (UART_GET_LSR(uart) & THRE) {
-		/*
-		 * pop data from fifo
-		 * */
+		/* pop data from fifo */
 		if (!kfifo_get(&tport->xmit_fifo, &c))
 			return;
+
 		UART_PUT_CHAR(uart, c);
 		uart->port.icount.tx++;
 		if (kfifo_len(&tport->xmit_fifo) < WAKEUP_CHARS)
 			uart_write_wakeup(&uart->port);
-	}
 
+	}
 
 }
 
@@ -422,7 +416,7 @@ static void adi_uart4_serial_dma_tx_chars(struct adi_uart4_serial_port *uart)
 {
 	struct dma_async_tx_descriptor *desc;
 	struct tty_port *tport = &uart->port.state->port;
-	int i, cnt, ret;
+	int ret;
 
 	uart->tx_done = 0;
 
@@ -438,34 +432,15 @@ static void adi_uart4_serial_dma_tx_chars(struct adi_uart4_serial_port *uart)
 		uart->port.x_char = 0;
 	}
 
-	/*
-	 * Limit size to UART_XMIT_SIZE
-	 * */
-//	if (uart->tx_count > (UART_XMIT_SIZE))
-//		uart->tx_count = UART_XMIT_SIZE;
-
-	/*
-	 * Prepare dma transfer
-	 * */
-
-//	for (i=0; i<uart->tx_count;) {
-//		cnt = kfifo_get(&tport->xmit_fifo, &tport->xmit_buf[i]);
-//		if (!cnt)
-//			return;
-//		i += cnt;
-//	}
-
-
+	/* Setup the scatterlist for DMA output with fifo */
 	sg_init_table(&uart->tx_sgl, 1);
 	ret = kfifo_dma_out_prepare_mapped(&tport->xmit_fifo, &uart->tx_sgl, 1,
 			UART_XMIT_SIZE, uart->tx_dma_phy);
 	if (ret != 1)
 		return;
-//	sg_init_one(&uart->tx_sgl, &tport->xmit_buf, uart->tx_count);
-//	dma_map_sg(uart->dev, &uart->tx_sgl, 1, DMA_TO_DEVICE);
-//
+
 	desc = dmaengine_prep_slave_sg(uart->tx_dma_channel, &uart->tx_sgl, 1,
-		DMA_MEM_TO_DEV, 0);
+			DMA_MEM_TO_DEV, 0);
 	if (!desc) {
 		dma_unmap_sg(uart->dev, &uart->tx_sgl, 1, DMA_TO_DEVICE);
 		return;
@@ -475,10 +450,6 @@ static void adi_uart4_serial_dma_tx_chars(struct adi_uart4_serial_port *uart)
 
 	desc->callback = adi_uart4_serial_dma_tx;
 	desc->callback_param = uart;
-
-	/*
-	 * Queue DMA transfer
-	 * */
 	dmaengine_submit(desc);
 	dma_sync_single_for_device(uart->dev, uart->tx_dma_phy,
 				   UART_XMIT_SIZE, DMA_TO_DEVICE);
@@ -548,16 +519,18 @@ void adi_uart4_serial_rx_dma_timeout(struct timer_list *list)
 	dmaengine_pause(uart->rx_dma_channel);
 	spin_lock_irqsave(&uart->rx_lock, flags);
 
-	status = dmaengine_tx_status(uart->rx_dma_channel, uart->rx_cookie, &state);
+	status = dmaengine_tx_status(uart->rx_dma_channel, uart->rx_cookie,
+			&state);
 
 	if (status == DMA_ERROR) {
 		dev_err(uart->dev, "Error in RX DMA\n");
 		goto exit;
 	}
 
-	// Because resume will reset us to the start of the buffer, reset the tail
-	// pointer to 0 after, but use the previous tail for an offset buffer slice
-	// that timed out
+	/* Because resume will reset us to the start of the buffer,
+	 * reset the tail pointer to 0 after, but use the previous tail for an
+	 * offset buffer slice that timed out
+	 */
 	uart->rx_dma_buf.head = UART_XMIT_SIZE - state.residue;
 	adi_uart4_serial_dma_rx_chars(uart);
 	uart->rx_dma_buf.tail = 0;
@@ -583,16 +556,15 @@ static void adi_uart4_serial_dma_tx(void *data)
 	 */
 	UART_CLEAR_IER(uart, ETBEI);
 	uart->port.icount.tx += uart->tx_count;
-	//kfifo_skip_count(&tport->xmit_fifo, uart->tx_count);
 
-	/*
-	 * If kfifo is not empty, wakeup and write
-	 * */
 	if (!kfifo_is_empty(&tport->xmit_fifo)) {
 		if (kfifo_len(&tport->xmit_fifo) < WAKEUP_CHARS)
 			uart_write_wakeup(&uart->port);
 	}
-	
+
+	/*
+	 * Advance fifo to match the dma write
+	 */
 	uart_xmit_advance(&uart->port, uart->tx_count);
 	adi_uart4_serial_dma_tx_chars(uart);
 	spin_unlock_irqrestore(&uart->port.lock, flags);
@@ -608,7 +580,8 @@ static void adi_uart4_serial_dma_rx(void *data)
 
 	spin_lock_irqsave(&uart->rx_lock, flags);
 
-	status = dmaengine_tx_status(uart->rx_dma_channel, uart->rx_cookie, &state);
+	status = dmaengine_tx_status(uart->rx_dma_channel, uart->rx_cookie,
+			&state);
 
 	if (status == DMA_ERROR) {
 		dev_err(uart->dev, "Error in RX DMA\n");
@@ -616,9 +589,10 @@ static void adi_uart4_serial_dma_rx(void *data)
 		return;
 	}
 
-	// Update tail to start of the current block, so that we can receive multiple
-	// full blocks or a partial block not at the start of the buffer in event of
-	// a timeout
+	/* Update tail to start of the current block, so that we can receive
+	 * multiple full blocks or a partial block not at the start of the
+	 * buffer in event of a timeout
+	 */
 	uart->rx_dma_buf.head = UART_XMIT_SIZE - state.residue;
 	pos = (uart->rx_dma_buf.head - 1) & (UART_XMIT_SIZE - 1);
 	pos = (pos / DMA_RX_XCOUNT) * DMA_RX_XCOUNT;
@@ -670,9 +644,10 @@ static int adi_uart4_serial_startup(struct uart_port *port)
 		return ret;
 
 	if (uart->tx_dma_channel) {
-		/*
-		 * Setup rx dma buf
-		 * */
+		/* RX channel:
+		 *	- src_addr is not configured because we're attached to
+		 *	peripheral
+		 */
 		uart->rx_dma_buf.buf = dmam_alloc_coherent(uart->dev, UART_XMIT_SIZE,
 			&uart->rx_dma_phy, GFP_KERNEL);
 		if (!uart->rx_dma_buf.buf)
@@ -684,7 +659,6 @@ static int adi_uart4_serial_startup(struct uart_port *port)
 		dma_config.direction = DMA_DEV_TO_MEM;
 		dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
 		dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
-		// src_addr is not configured because we're attached to peripheral
 		dma_config.src_maxburst = 1;
 		dma_config.dst_maxburst = 1;
 
@@ -694,21 +668,23 @@ static int adi_uart4_serial_startup(struct uart_port *port)
 			return -EINVAL;
 		}
 
-		desc = dmaengine_prep_dma_cyclic(uart->rx_dma_channel, uart->rx_dma_phy,
-			UART_XMIT_SIZE, DMA_RX_XCOUNT, DMA_DEV_TO_MEM, DMA_PREP_INTERRUPT);
+		desc = dmaengine_prep_dma_cyclic(uart->rx_dma_channel,
+				uart->rx_dma_phy, UART_XMIT_SIZE, DMA_RX_XCOUNT,
+				DMA_DEV_TO_MEM, DMA_PREP_INTERRUPT);
 		desc->callback = adi_uart4_serial_dma_rx;
 		desc->callback_param = uart;
 
 		uart->rx_cookie = dmaengine_submit(desc);
 		dma_async_issue_pending(uart->rx_dma_channel);
 
-		timer_setup(&uart->rx_dma_timer, adi_uart4_serial_rx_dma_timeout, 0);
+		timer_setup(&uart->rx_dma_timer,
+				adi_uart4_serial_rx_dma_timeout, 0);
 		mod_timer(&uart->rx_dma_timer, jiffies + DMA_RX_FLUSH_JIFFIES);
-
-		// TX channel
-		/*
-		 * Setup tx dma buf
-		 * */
+		/* TX channel:
+		 *	- Use the port's buffer directly for dma
+		 *	- dst_addr is not configured because we're attached to
+		 *	peripheral
+		 */
 		uart->tx_dma_phy = dma_map_single(uart->dev,
 				tport->xmit_buf,
 				UART_XMIT_SIZE,
@@ -722,7 +698,6 @@ static int adi_uart4_serial_startup(struct uart_port *port)
 		dma_config.direction = DMA_MEM_TO_DEV;
 		dma_config.src_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
 		dma_config.dst_addr_width = DMA_SLAVE_BUSWIDTH_1_BYTE;
-		// dst_addr is not configured because we're attached to peripheral
 		dma_config.dst_maxburst = 1;
 		dma_config.src_maxburst = 1;
 
@@ -752,9 +727,10 @@ static void adi_uart4_serial_shutdown(struct uart_port *port)
 	if (uart->tx_dma_channel) {
 		dmaengine_terminate_sync(uart->tx_dma_channel);
 		dmaengine_terminate_sync(uart->rx_dma_channel);
-		dma_unmap_single(uart->dev, uart->tx_dma_phy, UART_XMIT_SIZE, DMA_TO_DEVICE);
-		dmam_free_coherent(uart->dev, UART_XMIT_SIZE, uart->rx_dma_buf.buf,
-			uart->rx_dma_phy);
+		dma_unmap_single(uart->dev, uart->tx_dma_phy, UART_XMIT_SIZE,
+				DMA_TO_DEVICE);
+		dmam_free_coherent(uart->dev, UART_XMIT_SIZE,
+				uart->rx_dma_buf.buf, uart->rx_dma_phy);
 		del_timer(&uart->rx_dma_timer);
 	}
 
@@ -833,10 +809,12 @@ static void adi_uart4_serial_set_termios(struct uart_port *port,
 	 * round off errors if we're in divide-by-one mode
 	 */
 	if (uart->edbo) {
-		baud = uart_get_baud_rate(port, termios, old, 0, port->uartclk);
+		baud = uart_get_baud_rate(port, termios, old, 0,
+				port->uartclk);
 		quot = EDBO | DIV_ROUND_CLOSEST(port->uartclk, baud);
 	} else {
-		baud = uart_get_baud_rate(port, termios, old, 0, port->uartclk/16);
+		baud = uart_get_baud_rate(port, termios, old, 0,
+				port->uartclk/16);
 		quot = uart_get_divisor(port, baud);
 	}
 
@@ -926,7 +904,8 @@ adi_uart4_serial_verify_port(struct uart_port *port, struct serial_struct *ser)
  * Enable the IrDA function if tty->ldisc.num is N_IRDA.
  * In other cases, disable IrDA function.
  */
-static void adi_uart4_serial_set_ldisc(struct uart_port *port, struct ktermios *termios)
+static void adi_uart4_serial_set_ldisc(struct uart_port *port,
+		struct ktermios *termios)
 {
 	struct adi_uart4_serial_port *uart = to_adi_serial_port(port);
 	unsigned int val;
@@ -957,7 +936,8 @@ static void adi_uart4_serial_reset_irda(struct uart_port *port)
 }
 
 #ifdef CONFIG_CONSOLE_POLL
-static void adi_uart4_serial_poll_put_char(struct uart_port *port, unsigned char chr)
+static void adi_uart4_serial_poll_put_char(struct uart_port *port,
+		unsigned char chr)
 {
 	struct adi_uart4_serial_port *uart = to_adi_serial_port(port);
 
@@ -1007,7 +987,8 @@ static const struct uart_ops adi_uart4_serial_pops = {
 };
 
 #ifdef CONFIG_SERIAL_ADI_UART4_CONSOLE
-static void adi_uart4_serial_console_putchar(struct uart_port *port, unsigned char ch)
+static void adi_uart4_serial_console_putchar(struct uart_port *port,
+		unsigned char ch)
 {
 	struct adi_uart4_serial_port *uart = to_adi_serial_port(port);
 
@@ -1017,8 +998,8 @@ static void adi_uart4_serial_console_putchar(struct uart_port *port, unsigned ch
 }
 
 static void __init
-adi_uart4_serial_console_get_options(struct adi_uart4_serial_port *uart, int *baud,
-			   int *parity, int *bits)
+adi_uart4_serial_console_get_options(struct adi_uart4_serial_port *uart,
+		int *baud, int *parity, int *bits)
 {
 	unsigned int status;
 
@@ -1046,16 +1027,19 @@ adi_uart4_serial_console_get_options(struct adi_uart4_serial_port *uart, int *ba
 		else
 			*baud = uart->port.uartclk / (16*clk);
 	}
-	pr_debug("%s:baud = %d, parity = %c, bits= %d\n", __func__, *baud, *parity, *bits);
+	pr_debug("%s:baud = %d, parity = %c, bits= %d\n", __func__,
+			*baud, *parity, *bits);
 }
 static void
-adi_uart4_serial_console_write(struct console *co, const char *s, unsigned int count)
+adi_uart4_serial_console_write(struct console *co, const char *s,
+		unsigned int count)
 {
 	struct adi_uart4_serial_port *uart = adi_uart4_serial_ports[co->index];
 	unsigned long flags;
 
 	spin_lock_irqsave(&uart->port.lock, flags);
-	uart_console_write(&uart->port, s, count, adi_uart4_serial_console_putchar);
+	uart_console_write(&uart->port, s, count,
+			adi_uart4_serial_console_putchar);
 	spin_unlock_irqrestore(&uart->port.lock, flags);
 
 }
@@ -1087,7 +1071,8 @@ adi_uart4_serial_console_setup(struct console *co, char *options)
 	if (options)
 		uart_parse_options(options, &baud, &parity, &bits, &flow);
 	else
-		adi_uart4_serial_console_get_options(uart, &baud, &parity, &bits);
+		adi_uart4_serial_console_get_options(uart, &baud, &parity,
+				&bits);
 
 	return uart_set_options(&uart->port, co, baud, parity, bits, flow);
 }
@@ -1126,7 +1111,8 @@ static struct uart_driver adi_uart4_serial_reg = {
 	.cons			= ADI_SERIAL_UART4_CONSOLE,
 };
 
-static int adi_uart4_serial_suspend(struct platform_device *pdev, pm_message_t state)
+static int adi_uart4_serial_suspend(struct platform_device *pdev,
+		pm_message_t state)
 {
 	struct adi_uart4_serial_port *uart = platform_get_drvdata(pdev);
 
@@ -1213,18 +1199,21 @@ static int adi_uart4_serial_probe(struct platform_device *pdev)
 		if (!tx_dma_channel) {
 			uart->tx_irq = platform_get_irq_byname(pdev, "tx");
 			uart->rx_irq = platform_get_irq_byname(pdev, "rx");
-			uart->status_irq = platform_get_irq_byname(pdev, "status");
+			uart->status_irq =
+				platform_get_irq_byname(pdev, "status");
 			uart->port.irq = uart->rx_irq;
 
 			ret = devm_request_threaded_irq(dev, uart->rx_irq,
-				adi_uart4_serial_rx_int, NULL, 0, "ADI UART RX", uart);
+				adi_uart4_serial_rx_int, NULL, 0, "ADI UART RX",
+				uart);
 			if (ret) {
 				dev_err(dev, "Unable to attach UART RX int\n");
 				return ret;
 			}
 
 			ret = devm_request_threaded_irq(dev, uart->tx_irq,
-				adi_uart4_serial_tx_int, NULL, 0, "ADI UART TX", uart);
+				adi_uart4_serial_tx_int, NULL, 0, "ADI UART TX",
+				uart);
 			if (ret) {
 				dev_err(dev, "Unable to attach UART TX int\n");
 				return ret;
@@ -1236,11 +1225,13 @@ static int adi_uart4_serial_probe(struct platform_device *pdev)
 		    of_property_read_bool(np, "adi,uart-has-rtscts")) {
 			uart->hwflow_mode = ADI_UART_HWFLOW_PERI;
 			ret = devm_request_threaded_irq(dev, uart->status_irq,
-				adi_uart4_serial_mctrl_cts_int, NULL, 0, "ADI UART Modem Status",
+				adi_uart4_serial_mctrl_cts_int, NULL, 0,
+				"ADI UART Modem Status",
 				uart);
 			if (ret) {
 				uart->hwflow_mode = ADI_UART_NO_HWFLOW;
-				dev_info(dev, "Unable to attach UART Modem Status int.\n");
+				dev_info(dev,
+				"Unable to attach UART Modem Status int.\n");
 			}
 		} else
 			uart->hwflow_mode = ADI_UART_NO_HWFLOW;
@@ -1250,9 +1241,11 @@ static int adi_uart4_serial_probe(struct platform_device *pdev)
 			uart->edbo = true;
 
 		if (uart->hwflow_mode == ADI_UART_HWFLOW_PERI) {
-			uart->hwflow_en_pin = devm_gpiod_get(dev, "hwflow-en", GPIOD_OUT_HIGH);
+			uart->hwflow_en_pin = devm_gpiod_get(dev, "hwflow-en",
+					GPIOD_OUT_HIGH);
 			if (IS_ERR(uart->hwflow_en_pin)) {
-				dev_err(dev, "hwflow-en required in peripheral hwflow mode\n");
+				dev_err(dev,
+				"hwflow-en required in peripheral hwflow mode\n");
 				return PTR_ERR(uart->hwflow_en_pin);
 			}
 		}
@@ -1371,7 +1364,8 @@ static void adi_uart_console_putchar(struct uart_port *port, unsigned char ch)
 }
 
 
-static void adi_uart_early_write(struct console *con, const char *s, unsigned int n)
+static void adi_uart_early_write(struct console *con, const char *s,
+		unsigned int n)
 {
 	struct earlycon_device *dev = con->data;
 
