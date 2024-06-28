@@ -256,7 +256,7 @@
 	pinctrl-0 = <&i2c2_pins>;
 
 	gpio@34 {
-		compatible = "adi,adp5587-keys";
+		compatible = "adi,adp5587";
 		gpio-controller;
 		gpio-only;
 		#gpio-cells = <2>;
