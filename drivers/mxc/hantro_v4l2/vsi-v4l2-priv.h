@@ -372,6 +372,11 @@ struct vsi_v4l2_ctx {
 	struct dentry *debugfs;
 };
 
+struct vsi_v4l2_ctrl_applicable {
+	u32 id;
+	u32 applicable_pixelformat[4];
+};
+
 int vsi_v4l2_release(struct file *filp);
 void vsi_remove_ctx(struct vsi_v4l2_ctx *ctx);
 struct vsi_v4l2_ctx *vsi_create_ctx(void);
@@ -445,6 +450,7 @@ void vsi_convertIPCM(struct vsi_v4l2_ctx *ctx);
 int vsiv4l2_verifycrop(struct v4l2_selection *s);
 void vsi_v4l2_update_ctrlcfg(struct v4l2_ctrl_config *cfg);
 void vsi_v4l2_reset_performance(struct vsi_v4l2_ctx *ctx);
+bool vsi_v4l2_ctrl_is_applicable(struct vsi_v4l2_ctx *ctx, u32 ctrl_id);
 
 static inline int isencoder(struct vsi_v4l2_ctx *ctx)
 {

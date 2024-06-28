@@ -750,6 +750,93 @@ static struct vsi_video_fmt vsi_coded_fmt[] = {
 	},
 };
 
+static const struct vsi_v4l2_ctrl_applicable vsi_ctrl_formats[] = {
+	{
+		.id = V4L2_CID_MPEG_VIDEO_H264_PROFILE,
+		.applicable_pixelformat = {V4L2_PIX_FMT_H264},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP8_PROFILE,
+		.applicable_pixelformat = {V4L2_PIX_FMT_VP8},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VP9_PROFILE,
+		.applicable_pixelformat = {V4L2_PIX_FMT_VP9},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_PROFILE,
+		.applicable_pixelformat = {V4L2_PIX_FMT_HEVC},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_H264_LEVEL,
+		.applicable_pixelformat = {V4L2_PIX_FMT_H264},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_LEVEL,
+		.applicable_pixelformat = {V4L2_PIX_FMT_HEVC},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_MAX_QP,
+		.applicable_pixelformat = {V4L2_PIX_FMT_HEVC},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_MIN_QP,
+		.applicable_pixelformat = {V4L2_PIX_FMT_HEVC},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_H264_MAX_QP,
+		.applicable_pixelformat = {V4L2_PIX_FMT_H264},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_H264_MIN_QP,
+		.applicable_pixelformat = {V4L2_PIX_FMT_H264},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_H264_B_FRAME_QP,
+		.applicable_pixelformat = {V4L2_PIX_FMT_H264},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_H264_I_FRAME_QP,
+		.applicable_pixelformat = {V4L2_PIX_FMT_H264},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_H264_P_FRAME_QP,
+		.applicable_pixelformat = {V4L2_PIX_FMT_H264},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_H264_CPB_SIZE,
+		.applicable_pixelformat = {V4L2_PIX_FMT_H264},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_H264_CHROMA_QP_INDEX_OFFSET,
+		.applicable_pixelformat = {V4L2_PIX_FMT_H264},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_I_FRAME_QP,
+		.applicable_pixelformat = {V4L2_PIX_FMT_HEVC},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_HEVC_P_FRAME_QP,
+		.applicable_pixelformat = {V4L2_PIX_FMT_HEVC},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VPX_I_FRAME_QP,
+		.applicable_pixelformat = {V4L2_PIX_FMT_VP8, V4L2_PIX_FMT_VP9},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VPX_P_FRAME_QP,
+		.applicable_pixelformat = {V4L2_PIX_FMT_VP8, V4L2_PIX_FMT_VP9},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VPX_MIN_QP,
+		.applicable_pixelformat = {V4L2_PIX_FMT_VP8, V4L2_PIX_FMT_VP9},
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_VPX_MAX_QP,
+		.applicable_pixelformat = {V4L2_PIX_FMT_VP8, V4L2_PIX_FMT_VP9},
+	},
+};
+
 static int istiledfmt(int pixelformat)
 {
 	switch (pixelformat) {
@@ -2168,4 +2255,41 @@ void vsi_v4l2_update_ctrlcfg(struct v4l2_ctrl_config *cfg)
 	}
 }
 
+static const struct vsi_v4l2_ctrl_applicable *vsi_v4l2_find_ctrl_applicable(u32 ctrl_id)
+{
+	int i;
 
+	for (i = 0; i < ARRAY_SIZE(vsi_ctrl_formats); i++) {
+		if (vsi_ctrl_formats[i].id == ctrl_id)
+			return &vsi_ctrl_formats[i];
+	}
+
+	return NULL;
+}
+
+bool vsi_v4l2_ctrl_is_applicable(struct vsi_v4l2_ctx *ctx, u32 ctrl_id)
+{
+	const struct vsi_v4l2_ctrl_applicable *app;
+	struct v4l2_format fmt;
+	int i;
+
+	app = vsi_v4l2_find_ctrl_applicable(ctrl_id);
+	if (!app)
+		return true;
+
+	for (i = 0; i < ARRAY_SIZE(app->applicable_pixelformat); i++) {
+		if (!app->applicable_pixelformat[i])
+			break;
+		if (isencoder(ctx)) {
+			fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
+			fmt.fmt.pix_mp.pixelformat = app->applicable_pixelformat[i];
+		} else {
+			fmt.type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+			fmt.fmt.pix.pixelformat = app->applicable_pixelformat[i];
+		}
+		if (vsi_find_format(ctx, &fmt))
+			return true;
+	}
+
+	return false;
+}
