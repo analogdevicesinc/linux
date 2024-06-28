@@ -381,6 +381,11 @@ s64 iio_get_time_ns(const struct iio_dev *indio_dev);
 
 #define INDIO_MAX_RAW_ELEMENTS		4
 
+struct iio_val_int_plus_micro {
+	int integer;
+	int micro;
+};
+
 struct iio_trigger; /* forward declaration */
 
 /**
@@ -582,7 +587,6 @@ struct iio_dev {
 
 	struct iio_buffer		*buffer;
 	int				scan_bytes;
-	struct mutex			mlock;
 
 	const unsigned long		*available_scan_masks;
 	unsigned			masklength;
@@ -638,7 +642,7 @@ int iio_push_event(struct iio_dev *indio_dev, u64 ev_code, s64 timestamp);
 int iio_device_claim_direct_mode(struct iio_dev *indio_dev);
 void iio_device_release_direct_mode(struct iio_dev *indio_dev);
 
-extern struct bus_type iio_bus_type;
+extern const struct bus_type iio_bus_type;
 
 /**
  * iio_device_put() - reference counted deallocation of struct device

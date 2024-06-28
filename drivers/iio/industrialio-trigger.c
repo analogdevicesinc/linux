@@ -4,6 +4,7 @@
  * Copyright (c) 2008 Jonathan Cameron
  */
 
+#include <linux/cleanup.h>
 #include <linux/kernel.h>
 #include <linux/idr.h>
 #include <linux/err.h>
@@ -80,19 +81,18 @@ int iio_trigger_register(struct iio_trigger *trig_info)
 		goto error_unregister_id;
 
 	/* Add to list of available triggers held by the IIO core */
-	mutex_lock(&iio_trigger_list_lock);
-	if (__iio_trigger_find_by_name(trig_info->name)) {
-		pr_err("Duplicate trigger name '%s'\n", trig_info->name);
-		ret = -EEXIST;
-		goto error_device_del;
+	scoped_guard(mutex, &iio_trigger_list_lock) {
+		if (__iio_trigger_find_by_name(trig_info->name)) {
+			pr_err("Duplicate trigger name '%s'\n", trig_info->name);
+			ret = -EEXIST;
+			goto error_device_del;
+		}
+		list_add_tail(&trig_info->list, &iio_trigger_list);
 	}
-	list_add_tail(&trig_info->list, &iio_trigger_list);
-	mutex_unlock(&iio_trigger_list_lock);
 
 	return 0;
 
 error_device_del:
-	mutex_unlock(&iio_trigger_list_lock);
 	device_del(&trig_info->dev);
 error_unregister_id:
 	ida_free(&iio_trigger_ida, trig_info->id);
@@ -102,9 +102,8 @@ EXPORT_SYMBOL(iio_trigger_register);
 
 void iio_trigger_unregister(struct iio_trigger *trig_info)
 {
-	mutex_lock(&iio_trigger_list_lock);
-	list_del(&trig_info->list);
-	mutex_unlock(&iio_trigger_list_lock);
+	scoped_guard(mutex, &iio_trigger_list_lock)
+		list_del(&trig_info->list);
 
 	ida_free(&iio_trigger_ida, trig_info->id);
 	/* Possible issue in here */
@@ -120,12 +119,11 @@ int iio_trigger_set_immutable(struct iio_dev *indio_dev, struct iio_trigger *tri
 		return -EINVAL;
 
 	iio_dev_opaque = to_iio_dev_opaque(indio_dev);
-	mutex_lock(&indio_dev->mlock);
+	guard(mutex)(&iio_dev_opaque->mlock);
 	WARN_ON(iio_dev_opaque->trig_readonly);
 
 	indio_dev->trig = iio_trigger_get(trig);
 	iio_dev_opaque->trig_readonly = true;
-	mutex_unlock(&indio_dev->mlock);
 
 	return 0;
 }
@@ -145,18 +143,14 @@ static struct iio_trigger *__iio_trigger_find_by_name(const char *name)
 
 static struct iio_trigger *iio_trigger_acquire_by_name(const char *name)
 {
-	struct iio_trigger *trig = NULL, *iter;
+	struct iio_trigger *iter;
 
-	mutex_lock(&iio_trigger_list_lock);
+	guard(mutex)(&iio_trigger_list_lock);
 	list_for_each_entry(iter, &iio_trigger_list, list)
-		if (sysfs_streq(iter->name, name)) {
-			trig = iter;
-			iio_trigger_get(trig);
-			break;
-		}
-	mutex_unlock(&iio_trigger_list_lock);
+		if (sysfs_streq(iter->name, name))
+			return iio_trigger_get(iter);
 
-	return trig;
+	return NULL;
 }
 
 static void iio_reenable_work_fn(struct work_struct *work)
@@ -192,6 +186,12 @@ static void iio_trigger_notify_done_atomic(struct iio_trigger *trig)
 		schedule_work(&trig->reenable_work);
 }
 
+/**
+ * iio_trigger_poll() - Call the IRQ trigger handler of the consumers
+ * @trig: trigger which occurred
+ *
+ * This function should only be called from a hard IRQ context.
+ */
 void iio_trigger_poll(struct iio_trigger *trig)
 {
 	int i;
@@ -216,7 +216,14 @@ irqreturn_t iio_trigger_generic_data_rdy_poll(int irq, void *private)
 }
 EXPORT_SYMBOL(iio_trigger_generic_data_rdy_poll);
 
-void iio_trigger_poll_chained(struct iio_trigger *trig)
+/**
+ * iio_trigger_poll_nested() - Call the threaded trigger handler of the
+ * consumers
+ * @trig: trigger which occurred
+ *
+ * This function should only be called from a kernel thread context.
+ */
+void iio_trigger_poll_nested(struct iio_trigger *trig)
 {
 	int i;
 
@@ -231,7 +238,7 @@ void iio_trigger_poll_chained(struct iio_trigger *trig)
 		}
 	}
 }
-EXPORT_SYMBOL(iio_trigger_poll_chained);
+EXPORT_SYMBOL(iio_trigger_poll_nested);
 
 void iio_trigger_notify_done(struct iio_trigger *trig)
 {
@@ -246,22 +253,21 @@ static int iio_trigger_get_irq(struct iio_trigger *trig)
 {
 	int ret;
 
-	mutex_lock(&trig->pool_lock);
-	ret = bitmap_find_free_region(trig->pool,
-				      CONFIG_IIO_CONSUMERS_PER_TRIGGER,
-				      ilog2(1));
-	mutex_unlock(&trig->pool_lock);
-	if (ret >= 0)
-		ret += trig->subirq_base;
+	scoped_guard(mutex, &trig->pool_lock) {
+		ret = bitmap_find_free_region(trig->pool,
+					      CONFIG_IIO_CONSUMERS_PER_TRIGGER,
+					      ilog2(1));
+		if (ret < 0)
+			return ret;
+	}
 
-	return ret;
+	return ret + trig->subirq_base;
 }
 
 static void iio_trigger_put_irq(struct iio_trigger *trig, int irq)
 {
-	mutex_lock(&trig->pool_lock);
+	guard(mutex)(&trig->pool_lock);
 	clear_bit(irq - trig->subirq_base, trig->pool);
-	mutex_unlock(&trig->pool_lock);
 }
 
 /* Complexity in here.  With certain triggers (datardy) an acknowledgement
@@ -300,7 +306,7 @@ int iio_trigger_attach_poll_func(struct iio_trigger *trig,
 	/* Enable trigger in driver */
 	if (trig->ops && trig->ops->set_trigger_state && notinuse) {
 		ret = trig->ops->set_trigger_state(trig, true);
-		if (ret < 0)
+		if (ret)
 			goto out_free_irq;
 	}
 
@@ -309,7 +315,7 @@ int iio_trigger_attach_poll_func(struct iio_trigger *trig,
 	 * this is the case if the IIO device and the trigger device share the
 	 * same parent device.
 	 */
-	if (pf->indio_dev->dev.parent == trig->dev.parent)
+	if (iio_validate_own_trigger(pf->indio_dev, trig))
 		trig->attached_own_device = true;
 
 	return ret;
@@ -438,16 +444,12 @@ static ssize_t current_trigger_store(struct device *dev,
 	struct iio_trigger *trig;
 	int ret;
 
-	mutex_lock(&indio_dev->mlock);
-	if (iio_dev_opaque->currentmode == INDIO_BUFFER_TRIGGERED) {
-		mutex_unlock(&indio_dev->mlock);
-		return -EBUSY;
+	scoped_guard(mutex, &iio_dev_opaque->mlock) {
+		if (iio_dev_opaque->currentmode == INDIO_BUFFER_TRIGGERED)
+			return -EBUSY;
+		if (iio_dev_opaque->trig_readonly)
+			return -EPERM;
 	}
-	if (iio_dev_opaque->trig_readonly) {
-		mutex_unlock(&indio_dev->mlock);
-		return -EPERM;
-	}
-	mutex_unlock(&indio_dev->mlock);
 
 	trig = iio_trigger_acquire_by_name(buf);
 	if (oldtrig == trig) {
@@ -714,6 +716,26 @@ bool iio_trigger_using_own(struct iio_dev *indio_dev)
 	return indio_dev->trig->attached_own_device;
 }
 EXPORT_SYMBOL(iio_trigger_using_own);
+
+/**
+ * iio_validate_own_trigger - Check if a trigger and IIO device belong to
+ *  the same device
+ * @idev: the IIO device to check
+ * @trig: the IIO trigger to check
+ *
+ * This function can be used as the validate_trigger callback for triggers that
+ * can only be attached to their own device.
+ *
+ * Return: 0 if both the trigger and the IIO device belong to the same
+ * device, -EINVAL otherwise.
+ */
+int iio_validate_own_trigger(struct iio_dev *idev, struct iio_trigger *trig)
+{
+	if (idev->dev.parent != trig->dev.parent)
+		return -EINVAL;
+	return 0;
+}
+EXPORT_SYMBOL_GPL(iio_validate_own_trigger);
 
 /**
  * iio_trigger_validate_own_device - Check if a trigger and IIO device belong to

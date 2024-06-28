@@ -41,10 +41,20 @@ int iio_triggered_buffer_setup_ext(struct iio_dev *indio_dev,
 	irqreturn_t (*thread)(int irq, void *p),
 	enum iio_buffer_direction direction,
 	const struct iio_buffer_setup_ops *setup_ops,
-	const struct attribute **buffer_attrs)
+	const struct iio_dev_attr **buffer_attrs)
 {
 	struct iio_buffer *buffer;
 	int ret;
+
+	/*
+	 * iio_triggered_buffer_cleanup() assumes that the buffer allocated here
+	 * is assigned to indio_dev->buffer but this is only the case if this
+	 * function is the first caller to iio_device_attach_buffer(). If
+	 * indio_dev->buffer is already set then we can't proceed otherwise the
+	 * cleanup function will try to free a buffer that was not allocated here.
+	 */
+	if (indio_dev->buffer)
+		return -EADDRINUSE;
 
 	buffer = iio_kfifo_allocate();
 	if (!buffer) {
@@ -110,7 +120,7 @@ int devm_iio_triggered_buffer_setup_ext(struct device *dev,
 					irqreturn_t (*thread)(int irq, void *p),
 					enum iio_buffer_direction direction,
 					const struct iio_buffer_setup_ops *ops,
-					const struct attribute **buffer_attrs)
+					const struct iio_dev_attr **buffer_attrs)
 {
 	int ret;
 
