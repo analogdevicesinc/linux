@@ -445,11 +445,6 @@ static inline unsigned fract_exp_two(unsigned x, unsigned fract_bits)
 void bch2_bio_map(struct bio *bio, void *base, size_t);
 int bch2_bio_alloc_pages(struct bio *, size_t, gfp_t);
 
-static inline sector_t bdev_sectors(struct block_device *bdev)
-{
-	return bdev->bd_inode->i_size >> 9;
-}
-
 #define closure_bio_submit(bio, cl)					\
 do {									\
 	closure_get(cl);						\
@@ -788,6 +783,14 @@ static inline int copy_from_user_errcode(void *to, const void __user *from, unsi
 
 #endif
 
+static inline void mod_bit(long nr, volatile unsigned long *addr, bool v)
+{
+	if (v)
+		set_bit(nr, addr);
+	else
+		clear_bit(nr, addr);
+}
+
 static inline void __set_bit_le64(size_t bit, __le64 *addr)
 {
 	addr[bit / 64] |= cpu_to_le64(BIT_ULL(bit % 64));
@@ -795,7 +798,7 @@ static inline void __set_bit_le64(size_t bit, __le64 *addr)
 
 static inline void __clear_bit_le64(size_t bit, __le64 *addr)
 {
-	addr[bit / 64] &= !cpu_to_le64(BIT_ULL(bit % 64));
+	addr[bit / 64] &= ~cpu_to_le64(BIT_ULL(bit % 64));
 }
 
 static inline bool test_bit_le64(size_t bit, __le64 *addr)
