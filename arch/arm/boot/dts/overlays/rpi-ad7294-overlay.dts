@@ -1,0 +1,68 @@
+/*
+ * DT Overlay for Analog Devices AD7294/AD7294-2
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target-path = "/";
+		__overlay__ {
+			avdd: fixedregulator@0 {
+				compatible = "regulator-fixed";
+				regulator-name = "avdd";
+				regulator-min-microvolt = <5000000>;
+				regulator-max-microvolt = <5000000>;
+				regulator-boot-on;
+			};
+			vdrive: fixedregulator@1 {
+				compatible = "regulator-fixed";
+				regulator-name = "vdrive";
+				regulator-min-microvolt = <3300000>;
+				regulator-max-microvolt = <3300000>;
+				regulator-boot-on;
+			};
+			adc_vref: fixedregulator@2 {
+				compatible = "regulator-fixed";
+				regulator-name = "adc-vref";
+				regulator-min-microvolt = <2500000>;
+				regulator-max-microvolt = <2500000>;
+				regulator-boot-on;
+			};
+			dac_vref: fixedregulator@3 {
+				compatible = "regulator-fixed";
+				regulator-name = "dac-vref";
+				regulator-min-microvolt = <2500000>;
+				regulator-max-microvolt = <2500000>;
+				regulator-boot-on;
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&i2c_arm>;
+		__overlay__ {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+			ad7294: ad7294@62 {
+				compatible = "adi,ad7294";
+				reg = <0x62>;
+				adc-vref-supply = <&adc_vref>;
+				dac-vref-supply = <&dac_vref>;
+				avdd-supply = <&avdd>;
+				vdrive-supply = <&vdrive>;
+			};
+		};
+	};
+
+	fragment@2 {
+		target = <&ad7294>;
+		__dormant__ {
+			compatible = "adi,ad7294-2";
+		};
+	};
+};
