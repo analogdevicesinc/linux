@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
  * AD7294/AD7294-2 I2C driver
+ * Datasheet:
+ *   https://www.analog.com/media/en/technical-documentation/data-sheets/AD7294.pdf
  *
  * Copyright (c) 2024 Analog Devices Inc.
  * Author: Anshul Dalal <anshulusr@gmail.com>
@@ -43,7 +45,7 @@
 		.indexed = 1, .output = 0,                            \
 	}
 
-bool ad7294_readable_reg(struct device *dev, unsigned int reg)
+static bool ad7294_readable_reg(struct device *dev, unsigned int reg)
 {
 	return reg != AD7294_REG_CMD;
 };
@@ -67,7 +69,7 @@ struct ad7294_state {
 	u16 dac_value[2];
 };
 
-struct iio_chan_spec ad7294_chan_spec[] = {
+static const struct iio_chan_spec ad7294_chan_spec[] = {
 	AD7294_DAC_CHAN(0),
 	AD7294_DAC_CHAN(1),
 	AD7294_DAC_CHAN(2),
@@ -120,15 +122,15 @@ static int ad7294_read_raw(struct iio_dev *indio_dev,
 	guard(mutex)(&st->lock);
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
-		if (chan->output) {
-			if (chan->type != IIO_VOLTAGE)
-				return -EINVAL;
-			*val = st->dac_value[chan->channel];
-			return IIO_VAL_INT;
-		} else {
-			if (chan->type != IIO_VOLTAGE &&
-			    chan->type != IIO_CURRENT)
-				return -EINVAL;
+		switch (chan->type) {
+		case IIO_CURRENT:
+			goto adc_read;
+		case IIO_VOLTAGE:
+			if (chan->output) {
+				*val = st->dac_value[chan->channel];
+				return IIO_VAL_INT;
+			}
+adc_read:
 			ret = ad7294_write_u8(st, AD7294_REG_CMD,
 					      BIT(chan->channel));
 			if (ret)
@@ -139,29 +141,40 @@ static int ad7294_read_raw(struct iio_dev *indio_dev,
 				return ret;
 			*val = regval & AD7294_VALUE_MASK;
 			return IIO_VAL_INT;
+		default:
+			return -EINVAL;
 		}
 	case IIO_CHAN_INFO_SCALE:
-		if (chan->output) {
-			if (st->dac_vref_reg) {
-				ret = regulator_get_voltage(st->dac_vref_reg);
-				if (ret < 0)
-					return ret;
-				*val = ret / AD7294_UV_IN_MV;
+		switch (chan->type) {
+		case IIO_VOLTAGE:
+			if (chan->output) {
+				if (st->dac_vref_reg) {
+					ret = regulator_get_voltage(
+						st->dac_vref_reg);
+					if (ret < 0)
+						return ret;
+					*val = ret / AD7294_UV_IN_MV;
+				} else {
+					*val = AD7294_DAC_INTERNAL_VREF_MV;
+				}
 			} else {
-				*val = AD7294_DAC_INTERNAL_VREF_MV;
+				if (st->adc_vref_reg) {
+					ret = regulator_get_voltage(
+						st->adc_vref_reg);
+					if (ret < 0)
+						return ret;
+					*val = ret / AD7294_UV_IN_MV;
+				} else {
+					*val = AD7294_ADC_INTERNAL_VREF_MV;
+				}
 			}
-		} else {
-			if (st->adc_vref_reg) {
-				ret = regulator_get_voltage(st->adc_vref_reg);
-				if (ret < 0)
-					return ret;
-				*val = ret / AD7294_UV_IN_MV;
-			} else {
-				*val = AD7294_ADC_INTERNAL_VREF_MV;
-			}
+			*val2 = AD7294_RESOLUTION;
+			return IIO_VAL_FRACTIONAL_LOG2;
+		case IIO_CURRENT:
+			/* TODO */
+		default:
+			return -EINVAL;
 		}
-		*val2 = AD7294_RESOLUTION;
-		return IIO_VAL_FRACTIONAL_LOG2;
 	}
 	return -EINVAL;
 }
@@ -176,17 +189,16 @@ static int ad7294_write_raw(struct iio_dev *indio_dev,
 	guard(mutex)(&st->lock);
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
-		if (chan->output) {
-			/* DAC has 12-bit channels */
-			if (val < 0 || val >= BIT(AD7294_RESOLUTION) || val2)
-				return -EINVAL;
-			ret = regmap_write(st->regmap,
-					   AD7294_REG_DAC(chan->channel), val);
-			if (ret)
-				return ret;
-			st->dac_value[chan->channel] = val;
-			return 0;
-		}
+		if (!chan->output)
+			return -EINVAL;
+		if (val < 0 || val >= BIT(AD7294_RESOLUTION) || val2)
+			return -EINVAL;
+		ret = regmap_write(st->regmap, AD7294_REG_DAC(chan->channel),
+				   val);
+		if (ret)
+			return ret;
+		st->dac_value[chan->channel] = val;
+		return 0;
 	}
 
 	return -EINVAL;
