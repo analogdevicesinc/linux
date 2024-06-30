@@ -20,9 +20,10 @@
 #define AD7294_REG_DAC(x)	     ((x) + 0x01)
 #define AD7294_REG_PWDN		     0x0A
 
-#define AD7294_VALUE_MASK	     GENMASK(11, 0)
-#define AD7294_DAC_EXTERNAL_REF_MASK BIT(4)
+#define AD7294_TEMP_VALUE_MASK	     GENMASK(10, 0)
+#define AD7294_ADC_VALUE_MASK	     GENMASK(11, 0)
 #define AD7294_ADC_EXTERNAL_REF_MASK BIT(5)
+#define AD7294_DAC_EXTERNAL_REF_MASK BIT(4)
 
 #define AD7294_ADC_INTERNAL_VREF_MV  2500
 #define AD7294_DAC_INTERNAL_VREF_MV  2500
@@ -44,6 +45,20 @@
 		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE), \
 		.indexed = 1, .output = 0,                            \
 	}
+
+#define AD7294_TEMP_CHAN(_chan_id)                                    \
+	{                                                             \
+		.type = IIO_TEMP, .channel = _chan_id,                \
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),         \
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE), \
+		.indexed = 1, .output = 0,                            \
+	}
+
+enum ad7294_temp_chan {
+	TSENSE_1 = 0x02,
+	TSENSE_2,
+	TSENSE_INTERNAL,
+};
 
 static bool ad7294_readable_reg(struct device *dev, unsigned int reg)
 {
@@ -80,6 +95,9 @@ static const struct iio_chan_spec ad7294_chan_spec[] = {
 	AD7294_ADC_CHAN(IIO_VOLTAGE, 3),
 	AD7294_ADC_CHAN(IIO_CURRENT, 4),
 	AD7294_ADC_CHAN(IIO_CURRENT, 5),
+	AD7294_TEMP_CHAN(TSENSE_1),
+	AD7294_TEMP_CHAN(TSENSE_2),
+	AD7294_TEMP_CHAN(TSENSE_INTERNAL),
 };
 
 static int ad7294_read_u8(struct ad7294_state *st, u8 reg, u8 *val)
@@ -116,8 +134,8 @@ static int ad7294_read_raw(struct iio_dev *indio_dev,
 			   int *val2, long mask)
 {
 	struct ad7294_state *st = iio_priv(indio_dev);
-	int ret;
-	unsigned int regval;
+	int ret, temperature;
+	unsigned int i, regval;
 
 	guard(mutex)(&st->lock);
 	switch (mask) {
@@ -139,7 +157,20 @@ adc_read:
 					  &regval);
 			if (ret)
 				return ret;
-			*val = regval & AD7294_VALUE_MASK;
+			*val = regval & AD7294_ADC_VALUE_MASK;
+			return IIO_VAL_INT;
+		case IIO_TEMP:
+			ret = regmap_read(st->regmap, chan->channel, &regval);
+			if (ret)
+				return ret;
+			regval &= AD7294_TEMP_VALUE_MASK;
+			/* Raw data is read in 11-bit Two's completement format
+			 * Ref: Datasheet Page#29
+			*/
+			temperature = regval & GENMASK(9, 0);
+			if (regval & BIT(9))
+				temperature -= (1 << 10);
+			*val = temperature;
 			return IIO_VAL_INT;
 		default:
 			return -EINVAL;
@@ -170,6 +201,10 @@ adc_read:
 			}
 			*val2 = AD7294_RESOLUTION;
 			return IIO_VAL_FRACTIONAL_LOG2;
+		case IIO_TEMP:
+			/* Data resolution is 0.25 degree Celsius */
+			*val = 250;
+			return IIO_VAL_INT;
 		case IIO_CURRENT:
 			/* TODO */
 		default:
