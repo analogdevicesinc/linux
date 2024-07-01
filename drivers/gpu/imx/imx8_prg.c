@@ -423,7 +423,7 @@ static int prg_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int prg_remove(struct platform_device *pdev)
+static void prg_remove(struct platform_device *pdev)
 {
 	struct prg *prg = platform_get_drvdata(pdev);
 
@@ -433,8 +433,6 @@ static int prg_remove(struct platform_device *pdev)
 
 	clk_disable_unprepare(prg->clk_rtram);
 	clk_disable_unprepare(prg->clk_apb);
-
-	return 0;
 }
 
 struct platform_driver prg_drv = {

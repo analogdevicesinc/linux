@@ -226,11 +226,9 @@ static int imx_lmuxd_probe(struct platform_device *pdev)
 	return component_add(dev, &imx_lmuxd_ops);
 }
 
-static int imx_lmuxd_remove(struct platform_device *pdev)
+static void imx_lmuxd_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &imx_lmuxd_ops);
-
-	return 0;
 }
 
 static const struct of_device_id imx_lmuxd_dt_ids[] = {

@@ -87,13 +87,11 @@ static int typec_switch_gpio_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int typec_switch_gpio_remove(struct platform_device *pdev)
+static void typec_switch_gpio_remove(struct platform_device *pdev)
 {
 	struct gpio_typec_switch *gpio_sw = platform_get_drvdata(pdev);
 
 	typec_switch_unregister(gpio_sw->sw);
-
-	return 0;
 }
 
 static const struct of_device_id of_typec_switch_gpio_match[] = {

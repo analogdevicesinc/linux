@@ -3640,7 +3640,7 @@ init_fbinfo_failed:
 	return ret;
 }
 
-static int mxcfb_remove(struct platform_device *pdev)
+static void mxcfb_remove(struct platform_device *pdev)
 {
 	struct fb_info *fbi = platform_get_drvdata(pdev);
 	struct mxcfb_info *mxc_fbi = fbi->par;
@@ -3664,7 +3664,6 @@ static int mxcfb_remove(struct platform_device *pdev)
 	ipu_clear_usage(mxc_fbi->ipu_id, mxc_fbi->ipu_di);
 	fb_dealloc_cmap(&fbi->cmap);
 	framebuffer_release(fbi);
-	return 0;
 }
 
 static const struct of_device_id imx_mxcfb_dt_ids[] = {

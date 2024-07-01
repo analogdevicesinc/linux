@@ -253,11 +253,9 @@ static int cdns_mhdp_imx_probe(struct platform_device *pdev)
 	return component_add(&pdev->dev, &cdns_mhdp_imx_ops);
 }
 
-static int cdns_mhdp_imx_remove(struct platform_device *pdev)
+static void cdns_mhdp_imx_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &cdns_mhdp_imx_ops);
-
-	return 0;
 }
 
 static const struct dev_pm_ops cdns_mhdp_imx_pm_ops = {

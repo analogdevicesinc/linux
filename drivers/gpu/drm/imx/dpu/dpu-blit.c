@@ -339,10 +339,9 @@ static int dpu_bliteng_probe(struct platform_device *pdev)
 	return component_add(dev, &dpu_bliteng_ops);
 }
 
-static int dpu_bliteng_remove(struct platform_device *pdev)
+static void dpu_bliteng_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &dpu_bliteng_ops);
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP

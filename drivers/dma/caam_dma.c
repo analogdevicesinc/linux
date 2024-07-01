@@ -424,7 +424,7 @@ desc_err:
 	return err;
 }
 
-static int caam_dma_remove(struct platform_device *pdev)
+static void caam_dma_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 	struct device *ctrldev = dev->parent;
@@ -445,7 +445,6 @@ static int caam_dma_remove(struct platform_device *pdev)
 	kfree(dma_dev);
 
 	dev_info(dev, "caam dma support disabled\n");
-	return 0;
 }
 
 static struct platform_driver caam_dma_driver = {

@@ -284,11 +284,9 @@ put_child:
 	return ret;
 }
 
-static int imx8mp_lvds_phy_remove(struct platform_device *pdev)
+static void imx8mp_lvds_phy_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
-
-	return 0;
 }
 
 static const struct of_device_id imx8mp_lvds_phy_of_match[] = {

@@ -476,7 +476,7 @@ alloc_failed:
 	return ret;
 }
 
-static int mipi_csi2_remove(struct platform_device *pdev)
+static void mipi_csi2_remove(struct platform_device *pdev)
 {
 	/* unmapping mipi register */
 	iounmap(gmipi_csi2->mipi_csi2_base);
@@ -484,8 +484,6 @@ static int mipi_csi2_remove(struct platform_device *pdev)
 	kfree(gmipi_csi2);
 
 	dev_set_drvdata(&pdev->dev, NULL);
-
-	return 0;
 }
 
 static const struct of_device_id imx_mipi_csi2_dt_ids[] = {

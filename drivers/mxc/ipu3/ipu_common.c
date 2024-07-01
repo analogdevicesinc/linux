@@ -669,15 +669,13 @@ static int ipu_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int ipu_remove(struct platform_device *pdev)
+static void ipu_remove(struct platform_device *pdev)
 {
 	struct ipu_soc *ipu = platform_get_drvdata(pdev);
 
 	unregister_ipu_device(ipu, ipu->id);
 
 	clk_put(ipu->ipu_clk);
-
-	return 0;
 }
 
 void ipu_dump_registers(struct ipu_soc *ipu)

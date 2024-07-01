@@ -881,7 +881,7 @@ static int mxs_dma_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int mxs_dma_remove(struct platform_device *pdev)
+static void mxs_dma_remove(struct platform_device *pdev)
 {
 	struct mxs_dma_engine *mxs_dma = platform_get_drvdata(pdev);
 	int i;
@@ -895,8 +895,6 @@ static int mxs_dma_remove(struct platform_device *pdev)
 		tasklet_kill(&mxs_chan->tasklet);
 		mxs_chan->ccw_pool = NULL;
 	}
-
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP

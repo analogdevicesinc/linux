@@ -5842,13 +5842,11 @@ static int kbase_platform_device_remove(struct platform_device *pdev)
 	struct kbase_device *kbdev = to_kbase_device(&pdev->dev);
 
 	if (!kbdev)
-		return -ENODEV;
+		return;
 
 	kbase_device_term(kbdev);
 	dev_set_drvdata(kbdev->dev, NULL);
 	kbase_device_free(kbdev);
-
-	return 0;
 }
 #endif
 

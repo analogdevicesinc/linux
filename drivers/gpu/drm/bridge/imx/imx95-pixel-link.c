@@ -236,13 +236,11 @@ err:
 	return ret;
 }
 
-static int imx95_pl_remove(struct platform_device *pdev)
+static void imx95_pl_remove(struct platform_device *pdev)
 {
 	struct imx95_pl *pl = platform_get_drvdata(pdev);
 
 	imx95_pl_bridge_remove(pl);
-
-	return 0;
 }
 
 static const struct of_device_id imx95_pl_dt_ids[] = {

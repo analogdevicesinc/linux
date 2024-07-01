@@ -470,15 +470,13 @@ static int ipu_prg_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int ipu_prg_remove(struct platform_device *pdev)
+static void ipu_prg_remove(struct platform_device *pdev)
 {
 	struct ipu_prg_data *prg = platform_get_drvdata(pdev);
 
 	mutex_lock(&prg_lock);
 	list_del(&prg->list);
 	mutex_unlock(&prg_lock);
-
-	return 0;
 }
 
 static const struct of_device_id imx_ipu_prg_dt_ids[] = {

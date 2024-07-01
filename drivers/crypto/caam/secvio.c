@@ -200,7 +200,7 @@ int snvs_secvio_remove_handler(struct device *dev, enum secvio_cause cause)
 }
 EXPORT_SYMBOL(snvs_secvio_remove_handler);
 
-static int snvs_secvio_remove(struct platform_device *pdev)
+static void snvs_secvio_remove(struct platform_device *pdev)
 {
 	struct device *svdev;
 	struct snvs_secvio_drv_private *svpriv;
@@ -221,8 +221,6 @@ static int snvs_secvio_remove(struct platform_device *pdev)
 	free_irq(svpriv->irq, svdev);
 	iounmap(svpriv->svregs);
 	kfree(svpriv);
-
-	return 0;
 }
 
 static int snvs_secvio_probe(struct platform_device *pdev)

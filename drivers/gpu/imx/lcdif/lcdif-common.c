@@ -759,11 +759,9 @@ static int imx_lcdif_probe(struct platform_device *pdev)
 	return lcdif_add_client_devices(lcdif);
 }
 
-static int imx_lcdif_remove(struct platform_device *pdev)
+static void imx_lcdif_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP

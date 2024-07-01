@@ -897,13 +897,12 @@ static int ldb_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int ldb_remove(struct platform_device *pdev)
+static void ldb_remove(struct platform_device *pdev)
 {
 	struct ldb_data *ldb = dev_get_drvdata(&pdev->dev);
 
 	mxc_dispdrv_puthandle(ldb->mddh);
 	mxc_dispdrv_unregister(ldb->mddh);
-	return 0;
 }
 
 static struct platform_driver ldb_driver = {

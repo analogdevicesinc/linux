@@ -715,10 +715,9 @@ static int dw_dphy_probe(struct platform_device *pdev)
 	return PTR_ERR_OR_ZERO(phy_provider);
 }
 
-static int dw_dphy_remove(struct platform_device *pdev)
+static void dw_dphy_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
-	return 0;
 }
 
 static struct platform_driver dw_dphy_driver = {

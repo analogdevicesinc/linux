@@ -2226,7 +2226,7 @@ free_dev:
 	return ret;
 }
 
-static int mxc_vout_remove(struct platform_device *pdev)
+static void mxc_vout_remove(struct platform_device *pdev)
 {
 	struct v4l2_device *v4l2_dev = platform_get_drvdata(pdev);
 	struct mxc_vout_dev *dev = container_of(v4l2_dev, struct
@@ -2235,7 +2235,6 @@ static int mxc_vout_remove(struct platform_device *pdev)
 	mxc_vout_free_output(dev);
 	v4l2_device_unregister(v4l2_dev);
 	kfree(dev);
-	return 0;
 }
 
 static const struct of_device_id mxc_v4l2_dt_ids[] = {

@@ -693,11 +693,9 @@ static int imx_lcdifv3_probe(struct platform_device *pdev)
 	return lcdifv3_add_client_devices(lcdifv3);
 }
 
-static int imx_lcdifv3_remove(struct platform_device *pdev)
+static void imx_lcdifv3_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM

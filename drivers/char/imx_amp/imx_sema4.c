@@ -370,9 +370,8 @@ err:
 	return ret;
 }
 
-static int imx_sema4_remove(struct platform_device *pdev)
+static void imx_sema4_remove(struct platform_device *pdev)
 {
-	return 0;
 }
 
 static struct platform_driver imx_sema4_driver = {

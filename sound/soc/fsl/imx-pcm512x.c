@@ -718,7 +718,7 @@ static int imx_pcm512x_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int imx_pcm512x_remove(struct platform_device *pdev)
+static void imx_pcm512x_remove(struct platform_device *pdev)
 {
 	struct imx_pcm512x_data *data = platform_get_drvdata(pdev);
 
@@ -726,8 +726,6 @@ static int imx_pcm512x_remove(struct platform_device *pdev)
 		gpiod_set_value_cansleep(data->mute_gpio, 0);
 
 	snd_soc_unregister_card(&data->priv->snd_card);
-
-	return 0;
 }
 
 static const struct of_device_id imx_pcm512x_dt_ids[] = {

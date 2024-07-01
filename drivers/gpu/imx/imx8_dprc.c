@@ -863,7 +863,7 @@ static int dprc_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int dprc_remove(struct platform_device *pdev)
+static void dprc_remove(struct platform_device *pdev)
 {
 	struct dprc *dprc = platform_get_drvdata(pdev);
 
@@ -874,8 +874,6 @@ static int dprc_remove(struct platform_device *pdev)
 	clk_disable_unprepare(dprc->clk_rtram);
 	clk_disable_unprepare(dprc->clk_b);
 	clk_disable_unprepare(dprc->clk_apb);
-
-	return 0;
 }
 
 struct platform_driver dprc_drv = {

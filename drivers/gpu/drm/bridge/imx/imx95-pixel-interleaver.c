@@ -345,7 +345,7 @@ free_child:
 	return ret;
 }
 
-static int imx95_pinter_remove(struct platform_device *pdev)
+static void imx95_pinter_remove(struct platform_device *pdev)
 {
 	struct imx95_pinter *pinter = platform_get_drvdata(pdev);
 	struct imx95_pinter_channel *ch;
@@ -360,8 +360,6 @@ static int imx95_pinter_remove(struct platform_device *pdev)
 		drm_bridge_remove(&ch->bridge);
 		ch->is_available = false;
 	}
-
-	return 0;
 }
 
 static const struct of_device_id imx95_pinter_dt_ids[] = {

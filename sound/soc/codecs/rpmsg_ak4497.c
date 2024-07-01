@@ -1078,11 +1078,9 @@ static int rpmsg_ak4497_codec_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int rpmsg_ak4497_codec_remove(struct platform_device *pdev)
+static void rpmsg_ak4497_codec_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
-
-	return 0;
 }
 
 static struct platform_driver rpmsg_ak4497_codec_driver = {

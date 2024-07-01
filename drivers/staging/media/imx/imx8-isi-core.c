@@ -753,14 +753,12 @@ err:
 	return -ENXIO;
 }
 
-static int mxc_isi_remove(struct platform_device *pdev)
+static void mxc_isi_remove(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
 
 	of_platform_depopulate(dev);
 	pm_runtime_disable(dev);
-
-	return 0;
 }
 
 static int mxc_isi_pm_suspend(struct device *dev)

@@ -1666,7 +1666,7 @@ err_ent_cleanup:
 	return ret;
 }
 
-static int dwc_csi_device_remove(struct platform_device *pdev)
+static void dwc_csi_device_remove(struct platform_device *pdev)
 {
 	struct v4l2_subdev *sd = platform_get_drvdata(pdev);
 	struct dwc_csi_device *csidev = sd_to_dwc_csi_device(sd);
@@ -1684,7 +1684,6 @@ static int dwc_csi_device_remove(struct platform_device *pdev)
 	mutex_destroy(&csidev->lock);
 
 	pm_runtime_set_suspended(&pdev->dev);
-	return 0;
 }
 
 static const struct of_device_id dwc_csi_device_of_match[] = {

@@ -268,7 +268,7 @@ err_put_rproc:
 	return ret;
 }
 
-static int neutron_rproc_remove(struct platform_device *pdev)
+static void neutron_rproc_remove(struct platform_device *pdev)
 {
 	struct rproc *rproc = platform_get_drvdata(pdev);
 
@@ -276,8 +276,6 @@ static int neutron_rproc_remove(struct platform_device *pdev)
 
 	rproc_del(rproc);
 	rproc_free(rproc);
-
-	return 0;
 }
 
 static const struct of_device_id neutron_rproc_of_match[] = {

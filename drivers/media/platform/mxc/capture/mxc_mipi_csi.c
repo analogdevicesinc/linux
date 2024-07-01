@@ -1266,7 +1266,7 @@ static int mipi_csis_runtime_resume(struct device *dev)
 	return mipi_csis_pm_resume(dev, true);
 }
 
-static int mipi_csis_remove(struct platform_device *pdev)
+static void mipi_csis_remove(struct platform_device *pdev)
 {
 	struct csi_state *state = platform_get_drvdata(pdev);
 
@@ -1278,8 +1278,6 @@ static int mipi_csis_remove(struct platform_device *pdev)
 	pm_runtime_disable(&pdev->dev);
 	mipi_csis_pm_suspend(&pdev->dev, true);
 	pm_runtime_set_suspended(&pdev->dev);
-
-	return 0;
 }
 
 static const struct dev_pm_ops mipi_csis_pm_ops = {

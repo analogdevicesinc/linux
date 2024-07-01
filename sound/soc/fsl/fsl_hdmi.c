@@ -738,15 +738,13 @@ fail:
 	return ret;
 }
 
-static int fsl_hdmi_dai_remove(struct platform_device *pdev)
+static void fsl_hdmi_dai_remove(struct platform_device *pdev)
 {
 	struct imx_hdmi *hdmi_data = platform_get_drvdata(pdev);
 
 	platform_device_unregister(hdmi_data->dma_dev);
 	platform_device_unregister(hdmi_data->codec_dev);
 	snd_soc_unregister_component(&pdev->dev);
-
-	return 0;
 }
 
 static const struct of_device_id fsl_hdmi_dai_dt_ids[] = {

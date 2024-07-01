@@ -832,7 +832,7 @@ static void mipi_dsi_shutdown(struct platform_device *pdev)
 	mipi_dsi_power_off(mipi_dsi->disp_mipi);
 }
 
-static int mipi_dsi_remove(struct platform_device *pdev)
+static void mipi_dsi_remove(struct platform_device *pdev)
 {
 	struct mipi_dsi_info *mipi_dsi = dev_get_drvdata(&pdev->dev);
 
@@ -844,8 +844,6 @@ static int mipi_dsi_remove(struct platform_device *pdev)
 
 	kfree(mipi_dsi->lcd_panel);
 	dev_set_drvdata(&pdev->dev, NULL);
-
-	return 0;
 }
 
 static int mipi_dsi_runtime_suspend(struct device *dev)

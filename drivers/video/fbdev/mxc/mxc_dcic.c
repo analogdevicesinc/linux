@@ -564,7 +564,7 @@ ealloc:
 	return ret;
 }
 
-static int dcic_remove(struct platform_device *pdev)
+static void dcic_remove(struct platform_device *pdev)
 {
 	struct dcic_data *dcic = platform_get_drvdata(pdev);
 	const char *name;
@@ -576,8 +576,6 @@ static int dcic_remove(struct platform_device *pdev)
 	class_destroy(dcic->class);
 	unregister_chrdev(dcic->major, name);
 	mutex_destroy(&dcic->lock);
-
-	return 0;
 }
 
 static struct platform_driver dcic_driver = {

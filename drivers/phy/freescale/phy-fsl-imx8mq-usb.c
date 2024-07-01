@@ -1139,7 +1139,7 @@ static int imx8mq_usb_phy_probe(struct platform_device *pdev)
 	return PTR_ERR_OR_ZERO(phy_provider);
 }
 
-static int imx8mq_usb_phy_remove(struct platform_device *pdev)
+static void imx8mq_usb_phy_remove(struct platform_device *pdev)
 {
 	struct imx8mq_usb_phy *imx_phy = platform_get_drvdata(pdev);
 
@@ -1149,8 +1149,6 @@ static int imx8mq_usb_phy_remove(struct platform_device *pdev)
 		power_supply_unreg_notifier(&imx_phy->chg_det_nb);
 
 	debug_remove_files(imx_phy);
-
-	return 0;
 }
 
 static struct platform_driver imx8mq_usb_phy_driver = {

@@ -1492,9 +1492,8 @@ static int rpmsg_wm8960_codec_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int rpmsg_wm8960_codec_remove(struct platform_device *pdev)
+static void rpmsg_wm8960_codec_remove(struct platform_device *pdev)
 {
-	return 0;
 }
 
 static struct platform_driver rpmsg_wm8960_codec_driver = {

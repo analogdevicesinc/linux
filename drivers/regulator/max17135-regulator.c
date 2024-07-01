@@ -769,7 +769,7 @@ err:
 	return ret;
 }
 
-static int max17135_regulator_remove(struct platform_device *pdev)
+static void max17135_regulator_remove(struct platform_device *pdev)
 {
 	struct max17135_data *priv = platform_get_drvdata(pdev);
 	struct regulator_dev **rdev = priv->rdev;
@@ -777,7 +777,6 @@ static int max17135_regulator_remove(struct platform_device *pdev)
 
 	for (i = 0; i < priv->num_regulators; i++)
 		regulator_unregister(rdev[i]);
-	return 0;
 }
 
 static const struct platform_device_id max17135_pmic_id[] = {

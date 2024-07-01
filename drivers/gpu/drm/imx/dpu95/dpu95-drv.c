@@ -105,7 +105,7 @@ disable_rpm:
 	return ret;
 }
 
-static int dpu95_remove(struct platform_device *pdev)
+static void dpu95_remove(struct platform_device *pdev)
 {
 	struct drm_device *drm = dev_get_drvdata(&pdev->dev);
 	struct dpu95_drm_device *dpu_drm = to_dpu95_drm_device(drm);
@@ -114,8 +114,6 @@ static int dpu95_remove(struct platform_device *pdev)
 	drm_atomic_helper_shutdown(drm);
 	dpu95_unload(dpu_drm);
 	pm_runtime_disable(&pdev->dev);
-
-	return 0;
 }
 
 static int dpu95_runtime_suspend(struct device *dev)

@@ -497,13 +497,11 @@ static int imx_sec_dsim_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int imx_sec_dsim_remove(struct platform_device *pdev)
+static void imx_sec_dsim_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &imx_sec_dsim_ops);
 	pm_runtime_disable(&pdev->dev);
 	sec_dsim_of_put_resets(dsim_dev);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP

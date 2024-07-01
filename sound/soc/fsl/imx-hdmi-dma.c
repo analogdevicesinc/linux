@@ -1146,14 +1146,12 @@ err_plat:
 	return ret;
 }
 
-static int imx_soc_platform_remove(struct platform_device *pdev)
+static void imx_soc_platform_remove(struct platform_device *pdev)
 {
 	struct hdmi_dma_priv *priv = dev_get_drvdata(&pdev->dev);
 
 	dma_free_coherent(&pdev->dev, sizeof(struct hdmi_sdma_script),
 			priv->hdmi_sdma_t, priv->phy_hdmi_sdma_t);
-
-	return 0;
 }
 
 static struct platform_driver imx_hdmi_dma_driver = {

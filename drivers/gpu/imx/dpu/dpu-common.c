@@ -1304,7 +1304,7 @@ failed_irq:
 	return ret;
 }
 
-static int dpu_remove(struct platform_device *pdev)
+static void dpu_remove(struct platform_device *pdev)
 {
 	struct dpu_soc *dpu = platform_get_drvdata(pdev);
 
@@ -1312,8 +1312,6 @@ static int dpu_remove(struct platform_device *pdev)
 
 	dpu_irq_exit(dpu);
 	dpu_detach_pm_domains(dpu);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP

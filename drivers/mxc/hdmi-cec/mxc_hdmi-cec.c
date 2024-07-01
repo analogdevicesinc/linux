@@ -630,7 +630,7 @@ out:
 	return err;
 }
 
-static int hdmi_cec_dev_remove(struct platform_device *pdev)
+static void hdmi_cec_dev_remove(struct platform_device *pdev)
 {
 	if (hdmi_cec_major > 0) {
 		device_destroy(hdmi_cec_class, MKDEV(hdmi_cec_major, 0));
@@ -638,7 +638,6 @@ static int hdmi_cec_dev_remove(struct platform_device *pdev)
 		unregister_chrdev(hdmi_cec_major, "mxc_hdmi_cec");
 		hdmi_cec_major = 0;
 	}
-	return 0;
 }
 
 static const struct of_device_id imx_hdmi_cec_match[] = {

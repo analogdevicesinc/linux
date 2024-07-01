@@ -1813,13 +1813,11 @@ static int sim_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int sim_remove(struct platform_device *pdev)
+static void sim_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
 
 	misc_deregister(&sim_dev);
-
-	return 0;
 }
 
 static int __maybe_unused sim_suspend(struct device *dev)

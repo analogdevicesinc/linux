@@ -1442,10 +1442,9 @@ static int dpu_crtc_probe(struct platform_device *pdev)
 	return component_add(dev, &dpu_crtc_ops);
 }
 
-static int dpu_crtc_remove(struct platform_device *pdev)
+static void dpu_crtc_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &dpu_crtc_ops);
-	return 0;
 }
 
 static struct platform_driver dpu_crtc_driver = {

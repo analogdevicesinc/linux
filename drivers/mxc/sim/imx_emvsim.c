@@ -1667,13 +1667,11 @@ static int emvsim_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int emvsim_remove(struct platform_device *pdev)
+static void emvsim_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
 
 	misc_deregister(&emvsim_dev);
-
-	return 0;
 }
 
 static int __maybe_unused emvsim_suspend(struct device *dev)

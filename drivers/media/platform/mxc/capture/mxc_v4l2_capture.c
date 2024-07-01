@@ -2844,13 +2844,13 @@ static int mxc_v4l2_probe(struct platform_device *pdev)
  *
  * @return  The function returns 0 on success and -1 on failure.
  */
-static int mxc_v4l2_remove(struct platform_device *pdev)
+static void mxc_v4l2_remove(struct platform_device *pdev)
 {
 	cam_data *cam = (cam_data *)platform_get_drvdata(pdev);
 	if (cam->open_count) {
 		pr_err("ERROR: v4l2 capture:camera open "
 			"-- setting ops to NULL\n");
-		return -EBUSY;
+		return;
 	} else {
 		struct v4l2_device *v4l2_dev = cam->video_dev->v4l2_dev;
 		device_remove_file(&cam->video_dev->dev,
@@ -2872,7 +2872,6 @@ static int mxc_v4l2_remove(struct platform_device *pdev)
 	}
 
 	pr_info("V4L2 unregistering video\n");
-	return 0;
 }
 
 /*!

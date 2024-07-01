@@ -486,7 +486,7 @@ static int imx95_ldb_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int imx95_ldb_remove(struct platform_device *pdev)
+static void imx95_ldb_remove(struct platform_device *pdev)
 {
 	struct imx95_ldb *imx95_ldb = platform_get_drvdata(pdev);
 	struct ldb *ldb = &imx95_ldb->base;
@@ -494,8 +494,6 @@ static int imx95_ldb_remove(struct platform_device *pdev)
 	ldb_remove_bridge_helper(ldb);
 
 	pm_runtime_disable(&pdev->dev);
-
-	return 0;
 }
 
 static int __maybe_unused imx95_ldb_runtime_suspend(struct device *dev)

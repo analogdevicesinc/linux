@@ -1157,13 +1157,11 @@ static int imx95_dsi_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int imx95_dsi_remove(struct platform_device *pdev)
+static void imx95_dsi_remove(struct platform_device *pdev)
 {
 	struct imx95_dsi *dsi = platform_get_drvdata(pdev);
 
 	dw_mipi_dsi_remove(dsi->dmd);
-
-	return 0;
 }
 
 static const struct of_device_id imx95_dsi_dt_ids[] = {

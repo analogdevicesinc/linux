@@ -84,11 +84,11 @@ static int fp9931_hwmon_probe(struct platform_device *pdev)
 	return regulator_enable(hwmon->en_ts);
 }
 
-static int fp9931_hwmon_remove(struct platform_device *pdev)
+static void fp9931_hwmon_remove(struct platform_device *pdev)
 {
 	struct fp9931_hwmon *hwmon = platform_get_drvdata(pdev);
 
-	return regulator_disable(hwmon->en_ts);
+	regulator_disable(hwmon->en_ts);
 }
 
 static const struct platform_device_id fp9931_hwmon_id[] = {

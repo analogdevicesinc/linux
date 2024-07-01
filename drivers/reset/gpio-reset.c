@@ -135,13 +135,11 @@ static int gpio_reset_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int gpio_reset_remove(struct platform_device *pdev)
+static void gpio_reset_remove(struct platform_device *pdev)
 {
 	struct gpio_reset_data *drvdata = platform_get_drvdata(pdev);
 
 	reset_controller_unregister(&drvdata->rcdev);
-
-	return 0;
 }
 
 static struct of_device_id gpio_reset_dt_ids[] = {

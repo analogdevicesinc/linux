@@ -1375,7 +1375,7 @@ failed:
 	return ret;
 }
 
-static int hdmirx_remove(struct platform_device *pdev)
+static void hdmirx_remove(struct platform_device *pdev)
 {
 	struct cdns_hdmirx_device *hdmirx = platform_get_drvdata(pdev);
 	struct device *dev = &pdev->dev;
@@ -1399,8 +1399,6 @@ static int hdmirx_remove(struct platform_device *pdev)
 	hdmirx_clock_disable(hdmirx);
 	pm_runtime_put_sync(dev);
 	pm_runtime_disable(dev);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP

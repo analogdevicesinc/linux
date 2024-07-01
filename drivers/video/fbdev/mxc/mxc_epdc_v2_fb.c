@@ -5770,7 +5770,7 @@ out:
 	return ret;
 }
 
-static int mxc_epdc_fb_remove(struct platform_device *pdev)
+static void mxc_epdc_fb_remove(struct platform_device *pdev)
 {
 	struct update_data_list *plist, *temp_list;
 	struct mxc_epdc_fb_data *fb_data = platform_get_drvdata(pdev);
@@ -5825,8 +5825,6 @@ static int mxc_epdc_fb_remove(struct platform_device *pdev)
 		regmap_update_bits(fb_data->gpr, fb_data->req_gpr,
 			1 << fb_data->req_bit, 1 << fb_data->req_bit);
 	platform_set_drvdata(pdev, NULL);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP

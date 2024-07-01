@@ -83,13 +83,11 @@ end:
 	return ret;
 }
 
-static int imx_hdmi_audio_remove(struct platform_device *pdev)
+static void imx_hdmi_audio_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 
 	snd_soc_unregister_card(card);
-
-	return 0;
 }
 
 static const struct of_device_id imx_hdmi_dt_ids[] = {

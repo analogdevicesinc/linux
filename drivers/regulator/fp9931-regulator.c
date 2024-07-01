@@ -549,9 +549,8 @@ static int fp9931_regulator_probe(struct platform_device *pdev)
 	return fp9931_config_power_on_delays(fp9931);
 }
 
-static int fp9931_regulator_remove(struct platform_device *pdev)
+static void fp9931_regulator_remove(struct platform_device *pdev)
 {
-	return 0;
 }
 
 static const struct platform_device_id fp9931_pmic_id[] = {

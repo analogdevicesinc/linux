@@ -883,7 +883,7 @@ err:
 	return ret;
 }
 
-static int max8903_remove(struct platform_device *pdev)
+static void max8903_remove(struct platform_device *pdev)
 {
 	struct max8903_data *data = platform_get_drvdata(pdev);
 	if (data) {
@@ -919,8 +919,6 @@ static int max8903_remove(struct platform_device *pdev)
 		platform_set_drvdata(pdev, NULL);
 		kfree(data);
 	}
-
-	return 0;
 }
 
 static int max8903_suspend(struct platform_device *pdev,

@@ -770,7 +770,7 @@ err:
 	return ret;
 }
 
-static int vadc_remove(struct platform_device *pdev)
+static void vadc_remove(struct platform_device *pdev)
 {
 	struct vadc_state *state = platform_get_drvdata(pdev);
 
@@ -781,7 +781,6 @@ static int vadc_remove(struct platform_device *pdev)
 	clk_disable_unprepare(state->vadc_clk);
 
 	vadc_power_down(state);
-	return true;
 }
 
 static int vadc_suspend(struct device *dev)

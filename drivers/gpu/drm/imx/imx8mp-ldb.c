@@ -372,10 +372,9 @@ static int imx8mp_ldb_probe(struct platform_device *pdev)
 	return component_add(dev, &imx8mp_ldb_ops);
 }
 
-static int imx8mp_ldb_remove(struct platform_device *pdev)
+static void imx8mp_ldb_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &imx8mp_ldb_ops);
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP

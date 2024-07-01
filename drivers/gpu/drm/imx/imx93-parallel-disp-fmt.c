@@ -212,11 +212,9 @@ static int imx93_pdf_probe(struct platform_device *pdev)
 	return component_add(dev, &imx93_pdf_ops);
 }
 
-static int imx93_pdf_remove(struct platform_device *pdev)
+static void imx93_pdf_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &imx93_pdf_ops);
-
-	return 0;
 }
 
 static const struct of_device_id imx93_pdf_dt_ids[] = {

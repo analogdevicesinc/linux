@@ -519,11 +519,9 @@ int s32v_pinctrl_probe(struct platform_device *pdev,
 	return 0;
 }
 
-int s32v_pinctrl_remove(struct platform_device *pdev)
+void s32v_pinctrl_remove(struct platform_device *pdev)
 {
 	struct s32v_pinctrl *ipctl = platform_get_drvdata(pdev);
 
 	pinctrl_unregister(ipctl->pctl);
-
-	return 0;
 }

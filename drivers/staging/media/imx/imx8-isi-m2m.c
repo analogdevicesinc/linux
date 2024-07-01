@@ -1455,7 +1455,7 @@ free_m2m:
 
 }
 
-static int isi_m2m_remove(struct platform_device *pdev)
+static void isi_m2m_remove(struct platform_device *pdev)
 {
 	struct mxc_isi_m2m_dev *isi_m2m = platform_get_drvdata(pdev);
 	struct video_device *vdev = &isi_m2m->vdev;
@@ -1468,8 +1468,6 @@ static int isi_m2m_remove(struct platform_device *pdev)
 	v4l2_m2m_release(isi_m2m->m2m_dev);
 	v4l2_device_unregister(&isi_m2m->v4l2_dev);
 	pm_runtime_disable(&isi_m2m->pdev->dev);
-
-	return 0;
 }
 
 static int mxc_isi_m2m_pm_resume(struct device *dev)

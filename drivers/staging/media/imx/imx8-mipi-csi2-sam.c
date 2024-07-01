@@ -2116,14 +2116,12 @@ static int mipi_csis_runtime_resume(struct device *dev)
 	return 0;
 }
 
-static int mipi_csis_remove(struct platform_device *pdev)
+static void mipi_csis_remove(struct platform_device *pdev)
 {
 	struct csi_state *state = platform_get_drvdata(pdev);
 
 	media_entity_cleanup(&state->sd.entity);
 	pm_runtime_disable(&pdev->dev);
-
-	return 0;
 }
 
 static const struct dev_pm_ops mipi_csis_pm_ops = {

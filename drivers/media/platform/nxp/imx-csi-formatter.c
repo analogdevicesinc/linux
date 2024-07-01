@@ -851,7 +851,7 @@ static int csi_formatter_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int csi_formatter_remove(struct platform_device *pdev)
+static void csi_formatter_remove(struct platform_device *pdev)
 {
 	struct v4l2_subdev *sd = platform_get_drvdata(pdev);
 	struct csi_formatter *formatter = sd_to_formatter(sd);
@@ -866,7 +866,6 @@ static int csi_formatter_remove(struct platform_device *pdev)
 	fwnode_handle_put(formatter->sd.fwnode);
 
 	pm_runtime_set_suspended(&pdev->dev);
-	return 0;
 }
 
 static const struct of_device_id csi_formatter_of_match[] = {

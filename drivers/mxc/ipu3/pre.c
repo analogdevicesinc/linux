@@ -952,7 +952,7 @@ static int ipu_pre_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int ipu_pre_remove(struct platform_device *pdev)
+static void ipu_pre_remove(struct platform_device *pdev)
 {
 	struct ipu_pre_data *pre = platform_get_drvdata(pdev);
 	unsigned long lock_flags;
@@ -966,8 +966,6 @@ static int ipu_pre_remove(struct platform_device *pdev)
 	spin_lock_irqsave(&pre_list_lock, lock_flags);
 	list_del(&pre->list);
 	spin_unlock_irqrestore(&pre_list_lock, lock_flags);
-
-	return 0;
 }
 
 static const struct of_device_id imx_ipu_pre_dt_ids[] = {

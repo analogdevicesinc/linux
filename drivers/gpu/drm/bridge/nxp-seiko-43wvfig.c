@@ -240,9 +240,8 @@ static int seiko_adapter_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int seiko_adapter_remove(struct platform_device *pdev)
+static void seiko_adapter_remove(struct platform_device *pdev)
 {
-	return 0;
 }
 
 static const struct of_device_id seiko_adapter_dt_ids[] = {

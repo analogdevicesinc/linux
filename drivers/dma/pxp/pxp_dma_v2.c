@@ -1757,7 +1757,7 @@ exit:
 	return err;
 }
 
-static int pxp_remove(struct platform_device *pdev)
+static void pxp_remove(struct platform_device *pdev)
 {
 	struct pxps *pxp = platform_get_drvdata(pdev);
 
@@ -1772,8 +1772,6 @@ static int pxp_remove(struct platform_device *pdev)
 	device_remove_file(&pdev->dev, &dev_attr_clk_off_timeout);
 	device_remove_file(&pdev->dev, &dev_attr_block_size);
 	dma_async_device_unregister(&(pxp->pxp_dma.dma));
-
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP

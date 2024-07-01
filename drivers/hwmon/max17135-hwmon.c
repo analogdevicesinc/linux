@@ -40,7 +40,7 @@ static int temp_from_reg(int val)
  * Functions declaration
  */
 static int max17135_sensor_probe(struct platform_device *pdev);
-static int max17135_sensor_remove(struct platform_device *pdev);
+static void max17135_sensor_remove(struct platform_device *pdev);
 
 static const struct platform_device_id max17135_sns_id[] = {
 	{ "max17135-sns", 0},
@@ -136,7 +136,7 @@ exit:
 	return err;
 }
 
-static int max17135_sensor_remove(struct platform_device *pdev)
+static void max17135_sensor_remove(struct platform_device *pdev)
 {
 	struct max17135_data *data = platform_get_drvdata(pdev);
 
@@ -144,7 +144,6 @@ static int max17135_sensor_remove(struct platform_device *pdev)
 	sysfs_remove_group(&pdev->dev.kobj, &max17135_group);
 
 	kfree(data);
-	return 0;
 }
 
 static int __init sensors_max17135_init(void)

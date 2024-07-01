@@ -2359,7 +2359,7 @@ fb_release:
 	return ret;
 }
 
-static int mxsfb_remove(struct platform_device *pdev)
+static void mxsfb_remove(struct platform_device *pdev)
 {
 	struct mxsfb_info *host = platform_get_drvdata(pdev);
 	struct fb_info *fb_info = host->fb_info;
@@ -2380,8 +2380,6 @@ static int mxsfb_remove(struct platform_device *pdev)
 	devm_kfree(&pdev->dev, fb_info->pseudo_palette);
 	framebuffer_release(fb_info);
 	devm_kfree(&pdev->dev, host);
-
-	return 0;
 }
 
 static void mxsfb_shutdown(struct platform_device *pdev)

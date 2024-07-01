@@ -442,11 +442,9 @@ static int lcdif_crtc_probe(struct platform_device *pdev)
 	return component_add(dev, &lcdif_crtc_ops);
 }
 
-static int lcdif_crtc_remove(struct platform_device *pdev)
+static void lcdif_crtc_remove(struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &lcdif_crtc_ops);
-
-	return 0;
 }
 
 static struct platform_driver lcdif_crtc_driver = {

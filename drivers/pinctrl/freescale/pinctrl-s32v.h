@@ -68,5 +68,5 @@ struct s32v_pinctrl_soc_info {
 
 int s32v_pinctrl_probe(struct platform_device *pdev,
 		       struct s32v_pinctrl_soc_info *info);
-int s32v_pinctrl_remove(struct platform_device *pdev);
+void s32v_pinctrl_remove(struct platform_device *pdev);
 #endif /* __DRIVERS_PINCTRL_S32V_H */

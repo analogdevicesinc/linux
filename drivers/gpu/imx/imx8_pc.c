@@ -186,15 +186,13 @@ static int pc_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int pc_remove(struct platform_device *pdev)
+static void pc_remove(struct platform_device *pdev)
 {
 	struct pc *pc = platform_get_drvdata(pdev);
 
 	mutex_lock(&pc_list_mutex);
 	list_del(&pc->list);
 	mutex_unlock(&pc_list_mutex);
-
-	return 0;
 }
 
 static const struct of_device_id pc_dt_ids[] = {

@@ -1966,7 +1966,7 @@ err_vdev:
 	return ret;
 }
 
-static int mx6s_csi_remove(struct platform_device *pdev)
+static void mx6s_csi_remove(struct platform_device *pdev)
 {
 	struct v4l2_device *v4l2_dev = dev_get_drvdata(&pdev->dev);
 	struct mx6s_csi_dev *csi_dev =
@@ -1979,7 +1979,6 @@ static int mx6s_csi_remove(struct platform_device *pdev)
 	v4l2_device_unregister(&csi_dev->v4l2_dev);
 
 	pm_runtime_disable(csi_dev->dev);
-	return 0;
 }
 
 static int mx6s_csi_runtime_suspend(struct device *dev)

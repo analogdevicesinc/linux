@@ -374,12 +374,10 @@ static int dispmix_reset_probe(struct platform_device *pdev)
 	return devm_reset_controller_register(dev, &drcdev->rcdev);
 }
 
-static int dispmix_reset_remove(struct platform_device *pdev)
+static void dispmix_reset_remove(struct platform_device *pdev)
 {
 	pm_runtime_disable(&pdev->dev);
 	platform_set_drvdata(pdev, NULL);
-
-	return 0;
 }
 
 static struct platform_driver dispmix_reset_driver = {

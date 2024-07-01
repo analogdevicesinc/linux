@@ -491,15 +491,13 @@ static int vdoa_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int vdoa_remove(struct platform_device *pdev)
+static void vdoa_remove(struct platform_device *pdev)
 {
 	struct vdoa_info *vdoa = dev_get_drvdata(&pdev->dev);
 
 	gen_pool_free(vdoa->iram_pool, vdoa->iram_base, iram_size);
 	kfree(vdoa);
 	dev_set_drvdata(&pdev->dev, NULL);
-
-	return 0;
 }
 
 static struct platform_driver vdoa_driver = {
