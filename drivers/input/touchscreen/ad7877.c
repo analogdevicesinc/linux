@@ -376,17 +376,14 @@ static inline void ad7877_ts_event_release(struct ad7877 *ts)
 static void ad7877_timer(struct timer_list *t)
 {
 	struct ad7877 *ts = timer_container_of(ts, t, timer);
-	unsigned long flags;
 
-	spin_lock_irqsave(&ts->lock, flags);
+	guard(spinlock_irqsave)(&ts->lock);
 	ad7877_ts_event_release(ts);
-	spin_unlock_irqrestore(&ts->lock, flags);
 }
 
 static irqreturn_t ad7877_irq(int irq, void *handle)
 {
 	struct ad7877 *ts = handle;
-	unsigned long flags;
 	int error;
 
 	error = spi_sync(ts->spi, &ts->msg);
@@ -395,11 +392,13 @@ static irqreturn_t ad7877_irq(int irq, void *handle)
 		goto out;
 	}
 
-	spin_lock_irqsave(&ts->lock, flags);
-	error = ad7877_process_data(ts);
-	if (!error)
+	scoped_guard(spinlock_irqsave, &ts->lock) {
+		error = ad7877_process_data(ts);
+		if (error)
+			goto out;
+
 		mod_timer(&ts->timer, jiffies + TS_PEN_UP_TIMEOUT);
-	spin_unlock_irqrestore(&ts->lock, flags);
+	}
 
 out:
 	return IRQ_HANDLED;
@@ -409,7 +408,7 @@ static void ad7877_disable(void *data)
 {
 	struct ad7877 *ts = data;
 
-	mutex_lock(&ts->mutex);
+	guard(mutex)(&ts->mutex);
 
 	if (!ts->disabled) {
 		ts->disabled = true;
@@ -423,20 +422,16 @@ static void ad7877_disable(void *data)
 	 * We know the chip's in lowpower mode since we always
 	 * leave it that way after every request
 	 */
-
-	mutex_unlock(&ts->mutex);
 }
 
 static void ad7877_enable(struct ad7877 *ts)
 {
-	mutex_lock(&ts->mutex);
+	guard(mutex)(&ts->mutex);
 
 	if (ts->disabled) {
 		ts->disabled = false;
 		enable_irq(ts->spi->irq);
 	}
-
-	mutex_unlock(&ts->mutex);
 }
 
 #define SHOW(name) static ssize_t \
@@ -509,10 +504,9 @@ static ssize_t ad7877_dac_store(struct device *dev,
 	if (error)
 		return error;
 
-	mutex_lock(&ts->mutex);
+	guard(mutex)(&ts->mutex);
 	ts->dac = val & 0xFF;
 	ad7877_write(ts->spi, AD7877_REG_DAC, (ts->dac << 4) | AD7877_DAC_CONF);
-	mutex_unlock(&ts->mutex);
 
 	return count;
 }
@@ -539,11 +533,10 @@ static ssize_t ad7877_gpio3_store(struct device *dev,
 	if (error)
 		return error;
 
-	mutex_lock(&ts->mutex);
+	guard(mutex)(&ts->mutex);
 	ts->gpio3 = !!val;
 	ad7877_write(ts->spi, AD7877_REG_EXTWRITE, AD7877_EXTW_GPIO_DATA |
 		 (ts->gpio4 << 4) | (ts->gpio3 << 5));
-	mutex_unlock(&ts->mutex);
 
 	return count;
 }
@@ -570,11 +563,10 @@ static ssize_t ad7877_gpio4_store(struct device *dev,
 	if (error)
 		return error;
 
-	mutex_lock(&ts->mutex);
+	guard(mutex)(&ts->mutex);
 	ts->gpio4 = !!val;
 	ad7877_write(ts->spi, AD7877_REG_EXTWRITE, AD7877_EXTW_GPIO_DATA |
 		     (ts->gpio4 << 4) | (ts->gpio3 << 5));
-	mutex_unlock(&ts->mutex);
 
 	return count;
 }
