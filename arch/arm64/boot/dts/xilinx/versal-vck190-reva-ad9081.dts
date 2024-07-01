@@ -407,7 +407,7 @@
 		hmc7044_c8: channel@8 {
 			reg = <8>;
 			adi,extended-name = "FPGA_REFCLK1";
-			adi,divider = <4>;	// 750
+			adi,divider = <8>;	// 750
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
 
@@ -458,6 +458,16 @@
 		tx2-enable-gpios = <&axi_gpio 27 0>;
 		tx1-enable-gpios = <&axi_gpio 26 0>;
 
+		/* Versal gpios */
+		rxresetdone-gpios = <&axi_gpio 32 0>;
+		txresetdone-gpios = <&axi_gpio 33 0>;
+		mstresetdone-gpios = <&axi_gpio 34 0>;
+		gtreset-gpios = <&axi_gpio 35 0>;
+		rxresetplldatapath-gpios = <&axi_gpio 36 0>;
+		txresetplldatapath-gpios = <&axi_gpio 37 0>;
+		rxresetdatapath-gpios = <&axi_gpio 38 0>;
+		txresetdatapath-gpios = <&axi_gpio 39 0>;
+
 		jesd204-device;
 		#jesd204-cells = <2>;
 		jesd204-top-device = <0>; /* This is the TOP device */
@@ -480,25 +490,25 @@
 				ad9081_dac0: dac@0 {
 					reg = <0>;
 					adi,crossbar-select = <&ad9081_tx_fddc_chan0>;
-					adi,nco-frequency-shift-hz = /bits/ 64 <1000000000>; /* 100 MHz */
+					adi,nco-frequency-shift-hz = /bits/ 64 <0>; /* 100 MHz */
 				};
 
 				ad9081_dac1: dac@1 {
 					reg = <1>;
 					adi,crossbar-select = <&ad9081_tx_fddc_chan1>;
-					adi,nco-frequency-shift-hz = /bits/ 64 <1100000000>; /* 1100 MHz */
+					adi,nco-frequency-shift-hz = /bits/ 64 <0>; /* 1100 MHz */
 				};
 
 				ad9081_dac2: dac@2 {
 					reg = <2>;
 					adi,crossbar-select = <&ad9081_tx_fddc_chan2>; /* All 4 channels @ dac2 */
-					adi,nco-frequency-shift-hz = /bits/ 64 <1200000000>;  /* 300 MHz */
+					adi,nco-frequency-shift-hz = /bits/ 64 <0>;  /* 300 MHz */
 				};
 
 				ad9081_dac3: dac@3 {
 					reg = <3>;
 					adi,crossbar-select = <&ad9081_tx_fddc_chan3>; /* All 4 channels @ dac2 */
-					adi,nco-frequency-shift-hz = /bits/ 64 <1300000000>; /* 400 MHz */
+					adi,nco-frequency-shift-hz = /bits/ 64 <0>; /* 400 MHz */
 				};
 			};
 
@@ -572,28 +582,28 @@
 				ad9081_adc0: adc@0 {
 					reg = <0>;
 					adi,decimation = <1>;
-					adi,nco-frequency-shift-hz =  /bits/ 64 <400000000>;
+					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
 					adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
 				};
 
 				ad9081_adc1: adc@1 {
 					reg = <1>;
 					adi,decimation = <1>;
-					adi,nco-frequency-shift-hz =  /bits/ 64 <(-400000000)>;
+					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
 					adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
 				};
 
 				ad9081_adc2: adc@2 {
 					reg = <2>;
 					adi,decimation = <1>;
-					adi,nco-frequency-shift-hz =  /bits/ 64 <100000000>;
+					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
 					adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
 				};
 
 				ad9081_adc3: adc@3 {
 					reg = <3>;
 					adi,decimation = <1>;
-					adi,nco-frequency-shift-hz =  /bits/ 64 <100000000>;
+					adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
 					adi,nco-mixer-mode = <AD9081_ADC_NCO_VIF>;
 				};
 			};
