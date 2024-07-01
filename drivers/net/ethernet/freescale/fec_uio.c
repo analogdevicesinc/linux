@@ -1476,7 +1476,7 @@ failed_kzalloc:
 	return ret;
 }
 
-static int
+static void 
 fec_enet_uio_remove(struct platform_device *pdev)
 {
 	struct net_device *ndev = platform_get_drvdata(pdev);
@@ -1506,8 +1506,6 @@ fec_enet_uio_remove(struct platform_device *pdev)
 	free_netdev(ndev);
 	dev_info(fec_dev->dev, "\"%s\" successfully removed \n",
 		 fec_dev->info.name);
-
-	return 0;
 }
 
 static int
