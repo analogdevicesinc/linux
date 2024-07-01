@@ -85,7 +85,7 @@ DECLARE_EVENT_CLASS(dpaa_eth_fd,
 		__entry->fd_offset = dpa_fd_offset(fd);
 		__entry->fd_length = dpa_fd_length(fd);
 		__entry->fd_status = fd->status;
-		__assign_str(name, netdev->name);
+		__assign_str(name);
 	),
 
 	/* This is what gets printed when the trace event is triggered */
