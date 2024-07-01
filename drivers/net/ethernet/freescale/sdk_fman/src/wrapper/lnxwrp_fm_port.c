@@ -1419,7 +1419,7 @@ static int /*__devinit*/ fm_port_probe(struct platform_device *of_dev)
 	return 0;
 }
 
-static int fm_port_remove(struct platform_device *of_dev)
+static void fm_port_remove(struct platform_device *of_dev)
 {
 	t_LnxWrpFmPortDev *p_LnxWrpFmPortDev;
 	t_LnxWrpFmDev *p_LnxWrpFmDev;
@@ -1437,8 +1437,6 @@ static int fm_port_remove(struct platform_device *of_dev)
 	FreeFmPortDev(p_LnxWrpFmPortDev);
 
 	dev_set_drvdata(dev, NULL);
-
-	return 0;
 }
 
 static const struct of_device_id fm_port_match[] = {

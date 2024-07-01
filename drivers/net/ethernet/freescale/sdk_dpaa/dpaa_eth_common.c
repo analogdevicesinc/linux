@@ -457,9 +457,8 @@ int dpa_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
 }
 EXPORT_SYMBOL(dpa_ioctl);
 
-int __cold dpa_remove(struct platform_device *of_dev)
+void __cold dpa_remove(struct platform_device *of_dev)
 {
-	int			err;
 	struct device		*dev;
 	struct net_device	*net_dev;
 	struct dpa_priv_s	*priv;
@@ -474,7 +473,7 @@ int __cold dpa_remove(struct platform_device *of_dev)
 	dev_set_drvdata(dev, NULL);
 	unregister_netdev(net_dev);
 
-	err = dpa_fq_free(dev, &priv->dpa_fq_list);
+	dpa_fq_free(dev, &priv->dpa_fq_list);
 
 	qman_delete_cgr_safe(&priv->ingress_cgr);
 	qman_release_cgrid(priv->ingress_cgr.cgrid);
@@ -499,8 +498,6 @@ int __cold dpa_remove(struct platform_device *of_dev)
 #endif
 
 	free_netdev(net_dev);
-
-	return err;
 }
 EXPORT_SYMBOL(dpa_remove);
 

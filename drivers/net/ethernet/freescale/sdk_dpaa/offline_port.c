@@ -769,10 +769,10 @@ return_kfree:
 	return _errno;
 }
 
-static int __cold oh_port_remove(struct platform_device *_of_dev)
+static void __cold oh_port_remove(struct platform_device *_of_dev)
 {
-	int _errno = 0, i;
 	struct dpa_oh_config_s *oh_config;
+	int i;
 
 	pr_info("Removing OH port...\n");
 
@@ -781,8 +781,7 @@ static int __cold oh_port_remove(struct platform_device *_of_dev)
 		pr_err(KBUILD_MODNAME
 			": %s:%hu:%s(): No OH config in device private data!\n",
 			KBUILD_BASENAME".c", __LINE__, __func__);
-		_errno = -ENODEV;
-		goto return_error;
+		return;
 	}
 
 	if (oh_config->egress_fqs)
@@ -793,20 +792,16 @@ static int __cold oh_port_remove(struct platform_device *_of_dev)
 		pr_err(KBUILD_MODNAME
 			": %s:%hu:%s(): No fm port in device private data!\n",
 			KBUILD_BASENAME".c", __LINE__, __func__);
-		_errno = -EINVAL;
 		goto free_egress_fqs;
 	}
 
-	_errno = fm_port_disable(oh_config->oh_port);
+	fm_port_disable(oh_config->oh_port);
 
 free_egress_fqs:
 	if (oh_config->egress_fqs)
 		devm_kfree(&_of_dev->dev, oh_config->egress_fqs);
 	devm_kfree(&_of_dev->dev, oh_config);
 	dev_set_drvdata(&_of_dev->dev, NULL);
-
-return_error:
-	return _errno;
 }
 
 static struct platform_driver oh_port_driver = {

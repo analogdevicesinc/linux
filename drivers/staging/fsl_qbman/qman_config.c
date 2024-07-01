@@ -1176,10 +1176,9 @@ static const struct attribute_group qman_dev_ecr_grp = {
 	.attrs = qman_dev_ecr_attributes
 };
 
-static int of_fsl_qman_remove(struct platform_device *ofdev)
+static void of_fsl_qman_remove(struct platform_device *ofdev)
 {
 	sysfs_remove_group(&ofdev->dev.kobj, &qman_dev_attr_grp);
-	return 0;
 };
 
 static int of_fsl_qman_probe(struct platform_device *ofdev)

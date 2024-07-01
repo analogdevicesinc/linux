@@ -381,11 +381,11 @@ _return:
 	return _errno;
 }
 
-static int __cold mac_remove(struct platform_device *of_dev)
+static void __cold mac_remove(struct platform_device *of_dev)
 {
-	int			 i, _errno;
 	struct device		*dev;
 	struct mac_device	*mac_dev;
+	int			 i;
 
 	dev = &of_dev->dev;
 	mac_dev = (struct mac_device *)dev_get_drvdata(dev);
@@ -395,9 +395,7 @@ static int __cold mac_remove(struct platform_device *of_dev)
 
 	fm_unbind(mac_dev->fm_dev);
 
-	_errno = free_macdev(mac_dev);
-
-	return _errno;
+	free_macdev(mac_dev);
 }
 
 static struct platform_driver mac_driver = {
