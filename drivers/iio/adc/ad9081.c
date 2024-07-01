@@ -177,6 +177,16 @@ struct ad9081_phy {
 	struct gpio_desc *tx1_en_gpio;
 	struct gpio_desc *tx2_en_gpio;
 	struct gpio_desc *ms_sync_en_gpio;
+	/* Versal specific gpios */
+	struct gpio_desc *gtreset_gpio;
+	struct gpio_desc *rxresetplldatapath_gpio;
+	struct gpio_desc *txresetplldatapath_gpio;
+	struct gpio_desc *rxresetdatapath_gpio;
+	struct gpio_desc *txresetdatapath_gpio;
+	struct gpio_desc *rxresetdone_gpio;
+	struct gpio_desc *txresetdone_gpio;
+	struct gpio_desc *mstresetdone_gpio;
+
 	struct regulator *supply_reg;
 
 	struct clk *clks[NUM_AD9081_CLKS];
@@ -4839,6 +4849,41 @@ static int ad9081_jesd204_link_enable(struct jesd204_dev *jdev,
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
 	if (lnk->is_transmit) {
+		if (phy->rxresetdatapath_gpio && phy->rxresetdone_gpio) {
+			gpiod_set_value(phy->rxresetdatapath_gpio, 1);
+			msleep(5);
+			dev_info(dev, "rxresetdone: %d", gpiod_get_value(phy->rxresetdone_gpio));
+			gpiod_set_value(phy->rxresetdatapath_gpio, 0);
+			int count = 0;
+			while (count < 64) {
+				msleep(2);
+				bool resetdone = gpiod_get_value(phy->rxresetdone_gpio);
+				msleep(1);
+				resetdone &= gpiod_get_value(phy->rxresetdone_gpio);
+				if (resetdone) {
+					break;
+				}
+				++count;
+				dev_info(dev, "Waiting for rxresetdone: %d\n", count);
+			}
+		}
+	}
+	// } else {
+	// 	if (phy->txresetdatapath_gpio && phy->txresetdone_gpio) {
+	// 		gpiod_set_value(phy->txresetdatapath_gpio, 1);
+	// 		msleep(sleep_time);
+	// 		dev_info(dev, "txresetdone: %d", gpiod_get_value(phy->txresetdone_gpio));
+	// 		gpiod_set_value(phy->txresetdatapath_gpio, 0);
+	// 		int count = 0;
+	// 		while (count < 64 && !gpiod_get_value(phy->txresetdone_gpio)) {
+	// 			msleep(sleep_time);
+	// 			count++;
+	// 			dev_info(dev, "Waiting for txresetdone: %d\n", count);
+	// 		}
+	// 	}
+	// }
+
+	if (lnk->is_transmit) {
 		/* txfe TX (JRX) link */
 		ret = adi_ad9081_jesd_rx_link_enable_set(&phy->ad9081,
 			ad9081_link_sel(phy->jrx_link_tx),
@@ -5217,6 +5262,46 @@ static int ad9081_probe(struct spi_device *spi)
 		devm_gpiod_get_optional(&spi->dev, "ms-sync-enable", GPIOD_OUT_LOW);
 	if (IS_ERR(phy->ms_sync_en_gpio))
 		return PTR_ERR(phy->ms_sync_en_gpio);
+
+	/* Versal specific gpios */
+	phy->gtreset_gpio = devm_gpiod_get_optional(&spi->dev, "gtreset", GPIOD_OUT_LOW);
+	if (IS_ERR(phy->gtreset_gpio)) {
+		return PTR_ERR(phy->gtreset_gpio);
+	}
+
+	phy->rxresetplldatapath_gpio = devm_gpiod_get_optional(&spi->dev, "rxresetplldatapath", GPIOD_OUT_LOW);
+	if (IS_ERR(phy->rxresetplldatapath_gpio)) {
+		return PTR_ERR(phy->rxresetplldatapath_gpio);
+	}
+
+	phy->txresetplldatapath_gpio = devm_gpiod_get_optional(&spi->dev, "txresetplldatapath", GPIOD_OUT_LOW);
+	if (IS_ERR(phy->txresetplldatapath_gpio)) {
+		return PTR_ERR(phy->txresetplldatapath_gpio);
+	}
+
+	phy->rxresetdatapath_gpio = devm_gpiod_get_optional(&spi->dev, "rxresetdatapath", GPIOD_OUT_LOW);
+	if (IS_ERR(phy->rxresetdatapath_gpio)) {
+		return PTR_ERR(phy->rxresetdatapath_gpio);
+	}
+
+	phy->txresetdatapath_gpio = devm_gpiod_get_optional(&spi->dev, "txresetdatapath", GPIOD_OUT_LOW);
+	if (IS_ERR(phy->txresetdatapath_gpio)) {
+		return PTR_ERR(phy->txresetdatapath_gpio);
+	}
+
+	phy->rxresetdone_gpio = devm_gpiod_get_optional(&spi->dev, "rxresetdone", GPIOD_IN);
+	if (IS_ERR(phy->rxresetdone_gpio)){
+		return PTR_ERR(phy->rxresetdone_gpio);
+	}
+
+	phy->txresetdone_gpio = devm_gpiod_get_optional(&spi->dev, "txresetdone", GPIOD_IN);
+	if (IS_ERR(phy->txresetdone_gpio)){;
+		return PTR_ERR(phy->txresetdone_gpio);
+	}
+
+	phy->mstresetdone_gpio = devm_gpiod_get_optional(&spi->dev, "mstresetdone", GPIOD_IN);
+	if (IS_ERR(phy->mstresetdone_gpio))
+		return PTR_ERR(phy->mstresetdone_gpio);
 
 	ret = ad9081_parse_dt(phy, &spi->dev);
 	if (ret < 0) {
