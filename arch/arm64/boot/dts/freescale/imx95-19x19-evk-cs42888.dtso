@@ -6,8 +6,8 @@
 /dts-v1/;
 /plugin/;
 
-#include <dt-bindings/clock/fsl,imx95-clock.h>
 #include <dt-bindings/gpio/gpio.h>
+#include "imx95-clock.h"
 
 &{/} {
 	reg_audio_slot8: regulator-audio-slot8 {

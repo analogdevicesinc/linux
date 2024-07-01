@@ -5,7 +5,7 @@
 /dts-v1/;
 /plugin/;
 
-#include <dt-bindings/clock/fsl,imx95-clock.h>
+#include "imx95-clock.h"
 
 &{/} {
 	lvds0_panel {

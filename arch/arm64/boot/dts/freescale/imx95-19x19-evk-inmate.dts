@@ -5,8 +5,8 @@
 
 /dts-v1/;
 
-#include <dt-bindings/clock/fsl,imx95-clock.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include "imx95-clock.h"
 #include "imx95-pinfunc.h"
 
 / {
