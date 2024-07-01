@@ -532,7 +532,7 @@ _FreeTaskContainer(IN gckVGCOMMAND Command, IN gcsTASK_CONTAINER_PTR Buffer)
     }
 }
 
-gceSTATUS
+static gceSTATUS
 _RemoveRecordFromProcesDB(IN gckVGCOMMAND Command, IN gcsTASK_HEADER_PTR Task)
 {
     gceSTATUS                       status;
@@ -986,7 +986,7 @@ _FreeLinear(IN gckVGKERNEL Kernel, IN gcuVIDMEM_NODE_PTR Node, IN gctPOINTER Log
     return status;
 }
 
-gceSTATUS
+static gceSTATUS
 _AllocateCommandBuffer(IN gckVGCOMMAND Command, IN gctSIZE_T Size,
                        OUT gcsCMDBUFFER_PTR *CommandBuffer)
 {

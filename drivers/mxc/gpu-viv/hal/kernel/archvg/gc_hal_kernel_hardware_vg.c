@@ -235,7 +235,7 @@ _IdentifyHardware(IN gckOS         Os,
 }
 
 #if gcdPOWEROFF_TIMEOUT
-void
+static void
 _VGPowerTimerFunction(gctPOINTER Data)
 {
     gckVGHARDWARE hardware = (gckVGHARDWARE)Data;
