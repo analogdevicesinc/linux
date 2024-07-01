@@ -82,52 +82,56 @@
 		#size-cells = <0>;
 		#address-cells = <1>;
 		adi,dac-frequency-hz = /bits/ 64 <8000000000>;
+		/* CDUCs*/
 		adi,main-data-paths {
 			#address-cells = <1>;
 			#size-cells = <0>;
+			/* Mtx */
 			adi,interpolation = <4>;
 			ad9081_dac0: dac@0 {
 				reg = <0>;
-				adi,crossbar-select = <&ad9081_tx_fddc_chan0>;
+				adi,crossbar-select = <&ad9081_tx_fduc_chan0>;
 				adi,nco-frequency-shift-hz = /bits/ 64 <1000000000>; /* 100 MHz */
 			};
 			ad9081_dac1: dac@1 {
 				reg = <1>;
-				adi,crossbar-select = <&ad9081_tx_fddc_chan1>;
+				adi,crossbar-select = <&ad9081_tx_fduc_chan1>;
 				adi,nco-frequency-shift-hz = /bits/ 64 <1100000000>; /* 1100 MHz */
 			};
 			ad9081_dac2: dac@2 {
 				reg = <2>;
-				adi,crossbar-select = <&ad9081_tx_fddc_chan2>;
+				adi,crossbar-select = <&ad9081_tx_fduc_chan2>;
 				adi,nco-frequency-shift-hz = /bits/ 64 <1000000000>; /* 100 MHz */
 			};
 			ad9081_dac3: dac@3 {
 				reg = <3>;
-				adi,crossbar-select = <&ad9081_tx_fddc_chan3>;
+				adi,crossbar-select = <&ad9081_tx_fduc_chan3>;
 				adi,nco-frequency-shift-hz = /bits/ 64 <1100000000>; /* 1100 MHz */
 			};
 		};
 
+		/* FDUCs */
 		adi,channelizer-paths {
 			#address-cells = <1>;
 			#size-cells = <0>;
+			/* Ntx */
 			adi,interpolation = <1>;
-			ad9081_tx_fddc_chan0: channel@0 {
+			ad9081_tx_fduc_chan0: channel@0 {
 				reg = <0>;
 				adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
 				adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
 			};
-			ad9081_tx_fddc_chan1: channel@1 {
+			ad9081_tx_fduc_chan1: channel@1 {
 				reg = <1>;
 				adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
 				adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
 			};
-			ad9081_tx_fddc_chan2: channel@2 {
+			ad9081_tx_fduc_chan2: channel@2 {
 				reg = <2>;
 				adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
 				adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
 			};
-			ad9081_tx_fddc_chan3: channel@3 {
+			ad9081_tx_fduc_chan3: channel@3 {
 				reg = <3>;
 				adi,gain = <2048>; /* 2048 * 10^(gain_dB/20) */
 				adi,nco-frequency-shift-hz =  /bits/ 64 <0>;
