@@ -86,10 +86,6 @@
 #define SRWO				BIT(0)
 #define MTL_EST_GCL_DATA		0x00000c84
 
-#define MTL_FPE_CTRL_STS		0x00000c90
-#define PEC				GENMASK(15, 8)
-#define PEC_SHIFT			8
-
 #define MTL_RXP_CONTROL_STATUS		0x00000ca0
 #define RXPI				BIT(31)
 #define NPE				GENMASK(23, 16)
@@ -158,7 +154,8 @@ int dwmac5_est_configure(void __iomem *ioaddr, struct stmmac_est *cfg,
 void dwmac5_est_irq_status(void __iomem *ioaddr, struct net_device *dev,
 			   struct stmmac_extra_stats *x, u32 txqcnt);
 void dwmac5_fpe_configure(void __iomem *ioaddr, struct stmmac_fpe_cfg *cfg,
-			  u32 num_txq, u32 num_rxq, u32 txqpec, bool enable);
+			  u32 num_txq, u32 num_rxq,
+			  bool enable);
 void dwmac5_fpe_send_mpacket(void __iomem *ioaddr,
 			     struct stmmac_fpe_cfg *cfg,
 			     enum stmmac_mpacket_type type);

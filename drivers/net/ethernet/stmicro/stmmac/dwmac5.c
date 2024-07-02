@@ -711,13 +711,13 @@ void dwmac5_est_irq_status(void __iomem *ioaddr, struct net_device *dev,
 }
 
 void dwmac5_fpe_configure(void __iomem *ioaddr, struct stmmac_fpe_cfg *cfg,
-			  u32 num_txq, u32 num_rxq, u32 txqpec, bool enable)
+			  u32 num_txq, u32 num_rxq,
+			  bool enable)
 {
 	u32 value;
 
 	if (enable) {
 		cfg->fpe_csr = EFPE;
-		cfg->fpe_csr = (txqpec << PEC_SHIFT);
 		value = readl(ioaddr + GMAC_RXQ_CTRL1);
 		value &= ~GMAC_RXQCTRL_FPRQ;
 		value |= (num_rxq - 1) << GMAC_RXQCTRL_FPRQ_SHIFT;
