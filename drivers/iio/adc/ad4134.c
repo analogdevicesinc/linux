@@ -26,6 +26,11 @@
 
 #define AD4134_NAME				"ad4134"
 
+#define AD4134_IF_CONFIG_B_REG				0x01
+#define AD4134_IF_CONFIG_B_SINGLE_INSTR			BIT(7)
+#define AD4134_IF_CONFIG_B_MASTER_SLAVE_RD_CTRL		BIT(5)
+#define AD4134_IF_CONFIG_B_RESET			BIT(1)
+
 #define AD4134_DEVICE_CONFIG_REG		0x02
 #define AD4134_DEVICE_CONFIG_POWER_MODE_MASK	BIT(0)
 #define AD4134_POWER_MODE_HIGH_PERF		0b1
@@ -107,6 +112,11 @@ static const char * const ad7134_filter_enum[] = {
 	.ext_info = _ext_info,							\
 }
 
+static ssize_t ad7134_set_sync(struct iio_dev *indio_dev, uintptr_t private,
+			       const struct iio_chan_spec *chan,
+			       const char *buf, size_t len);
+static ssize_t ad7134_get_sync(struct iio_dev *indio_dev, uintptr_t private,
+			       const struct iio_chan_spec *chan, char *buf);
 static int ad7134_set_dig_fil(struct iio_dev *dev,
 			      const struct iio_chan_spec *chan,
 			      unsigned int filter);
@@ -137,6 +147,12 @@ static struct iio_chan_spec_ext_info ad7134_ext_info[] = {
 	 .shared =  IIO_SHARED_BY_ALL,
 	 .private = ODR_SET_FREQ,
 	},
+	{
+	 .name = "ad7134_sync",
+	 .write = ad7134_set_sync,
+	 .read = ad7134_get_sync,
+	 .shared = IIO_SHARED_BY_ALL,
+	 },
 	{ },
 };
 
@@ -181,6 +197,30 @@ struct ad4134_state {
 	int				refin_mv;
 	int				output_frame;
 };
+
+static ssize_t ad7134_get_sync(struct iio_dev *indio_dev, uintptr_t private,
+			       const struct iio_chan_spec *chan, char *buf)
+{
+	return sprintf(buf, "enable\n");
+}
+
+static ssize_t ad7134_set_sync(struct iio_dev *indio_dev, uintptr_t private,
+			       const struct iio_chan_spec *chan,
+			       const char *buf, size_t len)
+{
+	struct ad4134_state *st = iio_priv(indio_dev);
+	int ret;
+
+	gpiod_set_value_cansleep(st->cs_gpio, 1);
+	ret = regmap_update_bits(st->regmap, AD4134_IF_CONFIG_B_REG,
+				 (AD4134_IF_CONFIG_B_RESET |  AD4134_IF_CONFIG_B_SINGLE_INSTR),
+				 (AD4134_IF_CONFIG_B_RESET |  AD4134_IF_CONFIG_B_SINGLE_INSTR));
+	if (ret)
+		return ret;
+	gpiod_set_value_cansleep(st->cs_gpio, 0);
+
+	return ret ? ret : len;
+}
 
 static int ad7134_set_dig_fil(struct iio_dev *dev,
 			      const struct iio_chan_spec *chan,
