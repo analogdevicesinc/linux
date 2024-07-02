@@ -18,8 +18,12 @@ description: |
 
 properties:
   compatible:
-    enum:
-      - adi,ad4134
+    oneOf:
+      - const: adi,ad4134
+      - items:
+          - enum:
+              - adi,ad7134
+          - const: adi,ad4134
 
   reg:
     maxItems: 1
