@@ -136,6 +136,7 @@ struct ad4134_state {
 
 	struct spi_message		buf_read_msg;
 	struct spi_transfer		buf_read_xfer;
+	struct gpio_desc		*cs_gpio;
 
 	unsigned int			odr;
 	unsigned long			sys_clk_rate;
@@ -408,6 +409,11 @@ static int ad4134_setup(struct ad4134_state *st)
 	if (IS_ERR(reset_gpio))
 		return dev_err_probe(dev, PTR_ERR(reset_gpio),
 				     "Failed to find reset GPIO\n");
+
+	st->cs_gpio = devm_gpiod_get_optional(dev, "cs", GPIOD_OUT_LOW);
+	if (IS_ERR(st->cs_gpio))
+		return dev_err_probe(dev, PTR_ERR(st->cs_gpio),
+				     "Failed to find cs-gpio\n");
 
 	fsleep(AD4134_RESET_TIME_US);
 
