@@ -449,6 +449,20 @@ ssize_t iio_backend_ext_info_set(struct iio_dev *indio_dev, uintptr_t private,
 }
 EXPORT_SYMBOL_NS_GPL(iio_backend_ext_info_set, IIO_BACKEND);
 
+int iio_backend_interface_type_get(struct iio_backend *back,
+				   enum iio_backend_interface_type *type)
+{
+	return iio_backend_op_call(back, interface_type_get, type);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_interface_type_get, IIO_BACKEND);
+
+int iio_backend_packet_size_set(struct iio_backend *back,
+				int size)
+{
+	return iio_backend_op_call(back, packet_size_set, size);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_packet_size_set, IIO_BACKEND);
+
 /**
  * iio_backend_extend_chan_spec - Extend an IIO channel
  * @indio_dev: IIO device
