@@ -434,6 +434,10 @@
 	status = "okay";
 };
 
+&tempsense0 {
+	status = "okay";
+};
+
 &iomuxc {
 	pinctrl_eqos: eqosgrp {
 		fsl,pins = <
