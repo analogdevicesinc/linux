@@ -590,10 +590,13 @@ static void enetc_vf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 		priv->max_frags_bd = ENETC_MAX_SKB_FRAGS;
 	} else {
 		ndev->max_mtu = ENETC4_MAX_MTU;
-		priv->active_offloads |= ENETC_F_CHECKSUM | ENETC_F_LSO;
+		priv->active_offloads |= ENETC_F_CHECKSUM;
 		priv->max_frags_bd = ENETC4_MAX_SKB_FRAGS;
 		priv->shared_tx_rings = true;
 	}
+
+	if (si->hw_features & ENETC_SI_F_LSO)
+		priv->active_offloads |= ENETC_F_LSO;
 
 	ndev->hw_features = NETIF_F_SG | NETIF_F_RXCSUM |
 			    NETIF_F_HW_VLAN_CTAG_TX |

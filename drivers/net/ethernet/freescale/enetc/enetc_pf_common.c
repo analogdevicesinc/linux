@@ -373,9 +373,12 @@ void enetc_pf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 	} else {
 		ndev->max_mtu = ENETC4_MAX_MTU;
 		priv->max_frags_bd = ENETC4_MAX_SKB_FRAGS;
-		priv->active_offloads |= ENETC_F_CHECKSUM | ENETC_F_LSO;
+		priv->active_offloads |= ENETC_F_CHECKSUM;
 		priv->shared_tx_rings = true;
 	}
+
+	if (si->hw_features & ENETC_SI_F_LSO)
+		priv->active_offloads |= ENETC_F_LSO;
 
 	if (si->hw_features & ENETC_SI_F_PSFP && !enetc_psfp_enable(priv)) {
 		priv->active_offloads |= ENETC_F_QCI;
