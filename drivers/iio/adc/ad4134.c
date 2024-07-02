@@ -163,13 +163,34 @@ static struct iio_chan_spec_ext_info ad7134_ext_info[] = {
 	AD4134_CHANNEL(3, _realbits, _storebits, ad7134_ext_info),		\
 }
 
+#define AD4134_DUO_CHAN_SET(_realbits, _storebits) {				\
+	AD4134_CHANNEL(0, _realbits, _storebits, ad7134_ext_info),		\
+	AD4134_CHANNEL(1, _realbits, _storebits, ad7134_ext_info),		\
+	AD4134_CHANNEL(2, _realbits, _storebits, ad7134_ext_info),		\
+	AD4134_CHANNEL(3, _realbits, _storebits, ad7134_ext_info),		\
+	AD4134_CHANNEL(4, _realbits, _storebits, ad7134_ext_info),		\
+	AD4134_CHANNEL(5, _realbits, _storebits, ad7134_ext_info),		\
+	AD4134_CHANNEL(6, _realbits, _storebits, ad7134_ext_info),		\
+	AD4134_CHANNEL(7, _realbits, _storebits, ad7134_ext_info),		\
+}
+
 static const struct iio_chan_spec ad4134_16_chan_set[] = AD4134_CHAN_SET(16, 16);
 static const struct iio_chan_spec ad4134_16CRC_chan_set[] = AD4134_CHAN_SET(16, 24);
 static const struct iio_chan_spec ad4134_24_chan_set[] = AD4134_CHAN_SET(24, 24);
 static const struct iio_chan_spec ad4134_24CRC_chan_set[] = AD4134_CHAN_SET(24, 32);
 
+static const struct iio_chan_spec ad4134_16_duo_chan_set[] = AD4134_DUO_CHAN_SET(16, 16);
+static const struct iio_chan_spec ad4134_16CRC_duo_chan_set[] = AD4134_DUO_CHAN_SET(16, 24);
+static const struct iio_chan_spec ad4134_24_duo_chan_set[] = AD4134_DUO_CHAN_SET(24, 24);
+static const struct iio_chan_spec ad4134_24CRC_duo_chan_set[] = AD4134_DUO_CHAN_SET(24, 32);
+
 static const unsigned long ad4134_channel_masks[] = {
 	GENMASK(ARRAY_SIZE(ad4134_16_chan_set) - 1, 0),
+	0,
+};
+
+static const unsigned long ad4134_duo_channel_masks[] = {
+	GENMASK(ARRAY_SIZE(ad4134_16_duo_chan_set) - 1, 0),
 	0,
 };
 
@@ -655,6 +676,7 @@ static int ad4134_probe(struct spi_device *spi)
 	struct fwnode_handle *fwnode = dev_fwnode(dev);
 	struct iio_dev *indio_dev;
 	struct ad4134_state *st;
+	bool ad4134_duo;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*st));
@@ -673,6 +695,8 @@ static int ad4134_probe(struct spi_device *spi)
 	st->regulators[AD4134_IOVDD_REGULATOR].supply = "iovdd";
 	st->regulators[AD4134_REFIN_REGULATOR].supply = "refin";
 
+	ad4134_duo = ad4134_get_ADC_count(st) == 2;
+
 	st->output_frame = AD4134_DATA_PACKET_24BIT_FRAME;
 	ret = device_property_match_property_string(dev, "adi,adc-frame",
 						    ad4134_frame_config,
@@ -684,20 +708,48 @@ static int ad4134_probe(struct spi_device *spi)
 
 	switch (st->output_frame) {
 	case AD4134_DATA_PACKET_16BIT_FRAME:
-		indio_dev->channels = ad4134_16_chan_set;
-		indio_dev->num_channels = ARRAY_SIZE(ad4134_16_chan_set);
+		if (ad4134_duo) {
+			indio_dev->channels = ad4134_16_duo_chan_set;
+			indio_dev->num_channels = ARRAY_SIZE(ad4134_16_duo_chan_set);
+			indio_dev->available_scan_masks = ad4134_duo_channel_masks;
+		} else {
+			indio_dev->channels = ad4134_16_chan_set;
+			indio_dev->num_channels = ARRAY_SIZE(ad4134_16_chan_set);
+			indio_dev->available_scan_masks = ad4134_channel_masks;
+		}
 		break;
 	case AD4134_DATA_PACKET_16BIT_CRC6_FRAME:
-		indio_dev->channels = ad4134_16CRC_chan_set;
-		indio_dev->num_channels = ARRAY_SIZE(ad4134_16CRC_chan_set);
+		if (ad4134_duo) {
+			indio_dev->channels = ad4134_16CRC_duo_chan_set;
+			indio_dev->num_channels = ARRAY_SIZE(ad4134_16CRC_duo_chan_set);
+			indio_dev->available_scan_masks = ad4134_duo_channel_masks;
+		} else {
+			indio_dev->channels = ad4134_16CRC_chan_set;
+			indio_dev->num_channels = ARRAY_SIZE(ad4134_16CRC_chan_set);
+			indio_dev->available_scan_masks = ad4134_channel_masks;
+		}
 		break;
 	case AD4134_DATA_PACKET_24BIT_FRAME:
-		indio_dev->channels = ad4134_24_chan_set;
-		indio_dev->num_channels = ARRAY_SIZE(ad4134_24_chan_set);
+		if (ad4134_duo) {
+			indio_dev->channels = ad4134_24_duo_chan_set;
+			indio_dev->num_channels = ARRAY_SIZE(ad4134_24_duo_chan_set);
+			indio_dev->available_scan_masks = ad4134_duo_channel_masks;
+		} else {
+			indio_dev->channels = ad4134_24_chan_set;
+			indio_dev->num_channels = ARRAY_SIZE(ad4134_24_chan_set);
+			indio_dev->available_scan_masks = ad4134_channel_masks;
+		}
 		break;
 	case AD4134_DATA_PACKET_24BIT_CRC6_FRAME:
-		indio_dev->channels = ad4134_24CRC_chan_set;
-		indio_dev->num_channels = ARRAY_SIZE(ad4134_24CRC_chan_set);
+		if (ad4134_duo) {
+			indio_dev->channels = ad4134_24CRC_duo_chan_set;
+			indio_dev->num_channels = ARRAY_SIZE(ad4134_24CRC_duo_chan_set);
+			indio_dev->available_scan_masks = ad4134_duo_channel_masks;
+		} else {
+			indio_dev->channels = ad4134_24CRC_chan_set;
+			indio_dev->num_channels = ARRAY_SIZE(ad4134_24CRC_chan_set);
+			indio_dev->available_scan_masks = ad4134_channel_masks;
+		}
 		break;
 	default:
 		return dev_err_probe(dev, -EINVAL,
@@ -718,23 +770,26 @@ static int ad4134_probe(struct spi_device *spi)
 	if (IS_ERR(st->regmap))
 		return PTR_ERR(st->regmap);
 
-	indio_dev->channels = ad4134_channels;
-	indio_dev->num_channels = ARRAY_SIZE(ad4134_channels);
-	indio_dev->available_scan_masks = ad4134_channel_masks;
-	indio_dev->name = AD4134_NAME;
-	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
-	indio_dev->setup_ops = &ad4134_buffer_ops;
-	indio_dev->info = &ad4134_info;
-
 	ret = ad4134_setup(st);
 	if (ret)
 		return ret;
 
 	ret = devm_iio_dmaengine_buffer_setup(dev, indio_dev, "rx",
 					      IIO_BUFFER_DIRECTION_IN);
-	if (ret)
-		return dev_err_probe(dev, ret,
-				     "Failed to allocate IIO DMA buffer\n");
+	if (ret) {
+		indio_dev->channels = 0;
+		indio_dev->num_channels = 0;
+		indio_dev->available_scan_masks = 0;
+		indio_dev->name = spi->dev.of_node->name;
+		indio_dev->modes = 0;
+		indio_dev->setup_ops = 0;
+		return devm_iio_device_register(dev, indio_dev);
+	}
+
+	indio_dev->name = spi->dev.of_node->name;
+	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
+	indio_dev->setup_ops = &ad4134_buffer_ops;
+	indio_dev->info = &ad4134_info;
 
 	st->spi_engine_fwnode = fwnode_find_reference(fwnode, "adi,spi-engine", 0);
 	if (IS_ERR(st->spi_engine_fwnode))
