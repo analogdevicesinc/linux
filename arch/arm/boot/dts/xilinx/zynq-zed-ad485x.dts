@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+#include "zynq-zed.dts"
+
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	clocks {
+		axi_clk: clock@0 {
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "axi-clk";
+			#clock-cells = <0>;
+		};
+	};
+
+	vcc: regulator-vcc {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <7250000>;
+		regulator-max-microvolt = <7250000>;
+		regulator-always-on;
+	};
+
+	vdd: regulator-vdd {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	vddh: regulator-vddh {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		regulator-always-on;
+	};
+
+	vio: regulator-vio {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	fpga-axi@0 {
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+
+		rx_dma: dmac@43e00000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x43E00000 0x1000>;
+			#dma-cells = <1>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 15>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma_channel: dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <128>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		ref_clk: clk@0x44000000 {
+			compatible = "adi,axi-clkgen-2.00.a";
+			reg = <0x44000000 0x10000>;
+			#clock-cells = <0>;
+			clocks = <&clkc 15>, <&clkc 16>;
+			clock-names = "s_axi_aclk", "clkin1";
+			clock-output-names = "ref_clk";
+		};
+
+		axi_pwm_gen: pwm@0x43d00000 {
+			compatible = "adi,axi-pwmgen";
+			reg = <0x43d00000 0x1000>;
+			label = "cnv";
+			#pwm-cells = <2>;
+			clocks = <&ref_clk>;
+		};
+
+		iio_backend: axi_adc@43c00000 {
+			compatible = "adi,axi-adc-10.0.a";
+			reg = <0x43c00000 0x10000>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			clocks = <&axi_clk>;
+			spibus-connected = <&ad485x>;
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	ad485x: adc@0{
+		compatible = "adi,ad4857";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+		pwms = <&axi_pwm_gen 0 0>;
+		pwm-names = "cnv";
+		vcc-supply = <&vcc>;
+		vdd-supply = <&vdd>;
+		vddh-supply = <&vddh>;
+		vio-supply = <&vio>;
+		io-backends = <&iio_backend>;
+	};
+};
