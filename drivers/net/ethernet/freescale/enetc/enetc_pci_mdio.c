@@ -4,6 +4,7 @@
 #include <linux/fsl/netc_prb_ierb.h>
 #include <linux/of_mdio.h>
 #include <linux/of_platform.h>
+#include <linux/pinctrl/consumer.h>
 #include "enetc_pf.h"
 #include <linux/regulator/consumer.h>
 
@@ -33,6 +34,8 @@ static int enetc_pci_mdio_probe(struct pci_dev *pdev,
 			return err;
 		}
 	}
+
+	pinctrl_pm_select_default_state(dev);
 
 	port_regs = pci_iomap(pdev, 0, 0);
 	if (!port_regs) {
