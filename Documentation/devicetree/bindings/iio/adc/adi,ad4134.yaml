@@ -30,6 +30,12 @@ properties:
   reset-gpios:
     maxItems: 1
 
+  cs-gpios:
+    description:
+      Used to synchronize devices when two or more ADCs are used for
+      synchronized data sampling.
+    maxItems: 1
+
   clocks:
     maxItems: 1
 
