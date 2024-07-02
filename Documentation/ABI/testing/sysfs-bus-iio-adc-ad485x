@@ -1,0 +1,14 @@
+What:		/sys/bus/iio/devices/iio:deviceX/packet_format_available
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		Packet sizes on the CMOS or LVDS conversion data output bus.
+		Reading this returns the valid values that can be written to the
+		packet_format.
+
+What:		/sys/bus/iio/devices/iio:deviceX/packet_format
+KernelVersion:
+Contact:	linux-iio@vger.kernel.org
+Description:
+		This attribute configures the packet size.
+		Reading returns the actual size used.
