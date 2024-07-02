@@ -242,6 +242,7 @@ struct neoisp_mod_params_s {
 	struct {
 		__u32 disable_params;
 		__u32 disable_stats;
+		__u32 enable_debugfs;
 	} test;
 	struct neoisp_mparam_conf_s conf;
 	struct neoisp_mparam_packetizer_s pack;
@@ -251,7 +252,7 @@ struct neoisp_mod_params_s {
  * globals
  */
 extern const int neoisp_fields_a[NEOISP_FIELD_COUNT]; /* array of all fields offsets */
-extern const struct regmap_config neoisp_regmap_config;
+extern struct regmap_config neoisp_regmap_config;
 extern const struct v4l2_frmsize_stepwise neoisp_frmsize_stepwise;
 extern const struct neoisp_fmt_s formats_vcap[NEOISP_FMT_VCAP_COUNT];
 extern const struct neoisp_fmt_s formats_vout[NEOISP_FMT_VOUT_COUNT];

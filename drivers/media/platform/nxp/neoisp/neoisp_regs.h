@@ -3134,4 +3134,6 @@ struct neoisp_regs_s {
 	struct regmap_field *fields[NEOISP_FIELD_COUNT];
 };
 
+bool neoisp_valid_reg(struct device *dev, unsigned int reg);
+
 #endif /* NEO_REGS_H */

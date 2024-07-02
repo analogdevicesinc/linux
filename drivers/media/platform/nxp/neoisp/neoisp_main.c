@@ -1807,6 +1807,14 @@ static int neoisp_probe(struct platform_device *pdev)
 	/* get internal isp memory address */
 	neoisp_dev->mmio_tcm = devm_platform_get_and_ioremap_resource(pdev, 1, NULL);
 
+	if (mod_params.test.enable_debugfs) {
+		neoisp_regmap_config.max_register = NEO_IDBG2_DONE_STAT;
+		neoisp_regmap_config.num_reg_defaults = NEO_IDBG2_DONE_STAT_IDX + 1;
+		neoisp_regmap_config.readable_reg = neoisp_valid_reg;
+		neoisp_regmap_config.volatile_reg = neoisp_valid_reg;
+		neoisp_regmap_config.writeable_reg = neoisp_valid_reg;
+	}
+
 	neoisp_dev->regmap = devm_regmap_init_mmio(dev, neoisp_dev->mmio, &neoisp_regmap_config);
 	if (IS_ERR(neoisp_dev->regmap)) {
 		dev_err(dev, "regmap init failed\n");
@@ -1859,10 +1867,15 @@ static int neoisp_probe(struct platform_device *pdev)
 	if (ret)
 		goto disable_nodes_err;
 
+	if (mod_params.test.enable_debugfs)
+		/* increase pm_runtime counter to prevent suspend */
+		pm_runtime_resume_and_get(&pdev->dev);
+
 	pm_runtime_mark_last_busy(&pdev->dev);
 	pm_runtime_put_autosuspend(&pdev->dev);
 
-	dev_info(&pdev->dev, "probe: done (%d)\n", ret);
+	dev_info(&pdev->dev, "probe: done (%d) debugfs (%x)\n",
+		 ret, mod_params.test.enable_debugfs);
 	return ret;
 
 disable_nodes_err:

@@ -2,7 +2,7 @@
 /*
  * NEOISP registers array
  *
- * Copyright 2023 NXP
+ * Copyright 2023-2024 NXP
  * Author: Aymen Sghaier (aymen.sghaier@nxp.com)
  *
  */
@@ -494,11 +494,23 @@ const int neoisp_fields_a[NEOISP_FIELD_COUNT] = {
 	NEO_ALIAS_ALIAS_REG83,
 };
 
-const struct regmap_config neoisp_regmap_config = {
+bool neoisp_valid_reg(struct device *dev, unsigned int reg)
+{
+	for (int i = 0; i <= NEO_IDBG2_DONE_STAT_IDX; i++) {
+		if (reg == neoisp_fields_a[i])
+			return true;
+		if (reg < neoisp_fields_a[i])
+			return false;
+	}
+	return false;
+}
+
+struct regmap_config neoisp_regmap_config = {
 	.reg_bits = 32,
 	.val_bits = 32,
 	.reg_stride = 4,
 	.fast_io = true,
+	.max_register = 0,
 	.cache_type = REGCACHE_NONE,
 };
 
