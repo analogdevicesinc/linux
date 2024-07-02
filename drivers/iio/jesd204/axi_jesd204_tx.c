@@ -11,6 +11,7 @@
 #include <linux/clk-provider.h>
 #include <linux/device.h>
 #include <linux/err.h>
+#include <linux/gpio/consumer.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/delay.h>
@@ -89,6 +90,11 @@ struct axi_jesd204_tx {
 	/* Used for probe ordering */
 	struct clk_hw dummy_clk;
 	struct clk *lane_clk;
+
+	/* Versal specific gpios */
+	struct gpio_desc *reset_pll_datapath_gpio;
+	struct gpio_desc *reset_datapath_gpio;
+	struct gpio_desc *reset_done_gpio;
 };
 
 static const char * const axi_jesd204_tx_link_status_label[] = {
@@ -751,6 +757,11 @@ static int axi_jesd204_tx_jesd204_link_setup(struct jesd204_dev *jdev,
 		return ret;
 	}
 
+	ret = axi_jesd_ext_reset(dev, "tx_pll_datapath", jesd->reset_pll_datapath_gpio,
+							 jesd->reset_done_gpio);
+	if (ret)
+		return ret;
+
 	return JESD204_STATE_CHANGE_DONE;
 }
 
@@ -760,11 +771,17 @@ static int axi_jesd204_tx_jesd204_clks_enable(struct jesd204_dev *jdev,
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct axi_jesd204_tx *jesd = dev_get_drvdata(dev);
+	int ret;
 
 	dev_dbg(dev, "%s:%d link_num %u reason %s\n", __func__, __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
+
+	ret = axi_jesd_ext_reset(dev, "tx_datapath", jesd->reset_datapath_gpio,
+				 jesd->reset_done_gpio);
+	if (ret)
+		return ret;
 
 	writel_relaxed(0x1, jesd->base + JESD204_TX_REG_LINK_DISABLE);
 	udelay(1);
@@ -912,6 +929,21 @@ static int axi_jesd204_tx_probe(struct platform_device *pdev)
 	ret = axi_jesd204_tx_pcore_check(jesd);
 	if (ret)
 		return ret;
+
+	jesd->reset_pll_datapath_gpio = devm_gpiod_get_optional(&pdev->dev,
+		"pll-datapath-reset", GPIOD_OUT_LOW);
+	if (IS_ERR(jesd->reset_pll_datapath_gpio))
+		return PTR_ERR(jesd->reset_pll_datapath_gpio);
+
+	jesd->reset_datapath_gpio = devm_gpiod_get_optional(&pdev->dev,
+		"datapath-reset", GPIOD_OUT_LOW);
+	if (IS_ERR(jesd->reset_datapath_gpio))
+		return PTR_ERR(jesd->reset_datapath_gpio);
+
+	jesd->reset_done_gpio = devm_gpiod_get_optional(&pdev->dev,
+		"reset-done", GPIOD_IN);
+	if (IS_ERR(jesd->reset_done_gpio))
+		return PTR_ERR(jesd->reset_done_gpio);
 
 	jesd->axi_clk = devm_clk_get(&pdev->dev, "s_axi_aclk");
 	if (IS_ERR(jesd->axi_clk))
