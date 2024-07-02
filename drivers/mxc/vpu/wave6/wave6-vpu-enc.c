@@ -1457,9 +1457,6 @@ static int wave6_vpu_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		case V4L2_MPEG_VIDEO_HEVC_LEVEL_5_1:
 			p->level = 51 * 3;
 			break;
-		case V4L2_MPEG_VIDEO_HEVC_LEVEL_5_2:
-			p->level = 52 * 3;
-			break;
 		default:
 			return -EINVAL;
 		}
