@@ -472,7 +472,8 @@
 						<&A55_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
 						<&A55_3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
 						<&A55_4 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
-						<&A55_5 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+						<&A55_5 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&vpuctrl THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
 				};
 			};
 		};
@@ -2906,7 +2907,10 @@
 			reg = <0x0 0x4c4c0000 0x0 0x10000>;
 			clocks = <&scmi_clk IMX95_CLK_VPU>,
 				 <&vpu_blk_ctrl IMX95_CLK_VPUBLK_WAVE>;
-			power-domains = <&scmi_devpd IMX95_PD_VPU>;
+			clock-names = "vpu", "vpublk_wave";
+			power-domains = <&scmi_devpd IMX95_PD_VPU>, <&scmi_perf IMX95_PERF_VPU>;
+			power-domain-names = "vpumix", "vpuperf";
+			#cooling-cells = <2>;
 		};
 
 		jpegdec: jpegdec@4c500000 {
