@@ -3207,7 +3207,8 @@ static int max9286_probe(struct i2c_client *client)
 	 */
 	max9286_data->format.reserved[0] = 72 * 8;
 	max9286_data->format.field = V4L2_FIELD_NONE;
-	max9286_data->current_mode = 0;
+	max9286_data->current_mode = ov10635_mode_WXGA_1280_800;
+	max9286_data->current_fr = OV10635_30_FPS;
 	max9286_data->frame_interval.denominator = 30;
 	max9286_data->frame_interval.numerator = 1;
 	max9286_data->is_mipi = 1;
