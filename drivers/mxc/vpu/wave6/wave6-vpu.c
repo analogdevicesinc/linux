@@ -166,6 +166,16 @@ static void wave6_vpu_on_boot(struct device *dev)
 		vpu_dev->vpu_clk_rate = clk_get_rate(vpu_dev->clks[0].clk);
 }
 
+static void wave6_vpu_pause(struct device *dev, int resume)
+{
+	struct vpu_device *vpu_dev = dev_get_drvdata(dev);
+
+	if (resume)
+		v4l2_m2m_resume(vpu_dev->m2m_dev);
+	else
+		v4l2_m2m_suspend(vpu_dev->m2m_dev);
+}
+
 static int wave6_vpu_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -199,6 +209,7 @@ static int wave6_vpu_probe(struct platform_device *pdev)
 	dev->entity.read_reg = wave6_vpu_read_reg;
 	dev->entity.write_reg = wave6_vpu_write_reg;
 	dev->entity.on_boot = wave6_vpu_on_boot;
+	dev->entity.pause = wave6_vpu_pause;
 
 	dev->reg_base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(dev->reg_base))

@@ -23,6 +23,7 @@ struct wave6_vpu_entity {
 	u32 (*read_reg)(struct device *dev, u32 addr);
 	void (*write_reg)(struct device *dev, u32 addr, u32 data);
 	void (*on_boot)(struct device *dev);
+	void (*pause)(struct device *dev, int resume);
 	bool booted;
 };
 
