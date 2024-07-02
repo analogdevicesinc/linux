@@ -1159,7 +1159,7 @@
 		reg = <0x44>;
 		rext = <499>;
 		interrupt-parent = <&lsio_gpio4>;
-		interrupts = <11 2>;
+		interrupts = <11 IRQ_TYPE_LEVEL_LOW>;
 	};
 
 	fxas21002c@20 {
