@@ -14,10 +14,14 @@
 #include <linux/firmware.h>
 #include <linux/interrupt.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_domain.h>
 #include <linux/dma-mapping.h>
 #include <linux/iopoll.h>
 #include <linux/genalloc.h>
 #include <linux/vmalloc.h>
+#include <linux/thermal.h>
+#include <linux/units.h>
+#include <linux/pm_opp.h>
 
 #include "wave6-vpuconfig.h"
 #include "wave6-regdefine.h"
@@ -68,6 +72,10 @@ struct vpu_ctrl_buf {
 	struct vpu_buf buf;
 };
 
+static int wave6_cooling_disable = false;
+module_param(wave6_cooling_disable, int, 0644);
+MODULE_PARM_DESC(wave6_cooling_disable, "enable or disable cooling");
+
 struct vpu_ctrl {
 	struct device *dev;
 	void __iomem *reg_base;
@@ -88,7 +96,17 @@ struct vpu_ctrl {
 	struct loger_t *loger;
 	struct dentry *debugfs;
 #endif
+	int thermal_event;
+	int thermal_max;
+	struct thermal_cooling_device *cooling;
+	struct dev_pm_domain_list  *pd_list;
+	struct device *dev_perf;
+	int clk_id;
+	unsigned long *freq_table;
 };
+
+#define DOMAIN_VPU_PWR  0
+#define DOMAIN_VPU_PERF 1
 
 static const struct vpu_ctrl_resource wave633c_ctrl_data = {
 	.fw_name = "wave633c_codec_fw.bin",
@@ -916,6 +934,158 @@ static void wave6_vpu_ctrl_init_reserved_boot_region(struct vpu_ctrl *ctrl)
 		 ctrl->boot_mem.size);
 }
 
+static int wave6_vpu_ctrl_thermal_update(struct device *dev, int state)
+{
+	struct vpu_ctrl *ctrl = dev_get_drvdata(dev);
+	unsigned long new_clock_rate;
+	int ret = 0;
+
+	if (wave6_cooling_disable || !ctrl->dev_perf || state > ctrl->thermal_max || !ctrl->cooling)
+		return 0;
+
+	new_clock_rate = DIV_ROUND_UP(ctrl->freq_table[state], HZ_PER_KHZ);
+	dev_dbg(dev, "receive cooling set state: %d, new clock rate %ld\n",
+		state, new_clock_rate);
+	ret = dev_pm_genpd_set_performance_state(ctrl->dev_perf, new_clock_rate);
+	dev_dbg(dev, "clk set to %lu\n", clk_get_rate(ctrl->clks[ctrl->clk_id].clk));
+	if (ret && !((ret == -ENODEV) || (ret == -EOPNOTSUPP))) {
+		dev_err(dev, "failed to set perf to %lu (ret = %d)\n", new_clock_rate, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int wave6_cooling_get_max_state(struct thermal_cooling_device *cdev,
+	unsigned long *state)
+{
+	struct vpu_ctrl *ctrl = cdev->devdata;
+
+	*state = ctrl->thermal_max;
+	return 0;
+}
+
+static int wave6_cooling_get_cur_state(struct thermal_cooling_device *cdev,
+	unsigned long *state)
+{
+	struct vpu_ctrl *ctrl = cdev->devdata;
+
+	*state = ctrl->thermal_event;
+
+	return 0;
+}
+
+static int wave6_cooling_set_cur_state(struct thermal_cooling_device *cdev,
+	unsigned long state)
+{
+	struct vpu_ctrl *ctrl = cdev->devdata;
+	struct wave6_vpu_entity *entity;
+
+	ctrl->thermal_event = state;
+
+	list_for_each_entry(entity, &ctrl->entities, list) {
+		if (entity->pause)
+			entity->pause(entity->dev, 0);
+	}
+
+	wave6_vpu_ctrl_thermal_update(ctrl->dev, state);
+
+	list_for_each_entry(entity, &ctrl->entities, list) {
+		if (entity->pause)
+			entity->pause(entity->dev, 1);
+	}
+
+	return 0;
+}
+
+static struct thermal_cooling_device_ops wave6_cooling_ops = {
+	.get_max_state = wave6_cooling_get_max_state,
+	.get_cur_state = wave6_cooling_get_cur_state,
+	.set_cur_state = wave6_cooling_set_cur_state,
+};
+
+static void wave6_cooling_remove(struct vpu_ctrl *ctrl)
+{
+	thermal_cooling_device_unregister(ctrl->cooling);
+
+	kfree(ctrl->freq_table);
+	ctrl->freq_table = NULL;
+
+	dev_pm_domain_detach_list(ctrl->pd_list);
+	ctrl->pd_list = NULL;
+	ctrl->dev_perf = NULL;
+}
+
+static void wave6_cooling_init(struct vpu_ctrl *ctrl)
+{
+	struct dev_pm_domain_attach_data pd_data = {
+		.pd_names = (const char *[]) {"vpumix", "vpuperf"},
+		.num_pd_names = 2,
+	};
+	int ret;
+	int i;
+	int num_opps;
+	unsigned long freq;
+
+	ctrl->clk_id = -1;
+	for (i = 0; i < ctrl->num_clks; i++)
+		if (!strcmp("vpu", ctrl->clks[i].id)) {
+			ctrl->clk_id = i;
+			break;
+		}
+	if (ctrl->clk_id == -1) {
+		dev_err(ctrl->dev, "cooling device unable to get clock\n");
+		return;
+	}
+	ret = dev_pm_domain_attach_list(ctrl->dev, &pd_data, &ctrl->pd_list);
+	ctrl->dev_perf = NULL;
+	if (ret < 0)
+		dev_err(ctrl->dev, "didn't attach perf power domains, ret=%d", ret);
+	else if (ret == 2)
+		ctrl->dev_perf = ctrl->pd_list->pd_devs[DOMAIN_VPU_PERF];
+	dev_dbg(ctrl->dev, "get perf domain ret=%d, perf=%p\n", ret, ctrl->dev_perf);
+	if (!ctrl->dev_perf)
+		return;
+
+	num_opps = dev_pm_opp_get_opp_count(ctrl->dev_perf);
+	if (num_opps <= 0) {
+		dev_err(ctrl->dev, "fail to get pm opp count, ret = %d\n", num_opps);
+		goto error;
+	}
+	ctrl->freq_table = kcalloc(num_opps, sizeof(*ctrl->freq_table), GFP_KERNEL);
+	if (!ctrl->freq_table)
+		goto error;
+
+	for (i = 0, freq = ULONG_MAX; i < num_opps; i++, freq--) {
+		struct dev_pm_opp *opp;
+
+		opp = dev_pm_opp_find_freq_floor(ctrl->dev_perf, &freq);
+		if (IS_ERR(opp))
+			break;
+		dev_pm_opp_put(opp);
+
+		dev_dbg(ctrl->dev, "[%d] = %ld\n", i, freq);
+		if (freq < 100 * HZ_PER_MHZ)
+			break;
+		ctrl->freq_table[i] = freq;
+		ctrl->thermal_max = i;
+	}
+	if (!ctrl->thermal_max)
+		goto error;
+
+	ctrl->thermal_event = 0;
+	ctrl->cooling = thermal_of_cooling_device_register(ctrl->dev->of_node,
+		(char *)dev_name(ctrl->dev), ctrl, &wave6_cooling_ops);
+	if (IS_ERR(ctrl->cooling)) {
+		dev_err(ctrl->dev, "register cooling device failed\n");
+		goto error;
+	}
+	return;
+
+error:
+	wave6_cooling_remove(ctrl);
+}
+
 static int wave6_vpu_ctrl_probe(struct platform_device *pdev)
 {
 	struct vpu_ctrl *ctrl;
@@ -994,6 +1164,8 @@ static int wave6_vpu_ctrl_probe(struct platform_device *pdev)
 
 	pm_runtime_enable(&pdev->dev);
 
+	wave6_cooling_init(ctrl);
+
 	if (of_find_property(pdev->dev.of_node, "support-follower", NULL))
 		ctrl->support_follower = true;
 
@@ -1013,6 +1185,7 @@ static void wave6_vpu_ctrl_remove(struct platform_device *pdev)
 	pm_runtime_set_suspended(&pdev->dev);
 
 	wave6_vpu_ctrl_clear_buffers(ctrl);
+	wave6_cooling_remove(ctrl);
 	if (ctrl->sram_pool && ctrl->sram_buf.vaddr) {
 		dma_unmap_resource(&pdev->dev,
 				   ctrl->sram_buf.dma_addr,
