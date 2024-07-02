@@ -32,7 +32,10 @@
 
 #define AD4134_DATA_PACKET_CONFIG_REG		0x11
 #define AD4134_DATA_PACKET_CONFIG_FRAME_MASK	GENMASK(5, 4)
-#define AD4134_DATA_FRAME_24BIT_CRC		0b11
+#define AD4134_DATA_PACKET_16BIT_FRAME		0x0
+#define AD4134_DATA_PACKET_16BIT_CRC6_FRAME	0x1
+#define AD4134_DATA_PACKET_24BIT_FRAME		0x2
+#define AD4134_DATA_PACKET_24BIT_CRC6_FRAME	0x3
 
 #define AD4134_DIG_IF_CFG_REG			0x12
 #define AD4134_DIF_IF_CFG_FORMAT_MASK		GENMASK(1, 0)
@@ -42,10 +45,6 @@
 #define AD4134_ODR_MAX				1496000
 #define AD4134_ODR_DEFAULT			300000
 
-#define AD4134_NUM_CHANNELS			4
-#define AD4134_REAL_BITS			24
-#define AD4134_WORD_BITS			32
-
 #define AD4134_RESET_TIME_US			10000000
 
 enum ad4134_regulators {
@@ -54,6 +53,47 @@ enum ad4134_regulators {
 	AD4134_IOVDD_REGULATOR,
 	AD4134_REFIN_REGULATOR,
 	AD4134_NUM_REGULATORS
+};
+
+/* maps adi,adc-frame property value to enum */
+static const char * const ad4134_frame_config[] = {
+	[AD4134_DATA_PACKET_16BIT_FRAME] = "16-bit",
+	[AD4134_DATA_PACKET_16BIT_CRC6_FRAME] = "16-bit+CRC",
+	[AD4134_DATA_PACKET_24BIT_FRAME] = "24-bit",
+	[AD4134_DATA_PACKET_24BIT_CRC6_FRAME] = "24-bit+CRC",
+};
+
+#define AD4134_CHANNEL(_index, _realbits, _storebits) {				\
+	.type = IIO_VOLTAGE,							\
+	.indexed = 1,								\
+	.channel = (_index),							\
+	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ) |		\
+				    BIT(IIO_CHAN_INFO_SCALE),			\
+	.info_mask_shared_by_type_available = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
+	.scan_index = (_index),							\
+	.scan_type = {								\
+		.sign = 's',							\
+		.realbits = (_realbits),					\
+		.storagebits = (_storebits),					\
+		.shift = ((_storebits) - (_realbits))				\
+	},									\
+}
+
+#define AD4134_CHAN_SET(_realbits, _storebits) {				\
+	AD4134_CHANNEL(0, _realbits, _storebits),				\
+	AD4134_CHANNEL(1, _realbits, _storebits),				\
+	AD4134_CHANNEL(2, _realbits, _storebits),				\
+	AD4134_CHANNEL(3, _realbits, _storebits),				\
+}
+
+static const struct iio_chan_spec ad4134_16_chan_set[] = AD4134_CHAN_SET(16, 16);
+static const struct iio_chan_spec ad4134_16CRC_chan_set[] = AD4134_CHAN_SET(16, 24);
+static const struct iio_chan_spec ad4134_24_chan_set[] = AD4134_CHAN_SET(24, 24);
+static const struct iio_chan_spec ad4134_24CRC_chan_set[] = AD4134_CHAN_SET(24, 32);
+
+static const unsigned long ad4134_channel_masks[] = {
+	GENMASK(ARRAY_SIZE(ad4134_16_chan_set) - 1, 0),
+	0,
 };
 
 struct ad4134_state {
@@ -76,6 +116,7 @@ struct ad4134_state {
 	unsigned int			odr;
 	unsigned long			sys_clk_rate;
 	int				refin_mv;
+	int				output_frame;
 };
 
 static int ad4134_samp_freq_avail[] = { AD4134_ODR_MIN, 1, AD4134_ODR_MAX };
@@ -198,35 +239,6 @@ static const struct iio_info ad4134_info = {
 	.debugfs_reg_access = ad4134_reg_access,
 };
 
-#define AD4134_CHANNEL(index) {						\
-	.type = IIO_VOLTAGE,						\
-	.indexed = 1,							\
-	.channel = (index),						\
-	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SAMP_FREQ) |	\
-				    BIT(IIO_CHAN_INFO_SCALE),		\
-	.info_mask_shared_by_type_available =				\
-				    BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
-	.scan_index = (index),						\
-	.scan_type = {							\
-		.sign = 's',						\
-		.realbits = AD4134_REAL_BITS,				\
-		.storagebits = 32,					\
-		.shift = AD4134_WORD_BITS - AD4134_REAL_BITS		\
-	},								\
-}
-
-static const struct iio_chan_spec ad4134_channels[] = {
-	AD4134_CHANNEL(0),
-	AD4134_CHANNEL(1),
-	AD4134_CHANNEL(2),
-	AD4134_CHANNEL(3),
-};
-
-static const unsigned long ad4134_channel_masks[] = {
-	GENMASK(AD4134_NUM_CHANNELS - 1, 0),
-	0,
-};
-
 static int ad4134_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad4134_state *st = iio_priv(indio_dev);
@@ -346,7 +358,7 @@ static int ad4134_setup(struct ad4134_state *st)
 	ret = regmap_update_bits(st->regmap, AD4134_DATA_PACKET_CONFIG_REG,
 				 AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
 				 FIELD_PREP(AD4134_DATA_PACKET_CONFIG_FRAME_MASK,
-					    AD4134_DATA_FRAME_24BIT_CRC));
+					    st->output_frame));
 	if (ret)
 		return ret;
 
@@ -434,13 +446,44 @@ static int ad4134_probe(struct spi_device *spi)
 	st->regulators[AD4134_IOVDD_REGULATOR].supply = "iovdd";
 	st->regulators[AD4134_REFIN_REGULATOR].supply = "refin";
 
+	st->output_frame = AD4134_DATA_PACKET_24BIT_FRAME;
+	ret = device_property_match_property_string(dev, "adi,adc-frame",
+						    ad4134_frame_config,
+						    ARRAY_SIZE(ad4134_frame_config));
+	if (ret < 0)
+		dev_warn(dev, "Failed to get adi,adc-frame property: %d\n", ret);
+	else
+		st->output_frame = ret;
+
+	switch (st->output_frame) {
+	case AD4134_DATA_PACKET_16BIT_FRAME:
+		indio_dev->channels = ad4134_16_chan_set;
+		indio_dev->num_channels = ARRAY_SIZE(ad4134_16_chan_set);
+		break;
+	case AD4134_DATA_PACKET_16BIT_CRC6_FRAME:
+		indio_dev->channels = ad4134_16CRC_chan_set;
+		indio_dev->num_channels = ARRAY_SIZE(ad4134_16CRC_chan_set);
+		break;
+	case AD4134_DATA_PACKET_24BIT_FRAME:
+		indio_dev->channels = ad4134_24_chan_set;
+		indio_dev->num_channels = ARRAY_SIZE(ad4134_24_chan_set);
+		break;
+	case AD4134_DATA_PACKET_24BIT_CRC6_FRAME:
+		indio_dev->channels = ad4134_24CRC_chan_set;
+		indio_dev->num_channels = ARRAY_SIZE(ad4134_24CRC_chan_set);
+		break;
+	default:
+		return dev_err_probe(dev, -EINVAL,
+				     "Failed to config ADC frame\n");
+	}
+
 	/*
 	 * Receive buffer needs to be non-zero for the SPI engine master
 	 * to mark the transfer as a read.
 	 */
 	st->buf_read_xfer.rx_buf = (void *)-1;
 	st->buf_read_xfer.len = 1;
-	st->buf_read_xfer.bits_per_word = AD4134_WORD_BITS;
+	st->buf_read_xfer.bits_per_word = indio_dev->channels->scan_type.storagebits;
 	spi_message_init_with_transfers(&st->buf_read_msg,
 					&st->buf_read_xfer, 1);
 
