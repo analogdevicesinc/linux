@@ -188,6 +188,7 @@ struct adp5588_kpad {
 	u32 cols;
 	u32 unlock_keys[2];
 	int nkeys_unlock;
+	bool gpio_only;
 	unsigned short keycode[ADP5588_KEYMAPSIZE];
 	unsigned char gpiomap[ADP5588_MAXGPIO];
 	struct gpio_chip gc;
@@ -647,6 +648,32 @@ static int adp5588_fw_parse(struct adp5588_kpad *kpad)
 	struct i2c_client *client = kpad->client;
 	int ret, i;
 
+	kpad->gpio_only = device_property_present(&client->dev, "adi,gpio-only");
+	/*
+	 * Check if the device is to be operated purely in GPIO mode. If so,
+	 * confirm that no keypad rows or columns have been specified, since
+	 * all GPINS should be configured as GPIO.
+	 */
+	if (kpad->gpio_only) {
+		ret = device_property_present(&client->dev,
+				"keypad,num-rows");
+		if (ret) {
+			dev_err(&client->dev,
+				"Specified num-rows with mode adi,gpio-only\n");
+			return -EINVAL;
+		}
+
+		ret = device_property_present(&client->dev,
+				"keypad,num-columns");
+		if (ret) {
+			dev_err(&client->dev,
+				"Specified num-columns with mode adi,gpio-only\n");
+			return -EINVAL;
+		}
+
+		return 0;
+	}
+
 	ret = matrix_keypad_parse_properties(&client->dev, &kpad->rows,
 					     &kpad->cols);
 	if (ret)
@@ -719,7 +746,7 @@ static int adp5588_probe(struct i2c_client *client)
 	struct input_dev *input;
 	struct gpio_desc *gpio;
 	unsigned int revid;
-	int ret, gpio_mode_only;
+	int ret;
 	int error;
 
 	if (!i2c_check_functionality(client->adapter,
@@ -739,17 +766,13 @@ static int adp5588_probe(struct i2c_client *client)
 	kpad->client = client;
 	kpad->input = input;
 
-	gpio_mode_only = device_property_present(&client->dev, "gpio-only");
-	if (!gpio_mode_only) {
-		error = adp5588_fw_parse(kpad);
-		if (error)
-			return error;
+	error = adp5588_fw_parse(kpad);
+	if (error)
+		return error;
 
-		error = devm_regulator_get_enable(&client->dev, "vcc");
-		if (error)
-			return error;
-
-	}
+	error = devm_regulator_get_enable(&client->dev, "vcc");
+	if (error)
+		return error;
 
 	gpio = devm_gpiod_get_optional(&client->dev, "reset", GPIOD_OUT_HIGH);
 	if (IS_ERR(gpio))
@@ -794,7 +817,7 @@ static int adp5588_probe(struct i2c_client *client)
 	if (error)
 		return error;
 
-	if (!client->irq && gpio_mode_only) {
+	if (kpad->gpio_only) {
 		dev_info(&client->dev, "Rev.%d, started as GPIO only\n", revid);
 		return 0;
 	}
@@ -807,13 +830,6 @@ static int adp5588_probe(struct i2c_client *client)
 		dev_err(&client->dev, "failed to request irq %d: %d\n",
 			client->irq, error);
 		return error;
-	}
-
-
-	if (gpio_mode_only) {
-		dev_info(&client->dev, "Rev.%d irq %d, started as GPIO only\n",
-				revid, client->irq);
-		return 0;
 	}
 
 	dev_info(&client->dev, "Rev.%d keypad, irq %d\n", revid, client->irq);

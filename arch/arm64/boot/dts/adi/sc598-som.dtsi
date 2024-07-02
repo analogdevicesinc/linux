@@ -236,7 +236,7 @@
 
 		qspi_4: partition@4 {
 			label = "JFFS2 Formatted RFS";
-			reg = <0x1020000 0x2FE0000>;
+			reg = <0x1020000 0x6FE0000>;
 		};
 
 	};
@@ -258,7 +258,7 @@
 	gpio@34 {
 		compatible = "adi,adp5587";
 		gpio-controller;
-		gpio-only;
+		adi,gpio-only;
 		#gpio-cells = <2>;
 		reg = <0x34>;
 		status = "okay";
