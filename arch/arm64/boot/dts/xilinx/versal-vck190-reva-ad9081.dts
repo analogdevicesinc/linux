@@ -176,6 +176,10 @@
 			jesd204-device;
 			#jesd204-cells = <2>;
 			jesd204-inputs = <&hmc7044 0 FRAMER_LINK0_RX>;
+
+			reset-done-gpios = <&axi_gpio 32 0>;
+			pll-datapath-reset-gpios = <&axi_gpio 36 0>;
+			datapath-reset-gpios = <&axi_gpio 38 0>;
 		};
 
 		axi_ad9081_tx_jesd: axi-jesd204-tx@a4b90000 {
@@ -193,6 +197,10 @@
 			jesd204-device;
 			#jesd204-cells = <2>;
 			jesd204-inputs = <&hmc7044 0 DEFRAMER_LINK0_TX>;
+
+			reset-done-gpios = <&axi_gpio 33 0>;
+			pll-datapath-reset-gpios = <&axi_gpio 37 0>;
+			datapath-reset-gpios = <&axi_gpio 39 0>;
 		};
 
 		axi_sysid_0: axi-sysid-0@a5000000 {
