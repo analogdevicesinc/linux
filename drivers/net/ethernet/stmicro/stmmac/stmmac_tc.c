@@ -1217,10 +1217,11 @@ disable:
 	}
 
 	priv->plat->fpe_cfg->enable = false;
-	stmmac_fpe_tx_configure(priv, priv->ioaddr,
-				priv->plat->fpe_cfg,
-				priv->plat->tx_queues_to_use,
-				0, false);
+	stmmac_fpe_configure(priv, priv->ioaddr,
+			     priv->plat->fpe_cfg,
+			     priv->plat->tx_queues_to_use,
+			     priv->plat->rx_queues_to_use,
+			     0, false);
 	netdev_info(priv->dev, "disabled FPE\n");
 
 	stmmac_fpe_handshake(priv, false);
