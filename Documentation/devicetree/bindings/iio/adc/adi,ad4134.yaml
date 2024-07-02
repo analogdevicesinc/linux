@@ -56,6 +56,15 @@ properties:
   iovdd-supply: true
   refin-supply: true
 
+  adi,adc-frame:
+    $ref: /schemas/types.yaml#/definitions/string
+    enum: [ 16-bit, 16-bit+CRC, 24-bit, 24-bit+CRC ]
+    default: 24-bit
+    description:
+      Describes how the ADC data packet should be configured. The data packet
+      size is 16-bit when "16-bit" is selected, 24-bit when "16-bit+CRC" or
+      "24-bit" are selected, and 32-bit when "24-bit+CRC" is set.
+
   adi,spi-engine:
     $ref: /schemas/types.yaml#/definitions/phandle
     description: phandle of the SPI slave connected to the SPI engine master
@@ -104,6 +113,7 @@ examples:
         iovdd-supply = <&iovdd>;
         refin-supply = <&refin>;
 
+        adi,adc-frame = "24-bit";
         adi,spi-engine = <&ad4134_spi_engine>;
       };
     };
