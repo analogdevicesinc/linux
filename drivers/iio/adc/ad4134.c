@@ -17,6 +17,7 @@
 #include <linux/spi/spi.h>
 #include <linux/spi/spi-engine.h>
 #include <linux/units.h>
+#include <linux/err.h>
 
 #include <linux/iio/buffer.h>
 #include <linux/iio/buffer-dma.h>
