@@ -1033,7 +1033,7 @@ out:
 	return err;
 }
 
-static int vpu_dev_remove(struct platform_device *pdev)
+static void vpu_dev_remove(struct platform_device *pdev)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 5, 0)
 	pm_runtime_disable(&pdev->dev);
@@ -1060,7 +1060,6 @@ static int vpu_dev_remove(struct platform_device *pdev)
 #endif
 
 	vpu_power_get(false);
-	return 0;
 }
 
 #ifdef CONFIG_PM
