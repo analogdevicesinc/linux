@@ -870,7 +870,7 @@ static int wave6_vpu_ctrl_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int wave6_vpu_ctrl_remove(struct platform_device *pdev)
+static void wave6_vpu_ctrl_remove(struct platform_device *pdev)
 {
 	struct vpu_ctrl *ctrl = dev_get_drvdata(&pdev->dev);
 
@@ -899,8 +899,6 @@ static int wave6_vpu_ctrl_remove(struct platform_device *pdev)
 				   DMA_BIDIRECTIONAL,
 				   0);
 	mutex_destroy(&ctrl->ctrl_lock);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM

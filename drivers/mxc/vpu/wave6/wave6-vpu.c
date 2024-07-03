@@ -272,7 +272,7 @@ err_v4l2_unregister:
 	return ret;
 }
 
-static int wave6_vpu_remove(struct platform_device *pdev)
+static void wave6_vpu_remove(struct platform_device *pdev)
 {
 	struct vpu_device *dev = dev_get_drvdata(&pdev->dev);
 
@@ -284,8 +284,6 @@ static int wave6_vpu_remove(struct platform_device *pdev)
 	wave6_vpu_dec_unregister_device(dev);
 	v4l2_device_unregister(&dev->v4l2_dev);
 	kfifo_free(&dev->irq_status);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM
