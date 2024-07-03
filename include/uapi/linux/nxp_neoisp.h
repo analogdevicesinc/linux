@@ -29,6 +29,7 @@ enum neoisp_version_e {
  *   - 0: do not update feature
  */
 struct neoisp_feat_ctrl_s {
+	__u32 head_color_cfg : 1;
 	__u32 hdr_decompress_input0_cfg : 1;
 	__u32 hdr_decompress_input1_cfg : 1;
 	__u32 obwb0_cfg : 1;
@@ -54,6 +55,14 @@ struct neoisp_feat_ctrl_s {
 	__u32 vignetting_table_cfg : 1;
 	__u32 drc_global_tonemap_cfg : 1;
 	__u32 drc_local_tonemap_cfg : 1;
+};
+
+/**
+ * HDR Decompression (hdr_decompress)
+ */
+struct neoisp_head_color_cfg_s {
+	__u8 ctrl_hoffset;
+	__u8 ctrl_voffset;
 };
 
 /**
@@ -474,6 +483,7 @@ struct neoisp_gcm_cfg_s {
  */
 struct neoisp_reg_params_s {
 	/* Pipeline 1 */
+	struct neoisp_head_color_cfg_s head_color;
 	struct neoisp_hdr_decompress0_cfg_s decompress_input0;
 	struct neoisp_hdr_decompress1_cfg_s decompress_input1;
 	struct neoisp_obwb_cfg_s obwb[NEO_OBWB_CNT];
