@@ -979,7 +979,7 @@ out:
 	return err;
 }
 
-static int hantro_h1_dev_remove(struct platform_device *pdev)
+static void hantro_h1_dev_remove(struct platform_device *pdev)
 {
 	hantro_h1_clk_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
@@ -997,8 +997,6 @@ static int hantro_h1_dev_remove(struct platform_device *pdev)
 		clk_put(hantro_clk_h1);
 	if (!IS_ERR(hantro_clk_h1_bus))
 		clk_put(hantro_clk_h1_bus);
-
-	return 0;
 }
 
 static int hx280enc_suspend(struct device *dev)

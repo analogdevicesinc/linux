@@ -762,7 +762,7 @@ err:
 	return ret;
 }
 
-static int v4l2_remove(struct platform_device *pdev)
+static void v4l2_remove(struct platform_device *pdev)
 {
 	void *obj;
 	int id;
@@ -786,7 +786,6 @@ static int v4l2_remove(struct platform_device *pdev)
 	kfree(vsidaemondev);
 	vsiv4l2_cleanupdaemon();
 	gvsidev = NULL;
-	return 0;
 }
 
 static const struct platform_device_id v4l2_platform_ids[] = {

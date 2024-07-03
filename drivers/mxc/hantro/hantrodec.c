@@ -1897,7 +1897,7 @@ out:
 	return err;
 }
 
-static int hantro_dev_remove(struct platform_device *pdev)
+static void hantro_dev_remove(struct platform_device *pdev)
 {
 	hantro_clk_enable(&pdev->dev);
 	pm_runtime_get_sync(&pdev->dev);
@@ -1920,8 +1920,6 @@ static int hantro_dev_remove(struct platform_device *pdev)
 		clk_put(hantro_clk_g2);
 	if (!IS_ERR(hantro_clk_bus))
 		clk_put(hantro_clk_bus);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM

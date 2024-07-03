@@ -1978,7 +1978,7 @@ out:
 	return err;
 }
 
-static int hantro_dev_remove(struct platform_device *pdev)
+static void hantro_dev_remove(struct platform_device *pdev)
 {
 	hantrodec_t *dev = platform_get_drvdata(pdev);
 
@@ -2000,8 +2000,6 @@ static int hantro_dev_remove(struct platform_device *pdev)
 		pr_err("hantro: decrease cores count incorrect.\n");
 		cores = 0;
 	}
-
-	return 0;
 }
 
 #ifdef CONFIG_PM
