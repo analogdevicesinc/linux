@@ -36,6 +36,7 @@
  */
 struct neoisp_meta_params_s neoisp_default_params = {
 	.features_cfg = {
+		.head_color_cfg = 1,
 		.hdr_decompress_input0_cfg = 1,
 		.hdr_decompress_input1_cfg = 1,
 		.obwb0_cfg = 1,
@@ -63,8 +64,11 @@ struct neoisp_meta_params_s neoisp_default_params = {
 		.drc_local_tonemap_cfg = 1,
 	},
 	.regs = {
-	.decompress_input0 = { .ctrl_enable = 1,
+	.head_color = {
+		.ctrl_hoffset = 0,
+		.ctrl_voffset = 0,
 	},
+	.decompress_input0 = { .ctrl_enable = 1	},
 	.decompress_input1 = { .ctrl_enable = 0 },
 	.obwb[0] = {
 		.ctrl_obpp = 3,
@@ -233,6 +237,13 @@ static inline void ctx_blk_write(uint32_t field, __u32 *ptr, __u32 *dest)
 		return;
 	}
 	memcpy(&dest[woffset], ptr, wcount * sizeof(__u32));
+}
+
+static void neoisp_set_head_color(struct neoisp_reg_params_s *p, struct neoisp_dev_s *neoispd)
+{
+	regmap_field_write(neoispd->regs.fields[NEO_HC_CTRL_CAM0_IDX],
+			NEO_HC_CTRL_CAM0_HOFFSET_SET(p->head_color.ctrl_hoffset)
+			| NEO_HC_CTRL_CAM0_VOFFSET_SET(p->head_color.ctrl_voffset));
 }
 
 static void neoisp_set_hdr_decompress0(struct neoisp_reg_params_s *p, struct neoisp_dev_s *neoispd)
@@ -1046,6 +1057,8 @@ int neoisp_set_params(struct neoisp_dev_s *neoispd, struct neoisp_meta_params_s 
 	__u32 *mem = (__u32 *)neoispd->mmio_tcm;
 
 	/* update selected blocks wrt feature config flag */
+	if (force || p->features_cfg.head_color_cfg)
+		neoisp_set_head_color(&p->regs, neoispd);
 	if (force || p->features_cfg.hdr_decompress_input0_cfg)
 		neoisp_set_hdr_decompress0(&p->regs, neoispd);
 	if (force || p->features_cfg.hdr_decompress_input1_cfg)
@@ -1124,6 +1137,9 @@ int neoisp_update_ctx(struct neoisp_dev_s *neoispd, __u32 ctx_id)
 	new = (struct neoisp_meta_params_s *)vb2_plane_vaddr(&buf->vb.vb2_buf, 0);
 
 	/* update selected blocks wrt feature config flag */
+	if (new->features_cfg.head_color_cfg)
+		memcpy(&params->regs.head_color, &new->regs.head_color,
+				sizeof(new->regs.head_color));
 	if (new->features_cfg.hdr_decompress_input0_cfg)
 		memcpy(&params->regs.decompress_input0, &new->regs.decompress_input0,
 				sizeof(new->regs.decompress_input0));

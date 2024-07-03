@@ -479,6 +479,47 @@ static void neoisp_update_pipeline_bit_width(struct neoisp_reg_params_s *regp, _
 }
 
 /*
+ * Set Head Color selection
+ */
+static void neoisp_update_head_color(struct neoisp_reg_params_s *regs, __u32 pixfmt)
+{
+	switch (pixfmt) {
+	case (V4L2_PIX_FMT_SRGGB8):
+	case (V4L2_PIX_FMT_SRGGB10):
+	case (V4L2_PIX_FMT_SRGGB12):
+	case (V4L2_PIX_FMT_SRGGB14):
+	case (V4L2_PIX_FMT_SRGGB16):
+		regs->head_color.ctrl_hoffset = 0;
+		regs->head_color.ctrl_voffset = 0;
+		break;
+	case (V4L2_PIX_FMT_SGRBG8):
+	case (V4L2_PIX_FMT_SGRBG10):
+	case (V4L2_PIX_FMT_SGRBG12):
+	case (V4L2_PIX_FMT_SGRBG14):
+	case (V4L2_PIX_FMT_SGRBG16):
+		regs->head_color.ctrl_hoffset = 1;
+		regs->head_color.ctrl_voffset = 0;
+		break;
+	case (V4L2_PIX_FMT_SGBRG8):
+	case (V4L2_PIX_FMT_SGBRG10):
+	case (V4L2_PIX_FMT_SGBRG12):
+	case (V4L2_PIX_FMT_SGBRG14):
+	case (V4L2_PIX_FMT_SGBRG16):
+		regs->head_color.ctrl_hoffset = 0;
+		regs->head_color.ctrl_voffset = 1;
+		break;
+	case (V4L2_PIX_FMT_SBGGR8):
+	case (V4L2_PIX_FMT_SBGGR10):
+	case (V4L2_PIX_FMT_SBGGR12):
+	case (V4L2_PIX_FMT_SBGGR14):
+	case (V4L2_PIX_FMT_SBGGR16):
+		regs->head_color.ctrl_hoffset = 1;
+		regs->head_color.ctrl_voffset = 1;
+		break;
+	}
+}
+
+/*
  *  set pipe conf settings
  */
 static int neoisp_set_pipe_conf(struct neoisp_dev_s *neoispd)
@@ -488,7 +529,7 @@ static int neoisp_set_pipe_conf(struct neoisp_dev_s *neoispd)
 	struct neoisp_buffer_s *buf_ir = neoispd->queued_job.buf[NEOISP_IR_NODE];
 	struct neoisp_node_s *nd = &neoispd->queued_job.node_group->node[NEOISP_FRAME_NODE];
 	struct neoisp_mparam_conf_s *cfg = &mod_params.conf;
-	__u32 width, height, obpp, ibpp, irbpp, hoffset, voffset, inp0_stride;
+	__u32 width, height, obpp, ibpp, irbpp, inp0_stride;
 	__u32 out_pixfmt = nd->format.fmt.pix_mp.pixelformat;
 	dma_addr_t inp0_addr;
 
@@ -506,49 +547,6 @@ static int neoisp_set_pipe_conf(struct neoisp_dev_s *neoispd)
 	/* take crop into account if any */
 	inp0_addr = get_addr(buf, 0) + (nd->crop.left * ibpp) + (nd->crop.top * inp0_stride);
 
-	/*
-	 * Set Head Color selection
-	 */
-	switch (nd->format.fmt.pix_mp.pixelformat) {
-	case (V4L2_PIX_FMT_SRGGB8):
-	case (V4L2_PIX_FMT_SRGGB10):
-	case (V4L2_PIX_FMT_SRGGB12):
-	case (V4L2_PIX_FMT_SRGGB14):
-	case (V4L2_PIX_FMT_SRGGB16):
-		hoffset = 0;
-		voffset = 0;
-		break;
-	case (V4L2_PIX_FMT_SGRBG8):
-	case (V4L2_PIX_FMT_SGRBG10):
-	case (V4L2_PIX_FMT_SGRBG12):
-	case (V4L2_PIX_FMT_SGRBG14):
-	case (V4L2_PIX_FMT_SGRBG16):
-		hoffset = 1;
-		voffset = 0;
-		break;
-	case (V4L2_PIX_FMT_SGBRG8):
-	case (V4L2_PIX_FMT_SGBRG10):
-	case (V4L2_PIX_FMT_SGBRG12):
-	case (V4L2_PIX_FMT_SGBRG14):
-	case (V4L2_PIX_FMT_SGBRG16):
-		hoffset = 0;
-		voffset = 1;
-		break;
-	case (V4L2_PIX_FMT_SBGGR8):
-	case (V4L2_PIX_FMT_SBGGR10):
-	case (V4L2_PIX_FMT_SBGGR12):
-	case (V4L2_PIX_FMT_SBGGR14):
-	case (V4L2_PIX_FMT_SBGGR16):
-		hoffset = 1;
-		voffset = 1;
-		break;
-	}
-	regmap_field_write(neoispd->regs.fields[NEO_HC_CTRL_CAM0_IDX],
-			NEO_HC_CTRL_CAM0_HOFFSET_SET(hoffset)
-			| NEO_HC_CTRL_CAM0_VOFFSET_SET(voffset));
-	/*
-	 * FIXME get conf depending on input image
-	 */
 	regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_IMG_CONF_CAM0_IDX],
 			NEO_PIPE_CONF_IMG_CONF_CAM0_IBPP0_SET(cfg->img_conf_cam0_ibpp0)
 			| NEO_PIPE_CONF_IMG_CONF_CAM0_INALIGN0_SET(cfg->img_conf_cam0_inalign0)
@@ -1294,8 +1292,10 @@ static int neoisp_node_streamon(struct file *file, void *priv,
 	/*
 	 * Check if this is input0 node to preload default params
 	 */
-	if (node->id == NEOISP_INPUT0_NODE)
+	if (node->id == NEOISP_INPUT0_NODE) {
 		neoisp_update_pipeline_bit_width(&params->regs, node->neoisp_format->bit_depth);
+		neoisp_update_head_color(&params->regs, pixfmt);
+	}
 
 	if (node->id == NEOISP_FRAME_NODE) {
 		struct neoisp_node_s *in0_node = &node_group->node[NEOISP_INPUT0_NODE];
