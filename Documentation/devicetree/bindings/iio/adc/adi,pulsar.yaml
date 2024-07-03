@@ -21,6 +21,7 @@ description: |
     https://www.analog.com/en/products/ad7946.html
     https://www.analog.com/en/products/ad7942.html
     https://www.analog.com/en/products/ad7699.html
+    https://www.analog.com/en/products/ad7694.html
     https://www.analog.com/en/products/ad7693.html
     https://www.analog.com/en/products/ad7691.html
     https://www.analog.com/en/products/ad7690.html
@@ -29,6 +30,8 @@ description: |
     https://www.analog.com/en/products/ad7687.html
     https://www.analog.com/en/products/ad7686.html
     https://www.analog.com/en/products/ad7685.html
+    https://www.analog.com/en/products/ad7684.html
+    https://www.analog.com/en/products/ad7683.html
     https://www.analog.com/en/products/ad7682.html
     https://www.analog.com/en/products/ad4022.html
     https://www.analog.com/en/products/ad4021.html
@@ -53,6 +56,7 @@ properties:
       - adi,pulsar,ad7946
       - adi,pulsar,ad7942
       - adi,pulsar,ad7699
+      - adi,pulsar,ad7694
       - adi,pulsar,ad7693
       - adi,pulsar,ad7691
       - adi,pulsar,ad7690
@@ -61,6 +65,8 @@ properties:
       - adi,pulsar,ad7687
       - adi,pulsar,ad7686
       - adi,pulsar,ad7685
+      - adi,pulsar,ad7684
+      - adi,pulsar,ad7683
       - adi,pulsar,ad7682
       - adi,pulsar,ad4022
       - adi,pulsar,ad4021
