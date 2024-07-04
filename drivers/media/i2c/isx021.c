@@ -21,12 +21,24 @@
 #include <media/v4l2-subdev.h>
 
 #define ISX021_WIDTH	1920
-#define ISX021_HEIGHT	1080
+#define ISX021_HEIGHT	1280
 
 #define PLUS_10(x)  ((x)+(x)/10)
 
+#define V4L2_CID_FSYNC		(V4L2_CID_USER_BASE | 0x1002)
+#define V4L2_CID_TPG		(V4L2_CID_USER_BASE | 0x1003)
+
 static const char * const isx021_supply_names[] = {
 	"dvdd",
+};
+
+static const char * const isx021_ctrl_fsync_options[] = {
+	"Internal", "External",
+};
+
+static const char * const isx021_ctrl_test_pattern_options[] = {
+	"Disabled",
+	"Enabled",
 };
 
 struct isx021 {
@@ -37,15 +49,13 @@ struct isx021 {
 	struct regmap *regmap;
 
 	bool streaming;
+	int trigger_mode;
 
 	struct v4l2_subdev subdev;
 	struct media_pad pad;
 
 	struct v4l2_ctrl_handler ctrls;
 };
-
-static int trigger_mode;
-module_param(trigger_mode, int, 0644);
 
 static int isx021_set_response_mode(struct isx021 *sensor);
 
@@ -342,7 +352,7 @@ static int isx021_set_auto_exposure(struct isx021 *sensor, bool enable)
 	ret = isx021_write(sensor, 0xac40, shutter_time_min & 0xFF);
 	if (ret)
 		goto fail;
-	
+
 	ret = isx021_write(sensor, 0xac41, (shutter_time_min >> 8) & 0xFF);
 	if (ret)
 		goto fail;
@@ -351,7 +361,7 @@ static int isx021_set_auto_exposure(struct isx021 *sensor, bool enable)
 	ret = isx021_write(sensor, 0xac44, shutter_time_mid & 0xFF);
 	if (ret)
 		goto fail;
-	
+
 	ret = isx021_write(sensor, 0xac45, (shutter_time_mid >> 8) & 0xFF);
 	if (ret)
 		goto fail;
@@ -360,7 +370,7 @@ static int isx021_set_auto_exposure(struct isx021 *sensor, bool enable)
 	ret = isx021_write(sensor, 0xac48, shutter_time_max & 0xFF);
 	if (ret)
 		goto fail;
-	
+
 	ret = isx021_write(sensor, 0xac49, (shutter_time_max >> 8) & 0xFF);
 	if (ret)
 		goto fail;
@@ -538,6 +548,24 @@ static int isx021_set_fsync_trigger_mode(struct isx021 *sensor)
   return ret;
 }
 
+static int isx021_set_tpg(struct isx021 *sensor, s32 val)
+{
+	u32 enabled = 0;
+	int ret = 0;
+
+	if (val)
+		enabled = 1;
+
+	ret = isx021_write(sensor, 0xbe14, enabled);
+	if (ret)
+	{
+		return ret;
+	}
+	ret = isx021_write(sensor, 0xbf60, enabled);
+
+	return ret;
+}
+
 /* -----------------------------------------------------------------------------
  * Controls
  */
@@ -570,6 +598,14 @@ static int isx021_s_ctrl(struct v4l2_ctrl *ctrl)
 		isx021_set_gain(sensor, ctrl->val);
 		break;
 
+	case V4L2_CID_FSYNC:
+		sensor->trigger_mode = ctrl->val;
+		break;
+
+	case V4L2_CID_TPG:
+		isx021_set_tpg(sensor, ctrl->val);
+		break;
+
 	default:
 		ret = -EINVAL;
 		break;
@@ -580,6 +616,26 @@ static int isx021_s_ctrl(struct v4l2_ctrl *ctrl)
 
 static const struct v4l2_ctrl_ops isx021_ctrl_ops = {
 	.s_ctrl = isx021_s_ctrl,
+};
+
+static const struct v4l2_ctrl_config isx021_ctrl_fsync = {
+	.ops = &isx021_ctrl_ops,
+	.id = V4L2_CID_FSYNC,
+	.name = "FSYNC source",
+	.type = V4L2_CTRL_TYPE_MENU,
+	.max = ARRAY_SIZE(isx021_ctrl_fsync_options) - 1,
+	.def = 0,
+	.qmenu = isx021_ctrl_fsync_options,
+};
+
+static const struct v4l2_ctrl_config isx021_ctrl_tpg = {
+	.ops = &isx021_ctrl_ops,
+	.id = V4L2_CID_TPG,
+	.name = "Test Pattern Generator",
+	.type = V4L2_CTRL_TYPE_MENU,
+	.max = ARRAY_SIZE(isx021_ctrl_test_pattern_options) - 1,
+	.def = 0,
+	.qmenu = isx021_ctrl_test_pattern_options,
 };
 
 static int isx021_ctrls_init(struct isx021 *sensor)
@@ -613,6 +669,12 @@ static int isx021_ctrls_init(struct isx021 *sensor)
 
 	v4l2_ctrl_new_fwnode_properties(&sensor->ctrls, &isx021_ctrl_ops,
 					&props);
+
+	v4l2_ctrl_new_custom(&sensor->ctrls,
+				     &isx021_ctrl_fsync, NULL);
+
+	v4l2_ctrl_new_custom(&sensor->ctrls,
+				     &isx021_ctrl_tpg, NULL);
 
 	if (sensor->ctrls.error) {
 		dev_err(sensor->dev, "failed to add controls (%d)\n",
@@ -660,7 +722,7 @@ static int isx021_stream_on(struct isx021 *sensor)
 {
 	int ret = 0;
 
-	if (trigger_mode){
+	if (sensor->trigger_mode){
 		ret = isx021_set_fsync_trigger_mode(sensor);
 		dev_dbg(sensor->dev, "[%s] : Putting camera sensor into Slave mode.\n", __func__);
 	}
@@ -888,7 +950,39 @@ static const struct v4l2_subdev_pad_ops isx021_subdev_pad_ops = {
 	.init_cfg = isx021_init_cfg,
 };
 
+#ifdef CONFIG_VIDEO_ADV_DEBUG
+static int isx021_s_register(struct v4l2_subdev *sd,
+			     const struct v4l2_dbg_register *reg)
+{
+	struct isx021 *sensor = container_of(sd, struct isx021, subdev);
+
+	return isx021_write(sensor, reg->reg, reg->val);
+}
+
+static int isx021_g_register(struct v4l2_subdev *sd,
+			     struct v4l2_dbg_register *reg)
+{
+	struct isx021 *sensor = container_of(sd, struct isx021, subdev);
+	u8 aux;
+	int ret;
+
+	reg->size = 1;
+	ret = isx021_read(sensor, reg->reg, &aux);
+	reg->val = aux;
+
+	return ret;
+}
+#endif
+
+static const struct v4l2_subdev_core_ops isx021_core_ops = {
+#ifdef CONFIG_VIDEO_ADV_DEBUG
+	.g_register = isx021_g_register,
+	.s_register = isx021_s_register,
+#endif
+};
+
 static const struct v4l2_subdev_ops isx021_subdev_ops = {
+	.core = &isx021_core_ops,
 	.video = &isx021_subdev_video_ops,
 	.pad = &isx021_subdev_pad_ops,
 };
@@ -961,6 +1055,7 @@ static const struct dev_pm_ops isx021_pm_ops = {
 static const struct regmap_config isx021_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 8,
+	.max_register = 0xFFFF,
 };
 
 static int isx021_probe(struct i2c_client *client)
@@ -1000,6 +1095,8 @@ static int isx021_probe(struct i2c_client *client)
 	sensor->regmap = devm_regmap_init_i2c(client, &isx021_regmap_config);
 	if (IS_ERR(sensor->regmap))
 		return PTR_ERR(sensor->regmap);
+
+	sensor->trigger_mode = 0;
 
 	/*
 	 * Enable power management. The driver supports runtime PM, but needs to
