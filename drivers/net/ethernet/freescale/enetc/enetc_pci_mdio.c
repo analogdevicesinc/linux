@@ -36,14 +36,6 @@ static int enetc_pci_mdio_probe(struct pci_dev *pdev,
 	struct mii_bus *bus;
 	int err;
 
-	if (of_device_is_compatible(node, "fsl,imx95-netc-emdio")) {
-		err = netc_ierb_get_init_status();
-		if (err) {
-			dev_err(dev, "Cannot get IERB init status: %d\n", err);
-			return err;
-		}
-	}
-
 	pinctrl_pm_select_default_state(dev);
 
 	port_regs = pci_iomap(pdev, 0, 0);

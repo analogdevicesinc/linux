@@ -1201,13 +1201,6 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 	if (enetc_pf_is_owned_by_mcore(pdev))
 		return 0;
 
-	err = netc_ierb_get_init_status();
-	if (err) {
-		if (err != -EPROBE_DEFER)
-			dev_err(dev, "Couldn't get IERB init status: %d\n", err);
-		return err;
-	}
-
 	err = netc_prb_ierb_check_emdio_state();
 	if (err)
 		return err;

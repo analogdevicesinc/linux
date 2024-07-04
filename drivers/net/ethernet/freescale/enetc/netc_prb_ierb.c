@@ -84,7 +84,6 @@ struct netc_prb_ierb {
 	void __iomem *ierb_base;
 	struct clk *ipg_clk;
 
-	bool ierb_init;
 	struct regmap *netcmix;
 	struct platform_device *pdev;
 	struct dentry *debugfs_root;
@@ -212,8 +211,6 @@ static int netc_ierb_init(struct platform_device *pdev)
 		return err;
 	}
 
-	pi->ierb_init = true;
-
 	return 0;
 }
 
@@ -247,30 +244,6 @@ int netc_prb_ierb_add_emdio_consumer(struct device *consumer)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(netc_prb_ierb_add_emdio_consumer);
-
-int netc_ierb_get_init_status(void)
-{
-	struct platform_device *pdev;
-	struct device_node *node;
-	struct netc_prb_ierb *pi;
-
-	node = of_find_compatible_node(NULL, NULL,
-				       "fsl,imx95-netc-prb-ierb");
-	if (!node || !of_device_is_available(node))
-		return -ENODEV;
-
-	pdev = of_find_device_by_node(node);
-	of_node_put(node);
-	if (!pdev)
-		return -EPROBE_DEFER;
-
-	pi = platform_get_drvdata(pdev);
-	if (!pi || !pi->ierb_init)
-		return -EPROBE_DEFER;
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(netc_ierb_get_init_status);
 
 u64 netc_ierb_get_clk_config(void)
 {
