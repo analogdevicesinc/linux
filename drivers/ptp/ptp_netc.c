@@ -603,13 +603,6 @@ static int netc_timer_probe(struct pci_dev *pdev,
 	struct netc_timer *priv;
 	int err, len, n;
 
-	err = netc_ierb_get_init_status();
-	if (err) {
-		if (err != -EPROBE_DEFER)
-			dev_err(dev, "Can't get IERB init status: %d\n", err);
-		return err;
-	}
-
 	err = pci_enable_device_mem(pdev);
 	if (err)
 		return dev_err_probe(dev, err, "device enable failed\n");
