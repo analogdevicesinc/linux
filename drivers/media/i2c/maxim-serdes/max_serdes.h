@@ -16,12 +16,6 @@
 	((__type *)__v4l2_async_notifier_add_fwnode_subdev(__notifier, __fwnode,\
 							   sizeof(__type)))
 
-struct pinfunction {
-	const char *name;
-	const char * const *groups;
-	size_t ngroups;
-};
-
 #define PINCTRL_PINFUNCTION(_name, _groups, _ngroups)	\
 (struct pinfunction) {					\
 		.name = (_name),			\
