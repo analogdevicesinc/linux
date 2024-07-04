@@ -51,6 +51,47 @@
 #define AD9081_FFH_CHAN_SEL_GPIO3_EDGE_MODE	11 /* 11: profile_pins[3] Pin edge control- increment internal counter when rising edge of profile_pins[3] Pin. */
 #define AD9081_FFH_CHAN_SEL_FHT_EXP_MODE	12 /* 12: FHT expire based control - increment internal counter when FHT is expired. */
 
+/*
+ * Equaliser CTLE Filter Selection, Range 0 - 4, based on Jesd IL,
+ * Pick lower setting for Higher Insertion loss
+ * Example:
+ *    adi,ctle-filter-settings /bits/ 8 <1 1 1 1 1 1 1 1>;
+ */
+#define AD9081_CTLE_FLT_0 0
+#define AD9081_CTLE_FLT_1 1
+#define AD9081_CTLE_FLT_2 2
+#define AD9081_CTLE_FLT_3 3
+
+/*
+ * JESD Serializer Swing Settings
+ * Example:
+ *   adi,lane-swing-settings /bits/ 8 <1 1 1 1 1 1 1 1>;
+ */
+#define AD9081_SER_SWING_1000 0 /*!< 1000 mV Swing */
+#define AD9081_SER_SWING_850 1  /*!< 850 mV Swing */
+#define AD9081_SER_SWING_750 2  /*!< 750 mV Swing */
+#define AD9081_SER_SWING_500 3  /*!< 500 mV Swing */
+
+/*
+ * JESD Serializer Pre-Emphasis Settings
+ * Example:
+ *   adi,lane-pre-emp-settings /bits/ 8 <1 1 1 1 1 1 1 1>;
+ */
+#define AD9081_SER_PRE_EMP_0DB 0 /*!< 0 db Pre-Emphasis */
+#define AD9081_SER_PRE_EMP_3DB 1 /*!< 3 db Pre-Emphasis */
+#define AD9081_SER_PRE_EMP_6DB 2 /*!< 6 db Pre-Emphasis */
+
+/*
+ * JESD Serializer Post-Emphasis Settings
+ * Example:
+ *   adi,lane-post-emp-settings /bits/ 8 <1 1 1 1 1 1 1 1>;
+ */
+#define AD9081_SER_POST_EMP_0DB 0  /*!< 0 db Post-Emphasis */
+#define AD9081_SER_POST_EMP_3DB 1  /*!< 3 db Post-Emphasis */
+#define AD9081_SER_POST_EMP_6DB 2  /*!< 6 db Post-Emphasis */
+#define AD9081_SER_POST_EMP_9DB 3  /*!< 9 db Post-Emphasis */
+#define AD9081_SER_POST_EMP_12DB 4 /*!< 12 db Post-Emphasis */
+
  /*
   * JESD204-FSM defines
   */
