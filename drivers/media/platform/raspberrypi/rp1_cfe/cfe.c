@@ -315,6 +315,13 @@ struct cfe_device {
 	int fe_csi2_channel;
 };
 
+struct cfe_graph_entity {
+	struct v4l2_async_connection asd; /* must be first */
+	struct media_entity *entity;
+	struct v4l2_subdev *subdev;
+	bool streaming;
+};
+
 static inline bool is_fe_enabled(struct cfe_device *cfe)
 {
 	return cfe->fe_csi2_channel != -1;
@@ -323,6 +330,11 @@ static inline bool is_fe_enabled(struct cfe_device *cfe)
 static inline struct cfe_device *to_cfe_device(struct v4l2_device *v4l2_dev)
 {
 	return container_of(v4l2_dev, struct cfe_device, v4l2_dev);
+}
+
+static inline struct cfe_graph_entity *to_cfe_entity(struct v4l2_async_connection *asd)
+{
+	return container_of(asd, struct cfe_graph_entity, asd);
 }
 
 static inline u32 cfg_reg_read(struct cfe_device *cfe, u32 offset)
@@ -818,6 +830,157 @@ static irqreturn_t cfe_isr(int irq, void *dev)
 	return IRQ_HANDLED;
 }
 
+static struct cfe_graph_entity *
+cfe_graph_find_entity_from_media(struct cfe_device *dev,
+				  struct media_entity *entity)
+{
+	struct cfe_graph_entity *cfe_entity;
+	struct v4l2_async_connection *asd;
+
+	list_for_each_entry(asd, &dev->notifier.done_list, asc_entry) {
+		cfe_entity = to_cfe_entity(asd);
+		if (cfe_entity->entity == entity)
+			return cfe_entity;
+	}
+
+	return NULL;
+}
+
+static bool cfe_graph_entity_set_streaming(struct cfe_device *dev,
+					    struct cfe_graph_entity *entity,
+					    bool enable)
+{
+	bool status = entity->streaming;
+
+	entity->streaming = enable;
+	return status;
+}
+
+static int cfe_graph_entity_start_stop_subdev(struct cfe_device *cfe,
+				    struct cfe_graph_entity *entity, bool on)
+{
+	struct v4l2_subdev *subdev;
+	int ret = 0;
+
+	cfe_dbg("%s entity %s\n", on ? "Starting" : "Stopping", entity->entity->name);
+	subdev = media_entity_to_v4l2_subdev(entity->entity);
+
+	/*
+	 * start or stop the subdev only once in case if they are
+	 * shared between sub-graphs
+	 */
+	if (on) {
+		/* power-on subdevice */
+		ret = v4l2_subdev_call(subdev, core, s_power, 1);
+		if (ret < 0 && ret != -ENOIOCTLCMD) {
+			cfe_err("s_power on failed on subdev\n");
+			cfe_graph_entity_set_streaming(cfe, entity, 0);
+			return ret;
+		}
+
+		/* stream-on subdevice */
+		ret = v4l2_subdev_call(subdev, video, s_stream, 1);
+		if (ret < 0 && ret != -ENOIOCTLCMD) {
+			cfe_err("s_stream on failed on subdev\n");
+			v4l2_subdev_call(subdev, core, s_power, 0);
+			cfe_graph_entity_set_streaming(cfe, entity, 0);
+		}
+	} else {
+		/* stream-off subdevice */
+		ret = v4l2_subdev_call(subdev, video, s_stream, 0);
+		if (ret < 0 && ret != -ENOIOCTLCMD) {
+			cfe_err("s_stream off failed on subdev\n");
+			cfe_graph_entity_set_streaming(cfe, entity, 1);
+		}
+
+		/* power-off subdevice */
+		ret = v4l2_subdev_call(subdev, core, s_power, 0);
+		if (ret < 0 && ret != -ENOIOCTLCMD)
+			cfe_err("s_power off failed on subdev\n");
+	}
+
+	if (ret == -ENOIOCTLCMD)
+		ret = 0;
+
+	return ret;
+}
+
+static bool cfe_graph_entity_start_stop(struct cfe_device *cfe,
+					 struct cfe_graph_entity *entity,
+					 bool on)
+{
+	unsigned long pad_flag = on ? MEDIA_PAD_FL_SOURCE : MEDIA_PAD_FL_SINK;
+	unsigned int i;
+	bool state;
+	int ret;
+
+	if (entity->streaming == on)
+		return true;
+
+	for (i = 0; i < entity->entity->num_pads; i++) {
+		struct cfe_graph_entity *remote;
+		struct media_pad *pad;
+
+		if (!(entity->entity->pads[i].flags & pad_flag))
+			continue;
+
+		/* skipping not connected pads */
+		pad = media_pad_remote_pad_first(&entity->entity->pads[i]);
+		if (!pad || !pad->entity)
+			continue;
+
+		/*
+		 * Skip if there is no remote. This entity is at the end,
+		 * such as DMA, sensor, or other type.
+		 */
+		remote = cfe_graph_find_entity_from_media(cfe, pad->entity);
+		if (!remote)
+			continue;
+
+		/* the dependency state doesn't meet */
+		if (remote->streaming != on) {
+			state = cfe_graph_entity_start_stop(cfe, remote, on);
+			if (!state)
+				return state;
+		}
+	}
+
+	/* set state and report if state is changed or not */
+	state = cfe_graph_entity_set_streaming(cfe, entity, on);
+	/* This shouldn't happen as check is already above */
+	if (state == on) {
+		WARN(1, "Should never get here\n");
+		return true;
+	}
+
+	ret = cfe_graph_entity_start_stop_subdev(cfe, entity, on);
+	if (ret < 0) {
+		cfe_err("ret = %d for entity %s\n",
+			ret, entity->entity->name);
+		return false;
+	}
+
+	return true;
+}
+
+int cfe_graph_pipeline_start_stop(struct cfe_device *cfe, bool on)
+{
+	struct v4l2_async_connection *asd;
+
+	list_for_each_entry(asd, &cfe->notifier.done_list, asc_entry) {
+		struct cfe_graph_entity *entity;
+		bool state;
+
+		entity = to_cfe_entity(asd);
+
+		state = cfe_graph_entity_start_stop(cfe, entity, on);
+		if (!state)
+			return -EPIPE;
+	}
+
+	return 0;
+}
+
 /*
  * Stream helpers
  */
@@ -1171,7 +1334,7 @@ static int cfe_start_streaming(struct vb2_queue *vq, unsigned int count)
 	csi2_open_rx(&cfe->csi2);
 
 	cfe_dbg("Starting sensor streaming\n");
-	ret = v4l2_subdev_call(cfe->sensor, video, s_stream, 1);
+	ret = cfe_graph_pipeline_start_stop(cfe, true);
 	if (ret < 0) {
 		cfe_err("stream on failed in subdev\n");
 		goto err_disable_cfe;
@@ -1215,7 +1378,7 @@ static void cfe_stop_streaming(struct vb2_queue *vq)
 
 	if (!test_any_node(cfe, NODE_STREAMING)) {
 		/* Stop streaming the sensor and disable the peripheral. */
-		if (v4l2_subdev_call(cfe->sensor, video, s_stream, 0) < 0)
+		if (cfe_graph_pipeline_start_stop(cfe, false) < 0)
 			cfe_err("stream off failed in subdev\n");
 
 		csi2_close_rx(&cfe->csi2);
@@ -1713,7 +1876,7 @@ static int cfe_video_link_validate(struct media_link *link)
 			}
 		}
 		if (!fmt) {
-			cfe_err("Format mismatch!\n");
+			cfe_err("FOURCC format: %d\n", pix_fmt->pixelformat);
 			ret = -EINVAL;
 			goto out;
 		}
@@ -2054,12 +2217,143 @@ static int cfe_link_node_pads(struct cfe_device *cfe)
 	return 0;
 }
 
+static struct cfe_graph_entity * cfe_graph_find_entity(struct cfe_device *dev,
+		       const struct fwnode_handle *fwnode)
+{
+	struct cfe_graph_entity *entity;
+	struct v4l2_async_connection *asd;
+	struct list_head *lists[] = {
+		&dev->notifier.done_list,
+		&dev->notifier.waiting_list
+	};
+
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(lists); i++) {
+		list_for_each_entry(asd, lists[i], asc_entry) {
+			entity = to_cfe_entity(asd);
+			if (entity->asd.match.fwnode == fwnode)
+				return entity;
+		}
+	}
+
+	return NULL;
+}
+
+static int cfe_graph_build_one(struct cfe_device *cfe,
+				struct cfe_graph_entity *entity)
+{
+	u32 link_flags = MEDIA_LNK_FL_ENABLED;
+	struct media_entity *local = entity->entity;
+	struct media_entity *remote;
+	struct media_pad *local_pad;
+	struct media_pad *remote_pad;
+	struct cfe_graph_entity *ent;
+	struct v4l2_fwnode_link link;
+	struct fwnode_handle *ep = NULL;
+	int ret = 0;
+
+	cfe_dbg("creating links for entity %s\n", local->name);
+
+	while (1) {
+		/* Get the next endpoint and parse its link. */
+		ep = fwnode_graph_get_next_endpoint(entity->asd.match.fwnode,
+						    ep);
+		if (ep == NULL)
+			break;
+
+		cfe_dbg("processing endpoint %p\n", ep);
+
+		ret = v4l2_fwnode_parse_link(ep, &link);
+		if (ret < 0) {
+			cfe_err("failed to parse link for %p\n", ep);
+			continue;
+		}
+
+		/* Skip sink ports, they will be processed from the other end of
+		 * the link.
+		 */
+		if (link.local_port >= local->num_pads) {
+			cfe_err("invalid port number %u for %p\n",
+				link.local_port, link.local_node);
+			v4l2_fwnode_put_link(&link);
+			ret = -EINVAL;
+			break;
+		}
+
+		local_pad = &local->pads[link.local_port];
+
+		if (local_pad->flags & MEDIA_PAD_FL_SINK) {
+			cfe_dbg("skipping sink port %p:%u\n",
+				link.local_node, link.local_port);
+			v4l2_fwnode_put_link(&link);
+			continue;
+		}
+
+		/* Find the remote entity. */
+		ent = cfe_graph_find_entity(cfe, link.remote_node);
+		if (ent == NULL) {
+			cfe_err("no entity found for %p\n",
+				link.remote_node);
+			v4l2_fwnode_put_link(&link);
+			ret = -ENODEV;
+			break;
+		}
+
+		remote = ent->entity;
+
+		if (link.remote_port >= remote->num_pads) {
+			cfe_err("invalid port number %u on %p\n",
+				link.remote_port, link.remote_node);
+			v4l2_fwnode_put_link(&link);
+			ret = -EINVAL;
+			break;
+		}
+
+		remote_pad = &remote->pads[link.remote_port];
+
+		v4l2_fwnode_put_link(&link);
+
+		/* Create the media link. */
+		cfe_dbg("creating %s:%u -> %s:%u link\n",
+			local->name, local_pad->index,
+			remote->name, remote_pad->index);
+
+		ret = media_create_pad_link(local, local_pad->index,
+					       remote, remote_pad->index,
+					       link_flags);
+		if (ret < 0) {
+			cfe_err("failed to create %s:%u -> %s:%u link\n",
+					local->name, local_pad->index,
+					remote->name, remote_pad->index);
+			break;
+		}
+	}
+
+	fwnode_handle_put(ep);
+	return ret;
+}
+
 static int cfe_probe_complete(struct cfe_device *cfe)
 {
+	struct v4l2_async_connection *asd;
+	struct cfe_graph_entity *entity;
 	unsigned int i;
 	int ret;
 
+	/* Create links for every entity. */
+	list_for_each_entry(asd, &cfe->notifier.done_list, asc_entry) {
+		entity = to_cfe_entity(asd);
+		ret = cfe_graph_build_one(cfe, entity);
+		if (ret < 0);
+			//return ret;
+	}
+
 	cfe->v4l2_dev.notify = cfe_notify;
+
+	asd = list_first_entry(&cfe->notifier.done_list, struct v4l2_async_connection, asc_entry);
+	entity = to_cfe_entity(asd);
+	cfe->sensor = entity->subdev;
 
 	for (i = 0; i < NUM_NODES; i++) {
 		ret = cfe_register_node(cfe, i);
@@ -2090,17 +2384,12 @@ unregister:
 
 static int cfe_async_bound(struct v4l2_async_notifier *notifier,
 			   struct v4l2_subdev *subdev,
-			   struct v4l2_async_connection *asd)
+			   struct v4l2_async_connection *asc)
 {
-	struct cfe_device *cfe = to_cfe_device(notifier->v4l2_dev);
+	struct cfe_graph_entity *entity = to_cfe_entity(asc);
 
-	if (cfe->sensor) {
-		cfe_info("Rejecting subdev %s (Already set!!)", subdev->name);
-		return 0;
-	}
-
-	cfe->sensor = subdev;
-	cfe_info("Using sensor %s for capture\n", subdev->name);
+	entity->entity = &subdev->entity;
+	entity->subdev = subdev;
 
 	return 0;
 }
@@ -2116,6 +2405,108 @@ static const struct v4l2_async_notifier_operations cfe_async_ops = {
 	.bound = cfe_async_bound,
 	.complete = cfe_async_complete,
 };
+
+static int cfe_graph_parse_one(struct cfe_device *cfe,
+				struct fwnode_handle *fwnode)
+{
+	struct fwnode_handle *remote;
+	struct fwnode_handle *ep = NULL;
+	struct platform_device *pdev = cfe->pdev;
+	int ret = 0;
+
+	cfe_dbg("parsing node %p\n", fwnode);
+
+	while (1) {
+		struct cfe_graph_entity *uge;
+
+		ep = fwnode_graph_get_next_endpoint(fwnode, ep);
+		if (ep == NULL)
+			break;
+
+		cfe_dbg("handling endpoint %p\n", ep);
+
+		remote = fwnode_graph_get_remote_port_parent(ep);
+		if (remote == NULL) {
+			ret = -EINVAL;
+			goto err_notifier_cleanup;
+		}
+
+		fwnode_handle_put(ep);
+
+		/* Skip entities that we have already processed. */
+		if (remote == of_fwnode_handle(pdev->dev.of_node) ||
+		    cfe_graph_find_entity(cfe, remote)) {
+			fwnode_handle_put(remote);
+			continue;
+		}
+
+		uge = v4l2_async_nf_add_fwnode(&cfe->notifier, remote,
+					       struct cfe_graph_entity);
+		fwnode_handle_put(remote);
+		if (IS_ERR(uge)) {
+			ret = PTR_ERR(uge);
+			goto err_notifier_cleanup;
+		}
+	}
+
+	return 0;
+
+err_notifier_cleanup:
+	v4l2_async_nf_cleanup(&cfe->notifier);
+	fwnode_handle_put(ep);
+	return ret;
+}
+
+static int cfe_graph_parse(struct cfe_device *cfe)
+{
+	struct cfe_graph_entity *entity;
+	struct v4l2_async_connection *asd;
+	struct platform_device *pdev = cfe->pdev;
+	int ret;
+
+	ret = cfe_graph_parse_one(cfe, of_fwnode_handle(pdev->dev.of_node));
+	if (ret < 0)
+		return 0;
+
+	list_for_each_entry(asd, &cfe->notifier.waiting_list, asc_entry) {
+		entity = to_cfe_entity(asd);
+		ret = cfe_graph_parse_one(cfe, entity->asd.match.fwnode);
+		if (ret < 0) {
+			v4l2_async_nf_cleanup(&cfe->notifier);
+			break;
+		}
+	}
+
+	return ret;
+}
+
+static int cfe_graph_init(struct cfe_device *cfe)
+{
+	int ret;
+
+	/* Parse the graph to extract a list of subdevice DT nodes. */
+	ret = cfe_graph_parse(cfe);
+	if (ret < 0) {
+		cfe_err("graph parsing failed\n");
+		goto done;
+	}
+
+	if (list_empty(&cfe->notifier.waiting_list)) {
+		cfe_err("no subdev found in graph\n");
+		ret = -ENOENT;
+		goto done;
+	}
+
+	ret = 0;
+
+done:
+	if (ret < 0) {
+		v4l2_async_nf_unregister(&cfe->notifier);
+		v4l2_async_nf_cleanup(&cfe->notifier);
+	}
+
+	return ret;
+}
 
 static int of_cfe_connect_subdevs(struct cfe_device *cfe)
 {
@@ -2175,11 +2566,9 @@ static int of_cfe_connect_subdevs(struct cfe_device *cfe)
 	v4l2_async_nf_init(&cfe->notifier, &cfe->v4l2_dev);
 	cfe->notifier.ops = &cfe_async_ops;
 
-	cfe->asd = v4l2_async_nf_add_fwnode(&cfe->notifier,
-					    of_fwnode_handle(sensor_node),
-					    struct v4l2_async_connection);
-	if (IS_ERR(cfe->asd)) {
-		cfe_err("Error adding subdevice: %d\n", ret);
+	ret = cfe_graph_init(cfe);
+	if (ret < 0) {
+		cfe_err("Error graph init failed: %d\n", ret);
 		goto cleanup_exit;
 	}
 
