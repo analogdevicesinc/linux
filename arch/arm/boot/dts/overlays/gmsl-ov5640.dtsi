@@ -1,0 +1,64 @@
+#ifndef OV5640_HEX_REG
+#define OV5640_HEX_REG 0x3c
+#endif
+
+#ifdef OV5640_INDEX
+#define OV5640_SER_INDEX  OV5640_INDEX
+#define OV5640_SER_LABEL  CONCAT(serializer_, OV5640_SER_INDEX)
+#define OV5640_OUT_LABEL CONCAT(cam_out, OV5640_INDEX)
+#define OV5640_IN_LABEL CONCAT(ser_in, OV5640_INDEX)
+#define OV5640_LABEL CONCAT(camera, OV5640_INDEX)
+#endif
+
+#if !defined(OV5640_SER_LABEL)
+#error
+#endif
+
+#if !defined(OV5640_OUT_LABEL)
+#error
+#endif
+
+#if !defined(OV5640_IN_LABEL)
+#error
+#endif
+
+#if !defined(OV5640_LABEL)
+#error
+#endif
+
+OV5640_LABEL: OV5640@OV5640_HEX_REG {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	compatible = "ovti,ov5640";
+	reg = <OV5640_HEX_REG>;
+	clocks = <&cam_clk>;
+	clock-names = "xclk";
+	DVDD-supply = <&cam_vdig>;
+	AVDD-supply = <&cam1_reg>;
+	DOVDD-supply = <&cam_vddio>;
+	reset-gpios = <&OV5640_SER_LABEL 2 GPIO_ACTIVE_HIGH>;
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+
+			OV5640_OUT_LABEL: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				clock-noncontinuous;
+				link-frequencies =
+					/bits/ 64 <456000000>;
+				remote-endpoint = <&OV5640_IN_LABEL>;
+			};
+		};
+	};
+};
+
+#undef OV5640_HEX_REG
+#undef OV5640_INDEX
+#undef OV5640_SER_INDEX
+#undef OV5640_SER_LABEL
+#undef OV5640_LABEL
+#undef OV5640_OUT_LABEL
+#undef OV5640_IN_LABEL
