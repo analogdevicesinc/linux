@@ -19,7 +19,7 @@
 	/delete-node/ov5640_mipi@3c;
 
 	os08a20_0: os08a20_mipi@36 {
-		compatible = "ovti,os08a20";
+		compatible = "ovti,os08a20_mipi";
 		reg = <0x36>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_csi_mclk>;
@@ -51,7 +51,7 @@
 	/delete-node/ov5640_mipi@3c;
 
 	os08a20_1: os08a20_mipi@36 {
-		compatible = "ovti,os08a20";
+		compatible = "ovti,os08a20_mipi";
 		reg = <0x36>;
 		clocks = <&clk_dummy>;
 		clock-names = "csi_mclk";
