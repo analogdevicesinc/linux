@@ -462,7 +462,7 @@ static const struct v4l2_subdev_video_ops max_des_video_ops = {
 };
 
 static const struct v4l2_subdev_pad_ops max_des_pad_ops = {
-	.get_fmt = max_des_get_fmt,
+	.get_fmt = v4l2_subdev_get_fmt,
 	.set_fmt = max_des_set_fmt,
 	.enum_mbus_code = max_des_enum_mbus_code,
 };

@@ -334,7 +334,7 @@ static const struct v4l2_subdev_video_ops max_ser_video_ops = {
 };
 
 static const struct v4l2_subdev_pad_ops max_ser_pad_ops = {
-	.get_fmt = max_ser_get_fmt,
+	.get_fmt = v4l2_subdev_get_fmt,
 	.set_fmt = max_ser_set_fmt,
 	.enum_mbus_code = max_ser_enum_mbus_code,
 };
