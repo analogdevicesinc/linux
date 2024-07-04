@@ -72,7 +72,7 @@ struct vpu_ctrl_buf {
 	struct vpu_buf buf;
 };
 
-static int wave6_cooling_disable = false;
+static int wave6_cooling_disable;
 module_param(wave6_cooling_disable, int, 0644);
 MODULE_PARM_DESC(wave6_cooling_disable, "enable or disable cooling");
 
