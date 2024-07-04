@@ -18,7 +18,7 @@
 
 #define GMSL_SER_0_HEX_ADDR	0x40
 
-#define GMSL_CAM_0_HEX_ADDR	0x10
+#define GMSL_CAM_0_HEX_ADDR	0x3c
 
 #define _CONCAT(a, b) a ## b
 #define CONCAT(a, b) _CONCAT(a, b)
@@ -158,6 +158,8 @@
 			&serializer_0_i2c_bus {
 				#define SER_INDEX 0
 				#define SER_I2C_ADDR_POLL_0 GMSL_CAM_0_HEX_ADDR
+				//#define SER_COMPAT "maxim,max9295a"
+				//#define SER_HEX_REG 0x62
 				#include "gmsl-serializer.dtsi"
 			};
 #endif
@@ -168,7 +170,13 @@
 
 #if defined(GMSL_CAMERA_0)
 			&camera_0_i2c_bus {
-				#define IMX219_INDEX 0
-				#include "gmsl-imx219.dtsi"
+				//#define IMX219_INDEX 0
+				//#include "gmsl-imx219.dtsi"
+				//#define ISX021_INDEX 0
+				//#include "gmsl-isx021.dtsi"
+				//#define OVX03A_INDEX 0
+				//#include "gmsl-ovx03a.dtsi"
+				#define OV5640_INDEX 0
+				#include "gmsl-ov5640.dtsi"
 			};
 #endif
