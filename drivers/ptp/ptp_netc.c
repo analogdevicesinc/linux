@@ -4,6 +4,7 @@
  * Copyright 2023 NXP
  * Copyright (C) 2023 Wei Fang <wei.fang@nxp.com>
  */
+#include <linux/clk.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/of_platform.h>
@@ -79,8 +80,6 @@
 #define NETC_TMR_EXT_OSC		2 /* tmr_1588_clk, from IO pins */
 
 #define NETC_TMR_SYSCLK_RATE		333333333UL
-#define NETC_TMR_SYSCLK_PERIOD_INT	3
-#define NETC_TMR_SYSCLK_PERIOD_FRAC	0xd
 
 #define NETC_TMR_FIPER_PW		0x1f
 
@@ -95,6 +94,7 @@ struct netc_timer {
 	struct ptp_clock *clock;
 	struct ptp_clock_info caps;
 	int phc_index;
+	struct clk *src_clk;
 	u32 clk_select;
 	u32 clk_freq;
 	u32 period_int;
@@ -221,32 +221,6 @@ static irqreturn_t netc_timer_isr(int irq, void *data)
 	spin_unlock_irqrestore(&priv->lock, flags);
 
 	return IRQ_HANDLED;
-}
-
-static int netc_timer_get_clk_config(struct netc_timer *priv)
-{
-	struct device_node *node = priv->dev->of_node;
-	u32 clk_cfg[3];
-	int err;
-
-	err = of_property_read_u32_array(node, "fsl,clk-cfg", clk_cfg,
-					 ARRAY_SIZE(clk_cfg));
-	if (!err) {
-		priv->clk_freq = clk_cfg[0];
-		priv->period_int = clk_cfg[1];
-		priv->period_frac = clk_cfg[2];
-		priv->base_period = ((u64)priv->period_int << 32) |
-				    priv->period_frac;
-
-		return 0;
-	}
-
-	priv->clk_freq = NETC_TMR_SYSCLK_RATE;
-	priv->period_int = NETC_TMR_SYSCLK_PERIOD_INT;
-	priv->period_frac = NETC_TMR_SYSCLK_PERIOD_FRAC;
-	priv->base_period = ((u64)priv->period_int << 32) | priv->period_frac;
-
-	return 0;
 }
 
 /* ppm: parts per million, ppb: parts per billion */
@@ -475,6 +449,50 @@ static const struct ptp_clock_info netc_timer_ptp_caps = {
 	.enable		= netc_timer_enable,
 };
 
+static int netc_timer_get_source_clk(struct netc_timer *priv)
+{
+	struct device_node *node = priv->dev->of_node;
+	struct device *dev = priv->dev;
+	const char *clk_name = NULL;
+	u64 ns = NSEC_PER_SEC;
+
+	of_property_read_string(node, "clock-names", &clk_name);
+	if (clk_name) {
+		priv->src_clk = devm_clk_get_optional(dev, clk_name);
+		if (IS_ERR_OR_NULL(priv->src_clk)) {
+			dev_warn(dev, "Failed to get source clock\n");
+			priv->src_clk = NULL;
+			goto default_to_system_clk;
+		}
+
+		priv->clk_freq = clk_get_rate(priv->src_clk);
+		if (!strcmp(clk_name, "netc_clk_root")) {
+			/* The system clock should be divided by 2 */
+			priv->clk_freq /= 2;
+			priv->clk_select = NETC_TMR_SYSTEM_CLK;
+		} else if (!strcmp(clk_name, "ccm_timer1_clk")) {
+			priv->clk_select = NETC_TMR_CCM_TIMER1;
+		} else if (!strcmp(clk_name, "tmr_1588_clk")) {
+			priv->clk_select = NETC_TMR_EXT_OSC;
+		} else {
+			goto default_to_system_clk;
+		}
+
+		goto cal_clk_period;
+	}
+
+default_to_system_clk:
+	priv->clk_select = NETC_TMR_SYSTEM_CLK;
+	priv->clk_freq = NETC_TMR_SYSCLK_RATE;
+
+cal_clk_period:
+	priv->base_period = div_u64(ns << 32, priv->clk_freq);
+	priv->period_int = upper_32_bits(priv->base_period);
+	priv->period_frac = lower_32_bits(priv->base_period);
+
+	return 0;
+}
+
 int netc_timer_get_phc_index(int domain, unsigned int bus, unsigned int devfn)
 {
 	struct pci_dev *timer_pdev;
@@ -498,22 +516,10 @@ static int netc_timer_init(struct netc_timer *priv)
 	u32 tmr_ctrl, alarm_ctrl, fiper_ctrl;
 	struct timespec64 now;
 	unsigned long flags;
-	int i, err;
 	u64 ns;
+	int i;
 
 	priv->caps = netc_timer_ptp_caps;
-
-	if (of_property_read_u32(node, "fsl,clk-select", &priv->clk_select))
-		priv->clk_select = NETC_TMR_SYSTEM_CLK;
-
-	/* Check whether the clock source is valid */
-	if (priv->clk_select != NETC_TMR_SYSTEM_CLK &&
-	    priv->clk_select != NETC_TMR_CCM_TIMER1 &&
-	    priv->clk_select != NETC_TMR_EXT_OSC) {
-		dev_err(priv->dev, "Wrong clock source %d\n", priv->clk_select);
-
-		return -EINVAL;
-	}
 
 	/* Get the output clock division prescale factor, it must be an even value. */
 	if (of_property_read_u32(node, "fsl,oclk-prsc", &priv->oclk_prsc))
@@ -523,10 +529,6 @@ static int netc_timer_init(struct netc_timer *priv)
 			 priv->oclk_prsc, priv->oclk_prsc + 1);
 		priv->oclk_prsc += 1;
 	}
-
-	err = netc_timer_get_clk_config(priv);
-	if (err)
-		return err;
 
 	alarm_ctrl = ALARM_CTRL_PG(0) | ALARM_CTRL_PG(1);
 
@@ -580,6 +582,8 @@ static void netc_timer_deinit(struct netc_timer *priv)
 	unsigned long flags;
 	u32 fiper_ctrl;
 	int i;
+
+	ptp_clock_unregister(priv->clock);
 
 	spin_lock_irqsave(&priv->lock, flags);
 
@@ -651,15 +655,24 @@ static int netc_timer_probe(struct pci_dev *pdev,
 		goto free_irq_vectors;
 	}
 
+	netc_timer_get_source_clk(priv);
+	err = clk_prepare_enable(priv->src_clk);
+	if (err) {
+		dev_err(dev, "Enable timer source clock failed!\n");
+		goto free_irq;
+	}
+
 	err = netc_timer_init(priv);
 	if (err) {
 		dev_err(dev, "NETC Timer initialization failed\n");
-		goto free_irq;
+		goto disable_clk;
 	}
 	pci_set_drvdata(pdev, priv);
 
 	return 0;
 
+disable_clk:
+	clk_disable_unprepare(priv->src_clk);
 free_irq:
 	free_irq(priv->irq, priv);
 free_irq_vectors:
@@ -681,12 +694,14 @@ static void netc_timer_remove(struct pci_dev *pdev)
 	struct netc_timer *priv = pci_get_drvdata(pdev);
 
 	netc_timer_deinit(priv);
+	clk_disable_unprepare(priv->src_clk);
 
-	ptp_clock_unregister(priv->clock);
-	iounmap(priv->base);
+	disable_irq(priv->irq);
+	irq_set_affinity_hint(priv->irq, NULL);
 	free_irq(priv->irq, priv);
-
 	pci_free_irq_vectors(pdev);
+
+	iounmap(priv->base);
 	kfree(priv);
 
 	pci_release_mem_regions(pdev);
