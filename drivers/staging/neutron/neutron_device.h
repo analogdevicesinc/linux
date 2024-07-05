@@ -65,6 +65,9 @@
 // Power status
 #define NEUTRON_POWER_OFF    0
 #define NEUTRON_POWER_ON     1
+
+// Suspend delay time in millisecond
+#define NEUTRON_AUTOSUSPEND_DELAY 10000
 /****************************************************************************
  * Types
  ****************************************************************************/

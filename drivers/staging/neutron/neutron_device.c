@@ -154,14 +154,14 @@ int neutron_hw_reset(struct neutron_device *ndev)
 	 * shutdown the neutron core before powering off.
 	 */
 	neutron_rproc_shutdown(ndev);
-	ret = pm_runtime_put_sync(ndev->dev);
+	ret = pm_runtime_force_suspend(ndev->dev);
 	if (ret) {
 		dev_err(ndev->dev, "hw_reset: failed to power off\n");
 		goto rproc_boot;
 	}
 
 	msleep(20);
-	ret = pm_runtime_get_sync(ndev->dev);
+	ret = pm_runtime_force_resume(ndev->dev);
 	if (ret) {
 		dev_err(ndev->dev, "hw_reset: failed to power on\n");
 		goto rproc_boot;
@@ -169,8 +169,10 @@ int neutron_hw_reset(struct neutron_device *ndev)
 
 rproc_boot:
 
+	pm_runtime_resume_and_get(ndev->dev);
 	if (ndev->power_state == NEUTRON_POWER_ON)
 		ret = neutron_rproc_boot(ndev, NEUTRON_FIRMW_NAME);
+	pm_runtime_put_sync(ndev->dev);
 
 	return ret;
 }
@@ -184,11 +186,15 @@ static int neutron_open(struct inode *inode,
 	int head, ret = 0;
 	bool is_iomem = true;
 
+	pm_runtime_resume_and_get(ndev->dev);
+
 	mutex_lock(&ndev->mutex);
 	ret = neutron_rproc_boot(ndev, NEUTRON_FIRMW_NAME);
 	mutex_unlock(&ndev->mutex);
-	if (ret)
+	if (ret) {
+		pm_runtime_put_autosuspend(ndev->dev);
 		return ret;
+	}
 
 	rproc = ndev->rproc;
 	head = readl(ndev->reg_base + HEAD);
@@ -206,7 +212,20 @@ static int neutron_open(struct inode *inode,
 	ndev->logger.end_of_data = ndev->logger.start_addr;
 	ndev->logger.last_to_console  = ndev->logger.start_addr + head;
 
+	pm_runtime_mark_last_busy(ndev->dev);
+
 	return nonseekable_open(inode, file);
+}
+
+static int neutron_release(struct inode *inode, struct file *file)
+{
+	struct neutron_device *ndev =
+		container_of(inode->i_cdev, struct neutron_device, cdev);
+
+	pm_runtime_mark_last_busy(ndev->dev);
+	pm_runtime_put_autosuspend(ndev->dev);
+
+	return 0;
 }
 
 /* function to read neutron log */
@@ -218,6 +237,8 @@ static ssize_t neutron_read(struct file *file, char __user *buf,
 	size_t bytes = 0;
 	char c_data;
 	int head, tail;
+
+	pm_runtime_resume_and_get(ndev->dev);
 
 	/* Read logPtr and calculate log size*/
 	tail = readl(ndev->reg_base + TAIL);
@@ -232,11 +253,14 @@ static ssize_t neutron_read(struct file *file, char __user *buf,
 		/* Read char data */
 		c_data =  *data->last_to_console;
 		if (copy_to_user(&buf[bytes], &c_data, 1))
-			return -EFAULT;
+			break;
 		if (++bytes > NEUTRON_LOG_SIZE)
 			break;
 		++data->last_to_console;
 	}
+
+	pm_runtime_mark_last_busy(ndev->dev);
+	pm_runtime_put_autosuspend(ndev->dev);
 
 	return bytes;
 }
@@ -251,6 +275,8 @@ static long neutron_ioctl(struct file *file,
 
 	dev_dbg(ndev->dev, "Device ioctl. file=0x%pK, cmd=0x%x, arg=0x%lx\n",
 		file, cmd, arg);
+
+	pm_runtime_resume_and_get(ndev->dev);
 
 	switch (cmd) {
 	case NEUTRON_IOCTL_BUFFER_CREATE: {
@@ -303,12 +329,16 @@ static long neutron_ioctl(struct file *file,
 	}
 	}
 
+	pm_runtime_mark_last_busy(ndev->dev);
+	pm_runtime_put_autosuspend(ndev->dev);
+
 	return ret;
 }
 
 static const struct file_operations ndev_fops = {
 	.owner		= THIS_MODULE,
 	.open		= &neutron_open,
+	.release	= &neutron_release,
 	.read		= &neutron_read,
 	.unlocked_ioctl	= &neutron_ioctl,
 #ifdef CONFIG_COMPAT
