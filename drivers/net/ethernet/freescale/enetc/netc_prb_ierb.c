@@ -54,8 +54,6 @@
 #define IERB_CAPR(a)		(0x0 + 0x4 * (a))
 #define IERB_ITTMCAPR		0x30
 #define IERB_HBTMAR		0x100
-#define IERB_NETCCLKFR		0x178
-#define IERB_NETCCLKCR		0x17c
 #define IERB_EMDIOMCR		0x314
 #define IERB_T0MCR		0x414
 #define IERB_TGSM0CAPR		0x808
@@ -244,24 +242,6 @@ int netc_prb_ierb_add_emdio_consumer(struct device *consumer)
 	return 0;
 }
 EXPORT_SYMBOL_GPL(netc_prb_ierb_add_emdio_consumer);
-
-u64 netc_ierb_get_clk_config(void)
-{
-	struct netc_prb_ierb *pi = netc_pi;
-	u32 clkcr, clkfr;
-	u64 clk_cfg;
-
-	if (!pi)
-		return 0;
-
-	clkcr = netc_reg_read(pi->ierb_base, IERB_NETCCLKCR);
-	clkfr = netc_reg_read(pi->ierb_base, IERB_NETCCLKFR);
-
-	clk_cfg = ((u64)clkcr << 32) | clkfr;
-
-	return clk_cfg;
-}
-EXPORT_SYMBOL_GPL(netc_ierb_get_clk_config);
 
 #if IS_ENABLED(CONFIG_DEBUG_FS)
 static int netc_prb_show(struct seq_file *s, void *data)

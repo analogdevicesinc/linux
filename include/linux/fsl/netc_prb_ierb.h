@@ -11,17 +11,11 @@
 
 #if IS_ENABLED(CONFIG_FSL_NETC_PRB_IERB)
 
-u64 netc_ierb_get_clk_config(void);
 void netc_prb_ierb_register_emdio(struct device *emdio);
 int netc_prb_ierb_check_emdio_state(void);
 int netc_prb_ierb_add_emdio_consumer(struct device *consumer);
 
 #else
-
-static inline u64 netc_ierb_get_clk_config(void)
-{
-	return 0;
-}
 
 static inline void netc_prb_ierb_register_emdio(struct device *emdio)
 {
