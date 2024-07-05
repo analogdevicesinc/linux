@@ -37,6 +37,11 @@
 #define PHY_TESTIN(x)		FIELD_PREP(PHY_TESTIN_MASK, (x))
 #define PHY_TESTOUT_MASK	GENMASK(15, 8)
 #define PHY_TESTOUT(x)		FIELD_GET(PHY_TESTOUT_MASK, (x))
+#define PHY_TESTEN		BIT(16)
+
+#define DSI_DPHY_TEST_CTRL0	0xB4
+#define DSI_DPHY_TEST_CTRL1	0xB8
+
 
 struct dw_dphy;
 
@@ -50,7 +55,10 @@ enum dphy_reg_id {
 	DPHY_RX_DATA_LANE_FORCETXSTOPMODE,
 	DPHY_RX_DATA_LANE_FORCERXMODE,
 	DPHY_RX_ENABLE_CLK_EXT,
+	DPHY_RX_TURNDISABLE,
 	DPHY_RX_PHY_ENABLE_BYP,
+	DPHY_RX_PHY_PLL_CLKSEL,
+	DPHY_RX_PHY_PLL_CLKEN,
 };
 
 struct dw_dphy_reg {
@@ -78,87 +86,92 @@ struct dw_dphy {
 	struct device *dev;
 	struct regmap *dphy_regmap;
 	struct regmap *csis_regmap;
+	struct regmap *dsi_regmap;
 	struct clk *cfg_clk;
+
+	u32 reg_off;
 
 	const struct dw_dphy_drv_data *drv_data;
 	struct phy_configure_opts_mipi_dphy config;
 
 	u16 hsfreqrange;
 	u16 cfgclkfreqrange;
+	u16 ddlfreq;
 };
 
 struct dphy_mbps_hsfreqrange_map {
 	u16 mbps;
 	u16 hsfreqrange;
+	u16 ddlfreq;
 };
 
 /*
  * Data rate to high speed frequency range map table
  */
 static const struct dphy_mbps_hsfreqrange_map hsfreqrange_table[] = {
-	{ .mbps = 80,  .hsfreqrange = 0x00 },
-	{ .mbps = 90,  .hsfreqrange = 0x10 },
-	{ .mbps = 100, .hsfreqrange = 0x20 },
-	{ .mbps = 110, .hsfreqrange = 0x30 },
-	{ .mbps = 120, .hsfreqrange = 0x01 },
-	{ .mbps = 130, .hsfreqrange = 0x11 },
-	{ .mbps = 140, .hsfreqrange = 0x21 },
-	{ .mbps = 150, .hsfreqrange = 0x31 },
-	{ .mbps = 160, .hsfreqrange = 0x02 },
-	{ .mbps = 170, .hsfreqrange = 0x12 },
-	{ .mbps = 180, .hsfreqrange = 0x22 },
-	{ .mbps = 190, .hsfreqrange = 0x32 },
-	{ .mbps = 205, .hsfreqrange = 0x03 },
-	{ .mbps = 220, .hsfreqrange = 0x13 },
-	{ .mbps = 235, .hsfreqrange = 0x23 },
-	{ .mbps = 250, .hsfreqrange = 0x33 },
-	{ .mbps = 275, .hsfreqrange = 0x04 },
-	{ .mbps = 300, .hsfreqrange = 0x14 },
-	{ .mbps = 325, .hsfreqrange = 0x25 },
-	{ .mbps = 350, .hsfreqrange = 0x35 },
-	{ .mbps = 400, .hsfreqrange = 0x05 },
-	{ .mbps = 450, .hsfreqrange = 0x16 },
-	{ .mbps = 500, .hsfreqrange = 0x26 },
-	{ .mbps = 550, .hsfreqrange = 0x37 },
-	{ .mbps = 600, .hsfreqrange = 0x07 },
-	{ .mbps = 650, .hsfreqrange = 0x18 },
-	{ .mbps = 700, .hsfreqrange = 0x28 },
-	{ .mbps = 750, .hsfreqrange = 0x39 },
-	{ .mbps = 800, .hsfreqrange = 0x09 },
-	{ .mbps = 850, .hsfreqrange = 0x19 },
-	{ .mbps = 900, .hsfreqrange = 0x29 },
-	{ .mbps = 950, .hsfreqrange = 0x3a },
-	{ .mbps = 1000, .hsfreqrange = 0x0a },
-	{ .mbps = 1050, .hsfreqrange = 0x1a },
-	{ .mbps = 1100, .hsfreqrange = 0x2a },
-	{ .mbps = 1150, .hsfreqrange = 0x3b },
-	{ .mbps = 1200, .hsfreqrange = 0x0b },
-	{ .mbps = 1250, .hsfreqrange = 0x1b },
-	{ .mbps = 1300, .hsfreqrange = 0x2b },
-	{ .mbps = 1350, .hsfreqrange = 0x3c },
-	{ .mbps = 1400, .hsfreqrange = 0x0c },
-	{ .mbps = 1450, .hsfreqrange = 0x1c },
-	{ .mbps = 1500, .hsfreqrange = 0x2c },
-	{ .mbps = 1550, .hsfreqrange = 0x3d },
-	{ .mbps = 1600, .hsfreqrange = 0x0d },
-	{ .mbps = 1650, .hsfreqrange = 0x1d },
-	{ .mbps = 1700, .hsfreqrange = 0x2e },
-	{ .mbps = 1750, .hsfreqrange = 0x3e },
-	{ .mbps = 1800, .hsfreqrange = 0x0e },
-	{ .mbps = 1850, .hsfreqrange = 0x1e },
-	{ .mbps = 1900, .hsfreqrange = 0x1f },
-	{ .mbps = 1950, .hsfreqrange = 0x3f },
-	{ .mbps = 2000, .hsfreqrange = 0x0f },
-	{ .mbps = 2050, .hsfreqrange = 0x40 },
-	{ .mbps = 2100, .hsfreqrange = 0x41 },
-	{ .mbps = 2150, .hsfreqrange = 0x42 },
-	{ .mbps = 2200, .hsfreqrange = 0x43 },
-	{ .mbps = 2250, .hsfreqrange = 0x44 },
-	{ .mbps = 2300, .hsfreqrange = 0x45 },
-	{ .mbps = 2350, .hsfreqrange = 0x46 },
-	{ .mbps = 2400, .hsfreqrange = 0x47 },
-	{ .mbps = 2450, .hsfreqrange = 0x48 },
-	{ .mbps = 2500, .hsfreqrange = 0x49 },
+	{ .mbps = 80,  .hsfreqrange = 0x00, .ddlfreq = 489 },
+	{ .mbps = 90,  .hsfreqrange = 0x10, .ddlfreq = 489 },
+	{ .mbps = 100, .hsfreqrange = 0x20, .ddlfreq = 489 },
+	{ .mbps = 110, .hsfreqrange = 0x30, .ddlfreq = 489 },
+	{ .mbps = 120, .hsfreqrange = 0x01, .ddlfreq = 489 },
+	{ .mbps = 130, .hsfreqrange = 0x11, .ddlfreq = 489 },
+	{ .mbps = 140, .hsfreqrange = 0x21, .ddlfreq = 489 },
+	{ .mbps = 150, .hsfreqrange = 0x31, .ddlfreq = 489 },
+	{ .mbps = 160, .hsfreqrange = 0x02, .ddlfreq = 489 },
+	{ .mbps = 170, .hsfreqrange = 0x12, .ddlfreq = 489 },
+	{ .mbps = 180, .hsfreqrange = 0x22, .ddlfreq = 489 },
+	{ .mbps = 190, .hsfreqrange = 0x32, .ddlfreq = 489 },
+	{ .mbps = 205, .hsfreqrange = 0x03, .ddlfreq = 489 },
+	{ .mbps = 220, .hsfreqrange = 0x13, .ddlfreq = 489 },
+	{ .mbps = 235, .hsfreqrange = 0x23, .ddlfreq = 489 },
+	{ .mbps = 250, .hsfreqrange = 0x33, .ddlfreq = 489 },
+	{ .mbps = 275, .hsfreqrange = 0x04, .ddlfreq = 489 },
+	{ .mbps = 300, .hsfreqrange = 0x14, .ddlfreq = 489 },
+	{ .mbps = 325, .hsfreqrange = 0x25, .ddlfreq = 489 },
+	{ .mbps = 350, .hsfreqrange = 0x35, .ddlfreq = 489 },
+	{ .mbps = 400, .hsfreqrange = 0x05, .ddlfreq = 489 },
+	{ .mbps = 450, .hsfreqrange = 0x16, .ddlfreq = 489 },
+	{ .mbps = 500, .hsfreqrange = 0x26, .ddlfreq = 489 },
+	{ .mbps = 550, .hsfreqrange = 0x37, .ddlfreq = 489 },
+	{ .mbps = 600, .hsfreqrange = 0x07, .ddlfreq = 489 },
+	{ .mbps = 650, .hsfreqrange = 0x18, .ddlfreq = 489 },
+	{ .mbps = 700, .hsfreqrange = 0x28, .ddlfreq = 489 },
+	{ .mbps = 750, .hsfreqrange = 0x39, .ddlfreq = 489 },
+	{ .mbps = 800, .hsfreqrange = 0x09, .ddlfreq = 489 },
+	{ .mbps = 850, .hsfreqrange = 0x19, .ddlfreq = 489 },
+	{ .mbps = 900, .hsfreqrange = 0x29, .ddlfreq = 489 },
+	{ .mbps = 950, .hsfreqrange = 0x3a, .ddlfreq = 489 },
+	{ .mbps = 1000, .hsfreqrange = 0x0a, .ddlfreq = 489 },
+	{ .mbps = 1050, .hsfreqrange = 0x1a, .ddlfreq = 489 },
+	{ .mbps = 1100, .hsfreqrange = 0x2a, .ddlfreq = 489 },
+	{ .mbps = 1150, .hsfreqrange = 0x3b, .ddlfreq = 489 },
+	{ .mbps = 1200, .hsfreqrange = 0x0b, .ddlfreq = 489 },
+	{ .mbps = 1250, .hsfreqrange = 0x1b, .ddlfreq = 489 },
+	{ .mbps = 1300, .hsfreqrange = 0x2b, .ddlfreq = 489 },
+	{ .mbps = 1350, .hsfreqrange = 0x3c, .ddlfreq = 489 },
+	{ .mbps = 1400, .hsfreqrange = 0x0c, .ddlfreq = 489 },
+	{ .mbps = 1450, .hsfreqrange = 0x1c, .ddlfreq = 489 },
+	{ .mbps = 1500, .hsfreqrange = 0x2c, .ddlfreq = 489 },
+	{ .mbps = 1550, .hsfreqrange = 0x3d, .ddlfreq = 303 },
+	{ .mbps = 1600, .hsfreqrange = 0x0d, .ddlfreq = 313 },
+	{ .mbps = 1650, .hsfreqrange = 0x1d, .ddlfreq = 323 },
+	{ .mbps = 1700, .hsfreqrange = 0x2e, .ddlfreq = 333 },
+	{ .mbps = 1750, .hsfreqrange = 0x3e, .ddlfreq = 342 },
+	{ .mbps = 1800, .hsfreqrange = 0x0e, .ddlfreq = 352 },
+	{ .mbps = 1850, .hsfreqrange = 0x1e, .ddlfreq = 362 },
+	{ .mbps = 1900, .hsfreqrange = 0x1f, .ddlfreq = 372 },
+	{ .mbps = 1950, .hsfreqrange = 0x3f, .ddlfreq = 381 },
+	{ .mbps = 2000, .hsfreqrange = 0x0f, .ddlfreq = 391 },
+	{ .mbps = 2050, .hsfreqrange = 0x40, .ddlfreq = 401 },
+	{ .mbps = 2100, .hsfreqrange = 0x41, .ddlfreq = 411 },
+	{ .mbps = 2150, .hsfreqrange = 0x42, .ddlfreq = 411 },
+	{ .mbps = 2200, .hsfreqrange = 0x43, .ddlfreq = 411 },
+	{ .mbps = 2250, .hsfreqrange = 0x44, .ddlfreq = 411 },
+	{ .mbps = 2300, .hsfreqrange = 0x45, .ddlfreq = 411 },
+	{ .mbps = 2350, .hsfreqrange = 0x46, .ddlfreq = 411 },
+	{ .mbps = 2400, .hsfreqrange = 0x47, .ddlfreq = 411 },
+	{ .mbps = 2450, .hsfreqrange = 0x48, .ddlfreq = 411 },
+	{ .mbps = 2500, .hsfreqrange = 0x49, .ddlfreq = 411 },
 	{ /* sentinel */ },
 };
 
@@ -172,6 +185,19 @@ static inline int csis_read(struct dw_dphy *priv, unsigned int offset)
 	u32 val;
 
 	regmap_read(priv->csis_regmap, offset, &val);
+	return val;
+}
+
+static inline void dsi_write(struct dw_dphy *priv, unsigned int offset, u32 val)
+{
+	regmap_write(priv->dsi_regmap, offset, val);
+}
+
+static inline u32 dsi_read(struct dw_dphy *priv, unsigned int offset)
+{
+	u32 val;
+
+	regmap_read(priv->dsi_regmap, offset, &val);
 	return val;
 }
 
@@ -189,7 +215,8 @@ static int dphy_write(struct dw_dphy *priv, unsigned int index, u32 val)
 	mask = reg->mask << reg->shift;
 	val <<= reg->shift;
 
-	return regmap_update_bits(priv->dphy_regmap, reg->offset, mask, val);
+	return regmap_update_bits(priv->dphy_regmap,
+				  reg->offset + priv->reg_off, mask, val);
 }
 
 static void dw_dphy_dump_regs(struct dw_dphy *priv)
@@ -251,13 +278,30 @@ static int dw_dphy_power_on(struct phy *phy)
 	csis_write(priv, CSIS_DPHY_RSTZ, 0x0);
 	csis_write(priv, CSIS_DPHY_SHUTDOWNZ, 0x0);
 
+	val = csis_read(priv, CSIS_DPHY_TEST_CTRL0);
+	val &= ~PHY_TESTCLR;
+	csis_write(priv, CSIS_DPHY_TEST_CTRL0, val);
+
+	/* For combo-phy we also need to do the same for DSI phy */
+	if (priv->dsi_regmap) {
+		val = dsi_read(priv, DSI_DPHY_TEST_CTRL0);
+		val &= ~PHY_TESTCLR;
+		dsi_write(priv, DSI_DPHY_TEST_CTRL0, val);
+	}
+
+	/* Wait for at least 15ns */
+	ndelay(15);
+
 	/* Set testclr=1'b1 */
 	val = csis_read(priv, CSIS_DPHY_TEST_CTRL0);
 	val |= PHY_TESTCLR;
 	csis_write(priv, CSIS_DPHY_TEST_CTRL0, val);
 
-	/* Wait for at least 15ns */
-	ndelay(15);
+	if (priv->dsi_regmap) {
+		val = dsi_read(priv, DSI_DPHY_TEST_CTRL0);
+		val |= PHY_TESTCLR;
+		dsi_write(priv, DSI_DPHY_TEST_CTRL0, val);
+	}
 
 	/* Config the number of active lanes */
 	csis_write(priv, CSIS_N_LANES, N_LANES(config->lanes));
@@ -266,7 +310,9 @@ static int dw_dphy_power_on(struct phy *phy)
 
 	/* Release PHY from reset */
 	csis_write(priv, CSIS_DPHY_SHUTDOWNZ, 0x1);
+	ndelay(5);
 	csis_write(priv, CSIS_DPHY_RSTZ, 0x1);
+	ndelay(5);
 
 	dw_dphy_dump_regs(priv);
 	return 0;
@@ -282,7 +328,7 @@ static int dw_dphy_power_off(struct phy *phy)
 	return 0;
 }
 
-static u8 get_hsfreqrange_by_mpbs(u64 mbps)
+static int set_freqrange_by_mpbs(struct dw_dphy *priv, u64 mbps)
 {
 	const struct dphy_mbps_hsfreqrange_map *value;
 	const struct dphy_mbps_hsfreqrange_map *prev_value = NULL;
@@ -302,7 +348,10 @@ static u8 get_hsfreqrange_by_mpbs(u64 mbps)
 		return -ERANGE;
 	}
 
-	return value->hsfreqrange;
+	priv->hsfreqrange = value->hsfreqrange;
+	priv->ddlfreq = value->ddlfreq;
+
+	return 0;
 }
 
 static int dw_dphy_configure(struct phy *phy, union phy_configure_opts *opts)
@@ -312,6 +361,7 @@ static int dw_dphy_configure(struct phy *phy, union phy_configure_opts *opts)
 	const struct dw_dphy_drv_data *drv_data = priv->drv_data;
 	struct phy_configure_opts_mipi_dphy *config = &opts->mipi_dphy;
 	u64 data_rate_mbps;
+	int ret;
 
 	if (config->lanes > drv_data->max_lanes) {
 		dev_err(dev, "The number of lanes has exceeded the maximum value\n");
@@ -328,7 +378,10 @@ static int dw_dphy_configure(struct phy *phy, union phy_configure_opts *opts)
 	dev_dbg(dev, "Number of lanes: %d, data rate=%llu(Mbps)\n",
 		config->lanes, data_rate_mbps);
 
-	priv->hsfreqrange = get_hsfreqrange_by_mpbs(data_rate_mbps);
+	ret = set_freqrange_by_mpbs(priv, data_rate_mbps);
+	if (ret < 0)
+		return ret;
+
 	priv->config = *config;
 
 	return 0;
@@ -352,6 +405,7 @@ static int dw_dphy_reset(struct phy *phy)
 	val = csis_read(priv, CSIS_DPHY_TEST_CTRL0);
 	val |= PHY_TESTCLR;
 	csis_write(priv, CSIS_DPHY_TEST_CTRL0, val);
+	ndelay(15);
 
 	/* Clear PHY_TST_CTRL0, bit[0] */
 	val = csis_read(priv, CSIS_DPHY_TEST_CTRL0);
@@ -455,9 +509,126 @@ static const struct dw_dphy_drv_data imx95_dphy_drvdata = {
 	.max_data_rate = 2500,
 };
 
+static const struct dw_dphy_reg imx95_combo_regs[] = {
+	[DPHY_RX_CFGCLKFREQRANGE] = PHY_REG(IMX95_CSR_PHY_FREQ_CTRL, 8, 0),
+	[DPHY_RX_HSFREQRANGE] = PHY_REG(IMX95_CSR_PHY_FREQ_CTRL, 7, 16),
+	[DPHY_RX_DATA_LANE_EN] = PHY_REG(IMX95_CSR_PHY_MODE_CTRL, 4, 4),
+	[DPHY_RX_DATA_LANE_BASEDIR] = PHY_REG(IMX95_CSR_PHY_TEST_MODE_CTRL, 4, 0),
+	[DPHY_RX_DATA_LANE_FORCETXSTOPMODE] = PHY_REG(IMX95_CSR_PHY_TEST_MODE_CTRL, 4, 4),
+	[DPHY_RX_DATA_LANE_FORCERXMODE] = PHY_REG(IMX95_CSR_PHY_TEST_MODE_CTRL, 4, 8),
+	[DPHY_RX_ENABLE_CLK_EXT] = PHY_REG(IMX95_CSR_PHY_TEST_MODE_CTRL, 1, 12),
+	[DPHY_RX_TURNDISABLE] = PHY_REG(IMX95_CSR_PHY_TEST_MODE_CTRL, 1, 13),
+	[DPHY_RX_PHY_ENABLE_BYP] = PHY_REG(IMX95_CSR_PHY_TEST_MODE_CTRL, 1, 14),
+	[DPHY_RX_PHY_PLL_CLKSEL] = PHY_REG(IMX95_CSR_PHY_MODE_CTRL, 2, 1),
+	[DPHY_RX_PHY_PLL_CLKEN] = PHY_REG(IMX95_CSR_PHY_MODE_CTRL, 1, 3),
+};
+
+static void dphy_intf_send_cmd(struct regmap *base,
+			       u32 intf0, u32 intf1,
+			       u32 addr, u32 data)
+{
+	/* Initialize the phy interface communication */
+	regmap_write(base, intf0, 0x0);
+	regmap_write(base, intf1, 0x0);
+	regmap_write(base, intf1, PHY_TESTEN);
+	regmap_write(base, intf0, PHY_TESTCLK);
+	regmap_write(base, intf1, 0x0);
+	regmap_write(base, intf0, 0x0);
+	regmap_write(base, intf1, 0x0);
+
+	/* Send the HIGH reg address */
+	regmap_write(base, intf1, PHY_TESTIN(addr >> 8));
+	regmap_write(base, intf0, PHY_TESTCLK);
+	regmap_write(base, intf0, 0x0);
+
+	regmap_write(base, intf1, PHY_TESTEN);
+	regmap_write(base, intf0, PHY_TESTCLK);
+
+	/* Send the LOW reg address */
+	regmap_write(base, intf1, PHY_TESTEN | PHY_TESTIN(addr & 0xFF));
+	regmap_write(base, intf0, 0x0);
+	regmap_write(base, intf1, 0x0);
+
+	/* Send the data */
+	regmap_write(base, intf1, PHY_TESTIN(data));
+	regmap_write(base, intf0, PHY_TESTCLK);
+}
+
+static inline void tx_dphy_write_control(struct dw_dphy *priv,
+					 u32 addr, u32 data)
+{
+	dphy_intf_send_cmd(priv->dsi_regmap,
+			   DSI_DPHY_TEST_CTRL0,
+			   DSI_DPHY_TEST_CTRL1,
+			   addr, data);
+}
+
+static inline void rx_dphy_write_control(struct dw_dphy *priv,
+					 u32 addr, u32 data)
+{
+	dphy_intf_send_cmd(priv->csis_regmap,
+			   CSIS_DPHY_TEST_CTRL0,
+			   CSIS_DPHY_TEST_CTRL1,
+			   addr, data);
+}
+
+static void imx95_combo_config(struct dw_dphy *priv)
+{
+	struct phy_configure_opts_mipi_dphy *config = &priv->config;
+	u32 active_lanes = GENMASK(config->lanes - 1, 0);
+
+	/* Configure the PHY frequency range */
+	dphy_write(priv, DPHY_RX_HSFREQRANGE, priv->hsfreqrange);
+	dphy_write(priv, DPHY_RX_DATA_LANE_FORCERXMODE, active_lanes);
+
+	/*
+	 * Configure the combo-phy into slave mode (initialization procedure
+	 * received from DesignWare).
+	 */
+	tx_dphy_write_control(priv, 0x16A, 0x03);
+	rx_dphy_write_control(priv, 0x307, 0x80);
+	tx_dphy_write_control(priv, 0x1AB, 0x06);
+	tx_dphy_write_control(priv, 0x1AA, 0x53);
+
+	/* Force DDL override on lanes 0-3 */
+	rx_dphy_write_control(priv, 0x607, 0x3F);
+	rx_dphy_write_control(priv, 0x807, 0x3F);
+	rx_dphy_write_control(priv, 0xa07, 0x3F);
+	rx_dphy_write_control(priv, 0xc07, 0x3F);
+	rx_dphy_write_control(priv, 0xe2, priv->ddlfreq);
+	rx_dphy_write_control(priv, 0xe3, 0x01);
+	rx_dphy_write_control(priv, 0xe4, 0x11);
+
+	dphy_write(priv, DPHY_RX_CFGCLKFREQRANGE, priv->cfgclkfreqrange);
+	dphy_write(priv, DPHY_RX_DATA_LANE_BASEDIR, active_lanes);
+	dphy_write(priv, DPHY_RX_PHY_PLL_CLKSEL, 1);
+	dphy_write(priv, DPHY_RX_PHY_PLL_CLKEN, 1);
+
+	ndelay(15);
+
+	dphy_write(priv, DPHY_RX_DATA_LANE_EN, active_lanes);
+	dphy_write(priv, DPHY_RX_DATA_LANE_FORCERXMODE, 0);
+	dphy_write(priv, DPHY_RX_ENABLE_CLK_EXT, 1);
+	dphy_write(priv, DPHY_RX_TURNDISABLE, 0);
+	dphy_write(priv, DPHY_RX_PHY_ENABLE_BYP, 1);
+}
+
+static const struct dw_dphy_config_ops imx95_combo_cfg_ops = {
+	.config = imx95_combo_config,
+};
+
+static const struct dw_dphy_drv_data imx95_combo_drvdata = {
+	.regs = imx95_combo_regs,
+	.regs_size = ARRAY_SIZE(imx95_combo_regs),
+	.cfg_ops = &imx95_combo_cfg_ops,
+	.max_lanes = 4,
+	.max_data_rate = 2500,
+};
+
 static const struct of_device_id dw_dphy_of_match[] = {
 	{ .compatible = "fsl,imx93-dphy-rx", .data = &imx93_dphy_drvdata},
 	{ .compatible = "fsl,imx95-dphy-rx", .data = &imx95_dphy_drvdata},
+	{ .compatible = "fsl,imx95-combo-rx", .data = &imx95_combo_drvdata},
 	{ /* sentinel */ }
 };
 MODULE_DEVICE_TABLE(of, dw_dphy_of_match);
@@ -491,6 +662,12 @@ static int dw_dphy_probe(struct platform_device *pdev)
 	if (IS_ERR(priv->csis_regmap))
 		return dev_err_probe(dev, PTR_ERR(priv->csis_regmap),
 				     "failed to get csi controller\n");
+
+	/* dsi_regmap is required only for combo-phy */
+	priv->dsi_regmap = syscon_regmap_lookup_by_phandle(np, "fsl,dsi");
+	if (IS_ERR(priv->dsi_regmap))
+		priv->dsi_regmap = NULL;
+	of_property_read_u32(np, "fsl,reg-offset", &priv->reg_off);
 
 	priv->cfg_clk = devm_clk_get(dev, "phy_cfg");
 	if (IS_ERR(priv->cfg_clk)) {
