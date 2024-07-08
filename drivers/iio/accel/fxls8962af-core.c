@@ -1243,6 +1243,12 @@ int fxls8962af_core_probe(struct device *dev, struct regmap *regmap, int irq)
 }
 EXPORT_SYMBOL_NS_GPL(fxls8962af_core_probe, IIO_FXLS8962AF);
 
+void fxls8962af_core_shutdown(struct device *dev)
+{
+	fxls8962af_pm_disable(dev);
+}
+EXPORT_SYMBOL_NS_GPL(fxls8962af_core_shutdown, IIO_FXLS8962AF);
+
 static int fxls8962af_runtime_suspend(struct device *dev)
 {
 	struct fxls8962af_data *data = iio_priv(dev_get_drvdata(dev));
