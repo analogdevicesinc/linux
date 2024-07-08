@@ -2,7 +2,8 @@
 /*
  * Analog Devices ADAQ4003
  *
- * hdl_project: <pulsar_adc_pmdz>
+ * hdl_project: <pulsar_adc>
+ * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/pulsar_adc
  * board_revision: <A>
  *
  * Copyright (C) 2023 Analog Devices Inc.
