@@ -2,6 +2,7 @@
 /* Copyright 2017-2019 NXP */
 
 #include "enetc.h"
+#include "enetc_devlink.h"
 #include <linux/phylink.h>
 
 #define ENETC_PF_NUM_RINGS	8
@@ -78,6 +79,7 @@ struct enetc_pf {
 	phy_interface_t if_mode;
 	struct phylink_config phylink_config;
 	const struct enetc_pf_hw_ops *hw_ops;
+	struct enetc_devlink_priv *devl_priv;
 
 	u8 mac_addr_base[ETH_ALEN];
 

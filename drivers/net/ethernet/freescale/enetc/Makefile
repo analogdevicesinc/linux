@@ -12,7 +12,7 @@ fsl-enetc-$(CONFIG_FSL_ENETC_QOS) += enetc_tsn.o
 endif
 
 obj-$(CONFIG_FSL_ENETC4) += fsl-enetc4.o
-fsl-enetc4-y := enetc4_pf.o enetc_pf_common.o
+fsl-enetc4-y := enetc4_pf.o enetc_pf_common.o enetc_devlink.o
 fsl-enetc4-$(CONFIG_PCI_IOV) += enetc_msg.o
 fsl-enetc4-$(CONFIG_FSL_ENETC_QOS) += enetc_qos.o
 fsl-enetc4-$(CONFIG_DEBUG_FS) += enetc_debugfs.o

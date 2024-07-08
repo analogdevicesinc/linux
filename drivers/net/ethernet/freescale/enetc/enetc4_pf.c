@@ -95,11 +95,39 @@ static void enetc4_set_si_msix_num(struct enetc_pf *pf)
 		enetc_port_wr(hw, ENETC4_PSICFGR2(i + 1), val);
 }
 
-static void enetc4_port_si_configure(struct enetc_pf *pf)
+static u32 enetc4_psicfgr0_val_construct(bool is_vf, u32 num_tx_bdr, u32 num_rx_bdr)
+{
+	u32 val;
+
+	val = ENETC_PSICFGR0_SET_TXBDR(num_tx_bdr);
+	val |= ENETC_PSICFGR0_SET_RXBDR(num_rx_bdr);
+	val |= ENETC_PSICFGR0_SIVC(ENETC_VLAN_TYPE_C | ENETC_VLAN_TYPE_S);
+
+	if (is_vf)
+		val |= ENETC_PSICFGR0_VTE | ENETC_PSICFGR0_SIVIE;
+
+	return val;
+}
+
+static void enetc4_devlink_allocate_rings(struct enetc_pf *pf)
+{
+	struct enetc_devlink_priv *devl_priv = pf->devl_priv;
+	u32 num_si =  pf->caps.num_vsi + 1;
+	struct enetc_hw *hw = &pf->si->hw;
+	u32 num_rings, val;
+	int i;
+
+	for (i = 0; i < num_si && i < ENETC_MAX_SI_NUM; i++) {
+		num_rings = devl_priv->si_num_rings[i];
+		val = enetc4_psicfgr0_val_construct(i > 0, num_rings, num_rings);
+		enetc_port_wr(hw, ENETC4_PSICFGR0(i), val);
+	}
+}
+
+static void enetc4_default_rings_allocation(struct enetc_pf *pf)
 {
 	struct enetc_hw *hw = &pf->si->hw;
-	int num_rx_bdr, num_tx_bdr;
-	u32 val;
+	u32 num_rx_bdr, num_tx_bdr, val;
 	int i;
 
 	if (pf->caps.num_rx_bdr < ENETC_SI_MAX_RING_NUM + pf->caps.num_vsi)
@@ -112,19 +140,31 @@ static void enetc4_port_si_configure(struct enetc_pf *pf)
 	else
 		num_tx_bdr = ENETC_SI_MAX_RING_NUM;
 
-	val = (num_rx_bdr << 16) | num_tx_bdr;
-	val |= ENETC_PSICFGR0_SIVC(ENETC_VLAN_TYPE_C | ENETC_VLAN_TYPE_S);
+	val = enetc4_psicfgr0_val_construct(false, num_tx_bdr, num_rx_bdr);
 	enetc_port_wr(hw, ENETC4_PSICFGR0(0), val);
 
 	num_rx_bdr = (pf->caps.num_rx_bdr - num_rx_bdr) / pf->caps.num_vsi;
 	num_tx_bdr = (pf->caps.num_tx_bdr - num_tx_bdr) / pf->caps.num_vsi;
 
-	val = ENETC_PSICFGR0_SET_TXBDR(num_tx_bdr);
-	val |= ENETC_PSICFGR0_SET_RXBDR(num_rx_bdr);
-	val |= ENETC_PSICFGR0_SIVC(ENETC_VLAN_TYPE_C | ENETC_VLAN_TYPE_S);
-	val |= ENETC_PSICFGR0_VTE | ENETC_PSICFGR0_SIVIE;
+	val = enetc4_psicfgr0_val_construct(true, num_tx_bdr, num_rx_bdr);
 	for (i = 0; i < pf->caps.num_vsi; i++)
 		enetc_port_wr(hw, ENETC4_PSICFGR0(i + 1), val);
+}
+
+static void enetc4_allocate_si_rings(struct enetc_pf *pf)
+{
+	if (!pf->devl_priv->si_num_rings[0]) {
+		enetc4_default_rings_allocation(pf);
+	} else {
+		enetc4_devlink_allocate_rings(pf);
+	}
+}
+
+static void enetc4_port_si_configure(struct enetc_pf *pf)
+{
+	struct enetc_hw *hw = &pf->si->hw;
+
+	enetc4_allocate_si_rings(pf);
 
 	/* Outer VLAN tag will be used for VLAN filtering */
 	enetc_port_wr(hw, ENETC4_PSIVLANFMR, PSIVLANFMR_VS);
@@ -1018,9 +1058,87 @@ static void enetc4_pf_destroy_mac_list(struct enetc_pf *pf)
 	pf->num_mac_fe = 0;
 }
 
+static int enetc4_pf_unload(struct enetc_pf *pf)
+{
+	struct enetc_si *si = pf->si;
+
+	drain_workqueue(si->workqueue);
+	enetc4_pf_netdev_destroy(si);
+	enetc4_pf_deinit(pf);
+	enetc4_pf_destroy_vlan_list(pf);
+	enetc4_pf_destroy_mac_list(pf);
+	pci_disable_device(si->pdev);
+
+	return 0;
+}
+
+static int enetc4_pf_load(struct enetc_pf *pf)
+{
+	struct pci_dev *pdev = pf->si->pdev;
+	struct enetc_si *si = pf->si;
+	int err;
+
+	pcie_flr(pdev);
+	err = pci_enable_device_mem(pdev);
+	if (err) {
+		dev_err(&pdev->dev, "Failed to enable ENETC\n");
+		return err;
+	}
+
+	pci_set_master(pdev);
+
+	err = enetc4_pf_init(pf);
+	if (err)
+		goto err_pf_init;
+
+	enetc_get_si_caps(si);
+	err = enetc4_pf_netdev_create(si);
+	if (err)
+		goto err_netdev_create;
+
+	return 0;
+
+err_netdev_create:
+	enetc4_pf_deinit(pf);
+err_pf_init:
+	pci_disable_device(pdev);
+
+	return err;
+}
+
+static int enetc4_init_devlink(struct enetc_pf *pf)
+{
+	struct enetc_devlink_priv *devl_priv = pf->devl_priv;
+	struct devlink *devlink = priv_to_devlink(devl_priv);
+	int err;
+
+	devl_priv->pf_load = enetc4_pf_load;
+	devl_priv->pf_unload = enetc4_pf_unload;
+
+	err = enetc_devlink_params_register(devlink);
+	if (err)
+		return err;
+
+	devlink_register(devlink);
+
+	enetc_devlink_init_params(devlink);
+
+	return 0;
+}
+
+static void enetc4_deinit_devlink(struct enetc_pf *pf)
+{
+	struct devlink *devlink = priv_to_devlink(pf->devl_priv);
+
+	devlink_unregister(devlink);
+	enetc_devlink_params_unregister(devlink);
+}
+
 static int enetc4_pf_struct_init(struct enetc_si *si)
 {
 	struct enetc_pf *pf = enetc_si_priv(si);
+	struct device *dev = &si->pdev->dev;
+	int err;
 
 	pf->si = si;
 	pf->total_vfs = pci_sriov_get_totalvfs(si->pdev);
@@ -1034,12 +1152,29 @@ static int enetc4_pf_struct_init(struct enetc_si *si)
 	enetc4_get_port_caps(pf);
 	enetc_pf_register_hw_ops(pf, &enetc4_pf_hw_ops);
 
+	err = enetc_devlink_alloc(pf);
+	if (err) {
+		dev_err(dev, "Failed to alloc devlink\n");
+		goto free_vf_state;
+	}
+
+	err = enetc4_init_devlink(pf);
+	if (err) {
+		dev_err(dev, "Failed to init devlink\n");
+		goto free_vf_state;
+	}
+
 	INIT_HLIST_HEAD(&pf->mac_list);
 	mutex_init(&pf->mac_list_lock);
 	INIT_HLIST_HEAD(&pf->vlan_list);
 	mutex_init(&pf->vlan_list_lock);
 
 	return 0;
+
+free_vf_state:
+	kfree(pf->vf_state);
+
+	return err;
 }
 
 static void enetc4_pf_struct_deinit(struct enetc_pf *pf)
@@ -1048,6 +1183,7 @@ static void enetc4_pf_struct_deinit(struct enetc_pf *pf)
 	mutex_destroy(&pf->vlan_list_lock);
 	enetc4_pf_destroy_mac_list(pf);
 	mutex_destroy(&pf->mac_list_lock);
+	enetc4_deinit_devlink(pf);
 	kfree(pf->vf_state);
 }
 

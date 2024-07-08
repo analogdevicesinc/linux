@@ -38,6 +38,7 @@ config FSL_ENETC4
 	select PCS_XPCS
 	select DIMLIB
 	select CRC_ITU_T
+	select NET_DEVLINK
 	help
 	  This driver supports the revision 4 of NXP ENETC (Ethernet Controller)
 	  PCIe physical function (PF) devices, managing ENETC Ports at a
