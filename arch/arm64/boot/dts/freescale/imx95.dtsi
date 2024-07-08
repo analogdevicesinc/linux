@@ -2030,9 +2030,16 @@
 			};
 		};
 
+		mipi_dsi_intf: syscon@4acf0000 {
+			compatible = "syscon", "simple-mfd";
+			reg = <0x0 0x4acf0000 0x0 0x10000>;
+			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
+			status = "disabled";
+		};
+
 		combo_phy_csr: syscon@4ad20000 {
 			compatible = "syscon", "simple-mfd";
-			reg = <0x0 0x4ad20000 0x0 0x14>;
+			reg = <0x0 0x4ad20000 0x0 0x114>;
 			clocks = <&scmi_clk IMX95_CLK_CAMAPB>;
 
 			dphy_rx: dphy-rx {
@@ -2047,6 +2054,22 @@
 				power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
 				status = "disabled";
 			};
+
+			combo_rx: combo-rx {
+				compatible = "fsl,imx95-combo-rx";
+				clocks = <&scmi_clk IMX95_CLK_MIPIPHYCFG>;
+				clock-names = "phy_cfg";
+				assigned-clocks = <&scmi_clk IMX95_CLK_MIPIPHYCFG>;
+				assigned-clock-parents = <&scmi_clk IMX95_CLK_24M>;
+				assigned-clock-rate = <24000000>;
+				#phy-cells = <0>;
+				fsl,reg-offset = <0x100>;
+				fsl,csis = <&mipi_csi1>;
+				fsl,dsi = <&mipi_dsi_intf>;
+				power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+				status = "disabled";
+			};
+
 		};
 
 		mipi_tx_phy_csr: syscon@4ad20100 {
@@ -2082,12 +2105,14 @@
 		};
 
 		mipi_csi1: csi@4ad40000 {
-			compatible = "fsl,imx95-mipi-csi2", "fsl,imx93-mipi-csi2";
+			compatible = "snps,dw-mipi-csi2", "syscon";
 			reg = <0x0 0x4ad40000 0x0 0x10000>;
 			interrupts = <GIC_SPI 375 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&cameramix_csr IMX95_CLK_CAMBLK_CSI2_FOR1>,
 				 <&scmi_clk IMX95_CLK_CAMAPB>;
 			clock-names = "per", "pixel";
+			phys = <&combo_rx>;
+			phy-names = "dphy-rx";
 			power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
 			status = "disabled";
 
