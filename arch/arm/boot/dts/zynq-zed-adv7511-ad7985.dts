@@ -3,7 +3,8 @@
  * Analog Devices EVAL-AD7985FMCZ
  * https://www.analog.com/en/products/ad7985.html
  *
- * hdl_project: <pulsar_adc_pmdz/zed>
+ * hdl_project: <pulsar_adc>
+ * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/pulsar_adc
  * board_revision: <>
  *
  * Copyright (C) 2024 Analog Devices Inc.
