@@ -5850,38 +5850,22 @@ static int stmmac_set_features(struct net_device *netdev,
 static void stmmac_fpe_event_status(struct stmmac_priv *priv, int status)
 {
 	struct stmmac_fpe_cfg *fpe_cfg = priv->plat->fpe_cfg;
-	enum stmmac_fpe_state *lo_state = &fpe_cfg->lo_fpe_state;
-	enum stmmac_fpe_state *lp_state = &fpe_cfg->lp_fpe_state;
-	bool *hs_enable = &fpe_cfg->hs_enable;
 
-	if (status == FPE_EVENT_UNKNOWN || !*hs_enable)
+	if (status == FPE_EVENT_UNKNOWN)
 		return;
 
-	/* If LP has sent verify mPacket, LP is FPE capable */
-	if ((status & FPE_EVENT_RVER) == FPE_EVENT_RVER) {
-		if (*lp_state < FPE_STATE_CAPABLE)
-			*lp_state = FPE_STATE_CAPABLE;
+	/* If fpe is supported by the HW, then by default pmac receive is
+	 * enabled. Also this isr routine will be called only if fpe is
+	 * supported. So when verify mPacket is received quickly send a
+	 * response mPacket.
+	 */
+	if ((status & FPE_EVENT_RVER) == FPE_EVENT_RVER)
+		stmmac_fpe_send_mpacket(priv, priv->ioaddr, fpe_cfg,
+					MPACKET_RESPONSE);
 
-		/* If user has requested FPE enable, quickly response */
-		if (*hs_enable)
-			stmmac_fpe_send_mpacket(priv, priv->ioaddr,
-						fpe_cfg,
-						MPACKET_RESPONSE);
-	}
-
-	/* If Local has sent verify mPacket, Local is FPE capable */
-	if ((status & FPE_EVENT_TVER) == FPE_EVENT_TVER) {
-		if (*lo_state < FPE_STATE_CAPABLE)
-			*lo_state = FPE_STATE_CAPABLE;
-	}
-
-	/* If LP has sent response mPacket, LP is entering FPE ON */
+	/* If LP has sent response mPacket, LP is fpe capable */
 	if ((status & FPE_EVENT_RRSP) == FPE_EVENT_RRSP)
-		*lp_state = FPE_STATE_ENTERING_ON;
-
-	/* If Local has sent response mPacket, Local is entering FPE ON */
-	if ((status & FPE_EVENT_TRSP) == FPE_EVENT_TRSP)
-		*lo_state = FPE_STATE_ENTERING_ON;
+		fpe_cfg->fpe_state = FPE_VER_STATE_SUCCEEDED;
 
 	if (!test_bit(__FPE_REMOVING, &priv->fpe_task_state) &&
 	    !test_and_set_bit(__FPE_TASK_SCHED, &priv->fpe_task_state) &&
@@ -7261,50 +7245,44 @@ int stmmac_reinit_ringparam(struct net_device *dev, u32 rx_size, u32 tx_size)
 	return ret;
 }
 
-#define SEND_VERIFY_MPAKCET_FMT "Send Verify mPacket lo_state=%d lp_state=%d\n"
 static void stmmac_fpe_lp_task(struct work_struct *work)
 {
 	struct stmmac_priv *priv = container_of(work, struct stmmac_priv,
 						fpe_task);
 	struct stmmac_fpe_cfg *fpe_cfg = priv->plat->fpe_cfg;
-	enum stmmac_fpe_state *lo_state = &fpe_cfg->lo_fpe_state;
-	enum stmmac_fpe_state *lp_state = &fpe_cfg->lp_fpe_state;
-	bool *hs_enable = &fpe_cfg->hs_enable;
-	bool *enable = &fpe_cfg->enable;
+	bool skip_retry = true;
 	int retries = 20;
 
-	while (retries-- > 0) {
-		/* Bail out immediately if FPE handshake is OFF */
-		if (*lo_state == FPE_STATE_OFF || !*hs_enable)
-			break;
-
-		if (*lo_state == FPE_STATE_ENTERING_ON &&
-		    *lp_state == FPE_STATE_ENTERING_ON) {
+	while (true) {
+		if (fpe_cfg->fpe_state == FPE_VER_STATE_SUCCEEDED) {
 			stmmac_fpe_configure(priv, priv->ioaddr,
 					     fpe_cfg,
 					     priv->plat->tx_queues_to_use,
 					     priv->plat->rx_queues_to_use,
-					     *enable);
+					     fpe_cfg->tx_enable);
 
 			netdev_info(priv->dev, "configured FPE\n");
+			break;
+		} else if (fpe_cfg->fpe_state == FPE_VER_STATE_VERIFYING) {
+			/* Don't send Verify mPacket for the first time */
+			if (!skip_retry) {
+				if (--retries <= 0) {
+					/* Verify retries exceed */
+					fpe_cfg->fpe_state = FPE_VER_STATE_FAILED;
+					break;
+				}
+				stmmac_fpe_send_mpacket(priv, priv->ioaddr,
+							fpe_cfg,
+							MPACKET_VERIFY);
+			}
 
-			*lo_state = FPE_STATE_ON;
-			*lp_state = FPE_STATE_ON;
-			netdev_info(priv->dev, "!!! BOTH FPE stations ON\n");
+			/* Sleep then retry */
+			msleep(500);
+			skip_retry = false;
+		} else {
+			/* Bail out immediately if FPE handshake is OFF */
 			break;
 		}
-
-		if ((*lo_state == FPE_STATE_CAPABLE ||
-		     *lo_state == FPE_STATE_ENTERING_ON) &&
-		     *lp_state != FPE_STATE_ON) {
-			netdev_info(priv->dev, SEND_VERIFY_MPAKCET_FMT,
-				    *lo_state, *lp_state);
-			stmmac_fpe_send_mpacket(priv, priv->ioaddr,
-						fpe_cfg,
-						MPACKET_VERIFY);
-		}
-		/* Sleep then retry */
-		msleep(500);
 	}
 
 	clear_bit(__FPE_TASK_SCHED, &priv->fpe_task_state);
@@ -7312,23 +7290,40 @@ static void stmmac_fpe_lp_task(struct work_struct *work)
 
 void stmmac_fpe_handshake(struct stmmac_priv *priv, bool enable)
 {
-	if (priv->plat->fpe_cfg->hs_enable && enable) {
-		netdev_info(priv->dev, "start FPE handshake\n");
-		netdev_info(priv->dev, "send Verify mPacket\n");
-		stmmac_fpe_send_mpacket(priv, priv->ioaddr,
-					priv->plat->fpe_cfg,
-					MPACKET_VERIFY);
+	struct stmmac_fpe_cfg *fpe_cfg = priv->plat->fpe_cfg;
+	bool fpe_on;
+
+	if (fpe_cfg->verify_enable && enable) {
+		if (fpe_cfg->fpe_state != FPE_VER_STATE_VERIFYING &&
+		    fpe_cfg->fpe_state != FPE_VER_STATE_FAILED) {
+			netdev_info(priv->dev, "start FPE handshake\n");
+			stmmac_fpe_send_mpacket(priv, priv->ioaddr,
+						priv->plat->fpe_cfg,
+						MPACKET_VERIFY);
+			fpe_cfg->fpe_state = FPE_VER_STATE_VERIFYING;
+		}
 	} else {
-		priv->plat->fpe_cfg->lo_fpe_state = FPE_STATE_OFF;
-		priv->plat->fpe_cfg->lp_fpe_state = FPE_STATE_OFF;
-		netdev_info(priv->dev, "stop FPE handshake\n");
+		if (fpe_cfg->fpe_state != FPE_VER_STATE_DISABLED &&
+		    fpe_cfg->fpe_state != FPE_VER_STATE_INITIAL)
+			netdev_info(priv->dev, "stop FPE handshake\n");
+
+		if (fpe_cfg->verify_enable)
+			fpe_cfg->fpe_state = FPE_VER_STATE_INITIAL;
+		else
+			fpe_cfg->fpe_state = FPE_VER_STATE_DISABLED;
+
+		fpe_on = fpe_cfg->tx_enable && enable;
 
 		stmmac_fpe_configure(priv, priv->ioaddr,
 				     priv->plat->fpe_cfg,
 				     priv->plat->tx_queues_to_use,
 				     priv->plat->rx_queues_to_use,
-				     false);
-		netdev_info(priv->dev, "disabled FPE\n");
+				     fpe_on);
+
+		if (!fpe_on)
+			netdev_info(priv->dev, "disabled FPE\n");
+		else
+			netdev_info(priv->dev, "configured FPE\n");
 	}
 }
 

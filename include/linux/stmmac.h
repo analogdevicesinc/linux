@@ -157,10 +157,11 @@ struct stmmac_txq_cfg {
 
 /* FPE link state */
 enum stmmac_fpe_state {
-	FPE_STATE_OFF = 0,
-	FPE_STATE_CAPABLE = 1,
-	FPE_STATE_ENTERING_ON = 2,
-	FPE_STATE_ON = 3,
+	FPE_VER_STATE_INITIAL = 0,
+	FPE_VER_STATE_VERIFYING = 1,
+	FPE_VER_STATE_SUCCEEDED = 2,
+	FPE_VER_STATE_FAILED = 3,
+	FPE_VER_STATE_DISABLED = 4,
 };
 
 /* FPE link-partner hand-shaking mPacket type */
@@ -175,10 +176,9 @@ enum stmmac_fpe_task_state_t {
 };
 
 struct stmmac_fpe_cfg {
-	bool enable;				/* FPE enable */
-	bool hs_enable;				/* FPE handshake enable */
-	enum stmmac_fpe_state lp_fpe_state;	/* Link Partner FPE state */
-	enum stmmac_fpe_state lo_fpe_state;	/* Local station FPE state */
+	bool tx_enable;				/* FPE tx enable */
+	bool verify_enable;			/* FPE verify enable*/
+	enum stmmac_fpe_state fpe_state;	/* Local station FPE verify state */
 	u32 fpe_csr;				/* MAC_FPE_CTRL_STS reg cache */
 };
 
