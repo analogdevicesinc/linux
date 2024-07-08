@@ -837,13 +837,224 @@ static const struct enetc_pf_hw_ops enetc4_pf_hw_ops = {
 	.set_time_gating = enetc4_pf_set_time_gating,
 };
 
+static int enetc4_pf_init(struct enetc_pf *pf)
+{
+	struct device *dev = &pf->si->pdev->dev;
+	int err;
+
+	/* Initialize the MAC address for PF and VFs */
+	err = enetc_setup_mac_addresses(dev->of_node, pf);
+	if (err) {
+		dev_err(dev, "Failed to set MAC addresses\n");
+		return err;
+	}
+
+	err = enetc_init_cbdr(pf->si);
+	if (err) {
+		dev_err(dev, "Failed to init CBDR\n");
+		return err;
+	}
+
+	enetc4_configure_port(pf);
+
+	return 0;
+}
+
+static void enetc4_pf_deinit(struct enetc_pf *pf)
+{
+	enetc_free_cbdr(pf->si);
+}
+
+static int enetc4_link_init(struct enetc_ndev_priv *priv,
+			    struct device_node *node)
+{
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
+	struct device *dev = priv->dev;
+	int err;
+
+	err = of_get_phy_mode(node, &pf->if_mode);
+	if (err) {
+		dev_err(dev, "Failed to get PHY mode\n");
+		return err;
+	}
+
+	err = enetc_mdiobus_create(pf, node);
+	if (err) {
+		dev_err(dev, "Failed to create MDIO bus\n");
+		return err;
+	}
+
+	err = enetc_phylink_create(priv, node, &enetc_pl_mac_ops);
+	if (err) {
+		dev_err(dev, "Failed to create phylink\n");
+		goto err_phylink_create;
+	}
+
+	return 0;
+
+err_phylink_create:
+	enetc_mdiobus_destroy(pf);
+
+	return err;
+}
+
+static void enetc4_link_deinit(struct enetc_ndev_priv *priv)
+{
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
+
+	enetc_phylink_destroy(priv);
+	enetc_mdiobus_destroy(pf);
+}
+
+static int enetc4_pf_netdev_create(struct enetc_si *si)
+{
+	struct device *dev = &si->pdev->dev;
+	struct enetc_ndev_priv *priv;
+	struct net_device *ndev;
+	int err;
+
+	ndev = alloc_etherdev_mqs(sizeof(struct enetc_ndev_priv),
+				  si->num_tx_rings, si->num_rx_rings);
+	if (!ndev)
+		return  -ENOMEM;
+
+	priv = netdev_priv(ndev);
+	mutex_init(&priv->mm_lock);
+
+	priv->ref_clk = devm_clk_get_optional(dev, "enet_ref_clk");
+	if (IS_ERR(priv->ref_clk)) {
+		dev_err(dev, "Get enet_ref_clk failed\n");
+		err = PTR_ERR(priv->ref_clk);
+		goto err_clk_get;
+	}
+
+	enetc_pf_netdev_setup(si, ndev, &enetc4_ndev_ops);
+
+	enetc_init_si_rings_params(priv);
+	err = enetc_configure_si(priv);
+	if (err) {
+		dev_err(dev, "Failed to configure SI\n");
+		goto err_config_si;
+	}
+
+	err = enetc4_alloc_cls_rules(priv);
+	if (err) {
+		dev_err(dev, "Failed to alloc cls rules memory\n");
+		goto err_alloc_cls_rules;
+	}
+
+	err = enetc_alloc_msix(priv);
+	if (err) {
+		dev_err(dev, "Failed to alloc MSI-X\n");
+		goto err_alloc_msix;
+	}
+
+	err = enetc4_link_init(priv, dev->of_node);
+	if (err)
+		goto err_link_init;
+
+	err = register_netdev(ndev);
+	if (err) {
+		dev_err(dev, "Failed to register netdev\n");
+		goto err_reg_netdev;
+	}
+
+	return 0;
+
+err_reg_netdev:
+	enetc4_link_deinit(priv);
+err_link_init:
+	enetc_free_msix(priv);
+err_alloc_msix:
+	enetc4_free_cls_rules(priv);
+err_alloc_cls_rules:
+err_config_si:
+err_clk_get:
+	mutex_destroy(&priv->mm_lock);
+	free_netdev(ndev);
+
+	return err;
+}
+
+static void enetc4_pf_netdev_destroy(struct enetc_si *si)
+{
+	struct net_device *ndev = si->ndev;
+	struct enetc_ndev_priv *priv;
+
+	priv = netdev_priv(ndev);
+	unregister_netdev(ndev);
+	enetc4_link_deinit(priv);
+	enetc_free_msix(priv);
+	enetc4_free_cls_rules(priv);
+	mutex_destroy(&priv->mm_lock);
+	free_netdev(ndev);
+}
+
+static void enetc4_pf_destroy_vlan_list(struct enetc_pf *pf)
+{
+	struct enetc_vlan_list_entry *entry;
+	struct hlist_node *tmp;
+
+	guard(mutex)(&pf->vlan_list_lock);
+	hlist_for_each_entry_safe(entry, tmp, &pf->vlan_list, node) {
+		hlist_del(&entry->node);
+		kfree(entry);
+	}
+
+	pf->num_vlan_fe = 0;
+}
+
+static void enetc4_pf_destroy_mac_list(struct enetc_pf *pf)
+{
+	struct enetc_mac_list_entry *entry;
+	struct hlist_node *tmp;
+
+	guard(mutex)(&pf->mac_list_lock);
+	hlist_for_each_entry_safe(entry, tmp, &pf->mac_list, node) {
+		hlist_del(&entry->node);
+		kfree(entry);
+	}
+
+	pf->num_mac_fe = 0;
+}
+
+static int enetc4_pf_struct_init(struct enetc_si *si)
+{
+	struct enetc_pf *pf = enetc_si_priv(si);
+
+	pf->si = si;
+	pf->total_vfs = pci_sriov_get_totalvfs(si->pdev);
+	if (pf->total_vfs) {
+		pf->vf_state = kcalloc(pf->total_vfs, sizeof(struct enetc_vf_state),
+				       GFP_KERNEL);
+		if (!pf->vf_state)
+			return -ENOMEM;
+	}
+
+	enetc4_get_port_caps(pf);
+	enetc_pf_register_hw_ops(pf, &enetc4_pf_hw_ops);
+
+	INIT_HLIST_HEAD(&pf->mac_list);
+	mutex_init(&pf->mac_list_lock);
+	INIT_HLIST_HEAD(&pf->vlan_list);
+	mutex_init(&pf->vlan_list_lock);
+
+	return 0;
+}
+
+static void enetc4_pf_struct_deinit(struct enetc_pf *pf)
+{
+	enetc4_pf_destroy_vlan_list(pf);
+	mutex_destroy(&pf->vlan_list_lock);
+	enetc4_pf_destroy_mac_list(pf);
+	mutex_destroy(&pf->mac_list_lock);
+	kfree(pf->vf_state);
+}
+
 static int enetc4_pf_probe(struct pci_dev *pdev,
 			   const struct pci_device_id *ent)
 {
-	struct device_node *node = pdev->dev.of_node;
 	struct device *dev = &pdev->dev;
-	struct enetc_ndev_priv *priv;
-	struct net_device *ndev;
 	struct enetc_si *si;
 	struct enetc_pf *pf;
 	char wq_name[24];
@@ -875,16 +1086,11 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 		goto err_enetc_pci_probe;
 	}
 
-	pf = enetc_si_priv(si);
-	pf->si = si;
-	/* Get total VFs supported on this device. */
-	pf->total_vfs = pci_sriov_get_totalvfs(pdev);
-	enetc_pf_register_hw_ops(pf, &enetc4_pf_hw_ops);
+	err = enetc4_pf_struct_init(si);
+	if (err)
+		goto err_pf_struct_init;
 
-	INIT_HLIST_HEAD(&pf->mac_list);
-	mutex_init(&pf->mac_list_lock);
-	INIT_HLIST_HEAD(&pf->vlan_list);
-	mutex_init(&pf->vlan_list_lock);
+	pf = enetc_si_priv(si);
 	INIT_WORK(&si->rx_mode_task, enetc4_pf_do_set_rx_mode);
 	snprintf(wq_name, sizeof(wq_name), "enetc-%s", pci_name(pdev));
 	si->workqueue = create_singlethread_workqueue(wq_name);
@@ -893,98 +1099,26 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 		goto err_create_wq;
 	}
 
-	/* Set the control BD ring for PF. */
-	err = enetc_init_cbdr(si);
+	err = enetc4_pf_init(pf);
 	if (err)
-		goto err_init_cbdr;
+		goto err_pf_init;
 
-	/* Initialize the MAC address for PF and VFs */
-	err = enetc_setup_mac_addresses(node, pf);
-	if (err)
-		goto err_init_address;
-
-	enetc4_get_port_caps(pf);
-	enetc4_configure_port(pf);
 	enetc_get_si_caps(si);
-
-	ndev = alloc_etherdev_mqs(sizeof(struct enetc_ndev_priv),
-				  si->num_tx_rings, si->num_rx_rings);
-	if (!ndev) {
-		err = -ENOMEM;
-		goto err_alloc_ndev;
-	}
-
-	priv = netdev_priv(ndev);
-	mutex_init(&priv->mm_lock);
-	priv->ref_clk = devm_clk_get_optional(dev, "enet_ref_clk");
-	if (IS_ERR(priv->ref_clk)) {
-		dev_err(dev, "Get enet_ref_clk failed\n");
-		err = PTR_ERR(priv->ref_clk);
-		goto err_clk_get;
-	}
-
-	enetc_pf_netdev_setup(si, ndev, &enetc4_ndev_ops);
-
-	enetc_init_si_rings_params(priv);
-	err = enetc_configure_si(priv);
-	if (err) {
-		dev_err(dev, "Failed to configure SI\n");
-		goto err_config_si;
-	}
-
-	err = enetc4_alloc_cls_rules(priv);
-	if (err) {
-		dev_err(dev, "Failed to alloc cls rules memory\n");
-		goto err_alloc_cls_rules;
-	}
-
-	err = enetc_alloc_msix(priv);
-	if (err) {
-		dev_err(dev, "MSIX alloc failed\n");
-		goto err_alloc_msix;
-	}
-
-	err = of_get_phy_mode(node, &pf->if_mode);
-	if (err) {
-		dev_err(dev, "Failed to read PHY mode\n");
-		goto err_phy_mode;
-	}
-
-	err = enetc_mdiobus_create(pf, node);
+	err = enetc4_pf_netdev_create(si);
 	if (err)
-		goto err_mdiobus_create;
-
-	err = enetc_phylink_create(priv, node, &enetc_pl_mac_ops);
-	if (err)
-		goto err_phylink_create;
-
-	err = register_netdev(ndev);
-	if (err)
-		goto err_reg_netdev;
+		goto err_netdev_create;
 
 	enetc_create_debugfs(si);
 
 	return 0;
 
-err_reg_netdev:
-	enetc_phylink_destroy(priv);
-err_phylink_create:
-	enetc_mdiobus_destroy(pf);
-err_mdiobus_create:
-err_phy_mode:
-	enetc_free_msix(priv);
-err_alloc_msix:
-	enetc4_free_cls_rules(priv);
-err_alloc_cls_rules:
-err_config_si:
-err_clk_get:
-	free_netdev(ndev);
-err_alloc_ndev:
-err_init_address:
-	enetc_free_cbdr(si);
-err_init_cbdr:
+err_netdev_create:
+	enetc4_pf_deinit(pf);
+err_pf_init:
 	destroy_workqueue(si->workqueue);
 err_create_wq:
+	enetc4_pf_struct_deinit(pf);
+err_pf_struct_init:
 err_enetc_pci_probe:
 	enetc_pci_remove(pdev);
 
@@ -993,7 +1127,6 @@ err_enetc_pci_probe:
 
 static void enetc4_pf_remove(struct pci_dev *pdev)
 {
-	struct enetc_ndev_priv *priv;
 	struct enetc_si *si;
 	struct enetc_pf *pf;
 
@@ -1003,27 +1136,16 @@ static void enetc4_pf_remove(struct pci_dev *pdev)
 	}
 
 	si = pci_get_drvdata(pdev);
-	pf = enetc_si_priv(si);
-
 	enetc_remove_debugfs(si);
-	priv = netdev_priv(si->ndev);
 
+	pf = enetc_si_priv(si);
 	if (pf->num_vfs)
 		enetc_sriov_configure(pdev, 0);
 
-	unregister_netdev(si->ndev);
-
-	enetc_phylink_destroy(priv);
-	enetc_mdiobus_destroy(pf);
-
-	enetc_free_msix(priv);
-
-	enetc4_free_cls_rules(priv);
-	free_netdev(si->ndev);
-	enetc_free_cbdr(si);
-
+	enetc4_pf_netdev_destroy(si);
+	enetc4_pf_deinit(pf);
 	destroy_workqueue(si->workqueue);
-
+	enetc4_pf_struct_deinit(pf);
 	enetc_pci_remove(pdev);
 }
 

@@ -1682,17 +1682,9 @@ int enetc_sriov_configure(struct pci_dev *pdev, int num_vfs)
 	if (!num_vfs) {
 		pci_disable_sriov(pdev);
 		enetc_msg_psi_free(pf);
-		kfree(pf->vf_state);
 		pf->num_vfs = 0;
 	} else {
 		pf->num_vfs = num_vfs;
-
-		pf->vf_state = kcalloc(num_vfs, sizeof(struct enetc_vf_state),
-				       GFP_KERNEL);
-		if (!pf->vf_state) {
-			pf->num_vfs = 0;
-			return -ENOMEM;
-		}
 
 		err = enetc_msg_psi_init(pf);
 		if (err) {
@@ -1712,7 +1704,6 @@ int enetc_sriov_configure(struct pci_dev *pdev, int num_vfs)
 err_en_sriov:
 	enetc_msg_psi_free(pf);
 err_msg_psi:
-	kfree(pf->vf_state);
 	pf->num_vfs = 0;
 
 	return err;
