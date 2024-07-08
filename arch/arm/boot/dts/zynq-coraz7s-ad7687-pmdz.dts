@@ -3,7 +3,8 @@
  * Analog Devices AD7687
  * https://www.analog.com/en/products/ad7687.html
  *
- * hdl_project: <pulsar_adc_pmdz/coraz7s>
+ * hdl_project: <pulsar_adc>
+ * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/pulsar_adc
  * board_revision: <A>
  *
  * Copyright (C) 2022 Analog Devices Inc.
