@@ -1162,8 +1162,8 @@ static int tc_taprio_configure(struct stmmac_priv *priv,
 	/* Actual FPE register configuration will be done after FPE handshake
 	 * is success.
 	 */
-	priv->plat->fpe_cfg->enable = fpe;
-	priv->plat->fpe_cfg->hs_enable = fpe;
+	priv->plat->fpe_cfg->tx_enable = fpe;
+	priv->plat->fpe_cfg->verify_enable = fpe;
 	stmmac_fpe_handshake(priv, fpe);
 
 	return 0;
@@ -1183,8 +1183,8 @@ disable:
 		mutex_unlock(&priv->plat->est->lock);
 	}
 
-	priv->plat->fpe_cfg->enable = false;
-	priv->plat->fpe_cfg->hs_enable = false;
+	priv->plat->fpe_cfg->tx_enable = false;
+	priv->plat->fpe_cfg->verify_enable = false;
 	stmmac_fpe_handshake(priv, false);
 
 	return ret;
