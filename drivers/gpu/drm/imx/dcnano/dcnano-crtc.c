@@ -6,6 +6,7 @@
 
 #include <linux/clk.h>
 #include <linux/irq.h>
+#include <linux/pm_runtime.h>
 
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
@@ -197,15 +198,16 @@ dcnano_crtc_mode_valid(struct drm_crtc *crtc,
 
 static void dcnano_crtc_mode_set_nofb(struct drm_crtc *crtc)
 {
+	struct drm_device *drm = crtc->dev;
 	struct dcnano_dev *dcnano = crtc_to_dcnano_dev(crtc);
 	struct drm_display_mode *adj = &crtc->state->adjusted_mode;
 
 	dcnano_crtc_dbg(crtc, "mode " DRM_MODE_FMT "\n", DRM_MODE_ARG(adj));
 
-	clk_prepare_enable(dcnano->axi_clk);
-	clk_prepare_enable(dcnano->ahb_clk);
-
 	dcnano_crtc_set_pixel_clock(crtc);
+
+	/* enable power when we start to set mode for CRTC */
+	pm_runtime_get_sync(drm->dev);
 
 	if (dcnano->port == DCNANO_DPI_PORT)
 		dcnano_crtc_mode_set_nofb_dpi(crtc);
@@ -245,14 +247,13 @@ static int dcnano_crtc_atomic_check(struct drm_crtc *crtc,
 static void dcnano_crtc_atomic_begin(struct drm_crtc *crtc,
 				     struct drm_atomic_state *state)
 {
-	struct dcnano_dev *dcnano = crtc_to_dcnano_dev(crtc);
+	struct drm_device *drm = crtc->dev;
 
 	/*
-	 * Enable clocks by ourselves in case the plane callbacks
+	 * Enable power by ourselves in case the plane callbacks
 	 * need to access registers.
 	 */
-	clk_prepare_enable(dcnano->ahb_clk);
-	clk_prepare_enable(dcnano->pixel_clk);
+	pm_runtime_get_sync(drm->dev);
 }
 
 static void dcnano_crtc_atomic_flush(struct drm_crtc *crtc,
@@ -260,10 +261,9 @@ static void dcnano_crtc_atomic_flush(struct drm_crtc *crtc,
 {
 	struct drm_crtc_state *old_crtc_state = drm_atomic_get_old_crtc_state(state,
 									      crtc);
-	struct dcnano_dev *dcnano = crtc_to_dcnano_dev(crtc);
+	struct drm_device *drm = crtc->dev;
 
-	clk_disable_unprepare(dcnano->pixel_clk);
-	clk_disable_unprepare(dcnano->ahb_clk);
+	pm_runtime_put_sync(drm->dev);
 
 	if (!crtc->state->active && !old_crtc_state->active)
 		return;
@@ -315,6 +315,7 @@ static void dcnano_crtc_atomic_enable(struct drm_crtc *crtc,
 static void dcnano_crtc_atomic_disable(struct drm_crtc *crtc,
 				       struct drm_atomic_state *state)
 {
+	struct drm_device *drm = crtc->dev;
 	struct dcnano_dev *dcnano = crtc_to_dcnano_dev(crtc);
 
 	/* simply write '0' to the framebuffer and timing control register */
@@ -322,9 +323,10 @@ static void dcnano_crtc_atomic_disable(struct drm_crtc *crtc,
 
 	drm_crtc_vblank_off(crtc);
 
+	/* disable power when CRTC is disabled */
+	pm_runtime_put_sync(drm->dev);
+
 	clk_disable_unprepare(dcnano->pixel_clk);
-	clk_disable_unprepare(dcnano->ahb_clk);
-	clk_disable_unprepare(dcnano->axi_clk);
 
 	spin_lock_irq(&crtc->dev->event_lock);
 	if (crtc->state->event && !crtc->state->active) {
@@ -474,11 +476,11 @@ static int dcnano_get_pll_clock(struct dcnano_dev *dcnano)
 
 static void dcnano_reset_all_debug_counters(struct dcnano_dev *dcnano)
 {
-	clk_prepare_enable(dcnano->ahb_clk);
-	clk_prepare_enable(dcnano->pixel_clk);
+	struct drm_device *drm = &dcnano->base;
+
+	pm_runtime_get_sync(drm->dev);
 	dcnano_write(dcnano, DCNANO_DEBUGCOUNTERSELECT, RESET_ALL_CNTS);
-	clk_disable_unprepare(dcnano->pixel_clk);
-	clk_disable_unprepare(dcnano->ahb_clk);
+	pm_runtime_put_sync(drm->dev);
 }
 
 int dcnano_crtc_init(struct dcnano_dev *dcnano)

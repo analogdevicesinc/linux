@@ -7,6 +7,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/pm_runtime.h>
 
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_drv.h>
@@ -47,8 +48,7 @@ static int dcnano_check_chip_info(struct dcnano_dev *dcnano)
 	u32 val;
 	int ret = 0;
 
-	clk_prepare_enable(dcnano->ahb_clk);
-	clk_prepare_enable(dcnano->pixel_clk);
+	pm_runtime_get_sync(drm->dev);
 
 	val = dcnano_read(dcnano, DCNANO_DCCHIPREV);
 	if (val != DCCHIPREV) {
@@ -75,8 +75,7 @@ static int dcnano_check_chip_info(struct dcnano_dev *dcnano)
 	}
 	DRM_DEV_DEBUG(drm->dev, "chip patch revision is 0x%08x\n", val);
 err:
-	clk_disable_unprepare(dcnano->pixel_clk);
-	clk_disable_unprepare(dcnano->ahb_clk);
+	pm_runtime_put_sync(drm->dev);
 	return ret;
 }
 
@@ -139,16 +138,16 @@ static int dcnano_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	clk_prepare_enable(dcnano->ahb_clk);
-	clk_prepare_enable(dcnano->pixel_clk);
+	pm_runtime_enable(drm->dev);
+
+	pm_runtime_get_sync(drm->dev);
 	ret = drm_irq_install(drm, irq);
-	clk_disable_unprepare(dcnano->pixel_clk);
-	clk_disable_unprepare(dcnano->ahb_clk);
+	pm_runtime_put_sync(drm->dev);
 
 	if (ret < 0) {
 		DRM_DEV_ERROR(drm->dev,
 			      "failed to install IRQ handler: %d\n", ret);
-		return ret;
+		goto err_irq_install;
 	}
 
 	ret = dcnano_check_chip_info(dcnano);
@@ -180,11 +179,11 @@ err_register:
 	drm_kms_helper_poll_fini(drm);
 err_kms_prepare:
 err_check_chip_info:
-	clk_prepare_enable(dcnano->ahb_clk);
-	clk_prepare_enable(dcnano->pixel_clk);
+	pm_runtime_get_sync(drm->dev);
 	drm_irq_uninstall(drm);
-	clk_disable_unprepare(dcnano->pixel_clk);
-	clk_disable_unprepare(dcnano->ahb_clk);
+	pm_runtime_put_sync(drm->dev);
+err_irq_install:
+	pm_runtime_disable(drm->dev);
 	return ret;
 }
 
@@ -199,11 +198,11 @@ static void dcnano_remove(struct platform_device *pdev)
 
 	drm_atomic_helper_shutdown(drm);
 
-	clk_prepare_enable(dcnano->ahb_clk);
-	clk_prepare_enable(dcnano->pixel_clk);
+	pm_runtime_get_sync(drm->dev);
 	drm_irq_uninstall(drm);
-	clk_disable_unprepare(dcnano->pixel_clk);
-	clk_disable_unprepare(dcnano->ahb_clk);
+	pm_runtime_put_sync(drm->dev);
+
+	pm_runtime_disable(drm->dev);
 }
 
 static int __maybe_unused dcnano_suspend(struct device *dev)
@@ -220,8 +219,57 @@ static int __maybe_unused dcnano_resume(struct device *dev)
 	return drm_mode_config_helper_resume(&dcnano->base);
 }
 
+static int __maybe_unused dcnano_runtime_suspend(struct device *dev)
+{
+	struct dcnano_dev *dcnano = dev_get_drvdata(dev);
+
+	drm_dbg(&dcnano->base, "runtime suspend\n");
+
+	clk_disable_unprepare(dcnano->pixel_clk);
+	clk_disable_unprepare(dcnano->ahb_clk);
+	clk_disable_unprepare(dcnano->axi_clk);
+
+	return 0;
+}
+
+static int __maybe_unused dcnano_runtime_resume(struct device *dev)
+{
+	struct dcnano_dev *dcnano = dev_get_drvdata(dev);
+	int ret;
+
+	drm_dbg(&dcnano->base, "runtime resume\n");
+
+	ret = clk_prepare_enable(dcnano->axi_clk);
+	if (ret) {
+		DRM_DEV_ERROR(dev, "failed to enable axi clock: %d\n", ret);
+		return ret;
+	}
+
+	ret = clk_prepare_enable(dcnano->ahb_clk);
+	if (ret) {
+		DRM_DEV_ERROR(dev, "failed to enable ahb clock: %d\n", ret);
+		clk_disable_unprepare(dcnano->axi_clk);
+		return ret;
+	}
+
+	/*
+	 * Pixel clock has to be enabled for like DCNANO in i.MX8ulp,
+	 * otherwise registers cannot be accessed.
+	 */
+	ret = clk_prepare_enable(dcnano->pixel_clk);
+	if (ret) {
+		DRM_DEV_ERROR(dev, "failed to enable pixel clock: %d\n", ret);
+		clk_disable_unprepare(dcnano->axi_clk);
+		clk_disable_unprepare(dcnano->ahb_clk);
+		return ret;
+	}
+
+	return 0;
+}
+
 static const struct dev_pm_ops dcnano_pm_ops = {
 	SET_SYSTEM_SLEEP_PM_OPS(dcnano_suspend, dcnano_resume)
+	SET_RUNTIME_PM_OPS(dcnano_runtime_suspend, dcnano_runtime_resume, NULL)
 };
 
 static const struct of_device_id dcnano_dt_ids[] = {
