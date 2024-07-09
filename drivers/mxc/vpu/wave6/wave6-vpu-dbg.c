@@ -72,6 +72,14 @@ static int wave6_vpu_dbg_instance(struct seq_file *s, void *data)
 	if (seq_write(s, str, num))
 		return 0;
 
+	num = scnprintf(str, sizeof(str),
+			"capture queued %d, consumed %d, used %d\n",
+			v4l2_m2m_num_dst_bufs_ready(inst->v4l2_fh.m2m_ctx),
+			wave6_vpu_get_consumed_fb_num(inst),
+			wave6_vpu_get_used_fb_num(inst));
+	if (seq_write(s, str, num))
+		return 0;
+
 	num = scnprintf(str, sizeof(str), "crop: (%d, %d) %d x %d\n",
 			inst->crop.left,
 			inst->crop.top,

@@ -285,6 +285,7 @@ static void wave6_vpu_dec_handle_dst_buffer(struct vpu_instance *inst)
 	u32 chroma_size = (fb_stride / 2) * (inst->dst_fmt.height / 2);
 	struct frame_buffer disp_buffer = {0};
 	struct dec_initial_info initial_info = {0};
+	int consumed_num = wave6_vpu_get_consumed_fb_num(inst);
 	int ret;
 
 	wave6_vpu_dec_give_command(inst, DEC_GET_SEQ_INFO, &initial_info);
@@ -295,6 +296,9 @@ static void wave6_vpu_dec_handle_dst_buffer(struct vpu_instance *inst)
 
 		if (vpu_buf->consumed)
 			continue;
+
+		if (consumed_num >= W6_MAX_FB_NUM)
+			break;
 
 		if (inst->dst_fmt.num_planes == 1) {
 			buf_size = vb2_plane_size(&dst_buf->vb2_buf, 0);
@@ -327,10 +331,13 @@ static void wave6_vpu_dec_handle_dst_buffer(struct vpu_instance *inst)
 		disp_buffer.chroma_format_idc = initial_info.chroma_format_idc;
 
 		ret = wave6_vpu_dec_register_display_buffer_ex(inst, disp_buffer);
-		if (ret)
+		if (ret) {
 			dev_err(inst->dev->dev, "fail register display buffer %d", ret);
+			break;
+		}
 
 		vpu_buf->consumed = true;
+		consumed_num++;
 	}
 }
 
