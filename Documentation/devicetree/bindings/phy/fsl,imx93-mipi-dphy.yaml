@@ -11,7 +11,10 @@ maintainers:
 
 properties:
   compatible:
-    const: fsl,imx93-mipi-dphy
+    items:
+      - enum:
+        - fsl,imx93-mipi-dphy
+        - fsl,imx95-dphy-rx
 
   "#phy-cells":
     const: 0
@@ -36,6 +39,12 @@ properties:
     maxItems: 1
 
   assigned-clock-rates:
+    maxItems: 1
+
+  fsl,csis:
+    description:
+      Must be the device tree identifier of the CSI memory map. This is required only
+      for the i.MX95 CSI standalone dphy-rx driver.
     maxItems: 1
 
 required:
