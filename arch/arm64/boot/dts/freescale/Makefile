@@ -316,6 +316,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx91-9x9-qsb.dtb \
 			  imx91-9x9-qsb-tianma-wvga-panel.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx91-9x9-qsb-aud-hat.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx91-9x9-qsb-ld.dtb
+dtb-$(CONFIG_ARCH_MXC) += imx91-9x9-qsb-i2c-spi-slave.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx95-15x15-evk.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx95-15x15-evk-mqs.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx95-15x15-evk-aud-hat.dtb
