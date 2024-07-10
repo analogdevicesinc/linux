@@ -29,7 +29,6 @@
 	phy-mode = "rgmii-rxid";
 	phy-handle = <&fixed0>;
 	pinctrl-assert-gpios = <&max7322 0 GPIO_ACTIVE_LOW>;
-	clk_csr = <5>;
 	status = "okay";
 
 	fixed0: fixed-link {
