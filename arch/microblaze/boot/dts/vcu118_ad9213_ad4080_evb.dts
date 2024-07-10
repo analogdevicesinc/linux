@@ -55,15 +55,15 @@
 		};
 		channel@5 {
 			reg = <5>;
-			label = "adrf5203_ctrl[2]";
+			label = "adrf5203_ctrl2";
 		};
 		channel@6 {
 			reg = <6>;
-			label = "adrf5203_ctrl[1]";
+			label = "adrf5203_ctrl1";
 		};
 		channel@7 {
 			reg = <7>;
-			label = "adrf5203_ctrl[0]";
+			label = "adrf5203_ctrl0";
 		};
 		channel@8 {
 			reg = <8>;
