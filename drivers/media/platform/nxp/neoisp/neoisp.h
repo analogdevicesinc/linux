@@ -37,7 +37,8 @@
 #define NEOISP_MAX_CTRLS         (1)
 #define NEOISP_CTRL_PARAMS       (0)
 
-#define NEOISP_FMT_VCAP_COUNT    (16)
+#define NEOISP_FMT_VCAP_COUNT    (14)
+#define NEOISP_FMT_VCAP_IR_COUNT (2)
 #define NEOISP_FMT_VOUT_COUNT    (24)
 #define NEOISP_FMT_MCAP_COUNT    (1)
 #define NEOISP_FMT_MOUT_COUNT    (1)
@@ -89,11 +90,6 @@
 /*
  * enums
  */
-enum neoisp_q_type_e {
-	NEOISP_QUEUE_SRC = 0,
-	NEOISP_QUEUE_DST = 1,
-};
-
 enum neoisp_fmt_type_e {
 	NEOISP_FMT_VIDEO_CAPTURE = BIT(0),
 	NEOISP_FMT_VIDEO_OUTPUT = BIT(1),
@@ -260,6 +256,7 @@ extern const int neoisp_fields_a[NEOISP_FIELD_COUNT]; /* array of all fields off
 extern struct regmap_config neoisp_regmap_config;
 extern const struct v4l2_frmsize_stepwise neoisp_frmsize_stepwise;
 extern const struct neoisp_fmt_s formats_vcap[NEOISP_FMT_VCAP_COUNT];
+extern const struct neoisp_fmt_s formats_vcap_ir[NEOISP_FMT_VCAP_IR_COUNT];
 extern const struct neoisp_fmt_s formats_vout[NEOISP_FMT_VOUT_COUNT];
 extern const struct neoisp_fmt_s formats_mcap[NEOISP_FMT_MCAP_COUNT];
 extern const struct neoisp_fmt_s formats_mout[NEOISP_FMT_MOUT_COUNT];

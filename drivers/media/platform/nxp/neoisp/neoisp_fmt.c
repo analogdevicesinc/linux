@@ -68,20 +68,6 @@ const struct neoisp_fmt_s formats_vcap[NEOISP_FMT_VCAP_COUNT] = {
 		.is_rgb = 1,
 		.type = NEOISP_FMT_VIDEO_CAPTURE
 	}, {
-		.fourcc = V4L2_PIX_FMT_GREY,      /* 8-bit Greyscale */
-		.align = 32,
-		.bit_depth = 8,
-		.num_planes = 1,
-		.is_rgb = 0,
-		.type = NEOISP_FMT_VIDEO_CAPTURE
-	}, {
-		.fourcc = V4L2_PIX_FMT_Y16,      /* 16-bit Greyscale */
-		.align = 32,
-		.bit_depth = 16,
-		.num_planes = 1,
-		.is_rgb = 0,
-		.type = NEOISP_FMT_VIDEO_CAPTURE
-	}, {
 		.fourcc = V4L2_PIX_FMT_NV12,      /* 12-bit Y/CbCr 4:2:0 */
 		.align = 32,
 		.bit_depth = 8,
@@ -150,6 +136,24 @@ const struct neoisp_fmt_s formats_vcap[NEOISP_FMT_VCAP_COUNT] = {
 		.type = NEOISP_FMT_VIDEO_CAPTURE
 	}, {
 		.fourcc = V4L2_PIX_FMT_VYUY,     /* 16-bit VYUY 4:2:2 */
+		.align = 32,
+		.bit_depth = 16,
+		.num_planes = 1,
+		.is_rgb = 0,
+		.type = NEOISP_FMT_VIDEO_CAPTURE
+	}
+};
+
+const struct neoisp_fmt_s formats_vcap_ir[NEOISP_FMT_VCAP_IR_COUNT] = {
+	{
+		.fourcc = V4L2_PIX_FMT_GREY,      /* 8-bit Greyscale */
+		.align = 32,
+		.bit_depth = 8,
+		.num_planes = 1,
+		.is_rgb = 0,
+		.type = NEOISP_FMT_VIDEO_CAPTURE
+	}, {
+		.fourcc = V4L2_PIX_FMT_Y16,      /* 16-bit Greyscale */
 		.align = 32,
 		.bit_depth = 16,
 		.num_planes = 1,

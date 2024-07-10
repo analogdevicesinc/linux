@@ -70,76 +70,48 @@ static void neoisp_fill_mp(struct v4l2_format *f, const struct neoisp_fmt_s *fmt
 	}
 }
 
-static inline struct neoisp_fmt_s *neoisp_def_format(enum neoisp_fmt_type_e type)
-{
-	struct neoisp_fmt_s *fmt = NULL;
-
-	switch (type) {
-	case NEOISP_FMT_VIDEO_CAPTURE:
-		fmt = (struct neoisp_fmt_s *)&formats_vcap[0];
-		break;
-	case NEOISP_FMT_VIDEO_OUTPUT:
-		fmt = (struct neoisp_fmt_s *)&formats_vout[0];
-		break;
-	case NEOISP_FMT_META_CAPTURE:
-		fmt = (struct neoisp_fmt_s *)&formats_mcap[0];
-		break;
-	case NEOISP_FMT_META_OUTPUT:
-		fmt = (struct neoisp_fmt_s *)&formats_mout[0];
-		break;
-	default:
-		break;
-	}
-	return fmt;
-}
-
-static inline int to_neoisp_fmt_type(enum v4l2_buf_type type)
-{
-	if (V4L2_TYPE_IS_OUTPUT(type))
-		if (TYPE_IS_META(type))
-			return NEOISP_FMT_META_OUTPUT;
-		else
-			return NEOISP_FMT_VIDEO_OUTPUT;
-	else
-		if (TYPE_IS_META(type))
-			return NEOISP_FMT_VIDEO_OUTPUT;
-		else
-			return NEOISP_FMT_VIDEO_CAPTURE;
-}
-
-static const struct neoisp_fmt_s *neoisp_find_pixel_format(u32 pixel_format,
-		int fmt_type)
+static const struct neoisp_fmt_s *neoisp_find_pixel_format_by_node(u32 pixel_format,
+								   struct neoisp_node_s *node)
 {
 	__u32 i;
 
-	for (i = 0; i < ARRAY_SIZE(formats_vout); i++) {
-		const struct neoisp_fmt_s *fmt = &formats_vout[i];
-
-		if (fmt->fourcc == pixel_format && fmt->type & fmt_type)
-			return fmt;
+	if (IS_ERR_OR_NULL(node))
+		return NULL;
+	switch (node->id) {
+	case NEOISP_INPUT0_NODE:
+	case NEOISP_INPUT1_NODE:
+		for (i = 0; i < ARRAY_SIZE(formats_vout); i++) {
+			if (formats_vout[i].fourcc == pixel_format)
+				return &formats_vout[i];
+		}
+		break;
+	case NEOISP_FRAME_NODE:
+		for (i = 0; i < ARRAY_SIZE(formats_vcap); i++) {
+			if (formats_vcap[i].fourcc == pixel_format)
+				return &formats_vcap[i];
+		}
+		break;
+	case NEOISP_IR_NODE:
+		for (i = 0; i < ARRAY_SIZE(formats_vcap_ir); i++) {
+			if (formats_vcap_ir[i].fourcc == pixel_format)
+				return &formats_vcap_ir[i];
+		}
+		break;
+	case NEOISP_PARAMS_NODE:
+		for (i = 0; i < ARRAY_SIZE(formats_mout); i++) {
+			if (formats_mout[i].fourcc == pixel_format)
+				return &formats_mout[i];
+		}
+		break;
+	case NEOISP_STATS_NODE:
+		for (i = 0; i < ARRAY_SIZE(formats_mcap); i++) {
+			if (formats_mcap[i].fourcc == pixel_format)
+				return &formats_mcap[i];
+		}
+		break;
+	default:
+		return NULL;
 	}
-
-	for (i = 0; i < ARRAY_SIZE(formats_vcap); i++) {
-		const struct neoisp_fmt_s *fmt = &formats_vcap[i];
-
-		if (fmt->fourcc == pixel_format && fmt->type & fmt_type)
-			return fmt;
-	}
-
-	for (i = 0; i < ARRAY_SIZE(formats_mcap); i++) {
-		const struct neoisp_fmt_s *fmt = &formats_mcap[i];
-
-		if (fmt->fourcc == pixel_format && fmt->type & fmt_type)
-			return fmt;
-	}
-
-	for (i = 0; i < ARRAY_SIZE(formats_mout); i++) {
-		const struct neoisp_fmt_s *fmt = &formats_mout[i];
-
-		if (fmt->fourcc == pixel_format && fmt->type & fmt_type)
-			return fmt;
-	}
-
 	return NULL;
 }
 
@@ -942,10 +914,17 @@ static int neoisp_enum_fmt(struct file *file, void *priv, struct v4l2_fmtdesc *f
 
 		f->pixelformat = formats_vout[f->index].fourcc;
 	} else {
-		if (f->index >= ARRAY_SIZE(formats_vcap))
-			return -EINVAL;
+		if (node->id == NEOISP_IR_NODE) {
+			if (f->index >= ARRAY_SIZE(formats_vcap_ir))
+				return -EINVAL;
 
-		f->pixelformat = formats_vcap[f->index].fourcc;
+			f->pixelformat = formats_vcap_ir[f->index].fourcc;
+		} else {
+			if (f->index >= ARRAY_SIZE(formats_vcap))
+				return -EINVAL;
+
+			f->pixelformat = formats_vcap[f->index].fourcc;
+		}
 	}
 
 	return 0;
@@ -954,13 +933,13 @@ static int neoisp_enum_fmt(struct file *file, void *priv, struct v4l2_fmtdesc *f
 static int neoisp_enum_framesizes(struct file *file, void *priv,
 		struct v4l2_frmsizeenum *fsize)
 {
+	struct neoisp_node_s *node = video_drvdata(file);
 	const struct neoisp_fmt_s *fmt;
 
 	if (fsize->index)
 		return -EINVAL;
 
-	fmt = neoisp_find_pixel_format(fsize->pixel_format,
-			NEOISP_FMT_VIDEO_OUTPUT | NEOISP_FMT_VIDEO_CAPTURE);
+	fmt = neoisp_find_pixel_format_by_node(fsize->pixel_format, node);
 	if (!fmt)
 		return -EINVAL;
 
@@ -1089,12 +1068,15 @@ static int neoisp_try_fmt(struct v4l2_format *f, struct neoisp_node_s *node)
 			|| (pixfmt == V4L2_META_FMT_NEO_ISP_PARAMS))
 		return 0; /* FIXME do check the buffer size */
 
-	fmt = neoisp_find_pixel_format(pixfmt, NEOISP_FMT_VIDEO_OUTPUT | NEOISP_FMT_VIDEO_CAPTURE);
+	fmt = neoisp_find_pixel_format_by_node(pixfmt, node);
 	if (!fmt) {
 		if (NODE_IS_OUTPUT(node))
 			fmt = &formats_vout[0];
 		else
-			fmt = &formats_vcap[0];
+			if (node->id == NEOISP_IR_NODE)
+				fmt = &formats_vcap_ir[0];
+			else
+				fmt = &formats_vcap[0];
 	}
 
 	f->fmt.pix_mp.pixelformat = fmt->fourcc;
@@ -1150,7 +1132,7 @@ static int neoisp_s_fmt_vid_cap(struct file *file, void *priv,
 
 	node->format = *f;
 	node->neoisp_format =
-		neoisp_find_pixel_format(f->fmt.pix_mp.pixelformat, NEOISP_FMT_VIDEO_CAPTURE);
+		neoisp_find_pixel_format_by_node(f->fmt.pix_mp.pixelformat, node);
 
 	return 0;
 }
@@ -1183,7 +1165,7 @@ static int neoisp_s_fmt_vid_out(struct file *file, void *priv,
 
 	node->format = *f;
 	node->neoisp_format =
-		neoisp_find_pixel_format(f->fmt.pix_mp.pixelformat, NEOISP_FMT_VIDEO_OUTPUT);
+		neoisp_find_pixel_format_by_node(f->fmt.pix_mp.pixelformat, node);
 
 	node->crop.top = 0;
 	node->crop.left = 0;
@@ -1674,9 +1656,8 @@ static void node_set_default_format(struct neoisp_node_s *node)
 	node->crop.width = NEOISP_DEF_W;
 	node->crop.height = NEOISP_DEF_H;
 
-	node->neoisp_format = neoisp_find_pixel_format(node->format.fmt.pix_mp.pixelformat,
-			NEOISP_FMT_VIDEO_OUTPUT | NEOISP_FMT_VIDEO_CAPTURE
-			| NEOISP_FMT_META_OUTPUT | NEOISP_FMT_META_CAPTURE);
+	node->neoisp_format = neoisp_find_pixel_format_by_node(node->format.fmt.pix_mp.pixelformat,
+							       node);
 }
 
 /*
