@@ -15,6 +15,7 @@ properties:
       - enum:
         - fsl,imx93-mipi-dphy
         - fsl,imx95-dphy-rx
+        - fsl,imx95-combo-rx
 
   "#phy-cells":
     const: 0
@@ -45,6 +46,18 @@ properties:
     description:
       Must be the device tree identifier of the CSI memory map. This is required only
       for the i.MX95 CSI standalone dphy-rx driver.
+    maxItems: 1
+
+  fsl,reg-offset:
+    description:
+      Register offset, in hex, in the register map, where the driver can access its
+      relevant registers.
+    maxItems: 1
+
+  fsl,dsi:
+    description:
+      Must be the device tree identifier of the DSI memory map. This is required only
+      for the CSI/DSI combo driver, where CSI shares the same combo phy with the DSI.
     maxItems: 1
 
 required:
