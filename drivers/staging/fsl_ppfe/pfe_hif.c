@@ -183,7 +183,7 @@ static void pfe_hif_free_descr(struct pfe_hif *hif)
 			  hif->descr_baseaddr_v, hif->descr_baseaddr_p);
 }
 
-void pfe_hif_desc_dump(struct pfe_hif *hif)
+static void __maybe_unused pfe_hif_desc_dump(struct pfe_hif *hif)
 {
 	struct hif_desc	*desc;
 	unsigned long desc_p;

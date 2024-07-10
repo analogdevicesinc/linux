@@ -387,7 +387,7 @@ err_priority:
 /* pfe_eth_sysfs_exit
  *
  */
-void pfe_eth_sysfs_exit(struct net_device *ndev)
+static void pfe_eth_sysfs_exit(struct net_device *ndev)
 {
 #ifdef PFE_ETH_TX_STATS
 	device_remove_file(&ndev->dev, &dev_attr_tx_stats);
@@ -1459,7 +1459,7 @@ err0:
 /*
  *  pfe_eth_shutdown
  */
-int pfe_eth_shutdown(struct net_device *ndev, int wake)
+static int pfe_eth_shutdown(struct net_device *ndev, int wake)
 {
 	struct pfe_eth_priv_s *priv = netdev_priv(ndev);
 	int i, qstatus, id;
@@ -1789,7 +1789,7 @@ static void pfe_eth_flush_tx(struct pfe_eth_priv_s *priv)
 	}
 }
 
-void pfe_tx_get_req_desc(struct sk_buff *skb, unsigned int *n_desc, unsigned int
+static void pfe_tx_get_req_desc(struct sk_buff *skb, unsigned int *n_desc, unsigned int
 				*n_segs)
 {
 	struct skb_shared_info *sh = skb_shinfo(skb);
@@ -1903,8 +1903,8 @@ static int pfe_eth_set_mac_address(struct net_device *ndev, void *addr)
 
 /* pfe_eth_enet_addr_byte_mac
  */
-int pfe_eth_enet_addr_byte_mac(u8 *enet_byte_addr,
-			       struct pfe_mac_addr *enet_addr)
+static int pfe_eth_enet_addr_byte_mac(u8 *enet_byte_addr,
+				      struct pfe_mac_addr *enet_addr)
 {
 	if (!enet_byte_addr || !enet_addr) {
 		return -1;

@@ -120,8 +120,8 @@ void pfe_lib_init(void *cbus_base, void *ddr_base, unsigned long ddr_phys_base,
  * aligned)
  * @param[in] len		Number of bytes to copy
  */
-void pe_mem_memcpy_to32(int id, u32 mem_access_addr, const void *src, unsigned
-int len)
+static void pe_mem_memcpy_to32(int id, u32 mem_access_addr, const void *src,
+			       unsigned int len)
 {
 	u32 offset = 0, val, addr;
 	unsigned int len32 = len >> 2;
@@ -1049,7 +1049,7 @@ void gemac_disable_pause_rx(void *base)
 /* GEMAC enable pause tx function.
  * @param[in] base GEMAC base address
  */
-void gemac_enable_pause_tx(void *base)
+static void __maybe_unused gemac_enable_pause_tx(void *base)
 {
 	writel(EMAC_RX_SECTION_EMPTY_V, base + EMAC_RX_SECTION_EMPTY);
 }
@@ -1057,7 +1057,7 @@ void gemac_enable_pause_tx(void *base)
 /* GEMAC disable pause tx function.
  * @param[in] base GEMAC base address
  */
-void gemac_disable_pause_tx(void *base)
+static void __maybe_unused gemac_disable_pause_tx(void *base)
 {
 	writel(0x0, base + EMAC_RX_SECTION_EMPTY);
 }

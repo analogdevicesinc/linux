@@ -125,7 +125,7 @@ static void pfe_check_version_info(const u8 *fw)
  * @return		0 on success, a negative value on error
  *
  */
-int pfe_load_elf(int pe_mask, const u8 *fw, struct pfe *pfe)
+static int pfe_load_elf(int pe_mask, const u8 *fw, struct pfe *pfe)
 {
 	struct elf32_hdr *elf_hdr = (struct elf32_hdr *)fw;
 	Elf32_Half sections = be16_to_cpu(elf_hdr->e_shnum);
@@ -182,7 +182,7 @@ err:
 	return rc;
 }
 
-int get_firmware_in_fdt(const u8 **pe_fw, const char *name)
+static int get_firmware_in_fdt(const u8 **pe_fw, const char *name)
 {
 	struct device_node *np;
 	const unsigned int *len;
