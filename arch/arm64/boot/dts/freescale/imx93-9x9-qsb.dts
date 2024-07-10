@@ -338,6 +338,11 @@
 		compatible = "st,lsm6dso";
 		reg = <0x6a>;
 	};
+
+	p3t1085: temp-sensor@48 {
+		compatible = "nxp,p3t1085";
+		reg = <0x48>;
+	};
 };
 
 &lpi2c2 {
