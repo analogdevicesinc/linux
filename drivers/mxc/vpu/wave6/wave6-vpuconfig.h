@@ -49,6 +49,7 @@
 #define W6_ENC_CROP_Y_POS_STEP          2
 
 #define W6_VPU_POLL_TIMEOUT             300000
+#define W6_BOOT_WAIT_TIMEOUT            10000
 
 //  application specific configuration
 #define W6_VPU_TIMEOUT                  6000

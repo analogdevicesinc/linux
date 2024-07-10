@@ -22,11 +22,31 @@
 #include <linux/thermal.h>
 #include <linux/units.h>
 #include <linux/pm_opp.h>
+#include <linux/freezer.h>
 
 #include "wave6-vpuconfig.h"
 #include "wave6-regdefine.h"
 #include "wave6-vdi.h"
 #include "wave6-vpu-ctrl.h"
+
+#define wave6_wait_event_freezable_timeout(wq_head, condition, timeout)	 \
+({                                                                       \
+	int wave6_wait_ret = 0;                                          \
+	unsigned long _timeout = timeout;                                \
+	unsigned long stop;                                              \
+	stop = jiffies + _timeout;                                       \
+	do {                                                             \
+		if (wave6_wait_ret == -ERESTARTSYS && freezing(current)) \
+			clear_thread_flag(TIF_SIGPENDING);               \
+		_timeout = stop - jiffies;                               \
+		if ((long)_timeout <= 0) {                               \
+			wave6_wait_ret = -ERESTARTSYS;                   \
+			break;                                           \
+		}                                                        \
+		wave6_wait_ret = wait_event_freezable_timeout(wq_head, condition, _timeout); \
+	} while (wave6_wait_ret == -ERESTARTSYS && freezing(current));   \
+	wave6_wait_ret;                                                  \
+})
 
 static unsigned int debug;
 module_param(debug, uint, 0644);
@@ -91,6 +111,7 @@ struct vpu_ctrl {
 	struct vpu_dma_buf sram_buf;
 	struct list_head buffers;
 	bool support_follower;
+	wait_queue_head_t  load_fw_wq;
 #if WAVE6_ENABLE_SW_UART
 	struct vpu_buf loger_buf;
 	struct loger_t *loger;
@@ -582,6 +603,18 @@ static void wave6_vpu_ctrl_boot_done(struct vpu_ctrl *ctrl, int wakeup)
 	wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_ON);
 }
 
+static bool wave6_vpu_ctrl_find_entity(struct vpu_ctrl *ctrl, struct wave6_vpu_entity *entity)
+{
+	struct wave6_vpu_entity *tmp;
+
+	list_for_each_entry(tmp, &ctrl->entities, list) {
+		if (tmp == entity)
+			return true;
+	}
+
+	return false;
+}
+
 static void wave6_vpu_ctrl_load_firmware(const struct firmware *fw, void *context)
 {
 	struct vpu_ctrl *ctrl = context;
@@ -592,8 +625,10 @@ static void wave6_vpu_ctrl_load_firmware(const struct firmware *fw, void *contex
 	ret = pm_runtime_resume_and_get(ctrl->dev);
 	if (ret) {
 		dev_err(ctrl->dev, "pm runtime resume fail, ret = %d\n", ret);
+		mutex_lock(&ctrl->ctrl_lock);
 		wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_OFF);
 		ctrl->current_entity = NULL;
+		mutex_unlock(&ctrl->ctrl_lock);
 		release_firmware(fw);
 		return;
 	}
@@ -602,43 +637,48 @@ static void wave6_vpu_ctrl_load_firmware(const struct firmware *fw, void *contex
 
 	if (!fw || !fw->data) {
 		dev_err(ctrl->dev, "No firmware.\n");
-		goto error;
+		ret = -EINVAL;
+		goto exit;
 	}
 
 	if (fw->size + WAVE6_EXTRA_CODE_BUF_SIZE > wave6_vpu_ctrl_get_code_buf_size(ctrl)) {
 		dev_err(ctrl->dev, "firmware size (%ld > %zd) is too big\n",
 			fw->size, ctrl->boot_mem.size);
-		goto error;
+		ret = -EINVAL;
+		goto exit;
 	}
 
 	product_code = entity->read_reg(entity->dev, W6_VPU_RET_PRODUCT_VERSION);
 	if (!PRODUCT_CODE_W_SERIES(product_code)) {
 		dev_err(ctrl->dev, "unknown product id : %08x\n", product_code);
-		goto error;
+		ret = -EINVAL;
+		goto exit;
 	}
 
 	wave6_swap_endian((u8 *)fw->data, fw->size, VDI_128BIT_LITTLE_ENDIAN);
 	memcpy(ctrl->boot_mem.vaddr, fw->data, fw->size);
-	wave6_vpu_ctrl_remap_code_buffer(ctrl);
-	ret = wave6_vpu_ctrl_init_vpu(ctrl);
-	if (ret)
-		goto error;
 
+exit:
 	mutex_lock(&ctrl->ctrl_lock);
+
+	if (!ret && wave6_vpu_ctrl_find_entity(ctrl, ctrl->current_entity)) {
+		wave6_vpu_ctrl_remap_code_buffer(ctrl);
+		ret = wave6_vpu_ctrl_init_vpu(ctrl);
+	} else {
+		ret = -EINVAL;
+	}
+
 	entity->write_reg(entity->dev, W6_VPU_REG_GLOBAL_WR, 0);
 	ctrl->current_entity = NULL;
-	wave6_vpu_ctrl_boot_done(ctrl, 0);
+	if (ret)
+		wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_OFF);
+	else
+		wave6_vpu_ctrl_boot_done(ctrl, 0);
 	mutex_unlock(&ctrl->ctrl_lock);
 
 	pm_runtime_put_sync(ctrl->dev);
 	release_firmware(fw);
-	return;
-error:
-	entity->write_reg(entity->dev, W6_VPU_REG_GLOBAL_WR, 0);
-	wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_OFF);
-	ctrl->current_entity = NULL;
-	pm_runtime_put_sync(ctrl->dev);
-	release_firmware(fw);
+	wake_up_interruptible_all(&ctrl->load_fw_wq);
 }
 
 static int wave6_vpu_ctrl_sleep(struct vpu_ctrl *ctrl, struct wave6_vpu_entity *entity)
@@ -711,17 +751,18 @@ static int wave6_vpu_ctrl_try_boot(struct vpu_ctrl *ctrl, struct wave6_vpu_entit
 		wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_OFF);
 
 	if (entity->read_reg(entity->dev, W6_VPU_REG_GLOBAL_WR)) {
-		u32 val;
-
 		/* the vcpu may be booted by other vm */
 		wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_PREPARE);
-		ret = read_poll_timeout(entity->read_reg, val, val != 0,
-					10, W6_VPU_POLL_TIMEOUT, false,
-					entity->dev, W6_VCPU_CUR_PC);
-		if (!ret)
-			wave6_vpu_ctrl_boot_done(ctrl, 0);
-		else
+
+		ret = wave6_wait_event_freezable_timeout(ctrl->load_fw_wq,
+							 entity->read_reg(entity->dev,
+							 W6_VCPU_CUR_PC) != 0,
+							 msecs_to_jiffies(W6_BOOT_WAIT_TIMEOUT));
+
+		if (ret == -ERESTARTSYS || ret == 0)
 			wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_OFF);
+		else
+			wave6_vpu_ctrl_boot_done(ctrl, 0);
 		return ret;
 	}
 	entity->write_reg(entity->dev, W6_VPU_REG_GLOBAL_WR, 1);
@@ -754,18 +795,6 @@ static int wave6_vpu_ctrl_try_boot(struct vpu_ctrl *ctrl, struct wave6_vpu_entit
 	}
 
 	return 0;
-}
-
-static bool wave6_vpu_ctrl_find_entity(struct vpu_ctrl *ctrl, struct wave6_vpu_entity *entity)
-{
-	struct wave6_vpu_entity *tmp;
-
-	list_for_each_entry(tmp, &ctrl->entities, list) {
-		if (tmp == entity)
-			return true;
-	}
-
-	return false;
 }
 
 bool wave6_vpu_ctrl_support_follower(struct device *dev)
@@ -806,7 +835,11 @@ int wave6_vpu_ctrl_resume_and_get(struct device *dev, struct wave6_vpu_entity *e
 
 	entity->booted = false;
 
-	boot_flag = list_empty(&ctrl->entities) ? true : false;
+	if (ctrl->current_entity)
+		boot_flag = false;
+	else
+		boot_flag = list_empty(&ctrl->entities) ? true : false;
+
 	list_add_tail(&entity->list, &ctrl->entities);
 	if (boot_flag)
 		ret = wave6_vpu_ctrl_try_boot(ctrl, entity);
@@ -861,7 +894,6 @@ int wave6_vpu_ctrl_wait_done(struct device *dev)
 {
 	struct vpu_ctrl *ctrl = dev_get_drvdata(dev);
 	int ret;
-	u32 val;
 
 	if (!ctrl)
 		return -EINVAL;
@@ -872,11 +904,15 @@ int wave6_vpu_ctrl_wait_done(struct device *dev)
 	if (ctrl->state == WAVE6_VPU_STATE_ON)
 		return 0;
 
-	ret = read_poll_timeout(wave6_vpu_ctrl_get_state, val, val == WAVE6_VPU_STATE_ON,
-				10, W6_VPU_POLL_TIMEOUT, false, dev);
-	if (ret) {
-		dev_err(ctrl->dev, "fail to wait vcpu boot done\n");
+	ret = wave6_wait_event_freezable_timeout(ctrl->load_fw_wq,
+						 wave6_vpu_ctrl_get_state(dev) ==
+						 WAVE6_VPU_STATE_ON,
+						 msecs_to_jiffies(W6_BOOT_WAIT_TIMEOUT));
+	if (ret == -ERESTARTSYS || ret == 0) {
+		dev_err(ctrl->dev, "fail to wait vcpu boot done,ret %d\n", ret);
+		mutex_lock(&ctrl->ctrl_lock);
 		wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_OFF);
+		mutex_unlock(&ctrl->ctrl_lock);
 		return -EINVAL;
 	}
 
@@ -1154,6 +1190,7 @@ static int wave6_vpu_ctrl_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&ctrl->ctrl_lock);
+	init_waitqueue_head(&ctrl->load_fw_wq);
 	INIT_LIST_HEAD(&ctrl->entities);
 	INIT_LIST_HEAD(&ctrl->buffers);
 
