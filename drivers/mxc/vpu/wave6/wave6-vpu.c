@@ -45,6 +45,23 @@ unsigned int wave6_vpu_debug(void)
 	return debug;
 }
 
+static void wave6_vpu_get_clk(struct vpu_device *vpu_dev)
+{
+	int i;
+
+	if (!vpu_dev || !vpu_dev->num_clks || vpu_dev->clk_vpu)
+		return;
+
+	for (i = 0; i < vpu_dev->num_clks; i++) {
+		if (vpu_dev->clks[i].id && !strcmp(vpu_dev->clks[i].id, "vpu")) {
+			vpu_dev->clk_vpu = vpu_dev->clks[i].clk;
+			return;
+		}
+	}
+
+	vpu_dev->clk_vpu = vpu_dev->clks[0].clk;
+}
+
 static irqreturn_t wave6_vpu_irq(int irq, void *dev_id)
 {
 	struct vpu_device *dev = dev_id;
@@ -162,8 +179,7 @@ static void wave6_vpu_on_boot(struct device *dev)
 			(version >> 16) & 0xFF,
 			version & 0xFFFF);
 
-	if (vpu_dev->num_clks)
-		vpu_dev->vpu_clk_rate = clk_get_rate(vpu_dev->clks[0].clk);
+	wave6_vpu_get_clk(vpu_dev);
 }
 
 static void wave6_vpu_pause(struct device *dev, int resume)

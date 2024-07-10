@@ -1074,7 +1074,7 @@ struct vpu_device {
 	struct vpu_buf temp_vbuf;
 	struct clk_bulk_data *clks;
 	int num_clks;
-	unsigned long vpu_clk_rate;
+	struct clk *clk_vpu;
 	struct completion irq_done;
 	struct kfifo irq_status;
 	struct delayed_work task_timer;

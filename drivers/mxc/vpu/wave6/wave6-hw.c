@@ -5,6 +5,7 @@
  * Copyright (C) 2021 CHIPS&MEDIA INC
  */
 
+#include <linux/clk.h>
 #include <linux/iopoll.h>
 #include "wave6-vpu.h"
 #include "wave6.h"
@@ -3817,8 +3818,8 @@ int wave6_vpu_enc_check_open_param(struct vpu_instance *inst, struct enc_open_pa
 
 u64 wave6_cycle_to_ns(struct vpu_device *vpu_dev, u64 cycle)
 {
-	if (!vpu_dev || !vpu_dev->vpu_clk_rate)
+	if (!vpu_dev || !vpu_dev->clk_vpu || !clk_get_rate(vpu_dev->clk_vpu))
 		return 0;
 
-	return (cycle * NSEC_PER_SEC) / vpu_dev->vpu_clk_rate;
+	return (cycle * NSEC_PER_SEC) / clk_get_rate(vpu_dev->clk_vpu);
 }
