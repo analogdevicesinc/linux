@@ -35,7 +35,7 @@
 		assigned-clocks = <&clk IMX_SC_R_ENET_1 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <125000000>;
 		power-domains = <&pd IMX_SC_R_ENET_1>;
-		clk_csr = <0>;
+		snps,clk-csr = <0>;
 		status = "disabled";
 	};
 
