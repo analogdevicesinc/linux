@@ -363,7 +363,7 @@ build_dt_binding_check() {
 				# manually, and set err if the exit-code is non-zero,
 				# before enabling exit-on-error back.
 				set +e
-				error_txt=$(make dt_binding_check DT_CHECKER_FLAGS=-m DT_SCHEMA_FILES="$relative_yaml" 2>&1)
+				error_txt=$(make dt_binding_check CONFIG_DTC=y DT_CHECKER_FLAGS=-m DT_SCHEMA_FILES="$relative_yaml" 2>&1)
 				if [[ $? -ne 0 ]]; then
 					err=1
 				fi
