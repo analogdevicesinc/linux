@@ -73,7 +73,7 @@ static bool ad7294_readable_reg(struct device *dev, unsigned int reg)
 	return reg != AD7294_REG_CMD;
 };
 
-static const struct regmap_config ad7294_regmap_config = {
+static const struct regmap_config ad7294_regmap_config_u16 = {
 	.reg_bits = 8,
 	.val_bits = 16,
 	.max_register = 0x27,
@@ -81,9 +81,18 @@ static const struct regmap_config ad7294_regmap_config = {
 	.val_format_endian = REGMAP_ENDIAN_BIG,
 };
 
+static const struct regmap_config ad7294_regmap_config_u8 = {
+	.reg_bits = 8,
+	.val_bits = 8,
+	.max_register = 0x27,
+	.readable_reg = ad7294_readable_reg,
+	.val_format_endian = REGMAP_ENDIAN_BIG,
+};
+
 struct ad7294_state {
 	struct mutex lock;
-	struct regmap *regmap;
+	struct regmap *regmap_u16;
+	struct regmap *regmap_u8;
 	struct i2c_client *i2c;
 	struct regulator *adc_vref_reg;
 	struct regulator *dac_vref_reg;
@@ -106,35 +115,6 @@ static const struct iio_chan_spec ad7294_chan_spec[] = {
 	AD7294_TEMP_CHAN(TSENSE_INTERNAL),
 };
 
-static int ad7294_read_u8(struct ad7294_state *st, u8 reg, u8 *val)
-{
-	int ret;
-	struct i2c_client *client = st->i2c;
-	struct i2c_msg message[2] = { {
-					      .addr = client->addr,
-					      .flags = client->flags,
-					      .len = sizeof(reg),
-					      .buf = &reg,
-				      },
-				      {
-					      .addr = client->addr,
-					      .flags = client->flags | I2C_M_RD,
-					      .len = sizeof(*val),
-					      .buf = val,
-				      } };
-	ret = i2c_transfer(client->adapter, message, ARRAY_SIZE(message));
-	return (ret == ARRAY_SIZE(message)) ? 0 : ret;
-};
-
-static int ad7294_write_u8(struct ad7294_state *st, u8 reg, u8 val)
-{
-	int ret;
-	__be16 write_buffer = cpu_to_be16(reg << 8 | val);
-	ret = i2c_master_send(st->i2c, (char *)&write_buffer,
-			      sizeof(write_buffer));
-	return (ret == sizeof(write_buffer)) ? 0 : ret;
-};
-
 static int ad7294_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan, int *val,
 			   int *val2, long mask)
@@ -155,18 +135,18 @@ static int ad7294_read_raw(struct iio_dev *indio_dev,
 				return IIO_VAL_INT;
 			}
 adc_read:
-			ret = ad7294_write_u8(st, AD7294_REG_CMD,
+			ret = regmap_write(st->regmap_u8, AD7294_REG_CMD,
 					      BIT(chan->channel));
 			if (ret)
 				return ret;
-			ret = regmap_read(st->regmap, AD7294_REG_RESULT,
+			ret = regmap_read(st->regmap_u16, AD7294_REG_RESULT,
 					  &regval);
 			if (ret)
 				return ret;
 			*val = regval & AD7294_ADC_VALUE_MASK;
 			return IIO_VAL_INT;
 		case IIO_TEMP:
-			ret = regmap_read(st->regmap, chan->channel, &regval);
+			ret = regmap_read(st->regmap_u16, chan->channel, &regval);
 			if (ret)
 				return ret;
 			regval &= AD7294_TEMP_VALUE_MASK;
@@ -234,7 +214,7 @@ static int ad7294_write_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 		if (val < 0 || val >= BIT(AD7294_RESOLUTION) || val2)
 			return -EINVAL;
-		ret = regmap_write(st->regmap, AD7294_REG_DAC(chan->channel),
+		ret = regmap_write(st->regmap_u16, AD7294_REG_DAC(chan->channel),
 				   val);
 		if (ret)
 			return ret;
@@ -250,8 +230,8 @@ static int ad7294_reg_access(struct iio_dev *indio_dev, unsigned reg,
 {
 	struct ad7294_state *st = iio_priv(indio_dev);
 	if (readval)
-		return regmap_read(st->regmap, reg, readval);
-	return regmap_write(st->regmap, reg, writeval);
+		return regmap_read(st->regmap_u16, reg, readval);
+	return regmap_write(st->regmap_u16, reg, writeval);
 }
 
 struct iio_info ad7294_info = {
@@ -268,16 +248,20 @@ static void ad7294_reg_disable(void *data)
 static int ad7294_init(struct ad7294_state *st)
 {
 	int ret;
-	u8 pwdn_config;
+	int pwdn_config;
 	struct i2c_client *i2c = st->i2c;
 
 	mutex_init(&st->lock);
 
-	st->regmap = devm_regmap_init_i2c(i2c, &ad7294_regmap_config);
-	if (IS_ERR(st->regmap))
-		return PTR_ERR(st->regmap);
+	st->regmap_u16 = devm_regmap_init_i2c(i2c, &ad7294_regmap_config_u16);
+	if (IS_ERR(st->regmap_u16))
+		return PTR_ERR(st->regmap_u16);
 
-	ret = ad7294_read_u8(st, AD7294_REG_PWDN, &pwdn_config);
+	st->regmap_u8 = devm_regmap_init_i2c(i2c, &ad7294_regmap_config_u8);
+	if (IS_ERR(st->regmap_u8))
+		return PTR_ERR(st->regmap_u8);
+
+	ret = regmap_read(st->regmap_u8, AD7294_REG_PWDN, &pwdn_config);
 	if (ret)
 		return ret;
 
@@ -328,7 +312,7 @@ static int ad7294_init(struct ad7294_state *st)
 		pwdn_config |= AD7294_DAC_EXTERNAL_REF_MASK;
 	}
 
-	ret = ad7294_write_u8(st, AD7294_REG_PWDN, pwdn_config);
+	ret = regmap_write(st->regmap_u8, AD7294_REG_PWDN, pwdn_config);
 	if (ret)
 		return ret;
 
