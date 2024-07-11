@@ -452,32 +452,6 @@ static enum v4l2_mpeg_video_hevc_profile to_v4l2_hevc_profile(s32 profile)
 	}
 }
 
-static enum v4l2_mpeg_video_hevc_level to_v4l2_hevc_level(s32 level)
-{
-	switch (level) {
-	case 30:
-		return V4L2_MPEG_VIDEO_HEVC_LEVEL_1;
-	case 60:
-		return V4L2_MPEG_VIDEO_HEVC_LEVEL_2;
-	case 63:
-		return V4L2_MPEG_VIDEO_HEVC_LEVEL_2_1;
-	case 90:
-		return V4L2_MPEG_VIDEO_HEVC_LEVEL_3;
-	case 93:
-		return V4L2_MPEG_VIDEO_HEVC_LEVEL_3_1;
-	case 120:
-		return V4L2_MPEG_VIDEO_HEVC_LEVEL_4;
-	case 123:
-		return V4L2_MPEG_VIDEO_HEVC_LEVEL_4_1;
-	case 150:
-		return V4L2_MPEG_VIDEO_HEVC_LEVEL_5;
-	case 153:
-		return V4L2_MPEG_VIDEO_HEVC_LEVEL_5_1;
-	default:
-		return V4L2_MPEG_VIDEO_HEVC_LEVEL_5;
-	}
-}
-
 static enum v4l2_mpeg_video_h264_profile to_v4l2_h264_profile(s32 profile)
 {
 	switch (profile) {
@@ -491,48 +465,6 @@ static enum v4l2_mpeg_video_h264_profile to_v4l2_h264_profile(s32 profile)
 		return V4L2_MPEG_VIDEO_H264_PROFILE_HIGH;
 	default:
 		return V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE;
-	}
-}
-
-static enum v4l2_mpeg_video_h264_level to_v4l2_h264_level(s32 level)
-{
-	switch (level) {
-	case 10:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_1_0;
-	case 9:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_1B;
-	case 11:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_1_1;
-	case 12:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_1_2;
-	case 13:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_1_3;
-	case 20:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_2_0;
-	case 21:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_2_1;
-	case 22:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_2_2;
-	case 30:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_3_0;
-	case 31:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_3_1;
-	case 32:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_3_2;
-	case 40:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_4_0;
-	case 41:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_4_1;
-	case 42:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_4_2;
-	case 50:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_5_0;
-	case 51:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_5_1;
-	case 52:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_5_2;
-	default:
-		return V4L2_MPEG_VIDEO_H264_LEVEL_5_0;
 	}
 }
 
@@ -553,21 +485,11 @@ static void wave6_update_v4l2_ctrls(struct vpu_instance *inst,
 				      V4L2_CID_MPEG_VIDEO_HEVC_PROFILE);
 		if (ctrl)
 			v4l2_ctrl_s_ctrl(ctrl, to_v4l2_hevc_profile(info->profile));
-
-		ctrl = v4l2_ctrl_find(&inst->v4l2_ctrl_hdl,
-				      V4L2_CID_MPEG_VIDEO_HEVC_LEVEL);
-		if (ctrl)
-			v4l2_ctrl_s_ctrl(ctrl, to_v4l2_hevc_level(info->level));
 	} else if (inst->src_fmt.pixelformat == V4L2_PIX_FMT_H264) {
 		ctrl = v4l2_ctrl_find(&inst->v4l2_ctrl_hdl,
 				      V4L2_CID_MPEG_VIDEO_H264_PROFILE);
 		if (ctrl)
 			v4l2_ctrl_s_ctrl(ctrl, to_v4l2_h264_profile(info->profile));
-
-		ctrl = v4l2_ctrl_find(&inst->v4l2_ctrl_hdl,
-				      V4L2_CID_MPEG_VIDEO_H264_LEVEL);
-		if (ctrl)
-			v4l2_ctrl_s_ctrl(ctrl, to_v4l2_h264_level(info->level));
 	}
 }
 
@@ -1353,9 +1275,7 @@ static int wave6_vpu_dec_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_DEC_DISPLAY_DELAY:
 	case V4L2_CID_MIN_BUFFERS_FOR_CAPTURE:
 	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
-	case V4L2_CID_MPEG_VIDEO_HEVC_LEVEL:
 	case V4L2_CID_MPEG_VIDEO_H264_PROFILE:
-	case V4L2_CID_MPEG_VIDEO_H264_LEVEL:
 		break;
 	default:
 		return -EINVAL;
@@ -1929,17 +1849,9 @@ static int wave6_vpu_open_dec(struct file *filp)
 			       V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN, 0,
 			       V4L2_MPEG_VIDEO_HEVC_PROFILE_MAIN);
 	v4l2_ctrl_new_std_menu(&inst->v4l2_ctrl_hdl, &wave6_vpu_dec_ctrl_ops,
-			       V4L2_CID_MPEG_VIDEO_HEVC_LEVEL,
-			       V4L2_MPEG_VIDEO_HEVC_LEVEL_5_1, 0,
-			       V4L2_MPEG_VIDEO_HEVC_LEVEL_5);
-	v4l2_ctrl_new_std_menu(&inst->v4l2_ctrl_hdl, &wave6_vpu_dec_ctrl_ops,
 			       V4L2_CID_MPEG_VIDEO_H264_PROFILE,
 			       V4L2_MPEG_VIDEO_H264_PROFILE_HIGH, 0,
 			       V4L2_MPEG_VIDEO_H264_PROFILE_BASELINE);
-	v4l2_ctrl_new_std_menu(&inst->v4l2_ctrl_hdl, &wave6_vpu_dec_ctrl_ops,
-			       V4L2_CID_MPEG_VIDEO_H264_LEVEL,
-			       V4L2_MPEG_VIDEO_H264_LEVEL_5_2, 0,
-			       V4L2_MPEG_VIDEO_H264_LEVEL_5_0);
 
 	if (inst->v4l2_ctrl_hdl.error) {
 		ret = -ENODEV;
