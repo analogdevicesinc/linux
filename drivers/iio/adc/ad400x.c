@@ -198,7 +198,6 @@ static int __ad400x_set_sampling_freq(struct ad400x_state *st, int freq)
 	/* Sync up PWM state and prepare for pwm_apply_state(). */
 	pwm_init_state(st->cnv_trigger, &cnv_state);
 
-	freq = clamp(freq, 0, st->chip->max_rate);
 	target = DIV_ROUND_CLOSEST_ULL(st->ref_clk_rate, freq);
 	ref_clk_period_ps = DIV_ROUND_CLOSEST_ULL(1000000000000,
 						  st->ref_clk_rate);
