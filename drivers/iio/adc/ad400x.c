@@ -192,16 +192,15 @@ static int ad400x_get_sampling_freq(struct ad400x_state *st)
 
 static int __ad400x_set_sampling_freq(struct ad400x_state *st, int freq)
 {
-	unsigned long long target, ref_clk_period_ps;
+	unsigned long long ref_clk_period_ps;
 	struct pwm_state cnv_state;
 
 	/* Sync up PWM state and prepare for pwm_apply_state(). */
 	pwm_init_state(st->cnv_trigger, &cnv_state);
 
-	target = DIV_ROUND_CLOSEST_ULL(st->ref_clk_rate, freq);
 	ref_clk_period_ps = DIV_ROUND_CLOSEST_ULL(1000000000000,
 						  st->ref_clk_rate);
-	cnv_state.period = ref_clk_period_ps * target;
+	cnv_state.period = DIV_ROUND_CLOSEST_ULL(1000000000000, freq);
 	cnv_state.duty_cycle = ref_clk_period_ps;
 	cnv_state.time_unit = PWM_UNIT_PSEC;
 	return pwm_apply_state(st->cnv_trigger, &cnv_state);
