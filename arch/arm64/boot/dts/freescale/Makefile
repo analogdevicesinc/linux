@@ -437,6 +437,10 @@ dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-adv7535-ap1302.dtb
 
 imx95-19x19-verdin-os08a20-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-os08a20.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-os08a20.dtb
+
+imx95-19x19-verdin-ox05b1s-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-ox05b1s.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-ox05b1s.dtb
+
 DTC_FLAGS_imx95-19x19-evk-rpmsg := -@
 DTC_FLAGS_imx95-19x19-evk-rpmsg-lpv := -@
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-rpmsg.dtb imx95-19x19-evk-rpmsg-lpv.dtb
