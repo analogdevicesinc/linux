@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2024 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/temperature/adi,max30210.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices MAX30210 Low-Power I2C Digital Temperature Sensor
+
+maintainers:
+  - Daniel Matyas <daniel.matyas@analog.com>
+  - John Erasmus Mari Geronimo <johnerasmusmari.geronimo@analog.com>
+
+description: |
+  The MAX30210 operates from 1.7V to 2.0V supply voltage, and is a low-power,
+  high-accuracy digital temperature sensor with ±0.1°C accuracy from +20°C to
+  +50°C and ±0.15°C accuracy from -20°C to +85°C.
+  https://www.analog.com/media/en/technical-documentation/data-sheets/max30210.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,max30210
+
+  reg:
+    maxItems: 1
+    description: |
+      I2C address of slave device.
+
+  vdd-supply:
+    description: |
+      Analog Supply Voltage Input. Must have values in the interval (1.7V; 5.5V)
+      in order for the device to function correctly.
+
+  interrupts:
+    description: |
+      Connected to INT pin. Should be configured with type IRQ_TYPE_EDGE_BOTH.
+
+  adi,ext-cvt-active-edge:
+    $ref: /schemas/types.yaml#/definitions/uint8
+    description: |
+      If present, CVT/PDB pin is used for external temperature conversion. Value
+      is the active edge of CVT/PDB pin. If value is not present, 0 (falling
+      edge) is used (default).
+    minimum: 0
+    maximum: 1
+    default: 0
+
+  adi,int-output-drive-type:
+    $ref: /schemas/types.yaml#/definitions/uint8
+    description: |
+      If present, value is the output drive type for the INT pin. Refer to
+      MAX30210 datasheet, bitfield INT_OCFG of the PIN CONFIGURATION (0x12) of
+      the Register Map. If value is not present, 0 is used (default).
+    minimum: 0
+    maximum: 2
+    default: 0
+
+  adi,roc-filter:
+    $ref: /schemas/types.yaml#/definitions/uint8
+    description: |
+      If present, temperature change detection is enabled. Value is the
+      Rate-of-Change FIR filter settings. Refer to MAX30210 datasheet, Table 5.
+      "Rate-of-Change Filter Settings." If value is not present, 0 is used
+      (default).
+    minimum: 0
+    maximum: 7
+    default: 0
+
+  adi,comp-mode:
+    description: |
+      If present, comparator mode is used. If not present, interrupt mode is
+      used (default).
+    type: boolean
+
+required:
+  - compatible
+  - reg
+  - vdd-supply
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/interrupt-controller/irq.h>
+
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        status = "okay";
+
+        temperature-sensor@40 {
+            compatible = "adi,max30210";
+            reg = <0x40>;
+            vdd-supply = <&reg_vdd>;
+            interrupt-parent = <&gpio>;
+            interrupts = <17 IRQ_TYPE_EDGE_BOTH>;
+            adi,ext-cvt-active-edge = <1>;
+            adi,int-output-drive-type = <2>;
+            adi,roc-filter = <4>;
+            adi,comp-mode;
+        };
+    };
+...
+
