@@ -725,8 +725,9 @@ static int __init hx280enc_init(void)
 			ReleaseIO();
 			goto err;
 		}
-	} else
-	PDEBUG(KERN_INFO "hx280enc: IRQ not in use!\n");
+	} else {
+		PDEBUG(KERN_INFO "hx280enc: IRQ not in use!\n");
+	}
 	irq_set_status_flags(irq, IRQ_DISABLE_UNLAZY);
 
 	pr_info("hx280enc: module inserted. Major <%d>\n", hx280enc_major);
