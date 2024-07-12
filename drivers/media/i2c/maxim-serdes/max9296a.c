@@ -651,11 +651,11 @@ static int max9296a_probe(struct i2c_client *client)
 	return max_des_probe(&priv->des_priv);
 }
 
-static int max9296a_remove(struct i2c_client *client)
+static void max9296a_remove(struct i2c_client *client)
 {
 	struct max9296a_priv *priv = i2c_get_clientdata(client);
 
-	return max_des_remove(&priv->des_priv);
+	max_des_remove(&priv->des_priv);
 }
 
 static const struct max9296a_chip_info max9296a_info = {
@@ -688,7 +688,7 @@ static struct i2c_driver max9296a_i2c_driver = {
 		.name = "max9296a",
 		.of_match_table	= of_match_ptr(max9296a_of_table),
 	},
-	.probe_new = max9296a_probe,
+	.probe = max9296a_probe,
 	.remove = max9296a_remove,
 };
 

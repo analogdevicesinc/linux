@@ -1235,11 +1235,11 @@ static int max96717_probe(struct i2c_client *client)
 	return max_ser_probe(&priv->ser_priv);
 }
 
-static int max96717_remove(struct i2c_client *client)
+static void max96717_remove(struct i2c_client *client)
 {
 	struct max96717_priv *priv = i2c_get_clientdata(client);
 
-	return max_ser_remove(&priv->ser_priv);
+	max_ser_remove(&priv->ser_priv);
 }
 
 static const struct max96717_chip_info max96717_info = {
@@ -1291,7 +1291,7 @@ static struct i2c_driver max96717_i2c_driver = {
 		.name = MAX96717_NAME,
 		.of_match_table = max96717_of_ids,
 	},
-	.probe_new = max96717_probe,
+	.probe = max96717_probe,
 	.remove = max96717_remove,
 };
 

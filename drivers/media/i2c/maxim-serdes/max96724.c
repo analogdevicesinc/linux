@@ -631,11 +631,11 @@ static int max96724_probe(struct i2c_client *client)
 	return max_des_probe(&priv->des_priv);
 }
 
-static int max96724_remove(struct i2c_client *client)
+static void max96724_remove(struct i2c_client *client)
 {
 	struct max96724_priv *priv = i2c_get_clientdata(client);
 
-	return max_des_remove(&priv->des_priv);
+	max_des_remove(&priv->des_priv);
 }
 
 static const struct of_device_id max96724_of_table[] = {
@@ -649,7 +649,7 @@ static struct i2c_driver max96724_i2c_driver = {
 		.name = "max96724",
 		.of_match_table	= of_match_ptr(max96724_of_table),
 	},
-	.probe_new = max96724_probe,
+	.probe = max96724_probe,
 	.remove = max96724_remove,
 };
 
