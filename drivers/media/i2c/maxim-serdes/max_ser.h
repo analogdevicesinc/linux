@@ -24,11 +24,6 @@
 
 extern const struct regmap_config max_ser_i2c_regmap;
 
-struct max_ser_asd {
-	struct v4l2_async_subdev base;
-	struct max_ser_subdev_priv *sd_priv;
-};
-
 struct max_ser_subdev_priv {
 	struct v4l2_subdev sd;
 	unsigned int index;
