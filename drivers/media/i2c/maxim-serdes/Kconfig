@@ -3,7 +3,7 @@
 config VIDEO_MAXIM_SERDES
 	tristate "Maxim GMSL2 Serializer and Deserializer support"
 	depends on VIDEO_V4L2
-	depends on I2C_ATR
+	select I2C_ATR
 	select V4L2_FWNODE
 	select VIDEO_V4L2_SUBDEV_API
 	select MEDIA_CONTROLLER
