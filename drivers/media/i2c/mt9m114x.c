@@ -149,15 +149,6 @@ struct mt9m114_format {
 	enum v4l2_colorspace colorspace;
 };
 
-/* regulator supplies */
-static const char * const mt9m114_supply_name[] = {
-	"DOVDD",  /* Digital I/O (1.8V) supply */
-	"AVDD",   /* Analog (2.8V) supply */
-	"DVDD",   /* Digital Core (1.8V) supply */
-	"EXTCLK", /* EXT CLOCK supply */
-};
-#define MT9M114_NUM_SUPPLIES ARRAY_SIZE(mt9m114_supply_name)
-
 struct mt9m114 {
 	struct v4l2_subdev sd;
 	struct v4l2_mbus_framefmt fmt;
@@ -178,7 +169,12 @@ struct mt9m114 {
 	struct gpio_desc *reset_gpio;
 	struct gpio_desc *pwdn_gpio;
 
-	struct regulator_bulk_data supplies[MT9M114_NUM_SUPPLIES];
+	/* regulator supplies */
+	struct regulator *dovdd; /* Digital I/O (1.8V) supply */
+	struct regulator *avdd; /* Analog (2.8V) supply */
+	struct regulator *dvdd; /* Digital Core (1.8V) supply */
+	struct regulator *extclk; /* Digital Core (1.8V) supply */
+	struct regulator *ctrl_4t245; /* EXT CLOCK ENABLE data pin supply*/
 };
 
 static const struct mt9m114_resolution mt9m114_resolutions[] = {
@@ -850,35 +846,137 @@ static const struct v4l2_subdev_ops mt9m114_subdev_ops = {
 
 static int mt9m114_get_regulators(struct mt9m114 *sensor)
 {
-	int i;
+	struct device *dev = &sensor->i2c_client->dev;
+	int ret = 0;
 
-	for (i = 0; i < MT9M114_NUM_SUPPLIES; i++)
-		sensor->supplies[i].supply = mt9m114_supply_name[i];
+	sensor->dovdd = devm_regulator_get(dev, "DOVDD");
+	if (IS_ERR(sensor->dovdd)) {
+		dev_err(dev, "cannot get dovdd regulator\n");
+		return PTR_ERR(sensor->dovdd);
+	}
 
-	return devm_regulator_bulk_get(&sensor->i2c_client->dev,
-				       MT9M114_NUM_SUPPLIES,
-				       sensor->supplies);
+	sensor->avdd = devm_regulator_get(dev, "AVDD");
+	if (IS_ERR(sensor->avdd)) {
+		dev_err(dev, "cannot get avdd regulator\n");
+		return PTR_ERR(sensor->avdd);
+	}
+
+	sensor->dvdd = devm_regulator_get(dev, "DVDD");
+	if (IS_ERR(sensor->dvdd)) {
+		dev_err(dev, "can't get dvdd regulator\n");
+		return PTR_ERR(sensor->dvdd);
+	}
+
+	sensor->extclk = devm_regulator_get_optional(dev, "EXTCLK");
+	if (IS_ERR(sensor->extclk)) {
+		dev_warn(dev, "can't get extclk regulator\n");
+		if (PTR_ERR(sensor->extclk) != -ENODEV)
+			return PTR_ERR(sensor->extclk);
+
+		sensor->extclk = NULL;
+	}
+
+	sensor->ctrl_4t245 = devm_regulator_get_optional(dev, "CTRL_4T245");
+	if (IS_ERR(sensor->ctrl_4t245)) {
+		dev_warn(dev, "can't get extclk enable\n");
+		if (PTR_ERR(sensor->ctrl_4t245) != -ENODEV)
+			return PTR_ERR(sensor->ctrl_4t245);
+
+		sensor->ctrl_4t245 = NULL;
+	}
+
+	return ret;
 }
 
 static int mt9m114_set_power(struct mt9m114 *sensor, bool on)
 {
-	struct i2c_client *client = sensor->i2c_client;
-	int ret;
+	struct device *dev = &sensor->i2c_client->dev;
+	int ret = 0;
 
 	if (on) {
-		ret = regulator_bulk_enable(MT9M114_NUM_SUPPLIES, sensor->supplies);
-		if (ret < 0) {
-			dev_err(&client->dev, "failed to enable regulators\n");
-			return ret;
+		if (sensor->dovdd) {
+			ret = regulator_enable(sensor->dovdd);
+			if (ret < 0) {
+				dev_err(dev, "failed to enable dovdd\n");
+				return ret;
+			}
 		}
+
+		if (sensor->avdd) {
+			ret = regulator_enable(sensor->avdd);
+			if (ret < 0) {
+				dev_err(dev, "failed to enable avdd\n");
+				return ret;
+			}
+		}
+
+		if (sensor->dvdd) {
+			ret = regulator_enable(sensor->dvdd);
+			if (ret < 0) {
+				dev_err(dev, "failed to enable dvdd\n");
+				return ret;
+			}
+		}
+
+		if (sensor->extclk) {
+			ret = regulator_enable(sensor->extclk);
+			if (ret < 0) {
+				dev_err(dev, "failed to enable extclk\n");
+				return ret;
+			}
+		}
+
+		if (sensor->ctrl_4t245) {
+			ret = regulator_enable(sensor->ctrl_4t245);
+			if (ret < 0) {
+				dev_err(dev, "failed to enable ctrl_4t245\n");
+				return ret;
+			}
+		}
+
 	} else {
-		ret = regulator_bulk_disable(MT9M114_NUM_SUPPLIES, sensor->supplies);
-		if (ret < 0) {
-			dev_err(&client->dev, "failed to disable regulators\n");
-			return ret;
+		if (sensor->ctrl_4t245) {
+			ret = regulator_disable(sensor->ctrl_4t245);
+			if (ret < 0) {
+				dev_err(dev, "failed to disable ctrl_4t245\n");
+				return ret;
+			}
+		}
+
+		if (sensor->extclk) {
+			ret = regulator_disable(sensor->extclk);
+			if (ret < 0) {
+				dev_err(dev, "failed to disable extclk\n");
+				return ret;
+			}
+		}
+
+		if (sensor->dvdd) {
+			ret = regulator_disable(sensor->dvdd);
+			if (ret < 0) {
+				dev_err(dev, "failed to disable dvdd\n");
+				return ret;
+			}
+		}
+
+		if (sensor->avdd) {
+			ret = regulator_disable(sensor->avdd);
+			if (ret < 0) {
+				dev_err(dev, "failed to disable avdd\n");
+				return ret;
+			}
+		}
+
+		if (sensor->dovdd) {
+			ret = regulator_disable(sensor->dovdd);
+			if (ret < 0) {
+				dev_err(dev, "failed to disable dovdd\n");
+				return ret;
+			}
 		}
 	}
-	return 0;
+
+	return ret;
 }
 
 static int mt9m114_get_gpios(struct mt9m114 *sensor)
