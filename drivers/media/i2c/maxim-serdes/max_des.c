@@ -10,6 +10,8 @@
 #include <linux/of_graph.h>
 #include <linux/regmap.h>
 
+#include <media/mipi-csi2.h>
+
 #include "max_des.h"
 #include "max_ser.h"
 #include "max_serdes.h"
@@ -110,7 +112,7 @@ static int max_des_update_pipe_remaps(struct max_des_priv *priv,
 		if (!sd_priv->fmt)
 			continue;
 
-		if (sd_priv->fmt->dt == MAX_DT_EMB8)
+		if (sd_priv->fmt->dt == MIPI_CSI2_DT_EMBEDDED_8B)
 			num_remaps = 1;
 		else
 			num_remaps = 3;
@@ -129,9 +131,9 @@ static int max_des_update_pipe_remaps(struct max_des_priv *priv,
 			if (i == 0)
 				dt = sd_priv->fmt->dt;
 			else if (i == 1)
-				dt = MAX_DT_FS;
+				dt = MIPI_CSI2_DT_FS;
 			else
-				dt = MAX_DT_FE;
+				dt = MIPI_CSI2_DT_FE;
 
 			remap->from_dt = dt;
 			remap->from_vc = sd_priv->src_vc_id;
@@ -839,7 +841,7 @@ static int max_des_parse_ch_dt(struct max_des_subdev_priv *sd_priv,
 	sd_priv->phy_id = val;
 
 	if (fwnode_property_read_bool(fwnode, "maxim,embedded-data"))
-		sd_priv->fmt = max_format_by_dt(MAX_DT_EMB8);
+		sd_priv->fmt = max_format_by_dt(MIPI_CSI2_DT_EMBEDDED_8B);
 
 	phy = &priv->phys[val];
 	phy->enabled = true;

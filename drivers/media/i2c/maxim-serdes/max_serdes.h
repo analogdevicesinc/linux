@@ -26,21 +26,6 @@ struct max_format {
 	bool dbl;
 };
 
-#define MAX_DT_FS			0x00
-#define MAX_DT_FE			0x01
-#define MAX_DT_EMB8			0x12
-#define MAX_DT_YUV422_8B		0x1e
-#define MAX_DT_YUV422_10B		0x1f
-#define MAX_DT_RGB565			0x22
-#define MAX_DT_RGB666			0x23
-#define MAX_DT_RGB888			0x24
-#define MAX_DT_RAW8			0x2a
-#define MAX_DT_RAW10			0x2b
-#define MAX_DT_RAW12			0x2c
-#define MAX_DT_RAW14			0x2d
-#define MAX_DT_RAW16			0x2e
-#define MAX_DT_RAW20			0x2f
-
 const struct max_format *max_format_by_index(unsigned int index);
 const struct max_format *max_format_by_code(u32 code);
 const struct max_format *max_format_by_dt(u8 dt);

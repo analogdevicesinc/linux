@@ -10,6 +10,8 @@
 #include <linux/delay.h>
 #include <linux/module.h>
 
+#include <media/mipi-csi2.h>
+
 #include "max_ser.h"
 #include "max_serdes.h"
 
@@ -626,7 +628,7 @@ static int max_ser_parse_ch_dt(struct max_ser_subdev_priv *sd_priv,
 	sd_priv->vc_id = val;
 
 	if (fwnode_property_read_bool(fwnode, "maxim,embedded-data"))
-		sd_priv->fmt = max_format_by_dt(MAX_DT_EMB8);
+		sd_priv->fmt = max_format_by_dt(MIPI_CSI2_DT_EMBEDDED_8B);
 
 	pipe = &priv->pipes[val];
 	pipe->enabled = true;
