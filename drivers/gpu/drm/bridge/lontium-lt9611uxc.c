@@ -298,6 +298,23 @@ lt9611uxc_bridge_mode_valid(struct drm_bridge *bridge,
 			    const struct drm_display_mode *mode)
 {
 	struct lt9611uxc_mode *lt9611uxc_mode;
+	struct drm_bridge *pre_bridge;
+
+	 /*
+	  * i.MX95 MIPI DSI cannot support both 1920x1080p60 (requiring approximately
+	  * 148.444MHz pixel clock) and 4Kp30 (requiring exactly 297MHz pixel clock)
+	  * using a single video PLL configuration.
+	  *
+	  * To ensure correct pixel clock operation for all modes, remove the
+	  * video modes with its 148.5MHz pixel clock.
+	  */
+	if (mode->clock == 148500) {
+		pre_bridge = drm_bridge_get_prev_bridge(bridge);
+		if (pre_bridge)
+			if (of_device_is_compatible(pre_bridge->of_node,
+						    "nxp,imx95-mipi-dsi"))
+				return MODE_BAD;
+	}
 
 	lt9611uxc_mode = lt9611uxc_find_mode(mode);
 
