@@ -5,48 +5,10 @@
 
 #include <media/v4l2-fwnode.h>
 #include <media/v4l2-subdev.h>
+#include <linux/version.h>
 
 #ifndef MAX_SERDES_H
 #define MAX_SERDES_H
-
-#define v4l2_subdev_state v4l2_subdev_pad_config
-#define v4l2_subdev_alloc_state v4l2_subdev_alloc_pad_config
-#define v4l2_subdev_free_state v4l2_subdev_free_pad_config
-
-#define v4l2_async_nf_init v4l2_async_notifier_init
-#define v4l2_async_nf_unregister v4l2_async_notifier_unregister
-#define v4l2_async_nf_cleanup v4l2_async_notifier_cleanup
-#define v4l2_async_subdev_nf_register v4l2_async_subdev_notifier_register
-#define v4l2_async_nf_add_fwnode(notifier, fwnode, type)		\
-	((type *)v4l2_async_notifier_add_fwnode_subdev(notifier, fwnode, sizeof(type)))
-
-#define v4l2_mbus_config_mipi_csi2 v4l2_fwnode_bus_mipi_csi2
-
-struct pingroup {
-	const char *name;
-	const unsigned int *pins;
-	size_t npins;
-};
-
-#define PINCTRL_PINGROUP(_name, _pins, _npins)	\
-(struct pingroup) {				\
-	.name = _name,				\
-	.pins = _pins,				\
-	.npins = _npins,			\
-}
-
-struct pinfunction {
-	const char *name;
-	const char * const *groups;
-	size_t ngroups;
-};
-
-#define PINCTRL_PINFUNCTION(_name, _groups, _ngroups)	\
-(struct pinfunction) {					\
-		.name = (_name),			\
-		.groups = (_groups),			\
-		.ngroups = (_ngroups),			\
-	}
 
 #define MAX_SERDES_STREAMS_NUM     4
 #define MAX_SERDES_VC_ID_NUM	   4
