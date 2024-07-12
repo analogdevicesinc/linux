@@ -446,6 +446,9 @@ dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-adv7535.dtb
 imx95-19x19-verdin-lt8912-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-lt8912.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-lt8912.dtb
 
+imx95-19x19-verdin-panel-cap-touch-10inch-dsi-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-panel-cap-touch-10inch-dsi.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-panel-cap-touch-10inch-dsi.dtb
+
 imx95-19x19-verdin-panel-cap-touch-10inch-lvds-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-panel-cap-touch-10inch-lvds.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-panel-cap-touch-10inch-lvds.dtb
 
