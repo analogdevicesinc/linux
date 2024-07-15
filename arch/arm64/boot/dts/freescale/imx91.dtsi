@@ -1225,12 +1225,12 @@
 				reg = <0xc0 0x10>;
 			};
 
-			tmu_trim1: mac-address@28 {
-				reg = <0x28 0x4>;
+			tmu_trim1: tmu-trim@a0 {
+				reg = <0xa0 0x4>;
 			};
 
-			tmu_trim2: mac-address@29 {
-				reg = <0x29 0x4>;
+			tmu_trim2: tmu-trim@a4 {
+				reg = <0xa4 0x4>;
 			};
 
 			eth_mac1: mac-address@4ec {
