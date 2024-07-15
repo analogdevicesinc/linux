@@ -1053,6 +1053,60 @@ struct enc_info {
 	int color_format;
 };
 
+struct h264_enc_controls {
+	u32 profile;
+	u32 level;
+	u32 min_qp;
+	u32 max_qp;
+	u32 i_frame_qp;
+	u32 loop_filter_mode;
+	u32 loop_filter_beta;
+	u32 loop_filter_alpha;
+	u32 _8x8_transform;
+	u32 constrained_intra_prediction;
+	u32 chroma_qp_index_offset;
+	u32 entropy_mode;
+	u32 i_period;
+	u32 vui_sar_enable;
+	u32 vui_sar_idc;
+	u32 vui_ext_sar_width;
+	u32 vui_ext_sar_height;
+	u32 cpb_size;
+};
+
+struct hevc_enc_controls {
+	u32 profile;
+	u32 level;
+	u32 min_qp;
+	u32 max_qp;
+	u32 i_frame_qp;
+	u32 loop_filter_mode;
+	u32 lf_beta_offset_div2;
+	u32 lf_tc_offset_div2;
+	u32 refresh_type;
+	u32 refresh_period;
+	u32 const_intra_pred;
+	u32 strong_smoothing;
+	u32 tmv_prediction;
+};
+
+struct enc_controls {
+	u32 rot_angle;
+	u32 mirror_direction;
+	u32 bitrate;
+	u32 bitrate_mode;
+	u32 gop_size;
+	u32 frame_rc_enable;
+	u32 mb_rc_enable;
+	u32 slice_mode;
+	u32 slice_max_mb;
+	u32 prepend_spspps_to_idr;
+	u32 intra_refresh_period;
+	struct h264_enc_controls h264;
+	struct hevc_enc_controls hevc;
+	u32 force_key_frame;
+};
+
 struct vpu_device {
 	struct device *dev;
 	struct v4l2_device v4l2_dev;
@@ -1142,24 +1196,19 @@ struct vpu_instance {
 	bool thumbnail_mode;
 	enum display_mode disp_mode;
 
-	unsigned int rot_angle;
-	unsigned int mirror_direction;
 	unsigned int frame_rate;
-	unsigned int rc_mode;
-	struct enc_wave_param enc_param;
+	struct enc_controls enc_ctrls;
 	struct dec_scaler_info scaler_info;
-	bool force_key_frame;
 	bool error_recovery;
+
+	struct workqueue_struct *workqueue;
 	u64 total_frames;
 	u64 total_frame_cycle;
-	struct workqueue_struct *workqueue;
 	struct work_struct init_task;
 	atomic_t start_init_seq;
 
 	struct vpu_performance_info performance;
 
-	u32 dynamic_bit_rate;
-	u32 dynamic_max_bit_rate;
 	struct dentry *debugfs;
 };
 
