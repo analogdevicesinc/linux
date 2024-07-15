@@ -127,32 +127,31 @@ static int neoisp_node_queue_setup(struct vb2_queue *q, __u32 *nbuffers,
 {
 	struct neoisp_node_s *node = vb2_get_drv_priv(q);
 	struct neoisp_dev_s *neoispd = node->node_group->neoisp_dev;
+	__u32 i, num_planes;
 
-	*nplanes = 1;
-	if (NODE_IS_MPLANE(node)) {
-		__u32 i;
+	num_planes = NODE_IS_MPLANE(node) ?
+		     node->format.fmt.pix_mp.num_planes : 1;
+	if (*nplanes) {
+		if (*nplanes != num_planes)
+			return -EINVAL;
 
-		*nplanes = node->format.fmt.pix_mp.num_planes;
 		for (i = 0; i < *nplanes; i++) {
-			__u32 size =
-				node->format.fmt.pix_mp.plane_fmt[i].sizeimage;
-			if (sizes[i] && sizes[i] < size) {
-				dev_err(&neoispd->pdev->dev, "%s: size %u < %u\n",
-						__func__, sizes[i], size);
+			__u32 size = NODE_IS_MPLANE(node) ?
+				     node->format.fmt.pix_mp.plane_fmt[i].sizeimage :
+				     node->format.fmt.meta.buffersize;
+
+			if (sizes[i] < size)
 				return -EINVAL;
-			}
-			sizes[i] = size;
 		}
-	} else if (NODE_IS_META(node)) {
-		sizes[0] = node->format.fmt.meta.buffersize;
-		/*
-		 * Limit the config node buffer count to the number of internal
-		 * buffers allocated.
-		 */
-		if (node->id == NEOISP_PARAMS_NODE)
-			*nbuffers = min_t(__u32, *nbuffers,
-					VB2_MAX_FRAME);
+
+		return 0;
 	}
+
+	*nplanes = num_planes;
+	for (i = 0; i < *nplanes; i++)
+		sizes[i] = NODE_IS_MPLANE(node) ?
+			   node->format.fmt.pix_mp.plane_fmt[i].sizeimage :
+			   node->format.fmt.meta.buffersize;
 
 	dev_dbg(&neoispd->pdev->dev,
 			"Image (or metadata) size %u, nbuffers %u for node %s\n",
