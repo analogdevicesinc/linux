@@ -808,12 +808,20 @@ static int neoisp_node_start_streaming(struct vb2_queue *q, __u32 count)
 	struct neoisp_node_s *node = vb2_get_drv_priv(q);
 	struct neoisp_node_group_s *node_group = node->node_group;
 	struct neoisp_dev_s *neoispd = node_group->neoisp_dev;
+	struct neoisp_buffer_s *buf, *tmp;
 	unsigned long flags;
 	int ret;
 
 	ret = pm_runtime_resume_and_get(&neoispd->pdev->dev);
-	if (ret < 0)
+	if (ret < 0) {
+		spin_lock_irqsave(&node->ready_lock, flags);
+		list_for_each_entry_safe(buf, tmp, &node->ready_queue, ready_list) {
+			list_del(&buf->ready_list);
+			vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_QUEUED);
+		}
+		spin_unlock_irqrestore(&node->ready_lock, flags);
 		return ret;
+	}
 
 	spin_lock_irqsave(&neoispd->hw_lock, flags);
 	node->node_group->streaming_map |=  BIT(node->id);
