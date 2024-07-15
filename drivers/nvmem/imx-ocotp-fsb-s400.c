@@ -344,6 +344,7 @@ static int imx_fsb_s400_fuse_probe(struct platform_device *pdev)
 	fuse->config.id = NVMEM_DEVID_AUTO;
 	fuse->config.owner = THIS_MODULE;
 	fuse->config.size = 2048; /* 64 Banks */
+	fuse->config.add_legacy_fixed_of_cells = true;
 	fuse->config.reg_read = fsb_s400_fuse_read;
 	if ((of_device_is_compatible(pdev->dev.of_node, "fsl,imx93-ocotp")) ||
 	    (of_device_is_compatible(pdev->dev.of_node, "fsl,imx95-ocotp")))
