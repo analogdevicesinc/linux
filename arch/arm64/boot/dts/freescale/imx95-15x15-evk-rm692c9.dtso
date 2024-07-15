@@ -67,6 +67,7 @@
 		reg = <0x38>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_touch>;
+		reset-gpio = <&gpio4 28 GPIO_ACTIVE_LOW>;
 		irq-gpio = <&gpio5 7 GPIO_ACTIVE_HIGH>;
 		touchscreen-size-x = <1080>;
 		touchscreen-size-y = <2340>;
