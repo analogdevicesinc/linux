@@ -17,6 +17,10 @@
 	model = "NXP i.MX95 CPU on AB2";
 	compatible = "fsl,imx95-15x15-ab2", "fsl,imx95";
 
+	aliases {
+		ethernet0 = &enetc_port0;
+	};
+
 	chosen {
 		stdout-path = &lpuart1;
 		#address-cells = <2>;
@@ -132,6 +136,12 @@
 	status = "okay";
 };
 
+&netc_prb_ierb {
+	netc-interfaces = <NXP_NETC_RGMII
+			   NXP_NETC_RGMII
+			   NXP_NETC_SERIAL>;
+};
+
 &netc_emdio {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_emdio>;
@@ -143,6 +153,7 @@
 		reset-gpios = <&pcal6524 4 GPIO_ACTIVE_LOW>;
 		reset-assert-us = <10000>;
 		reset-deassert-us = <80000>;
+		realtek,clkout-disable;
 	};
 };
 
@@ -328,7 +339,7 @@
 	pinctrl_emdio: emdiogrp {
 		fsl,pins = <
 			IMX95_PAD_ENET1_MDC__NETCMIX_TOP_NETC_MDC		0x57e
-			IMX95_PAD_ENET1_MDIO__NETCMIX_TOP_NETC_MDIO		0x57e
+			IMX95_PAD_ENET1_MDIO__NETCMIX_TOP_NETC_MDIO		0x97e
 		>;
 	};
 
