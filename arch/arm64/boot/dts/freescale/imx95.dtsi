@@ -2962,7 +2962,6 @@
 			#address-cells = <3>;
 			/* Must be 2. */
 			#size-cells = <2>;
-			msi-parent = <&its>;
 			device_type = "pci";
 			bus-range = <0x0 0x0>;
 			msi-map = <0x0 &its 0x60 0x1>,	//ENETC0 PF
