@@ -1048,6 +1048,9 @@ static int neoisp_s_fmt_meta_out(struct file *file, void *priv, struct v4l2_form
 	if (ret < 0)
 		return ret;
 
+	if (vb2_is_busy(&node->queue))
+		return -EBUSY;
+
 	node->format = *f;
 	node->neoisp_format = &formats_mout[0];
 
@@ -1055,6 +1058,7 @@ static int neoisp_s_fmt_meta_out(struct file *file, void *priv, struct v4l2_form
 			"Set output format for meta node %s to %x\n",
 			NODE_NAME(node),
 			f->fmt.meta.dataformat);
+
 	return 0;
 }
 
@@ -1067,6 +1071,9 @@ static int neoisp_s_fmt_meta_cap(struct file *file, void *priv, struct v4l2_form
 	if (ret < 0)
 		return ret;
 
+	if (vb2_is_busy(&node->queue))
+		return -EBUSY;
+
 	node->format = *f;
 	node->neoisp_format = &formats_mcap[0];
 
@@ -1074,6 +1081,7 @@ static int neoisp_s_fmt_meta_cap(struct file *file, void *priv, struct v4l2_form
 			"Set capture format for meta node %s to %x\n",
 			NODE_NAME(node),
 			f->fmt.meta.dataformat);
+
 	return 0;
 }
 
@@ -1166,6 +1174,9 @@ static int neoisp_s_fmt_vid_cap(struct file *file, void *priv,
 	if (ret)
 		return ret;
 
+	if (vb2_is_busy(&node->queue))
+		return -EBUSY;
+
 	node->format = *f;
 	node->neoisp_format =
 		neoisp_find_pixel_format_by_node(f->fmt.pix_mp.pixelformat, node);
@@ -1198,6 +1209,9 @@ static int neoisp_s_fmt_vid_out(struct file *file, void *priv,
 
 	if (ret < 0)
 		return ret;
+
+	if (vb2_is_busy(&node->queue))
+		return -EBUSY;
 
 	node->format = *f;
 	node->neoisp_format =
