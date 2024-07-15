@@ -50,6 +50,8 @@ properties:
           - hannstar,hsd101pww2
           # Hydis Technologies 7" WXGA (800x1280) TFT LCD LVDS panel
           - hydis,hv070wx2-1e0
+          # Riverdi 10.1" 1280x800 capacitive touch DSI panel
+          - riverdi,rvt101hvdnwc00-b
           - tbs,a711-panel
 
       - const: panel-lvds
