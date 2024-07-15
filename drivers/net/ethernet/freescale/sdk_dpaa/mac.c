@@ -49,6 +49,7 @@
 #include <linux/platform_device.h>
 #include <linux/device.h>
 #include <linux/phy.h>
+#include <linux/phylink.h>
 #include <linux/io.h>
 
 #include "lnxwrp_fm_ext.h"
@@ -68,23 +69,6 @@
 	| SUPPORTED_FIBRE \
 	| SUPPORTED_MII \
 	| SUPPORTED_Backplane)
-
-static const uint16_t phy2speed[] = {
-	[PHY_INTERFACE_MODE_MII]	= SPEED_100,
-	[PHY_INTERFACE_MODE_GMII]	= SPEED_1000,
-	[PHY_INTERFACE_MODE_SGMII]	= SPEED_1000,
-	[PHY_INTERFACE_MODE_QSGMII]	= SPEED_1000,
-	[PHY_INTERFACE_MODE_TBI]	= SPEED_1000,
-	[PHY_INTERFACE_MODE_RMII]	= SPEED_100,
-	[PHY_INTERFACE_MODE_RGMII]	= SPEED_1000,
-	[PHY_INTERFACE_MODE_RGMII_ID]	= SPEED_1000,
-	[PHY_INTERFACE_MODE_RGMII_RXID]	= SPEED_1000,
-	[PHY_INTERFACE_MODE_RGMII_TXID]	= SPEED_1000,
-	[PHY_INTERFACE_MODE_RTBI]	= SPEED_1000,
-	[PHY_INTERFACE_MODE_XGMII]	= SPEED_10000,
-	[PHY_INTERFACE_MODE_2500BASEX] = SPEED_2500,
-	[PHY_INTERFACE_MODE_10GKR]	= SPEED_10000,
-};
 
 static struct mac_device * __cold
 alloc_macdev(struct device *dev, size_t sizeof_priv,
