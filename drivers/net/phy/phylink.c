@@ -1923,7 +1923,8 @@ static int phylink_validate_phy(struct phylink *pl, struct phy_device *phy,
 	if (phy->is_c45 && state->rate_matching == RATE_MATCH_NONE &&
 	    state->interface != PHY_INTERFACE_MODE_RXAUI &&
 	    state->interface != PHY_INTERFACE_MODE_XAUI &&
-	    state->interface != PHY_INTERFACE_MODE_USXGMII)
+	    state->interface != PHY_INTERFACE_MODE_USXGMII &&
+	    state->interface != PHY_INTERFACE_MODE_10G_QXGMII)
 		state->interface = PHY_INTERFACE_MODE_NA;
 
 	return phylink_validate(pl, supported, state);

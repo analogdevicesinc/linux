@@ -449,6 +449,20 @@ static int aqr107_read_status(struct phy_device *phydev)
 	if (!phydev->link || phydev->autoneg == AUTONEG_DISABLE)
 		return 0;
 
+	/* Quad port PHYs like AQR412 have 4 system interfaces, but they can
+	 * also be used with a single system interface over which all 4 ports
+	 * are multiplexed (10G-QXGMII). To the MDIO registers, this mode is
+	 * indistinguishable from USXGMII (which implies a single 10G port),
+	 * which is problematic because the detection logic below would
+	 * overwrite phydev->interface with a wrong value. If the device tree
+	 * is configured for "10g-qxgmii", always trust that value, since it is
+	 * very unlikely that the PHY firmware was configured for protocol
+	 * switching depending on link speed (all USXGMII variants are capable
+	 * of symbol replication).
+	 */
+	if (phydev->interface == PHY_INTERFACE_MODE_10G_QXGMII)
+		goto skip_iface_detection;
+
 	val = phy_read_mmd(phydev, MDIO_MMD_PHYXS, MDIO_PHYXS_VEND_IF_STATUS);
 	if (val < 0)
 		return val;
@@ -483,6 +497,7 @@ static int aqr107_read_status(struct phy_device *phydev)
 		break;
 	}
 
+skip_iface_detection:
 	/* Read possibly downshifted rate from vendor register */
 	return aqr107_read_rate(phydev);
 }
@@ -781,10 +796,18 @@ static int aqr107_fill_interface_modes(struct phy_device *phydev)
 
 		switch (serdes_mode) {
 		case VEND1_GLOBAL_CFG_SERDES_MODE_XFI:
-			if (rate_adapt == VEND1_GLOBAL_CFG_RATE_ADAPT_USX)
-				interface = PHY_INTERFACE_MODE_USXGMII;
-			else
+			if (rate_adapt == VEND1_GLOBAL_CFG_RATE_ADAPT_USX) {
+				switch (phydev->interface) {
+				case PHY_INTERFACE_MODE_10G_QXGMII:
+					interface = PHY_INTERFACE_MODE_10G_QXGMII;
+					break;
+				default:
+					interface = PHY_INTERFACE_MODE_USXGMII;
+					break;
+				}
+			} else {
 				interface = PHY_INTERFACE_MODE_10GBASER;
+			}
 			break;
 
 		case VEND1_GLOBAL_CFG_SERDES_MODE_XFI5G:
