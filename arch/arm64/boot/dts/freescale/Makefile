@@ -347,6 +347,14 @@ imx95-15x15-evk-adv7535-ap1302_rpi-dtbs := imx95-15x15-evk-adv7535-ap1302.dtb \
 				       imx95-15x15-evk-ap1302_rpi.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-15x15-evk-adv7535-ap1302_rpi.dtb
 
+imx95-15x15-evk-lt9611uxc-dtbs := imx95-15x15-evk.dtb imx95-15x15-evk-lt9611uxc.dtbo
+dtb-${CONFIG_ARCH_MXC} += imx95-15x15-evk-lt9611uxc.dtb
+
+imx95-15x15-evk-lt9611uxc-ap1302-dtbs := imx95-15x15-evk.dtb \
+					 imx95-15x15-evk-lt9611uxc.dtbo \
+					 imx95-15x15-evk-ap1302.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-15x15-evk-lt9611uxc-ap1302.dtb
+
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk.dtb imx95-19x19-evk-root.dtb imx95-19x19-evk-inmate.dtb \
 			  imx95-19x19-evk-lpspi-slave.dtb
 
