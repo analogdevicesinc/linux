@@ -627,15 +627,18 @@
 		opp-1000000000 {
 			opp-hz = /bits/ 64 <1000000000>;
 			opp-hz-real = /bits/ 64 <1000000000>, /bits/ 64 <133333333>;
+			opp-microvolt = <920000>;
 		};
 
 		opp-800000000 {
 			opp-hz = /bits/ 64 <800000000>;
 			opp-hz-real = /bits/ 64 <800000000>, /bits/ 64 <133333333>;
+			opp-microvolt = <920000>;
 		};
 		opp-500000000 {
 			opp-hz = /bits/ 64 <500000000>;
 			opp-hz-real = /bits/ 64 <500000000>, /bits/ 64 <133333333>;
+			opp-microvolt = <920000>;
 		};
 
 	};
@@ -2839,7 +2842,7 @@
 		};
 
 		mali: gpu@4d900000 {
-			compatible = "arm,mali-valhall";
+			compatible = "arm,mali-valhall", "nxp,imx95-mali";
 			reg = <0 0x4d900000 0 0x700000>, <0 0x4d810000 0 0x10000>;
 			reg-names = "gpu_base", "gpumix_blk_ctrl";
 			interrupts = <GIC_SPI 288 IRQ_TYPE_LEVEL_HIGH>,
