@@ -219,7 +219,7 @@ static const struct of_device_id adm1177_dt_ids[] = {
 	{ .compatible = "adi,adm1177-iio" },
 	{},
 };
-MODULE_DEVICE_TABLE(of, nau7802_dt_ids);
+MODULE_DEVICE_TABLE(of, adm1177_dt_ids);
 
 static struct i2c_driver adm1177_driver = {
 	.driver = {
