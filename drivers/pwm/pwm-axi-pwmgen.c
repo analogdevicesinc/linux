@@ -41,7 +41,6 @@
 #define AXI_PWMGEN_LOAD_CONIG		BIT(1)
 #define AXI_PWMGEN_RESET		BIT(0)
 
-#define AXI_PWMGEN_PSEC_PER_SEC		1000000000000ULL
 #define AXI_PWMGEN_N_MAX_PWMS		16
 
 static const unsigned long long axi_pwmgen_scales[] = {
@@ -88,29 +87,44 @@ static inline struct axi_pwmgen *to_axi_pwmgen(struct pwm_chip *chip)
 	return container_of(chip, struct axi_pwmgen, chip);
 }
 
+#ifndef mul_u64_u64_div_u64_roundclosest
+static u64 mul_u64_u64_div_u64_roundclosest(u64 a, u64 b, u64 c)
+{
+	u64 res = mul_u64_u64_div_u64(a, b, c);
+	/*
+	 * Those multiplications might overflow but after the subtraction the
+	 * error cancels out.
+	 */
+	u64 rem = a * b - c * res;
+
+	if (rem * 2 >= c)
+		res += 1;
+
+	return res;
+}
+#endif
+
 static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 			     const struct pwm_state *state)
 {
 	unsigned long rate;
-	unsigned long long clk_period_ps, target, cnt;
+	unsigned long long cnt;
 	unsigned int ch = pwm->hwpwm;
-	struct axi_pwmgen *pwmgen;
+	struct axi_pwmgen *pwmgen = to_axi_pwmgen(chip);
 
-	pwmgen = to_axi_pwmgen(chip);
 	rate = clk_get_rate(pwmgen->clk);
-	clk_period_ps = DIV_ROUND_CLOSEST_ULL(AXI_PWMGEN_PSEC_PER_SEC, rate);
 
-	target = state->period * axi_pwmgen_scales[state->time_unit];
-	cnt = target ? DIV_ROUND_CLOSEST_ULL(target, clk_period_ps) : 0;
+	cnt = mul_u64_u64_div_u64_roundclosest(state->period * axi_pwmgen_scales[state->time_unit],
+					       rate, PSEC_PER_SEC);
 	axi_pwmgen_write(pwmgen, AXI_PWMGEN_CHX_PERIOD(pwmgen, ch),
 			 state->enabled ? cnt : 0);
 
-	target = state->duty_cycle * axi_pwmgen_scales[state->time_unit];
-	cnt = target ? DIV_ROUND_CLOSEST_ULL(target, clk_period_ps) : 0;
+	cnt = mul_u64_u64_div_u64_roundclosest(state->duty_cycle * axi_pwmgen_scales[state->time_unit],
+					       rate, PSEC_PER_SEC);
 	axi_pwmgen_write(pwmgen, AXI_PWMGEN_CHX_DUTY(pwmgen, ch), cnt);
 
-	target = state->phase * axi_pwmgen_scales[state->time_unit];
-	cnt = target ? DIV_ROUND_CLOSEST_ULL(target, clk_period_ps) : 0;
+	cnt = mul_u64_u64_div_u64_roundclosest(state->phase * axi_pwmgen_scales[state->time_unit],
+					       rate, PSEC_PER_SEC);
 	axi_pwmgen_write(pwmgen, AXI_PWMGEN_CHX_PHASE(pwmgen, ch), cnt);
 
 	/* Apply the new config */
