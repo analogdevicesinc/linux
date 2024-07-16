@@ -172,7 +172,7 @@ static int axi_pwmgen_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 	if (ret < 0)
 		return ret;
 
-	state->enabled = state;
+	state->enabled = capture.period > 0;
 	state->period = capture.period;
 	state->duty_cycle = capture.duty_cycle;
 	state->phase = capture.phase;
