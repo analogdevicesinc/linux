@@ -231,7 +231,7 @@
 		#sound-dai-cells = <0>;
 		compatible = "asahi-kasei,ak5552";
 		reg = <0x13>;
-		reset-gpios = <&pca6416 2 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&pca6416 3 GPIO_ACTIVE_LOW>;
 		AVDD-supply = <&reg_ab2_ana_pwr>;
 		DVDD-supply = <&reg_ab2_ana_pwr>;
 	};
