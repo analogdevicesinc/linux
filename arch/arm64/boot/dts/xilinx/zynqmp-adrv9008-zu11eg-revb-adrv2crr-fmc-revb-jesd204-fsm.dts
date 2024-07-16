@@ -1,0 +1,166 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * ADRV2CRR-FMC using ADRV9009-ZU11EG Rev.B System on Module
+ *
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
+ * https://wiki.analog.com/resources/eval/user-guides/adrv9009-zu11eg/adrv2crr-fmc_carrier_board
+ *
+ * hdl_project: <adrv9009zu11eg/adrv2crr_fmc>
+ * board_revision: <B>
+ *
+ * Copyright (C) 2019 Analog Devices Inc.
+ */
+
+#include "zynqmp-adrv9009-zu11eg-revb-adrv2crr-fmc-revb.dts"
+#include <dt-bindings/iio/frequency/hmc7044.h>
+#include <dt-bindings/iio/adc/adi,adrv9009.h>
+
+&trx0_adrv9009 {
+	compatible = "adrv9008-1";
+
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-top-device = <0>; /* This is the TOP device */
+	jesd204-link-ids = <FRAMER_LINK_RX>;
+
+	jesd204-inputs =
+		<&trx1_adrv9009 0 FRAMER_LINK_RX>;
+
+	/delete-property/ interrupts;
+	adi,jesd204-framer-a-lmfc-offset = <15>;
+};
+
+&trx1_adrv9009 {
+	compatible = "adrv9008-1";
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs =
+                <&axi_adrv9009_rx_jesd 0 FRAMER_LINK_RX>;
+
+	/delete-property/ interrupts;
+	adi,jesd204-framer-a-lmfc-offset = <15>;
+};
+
+&axi_adrv9009_core_tx {
+	status = "disabled";
+};
+
+&tx_dma {
+	status = "disabled";
+};
+
+
+&axi_adrv9009_core_rx_obs {
+	status = "disabled";
+};
+
+&rx_obs_dma {
+	status = "disabled";
+};
+
+&axi_adrv9009_rx_jesd {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&axi_adrv9009_adxcvr_rx 0 FRAMER_LINK_RX>;
+	clocks = <&zynqmp_clk 71>, <&hmc7044 7>, <&axi_adrv9009_adxcvr_rx 0>;
+	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+};
+
+&axi_adrv9009_rx_os_jesd {
+	status = "disabled";
+};
+
+&axi_adrv9009_tx_jesd {
+	status = "disabled";
+};
+
+&axi_adrv9009_adxcvr_rx {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs =  <&hmc7044 0 FRAMER_LINK_RX>;
+	clock-names = "conv";
+	clocks = <&hmc7044 5>;
+};
+
+&axi_adrv9009_adxcvr_rx_os {
+	status = "disabled";
+};
+
+&axi_adrv9009_adxcvr_tx {
+	status = "disabled";
+};
+
+&hmc7044 {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&hmc7044_car 0 FRAMER_LINK_RX>;
+
+	adi,pulse-generator-mode = <HMC7044_PULSE_GEN_16_PULSE>;
+	adi,sync-pin-mode = <1>;
+
+	/delete-property/ adi,pll2-autocal-bypass-manual-cap-bank-sel;
+	adi,hmc-two-level-tree-sync-en;
+
+	/delete-node/ hmc7044_c4;
+	/delete-node/ hmc7044_c6;
+	/delete-node/ hmc7044_c8;
+
+
+};
+
+&hmc7044_car {
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-sysref-provider;
+
+	adi,pulse-generator-mode = <HMC7044_PULSE_GEN_16_PULSE>;
+	adi,sync-pin-mode = <0>;
+
+	/delete-property/ adi,pll2-autocal-bypass-manual-cap-bank-sel;
+	adi,hmc-two-level-tree-sync-en;
+};
+
+/*
+ * DisplayPort: P2
+ * Using: GTR Lane3, Lane2
+ */
+
+&zynqmp_dpsub {
+	status = "disabled";
+};
+
+&zynqmp_dp_snd_pcm0 {
+	status = "disabled";
+};
+
+&zynqmp_dp_snd_pcm1 {
+	status = "disabled";
+};
+
+&zynqmp_dp_snd_card0 {
+	status = "disabled";
+};
+
+&zynqmp_dp_snd_codec0 {
+	status = "disabled";
+};
+
+&zynqmp_dpdma {
+	status = "disabled";
+};
+
+/*
+ * USB 2.0 & 3.0
+ * Using: usb0, dwc3_0 on GTR Lane1
+ */
+
+&usb0 {
+	status = "disabled";
+};
+
+&dwc3_0 {
+	status = "disabled";
+};
+
