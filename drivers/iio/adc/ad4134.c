@@ -95,9 +95,8 @@ static int _ad4134_set_odr(struct ad4134_state *st, unsigned int odr)
 	 * tODR_HIGH_TIME = 3 * tDIGCLK
 	 * See datasheet page 10, Table 3. Data Interface Timing with Gated DCLK.
 	 */
-	state.duty_cycle = DIV_ROUND_CLOSEST_ULL(PICO * 6, st->sys_clk_rate);
-	state.period = DIV_ROUND_CLOSEST_ULL(PICO, odr);
-	state.time_unit = PWM_UNIT_PSEC;
+	state.duty_cycle = DIV_ROUND_CLOSEST_ULL(6ULL * NSEC_PER_SEC, st->sys_clk_rate);
+	state.period = DIV_ROUND_CLOSEST(NSEC_PER_SEC, odr);
 
 	ret = pwm_apply_state(st->odr_pwm, &state);
 	if (ret)
