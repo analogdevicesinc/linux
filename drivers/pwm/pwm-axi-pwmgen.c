@@ -129,32 +129,21 @@ static void axi_pwmgen_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 {
 	struct axi_pwmgen *pwmgen = to_axi_pwmgen(chip);
 	unsigned long rate;
-	unsigned long long cnt, clk_period_ps;
+	unsigned long long cnt;
 	unsigned int ch = pwm->hwpwm;
 
 	rate = clk_get_rate(pwmgen->clk);
 	if (!rate)
 		return;
 
-	clk_period_ps = DIV_ROUND_CLOSEST_ULL(AXI_PWMGEN_PSEC_PER_SEC, rate);
 	cnt = axi_pwmgen_read(pwmgen, AXI_PWMGEN_CHX_PERIOD(pwmgen, ch));
-	cnt *= clk_period_ps;
-	if (cnt)
-		state->period = DIV_ROUND_CLOSEST_ULL(cnt, PSEC_PER_NSEC);
-	else
-		state->period = 0;
+	state->period = DIV_ROUND_CLOSEST_ULL(cnt * NSEC_PER_SEC, rate);
+
 	cnt = axi_pwmgen_read(pwmgen, AXI_PWMGEN_CHX_DUTY(pwmgen, ch));
-	cnt *= clk_period_ps;
-	if (cnt)
-		state->duty_cycle = DIV_ROUND_CLOSEST_ULL(cnt, PSEC_PER_NSEC);
-	else
-		state->duty_cycle = 0;
+	state->duty_cycle = DIV_ROUND_CLOSEST_ULL(cnt * NSEC_PER_SEC, rate);
+
 	cnt = axi_pwmgen_read(pwmgen, AXI_PWMGEN_CHX_PHASE(pwmgen, ch));
-	cnt *= clk_period_ps;
-	if (cnt)
-		state->phase = DIV_ROUND_CLOSEST_ULL(cnt, PSEC_PER_NSEC);
-	else
-		state->phase = 0;
+	state->phase = DIV_ROUND_CLOSEST_ULL(cnt * NSEC_PER_SEC, rate);
 
 	state->enabled = state->period > 0;
 	state->time_unit = PWM_UNIT_NSEC;
