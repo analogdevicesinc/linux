@@ -2,7 +2,7 @@
 /*
  * Analog Devices ADAQ4003
  *
- * hdl_project: <pulsar_adc>
+ * hdl_project: <pulsar_adc/coraz7s>
  * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/pulsar_adc
  * board_revision: <A>
  *

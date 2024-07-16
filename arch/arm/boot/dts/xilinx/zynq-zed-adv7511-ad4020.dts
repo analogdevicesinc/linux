@@ -4,7 +4,7 @@
  * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad400x
  * https://wiki.analog.com/resources/eval/user-guides/ad400x
  *
- * hdl_project: <pulsar_adc>
+ * hdl_project: <pulsar_adc/zed>
  * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/pulsar_adc
  * board_revision: <>
  *
