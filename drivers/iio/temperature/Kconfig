@@ -180,4 +180,5 @@ config MCP9600
 	  This driver can also be built as a module. If so, the module
 	  will be called mcp9600.
 
+source "drivers/iio/temperature/p3t/Kconfig"
 endmenu
