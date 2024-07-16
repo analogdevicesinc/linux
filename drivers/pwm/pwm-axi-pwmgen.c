@@ -94,7 +94,8 @@ static inline struct axi_pwmgen *to_axi_pwmgen(struct pwm_chip *chip)
 static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *device,
 			     const struct pwm_state *state)
 {
-	unsigned long long rate, clk_period_ps, target, cnt;
+	unsigned long rate;
+	unsigned long long clk_period_ps, target, cnt;
 	unsigned int ch = device->hwpwm;
 	struct axi_pwmgen *pwm;
 
@@ -127,7 +128,8 @@ static void axi_pwmgen_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 				 struct pwm_state *state)
 {
 	struct axi_pwmgen *pwmgen = to_axi_pwmgen(chip);
-	unsigned long long rate, cnt, clk_period_ps;
+	unsigned long rate;
+	unsigned long long cnt, clk_period_ps;
 	unsigned int ch = pwm->hwpwm;
 
 	rate = clk_get_rate(pwmgen->clk);
