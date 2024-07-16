@@ -123,65 +123,46 @@ static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *device,
 	return 0;
 }
 
-static int axi_pwmgen_capture(struct pwm_chip *chip, struct pwm_device *device,
-			      struct pwm_capture *capture,
-			      unsigned long timeout __always_unused)
+static void axi_pwmgen_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
+				 struct pwm_state *state)
 {
 	struct axi_pwmgen *pwmgen = to_axi_pwmgen(chip);
 	unsigned long long rate, cnt, clk_period_ps;
-	unsigned int ch = device->hwpwm;
+	unsigned int ch = pwm->hwpwm;
 
 	rate = clk_get_rate(pwmgen->clk);
 	if (!rate)
-		return -EINVAL;
+		return;
 
 	clk_period_ps = DIV_ROUND_CLOSEST_ULL(AXI_PWMGEN_PSEC_PER_SEC, rate);
 	cnt = axi_pwmgen_read(pwmgen, AXI_PWMGEN_CHX_PERIOD(pwmgen, ch));
 	cnt *= clk_period_ps;
 	if (cnt)
-		capture->period = DIV_ROUND_CLOSEST_ULL(cnt,
-				axi_pwmgen_scales[device->state.time_unit]);
+		state->period = DIV_ROUND_CLOSEST_ULL(cnt,
+				axi_pwmgen_scales[pwm->state.time_unit]);
 	else
-		capture->period = 0;
+		state->period = 0;
 	cnt = axi_pwmgen_read(pwmgen, AXI_PWMGEN_CHX_DUTY(pwmgen, ch));
 	cnt *= clk_period_ps;
 	if (cnt)
-		capture->duty_cycle = DIV_ROUND_CLOSEST_ULL(cnt,
-				axi_pwmgen_scales[device->state.time_unit]);
+		state->duty_cycle = DIV_ROUND_CLOSEST_ULL(cnt,
+				axi_pwmgen_scales[pwm->state.time_unit]);
 	else
-		capture->duty_cycle = 0;
+		state->duty_cycle = 0;
 	cnt = axi_pwmgen_read(pwmgen, AXI_PWMGEN_CHX_PHASE(pwmgen, ch));
 	cnt *= clk_period_ps;
 	if (cnt)
-		capture->phase = DIV_ROUND_CLOSEST_ULL(cnt,
-				axi_pwmgen_scales[device->state.time_unit]);
+		state->phase = DIV_ROUND_CLOSEST_ULL(cnt,
+				axi_pwmgen_scales[pwm->state.time_unit]);
 	else
-		capture->phase = 0;
-	capture->time_unit = device->state.time_unit;
+		state->phase = 0;
 
-	return 0;
-}
-
-static void axi_pwmgen_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
-				 struct pwm_state *state)
-{
-	struct pwm_capture capture;
-	int ret;
-
-	ret = axi_pwmgen_capture(chip, pwm, &capture, 0);
-	if (ret < 0)
-		return;
-
-	state->enabled = capture.period > 0;
-	state->period = capture.period;
-	state->duty_cycle = capture.duty_cycle;
-	state->phase = capture.phase;
-	state->time_unit = capture.time_unit;
+	state->enabled = state->period > 0;
+	state->time_unit = pwm->state.time_unit;
 }
 
 static const struct pwm_ops axi_pwmgen_pwm_ops = {
 	.apply = axi_pwmgen_apply,
-	.capture = axi_pwmgen_capture,
 	.get_state = axi_pwmgen_get_state,
 	.owner = THIS_MODULE,
 };
