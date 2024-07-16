@@ -1783,7 +1783,7 @@ static int dwxgmac3_est_configure(void __iomem *ioaddr, struct stmmac_est *cfg,
 	ctrl &= ~XGMAC_PTOV;
 	ctrl |= ((1000000000 / ptp_rate) * 9) << XGMAC_PTOV_SHIFT;
 	if (cfg->enable)
-		ctrl |= XGMAC_EEST | XGMAC_SSWL;
+		ctrl |= XGMAC_EEST | XGMAC_SSWL | XGMAC_DFBS;
 	else
 		ctrl &= ~XGMAC_EEST;
 
@@ -1828,6 +1828,11 @@ static void dwxgmac3_est_irq_status(void __iomem *ioaddr,
 		value &= txqcnt_mask;
 
 		x->mtl_est_hlbs++;
+
+		for (i = 0; i < txqcnt; i++) {
+			if (value & BIT(i))
+				x->mtl_est_txq_hlbs[i]++;
+		}
 
 		/* Clear Interrupt */
 		writel(value, ioaddr + XGMAC_MTL_EST_SCH_ERR);
