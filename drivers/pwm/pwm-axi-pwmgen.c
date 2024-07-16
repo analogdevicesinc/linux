@@ -138,27 +138,24 @@ static void axi_pwmgen_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 	cnt = axi_pwmgen_read(pwmgen, AXI_PWMGEN_CHX_PERIOD(pwmgen, ch));
 	cnt *= clk_period_ps;
 	if (cnt)
-		state->period = DIV_ROUND_CLOSEST_ULL(cnt,
-				axi_pwmgen_scales[pwm->state.time_unit]);
+		state->period = DIV_ROUND_CLOSEST_ULL(cnt, PSEC_PER_NSEC);
 	else
 		state->period = 0;
 	cnt = axi_pwmgen_read(pwmgen, AXI_PWMGEN_CHX_DUTY(pwmgen, ch));
 	cnt *= clk_period_ps;
 	if (cnt)
-		state->duty_cycle = DIV_ROUND_CLOSEST_ULL(cnt,
-				axi_pwmgen_scales[pwm->state.time_unit]);
+		state->duty_cycle = DIV_ROUND_CLOSEST_ULL(cnt, PSEC_PER_NSEC);
 	else
 		state->duty_cycle = 0;
 	cnt = axi_pwmgen_read(pwmgen, AXI_PWMGEN_CHX_PHASE(pwmgen, ch));
 	cnt *= clk_period_ps;
 	if (cnt)
-		state->phase = DIV_ROUND_CLOSEST_ULL(cnt,
-				axi_pwmgen_scales[pwm->state.time_unit]);
+		state->phase = DIV_ROUND_CLOSEST_ULL(cnt, PSEC_PER_NSEC);
 	else
 		state->phase = 0;
 
 	state->enabled = state->period > 0;
-	state->time_unit = pwm->state.time_unit;
+	state->time_unit = PWM_UNIT_NSEC;
 }
 
 static const struct pwm_ops axi_pwmgen_pwm_ops = {
