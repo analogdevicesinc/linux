@@ -135,7 +135,6 @@ static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	/* Apply the new config */
 	axi_pwmgen_write(pwmgen, AXI_PWMGEN_REG_CONFIG, AXI_PWMGEN_LOAD_CONIG);
-	pwm->state.time_unit = state->time_unit;
 
 	return 0;
 }
