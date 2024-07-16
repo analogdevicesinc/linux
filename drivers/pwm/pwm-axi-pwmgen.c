@@ -116,15 +116,21 @@ static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	cnt = mul_u64_u64_div_u64_roundclosest(state->period * axi_pwmgen_scales[state->time_unit],
 					       rate, PSEC_PER_SEC);
+	if (cnt > U32_MAX)
+		cnt = U32_MAX;
 	axi_pwmgen_write(pwmgen, AXI_PWMGEN_CHX_PERIOD(pwmgen, ch),
 			 state->enabled ? cnt : 0);
 
 	cnt = mul_u64_u64_div_u64_roundclosest(state->duty_cycle * axi_pwmgen_scales[state->time_unit],
 					       rate, PSEC_PER_SEC);
+	if (cnt > U32_MAX)
+		cnt = U32_MAX;
 	axi_pwmgen_write(pwmgen, AXI_PWMGEN_CHX_DUTY(pwmgen, ch), cnt);
 
 	cnt = mul_u64_u64_div_u64_roundclosest(state->phase * axi_pwmgen_scales[state->time_unit],
 					       rate, PSEC_PER_SEC);
+	if (cnt > U32_MAX)
+		cnt = U32_MAX;
 	axi_pwmgen_write(pwmgen, AXI_PWMGEN_CHX_PHASE(pwmgen, ch), cnt);
 
 	/* Apply the new config */
