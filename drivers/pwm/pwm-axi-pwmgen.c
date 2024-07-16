@@ -57,9 +57,6 @@ struct axi_pwmgen {
 	struct clk		*clk;
 	void __iomem		*base;
 	u8			hw_maj_ver;
-
-	/* Used to store the period when the channel is disabled */
-	unsigned int		ch_period[AXI_PWMGEN_N_MAX_PWMS];
 };
 
 static inline unsigned int axi_pwmgen_read(struct axi_pwmgen *pwmgen,
@@ -105,9 +102,8 @@ static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	target = state->period * axi_pwmgen_scales[state->time_unit];
 	cnt = target ? DIV_ROUND_CLOSEST_ULL(target, clk_period_ps) : 0;
-	pwmgen->ch_period[ch] = cnt;
 	axi_pwmgen_write(pwmgen, AXI_PWMGEN_CHX_PERIOD(pwmgen, ch),
-			 state->enabled ? pwmgen->ch_period[ch] : 0);
+			 state->enabled ? cnt : 0);
 
 	target = state->duty_cycle * axi_pwmgen_scales[state->time_unit];
 	cnt = target ? DIV_ROUND_CLOSEST_ULL(target, clk_period_ps) : 0;
