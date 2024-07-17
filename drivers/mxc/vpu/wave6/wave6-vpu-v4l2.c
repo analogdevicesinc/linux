@@ -193,6 +193,9 @@ static int wave6_vpu_job_ready(void *priv)
 	dev_dbg(inst->dev->dev, "[%d]%s: state %d\n",
 		inst->id, __func__, inst->state);
 
+	/*decoder parse sequence header*/
+	if (inst->type == VPU_INST_TYPE_DEC && inst->state == VPU_INST_STATE_OPEN)
+		return 1;
 	if (inst->state < VPU_INST_STATE_PIC_RUN)
 		return 0;
 	if (inst->state == VPU_INST_STATE_STOP && inst->eos)

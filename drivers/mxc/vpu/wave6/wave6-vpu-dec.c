@@ -85,6 +85,8 @@ static const struct vpu_format wave6_vpu_dec_fmt_list[2][6] = {
 	}
 };
 
+static int wave6_vpu_dec_seek_header(struct vpu_instance *inst);
+
 static enum wave_std wave6_to_vpu_codstd(unsigned int v4l2_pix_fmt)
 {
 	switch (v4l2_pix_fmt) {
@@ -145,17 +147,6 @@ static void wave6_vpu_dec_destroy_instance(struct vpu_instance *inst)
 
 	dprintk(inst->dev->dev, "[%d] destroy instance\n", inst->id);
 	wave6_vpu_remove_dbgfs_file(inst);
-
-	if (inst->workqueue) {
-		atomic_set(&inst->start_init_seq, 0);
-
-		mutex_unlock(&inst->dev->dev_lock);
-		cancel_work_sync(&inst->init_task);
-		mutex_lock(&inst->dev->dev_lock);
-
-		destroy_workqueue(inst->workqueue);
-		inst->workqueue = NULL;
-	}
 
 	ret = wave6_vpu_dec_close(inst, &fail_res);
 	if (ret) {
@@ -501,8 +492,17 @@ static int wave6_vpu_dec_start_decode(struct vpu_instance *inst)
 
 	memset(&pic_param, 0, sizeof(struct dec_param));
 
-	wave6_vpu_dec_handle_dst_buffer(inst);
 	wave6_handle_bitstream_buffer(inst);
+	if (inst->state == VPU_INST_STATE_OPEN) {
+		ret = wave6_vpu_dec_seek_header(inst);
+		if (ret) {
+			vb2_queue_error(v4l2_m2m_get_src_vq(inst->v4l2_fh.m2m_ctx));
+			vb2_queue_error(v4l2_m2m_get_dst_vq(inst->v4l2_fh.m2m_ctx));
+		}
+		return -EAGAIN;
+	}
+
+	wave6_vpu_dec_handle_dst_buffer(inst);
 
 	ret = wave6_vpu_dec_start_one_frame(inst, &pic_param, &fail_res);
 	if (ret) {
@@ -1314,7 +1314,6 @@ static void wave6_set_dec_openparam(struct dec_open_param *open_param,
 static int wave6_vpu_dec_create_instance(struct vpu_instance *inst)
 {
 	int ret;
-	u32 fail_res;
 	struct dec_open_param open_param;
 
 	memset(&open_param, 0, sizeof(struct dec_open_param));
@@ -1348,20 +1347,13 @@ static int wave6_vpu_dec_create_instance(struct vpu_instance *inst)
 	if (inst->thumbnail_mode)
 		wave6_vpu_dec_give_command(inst, ENABLE_DEC_THUMBNAIL_MODE, NULL);
 
-	inst->workqueue = alloc_ordered_workqueue("init_seq", WQ_MEM_RECLAIM);
-	if (!inst->workqueue) {
-		dev_err(inst->dev->dev, "failed to alloc init seq workqueue\n");
-		ret = -ENOMEM;
-		goto error_wq;
-	}
-
 	wave6_vpu_create_dbgfs_file(inst);
 	wave6_vpu_set_instance_state(inst, VPU_INST_STATE_OPEN);
+	inst->v4l2_fh.m2m_ctx->ignore_cap_streaming = true;
+	v4l2_m2m_set_dst_buffered(inst->v4l2_fh.m2m_ctx, true);
 
 	return 0;
 
-error_wq:
-	wave6_vpu_dec_close(inst, &fail_res);
 error_pm:
 	pm_runtime_put_sync(inst->dev->dev);
 
@@ -1545,6 +1537,8 @@ static int wave6_vpu_dec_seek_header(struct vpu_instance *inst)
 		}
 	} else {
 		wave6_vpu_dec_handle_source_change(inst, &initial_info);
+		inst->v4l2_fh.m2m_ctx->ignore_cap_streaming = false;
+		v4l2_m2m_set_dst_buffered(inst->v4l2_fh.m2m_ctx, false);
 		if (vb2_is_streaming(v4l2_m2m_get_dst_vq(inst->v4l2_fh.m2m_ctx)))
 			wave6_handle_last_frame(inst, NULL);
 	}
@@ -1600,34 +1594,6 @@ static void wave6_vpu_dec_buf_queue(struct vb2_buffer *vb)
 		wave6_vpu_dec_buf_queue_dst(vb);
 }
 
-static void wave6_vpu_dec_init_seq_task(struct work_struct *work)
-{
-	struct vpu_instance *inst = container_of(work, struct vpu_instance, init_task);
-	int ret;
-
-	while (atomic_read(&inst->start_init_seq)) {
-		if (inst->state != VPU_INST_STATE_OPEN)
-			break;
-		if (!v4l2_m2m_num_src_bufs_ready(inst->v4l2_fh.m2m_ctx)) {
-			fsleep(1000);
-			continue;
-		}
-		mutex_lock(&inst->dev->dev_lock);
-		v4l2_m2m_suspend(inst->dev->m2m_dev);
-		wave6_handle_bitstream_buffer(inst);
-		ret = wave6_vpu_dec_seek_header(inst);
-		if (ret) {
-			vb2_queue_error(v4l2_m2m_get_src_vq(inst->v4l2_fh.m2m_ctx));
-			vb2_queue_error(v4l2_m2m_get_dst_vq(inst->v4l2_fh.m2m_ctx));
-			atomic_set(&inst->start_init_seq, 0);
-		}
-		v4l2_m2m_resume(inst->dev->m2m_dev);
-		mutex_unlock(&inst->dev->dev_lock);
-	}
-
-	atomic_set(&inst->start_init_seq, 0);
-}
-
 static int wave6_vpu_dec_start_streaming(struct vb2_queue *q, unsigned int count)
 {
 	struct vpu_instance *inst = vb2_get_drv_priv(q);
@@ -1642,11 +1608,6 @@ static int wave6_vpu_dec_start_streaming(struct vb2_queue *q, unsigned int count
 			ret = wave6_vpu_dec_create_instance(inst);
 			if (ret)
 				goto exit;
-		}
-		if (inst->state == VPU_INST_STATE_OPEN) {
-			atomic_set(&inst->start_init_seq, 1);
-			INIT_WORK(&inst->init_task, wave6_vpu_dec_init_seq_task);
-			queue_work(inst->workqueue, &inst->init_task);
 		}
 
 		if (inst->state == VPU_INST_STATE_SEEK)

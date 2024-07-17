@@ -104,6 +104,10 @@ static irqreturn_t wave6_vpu_irq_thread(int irq, void *dev_id)
 			complete(&dev->irq_done);
 			continue;
 		}
+		if (irq_status & BIT(INT_WAVE6_INIT_SEQ)) {
+			complete(&dev->irq_done);
+			continue;
+		}
 
 		inst = v4l2_m2m_get_curr_priv(dev->m2m_dev);
 		if (inst)
