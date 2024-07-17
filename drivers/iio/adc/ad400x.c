@@ -205,11 +205,38 @@ static int ad400x_get_sampling_freq(struct ad400x_state *st)
 static int __ad400x_set_sampling_freq(struct ad400x_state *st, int freq)
 {
 	struct pwm_state cnv_state;
+	u32 rem;
 
 	/* Sync up PWM state and prepare for pwm_apply_state(). */
 	pwm_init_state(st->cnv_trigger, &cnv_state);
 
-	cnv_state.period = DIV_ROUND_CLOSEST_ULL(NSEC_PER_SEC, freq);
+	/*
+	 * The goal here is that the PWM is configured with a minimal period not
+	 * less than 1 / freq (with freq measured in Hz). It should not be less
+	 * because freq is usually st->chip->max_rate which is a hard limit.
+	 *
+	 * When a period P (measured in ns) is passed to pwm_apply_state(), the
+	 * actually implemented period is:
+	 *
+	 * 	round_down(P * R / NSEC_PER_SEC) / R
+	 *
+	 * (measured in s) with R = st->ref_clk_rate. So we have:
+	 *
+	 * 	  round_down(P * R / NSEC_PER_SEC) / R ≥ 1 / freq
+	 * 	⟺ round_down(P * R / NSEC_PER_SEC) ≥ R / freq
+	 *
+	 * With the LHS being integer this is equivalent to:
+	 *
+	 * 	  round_down(P * R / NSEC_PER_SEC) ≥ round_up(R / freq)
+	 * 	⟺ P * R / NSEC_PER_SEC ≥ round_up(R / freq)
+	 * 	⟺ P ≥ round_up(R / freq) * NSEC_PER_SEC / R
+	 */
+
+	cnv_state.period = div_u64_rem((u64)DIV_ROUND_UP(st->ref_clk_rate, freq) * NSEC_PER_SEC,
+				       st->ref_clk_rate, &rem);
+	if (rem)
+		cnv_state.period += 1;
+
 	cnv_state.duty_cycle = DIV_ROUND_UP(NSEC_PER_SEC, st->ref_clk_rate);
 
 	return pwm_apply_state(st->cnv_trigger, &cnv_state);
