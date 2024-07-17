@@ -1133,6 +1133,8 @@ struct vpu_device {
 	struct kfifo irq_status;
 	struct delayed_work task_timer;
 	struct wave6_vpu_entity entity;
+	int pause_request;
+	struct mutex pause_lock;
 	const struct wave6_match_data *res;
 	struct dentry *debugfs;
 };

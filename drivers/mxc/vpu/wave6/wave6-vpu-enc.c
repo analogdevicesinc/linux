@@ -2224,7 +2224,7 @@ static int wave6_vpu_enc_start_streaming(struct vb2_queue *q, unsigned int count
 	if (!vb2_is_streaming(vq_peer))
 		return 0;
 
-	v4l2_m2m_suspend(inst->dev->m2m_dev);
+	wave6_vpu_pause(inst->dev->dev, 0);
 
 	if (inst->state == VPU_INST_STATE_NONE) {
 		ret = wave6_vpu_enc_create_instance(inst);
@@ -2249,7 +2249,7 @@ static int wave6_vpu_enc_start_streaming(struct vb2_queue *q, unsigned int count
 	}
 
 exit:
-	v4l2_m2m_resume(inst->dev->m2m_dev);
+	wave6_vpu_pause(inst->dev->dev, 1);
 	if (ret)
 		wave6_vpu_return_buffers(inst, q->type, VB2_BUF_STATE_QUEUED);
 
@@ -2271,7 +2271,7 @@ static void wave6_vpu_enc_stop_streaming(struct vb2_queue *q)
 	if (wave6_vpu_both_queues_are_streaming(inst))
 		wave6_vpu_set_instance_state(inst, VPU_INST_STATE_STOP);
 
-	v4l2_m2m_suspend(inst->dev->m2m_dev);
+	wave6_vpu_pause(inst->dev->dev, 0);
 
 	if (V4L2_TYPE_IS_OUTPUT(q->type)) {
 		wave6_vpu_reset_performance(inst);
@@ -2293,7 +2293,7 @@ static void wave6_vpu_enc_stop_streaming(struct vb2_queue *q)
 	if (!vb2_is_streaming(vq_peer) && inst->state != VPU_INST_STATE_NONE)
 		wave6_vpu_enc_destroy_instance(inst);
 
-	v4l2_m2m_resume(inst->dev->m2m_dev);
+	wave6_vpu_pause(inst->dev->dev, 1);
 
 exit:
 	wave6_vpu_return_buffers(inst, q->type, VB2_BUF_STATE_ERROR);
@@ -2588,9 +2588,9 @@ static int wave6_vpu_enc_release(struct file *filp)
 
 	mutex_lock(&inst->dev->dev_lock);
 	if (inst->state != VPU_INST_STATE_NONE) {
-		v4l2_m2m_suspend(inst->dev->m2m_dev);
+		wave6_vpu_pause(inst->dev->dev, 0);
 		wave6_vpu_enc_destroy_instance(inst);
-		v4l2_m2m_resume(inst->dev->m2m_dev);
+		wave6_vpu_pause(inst->dev->dev, 1);
 	}
 	mutex_unlock(&inst->dev->dev_lock);
 
