@@ -3294,7 +3294,22 @@ static int enetc_setup_xdp_prog(struct net_device *ndev, struct bpf_prog *prog,
 {
 	int num_xdp_tx_queues = prog ? num_possible_cpus() : 0;
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
-	bool extended;
+	bool extended, update_bdrs;
+	struct bpf_prog *old_prog;
+	int i;
+
+	update_bdrs = !!priv->xdp_prog != !!prog;
+	if (!update_bdrs) {
+		old_prog = xchg(&priv->xdp_prog, prog);
+
+		for (i = 0; i < priv->num_rx_rings; i++)
+			priv->rx_ring[i]->xdp.prog = prog;
+
+		if (old_prog)
+			bpf_prog_put(old_prog);
+
+		return 0;
+	}
 
 	if (priv->min_num_stack_tx_queues + num_xdp_tx_queues >
 	    priv->num_tx_rings) {
