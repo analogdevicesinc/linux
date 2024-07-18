@@ -80,6 +80,9 @@ struct ad4170_state {
 	u32 scale_tbl[10][2];
 	u32 data[AD4170_NUM_CHANNELS];
 	struct gpio_chip gpiochip;
+	bool pdsw0;
+	bool pdsw1;
+	u32 chop_adc;
 };
 
 static const char * const ad4170_dig_aux_1_pin_names[] = {
@@ -338,8 +341,6 @@ static int ad4170_write_channel_setup(struct ad4170_state *st,
 	setup->afe.ref_buf_m = AD4170_REF_BUF_PRE;
 	setup->afe.ref_buf_p = AD4170_REF_BUF_PRE;
 	setup->filter.post_filter_sel = AD4170_POST_FILTER_NONE;
-	setup->misc.chop_iexc = AD4170_CHOP_IEXC_OFF;
-	setup->misc.chop_adc = AD4170_CHOP_OFF;
 
 	chan_info->slot = slot;
 
@@ -1009,46 +1010,23 @@ static int ad4170_parse_fw_setup(struct ad4170_state *st,
 	int ret;
 
 	tmp = 0;
-	fwnode_property_read_u32(child, "adi,excitation-current-0-microamp", &tmp);
-	ret = ad4170_find_table_index(ad4170_iout_current_ua_tbl, tmp);
-	if (ret < 0)
-		return dev_err_probe(dev, ret,
-				     "Invalid excitation current %uuA\n", tmp);
-
-	st->cfg.current_source[0].i_out_val = ret;
-
-	tmp = 0;
-	fwnode_property_read_u32(child, "adi,excitation-current-1-microamp", &tmp);
-	ret = ad4170_find_table_index(ad4170_iout_current_ua_tbl, tmp);
-	if (ret < 0)
-		return dev_err_probe(dev, ret,
-				     "Invalid excitation current %uuA\n", tmp);
-
-	st->cfg.current_source[1].i_out_val = ret;
-	tmp = 0;
-	fwnode_property_read_u32(child, "adi,excitation-current-2-microamp", &tmp);
-	ret = ad4170_find_table_index(ad4170_iout_current_ua_tbl, tmp);
-	if (ret < 0)
-		return dev_err_probe(dev, ret,
-				     "Invalid excitation current %uuA\n", tmp);
-
-	st->cfg.current_source[2].i_out_val = ret;
-
-	tmp = 0;
-	fwnode_property_read_u32(child, "adi,excitation-current-3-microamp", &tmp);
-	ret = ad4170_find_table_index(ad4170_iout_current_ua_tbl, tmp);
-	if (ret < 0)
-		return dev_err_probe(dev, ret,
-				     "Invalid excitation current %uuA\n", tmp);
-	st->cfg.current_source[3].i_out_val = ret;
-
-	tmp = 0;
 	fwnode_property_read_u32(child, "adi,burnout-current-nanoamp", &tmp);
 	ret = ad4170_find_table_index(ad4170_burnout_current_na_tbl, tmp);
 	if (ret < 0)
 		return dev_err_probe(dev, ret,
 				     "Invalid burnout current %unA\n", tmp);
 	setup->misc.burnout = ret;
+
+	tmp = 0;
+	fwnode_property_read_u32(child, "adi,chop-iexc", &tmp);
+	setup->misc.chop_iexc = tmp;
+
+	tmp = 0;
+	fwnode_property_read_u32(child, "adi,chop-adc", &tmp);
+	setup->misc.chop_adc = tmp;
+
+	st->chop_adc = tmp > st->chop_adc ? tmp : st->chop_adc;
+	pr_err("chop_adc: %d\n", st->chop_adc);
 
 	setup->afe.ref_buf_p = fwnode_property_read_bool(child, "adi,buffered-positive");
 	setup->afe.ref_buf_m = fwnode_property_read_bool(child, "adi,buffered-negative");
@@ -1113,22 +1091,6 @@ static int ad4170_parse_fw_channel(struct iio_dev *indio_dev,
 	if (ret)
 		return ret;
 
-	st->cfg.current_source[0].i_out_pin = AD4170_I_OUT_AIN0;
-	fwnode_property_read_u32(child, "adi,excitation-pin-0",
-				 &st->cfg.current_source[0].i_out_pin);
-
-	st->cfg.current_source[1].i_out_pin = AD4170_I_OUT_AIN0;
-	fwnode_property_read_u32(child, "adi,excitation-pin-1",
-				 &st->cfg.current_source[1].i_out_pin);
-
-	st->cfg.current_source[2].i_out_pin = AD4170_I_OUT_AIN0;
-	fwnode_property_read_u32(child, "adi,excitation-pin-1",
-				 &st->cfg.current_source[2].i_out_pin);
-
-	st->cfg.current_source[3].i_out_pin = AD4170_I_OUT_AIN0;
-	fwnode_property_read_u32(child, "adi,excitation-pin-1",
-				 &st->cfg.current_source[3].i_out_pin);
-
 	return 0;
 }
 
@@ -1177,7 +1139,7 @@ static int ad4170_parse_fw(struct iio_dev *indio_dev)
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
 	struct device *dev = &st->spi->dev;
-	int ret;
+	int ret, tmp;
 
 	st->mclk = devm_clk_get(dev, "mclk");
 	if (IS_ERR(st->mclk) && PTR_ERR(st->mclk) != -ENOENT)
@@ -1186,6 +1148,10 @@ static int ad4170_parse_fw(struct iio_dev *indio_dev)
 
 	st->cfg.clock_ctrl.clocksel = ad4170_of_clock_select(st);
 	ad4170_parse_digif_fw(indio_dev);
+
+	st->pdsw0 = fwnode_property_read_bool(dev->fwnode, "adi,gpio0-power-down-switch");
+	st->pdsw1 = fwnode_property_read_bool(dev->fwnode, "adi,gpio1-power-down-switch");
+
 	ret = device_property_count_u32(dev, "adi,vbias-pins");
 	if (ret > 0) {
 		if (ret > AD4170_MAX_ANALOG_PINS)
@@ -1201,6 +1167,53 @@ static int ad4170_parse_fw(struct iio_dev *indio_dev)
 			return dev_err_probe(dev, ret,
 					     "Failed to read vbias pins\n");
 	}
+
+	st->cfg.current_source[0].i_out_pin = AD4170_I_OUT_AIN0;
+	fwnode_property_read_u32(dev->fwnode, "adi,excitation-pin-0",
+				 &st->cfg.current_source[0].i_out_pin);
+
+	st->cfg.current_source[1].i_out_pin = AD4170_I_OUT_AIN0;
+	fwnode_property_read_u32(dev->fwnode, "adi,excitation-pin-1",
+				 &st->cfg.current_source[1].i_out_pin);
+
+	st->cfg.current_source[2].i_out_pin = AD4170_I_OUT_AIN0;
+	fwnode_property_read_u32(dev->fwnode, "adi,excitation-pin-1",
+				 &st->cfg.current_source[2].i_out_pin);
+
+	st->cfg.current_source[3].i_out_pin = AD4170_I_OUT_AIN0;
+	fwnode_property_read_u32(dev->fwnode, "adi,excitation-pin-1",
+				 &st->cfg.current_source[3].i_out_pin);
+
+	tmp = 0;
+	fwnode_property_read_u32(dev->fwnode, "adi,excitation-current-0-microamp", &tmp);
+	ret = ad4170_find_table_index(ad4170_iout_current_ua_tbl, tmp);
+	if (ret < 0)
+		return dev_err_probe(dev, ret,
+				     "Invalid excitation current %uuA\n", tmp);
+	st->cfg.current_source[0].i_out_val = ret;
+
+	tmp = 0;
+	fwnode_property_read_u32(dev->fwnode, "adi,excitation-current-1-microamp", &tmp);
+	ret = ad4170_find_table_index(ad4170_iout_current_ua_tbl, tmp);
+	if (ret < 0)
+		return dev_err_probe(dev, ret,
+				     "Invalid excitation current %uuA\n", tmp);
+	st->cfg.current_source[1].i_out_val = ret;
+	tmp = 0;
+	fwnode_property_read_u32(dev->fwnode, "adi,excitation-current-2-microamp", &tmp);
+	ret = ad4170_find_table_index(ad4170_iout_current_ua_tbl, tmp);
+	if (ret < 0)
+		return dev_err_probe(dev, ret,
+				     "Invalid excitation current %uuA\n", tmp);
+	st->cfg.current_source[2].i_out_val = ret;
+
+	tmp = 0;
+	fwnode_property_read_u32(dev->fwnode, "adi,excitation-current-3-microamp", &tmp);
+	ret = ad4170_find_table_index(ad4170_iout_current_ua_tbl, tmp);
+	if (ret < 0)
+		return dev_err_probe(dev, ret,
+				     "Invalid excitation current %uuA\n", tmp);
+	st->cfg.current_source[3].i_out_val = ret;
 
 	ret = ad4170_parse_fw_children(indio_dev);
 	if (ret)
@@ -1251,6 +1264,13 @@ static int ad4170_setup(struct iio_dev *indio_dev)
 			  st->cfg.pin_muxing.sync_ctrl);
 
 	ret = regmap_write(st->regmap, AD4170_PIN_MUXING_REG, val);
+	if (ret)
+		return ret;
+
+	val = FIELD_PREP(AD4170_POWER_DOWN_SW_PDSW0_MSK, st->pdsw0) |
+	      FIELD_PREP(AD4170_POWER_DOWN_SW_PDSW1_MSK, st->pdsw1);
+
+	ret = regmap_write(st->regmap, AD4170_POWER_DOWN_SW_REG, val);
 	if (ret)
 		return ret;
 
@@ -1509,6 +1529,9 @@ out:
 
 int ad4170_gpio_setup(struct ad4170_state *st)
 {
+	unsigned long valid_mask = 0x0;
+	int i = 0;
+
 	st->gpiochip.owner = THIS_MODULE;
 	st->gpiochip.label = AD4170_NAME;
 	st->gpiochip.base = -1;
@@ -1519,6 +1542,24 @@ int ad4170_gpio_setup(struct ad4170_state *st)
 	st->gpiochip.direction_output = ad4170_output_gpio;
 	st->gpiochip.get = ad4170_get_gpio;
 	st->gpiochip.set = ad4170_set_gpio;
+
+	for (i = 0; i < 4; i++)
+		__assign_bit(i, &valid_mask, true);
+
+	if (st->pdsw0)
+		__assign_bit(0, &valid_mask, false);
+
+	if (st->pdsw1)
+		__assign_bit(1,  &valid_mask, false);
+
+	if (st->chop_adc == AD4170_CHOP_ACX_4PIN)
+		valid_mask = 0x0;
+
+	if (st->chop_adc == AD4170_CHOP_ACX_2PIN) {
+		__assign_bit(2,  &valid_mask, false);
+		__assign_bit(3,  &valid_mask, false);
+	}
+	st->gpiochip.valid_mask = &valid_mask;
 
 	return devm_gpiochip_add_data(&st->spi->dev, &st->gpiochip, st);
 }

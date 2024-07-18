@@ -220,7 +220,7 @@
 #define AD4170_NUM_SETUPS				8
 #define AD4170_NUM_CURRENT_SOURCE			4
 #define AD4170_FIR_COEFF_MAX_LENGTH			72
-
+#define AD4170_MAX_DIFF_INPUTS				4
 #define AD4170_INVALID_SLOT				-1
 
 enum ad4170_gpio_mode {
