@@ -355,6 +355,9 @@ imx95-15x15-evk-lt9611uxc-ap1302-dtbs := imx95-15x15-evk.dtb \
 					 imx95-15x15-evk-ap1302.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-15x15-evk-lt9611uxc-ap1302.dtb
 
+imx95-15x15-evk-ox05b1s-dtbs := imx95-15x15-evk.dtb imx95-15x15-evk-ox05b1s.dtbo
+dtb-${CONFIG_ARCH_MXC} += imx95-15x15-evk-ox05b1s.dtb
+
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk.dtb imx95-19x19-evk-root.dtb imx95-19x19-evk-inmate.dtb \
 			  imx95-19x19-evk-lpspi-slave.dtb
 
