@@ -551,13 +551,10 @@ static int _ad4170_read_sample(struct iio_dev *indio_dev, unsigned int channel,
 	if (!ret)
 		goto out;
 
-	ret = ad4170_set_mode(st, AD4170_MODE_IDLE);
-	if (ret)
-		return ret;
-
 	ret = regmap_read(st->regmap, AD4170_DATA_PER_CHANNEL_X_REG(channel), val);
 	if (ret)
 		return ret;
+
 out:
 	ret = ad4170_set_channel_enable(st, channel, false);
 	if (ret)
@@ -1294,6 +1291,8 @@ static int ad4170_setup(struct iio_dev *indio_dev)
 		ret = regmap_write(st->regmap, AD4170_CHANNEL_MAP_X_REG(i), val);
 		if (ret)
 			return ret;
+
+		ad4170_set_channel_freq(st, i, 9615, 0);
 	}
 	for (i = 0; i < AD4170_NUM_CURRENT_SOURCE; i++) {
 		val = FIELD_PREP(AD4170_CURRENT_SOURCE_I_OUT_PIN_MSK,
@@ -1309,6 +1308,17 @@ static int ad4170_setup(struct iio_dev *indio_dev)
 	ret = regmap_write(st->regmap, AD4170_CHANNEL_EN_REG, 0);
 	if (ret)
 		return ret;
+
+	//ret = regmap_update_bits(st->regmap, AD4170_ADC_CTRL_REG,
+	//			  AD4170_ADC_CTRL_MULTI_DATA_REG_SEL_MSK,
+	//			  AD4170_ADC_CTRL_MULTI_DATA_REG_SEL_MSK);
+	//if (ret)
+	//	return ret;
+
+	ret = regmap_write(st->regmap, AD4170_STATUS_REG, 0xffff);
+	if (ret)
+		return ret;
+
 	return 0;
 }
 
@@ -1357,6 +1367,10 @@ static int ad4170_buffer_predisable(struct iio_dev *indio_dev)
 		if (ret)
 			goto out;
 	}
+
+	ret = ad4170_set_mode(st, AD4170_MODE_IDLE);
+	if (ret)
+		return ret;
 out:
 	return ret;
 }
