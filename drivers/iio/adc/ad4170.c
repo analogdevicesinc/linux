@@ -20,12 +20,15 @@
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
+#include <linux/spi/spi-engine.h>
 #include <linux/units.h>
 
 #include <asm/div64.h>
 #include <asm/unaligned.h>
 
 #include <linux/iio/buffer.h>
+#include <linux/iio/buffer-dma.h>
+#include <linux/iio/buffer-dmaengine.h>
 #include <linux/iio/iio.h>
 #include <linux/iio/kfifo_buf.h>
 #include <linux/iio/sysfs.h>
@@ -56,6 +59,7 @@ struct ad4170_chan_info {
 
 struct ad4170_state {
 	struct regmap *regmap;
+	bool spi_is_dma_mapped;
 	struct spi_device *spi;
 	struct clk *mclk;
 	struct regulator_bulk_data regulators[4];
@@ -543,16 +547,21 @@ static int _ad4170_read_sample(struct iio_dev *indio_dev, unsigned int channel,
 	if (ret)
 		return ret;
 
-	reinit_completion(&st->completion);
+	if (!st->spi_is_dma_mapped)
+		reinit_completion(&st->completion);
+
 	ret = ad4170_set_mode(st, AD4170_MODE_SINGLE);
 	if (ret)
 		return ret;
 
-	ret = wait_for_completion_timeout(&st->completion, HZ);
-	if (!ret)
-		goto out;
+	if (!st->spi_is_dma_mapped) {
+		ret = wait_for_completion_timeout(&st->completion, HZ);
+		if (!ret)
+			goto out;
+	}
 
-	ret = regmap_read(st->regmap, AD4170_DATA_PER_CHANNEL_X_REG(channel), val);
+	//ret = regmap_read(st->regmap, AD4170_DATA_PER_CHANNEL_X_REG(channel), val);
+	ret = regmap_read(st->regmap, AD4170_DATA_24b_REG, val);
 	if (ret)
 		return ret;
 
@@ -1293,7 +1302,8 @@ static int ad4170_setup(struct iio_dev *indio_dev)
 		if (ret)
 			return ret;
 
-		ad4170_set_channel_freq(st, i, 9615, 0);
+		//ad4170_set_channel_freq(st, i, 9615, 0);
+		ad4170_set_channel_freq(st, i, 125000, 0);
 	}
 	for (i = 0; i < AD4170_NUM_CURRENT_SOURCE; i++) {
 		val = FIELD_PREP(AD4170_CURRENT_SOURCE_I_OUT_PIN_MSK,
@@ -1310,11 +1320,11 @@ static int ad4170_setup(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	//ret = regmap_update_bits(st->regmap, AD4170_ADC_CTRL_REG,
-	//			  AD4170_ADC_CTRL_MULTI_DATA_REG_SEL_MSK,
-	//			  AD4170_ADC_CTRL_MULTI_DATA_REG_SEL_MSK);
-	//if (ret)
-	//	return ret;
+	ret = regmap_update_bits(st->regmap, AD4170_ADC_CTRL_REG,
+				 AD4170_ADC_CTRL_MULTI_DATA_REG_SEL_MSK,
+				 AD4170_ADC_CTRL_MULTI_DATA_REG_SEL_MSK);
+	if (ret)
+		return ret;
 
 	ret = regmap_write(st->regmap, AD4170_STATUS_REG, 0xffff);
 	if (ret)
@@ -1345,6 +1355,14 @@ static irqreturn_t ad4170_interrupt(int irq, void *dev_id)
 static int ad4170_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
+	struct spi_transfer xfer = {
+		.len = 1,
+		.bits_per_word = 32
+	};
+	unsigned int reg, size, addr;
+	unsigned int rx_data[2];
+	unsigned int tx_data[2];
+	struct spi_message msg;
 	int ret;
 
 	mutex_lock(&st->lock);
@@ -1352,6 +1370,26 @@ static int ad4170_buffer_postenable(struct iio_dev *indio_dev)
 	ret = ad4170_set_mode(st, AD4170_MODE_CONT);
 	if (ret)
 		goto out;
+
+	if (st->spi_is_dma_mapped) {
+		spi_bus_lock(st->spi->master);
+
+		reg = AD4170_DATA_24b_REG;
+
+		ret = ad4170_get_reg_size(st, reg, &size);
+		if (ret)
+			return ret;
+		addr = reg + size - 1;
+		tx_data[0] = (AD4170_READ_MASK | addr) << 16;
+		xfer.tx_buf = tx_data;
+		xfer.rx_buf = rx_data;
+		spi_message_init_with_transfers(&msg, &xfer, 1);
+		ret = spi_engine_offload_load_msg(st->spi, &msg);
+		if (ret < 0)
+			return ret;
+		spi_engine_offload_enable(st->spi, true);
+	}
+
 out:
 	mutex_unlock(&st->lock);
 
@@ -1362,6 +1400,11 @@ static int ad4170_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
 	int ret, i;
+
+	if (st->spi_is_dma_mapped) {
+		spi_engine_offload_enable(st->spi, false);
+		spi_bus_unlock(st->spi->master);
+	}
 
 	for (i = 0; i < indio_dev->num_channels; i++) {
 		ret = ad4170_set_channel_enable(st, i, false);
@@ -1393,8 +1436,7 @@ static irqreturn_t ad4170_trigger_handler(int irq, void *p)
 	for_each_set_bit(scan_index, indio_dev->active_scan_mask,
 			 indio_dev->masklength) {
 		/* Read register data */
-		ret = regmap_read(st->regmap, AD4170_DATA_PER_CHANNEL_X_REG(scan_index),
-				  &st->data[i]);
+		ret = regmap_read(st->regmap, AD4170_DATA_24b_REG, &st->data[i]);
 		if (ret)
 			goto out;
 		i++;
@@ -1443,6 +1485,14 @@ static int ad4170_triggered_buffer_alloc(struct iio_dev *indio_dev)
 					       &iio_pollfunc_store_time,
 					       &ad4170_trigger_handler,
 					       &ad4170_buffer_ops);
+}
+
+static int ad4170_hardware_buffer_alloc(struct iio_dev *indio_dev)
+{
+	indio_dev->setup_ops = &ad4170_buffer_ops;
+	return devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
+					       indio_dev, "rx",
+					       IIO_BUFFER_DIRECTION_IN);
 }
 
 static int ad4170_input_gpio(struct gpio_chip *chip, unsigned int offset)
@@ -1592,6 +1642,7 @@ static int ad4170_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 	mutex_init(&st->lock);
+	st->spi_is_dma_mapped = spi_engine_offload_supported(spi);
 	st->spi = spi;
 
 	indio_dev->name = AD4170_NAME;
@@ -1635,7 +1686,10 @@ static int ad4170_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = ad4170_triggered_buffer_alloc(indio_dev);
+	if (st->spi_is_dma_mapped)
+		ret = ad4170_hardware_buffer_alloc(indio_dev);
+	else
+		ret = ad4170_triggered_buffer_alloc(indio_dev);
 	if (ret)
 		return ret;
 
