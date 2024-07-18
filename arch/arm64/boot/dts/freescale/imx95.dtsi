@@ -2810,7 +2810,7 @@
 			#cooling-cells = <2>;
 			simple_power: power_model@0 {
 			    compatible = "arm,mali-simple-power-model";
-			    static-coefficient = <1065895>;
+			    static-coefficient = <59073>;
 			    dynamic-coefficient = <1013>;
 			    reference_voltage = <920>;
 			    ts = <20000 2000 (-20) 2>;
