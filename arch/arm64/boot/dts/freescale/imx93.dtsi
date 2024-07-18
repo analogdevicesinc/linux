@@ -44,6 +44,7 @@
 		serial5 = &lpuart6;
 		serial6 = &lpuart7;
 		serial7 = &lpuart8;
+		rtc0 = &bbnsm_rtc;
 	};
 
 	cpus {
