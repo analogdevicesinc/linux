@@ -377,9 +377,11 @@ static int __ad4630_set_sampling_freq(const struct ad4630_state *st, unsigned in
 	struct pwm_state conv_state = {
 		.duty_cycle = 10000,
 		.time_unit = PWM_UNIT_PSEC,
+		.enabled = true,
 	}, fetch_state = {
 		.duty_cycle = 10000,
 		.time_unit = PWM_UNIT_PSEC,
+		.enabled = true,
 	};
 	int ret;
 
