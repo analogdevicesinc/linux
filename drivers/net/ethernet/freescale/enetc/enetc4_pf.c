@@ -379,6 +379,8 @@ static const struct net_device_ops enetc4_ndev_ops = {
 	.ndo_set_features	= enetc_pf_set_features,
 	.ndo_eth_ioctl		= enetc_ioctl,
 	.ndo_setup_tc		= enetc_pf_setup_tc,
+	.ndo_bpf		= enetc_setup_bpf,
+	.ndo_xdp_xmit		= enetc_xdp_xmit,
 };
 
 static void enetc4_mac_config(struct enetc_pf *pf, unsigned int mode,

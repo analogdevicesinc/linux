@@ -477,11 +477,15 @@ struct enetc_ndev_priv {
 	u16 msg_enable;
 
 	u8 preemptible_tcs;
+	/* Kernel stack and XDP share the tx rings, note that shared_tx_ring
+	 * cannot be set to 'true' when enetc_has_err050089 is true, because
+	 * this may cause a deadlock.
+	 */
+	bool shared_tx_rings;
 
 	enum enetc_active_offloads active_offloads;
 
 	u32 speed; /* store speed for compare update pspeed */
-
 	struct enetc_bdr **xdp_tx_ring;
 	struct enetc_bdr *tx_ring[16];
 	struct enetc_bdr *rx_ring[16];
