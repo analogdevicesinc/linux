@@ -7,6 +7,7 @@
 /plugin/;
 
 #include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
 #include "imx95-clock.h"
 
 &{/} {
@@ -87,6 +88,16 @@
 				};
 			};
 		};
+	};
+
+	touch@41 {
+		compatible = "ilitek,ili2132";
+		reg = <0x41>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_mipi_dsi_csi>, <&pinctrl_i2c7_pcal6524>;
+		reset-gpios = <&i2c7_pcal6524_23 9 GPIO_ACTIVE_LOW>;
 	};
 };
 
