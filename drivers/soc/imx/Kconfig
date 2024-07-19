@@ -46,4 +46,16 @@ config RPMSG_LIFE_CYCLE
 	  i.MX8ULP for low power mode state coordination between A core & M core to
 	  make sure A core can be put into Low power mode without risk by sending
 	  notify to M core.
+
+config IMX9_LPM_CTRL
+	tristate "i.MX9 Low Power Control support"
+	depends on ARCH_MXC || COMPILE_TEST
+	depends on IMX_SEC_ENCLAVE && SOC_IMX9
+	default ARCH_MXC && ARM64
+	help
+	  If you say yes here you get support for Over driver mode, Nominal driver mode,
+	  Low driver mode (DDR HWFFC) and Low driver mode (DDR SWFFC) on i.MX9 based on
+	  user case. When voltage mode is switched, core, bus and DDR frequencies are also
+	  scaled together. The mode need to be switched manually by user.
+
 endmenu
