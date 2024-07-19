@@ -321,7 +321,7 @@ static int sec_dsim_of_parse_resets(struct imx_sec_dsim_device *dsim)
 	struct of_phandle_args args;
 	struct reset_control *rstc;
 	const char *compat;
-	uint32_t len, rstc_num = 0;
+	uint32_t rstc_num = 0;
 
 	ret = of_parse_phandle_with_args(np, "resets", "#reset-cells",
 					 0, &args);
@@ -338,14 +338,13 @@ static int sec_dsim_of_parse_resets(struct imx_sec_dsim_device *dsim)
 		if (IS_ERR(rstc))
 			continue;
 
-		len = strlen(compat);
-		if (!of_compat_cmp("dsi,soft-resetn", compat, len)) {
+		if (!of_compat_cmp("dsi,soft-resetn", compat, strlen(compat))) {
 			dsim->soft_resetn = rstc;
 			rstc_num++;
-		} else if (!of_compat_cmp("dsi,clk-enable", compat, len)) {
+		} else if (!of_compat_cmp("dsi,clk-enable", compat, strlen(compat))) {
 			dsim->clk_enable = rstc;
 			rstc_num++;
-		} else if (!of_compat_cmp("dsi,mipi-reset", compat, len)) {
+		} else if (!of_compat_cmp("dsi,mipi-reset", compat, strlen(compat))) {
 			dsim->mipi_reset = rstc;
 			rstc_num++;
 		} else
