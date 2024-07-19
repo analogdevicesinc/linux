@@ -2280,7 +2280,8 @@ static int mxcfb_ioctl(struct fb_info *fbi, unsigned int cmd, unsigned long arg)
 			struct mxcfb_info *mxc_fbi =
 				(struct mxcfb_info *)fbi->par;
 
-			if (put_user(mxc_fbi->ipu_ch, argp))
+			if (mxc_copy_to_user((void *)arg, &mxc_fbi->ipu_ch,
+					     sizeof(mxc_fbi->ipu_ch)))
 				return -EFAULT;
 			break;
 		}
@@ -2289,7 +2290,9 @@ static int mxcfb_ioctl(struct fb_info *fbi, unsigned int cmd, unsigned long arg)
 			struct mxcfb_info *mxc_fbi =
 				(struct mxcfb_info *)fbi->par;
 
-			if (put_user(mxc_fbi->ipu_di_pix_fmt, argp))
+			if (mxc_copy_to_user((void *)arg,
+					     &mxc_fbi->ipu_di_pix_fmt,
+					     sizeof(mxc_fbi->ipu_di_pix_fmt)))
 				return -EFAULT;
 			break;
 		}
