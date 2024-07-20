@@ -274,6 +274,7 @@ typedef struct _gcsSystemInfo {
     0, /* contiguousSize     */               \
     0, /* contiguousPhysName */               \
     gcvNULL, /* contiguousLogical  */               \
+    gcvNULL, /* eglDeviceInfo      */               \
     gcvNULL, /* eglDisplayInfo     */               \
     gcvNULL, /* eglSurfaceInfo     */               \
     gcvSURF_A8R8G8B8, /* eglConfigFormat    */               \
