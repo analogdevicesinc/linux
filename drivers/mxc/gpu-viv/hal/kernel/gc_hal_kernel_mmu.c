@@ -760,6 +760,7 @@ gckMMU_FillFlatMappingWithPage16M(IN gckMMU Mmu, IN gctUINT64 PhysBase, IN gctSI
                                           (stlbOffset * gcdMMU_STLB_16M_SIZE));
 
             if (stlbPhyBase != (mtlbEntry & gcdMMU_MTLB_ENTRY_STLB_MASK)) {
+                /* Check the mtlb's contents. */
                 gcmkASSERT(0);
             }
         }
@@ -1159,6 +1160,7 @@ gckMMU_FillFlatMappingWithPage1M(IN gckMMU Mmu, IN gctUINT64 PhysBase, IN gctSIZ
                                           (stlbOffset * gcdMMU_STLB_1M_SIZE));
 
             if (stlbPhyBase != (mtlbEntry & gcdMMU_MTLB_ENTRY_STLB_MASK)) {
+                /* Check the mtlb's contents. */
                 gcmkASSERT(0);
             }
         }
@@ -1468,6 +1470,7 @@ gckMMU_FillFlatMappingWithPage64K(IN gckMMU Mmu, IN gctUINT64 PhysBase, IN gctSI
                                           (stlbOffset * gcdMMU_STLB_64K_SIZE));
 
             if (stlbPhyBase != (mtlbEntry & gcdMMU_MTLB_ENTRY_STLB_MASK)) {
+                /* Check the mtlb's contents. */
                 gcmkASSERT(0);
             }
         }
@@ -1779,6 +1782,7 @@ gckMMU_FillFlatMappingWithPage4K(IN gckMMU Mmu, IN gctUINT64 PhysBase, IN gctSIZ
                                           (stlbOffset * gcdMMU_STLB_4K_SIZE));
 
             if (stlbPhyBase != (mtlbEntry & gcdMMU_MTLB_ENTRY_STLB_MASK)) {
+                /* Check the mtlb's contents. */
                 gcmkASSERT(0);
             }
         }
