@@ -237,13 +237,19 @@ static ssize_t kbase_csf_debugfs_scheduler_state_set(struct file *file, const ch
 						     size_t count, loff_t *ppos)
 {
 	struct kbase_device *kbdev = file->private_data;
-	char buf[MAX_SCHED_STATE_STRING_LEN];
+	char *buf = NULL;
 
 	CSTD_UNUSED(ppos);
 
-	count = min_t(size_t, sizeof(buf) - 1, count);
-	if (copy_from_user(buf, ubuf, count))
+	count = min_t(size_t, MAX_SCHED_STATE_STRING_LEN - 1, count);
+	buf = kvmalloc(count + 1, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	if (copy_from_user(buf, ubuf, count)) {
+		kvfree(buf);
 		return -EFAULT;
+	}
 
 	buf[count] = 0;
 
@@ -257,9 +263,11 @@ static ssize_t kbase_csf_debugfs_scheduler_state_set(struct file *file, const ch
 		kbase_csf_scheduler_force_wakeup(kbdev);
 	else {
 		dev_dbg(kbdev->dev, "Bad scheduler state %s", buf);
+		kvfree(buf);
 		return -EINVAL;
 	}
 
+	kvfree(buf);
 	return (ssize_t)count;
 }
 
