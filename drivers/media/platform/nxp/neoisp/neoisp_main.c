@@ -14,6 +14,7 @@
 #include <linux/debugfs.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/lockdep.h>
 #include <linux/minmax.h>
 #include <linux/module.h>
 #include <linux/of.h>
@@ -623,14 +624,16 @@ static void neoisp_queue_job(struct neoisp_dev_s *neoispd,
 	dev_dbg(&neoispd->pdev->dev, "isp starting ctx id: %d\n", node_group->id);
 }
 
-static int neoisp_schedule_internal(struct neoisp_node_group_s *node_group, unsigned long flags)
+static int neoisp_prepare_job(struct neoisp_node_group_s *node_group)
 {
 	struct neoisp_dev_s *neoispd = node_group->neoisp_dev;
 	struct neoisp_buffer_s *buf[NEOISP_NODES_COUNT];
 	struct neoisp_node_s *node;
-	unsigned long flags1;
+	unsigned long flags;
 	int i;
 	bool have_frame_or_ir = false;
+
+	lockdep_assert_held(&neoispd->hw_lock);
 
 	/*
 	 * To schedule a job, we need input0 and params (if not disabled) streaming nodes
@@ -640,14 +643,15 @@ static int neoisp_schedule_internal(struct neoisp_node_group_s *node_group, unsi
 	if ((BIT(NEOISP_INPUT0_NODE) & node_group->streaming_map)
 			!= BIT(NEOISP_INPUT0_NODE)) {
 		dev_dbg(&neoispd->pdev->dev, "Input0 node not ready, nothing to do\n");
-		return 0;
+		return -EAGAIN;
 	}
+
 	node = &node_group->node[NEOISP_INPUT1_NODE];
 	if (neoisp_node_link_state(node)) {
 		if ((BIT(NEOISP_INPUT1_NODE) & node_group->streaming_map)
 				!= BIT(NEOISP_INPUT1_NODE)) {
 			dev_dbg(&neoispd->pdev->dev, "Input1 is not disabled and not ready\n");
-			return 0;
+			return -EAGAIN;
 		}
 	}
 	node = &node_group->node[NEOISP_PARAMS_NODE];
@@ -655,7 +659,7 @@ static int neoisp_schedule_internal(struct neoisp_node_group_s *node_group, unsi
 		if ((BIT(NEOISP_PARAMS_NODE) & node_group->streaming_map)
 				!= BIT(NEOISP_PARAMS_NODE)) {
 			dev_dbg(&neoispd->pdev->dev, "Params is not disabled and not ready\n");
-			return 0;
+			return -EAGAIN;
 		}
 	}
 	node = &node_group->node[NEOISP_FRAME_NODE];
@@ -664,7 +668,7 @@ static int neoisp_schedule_internal(struct neoisp_node_group_s *node_group, unsi
 		if ((BIT(NEOISP_FRAME_NODE) & node_group->streaming_map)
 				!= BIT(NEOISP_FRAME_NODE)) {
 			dev_dbg(&neoispd->pdev->dev, "Frame node not ready, nothing to do\n");
-			return 0;
+			return -EAGAIN;
 		}
 	}
 	node = &node_group->node[NEOISP_IR_NODE];
@@ -673,7 +677,7 @@ static int neoisp_schedule_internal(struct neoisp_node_group_s *node_group, unsi
 		if ((BIT(NEOISP_IR_NODE) & node_group->streaming_map)
 				!= BIT(NEOISP_IR_NODE)) {
 			dev_dbg(&neoispd->pdev->dev, "IR node not ready, nothing to do\n");
-			return 0;
+			return -EAGAIN;
 		}
 	}
 	node = &node_group->node[NEOISP_STATS_NODE];
@@ -681,13 +685,13 @@ static int neoisp_schedule_internal(struct neoisp_node_group_s *node_group, unsi
 		if ((BIT(NEOISP_STATS_NODE) & node_group->streaming_map)
 				!= BIT(NEOISP_STATS_NODE)) {
 			dev_dbg(&neoispd->pdev->dev, "Stats is not disabled and not ready\n");
-			return 0;
+			return -EAGAIN;
 		}
 	}
 	if (!have_frame_or_ir) {
 		/* at least one output is needed frame or ir */
 		dev_dbg(&neoispd->pdev->dev, "Missing capture node: one of {frame, ir}\n");
-		return 0;
+		return -EAGAIN;
 	}
 
 	for (i = 0; i < NEOISP_NODES_COUNT; i++) {
@@ -696,14 +700,15 @@ static int neoisp_schedule_internal(struct neoisp_node_group_s *node_group, unsi
 			continue;
 
 		node = &node_group->node[i];
-		spin_lock_irqsave(&node->ready_lock, flags1);
+		spin_lock_irqsave(&node->ready_lock, flags);
 		buf[i] = list_first_entry_or_null(&node->ready_queue,
 				struct neoisp_buffer_s,
 				ready_list);
-		spin_unlock_irqrestore(&node->ready_lock, flags1);
+		spin_unlock_irqrestore(&node->ready_lock, flags);
+
 		if (!buf[i] && neoisp_node_link_state(node)) {
 			dev_dbg(&neoispd->pdev->dev, "Nothing to do\n");
-			return 0;
+			return -EINVAL;
 		}
 	}
 
@@ -711,47 +716,69 @@ static int neoisp_schedule_internal(struct neoisp_node_group_s *node_group, unsi
 	for (i = 0; i < NEOISP_NODES_COUNT; i++) {
 		if (buf[i]) {
 			node = &node_group->node[i];
-			spin_lock_irqsave(&node->ready_lock, flags1);
+			spin_lock_irqsave(&node->ready_lock, flags);
 			list_del(&buf[i]->ready_list);
-			spin_unlock_irqrestore(&node->ready_lock,
-					flags1);
+			spin_unlock_irqrestore(&node->ready_lock, flags);
 		}
 		neoispd->queued_job.buf[i] = buf[i];
 	}
 
 	neoispd->queued_job.node_group = node_group;
-	neoispd->hw_busy = 1;
-	spin_unlock_irqrestore(&neoispd->hw_lock, flags);
 
-	/*
-	 * We can kick the job off without the hw_lock, as this can
-	 * never run again until hw_busy is cleared, which will happen
-	 * only when the following job has been queued.
-	 */
-	dev_dbg(&neoispd->pdev->dev, "Have buffers - starting hardware\n");
-
-	neoisp_queue_job(neoispd, node_group);
-
-	return 1;
+	return 0;
 }
 
 /* Try and schedule a job for just a single node group. */
-static void neoisp_schedule_one(struct neoisp_node_group_s *node_group)
+static void neoisp_schedule(struct neoisp_dev_s *neoispd,
+			    struct neoisp_node_group_s *node_group,
+			    __u32 idx)
 {
-	struct neoisp_dev_s *neoispd = node_group->neoisp_dev;
 	unsigned long flags;
 	int ret;
 
 	spin_lock_irqsave(&neoispd->hw_lock, flags);
+
+	if (idx != -1)
+		neoispd->hw_busy = false;
+
 	if (neoispd->hw_busy) {
 		spin_unlock_irqrestore(&neoispd->hw_lock, flags);
 		return;
 	}
 
-	/* A non-zero return means the lock was released. */
-	ret = neoisp_schedule_internal(node_group, flags);
-	if (!ret)
+	if (IS_ERR_OR_NULL(node_group)) {
+		for (unsigned int i = 1; i <= NEOISP_NODE_GROUPS_COUNT; i++) {
+			/* try to schedule next index from last processed one. */
+			__u32 next = (i + idx) % NEOISP_NODE_GROUPS_COUNT;
+
+			ret = neoisp_prepare_job(&neoispd->node_group[next]);
+			if (!ret) {
+				/* prepare job was successful then save the node_group pointer and
+				 * stop checking other streams/groups
+				 */
+				node_group = &neoispd->node_group[next];
+				break;
+			}
+		}
+	} else {
+		ret = neoisp_prepare_job(node_group);
+	}
+
+	if (ret) {
 		spin_unlock_irqrestore(&neoispd->hw_lock, flags);
+		return;
+	}
+
+	/*
+	 * We can kick the job off without the hw_lock, as this can
+	 * never run again until hw_busy is cleared, which will happen
+	 * only when the following job has been queued and an interrupt
+	 * is rised.
+	 */
+	neoispd->hw_busy = true;
+	spin_unlock_irqrestore(&neoispd->hw_lock, flags);
+
+	neoisp_queue_job(neoispd, node_group);
 }
 
 static void neoisp_node_buffer_queue(struct vb2_buffer *buf)
@@ -774,32 +801,32 @@ static void neoisp_node_buffer_queue(struct vb2_buffer *buf)
 	 * Every time we add a buffer, check if there's now some work for the hw
 	 * to do, but only for this client.
 	 */
-	neoisp_schedule_one(node_group);
+	neoisp_schedule(neoisp, node_group, -1);
 }
 
 static int neoisp_node_start_streaming(struct vb2_queue *q, __u32 count)
 {
-	unsigned long flags;
 	struct neoisp_node_s *node = vb2_get_drv_priv(q);
 	struct neoisp_node_group_s *node_group = node->node_group;
-	struct neoisp_dev_s *neoisp = node_group->neoisp_dev;
+	struct neoisp_dev_s *neoispd = node_group->neoisp_dev;
+	unsigned long flags;
 	int ret;
 
-	ret = pm_runtime_resume_and_get(&neoisp->pdev->dev);
+	ret = pm_runtime_resume_and_get(&neoispd->pdev->dev);
 	if (ret < 0)
 		return ret;
 
-	spin_lock_irqsave(&neoisp->hw_lock, flags);
+	spin_lock_irqsave(&neoispd->hw_lock, flags);
 	node->node_group->streaming_map |=  BIT(node->id);
-	spin_unlock_irqrestore(&neoisp->hw_lock, flags);
+	spin_unlock_irqrestore(&neoispd->hw_lock, flags);
 
-	dev_dbg(&neoisp->pdev->dev, "%s: for node %s (count %u)\n",
+	dev_dbg(&neoispd->pdev->dev, "%s: for node %s (count %u)\n",
 			__func__, NODE_NAME(node), count);
-	dev_dbg(&neoisp->pdev->dev, "Nodes streaming for this group now 0x%x\n",
+	dev_dbg(&neoispd->pdev->dev, "Nodes streaming for this group now 0x%x\n",
 			node->node_group->streaming_map);
 
 	/* Maybe we're ready to run. */
-	neoisp_schedule_one(node_group);
+	neoisp_schedule(neoispd, node_group, -1);
 
 	return 0;
 }
@@ -818,7 +845,8 @@ static void neoisp_node_stop_streaming(struct vb2_queue *q)
 	 * partial set of buffers was queued and cannot be run. For now, just
 	 * cancel all buffers stuck in the "ready queue", then wait for any
 	 * running job.
-	 * XXX This may return buffers out of order.
+	 *
+	 * This may return buffers out of order.
 	 */
 	dev_dbg(&neoispd->pdev->dev, "%s: for node %s\n", __func__, NODE_NAME(node));
 	spin_lock_irqsave(&neoispd->hw_lock, flags);
@@ -887,6 +915,7 @@ static int neoisp_querycap(struct file *file, void *priv,
 	dev_dbg(&neoispd->pdev->dev, "Caps for node %s: %x and %x (dev %x)\n",
 			NODE_NAME(node), cap->capabilities, cap->device_caps,
 			node->vfd.device_caps);
+
 	return 0;
 }
 
@@ -1175,6 +1204,7 @@ static int neoisp_s_fmt_vid_out(struct file *file, void *priv,
 			"Set output format for node %s to %x\n",
 			NODE_NAME(node),
 			f->fmt.pix_mp.pixelformat);
+
 	return 0;
 }
 
@@ -1393,28 +1423,6 @@ static const struct video_device neoisp_videodev = {
 	.release = video_device_release_empty,
 };
 
-/* Try and schedule a job for next of the node groups. */
-static void neoisp_schedule_next(struct neoisp_dev_s *neoispd, __u32 idx)
-{
-	unsigned long flags;
-	unsigned int i;
-
-	spin_lock_irqsave(&neoispd->hw_lock, flags);
-
-	for (i = 1; i <= NEOISP_NODE_GROUPS_COUNT; i++) {
-		/* try to schedule next index from last processed one */
-		__u32 next = (i + idx) % NEOISP_NODE_GROUPS_COUNT;
-		/*
-		 * A non-zero return from neoisp_schedule_internal means
-		 * the lock was released.
-		 */
-		if (neoisp_schedule_internal(&neoispd->node_group[next], flags))
-			return;
-	}
-	neoispd->hw_busy = 0;
-	spin_unlock_irqrestore(&neoispd->hw_lock, flags);
-}
-
 /*
  * extract offset and size in bytes from memory region map
  */
@@ -1558,7 +1566,7 @@ static irqreturn_t neoisp_irq_handler(int irq, void *dev_id)
 		/* update frame_sequence */
 		node_group->frame_sequence++;
 		/* check if there's more to do before going to sleep */
-		neoisp_schedule_next(neoispd, node_group->id);
+		neoisp_schedule(neoispd, NULL, node_group->id);
 	}
 
 	return IRQ_HANDLED;

@@ -203,7 +203,7 @@ struct neoisp_dev_s {
 	__s32 num_clks;
 	struct neoisp_node_group_s node_group[NEOISP_NODE_GROUPS_COUNT];
 	struct neoisp_job_s queued_job, running_job;
-	__s32 hw_busy; /* non-zero if a job is queued or is being started */
+	bool hw_busy; /* non-zero if a job is queued or is being started */
 	spinlock_t hw_lock; /* protects "hw_busy" flag and streaming_map */
 };
 
