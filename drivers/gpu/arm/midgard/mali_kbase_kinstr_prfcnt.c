@@ -993,7 +993,7 @@ static long kbasep_kinstr_prfcnt_hwcnt_reader_ioctl(struct file *filp, unsigned 
 
 	switch (_IOC_NR(cmd)) {
 	case _IOC_NR(KBASE_IOCTL_KINSTR_PRFCNT_CMD): {
-		struct prfcnt_control_cmd control_cmd;
+		struct prfcnt_control_cmd control_cmd = {0};
 		int err;
 
 		err = copy_from_user(&control_cmd, uarg, sizeof(control_cmd));
@@ -1002,7 +1002,7 @@ static long kbasep_kinstr_prfcnt_hwcnt_reader_ioctl(struct file *filp, unsigned 
 		rcode = kbasep_kinstr_prfcnt_cmd(cli, &control_cmd);
 	} break;
 	case _IOC_NR(KBASE_IOCTL_KINSTR_PRFCNT_GET_SAMPLE): {
-		struct prfcnt_sample_access sample_access;
+		struct prfcnt_sample_access sample_access = {0};
 		int err;
 
 		memset(&sample_access, 0, sizeof(sample_access));
@@ -1012,7 +1012,7 @@ static long kbasep_kinstr_prfcnt_hwcnt_reader_ioctl(struct file *filp, unsigned 
 			return -EFAULT;
 	} break;
 	case _IOC_NR(KBASE_IOCTL_KINSTR_PRFCNT_PUT_SAMPLE): {
-		struct prfcnt_sample_access sample_access;
+		struct prfcnt_sample_access sample_access = {0};
 		int err;
 
 		err = copy_from_user(&sample_access, uarg, sizeof(sample_access));

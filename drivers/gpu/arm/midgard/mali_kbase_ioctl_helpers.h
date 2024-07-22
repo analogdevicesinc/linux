@@ -38,7 +38,7 @@
 /* Macro for IOCTLs that have input IOCTL struct */
 #define KBASE_HANDLE_IOCTL_IN(cmd, function, type, arg)                                \
 	do {                                                                           \
-		type param;                                                            \
+		type param = {0};                                                            \
 		int ret, err;                                                          \
 		dev_dbg(arg->kbdev->dev, "Enter ioctl %s\n", #function);               \
 		BUILD_BUG_ON(_IOC_DIR(cmd) != _IOC_WRITE);                             \
@@ -74,7 +74,7 @@
 /* Macro for IOCTLs that have input and output IOCTL struct */
 #define KBASE_HANDLE_IOCTL_INOUT(cmd, function, type, arg)                             \
 	do {                                                                           \
-		type param;                                                            \
+		type param = {0};                                                            \
 		int ret, err;                                                          \
 		dev_dbg(arg->kbdev->dev, "Enter ioctl %s\n", #function);               \
 		BUILD_BUG_ON(_IOC_DIR(cmd) != (_IOC_WRITE | _IOC_READ));               \
