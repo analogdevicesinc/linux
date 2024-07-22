@@ -1381,20 +1381,6 @@ static int ad4170_buffer_postenable(struct iio_dev *indio_dev)
 	if (ret)
 		goto out;
 
-	if (st->spi_is_dma_mapped) {
-		ret = spi_optimize_message(st->spi, &st->msg);
-		if (ret < 0)
-			goto out;
-
-		spi_bus_lock(st->spi->master);
-
-
-		ret = spi_engine_ex_offload_load_msg(st->spi, &st->msg);
-		if (ret < 0)
-			return ret;
-		spi_engine_ex_offload_enable(st->spi, true);
-	}
-
 out:
 	mutex_unlock(&st->lock);
 
@@ -1405,12 +1391,6 @@ static int ad4170_buffer_predisable(struct iio_dev *indio_dev)
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
 	int ret, i;
-
-	if (st->spi_is_dma_mapped) {
-		spi_engine_ex_offload_enable(st->spi, false);
-		spi_bus_unlock(st->spi->master);
-		spi_unoptimize_message(&st->msg);
-	}
 
 	for (i = 0; i < indio_dev->num_channels; i++) {
 		ret = ad4170_set_channel_enable(st, i, false);
@@ -1428,6 +1408,61 @@ out:
 static const struct iio_buffer_setup_ops ad4170_buffer_ops = {
 	.postenable = ad4170_buffer_postenable,
 	.predisable = ad4170_buffer_predisable,
+};
+
+static int ad4170_hw_buffer_postenable(struct iio_dev *indio_dev)
+{
+	struct ad4170_state *st = iio_priv(indio_dev);
+	int ret;
+
+	mutex_lock(&st->lock);
+
+	ret = ad4170_set_mode(st, AD4170_MODE_CONT);
+	if (ret)
+		goto out;
+
+	ret = spi_optimize_message(st->spi, &st->msg);
+	if (ret < 0)
+		goto out;
+
+	spi_bus_lock(st->spi->master);
+	ret = spi_engine_ex_offload_load_msg(st->spi, &st->msg);
+	if (ret < 0)
+		return ret;
+
+	spi_engine_ex_offload_enable(st->spi, true);
+
+out:
+	mutex_unlock(&st->lock);
+
+	return ret;
+}
+
+static int ad4170_hw_buffer_predisable(struct iio_dev *indio_dev)
+{
+	struct ad4170_state *st = iio_priv(indio_dev);
+	int ret, i;
+
+	spi_engine_ex_offload_enable(st->spi, false);
+	spi_bus_unlock(st->spi->master);
+	spi_unoptimize_message(&st->msg);
+
+	for (i = 0; i < indio_dev->num_channels; i++) {
+		ret = ad4170_set_channel_enable(st, i, false);
+		if (ret)
+			goto out;
+	}
+
+	ret = ad4170_set_mode(st, AD4170_MODE_IDLE);
+	if (ret)
+		return ret;
+out:
+	return ret;
+}
+
+static const struct iio_buffer_setup_ops ad4170_hw_buffer_ops = {
+	.postenable = ad4170_hw_buffer_postenable,
+	.predisable = ad4170_hw_buffer_predisable,
 };
 
 static irqreturn_t ad4170_trigger_handler(int irq, void *p)
@@ -1498,7 +1533,7 @@ static int ad4170_hardware_buffer_alloc(struct iio_dev *indio_dev)
 	struct ad4170_state *st = iio_priv(indio_dev);
 
 	ad4170_prepare_message(st);
-	indio_dev->setup_ops = &ad4170_buffer_ops;
+	indio_dev->setup_ops = &ad4170_hw_buffer_ops;
 	return devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
 					       indio_dev, "rx",
 					       IIO_BUFFER_DIRECTION_IN);
