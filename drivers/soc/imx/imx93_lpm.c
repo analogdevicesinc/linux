@@ -89,7 +89,21 @@ struct operating_mode {
 	struct critical_clk_path paths[CLK_PATH_END];
 };
 
-static struct operating_mode system_run_mode = {
+static struct operating_mode system_run_mode;
+
+static struct operating_mode system_run_mode_91 = {
+	.paths = {
+		CLK_PATH(m33_root, 250000000, 200000000, 133000000),
+		CLK_PATH(wakeup_axi, 400000000, 250000000, 200000000),
+		CLK_PATH(media_axi, 400000000, 200000000, 200000000),
+		CLK_PATH(ml_axi, 1000000000, 800000000, 500000000),
+		CLK_PATH(nic_axi, 500000000, 333000000, 200000000),
+		CLK_PATH(a55_periph, 400000000, 333000000, 200000000),
+		CLK_PATH(a55_core, 1700000000, 1400000000, 900000000),
+	},
+};
+
+static struct operating_mode system_run_mode_93 = {
 	.paths = {
 		CLK_PATH(m33_root, 250000000, 200000000, 133000000),
 		CLK_PATH(wakeup_axi, 400000000, 312500000, 200000000),
@@ -186,10 +200,18 @@ static void sys_freq_scaling(enum mode_type new_mode)
 				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1_DIV2].clk);
 			} else if (i == MEDIA_AXI || i == A55_PERIPH) {
 				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD0].clk);
-			} else if (i == ML_AXI || i == NIC_AXI) {
+			} else if (i == ML_AXI) {
 				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1].clk);
+			} else if (i == NIC_AXI) {
+				if (of_machine_is_compatible("fsl,imx93"))
+					clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1].clk);
+				else
+					clk_set_parent(path[i].clk, clks[SYS_PLL_PFD0].clk);
 			} else if (i == WAKEUP_AXI) {
-				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD2].clk);
+				if (of_machine_is_compatible("fsl,imx93"))
+					clk_set_parent(path[i].clk, clks[SYS_PLL_PFD2].clk);
+				else if (of_machine_is_compatible("fsl,imx91"))
+					clk_set_parent(path[i].clk, clks[SYS_PLL_PFD0].clk);
 			}
 
 				clk_set_rate(path[i].clk, path[i].mode_rate[ND_MODE]);
@@ -379,7 +401,14 @@ static int imx93_lpm_probe(struct platform_device *pdev)
 {
 	int i, err;
 	struct arm_smccc_res res;
-	struct critical_clk_path *path = system_run_mode.paths;
+	struct critical_clk_path *path;
+
+	if (of_machine_is_compatible("fsl,imx93"))
+		system_run_mode = system_run_mode_93;
+	else
+		system_run_mode = system_run_mode_91;
+
+	path = system_run_mode.paths;
 
 	/*
 	 * get the supported frequency number, if only
