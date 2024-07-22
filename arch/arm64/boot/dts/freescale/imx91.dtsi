@@ -1130,7 +1130,7 @@
 							  <&clk IMX91_CLK_MEDIA_APB>;
 					assigned-clock-parents = <&clk IMX91_CLK_SYS_PLL_PFD1>,
 								 <&clk IMX91_CLK_SYS_PLL_PFD1_DIV2>;
-					assigned-clock-rates = <400000000>, <133333333>;
+					assigned-clock-rates = <200000000>, <133333333>;
 					interface = <2 0 2>;
 					no-reset-control;
 					power-domains = <&media_blk_ctrl IMX91_MEDIABLK_PD_ISI>;
