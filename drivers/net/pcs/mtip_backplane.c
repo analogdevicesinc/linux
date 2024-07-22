@@ -1897,6 +1897,12 @@ static bool mtip_are_all_lanes_trained(struct mtip_backplane *priv)
 {
 	int i;
 
+	if (!priv->link_mode_resolved)
+		return false;
+
+	if (!link_mode_needs_training(priv->link_mode))
+		return true;
+
 	if (!priv->local_tx_lt_done || !priv->remote_tx_lt_done)
 		return false;
 
