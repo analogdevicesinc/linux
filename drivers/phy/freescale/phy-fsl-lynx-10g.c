@@ -1628,9 +1628,11 @@ out:
 static bool lynx_10g_switch_needs_rcw_override(enum lynx_lane_mode crr,
 					       enum lynx_lane_mode new)
 {
-	if ((crr == LANE_MODE_1000BASEX_SGMII ||
+	if ((crr == LANE_MODE_1000BASEKX ||
+	     crr == LANE_MODE_1000BASEX_SGMII ||
 	     crr == LANE_MODE_2500BASEX) &&
-	    (new == LANE_MODE_1000BASEX_SGMII ||
+	    (new == LANE_MODE_1000BASEKX ||
+	     new == LANE_MODE_1000BASEX_SGMII ||
 	     new == LANE_MODE_2500BASEX))
 		return false;
 
