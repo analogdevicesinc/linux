@@ -249,7 +249,35 @@ static void dw_dphy_dump_regs(struct dw_dphy *priv)
 static int dw_dphy_init(struct phy *phy)
 {
 	struct dw_dphy *priv = phy_get_drvdata(phy);
+	struct device *dev = priv->dev;
+	struct device_node *np = dev->of_node;
+	struct regmap *csis;
 	int ret;
+
+	/*
+	 * PHY driver depend on CSI controller to provide partial
+	 * configuration access for PHY, such as PHY reset. Get
+	 * the phandle in phy init callback since it will introduce
+	 * CSI controller and PHY recursive dependency issue if do
+	 * this when probe.
+	 */
+	if (!priv->csis_regmap) {
+		csis = syscon_regmap_lookup_by_phandle(np, "fsl,csis");
+		if (IS_ERR(csis)) {
+			dev_err(dev, "failed to get csi controller\n");
+			return PTR_ERR(csis);
+		}
+
+		priv->csis_regmap = csis;
+	}
+
+	if (!priv->dsi_regmap) {
+		/* dsi_regmap is required only for combo-phy */
+		priv->dsi_regmap = syscon_regmap_lookup_by_phandle(np, "fsl,dsi");
+		if (IS_ERR(priv->dsi_regmap))
+			priv->dsi_regmap = NULL;
+		of_property_read_u32(np, "fsl,reg-offset", &priv->reg_off);
+	}
 
 	ret = phy_pm_runtime_get_sync(phy);
 	if (ret < 0)
@@ -657,17 +685,6 @@ static int dw_dphy_probe(struct platform_device *pdev)
 		dev_err(dev, "Failed to DPHY regmap\n");
 		return -ENODEV;
 	}
-
-	priv->csis_regmap = syscon_regmap_lookup_by_phandle(np, "fsl,csis");
-	if (IS_ERR(priv->csis_regmap))
-		return dev_err_probe(dev, PTR_ERR(priv->csis_regmap),
-				     "failed to get csi controller\n");
-
-	/* dsi_regmap is required only for combo-phy */
-	priv->dsi_regmap = syscon_regmap_lookup_by_phandle(np, "fsl,dsi");
-	if (IS_ERR(priv->dsi_regmap))
-		priv->dsi_regmap = NULL;
-	of_property_read_u32(np, "fsl,reg-offset", &priv->reg_off);
 
 	priv->cfg_clk = devm_clk_get(dev, "phy_cfg");
 	if (IS_ERR(priv->cfg_clk)) {
