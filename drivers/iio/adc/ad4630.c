@@ -370,17 +370,15 @@ static int ad4630_read_avail(struct iio_dev *indio_dev,
 static int __ad4630_set_sampling_freq(const struct ad4630_state *st, unsigned int freq)
 {
 	struct pwm_state conv_state = {
-		.duty_cycle = 10000,
-		.time_unit = PWM_UNIT_PSEC,
+		.duty_cycle = 10,
 		.enabled = true,
 	}, fetch_state = {
-		.duty_cycle = 10000,
-		.time_unit = PWM_UNIT_PSEC,
+		.duty_cycle = 10,
 		.enabled = true,
 	};
 	int ret;
 
-	conv_state.period =  DIV_ROUND_CLOSEST_ULL(PICO, freq);
+	conv_state.period = DIV_ROUND_CLOSEST(NSEC_PER_SEC, freq);
 	ret = pwm_apply_state(st->conv_trigger, &conv_state);
 	if (ret)
 		return ret;
@@ -406,7 +404,7 @@ static int __ad4630_set_sampling_freq(const struct ad4630_state *st, unsigned in
 	 * tsync + tquiet_con_delay being tsync the conversion signal period
 	 * and tquiet_con_delay 9.8ns. Hence set the PWM phase accordingly.
 	 */
-	fetch_state.phase = fetch_state.period + 9800;
+	fetch_state.phase = fetch_state.period + 10;
 
 	return pwm_apply_state(st->fetch_trigger, &fetch_state);
 }
