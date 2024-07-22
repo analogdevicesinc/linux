@@ -78,6 +78,9 @@
 #define VEND_REVISION_IP_VER_X(x)	(((x) & GENMASK(7, 4)) >> 4)
 #define VEND_REVISION_IP_REV_X(x)	((x) & GENMASK(3, 0))
 
+#define C45_SGMII_IF_MODE		0x8014
+#define C45_SGMII_IF_MODE_SPEED_1G	8
+
 #define IRQ_PCS_TX_LP_IDLE		BIT(9)
 #define IRQ_PCS_RX_LP_IDLE		BIT(8)
 #define IRQ_PCS_TX_LOC_FAULT		BIT(7)
@@ -448,6 +451,13 @@ static int mtip_read_pcs(struct mtip_backplane *priv, int reg)
 	struct mdio_device *mdiodev = priv->pcs_mdiodev;
 
 	return mdiodev_c45_read(mdiodev, MDIO_MMD_PCS, reg);
+}
+
+static int mtip_write_pcs(struct mtip_backplane *priv, int reg, u16 val)
+{
+	struct mdio_device *mdiodev = priv->pcs_mdiodev;
+
+	return mdiodev_c45_write(mdiodev, MDIO_MMD_PCS, reg, val);
 }
 
 static int mtip_reset_pcs(struct mtip_backplane *priv)
@@ -1769,6 +1779,18 @@ static int mtip_apply_serdes_protocol(struct mtip_backplane *priv, void *args)
 	return 0;
 }
 
+/* In 1000Base-KX mode, the normal PCS registers driven by pcs-lynx.c for
+ * SGMII/1000Base-X are still available, but not as clause 22, but rather as
+ * clause 45, MMD PCS, starting with address 0x8000. One of the platform
+ * requirements is to configure this PCS as for 1000Base-X (do not use SGMII
+ * AN, force speed to 1G).
+ */
+static int mtip_fixup_c45_sgmii_if_mode(struct mtip_backplane *priv)
+{
+	return mtip_write_pcs(priv, C45_SGMII_IF_MODE,
+			      C45_SGMII_IF_MODE_SPEED_1G);
+}
+
 static int mtip_c73_page_received(struct mtip_backplane *priv,
 				  enum an_restart_reason *an_restart_reason)
 {
@@ -1848,6 +1870,12 @@ static int mtip_c73_page_received(struct mtip_backplane *priv,
 		}
 	} else {
 		err = for_each_lane(mtip_bypass_lt, priv);
+		if (err)
+			return err;
+	}
+
+	if (resolved == ETHTOOL_LINK_MODE_1000baseKX_Full_BIT) {
+		err = mtip_fixup_c45_sgmii_if_mode(priv);
 		if (err)
 			return err;
 	}
