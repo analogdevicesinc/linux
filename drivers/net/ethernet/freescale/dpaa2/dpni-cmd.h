@@ -29,6 +29,7 @@
 #define DPNI_CMDID_ENABLE				DPNI_CMD(0x002)
 #define DPNI_CMDID_DISABLE				DPNI_CMD(0x003)
 #define DPNI_CMDID_GET_ATTR				DPNI_CMD(0x004)
+#define DPNI_CMDID_GET_ATTR_V2				DPNI_CMD_V2(0x004)
 #define DPNI_CMDID_RESET				DPNI_CMD(0x005)
 #define DPNI_CMDID_IS_ENABLED				DPNI_CMD(0x006)
 
@@ -201,9 +202,9 @@ struct dpni_rsp_get_attr {
 	/* response word 0 */
 	__le32 options;
 	u8 num_queues;
-	u8 num_tcs;
+	u8 num_rx_tcs;
 	u8 mac_filter_entries;
-	u8 pad0;
+	u8 num_tx_tcs;
 	/* response word 1 */
 	u8 vlan_filter_entries;
 	u8 pad1;

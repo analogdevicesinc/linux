@@ -76,7 +76,7 @@
  * taildrop kicks in
  */
 #define DPAA2_ETH_CG_TAILDROP_THRESH(priv)				\
-	(1024 * dpaa2_eth_queue_count(priv) / dpaa2_eth_tc_count(priv))
+	(1024 * dpaa2_eth_queue_count(priv) / dpaa2_eth_rx_tc_count(priv))
 
 /* Congestion group notification threshold: when this many frames accumulate
  * on the Rx queues belonging to the same TC, the MAC is instructed to send
@@ -694,8 +694,11 @@ static inline int dpaa2_eth_cmp_dpni_ver(struct dpaa2_eth_priv *priv,
 #define dpaa2_eth_fs_count(priv)        \
 	((priv)->dpni_attrs.fs_entries)
 
-#define dpaa2_eth_tc_count(priv)	\
-	((priv)->dpni_attrs.num_tcs)
+#define dpaa2_eth_rx_tc_count(priv)	\
+	((priv)->dpni_attrs.num_rx_tcs)
+
+#define dpaa2_eth_tx_tc_count(priv)	\
+	((priv)->dpni_attrs.num_tx_tcs)
 
 /* We have exactly one {Rx, Tx conf} queue per channel */
 #define dpaa2_eth_queue_count(priv)     \
@@ -720,7 +723,6 @@ enum dpaa2_eth_rx_dist {
 
 #define DPNI_PTP_ONESTEP_VER_MAJOR 8
 #define DPNI_PTP_ONESTEP_VER_MINOR 2
-#define DPAA2_ETH_FEATURE_ONESTEP_CFG_DIRECT BIT(0)
 #define DPAA2_PTP_SINGLE_STEP_ENABLE	BIT(31)
 #define DPAA2_PTP_SINGLE_STEP_CH	BIT(7)
 #define DPAA2_PTP_SINGLE_CORRECTION_OFF(v) ((v) << 8)
@@ -730,6 +732,12 @@ enum dpaa2_eth_rx_dist {
 #define dpaa2_eth_has_pause_support(priv)			\
 	(dpaa2_eth_cmp_dpni_ver((priv), DPNI_PAUSE_VER_MAJOR,	\
 				DPNI_PAUSE_VER_MINOR) >= 0)
+
+#define DPNI_NUM_TX_TCS_VER_MAJOR	7
+#define DPNI_NUM_TX_TCS_VER_MINOR	3
+
+#define DPAA2_ETH_FEATURE_ONESTEP_CFG_DIRECT	BIT(0)
+#define DPAA2_ETH_FEATURE_GET_NUM_TX_TCS	BIT(1)
 
 static inline bool dpaa2_eth_tx_pause_enabled(u64 link_options)
 {

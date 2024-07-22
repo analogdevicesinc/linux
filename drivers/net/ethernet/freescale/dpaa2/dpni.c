@@ -532,13 +532,15 @@ int dpni_clear_irq_status(struct fsl_mc_io *mc_io,
  * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
  * @token:	Token of DPNI object
  * @attr:	Object's attributes
+ * @cmdid:	Command ID to be used
  *
  * Return:	'0' on Success; Error code otherwise.
  */
 int dpni_get_attributes(struct fsl_mc_io *mc_io,
 			u32 cmd_flags,
 			u16 token,
-			struct dpni_attr *attr)
+			struct dpni_attr *attr,
+			u16 cmdid)
 {
 	struct fsl_mc_command cmd = { 0 };
 	struct dpni_rsp_get_attr *rsp_params;
@@ -546,7 +548,7 @@ int dpni_get_attributes(struct fsl_mc_io *mc_io,
 	int err;
 
 	/* prepare command */
-	cmd.header = mc_encode_cmd_header(DPNI_CMDID_GET_ATTR,
+	cmd.header = mc_encode_cmd_header(cmdid,
 					  cmd_flags,
 					  token);
 
@@ -559,7 +561,8 @@ int dpni_get_attributes(struct fsl_mc_io *mc_io,
 	rsp_params = (struct dpni_rsp_get_attr *)cmd.params;
 	attr->options = le32_to_cpu(rsp_params->options);
 	attr->num_queues = rsp_params->num_queues;
-	attr->num_tcs = rsp_params->num_tcs;
+	attr->num_rx_tcs = rsp_params->num_rx_tcs;
+	attr->num_tx_tcs = rsp_params->num_tx_tcs;
 	attr->mac_filter_entries = rsp_params->mac_filter_entries;
 	attr->vlan_filter_entries = rsp_params->vlan_filter_entries;
 	attr->qos_entries = rsp_params->qos_entries;

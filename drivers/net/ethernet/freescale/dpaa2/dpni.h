@@ -213,7 +213,8 @@ int dpni_clear_irq_status(struct fsl_mc_io	*mc_io,
 struct dpni_attr {
 	u32 options;
 	u8 num_queues;
-	u8 num_tcs;
+	u8 num_rx_tcs;
+	u8 num_tx_tcs;
 	u8 mac_filter_entries;
 	u8 vlan_filter_entries;
 	u8 qos_entries;
@@ -226,7 +227,8 @@ struct dpni_attr {
 int dpni_get_attributes(struct fsl_mc_io	*mc_io,
 			u32			cmd_flags,
 			u16			token,
-			struct dpni_attr	*attr);
+			struct dpni_attr	*attr,
+			u16 cmdid);
 
 /* DPNI errors */
 

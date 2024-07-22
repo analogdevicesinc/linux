@@ -791,10 +791,10 @@ static int dpaa2_ceetm_cls_add(struct Qdisc *sch, u32 classid,
 	}
 
 	if (copt->type == CEETM_PRIO &&
-	    priv->clhash.hashelems == dpaa2_eth_tc_count(priv_eth)) {
+	    priv->clhash.hashelems == dpaa2_eth_tx_tc_count(priv_eth)) {
 		pr_err("CEETM: only %d queue%s per channel allowed, sorry\n",
-		       dpaa2_eth_tc_count(priv_eth),
-		       dpaa2_eth_tc_count(priv_eth) == 1 ? "" : "s");
+		       dpaa2_eth_tx_tc_count(priv_eth),
+		       dpaa2_eth_tx_tc_count(priv_eth) == 1 ? "" : "s");
 		return -EINVAL;
 	}
 

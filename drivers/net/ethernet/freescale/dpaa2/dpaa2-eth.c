@@ -44,6 +44,10 @@ static void dpaa2_eth_detect_features(struct dpaa2_eth_priv *priv)
 	if (dpaa2_eth_cmp_dpni_ver(priv, DPNI_PTP_ONESTEP_VER_MAJOR,
 				   DPNI_PTP_ONESTEP_VER_MINOR) >= 0)
 		priv->features |= DPAA2_ETH_FEATURE_ONESTEP_CFG_DIRECT;
+
+	if (dpaa2_eth_cmp_dpni_ver(priv, DPNI_NUM_TX_TCS_VER_MAJOR,
+				   DPNI_NUM_TX_TCS_VER_MINOR) >= 0)
+		priv->features |= DPAA2_ETH_FEATURE_GET_NUM_TX_TCS;
 }
 
 static void dpaa2_update_ptp_onestep_indirect(struct dpaa2_eth_priv *priv,
@@ -2147,7 +2151,7 @@ set_cgtd:
 
 	td.threshold = DPAA2_ETH_CG_TAILDROP_THRESH(priv);
 	td.units = DPNI_CONGESTION_UNIT_FRAMES;
-	for (i = 0; i < dpaa2_eth_tc_count(priv); i++) {
+	for (i = 0; i < dpaa2_eth_rx_tc_count(priv); i++) {
 		err = dpni_set_taildrop(priv->mc_io, 0, priv->mc_token,
 					DPNI_CP_GROUP, DPNI_QUEUE_RX,
 					i, 0, &td);
@@ -2972,9 +2976,9 @@ static int dpaa2_eth_setup_mqprio(struct net_device *net_dev,
 	if (num_tc == net_dev->num_tc)
 		return 0;
 
-	if (num_tc  > dpaa2_eth_tc_count(priv)) {
+	if (num_tc  > dpaa2_eth_tx_tc_count(priv)) {
 		netdev_err(net_dev, "Max %d traffic classes supported\n",
-			   dpaa2_eth_tc_count(priv));
+			   dpaa2_eth_tx_tc_count(priv));
 		return -EOPNOTSUPP;
 	}
 
@@ -3379,7 +3383,7 @@ static void dpaa2_eth_setup_fqs(struct dpaa2_eth_priv *priv)
 		priv->fq[priv->num_fqs++].flowid = (u16)i;
 	}
 
-	for (j = 0; j < dpaa2_eth_tc_count(priv); j++) {
+	for (j = 0; j < dpaa2_eth_rx_tc_count(priv); j++) {
 		for (i = 0; i < dpaa2_eth_queue_count(priv); i++) {
 			priv->fq[priv->num_fqs].type = DPAA2_RX_FQ;
 			priv->fq[priv->num_fqs].consume = dpaa2_eth_rx;
@@ -3686,7 +3690,7 @@ static void dpaa2_eth_update_tx_fqids(struct dpaa2_eth_priv *priv)
 		fq = &priv->fq[i];
 		if (fq->type != DPAA2_TX_CONF_FQ)
 			continue;
-		for (j = 0; j < dpaa2_eth_tc_count(priv); j++) {
+		for (j = 0; j < dpaa2_eth_tx_tc_count(priv); j++) {
 			err = dpni_get_queue(priv->mc_io, 0, priv->mc_token,
 					     DPNI_QUEUE_TX, j, fq->flowid,
 					     &queue, &qid);
@@ -3725,7 +3729,7 @@ static int dpaa2_eth_set_vlan_qos(struct dpaa2_eth_priv *priv)
 	 * Also, we need to extract just the 3-bit PCP field from the VLAN
 	 * header and we can only do that by using a mask
 	 */
-	if (dpaa2_eth_tc_count(priv) == 1 || !dpaa2_eth_fs_mask_enabled(priv)) {
+	if (dpaa2_eth_rx_tc_count(priv) == 1 || !dpaa2_eth_fs_mask_enabled(priv)) {
 		dev_dbg(dev, "VLAN-based QoS classification not supported\n");
 		return -EOPNOTSUPP;
 	}
@@ -3789,7 +3793,7 @@ static int dpaa2_eth_set_vlan_qos(struct dpaa2_eth_priv *priv)
 	 * classes to accommodate all priority levels, the lowest ones end up
 	 * on TC 0 which was configured as default
 	 */
-	for (i = dpaa2_eth_tc_count(priv) - 1, pcp = 7; i >= 0; i--, pcp--) {
+	for (i = dpaa2_eth_rx_tc_count(priv) - 1, pcp = 7; i >= 0; i--, pcp--) {
 		*(__be16 *)key = cpu_to_be16(pcp << VLAN_PRIO_SHIFT);
 		dma_sync_single_for_device(dev, key_params.key_iova,
 					   key_size * 2, DMA_TO_DEVICE);
@@ -3854,6 +3858,8 @@ static int dpaa2_eth_setup_dpni(struct fsl_mc_device *ls_dev)
 		goto close;
 	}
 
+	dpaa2_eth_detect_features(priv);
+
 	ls_dev->mc_io = priv->mc_io;
 	ls_dev->mc_handle = priv->mc_token;
 
@@ -3863,8 +3869,14 @@ static int dpaa2_eth_setup_dpni(struct fsl_mc_device *ls_dev)
 		goto close;
 	}
 
-	err = dpni_get_attributes(priv->mc_io, 0, priv->mc_token,
-				  &priv->dpni_attrs);
+	if (priv->features & DPAA2_ETH_FEATURE_GET_NUM_TX_TCS) {
+		err = dpni_get_attributes(priv->mc_io, 0, priv->mc_token,
+					  &priv->dpni_attrs, DPNI_CMDID_GET_ATTR_V2);
+	} else {
+		err = dpni_get_attributes(priv->mc_io, 0, priv->mc_token,
+					  &priv->dpni_attrs, DPNI_CMDID_GET_ATTR);
+		priv->dpni_attrs.num_tx_tcs = priv->dpni_attrs.num_rx_tcs;
+	}
 	if (err) {
 		dev_err(dev, "dpni_get_attributes() failed (err=%d)\n", err);
 		goto close;
@@ -3975,7 +3987,7 @@ static int dpaa2_eth_setup_tx_flow(struct dpaa2_eth_priv *priv,
 	struct dpni_queue_id qid;
 	int i, err;
 
-	for (i = 0; i < dpaa2_eth_tc_count(priv); i++) {
+	for (i = 0; i < dpaa2_eth_tx_tc_count(priv); i++) {
 		err = dpni_get_queue(priv->mc_io, 0, priv->mc_token,
 				     DPNI_QUEUE_TX, i, fq->flowid,
 				     &queue, &qid);
@@ -4127,7 +4139,7 @@ static int dpaa2_eth_config_legacy_hash_key(struct dpaa2_eth_priv *priv, dma_add
 	dist_cfg.dist_size = dpaa2_eth_queue_count(priv);
 	dist_cfg.dist_mode = DPNI_DIST_MODE_HASH;
 
-	for (i = 0; i < dpaa2_eth_tc_count(priv); i++) {
+	for (i = 0; i < dpaa2_eth_rx_tc_count(priv); i++) {
 		err = dpni_set_rx_tc_dist(priv->mc_io, 0, priv->mc_token,
 					  i, &dist_cfg);
 		if (err) {
@@ -4152,7 +4164,7 @@ static int dpaa2_eth_config_hash_key(struct dpaa2_eth_priv *priv, dma_addr_t key
 	dist_cfg.dist_size = dpaa2_eth_queue_count(priv);
 	dist_cfg.enable = 1;
 
-	for (i = 0; i < dpaa2_eth_tc_count(priv); i++) {
+	for (i = 0; i < dpaa2_eth_rx_tc_count(priv); i++) {
 		dist_cfg.tc = i;
 		err = dpni_set_rx_hash_dist(priv->mc_io, 0, priv->mc_token,
 					    &dist_cfg);
@@ -4184,7 +4196,7 @@ static int dpaa2_eth_config_cls_key(struct dpaa2_eth_priv *priv, dma_addr_t key)
 	dist_cfg.dist_size = dpaa2_eth_queue_count(priv);
 	dist_cfg.enable = 1;
 
-	for (i = 0; i < dpaa2_eth_tc_count(priv); i++) {
+	for (i = 0; i < dpaa2_eth_rx_tc_count(priv); i++) {
 		dist_cfg.tc = i;
 		err = dpni_set_rx_fs_dist(priv->mc_io, 0, priv->mc_token,
 					  &dist_cfg);
@@ -4614,8 +4626,6 @@ static int dpaa2_eth_netdev_init(struct net_device *net_dev)
 		dev_err(dev, "netif_set_real_num_rx_queues() failed\n");
 		return err;
 	}
-
-	dpaa2_eth_detect_features(priv);
 
 	/* Capabilities listing */
 	supported |= IFF_LIVE_ADDR_CHANGE;

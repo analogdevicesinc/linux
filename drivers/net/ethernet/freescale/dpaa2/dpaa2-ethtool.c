@@ -641,7 +641,7 @@ static int dpaa2_eth_do_cls_rule(struct net_device *net_dev,
 		else
 			fs_act.flow_id = fs->ring_cookie;
 	}
-	for (i = 0; i < dpaa2_eth_tc_count(priv); i++) {
+	for (i = 0; i < dpaa2_eth_rx_tc_count(priv); i++) {
 		if (add)
 			err = dpni_add_fs_entry(priv->mc_io, 0, priv->mc_token,
 						i, fs->location, &rule_cfg,
