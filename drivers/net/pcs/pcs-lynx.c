@@ -500,6 +500,49 @@ void lynx_pcs_set_supported_interfaces(struct phylink_pcs *pcs,
 }
 EXPORT_SYMBOL(lynx_pcs_set_supported_interfaces);
 
+static int lynx_pcs_validate_addr(struct mdio_device *mdiodev,
+				  struct phy *serdes)
+{
+	union phy_status_opts opts1 = {
+		.pcvt_count = {
+			.type = PHY_PCVT_ETHERNET_PCS,
+		},
+	};
+	int i, err;
+
+	err = phy_get_status(serdes, PHY_STATUS_PCVT_COUNT, &opts1);
+	if (err)
+		return err;
+
+	for (i = 0; i < opts1.pcvt_count.num_pcvt; i++) {
+		union phy_status_opts opts2 = {
+			.pcvt = {
+				.type = PHY_PCVT_ETHERNET_PCS,
+				.index = i,
+			},
+		};
+
+		err = phy_get_status(serdes, PHY_STATUS_PCVT_ADDR, &opts2);
+		if (err)
+			return err;
+
+		/* For a multi-port protocol converter, the match is
+		 * approximate, since for full confidence, we'd have to
+		 * know which port within the PCS is the consumer (MAC)
+		 * mapped to.
+		 */
+		if (opts2.pcvt.addr.mdio == mdiodev->addr)
+			return 0;
+	}
+
+	dev_err(&mdiodev->dev,
+		"Own MDIO address not found among %zu protocol converters reported by SerDes lane %s\n",
+		opts1.pcvt_count.num_pcvt,
+		dev_name(&serdes->dev));
+
+	return -ENODEV;
+}
+
 static struct phylink_pcs *lynx_pcs_create(struct mdio_device *mdio,
 					   struct phy **phys, size_t num_phys,
 					   enum mtip_model model)
@@ -525,9 +568,14 @@ static struct phylink_pcs *lynx_pcs_create(struct mdio_device *mdio,
 
 			while (i--)
 				phy_exit(lynx->serdes[i]);
-			kfree(lynx);
-			return ERR_PTR(err);
+			goto out_free;
 		}
+	}
+
+	if (num_phys) {
+		err = lynx_pcs_validate_addr(mdio, lynx->serdes[PRIMARY_LANE]);
+		if (err && err != -EOPNOTSUPP)
+			goto out_phy_exit;
 	}
 
 	mdio_device_get(mdio);
@@ -539,6 +587,13 @@ static struct phylink_pcs *lynx_pcs_create(struct mdio_device *mdio,
 	lynx->model = model;
 
 	return lynx_to_phylink_pcs(lynx);
+
+out_phy_exit:
+	for (i = 0; i < num_phys; i++)
+		phy_exit(lynx->serdes[i]);
+out_free:
+	kfree(lynx);
+	return ERR_PTR(err);
 }
 
 struct phylink_pcs *lynx_pcs_create_mdiodev(struct mii_bus *bus, int addr,
