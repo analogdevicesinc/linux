@@ -425,6 +425,8 @@ static void wave6_update_color_info(struct vpu_instance *inst,
 	inst->xfer_func = to_v4l2_xfer_func(color->transfer_characteristics);
 	inst->ycbcr_enc = to_v4l2_ycbcr_encoding(color->matrix_coefficients);
 
+	return;
+
 set_default_all:
 	inst->quantization = V4L2_QUANTIZATION_DEFAULT;
 set_default_color:
