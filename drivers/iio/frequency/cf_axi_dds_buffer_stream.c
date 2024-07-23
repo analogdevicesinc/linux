@@ -29,15 +29,19 @@ static int dds_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	bool enable_fifo = false;
 	bool oneshot = true;
 
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 	if (block->block.bytes_used) {
+#else
+	if (block->bytes_used) {
+#endif
 		if (cf_axi_dds_dma_fifo_en(st)) {
 			enable_fifo = true;
-
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 			if (block->block.flags & IIO_BUFFER_BLOCK_FLAG_CYCLIC) {
 				block->block.flags &= ~IIO_BUFFER_BLOCK_FLAG_CYCLIC;
 				oneshot = false;
 			}
-
+#endif
 			cf_axi_dds_pl_ddr_fifo_ctrl_oneshot(st, oneshot);
 		}
 

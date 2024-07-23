@@ -1599,12 +1599,15 @@ static int iio_buffer_chrdev_release(struct inode *inode, struct file *filep)
 
 	kfree(ib);
 	clear_bit(IIO_BUSY_BIT_POS, &buffer->flags);
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 	iio_buffer_free_blocks(buffer);
+#endif
 	iio_device_put(indio_dev);
 
 	return 0;
 }
 
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 static int iio_buffer_query_block(struct iio_buffer *buffer,
 				  struct iio_buffer_block __user *user_block)
 {
@@ -1809,17 +1812,22 @@ int iio_buffer_mmap_wrapper(struct file *filep, struct vm_area_struct *vma)
 
 	return iio_buffer_mmap(filep, vma);
 }
+#endif
 
 static const struct file_operations iio_buffer_chrdev_fileops = {
 	.owner = THIS_MODULE,
 	.llseek = noop_llseek,
 	.read = iio_buffer_read,
 	.write = iio_buffer_write,
-	.poll = iio_buffer_poll,
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 	.unlocked_ioctl = iio_buffer_ioctl_wrapper,
+#endif
+	.poll = iio_buffer_poll,
 	.compat_ioctl = compat_ptr_ioctl,
 	.release = iio_buffer_chrdev_release,
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 	.mmap = iio_buffer_mmap,
+#endif
 };
 
 static long iio_device_buffer_getfd(struct iio_dev *indio_dev, unsigned long arg)
@@ -1894,17 +1902,23 @@ error_iio_dev_put:
 static long iio_device_buffer_ioctl(struct iio_dev *indio_dev, struct file *filp,
 				    unsigned int cmd, unsigned long arg)
 {
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 	struct iio_dev_buffer_pair *ib = filp->private_data;
 	struct iio_buffer *rb = ib->buffer;
+#endif
 
 	switch (cmd) {
 	case IIO_BUFFER_GET_FD_IOCTL:
 		return iio_device_buffer_getfd(indio_dev, arg);
 	default:
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 		/* check if buffer0 was opened through new API */
 		if (test_bit(IIO_BUSY_BIT_POS, &rb->flags))
 			return -EBUSY;
 		return iio_buffer_ioctl(filp, cmd, arg);
+#else
+		return IIO_IOCTL_UNHANDLED;
+#endif
 	}
 }
 

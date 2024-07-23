@@ -1782,8 +1782,10 @@ static int iio_chrdev_release(struct inode *inode, struct file *filp)
 
 	kfree(ib);
 	clear_bit(IIO_BUSY_BIT_POS, &iio_dev_opaque->flags);
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 	if (indio_dev->buffer)
 		iio_buffer_free_blocks(indio_dev->buffer);
+#endif
 	iio_device_put(indio_dev);
 
 	return 0;
@@ -1855,7 +1857,9 @@ static const struct file_operations iio_buffer_fileops = {
 	.compat_ioctl = compat_ptr_ioctl,
 	.open = iio_chrdev_open,
 	.release = iio_chrdev_release,
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 	.mmap = iio_buffer_mmap_addr,
+#endif
 };
 
 static const struct file_operations iio_event_fileops = {
