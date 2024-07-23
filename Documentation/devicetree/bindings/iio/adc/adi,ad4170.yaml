@@ -16,6 +16,50 @@ description: |
 
 $ref: /schemas/spi/spi-peripheral-props.yaml#
 
+properties:
+  compatible:
+    enum:
+      - adi,ad4170
+
+  avss-supply:
+    description:
+      Referece voltage supply for AVDD. AVSS can be set below 0V to provide a
+      bipolar power supply to AD4170-4. Must be −2.625V at minimum, 0V maximum.
+      AVSS to DGND
+
+  avdd-supply:
+    description:
+      A supply of 4.75V to 5.25V relative to AVSS that powers the chip (AVDD).
+
+  iovdd-supply:
+    description: 1.7V to 5.25V reference supply to the serial interface (IOVDD).
+
+  refin1-supply:
+    description: A ....V supply that powers the chip (VDD).
+
+  refin2-supply:
+    description: A ....V supply that powers the chip (VDD).
+
+  adi,gpio0-power-down-switch:
+    description: Describes whether GPIO is used as a switch to power down jk
+
+  adi,gpio1-power-down-switch:
+    description: A ....V supply that powers the chip (VDD).
+
+  adi,vbias-pins:
+    description: A ....V supply that powers the chip (VDD).
+
+required:
+  - compatible
+  - reg
+  - avdd-supply
+  - vdd-supply
+  - vio-supply
+  - ref-supply
+
+
+
+unevaluatedProperties: false
 
 examples:
   - |
@@ -25,7 +69,31 @@ examples:
         #size-cells = <0>;
 
         adc@0 {
+            compatible = "adi,ad4170";
+            reg = <0>;
+            avdd-supply = <&avdd>;
+            #address-cells = <1>;
+            #size-cells = <0>;
+            dmas = <&axi_dmac_0 0>;
+            dma-names = "rx";
+            spi-max-frequency = <20000000>;
+            interrupt-parent = <&gpio_in>;
+            interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
+            interrupt-names = "adc_rdy";
+            adi,dig-aux1-function = "rdy";
 
+            channel@0 {
+                reg = <0>;
+                adi,reference-select = <2>;
+                /* AIN8, DGND  */
+                diff-channels = <8 24>;
+            };
+            channel@1 {
+                reg = <1>;
+                adi,reference-select = <2>;
+                /* TEMP_SENSOR+, TEMP_SENSOR- */
+                diff-channels = <17 17>;
+            };
         };
     };
 ...
