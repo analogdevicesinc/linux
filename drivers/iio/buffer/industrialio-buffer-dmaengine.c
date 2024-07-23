@@ -407,32 +407,6 @@ struct iio_buffer *iio_dmaengine_buffer_setup_ext(struct device *dev,
 }
 EXPORT_SYMBOL_NS_GPL(iio_dmaengine_buffer_setup_ext, IIO_DMAENGINE_BUFFER);
 
-/*
- * ADI tree extension of iio_dmaengine_buffer_setup_ext() to allow passing
- * a custom ops structure to the buffer.
- */
-static struct iio_buffer
-*iio_dmaengine_buffer_setup_with_ops(struct device *dev,
-				     struct iio_dev *indio_dev,
-				     const char *channel,
-				     enum iio_buffer_direction dir,
-				     const struct iio_dma_buffer_ops *ops,
-				     void *data)
-{
-	struct dma_chan *chan;
-	struct iio_buffer *buffer;
-
-	chan = dma_request_chan(dev, channel);
-	if (IS_ERR(chan))
-		return ERR_CAST(chan);
-
-	buffer = __iio_dmaengine_buffer_setup_ext(indio_dev, chan, dir, ops, data);
-	if (IS_ERR(buffer))
-		dma_release_channel(chan);
-
-	return buffer;
-}
-
 static void devm_iio_dmaengine_buffer_teardown(void *buffer)
 {
 	iio_dmaengine_buffer_teardown(buffer);
@@ -465,29 +439,6 @@ int devm_iio_dmaengine_buffer_setup_ext(struct device *dev,
 					buffer);
 }
 EXPORT_SYMBOL_NS_GPL(devm_iio_dmaengine_buffer_setup_ext, IIO_DMAENGINE_BUFFER);
-
-/*
- * ADI tree extension of devm_iio_dmaengine_buffer_setup_ext() to allow passing
- * a custom ops structure to the buffer.
- */
-int devm_iio_dmaengine_buffer_setup_with_ops(struct device *dev,
-					     struct iio_dev *indio_dev,
-					     const char *channel,
-					     enum iio_buffer_direction dir,
-					     const struct iio_dma_buffer_ops *ops,
-					     void *data)
-{
-	struct iio_buffer *buffer;
-
-	buffer = iio_dmaengine_buffer_setup_with_ops(dev, indio_dev, channel,
-						     dir, ops, data);
-	if (IS_ERR(buffer))
-		return PTR_ERR(buffer);
-
-	return devm_add_action_or_reset(dev, devm_iio_dmaengine_buffer_teardown,
-					buffer);
-}
-EXPORT_SYMBOL_NS_GPL(devm_iio_dmaengine_buffer_setup_with_ops, IIO_DMAENGINE_BUFFER);
 
 static void devm_iio_dmaengine_buffer_free(void *buffer)
 {
@@ -526,6 +477,55 @@ int devm_iio_dmaengine_buffer_setup_with_handle(struct device *dev,
 }
 EXPORT_SYMBOL_NS_GPL(devm_iio_dmaengine_buffer_setup_with_handle,
 		     IIO_DMAENGINE_BUFFER);
+
+/*
+ * ADI tree extension of iio_dmaengine_buffer_setup_ext() to allow passing
+ * a custom ops structure to the buffer.
+ */
+static struct iio_buffer
+*iio_dmaengine_buffer_setup_with_ops(struct device *dev,
+				     struct iio_dev *indio_dev,
+				     const char *channel,
+				     enum iio_buffer_direction dir,
+				     const struct iio_dma_buffer_ops *ops,
+				     void *data)
+{
+	struct dma_chan *chan;
+	struct iio_buffer *buffer;
+
+	chan = dma_request_chan(dev, channel);
+	if (IS_ERR(chan))
+		return ERR_CAST(chan);
+
+	buffer = __iio_dmaengine_buffer_setup_ext(indio_dev, chan, dir, ops, data);
+	if (IS_ERR(buffer))
+		dma_release_channel(chan);
+
+	return buffer;
+}
+
+/*
+ * ADI tree extension of devm_iio_dmaengine_buffer_setup_ext() to allow passing
+ * a custom ops structure to the buffer.
+ */
+int devm_iio_dmaengine_buffer_setup_with_ops(struct device *dev,
+					     struct iio_dev *indio_dev,
+					     const char *channel,
+					     enum iio_buffer_direction dir,
+					     const struct iio_dma_buffer_ops *ops,
+					     void *data)
+{
+	struct iio_buffer *buffer;
+
+	buffer = iio_dmaengine_buffer_setup_with_ops(dev, indio_dev, channel,
+						     dir, ops, data);
+	if (IS_ERR(buffer))
+		return PTR_ERR(buffer);
+
+	return devm_add_action_or_reset(dev, devm_iio_dmaengine_buffer_teardown,
+					buffer);
+}
+EXPORT_SYMBOL_NS_GPL(devm_iio_dmaengine_buffer_setup_with_ops, IIO_DMAENGINE_BUFFER);
 
 MODULE_AUTHOR("Lars-Peter Clausen <lars@metafoo.de>");
 MODULE_DESCRIPTION("DMA buffer for the IIO framework");
