@@ -29,12 +29,20 @@ static int dds_buffer_submit_block(struct iio_dma_buffer_queue *queue,
 	bool enable_fifo = false;
 	bool oneshot = true;
 
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 	if (block->block.bytes_used) {
+#else
+	if (block->bytes_used) {
+#endif
 		if (cf_axi_dds_dma_fifo_en(st)) {
 			enable_fifo = true;
-
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 			if (block->block.flags & IIO_BUFFER_BLOCK_FLAG_CYCLIC) {
 				block->block.flags &= ~IIO_BUFFER_BLOCK_FLAG_CYCLIC;
+#else
+			if (block->cyclic) {
+				block->cyclic = false;
+#endif
 				oneshot = false;
 			}
 
@@ -91,20 +99,9 @@ static const struct iio_dma_buffer_ops dds_buffer_dma_buffer_ops = {
 
 int cf_axi_dds_configure_buffer(struct iio_dev *indio_dev)
 {
-	struct iio_buffer *buffer;
-
-	buffer = devm_iio_dmaengine_buffer_alloc(indio_dev->dev.parent, "tx",
-						 &dds_buffer_dma_buffer_ops, indio_dev);
-	if (IS_ERR(buffer))
-		return PTR_ERR(buffer);
-
-	buffer->direction = IIO_BUFFER_DIRECTION_OUT;
-	iio_device_attach_buffer(indio_dev, buffer);
-
-	indio_dev->modes |= INDIO_BUFFER_HARDWARE;
-	indio_dev->setup_ops = &dds_buffer_setup_ops;
-
-	return 0;
+	return devm_iio_dmaengine_buffer_setup_with_ops(indio_dev->dev.parent,
+						   indio_dev, "tx",
+						   IIO_BUFFER_DIRECTION_OUT,
+						   &dds_buffer_dma_buffer_ops, indio_dev);
 }
 EXPORT_SYMBOL_GPL(cf_axi_dds_configure_buffer);
-

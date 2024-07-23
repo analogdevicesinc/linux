@@ -30,6 +30,11 @@ config IIO_BUFFER_DMAENGINE
 
 	  Should be selected by drivers that want to use this functionality.
 
+config IIO_DMA_BUF_MMAP_LEGACY
+	bool "Enables I/O DMA buffer legacy MMAP support"
+	depends on IIO_BUFFER_DMAENGINE
+	default y
+
 config IIO_BUFFER_HW_CONSUMER
 	tristate "Industrial I/O HW buffering"
 	help
