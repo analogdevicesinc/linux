@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Overlay for the 5 channel LTC2672 DAC
+ *
+ * Copyright 2024 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+/ {
+	compatible = "brcm,bcm2835", "brcm,bcm2711";
+};
+
+&{/} {
+	vddio: fixedregulator@1 {
+		compatible = "regulator-fixed";
+		regulator-name = "vddio-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	vsupply: fixedregulator@2 {
+		compatible = "regulator-fixed";
+		regulator-name = "vsupply-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};
+
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	adxl380: adxl380@0 {
+		compatible = "adi,adxl380";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+		vddio-supply = <&vddio>;
+		vsupply-supply = <&vsupply>;
+		interrupt-parent = <&gpio>;
+		interrupts = <25 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "INT0";
+	};
+};
