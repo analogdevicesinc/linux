@@ -12,6 +12,7 @@
 struct iio_dev;
 struct iio_buffer;
 
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 #define IIO_BLOCK_ALLOC_IOCTL	_IOWR('i', 0xa0, struct iio_buffer_block_alloc_req)
 #define IIO_BLOCK_FREE_IOCTL	_IO('i', 0xa1)
 #define IIO_BLOCK_QUERY_IOCTL	_IOWR('i', 0xa2, struct iio_buffer_block)
@@ -39,6 +40,7 @@ struct iio_buffer_block {
 	} data;
 	__u64 timestamp;
 };
+#endif
 
 /**
  * INDIO_BUFFER_FLAG_FIXED_WATERMARK - Watermark level of the buffer can not be
@@ -96,6 +98,7 @@ struct iio_buffer_access_funcs {
 
 	void (*release)(struct iio_buffer *buffer);
 
+#ifdef CONFIG_IIO_DMA_BUF_MMAP_LEGACY
 	int (*alloc_blocks)(struct iio_buffer *buffer,
 		struct iio_buffer_block_alloc_req *req);
 	int (*free_blocks)(struct iio_buffer *buffer);
@@ -107,7 +110,7 @@ struct iio_buffer_access_funcs {
 		struct iio_buffer_block *block);
 	int (*mmap)(struct iio_buffer *buffer,
 		struct vm_area_struct *vma);
-
+#endif
 	unsigned int modes;
 	unsigned int flags;
 };
