@@ -423,17 +423,19 @@ struct dpaa2_eth_ch_stats {
 #define DPAA2_ETH_CH_STATS	7
 
 /* Maximum number of queues associated with a DPNI */
-#define DPAA2_ETH_MAX_TCS		8
+#define DPAA2_ETH_MAX_RX_TCS		8
+#define DPAA2_ETH_MAX_TX_TCS		16
 #define DPAA2_ETH_MAX_RX_QUEUES_PER_TC	16
 #define DPAA2_ETH_MAX_RX_QUEUES		\
-	(DPAA2_ETH_MAX_RX_QUEUES_PER_TC * DPAA2_ETH_MAX_TCS)
+	(DPAA2_ETH_MAX_RX_QUEUES_PER_TC * DPAA2_ETH_MAX_RX_TCS)
 #define DPAA2_ETH_MAX_TX_QUEUES		16
 #define DPAA2_ETH_MAX_RX_ERR_QUEUES	1
 #define DPAA2_ETH_MAX_QUEUES		(DPAA2_ETH_MAX_RX_QUEUES + \
 					DPAA2_ETH_MAX_TX_QUEUES + \
 					DPAA2_ETH_MAX_RX_ERR_QUEUES)
-#define DPAA2_ETH_MAX_NETDEV_QUEUES	\
-	(DPAA2_ETH_MAX_TX_QUEUES * DPAA2_ETH_MAX_TCS)
+#define DPAA2_ETH_MAX_NETDEV_TX_QUEUES	\
+	(DPAA2_ETH_MAX_TX_QUEUES * DPAA2_ETH_MAX_TX_TCS)
+#define DPAA2_ETH_MAX_NETDEV_RX_QUEUES	DPAA2_ETH_MAX_RX_QUEUES
 
 #define DPAA2_ETH_MAX_DPCONS		16
 
@@ -460,7 +462,7 @@ typedef void dpaa2_eth_consume_cb_t(struct dpaa2_eth_priv *priv,
 struct dpaa2_eth_fq {
 	u32 fqid;
 	u32 tx_qdbin;
-	u32 tx_fqid[DPAA2_ETH_MAX_TCS];
+	u32 tx_fqid[DPAA2_ETH_MAX_TX_TCS];
 	u16 flowid;
 	u8 tc;
 	int target_cpu;

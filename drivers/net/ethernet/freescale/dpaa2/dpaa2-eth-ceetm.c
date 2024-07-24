@@ -138,7 +138,7 @@ static inline int dpaa2_eth_normalize_tx_prio(struct dpaa2_ceetm_qdisc *priv)
 				continue;
 
 			qpri = cl->prio.qpri;
-			sched_cfg = &priv->prio.tx_prio_cfg.tc_sched[qpri];
+			sched_cfg = &priv->prio.tx_prio_cfg.tc_sched[qpri >= 8 ? qpri % 8 : qpri];
 
 			sched_cfg->delta_bandwidth =
 				DPAA2_CEETM_MIN_WEIGHT +
@@ -195,10 +195,28 @@ static inline int dpaa2_eth_update_tx_prio(struct dpaa2_eth_priv *priv,
 		break;
 	}
 
-	/* We can zero out the structure in the tx_prio_conf array */
+	/* When num_tx_tcs > 8, the first 8 TCs can only be used as strict
+	 * priority which is configured by default. No need to call
+	 * dpni_set_tx_priorities() for the first 8 TCs.
+	 */
+	if (dpaa2_eth_tx_tc_count(priv) > 8 && qpri < 8)
+		return 0;
+
+	/* Revert the scheduling configuration for a particular TCs to its
+	 * default state. For the case in which the qpri < 8 this means a
+	 * memset of the entire dpni_tx_schedule_cfg structure (STRICT
+	 * priority, delta_bandwidth = 0), while for the qpri >=8 it means only
+	 * a reset of the delta_bandwidth since the scheduling mode cannot be
+	 * changed
+	 */
 	if (type == DPAA2_ETH_DEL_CQ) {
-		sched_cfg = &sch->prio.tx_prio_cfg.tc_sched[qpri];
-		memset(sched_cfg, 0, sizeof(*sched_cfg));
+		if (qpri < 8) {
+			sched_cfg = &sch->prio.tx_prio_cfg.tc_sched[qpri];
+			memset(sched_cfg, 0, sizeof(*sched_cfg));
+		} else {
+			sched_cfg = &sch->prio.tx_prio_cfg.tc_sched[qpri % 8];
+			sched_cfg->delta_bandwidth = 0;
+		}
 	}
 
 	/* Normalize priorities */
@@ -437,6 +455,28 @@ static int dpaa2_ceetm_change_prio(struct Qdisc *sch,
 	return 0;
 }
 
+static void dpaa2_ceetm_setup_default_prio(struct Qdisc *sch,
+					   struct dpaa2_ceetm_qdisc *priv,
+					   struct dpaa2_ceetm_tc_qopt *qopt)
+{
+	struct net_device *dev = qdisc_dev(sch);
+	struct dpaa2_eth_priv *priv_eth = netdev_priv(dev);
+	int i;
+
+	if (dpaa2_eth_tx_tc_count(priv_eth) <= 8)
+		return;
+
+	for (i = 0; i < DPNI_MAX_TC; i++) {
+		if (qopt->separate_groups)
+			if (i < 4)
+				priv->prio.tx_prio_cfg.tc_sched[i].mode = DPNI_TX_SCHED_WEIGHTED_A;
+			else
+				priv->prio.tx_prio_cfg.tc_sched[i].mode = DPNI_TX_SCHED_WEIGHTED_B;
+		else
+			priv->prio.tx_prio_cfg.tc_sched[i].mode = DPNI_TX_SCHED_WEIGHTED_A;
+	}
+}
+
 /* Edit a ceetm qdisc */
 static int dpaa2_ceetm_change(struct Qdisc *sch, struct nlattr *opt,
 			      struct netlink_ext_ack *extack)
@@ -582,6 +622,8 @@ static int dpaa2_ceetm_init_prio(struct Qdisc *sch,
 
 	priv->prio.parent = parent_cl;
 	parent_cl->child = sch;
+
+	dpaa2_ceetm_setup_default_prio(sch, priv, qopt);
 
 	return dpaa2_ceetm_change_prio(sch, priv, qopt);
 }
@@ -732,12 +774,35 @@ static int dpaa2_ceetm_cls_change_prio(struct dpaa2_ceetm_class *cl,
 				       struct net_device *dev)
 {
 	struct dpaa2_ceetm_qdisc *sch = qdisc_priv(cl->parent);
-	struct dpni_tx_schedule_cfg *sched_cfg;
 	struct dpaa2_eth_priv *priv = netdev_priv(dev);
+	struct dpni_tx_schedule_cfg *sched_cfg = NULL;
 	int err;
 
 	pr_debug(KBUILD_BASENAME " : %s : class %X mode %d weight %d\n",
 		 __func__, cl->common.classid, copt->mode, copt->weight);
+
+	/* Impose the MC API restrictions for when num_tx_tcs > 8. */
+	if (dpaa2_eth_tx_tc_count(priv) > 8) {
+		if (cl->prio.qpri < 8) {
+			if (copt->mode != STRICT_PRIORITY) {
+				pr_err(KBUILD_BASENAME " : %s : When num_tx_tcs > 8, first 8 TCs can only be in strict priority\n",
+				       __func__);
+				return -EINVAL;
+			}
+		} else if (cl->prio.qpri < 12) {
+			if (copt->mode != WEIGHTED_A) {
+				pr_err(KBUILD_BASENAME " : %s : When num_tx_tcs > 8, TCs [8-12) can only be WEIGHTED_A\n",
+				       __func__);
+				return -EINVAL;
+			}
+		} else if (cl->prio.qpri < 16) {
+			if (copt->mode != WEIGHTED_B) {
+				pr_err(KBUILD_BASENAME " : %s : When num_tx_tcs > 8, TCs [12-16) can only be WEIGHTED_B\n",
+				       __func__);
+				return -EINVAL;
+			}
+		}
+	}
 
 	if (!cl->prio.cstats) {
 		cl->prio.cstats = alloc_percpu(struct dpaa2_ceetm_class_stats);
@@ -751,18 +816,28 @@ static int dpaa2_ceetm_cls_change_prio(struct dpaa2_ceetm_class *cl,
 	cl->prio.mode = copt->mode;
 	cl->prio.weight = copt->weight;
 
-	sched_cfg = &sch->prio.tx_prio_cfg.tc_sched[cl->prio.qpri];
+	/* When the DPNI has 8 or more Tx TCs, the driver should not update the
+	 * per TC scheduling structures passed to the MC firmware for any qpri
+	 * < 8. This is because the first 8 TCs are always in strict priority
+	 * order which cannot be changed.
+	 */
+	if (dpaa2_eth_tx_tc_count(priv) > 8 && cl->prio.qpri >= 8)
+		sched_cfg = &sch->prio.tx_prio_cfg.tc_sched[cl->prio.qpri % 8];
+	else if (dpaa2_eth_tx_tc_count(priv) <= 8)
+		sched_cfg = &sch->prio.tx_prio_cfg.tc_sched[cl->prio.qpri];
 
-	switch (copt->mode) {
-	case STRICT_PRIORITY:
-		sched_cfg->mode = DPNI_TX_SCHED_STRICT_PRIORITY;
-		break;
-	case WEIGHTED_A:
-		sched_cfg->mode = DPNI_TX_SCHED_WEIGHTED_A;
-		break;
-	case WEIGHTED_B:
-		sched_cfg->mode = DPNI_TX_SCHED_WEIGHTED_B;
-		break;
+	if (sched_cfg) {
+		switch (copt->mode) {
+		case STRICT_PRIORITY:
+			sched_cfg->mode = DPNI_TX_SCHED_STRICT_PRIORITY;
+			break;
+		case WEIGHTED_A:
+			sched_cfg->mode = DPNI_TX_SCHED_WEIGHTED_A;
+			break;
+		case WEIGHTED_B:
+			sched_cfg->mode = DPNI_TX_SCHED_WEIGHTED_B;
+			break;
+		}
 	}
 
 	err = dpaa2_eth_update_tx_prio(priv, cl, DPAA2_ETH_ADD_CQ);
@@ -828,6 +903,13 @@ static int dpaa2_ceetm_cls_add(struct Qdisc *sch, u32 classid,
 		break;
 	case CEETM_PRIO:
 		cl->prio.qpri = classid - sch->handle - 1;
+		if (cl->prio.qpri >= dpaa2_eth_tx_tc_count(priv_eth)) {
+			pr_err("%s: Cannot support classid %x:%x with qpri %d, maximum qpri is %d\n",
+			       __func__, TC_H_MAJ(classid), TC_H_MIN(classid), cl->prio.qpri,
+			       dpaa2_eth_tx_tc_count(priv_eth) - 1);
+			err = -EINVAL;
+			goto out_free;
+		}
 		err = dpaa2_ceetm_cls_change_prio(cl, copt, dev);
 		break;
 	}

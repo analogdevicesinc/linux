@@ -4870,7 +4870,9 @@ static int dpaa2_eth_probe(struct fsl_mc_device *dpni_dev)
 	dev = &dpni_dev->dev;
 
 	/* Net device */
-	net_dev = alloc_etherdev_mq(sizeof(*priv), DPAA2_ETH_MAX_NETDEV_QUEUES);
+	net_dev = alloc_etherdev_mqs(sizeof(*priv),
+				     DPAA2_ETH_MAX_NETDEV_TX_QUEUES,
+				     DPAA2_ETH_MAX_NETDEV_RX_QUEUES);
 	if (!net_dev) {
 		dev_err(dev, "alloc_etherdev_mq() failed\n");
 		return -ENOMEM;

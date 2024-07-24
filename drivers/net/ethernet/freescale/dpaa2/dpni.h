@@ -681,7 +681,18 @@ struct dpni_tx_schedule_cfg {
 /**
  * struct dpni_tx_priorities_cfg - Structure representing transmission
  *					priorities for DPNI TCs
- * @tc_sched:	An array of traffic-classes
+ * @tc_sched: An array of traffic-classes which should be used in the
+ * following way:
+ *   - If max_tx_tcs <= 8: the tc_sched[n] struct will host the configuration
+ *   requested for TC#n
+ *   - If max_tx_tcs > 8: the tc_sched[n] struct will host the configuration
+ *   requeted for TC#(8 + n). In this case, the first 8 TCs are configured by
+ *   MC in strict priority order and cannot be changed.
+ *   The only accepted configuration in this case is:
+ *    - TCs [8-12) will be part of WEIGHTED_A group
+ *    - TCs [12-16) will be part of WEIGHTED_B group
+ *   Any other configuration will get rejected by the MC firmware. The
+ *   delta_bandwidth for each TC can be used as usual.
  * @prio_group_A: Priority of group A
  * @prio_group_B: Priority of group B
  * @separate_groups: Treat A and B groups as separate
