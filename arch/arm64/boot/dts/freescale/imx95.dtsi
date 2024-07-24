@@ -473,7 +473,12 @@
 						<&A55_3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
 						<&A55_4 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
 						<&A55_5 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&mali  THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
 						<&vpuctrl THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+				};
+				map1 {
+					trip = <&ana_crit0>;
+					cooling-device = <&mali THERMAL_NO_LIMIT 1>;
 				};
 			};
 		};
