@@ -78,9 +78,7 @@ struct ad4170_state {
 	struct gpio_desc *sync_gpio;
 	struct completion completion;
 	struct ad4170_config cfg;
-	struct iio_chan_spec chan;
 	struct iio_trigger *trig;
-	unsigned int num_enabled_channels;
 	u32 scale_tbl[10][2];
 	u32 data[AD4170_NUM_CHANNELS];
 	struct gpio_chip gpiochip;
@@ -887,7 +885,6 @@ static int ad4170_update_scan_mode(struct iio_dev *indio_dev,
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
 	unsigned int channel;
-	unsigned int num_enabled_channels = 0;
 	int ret;
 
 	mutex_lock(&st->lock);
@@ -896,11 +893,7 @@ static int ad4170_update_scan_mode(struct iio_dev *indio_dev,
 		ret = ad4170_set_channel_enable(st, channel, true);
 		if (ret)
 			goto out;
-
-		num_enabled_channels++;
 	}
-
-	st->num_enabled_channels = num_enabled_channels;
 out:
 	mutex_unlock(&st->lock);
 
