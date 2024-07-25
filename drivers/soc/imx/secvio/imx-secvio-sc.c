@@ -456,7 +456,7 @@ exit:
 	return ret;
 }
 
-const static struct file_operations imx_secvio_sc_fops = {
+static const struct file_operations imx_secvio_sc_fops = {
 	.owner = THIS_MODULE,
 	.open = imx_secvio_sc_open,
 	.unlocked_ioctl = imx_secvio_sc_ioctl,
