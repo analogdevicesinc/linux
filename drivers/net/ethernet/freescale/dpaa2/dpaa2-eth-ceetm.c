@@ -46,6 +46,9 @@ static const struct nla_policy dpaa2_ceetm_policy[DPAA2_CEETM_TCA_MAX] = {
 
 struct Qdisc_ops dpaa2_ceetm_qdisc_ops;
 
+static int dpaa2_ceetm_cls_delete(struct Qdisc *sch, unsigned long arg,
+				  struct netlink_ext_ack *extack);
+
 static inline int dpaa2_eth_set_ch_shaping(struct dpaa2_eth_priv *priv,
 					   struct dpni_tx_shaping_cfg *scfg,
 					   struct dpni_tx_shaping_cfg *ecfg,
@@ -855,6 +858,7 @@ static int dpaa2_ceetm_cls_add(struct Qdisc *sch, u32 classid,
 	struct net_device *dev = qdisc_dev(sch);
 	struct dpaa2_eth_priv *priv_eth = netdev_priv(dev);
 	struct dpaa2_ceetm_class *cl;
+	bool class_linked = false;
 	int err;
 
 	if (copt->type == CEETM_ROOT &&
@@ -889,6 +893,7 @@ static int dpaa2_ceetm_cls_add(struct Qdisc *sch, u32 classid,
 
 	/* Add class handle in Qdisc */
 	dpaa2_ceetm_link_class(sch, &priv->clhash, &cl->common);
+	class_linked = true;
 
 	cl->shaped = copt->shaped;
 	cl->type = copt->type;
@@ -935,6 +940,9 @@ static int dpaa2_ceetm_cls_add(struct Qdisc *sch, u32 classid,
 	return 0;
 
 out_free:
+	if (class_linked)
+		dpaa2_ceetm_cls_delete(sch, (unsigned long)cl, extack);
+
 	kfree(cl);
 	return err;
 }
