@@ -77,6 +77,8 @@
 #define AD4630_CLK_MODE_MSK		GENMASK(5, 4)
 #define AD4630_DATA_RATE_MODE_MSK	BIT(3)
 #define AD4630_OUT_DATA_MODE_MSK	GENMASK(2, 0)
+/* AVG */
+#define AD4630_AVG_AVG_VAL		GENMASK(4, 0)
 /* OFFSET */
 #define AD4630_REG_CHAN_OFFSET(ch)	(AD4630_REG_OFFSET_X0_2 + 3 * (ch))
 /* HARDWARE_GAIN */
@@ -395,7 +397,7 @@ static int __ad4630_set_sampling_freq(const struct ad4630_state *st, unsigned in
 		if (ret)
 			return ret;
 
-		fetch_state.period *= 1 << avg;
+		fetch_state.period <<= FIELD_GET(AD4630_AVG_AVG_VAL, avg);
 	}
 
 	/*
