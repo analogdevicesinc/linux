@@ -400,7 +400,15 @@ static int __ad4630_set_sampling_freq(const struct ad4630_state *st, unsigned in
 		if (ret)
 			return ret;
 
-		fetch_state.period *= 1 << avg;
+		/*
+		 * AD4630_REG_AVG is an 8 bit wide register with bits 5 and 6
+		 * RAZ and bit 7 self clearing. Still mask the value to be sure
+		 * not to trigger undefined behaviour (which happens with
+		 * avg >= 64).
+		 */
+		avg &= 0x1f;
+
+		fetch_state.period <<= avg;
 	}
 
 	/*
