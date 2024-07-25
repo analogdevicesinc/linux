@@ -774,22 +774,20 @@ static int ad4134_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
+	indio_dev->name = spi->dev.of_node->name;
+	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->info = &ad4134_info;
+
 	ret = devm_iio_dmaengine_buffer_setup(dev, indio_dev, "rx",
 					      IIO_BUFFER_DIRECTION_IN);
 	if (ret) {
 		indio_dev->channels = 0;
 		indio_dev->num_channels = 0;
 		indio_dev->available_scan_masks = 0;
-		indio_dev->name = spi->dev.of_node->name;
-		indio_dev->modes = 0;
-		indio_dev->setup_ops = 0;
 		return devm_iio_device_register(dev, indio_dev);
 	}
 
-	indio_dev->name = spi->dev.of_node->name;
-	indio_dev->modes = INDIO_DIRECT_MODE | INDIO_BUFFER_HARDWARE;
 	indio_dev->setup_ops = &ad4134_buffer_ops;
-	indio_dev->info = &ad4134_info;
 
 	st->spi_engine_fwnode = fwnode_find_reference(fwnode, "adi,spi-engine", 0);
 	if (IS_ERR(st->spi_engine_fwnode))
