@@ -236,7 +236,7 @@ static ssize_t neutron_read(struct file *file, char __user *buf,
 	struct neutron_log_buffer *data = &ndev->logger;
 	size_t bytes = 0;
 	char c_data;
-	int head, tail;
+	int head, tail, next_head;
 
 	pm_runtime_resume_and_get(ndev->dev);
 
@@ -259,6 +259,11 @@ static ssize_t neutron_read(struct file *file, char __user *buf,
 		++data->last_to_console;
 	}
 
+	if (bytes != 0) {
+		next_head = (head + bytes) % NEUTRON_LOG_SIZE;
+		writel(next_head, ndev->reg_base + HEAD);
+	}
+
 	pm_runtime_mark_last_busy(ndev->dev);
 	pm_runtime_put_autosuspend(ndev->dev);
 
@@ -279,6 +284,22 @@ static long neutron_ioctl(struct file *file,
 	pm_runtime_resume_and_get(ndev->dev);
 
 	switch (cmd) {
+	case NEUTRON_IOCTL_LOG_GET: {
+		struct neutron_uapi_log_get uapi;
+
+		if (copy_from_user(&uapi, udata, sizeof(uapi)))
+			break;
+
+		dev_dbg(ndev->dev,
+			"Ioctl: try to read size=%u from log buffer\n",
+			uapi.size);
+
+		ret = neutron_read(file, (char *)uapi.buf, uapi.size, NULL);
+		if (copy_to_user(udata, &uapi, sizeof(uapi)))
+			break;
+
+		break;
+	}
 	case NEUTRON_IOCTL_BUFFER_CREATE: {
 		struct neutron_uapi_buffer_create uapi;
 

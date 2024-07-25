@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ WITH Linux-syscall-note */
 /*
- * Copyright 2023 NXP
+ * Copyright 2023-2024 NXP
  *
  */
 
@@ -40,6 +40,8 @@ namespace Neutron {
 						   struct neutron_uapi_inference_args)
 #define NEUTRON_IOCTL_INFERENCE_STATE	NEUTRON_IOW(0x0a, \
 						   struct neutron_uapi_result_status)
+#define NEUTRON_IOCTL_LOG_GET	NEUTRON_IOW(0x0b, \
+						   struct neutron_uapi_log_get)
 
 /****************************************************************************
  * Types
@@ -58,13 +60,13 @@ enum neutron_uapi_status {
 };
 
 /**
- * struct neutron_uapi_reg_config - Configure register
- * @offset:       Offset of the register
- * @value:        Value of the register.
+ * struct neutron_uapi_log_get - Try to read size bytes of the log
+ * @size:  Length of the log
+ * @buf:   Buffer addr for the log
  */
-struct neutron_uapi_reg_config {
-	__u32 offset;
-	__u32 value;
+struct neutron_uapi_log_get {
+	__u64 buf;
+	__u32 size;
 };
 
 /**
@@ -117,7 +119,6 @@ struct neutron_uapi_inference_args {
 	__u32 dram_base;
 	__u32 reserve[2];
 };
-
 
 #ifdef __cplusplus
 } /* namespace Neutron */
