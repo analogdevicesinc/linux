@@ -723,6 +723,54 @@ static const struct v4l2_file_operations mxc_isi_m2m_fops = {
 };
 
 /* -----------------------------------------------------------------------------
+ * Suspend & resume
+ */
+
+void mxc_isi_m2m_suspend(struct mxc_isi_pipe *pipe)
+{
+	struct mxc_isi_m2m *m2m = &pipe->isi->m2m;
+	struct mxc_isi_m2m_ctx *ctx = m2m->last_ctx;
+
+	/*
+	 * Check pipe for ISI memory to memory since only
+	 * channel 0 support this feature.
+	 */
+	if (m2m->pipe != pipe || m2m->usage_count == 0)
+		return;
+
+	v4l2_m2m_suspend(m2m->m2m_dev);
+
+	if (ctx->chained)
+		mxc_isi_channel_unchain(pipe);
+
+	mxc_isi_channel_disable(pipe);
+	mxc_isi_channel_put(pipe);
+}
+
+int mxc_isi_m2m_resume(struct mxc_isi_pipe *pipe)
+{
+	struct mxc_isi_m2m *m2m = &pipe->isi->m2m;
+	struct mxc_isi_m2m_ctx *ctx = m2m->last_ctx;
+
+	/*
+	 * Check pipe for ISI memory to memory since only
+	 * channel 0 support this feature.
+	 */
+	if (m2m->pipe != pipe || m2m->usage_count == 0)
+		return 0;
+
+	mxc_isi_channel_get(pipe);
+
+	if (ctx->chained)
+		mxc_isi_channel_chain(pipe, false);
+
+	m2m->last_ctx = NULL;
+	v4l2_m2m_resume(m2m->m2m_dev);
+
+	return 0;
+}
+
+/* -----------------------------------------------------------------------------
  * Registration
  */
 

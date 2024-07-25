@@ -355,6 +355,7 @@ static int mxc_isi_pm_suspend(struct device *dev)
 		struct mxc_isi_pipe *pipe = &isi->pipes[i];
 
 		mxc_isi_video_suspend(pipe);
+		mxc_isi_m2m_suspend(pipe);
 	}
 
 	return pm_runtime_force_suspend(dev);
@@ -382,6 +383,13 @@ static int mxc_isi_pm_resume(struct device *dev)
 			 * Record the last error as it's as meaningful as any,
 			 * and continue resuming the other pipelines.
 			 */
+			err = ret;
+		}
+
+		ret = mxc_isi_m2m_resume(pipe);
+		if (ret) {
+			dev_err(dev, "Failed to resume ISI%u (%d) for m2m\n", i,
+				ret);
 			err = ret;
 		}
 	}
