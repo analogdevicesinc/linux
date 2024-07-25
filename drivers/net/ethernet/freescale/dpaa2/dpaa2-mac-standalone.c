@@ -366,7 +366,7 @@ static int dpaa2_mac_probe(struct fsl_mc_device *mc_dev)
 	if (dpaa2_mac_is_type_phy(priv)) {
 		err = dpaa2_mac_connect(priv);
 		if (err) {
-			dev_err(dev, "Error connecting to the MAC endpoint\n");
+			dev_err_probe(dev, err, "Error connecting to the MAC endpoint\n");
 			goto teardown_irqs;
 		}
 	}
