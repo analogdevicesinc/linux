@@ -2,15 +2,10 @@
 /*
  * Copyright 2024 NXP
  */
-/dts-v1/;
-/plugin/;
 
-#include <dt-bindings/clock/fsl,imx95-clock.h>
-#include <dt-bindings/gpio/gpio.h>
-#include <dt-bindings/pwm/pwm.h>
-#include "imx95-pinfunc.h"
+#include "imx95-19x19-verdin.dts"
 
-&{/} {
+/ {
 	lvds0_panel {
 		compatible = "logictechno,lt170410-2whc";
 		power-supply = <&dummy_reg>;
