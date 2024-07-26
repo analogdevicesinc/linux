@@ -13,6 +13,7 @@
 #include <media/mipi-csi2.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
+#include <media/v4l2-fwnode.h>
 
 #define OX05B1S_SENS_PAD_SOURCE	0
 #define OX05B1S_SENS_PADS_NUM	1
@@ -480,6 +481,8 @@ static int ox05b1s_init_controls(struct ox05b1s *sensor)
 	const struct v4l2_ctrl_ops *ops = &ox05b1s_ctrl_ops;
 	struct ox05b1s_ctrls *ctrls = &sensor->ctrls;
 	struct v4l2_ctrl_handler *hdl = &ctrls->handler;
+	struct device *dev = &sensor->i2c_client->dev;
+	struct v4l2_fwnode_device_properties props;
 	int ret;
 
 	v4l2_ctrl_handler_init(hdl, 7);
@@ -525,10 +528,19 @@ static int ox05b1s_init_controls(struct ox05b1s *sensor)
 	ctrls->link_freq->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 	ctrls->pixel_rate->flags |= V4L2_CTRL_FLAG_READ_ONLY;
 
+	ret = v4l2_fwnode_device_parse(dev, &props);
+	if (ret)
+		goto free_ctrls;
+
+	ret = v4l2_ctrl_new_fwnode_properties(hdl, ops, &props);
+	if (ret)
+		goto free_ctrls;
+
 	sensor->subdev.ctrl_handler = hdl;
 	return 0;
 
 free_ctrls:
+	dev_err(dev, "Failed to init controls\n");
 	v4l2_ctrl_handler_free(hdl);
 	return ret;
 }
