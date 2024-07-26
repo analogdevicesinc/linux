@@ -45,6 +45,9 @@ properties:
     description: Reference to the GPIO connected to the XSHUTDOWN pin. Active low.
     maxItems: 1
 
+  orientation: true
+  rotation: true
+
   port:
     $ref: /schemas/graph.yaml#/$defs/port-base
     description: |
@@ -90,6 +93,8 @@ examples:
             compatible = "ovti,ox05b1s";
             reg = <0x36>;
             reset-gpios = <&i2c3_gpio_expander_20 2 GPIO_ACTIVE_LOW>;
+            orientation = <2>;
+            rotation = <0>;
             status = "okay";
 
             port {
