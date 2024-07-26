@@ -15,9 +15,25 @@
 
 #define EMAC_1G_CG_ENABLE                       BIT(0)
 #define EMAC_1G_YODA_MASK                       GENMASK(19, 3)
-#define EMAC_1G_YODA_OSC_CLK_DIV_MASK           GENMASK(19, 13)
-#define EMAC_1G_YODA_CLK_DIV_MASK               GENMASK(12, 6)
-#define EMAC_1G_YODA_PHY_INTF_SEL_I_MASK        GENMASK(5, 3)
+
+#define ETH1G_DEVCLK_MASK                       GENMASK(13, 6)
+#define ETH1G_DEVCLK_DIV_FUND                   BIT(6)
+#define ETH1G_DEVCLK_DIV_KILLCLK                0       /* BIT(7) */
+#define ETH1G_DEVCLK_DIV_MCS_RESET              0       /* BIT(8) */
+#define ETH1G_DEVCLK_DIV_RATIO                  0       /* Bits 9-10 */
+#define ETH1G_DEVCLK_DIV_RB                     BIT(11)
+#define ETH1G_DEVCLK_BUFFER_ENABLE              BIT(12)
+#define ETH1G_DEVCLK_BUFFER_TERM_ENABLE         BIT(13)
+#define ETH1G_DEVCLK_DEFAULT_VAL                ETH1G_DEVCLK_DIV_FUND |         \
+	ETH1G_DEVCLK_DIV_KILLCLK |      \
+	ETH1G_DEVCLK_DIV_MCS_RESET |    \
+	ETH1G_DEVCLK_DIV_RATIO |        \
+	ETH1G_DEVCLK_DIV_RB |           \
+	ETH1G_DEVCLK_BUFFER_ENABLE
+
+#define ETH1G_REFCLK_MASK                       BIT(17)
+#define ETH1G_REFCLK_REFPATH_PD                 0 /* BIT(17) */
+#define ETH1G_REFCLK_DEFAULT_VAL                ETH1G_REFCLK_REFPATH_PD
 
 #define BASE_CLK_SPEED_50MHZ                    50
 #define BASE_CLK_SPEED_125MHZ                   125
@@ -128,6 +144,23 @@ void adrv906x_dwmac_link_update_info(struct net_device *ndev)
 		    phydev->duplex ? "full" : "half");
 }
 
+static void adrv906x_clk_buffer_enable(void __iomem *clk_ctrl_base, bool term_en)
+{
+	u32 val;
+
+	val = ioread32(clk_ctrl_base);
+	val &= ~ETH1G_DEVCLK_MASK;
+	val |= ETH1G_DEVCLK_DEFAULT_VAL;
+	if (term_en)
+		val |= ETH1G_DEVCLK_BUFFER_TERM_ENABLE;
+	iowrite32(val, clk_ctrl_base);
+
+	val = ioread32(clk_ctrl_base + 0x04);
+	val &= ~ETH1G_REFCLK_MASK;
+	val |= ETH1G_REFCLK_DEFAULT_VAL;
+	iowrite32(val, clk_ctrl_base + 0x04);
+}
+
 static int dwmac_adrv906x_probe(struct platform_device *pdev)
 {
 	struct plat_stmmacenet_data *plat_dat;
@@ -136,7 +169,9 @@ static int dwmac_adrv906x_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *clk_div_np;
 	struct net_device *ndev;
+	void __iomem *clk_ctrl_base;
 	u32 addr, len;
+	bool term_en;
 	int ret;
 
 	sam_priv = devm_kzalloc(dev, sizeof(*sam_priv), GFP_KERNEL);
@@ -173,11 +208,20 @@ static int dwmac_adrv906x_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	of_property_read_u32(clk_div_np, "base-clk-speed", &sam_priv->base_clk_speed);
+	dev_info(&pdev->dev, "base clock speed %d", sam_priv->base_clk_speed);
+
 	of_property_read_u32_index(clk_div_np, "reg", 0, &addr);
 	of_property_read_u32_index(clk_div_np, "reg", 1, &len);
 	sam_priv->clk_div_base = devm_ioremap(&pdev->dev, addr, len);
-	of_property_read_u32(clk_div_np, "base-clk-speed", &sam_priv->base_clk_speed);
-	dev_info(&pdev->dev, "base clock speed %d", sam_priv->base_clk_speed);
+
+	of_property_read_u32_index(clk_div_np, "ctrl_reg", 0, &addr);
+	of_property_read_u32_index(clk_div_np, "ctrl_reg", 1, &len);
+	clk_ctrl_base = devm_ioremap(&pdev->dev, addr, len);
+
+	term_en = of_property_read_bool(clk_div_np, "adi,term_en");
+
+	adrv906x_clk_buffer_enable(clk_ctrl_base, term_en);
 
 	plat_dat->bsp_priv = sam_priv;
 	plat_dat->fix_mac_speed = adrv906x_dwmac_mac_speed;

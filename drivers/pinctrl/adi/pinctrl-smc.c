@@ -104,18 +104,23 @@ int adi_pinconf_set_smc(struct pinctrl_dev *pctldev, unsigned int pin_id,
 {
 	struct arm_smccc_res res;
 	struct adi_pinctrl *ipctl;
-	const struct adi_pin_reg *pin_reg;
 	int drive_strength;
 	int schmitt_trig_enable;
 	int pin_pull_enablement;
 	int pin_pull_up_enable;
 	int config_bitfield;
+	unsigned long config;
+	unsigned int pin_num;
+	unsigned int mux_sel;
 
 	if (!pctldev)
 		return -EINVAL;
 
 	ipctl = pinctrl_dev_get_drvdata(pctldev);
-	pin_reg = &ipctl->pin_regs[pin_id];
+
+	pin_num = ((struct adi_pin_mio *)(configs))->input_pin;
+	mux_sel = ((struct adi_pin_mio *)(configs))->mux_sel;
+	config = ((struct adi_pin_mio *)(configs))->config;
 
 	/*
 	 * Setup  smc call to perform the pinconf_set operation
@@ -136,18 +141,18 @@ int adi_pinconf_set_smc(struct pinctrl_dev *pctldev, unsigned int pin_id,
 	 *               a3 = ADI unused
 	 */
 
-	drive_strength = pin_reg->conf_reg & ADI_CONFIG_DRIVE_STRENGTH_MASK;
-	schmitt_trig_enable = (pin_reg->conf_reg & ADI_CONFIG_SCHMITT_TRIG_ENABLE_MASK) ? 1 : 0;
-	pin_pull_enablement = (pin_reg->conf_reg & ADI_CONFIG_PULL_UP_DOWN_ENABLEMENT_MASK) ? 1 : 0;
-	pin_pull_up_enable = (pin_reg->conf_reg & ADI_CONFIG_PULLUP_ENABLE_MASK) ? 1 : 0;
+	drive_strength = config & ADI_CONFIG_DRIVE_STRENGTH_MASK;
+	schmitt_trig_enable = (config & ADI_CONFIG_SCHMITT_TRIG_ENABLE_MASK) ? 1 : 0;
+	pin_pull_enablement = (config & ADI_CONFIG_PULL_UP_DOWN_ENABLEMENT_MASK) ? 1 : 0;
+	pin_pull_up_enable = (config & ADI_CONFIG_PULLUP_ENABLE_MASK) ? 1 : 0;
 	config_bitfield = (schmitt_trig_enable << ADI_BITFIELD_ST_BIT_POSITION) |
 			  (pin_pull_enablement << ADI_BITFIELD_PULL_ENABLEMENT_BIT_POSITION) |
 			  (pin_pull_up_enable << ADI_BITFIELD_PULLUP_ENABLE_BIT_POSITION);
 
 	arm_smccc_smc(ADI_PINCTRL_SIP_SERVICE_FUNCTION_ID,
 		      ADI_PINCTRL_SET,
-		      pin_reg->pin_num,
-		      pin_reg->mux_reg,
+		      pin_num,
+		      mux_sel,
 		      drive_strength,
 		      config_bitfield,
 		      ipctl->phys_addr, 0, &res);

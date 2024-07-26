@@ -28,94 +28,104 @@ MODULE_LICENSE("GPL");
 
 static struct adrv906x_tod *adrv906x_tod;
 
-#define TOD_FRAC_NANO_NUM               0x10000
-#define TOD_MAX_DELAY_COUNT             10
+#define TOD_FRAC_NANO_NUM                               0x10000
+#define TOD_MAX_DELAY_COUNT                             10
+#define TOD_PPSX_PULSE_WIDTH                            (10 * NSEC_PER_MSEC)
 
-#define ADRV906X_TOD_CFG_INCR                        (0x10U)
-#define   ADRV906X_TOD_CFG_INCR_FRAC_NS_PER_CLK_MASK GENMASK(15, 0)
-#define   ADRV906X_TOD_CFG_INCR_NS_PER_CLK_MASK      GENMASK(19, 16)
-#define   ADRV906X_TOD_CFG_INCR_CNT_CTRL_MASK        GENMASK(26, 20)
-#define   ADRV906X_TOD_CFG_INCR_CFG_TOD_CNT_EN_MASK  BIT(28)
+#define ADRV906X_TOD_CFG_INCR                           (0x10U)
+#define   ADRV906X_TOD_CFG_INCR_FRAC_NS_PER_CLK_MASK    GENMASK(15, 0)
+#define   ADRV906X_TOD_CFG_INCR_NS_PER_CLK_MASK         GENMASK(19, 16)
+#define   ADRV906X_TOD_CFG_INCR_CNT_CTRL_MASK           GENMASK(26, 20)
+#define   ADRV906X_TOD_CFG_INCR_CFG_TOD_CNT_EN_MASK     BIT(28)
 
-#define ADRV906X_TOD_IRQ_EVENT                       (0x14u)
+#define ADRV906X_TOD_IRQ_EVENT                          (0x14U)
 
-#define ADRV906X_TOD_IRQ_MASK                        (0x18u)
-#define   ADRV906X_TOD_IRQ_MASK_MASK                 GENMASK(3, 0)
+#define ADRV906X_TOD_IRQ_MASK                           (0x18U)
+#define   ADRV906X_TOD_IRQ_MASK_INTERNAL_0              BIT(0)
+#define   ADRV906X_TOD_IRQ_MASK_INTERNAL_1              BIT(1)
+#define   ADRV906X_TOD_IRQ_MASK_INTERNAL_GNSS           BIT(2)
+#define   ADRV906X_TOD_IRQ_MASK_EXTERNAL_PPS            BIT(3)
+#define   ADRV906X_TOD_IRQ_MASK_MASK                    GENMASK(3, 0)
 
-#define ADRV906X_TOD_IRQ_STATUS                      (0x1Cu)
+#define ADRV906X_TOD_IRQ_STATUS                         (0x1CU)
 
-#define ADRV906X_TOD_CFG_TOD_OP                      (0x20u)
-#define   ADRV906X_TOD_CFG_TOD_OP_WR_TOD_MASK        GENMASK(2, 0)
-#define    ADRV906X_TOD_CFG_TOD_OP_WR_TOD_SHIFT      (0)
-#define   ADRV906X_TOD_CFG_TOD_OP_RD_TOD_MASK        GENMASK(6, 4)
-#define    ADRV906X_TOD_CFG_TOD_OP_RD_TOD_SHIFT      (4)
-#define   ADRV906X_TOD_CFG_TOD_OP_WR_TOD_PPS_MASK    GENMASK(10, 8)
-#define    ADRV906X_TOD_CFG_TOD_OP_WR_TOD_PPS_SHIFT  (8)
-#define   ADRV906X_TOD_CFG_TOD_OP_RD_TOD_PPS_MASK    GENMASK(14, 12)
-#define    ADRV906X_TOD_CFG_TOD_OP_RD_TOD_PPS_SHIFT  (12)
+#define ADRV906X_TOD_CFG_TOD_OP                         (0x20U)
+#define   ADRV906X_TOD_CFG_TOD_OP_WR_TOD_MASK           GENMASK(2, 0)
+#define    ADRV906X_TOD_CFG_TOD_OP_WR_TOD_SHIFT         (0)
+#define   ADRV906X_TOD_CFG_TOD_OP_RD_TOD_MASK           GENMASK(6, 4)
+#define    ADRV906X_TOD_CFG_TOD_OP_RD_TOD_SHIFT         (4)
+#define   ADRV906X_TOD_CFG_TOD_OP_WR_TOD_PPS_MASK       GENMASK(10, 8)
+#define    ADRV906X_TOD_CFG_TOD_OP_WR_TOD_PPS_SHIFT     (8)
+#define   ADRV906X_TOD_CFG_TOD_OP_RD_TOD_PPS_MASK       GENMASK(14, 12)
+#define    ADRV906X_TOD_CFG_TOD_OP_RD_TOD_PPS_SHIFT     (12)
 
-#define ADRV906X_TOD_CFG_TV_NSEC                     (0x24u)
-#define   ADRV906X_TOD_CFG_TV_NSEC_FRAC_NSEC_MASK    GENMASK(15, 0)
-#define   ADRV906X_TOD_CFG_TV_NSEC_NSEC_MASK         GENMASK(31, 16)
+#define ADRV906X_TOD_CFG_TV_NSEC                        (0x24U)
+#define   ADRV906X_TOD_CFG_TV_NSEC_FRAC_NSEC_MASK       GENMASK(15, 0)
+#define   ADRV906X_TOD_CFG_TV_NSEC_NSEC_MASK            GENMASK(31, 16)
 
-#define ADRV906X_TOD_CFG_TV_SEC_0                    (0x28u)
-#define   ADRV906X_TOD_CFG_TV_SEC_0_NSEC_MASK        GENMASK(15, 0)
-#define   ADRV906X_TOD_CFG_TV_SEC_0_SEC_MASK         GENMASK(31, 16)
+#define ADRV906X_TOD_CFG_TV_SEC_0                       (0x28U)
+#define   ADRV906X_TOD_CFG_TV_SEC_0_NSEC_MASK           GENMASK(15, 0)
+#define   ADRV906X_TOD_CFG_TV_SEC_0_SEC_MASK            GENMASK(31, 16)
 
-#define ADRV906X_TOD_CFG_TV_SEC_1                    (0x2Cu)
-#define ADRV906X_TOD_CFG_OP_GC_VAL_0                 (0x30u)
-#define ADRV906X_TOD_CFG_OP_GC_VAL_1                 (0x34u)
+#define ADRV906X_TOD_CFG_TV_SEC_1                       (0x2CU)
+#define ADRV906X_TOD_CFG_OP_GC_VAL_0                    (0x30U)
+#define ADRV906X_TOD_CFG_OP_GC_VAL_1                    (0x34U)
 
-#define ADRV906X_TOD_CFG_OP_GC                       (0x38u)
-#define   ADRV906X_TOD_CFG_OP_GC_RD_GC_MASK            BIT(0)
+#define ADRV906X_TOD_CFG_OP_GC                          (0x38U)
+#define   ADRV906X_TOD_CFG_OP_GC_RD_GC_MASK             BIT(0)
 
-#define ADRV906X_TOD_CFG_IO_SOURCE                   (0x3CU)
-#define   ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_MASK       GENMASK(3, 0)
+#define ADRV906X_TOD_CFG_IO_SOURCE                      (0x3CU)
+#define   ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_MASK          GENMASK(3, 0)
 #define   ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_SEL(x)                     \
 	FIELD_PREP(ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_MASK, x)
-#define   ADRV906X_TOD_CFG_IO_TOD_OUT_SRC_MASK       GENMASK(11, 8)
+#define   ADRV906X_TOD_CFG_IO_TOD_OUT_SRC_MASK          GENMASK(11, 8)
 #define   ADRV906X_TOD_CFG_IO_TOD_OUT_SRC_SEL(x)                     \
 	FIELD_PREP(ADRV906X_TOD_CFG_IO_TOD_OUT_SRC_MASK, x)
-#define   ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK     BIT(16)
+#define   ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK        BIT(16)
 
-#define ADRV906X_TOD_CFG_IO_CTRL                     (0x40U)
-#define   ADRV906X_TOD_CFG_IO_CTRL_PPS_OUT_EN_MASK   BIT(0)
-#define   ADRV906X_TOD_CFG_IO_CTRL_TOD_OUT_EN_MASK   BIT(4)
-#define   ADRV906X_TOD_CFG_IO_CTRL_TOD_STAT_SEL_MASK GENMASK(30, 28)
+#define ADRV906X_TOD_CFG_IO_CTRL                        (0x40U)
+#define   ADRV906X_TOD_CFG_IO_CTRL_PPS_OUT_EN_MASK      BIT(0)
+#define   ADRV906X_TOD_CFG_IO_CTRL_TOD_OUT_EN_MASK      BIT(4)
+#define   ADRV906X_TOD_CFG_IO_CTRL_TOD_STAT_SEL_MASK    GENMASK(30, 28)
 #define   ADRV906X_TOD_CFG_IO_CTRL_TOD_STAT_SEL(x)                   \
 	FIELD_PREP(ADRV906X_TOD_CFG_IO_CTRL_TOD_STAT_SEL_MASK, x)
 
-#define ADRV906X_TOD_CFG_PPSX_START                  (0x44u)
-#define ADRV906X_TOD_CFG_PPSX_STOP                   (0x48u)
+#define ADRV906X_TOD_CFG_PPSX_START                     (0x44U)
+#define ADRV906X_TOD_CFG_PPSX_STOP                      (0x48U)
 
-#define ADRV906X_TOD_CFG_TSU_TOD                     (0x50U)
-#define   ADRV906X_TOD_CFG_TSU_TOD_MASK              GENMASK(2, 0)
+#define ADRV906X_TOD_CFG_TEST_OUT_SRC                   (0x4CU)
+#define   ADRV906X_TOD_CFG_TEST_OUT_SRC_PPSX_SRC_MASK   GENMASK(31, 28)
+#define   ADRV906X_TOD_CFG_TEST_OUT_SRC_PPSX_SRC(x)                  \
+	FIELD_PREP(ADRV906X_TOD_CFG_TEST_OUT_SRC_PPSX_SRC_MASK, x)
 
-#define ADRV906X_TOD_STAT_GC_0                       (0x70u)
-#define ADRV906X_TOD_STAT_GC_1                       (0x74u)
+#define ADRV906X_TOD_CFG_TSU_TOD                        (0x50U)
+#define   ADRV906X_TOD_CFG_TSU_TOD_MASK                 GENMASK(1, 0)
 
-#define ADRV906X_TOD_STAT_TV_NSEC                    (0x78u)
-#define   ADRV906X_TOD_STAT_TV_FRAC_NSEC_MASK        GENMASK(15, 0)
-#define   ADRV906X_TOD_STAT_TV_NSEC_NSEC_MASK        GENMASK(31, 16)
+#define ADRV906X_TOD_STAT_GC_0                          (0x70U)
+#define ADRV906X_TOD_STAT_GC_1                          (0x74U)
 
-#define ADRV906X_TOD_STAT_TV_SEC_0                   (0x7Cu)
-#define   ADRV906X_TOD_STAT_TV_SEC_0_NSEC_MASK       GENMASK(15, 0)
-#define   ADRV906X_TOD_STAT_TV_SEC_0_SEC_MASK        GENMASK(31, 16)
+#define ADRV906X_TOD_STAT_TV_NSEC                       (0x78U)
+#define   ADRV906X_TOD_STAT_TV_FRAC_NSEC_MASK           GENMASK(15, 0)
+#define   ADRV906X_TOD_STAT_TV_NSEC_NSEC_MASK           GENMASK(31, 16)
 
-#define ADRV906X_TOD_STAT_TV_SEC_1                   (0x80u)
+#define ADRV906X_TOD_STAT_TV_SEC_0                      (0x7CU)
+#define   ADRV906X_TOD_STAT_TV_SEC_0_NSEC_MASK          GENMASK(15, 0)
+#define   ADRV906X_TOD_STAT_TV_SEC_0_SEC_MASK           GENMASK(31, 16)
 
-#define ADRV906X_TOD_STAT_TOD_OP                     (0x90u)
-#define   ADRV906X_TOD_STAT_TOD_OP_WR_TOD_MASK       GENMASK(2, 0)
-#define    ADRV906X_TOD_STAT_TOD_OP_WR_TOD_SHIFT     (0)
-#define   ADRV906X_TOD_STAT_TOD_OP_RD_TOD_MASK       GENMASK(6, 4)
-#define    ADRV906X_TOD_STAT_TOD_OP_RD_TOD_SHIFT     (4)
-#define   ADRV906X_TOD_STAT_TOD_OP_WR_TOD_PPS_MASK   GENMASK(10, 8)
-#define    ADRV906X_TOD_STAT_TOD_OP_WR_TOD_PPS_SHIFT (8)
-#define   ADRV906X_TOD_STAT_TOD_OP_RD_TOD_PPS_MASK   GENMASK(22, 20)
-#define    ADRV906X_TOD_STAT_TOD_OP_RD_TOD_PPS_SHIFT (12)
+#define ADRV906X_TOD_STAT_TV_SEC_1                      (0x80U)
 
-#define ADRV906X_TOD_CFG_CDC_DELAY                   (0x100U)
-#define   ADRV906X_TOD_CFG_CDC_DELAY_CDC_MASK        GENMASK(4, 0)
+#define ADRV906X_TOD_STAT_TOD_OP                        (0x90U)
+#define   ADRV906X_TOD_STAT_TOD_OP_WR_TOD_MASK          GENMASK(2, 0)
+#define    ADRV906X_TOD_STAT_TOD_OP_WR_TOD_SHIFT        (0)
+#define   ADRV906X_TOD_STAT_TOD_OP_RD_TOD_MASK          GENMASK(6, 4)
+#define    ADRV906X_TOD_STAT_TOD_OP_RD_TOD_SHIFT        (4)
+#define   ADRV906X_TOD_STAT_TOD_OP_WR_TOD_PPS_MASK      GENMASK(10, 8)
+#define    ADRV906X_TOD_STAT_TOD_OP_WR_TOD_PPS_SHIFT    (8)
+#define   ADRV906X_TOD_STAT_TOD_OP_RD_TOD_PPS_MASK      GENMASK(22, 20)
+#define    ADRV906X_TOD_STAT_TOD_OP_RD_TOD_PPS_SHIFT    (12)
+
+#define ADRV906X_TOD_CFG_CDC_DELAY                      (0x100U)
+#define   ADRV906X_TOD_CFG_CDC_DELAY_CDC_MASK           GENMASK(4, 0)
 
 int adrv906x_phc_index = -1;
 EXPORT_SYMBOL(adrv906x_phc_index);
@@ -341,7 +351,7 @@ static int adrv906x_tod_hw_update_tstamp(struct adrv906x_tod_counter *counter,
 		trig_delay.rem_ns = 0;
 	} else {
 		/*
-		 * In GC mode, the trigger delay value depends on the phc_hw_tod->trig_delay_tick
+		 * In GC mode, the trigger delay value depends on the 'trig_delay_tick'
 		 * adrv906x_tod_trig_delay.ns = counter->trig_delay_tick * 1e6 / tod->gc_clk_freq_khz
 		 * adrv906x_tod_trig_delay.rem_ns = counter->trig_delay_tick * 1e6 % tod->gc_clk_freq_khz
 		 * 1e6 is used to calculate the nanosecond of the trigger tick in order that the
@@ -542,14 +552,14 @@ static int adrv906x_tod_adjust_time(struct adrv906x_tod_counter *counter, s64 de
 	return err;
 }
 
-static int adrv906x_tod_cdc_output_enable(struct adrv906x_tod_counter *counter, u8 enable)
+static int adrv906x_tod_hw_cdc_output_enable(struct adrv906x_tod_counter *counter, u8 enable)
 {
 	struct adrv906x_tod *tod = counter->parent;
 	u8 tod_idx;
 	u32 val = 0;
 	int i;
 
-	if ((counter->en) && (counter->id != HW_TOD_PPS_ISR_INTERNAL_GNSS))
+	if ((counter->en) && (counter->id != TOD_INTERNAL_GNSS))
 		tod_idx = counter->id;
 	else
 		return -ENODEV;
@@ -563,17 +573,15 @@ static int adrv906x_tod_cdc_output_enable(struct adrv906x_tod_counter *counter, 
 	return 0;
 }
 
-static int adrv906x_tod_local_output_enable(struct adrv906x_tod_counter *counter, u8 enable)
+static int adrv906x_tod_hw_extts_enable(struct adrv906x_tod_counter *counter, u8 enable)
 {
 	struct adrv906x_tod *tod = counter->parent;
-	u8 tod_idx;
+	u8 tod_idx = counter->id;
 	u32 rd_ctl;
 	u32 val;
 
-	if (counter->en) {
-		tod_idx = counter->id;
-	} else {
-		dev_err(tod->dev, "Enable ToD CDC domain output failed! ToD haven't been enabled!");
+	if (!counter->en) {
+		dev_err(tod->dev, "tod %d is disabled, cannot enable output", tod_idx);
 		return -EOPNOTSUPP;
 	}
 
@@ -597,12 +605,10 @@ static int adrv906x_tod_local_output_enable(struct adrv906x_tod_counter *counter
 static int adrv906x_tod_pps_irq_enable(struct adrv906x_tod_counter *counter, u8 enable)
 {
 	struct adrv906x_tod *tod = counter->parent;
-	int tod_idx;
+	int tod_idx = counter->id;
 	int val;
 
-	if (counter->en)
-		tod_idx = counter->id;
-	else
+	if (!counter->en)
 		return -ENODEV;
 
 	val = ioread32(tod->regs + ADRV906X_TOD_IRQ_MASK);
@@ -617,33 +623,74 @@ static int adrv906x_tod_pps_irq_enable(struct adrv906x_tod_counter *counter, u8 
 	return 0;
 }
 
-static int adrv906x_tod_pps_irq_disable_all(struct adrv906x_tod *tod)
+static void adrv906x_tod_hw_pps_irq_external_enable(struct adrv906x_tod *tod)
+{
+	u32 val = 0;
+
+	val |= ~ADRV906X_TOD_IRQ_MASK_EXTERNAL_PPS;
+	iowrite32(val, tod->regs + ADRV906X_TOD_IRQ_MASK);
+}
+
+static void adrv906x_tod_hw_pps_irq_disable_all(struct adrv906x_tod *tod)
 {
 	iowrite32(ADRV906X_TOD_IRQ_MASK_MASK, tod->regs + ADRV906X_TOD_IRQ_MASK);
+}
+
+static void adrv906x_tod_hw_pps_external_enable(struct adrv906x_tod *tod)
+{
+	u32 val;
+
+	val = ioread32(tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
+	val &= ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_MASK;
+	val |= ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_SEL(BIT(TOD_EXTERNAL));
+	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
+}
+
+static int adrv906x_tod_hw_pps_source_select(struct adrv906x_tod_counter *counter)
+{
+	struct adrv906x_tod *tod = counter->parent;
+	u8 tod_idx = counter->id;
+	u32 val;
+
+	val = ioread32(tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
+
+	val &= ~ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_MASK;
+	val |= ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_SEL(BIT(tod_idx));
+
+	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
+
 	return 0;
 }
 
-static int adrv906x_tod_pps_output_enable(struct adrv906x_tod_counter *counter, u8 enable)
+static int adrv906x_tod_hw_pps_enable(struct adrv906x_tod *tod, u8 enable)
 {
-	struct adrv906x_tod *tod = counter->parent;
-	u8 tod_idx;
-	u32 rd_ctl;
 	u32 val;
 
-	tod_idx = counter->id;
+	val = ioread32(tod->regs + ADRV906X_TOD_CFG_IO_CTRL);
 
-	val = ioread32(tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
-	rd_ctl = ioread32(tod->regs + ADRV906X_TOD_CFG_IO_CTRL);
-	if (enable) {
-		val |= ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_SEL(BIT(tod_idx));
-		rd_ctl |= ADRV906X_TOD_CFG_IO_CTRL_PPS_OUT_EN_MASK;
-	} else {
-		val &= ~ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_SEL(BIT(tod_idx));
-		rd_ctl &= ~ADRV906X_TOD_CFG_IO_CTRL_PPS_OUT_EN_MASK;
-	}
+	if (enable)
+		val |= ADRV906X_TOD_CFG_IO_CTRL_PPS_OUT_EN_MASK;
+	else
+		val &= ~ADRV906X_TOD_CFG_IO_CTRL_PPS_OUT_EN_MASK;
 
-	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
-	iowrite32(rd_ctl, tod->regs + ADRV906X_TOD_CFG_IO_CTRL);
+	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_IO_CTRL);
+
+	return 0;
+}
+
+static int adrv906x_tod_pps_enable(struct adrv906x_tod_counter *counter, u8 on)
+{
+	struct adrv906x_tod *tod = counter->parent;
+
+	mutex_lock(&tod->reg_lock);
+	/* Do not change source when external pps is enabled */
+	if (!tod->external_pps)
+		adrv906x_tod_hw_pps_source_select(counter);
+	else
+		dev_info(tod->dev, "using external pps");
+
+	adrv906x_tod_hw_pps_enable(tod, on);
+	mutex_unlock(&tod->reg_lock);
 
 	return 0;
 }
@@ -660,7 +707,7 @@ static irqreturn_t adrv906x_tod_pps_isr(int irq, void *dev_id)
 	iowrite32(irq_val, tod->regs + ADRV906X_TOD_IRQ_EVENT);
 
 	for (i = 0; i < ADRV906X_HW_TOD_COUNTER_CNT; i++) {
-		if (irq_val & BIT(i + HW_TOD_PPS_ISR_INTERNAL_0)) {
+		if (irq_val & BIT(i) || irq_val == ADRV906X_TOD_IRQ_MASK_EXTERNAL_PPS) {
 			counter = &tod->counter[i];
 			if (counter->en) {
 				event.type = PTP_CLOCK_PPS;
@@ -672,16 +719,36 @@ static irqreturn_t adrv906x_tod_pps_isr(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static void adrv906x_tod_cfg_ppsx(struct adrv906x_tod_counter *counter)
+static void adrv906x_tod_hw_cfg_ppsx(struct adrv906x_tod_counter *counter,
+				     struct ptp_perout_request *rq)
 {
 	struct adrv906x_tod *tod = counter->parent;
-	u32 stop;
+	u32 stop, val;
 
-	if (counter->ppsx.en) {
-		iowrite32(counter->ppsx.delay_offset_ns, tod->regs + ADRV906X_TOD_CFG_PPSX_START);
-		stop = (counter->ppsx.delay_offset_ns + counter->ppsx.pulse_width_ns) & 0xFFFFFFFF;
+	val = ioread32(tod->regs + ADRV906X_TOD_CFG_TEST_OUT_SRC);
+	val &= ~ADRV906X_TOD_CFG_TEST_OUT_SRC_PPSX_SRC_MASK;
+
+	if (!(rq->period.sec == 0 && rq->period.nsec == 0)) {
+		iowrite32(rq->start.nsec, tod->regs + ADRV906X_TOD_CFG_PPSX_START);
+		stop = (rq->start.nsec + tod->ppsx_pulse_width_ns) & 0xFFFFFFFF;
 		iowrite32(stop, tod->regs + ADRV906X_TOD_CFG_PPSX_STOP);
+
+		val |= ADRV906X_TOD_CFG_TEST_OUT_SRC_PPSX_SRC(BIT(counter->id));
 	}
+
+	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_TEST_OUT_SRC);
+}
+
+static int adrv906x_tod_perout_enable(struct adrv906x_tod_counter *counter,
+				      struct ptp_perout_request *rq)
+{
+	struct adrv906x_tod *tod = counter->parent;
+
+	mutex_lock(&tod->reg_lock);
+	adrv906x_tod_hw_cfg_ppsx(counter, rq);
+	mutex_unlock(&tod->reg_lock);
+
+	return 0;
 }
 
 static int adrv906x_tod_cfg_cdc_delay(struct adrv906x_tod_counter *counter)
@@ -690,7 +757,8 @@ static int adrv906x_tod_cfg_cdc_delay(struct adrv906x_tod_counter *counter)
 	u32 i;
 
 	for (i = 0; i < ADRV906X_HW_TOD_CDC_DOMAIN_CNT; i++)
-		iowrite32(tod->cdc.delay_cnt[i], tod->regs + ADRV906X_TOD_CFG_CDC_DELAY + i * sizeof(u32));
+		iowrite32(tod->cdc.delay_cnt[i],
+			  tod->regs + ADRV906X_TOD_CFG_CDC_DELAY + i * sizeof(u32));
 
 	return 0;
 }
@@ -709,9 +777,6 @@ static int adrv906x_tod_module_init(struct adrv906x_tod_counter *counter)
 		val |= ADRV906X_TOD_CFG_INCR_CFG_TOD_CNT_EN_MASK;
 		iowrite32(val, tod->regs + ADRV906X_TOD_CFG_INCR);
 	}
-
-	/* Enable and configure the PPSX */
-	adrv906x_tod_cfg_ppsx(counter);
 
 	return ret;
 }
@@ -734,66 +799,82 @@ static int adrv906x_tod_dt_parse(struct adrv906x_tod_counter *counter, struct de
 
 	ret = of_property_read_u32(np, "adi,trigger-delay-tick", &val);
 	if (ret) {
-		dev_err(dev, "'adi,trigger-delay-tick' not set, using default value");
-		/* Default GC trigger delay is 1ms */
-		val = (u32)div_u64((u64)tod->gc_clk_freq_khz, 1000);
+		dev_err(dev, "'adi,trigger-delay-tick' not set, using '491520'");
+		val = (u32)div_u64((u64)tod->gc_clk_freq_khz, 491520);
 	}
 	counter->trig_delay_tick = val;
-
-	/* Optional properties */
-	ret = of_property_read_u32(np, "adi,ppsx-delay-offset-ns", &val);
-	if (ret) {
-		dev_err(dev, "'adi,ppsx-delay-offset-ns' not set, using default value");
-		/* Default GC trigger delay is 1ms */
-		val = 0;
-	}
-	counter->ppsx.delay_offset_ns = val;
-
-	ret = of_property_read_u32(np, "adi,ppsx-pulse-width-ns", &val);
-	if (ret) {
-		dev_err(dev, "'adi,ppsx-pulse-width-ns' not set, using default value");
-		val = 0;
-		counter->ppsx.en = 0;
-	} else {
-		counter->ppsx.en = 1;
-	}
-
-	counter->ppsx.pulse_width_ns = val;
 
 	return 0;
 }
 
-static int adrv906x_tod_counter_select(struct adrv906x_tod_counter *counter, u8 enable)
+static int adrv906x_tod_extts_enable(struct adrv906x_tod_counter *counter, u8 enable)
 {
 	struct adrv906x_tod *tod = counter->parent;
-	int ret = 0;
 
-	if (counter->en) {
-		if (counter->id != HW_TOD_PPS_ISR_INTERNAL_GNSS) {
-			adrv906x_tod_cdc_output_enable(counter, enable);
-			adrv906x_phc_index = ptp_clock_index(counter->ptp_clk);
-		}
-		adrv906x_tod_local_output_enable(counter, enable);
-	} else {
-		dev_err(tod->dev, "Cannot select ToD counter. Device is not enabled!");
-		ret = -ENODEV;
+	if (!counter->en)
+		return -ENODEV;
+
+	mutex_lock(&tod->reg_lock);
+	if (counter->id != TOD_INTERNAL_GNSS) {
+		adrv906x_tod_hw_cdc_output_enable(counter, enable);
+		adrv906x_phc_index = ptp_clock_index(counter->ptp_clk);
 	}
+	adrv906x_tod_hw_extts_enable(counter, enable);
+	mutex_unlock(&tod->reg_lock);
 
-	return ret;
+	return 0;
 }
 
-static int adrv906x_tod_enable(struct adrv906x_tod_counter *counter, struct ptp_clock_request *request, int enable)
+static int adrv906x_tod_enable(struct adrv906x_tod_counter *counter,
+			       struct ptp_clock_request *rq, int enable)
 {
+	struct adrv906x_tod *tod = counter->parent;
 	int ret;
 
-	if (request->type == PTP_CLK_REQ_EXTTS)
-		ret = adrv906x_tod_counter_select(counter, enable);
-	else if (request->type == PTP_CLK_REQ_PEROUT)
-		return -EOPNOTSUPP;
-	else if (request->type == PTP_CLK_REQ_PPS)
-		ret = adrv906x_tod_pps_output_enable(counter, enable);
-	else
+	switch (rq->type) {
+	case PTP_CLK_REQ_EXTTS:
+		/* Reject requests with unsupported flags */
+		if (rq->extts.flags & ~(PTP_ENABLE_FEATURE |
+					PTP_RISING_EDGE |
+					PTP_FALLING_EDGE |
+					PTP_STRICT_FLAGS))
+			return -EOPNOTSUPP;
+
+		/* Reject requests to enable time stamping on falling edges */
+		if ((rq->extts.flags & PTP_STRICT_FLAGS) &&
+		    (rq->extts.flags & PTP_ENABLE_FEATURE) &&
+		    (rq->extts.flags & PTP_FALLING_EDGE))
+			return -EOPNOTSUPP;
+
+		ret = adrv906x_tod_extts_enable(counter, enable);
+		break;
+	case PTP_CLK_REQ_PEROUT:
+		/* Reject requests with unsupported flags */
+		/* Add PTP_PEROUT_PHASE & PTP_PEROUT_DUTY_CYCLE when supported */
+		if (rq->perout.flags & PTP_PEROUT_ONE_SHOT)
+			return -EOPNOTSUPP;
+
+		/* Reject requests that are not pps */
+		if (enable && (rq->perout.period.sec != 1 ||
+			       rq->perout.period.nsec != 0))
+			return -EINVAL;
+
+		if (enable && (rq->perout.start.nsec + tod->ppsx_pulse_width_ns)
+		    >= NSEC_PER_SEC) {
+			dev_err(tod->dev, "periodic pulse crosses 1 second boundary");
+			return -EINVAL;
+		}
+
+		/* Enable ppsx for periodic output for given tod counter */
+		ret = adrv906x_tod_perout_enable(counter, &rq->perout);
+		break;
+	case PTP_CLK_REQ_PPS:
+		/* Enable internal pps output for given tod counter */
+		ret = adrv906x_tod_pps_enable(counter, enable);
+		break;
+	default:
 		ret = -EOPNOTSUPP;
+	}
 
 	return ret;
 }
@@ -802,13 +883,12 @@ static int adrv906x_tod_settime(struct adrv906x_tod_counter *counter, const stru
 {
 	struct adrv906x_tod *tod = counter->parent;
 	struct adrv906x_tod_tstamp tstamp;
-	unsigned long flags;
 	int err;
 
 	timespec_to_tstamp(&tstamp, ts);
-	spin_lock_irqsave(&(tod->reg_lock), flags);
+	mutex_lock(&tod->reg_lock);
 	err = adrv906x_tod_hw_settstamp(counter, &tstamp);
-	spin_unlock_irqrestore(&(tod->reg_lock), flags);
+	mutex_unlock(&tod->reg_lock);
 
 	return err;
 }
@@ -816,12 +896,11 @@ static int adrv906x_tod_settime(struct adrv906x_tod_counter *counter, const stru
 static int adrv906x_tod_adjtime(struct adrv906x_tod_counter *counter, s64 delta)
 {
 	struct adrv906x_tod *tod = counter->parent;
-	unsigned long flags;
 	int err;
 
-	spin_lock_irqsave(&(tod->reg_lock), flags);
+	mutex_lock(&tod->reg_lock);
 	err = adrv906x_tod_adjust_time(counter, delta);
-	spin_unlock_irqrestore(&(tod->reg_lock), flags);
+	mutex_unlock(&tod->reg_lock);
 
 	return err;
 }
@@ -832,15 +911,14 @@ static int adrv906x_tod_gettimex(struct adrv906x_tod_counter *counter,
 {
 	struct adrv906x_tod *tod = counter->parent;
 	struct adrv906x_tod_tstamp tstamp;
-	unsigned long flags;
 	int err;
 
-	spin_lock_irqsave(&(tod->reg_lock), flags);
+	mutex_lock(&tod->reg_lock);
 	ptp_read_system_prets(sts);
 	err = adrv906x_tod_get_tstamp(counter, &tstamp);
 	ptp_read_system_postts(sts);
 	tstamp_to_timespec(ts, &tstamp);
-	spin_unlock_irqrestore(&(tod->reg_lock), flags);
+	mutex_unlock(&tod->reg_lock);
 
 	return err;
 }
@@ -859,12 +937,18 @@ static int adrv906x_tod_cfg_cdc_delay_all(struct adrv906x_tod *tod)
 	return 0;
 }
 
+static void adrv906x_tod_hw_external_pps_override(struct adrv906x_tod *tod)
+{
+	adrv906x_tod_hw_pps_irq_external_enable(tod);
+	adrv906x_tod_hw_pps_external_enable(tod);
+}
+
 static int adrv906x_phc_enable(struct ptp_clock_info *ptp,
-			       struct ptp_clock_request *request, int enable)
+			       struct ptp_clock_request *rq, int enable)
 {
 	struct adrv906x_tod_counter *counter = container_of(ptp, struct adrv906x_tod_counter, caps);
 
-	return adrv906x_tod_enable(counter, request, enable);
+	return adrv906x_tod_enable(counter, rq, enable);
 }
 
 static int adrv906x_phc_settime(struct ptp_clock_info *ptp, const struct timespec64 *ts)
@@ -897,7 +981,6 @@ static int adrv906x_phc_gettimex(struct ptp_clock_info *ptp,
 
 static struct ptp_clock_info adrv906x_tod_caps = {
 	.owner		= THIS_MODULE,
-	.max_adj	= 5000,
 	.n_per_out	= 1,
 	.pps		= 1,
 	.adjfine	= NULL,
@@ -916,7 +999,7 @@ static int adrv906x_tod_add_counter(struct adrv906x_tod *tod, struct device_node
 	int ret;
 	u32 val;
 
-	/* Get the ToD index */
+	/* Get the tod index */
 	ret = of_property_read_u32(np, "reg", &val);
 	if (ret) {
 		dev_err(tod->dev, "dt: tod 'reg' property missing");
@@ -1059,9 +1142,9 @@ int adrv906x_tod_probe(struct platform_device *pdev)
 	if (!tod_np)
 		goto err_out;
 
-	spin_lock_init(&adrv906x_tod->reg_lock);
+	mutex_init(&adrv906x_tod->reg_lock);
 
-	adrv906x_tod_pps_irq_disable_all(adrv906x_tod);
+	adrv906x_tod_hw_pps_irq_disable_all(adrv906x_tod);
 
 	child = NULL;
 	for_each_child_of_node(tod_np, child) {
@@ -1074,17 +1157,15 @@ int adrv906x_tod_probe(struct platform_device *pdev)
 
 	for (i = 0; i < ADRV906X_HW_TOD_CDC_DOMAIN_CNT; i++) {
 		ret = of_property_read_u32_index(tod_np, "adi,cdc-delay-value", i, &val);
-		if (ret) {
-			dev_warn_once(dev, "please provide 4 cdc domain delay values");
+		if (ret)
 			val = 0;
-		}
 		adrv906x_tod->cdc.delay_cnt[i] = val;
 	}
 
 	adrv906x_tod_cfg_cdc_delay_all(adrv906x_tod);
 	counter = &adrv906x_tod->counter[adrv906x_tod->tod_counter_src];
 	if (counter->en) {
-		adrv906x_tod_counter_select(counter, 1);
+		adrv906x_tod_extts_enable(counter, 1);
 	} else {
 		dev_err(dev, "default tod counter enable failed");
 		goto err_out_unreg;
@@ -1101,9 +1182,26 @@ int adrv906x_tod_probe(struct platform_device *pdev)
 		goto err_out_unreg;
 	}
 
-	dev_info(dev, "ADI tod probe ok");
+	ret = of_property_read_u32(np, "adi,ppsx-pulse-width-ns", &val);
+	if (ret) {
+		dev_err(dev, "'adi,ppsx-pulse-width-ns' not set, using 10ms");
+		val = TOD_PPSX_PULSE_WIDTH;
+	}
+	if (val >= (1000 * NSEC_PER_MSEC)) {
+		dev_err(dev, "'adi,ppsx-pulse-width-ns' out of range, using 10ms");
+		val = TOD_PPSX_PULSE_WIDTH;
+	}
+	adrv906x_tod->ppsx_pulse_width_ns = val;
 
-	return ret;
+	adrv906x_tod->external_pps = of_property_read_bool(np, "adi,external-pps");
+	if (adrv906x_tod->external_pps) {
+		dev_info(dev, "using external pps");
+		adrv906x_tod_hw_external_pps_override(adrv906x_tod);
+	}
+
+	dev_info(dev, "adrv906x tod probe ok");
+
+	return 0;
 
 err_out_unreg:
 	for (i = 0; i < ADRV906X_HW_TOD_COUNTER_CNT; i++)
@@ -1111,7 +1209,7 @@ err_out_unreg:
 			ptp_clock_unregister(adrv906x_tod->counter[i].ptp_clk);
 
 err_out:
-	adrv906x_tod_pps_irq_disable_all(adrv906x_tod);
+	adrv906x_tod_hw_pps_irq_disable_all(adrv906x_tod);
 	return ret;
 }
 EXPORT_SYMBOL(adrv906x_tod_probe);
@@ -1123,15 +1221,17 @@ int adrv906x_tod_remove(struct platform_device *pdev)
 	if (!adrv906x_tod)
 		return -ENODEV;
 
-	adrv906x_tod_pps_irq_disable_all(adrv906x_tod);
+	adrv906x_tod_hw_pps_irq_disable_all(adrv906x_tod);
 
 	for (i = 0; i < ADRV906X_HW_TOD_COUNTER_CNT; i++) {
 		if (adrv906x_tod->counter[i].en)
-			adrv906x_tod_counter_select(&adrv906x_tod->counter[i],
-						    ADRV906X_HW_TOD_DISABLE);
+			adrv906x_tod_extts_enable(&adrv906x_tod->counter[i],
+						  ADRV906X_HW_TOD_DISABLE);
 		if (adrv906x_tod->counter[i].ptp_clk)
 			ptp_clock_unregister(adrv906x_tod->counter[i].ptp_clk);
 	}
+
+	mutex_destroy(&adrv906x_tod->reg_lock);
 
 	return 0;
 }

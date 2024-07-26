@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2022 - 2023, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2022 - 2024, Analog Devices Incorporated, All Rights Reserved
  */
 
 /dts-v1/;
@@ -737,6 +737,106 @@
     uio-adrv906x-interrupt-837 {
         compatible = "generic-uio";
         interrupts = <GIC_SPI RC_DYN_CNTRL2_INTRPT IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-336 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_PDS_ORX0_INTR_IRQ_3 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-759 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_0 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-760 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_1 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-761 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_2 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-762 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_3 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-763 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_4 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-764 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_5 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-765 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_6 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-766 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_7 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-800 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_0 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-801 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_1 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-802 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_2 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-803 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_3 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-804 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_4 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-805 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_5 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-806 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_6 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-807 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_7 IRQ_TYPE_LEVEL_HIGH>;
+    };
+    uio-adrv906x-interrupt-263 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI TX0_DFE_IRQ_7 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-264 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI TX0_DFE_IRQ_8 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-272 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI TX1_DFE_IRQ_7 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-273 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI TX1_DFE_IRQ_8 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-700 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI TX2_DFE_IRQ_7 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-701 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI TX2_DFE_IRQ_8 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-709 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI TX3_DFE_IRQ_7 IRQ_TYPE_EDGE_RISING>;
+    };
+    uio-adrv906x-interrupt-710 {
+        compatible = "generic-uio";
+        interrupts = <GIC_SPI TX3_DFE_IRQ_8 IRQ_TYPE_EDGE_RISING>;
     };
 
 };

@@ -18,18 +18,6 @@
 #define   TX_STATS_SNAPSHOT_BIT          BIT(8)
 #define   RX_STATS_SNAPSHOT_BIT          BIT(12)
 
-#define TSU_TIMESTAMPING_MODE            0x00000038
-#define   CORE_SPEED                     BIT(8)
-#define   CORE_SPEED_10G                 0x00000000
-#define   CORE_SPEED_25G                 0x00000100
-#define   PTP_TIMESTAMPING_MODE          GENMASK(1, 0)
-#define   PTP_TIMESTAMPING_MODE_TWO_STEP 0x00000000     /* Two-step */
-#define   PTP_TIMESTAMPING_MODE_ONE_STEP 0x00000001     /* One-step */
-#define   PTP_TIMESTAMPING_MODE_TRANSP   0x00000002     /* Transparent Clock */
-
-#define TSU_STATIC_PHY_DELAY_RX          0x0000003C
-#define TSU_STATIC_PHY_DELAY_TX          0x00000040
-
 #define MAC_TX_CTRL                      0x00000000
 #define   MAC_TX_PATH_EN                 BIT(0)
 #define   MAC_TX_MFS                     GENMASK(29, 16)
@@ -73,12 +61,6 @@
 #define CFG_MULT_ADDR1_HIGH              0x00000034
 #define CFG_MULT_ADDR2_HIGH              0x00000038
 
-struct adrv906x_tsu {
-	u32 phy_delay_tx;
-	u32 phy_delay_rx;
-	void __iomem *reg_tsu;
-};
-
 struct adrv906x_mac_general_stats {
 	u64 drop_events;
 	u64 octets;
@@ -121,15 +103,12 @@ struct adrv906x_mac {
 	void __iomem *xmac;
 	void __iomem *emac_tx;
 	void __iomem *emac_rx;
-	struct adrv906x_tsu tsu;
 	struct mutex mac_hw_stats_lock; /* prevent rw corruption of stats */
 	struct adrv906x_mac_tx_stats hw_stats_tx;
 	struct adrv906x_mac_rx_stats hw_stats_rx;
 	struct delayed_work update_stats;
 };
 
-void adrv906x_tsu_set_ptp_timestamping_mode(struct adrv906x_tsu *tsu, u32 mode);
-void adrv906x_tsu_set_speed(struct adrv906x_tsu *tsu, u32 mode);
 void adrv906x_mac_promiscuous_mode_en(struct adrv906x_mac *mac);
 void adrv906x_mac_promiscuous_mode_dis(struct adrv906x_mac *mac);
 void adrv906x_mac_rx_path_en(struct adrv906x_mac *mac);

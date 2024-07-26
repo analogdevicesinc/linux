@@ -15,6 +15,17 @@
 		bootargs = "console=ttyAMA0,115200n8 earlycon=pl011,0x20060000 rootwait uio_pdrv_genirq.of_id=generic-uio panic=-1 reboot=w";
 		stdout-path = &uart0;
 	};
+
+	uio-ethernet-debug@EMAC_CMN_BASE_UADDR {
+		compatible = "generic-uio";
+		reg = <EMAC_CMN_BASE 0x000B0000>;
+	};
+
+	uio-tod@EMAC_TOD_BASE {
+		compatible = "generic-uio";
+		reg = <EMAC_TOD_BASE 0xff>;
+		interrupts = <GIC_SPI TOD_IRQ IRQ_TYPE_LEVEL_HIGH>;
+	};
 };
 
 &uart0 {
@@ -33,8 +44,23 @@
 	status = "okay";
 };
 
+/* BRINGUP TODO: Remove when 50MHz SD is supported */
+&pinctrl_mmc1_sd {
+	adi,pins = <
+		SD_CLK_SEL_PIN		(ADI_CONFIG_NO_PULL                | ADI_CONFIG_DRIVE_STRENGTH_4)
+		SD_CMD_PIN		(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER | ADI_CONFIG_DRIVE_STRENGTH_4)
+		SD_DATA0_PIN		(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER | ADI_CONFIG_DRIVE_STRENGTH_1)
+		SD_DATA1_PIN		(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER | ADI_CONFIG_DRIVE_STRENGTH_1)
+		SD_DATA2_PIN		(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER | ADI_CONFIG_DRIVE_STRENGTH_1)
+		SD_DATA3_PIN		(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER | ADI_CONFIG_DRIVE_STRENGTH_1)
+		SD_CARDDETECT_PIN	(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER | ADI_CONFIG_DRIVE_STRENGTH_4)
+	>;
+	};
+
 &mmc1 {
 	status = "okay";
+	/* BRINGUP TODO: Set this back to 50MHz */
+	max-frequency = <25000000>;
 };
 
 &mmc1_regulator {
@@ -62,8 +88,12 @@
 };
 
 &emac0 {
-	status = "disabled";
+	status = "okay";
 	phy-mode = "rgmii";
+	fixed-link {
+		speed = <1000>;
+		full-duplex;
+	};
 	/* Disabled for now to allow for Protium testing */
 	/* phy-handle = <&phy0>; */
 
@@ -78,8 +108,24 @@
 	};*/
 };
 
+&spi0 {
+	status = "okay";
+
+	spidev_clkic@0 {
+		compatible = "linux,spidev";
+		spi-max-frequency = <12500000>;
+		reg = <0>;
+	};
+
+	spidev_rffe@1 {
+		compatible = "linux,spidev";
+		spi-max-frequency = <10000000>;
+		reg = <1>;
+	};
+};
+
 &i2c1 {
-	status = "disabled";
+	status = "okay";
 
 	/* MAX6581 temp sensor. Bus addr can vary from board
 	 * to board, so four different entries are needed.
@@ -111,8 +157,8 @@
 		smbus-timeout-disable;
 		extended-range-enable;
 		resistance-cancellation;
-		alert-mask = <0x7f>;		/* Ignore all alerts */
-		over-temperature-mask = <0x7f>;	/* Ignore all alerts */
+		alert-mask = <0x7f>;        /* Ignore all alerts */
+		over-temperature-mask = <0x7f>; /* Ignore all alerts */
 	};
 	temp-sensor@4f {
 		status = "disabled";
@@ -125,10 +171,10 @@
 		over-temperature-mask = <0x7f>;	/* Ignore all alerts */
 	};
 
-	board-eeprom@50 {
+	board-eeprom@57 {
 		status = "disabled";
-		compatible = "at,24c16";
-		reg = <0x50>;
+		compatible = "atmel,24c32";
+		reg = <0x57>;
 	};
 
 	rtc@68 {
@@ -138,8 +184,38 @@
 	};
 };
 
+&dac0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm13>;
+};
+
 &pinctrl_hog {
 	adi,pins = <
+	/* Pins 7-17: RFFE signals */
+	RFFE_0_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_1_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_2_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_3_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_4_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_5_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_6_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_7_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_8_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_9_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_10_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+
+	/* Pin 51: Board pushbutton */
+	A55_GPIO_NS_51_PIN	(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER)
+
+	/* Pins 56-59,65: QSFP interface */
+	A55_GPIO_NS_56_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_57_PIN	(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER)
+	A55_GPIO_NS_58_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_59_PIN	(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER)
+	A55_GPIO_NS_65_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+
+	/* Pins 66-73: Debug out signals */
 	GPIO_DEBUG_0_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	GPIO_DEBUG_1_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	GPIO_DEBUG_2_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
@@ -148,5 +224,23 @@
 	GPIO_DEBUG_5_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	GPIO_DEBUG_6_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	GPIO_DEBUG_7_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+
+	/* Pins 74-77: Board LEDs */
+	A55_GPIO_NS_74_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_75_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_76_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_77_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+
+	/* Pins 42-44,46,51: CPU trace
+	 * Enable if needed.
+	 * Conflicts with board pushbutton above (pin 51).
+	 * Conflicts with SPI_MASTER0_SELB1 above (pin 42).
+	 *
+	 * TRACE_D0_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	 * TRACE_D1_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	 * TRACE_D2_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	 * TRACE_D3_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	 * TRACE_CLK_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	 */
 	>;
 };

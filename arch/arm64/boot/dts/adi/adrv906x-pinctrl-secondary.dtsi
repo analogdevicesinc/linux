@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2024, Analog Devices Incorporated, All Rights Reserved
+ */
+
+#include <dt-bindings/pinctrl/pinctrl-adi-adrv906x-io-pad.h>
+#include "adrv906x_def.h"
+
+&pinctrl_secondary {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_secondary_hog>;
+
+	pinctrl_secondary_hog: secondary-hog-grp {
+	};
+};
