@@ -17,6 +17,8 @@
 		compatible = "ovti,ox05b1s";
 		reg = <0x36>;
 		reset-gpios = <&pcal6524 17 GPIO_ACTIVE_LOW>;
+		orientation = <2>;
+		rotation = <0>;
 		status = "okay";
 
 		port {

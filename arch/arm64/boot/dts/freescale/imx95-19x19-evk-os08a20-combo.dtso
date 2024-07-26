@@ -17,6 +17,8 @@
 		compatible = "ovti,os08a20";
 		reg = <0x36>;
 		reset-gpios = <&gpio3 27 GPIO_ACTIVE_LOW>;
+		orientation = <2>;
+		rotation = <0>;
 		status = "okay";
 
 		port {
