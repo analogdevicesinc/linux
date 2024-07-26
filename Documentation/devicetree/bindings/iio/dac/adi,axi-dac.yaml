@@ -38,6 +38,15 @@ properties:
   clocks:
     maxItems: 1
 
+  bus-type:
+    maxItems: 1
+    description: |
+      Configure bus type:
+        - 0: none
+        - 1: qspi
+    enum: [0, 1]
+    default: 0
+
   '#io-backend-cells':
     const: 0
 
