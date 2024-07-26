@@ -390,6 +390,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-pcie1-ep.dtb
 
 imx95-19x19-evk-ap1302-dtbs := imx95-19x19-evk.dtb imx95-19x19-evk-ap1302.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-ap1302.dtb
+
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-tja1103-tja1120.dtb imx95-19x19-evk-tja1103-rmii.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-netc-rpmsg.dtb
 
@@ -404,6 +405,9 @@ dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-ox05b1s-combo.dtb
 
 imx95-19x19-evk-ti-serdes-dtbs := imx95-19x19-evk.dtb imx95-19x19-evk-ti-serdes.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-ti-serdes.dtb
+
+imx95-19x19-evk-ti-serdes-combo-dtbs := imx95-19x19-evk.dtb imx95-19x19-evk-ti-serdes-combo.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-ti-serdes-combo.dtb
 
 imx95-19x19-evk-os08a20-combo-dtbs := imx95-19x19-evk.dtb imx95-19x19-evk-os08a20-combo.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-os08a20-combo.dtb
