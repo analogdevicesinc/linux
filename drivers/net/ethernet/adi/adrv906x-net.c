@@ -24,40 +24,8 @@
 #include "adrv906x-mac.h"
 #include "adrv906x-switch.h"
 #include "adrv906x-macsec-ext.h"
-
-#define REGMAP_RESET_SWITCH                BIT(0)
-#define REGMAP_RESET_PCS_MAC0              BIT(4)
-#define REGMAP_RESET_PCS_MAC1              BIT(5)
-#define REGMAP_RESET_MACSEC0               BIT(8)
-#define REGMAP_RESET_MACSEC1               BIT(9)
-
-#define MAX_NETDEV_NUM                      2
-#define MAX_MULTICAST_FILTER                3
-
-#define EMAC_CMN_DIGITAL_CTRL0              0x0010
-#define   EMAC_CMN_RX_LINK0_EN              BIT(0)
-#define   EMAC_CMN_RX_LINK1_EN              BIT(1)
-#define   EMAC_CMN_TX_LINK0_EN              BIT(4)
-#define   EMAC_CMN_TX_LINK1_EN              BIT(5)
-#define   EMAC_CMN_SW_LINK0_BYPASS_EN       BIT(8)
-#define   EMAC_CMN_SW_LINK1_BYPASS_EN       BIT(9)
-#define   EMAC_CMN_SW_PORT0_EN              BIT(12)
-#define   EMAC_CMN_SW_PORT1_EN              BIT(13)
-#define   EMAC_CMN_SW_PORT2_EN              BIT(14)
-#define   EMAC_CMN_MACSEC_BYPASS_EN         BIT(16)
-#define EMAC_CMN_DIGITAL_CTRL1              0x0014
-#define EMAC_CMN_DIGITAL_CTRL2              0x0018
-#define EMAC_CMN_DIGITAL_CTRL3              0x001c
-#define   EMAC_CMN_SW_PORT2_DSA_INSERT_EN   BIT(20)
-#define EMAC_CMN_DIGITAL_CTRL4              0x0020
-#define   EMAC_CMN_PCS_STATUS_NE_CNT_0      GENMASK(7, 0)
-#define   EMAC_CMN_PCS_STATUS_NE_CNT_1      GENMASK(15, 8)
-#define   EMAC_CMN_CLEAR_PCS_STATUS_NE_CNT  BIT(16)
-#define EMAC_CMN_RST_REG                    0x0030
-#define EMAC_CMN_PHY_CTRL                   0x0040
-#define EMAC_CMN_PLL_CTRL                   0x0050
-#define EMAC_CMN_GPIO_SELECT                0x0060
-#define EMAC_CMN_EMAC_SPARE                 0x3000
+#include "adrv906x-ethtool.h"
+#include "adrv906x-net.h"
 
 /* OIF register RX */
 #define OIF_RX_CTRL_EN                      BIT(0)
@@ -65,46 +33,9 @@
 #define OIF_CFG_TX_EN                       BIT(0)
 #define OIF_CFG_TX_IPG                      GENMASK(10, 8)
 #define OIF_CFG_TX_IPG_VAL                  0x600
-
-#define TIMEOUT_100_MS                      (HZ / 10)
-
-/* TODO: Ugly global variable, need to be changed */
-#if IS_BUILTIN(CONFIG_PTP_1588_CLOCK_ADRV906X_TOD)
-/* The adi ptp module will set this variable */
-extern int adrv906x_phc_index;
-#endif
-
-struct adrv906x_oran_if {
-	void __iomem *oif_rx;
-	void __iomem *oif_tx;
-};
-
-struct adrv906x_eth_dev {
-	struct net_device *ndev;
-	struct device *dev;
-	struct platform_device *pdev;
-	struct adrv906x_ndma_dev *ndma_dev;
-	struct hwtstamp_config tstamp_config;
-	struct adrv906x_mac mac;
-	struct adrv906x_oran_if oif;
-#if IS_ENABLED(CONFIG_MACSEC)
-	struct adrv906x_macsec_priv macsec;
-#endif // IS_ENABLED(CONFIG_MACSEC)
-	int port;
-	struct adrv906x_eth_if *parent;
-	struct rtnl_link_stats64 rtnl_stats;
-	int link_speed;
-	int link_duplex;
-	struct timer_list tx_timer; /* TODO: this timer is temporary used as a debug */
-	/* for TX status lost detection, should be remove from final implementation */
-};
-
-struct adrv906x_eth_if {
-	struct adrv906x_eth_dev *adrv906x_dev[MAX_NETDEV_NUM];
-	struct device *dev;
-	struct adrv906x_eth_switch ethswitch;
-	void __iomem *emac_cmn_regs;
-};
+/* default recovered clk divs */
+#define DEFAULT_RECOVERED_CLK_DIV_10G       22
+#define DEFAULT_RECOVERED_CLK_DIV_25G       55
 
 static char *macaddr[MAX_NETDEV_NUM];
 module_param_array(macaddr, charp, 0, 0644);
@@ -115,34 +46,11 @@ static u8 default_mac_addresses[MAX_MULTICAST_FILTER][ETH_ALEN] = {
 	{ 0x03, 0x00, 0x00, 0xC2, 0x80, 0x01 }
 };
 
-static const char adrv906x_gstrings_stats_names[][ETH_GSTRING_LEN] = {
-	"nicdma-RxFrErrors",
-	"nicdma-RxFrSizeErrors",
-	"nicdma-RxFrDroppedErrors",
-	"nicdma-RxFrDroppedSplaneErrors",
-	"nicdma-RxFrDroppedMplaneErrors",
-	"nicdma-RxSeqnumbMismatchErrors",
-	"nicdma-RxStatusHeaderErrors",
-	"nicdma-RxUnknownErrors",
-	"nicdma-RxPendingWorkUnits",
-	"nicdma-RxDoneWorkUnits",
-	"nicdma-TxFrSizeErrors",
-	"nicdma-TxDataHeaderErrors",
-	"nicdma-TxStatusHeaderErrors",
-	"nicdma-TxTstampTimeoutErrors",
-	"nicdma-TxSeqnumbMismatchErrors",
-	"nicdma-TxUnknownErrors",
-	"nicdma-TxPendingWorkUnits",
-	"nicdma-TxDoneWorkUnits",
-};
-
-#define ADRV906X_NUM_STATS ARRAY_SIZE(adrv906x_gstrings_stats_names)
-
 struct adrv906x_macsec_priv *adrv906x_macsec_get(struct net_device *netdev)
 {
+#if IS_ENABLED(CONFIG_MACSEC)
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(netdev);
 
-#if IS_ENABLED(CONFIG_MACSEC)
 	return &adrv906x_dev->macsec;
 #else
 	return NULL;
@@ -165,7 +73,57 @@ static int adrv906x_eth_cmn_rst_reg(void __iomem *regs)
 	return 0;
 }
 
-static void adrv906x_eth_cmn_init(void __iomem *regs, bool switch_enabled)
+static void adrv906x_eth_cmn_recovered_clk_config(struct adrv906x_eth_dev *adrv906x_dev)
+{
+	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
+	void __iomem *regs = eth_if->emac_cmn_regs;
+	u32 val;
+
+	val = (adrv906x_dev->link_speed == SPEED_25000) ? eth_if->recovered_clk_div_25g :
+	      eth_if->recovered_clk_div_10g;
+	val = FIELD_PREP(EMAC_CMN_RECOVERED_CLK_DIV_0, val);
+	val |= FIELD_PREP(EMAC_CMN_RECOVERED_CLK_DIV_1, val);
+	iowrite32(val, regs + EMAC_CMN_DIGITAL_CTRL1);
+}
+
+static void adrv906x_eth_cmn_mode_cfg(struct adrv906x_eth_dev *adrv906x_dev)
+{
+	void __iomem *regs = adrv906x_dev->parent->emac_cmn_regs;
+	u32 val;
+
+	val = ioread32(regs + EMAC_CMN_DIGITAL_CTRL2);
+
+	if (adrv906x_dev->link_speed == SPEED_10000)
+		val |= EMAC_CMN_TX_BIT_REPEAT_RATIO;
+	else
+		val &= ~EMAC_CMN_TX_BIT_REPEAT_RATIO;
+
+	iowrite32(val, regs + EMAC_CMN_DIGITAL_CTRL2);
+}
+
+static void adrv906x_eth_cdr_get_recovered_clk_divs(struct device_node *np,
+						    struct adrv906x_eth_if *eth_if)
+{
+	struct device *dev = eth_if->dev;
+	u32 val;
+
+	if (of_property_read_u32(np, "recovered_clk_10g", &val)) {
+		eth_if->recovered_clk_div_10g = DEFAULT_RECOVERED_CLK_DIV_10G;
+		dev_info(dev, "dt: recovered_clk_10g is missing, use default %d",
+			 eth_if->recovered_clk_div_10g);
+	} else {
+		eth_if->recovered_clk_div_10g = val;
+	}
+	if (of_property_read_u32(np, "recovered_clk_25g", &val)) {
+		eth_if->recovered_clk_div_25g = DEFAULT_RECOVERED_CLK_DIV_25G;
+		dev_info(dev, "dt: recovered_clk_25g is missing, use default %d",
+			 eth_if->recovered_clk_div_25g);
+	} else {
+		eth_if->recovered_clk_div_25g = val;
+	}
+}
+
+static void adrv906x_eth_cmn_init(void __iomem *regs, bool switch_enabled, bool macsec_enabled)
 {
 	unsigned int val1, val2;
 
@@ -177,7 +135,8 @@ static void adrv906x_eth_cmn_init(void __iomem *regs, bool switch_enabled)
 		| EMAC_CMN_TX_LINK0_EN
 		| EMAC_CMN_TX_LINK1_EN;
 #if IS_ENABLED(CONFIG_MACSEC)
-	val1 &= ~EMAC_CMN_MACSEC_BYPASS_EN;
+	if (macsec_enabled)
+		val1 &= ~EMAC_CMN_MACSEC_BYPASS_EN;
 #endif
 
 	if (switch_enabled) {
@@ -250,11 +209,78 @@ static struct attribute *adrv906x_eth_debug_attrs[] = {
 
 ATTRIBUTE_GROUPS(adrv906x_eth_debug);
 
+static ssize_t adrv906x_eth_cdr_div_out_enable_show(struct device *dev,
+						    struct device_attribute *attr, char *buf)
+{
+	struct adrv906x_eth_dev *adrv906x_dev;
+	int result, cdr_selected;
+	u8 cdr_div_out_enable;
+	void __iomem *regs;
+	unsigned int val;
+
+	adrv906x_dev = dev_get_drvdata(dev);
+	regs = adrv906x_dev->parent->emac_cmn_regs;
+	val = ioread32(regs + EMAC_CMN_DIGITAL_CTRL0);
+
+	cdr_div_out_enable = (adrv906x_dev->port == 0) ?
+			     FIELD_GET(EMAC_CMN_CDR_DIV_PORT0_EN, val) :
+			     FIELD_GET(EMAC_CMN_CDR_DIV_PORT1_EN, val);
+	cdr_selected = (FIELD_GET(EMAC_CMN_CDR_SEL, val) == adrv906x_dev->port) ? 1 : 0;
+	result = sprintf(buf, "%s CDR enabled: %i\n%s CDR selected: %i\n", kobject_name(&dev->kobj),
+			 cdr_div_out_enable, kobject_name(&dev->kobj), cdr_selected);
+
+	return result;
+}
+
+static ssize_t adrv906x_eth_cdr_div_out_enable_store(struct device *dev,
+						     struct device_attribute *attr,
+						     const char *buf, size_t cnt)
+{
+	struct adrv906x_eth_dev *adrv906x_dev;
+	void __iomem *regs;
+	int enable, err;
+	u32 val;
+
+	adrv906x_dev = dev_get_drvdata(dev);
+	regs = adrv906x_dev->parent->emac_cmn_regs;
+
+	err = kstrtoint(buf, 10, &enable);
+	if (err) {
+		dev_err(dev, "adrv906x_eth_cdr_div_out_enable: Invalid input");
+		return err;
+	}
+	if (enable < 0 || enable > 1) {
+		dev_err(dev, "adrv906x_eth_cdr_div_out_enable: input out of range");
+		return -EINVAL;
+	}
+
+	mutex_lock(&adrv906x_dev->parent->mtx);
+	val = ioread32(regs + EMAC_CMN_DIGITAL_CTRL0);
+	if (enable) {
+		if (adrv906x_dev->port == 0) {
+			val |= EMAC_CMN_CDR_DIV_PORT0_EN;
+			val &= ~EMAC_CMN_CDR_SEL;
+		} else {
+			val |= EMAC_CMN_CDR_DIV_PORT1_EN;
+			val |= EMAC_CMN_CDR_SEL;
+		}
+	} else {
+		val &= (adrv906x_dev->port == 0) ? ~EMAC_CMN_CDR_DIV_PORT0_EN :
+		       ~EMAC_CMN_CDR_DIV_PORT1_EN;
+	}
+
+	iowrite32(val, regs + EMAC_CMN_DIGITAL_CTRL0);
+	mutex_unlock(&adrv906x_dev->parent->mtx);
+
+	return cnt;
+}
+
+static DEVICE_ATTR_RW(adrv906x_eth_cdr_div_out_enable);
+
 static void adrv906x_eth_adjust_link(struct net_device *ndev)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
 	struct phy_device *phydev = ndev->phydev;
-	u32 mode;
 
 	if (!phydev->link) {
 		if (adrv906x_dev->link_speed) {
@@ -268,11 +294,11 @@ static void adrv906x_eth_adjust_link(struct net_device *ndev)
 	    adrv906x_dev->link_duplex == phydev->duplex)
 		return;
 
-	mode = (phydev->speed == SPEED_25000) ? CORE_SPEED_25G : CORE_SPEED_10G;
-	adrv906x_tsu_set_speed(&adrv906x_dev->mac.tsu, mode);
-
 	adrv906x_dev->link_speed = phydev->speed;
 	adrv906x_dev->link_duplex = phydev->duplex;
+
+	adrv906x_eth_cmn_mode_cfg(adrv906x_dev);
+	adrv906x_eth_cmn_recovered_clk_config(adrv906x_dev);
 
 	phy_print_status(phydev);
 }
@@ -327,42 +353,41 @@ static void __add_rx_hw_tstamp(struct sk_buff *skb, struct timespec64 ts)
 	hwtstamps->hwtstamp = ktime_set(ts.tv_sec, ts.tv_nsec);
 }
 
-static void adrv906x_eth_tx_timeout(struct timer_list *t)
-{
-	struct adrv906x_eth_dev *adrv906x_dev = from_timer(adrv906x_dev, t, tx_timer);
-	struct net_device *ndev = adrv906x_dev->ndev;
-
-	dev_warn(&ndev->dev, "transmit timed out: TX status not received");
-	del_timer(&adrv906x_dev->tx_timer);
-	netif_wake_queue(ndev);
-}
-
 static void adrv906x_eth_tx_callback(struct sk_buff *skb, unsigned int port_id,
 				     struct timespec64 ts, void *cb_param)
 {
 	struct net_device *ndev = (struct net_device *)cb_param;
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
 	struct adrv906x_eth_if *adrv906x_eth = adrv906x_dev->parent;
+	unsigned long flags;
 
 	adrv906x_dev = adrv906x_eth->adrv906x_dev[port_id];
 	ndev = adrv906x_dev->ndev;
 
+	spin_lock_irqsave(&adrv906x_dev->lock, flags);
+	if (--adrv906x_dev->tx_frames_pending < adrv906x_eth->tx_max_frames_pending)
+		netif_wake_queue(ndev);
+	spin_unlock_irqrestore(&adrv906x_dev->lock, flags);
+
 	__add_tx_hw_tstamp(skb, ts);
-	del_timer(&adrv906x_dev->tx_timer);
 	dev_kfree_skb(skb);
-	netif_wake_queue(ndev);
 }
 
-static int adrv906x_eth_xmit(struct sk_buff *skb, struct net_device *ndev)
+static int adrv906x_eth_start_xmit(struct sk_buff *skb, struct net_device *ndev)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
 	struct adrv906x_ndma_dev *ndma_dev = adrv906x_dev->ndma_dev;
 	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
 	struct adrv906x_eth_switch *es = &eth_if->ethswitch;
-	struct adrv906x_ndma_chan *ndma_ch = &ndma_dev->tx_chan;
 	int port = adrv906x_dev->port;
 	bool hw_tstamp_en, dsa_en;
+	unsigned long flags;
 	int ret;
+
+	spin_lock_irqsave(&adrv906x_dev->lock, flags);
+	if (++adrv906x_dev->tx_frames_pending >= eth_if->tx_max_frames_pending)
+		netif_stop_queue(ndev);
+	spin_unlock_irqrestore(&adrv906x_dev->lock, flags);
 
 	hw_tstamp_en = (skb_shinfo(skb)->tx_flags & SKBTX_HW_TSTAMP) ? 1 : 0;
 	if (hw_tstamp_en)
@@ -371,10 +396,7 @@ static int adrv906x_eth_xmit(struct sk_buff *skb, struct net_device *ndev)
 
 	dsa_en = es->enabled ? 1 : 0;
 
-	netif_stop_queue(ndev);
-	mod_timer(&adrv906x_dev->tx_timer, jiffies + TIMEOUT_100_MS);
-
-	ret = adrv906x_ndma_submit_tx(ndma_ch, skb, port, hw_tstamp_en, dsa_en);
+	ret = adrv906x_ndma_start_xmit(ndma_dev, skb, port, hw_tstamp_en, dsa_en);
 
 	return ret ? NETDEV_TX_BUSY : NETDEV_TX_OK;
 }
@@ -408,7 +430,7 @@ void adrv906x_eth_rx_callback(struct sk_buff *skb, unsigned int port_id,
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
 	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
 
-	/* network interface is selected base on port_id from nic-dma RX status header */
+	/* network interface is selected base on port_id from ndma rx status header */
 	adrv906x_dev = eth_if->adrv906x_dev[port_id];
 	ndev = adrv906x_dev->ndev;
 
@@ -517,134 +539,10 @@ static int adrv906x_get_hwtstamp_config(struct net_device *ndev, struct ifreq *i
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
 
-	if (copy_to_user(ifr->ifr_data, &adrv906x_dev->tstamp_config, sizeof(adrv906x_dev->tstamp_config)))
+	if (copy_to_user(ifr->ifr_data, &adrv906x_dev->tstamp_config,
+			 sizeof(adrv906x_dev->tstamp_config)))
 		return -EFAULT;
 	return 0;
-}
-
-static int adrv906x_eth_set_link_ksettings(struct net_device *ndev,
-					   const struct ethtool_link_ksettings *cmd)
-{
-	__ETHTOOL_DECLARE_LINK_MODE_MASK(advertising);
-	u8 autoneg = cmd->base.autoneg;
-	u8 duplex = cmd->base.duplex;
-	u32 speed = cmd->base.speed;
-	struct phy_device *phydev = ndev->phydev;
-	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
-	u32 mode;
-
-	if (!phydev)
-		return -ENODEV;
-
-	if (cmd->base.phy_address != phydev->mdio.addr)
-		return -EINVAL;
-
-	linkmode_copy(advertising, cmd->link_modes.advertising);
-
-	/* We make sure that we don't pass unsupported values in to the PHY */
-	linkmode_and(advertising, advertising, phydev->supported);
-
-	/* Verify the settings we care about. */
-	if (autoneg == AUTONEG_ENABLE)
-		return -EINVAL;
-
-	if ((speed != SPEED_10000 && speed != SPEED_25000) || duplex != DUPLEX_FULL)
-		return -EINVAL;
-
-	mode = (phydev->speed == SPEED_25000) ? CORE_SPEED_25G : CORE_SPEED_10G;
-	adrv906x_tsu_set_speed(&adrv906x_dev->mac.tsu, mode);
-
-	mutex_lock(&phydev->lock);
-	phydev->autoneg = autoneg;
-	phydev->speed = speed;
-	phydev->duplex = duplex;
-
-	linkmode_copy(phydev->advertising, advertising);
-	linkmode_mod_bit(ETHTOOL_LINK_MODE_Autoneg_BIT,
-			 phydev->advertising, autoneg == AUTONEG_ENABLE);
-
-	if (phy_is_started(phydev)) {
-		phydev->state = PHY_UP;
-		phy_start_machine(phydev);
-	}
-	mutex_unlock(&phydev->lock);
-
-	return 0;
-}
-
-static int adrv906x_eth_get_ts_info(struct net_device *ndev,
-				    struct ethtool_ts_info *info)
-{
-	info->so_timestamping =
-		SOF_TIMESTAMPING_TX_SOFTWARE |
-		SOF_TIMESTAMPING_RX_SOFTWARE |
-		SOF_TIMESTAMPING_SOFTWARE |
-		SOF_TIMESTAMPING_TX_HARDWARE |
-		SOF_TIMESTAMPING_RX_HARDWARE |
-		SOF_TIMESTAMPING_RAW_HARDWARE;
-	info->tx_types =
-		(1 << HWTSTAMP_TX_OFF) |
-		(1 << HWTSTAMP_TX_ON);
-	info->rx_filters =
-		(1 << HWTSTAMP_FILTER_PTP_V2_L4_EVENT) |
-		(1 << HWTSTAMP_FILTER_PTP_V2_L4_SYNC) |
-		(1 << HWTSTAMP_FILTER_PTP_V2_L4_DELAY_REQ) |
-		(1 << HWTSTAMP_FILTER_PTP_V2_L2_EVENT) |
-		(1 << HWTSTAMP_FILTER_PTP_V2_L2_SYNC) |
-		(1 << HWTSTAMP_FILTER_PTP_V2_L2_DELAY_REQ) |
-		(1 << HWTSTAMP_FILTER_PTP_V2_EVENT) |
-		(1 << HWTSTAMP_FILTER_PTP_V2_SYNC) |
-		(1 << HWTSTAMP_FILTER_PTP_V2_DELAY_REQ) |
-		(1 << HWTSTAMP_FILTER_ALL);
-
-#if IS_BUILTIN(CONFIG_PTP_1588_CLOCK_ADRV906X_TOD)
-	info->phc_index = adrv906x_phc_index;
-#else
-	info->phc_index = -1;
-#endif
-	return 0;
-}
-
-static int adrv906x_eth_get_sset_count(struct net_device *netdev, int sset)
-{
-	if (sset == ETH_SS_STATS)
-		return ADRV906X_NUM_STATS;
-
-	return -EOPNOTSUPP;
-}
-
-static void adrv906x_eth_get_strings(struct net_device *netdev, u32 sset, u8 *buf)
-{
-	if (sset == ETH_SS_STATS)
-		memcpy(buf, &adrv906x_gstrings_stats_names, sizeof(adrv906x_gstrings_stats_names));
-}
-
-static void adrv906x_eth_get_ethtool_stats(struct net_device *netdev,
-					   struct ethtool_stats *stats, u64 *data)
-{
-	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(netdev);
-	struct adrv906x_ndma_dev *ndma_dev = adrv906x_dev->ndma_dev;
-	union adrv906x_ndma_chan_stats *rx_stats = &ndma_dev->rx_chan.stats;
-	union adrv906x_ndma_chan_stats *tx_stats = &ndma_dev->tx_chan.stats;
-
-	data[0] = rx_stats->rx.frame_errors;
-	data[1] = rx_stats->rx.frame_size_errors;
-	data[2] = rx_stats->rx.frame_dropped_errors;
-	data[3] = rx_stats->rx.frame_dropped_splane_errors;
-	data[4] = rx_stats->rx.frame_dropped_mplane_errors;
-	data[5] = rx_stats->rx.seqnumb_mismatch_errors;
-	data[6] = rx_stats->rx.status_header_errors;
-	data[7] = rx_stats->rx.unknown_errors;
-	data[8] = rx_stats->rx.pending_work_units;
-	data[9] = rx_stats->rx.done_work_units;
-	data[10] = tx_stats->tx.frame_size_errors;
-	data[11] = tx_stats->tx.data_header_errors;
-	data[12] = tx_stats->tx.status_header_errors;
-	data[13] = tx_stats->tx.tstamp_timeout_errors;
-	data[14] = tx_stats->tx.seqnumb_mismatch_errors;
-	data[15] = tx_stats->tx.unknown_errors;
-	data[16] = tx_stats->tx.pending_work_units;
-	data[17] = tx_stats->tx.done_work_units;
 }
 
 static int adrv906x_set_hwtstamp_config(struct net_device *ndev, struct ifreq *ifr)
@@ -660,11 +558,11 @@ static int adrv906x_set_hwtstamp_config(struct net_device *ndev, struct ifreq *i
 
 	switch (config.tx_type) {
 	case HWTSTAMP_TX_OFF:
+		/* TODO  clear timestamp flag */
 		break;
 
 	case HWTSTAMP_TX_ON:
-		adrv906x_tsu_set_ptp_timestamping_mode(
-			&adrv906x_dev->mac.tsu, PTP_TIMESTAMPING_MODE_TWO_STEP);
+		/* TODO  set timestamp flag */
 		break;
 
 	default:
@@ -701,7 +599,8 @@ static int adrv906x_set_hwtstamp_config(struct net_device *ndev, struct ifreq *i
 	return 0;
 }
 
-static int adrv906x_get_oran_if_reg_addr(struct adrv906x_eth_dev *adrv906x_dev, struct device_node *np)
+static int adrv906x_get_oran_if_reg_addr(struct adrv906x_eth_dev *adrv906x_dev,
+					 struct device_node *np)
 {
 	u32 reg, len;
 	struct device *dev = adrv906x_dev->dev;
@@ -814,9 +713,7 @@ static int adrv906x_eth_open(struct net_device *ndev)
 	struct device *dev = adrv906x_dev->dev;
 	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
 	struct adrv906x_ndma_dev *ndma_dev = adrv906x_dev->ndma_dev;
-	struct adrv906x_ndma_chan *ndma_ch = &ndma_dev->tx_chan;
 	u32 ptp_mode;
-	struct sk_buff *skb;
 
 	dev_info(dev, "%s called", __func__);
 
@@ -832,19 +729,15 @@ static int adrv906x_eth_open(struct net_device *ndev)
 			   adrv906x_eth_rx_callback,
 			   ndev);
 
-	/*
-	 * Fixme: we need to submit invalid TX Work Unit as a WA for adi-dma driver,
-	 * because it requires that first submit needs to be done within non-irq context.
-	 * This should be removed after NAPI deployment for TX.
-	 */
-	skb = __netdev_alloc_skb_ip_align(NULL, 1536, GFP_KERNEL);
-	skb->data[0] = 0x3;
-	adrv906x_ndma_submit_tx(ndma_ch, skb, 0, 0, 0);
+	if (eth_if->ethswitch.enabled)
+		adrv906x_ndma_set_tx_timeout_value(ndma_dev);
 
 #if IS_ENABLED(CONFIG_MACSEC)
 	if (adrv906x_dev->macsec.enabled)
 		adrv906x_macsec_commonport_status_update(ndev);
 #endif // IS_ENABLED(CONFIG_MACSEC)
+
+	adrv906x_dev->tx_frames_pending = 0;
 
 	netif_start_queue(ndev);
 	return 0;
@@ -857,7 +750,6 @@ static int adrv906x_eth_stop(struct net_device *ndev)
 	struct device *dev = adrv906x_dev->dev;
 
 	dev_info(dev, "%s called", __func__);
-	del_timer_sync(&adrv906x_dev->tx_timer);
 	netif_stop_queue(ndev);
 	adrv906x_ndma_close(ndma_dev);
 	if (ndev->phydev)
@@ -868,24 +760,29 @@ static int adrv906x_eth_stop(struct net_device *ndev)
 static void adrv906x_get_rtnl_stats(struct adrv906x_eth_dev *adrv906x_dev)
 {
 	mutex_lock(&adrv906x_dev->mac.mac_hw_stats_lock);
-	adrv906x_dev->rtnl_stats.tx_packets = adrv906x_dev->mac.hw_stats_tx.general_stats.unicast_pkts +
-					      adrv906x_dev->mac.hw_stats_tx.general_stats.multicast_pkts +
-					      adrv906x_dev->mac.hw_stats_tx.general_stats.broadcast_pkts;
-	adrv906x_dev->rtnl_stats.tx_errors = adrv906x_dev->mac.hw_stats_tx.underflow +
-					     adrv906x_dev->mac.hw_stats_tx.general_stats.undersize_pkts +
-					     adrv906x_dev->mac.hw_stats_tx.general_stats.oversize_pkts;
+	adrv906x_dev->rtnl_stats.tx_packets =
+		adrv906x_dev->mac.hw_stats_tx.general_stats.unicast_pkts +
+		adrv906x_dev->mac.hw_stats_tx.general_stats.multicast_pkts +
+		adrv906x_dev->mac.hw_stats_tx.general_stats.broadcast_pkts;
+	adrv906x_dev->rtnl_stats.tx_errors =
+		adrv906x_dev->mac.hw_stats_tx.underflow +
+		adrv906x_dev->mac.hw_stats_tx.general_stats.undersize_pkts +
+		adrv906x_dev->mac.hw_stats_tx.general_stats.oversize_pkts;
 	adrv906x_dev->rtnl_stats.tx_fifo_errors = adrv906x_dev->mac.hw_stats_tx.underflow;
-	adrv906x_dev->rtnl_stats.tx_dropped = adrv906x_dev->mac.hw_stats_tx.general_stats.drop_events;
-	adrv906x_dev->rtnl_stats.rx_packets = adrv906x_dev->mac.hw_stats_rx.general_stats.unicast_pkts +
-					      adrv906x_dev->mac.hw_stats_rx.general_stats.multicast_pkts +
-					      adrv906x_dev->mac.hw_stats_rx.general_stats.broadcast_pkts;
-	adrv906x_dev->rtnl_stats.rx_errors = adrv906x_dev->mac.hw_stats_rx.general_stats.undersize_pkts +
-					     adrv906x_dev->mac.hw_stats_rx.general_stats.oversize_pkts +
-					     adrv906x_dev->mac.hw_stats_rx.crc_errors +
-					     adrv906x_dev->mac.hw_stats_rx.fragments +
-					     adrv906x_dev->mac.hw_stats_rx.jabbers +
-					     adrv906x_dev->mac.hw_stats_rx.mac_framing_error +
-					     adrv906x_dev->mac.hw_stats_rx.rs_framing_error;
+	adrv906x_dev->rtnl_stats.tx_dropped =
+		adrv906x_dev->mac.hw_stats_tx.general_stats.drop_events;
+	adrv906x_dev->rtnl_stats.rx_packets =
+		adrv906x_dev->mac.hw_stats_rx.general_stats.unicast_pkts +
+		adrv906x_dev->mac.hw_stats_rx.general_stats.multicast_pkts +
+		adrv906x_dev->mac.hw_stats_rx.general_stats.broadcast_pkts;
+	adrv906x_dev->rtnl_stats.rx_errors =
+		adrv906x_dev->mac.hw_stats_rx.general_stats.undersize_pkts +
+		adrv906x_dev->mac.hw_stats_rx.general_stats.oversize_pkts +
+		adrv906x_dev->mac.hw_stats_rx.crc_errors +
+		adrv906x_dev->mac.hw_stats_rx.fragments +
+		adrv906x_dev->mac.hw_stats_rx.jabbers +
+		adrv906x_dev->mac.hw_stats_rx.mac_framing_error +
+		adrv906x_dev->mac.hw_stats_rx.rs_framing_error;
 	adrv906x_dev->rtnl_stats.rx_length_errors =
 		adrv906x_dev->mac.hw_stats_rx.general_stats.undersize_pkts +
 		adrv906x_dev->mac.hw_stats_rx.general_stats.oversize_pkts;
@@ -895,9 +792,11 @@ static void adrv906x_get_rtnl_stats(struct adrv906x_eth_dev *adrv906x_dev)
 						   adrv906x_dev->mac.hw_stats_rx.rs_framing_error;
 	adrv906x_dev->rtnl_stats.rx_fifo_errors = adrv906x_dev->mac.hw_stats_rx.overflow;
 	adrv906x_dev->rtnl_stats.rx_missed_errors = adrv906x_dev->mac.hw_stats_rx.overflow;
-	adrv906x_dev->rtnl_stats.rx_dropped = adrv906x_dev->mac.hw_stats_rx.mc_drop +
-					      adrv906x_dev->mac.hw_stats_rx.general_stats.drop_events;
-	adrv906x_dev->rtnl_stats.multicast = adrv906x_dev->mac.hw_stats_rx.general_stats.multicast_pkts;
+	adrv906x_dev->rtnl_stats.rx_dropped =
+		adrv906x_dev->mac.hw_stats_rx.mc_drop +
+		adrv906x_dev->mac.hw_stats_rx.general_stats.drop_events;
+	adrv906x_dev->rtnl_stats.multicast =
+		adrv906x_dev->mac.hw_stats_rx.general_stats.multicast_pkts;
 	mutex_unlock(&adrv906x_dev->mac.mac_hw_stats_lock);
 }
 
@@ -914,22 +813,13 @@ static void adrv906x_eth_get_stats64(struct net_device *ndev,
 static const struct net_device_ops adrv906x_eth_ops = {
 	.ndo_open		= adrv906x_eth_open,
 	.ndo_stop		= adrv906x_eth_stop,
-	.ndo_start_xmit		= adrv906x_eth_xmit,
+	.ndo_start_xmit		= adrv906x_eth_start_xmit,
 	.ndo_set_rx_mode	= adrv906x_eth_multicast_list,
 	.ndo_set_mac_address	= eth_mac_addr,
 	.ndo_change_mtu		= adrv906x_eth_change_mtu,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_get_stats64	= adrv906x_eth_get_stats64,
 	.ndo_do_ioctl		= adrv906x_eth_ioctl,
-};
-
-static const struct ethtool_ops adrv906x_ethtool_ops = {
-	.get_link_ksettings	= phy_ethtool_get_link_ksettings,
-	.set_link_ksettings	= adrv906x_eth_set_link_ksettings,
-	.get_ts_info		= adrv906x_eth_get_ts_info,
-	.get_sset_count		= adrv906x_eth_get_sset_count,
-	.get_strings		= adrv906x_eth_get_strings,
-	.get_ethtool_stats	= adrv906x_eth_get_ethtool_stats,
 };
 
 static const struct of_device_id adrv906x_eth_dt_ids[] = {
@@ -939,35 +829,8 @@ static const struct of_device_id adrv906x_eth_dt_ids[] = {
 
 MODULE_DEVICE_TABLE(of, adrv906x_eth_dt_ids);
 
-static void adrv906x_get_tsu_phy_delay(struct adrv906x_eth_dev *adrv906x_dev, struct device_node *port_np)
-{
-	u32 val, frac_val;
-	struct device *dev = adrv906x_dev->dev;
-
-	if (of_property_read_u32(port_np, "static-phy-delay-tx-ns", &val)) {
-		dev_warn(dev, "dt: static-phy-delay-tx-ns missing, using 0");
-		val = 0;
-	}
-	if (of_property_read_u32(port_np, "static-phy-delay-tx-frac-ns", &frac_val)) {
-		dev_warn(dev, "dt: static-phy-delay-tx-frac-ns missing, using 0");
-		frac_val = 0;
-	}
-	adrv906x_dev->mac.tsu.phy_delay_tx = (val << 16) | (frac_val & 0xFFFF);
-	dev_info(dev, "tsu static phy delay tx 0x%08x", adrv906x_dev->mac.tsu.phy_delay_tx);
-
-	if (of_property_read_u32(port_np, "static-phy-delay-rx-ns", &val)) {
-		dev_warn(dev, "dt: static-phy-delay-rx-ns missing, using 0");
-		val = 0;
-	}
-	if (of_property_read_u32(port_np, "static-phy-delay-rx-frac-ns", &frac_val)) {
-		dev_warn(dev, "dt: static-phy-delay-rx-frac-ns missing, using 0");
-		frac_val = 0;
-	}
-	adrv906x_dev->mac.tsu.phy_delay_rx = (val << 16) | (frac_val & 0xFFFF);
-	dev_info(dev, "tsu static phy delay rx 0x%08x", adrv906x_dev->mac.tsu.phy_delay_rx);
-}
-
-static int adrv906x_get_mac_reg_addr(struct adrv906x_eth_dev *adrv906x_dev, struct device_node *port_np)
+static int adrv906x_get_mac_reg_addr(struct adrv906x_eth_dev *adrv906x_dev,
+				     struct device_node *port_np)
 {
 	u32 reg, len;
 	struct device *dev = adrv906x_dev->dev;
@@ -980,7 +843,6 @@ static int adrv906x_get_mac_reg_addr(struct adrv906x_eth_dev *adrv906x_dev, stru
 		dev_err(dev, "ioremap xmac failed");
 		return -ENOMEM;
 	}
-	dev_info(dev, "xmac addr 0x%px", adrv906x_dev->mac.xmac);
 
 	/* Get emac_tx device address */
 	of_property_read_u32_index(port_np, "reg", 2, &reg);
@@ -990,7 +852,6 @@ static int adrv906x_get_mac_reg_addr(struct adrv906x_eth_dev *adrv906x_dev, stru
 		dev_err(dev, "ioremap emac tx failed");
 		return -ENOMEM;
 	}
-	dev_info(dev, "emac tx addr 0x%px", adrv906x_dev->mac.emac_tx);
 
 	/* Get emac_rx device address */
 	of_property_read_u32_index(port_np, "reg", 4, &reg);
@@ -1000,17 +861,6 @@ static int adrv906x_get_mac_reg_addr(struct adrv906x_eth_dev *adrv906x_dev, stru
 		dev_err(dev, "ioremap emac rx failed");
 		return -ENOMEM;
 	}
-	dev_info(dev, "emac rx addr 0x%px", adrv906x_dev->mac.emac_rx);
-
-	/* Get tsu device address */
-	of_property_read_u32_index(port_np, "reg", 6, &reg);
-	of_property_read_u32_index(port_np, "reg", 7, &len);
-	adrv906x_dev->mac.tsu.reg_tsu = devm_ioremap(dev, reg, len);
-	if (!adrv906x_dev->mac.tsu.reg_tsu) {
-		dev_err(dev, "ioremap tsu failed");
-		return -ENOMEM;
-	}
-	dev_info(dev, "tsu addr 0x%px", adrv906x_dev->mac.tsu.reg_tsu);
 
 	return 0;
 }
@@ -1036,7 +886,8 @@ adrv906x_get_eth_child_node(struct device_node *ether_np, int id)
 	return NULL;
 }
 
-static int adrv906x_eth_dev_reg(struct platform_device *pdev, struct adrv906x_eth_dev **adrv906x_dev)
+static int adrv906x_eth_dev_reg(struct platform_device *pdev,
+				struct adrv906x_eth_dev **adrv906x_dev)
 {
 	struct net_device *ndev;
 	struct adrv906x_eth_dev *priv;
@@ -1093,6 +944,10 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 
 	adrv906x_eth_cmn_rst_reg(eth_if->emac_cmn_regs);
 
+	mutex_init(&eth_if->mtx);
+
+	adrv906x_eth_cdr_get_recovered_clk_divs(np, eth_if);
+
 	/* Get child node ethernet-ports */
 	eth_ports_np = of_get_child_by_name(np, "ethernet-ports");
 	if (!eth_ports_np) {
@@ -1124,17 +979,20 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 		/* this should be changed to ETH_MAX_MTU */
 		ndev->min_mtu = ETH_MIN_MTU;
 		ndev->mtu = ETH_DATA_LEN;
-		/* Headroom required for NIC-DMA headers for TX packets */
-		ndev->needed_headroom += NDMA_TX_HDR_SOS_SIZE;
+		/* Headroom required for ndma headers for tx packets */
+		ndev->needed_headroom += NDMA_TX_HDR_SOF_SIZE;
+
+		ret = device_create_file(&adrv906x_dev->ndev->dev,
+					 &dev_attr_adrv906x_eth_cdr_div_out_enable);
+		dev_set_drvdata(&adrv906x_dev->ndev->dev, adrv906x_dev);
+		if (ret)
+			goto error_delete_cdr_div_out_enable_sysfs;
 
 #if IS_ENABLED(CONFIG_MACSEC)
 		adrv906x_macsec_probe(pdev, ndev, port_np);
 #endif // IS_ENABLED(CONFIG_MACSEC)
 
-		/* TODO remove when issue is fixed */
-		timer_setup(&adrv906x_dev->tx_timer, adrv906x_eth_tx_timeout, 0);
-
-		/* Read NIC DMA DT */
+		/* read ndma dt */
 		ndma_np = of_parse_phandle(port_np, "ndma-handle", 0);
 		if (!ndma_np) {
 			dev_err(dev, "dt: failed to retrieve ndma phandle from device tree");
@@ -1159,9 +1017,7 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 			}
 		}
 		adrv906x_dev->ndma_dev = ndma_devs[ndma_num];
-		dev_info(dev, "%s: connected to ndma %d", ndev->name, ndma_num);
-
-		adrv906x_get_tsu_phy_delay(adrv906x_dev, port_np);
+		dev_info(dev, "%s: connected to ndma%d", ndev->name, ndma_num);
 
 		ret = adrv906x_get_mac_reg_addr(adrv906x_dev, port_np);
 		if (ret) {
@@ -1185,6 +1041,8 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 			adrv906x_get_oran_if_reg_addr(adrv906x_dev, oran_if_np);
 			adrv906x_eth_oran_if_en(&adrv906x_dev->oif);
 		}
+
+		spin_lock_init(&adrv906x_dev->lock);
 	}
 
 	ret = adrv906x_switch_probe(&eth_if->ethswitch, pdev,
@@ -1193,13 +1051,22 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 	if (ret)
 		dev_warn(dev, "failed to probe switch - falling back to non-switch mode");
 
-	adrv906x_eth_cmn_init(eth_if->emac_cmn_regs, eth_if->ethswitch.enabled);
+	mutex_lock(&eth_if->mtx);
+#if IS_ENABLED(CONFIG_MACSEC)
+	adrv906x_eth_cmn_init(eth_if->emac_cmn_regs, eth_if->ethswitch.enabled,
+			      adrv906x_dev->macsec.enabled);
+#else
+	adrv906x_eth_cmn_init(eth_if->emac_cmn_regs, eth_if->ethswitch.enabled, false);
+#endif
+	mutex_unlock(&eth_if->mtx);
 
 	if (eth_if->ethswitch.enabled) {
 		ret = adrv906x_switch_init(&eth_if->ethswitch);
 		if (ret)
 			goto error_unregister_netdev;
 	}
+	eth_if->tx_max_frames_pending =
+		eth_if->ethswitch.enabled ? NDMA_RING_SIZE / 2 : NDMA_RING_SIZE;
 
 	platform_set_drvdata(pdev, eth_if);
 
@@ -1209,6 +1076,10 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 
 	return 0;
 
+error_delete_cdr_div_out_enable_sysfs:
+	device_remove_file(&eth_if->adrv906x_dev[i]->ndev->dev,
+			   &dev_attr_adrv906x_eth_cdr_div_out_enable);
+	dev_set_drvdata(&eth_if->adrv906x_dev[i]->ndev->dev, NULL);
 error_delete_groups:
 	sysfs_remove_groups(&pdev->dev.kobj, adrv906x_eth_debug_groups);
 	adrv906x_switch_unregister_attr(&eth_if->ethswitch);
@@ -1227,18 +1098,27 @@ static int adrv906x_eth_remove(struct platform_device *pdev)
 	struct net_device *ndev;
 	int i;
 
+	mutex_destroy(&eth_if->mtx);
 	sysfs_remove_groups(&pdev->dev.kobj, adrv906x_eth_debug_groups);
 	if (es->enabled)
 		adrv906x_switch_unregister_attr(&eth_if->ethswitch);
 
 	for (i = 0; i < MAX_NETDEV_NUM; i++) {
-		adrv906x_ndma_remove(eth_if->adrv906x_dev[i]->ndma_dev);
-		adrv906x_mac_cleanup(&eth_if->adrv906x_dev[i]->mac);
-		if (eth_if->adrv906x_dev[i] && eth_if->adrv906x_dev[i]->ndev) {
+		if (eth_if->adrv906x_dev[i]) {
 			ndev = eth_if->adrv906x_dev[i]->ndev;
+			device_remove_file(&eth_if->adrv906x_dev[i]->ndev->dev,
+					   &dev_attr_adrv906x_eth_cdr_div_out_enable);
+			dev_set_drvdata(&eth_if->adrv906x_dev[i]->ndev->dev, NULL);
 			phy_disconnect(ndev->phydev);
 			unregister_netdev(ndev);
+			adrv906x_mac_cleanup(&eth_if->adrv906x_dev[i]->mac);
 		}
+	}
+
+	for (i = 0; i < MAX_NETDEV_NUM; i++) {
+		adrv906x_ndma_remove(eth_if->adrv906x_dev[i]->ndma_dev);
+		if (es->enabled)
+			break;
 	}
 
 	return 0;

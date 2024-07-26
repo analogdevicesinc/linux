@@ -330,6 +330,7 @@ static int adrv906x_phc_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
 static struct ptp_clock_info adrv906x_pll_caps = {
 	.owner		= THIS_MODULE,
 	.name		= "adrv906x soc ptp",
+	.max_adj	= 5000,
 	.adjfine	= &adrv906x_phc_adjfine,
 	.adjfreq	= NULL,
 };

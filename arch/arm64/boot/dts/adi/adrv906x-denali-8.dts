@@ -3,7 +3,7 @@
  * Copyright (c) 2023, Analog Devices Incorporated, All Rights Reserved
  */
 
-#include "adrv906x.dtsi"
+#include "adrv906x-dual-tile.dtsi"
 #include "adrv906x-sysc.dtsi"
 #include "adrv906x-protium.dtsi"
 
@@ -78,8 +78,24 @@
 	};*/
 };
 
+&spi0 {
+	status = "okay";
+
+	spidev_clkic@0 {
+		compatible = "linux,spidev";
+		spi-max-frequency = <12500000>;
+		reg = <0>;
+	};
+
+	spidev_rffe@1 {
+		compatible = "linux,spidev";
+		spi-max-frequency = <10000000>;
+		reg = <1>;
+	};
+};
+
 &i2c1 {
-	status = "disabled";
+	status = "okay";
 
 	/* MAX6581 temp sensor. Bus addr can vary from board
 	 * to board, so four different entries are needed.
@@ -125,10 +141,10 @@
 		over-temperature-mask = <0x7f>;	/* Ignore all alerts */
 	};
 
-	board-eeprom@50 {
+	board-eeprom@57 {
 		status = "disabled";
-		compatible = "at,24c16";
-		reg = <0x50>;
+		compatible = "atmel,24c32";
+		reg = <0x57>;
 	};
 
 	rtc@68 {
@@ -138,8 +154,78 @@
 	};
 };
 
+&dac0 {
+	status = "disabled";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pwm13>;
+};
+
 &pinctrl_hog {
 	adi,pins = <
+	/* Pins 7-17: RFFE signals */
+	RFFE_0_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_1_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_2_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_3_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_4_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_5_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_6_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_7_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_8_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_9_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	RFFE_10_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+
+	/* Pins 22,23: Primary/secondary error signals */
+	A55_GPIO_NS_22_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_23_PIN	(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER)
+
+	/* Pin 51: Board pushbutton */
+	A55_GPIO_NS_51_PIN	(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER)
+
+	/* Pins 56-59,65: QSFP interface */
+	A55_GPIO_NS_56_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_57_PIN	(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER)
+	A55_GPIO_NS_58_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_59_PIN	(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER)
+	A55_GPIO_NS_65_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+
+	/* Pins 66-73: Debug out signals */
+	GPIO_DEBUG_0_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	GPIO_DEBUG_1_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	GPIO_DEBUG_2_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	GPIO_DEBUG_3_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	GPIO_DEBUG_4_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	GPIO_DEBUG_5_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	GPIO_DEBUG_6_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	GPIO_DEBUG_7_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+
+	/* Pins 74-77: Board LEDs */
+	A55_GPIO_NS_74_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_75_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_76_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_77_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+
+	/* Pins 42-44,46,51: CPU trace
+	 * Enable if needed.
+	 * Conflicts with board pushbutton above (pin 51).
+	 * Conflicts with SPI_MASTER0_SELB1 above (pin 42).
+	 *
+	 * TRACE_D0_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	 * TRACE_D1_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	 * TRACE_D2_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	 * TRACE_D3_PIN		(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	 * TRACE_CLK_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	 */
+	>;
+};
+
+&pinctrl_secondary_hog {
+	adi,pins = <
+	/* Pins 22,23: Primary/secondary error signals */
+	A55_GPIO_NS_22_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_23_PIN	(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER)
+
+	/* Pins 66-73: Debug out signals */
 	GPIO_DEBUG_0_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	GPIO_DEBUG_1_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	GPIO_DEBUG_2_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
@@ -150,3 +236,4 @@
 	GPIO_DEBUG_7_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	>;
 };
+

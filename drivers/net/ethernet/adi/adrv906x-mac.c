@@ -7,45 +7,8 @@
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/slab.h>
+#include <linux/bitfield.h>
 #include "adrv906x-mac.h"
-
-static void adrv906x_tsu_set_tx_phy_delay(struct adrv906x_tsu *tsu, u32 delay)
-{
-	void __iomem *tsu_reg = tsu->reg_tsu;
-
-	iowrite32(delay, tsu_reg + TSU_STATIC_PHY_DELAY_TX);
-}
-
-static void adrv906x_tsu_set_rx_phy_delay(struct adrv906x_tsu *tsu, u32 delay)
-{
-	void __iomem *tsu_reg = tsu->reg_tsu;
-
-	iowrite32(delay, tsu_reg + TSU_STATIC_PHY_DELAY_RX);
-}
-
-void adrv906x_tsu_set_ptp_timestamping_mode(struct adrv906x_tsu *tsu, u32 mode)
-{
-	void __iomem *tsu_reg = tsu->reg_tsu;
-	unsigned int val;
-
-	val = ioread32(tsu_reg + TSU_TIMESTAMPING_MODE);
-	val &= ~PTP_TIMESTAMPING_MODE;
-	val |= (mode & PTP_TIMESTAMPING_MODE);
-
-	iowrite32(val, tsu_reg + TSU_TIMESTAMPING_MODE);
-}
-
-void adrv906x_tsu_set_speed(struct adrv906x_tsu *tsu, u32 mode)
-{
-	void __iomem *tsu_reg = tsu->reg_tsu;
-	unsigned int val;
-
-	val = ioread32(tsu_reg + TSU_TIMESTAMPING_MODE);
-	val &= ~CORE_SPEED;
-	val |= (mode & CORE_SPEED);
-
-	iowrite32(val, tsu_reg + TSU_TIMESTAMPING_MODE);
-}
 
 void adrv906x_mac_promiscuous_mode_en(struct adrv906x_mac *mac)
 {
@@ -200,8 +163,6 @@ int adrv906x_mac_init(struct adrv906x_mac *mac, unsigned int size)
 	mac->id = ioread32(mac->xmac + MAC_IP_ID);
 	mac->version = ioread32(mac->xmac + MAC_IP_VERSION);
 	mac->cap = ioread32(mac->xmac + MAC_IP_CAPABILITIES);
-	adrv906x_tsu_set_tx_phy_delay(&mac->tsu, mac->tsu.phy_delay_tx);
-	adrv906x_tsu_set_rx_phy_delay(&mac->tsu, mac->tsu.phy_delay_rx);
 
 	mutex_init(&mac->mac_hw_stats_lock);
 	INIT_DELAYED_WORK(&mac->update_stats, adrv906x_mac_update_hw_stats);

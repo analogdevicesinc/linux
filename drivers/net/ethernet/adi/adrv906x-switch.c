@@ -32,7 +32,7 @@ static int adrv906x_switch_vlan_match_action_sync(struct adrv906x_eth_switch *es
 	} while (reg && time_before(jiffies, stop));
 
 	if (time_after(jiffies, stop)) {
-		dev_err(&es->pdev->dev, "Timeout when adding VLAN to switch");
+		dev_err(&es->pdev->dev, "timeout when adding vlan to switch");
 		return -EIO;
 	}
 
@@ -270,7 +270,8 @@ static ssize_t port_vlan_ctrl_store(struct device *dev,
 				    struct device_attribute *attr,
 				    const char *buf, size_t cnt)
 {
-	struct adrv906x_eth_switch *es = container_of(attr, struct adrv906x_eth_switch, port_vlan_ctrl_attr);
+	struct adrv906x_eth_switch *es =
+		container_of(attr, struct adrv906x_eth_switch, port_vlan_ctrl_attr);
 	char *cmdstr, *orig;
 	char *tokens[4];
 	u16 port, vid;
@@ -341,7 +342,8 @@ free_m:
 static ssize_t port_vlan_ctrl_show(struct device *dev,
 				   struct device_attribute *attr, char *buf)
 {
-	struct adrv906x_eth_switch *es = container_of(attr, struct adrv906x_eth_switch, port_vlan_ctrl_attr);
+	struct adrv906x_eth_switch *es =
+		container_of(attr, struct adrv906x_eth_switch, port_vlan_ctrl_attr);
 	struct vlan_cfg_list *vcl;
 	void __iomem *io;
 	int char_cnt;
@@ -379,7 +381,8 @@ static ssize_t pcp_regen_store(struct device *dev,
 			       struct device_attribute *attr,
 			       const char *buf, size_t cnt)
 {
-	struct adrv906x_eth_switch *es = container_of(attr, struct adrv906x_eth_switch, pcp_regen_attr);
+	struct adrv906x_eth_switch *es =
+		container_of(attr, struct adrv906x_eth_switch, pcp_regen_attr);
 	u32 val;
 	int ret;
 
@@ -395,7 +398,8 @@ static ssize_t pcp_regen_store(struct device *dev,
 static ssize_t pcp_regen_show(struct device *dev,
 			      struct device_attribute *attr, char *buf)
 {
-	struct adrv906x_eth_switch *es = container_of(attr, struct adrv906x_eth_switch, pcp_regen_attr);
+	struct adrv906x_eth_switch *es =
+		container_of(attr, struct adrv906x_eth_switch, pcp_regen_attr);
 
 	return sprintf(buf, "0x%08x\n", es->pcp_regen_val);
 }
@@ -404,7 +408,8 @@ static ssize_t pcp2ipv_store(struct device *dev,
 			     struct device_attribute *attr,
 			     const char *buf, size_t cnt)
 {
-	struct adrv906x_eth_switch *es = container_of(attr, struct adrv906x_eth_switch, pcp2ipv_attr);
+	struct adrv906x_eth_switch *es =
+		container_of(attr, struct adrv906x_eth_switch, pcp2ipv_attr);
 	u32 val;
 	int ret;
 
@@ -420,7 +425,8 @@ static ssize_t pcp2ipv_store(struct device *dev,
 static ssize_t pcp2ipv_show(struct device *dev,
 			    struct device_attribute *attr, char *buf)
 {
-	struct adrv906x_eth_switch *es = container_of(attr, struct adrv906x_eth_switch, pcp2ipv_attr);
+	struct adrv906x_eth_switch *es =
+		container_of(attr, struct adrv906x_eth_switch, pcp2ipv_attr);
 
 	return sprintf(buf, "0x%08x\n", es->pcp_ipv_mapping);
 }
@@ -462,7 +468,7 @@ void adrv906x_switch_reset_soft(struct adrv906x_eth_switch *es)
 
 void adrv906x_switch_unregister_attr(struct adrv906x_eth_switch *es)
 {
-	if (!es->attr_group.attrs)
+	if (es->attr_group.attrs)
 		sysfs_remove_group(&es->pdev->dev.kobj, &es->attr_group);
 }
 
@@ -497,7 +503,7 @@ int adrv906x_switch_register_irqs(struct adrv906x_eth_switch *es, struct device_
 		snprintf(err_irq_name, ARRAY_SIZE(err_irq_name), "%s%d", "switch_error_", i);
 		ret = of_irq_get_byname(eth_switch_np, err_irq_name);
 		if (ret < 0)
-			dev_err(&es->pdev->dev, "failed to get switch[%d] error IRQ", i);
+			dev_err(&es->pdev->dev, "failed to get switch[%d] error irq", i);
 
 		es->err_irqs[i] = ret;
 
@@ -506,7 +512,7 @@ int adrv906x_switch_register_irqs(struct adrv906x_eth_switch *es, struct device_
 						IRQF_SHARED | IRQF_ONESHOT,
 						dev_name(&es->pdev->dev), es);
 		if (ret) {
-			dev_err(&es->pdev->dev, "failed to request switch[%d] error IRQ: %d",
+			dev_err(&es->pdev->dev, "failed to request switch[%d] error irq: %d",
 				i, es->err_irqs[i]);
 			return ret;
 		}
@@ -623,8 +629,7 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 		for (portid = 0; portid < SWITCH_MAX_PORT_NUM; portid++) {
 			if (!es->default_vids[i])
 				continue;
-			ret = adrv906x_switch_port_vlan_add(
-				es, portid, es->default_vids[i]);
+			ret = adrv906x_switch_port_vlan_add(es, portid, es->default_vids[i]);
 			if (ret)
 				return ret;
 		}

@@ -9,8 +9,6 @@
 #include <linux/types.h>
 #include <linux/interrupt.h>
 #include <linux/atomic.h>
-#include <linux/io.h>
-#include <linux/dmaengine.h>
 #include <linux/platform_device.h>
 #include <linux/netdevice.h>
 
@@ -34,7 +32,7 @@
 #define NDMA_TX_HDR_SOF_DSA_EN             BIT(4)
 #define NDMA_TX_HDR_STATUS_FR_ERR          BIT(2)
 #define NDMA_TX_HDR_STATUS_FR_PTP          BIT(3)
-#define NDMA_TX_HDR_SOS_SIZE               8
+#define NDMA_TX_HDR_SOF_SIZE               8
 #define NDMA_TX_HDR_SUBSEQ_SIZE            8
 #define NDMA_TX_HDR_STATUS_SIZE            16
 
@@ -55,12 +53,12 @@
 #define NDMA_NAPI_POLL_WEIGHT              64
 #define NDMA_RING_SIZE                     128
 
-
 enum adrv906x_ndma_chan_type {
 	NDMA_TX,
 	NDMA_RX,
 	MAX_NDMA_CHANNELS
 };
+
 typedef void (*ndma_callback)(struct sk_buff *skb, unsigned int port_id,
 			      struct timespec64 ts, void *cb_param);
 
@@ -88,6 +86,8 @@ union adrv906x_ndma_chan_stats {
 		u64 unknown_errors;
 		u64 pending_work_units;
 		u64 done_work_units;
+		u64 status_dma_errors;
+		u64 data_dma_errors;
 	} tx;
 	struct {
 		u64 frame_errors;
@@ -100,6 +100,7 @@ union adrv906x_ndma_chan_stats {
 		u64 unknown_errors;
 		u64 pending_work_units;
 		u64 done_work_units;
+		u64 dma_errors;
 	} rx;
 };
 
@@ -111,14 +112,23 @@ struct adrv906x_ndma_chan {
 	union adrv906x_ndma_chan_stats stats;
 	ndma_callback status_cb_fn;
 	void *status_cb_param;
-	spinlock_t lock; /* protecting struct and register access */
+	spinlock_t lock; /* protects struct and register access */
 	unsigned char expected_seq_num;
 	unsigned char seq_num;
+
 	/* TX DMA channel related fields */
-	struct dma_chan *dma_tx_chan;
+	void __iomem *tx_dma_base;
 	void *tx_buffs[NDMA_RING_SIZE];
+	int tx_dma_done_irq;
+	int tx_dma_error_irq;
+	struct dma_desc *tx_ring;
+	dma_addr_t tx_ring_dma;
 	unsigned int tx_tail;   /* Next entry in tx ring to read */
 	unsigned int tx_head;   /* Next entry in tx ring to give a new buffer */
+	unsigned int tx_frames_waiting;
+	unsigned int tx_frames_pending;
+	struct timer_list tx_timer;
+
 	/* RX DMA channel related fields */
 	void __iomem *rx_dma_base;
 	struct sk_buff *skb_rx_data_wu;
@@ -129,7 +139,7 @@ struct adrv906x_ndma_chan {
 	dma_addr_t rx_ring_dma;
 	unsigned int rx_tail;   /* Next entry in rx ring to read */
 	unsigned int rx_head;   /* Next entry in rx ring to give a new buffer */
-	unsigned int rx_free;   /* Number of free allocated RX buffers */
+	unsigned int rx_free;   /* Number of free RX buffers */
 	struct napi_struct napi;
 };
 
@@ -143,14 +153,15 @@ struct adrv906x_ndma_dev {
 	struct delayed_work update_stats;
 	bool enabled;
 	struct kref refcount;
-	spinlock_t lock; /* protecting struct and stats access */
+	spinlock_t lock; /* protects struct and stats access */
 };
 
-int adrv906x_ndma_submit_tx(struct adrv906x_ndma_chan *ndma_ch, struct sk_buff *skb,
-			    unsigned char port, bool hw_tstamp_en, bool dsa_en);
+int adrv906x_ndma_start_xmit(struct adrv906x_ndma_dev *ndma_dev, struct sk_buff *skb,
+			     unsigned char port, bool hw_tstamp_en, bool dsa_en);
 int adrv906x_ndma_probe(struct platform_device *pdev, struct net_device *ndev,
 			struct device_node *ndma_np, struct adrv906x_ndma_dev *ndma_dev);
 void adrv906x_ndma_remove(struct adrv906x_ndma_dev *ndma_dev);
+void adrv906x_ndma_set_tx_timeout_value(struct adrv906x_ndma_dev *ndma_dev);
 void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, unsigned int ptp_mode,
 			ndma_callback tx_cb_fn, ndma_callback rx_cb_fn, void *rx_cb_param);
 void adrv906x_ndma_close(struct adrv906x_ndma_dev *ndma_dev);

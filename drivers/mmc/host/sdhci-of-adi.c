@@ -233,6 +233,34 @@ static int adi_sdhci_set_dll(struct phy *phy, u8 hs_timing, bool enable)
 	return phy_configure(phy, &opts);
 }
 
+static u16 adi_sdhci_calc_clk(struct sdhci_host *host, unsigned int clock,
+			      unsigned int *actual_clock)
+{
+	int div = 0;
+	int real_div = div;
+	u16 clk = 0;
+
+	/* Workaround: ADRV906X does not use SDHCI_DIV as specified
+	 * in the SDHCI spec. Instead of 1/(2N), it is 1/(N+1).
+	 */
+	if (host->max_clk <= clock) {
+		div = 0;
+	} else {
+		div = (host->max_clk / clock) - 1U;
+		if ((host->max_clk % clock) != 0)
+			div++;
+	}
+	real_div = div + 1;
+
+	if (real_div)
+		*actual_clock = host->max_clk / real_div;
+	clk |= (div & SDHCI_DIV_MASK) << SDHCI_DIVIDER_SHIFT;
+	clk |= ((div & SDHCI_DIV_HI_MASK) >> SDHCI_DIV_MASK_LEN)
+		<< SDHCI_DIVIDER_HI_SHIFT;
+
+	return clk;
+}
+
 static void adi_sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 {
 	struct sdhci_pltfm_host *pltfm_host;
@@ -269,7 +297,7 @@ static void adi_sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	}
 
 	/* Configure and enable clock */
-	clk = sdhci_calc_clk(host, clock, &host->mmc->actual_clock);
+	clk = adi_sdhci_calc_clk(host, clock, &host->mmc->actual_clock);
 	sdhci_enable_clk(host, clk);
 
 	/* Enable and wait for DLL lock */

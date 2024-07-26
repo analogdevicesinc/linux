@@ -18,6 +18,7 @@
 #include <linux/platform_device.h>
 #include <linux/spi/spi.h>
 #include <linux/types.h>
+#include <linux/spi/spi-mem.h>
 
 /*
  * ADI SPI registers layout
@@ -228,9 +229,11 @@
 #define ADI_SPI_RFIFO                 0x50
 #define ADI_SPI_TFIFO                 0x58
 
-#define SPI_MAX_SS                    7                 /* Maximum number of native slave selects */
-#define SPI_SSE(n)                    BIT((n) + 1)      /* Slave Select Enable (SSE-x) Bit Select */
-#define SPI_SSEL(n)                   BIT((n) + 9)      /* Slave Select Value (SSEL-x) Bit Select */
+#define SPI_MAX_SS                    7                         /* Maximum number of native slave selects */
+#define SPI_SSE(n)                    BIT((n) + 1)              /* Slave Select Enable (SSE-x) Bit Select */
+#define SPI_SSEL(n)                   BIT((n) + 9)              /* Slave Select Value (SSEL-x) Bit Select */
+
+#define MAX_SPI_TRANSFER_SIZE         ((64 * 1024) - 4096)      /* Arbitrary value lower than 64K (DDE transfer limit) */
 
 struct adi_spi_master;
 
@@ -695,6 +698,9 @@ static int adi_spi_setup(struct spi_device *spi)
 	chip->control |= SPI_CTL_MSTR;
 	chip->control &= ~SPI_CTL_ASSEL;
 
+	/* Fast Mode */
+	chip->control |= SPI_CTL_FMODE;
+
 	return 0;
 }
 
@@ -733,6 +739,27 @@ static const struct of_device_id adi_spi_of_match[] = {
 	{},
 };
 MODULE_DEVICE_TABLE(of, adi_spi_of_match);
+
+static int adi_qspi_adjust_op_size(struct spi_mem *mem, struct spi_mem_op *op)
+{
+	if (op->data.nbytes > MAX_SPI_TRANSFER_SIZE)
+		op->data.nbytes = MAX_SPI_TRANSFER_SIZE;
+
+	return 0;
+}
+
+static int adi_qspi_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
+{
+	/* Once ops is defined, this callback needs to be present
+	 * Do nothing and return error. Fallback will be the regular core
+	 * spi_meme_exec_op implmentation */
+	return -ENOTSUPP;
+}
+
+static const struct spi_controller_mem_ops adi_qspi_mem_ops = {
+	.adjust_op_size = adi_qspi_adjust_op_size,
+	.exec_op	= adi_qspi_exec_op,
+};
 
 static int adi_spi_probe(struct platform_device *pdev)
 {
@@ -773,6 +800,7 @@ static int adi_spi_probe(struct platform_device *pdev)
 	master->transfer_one = adi_spi_transfer_one;
 	master->bits_per_word_mask = BIT(32 - 1) | BIT(16 - 1) | BIT(8 - 1);
 	master->max_native_cs = SPI_MAX_SS;
+	master->mem_ops = &adi_qspi_mem_ops;
 
 	drv_data = spi_master_get_devdata(master);
 	drv_data->master = master;

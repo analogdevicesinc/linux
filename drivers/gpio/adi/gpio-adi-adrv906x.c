@@ -193,14 +193,14 @@ static int adi_adrv906x_gpio_direction_output(struct gpio_chip *chip,
 	struct adi_adrv906x_gpio *gpio = gpiochip_get_data(chip);
 
 	/*
-	 * Setup pin as output
-	 */
-	iowrite32(GPIO_DIR_CONTROL_OE_BIT_MASK, gpio->base_addr + ADI_ADRV906X_GPIO_DIR_CONTROL_BASE + (pin * sizeof(uint32_t)));
-
-	/*
 	 * Write the specified value to the output pin
 	 */
 	adi_adrv906x_gpio_set(chip, pin, state);
+
+	/*
+	 * Setup pin as output
+	 */
+	iowrite32(GPIO_DIR_CONTROL_OE_BIT_MASK, gpio->base_addr + ADI_ADRV906X_GPIO_DIR_CONTROL_BASE + (pin * sizeof(uint32_t)));
 
 	return 0;
 }

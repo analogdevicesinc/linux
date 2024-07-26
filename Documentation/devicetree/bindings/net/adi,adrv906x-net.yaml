@@ -19,7 +19,14 @@ properties:
   reg:
     maxItems: 1
     description: EMAC_CMN_BASE
-
+  recovered_clk_10g:
+    description: Clock divider value for the recovered Ethernet clock that is used
+      as a reference to support SyncE in 10 GbE operation
+    const: 22
+  recovered_clk_25g:
+    description: Clock divider value for the recovered Ethernet clock that is used
+      as a reference to support SyncE in 25 GbE operation
+    const: 55
   ethernet-ports:
     type: object
     patternProperties:
@@ -36,12 +43,11 @@ properties:
             $ref: /schemas/types.yaml#definitions/uint32
             description: port id for the ethernet device
           reg:
-            maxItems: 4
+            maxItems: 3
             description: The address and size of the register must be in the below list order!
                 - description: The physical base address and size of the XMAC registers
                 - description: The physical base address and size of the EMAC TX control registers
                 - description: The physical base address and size of the EMAC RX control registers
-                - description: The physical base address and size of the TSU registers
           macsec:
             description: Physical base address for MACsec instance
           interrupts:
@@ -55,22 +61,6 @@ properties:
           phy-handle:
             maxItems: 1
             description: phandle on PHY connected to the port
-          static-phy-delay-tx-ns, static-phy-delay-tx-frac-ns:
-            description: static phy delay for tx channel,
-              'static-phy-delay-tx-ns' is the integer portion in units of ns,
-              'static-phy-delay-tx-frac-ns' is the fractional portion in units of 2^(-16)ns.
-              for example, 1.125ns is represented by 1ns and the frac-ns = 0x2000
-            default: 0, 0
-            minimum: 0, 0
-            maximum: 0xFFFF, 0xFFFF
-          static-phy-delay-rx-ns, static-phy-delay-rx-frac-ns:
-            description: static phy delay for rx channel,
-              'static-phy-delay-rx-ns' is the integer portion in units of ns,
-              'static-phy-delay-rx-frac-ns' is the fractional portion in units of 2^(-16)ns.
-              for example, 1.125ns is represented by 1ns and the frac-ns = 0x2000
-            default: 0, 0
-            minimum: 0, 0
-            maximum: 0xFFFF, 0xFFFF
         required:
           - reg
           - phy-handle
@@ -87,37 +77,33 @@ properties:
         $ref: /schemas/types.yaml#definitions/uint32
         description: NDMA device id number
       reg:
-        maxItems: 4
+        maxItems: 5
         description:
           The physical base address(s) and size of the NDMA X's registers.
           The 1st region is the NDMA TX register base and size.
-          The 2nd region is the DMA TX status register base and size.
-          The 3rd region is the NDMA RX register base and size.
-          The 4th region is the DMA RX data and status register base and size.
-      dmas:
-        maxItems: 1
-        description:
-          An array containing the related dma node and the dma channel allocated.
-      dma-names:
-        items:
-          - const: tx_data_X
-        description:
-          dma channels, they should be in this order.
+          The 2nd region is the DMA TX data register base and size.
+          The 3rd region is the DMA TX status register base and size.
+          The 4th region is the NDMA RX register base and size.
+          The 5th region is the DMA RX data and status register base and size.
       reset-ctrl:
         description:
           control ndmaX tx & rx reset
       interrupts:
         items:
-          - description: dmaX rx done interrupt
-          - description: dmaX rx error interrupt
+          - description: dmaX tx data done interrupt
+          - description: dmaX tx data error interrupt
           - description: dmaX tx status done interrupt
           - description: dmaX tx status error interrupt
+          - description: dmaX rx done interrupt
+          - description: dmaX rx error interrupt
       interrupt-names:
         items:
-          - const: rx_dma_done
-          - const: rx_dma_error
+          - const: tx_data_dma_done
+          - const: tx_data_dma_error
           - const: tx_status_dma_done
           - const: tx_status_dma_error
+          - const: rx_dma_done
+          - const: rx_dma_error
       interrupt-ctrl:
         description: control register address for NDMA interrupt enable
 
@@ -180,31 +166,23 @@ examples:
       #size-cells = <1>;
       port@0 {
         id = <0>;
-        reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>, <EMAC_MAC_0_RX 0x9c>, <EMAC_PCS_0_TSU 0x44>;
+        reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>, <EMAC_MAC_0_RX 0x9c>;
         macsec = <EMAC_MACSEC_0_BASE 0xa00>;
         interrupts = <GIC_SPI MACSEC_IRQ_0 IRQ_TYPE_LEVEL_HIGH>;
         interrupt-names = "ts_event";
         ndma-handle = <&ndma0>;
         phy-handle = <&adi_phy0>;
         phy-mode = "rmii";
-        static-phy-delay-tx-ns = <0>;
-        static-phy-delay-tx-frac-ns = <0>;
-        static-phy-delay-rx-ns = <0>;
-        static-phy-delay-rx-frac-ns = <0>;
       };
       port@1 {
         id = <1>;
-        reg = <EMAC_MAC_1_BASE 0x14>, <EMAC_MAC_1_TX 0x70>, <EMAC_MAC_1_RX 0x9c>, <EMAC_PCS_1_TSU 0x44>;
+        reg = <EMAC_MAC_1_BASE 0x14>, <EMAC_MAC_1_TX 0x70>, <EMAC_MAC_1_RX 0x9c>;
         macsec = <EMAC_MACSEC_1_BASE 0xa00>;
         interrupts = <GIC_SPI MACSEC_IRQ_1 IRQ_TYPE_LEVEL_HIGH>;
         interrupt-names = "ts_event";
         ndma-handle = <&ndma1>;
         phy-handle = <&adi_phy1>;
         phy-mode = "rmii";
-        static-phy-delay-tx-ns = <0>;
-        static-phy-delay-tx-frac-ns = <0>;
-        static-phy-delay-rx-ns = <0>;
-        static-phy-delay-rx-frac-ns = <0>;
       };
     };
     
@@ -237,15 +215,22 @@ examples:
     };
   };
 
-  ndma0: ndma0@NIC_DMA_0_TX_UADDR {
+  ndma0: ndma0@NDMA_0_TX_UADDR {
     id = <0>;
-    reg = <NIC_DMA_0_TX 0x100>, <NIC_DMA_0_BASE 0x80>, 
-          <NIC_DMA_0_RX 0x1000>, <NIC_DMA_0_BASE 0x80>;
-    dmas =  <&NIC_DMA_0 20>;
-    dma-names = "tx_data_0";
+    reg = <NIC_DMA_0_TX 0x100>, 
+          <NIC_DMA_0_BASE 0x80>, 
+          <NIC_DMA_0_BASE 0x80>, 
+          <NIC_DMA_0_RX 0x1000>,
+          <NIC_DMA_0_BASE 0x80>;
     reset-ctrl = <&ndma_rst>;
-    interrupts = <GIC_SPI MS_DDE_DONE_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
-    <GIC_SPI MS_DDE_ERR_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>;
-    interrupt-names = "rx_dma_done", "rx_dma_error";
+    interrupts = <GIC_SPI MS_DDE_DONE_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
+                 <GIC_SPI MS_DDE_ERR_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
+                 <GIC_SPI MS_STAT_DDE_DONE_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+                 <GIC_SPI MS_STAT_DDE_ERR_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+                 <GIC_SPI MS_DDE_DONE_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+                 <GIC_SPI MS_DDE_ERR_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>;
+    interrupt-names = "tx_data_dma_done", "tx_data_dma_error",
+                      "tx_status_dma_done", "tx_status_dma_error",
+                      "rx_dma_done", "rx_dma_error";
     interrupt-ctrl = <&ndma0_interrupt_ctrl>;
   };

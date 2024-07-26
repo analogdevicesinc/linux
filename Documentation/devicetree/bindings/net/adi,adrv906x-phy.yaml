@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/adi,phy.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ADRV906x 10/25 Gigabit Ethernet PHY
+
+maintainers:
+  - Slawomir Kulig <slawomir.kulig@analog.com>
+  - Jianhong Xu <jianhong.xu@analog.com>
+
+description:
+  Bindings for ADRV906x 10/25 Gigabit Ethernet PHYs
+
+allOf:
+  - $ref: mdio.yaml#
+
+properties:
+  compatible:
+    const: adi,adrv906x-mdio
+  reg:
+    maxItems: 4
+    description: The address and size of the register must be in the below list order!
+        - description: The PCS_0 register base and size
+        - description: The TSU_0 register base and size
+        - description: The PCS_1 register base and size
+        - description: The TSU_1 register base and size
+
+required:
+  - compatible
+  - reg
+  - "#address-cells"
+  - "#size-cells"
+
+patternProperties:
+  "^ethernet-phy@[0-9a-f]+$":
+    type: object
+
+    properties:
+      reg:
+        minimum: 0
+        maximum: 31
+        description:
+          The ID number for the device.
+
+      compatible:
+        const: ethernet-phy-ieee802.3-c45
+        description:
+          PHY implements IEEE802.3 clause 45
+
+    required:
+      - reg
+      - compatible
+      - static-phy-delay-tx-ns, static-phy-delay-tx-frac-ns:
+            description: static phy delay for tx channel,
+              'static-phy-delay-tx-ns' is the integer portion in units of ns,
+              'static-phy-delay-tx-frac-ns' is the fractional portion in units of 2^(-16)ns.
+              for example, 1.125ns is represented by 1ns and the frac-ns = 0x2000
+            default: 0, 0
+            minimum: 0, 0
+            maximum: 0xFFFF, 0xFFFF
+      - static-phy-delay-rx-ns, static-phy-delay-rx-frac-ns:
+            description: static phy delay for rx channel,
+              'static-phy-delay-rx-ns' is the integer portion in units of ns,
+              'static-phy-delay-rx-frac-ns' is the fractional portion in units of 2^(-16)ns.
+              for example, 1.125ns is represented by 1ns and the frac-ns = 0x2000
+            default: 0, 0
+            minimum: 0, 0
+            maximum: 0xFFFF, 0xFFFF
+
+unevaluatedProperties: false
+
+examples:
+  - |
+  adrv906x_mdio: mdio@EMAC_PCS_0_BASE_UADDR {
+    compatible = "adi,adrv906x-mdio";
+    reg = <EMAC_PCS_0_BASE 0x350>, <EMAC_PCS_0_TSU 0x44>,
+	        <EMAC_PCS_1_BASE 0x350>, <EMAC_PCS_1_TSU 0x44>;
+    #address-cells = <1>;
+    #size-cells = <0>;
+    adi_phy0: ethernet-phy@0 {
+      compatible = "ethernet-phy-ieee802.3-c45";
+      reg = <0>;
+      static-phy-delay-tx-ns = <0>;
+      static-phy-delay-tx-frac-ns = <0>;
+      static-phy-delay-rx-ns = <0>;
+      static-phy-delay-rx-frac-ns = <0>;
+    };
+    adi_phy1: ethernet-phy@1 {
+      compatible = "ethernet-phy-ieee802.3-c45";
+      reg = <1>;
+      static-phy-delay-tx-ns = <0>;
+      static-phy-delay-tx-frac-ns = <0>;
+      static-phy-delay-rx-ns = <0>;
+      static-phy-delay-rx-frac-ns = <0>;
+    };
+  };
