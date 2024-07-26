@@ -30,6 +30,7 @@ enum reset_cause_t {
 	RESET_VALUE,
 	IMG_VERIFY_FAIL,
 	WATCHDOG_RESET,
+	ECC_ERROR,
 	OTHER_RESET_CAUSE,
 };
 

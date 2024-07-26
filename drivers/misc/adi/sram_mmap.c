@@ -25,7 +25,8 @@
 
 #define SRAM_MMAP_DRV_NAME              "sram_mmap"
 
-#define MAX_SRAM_REGIONS 4
+#define MAX_SRAM_REGIONS 8
+
 struct sram_region_info {
 	struct reserved_mem *rmem;
 	struct device *dev;

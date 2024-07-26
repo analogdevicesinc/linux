@@ -8,13 +8,14 @@
 #include <linux/of_address.h>
 #include <linux/of_mdio.h>
 #include <linux/platform_device.h>
+#include "adrv906x-serdes.h"
 
 #define ADRV906X_PHY_ID                             0x00000000
 
 #define ADRV906X_PCS_RX_PATH                             0
 #define ADRV906X_PCS_TX_PATH                             1
 
-#define ADRV906X_MAX_NUM_OF_PCS                          2
+#define ADRV906X_MAX_PHYS                                2
 
 /* ADI PCS registers */
 #define ADRV906X_PCS_STATUS_3_REG                        9
@@ -33,33 +34,33 @@
 
 #define ADRV906X_PCS_GENERAL_TX_REG                      46
 #define ADRV906X_PCS_GENERAL_RX_REG                      47
-#define   MDIO_PCS_GENERAL_SCRAMBLER_BYPASS_EN      BIT(15)             /* Bypass scrambler in 64b/66b encoder/decoder enabled */
-#define   MDIO_PCS_GENERAL_CPRI_EN                  BIT(14)             /* CPRI enabled for 64b/66b encoder/decoder and RS-FEC enabled */
-#define   MDIO_PCS_GENERAL_SERDES_BUS_WIDTH_MSK     GENMASK(13, 7)      /* SerDes input/output bus width mask */
-#define   MDIO_PCS_GENERAL_SERDES_64_BITS_BUS_WIDTH 0x2000              /* SerDes input/output 64 bits bus width */
-#define   MDIO_PCS_GENERAL_SERDES_32_BITS_BUS_WIDTH 0x1000              /* SerDes input/output 32 bits bus width */
-#define   MDIO_PCS_GENERAL_HALF_DUTY_CYCLE_EN       BIT(4)              /* Half duty cycle enabled */
-#define   MDIO_PCS_GENERAL_XGMII_BUS_WIDTH_MSK      BIT(3)              /* XGMII interface bus width mask */
-#define   MDIO_PCS_GENERAL_64_BITS_XGMII            0x0008              /* XGMII interface is 64 bits */
-#define   MDIO_PCS_GENERAL_32_BITS_XGMII            0x0000              /* XGMII interface is 32 bits */
-#define   MDIO_PCS_GENERAL_PRBS23_TESTPATTERN_EN    BIT(2)              /* PRBS23 test-pattern mode enabled */
-#define   MDIO_PCS_GENERAL_PRBS7_TESTPATTERN_EN     BIT(1)              /* PRBS7 test-pattern mode enabled */
-#define   MDIO_PCS_GENERAL_PATH_RESET               BIT(0)              /* Reset transmit/receive path */
+#define   MDIO_PCS_GENERAL_SCRAMBLER_BYPASS_EN      BIT(15)
+#define   MDIO_PCS_GENERAL_CPRI_EN                  BIT(14)
+#define   MDIO_PCS_GENERAL_SERDES_BUS_WIDTH_MSK     GENMASK(13, 7)
+#define   MDIO_PCS_GENERAL_SERDES_64_BITS_BUS_WIDTH 0x2000
+#define   MDIO_PCS_GENERAL_SERDES_32_BITS_BUS_WIDTH 0x1000
+#define   MDIO_PCS_GENERAL_HALF_DUTY_CYCLE_EN       BIT(4)
+#define   MDIO_PCS_GENERAL_XGMII_BUS_WIDTH_MSK      BIT(3)
+#define   MDIO_PCS_GENERAL_64_BITS_XGMII            0x0008
+#define   MDIO_PCS_GENERAL_32_BITS_XGMII            0x0000
+#define   MDIO_PCS_GENERAL_PRBS23_TESTPATTERN_EN    BIT(2)
+#define   MDIO_PCS_GENERAL_PRBS7_TESTPATTERN_EN     BIT(1)
+#define   MDIO_PCS_GENERAL_PATH_RESET               BIT(0)
 
 #define ADRV906X_PCS_CFG_TX_REG                          48
-#define   MDIO_PCS_CFG_TX_BIT_DELAY_MSK             GENMASK(15, 9)      /* bit delay introduced by transmitter */
-#define   MDIO_PCS_CFG_TX_BUF_INIT_MSK              GENMASK(8, 1)       /* Initial fill level of the TX elastic buffer mask */
-#define   MDIO_PCS_CFG_TX_BUF_INIT                  0x000A              /* Initial fill level of the TX elastic buffer for 10/25G */
-#define   MDIO_PCS_CFG_TX_BUF_BYPASS_EN             BIT(0)              /* TX elastic buffer bypass enabled */
+#define   MDIO_PCS_CFG_TX_BIT_DELAY_MSK             GENMASK(15, 9)
+#define   MDIO_PCS_CFG_TX_BUF_INIT_MSK              GENMASK(8, 1)
+#define   MDIO_PCS_CFG_TX_BUF_INIT                  0x000A
+#define   MDIO_PCS_CFG_TX_BUF_BYPASS_EN             BIT(0)
 
 #define ADRV906X_PCS_CFG_RX_REG                          49
-#define   MDIO_PCS_CFG_RX_GEARBOX_BYPASS_EN         BIT(12)             /* RX gearboxes bypassed enabled */
-#define   MDIO_PCS_CFG_RX_SERDES_LOOPBACK_EN        BIT(11)             /* Loopback at SerDes interface enabled */
-#define   MDIO_PCS_CFG_RX_CORE_IF_LOOPBACK_EN       BIT(10)             /* Loopback at core interface enabled */
-#define   MDIO_PCS_CFG_RX_COMMA_SEARCH_DIS          BIT(9)              /* Comma-search disabled */
-#define   MDIO_PCS_CFG_RX_BUF_INIT_MSK              GENMASK(8, 1)       /* Initial fill level of the RX elastic buffer mask */
-#define   MDIO_PCS_CFG_RX_BUF_INIT                  0x000A              /* Initial fill level of the RX elastic buffer for 10/25G */
-#define   MDIO_PCS_CFG_RX_BUF_BYPASS_EN             BIT(0)              /* RX elastic buffer bypass enabled */
+#define   MDIO_PCS_CFG_RX_GEARBOX_BYPASS_EN         BIT(12)
+#define   MDIO_PCS_CFG_RX_SERDES_LOOPBACK_EN        BIT(11)
+#define   MDIO_PCS_CFG_RX_CORE_IF_LOOPBACK_EN       BIT(10)
+#define   MDIO_PCS_CFG_RX_COMMA_SEARCH_DIS          BIT(9)
+#define   MDIO_PCS_CFG_RX_BUF_INIT_MSK              GENMASK(8, 1)
+#define   MDIO_PCS_CFG_RX_BUF_INIT                  0x000A
+#define   MDIO_PCS_CFG_RX_BUF_BYPASS_EN             BIT(0)
 
 #define ADRV906X_PCS_BUF_STAT_TX_REG                     50
 #define ADRV906X_PCS_BUF_STAT_RX_REG                     51
@@ -73,12 +74,34 @@
 #define MDIO_PCS_CTRL2_25GBR                        0x0007              /* 25GBASE-R type */
 #define MDIO_CTRL1_SPEED25G (MDIO_CTRL1_SPEEDSELEXT | 0x14)             /* 25 Gb/s */
 
-#define MDIO_PCS_STAT2_25GBR                        0x0080              /* 25GBASE-R ability */
-#define MDIO_PCS_STAT2_10GBR                        0x0001              /* 10GBASE-R ability */
+#define MDIO_PCS_STAT2_25GBR                        0x0080              /* 25GBASE-R */
+#define MDIO_PCS_STAT2_10GBR                        0x0001              /* 10GBASE-R */
+
+#define TSU_STATIC_PHY_DELAY_RX                     0x0000003C
+#define TSU_STATIC_PHY_DELAY_TX                     0x00000040
+#define TSU_TIMESTAMPING_MODE                       0x00000038
+#define   CORE_SPEED                                BIT(8)
+#define   CORE_SPEED_10G                            0x00000000
+#define   CORE_SPEED_25G                            0x00000100
+#define   PTP_TIMESTAMPING_MODE                     GENMASK(1, 0)
+#define   PTP_TIMESTAMPING_MODE_TWO_STEP            0x00000000          /* Two-step */
+#define   PTP_TIMESTAMPING_MODE_ONE_STEP            0x00000001          /* One-step */
+#define   PTP_TIMESTAMPING_MODE_TRANSP              0x00000002          /* Transparent Clock */
+
+struct adrv906x_mdio_priv {
+	struct device *dev;
+	void __iomem *pcs_base[ADRV906X_MAX_PHYS];
+	void __iomem *tsu_base[ADRV906X_MAX_PHYS];
+};
+
+struct adrv906x_tsu {
+	u32 phy_delay_tx;
+	u32 phy_delay_rx;
+};
 
 struct adrv906x_phy_priv {
-	struct device *dev;
-	void __iomem *base[ADRV906X_MAX_NUM_OF_PCS];
+	struct adrv906x_serdes serdes;
+	struct adrv906x_tsu tsu;
 };
 
 struct adrv906x_phy_hw_stat {
@@ -104,33 +127,120 @@ static const struct adrv906x_phy_hw_stat adrv906x_phy_hw_stats[] = {
 	{ "cpc_shcv_error_cnt",		   ADRV906X_PCS_CPCS_SHCV_REG,	 0,  16 },
 };
 
+static void adrv906x_parse_tsu_phy_delay(struct phy_device *phydev)
+{
+	struct adrv906x_phy_priv *adrv906x_phy = phydev->priv;
+	struct device *dev = &phydev->mdio.dev;
+	struct device_node *of_node = dev->of_node;
+	u32 val, frac_val;
+	int ret;
+
+	ret = of_property_read_u32(of_node, "static-phy-delay-tx-ns", &val);
+	if (ret < 0) {
+		phydev_warn(phydev,
+			    "dt: static-phy-delay-tx-ns missing, using 0");
+		val = 0;
+	}
+	ret = of_property_read_u32(of_node, "static-phy-delay-tx-frac-ns",
+				   &frac_val);
+	if (ret < 0) {
+		phydev_warn(phydev,
+			    "dt: static-phy-delay-tx-frac-ns missing, using 0");
+		frac_val = 0;
+	}
+	adrv906x_phy->tsu.phy_delay_tx = (val << 16) | (frac_val & 0xFFFF);
+	phydev_info(phydev, "tsu static phy delay tx 0x%08x",
+		    adrv906x_phy->tsu.phy_delay_tx);
+
+	ret = of_property_read_u32(of_node, "static-phy-delay-rx-ns", &val);
+	if (ret < 0) {
+		phydev_warn(phydev,
+			    "dt: static-phy-delay-rx-ns missing, using 0");
+		val = 0;
+	}
+	ret = of_property_read_u32(of_node, "static-phy-delay-rx-frac-ns",
+				   &frac_val);
+	if (ret < 0) {
+		phydev_warn(phydev,
+			    "dt: static-phy-delay-rx-frac-ns missing, using 0");
+		frac_val = 0;
+	}
+	adrv906x_phy->tsu.phy_delay_rx = (val << 16) | (frac_val & 0xFFFF);
+	phydev_info(phydev, "tsu static phy delay rx 0x%08x",
+		    adrv906x_phy->tsu.phy_delay_rx);
+}
+
+static void adrv906x_tsu_set_phy_delay(struct phy_device *phydev)
+{
+	struct adrv906x_phy_priv *adrv906x_phy = phydev->priv;
+	struct adrv906x_tsu *tsu = &adrv906x_phy->tsu;
+	struct mii_bus *bus = phydev->mdio.bus;
+	struct adrv906x_mdio_priv *adrv906x_mdio = bus->priv;
+	void __iomem *base = adrv906x_mdio->tsu_base[phydev->mdio.addr];
+
+	iowrite32(tsu->phy_delay_tx, base + TSU_STATIC_PHY_DELAY_TX);
+	iowrite32(tsu->phy_delay_rx, base + TSU_STATIC_PHY_DELAY_RX);
+}
+
+static void adrv906x_tsu_set_ptp_timestamping_mode(struct phy_device *phydev)
+{
+	struct mii_bus *bus = phydev->mdio.bus;
+	struct adrv906x_mdio_priv *adrv906x_mdio = bus->priv;
+	void __iomem *base = adrv906x_mdio->tsu_base[phydev->mdio.addr];
+	u32 mode, val;
+
+	mode = PTP_TIMESTAMPING_MODE_TWO_STEP;
+
+	val = ioread32(base + TSU_TIMESTAMPING_MODE);
+	val &= ~PTP_TIMESTAMPING_MODE;
+	val |= (mode & PTP_TIMESTAMPING_MODE);
+
+	iowrite32(val, base + TSU_TIMESTAMPING_MODE);
+}
+
+static void adrv906x_tsu_set_speed(struct phy_device *phydev)
+{
+	struct mii_bus *bus = phydev->mdio.bus;
+	struct adrv906x_mdio_priv *adrv906x_mdio = bus->priv;
+	void __iomem *base = adrv906x_mdio->tsu_base[phydev->mdio.addr];
+	u32 mode, val;
+
+	mode = (phydev->speed == SPEED_25000) ? CORE_SPEED_25G : CORE_SPEED_10G;
+
+	val = ioread32(base + TSU_TIMESTAMPING_MODE);
+	val &= ~CORE_SPEED;
+	val |= (mode & CORE_SPEED);
+
+	iowrite32(val, base + TSU_TIMESTAMPING_MODE);
+}
+
 static int adrv906x_pseudo_mdio_write(struct mii_bus *bus, int mii_id, int regnum, u16 val)
 {
-	struct adrv906x_phy_priv *priv = bus->priv;
+	struct adrv906x_mdio_priv *priv = bus->priv;
 	u32 offset;
 
-	if (mii_id >= ADRV906X_MAX_NUM_OF_PCS)
+	if (mii_id >= ADRV906X_MAX_PHYS)
 		return -EADDRNOTAVAIL;
 
 	offset = 4 * (regnum & 0xFFFF);
 
-	iowrite32(val, priv->base[mii_id] + offset);
+	iowrite32(val, priv->pcs_base[mii_id] + offset);
 
 	return 0;
 }
 
 static int adrv906x_pseudo_mdio_read(struct mii_bus *bus, int mii_id, int regnum)
 {
-	struct adrv906x_phy_priv *priv = bus->priv;
+	struct adrv906x_mdio_priv *priv = bus->priv;
 	u32 offset;
 	int ret;
 
-	if (mii_id >= ADRV906X_MAX_NUM_OF_PCS)
+	if (mii_id >= ADRV906X_MAX_PHYS)
 		return -EADDRNOTAVAIL;
 
 	offset = 4 * (regnum & 0xFFFF);
 
-	ret = ioread32(priv->base[mii_id] + offset) & 0xFFFF;
+	ret = ioread32(priv->pcs_base[mii_id] + offset) & 0xFFFF;
 
 	return ret;
 }
@@ -139,6 +249,7 @@ static int adrv906x_pseudo_mdio_remove(struct platform_device *pdev)
 {
 	struct mii_bus *bus = platform_get_drvdata(pdev);
 
+	adrv906x_serdes_genl_unregister_family();
 	mdiobus_unregister(bus);
 
 	return 0;
@@ -147,35 +258,43 @@ static int adrv906x_pseudo_mdio_remove(struct platform_device *pdev)
 static int adrv906x_pseudo_mdio_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	struct adrv906x_phy_priv *priv;
+	struct adrv906x_mdio_priv *priv;
 	struct mii_bus *bus;
-	u32 idx;
-	int ret;
+	int idx, ret;
 
 	bus = devm_mdiobus_alloc_size(&pdev->dev, sizeof(*priv));
 	if (!bus) {
-		dev_err(dev, "Failed to allocate private driver data!");
+		dev_err(dev, "failed to allocate private driver data");
 		return -ENOMEM;
 	}
 
 	priv = bus->priv;
 	priv->dev = &pdev->dev;
 
-	for (idx = 0; idx < ADRV906X_MAX_NUM_OF_PCS; idx++) {
-		priv->base[idx] = devm_platform_ioremap_resource(pdev, idx);
-		if (IS_ERR(priv->base[idx]))
-			return PTR_ERR(priv->base[idx]);
+	for (idx = 0; idx < ADRV906X_MAX_PHYS; idx++) {
+		priv->pcs_base[idx] = devm_platform_ioremap_resource(pdev, 2 * idx);
+		if (IS_ERR(priv->pcs_base[idx]))
+			return PTR_ERR(priv->pcs_base[idx]);
+		priv->tsu_base[idx] = devm_platform_ioremap_resource(pdev, 2 * idx + 1);
+		if (IS_ERR(priv->tsu_base[idx]))
+			return PTR_ERR(priv->tsu_base[idx]);
 	}
 
-	bus->name = "adi-adrv906x-pseudo-mdio";
+	bus->name = "adrv906x-pseudo-mdio";
 	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-%d", pdev->name, pdev->id);
 	bus->read = adrv906x_pseudo_mdio_read,
 	bus->write = adrv906x_pseudo_mdio_write,
 	bus->parent = priv->dev;
-	ret = of_mdiobus_register(bus, pdev->dev.of_node);
 
+	ret = of_mdiobus_register(bus, pdev->dev.of_node);
 	if (ret) {
-		dev_err(dev, "Failed to register MDIO bus");
+		dev_err(dev, "failed to register mdio bus");
+		return ret;
+	}
+
+	ret = adrv906x_serdes_genl_register_family();
+	if (ret) {
+		dev_err(dev, "register generic netlink family failed");
 		return ret;
 	}
 
@@ -191,7 +310,7 @@ static const struct of_device_id adrv906x_mdio_of_match[] = {
 
 static struct platform_driver adrv906x_mdio_driver = {
 	.driver			= {
-		.name		= "adi-adrv906x-pseudo-mdio",
+		.name		= "adrv906x-pseudo-mdio",
 		.owner		= THIS_MODULE,
 		.of_match_table = adrv906x_mdio_of_match,
 	},
@@ -271,7 +390,8 @@ static int adrv906x_phy_reset_main_path(struct phy_device *phydev, int dir, bool
 {
 	int reg;
 
-	reg = (dir == ADRV906X_PCS_RX_PATH) ? ADRV906X_PCS_GENERAL_RX_REG : ADRV906X_PCS_GENERAL_TX_REG;
+	reg = (dir == ADRV906X_PCS_RX_PATH) ? ADRV906X_PCS_GENERAL_RX_REG :
+	      ADRV906X_PCS_GENERAL_TX_REG;
 
 	return phy_modify_mmd_changed(phydev,
 				      MDIO_MMD_VEND1, reg, MDIO_PCS_GENERAL_PATH_RESET, enable);
@@ -288,7 +408,16 @@ static int adrv906x_phy_suspend(struct phy_device *phydev)
 	if (ret < 0)
 		return ret;
 
+	adrv906x_serdes_cal_stop(phydev);
+
 	return 0;
+}
+
+static void adrv906x_link_change_notify(struct phy_device *phydev)
+{
+	adrv906x_tsu_set_speed(phydev);
+
+	/* TODO  set delay */
 }
 
 static int adrv906x_phy_resume(struct phy_device *phydev)
@@ -333,13 +462,13 @@ int adrv906x_phy_read_status(struct phy_device *phydev)
 	return 0;
 }
 
-static int adrv906x_phy_config_baser_mode(struct phy_device *phydev)
+static int adrv906x_phy_config_pcs_baser_mode(struct phy_device *phydev)
 {
 	int ctrl1, ctrl2, cfg_tx, cfg_rx, gen_tx, gen_rx, ret;
 
 	if (!adrv906x_phy_valid_speed(phydev->speed)) {
 		phydev_err(phydev,
-			   "Unsupported speed: %d", phydev->speed);
+			   "unsupported speed: %d", phydev->speed);
 		return -EINVAL;
 	}
 
@@ -417,8 +546,8 @@ static int adrv906x_phy_config_aneg(struct phy_device *phydev)
 	if (!adrv906x_phy_valid_speed(phydev->speed))
 		return -EINVAL;
 
-	ret = adrv906x_phy_config_baser_mode(phydev);
-	if (ret < 0)
+	ret = adrv906x_serdes_cal_start(phydev);
+	if (ret)
 		return ret;
 
 	return genphy_c45_an_disable_aneg(phydev);
@@ -435,6 +564,25 @@ static int adrv906x_phy_aneg_done(struct phy_device *phydev)
 	return !!(val & MDIO_STAT1_LSTATUS);
 }
 
+static int adrv906x_phy_set_loopback(struct phy_device *phydev, bool enable)
+{
+	int val, ret;
+
+	val = phy_read_mmd(phydev, MDIO_MMD_VEND1, ADRV906X_PCS_CFG_RX_REG);
+
+	if (enable)
+		val |= MDIO_PCS_CFG_RX_SERDES_LOOPBACK_EN;
+	else
+		val &= ~MDIO_PCS_CFG_RX_SERDES_LOOPBACK_EN;
+
+	ret = phy_write_mmd(phydev, MDIO_MMD_VEND1, ADRV906X_PCS_CFG_RX_REG, val);
+
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
 static int adrv906x_phy_config_init(struct phy_device *phydev)
 {
 	phydev->autoneg = AUTONEG_DISABLE;
@@ -442,25 +590,49 @@ static int adrv906x_phy_config_init(struct phy_device *phydev)
 	phydev->port = PORT_FIBRE;
 	phydev->speed = 10000;
 
+	adrv906x_tsu_set_ptp_timestamping_mode(phydev);
+
 	return 0;
 }
 
 static int adrv906x_phy_probe(struct phy_device *phydev)
 {
+	struct device *dev = &phydev->mdio.dev;
+	struct adrv906x_phy_priv *adrv906x_phy;
 	u32 mmd_mask = MDIO_DEVS_PCS;
+	int ret;
 
 	if (!phydev->is_c45 ||
 	    (phydev->c45_ids.devices_in_package & mmd_mask) != mmd_mask)
 		return -ENODEV;
 
+	adrv906x_phy = devm_kzalloc(dev, sizeof(*adrv906x_phy), GFP_KERNEL);
+	if (!adrv906x_phy)
+		return -ENOMEM;
+	phydev->priv = adrv906x_phy;
+
+	adrv906x_parse_tsu_phy_delay(phydev);
+	adrv906x_tsu_set_phy_delay(phydev);
+
+	ret = adrv906x_serdes_open(phydev, &adrv906x_phy->serdes,
+				   adrv906x_phy_config_pcs_baser_mode);
+	if (ret)
+		return ret;
+
 	return 0;
+}
+
+static void adrv906x_phy_remove(struct phy_device *phydev)
+{
+	adrv906x_serdes_close(phydev);
 }
 
 static struct phy_driver adrv906x_phy_driver[] = {
 	{
 		PHY_ID_MATCH_EXACT(ADRV906X_PHY_ID),
-		.name = "adi-adrv906x-phy",
+		.name = "adrv906x-phy",
 		.probe = adrv906x_phy_probe,
+		.remove = adrv906x_phy_remove,
 		.config_init = adrv906x_phy_config_init,
 		.soft_reset = genphy_soft_reset,
 		.config_aneg = adrv906x_phy_config_aneg,
@@ -470,8 +642,10 @@ static struct phy_driver adrv906x_phy_driver[] = {
 		.get_strings = adrv906x_phy_get_strings,
 		.get_stats = adrv906x_phy_get_stats,
 		.get_features = adrv906x_phy_get_features,
+		.set_loopback = adrv906x_phy_set_loopback,
 		.resume = adrv906x_phy_resume,
 		.suspend = adrv906x_phy_suspend,
+		.link_change_notify = adrv906x_link_change_notify,
 	},
 };
 

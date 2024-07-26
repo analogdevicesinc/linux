@@ -3,8 +3,8 @@
  * Copyright (c) 2024, Analog Devices Incorporated, All Rights Reserved
  */
 
-#ifndef __PTP_ADI_H
-#define __PTP_ADI_H
+#ifndef __PTP_ADRV906X_H
+#define __PTP_ADRV906X_H
 
 #include <linux/clk.h>
 #include <linux/ktime.h>
@@ -66,11 +66,12 @@ enum adrv906x_hw_tod_trig_op_flag {
 	HW_TOD_TRIG_OP_FALG_CNT
 };
 
-enum adrv906x_hw_tod_pps_isr_source {
-	HW_TOD_PPS_ISR_INTERNAL_0 = 0,  /* Internal generated PPS interrupt source 0 */
-	HW_TOD_PPS_ISR_INTERNAL_1,      /* Internal generated PPS interrupt source 1 */
-	HW_TOD_PPS_ISR_INTERNAL_GNSS,   /* Internal generated PPS interrupt source for GNSS */
-	HW_TOD_PPS_ISR_EXTERNAL,        /* External input PPS interrupt source */
+enum adrv906x_hw_tod_source {
+	TOD_INTERNAL_0 = 0,
+	TOD_INTERNAL_1,
+	TOD_INTERNAL_GNSS,
+	TOD_EXTERNAL,
+	TOD_SOURCE_MAX
 };
 
 struct adrv906x_tod_tstamp {
@@ -81,7 +82,7 @@ struct adrv906x_tod_tstamp {
 
 struct adrv906x_tod_trig_delay {
 	u64 ns;
-	u32 rem_ns;                             /* remainder part of the clock tick in kHz */
+	u32 rem_ns;                     /* remainder part of the clock tick in kHz */
 };
 
 struct adrv906x_tod_lc_clk_cfg {
@@ -89,12 +90,6 @@ struct adrv906x_tod_lc_clk_cfg {
 	u32 ns_per_clk;                 /* nanosecond per clock */
 	u32 frac_ns_per_clk;            /* fraction part of nanosecond per clock */
 	u32 cnt_ctrl;                   /* correction control word */
-};
-
-struct adrv906x_tod_ppsx {
-	u32 en;
-	u32 delay_offset_ns;
-	u32 pulse_width_ns;
 };
 
 struct adrv906x_tod_cdc {
@@ -108,7 +103,6 @@ struct adrv906x_tod_counter {
 	bool en;
 	u64 trig_delay_tick;
 	struct adrv906x_tod *parent;
-	struct adrv906x_tod_ppsx ppsx;
 	struct ptp_clock_info caps;
 	struct ptp_clock *ptp_clk;
 };
@@ -119,6 +113,8 @@ struct adrv906x_tod {
 	void __iomem *regs;
 	u8 irq;
 	u8 tod_counter_src;
+	u8 external_pps;
+	u32 ppsx_pulse_width_ns;
 	u32 lc_freq_khz;                /* Clock frequency for the ToD counter block */
 	u32 gc_clk_freq_khz;            /* Clock frequency for the Golden counter block */
 	struct adrv906x_tod_cdc cdc;
@@ -126,11 +122,11 @@ struct adrv906x_tod {
 	struct clk *lc_clk;
 	struct clk *gc_clk;
 	void *priv_data;
-	spinlock_t reg_lock;            /* Serialize access to hw_registers of the ToD module */
+	struct mutex reg_lock;          /* Serialize access to hw_registers of the ToD module */
 };
 
 int adrv906x_tod_probe(struct platform_device *pdev);
 int adrv906x_tod_remove(struct platform_device *pdev);
 int adrv906x_tod_register_pll(struct ptp_clock_info *pll_caps);
 
-#endif
+#endif /* __PTP_ADRV906X_H */

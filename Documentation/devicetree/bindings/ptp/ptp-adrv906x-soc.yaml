@@ -17,20 +17,20 @@ properties:
     maxItems: 1
 
   clock-names:
-      items:
+    items:
       - const: lc_clk
       - const: gc_clk
   clocks:
     items:
-      - description: clock phandle for ToD counter local clock , refer to common clock bindings.
-      - description: clock phandle for Golden counter Clock
+      - description: Clock phandle for ToD counter local clock, refer to common clock bindings.
+      - description: Clock phandle for Golden Counter clock.
 
   interrupts:
     items:
-    - description: tod pps interrupt
+      - description: ToD PPS interrupt
   interrupt-names:
     items:
-    - description: pps
+      - description: pps
 
   adi,max-adj:
      description:
@@ -41,67 +41,57 @@ properties:
   adrv906x-tod:
     adi,default-tod-counter:
     description:
-      default selected tod counter for the local tod and cdc output
+      Default selected ToD counter for the local ToD and CDC output.
+
+    adi,ppsx-pulse-width-ns:
+      description: Value of PPSX pulse width in nanoseconds. Default is 10000000 (10ms).
+      minimum: 1
+      maximum: 99999999
+
+    adi,external-pps:
+      type: boolean
+      description:
+        This property is only for debugging or special use cases.
+        If present, the PPS (not PPSX) output signal and trigger for the /dev/ppsX
+        device(s) will be sourced from the input PPS signal.
 
     adi,cdc-delay-value:
       description:
         this property is only for debugging or special use cases.
         Instead, for normal operation, we need to configure this on the basis of the Ethernet interface speed
-        (which dictates the frequency for the Ethernet Subsystem) and the 'devclk' frequency
-        Default is 0
+        (which dictates the frequency for the Ethernet Subsystem) and the 'devclk' frequency.
+        Default is 0.
       minimum: 0
       maximum: 31
 
-    "^tod[0-2]:tod-counter@[0-2]+$":
+    "tod-counter@[0-2]+$":
       type: object
-      description: ADRV906X ToD counters
+      description: ADRV906x ToD counter(s)
       properties:
         reg:
           maxItems: 1
-          description:
-            The index of the ToD counter
+          description: The index of the ToD counter.
           minimum: 0
           maximum: 2
 
-        adi,trigger-mode:
+        adi,pps-mode:
+          type: boolean
           description:
-            The read and write trigger mode of the ToD counter,
-            "0" refers to the GC trigger mode, "1" refers to the 1PPS trigger mode,
-            Default is GC trigger
-          minimum: 0
-          maximum: 1
+            The read and write trigger mode of the ToD counter.
+            If present, the ToD counter runs in the 1PPS trigger mode, otherwise,
+            the counter runs in the GC trigger mode.
 
         adi,trigger-delay-tick:
           description:
-            The trigger tick count for the GC trigger mode based on the clock-frequency,
-            Ignored if the tigger mode is 1PPS
+            The trigger tick count for the GC trigger mode based on the clock-frequency.
           minimum: 0
           maximum: 0xFFFFFFFFFFFF
-
-        adi,ppsx-delay-offset-ns:
-          description:
-            Value of ppsx pulse start,
-            Default is 0
-          minimum: 0
-          maximum: 999999999
-
-        adi,ppsx-pulse-width-ns:
-          description:
-            Value of ppsx pulse width
-            Default is 10000000
-          minimum: 1
-          maximum: 20000000
-
-      required:
-        - adi,cdc-delay-value
-        - adi,trigger-mode
-        - adi,trigger-delay-tick
 
   clock-pll:
     adi,i2c-clk:
       description:
-        The reference to the i2c connected clock node when use the i2c connecting to the clock chip directly
-    
+        The reference to the i2c connected clock node when use the i2c connecting to the clock chip
+        directly.
 
 required:
   - compatible
@@ -117,26 +107,25 @@ additionalProperties: false
 
 examples:
   - |
-  ptpclk: ptpclk {
-    compatible = "adi,adrv906x-ptp";
-    reg = <EMAC_TOD_BASE 0xff>;
-    interrupts = <GIC_SPI TOD_IRQ IRQ_TYPE_LEVEL_HIGH>;
-    interrupt-names = "pps";
-    clocks = <&sysclk>, <&sysclk>; 
-    clock-names = "lc_clk", "gc_clk";
-    adi,max-adj = <50>;
-    adrv906x-tod {
-      adi,default-tod-counter = <0>;
-      adi,cdc-delay-value = <0 0 0 0>;
-      tod0:tod-counter@0 {
-        reg = <0>;
-        adi,trigger-mode = <0>;
-        adi,trigger-delay-tick = <491520>;
-        adi,ppsx-delay-offset-ns = <0>;
-        adi,ppsx-pulse-width-ns = <10000000>;
+    ptpclk: ptpclk {
+      compatible = "adi,adrv906x-ptp";
+      reg = <EMAC_TOD_BASE 0xff>;
+      interrupts = <GIC_SPI TOD_IRQ IRQ_TYPE_LEVEL_HIGH>;
+      interrupt-names = "pps";
+      clocks = <&sysclk>, <&sysclk>; 
+      clock-names = "lc_clk", "gc_clk";
+      adi,max-adj = <50>;
+    
+      adrv906x-tod {
+        adi,default-tod-counter = <0>;
+        adi,cdc-delay-value = <0 0 0 0>;
+        tod-counter@0 {
+          reg = <0>;
+          adi,pps-mode;
+          adi,trigger-delay-tick = <491520>;
+        };
+      };
+      clock-pll {
+        adi,i2c-clk = <&ad9545>;
       };
     };
-    clock-pll {
-      adi,i2c-clk = <&ad9545>;
-    };
-  };

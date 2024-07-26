@@ -96,7 +96,7 @@ static int adi_dt_node_to_map(struct pinctrl_dev *pctldev,
 		new_map[i].data.configs.group_or_pin =
 			pin_get_name(pctldev, pin->pin);
 
-		new_map[i].data.configs.configs = &pin->conf.mio.config;
+		new_map[i].data.configs.configs = (long *)&pin->conf.mio;
 		new_map[i].data.configs.num_configs = 1;
 	}
 
@@ -157,7 +157,6 @@ static void adi_pinctrl_parse_pin(struct adi_pinctrl *ipctl,
 	struct adi_pin_reg *pin_reg;
 	const __be32 *list = *list_p;
 	uint32_t pin_num, mux_reg, conf_reg;
-	static unsigned int next_pin_id = 0U;
 
 	pin_num = be32_to_cpu(*list++);
 	mux_reg = be32_to_cpu(*list++);
@@ -165,7 +164,7 @@ static void adi_pinctrl_parse_pin(struct adi_pinctrl *ipctl,
 	pin_mio->input_pin = pin_num;
 	pin_mio->mux_sel = mux_reg;
 	pin_mio->config = (unsigned long)conf_reg;
-	*pin_id = next_pin_id++;
+	*pin_id = pin_num;
 	pin_reg = &ipctl->pin_regs[*pin_id];
 	pin->pin = *pin_id;
 	pin_reg->pin_num = pin_num;

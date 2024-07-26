@@ -128,12 +128,11 @@ int adrv906x_macsec_probe(struct platform_device *pdev, struct net_device *netde
 
 	macsec->irq = of_irq_get_byname(np, "ts_event");
 	if (macsec->irq <= 0) {
-		dev_err(dev, "cannot obtain MACsec ts_event IRQ");
+		dev_err(dev, "cannot obtain macsec ts_event irq");
 		goto error;
 	}
 
 	dev_info(dev, "macsec irq %d", macsec->irq);
-
 
 /* TODO turn it on after basic MACsec functinality is tested
  *	ret = devm_request_irq(dev, macsec_irq, adi_macsec_isr, IRQF_SHARED, "macsec", dev);
@@ -147,10 +146,8 @@ int adrv906x_macsec_probe(struct platform_device *pdev, struct net_device *netde
 
 	ret = cco_macsec_init(netdev);
 	if (ret)
-		dev_err(dev, "Failed to initialize macsec HW offload driver");
-	else
-		dev_info(dev, "macsec initialized, enabled: %d, base: 0x%px, irq: %d",
-			 macsec->enabled, macsec->base, macsec->irq);
+		dev_err(dev, "failed to initialize macsec hw offload driver");
+
 	return ret;
 
 error:

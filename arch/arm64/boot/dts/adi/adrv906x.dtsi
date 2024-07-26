@@ -52,6 +52,27 @@
 		 * (applicable for dual-tile only)
 		 */
 		serial6 = &v_uart0_0;
+
+		/* I2C buses */
+		i2c0 = &i2c0;
+		i2c1 = &i2c1;
+		i2c2 = &i2c2;
+		i2c3 = &i2c3;
+		i2c4 = &i2c4;
+		i2c5 = &i2c5;
+		i2c6 = &i2c6;
+		i2c7 = &i2c7;
+
+		/* QSPI bus */
+		spi99 = &qspi0;
+
+		/* SPI buses */
+		spi0 = &spi0;
+		spi1 = &spi1;
+		spi2 = &spi2;
+		spi3 = &spi3;
+		spi4 = &spi4;
+		spi5 = &spi5;
 	};
 
 	psci {
@@ -168,7 +189,12 @@
 		/* Primary regions */
 		sram0_res: sram-reserved@0 {
 			compatible = "adi,sram-access";
-			reg = <0x00100000 0x00400000>; /* 4 MB */
+			reg = <0x00100000 0x00010000>; /* 64 KB */
+		};
+
+		sram1_res: sram-reserved@1 {
+			compatible = "adi,sram-access";
+			reg = <0x00110000 0x003F0000>; /* 4 MB - 64 KB */
 		};
 
 		ddr0_res: ddr-reserved@0 {
@@ -177,7 +203,7 @@
 		};
 
 		/* Secondary regions */
-		sram1_res: sram-reserved@1 {
+		sram2_res: sram-reserved@2 {
 			compatible = "adi,sram-access";
 			reg = <0x04100000 0x00400000>; /* 4 MB */
 			status = "disabled";
@@ -195,8 +221,15 @@
 	 * They are intentionally left disabled by default.
 	 */
 	sram0_mmap: sram-mmap@0 {
+		/* Region for device profile */
 		compatible = "adi,sram-mmap";
 		memory-region = <&sram0_res>;
+		status = "okay";
+	};
+
+	sram1_mmap: sram-mmap@1 {
+		compatible = "adi,sram-mmap";
+		memory-region = <&sram1_res>;
 		status = "okay";
 	};
 
@@ -206,9 +239,9 @@
 		status = "okay";
 	};
 
-	sram1_mmap: sram-mmap@1 {
+	sram2_mmap: sram-mmap@2 {
 		compatible = "adi,sram-mmap";
-		memory-region = <&sram1_res>;
+		memory-region = <&sram2_res>;
 		status = "disabled";
 	};
 
@@ -232,6 +265,15 @@
 				<GIC_PPI NCNTPNSIRQ_0 IRQ_TYPE_LEVEL_LOW>, /* Physical Non-Secure */
 				<GIC_PPI NCNTVIRQ_0 IRQ_TYPE_LEVEL_LOW>, /* Virtual */
 				<GIC_PPI NCNTHPIRQ_0 IRQ_TYPE_LEVEL_LOW>; /* Hypervisor */
+	};
+
+	/* High Speed digital clock
+	 * Always 983.04 MHz
+	 */
+	hsdigclk: hsdigclk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <983040000>;
 	};
 
 	/* System clock
@@ -473,9 +515,10 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_emac0>;
 		status = "disabled";
-		clock_divider {
-			reg = <EMAC_1G_YODA 0x04>;
-			base-clk-speed = <125>;
+		emac0_clk_div: clock_divider {
+			reg = <EMAC_1G_DIV_CTRL 0x04>;
+			ctrl_reg = <EMAC_1G_CLK_CTRL 0x08>;
+			base-clk-speed = <250>;
 		};
 	};
 
@@ -499,7 +542,8 @@
 		reg = <I2C_1_BASE 0xFF>;
 		interrupts = <GIC_SPI I2C_IRQ_S2F_PIPED_1 IRQ_TYPE_LEVEL_HIGH>;
 		clock-khz = <100>;
-		clocks = <&sysclk>;pinctrl-names = "default";
+		clocks = <&sysclk>;
+		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_i2c1>;
 		status = "disabled";
 	};
@@ -658,6 +702,175 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_spi5>;
 		status = "disabled";
+	};
+
+	dac0: dac@PWM_BASE_UADDR {
+		compatible = "adi,pwm-dac";
+		reg = <PWM_BASE 0x100>;
+		adi,iovdd-microvolt = <1800000>;
+		adi,gpio-max-frequency = <983040000>;
+		status = "disabled";
+	};
+
+	adrv906x_mdio: mdio@EMAC_PCS_0_BASE_UADDR {
+		compatible = "adi,adrv906x-mdio";
+		status = "disabled";
+		reg = <EMAC_PCS_0_BASE 0x350>, <EMAC_PCS_0_TSU 0x44>,
+		      <EMAC_PCS_1_BASE 0x350>, <EMAC_PCS_1_TSU 0x44>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		adrv906x_phy0: ethernet-phy@0 {
+			compatible = "ethernet-phy-ieee802.3-c45";
+			reg = <0>;
+			static-phy-delay-tx-ns = <0>;
+			static-phy-delay-tx-frac-ns = <0>;
+			static-phy-delay-rx-ns = <0>;
+			static-phy-delay-rx-frac-ns = <0>;
+		};
+		adrv906x_phy1: ethernet-phy@1 {
+			compatible = "ethernet-phy-ieee802.3-c45";
+			reg = <1>;
+			static-phy-delay-tx-ns = <0>;
+			static-phy-delay-tx-frac-ns = <0>;
+			static-phy-delay-rx-ns = <0>;
+			static-phy-delay-rx-frac-ns = <0>;
+		};
+	};
+
+	adrv906x_net@EMAC_CMN_BASE_UADDR {
+		compatible = "adi,adrv906x-net";
+		status = "disabled";
+		reg = <EMAC_CMN_BASE 0x3004>;
+		ethernet-ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				id = <0>;
+				reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>, <EMAC_MAC_0_RX 0x9c>;
+/*
+				macsec = <EMAC_MACSEC_0_BASE 0xa00>;
+				interrupt-names = "ts_event";
+				interrupts = <GIC_SPI MACSEC_IRQ_0 IRQ_TYPE_LEVEL_HIGH>;
+*/
+				phy-handle = <&adrv906x_phy0>;
+				phy-mode = "rmii";
+				ndma-handle = <&ndma1>;
+			};
+			port@1 {
+				id = <1>;
+				reg = <EMAC_MAC_1_BASE 0x14>, <EMAC_MAC_1_TX 0x70>, <EMAC_MAC_1_RX 0x9c>;
+/*
+				macsec = <EMAC_MACSEC_1_BASE 0xa00>;
+				interrupt-names = "ts_event";
+				interrupts = <GIC_SPI MACSEC_IRQ_1 IRQ_TYPE_LEVEL_HIGH>;
+*/
+				phy-handle = <&adrv906x_phy1>;
+				phy-mode = "rmii";
+				ndma-handle = <&ndma1>;
+			};
+		};
+
+		oran_if {
+			reg = <OIF_0_RX_CTRL 0x4>, <OIF_0_TX_CTRL 0x4>, <OIF_1_RX_CTRL 0x4>, <OIF_1_TX_CTRL 0x4>;
+		};
+
+		eth_switch {
+			#address-cells = <1>;
+			#size-cells = <1>;
+			reg = <EMAC_SW_BASE 0x30 EMAC_SW_MAE_BASE 0x30>;
+			interrupt-names = "switch_error_0", "switch_error_1";
+			interrupts = <GIC_SPI ETH_IRQ_PCS_RX_ERROR_0 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI ETH_IRQ_PCS_RX_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;
+			pvid = /bits/ 16 <1>;
+			vids = /bits/ 16 <2 3 4 5>;
+			pcpregen = <0x77000000>;
+			pcp2ipv = <0x10000000>;
+			switch_port0:switch-port@0 {
+				id = <0>;
+				reg = <EMAC_SW_PORT_0_BASE 0x400>;
+			};
+			switch_port1:switch-port@1 {
+				id = <1>;
+				reg = <EMAC_SW_PORT_1_BASE 0x400>;
+			};
+			switch_port2:switch-port@2 {
+				id = <2>;
+				reg = <EMAC_SW_PORT_2_BASE 0x400>;
+			};
+
+		};
+	};
+
+	ndma_reset_ctrl: reset@NDMA_RST_CTRL_UADDR{
+		reg = <NDMA_RST_CTRL 0x04>;
+	};
+	ndma0_interrupt_ctrl: ndma0_intr_ctrl@NDMA_0_INTR_CTRL_UADDR {
+		reg = <NDMA_0_INTR_CTRL 0x20>;
+	};
+	ndma1_interrupt_ctrl: ndma1_intr_ctrl@NDMA_1_INTR_CTRL_UADDR {
+		reg = <NDMA_1_INTR_CTRL 0x20>;
+	};
+
+	ndma0: ndma0@NDMA_0_TX_BASE_UADDR {
+		id = <0>;
+		reg = <NDMA_0_TX_BASE 0x100>,
+			  <NDMA_0_TX_DMA 0x80>,
+			  <NDMA_0_TX_STATUS_DMA 0x80>,
+			  <NDMA_0_RX_BASE 0x1000>,
+			  <NDMA_0_RX_DMA 0x80>;
+		reset-ctrl = <&ndma_reset_ctrl>;
+		interrupts = <GIC_SPI NDMA_DMA_DONE_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI NDMA_DMA_ERR_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI NDMA_STATUS_DMA_DONE_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI NDMA_STATUS_DMA_ERR_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI NDMA_DMA_DONE_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI NDMA_DMA_ERR_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "tx_data_dma_done", "tx_data_dma_error",
+						  "tx_status_dma_done", "tx_status_dma_error",
+						  "rx_dma_done", "rx_dma_error";
+		interrupt-ctrl = <&ndma0_interrupt_ctrl>;
+	};
+
+
+	ndma1: ndma1@NDMA_1_TX_BASE_UADDR {
+		id = <1>;
+		reg = <NDMA_1_TX_BASE 0x100>,
+			  <NDMA_1_TX_DMA 0x80>,
+			  <NDMA_1_TX_STATUS_DMA 0x80>,
+			  <NDMA_1_RX_BASE 0x1000>,
+			  <NDMA_1_RX_DMA 0x80>;
+		reset-ctrl = <&ndma_reset_ctrl>;
+		interrupts = <GIC_SPI NDMA_DMA_DONE_INTR_GATED_3 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI NDMA_DMA_ERR_INTR_GATED_3 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI NDMA_STATUS_DMA_DONE_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI NDMA_STATUS_DMA_ERR_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI NDMA_DMA_DONE_INTR_GATED_2 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI NDMA_DMA_ERR_INTR_GATED_2 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "tx_data_dma_done", "tx_data_dma_error",
+						  "tx_status_dma_done", "tx_status_dma_error",
+						  "rx_dma_done", "rx_dma_error";
+		interrupt-ctrl = <&ndma1_interrupt_ctrl>;
+	};
+
+	ptpclk: ptpclk {
+		compatible = "adi,adrv906x-tod";
+		status = "disabled";
+		reg = <EMAC_TOD_BASE 0xff>;
+		interrupts = <GIC_SPI TOD_IRQ IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "pps";
+		clocks = <&hsdigclk>, <&hsdigclk>;
+		clock-names = "lc_clk", "gc_clk";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_one_pps>;
+		adi,ppsx-pulse-width-ns = <10000000>;
+		adi,external-pps;
+
+		adrv906x-tod {
+			adi,default-tod-counter = <0>;
+			tod-counter@0 {
+				reg = <0>;
+				adi,trigger-delay-tick = <491520>;
+			};
+		};
 	};
 };
 

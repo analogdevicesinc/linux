@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2024, Analog Devices Incorporated, All Rights Reserved
+ */
+
+#include "adrv906x.dtsi"
+
+/ {
+        pinctrl_secondary: pinctrl@SEC_PINCTRL_BASE_UADDR {
+                reg = <SEC_PINCTRL_BASE 0x1000>;
+                compatible = "adi,adrv906x-pinctrl";
+        };
+};
+
+#include "adrv906x-pinctrl-secondary.dtsi"
