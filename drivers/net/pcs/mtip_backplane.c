@@ -1694,6 +1694,23 @@ static bool mtip_read_link_unlatch(struct mtip_backplane *priv)
 	return old_link;
 }
 
+static void mtip_update_cfg_link_mode(struct mtip_backplane *priv,
+				      enum ethtool_link_mode_bit_indices link_mode)
+{
+	priv->cfg_link_mode = link_mode;
+
+	if (priv->model == MTIP_MODEL_LX2160A &&
+	    link_mode != ETHTOOL_LINK_MODE_1000baseKX_Full_BIT) {
+		priv->an_regs = mtip_lx2160a_an_regs;
+		priv->lt_regs = mtip_lx2160a_lt_regs;
+		priv->lt_mmd = MDIO_MMD_AN;
+	} else {
+		priv->an_regs = mtip_an_regs;
+		priv->lt_regs = mtip_lt_regs;
+		priv->lt_mmd = MDIO_MMD_PMAPMD;
+	}
+}
+
 static struct mdio_device *
 mtip_get_mdiodev_for_link_mode(struct mii_bus *bus, struct phy *serdes,
 			       enum ethtool_link_mode_bit_indices link_mode)
@@ -1757,7 +1774,7 @@ static int mtip_reconfigure(struct mtip_backplane *priv,
 
 	mdio_device_put(priv->mdiodev);
 	priv->mdiodev = mdiodev;
-	priv->cfg_link_mode = resolved;
+	mtip_update_cfg_link_mode(priv, resolved);
 
 	return 0;
 }
@@ -2258,19 +2275,7 @@ struct mtip_backplane *mtip_backplane_create(struct mdio_device *pcs_mdiodev,
 	priv->serdes = serdes;
 	priv->model = model;
 	priv->bus = bus;
-	priv->cfg_link_mode = cfg_link_mode;
-
-	switch (model) {
-	case MTIP_MODEL_LX2160A:
-		priv->an_regs = mtip_lx2160a_an_regs;
-		priv->lt_regs = mtip_lx2160a_lt_regs;
-		priv->lt_mmd = MDIO_MMD_AN;
-		break;
-	default:
-		priv->an_regs = mtip_an_regs;
-		priv->lt_regs = mtip_lt_regs;
-		priv->lt_mmd = MDIO_MMD_PMAPMD;
-	}
+	mtip_update_cfg_link_mode(priv, cfg_link_mode);
 
 	err = mtip_detect(priv);
 	if (err)
