@@ -388,7 +388,7 @@ static int ox03c10_exposure_set(struct ox03c10 *sensor, struct ox03c10_exposure 
 
 	if (sensor->streaming) {
 		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x10); /* end group hold 0 */
-		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xA0); /* apply on VBlank */
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xE0); /* quick launch */
 	}
 
 	return ret ? -EIO : 0;
@@ -417,7 +417,7 @@ static int ox03c10_analogue_gain_set(struct ox03c10 *sensor, struct ox03c10_anal
 
 	if (sensor->streaming) {
 		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x11); /* end group hold 1 */
-		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xA1); /* apply on VBlank */
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xE1); /* quick launch */
 	}
 
 	return ret ? -EIO : 0;
@@ -450,7 +450,7 @@ static int ox03c10_digital_gain_set(struct ox03c10 *sensor, struct ox03c10_digit
 
 	if (sensor->streaming) {
 		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x12); /* end group hold 2 */
-		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xA2); /* apply on VBlank */
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xE2); /* quick launch */
 	}
 
 	return ret ? -EIO : 0;
@@ -486,7 +486,7 @@ static int ox03c10_wb_gain_set(struct ox03c10 *sensor, struct ox03c10_wb_capture
 
 	if (sensor->streaming) {
 		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x13); /* end group hold 3 */
-		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xA3); /* apply on VBlank */
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xE3); /* quick launch */
 	}
 
 	return ret ? -EIO : 0;
