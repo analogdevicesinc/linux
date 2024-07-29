@@ -20,6 +20,7 @@
 #include <linux/regmap.h>
 #include <linux/gcd.h>
 #include <linux/math64.h>
+#include <linux/units.h>
 
 /* ADF4382 REG0000 Map */
 #define ADF4382_SOFT_RESET_R_MSK		BIT(7)
@@ -435,9 +436,9 @@
 #define ADF4382_VCO_CAL_VTUNE			124
 #define ADF4382_VCO_CAL_ALC			250
 
-#define UA_TO_A					1000000
-#define S_TO_NS					1000000000ULL
-#define NS_TO_PS				1000
+#define NS_PER_S				NANO
+#define PS_PER_NS				1000
+#define UA_PER_A				1000000
 
 enum {
 	ADF4382_FREQ,
@@ -493,6 +494,8 @@ static const int adf4382_ci_ua[] = {
 };
 
 static const struct reg_sequence adf4382_reg_default[] = {
+	{ 0x000, 0x18 },
+	{ 0x00a, 0xA5 },
 	{ 0x200, 0x00 },
 	{ 0x201, 0x00 },
 	{ 0x202, 0x00 },
@@ -567,6 +570,8 @@ static const struct reg_sequence adf4382_reg_default[] = {
 	{ 0x023, 0x00 },
 	{ 0x022, 0x00 },
 	{ 0x021, 0x00 },
+	{ 0x020, 0xC1 },
+	{ 0x01f, 0x0F },
 	{ 0x01e, 0x20 },
 	{ 0x01d, 0x00 },
 	{ 0x01c, 0x00 },
@@ -729,25 +734,27 @@ static int adf4382_set_freq(struct adf4382_state *st)
 		int_mode = 0;
 		en_bleed = 1;
 
-		if (pfd_freq_hz <= 40000000) {
+		if (pfd_freq_hz <= (40 * HZ_PER_MHZ)) {
 			ldwin_pw = 7;
-		} else if (pfd_freq_hz <= 50000000) {
+		} else if (pfd_freq_hz <= (50 * HZ_PER_MHZ)) {
 			ldwin_pw = 6;
-		} else if (pfd_freq_hz <= 100000000) {
+		} else if (pfd_freq_hz <= (100 * HZ_PER_MHZ)) {
 			ldwin_pw = 5;
-		} else if (pfd_freq_hz <= 200000000) {
+		} else if (pfd_freq_hz <= (200 * HZ_PER_MHZ)) {
 			ldwin_pw = 4;
-		} else if (pfd_freq_hz <= 250000000) {
-			if (st->freq >= 5000000000 && st->freq < 6400000000)
+		} else if (pfd_freq_hz <= (250 * HZ_PER_MHZ)) {
+			if (st->freq >= (5000U * HZ_PER_MHZ) &&
+			    st->freq < (6400U * HZ_PER_MHZ)) {
 				ldwin_pw = 3;
-			else
+			} else {
 				ldwin_pw = 2;
+			}
 		}
 	} else {
 		int_mode = 1;
 		en_bleed = 0;
 
-		tmp = DIV_ROUND_UP_ULL(pfd_freq_hz, UA_TO_A);
+		tmp = DIV_ROUND_UP_ULL(pfd_freq_hz, UA_PER_A);
 		tmp *= adf4382_ci_ua[st->cp_i];
 		tmp = DIV_ROUND_UP_ULL(st->bleed_word, tmp);
 		if (tmp <= 85)
@@ -940,11 +947,11 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_ps)
 	//Determine the output freq. in degrees/s
 	rfout_deg_s = 360 * st->freq;
 	//Convert it to degrees/ns
-	rfout_deg_ns = div64_u64(rfout_deg_s, S_TO_NS);
+	rfout_deg_ns = div_u64(rfout_deg_s, NS_PER_S);
 	//Determine the phase adjustment in degrees relative the output freq.
 	phase_deg_ns = rfout_deg_ns * phase_ps;
 	//Convert it to degrees/ps
-	phase_deg = div_u64(phase_deg_ns, NS_TO_PS);
+	phase_deg = div_u64(phase_deg_ns, PS_PER_NS);
 
 	if (phase_deg > 360) {
 		dev_err(&st->spi->dev, "Phase Adjustment cannot exceed 360deg per Clock Period");
@@ -957,7 +964,7 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_ps)
 	phase_bleed = phase_deg * ADF4382_PHASE_BLEED_CNST;
 	//The charge pump current will also need to be taken in to account
 	phase_ci = phase_bleed * adf4382_ci_ua[st->cp_i];
-	phase_ci = div_u64(phase_ci, UA_TO_A);
+	phase_ci = div_u64(phase_ci, UA_PER_A);
 
 	//Computation of the register value for the phase adjust
 	ret = adf4382_pfd_compute(st, &pfd_freq_hz);
@@ -1398,21 +1405,24 @@ static const struct clk_ops adf4382_clock_ops = {
 static int adf4382_setup_clk(struct adf4382_state *st)
 {
 	struct device *dev = &st->spi->dev;
-	struct device_node *of_node = dev_of_node(dev);
 	struct clk_init_data init;
-	const char *clk_name;
 	struct clk *clk;
 	const char *parent_name;
 
-	if (!of_node)
+	if (!device_property_present(dev, "#clock-cells"))
 		return 0;
 
-	parent_name = __clk_get_name(st->clkin);
+	if (device_property_read_string(dev, "clock-output-names", &init.name)) {
+		init.name = devm_kasprintf(dev, GFP_KERNEL, "%s-clk",
+					   fwnode_get_name(dev_fwnode(dev)));
+		if (!init.name)
+			return -ENOMEM;
+	}
 
-	clk_name = of_node->name;
-	of_property_read_string(of_node, "clock-output-names", &clk_name);
+	parent_name = of_clk_get_parent_name(dev->of_node, 0);
+	if (!parent_name)
+		return -EINVAL;
 
-	init.name = clk_name;
 	init.ops = &adf4382_clock_ops;
 	init.parent_names = (parent_name ? &parent_name : NULL);
 	init.num_parents = (parent_name ? 1 : 0);
@@ -1422,7 +1432,7 @@ static int adf4382_setup_clk(struct adf4382_state *st)
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
-	return of_clk_add_provider(of_node, of_clk_src_simple_get, clk);
+	return of_clk_add_provider(dev->of_node, of_clk_src_simple_get, clk);
 }
 
 static int adf4382_probe(struct spi_device *spi)
