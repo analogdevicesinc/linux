@@ -72,7 +72,8 @@ additionalProperties: false
 examples:
   - |
     #include <dt-bindings/clock/imx93-clock.h>
-    #include <dt-bindings/power/imx93-power.h>
+    #include <dt-bindings/power/fsl,imx93-power.h>
+
     dphy: dphy {
         compatible = "fsl,imx93-mipi-dphy";
         clocks = <&clk IMX93_CLK_MIPI_PHY_CFG>, <&clk IMX93_CLK_24M>;
