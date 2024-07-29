@@ -1124,12 +1124,13 @@ EXPORT_SYMBOL(mtip_backplane_an_restart);
  * deadlocking with the irqpoll thread, they must signal to the irqpoll thread
  * to do so.
  */
-static void mtip_an_restart_from_lt(struct mtip_backplane *priv)
+static void mtip_an_restart_from_lt(struct mtip_backplane *priv, bool local)
 {
 	struct device *dev = &priv->mdiodev->dev;
 	struct mtip_backplane *coordinator;
 
-	dev_dbg(dev, "Link training requests autoneg restart\n");
+	dev_dbg(dev, "%s link training requests autoneg restart\n",
+		local ? "Local" : "Remote");
 
 	coordinator = priv->is_subordinate ? priv->coordinator : priv;
 
@@ -1480,7 +1481,7 @@ static void mtip_local_tx_lt_work(struct kthread_work *work)
 
 out:
 	if (err && !READ_ONCE(priv->lt_stop_request))
-		mtip_an_restart_from_lt(priv);
+		mtip_an_restart_from_lt(priv, true);
 
 	kfree(lt_work);
 }
@@ -1554,7 +1555,7 @@ static void mtip_remote_tx_lt_work(struct kthread_work *work)
 
 out:
 	if (err && !READ_ONCE(priv->lt_stop_request))
-		mtip_an_restart_from_lt(priv);
+		mtip_an_restart_from_lt(priv, false);
 
 	kfree(lt_work);
 }
