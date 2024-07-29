@@ -653,8 +653,7 @@ int mtip_backplane_resume(struct mtip_backplane *priv)
 
 	priv->lane_powered_on = true;
 
-	if (!priv->is_subordinate)
-		mtip_start_irqpoll(priv);
+	mtip_start_irqpoll(priv);
 
 	return 0;
 }
