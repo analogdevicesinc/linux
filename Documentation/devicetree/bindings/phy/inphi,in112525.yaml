@@ -29,9 +29,9 @@ additionalProperties: false
 
 examples:
   - |
-
-    &emdio2 {
-      status = "okay";
+    mdio {
+      #address-cells = <1>;
+      #size-cells = <0>;
 
       inphi_retimer: retimer@0 {
         compatible = "inphi,in112525";
