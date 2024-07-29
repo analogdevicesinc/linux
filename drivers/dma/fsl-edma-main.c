@@ -27,9 +27,6 @@ static void fsl_edma_synchronize(struct dma_chan *chan)
 {
 	struct fsl_edma_chan *fsl_chan = to_fsl_edma_chan(chan);
 
-	if (fsl_chan->status == DMA_PAUSED)
-		fsl_edma_terminate_all(chan);
-
 	vchan_synchronize(&fsl_chan->vchan);
 }
 
