@@ -4,7 +4,7 @@
 $id: http://devicetree.org/schemas/phy/inphi,in112525.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Inphi IN112525 Retimer PHY binding
+title: Inphi IN112525 Retimer PHY
 
 maintainers:
   - Ioana Ciornei <ioana.ciornei@nxp.com>
