@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ *
+ * Device Tree fragment for LS1028A SerDes lane D, pinmuxed to the Felix
+ * switch. Requires a SerDes protocol of 0x7777, 0x9999 or a combination
+ * thereof, as long as either SerDes PLLF or PLLS are provisioned for a
+ * clock net of 5 GHz.
+ *
+ * The lane advertises the 1000Base-KX technology ability through C73
+ * auto-negotiation, and is expected to be connected to a copper backplane.
+ */
+
+/dts-v1/;
+/plugin/;
+
+&mscc_felix {
+	status = "okay";
+};
+
+&mscc_felix_port3 {
+	status = "okay";
+	phys = <&serdes 3>; /* lane D */
+	phy-names = "serdes";
+	managed = "c73";
+};
