@@ -508,6 +508,11 @@ imx95-19x19-verdin-adv7535-ap1302-dtbs := imx95-19x19-verdin.dtb \
 				       imx95-19x19-verdin-ap1302.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-adv7535-ap1302.dtb
 
+imx95-19x19-verdin-lt8912-ap1302-dtbs := imx95-19x19-verdin.dtb \
+				       imx95-19x19-verdin-lt8912.dtbo \
+				       imx95-19x19-verdin-ap1302.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-lt8912-ap1302.dtb
+
 imx95-19x19-verdin-lt9611uxc-ap1302-dtbs := imx95-19x19-verdin.dtb \
 					  imx95-19x19-verdin-lt9611uxc.dtbo \
 					  imx95-19x19-verdin-ap1302.dtbo
