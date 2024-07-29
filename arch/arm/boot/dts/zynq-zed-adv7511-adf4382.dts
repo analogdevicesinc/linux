@@ -33,3 +33,8 @@
 		#size-cells = <0>; */
 	};
 };
+
+&usb0 {
+	status = "okay";
+	dr_mode = "host";
+};
