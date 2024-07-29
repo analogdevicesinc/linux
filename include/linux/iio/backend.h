@@ -19,6 +19,8 @@ enum iio_backend_data_type {
 enum iio_backend_data_source {
 	IIO_BACKEND_INTERNAL_CONTINUOS_WAVE,
 	IIO_BACKEND_EXTERNAL,
+	IIO_BACKEND_ADC,
+	IIO_BACKEND_INTERNAL_RAMP,
 	IIO_BACKEND_DATA_SOURCE_MAX
 };
 
@@ -61,6 +63,10 @@ enum iio_backend_sample_trigger {
 	IIO_BACKEND_SAMPLE_TRIGGER_EDGE_FALLING,
 	IIO_BACKEND_SAMPLE_TRIGGER_EDGE_RISING,
 	IIO_BACKEND_SAMPLE_TRIGGER_MAX
+};
+
+enum iio_bus_mode {
+	IIO_BUS_MODE_DDR,
 };
 
 /**
@@ -113,6 +119,17 @@ struct iio_backend_ops {
 			    const char *buf, size_t len);
 	int (*ext_info_get)(struct iio_backend *back, uintptr_t private,
 			    const struct iio_chan_spec *chan, char *buf);
+	int (*ext_sync)(struct iio_backend *back);
+	int (*ddr_enable)(struct iio_backend *back, bool enable);
+	int (*buffer_enable)(struct iio_backend *back, bool enable);
+	int (*data_transfer_addr)(struct iio_backend *back, u32 address);
+	int (*bus_reg_read)(struct iio_backend *back, const void *reg,
+			    size_t reg_len, void *val, size_t val_len);
+	int (*bus_reg_write)(struct iio_backend *back, const void *reg,
+			     size_t reg_len, const void *val, size_t val_len);
+	int (*bus_write)(struct iio_backend *back, void *data, size_t len);
+	int (*bus_read)(struct iio_backend *back, void *data, size_t len);
+	int (*data_size_set)(struct iio_backend *back, ssize_t size);
 };
 
 int iio_backend_chan_enable(struct iio_backend *back, unsigned int chan);
@@ -136,6 +153,15 @@ int iio_backend_data_sample_trigger(struct iio_backend *back,
 int devm_iio_backend_request_buffer(struct device *dev,
 				    struct iio_backend *back,
 				    struct iio_dev *indio_dev);
+int iio_backend_ext_sync(struct iio_backend *back);
+int iio_backend_ddr_enable(struct iio_backend *back, bool enable);
+int iio_backend_buffer_enable(struct iio_backend *back, bool enable);
+int iio_backend_data_transfer_addr(struct iio_backend *back, u32 address);
+int iio_backend_bus_reg_read(struct iio_backend *back, const void *reg,
+			     size_t reg_len, void *val, size_t val_len);
+int iio_backend_bus_reg_write(struct iio_backend *back, const void *reg,
+			      size_t reg_len, const void *val, size_t val_len);
+int iio_backend_data_size_set(struct iio_backend *back, ssize_t size);
 ssize_t iio_backend_ext_info_set(struct iio_dev *indio_dev, uintptr_t private,
 				 const struct iio_chan_spec *chan,
 				 const char *buf, size_t len);
