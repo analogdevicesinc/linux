@@ -136,15 +136,17 @@ struct c72_coef_status {
 /**
  * enum ethernet_phy_configure_type - Configuration types for an Ethernet phy
  *
+ * @C72_LT_INIT: Initialize C72 link training.
  * @C72_LOCAL_TX: Execute a C72 link training step for the local transmitter.
  * @C72_REMOTE_TX: Execute a C72 link training step for the remote transmitter.
  * @C72_LT_DONE: Finalize C72 link training.
  *
- * The @C72_LOCAL_TX, @C72_REMOTE_TX and @C72_LT_DONE types apply to Ethernet
- * phys supporting media types with the IEEE 802.3 clause 72: 10GBase-KR,
- * 40GBase-KR4 etc.
+ * The @C72_LT_INIT, @C72_LOCAL_TX, @C72_REMOTE_TX and @C72_LT_DONE types apply
+ * to Ethernet phys supporting media types with the IEEE 802.3 clause 72:
+ * 10GBase-KR, 40GBase-KR4 etc.
  */
 enum ethernet_phy_configure_type {
+	C72_LT_INIT,
 	C72_LOCAL_TX,
 	C72_REMOTE_TX,
 	C72_LT_DONE,

@@ -858,6 +858,15 @@ static int lynx_xgkr_train_local_tx(struct lynx_xgkr_algorithm *algorithm,
 	return lynx_xgkr_inc_dec_coef(algorithm, update, status);
 }
 
+static int lynx_xgkr_lt_init(struct lynx_xgkr_algorithm *algorithm)
+{
+	memset(&algorithm->rts, 0, sizeof(algorithm->rts));
+	algorithm->lts.num_steps = 0;
+	lynx_tune_tx_eq(algorithm, &algorithm->default_tx_eq);
+
+	return 0;
+}
+
 static int lynx_xgkr_lt_done(struct lynx_xgkr_algorithm *algorithm)
 {
 	struct lynx_xgkr_remote_tx_status *rts = &algorithm->rts;
@@ -877,6 +886,8 @@ int lynx_xgkr_algorithm_configure(struct lynx_xgkr_algorithm *algorithm,
 				  struct phy_configure_opts_ethernet *opts)
 {
 	switch (opts->type) {
+	case C72_LT_INIT:
+		return lynx_xgkr_lt_init(algorithm);
 	case C72_LOCAL_TX:
 		return lynx_xgkr_train_local_tx(algorithm, &opts->local_tx);
 	case C72_REMOTE_TX:

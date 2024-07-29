@@ -1551,6 +1551,11 @@ static int mtip_start_lt(struct mtip_backplane *priv)
 	struct device *dev = &priv->mdiodev->dev;
 	struct mtip_lt_work *remote_tx_lt_work;
 	struct mtip_lt_work *local_tx_lt_work;
+	union phy_configure_opts opts = {
+		.ethernet = {
+			.type = C72_LT_INIT,
+		},
+	};
 	int err;
 
 	lockdep_assert_held(&irqpoll->lock);
@@ -1568,6 +1573,10 @@ static int mtip_start_lt(struct mtip_backplane *priv)
 	}
 
 	err = mtip_reset_lt(priv);
+	if (err)
+		goto out_free_remote_tx_lt;
+
+	err = phy_configure(priv->serdes, &opts);
 	if (err)
 		goto out_free_remote_tx_lt;
 
