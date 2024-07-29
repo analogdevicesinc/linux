@@ -549,6 +549,9 @@ imx95-19x19-verdin-ox03c10-isp-lt8912-dtbs := imx95-19x19-verdin.dtb \
 					      imx95-19x19-verdin-lt8912.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-ox03c10-isp-lt8912.dtb
 
+imx95-19x19-verdin-ti-serdes-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-ti-serdes.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-ti-serdes.dtb
+
 DTC_FLAGS_imx95-19x19-evk-rpmsg := -@
 DTC_FLAGS_imx95-19x19-evk-rpmsg-lpv := -@
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-rpmsg.dtb imx95-19x19-evk-rpmsg-lpv.dtb
