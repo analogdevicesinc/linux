@@ -29,9 +29,9 @@ additionalProperties: false
 
 examples:
   - |
-
-    &i2c_bus {
-      status = "okay";
+    i2c {
+      #address-cells = <1>;
+      #size-cells = <0>;
 
       ti_retimer: retimer@18 {
         compatible = "ti,ds125df111";
