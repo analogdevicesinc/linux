@@ -90,7 +90,8 @@ examples:
   - |
     #include <dt-bindings/clock/imx93-clock.h>
     #include <dt-bindings/interrupt-controller/arm-gic.h>
-    #include <dt-bindings/power/imx93-power.h>
+    #include <dt-bindings/power/fsl,imx93-power.h>
+
     dsi: dsi@4ae10000 {
         compatible = "fsl,imx93-mipi-dsi";
         reg = <0x4ae10000 0x4000>;
