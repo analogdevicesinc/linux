@@ -2041,13 +2041,14 @@ skip_c73_page:
 	/* Make sure the lane goes back into DME page exchange mode
 	 * after a link drop
 	 */
-	if (priv->link_mode_resolved && !new_page &&
+	if (!an_restart_reason && priv->link_mode_resolved && !new_page &&
 	    (irqpoll->old_pcs_stat & MDIO_STAT1_LSTATUS) &&
 	    !(pcs_stat & MDIO_STAT1_LSTATUS))
 		an_restart_reason = AN_RESTART_REASON_PCS_LINK_DROP;
 
 	/* Paranoid workaround for undetermined issue */
-	if (!priv->link_mode_resolved && (val & MDIO_AN_STAT1_COMPLETE) &&
+	if (!an_restart_reason &&
+	    !priv->link_mode_resolved && (val & MDIO_AN_STAT1_COMPLETE) &&
 	    priv->an_enabled && time_after(jiffies, priv->last_an_restart +
 					   msecs_to_jiffies(MTIP_AN_TIMEOUT_MS))) {
 		dev_err(dev,
@@ -2065,7 +2066,8 @@ skip_c73_page:
 	 * that state. Detect it and exit it if 1 second has passed since link
 	 * training has completed, but the 'autoneg done' bit hasn't asserted.
 	 */
-	if (mtip_are_all_lanes_trained(priv) && !(val & MDIO_AN_STAT1_COMPLETE) &&
+	if (!an_restart_reason &&
+	    mtip_are_all_lanes_trained(priv) && !(val & MDIO_AN_STAT1_COMPLETE) &&
 	    time_after(jiffies, priv->last_lt_done +
 		       msecs_to_jiffies(MTIP_LT_TIMEOUT_MS))) {
 		dev_err(dev, "AN did not complete after link training completed\n");
