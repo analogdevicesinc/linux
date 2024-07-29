@@ -982,7 +982,7 @@ static int ox05b1s_probe(struct i2c_client *client)
 	sensor->sensor_clk = devm_clk_get(dev, "csi_mclk");
 	if (IS_ERR(sensor->sensor_clk)) {
 		sensor->sensor_clk = NULL;
-		dev_warn(dev, "Sensor csi_mclk is missing\n");
+		dev_warn(dev, "Sensor csi_mclk is missing, using oscillator from sensor module\n");
 	}
 
 	sd = &sensor->subdev;
