@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+//
+// Device Tree Include file for Layerscape-LX2162A family SoC.
+//
+// Copyright 2024 NXP
+
+#include "fsl-lx2160a.dtsi"
+
+&serdes_1 {
+	compatible = "fsl,lx2162a-serdes1", "fsl,lynx-28g";
+};
+
+&serdes_2 {
+	compatible = "fsl,lx2162a-serdes2", "fsl,lynx-28g";
+};
+
+&serdes_3 {
+	status = "disabled";
+};

@@ -622,14 +622,21 @@
 		dma-ranges = <0x0 0x0 0x0 0x0 0x10000 0x00000000>;
 
 		serdes_1: phy@1ea0000 {
-			compatible = "fsl,lynx-28g";
+			compatible = "fsl,lx2160a-serdes1", "fsl,lynx-28g";
 			reg = <0x0 0x1ea0000 0x0 0x1e30>;
 			#phy-cells = <1>;
 		};
 
 		serdes_2: phy@1eb0000 {
-			compatible = "fsl,lynx-28g";
+			compatible = "fsl,lx2160a-serdes2", "fsl,lynx-28g";
 			reg = <0x0 0x1eb0000 0x0 0x1e30>;
+			#phy-cells = <1>;
+			status = "disabled";
+		};
+
+		serdes_3: phy@1ec0000 {
+			compatible = "fsl,lx2160a-serdes3", "fsl,lynx-28g";
+			reg = <0x0 0x1ec0000 0x0 0x1e30>;
 			#phy-cells = <1>;
 			status = "disabled";
 		};
