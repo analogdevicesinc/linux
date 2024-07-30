@@ -292,6 +292,7 @@ struct stmmac_priv {
 
 	int speed;
 	bool mdio_rst_after_resume;
+	bool wol_resume_reset;
 	unsigned int flow_ctrl;
 	unsigned int pause;
 	struct mii_bus *mii;
