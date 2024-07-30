@@ -13,46 +13,32 @@
 #define LYNX_28G_NUM_LANE			8
 #define LYNX_28G_NUM_PLL			2
 
-/* General registers per SerDes block */
+/* SoC IP wrapper for protocol converters */
 #define LYNX_28G_PCC8				0x10a0
-#define LYNX_28G_PCC8_SGMIInCFG(lane, x)	(((x) & GENMASK(2, 0)) << LYNX_28G_LNa_PCC_OFFSET(lane))
-#define LYNX_28G_PCC8_SGMIInCFG_EN(lane)	LYNX_28G_PCC8_SGMIInCFG(lane, 1)
-#define LYNX_28G_PCC8_SGMIInCFG_MSK(lane)	LYNX_28G_PCC8_SGMIInCFG(lane, GENMASK(2, 0))
-#define LYNX_28G_PCC8_SGMIIn_KX(lane, x)	((((x) << 3) & BIT(3)) << LYNX_28G_LNa_PCC_OFFSET(lane))
-#define LYNX_28G_PCC8_SGMIIn_KX_MSK(lane)	LYNX_28G_PCC8_SGMIIn_KX(lane, 1)
-#define LYNX_28G_PCC8_MSK(lane)			LYNX_28G_PCC8_SGMIInCFG_MSK(lane) | \
-						LYNX_28G_PCC8_SGMIIn_KX_MSK(lane)
+#define LYNX_28G_PCC8_SGMIIa_KX			BIT(3)
+#define LYNX_28G_PCC8_SGMIIa_CFG		BIT(0)
 
 #define LYNX_28G_PCCC				0x10b0
-#define LYNX_28G_PCCC_SXGMIInCFG(lane, x)	(((x) & GENMASK(2, 0)) << LYNX_28G_LNa_PCC_OFFSET(lane))
-#define LYNX_28G_PCCC_SXGMIInCFG_EN(lane)	LYNX_28G_PCCC_SXGMIInCFG(lane, 1)
-#define LYNX_28G_PCCC_SXGMIInCFG_MSK(lane)	LYNX_28G_PCCC_SXGMIInCFG(lane, GENMASK(2, 0))
-#define LYNX_28G_PCCC_SXGMIInCFG_XFI(lane, x)	((((x) << 3) & BIT(3)) << LYNX_28G_LNa_PCC_OFFSET(lane))
-#define LYNX_28G_PCCC_SXGMIInCFG_XFI_X(lane, x)	((((x) >> LYNX_28G_LNa_PCC_OFFSET(lane)) & BIT(3)) >> 3)
-#define LYNX_28G_PCCC_SXGMIInCFG_XFI_MSK(lane)	LYNX_28G_PCCC_SXGMIInCFG_XFI(lane, 1)
-#define LYNX_28G_PCCC_MSK(lane)			LYNX_28G_PCCC_SXGMIInCFG_MSK(lane) | \
-						LYNX_28G_PCCC_SXGMIInCFG_XFI_MSK(lane)
+#define LYNX_28G_PCCC_SXGMIIn_XFI		BIT(3)
+#define LYNX_28G_PCCC_SXGMIIn_CFG		BIT(0)
 
 #define LYNX_28G_PCCD				0x10b4
-#define LYNX_28G_PCCD_E25GnCFG(lane, x)		(((x) & GENMASK(2, 0)) << LYNX_28G_LNa_PCCD_OFFSET(lane))
-#define LYNX_28G_PCCD_E25GnCFG_EN(lane)		LYNX_28G_PCCD_E25GnCFG(lane, 1)
-#define LYNX_28G_PCCD_E25GnCFG_MSK(lane)	LYNX_28G_PCCD_E25GnCFG(lane, GENMASK(2, 0))
-#define LYNX_28G_PCCD_MSK(lane)			LYNX_28G_PCCD_E25GnCFG_MSK(lane)
+#define LYNX_28G_PCCD_E25Gn_CFG			BIT(0)
 
 #define LYNX_28G_PCCE				0x10b8
-#define LYNX_28G_PCCE_E40GACFG(lane, x)		(((x) << 28) & GENMASK(30, 28))
-#define LYNX_28G_PCCE_E40GBCFG(lane, x)		(((x) << 24) & GENMASK(26, 24))
-#define LYNX_28G_PCCE_E40GnCFG_EN(lane)		LYNX_28G_PCCE_E40GACFG(lane, 1)
-#define LYNX_28G_PCCE_E40GnCFG_MSK(lane)	LYNX_28G_PCCE_E40GACFG(lane, GENMASK(2, 0))
-#define LYNX_28G_PCCE_E50GACFG(lane, x)		(((x) << 20) & GENMASK(22, 20))
-#define LYNX_28G_PCCE_E50GBCFG(lane, x)		(((x) << 16) & GENMASK(18, 16))
-#define LYNX_28G_PCCE_E50GCCFG(lane, x)		(((x) << 12) & GENMASK(14, 12))
-#define LYNX_28G_PCCE_E50GDCFG(lane, x)		(((x) << 8) & GENMASK(10, 8))
-#define LYNX_28G_PCCE_E100GACFG(lane, x)	(((x) << 4) & GENMASK(6, 4))
-#define LYNX_28G_PCCE_E100GBCFG(lane, x)	((x) & GENMASK(2, 0))
+#define LYNX_28G_PCCE_E40Gn_LRV			BIT(3)
+#define LYNX_28G_PCCE_E40Gn_CFG			BIT(0)
+#define LYNX_28G_PCCE_E50Gn_LRV			BIT(3)
+#define LYNX_28G_PCCE_E50GnCFG			BIT(0)
+#define LYNX_28G_PCCE_E100Gn_LRV		BIT(3)
+#define LYNX_28G_PCCE_E100Gn_CFG		BIT(0)
 
-#define LYNX_28G_LNa_PCC_OFFSET(lane)		(4 * (LYNX_28G_NUM_LANE - (lane->id) - 1))
-#define LYNX_28G_LNa_PCCD_OFFSET(lane)		(4 * (lane->id))
+#define SGMII_CFG(id)			(28 - (id) * 4) /* Offset into PCC8 */
+#define SXGMII_CFG(id)			(28 - (id) * 4) /* Offset into PCCC */
+#define E25G_CFG(id)			(28 - (id) * 4) /* Offset into PCCD */
+#define E40G_CFG(id)			(28 - (id) * 4) /* Offset into PCCE */
+#define E50G_CFG(id)			(20 - (id) * 4) /* Offset into PCCE */
+#define E100G_CFG(id)			(12 - (id) * 4) /* Offset into PCCE */
 
 /* Per PLL registers */
 #define LYNX_28G_PLLnRSTCTL(pll)		(0x400 + (pll) * 0x100 + 0x0)
@@ -159,12 +145,15 @@
 #define LYNX_28G_LNaRGCR1_DATA_LOST_FLT		BIT(30)
 #define LYNX_28G_LNaRGCR1_DATA_LOST		BIT(29)
 #define LYNX_28G_LNaRGCR1_IDLE_CONFIG		BIT(28)
-#define LYNX_28G_LNaRGCR1_ENTER_IDLE_FLT_SEL(x)	(((x) << 24) & GENMASK(26, 24))
-#define LYNX_28G_LNaRGCR1_ENTER_IDLE_FLT_SEL_X(x) (((x) & GENMASK(26, 24)) >> 24)
-#define LYNX_28G_LNaRGCR1_EXIT_IDLE_FLT_SEL(x)	(((x) << 20) & GENMASK(22, 20))
-#define LYNX_28G_LNaRGCR1_EXIT_IDLE_FLT_SEL_X(x)	(((x) & GENMASK(22, 20)) >> 20)
-#define LYNX_28G_LNaRGCR1_DATA_LOST_TH_SEL(x)	(((x) << 16) & GENMASK(18, 16))
-#define LYNX_28G_LNaRGCR1_DATA_LOST_TH_SEL_X(x)	(((x) & GENMASK(18, 16)) >> 16)
+#define LYNX_28G_LNaRGCR1_ENTER_IDLE_FLT_SEL_MSK GENMASK(26, 24)
+#define LYNX_28G_LNaRGCR1_ENTER_IDLE_FLT_SEL(x)	(((x) << 24) & LYNX_28G_LNaRGCR1_ENTER_IDLE_FLT_SEL_MSK)
+#define LYNX_28G_LNaRGCR1_ENTER_IDLE_FLT_SEL_X(x) (((x) & LYNX_28G_LNaRGCR1_ENTER_IDLE_FLT_SEL_MSK) >> 24)
+#define LYNX_28G_LNaRGCR1_EXIT_IDLE_FLT_SEL_MSK GENMASK(22, 20)
+#define LYNX_28G_LNaRGCR1_EXIT_IDLE_FLT_SEL(x)	(((x) << 20) & LYNX_28G_LNaRGCR1_EXIT_IDLE_FLT_SEL_MSK)
+#define LYNX_28G_LNaRGCR1_EXIT_IDLE_FLT_SEL_X(x)	(((x) & LYNX_28G_LNaRGCR1_EXIT_IDLE_FLT_SEL_MSK) >> 20)
+#define LYNX_28G_LNaRGCR1_DATA_LOST_TH_SEL_MSK	GENMASK(18, 16)
+#define LYNX_28G_LNaRGCR1_DATA_LOST_TH_SEL(x)	(((x) << 16) & LYNX_28G_LNaRGCR1_DATA_LOST_TH_SEL_MSK)
+#define LYNX_28G_LNaRGCR1_DATA_LOST_TH_SEL_X(x)	(((x) & LYNX_28G_LNaRGCR1_DATA_LOST_TH_SEL_MSK) >> 16)
 #define LYNX_28G_LNaRGCR1_EXT_REC_CLK_SEL(x)	(((x) << 8) & GENMASK(10, 8))
 #define LYNX_28G_LNaRGCR1_EXT_REC_CLK_SEL_X(x)	(((x) & GENMASK(10, 8)) >> 8)
 #define LYNX_28G_LNaRGCR1_WAKE_TX_DIS		BIT(5)
@@ -175,38 +164,47 @@
 #define LYNX_28G_LNaRECR0(lane)			(0x800 + (lane) * 0x100 + 0x50)
 
 #define LYNX_28G_LNaRECR0_EQ_GAINK2_HF_OV_EN	BIT(31)
-#define LYNX_28G_LNaRECR0_EQ_GAINK2_HF_OV(x)	(((x) << 24) & GENMASK(28, 24))
-#define LYNX_28G_LNaRECR0_EQ_GAINK2_HF_OV_X(x)	(((x) & GENMASK(28, 24)) >> 24)
+#define LYNX_28G_LNaRECR0_EQ_GAINK2_HF_OV_MSK	GENMASK(28, 24)
+#define LYNX_28G_LNaRECR0_EQ_GAINK2_HF_OV(x)	(((x) << 24) & LYNX_28G_LNaRECR0_EQ_GAINK2_HF_OV_MSK)
+#define LYNX_28G_LNaRECR0_EQ_GAINK2_HF_OV_X(x)	(((x) & LYNX_28G_LNaRECR0_EQ_GAINK2_HF_OV_MSK) >> 24)
 #define LYNX_28G_LNaRECR0_EQ_GAINK3_MF_OV_EN	BIT(23)
-#define LYNX_28G_LNaRECR0_EQ_GAINK3_MF_OV(x)	(((x) << 16) & GENMASK(20, 16))
-#define LYNX_28G_LNaRECR0_EQ_GAINK3_MF_OV_X(x)	(((x) & GENMASK(20, 16)) >> 16)
+#define LYNX_28G_LNaRECR0_EQ_GAINK3_MF_OV_MSK	GENMASK(20, 16)
+#define LYNX_28G_LNaRECR0_EQ_GAINK3_MF_OV(x)	(((x) << 16) & LYNX_28G_LNaRECR0_EQ_GAINK3_MF_OV_MSK)
+#define LYNX_28G_LNaRECR0_EQ_GAINK3_MF_OV_X(x)	(((x) & LYNX_28G_LNaRECR0_EQ_GAINK3_MF_OV_MSK) >> 16)
 #define LYNX_28G_LNaRECR0_EQ_GAINK4_LF_OV_EN	BIT(7)
 #define LYNX_28G_LNaRECR0_EQ_GAINK4_LF_DIS	BIT(6)
-#define LYNX_28G_LNaRECR0_EQ_GAINK4_LF_OV(x)	((x) & GENMASK(4, 0))
+#define LYNX_28G_LNaRECR0_EQ_GAINK4_LF_OV_MSK	GENMASK(4, 0)
+#define LYNX_28G_LNaRECR0_EQ_GAINK4_LF_OV(x)	((x) & LYNX_28G_LNaRECR0_EQ_GAINK4_LF_OV_MSK)
 
 #define LYNX_28G_LNaRECR1(lane)			(0x800 + (lane) * 0x100 + 0x54)
 
 #define LYNX_28G_LNaRECR1_EQ_BLW_OV_EN		BIT(31)
-#define LYNX_28G_LNaRECR1_EQ_BLW_OV(x)		(((x) << 24) & GENMASK(28, 24))
-#define LYNX_28G_LNaRECR1_EQ_BLW_OV_X(x)		(((x) & GENMASK(28, 24)) >> 24)
+#define LYNX_28G_LNaRECR1_EQ_BLW_OV_MSK		GENMASK(28, 24)
+#define LYNX_28G_LNaRECR1_EQ_BLW_OV(x)		(((x) << 24) & LYNX_28G_LNaRECR1_EQ_BLW_OV_MSK)
+#define LYNX_28G_LNaRECR1_EQ_BLW_OV_X(x)	(((x) & LYNX_28G_LNaRECR1_EQ_BLW_OV_MSK) >> 24)
 #define LYNX_28G_LNaRECR1_EQ_OFFSET_OV_EN	BIT(23)
-#define LYNX_28G_LNaRECR1_EQ_OFFSET_OV(x)	(((x) << 16) & GENMASK(21, 16))
-#define LYNX_28G_LNaRECR1_EQ_OFFSET_OV_X(x)	(((x) & GENMASK(21, 16)) >> 16)
+#define LYNX_28G_LNaRECR1_EQ_OFFSET_OV_MSK	GENMASK(21, 16)
+#define LYNX_28G_LNaRECR1_EQ_OFFSET_OV(x)	(((x) << 16) & LYNX_28G_LNaRECR1_EQ_OFFSET_OV_MSK)
+#define LYNX_28G_LNaRECR1_EQ_OFFSET_OV_X(x)	(((x) & LYNX_28G_LNaRECR1_EQ_OFFSET_OV_MSK) >> 16)
 
 #define LYNX_28G_LNaRECR2(lane)			(0x800 + (lane) * 0x100 + 0x58)
 
 #define LYNX_28G_LNaRECR2_EQ_OFFSET_RNG_DBL	BIT(31)
-#define LYNX_28G_LNaRECR2_EQ_BOOST(x)		(((x) << 28) & GENMASK(29, 28))
-#define LYNX_28G_LNaRECR2_EQ_BOOST_X(x)		(((x) & GENMASK(29, 28)) >> 28)
-#define LYNX_28G_LNaRECR2_EQ_BLW_SEL(x)		(((x) << 24) & GENMASK(25, 24))
-#define LYNX_28G_LNaRECR2_EQ_BLW_SEL_X(x)	(((x) & GENMASK(25, 24)) >> 24)
-#define LYNX_28G_LNaRECR2_EQ_ZERO(x)		(((x) << 16) & GENMASK(17, 16))
-#define LYNX_28G_LNaRECR2_EQ_ZERO_X(x)		(((x) & GENMASK(17, 16)) >> 16)
+#define LYNX_28G_LNaRECR2_EQ_BOOST_MSK		GENMASK(29, 28)
+#define LYNX_28G_LNaRECR2_EQ_BOOST(x)		(((x) << 28) & LYNX_28G_LNaRECR2_EQ_BOOST_MSK)
+#define LYNX_28G_LNaRECR2_EQ_BOOST_X(x)		(((x) & LYNX_28G_LNaRECR2_EQ_BOOST_MSK) >> 28)
+#define LYNX_28G_LNaRECR2_EQ_BLW_SEL_MSK	GENMASK(25, 24)
+#define LYNX_28G_LNaRECR2_EQ_BLW_SEL(x)		(((x) << 24) & LYNX_28G_LNaRECR2_EQ_BLW_SEL_MSK)
+#define LYNX_28G_LNaRECR2_EQ_BLW_SEL_X(x)	(((x) & LYNX_28G_LNaRECR2_EQ_BLW_SEL_MSK) >> 24)
+#define LYNX_28G_LNaRECR2_EQ_ZERO_MSK		GENMASK(17, 16)
+#define LYNX_28G_LNaRECR2_EQ_ZERO(x)		(((x) << 16) & LYNX_28G_LNaRECR2_EQ_ZERO_MSK)
+#define LYNX_28G_LNaRECR2_EQ_ZERO_X(x)		(((x) & LYNX_28G_LNaRECR2_EQ_ZERO_MSK) >> 16)
 #define LYNX_28G_LNaRECR2_EQ_IND(x)		(((x) << 12) & GENMASK(13, 12))
 #define LYNX_28G_LNaRECR2_EQ_IND_X(x)		(((x) & GENMASK(13, 12)) >> 12)
 #define LYNX_28G_LNaRECR2_EQ_BIN_DATA_AVG_TC(x)	(((x) << 4) & GENMASK(5, 4))
 #define LYNX_28G_LNaRECR2_EQ_BIN_DATA_AVG_TC_X(x) (((x) & GENMASK(5, 4)) >> 4)
-#define LYNX_28G_LNaRECR2_SPARE_IN(x)		((x) & GENMASK(1, 0))
+#define LYNX_28G_LNaRECR2_SPARE_IN_MSK		GENMASK(1, 0)
+#define LYNX_28G_LNaRECR2_SPARE_IN(x)		((x) & LYNX_28G_LNaRECR2_SPARE_IN_MSK)
 
 #define LYNX_28G_LNaRECR3(lane)			(0x800 + (lane) * 0x100 + 0x5c)
 
@@ -258,15 +256,18 @@
 #define LYNX_28G_LNaRSCCR0_SMP_OFF_RNG_4X_OV	BIT(25)
 #define LYNX_28G_LNaRSCCR0_SMP_OFF_RNG_2X_OV	BIT(24)
 #define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_PD		BIT(23)
-#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_CTRL(x)	(((x) << 16) & GENMASK(19, 16))
-#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_CTRL_X(x)	(((x) & GENMASK(19, 16)) >> 16)
-#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1R(x)	(((x) << 12) & GENMASK(13, 12))
-#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1R_X(x)	(((x) & GENMASK(13, 12)) >> 12)
-#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1F(x)	(((x) << 8) & GENMASK(9, 8))
-#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1F(x)	(((x) << 8) & GENMASK(9, 8))
-#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1F_X(x)	(((x) & GENMASK(9, 8)) >> 8)
-#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_EG1R(x)	(((x) << 4) & GENMASK(5, 4))
-#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_EG1R_X(x)	(((x) & GENMASK(5, 4)) >> 4)
+#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_CTRL_MSK	GENMASK(19, 16)
+#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_CTRL(x)	(((x) << 16) & LYNX_28G_LNaRSCCR0_SMP_AUTOZ_CTRL_MSK)
+#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_CTRL_X(x)	(((x) & LYNX_28G_LNaRSCCR0_SMP_AUTOZ_CTRL_MSK) >> 16)
+#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1R_MSK	GENMASK(13, 12)
+#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1R(x)	(((x) << 12) & LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1R_MSK)
+#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1R_X(x)	(((x) & LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1R_MSK) >> 12)
+#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1F_MSK	GENMASK(9, 8)
+#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1F(x)	(((x) << 8) & LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1F_MSK)
+#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1F_X(x)	(((x) & LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1F_MSK) >> 8)
+#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_EG1R_MSK	GENMASK(5, 4)
+#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_EG1R(x)	(((x) << 4) & LYNX_28G_LNaRSCCR0_SMP_AUTOZ_EG1R_MSK)
+#define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_EG1R_X(x)	(((x) & LYNX_28G_LNaRSCCR0_SMP_AUTOZ_EG1R_MSK) >> 4)
 #define LYNX_28G_LNaRSCCR0_SMP_AUTOZ_EG1F(x)	((x) & GENMASK(1, 0))
 
 #define LYNX_28G_LNaTTLCR0(lane)		(0x800 + (lane) * 0x100 + 0x80)
@@ -300,13 +301,23 @@
 #define LYNX_28G_MDEV_PORT_MSK			GENMASK(31, 27)
 #define LYNX_28G_MDEV_PORT_X(x)			(((x) & LYNX_28G_MDEV_PORT_MSK) >> 27)
 
+#define LYNX_28G_SGMIIaCR0(lane)		(0x1800 + (lane) * 0x10)
 #define LYNX_28G_SGMIIaCR1(lane)		(0x1804 + (lane) * 0x10)
 #define LYNX_28G_SGMIIaCR1_SGPCS_EN		BIT(11)
 #define LYNX_28G_SGMIIaCR1_SGPCS_MSK		BIT(11)
 
+#define LYNX_28G_ANLTaCR0(lane)			(0x1a00 + (lane) * 0x10)
 #define LYNX_28G_ANLTaCR1(lane)			(0x1a04 + (lane) * 0x10)
 
+#define LYNX_28G_SXGMIIaCR0(lane)		(0x1a80 + (lane) * 0x10)
+#define LYNX_28G_SXGMIIaCR0_RST			BIT(31)
+#define LYNX_28G_SXGMIIaCR0_PD			BIT(30)
+
 #define LYNX_28G_SXGMIIaCR1(lane)		(0x1a84 + (lane) * 0x10)
+
+#define LYNX_28G_E25GaCR0(lane)			(0x1b00 + (lane) * 0x10)
+#define LYNX_28G_E25GaCR0_RST			BIT(31)
+#define LYNX_28G_E25GaCR0_PD			BIT(30)
 
 #define LYNX_28G_E25GaCR1(lane)			(0x1b04 + (lane) * 0x10)
 
@@ -315,11 +326,14 @@
 #define LYNX_28G_E25GaCR2_FEC_ERR_ENA		BIT(22)
 #define LYNX_28G_E25GaCR2_FEC91_ENA		BIT(20)
 
+#define LYNX_28G_E40GaCR0(pcvt)			(0x1b40 + (pcvt) * 0x20)
 #define LYNX_28G_E40GaCR1(pcvt)			(0x1b44 + (pcvt) * 0x20)
 
 #define LYNX_28G_E50GaCR1(pcvt)			(0x1b84 + (pcvt) * 0x10)
 
 #define LYNX_28G_E100GaCR1(pcvt)		(0x1c04 + (pcvt) * 0x20)
+
+#define CR(x)					((x) * 4)
 
 #define LYNX_28G_CDR_SLEEP_US			50
 #define LYNX_28G_CDR_TIMEOUT_US			500
@@ -366,6 +380,343 @@ enum lynx_28g_lane_mode {
 	LANE_MODE_40GBASER_XLAUI,
 	LANE_MODE_40GBASEKR4,
 	LANE_MODE_MAX,
+};
+
+struct lynx_28g_proto_conf {
+	/* LNaGCR0 */
+	int proto_sel;
+	int if_width;
+	/* LNaTECR0 */
+	int teq_type;
+	int sgn_preq;
+	int ratio_preq;
+	int sgn_post1q;
+	int ratio_post1q;
+	int amp_red;
+	/* LNaTECR1 */
+	int adpt_eq;
+	/* LNaRGCR1 */
+	int enter_idle_flt_sel;
+	int exit_idle_flt_sel;
+	int data_lost_th_sel;
+	/* LNaRECR0 */
+	int gk2ovd;
+	int gk3ovd;
+	int gk4ovd;
+	int gk2ovd_en;
+	int gk3ovd_en;
+	int gk4ovd_en;
+	/* LNaRECR1 ? */
+	int eq_offset_ovd;
+	int eq_offset_ovd_en;
+	/* LNaRECR2 */
+	int eq_offset_rng_dbl;
+	int eq_blw_sel;
+	int eq_boost;
+	int spare_in;
+	/* LNaRSCCR0 */
+	int smp_autoz_d1r;
+	int smp_autoz_eg1r;
+	/* LNaRCCR0 */
+	int rccr0;
+	/* LNaTTLCR0 */
+	int ttlcr0;
+};
+
+static const struct lynx_28g_proto_conf lynx_28g_proto_conf[LANE_MODE_MAX] = {
+	[LANE_MODE_1000BASEX_SGMII] = {
+		.proto_sel = LYNX_28G_LNaGCR0_PROTO_SEL_SGMII,
+		.if_width = LYNX_28G_LNaGCR0_IF_WIDTH_10_BIT,
+		.teq_type = EQ_TYPE_NO_EQ,
+		.sgn_preq = 1,
+		.ratio_preq = 0,
+		.sgn_post1q = 1,
+		.ratio_post1q = 0,
+		.amp_red = 6,
+		.adpt_eq = 48,
+		.enter_idle_flt_sel = 4,
+		.exit_idle_flt_sel = 3,
+		.data_lost_th_sel = 1,
+		.gk2ovd = 0x1f,
+		.gk3ovd = 0,
+		.gk4ovd = 0,
+		.gk2ovd_en = 1,
+		.gk3ovd_en = 1,
+		.gk4ovd_en = 0,
+		.eq_offset_ovd = 0x1f,
+		.eq_offset_ovd_en = 0,
+		.eq_offset_rng_dbl = 0,
+		.eq_blw_sel = 0,
+		.eq_boost = 0,
+		.spare_in = 0,
+		.smp_autoz_d1r = 0,
+		.smp_autoz_eg1r = 0,
+		.rccr0 = LYNX_28G_LNaRCCR0_CAL_EN,
+		.ttlcr0 = LYNX_28G_LNaTTLCR0_TTL_SLO_PM_BYP |
+			  LYNX_28G_LNaTTLCR0_DATA_IN_SSC,
+	},
+	[LANE_MODE_1000BASEKX] = {
+		.proto_sel = LYNX_28G_LNaGCR0_PROTO_SEL_SGMII,
+		.if_width = LYNX_28G_LNaGCR0_IF_WIDTH_10_BIT,
+		.teq_type = EQ_TYPE_NO_EQ,
+		.sgn_preq = 1,
+		.ratio_preq = 0,
+		.sgn_post1q = 1,
+		.ratio_post1q = 0,
+		.amp_red = 0,
+		.adpt_eq = 48,
+		.enter_idle_flt_sel = 0,
+		.exit_idle_flt_sel = 0,
+		.data_lost_th_sel = 0,
+		.gk2ovd = 0x1f,
+		.gk3ovd = 0,
+		.gk4ovd = 0,
+		.gk2ovd_en = 1,
+		.gk3ovd_en = 1,
+		.gk4ovd_en = 0,
+		.eq_offset_ovd = 0x1f,
+		.eq_offset_ovd_en = 0,
+		.eq_offset_rng_dbl = 0,
+		.eq_blw_sel = 0,
+		.eq_boost = 0,
+		.spare_in = 0,
+		.smp_autoz_d1r = 0,
+		.smp_autoz_eg1r = 0,
+		.rccr0 = LYNX_28G_LNaRCCR0_CAL_EN,
+		.ttlcr0 = LYNX_28G_LNaTTLCR0_TTL_SLO_PM_BYP |
+			  LYNX_28G_LNaTTLCR0_DATA_IN_SSC,
+	},
+	[LANE_MODE_USXGMII] = {
+		.proto_sel = LYNX_28G_LNaGCR0_PROTO_SEL_XFI,
+		.if_width = LYNX_28G_LNaGCR0_IF_WIDTH_20_BIT,
+		.teq_type = EQ_TYPE_2TAP,
+		.sgn_preq = 1,
+		.ratio_preq = 0,
+		.sgn_post1q = 1,
+		.ratio_post1q = 3,
+		.amp_red = 7,
+		.adpt_eq = 48,
+		.enter_idle_flt_sel = 0,
+		.exit_idle_flt_sel = 0,
+		.data_lost_th_sel = 0,
+		.gk2ovd = 0,
+		.gk3ovd = 0,
+		.gk4ovd = 0,
+		.gk2ovd_en = 0,
+		.gk3ovd_en = 0,
+		.gk4ovd_en = 0,
+		.eq_offset_ovd = 0x1f,
+		.eq_offset_ovd_en = 0,
+		.eq_offset_rng_dbl = 1,
+		.eq_blw_sel = 1,
+		.eq_boost = 0,
+		.spare_in = 0,
+		.smp_autoz_d1r = 2,
+		.smp_autoz_eg1r = 0,
+		.rccr0 = LYNX_28G_LNaRCCR0_CAL_EN,
+		.ttlcr0 = LYNX_28G_LNaTTLCR0_TTL_SLO_PM_BYP |
+			  LYNX_28G_LNaTTLCR0_DATA_IN_SSC,
+	},
+	[LANE_MODE_10GBASER] = {
+		.proto_sel = LYNX_28G_LNaGCR0_PROTO_SEL_XFI,
+		.if_width = LYNX_28G_LNaGCR0_IF_WIDTH_20_BIT,
+		.teq_type = EQ_TYPE_2TAP,
+		.sgn_preq = 1,
+		.ratio_preq = 0,
+		.sgn_post1q = 1,
+		.ratio_post1q = 3,
+		.amp_red = 7,
+		.adpt_eq = 48,
+		.enter_idle_flt_sel = 0,
+		.exit_idle_flt_sel = 0,
+		.data_lost_th_sel = 0,
+		.gk2ovd = 0,
+		.gk3ovd = 0,
+		.gk4ovd = 0,
+		.gk2ovd_en = 0,
+		.gk3ovd_en = 0,
+		.gk4ovd_en = 0,
+		.eq_offset_ovd = 0x1f,
+		.eq_offset_ovd_en = 0,
+		.eq_offset_rng_dbl = 1,
+		.eq_blw_sel = 1,
+		.eq_boost = 0,
+		.spare_in = 0,
+		.smp_autoz_d1r = 2,
+		.smp_autoz_eg1r = 0,
+		.rccr0 = LYNX_28G_LNaRCCR0_CAL_EN,
+		.ttlcr0 = LYNX_28G_LNaTTLCR0_TTL_SLO_PM_BYP |
+			  LYNX_28G_LNaTTLCR0_DATA_IN_SSC,
+	},
+	[LANE_MODE_10GBASEKR] = {
+		.proto_sel = LYNX_28G_LNaGCR0_PROTO_SEL_XFI,
+		.if_width = LYNX_28G_LNaGCR0_IF_WIDTH_20_BIT,
+		.teq_type = EQ_TYPE_3TAP,
+		.sgn_preq = 1,
+		.ratio_preq = 2,
+		.sgn_post1q = 1,
+		.ratio_post1q = 5,
+		.amp_red = 0,
+		.adpt_eq = 41,
+		.enter_idle_flt_sel = 0,
+		.exit_idle_flt_sel = 0,
+		.data_lost_th_sel = 0,
+		.gk2ovd = 0,
+		.gk3ovd = 0,
+		.gk4ovd = 0,
+		.gk2ovd_en = 0,
+		.gk3ovd_en = 0,
+		.gk4ovd_en = 0,
+		.eq_offset_ovd = 0x1f,
+		.eq_offset_ovd_en = 0,
+		.eq_offset_rng_dbl = 1,
+		.eq_blw_sel = 1,
+		.eq_boost = 0,
+		.spare_in = 0,
+		.smp_autoz_d1r = 2,
+		.smp_autoz_eg1r = 0,
+		.rccr0 = LYNX_28G_LNaRCCR0_CAL_EN,
+		.ttlcr0 = LYNX_28G_LNaTTLCR0_TTL_SLO_PM_BYP |
+			  LYNX_28G_LNaTTLCR0_DATA_IN_SSC,
+	},
+	[LANE_MODE_25GBASER] = {
+		.proto_sel = LYNX_28G_LNaGCR0_PROTO_SEL_25G,
+		.if_width = LYNX_28G_LNaGCR0_IF_WIDTH_40_BIT,
+		.teq_type = EQ_TYPE_3TAP,
+		.sgn_preq = 1,
+		.ratio_preq = 2,
+		.sgn_post1q = 1,
+		.ratio_post1q = 7,
+		.amp_red = 0,
+		.adpt_eq = 48,
+		.enter_idle_flt_sel = 0,
+		.exit_idle_flt_sel = 0,
+		.data_lost_th_sel = 0,
+		.gk2ovd = 0,
+		.gk3ovd = 0,
+		.gk4ovd = 5,
+		.gk2ovd_en = 0,
+		.gk3ovd_en = 0,
+		.gk4ovd_en = 1,
+		.eq_offset_ovd = 0x1f,
+		.eq_offset_ovd_en = 0,
+		.eq_offset_rng_dbl = 1,
+		.eq_blw_sel = 1,
+		.eq_boost = 2,
+		.spare_in = 3,
+		.smp_autoz_d1r = 2,
+		.smp_autoz_eg1r = 2,
+		.rccr0 = LYNX_28G_LNaRCCR0_CAL_EN |
+			 LYNX_28G_LNaRCCR0_CAL_DC3_DIS |
+			 LYNX_28G_LNaRCCR0_CAL_DC2_DIS |
+			 LYNX_28G_LNaRCCR0_CAL_DC1_DIS |
+			 LYNX_28G_LNaRCCR0_CAL_DC0_DIS,
+		.ttlcr0 = LYNX_28G_LNaTTLCR0_DATA_IN_SSC |
+			  LYNX_28G_LNaTTLCR0_CDR_MIN_SMP_ON(1),
+	},
+	[LANE_MODE_25GBASEKR] = {
+		.proto_sel = LYNX_28G_LNaGCR0_PROTO_SEL_25G,
+		.if_width = LYNX_28G_LNaGCR0_IF_WIDTH_40_BIT,
+		.teq_type = EQ_TYPE_3TAP,
+		.sgn_preq = 1,
+		.ratio_preq = 2,
+		.sgn_post1q = 1,
+		.ratio_post1q = 7,
+		.amp_red = 0, // FIXME 32 for C2C?
+		.adpt_eq = 38,
+		.enter_idle_flt_sel = 0,
+		.exit_idle_flt_sel = 0,
+		.data_lost_th_sel = 0,
+		.gk2ovd = 0,
+		.gk3ovd = 0,
+		.gk4ovd = 5,
+		.gk2ovd_en = 0,
+		.gk3ovd_en = 0,
+		.gk4ovd_en = 1,
+		.eq_offset_ovd = 0x1f,
+		.eq_offset_ovd_en = 0,
+		.eq_offset_rng_dbl = 1,
+		.eq_blw_sel = 1,
+		.eq_boost = 2,
+		.spare_in = 3,
+		.smp_autoz_d1r = 2,
+		.smp_autoz_eg1r = 2,
+		.rccr0 = LYNX_28G_LNaRCCR0_CAL_EN |
+			 LYNX_28G_LNaRCCR0_CAL_DC3_DIS |
+			 LYNX_28G_LNaRCCR0_CAL_DC2_DIS |
+			 LYNX_28G_LNaRCCR0_CAL_DC1_DIS |
+			 LYNX_28G_LNaRCCR0_CAL_DC0_DIS,
+		.ttlcr0 = LYNX_28G_LNaTTLCR0_DATA_IN_SSC |
+			  LYNX_28G_LNaTTLCR0_CDR_MIN_SMP_ON(1),
+	},
+	[LANE_MODE_40GBASER_XLAUI] = {
+		.proto_sel = LYNX_28G_LNaGCR0_PROTO_SEL_XFI,
+		.if_width = LYNX_28G_LNaGCR0_IF_WIDTH_20_BIT,
+		.teq_type = EQ_TYPE_3TAP,
+		.sgn_preq = 1,
+		.ratio_preq = 2,
+		.sgn_post1q = 1,
+		.ratio_post1q = 5,
+		.amp_red = 0,
+		.adpt_eq = 41,
+		.enter_idle_flt_sel = 0,
+		.exit_idle_flt_sel = 0,
+		.data_lost_th_sel = 0,
+		.gk2ovd = 0,
+		.gk3ovd = 0,
+		.gk4ovd = 0,
+		.gk2ovd_en = 0,
+		.gk3ovd_en = 0,
+		.gk4ovd_en = 0,
+		.eq_offset_ovd = 0x1f,
+		.eq_offset_ovd_en = 0,
+		.eq_offset_rng_dbl = 1,
+		.eq_blw_sel = 1,
+		.eq_boost = 0,
+		.spare_in = 0,
+		.smp_autoz_d1r = 2,
+		.smp_autoz_eg1r = 0,
+		.rccr0 = LYNX_28G_LNaRCCR0_CAL_EN,
+		.ttlcr0 = LYNX_28G_LNaTTLCR0_TTL_SLO_PM_BYP |
+			  LYNX_28G_LNaTTLCR0_DATA_IN_SSC,
+	},
+	[LANE_MODE_40GBASEKR4] = {
+		.proto_sel = LYNX_28G_LNaGCR0_PROTO_SEL_XFI,
+		.if_width = LYNX_28G_LNaGCR0_IF_WIDTH_20_BIT,
+		.teq_type = EQ_TYPE_3TAP,
+		.sgn_preq = 1,
+		.ratio_preq = 2,
+		.sgn_post1q = 1,
+		.ratio_post1q = 5,
+		.amp_red = 0,
+		.adpt_eq = 41,
+		.enter_idle_flt_sel = 0,
+		.exit_idle_flt_sel = 0,
+		.data_lost_th_sel = 0,
+		.gk2ovd = 0,
+		.gk3ovd = 0,
+		.gk4ovd = 0,
+		.gk2ovd_en = 0,
+		.gk3ovd_en = 0,
+		.gk4ovd_en = 0,
+		.eq_offset_ovd = 0x1f,
+		.eq_offset_ovd_en = 0,
+		.eq_offset_rng_dbl = 1,
+		.eq_blw_sel = 1,
+		.eq_boost = 0,
+		.spare_in = 0,
+		.smp_autoz_d1r = 2,
+		.smp_autoz_eg1r = 0,
+		.rccr0 = LYNX_28G_LNaRCCR0_CAL_EN,
+		.ttlcr0 = LYNX_28G_LNaTTLCR0_TTL_SLO_PM_BYP |
+			  LYNX_28G_LNaTTLCR0_DATA_IN_SSC,
+	},
+};
+
+struct lynx_pccr {
+	int offset;
+	int width;
+	int shift;
 };
 
 struct lynx_28g_priv;
@@ -425,6 +776,8 @@ static void lynx_28g_rmw(struct lynx_28g_priv *priv, unsigned long off,
 
 #define lynx_28g_read(priv, off) \
 	ioread32((priv)->base + (off))
+#define lynx_28g_write(priv, off, val) \
+	iowrite32(val, (priv)->base + (off))
 #define lynx_28g_lane_rmw(lane, reg, val, mask)	\
 	lynx_28g_rmw((lane)->priv, LYNX_28G_##reg(lane->id), val, mask)
 #define lynx_28g_lane_read(lane, reg)			\
@@ -433,13 +786,6 @@ static void lynx_28g_rmw(struct lynx_28g_priv *priv, unsigned long off,
 	iowrite32(val, (lane)->priv->base + LYNX_28G_##reg((lane)->id))
 #define lynx_28g_pll_read(pll, reg)			\
 	ioread32((pll)->priv->base + LYNX_28G_##reg((pll)->id))
-
-static int lynx_28g_40g_pcvt_read(struct lynx_28g_lane *lane)
-{
-	int pcvt = lane->id < 4 ? 1 : 0;
-
-	return ioread32(lane->priv->base + LYNX_28G_E40GaCR1(pcvt));
-}
 
 static enum lynx_28g_lane_mode phy_interface_to_lane_mode(phy_interface_t intf)
 {
@@ -606,40 +952,6 @@ static void lynx_28g_lane_set_pll(struct lynx_28g_lane *lane,
 	}
 }
 
-static void lynx_28g_cleanup_lane(struct lynx_28g_lane *lane)
-{
-	struct lynx_28g_priv *priv = lane->priv;
-
-	switch (lane->mode) {
-	case LANE_MODE_10GBASER:
-	case LANE_MODE_USXGMII:
-	case LANE_MODE_10GBASEKR:
-		/* Cleanup the protocol configuration registers */
-		lynx_28g_rmw(priv, LYNX_28G_PCCC, 0,
-			     LYNX_28G_PCCC_MSK(lane));
-		break;
-	case LANE_MODE_1000BASEX_SGMII:
-	case LANE_MODE_1000BASEKX:
-		/* Cleanup the protocol configuration registers */
-		lynx_28g_rmw(priv, LYNX_28G_PCC8, 0,
-			     LYNX_28G_PCC8_MSK(lane));
-
-		/* Disable the SGMII PCS */
-		lynx_28g_lane_rmw(lane, SGMIIaCR1, 0,
-				  LYNX_28G_SGMIIaCR1_SGPCS_MSK);
-
-		break;
-	case LANE_MODE_25GBASER:
-	case LANE_MODE_25GBASEKR:
-		/* Cleanup the protocol configuration registers */
-		lynx_28g_rmw(priv, LYNX_28G_PCCD, 0,
-			     LYNX_28G_PCCD_MSK(lane));
-		break;
-	default:
-		break;
-	}
-}
-
 static bool lynx_28g_cdr_lock_check(struct lynx_28g_lane *lane)
 {
 	u32 rrstctl = lynx_28g_lane_read(lane, LNaRRSTCTL);
@@ -657,223 +969,6 @@ static bool lynx_28g_cdr_lock_check(struct lynx_28g_lane *lane)
 	} while (!(rrstctl & LYNX_28G_LNaRRSTCTL_RST_DONE));
 
 	return !!(rrstctl & LYNX_28G_LNaRRSTCTL_CDR_LOCK);
-}
-
-static void lynx_28g_lane_set_1g(struct lynx_28g_lane *lane,
-				 enum lynx_28g_lane_mode lane_mode)
-{
-	bool is_backplane = lane_mode == lane->supported_backplane_mode;
-	struct lynx_28g_priv *priv = lane->priv;
-	struct lynx_28g_pll *pll;
-
-	lynx_28g_cleanup_lane(lane);
-
-	/* Setup the lane to run in SGMII or 1000Base-KX mode */
-	lynx_28g_rmw(priv, LYNX_28G_PCC8, LYNX_28G_PCC8_SGMIInCFG_EN(lane),
-		     LYNX_28G_PCC8_SGMIInCFG_MSK(lane));
-
-	lynx_28g_rmw(priv, LYNX_28G_PCC8,
-		     LYNX_28G_PCC8_SGMIIn_KX(lane, is_backplane),
-		     LYNX_28G_PCC8_SGMIIn_KX_MSK(lane));
-
-	/* Setup the protocol select and SerDes parallel interface width */
-	lynx_28g_lane_rmw(lane, LNaGCR0, LYNX_28G_LNaGCR0_PROTO_SEL_SGMII,
-			  LYNX_28G_LNaGCR0_PROTO_SEL_MSK);
-	lynx_28g_lane_rmw(lane, LNaGCR0, LYNX_28G_LNaGCR0_IF_WIDTH_10_BIT,
-			  LYNX_28G_LNaGCR0_IF_WIDTH_MSK);
-
-	/* Switch to the PLL that works with this interface type */
-	pll = lynx_28g_pll_get(priv, lane_mode);
-	lynx_28g_lane_set_pll(lane, pll);
-
-	/* Choose the portion of clock net to be used on this lane */
-	lynx_28g_lane_set_nrate(lane, pll, lane_mode);
-
-	/* Enable the SGMII PCS */
-	lynx_28g_lane_rmw(lane, SGMIIaCR1, LYNX_28G_SGMIIaCR1_SGPCS_EN,
-			  LYNX_28G_SGMIIaCR1_SGPCS_MSK);
-
-	/* Configure the appropriate equalization parameters for the protocol */
-	lynx_28g_lane_write(lane, LNaTECR0,
-			    LYNX_28G_LNaTECR0_EQ_SGN_PREQ |
-			    LYNX_28G_LNaTECR0_EQ_SGN_POST1Q |
-			    LYNX_28G_LNaTECR0_EQ_AMP_RED(6));
-	lynx_28g_lane_write(lane, LNaRGCR1,
-			    LYNX_28G_LNaRGCR1_ENTER_IDLE_FLT_SEL(4) |
-			    LYNX_28G_LNaRGCR1_EXIT_IDLE_FLT_SEL(3) |
-			    LYNX_28G_LNaRGCR1_DATA_LOST_FLT);
-	lynx_28g_lane_write(lane, LNaRECR0,
-			    LYNX_28G_LNaRECR0_EQ_GAINK2_HF_OV_EN |
-			    LYNX_28G_LNaRECR0_EQ_GAINK2_HF_OV(0x1f) |
-			    LYNX_28G_LNaRECR0_EQ_GAINK3_MF_OV_EN |
-			    LYNX_28G_LNaRECR0_EQ_GAINK3_MF_OV(0));
-	lynx_28g_lane_write(lane, LNaRECR1, LYNX_28G_LNaRECR1_EQ_OFFSET_OV(31));
-	lynx_28g_lane_write(lane, LNaRECR2, 0);
-	lynx_28g_lane_write(lane, LNaRSCCR0, 0);
-}
-
-static void lynx_28g_lane_set_10g(struct lynx_28g_lane *lane,
-				  enum lynx_28g_lane_mode lane_mode)
-{
-	bool is_xfi = lane_mode != LANE_MODE_USXGMII;
-	struct lynx_28g_priv *priv = lane->priv;
-	struct lynx_28g_pll *pll;
-
-	/* We don't have the proper infra to handle 40GBase-KR4, just avoid
-	 * modifying these and rely on the default values. What we want are
-	 * the equalization settings.
-	 */
-	if (lane_mode != LANE_MODE_40GBASEKR4) {
-		lynx_28g_cleanup_lane(lane);
-
-		/* Enable the SXGMII lane */
-		lynx_28g_rmw(priv, LYNX_28G_PCCC,
-			     LYNX_28G_PCCC_SXGMIInCFG_EN(lane) |
-			     LYNX_28G_PCCC_SXGMIInCFG_XFI(lane, is_xfi),
-			     LYNX_28G_PCCC_MSK(lane));
-
-		/* Setup the protocol select and SerDes parallel interface width */
-		lynx_28g_lane_rmw(lane, LNaGCR0, LYNX_28G_LNaGCR0_PROTO_SEL_XFI,
-				  LYNX_28G_LNaGCR0_PROTO_SEL_MSK);
-		lynx_28g_lane_rmw(lane, LNaGCR0, LYNX_28G_LNaGCR0_IF_WIDTH_20_BIT,
-				  LYNX_28G_LNaGCR0_IF_WIDTH_MSK);
-	}
-
-	/* Switch to the PLL that works with this interface type */
-	pll = lynx_28g_pll_get(priv, lane_mode);
-	lynx_28g_lane_set_pll(lane, pll);
-
-	/* Choose the portion of clock net to be used on this lane */
-	lynx_28g_lane_set_nrate(lane, pll, lane_mode);
-
-	/* Configure the appropriate equalization parameters for the protocol */
-	switch (lane_mode) {
-	case LANE_MODE_10GBASER:
-	case LANE_MODE_USXGMII:
-		lynx_28g_lane_write(lane, LNaTECR0,
-				    LYNX_28G_LNaTECR0_EQ_TYPE(EQ_TYPE_2TAP) |
-				    LYNX_28G_LNaTECR0_EQ_SGN_PREQ |
-				    LYNX_28G_LNaTECR0_EQ_PREQ(0) |
-				    LYNX_28G_LNaTECR0_EQ_SGN_POST1Q |
-				    LYNX_28G_LNaTECR0_EQ_POST1Q(3) |
-				    LYNX_28G_LNaTECR0_EQ_AMP_RED(7));
-		lynx_28g_lane_write(lane, LNaTECR1,
-				    LYNX_28G_LNaTECR1_EQ_ADPT_EQ(0x30));
-		break;
-	case LANE_MODE_10GBASEKR:
-	case LANE_MODE_40GBASEKR4:
-		lynx_28g_lane_write(lane, LNaTECR0,
-				    LYNX_28G_LNaTECR0_EQ_TYPE(EQ_TYPE_3TAP) |
-				    LYNX_28G_LNaTECR0_EQ_SGN_PREQ |
-				    LYNX_28G_LNaTECR0_EQ_PREQ(2) |
-				    LYNX_28G_LNaTECR0_EQ_SGN_POST1Q |
-				    LYNX_28G_LNaTECR0_EQ_POST1Q(5));
-		lynx_28g_lane_write(lane, LNaTECR1,
-				    LYNX_28G_LNaTECR1_EQ_ADPT_EQ(0x29));
-		break;
-	default:
-		break;
-	}
-	lynx_28g_lane_write(lane, LNaRGCR1, LYNX_28G_LNaRGCR1_IDLE_CONFIG);
-	lynx_28g_lane_write(lane, LNaRECR0, 0);
-	lynx_28g_lane_write(lane, LNaRECR1, LYNX_28G_LNaRECR1_EQ_OFFSET_OV(31));
-	lynx_28g_lane_write(lane, LNaRECR2,
-			    LYNX_28G_LNaRECR2_EQ_OFFSET_RNG_DBL |
-			    LYNX_28G_LNaRECR2_EQ_BLW_SEL(1) |
-			    LYNX_28G_LNaRECR2_EQ_BIN_DATA_AVG_TC(2));
-	lynx_28g_lane_write(lane, LNaRSCCR0,
-			    LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1R(2));
-	lynx_28g_lane_write(lane, LNaRCCR0, LYNX_28G_LNaRCCR0_CAL_EN);
-	lynx_28g_lane_write(lane, LNaTTLCR0,
-			    LYNX_28G_LNaTTLCR0_TTL_SLO_PM_BYP |
-			    LYNX_28G_LNaTTLCR0_DATA_IN_SSC);
-}
-
-static void lynx_28g_lane_set_25g(struct lynx_28g_lane *lane,
-				  enum lynx_28g_lane_mode lane_mode)
-{
-	struct lynx_28g_priv *priv = lane->priv;
-	struct lynx_28g_pll *pll;
-
-	lynx_28g_cleanup_lane(lane);
-
-	/* Enable the E25G lane */
-	lynx_28g_rmw(priv, LYNX_28G_PCCD, LYNX_28G_PCCD_E25GnCFG_EN(lane),
-		     LYNX_28G_PCCD_MSK(lane));
-
-	/* Setup the protocol select and SerDes parallel interface width */
-	lynx_28g_lane_rmw(lane, LNaGCR0, LYNX_28G_LNaGCR0_PROTO_SEL_25G,
-			  LYNX_28G_LNaGCR0_PROTO_SEL_MSK);
-	lynx_28g_lane_rmw(lane, LNaGCR0, LYNX_28G_LNaGCR0_IF_WIDTH_40_BIT,
-			  LYNX_28G_LNaGCR0_IF_WIDTH_MSK);
-
-	/* Switch to the PLL that works with this interface type */
-	pll = lynx_28g_pll_get(priv, lane_mode);
-	lynx_28g_lane_set_pll(lane, pll);
-
-	/* Choose the portion of clock net to be used on this lane */
-	lynx_28g_lane_set_nrate(lane, pll, lane_mode);
-
-	/* Configure the appropriate equalization parameters for 25GBASE-R */
-	switch (lane_mode) {
-	case LANE_MODE_25GBASER:
-		lynx_28g_lane_write(lane, LNaTECR0,
-				    LYNX_28G_LNaTECR0_EQ_TYPE(EQ_TYPE_3TAP) |
-				    LYNX_28G_LNaTECR0_EQ_SGN_PREQ |
-				    LYNX_28G_LNaTECR0_EQ_PREQ(2) |
-				    LYNX_28G_LNaTECR0_EQ_SGN_POST1Q |
-				    LYNX_28G_LNaTECR0_EQ_POST1Q(7));
-		break;
-	case LANE_MODE_25GBASEKR:
-		lynx_28g_lane_write(lane, LNaTECR0,
-				    LYNX_28G_LNaTECR0_EQ_TYPE(EQ_TYPE_3TAP) |
-				    LYNX_28G_LNaTECR0_EQ_SGN_PREQ |
-				    LYNX_28G_LNaTECR0_EQ_PREQ(2) |
-				    LYNX_28G_LNaTECR0_EQ_SGN_POST1Q |
-				    LYNX_28G_LNaTECR0_EQ_POST1Q(7));
-		lynx_28g_lane_write(lane, LNaTECR1,
-				    LYNX_28G_LNaTECR1_EQ_ADPT_EQ(0x26));
-		break;
-	default:
-		break;
-	}
-	/* From AN12950:
-	 * write RGCR0, 0x03000330
-	 * write RGCR1, 0x10000000
-	 * write RECR0, 0x00000085
-	 * write RECR2, 0xA1000023
-	 * write RSCCR0, 0x00002020
-	 * write TGCR1, 0x00000000
-	 */
-	lynx_28g_lane_rmw(lane, LNaRGCR0,
-			  LYNX_28G_LNaRGCR0_INTACCPL_DIS |
-			  LYNX_28G_LNaRGCR0_CMADJ_DIS,
-			  LYNX_28G_LNaRGCR0_INTACCPL_DIS |
-			  LYNX_28G_LNaRGCR0_CMADJ_DIS);
-	lynx_28g_lane_write(lane, LNaTGCR1, 0);
-	lynx_28g_lane_write(lane, LNaRGCR1, LYNX_28G_LNaRGCR1_IDLE_CONFIG);
-	lynx_28g_lane_write(lane, LNaRECR0,
-			    LYNX_28G_LNaRECR0_EQ_GAINK4_LF_OV_EN |
-			    LYNX_28G_LNaRECR0_EQ_GAINK4_LF_OV(5));
-	lynx_28g_lane_write(lane, LNaRECR1, LYNX_28G_LNaRECR1_EQ_OFFSET_OV(31));
-	lynx_28g_lane_write(lane, LNaRECR2,
-			    LYNX_28G_LNaRECR2_EQ_OFFSET_RNG_DBL |
-			    LYNX_28G_LNaRECR2_EQ_BOOST(2) |
-			    LYNX_28G_LNaRECR2_EQ_BLW_SEL(1) |
-			    LYNX_28G_LNaRECR2_EQ_BIN_DATA_AVG_TC(2) |
-			    LYNX_28G_LNaRECR2_SPARE_IN(3));
-	lynx_28g_lane_write(lane, LNaRSCCR0,
-			    LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1R(2) |
-			    LYNX_28G_LNaRSCCR0_SMP_AUTOZ_EG1R(2));
-	lynx_28g_lane_write(lane, LNaRCCR0,
-			    LYNX_28G_LNaRCCR0_CAL_EN |
-			    LYNX_28G_LNaRCCR0_CAL_DC3_DIS |
-			    LYNX_28G_LNaRCCR0_CAL_DC2_DIS |
-			    LYNX_28G_LNaRCCR0_CAL_DC1_DIS |
-			    LYNX_28G_LNaRCCR0_CAL_DC0_DIS);
-	lynx_28g_lane_write(lane, LNaTTLCR0,
-			    LYNX_28G_LNaTTLCR0_DATA_IN_SSC |
-			    LYNX_28G_LNaTTLCR0_CDR_MIN_SMP_ON(1));
 }
 
 /* Halting puts the lane in a mode in which it can be reconfigured */
@@ -965,19 +1060,380 @@ static int lynx_28g_power_on(struct phy *phy)
 	return 0;
 }
 
+static int lynx_28g_e25g_pcvt(int lane)
+{
+	return 7 - lane;
+}
+
+static int lynx_28g_e40g_pcvt(int lane)
+{
+	return lane < 4 ? 1 : 0;
+}
+
+static int lynx_28g_get_pccr(enum lynx_28g_lane_mode lane_mode, int lane,
+			     struct lynx_pccr *pccr)
+{
+	switch (lane_mode) {
+	case LANE_MODE_1000BASEX_SGMII:
+	case LANE_MODE_1000BASEKX:
+		pccr->offset = LYNX_28G_PCC8;
+		pccr->width = 4;
+		pccr->shift = SGMII_CFG(lane);
+		break;
+	case LANE_MODE_USXGMII:
+	case LANE_MODE_10GBASER:
+	case LANE_MODE_10GBASEKR:
+		pccr->offset = LYNX_28G_PCCC;
+		pccr->width = 4;
+		pccr->shift = SXGMII_CFG(lane);
+		break;
+	case LANE_MODE_25GBASER:
+	case LANE_MODE_25GBASEKR:
+		pccr->offset = LYNX_28G_PCCD;
+		pccr->width = 4;
+		pccr->shift = E25G_CFG(lynx_28g_e25g_pcvt(lane));
+		break;
+	case LANE_MODE_40GBASER_XLAUI:
+	case LANE_MODE_40GBASEKR4:
+		pccr->offset = LYNX_28G_PCCE;
+		pccr->width = 4;
+		pccr->shift = E40G_CFG(lynx_28g_e40g_pcvt(lane));
+		break;
+	default:
+		return -EOPNOTSUPP;
+	}
+
+	return 0;
+}
+
+static int lynx_28g_get_pcvt_offset(int lane, enum lynx_28g_lane_mode mode)
+{
+	switch (mode) {
+	case LANE_MODE_1000BASEX_SGMII:
+	case LANE_MODE_1000BASEKX:
+		return LYNX_28G_SGMIIaCR0(lane);
+	case LANE_MODE_USXGMII:
+	case LANE_MODE_10GBASER:
+	case LANE_MODE_10GBASEKR:
+		return LYNX_28G_SXGMIIaCR0(lane);
+	case LANE_MODE_25GBASER:
+	case LANE_MODE_25GBASEKR:
+		return LYNX_28G_E25GaCR0(lynx_28g_e25g_pcvt(lane));
+	case LANE_MODE_40GBASER_XLAUI:
+	case LANE_MODE_40GBASEKR4:
+		return LYNX_28G_E40GaCR0(lynx_28g_e40g_pcvt(lane));
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
+static int lynx_28g_get_anlt_offset(int lane, enum lynx_28g_lane_mode mode)
+{
+	switch (mode) {
+	case LANE_MODE_25GBASEKR:
+	case LANE_MODE_40GBASEKR4:
+		return LYNX_28G_ANLTaCR0(lane);
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
+static int lynx_pccr_read(struct lynx_28g_lane *lane, enum lynx_28g_lane_mode mode,
+			  u32 *val)
+{
+	struct lynx_28g_priv *priv = lane->priv;
+	struct lynx_pccr pccr;
+	u32 tmp;
+	int err;
+
+	err = lynx_28g_get_pccr(mode, lane->id, &pccr);
+	if (err)
+		return err;
+
+	tmp = lynx_28g_read(priv, pccr.offset);
+	*val = (tmp >> pccr.shift) & GENMASK(pccr.width - 1, 0);
+
+	return 0;
+}
+
+static int lynx_pccr_write(struct lynx_28g_lane *lane,
+			   enum lynx_28g_lane_mode mode, u32 val)
+{
+	struct lynx_28g_priv *priv = lane->priv;
+	struct lynx_pccr pccr;
+	u32 old, tmp, mask;
+	int err;
+
+	err = lynx_28g_get_pccr(mode, lane->id, &pccr);
+	if (err)
+		return err;
+
+	old = lynx_28g_read(priv, pccr.offset);
+	mask = GENMASK(pccr.width - 1, 0) << pccr.shift;
+	tmp = (old & ~mask) | (val << pccr.shift);
+	lynx_28g_write(priv, pccr.offset, tmp);
+
+	dev_dbg(&lane->phy->dev, "PCCR@0x%x: 0x%x -> 0x%x\n",
+		pccr.offset, old, tmp);
+
+	return 0;
+}
+
+static int lynx_pcvt_read(struct lynx_28g_lane *lane, enum lynx_28g_lane_mode mode,
+			  int cr, u32 *val)
+{
+	struct lynx_28g_priv *priv = lane->priv;
+	int offset;
+
+	offset = lynx_28g_get_pcvt_offset(lane->id, mode);
+	if (offset < 0)
+		return offset;
+
+	*val = lynx_28g_read(priv, offset + cr);
+
+	return 0;
+}
+
+static int lynx_pcvt_write(struct lynx_28g_lane *lane, enum lynx_28g_lane_mode mode,
+			   int cr, u32 val)
+{
+	struct lynx_28g_priv *priv = lane->priv;
+	int offset;
+
+	offset = lynx_28g_get_pcvt_offset(lane->id, mode);
+	if (offset < 0)
+		return offset;
+
+	lynx_28g_write(priv, offset + cr, val);
+
+	return 0;
+}
+
+static int lynx_pcvt_rmw(struct lynx_28g_lane *lane, enum lynx_28g_lane_mode mode,
+			 int cr, u32 val, u32 mask)
+{
+	int err;
+	u32 tmp;
+
+	err = lynx_pcvt_read(lane, mode, cr, &tmp);
+	if (err)
+		return err;
+
+	tmp &= ~mask;
+	tmp |= val;
+
+	return lynx_pcvt_write(lane, mode, cr, tmp);
+}
+
+static int lynx_anlt_read(struct lynx_28g_lane *lane, enum lynx_28g_lane_mode mode,
+			  int cr, u32 *val)
+{
+	struct lynx_28g_priv *priv = lane->priv;
+	int offset;
+
+	switch (mode) {
+	case LANE_MODE_1000BASEKX:
+	case LANE_MODE_10GBASEKR:
+		/* For 1G and 10G, AN/LT registers are merged with the PCS */
+		return lynx_pcvt_read(lane, mode, cr, val);
+	case LANE_MODE_25GBASEKR:
+	case LANE_MODE_40GBASEKR4:
+		offset = lynx_28g_get_anlt_offset(lane->id, mode);
+		if (offset < 0)
+			return offset;
+
+		*val = lynx_28g_read(priv, offset + cr);
+
+		return 0;
+	default:
+		break;
+	}
+
+	return -EOPNOTSUPP;
+}
+
+static void lynx_28g_lane_remap_pll(struct lynx_28g_lane *lane,
+				    enum lynx_28g_lane_mode lane_mode)
+{
+	struct lynx_28g_priv *priv = lane->priv;
+	struct lynx_28g_pll *pll;
+
+	/* Switch to the PLL that works with this interface type */
+	pll = lynx_28g_pll_get(priv, lane_mode);
+	lynx_28g_lane_set_pll(lane, pll);
+
+	/* Choose the portion of clock net to be used on this lane */
+	lynx_28g_lane_set_nrate(lane, pll, lane_mode);
+}
+
+static void lynx_28g_lane_change_proto_conf(struct lynx_28g_lane *lane,
+					    enum lynx_28g_lane_mode mode)
+{
+	const struct lynx_28g_proto_conf *conf = &lynx_28g_proto_conf[mode];
+
+	lynx_28g_lane_rmw(lane, LNaGCR0, conf->proto_sel | conf->if_width,
+			  LYNX_28G_LNaGCR0_PROTO_SEL_MSK |
+			  LYNX_28G_LNaGCR0_IF_WIDTH_MSK);
+
+	lynx_28g_lane_rmw(lane, LNaTECR0, LYNX_28G_LNaTECR0_EQ_TYPE(conf->teq_type) |
+			  (conf->sgn_preq ? LYNX_28G_LNaTECR0_EQ_SGN_PREQ : 0) |
+			  LYNX_28G_LNaTECR0_EQ_PREQ(conf->ratio_preq) |
+			  (conf->sgn_post1q ? LYNX_28G_LNaTECR0_EQ_SGN_POST1Q : 0) |
+			  LYNX_28G_LNaTECR0_EQ_POST1Q(conf->ratio_post1q) |
+			  LYNX_28G_LNaTECR0_EQ_AMP_RED(conf->amp_red),
+			  LYNX_28G_LNaTECR0_EQ_TYPE_MSK |
+			  LYNX_28G_LNaTECR0_EQ_SGN_PREQ |
+			  LYNX_28G_LNaTECR0_EQ_PREQ_MSK |
+			  LYNX_28G_LNaTECR0_EQ_SGN_POST1Q |
+			  LYNX_28G_LNaTECR0_EQ_POST1Q_MSK |
+			  LYNX_28G_LNaTECR0_EQ_AMP_RED_MSK);
+
+	lynx_28g_lane_rmw(lane, LNaTECR1,
+			  LYNX_28G_LNaTECR1_EQ_ADPT_EQ(conf->adpt_eq),
+			  LYNX_28G_LNaTECR1_EQ_ADPT_EQ_MSK);
+
+	lynx_28g_lane_rmw(lane, LNaRGCR1,
+			  LYNX_28G_LNaRGCR1_ENTER_IDLE_FLT_SEL(conf->enter_idle_flt_sel) |
+			  LYNX_28G_LNaRGCR1_EXIT_IDLE_FLT_SEL(conf->exit_idle_flt_sel) |
+			  LYNX_28G_LNaRGCR1_DATA_LOST_TH_SEL(conf->data_lost_th_sel),
+			  LYNX_28G_LNaRGCR1_ENTER_IDLE_FLT_SEL_MSK |
+			  LYNX_28G_LNaRGCR1_EXIT_IDLE_FLT_SEL_MSK |
+			  LYNX_28G_LNaRGCR1_DATA_LOST_TH_SEL_MSK);
+
+	lynx_28g_lane_rmw(lane, LNaRECR0,
+			  (conf->gk2ovd_en ? LYNX_28G_LNaRECR0_EQ_GAINK2_HF_OV_EN : 0) |
+			  (conf->gk3ovd_en ? LYNX_28G_LNaRECR0_EQ_GAINK3_MF_OV_EN : 0) |
+			  (conf->gk4ovd_en ? LYNX_28G_LNaRECR0_EQ_GAINK4_LF_OV_EN : 0) |
+			  LYNX_28G_LNaRECR0_EQ_GAINK2_HF_OV(conf->gk2ovd) |
+			  LYNX_28G_LNaRECR0_EQ_GAINK3_MF_OV(conf->gk3ovd) |
+			  LYNX_28G_LNaRECR0_EQ_GAINK4_LF_OV(conf->gk4ovd),
+			  LYNX_28G_LNaRECR0_EQ_GAINK2_HF_OV_MSK |
+			  LYNX_28G_LNaRECR0_EQ_GAINK3_MF_OV_MSK |
+			  LYNX_28G_LNaRECR0_EQ_GAINK4_LF_OV_MSK |
+			  LYNX_28G_LNaRECR0_EQ_GAINK2_HF_OV_EN |
+			  LYNX_28G_LNaRECR0_EQ_GAINK3_MF_OV_EN |
+			  LYNX_28G_LNaRECR0_EQ_GAINK4_LF_OV_EN);
+
+	lynx_28g_lane_rmw(lane, LNaRECR1,
+			  LYNX_28G_LNaRECR1_EQ_OFFSET_OV(conf->eq_offset_ovd) |
+			  (conf->eq_offset_ovd_en ? LYNX_28G_LNaRECR1_EQ_OFFSET_OV_EN : 0),
+			  LYNX_28G_LNaRECR1_EQ_OFFSET_OV_MSK |
+			  LYNX_28G_LNaRECR1_EQ_OFFSET_OV_EN);
+
+	lynx_28g_lane_rmw(lane, LNaRECR2,
+			  (conf->eq_offset_rng_dbl ? LYNX_28G_LNaRECR2_EQ_OFFSET_RNG_DBL : 0) |
+			  LYNX_28G_LNaRECR2_EQ_BLW_SEL(conf->eq_blw_sel) |
+			  LYNX_28G_LNaRECR2_EQ_BOOST(conf->eq_boost) |
+			  LYNX_28G_LNaRECR2_SPARE_IN(conf->spare_in),
+			  LYNX_28G_LNaRECR2_EQ_OFFSET_RNG_DBL |
+			  LYNX_28G_LNaRECR2_EQ_BLW_SEL_MSK |
+			  LYNX_28G_LNaRECR2_EQ_BOOST_MSK |
+			  LYNX_28G_LNaRECR2_SPARE_IN_MSK);
+
+	lynx_28g_lane_rmw(lane, LNaRSCCR0,
+			  LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1R(conf->smp_autoz_d1r) |
+			  LYNX_28G_LNaRSCCR0_SMP_AUTOZ_EG1R(conf->smp_autoz_eg1r),
+			  LYNX_28G_LNaRSCCR0_SMP_AUTOZ_D1R_MSK |
+			  LYNX_28G_LNaRSCCR0_SMP_AUTOZ_EG1R_MSK);
+
+	lynx_28g_lane_write(lane, LNaRCCR0, conf->rccr0);
+	lynx_28g_lane_write(lane, LNaTTLCR0, conf->ttlcr0);
+}
+
+static int lynx_28g_lane_disable_pcvt(struct lynx_28g_lane *lane,
+				      enum lynx_28g_lane_mode mode)
+{
+	struct lynx_28g_priv *priv = lane->priv;
+	int err;
+
+	spin_lock(&priv->pcc_lock);
+
+	err = lynx_pccr_write(lane, mode, 0);
+	if (err)
+		goto out;
+
+	switch (mode) {
+	case LANE_MODE_1000BASEX_SGMII:
+	case LANE_MODE_1000BASEKX:
+		err = lynx_pcvt_rmw(lane, mode, CR(1), 0,
+				    LYNX_28G_SGMIIaCR1_SGPCS_MSK);
+		break;
+	default:
+		err = 0;
+	}
+
+out:
+	spin_unlock(&priv->pcc_lock);
+
+	return err;
+}
+
+static int lynx_28g_lane_enable_pcvt(struct lynx_28g_lane *lane,
+				     enum lynx_28g_lane_mode mode)
+{
+	struct lynx_28g_priv *priv = lane->priv;
+	u32 val;
+	int err;
+
+	spin_lock(&priv->pcc_lock);
+
+	switch (mode) {
+	case LANE_MODE_1000BASEX_SGMII:
+	case LANE_MODE_1000BASEKX:
+		err = lynx_pcvt_rmw(lane, mode, CR(1), LYNX_28G_SGMIIaCR1_SGPCS_EN,
+				    LYNX_28G_SGMIIaCR1_SGPCS_MSK);
+		break;
+	default:
+		err = 0;
+	}
+
+	val = 0;
+
+	switch (mode) {
+	case LANE_MODE_1000BASEKX:
+		val |= LYNX_28G_PCC8_SGMIIa_KX;
+		fallthrough;
+	case LANE_MODE_1000BASEX_SGMII:
+		val |= LYNX_28G_PCC8_SGMIIa_CFG;
+		break;
+	case LANE_MODE_10GBASER:
+	case LANE_MODE_10GBASEKR:
+		val |= LYNX_28G_PCCC_SXGMIIn_XFI;
+		fallthrough;
+	case LANE_MODE_USXGMII:
+		val |= LYNX_28G_PCCC_SXGMIIn_CFG;
+		break;
+	case LANE_MODE_25GBASER:
+	case LANE_MODE_25GBASEKR:
+		val |= LYNX_28G_PCCD_E25Gn_CFG;
+		break;
+	case LANE_MODE_40GBASER_XLAUI:
+	case LANE_MODE_40GBASEKR4:
+		val |= LYNX_28G_PCCE_E40Gn_CFG;
+		break;
+	default:
+		break;
+	}
+
+	err = lynx_pccr_write(lane, mode, val);
+
+	spin_unlock(&priv->pcc_lock);
+
+	return err;
+}
+
 static int lynx_28g_set_lane_mode(struct phy *phy, enum lynx_28g_lane_mode lane_mode)
 {
 	struct lynx_28g_lane *lane = phy_get_drvdata(phy);
-	bool is_backplane = lane_mode == lane->supported_backplane_mode;
-	struct lynx_28g_priv *priv = lane->priv;
-	int powered_up = lane->powered_up;
-	int err = 0;
+	bool powered_up = lane->powered_up;
+	bool is_backplane;
+	int err;
 
 	if (lane->mode == LANE_MODE_UNKNOWN)
 		return -EOPNOTSUPP;
 
-	if (!lynx_28g_supports_lane_mode(priv, lane_mode))
-		return -EOPNOTSUPP;
+	if (lane_mode == lane->mode)
+		return 0;
 
 	/* If the lane is powered up, put the lane into the halt state while
 	 * the reconfiguration is being done.
@@ -985,29 +1441,18 @@ static int lynx_28g_set_lane_mode(struct phy *phy, enum lynx_28g_lane_mode lane_
 	if (powered_up)
 		lynx_28g_lane_halt(phy);
 
-	spin_lock(&priv->pcc_lock);
-
-	switch (lane_mode) {
-	case LANE_MODE_1000BASEX_SGMII:
-	case LANE_MODE_1000BASEKX:
-		lynx_28g_lane_set_1g(lane, lane_mode);
-		break;
-	case LANE_MODE_10GBASER:
-	case LANE_MODE_USXGMII:
-	case LANE_MODE_10GBASEKR:
-	case LANE_MODE_40GBASEKR4:
-		lynx_28g_lane_set_10g(lane, lane_mode);
-		break;
-	case LANE_MODE_25GBASER:
-	case LANE_MODE_25GBASEKR:
-		lynx_28g_lane_set_25g(lane, lane_mode);
-		break;
-	default:
-		if (lane_mode != lane->mode)
-			err = -EOPNOTSUPP;
+	err = lynx_28g_lane_disable_pcvt(lane, lane->mode);
+	if (err)
 		goto out;
-	}
 
+	lynx_28g_lane_change_proto_conf(lane, lane_mode);
+	lynx_28g_lane_remap_pll(lane, lane_mode);
+	WARN_ON(lynx_28g_lane_enable_pcvt(lane, lane_mode));
+
+	is_backplane = lane_mode == LANE_MODE_1000BASEKX ||
+		       lane_mode == LANE_MODE_10GBASEKR ||
+		       lane_mode == LANE_MODE_25GBASEKR ||
+		       lane_mode == LANE_MODE_40GBASEKR4;
 	/* Enable observation of SerDes status on all status registers */
 	lynx_28g_lane_rmw(lane, LNaTCSR0,
 			  is_backplane ? LYNX_28G_LNaTCSR0_SD_STAT_OBS_EN : 0,
@@ -1016,9 +1461,6 @@ static int lynx_28g_set_lane_mode(struct phy *phy, enum lynx_28g_lane_mode lane_
 	lane->mode = lane_mode;
 
 out:
-	spin_unlock(&priv->pcc_lock);
-
-	/* Reset the lane if necessary */
 	if (powered_up)
 		lynx_28g_lane_reset(phy);
 
@@ -1354,49 +1796,13 @@ static void lynx_28g_get_pcvt_addr(struct phy *phy,
 
 	switch (pcvt->type) {
 	case PHY_PCVT_ETHERNET_PCS:
-		switch (lane_mode) {
-		case LANE_MODE_1000BASEX_SGMII:
-		case LANE_MODE_1000BASEKX:
-			cr1 = lynx_28g_lane_read(lane, SGMIIaCR1);
-			pcvt->addr.mdio = LYNX_28G_MDEV_PORT_X(cr1);
-			break;
-		case LANE_MODE_10GBASER:
-		case LANE_MODE_USXGMII:
-		case LANE_MODE_10GBASEKR:
-			cr1 = lynx_28g_lane_read(lane, SXGMIIaCR1);
-			pcvt->addr.mdio = LYNX_28G_MDEV_PORT_X(cr1);
-			break;
-		case LANE_MODE_25GBASER:
-		case LANE_MODE_25GBASEKR:
-			cr1 = lynx_28g_lane_read(lane, E25GaCR1);
-			pcvt->addr.mdio = LYNX_28G_MDEV_PORT_X(cr1);
-			break;
-		case LANE_MODE_40GBASEKR4:
-			cr1 = lynx_28g_40g_pcvt_read(lane);
-			pcvt->addr.mdio = LYNX_28G_MDEV_PORT_X(cr1);
-			break;
-		default:
-			break;
-		}
+		WARN_ON(lynx_pcvt_read(lane, lane_mode, CR(1), &cr1));
+		pcvt->addr.mdio = LYNX_28G_MDEV_PORT_X(cr1);
 		break;
 	case PHY_PCVT_ETHERNET_ANLT:
-		switch (lane_mode) {
-		case LANE_MODE_1000BASEKX:
-			cr1 = lynx_28g_lane_read(lane, SGMIIaCR1);
-			pcvt->addr.mdio = LYNX_28G_MDEV_PORT_X(cr1);
-			break;
-		case LANE_MODE_10GBASEKR:
-			cr1 = lynx_28g_lane_read(lane, SXGMIIaCR1);
-			pcvt->addr.mdio = LYNX_28G_MDEV_PORT_X(cr1);
-			break;
-		case LANE_MODE_25GBASEKR:
-		case LANE_MODE_40GBASEKR4:
-			cr1 = lynx_28g_lane_read(lane, ANLTaCR1);
-			pcvt->addr.mdio = LYNX_28G_MDEV_PORT_X(cr1);
-			break;
-		default:
-			break;
-		}
+		WARN_ON(lynx_anlt_read(lane, lane_mode, CR(1), &cr1));
+		dev_info(&phy->dev, "ANLT%dCR1 = 0x%x\n", lane->id, cr1);
+		pcvt->addr.mdio = LYNX_28G_MDEV_PORT_X(cr1);
 		break;
 	default:
 		break;
@@ -1514,7 +1920,6 @@ static void lynx_28g_cdr_lock_check_work(struct work_struct *work)
 
 static void lynx_28g_lane_read_configuration(struct lynx_28g_lane *lane)
 {
-	struct lynx_28g_priv *priv = lane->priv;
 	u32 pccc, pss, protocol;
 
 	pss = lynx_28g_lane_read(lane, LNaPSS);
@@ -1525,8 +1930,8 @@ static void lynx_28g_lane_read_configuration(struct lynx_28g_lane *lane)
 		lane->supported_backplane_mode = LANE_MODE_1000BASEKX;
 		break;
 	case LYNX_28G_LNaPSS_TYPE_XFI:
-		pccc = lynx_28g_read(priv, LYNX_28G_PCCC);
-		if (LYNX_28G_PCCC_SXGMIInCFG_XFI_X(lane, pccc))
+		lynx_pccr_read(lane, LANE_MODE_10GBASER, &pccc);
+		if (pccc & LYNX_28G_PCCC_SXGMIIn_XFI)
 			lane->mode = LANE_MODE_10GBASER;
 		else
 			lane->mode = LANE_MODE_USXGMII;
