@@ -550,6 +550,13 @@ static int ad4000_config(struct ad4000_state *st)
 	return ad4000_write_reg(st, reg_val);
 }
 
+static void ad4000_mutex_destroy(void *data)
+{
+	struct ad4000_state *st = data;
+
+	mutex_destroy(&st->lock);
+}
+
 static int ad4000_probe(struct spi_device *spi)
 {
 	const struct ad4000_chip_info *chip;
@@ -645,7 +652,11 @@ static int ad4000_probe(struct spi_device *spi)
 	indio_dev->name = chip->dev_name;
 	indio_dev->num_channels = 1;
 
-	devm_mutex_init(dev, &st->lock);
+	mutex_init(&st->lock);
+	ret = devm_add_action_or_reset(dev, ad4000_mutex_destroy, st);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Failed to add mutex destroy action\n");
 
 	st->gain_milli = 1000;
 	if (chip->has_hardware_gain) {
