@@ -255,6 +255,11 @@ struct mtip_backplane {
 	struct mutex an_restart_lock;
 };
 
+struct mtip_regs_backup {
+	int an_ctrl;
+	u64 base_page;
+};
+
 /* Auto-Negotiation Control and Status Registers are on page 0: 0x0 */
 static const u16 mtip_lx2160a_an_regs[] = {
 	[AN_CTRL] = 0,
@@ -1754,46 +1759,66 @@ mtip_get_mdiodev_for_link_mode(struct mii_bus *bus, struct phy *serdes,
 	return mdiodev;
 }
 
-/* TODO: untested code path, see if we need to apply the configuration of the
- * old AN/LT block to the new one
- */
-static int mtip_reconfigure(struct mtip_backplane *priv,
-			    enum ethtool_link_mode_bit_indices resolved)
+static int mtip_backup_regs(struct mtip_backplane *priv,
+			    struct mtip_regs_backup *backup)
 {
+	int err;
+
+	err = mtip_read_an(priv, AN_CTRL);
+	if (err < 0)
+		return err;
+
+	backup->an_ctrl = err;
+
+	err = mtip_read_adv(priv, &backup->base_page);
+	if (err)
+		return err;
+
+	return 0;
+}
+
+static int mtip_restore_regs(struct mtip_backplane *priv,
+			     const struct mtip_regs_backup *backup)
+{
+	int err;
+
+	err = mtip_write_an(priv, AN_CTRL, backup->an_ctrl);
+	if (err)
+		return err;
+
+	err = mtip_write_adv(priv, backup->base_page);
+	if (err)
+		return err;
+
+	return 0;
+}
+
+static int mtip_reconfigure(struct mtip_backplane *priv, void *args)
+{
+	const enum ethtool_link_mode_bit_indices *resolved = args;
 	struct device *dev = &priv->mdiodev->dev;
+	struct mtip_regs_backup backup;
 	struct mdio_device *mdiodev;
+	int err;
 
 	dev_info(dev, "Resolved link mode %s but configured for %s, reconfiguring...\n",
-		 ethtool_link_mode_str(resolved),
+		 ethtool_link_mode_str(*resolved),
 		 ethtool_link_mode_str(priv->cfg_link_mode));
 
+	err = mtip_backup_regs(priv, &backup);
+	if (err)
+		return err;
+
 	mdiodev = mtip_get_mdiodev_for_link_mode(priv->bus, priv->serdes,
-						 resolved);
+						 *resolved);
 	if (IS_ERR(mdiodev))
 		return PTR_ERR(mdiodev);
 
 	mdio_device_put(priv->mdiodev);
 	priv->mdiodev = mdiodev;
-	mtip_update_cfg_link_mode(priv, resolved);
+	mtip_update_cfg_link_mode(priv, *resolved);
 
-	return 0;
-}
-
-static int mtip_apply_serdes_protocol(struct mtip_backplane *priv, void *args)
-{
-	const enum ethtool_link_mode_bit_indices *resolved = args;
-	struct device *dev = &priv->mdiodev->dev;
-	int err;
-
-	err = phy_set_mode_ext(priv->serdes, PHY_MODE_ETHERNET_LINKMODE,
-			       *resolved);
-	if (err) {
-		dev_err(dev, "phy_set_mode_ext(%s) returned %pe\n",
-			ethtool_link_mode_str(*resolved), ERR_PTR(err));
-		return err;
-	}
-
-	return 0;
+	return mtip_restore_regs(priv, &backup);
 }
 
 /* In 1000Base-KX mode, the normal PCS registers driven by pcs-lynx.c for
@@ -1850,13 +1875,9 @@ static int mtip_c73_page_received(struct mtip_backplane *priv,
 		C73_ADV_2(lpa), C73_ADV_1(lpa), C73_ADV_0(lpa),
 		ethtool_link_mode_str(resolved));
 
-	err = for_each_lane_args(mtip_apply_serdes_protocol, priv, &resolved);
-	if (err)
-		return err;
-
 	if (resolved != priv->cfg_link_mode) {
 		*an_restart_reason = AN_RESTART_REASON_RECONFIG;
-		return mtip_reconfigure(priv, resolved);
+		return for_each_lane_args(mtip_reconfigure, priv, &resolved);
 	}
 
 	for (i = 0; i < priv->num_subordinates; i++) {
