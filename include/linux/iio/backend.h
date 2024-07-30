@@ -3,6 +3,7 @@
 #define _IIO_BACKEND_H_
 
 #include <linux/types.h>
+#include <linux/iio/iio.h>
 
 struct iio_chan_spec;
 struct fwnode_handle;
@@ -81,6 +82,7 @@ enum iio_backend_sample_trigger {
  * @extend_chan_spec: Extend an IIO channel.
  * @ext_info_set: Extended info setter.
  * @ext_info_get: Extended info getter.
+ * @read_raw: Read a channel attribute from a backend device
  **/
 struct iio_backend_ops {
 	int (*enable)(struct iio_backend *back);
@@ -113,6 +115,9 @@ struct iio_backend_ops {
 			    const char *buf, size_t len);
 	int (*ext_info_get)(struct iio_backend *back, uintptr_t private,
 			    const struct iio_chan_spec *chan, char *buf);
+	int (*read_raw)(struct iio_backend *back,
+			struct iio_chan_spec const *chan, int *val, int *val2,
+			long mask);
 };
 
 int iio_backend_chan_enable(struct iio_backend *back, unsigned int chan);
@@ -141,7 +146,9 @@ ssize_t iio_backend_ext_info_set(struct iio_dev *indio_dev, uintptr_t private,
 				 const char *buf, size_t len);
 ssize_t iio_backend_ext_info_get(struct iio_dev *indio_dev, uintptr_t private,
 				 const struct iio_chan_spec *chan, char *buf);
-
+int iio_backend_read_raw(struct iio_backend *back,
+			 struct iio_chan_spec const *chan, int *val, int *val2,
+			 long mask);
 int iio_backend_extend_chan_spec(struct iio_backend *back,
 				 struct iio_chan_spec *chan);
 void *iio_backend_get_priv(const struct iio_backend *conv);
@@ -153,4 +160,18 @@ __devm_iio_backend_get_from_fwnode_lookup(struct device *dev,
 int devm_iio_backend_register(struct device *dev,
 			      const struct iio_backend_ops *ops, void *priv);
 
+static inline int iio_backend_read_scale(struct iio_backend *back,
+					 struct iio_chan_spec const *chan,
+					 int *val, int *val2)
+{
+	return iio_backend_read_raw(back, chan, val, val2, IIO_CHAN_INFO_SCALE);
+}
+
+static inline int iio_backend_read_offset(struct iio_backend *back,
+					  struct iio_chan_spec const *chan,
+					  int *val, int *val2)
+{
+	return iio_backend_read_raw(back, chan, val, val2,
+				    IIO_CHAN_INFO_OFFSET);
+}
 #endif
