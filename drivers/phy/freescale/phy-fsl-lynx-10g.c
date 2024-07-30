@@ -493,7 +493,6 @@ struct lynx_10g_lane {
 	bool init;
 	unsigned id;
 	enum lynx_lane_mode mode;
-	enum lynx_lane_mode supported_backplane_mode;
 	struct lynx_xgkr_algorithm *algorithm;
 	u32 default_pccr[LANE_MODE_MAX];
 };
@@ -1909,9 +1908,6 @@ static int lynx_10g_validate_link_mode(struct phy *phy,
 	if (!lynx_lane_supports_mode(lane, lane_mode))
 		return -EOPNOTSUPP;
 
-	if (lane_mode != lane->supported_backplane_mode)
-		return -EOPNOTSUPP;
-
 	return 0;
 }
 
@@ -2252,7 +2248,6 @@ static void lynx_10g_lane_read_configuration(struct lynx_10g_lane *lane)
 			lane->mode = LANE_MODE_QSGMII;
 		else
 			lane->mode = LANE_MODE_1000BASEX_SGMII;
-		lane->supported_backplane_mode = LANE_MODE_1000BASEKX;
 		break;
 	case PROTO_SEL_XFI_10GBASER_KR_SXGMII:
 		if (LNaPSSR0_IS_QUAD_X(pssr0))
@@ -2261,7 +2256,6 @@ static void lynx_10g_lane_read_configuration(struct lynx_10g_lane *lane)
 			lane->mode = LANE_MODE_USXGMII;
 		else
 			lane->mode = LANE_MODE_10GBASER;
-		lane->supported_backplane_mode = LANE_MODE_10GBASEKR;
 		break;
 	case PROTO_SEL_PCIE:
 	case PROTO_SEL_SATA:
