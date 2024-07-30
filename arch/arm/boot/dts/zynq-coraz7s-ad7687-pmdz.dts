@@ -22,6 +22,22 @@
 		regulator-max-microvolt = <5000000>;
 		regulator-always-on;
 	};
+
+	adc_vdd: regulator-vdd {
+		compatible = "regulator-fixed";
+		regulator-name = "Eval VDD supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	adc_vio: regulator-vio {
+		compatible = "regulator-fixed";
+		regulator-name = "Eval VIO supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
 };
 
 &fpga_axi {
@@ -49,7 +65,7 @@
 		adc@0 {
 			#address-cells = <1>;
 			#size-cells = <0>;
-			compatible = "adi,pulsar,ad7687";
+			compatible = "adi,ad7687";
 			reg = <0>;
 			spi-max-frequency = <80000000>;
 			clocks = <&spi_clk>;
@@ -58,7 +74,8 @@
 			dma-names = "rx";
 			pwms = <&adc_trigger 0 0>;
 			pwm-names = "cnv";
-			vref-supply = <&vref>;
+			ref-supply = <&vref>;
+			adi,sdi-pin = "high";
 			channel@0 {
 				reg = <0>;
 				diff-channels = <0 1>;
