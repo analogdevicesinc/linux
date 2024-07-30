@@ -74,6 +74,8 @@
 			dma-names = "rx";
 			pwms = <&adc_trigger 0 0>;
 			pwm-names = "cnv";
+			vdd-supply = <&adc_vdd>;
+			vio-supply = <&adc_vio>;
 			ref-supply = <&vref>;
 			adi,sdi-pin = "high";
 			channel@0 {
