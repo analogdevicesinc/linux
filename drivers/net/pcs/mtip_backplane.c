@@ -1863,16 +1863,20 @@ static int mtip_c73_page_received(struct mtip_backplane *priv,
 	linkmode_and(common, advertising, lp_advertising);
 
 	err = linkmode_c73_priority_resolution(common, &resolved);
+
+	dev_dbg(dev,
+		"C73 page received, LD %04x:%04x:%04x (%*pb), LP %04x:%04x:%04x (%*pb)%s%s\n",
+		C73_ADV_2(base_page), C73_ADV_1(base_page), C73_ADV_0(base_page),
+		__ETHTOOL_LINK_MODE_MASK_NBITS, advertising,
+		C73_ADV_2(lpa), C73_ADV_1(lpa), C73_ADV_0(lpa),
+		__ETHTOOL_LINK_MODE_MASK_NBITS, lp_advertising,
+		err == 0 ? ", resolved link mode " : "",
+		err == 0 ? ethtool_link_mode_str(resolved) : ", no common link mode");
+
 	if (err) {
 		*an_restart_reason = AN_RESTART_REASON_NO_HCD;
 		return 0;
 	}
-
-	dev_dbg(dev,
-		"C73 page received, LD %04x:%04x:%04x, LP %04x:%04x:%04x, resolved link mode %s\n",
-		C73_ADV_2(base_page), C73_ADV_1(base_page), C73_ADV_0(base_page),
-		C73_ADV_2(lpa), C73_ADV_1(lpa), C73_ADV_0(lpa),
-		ethtool_link_mode_str(resolved));
 
 	if (resolved != priv->cfg_link_mode) {
 		*an_restart_reason = AN_RESTART_REASON_RECONFIG;
