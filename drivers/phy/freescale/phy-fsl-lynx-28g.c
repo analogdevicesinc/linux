@@ -1274,6 +1274,46 @@ static void lynx_28g_check_cdr_lock(struct phy *phy,
 	cdr->cdr_locked = lynx_28g_cdr_lock_check(lane);
 }
 
+static void lynx_28g_get_pcvt_count(struct phy *phy,
+				    struct phy_status_opts_pcvt_count *opts)
+{
+	struct lynx_28g_lane *lane = phy_get_drvdata(phy);
+	enum lynx_28g_lane_mode lane_mode = lane->mode;
+
+	switch (opts->type) {
+	case PHY_PCVT_ETHERNET_PCS:
+		switch (lane_mode) {
+		case LANE_MODE_1000BASEX_SGMII:
+		case LANE_MODE_1000BASEKX:
+		case LANE_MODE_10GBASER:
+		case LANE_MODE_USXGMII:
+		case LANE_MODE_10GBASEKR:
+		case LANE_MODE_25GBASER:
+		case LANE_MODE_25GBASEKR:
+		case LANE_MODE_40GBASEKR4:
+			opts->num_pcvt = 1;
+			break;
+		default:
+			break;
+		}
+		break;
+	case PHY_PCVT_ETHERNET_ANLT:
+		switch (lane_mode) {
+		case LANE_MODE_1000BASEKX:
+		case LANE_MODE_10GBASEKR:
+		case LANE_MODE_25GBASEKR:
+		case LANE_MODE_40GBASEKR4:
+			opts->num_pcvt = 1;
+			break;
+		default:
+			break;
+		}
+		break;
+	default:
+		break;
+	}
+}
+
 static void lynx_28g_get_pcvt_addr(struct phy *phy,
 				   struct phy_status_opts_pcvt *pcvt)
 {
@@ -1338,6 +1378,9 @@ static int lynx_28g_get_status(struct phy *phy, enum phy_status_type type,
 	switch (type) {
 	case PHY_STATUS_CDR_LOCK:
 		lynx_28g_check_cdr_lock(phy, &opts->cdr);
+		break;
+	case PHY_STATUS_PCVT_COUNT:
+		lynx_28g_get_pcvt_count(phy, &opts->pcvt_count);
 		break;
 	case PHY_STATUS_PCVT_ADDR:
 		lynx_28g_get_pcvt_addr(phy, &opts->pcvt);

@@ -1679,9 +1679,15 @@ static struct mdio_device *
 mtip_get_mdiodev_for_link_mode(struct mii_bus *bus, struct phy *serdes,
 			       enum ethtool_link_mode_bit_indices link_mode)
 {
-	union phy_status_opts opts = {
+	union phy_status_opts opts1 = {
+		.pcvt_count = {
+			.type = PHY_PCVT_ETHERNET_ANLT,
+		},
+	};
+	union phy_status_opts opts2 = {
 		.pcvt = {
 			.type = PHY_PCVT_ETHERNET_ANLT,
+			.index = 0,
 		},
 	};
 	struct mdio_device *mdiodev;
@@ -1691,11 +1697,21 @@ mtip_get_mdiodev_for_link_mode(struct mii_bus *bus, struct phy *serdes,
 	if (err)
 		return ERR_PTR(err);
 
-	err = phy_get_status(serdes, PHY_STATUS_PCVT_ADDR, &opts);
+	err = phy_get_status(serdes, PHY_STATUS_PCVT_COUNT, &opts1);
 	if (err)
 		return ERR_PTR(err);
 
-	mdiodev = mdio_device_create(bus, opts.pcvt.addr.mdio);
+	if (opts1.pcvt_count.num_pcvt != 1) {
+		dev_err(&serdes->dev, "Expected 1 AN/LT protocol converter, but lane reports %zu\n",
+			opts1.pcvt_count.num_pcvt);
+		return ERR_PTR(-ENODEV);
+	}
+
+	err = phy_get_status(serdes, PHY_STATUS_PCVT_ADDR, &opts2);
+	if (err)
+		return ERR_PTR(err);
+
+	mdiodev = mdio_device_create(bus, opts2.pcvt.addr.mdio);
 	if (!mdiodev)
 		return ERR_PTR(-ENODEV);
 
