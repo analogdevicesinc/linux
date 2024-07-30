@@ -1658,6 +1658,15 @@
 			};
 		};
 
+		v2x_mu4: mailbox@47300000 {
+			compatible = "fsl,imx95-mu-v2x";
+			reg = <0x0 0x47300000 0x0 0x10000>;
+			interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-names = "tx", "rx";
+			#mbox-cells = <2>;
+			status = "okay";
+		};
+
 		v2x_mu6: mailbox@47320000 {
 			compatible = "fsl,imx95-mu-v2x";
 			reg = <0x0 0x47320000 0x0 0x10000>;
@@ -3074,6 +3083,13 @@
 		mbox-names = "tx", "rx";
 		mboxes = <&v2x_mu 0 0>,
 			<&v2x_mu 1 0>;
+	};
+
+	v2x_sv0: v2x-fw4 {
+		compatible = "fsl,imx95-se-fw";
+		mbox-names = "tx", "rx";
+		mboxes = <&v2x_mu4 0 0>,
+			<&v2x_mu4 1 0>;
 	};
 
 	v2x_she: v2x-fw6 {
