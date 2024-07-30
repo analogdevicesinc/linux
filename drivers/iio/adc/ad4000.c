@@ -219,6 +219,7 @@ struct ad4000_state {
 	struct spi_transfer xfers[2];
 	struct spi_message msg;
 	struct mutex lock; /* Protect read modify write cycle */
+	struct regulator *ref_regulator;
 	int vref_mv;
 	enum ad4000_sdi sdi_pin;
 	bool span_comp;
@@ -557,6 +558,11 @@ static void ad4000_mutex_destroy(void *data)
 	mutex_destroy(&st->lock);
 }
 
+static void ad4000_regulator_disable(void *reg)
+{
+	regulator_disable(reg);
+}
+
 static int ad4000_probe(struct spi_device *spi)
 {
 	const struct ad4000_chip_info *chip;
@@ -581,10 +587,26 @@ static int ad4000_probe(struct spi_device *spi)
 	if (ret)
 		return dev_err_probe(dev, ret, "Failed to enable power supplies\n");
 
-	ret = devm_regulator_get_enable_read_voltage(dev, "ref");
+	st->ref_regulator = devm_regulator_get(&spi->dev, "ref");
+	if (IS_ERR(st->ref_regulator))
+		return dev_err_probe(dev, PTR_ERR(st->ref_regulator),
+				     "Failed to get ref regulator\n");
+
+	ret = regulator_enable(st->ref_regulator);
+	if (ret < 0)
+		return dev_err_probe(dev, ret, "Failed to enable ref regulator\n");
+
+	ret = devm_add_action_or_reset(&spi->dev, ad4000_regulator_disable,
+				       st->ref_regulator);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Failed to add ref regulator action\n");
+
+	ret = regulator_get_voltage(st->ref_regulator);
 	if (ret < 0)
 		return dev_err_probe(dev, ret,
 				     "Failed to get ref regulator reference\n");
+
 	st->vref_mv = ret / 1000;
 
 	st->cnv_gpio = devm_gpiod_get_optional(dev, "cnv", GPIOD_OUT_HIGH);
