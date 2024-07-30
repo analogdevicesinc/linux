@@ -353,12 +353,17 @@ static int ad4000_read_raw(struct iio_dev *indio_dev,
 			   int *val2, long info)
 {
 	struct ad4000_state *st = iio_priv(indio_dev);
+	int ret;
 
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
-		iio_device_claim_direct_scoped(return -EBUSY, indio_dev)
-			return ad4000_single_conversion(indio_dev, chan, val);
-		unreachable();
+		ret = iio_device_claim_direct_mode(indio_dev);
+		if (ret)
+			return ret;
+
+		ret = ad4000_single_conversion(indio_dev, chan, val);
+		iio_device_release_direct_mode(indio_dev);
+		return ret;
 	case IIO_CHAN_INFO_SCALE:
 		*val = st->scale_tbl[st->span_comp][0];
 		*val2 = st->scale_tbl[st->span_comp][1];
@@ -414,25 +419,28 @@ static int ad4000_write_raw(struct iio_dev *indio_dev,
 
 	switch (mask) {
 	case IIO_CHAN_INFO_SCALE:
-		iio_device_claim_direct_scoped(return -EBUSY, indio_dev) {
-			guard(mutex)(&st->lock);
+		ret = iio_device_claim_direct_mode(indio_dev);
+		if (ret)
+			goto err_out;
 
-			ret = ad4000_read_reg(st, &reg_val);
-			if (ret < 0)
-				return ret;
+		guard(mutex)(&st->lock);
 
-			span_comp_en = val2 == st->scale_tbl[1][1];
-			reg_val &= ~AD4000_CFG_SPAN_COMP;
-			reg_val |= FIELD_PREP(AD4000_CFG_SPAN_COMP, span_comp_en);
+		ret = ad4000_read_reg(st, &reg_val);
+		if (ret < 0)
+			goto err_out;
 
-			ret = ad4000_write_reg(st, reg_val);
-			if (ret < 0)
-				return ret;
+		span_comp_en = val2 == st->scale_tbl[1][1];
+		reg_val &= ~AD4000_CFG_SPAN_COMP;
+		reg_val |= FIELD_PREP(AD4000_CFG_SPAN_COMP, span_comp_en);
 
-			st->span_comp = span_comp_en;
-			return 0;
-		}
-		unreachable();
+		ret = ad4000_write_reg(st, reg_val);
+		if (ret < 0)
+			goto err_out;
+
+		st->span_comp = span_comp_en;
+err_out:
+		iio_device_release_direct_mode(indio_dev);
+		return ret;
 	default:
 		return -EINVAL;
 	}
