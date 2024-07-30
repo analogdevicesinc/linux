@@ -363,6 +363,7 @@ enum lynx_28g_lane_mode {
 	LANE_MODE_1000BASEKX,
 	LANE_MODE_10GBASEKR,
 	LANE_MODE_25GBASEKR,
+	LANE_MODE_40GBASER_XLAUI,
 	LANE_MODE_40GBASEKR4,
 	LANE_MODE_MAX,
 };
@@ -452,6 +453,7 @@ static enum lynx_28g_lane_mode phy_interface_to_lane_mode(phy_interface_t intf)
 		return LANE_MODE_USXGMII;
 	case PHY_INTERFACE_MODE_25GBASER:
 		return LANE_MODE_25GBASER;
+	/* TODO: PHY_INTERFACE_MODE_40GBASER to LANE_MODE_40GBASER_XLAUI */
 	default:
 		return LANE_MODE_UNKNOWN;
 	}
@@ -536,6 +538,7 @@ static void lynx_28g_lane_set_nrate(struct lynx_28g_lane *lane,
 		case LANE_MODE_10GBASER:
 		case LANE_MODE_USXGMII:
 		case LANE_MODE_10GBASEKR:
+		case LANE_MODE_40GBASER_XLAUI:
 		case LANE_MODE_40GBASEKR4:
 			lynx_28g_lane_rmw(lane, LNaTGCR0,
 					  LYNX_28G_LNaTGCR0_N_RATE_FULL,
@@ -1290,6 +1293,7 @@ static void lynx_28g_get_pcvt_count(struct phy *phy,
 		case LANE_MODE_10GBASEKR:
 		case LANE_MODE_25GBASER:
 		case LANE_MODE_25GBASEKR:
+		case LANE_MODE_40GBASER_XLAUI:
 		case LANE_MODE_40GBASEKR4:
 			opts->num_pcvt = 1;
 			break;
@@ -1440,6 +1444,7 @@ static void lynx_28g_pll_read_configuration(struct lynx_28g_priv *priv)
 			__set_bit(LANE_MODE_10GBASER, pll->supported);
 			__set_bit(LANE_MODE_USXGMII, pll->supported);
 			__set_bit(LANE_MODE_10GBASEKR, pll->supported);
+			__set_bit(LANE_MODE_40GBASER_XLAUI, pll->supported);
 			__set_bit(LANE_MODE_40GBASEKR4, pll->supported);
 			break;
 		case LYNX_28G_PLLnCR1_FRATE_12G_25GVCO:
@@ -1505,7 +1510,7 @@ static void lynx_28g_lane_read_configuration(struct lynx_28g_lane *lane)
 		lane->supported_backplane_mode = LANE_MODE_25GBASEKR;
 		break;
 	case LYNX_28G_LNaPSS_TYPE_40G:
-		lane->mode = LANE_MODE_40GBASEKR4;
+		lane->mode = LANE_MODE_40GBASER_XLAUI;
 		lane->supported_backplane_mode = LANE_MODE_40GBASEKR4;
 		break;
 	default:
