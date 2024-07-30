@@ -735,7 +735,6 @@ struct lynx_28g_lane {
 	bool init;
 	unsigned int id;
 	enum lynx_28g_lane_mode mode;
-	enum lynx_28g_lane_mode supported_backplane_mode;
 	struct lynx_xgkr_algorithm *algorithm;
 };
 
@@ -1767,9 +1766,6 @@ static int lynx_28g_validate_link_mode(struct phy *phy,
 	if (!lynx_28g_supports_lane_mode(priv, lane_mode))
 		return -EOPNOTSUPP;
 
-	if (lane_mode != lane->supported_backplane_mode)
-		return -EOPNOTSUPP;
-
 	if (lynx_28g_lane_mode_num_lanes(lane_mode) !=
 	    lynx_28g_lane_mode_num_lanes(lane->mode))
 		return -EOPNOTSUPP;
@@ -2011,7 +2007,6 @@ static void lynx_28g_lane_read_configuration(struct lynx_28g_lane *lane)
 	switch (protocol) {
 	case LYNX_28G_LNaPSS_TYPE_SGMII:
 		lane->mode = LANE_MODE_1000BASEX_SGMII;
-		lane->supported_backplane_mode = LANE_MODE_1000BASEKX;
 		break;
 	case LYNX_28G_LNaPSS_TYPE_XFI:
 		lynx_pccr_read(lane, LANE_MODE_10GBASER, &pccc);
@@ -2019,15 +2014,12 @@ static void lynx_28g_lane_read_configuration(struct lynx_28g_lane *lane)
 			lane->mode = LANE_MODE_10GBASER;
 		else
 			lane->mode = LANE_MODE_USXGMII;
-		lane->supported_backplane_mode = LANE_MODE_10GBASEKR;
 		break;
 	case LYNX_28G_LNaPSS_TYPE_25G:
 		lane->mode = LANE_MODE_25GBASER;
-		lane->supported_backplane_mode = LANE_MODE_25GBASEKR;
 		break;
 	case LYNX_28G_LNaPSS_TYPE_40G:
 		lane->mode = LANE_MODE_40GBASER_XLAUI;
-		lane->supported_backplane_mode = LANE_MODE_40GBASEKR4;
 		break;
 	default:
 		lane->mode = LANE_MODE_UNKNOWN;
