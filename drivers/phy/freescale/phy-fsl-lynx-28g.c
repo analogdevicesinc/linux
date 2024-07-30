@@ -493,6 +493,25 @@ static bool lynx_28g_supports_lane_mode(struct lynx_28g_priv *priv,
 	return false;
 }
 
+static int lynx_28g_lane_mode_num_lanes(enum lynx_28g_lane_mode lane_mode)
+{
+	switch (lane_mode) {
+	case LANE_MODE_1000BASEX_SGMII:
+	case LANE_MODE_1000BASEKX:
+	case LANE_MODE_USXGMII:
+	case LANE_MODE_10GBASER:
+	case LANE_MODE_10GBASEKR:
+	case LANE_MODE_25GBASER:
+	case LANE_MODE_25GBASEKR:
+		return 1;
+	case LANE_MODE_40GBASER_XLAUI:
+	case LANE_MODE_40GBASEKR4:
+		return 4;
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
 static struct lynx_28g_pll *lynx_28g_pll_get(struct lynx_28g_priv *priv,
 					     enum lynx_28g_lane_mode mode)
 {
@@ -1205,6 +1224,10 @@ static int lynx_28g_validate_interface(struct phy *phy, phy_interface_t submode)
 	if (!lynx_28g_supports_lane_mode(priv, lane_mode))
 		return -EOPNOTSUPP;
 
+	if (lynx_28g_lane_mode_num_lanes(lane_mode) !=
+	    lynx_28g_lane_mode_num_lanes(lane->mode))
+		return -EOPNOTSUPP;
+
 	return 0;
 }
 
@@ -1219,6 +1242,10 @@ static int lynx_28g_validate_link_mode(struct phy *phy,
 		return -EOPNOTSUPP;
 
 	if (lane_mode != lane->supported_backplane_mode)
+		return -EOPNOTSUPP;
+
+	if (lynx_28g_lane_mode_num_lanes(lane_mode) !=
+	    lynx_28g_lane_mode_num_lanes(lane->mode))
 		return -EOPNOTSUPP;
 
 	return 0;
