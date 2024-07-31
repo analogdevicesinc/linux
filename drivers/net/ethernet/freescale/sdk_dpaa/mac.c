@@ -315,6 +315,15 @@ static int __cold mac_probe(struct platform_device *_of_dev)
 	if (mac_dev->phy_if == PHY_INTERFACE_MODE_XGMII)
 		mac_dev->if_support = SUPPORTED_10000baseT_Full;
 
+	/* The adjust_link() methods in this driver do not support the
+	 * 1G <-> 10G MAC reconfiguration. Advertise a single technology
+	 * ability through clause 73 auto-negotiation.
+	 */
+	if (mac_dev->phy_if == PHY_INTERFACE_MODE_10GKR)
+		mac_dev->if_support &= ~SUPPORTED_1000baseKX_Full;
+	if (mac_dev->phy_if == PHY_INTERFACE_MODE_1000BASEKX)
+		mac_dev->if_support &= ~SUPPORTED_10000baseKR_Full;
+
 	/* Get the rest of the PHY information */
 	mac_dev->phy_node = of_parse_phandle(mac_node, "phy-handle", 0);
 	if (!mac_dev->phy_node) {
