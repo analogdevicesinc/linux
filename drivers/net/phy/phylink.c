@@ -2501,6 +2501,7 @@ void phylink_stop(struct phylink *pl)
 	pl->pcs_state = PCS_STATE_DOWN;
 
 	phylink_pcs_disable(pl->pcs);
+	pl->pcs = NULL;
 }
 EXPORT_SYMBOL_GPL(phylink_stop);
 
