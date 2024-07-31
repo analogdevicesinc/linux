@@ -26,6 +26,7 @@
 /* NDMA TX header */
 #define NDMA_TX_HDR_TYPE_SOF               BIT(0)
 #define NDMA_TX_HDR_TYPE_SUBSEQ            BIT(1)
+#define NDMA_TX_HDR_TYPE_LOOPBACK          GENMASK(1, 0)
 #define NDMA_TX_HDR_TYPE_STATUS            GENMASK(1, 0)
 #define NDMA_TX_HDR_SOF_FR_PTP             BIT(2)
 #define NDMA_TX_HDR_SOF_PORT_ID            BIT(3)
@@ -35,6 +36,7 @@
 #define NDMA_TX_HDR_SOF_SIZE               8
 #define NDMA_TX_HDR_SUBSEQ_SIZE            8
 #define NDMA_TX_HDR_STATUS_SIZE            16
+#define NDMA_TX_HDR_LOOPBACK_SIZE          16
 
 /* NDMA RX header */
 #define NDMA_RX_HDR_TYPE_DATA_SOF          BIT(2)
@@ -124,6 +126,9 @@ struct adrv906x_ndma_chan {
 	/* TX DMA channel related fields */
 	void __iomem *tx_dma_base;
 	void *tx_buffs[NDMA_RING_SIZE];
+	char tx_loopback_wu[NDMA_TX_HDR_LOOPBACK_SIZE];
+	struct dma_desc tx_loopback_desc;
+	dma_addr_t tx_loopback_addr;
 	int tx_dma_done_irq;
 	int tx_dma_error_irq;
 	struct dma_desc *tx_ring;
@@ -159,6 +164,7 @@ struct adrv906x_ndma_dev {
 	bool enabled;
 	struct kref refcount;
 	spinlock_t lock; /* protects struct and stats access */
+	bool loopback_en;
 };
 
 int adrv906x_ndma_start_xmit(struct adrv906x_ndma_dev *ndma_dev, struct sk_buff *skb,
@@ -169,7 +175,7 @@ void adrv906x_ndma_remove(struct adrv906x_ndma_dev *ndma_dev);
 void adrv906x_ndma_set_tx_timeout_value(struct adrv906x_ndma_dev *ndma_dev, u32 val);
 void adrv906x_ndma_set_ptp_mode(struct adrv906x_ndma_dev *ndma_dev, u32 ptp_mode);
 void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, ndma_callback tx_cb_fn,
-			ndma_callback rx_cb_fn, void *rx_cb_param);
+			ndma_callback rx_cb_fn, void *rx_cb_param, bool loopback_mode);
 void adrv906x_ndma_close(struct adrv906x_ndma_dev *ndma_dev);
 
 #endif /* __ADRV906X_NDMA_H__ */

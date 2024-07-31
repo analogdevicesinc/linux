@@ -25,6 +25,9 @@
 #include "adrv906x-mac.h"
 #include "adrv906x-ethtool.h"
 
+#define NDMA_LOOPBACK_TEST_PATTERN     0x12
+#define NDMA_LOOPBACK_TEST_SIZE        1024
+
 /* TODO: Ugly global variable, need to be changed */
 #if IS_BUILTIN(CONFIG_PTP_1588_CLOCK_ADRV906X)
 /* The adi ptp module will set this variable */
@@ -98,6 +101,7 @@ static const char adrv906x_gstrings_stats_names[][ETH_GSTRING_LEN] = {
 static const char adrv906x_gstrings_selftest_names[][ETH_GSTRING_LEN] = {
 	"Internal loopback (offline):    ",
 	"MAC loopback on/off (online):   ",
+	"NDMA loopback (offline):        ",
 };
 
 #define ADRV906X_NUM_STATS ARRAY_SIZE(adrv906x_gstrings_stats_names)
@@ -134,7 +138,10 @@ struct adrv906x_packet_attrs {
 };
 
 struct adrv906x_test_priv {
-	struct adrv906x_packet_attrs *packet;
+	union {
+		struct adrv906x_packet_attrs *packet;
+		struct net_device *ndev;
+	};
 	struct packet_type pt;
 	struct completion comp;
 	int ok;
@@ -595,6 +602,121 @@ static int adrv906x_mac_external_loopback_test(struct net_device *ndev)
 	return 0;
 }
 
+static void adrv906x_ndma_loopback_tx_callback(struct sk_buff *skb, unsigned int port_id,
+					       struct timespec64 ts, void *cb_param)
+{
+	dev_kfree_skb(skb);
+}
+
+static void adrv906x_ndma_loopback_rx_callback(struct sk_buff *skb, unsigned int port_id,
+					       struct timespec64 ts, void *cb_param)
+{
+	struct adrv906x_test_priv *tpriv = (struct adrv906x_test_priv *)cb_param;
+	struct net_device *ndev = tpriv->ndev;
+	struct adrv906x_eth_dev *adrv906x_dev;
+	struct adrv906x_ndma_dev *ndma_dev;
+	struct adrv906x_eth_if *eth_if;
+	struct device *dev;
+	unsigned char *p;
+	int i;
+
+	adrv906x_dev = netdev_priv(ndev);
+	eth_if = adrv906x_dev->parent;
+
+	adrv906x_dev = eth_if->adrv906x_dev[port_id];
+	ndma_dev = adrv906x_dev->ndma_dev;
+	dev = ndma_dev->dev;
+
+	p = skb->data;
+	for (i = 0; i < NDMA_LOOPBACK_TEST_SIZE; i++) {
+		if (*p != NDMA_LOOPBACK_TEST_PATTERN) {
+			dev_err(dev, "rx:0x%x tx:0x%x", *p, i);
+			tpriv->ok = false;
+			break;
+		}
+		p++;
+	}
+	dev_kfree_skb(skb);
+	complete(&tpriv->comp);
+}
+
+static int adrv906x_ndma_loopback_test(struct net_device *ndev)
+{
+	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	struct adrv906x_ndma_dev *ndma_dev = adrv906x_dev->ndma_dev;
+	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
+	struct adrv906x_eth_dev *temp_eth_dev;
+	struct device *dev = ndma_dev->dev;
+	struct adrv906x_test_priv *tpriv;
+	int port = adrv906x_dev->port;
+	struct net_device *temp_ndev;
+	struct sk_buff *tx_data1;
+	bool all_down = false;
+	int i, ret = 0, tmo;
+	unsigned char *p;
+
+	tpriv = kzalloc(sizeof(*tpriv), GFP_KERNEL);
+	if (!tpriv)
+		return -ENOMEM;
+	tpriv->ok = true;
+	init_completion(&tpriv->comp);
+	tpriv->ndev = ndev;
+
+	if (eth_if->ethswitch.enabled == true) {
+		if (kref_read(&ndma_dev->refcount) > 1) {
+			netdev_info(ndev, "switch enabled, shut down both interfaces");
+			all_down = true;
+			for (i = 0; i < MAX_NETDEV_NUM; i++) {
+				temp_eth_dev = eth_if->adrv906x_dev[i];
+				temp_ndev = temp_eth_dev->ndev;
+				ndev->netdev_ops->ndo_stop(temp_ndev);
+			}
+		}
+	} else {
+		ndev->netdev_ops->ndo_stop(ndev);
+	}
+	adrv906x_ndma_open(ndma_dev,
+			   adrv906x_ndma_loopback_tx_callback,
+			   adrv906x_ndma_loopback_rx_callback,
+			   tpriv, true);
+	tx_data1 = netdev_alloc_skb(ndev, NDMA_LOOPBACK_TEST_SIZE);
+	skb_put(tx_data1, NDMA_LOOPBACK_TEST_SIZE);
+	p = tx_data1->data;
+	for (i = 0; i < NDMA_LOOPBACK_TEST_SIZE; i++) {
+		*p = NDMA_LOOPBACK_TEST_PATTERN;
+		p++;
+	}
+	ret = adrv906x_ndma_start_xmit(ndma_dev, tx_data1, port, 0, 0);
+	if (ret) {
+		dev_err(dev, "ndma tx failed to send sof frame:0x%x", ret);
+		ret = -EIO;
+		dev_kfree_skb(tx_data1);
+		goto out;
+	}
+	tmo = wait_for_completion_timeout(&tpriv->comp, msecs_to_jiffies(2000));
+	if (!tmo) {
+		dev_err(dev, "ndma loopback test timeout");
+		ret = -ETIMEDOUT;
+	}
+	if (tpriv->ok == false) {
+		dev_err(dev, "ndma loopback test failed");
+		ret = -EINVAL;
+	}
+out:
+	adrv906x_ndma_close(ndma_dev);
+	if (all_down == true) {
+		for (i = 0; i < MAX_NETDEV_NUM; i++) {
+			temp_eth_dev = eth_if->adrv906x_dev[i];
+			temp_ndev = temp_eth_dev->ndev;
+			ndev->netdev_ops->ndo_open(temp_ndev);
+		}
+	} else {
+		ndev->netdev_ops->ndo_open(ndev);
+	}
+	kfree(tpriv);
+	return ret;
+}
+
 struct adrv906x_test adrv906x_eth_selftests[] = {
 	{
 		.name = "PCS internal loopback",
@@ -605,6 +727,11 @@ struct adrv906x_test adrv906x_eth_selftests[] = {
 		.name = "MAC external loopback",
 		.fn = adrv906x_mac_external_loopback_test,
 		.etest_flag = 0,
+	},
+	{
+		.name = "NDMA internal loopback",
+		.fn = adrv906x_ndma_loopback_test,
+		.etest_flag = ETH_TEST_FL_OFFLINE,
 	},
 };
 
