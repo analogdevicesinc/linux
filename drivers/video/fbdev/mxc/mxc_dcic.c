@@ -439,17 +439,21 @@ static const struct file_operations mxc_dcic_fops = {
 static int dcic_probe(struct platform_device *pdev)
 {
 	struct device *dev = &pdev->dev;
-	const struct of_device_id *of_id =
-			of_match_device(dcic_dt_ids, dev);
-	const struct dcic_info *dcic_info =
-			(const struct dcic_info *)of_id->data;
 	struct device_node *np = dev->of_node;
+	const struct of_device_id *of_id;
+	const struct dcic_info *dcic_info;
 	struct dcic_data *dcic;
 	struct resource *res;
 	const char *name;
 	dev_t devt;
 	int ret = 0;
 	int irq;
+
+	of_id = of_match_device(dcic_dt_ids, dev);
+	if (!of_id)
+		return -ENODEV;
+
+	dcic_info = (const struct dcic_info *)of_id->data;
 
 	dcic = devm_kzalloc(&pdev->dev,
 				sizeof(struct dcic_data),
