@@ -1143,17 +1143,34 @@ static int felix_vlan_del(struct dsa_switch *ds, int port,
 	return ocelot_vlan_del(ocelot, port, vlan->vid);
 }
 
+static const u32 felix_phy_match_table[PHY_INTERFACE_MODE_MAX] = {
+	[PHY_INTERFACE_MODE_INTERNAL] = OCELOT_PORT_MODE_INTERNAL,
+	[PHY_INTERFACE_MODE_SGMII] = OCELOT_PORT_MODE_SGMII,
+	[PHY_INTERFACE_MODE_QSGMII] = OCELOT_PORT_MODE_QSGMII,
+	[PHY_INTERFACE_MODE_USXGMII] = OCELOT_PORT_MODE_USXGMII,
+	[PHY_INTERFACE_MODE_10G_QXGMII] = OCELOT_PORT_MODE_10G_QXGMII,
+	[PHY_INTERFACE_MODE_1000BASEX] = OCELOT_PORT_MODE_1000BASEX,
+	[PHY_INTERFACE_MODE_2500BASEX] = OCELOT_PORT_MODE_2500BASEX,
+};
+
 static void felix_phylink_get_caps(struct dsa_switch *ds, int port,
 				   struct phylink_config *config)
 {
 	struct ocelot *ocelot = ds->priv;
+	struct felix *felix = ocelot_to_felix(ocelot);
+	phy_interface_t intf;
 
 	config->mac_capabilities = MAC_ASYM_PAUSE | MAC_SYM_PAUSE |
 				   MAC_10 | MAC_100 | MAC_1000FD |
 				   MAC_2500FD;
 
-	__set_bit(ocelot->ports[port]->phy_mode,
-		  config->supported_interfaces);
+	for (intf = 0; intf < PHY_INTERFACE_MODE_MAX; intf++) {
+		if (!felix_phy_match_table[intf])
+			continue;
+
+		if (felix->info->port_modes[port] & felix_phy_match_table[intf])
+			__set_bit(intf, config->supported_interfaces);
+	}
 }
 
 static void felix_phylink_mac_config(struct phylink_config *config,
@@ -1166,6 +1183,8 @@ static void felix_phylink_mac_config(struct phylink_config *config,
 	struct felix *felix;
 
 	felix = ocelot_to_felix(ocelot);
+
+	ocelot->ports[port]->phy_mode = state->interface;
 
 	if (felix->info->phylink_mac_config)
 		felix->info->phylink_mac_config(ocelot, port, mode, state);
@@ -1347,94 +1366,6 @@ static int felix_get_ts_info(struct dsa_switch *ds, int port,
 	return ocelot_get_ts_info(ocelot, port, info);
 }
 
-static const u32 felix_phy_match_table[PHY_INTERFACE_MODE_MAX] = {
-	[PHY_INTERFACE_MODE_INTERNAL] = OCELOT_PORT_MODE_INTERNAL,
-	[PHY_INTERFACE_MODE_SGMII] = OCELOT_PORT_MODE_SGMII,
-	[PHY_INTERFACE_MODE_QSGMII] = OCELOT_PORT_MODE_QSGMII,
-	[PHY_INTERFACE_MODE_USXGMII] = OCELOT_PORT_MODE_USXGMII,
-	[PHY_INTERFACE_MODE_10G_QXGMII] = OCELOT_PORT_MODE_10G_QXGMII,
-	[PHY_INTERFACE_MODE_1000BASEX] = OCELOT_PORT_MODE_1000BASEX,
-	[PHY_INTERFACE_MODE_2500BASEX] = OCELOT_PORT_MODE_2500BASEX,
-};
-
-static int felix_validate_phy_mode(struct felix *felix, int port,
-				   phy_interface_t phy_mode)
-{
-	u32 modes = felix->info->port_modes[port];
-
-	if (felix_phy_match_table[phy_mode] & modes)
-		return 0;
-	return -EOPNOTSUPP;
-}
-
-static int felix_parse_ports_node(struct felix *felix,
-				  struct device_node *ports_node,
-				  phy_interface_t *port_phy_modes)
-{
-	struct device *dev = felix->ocelot.dev;
-
-	for_each_available_child_of_node_scoped(ports_node, child) {
-		phy_interface_t phy_mode;
-		u32 port;
-		int err;
-
-		/* Get switch port number from DT */
-		if (of_property_read_u32(child, "reg", &port) < 0) {
-			dev_err(dev, "Port number not defined in device tree "
-				"(property \"reg\")\n");
-			return -ENODEV;
-		}
-
-		/* Get PHY mode from DT */
-		err = of_get_phy_mode(child, &phy_mode);
-		if (err) {
-			dev_err(dev, "Failed to read phy-mode or "
-				"phy-interface-type property for port %d\n",
-				port);
-			return -ENODEV;
-		}
-
-		err = felix_validate_phy_mode(felix, port, phy_mode);
-		if (err < 0) {
-			dev_info(dev, "Unsupported PHY mode %s on port %d\n",
-				 phy_modes(phy_mode), port);
-
-			/* Leave port_phy_modes[port] = 0, which is also
-			 * PHY_INTERFACE_MODE_NA. This will perform a
-			 * best-effort to bring up as many ports as possible.
-			 */
-			continue;
-		}
-
-		port_phy_modes[port] = phy_mode;
-	}
-
-	return 0;
-}
-
-static int felix_parse_dt(struct felix *felix, phy_interface_t *port_phy_modes)
-{
-	struct device *dev = felix->ocelot.dev;
-	struct device_node *switch_node;
-	struct device_node *ports_node;
-	int err;
-
-	switch_node = dev->of_node;
-
-	ports_node = of_get_child_by_name(switch_node, "ports");
-	if (!ports_node)
-		ports_node = of_get_child_by_name(switch_node, "ethernet-ports");
-	if (!ports_node) {
-		dev_err(dev, "Incorrect bindings: absent \"ports\" or \"ethernet-ports\" node\n");
-		return -ENODEV;
-	}
-
-	err = felix_parse_ports_node(felix, ports_node, port_phy_modes);
-	of_node_put(ports_node);
-
-	return err;
-}
-
 static struct regmap *felix_request_regmap_by_name(struct felix *felix,
 						   const char *resource_name)
 {
@@ -1490,7 +1421,6 @@ static int felix_init_structs(struct felix *felix, int num_phys_ports)
 {
 	struct ocelot *ocelot = &felix->ocelot;
 	struct dsa_switch *ds = felix->ds;
-	phy_interface_t *port_phy_modes;
 	struct regmap *target;
 	struct dsa_port *dp;
 	int port, i, err;
@@ -1513,24 +1443,12 @@ static int felix_init_structs(struct felix *felix, int num_phys_ports)
 	ocelot->npi_xtr_prefix	= OCELOT_TAG_PREFIX_SHORT;
 	ocelot->devlink		= felix->ds->devlink;
 
-	port_phy_modes = kcalloc(num_phys_ports, sizeof(phy_interface_t),
-				 GFP_KERNEL);
-	if (!port_phy_modes)
-		return -ENOMEM;
-
-	err = felix_parse_dt(felix, port_phy_modes);
-	if (err) {
-		kfree(port_phy_modes);
-		return err;
-	}
-
 	for (i = 0; i < TARGET_MAX; i++) {
 		target = felix_request_regmap(felix, i);
 		if (IS_ERR(target)) {
 			dev_err(ocelot->dev,
 				"Failed to map device memory space: %pe\n",
 				target);
-			kfree(port_phy_modes);
 			return PTR_ERR(target);
 		}
 
@@ -1540,7 +1458,6 @@ static int felix_init_structs(struct felix *felix, int num_phys_ports)
 	err = ocelot_regfields_init(ocelot, felix->info->regfields);
 	if (err) {
 		dev_err(ocelot->dev, "failed to init reg fields map\n");
-		kfree(port_phy_modes);
 		return err;
 	}
 
@@ -1553,7 +1470,6 @@ static int felix_init_structs(struct felix *felix, int num_phys_ports)
 		if (!ocelot_port) {
 			dev_err(ocelot->dev,
 				"failed to allocate port memory\n");
-			kfree(port_phy_modes);
 			return -ENOMEM;
 		}
 
@@ -1562,11 +1478,9 @@ static int felix_init_structs(struct felix *felix, int num_phys_ports)
 			dev_err(ocelot->dev,
 				"Failed to map memory space for port %d: %pe\n",
 				port, target);
-			kfree(port_phy_modes);
 			return PTR_ERR(target);
 		}
 
-		ocelot_port->phy_mode = port_phy_modes[port];
 		ocelot_port->ocelot = ocelot;
 		ocelot_port->target = target;
 		ocelot_port->index = port;
@@ -1576,8 +1490,6 @@ static int felix_init_structs(struct felix *felix, int num_phys_ports)
 		ocelot_port->cut_thru = GENMASK(7, 0);
 		ocelot->ports[port] = ocelot_port;
 	}
-
-	kfree(port_phy_modes);
 
 	dsa_switch_for_each_available_port(dp, ds) {
 		struct ocelot_port *ocelot_port = ocelot->ports[dp->index];
