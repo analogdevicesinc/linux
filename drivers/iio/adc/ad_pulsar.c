@@ -427,7 +427,7 @@ static int ad_pulsar_set_samp_freq(struct ad_pulsar_adc *adc, int freq)
 	struct pwm_state cnv_state;
 	int ret;
 
-	freq = clamp(freq, 0, adc->info->max_rate);
+	freq = clamp(freq, 1, adc->info->max_rate);
 	target = DIV_ROUND_CLOSEST_ULL(adc->ref_clk_rate, freq);
 	ref_clk_period_ps = DIV_ROUND_CLOSEST_ULL(1000000000000,
 						  adc->ref_clk_rate);
