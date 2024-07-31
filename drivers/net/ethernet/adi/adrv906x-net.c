@@ -745,7 +745,7 @@ static int adrv906x_eth_open(struct net_device *ndev)
 
 	phy_start(ndev->phydev);
 
-	adrv906x_ndma_open(ndma_dev, adrv906x_eth_tx_callback, adrv906x_eth_rx_callback, ndev);
+	adrv906x_ndma_open(ndma_dev, adrv906x_eth_tx_callback, adrv906x_eth_rx_callback, ndev, false);
 
 #if IS_ENABLED(CONFIG_MACSEC)
 	if (adrv906x_dev->macsec.enabled)
