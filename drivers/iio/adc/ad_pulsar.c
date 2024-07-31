@@ -431,11 +431,15 @@ static int ad_pulsar_set_samp_freq(struct ad_pulsar_adc *adc, int freq)
 	target = DIV_ROUND_CLOSEST_ULL(adc->ref_clk_rate, freq);
 	ref_clk_period_ps = DIV_ROUND_CLOSEST_ULL(1000000000000,
 						  adc->ref_clk_rate);
-	cnv_state.period = ref_clk_period_ps * target;
-	cnv_state.duty_cycle = ref_clk_period_ps;
-	cnv_state.phase = ref_clk_period_ps;
-	cnv_state.time_unit = PWM_UNIT_PSEC;
-	cnv_state.enabled = true;
+
+	cnv_state = (struct pwm_state){
+		.period = ref_clk_period_ps * target,
+		.duty_cycle = ref_clk_period_ps,
+		.phase = ref_clk_period_ps,
+		.time_unit = PWM_UNIT_PSEC,
+		.enabled = true,
+	};
+
 	ret = pwm_apply_state(adc->cnv, &cnv_state);
 	if (ret)
 		return ret;
