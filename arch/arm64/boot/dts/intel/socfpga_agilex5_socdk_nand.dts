@@ -58,7 +58,7 @@
 
 &gmac0 {
 	status = "okay";
-	phy-mode = "rgmii-id";
+	phy-mode = "rgmii";
 	phy-handle = <&emac0_phy0>;
 	/delete-property/ dma-coherent;
 	max-frame-size = <9000>;
@@ -75,7 +75,7 @@
 
 &gmac2 {
 	status = "disabled";
-	phy-mode = "rgmii-id";
+	phy-mode = "rgmii";
 	phy-handle = <&emac2_phy0>;
 	/delete-property/ dma-coherent;
 	max-frame-size = <9000>;

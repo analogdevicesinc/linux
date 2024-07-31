@@ -46,7 +46,7 @@
 
 &gmac0 {
 	status = "disabled";
-	phy-mode = "rgmii-id";
+	phy-mode = "rgmii";
 	phy-handle = <&emac0_phy0>;
 
 	max-frame-size = <9000>;
@@ -63,7 +63,7 @@
 
 &gmac1 {
 	status = "disabled";
-	phy-mode = "rgmii-id";
+	phy-mode = "rgmii";
 	mac-mode = "gmii";
 	phy-handle = <&emac1_phy0>;
 
@@ -81,7 +81,7 @@
 
 &gmac2 {
 	status = "okay";
-	phy-mode = "rgmii-id";
+	phy-mode = "rgmii";
 	phy-handle = <&emac2_phy0>;
 
 	max-frame-size = <9000>;
