@@ -627,6 +627,9 @@ static void enetc_vf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 		ndev->features |= NETIF_F_RXHASH;
 	}
 
+	if (si->hw_features & ENETC_SI_F_RSC)
+		ndev->hw_features |= NETIF_F_LRO;
+
 	/* pick up primary MAC address from SI */
 	enetc_load_primary_mac_addr(&si->hw, ndev);
 }

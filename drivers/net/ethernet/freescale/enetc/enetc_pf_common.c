@@ -377,6 +377,9 @@ void enetc_pf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 		priv->shared_tx_rings = true;
 	}
 
+	if (si->hw_features & ENETC_SI_F_RSC)
+		ndev->hw_features |= NETIF_F_LRO;
+
 	if (si->hw_features & ENETC_SI_F_LSO)
 		priv->active_offloads |= ENETC_F_LSO;
 

@@ -73,6 +73,7 @@ struct enetc_lso_t {
 	(SKB_WITH_OVERHEAD(ENETC_RXB_TRUESIZE) - ENETC_RXB_PAD)
 #define ENETC_RXB_DMA_SIZE_XDP	\
 	(SKB_WITH_OVERHEAD(ENETC_RXB_TRUESIZE) - XDP_PACKET_HEADROOM)
+#define ENETC_RS_MAX_BYTES	(ENETC_RXB_DMA_SIZE * (MAX_SKB_FRAGS + 1))
 
 struct enetc_rx_swbd {
 	dma_addr_t dma;
@@ -245,6 +246,7 @@ enum enetc_errata {
 #define ENETC_SI_F_QBV  BIT(1)
 #define ENETC_SI_F_QBU  BIT(2)
 #define ENETC_SI_F_LSO	BIT(3)
+#define ENETC_SI_F_RSC	BIT(4)
 
 enum enetc_mac_addr_type {UC, MC, MADDR_TYPE};
 
@@ -358,6 +360,7 @@ static inline int enetc4_pf_to_port(struct pci_dev *pf_pdev)
 struct enetc_int_vector {
 	void __iomem *rbier;
 	void __iomem *tbier_base;
+	void __iomem *ricr0;
 	void __iomem *ricr1;
 	unsigned long tx_rings_map;
 	int count_tx_rings;
@@ -433,6 +436,7 @@ enum enetc_active_offloads {
 
 	ENETC_F_CHECKSUM		= BIT(12),
 	ENETC_F_LSO			= BIT(13),
+	ENETC_F_RSC			= BIT(14),
 };
 
 enum enetc_flags_bit {
@@ -597,10 +601,9 @@ static inline bool enetc_ptp_clock_is_enabled(struct enetc_si *si)
 
 static inline union enetc_rx_bd *enetc_rxbd(struct enetc_bdr *rx_ring, int i)
 {
-	struct enetc_ndev_priv *priv = netdev_priv(rx_ring->ndev);
 	int hw_idx = i;
 
-	if (rx_ring->ext_en && enetc_ptp_clock_is_enabled(priv->si))
+	if (rx_ring->ext_en)
 		hw_idx = 2 * i;
 
 	return &(((union enetc_rx_bd *)rx_ring->bd_base)[hw_idx]);
@@ -609,13 +612,12 @@ static inline union enetc_rx_bd *enetc_rxbd(struct enetc_bdr *rx_ring, int i)
 static inline void enetc_rxbd_next(struct enetc_bdr *rx_ring,
 				   union enetc_rx_bd **old_rxbd, int *old_index)
 {
-	struct enetc_ndev_priv *priv = netdev_priv(rx_ring->ndev);
 	union enetc_rx_bd *new_rxbd = *old_rxbd;
 	int new_index = *old_index;
 
 	new_rxbd++;
 
-	if (rx_ring->ext_en && enetc_ptp_clock_is_enabled(priv->si))
+	if (rx_ring->ext_en)
 		new_rxbd++;
 
 	if (unlikely(++new_index == rx_ring->bd_count)) {
