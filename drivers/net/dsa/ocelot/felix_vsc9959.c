@@ -1028,7 +1028,8 @@ static int vsc9959_mdio_bus_alloc(struct ocelot *ocelot)
 		size_t num_phys = ocelot_port->serdes ? 1 : 0;
 		struct phylink_pcs *phylink_pcs;
 
-		if (ocelot_port->phy_mode == PHY_INTERFACE_MODE_INTERNAL)
+		/* Skip on internal ports */
+		if (dp->index == 4 || dp->index == 5)
 			continue;
 
 		phylink_pcs = lynx_pcs_create_mdiodev(felix->imdio, dp->index,
