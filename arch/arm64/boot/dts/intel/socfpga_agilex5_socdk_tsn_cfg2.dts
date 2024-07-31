@@ -1,0 +1,9 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2024, Intel Corporation
+ */
+#include "socfpga_agilex5_socdk.dts"
+
+&gmac1 {
+	status = "okay";
+};

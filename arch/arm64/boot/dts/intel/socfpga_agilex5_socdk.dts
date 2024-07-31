@@ -11,6 +11,7 @@
 	aliases {
 		serial0 = &uart0;
 		ethernet0 = &gmac0;
+		ethernet1 = &gmac1;
 		ethernet2 = &gmac2;
 	};
 
@@ -56,6 +57,24 @@
 		compatible = "snps,dwmac-mdio";
 		emac0_phy0: ethernet-phy@1 {
 			reg = <1>;
+		};
+	};
+};
+
+&gmac1 {
+	status = "disabled";
+	phy-mode = "rgmii-id";
+	mac-mode = "gmii";
+	phy-handle = <&emac1_phy0>;
+
+	max-frame-size = <9000>;
+
+	mdio0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "snps,dwmac-mdio";
+		emac1_phy0: ethernet-phy@0 {
+			reg = <0>;
 		};
 	};
 };
