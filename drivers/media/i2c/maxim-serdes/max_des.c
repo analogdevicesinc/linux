@@ -390,7 +390,7 @@ static int max_des_get_fmt(struct v4l2_subdev *sd,
 {
 	struct max_des_subdev_priv *sd_priv = v4l2_get_subdevdata(sd);
 
-	if (format->pad == MAX_SER_SINK_PAD) {
+	if (format->pad == MAX_DES_SINK_PAD) {
 		format->format.code = MEDIA_BUS_FMT_FIXED;
 		return 0;
 	}
