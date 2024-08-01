@@ -3,9 +3,15 @@
  * Copyright (C) 2023 Analog Devices Inc.
  */
 
-#include "max_serdes.h"
+#include <linux/export.h>
+#include <linux/kernel.h>
+#include <linux/stringify.h>
 
 #include <media/mipi-csi2.h>
+
+#include <uapi/linux/media-bus-format.h>
+
+#include "max_serdes.h"
 
 #define MAX_FMT(_code, _dt, _bpp, _dbl) 	\
 {						\

@@ -3,9 +3,7 @@
  * Copyright (C) 2023 Analog Devices Inc.
  */
 
-#include <media/v4l2-fwnode.h>
-#include <media/v4l2-subdev.h>
-#include <linux/version.h>
+#include <linux/types.h>
 
 #ifndef MAX_SERDES_H
 #define MAX_SERDES_H
