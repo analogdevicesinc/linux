@@ -19,22 +19,6 @@
 #define MAX_SER_SINK_PAD	1
 #define MAX_SER_PAD_NUM		2
 
-struct max_ser_subdev_priv {
-	struct v4l2_subdev sd;
-	unsigned int index;
-	struct fwnode_handle *fwnode;
-
-	struct max_ser_priv *priv;
-	const struct max_format *fmt;
-	const char *label;
-
-	struct media_pad pads[MAX_SER_PAD_NUM];
-
-	bool active;
-	unsigned int pipe_id;
-	unsigned int vc_id;
-};
-
 struct max_ser_phy {
 	unsigned int index;
 	struct v4l2_mbus_config_mipi_csi2 mipi;
@@ -58,6 +42,8 @@ struct max_ser_pipe {
 	bool active;
 };
 
+struct max_ser;
+
 struct max_ser_ops {
 	unsigned int num_pipes;
 	unsigned int num_dts_per_pipe;
@@ -66,67 +52,57 @@ struct max_ser_ops {
 	bool supports_tunnel_mode;
 	bool supports_noncontinuous_clock;
 
-	int (*log_status)(struct max_ser_priv *priv, const char *name);
-	int (*log_pipe_status)(struct max_ser_priv *priv, struct max_ser_pipe *pipe,
+	int (*log_status)(struct max_ser *ser, const char *name);
+	int (*log_pipe_status)(struct max_ser *ser, struct max_ser_pipe *pipe,
 			       const char *name);
-	int (*log_phy_status)(struct max_ser_priv *priv, struct max_ser_phy *phy,
+	int (*log_phy_status)(struct max_ser *ser, struct max_ser_phy *phy,
 			      const char *name);
-	int (*set_pipe_enable)(struct max_ser_priv *priv, struct max_ser_pipe *pipe, bool enable);
-	int (*update_pipe_dts)(struct max_ser_priv *priv, struct max_ser_pipe *pipe);
-	int (*update_pipe_vcs)(struct max_ser_priv *priv, struct max_ser_pipe *pipe);
-	int (*init)(struct max_ser_priv *priv);
-	int (*init_i2c_xlate)(struct max_ser_priv *priv);
-	int (*init_phy)(struct max_ser_priv *priv, struct max_ser_phy *phy);
-	int (*init_pipe)(struct max_ser_priv *priv, struct max_ser_pipe *pipe);
-	int (*post_init)(struct max_ser_priv *priv);
+	int (*set_pipe_enable)(struct max_ser *ser, struct max_ser_pipe *pipe, bool enable);
+	int (*update_pipe_dts)(struct max_ser *ser, struct max_ser_pipe *pipe);
+	int (*update_pipe_vcs)(struct max_ser *ser, struct max_ser_pipe *pipe);
+	int (*init)(struct max_ser *ser);
+	int (*init_i2c_xlate)(struct max_ser *ser);
+	int (*init_phy)(struct max_ser *ser, struct max_ser_phy *phy);
+	int (*init_pipe)(struct max_ser *ser, struct max_ser_pipe *pipe);
+	int (*post_init)(struct max_ser *ser);
 };
 
-struct max_ser_priv {
+struct max_ser_priv;
+
+struct max_ser {
+	struct max_ser_priv *priv;
+
 	const struct max_ser_ops *ops;
-
-	struct device *dev;
-	struct i2c_client *client;
-	struct regmap *regmap;
-
-	struct i2c_atr *atr;
-
-	unsigned int num_subdevs;
-	struct mutex lock;
-	bool tunnel_mode;
 
 	struct max_i2c_xlate *i2c_xlates;
 	unsigned int num_i2c_xlates;
 
 	struct max_ser_phy *phys;
 	struct max_ser_pipe *pipes;
-	struct max_ser_subdev_priv *sd_privs;
+
+	bool tunnel_mode;
 };
 
-int max_ser_probe(struct max_ser_priv *priv);
+int max_ser_probe(struct i2c_client *client, struct max_ser *ser);
 
-int max_ser_remove(struct max_ser_priv *priv);
+int max_ser_remove(struct max_ser *ser);
 
-static inline struct max_ser_pipe *max_ser_pipe_by_id(struct max_ser_priv *priv,
+static inline struct max_ser_pipe *max_ser_pipe_by_id(struct max_ser *ser,
 						      unsigned int index)
 {
-	return &priv->pipes[index];
+	return &ser->pipes[index];
 }
 
-static inline struct max_ser_pipe *max_ser_ch_pipe(struct max_ser_subdev_priv *sd_priv)
-{
-	return max_ser_pipe_by_id(sd_priv->priv, sd_priv->pipe_id);
-}
-
-static inline struct max_ser_phy *max_ser_phy_by_id(struct max_ser_priv *priv,
+static inline struct max_ser_phy *max_ser_phy_by_id(struct max_ser *ser,
 						    unsigned int index)
 {
-	return &priv->phys[index];
+	return &ser->phys[index];
 }
 
-static inline struct max_ser_phy *max_ser_pipe_phy(struct max_ser_priv *priv,
+static inline struct max_ser_phy *max_ser_pipe_phy(struct max_ser *ser,
 						   struct max_ser_pipe *pipe)
 {
-	return max_ser_phy_by_id(priv, pipe->phy_id);
+	return max_ser_phy_by_id(ser, pipe->phy_id);
 }
 
 #endif // MAX_SER_H

@@ -15,6 +15,36 @@
 #include "max_ser.h"
 #include "max_serdes.h"
 
+struct max_ser_subdev_priv {
+	struct v4l2_subdev sd;
+	unsigned int index;
+	struct fwnode_handle *fwnode;
+
+	struct max_ser_priv *priv;
+	const struct max_format *fmt;
+	const char *label;
+
+	struct media_pad pads[MAX_SER_PAD_NUM];
+
+	bool active;
+	unsigned int pipe_id;
+	unsigned int vc_id;
+};
+
+struct max_ser_priv {
+	struct max_ser *ser;
+	struct device *dev;
+	struct i2c_client *client;
+	struct regmap *regmap;
+
+	struct i2c_atr *atr;
+
+	unsigned int num_subdevs;
+	struct mutex lock;
+
+	struct max_ser_subdev_priv *sd_privs;
+};
+
 static struct max_ser_subdev_priv *next_subdev(struct max_ser_priv *priv,
 						struct max_ser_subdev_priv *sd_priv)
 {
@@ -39,56 +69,65 @@ static inline struct max_ser_subdev_priv *sd_to_max_ser(struct v4l2_subdev *sd)
 	return container_of(sd, struct max_ser_subdev_priv, sd);
 }
 
+static inline struct max_ser_pipe *max_ser_ch_pipe(struct max_ser_subdev_priv *sd_priv)
+{
+	struct max_ser_priv *priv = sd_priv->priv;
+
+	return max_ser_pipe_by_id(priv->ser, sd_priv->pipe_id);
+}
+
 static int max_ser_i2c_atr_attach_client(struct i2c_atr *atr, u32 chan_id,
 					 const struct i2c_client *client, u16 alias)
 {
 	struct max_ser_priv *priv = i2c_atr_get_driver_data(atr);
+	struct max_ser *ser = priv->ser;
 	struct max_i2c_xlate *xlate;
 
-	if (priv->num_i2c_xlates == priv->ops->num_i2c_xlates) {
+	if (ser->num_i2c_xlates == ser->ops->num_i2c_xlates) {
 		dev_err(priv->dev,
 			"Reached maximum number of I2C translations\n");
 		return -EINVAL;
 	}
 
-	xlate = &priv->i2c_xlates[priv->num_i2c_xlates++];
+	xlate = &ser->i2c_xlates[ser->num_i2c_xlates++];
 	xlate->src = alias;
 	xlate->dst = client->addr;
 
-	return priv->ops->init_i2c_xlate(priv);
+	return ser->ops->init_i2c_xlate(ser);
 }
 
 static void max_ser_i2c_atr_detach_client(struct i2c_atr *atr, u32 chan_id,
 					  const struct i2c_client *client)
 {
 	struct max_ser_priv *priv = i2c_atr_get_driver_data(atr);
+	struct max_ser *ser = priv->ser;
 	struct max_i2c_xlate *xlate;
 	unsigned int i;
 
 	/* Find index of matching I2C translation. */
-	for (i = 0; i < priv->num_i2c_xlates; i++) {
-		xlate = &priv->i2c_xlates[i];
+	for (i = 0; i < ser->num_i2c_xlates; i++) {
+		xlate = &ser->i2c_xlates[i];
 
 		if (xlate->dst == client->addr)
 			break;
 	}
 
-	WARN_ON(i == priv->num_i2c_xlates);
+	WARN_ON(i == ser->num_i2c_xlates);
 
 	/* Starting from index + 1, copy index translation into index - 1. */
-	for (i++; i < priv->num_i2c_xlates; i++) {
-		priv->i2c_xlates[i - 1].src = priv->i2c_xlates[i].src;
-		priv->i2c_xlates[i - 1].dst = priv->i2c_xlates[i].dst;
+	for (i++; i < ser->num_i2c_xlates; i++) {
+		ser->i2c_xlates[i - 1].src = ser->i2c_xlates[i].src;
+		ser->i2c_xlates[i - 1].dst = ser->i2c_xlates[i].dst;
 	}
 
 	/* Zero out last index translation. */
-	priv->i2c_xlates[priv->num_i2c_xlates].src = 0;
-	priv->i2c_xlates[priv->num_i2c_xlates].dst = 0;
+	ser->i2c_xlates[ser->num_i2c_xlates].src = 0;
+	ser->i2c_xlates[ser->num_i2c_xlates].dst = 0;
 
 	/* Decrease number of translations. */
-	priv->num_i2c_xlates--;
+	ser->num_i2c_xlates--;
 
-	priv->ops->init_i2c_xlate(priv);
+	ser->ops->init_i2c_xlate(ser);
 }
 
 static const struct i2c_atr_ops max_ser_i2c_atr_ops = {
@@ -124,17 +163,18 @@ static int max_ser_update_pipe_dts(struct max_ser_priv *priv,
 				   struct max_ser_pipe *pipe)
 {
 	struct max_ser_subdev_priv *sd_priv;
+	struct max_ser *ser = priv->ser;
 
 	pipe->num_dts = 0;
 
-	if (priv->tunnel_mode)
+	if (ser->tunnel_mode)
 		return 0;
 
 	for_each_subdev(priv, sd_priv) {
 		if (sd_priv->pipe_id != pipe->index)
 			continue;
 
-		if (pipe->num_dts == priv->ops->num_dts_per_pipe) {
+		if (pipe->num_dts == ser->ops->num_dts_per_pipe) {
 			dev_err(priv->dev, "Too many data types per pipe\n");
 			return -EINVAL;
 		}
@@ -146,17 +186,18 @@ static int max_ser_update_pipe_dts(struct max_ser_priv *priv,
 		pipe->dts[pipe->num_dts++] = sd_priv->fmt->dt;
 	}
 
-	return priv->ops->update_pipe_dts(priv, pipe);
+	return ser->ops->update_pipe_dts(ser, pipe);
 }
 
 static int max_ser_update_pipe_vcs(struct max_ser_priv *priv,
 				   struct max_ser_pipe *pipe)
 {
 	struct max_ser_subdev_priv *sd_priv;
+	struct max_ser *ser = priv->ser;
 
 	pipe->vcs = 0;
 
-	if (priv->tunnel_mode)
+	if (ser->tunnel_mode)
 		return 0;
 
 	for_each_subdev(priv, sd_priv) {
@@ -166,13 +207,14 @@ static int max_ser_update_pipe_vcs(struct max_ser_priv *priv,
 		pipe->vcs |= BIT(sd_priv->vc_id);
 	}
 
-	return priv->ops->update_pipe_vcs(priv, pipe);
+	return ser->ops->update_pipe_vcs(ser, pipe);
 }
 
 static int max_ser_update_pipe_active(struct max_ser_priv *priv,
 				      struct max_ser_pipe *pipe)
 {
 	struct max_ser_subdev_priv *sd_priv;
+	struct max_ser *ser = priv->ser;
 	bool enable = 0;
 
 	for_each_subdev(priv, sd_priv) {
@@ -187,7 +229,7 @@ static int max_ser_update_pipe_active(struct max_ser_priv *priv,
 
 	pipe->active = enable;
 
-	return priv->ops->set_pipe_enable(priv, pipe, enable);
+	return ser->ops->set_pipe_enable(ser, pipe, enable);
 }
 
 static int max_ser_ch_enable(struct max_ser_subdev_priv *sd_priv, bool enable)
@@ -243,7 +285,8 @@ static int max_ser_set_fmt(struct v4l2_subdev *sd,
 {
 	struct max_ser_subdev_priv *sd_priv = v4l2_get_subdevdata(sd);
 	struct max_ser_priv *priv = sd_priv->priv;
-	struct max_ser_pipe *pipe = &priv->pipes[sd_priv->pipe_id];
+	struct max_ser *ser = priv->ser;
+	struct max_ser_pipe *pipe = &ser->pipes[sd_priv->pipe_id];
 	const struct max_format *fmt;
 	int ret;
 
@@ -287,16 +330,17 @@ static int max_ser_log_status(struct v4l2_subdev *sd)
 {
 	struct max_ser_subdev_priv *sd_priv = v4l2_get_subdevdata(sd);
 	struct max_ser_priv *priv = sd_priv->priv;
+	struct max_ser *ser = priv->ser;
 	unsigned int i, j;
 	int ret;
 
-	v4l2_info(sd, "tunnel_mode: %u\n", priv->tunnel_mode);
-	v4l2_info(sd, "i2c_xlates: %u\n", priv->num_i2c_xlates);
-	for (i = 0; i < priv->num_i2c_xlates; i++)
+	v4l2_info(sd, "tunnel_mode: %u\n", ser->tunnel_mode);
+	v4l2_info(sd, "i2c_xlates: %u\n", ser->num_i2c_xlates);
+	for (i = 0; i < ser->num_i2c_xlates; i++)
 		v4l2_info(sd, "\tsrc: 0x%02x dst: 0x%02x\n",
-			  priv->i2c_xlates[i].src, priv->i2c_xlates[i].dst);
-	if (priv->ops->log_status) {
-		ret = priv->ops->log_status(priv, sd->name);
+			  ser->i2c_xlates[i].src, ser->i2c_xlates[i].dst);
+	if (ser->ops->log_status) {
+		ret = ser->ops->log_status(ser, sd->name);
 		if (ret)
 			return ret;
 	}
@@ -314,8 +358,8 @@ static int max_ser_log_status(struct v4l2_subdev *sd)
 		v4l2_info(sd, "\n");
 	}
 
-	for (i = 0; i < priv->ops->num_pipes; i++) {
-		struct max_ser_pipe *pipe = &priv->pipes[i];
+	for (i = 0; i < ser->ops->num_pipes; i++) {
+		struct max_ser_pipe *pipe = &ser->pipes[i];
 
 		v4l2_info(sd, "pipe: %u\n", pipe->index);
 		v4l2_info(sd, "\tenabled: %u\n", pipe->enabled);
@@ -331,16 +375,16 @@ static int max_ser_log_status(struct v4l2_subdev *sd)
 		v4l2_info(sd, "\tdbl12: %u\n", pipe->dbl12);
 		v4l2_info(sd, "\tsoft_bpp: %u\n", pipe->soft_bpp);
 		v4l2_info(sd, "\tbpp: %u\n", pipe->bpp);
-		if (priv->ops->log_pipe_status) {
-			ret = priv->ops->log_pipe_status(priv, pipe, sd->name);
+		if (ser->ops->log_pipe_status) {
+			ret = ser->ops->log_pipe_status(ser, pipe, sd->name);
 			if (ret)
 				return ret;
 		}
 		v4l2_info(sd, "\n");
 	}
 
-	for (i = 0; i < priv->ops->num_phys; i++) {
-		struct max_ser_phy *phy = &priv->phys[i];
+	for (i = 0; i < ser->ops->num_phys; i++) {
+		struct max_ser_phy *phy = &ser->phys[i];
 
 		v4l2_info(sd, "phy: %u\n", phy->index);
 		v4l2_info(sd, "\tenabled: %u\n", phy->enabled);
@@ -348,8 +392,8 @@ static int max_ser_log_status(struct v4l2_subdev *sd)
 		v4l2_info(sd, "\tclock_lane: %u\n", phy->mipi.clock_lane);
 		v4l2_info(sd, "\tnoncontinuous_clock: %u\n",
 			  !!(phy->mipi.flags & V4L2_MBUS_CSI2_NONCONTINUOUS_CLOCK));
-		if (priv->ops->log_phy_status) {
-			ret = priv->ops->log_phy_status(priv, phy, sd->name);
+		if (ser->ops->log_phy_status) {
+			ret = ser->ops->log_phy_status(ser, phy, sd->name);
 			if (ret)
 				return ret;
 		}
@@ -359,6 +403,7 @@ static int max_ser_log_status(struct v4l2_subdev *sd)
 	return 0;
 }
 
+#if 0
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 static int max_ser_g_register(struct v4l2_subdev *sd, struct v4l2_dbg_register *reg)
 {
@@ -390,12 +435,15 @@ static int max_ser_s_register(struct v4l2_subdev *sd, const struct v4l2_dbg_regi
 	return 0;
 }
 #endif
+#endif
 
 static const struct v4l2_subdev_core_ops max_ser_core_ops = {
 	.log_status = max_ser_log_status,
+#if 0
 #ifdef CONFIG_VIDEO_ADV_DEBUG
 	.g_register = max_ser_g_register,
 	.s_register = max_ser_s_register,
+#endif
 #endif
 };
 
@@ -421,15 +469,16 @@ static const struct media_entity_operations max_ser_media_ops = {
 
 static int max_ser_init(struct max_ser_priv *priv)
 {
+	struct max_ser *ser = priv->ser;
 	unsigned int i;
 	int ret;
 
-	ret = priv->ops->init(priv);
+	ret = ser->ops->init(ser);
 	if (ret)
 		return ret;
 
-	for (i = 0; i < priv->ops->num_phys; i++) {
-		struct max_ser_phy *phy = &priv->phys[i];
+	for (i = 0; i < ser->ops->num_phys; i++) {
+		struct max_ser_phy *phy = &ser->phys[i];
 
 		if (!phy->enabled)
 			continue;
@@ -439,18 +488,18 @@ static int max_ser_init(struct max_ser_priv *priv)
 			return -EINVAL;
 		}
 
-		ret = priv->ops->init_phy(priv, phy);
+		ret = ser->ops->init_phy(ser, phy);
 		if (ret)
 			return ret;
 	}
 
-	for (i = 0; i < priv->ops->num_pipes; i++) {
-		struct max_ser_pipe *pipe = &priv->pipes[i];
+	for (i = 0; i < ser->ops->num_pipes; i++) {
+		struct max_ser_pipe *pipe = &ser->pipes[i];
 
 		if (!pipe->enabled)
 			continue;
 
-		ret = priv->ops->init_pipe(priv, pipe);
+		ret = ser->ops->init_pipe(ser, pipe);
 		if (ret)
 			return ret;
 
@@ -463,7 +512,7 @@ static int max_ser_init(struct max_ser_priv *priv)
 			return ret;
 	}
 
-	ret = priv->ops->post_init(priv);
+	ret = ser->ops->post_init(ser);
 	if (ret)
 		return ret;
 
@@ -553,11 +602,12 @@ static int max_ser_parse_pipe_dt(struct max_ser_priv *priv,
 				 struct max_ser_pipe *pipe,
 				 struct fwnode_handle *fwnode)
 {
+	struct max_ser *ser = priv->ser;
 	unsigned int val;
 
 	val = pipe->phy_id;
 	fwnode_property_read_u32(fwnode, "maxim,phy-id", &val);
-	if (val >= priv->ops->num_phys) {
+	if (val >= ser->ops->num_phys) {
 		dev_err(priv->dev, "Invalid PHY %u\n", val);
 		return -EINVAL;
 	}
@@ -598,6 +648,7 @@ static int max_ser_parse_ch_dt(struct max_ser_subdev_priv *sd_priv,
 			       struct fwnode_handle *fwnode)
 {
 	struct max_ser_priv *priv = sd_priv->priv;
+	struct max_ser *ser = priv->ser;
 	struct max_ser_pipe *pipe;
 	struct max_ser_phy *phy;
 	u32 val;
@@ -606,7 +657,7 @@ static int max_ser_parse_ch_dt(struct max_ser_subdev_priv *sd_priv,
 
 	val = sd_priv->pipe_id;
 	fwnode_property_read_u32(fwnode, "maxim,pipe-id", &val);
-	if (val >= priv->ops->num_pipes) {
+	if (val >= ser->ops->num_pipes) {
 		dev_err(priv->dev, "Invalid pipe %u\n", val);
 		return -EINVAL;
 	}
@@ -623,10 +674,10 @@ static int max_ser_parse_ch_dt(struct max_ser_subdev_priv *sd_priv,
 	if (fwnode_property_read_bool(fwnode, "maxim,embedded-data"))
 		sd_priv->fmt = max_format_by_dt(MIPI_CSI2_DT_EMBEDDED_8B);
 
-	pipe = &priv->pipes[val];
+	pipe = &ser->pipes[val];
 	pipe->enabled = true;
 
-	phy = &priv->phys[pipe->phy_id];
+	phy = &ser->phys[pipe->phy_id];
 	phy->enabled = true;
 
 	return 0;
@@ -636,8 +687,9 @@ static int max_ser_parse_sink_dt_endpoint(struct max_ser_subdev_priv *sd_priv,
 					  struct fwnode_handle *fwnode)
 {
 	struct max_ser_priv *priv = sd_priv->priv;
+	struct max_ser *ser = priv->ser;
 	struct max_ser_pipe *pipe = max_ser_ch_pipe(sd_priv);
-	struct max_ser_phy *phy = max_ser_pipe_phy(priv, pipe);
+	struct max_ser_phy *phy = max_ser_pipe_phy(ser, pipe);
 	struct v4l2_fwnode_endpoint v4l2_ep = {
 		.bus_type = V4L2_MBUS_CSI2_DPHY
 	};
@@ -666,7 +718,7 @@ static int max_ser_parse_sink_dt_endpoint(struct max_ser_subdev_priv *sd_priv,
 	}
 
 	if (mipi->flags & V4L2_MBUS_CSI2_NONCONTINUOUS_CLOCK &&
-	    !priv->ops->supports_noncontinuous_clock) {
+	    !ser->ops->supports_noncontinuous_clock) {
 		dev_err(priv->dev, "Clock non-continuous mode is not supported\n");
 		return -EINVAL;
 	}
@@ -694,6 +746,7 @@ static int max_ser_parse_sink_dt_endpoint(struct max_ser_subdev_priv *sd_priv,
 
 static int max_ser_parse_dt(struct max_ser_priv *priv)
 {
+	struct max_ser *ser = priv->ser;
 	const char *channel_node_name = "channel";
 	const char *pipe_node_name = "pipe";
 	struct max_ser_subdev_priv *sd_priv;
@@ -706,21 +759,21 @@ static int max_ser_parse_dt(struct max_ser_priv *priv)
 	int ret;
 
 	val = device_property_read_bool(priv->dev, "maxim,tunnel-mode");
-	if (val && !priv->ops->supports_tunnel_mode) {
+	if (val && !ser->ops->supports_tunnel_mode) {
 		dev_err(priv->dev, "Tunnel mode is not supported\n");
 		return -EINVAL;
 	}
-	priv->tunnel_mode = val;
+	ser->tunnel_mode = val;
 
-	for (i = 0; i < priv->ops->num_phys; i++) {
-		phy = &priv->phys[i];
+	for (i = 0; i < ser->ops->num_phys; i++) {
+		phy = &ser->phys[i];
 		phy->index = i;
 	}
 
-	for (i = 0; i < priv->ops->num_pipes; i++) {
-		pipe = &priv->pipes[i];
+	for (i = 0; i < ser->ops->num_pipes; i++) {
+		pipe = &ser->pipes[i];
 		pipe->index = i;
-		pipe->phy_id = i % priv->ops->num_phys;
+		pipe->phy_id = i % ser->ops->num_phys;
 		pipe->stream_id = i % MAX_SERDES_STREAMS_NUM;
 	}
 
@@ -736,13 +789,13 @@ static int max_ser_parse_dt(struct max_ser_priv *priv)
 			continue;
 		}
 
-		if (index >= priv->ops->num_pipes) {
+		if (index >= ser->ops->num_pipes) {
 			dev_err(priv->dev, "Invalid pipe number %u\n", index);
 			fwnode_handle_put(fwnode);
 			return -EINVAL;
 		}
 
-		pipe = &priv->pipes[index];
+		pipe = &ser->pipes[index];
 
 		ret = max_ser_parse_pipe_dt(priv, pipe, fwnode);
 		if (ret) {
@@ -788,7 +841,7 @@ static int max_ser_parse_dt(struct max_ser_priv *priv)
 		sd_priv->fwnode = fwnode;
 		sd_priv->priv = priv;
 		sd_priv->index = index;
-		sd_priv->pipe_id = index % priv->ops->num_pipes;
+		sd_priv->pipe_id = index % ser->ops->num_pipes;
 
 		ret = max_ser_parse_ch_dt(sd_priv, fwnode);
 		if (ret) {
@@ -808,36 +861,48 @@ static int max_ser_parse_dt(struct max_ser_priv *priv)
 
 static int max_ser_allocate(struct max_ser_priv *priv)
 {
+	struct max_ser *ser = priv->ser;
 	unsigned int i;
 
-	priv->phys = devm_kcalloc(priv->dev, priv->ops->num_phys,
-				  sizeof(*priv->phys), GFP_KERNEL);
-	if (!priv->phys)
+	ser->phys = devm_kcalloc(priv->dev, ser->ops->num_phys,
+				 sizeof(*ser->phys), GFP_KERNEL);
+	if (!ser->phys)
 		return -ENOMEM;
 
-	priv->pipes = devm_kcalloc(priv->dev, priv->ops->num_pipes,
-				   sizeof(*priv->pipes), GFP_KERNEL);
-	if (!priv->pipes)
+	ser->pipes = devm_kcalloc(priv->dev, ser->ops->num_pipes,
+				  sizeof(*ser->pipes), GFP_KERNEL);
+	if (!ser->pipes)
 		return -ENOMEM;
 
-	priv->i2c_xlates = devm_kcalloc(priv->dev, priv->ops->num_i2c_xlates,
-					sizeof(*priv->i2c_xlates), GFP_KERNEL);
-	if (!priv->i2c_xlates)
+	ser->i2c_xlates = devm_kcalloc(priv->dev, ser->ops->num_i2c_xlates,
+				       sizeof(*ser->i2c_xlates), GFP_KERNEL);
+	if (!ser->i2c_xlates)
 		return -ENOMEM;
 
-	for (i = 0; i < priv->ops->num_pipes; i++) {
-		struct max_ser_pipe *pipe = &priv->pipes[i];
+	for (i = 0; i < ser->ops->num_pipes; i++) {
+		struct max_ser_pipe *pipe = &ser->pipes[i];
 
-		pipe->dts = devm_kcalloc(priv->dev, priv->ops->num_dts_per_pipe,
+		pipe->dts = devm_kcalloc(priv->dev, ser->ops->num_dts_per_pipe,
 					 sizeof(*pipe->dts), GFP_KERNEL);
 	}
 
 	return 0;
 }
 
-int max_ser_probe(struct max_ser_priv *priv)
+int max_ser_probe(struct i2c_client *client, struct max_ser *ser)
 {
+	struct device *dev = &client->dev;
+	struct max_ser_priv *priv;
 	int ret;
+
+	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
+	if (!priv)
+		return -ENOMEM;
+
+	priv->client = client;
+	priv->dev = dev;
+	priv->ser = ser;
+	ser->priv = priv;
 
 	mutex_init(&priv->lock);
 
@@ -861,8 +926,10 @@ int max_ser_probe(struct max_ser_priv *priv)
 }
 EXPORT_SYMBOL_GPL(max_ser_probe);
 
-int max_ser_remove(struct max_ser_priv *priv)
+int max_ser_remove(struct max_ser *ser)
 {
+	struct max_ser_priv *priv = ser->priv;
+
 	max_ser_v4l2_unregister(priv);
 
 	max_ser_i2c_atr_deinit(priv);

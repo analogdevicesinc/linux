@@ -24,7 +24,7 @@
 #define MAX96717_LANE_CONFIGS_NUM		4
 
 struct max96717_priv {
-	struct max_ser_priv ser_priv;
+	struct max_ser ser;
 	struct pinctrl_desc pctldesc;
 	struct gpio_chip gc;
 	const struct max96717_chip_info *info;
@@ -50,7 +50,7 @@ struct max96717_chip_info {
 };
 
 #define ser_to_priv(ser) \
-	container_of(ser, struct max96717_priv, ser_priv)
+	container_of(ser, struct max96717_priv, ser)
 
 static int max96717_read(struct max96717_priv *priv, int reg)
 {
@@ -618,10 +618,10 @@ static unsigned int max96717_phy_id(struct max96717_priv *priv,
 	return priv->info->phy_hw_ids[phy->index];
 }
 
-static int max96717_set_pipe_enable(struct max_ser_priv *ser_priv,
+static int max96717_set_pipe_enable(struct max_ser *ser,
 				    struct max_ser_pipe *pipe, bool enable)
 {
-	struct max96717_priv *priv = ser_to_priv(ser_priv);
+	struct max96717_priv *priv = ser_to_priv(ser);
 	unsigned int index = max96717_pipe_id(priv, pipe);
 	unsigned int mask = BIT(index + 4);
 
@@ -667,10 +667,10 @@ static int max96717_set_pipe_dt(struct max96717_priv *priv,
 	return max96717_update_bits(priv, reg, GENMASK(5, 0), dt);
 }
 
-static int max96717_update_pipe_dts(struct max_ser_priv *ser_priv,
+static int max96717_update_pipe_dts(struct max_ser *ser,
 				    struct max_ser_pipe *pipe)
 {
-	struct max96717_priv *priv = ser_to_priv(ser_priv);
+	struct max96717_priv *priv = ser_to_priv(ser);
 	unsigned int i;
 	int ret;
 
@@ -685,7 +685,7 @@ static int max96717_update_pipe_dts(struct max_ser_priv *ser_priv,
 	}
 
 	/* Disable unused DTs. */
-	for (i = pipe->num_dts; i < ser_priv->ops->num_dts_per_pipe; i++) {
+	for (i = pipe->num_dts; i < ser->ops->num_dts_per_pipe; i++) {
 		ret = max96717_set_pipe_dt_en(priv, pipe, i, false);
 		if (ret)
 			return ret;
@@ -694,10 +694,10 @@ static int max96717_update_pipe_dts(struct max_ser_priv *ser_priv,
 	return 0;
 }
 
-static int max96717_update_pipe_vcs(struct max_ser_priv *ser_priv,
+static int max96717_update_pipe_vcs(struct max_ser *ser,
 				    struct max_ser_pipe *pipe)
 {
-	struct max96717_priv *priv = ser_to_priv(ser_priv);
+	struct max96717_priv *priv = ser_to_priv(ser);
 	unsigned int index = max96717_pipe_id(priv, pipe);
 	unsigned int reg = 0x309 + 0x2 * index;
 	int ret;
@@ -709,9 +709,9 @@ static int max96717_update_pipe_vcs(struct max_ser_priv *ser_priv,
 	return max96717_write(priv, reg + 0x1, (pipe->vcs >> 8) & 0xff);
 }
 
-static int max96717_log_status(struct max_ser_priv *ser_priv, const char *name)
+static int max96717_log_status(struct max_ser *ser, const char *name)
 {
-	struct max96717_priv *priv = ser_to_priv(ser_priv);
+	struct max96717_priv *priv = ser_to_priv(ser);
 	int ret;
 
 	if (!priv->info->supports_tunnel_mode)
@@ -726,11 +726,11 @@ static int max96717_log_status(struct max_ser_priv *ser_priv, const char *name)
 	return 0;
 }
 
-static int max96717_log_pipe_status(struct max_ser_priv *ser_priv,
+static int max96717_log_pipe_status(struct max_ser *ser,
 				    struct max_ser_pipe *pipe,
 				    const char *name)
 {
-	struct max96717_priv *priv = ser_to_priv(ser_priv);
+	struct max96717_priv *priv = ser_to_priv(ser);
 	unsigned int index = max96717_pipe_id(priv, pipe);
 	int ret;
 
@@ -743,11 +743,11 @@ static int max96717_log_pipe_status(struct max_ser_priv *ser_priv,
 	return 0;
 }
 
-static int max96717_log_phy_status(struct max_ser_priv *ser_priv,
+static int max96717_log_phy_status(struct max_ser *ser,
 				   struct max_ser_phy *phy,
 				   const char *name)
 {
-	struct max96717_priv *priv = ser_to_priv(ser_priv);
+	struct max96717_priv *priv = ser_to_priv(ser);
 	int ret;
 
 	if (!priv->info->supports_pkt_cnt)
@@ -774,10 +774,10 @@ static int max96717_log_phy_status(struct max_ser_priv *ser_priv,
 	return 0;
 }
 
-static int max96717_init_phy(struct max_ser_priv *ser_priv,
+static int max96717_init_phy(struct max_ser *ser,
 			     struct max_ser_phy *phy)
 {
-	struct max96717_priv *priv = ser_to_priv(ser_priv);
+	struct max96717_priv *priv = ser_to_priv(ser);
 	unsigned int num_data_lanes = phy->mipi.num_data_lanes;
 	unsigned int index = max96717_phy_id(priv, phy);
 	unsigned int val, shift, mask;
@@ -860,11 +860,11 @@ static int max96717_init_pipe_stream_id(struct max96717_priv *priv,
 	return max96717_write(priv, 0x53 + 0x4 * index, pipe->stream_id);
 }
 
-static int max96717_init_pipe(struct max_ser_priv *ser_priv,
+static int max96717_init_pipe(struct max_ser *ser,
 			      struct max_ser_pipe *pipe)
 {
-	struct max_ser_phy *phy = max_ser_pipe_phy(ser_priv, pipe);
-	struct max96717_priv *priv = ser_to_priv(ser_priv);
+	struct max_ser_phy *phy = max_ser_pipe_phy(ser, pipe);
+	struct max96717_priv *priv = ser_to_priv(ser);
 	unsigned int index = max96717_pipe_id(priv, pipe);
 	unsigned int phy_id = max96717_phy_id(priv, phy);
 	unsigned int reg, val, shift, mask;
@@ -930,7 +930,7 @@ static int max96717_init_pipe(struct max_ser_priv *ser_priv,
 	if (ret)
 		return ret;
 
-	ret = max96717_set_pipe_enable(ser_priv, pipe, false);
+	ret = max96717_set_pipe_enable(ser, pipe, false);
 	if (ret)
 		return ret;
 
@@ -939,14 +939,14 @@ static int max96717_init_pipe(struct max_ser_priv *ser_priv,
 
 static int max96717_init_pipes_stream_ids(struct max96717_priv *priv)
 {
-	struct max_ser_priv *ser_priv = &priv->ser_priv;
+	struct max_ser *ser = &priv->ser;
 	unsigned int used_stream_ids = 0;
 	struct max_ser_pipe *pipe;
 	unsigned int i;
 	int ret;
 
-	for (i = 0; i < ser_priv->ops->num_pipes; i++) {
-		pipe = max_ser_pipe_by_id(ser_priv, i);
+	for (i = 0; i < ser->ops->num_pipes; i++) {
+		pipe = max_ser_pipe_by_id(ser, i);
 
 		if (!pipe->enabled)
 			continue;
@@ -959,8 +959,8 @@ static int max96717_init_pipes_stream_ids(struct max96717_priv *priv)
 		used_stream_ids |= BIT(pipe->stream_id);
 	}
 
-	for (i = 0; i < ser_priv->ops->num_pipes; i++) {
-		pipe = max_ser_pipe_by_id(ser_priv, i);
+	for (i = 0; i < ser->ops->num_pipes; i++) {
+		pipe = max_ser_pipe_by_id(ser, i);
 
 		if (pipe->enabled)
 			continue;
@@ -980,7 +980,7 @@ static int max96717_init_pipes_stream_ids(struct max96717_priv *priv)
 
 static int max96717_init_lane_config(struct max96717_priv *priv)
 {
-	struct max_ser_priv *ser_priv = &priv->ser_priv;
+	struct max_ser *ser = &priv->ser;
 	struct max_ser_phy *phy;
 	unsigned int i, j;
 	int ret;
@@ -989,7 +989,7 @@ static int max96717_init_lane_config(struct max96717_priv *priv)
 		bool matching = true;
 
 		for (j = 0; j < priv->info->num_phys; j++) {
-			phy = max_ser_phy_by_id(ser_priv, j);
+			phy = max_ser_phy_by_id(ser, j);
 
 			if (phy->enabled && phy->mipi.num_data_lanes !=
 			    priv->info->lane_configs[i][j]) {
@@ -1015,19 +1015,19 @@ static int max96717_init_lane_config(struct max96717_priv *priv)
 	return 0;
 }
 
-static int max96717_init_i2c_xlate(struct max_ser_priv *ser_priv)
+static int max96717_init_i2c_xlate(struct max_ser *ser)
 {
-	struct max96717_priv *priv = ser_to_priv(ser_priv);
+	struct max96717_priv *priv = ser_to_priv(ser);
 	unsigned int reg;
 	unsigned int i;
 	int ret;
 
-	for (i = 0; i < ser_priv->ops->num_i2c_xlates; i++) {
+	for (i = 0; i < ser->ops->num_i2c_xlates; i++) {
 		u8 src = 0, dst = 0;
 
-		if (i < ser_priv->num_i2c_xlates) {
-			src = ser_priv->i2c_xlates[i].src;
-			dst = ser_priv->i2c_xlates[i].dst;
+		if (i < ser->num_i2c_xlates) {
+			src = ser->i2c_xlates[i].src;
+			dst = ser->i2c_xlates[i].dst;
 		}
 
 		reg = 0x42 + 0x2 * i;
@@ -1044,9 +1044,9 @@ static int max96717_init_i2c_xlate(struct max_ser_priv *ser_priv)
 	return 0;
 }
 
-static int max96717_init(struct max_ser_priv *ser_priv)
+static int max96717_init(struct max_ser *ser)
 {
-	struct max96717_priv *priv = ser_to_priv(ser_priv);
+	struct max96717_priv *priv = ser_to_priv(ser);
 	unsigned int mask;
 	int ret;
 
@@ -1062,13 +1062,13 @@ static int max96717_init(struct max_ser_priv *ser_priv)
 		mask = BIT(7);
 
 		ret = max96717_update_bits(priv, 0x383, mask,
-					   ser_priv->tunnel_mode
+					   ser->tunnel_mode
 					   ? mask : 0x00);
 		if (ret)
 			return ret;
 
 		ret = max96717_update_bits(priv, 0x315, mask,
-					   ser_priv->tunnel_mode
+					   ser->tunnel_mode
 					   ? 0x00 : mask);
 		if (ret)
 			return ret;
@@ -1096,9 +1096,9 @@ static int max96717_init(struct max_ser_priv *ser_priv)
 	return 0;
 }
 
-static int max96717_post_init(struct max_ser_priv *ser_priv)
+static int max96717_post_init(struct max_ser *ser)
 {
-	struct max96717_priv *priv = ser_to_priv(ser_priv);
+	struct max96717_priv *priv = ser_to_priv(ser);
 	int ret;
 
 	ret = max96717_init_pipes_stream_ids(priv);
@@ -1182,11 +1182,7 @@ static int max96717_probe(struct i2c_client *client)
 	ops->num_pipes = priv->info->num_pipes;
 	ops->num_dts_per_pipe = priv->info->num_dts_per_pipe;
 	ops->num_phys = priv->info->num_phys;
-
-	priv->ser_priv.dev = dev;
-	priv->ser_priv.client = client;
-	priv->ser_priv.regmap = priv->regmap;
-	priv->ser_priv.ops = ops;
+	priv->ser.ops = ops;
 
 	ret = max96717_wait_for_device(priv);
 	if (ret)
@@ -1233,14 +1229,14 @@ static int max96717_probe(struct i2c_client *client)
 	if (ret)
 		return ret;
 
-	return max_ser_probe(&priv->ser_priv);
+	return max_ser_probe(client, &priv->ser);
 }
 
 static void max96717_remove(struct i2c_client *client)
 {
 	struct max96717_priv *priv = i2c_get_clientdata(client);
 
-	max_ser_remove(&priv->ser_priv);
+	max_ser_remove(&priv->ser);
 }
 
 static const struct max96717_chip_info max96717_info = {
