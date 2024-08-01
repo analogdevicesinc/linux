@@ -134,10 +134,4 @@ int max_des_probe(struct i2c_client *client, struct max_des *des);
 
 int max_des_remove(struct max_des *des);
 
-static inline struct max_des_phy *max_des_phy_by_id(struct max_des *des,
-						    unsigned int index)
-{
-	return &des->phys[index];
-}
-
 #endif // MAX_DES_H

@@ -214,7 +214,7 @@ static int max96724_init_lane_config(struct max96724_priv *priv)
 		bool matching = true;
 
 		for (j = 0; j < des->ops->num_phys; j++) {
-			phy = max_des_phy_by_id(des, j);
+			phy = &des->phys[j];
 
 			if (!phy->enabled)
 				continue;
