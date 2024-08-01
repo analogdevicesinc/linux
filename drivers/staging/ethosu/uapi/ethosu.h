@@ -62,6 +62,8 @@ namespace EthosU {
 						   struct ethosu_uapi_result_status)
 #define ETHOSU_IOCTL_INFERENCE_CANCEL   ETHOSU_IOR(0x32, \
 						   struct ethosu_uapi_cancel_inference_status)
+#define ETHOSU_IOCTL_INFERENCE_INVOKE   ETHOSU_IOR(0x33, \
+						   struct ethosu_uapi_result_status)
 
 /* Maximum number of IFM/OFM file descriptors per network */
 #define ETHOSU_FD_MAX                   16
@@ -126,7 +128,7 @@ enum ethosu_uapi_network_type {
  * @index:	Buffer index compiled into firmware binary.
  */
 struct ethosu_uapi_network_create {
-	u32 type;
+	__u32 type;
 	union {
 		__u32 fd;
 		__u32 index;
@@ -243,6 +245,28 @@ enum ethosu_uapi_inference_type {
 };
 
 /**
+ * struct ethosu_uapi_memory_layout - The memory layout of arena buffer
+ * @flash_offset:       The flash offset in the buffer
+ * @arena_offset:       The arena offset in the buffer
+ * @input_count:        Number of inputs
+ * @input_offset:       The inputs offset in the buffer
+ * @input_size:         The inputs size
+ * @output_count:       Number of outputs
+ * @output_offset:      The outputs offset in the buffer
+ * @output_size:        The outputs size
+ */
+struct ethosu_uapi_memory_layout {
+	__u32			flash_offset;
+	__u32			arena_offset;
+	__u32			input_count;
+	__u32			input_offset[ETHOSU_FD_MAX];
+	__u32			input_size[ETHOSU_FD_MAX];
+	__u32			output_count;
+	__u32			output_offset[ETHOSU_FD_MAX];
+	__u32			output_size[ETHOSU_FD_MAX];
+};
+
+/**
  * struct ethosu_uapi_inference_create - Create network request
  * @ifm_count:		Number of IFM file descriptors
  * @ifm_fd:		IFM buffer file descriptors
@@ -254,6 +278,7 @@ struct ethosu_uapi_inference_create {
 	__u32                         ifm_fd[ETHOSU_FD_MAX];
 	__u32                         ofm_count;
 	__u32                         ofm_fd[ETHOSU_FD_MAX];
+	struct ethosu_uapi_memory_layout memory_layout;
 	enum ethosu_uapi_inference_type inference_type;
 	struct ethosu_uapi_pmu_config pmu_config;
 };

@@ -89,6 +89,8 @@ int ethosu_rpmsg_inference(struct ethosu_rpmsg *erp,
 			   uint8_t *pmu_event_config,
 			   uint8_t pmu_event_config_count,
 			   uint8_t pmu_cycle_counter_enable,
+			   u32 flash_offset,
+			   u32 arena_offset,
 			   uint32_t inference_type
 			   );
 

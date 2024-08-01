@@ -28,6 +28,10 @@
 #include <linux/kref.h>
 #include <linux/types.h>
 
+#include <linux/mm.h>
+#include <linux/dma-direct.h>
+#include <linux/dma-mapping.h>
+#include <linux/dma-map-ops.h>
 /****************************************************************************
  * Types
  ****************************************************************************/

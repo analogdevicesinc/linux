@@ -95,6 +95,15 @@ static int ethosu_inference_send(struct ethosu_inference *inf)
 	int ret;
 
 	inf->status = ETHOSU_UAPI_STATUS_ERROR;
+	inf->done = false;
+
+	/* Get pointer to arena buffer, sync the input data */
+	phys_addr_t paddr = dma_to_phys(inf->edev->dev, inf->ifm[0]->dma_addr_orig);
+
+	for (int i = 0; i < inf->memory_layout.input_count; i++) {
+		arch_sync_dma_for_device(paddr + inf->memory_layout.input_offset[i],
+					 inf->memory_layout.input_size[i], DMA_TO_DEVICE);
+	}
 
 	ret = ethosu_rpmsg_inference(&inf->edev->erp, &inf->msg,
 				     inf->ifm_count, inf->ifm,
@@ -104,6 +113,8 @@ static int ethosu_inference_send(struct ethosu_inference *inf)
 				     inf->pmu_event_config,
 				     ETHOSU_PMU_EVENT_MAX,
 				     inf->pmu_cycle_counter_enable,
+				     inf->memory_layout.flash_offset,
+				     inf->memory_layout.arena_offset,
 				     inf->inference_type);
 	if (ret) {
 		dev_warn(inf->edev->dev,
@@ -221,8 +232,23 @@ static unsigned int ethosu_inference_poll(struct file *file,
 
 	poll_wait(file, &inf->waitq, wait);
 
-	if (inf->done)
+	if (inf->done) {
 		ret |= POLLIN;
+
+		/* Get pointer to arena buffer, sync the output data */
+		phys_addr_t paddr = dma_to_phys(inf->edev->dev, inf->ifm[0]->dma_addr_orig);
+
+		for (int i = 0; i < inf->memory_layout.output_count; i++) {
+			arch_sync_dma_for_cpu(paddr + inf->memory_layout.output_offset[i],
+					      inf->memory_layout.output_size[i], DMA_FROM_DEVICE);
+		}
+
+		/* Get pointer to OFM buffer, sync the PMU data */
+		for (int i = 0; i < inf->ofm_count; i++) {
+			paddr = dma_to_phys(inf->edev->dev, inf->ofm[i]->dma_addr_orig);
+			arch_sync_dma_for_cpu(paddr, inf->ofm[i]->capacity, DMA_FROM_DEVICE);
+		}
+	}
 
 	return ret;
 }
@@ -266,6 +292,16 @@ static long ethosu_inference_ioctl(struct file *file,
 
 		ret = copy_to_user(udata, &uapi, sizeof(uapi)) ? -EFAULT : 0;
 
+		break;
+	}
+	case ETHOSU_IOCTL_INFERENCE_INVOKE: {
+		struct ethosu_uapi_result_status uapi;
+
+		ret = copy_from_user(&uapi, udata, sizeof(uapi));
+		if (ret)
+			break;
+		/* Send inference request to Arm Ethos-U subsystem */
+		ret = ethosu_inference_send(inf);
 		break;
 	}
 	case ETHOSU_IOCTL_INFERENCE_CANCEL: {
@@ -337,12 +373,17 @@ int ethosu_inference_create(struct ethosu_device *edev,
 	init_waitqueue_head(&inf->waitq);
 	inf->msg.fail = ethosu_inference_fail;
 	inf->msg.resend = ethosu_inference_resend;
+	inf->memory_layout = uapi->memory_layout;
 
 	/* Add inference to pending list */
 	ret = ethosu_rpmsg_register(&edev->erp, &inf->msg);
 	if (ret < 0)
 		goto kfree;
 
+	phys_addr_t paddr;
+
+	paddr = dma_to_phys(edev->dev, inf->net->buf->dma_addr_orig);
+	arch_sync_dma_for_device(paddr, inf->net->buf->capacity, DMA_TO_DEVICE);
 	/* Get pointer to IFM buffers */
 	for (i = 0; i < uapi->ifm_count; i++) {
 		inf->ifm[i] = ethosu_buffer_get_from_fd(uapi->ifm_fd[i]);
@@ -352,6 +393,8 @@ int ethosu_inference_create(struct ethosu_device *edev,
 		}
 
 		inf->ifm_count++;
+		paddr = dma_to_phys(edev->dev, inf->ifm[i]->dma_addr_orig);
+		arch_sync_dma_for_device(paddr, inf->ifm[i]->capacity, DMA_TO_DEVICE);
 	}
 
 	/* Get pointer to OFM buffer */
@@ -386,11 +429,6 @@ int ethosu_inference_create(struct ethosu_device *edev,
 
 	/* Increment network reference count */
 	ethosu_network_get(net);
-
-	/* Send inference request to Arm Ethos-U subsystem */
-	ret = ethosu_inference_send(inf);
-	if (ret)
-		goto put_net;
 
 	/* Create file descriptor */
 	ret = fd = anon_inode_getfd("ethosu-inference", &ethosu_inference_fops,

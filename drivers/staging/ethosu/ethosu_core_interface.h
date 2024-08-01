@@ -138,6 +138,8 @@ struct ethosu_core_inference_req {
 	struct ethosu_core_network_buffer network;
 	uint8_t                   pmu_event_config[ETHOSU_CORE_PMU_MAX];
 	uint32_t                  pmu_cycle_counter_enable;
+	u32			  arena_offset;
+	u32			  flash_offset;
 	uint32_t                  inference_type;
 };
 

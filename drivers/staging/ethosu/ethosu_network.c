@@ -168,6 +168,11 @@ int ethosu_network_create(struct ethosu_device *edev,
 			ret = PTR_ERR(net->buf);
 			goto free_net;
 		}
+
+		phys_addr_t paddr;
+
+		paddr = dma_to_phys(edev->dev, net->buf->dma_addr_orig);
+		arch_sync_dma_for_device(paddr, net->buf->capacity, DMA_TO_DEVICE);
 	} else {
 		net->index = uapi->index;
 	}

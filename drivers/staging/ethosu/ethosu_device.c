@@ -34,6 +34,7 @@
 #include "uapi/ethosu.h"
 
 #include <linux/dma-mapping.h>
+#include <linux/dma-map-ops.h>
 #include <linux/errno.h>
 #include <linux/fs.h>
 #include <linux/interrupt.h>
@@ -355,6 +356,7 @@ int ethosu_dev_init(struct ethosu_device *edev,
 		return ret;
 
 	dma_set_mask_and_coherent(edev->dev, DMA_BIT_MASK(DMA_ADDR_BITS));
+	arch_setup_dma_ops(edev->dev, true);
 
 	ret = ethosu_rpmsg_init(&edev->erp, ethosu_rpmsg_rx, edev);
 	if (ret)

@@ -77,6 +77,7 @@ struct ethosu_inference {
 	uint32_t                pmu_cycle_counter_enable;
 	uint64_t                pmu_cycle_counter_count;
 	uint32_t                inference_type;
+	struct ethosu_uapi_memory_layout memory_layout;
 	struct ethosu_rpmsg_msg msg;
 };
 

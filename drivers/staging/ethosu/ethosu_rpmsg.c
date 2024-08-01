@@ -201,6 +201,8 @@ int ethosu_rpmsg_inference(struct ethosu_rpmsg *erp,
 			   uint8_t *pmu_event_config,
 			   uint8_t pmu_event_config_count,
 			   uint8_t pmu_cycle_counter_enable,
+			   u32 flash_offset,
+			   u32 arena_offset,
 			   uint32_t inference_type)
 {
 	struct ethosu_core_msg msg = {
@@ -227,6 +229,8 @@ int ethosu_rpmsg_inference(struct ethosu_rpmsg *erp,
 	req.ofm_count = ofm_count;
 	req.pmu_cycle_counter_enable = pmu_cycle_counter_enable;
 	req.inference_type = inference_type;
+	req.flash_offset = flash_offset;
+	req.arena_offset = arena_offset;
 
 	for (i = 0; i < ifm_count; i++)
 		ethosu_core_set_size(ifm[i], &req.ifm[i]);
