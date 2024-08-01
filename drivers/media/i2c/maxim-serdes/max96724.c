@@ -16,7 +16,7 @@
 #define MAX96724_PHY1_ALT_CLOCK		5
 
 struct max96724_priv {
-	struct max_des_priv des_priv;
+	struct max_des des;
 
 	struct device *dev;
 	struct i2c_client *client;
@@ -24,7 +24,7 @@ struct max96724_priv {
 };
 
 #define des_to_priv(des) \
-	container_of(des, struct max96724_priv, des_priv)
+	container_of(des, struct max96724_priv, des)
 
 static int max96724_read(struct max96724_priv *priv, int reg)
 {
@@ -104,10 +104,10 @@ static int max96724_reset(struct max96724_priv *priv)
 	return 0;
 }
 
-static int max96724_log_pipe_status(struct max_des_priv *des_priv,
+static int max96724_log_pipe_status(struct max_des *des,
 				    struct max_des_pipe *pipe, const char *name)
 {
-	struct max96724_priv *priv = des_to_priv(des_priv);
+	struct max96724_priv *priv = des_to_priv(des);
 	unsigned int index = pipe->index;
 	unsigned int reg, mask;
 	int ret;
@@ -124,10 +124,10 @@ static int max96724_log_pipe_status(struct max_des_priv *des_priv,
 	return 0;
 }
 
-static int max96724_log_phy_status(struct max_des_priv *des_priv,
+static int max96724_log_phy_status(struct max_des *des,
 				   struct max_des_phy *phy, const char *name)
 {
-	struct max96724_priv *priv = des_to_priv(des_priv);
+	struct max96724_priv *priv = des_to_priv(des);
 	unsigned int index = phy->index;
 	unsigned int reg, mask, shift;
 	int ret;
@@ -153,9 +153,9 @@ static int max96724_log_phy_status(struct max_des_priv *des_priv,
 	return 0;
 }
 
-static int max96724_mipi_enable(struct max_des_priv *des_priv, bool enable)
+static int max96724_mipi_enable(struct max_des *des, bool enable)
 {
-	struct max96724_priv *priv = des_to_priv(des_priv);
+	struct max96724_priv *priv = des_to_priv(des);
 	int ret;
 
 	if (enable) {
@@ -205,7 +205,7 @@ static const struct max96724_lane_config max96724_lane_configs[] = {
 static int max96724_init_lane_config(struct max96724_priv *priv)
 {
 	unsigned int num_lane_configs = ARRAY_SIZE(max96724_lane_configs);
-	struct max_des_priv *des_priv = &priv->des_priv;
+	struct max_des *des = &priv->des;
 	struct max_des_phy *phy;
 	unsigned int i, j;
 	int ret;
@@ -213,8 +213,8 @@ static int max96724_init_lane_config(struct max96724_priv *priv)
 	for (i = 0; i < num_lane_configs; i++) {
 		bool matching = true;
 
-		for (j = 0; j < des_priv->ops->num_phys; j++) {
-			phy = max_des_phy_by_id(des_priv, j);
+		for (j = 0; j < des->ops->num_phys; j++) {
+			phy = max_des_phy_by_id(des, j);
 
 			if (!phy->enabled)
 				continue;
@@ -244,9 +244,9 @@ static int max96724_init_lane_config(struct max96724_priv *priv)
 	return 0;
 }
 
-static int max96724_init(struct max_des_priv *des_priv)
+static int max96724_init(struct max_des *des)
 {
-	struct max96724_priv *priv = des_to_priv(des_priv);
+	struct max96724_priv *priv = des_to_priv(des);
 	int ret;
 
 	/* Disable all PHYs. */
@@ -255,7 +255,7 @@ static int max96724_init(struct max_des_priv *des_priv)
 		return ret;
 
 	ret = max96724_update_bits(priv, 0xf4, BIT(4),
-				   des_priv->pipe_stream_autoselect
+				   des->pipe_stream_autoselect
 				   ? BIT(4) : 0x00);
 	if (ret)
 		return ret;
@@ -272,10 +272,10 @@ static int max96724_init(struct max_des_priv *des_priv)
 	return 0;
 }
 
-static int max96724_init_phy(struct max_des_priv *des_priv,
+static int max96724_init_phy(struct max_des *des,
 			     struct max_des_phy *phy)
 {
-	struct max96724_priv *priv = des_to_priv(des_priv);
+	struct max96724_priv *priv = des_to_priv(des);
 	unsigned int num_data_lanes = phy->mipi.num_data_lanes;
 	unsigned int dpll_freq = phy->link_frequency * 2;
 	unsigned int num_hw_data_lanes;
@@ -465,10 +465,10 @@ static int max96724_init_pipe_remap(struct max96724_priv *priv,
 	return 0;
 }
 
-static int max96724_update_pipe_remaps(struct max_des_priv *des_priv,
+static int max96724_update_pipe_remaps(struct max_des *des,
 				       struct max_des_pipe *pipe)
 {
-	struct max96724_priv *priv = des_to_priv(des_priv);
+	struct max96724_priv *priv = des_to_priv(des);
 	unsigned int i;
 	int ret;
 
@@ -483,10 +483,10 @@ static int max96724_update_pipe_remaps(struct max_des_priv *des_priv,
 	return 0;
 }
 
-static int max96724_init_pipe(struct max_des_priv *des_priv,
+static int max96724_init_pipe(struct max_des *des,
 			      struct max_des_pipe *pipe)
 {
-	struct max96724_priv *priv = des_to_priv(des_priv);
+	struct max96724_priv *priv = des_to_priv(des);
 	unsigned int index = pipe->index;
 	unsigned int reg, shift, mask;
 	int ret;
@@ -510,7 +510,7 @@ static int max96724_init_pipe(struct max_des_priv *des_priv,
 	if (ret)
 		return ret;
 
-	if (!des_priv->pipe_stream_autoselect) {
+	if (!des->pipe_stream_autoselect) {
 		/* Set source stream. */
 		reg = 0xf0 + index / 2;
 		shift = 4 * (index % 2);
@@ -569,10 +569,10 @@ static int max96724_init_pipe(struct max_des_priv *des_priv,
 	return 0;
 }
 
-static int max96724_select_links(struct max_des_priv *des_priv,
+static int max96724_select_links(struct max_des *des,
 				 unsigned int mask)
 {
-	struct max96724_priv *priv = des_to_priv(des_priv);
+	struct max96724_priv *priv = des_to_priv(des);
 	int ret;
 
 	ret = max96724_update_bits(priv, 0x6, GENMASK(3, 0), mask);
@@ -619,23 +619,20 @@ static int max96724_probe(struct i2c_client *client)
 	if (IS_ERR(priv->regmap))
 		return PTR_ERR(priv->regmap);
 
-	priv->des_priv.dev = dev;
-	priv->des_priv.client = client;
-	priv->des_priv.regmap = priv->regmap;
-	priv->des_priv.ops = &max96724_ops;
+	priv->des.ops = &max96724_ops;
 
 	ret = max96724_reset(priv);
 	if (ret)
 		return ret;
 
-	return max_des_probe(&priv->des_priv);
+	return max_des_probe(client, &priv->des);
 }
 
 static void max96724_remove(struct i2c_client *client)
 {
 	struct max96724_priv *priv = i2c_get_clientdata(client);
 
-	max_des_remove(&priv->des_priv);
+	max_des_remove(&priv->des);
 }
 
 static const struct of_device_id max96724_of_table[] = {

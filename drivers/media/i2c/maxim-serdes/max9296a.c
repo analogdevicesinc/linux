@@ -17,7 +17,7 @@
 #define MAX9296A_PIPES_NUM		4
 
 struct max9296a_priv {
-	struct max_des_priv des_priv;
+	struct max_des des;
 	const struct max9296a_chip_info *info;
 
 	struct device *dev;
@@ -37,7 +37,7 @@ struct max9296a_chip_info {
 };
 
 #define des_to_priv(des) \
-	container_of(des, struct max9296a_priv, des_priv)
+	container_of(des, struct max9296a_priv, des)
 
 static int max9296a_read(struct max9296a_priv *priv, int reg)
 {
@@ -121,9 +121,9 @@ static unsigned int max9296a_pipe_id(struct max9296a_priv *priv,
 	return priv->info->pipe_hw_ids[pipe->index];
 }
 
-static int max9296a_mipi_enable(struct max_des_priv *des_priv, bool enable)
+static int max9296a_mipi_enable(struct max_des *des, bool enable)
 {
-	struct max9296a_priv *priv = des_to_priv(des_priv);
+	struct max9296a_priv *priv = des_to_priv(des);
 	int ret;
 
 	if (enable) {
@@ -147,9 +147,9 @@ static int max9296a_mipi_enable(struct max_des_priv *des_priv, bool enable)
 	return 0;
 }
 
-static int max9296a_init(struct max_des_priv *des_priv)
+static int max9296a_init(struct max_des *des)
 {
-	struct max9296a_priv *priv = des_to_priv(des_priv);
+	struct max9296a_priv *priv = des_to_priv(des);
 	int ret;
 
 	/* Disable all PHYs. */
@@ -176,10 +176,10 @@ static int max9296a_init(struct max_des_priv *des_priv)
 	return 0;
 }
 
-static int max9296a_init_phy(struct max_des_priv *des_priv,
+static int max9296a_init_phy(struct max_des *des,
 			     struct max_des_phy *phy)
 {
-	struct max9296a_priv *priv = des_to_priv(des_priv);
+	struct max9296a_priv *priv = des_to_priv(des);
 	unsigned int num_data_lanes = phy->mipi.num_data_lanes;
 	unsigned int dpll_freq = phy->link_frequency * 2;
 	unsigned int master_phy, slave_phy;
@@ -478,10 +478,10 @@ static int max9296a_init_pipe_remap(struct max9296a_priv *priv,
 	return 0;
 }
 
-static int max9296a_update_pipe_remaps(struct max_des_priv *des_priv,
+static int max9296a_update_pipe_remaps(struct max_des *des,
 				       struct max_des_pipe *pipe)
 {
-	struct max9296a_priv *priv = des_to_priv(des_priv);
+	struct max9296a_priv *priv = des_to_priv(des);
 	unsigned int i;
 	int ret;
 
@@ -496,10 +496,10 @@ static int max9296a_update_pipe_remaps(struct max_des_priv *des_priv,
 	return 0;
 }
 
-static int max9296a_init_pipe(struct max_des_priv *des_priv,
+static int max9296a_init_pipe(struct max_des *des,
 			      struct max_des_pipe *pipe)
 {
-	struct max9296a_priv *priv = des_to_priv(des_priv);
+	struct max9296a_priv *priv = des_to_priv(des);
 	unsigned int index = max9296a_pipe_id(priv, pipe);
 	unsigned int reg, mask;
 	int ret;
@@ -529,10 +529,10 @@ static int max9296a_init_pipe(struct max_des_priv *des_priv,
 	return 0;
 }
 
-static int max9296a_init_link(struct max_des_priv *des_priv,
+static int max9296a_init_link(struct max_des *des,
 			      struct max_des_link *link)
 {
-	struct max9296a_priv *priv = des_to_priv(des_priv);
+	struct max9296a_priv *priv = des_to_priv(des);
 	unsigned int index = link->index;
 	unsigned int mask;
 	int ret;
@@ -577,10 +577,10 @@ static int max9296a_init_link(struct max_des_priv *des_priv,
 	return 0;
 }
 
-static int max9296a_select_links(struct max_des_priv *des_priv,
+static int max9296a_select_links(struct max_des *des,
 				 unsigned int mask)
 {
-	struct max9296a_priv *priv = des_to_priv(des_priv);
+	struct max9296a_priv *priv = des_to_priv(des);
 
 	if (!mask) {
 		dev_err(priv->dev, "Disable all links unsupported\n");
@@ -638,24 +638,20 @@ static int max9296a_probe(struct i2c_client *client)
 	ops->num_pipes = priv->info->num_pipes;
 	ops->num_links = priv->info->num_links;
 	ops->supports_tunnel_mode = priv->info->supports_tunnel_mode;
-
-	priv->des_priv.dev = dev;
-	priv->des_priv.client = client;
-	priv->des_priv.regmap = priv->regmap;
-	priv->des_priv.ops = ops;
+	priv->des.ops = ops;
 
 	ret = max9296a_reset(priv);
 	if (ret)
 		return ret;
 
-	return max_des_probe(&priv->des_priv);
+	return max_des_probe(client, &priv->des);
 }
 
 static void max9296a_remove(struct i2c_client *client)
 {
 	struct max9296a_priv *priv = i2c_get_clientdata(client);
 
-	max_des_remove(&priv->des_priv);
+	max_des_remove(&priv->des);
 }
 
 static const struct max9296a_chip_info max9296a_info = {

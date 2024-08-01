@@ -89,6 +89,8 @@ struct max_des_phy {
 	bool enabled;
 };
 
+struct max_des;
+
 struct max_des_ops {
 	unsigned int num_phys;
 	unsigned int num_pipes;
@@ -98,49 +100,44 @@ struct max_des_ops {
 	bool supports_pipe_stream_autoselect;
 	bool supports_tunnel_mode;
 
-	int (*log_status)(struct max_des_priv *priv, const char *name);
-	int (*log_pipe_status)(struct max_des_priv *priv, struct max_des_pipe *pipe,
+	int (*log_status)(struct max_des *des, const char *name);
+	int (*log_pipe_status)(struct max_des *des, struct max_des_pipe *pipe,
 			       const char *name);
-	int (*log_phy_status)(struct max_des_priv *priv, struct max_des_phy *phy,
+	int (*log_phy_status)(struct max_des *des, struct max_des_phy *phy,
 			      const char *name);
-	int (*mipi_enable)(struct max_des_priv *priv, bool enable);
-	int (*init)(struct max_des_priv *priv);
-	int (*init_phy)(struct max_des_priv *priv, struct max_des_phy *phy);
-	int (*init_pipe)(struct max_des_priv *priv, struct max_des_pipe *pipe);
-	int (*init_link)(struct max_des_priv *priv, struct max_des_link *link);
-	int (*update_pipe_remaps)(struct max_des_priv *priv, struct max_des_pipe *pipe);
-	int (*select_links)(struct max_des_priv *priv, unsigned int mask);
-	int (*post_init)(struct max_des_priv *priv);
+	int (*mipi_enable)(struct max_des *des, bool enable);
+	int (*init)(struct max_des *des);
+	int (*init_phy)(struct max_des *des, struct max_des_phy *phy);
+	int (*init_pipe)(struct max_des *des, struct max_des_pipe *pipe);
+	int (*init_link)(struct max_des *des, struct max_des_link *link);
+	int (*update_pipe_remaps)(struct max_des *des, struct max_des_pipe *pipe);
+	int (*select_links)(struct max_des *des, unsigned int mask);
+	int (*post_init)(struct max_des *des);
 };
 
-struct max_des_priv {
+struct max_des_priv;
+
+struct max_des {
+	struct max_des_priv *priv;
+
 	const struct max_des_ops *ops;
 
-	struct device *dev;
-	struct i2c_client *client;
-	struct regmap *regmap;
-
-	struct i2c_atr *atr;
-
-	unsigned int num_subdevs;
-	struct mutex lock;
-	bool active;
-
-	bool pipe_stream_autoselect;
 	struct max_des_phy *phys;
 	struct max_des_pipe *pipes;
 	struct max_des_link *links;
-	struct max_des_subdev_priv *sd_privs;
+
+	bool pipe_stream_autoselect;
+	bool active;
 };
 
-int max_des_probe(struct max_des_priv *priv);
+int max_des_probe(struct i2c_client *client, struct max_des *des);
 
-int max_des_remove(struct max_des_priv *priv);
+int max_des_remove(struct max_des *des);
 
-static inline struct max_des_phy *max_des_phy_by_id(struct max_des_priv *priv,
+static inline struct max_des_phy *max_des_phy_by_id(struct max_des *des,
 						    unsigned int index)
 {
-	return &priv->phys[index];
+	return &des->phys[index];
 }
 
 #endif // MAX_DES_H
