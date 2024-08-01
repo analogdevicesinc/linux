@@ -39,20 +39,31 @@ properties:
     items:
       - const: ref_in
 
-  ce-en-gpios:
+  chip-enable-gpios:
     description:
-      Gpio that controls the Chip Enable Pin.
+      GPIO that controls the Chip Enable Pin.
     maxItems: 1
 
-  enclk1-gpios:
+  clk1-enable-gpios:
     description:
-      Gpio that controls the Enable Clock 1 Output Buffer Pin.
+      GPIO that controls the Enable Clock 1 Output Buffer Pin.
     maxItems: 1
 
-  enclk2-gpios:
+  clk2-enable-gpios:
     description:
-      Gpio that controls the Enable Clock 2 Output Buffer Pin.
+      GPIO that controls the Enable Clock 2 Output Buffer Pin.
     maxItems: 1
+
+  adi,muxout-select:
+    description:
+      On chip multiplexer output selection.
+      high_z - MUXOUT Pin set to high-Z.
+      lock_detect - MUXOUT Pin set to lock detector output.
+      muxout_low - MUXOUT Pin set to low.
+      f_div_rclk_2 - MUXOUT Pin set to fDIV_RCLK/2.
+      f_div_nclk_2 - MUXOUT Pin set to fDIV_NCLK/2.
+      muxout_high - MUXOUT Pin set to high.
+    enum: [high_z, lock_detect, muxout_low, f_div_rclk_2, f_div_nclk_2, muxout_high]
 
 required:
   - compatible
@@ -60,7 +71,10 @@ required:
   - clocks
   - clock-names
 
-additionalProperties: false
+allOf:
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
+unevaluatedProperties: false
 
 examples:
   - |
