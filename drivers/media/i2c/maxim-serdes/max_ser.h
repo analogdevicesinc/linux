@@ -129,12 +129,4 @@ static inline struct max_ser_phy *max_ser_pipe_phy(struct max_ser_priv *priv,
 	return max_ser_phy_by_id(priv, pipe->phy_id);
 }
 
-static inline struct max_ser_phy *max_ser_phy_by_pipe_id(struct max_ser_priv *priv,
-							 unsigned int index)
-{
-	struct max_ser_pipe *pipe = max_ser_pipe_by_id(priv, index);
-
-	return max_ser_pipe_phy(priv, pipe);
-}
-
 #endif // MAX_SER_H
