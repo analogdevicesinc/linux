@@ -10,9 +10,29 @@ config VIDEO_MAXIM_SERDES
 	  To compile this driver as a module, choose M here: the
 	  module will be called max_serdes.
 
+config VIDEO_MAXIM_SER
+	tristate "Maxim GMSL2 Serializer support"
+	select VIDEO_MAXIM_SERDES
+	help
+	  This driver supports the Maxim GMSL2 common Serializer
+	  framework.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called max_ser.
+
+config VIDEO_MAXIM_DES
+	tristate "Maxim GMSL2 Deserializer support"
+	select VIDEO_MAXIM_SERDES
+	help
+	  This driver supports the Maxim GMSL2 common Deserializer
+	  framework.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called max_des.
+
 config VIDEO_MAX96717
 	tristate "Maxim MAX96717 GMSL2 Serializer support"
-	select VIDEO_MAXIM_SERDES
+	select VIDEO_MAXIM_SER
 	select GENERIC_PINCONF
 	select GENERIC_PINCTRL_GROUPS
 	select GENERIC_PINMUX_FUNCTIONS
@@ -25,7 +45,7 @@ config VIDEO_MAX96717
 
 config VIDEO_MAX96724
 	tristate "Maxim MAX96712 Quad GMSL2 Deserializer support"
-	select VIDEO_MAXIM_SERDES
+	select VIDEO_MAXIM_DES
 	help
 	  This driver supports the Maxim MAX96724 Quad GMSL2 Deserializer.
 
@@ -34,7 +54,7 @@ config VIDEO_MAX96724
 
 config VIDEO_MAX9296A
 	tristate "Maxim MAX9296A Quad GMSL2 Deserializer support"
-	select VIDEO_MAXIM_SERDES
+	select VIDEO_MAXIM_DES
 	help
 	  This driver supports the Maxim MAX9296A Quad GMSL2 Deserializer.
 
