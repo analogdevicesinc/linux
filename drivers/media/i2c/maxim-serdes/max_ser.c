@@ -69,13 +69,6 @@ static inline struct max_ser_subdev_priv *sd_to_max_ser(struct v4l2_subdev *sd)
 	return container_of(sd, struct max_ser_subdev_priv, sd);
 }
 
-static inline struct max_ser_pipe *max_ser_ch_pipe(struct max_ser_subdev_priv *sd_priv)
-{
-	struct max_ser_priv *priv = sd_priv->priv;
-
-	return max_ser_pipe_by_id(priv->ser, sd_priv->pipe_id);
-}
-
 static int max_ser_i2c_atr_attach_client(struct i2c_atr *atr, u32 chan_id,
 					 const struct i2c_client *client, u16 alias)
 {
@@ -235,7 +228,8 @@ static int max_ser_update_pipe_active(struct max_ser_priv *priv,
 static int max_ser_ch_enable(struct max_ser_subdev_priv *sd_priv, bool enable)
 {
 	struct max_ser_priv *priv = sd_priv->priv;
-	struct max_ser_pipe *pipe = max_ser_ch_pipe(sd_priv);
+	struct max_ser *ser = priv->ser;
+	struct max_ser_pipe *pipe = &ser->pipes[sd_priv->pipe_id];
 	int ret = 0;
 
 	mutex_lock(&priv->lock);
@@ -688,8 +682,8 @@ static int max_ser_parse_sink_dt_endpoint(struct max_ser_subdev_priv *sd_priv,
 {
 	struct max_ser_priv *priv = sd_priv->priv;
 	struct max_ser *ser = priv->ser;
-	struct max_ser_pipe *pipe = max_ser_ch_pipe(sd_priv);
-	struct max_ser_phy *phy = max_ser_pipe_phy(ser, pipe);
+	struct max_ser_pipe *pipe = &ser->pipes[sd_priv->pipe_id];
+	struct max_ser_phy *phy = &ser->phys[pipe->phy_id];
 	struct v4l2_fwnode_endpoint v4l2_ep = {
 		.bus_type = V4L2_MBUS_CSI2_DPHY
 	};

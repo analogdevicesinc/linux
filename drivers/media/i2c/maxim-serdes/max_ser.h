@@ -87,22 +87,4 @@ int max_ser_probe(struct i2c_client *client, struct max_ser *ser);
 
 int max_ser_remove(struct max_ser *ser);
 
-static inline struct max_ser_pipe *max_ser_pipe_by_id(struct max_ser *ser,
-						      unsigned int index)
-{
-	return &ser->pipes[index];
-}
-
-static inline struct max_ser_phy *max_ser_phy_by_id(struct max_ser *ser,
-						    unsigned int index)
-{
-	return &ser->phys[index];
-}
-
-static inline struct max_ser_phy *max_ser_pipe_phy(struct max_ser *ser,
-						   struct max_ser_pipe *pipe)
-{
-	return max_ser_phy_by_id(ser, pipe->phy_id);
-}
-
 #endif // MAX_SER_H
