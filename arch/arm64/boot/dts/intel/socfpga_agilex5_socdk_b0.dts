@@ -43,6 +43,10 @@
 	status = "okay";
 };
 
+&gpio1 {
+	status = "okay";
+};
+
 &gmac0 {
 	status = "disabled";
 	phy-mode = "rgmii-id";
