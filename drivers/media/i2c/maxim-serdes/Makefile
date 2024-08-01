@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0
-max_serdes-objs := max_serdes_core.o
+max_serdes-objs := max_serdes_core.o max_ser_common.o
 
 obj-$(CONFIG_VIDEO_MAXIM_SERDES) += max_serdes.o
 obj-$(CONFIG_VIDEO_MAXIM_SER) += max_ser.o

@@ -13,7 +13,7 @@
 #include <media/mipi-csi2.h>
 
 #include "max_des.h"
-#include "max_ser.h"
+#include "max_ser_common.h"
 #include "max_serdes.h"
 
 #define MAX_DES_LINK_FREQUENCY_MIN		100000000ull

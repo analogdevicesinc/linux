@@ -11,6 +11,7 @@
 #include <linux/pinctrl/pinconf.h>
 #include <linux/pinctrl/pinconf-generic.h>
 
+#include "max_ser_common.h"
 #include "max_ser.h"
 #include "max_serdes.h"
 

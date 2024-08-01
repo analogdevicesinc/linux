@@ -19,11 +19,6 @@
 #define MAX_SER_SINK_PAD	1
 #define MAX_SER_PAD_NUM		2
 
-#define MAX_SER_MAX96717_DEV_ID			0xbf
-#define MAX_SER_MAX9265A_DEV_ID			0x91
-
-extern const struct regmap_config max_ser_i2c_regmap;
-
 struct max_ser_subdev_priv {
 	struct v4l2_subdev sd;
 	unsigned int index;
@@ -110,15 +105,6 @@ struct max_ser_priv {
 int max_ser_probe(struct max_ser_priv *priv);
 
 int max_ser_remove(struct max_ser_priv *priv);
-
-int max_ser_reset(struct regmap *regmap);
-
-int max_ser_wait(struct i2c_client *client, struct regmap *regmap, u8 addr);
-int max_ser_wait_for_multiple(struct i2c_client *client, struct regmap *regmap,
-			      u8 *addrs, unsigned int num_addrs);
-
-int max_ser_change_address(struct i2c_client *client, struct regmap *regmap, u8 addr,
-			   bool fix_tx_ids);
 
 static inline struct max_ser_pipe *max_ser_pipe_by_id(struct max_ser_priv *priv,
 						      unsigned int index)
