@@ -985,10 +985,30 @@ static const unsigned int ad4170_reg_size[] = {
 	[AD4170_ERROR_EN_REG]	= 2,
 	[AD4170_ERROR_REG]	= 2,
 	[AD4170_CHANNEL_EN_REG]	= 2,
-	[AD4170_CHANNEL_SETUP_X_REG(0) ... AD4170_CHANNEL_SETUP_X_REG(AD4170_NUM_CHANNELS - 1)]	= 2,
-	[AD4170_CHANNEL_MAP_X_REG(0) ... AD4170_CHANNEL_MAP_X_REG(AD4170_NUM_CHANNELS - 1)]	= 2,
-	[AD4170_MISC_X_REG(0) ... AD4170_MISC_X_REG(AD4170_NUM_SETUPS - 1)]	= 2,
-	//[AD4170_AFE_X_REG(0) ... AD4170_AFE_X_REG(AD4170_NUM_SETUPS - 1)]	= 2,
+	/*
+	 * CHANNEL_SETUP and CHANNEL_MAP register are all 2 byte size each and
+	 * their addresses are interleaved such that we have CHANNEL_SETUP0
+	 * address followed by CHANNEL_MAP0 address, followed by CHANNEL_SETUP1,
+	 * and so on until CHANNEL_MAP15.
+	 * Thus, initialize the register size for them only once.
+	 */
+	[AD4170_CHANNEL_SETUP_X_REG(0) ... AD4170_CHANNEL_MAP_X_REG(AD4170_NUM_CHANNELS - 1)]	= 2,
+	/*
+	 * MISC, AFE, FILTER, FILTER_FS, OFFSET, and GAIN register addresses are
+	 * also interleaved but MISC, AFE, FILTER, FILTER_FS, OFFSET are 16-bit
+	 * while OFFSET, GAIN are 24-bit registers so we can't init them all to
+	 * the same size.
+	 */
+	/* Init MISC register size */
+	[AD4170_MISC_X_REG(0)] = 2,
+	[AD4170_MISC_X_REG(1)] = 2,
+	[AD4170_MISC_X_REG(2)] = 2,
+	[AD4170_MISC_X_REG(3)] = 2,
+	[AD4170_MISC_X_REG(4)] = 2,
+	[AD4170_MISC_X_REG(5)] = 2,
+	[AD4170_MISC_X_REG(6)] = 2,
+	[AD4170_MISC_X_REG(7)] = 2,
+	/* Init AFE register size */
 	[AD4170_AFE_X_REG(0)] = 2,
 	[AD4170_AFE_X_REG(1)] = 2,
 	[AD4170_AFE_X_REG(2)] = 2,
@@ -997,7 +1017,7 @@ static const unsigned int ad4170_reg_size[] = {
 	[AD4170_AFE_X_REG(5)] = 2,
 	[AD4170_AFE_X_REG(6)] = 2,
 	[AD4170_AFE_X_REG(7)] = 2,
-	//[AD4170_FILTER_X_REG(0) ... AD4170_FILTER_FS_X_REG(AD4170_NUM_SETUPS - 1) ]	= 2,
+	/* Init FILTER register size */
 	[AD4170_FILTER_X_REG(0)]	= 2,
 	[AD4170_FILTER_X_REG(1)]	= 2,
 	[AD4170_FILTER_X_REG(2)]	= 2,
@@ -1006,7 +1026,7 @@ static const unsigned int ad4170_reg_size[] = {
 	[AD4170_FILTER_X_REG(5)]	= 2,
 	[AD4170_FILTER_X_REG(6)]	= 2,
 	[AD4170_FILTER_X_REG(7)]	= 2,
-	//[AD4170_FILTER_FS_X_REG(0) ... AD4170_FILTER_FS_X_REG(AD4170_NUM_SETUPS - 1)]	= 2,
+	/* Init FILTER_FS register size */
 	[AD4170_FILTER_FS_X_REG(0)]	= 2,
 	[AD4170_FILTER_FS_X_REG(1)]	= 2,
 	[AD4170_FILTER_FS_X_REG(2)]	= 2,
@@ -1015,7 +1035,7 @@ static const unsigned int ad4170_reg_size[] = {
 	[AD4170_FILTER_FS_X_REG(5)]	= 2,
 	[AD4170_FILTER_FS_X_REG(6)]	= 2,
 	[AD4170_FILTER_FS_X_REG(7)]	= 2,
-	//[AD4170_OFFSET_X_REG(0) ... AD4170_OFFSET_X_REG(AD4170_NUM_SETUPS - 1)]	= 3,
+	/* Init OFFSET register size */
 	[AD4170_OFFSET_X_REG(0)]	= 3,
 	[AD4170_OFFSET_X_REG(1)]	= 3,
 	[AD4170_OFFSET_X_REG(2)]	= 3,
@@ -1024,7 +1044,7 @@ static const unsigned int ad4170_reg_size[] = {
 	[AD4170_OFFSET_X_REG(5)]	= 3,
 	[AD4170_OFFSET_X_REG(6)]	= 3,
 	[AD4170_OFFSET_X_REG(7)]	= 3,
-	//[AD4170_GAIN_X_REG(0)... AD4170_GAIN_X_REG(AD4170_NUM_SETUPS - 1)]	= 3,
+	/* Init GAIN register size */
 	[AD4170_GAIN_X_REG(0)]	= 3,
 	[AD4170_GAIN_X_REG(1)]	= 3,
 	[AD4170_GAIN_X_REG(2)]	= 3,
