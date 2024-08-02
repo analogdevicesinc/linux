@@ -37,8 +37,6 @@
 #include <linux/iio/trigger_consumer.h>
 #include "ad4170.h"
 
-#define EXIT_CONTINUOUS_READ_CMD 0xA5
-
 struct ad4170_slot_info {
 	struct ad4170_setup		setup;
 	unsigned int			enabled_channels;
