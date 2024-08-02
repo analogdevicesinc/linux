@@ -48,11 +48,6 @@ DECLARE_CRC8_TABLE(ad74416h_crc8_table);
 #define AD74416H_ADC_RANGE_0_0P625V		0b101
 #define AD74416H_ADC_RANGE_NEG104_104MV		0b110
 #define AD74416H_ADC_RANGE_NEG2P5_2P5V		0b111
-#define	AD74416H_MUX_LF_TO_AGND			0b000
-#define	AD74416H_MUX_HF_TO_LF			0b001
-#define	AD74416H_MUX_VSENSEN_TO_AGND		0b010
-#define	AD74416H_MUX_LF_TO_VSENSEN		0b011
-#define	AD74416H_MUX_AGND_TO_AGND		0b100
 
 #define AD74416H_REG_OUTPUT_CONFIG_X(x)		(0x05 + ((x) * 12))
 #define AD74416H_VOUT_RANGE_MSK			BIT(7)
@@ -99,11 +94,12 @@ DECLARE_CRC8_TABLE(ad74416h_crc8_table);
 #define CH_FUNC_VOLTAGE_INPUT			0x3
 #define CH_FUNC_CURRENT_INPUT_EXT_POWER		0x4
 #define CH_FUNC_CURRENT_INPUT_LOOP_POWER	0x5
-#define CH_FUNC_RESISTANCE_INPUT		0x6
-#define CH_FUNC_DIGITAL_INPUT_LOGIC		0x7
-#define CH_FUNC_DIGITAL_INPUT_LOOP_POWER	0x8
-#define CH_FUNC_CURRENT_INPUT_EXT_POWER_HART	0x9
-#define CH_FUNC_CURRENT_INPUT_LOOP_POWER_HART	0xA
+#define CH_FUNC_RESISTANCE_INPUT		0x7
+#define CH_FUNC_DIGITAL_INPUT_LOGIC		0x8
+#define CH_FUNC_DIGITAL_INPUT_LOOP_POWER	0x9
+#define CH_FUNC_AD74416H_CURRENT_OUT_HART	0xA
+#define CH_FUNC_CURRENT_INPUT_EXT_POWER_HART	0xB
+#define CH_FUNC_CURRENT_INPUT_LOOP_POWER_HART	0xC
 
 #define CH_FUNC_MIN	CH_FUNC_HIGH_IMPEDANCE
 #define CH_FUNC_MAX	CH_FUNC_CURRENT_INPUT_LOOP_POWER_HART
@@ -134,11 +130,33 @@ static int ad74416h_crc(u8 *buf)
 	return crc8(ad74416h_crc8_table, buf, 4, 0);
 }
 
+enum ad74416h_adc_mux {
+	AD74416H_MUX_LF_TO_AGND,
+	AD74416H_MUX_HF_TO_LF,
+	AD74416H_MUX_VSENSEN_TO_AGND,
+	AD74416H_MUX_LF_TO_VSENSEN,
+	AD74416H_MUX_AGND_TO_AGND,
+};
+
+static const char * const ad74416h_muxout_modes[] = {
+	[AD74416H_MUX_LF_TO_AGND] = "senself_agnd",
+	[AD74416H_MUX_HF_TO_LF] = "sensehf_agnd",
+	[AD74416H_MUX_VSENSEN_TO_AGND] = "vsensen_agnd",
+	[AD74416H_MUX_LF_TO_VSENSEN] = "senself_vsensen",
+	[AD74416H_MUX_AGND_TO_AGND] = "agnd_agnd",
+};
+
+struct ad74416h_chip_info {
+	const char *name;
+	int adc_resolution;
+};
+
 struct ad74416h_channel_config {
 	u32		func;
 	u32		drive_strength;
 	bool		gpio_comparator;
 	bool		initialized;
+	enum ad74416h_adc_mux	muxout_select;
 };
 
 struct ad74416h_channels {
@@ -157,6 +175,7 @@ struct ad74416h_state {
 	unsigned int			num_gpios;
 	unsigned int			num_comparator_gpios;
 	u32				sense_resistor_ohms;
+	enum ad74416h_adc_mux		muxout_select;
 
 	/*
 	 * Synchronize consecutive operations when doing a one-shot
@@ -599,6 +618,22 @@ static int ad74416h_adc_range_to_voltage_offset_raw(struct ad74416h_state *st,
 	}
 }
 
+static int ad74416h_dac_range_to_voltage_offset_raw(struct ad74416h_state *st,
+						    unsigned int range, int *val)
+{
+	switch (range) {
+	case AD74416H_VOUT_RANGE_0_12V:
+		*val = 0;
+		return 0;
+	case AD74416H_VOUT_RANGE_NEG12_12V:
+		*val = -((int)AD74416H_DAC_CODE_MAX / 2);
+		return 0;
+	default:
+		dev_err(st->dev, "DAC range invalid\n");
+		return -EINVAL;
+	}
+}
+
 static int ad74416h_range_to_voltage_offset(struct ad74416h_state *st,
 					    unsigned int range, int *val)
 {
@@ -646,6 +681,23 @@ static int ad74416h_get_input_voltage_offset(struct ad74416h_state *st,
 	return IIO_VAL_INT;
 }
 
+static int ad74416h_get_output_voltage_offset(struct ad74416h_state *st,
+					      unsigned int channel, int *val)
+{
+	unsigned int range;
+	int ret;
+
+	ret = ad74416h_get_dac_range(st, channel, &range);
+	if (ret)
+		return ret;
+
+	ret = ad74416h_dac_range_to_voltage_offset_raw(st, range, val);
+	if (ret)
+		return ret;
+
+	return IIO_VAL_INT;
+}
+
 static int ad74416h_get_input_current_offset(struct ad74416h_state *st,
 					     unsigned int channel, int *val)
 {
@@ -678,16 +730,23 @@ static int ad74416h_get_raw_adc_result(struct ad74416h_state *st,
 	unsigned int val_msb, val_lsb;
 	int ret;
 
-	ret = regmap_read(st->regmap, AD74416H_REG_ADC_RESULT_UPR_X(channel), &val_msb);
-	if (ret)
-		return ret;
+	if (st->chip_info->adc_resolution == 24) {
+		ret = regmap_read(st->regmap,
+				  AD74416H_REG_ADC_RESULT_UPR_X(channel),
+				  &val_msb);
+		if (ret)
+			return ret;
+	}
 
 	ret = regmap_read(st->regmap, AD74416H_REG_ADC_RESULT_X(channel), &val_lsb);
 	if (ret)
 		return ret;
 
-	*val = (FIELD_GET(AD74416H_CONV_RES_UPR_MSK, val_msb) << 16) |
-	       FIELD_GET(AD74416H_CONV_RESULT_MSK, val_lsb);
+	if (st->chip_info->adc_resolution == 24)
+		*val = (FIELD_GET(AD74416H_CONV_RES_UPR_MSK, val_msb) << 16) |
+			FIELD_GET(AD74416H_CONV_RESULT_MSK, val_lsb);
+	else
+		*val = FIELD_GET(AD74416H_CONV_RESULT_MSK, val_lsb);
 
 	return 0;
 }
@@ -822,8 +881,12 @@ static int ad74416h_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_OFFSET:
 		switch (chan->type) {
 		case IIO_VOLTAGE:
-			return ad74416h_get_input_voltage_offset(st,
-				chan->channel, val);
+			if (chan->output)
+				return ad74416h_get_output_voltage_offset(st,
+					chan->channel, val);
+			else
+				return ad74416h_get_input_voltage_offset(st,
+					chan->channel, val);
 		case IIO_CURRENT:
 			return ad74416h_get_input_current_offset(st,
 				chan->channel, val);
@@ -1227,9 +1290,37 @@ static int ad74416h_parse_channel_config(struct iio_dev *indio_dev,
 		return -EINVAL;
 	}
 
+	if (st->chip_info->adc_resolution == 16)
+		switch (config->func) {
+		case CH_FUNC_VOLTAGE_OUTPUT:
+		case CH_FUNC_VOLTAGE_INPUT:
+		case CH_FUNC_RESISTANCE_INPUT:
+			return -EINVAL;
+		default:
+			break;
+		}
+
 	if (config->func == CH_FUNC_DIGITAL_INPUT_LOGIC ||
 	    config->func == CH_FUNC_DIGITAL_INPUT_LOOP_POWER)
 		st->num_comparator_gpios++;
+
+	ret = fwnode_property_match_property_string(channel_node, "adi,muxout-select",
+						    ad74416h_muxout_modes,
+						    ARRAY_SIZE(ad74416h_muxout_modes));
+	if (ret >= 0) {
+		if (st->chip_info->adc_resolution == 16)
+			switch (ret) {
+			case AD74416H_MUX_VSENSEN_TO_AGND:
+			case AD74416H_MUX_LF_TO_VSENSEN:
+				return -EINVAL;
+			default:
+				break;
+			}
+
+		config->muxout_select = ret;
+	} else {
+		config->muxout_select = AD74416H_MUX_LF_TO_AGND;
+	}
 
 	config->gpio_comparator = fwnode_property_read_bool(channel_node,
 							    "adi,gpo-comparator");
@@ -1330,6 +1421,12 @@ static int ad74416h_setup_channels(struct iio_dev *indio_dev)
 				chan->scan_index = i;
 		}
 
+		ret = regmap_update_bits(st->regmap, AD74416H_REG_ADC_CONFIG_X(i),
+					 AD74416H_ADC_CONFIG_MUX_MASK,
+					 FIELD_PREP(AD74416H_ADC_CONFIG_MUX_MASK, config->muxout_select));
+		if (ret)
+			return ret;
+
 		ret = ad74416h_set_channel_function(st, i, config->func);
 		if (ret)
 			return ret;
@@ -1405,14 +1502,30 @@ static int ad74416h_reset(struct ad74416h_state *st)
 	if (ret)
 		return ret;
 
-	return regmap_write(st->regmap, AD74416H_REG_CMD_KEY,
-			    AD74416H_CMD_KEY_RESET2);
+	ret = regmap_write(st->regmap, AD74416H_REG_CMD_KEY,
+			   AD74416H_CMD_KEY_RESET2);
+	if (ret)
+		return ret;
+
+	fsleep(1000);
+
+	return 0;
 }
 
 static void ad74416h_regulator_disable(void *regulator)
 {
 	regulator_disable(regulator);
 }
+
+static const struct ad74416h_chip_info ad74416h_chip_info = {
+	.name = "ad74416h",
+	.adc_resolution = 24,
+};
+
+static const struct ad74416h_chip_info ad74414h_chip_info = {
+	.name = "ad74414h",
+	.adc_resolution = 16,
+};
 
 static int ad74416h_probe(struct spi_device *spi)
 {
@@ -1428,6 +1541,7 @@ static int ad74416h_probe(struct spi_device *spi)
 
 	st->spi = spi;
 	st->dev = &spi->dev;
+	st->chip_info = spi_get_device_match_data(spi);
 
 	mutex_init(&st->lock);
 	init_completion(&st->adc_data_completion);
@@ -1569,13 +1683,15 @@ static int __init ad74416h_register_driver(struct spi_driver *spi)
 }
 
 static const struct spi_device_id ad74416h_id[] = {
-	{ "ad74416h", 0 },
+	{ "ad74416h", (kernel_ulong_t)&ad74416h_chip_info },
+	{ "ad74414h", (kernel_ulong_t)&ad74414h_chip_info },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad74416h_id);
 
 static const struct of_device_id ad74416h_of_match[] = {
-	{ .compatible = "adi,ad74416h" },
+	{ .compatible = "adi,ad74416h", .data = &ad74416h_chip_info },
+	{ .compatible = "adi,ad74414h", .data = &ad74414h_chip_info },
 	{}
 };
 

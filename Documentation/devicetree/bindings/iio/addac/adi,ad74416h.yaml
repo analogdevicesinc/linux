@@ -24,6 +24,7 @@ properties:
   compatible:
     enum:
       - adi,ad74416h
+      - adi,ad74414h
 
   reg:
     maxItems: 1
@@ -96,6 +97,11 @@ patternProperties:
         minimum: 0
         maximum: 10
         default: 0
+
+      adi,muxout-select:
+        description:
+          On chip adc multiplexer output selection.
+        enum: [senself_agnd, sensehf_agnd, vsensen_agnd, senself_vsensen, agnd_agnd]
 
       adi,gpo-comparator:
         type: boolean
