@@ -346,7 +346,7 @@ static int ad4170_write_channel_setup(struct ad4170_state *st,
 	setup->afe.ref_buf_m = AD4170_REF_BUF_PRE;
 	setup->afe.ref_buf_p = AD4170_REF_BUF_PRE;
 	setup->filter.post_filter_sel = AD4170_POST_FILTER_NONE;
-	setup->gain = 0x555555;
+	setup->gain = AD4170_DEFAULT_ADC_GAIN_COEF;
 
 	chan_info->slot = slot;
 
