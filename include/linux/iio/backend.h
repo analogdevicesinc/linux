@@ -23,6 +23,8 @@ enum iio_backend_data_source {
 	IIO_BACKEND_DATA_SOURCE_MAX
 };
 
+#define iio_backend_debugfs_ptr(ptr)	PTR_IF(IS_ENABLED(CONFIG_DEBUG_FS), ptr)
+
 /**
  * IIO_BACKEND_EX_INFO - Helper for an IIO extended channel attribute
  * @_name: Attribute name
@@ -83,6 +85,8 @@ enum iio_backend_sample_trigger {
  * @ext_info_set: Extended info setter.
  * @ext_info_get: Extended info getter.
  * @read_raw: Read a channel attribute from a backend device
+ * @debugfs_print_chan_status: Print channel status into a buffer.
+ * @debugfs_reg_access: Read or write register value of backend.
  **/
 struct iio_backend_ops {
 	int (*enable)(struct iio_backend *back);
@@ -118,6 +122,11 @@ struct iio_backend_ops {
 	int (*read_raw)(struct iio_backend *back,
 			struct iio_chan_spec const *chan, int *val, int *val2,
 			long mask);
+	int (*debugfs_print_chan_status)(struct iio_backend *back,
+					 unsigned int chan, char *buf,
+					 size_t len);
+	int (*debugfs_reg_access)(struct iio_backend *back, unsigned int reg,
+				  unsigned int writeval, unsigned int *readval);
 };
 
 /**
@@ -186,4 +195,9 @@ static inline int iio_backend_read_offset(struct iio_backend *back,
 	return iio_backend_read_raw(back, chan, val, val2,
 				    IIO_CHAN_INFO_OFFSET);
 }
+ssize_t iio_backend_debugfs_print_chan_status(struct iio_backend *back,
+					      unsigned int chan, char *buf,
+					      size_t len);
+void iio_backend_debugfs_add(struct iio_backend *back,
+			     struct iio_dev *indio_dev);
 #endif
