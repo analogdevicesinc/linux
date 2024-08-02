@@ -17,7 +17,7 @@ static void dwxgmac2_core_init(struct mac_device_info *hw,
 			       struct net_device *dev)
 {
 	void __iomem *ioaddr = hw->pcsr;
-	u32 tx, rx;
+	u32 tx, rx, value;
 
 	tx = readl(ioaddr + XGMAC_TX_CONFIG);
 	rx = readl(ioaddr + XGMAC_RX_CONFIG);
@@ -45,7 +45,11 @@ static void dwxgmac2_core_init(struct mac_device_info *hw,
 
 	writel(tx, ioaddr + XGMAC_TX_CONFIG);
 	writel(rx, ioaddr + XGMAC_RX_CONFIG);
-	writel(XGMAC_INT_DEFAULT_EN, ioaddr + XGMAC_INT_EN);
+
+	value = XGMAC_INT_DEFAULT_EN;
+	if ((XGMAC_HWFEAT_FPESEL & readl(ioaddr + XGMAC_HW_FEATURE3)) >> 26)
+		value |= XGMAC_FPIE;
+	writel(value, ioaddr + XGMAC_INT_EN);
 }
 
 static void dwxgmac2_set_mac(void __iomem *ioaddr, bool enable)
@@ -1887,28 +1891,87 @@ static void dwxgmac3_est_irq_status(void __iomem *ioaddr,
 }
 
 static void dwxgmac3_fpe_configure(void __iomem *ioaddr, struct stmmac_fpe_cfg *cfg,
-				   u32 num_txq,
-				   u32 num_rxq, bool enable)
+				   u32 num_txq, u32 num_rxq, bool enable)
 {
 	u32 value;
 
-	if (!enable) {
-		value = readl(ioaddr + XGMAC_FPE_CTRL_STS);
+	if (enable) {
+		cfg->fpe_csr = XGMAC_EFPE;
 
-		value &= ~XGMAC_EFPE;
+		value = readl(ioaddr + XGMAC_MTL_FPE_CTRL_STS);
+		value |= FIELD_PREP(XGMAC_AFSZ, cfg->add_frag_size);
+		writel(value, ioaddr + XGMAC_MTL_FPE_CTRL_STS);
 
-		writel(value, ioaddr + XGMAC_FPE_CTRL_STS);
-		return;
+		value = readl(ioaddr + XGMAC_RXQ_CTRL1);
+		value &= ~XGMAC_RQ;
+		value |= (num_rxq - 1) << XGMAC_RQ_SHIFT;
+		writel(value, ioaddr + XGMAC_RXQ_CTRL1);
+	} else {
+		cfg->fpe_csr = 0;
 	}
 
-	value = readl(ioaddr + XGMAC_RXQ_CTRL1);
-	value &= ~XGMAC_RQ;
-	value |= (num_rxq - 1) << XGMAC_RQ_SHIFT;
-	writel(value, ioaddr + XGMAC_RXQ_CTRL1);
+	writel(cfg->fpe_csr, ioaddr + XGMAC_FPE_CTRL_STS);
+}
 
-	value = readl(ioaddr + XGMAC_FPE_CTRL_STS);
-	value |= XGMAC_EFPE;
+static void dwxgmac3_fpe_send_mpacket(void __iomem *ioaddr,
+				      struct stmmac_fpe_cfg *cfg,
+				      enum stmmac_mpacket_type type)
+{
+	u32 value = cfg->fpe_csr;
+
+	if (type == MPACKET_VERIFY)
+		value |= XGMAC_SVER;
+	else if (type == MPACKET_RESPONSE)
+		value |= XGMAC_SRSP;
+
 	writel(value, ioaddr + XGMAC_FPE_CTRL_STS);
+}
+
+static int dwxgmac3_fpe_irq_status(void __iomem *ioaddr, struct net_device *dev)
+{
+	u32 value;
+	int status;
+
+	status = FPE_EVENT_UNKNOWN;
+
+	/* Reads from the MAC_FPE_CTRL_STS register should only be performed
+	 * here, since the status flags of MAC_FPE_CTRL_STS are "clear on read"
+	 */
+	value = readl(ioaddr + XGMAC_FPE_CTRL_STS);
+
+	if (value & XGMAC_TRSP) {
+		status |= FPE_EVENT_TRSP;
+		netdev_info(dev, "FPE: Respond mPacket is transmitted\n");
+	}
+
+	if (value & XGMAC_TVER) {
+		status |= FPE_EVENT_TVER;
+		netdev_info(dev, "FPE: Verify mPacket is transmitted\n");
+	}
+
+	if (value & XGMAC_RRSP) {
+		status |= FPE_EVENT_RRSP;
+		netdev_info(dev, "FPE: Respond mPacket is received\n");
+	}
+
+	if (value & XGMAC_RVER) {
+		status |= FPE_EVENT_RVER;
+		netdev_info(dev, "FPE: Verify mPacket is received\n");
+	}
+
+	return status;
+}
+
+static void dwxgmac3_fpe_tcs_setup(void __iomem *ioaddr, u32 preemptible_tcs,
+				   u32 num_txq)
+{
+	u32 txqmask = (1 << num_txq) - 1;
+	u32 value;
+
+	value = readl(ioaddr + XGMAC_MTL_FPE_CTRL_STS);
+	value &= ~(txqmask << XGMAC_PEC_SHIFT);
+	value |= (preemptible_tcs & txqmask) << XGMAC_PEC_SHIFT;
+	writel(value, ioaddr + XGMAC_MTL_FPE_CTRL_STS);
 }
 
 const struct stmmac_ops dwxgmac210_ops = {
@@ -1960,6 +2023,9 @@ const struct stmmac_ops dwxgmac210_ops = {
 	.est_configure = dwxgmac3_est_configure,
 	.est_irq_status = dwxgmac3_est_irq_status,
 	.fpe_configure = dwxgmac3_fpe_configure,
+	.fpe_send_mpacket = dwxgmac3_fpe_send_mpacket,
+	.fpe_irq_status = dwxgmac3_fpe_irq_status,
+	.fpe_tcs_setup = dwxgmac3_fpe_tcs_setup,
 	.rx_hw_vlan = dwxgmac2_rx_hw_vlan,
 	.set_hw_vlan_mode = dwxgmac2_set_hw_vlan_mode,
 };
