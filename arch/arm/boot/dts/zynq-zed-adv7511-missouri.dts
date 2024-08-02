@@ -1,0 +1,406 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ *
+ * hdl_project: <missouri/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2024 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+#include <dt-bindings/gpio/gpio.h>
+
+&fpga_axi {
+
+	fmc_gpio: gpio@50000000 {
+		#gpio-cells = <2>;
+		compatible = "xlnx,xps-gpio-1.00.a";
+		gpio-controller ;
+		reg = <0x50000000 0x10000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		xlnx,is-dual = <0x1>;
+		xlnx,gpio-width = <32>;
+		xlnx,gpio2-width = <32>;
+	};
+
+	fmc_spi: spi@50010000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		bits-per-word = <8>;
+		compatible = "xlnx,xps-spi-2.00.b";
+		fifo-size = <16>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		num-cs = <12>;
+		reg = <0x50010000 0x10000>;
+		xlnx,num-ss-bits = <12>;
+		xlnx,spi-mode = <0>;
+
+		admv1355: admv1355@0 {
+			compatible = "adi,admv1355";
+			reg = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <1000000>;
+			//cen-gpios = <&fmc_gpio 36 GPIO_ACTIVE_HIGH>;
+			//reset-gpios = <&fmc_gpio 17 GPIO_ACTIVE_HIGH>;
+		};
+		admv1320: admv1320@1 {
+			compatible = "adi,admv1355";
+			reg = <1>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <1000000>;
+			//cen-gpios = <&fmc_gpio 35 GPIO_ACTIVE_HIGH>;
+			//reset-gpios = <&fmc_gpio 4 GPIO_ACTIVE_HIGH>;
+		};
+		admv8855_2: admv8855_2@2 {
+			compatible = "adi,admv8827";
+			reg = <2>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <1000000>;
+		};
+		admv8855_3: admv8855_3@3 {
+			compatible = "adi,admv8827";
+			reg = <3>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <1000000>;
+		};
+		admv1455: admv1455@4 {
+			compatible = "adi,admv1355";
+			reg = <4>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <1000000>;
+			//cen-gpios = <&fmc_gpio 32 GPIO_ACTIVE_HIGH>;
+			//reset-gpios = <&fmc_gpio 7 GPIO_ACTIVE_HIGH>;
+		};
+		admv8809_5: admv8809_5@5 {
+			compatible = "adi,admv8827";
+			reg = <5>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <1000000>;
+		};
+		admv1420: admv1420@6 {
+			compatible = "adi,admv1355";
+			reg = <6>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <1000000>;
+			//cen-gpios = <&fmc_gpio 30 GPIO_ACTIVE_HIGH>;
+			//reset-gpios = <&fmc_gpio 12 GPIO_ACTIVE_HIGH>;
+		};
+		admv8809_7: admv8809_7@7 {
+			compatible = "adi,admv8827";
+			reg = <7>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <1000000>;
+		};
+		admv8809_8: admv8809_8@8 {
+			compatible = "adi,admv8827";
+			reg = <8>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <1000000>;
+		};
+		admv8809_9: admv8809_9@9 {
+			compatible = "adi,admv8827";
+			reg = <9>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <1000000>;
+		};
+		admv8827_10: admv8827_10@a {
+			compatible = "adi,admv8827";
+			reg = <10>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <1000000>;
+		};
+		admv8827_11: admv8827_11@b {
+			compatible = "adi,admv8827";
+			reg = <11>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			spi-max-frequency = <1000000>;
+		};
+	};
+
+	long_peak_control@0 {
+		compatible = "adi,one-bit-adc-dac";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		out-gpios =
+			<&fmc_gpio 0 0>,	// AD5593R	RST_B	SPI_RF
+			<&fmc_gpio 1 0>,	// ADP5600	EN	LO_RX
+			<&fmc_gpio 2 0>,	// ADP5600	EN	LO_TX
+			<&fmc_gpio 3 0>,	// ADMV1355	LOAD	SPI_RF
+			<&fmc_gpio 4 0>,	// ADMV1320	RST	SPI_RF
+			<&fmc_gpio 5 0>,	// Ext_FLT_3	Ext_FLT_3	SPI_RF
+			<&fmc_gpio 6 0>,	// ADMV1320	LOAD	SPI_RF
+			<&fmc_gpio 7 0>,	// ADMV1455	RST	SPI_RF
+			<&fmc_gpio 8 0>,	// Ext_FLT_0	Ext_FLT_0	SPI_RF
+			<&fmc_gpio 9 0>,	// Ext_Gain_1	Ext_Gain_1	SPI_RF
+			<&fmc_gpio 10 0>,	// Ext_Gain_0	Ext_Gain_0	SPI_RF
+			<&fmc_gpio 11 0>,	// Ext_FLT_4	Ext_FLT_4	SPI_RF
+			<&fmc_gpio 12 0>,	// ADMV1420	RST	SPI_RF
+			<&fmc_gpio 13 0>,	// Ext_FLT_1	Ext_FLT_1	SPI_RF
+			<&fmc_gpio 14 0>,	// Ext_Gain_3	Ext_Gain_3	SPI_RF
+			<&fmc_gpio 15 0>,	// Ext_Gain_2	Ext_Gain_2	SPI_RF
+			<&fmc_gpio 16 0>,	// ADMV1455	LOAD	SPI_RF
+			<&fmc_gpio 17 0>,	// ADMV1355	RST	SPI_RF
+			<&fmc_gpio 18 0>,	// Ext_FLT_2	Ext_FLT_2	SPI_RF
+			<&fmc_gpio 19 0>,	// Ext_Gain_5	Ext_Gain_5	SPI_RF
+			<&fmc_gpio 20 0>,	// Ext_Gain_4	Ext_Gain_4	SPI_RF
+			<&fmc_gpio 21 0>,	// ADRF5025	CTRL	SPI_RF
+			<&fmc_gpio 22 0>,	// ADMV1420	LOAD	SPI_RF
+			<&fmc_gpio 23 0>,	// ADMV8818	SFL	LO_RX
+			<&fmc_gpio 24 0>,	// ADMV8818	SFL	LO_TX
+			<&fmc_gpio 25 0>,	// COMBINED	RST	SPI_RF
+			<&fmc_gpio 26 0>,	// ADRF5032	CTRL	SPI_RF
+			<&fmc_gpio 27 0>,	// ADMV8909	RST	LO_RX
+			<&fmc_gpio 28 0>,	// ADMV8909	RST	LO_TX
+			<&fmc_gpio 29 0>,	// ADMV8818	CS	LO_RX
+			<&fmc_gpio 30 0>,	// AADMV1420	CEN	SPI_RF
+			<&fmc_gpio 31 0>,	// ADMV8818	CS	LO_TX
+			<&fmc_gpio 32 0>,	// ADMV1455	CEN	SPI_RF
+			<&fmc_gpio 33 0>,	// ADMV8909	HPF_B1	LO_RX
+			<&fmc_gpio 34 0>,	// ADMV8909	HPF_B0	LO_RX
+			<&fmc_gpio 35 0>,	// ADMV1320	CEN	SPI_RF
+			<&fmc_gpio 36 0>,	// ADMV1355	CEN	SPI_RF
+			<&fmc_gpio 37 0>,	// ADMV8909	HPF_B3	LO_RX
+			<&fmc_gpio 38 0>,	// ADMV8909	HPF_B2	LO_RX
+			<&fmc_gpio 39 0>,	// ADMV8909	LPF_B3	LO_RX
+			<&fmc_gpio 40 0>,	// ADMV8909	LPF_B2	LO_RX
+			<&fmc_gpio 41 0>,	// ADMV8909	HPF_B3	LO_TX
+			<&fmc_gpio 42 0>,	// ADMV8909	HPF_B2	LO_TX
+			<&fmc_gpio 43 0>,	// ADMV8909	LPF_B3	LO_TX
+			<&fmc_gpio 44 0>,	// ADMV8909	LPF_B2	LO_TX
+			<&fmc_gpio 45 0>,	// ADMV8909	LPF_B1	LO_RX
+			<&fmc_gpio 46 0>,	// ADMV8909	LPF_B0	LO_RX
+			<&fmc_gpio 47 0>,	// ADMV8909	HPF_B0	LO_TX
+			<&fmc_gpio 48 0>,	// ADMV8909	HPF_B1	LO_TX
+			<&fmc_gpio 49 0>,	// ADMV8909	LPF_B1	LO_TX
+			<&fmc_gpio 50 0>,	// ADMV8909	LPF_B0	LO_TX
+			<&fmc_gpio 51 0>;	// ADMV8909	CS	LO_TX
+
+		label = "missouri_gpio";
+
+		channel@0 {
+			reg = <0>;
+			label = "AD5593R_RST_B_SPI_RF";
+		};
+		channel@1 {
+			reg = <1>;
+			label = "ADP5600_EN_LO_RX";
+		};
+		channel@2 {
+			reg = <2>;
+			label = "ADP5600_EN_LO_TX";
+		};
+		channel@3 {
+			reg = <3>;
+			label = "ADMV1355_LOAD_SPI_RF";
+		};
+		channel@4 {
+			reg = <4>;
+			label = "ADMV1320_RST_SPI_RF";
+		};
+		channel@5 {
+			reg = <5>;
+			label = "Ext_FLT_3_Ext_FLT_3_SPI_RF";
+		};
+		channel@6 {
+			reg = <6>;
+			label = "ADMV1320_LOAD_SPI_RF";
+		};
+		channel@7 {
+			reg = <7>;
+			label = "ADMV1455_RST_SPI_RF";
+		};
+		channel@8 {
+			reg = <8>;
+			label = "Ext_FLT_0_Ext_FLT_0_SPI_RF";
+		};
+		channel@9 {
+			reg = <9>;
+			label = "Ext_Gain_1_Ext_Gain_1_SPI_RF";
+		};
+		channel@10 {
+			reg = <10>;
+			label = "Ext_Gain_0_Ext_Gain_0_SPI_RF";
+		};
+		channel@11 {
+			reg = <11>;
+			label = "Ext_FLT_4_Ext_FLT_4_SPI_RF";
+		};
+		channel@12 {
+			reg = <12>;
+			label = "ADMV1420_RST_SPI_RF";
+		};
+		channel@13 {
+			reg = <13>;
+			label = "Ext_FLT_1_Ext_FLT_1_SPI_RF";
+		};
+		channel@14 {
+			reg = <14>;
+			label = "Ext_Gain_3_Ext_Gain_3_SPI_RF";
+		};
+		channel@15 {
+			reg = <15>;
+			label = "Ext_Gain_2_Ext_Gain_2_SPI_RF";
+		};
+		channel@16 {
+			reg = <16>;
+			label = "ADMV1455_LOAD_SPI_RF";
+		};
+		channel@17 {
+			reg = <17>;
+			label = "ADMV1355_RST_SPI_RF";
+		};
+		channel@18 {
+			reg = <18>;
+			label = "Ext_FLT_2_Ext_FLT_2_SPI_RF";
+		};
+		channel@19 {
+			reg = <19>;
+			label = "Ext_Gain_5_Ext_Gain_5_SPI_RF";
+		};
+		channel@20 {
+			reg = <20>;
+			label = "Ext_Gain_4_Ext_Gain_4_SPI_RF";
+		};
+		channel@21 {
+			reg = <21>;
+			label = "ADRF5025_CTRL_SPI_RF";
+		};
+		channel@22 {
+			reg = <22>;
+			label = "ADMV1420_LOAD_SPI_RF";
+		};
+		channel@23 {
+			reg = <23>;
+			label = "ADMV8818_SFL_LO_RX";
+		};
+		channel@24 {
+			reg = <24>;
+			label = "ADMV8818_SFL_LO_TX";
+		};
+		channel@25 {
+			reg = <25>;
+			label = "COMBINED_RST_SPI_RF";
+		};
+		channel@26 {
+			reg = <26>;
+			label = "ADRF5032_CTRL_SPI_RF";
+		};
+		channel@27 {
+			reg = <27>;
+			label = "ADMV8909_RST_LO_RX";
+		};
+		channel@28 {
+			reg = <28>;
+			label = "ADMV8909_RST_LO_TX";
+		};
+		channel@29 {
+			reg = <29>;
+			label = "ADMV8818_CS_LO_RX";
+		};
+		channel@30 {
+			reg = <30>;
+			label = "AADMV1420_CEN_SPI_RF";
+		};
+		channel@31 {
+			reg = <31>;
+			label = "ADMV8818_CS_LO_TX";
+		};
+		channel@32 {
+			reg = <32>;
+			label = "ADMV1455_CEN_SPI_RF";
+		};
+		channel@33 {
+			reg = <33>;
+			label = "ADMV8909_HPF_B1_LO_RX";
+		};
+		channel@34 {
+			reg = <34>;
+			label = "ADMV8909_HPF_B0_LO_RX";
+		};
+		channel@35 {
+			reg = <35>;
+			label = "ADMV1320_CEN_SPI_RF";
+		};
+		channel@36 {
+			reg = <36>;
+			label = "ADMV1355_CEN_SPI_RF";
+		};
+		channel@37 {
+			reg = <37>;
+			label = "ADMV8909_HPF_B3_LO_RX";
+		};
+		channel@38 {
+			reg = <38>;
+			label = "ADMV8909_HPF_B2_LO_RX";
+		};
+		channel@39 {
+			reg = <39>;
+			label = "ADMV8909_LPF_B3_LO_RX";
+		};
+		channel@40 {
+			reg = <40>;
+			label = "ADMV8909_LPF_B2_LO_RX";
+		};
+		channel@41 {
+			reg = <41>;
+			label = "ADMV8909_HPF_B3_LO_TX";
+		};
+		channel@42 {
+			reg = <42>;
+			label = "ADMV8909_HPF_B2_LO_TX";
+		};
+		channel@43 {
+			reg = <43>;
+			label = "ADMV8909_LPF_B3_LO_TX";
+		};
+		channel@44 {
+			reg = <44>;
+			label = "ADMV8909_LPF_B2_LO_TX";
+		};
+		channel@45 {
+			reg = <45>;
+			label = "ADMV8909_LPF_B1_LO_RX";
+		};
+		channel@46 {
+			reg = <46>;
+			label = "ADMV8909_LPF_B0_LO_RX";
+		};
+		channel@47 {
+			reg = <47>;
+			label = "ADMV8909_HPF_B0_LO_TX";
+		};
+		channel@48 {
+			reg = <48>;
+			label = "ADMV8909_HPF_B1_LO_TX";
+		};
+		channel@49 {
+			reg = <49>;
+			label = "ADMV8909_LPF_B1_LO_TX";
+		};
+		channel@50 {
+			reg = <50 0>;
+			label = "ADMV8909_LPF_B0_LO_TX";
+		};
+		channel@51 {
+			reg = <51 0>;
+			label = "ADMV8909_CS_LO_TX";
+		};
+	};
+};
