@@ -1629,7 +1629,7 @@ out:
 	mutex_unlock(&st->lock);
 }
 
-int ad4170_gpio_setup(struct ad4170_state *st)
+static int ad4170_gpio_setup(struct ad4170_state *st)
 {
 	unsigned long valid_mask = 0x0;
 	int i = 0;
