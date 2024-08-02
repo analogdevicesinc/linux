@@ -145,7 +145,7 @@ static const struct regmap_config axi_adc_regmap_config = {
 	.max_register = 0x0800,
 };
 
-static const struct iio_backend_ops adi_axi_adc_generic = {
+static const struct iio_backend_ops adi_axi_adc_ops = {
 	.enable = axi_adc_enable,
 	.disable = axi_adc_disable,
 	.data_format_set = axi_adc_data_format_set,
@@ -153,6 +153,11 @@ static const struct iio_backend_ops adi_axi_adc_generic = {
 	.chan_disable = axi_adc_chan_disable,
 	.request_buffer = axi_adc_request_buffer,
 	.free_buffer = axi_adc_free_buffer,
+};
+
+static const struct iio_backend_info adi_axi_adc_generic = {
+	.name = "axi-adc",
+	.ops = &adi_axi_adc_ops,
 };
 
 static int adi_axi_adc_probe(struct platform_device *pdev)

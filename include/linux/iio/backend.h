@@ -120,6 +120,16 @@ struct iio_backend_ops {
 			long mask);
 };
 
+/**
+ * struct iio_backend_info - info structure for an iio_backend
+ * @name: Backend name.
+ * @ops: Backend operations.
+ */
+struct iio_backend_info {
+	const char *name;
+	const struct iio_backend_ops *ops;
+};
+
 int iio_backend_chan_enable(struct iio_backend *back, unsigned int chan);
 int iio_backend_chan_disable(struct iio_backend *back, unsigned int chan);
 int devm_iio_backend_enable(struct device *dev, struct iio_backend *back);
@@ -160,7 +170,7 @@ __devm_iio_backend_get_from_fwnode_lookup(struct device *dev,
 					  struct fwnode_handle *fwnode);
 
 int devm_iio_backend_register(struct device *dev,
-			      const struct iio_backend_ops *ops, void *priv);
+			      const struct iio_backend_info *info, void *priv);
 
 static inline int iio_backend_read_scale(struct iio_backend *back,
 					 struct iio_chan_spec const *chan,
