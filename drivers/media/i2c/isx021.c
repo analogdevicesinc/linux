@@ -27,6 +27,7 @@
 
 #define V4L2_CID_FSYNC		(V4L2_CID_USER_BASE | 0x1002)
 #define V4L2_CID_TPG		(V4L2_CID_USER_BASE | 0x1003)
+#define V4L2_CID_DISTCOR	(V4L2_CID_USER_BASE | 0x1004)
 
 static const char * const isx021_supply_names[] = {
 	"dvdd",
@@ -37,6 +38,11 @@ static const char * const isx021_ctrl_fsync_options[] = {
 };
 
 static const char * const isx021_ctrl_test_pattern_options[] = {
+	"Disabled",
+	"Enabled",
+};
+
+static const char * const isx021_ctrl_distcor_options[] = {
 	"Disabled",
 	"Enabled",
 };
@@ -382,6 +388,59 @@ fail:
 	return ret;
 }
 
+static int isx021_set_distortion_correction(struct isx021 *sensor, bool enable)
+{
+	int ret = 0;
+
+	ret = isx021_write_mode_set_f_lock_register(sensor, 0x53);
+	if (ret)
+	{
+		dev_err(sensor->dev, "[%s] : Write to MODE_SET_F_LOCK register caused time out.\n", __func__);
+		return ret;
+	}
+
+	usleep_range(10000, PLUS_10(10000));
+
+	ret = isx021_write(sensor, 0x8a01, 0x00);  // transit to Startup state
+	if (ret) {
+		dev_err(sensor->dev, "[%s] : Transition to Startup state failed.\n", __func__);
+		goto fail;
+	}
+
+	usleep_range(35000, PLUS_10(35000));
+
+	if (enable) {
+		ret = isx021_write(sensor, 0xac58, 0x01);
+		if (ret)
+			goto fail;
+		usleep_range(35000, PLUS_10(35000));
+
+		ret = isx021_write(sensor, 0xac59, 0x01);
+		if (ret)
+			goto fail;
+	}
+	else {
+		dev_info(sensor->dev, "[%s] : Disable distortion correction.", __func__);
+		ret = isx021_write(sensor, 0xac58, 0x00);
+		if (ret)
+			goto fail;
+
+		usleep_range(35000, PLUS_10(35000));
+
+		ret = isx021_write(sensor, 0xac59, 0x00);
+		if (ret)
+			goto fail;
+	}
+
+fail:
+	if (ret && !enable)
+		dev_err(sensor->dev, "[%s] Disabling distortion correcton failed.", __func__);
+	else if (ret && enable)
+		dev_err(sensor->dev, "[%s] Enabling distortion correcton failed.", __func__);
+
+	return ret;
+}
+
 static int isx021_set_exposure(struct isx021 *sensor, s64 val)
 {
 	u8 exp_time_byte0;
@@ -606,6 +665,10 @@ static int isx021_s_ctrl(struct v4l2_ctrl *ctrl)
 		isx021_set_tpg(sensor, ctrl->val);
 		break;
 
+	case V4L2_CID_DISTCOR:
+		isx021_set_distortion_correction(sensor, ctrl->val);
+		break;	
+
 	default:
 		ret = -EINVAL;
 		break;
@@ -636,6 +699,16 @@ static const struct v4l2_ctrl_config isx021_ctrl_tpg = {
 	.max = ARRAY_SIZE(isx021_ctrl_test_pattern_options) - 1,
 	.def = 0,
 	.qmenu = isx021_ctrl_test_pattern_options,
+};
+
+static const struct v4l2_ctrl_config isx021_ctrl_distcor = {
+	.ops = &isx021_ctrl_ops,
+	.id = V4L2_CID_DISTCOR,
+	.name = "Distortion Correction",
+	.type = V4L2_CTRL_TYPE_MENU,
+	.max = ARRAY_SIZE(isx021_ctrl_distcor_options) - 1,
+	.def = 0,
+	.qmenu = isx021_ctrl_distcor_options,
 };
 
 static int isx021_ctrls_init(struct isx021 *sensor)
@@ -675,6 +748,9 @@ static int isx021_ctrls_init(struct isx021 *sensor)
 
 	v4l2_ctrl_new_custom(&sensor->ctrls,
 				     &isx021_ctrl_tpg, NULL);
+
+	v4l2_ctrl_new_custom(&sensor->ctrls,
+				     &isx021_ctrl_distcor, NULL);
 
 	if (sensor->ctrls.error) {
 		dev_err(sensor->dev, "failed to add controls (%d)\n",
