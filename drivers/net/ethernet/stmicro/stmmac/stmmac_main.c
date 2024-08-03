@@ -956,22 +956,6 @@ static void stmmac_mac_config(struct phylink_config *config, unsigned int mode,
 	/* Nothing to do, xpcs_config() handles everything */
 }
 
-static void stmmac_fpe_link_state_handle(struct stmmac_priv *priv, bool is_up)
-{
-	struct stmmac_fpe_cfg *fpe_cfg = priv->plat->fpe_cfg;
-	enum stmmac_fpe_state *lo_state = &fpe_cfg->lo_fpe_state;
-	enum stmmac_fpe_state *lp_state = &fpe_cfg->lp_fpe_state;
-	bool *hs_enable = &fpe_cfg->hs_enable;
-
-	if (is_up && *hs_enable) {
-		stmmac_fpe_send_mpacket(priv, priv->ioaddr, fpe_cfg,
-					MPACKET_VERIFY);
-	} else {
-		*lo_state = FPE_STATE_OFF;
-		*lp_state = FPE_STATE_OFF;
-	}
-}
-
 static void stmmac_mac_link_down(struct phylink_config *config,
 				 unsigned int mode, phy_interface_t interface)
 {
@@ -984,7 +968,7 @@ static void stmmac_mac_link_down(struct phylink_config *config,
 	stmmac_set_eee_pls(priv, priv->hw, false);
 
 	if (priv->dma_cap.fpesel)
-		stmmac_fpe_link_state_handle(priv, false);
+		stmmac_fpe_handshake(priv, false);
 }
 
 static void stmmac_mac_link_up(struct phylink_config *config,
@@ -1098,7 +1082,7 @@ static void stmmac_mac_link_up(struct phylink_config *config,
 	}
 
 	if (priv->dma_cap.fpesel)
-		stmmac_fpe_link_state_handle(priv, true);
+		stmmac_fpe_handshake(priv, true);
 
 	if (priv->plat->flags & STMMAC_FLAG_HWTSTAMP_CORRECT_LATENCY)
 		stmmac_hwtstamp_correct_latency(priv, priv);
@@ -3456,8 +3440,7 @@ static int stmmac_hw_setup(struct net_device *dev, bool ptp_register)
 	if (priv->dma_cap.fpesel) {
 		stmmac_fpe_start_wq(priv);
 
-		if (priv->plat->fpe_cfg->enable)
-			stmmac_fpe_handshake(priv, true);
+		stmmac_fpe_handshake(priv, true);
 	}
 
 	/* Set HW VLAN Stripping mode */
@@ -7329,17 +7312,23 @@ static void stmmac_fpe_lp_task(struct work_struct *work)
 
 void stmmac_fpe_handshake(struct stmmac_priv *priv, bool enable)
 {
-	if (priv->plat->fpe_cfg->hs_enable != enable) {
-		if (enable) {
-			stmmac_fpe_send_mpacket(priv, priv->ioaddr,
-						priv->plat->fpe_cfg,
-						MPACKET_VERIFY);
-		} else {
-			priv->plat->fpe_cfg->lo_fpe_state = FPE_STATE_OFF;
-			priv->plat->fpe_cfg->lp_fpe_state = FPE_STATE_OFF;
-		}
+	if (priv->plat->fpe_cfg->hs_enable && enable) {
+		netdev_info(priv->dev, "start FPE handshake\n");
+		netdev_info(priv->dev, "send Verify mPacket\n");
+		stmmac_fpe_send_mpacket(priv, priv->ioaddr,
+					priv->plat->fpe_cfg,
+					MPACKET_VERIFY);
+	} else {
+		priv->plat->fpe_cfg->lo_fpe_state = FPE_STATE_OFF;
+		priv->plat->fpe_cfg->lp_fpe_state = FPE_STATE_OFF;
+		netdev_info(priv->dev, "stop FPE handshake\n");
 
-		priv->plat->fpe_cfg->hs_enable = enable;
+		stmmac_fpe_configure(priv, priv->ioaddr,
+				     priv->plat->fpe_cfg,
+				     priv->plat->tx_queues_to_use,
+				     priv->plat->rx_queues_to_use,
+				     false);
+		netdev_info(priv->dev, "disabled FPE\n");
 	}
 }
 
@@ -7804,11 +7793,6 @@ int stmmac_suspend(struct device *dev)
 
 	if (priv->dma_cap.fpesel) {
 		/* Disable FPE */
-		stmmac_fpe_configure(priv, priv->ioaddr,
-				     priv->plat->fpe_cfg,
-				     priv->plat->tx_queues_to_use,
-				     priv->plat->rx_queues_to_use, false);
-
 		stmmac_fpe_handshake(priv, false);
 		stmmac_fpe_stop_wq(priv);
 	}
