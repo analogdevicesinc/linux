@@ -30,7 +30,7 @@
 #define AD4170_DATA_24b_REG			0x1c
 #define AD4170_DATA_24b_STATUS_REG		0x20
 //#define AD4170_DATA_32b_REG			0x24
-#define AD4170_DATA_PER_CHANNEL_X_REG(x)	(0x28 + 4 * (x))
+#define AD4170_DATA_PER_CHANNEL_REG(x)		(0x28 + 4 * (x))
 #define AD4170_PIN_MUXING_REG			0x68
 #define AD4170_CLOCK_CTRL_REG			0x6a
 #define AD4170_STANDBY_CTRL_REG			0x6c
@@ -40,18 +40,18 @@
 #define AD4170_ERROR_REG			0x74
 //#define AD4170_INFO1			0x76 /* TODO: implement this when it's specified in doc. */
 #define AD4170_CHANNEL_EN_REG			0x78
-#define AD4170_CHANNEL_SETUP_X_REG(x)		(0x80 + 4 * (x))
-#define AD4170_CHANNEL_MAP_X_REG(x)		(0x82 + 4 * (x))
-#define AD4170_MISC_X_REG(x)			(0xc0 + 14 * (x))
-#define AD4170_AFE_X_REG(x)			(0xc2 + 14 * (x))
-#define AD4170_FILTER_X_REG(x)			(0xc4 + 14 * (x))
-#define AD4170_FILTER_FS_X_REG(x)		(0xc6 + 14 * (x))
-#define AD4170_OFFSET_X_REG(x)			(0xc8 + 14 * (x))
-#define AD4170_GAIN_X_REG(x)			(0xcb + 14 * (x))
+#define AD4170_CHANNEL_SETUP_REG(x)		(0x80 + 4 * (x))
+#define AD4170_CHANNEL_MAP_REG(x)		(0x82 + 4 * (x))
+#define AD4170_MISC_REG(x)			(0xc0 + 14 * (x))
+#define AD4170_AFE_REG(x)			(0xc2 + 14 * (x))
+#define AD4170_FILTER_REG(x)			(0xc4 + 14 * (x))
+#define AD4170_FILTER_FS_REG(x)			(0xc6 + 14 * (x))
+#define AD4170_OFFSET_REG(x)			(0xc8 + 14 * (x))
+#define AD4170_GAIN_REG(x)			(0xcb + 14 * (x))
 #define AD4170_REF_CONTROL_REG			0x130
 #define AD4170_V_BIAS_REG			0x134
 #define AD4170_I_PULLUP_REG			0x136
-#define AD4170_CURRENT_SOURCE_X_REG(x)		(0x138 + 2 * (x))
+#define AD4170_CURRENT_SOURCE_REG(x)		(0x138 + 2 * (x))
 #define AD4170_FIR_CONTROL_REG			0x140
 #define AD4170_COEFF_WRITE_DATA_REG		0x144
 #define AD4170_COEFF_READ_DATA_REG		0x147
@@ -976,7 +976,7 @@ static const unsigned int ad4170_reg_size[] = {
 	[AD4170_DATA_16b_STATUS_REG]	= 3,
 	[AD4170_DATA_24b_REG]	= 3,
 	[AD4170_DATA_24b_STATUS_REG]	= 4,
-	[AD4170_DATA_PER_CHANNEL_X_REG(0) ... AD4170_DATA_PER_CHANNEL_X_REG(AD4170_NUM_CHANNELS - 1)] = 3,
+	[AD4170_DATA_PER_CHANNEL_REG(0) ... AD4170_DATA_PER_CHANNEL_REG(AD4170_NUM_CHANNELS - 1)] = 3,
 	[AD4170_PIN_MUXING_REG]	= 2,
 	[AD4170_CLOCK_CTRL_REG]	= 2,
 	[AD4170_STANDBY_CTRL_REG]	= 2,
@@ -992,7 +992,7 @@ static const unsigned int ad4170_reg_size[] = {
 	 * and so on until CHANNEL_MAP15.
 	 * Thus, initialize the register size for them only once.
 	 */
-	[AD4170_CHANNEL_SETUP_X_REG(0) ... AD4170_CHANNEL_MAP_X_REG(AD4170_NUM_CHANNELS - 1)]	= 2,
+	[AD4170_CHANNEL_SETUP_REG(0) ... AD4170_CHANNEL_MAP_REG(AD4170_NUM_CHANNELS - 1)] = 2,
 	/*
 	 * MISC, AFE, FILTER, FILTER_FS, OFFSET, and GAIN register addresses are
 	 * also interleaved but MISC, AFE, FILTER, FILTER_FS, OFFSET are 16-bit
@@ -1000,63 +1000,63 @@ static const unsigned int ad4170_reg_size[] = {
 	 * the same size.
 	 */
 	/* Init MISC register size */
-	[AD4170_MISC_X_REG(0)] = 2,
-	[AD4170_MISC_X_REG(1)] = 2,
-	[AD4170_MISC_X_REG(2)] = 2,
-	[AD4170_MISC_X_REG(3)] = 2,
-	[AD4170_MISC_X_REG(4)] = 2,
-	[AD4170_MISC_X_REG(5)] = 2,
-	[AD4170_MISC_X_REG(6)] = 2,
-	[AD4170_MISC_X_REG(7)] = 2,
+	[AD4170_MISC_REG(0)] = 2,
+	[AD4170_MISC_REG(1)] = 2,
+	[AD4170_MISC_REG(2)] = 2,
+	[AD4170_MISC_REG(3)] = 2,
+	[AD4170_MISC_REG(4)] = 2,
+	[AD4170_MISC_REG(5)] = 2,
+	[AD4170_MISC_REG(6)] = 2,
+	[AD4170_MISC_REG(7)] = 2,
 	/* Init AFE register size */
-	[AD4170_AFE_X_REG(0)] = 2,
-	[AD4170_AFE_X_REG(1)] = 2,
-	[AD4170_AFE_X_REG(2)] = 2,
-	[AD4170_AFE_X_REG(3)] = 2,
-	[AD4170_AFE_X_REG(4)] = 2,
-	[AD4170_AFE_X_REG(5)] = 2,
-	[AD4170_AFE_X_REG(6)] = 2,
-	[AD4170_AFE_X_REG(7)] = 2,
+	[AD4170_AFE_REG(0)] = 2,
+	[AD4170_AFE_REG(1)] = 2,
+	[AD4170_AFE_REG(2)] = 2,
+	[AD4170_AFE_REG(3)] = 2,
+	[AD4170_AFE_REG(4)] = 2,
+	[AD4170_AFE_REG(5)] = 2,
+	[AD4170_AFE_REG(6)] = 2,
+	[AD4170_AFE_REG(7)] = 2,
 	/* Init FILTER register size */
-	[AD4170_FILTER_X_REG(0)]	= 2,
-	[AD4170_FILTER_X_REG(1)]	= 2,
-	[AD4170_FILTER_X_REG(2)]	= 2,
-	[AD4170_FILTER_X_REG(3)]	= 2,
-	[AD4170_FILTER_X_REG(4)]	= 2,
-	[AD4170_FILTER_X_REG(5)]	= 2,
-	[AD4170_FILTER_X_REG(6)]	= 2,
-	[AD4170_FILTER_X_REG(7)]	= 2,
+	[AD4170_FILTER_REG(0)]	= 2,
+	[AD4170_FILTER_REG(1)]	= 2,
+	[AD4170_FILTER_REG(2)]	= 2,
+	[AD4170_FILTER_REG(3)]	= 2,
+	[AD4170_FILTER_REG(4)]	= 2,
+	[AD4170_FILTER_REG(5)]	= 2,
+	[AD4170_FILTER_REG(6)]	= 2,
+	[AD4170_FILTER_REG(7)]	= 2,
 	/* Init FILTER_FS register size */
-	[AD4170_FILTER_FS_X_REG(0)]	= 2,
-	[AD4170_FILTER_FS_X_REG(1)]	= 2,
-	[AD4170_FILTER_FS_X_REG(2)]	= 2,
-	[AD4170_FILTER_FS_X_REG(3)]	= 2,
-	[AD4170_FILTER_FS_X_REG(4)]	= 2,
-	[AD4170_FILTER_FS_X_REG(5)]	= 2,
-	[AD4170_FILTER_FS_X_REG(6)]	= 2,
-	[AD4170_FILTER_FS_X_REG(7)]	= 2,
+	[AD4170_FILTER_FS_REG(0)]	= 2,
+	[AD4170_FILTER_FS_REG(1)]	= 2,
+	[AD4170_FILTER_FS_REG(2)]	= 2,
+	[AD4170_FILTER_FS_REG(3)]	= 2,
+	[AD4170_FILTER_FS_REG(4)]	= 2,
+	[AD4170_FILTER_FS_REG(5)]	= 2,
+	[AD4170_FILTER_FS_REG(6)]	= 2,
+	[AD4170_FILTER_FS_REG(7)]	= 2,
 	/* Init OFFSET register size */
-	[AD4170_OFFSET_X_REG(0)]	= 3,
-	[AD4170_OFFSET_X_REG(1)]	= 3,
-	[AD4170_OFFSET_X_REG(2)]	= 3,
-	[AD4170_OFFSET_X_REG(3)]	= 3,
-	[AD4170_OFFSET_X_REG(4)]	= 3,
-	[AD4170_OFFSET_X_REG(5)]	= 3,
-	[AD4170_OFFSET_X_REG(6)]	= 3,
-	[AD4170_OFFSET_X_REG(7)]	= 3,
+	[AD4170_OFFSET_REG(0)]	= 3,
+	[AD4170_OFFSET_REG(1)]	= 3,
+	[AD4170_OFFSET_REG(2)]	= 3,
+	[AD4170_OFFSET_REG(3)]	= 3,
+	[AD4170_OFFSET_REG(4)]	= 3,
+	[AD4170_OFFSET_REG(5)]	= 3,
+	[AD4170_OFFSET_REG(6)]	= 3,
+	[AD4170_OFFSET_REG(7)]	= 3,
 	/* Init GAIN register size */
-	[AD4170_GAIN_X_REG(0)]	= 3,
-	[AD4170_GAIN_X_REG(1)]	= 3,
-	[AD4170_GAIN_X_REG(2)]	= 3,
-	[AD4170_GAIN_X_REG(3)]	= 3,
-	[AD4170_GAIN_X_REG(4)]	= 3,
-	[AD4170_GAIN_X_REG(5)]	= 3,
-	[AD4170_GAIN_X_REG(6)]	= 3,
-	[AD4170_GAIN_X_REG(7)]	= 3,
+	[AD4170_GAIN_REG(0)]	= 3,
+	[AD4170_GAIN_REG(1)]	= 3,
+	[AD4170_GAIN_REG(2)]	= 3,
+	[AD4170_GAIN_REG(3)]	= 3,
+	[AD4170_GAIN_REG(4)]	= 3,
+	[AD4170_GAIN_REG(5)]	= 3,
+	[AD4170_GAIN_REG(6)]	= 3,
+	[AD4170_GAIN_REG(7)]	= 3,
 	[AD4170_REF_CONTROL_REG]	= 2,
 	[AD4170_V_BIAS_REG]	= 2,
 	[AD4170_I_PULLUP_REG]	= 2,
-	[AD4170_CURRENT_SOURCE_X_REG(0)...AD4170_CURRENT_SOURCE_X_REG(AD4170_NUM_CURRENT_SOURCE - 1)] = 2,
+	[AD4170_CURRENT_SOURCE_REG(0)...AD4170_CURRENT_SOURCE_REG(AD4170_NUM_CURRENT_SOURCE - 1)] = 2,
 	[AD4170_FIR_CONTROL_REG]	= 2,
 	[AD4170_COEFF_WRITE_DATA_REG]	= 4,
 	[AD4170_COEFF_READ_DATA_REG]	= 4,

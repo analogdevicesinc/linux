@@ -296,7 +296,7 @@ static int ad4170_write_slot_setup(struct ad4170_state *st,
 	val = FIELD_PREP(AD4170_ADC_SETUPS_MISC_CHOP_IEXC_MSK, setup->misc.chop_iexc) |
 	      FIELD_PREP(AD4170_ADC_SETUPS_MISC_CHOP_ADC_MSK, setup->misc.chop_adc);
 
-	ret = regmap_write(st->regmap, AD4170_MISC_X_REG(slot), val);
+	ret = regmap_write(st->regmap, AD4170_MISC_REG(slot), val);
 	if (ret)
 		return ret;
 
@@ -306,26 +306,26 @@ static int ad4170_write_slot_setup(struct ad4170_state *st,
 	      FIELD_PREP(AD4170_ADC_SETUPS_AFE_BIPOLAR_MSK, setup->afe.bipolar) |
 	      FIELD_PREP(AD4170_ADC_SETUPS_AFE_PGA_GAIN_MSK, setup->afe.pga_gain);
 
-	ret = regmap_write(st->regmap, AD4170_AFE_X_REG(slot), val);
+	ret = regmap_write(st->regmap, AD4170_AFE_REG(slot), val);
 	if (ret)
 		return ret;
 
 	val = FIELD_PREP(AD4170_ADC_SETUPS_POST_FILTER_SEL_MSK, setup->filter.post_filter_sel) |
 	      FIELD_PREP(AD4170_ADC_SETUPS_FILTER_TYPE_MSK, setup->filter.filter_type);
 
-	ret = regmap_write(st->regmap, AD4170_FILTER_X_REG(slot), val);
+	ret = regmap_write(st->regmap, AD4170_FILTER_REG(slot), val);
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, AD4170_FILTER_FS_X_REG(slot), setup->filter_fs);
+	ret = regmap_write(st->regmap, AD4170_FILTER_FS_REG(slot), setup->filter_fs);
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, AD4170_OFFSET_X_REG(slot), setup->offset);
+	ret = regmap_write(st->regmap, AD4170_OFFSET_REG(slot), setup->offset);
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, AD4170_GAIN_X_REG(slot), setup->gain);
+	ret = regmap_write(st->regmap, AD4170_GAIN_REG(slot), setup->gain);
 	if (ret)
 		return ret;
 
@@ -355,7 +355,7 @@ static int ad4170_write_channel_setup(struct ad4170_state *st,
 		return ret;
 
 	/* Hardcode default setup for channel x and write it */
-	ret = regmap_update_bits(st->regmap, AD4170_CHANNEL_SETUP_X_REG(channel),
+	ret = regmap_update_bits(st->regmap, AD4170_CHANNEL_SETUP_REG(channel),
 				 AD4170_CHANNEL_SETUPN_SETUP_N_MSK,
 				 FIELD_PREP(AD4170_CHANNEL_SETUPN_SETUP_N_MSK, slot));
 	if (ret)
@@ -561,7 +561,7 @@ static int _ad4170_read_sample(struct iio_dev *indio_dev, unsigned int channel,
 			goto out;
 	}
 
-	//ret = regmap_read(st->regmap, AD4170_DATA_PER_CHANNEL_X_REG(channel), val);
+	//ret = regmap_read(st->regmap, AD4170_DATA_PER_CHANNEL_REG(channel), val);
 	ret = regmap_read(st->regmap, AD4170_DATA_24b_REG, val);
 	if (ret)
 		return ret;
@@ -632,7 +632,7 @@ static int ad4170_get_offset(struct iio_dev *indio_dev, int addr, int *val)
 	struct ad4170_state *st = iio_priv(indio_dev);
 	int ret;
 
-	ret = regmap_read(st->regmap, AD4170_OFFSET_X_REG(addr), val);
+	ret = regmap_read(st->regmap, AD4170_OFFSET_REG(addr), val);
 	if (ret < 0)
 		return ret;
 
@@ -644,7 +644,7 @@ static int ad4170_get_gain(struct iio_dev *indio_dev, int addr, int *val)
 	struct ad4170_state *st = iio_priv(indio_dev);
 	int ret;
 
-	ret = regmap_read(st->regmap, AD4170_GAIN_X_REG(addr), val);
+	ret = regmap_read(st->regmap, AD4170_GAIN_REG(addr), val);
 	if (ret < 0)
 		return ret;
 
@@ -829,7 +829,7 @@ static int ad4170_set_gain(struct iio_dev *indio_dev, int addr, int val)
 	int ret;
 
 	/*
-	 * When writing to the GAIN_X registers, the ADC must be placed in
+	 * When writing to the GAIN registers, the ADC must be placed in
 	 * standby mode or idle mode.
 	 */
 	ret = ad4170_set_mode(st, AD4170_MODE_IDLE);
@@ -837,7 +837,7 @@ static int ad4170_set_gain(struct iio_dev *indio_dev, int addr, int val)
 		return ret;
 
 	val &= AD4170_GAIN_MSK;
-	return regmap_write(st->regmap, AD4170_GAIN_X_REG(addr), val);
+	return regmap_write(st->regmap, AD4170_GAIN_REG(addr), val);
 }
 
 static int ad4170_set_offset(struct iio_dev *indio_dev, int addr, int val)
@@ -854,7 +854,7 @@ static int ad4170_set_offset(struct iio_dev *indio_dev, int addr, int val)
 		return ret;
 
 	val &= AD4170_OFFSET_MSK;
-	return regmap_write(st->regmap, AD4170_OFFSET_X_REG(addr), val);
+	return regmap_write(st->regmap, AD4170_OFFSET_REG(addr), val);
 }
 
 static int ad4170_write_raw(struct iio_dev *indio_dev,
@@ -1294,7 +1294,7 @@ static int ad4170_setup(struct iio_dev *indio_dev)
 		val = FIELD_PREP(AD4170_CHANNEL_MAPN_AINP_MSK, chan->channel) |
 		      FIELD_PREP(AD4170_CHANNEL_MAPN_AINM_MSK, chan->channel2);
 
-		ret = regmap_write(st->regmap, AD4170_CHANNEL_MAP_X_REG(i), val);
+		ret = regmap_write(st->regmap, AD4170_CHANNEL_MAP_REG(i), val);
 		if (ret)
 			return ret;
 
@@ -1307,7 +1307,7 @@ static int ad4170_setup(struct iio_dev *indio_dev)
 		      FIELD_PREP(AD4170_CURRENT_SOURCE_I_OUT_VAL_MSK,
 				 st->cfg.current_source[i].i_out_val);
 
-		ret = regmap_write(st->regmap, AD4170_CURRENT_SOURCE_X_REG(i), val);
+		ret = regmap_write(st->regmap, AD4170_CURRENT_SOURCE_REG(i), val);
 		if (ret)
 			return ret;
 	}
