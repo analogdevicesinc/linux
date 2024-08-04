@@ -542,6 +542,7 @@ static int _ad4170_read_sample(struct iio_dev *indio_dev, unsigned int channel,
 			       int *val)
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
+	struct ad4170_chan_info *chan_info = &st->chan_info[channel];
 	int ret;
 
 	ret = ad4170_set_channel_enable(st, channel, true);
@@ -566,6 +567,8 @@ static int _ad4170_read_sample(struct iio_dev *indio_dev, unsigned int channel,
 	if (ret)
 		return ret;
 
+	if (chan_info->setup.afe.bipolar)
+		*val = sign_extend32(*val, ad4170_channel_template.scan_type.realbits - 1);
 out:
 	ret = ad4170_set_channel_enable(st, channel, false);
 	if (ret)
@@ -668,7 +671,7 @@ static int ad4170_read_raw(struct iio_dev *indio_dev,
 		mutex_unlock(&st->lock);
 		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_OFFSET:
-		*val = setup->afe.bipolar ? -BIT(chan->scan_type.realbits - 1) : 0;
+		*val = 0;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		mutex_lock(&st->lock);
@@ -1082,6 +1085,8 @@ static int ad4170_parse_fw_channel(struct iio_dev *indio_dev,
 	chan_info->setup.filter_fs = 0x4;
 
 	chan_info->setup.afe.bipolar = fwnode_property_read_bool(child, "bipolar");
+	if (chan_info->setup.afe.bipolar)
+		chan->scan_type.sign = 's';
 
 	ret = fwnode_property_read_u32_array(child, "diff-channels", pins,
 					     ARRAY_SIZE(pins));
