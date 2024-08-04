@@ -703,11 +703,12 @@ static void ad4170_fill_scale_tbl(struct iio_dev *indio_dev, int channel)
 		u64 nv;
 		unsigned int lshift, rshift;
 
+		/* Keep ref in uV before right shigt to preserve scale precision */
 		nv = (u64)ref_select_uv * NANO;
 		lshift = (pga >> 3 & 1);  /* handle cases 8 and 9 */
 		rshift = ch_resolution + (pga & 0x7) - lshift;
-		st->scale_tbl[pga][0] = 0;
-		st->scale_tbl[pga][1] = div_u64(nv >> rshift, MILLI);
+		st->scale_tbl[pga][0] = 0; /* Integer part */
+		st->scale_tbl[pga][1] = div_u64(nv >> rshift, MILLI); /* Fractional part */
 	}
 }
 
