@@ -11,15 +11,14 @@
 #include <linux/etherdevice.h>
 #include <linux/ethtool.h>
 #include <linux/interrupt.h>
-#include <linux/io.h>
 #include <linux/mii.h>
 #include <linux/phylink.h>
 #include <linux/net_tstamp.h>
+#include <asm/io.h>
 
 #include "stmmac.h"
 #include "dwmac_dma.h"
 #include "dwxgmac2.h"
-#include "dwmac5.h"
 
 #define REG_SPACE_SIZE	0x1060
 #define GMAC4_REG_SPACE_SIZE	0x116C
@@ -213,9 +212,6 @@ static const struct stmmac_stats stmmac_mmc[] = {
 	STMMAC_MMC_STAT(mmc_tx_excessdef),
 	STMMAC_MMC_STAT(mmc_tx_pause_frame),
 	STMMAC_MMC_STAT(mmc_tx_vlan_frame_g),
-	STMMAC_MMC_STAT(mmc_tx_oversize_g),
-	STMMAC_MMC_STAT(mmc_tx_lpi_usec),
-	STMMAC_MMC_STAT(mmc_tx_lpi_tran),
 	STMMAC_MMC_STAT(mmc_rx_framecount_gb),
 	STMMAC_MMC_STAT(mmc_rx_octetcount_gb),
 	STMMAC_MMC_STAT(mmc_rx_octetcount_g),
@@ -240,12 +236,8 @@ static const struct stmmac_stats stmmac_mmc[] = {
 	STMMAC_MMC_STAT(mmc_rx_fifo_overflow),
 	STMMAC_MMC_STAT(mmc_rx_vlan_frames_gb),
 	STMMAC_MMC_STAT(mmc_rx_watchdog_error),
-	STMMAC_MMC_STAT(mmc_rx_error),
-	STMMAC_MMC_STAT(mmc_rx_lpi_usec),
-	STMMAC_MMC_STAT(mmc_rx_lpi_tran),
-	STMMAC_MMC_STAT(mmc_rx_discard_frames_gb),
-	STMMAC_MMC_STAT(mmc_rx_discard_octets_gb),
-	STMMAC_MMC_STAT(mmc_rx_align_err_frames),
+	STMMAC_MMC_STAT(mmc_rx_ipc_intr_mask),
+	STMMAC_MMC_STAT(mmc_rx_ipc_intr),
 	STMMAC_MMC_STAT(mmc_rx_ipv4_gd),
 	STMMAC_MMC_STAT(mmc_rx_ipv4_hderr),
 	STMMAC_MMC_STAT(mmc_rx_ipv4_nopay),
@@ -274,11 +266,8 @@ static const struct stmmac_stats stmmac_mmc[] = {
 	STMMAC_MMC_STAT(mmc_rx_tcp_err_octets),
 	STMMAC_MMC_STAT(mmc_rx_icmp_gd_octets),
 	STMMAC_MMC_STAT(mmc_rx_icmp_err_octets),
-	STMMAC_MMC_STAT(mmc_sgf_pass_fragment_cntr),
-	STMMAC_MMC_STAT(mmc_sgf_fail_fragment_cntr),
 	STMMAC_MMC_STAT(mmc_tx_fpe_fragment_cntr),
 	STMMAC_MMC_STAT(mmc_tx_hold_req_cntr),
-	STMMAC_MMC_STAT(mmc_tx_gate_overrun_cntr),
 	STMMAC_MMC_STAT(mmc_rx_packet_assembly_err_cntr),
 	STMMAC_MMC_STAT(mmc_rx_packet_smd_err_cntr),
 	STMMAC_MMC_STAT(mmc_rx_packet_assembly_ok_cntr),
@@ -437,6 +426,13 @@ static void stmmac_ethtool_setmsglevel(struct net_device *dev, u32 level)
 	struct stmmac_priv *priv = netdev_priv(dev);
 	priv->msg_enable = level;
 
+}
+
+static int stmmac_check_if_running(struct net_device *dev)
+{
+	if (!netif_running(dev))
+		return -EBUSY;
+	return 0;
 }
 
 static int stmmac_ethtool_get_regs_len(struct net_device *dev)
@@ -891,13 +887,15 @@ static int stmmac_set_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
 }
 
 static int stmmac_ethtool_op_get_eee(struct net_device *dev,
-				     struct ethtool_keee *edata)
+				     struct ethtool_eee *edata)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
 
 	if (!priv->dma_cap.eee)
 		return -EOPNOTSUPP;
 
+	edata->eee_enabled = priv->eee_enabled;
+	edata->eee_active = priv->eee_active;
 	edata->tx_lpi_timer = priv->tx_lpi_timer;
 	edata->tx_lpi_enabled = priv->tx_lpi_enabled;
 
@@ -905,7 +903,7 @@ static int stmmac_ethtool_op_get_eee(struct net_device *dev,
 }
 
 static int stmmac_ethtool_op_set_eee(struct net_device *dev,
-				     struct ethtool_keee *edata)
+				     struct ethtool_eee *edata)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
 	int ret;
@@ -1031,7 +1029,7 @@ static int __stmmac_set_coalesce(struct net_device *dev,
 	else if (queue >= max_cnt)
 		return -EINVAL;
 
-	if (priv->use_riwt) {
+	if (priv->use_riwt && (ec->rx_coalesce_usecs > 0)) {
 		rx_riwt = stmmac_usec2riwt(ec->rx_coalesce_usecs, priv);
 
 		if ((rx_riwt > MAX_DMA_RIWT) || (rx_riwt < MIN_DMA_RIWT))
@@ -1127,42 +1125,41 @@ static u32 stmmac_get_rxfh_indir_size(struct net_device *dev)
 	return ARRAY_SIZE(priv->rss.table);
 }
 
-static int stmmac_get_rxfh(struct net_device *dev,
-			   struct ethtool_rxfh_param *rxfh)
+static int stmmac_get_rxfh(struct net_device *dev, u32 *indir, u8 *key,
+			   u8 *hfunc)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
 	int i;
 
-	if (rxfh->indir) {
+	if (indir) {
 		for (i = 0; i < ARRAY_SIZE(priv->rss.table); i++)
-			rxfh->indir[i] = priv->rss.table[i];
+			indir[i] = priv->rss.table[i];
 	}
 
-	if (rxfh->key)
-		memcpy(rxfh->key, priv->rss.key, sizeof(priv->rss.key));
-	rxfh->hfunc = ETH_RSS_HASH_TOP;
+	if (key)
+		memcpy(key, priv->rss.key, sizeof(priv->rss.key));
+	if (hfunc)
+		*hfunc = ETH_RSS_HASH_TOP;
 
 	return 0;
 }
 
-static int stmmac_set_rxfh(struct net_device *dev,
-			   struct ethtool_rxfh_param *rxfh,
-			   struct netlink_ext_ack *extack)
+static int stmmac_set_rxfh(struct net_device *dev, const u32 *indir,
+			   const u8 *key, const u8 hfunc)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
 	int i;
 
-	if (rxfh->hfunc != ETH_RSS_HASH_NO_CHANGE &&
-	    rxfh->hfunc != ETH_RSS_HASH_TOP)
+	if ((hfunc != ETH_RSS_HASH_NO_CHANGE) && (hfunc != ETH_RSS_HASH_TOP))
 		return -EOPNOTSUPP;
 
-	if (rxfh->indir) {
+	if (indir) {
 		for (i = 0; i < ARRAY_SIZE(priv->rss.table); i++)
-			priv->rss.table[i] = rxfh->indir[i];
+			priv->rss.table[i] = indir[i];
 	}
 
-	if (rxfh->key)
-		memcpy(priv->rss.key, rxfh->key, sizeof(priv->rss.key));
+	if (key)
+		memcpy(priv->rss.key, key, sizeof(priv->rss.key));
 
 	return stmmac_rss_configure(priv, priv->hw, &priv->rss,
 				    priv->plat->rx_queues_to_use);
@@ -1193,7 +1190,7 @@ static int stmmac_set_channels(struct net_device *dev,
 }
 
 static int stmmac_get_ts_info(struct net_device *dev,
-			      struct kernel_ethtool_ts_info *info)
+			      struct ethtool_ts_info *info)
 {
 	struct stmmac_priv *priv = netdev_priv(dev);
 
@@ -1201,13 +1198,13 @@ static int stmmac_get_ts_info(struct net_device *dev,
 
 		info->so_timestamping = SOF_TIMESTAMPING_TX_SOFTWARE |
 					SOF_TIMESTAMPING_TX_HARDWARE |
+					SOF_TIMESTAMPING_RX_SOFTWARE |
 					SOF_TIMESTAMPING_RX_HARDWARE |
+					SOF_TIMESTAMPING_SOFTWARE |
 					SOF_TIMESTAMPING_RAW_HARDWARE;
 
 		if (priv->ptp_clock)
 			info->phc_index = ptp_clock_index(priv->ptp_clock);
-		else
-			info->phc_index = 0;
 
 		info->tx_types = (1 << HWTSTAMP_TX_OFF) | (1 << HWTSTAMP_TX_ON);
 
@@ -1264,101 +1261,111 @@ static int stmmac_set_tunable(struct net_device *dev,
 	return ret;
 }
 
-static int stmmac_get_mm(struct net_device *ndev,
-			 struct ethtool_mm_state *state)
+static int stmmac_get_mm(struct net_device *dev, struct ethtool_mm_state *state)
 {
-	struct stmmac_priv *priv = netdev_priv(ndev);
-	unsigned long flags;
-	u32 frag_size;
+	struct stmmac_priv *priv = netdev_priv(dev);
+	struct stmmac_fpe_cfg *fpe_cfg;
 
 	if (!priv->dma_cap.fpesel)
 		return -EOPNOTSUPP;
 
-	spin_lock_irqsave(&priv->fpe_cfg.lock, flags);
+	fpe_cfg = priv->plat->fpe_cfg;
 
-	state->max_verify_time = STMMAC_FPE_MM_MAX_VERIFY_TIME_MS;
-	state->verify_enabled = priv->fpe_cfg.verify_enabled;
-	state->pmac_enabled = priv->fpe_cfg.pmac_enabled;
-	state->verify_time = priv->fpe_cfg.verify_time;
-	state->tx_enabled = priv->fpe_cfg.tx_enabled;
-	state->verify_status = priv->fpe_cfg.status;
-	state->rx_min_frag_size = ETH_ZLEN;
+	/* DWMAC always have preemptible MAC enabled */
+	state->pmac_enabled = true;
+	state->max_verify_time = 128;
+	state->rx_min_frag_size = 60;
 
-	/* FPE active if common tx_enabled and
-	 * (verification success or disabled(forced))
-	 */
-	if (state->tx_enabled &&
-	    (state->verify_status == ETHTOOL_MM_VERIFY_STATUS_SUCCEEDED ||
-	     state->verify_status == ETHTOOL_MM_VERIFY_STATUS_DISABLED))
-		state->tx_active = true;
-	else
-		state->tx_active = false;
+	mutex_lock(&fpe_cfg->lock);
 
-	frag_size = stmmac_fpe_get_add_frag_size(priv, priv->ioaddr);
-	state->tx_min_frag_size = ethtool_mm_frag_size_add_to_min(frag_size);
+	state->tx_min_frag_size = ethtool_mm_frag_size_add_to_min(fpe_cfg->add_frag_size);
+	state->tx_enabled = fpe_cfg->tx_enable;
+	state->verify_enabled = fpe_cfg->verify_enable;
+	state->verify_time = fpe_cfg->verify_time;
+	switch (fpe_cfg->fpe_state) {
+	case FPE_VER_STATE_INITIAL:
+		state->verify_status = ETHTOOL_MM_VERIFY_STATUS_INITIAL;
+		break;
+	case FPE_VER_STATE_VERIFYING:
+		state->verify_status = ETHTOOL_MM_VERIFY_STATUS_VERIFYING;
+		break;
+	case FPE_VER_STATE_SUCCEEDED:
+		state->verify_status = ETHTOOL_MM_VERIFY_STATUS_SUCCEEDED;
+		break;
+	case FPE_VER_STATE_FAILED:
+		state->verify_status = ETHTOOL_MM_VERIFY_STATUS_FAILED;
+		break;
+	case FPE_VER_STATE_DISABLED:
+		state->verify_status = ETHTOOL_MM_VERIFY_STATUS_DISABLED;
+		break;
+	default:
+		state->verify_status = ETHTOOL_MM_VERIFY_STATUS_UNKNOWN;
+		break;
+	}
+	state->tx_active = fpe_cfg->tx_active;
 
-	spin_unlock_irqrestore(&priv->fpe_cfg.lock, flags);
+	mutex_unlock(&fpe_cfg->lock);
 
 	return 0;
 }
 
-static int stmmac_set_mm(struct net_device *ndev, struct ethtool_mm_cfg *cfg,
+static int stmmac_set_mm(struct net_device *dev, struct ethtool_mm_cfg *cfg,
 			 struct netlink_ext_ack *extack)
 {
-	struct stmmac_priv *priv = netdev_priv(ndev);
-	struct stmmac_fpe_cfg *fpe_cfg = &priv->fpe_cfg;
-	unsigned long flags;
-	u32 frag_size;
+	struct stmmac_priv *priv = netdev_priv(dev);
+	struct stmmac_fpe_cfg *fpe_cfg;
+	u32 add_frag_size;
 	int err;
 
+	if (!priv->dma_cap.fpesel)
+		return -EOPNOTSUPP;
+
+	/* DWMAC always have preemptible MAC enabled */
+	if (!cfg->pmac_enabled)
+		return -EINVAL;
+
+	fpe_cfg = priv->plat->fpe_cfg;
+
 	err = ethtool_mm_frag_size_min_to_add(cfg->tx_min_frag_size,
-					      &frag_size, extack);
+					      &add_frag_size, extack);
 	if (err)
 		return err;
 
-	/* Wait for the verification that's currently in progress to finish */
-	timer_shutdown_sync(&fpe_cfg->verify_timer);
+	mutex_lock(&fpe_cfg->lock);
 
-	spin_lock_irqsave(&fpe_cfg->lock, flags);
-
-	fpe_cfg->verify_enabled = cfg->verify_enabled;
-	fpe_cfg->pmac_enabled = cfg->pmac_enabled;
+	fpe_cfg->add_frag_size = add_frag_size;
 	fpe_cfg->verify_time = cfg->verify_time;
-	fpe_cfg->tx_enabled = cfg->tx_enabled;
+	fpe_cfg->tx_enable = cfg->tx_enabled;
+	fpe_cfg->verify_enable = cfg->verify_enabled;
 
-	if (!cfg->verify_enabled)
-		fpe_cfg->status = ETHTOOL_MM_VERIFY_STATUS_DISABLED;
-
-	stmmac_fpe_set_add_frag_size(priv, priv->ioaddr, frag_size);
-	stmmac_fpe_apply(priv);
-
-	spin_unlock_irqrestore(&fpe_cfg->lock, flags);
+	stmmac_fpe_handshake(priv, cfg->tx_enabled, false);
+	mutex_unlock(&fpe_cfg->lock);
 
 	return 0;
 }
 
-static void stmmac_get_mm_stats(struct net_device *ndev,
+static void stmmac_get_mm_stats(struct net_device *dev,
 				struct ethtool_mm_stats *s)
 {
-	struct stmmac_priv *priv = netdev_priv(ndev);
-	struct stmmac_counters *mmc = &priv->mmc;
+	struct stmmac_priv *priv = netdev_priv(dev);
 
-	if (!priv->dma_cap.rmon)
+	if (!priv->dma_cap.fpesel || !priv->dma_cap.rmon)
 		return;
 
-	stmmac_mmc_read(priv, priv->mmcaddr, mmc);
+	stmmac_mmc_read(priv, priv->mmcaddr, &priv->mmc);
 
-	s->MACMergeFrameAssErrorCount = mmc->mmc_rx_packet_assembly_err_cntr;
-	s->MACMergeFrameAssOkCount = mmc->mmc_rx_packet_assembly_ok_cntr;
-	s->MACMergeFrameSmdErrorCount = mmc->mmc_rx_packet_smd_err_cntr;
-	s->MACMergeFragCountRx = mmc->mmc_rx_fpe_fragment_cntr;
-	s->MACMergeFragCountTx = mmc->mmc_tx_fpe_fragment_cntr;
-	s->MACMergeHoldCount = mmc->mmc_tx_hold_req_cntr;
+	s->MACMergeFrameAssErrorCount = priv->mmc.mmc_rx_packet_assembly_err_cntr;
+	s->MACMergeFrameSmdErrorCount = priv->mmc.mmc_rx_packet_smd_err_cntr;
+	s->MACMergeFrameAssOkCount = priv->mmc.mmc_rx_packet_assembly_ok_cntr;
+	s->MACMergeFragCountRx = priv->mmc.mmc_rx_fpe_fragment_cntr;
+	s->MACMergeFragCountTx = priv->mmc.mmc_tx_fpe_fragment_cntr;
+	s->MACMergeHoldCount = priv->mmc.mmc_tx_hold_req_cntr;
 }
 
 static const struct ethtool_ops stmmac_ethtool_ops = {
 	.supported_coalesce_params = ETHTOOL_COALESCE_USECS |
 				     ETHTOOL_COALESCE_MAX_FRAMES,
+	.begin = stmmac_check_if_running,
 	.get_drvinfo = stmmac_ethtool_getdrvinfo,
 	.get_msglevel = stmmac_ethtool_getmsglevel,
 	.set_msglevel = stmmac_ethtool_setmsglevel,
