@@ -7278,7 +7278,7 @@ static void stmmac_fpe_lp_task(struct work_struct *work)
 						     priv->plat->tx_queues_to_use,
 						     priv->plat->rx_queues_to_use,
 						     fpe_cfg->tx_enable);
-				netdev_info(priv->dev, "configured FPE\n");
+				fpe_cfg->tx_active = fpe_cfg->tx_enable;
 				mutex_unlock(&fpe_cfg->lock);
 				break;
 			}
@@ -7296,9 +7296,9 @@ static void stmmac_fpe_lp_task(struct work_struct *work)
 				stmmac_fpe_send_mpacket(priv, priv->ioaddr, fpe_cfg,
 							MPACKET_VERIFY);
 			}
-			/* fpe verify time is fixed at 500ms */
+			/* fpe verify time from user */
 			if (!fpe_verify_time)
-				fpe_verify_time = 500;
+				fpe_verify_time = fpe_cfg->verify_time;
 
 			mutex_unlock(&fpe_cfg->lock);
 
@@ -7368,10 +7368,7 @@ void stmmac_fpe_handshake(struct stmmac_priv *priv, bool enable, bool lock)
 				     priv->plat->rx_queues_to_use,
 				     fpe_on);
 
-		if (!fpe_on)
-			netdev_info(priv->dev, "disabled FPE\n");
-		else
-			netdev_info(priv->dev, "configured FPE\n");
+		fpe_cfg->tx_active = fpe_on;
 	}
 
 	if (lock)

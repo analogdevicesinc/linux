@@ -1261,6 +1261,107 @@ static int stmmac_set_tunable(struct net_device *dev,
 	return ret;
 }
 
+static int stmmac_get_mm(struct net_device *dev, struct ethtool_mm_state *state)
+{
+	struct stmmac_priv *priv = netdev_priv(dev);
+	struct stmmac_fpe_cfg *fpe_cfg;
+
+	if (!priv->dma_cap.fpesel)
+		return -EOPNOTSUPP;
+
+	fpe_cfg = priv->plat->fpe_cfg;
+
+	/* DWMAC always have preemptible MAC enabled */
+	state->pmac_enabled = true;
+	state->max_verify_time = 128;
+	state->rx_min_frag_size = 60;
+
+	mutex_lock(&fpe_cfg->lock);
+
+	state->tx_min_frag_size = ethtool_mm_frag_size_add_to_min(fpe_cfg->add_frag_size);
+	state->tx_enabled = fpe_cfg->tx_enable;
+	state->verify_enabled = fpe_cfg->verify_enable;
+	state->verify_time = fpe_cfg->verify_time;
+	switch (fpe_cfg->fpe_state) {
+	case FPE_VER_STATE_INITIAL:
+		state->verify_status = ETHTOOL_MM_VERIFY_STATUS_INITIAL;
+		break;
+	case FPE_VER_STATE_VERIFYING:
+		state->verify_status = ETHTOOL_MM_VERIFY_STATUS_VERIFYING;
+		break;
+	case FPE_VER_STATE_SUCCEEDED:
+		state->verify_status = ETHTOOL_MM_VERIFY_STATUS_SUCCEEDED;
+		break;
+	case FPE_VER_STATE_FAILED:
+		state->verify_status = ETHTOOL_MM_VERIFY_STATUS_FAILED;
+		break;
+	case FPE_VER_STATE_DISABLED:
+		state->verify_status = ETHTOOL_MM_VERIFY_STATUS_DISABLED;
+		break;
+	default:
+		state->verify_status = ETHTOOL_MM_VERIFY_STATUS_UNKNOWN;
+		break;
+	}
+	state->tx_active = fpe_cfg->tx_active;
+
+	mutex_unlock(&fpe_cfg->lock);
+
+	return 0;
+}
+
+static int stmmac_set_mm(struct net_device *dev, struct ethtool_mm_cfg *cfg,
+			 struct netlink_ext_ack *extack)
+{
+	struct stmmac_priv *priv = netdev_priv(dev);
+	struct stmmac_fpe_cfg *fpe_cfg;
+	u32 add_frag_size;
+	int err;
+
+	if (!priv->dma_cap.fpesel)
+		return -EOPNOTSUPP;
+
+	/* DWMAC always have preemptible MAC enabled */
+	if (!cfg->pmac_enabled)
+		return -EINVAL;
+
+	fpe_cfg = priv->plat->fpe_cfg;
+
+	err = ethtool_mm_frag_size_min_to_add(cfg->tx_min_frag_size,
+					      &add_frag_size, extack);
+	if (err)
+		return err;
+
+	mutex_lock(&fpe_cfg->lock);
+
+	fpe_cfg->add_frag_size = add_frag_size;
+	fpe_cfg->verify_time = cfg->verify_time;
+	fpe_cfg->tx_enable = cfg->tx_enabled;
+	fpe_cfg->verify_enable = cfg->verify_enabled;
+
+	stmmac_fpe_handshake(priv, cfg->tx_enabled, false);
+	mutex_unlock(&fpe_cfg->lock);
+
+	return 0;
+}
+
+static void stmmac_get_mm_stats(struct net_device *dev,
+				struct ethtool_mm_stats *s)
+{
+	struct stmmac_priv *priv = netdev_priv(dev);
+
+	if (!priv->dma_cap.fpesel || !priv->dma_cap.rmon)
+		return;
+
+	stmmac_mmc_read(priv, priv->mmcaddr, &priv->mmc);
+
+	s->MACMergeFrameAssErrorCount = priv->mmc.mmc_rx_packet_assembly_err_cntr;
+	s->MACMergeFrameSmdErrorCount = priv->mmc.mmc_rx_packet_smd_err_cntr;
+	s->MACMergeFrameAssOkCount = priv->mmc.mmc_rx_packet_assembly_ok_cntr;
+	s->MACMergeFragCountRx = priv->mmc.mmc_rx_fpe_fragment_cntr;
+	s->MACMergeFragCountTx = priv->mmc.mmc_tx_fpe_fragment_cntr;
+	s->MACMergeHoldCount = priv->mmc.mmc_tx_hold_req_cntr;
+}
+
 static const struct ethtool_ops stmmac_ethtool_ops = {
 	.supported_coalesce_params = ETHTOOL_COALESCE_USECS |
 				     ETHTOOL_COALESCE_MAX_FRAMES,
@@ -1300,6 +1401,9 @@ static const struct ethtool_ops stmmac_ethtool_ops = {
 	.set_tunable = stmmac_set_tunable,
 	.get_link_ksettings = stmmac_ethtool_get_link_ksettings,
 	.set_link_ksettings = stmmac_ethtool_set_link_ksettings,
+	.get_mm = stmmac_get_mm,
+	.set_mm = stmmac_set_mm,
+	.get_mm_stats = stmmac_get_mm_stats,
 };
 
 void stmmac_set_ethtool_ops(struct net_device *netdev)
