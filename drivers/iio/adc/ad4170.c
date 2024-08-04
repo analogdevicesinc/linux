@@ -773,7 +773,7 @@ static int ad4170_set_channel_pga(struct iio_dev *indio_dev,
 	ad4170_fill_scale_tbl(indio_dev, channel);
 	for (pga = 0; pga < AD4170_PGA_GAIN_MAX; pga++) {
 		if (val == st->scale_tbl[pga][0] &&
-		    val2 == st->scale_tbl[pga][1] / MILLI)
+		    val2 == st->scale_tbl[pga][1])
 			break;
 	}
 
