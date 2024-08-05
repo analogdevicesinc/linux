@@ -1013,15 +1013,40 @@ static void tc_taprio_map_maxsdu_txq(struct stmmac_priv *priv,
 	}
 }
 
+static u32 tc_mqprio_map_preempt_txq(struct tc_mqprio_qopt *qopt, u32 preempt_tcs)
+{
+	u32 preempt_txq = 0, offset, count, i, j;
+	u32 num_tc = qopt->num_tc;
+
+	/* preempt tcs received from the n/w stack corresponds to the Linux traffic
+	 * class. Map preempt mask per Linux traffic class to DWMAC Tx queues.
+	 */
+	for (i = 0; i < num_tc; i++) {
+		if (!(preempt_tcs & (1 << i)))
+			continue;
+
+		offset = qopt->offset[i];
+		count = qopt->count[i];
+
+		for (j = offset; j < offset + count; j++)
+			preempt_txq |= 1 << j;
+	}
+
+	return preempt_txq;
+}
+
 static int tc_taprio_configure(struct stmmac_priv *priv,
 			       struct tc_taprio_qopt_offload *qopt)
 {
 	u32 size, wid = priv->dma_cap.estwid, dep = priv->dma_cap.estdep;
-	struct plat_stmmacenet_data *plat = priv->plat;
+	u32 txqmask = (1 << priv->dma_cap.number_tx_queues) - 1;
 	struct timespec64 time, current_time, qopt_time;
+	struct plat_stmmacenet_data *plat = priv->plat;
+	struct stmmac_fpe_cfg *fpe_cfg = plat->fpe_cfg;
 	ktime_t current_time_ns;
 	bool fpe = false;
 	int i, ret = 0;
+	u32 txqpec;
 	u64 ctr;
 
 	if (qopt->base_time < 0)
@@ -1123,6 +1148,37 @@ static int tc_taprio_configure(struct stmmac_priv *priv,
 		priv->plat->est->gates[i] = gates;
 	}
 
+	if (fpe) {
+		if (!priv->dma_cap.fpesel || !fpe_cfg) {
+			netdev_err(priv->dev, "Couldn't support premptible TxQ\n");
+			return -EINVAL;
+		}
+
+		txqpec = tc_mqprio_map_preempt_txq(&qopt->mqprio.qopt,
+						   qopt->mqprio.preemptible_tcs);
+
+		if (!txqpec) {
+			netdev_err(priv->dev, "FPE preemptible TxQ must not be 0\n");
+			return -EINVAL;
+		}
+
+		if (txqpec & ~txqmask) {
+			netdev_err(priv->dev, "FPE preemptible TxQ is out-of-bound\n");
+			return -EINVAL;
+		}
+
+		if (!(txqpec & BIT(0))) {
+			netdev_warn(priv->dev,
+				    "When EST and FPE ON, TxQ0 must not be express\n");
+			txqpec |= BIT(0);
+		}
+
+		netdev_info(priv->dev, "FPE: premptible TxQ = 0x%X\n", txqpec);
+	} else {
+		/* TxQs set as preemptive only if gates configured for Hold/Release */
+		txqpec = 0;
+	}
+
 	mutex_lock(&priv->plat->est->lock);
 	/* Adjust for real system time */
 	priv->ptp_clock_ops.gettime64(&priv->ptp_clock_ops, &current_time);
@@ -1145,11 +1201,6 @@ static int tc_taprio_configure(struct stmmac_priv *priv,
 
 	tc_taprio_map_maxsdu_txq(priv, qopt);
 
-	if (fpe && !priv->dma_cap.fpesel) {
-		mutex_unlock(&priv->plat->est->lock);
-		return -EOPNOTSUPP;
-	}
-
 	ret = stmmac_est_configure(priv, priv->ioaddr, priv->plat->est,
 				   priv->plat->clk_ptp_rate);
 	mutex_unlock(&priv->plat->est->lock);
@@ -1159,6 +1210,16 @@ static int tc_taprio_configure(struct stmmac_priv *priv,
 	}
 
 	netdev_info(priv->dev, "configured EST\n");
+
+	if (priv->dma_cap.fpesel && fpe_cfg) {
+		mutex_lock(&fpe_cfg->lock);
+		fpe_cfg->premptibe_txq = txqpec;
+		/* FPE is active. Enable preemptible TxQs*/
+		if (priv->plat->fpe_cfg->tx_active)
+			stmmac_fpe_tcs_setup(priv, priv->ioaddr, txqpec,
+					     priv->plat->tx_queues_to_use);
+		mutex_unlock(&fpe_cfg->lock);
+	}
 	return 0;
 
 disable:
@@ -1174,6 +1235,14 @@ disable:
 			priv->xstats.mtl_est_txq_hlbs[i] = 0;
 		}
 		mutex_unlock(&priv->plat->est->lock);
+	}
+
+	if (priv->dma_cap.fpesel && fpe_cfg) {
+		mutex_lock(&fpe_cfg->lock);
+		fpe_cfg->premptibe_txq = 0;
+		stmmac_fpe_tcs_setup(priv, priv->ioaddr, 0,
+				     priv->plat->tx_queues_to_use);
+		mutex_unlock(&fpe_cfg->lock);
 	}
 
 	return ret;
