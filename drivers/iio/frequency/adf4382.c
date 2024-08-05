@@ -455,7 +455,6 @@ struct adf4382_state {
 	struct regmap		*regmap;
 	struct clk		*clkin;
 	struct clk_hw		clk_hw;
-	struct clock_scale	scale;
 	/* Protect against concurrent accesses to the device and data content */
 	struct mutex		lock;
 	struct notifier_block	nb;
@@ -472,6 +471,8 @@ struct adf4382_state {
 	u64			vco_max;
 	u64			vco_min;
 };
+
+#define to_adf4382_state(_hw) container_of(_hw, struct adf4382_state, clk_hw);
 
 //Charge pump current values expressed in uA
 static const int adf4382_ci_ua[] = {
@@ -1364,13 +1365,10 @@ static void adf4382_clk_disable(void *data)
 static int adf4382_clock_set_rate(struct clk_hw *hw, unsigned long rate,
 				  unsigned long parent_rate)
 {
-	struct adf4382_state *st = container_of(hw, struct adf4382_state, clk_hw);
-	unsigned long long scaled_rate;
-
-	scaled_rate = from_ccf_scaled(rate, &st->scale);
+	struct adf4382_state *st = to_adf4382_state(hw);
 
 	st->ref_freq_hz = parent_rate;
-	st->freq = scaled_rate;
+	st->freq = rate;
 
 	return adf4382_set_freq(st);
 }
@@ -1385,9 +1383,9 @@ static void adf4382_clk_notifier_unreg(void *data)
 static unsigned long adf4382_clock_recalc_rate(struct clk_hw *hw,
 					       unsigned long parent_rate)
 {
-	struct adf4382_state *st = container_of(hw, struct adf4382_state, clk_hw);
+	struct adf4382_state *st = to_adf4382_state(hw);
 
-	return to_ccf_scaled(st->freq, &st->scale);
+	return st->freq;
 }
 
 static long adf4382_clock_round_rate(struct clk_hw *hw, unsigned long rate,
@@ -1471,12 +1469,6 @@ static int adf4382_probe(struct spi_device *spi)
 	}
 
 	mutex_init(&st->lock);
-
-	ret = of_clk_get_scale(st->spi->dev.of_node, NULL, &st->scale);
-	if (ret < 0) {
-		st->scale.mult = 1;
-		st->scale.div = 10;
-	}
 
 	ret = adf4382_parse_device(st);
 	if (ret)
