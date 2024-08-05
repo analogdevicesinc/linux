@@ -1033,7 +1033,6 @@ static int ad4170_parse_fw_setup(struct ad4170_state *st,
 	setup->misc.chop_adc = tmp;
 
 	st->chop_adc = tmp > st->chop_adc ? tmp : st->chop_adc;
-	pr_err("chop_adc: %d\n", st->chop_adc);
 
 	setup->afe.ref_buf_p = fwnode_property_read_bool(child, "adi,buffered-positive");
 	setup->afe.ref_buf_m = fwnode_property_read_bool(child, "adi,buffered-negative");
