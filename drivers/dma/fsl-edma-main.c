@@ -49,6 +49,80 @@ static irqreturn_t fsl_edma_tx_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static void fsl_edma3_err_check(struct fsl_edma_chan *fsl_chan)
+{
+	unsigned int ch_err;
+	u32 val;
+
+	scoped_guard(spinlock, &fsl_chan->vchan.lock) {
+		ch_err = edma_readl_chreg(fsl_chan, ch_es);
+		if (!(ch_err & EDMA_CH_ERR))
+			return;
+
+		edma_writel_chreg(fsl_chan, EDMA_CH_ERR, ch_es);
+		val = edma_readl_chreg(fsl_chan, ch_csr);
+		val &= ~EDMA_V3_CH_CSR_ERQ;
+		edma_writel_chreg(fsl_chan, val, ch_csr);
+	}
+
+	/* Ignore this interrupt since channel has been disabled already */
+	if (!fsl_chan->edesc)
+		return;
+
+	if (ch_err & EDMA_CH_ERR_DBE)
+		dev_err(&fsl_chan->pdev->dev, "Destination Bus Error interrupt.\n");
+
+	if (ch_err & EDMA_CH_ERR_SBE)
+		dev_err(&fsl_chan->pdev->dev, "Source Bus Error interrupt.\n");
+
+	if (ch_err & EDMA_CH_ERR_SGE)
+		dev_err(&fsl_chan->pdev->dev, "Scatter/Gather Configuration Error interrupt.\n");
+
+	if (ch_err & EDMA_CH_ERR_NCE)
+		dev_err(&fsl_chan->pdev->dev, "NBYTES/CITER Configuration Error interrupt.\n");
+
+	if (ch_err & EDMA_CH_ERR_DOE)
+		dev_err(&fsl_chan->pdev->dev, "Destination Offset Error interrupt.\n");
+
+	if (ch_err & EDMA_CH_ERR_DAE)
+		dev_err(&fsl_chan->pdev->dev, "Destination Address Error interrupt.\n");
+
+	if (ch_err & EDMA_CH_ERR_SOE)
+		dev_err(&fsl_chan->pdev->dev, "Source Offset Error interrupt.\n");
+
+	if (ch_err & EDMA_CH_ERR_SAE)
+		dev_err(&fsl_chan->pdev->dev, "Source Address Error interrupt.\n");
+
+	if (ch_err & EDMA_CH_ERR_ECX)
+		dev_err(&fsl_chan->pdev->dev, "Transfer Canceled interrupt.\n");
+
+	if (ch_err & EDMA_CH_ERR_UCE)
+		dev_err(&fsl_chan->pdev->dev, "Uncorrectable TCD error during channel execution interrupt.\n");
+
+	fsl_chan->status = DMA_ERROR;
+}
+
+static irqreturn_t fsl_edma3_err_handler(int irq, void *dev_id)
+{
+	struct fsl_edma_chan *fsl_chan = dev_id;
+	struct fsl_edma_engine *fsl_edma = fsl_chan->edma;
+	unsigned int ch;
+
+	if (!(fsl_chan->edma->drvdata->flags & FSL_EDMA_DRV_ERRIRQ_SHARE))
+		fsl_edma3_err_check(fsl_chan);
+	else {
+		for (ch = 0; ch < fsl_edma->n_chans; ch++) {
+			if (fsl_edma->chan_masked & BIT(ch))
+				continue;
+
+			fsl_chan = &fsl_edma->chans[ch];
+			fsl_edma3_err_check(fsl_chan);
+		}
+	}
+
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t fsl_edma3_tx_handler(int irq, void *dev_id)
 {
 	struct fsl_edma_chan *fsl_chan = dev_id;
@@ -254,7 +328,8 @@ fsl_edma_irq_init(struct platform_device *pdev, struct fsl_edma_engine *fsl_edma
 
 static int fsl_edma3_irq_init(struct platform_device *pdev, struct fsl_edma_engine *fsl_edma)
 {
-	int i;
+	int i, ret;
+	char *errirq_name;
 
 	for (i = 0; i < fsl_edma->n_chans; i++) {
 
@@ -269,6 +344,15 @@ static int fsl_edma3_irq_init(struct platform_device *pdev, struct fsl_edma_engi
 			return  -EINVAL;
 
 		fsl_chan->irq_handler = fsl_edma3_tx_handler;
+
+		if (!(fsl_chan->edma->drvdata->flags & FSL_EDMA_DRV_ERRIRQ_SHARE)) {
+			fsl_chan->errirq = platform_get_irq(pdev, i);
+			if (fsl_chan->errirq < 0)
+				return  -EINVAL;
+
+			fsl_chan->errirq_handler = fsl_edma3_err_handler;
+		}
+
 		if (fsl_chan->edma->drvdata->flags & FSL_EDMA_DRV_HAS_PD) {
 			pm_runtime_get_sync(fsl_chan->pd_dev);
 			/* clear meaningless pending irq anyway */
@@ -277,6 +361,29 @@ static int fsl_edma3_irq_init(struct platform_device *pdev, struct fsl_edma_engi
 		}
 		if (fsl_chan->edma->drvdata->flags & FSL_EDMA_DRV_HAS_PD)
 			pm_runtime_put_sync_suspend(fsl_chan->pd_dev);
+	}
+
+	if (fsl_edma->drvdata->flags & FSL_EDMA_DRV_ERRIRQ_SHARE) {
+		fsl_edma->errirq = platform_get_irq(pdev, fsl_edma->n_chans);
+		if (fsl_edma->errirq < 0)
+			return fsl_edma->errirq;
+
+		errirq_name = devm_kasprintf(&pdev->dev, GFP_KERNEL, "%s-err",
+					     dev_name(&pdev->dev));
+		for (i = 0; i < fsl_edma->n_chans; i++) {
+			struct fsl_edma_chan *fsl_chan = &fsl_edma->chans[i];
+
+			if (fsl_edma->chan_masked & BIT(i))
+				continue;
+
+			ret = devm_request_irq(&pdev->dev, fsl_edma->errirq, fsl_edma3_err_handler,
+				       0, errirq_name, fsl_chan);
+			if (ret) {
+				dev_err(&pdev->dev, "Can't register eDMA err IRQ.\n");
+				return ret;
+			}
+			return 0;
+		}
 	}
 
 	return 0;
@@ -363,6 +470,17 @@ static void fsl_edma_irq_exit(
 			if (fsl_chan->edma->drvdata->flags & FSL_EDMA_DRV_HAS_PD)
 				pm_runtime_put_sync_suspend(fsl_chan->pd_dev);
 		}
+
+		if (fsl_edma->drvdata->flags & FSL_EDMA_DRV_ERRIRQ_SHARE) {
+			for (i = 0; i < fsl_edma->n_chans; i++) {
+				struct fsl_edma_chan *fsl_chan = &fsl_edma->chans[i];
+
+				if (fsl_edma->chan_masked & BIT(i))
+					continue;
+				devm_free_irq(&pdev->dev, fsl_edma->errirq, fsl_chan);
+				return;
+			}
+		}
 	}
 }
 
@@ -399,7 +517,8 @@ static struct fsl_edma_drvdata imx7ulp_data = {
 };
 
 static struct fsl_edma_drvdata imx8qm_data = {
-	.flags = FSL_EDMA_DRV_HAS_PD | FSL_EDMA_DRV_EDMA3 | FSL_EDMA_DRV_MEM_REMOTE,
+	.flags = FSL_EDMA_DRV_HAS_PD | FSL_EDMA_DRV_EDMA3 | FSL_EDMA_DRV_MEM_REMOTE
+		 | FSL_EDMA_DRV_ERRIRQ_SHARE,
 	.chreg_space_sz = 0x10000,
 	.chreg_off = 0x10000,
 	.setup_irq = fsl_edma3_irq_init,
@@ -416,14 +535,15 @@ static struct fsl_edma_drvdata imx8ulp_data = {
 };
 
 static struct fsl_edma_drvdata imx93_data3 = {
-	.flags = FSL_EDMA_DRV_HAS_DMACLK | FSL_EDMA_DRV_EDMA3,
+	.flags = FSL_EDMA_DRV_HAS_DMACLK | FSL_EDMA_DRV_EDMA3 | FSL_EDMA_DRV_ERRIRQ_SHARE,
 	.chreg_space_sz = 0x10000,
 	.chreg_off = 0x10000,
 	.setup_irq = fsl_edma3_irq_init,
 };
 
 static struct fsl_edma_drvdata imx93_data4 = {
-	.flags = FSL_EDMA_DRV_HAS_CHMUX | FSL_EDMA_DRV_HAS_DMACLK | FSL_EDMA_DRV_EDMA4,
+	.flags = FSL_EDMA_DRV_HAS_CHMUX | FSL_EDMA_DRV_HAS_DMACLK | FSL_EDMA_DRV_EDMA4
+		 | FSL_EDMA_DRV_ERRIRQ_SHARE,
 	.chreg_space_sz = 0x8000,
 	.chreg_off = 0x10000,
 	.mux_off = 0x10000 + offsetof(struct fsl_edma3_ch_reg, ch_mux),
@@ -433,7 +553,7 @@ static struct fsl_edma_drvdata imx93_data4 = {
 
 static struct fsl_edma_drvdata imx95_data5 = {
 	.flags = FSL_EDMA_DRV_HAS_CHMUX | FSL_EDMA_DRV_HAS_DMACLK | FSL_EDMA_DRV_EDMA4 |
-		 FSL_EDMA_DRV_TCD64,
+		 FSL_EDMA_DRV_TCD64 | FSL_EDMA_DRV_ERRIRQ_SHARE,
 	.chreg_space_sz = 0x8000,
 	.chreg_off = 0x10000,
 	.mux_off = 0x200,
@@ -595,6 +715,10 @@ static int fsl_edma_probe(struct platform_device *pdev)
 
 		snprintf(fsl_chan->chan_name, sizeof(fsl_chan->chan_name), "%s-CH%02d",
 							   dev_name(&pdev->dev), i);
+
+		if (!(drvdata->flags & FSL_EDMA_DRV_ERRIRQ_SHARE))
+			snprintf(fsl_chan->errirq_name, sizeof(fsl_chan->errirq_name),
+				 "%s-CH%02d-err", dev_name(&pdev->dev), i);
 
 		fsl_chan->edma = fsl_edma;
 		fsl_chan->pm_state = RUNNING;

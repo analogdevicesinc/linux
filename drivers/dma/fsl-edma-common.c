@@ -102,7 +102,7 @@ static void fsl_edma3_enable_request(struct fsl_edma_chan *fsl_chan)
 	}
 
 	val = edma_readl_chreg(fsl_chan, ch_csr);
-	val |= EDMA_V3_CH_CSR_ERQ;
+	val |= EDMA_V3_CH_CSR_ERQ | EDMA_V3_CH_CSR_EEI;
 	edma_writel_chreg(fsl_chan, val, ch_csr);
 }
 
@@ -849,6 +849,16 @@ int fsl_edma_alloc_chan_resources(struct dma_chan *chan)
 			dma_pool_destroy(fsl_chan->tcd_pool);
 			return ret;
 		}
+
+		if (!(fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_ERRIRQ_SHARE)) {
+			ret = request_irq(fsl_chan->errirq, fsl_chan->errirq_handler, IRQF_SHARED,
+					 fsl_chan->errirq_name, fsl_chan);
+
+			if (ret) {
+				dma_pool_destroy(fsl_chan->tcd_pool);
+				return ret;
+			}
+		}
 	}
 
 	return 0;
@@ -872,6 +882,8 @@ void fsl_edma_free_chan_resources(struct dma_chan *chan)
 
 	if (fsl_chan->txirq)
 		free_irq(fsl_chan->txirq, fsl_chan);
+	if (fsl_chan->errirq)
+		free_irq(fsl_chan->errirq, fsl_chan);
 
 	vchan_dma_desc_free_list(&fsl_chan->vchan, &head);
 	dma_pool_destroy(fsl_chan->tcd_pool);
