@@ -311,6 +311,8 @@ struct stmmac_priv {
 	struct workqueue_struct *fpe_wq;
 	struct work_struct fpe_task;
 	char wq_name[IFNAMSIZ + 4];
+	wait_queue_head_t fpe_wq_evt;
+	atomic_t fpe_evt_status;
 
 	/* TC Handling */
 	unsigned int tc_entries_max;
