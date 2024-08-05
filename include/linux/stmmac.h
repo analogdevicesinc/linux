@@ -181,6 +181,7 @@ struct stmmac_fpe_cfg {
 	u32 add_frag_size;			/* FPE additional frag size */
 	u32 verify_time;			/* FPE verify time */
 	bool tx_active;				/* FPE tx active */
+	u32 premptibe_txq;			/* FPE preemptible TxQs */
 	enum stmmac_fpe_state fpe_state;	/* Local station FPE verify state */
 	u32 fpe_csr;				/* MAC_FPE_CTRL_STS reg cache */
 	struct mutex lock;			/* FPE lock */

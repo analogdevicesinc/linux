@@ -7279,6 +7279,10 @@ static void stmmac_fpe_lp_task(struct work_struct *work)
 						     priv->plat->rx_queues_to_use,
 						     fpe_cfg->tx_enable);
 				fpe_cfg->tx_active = fpe_cfg->tx_enable;
+				/* FPE is enabled. Enable preemptible TxQs*/
+				stmmac_fpe_tcs_setup(priv, priv->ioaddr,
+						     fpe_cfg->premptibe_txq,
+						     priv->plat->tx_queues_to_use);
 				mutex_unlock(&fpe_cfg->lock);
 				break;
 			}
@@ -7333,6 +7337,7 @@ void stmmac_fpe_handshake(struct stmmac_priv *priv, bool enable, bool lock)
 	struct stmmac_fpe_cfg *fpe_cfg = priv->plat->fpe_cfg;
 	enum stmmac_fpe_state prev_state;
 	bool fpe_on;
+	u32 txqpec = 0;
 
 	if (lock)
 		mutex_lock(&fpe_cfg->lock);
@@ -7369,6 +7374,12 @@ void stmmac_fpe_handshake(struct stmmac_priv *priv, bool enable, bool lock)
 				     fpe_on);
 
 		fpe_cfg->tx_active = fpe_on;
+
+		if (fpe_on)
+			txqpec = fpe_cfg->premptibe_txq;
+		stmmac_fpe_tcs_setup(priv, priv->ioaddr, txqpec,
+				     priv->plat->tx_queues_to_use);
+
 	}
 
 	if (lock)

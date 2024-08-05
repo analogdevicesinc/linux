@@ -431,6 +431,7 @@ struct stmmac_ops {
 				 struct stmmac_fpe_cfg *cfg,
 				 enum stmmac_mpacket_type type);
 	int (*fpe_irq_status)(void __iomem *ioaddr, struct net_device *dev);
+	void (*fpe_tcs_setup)(void __iomem *ioaddr, u32 preemptible_tcs, u32 num_txq);
 };
 
 #define stmmac_core_init(__priv, __args...) \
@@ -541,6 +542,8 @@ struct stmmac_ops {
 	stmmac_do_void_callback(__priv, mac, fpe_send_mpacket, __args)
 #define stmmac_fpe_irq_status(__priv, __args...) \
 	stmmac_do_callback(__priv, mac, fpe_irq_status, __args)
+#define stmmac_fpe_tcs_setup(__priv, __args...) \
+	stmmac_do_void_callback(__priv, mac, fpe_tcs_setup, __args)
 
 /* PTP and HW Timer helpers */
 struct stmmac_hwtimestamp {
