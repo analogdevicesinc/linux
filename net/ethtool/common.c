@@ -210,10 +210,13 @@ const char link_mode_names[][ETH_GSTRING_LEN] = {
 	__DEFINE_LINK_MODE_NAME(10, T1S, Half),
 	__DEFINE_LINK_MODE_NAME(10, T1S_P2MP, Half),
 	__DEFINE_LINK_MODE_NAME(10, T1BRR, Full),
+	__DEFINE_LINK_MODE_NAME(25000, CR_S, Full),
+	__DEFINE_LINK_MODE_NAME(25000, KR_S, Full),
 };
 static_assert(ARRAY_SIZE(link_mode_names) == __ETHTOOL_LINK_MODE_MASK_NBITS);
 
 #define __LINK_MODE_LANES_CR		1
+#define __LINK_MODE_LANES_CR_S		1
 #define __LINK_MODE_LANES_CR2		2
 #define __LINK_MODE_LANES_CR4		4
 #define __LINK_MODE_LANES_CR8		8
@@ -222,6 +225,7 @@ static_assert(ARRAY_SIZE(link_mode_names) == __ETHTOOL_LINK_MODE_MASK_NBITS);
 #define __LINK_MODE_LANES_DR4		4
 #define __LINK_MODE_LANES_DR8		8
 #define __LINK_MODE_LANES_KR		1
+#define __LINK_MODE_LANES_KR_S		1
 #define __LINK_MODE_LANES_KR2		2
 #define __LINK_MODE_LANES_KR4		4
 #define __LINK_MODE_LANES_KR8		8
@@ -375,6 +379,8 @@ const struct link_mode_info link_mode_params[] = {
 	__DEFINE_LINK_MODE_PARAMS(10, T1S, Half),
 	__DEFINE_LINK_MODE_PARAMS(10, T1S_P2MP, Half),
 	__DEFINE_LINK_MODE_PARAMS(10, T1BRR, Full),
+	__DEFINE_LINK_MODE_PARAMS(25000, CR_S, Full),
+	__DEFINE_LINK_MODE_PARAMS(25000, KR_S, Full),
 };
 static_assert(ARRAY_SIZE(link_mode_params) == __ETHTOOL_LINK_MODE_MASK_NBITS);
 
