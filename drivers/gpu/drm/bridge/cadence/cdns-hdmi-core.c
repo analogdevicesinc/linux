@@ -675,6 +675,9 @@ static int __cdns_hdmi_probe(struct platform_device *pdev,
 	INIT_DELAYED_WORK(&mhdp->hotplug_work, hotplug_work_func);
 
 	iores = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!iores)
+		return -ENODEV;
+
 	mhdp->regs_base = devm_ioremap(dev, iores->start, resource_size(iores));
 	if (IS_ERR(mhdp->regs_base)) {
 		dev_err(dev, "No regs_base memory\n");
@@ -683,6 +686,9 @@ static int __cdns_hdmi_probe(struct platform_device *pdev,
 
 	/* sec register base */
 	iores = platform_get_resource(pdev, IORESOURCE_MEM, 1);
+	if (!iores)
+		return -ENODEV;
+
 	mhdp->regs_sec = devm_ioremap(dev, iores->start, resource_size(iores));
 	if (IS_ERR(mhdp->regs_sec)) {
 		dev_err(dev, "No regs_sec memory\n");
