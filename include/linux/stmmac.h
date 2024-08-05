@@ -180,6 +180,7 @@ struct stmmac_fpe_cfg {
 	bool verify_enable;			/* FPE verify enable*/
 	enum stmmac_fpe_state fpe_state;	/* Local station FPE verify state */
 	u32 fpe_csr;				/* MAC_FPE_CTRL_STS reg cache */
+	struct mutex lock;			/* FPE lock */
 };
 
 struct stmmac_safety_feature_cfg {

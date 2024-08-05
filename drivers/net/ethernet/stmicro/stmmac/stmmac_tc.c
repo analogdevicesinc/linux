@@ -293,6 +293,7 @@ static int tc_init(struct stmmac_priv *priv)
 	} else {
 		memset(priv->plat->fpe_cfg, 0, sizeof(*priv->plat->fpe_cfg));
 	}
+	mutex_init(&priv->plat->fpe_cfg->lock);
 
 	/* Fail silently as we can still use remaining features, e.g. CBS */
 	if (!dma_cap->frpsel)
@@ -1162,9 +1163,11 @@ static int tc_taprio_configure(struct stmmac_priv *priv,
 	/* Actual FPE register configuration will be done after FPE handshake
 	 * is success.
 	 */
+	mutex_lock(&priv->plat->fpe_cfg->lock);
 	priv->plat->fpe_cfg->tx_enable = fpe;
 	priv->plat->fpe_cfg->verify_enable = fpe;
-	stmmac_fpe_handshake(priv, fpe);
+	stmmac_fpe_handshake(priv, fpe, false);
+	mutex_unlock(&priv->plat->fpe_cfg->lock);
 
 	return 0;
 
@@ -1183,9 +1186,11 @@ disable:
 		mutex_unlock(&priv->plat->est->lock);
 	}
 
+	mutex_lock(&priv->plat->fpe_cfg->lock);
 	priv->plat->fpe_cfg->tx_enable = false;
 	priv->plat->fpe_cfg->verify_enable = false;
-	stmmac_fpe_handshake(priv, false);
+	stmmac_fpe_handshake(priv, false, false);
+	mutex_unlock(&priv->plat->fpe_cfg->lock);
 
 	return ret;
 }
