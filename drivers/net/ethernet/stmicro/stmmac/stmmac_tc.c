@@ -1304,13 +1304,22 @@ static int tc_setup_taprio(struct stmmac_priv *priv,
 static int tc_setup_mqprio(struct stmmac_priv *priv,
 			   struct tc_mqprio_qopt_offload *qopt)
 {
+	struct stmmac_fpe_cfg *fpe_cfg = priv->plat->fpe_cfg;
 	struct tc_mqprio_qopt *mq_qopt = &qopt->qopt;
 	struct net_device *dev = priv->dev;
 	int num_tc = mq_qopt->num_tc;
 	int tc, err;
+	u32 txqpec;
 
 	if (!num_tc) {
 		netdev_reset_tc(dev);
+		if (priv->dma_cap.fpesel && fpe_cfg) {
+			mutex_lock(&fpe_cfg->lock);
+			fpe_cfg->premptibe_txq = 0;
+			stmmac_fpe_tcs_setup(priv, priv->ioaddr, 0,
+					     priv->plat->tx_queues_to_use);
+			mutex_unlock(&fpe_cfg->lock);
+		}
 		return 0;
 	}
 
@@ -1328,6 +1337,17 @@ static int tc_setup_mqprio(struct stmmac_priv *priv,
 	err = netif_set_real_num_tx_queues(dev, priv->plat->tx_queues_to_use);
 	if (err)
 		goto err_mqprio;
+
+	if (priv->dma_cap.fpesel && fpe_cfg) {
+		txqpec = tc_mqprio_map_preempt_txq(&qopt->qopt,
+						   qopt->preemptible_tcs);
+		mutex_lock(&fpe_cfg->lock);
+		fpe_cfg->premptibe_txq = txqpec;
+		if (fpe_cfg->tx_active)
+			stmmac_fpe_tcs_setup(priv, priv->ioaddr, txqpec,
+					     priv->plat->tx_queues_to_use);
+		mutex_unlock(&fpe_cfg->lock);
+	}
 
 	return 0;
 
