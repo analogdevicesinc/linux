@@ -58,21 +58,6 @@ static int constant_set_state_oneshot(struct clock_event_device *evt)
 	return 0;
 }
 
-static int constant_set_state_oneshot_stopped(struct clock_event_device *evt)
-{
-	unsigned long timer_config;
-
-	raw_spin_lock(&state_lock);
-
-	timer_config = csr_read64(LOONGARCH_CSR_TCFG);
-	timer_config &= ~CSR_TCFG_EN;
-	csr_write64(timer_config, LOONGARCH_CSR_TCFG);
-
-	raw_spin_unlock(&state_lock);
-
-	return 0;
-}
-
 static int constant_set_state_periodic(struct clock_event_device *evt)
 {
 	unsigned long period;
@@ -92,6 +77,16 @@ static int constant_set_state_periodic(struct clock_event_device *evt)
 
 static int constant_set_state_shutdown(struct clock_event_device *evt)
 {
+	unsigned long timer_config;
+
+	raw_spin_lock(&state_lock);
+
+	timer_config = csr_read64(LOONGARCH_CSR_TCFG);
+	timer_config &= ~CSR_TCFG_EN;
+	csr_write64(timer_config, LOONGARCH_CSR_TCFG);
+
+	raw_spin_unlock(&state_lock);
+
 	return 0;
 }
 
@@ -135,16 +130,17 @@ static int get_timer_irq(void)
 
 int constant_clockevent_init(void)
 {
-	int irq;
 	unsigned int cpu = smp_processor_id();
 	unsigned long min_delta = 0x600;
 	unsigned long max_delta = (1UL << 48) - 1;
 	struct clock_event_device *cd;
-	static int timer_irq_installed = 0;
+	static int irq = 0, timer_irq_installed = 0;
 
-	irq = get_timer_irq();
-	if (irq < 0)
-		pr_err("Failed to map irq %d (timer)\n", irq);
+	if (!timer_irq_installed) {
+		irq = get_timer_irq();
+		if (irq < 0)
+			pr_err("Failed to map irq %d (timer)\n", irq);
+	}
 
 	cd = &per_cpu(constant_clockevent_device, cpu);
 
@@ -155,7 +151,7 @@ int constant_clockevent_init(void)
 	cd->rating = 320;
 	cd->cpumask = cpumask_of(cpu);
 	cd->set_state_oneshot = constant_set_state_oneshot;
-	cd->set_state_oneshot_stopped = constant_set_state_oneshot_stopped;
+	cd->set_state_oneshot_stopped = constant_set_state_shutdown;
 	cd->set_state_periodic = constant_set_state_periodic;
 	cd->set_state_shutdown = constant_set_state_shutdown;
 	cd->set_next_event = constant_timer_next_event;

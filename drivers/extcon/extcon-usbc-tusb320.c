@@ -78,6 +78,7 @@ struct tusb320_priv {
 	struct typec_capability	cap;
 	enum typec_port_type port_type;
 	enum typec_pwr_opmode pwr_opmode;
+	struct fwnode_handle *connector_fwnode;
 };
 
 static const char * const tusb_attached_states[] = {
@@ -313,9 +314,9 @@ static void tusb320_typec_irq_handler(struct tusb320_priv *priv, u8 reg9)
 		typec_set_pwr_opmode(port, TYPEC_PWR_MODE_USB);
 }
 
-static irqreturn_t tusb320_irq_handler(int irq, void *dev_id)
+static irqreturn_t tusb320_state_update_handler(struct tusb320_priv *priv,
+						bool force_update)
 {
-	struct tusb320_priv *priv = dev_id;
 	unsigned int reg;
 
 	if (regmap_read(priv->regmap, TUSB320_REG9, &reg)) {
@@ -323,7 +324,7 @@ static irqreturn_t tusb320_irq_handler(int irq, void *dev_id)
 		return IRQ_NONE;
 	}
 
-	if (!(reg & TUSB320_REG9_INTERRUPT_STATUS))
+	if (!force_update && !(reg & TUSB320_REG9_INTERRUPT_STATUS))
 		return IRQ_NONE;
 
 	tusb320_extcon_irq_handler(priv, reg);
@@ -338,6 +339,13 @@ static irqreturn_t tusb320_irq_handler(int irq, void *dev_id)
 	regmap_write(priv->regmap, TUSB320_REG9, reg);
 
 	return IRQ_HANDLED;
+}
+
+static irqreturn_t tusb320_irq_handler(int irq, void *dev_id)
+{
+	struct tusb320_priv *priv = dev_id;
+
+	return tusb320_state_update_handler(priv, false);
 }
 
 static const struct regmap_config tusb320_regmap_config = {
@@ -384,27 +392,25 @@ static int tusb320_typec_probe(struct i2c_client *client,
 	/* Type-C connector found. */
 	ret = typec_get_fw_cap(&priv->cap, connector);
 	if (ret)
-		return ret;
+		goto err_put;
 
 	priv->port_type = priv->cap.type;
 
 	/* This goes into register 0x8 field CURRENT_MODE_ADVERTISE */
 	ret = fwnode_property_read_string(connector, "typec-power-opmode", &cap_str);
 	if (ret)
-		return ret;
+		goto err_put;
 
 	ret = typec_find_pwr_opmode(cap_str);
 	if (ret < 0)
-		return ret;
-	if (ret == TYPEC_PWR_MODE_PD)
-		return -EINVAL;
+		goto err_put;
 
 	priv->pwr_opmode = ret;
 
 	/* Initialize the hardware with the devicetree settings. */
 	ret = tusb320_set_adv_pwr_mode(priv);
 	if (ret)
-		return ret;
+		goto err_put;
 
 	priv->cap.revision		= USB_TYPEC_REV_1_1;
 	priv->cap.accessory[0]		= TYPEC_ACCESSORY_AUDIO;
@@ -415,14 +421,28 @@ static int tusb320_typec_probe(struct i2c_client *client,
 	priv->cap.fwnode		= connector;
 
 	priv->port = typec_register_port(&client->dev, &priv->cap);
-	if (IS_ERR(priv->port))
-		return PTR_ERR(priv->port);
+	if (IS_ERR(priv->port)) {
+		ret = PTR_ERR(priv->port);
+		goto err_put;
+	}
+
+	priv->connector_fwnode = connector;
 
 	return 0;
+
+err_put:
+	fwnode_handle_put(connector);
+
+	return ret;
 }
 
-static int tusb320_probe(struct i2c_client *client,
-			 const struct i2c_device_id *id)
+static void tusb320_typec_remove(struct tusb320_priv *priv)
+{
+	typec_unregister_port(priv->port);
+	fwnode_handle_put(priv->connector_fwnode);
+}
+
+static int tusb320_probe(struct i2c_client *client)
 {
 	struct tusb320_priv *priv;
 	const void *match_data;
@@ -432,7 +452,9 @@ static int tusb320_probe(struct i2c_client *client,
 	priv = devm_kzalloc(&client->dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv)
 		return -ENOMEM;
+
 	priv->dev = &client->dev;
+	i2c_set_clientdata(client, priv);
 
 	priv->regmap = devm_regmap_init_i2c(client, &tusb320_regmap_config);
 	if (IS_ERR(priv->regmap))
@@ -466,7 +488,7 @@ static int tusb320_probe(struct i2c_client *client,
 		return ret;
 
 	/* update initial state */
-	tusb320_irq_handler(client->irq, priv);
+	tusb320_state_update_handler(priv, true);
 
 	/* Reset chip to its default state */
 	ret = tusb320_reset(priv);
@@ -477,14 +499,23 @@ static int tusb320_probe(struct i2c_client *client,
 		 * State and polarity might change after a reset, so update
 		 * them again and make sure the interrupt status bit is cleared.
 		 */
-		tusb320_irq_handler(client->irq, priv);
+		tusb320_state_update_handler(priv, true);
 
 	ret = devm_request_threaded_irq(priv->dev, client->irq, NULL,
 					tusb320_irq_handler,
 					IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
 					client->name, priv);
+	if (ret)
+		tusb320_typec_remove(priv);
 
 	return ret;
+}
+
+static void tusb320_remove(struct i2c_client *client)
+{
+	struct tusb320_priv *priv = i2c_get_clientdata(client);
+
+	tusb320_typec_remove(priv);
 }
 
 static const struct of_device_id tusb320_extcon_dt_match[] = {
@@ -495,7 +526,8 @@ static const struct of_device_id tusb320_extcon_dt_match[] = {
 MODULE_DEVICE_TABLE(of, tusb320_extcon_dt_match);
 
 static struct i2c_driver tusb320_extcon_driver = {
-	.probe		= tusb320_probe,
+	.probe_new	= tusb320_probe,
+	.remove		= tusb320_remove,
 	.driver		= {
 		.name	= "extcon-tusb320",
 		.of_match_table = tusb320_extcon_dt_match,

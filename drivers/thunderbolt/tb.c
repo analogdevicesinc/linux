@@ -607,6 +607,7 @@ static void tb_scan_port(struct tb_port *port)
 {
 	struct tb_cm *tcm = tb_priv(port->sw->tb);
 	struct tb_port *upstream_port;
+	bool discovery = false;
 	struct tb_switch *sw;
 	int ret;
 
@@ -628,11 +629,15 @@ static void tb_scan_port(struct tb_port *port)
 			 * Downstream switch is reachable through two ports.
 			 * Only scan on the primary port (link_nr == 0).
 			 */
+
+	if (port->usb4)
+		pm_runtime_get_sync(&port->usb4->dev);
+
 	if (tb_wait_for_port(port, false) <= 0)
-		return;
+		goto out_rpm_put;
 	if (port->remote) {
 		tb_port_dbg(port, "port already has a remote\n");
-		return;
+		goto out_rpm_put;
 	}
 
 	tb_retimer_scan(port, true);
@@ -647,12 +652,12 @@ static void tb_scan_port(struct tb_port *port)
 		 */
 		if (PTR_ERR(sw) == -EIO || PTR_ERR(sw) == -EADDRNOTAVAIL)
 			tb_scan_xdomain(port);
-		return;
+		goto out_rpm_put;
 	}
 
 	if (tb_switch_configure(sw)) {
 		tb_switch_put(sw);
-		return;
+		goto out_rpm_put;
 	}
 
 	/*
@@ -670,8 +675,10 @@ static void tb_scan_port(struct tb_port *port)
 	 * tunnels and know which switches were authorized already by
 	 * the boot firmware.
 	 */
-	if (!tcm->hotplug_active)
+	if (!tcm->hotplug_active) {
 		dev_set_uevent_suppress(&sw->dev, true);
+		discovery = true;
+	}
 
 	/*
 	 * At the moment Thunderbolt 2 and beyond (devices with LC) we
@@ -681,7 +688,7 @@ static void tb_scan_port(struct tb_port *port)
 
 	if (tb_switch_add(sw)) {
 		tb_switch_put(sw);
-		return;
+		goto out_rpm_put;
 	}
 
 	/* Link the switches using both links if available */
@@ -701,10 +708,14 @@ static void tb_scan_port(struct tb_port *port)
 	 * CL0s and CL1 are enabled and supported together.
 	 * Silently ignore CLx enabling in case CLx is not supported.
 	 */
-	ret = tb_switch_enable_clx(sw, TB_CL1);
-	if (ret && ret != -EOPNOTSUPP)
-		tb_sw_warn(sw, "failed to enable %s on upstream port\n",
-			   tb_switch_clx_name(TB_CL1));
+	if (discovery) {
+		tb_sw_dbg(sw, "discovery, not touching CL states\n");
+	} else {
+		ret = tb_switch_enable_clx(sw, TB_CL1);
+		if (ret && ret != -EOPNOTSUPP)
+			tb_sw_warn(sw, "failed to enable %s on upstream port\n",
+				   tb_switch_clx_name(TB_CL1));
+	}
 
 	if (tb_switch_is_clx_enabled(sw, TB_CL1))
 		/*
@@ -733,6 +744,12 @@ static void tb_scan_port(struct tb_port *port)
 
 	tb_add_dp_resources(sw);
 	tb_scan_switch(sw);
+
+out_rpm_put:
+	if (port->usb4) {
+		pm_runtime_mark_last_busy(&port->usb4->dev);
+		pm_runtime_put_autosuspend(&port->usb4->dev);
+	}
 }
 
 static void tb_deactivate_and_free_tunnel(struct tb_tunnel *tunnel)

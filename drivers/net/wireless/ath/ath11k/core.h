@@ -505,6 +505,8 @@ struct ath11k_sta {
 	u64 ps_start_jiffies;
 	u64 ps_total_duration;
 	bool peer_current_ps_valid;
+
+	u32 bw_prev;
 };
 
 #define ATH11K_MIN_5G_FREQ 4150
@@ -910,7 +912,6 @@ struct ath11k_base {
 	enum ath11k_dfs_region dfs_region;
 #ifdef CONFIG_ATH11K_DEBUGFS
 	struct dentry *debugfs_soc;
-	struct dentry *debugfs_ath11k;
 #endif
 	struct ath11k_soc_dp_stats soc_stats;
 

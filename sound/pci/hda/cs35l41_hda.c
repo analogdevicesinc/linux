@@ -598,8 +598,8 @@ static int cs35l41_system_suspend(struct device *dev)
 	dev_dbg(cs35l41->dev, "System Suspend\n");
 
 	if (cs35l41->hw_cfg.bst_type == CS35L41_EXT_BOOST_NO_VSPK_SWITCH) {
-		dev_err(cs35l41->dev, "System Suspend not supported\n");
-		return -EINVAL;
+		dev_err_once(cs35l41->dev, "System Suspend not supported\n");
+		return 0; /* don't block the whole system suspend */
 	}
 
 	ret = pm_runtime_force_suspend(dev);
@@ -624,8 +624,8 @@ static int cs35l41_system_resume(struct device *dev)
 	dev_dbg(cs35l41->dev, "System Resume\n");
 
 	if (cs35l41->hw_cfg.bst_type == CS35L41_EXT_BOOST_NO_VSPK_SWITCH) {
-		dev_err(cs35l41->dev, "System Resume not supported\n");
-		return -EINVAL;
+		dev_err_once(cs35l41->dev, "System Resume not supported\n");
+		return 0; /* don't block the whole system resume */
 	}
 
 	if (cs35l41->reset_gpio) {
@@ -645,6 +645,15 @@ static int cs35l41_system_resume(struct device *dev)
 	mutex_unlock(&cs35l41->fw_mutex);
 
 	return ret;
+}
+
+static int cs35l41_runtime_idle(struct device *dev)
+{
+	struct cs35l41_hda *cs35l41 = dev_get_drvdata(dev);
+
+	if (cs35l41->hw_cfg.bst_type == CS35L41_EXT_BOOST_NO_VSPK_SWITCH)
+		return -EBUSY; /* suspend not supported yet on this model */
+	return 0;
 }
 
 static int cs35l41_runtime_suspend(struct device *dev)
@@ -1492,8 +1501,7 @@ int cs35l41_hda_probe(struct device *dev, const char *device_name, int id, int i
 	ret = component_add(cs35l41->dev, &cs35l41_hda_comp_ops);
 	if (ret) {
 		dev_err(cs35l41->dev, "Register component failed: %d\n", ret);
-		pm_runtime_disable(cs35l41->dev);
-		goto err;
+		goto err_pm;
 	}
 
 	dev_info(cs35l41->dev, "Cirrus Logic CS35L41 (%x), Revision: %02X\n", regid, reg_revid);
@@ -1501,6 +1509,7 @@ int cs35l41_hda_probe(struct device *dev, const char *device_name, int id, int i
 	return 0;
 
 err_pm:
+	pm_runtime_dont_use_autosuspend(cs35l41->dev);
 	pm_runtime_disable(cs35l41->dev);
 	pm_runtime_put_noidle(cs35l41->dev);
 
@@ -1519,6 +1528,7 @@ void cs35l41_hda_remove(struct device *dev)
 	struct cs35l41_hda *cs35l41 = dev_get_drvdata(dev);
 
 	pm_runtime_get_sync(cs35l41->dev);
+	pm_runtime_dont_use_autosuspend(cs35l41->dev);
 	pm_runtime_disable(cs35l41->dev);
 
 	if (cs35l41->halo_initialized)
@@ -1536,7 +1546,8 @@ void cs35l41_hda_remove(struct device *dev)
 EXPORT_SYMBOL_NS_GPL(cs35l41_hda_remove, SND_HDA_SCODEC_CS35L41);
 
 const struct dev_pm_ops cs35l41_hda_pm_ops = {
-	RUNTIME_PM_OPS(cs35l41_runtime_suspend, cs35l41_runtime_resume, NULL)
+	RUNTIME_PM_OPS(cs35l41_runtime_suspend, cs35l41_runtime_resume,
+		       cs35l41_runtime_idle)
 	SYSTEM_SLEEP_PM_OPS(cs35l41_system_suspend, cs35l41_system_resume)
 };
 EXPORT_SYMBOL_NS_GPL(cs35l41_hda_pm_ops, SND_HDA_SCODEC_CS35L41);

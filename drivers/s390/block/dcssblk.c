@@ -411,6 +411,7 @@ removeseg:
 	}
 	list_del(&dev_info->lh);
 
+	dax_remove_host(dev_info->gd);
 	kill_dax(dev_info->dax_dev);
 	put_dax(dev_info->dax_dev);
 	del_gendisk(dev_info->gd);
@@ -706,9 +707,9 @@ dcssblk_add_store(struct device *dev, struct device_attribute *attr, const char 
 	goto out;
 
 out_dax_host:
+	put_device(&dev_info->dev);
 	dax_remove_host(dev_info->gd);
 out_dax:
-	put_device(&dev_info->dev);
 	kill_dax(dev_info->dax_dev);
 	put_dax(dev_info->dax_dev);
 put_dev:
@@ -788,6 +789,7 @@ dcssblk_remove_store(struct device *dev, struct device_attribute *attr, const ch
 	}
 
 	list_del(&dev_info->lh);
+	dax_remove_host(dev_info->gd);
 	kill_dax(dev_info->dax_dev);
 	put_dax(dev_info->dax_dev);
 	del_gendisk(dev_info->gd);
@@ -865,6 +867,8 @@ dcssblk_submit_bio(struct bio *bio)
 	unsigned long bytes_done;
 
 	bio = bio_split_to_limits(bio);
+	if (!bio)
+		return;
 
 	bytes_done = 0;
 	dev_info = bio->bi_bdev->bd_disk->private_data;

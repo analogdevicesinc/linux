@@ -83,6 +83,9 @@ bool dcn32_release_post_bldn_3dlut(
 bool dcn32_remove_phantom_pipes(struct dc *dc,
 		struct dc_state *context);
 
+void dcn32_retain_phantom_pipes(struct dc *dc,
+		struct dc_state *context);
+
 void dcn32_add_phantom_pipes(struct dc *dc,
 		struct dc_state *context,
 		display_e2e_pipe_params_st *pipes,
@@ -141,6 +144,10 @@ void dcn32_save_mall_state(struct dc *dc,
 void dcn32_restore_mall_state(struct dc *dc,
 		struct dc_state *context,
 		struct mall_temp_config *temp_config);
+
+bool dcn32_allow_subvp_with_active_margin(struct pipe_ctx *pipe);
+
+unsigned int dcn32_calc_num_avail_chans_for_mall(struct dc *dc, int num_chans);
 
 /* definitions for run time init of reg offsets */
 
@@ -1265,7 +1272,8 @@ void dcn32_restore_mall_state(struct dc *dc,
       DCCG_SRII(PHASE, DTBCLK_DTO, 0), DCCG_SRII(PHASE, DTBCLK_DTO, 1),        \
       DCCG_SRII(PHASE, DTBCLK_DTO, 2), DCCG_SRII(PHASE, DTBCLK_DTO, 3),        \
       SR(DCCG_AUDIO_DTBCLK_DTO_MODULO), SR(DCCG_AUDIO_DTBCLK_DTO_PHASE),       \
-      SR(OTG_PIXEL_RATE_DIV), SR(DTBCLK_P_CNTL), SR(DCCG_AUDIO_DTO_SOURCE)     \
+      SR(OTG_PIXEL_RATE_DIV), SR(DTBCLK_P_CNTL),                               \
+      SR(DCCG_AUDIO_DTO_SOURCE), SR(DENTIST_DISPCLK_CNTL)                      \
   )
 
 /* VMID */

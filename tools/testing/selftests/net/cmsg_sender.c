@@ -110,7 +110,7 @@ static void __attribute__((noreturn)) cs_usage(const char *bin)
 
 static void cs_parse_args(int argc, char *argv[])
 {
-	char o;
+	int o;
 
 	while ((o = getopt(argc, argv, "46sS:p:m:M:d:tf:F:c:C:l:L:H:")) != -1) {
 		switch (o) {
@@ -416,9 +416,9 @@ int main(int argc, char *argv[])
 {
 	struct addrinfo hints, *ai;
 	struct iovec iov[1];
+	unsigned char *buf;
 	struct msghdr msg;
 	char cbuf[1024];
-	char *buf;
 	int err;
 	int fd;
 

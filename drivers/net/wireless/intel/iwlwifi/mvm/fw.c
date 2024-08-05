@@ -796,7 +796,7 @@ out:
 		mvm->nvm_data->bands[0].n_channels = 1;
 		mvm->nvm_data->bands[0].n_bitrates = 1;
 		mvm->nvm_data->bands[0].bitrates =
-			(void *)((u8 *)mvm->nvm_data->channels + 1);
+			(void *)(mvm->nvm_data->channels + 1);
 		mvm->nvm_data->bands[0].bitrates->hw_value = 10;
 	}
 
@@ -1055,7 +1055,7 @@ static const struct dmi_system_id dmi_tas_approved_list[] = {
 	},
 		{ .ident = "LENOVO",
 	  .matches = {
-			DMI_MATCH(DMI_SYS_VENDOR, "Lenovo"),
+			DMI_MATCH(DMI_SYS_VENDOR, "LENOVO"),
 		},
 	},
 	{ .ident = "DELL",
@@ -1664,6 +1664,8 @@ int iwl_mvm_up(struct iwl_mvm *mvm)
 		if (iwl_mvm_eval_dsm_rfi(mvm) == DSM_VALUE_RFI_ENABLE)
 			iwl_rfi_send_config_cmd(mvm, NULL);
 	}
+
+	iwl_mvm_mei_device_state(mvm, true);
 
 	IWL_DEBUG_INFO(mvm, "RT uCode started.\n");
 	return 0;

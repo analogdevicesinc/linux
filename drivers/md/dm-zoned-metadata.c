@@ -1013,11 +1013,9 @@ static int dmz_check_sb(struct dmz_metadata *zmd, struct dmz_sb *dsb,
 	}
 
 	sb_block = le64_to_cpu(sb->sb_block);
-	if (sb_block != (u64)dsb->zone->id << zmd->zone_nr_blocks_shift ) {
-		dmz_dev_err(dev, "Invalid superblock position "
-			    "(is %llu expected %llu)",
-			    sb_block,
-			    (u64)dsb->zone->id << zmd->zone_nr_blocks_shift);
+	if (sb_block != (u64)dsb->zone->id << zmd->zone_nr_blocks_shift) {
+		dmz_dev_err(dev, "Invalid superblock position (is %llu expected %llu)",
+			    sb_block, (u64)dsb->zone->id << zmd->zone_nr_blocks_shift);
 		return -EINVAL;
 	}
 	if (zmd->sb_version > 1) {
@@ -1030,16 +1028,14 @@ static int dmz_check_sb(struct dmz_metadata *zmd, struct dmz_sb *dsb,
 		} else if (uuid_is_null(&zmd->uuid)) {
 			uuid_copy(&zmd->uuid, &sb_uuid);
 		} else if (!uuid_equal(&zmd->uuid, &sb_uuid)) {
-			dmz_dev_err(dev, "mismatching DM-Zoned uuid, "
-				    "is %pUl expected %pUl",
+			dmz_dev_err(dev, "mismatching DM-Zoned uuid, is %pUl expected %pUl",
 				    &sb_uuid, &zmd->uuid);
 			return -ENXIO;
 		}
 		if (!strlen(zmd->label))
 			memcpy(zmd->label, sb->dmz_label, BDEVNAME_SIZE);
 		else if (memcmp(zmd->label, sb->dmz_label, BDEVNAME_SIZE)) {
-			dmz_dev_err(dev, "mismatching DM-Zoned label, "
-				    "is %s expected %s",
+			dmz_dev_err(dev, "mismatching DM-Zoned label, is %s expected %s",
 				    sb->dmz_label, zmd->label);
 			return -ENXIO;
 		}
@@ -2945,7 +2941,7 @@ int dmz_ctr_metadata(struct dmz_dev *dev, int num_dev,
 	zmd->mblk_shrinker.seeks = DEFAULT_SEEKS;
 
 	/* Metadata cache shrinker */
-	ret = register_shrinker(&zmd->mblk_shrinker, "md-meta:(%u:%u)",
+	ret = register_shrinker(&zmd->mblk_shrinker, "dm-zoned-meta:(%u:%u)",
 				MAJOR(dev->bdev->bd_dev),
 				MINOR(dev->bdev->bd_dev));
 	if (ret) {

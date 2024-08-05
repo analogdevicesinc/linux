@@ -707,6 +707,9 @@ static int user_field_set_string(struct ftrace_event_field *field,
 	pos += snprintf(buf + pos, LEN_OR_ZERO, " ");
 	pos += snprintf(buf + pos, LEN_OR_ZERO, "%s", field->name);
 
+	if (str_has_prefix(field->type, "struct "))
+		pos += snprintf(buf + pos, LEN_OR_ZERO, " %d", field->size);
+
 	if (colon)
 		pos += snprintf(buf + pos, LEN_OR_ZERO, ";");
 
@@ -1359,6 +1362,7 @@ put_user_lock:
 put_user:
 	user_event_destroy_fields(user);
 	user_event_destroy_validators(user);
+	kfree(user->call.print_fmt);
 	kfree(user);
 	return ret;
 }
@@ -1396,6 +1400,9 @@ static ssize_t user_events_write_core(struct file *file, struct iov_iter *i)
 
 	if (unlikely(copy_from_iter(&idx, sizeof(idx), i) != sizeof(idx)))
 		return -EFAULT;
+
+	if (idx < 0)
+		return -EINVAL;
 
 	rcu_read_lock_sched();
 
@@ -1452,7 +1459,8 @@ static ssize_t user_events_write_core(struct file *file, struct iov_iter *i)
 
 		if (unlikely(faulted))
 			return -EFAULT;
-	}
+	} else
+		return -EBADF;
 
 	return ret;
 }
@@ -1488,7 +1496,7 @@ static ssize_t user_events_write(struct file *file, const char __user *ubuf,
 	if (unlikely(*ppos != 0))
 		return -EFAULT;
 
-	if (unlikely(import_single_range(WRITE, (char __user *)ubuf,
+	if (unlikely(import_single_range(ITER_SOURCE, (char __user *)ubuf,
 					 count, &iov, &i)))
 		return -EFAULT;
 

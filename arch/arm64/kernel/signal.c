@@ -280,7 +280,12 @@ static int restore_sve_fpsimd_context(struct user_ctxs *user)
 
 		vl = task_get_sme_vl(current);
 	} else {
-		if (!system_supports_sve())
+		/*
+		 * A SME only system use SVE for streaming mode so can
+		 * have a SVE formatted context with a zero VL and no
+		 * payload data.
+		 */
+		if (!system_supports_sve() && !system_supports_sme())
 			return -EINVAL;
 
 		vl = task_get_sve_vl(current);
@@ -425,7 +430,7 @@ static int restore_za_context(struct user_ctxs *user)
 	fpsimd_flush_task_state(current);
 	/* From now, fpsimd_thread_switch() won't touch thread.sve_state */
 
-	sme_alloc(current);
+	sme_alloc(current, true);
 	if (!current->thread.za_state) {
 		current->thread.svcr &= ~SVCR_ZA_MASK;
 		clear_thread_flag(TIF_SME);
@@ -729,7 +734,7 @@ static int setup_sigframe_layout(struct rt_sigframe_user_layout *user,
 			return err;
 	}
 
-	if (system_supports_sve()) {
+	if (system_supports_sve() || system_supports_sme()) {
 		unsigned int vq = 0;
 
 		if (add_all || test_thread_flag(TIF_SVE) ||

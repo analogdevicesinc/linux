@@ -215,8 +215,8 @@ static int pm8008_probe(struct i2c_client *client)
 
 	dev = &client->dev;
 	regmap = devm_regmap_init_i2c(client, &qcom_mfd_regmap_cfg);
-	if (!regmap)
-		return -ENODEV;
+	if (IS_ERR(regmap))
+		return PTR_ERR(regmap);
 
 	i2c_set_clientdata(client, regmap);
 
@@ -233,6 +233,7 @@ static const struct of_device_id pm8008_match[] = {
 	{ .compatible = "qcom,pm8008", },
 	{ },
 };
+MODULE_DEVICE_TABLE(of, pm8008_match);
 
 static struct i2c_driver pm8008_mfd_driver = {
 	.driver = {

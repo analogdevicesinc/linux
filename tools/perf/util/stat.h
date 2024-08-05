@@ -139,14 +139,12 @@ struct perf_stat_config {
 	bool			 metric_no_group;
 	bool			 metric_no_merge;
 	bool			 stop_read_counter;
-	bool			 quiet;
 	bool			 iostat_run;
 	char			 *user_requested_cpu_list;
 	bool			 system_wide;
 	FILE			*output;
 	unsigned int		 interval;
 	unsigned int		 timeout;
-	int			 initial_delay;
 	unsigned int		 unit_width;
 	unsigned int		 metric_only_len;
 	int			 times;

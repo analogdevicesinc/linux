@@ -87,26 +87,14 @@ static const struct mtk_gate_regs infra2_cg_regs = {
 	.sta_ofs = 0x68,
 };
 
-#define GATE_INFRA0(_id, _name, _parent, _shift)                               \
-	{                                                                      \
-		.id = _id, .name = _name, .parent_name = _parent,              \
-		.regs = &infra0_cg_regs, .shift = _shift,                      \
-		.ops = &mtk_clk_gate_ops_setclr,                               \
-	}
+#define GATE_INFRA0(_id, _name, _parent, _shift)			\
+	GATE_MTK(_id, _name, _parent, &infra0_cg_regs, _shift, &mtk_clk_gate_ops_setclr)
 
-#define GATE_INFRA1(_id, _name, _parent, _shift)                               \
-	{                                                                      \
-		.id = _id, .name = _name, .parent_name = _parent,              \
-		.regs = &infra1_cg_regs, .shift = _shift,                      \
-		.ops = &mtk_clk_gate_ops_setclr,                               \
-	}
+#define GATE_INFRA1(_id, _name, _parent, _shift)			\
+	GATE_MTK(_id, _name, _parent, &infra1_cg_regs, _shift, &mtk_clk_gate_ops_setclr)
 
-#define GATE_INFRA2(_id, _name, _parent, _shift)                               \
-	{                                                                      \
-		.id = _id, .name = _name, .parent_name = _parent,              \
-		.regs = &infra2_cg_regs, .shift = _shift,                      \
-		.ops = &mtk_clk_gate_ops_setclr,                               \
-	}
+#define GATE_INFRA2(_id, _name, _parent, _shift)			\
+	GATE_MTK(_id, _name, _parent, &infra2_cg_regs, _shift, &mtk_clk_gate_ops_setclr)
 
 static const struct mtk_gate infra_clks[] = {
 	/* INFRA0 */
@@ -153,7 +141,7 @@ static const struct mtk_gate infra_clks[] = {
 		    18),
 	GATE_INFRA1(CLK_INFRA_MSDC_66M_CK, "infra_msdc_66m", "infra_sysaxi_d2",
 		    19),
-	GATE_INFRA1(CLK_INFRA_ADC_26M_CK, "infra_adc_26m", "csw_f26m_sel", 20),
+	GATE_INFRA1(CLK_INFRA_ADC_26M_CK, "infra_adc_26m", "infra_adc_frc", 20),
 	GATE_INFRA1(CLK_INFRA_ADC_FRC_CK, "infra_adc_frc", "csw_f26m_sel", 21),
 	GATE_INFRA1(CLK_INFRA_FBIST2FPC_CK, "infra_fbist2fpc", "nfi1x_sel", 23),
 	/* INFRA2 */
