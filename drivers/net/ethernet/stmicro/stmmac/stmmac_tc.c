@@ -1301,6 +1301,41 @@ static int tc_setup_taprio(struct stmmac_priv *priv,
 	return err;
 }
 
+static int tc_setup_mqprio(struct stmmac_priv *priv,
+			   struct tc_mqprio_qopt_offload *qopt)
+{
+	struct tc_mqprio_qopt *mq_qopt = &qopt->qopt;
+	struct net_device *dev = priv->dev;
+	int num_tc = mq_qopt->num_tc;
+	int tc, err;
+
+	if (!num_tc) {
+		netdev_reset_tc(dev);
+		return 0;
+	}
+
+	err = netdev_set_num_tc(dev, num_tc);
+	if (err)
+		return err;
+
+	for (tc = 0; tc < num_tc; tc++) {
+		err = netdev_set_tc_queue(dev, tc, mq_qopt->count[tc],
+					  mq_qopt->offset[tc]);
+		if (err)
+			goto err_mqprio;
+	}
+
+	err = netif_set_real_num_tx_queues(dev, priv->plat->tx_queues_to_use);
+	if (err)
+		goto err_mqprio;
+
+	return 0;
+
+err_mqprio:
+	netdev_reset_tc(dev);
+	return err;
+}
+
 static int tc_setup_etf(struct stmmac_priv *priv,
 			struct tc_etf_qopt_offload *qopt)
 {
@@ -1336,6 +1371,13 @@ static int tc_query_caps(struct stmmac_priv *priv,
 
 		return 0;
 	}
+	case TC_SETUP_QDISC_MQPRIO: {
+		struct tc_mqprio_caps *caps = base->caps;
+
+		caps->validate_queue_counts = true;
+
+		return 0;
+	}
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -1349,4 +1391,5 @@ const struct stmmac_tc_ops dwmac510_tc_ops = {
 	.setup_taprio = tc_setup_taprio,
 	.setup_etf = tc_setup_etf,
 	.query_caps = tc_query_caps,
+	.setup_mqprio = tc_setup_mqprio,
 };
