@@ -16,16 +16,6 @@
 
 #include "mxsfb_sii902x.h"
 
-static const unsigned int audio_rates[] = {
-	32000,
-	44100,
-	48000,
-	88200,
-	96000,
-	176400,
-	192000,
-};
-
 /*
  * HDMI audio codec callbacks
  */
