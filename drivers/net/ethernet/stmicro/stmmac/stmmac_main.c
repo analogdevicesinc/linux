@@ -3284,6 +3284,9 @@ static int stmmac_fpe_start_wq(struct stmmac_priv *priv)
 
 		return -ENOMEM;
 	}
+	init_waitqueue_head(&priv->fpe_wq_evt);
+	atomic_set(&priv->fpe_evt_status, FPE_EVENT_UNKNOWN);
+
 	netdev_info(priv->dev, "FPE workqueue start");
 
 	return 0;
@@ -5849,23 +5852,21 @@ static int stmmac_set_features(struct net_device *netdev,
 
 static void stmmac_fpe_event_status(struct stmmac_priv *priv, int status)
 {
-	struct stmmac_fpe_cfg *fpe_cfg = priv->plat->fpe_cfg;
+	u32 fpe_evt_status;
 
 	if (status == FPE_EVENT_UNKNOWN)
 		return;
 
-	/* If fpe is supported by the HW, then by default pmac receive is
-	 * enabled. Also this isr routine will be called only if fpe is
-	 * supported. So when verify mPacket is received quickly send a
-	 * response mPacket.
+	/* Receive Respond and verify mPackets are only the events of interest.
+	 * Update fpe_evt_status and wakeup fpe wait queue. If fpe work queue
+	 * is waiting on the fpe wait queue, this wakes up the workqueue to
+	 * service the fpe event. If work queue is not running currently, work
+	 * queue will be scheduled, which will service the fpe event.
 	 */
-	if ((status & FPE_EVENT_RVER) == FPE_EVENT_RVER)
-		stmmac_fpe_send_mpacket(priv, priv->ioaddr, fpe_cfg,
-					MPACKET_RESPONSE);
+	fpe_evt_status = status & (FPE_EVENT_RRSP | FPE_EVENT_RVER);
 
-	/* If LP has sent response mPacket, LP is fpe capable */
-	if ((status & FPE_EVENT_RRSP) == FPE_EVENT_RRSP)
-		fpe_cfg->fpe_state = FPE_VER_STATE_SUCCEEDED;
+	atomic_or(fpe_evt_status, &priv->fpe_evt_status);
+	wake_up(&priv->fpe_wq_evt);
 
 	if (!test_bit(__FPE_REMOVING, &priv->fpe_task_state) &&
 	    !test_and_set_bit(__FPE_TASK_SCHED, &priv->fpe_task_state) &&
@@ -7250,35 +7251,68 @@ static void stmmac_fpe_lp_task(struct work_struct *work)
 	struct stmmac_priv *priv = container_of(work, struct stmmac_priv,
 						fpe_task);
 	struct stmmac_fpe_cfg *fpe_cfg = priv->plat->fpe_cfg;
+	u32 fpe_status = 0, fpe_verify_time = 0;
+	int retries = 20, wq_rem_jiffies;
 	bool skip_retry = true;
-	int retries = 20;
 
 	while (true) {
-		if (fpe_cfg->fpe_state == FPE_VER_STATE_SUCCEEDED) {
-			stmmac_fpe_configure(priv, priv->ioaddr,
-					     fpe_cfg,
-					     priv->plat->tx_queues_to_use,
-					     priv->plat->rx_queues_to_use,
-					     fpe_cfg->tx_enable);
+		fpe_status = atomic_xchg(&priv->fpe_evt_status, FPE_EVENT_UNKNOWN);
 
-			netdev_info(priv->dev, "configured FPE\n");
-			break;
-		} else if (fpe_cfg->fpe_state == FPE_VER_STATE_VERIFYING) {
-			/* Don't send Verify mPacket for the first time */
+		/* If fpe is supported by the HW, then by default pmac receive is
+		 * enabled. Also this isr routine will be called only if fpe is
+		 * supported. So when verify mPacket is received quickly send a
+		 * response mPacket.
+		 */
+		if (fpe_status & FPE_EVENT_RVER)
+			stmmac_fpe_send_mpacket(priv, priv->ioaddr, fpe_cfg,
+						MPACKET_RESPONSE);
+
+		if (fpe_cfg->fpe_state == FPE_VER_STATE_VERIFYING) {
+			/* Receive response mPacket, link partner is fpe capable */
+			if (fpe_status & FPE_EVENT_RRSP) {
+				fpe_cfg->fpe_state = FPE_VER_STATE_SUCCEEDED;
+				stmmac_fpe_configure(priv, priv->ioaddr,
+						     fpe_cfg,
+						     priv->plat->tx_queues_to_use,
+						     priv->plat->rx_queues_to_use,
+						     fpe_cfg->tx_enable);
+				netdev_info(priv->dev, "configured FPE\n");
+				break;
+			}
+
+			/* Retry only if the workqueue comes out from the sleep
+			 * after completing verify time
+			 */
 			if (!skip_retry) {
 				if (--retries <= 0) {
 					/* Verify retries exceed */
 					fpe_cfg->fpe_state = FPE_VER_STATE_FAILED;
 					break;
 				}
-				stmmac_fpe_send_mpacket(priv, priv->ioaddr,
-							fpe_cfg,
+				stmmac_fpe_send_mpacket(priv, priv->ioaddr, fpe_cfg,
 							MPACKET_VERIFY);
 			}
 
+			/* fpe verify time is fixed at 500ms */
+			if (!fpe_verify_time)
+				fpe_verify_time = 500;
+
 			/* Sleep then retry */
-			msleep(500);
-			skip_retry = false;
+			wq_rem_jiffies =
+				wait_event_interruptible_timeout(
+					priv->fpe_wq_evt,
+					atomic_read(&priv->fpe_evt_status) != FPE_EVENT_UNKNOWN,
+					msecs_to_jiffies(fpe_verify_time));
+
+			if (wq_rem_jiffies <= 1) {
+				/* waitqueue timeout, retry */
+				fpe_verify_time = 0;
+				skip_retry = false;
+			} else {
+				/* waitqueue interrupted by an event */
+				fpe_verify_time = jiffies_to_msecs(wq_rem_jiffies);
+			}
+
 		} else {
 			/* Bail out immediately if FPE handshake is OFF */
 			break;
@@ -7291,6 +7325,7 @@ static void stmmac_fpe_lp_task(struct work_struct *work)
 void stmmac_fpe_handshake(struct stmmac_priv *priv, bool enable)
 {
 	struct stmmac_fpe_cfg *fpe_cfg = priv->plat->fpe_cfg;
+	enum stmmac_fpe_state prev_state;
 	bool fpe_on;
 
 	if (fpe_cfg->verify_enable && enable) {
@@ -7303,14 +7338,18 @@ void stmmac_fpe_handshake(struct stmmac_priv *priv, bool enable)
 			fpe_cfg->fpe_state = FPE_VER_STATE_VERIFYING;
 		}
 	} else {
-		if (fpe_cfg->fpe_state != FPE_VER_STATE_DISABLED &&
-		    fpe_cfg->fpe_state != FPE_VER_STATE_INITIAL)
-			netdev_info(priv->dev, "stop FPE handshake\n");
+		prev_state = fpe_cfg->fpe_state;
 
 		if (fpe_cfg->verify_enable)
 			fpe_cfg->fpe_state = FPE_VER_STATE_INITIAL;
 		else
 			fpe_cfg->fpe_state = FPE_VER_STATE_DISABLED;
+
+		if (prev_state != FPE_VER_STATE_DISABLED &&
+		    prev_state != FPE_VER_STATE_INITIAL) {
+			netdev_info(priv->dev, "stop FPE handshake\n");
+			wake_up(&priv->fpe_wq_evt);
+		}
 
 		fpe_on = fpe_cfg->tx_enable && enable;
 
