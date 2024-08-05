@@ -968,7 +968,7 @@ static void stmmac_mac_link_down(struct phylink_config *config,
 	stmmac_set_eee_pls(priv, priv->hw, false);
 
 	if (priv->dma_cap.fpesel)
-		stmmac_fpe_handshake(priv, false);
+		stmmac_fpe_handshake(priv, false, true);
 }
 
 static void stmmac_mac_link_up(struct phylink_config *config,
@@ -1082,7 +1082,7 @@ static void stmmac_mac_link_up(struct phylink_config *config,
 	}
 
 	if (priv->dma_cap.fpesel)
-		stmmac_fpe_handshake(priv, true);
+		stmmac_fpe_handshake(priv, true, true);
 
 	if (priv->plat->flags & STMMAC_FLAG_HWTSTAMP_CORRECT_LATENCY)
 		stmmac_hwtstamp_correct_latency(priv, priv);
@@ -3443,7 +3443,7 @@ static int stmmac_hw_setup(struct net_device *dev, bool ptp_register)
 	if (priv->dma_cap.fpesel) {
 		stmmac_fpe_start_wq(priv);
 
-		stmmac_fpe_handshake(priv, true);
+		stmmac_fpe_handshake(priv, true, true);
 	}
 
 	/* Set HW VLAN Stripping mode */
@@ -7258,6 +7258,8 @@ static void stmmac_fpe_lp_task(struct work_struct *work)
 	while (true) {
 		fpe_status = atomic_xchg(&priv->fpe_evt_status, FPE_EVENT_UNKNOWN);
 
+		mutex_lock(&fpe_cfg->lock);
+
 		/* If fpe is supported by the HW, then by default pmac receive is
 		 * enabled. Also this isr routine will be called only if fpe is
 		 * supported. So when verify mPacket is received quickly send a
@@ -7277,6 +7279,7 @@ static void stmmac_fpe_lp_task(struct work_struct *work)
 						     priv->plat->rx_queues_to_use,
 						     fpe_cfg->tx_enable);
 				netdev_info(priv->dev, "configured FPE\n");
+				mutex_unlock(&fpe_cfg->lock);
 				break;
 			}
 
@@ -7287,15 +7290,17 @@ static void stmmac_fpe_lp_task(struct work_struct *work)
 				if (--retries <= 0) {
 					/* Verify retries exceed */
 					fpe_cfg->fpe_state = FPE_VER_STATE_FAILED;
+					mutex_unlock(&fpe_cfg->lock);
 					break;
 				}
 				stmmac_fpe_send_mpacket(priv, priv->ioaddr, fpe_cfg,
 							MPACKET_VERIFY);
 			}
-
 			/* fpe verify time is fixed at 500ms */
 			if (!fpe_verify_time)
 				fpe_verify_time = 500;
+
+			mutex_unlock(&fpe_cfg->lock);
 
 			/* Sleep then retry */
 			wq_rem_jiffies =
@@ -7315,6 +7320,7 @@ static void stmmac_fpe_lp_task(struct work_struct *work)
 
 		} else {
 			/* Bail out immediately if FPE handshake is OFF */
+			mutex_unlock(&fpe_cfg->lock);
 			break;
 		}
 	}
@@ -7322,11 +7328,14 @@ static void stmmac_fpe_lp_task(struct work_struct *work)
 	clear_bit(__FPE_TASK_SCHED, &priv->fpe_task_state);
 }
 
-void stmmac_fpe_handshake(struct stmmac_priv *priv, bool enable)
+void stmmac_fpe_handshake(struct stmmac_priv *priv, bool enable, bool lock)
 {
 	struct stmmac_fpe_cfg *fpe_cfg = priv->plat->fpe_cfg;
 	enum stmmac_fpe_state prev_state;
 	bool fpe_on;
+
+	if (lock)
+		mutex_lock(&fpe_cfg->lock);
 
 	if (fpe_cfg->verify_enable && enable) {
 		if (fpe_cfg->fpe_state != FPE_VER_STATE_VERIFYING &&
@@ -7364,6 +7373,10 @@ void stmmac_fpe_handshake(struct stmmac_priv *priv, bool enable)
 		else
 			netdev_info(priv->dev, "configured FPE\n");
 	}
+
+	if (lock)
+		mutex_unlock(&fpe_cfg->lock);
+
 }
 
 static int stmmac_xdp_rx_timestamp(const struct xdp_md *_ctx, u64 *timestamp)
@@ -7827,7 +7840,7 @@ int stmmac_suspend(struct device *dev)
 
 	if (priv->dma_cap.fpesel) {
 		/* Disable FPE */
-		stmmac_fpe_handshake(priv, false);
+		stmmac_fpe_handshake(priv, false, true);
 		stmmac_fpe_stop_wq(priv);
 	}
 
