@@ -789,7 +789,7 @@ static int ad7768_set_pwr_mode(struct iio_dev *dev,
 	ret = ad7768_spi_reg_write(st, AD7768_REG_POWER_CLOCK, mode);
 	if (ret < 0)
 		return ret;
-	return 0;
+	return ad7768_spi_reg_write(st, AD7768_REG_SYNC_RESET, 0x00);
 }
 
 static int ad7768_get_dec_rate(struct iio_dev *dev,
@@ -819,7 +819,7 @@ static int ad7768_set_dec_rate(struct iio_dev *dev,
 	ret = ad7768_spi_reg_write(st, AD7768_REG_DIGITAL_FILTER, mode);
 	if (ret < 0)
 		return ret;
-	return 0;
+	return ad7768_spi_reg_write(st, AD7768_REG_SYNC_RESET, 0x00);
 }
 
 static int ad7768_get_mclk_div(struct iio_dev *dev,
@@ -851,7 +851,8 @@ static int ad7768_set_mclk_div(struct iio_dev *dev,
 	ret = ad7768_spi_reg_write(st, AD7768_REG_POWER_CLOCK, mclk_div_value);
 	if (ret < 0)
 		return ret;
-	return 0;
+	
+	return ad7768_spi_reg_write(st, AD7768_REG_SYNC_RESET, 0x00);
 }
 
 static int ad7768_set_filter_type(struct ad7768_state *st, unsigned int filter)
@@ -1130,7 +1131,7 @@ static int ad7768_setup(struct ad7768_state *st, int low_latency_en)
 		return ret;
 
 	st->gpio_sync_in = devm_gpiod_get(&st->spi->dev, "adi,sync-in",
-					  GPIOD_OUT_LOW);
+					  GPIOD_IN);
 	if (IS_ERR(st->gpio_sync_in))
 		return PTR_ERR(st->gpio_sync_in);
 
