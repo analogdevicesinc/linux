@@ -836,6 +836,9 @@ static int csi_formatter_probe(struct platform_device *pdev)
 		return ret;
 	}
 
+	/* Initialize formatter pixel format */
+	formatter->fmt = find_csi_format(formatter_default_fmt.code);
+
 	ret = csi_formatter_async_register(formatter);
 	if (ret < 0) {
 		v4l2_subdev_cleanup(&formatter->sd);
