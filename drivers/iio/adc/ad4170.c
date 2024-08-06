@@ -47,12 +47,8 @@ struct ad4170_chan_info {
 	struct ad4170_current_source current_source[AD4170_NUM_CURRENT_SOURCE];
 	unsigned int nr;
 	struct ad4170_setup setup;
-	unsigned int ain;
 	int slot;
 	bool enabled;
-	bool initialized;
-	u32 iout0;
-	u32 iout1;
 };
 
 struct ad4170_state {
