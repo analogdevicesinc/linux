@@ -330,7 +330,6 @@
 		ethphy0: ethernet-phy@0 {
 			compatible = "ethernet-phy-ieee802.3-c22";
 			reg = <0>;
-			eee-broken-1000t;
 			qca,disable-smarteee;
 			qca,disable-hibernation-mode;
 			reset-gpios = <&pca6416_1 2 GPIO_ACTIVE_LOW>;
