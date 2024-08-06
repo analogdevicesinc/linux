@@ -5,9 +5,8 @@
 3. [Source Code](#source-code)
 4. [Device tree](#device-tree)
 5. [Device tree bindings](#device-tree-bindings)
-6. [GMSL hardware configuration](#hardware-configuration)
-7. [Testing](#testing)
-8. [Debugging](#debugging)
+6. [Testing](#testing)
+7. [Debugging](#debugging)
 
 ## Description
 
@@ -30,80 +29,39 @@ For build instructions [check the wiki](https://wiki.analog.com/resources/tools-
 | gmsl/xilinx_v6.1_LTS 	| [Deserializer][source-4]      	|
 | gmsl/xilinx_v6.1_LTS 	| [Aggregator][source-5]        	|
 
-[source-0]: https://github.com/analogdevicesinc/linux/blob/gmsl/xilinx_v6.1_LTS/drivers/media/i2c/maxim-serdes/max96717.c
-[source-1]: https://github.com/analogdevicesinc/linux/blob/gmsl/xilinx_v6.1_LTS/drivers/media/i2c/maxim-serdes/max96724.c
-[source-2]: https://github.com/analogdevicesinc/linux/blob/gmsl/xilinx_v6.1_LTS/drivers/media/i2c/maxim-serdes/max9296a.c
-[source-3]: https://github.com/analogdevicesinc/linux/blob/gmsl/xilinx_v6.1_LTS/drivers/media/i2c/maxim-serdes/max_ser.c
-[source-4]: https://github.com/analogdevicesinc/linux/blob/gmsl/xilinx_v6.1_LTS/drivers/media/i2c/maxim-serdes/max_des.c
-[source-5]: https://github.com/analogdevicesinc/linux/blob/gmsl/xilinx_v6.1_LTS/drivers/media/i2c/maxim-serdes/max_aggregator.c
+[source-0]: https://github.com/analogdevicesinc/linux/blob/gmsl_k26/xilinx_v6.1_LTS/drivers/media/i2c/maxim-serdes/max96717.c
+[source-1]: https://github.com/analogdevicesinc/linux/blob/gmsl_k26/xilinx_v6.1_LTS/drivers/media/i2c/maxim-serdes/max96724.c
+[source-2]: https://github.com/analogdevicesinc/linux/blob/gmsl_k26/xilinx_v6.1_LTS/drivers/media/i2c/maxim-serdes/max9296a.c
+[source-3]: https://github.com/analogdevicesinc/linux/blob/gmsl_k26/xilinx_v6.1_LTS/drivers/media/i2c/maxim-serdes/max_ser.c
+[source-4]: https://github.com/analogdevicesinc/linux/blob/gmsl_k26/xilinx_v6.1_LTS/drivers/media/i2c/maxim-serdes/max_des.c
+[source-5]: https://github.com/analogdevicesinc/linux/blob/gmsl_k26/xilinx_v6.1_LTS/drivers/media/i2c/maxim-serdes/max_aggregator.c
 
 ## Device tree
 
-| Release Tag       	| File              	|
-|-------------------	| ------------------	|
-| gmsl/xilinx_v6.1_LTS 	| [gmsl.dts][dtss-0] 	|
+| Release Tag       	      | File              	|
+|-------------------------	| ------------------	|
+| gmsl_k26/xilinx_v6.1_LTS 	| [gmsl.dts][dtss-0] 	|
 
-[dtss-0]: https://github.com/analogdevicesinc/linux/blob/gmsl/xilinx_v6.1_LTS/arch/arm64/boot/dts/xilinx/gmsl.dts
+[dtss-0]: https://github.com/analogdevicesinc/linux/blob/gmsl_k26/xilinx_v6.1_LTS/arch/arm64/boot/dts/xilinx/gmsl-k26.dts
 
 ## Device tree bindings
 
-| Release Tag       	| File                       	|
-|-------------------	| ---------------------------	|
-| gmsl/xilinx_v6.1_LTS 	| [MAX96717/MAX9295A][doc-0] 	|
-| gmsl/xilinx_v6.1_LTS 	| [MAX96724][doc-1]          	|
-| gmsl/xilinx_v6.1_LTS 	| [MAX9296A][doc-2]          	|
-| gmsl/xilinx_v6.1_LTS 	| [Serializer][doc-3]        	|
-| gmsl/xilinx_v6.1_LTS 	| [Deserializer][doc-4]      	|
+| Release Tag       	      | File                       	|
+|-------------------------	| ---------------------------	|
+| gmsl_k26/xilinx_v6.1_LTS 	| [MAX96717/MAX9295A][doc-0] 	|
+| gmsl_k26/xilinx_v6.1_LTS 	| [MAX96724][doc-1]          	|
+| gmsl_k26/xilinx_v6.1_LTS 	| [MAX9296A][doc-2]          	|
+| gmsl_k26/xilinx_v6.1_LTS 	| [Serializer][doc-3]        	|
+| gmsl_k26/xilinx_v6.1_LTS 	| [Deserializer][doc-4]      	|
 
-[doc-0]: https://github.com/analogdevicesinc/linux/blob/gmsl/xilinx_v6.1_LTS/Documentation/devicetree/bindings/media/i2c/maxim%2Cmax96717.yaml
-[doc-1]: https://github.com/analogdevicesinc/linux/blob/gmsl/xilinx_v6.1_LTS/Documentation/devicetree/bindings/media/i2c/maxim%2Cmax96724.yaml
-[doc-2]: https://github.com/analogdevicesinc/linux/blob/gmsl/xilinx_v6.1_LTS/Documentation/devicetree/bindings/media/i2c/maxim%2Cmax9296a.yaml
-[doc-3]: https://github.com/analogdevicesinc/linux/blob/gmsl/xilinx_v6.1_LTS/Documentation/devicetree/bindings/media/i2c/maxim-serializer.yaml
-[doc-4]: https://github.com/analogdevicesinc/linux/blob/gmsl/xilinx_v6.1_LTS/Documentation/devicetree/bindings/media/i2c/maxim-deserializer.yaml
-
-
-## Hardware configuration
-
-### CFG Pin Levels
-
-EVKITs need to have their CFG Pin Levels configured using the [GMSL SerDes GUI Software][gui-0].
-
-To do this, open the software, navigate to the `Tools` tab, and then press on the `Set CFG Pin Levels` entry under the `Other Config` section.
-
-Use the `Serializer` tab to configure serializers, and the `Deserializer` tab to configure deserializers.
-
-You'll have to connect your serializers one by one to configure them since the GUI can't switch between multiple connected serializers.
-
-[gui-0]: https://www.analog.com/en/design-center/evaluation-hardware-and-software/software/software-download.html?swpart=SFW0019760F
-
-#### MAX96724
-
-Configure it to use device address 0x4e (0x27), COAX, GMSL2 and 6Gbps.
-
-This should mean `CFG0` at pin level `0` and `CFG1` at pin level `1`.
-
-#### MAX9295A, MAX96717
-
-Configure it to use device address 0x80 (0x40), COAX, and either Tunnel or Pixel mode. The default device tree configuration will switch it to pixel mode.
-
-This should mean `CFG0` at pin level `0` and `CFG1` at pin level `5` or `7`.
-
-### CSI I2C
-
-When using the MAX96724 deserializer, to accept I2C communcation over the CSI bus, you will have to flip the `SW5` switches to the `ON` position.
+[doc-0]: https://github.com/analogdevicesinc/linux/blob/gmsl_k26/xilinx_v6.1_LTS/Documentation/devicetree/bindings/media/i2c/maxim%2Cmax96717.yaml
+[doc-1]: https://github.com/analogdevicesinc/linux/blob/gmsl_k26/xilinx_v6.1_LTS/Documentation/devicetree/bindings/media/i2c/maxim%2Cmax96724.yaml
+[doc-2]: https://github.com/analogdevicesinc/linux/blob/gmsl_k26/xilinx_v6.1_LTS/Documentation/devicetree/bindings/media/i2c/maxim%2Cmax9296a.yaml
+[doc-3]: https://github.com/analogdevicesinc/linux/blob/gmsl_k26/xilinx_v6.1_LTS/Documentation/devicetree/bindings/media/i2c/maxim-serializer.yaml
+[doc-4]: https://github.com/analogdevicesinc/linux/blob/gmsl_k26/xilinx_v6.1_LTS/Documentation/devicetree/bindings/media/i2c/maxim-deserializer.yaml
 
 ## Testing
-### QV4L2
-
-To test the cameras using qv4l2, you need to install the `qv4l2` package using the following command.
-
-`sudo apt install qv4l2`
-
-To open the camera `0` in the `qv4l2` app, run the following command.
-
-`qv4l2 -d 0`
-
-The same applies for other cameras.
+Please follow the instructions [from](https://wiki.analog.com/resources/eval/user-guides/ad-gmsl2eth-sl-guide)
 
 ## Debugging
 
