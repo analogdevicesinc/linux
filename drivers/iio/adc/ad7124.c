@@ -846,8 +846,6 @@ static int ad7124_of_parse_channel_config(struct iio_dev *indio_dev,
 	st->channels = channels;
 
 	for_each_available_child_of_node(np, child) {
-		cfg = &st->channels[channel].cfg;
-
 		ret = of_property_read_u32(child, "reg", &channel);
 		if (ret)
 			goto err;
@@ -868,6 +866,7 @@ static int ad7124_of_parse_channel_config(struct iio_dev *indio_dev,
 		st->channels[channel].ain = AD7124_CHANNEL_AINP(ain[0]) |
 						  AD7124_CHANNEL_AINM(ain[1]);
 
+		cfg = &st->channels[channel].cfg;
 		cfg->bipolar = of_property_read_bool(child, "bipolar");
 
 		ret = of_property_read_u32(child, "adi,reference-select", &tmp);
