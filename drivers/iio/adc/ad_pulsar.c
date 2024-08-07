@@ -423,20 +423,22 @@ static int ad_pulsar_reg_access(struct iio_dev *indio_dev, unsigned int reg,
 
 static int ad_pulsar_set_samp_freq(struct ad_pulsar_adc *adc, int freq)
 {
-	unsigned long long target, ref_clk_period_ps;
+	unsigned long long ref_clk_period_ns;
 	struct pwm_state cnv_state;
 	int ret;
 
+	/*
+	 * The objective here is to configure the PWM such that we don't have
+	 * more than $freq periods per second and duty_cycle and phase should be
+	 * their minimal positive value.
+	 */
 	freq = clamp(freq, 1, adc->info->max_rate);
-	target = DIV_ROUND_CLOSEST_ULL(adc->ref_clk_rate, freq);
-	ref_clk_period_ps = DIV_ROUND_CLOSEST_ULL(1000000000000,
-						  adc->ref_clk_rate);
+	ref_clk_period_ns = DIV_ROUND_UP(NSEC_PER_SEC, adc->ref_clk_rate);
 
 	cnv_state = (struct pwm_state){
-		.period = ref_clk_period_ps * target,
-		.duty_cycle = ref_clk_period_ps,
-		.phase = ref_clk_period_ps,
-		.time_unit = PWM_UNIT_PSEC,
+		.period = DIV_ROUND_UP(NSEC_PER_SEC, freq),
+		.duty_cycle = ref_clk_period_ns,
+		.phase = ref_clk_period_ns,
 		.enabled = true,
 	};
 
@@ -444,7 +446,7 @@ static int ad_pulsar_set_samp_freq(struct ad_pulsar_adc *adc, int freq)
 	if (ret)
 		return ret;
 
-	adc->samp_freq = DIV_ROUND_CLOSEST_ULL(adc->ref_clk_rate, target);
+	adc->samp_freq = freq;
 
 	return ret;
 }
