@@ -153,18 +153,15 @@ struct ltc2387_dev {
 
 static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 {
-	unsigned long long target, ref_clk_period_ps;
+	unsigned long long ref_clk_period_ns;
 	struct pwm_state clk_en_state, cnv_state;
 	int ret, clk_en_time;
 
-	target = DIV_ROUND_CLOSEST_ULL(ltc->ref_clk_rate, freq);
-	ref_clk_period_ps = DIV_ROUND_CLOSEST_ULL(1000000000000ULL,
-						  ltc->ref_clk_rate);
+	ref_clk_period_ns = DIV_ROUND_CLOSEST(NSEC_PER_SEC, ltc->ref_clk_rate);
 
 	cnv_state = (struct pwm_state) {
-		.period = ref_clk_period_ps * target,
-		.duty_cycle = ref_clk_period_ps,
-		.time_unit = PWM_UNIT_PSEC,
+		.period = DIV_ROUND_CLOSEST(NSEC_PER_SEC, freq),
+		.duty_cycle = ref_clk_period_ns,
 		.enabled = true,
 	};
 
@@ -180,9 +177,8 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 
 	clk_en_state = (struct pwm_state) {
 		.period = cnv_state.period,
-		.duty_cycle = ref_clk_period_ps * clk_en_time,
-		.phase = cnv_state.phase + LTC2387_T_FIRSTCLK_NS * PSEC_PER_NSEC,
-		.time_unit = PWM_UNIT_PSEC,
+		.duty_cycle = ref_clk_period_ns * clk_en_time,
+		.phase = LTC2387_T_FIRSTCLK_NS,
 		.enabled = true,
 	};
 
@@ -190,7 +186,7 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	if (ret < 0)
 		return ret;
 
-	ltc->sampling_freq = DIV_ROUND_CLOSEST_ULL(ltc->ref_clk_rate, target);
+	ltc->sampling_freq = freq;
 
 	return 0;
 }
