@@ -592,20 +592,6 @@ static const struct axiadc_chip_info ad7768_4_conv_chip_info = {
 
 static const unsigned long ad7768_available_scan_masks[]  = { 0xFF, 0x00 };
 
-static void ad7768_reg_disable(void *data)
-{
-	struct regulator *reg = data;
-
-	regulator_disable(reg);
-}
-
-static void ad7768_clk_disable(void *data)
-{
-	struct clk *clk = data;
-
-	clk_disable_unprepare(clk);
-}
-
 static int ad7768_datalines_from_dt(struct ad7768_state *st)
 {
 	const unsigned int *available_datalines;
@@ -816,33 +802,17 @@ static int ad7768_probe(struct spi_device *spi)
 
 	st = iio_priv(indio_dev);
 
-	st->chip_info = device_get_match_data(&spi->dev);
-	if (!st->chip_info) {
-		st->chip_info = (void *)spi_get_device_id(spi)->driver_data;
-		if (!st->chip_info)
-			return PTR_ERR(st->chip_info);
-	}
+	st->chip_info = spi_get_device_match_data(spi);
+	if (!st->chip_info)
+		return -ENODEV;
 
-	st->vref = devm_regulator_get(&spi->dev, "vref");
-	if (IS_ERR(st->vref))
-		return PTR_ERR(st->vref);
-	ret = regulator_enable(st->vref);
+	ret = devm_regulator_get_enable(&spi->dev, "vref");
 	if (ret)
 		return ret;
 
-	ret = devm_add_action_or_reset(&spi->dev, ad7768_reg_disable, st->vref);
-	if (ret)
-		return ret;
-
-	st->mclk = devm_clk_get(&spi->dev, "mclk");
+	st->mclk = devm_clk_get_enabled(&spi->dev, "mclk");
 	if (IS_ERR(st->mclk))
 		return PTR_ERR(st->mclk);
-	ret = clk_prepare_enable(st->mclk);
-	if (ret < 0)
-		return ret;
-	ret = devm_add_action_or_reset(&spi->dev, ad7768_clk_disable, st->mclk);
-	if (ret)
-		return ret;
 
 	st->spi = spi;
 
