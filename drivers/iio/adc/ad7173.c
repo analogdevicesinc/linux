@@ -747,9 +747,8 @@ static int ad7173_probe(struct spi_device *spi)
 	id = spi_get_device_id(spi);
 	st->info = &ad7173_device_info[id->driver_data];
 
-	ad_sd_init(&st->sd, indio_dev, spi, &ad7173_sigma_delta_info);
-
 	st->sd.num_slots = st->info->num_configs;
+	ad_sd_init(&st->sd, indio_dev, spi, &ad7173_sigma_delta_info);
 
 	spi_set_drvdata(spi, indio_dev);
 
