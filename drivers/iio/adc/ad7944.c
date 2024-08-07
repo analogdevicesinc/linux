@@ -735,7 +735,6 @@ static int ad7944_probe(struct spi_device *spi)
 			.period = NSEC_PER_SEC / AD7944_DEFAULT_SAMPLE_FREQ_HZ,
 			.duty_cycle = AD7944_PWM_TRIGGER_DUTY_CYCLE_NS,
 			.enabled = true,
-			.time_unit = PWM_UNIT_NSEC,
 		};
 
 		adc->pwm = devm_pwm_get(dev, NULL);
