@@ -25,20 +25,26 @@ properties:
     description:
       Referece voltage supply for AVDD. AVSS can be set below 0V to provide a
       bipolar power supply to AD4170-4. Must be −2.625V at minimum, 0V maximum.
-      AVSS to DGND
 
   avdd-supply:
     description:
       A supply of 4.75V to 5.25V relative to AVSS that powers the chip (AVDD).
+      AVDD can be used as reference for conversion.
 
   iovdd-supply:
     description: 1.7V to 5.25V reference supply to the serial interface (IOVDD).
 
-  refin1-supply:
-    description: A ....V supply that powers the chip (VDD).
+  refin1p-supply:
+    description: REFIN+ supply that can be used as reference for conversion.
 
-  refin2-supply:
-    description: A ....V supply that powers the chip (VDD).
+  refin1n-supply:
+    description: REFIN- supply that can be used as reference for conversion.
+
+  refin2p-supply:
+    description: REFIN2+ supply that can be used as reference for conversion.
+
+  refin2n-supply:
+    description: REFIN2- supply that can be used as reference for conversion.
 
   adi,gpio0-power-down-switch:
     description: Describes whether GPIO is used as a switch to power down jk
@@ -53,11 +59,7 @@ required:
   - compatible
   - reg
   - avdd-supply
-  - vdd-supply
-  - vio-supply
-  - ref-supply
-
-
+  - iovdd-supply
 
 unevaluatedProperties: false
 
