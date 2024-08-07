@@ -383,6 +383,10 @@ static void ad_sd_prepare_transfer_msg(struct iio_dev *indio_dev)
 	else
 		data_reg = AD_SD_REG_DATA;
 
+	/* Status word will be appended to the sample during transfer */
+	if (sigma_delta->status_appended)
+		reg_size++;
+
 	BUG_ON(reg_size > 4);
 	/* We store reg_size bytes samples in a 32 bit word. Keep the upper
 	 * reg_size bytes set to zero.
@@ -411,6 +415,7 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 			indio_dev->channels[i].address);
 		if (ret)
 			goto err_predisable;
+		sigma_delta->slots[slot] = indio_dev->channels[i].address;
 		slot++;
 	}
 
@@ -419,8 +424,20 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 	if (!sigma_delta->buf_data)
 		return -ENOMEM;
 
+	sigma_delta->active_slots = slot;
 	ad_sigma_delta_set_active_slots(sigma_delta, slot);
 	sigma_delta->current_slot = 0;
+
+	/*
+	 * Activation of append_status will cause incrementation of the reg_size
+	 * in ad_sd_prepare_transfer_msg() and the transfer size will include
+	 * the status byte.
+	 */
+	if (sigma_delta->active_slots > 1) {
+		ret = ad_sigma_delta_append_status(sigma_delta, true);
+		if (ret)
+			return ret;
+	}
 
 	spi_bus_lock(sigma_delta->spi->master);
 	sigma_delta->bus_locked = true;
@@ -472,6 +489,8 @@ static int ad_sd_buffer_postdisable(struct iio_dev *indio_dev)
 
 	sigma_delta->keep_cs_asserted = false;
 	ad_sigma_delta_set_mode(sigma_delta, AD_SD_MODE_IDLE);
+	if (sigma_delta->status_appended)
+		ad_sigma_delta_append_status(sigma_delta, false);
 
 	sigma_delta->bus_locked = false;
 	return spi_bus_unlock(sigma_delta->spi->master);
@@ -482,24 +501,58 @@ static irqreturn_t ad_sd_trigger_handler(int irq, void *p)
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
 	struct ad_sigma_delta *sigma_delta = iio_device_get_drvdata(indio_dev);
+	unsigned int status_pos;
 	unsigned int reg_size;
 	int ret;
 
-	sigma_delta->current_slot++;
-
 	ret = spi_sync_locked(sigma_delta->spi, &sigma_delta->spi_msg);
+
+	reg_size = sigma_delta->spi_transfer[1].len;
+	if (sigma_delta->status_appended) {
+		u8 converted_channel;
+		/*
+		 * If status_appended is active, reg_size was incremented in
+		 * ad_sd_prepare_transfer_msg().
+		 *
+		 * The status byte will be the byte following the last
+		 * sample byte.
+		 */
+		status_pos = reg_size - 1;
+		converted_channel = ((u8 *)sigma_delta->spi_transfer[1].rx_buf)[status_pos] &
+				    sigma_delta->info->status_ch_mask;
+		if (converted_channel != sigma_delta->slots[sigma_delta->current_slot]) {
+			/*
+			 * Desync occurred during continuous sampling of multiple channels.
+			 * Drop this incomplete sample and start from first channel again.
+			 */
+			sigma_delta->current_slot = 0;
+			sigma_delta->spi_transfer[1].rx_buf = sigma_delta->buf_data;
+			sigma_delta->spi_transfer[1].rx_buf += 4 - reg_size;
+			goto irq_handled;
+		}
+
+		/*
+		 * Get rid of the status byte and move samples to the right to
+		 * comply with "Keep the upper reg_size bytes set to zero".
+		 */
+		memmove(sigma_delta->spi_transfer[1].rx_buf + 1, sigma_delta->spi_transfer[1].rx_buf,
+			reg_size - 1);
+		((u8 *)sigma_delta->spi_transfer[1].rx_buf)[0] = 0;
+	}
+
+	sigma_delta->current_slot++;
 	if (ret == 0 && sigma_delta->current_slot == sigma_delta->active_slots) {
 		iio_push_to_buffers_with_timestamp(indio_dev,
 			sigma_delta->buf_data, pf->timestamp);
 		sigma_delta->current_slot = 0;
 		sigma_delta->spi_transfer[1].rx_buf = sigma_delta->buf_data;
-		reg_size = sigma_delta->spi_transfer[1].len;
 		sigma_delta->spi_transfer[1].rx_buf += 4 - reg_size;
 	} else {
 		sigma_delta->spi_transfer[1].rx_buf +=
 			indio_dev->channels[0].scan_type.storagebits / 8;
 	}
 
+irq_handled:
 	iio_trigger_notify_done(indio_dev->trig);
 	sigma_delta->irq_dis = false;
 	enable_irq(sigma_delta->spi->irq);
@@ -609,6 +662,11 @@ int devm_ad_sd_setup_buffer_and_trigger(struct device *dev, struct iio_dev *indi
 	if (spi_engine_offload_supported(sigma_delta->spi))
 		indio_dev->modes |= INDIO_BUFFER_HARDWARE;
 
+	sigma_delta->slots = devm_kcalloc(dev, sigma_delta->num_slots,
+					  sizeof(*sigma_delta->slots), GFP_KERNEL);
+	if (!sigma_delta->slots)
+		return -ENOMEM;
+
 	ret = devm_iio_triggered_buffer_setup(dev, indio_dev,
 					      &iio_pollfunc_store_time,
 					      &ad_sd_trigger_handler,
@@ -635,8 +693,12 @@ int ad_sd_init(struct ad_sigma_delta *sigma_delta, struct iio_dev *indio_dev,
 {
 	sigma_delta->spi = spi;
 	sigma_delta->info = info;
-	sigma_delta->num_slots = 1;
 	sigma_delta->active_slots = 1;
+
+	/* If the field is unset, asume there can only be 1 slot. */
+	if (!sigma_delta->num_slots)
+		sigma_delta->num_slots = 1;
+
 	iio_device_set_drvdata(indio_dev, sigma_delta);
 
 	return 0;
