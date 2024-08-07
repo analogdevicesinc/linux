@@ -497,7 +497,7 @@ static void dpa_get_strings(struct net_device *net_dev, u32 stringset, u8 *data)
 }
 
 static int dpaa_get_ts_info(struct net_device *net_dev,
-			    struct ethtool_ts_info *info)
+			    struct kernel_ethtool_ts_info *info)
 {
 	struct dpa_priv_s *priv = netdev_priv(net_dev);
 	struct device *dev = priv->mac_dev->dev;
