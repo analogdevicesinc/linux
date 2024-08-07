@@ -13,6 +13,7 @@
 #include <linux/of.h>
 #include <linux/phy/phy.h>
 #include <linux/sizes.h>
+#include <linux/delay.h>
 
 #include "sdhci-pltfm.h"
 
@@ -67,6 +68,8 @@
  * This is a soc-specific requirement (coming from Adrv906x GLS simulations).
  */
 #define SDHCI_ADI_HS400_TX_CLK_NEGEDGE
+
+#define SDHCI_IDLE_TIMEOUT                       (20) /* 20 ms */
 
 struct dwcmshc_priv {
 	struct clk *bus_clk;
@@ -357,6 +360,29 @@ static void adi_sdhci_hs400_enhanced_strobe(struct mmc_host *mmc,
 	sdhci_writew(host, emmc_ctrl, SDHCI_VENDOR1_EMMC_CTRL_R_OFF);
 }
 
+static int adi_sdhci_deinit(struct sdhci_host *host)
+{
+	uint16_t u16_reg_data;
+	unsigned int timeout = SDHCI_IDLE_TIMEOUT;
+
+	/* Wait for the host controller to become idle before stopping card clock.*/
+	while (sdhci_readl(host, SDHCI_PRESENT_STATE) &
+	       (SDHCI_CMD_INHIBIT | SDHCI_DATA_INHIBIT)) {
+		if (--timeout == 0) {
+			pr_err("Host controller is not idle\n");
+			return -1;
+		}
+		udelay(1000);
+	}
+
+	/* Stop card clock, and turn off internal clock and PLL */
+	u16_reg_data = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
+	u16_reg_data &= ~(SDHCI_CLOCK_CARD_EN | SDHCI_CLOCK_INT_EN | SDHCI_CLOCK_PLL_EN);
+	sdhci_writew(host, u16_reg_data, SDHCI_CLOCK_CONTROL);
+
+	return 0;
+}
+
 static int dwcmshc_probe(struct platform_device *pdev)
 {
 	struct sdhci_pltfm_host *pltfm_host;
@@ -370,6 +396,11 @@ static int dwcmshc_probe(struct platform_device *pdev)
 				sizeof(struct dwcmshc_priv));
 	if (IS_ERR(host))
 		return PTR_ERR(host);
+
+	/* Deinit to ensure a proper initialization */
+	err = adi_sdhci_deinit(host);
+	if (err)
+		goto free_pltfm;
 
 	is_emmc = device_property_read_bool(&pdev->dev, "non-removable");
 

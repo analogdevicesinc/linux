@@ -33,7 +33,7 @@ properties:
       '#address-cells':
         const: 1
       '#size-cells':
-        const: 0
+        const: 1
 
       "^port@[0-9]+$":
         type: object
@@ -108,8 +108,12 @@ properties:
         description: control register address for NDMA interrupt enable
 
   oran_if:
-    description: support ORAN_IF module
+    description: Enable O-RAN IF to forward traffic to NDMA.
     reg: OIF_0_RX_CTRL, OIF_0_TX_CTRL, OIF_1_RX_CTRL, OIF_1_TX_CTRL
+
+  eth_recov_clk:
+    description: Enable Ethernet recovered clock output.
+    reg: EMAC_RECOVERED_CLK_CTRL
 
   eth_switch:
     type: object
@@ -157,13 +161,13 @@ unevaluatedProperties: false
 
 examples:
   - |
-  adi_nic_dev: adi_eth_node@EMAC_CMN_BASE_UADDR {
+  adrv906x_net: adi_eth_node@EMAC_CMN_BASE_UADDR {
     compatible = "adi,adrv906x-net";
     reg = <EMAC_CMN_BASE 0x3004>;
+    #address-cells = <1>;
+    #size-cells = <1>;
     
     ethernet-ports {
-      #address-cells = <1>;
-      #size-cells = <1>;
       port@0 {
         id = <0>;
         reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>, <EMAC_MAC_0_RX 0x9c>;
@@ -189,13 +193,15 @@ examples:
     oran_if {
       reg = <OIF_0_RX_CTRL 0x4>, <OIF_0_TX_CTRL 0x4>, <OIF_1_RX_CTRL 0x4>, <OIF_1_TX_CTRL 0x4>;
     };
-    
+      
+    eth_recov_clk {
+      reg = <EMAC_RECOVERED_CLK_CTRL 0x4>;
+    };
+      
     eth_switch {
-      #address-cells = <1>;
-      #size-cells = <1>;
       reg = <EMAC_SW_BASE 0x30 EMAC_SW_MAE_BASE 0x30>;
       interrupt-names = "switch_error_0", "switch_error_1";
-      interrupts = <GIC_SPI, ETH_IRQ_PCS_RX_ERROR_0, IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI, ETH_IRQ_PCS_RX_ERROR_1, IRQ_TYPE_LEVEL_HIGH>;
+      interrupts = <GIC_SPI ETH_IRQ_PCS_RX_ERROR_0 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI ETH_IRQ_PCS_RX_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;
       pvid = /bits/ 16 <1>;
       vids = /bits/ 16 <2 3 4 5>;
       pcpregen = <0x77000000>;
