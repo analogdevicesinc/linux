@@ -45,6 +45,8 @@
 #define AD7124_STATUS_POR_FLAG_MSK	BIT(4)
 
 /* AD7124_ADC_CONTROL */
+#define AD7124_ADC_STATUS_EN_MSK	BIT(10)
+#define AD7124_ADC_STATUS_EN(x)		FIELD_PREP(AD7124_ADC_STATUS_EN_MSK, x)
 #define AD7124_ADC_CTRL_REF_EN_MSK	BIT(8)
 #define AD7124_ADC_CTRL_REF_EN(x)	FIELD_PREP(AD7124_ADC_CTRL_REF_EN_MSK, x)
 #define AD7124_ADC_CTRL_PWR_MSK	GENMASK(7, 6)
@@ -515,12 +517,32 @@ static int ad7124_set_channel(struct ad_sigma_delta *sd, unsigned int slot,
 	return ret;
 }
 
+static int ad7124_append_status(struct ad_sigma_delta *sd, bool append)
+{
+	struct ad7124_state *st = container_of(sd, struct ad7124_state, sd);
+	unsigned int adc_control = st->adc_control;
+	int ret;
+
+	adc_control &= ~AD7124_ADC_STATUS_EN_MSK;
+	adc_control |= AD7124_ADC_STATUS_EN(append);
+
+	ret = ad_sd_write_reg(&st->sd, AD7124_ADC_CONTROL, 2, adc_control);
+	if (ret < 0)
+		return ret;
+
+	st->adc_control = adc_control;
+
+	return 0;
+}
+
 static const struct ad_sigma_delta_info ad7124_sigma_delta_info = {
 	.set_channel = ad7124_set_channel,
+	.append_status = ad7124_append_status,
 	.set_mode = ad7124_set_mode,
 	.has_registers = true,
 	.addr_shift = 0,
 	.read_mask = BIT(6),
+	.status_ch_mask = GENMASK(3, 0),
 	.data_reg = AD7124_DATA,
 	.irq_flags = IRQF_TRIGGER_FALLING
 };
