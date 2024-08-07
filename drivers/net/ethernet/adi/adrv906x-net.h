@@ -77,8 +77,6 @@ struct adrv906x_eth_dev {
 	struct rtnl_link_stats64 rtnl_stats;
 	int link_speed;
 	int link_duplex;
-	struct timer_list tx_timer; /* TODO: this timer is temporary used as a debug */
-	/* for TX status lost detection, should be remove from final implementation */
 	int tx_frames_pending;
 	spinlock_t lock; /* protects struct access */
 };
