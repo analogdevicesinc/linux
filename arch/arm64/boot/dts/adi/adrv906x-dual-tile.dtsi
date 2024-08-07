@@ -6,10 +6,85 @@
 #include "adrv906x.dtsi"
 
 / {
-        pinctrl_secondary: pinctrl@SEC_PINCTRL_BASE_UADDR {
-                reg = <SEC_PINCTRL_BASE 0x1000>;
-                compatible = "adi,adrv906x-pinctrl";
-        };
+	pinctrl_secondary: pinctrl@SEC_PINCTRL_BASE_UADDR {
+			reg = <SEC_PINCTRL_BASE 0x1000>;
+			compatible = "adi,adrv906x-pinctrl";
+	};
+
+	sec_adrv906x_mdio: mdio@SEC_EMAC_PCS_0_BASE_UADDR {
+		compatible = "adi,adrv906x-mdio";
+		reg = <SEC_EMAC_PCS_0_BASE 0x350>, <SEC_EMAC_PCS_0_TSU 0x44>,
+			  <SEC_EMAC_PCS_1_BASE 0x350>, <SEC_EMAC_PCS_1_TSU 0x44>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		sec_adrv906x_phy0: ethernet-phy@0 {
+			compatible = "ethernet-phy-ieee802.3-c45";
+			reg = <0>;
+			static-phy-delay-tx-ns = <0>;
+			static-phy-delay-tx-frac-ns = <0>;
+			static-phy-delay-rx-ns = <0>;
+			static-phy-delay-rx-frac-ns = <0>;
+		};
+		sec_adrv906x_phy1: ethernet-phy@1 {
+			compatible = "ethernet-phy-ieee802.3-c45";
+			reg = <1>;
+			static-phy-delay-tx-ns = <0>;
+			static-phy-delay-tx-frac-ns = <0>;
+			static-phy-delay-rx-ns = <0>;
+			static-phy-delay-rx-frac-ns = <0>;
+		};
+	};
+
+	sec_ndma_reset_ctrl: reset@SEC_NDMA_RST_CTRL_UADDR{
+		reg = <SEC_NDMA_RST_CTRL 0x04>;
+	};
+	sec_ndma0_interrupt_ctrl: ndma0_intr_ctrl@SEC_NDMA_0_INTR_CTRL_UADDR {
+		reg = <SEC_NDMA_0_INTR_CTRL 0x20>;
+	};
+	sec_ndma1_interrupt_ctrl: ndma1_intr_ctrl@SEC_NDMA_1_INTR_CTRL_UADDR {
+		reg = <SEC_NDMA_1_INTR_CTRL 0x20>;
+	};
+
+	sec_ndma0: ndma0@SEC_NDMA_0_TX_BASE_UADDR {
+		id = <0>;
+		reg = <SEC_NDMA_0_TX_BASE 0x100>,
+			  <SEC_NDMA_0_TX_DMA 0x80>,
+			  <SEC_NDMA_0_TX_STATUS_DMA 0x80>,
+			  <SEC_NDMA_0_RX_BASE 0x1000>,
+			  <SEC_NDMA_0_RX_DMA 0x80>;
+		reset-ctrl = <&sec_ndma_reset_ctrl>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_113 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_109 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_120 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_116 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_112 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_108 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "tx_data_dma_done", "tx_data_dma_error",
+						  "tx_status_dma_done", "tx_status_dma_error",
+						  "rx_dma_done", "rx_dma_error";
+		interrupt-ctrl = <&sec_ndma0_interrupt_ctrl>;
+	};
+
+
+	sec_ndma1: ndma1@SEC_NDMA_1_TX_BASE_UADDR {
+		id = <1>;
+		reg = <SEC_NDMA_1_TX_BASE 0x100>,
+			  <SEC_NDMA_1_TX_DMA 0x80>,
+			  <SEC_NDMA_1_TX_STATUS_DMA 0x80>,
+			  <SEC_NDMA_1_RX_BASE 0x1000>,
+			  <SEC_NDMA_1_RX_DMA 0x80>;
+		reset-ctrl = <&sec_ndma_reset_ctrl>;
+		interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_115 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_111 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_121 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_117 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_114 IRQ_TYPE_EDGE_RISING>,
+					 <GIC_SPI C2C_OUT_HW_INTERRUPT_110 IRQ_TYPE_EDGE_RISING>;
+		interrupt-names = "tx_data_dma_done", "tx_data_dma_error",
+						  "tx_status_dma_done", "tx_status_dma_error",
+						  "rx_dma_done", "rx_dma_error";
+		interrupt-ctrl = <&sec_ndma1_interrupt_ctrl>;
+	};
 };
 
 #include "adrv906x-pinctrl-secondary.dtsi"

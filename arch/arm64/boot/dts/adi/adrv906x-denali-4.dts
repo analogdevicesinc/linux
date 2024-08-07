@@ -6,6 +6,7 @@
 #include "adrv906x.dtsi"
 #include "adrv906x-sysc.dtsi"
 #include "adrv906x-protium.dtsi"
+#include "adrv906x-eth-4t4r.dtsi"
 
 / {
 	model = "ADI ADRV906X Denali 4T4R Evaluation Kit";
@@ -24,7 +25,12 @@
 	uio-tod@EMAC_TOD_BASE {
 		compatible = "generic-uio";
 		reg = <EMAC_TOD_BASE 0xff>;
-		interrupts = <GIC_SPI TOD_IRQ IRQ_TYPE_LEVEL_HIGH>;
+	};
+
+	uio-ndma@NDMA_0_RX_BASE_UADDR {
+		compatible = "generic-uio";
+		reg = <NDMA_0_RX_BASE 0x9C0 NDMA_0_TX_BASE 0x14
+			   NDMA_1_RX_BASE 0x9C0 NDMA_1_TX_BASE 0x14>;
 	};
 };
 
@@ -131,7 +137,6 @@
 	 * to board, so four different entries are needed.
 	 */
 	temp-sensor@4c {
-		status = "disabled";
 		compatible = "maxim,max6581";
 		reg = <0x4c>;
 		smbus-timeout-disable;
@@ -141,7 +146,6 @@
 		over-temperature-mask = <0x7f>;	/* Ignore all alerts */
 	};
 	temp-sensor@4d {
-		status = "disabled";
 		compatible = "maxim,max6581";
 		reg = <0x4d>;
 		smbus-timeout-disable;
@@ -151,7 +155,6 @@
 		over-temperature-mask = <0x7f>;	/* Ignore all alerts */
 	};
 	temp-sensor@4e {
-		status = "disabled";
 		compatible = "maxim,max6581";
 		reg = <0x4e>;
 		smbus-timeout-disable;
@@ -161,7 +164,6 @@
 		over-temperature-mask = <0x7f>; /* Ignore all alerts */
 	};
 	temp-sensor@4f {
-		status = "disabled";
 		compatible = "maxim,max6581";
 		reg = <0x4f>;
 		smbus-timeout-disable;
@@ -172,13 +174,11 @@
 	};
 
 	board-eeprom@57 {
-		status = "disabled";
 		compatible = "atmel,24c32";
 		reg = <0x57>;
 	};
 
 	rtc@68 {
-		status = "disabled";
 		compatible = "dallas,ds1339";
 		reg = <0x68>;
 	};

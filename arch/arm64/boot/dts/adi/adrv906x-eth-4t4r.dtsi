@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (c) 2024, Analog Devices Incorporated, All Rights Reserved
+ */
+
+#include "adrv906x_def.h"
+
+/ {
+	adrv906x_net0: adrv906x_net@EMAC_CMN_BASE_UADDR {
+		compatible = "adi,adrv906x-net";
+		reg = <EMAC_CMN_BASE 0x3004>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+
+		ethernet-ports {
+			port@0 {
+				id = <0>;
+				reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>, <EMAC_MAC_0_RX 0x9c>;
+				phy-handle = <&adrv906x_phy0>;
+				phy-mode = "rmii";
+				ndma-handle = <&ndma0>;
+			};
+			port@1 {
+				id = <1>;
+				reg = <EMAC_MAC_1_BASE 0x14>, <EMAC_MAC_1_TX 0x70>, <EMAC_MAC_1_RX 0x9c>;
+				phy-handle = <&adrv906x_phy1>;
+				phy-mode = "rmii";
+				ndma-handle = <&ndma1>;
+			};
+		};
+
+		oran_if {
+			reg = <OIF_0_RX_CTRL 0x4>, <OIF_0_TX_CTRL 0x4>, <OIF_1_RX_CTRL 0x4>, <OIF_1_TX_CTRL 0x4>;
+		};
+
+		eth_recov_clk {
+			reg = <EMAC_RECOVERED_CLK_CTRL 0x4>;
+		};
+	};
+};

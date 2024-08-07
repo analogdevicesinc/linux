@@ -268,12 +268,12 @@
 	};
 
 	/* High Speed digital clock
-	 * Always 983.04 MHz
+	 * Populated by U-Boot. Intentionally left blank here.
 	 */
 	hsdigclk: hsdigclk {
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
-		clock-frequency = <983040000>;
+		clock-frequency = <0>;
 	};
 
 	/* System clock
@@ -474,8 +474,9 @@
 		non-removable;
 		no-sdio;
 		no-sd;
-		mmc-hs200-1_8v;
-		/* HS400 (write operation) does not work in emulation (Protium/Palladium) */
+		no-1-8-v;
+//		mmc-hs200-1_8v;
+//		/* HS400 (write operation) does not work in emulation (Protium/Palladium) */
 //		mmc-hs400-1_8v;
 //		mmc-hs400-enhanced-strobe;
 		#address-cells = <1>;
@@ -714,7 +715,6 @@
 
 	adrv906x_mdio: mdio@EMAC_PCS_0_BASE_UADDR {
 		compatible = "adi,adrv906x-mdio";
-		status = "disabled";
 		reg = <EMAC_PCS_0_BASE 0x350>, <EMAC_PCS_0_TSU 0x44>,
 		      <EMAC_PCS_1_BASE 0x350>, <EMAC_PCS_1_TSU 0x44>;
 		#address-cells = <1>;
@@ -734,69 +734,6 @@
 			static-phy-delay-tx-frac-ns = <0>;
 			static-phy-delay-rx-ns = <0>;
 			static-phy-delay-rx-frac-ns = <0>;
-		};
-	};
-
-	adrv906x_net@EMAC_CMN_BASE_UADDR {
-		compatible = "adi,adrv906x-net";
-		status = "disabled";
-		reg = <EMAC_CMN_BASE 0x3004>;
-		ethernet-ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			port@0 {
-				id = <0>;
-				reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>, <EMAC_MAC_0_RX 0x9c>;
-/*
-				macsec = <EMAC_MACSEC_0_BASE 0xa00>;
-				interrupt-names = "ts_event";
-				interrupts = <GIC_SPI MACSEC_IRQ_0 IRQ_TYPE_LEVEL_HIGH>;
-*/
-				phy-handle = <&adrv906x_phy0>;
-				phy-mode = "rmii";
-				ndma-handle = <&ndma1>;
-			};
-			port@1 {
-				id = <1>;
-				reg = <EMAC_MAC_1_BASE 0x14>, <EMAC_MAC_1_TX 0x70>, <EMAC_MAC_1_RX 0x9c>;
-/*
-				macsec = <EMAC_MACSEC_1_BASE 0xa00>;
-				interrupt-names = "ts_event";
-				interrupts = <GIC_SPI MACSEC_IRQ_1 IRQ_TYPE_LEVEL_HIGH>;
-*/
-				phy-handle = <&adrv906x_phy1>;
-				phy-mode = "rmii";
-				ndma-handle = <&ndma1>;
-			};
-		};
-
-		oran_if {
-			reg = <OIF_0_RX_CTRL 0x4>, <OIF_0_TX_CTRL 0x4>, <OIF_1_RX_CTRL 0x4>, <OIF_1_TX_CTRL 0x4>;
-		};
-
-		eth_switch {
-			#address-cells = <1>;
-			#size-cells = <1>;
-			reg = <EMAC_SW_BASE 0x30 EMAC_SW_MAE_BASE 0x30>;
-			interrupt-names = "switch_error_0", "switch_error_1";
-			interrupts = <GIC_SPI ETH_IRQ_PCS_RX_ERROR_0 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI ETH_IRQ_PCS_RX_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;
-			pvid = /bits/ 16 <1>;
-			vids = /bits/ 16 <2 3 4 5>;
-			pcpregen = <0x77000000>;
-			pcp2ipv = <0x10000000>;
-			switch_port0:switch-port@0 {
-				id = <0>;
-				reg = <EMAC_SW_PORT_0_BASE 0x400>;
-			};
-			switch_port1:switch-port@1 {
-				id = <1>;
-				reg = <EMAC_SW_PORT_1_BASE 0x400>;
-			};
-			switch_port2:switch-port@2 {
-				id = <2>;
-				reg = <EMAC_SW_PORT_2_BASE 0x400>;
-			};
-
 		};
 	};
 
@@ -853,7 +790,8 @@
 
 	ptpclk: ptpclk {
 		compatible = "adi,adrv906x-tod";
-		status = "disabled";
+		#address-cells = <1>;
+		#size-cells = <1>;
 		reg = <EMAC_TOD_BASE 0xff>;
 		interrupts = <GIC_SPI TOD_IRQ IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "pps";
@@ -866,6 +804,8 @@
 
 		adrv906x-tod {
 			adi,default-tod-counter = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 			tod-counter@0 {
 				reg = <0>;
 				adi,trigger-delay-tick = <491520>;

@@ -13,6 +13,12 @@ properties:
   compatible:
     const: adi,adrv906x-tod
 
+  "#address-cells":
+    const: 1
+
+  "#size-cells":
+    const: 0
+
   reg:
     maxItems: 1
 
@@ -20,14 +26,16 @@ properties:
       items:
       - const: lc_clk
       - const: gc_clk
+
   clocks:
     items:
-      - description: Clock phandle for ToD counter local clock, refer to common clock bindings.
-      - description: Clock phandle for Golden Counter clock.
+    - description: Clock phandle for ToD counter local clock, refer to common clock bindings.
+    - description: Clock phandle for Golden Counter clock.
 
   interrupts:
     items:
     - description: ToD PPS interrupt
+
   interrupt-names:
     items:
     - description: pps
@@ -57,6 +65,12 @@ properties:
         Default is 0.
       minimum: 0
       maximum: 31
+
+    "#address-cells":
+      const: 1
+
+    "#size-cells":
+      const: 0
 
     "tod-counter@[0-2]+$":
       type: object
@@ -97,6 +111,8 @@ examples:
   - |
     ptpclk: ptpclk {
       compatible = "adi,adi-tod";
+      #address-cells = <1>;
+      #size-cells = <1>;    
       reg = <EMAC_TOD_BASE 0xff>;
       interrupts = <GIC_SPI TOD_IRQ IRQ_TYPE_LEVEL_HIGH>;
       interrupt-names = "pps";
@@ -105,6 +121,8 @@ examples:
 
       adrv906x-tod {
         adi,default-tod-counter = <0>;
+        #address-cells = <1>;
+        #size-cells = <0>;
         tod-counter@0 {
           reg = <0>;
           adi,trigger-delay-tick = <491520>;
@@ -114,6 +132,8 @@ examples:
   - |
     ptpclk: ptpclk {
       compatible = "adi,adi-tod";
+      #address-cells = <1>;
+      #size-cells = <1>;    
       reg = <EMAC_TOD_BASE 0xff>;
       interrupts = <GIC_SPI TOD_IRQ IRQ_TYPE_LEVEL_HIGH>;
       interrupt-names = "pps";
@@ -125,6 +145,8 @@ examples:
       adrv906x-tod {
         adi,default-tod-counter = <0>;
         adi,cdc-delay-value = <0 0 0 0>;
+        #address-cells = <1>;
+        #size-cells = <0>;
         tod-counter@0 {
           reg = <0>;
           adi,pps-mode;

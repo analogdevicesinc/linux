@@ -547,8 +547,12 @@ static int adrv906x_get_hwtstamp_config(struct net_device *ndev, struct ifreq *i
 
 static int adrv906x_set_hwtstamp_config(struct net_device *ndev, struct ifreq *ifr)
 {
-	struct hwtstamp_config config;
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	struct adrv906x_ndma_dev *ndma_dev = adrv906x_dev->ndma_dev;
+	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
+	struct hwtstamp_config config;
+	u32 tx_tstamp_timeout;
+	u32 ptp_mode;
 
 	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
 		return -EFAULT;
@@ -581,11 +585,15 @@ static int adrv906x_set_hwtstamp_config(struct net_device *ndev, struct ifreq *i
 	case HWTSTAMP_FILTER_PTP_V2_EVENT:
 	case HWTSTAMP_FILTER_PTP_V2_SYNC:
 	case HWTSTAMP_FILTER_PTP_V2_DELAY_REQ:
-		config.rx_filter = HWTSTAMP_FILTER_PTP_V2_EVENT;
-		break;
 	case HWTSTAMP_FILTER_ALL:
 		/* time stamp any incoming packet */
 		config.rx_filter = HWTSTAMP_FILTER_ALL;
+
+		ptp_mode = eth_if->ethswitch.enabled ? NDMA_PTP_MODE_1 : NDMA_PTP_MODE_4;
+		adrv906x_ndma_set_ptp_mode(ndma_dev, ptp_mode);
+		tx_tstamp_timeout = eth_if->ethswitch.enabled ? NDMA_TS_TX_DELAY_LONG : NDMA_TS_TX_DELAY;
+		adrv906x_ndma_set_tx_timeout_value(ndma_dev, tx_tstamp_timeout);
+
 		break;
 	default:
 		return -ERANGE;
@@ -599,12 +607,30 @@ static int adrv906x_set_hwtstamp_config(struct net_device *ndev, struct ifreq *i
 	return 0;
 }
 
-static int adrv906x_get_oran_if_reg_addr(struct adrv906x_eth_dev *adrv906x_dev,
+static int adrv906x_config_eth_recov_clk(struct device *dev,
 					 struct device_node *np)
 {
 	u32 reg, len;
+	void *ptr;
+
+	if (of_property_read_u32_index(np, "reg", 0, &reg))
+		dev_err(dev, "dt: eth_recov_clk_np failed - skipping");
+	if (of_property_read_u32_index(np, "reg", 1, &len))
+		dev_err(dev, "dt: eth_recov_clk_np failed - skipping");
+
+	ptr = ioremap(reg, len);
+	iowrite32(0x1, ptr);
+	iounmap(ptr);
+
+	return 0;
+}
+
+static int adrv906x_get_oran_if_reg_addr(struct adrv906x_eth_dev *adrv906x_dev,
+					 struct device_node *np)
+{
 	struct device *dev = adrv906x_dev->dev;
 	u8 port_id = adrv906x_dev->port;
+	u32 reg, len;
 
 	/* get oif_rx address */
 	if (of_property_read_u32_index(np, "reg", port_id * 4 + 0, &reg))
@@ -711,26 +737,15 @@ static int adrv906x_eth_open(struct net_device *ndev)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
 	struct device *dev = adrv906x_dev->dev;
-	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
 	struct adrv906x_ndma_dev *ndma_dev = adrv906x_dev->ndma_dev;
-	u32 ptp_mode;
 
 	dev_info(dev, "%s called", __func__);
-
-	ptp_mode = eth_if->ethswitch.enabled ? NDMA_PTP_MODE_1 : NDMA_PTP_MODE_4;
 
 	adrv906x_eth_oran_if_en(&adrv906x_dev->oif);
 
 	phy_start(ndev->phydev);
 
-	adrv906x_ndma_open(ndma_dev,
-			   ptp_mode,
-			   adrv906x_eth_tx_callback,
-			   adrv906x_eth_rx_callback,
-			   ndev);
-
-	if (eth_if->ethswitch.enabled)
-		adrv906x_ndma_set_tx_timeout_value(ndma_dev);
+	adrv906x_ndma_open(ndma_dev, adrv906x_eth_tx_callback, adrv906x_eth_rx_callback, ndev);
 
 #if IS_ENABLED(CONFIG_MACSEC)
 	if (adrv906x_dev->macsec.enabled)
@@ -923,7 +938,7 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 	struct adrv906x_eth_dev *adrv906x_dev;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
-	struct device_node *eth_ports_np, *port_np, *oran_if_np, *ndma_np;
+	struct device_node *eth_ports_np, *port_np, *oran_if_np, *eth_recov_clk_np, *ndma_np;
 	struct adrv906x_ndma_dev *ndma_devs[MAX_NETDEV_NUM] = { NULL };
 	unsigned int ndma_num;
 	int ret, i;
@@ -959,6 +974,12 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 	oran_if_np = of_get_child_by_name(np, "oran_if");
 	if (!oran_if_np)
 		dev_warn(dev, "dt: oran_if node missing - skipping");
+
+	eth_recov_clk_np = of_get_child_by_name(np, "eth_recov_clk");
+	if (eth_recov_clk_np)
+		adrv906x_config_eth_recov_clk(dev, eth_recov_clk_np);
+	else
+		dev_warn(dev, "dt: eth_recov_clk_np node missing - skipping");
 
 	for (i = 0; i < MAX_NETDEV_NUM; i++) {
 		/* Get port@i of node ethernet-ports */
