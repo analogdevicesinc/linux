@@ -26,7 +26,15 @@
 
 #define LTC2387_VREF		4096
 #define LTC2387_T_CNVH		8
-#define LTC2387_T_FIRSTCLK	70
+
+/*
+ * Minimal value for t_{FIRSTCLK} according to
+ * https://www.analog.com/media/en/technical-documentation/data-sheets/238718fa.pdf
+ * is 65 ns. Add some slack because there is some rounding involved in the PWM
+ * driver. With the PWM driver rounding to the nearest possible value, targeting
+ * 70 ns works for input clk rates >= 100 MHz.
+ */
+#define LTC2387_T_FIRSTCLK_NS	70
 
 #define KHz 1000
 #define MHz (1000 * KHz)
@@ -173,7 +181,7 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	clk_en_state = (struct pwm_state) {
 		.period = cnv_state.period,
 		.duty_cycle = ref_clk_period_ps * clk_en_time,
-		.phase = cnv_state.phase + LTC2387_T_FIRSTCLK,
+		.phase = cnv_state.phase + LTC2387_T_FIRSTCLK_NS * PSEC_PER_NSEC,
 		.time_unit = PWM_UNIT_PSEC,
 		.enabled = true,
 	};
