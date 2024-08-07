@@ -48,6 +48,7 @@ struct ad4170_chan_info {
 	unsigned int nr;
 	struct ad4170_setup setup;
 	int slot;
+	u32 scale_tbl[10][2];
 	bool enabled;
 };
 
@@ -73,7 +74,6 @@ struct ad4170_state {
 	struct completion completion;
 	struct ad4170_config cfg;
 	struct iio_trigger *trig;
-	u32 scale_tbl[10][2];
 	u32 data[AD4170_NUM_CHANNELS];
 	struct gpio_chip gpiochip;
 	bool pdsw0;
@@ -706,8 +706,8 @@ static void ad4170_fill_scale_tbl(struct iio_dev *indio_dev, int channel)
 		nv = (u64)ref_select_uv * NANO;
 		lshift = (pga >> 3 & 1);  /* handle cases 8 and 9 */
 		rshift = ch_resolution + (pga & 0x7) - lshift;
-		st->scale_tbl[pga][0] = 0; /* Integer part */
-		st->scale_tbl[pga][1] = div_u64(nv >> rshift, MILLI); /* Fractional part */
+		chan_info->scale_tbl[pga][0] = 0;
+		chan_info->scale_tbl[pga][1] = div_u64(nv >> rshift, MILLI);
 	}
 }
 
@@ -719,14 +719,13 @@ static int ad4170_read_avail(struct iio_dev *indio_dev,
 	struct ad4170_state *st = iio_priv(indio_dev);
 	unsigned int channel = chan->scan_index;
 	struct ad4170_setup *setup = &st->chan_info[channel].setup;
+	struct ad4170_chan_info *chan_info = &st->chan_info[channel];
 	const struct ad4170_filter_config *filter_config;
 
 	switch (info) {
 	case IIO_CHAN_INFO_SCALE:
-		ad4170_fill_scale_tbl(indio_dev, channel);
-
-		*vals = (int *)st->scale_tbl;
-		*length = ARRAY_SIZE(st->scale_tbl) * 2;
+		*vals = (int *)chan_info->scale_tbl;
+		*length = ARRAY_SIZE(chan_info->scale_tbl) * 2;
 		*type = IIO_VAL_INT_PLUS_NANO;
 
 		return IIO_AVAIL_LIST;
@@ -770,10 +769,9 @@ static int ad4170_set_channel_pga(struct iio_dev *indio_dev,
 	unsigned int pga, old_pga;
 	int ret = 0;
 
-	ad4170_fill_scale_tbl(indio_dev, channel);
 	for (pga = 0; pga < AD4170_PGA_GAIN_MAX; pga++) {
-		if (val == st->scale_tbl[pga][0] &&
-		    val2 == st->scale_tbl[pga][1])
+		if (val == chan_info->scale_tbl[pga][0] &&
+		    val2 == chan_info->scale_tbl[pga][1])
 			break;
 	}
 
@@ -1301,6 +1299,7 @@ static int ad4170_setup(struct iio_dev *indio_dev)
 
 		//ad4170_set_channel_freq(st, i, 9615, 0);
 		ad4170_set_channel_freq(st, i, 125000, 0);
+		ad4170_fill_scale_tbl(indio_dev, i);
 	}
 	for (i = 0; i < AD4170_NUM_CURRENT_SOURCE; i++) {
 		val = FIELD_PREP(AD4170_CURRENT_SOURCE_I_OUT_PIN_MSK,
