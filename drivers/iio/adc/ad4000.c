@@ -8,19 +8,24 @@
 #include <linux/bitfield.h>
 #include <linux/byteorder/generic.h>
 #include <linux/cleanup.h>
+#include <linux/clk.h>
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/math.h>
 #include <linux/module.h>
 #include <linux/mod_devicetable.h>
 #include <linux/gpio/consumer.h>
+#include <linux/pwm.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
+#include <linux/spi/spi-engine.h>
 #include <linux/units.h>
 #include <linux/util_macros.h>
 #include <linux/iio/iio.h>
 
 #include <linux/iio/buffer.h>
+#include <linux/iio/buffer-dma.h>
+#include <linux/iio/buffer-dmaengine.h>
 #include <linux/iio/triggered_buffer.h>
 #include <linux/iio/trigger_consumer.h>
 
@@ -113,6 +118,7 @@ struct ad4000_chip_info {
 	struct iio_chan_spec chan_spec;
 	struct iio_chan_spec reg_access_chan_spec;
 	bool has_hardware_gain;
+	int max_rate;
 };
 
 static const struct ad4000_chip_info ad4000_chip_info = {
@@ -125,78 +131,91 @@ static const struct ad4000_chip_info ad4001_chip_info = {
 	.dev_name = "ad4001",
 	.chan_spec = AD4000_DIFF_CHANNEL('s', 16, 0),
 	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 16, 1),
+	.max_rate  = 2000000,
 };
 
 static const struct ad4000_chip_info ad4002_chip_info = {
 	.dev_name = "ad4002",
 	.chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 0),
 	.reg_access_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 1),
+	.max_rate  = 2000000,
 };
 
 static const struct ad4000_chip_info ad4003_chip_info = {
 	.dev_name = "ad4003",
 	.chan_spec = AD4000_DIFF_CHANNEL('s', 18, 0),
 	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 18, 1),
+	.max_rate  = 2000000,
 };
 
 static const struct ad4000_chip_info ad4004_chip_info = {
 	.dev_name = "ad4004",
 	.chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 16, 0),
 	.reg_access_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 16, 1),
+	.max_rate  = 1000000,
 };
 
 static const struct ad4000_chip_info ad4005_chip_info = {
 	.dev_name = "ad4005",
 	.chan_spec = AD4000_DIFF_CHANNEL('s', 16, 0),
 	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 16, 1),
+	.max_rate  = 1000000,
 };
 
 static const struct ad4000_chip_info ad4006_chip_info = {
 	.dev_name = "ad4006",
 	.chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 0),
 	.reg_access_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 1),
+	.max_rate  = 1000000,
 };
 
 static const struct ad4000_chip_info ad4007_chip_info = {
 	.dev_name = "ad4007",
 	.chan_spec = AD4000_DIFF_CHANNEL('s', 18, 0),
 	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 18, 1),
+	.max_rate  = 1000000,
 };
 
 static const struct ad4000_chip_info ad4008_chip_info = {
 	.dev_name = "ad4008",
 	.chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 16, 0),
 	.reg_access_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 16, 1),
+	.max_rate  =  500000,
 };
 
 static const struct ad4000_chip_info ad4010_chip_info = {
 	.dev_name = "ad4010",
 	.chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 0),
 	.reg_access_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 1),
+	.max_rate  =  500000,
 };
 
 static const struct ad4000_chip_info ad4011_chip_info = {
 	.dev_name = "ad4011",
 	.chan_spec = AD4000_DIFF_CHANNEL('s', 18, 0),
 	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 18, 1),
+	.max_rate  =  500000,
 };
 
 static const struct ad4000_chip_info ad4020_chip_info = {
 	.dev_name = "ad4020",
 	.chan_spec = AD4000_DIFF_CHANNEL('s', 20, 0),
 	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 20, 1),
+	.max_rate  = 1800000,
 };
 
 static const struct ad4000_chip_info ad4021_chip_info = {
 	.dev_name = "ad4021",
 	.chan_spec = AD4000_DIFF_CHANNEL('s', 20, 0),
 	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 20, 1),
+	.max_rate  = 1000000,
 };
 
 static const struct ad4000_chip_info ad4022_chip_info = {
 	.dev_name = "ad4022",
 	.chan_spec = AD4000_DIFF_CHANNEL('s', 20, 0),
 	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 20, 1),
+	.max_rate  =  500000,
 };
 
 static const struct ad4000_chip_info adaq4001_chip_info = {
@@ -211,11 +230,13 @@ static const struct ad4000_chip_info adaq4003_chip_info = {
 	.chan_spec = AD4000_DIFF_CHANNEL('s', 18, 0),
 	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 18, 1),
 	.has_hardware_gain = true,
+	.max_rate  = 2000000,
 };
 
 static const struct ad4000_chip_info ad7687_chip_info = {
 	.dev_name = "ad7687",
 	.chan_spec = AD4000_DIFF_CHANNEL('s', 16, 0),
+	.max_rate  = 2000000,
 };
 
 struct ad4000_state {
@@ -223,6 +244,10 @@ struct ad4000_state {
 	struct gpio_desc *cnv_gpio;
 	struct spi_transfer xfers[2];
 	struct spi_message msg;
+	bool bus_locked;
+	unsigned long ref_clk_rate;
+	struct pwm_device *cnv_trigger;
+	int max_rate;
 	struct mutex lock; /* Protect read modify write cycle */
 	struct regulator *ref_regulator;
 	int vref_mv;
@@ -354,6 +379,49 @@ static int ad4000_single_conversion(struct iio_dev *indio_dev,
 	return IIO_VAL_INT;
 }
 
+static int ad4000_get_sampling_freq(struct ad4000_state *st)
+{
+	return DIV_ROUND_CLOSEST_ULL(1000000000000,
+				     pwm_get_period(st->cnv_trigger));
+}
+
+static int __ad4000_set_sampling_freq(struct ad4000_state *st, int freq)
+{
+	unsigned long long ref_clk_period_ps;
+	struct pwm_state cnv_state;
+
+	/* Sync up PWM state and prepare for pwm_apply_state(). */
+	pwm_init_state(st->cnv_trigger, &cnv_state);
+
+	ref_clk_period_ps = DIV_ROUND_CLOSEST_ULL(1000000000000,
+						  st->ref_clk_rate);
+	cnv_state.period = DIV_ROUND_CLOSEST_ULL(1000000000000, freq);
+	cnv_state.duty_cycle = ref_clk_period_ps;
+	cnv_state.time_unit = PWM_UNIT_PSEC;
+	return pwm_apply_state(st->cnv_trigger, &cnv_state);
+}
+
+static int ad4000_set_sampling_freq(struct iio_dev *indio_dev, unsigned int freq)
+{
+	struct ad4000_state *st = iio_priv(indio_dev);
+	int ret;
+
+	if (!st->cnv_trigger)
+		return -ENODEV;
+
+	if (!freq || freq > st->max_rate)
+		return -EINVAL;
+
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	ret = __ad4000_set_sampling_freq(st, freq);
+	iio_device_release_direct_mode(indio_dev);
+
+	return ret;
+}
+
 static int ad4000_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan, int *val,
 			   int *val2, long info)
@@ -379,6 +447,9 @@ static int ad4000_read_raw(struct iio_dev *indio_dev,
 		if (st->span_comp)
 			*val = mult_frac(st->vref_mv, 1, 10);
 
+		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		*val = ad4000_get_sampling_freq(st);
 		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
@@ -447,6 +518,8 @@ static int ad4000_write_raw(struct iio_dev *indio_dev,
 err_out:
 		iio_device_release_direct_mode(indio_dev);
 		return ret;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return ad4000_set_sampling_freq(indio_dev, val);
 	default:
 		return -EINVAL;
 	}
@@ -480,6 +553,81 @@ static const struct iio_info ad4000_reg_access_info = {
 static const struct iio_info ad4000_info = {
 	.read_raw = &ad4000_read_raw,
 };
+
+static int ad4000_buffer_postenable(struct iio_dev *indio_dev)
+{
+	struct ad4000_state *st = iio_priv(indio_dev);
+	const struct iio_chan_spec *chan = indio_dev->channels;
+	int ret;
+
+	memset(&st->xfers[0], 0, sizeof(st->xfers[0]));
+	st->xfers[0].rx_buf = (void *)-1;
+	st->xfers[0].len = 4;
+	/* Rely on the fact the this driver only supports single channel ADCs */
+	st->xfers[0].bits_per_word = chan->scan_type.realbits;
+	st->xfers[0].delay.value = 60;
+	st->xfers[0].delay.unit = SPI_DELAY_UNIT_NSECS;
+
+	spi_message_init_with_transfers(&st->msg, &st->xfers[0], 1);
+
+	spi_bus_lock(st->spi->master);
+	st->bus_locked = true;
+
+	ret = spi_engine_offload_load_msg(st->spi, &st->msg);
+	if (ret < 0)
+		return ret;
+
+	spi_engine_offload_enable(st->spi, true);
+
+	return pwm_enable(st->cnv_trigger);
+}
+
+static int ad4000_buffer_postdisable(struct iio_dev *indio_dev)
+{
+	struct ad4000_state *st = iio_priv(indio_dev);
+
+	pwm_disable(st->cnv_trigger);
+
+	spi_engine_offload_enable(st->spi, false);
+
+	st->bus_locked = false;
+	spi_bus_unlock(st->spi->master);
+
+	return 0;
+}
+
+static const struct iio_buffer_setup_ops ad4000_buffer_setup_ops = {
+	.postenable = &ad4000_buffer_postenable,
+	.postdisable = &ad4000_buffer_postdisable,
+};
+
+static void ad4000_pwm_diasble(void *data)
+{
+	pwm_disable(data);
+}
+
+static int ad4000_pwm_setup(struct spi_device *spi, struct ad4000_state *st)
+{
+	struct clk *ref_clk;
+	int ret;
+
+	ref_clk = devm_clk_get_enabled(&spi->dev, "ref_clk");
+	if (IS_ERR(ref_clk))
+		return PTR_ERR(ref_clk);
+
+	st->ref_clk_rate = clk_get_rate(ref_clk);
+
+	st->cnv_trigger = devm_pwm_get(&spi->dev, "cnv");
+	if (IS_ERR(st->cnv_trigger))
+		return PTR_ERR(st->cnv_trigger);
+
+	ret = devm_add_action_or_reset(&spi->dev, ad4000_pwm_diasble,
+				       st->cnv_trigger);
+	if (ret)
+		return ret;
+
+	return __ad4000_set_sampling_freq(st, st->max_rate);
+}
 
 /*
  * This executes a data sample transfer for when the device connections are
@@ -676,6 +824,7 @@ static int ad4000_probe(struct spi_device *spi)
 		return dev_err_probe(dev, -EINVAL, "Unrecognized connection mode\n");
 	}
 
+	st->max_rate = chip->max_rate;
 	indio_dev->name = chip->dev_name;
 	indio_dev->num_channels = 1;
 
@@ -702,11 +851,27 @@ static int ad4000_probe(struct spi_device *spi)
 
 	ad4000_fill_scale_tbl(st, indio_dev->channels);
 
-	ret = devm_iio_triggered_buffer_setup(dev, indio_dev,
-					      &iio_pollfunc_store_time,
-					      &ad4000_trigger_handler, NULL);
-	if (ret)
-		return ret;
+	if (spi_engine_offload_supported(spi)) {
+		if (device_property_present(&spi->dev, "pwms"))
+			ad4000_pwm_setup(spi, st);
+
+		ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
+						      indio_dev, "rx",
+						      IIO_BUFFER_DIRECTION_IN);
+		if (ret)
+			return ret;
+
+		indio_dev->setup_ops = &ad4000_buffer_setup_ops;
+	} else {
+
+		ret = devm_iio_triggered_buffer_setup(dev, indio_dev,
+						      &iio_pollfunc_store_time,
+						      &ad4000_trigger_handler,
+						      NULL);
+		if (ret)
+			return ret;
+
+	}
 
 	return devm_iio_device_register(dev, indio_dev);
 }
@@ -768,3 +933,4 @@ module_spi_driver(ad4000_driver);
 MODULE_AUTHOR("Marcelo Schmitt <marcelo.schmitt@analog.com>");
 MODULE_DESCRIPTION("Analog Devices AD4000 ADC driver");
 MODULE_LICENSE("GPL");
+MODULE_IMPORT_NS(IIO_DMAENGINE_BUFFER);
