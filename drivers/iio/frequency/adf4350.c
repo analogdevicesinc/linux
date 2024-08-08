@@ -222,7 +222,13 @@ static int adf4350_set_freq(struct adf4350_state *st, unsigned long long freq)
 	st->regs[ADF4350_REG2] &= ~ADF4350_REG2_10BIT_R_CNT(0x3FF);
 	st->regs[ADF4350_REG2] |= ADF4350_REG2_10BIT_R_CNT(r_cnt);
 
-
+	if (st->r0_fract) {
+		st->regs[ADF4350_REG2] &= ~ADF4350_REG2_LDF_INT_N;
+		st->regs[ADF4350_REG3] &= ~ADF4351_REG3_ANTI_BACKLASH_3ns_EN;
+	} else {
+		st->regs[ADF4350_REG2] |= ADF4350_REG2_LDF_INT_N;
+		st->regs[ADF4350_REG3] |= ADF4351_REG3_ANTI_BACKLASH_3ns_EN;
+	}
 	st->regs[ADF4350_REG4] &= ~(ADF4350_REG4_RF_DIV_SEL(0x7) |
 				ADF4350_REG4_8BIT_BAND_SEL_CLKDIV(0xFF));
 	st->regs[ADF4350_REG4] |= ADF4350_REG4_RF_DIV_SEL(st->r4_rf_div_sel) |
@@ -425,12 +431,20 @@ static int adf4350_clk_is_enabled(struct clk_hw *hw)
 	return (st->regs[ADF4350_REG2] & ADF4350_REG2_POWER_DOWN_EN);
 }
 
+static long adf4350_clk_round_rate(struct clk_hw *hw,
+				   unsigned long rate,
+				   unsigned long *parent_rate)
+{
+	return rate;
+}
+
 static const struct clk_ops adf4350_clk_ops = {
 	.recalc_rate = adf4350_clk_recalc_rate,
 	.set_rate = adf4350_clk_set_rate,
 	.prepare = adf4350_clk_prepare,
 	.unprepare = adf4350_clk_unprepare,
 	.is_enabled = adf4350_clk_is_enabled,
+	.round_rate = adf4350_clk_round_rate,
 };
 
 static int adf4350_clk_register(struct adf4350_state *st)
