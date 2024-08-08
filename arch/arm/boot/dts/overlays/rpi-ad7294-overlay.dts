@@ -5,6 +5,9 @@
 /dts-v1/;
 /plugin/;
 
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
 / {
 	compatible = "brcm,bcm2835";
 
@@ -51,6 +54,8 @@
 			ad7294: ad7294@62 {
 				compatible = "adi,ad7294";
 				reg = <0x62>;
+				interrupts = <4 IRQ_TYPE_EDGE_FALLING>;
+				interrupt-parent = <&gpio>;
 				adc-vref-supply = <&adc_vref>;
 				dac-vref-supply = <&dac_vref>;
 				avdd-supply = <&avdd>;
