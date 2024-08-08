@@ -290,16 +290,6 @@ config MOUSE_ELAN_I2C_SMBUS
 
 	   If unsure, say Y.
 
-config MOUSE_LOGIBM
-	tristate "Logitech busmouse"
-	depends on ISA
-	help
-	  Say Y here if you have a Logitech busmouse.
-	  They are rather rare these days.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called logibm.
-
 config MOUSE_PC110PAD
 	tristate "IBM PC110 touchpad"
 	depends on ISA
