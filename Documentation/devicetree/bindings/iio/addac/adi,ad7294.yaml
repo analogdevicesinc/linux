@@ -44,6 +44,11 @@ properties:
   vdrive-supply:
     description: Logic power supply (2.7V to 5.5V).
 
+  shunt-resistor-ohms:
+    $ref: /schemas/types.yaml#/definitions/int32-array
+    maxItems: 2
+    description: Resistance for RS1 and RS2 in ohms
+
 required:
   - compatible
   - reg
@@ -69,5 +74,6 @@ examples:
         dac-vref-supply = <&dac_vref>;
         avdd-supply = <&avdd>;
         vdrive-supply = <&vdrive>;
+        shunt-resistor-ohms = <1000 1000>;
       };
     };
