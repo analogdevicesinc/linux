@@ -361,7 +361,7 @@ static inline int pwm_config(struct pwm_device *pwm, u64 duty_ns,
 
 	state.duty_cycle = duty_ns;
 	state.period = period_ns;
-	return pwm_apply_might_sleep(pwm, &state);
+	return pwm_apply_state(pwm, &state);
 }
 
 /**
