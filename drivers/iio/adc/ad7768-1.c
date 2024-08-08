@@ -1411,7 +1411,17 @@ static int ad7768_probe(struct spi_device *spi)
 		return -ENOMEM;
 
 	st = iio_priv(indio_dev);
+	/*
+	* In "3-wire mode", the ADC SDI line must be kept high when
+	* data is not being clocked out of the controller.
+	* Request the SPI controller to make MOSI idle high.
+	*/
+	spi->mode |= SPI_MOSI_IDLE_HIGH;
+	ret = spi_setup(spi);
+	if (ret < 0)
+		return ret;
 	st->spi = spi;
+	
 
 	st->regulator = devm_regulator_get(&spi->dev, "vref");
 	if (IS_ERR(st->regulator))
