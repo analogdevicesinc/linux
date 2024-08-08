@@ -2995,6 +2995,34 @@ static int adrv9002_tx_validate_profile(struct adrv9002_rf_phy *phy, unsigned in
 	return 0;
 }
 
+static int adrv9002_validate_device_clk(struct adrv9002_rf_phy *phy,
+					const struct adi_adrv9001_ClockSettings *clk_ctrl)
+{
+	unsigned long rate;
+	long new_rate;
+
+	rate = clk_get_rate(phy->dev_clk);
+	if (rate == clk_ctrl->deviceClock_kHz * KILO)
+		return 0;
+
+	/*
+	 * If they don't match let's try to set the desired ref clk. Furthermore, let's
+	 * be strict about not rounding it. If someones specifies some clk in the
+	 * profile, then we should be capable of getting exactly that exact rate.
+	 *
+	 * !NOTE: we may need some small hysteris though... but let's add one when and
+	 * if we really need one.
+	 */
+	new_rate = clk_round_rate(phy->dev_clk, clk_ctrl->deviceClock_kHz * KILO);
+	if (new_rate < 0 || new_rate != clk_ctrl->deviceClock_kHz * KILO) {
+		dev_err(&phy->spi->dev, "Cannot set ref_clk to (%lu), got (%ld)\n",
+			clk_ctrl->deviceClock_kHz * KILO, new_rate);
+		return new_rate < 0 ? new_rate : -EINVAL;
+	}
+
+	return clk_set_rate(phy->dev_clk, new_rate);
+}
+
 static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 {
 	const struct adi_adrv9001_RxChannelCfg *rx_cfg = phy->curr_profile->rx.rxChannelCfg;
@@ -3003,6 +3031,10 @@ static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
 	unsigned long rx_mask = phy->curr_profile->rx.rxInitChannelMask;
 	unsigned long tx_mask = phy->curr_profile->tx.txInitChannelMask;
 	int i, lo, ret;
+
+	ret = adrv9002_validate_device_clk(phy, clks);
+	if (ret)
+		return ret;
 
 	for (i = 0; i < ADRV9002_CHANN_MAX; i++) {
 		struct adrv9002_rx_chan *rx = &phy->rx_channels[i];
@@ -4752,12 +4784,7 @@ static int adrv9002_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct adrv9002_rf_phy *phy;
-	struct clk *clk = NULL;
 	int ret, c;
-
-	clk = devm_clk_get_enabled(&spi->dev, "adrv9002_ext_refclk");
-	if (IS_ERR(clk))
-		return PTR_ERR(clk);
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*phy));
 	if (!indio_dev)
@@ -4793,6 +4820,10 @@ static int adrv9002_probe(struct spi_device *spi)
 		phy->tx_channels[c].channel.port = ADI_TX;
 		phy->channels[c * 2 + 1] = &phy->tx_channels[c].channel;
 	}
+
+	phy->dev_clk = devm_clk_get_enabled(&spi->dev, "adrv9002_ext_refclk");
+	if (IS_ERR(phy->dev_clk))
+		return PTR_ERR(phy->dev_clk);
 
 	phy->hal.reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(phy->hal.reset_gpio))
