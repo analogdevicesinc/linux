@@ -235,69 +235,6 @@ static ssize_t polarity_store(struct device *child,
 	return ret ? : size;
 }
 
-static ssize_t time_unit_show(struct device *child,
-			      struct device_attribute *attr,
-			      char *buf)
-{
-	const struct pwm_device *pwm = child_to_pwm_device(child);
-	const char *unit = "unknown";
-	struct pwm_state state;
-
-	pwm_get_state(pwm, &state);
-
-	switch (state.time_unit) {
-	case PWM_UNIT_SEC:
-		unit = "second";
-		break;
-	case PWM_UNIT_MSEC:
-		unit = "milisecond";
-		break;
-	case PWM_UNIT_USEC:
-		unit = "microsecond";
-		break;
-	case PWM_UNIT_NSEC:
-		unit = "nanosecond";
-		break;
-	case PWM_UNIT_PSEC:
-		unit = "picosecond";
-		break;
-	}
-
-	return sprintf(buf, "%s\n", unit);
-}
-
-static ssize_t time_unit_store(struct device *child,
-			       struct device_attribute *attr,
-			       const char *buf, size_t size)
-{
-	struct pwm_export *export = child_to_pwm_export(child);
-	struct pwm_device *pwm = export->pwm;
-	enum pwm_time_unit unit;
-	struct pwm_state state;
-	int ret;
-
-	if (sysfs_streq(buf, "second"))
-		unit = PWM_UNIT_SEC;
-	else if (sysfs_streq(buf, "milisecond"))
-		unit = PWM_UNIT_MSEC;
-	else if (sysfs_streq(buf, "microsecond"))
-		unit = PWM_UNIT_USEC;
-	else if (sysfs_streq(buf, "nanosecond"))
-		unit = PWM_UNIT_NSEC;
-	else if (sysfs_streq(buf, "picosecond"))
-		unit = PWM_UNIT_PSEC;
-	else
-		return -EINVAL;
-
-	mutex_lock(&export->lock);
-	pwm_get_state(pwm, &state);
-	state.time_unit = unit;
-	ret = pwm_apply_state(pwm, &state);
-	mutex_unlock(&export->lock);
-
-	return ret ? : size;
-}
-
 static ssize_t capture_show(struct device *child,
 			    struct device_attribute *attr,
 			    char *buf)
@@ -319,7 +256,6 @@ static DEVICE_ATTR_RW(duty_cycle);
 static DEVICE_ATTR_RW(phase);
 static DEVICE_ATTR_RW(enable);
 static DEVICE_ATTR_RW(polarity);
-static DEVICE_ATTR_RW(time_unit);
 static DEVICE_ATTR_RO(capture);
 
 static struct attribute *pwm_attrs[] = {
@@ -328,7 +264,6 @@ static struct attribute *pwm_attrs[] = {
 	&dev_attr_phase.attr,
 	&dev_attr_enable.attr,
 	&dev_attr_polarity.attr,
-	&dev_attr_time_unit.attr,
 	&dev_attr_capture.attr,
 	NULL
 };
