@@ -371,10 +371,10 @@ static int sti_pwm_capture(struct pwm_chip *chip, struct pwm_device *pwm,
 		effective_ticks = clk_get_rate(pc->cpt_clk);
 
 		result->period = (high + low) * NSEC_PER_SEC;
-		result->period = div_u64(result->period, effective_ticks);
+		result->period /= effective_ticks;
 
 		result->duty_cycle = high * NSEC_PER_SEC;
-		result->duty_cycle = div_u64(result->duty_cycle, effective_ticks);
+		result->duty_cycle /= effective_ticks;
 
 		break;
 
