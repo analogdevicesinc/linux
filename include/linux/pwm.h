@@ -148,21 +148,6 @@ static inline u64 pwm_get_duty_cycle(const struct pwm_device *pwm)
 	return state.duty_cycle;
 }
 
-static inline void pwm_set_phase(struct pwm_device *pwm, u64 phase)
-{
-	if (pwm)
-		pwm->state.phase = phase;
-}
-
-static inline u64 pwm_get_phase(const struct pwm_device *pwm)
-{
-	struct pwm_state state;
-
-	pwm_get_state(pwm, &state);
-
-	return state.phase;
-}
-
 static inline enum pwm_polarity pwm_get_polarity(const struct pwm_device *pwm)
 {
 	struct pwm_state state;
