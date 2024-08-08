@@ -1481,16 +1481,9 @@ static unsigned long adf4382_clock_recalc_rate(struct clk_hw *hw,
 	return freq;
 }
 
-static long adf4382_clock_round_rate(struct clk_hw *hw, unsigned long rate,
-				     unsigned long *parent_rate)
-{
-	return rate;
-}
-
 static const struct clk_ops adf4382_clock_ops = {
 	.set_rate = adf4382_clock_set_rate,
 	.recalc_rate = adf4382_clock_recalc_rate,
-	.round_rate = adf4382_clock_round_rate,
 };
 
 static int adf4382_setup_clk(struct adf4382_state *st)
