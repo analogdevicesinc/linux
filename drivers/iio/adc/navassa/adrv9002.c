@@ -4347,13 +4347,6 @@ static int adrv9002_init_cals_coeffs_name_get(struct adrv9002_rf_phy *phy)
 	return strscpy(phy->warm_boot.coeffs_name, init_cals, sizeof(phy->warm_boot.coeffs_name));
 }
 
-static void adrv9002_clk_disable(void *data)
-{
-	struct clk *clk = data;
-
-	clk_disable_unprepare(clk);
-}
-
 static void adrv9002_of_clk_del_provider(void *data)
 {
 	struct device *dev = data;
@@ -4739,19 +4732,11 @@ static int adrv9002_get_external_los(struct adrv9002_rf_phy *phy)
 	int ret, lo;
 
 	for (lo = 0; lo < ARRAY_SIZE(phy->ext_los); lo++) {
-		phy->ext_los[lo].clk = devm_clk_get_optional(dev, ext_los[lo]);
+		phy->ext_los[lo].clk = devm_clk_get_optional_enabled(dev, ext_los[lo]);
 		if (IS_ERR(phy->ext_los[lo].clk))
 			return PTR_ERR(phy->ext_los[lo].clk);
 		if (!phy->ext_los[lo].clk)
 			continue;
-
-		ret = clk_prepare_enable(phy->ext_los[lo].clk);
-		if (ret)
-			return ret;
-
-		ret = devm_add_action_or_reset(dev, adrv9002_clk_disable, phy->ext_los[lo].clk);
-		if (ret)
-			return ret;
 
 		ret = of_clk_get_scale(np, ext_los[lo], &phy->ext_los[lo].scale);
 		if (ret) {
@@ -4770,7 +4755,7 @@ static int adrv9002_probe(struct spi_device *spi)
 	struct clk *clk = NULL;
 	int ret, c;
 
-	clk = devm_clk_get(&spi->dev, "adrv9002_ext_refclk");
+	clk = devm_clk_get_enabled(&spi->dev, "adrv9002_ext_refclk");
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
@@ -4812,14 +4797,6 @@ static int adrv9002_probe(struct spi_device *spi)
 	phy->hal.reset_gpio = devm_gpiod_get(&spi->dev, "reset", GPIOD_OUT_LOW);
 	if (IS_ERR(phy->hal.reset_gpio))
 		return PTR_ERR(phy->hal.reset_gpio);
-
-	ret = clk_prepare_enable(clk);
-	if (ret)
-		return ret;
-
-	ret = devm_add_action_or_reset(&spi->dev, adrv9002_clk_disable, clk);
-	if (ret)
-		return ret;
 
 	ret = adrv9002_get_external_los(phy);
 	if (ret)
