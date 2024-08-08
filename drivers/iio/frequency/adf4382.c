@@ -689,9 +689,9 @@ int adf4382_pll_fract_n_compute(struct adf4382_state *st, unsigned int pfd_freq_
 
 static int adf4382_set_freq(struct adf4382_state *st)
 {
-	u64 pfd_freq_hz;
 	u32 frac2_word = 0;
 	u32 mod2_word = 0;
+	u64 pfd_freq_hz;
 	u32 frac1_word;
 	u8 clkout_div;
 	u8 dclk_div1;
@@ -912,12 +912,12 @@ static int adf4382_set_freq(struct adf4382_state *st)
 
 static int adf4382_get_freq(struct adf4382_state *st, u64 *val)
 {
-	u64 pfd;
 	unsigned int tmp;
 	u32 frac1 = 0;
 	u32 frac2 = 0;
 	u32 mod2 = 0;
 	u64 freq;
+	u64 pfd;
 	u16 n;
 	int ret;
 
