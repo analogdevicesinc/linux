@@ -274,9 +274,8 @@ pwm_set_relative_duty_cycle(struct pwm_state *state, unsigned int duty_cycle,
  * @duty_cycle: duty cycle of the PWM signal (in nanoseconds)
  */
 struct pwm_capture {
-	u64 period;
-	u64 duty_cycle;
-	u64 phase;
+	unsigned int period;
+	unsigned int duty_cycle;
 };
 
 /**
