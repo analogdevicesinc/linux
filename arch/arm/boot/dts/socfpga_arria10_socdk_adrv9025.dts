@@ -112,9 +112,8 @@
 
 					/* SYSREF config */
 					adi,sysref-src = <SYSREF_SRC_INTERNAL>;
-					adi,sysref-pattern-mode = <SYSREF_PATTERN_NSHOT>;
+					adi,sysref-pattern-mode = <SYSREF_PATTERN_CONTINUOUS>;
 					adi,sysref-k-div = <512>;
-					adi,sysref-nshot-mode = <SYSREF_NSHOT_8_PULSES>;
 					adi,jesd204-desired-sysref-frequency-hz = <3840000>;
 
 					adi,rpole2 = <RPOLE2_900_OHM>;
