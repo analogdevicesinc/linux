@@ -260,6 +260,7 @@ struct adrv9002_rf_phy {
 	struct gpio_desc		*reset_gpio;
 	struct gpio_desc		*ssi_sync;
 	struct iio_chan_spec		*iio_chan;
+	struct clk			*dev_clk;
 	struct adrv9002_warm_boot	warm_boot;
 	/* Protect against concurrent accesses to the device */
 	struct mutex			lock;
