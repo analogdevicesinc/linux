@@ -10,7 +10,9 @@
 #include <linux/spi/spi.h>
 #include <linux/iio/iio.h>
 #include <linux/regmap.h>
+#include <linux/notifier.h>
 #include <linux/clk.h>
+#include <linux/clk/clkscale.h>
 
 #define ADMV1355_REG_PRODUCT_ID_LSB	0x004
 
@@ -38,6 +40,10 @@ struct admv1355_priv {
 	struct gpio_desc	*reset_gpio;
 	struct regmap		*regmap;
 	struct clk		*lo_input;
+	struct clock_scale	clkscale;
+	struct notifier_block	nb;
+	/* Protect against concurrent accesses to the device and to data */
+	struct mutex		lock;
 };
 
 static int admv1355_debug_reg_access(struct iio_dev *indio_dev,
@@ -54,6 +60,30 @@ static int admv1355_debug_reg_access(struct iio_dev *indio_dev,
 static const struct iio_info admv1355_info = {
 	.debugfs_reg_access = &admv1355_debug_reg_access,
 };
+
+static int admv1355_update(struct admv1355_priv *priv)
+{
+	u64 rate = clk_get_rate_scaled(priv->lo_input, &priv->clkscale);
+
+	pr_err("Frequency changed. New rate: %llu.\n", rate);
+
+	return 0;
+}
+
+static int admv1355_freq_change(struct notifier_block *nb, unsigned long action, void *data)
+{
+	struct admv1355_priv *priv = container_of(nb, struct admv1355_priv, nb);
+	int ret;
+
+	if (action == POST_RATE_CHANGE) {
+		mutex_lock(&priv->lock);
+		ret = notifier_from_errno(admv1355_update(priv));
+		mutex_unlock(&priv->lock);
+		return ret;
+	}
+
+	return NOTIFY_OK;
+}
 
 #if 0
 0x000	0x18	Enable SDO pin.	@Subsystem_1.ADMV1355 Board.ADMV1355: Evaluation.Control.WriteRegister(0x000, 0x18);
@@ -160,6 +190,11 @@ return 0;
 	return 0;
 }
 
+static void admv1355_clk_disable(void *data)
+{
+	clk_disable_unprepare(data);
+}
+
 static const struct regmap_config admv1355_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 8,
@@ -196,13 +231,29 @@ static int admv1355_probe(struct spi_device *spi)
 	if (IS_ERR(priv->regmap))
 		return PTR_ERR(priv->regmap);
 
-
-
 	priv->lo_input = devm_clk_get_optional(&spi->dev, "lo-input");
 	if (IS_ERR(priv->lo_input))
 		return dev_err_probe(&spi->dev, PTR_ERR(priv->lo_input),
 				     "failed to get the LO input clock\n");
 
+	ret = of_clk_get_scale(spi->dev.of_node, NULL, &priv->clkscale);
+	if (ret)
+		return ret;
+
+	ret = clk_prepare_enable(priv->lo_input);
+	if (ret)
+		return ret;
+
+	ret = devm_add_action_or_reset(&spi->dev, admv1355_clk_disable, priv->lo_input);
+	if (ret)
+		return ret;
+
+	priv->nb.notifier_call = admv1355_freq_change;
+	ret = devm_clk_notifier_register(&spi->dev, priv->lo_input, &priv->nb);
+	if (ret)
+		return ret;
+
+	mutex_init(&priv->lock);
 
 	ret = admv1355_setup(indio_dev);
 	if (ret)
