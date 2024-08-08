@@ -9,23 +9,6 @@
 struct pwm_chip;
 
 /**
- * enum pwm_unit - the time unit in wich the pwm arguments are expressed.
- * @PWM_UNIT_SEC:  the pwm_args members are specified in seconds
- * @PWM_UNIT_MSEC: the pwm_args members are specified in miliseconds
- * @PWM_UNIT_USEC: the pwm_args members are specified in microseconds
- * @PWM_UNIT_NSEC: the pwm_args members are specified in nanoseconds
- * @PWM_UNIT_PSEC: the pwm_args members are specified in picoseconds
- */
-
-enum pwm_time_unit {
-	PWM_UNIT_SEC = 1,
-	PWM_UNIT_MSEC,
-	PWM_UNIT_USEC,
-	PWM_UNIT_NSEC,
-	PWM_UNIT_PSEC,
-};
-
-/**
  * enum pwm_polarity - polarity of a PWM signal
  * @PWM_POLARITY_NORMAL: a high signal for the duration of the duty-
  * cycle, followed by a low signal for the remainder of the pulse
@@ -44,7 +27,6 @@ enum pwm_polarity {
  * @period: reference period
  * @polarity: reference polarity
  * @phase: reference phase
- * @time_unit: refference time unit
  *
  * This structure describes board-dependent arguments attached to a PWM
  * device. These arguments are usually retrieved from the PWM lookup table or
@@ -58,7 +40,6 @@ struct pwm_args {
 	u64 period;
 	u64 phase;
 	enum pwm_polarity polarity;
-	enum pwm_time_unit time_unit;
 };
 
 enum {
@@ -68,11 +49,10 @@ enum {
 
 /*
  * struct pwm_state - state of a PWM channel
- * @period: PWM period (with the time unit expressed in ->time_unit)
- * @duty_cycle: PWM duty cycle (with the time unit expressed in ->time_unit)
- * @phase: PWM phase (with the time unit expressed in ->time_unit)
+ * @period: PWM period (in nanoseconds)
+ * @duty_cycle: PWM duty cycle (in nanoseconds)
+ * @phase: PWM phase (in nanoseconds)
  * @polarity: PWM polarity
- * @time_unit: PWM time unit
  * @enabled: PWM enabled status
  * @usage_power: If set, the PWM driver is only required to maintain the power
  *               output but has more freedom regarding signal form.
@@ -84,7 +64,6 @@ struct pwm_state {
 	u64 duty_cycle;
 	u64 phase;
 	enum pwm_polarity polarity;
-	enum pwm_time_unit time_unit;
 	bool enabled;
 	bool usage_power;
 };
@@ -184,26 +163,6 @@ static inline u64 pwm_get_phase(const struct pwm_device *pwm)
 	return state.phase;
 }
 
-static inline int pwm_set_time_unit(struct pwm_device *pwm,
-				    enum pwm_time_unit time_unit)
-{
-	if (!pwm || time_unit < PWM_UNIT_SEC || time_unit > PWM_UNIT_PSEC)
-		return -EINVAL;
-
-	pwm->state.time_unit = time_unit;
-
-	return 0;
-}
-
-static inline enum pwm_time_unit pwm_get_time_unit(const struct pwm_device *pwm)
-{
-	struct pwm_state state;
-
-	pwm_get_state(pwm, &state);
-
-	return state.time_unit;
-}
-
 static inline enum pwm_polarity pwm_get_polarity(const struct pwm_device *pwm)
 {
 	struct pwm_state state;
@@ -235,8 +194,6 @@ static inline void pwm_get_args(const struct pwm_device *pwm,
  * ->duty_cycle value exceed the pwm_args->period one, which would trigger
  * an error if the user calls pwm_apply_state() without adjusting ->duty_cycle
  * first.
- * ->time_unit is initially set to PWM_UNIT_NSEC to align all the previous
- * drivers that presume the pwm_state arguments time unit is nanoseconds.
  */
 static inline void pwm_init_state(const struct pwm_device *pwm,
 				  struct pwm_state *state)
@@ -253,8 +210,6 @@ static inline void pwm_init_state(const struct pwm_device *pwm,
 	state->polarity = args.polarity;
 	state->duty_cycle = 0;
 	state->phase = 0;
-	/* Set the default time unit to nsec ensuring backward compatibility */
-	state->time_unit = PWM_UNIT_NSEC;
 	state->usage_power = false;
 }
 
@@ -322,7 +277,6 @@ struct pwm_capture {
 	u64 period;
 	u64 duty_cycle;
 	u64 phase;
-	enum pwm_time_unit time_unit;
 };
 
 /**
@@ -406,7 +360,6 @@ static inline int pwm_config(struct pwm_device *pwm, u64 duty_ns,
 
 	state.duty_cycle = duty_ns;
 	state.period = period_ns;
-	state.time_unit = PWM_UNIT_NSEC;
 	return pwm_apply_state(pwm, &state);
 }
 
@@ -611,7 +564,6 @@ static inline void pwm_apply_args(struct pwm_device *pwm)
 	state.polarity = pwm->args.polarity;
 	state.period = pwm->args.period;
 	state.phase = pwm->args.phase;
-	state.time_unit = pwm->args.time_unit;
 	state.usage_power = false;
 
 	pwm_apply_state(pwm, &state);

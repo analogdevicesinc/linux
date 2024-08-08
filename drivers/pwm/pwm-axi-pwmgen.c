@@ -43,14 +43,6 @@
 
 #define AXI_PWMGEN_N_MAX_PWMS		16
 
-static const unsigned long long axi_pwmgen_scales[] = {
-	[PWM_UNIT_SEC]  = 1000000000000ULL,
-	[PWM_UNIT_MSEC] = 1000000000ULL,
-	[PWM_UNIT_USEC] = 1000000ULL,
-	[PWM_UNIT_NSEC] = 1000ULL,
-	[PWM_UNIT_PSEC] = 1ULL,
-};
-
 struct axi_pwmgen {
 	struct pwm_chip		chip;
 	struct clk		*clk;
@@ -114,21 +106,18 @@ static int axi_pwmgen_apply(struct pwm_chip *chip, struct pwm_device *pwm,
 
 	rate = clk_get_rate(pwmgen->clk);
 
-	cnt = mul_u64_u64_div_u64_roundclosest(state->period * axi_pwmgen_scales[state->time_unit],
-					       rate, PSEC_PER_SEC);
+	cnt = mul_u64_u64_div_u64_roundclosest(state->period, rate, NSEC_PER_SEC);
 	if (cnt > U32_MAX)
 		cnt = U32_MAX;
 	axi_pwmgen_write(pwmgen, AXI_PWMGEN_CHX_PERIOD(pwmgen, ch),
 			 state->enabled ? cnt : 0);
 
-	cnt = mul_u64_u64_div_u64_roundclosest(state->duty_cycle * axi_pwmgen_scales[state->time_unit],
-					       rate, PSEC_PER_SEC);
+	cnt = mul_u64_u64_div_u64_roundclosest(state->duty_cycle, rate, NSEC_PER_SEC);
 	if (cnt > U32_MAX)
 		cnt = U32_MAX;
 	axi_pwmgen_write(pwmgen, AXI_PWMGEN_CHX_DUTY(pwmgen, ch), cnt);
 
-	cnt = mul_u64_u64_div_u64_roundclosest(state->phase * axi_pwmgen_scales[state->time_unit],
-					       rate, PSEC_PER_SEC);
+	cnt = mul_u64_u64_div_u64_roundclosest(state->phase, rate, NSEC_PER_SEC);
 	if (cnt > U32_MAX)
 		cnt = U32_MAX;
 	axi_pwmgen_write(pwmgen, AXI_PWMGEN_CHX_PHASE(pwmgen, ch), cnt);
@@ -161,7 +150,6 @@ static void axi_pwmgen_get_state(struct pwm_chip *chip, struct pwm_device *pwm,
 	state->phase = DIV_ROUND_CLOSEST_ULL(cnt * NSEC_PER_SEC, rate);
 
 	state->enabled = state->period > 0;
-	state->time_unit = PWM_UNIT_NSEC;
 }
 
 static const struct pwm_ops axi_pwmgen_pwm_ops = {
