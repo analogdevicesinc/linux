@@ -20,7 +20,6 @@
 #define AD7294_REG_CMD		     0x00
 #define AD7294_REG_RESULT	     0x01
 #define AD7294_REG_TEMP_BASE	     0x02
-#define AD7294_REG_CURRENT_BASE	     0x04
 #define AD7294_REG_DAC(x)	     ((x) + 0x01)
 #define AD7294_VOLTAGE_STATUS	     0x05
 #define AD7294_CURRENT_STATUS	     0x06
@@ -38,14 +37,99 @@
 #define AD7294_ADC_EXTERNAL_REF_MASK BIT(5)
 #define AD7294_DAC_EXTERNAL_REF_MASK BIT(4)
 #define AD7294_ALERT_PIN	     BIT(2)
+#define AD7294_ALERT_LOW(x)	     BIT((x) * 2)
+#define AD7294_ALERT_HIGH(x)	     BIT((x) * 2 + 1)
 
 #define AD7294_ADC_INTERNAL_VREF_MV  2500
 #define AD7294_DAC_INTERNAL_VREF_MV  2500
 #define AD7294_RESOLUTION	     12
 #define AD7294_VOLTAGE_CHENNEL_COUNT 4
 
-#define AD7294_ALERT_LOW(x)	     BIT((x) * 2)
-#define AD7294_ALERT_HIGH(x)	     BIT((x) * 2 + 1)
+struct ad7294_state {
+	struct mutex lock;
+	struct regmap *regmap;
+	struct i2c_client *i2c;
+	struct regulator *adc_vref_reg;
+	struct regulator *dac_vref_reg;
+	u32 shunt_ohms[2];
+	u16 dac_value[2];
+};
+
+static int ad7294_reg_size(unsigned int reg)
+{
+	switch (reg) {
+	case AD7294_REG_CMD:
+	case AD7294_VOLTAGE_STATUS:
+	case AD7294_CURRENT_STATUS:
+	case AD7294_TEMP_STATUS:
+	case AD7294_REG_PWDN:
+		return 1;
+	default:
+		return 2;
+	}
+};
+
+static int ad7294_reg_read(void *context, unsigned int reg, unsigned int *val)
+{
+	int ret;
+	struct i2c_client *client = context;
+	unsigned char buffer[3] = { reg };
+	int reg_size = ad7294_reg_size(reg);
+
+	ret = i2c_master_send(client, buffer, 1);
+	if (ret < 0)
+		return ret;
+
+	ret = i2c_master_recv(client, buffer + 1, reg_size);
+	if (ret < 0)
+		return ret;
+
+	dev_dbg(&client->dev, "Read [%x, %x] from reg:0x%x, size: %d",
+		buffer[1], buffer[2], reg, reg_size);
+	if (reg_size == 1)
+		*val = buffer[1];
+	else
+		*val = buffer[1] << 8 | buffer[2];
+	return 0;
+};
+
+static int ad7294_reg_write(void *context, unsigned int reg, unsigned int val)
+{
+	int ret;
+	struct i2c_client *client = context;
+	unsigned char buffer[3] = { reg };
+	int reg_size = ad7294_reg_size(reg);
+
+	dev_dbg(&client->dev, "Write [%x] to reg: %x, size: %d", val, reg,
+		reg_size);
+
+	if (reg_size == 1) {
+		/* Only take LSB of the data when writing to 1 byte reg */
+		buffer[1] = val & 0xff;
+	} else {
+		buffer[1] = val >> 8;
+		buffer[2] = val & 0xff;
+	}
+	ret = i2c_master_send(client, buffer, reg_size + 1);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+};
+
+static bool ad7294_readable_reg(struct device *dev, unsigned int reg)
+{
+	return reg != AD7294_REG_CMD;
+};
+
+static const struct regmap_config ad7294_regmap_config = {
+	.reg_bits = 8,
+	.val_bits = 16,
+	.max_register = 0x27,
+	.reg_read = ad7294_reg_read,
+	.reg_write = ad7294_reg_write,
+	.readable_reg = ad7294_readable_reg,
+};
 
 static const struct iio_event_spec ad7294_events[] = {
 	{
@@ -56,8 +140,7 @@ static const struct iio_event_spec ad7294_events[] = {
 	{
 		.type = IIO_EV_TYPE_THRESH,
 		.dir = IIO_EV_DIR_FALLING,
-		.mask_separate = BIT(IIO_EV_INFO_VALUE) |
-				 BIT(IIO_EV_INFO_ENABLE),
+		.mask_separate = BIT(IIO_EV_INFO_VALUE),
 	},
 	{
 		.type = IIO_EV_TYPE_THRESH,
@@ -90,7 +173,7 @@ static const struct iio_event_spec ad7294_events[] = {
 	.type = _type,                                        \
 	.channel = _chan_id,                                  \
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW)          \
-	                      | BIT(IIO_CHAN_INFO_SCALE),     \
+				| BIT(IIO_CHAN_INFO_SCALE),   \
 	.indexed = 1,                                         \
 	.output = 0,                                          \
 	.event_spec = ad7294_events,                          \
@@ -114,101 +197,6 @@ enum ad7294_temp_chan {
 	TSENSE_INTERNAL,
 };
 
-static const char *const ad7294_power_supplies[] = {
-	"vdrive",
-	"avdd",
-};
-
-static bool ad7294_readable_reg(struct device *dev, unsigned int reg)
-{
-	return reg != AD7294_REG_CMD;
-};
-
-static int ad7294_reg_size(unsigned int reg)
-{
-	switch (reg) {
-	case AD7294_REG_CMD:
-	case AD7294_VOLTAGE_STATUS:
-	case AD7294_CURRENT_STATUS:
-	case AD7294_TEMP_STATUS:
-	case AD7294_REG_PWDN:
-		return 1;
-	default:
-		return 2;
-	}
-};
-
-struct ad7294_state {
-	struct mutex lock;
-	struct regmap *regmap;
-	struct i2c_client *i2c;
-	struct regulator *adc_vref_reg;
-	struct regulator *dac_vref_reg;
-	u32 shunt_ohms[2];
-	u16 dac_value[2];
-};
-
-static int ad7294_reg_read(void *context, unsigned int reg, unsigned int *val)
-{
-	int ret;
-	struct i2c_client *client = context;
-	unsigned char buffer[3] = { reg };
-
-	int reg_size = ad7294_reg_size(reg);
-
-	ret = i2c_master_send(client, buffer, 1);
-	if (ret < 0)
-		return ret;
-
-	ret = i2c_master_recv(client, buffer + 1, reg_size);
-	if (ret < 0)
-		return ret;
-
-	dev_dbg(&client->dev, "Read [%x, %x] from reg:0x%x, size: %d",
-		buffer[1], buffer[2], reg, reg_size);
-	if (reg_size == 1) {
-		*val = buffer[1];
-	} else {
-		*val = buffer[1] << 8 | buffer[2];
-	}
-
-	return 0;
-};
-
-static int ad7294_reg_write(void *context, unsigned int reg, unsigned int val)
-{
-	int ret;
-	struct i2c_client *client = context;
-	unsigned char buffer[3] = { reg };
-
-	int reg_size = ad7294_reg_size(reg);
-	dev_dbg(&client->dev, "Write [%x] to reg: %x, size: %d", val, reg,
-		reg_size);
-
-	if (reg_size == 1) {
-		/* Only take LSB of the data when writing to 1 byte reg */
-		buffer[1] = val & 0xff;
-	} else {
-		buffer[1] = val >> 8;
-		buffer[2] = val & 0xff;
-	}
-
-	ret = i2c_master_send(client, buffer, reg_size + 1);
-	if (ret < 0)
-		return ret;
-
-	return 0;
-};
-
-static const struct regmap_config ad7294_regmap_config = {
-	.reg_bits = 8,
-	.val_bits = 16,
-	.max_register = 0x27,
-	.reg_read = ad7294_reg_read,
-	.reg_write = ad7294_reg_write,
-	.readable_reg = ad7294_readable_reg,
-};
-
 static const struct iio_chan_spec ad7294_chan_spec[] = {
 	AD7294_DAC_CHAN(0),
 	AD7294_DAC_CHAN(1),
@@ -225,11 +213,15 @@ static const struct iio_chan_spec ad7294_chan_spec[] = {
 	AD7294_TEMP_CHAN(TSENSE_INTERNAL),
 };
 
+static const char *const ad7294_power_supplies[] = {
+	"vdrive",
+	"avdd",
+};
+
 static irqreturn_t ad7294_event_handler(int irq, void *private)
 {
 	int i;
 	struct iio_dev *indio_dev = private;
-	dev_info(&indio_dev->dev, "IRQ requested\n");
 	struct ad7294_state *st = iio_priv(indio_dev);
 	unsigned int voltage_status, temp_status, current_status;
 	s64 timestamp = iio_get_time_ns(indio_dev);
@@ -248,8 +240,6 @@ static irqreturn_t ad7294_event_handler(int irq, void *private)
 	if (!(voltage_status || current_status || temp_status))
 		return IRQ_HANDLED;
 
-	dev_info(&indio_dev->dev, "Alert received: V: %x, C: %x, T: %x\n",
-		 voltage_status, current_status, temp_status);
 	for (i = 0; i < AD7294_VOLTAGE_CHENNEL_COUNT; i++) {
 		if (voltage_status & AD7294_ALERT_LOW(i))
 			iio_push_event(indio_dev,
@@ -373,10 +363,9 @@ adc_read:
 			*val = 250;
 			return IIO_VAL_INT;
 		case IIO_CURRENT:
-			/* 
-			Current(in mA) =
-				ADC_READING * 100 / Shunt resistance (in ohm)
-			*/
+			/* Current(in mA) =
+			 *   ADC_READING * 100 / Shunt resistance (in ohm)
+			 */
 			*val = 100;
 			*val2 = st->shunt_ohms[chan->channel & 1];
 			return IIO_VAL_FRACTIONAL;
@@ -412,10 +401,11 @@ static int ad7294_write_raw(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
-static int ad7294_reg_access(struct iio_dev *indio_dev, unsigned reg,
-			     unsigned writeval, unsigned *readval)
+static int ad7294_reg_access(struct iio_dev *indio_dev, unsigned int reg,
+			     unsigned int writeval, unsigned int *readval)
 {
 	struct ad7294_state *st = iio_priv(indio_dev);
+
 	if (readval)
 		return regmap_read(st->regmap, reg, readval);
 	return regmap_write(st->regmap, reg, writeval);
@@ -537,6 +527,7 @@ static int ad7294_init(struct iio_dev *indio_dev, struct ad7294_state *st)
 		ret = PTR_ERR(st->adc_vref_reg);
 		if (ret != -ENODEV)
 			return ret;
+
 		dev_info(&i2c->dev,
 			 "ADC Vref not found, using internal reference");
 		pwdn_config &= ~AD7294_ADC_EXTERNAL_REF_MASK;
@@ -545,10 +536,12 @@ static int ad7294_init(struct iio_dev *indio_dev, struct ad7294_state *st)
 		ret = regulator_enable(st->adc_vref_reg);
 		if (ret)
 			return ret;
+
 		ret = devm_add_action_or_reset(&i2c->dev, ad7294_reg_disable,
 					       st->adc_vref_reg);
 		if (ret)
 			return ret;
+
 		pwdn_config |= AD7294_ADC_EXTERNAL_REF_MASK;
 	}
 
@@ -557,6 +550,7 @@ static int ad7294_init(struct iio_dev *indio_dev, struct ad7294_state *st)
 		ret = PTR_ERR(st->dac_vref_reg);
 		if (ret != -ENODEV)
 			return ret;
+
 		dev_info(&i2c->dev,
 			 "DAC Vref not found, using internal reference");
 		pwdn_config &= ~AD7294_DAC_EXTERNAL_REF_MASK;
@@ -565,10 +559,12 @@ static int ad7294_init(struct iio_dev *indio_dev, struct ad7294_state *st)
 		ret = regulator_enable(st->dac_vref_reg);
 		if (ret)
 			return ret;
+
 		ret = devm_add_action_or_reset(&i2c->dev, ad7294_reg_disable,
 					       st->dac_vref_reg);
 		if (ret)
 			return ret;
+
 		pwdn_config |= AD7294_DAC_EXTERNAL_REF_MASK;
 	}
 
@@ -578,8 +574,6 @@ static int ad7294_init(struct iio_dev *indio_dev, struct ad7294_state *st)
 		dev_err(&i2c->dev, "Failed to read shunt resistor values");
 		return ret;
 	}
-	dev_dbg(&i2c->dev, "Read shunt resistor values of %d and %d uohms",
-		st->shunt_ohms[0], st->shunt_ohms[1]);
 
 	if (i2c->irq > 0) {
 		ret = devm_request_threaded_irq(&i2c->dev, i2c->irq, NULL,
@@ -588,12 +582,14 @@ static int ad7294_init(struct iio_dev *indio_dev, struct ad7294_state *st)
 						"ad7294", indio_dev);
 		if (ret)
 			return ret;
+
 		config_reg |= AD7294_ALERT_PIN;
 	}
 
 	ret = regmap_write(st->regmap, AD7294_REG_PWDN, pwdn_config);
 	if (ret)
 		return ret;
+
 	ret = regmap_write(st->regmap, AD7294_REG_CONFIG, config_reg);
 	if (ret)
 		return ret;

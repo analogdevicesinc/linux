@@ -1,7 +1,4 @@
-/*
- * DT Overlay for Analog Devices AD7294/AD7294-2
- */
-
+// SPDX-License-Identifier: GPL-2.0
 /dts-v1/;
 /plugin/;
 
