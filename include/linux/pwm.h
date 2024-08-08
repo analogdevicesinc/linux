@@ -323,8 +323,8 @@ int pwm_adjust_config(struct pwm_device *pwm);
  *
  * Returns: 0 on success or a negative error code on failure.
  */
-static inline int pwm_config(struct pwm_device *pwm, u64 duty_ns,
-			     u64 period_ns)
+static inline int pwm_config(struct pwm_device *pwm, int duty_ns,
+			     int period_ns)
 {
 	struct pwm_state state;
 
@@ -423,8 +423,8 @@ static inline int pwm_adjust_config(struct pwm_device *pwm)
 	return -ENOTSUPP;
 }
 
-static inline int pwm_config(struct pwm_device *pwm, u64 duty_ns,
-			     u64 period_ns)
+static inline int pwm_config(struct pwm_device *pwm, int duty_ns,
+			     int period_ns)
 {
 	might_sleep();
 	return -EINVAL;
