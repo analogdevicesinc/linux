@@ -290,22 +290,6 @@ config MOUSE_ELAN_I2C_SMBUS
 
 	   If unsure, say Y.
 
-config MOUSE_INPORT
-	tristate "InPort/MS/ATIXL busmouse"
-	depends on ISA
-	help
-	  Say Y here if you have an InPort, Microsoft or ATI XL busmouse.
-	  They are rather rare these days.
-
-	  To compile this driver as a module, choose M here: the
-	  module will be called inport.
-
-config MOUSE_ATIXL
-	bool "ATI XL variant"
-	depends on MOUSE_INPORT
-	help
-	  Say Y here if your mouse is of the ATI XL variety.
-
 config MOUSE_LOGIBM
 	tristate "Logitech busmouse"
 	depends on ISA
