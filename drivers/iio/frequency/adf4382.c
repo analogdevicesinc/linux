@@ -4,6 +4,8 @@
  *
  * Copyright 2022-2024 Analog Devices Inc.
  */
+//TODO:This does not add much. Typically there's a small subject 
+//(like the datasheet title). Look at other examples please
 
 #include <linux/bitfield.h>
 #include <linux/bits.h>
@@ -474,7 +476,7 @@ struct adf4382_state {
 
 #define to_adf4382_state(_hw) container_of(_hw, struct adf4382_state, clk_hw);
 
-//Charge pump current values expressed in uA
+/* Charge pump current values expressed in uA */
 static const int adf4382_ci_ua[] = {
 	700,
 	900,
@@ -493,6 +495,7 @@ static const int adf4382_ci_ua[] = {
 	8600,
 	10100
 };
+// TODO:nit: no need for a value per line...
 
 static const struct reg_sequence adf4382_reg_default[] = {
 	{ 0x000, 0x18 },
@@ -589,12 +592,15 @@ static const struct reg_sequence adf4382_reg_default[] = {
 	{ 0x011, 0x00 },
 	{ 0x010, 0x50 },
 };
+// TODO:nit: no need for a value per line...
 
 static const struct regmap_config adf4382_regmap_config = {
 	.reg_bits = 16,
 	.val_bits = 8,
 	.read_flag_mask = BIT(7),
 };
+// TODO:this is only used in the probe function so ideally you should reduce it's
+// scope
 
 static int adf4382_pfd_compute(struct adf4382_state *st, u64 *pfd_freq_hz)
 {
@@ -612,7 +618,7 @@ static int adf4382_pfd_compute(struct adf4382_state *st, u64 *pfd_freq_hz)
 	return 0;
 }
 
-int adf4382_frac2_compute(struct adf4382_state *st, u64 res,
+static int adf4382_frac2_compute(struct adf4382_state *st, u64 res,
 			  unsigned int pfd_freq_hz, u32 *frac2_word,
 			  u32 *mod2_word)
 {
@@ -660,7 +666,7 @@ int adf4382_frac2_compute(struct adf4382_state *st, u64 res,
 	return 0;
 }
 
-int adf4382_pll_fract_n_compute(struct adf4382_state *st, unsigned int pfd_freq_hz,
+static int adf4382_pll_fract_n_compute(struct adf4382_state *st, unsigned int pfd_freq_hz,
 				u16 *n_int, u32 *frac1_word, u32 *frac2_word,
 				u32 *mod2_word)
 {
@@ -791,6 +797,14 @@ static int adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 	var = (mod2_word >> 8) & ADF4382_MOD2WORD_MID_MSK;
+// TODO:instead of defining multiple GENMASK(7,0) for ADF4382_MOD2WORD_MID_MSK,
+// ADF4382_MOD2WORD_MSB_MSK etc, i'd create some generic macros:
+// #define ADF4382_WORD_LSB_MSK GENMASK(7, 0)
+// #define ADF4382_WORD_MID_MSK GENMASK(15, 8)
+// #define ADF4382_WORD_MSB_MSK GENMASK(23, 16)
+
+// In this manner you drop multiple identical macro definitions and also get rid
+// of explicit shifting by using FIELD_GET instead.
 	ret = regmap_write(st->regmap, 0x1B, var);
 	if (ret)
 		return ret;
@@ -1033,8 +1047,6 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_ps)
 	if (ret)
 		return ret;
 
-	// dev->phase_adj = phase_ps;
-
 	//Determine the output freq. in degrees/s
 	rfout_deg_s = 360 * st->freq;
 	//Convert it to degrees/ns
@@ -1049,7 +1061,8 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_ps)
 		return -EINVAL;
 	}
 
-	/* Phase adjustment can only be done if bleed is active, and a bleed
+	/* 
+	 * Phase adjustment can only be done if bleed is active, and a bleed
 	 * constant needs to be added
 	 */
 	phase_bleed = phase_deg * ADF4382_PHASE_BLEED_CNST;
@@ -1096,6 +1109,7 @@ static int adf4382_set_out_power(struct adf4382_state *st, int ch, int pwr)
 		tmp = FIELD_PREP(ADF4382_CLK1_OPWR_MSK, pwr);
 		return regmap_update_bits(st->regmap, 0x29, ADF4382_CLK1_OPWR_MSK,
 					  tmp);
+// TODO:just do the FIELD_PREP() in the function call directly...
 	}
 
 	tmp = FIELD_PREP(ADF4382_CLK2_OPWR_MSK, pwr);
@@ -1166,6 +1180,8 @@ static ssize_t adf4382_write(struct iio_dev *indio_dev, uintptr_t private,
 		return ret;
 
 	mutex_lock(&st->lock);
+// TODO:i'd drop this mutex handling. it should go inside adf4382_set_freq.
+// Moreover, adf4382_set_out_power doesn't seem to need locking.
 	switch ((u32)private) {
 	case ADF4382_FREQ:
 		st->freq = val;
@@ -1176,6 +1192,7 @@ static ssize_t adf4382_write(struct iio_dev *indio_dev, uintptr_t private,
 		break;
 	default:
 		ret = -EINVAL;
+// TODO:return directly.
 		break;
 	}
 
@@ -1223,6 +1240,15 @@ static const struct iio_chan_spec_ext_info adf4382_ext_info[] = {
 	 * in Hz.
 	 */
 	_ADF4382_EXT_INFO("frequency", IIO_SHARED_BY_TYPE, ADF4382_FREQ),
+// TODO:Take a look at:
+
+// https://elixir.bootlin.com/linux/latest/source/include/linux/iio/types.h#L31
+
+// You can already do 64bit in the standard interface...
+
+// For the output power, I would double check in the IIO ABI to see if there's 
+// something that fits. Otherwise you'll have to justify the non standard attribute
+// and you'll need an ABI file.
 	_ADF4382_EXT_INFO("output_power", IIO_SEPARATE, ADF4382_CH_PWR),
 	{ },
 };
@@ -1338,6 +1364,7 @@ static int adf4382_parse_device(struct adf4382_state *st)
 	ret = device_property_read_u32(&st->spi->dev, "adi,charge-pump-current",
 				       &tmp);
 	if (ret)
+// TODO:same here: property is optional in driver, while required in the dt bindings.
 		st->cp_i = ADF4382_CP_I_DEFAULT;
 	else
 		st->cp_i = (u8)tmp;
@@ -1345,6 +1372,8 @@ static int adf4382_parse_device(struct adf4382_state *st)
 	ret = device_property_read_u32(&st->spi->dev, "adi,ref-divider",
 				       &tmp);
 	if (ret || !tmp)
+// TODO:hmm, you treat "adi,ref-divider" property as optional, although you made it
+// a required property in the dt bindings.
 		st->ref_div = ADF4382_REF_DIV_DEFAULT;
 	else
 		st->ref_div = (u8)tmp;
@@ -1356,8 +1385,10 @@ static int adf4382_parse_device(struct adf4382_state *st)
 	st->cmos_3v3 = device_property_read_bool(&st->spi->dev, "adi,cmos-3v3");
 
 	st->clkin = devm_clk_get(&st->spi->dev, "ref_clk");
+// TODO:likely you want devm_clk_get_enabled()
 	if (IS_ERR(st->clkin))
 		return PTR_ERR(st->clkin);
+// TODO:return PTR_ERR_OR_ZERO()?
 
 	return 0;
 }
@@ -1377,6 +1408,7 @@ static int adf4382_scratchpad_check(struct adf4382_state *st)
 
 	if (val != ADF4382_SCRATCHPAD_VAL) {
 		dev_err(&st->spi->dev, "Scratch pad test failed please check SPI connection");
+// TODO:dev_err_probe
 		return -EINVAL;
 	}
 
@@ -1517,6 +1549,7 @@ static int adf4382_setup_clk(struct adf4382_state *st)
 		return PTR_ERR(clk);
 
 	return of_clk_add_provider(dev->of_node, of_clk_src_simple_get, clk);
+// TODO:devm_of_clk_add_hw_provider()
 }
 
 static int adf4382_probe(struct spi_device *spi)
@@ -1538,6 +1571,8 @@ static int adf4382_probe(struct spi_device *spi)
 
 	indio_dev->info = &adf4382_info;
 	indio_dev->name = "adf4382";
+// TODO:you support two devices so ideally you would have the proper name when 
+// using adf4382a. Maybe have a chip_info struct only with const char *name
 	indio_dev->channels = adf4382_channels;
 	indio_dev->num_channels = ARRAY_SIZE(adf4382_channels);
 
@@ -1563,6 +1598,7 @@ static int adf4382_probe(struct spi_device *spi)
 	ret = clk_prepare_enable(st->clkin);
 	if (ret)
 		return ret;
+// TODO:you can drop the above with one of my previous comments
 
 	ret = devm_add_action_or_reset(&spi->dev, adf4382_clk_disable, st->clkin);
 	if (ret)
@@ -1580,12 +1616,24 @@ static int adf4382_probe(struct spi_device *spi)
 	ret = adf4382_init(st);
 	if (ret) {
 		dev_err(&spi->dev, "adf4382 init failed\n");
+// TODO:ditto: dev_err_probe.
 		return ret;
 	}
 
 	adf4382_setup_clk(st);
 	if (ret)
 		return ret;
+// TODO:The above is questionable. We do it for a couple of drivers and remember 
+// there was a reason for having both clock provider and an IIO userspace 
+// interface (like having different waveforms through IIO). But if the only reason 
+// is to have both userspace access top changing the frequency and having the clock
+// exported as part of CCF at the same time, that will be more difficult to justify.
+
+// Anyways, one thing that should be protected is that if the channel is being 
+// exported through CCF, we should not allow to change it's frequency though the 
+// IIO interface as that could breaks potential consumers of the clock,
+
+// Anyways, let's see what upstream has to say about this.
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
