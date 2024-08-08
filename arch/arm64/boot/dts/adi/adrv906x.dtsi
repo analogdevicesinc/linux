@@ -199,7 +199,8 @@
 
 		ddr0_res: ddr-reserved@0 {
 			compatible = "adi,sram-access";
-			reg = <0x00000000 0x01000000>; /* 16 MB */
+			reg = <0x00000000 0x11000000>; /* 272 MB */
+			status = "disabled";
 		};
 
 		/* Secondary regions */
