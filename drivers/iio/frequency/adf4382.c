@@ -107,7 +107,7 @@
 #define ADF4382_BIAS_DEC_MODE_MSK		GENMASK(5, 3)
 #define ADF4382_INT_MODE_MSK			BIT(2)
 #define ADF4382_PFD_POL_MSK			BIT(1)
-#define ADF4382_FRAC1WORD_BIT25_MSK		BIT(0)
+#define ADF4382_FRAC1WORD_MSB			BIT(0)
 
 /* ADF4382 REG0016 Map */
 #define ADF4382_M_VCO_BAND_MSB_MSK		GENMASK(7, 0)
@@ -596,10 +596,9 @@ static const struct regmap_config adf4382_regmap_config = {
 	.read_flag_mask = BIT(7),
 };
 
-static int adf4382_pfd_compute(struct adf4382_state *st,
-			       unsigned int *pfd_freq_hz)
+static int adf4382_pfd_compute(struct adf4382_state *st, u64 *pfd_freq_hz)
 {
-	unsigned int tmp;
+	u64 tmp;
 
 	tmp = DIV_ROUND_CLOSEST(st->ref_freq_hz, st->ref_div);
 	if (st->ref_doubler_en)
@@ -690,7 +689,7 @@ int adf4382_pll_fract_n_compute(struct adf4382_state *st, unsigned int pfd_freq_
 
 static int adf4382_set_freq(struct adf4382_state *st)
 {
-	unsigned int pfd_freq_hz;
+	u64 pfd_freq_hz;
 	u32 frac2_word = 0;
 	u32 mod2_word = 0;
 	u32 frac1_word;
@@ -812,9 +811,8 @@ static int adf4382_set_freq(struct adf4382_state *st)
 	ret = regmap_write(st->regmap, 0x14, var);
 	if (ret)
 		return ret;
-	var =  (frac1_word >> 24)  & ADF4382_FRAC1WORD_BIT25_MSK;
-	ret = regmap_update_bits(st->regmap, 0x15, ADF4382_FRAC1WORD_BIT25_MSK,
-				 var);
+	var =  (frac1_word >> 24)  & ADF4382_FRAC1WORD_MSB;
+	ret = regmap_update_bits(st->regmap, 0x15, ADF4382_FRAC1WORD_MSB, var);
 	if (ret)
 		return ret;
 
@@ -905,23 +903,115 @@ static int adf4382_set_freq(struct adf4382_state *st)
 		return ret;
 
 	dev_dbg(&st->spi->dev,
-		"VCO=%llu PFD=%u RFout_div=%u N=%u FRAC1=%u FRAC2=%u MOD2=%u\n",
+		"VCO=%llu PFD=%llu RFout_div=%u N=%u FRAC1=%u FRAC2=%u MOD2=%u\n",
 		vco, pfd_freq_hz, 1 << clkout_div, n_int,
 		frac1_word, frac2_word, mod2_word);
 
 	return 0;
 }
 
-static int adf4382_get_freq(struct adf4382_state *st, u64 *freq)
+static int adf4382_get_freq(struct adf4382_state *st, u64 *val)
 {
-	*freq = st->freq;
+	u64 pfd;
+	unsigned int tmp;
+	u32 frac1 = 0;
+	u32 frac2 = 0;
+	u32 mod2 = 0;
+	u64 freq;
+	u16 n;
+	int ret;
+
+	ret = adf4382_pfd_compute(st, &pfd);
+	if (ret) {
+		return ret;
+	}
+
+	ret = regmap_read(st->regmap, 0x11, &tmp);
+	if  (ret)
+		return ret;
+
+	n = tmp & ADF4382_N_INT_MSB_MSK;
+	n = n << 8;
+
+	ret = regmap_read(st->regmap, 0x10, &tmp);
+	if  (ret)
+		return ret;
+	n |= tmp;
+
+	ret = regmap_read(st->regmap, 0x15, &tmp);
+	if  (ret)
+		return ret;
+	frac1 = tmp & ADF4382_FRAC1WORD_MSB;
+	frac1 = frac1 << 8;
+
+	ret = regmap_read(st->regmap, 0x14, &tmp);
+	if  (ret)
+		return ret;
+	frac1 |= tmp;
+	frac1 = frac1 << 8;
+
+	ret = regmap_read(st->regmap, 0x13, &tmp);
+	if  (ret)
+		return ret;
+	frac1 |= tmp;
+	frac1 = frac1 << 8;
+
+	ret = regmap_read(st->regmap, 0x12, &tmp);
+	if  (ret)
+		return ret;
+	frac1 |= tmp;
+
+	ret = regmap_read(st->regmap, 0x19, &tmp);
+	if  (ret)
+		return ret;
+	frac2 = tmp;
+	frac2 = frac2 << 8;
+
+	ret = regmap_read(st->regmap, 0x18, &tmp);
+	if  (ret)
+		return ret;
+	frac2 |= tmp;
+	frac2 = frac2 << 8;
+
+	ret = regmap_read(st->regmap, 0x17, &tmp);
+	if  (ret)
+		return ret;
+	frac2 |= tmp;
+
+	ret = regmap_read(st->regmap, 0x1c, &tmp);
+	if  (ret)
+		return ret;
+	mod2 = tmp;
+	mod2 = mod2 << 8;
+
+	ret = regmap_read(st->regmap, 0x1b, &tmp);
+	if  (ret)
+		return ret;
+	mod2 |= tmp;
+	mod2 = mod2 << 8;
+
+	ret = regmap_read(st->regmap, 0x1a, &tmp);
+	if  (ret)
+		return ret;
+	mod2 |= tmp;
+
+	if(mod2 == 0)
+		mod2 = 1;
+
+	freq = frac2 * pfd;
+	freq = div_u64(freq, mod2);
+	freq = freq + (frac1 * pfd);
+	freq = div_u64(freq, ADF4382_MOD1WORD);
+	freq = freq + (n * pfd);
+
+	*val = freq;
 	return 0;
 }
 
 static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_ps)
 {
 	u8 phase_reg_value;
-	u32 pfd_freq_hz;
+	u64 pfd_freq_hz;
 	u64 rfout_deg_s;
 	u32 rfout_deg_ns;
 	u64 phase_bleed;
