@@ -18,6 +18,7 @@
 
 #define AD7294_REG_CMD		     0x00
 #define AD7294_REG_RESULT	     0x01
+#define AD7294_REG_TEMP_BASE	     0x02
 #define AD7294_REG_DAC(x)	     ((x) + 0x01)
 #define AD7294_REG_PWDN		     0x0A
 
@@ -58,7 +59,7 @@
 }
 
 enum ad7294_temp_chan {
-	TSENSE_1 = 0x02,
+	TSENSE_1,
 	TSENSE_2,
 	TSENSE_INTERNAL,
 };
@@ -178,7 +179,7 @@ static int ad7294_read_raw(struct iio_dev *indio_dev,
 			   int *val2, long mask)
 {
 	struct ad7294_state *st = iio_priv(indio_dev);
-	int ret, temperature;
+	int ret;
 	unsigned int regval;
 
 	guard(mutex)(&st->lock);
@@ -210,13 +211,7 @@ adc_read:
 			if (ret)
 				return ret;
 			regval &= AD7294_TEMP_VALUE_MASK;
-			/* Raw data is read in 11-bit Two's completement format
-			 * Reference: Datasheet Page#29
-			*/
-			temperature = regval & GENMASK(9, 0);
-			if (regval & BIT(9))
-				temperature -= (1 << 10);
-			*val = temperature;
+			*val = sign_extend32(regval, 11);
 			return IIO_VAL_INT;
 		default:
 			return -EINVAL;
