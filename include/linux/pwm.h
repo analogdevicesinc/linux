@@ -26,7 +26,6 @@ enum pwm_polarity {
  * struct pwm_args - board-dependent PWM arguments
  * @period: reference period
  * @polarity: reference polarity
- * @phase: reference phase
  *
  * This structure describes board-dependent arguments attached to a PWM
  * device. These arguments are usually retrieved from the PWM lookup table or
@@ -38,7 +37,6 @@ enum pwm_polarity {
  */
 struct pwm_args {
 	u64 period;
-	u64 phase;
 	enum pwm_polarity polarity;
 };
 
@@ -547,7 +545,7 @@ static inline void pwm_apply_args(struct pwm_device *pwm)
 	state.enabled = false;
 	state.polarity = pwm->args.polarity;
 	state.period = pwm->args.period;
-	state.phase = pwm->args.phase;
+	state.phase = 0;
 	state.usage_power = false;
 
 	pwm_apply_state(pwm, &state);
