@@ -18,7 +18,7 @@
 #include <linux/pwm.h>
 #include <linux/regulator/consumer.h>
 #include <linux/spi/spi.h>
-#include <linux/spi/spi-engine.h>
+#include <linux/spi/spi-engine-ex.h>
 #include <linux/units.h>
 #include <linux/util_macros.h>
 #include <linux/iio/iio.h>
@@ -557,27 +557,28 @@ static const struct iio_info ad4000_info = {
 static int ad4000_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad4000_state *st = iio_priv(indio_dev);
-	const struct iio_chan_spec *chan = indio_dev->channels;
+	//const struct iio_chan_spec *chan = indio_dev->channels;
 	int ret;
 
-	memset(&st->xfers[0], 0, sizeof(st->xfers[0]));
-	st->xfers[0].rx_buf = (void *)-1;
-	st->xfers[0].len = 4;
-	/* Rely on the fact the this driver only supports single channel ADCs */
-	st->xfers[0].bits_per_word = chan->scan_type.realbits;
-	st->xfers[0].delay.value = 60;
-	st->xfers[0].delay.unit = SPI_DELAY_UNIT_NSECS;
+	dev_info(&st->spi->dev, "%s\n", __func__);
+	//memset(&st->xfers[0], 0, sizeof(st->xfers[0]));
+	//st->xfers[0].rx_buf = (void *)-1;
+	//st->xfers[0].len = 4;
+	///* Rely on the fact the this driver only supports single channel ADCs */
+	//st->xfers[0].bits_per_word = chan->scan_type.realbits;
+	//st->xfers[0].delay.value = 60;
+	//st->xfers[0].delay.unit = SPI_DELAY_UNIT_NSECS;
 
-	spi_message_init_with_transfers(&st->msg, &st->xfers[0], 1);
+	//spi_message_init_with_transfers(&st->msg, &st->xfers[0], 1);
 
 	spi_bus_lock(st->spi->master);
 	st->bus_locked = true;
 
-	ret = spi_engine_offload_load_msg(st->spi, &st->msg);
+	ret = spi_engine_ex_offload_load_msg(st->spi, &st->msg);
 	if (ret < 0)
 		return ret;
 
-	spi_engine_offload_enable(st->spi, true);
+	spi_engine_ex_offload_enable(st->spi, true);
 
 	return pwm_enable(st->cnv_trigger);
 }
@@ -588,7 +589,7 @@ static int ad4000_buffer_postdisable(struct iio_dev *indio_dev)
 
 	pwm_disable(st->cnv_trigger);
 
-	spi_engine_offload_enable(st->spi, false);
+	spi_engine_ex_offload_enable(st->spi, false);
 
 	st->bus_locked = false;
 	spi_bus_unlock(st->spi->master);
@@ -851,7 +852,7 @@ static int ad4000_probe(struct spi_device *spi)
 
 	ad4000_fill_scale_tbl(st, indio_dev->channels);
 
-	if (spi_engine_offload_supported(spi)) {
+	if (spi_engine_ex_offload_supported(spi)) {
 		if (device_property_present(&spi->dev, "pwms"))
 			ad4000_pwm_setup(spi, st);
 
