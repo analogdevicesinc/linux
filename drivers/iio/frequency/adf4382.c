@@ -1474,8 +1474,11 @@ static unsigned long adf4382_clock_recalc_rate(struct clk_hw *hw,
 					       unsigned long parent_rate)
 {
 	struct adf4382_state *st = to_adf4382_state(hw);
+	u64 freq = 0;
+	
+	adf4382_get_freq(st, &freq);
 
-	return st->freq;
+	return freq;
 }
 
 static long adf4382_clock_round_rate(struct clk_hw *hw, unsigned long rate,
