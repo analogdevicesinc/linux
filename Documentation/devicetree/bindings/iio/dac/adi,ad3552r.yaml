@@ -56,11 +56,34 @@ properties:
     $ref: /schemas/types.yaml#/definitions/uint32
     enum: [0, 1, 2, 3]
 
+  io-backends:
+    description: The iio backend reference.
+      An example backend can be found at
+        https://analogdevicesinc.github.io/hdl/library/axi_ad3552r/index.html
+    maxItems: 1
+
   '#address-cells':
     const: 1
 
   '#size-cells':
     const: 0
+
+if:
+  required:
+    - reg
+
+then:
+  $ref: /schemas/spi/spi-peripheral-props.yaml#
+  not:
+    required:
+      - io-backends
+
+  properties:
+    io-backends: false
+
+else:
+  required:
+    - io-backends
 
 patternProperties:
   "^channel@([0-1])$":
@@ -184,8 +207,6 @@ allOf:
 
 required:
   - compatible
-  - reg
-  - spi-max-frequency
 
 additionalProperties: false
 
@@ -214,5 +235,20 @@ examples:
                       };
             };
         };
+    };
+
+  - |
+    fpga_axi {
+            ad3552r {
+                    compatible = "adi,ad3552r";
+                    reset-gpios = <&gpio0 92 1>;
+                    io-backends = <&backend>;
+                    #address-cells = <1>;
+                    #size-cells = <0>;
+                    channel@0 {
+                            reg = <0>;
+                            adi,output-range-microvolt = <(-5000000) (5000000)>;
+                    };
+            };
     };
 ...

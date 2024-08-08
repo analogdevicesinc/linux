@@ -534,6 +534,152 @@ static int __devm_iio_backend_get(struct device *dev, struct iio_backend *back)
 }
 
 /**
+ * iio_backend_ext_sync - Synchronize DAC external channels
+ * @back: Backend device
+ *
+ * Some IP has multiple device synchronization capability when the DMA is set
+ * as an input data source.
+ *
+ * This call will arm the trigger mechanism sensitive to an external
+ * sync signal. Once the external sync signal goes high it synchronizes
+ * channels within a DAC, and across multiple instances. Sync flag is
+ * self-clearing after synchronization.
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_ext_sync(struct iio_backend *back)
+{
+	return iio_backend_op_call(back, ext_sync);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_ext_sync, IIO_BACKEND);
+
+/**
+ * iio_backend_ddr_enable - Enable or disable DAC ddr mode
+ * @back: Backend device
+ * @enable: DDR state
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_ddr_enable(struct iio_backend *back, bool enable)
+{
+	return iio_backend_op_call(back, ddr_enable, enable);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_ddr_enable, IIO_BACKEND);
+
+/**
+ * iio_backend_set_buffer_enable - Set DAC data buffering status
+ * @back: Backend device
+ * @enable: Buffer status
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_buffer_enable(struct iio_backend *back, bool enable)
+{
+	return iio_backend_op_call(back, buffer_enable, enable);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_buffer_enable, IIO_BACKEND);
+
+/**
+ * iio_backend_data_transfer_addr - Set data address.
+ * @back: Backend device
+ * @chan_address: Channel register address
+ *
+ * Some devices may need to inform the backend about an address/location
+ * where to read or write the data.
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_data_transfer_addr(struct iio_backend *back, u32 address)
+{
+	return iio_backend_op_call(back, data_transfer_addr, address);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_data_transfer_addr, IIO_BACKEND);
+
+/**
+ * iio_backend_bus_reg_read - Write on DAC bus
+ * @back: Backend device
+ * @reg: Register buffer
+ * @reg_len: Register length in bytes
+ * @val: Value buffer
+ * @len: Value length, in bytes
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_bus_reg_read(struct iio_backend *back, const void *reg,
+			     size_t reg_len, void *val, size_t val_len)
+{
+	if (!reg_len || !val_len)
+		return -EINVAL;
+
+	return iio_backend_op_call(back, bus_reg_read,
+				   reg, reg_len, val, val_len);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_bus_reg_read, IIO_BACKEND);
+
+/**
+ * iio_backend_bus_reg_write - Write on DAC bus
+ * @back: Backend device
+ * @reg: Register buffer
+ * @reg_len: Register length in bytes
+ * @val: Value buffer
+ * @len: Value length, in bytes
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_bus_reg_write(struct iio_backend *back, const void *reg,
+			      size_t reg_len, const void *val, size_t val_len)
+{
+	if (!reg_len || !val_len)
+		return -EINVAL;
+
+	return iio_backend_op_call(back, bus_reg_write,
+				   reg, reg_len, val, val_len);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_bus_reg_write, IIO_BACKEND);
+
+/**
+ * iio_backend_bus_read - Read from DAC bus
+ * @back: Backend device
+ * @data: Data address
+ * @len: Data length
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_bus_read(struct iio_backend *back, void *data, size_t len)
+{
+	return iio_backend_op_call(back, bus_read, data, len);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_bus_read, IIO_BACKEND);
+
+/**
+ * iio_backend_data_size_set - set the data width/size in the data bus.
+ * @back: Backend device
+ * @size: Size in bits
+ *
+ * Some frontend devices can dynamically control the word/data size in bits
+ * on the interface/data bus. Hence, the backend device needs to be aware of
+ * it so data can be correctly transferred.
+ *
+ * RETURNS:
+ * 0 on success, negative error number on failure.
+ */
+int iio_backend_data_size_set(struct iio_backend *back, ssize_t size)
+{
+	if (!size)
+		return -EINVAL;
+
+	return iio_backend_op_call(back, data_size_set, size);
+}
+EXPORT_SYMBOL_NS_GPL(iio_backend_data_size_set, IIO_BACKEND);
+
+/**
  * devm_iio_backend_get - Device managed backend device get
  * @dev: Consumer device for the backend
  * @name: Backend name

@@ -18,6 +18,7 @@
 #include <linux/module.h>
 #include <linux/mod_devicetable.h>
 #include <linux/mutex.h>
+#include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/property.h>
 #include <linux/regmap.h>
@@ -45,10 +46,30 @@
 #define   AXI_DAC_RSTN_RSTN		BIT(0)
 #define AXI_DAC_REG_CNTRL_1		0x0044
 #define   AXI_DAC_SYNC			BIT(0)
+#define   AXI_DAC_EXT_SYNC_ARM		BIT(1)
 #define AXI_DAC_REG_CNTRL_2		0x0048
+#define   AXI_DAC_USIGN_DATA		BIT(4)
 #define	  ADI_DAC_R1_MODE		BIT(4)
+#define   AXI_DAC_SYMB_8B		BIT(14)
+#define   AXI_DAC_SDR_DDR_N		BIT(16)
 #define AXI_DAC_DRP_STATUS		0x0074
 #define   AXI_DAC_DRP_LOCKED		BIT(17)
+#define AXI_DAC_CNTRL_DATA_RD		0x0080
+#define   AXI_DAC_DATA_RD_8		GENMASK(7, 0)
+#define   AXI_DAC_DATA_RD_16		GENMASK(15, 0)
+#define AXI_DAC_CNTRL_DATA_WR		0x0084
+#define   AXI_DAC_DATA_WR_8		GENMASK(23, 16)
+#define   AXI_DAC_DATA_WR_16		GENMASK(23, 8)
+#define AXI_DAC_UI_STATUS		0x0088
+#define   AXI_DAC_BUSY			BIT(4)
+#define AXI_DAC_REG_CUSTOM_CTRL		0x008C
+#define   AXI_DAC_TRANSFER_DATA		BIT(0)
+#define   AXI_DAC_STREAM		BIT(1)
+#define   AXI_DAC_SYNCED_TRANSFER	BIT(2)
+#define   AXI_DAC_ADDRESS		GENMASK(31, 24)
+
+#define AXI_DAC_STREAM_ENABLE		(AXI_DAC_TRANSFER_DATA | AXI_DAC_STREAM)
+
 /* DAC Channel controls */
 #define AXI_DAC_REG_CHAN_CNTRL_1(c)	(0x0400 + (c) * 0x40)
 #define AXI_DAC_REG_CHAN_CNTRL_3(c)	(0x0408 + (c) * 0x40)
@@ -62,11 +83,19 @@
 #define AXI_DAC_REG_CHAN_CNTRL_7(c)	(0x0418 + (c) * 0x40)
 #define   AXI_DAC_DATA_SEL		GENMASK(3, 0)
 
+#define AXI_DAC_RD_ADDR(x)		(BIT(7) | (x))
+
 /* 360 degrees in rad */
 #define AXI_DAC_2_PI_MEGA		6283190
+
 enum {
 	AXI_DAC_DATA_INTERNAL_TONE,
 	AXI_DAC_DATA_DMA = 2,
+	AXI_DAC_DATA_INTERNAL_RAMP = 11,
+};
+
+enum {
+	AXI_DAC_BUS_TYPE_QSPI,
 };
 
 struct axi_dac_state {
@@ -80,6 +109,8 @@ struct axi_dac_state {
 	u64 dac_clk;
 	u32 reg_config;
 	bool int_tone;
+	int data_size;
+	int bus_type;
 };
 
 static int axi_dac_enable(struct iio_backend *back)
@@ -460,7 +491,13 @@ static int axi_dac_data_source_set(struct iio_backend *back, unsigned int chan,
 	case IIO_BACKEND_EXTERNAL:
 		return regmap_update_bits(st->regmap,
 					  AXI_DAC_REG_CHAN_CNTRL_7(chan),
-					  AXI_DAC_DATA_SEL, AXI_DAC_DATA_DMA);
+					  AXI_DAC_DATA_SEL,
+					  AXI_DAC_DATA_DMA);
+	case IIO_BACKEND_INTERNAL_RAMP:
+		return regmap_update_bits(st->regmap,
+					  AXI_DAC_REG_CHAN_CNTRL_7(chan),
+					  AXI_DAC_DATA_SEL,
+					  AXI_DAC_DATA_INTERNAL_RAMP);
 	default:
 		return -EINVAL;
 	}
@@ -507,6 +544,194 @@ static int axi_dac_set_sample_rate(struct iio_backend *back, unsigned int chan,
 	return 0;
 }
 
+static int axi_dac_ext_sync(struct iio_backend *back)
+{
+	struct axi_dac_state *st = iio_backend_get_priv(back);
+
+	return regmap_write(st->regmap, AXI_DAC_REG_CNTRL_1,
+			    AXI_DAC_EXT_SYNC_ARM);
+}
+
+static int axi_dac_ddr_enable(struct iio_backend *back, bool enable)
+{
+	struct axi_dac_state *st = iio_backend_get_priv(back);
+
+	return regmap_update_bits(st->regmap, AXI_DAC_REG_CNTRL_2,
+				  AXI_DAC_SDR_DDR_N,
+				  (enable ? 0 : AXI_DAC_SDR_DDR_N));
+}
+
+static int axi_dac_data_size_set(struct iio_backend *back, ssize_t size)
+{
+	struct axi_dac_state *st = iio_backend_get_priv(back);
+	int err;
+
+	if (size != 8 && size != 16)
+		return -EINVAL;
+
+	err = regmap_set_bits(st->regmap, AXI_DAC_REG_CNTRL_2,
+			      AXI_DAC_USIGN_DATA);
+	if (err)
+		return err;
+
+	err = regmap_update_bits(st->regmap, AXI_DAC_REG_CNTRL_2,
+				 AXI_DAC_SYMB_8B,
+				 (size == 8 ? AXI_DAC_SYMB_8B : 0));
+	if (err)
+		return err;
+
+	st->data_size = size;
+
+	return 0;
+}
+
+static int axi_dac_buffer_enable(struct iio_backend *back, bool enable)
+{
+	struct axi_dac_state *st = iio_backend_get_priv(back);
+
+	/*
+	 * Setting this bit will trigger a stream transfer based on the
+	 * SDR/DDR configuration and sample register address.
+	 */
+	return regmap_update_bits(st->regmap, AXI_DAC_REG_CUSTOM_CTRL,
+				  AXI_DAC_STREAM_ENABLE,
+				  enable ? AXI_DAC_STREAM_ENABLE : 0);
+}
+
+static int axi_dac_data_transfer_addr(struct iio_backend *back, u32 address)
+{
+	struct axi_dac_state *st = iio_backend_get_priv(back);
+
+	/*
+	 * Sample register address, when the DAC is configured, or stream
+	 * start address when the FSM is in stream state.
+	 */
+	return regmap_update_bits(st->regmap, AXI_DAC_REG_CUSTOM_CTRL,
+				  AXI_DAC_ADDRESS,
+				  FIELD_PREP(AXI_DAC_ADDRESS, address));
+}
+
+static u32 axi_dac_read_bus_value(const void *buff, size_t len)
+{
+	u32 val = 0;
+	u8 *p = (u8 *)buff + len;
+
+	while (len--) {
+		val <<= 8;
+		val |= *--p;
+	}
+
+	return val;
+}
+
+static void axi_dac_write_bus_value(u32 val, void *buff, size_t len)
+{
+	u8 *p = (u8 *)buff;
+
+	while (len--) {
+		*p++ = val & 0xff;
+		val >>= 8;
+	}
+}
+
+static int axi_dac_bus_reg_write(struct iio_backend *back, const void *reg,
+				 size_t reg_len, const void *val,
+				 size_t val_len)
+{
+	struct axi_dac_state *st = iio_backend_get_priv(back);
+
+	if (st->bus_type == AXI_DAC_BUS_TYPE_QSPI) {
+		u32 breg = axi_dac_read_bus_value(reg, reg_len);
+		u32 bval = axi_dac_read_bus_value(val, val_len);
+		u32 data_wr;
+		int err;
+
+		data_wr = (st->data_size == 8) ?
+			   FIELD_PREP(AXI_DAC_DATA_WR_8, bval) :
+			   FIELD_PREP(AXI_DAC_DATA_WR_16, bval);
+
+		err = regmap_write(st->regmap, AXI_DAC_CNTRL_DATA_WR, data_wr);
+		if (err)
+			return err;
+
+		err = regmap_update_bits(st->regmap, AXI_DAC_REG_CUSTOM_CTRL,
+					 AXI_DAC_ADDRESS,
+					 FIELD_PREP(AXI_DAC_ADDRESS, breg));
+		if (err)
+			return err;
+
+		err = regmap_update_bits(st->regmap, AXI_DAC_REG_CUSTOM_CTRL,
+					 AXI_DAC_TRANSFER_DATA,
+					 AXI_DAC_TRANSFER_DATA);
+		if (err)
+			return err;
+
+		err = regmap_read_poll_timeout(st->regmap,
+					       AXI_DAC_REG_CUSTOM_CTRL, bval,
+					       bval & AXI_DAC_TRANSFER_DATA,
+					       10, 100000);
+		if (err == -ETIMEDOUT) {
+			return dev_err_probe(st->dev, err,
+					     "timeout on qspi write");
+		} else if (err) {
+			return dev_err_probe(st->dev, err,
+					     "xfer data register poll error");
+		}
+
+		return regmap_update_bits(st->regmap, AXI_DAC_REG_CUSTOM_CTRL,
+					  AXI_DAC_TRANSFER_DATA, 0);
+	}
+
+	return -EINVAL;
+}
+
+static int axi_dac_bus_reg_read(struct iio_backend *back, const void *reg,
+				size_t reg_len, void *val, size_t val_len)
+{
+	struct axi_dac_state *st = iio_backend_get_priv(back);
+	u32 buff[3];
+
+	if (st->bus_type == AXI_DAC_BUS_TYPE_QSPI) {
+		int err;
+		u32 breg = axi_dac_read_bus_value(reg, reg_len);
+		u32 bval;
+
+		buff[0] = AXI_DAC_RD_ADDR(breg);
+		buff[1] = 0;
+
+		err = axi_dac_bus_reg_write(back, (void *)&buff[0],
+					    sizeof(u32), &buff[1], sizeof(u32));
+		if (err)
+			return err;
+
+		err = regmap_read_poll_timeout(st->regmap, AXI_DAC_UI_STATUS,
+					       bval, bval != AXI_DAC_BUSY,
+					       10, 100);
+		if (err == -ETIMEDOUT) {
+			return dev_err_probe(st->dev, err,
+					     "timeout on qspi read");
+		} else if (err) {
+			return dev_err_probe(st->dev, err,
+					     "ui status register poll error");
+		}
+
+		err = regmap_read(st->regmap, AXI_DAC_CNTRL_DATA_RD, &bval);
+		if (err)
+			return err;
+
+		axi_dac_write_bus_value(bval, val, sizeof(u32));
+
+		return 0;
+	}
+
+	return -EINVAL;
+}
+
+int (*bus_reg_read)(struct iio_backend *back, const void *reg,
+		    size_t reg_len, void *val, size_t val_len);
+int (*bus_reg_write)(struct iio_backend *back, const void *reg,
+		     size_t reg_len, const void *val, size_t val_len);
+
 static const struct iio_backend_ops axi_dac_generic = {
 	.enable = axi_dac_enable,
 	.disable = axi_dac_disable,
@@ -517,6 +742,13 @@ static const struct iio_backend_ops axi_dac_generic = {
 	.ext_info_get = axi_dac_ext_info_get,
 	.data_source_set = axi_dac_data_source_set,
 	.set_sample_rate = axi_dac_set_sample_rate,
+	.ext_sync = axi_dac_ext_sync,
+	.ddr_enable = axi_dac_ddr_enable,
+	.buffer_enable = axi_dac_buffer_enable,
+	.data_transfer_addr = axi_dac_data_transfer_addr,
+	.data_size_set = axi_dac_data_size_set,
+	.bus_reg_read = axi_dac_bus_reg_read,
+	.bus_reg_write = axi_dac_bus_reg_write,
 };
 
 static const struct regmap_config axi_dac_regmap_config = {
@@ -552,11 +784,15 @@ static int axi_dac_probe(struct platform_device *pdev)
 		return PTR_ERR(base);
 
 	st->dev = &pdev->dev;
+	st->data_size = 8;
 	st->regmap = devm_regmap_init_mmio(&pdev->dev, base,
 					   &axi_dac_regmap_config);
 	if (IS_ERR(st->regmap))
 		return PTR_ERR(st->regmap);
 
+	ret = device_property_read_u32(st->dev, "bus-type", &st->bus_type);
+	if (ret)
+		return ret;
 	/*
 	 * Force disable the core. Up to the frontend to enable us. And we can
 	 * still read/write registers...
