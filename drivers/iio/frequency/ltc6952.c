@@ -675,6 +675,10 @@ static int ltc6952_setup(struct iio_dev *indio_dev)
 		r *= 2;
 	}
 
+	dev_dbg(&st->spi->dev,
+		"VCO: %luMHz, PFD: %luMHz, REF: %luMHz, N: %lu, R: %lu\n",
+		vco_freq, pfd_freq, ref_freq, n, r);
+
 	/* Program the dividers */
 	ret |= ltc6952_write_mask(indio_dev, LTC6952_REG(0x06),
 				  LTC6952_RD_HIGH_MSK,
@@ -683,6 +687,9 @@ static int ltc6952_setup(struct iio_dev *indio_dev)
 	ret |= ltc6952_write(indio_dev, LTC6952_REG(0x08),
 			     LTC6952_ND_HIGH(n >> 8));
 	ret |= ltc6952_write(indio_dev, LTC6952_REG(0x09), LTC6952_ND_LOW(n));
+
+	ret |= ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
+				 LTC6952_CPMID_MSK, LTC6952_CPMID(0));
 	if (ret < 0)
 		goto err_unlock;
 
