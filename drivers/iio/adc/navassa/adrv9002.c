@@ -4,6 +4,7 @@
  *
  * Copyright 2019 Analog Devices Inc.
  */
+#include "linux/math.h"
 #include <linux/cleanup.h>
 #include <linux/clk.h>
 #include <linux/clkdev.h>
@@ -100,6 +101,8 @@
 #define ADRV9002_NO_EXT_LO		0xff
 #define ADRV9002_EXT_LO_FREQ_MIN	60000000
 #define ADRV9002_EXT_LO_FREQ_MAX	12000000000ULL
+#define ADRV9002_DEV_CLKOUT_MIN		(10 * MEGA)
+#define ADRV9002_DEV_CLKOUT_MAX		(80 * MEGA)
 
 /* Frequency hopping */
 #define ADRV9002_FH_TABLE_COL_SZ	7
@@ -2993,16 +2996,33 @@ static int adrv9002_tx_validate_profile(struct adrv9002_rf_phy *phy, unsigned in
 	return 0;
 }
 
-static int adrv9002_validate_device_clk(struct adrv9002_rf_phy *phy,
-					struct adi_adrv9001_ClockSettings *clk_ctrl)
+static int adrv9002_validate_device_clkout(const struct adrv9002_rf_phy *phy, u32 devclk)
+{
+	unsigned long out_rate;
+
+	/* validated internally by the API */
+	if (phy->dev_clkout_div == ADI_ADRV9001_DEVICECLOCKDIVISOR_BYPASS ||
+	    phy->dev_clkout_div == ADI_ADRV9001_DEVICECLOCKDIVISOR_DISABLED)
+		return 0;
+
+	out_rate = devclk >> phy->dev_clkout_div;
+	if (out_rate < ADRV9002_DEV_CLKOUT_MIN || out_rate > ADRV9002_DEV_CLKOUT_MAX) {
+		dev_err(&phy->spi->dev, "Invalid device output clk(%lu) not in [%lu %lu]\n",
+			out_rate, ADRV9002_DEV_CLKOUT_MIN, ADRV9002_DEV_CLKOUT_MAX);
+		return -EINVAL;
+	}
+}
+
+static int adrv9002_validate_device_clk(const struct adrv9002_rf_phy *phy,
+					const struct adi_adrv9001_ClockSettings *clk_ctrl)
 {
 	unsigned long rate;
 	long new_rate;
+	int ret;
 
 	rate = clk_get_rate(phy->dev_clk);
 	if (rate == clk_ctrl->deviceClock_kHz * KILO)
 		return 0;
-
 	/*
 	 * If they don't match let's try to set the desired ref clk. Furthermore, let's
 	 * be strict about not rounding it. If someones specifies some clk in the
@@ -3018,7 +3038,11 @@ static int adrv9002_validate_device_clk(struct adrv9002_rf_phy *phy,
 		return new_rate < 0 ? new_rate : -EINVAL;
 	}
 
-	return clk_set_rate(phy->dev_clk, new_rate);
+	ret = clk_set_rate(phy->dev_clk, new_rate);
+	if (ret)
+		return ret;
+
+	return adrv9002_validate_device_clkout(phy, new_rate);
 }
 
 static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
@@ -3378,8 +3402,7 @@ static int adrv9002_setup(struct adrv9002_rf_phy *phy)
 
 	adrv9002_log_enable(&phy->adrv9001->common);
 
-	ret = api_call(phy, adi_adrv9001_InitAnalog, phy->curr_profile,
-		       ADI_ADRV9001_DEVICECLOCKDIVISOR_2);
+	ret = api_call(phy, adi_adrv9001_InitAnalog, phy->curr_profile, phy->dev_clkout_div);
 	if (ret)
 		return ret;
 
@@ -4600,6 +4623,16 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	}
 
 	ret = adrv9002_profile_load(phy);
+	if (ret)
+		return ret;
+
+	/*
+	 * Validate the output devclk for the default profile. Done once in here so that we don't
+	 * have to do it everytime in adrv9002_validate_device_clk() even if the device clock did
+	 * not changed between profiles.
+	 */
+	ret = adrv9002_validate_device_clkout(phy,
+					      phy->profile.clocks.deviceClock_kHz * KILO);
 	if (ret)
 		return ret;
 
