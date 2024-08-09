@@ -426,7 +426,7 @@ static ssize_t ad7944_sampling_frequency_store(struct device *dev,
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct ad7944_adc *adc = iio_priv(indio_dev);
-	u64 period_ns;
+	struct pwm_state sample_state;
 	u32 val;
 	int ret;
 
@@ -440,9 +440,12 @@ static ssize_t ad7944_sampling_frequency_store(struct device *dev,
 	if (val == 0)
 		return -EINVAL;
 
-	period_ns = div_u64(NSEC_PER_SEC, val);
+	pwm_init_state(adc->pwm, &sample_state);
+	sample_state.period = div_u64(NSEC_PER_SEC, val);
+	sample_state.duty_cycle = AD7944_PWM_TRIGGER_DUTY_CYCLE_NS;
+	sample_state.enabled = true;
 
-	ret = pwm_config(adc->pwm, AD7944_PWM_TRIGGER_DUTY_CYCLE_NS, period_ns);
+	ret = pwm_apply_state(adc->pwm, &sample_state);
 	if (ret)
 		return ret;
 
@@ -735,7 +738,6 @@ static int ad7944_probe(struct spi_device *spi)
 			.period = NSEC_PER_SEC / AD7944_DEFAULT_SAMPLE_FREQ_HZ,
 			.duty_cycle = AD7944_PWM_TRIGGER_DUTY_CYCLE_NS,
 			.enabled = true,
-			.time_unit = PWM_UNIT_NSEC,
 		};
 
 		adc->pwm = devm_pwm_get(dev, NULL);
