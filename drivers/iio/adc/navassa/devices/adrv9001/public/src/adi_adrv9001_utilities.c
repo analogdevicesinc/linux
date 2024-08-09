@@ -51,7 +51,7 @@
 #define ADI_ADRV9001_RX_GAIN_TABLE_SIZE_ROWS 256
 #define ADI_ADRV9001_TX_ATTEN_TABLE_SIZE_ROWS 1024
 
-int32_t adi_adrv9001_Utilities_ArmImage_Load(adi_adrv9001_Device_t *device, const char *armImagePath, adi_adrv9001_ArmSingleSpiWriteMode_e spiWriteMode) 
+int32_t adi_adrv9001_Utilities_ArmImage_Load(adi_adrv9001_Device_t *device, const char *armImagePath, adi_adrv9001_ArmSingleSpiWriteMode_e spiWriteMode)
 {
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
     uint32_t i = 0;
@@ -98,7 +98,7 @@ int32_t adi_adrv9001_Utilities_ArmImage_Load(adi_adrv9001_Device_t *device, cons
     return recoveryAction;
 }
 
-int32_t adi_adrv9001_Utilities_StreamImage_Load(adi_adrv9001_Device_t *device, const char *streamImagePath, adi_adrv9001_ArmSingleSpiWriteMode_e spiWriteMode) 
+int32_t adi_adrv9001_Utilities_StreamImage_Load(adi_adrv9001_Device_t *device, const char *streamImagePath, adi_adrv9001_ArmSingleSpiWriteMode_e spiWriteMode)
 {
 
     int32_t recoveryAction = ADI_COMMON_ACT_NO_ACTION;
@@ -175,7 +175,7 @@ int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, a
     ADI_EXPECT(adrv9001_NvsRegmapRxb_AgcMinimumGainIndex_Get, device, instance, &minIndex);
 
     /*Loop until the gain table end is reached or no. of lines scanned exceeds maximum*/
-    while (lineCount <  ADI_ADRV9001_RX_GAIN_TABLE_SIZE_ROWS) 
+    while (lineCount <  ADI_ADRV9001_RX_GAIN_TABLE_SIZE_ROWS)
     {
         returnTableEntry = adi_hal_RxGainTableEntryGet(device->common.devHalInfo,
                                                        rxGainTablePath,
@@ -226,7 +226,7 @@ int32_t adi_adrv9001_Utilities_RxGainTable_Load(adi_adrv9001_Device_t *device, a
 
     maxGainIndex = prevGainIndex;
     ADI_EXPECT(adi_adrv9001_Rx_GainTable_Write, device, port, channel, maxGainIndex, &rxGainTableRowBuffer[0], lineCount, lnaConfig, gainTableType);
-    
+
     ADI_API_RETURN(device);
 }
 
@@ -247,7 +247,7 @@ int32_t adi_adrv9001_Utilities_TxAttenTable_Load(adi_adrv9001_Device_t *device, 
     ADI_ENTRY_PTR_EXPECT(device, txAttenTablePath);
 
     /*Loop until the atten table end is reached or no. of lines scanned exceeds maximum*/
-    while (lineCount < ADRV9001_TX_ATTEN_TABLE_MAX) 
+    while (lineCount < ADRV9001_TX_ATTEN_TABLE_MAX)
     {
         returnTableEntry = adi_hal_TxAttenTableEntryGet(device->common.devHalInfo,
                                                         txAttenTablePath,
@@ -296,26 +296,26 @@ int32_t adi_adrv9001_Utilities_TxAttenTable_Load(adi_adrv9001_Device_t *device, 
     tableSize = attenIndex - minAttenIndex + 1;
 
     ADI_EXPECT(adi_adrv9001_Tx_AttenuationTable_Write, device, txChannelMask, minAttenIndex, &txAttenTableRowBuffer[0], tableSize);
-    
+
     ADI_API_RETURN(device);
 }
 
 int32_t adi_adrv9001_Utilities_WaitMs(adi_adrv9001_Device_t *adrv9001, uint32_t waitInterval_ms)
 {
 	int32_t halError = 0;
-	
+
 	/* Check device pointer is not null */
 	ADI_ENTRY_EXPECT(adrv9001);
-	
+
 	halError = adi_common_hal_Wait_us(&adrv9001->common, (1000*waitInterval_ms));
-	
+
 	ADI_ERROR_REPORT(&adrv9001->common,
 		ADI_COMMON_ERRSRC_ADI_HAL,
 		halError,
 		ADI_COMMON_ACT_ERR_CHECK_TIMER,
 		device,
 		"Timer not working");
-	
+
 	return halError;
 }
 
@@ -365,26 +365,26 @@ int32_t adi_adrv9001_Utilities_SystemDebugPreCalibrate(adi_adrv9001_Device_t *ad
 	ADI_NULL_PTR_RETURN(adrv9001, init);
 	ADI_NULL_PTR_RETURN(adrv9001, armImagePath);
 	ADI_NULL_PTR_RETURN(adrv9001, streamImagePath);
-	
+
 	printf("*** ADRV9001 Pre-Calibrate System Debugging Started ***\r\n");
-	
+
 	printf("--> . Hardware Reset\r\n");
 	ADI_MSG_EXPECT("Failed to reset device and set SPI config.", adi_adrv9001_HwReset, adrv9001);
 	printf("      OK\r\n");
-	
+
 	printf("--> . API Version\r\n");
 	ADI_MSG_EXPECT("Error fetching API Version.", adi_adrv9001_ApiVersion_Get, adrv9001, &apiVersion_0);
 	printf("      OK - API Version = %u.%u.%u\r\n", apiVersion_0.major, apiVersion_0.minor, apiVersion_0.patch);
-	
+
 	printf("--> . Configure SPI\r\n");
 	ADI_MSG_EXPECT("Problem Closing HW.", adi_adrv9001_HwClose, adrv9001);
 	ADI_MSG_EXPECT("Problem Opening HW.", adi_adrv9001_HwOpen, adrv9001, &spiSettings);
 	printf("      OK\r\n");
-	
+
 	printf("--> . Check SPI\r\n");
 	ADI_MSG_EXPECT("SPI Verify failed.", adi_adrv9001_spi_Verify, adrv9001);
 	printf("      OK\r\n");
-	
+
 	printf("--> . Check Power Supplies\r\n");
 	status = adi_bf_hal_Register_Read(adrv9001, 0x01ac, &gp1LdoResistorValue);
 	ADI_ERROR_RETURN(status);
@@ -399,10 +399,10 @@ int32_t adi_adrv9001_Utilities_SystemDebugPreCalibrate(adi_adrv9001_Device_t *ad
 		printf("      NOK - Check power supply is connected correctly\r\n");
 		ADI_ERROR_RETURN(ADI_COMMON_ERR_API_FAIL);
 	}
-	
+
 	ADI_MSG_EXPECT("Problem Init Analog.", adi_adrv9001_InitAnalog, adrv9001, init, ADI_ADRV9001_DEVICECLOCKDIVISOR_2);
 	ADI_MSG_EXPECT("Problem AhbSpiBridge Enable.", adi_adrv9001_arm_AhbSpiBridge_Enable, adrv9001);
-	
+
 	printf("--> . Load Stream Processor Image\r\n");
 	ADI_MSG_EXPECT("Stream Processor Image Load Error. Check Dev_Clk, SPI and Power Supply.", adi_adrv9001_Utilities_StreamImage_Load, adrv9001, streamImagePath, spiWriteMode);
 	printf("      OK\r\n");
@@ -418,7 +418,7 @@ int32_t adi_adrv9001_Utilities_SystemDebugPreCalibrate(adi_adrv9001_Device_t *ad
 	ADI_MSG_EXPECT("ARM Start Error.", adi_adrv9001_arm_Start, adrv9001);
 	adi_adrv9001_arm_System_Program(adrv9001, (uint8_t)(init->tx.txInitChannelMask | (init->rx.rxInitChannelMask & 0x33)));
 	printf("      OK\r\n");
-	
+
 	printf("--> . Verify ARM Image Load\r\n");
 	ADI_MSG_EXPECT("ARM Start Status Check Error.", adi_adrv9001_arm_StartStatus_Check, adrv9001, armStatusCheckTimeoutUs);
 	ADI_MSG_EXPECT("ARM Check Firmware Version.", adi_adrv9001_arm_Version, adrv9001, &armVersion);
@@ -459,16 +459,18 @@ int32_t adi_adrv9001_Utilities_SystemDebugPostCalibrate(adi_adrv9001_Device_t *a
 {
 	bool pllLO1LockStatus = 0;
 	bool pllLO2LockStatus = 0;
-	
+
 	/* Check device pointer is not null */
 	ADI_ENTRY_EXPECT(adrv9001);
-	
+
 	printf("*** ADRV9001 Post-Calibrate System Debugging Started ***\r\n");
-	
+
 	printf("--> . Check RF PLLs \r\n");
-	ADI_MSG_EXPECT("RF Pll Error. Can't prime channel. The device should be calibrated", adi_adrv9001_Radio_Channel_ToPrimed, adrv9001, ADI_RX, ADI_CHANNEL_1);
-	ADI_MSG_EXPECT("RF Pll Error. Can't prime channel. The device should be calibrated", adi_adrv9001_Radio_Channel_ToPrimed, adrv9001, ADI_TX, ADI_CHANNEL_1);
-	
+	ADI_MSG_EXPECT("RF Pll Error. Can't prime channel. The device should be calibrated", adi_adrv9001_Radio_Channel_ToState, adrv9001, ADI_RX, ADI_CHANNEL_1,
+		       ADI_ADRV9001_CHANNEL_PRIMED);
+	ADI_MSG_EXPECT("RF Pll Error. Can't prime channel. The device should be calibrated", adi_adrv9001_Radio_Channel_ToState, adrv9001, ADI_TX, ADI_CHANNEL_1,
+		       ADI_ADRV9001_CHANNEL_PRIMED);
+
 	ADI_MSG_EXPECT("Error fetching PLL LO1 lock status", adi_adrv9001_Radio_PllStatus_Get, adrv9001, ADI_ADRV9001_PLL_LO1, &pllLO1LockStatus);
 	ADI_MSG_EXPECT("Error fetching PLL LO2 lock status", adi_adrv9001_Radio_PllStatus_Get, adrv9001, ADI_ADRV9001_PLL_LO2, &pllLO2LockStatus);
 
@@ -481,9 +483,9 @@ int32_t adi_adrv9001_Utilities_SystemDebugPostCalibrate(adi_adrv9001_Device_t *a
 		printf("      NOK - RF Plls can't lock\r\n");
 		ADI_ERROR_RETURN(ADI_COMMON_ERR_API_FAIL);
 	}
-	
+
 	printf("*** ADRV9001 Post-Calibrate System Debugging Completed ***\r\n");
-	
+
 	ADI_API_RETURN(adrv9001);
 }
 
@@ -498,17 +500,17 @@ int32_t adi_adrv9001_Utilities_InitCals_WarmBoot_Coefficients_VectTblChunkRead(a
 {
 	uint32_t address = 0x20020004;
 	uint32_t vecTbl[4] = { 0 };
-	
+
 	/* Check device pointer is not null */
 	ADI_ENTRY_EXPECT(adrv9001);
-	
+
 	ADI_EXPECT(adi_adrv9001_arm_Memory_Read32, adrv9001, (address + (16*calNo)), vecTbl, 16, 0);
-	
+
 	*addr = vecTbl[0];
 	*size =  vecTbl[1];
 	*initMask = vecTbl[2];
 	*profMask = vecTbl[3];
-	
+
 	ADI_API_RETURN(adrv9001);
 }
 
@@ -523,7 +525,7 @@ int32_t adi_adrv9001_Utilities_InitCals_WarmBoot_Coefficients_MaxArrayChunk_Get(
 {
 	/* Check device pointer is not null */
 	ADI_ENTRY_EXPECT(adrv9001);
-	
+
 	adi_common_ChannelNumber_e channel;
 	for (channel = ADI_CHANNEL_1; channel <= ADI_CHANNEL_2; channel++)
 	{
@@ -560,7 +562,7 @@ int32_t adi_adrv9001_Utilities_InitCals_WarmBoot_Coefficients_MaxArrayChunk_Set(
 {
 	/* Check device pointer is not null */
 	ADI_ENTRY_EXPECT(adrv9001);
-	
+
 	adi_common_ChannelNumber_e channel;
 	for (channel = ADI_CHANNEL_1; channel <= ADI_CHANNEL_2; channel++)
 	{
