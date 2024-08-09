@@ -39,24 +39,28 @@
 				reg = <0>;
 				adi,port = <0>;
 				orx-gpios = <&gpio 110 GPIO_ACTIVE_HIGH>; /* dgpio0 */
+				enable-gpios = <&gpio 126 GPIO_ACTIVE_HIGH>;
 			};
 
 			rx@1 {
 				reg = <1>;
 				adi,port = <0>;
 				orx-gpios = <&gpio 111 GPIO_ACTIVE_HIGH>; /* dgpio1 */
+				enable-gpios = <&gpio 127 GPIO_ACTIVE_HIGH>;
 			};
 
 			tx@0 {
 				reg = <0>;
 				adi,port = <1>;
 				adi,dpd;
+				enable-gpios = <&gpio 128 GPIO_ACTIVE_HIGH>;
 			};
 
 			tx@1 {
 				reg = <1>;
 				adi,port = <1>;
 				adi,dpd;
+				enable-gpios = <&gpio 129 GPIO_ACTIVE_HIGH>;
 			};
 
 		};
