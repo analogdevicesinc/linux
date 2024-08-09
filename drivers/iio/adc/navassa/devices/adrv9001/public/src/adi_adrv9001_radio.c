@@ -832,9 +832,9 @@ int32_t adi_adrv9001_Radio_Channels_PowerUp(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001);
 }
 
-int32_t adi_adrv9001_Radio_Channel_ToCalibrated(adi_adrv9001_Device_t *adrv9001,
-                                                adi_common_Port_e port,
-                                                adi_common_ChannelNumber_e channel)
+static int32_t adi_adrv9001_Radio_Channel_ToCalibrated(adi_adrv9001_Device_t *adrv9001,
+						       adi_common_Port_e port,
+						       adi_common_ChannelNumber_e channel)
 {
     uint8_t port_index = 0;
     uint8_t chan_index = 0;
@@ -870,9 +870,9 @@ int32_t adi_adrv9001_Radio_Channel_ToCalibrated(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001)
 }
 
-int32_t adi_adrv9001_Radio_Channel_ToPrimed(adi_adrv9001_Device_t *adrv9001,
-                                            adi_common_Port_e port,
-                                            adi_common_ChannelNumber_e channel)
+static int32_t adi_adrv9001_Radio_Channel_ToPrimed(adi_adrv9001_Device_t *adrv9001,
+						   adi_common_Port_e port,
+						   adi_common_ChannelNumber_e channel)
 {
     uint8_t port_index = 0;
     uint8_t chan_index = 0;
@@ -909,9 +909,9 @@ int32_t adi_adrv9001_Radio_Channel_ToPrimed(adi_adrv9001_Device_t *adrv9001,
     ADI_API_RETURN(adrv9001)
 }
 
-int32_t adi_adrv9001_Radio_Channel_ToRfEnabled(adi_adrv9001_Device_t *adrv9001,
-                                               adi_common_Port_e port,
-                                               adi_common_ChannelNumber_e channel)
+static int32_t adi_adrv9001_Radio_Channel_ToRfEnabled(adi_adrv9001_Device_t *adrv9001,
+						      adi_common_Port_e port,
+						      adi_common_ChannelNumber_e channel)
 {
     uint8_t port_index = 0;
     uint8_t chan_index = 0;
