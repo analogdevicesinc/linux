@@ -34,7 +34,6 @@
 #define PWM_MODE_MASK		GENMASK(1, 0)
 
 struct rp1_pwm {
-	struct pwm_chip chip;
 	struct device *dev;
 	void __iomem *base;
 	struct clk *clk;
@@ -42,7 +41,7 @@ struct rp1_pwm {
 
 static inline struct rp1_pwm *to_rp1_pwm(struct pwm_chip *chip)
 {
-	return container_of(chip, struct rp1_pwm, chip);
+	return pwmchip_get_drvdata(chip);
 }
 
 static void rp1_pwm_apply_config(struct pwm_chip *chip, struct pwm_device *pwm)
@@ -126,13 +125,15 @@ static const struct pwm_ops rp1_pwm_ops = {
 
 static int rp1_pwm_probe(struct platform_device *pdev)
 {
+	struct pwm_chip *chip;
 	struct rp1_pwm *pc;
 	struct resource *res;
 	int ret;
 
-	pc = devm_kzalloc(&pdev->dev, sizeof(*pc), GFP_KERNEL);
-	if (!pc)
-		return -ENOMEM;
+	chip = devm_pwmchip_alloc(&pdev->dev, 4, sizeof(*pc));
+	if (IS_ERR(chip))
+		return PTR_ERR(chip);
+	pc = to_rp1_pwm(chip);
 
 	pc->dev = &pdev->dev;
 
@@ -150,15 +151,12 @@ static int rp1_pwm_probe(struct platform_device *pdev)
 	if (ret)
 		return ret;
 
-	pc->chip.dev = &pdev->dev;
-	pc->chip.ops = &rp1_pwm_ops;
-	pc->chip.npwm = 4;
-	pc->chip.of_xlate = of_pwm_xlate_with_flags;
-	pc->chip.of_pwm_n_cells = 3;
+	chip->ops = &rp1_pwm_ops;
+	chip->atomic = true;
 
 	platform_set_drvdata(pdev, pc);
 
-	ret = pwmchip_add(&pc->chip);
+	ret = devm_pwmchip_add(&pdev->dev, chip);
 	if (ret < 0)
 		goto add_fail;
 
@@ -169,15 +167,11 @@ add_fail:
 	return ret;
 }
 
-static int rp1_pwm_remove(struct platform_device *pdev)
+static void rp1_pwm_remove(struct platform_device *pdev)
 {
 	struct rp1_pwm *pc = platform_get_drvdata(pdev);
 
 	clk_disable_unprepare(pc->clk);
-
-	pwmchip_remove(&pc->chip);
-
-	return 0;
 }
 
 static const struct of_device_id rp1_pwm_of_match[] = {
