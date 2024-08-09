@@ -612,7 +612,6 @@ int32_t adi_adrv9001_Radio_Channels_EnableRf(adi_adrv9001_Device_t *adrv9001,
     uint8_t i = 0;
     uint8_t port_index = 0;
     uint8_t chan_index = 0;
-    adi_adrv9001_ChannelEnableMode_e enableMode = ADI_ADRV9001_SPI_MODE;
     adi_adrv9001_RadioState_t currentState = { 0 };
 
     ADI_PERFORM_VALIDATION(adi_adrv9001_Channel_State_GenericValidate, adrv9001, ports, channels, length);
@@ -622,18 +621,6 @@ int32_t adi_adrv9001_Radio_Channels_EnableRf(adi_adrv9001_Device_t *adrv9001,
     ADI_EXPECT(adi_adrv9001_Radio_State_Get, adrv9001, &currentState);
     for (i = 0; i < length; i++)
     {
-        ADI_EXPECT(adi_adrv9001_Radio_ChannelEnableMode_Get, adrv9001, ports[i], channels[i], &enableMode);
-        if (ADI_ADRV9001_SPI_MODE != enableMode)
-        {
-            ADI_ERROR_REPORT(&adrv9001->common,
-                             ADI_COMMON_ERRSRC_API,
-                             ADI_COMMON_ERR_API_FAIL,
-                             ADI_COMMON_ACT_ERR_CHECK_PARAM,
-                             enableMode,
-                             "Error while attempting to enable/disable RF for channel. Channel enable mode must be ADI_ADRV9001_SPI_MODE");
-            ADI_API_RETURN(adrv9001);
-        }
-
         adi_common_port_to_index(ports[i], &port_index);
         adi_common_channel_to_index(channels[i], &chan_index);
         if (currentState.channelStates[port_index][chan_index] != ADI_ADRV9001_CHANNEL_PRIMED &&
@@ -964,7 +951,21 @@ int32_t adi_adrv9001_Radio_Channel_ToState(adi_adrv9001_Device_t *adrv9001,
                                            adi_common_ChannelNumber_e channel,
                                            adi_adrv9001_ChannelState_e state)
 {
+    adi_adrv9001_ChannelEnableMode_e enableMode;
+
     ADI_PERFORM_VALIDATION(adi_adrv9001_Radio_Channel_ToState_Validate, adrv9001, port, channel, state);
+
+    ADI_EXPECT(adi_adrv9001_Radio_ChannelEnableMode_Get, adrv9001, port, channel, &enableMode);
+    if (ADI_ADRV9001_SPI_MODE != enableMode)
+    {
+            ADI_ERROR_REPORT(&adrv9001->common,
+                             ADI_COMMON_ERRSRC_API,
+                             ADI_COMMON_ERR_API_FAIL,
+                             ADI_COMMON_ACT_ERR_CHECK_PARAM,
+                             enableMode,
+                             "Error while attempting to change RF State for channel. Channel enable mode must be ADI_ADRV9001_SPI_MODE");
+            ADI_API_RETURN(adrv9001);
+    }
 
     switch (state)
     {
