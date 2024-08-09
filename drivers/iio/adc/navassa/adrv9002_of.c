@@ -1295,6 +1295,13 @@ int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
 	struct device_node *parent = phy->spi->dev.of_node;
 	int ret;
 
+	ret = ADRV9002_OF_U32_GET_VALIDATE(&phy->spi->dev, parent, "adi,dev-clkout-div",
+					   ADI_ADRV9001_DEVICECLOCKDIVISOR_2, 0,
+					   ADI_ADRV9001_DEVICECLOCKDIVISOR_DISABLED,
+					   phy->dev_clkout_div, false);
+	if (ret)
+		return ret;
+
 	ret = adrv9002_parse_channels_dt(phy, parent);
 	if (ret)
 		return ret;

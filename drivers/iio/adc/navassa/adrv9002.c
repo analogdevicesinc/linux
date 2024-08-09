@@ -100,6 +100,8 @@
 #define ADRV9002_NO_EXT_LO		0xff
 #define ADRV9002_EXT_LO_FREQ_MIN	60000000
 #define ADRV9002_EXT_LO_FREQ_MAX	12000000000ULL
+#define ADRV9002_DEV_CLKOUT_MIN		(10 * MEGA)
+#define ADRV9002_DEV_CLKOUT_MAX		(80 * MEGA)
 
 /* Frequency hopping */
 #define ADRV9002_FH_TABLE_COL_SZ	7
@@ -2995,11 +2997,49 @@ static int adrv9002_tx_validate_profile(struct adrv9002_rf_phy *phy, unsigned in
 	return 0;
 }
 
+static void adrv9002_validate_device_clkout(struct adrv9002_rf_phy *phy, u32 devclk)
+{
+	unsigned long out_rate;
+
+	/* validated internally by the API for disabled case */
+	if (phy->dev_clkout_div == ADI_ADRV9001_DEVICECLOCKDIVISOR_BYPASS ||
+	    phy->dev_clkout_div == ADI_ADRV9001_DEVICECLOCKDIVISOR_DISABLED)
+		return;
+
+	/*
+	 * Ideally, this would be implemented with registering a clock provider for
+	 * dev clkout. But given that there's no API to easily change the divider or
+	 * to even get it and that ADI_ADRV9001_DEVICECLOCKDIVISOR_DISABLED pretty
+	 * much makes the internal API to decide the divider to use, it would be
+	 * cumbersome and far from ideal to implement this through CCF - we probably
+	 * would have to not allow the DISABLED option and only have a fixed clock
+	 * after profile load. Given all the limitations go the easy way. If there's
+	 * enough motivation to implement this through CCF later on, we can propose
+	 * some new internal APIs.
+	 */
+	out_rate = devclk >> phy->dev_clkout_div;
+	if (out_rate < ADRV9002_DEV_CLKOUT_MIN || out_rate > ADRV9002_DEV_CLKOUT_MAX) {
+		dev_dbg(&phy->spi->dev, "Invalid device output clk(%lu) not in [%lu %lu]\n",
+			out_rate, ADRV9002_DEV_CLKOUT_MIN, ADRV9002_DEV_CLKOUT_MAX);
+		/*
+		 * If we can't get a valid rate with the new devclk + divider, let's defer
+		 * to the internal API to try and get a valid divider that puts us in the
+		 * supported range. Not ideal if someone wants an exact output clocks but
+		 * better than failing probe. A runtime parameter for a divider does not
+		 * make sense either. Therefore, a workaround for those wanting to dynamically
+		 * change the output clock (in an exact way) is to overwrite phy->dev_clkout_div
+		 * in debugfs.
+		 */
+		phy->dev_clkout_div = ADI_ADRV9001_DEVICECLOCKDIVISOR_DISABLED;
+	}
+}
+
 static int adrv9002_validate_device_clk(struct adrv9002_rf_phy *phy,
 					const struct adi_adrv9001_ClockSettings *clk_ctrl)
 {
 	unsigned long rate;
 	long new_rate;
+	int ret;
 
 	rate = clk_get_rate(phy->dev_clk);
 	if (rate == clk_ctrl->deviceClock_kHz * KILO)
@@ -3020,7 +3060,13 @@ static int adrv9002_validate_device_clk(struct adrv9002_rf_phy *phy,
 		return new_rate < 0 ? new_rate : -EINVAL;
 	}
 
-	return clk_set_rate(phy->dev_clk, new_rate);
+	ret = clk_set_rate(phy->dev_clk, new_rate);
+	if (ret)
+		return ret;
+
+	adrv9002_validate_device_clkout(phy, new_rate);
+
+	return 0;
 }
 
 static int adrv9002_validate_profile(struct adrv9002_rf_phy *phy)
@@ -3380,8 +3426,7 @@ static int adrv9002_setup(struct adrv9002_rf_phy *phy)
 
 	adrv9002_log_enable(&phy->adrv9001->common);
 
-	ret = api_call(phy, adi_adrv9001_InitAnalog, phy->curr_profile,
-		       ADI_ADRV9001_DEVICECLOCKDIVISOR_2);
+	ret = api_call(phy, adi_adrv9001_InitAnalog, phy->curr_profile, phy->dev_clkout_div);
 	if (ret)
 		return ret;
 
@@ -4604,6 +4649,13 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 	ret = adrv9002_profile_load(phy);
 	if (ret)
 		return ret;
+
+	/*
+	 * Validate the output devclk for the default profile. Done once in here so that we don't
+	 * have to do it everytime in adrv9002_validate_device_clk() even if the device clock did
+	 * not changed between profiles.
+	 */
+	adrv9002_validate_device_clkout(phy, phy->profile.clocks.deviceClock_kHz * KILO);
 
 	ret = adrv9002_init_cals_coeffs_name_get(phy);
 	if (ret < 0)

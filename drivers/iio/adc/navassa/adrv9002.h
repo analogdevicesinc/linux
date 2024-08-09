@@ -288,6 +288,7 @@ struct adrv9002_rf_phy {
 	struct adi_adrv9001_InitCals	init_cals;
 	bool				run_cals;
 	u32				n_clks;
+	u32				dev_clkout_div;
 	int				ngpios;
 	u8				rx2tx2;
 	/* ssi type of the axi cores - cannot really change at runtime */
