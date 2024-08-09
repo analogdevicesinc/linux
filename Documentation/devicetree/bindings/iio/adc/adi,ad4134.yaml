@@ -18,8 +18,12 @@ description: |
 
 properties:
   compatible:
-    enum:
-      - adi,ad4134
+    oneOf:
+      - const: adi,ad4134
+      - items:
+          - enum:
+              - adi,ad7134
+          - const: adi,ad4134
 
   reg:
     maxItems: 1
@@ -28,6 +32,12 @@ properties:
     maximum: 1000000
 
   reset-gpios:
+    maxItems: 1
+
+  cs-gpios:
+    description:
+      Used to synchronize devices when two or more ADCs are used for
+      synchronized data sampling.
     maxItems: 1
 
   clocks:
@@ -55,6 +65,15 @@ properties:
   avdd1v8-supply: true
   iovdd-supply: true
   refin-supply: true
+
+  adi,adc-frame:
+    $ref: /schemas/types.yaml#/definitions/string
+    enum: [ 16-bit, 16-bit+CRC, 24-bit, 24-bit+CRC ]
+    default: 24-bit
+    description:
+      Describes how the ADC data packet should be configured. The data packet
+      size is 16-bit when "16-bit" is selected, 24-bit when "16-bit+CRC" or
+      "24-bit" are selected, and 32-bit when "24-bit+CRC" is set.
 
   adi,spi-engine:
     $ref: /schemas/types.yaml#/definitions/phandle
@@ -104,6 +123,7 @@ examples:
         iovdd-supply = <&iovdd>;
         refin-supply = <&refin>;
 
+        adi,adc-frame = "24-bit";
         adi,spi-engine = <&ad4134_spi_engine>;
       };
     };
