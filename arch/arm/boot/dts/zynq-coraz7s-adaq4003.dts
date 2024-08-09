@@ -56,6 +56,8 @@
 			pwms = <&adc_trigger 0 0>;
 			pwm-names = "cnv";
 			vref-supply = <&vref>;
+			adi,high-z-input;
+			adi,gain-milli = /bits/ 16 <454>;
 
 			#address-cells = <1>;
 			#size-cells = <0>;

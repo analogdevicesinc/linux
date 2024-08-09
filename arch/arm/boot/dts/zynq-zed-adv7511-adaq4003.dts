@@ -1,11 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices AD4020
+ * Analog Devices ADAQ4003
  * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad400x
  * https://wiki.analog.com/resources/eval/user-guides/ad400x
  *
  * hdl_project: <pulsar_adc/zed>
- * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/pulsar_adc
  * board_revision: <>
  *
  * Copyright (C) 2016-2024 Analog Devices Inc.
@@ -93,8 +92,8 @@
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
 
-		ad4020: adc@0 {
-			compatible = "adi,ad4020";
+		adaq4003: adc@0 {
+			compatible = "adi,adaq4003";
 			reg = <0>;
 			spi-max-frequency = <80000000>;
 			vdd-supply = <&adc_vdd>;
@@ -107,6 +106,7 @@
 			pwms = <&axi_pwm_gen 0 0>;
 			pwm-names = "cnv";
 			adi,high-z-input;
+			adi,gain-milli = /bits/ 16 <454>;
 		};
 	};
 };
