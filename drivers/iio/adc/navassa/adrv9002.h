@@ -159,6 +159,7 @@ struct adrv9002_chan {
 	struct clk *clk;
 	struct gpio_desc *mux_ctl;
 	struct gpio_desc *mux_ctl_2;
+	struct gpio_desc *ensm;
 	struct adrv9002_ext_lo *ext_lo;
 	u64 carrier;
 	/*

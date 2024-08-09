@@ -720,6 +720,7 @@ static int adrv9002_parse_tx_dt(struct adrv9002_rf_phy *phy,
 {
 	const char *mux_label_2 = channel ? "tx2-mux-ctl2" : "tx1-mux-ctl2";
 	const char *mux_label = channel ? "tx2-mux-ctl" : "tx1-mux-ctl";
+	const char *en_label = channel ? "tx2-enable" : "tx1-enable";
 	struct adrv9002_tx_chan *tx = &phy->tx_channels[channel];
 	int ret;
 
@@ -756,6 +757,11 @@ static int adrv9002_parse_tx_dt(struct adrv9002_rf_phy *phy,
 							       GPIOD_OUT_HIGH, mux_label_2);
 	if (IS_ERR(tx->channel.mux_ctl_2))
 		return PTR_ERR(tx->channel.mux_ctl_2);
+
+	tx->channel.ensm = devm_fwnode_gpiod_get_optional(&phy->spi->dev, node, "enable",
+							  GPIOD_OUT_LOW, en_label);
+	if (IS_ERR(tx->channel.ensm))
+		return PTR_ERR(tx->channel.ensm);
 
 	ret = adrv9002_parse_dpd(phy, node, tx);
 	if (ret)
@@ -1054,6 +1060,7 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 	const char *rxb_mux_label = channel ? "rx2b-mux-ctl" : "rx1b-mux-ctl";
 	const char *mux_label = channel ? "rx2a-mux-ctl" : "rx1a-mux-ctl";
 	const char *gpio_label = channel ? "orx2" : "orx1";
+	const char *en_label = channel ? "rx2-enable" : "rx1-enable";
 	struct adrv9002_rx_chan *rx = &phy->rx_channels[channel];
 	int ret;
 	u32 min_gain, max_gain;
@@ -1121,6 +1128,11 @@ static int adrv9002_parse_rx_dt(struct adrv9002_rf_phy *phy,
 							       GPIOD_OUT_HIGH, rxb_mux_label);
 	if (IS_ERR(rx->channel.mux_ctl_2))
 		return PTR_ERR(rx->channel.mux_ctl_2);
+
+	rx->channel.ensm = devm_fwnode_gpiod_get_optional(&phy->spi->dev, node, "enable",
+							  GPIOD_OUT_LOW, en_label);
+	if (IS_ERR(rx->channel.ensm))
+		return PTR_ERR(rx->channel.ensm);
 
 	ret = ADRV9002_OF_RX_OPTIONAL("adi,mcs-read-delay", 1, 1, 15,
 				      rx->channel.mcs_delay.readDelay);
