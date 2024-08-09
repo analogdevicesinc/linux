@@ -1139,6 +1139,7 @@ static const struct iio_enum adrv9002_agc_modes_available = {
 static int adrv9002_set_ensm_mode(struct iio_dev *indio_dev,
 				  const struct iio_chan_spec *chan, u32 mode)
 {
+	adi_adrv9001_ChannelEnableMode_e pin_mode;
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);
 	adi_common_Port_e port = ADRV_ADDRESS_PORT(chan->address);
 	const int channel = ADRV_ADDRESS_CHAN(chan->address);
@@ -1151,6 +1152,7 @@ static int adrv9002_set_ensm_mode(struct iio_dev *indio_dev,
 
 	if (adrv9002_orx_enabled(phy, chann))
 		return -EPERM;
+
 	/*
 	 * In TDD, we cannot have TX and RX enabled at the same time on the same
 	 * channel (due to TDD nature). Hence, we will return -EPERM if that is
@@ -1169,6 +1171,23 @@ static int adrv9002_set_ensm_mode(struct iio_dev *indio_dev,
 
 		if (state == ADI_ADRV9001_CHANNEL_RF_ENABLED)
 			return -EPERM;
+	}
+
+	/*
+	 * Still allow to control the radio state if the enable mode is set to pin
+	 * and if we are in control of that GPIO. Also note that in pin mode we can
+	 * only move between primed and rf_enabled. To keep the same behavior as
+	 * before, if calibrated state is requested we go and fail in
+	 * adi_adrv9001_Radio_Channel_ToState().
+	 */
+	ret = api_call(phy, adi_adrv9001_Radio_ChannelEnableMode_Get, chann->port,
+		       chann->number, &pin_mode);
+	if (ret)
+		return ret;
+
+	if (pin_mode == ADI_ADRV9001_PIN_MODE && chann->ensm && mode) {
+		gpiod_set_value_cansleep(chann->ensm, mode - 1);
+		return 0;
 	}
 
 	return api_call(phy, adi_adrv9001_Radio_Channel_ToState, port, chann->number, mode + 1);
