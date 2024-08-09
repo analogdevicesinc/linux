@@ -210,6 +210,7 @@ struct ltc6952_state {
 	u32				vco_freq;
 	bool				follower;
 	bool				is_controller;
+	bool				controller_srqmd_en_during_sync;
 	bool				filtv_enable;
 	u32				cp_current;
 	u32				sysct;
@@ -815,6 +816,8 @@ static int ltc6952_parse_dt(struct device *dev,
 		st->follower = of_property_read_bool(np, "adi,follower-mode-enable");
 
 	st->is_controller = !of_property_read_bool(np, "adi,sync-via-ezs-srq-enable");
+	st->controller_srqmd_en_during_sync = of_property_read_bool(np,
+						"adi,controller-srqmd-en-during-sync-en");
 
 	st->filtv_enable = of_property_read_bool(np, "adi,input-buffer-filt-enable");
 
@@ -943,7 +946,9 @@ static int ltc6952_jesd204_clks_sync1(struct jesd204_dev *jdev,
 		return ret;
 
 	ret = ltc6952_write_mask(indio_dev, LTC6952_REG(0x0B),
-				LTC6952_SRQMD_MSK, LTC6952_SRQMD(0));
+				LTC6952_SRQMD_MSK,
+				LTC6952_SRQMD(st->controller_srqmd_en_during_sync ?
+				st->is_controller : 0));
 	if (ret)
 		return ret;
 
