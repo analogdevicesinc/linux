@@ -1537,6 +1537,8 @@ void adrv9002_debugfs_create(struct adrv9002_rf_phy *phy, struct dentry *d)
 
 	debugfs_create_file("mcs_status", 0400, d, phy, &adrv9002_mcs_status_fops);
 
+	debugfs_create_u32("dev_clkout_div", 0600, d, &phy->dev_clkout_div);
+
 	for (chan = 0; chan < phy->chip->n_tx; chan++) {
 		struct adrv9002_tx_chan *tx = &phy->tx_channels[chan];
 
