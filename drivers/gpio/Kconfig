@@ -1617,6 +1617,16 @@ config GPIO_74X164
 	  shift registers. This driver can be used to provide access
 	  to more GPIO outputs.
 
+config GPIO_ADG1414
+	tristate "ADG1414 SPST Switch Driver"
+	depends on GPIOLIB && SPI
+	help
+	  Say yes here to build support for Analog Devices ADG1414 SPST
+	  Switch Driver
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called gpio-adg1414.
+
 config GPIO_ADI_DAQ1
 	tristate "Analog Devices AD-FMCDAQ1-EBZ SPI-GPIO expander driver"
 	help
