@@ -277,13 +277,11 @@ err_register:
 	return ret;
 }
 
-static int rp1_adc_remove(struct platform_device *pdev)
+static void rp1_adc_remove(struct platform_device *pdev)
 {
 	struct rp1_adc_data *data = platform_get_drvdata(pdev);
 
 	hwmon_device_unregister(data->hwmon_dev);
-
-	return 0;
 }
 
 static const struct of_device_id rp1_adc_dt_ids[] = {
