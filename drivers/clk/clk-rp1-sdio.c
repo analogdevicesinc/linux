@@ -574,9 +574,8 @@ static int rp1_sdio_clk_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int rp1_sdio_clk_remove(struct platform_device *pdev)
+static void rp1_sdio_clk_remove(struct platform_device *pdev)
 {
-	return 0;
 }
 
 static const struct of_device_id rp1_sdio_clk_dt_ids[] = {
