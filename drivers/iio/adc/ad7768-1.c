@@ -752,6 +752,9 @@ static ssize_t ad7768_ext_info_write(struct iio_dev *indio_dev,
 		ret = ad7768_spi_reg_write(st, AD7768_REG_SINC3_DEC_RATE_LSB, dec_rate_lsb);
 		if (ret < 0)
 			return ret;
+		ret = ad7768_spi_reg_write(st, AD7768_REG_SYNC_RESET, 0x00);
+		if (ret < 0)
+			return ret;
 		break;
 
 	default:
