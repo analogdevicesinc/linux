@@ -13,6 +13,14 @@
 
 #include <dt-bindings/gpio/gpio.h>
 
+/ {
+	dummy_pll: dummy_pll@0 {
+		compatible = "myvendor,dummy-pll";
+		reg = <0x0 0x1000>;  // Dummy address space
+		#clock-cells = <0>;
+	};
+};
+
 &fpga_axi {
 
 	fmc_gpio: gpio@50000000 {
@@ -46,6 +54,9 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			spi-max-frequency = <1000000>;
+			clocks = <&dummy_pll>;
+			clock-names = "lo-input";
+			clock-scales = <1 1>;
 			//cen-gpios = <&fmc_gpio 36 GPIO_ACTIVE_HIGH>;
 			//reset-gpios = <&fmc_gpio 17 GPIO_ACTIVE_HIGH>;
 		};
@@ -55,6 +66,9 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			spi-max-frequency = <1000000>;
+			clocks = <&dummy_pll>;
+			clock-names = "lo-input";
+			clock-scales = <1 1>;
 			//cen-gpios = <&fmc_gpio 35 GPIO_ACTIVE_HIGH>;
 			//reset-gpios = <&fmc_gpio 4 GPIO_ACTIVE_HIGH>;
 		};
@@ -78,6 +92,9 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			spi-max-frequency = <1000000>;
+			clocks = <&dummy_pll>;
+			clock-names = "lo-input";
+			clock-scales = <1 1>;
 			//cen-gpios = <&fmc_gpio 32 GPIO_ACTIVE_HIGH>;
 			//reset-gpios = <&fmc_gpio 7 GPIO_ACTIVE_HIGH>;
 		};
@@ -94,6 +111,9 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 			spi-max-frequency = <1000000>;
+			clocks = <&dummy_pll>;
+			clock-names = "lo-input";
+			clock-scales = <1 1>;
 			//cen-gpios = <&fmc_gpio 30 GPIO_ACTIVE_HIGH>;
 			//reset-gpios = <&fmc_gpio 12 GPIO_ACTIVE_HIGH>;
 		};
