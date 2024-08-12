@@ -605,21 +605,25 @@
 		rx@0 {
 			mux-ctl-gpios = <&gpio 86 GPIO_ACTIVE_HIGH>;
 			mux-ctl2-gpios = <&gpio 87 GPIO_ACTIVE_LOW>;
+			enable-gpios = <&gpio 125 GPIO_ACTIVE_HIGH>;
 		};
 
 		rx@1 {
 			mux-ctl-gpios = <&gpio 88 GPIO_ACTIVE_HIGH>;
 			mux-ctl2-gpios = <&gpio 89 GPIO_ACTIVE_LOW>;
+			enable-gpios = <&gpio 124 GPIO_ACTIVE_HIGH>;
 		};
 
 		tx@0 {
 			mux-ctl-gpios = <&gpio 90 GPIO_ACTIVE_HIGH>;
 			mux-ctl2-gpios = <&gpio 91 GPIO_ACTIVE_LOW>;
+			enable-gpios = <&gpio 123 GPIO_ACTIVE_HIGH>;
 		};
 
 		tx@1 {
 			mux-ctl-gpios = <&gpio 92 GPIO_ACTIVE_LOW>;
 			mux-ctl2-gpios = <&gpio 93 GPIO_ACTIVE_HIGH>;
+			enable-gpios = <&gpio 122 GPIO_ACTIVE_HIGH>;
 		};
 	};
 };
