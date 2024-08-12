@@ -10,7 +10,7 @@
 #include <linux/delay.h>
 #include <net/netlink.h>
 #include <net/genetlink.h>
-#include "adrv906x-serdes.h"
+#include "adrv906x-phy-serdes.h"
 
 #define SERDES_GENL_NAME         "adrv906x"
 #define SERDES_GENL_VERSION      1

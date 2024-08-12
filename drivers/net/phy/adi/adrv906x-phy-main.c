@@ -8,7 +8,7 @@
 #include <linux/of_address.h>
 #include <linux/of_mdio.h>
 #include <linux/platform_device.h>
-#include "adrv906x-serdes.h"
+#include "adrv906x-phy-serdes.h"
 
 #define ADRV906X_PHY_ID                             0x00000000
 
