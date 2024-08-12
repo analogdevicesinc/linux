@@ -3,6 +3,7 @@
 obj-$(CONFIG_VIDEO_NXP_NEOISP) += neoisp.o
 
 neoisp-objs := neoisp_ctx.o \
+	neoisp_debugfs.o \
 	neoisp_fmt.o \
 	neoisp_main.o \
 	neoisp_nodes.o \

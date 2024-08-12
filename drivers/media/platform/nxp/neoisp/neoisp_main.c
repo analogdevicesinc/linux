@@ -1965,6 +1965,7 @@ static int neoisp_probe(struct platform_device *pdev)
 	neoisp_dev->mmio_tcm = devm_platform_get_and_ioremap_resource(pdev, 1, NULL);
 
 	if (mod_params.test.enable_debugfs) {
+		neoisp_debugfs_init(neoisp_dev);
 		neoisp_regmap_config.max_register = NEO_IDBG2_DONE_STAT;
 		neoisp_regmap_config.num_reg_defaults = NEO_IDBG2_DONE_STAT_IDX + 1;
 		neoisp_regmap_config.readable_reg = neoisp_valid_reg;
@@ -2050,6 +2051,9 @@ static int neoisp_remove(struct platform_device *pdev)
 {
 	struct neoisp_dev_s *neoisp_dev = platform_get_drvdata(pdev);
 	int i;
+
+	if (mod_params.test.enable_debugfs)
+		neoisp_debugfs_exit(neoisp_dev);
 
 	for (i = NEOISP_NODE_GROUPS_COUNT - 1; i >= 0; i--)
 		neoisp_destroy_node_group(&neoisp_dev->node_group[i]);

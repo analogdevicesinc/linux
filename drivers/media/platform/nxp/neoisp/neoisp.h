@@ -205,6 +205,7 @@ struct neoisp_dev_s {
 	struct neoisp_job_s queued_job, running_job;
 	bool hw_busy; /* non-zero if a job is queued or is being started */
 	spinlock_t hw_lock; /* protects "hw_busy" flag and streaming_map */
+	struct dentry *debugfs_entry;
 };
 
 /*
@@ -263,5 +264,8 @@ extern const struct neoisp_fmt_s formats_mout[NEOISP_FMT_MOUT_COUNT];
 extern const struct neoisp_node_desc_s node_desc[NEOISP_NODES_COUNT];
 extern struct neoisp_mod_params_s mod_params;
 extern struct neoisp_meta_params_s neoisp_default_params;
+
+void neoisp_debugfs_init(struct neoisp_dev_s *neoispd);
+void neoisp_debugfs_exit(struct neoisp_dev_s *neoispd);
 
 #endif /* NEOISP_H */
