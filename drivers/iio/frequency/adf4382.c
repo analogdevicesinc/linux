@@ -1406,11 +1406,9 @@ static int adf4382_scratchpad_check(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	if (val != ADF4382_SCRATCHPAD_VAL) {
-		dev_err(&st->spi->dev, "Scratch pad test failed please check SPI connection");
-// TODO:dev_err_probe
-		return -EINVAL;
-	}
+	if (val != ADF4382_SCRATCHPAD_VAL)
+		 return dev_err_probe(&st->spi->dev, -EINVAL,
+				      "Scratch pad test failed please check SPI connection");
 
 	return 0;
 }
@@ -1614,11 +1612,8 @@ static int adf4382_probe(struct spi_device *spi)
 		return ret;
 
 	ret = adf4382_init(st);
-	if (ret) {
-		dev_err(&spi->dev, "adf4382 init failed\n");
-// TODO:ditto: dev_err_probe.
-		return ret;
-	}
+	if (ret)
+		return dev_err_probe(&spi->dev, ret, "adf4382 init failed\n");
 
 	adf4382_setup_clk(st);
 	if (ret)
