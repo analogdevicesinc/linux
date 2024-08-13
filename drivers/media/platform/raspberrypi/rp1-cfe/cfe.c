@@ -131,15 +131,9 @@ static const struct node_description node_desc[NUM_NODES] = {
 		.pad_flags = MEDIA_PAD_FL_SINK | MEDIA_PAD_FL_MUST_CONNECT,
 		.link_pad = CSI2_PAD_FIRST_SOURCE + 0
 	},
-	/*
-	 * At the moment the main userspace component (libcamera) doesn't
-	 * support metadata with video nodes that support both video and
-	 * metadata. So for the time being this node is set to only support
-	 * V4L2_CAP_META_CAPTURE.
-	 */
 	[CSI2_CH1] = {
 		.name = "csi2-ch1",
-		.caps = V4L2_CAP_META_CAPTURE,
+		.caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_META_CAPTURE,
 		.pad_flags = MEDIA_PAD_FL_SINK | MEDIA_PAD_FL_MUST_CONNECT,
 		.link_pad = CSI2_PAD_FIRST_SOURCE + 1
 	},
