@@ -178,5 +178,7 @@
 				//#include "gmsl-ovx03a.dtsi"
 				#define OV5640_INDEX 0
 				#include "gmsl-ov5640.dtsi"
+				//#define IMX708_INDEX 0
+				//#include "gmsl-imx708.dtsi"
 			};
 #endif

@@ -1,0 +1,66 @@
+#ifndef IMX708_HEX_REG
+#define IMX708_HEX_REG 0x1a
+#endif
+
+#ifdef IMX708_INDEX
+#define IMX708_SER_INDEX  IMX708_INDEX
+#define IMX708_SER_LABEL  CONCAT(serializer_, IMX708_SER_INDEX)
+#define IMX708_OUT_LABEL CONCAT(cam_out, IMX708_INDEX)
+#define IMX708_IN_LABEL CONCAT(ser_in, IMX708_INDEX)
+#define IMX708_LABEL CONCAT(camera, IMX708_INDEX)
+#endif
+
+#if !defined(IMX708_SER_LABEL)
+#error
+#endif
+
+#if !defined(IMX708_OUT_LABEL)
+#error
+#endif
+
+#if !defined(IMX708_IN_LABEL)
+#error
+#endif
+
+#if !defined(IMX708_LABEL)
+#error
+#endif
+
+IMX708_LABEL: IMX708@IMX708_HEX_REG {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	compatible = "sony,imx708";
+	reg = <IMX708_HEX_REG>;
+	clocks = <&cam_clk>;
+	clock-names = "inclk";
+	vana1-supply = <&cam1_reg>;	/* 2.8v */
+	vana2-supply = <&cam_dummy_reg>;/* 1.8v */
+	vdig-supply = <&cam_dummy_reg>;	/* 1.1v */
+	vddl-supply = <&cam_dummy_reg>;	/* 1.8v */
+	reset-gpios = <&IMX708_SER_LABEL 2 GPIO_ACTIVE_HIGH>;
+	rotation = <180>;
+	orientation = <2>;
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			IMX708_OUT_LABEL: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+				clock-noncontinuous;
+				link-frequencies =
+					/bits/ 64 <450000000>;
+				remote-endpoint = <&IMX708_IN_LABEL>;
+			};
+		};
+	};
+};
+
+#undef IMX708_HEX_REG
+#undef IMX708_INDEX
+#undef IMX708_SER_INDEX
+#undef IMX708_SER_LABEL
+#undef IMX708_LABEL
+#undef IMX708_OUT_LABEL
+#undef IMX708_IN_LABEL
