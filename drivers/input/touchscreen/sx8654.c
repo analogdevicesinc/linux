@@ -391,9 +391,13 @@ static int sx8654_probe(struct i2c_client *client)
 		return error;
 	}
 
+	/*
+	 * Start with the interrupt disabled, it will be enabled in
+	 * sx8654_open().
+	 */
 	error = devm_request_threaded_irq(&client->dev, client->irq,
 					  NULL, sx8654->data->irqh,
-					  IRQF_ONESHOT,
+					  IRQF_ONESHOT | IRQF_NO_AUTOEN,
 					  client->name, sx8654);
 	if (error) {
 		dev_err(&client->dev,
@@ -401,9 +405,6 @@ static int sx8654_probe(struct i2c_client *client)
 			client->irq, error);
 		return error;
 	}
-
-	/* Disable the IRQ, we'll enable it in sx8654_open() */
-	disable_irq(client->irq);
 
 	error = input_register_device(sx8654->input);
 	if (error)
