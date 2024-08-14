@@ -73,7 +73,8 @@
 		     <GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>, /* 20 unused */
 		     <GIC_SPI 391 IRQ_TYPE_LEVEL_HIGH>, /* 21 */
 		     <GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>, /* 22 unused */
-		     <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>; /* 23 */
+		     <GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>, /* 23 */
+		     <GIC_SPI 369 IRQ_TYPE_LEVEL_HIGH>;
 	power-domains = <&pd IMX_SC_R_DMA_0_CH0>,
 			<&pd IMX_SC_R_DMA_0_CH1>,
 			<&pd IMX_SC_R_DMA_0_CH2>,
