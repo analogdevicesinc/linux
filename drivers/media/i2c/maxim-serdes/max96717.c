@@ -57,7 +57,7 @@ static int max96717_read(struct max96717_priv *priv, int reg)
 	int ret, val;
 
 	ret = regmap_read(priv->regmap, reg, &val);
-	dev_err(priv->dev, "read %d 0x%x = 0x%02x\n", ret, reg, val);
+	dev_dbg(priv->dev, "read %d 0x%x = 0x%02x\n", ret, reg, val);
 	if (ret) {
 		dev_err(priv->dev, "read 0x%04x failed\n", reg);
 		return ret;
@@ -71,7 +71,7 @@ static int max96717_write(struct max96717_priv *priv, unsigned int reg, u8 val)
 	int ret;
 
 	ret = regmap_write(priv->regmap, reg, val);
-	dev_err(priv->dev, "write %d 0x%x = 0x%02x\n", ret, reg, val);
+	dev_dbg(priv->dev, "write %d 0x%x = 0x%02x\n", ret, reg, val);
 	if (ret)
 		dev_err(priv->dev, "write 0x%04x failed\n", reg);
 
@@ -84,7 +84,7 @@ static int max96717_update_bits(struct max96717_priv *priv, unsigned int reg,
 	int ret;
 
 	ret = regmap_update_bits(priv->regmap, reg, mask, val);
-	dev_err(priv->dev, "update %d 0x%x 0x%02x = 0x%02x\n", ret, reg, mask, val);
+	dev_dbg(priv->dev, "update %d 0x%x 0x%02x = 0x%02x\n", ret, reg, mask, val);
 	if (ret)
 		dev_err(priv->dev, "update 0x%04x failed\n", reg);
 
