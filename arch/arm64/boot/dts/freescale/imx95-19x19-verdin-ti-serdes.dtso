@@ -23,9 +23,6 @@
 	#size-cells = <0>;
 	status = "okay";
 
-	/delete-node/ pca9632;
-	/delete-node/ i2c3_gpio_expander_20;
-
 	deser@30 {
 		compatible = "ti,ds90ub960-q1";
 		reg = <0x30>;

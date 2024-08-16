@@ -31,6 +31,8 @@
 	/delete-node/ regulator-audio-pwr;
 	/delete-node/ regulator-audio-slot;
 	/delete-node/ sound-wm8962;
+	/delete-node/ pca9632;
+	/delete-node/ i2c3_gpio_expander_20;
 
 	sound-wm8904 {
 		compatible = "fsl,imx-audio-wm8904";

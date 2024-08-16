@@ -52,9 +52,6 @@
 	#size-cells = <0>;
 	status = "okay";
 
-	/delete-node/ pca9632;
-	/delete-node/ i2c3_gpio_expander_20;
-
 	adp5585_isp: io-expander-isp@34 {
 		compatible = "adi,adp5585-01", "adi,adp5585";
 		reg = <0x34>;

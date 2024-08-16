@@ -13,9 +13,6 @@
 	#size-cells = <0>;
 	status = "okay";
 
-	/delete-node/ pca9632;
-	/delete-node/ i2c3_gpio_expander_20;
-
 	os08a20: os08a20_mipi@36 {
 		compatible = "ovti,os08a20";
 		reg = <0x36>;
