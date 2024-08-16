@@ -302,7 +302,7 @@ static irqreturn_t stmfts_irq_handler(int irq, void *dev)
 	struct stmfts_data *sdata = dev;
 	int err;
 
-	mutex_lock(&sdata->mutex);
+	guard(mutex)(&sdata->mutex);
 
 	err = stmfts_read_events(sdata);
 	if (unlikely(err))
@@ -311,7 +311,6 @@ static irqreturn_t stmfts_irq_handler(int irq, void *dev)
 	else
 		stmfts_parse_events(sdata);
 
-	mutex_unlock(&sdata->mutex);
 	return IRQ_HANDLED;
 }
 
@@ -347,17 +346,17 @@ static int stmfts_input_open(struct input_dev *dev)
 		return err;
 	}
 
-	mutex_lock(&sdata->mutex);
-	sdata->running = true;
+	scoped_guard(mutex, &sdata->mutex) {
+		sdata->running = true;
 
-	if (sdata->hover_enabled) {
-		err = i2c_smbus_write_byte(sdata->client,
-					   STMFTS_SS_HOVER_SENSE_ON);
-		if (err)
-			dev_warn(&sdata->client->dev,
-				 "failed to enable hover\n");
+		if (sdata->hover_enabled) {
+			err = i2c_smbus_write_byte(sdata->client,
+						   STMFTS_SS_HOVER_SENSE_ON);
+			if (err)
+				dev_warn(&sdata->client->dev,
+					 "failed to enable hover\n");
+		}
 	}
-	mutex_unlock(&sdata->mutex);
 
 	if (sdata->use_key) {
 		err = i2c_smbus_write_byte(sdata->client,
@@ -381,18 +380,17 @@ static void stmfts_input_close(struct input_dev *dev)
 		dev_warn(&sdata->client->dev,
 			 "failed to disable touchscreen: %d\n", err);
 
-	mutex_lock(&sdata->mutex);
+	scoped_guard(mutex, &sdata->mutex) {
+		sdata->running = false;
 
-	sdata->running = false;
-
-	if (sdata->hover_enabled) {
-		err = i2c_smbus_write_byte(sdata->client,
-					   STMFTS_SS_HOVER_SENSE_OFF);
-		if (err)
-			dev_warn(&sdata->client->dev,
-				 "failed to disable hover: %d\n", err);
+		if (sdata->hover_enabled) {
+			err = i2c_smbus_write_byte(sdata->client,
+						   STMFTS_SS_HOVER_SENSE_OFF);
+			if (err)
+				dev_warn(&sdata->client->dev,
+					 "failed to disable hover: %d\n", err);
+		}
 	}
-	mutex_unlock(&sdata->mutex);
 
 	if (sdata->use_key) {
 		err = i2c_smbus_write_byte(sdata->client,
@@ -474,26 +472,27 @@ static ssize_t stmfts_sysfs_hover_enable_write(struct device *dev,
 {
 	struct stmfts_data *sdata = dev_get_drvdata(dev);
 	unsigned long value;
-	int err = 0;
+	bool hover;
+	int err;
 
 	if (kstrtoul(buf, 0, &value))
 		return -EINVAL;
 
-	mutex_lock(&sdata->mutex);
+	hover = !!value;
 
-	if (value && sdata->hover_enabled)
-		goto out;
+	guard(mutex)(&sdata->mutex);
 
-	if (sdata->running)
-		err = i2c_smbus_write_byte(sdata->client,
+	if (hover != sdata->hover_enabled) {
+		if (sdata->running) {
+			err = i2c_smbus_write_byte(sdata->client,
 					   value ? STMFTS_SS_HOVER_SENSE_ON :
 						   STMFTS_SS_HOVER_SENSE_OFF);
+			if (err)
+				return err;
+		}
 
-	if (!err)
-		sdata->hover_enabled = !!value;
-
-out:
-	mutex_unlock(&sdata->mutex);
+		sdata->hover_enabled = hover;
+	}
 
 	return len;
 }
