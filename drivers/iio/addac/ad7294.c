@@ -36,6 +36,8 @@
 #define AD7294_ADC_VALUE_MASK	     GENMASK(11, 0)
 #define AD7294_ADC_EXTERNAL_REF_MASK BIT(5)
 #define AD7294_DAC_EXTERNAL_REF_MASK BIT(4)
+#define AD7294_DIFF_V3_V2	     BIT(1)
+#define AD7294_DIFF_V1_V0	     BIT(0)
 #define AD7294_ALERT_PIN	     BIT(2)
 #define AD7294_ALERT_LOW(x)	     BIT((x) * 2)
 #define AD7294_ALERT_HIGH(x)	     BIT((x) * 2 + 1)
@@ -494,9 +496,25 @@ static void ad7294_reg_disable(void *data)
 	regulator_disable(data);
 }
 
+static const bool ad7294_diff_channels_valid(int chan1, int chan2)
+{
+	switch (chan1) {
+	case 0:
+		return chan2 == 1;
+	case 1:
+		return chan2 == 0;
+	case 2:
+		return chan2 == 3;
+	case 3:
+		return chan2 == 2;
+	default:
+		return false;
+	}
+}
+
 static int ad7294_init(struct iio_dev *indio_dev, struct ad7294_state *st)
 {
-	int ret;
+	int ret, diff_channels[2];
 	int pwdn_config, config_reg;
 	struct i2c_client *i2c = st->i2c;
 
@@ -575,6 +593,28 @@ static int ad7294_init(struct iio_dev *indio_dev, struct ad7294_state *st)
 		return ret;
 	}
 
+	if (device_property_present(&i2c->dev, "diff-channels")) {
+		ret = device_property_read_u32_array(&i2c->dev, "diff-channels",
+						     diff_channels,
+						     ARRAY_SIZE(diff_channels));
+		if (ret) {
+			dev_err(&i2c->dev,
+				"Failed to get differential channels");
+			return ret;
+		}
+		if (!ad7294_diff_channels_valid(diff_channels[0],
+						diff_channels[1])) {
+			dev_err(&i2c->dev, "Invalid differential channels");
+			return -EINVAL;
+		}
+
+		/* TODO: Set differential to 1 for the corresponding channel */
+		if (diff_channels[0] > 1)
+			config_reg |= AD7294_DIFF_V3_V2;
+		else
+			config_reg |= AD7294_DIFF_V1_V0;
+	}
+
 	if (i2c->irq > 0) {
 		ret = devm_request_threaded_irq(&i2c->dev, i2c->irq, NULL,
 						ad7294_event_handler,
@@ -610,6 +650,9 @@ static int ad7294_probe(struct i2c_client *client,
 
 	indio_dev->name = "ad7294";
 	indio_dev->info = &ad7294_info;
+	/* TODO:
+	Memcpy ad7284_chan_spec to some writable space and store pointer in indio_dev->channels
+	*/
 	indio_dev->channels = ad7294_chan_spec;
 	indio_dev->num_channels = ARRAY_SIZE(ad7294_chan_spec);
 
