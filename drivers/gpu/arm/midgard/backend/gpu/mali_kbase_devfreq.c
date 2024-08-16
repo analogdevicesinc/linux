@@ -22,6 +22,7 @@
 #include <mali_kbase.h>
 #include <tl/mali_kbase_tracepoints.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
+#include <mali_kbase_config_platform.h>
 
 #include <linux/of.h>
 #include <linux/clk.h>
@@ -121,6 +122,8 @@ static int kbase_devfreq_target(struct device *dev, unsigned long *target_freq, 
 	unsigned int i;
 	int err;
 	u64 core_mask;
+	struct kbase_clk_rate_trace_op_conf *callbacks =
+		(struct kbase_clk_rate_trace_op_conf *)CLK_RATE_TRACE_OPS;
 
 	nominal_freq = *target_freq;
 
@@ -206,6 +209,14 @@ static int kbase_devfreq_target(struct device *dev, unsigned long *target_freq, 
 		}
 		dev_dbg(dev, "gpu freq set target %lukHz\n", nominal_freq/1000);
 		for (i = 0; i < kbdev->nr_clocks; i++) {
+			struct clk_notifier_data cnd;
+
+			if (callbacks) {
+				cnd.old_rate = kbdev->current_freqs[i];
+				cnd.new_rate = nominal_freq;
+				cnd.clk = kbdev->clocks[i];
+				callbacks->clk_change_notifier(POST_RATE_CHANGE, &cnd);
+			}
 #if IS_ENABLED(CONFIG_REGULATOR)
 			original_freqs[i] = kbdev->current_freqs[i];
 #endif

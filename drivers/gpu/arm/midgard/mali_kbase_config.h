@@ -424,6 +424,8 @@ struct kbase_clk_rate_trace_op_conf {
 	 */
 	void (*gpu_clk_notifier_unregister)(struct kbase_device *kbdev, void *gpu_clk_handle,
 					    struct notifier_block *nb);
+
+	int (*clk_change_notifier)(unsigned long event, void *data);
 };
 
 #if IS_ENABLED(CONFIG_OF)
