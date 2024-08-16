@@ -22,16 +22,18 @@
 
 /**
  * align_and_check() - Align the specified pointer to the provided alignment and
- *                     check that it is still in range.
- * @gap_end:        Highest possible start address for allocation (end of gap in
- *                  address space)
- * @gap_start:      Start address of current memory area / gap in address space
- * @info:           vm_unmapped_area_info structure passed to caller, containing
- *                  alignment, length and limits for the allocation
- * @is_shader_code: True if the allocation is for shader code (which has
- *                  additional alignment requirements)
- * @is_same_4gb_page: True if the allocation needs to reside completely within
- *                    a 4GB chunk
+ *                     check that it is still in range. For Kernel versions below
+ *                     6.1, it requires that the length of the alignment is already
+ *                     extended by a worst-case alignment mask.
+ * @gap_end:           Highest possible start address for allocation (end of gap in
+ *                     address space)
+ * @gap_start:         Start address of current memory area / gap in address space
+ * @info:              vm_unmapped_area_info structure passed to caller, containing
+ *                     alignment, length and limits for the allocation
+ * @is_shader_code:    True if the allocation is for shader code (which has
+ *                     additional alignment requirements)
+ * @is_same_4gb_page:  True if the allocation needs to reside completely within
+ *                     a 4GB chunk
  *
  * Return: true if gap_end is now aligned correctly and is still in range,
  *         false otherwise
@@ -41,8 +43,8 @@ static bool align_and_check(unsigned long *gap_end, unsigned long gap_start,
 			    bool is_same_4gb_page)
 {
 	/* Compute highest gap address at the desired alignment */
-	(*gap_end) -= info->length;
-	(*gap_end) -= (*gap_end - info->align_offset) & info->align_mask;
+	*gap_end -= info->length;
+	*gap_end -= (*gap_end - info->align_offset) & info->align_mask;
 
 	if (is_shader_code) {
 		/* Check for 4GB boundary */
@@ -73,6 +75,7 @@ static bool align_and_check(unsigned long *gap_end, unsigned long gap_start,
 			start -= rounded_offset;
 			end -= rounded_offset;
 
+			/* Patch gap_end to use new starting address for VA region */
 			*gap_end = start;
 
 			/* The preceding 4GB boundary shall not get straddled,
@@ -219,6 +222,7 @@ check_current:
 	}
 #else
 	unsigned long length, high_limit, gap_start, gap_end;
+	int cnt = 0;
 
 	MA_STATE(mas, &current->mm->mm_mt, 0, 0);
 	/* Adjust search length to account for worst case alignment overhead */
@@ -238,14 +242,41 @@ check_current:
 	if (info->low_limit > high_limit)
 		return -ENOMEM;
 
+	high_limit = info->high_limit;
+
 	while (true) {
-		if (mas_empty_area_rev(&mas, info->low_limit, info->high_limit - 1, length))
+		unsigned long saved_high_lmt = high_limit;
+
+		if (mas_empty_area_rev(&mas, info->low_limit, high_limit - 1, length))
 			return -ENOMEM;
+
 		gap_end = mas.last + 1;
-		gap_start = mas.min;
+		gap_start = mas.index;
+		cnt++;
 
 		if (align_and_check(&gap_end, gap_start, info, is_shader_code, is_same_4gb_page))
 			return gap_end;
+
+		if (gap_end < info->low_limit)
+			return -ENOMEM;
+		else if (is_same_4gb_page)
+			high_limit = gap_end + info->length;
+		else if (is_shader_code && (!(gap_end & BASE_MEM_MASK_4GB) ||
+					    !((gap_end + info->length) & BASE_MEM_MASK_4GB)))
+			high_limit = mas.last -
+				     ((info->align_offset ? info->align_offset : info->length));
+		else
+			high_limit = gap_start;
+
+		mas_reset(&mas);
+
+		if (saved_high_lmt == high_limit) {
+			pr_warn("%s: aborting from recurring high_limit(%d)=0x%lx\n", __func__, cnt,
+				high_limit);
+			pr_info("info-input: limit=[%lx, %lx], mask=%lx, len=%lx\n",
+				info->low_limit, info->high_limit, info->align_mask, info->length);
+			return -ENOMEM;
+		}
 	}
 #endif
 	return -ENOMEM;
@@ -368,7 +399,7 @@ unsigned long kbase_context_get_unmapped_area(struct kbase_context *const kctx,
 		kbase_gpu_vm_unlock(kctx);
 #ifndef CONFIG_64BIT
 	} else {
-		return current->mm->get_unmapped_area(kctx->kfile->filp, addr, len, pgoff, flags);
+		return current->mm->get_unmapped_area(kctx->filp, addr, len, pgoff, flags);
 #endif
 	}
 
