@@ -234,7 +234,7 @@ static int exc3000_vendor_data_request(struct exc3000_data *data, u8 *request,
 	int ret;
 	unsigned long time_left;
 
-	mutex_lock(&data->query_lock);
+	guard(mutex)(&data->query_lock);
 
 	reinit_completion(&data->wait_event);
 
@@ -243,29 +243,18 @@ static int exc3000_vendor_data_request(struct exc3000_data *data, u8 *request,
 
 	ret = i2c_master_send(data->client, buf, EXC3000_LEN_VENDOR_REQUEST);
 	if (ret < 0)
-		goto out_unlock;
+		return ret;
 
-	if (response) {
-		time_left = wait_for_completion_timeout(&data->wait_event,
-							timeout * HZ);
-		if (time_left == 0) {
-			ret = -ETIMEDOUT;
-			goto out_unlock;
-		}
+	time_left = wait_for_completion_timeout(&data->wait_event,
+						timeout * HZ);
+	if (time_left == 0)
+		return -ETIMEDOUT;
 
-		if (data->buf[3] >= EXC3000_LEN_FRAME) {
-			ret = -ENOSPC;
-			goto out_unlock;
-		}
+	if (data->buf[3] >= EXC3000_LEN_FRAME)
+		return -ENOSPC;
 
-		memcpy(response, &data->buf[4], data->buf[3]);
-		ret = data->buf[3];
-	}
-
-out_unlock:
-	mutex_unlock(&data->query_lock);
-
-	return ret;
+	memcpy(response, &data->buf[4], data->buf[3]);
+	return data->buf[3];
 }
 
 static ssize_t fw_version_show(struct device *dev,
