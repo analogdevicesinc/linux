@@ -703,12 +703,10 @@ static int zinitix_suspend(struct device *dev)
 	struct i2c_client *client = to_i2c_client(dev);
 	struct bt541_ts_data *bt541 = i2c_get_clientdata(client);
 
-	mutex_lock(&bt541->input_dev->mutex);
+	guard(mutex)(&bt541->input_dev->mutex);
 
 	if (input_device_enabled(bt541->input_dev))
 		zinitix_stop(bt541);
-
-	mutex_unlock(&bt541->input_dev->mutex);
 
 	return 0;
 }
@@ -717,16 +715,17 @@ static int zinitix_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct bt541_ts_data *bt541 = i2c_get_clientdata(client);
-	int ret = 0;
+	int error;
 
-	mutex_lock(&bt541->input_dev->mutex);
+	guard(mutex)(&bt541->input_dev->mutex);
 
-	if (input_device_enabled(bt541->input_dev))
-		ret = zinitix_start(bt541);
+	if (input_device_enabled(bt541->input_dev)) {
+		error = zinitix_start(bt541);
+		if (error)
+			return error;
+	}
 
-	mutex_unlock(&bt541->input_dev->mutex);
-
-	return ret;
+	return 0;
 }
 
 static DEFINE_SIMPLE_DEV_PM_OPS(zinitix_pm_ops, zinitix_suspend, zinitix_resume);
