@@ -181,18 +181,17 @@ static ssize_t hycon_hy46xx_setting_show(struct device *dev,
 	struct hycon_hy46xx_attribute *attr =
 			container_of(dattr, struct hycon_hy46xx_attribute, dattr);
 	u8 *field = (u8 *)tsdata + attr->field_offset;
-	size_t count = 0;
 	int error = 0;
 	int val;
 
-	mutex_lock(&tsdata->mutex);
+	guard(mutex)(&tsdata->mutex);
 
 	error = regmap_read(tsdata->regmap, attr->address, &val);
-	if (error < 0) {
+	if (error) {
 		dev_err(&tsdata->client->dev,
 			"Failed to fetch attribute %s, error %d\n",
 			dattr->attr.name, error);
-		goto out;
+		return error;
 	}
 
 	if (val != *field) {
@@ -202,11 +201,7 @@ static ssize_t hycon_hy46xx_setting_show(struct device *dev,
 		*field = val;
 	}
 
-	count = sysfs_emit(buf, "%d\n", val);
-
-out:
-	mutex_unlock(&tsdata->mutex);
-	return error ?: count;
+	return sysfs_emit(buf, "%d\n", val);
 }
 
 static ssize_t hycon_hy46xx_setting_store(struct device *dev,
@@ -221,29 +216,25 @@ static ssize_t hycon_hy46xx_setting_store(struct device *dev,
 	unsigned int val;
 	int error;
 
-	mutex_lock(&tsdata->mutex);
+	guard(mutex)(&tsdata->mutex);
 
 	error = kstrtouint(buf, 0, &val);
 	if (error)
-		goto out;
+		return error;
 
-	if (val < attr->limit_low || val > attr->limit_high) {
-		error = -ERANGE;
-		goto out;
-	}
+	if (val < attr->limit_low || val > attr->limit_high)
+		return -ERANGE;
 
 	error = regmap_write(tsdata->regmap, attr->address, val);
-	if (error < 0) {
+	if (error) {
 		dev_err(&tsdata->client->dev,
 			"Failed to update attribute %s, error: %d\n",
 			dattr->attr.name, error);
-		goto out;
+		return error;
 	}
 	*field = val;
 
-out:
-	mutex_unlock(&tsdata->mutex);
-	return error ?: count;
+	return count;
 }
 
 static HYCON_ATTR_U8(threshold, 0644, HY46XX_THRESHOLD, 0, 255);
