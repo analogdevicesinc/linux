@@ -22,7 +22,7 @@
 		reg = <EMAC_CMN_BASE 0x000B0000>;
 	};
 
-	uio-tod@EMAC_TOD_BASE {
+	uio-ethernet-debug-tod@EMAC_TOD_BASE {
 		compatible = "generic-uio";
 		reg = <EMAC_TOD_BASE 0xff>;
 	};
