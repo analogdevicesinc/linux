@@ -84,7 +84,7 @@
 			spi-cpha;
 			vref-supply = <&vref>;
 			adi,low-latency = <1>;
-			adi,sync-in-gpios = <&gpio0 88 GPIO_ACTIVE_LOW>;
+			adi,sync-in-gpios = <&gpio0 92 GPIO_ACTIVE_LOW>;
 			adi,aaf-gain = <143>;
 			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
 			clocks = <&ad7768_1_mclk>;
