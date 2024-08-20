@@ -33,6 +33,7 @@
 #define GPU_CONTROL_BASE 0x0000
 #define GPU_CONTROL_REG(r) (GPU_CONTROL_BASE + (r))
 
+
 #define GPU_ID 0x000 /* (RO) GPU and revision identifier */
 #define L2_FEATURES 0x004 /* (RO) Level 2 cache features */
 #define TILER_FEATURES 0x00C /* (RO) Tiler Features */
@@ -72,6 +73,7 @@
 #define THREAD_MAX_BARRIER_SIZE 0x0A8 /* (RO) Maximum threads waiting at a barrier */
 #define THREAD_FEATURES 0x0AC /* (RO) Thread features */
 #define THREAD_TLS_ALLOC 0x310 /* (RO) Number of threads per core that TLS must be allocated for */
+
 
 #define TEXTURE_FEATURES_0 0x0B0 /* (RO) Support flags for indexed texture formats 0..31 */
 #define TEXTURE_FEATURES_1 0x0B4 /* (RO) Support flags for indexed texture formats 32..63 */

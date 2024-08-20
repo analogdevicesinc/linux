@@ -1302,4 +1302,43 @@ void kbase_hwcnt_dump_buffer_block_state_update(struct kbase_hwcnt_dump_buffer *
 						const struct kbase_hwcnt_enable_map *dst_enable_map,
 						blk_stt_t blk_stt_val);
 
+/**
+ * kbase_hwcnt_dump_buffer_append_block_states() - Update the enabled block instances' block states
+ *                                                 in dst. After the operation, all non-enabled or
+ *                                                 unavailable block instances will be unchanged.
+ * @dump_buf:     Non-NULL pointer to dump buffer.
+ * @enable_map:   Non-NULL pointer to enable map specifying enabled counters.
+ * @block_states: Array of block states to be appended to the dump buffer. Note
+ *                that it is the caller's responsability to ensure that the size of
+ *                this array is equivalent to the number of block instances specified
+ *                in the metadata.
+ */
+static inline void
+kbase_hwcnt_dump_buffer_append_block_states(struct kbase_hwcnt_dump_buffer *dump_buf,
+					    const struct kbase_hwcnt_enable_map *enable_map,
+					    blk_stt_t *block_states)
+{
+	const struct kbase_hwcnt_metadata *metadata;
+	size_t blk, blk_inst;
+	size_t blk_inst_count = 0;
+
+	if (WARN_ON(!dump_buf) || WARN_ON(!enable_map) || WARN_ON(!block_states) ||
+	    WARN_ON(dump_buf->metadata != enable_map->metadata))
+		return;
+
+	metadata = dump_buf->metadata;
+
+	kbase_hwcnt_metadata_for_each_block(metadata, blk, blk_inst) {
+		if (kbase_hwcnt_metadata_block_instance_avail(metadata, blk, blk_inst) &&
+		    kbase_hwcnt_enable_map_block_enabled(enable_map, blk, blk_inst)) {
+			blk_stt_t *dst_blk_stt = kbase_hwcnt_dump_buffer_block_state_instance(
+				dump_buf, blk, blk_inst);
+
+			kbase_hwcnt_block_state_append(dst_blk_stt, block_states[blk_inst_count]);
+		}
+
+		blk_inst_count++;
+	}
+}
+
 #endif /* _KBASE_HWCNT_TYPES_H_ */

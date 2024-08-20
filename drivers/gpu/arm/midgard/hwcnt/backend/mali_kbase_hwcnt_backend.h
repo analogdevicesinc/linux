@@ -166,16 +166,13 @@ typedef int kbase_hwcnt_backend_dump_clear_fn(struct kbase_hwcnt_backend *backen
  * typedef kbase_hwcnt_backend_dump_request_fn - Request an asynchronous counter
  *                                               dump.
  * @backend: Non-NULL pointer to backend.
- * @dump_time_ns: Non-NULL pointer where the timestamp of when the dump was
- *                requested will be written out to on success.
  *
  * If the backend is not enabled or another dump is already in progress,
  * returns an error.
  *
  * Return: 0 on success, else error code.
  */
-typedef int kbase_hwcnt_backend_dump_request_fn(struct kbase_hwcnt_backend *backend,
-						u64 *dump_time_ns);
+typedef int kbase_hwcnt_backend_dump_request_fn(struct kbase_hwcnt_backend *backend);
 
 /**
  * typedef kbase_hwcnt_backend_dump_wait_fn - Wait until the last requested
@@ -197,6 +194,10 @@ typedef int kbase_hwcnt_backend_dump_wait_fn(struct kbase_hwcnt_backend *backend
  * @enable_map:  Non-NULL pointer to enable map specifying enabled values.
  * @accumulate:  True if counters should be accumulated into dump_buffer, rather
  *               than copied.
+ * @dump_time_ns: Non-NULL pointer holds the timestamp captured at the request of
+ *		  dump for JM GPU. Whereas for CSF GPU, holds the timestamp converted
+ *		  from the TIMESTAMP of the dump buffer (CSF GPU).
+ *		  Will be written out to on success.
  *
  * The resultant contents of the dump buffer are only well defined if a prior
  * call to dump_wait returned successfully, and a new dump has not yet been
@@ -207,7 +208,7 @@ typedef int kbase_hwcnt_backend_dump_wait_fn(struct kbase_hwcnt_backend *backend
 typedef int kbase_hwcnt_backend_dump_get_fn(struct kbase_hwcnt_backend *backend,
 					    struct kbase_hwcnt_dump_buffer *dump_buffer,
 					    const struct kbase_hwcnt_enable_map *enable_map,
-					    bool accumulate);
+					    bool accumulate, u64 *dump_time_ns);
 
 /**
  * struct kbase_hwcnt_backend_interface - Hardware counter backend virtual

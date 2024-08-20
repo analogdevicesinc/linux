@@ -44,7 +44,7 @@ struct kbase_hwc_dma_mapping {
  * @flags:        bitmask of BASE_MEM_* flags to convey special requirements &
  *                properties for the new allocation.
  * @gpu_va:       Start address of the memory region which was allocated from GPU
- *                virtual address space. If the BASE_MEM_FLAG_MAP_FIXED is set
+ *                virtual address space. If the BASEP_MEM_FLAG_MAP_FIXED is set
  *                then this parameter shall be provided by the caller.
  * @mmu_sync_info: Indicates whether this call is synchronous wrt MMU ops.
  *

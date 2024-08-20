@@ -673,6 +673,7 @@ static void kbase_populate_user_data(struct kbase_device *kbdev, struct gpu_prop
 	else
 		data->thread_props.max_workgroup_size = regdump->thread_max_workgroup_size;
 
+
 	if (regdump->thread_max_barrier_size == 0)
 		data->thread_props.max_barrier_size = THREAD_MBS_DEFAULT;
 	else

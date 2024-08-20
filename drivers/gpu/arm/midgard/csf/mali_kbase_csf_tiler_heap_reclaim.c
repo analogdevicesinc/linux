@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2022-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -297,10 +297,14 @@ static unsigned long kbase_csf_tiler_heap_reclaim_scan_free_pages(struct kbase_d
 	/* If Scheduler is busy in action, return 0 */
 	if (!mutex_trylock(&kbdev->csf.scheduler.lock)) {
 		struct kbase_csf_scheduler *const scheduler = &kbdev->csf.scheduler;
+		long remaining = (long)msecs_to_jiffies(2);
 
 		/* Wait for roughly 2-ms */
-		wait_event_timeout(kbdev->csf.event_wait, (scheduler->state != SCHED_BUSY),
-				   (long)msecs_to_jiffies(2));
+		remaining = kbase_csf_fw_io_wait_event_timeout(&kbdev->csf.fw_io,
+							       kbdev->csf.event_wait,
+							       (scheduler->state != SCHED_BUSY),
+							       remaining);
+
 		if (!mutex_trylock(&kbdev->csf.scheduler.lock)) {
 			dev_dbg(kbdev->dev, "Tiler heap reclaim scan see device busy (freed: 0)");
 			return 0;

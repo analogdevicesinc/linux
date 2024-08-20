@@ -79,6 +79,10 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
                 CONFIG_MALI_REAL_HW = y
             endif
 
+            ifneq ($(CONFIG_ANDROID), y)
+                CONFIG_PAGE_MIGRATION_SUPPORT ?= y
+            endif
+
 
             ifeq ($(CONFIG_MALI_HW_ERRATA_1485982_NOT_AFFECTED), y)
                 # Prevent misuse when CONFIG_MALI_HW_ERRATA_1485982_NOT_AFFECTED=y
@@ -165,6 +169,7 @@ ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
         CONFIG_MALI_DMA_BUF_LEGACY_COMPAT \
         CONFIG_MALI_EXPERT \
         CONFIG_MALI_CORESTACK \
+        CONFIG_PAGE_MIGRATION_SUPPORT \
         CONFIG_LARGE_PAGE_SUPPORT \
         CONFIG_MALI_PWRSOFT_765 \
         CONFIG_MALI_JOB_DUMP \

@@ -42,6 +42,25 @@
 #include <linux/version_compat_defs.h>
 
 #if !MALI_USE_CSF
+
+/**
+ * struct kbase_external_resource_list - Structure which describes a list of external
+ *                                       resources. This structure is used for the processing of
+ *                                       EXT_RES_MAP and EXT_RES_UNMAP softjobs, instead of ioctl
+ *                                       structure 'base_external_resource_list'. This is done to
+ *                                       avoid UBSAN falsely detecting that an out of bound access
+ *                                       is going to be made for ext_res[1] array, defined inside
+ *                                       'base_external_resource_list', when number of external
+ *                                       resources to be processed are more than 1.
+ *
+ * @count:   The number of external resources.
+ * @ext_res: Pointer to an array of external resources.
+ */
+struct kbase_external_resource_list {
+	u64 count;
+	struct base_external_resource *ext_res;
+};
+
 /**
  * DOC: This file implements the logic behind software only jobs that are
  * executed within the driver rather than being handed over to the GPU.
@@ -531,6 +550,7 @@ static int kbase_debug_copy_prepare(struct kbase_jd_atom *katom)
 	unsigned int nr = katom->nr_extres;
 	int ret = 0;
 	void __user *user_structs = (void __user *)(uintptr_t)katom->jc;
+	size_t copy_size;
 
 	if (!user_structs)
 		return -EINVAL;
@@ -549,7 +569,12 @@ static int kbase_debug_copy_prepare(struct kbase_jd_atom *katom)
 		goto out_cleanup;
 	}
 
-	ret = copy_from_user(user_buffers, user_structs, size_mul(sizeof(*user_buffers), nr));
+	if (check_mul_overflow(sizeof(*user_buffers), (size_t)nr, &copy_size)) {
+		ret = -EINVAL;
+		goto out_cleanup;
+	}
+
+	ret = copy_from_user(user_buffers, user_structs, copy_size);
 	if (ret) {
 		ret = -EFAULT;
 		goto out_cleanup;
@@ -1206,6 +1231,7 @@ static int kbase_jit_free_prepare(struct kbase_jd_atom *katom)
 	u32 count = MAX(katom->nr_extres, 1);
 	u32 i;
 	int ret;
+	size_t copy_size;
 
 	/* Sanity checks */
 	if (count > ARRAY_SIZE(kctx->jit_alloc)) {
@@ -1230,8 +1256,12 @@ static int kbase_jit_free_prepare(struct kbase_jd_atom *katom)
 			ret = -EINVAL;
 			goto free_info;
 		}
+		if (check_mul_overflow(sizeof(*ids), (size_t)count, &copy_size)) {
+			ret = -EINVAL;
+			goto free_info;
+		}
 
-		if (copy_from_user(ids, data, size_mul(sizeof(*ids), count)) != 0) {
+		if (copy_from_user(ids, data, copy_size) != 0) {
 			ret = -EINVAL;
 			goto free_info;
 		}
@@ -1352,7 +1382,7 @@ static void kbase_jit_free_finish(struct kbase_jd_atom *katom)
 static int kbase_ext_res_prepare(struct kbase_jd_atom *katom)
 {
 	__user struct base_external_resource_list *user_ext_res;
-	struct base_external_resource_list *ext_res;
+	struct kbase_external_resource_list *ext_res;
 	u64 count = 0;
 	size_t copy_size;
 
@@ -1370,17 +1400,17 @@ static int kbase_ext_res_prepare(struct kbase_jd_atom *katom)
 		return -EINVAL;
 
 	/* Copy the information for safe access and future storage */
-	copy_size = sizeof(*ext_res);
-	copy_size += sizeof(struct base_external_resource) * (count - 1);
-	ext_res = memdup_user(user_ext_res, copy_size);
-	if (IS_ERR(ext_res))
-		return PTR_ERR(ext_res);
+	copy_size = sizeof(struct base_external_resource) * count;
+	ext_res = kmalloc(sizeof(*ext_res) + copy_size, GFP_KERNEL);
+	if (!ext_res)
+		return -ENOMEM;
 
-	/*
-	 * Overwrite the count with the first value incase it was changed
-	 * after the fact.
-	 */
 	ext_res->count = count;
+	ext_res->ext_res = (struct base_external_resource *)(ext_res + 1);
+	if (copy_from_user(ext_res->ext_res, user_ext_res->ext_res, copy_size) != 0) {
+		kfree(ext_res);
+		return -EINVAL;
+	}
 
 	katom->softjob_data = ext_res;
 
@@ -1389,7 +1419,7 @@ static int kbase_ext_res_prepare(struct kbase_jd_atom *katom)
 
 static void kbase_ext_res_process(struct kbase_jd_atom *katom, bool map)
 {
-	struct base_external_resource_list *ext_res;
+	struct kbase_external_resource_list *ext_res;
 	uint64_t i;
 	bool failed = false;
 
@@ -1445,7 +1475,7 @@ failed_jc:
 
 static void kbase_ext_res_finish(struct kbase_jd_atom *katom)
 {
-	struct base_external_resource_list *ext_res;
+	struct kbase_external_resource_list *ext_res;
 
 	ext_res = katom->softjob_data;
 	/* Free the info structure */

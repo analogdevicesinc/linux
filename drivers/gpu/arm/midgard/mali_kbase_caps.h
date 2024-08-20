@@ -44,10 +44,13 @@
  * @MALI_KBASE_CAP_REJECT_ALLOC_MEM_PROTECTED_IN_UNPROTECTED_ALLOCS: BASE_MEM_PROTECTED is not
  *                                                                   allocatable in functions other
  *                                                                   than base_mem_protected
+ * @MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_5: BASE_MEM_UNUSED_BIT_5 is not allocatable
+ * @MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_7: BASE_MEM_UNUSED_BIT_7 is not allocatable
  * @MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_8: BASE_MEM_UNUSED_BIT_8 is not allocatable
  * @MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_19: BASE_MEM_UNUSED_BIT_19 is not allocatable
  * @MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_20: BASE_MEM_UNUSED_BIT_20 is not allocatable
  * @MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_27: BASE_MEM_UNUSED_BIT_27 is not allocatable
+ * @MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_29: BASE_MEM_UNUSED_BIT_29 is not allocatable
  * @MALI_KBASE_NUM_CAPS: Delimiter
  *
  * New enumerator must not be negative and smaller than @MALI_KBASE_NUM_CAPS.
@@ -67,6 +70,9 @@ enum mali_kbase_cap {
 	MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_19,
 	MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_20,
 	MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_27,
+	MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_5,
+	MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_7,
+	MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_29,
 	MALI_KBASE_NUM_CAPS
 };
 
@@ -125,6 +131,16 @@ mali_kbase_supports_reject_alloc_mem_protected_in_unprotected_allocs(unsigned lo
 		api_version, MALI_KBASE_CAP_REJECT_ALLOC_MEM_PROTECTED_IN_UNPROTECTED_ALLOCS);
 }
 
+static inline bool mali_kbase_supports_reject_alloc_mem_unused_bit_5(unsigned long api_version)
+{
+	return mali_kbase_supports_cap(api_version, MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_5);
+}
+
+static inline bool mali_kbase_supports_reject_alloc_mem_unused_bit_7(unsigned long api_version)
+{
+	return mali_kbase_supports_cap(api_version, MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_7);
+}
+
 static inline bool mali_kbase_supports_reject_alloc_mem_unused_bit_8(unsigned long api_version)
 {
 	return mali_kbase_supports_cap(api_version, MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_8);
@@ -143,6 +159,11 @@ static inline bool mali_kbase_supports_reject_alloc_mem_unused_bit_20(unsigned l
 static inline bool mali_kbase_supports_reject_alloc_mem_unused_bit_27(unsigned long api_version)
 {
 	return mali_kbase_supports_cap(api_version, MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_27);
+}
+
+static inline bool mali_kbase_supports_reject_alloc_mem_unused_bit_29(unsigned long api_version)
+{
+	return mali_kbase_supports_cap(api_version, MALI_KBASE_CAP_REJECT_ALLOC_MEM_UNUSED_BIT_29);
 }
 
 #endif /* __KBASE_CAPS_H_ */

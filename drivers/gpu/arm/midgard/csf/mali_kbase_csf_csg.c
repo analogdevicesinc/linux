@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2023-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -64,16 +64,17 @@ static DECLARE_BITMAP(csg_slots_status_updated, MAX_SUPPORTED_CSGS);
  * @kbdev:  Pointer to kbase device.
  * @csg_nr: The group slot number.
  *
- * Return: Non-zero if not complete, otherwise zero.
+ * Return: True if completed, false otherwise.
  */
 static bool csg_slot_status_update_finish(struct kbase_device *kbdev, u32 csg_nr)
 {
-	struct kbase_csf_cmd_stream_group_info const *const ginfo =
-		&kbdev->csf.global_iface.groups[csg_nr];
+	u32 csg_req;
+	u32 csg_ack;
 
-	return !((kbase_csf_firmware_csg_input_read(ginfo, CSG_REQ) ^
-		  kbase_csf_firmware_csg_output(ginfo, CSG_ACK)) &
-		 CSG_REQ_STATUS_UPDATE_MASK);
+	csg_req = kbase_csf_fw_io_group_input_read(&kbdev->csf.fw_io, csg_nr, CSG_REQ);
+	csg_ack = kbase_csf_fw_io_group_read(&kbdev->csf.fw_io, csg_nr, CSG_ACK);
+
+	return !((csg_req ^ csg_ack) & CSG_REQ_STATUS_UPDATE_MASK);
 }
 
 /**
@@ -82,7 +83,7 @@ static bool csg_slot_status_update_finish(struct kbase_device *kbdev, u32 csg_nr
  * @kbdev:      Pointer to kbase device.
  * @slots_mask: The group slots mask.
  *
- * Return: Non-zero if not complete, otherwise zero.
+ * Return: True if completed, false otherwise.
  */
 static bool csg_slots_status_update_finish(struct kbase_device *kbdev,
 					   const unsigned long *slots_mask)
@@ -121,13 +122,14 @@ static void wait_csg_slots_status_update_finish(struct kbase_device *kbdev,
 	bitmap_zero(csg_slots_status_updated, max_csg_slots);
 
 	while (!bitmap_empty(slots_mask, max_csg_slots) && remaining) {
-		remaining = wait_event_timeout(kbdev->csf.event_wait,
-					       csg_slots_status_update_finish(kbdev, slots_mask),
-					       remaining);
-		if (likely(remaining)) {
+		remaining = kbase_csf_fw_io_wait_event_timeout(
+			&kbdev->csf.fw_io, kbdev->csf.event_wait,
+			csg_slots_status_update_finish(kbdev, slots_mask), remaining);
+
+		if (likely(remaining > 0)) {
 			bitmap_andnot(slots_mask, slots_mask, csg_slots_status_updated,
 				      max_csg_slots);
-		} else {
+		} else if (!remaining) {
 			dev_warn(kbdev->dev, "STATUS_UPDATE request timed out for slots 0x%lx",
 				 slots_mask[0]);
 		}
@@ -231,28 +233,39 @@ static void kbasep_csf_csg_active_dump_cs_status_wait(struct kbase_context *kctx
  *
  * @kctx:   Pointer to kbase context.
  * @kbpr:   Pointer to printer instance.
- * @stream: Pointer to command stream information.
+ * @group_id:  CSG index.
+ * @stream_id: CS index.
  */
-static void
-kbasep_csf_csg_active_dump_cs_trace(struct kbase_context *kctx, struct kbasep_printer *kbpr,
-				    struct kbase_csf_cmd_stream_info const *const stream)
+static void kbasep_csf_csg_active_dump_cs_trace(struct kbase_context *kctx,
+						struct kbasep_printer *kbpr, u32 group_id,
+						u32 stream_id)
 {
-	u32 val = kbase_csf_firmware_cs_input_read(stream, CS_INSTR_BUFFER_BASE_LO);
-	u64 addr = ((u64)kbase_csf_firmware_cs_input_read(stream, CS_INSTR_BUFFER_BASE_HI) << 32) |
-		   val;
-	val = kbase_csf_firmware_cs_input_read(stream, CS_INSTR_BUFFER_SIZE);
+	u32 val;
+	u64 addr;
+
+	val = kbase_csf_fw_io_stream_input_read(&kctx->kbdev->csf.fw_io, group_id, stream_id,
+						CS_INSTR_BUFFER_BASE_LO);
+	addr = ((u64)kbase_csf_fw_io_stream_input_read(&kctx->kbdev->csf.fw_io, group_id, stream_id,
+						       CS_INSTR_BUFFER_BASE_HI)
+		<< 32) |
+	       val;
+	val = kbase_csf_fw_io_stream_input_read(&kctx->kbdev->csf.fw_io, group_id, stream_id,
+						CS_INSTR_BUFFER_SIZE);
 
 	kbasep_print(kbpr, "CS_TRACE_BUF_ADDR: 0x%16llx, SIZE: %u\n", addr, val);
 
 	/* Write offset variable address (pointer) */
-	val = kbase_csf_firmware_cs_input_read(stream, CS_INSTR_BUFFER_OFFSET_POINTER_LO);
-	addr = ((u64)kbase_csf_firmware_cs_input_read(stream, CS_INSTR_BUFFER_OFFSET_POINTER_HI)
+	val = kbase_csf_fw_io_stream_input_read(&kctx->kbdev->csf.fw_io, group_id, stream_id,
+						CS_INSTR_BUFFER_OFFSET_POINTER_LO);
+	addr = ((u64)kbase_csf_fw_io_stream_input_read(&kctx->kbdev->csf.fw_io, group_id, stream_id,
+						       CS_INSTR_BUFFER_OFFSET_POINTER_HI)
 		<< 32) |
 	       val;
 	kbasep_print(kbpr, "CS_TRACE_BUF_OFFSET_PTR: 0x%16llx\n", addr);
 
 	/* EVENT_SIZE and EVENT_STATEs */
-	val = kbase_csf_firmware_cs_input_read(stream, CS_INSTR_CONFIG);
+	val = kbase_csf_fw_io_stream_input_read(&kctx->kbdev->csf.fw_io, group_id, stream_id,
+						CS_INSTR_CONFIG);
 	kbasep_print(kbpr, "TRACE_EVENT_SIZE: 0x%x, TRACE_EVENT_STATES 0x%x\n",
 		     CS_INSTR_CONFIG_EVENT_SIZE_GET(val), CS_INSTR_CONFIG_EVENT_STATE_GET(val));
 }
@@ -407,19 +420,18 @@ static void kbasep_csf_csg_active_dump_queue(struct kbasep_printer *kbpr, struct
 		}
 		kbasep_csf_csg_active_dump_cs_status_cmd_ptr(kbpr, queue, queue->saved_cmd_ptr);
 	} else {
-		struct kbase_device const *const kbdev = queue->group->kctx->kbdev;
-		struct kbase_csf_cmd_stream_group_info const *const ginfo =
-			&kbdev->csf.global_iface.groups[queue->group->csg_nr];
-		struct kbase_csf_cmd_stream_info const *const stream =
-			&ginfo->streams[queue->csi_index];
+		struct kbase_device *kbdev = queue->group->kctx->kbdev;
+		u32 group_id = queue->group->csg_nr;
+		u32 stream_id = queue->csi_index;
 		u32 req_res;
 
-		if (WARN_ON(!stream))
-			return;
-
-		cmd_ptr = kbase_csf_firmware_cs_output(stream, CS_STATUS_CMD_PTR_LO);
-		cmd_ptr |= (u64)kbase_csf_firmware_cs_output(stream, CS_STATUS_CMD_PTR_HI) << 32;
-		req_res = kbase_csf_firmware_cs_output(stream, CS_STATUS_REQ_RESOURCE);
+		cmd_ptr = kbase_csf_fw_io_stream_read(&kbdev->csf.fw_io, group_id, stream_id,
+						      CS_STATUS_CMD_PTR_LO);
+		cmd_ptr |= (u64)kbase_csf_fw_io_stream_read(&kbdev->csf.fw_io, group_id, stream_id,
+							    CS_STATUS_CMD_PTR_HI)
+			   << 32;
+		req_res = kbase_csf_fw_io_stream_read(&kbdev->csf.fw_io, group_id, stream_id,
+						      CS_STATUS_REQ_RESOURCE);
 
 		kbasep_print(kbpr, "CMD_PTR: 0x%llx\n", cmd_ptr);
 		kbasep_print(kbpr, "REQ_RESOURCE [COMPUTE]: %d\n",
@@ -431,16 +443,21 @@ static void kbasep_csf_csg_active_dump_queue(struct kbasep_printer *kbpr, struct
 		kbasep_print(kbpr, "REQ_RESOURCE [IDVS]: %d\n",
 			     CS_STATUS_REQ_RESOURCE_IDVS_RESOURCES_GET(req_res));
 
-		wait_status = kbase_csf_firmware_cs_output(stream, CS_STATUS_WAIT);
-		wait_sync_value = kbase_csf_firmware_cs_output(stream, CS_STATUS_WAIT_SYNC_VALUE);
-		wait_sync_pointer =
-			kbase_csf_firmware_cs_output(stream, CS_STATUS_WAIT_SYNC_POINTER_LO);
+		wait_status = kbase_csf_fw_io_stream_read(&kbdev->csf.fw_io, group_id, stream_id,
+							  CS_STATUS_WAIT);
+		wait_sync_value = kbase_csf_fw_io_stream_read(&kbdev->csf.fw_io, group_id,
+							      stream_id, CS_STATUS_WAIT_SYNC_VALUE);
+		wait_sync_pointer = kbase_csf_fw_io_stream_read(
+			&kbdev->csf.fw_io, group_id, stream_id, CS_STATUS_WAIT_SYNC_POINTER_LO);
 		wait_sync_pointer |=
-			(u64)kbase_csf_firmware_cs_output(stream, CS_STATUS_WAIT_SYNC_POINTER_HI)
+			(u64)kbase_csf_fw_io_stream_read(&kbdev->csf.fw_io, group_id, stream_id,
+							 CS_STATUS_WAIT_SYNC_POINTER_HI)
 			<< 32;
 
-		sb_status = kbase_csf_firmware_cs_output(stream, CS_STATUS_SCOREBOARDS);
-		blocked_reason = kbase_csf_firmware_cs_output(stream, CS_STATUS_BLOCKED_REASON);
+		sb_status = kbase_csf_fw_io_stream_read(&kbdev->csf.fw_io, group_id, stream_id,
+							CS_STATUS_SCOREBOARDS);
+		blocked_reason = kbase_csf_fw_io_stream_read(&kbdev->csf.fw_io, group_id, stream_id,
+							     CS_STATUS_BLOCKED_REASON);
 
 		evt = (u64 *)kbase_phy_alloc_mapping_get(queue->kctx, wait_sync_pointer, &mapping);
 		if (evt) {
@@ -456,7 +473,7 @@ static void kbasep_csf_csg_active_dump_queue(struct kbasep_printer *kbpr, struct
 							  sb_status, blocked_reason);
 		/* Dealing with cs_trace */
 		if (kbase_csf_scheduler_queue_has_trace(queue))
-			kbasep_csf_csg_active_dump_cs_trace(queue->kctx, kbpr, stream);
+			kbasep_csf_csg_active_dump_cs_trace(queue->kctx, kbpr, group_id, stream_id);
 		else
 			kbasep_print(kbpr, "NO CS_TRACE\n");
 		kbasep_csf_csg_active_dump_cs_status_cmd_ptr(kbpr, queue, cmd_ptr);
@@ -477,12 +494,12 @@ static void kbasep_csf_csg_active_dump_group(struct kbasep_printer *kbpr,
 		u32 ep_c, ep_r;
 		char exclusive;
 		char idle = 'N';
-		struct kbase_csf_cmd_stream_group_info const *const ginfo =
-			&kbdev->csf.global_iface.groups[group->csg_nr];
 		u8 slot_priority = kbdev->csf.scheduler.csg_slots[group->csg_nr].priority;
 
-		ep_c = kbase_csf_firmware_csg_output(ginfo, CSG_STATUS_EP_CURRENT);
-		ep_r = kbase_csf_firmware_csg_output(ginfo, CSG_STATUS_EP_REQ);
+		ep_c = kbase_csf_fw_io_group_read(&kbdev->csf.fw_io, group->csg_nr,
+						  CSG_STATUS_EP_CURRENT);
+		ep_r = kbase_csf_fw_io_group_read(&kbdev->csf.fw_io, group->csg_nr,
+						  CSG_STATUS_EP_REQ);
 
 		if (CSG_STATUS_EP_REQ_EXCLUSIVE_COMPUTE_GET(ep_r))
 			exclusive = 'C';
@@ -491,7 +508,7 @@ static void kbasep_csf_csg_active_dump_group(struct kbasep_printer *kbpr,
 		else
 			exclusive = '0';
 
-		if (kbase_csf_firmware_csg_output(ginfo, CSG_STATUS_STATE) &
+		if (kbase_csf_fw_io_group_read(&kbdev->csf.fw_io, group->csg_nr, CSG_STATUS_STATE) &
 		    CSG_STATUS_STATE_IDLE_MASK)
 			idle = 'Y';
 
@@ -536,7 +553,7 @@ void kbase_csf_csg_update_status(struct kbase_device *kbdev)
 	u32 max_csg_slots = kbdev->csf.global_iface.group_num;
 	DECLARE_BITMAP(used_csgs, MAX_SUPPORTED_CSGS) = { 0 };
 	u32 csg_nr;
-	unsigned long flags;
+	unsigned long flags, fw_io_flags;
 
 	lockdep_assert_held(&kbdev->csf.scheduler.lock);
 
@@ -569,16 +586,22 @@ void kbase_csf_csg_update_status(struct kbase_device *kbdev)
 		return;
 
 	kbase_csf_scheduler_spin_lock(kbdev, &flags);
-	for_each_set_bit(csg_nr, used_csgs, max_csg_slots) {
-		struct kbase_csf_cmd_stream_group_info const *const ginfo =
-			&kbdev->csf.global_iface.groups[csg_nr];
-		kbase_csf_firmware_csg_input_mask(ginfo, CSG_REQ,
-						  ~kbase_csf_firmware_csg_output(ginfo, CSG_ACK),
-						  CSG_REQ_STATUS_UPDATE_MASK);
+
+	/* Return early if FW is unresponsive. */
+	if (kbase_csf_fw_io_open(&kbdev->csf.fw_io, &fw_io_flags)) {
+		kbase_csf_scheduler_spin_unlock(kbdev, flags);
+		return;
 	}
+
+	for_each_set_bit(csg_nr, used_csgs, max_csg_slots)
+		kbase_csf_fw_io_group_write_mask(&kbdev->csf.fw_io, csg_nr, CSG_REQ,
+						 ~kbase_csf_fw_io_group_read(&kbdev->csf.fw_io,
+									     csg_nr, CSG_ACK),
+						 CSG_REQ_STATUS_UPDATE_MASK);
 
 	BUILD_BUG_ON(MAX_SUPPORTED_CSGS > (sizeof(used_csgs[0]) * BITS_PER_BYTE));
 	kbase_csf_ring_csg_slots_doorbell(kbdev, used_csgs[0]);
+	kbase_csf_fw_io_close(&kbdev->csf.fw_io, fw_io_flags);
 	kbase_csf_scheduler_spin_unlock(kbdev, flags);
 	wait_csg_slots_status_update_finish(kbdev, used_csgs);
 	/* Wait for the user doorbell ring to take effect */

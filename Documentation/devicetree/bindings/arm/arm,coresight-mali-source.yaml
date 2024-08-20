@@ -1,0 +1,163 @@
+# SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
+#
+# (C) COPYRIGHT 2022-2024 ARM Limited. All rights reserved.
+#
+# This program is free software and is provided to you under the terms of the
+# GNU General Public License version 2 as published by the Free Software
+# Foundation, and any use by you of this program is subject to the terms
+# of such GNU license.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, you can access it online at
+# http://www.gnu.org/licenses/gpl-2.0.html.
+#
+#
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/arm/arm,coresight-mali-source.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: ARM CoreSight Mali Source integration
+
+maintainers:
+  - ARM Ltd.
+
+description: |
+  See Documentation/trace/coresight/coresight.rst for detailed information
+  about Coresight.
+
+  This documentation will cover Mali specific devicetree integration.
+
+  References to Sink ports are given as examples. Access to Sink is specific
+  to an implementation and would require dedicated kernel modules.
+
+  Arm Mali GPU are supporting 3 different sources: ITM, ETM, ELA
+
+  ELA source configuration via SysFS entries:
+
+    The register values used by CoreSight for ELA can be configured using SysFS
+    interfaces. This implicitly includes configuring the ELA for independent or
+    shared JCN request and response channels.
+
+properties:
+  compatible:
+    enum:
+      - arm,coresight-mali-source-itm
+      - arm,coresight-mali-source-etm
+      - arm,coresight-mali-source-ela
+
+  gpu:
+    minItems: 1
+    maxItems: 1
+    description:
+      Phandle to a Mali GPU definition
+
+  port:
+    description:
+      Output connection to CoreSight Sink Trace bus.
+
+      Legacy binding between Coresight Sources and CoreSight Sink.
+      For Linux kernel < v4.20.
+    $ref: /schemas/graph.yaml#/properties/port
+
+  out-ports:
+    description:
+      Binding between Coresight Sources and CoreSight Sink.
+      For Linux kernel >= v4.20.
+    $ref: /schemas/graph.yaml#/properties/ports
+
+    properties:
+      port:
+        description: Output connection to CoreSight Sink Trace bus.
+        $ref: /schemas/graph.yaml#/properties/port
+
+required:
+  - compatible
+  - gpu
+  - port
+  - out-ports
+
+additionalProperties: false
+
+examples:
+
+# A Sink node without legacy CoreSight connections
+  - |
+    mali-source-itm {
+        compatible = "arm,coresight-mali-source-itm";
+        gpu = <&gpu>;
+
+        out-ports {
+            port {
+                mali_source_itm_out_port0: endpoint {
+                    remote-endpoint = <&mali_sink_in_port0>;
+                };
+            };
+        };
+    };
+
+    mali-source-ela {
+        compatible = "arm,coresight-mali-source-ela";
+        gpu = <&gpu>;
+
+        out-ports {
+            port {
+                mali_source_ela_out_port0: endpoint {
+                    remote-endpoint = <&mali_sink_in_port1>;
+                };
+            };
+        };
+    };
+
+    mali-source-etm {
+        compatible = "arm,coresight-mali-source-etm";
+        gpu = <&gpu>;
+
+        out-ports {
+            port {
+                mali_source_etm_out_port0: endpoint {
+                    remote-endpoint = <&mali_sink_in_port2>;
+                };
+            };
+        };
+    };
+
+# A Sink node with legacy CoreSight connections
+  - |
+    mali-source-itm {
+        compatible = "arm,coresight-mali-source-itm";
+        gpu = <&gpu>;
+
+        port {
+            mali_source_itm_out_port0: endpoint {
+                remote-endpoint = <&mali_sink_in_port0>;
+            };
+        };
+    };
+
+    mali-source-etm {
+        compatible = "arm,coresight-mali-source-etm";
+        gpu = <&gpu>;
+
+        port {
+            mali_source_etm_out_port0: endpoint {
+                remote-endpoint = <&mali_sink_in_port1>;
+            };
+        };
+    };
+
+    mali-source-ela {
+        compatible = "arm,coresight-mali-source-ela";
+        gpu = <&gpu>;
+
+        port {
+            mali_source_ela_out_port0: endpoint {
+                remote-endpoint = <&mali_sink_in_port2>;
+            };
+        };
+    };

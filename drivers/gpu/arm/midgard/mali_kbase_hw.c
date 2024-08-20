@@ -278,6 +278,7 @@ static const enum base_hw_issue *kbase_hw_get_issues_for_new_id(struct kbase_dev
 		}
 	}
 
+
 	if (product != NULL) {
 		/* Found a matching product. */
 		const u32 version = gpu_id->version_id;
@@ -336,7 +337,6 @@ static const enum base_hw_issue *kbase_hw_get_issues_for_new_id(struct kbase_dev
 			gpu_id->version_id = fallback_version;
 		}
 	}
-
 
 	return issues;
 }

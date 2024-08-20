@@ -355,6 +355,7 @@ static int kbase_kcpu_jit_allocate_prepare(struct kbase_kcpu_command_queue *kcpu
 	u32 count = alloc_info->count;
 	int ret = 0;
 	u32 i;
+	size_t copy_size;
 
 	lockdep_assert_held(&kcpu_queue->lock);
 
@@ -371,7 +372,12 @@ static int kbase_kcpu_jit_allocate_prepare(struct kbase_kcpu_command_queue *kcpu
 		goto out;
 	}
 
-	if (copy_from_user(info, data, size_mul(sizeof(*info), count)) != 0) {
+	if (check_mul_overflow(sizeof(*info), (size_t)count, &copy_size)) {
+		ret = -EINVAL;
+		goto out_free;
+	}
+
+	if (copy_from_user(info, data, copy_size) != 0) {
 		ret = -EINVAL;
 		goto out_free;
 	}
@@ -542,6 +548,7 @@ static int kbase_kcpu_jit_free_prepare(struct kbase_kcpu_command_queue *kcpu_que
 	u32 count = free_info->count;
 	int ret;
 	u32 i;
+	size_t copy_size;
 
 	lockdep_assert_held(&kcpu_queue->lock);
 
@@ -563,7 +570,12 @@ static int kbase_kcpu_jit_free_prepare(struct kbase_kcpu_command_queue *kcpu_que
 		goto out_free;
 	}
 
-	if (copy_from_user(ids, data, size_mul(sizeof(*ids), count))) {
+	if (check_mul_overflow(sizeof(*ids), (size_t)count, &copy_size)) {
+		ret = -EINVAL;
+		goto out_free;
+	}
+
+	if (copy_from_user(ids, data, copy_size)) {
 		ret = -EINVAL;
 		goto out_free;
 	}
@@ -839,23 +851,35 @@ static int kbase_kcpu_cqs_wait_prepare(struct kbase_kcpu_command_queue *queue,
 	struct base_cqs_wait_info *objs;
 	unsigned int nr_objs = cqs_wait_info->nr_objs;
 	unsigned int i;
+	size_t copy_size;
+	int ret = 0;
 
 	lockdep_assert_held(&queue->lock);
 
-	if (nr_objs > BASEP_KCPU_CQS_MAX_NUM_OBJS)
-		return -EINVAL;
+	if (nr_objs > BASEP_KCPU_CQS_MAX_NUM_OBJS) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
-	if (!nr_objs)
-		return -EINVAL;
+	if (!nr_objs) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
 	objs = kcalloc(nr_objs, sizeof(*objs), GFP_KERNEL);
-	if (!objs)
-		return -ENOMEM;
+	if (!objs) {
+		ret = -ENOMEM;
+		goto exit;
+	}
 
-	if (copy_from_user(objs, u64_to_user_ptr(cqs_wait_info->objs),
-			   size_mul(nr_objs, sizeof(*objs)))) {
-		kfree(objs);
-		return -ENOMEM;
+	if (check_mul_overflow((size_t)nr_objs, sizeof(*objs), &copy_size)) {
+		ret = -EINVAL;
+		goto free_and_exit;
+	}
+
+	if (copy_from_user(objs, u64_to_user_ptr(cqs_wait_info->objs), copy_size)) {
+		ret = -ENOMEM;
+		goto free_and_exit;
 	}
 
 	/* Check the CQS objects as early as possible. By checking their alignment
@@ -864,16 +888,16 @@ static int kbase_kcpu_cqs_wait_prepare(struct kbase_kcpu_command_queue *queue,
 	 */
 	for (i = 0; i < nr_objs; i++) {
 		if (!kbase_kcpu_cqs_is_aligned(objs[i].addr, BASEP_CQS_DATA_TYPE_U32)) {
-			kfree(objs);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto free_and_exit;
 		}
 	}
 
 	if (++queue->cqs_wait_count == 1) {
 		if (kbase_csf_event_wait_add(queue->kctx, event_cqs_callback, queue)) {
-			kfree(objs);
 			queue->cqs_wait_count--;
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto free_and_exit;
 		}
 	}
 
@@ -889,12 +913,14 @@ static int kbase_kcpu_cqs_wait_prepare(struct kbase_kcpu_command_queue *queue,
 		if (--queue->cqs_wait_count == 0) {
 			kbase_csf_event_wait_remove(queue->kctx, event_cqs_callback, queue);
 		}
-
-		kfree(objs);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto free_and_exit;
 	}
-
-	return 0;
+exit:
+	return ret;
+free_and_exit:
+	kfree(objs);
+	return ret;
 }
 
 static void kbase_kcpu_cqs_set_process(struct kbase_device *kbdev,
@@ -945,23 +971,35 @@ static int kbase_kcpu_cqs_set_prepare(struct kbase_kcpu_command_queue *kcpu_queu
 	struct base_cqs_set *objs;
 	unsigned int nr_objs = cqs_set_info->nr_objs;
 	unsigned int i;
+	size_t copy_size;
+	int ret = 0;
 
 	lockdep_assert_held(&kcpu_queue->lock);
 
-	if (nr_objs > BASEP_KCPU_CQS_MAX_NUM_OBJS)
-		return -EINVAL;
+	if (nr_objs > BASEP_KCPU_CQS_MAX_NUM_OBJS) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
-	if (!nr_objs)
-		return -EINVAL;
+	if (!nr_objs) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
 	objs = kcalloc(nr_objs, sizeof(*objs), GFP_KERNEL);
-	if (!objs)
-		return -ENOMEM;
+	if (!objs) {
+		ret = -ENOMEM;
+		goto exit;
+	}
 
-	if (copy_from_user(objs, u64_to_user_ptr(cqs_set_info->objs),
-			   size_mul(nr_objs, sizeof(*objs)))) {
-		kfree(objs);
-		return -ENOMEM;
+	if (check_mul_overflow((size_t)nr_objs, sizeof(*objs), &copy_size)) {
+		ret = -EINVAL;
+		goto free_and_exit;
+	}
+
+	if (copy_from_user(objs, u64_to_user_ptr(cqs_set_info->objs), copy_size)) {
+		ret = -ENOMEM;
+		goto free_and_exit;
 	}
 
 	/* Check the CQS objects as early as possible. By checking their alignment
@@ -970,8 +1008,8 @@ static int kbase_kcpu_cqs_set_prepare(struct kbase_kcpu_command_queue *kcpu_queu
 	 */
 	for (i = 0; i < nr_objs; i++) {
 		if (!kbase_kcpu_cqs_is_aligned(objs[i].addr, BASEP_CQS_DATA_TYPE_U32)) {
-			kfree(objs);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto free_and_exit;
 		}
 	}
 
@@ -979,7 +1017,11 @@ static int kbase_kcpu_cqs_set_prepare(struct kbase_kcpu_command_queue *kcpu_queu
 	current_command->info.cqs_set.nr_objs = nr_objs;
 	current_command->info.cqs_set.objs = objs;
 
-	return 0;
+exit:
+	return ret;
+free_and_exit:
+	kfree(objs);
+	return ret;
 }
 
 static void
@@ -1103,23 +1145,35 @@ static int kbase_kcpu_cqs_wait_operation_prepare(
 	struct base_cqs_wait_operation_info *objs;
 	unsigned int nr_objs = cqs_wait_operation_info->nr_objs;
 	unsigned int i;
+	size_t copy_size;
+	int ret = 0;
 
 	lockdep_assert_held(&queue->lock);
 
-	if (nr_objs > BASEP_KCPU_CQS_MAX_NUM_OBJS)
-		return -EINVAL;
+	if (nr_objs > BASEP_KCPU_CQS_MAX_NUM_OBJS) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
-	if (!nr_objs)
-		return -EINVAL;
+	if (!nr_objs) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
 	objs = kcalloc(nr_objs, sizeof(*objs), GFP_KERNEL);
-	if (!objs)
-		return -ENOMEM;
+	if (!objs) {
+		ret = -ENOMEM;
+		goto exit;
+	}
 
-	if (copy_from_user(objs, u64_to_user_ptr(cqs_wait_operation_info->objs),
-			   size_mul(nr_objs, sizeof(*objs)))) {
-		kfree(objs);
-		return -ENOMEM;
+	if (check_mul_overflow((size_t)nr_objs, sizeof(*objs), &copy_size)) {
+		ret = -EINVAL;
+		goto free_and_exit;
+	}
+
+	if (copy_from_user(objs, u64_to_user_ptr(cqs_wait_operation_info->objs), copy_size)) {
+		ret = -ENOMEM;
+		goto free_and_exit;
 	}
 
 	/* Check the CQS objects as early as possible. By checking their alignment
@@ -1129,16 +1183,16 @@ static int kbase_kcpu_cqs_wait_operation_prepare(
 	for (i = 0; i < nr_objs; i++) {
 		if (!kbase_kcpu_cqs_is_data_type_valid(objs[i].data_type) ||
 		    !kbase_kcpu_cqs_is_aligned(objs[i].addr, objs[i].data_type)) {
-			kfree(objs);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto free_and_exit;
 		}
 	}
 
 	if (++queue->cqs_wait_count == 1) {
 		if (kbase_csf_event_wait_add(queue->kctx, event_cqs_callback, queue)) {
-			kfree(objs);
 			queue->cqs_wait_count--;
-			return -ENOMEM;
+			ret = -ENOMEM;
+			goto free_and_exit;
 		}
 	}
 
@@ -1156,11 +1210,15 @@ static int kbase_kcpu_cqs_wait_operation_prepare(
 			kbase_csf_event_wait_remove(queue->kctx, event_cqs_callback, queue);
 		}
 
-		kfree(objs);
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto free_and_exit;
 	}
 
-	return 0;
+exit:
+	return ret;
+free_and_exit:
+	kfree(objs);
+	return ret;
 }
 
 static void kbasep_kcpu_cqs_do_set_operation_32(struct kbase_kcpu_command_queue *queue,
@@ -1268,23 +1326,35 @@ static int kbase_kcpu_cqs_set_operation_prepare(
 	struct base_cqs_set_operation_info *objs;
 	unsigned int nr_objs = cqs_set_operation_info->nr_objs;
 	unsigned int i;
+	size_t copy_size;
+	int ret = 0;
 
 	lockdep_assert_held(&kcpu_queue->lock);
 
-	if (nr_objs > BASEP_KCPU_CQS_MAX_NUM_OBJS)
-		return -EINVAL;
+	if (nr_objs > BASEP_KCPU_CQS_MAX_NUM_OBJS) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
-	if (!nr_objs)
-		return -EINVAL;
+	if (!nr_objs) {
+		ret = -EINVAL;
+		goto exit;
+	}
 
 	objs = kcalloc(nr_objs, sizeof(*objs), GFP_KERNEL);
-	if (!objs)
-		return -ENOMEM;
+	if (!objs) {
+		ret = -ENOMEM;
+		goto exit;
+	}
 
-	if (copy_from_user(objs, u64_to_user_ptr(cqs_set_operation_info->objs),
-			   size_mul(nr_objs, sizeof(*objs)))) {
-		kfree(objs);
-		return -ENOMEM;
+	if (check_mul_overflow((size_t)nr_objs, sizeof(*objs), &copy_size)) {
+		ret = -EINVAL;
+		goto free_and_exit;
+	}
+
+	if (copy_from_user(objs, u64_to_user_ptr(cqs_set_operation_info->objs), copy_size)) {
+		ret = -ENOMEM;
+		goto free_and_exit;
 	}
 
 	/* Check the CQS objects as early as possible. By checking their alignment
@@ -1294,8 +1364,8 @@ static int kbase_kcpu_cqs_set_operation_prepare(
 	for (i = 0; i < nr_objs; i++) {
 		if (!kbase_kcpu_cqs_is_data_type_valid(objs[i].data_type) ||
 		    !kbase_kcpu_cqs_is_aligned(objs[i].addr, objs[i].data_type)) {
-			kfree(objs);
-			return -EINVAL;
+			ret = -EINVAL;
+			goto free_and_exit;
 		}
 	}
 
@@ -1303,7 +1373,11 @@ static int kbase_kcpu_cqs_set_operation_prepare(
 	current_command->info.cqs_set_operation.nr_objs = nr_objs;
 	current_command->info.cqs_set_operation.objs = objs;
 
-	return 0;
+exit:
+	return ret;
+free_and_exit:
+	kfree(objs);
+	return ret;
 }
 
 #if IS_ENABLED(CONFIG_SYNC_FILE)

@@ -28,6 +28,7 @@
 
 #include <linux/types.h>
 #include "mali_gpu_props.h"
+#include "mali_base_common_kernel.h"
 #include "mali_base_mem_priv.h"
 #include "gpu/mali_kbase_gpu_id.h"
 #include "gpu/mali_kbase_gpu_coherency.h"
@@ -44,11 +45,7 @@
 
 #else
 
-#if defined(MALI_PAGE_SIZE_AGNOSTIC)
 #define LOCAL_PAGE_SHIFT (__builtin_ctz((unsigned int)sysconf(_SC_PAGESIZE)))
-#else
-#define LOCAL_PAGE_SHIFT 12
-#endif
 
 #define LOCAL_PAGE_LSB ((1ul << LOCAL_PAGE_SHIFT) - 1)
 
@@ -92,7 +89,7 @@ typedef __u64 base_mem_alloc_flags;
 #define BASE_MEM_FLAGS_QUERYABLE                                                               \
 	(BASE_MEM_FLAGS_INPUT_MASK &                                                           \
 	 ~(BASE_MEM_FLAGS_RESERVED | BASE_MEM_FLAGS_UNUSED | BASE_MEM_FLAGS_ACTION_MODIFIERS | \
-	   BASEP_MEM_FLAGS_KERNEL_ONLY))
+	   BASE_MEM_FLAGS_KERNEL_ONLY))
 
 /**
  * enum base_mem_import_type - Memory types supported by @a base_mem_import

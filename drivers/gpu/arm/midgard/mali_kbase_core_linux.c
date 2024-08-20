@@ -144,6 +144,9 @@ struct mali_kbase_capability_def {
 /*
  * This must be kept in-sync with mali_kbase_cap
  *
+ * The table must specify all available capabilities defined in mali_kbase_cap.
+ * The major and minor version of unsupported capabilities must be set to U16_MAX.
+ *
  * TODO: The alternative approach would be to embed the cap enum values
  * in the table. Less efficient but potentially safer.
  */
@@ -159,8 +162,13 @@ static const struct mali_kbase_capability_def kbase_caps_table[MALI_KBASE_NUM_CA
 	{ 1, 28 }, /* QUERY_MEM_SAME_VA */
 	{ 1, 31 }, /* REJECT_ALLOC_MEM_DONT_NEED */
 	{ 1, 31 }, /* REJECT_ALLOC_MEM_PROTECTED_IN_UNPROTECTED_ALLOCS */
+	{ U16_MAX, U16_MAX }, /* REJECT_ALLOC_MEM_UNUSED_BIT_8 */
+	{ U16_MAX, U16_MAX }, /* REJECT_ALLOC_MEM_UNUSED_BIT_19 */
 	{ 1, 31 }, /* REJECT_ALLOC_MEM_UNUSED_BIT_20 */
-	{ 1, 31 } /* REJECT_ALLOC_MEM_UNUSED_BIT_27 */
+	{ 1, 31 }, /* REJECT_ALLOC_MEM_UNUSED_BIT_27 */
+	{ 1, 32 }, /* REJECT_ALLOC_MEM_UNUSED_BIT_5 */
+	{ 1, 32 }, /* REJECT_ALLOC_MEM_UNUSED_BIT_7 */
+	{ U16_MAX, U16_MAX } /* REJECT_ALLOC_MEM_UNUSED_BIT_29 */
 #else
 	{ 11, 15 }, /* SYSTEM_MONITOR */
 	{ 11, 25 }, /* JIT_PRESSURE_LIMIT */
@@ -173,7 +181,12 @@ static const struct mali_kbase_capability_def kbase_caps_table[MALI_KBASE_NUM_CA
 	{ 11, 46 }, /* REJECT_ALLOC_MEM_DONT_NEED */
 	{ 11, 46 }, /* REJECT_ALLOC_MEM_PROTECTED_IN_UNPROTECTED_ALLOCS */
 	{ 11, 46 }, /* REJECT_ALLOC_MEM_UNUSED_BIT_8 */
-	{ 11, 46 } /* REJECT_ALLOC_MEM_UNUSED_BIT_19 */
+	{ 11, 46 }, /* REJECT_ALLOC_MEM_UNUSED_BIT_19 */
+	{ U16_MAX, U16_MAX }, /* REJECT_ALLOC_MEM_UNUSED_BIT_20 */
+	{ 11, 48 }, /* REJECT_ALLOC_MEM_UNUSED_BIT_27 */
+	{ 11, 48 }, /* REJECT_ALLOC_MEM_UNUSED_BIT_5 */
+	{ 11, 48 }, /* REJECT_ALLOC_MEM_UNUSED_BIT_7 */
+	{ 11, 48 } /* REJECT_ALLOC_MEM_UNUSED_BIT_29 */
 #endif
 };
 
@@ -863,7 +876,7 @@ static int kbase_api_mem_alloc_ex(struct kbase_context *kctx,
 	if ((flags & BASE_MEM_FIXABLE) && (atomic64_read(&kctx->num_fixed_allocs) > 0))
 		return -EINVAL;
 
-	if (flags & BASEP_MEM_FLAGS_KERNEL_ONLY)
+	if (flags & BASE_MEM_FLAGS_KERNEL_ONLY)
 		return -ENOMEM;
 
 	/* The fixed_address parameter must be either a non-zero, page-aligned
@@ -952,7 +965,7 @@ static int kbase_api_mem_alloc(struct kbase_context *kctx, union kbase_ioctl_mem
 	if (!kbase_mem_allow_alloc(kctx))
 		return -EINVAL;
 
-	if (flags & BASEP_MEM_FLAGS_KERNEL_ONLY)
+	if (flags & BASE_MEM_FLAGS_KERNEL_ONLY)
 		return -ENOMEM;
 
 	/* Force SAME_VA if a 64-bit client.
@@ -1134,38 +1147,46 @@ static int kbase_api_mem_alias(struct kbase_context *kctx, union kbase_ioctl_mem
 	struct base_mem_aliasing_info *ai;
 	base_mem_alloc_flags flags;
 	int err;
+	size_t copy_size;
 
-	if (alias->in.nents == 0 || alias->in.nents > BASE_MEM_ALIAS_MAX_ENTS)
-		return -EINVAL;
+	if (alias->in.nents == 0 || alias->in.nents > BASE_MEM_ALIAS_MAX_ENTS) {
+		err = -EINVAL;
+		goto exit;
+	}
 
 	ai = vmalloc(sizeof(*ai) * alias->in.nents);
-	if (!ai)
-		return -ENOMEM;
+	if (!ai) {
+		err = -ENOMEM;
+		goto exit;
+	}
 
-	err = copy_from_user(ai, u64_to_user_ptr(alias->in.aliasing_info),
-			     size_mul(sizeof(*ai), alias->in.nents));
+	if (check_mul_overflow(sizeof(*ai), (size_t)alias->in.nents, &copy_size)) {
+		err = -EINVAL;
+		goto free_alloc;
+	}
+
+	err = copy_from_user(ai, u64_to_user_ptr(alias->in.aliasing_info), copy_size);
 	if (err) {
-		vfree(ai);
-		return -EFAULT;
+		err = -EFAULT;
+		goto free_alloc;
 	}
 
 	flags = alias->in.flags;
-	if (flags & BASEP_MEM_FLAGS_KERNEL_ONLY) {
-		vfree(ai);
-		return -EINVAL;
+	if (flags & BASE_MEM_FLAGS_KERNEL_ONLY) {
+		err = -EINVAL;
+		goto free_alloc;
 	}
 
 	alias->out.gpu_va = kbase_mem_alias(kctx, &flags, alias->in.stride, alias->in.nents, ai,
 					    &alias->out.va_pages);
 
 	alias->out.flags = flags;
-
-	vfree(ai);
-
 	if (alias->out.gpu_va == 0)
-		return -ENOMEM;
-
-	return 0;
+		err = -ENOMEM;
+free_alloc:
+	vfree(ai);
+exit:
+	return err;
 }
 
 static int kbase_api_mem_import(struct kbase_context *kctx, union kbase_ioctl_mem_import *import)
@@ -1173,7 +1194,7 @@ static int kbase_api_mem_import(struct kbase_context *kctx, union kbase_ioctl_me
 	int ret;
 	base_mem_alloc_flags flags = import->in.flags;
 
-	if (flags & BASEP_MEM_FLAGS_KERNEL_ONLY)
+	if (flags & BASE_MEM_FLAGS_KERNEL_ONLY)
 		return -ENOMEM;
 
 	ret = kbase_mem_import(kctx, import->in.type, u64_to_user_ptr(import->in.phandle),
@@ -1188,7 +1209,7 @@ static int kbase_api_mem_import(struct kbase_context *kctx, union kbase_ioctl_me
 static int kbase_api_mem_flags_change(struct kbase_context *kctx,
 				      struct kbase_ioctl_mem_flags_change *change)
 {
-	if (change->flags & BASEP_MEM_FLAGS_KERNEL_ONLY)
+	if (change->flags & BASE_MEM_FLAGS_KERNEL_ONLY)
 		return -ENOMEM;
 
 	return kbase_mem_flags_change(kctx, change->gpu_va, change->flags, change->mask);
@@ -1279,12 +1300,15 @@ static int kbase_api_sticky_resource_map(struct kbase_context *kctx,
 	int ret;
 	u64 i;
 	u64 gpu_addr[BASE_EXT_RES_COUNT_MAX];
+	size_t copy_size;
 
 	if (!map->count || map->count > BASE_EXT_RES_COUNT_MAX)
 		return -EOVERFLOW;
 
-	ret = copy_from_user(gpu_addr, u64_to_user_ptr(map->address),
-			     size_mul(sizeof(u64), map->count));
+	if (check_mul_overflow(sizeof(u64), (size_t)map->count, &copy_size))
+		return -EINVAL;
+
+	ret = copy_from_user(gpu_addr, u64_to_user_ptr(map->address), copy_size);
 
 	if (ret != 0)
 		return -EFAULT;
@@ -1319,12 +1343,15 @@ static int kbase_api_sticky_resource_unmap(struct kbase_context *kctx,
 	int ret;
 	u64 i;
 	u64 gpu_addr[BASE_EXT_RES_COUNT_MAX];
+	size_t copy_size;
 
 	if (!unmap->count || unmap->count > BASE_EXT_RES_COUNT_MAX)
 		return -EOVERFLOW;
 
-	ret = copy_from_user(gpu_addr, u64_to_user_ptr(unmap->address),
-			     size_mul(sizeof(u64), unmap->count));
+	if (check_mul_overflow(sizeof(u64), (size_t)unmap->count, &copy_size))
+		return -EINVAL;
+
+	ret = copy_from_user(gpu_addr, u64_to_user_ptr(unmap->address), copy_size);
 
 	if (ret != 0)
 		return -EFAULT;
@@ -1532,6 +1559,7 @@ static int kbase_ioctl_cs_get_glb_iface(struct kbase_context *kctx,
 	int err = 0;
 	u32 const max_group_num = param->in.max_group_num;
 	u32 const max_total_stream_num = param->in.max_total_stream_num;
+	size_t copy_size;
 
 	if (max_group_num > MAX_SUPPORTED_CSGS)
 		return -EINVAL;
@@ -1569,17 +1597,27 @@ static int kbase_ioctl_cs_get_glb_iface(struct kbase_context *kctx,
 			&param->out.glb_version, &param->out.features, &param->out.group_num,
 			&param->out.prfcnt_size, &param->out.instr_features);
 
-		if (copy_to_user(user_groups, group_data,
-				 size_mul(MIN(max_group_num, param->out.group_num),
-					  sizeof(*group_data))))
+		if (check_mul_overflow((size_t)(MIN(max_group_num, param->out.group_num)),
+				       sizeof(*group_data), &copy_size))
+			err = -EINVAL;
+	}
+
+	if (!err) {
+		if (copy_to_user(user_groups, group_data, copy_size))
 			err = -EFAULT;
 	}
 
-	if (!err)
-		if (copy_to_user(user_streams, stream_data,
-				 size_mul(MIN(max_total_stream_num, param->out.total_stream_num),
-					  sizeof(*stream_data))))
+	if (!err) {
+		if (check_mul_overflow(
+			    (size_t)(MIN(max_total_stream_num, param->out.total_stream_num)),
+			    sizeof(*stream_data), &copy_size))
+			err = -EINVAL;
+	}
+
+	if (!err) {
+		if (copy_to_user(user_streams, stream_data, copy_size))
 			err = -EFAULT;
+	}
 
 	kfree(group_data);
 	kfree(stream_data);
@@ -3117,8 +3155,8 @@ static ssize_t gpuinfo_show(struct device *dev, struct device_attribute *attr, c
 		{ .id = GPU_ID_PRODUCT_TVAX, .name = "Mali-G310" },
 		{ .id = GPU_ID_PRODUCT_LTUX, .name = "Mali-G615" },
 		{ .id = GPU_ID_PRODUCT_LTIX, .name = "Mali-G620" },
-		{ .id = GPU_ID_PRODUCT_TKRX, .name = "Mali-TKRX" },
-		{ .id = GPU_ID_PRODUCT_LKRX, .name = "Mali-LKRX" },
+		{ .id = GPU_ID_PRODUCT_TKRX, .name = "Mali-G725" },
+		{ .id = GPU_ID_PRODUCT_LKRX, .name = "Mali-G625" },
 	};
 	const char *product_name = "(Unknown Mali GPU)";
 	struct kbase_device *kbdev;
@@ -3177,6 +3215,19 @@ static ssize_t gpuinfo_show(struct device *dev, struct device_attribute *attr, c
 			product_name = "Mali-G720-Immortalis";
 		else
 			product_name = (nr_cores >= 6) ? "Mali-G720" : "Mali-G620";
+
+		dev_dbg(kbdev->dev, "GPU ID_Name: %s (ID: 0x%x), nr_cores(%u)\n", product_name,
+			product_id, nr_cores);
+	}
+
+	if (product_model == GPU_ID_PRODUCT_TKRX) {
+		const bool rt_supported = gpu_props->gpu_features.ray_intersection;
+		const u8 nr_cores = gpu_props->num_cores;
+
+		if ((nr_cores >= 10) && rt_supported)
+			product_name = "Mali-G925-Immortalis";
+		else
+			product_name = (nr_cores >= 6) ? "Mali-G725" : "Mali-G625";
 
 		dev_dbg(kbdev->dev, "GPU ID_Name: %s (ID: 0x%x), nr_cores(%u)\n", product_name,
 			product_id, nr_cores);
@@ -4310,16 +4361,6 @@ int registers_map(struct kbase_device *const kbdev)
 
 	kbdev->reg_start = reg_res->start;
 	kbdev->reg_size = resource_size(reg_res);
-
-#if MALI_USE_CSF
-	if (kbdev->reg_size <
-	    (CSF_HW_DOORBELL_PAGE_OFFSET + CSF_NUM_DOORBELL * CSF_HW_DOORBELL_PAGE_SIZE)) {
-		dev_err(kbdev->dev,
-			"Insufficient register space, will override to the required size\n");
-		kbdev->reg_size =
-			CSF_HW_DOORBELL_PAGE_OFFSET + CSF_NUM_DOORBELL * CSF_HW_DOORBELL_PAGE_SIZE;
-	}
-#endif
 
 	err = kbase_common_reg_map(kbdev);
 	if (err) {

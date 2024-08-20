@@ -406,6 +406,8 @@
 /* GPU IRQ flags */
 #define GPU_FAULT (1U << 0) /* A GPU Fault has occurred */
 #define GPU_PROTECTED_FAULT (1U << 1) /* A GPU fault has occurred in protected mode */
+
+
 #define RESET_COMPLETED (1U << 8) /* Set when a reset has completed.  */
 #define POWER_CHANGED_SINGLE \
 	(1U << 9) /* Set when a single core has finished powering up or down. */
@@ -424,22 +426,7 @@
 	(((reg_val)&GPU_FEATURES_RAY_TRACING_MASK) >> GPU_FEATURES_RAY_TRACING_SHIFT)
 /* End of GPU_FEATURES register */
 
-/*
- * In Debug build,
- * GPU_IRQ_REG_COMMON | POWER_CHANGED_SINGLE is used to clear and unmask
- * interrupts sources of GPU_IRQ by writing it onto GPU_IRQ_CLEAR/MASK registers.
- * Note that POWER_CHANGED_SINGLE is only used for internal testing.
- *
- * In Release build,
- * GPU_IRQ_REG_COMMON is used.
- *
- * Note:
- * CLEAN_CACHES_COMPLETED - Used separately for cache operation.
- * DOORBELL_MIRROR - Do not have it included for GPU_IRQ_REG_COMMON
- *                   as it can't be cleared by GPU_IRQ_CLEAR, thus interrupt storm might happen
- */
-#define GPU_IRQ_REG_COMMON \
-	(GPU_FAULT | GPU_PROTECTED_FAULT | RESET_COMPLETED | POWER_CHANGED_ALL | MCU_STATUS_GPU_IRQ)
+#define GPU_IRQ_REG_COMMON (GPU_FAULT | GPU_PROTECTED_FAULT | MCU_STATUS_GPU_IRQ)
 
 
 #endif /* _MALI_KBASE_REGMAP_CSF_MACROS_H_ */

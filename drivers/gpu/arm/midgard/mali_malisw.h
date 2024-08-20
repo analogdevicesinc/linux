@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2014-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -25,8 +25,6 @@
 
 #ifndef _MALISW_H_
 #define _MALISW_H_
-
-#include <linux/version.h>
 
 /**
  * MIN - Return the lesser of two values.
@@ -98,13 +96,5 @@
  * @endcode
  */
 #define CSTD_STR2(x) CSTD_STR1(x)
-
-#ifndef fallthrough
-#define fallthrough __fallthrough
-#endif /* fallthrough */
-
-#ifndef __fallthrough
-#define __fallthrough __attribute__((fallthrough))
-#endif /* __fallthrough */
 
 #endif /* _MALISW_H_ */

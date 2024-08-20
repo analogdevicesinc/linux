@@ -44,6 +44,7 @@
 #include <linux/vmalloc.h>
 #include <linux/sched/mm.h>
 #include <linux/kref.h>
+#include <linux/vmalloc.h>
 
 static inline void kbase_process_page_usage_inc(struct kbase_context *kctx, int pages);
 
@@ -105,8 +106,8 @@ static inline void kbase_process_page_usage_inc(struct kbase_context *kctx, int 
 
 /* Index of chosen MEMATTR for this region (0..7) */
 #define KBASE_REG_MEMATTR_MASK (7ul << 16)
-#define KBASE_REG_MEMATTR_INDEX(x) (((x) & 7) << 16)
-#define KBASE_REG_MEMATTR_VALUE(x) (((x) & KBASE_REG_MEMATTR_MASK) >> 16)
+#define KBASE_REG_MEMATTR_INDEX(x) (((x)&7) << 16)
+#define KBASE_REG_MEMATTR_VALUE(x) (((x)&KBASE_REG_MEMATTR_MASK) >> 16)
 
 /* AS<n>_MEMATTR values from MMU_MEMATTR_STAGE1: */
 /* Use GPU implementation-defined caching policy. */
@@ -447,15 +448,15 @@ enum kbase_page_status {
 /**
  * struct kbase_page_metadata - Metadata for each page in kbase
  *
- * @kbdev:         Pointer to kbase device.
- * @dma_addr:      DMA address mapped to page.
- * @migrate_lock:  A spinlock to protect the private metadata.
- * @data:          Member in union valid based on @status.
- * @status:        Status to keep track if page can be migrated at any
- *                 given moment. MSB will indicate if page is isolated.
- *                 Protected by @migrate_lock.
- * @vmap_count:    Counter of kernel mappings.
- * @group_id:      Memory group ID obtained at the time of page allocation.
+ * @data.mem_pool.kbdev:    Pointer to kbase device.
+ * @dma_addr:               DMA address mapped to page.
+ * @migrate_lock:           A spinlock to protect the private metadata.
+ * @data:                   Member in union valid based on @status.
+ * @status:                 Status to keep track if page can be migrated at any
+ *                          given moment. MSB will indicate if page is isolated.
+ *                          Protected by @migrate_lock.
+ * @vmap_count:             Counter of kernel mappings.
+ * @group_id:               Memory group ID obtained at the time of page allocation.
  *
  * Each small page will have a reference to this struct in the private field.
  * This will be used to keep track of information required for Linux page
@@ -482,15 +483,15 @@ struct kbase_page_metadata {
 		struct {
 			struct kbase_mmu_table *mmut;
 			/* GPU virtual page frame number info is in GPU_PAGE_SIZE units */
-			u64 pgd_vpfn_level;
+			u64 pgd_vpfn_level[GPU_PAGES_PER_CPU_PAGE];
 #if GPU_PAGES_PER_CPU_PAGE > 1
 			/**
-			 * @pgd_link: Link to the &kbase_mmu_table.pgd_pages_list
+			 * @data.pt_mapped.pgd_link: Link to the &kbase_mmu_table.pgd_pages_list
 			 */
 			struct list_head pgd_link;
 			/**
-			 * @pgd_page: Back pointer to the PGD page that the metadata is
-			 *            associated with
+			 * @data.pt_mapped.pgd_page: Back pointer to the PGD page that
+			 *                           the metadata is associated with
 			 */
 			struct page *pgd_page;
 			/**
@@ -499,7 +500,8 @@ struct kbase_page_metadata {
 			 */
 			DECLARE_BITMAP(allocated_sub_pages, GPU_PAGES_PER_CPU_PAGE);
 			/**
-			 * @num_allocated_sub_pages: The number of allocated sub pages in @pgd_page
+			 * @data.pt_mapped.num_allocated_sub_pages: The number of allocated
+			 *                                          sub pages in @pgd_page
 			 */
 			s8 num_allocated_sub_pages;
 #endif
@@ -1386,7 +1388,7 @@ int kbase_check_alloc_sizes(struct kbase_context *kctx, unsigned long flags, u64
  * Return: 0 if successful, -EINVAL if the flags are not supported
  */
 int kbase_update_region_flags(struct kbase_context *kctx, struct kbase_va_region *reg,
-			      unsigned long flags);
+			      base_mem_alloc_flags flags);
 
 /**
  * kbase_gpu_vm_lock() - Acquire the per-context region list lock
@@ -1819,8 +1821,8 @@ static inline dma_addr_t kbase_dma_addr_from_tagged(struct tagged_addr tagged_pa
 	phys_addr_t pa = as_phys_addr_t(tagged_pa);
 	struct page *page = pfn_to_page(PFN_DOWN(pa));
 	dma_addr_t dma_addr = (is_huge(tagged_pa) || is_partial(tagged_pa)) ?
-				      kbase_dma_addr_as_priv(page) :
-				      kbase_dma_addr(page);
+					    kbase_dma_addr_as_priv(page) :
+					    kbase_dma_addr(page);
 
 	return dma_addr;
 }

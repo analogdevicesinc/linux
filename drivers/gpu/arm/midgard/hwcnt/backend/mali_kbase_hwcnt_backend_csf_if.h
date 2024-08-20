@@ -280,6 +280,17 @@ typedef void (*kbase_hwcnt_backend_csf_if_get_gpu_cycle_count_fn)(
 	struct kbase_hwcnt_backend_csf_if_ctx *ctx, u64 *cycle_counts, u64 clk_enable_map);
 
 /**
+ * typedef kbase_hwcnt_backend_csf_if_time_convert_gpu_to_cpu_fn - Convert GPU timestamp
+ *                                                                    to CPU MONOTONIC time.
+ * @ctx:            Non-NULL pointer to a CSF interface context.
+ * @gpu_ts:         GPU timestamp.
+ *
+ * Return: The CPU timestamp.
+ */
+typedef u64 (*kbase_hwcnt_backend_csf_if_time_convert_gpu_to_cpu_fn)(
+	struct kbase_hwcnt_backend_csf_if_ctx *ctx, u64 gpu_ts);
+
+/**
  * struct kbase_hwcnt_backend_csf_if - Hardware counter backend CSF virtual
  *                                     interface.
  * @ctx:                 CSF interface context.
@@ -304,6 +315,7 @@ typedef void (*kbase_hwcnt_backend_csf_if_get_gpu_cycle_count_fn)(
  *                       ring buffer.
  * @set_extract_index:   Function ptr to set extract index of ring buffer.
  * @get_gpu_cycle_count: Function ptr to get the GPU cycle count.
+ * @time_convert_gpu_to_cpu: Function ptr to convert GPU to CPU timestamp.
  */
 struct kbase_hwcnt_backend_csf_if {
 	struct kbase_hwcnt_backend_csf_if_ctx *ctx;
@@ -323,6 +335,7 @@ struct kbase_hwcnt_backend_csf_if {
 	kbase_hwcnt_backend_csf_if_get_indexes_fn get_indexes;
 	kbase_hwcnt_backend_csf_if_set_extract_index_fn set_extract_index;
 	kbase_hwcnt_backend_csf_if_get_gpu_cycle_count_fn get_gpu_cycle_count;
+	kbase_hwcnt_backend_csf_if_time_convert_gpu_to_cpu_fn time_convert_gpu_to_cpu;
 };
 
 #endif /* #define _KBASE_HWCNT_BACKEND_CSF_IF_H_ */

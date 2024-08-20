@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 #
-# (C) COPYRIGHT 2013-2023 ARM Limited. All rights reserved.
+# (C) COPYRIGHT 2013-2024 ARM Limited. All rights reserved.
 #
 # This program is free software and is provided to you under the terms of the
 # GNU General Public License version 2 as published by the Free Software
@@ -133,6 +133,10 @@ for details.
 		   set and the setting coresponding to the SYSC_ALLOC register.
 - propagate-bits: Used to write to L2_CONFIG.PBHA_HWU. This bitset establishes which
 		   PBHA bits are propagated on the AXI bus.
+- mma-wa-id: Sets the PBHA ID to be used for the PBHA override based MMA violation workaround.
+	     The read and write allocation override bits for the PBHA are set to NONCACHEABLE
+	     and the driver encodes the PBHA ID in the PTEs where this workaround is to be applied.
+	     Valid values are from 1 to 15.
 
 
 Example for a Mali GPU with 1 clock and 1 regulator:
@@ -242,6 +246,7 @@ gpu@0xfc010000 {
     pbha {
         int-id-override = <2 0x32>, <9 0x05>, <16 0x32>;
         propagate-bits = /bits/ 8 <0x03>;
+        mma-wa-id = <2>;
     };
     ...
 };

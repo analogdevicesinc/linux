@@ -89,9 +89,12 @@ void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)
 {
 	u32 power_changed_mask = (POWER_CHANGED_ALL | MCU_STATUS_GPU_IRQ);
 	struct kbase_csf_scheduler *scheduler = &kbdev->csf.scheduler;
+	bool is_legacy_gpu_irq_mask = true;
 
 
 	KBASE_KTRACE_ADD(kbdev, CORE_GPU_IRQ, NULL, val);
+
+
 	if (val & GPU_FAULT)
 		kbase_gpu_fault_interrupt(kbdev);
 
@@ -105,7 +108,9 @@ void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)
 		 */
 		spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 		kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_MASK),
-				  GPU_IRQ_REG_ALL & ~GPU_PROTECTED_FAULT);
+				  kbase_reg_gpu_irq_all(is_legacy_gpu_irq_mask) &
+					  ~GPU_PROTECTED_FAULT);
+
 		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
 		kbase_csf_scheduler_spin_lock(kbdev, &flags);
@@ -139,7 +144,7 @@ void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)
 
 	/* Defer clearing CLEAN_CACHES_COMPLETED to kbase_clean_caches_done.
 	 * We need to acquire hwaccess_lock to avoid a race condition with
-	 * kbase_gpu_cache_flush_and_busy_wait
+	 * kbase_gpu_cache_flush_and_busy_wait.
 	 */
 	KBASE_KTRACE_ADD(kbdev, CORE_GPU_IRQ_CLEAR, NULL, val & ~CLEAN_CACHES_COMPLETED);
 	kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_CLEAR), val & ~CLEAN_CACHES_COMPLETED);
@@ -163,11 +168,35 @@ void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)
 		kbase_pm_disable_db_mirror_interrupt(kbdev);
 
 		if (likely(kbdev->pm.backend.mcu_state == KBASE_MCU_IN_SLEEP)) {
+			if (IS_ENABLED(CONFIG_MALI_DEBUG)) {
+				u32 const mcu_status =
+					kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(MCU_STATUS));
+				WARN_ON_ONCE(MCU_STATUS_VALUE_GET(mcu_status) !=
+					     MCU_STATUS_VALUE_HALT);
+			}
+
 			kbdev->pm.backend.exit_gpu_sleep_mode = true;
 			kbase_csf_scheduler_invoke_tick(kbdev);
-		} else if (likely(test_bit(KBASE_GPU_SUPPORTS_FW_SLEEP_ON_IDLE,
-					   &kbdev->pm.backend.gpu_sleep_allowed)) &&
+		} else if (atomic_read(&kbdev->csf.scheduler.fw_soi_enabled) &&
 			   (kbdev->pm.backend.mcu_state != KBASE_MCU_ON_PEND_SLEEP)) {
+			/* Ensure that the MCU has become halted/not enabled
+			 * before re-enabling DB notification, otherwise FW
+			 * might not have had a chance to go to sleep after
+			 * having issued a HALT request. This could cause
+			 * issues if the MCU becomes halted later unexpectedly.
+			 * This wait is expected to complete instantly in all
+			 * cases so timeouts are tolerable.
+			 */
+			u32 mcu_status;
+			int err = read_poll_timeout_atomic(
+				kbase_reg_read32, mcu_status,
+				MCU_STATUS_VALUE_GET(mcu_status) != MCU_STATUS_VALUE_ENABLED, 1,
+				kbase_get_timeout_ms(kbdev, CSF_FIRMWARE_SOI_HALT_TIMEOUT) *
+					USEC_PER_MSEC,
+				false, kbdev, GPU_CONTROL_ENUM(MCU_STATUS));
+			if (unlikely(err))
+				dev_warn(kbdev->dev, "MCU hasn't halted after automatic sleep");
+
 			/* The firmware is going to sleep on its own but new
 			 * doorbells were rung before we manage to handle
 			 * the GLB_IDLE IRQ in the bottom half. We shall enable

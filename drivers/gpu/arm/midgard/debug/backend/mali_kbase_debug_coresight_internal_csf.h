@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -55,14 +55,16 @@ enum kbase_debug_coresight_csf_state {
 /**
  * struct kbase_debug_coresight_csf_config - Coresight configuration definition
  *
- * @client:      Pointer to the client for which the configuration is created.
- * @enable_seq:  Array of operations for Coresight client enable sequence. Can be NULL.
- * @disable_seq: Array of operations for Coresight client disable sequence. Can be NULL.
- * @state:       Current Coresight configuration state.
- * @error:       Error code used to know if an error occurred during the execution
- *               of the enable or disable sequences.
- * @link:        Link item of a Coresight configuration.
- *               Linked to &struct_kbase_device.csf.coresight.configs.
+ * @client:          Pointer to the client for which the configuration is created.
+ * @enable_seq:      Array of operations for Coresight client enable sequence. Can be NULL.
+ * @disable_seq:     Array of operations for Coresight client disable sequence. Can be NULL.
+ * @state:           Current Coresight configuration state.
+ * @error:           Error code used to know if an error occurred during the execution
+ *                   of the enable or disable sequences.
+ * @is_pre_post_all: Bool to indicate if config enable and disable sequences should be
+ *                   handled pre or post all other configurations
+ * @link:            Link item of a Coresight configuration.
+ *                   Linked to &struct_kbase_device.csf.coresight.configs.
  */
 struct kbase_debug_coresight_csf_config {
 	void *client;
@@ -70,6 +72,7 @@ struct kbase_debug_coresight_csf_config {
 	struct kbase_debug_coresight_csf_sequence *disable_seq;
 	enum kbase_debug_coresight_csf_state state;
 	int error;
+	bool is_pre_post_all;
 	struct list_head link;
 };
 

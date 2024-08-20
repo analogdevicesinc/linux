@@ -30,6 +30,10 @@
 #include <tl/mali_kbase_tracepoints.h>
 #include <mali_kbase_gpuprops.h>
 
+#if MALI_USE_CSF
+#include <csf/mali_kbase_csf_scheduler.h>
+#endif
+
 /* A dmesg warning will occur if the GPU is not granted
  * after the following time (in milliseconds) has ellapsed.
  */
@@ -918,6 +922,8 @@ static inline bool kbase_arbiter_pm_vm_gpu_assigned_locked(struct kbase_device *
  * @kbdev: The kbase device structure for the device
  * @suspend_handler: The handler code for how to handle a suspend
  *                   that might occur
+ * @sched_lock_held: Flag variable that tells whether the caller grabs the
+ *                   scheduler lock or not
  *
  * This function handles a suspend event from the driver,
  * communicating with the arbiter and waiting synchronously for the GPU
@@ -927,10 +933,15 @@ static inline bool kbase_arbiter_pm_vm_gpu_assigned_locked(struct kbase_device *
  * Return: 0 on success else 1 suspend handler isn not possible.
  */
 int kbase_arbiter_pm_ctx_active_handle_suspend(struct kbase_device *kbdev,
-					       enum kbase_pm_suspend_handler suspend_handler)
+					       enum kbase_pm_suspend_handler suspend_handler,
+					       bool sched_lock_held)
 {
 	struct kbase_arbiter_vm_state *arb_vm_state = kbdev->pm.arb_vm_state;
 	int res = 0;
+
+#if !MALI_USE_CSF
+	CSTD_UNUSED(sched_lock_held);
+#endif
 
 	if (!kbase_has_arbiter(kbdev))
 		return res;
@@ -977,7 +988,15 @@ int kbase_arbiter_pm_ctx_active_handle_suspend(struct kbase_device *kbdev,
 		atomic_inc(&kbdev->pm.gpu_users_waiting);
 		mutex_unlock(&arb_vm_state->vm_state_lock);
 		kbase_pm_unlock(kbdev);
+#if MALI_USE_CSF
+		if (sched_lock_held)
+			kbase_csf_scheduler_unlock(kbdev);
+#endif
 		kbase_arbiter_pm_vm_wait_gpu_assignment(kbdev);
+#if MALI_USE_CSF
+		if (sched_lock_held)
+			kbase_csf_scheduler_lock(kbdev);
+#endif
 		kbase_pm_lock(kbdev);
 		mutex_lock(&arb_vm_state->vm_state_lock);
 		atomic_dec(&kbdev->pm.gpu_users_waiting);

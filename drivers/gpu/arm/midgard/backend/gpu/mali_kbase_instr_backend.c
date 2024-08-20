@@ -166,6 +166,7 @@ int kbase_instr_hwcnt_disable_internal(struct kbase_context *kctx)
 	unsigned long flags, pm_flags;
 	struct kbase_device *kbdev = kctx->kbdev;
 	const unsigned long timeout = msecs_to_jiffies(WAIT_FOR_DUMP_TIMEOUT_MS);
+	unsigned int remaining;
 
 	while (1) {
 		spin_lock_irqsave(&kbdev->hwaccess_lock, pm_flags);
@@ -202,8 +203,11 @@ int kbase_instr_hwcnt_disable_internal(struct kbase_context *kctx)
 		spin_unlock_irqrestore(&kbdev->hwaccess_lock, pm_flags);
 
 		/* Ongoing dump/setup - wait for its completion */
-		wait_event_timeout(kbdev->hwcnt.backend.wait, kbdev->hwcnt.backend.triggered != 0,
-				   timeout);
+		remaining = wait_event_timeout(kbdev->hwcnt.backend.wait,
+					       kbdev->hwcnt.backend.triggered != 0, timeout);
+
+		if (remaining == 0)
+			kbdev->hwcnt.backend.state = KBASE_INSTR_STATE_UNRECOVERABLE_ERROR;
 	}
 
 	kbdev->hwcnt.backend.state = KBASE_INSTR_STATE_DISABLED;

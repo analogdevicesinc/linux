@@ -1339,7 +1339,8 @@ void midgard_model_write_reg(void *h, u32 addr, u32 value)
 #if MALI_USE_CSF
 	} else if (addr >= CSF_HW_DOORBELL_PAGE_OFFSET &&
 		   addr < CSF_HW_DOORBELL_PAGE_OFFSET +
-				   (CSF_NUM_DOORBELL * CSF_HW_DOORBELL_PAGE_SIZE)) {
+				   (dummy->kbdev->csf.num_doorbells * CSF_HW_DOORBELL_PAGE_SIZE)) {
+		WARN_ON(!dummy->kbdev->csf.num_doorbells);
 		if (addr == CSF_HW_DOORBELL_PAGE_OFFSET)
 			hw_error_status.job_irq_status = JOB_IRQ_GLOBAL_IF;
 	} else if ((addr >= GPU_CONTROL_REG(SYSC_ALLOC0)) &&
@@ -1863,6 +1864,8 @@ void midgard_model_read_reg(void *h, u32 addr, u32 *const value)
 			*value = dummy->control_reg_values->thread_max_threads;
 			break;
 		}
+#if MALI_USE_CSF
+#endif /* MALI_USE_CSF */
 	} else if (addr >= GPU_CONTROL_REG(CYCLE_COUNT_LO) &&
 		   addr <= GPU_CONTROL_REG(TIMESTAMP_HI)) {
 		*value = 0;

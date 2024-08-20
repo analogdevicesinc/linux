@@ -54,8 +54,6 @@
 #define MEM_FEATURES_COHERENT_CORE_GROUP_SHIFT GPU_U(0)
 #define MEM_FEATURES_COHERENT_CORE_GROUP_MASK (GPU_U(0x1) << MEM_FEATURES_COHERENT_CORE_GROUP_SHIFT)
 
-#define GPU_IRQ_REG_ALL (GPU_IRQ_REG_COMMON)
-
 /*
  * MMU_IRQ_RAWSTAT register values. Values are valid also for
  * MMU_IRQ_CLEAR, MMU_IRQ_MASK, MMU_IRQ_STATUS registers.
@@ -507,11 +505,5 @@
 /* IDVS_GROUP register */
 #define IDVS_GROUP_SIZE_SHIFT (16)
 #define IDVS_GROUP_MAX_SIZE (0x3F)
-
-/* Include POWER_CHANGED_SINGLE in debug builds for use in irq latency test. */
-#ifdef CONFIG_MALI_DEBUG
-#undef GPU_IRQ_REG_ALL
-#define GPU_IRQ_REG_ALL (GPU_IRQ_REG_COMMON | POWER_CHANGED_SINGLE)
-#endif /* CONFIG_MALI_DEBUG */
 
 #endif /* _MALI_KBASE_HW_ACCESS_REGMAP_H_ */

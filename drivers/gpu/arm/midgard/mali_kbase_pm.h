@@ -146,8 +146,8 @@ int kbase_pm_context_active_handle_suspend(struct kbase_device *kbdev,
 					   enum kbase_pm_suspend_handler suspend_handler);
 
 /**
- * kbase_pm_context_active_handle_suspend_locked - Same as kbase_pm_context_active_handle_suspend(),
- *                                                 except that pm.lock is held by the caller.
+ * kbase_pm_context_active_handle_suspend_locked - Same as kbase_pm_context_active_handle_suspend()
+ *                          except that pm.lock and scheduler.lock (for CSF) is held by the caller.
  *
  * @kbdev:     The kbase device structure for the device (must be a valid pointer)
  * @suspend_handler: The handler code for how to handle a suspend that might occur

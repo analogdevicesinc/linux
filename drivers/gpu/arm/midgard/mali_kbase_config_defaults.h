@@ -216,6 +216,19 @@ enum {
  */
 #define CSF_FIRMWARE_BOOT_TIMEOUT_CYCLES (25000000)
 
+/* Waiting timeout in clock cycles for GPU firmware to wake up from sleep.
+ *
+ * Based on 25ms timeout at 100MHz, scaled from a 50MHz GPU system.
+ */
+#define CSF_FIRMWARE_WAKE_UP_TIMEOUT_CYCLES (2500000)
+
+/* Waiting timeout in clock cycles for the MCU to become halted after FW has
+ * raised the GLB_IDLE IRQ in preparation for automatic sleeping.
+ *
+ * Based on 10ms timeout at 100MHz, scaled from a 50MHz GPU system.
+ */
+#define CSF_FIRMWARE_SOI_HALT_TIMEOUT_CYCLES (1000000)
+
 /* Waiting timeout for a ping request to be acknowledged, in clock cycles.
  *
  * Based on 6000ms timeout at 100MHz, scaled from a 50MHz GPU system.

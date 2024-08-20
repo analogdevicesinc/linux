@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2015-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2015-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -93,7 +93,6 @@ static void kbasep_timeline_autoflush_timer_callback(struct timer_list *timer)
 
 int kbase_timeline_init(struct kbase_timeline **timeline, atomic_t *timeline_flags)
 {
-	enum tl_stream_type i;
 	struct kbase_timeline *result;
 #if MALI_USE_CSF
 	struct kbase_tlstream *csffw_stream;
@@ -107,11 +106,8 @@ int kbase_timeline_init(struct kbase_timeline **timeline, atomic_t *timeline_fla
 		return -ENOMEM;
 
 	mutex_init(&result->reader_lock);
+	mutex_init(&result->streams_buf_lock);
 	init_waitqueue_head(&result->event_queue);
-
-	/* Prepare stream structures. */
-	for (i = 0; i < TL_STREAM_TYPE_COUNT; i++)
-		kbase_tlstream_init(&result->streams[i], i, &result->event_queue);
 
 	/* Initialize the kctx list */
 	mutex_init(&result->tl_kctx_list_lock);
@@ -144,8 +140,13 @@ void kbase_timeline_term(struct kbase_timeline *timeline)
 
 	WARN_ON(!list_empty(&timeline->tl_kctx_list));
 
-	for (i = (enum tl_stream_type)0; i < TL_STREAM_TYPE_COUNT; i++)
+	mutex_lock(&timeline->streams_buf_lock);
+	for (i = (enum tl_stream_type)0; i < TL_STREAM_TYPE_COUNT; i++) {
+		vfree(timeline->streams[i].buffer);
+		timeline->streams[i].buffer = NULL;
 		kbase_tlstream_term(&timeline->streams[i]);
+	}
+	mutex_unlock(&timeline->streams_buf_lock);
 
 	vfree(timeline);
 }
@@ -175,6 +176,9 @@ int kbase_timeline_acquire(struct kbase_device *kbdev, u32 flags)
 	u32 timeline_flags = TLSTREAM_ENABLED | flags;
 	struct kbase_timeline *timeline;
 	int rcode;
+	void *buffer;
+	int i;
+	int j;
 
 	if (WARN_ON(!kbdev) || WARN_ON(flags & ~BASE_TLSTREAM_FLAGS_MASK))
 		return -EINVAL;
@@ -182,6 +186,24 @@ int kbase_timeline_acquire(struct kbase_device *kbdev, u32 flags)
 	timeline = kbdev->timeline;
 	if (WARN_ON(!timeline))
 		return -EFAULT;
+
+	mutex_lock(&timeline->streams_buf_lock);
+	if (!(timeline->streams[0].buffer)) {
+		for (i = 0; i < TL_STREAM_TYPE_COUNT; i++) {
+			buffer = vzalloc(sizeof(struct kbase_tlstream_buf) * PACKET_COUNT);
+			if (!buffer) {
+				for (j = i - 1; j >= 0; j--) {
+					vfree(timeline->streams[j].buffer);
+					timeline->streams[j].buffer = NULL;
+				}
+				mutex_unlock(&timeline->streams_buf_lock);
+				return -ENOMEM;
+			}
+			timeline->streams[i].buffer = buffer;
+			kbase_tlstream_init(&timeline->streams[i], i, &timeline->event_queue);
+		}
+	}
+	mutex_unlock(&timeline->streams_buf_lock);
 
 	if (atomic_cmpxchg(timeline->timeline_flags, 0, (int)timeline_flags))
 		return -EBUSY;

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2020-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2020-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -98,6 +98,7 @@ KBASEP_MCU_STATE(HCTL_SHADERS_CORE_OFF_PEND)
 /* Additional MCU states to support GPU sleep feature */
 KBASEP_MCU_STATE(ON_SLEEP_INITIATE)
 KBASEP_MCU_STATE(ON_PEND_SLEEP)
+KBASEP_MCU_STATE(ON_PEND_SOI_SLEEP)
 KBASEP_MCU_STATE(IN_SLEEP)
 #if IS_ENABLED(CONFIG_MALI_CORESIGHT)
 /* Additional MCU states for Coresight */

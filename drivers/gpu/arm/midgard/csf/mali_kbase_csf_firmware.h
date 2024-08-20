@@ -55,7 +55,7 @@
 #define MCU_AS_BITMASK (1 << MCU_AS_NR)
 
 /* Number of available Doorbells */
-#define CSF_NUM_DOORBELL ((u8)24)
+#define CSF_NUM_DOORBELL_MAX ((u8)64)
 
 /* Offset to the first HW doorbell page */
 #define CSF_HW_DOORBELL_PAGE_OFFSET ((u32)DOORBELLS_BASE)
@@ -118,57 +118,16 @@ struct kbase_csf_trace_buffers {
  * @features: Bit field of CS features (e.g. which types of jobs
  *            are supported). Bits 7:0 specify the number of work registers(-1).
  *            Bits 11:8 specify the number of scoreboard entries(-1).
- * @input: Address of CSI input page.
- * @output: Address of CSI output page.
+ * @gid: CSG index to which the CSI is assigned.
+ * @sid: CSI index.
  */
 struct kbase_csf_cmd_stream_info {
 	struct kbase_device *kbdev;
 	u32 features;
-	void *input;
-	void *output;
+	u32 gid;
+	u32 sid;
 };
 
-/**
- * kbase_csf_firmware_cs_input() - Set a word in a CS's input page
- *
- * @info: CSI provided by the firmware.
- * @offset: Offset of the word to be written, in bytes.
- * @value: Value to be written.
- */
-void kbase_csf_firmware_cs_input(const struct kbase_csf_cmd_stream_info *info, u32 offset,
-				 u32 value);
-
-/**
- * kbase_csf_firmware_cs_input_read() - Read a word in a CS's input page
- *
- * Return: Value of the word read from the CS's input page.
- *
- * @info: CSI provided by the firmware.
- * @offset: Offset of the word to be read, in bytes.
- */
-u32 kbase_csf_firmware_cs_input_read(const struct kbase_csf_cmd_stream_info *const info,
-				     const u32 offset);
-
-/**
- * kbase_csf_firmware_cs_input_mask() - Set part of a word in a CS's input page
- *
- * @info: CSI provided by the firmware.
- * @offset: Offset of the word to be modified, in bytes.
- * @value: Value to be written.
- * @mask: Bitmask with the bits to be modified set.
- */
-void kbase_csf_firmware_cs_input_mask(const struct kbase_csf_cmd_stream_info *info, u32 offset,
-				      u32 value, u32 mask);
-
-/**
- * kbase_csf_firmware_cs_output() - Read a word in a CS's output page
- *
- * Return: Value of the word read from the CS's output page.
- *
- * @info: CSI provided by the firmware.
- * @offset: Offset of the word to be read, in bytes.
- */
-u32 kbase_csf_firmware_cs_output(const struct kbase_csf_cmd_stream_info *info, u32 offset);
 /**
  * struct kbase_csf_cmd_stream_group_info - CSG interface provided by the
  *                                          firmware.
@@ -177,8 +136,7 @@ u32 kbase_csf_firmware_cs_output(const struct kbase_csf_cmd_stream_info *info, u
  *         this interface.
  * @features: Bit mask of features. Reserved bits should be 0, and should
  *            be ignored.
- * @input: Address of global interface input page.
- * @output: Address of global interface output page.
+ * @gid: CSG index.
  * @suspend_size: Size in bytes for normal suspend buffer for the CSG
  * @protm_suspend_size: Size in bytes for protected mode suspend buffer
  *                      for the CSG.
@@ -190,58 +148,13 @@ u32 kbase_csf_firmware_cs_output(const struct kbase_csf_cmd_stream_info *info, u
 struct kbase_csf_cmd_stream_group_info {
 	struct kbase_device *kbdev;
 	u32 features;
-	void *input;
-	void *output;
+	u32 gid;
 	u32 suspend_size;
 	u32 protm_suspend_size;
 	u32 stream_num;
 	u32 stream_stride;
 	struct kbase_csf_cmd_stream_info *streams;
 };
-
-/**
- * kbase_csf_firmware_csg_input() - Set a word in a CSG's input page
- *
- * @info: CSG interface provided by the firmware.
- * @offset: Offset of the word to be written, in bytes.
- * @value: Value to be written.
- */
-void kbase_csf_firmware_csg_input(const struct kbase_csf_cmd_stream_group_info *info, u32 offset,
-				  u32 value);
-
-/**
- * kbase_csf_firmware_csg_input_read() - Read a word in a CSG's input page
- *
- * Return: Value of the word read from the CSG's input page.
- *
- * @info: CSG interface provided by the firmware.
- * @offset: Offset of the word to be read, in bytes.
- */
-u32 kbase_csf_firmware_csg_input_read(const struct kbase_csf_cmd_stream_group_info *info,
-				      u32 offset);
-
-/**
- * kbase_csf_firmware_csg_input_mask() - Set part of a word in a CSG's
- *                                       input page
- *
- * @info: CSG interface provided by the firmware.
- * @offset: Offset of the word to be modified, in bytes.
- * @value: Value to be written.
- * @mask: Bitmask with the bits to be modified set.
- */
-void kbase_csf_firmware_csg_input_mask(const struct kbase_csf_cmd_stream_group_info *info,
-				       u32 offset, u32 value, u32 mask);
-
-/**
- * kbase_csf_firmware_csg_output()- Read a word in a CSG's output page
- *
- * Return: Value of the word read from the CSG's output page.
- *
- * @info: CSG interface provided by the firmware.
- * @offset: Offset of the word to be read, in bytes.
- */
-u32 kbase_csf_firmware_csg_output(const struct kbase_csf_cmd_stream_group_info *info, u32 offset);
-
 
 /**
  * struct kbase_csf_global_iface - Global CSF interface
@@ -254,8 +167,6 @@ u32 kbase_csf_firmware_csg_output(const struct kbase_csf_cmd_stream_group_info *
  *           with a lower minor version for the same major version.
  * @features: Bit mask of features (e.g. whether certain types of job can
  *            be suspended). Reserved bits should be 0, and should be ignored.
- * @input: Address of global interface input page.
- * @output: Address of global interface output page.
  * @group_num: Number of CSGs supported.
  * @group_stride: Stride in bytes in JASID0 virtual address between
  *                CSG capability structures.
@@ -267,56 +178,12 @@ struct kbase_csf_global_iface {
 	struct kbase_device *kbdev;
 	u32 version;
 	u32 features;
-	void *input;
-	void *output;
 	u32 group_num;
 	u32 group_stride;
 	u32 prfcnt_size;
 	u32 instr_features;
 	struct kbase_csf_cmd_stream_group_info *groups;
 };
-
-/**
- * kbase_csf_firmware_global_input() - Set a word in the global input page
- *
- * @iface: CSF interface provided by the firmware.
- * @offset: Offset of the word to be written, in bytes.
- * @value: Value to be written.
- */
-void kbase_csf_firmware_global_input(const struct kbase_csf_global_iface *iface, u32 offset,
-				     u32 value);
-
-/**
- * kbase_csf_firmware_global_input_mask() - Set part of a word in the global
- *                                          input page
- *
- * @iface: CSF interface provided by the firmware.
- * @offset: Offset of the word to be modified, in bytes.
- * @value: Value to be written.
- * @mask: Bitmask with the bits to be modified set.
- */
-void kbase_csf_firmware_global_input_mask(const struct kbase_csf_global_iface *iface, u32 offset,
-					  u32 value, u32 mask);
-
-/**
- * kbase_csf_firmware_global_input_read() - Read a word in a global input page
- *
- * Return: Value of the word read from the global input page.
- *
- * @info: CSG interface provided by the firmware.
- * @offset: Offset of the word to be read, in bytes.
- */
-u32 kbase_csf_firmware_global_input_read(const struct kbase_csf_global_iface *info, u32 offset);
-
-/**
- * kbase_csf_firmware_global_output() - Read a word in the global output page
- *
- * Return: Value of the word read from the global output page.
- *
- * @iface: CSF interface provided by the firmware.
- * @offset: Offset of the word to be read, in bytes.
- */
-u32 kbase_csf_firmware_global_output(const struct kbase_csf_global_iface *iface, u32 offset);
 
 /**
  * kbase_csf_ring_doorbell() - Ring the doorbell
@@ -516,7 +383,9 @@ int kbase_csf_firmware_ping_wait(struct kbase_device *kbdev, unsigned int wait_t
  * Configures the progress timeout value used by the firmware to decide
  * when to report that a task is not making progress on an endpoint.
  *
- * Return: 0 on success, or negative on failure.
+ * Return: 0 on success,
+ *         -ENODEV on unresponsive MCU,
+ *         or negative error code on other failure.
  */
 int kbase_csf_firmware_set_timeout(struct kbase_device *kbdev, u64 timeout);
 
@@ -528,8 +397,10 @@ int kbase_csf_firmware_set_timeout(struct kbase_device *kbdev, u64 timeout);
  *
  * The function must be called with kbdev->csf.scheduler.interrupt_lock held
  * and it does not wait for the protected mode entry to complete.
+ *
+ * Return: 0 on success, -ENODEV if MCU is unresponsive.
  */
-void kbase_csf_enter_protected_mode(struct kbase_device *kbdev);
+int kbase_csf_enter_protected_mode(struct kbase_device *kbdev);
 
 /**
  * kbase_csf_wait_protected_mode_enter - Wait for the completion of PROTM_ENTER
@@ -623,6 +494,7 @@ void kbase_csf_firmware_trigger_mcu_sleep(struct kbase_device *kbdev);
  * Return: true if sleep request has completed, otherwise false.
  */
 bool kbase_csf_firmware_is_mcu_in_sleep(struct kbase_device *kbdev);
+
 #endif
 
 
@@ -794,8 +666,10 @@ static inline long kbase_csf_timeout_in_jiffies(const unsigned int msecs)
  * Program the firmware interface with its configured hysteresis count value
  * and enable the firmware to act on it. The Caller is
  * assumed to hold the kbdev->csf.scheduler.interrupt_lock.
+ *
+ * Return: -ENODEV on unresponsive MCU, 0 otherwise.
  */
-void kbase_csf_firmware_enable_gpu_idle_timer(struct kbase_device *kbdev);
+int kbase_csf_firmware_enable_gpu_idle_timer(struct kbase_device *kbdev);
 
 /**
  * kbase_csf_firmware_disable_gpu_idle_timer() - Disable the idle time
@@ -805,8 +679,10 @@ void kbase_csf_firmware_enable_gpu_idle_timer(struct kbase_device *kbdev);
  *
  * Program the firmware interface to disable the idle hysteresis timer. The
  * Caller is assumed to hold the kbdev->csf.scheduler.interrupt_lock.
+ *
+ * Return: -ENODEV on unresponsive MCU, 0 otherwise.
  */
-void kbase_csf_firmware_disable_gpu_idle_timer(struct kbase_device *kbdev);
+int kbase_csf_firmware_disable_gpu_idle_timer(struct kbase_device *kbdev);
 
 /**
  * kbase_csf_firmware_get_gpu_idle_hysteresis_time - Get the firmware GPU idle
@@ -930,7 +806,9 @@ int kbase_csf_trigger_firmware_config_update(struct kbase_device *kbdev);
  * Request a firmware core dump and wait for for firmware to acknowledge.
  * Firmware will enter infinite loop after the firmware core dump is created.
  *
- * Return: 0 if success, or negative error code on failure.
+ * Return: 0 if success,
+ *         -ENODEV on unresponsive MCU,
+ *         or negative error code on other failure.
  */
 int kbase_csf_firmware_req_core_dump(struct kbase_device *const kbdev);
 
@@ -946,6 +824,15 @@ int kbase_csf_firmware_req_core_dump(struct kbase_device *const kbdev);
 void kbase_csf_firmware_soi_update(struct kbase_device *kbdev);
 
 /**
+ * kbase_csf_firmware_glb_idle_timer_update - Update GLB_IDLE timer config
+ *
+ * @kbdev: Device pointer
+ *
+ * This function reconfigures the GLB_IDLE timer configuration if necessary.
+ */
+void kbase_csf_firmware_glb_idle_timer_update(struct kbase_device *kbdev);
+
+/**
  * kbase_csf_firmware_soi_disable_on_scheduler_suspend - Disable FW Sleep-on-Idle config
  *                                                       on scheduler suspension
  *
@@ -956,5 +843,6 @@ void kbase_csf_firmware_soi_update(struct kbase_device *kbdev);
 int kbase_csf_firmware_soi_disable_on_scheduler_suspend(struct kbase_device *kbdev);
 
 #endif /* KBASE_PM_RUNTIME */
+
 
 #endif

@@ -406,10 +406,9 @@ void kbase_debug_coresight_csf_unregister(void *client_data)
 }
 EXPORT_SYMBOL(kbase_debug_coresight_csf_unregister);
 
-void *
-kbase_debug_coresight_csf_config_create(void *client_data,
-					struct kbase_debug_coresight_csf_sequence *enable_seq,
-					struct kbase_debug_coresight_csf_sequence *disable_seq)
+void *kbase_debug_coresight_csf_config_create(
+	void *client_data, struct kbase_debug_coresight_csf_sequence *enable_seq,
+	struct kbase_debug_coresight_csf_sequence *disable_seq, bool pre_post)
 {
 	struct kbase_debug_coresight_csf_client *client;
 	struct kbase_debug_coresight_csf_config *config;
@@ -450,6 +449,7 @@ kbase_debug_coresight_csf_config_create(void *client_data,
 	config->enable_seq = enable_seq;
 	config->disable_seq = disable_seq;
 	config->error = 0;
+	config->is_pre_post_all = pre_post;
 	config->state = KBASE_DEBUG_CORESIGHT_CSF_DISABLED;
 
 	INIT_LIST_HEAD(&config->link);
@@ -551,11 +551,12 @@ EXPORT_SYMBOL(kbase_debug_coresight_csf_config_enable);
 
 int kbase_debug_coresight_csf_config_disable(void *config_data)
 {
-	struct kbase_debug_coresight_csf_config *config;
+	struct kbase_debug_coresight_csf_config *config, *pre_post_config;
 	struct kbase_debug_coresight_csf_client *client;
 	struct kbase_device *kbdev;
 	struct kbase_debug_coresight_csf_config *config_entry;
 	bool found_in_list = false;
+	bool config_deleted = false;
 	unsigned long flags;
 	int ret = 0;
 
@@ -617,6 +618,32 @@ int kbase_debug_coresight_csf_config_disable(void *config_data)
 			ret = coresight_config_disable(kbdev, config);
 
 		kbase_csf_scheduler_spin_lock(kbdev, &flags);
+
+		if (!ret) {
+			spin_lock(&kbdev->csf.coresight.lock);
+			list_del_init(&config->link);
+			config_deleted = true;
+
+			/* Check if post disable config exists. It has to be explicitly
+			 * executed as the last one.
+			 */
+			if (list_count_nodes(&kbdev->csf.coresight.configs) == 1) {
+				pre_post_config = list_first_entry(
+					&kbdev->csf.coresight.configs,
+					struct kbase_debug_coresight_csf_config, link);
+				if (pre_post_config->is_pre_post_all) {
+					spin_unlock(&kbdev->csf.coresight.lock);
+					kbase_csf_scheduler_spin_unlock(kbdev, flags);
+
+					ret = coresight_config_disable(kbdev, pre_post_config);
+
+					kbase_csf_scheduler_spin_lock(kbdev, &flags);
+					spin_lock(&kbdev->csf.coresight.lock);
+					list_del_init(&pre_post_config->link);
+				}
+			}
+			spin_unlock(&kbdev->csf.coresight.lock);
+		}
 	} else if (kbdev->pm.backend.mcu_state == KBASE_MCU_OFF) {
 		/* MCU is OFF, so the disable sequence was already executed.
 		 *
@@ -630,9 +657,11 @@ int kbase_debug_coresight_csf_config_disable(void *config_data)
 	}
 
 	/* Remove config from next disable sequence */
-	spin_lock(&kbdev->csf.coresight.lock);
-	list_del_init(&config->link);
-	spin_unlock(&kbdev->csf.coresight.lock);
+	if (!config_deleted) {
+		spin_lock(&kbdev->csf.coresight.lock);
+		list_del_init(&config->link);
+		spin_unlock(&kbdev->csf.coresight.lock);
+	}
 
 	kbase_csf_scheduler_spin_unlock(kbdev, flags);
 	kbase_csf_scheduler_unlock(kbdev);
@@ -650,7 +679,22 @@ static void coresight_config_enable_all(struct work_struct *data)
 
 	spin_lock_irqsave(&kbdev->csf.coresight.lock, flags);
 
+	/* Check whether pre_post_config exists and enable it as the first one */
 	list_for_each_entry(config_entry, &kbdev->csf.coresight.configs, link) {
+		if (config_entry->is_pre_post_all) {
+			spin_unlock_irqrestore(&kbdev->csf.coresight.lock, flags);
+			if (coresight_config_enable(kbdev, config_entry))
+				dev_err(kbdev->dev, "enable pre_post_config (0x%pK) failed",
+					config_entry);
+			spin_lock_irqsave(&kbdev->csf.coresight.lock, flags);
+			break;
+		}
+	}
+
+	list_for_each_entry(config_entry, &kbdev->csf.coresight.configs, link) {
+		if (config_entry->is_pre_post_all)
+			continue;
+
 		spin_unlock_irqrestore(&kbdev->csf.coresight.lock, flags);
 		if (coresight_config_enable(kbdev, config_entry))
 			dev_err(kbdev->dev, "enable config (0x%pK) failed", config_entry);
@@ -671,11 +715,18 @@ static void coresight_config_disable_all(struct work_struct *data)
 	struct kbase_device *kbdev =
 		container_of(data, struct kbase_device, csf.coresight.disable_work);
 	struct kbase_debug_coresight_csf_config *config_entry;
+	struct kbase_debug_coresight_csf_config *pre_post_config = NULL;
 	unsigned long flags;
 
 	spin_lock_irqsave(&kbdev->csf.coresight.lock, flags);
 
 	list_for_each_entry(config_entry, &kbdev->csf.coresight.configs, link) {
+		/* If pre_post_config exists, disable it as the last one */
+		if (!pre_post_config && config_entry->is_pre_post_all) {
+			pre_post_config = config_entry;
+			continue;
+		}
+
 		spin_unlock_irqrestore(&kbdev->csf.coresight.lock, flags);
 		if (coresight_config_disable(kbdev, config_entry))
 			dev_err(kbdev->dev, "disable config (0x%pK) failed", config_entry);
@@ -683,6 +734,12 @@ static void coresight_config_disable_all(struct work_struct *data)
 	}
 
 	spin_unlock_irqrestore(&kbdev->csf.coresight.lock, flags);
+
+	if (pre_post_config) {
+		if (coresight_config_disable(kbdev, pre_post_config))
+			dev_err(kbdev->dev, "disable pre_post_config (0x%pK) failed",
+				pre_post_config);
+	}
 
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 	kbase_pm_update_state(kbdev);

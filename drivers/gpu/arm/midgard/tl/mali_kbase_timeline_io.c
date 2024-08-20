@@ -170,7 +170,12 @@ static inline int copy_stream_header(char __user *buffer, size_t size, ssize_t *
 				     const char *hdr, size_t hdr_size, size_t *hdr_btc)
 {
 	const size_t offset = hdr_size - *hdr_btc;
-	const size_t copy_size = MIN(size_sub((ssize_t)size, *copy_len), *hdr_btc);
+	size_t copy_size;
+
+	if (WARN_ON(check_sub_overflow((size_t)size, (size_t)*copy_len, &copy_size)))
+		return -1;
+
+	copy_size = MIN(copy_size, *hdr_btc);
 
 	if (!*hdr_btc)
 		return 0;

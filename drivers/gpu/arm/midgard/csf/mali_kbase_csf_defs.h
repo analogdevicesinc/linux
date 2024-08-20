@@ -270,6 +270,9 @@ enum kbase_queue_group_priority {
  * @CSF_GPU_RESET_TIMEOUT: Waiting timeout for GPU reset to complete.
  * @CSF_CSG_TERM_TIMEOUT: Timeout given for a CSG to be terminated.
  * @CSF_FIRMWARE_BOOT_TIMEOUT: Maximum time to wait for firmware to boot.
+ * @CSF_FIRMWARE_WAKE_UP_TIMEOUT: Maximum time to wait for firmware to wake up from sleep.
+ * @CSF_FIRMWARE_SOI_HALT_TIMEOUT: Maximum time to wait for the MCU to become halted after FW has
+ *                                 raised the GLB_IDLE IRQ in preparation for automatic sleeping.
  * @CSF_FIRMWARE_PING_TIMEOUT: Maximum time to wait for firmware to respond
  *                             to a ping from KBase.
  * @CSF_SCHED_PROTM_PROGRESS_TIMEOUT: Timeout used to prevent protected mode execution hang.
@@ -292,6 +295,8 @@ enum kbase_timeout_selector {
 	CSF_GPU_RESET_TIMEOUT,
 	CSF_CSG_TERM_TIMEOUT,
 	CSF_FIRMWARE_BOOT_TIMEOUT,
+	CSF_FIRMWARE_WAKE_UP_TIMEOUT,
+	CSF_FIRMWARE_SOI_HALT_TIMEOUT,
 	CSF_FIRMWARE_PING_TIMEOUT,
 	CSF_SCHED_PROTM_PROGRESS_TIMEOUT,
 	MMU_AS_INACTIVE_WAIT_TIMEOUT,
@@ -1144,7 +1149,7 @@ struct kbase_csf_scheduler {
 	struct mutex lock;
 	spinlock_t interrupt_lock;
 	enum kbase_csf_scheduler_state state;
-	DECLARE_BITMAP(doorbell_inuse_bitmap, CSF_NUM_DOORBELL);
+	DECLARE_BITMAP(doorbell_inuse_bitmap, CSF_NUM_DOORBELL_MAX);
 	DECLARE_BITMAP(csg_inuse_bitmap, MAX_SUPPORTED_CSGS);
 	struct kbase_csf_csg_slot *csg_slots;
 	struct list_head runnable_kctxs;
@@ -1656,8 +1661,7 @@ struct kbase_csf_user_reg {
  * @glb_init_request_pending: Flag to indicate that Global requests have been
  *                            sent to the FW after MCU was re-enabled and their
  *                            acknowledgement is pending.
- * @fw_error_work:          Work item for handling the firmware internal error
- *                          fatal event.
+ * @glb_fatal_work:         Work item for handling the firmware GLB FATAL event.
  * @ipa_control:            IPA Control component manager.
  * @mcu_core_pwroff_dur_ns: Sysfs attribute for the glb_pwroff timeout input
  *                          in unit of nanoseconds. The firmware does not use
@@ -1715,6 +1719,7 @@ struct kbase_csf_user_reg {
  * @fw_io:                  Firmware I/O interface.
  * @compute_progress_timeout_cc: Value of GPU cycle count register when progress
  *                               timer timeout is reported for the compute iterator.
+ * @num_doorbells: Number of doorbells supported by the GPU.
  */
 struct kbase_csf_device {
 	struct kbase_mmu_table mcu_mmu;
@@ -1743,7 +1748,7 @@ struct kbase_csf_device {
 	bool firmware_hctl_core_pwr;
 	struct work_struct firmware_reload_work;
 	bool glb_init_request_pending;
-	struct work_struct fw_error_work;
+	struct work_struct glb_fatal_work;
 	struct kbase_ipa_control ipa_control;
 	u64 mcu_core_pwroff_dur_ns;
 	u32 mcu_core_pwroff_dur_count;
@@ -1779,6 +1784,7 @@ struct kbase_csf_device {
 	bool mcu_halted;
 	struct kbase_csf_fw_io fw_io;
 	u64 compute_progress_timeout_cc;
+	u32 num_doorbells;
 };
 
 /**

@@ -54,8 +54,11 @@ int kbase_backend_gpuprops_get(struct kbase_device *kbdev, struct kbasep_gpuprop
 #endif /* !MALI_USE_CSF */
 
 	regdump->thread_max_threads = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(THREAD_MAX_THREADS));
-	regdump->thread_max_workgroup_size =
-		kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(THREAD_MAX_WORKGROUP_SIZE));
+	if (kbase_reg_is_valid(kbdev, GPU_CONTROL_ENUM(THREAD_MAX_WORKGROUP_SIZE)))
+		regdump->thread_max_workgroup_size =
+			kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(THREAD_MAX_WORKGROUP_SIZE));
+#if MALI_USE_CSF
+#endif /* MALI_USE_CSF */
 	regdump->thread_max_barrier_size =
 		kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(THREAD_MAX_BARRIER_SIZE));
 	regdump->thread_features = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(THREAD_FEATURES));

@@ -21,6 +21,7 @@
 
 #include <tl/mali_kbase_tracepoints.h>
 
+#include "mali_kbase_mem_flags.h"
 #include "mali_kbase_reg_track.h"
 #include "mali_kbase_csf_tiler_heap.h"
 #include "mali_kbase_csf_tiler_heap_def.h"

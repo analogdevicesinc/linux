@@ -187,6 +187,7 @@ static int kbase_jd_pre_external_resources(struct kbase_jd_atom *katom,
 	int err = -EINVAL;
 	u32 res_no;
 	struct base_external_resource *input_extres;
+	size_t copy_size;
 
 	KBASE_DEBUG_ASSERT(katom);
 	KBASE_DEBUG_ASSERT(katom->core_req & BASE_JD_REQ_EXTERNAL_RESOURCES);
@@ -205,8 +206,13 @@ static int kbase_jd_pre_external_resources(struct kbase_jd_atom *katom,
 		goto failed_input_alloc;
 	}
 
+	if (check_mul_overflow(sizeof(*input_extres), (size_t)katom->nr_extres, &copy_size)) {
+		err = -EINVAL;
+		goto failed_input_copy;
+	}
+
 	if (copy_from_user(input_extres, get_compat_pointer(katom->kctx, user_atom->extres_list),
-			   size_mul(sizeof(*input_extres), katom->nr_extres)) != 0) {
+			   copy_size) != 0) {
 		err = -EINVAL;
 		goto failed_input_copy;
 	}

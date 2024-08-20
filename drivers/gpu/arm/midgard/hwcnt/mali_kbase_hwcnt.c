@@ -72,10 +72,6 @@ enum kbase_hwcnt_accum_state { ACCUM_STATE_ERROR, ACCUM_STATE_DISABLED, ACCUM_ST
  *                          into on transition to a disable state.
  *                           - Must only be read or modified while holding
  *                             accum_lock.
- * @accumulated:            True if the accumulation buffer has been accumulated
- *                          into and not subsequently read from yet, else false.
- *                           - Must only be read or modified while holding
- *                             accum_lock.
  * @ts_last_dump_ns:        Timestamp (ns) of the end time of the most recent
  *                          dump that was requested by the user.
  *                           - Must only be read or modified while holding
@@ -89,7 +85,6 @@ struct kbase_hwcnt_accumulator {
 	bool enable_map_any_enabled;
 	struct kbase_hwcnt_enable_map scratch_map;
 	struct kbase_hwcnt_dump_buffer accum_buf;
-	bool accumulated;
 	u64 ts_last_dump_ns;
 };
 
@@ -223,8 +218,6 @@ static int kbasep_hwcnt_accumulator_init(struct kbase_hwcnt_context *hctx)
 	if (errcode)
 		goto error;
 
-	hctx->accum.accumulated = false;
-
 	hctx->accum.ts_last_dump_ns = hctx->iface->timestamp_ns(hctx->accum.backend);
 
 	return 0;
@@ -240,6 +233,8 @@ error:
  *                                      error states.
  * @hctx:       Non-NULL pointer to hardware counter context.
  * @accumulate: True if we should accumulate before disabling, else false.
+ *              This is an optimization to allow for skipping an accumulation
+ *              when terminating the accumulator.
  */
 static void kbasep_hwcnt_accumulator_disable(struct kbase_hwcnt_context *hctx, bool accumulate)
 {
@@ -276,7 +271,7 @@ static void kbasep_hwcnt_accumulator_disable(struct kbase_hwcnt_context *hctx, b
 		goto disable;
 
 	/* Try and accumulate before disabling */
-	errcode = hctx->iface->dump_request(accum->backend, &dump_time_ns);
+	errcode = hctx->iface->dump_request(accum->backend);
 	if (errcode)
 		goto disable;
 
@@ -285,15 +280,12 @@ static void kbasep_hwcnt_accumulator_disable(struct kbase_hwcnt_context *hctx, b
 		goto disable;
 
 	errcode = hctx->iface->dump_get(accum->backend, &accum->accum_buf, &accum->enable_map,
-					accum->accumulated);
+					accumulate, &dump_time_ns);
 	if (errcode)
 		goto disable;
 
-	accum->accumulated = true;
-
 disable:
-	hctx->iface->dump_disable(accum->backend, (accum->accumulated) ? &accum->accum_buf : NULL,
-				  &accum->enable_map);
+	hctx->iface->dump_disable(accum->backend, &accum->accum_buf, &accum->enable_map);
 
 	/* Regardless of any errors during the accumulate, put the accumulator
 	 * in the disabled state.
@@ -358,8 +350,6 @@ static int kbasep_hwcnt_accumulator_dump(struct kbase_hwcnt_context *hctx, u64 *
 	int errcode = 0;
 	unsigned long flags;
 	enum kbase_hwcnt_accum_state state;
-	bool dump_requested = false;
-	bool dump_written = false;
 	bool cur_map_any_enabled;
 	struct kbase_hwcnt_enable_map *cur_map;
 	bool new_map_any_enabled = false;
@@ -422,8 +412,7 @@ static int kbasep_hwcnt_accumulator_dump(struct kbase_hwcnt_context *hctx, u64 *
 	/* Initiate the dump if the backend is enabled. */
 	if ((state == ACCUM_STATE_ENABLED) && cur_map_any_enabled) {
 		if (dump_buf) {
-			errcode = hctx->iface->dump_request(accum->backend, &dump_time_ns);
-			dump_requested = true;
+			errcode = hctx->iface->dump_request(accum->backend);
 		} else {
 			dump_time_ns = hctx->iface->timestamp_ns(accum->backend);
 			errcode = hctx->iface->dump_clear(accum->backend);
@@ -435,15 +424,8 @@ static int kbasep_hwcnt_accumulator_dump(struct kbase_hwcnt_context *hctx, u64 *
 		dump_time_ns = hctx->iface->timestamp_ns(accum->backend);
 	}
 
-	/* Copy any accumulation into the dest buffer */
-	if (accum->accumulated && dump_buf) {
-		kbase_hwcnt_dump_buffer_copy(dump_buf, &accum->accum_buf, cur_map);
-		dump_written = true;
-	}
-
 	/* Wait for any requested dumps to complete */
-	if (dump_requested) {
-		WARN_ON(state != ACCUM_STATE_ENABLED);
+	if ((state == ACCUM_STATE_ENABLED) && cur_map_any_enabled && dump_buf) {
 		errcode = hctx->iface->dump_wait(accum->backend);
 		if (errcode)
 			goto error;
@@ -481,36 +463,47 @@ static int kbasep_hwcnt_accumulator_dump(struct kbase_hwcnt_context *hctx, u64 *
 	}
 
 	/* Copy, accumulate, or zero into the dest buffer to finish */
-	if (dump_buf) {
+	if ((state == ACCUM_STATE_ENABLED) && cur_map_any_enabled) {
 		/* If we dumped, copy or accumulate it into the destination */
-		if (dump_requested) {
-			WARN_ON(state != ACCUM_STATE_ENABLED);
-			errcode = hctx->iface->dump_get(accum->backend, dump_buf, cur_map,
-							dump_written);
-			if (errcode)
-				goto error;
-			dump_written = true;
-		}
-
-		/* If we've not written anything into the dump buffer so far, it
-		 * means there was nothing to write. Zero any enabled counters.
-		 *
-		 * In this state, the blocks are likely to be off (and at the very least, not
-		 * counting), so write in the 'off' block state
-		 */
-		if (!dump_written) {
-			kbase_hwcnt_dump_buffer_zero(dump_buf, cur_map);
-			kbase_hwcnt_dump_buffer_block_state_update(dump_buf, cur_map,
-								   KBASE_HWCNT_STATE_OFF);
-		}
+		errcode = hctx->iface->dump_get(accum->backend, &accum->accum_buf, cur_map, true,
+						&dump_time_ns);
+		if (errcode)
+			goto error;
 	}
 
 	/* Write out timestamps */
 	*ts_start_ns = accum->ts_last_dump_ns;
 	*ts_end_ns = dump_time_ns;
 
-	accum->accumulated = false;
 	accum->ts_last_dump_ns = dump_time_ns;
+
+	/* Copy any accumulation into the dest buffer */
+	/* If the caller of the interface provided a dump buffer, then the
+	 * accumulation buffer will have been copied over and we need to prepare
+	 * it for the next invocation of the accumulator dump.
+	 */
+	if (dump_buf) {
+		kbase_hwcnt_dump_buffer_copy(dump_buf, &accum->accum_buf, cur_map);
+		kbase_hwcnt_dump_buffer_zero(&accum->accum_buf, &accum->enable_map);
+	}
+
+	/* If a new enable map is programmed onto the hardware, we need to ensure
+	 * that no counters remain in the accumulation buffer that could erroneously
+	 * be copied over to the caller of the interface during the next invocation,
+	 * using the new enable map as the current enable map.
+	 */
+	if (new_map && !dump_buf)
+		kbase_hwcnt_dump_buffer_zero_strict(&accum->accum_buf);
+
+	/* If the accumulator was not enabled when a dump was requested, then
+	 * we never queried the backend for the state of the blocks during this
+	 * period. This means that, if the accumulator was enabled and disabled,
+	 * the next sample may not have an OFF block state unless we append it
+	 * at the level of the accumulator.
+	 */
+	if (state != ACCUM_STATE_ENABLED)
+		kbase_hwcnt_dump_buffer_block_state_update(&accum->accum_buf, &accum->enable_map,
+							   KBASE_HWCNT_STATE_OFF);
 
 	return 0;
 error:
@@ -522,8 +515,7 @@ error:
 	 * this is more of a 'best effort' for error cases. There would be an suitable block
 	 * state recorded on the next dump_enable() anyway.
 	 */
-	hctx->iface->dump_disable(accum->backend, (accum->accumulated) ? &accum->accum_buf : NULL,
-				  cur_map);
+	hctx->iface->dump_disable(accum->backend, &accum->accum_buf, cur_map);
 	spin_lock_irqsave(&hctx->state_lock, flags);
 
 	accum->state = ACCUM_STATE_ERROR;

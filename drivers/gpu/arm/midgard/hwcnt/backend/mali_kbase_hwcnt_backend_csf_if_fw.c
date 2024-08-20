@@ -557,12 +557,12 @@ kbasep_hwcnt_backend_csf_if_fw_dump_enable(struct kbase_hwcnt_backend_csf_if_ctx
 {
 	u32 prfcnt_config;
 	struct kbase_device *kbdev;
-	struct kbase_csf_global_iface *global_iface;
 	struct kbase_hwcnt_backend_csf_if_fw_ctx *fw_ctx =
 		(struct kbase_hwcnt_backend_csf_if_fw_ctx *)ctx;
 	struct kbase_hwcnt_backend_csf_if_fw_ring_buf *fw_ring_buf =
 		(struct kbase_hwcnt_backend_csf_if_fw_ring_buf *)ring_buf;
 	u32 csg_mask;
+	unsigned long fw_io_flags;
 
 	WARN_ON(!ctx);
 	WARN_ON(!ring_buf);
@@ -570,61 +570,62 @@ kbasep_hwcnt_backend_csf_if_fw_dump_enable(struct kbase_hwcnt_backend_csf_if_ctx
 	kbasep_hwcnt_backend_csf_if_fw_assert_lock_held(ctx);
 
 	kbdev = fw_ctx->kbdev;
-	global_iface = &kbdev->csf.global_iface;
 	csg_mask = (1 << kbdev->csf.global_iface.group_num) - 1;
+
+	kbase_csf_fw_io_open_force(&kbdev->csf.fw_io, &fw_io_flags);
 
 	/* Configure */
 	prfcnt_config = GLB_PRFCNT_CONFIG_SIZE_SET(0, fw_ring_buf->buf_count);
 	prfcnt_config = GLB_PRFCNT_CONFIG_SET_SELECT_SET(prfcnt_config, enable->counter_set);
 
 	/* Configure the ring buffer base address */
-	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_JASID, fw_ring_buf->as_nr);
-	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_BASE_LO,
-					fw_ring_buf->gpu_dump_base & U32_MAX);
-	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_BASE_HI,
-					fw_ring_buf->gpu_dump_base >> 32);
+	kbase_csf_fw_io_global_write(&kbdev->csf.fw_io, GLB_PRFCNT_JASID, fw_ring_buf->as_nr);
+	kbase_csf_fw_io_global_write(&kbdev->csf.fw_io, GLB_PRFCNT_BASE_LO,
+				     fw_ring_buf->gpu_dump_base & U32_MAX);
+	kbase_csf_fw_io_global_write(&kbdev->csf.fw_io, GLB_PRFCNT_BASE_HI,
+				     fw_ring_buf->gpu_dump_base >> 32);
 
 	/* Set extract position to 0 */
-	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_EXTRACT, 0);
+	kbase_csf_fw_io_global_write(&kbdev->csf.fw_io, GLB_PRFCNT_EXTRACT, 0);
 
 	/* Configure the enable bitmap */
-	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_CSF_EN, enable->fe_bm);
-	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_SHADER_EN, enable->shader_bm);
-	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_MMU_L2_EN, enable->mmu_l2_bm);
-	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_TILER_EN, enable->tiler_bm);
-	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_FW_EN, enable->fw_bm);
-	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_CSG_EN, enable->csg_bm);
+	kbase_csf_fw_io_global_write(&kbdev->csf.fw_io, GLB_PRFCNT_CSF_EN, enable->fe_bm);
+	kbase_csf_fw_io_global_write(&kbdev->csf.fw_io, GLB_PRFCNT_SHADER_EN, enable->shader_bm);
+	kbase_csf_fw_io_global_write(&kbdev->csf.fw_io, GLB_PRFCNT_MMU_L2_EN, enable->mmu_l2_bm);
+	kbase_csf_fw_io_global_write(&kbdev->csf.fw_io, GLB_PRFCNT_TILER_EN, enable->tiler_bm);
+	kbase_csf_fw_io_global_write(&kbdev->csf.fw_io, GLB_PRFCNT_FW_EN, enable->fw_bm);
+	kbase_csf_fw_io_global_write(&kbdev->csf.fw_io, GLB_PRFCNT_CSG_EN, enable->csg_bm);
 
 	/* Enable all of the CSGs by default. */
-	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_CSG_SELECT, csg_mask);
+	kbase_csf_fw_io_global_write(&kbdev->csf.fw_io, GLB_PRFCNT_CSG_SELECT, csg_mask);
 
 
 	/* Configure the HWC set and buffer size */
-	kbase_csf_firmware_global_input(global_iface, GLB_PRFCNT_CONFIG, prfcnt_config);
+	kbase_csf_fw_io_global_write(&kbdev->csf.fw_io, GLB_PRFCNT_CONFIG, prfcnt_config);
 
 	kbdev->csf.hwcnt.enable_pending = true;
 
 	/* Unmask the interrupts */
-	kbase_csf_firmware_global_input_mask(global_iface, GLB_ACK_IRQ_MASK,
-					     GLB_ACK_IRQ_MASK_PRFCNT_SAMPLE_MASK,
-					     GLB_ACK_IRQ_MASK_PRFCNT_SAMPLE_MASK);
-	kbase_csf_firmware_global_input_mask(global_iface, GLB_ACK_IRQ_MASK,
-					     GLB_ACK_IRQ_MASK_PRFCNT_THRESHOLD_MASK,
-					     GLB_ACK_IRQ_MASK_PRFCNT_THRESHOLD_MASK);
-	kbase_csf_firmware_global_input_mask(global_iface, GLB_ACK_IRQ_MASK,
-					     GLB_ACK_IRQ_MASK_PRFCNT_OVERFLOW_MASK,
-					     GLB_ACK_IRQ_MASK_PRFCNT_OVERFLOW_MASK);
-	kbase_csf_firmware_global_input_mask(global_iface, GLB_ACK_IRQ_MASK,
-					     GLB_ACK_IRQ_MASK_PRFCNT_ENABLE_MASK,
-					     GLB_ACK_IRQ_MASK_PRFCNT_ENABLE_MASK);
+	kbase_csf_fw_io_global_write_mask(&kbdev->csf.fw_io, GLB_ACK_IRQ_MASK,
+					  GLB_ACK_IRQ_MASK_PRFCNT_SAMPLE_MASK,
+					  GLB_ACK_IRQ_MASK_PRFCNT_SAMPLE_MASK);
+	kbase_csf_fw_io_global_write_mask(&kbdev->csf.fw_io, GLB_ACK_IRQ_MASK,
+					  GLB_ACK_IRQ_MASK_PRFCNT_THRESHOLD_MASK,
+					  GLB_ACK_IRQ_MASK_PRFCNT_THRESHOLD_MASK);
+	kbase_csf_fw_io_global_write_mask(&kbdev->csf.fw_io, GLB_ACK_IRQ_MASK,
+					  GLB_ACK_IRQ_MASK_PRFCNT_OVERFLOW_MASK,
+					  GLB_ACK_IRQ_MASK_PRFCNT_OVERFLOW_MASK);
+	kbase_csf_fw_io_global_write_mask(&kbdev->csf.fw_io, GLB_ACK_IRQ_MASK,
+					  GLB_ACK_IRQ_MASK_PRFCNT_ENABLE_MASK,
+					  GLB_ACK_IRQ_MASK_PRFCNT_ENABLE_MASK);
 
 	/* Enable the HWC */
-	kbase_csf_firmware_global_input_mask(global_iface, GLB_REQ,
-					     (1 << GLB_REQ_PRFCNT_ENABLE_SHIFT),
-					     GLB_REQ_PRFCNT_ENABLE_MASK);
+	kbase_csf_fw_io_global_write_mask(&kbdev->csf.fw_io, GLB_REQ,
+					  (1 << GLB_REQ_PRFCNT_ENABLE_SHIFT),
+					  GLB_REQ_PRFCNT_ENABLE_MASK);
 	kbase_csf_ring_doorbell(kbdev, CSF_KERNEL_DOORBELL_NR);
 
-	prfcnt_config = kbase_csf_firmware_global_input_read(global_iface, GLB_PRFCNT_CONFIG);
+	kbase_csf_fw_io_close(&kbdev->csf.fw_io, fw_io_flags);
 
 	kbasep_hwcnt_backend_csf_if_fw_cc_enable(fw_ctx, enable->clk_enable_map);
 }
@@ -632,28 +633,30 @@ kbasep_hwcnt_backend_csf_if_fw_dump_enable(struct kbase_hwcnt_backend_csf_if_ctx
 static void kbasep_hwcnt_backend_csf_if_fw_dump_disable(struct kbase_hwcnt_backend_csf_if_ctx *ctx)
 {
 	struct kbase_device *kbdev;
-	struct kbase_csf_global_iface *global_iface;
 	struct kbase_hwcnt_backend_csf_if_fw_ctx *fw_ctx =
 		(struct kbase_hwcnt_backend_csf_if_fw_ctx *)ctx;
+	unsigned long fw_io_flags;
 
 	WARN_ON(!ctx);
 	kbasep_hwcnt_backend_csf_if_fw_assert_lock_held(ctx);
 
 	kbdev = fw_ctx->kbdev;
-	global_iface = &kbdev->csf.global_iface;
 
 	/* Disable the HWC */
 	kbdev->csf.hwcnt.enable_pending = true;
-	kbase_csf_firmware_global_input_mask(global_iface, GLB_REQ, 0, GLB_REQ_PRFCNT_ENABLE_MASK);
+	kbase_csf_fw_io_open_force(&kbdev->csf.fw_io, &fw_io_flags);
+	kbase_csf_fw_io_global_write_mask(&kbdev->csf.fw_io, GLB_REQ, 0,
+					  GLB_REQ_PRFCNT_ENABLE_MASK);
 	kbase_csf_ring_doorbell(kbdev, CSF_KERNEL_DOORBELL_NR);
 
 	/* mask the interrupts */
-	kbase_csf_firmware_global_input_mask(global_iface, GLB_ACK_IRQ_MASK, 0,
-					     GLB_ACK_IRQ_MASK_PRFCNT_SAMPLE_MASK);
-	kbase_csf_firmware_global_input_mask(global_iface, GLB_ACK_IRQ_MASK, 0,
-					     GLB_ACK_IRQ_MASK_PRFCNT_THRESHOLD_MASK);
-	kbase_csf_firmware_global_input_mask(global_iface, GLB_ACK_IRQ_MASK, 0,
-					     GLB_ACK_IRQ_MASK_PRFCNT_OVERFLOW_MASK);
+	kbase_csf_fw_io_global_write_mask(&kbdev->csf.fw_io, GLB_ACK_IRQ_MASK, 0,
+					  GLB_ACK_IRQ_MASK_PRFCNT_SAMPLE_MASK);
+	kbase_csf_fw_io_global_write_mask(&kbdev->csf.fw_io, GLB_ACK_IRQ_MASK, 0,
+					  GLB_ACK_IRQ_MASK_PRFCNT_THRESHOLD_MASK);
+	kbase_csf_fw_io_global_write_mask(&kbdev->csf.fw_io, GLB_ACK_IRQ_MASK, 0,
+					  GLB_ACK_IRQ_MASK_PRFCNT_OVERFLOW_MASK);
+	kbase_csf_fw_io_close(&kbdev->csf.fw_io, fw_io_flags);
 
 	/* In case we have a previous request in flight when the disable
 	 * happens.
@@ -667,23 +670,24 @@ static void kbasep_hwcnt_backend_csf_if_fw_dump_request(struct kbase_hwcnt_backe
 {
 	u32 glb_req;
 	struct kbase_device *kbdev;
-	struct kbase_csf_global_iface *global_iface;
 	struct kbase_hwcnt_backend_csf_if_fw_ctx *fw_ctx =
 		(struct kbase_hwcnt_backend_csf_if_fw_ctx *)ctx;
+	unsigned long fw_io_flags;
 
 	WARN_ON(!ctx);
 	kbasep_hwcnt_backend_csf_if_fw_assert_lock_held(ctx);
 
 	kbdev = fw_ctx->kbdev;
-	global_iface = &kbdev->csf.global_iface;
 
 	/* Trigger dumping */
 	kbdev->csf.hwcnt.request_pending = true;
-	glb_req = kbase_csf_firmware_global_input_read(global_iface, GLB_REQ);
+	kbase_csf_fw_io_open_force(&kbdev->csf.fw_io, &fw_io_flags);
+	glb_req = kbase_csf_fw_io_global_input_read(&kbdev->csf.fw_io, GLB_REQ);
 	glb_req ^= GLB_REQ_PRFCNT_SAMPLE_MASK;
-	kbase_csf_firmware_global_input_mask(global_iface, GLB_REQ, glb_req,
-					     GLB_REQ_PRFCNT_SAMPLE_MASK);
+	kbase_csf_fw_io_global_write_mask(&kbdev->csf.fw_io, GLB_REQ, glb_req,
+					  GLB_REQ_PRFCNT_SAMPLE_MASK);
 	kbase_csf_ring_doorbell(kbdev, CSF_KERNEL_DOORBELL_NR);
+	kbase_csf_fw_io_close(&kbdev->csf.fw_io, fw_io_flags);
 }
 
 static void kbasep_hwcnt_backend_csf_if_fw_get_indexes(struct kbase_hwcnt_backend_csf_if_ctx *ctx,
@@ -697,10 +701,9 @@ static void kbasep_hwcnt_backend_csf_if_fw_get_indexes(struct kbase_hwcnt_backen
 	WARN_ON(!insert_index);
 	kbasep_hwcnt_backend_csf_if_fw_assert_lock_held(ctx);
 
-	*extract_index = kbase_csf_firmware_global_input_read(&fw_ctx->kbdev->csf.global_iface,
-							      GLB_PRFCNT_EXTRACT);
-	*insert_index = kbase_csf_firmware_global_output(&fw_ctx->kbdev->csf.global_iface,
-							 GLB_PRFCNT_INSERT);
+	*extract_index =
+		kbase_csf_fw_io_global_input_read(&fw_ctx->kbdev->csf.fw_io, GLB_PRFCNT_EXTRACT);
+	*insert_index = kbase_csf_fw_io_global_read(&fw_ctx->kbdev->csf.fw_io, GLB_PRFCNT_INSERT);
 }
 
 static void
@@ -709,15 +712,17 @@ kbasep_hwcnt_backend_csf_if_fw_set_extract_index(struct kbase_hwcnt_backend_csf_
 {
 	struct kbase_hwcnt_backend_csf_if_fw_ctx *fw_ctx =
 		(struct kbase_hwcnt_backend_csf_if_fw_ctx *)ctx;
+	unsigned long fw_io_flags;
 
 	WARN_ON(!ctx);
 	kbasep_hwcnt_backend_csf_if_fw_assert_lock_held(ctx);
 
+	kbase_csf_fw_io_open_force(&fw_ctx->kbdev->csf.fw_io, &fw_io_flags);
 	/* Set the raw extract index to release the buffer back to the ring
 	 * buffer.
 	 */
-	kbase_csf_firmware_global_input(&fw_ctx->kbdev->csf.global_iface, GLB_PRFCNT_EXTRACT,
-					extract_idx);
+	kbase_csf_fw_io_global_write(&fw_ctx->kbdev->csf.fw_io, GLB_PRFCNT_EXTRACT, extract_idx);
+	kbase_csf_fw_io_close(&fw_ctx->kbdev->csf.fw_io, fw_io_flags);
 }
 
 static void
@@ -749,6 +754,17 @@ kbasep_hwcnt_backend_csf_if_fw_get_gpu_cycle_count(struct kbase_hwcnt_backend_cs
 	}
 }
 
+static u64
+kbasep_hwcnt_backend_csf_if_fw_time_convert_gpu_to_cpu(struct kbase_hwcnt_backend_csf_if_ctx *ctx,
+						       u64 gpu_ts)
+{
+	struct kbase_hwcnt_backend_csf_if_fw_ctx *fw_ctx =
+		(struct kbase_hwcnt_backend_csf_if_fw_ctx *)ctx;
+
+	WARN_ON(!ctx);
+
+	return kbase_backend_time_convert_gpu_to_cpu(fw_ctx->kbdev, gpu_ts);
+}
 /**
  * kbasep_hwcnt_backend_csf_if_fw_ctx_destroy() - Destroy a CSF FW interface context.
  *
@@ -846,6 +862,7 @@ int kbase_hwcnt_backend_csf_if_fw_create(struct kbase_device *kbdev,
 	if_fw->get_gpu_cycle_count = kbasep_hwcnt_backend_csf_if_fw_get_gpu_cycle_count;
 	if_fw->get_indexes = kbasep_hwcnt_backend_csf_if_fw_get_indexes;
 	if_fw->set_extract_index = kbasep_hwcnt_backend_csf_if_fw_set_extract_index;
+	if_fw->time_convert_gpu_to_cpu = kbasep_hwcnt_backend_csf_if_fw_time_convert_gpu_to_cpu;
 
 	return 0;
 }

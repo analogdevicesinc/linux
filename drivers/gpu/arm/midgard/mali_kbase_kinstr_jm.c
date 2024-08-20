@@ -495,6 +495,7 @@ static ssize_t reader_changes_copy_to_user(struct reader_changes *const changes,
 	struct kbase_kinstr_jm_atom_state_change const *src_buf = READ_ONCE(changes->data);
 	size_t const entry_size = sizeof(*src_buf);
 	size_t changes_tail, changes_count, read_size;
+	size_t copy_size;
 
 	/* Needed for the quick buffer capacity calculation below.
 	 * Note that we can't use is_power_of_2() since old compilers don't
@@ -516,14 +517,21 @@ static ssize_t reader_changes_copy_to_user(struct reader_changes *const changes,
 	do {
 		changes_tail = changes->tail;
 		changes_count = reader_changes_count_locked(changes);
-		read_size =
-			min(size_mul(changes_count, entry_size), buffer_size & ~(entry_size - 1));
+
+		if (check_mul_overflow(changes_count, entry_size, &copy_size)) {
+			ret = -EINVAL;
+			goto exit;
+		}
+
+		read_size = min(copy_size, buffer_size & ~(entry_size - 1));
 
 		if (!read_size)
 			break;
 
-		if (copy_to_user(buffer, &(src_buf[changes_tail]), read_size))
-			return -EFAULT;
+		if (copy_to_user(buffer, &(src_buf[changes_tail]), read_size)) {
+			ret = -EFAULT;
+			goto exit;
+		}
 
 		buffer += read_size;
 		buffer_size -= read_size;
@@ -531,7 +539,7 @@ static ssize_t reader_changes_copy_to_user(struct reader_changes *const changes,
 		changes_tail = (changes_tail + read_size / entry_size) & (changes->size - 1);
 		smp_store_release(&changes->tail, changes_tail);
 	} while (read_size);
-
+exit:
 	return ret;
 }
 

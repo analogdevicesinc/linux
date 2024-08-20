@@ -29,6 +29,7 @@
 #include <linux/bitmap.h>
 #include <linux/math64.h>
 #include <linux/moduleparam.h>
+#include <linux/lockdep.h>
 
 #if (KERNEL_VERSION(4, 4, 267) < LINUX_VERSION_CODE)
 #include <linux/overflow.h>
@@ -446,6 +447,7 @@ static inline struct devfreq *devfreq_get_devfreq_by_node(struct device_node *no
 }
 #endif
 
+/* clang-format off */
 #if (KERNEL_VERSION(5, 16, 0) <= LINUX_VERSION_CODE &&       \
 	KERNEL_VERSION(5, 18, 0) > LINUX_VERSION_CODE) ||       \
 	(KERNEL_VERSION(5, 11, 0) <= LINUX_VERSION_CODE &&   \
@@ -490,6 +492,7 @@ static inline size_t __must_check size_sub(size_t minuend, size_t subtrahend)
 	return ret_val;
 }
 #endif
+/* clang-format on */
 
 #if KERNEL_VERSION(5, 5, 0) > LINUX_VERSION_CODE
 static inline unsigned long bitmap_get_value8(const unsigned long *map, unsigned long start)
@@ -518,6 +521,152 @@ static inline unsigned long find_next_clump8(unsigned long *clump, const unsigne
 #define for_each_set_clump8(start, clump, bits, size)                                 \
 	for ((start) = find_first_clump8(&(clump), (bits), (size)); (start) < (size); \
 	     (start) = find_next_clump8(&(clump), (bits), (size), (start) + 8))
+#endif
+
+/* Definition of struct defined as extern in of.h */
+#if KERNEL_VERSION(6, 3, 0) <= LINUX_VERSION_CODE
+#define mali_kobj_type const struct kobj_type
+#else
+#define mali_kobj_type struct kobj_type
+#endif
+
+/* Define missing stubs from <linux/of.h> for the case when OF_DYNAMIC is disabled. */
+#if KERNEL_VERSION(3, 17, 0) <= LINUX_VERSION_CODE
+#include <linux/of.h>
+#ifndef CONFIG_OF_DYNAMIC
+static inline void of_changeset_init(struct of_changeset *ocs)
+{
+}
+
+static inline void of_changeset_destroy(struct of_changeset *ocs)
+{
+}
+
+static inline int of_changeset_apply(struct of_changeset *ocs)
+{
+	return -EINVAL;
+}
+
+static inline int of_changeset_revert(struct of_changeset *ocs)
+{
+	return -EINVAL;
+}
+
+static inline int of_changeset_action(struct of_changeset *ocs, unsigned long action,
+				      struct device_node *np, struct property *prop)
+{
+	return -EINVAL;
+}
+
+static inline int of_changeset_attach_node(struct of_changeset *ocs, struct device_node *np)
+{
+	return -EINVAL;
+}
+
+static inline int of_changeset_detach_node(struct of_changeset *ocs, struct device_node *np)
+{
+	return -EINVAL;
+}
+
+static inline int of_changeset_add_property(struct of_changeset *ocs, struct device_node *np,
+					    struct property *prop)
+{
+	return -EINVAL;
+}
+
+static inline int of_changeset_remove_property(struct of_changeset *ocs, struct device_node *np,
+					       struct property *prop)
+{
+	return -EINVAL;
+}
+
+static inline int of_changeset_update_property(struct of_changeset *ocs, struct device_node *np,
+					       struct property *prop)
+{
+	return -EINVAL;
+}
+
+#if KERNEL_VERSION(6, 6, 0) <= LINUX_VERSION_CODE
+static inline int of_changeset_add_prop_u32(struct of_changeset *ocs, struct device_node *np,
+					    const char *prop_name, const u32 val)
+{
+	return -EINVAL;
+}
+#endif
+
+#if KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE
+#ifndef CONFIG_SPARC
+static inline int of_property_check_flag(const struct property *p, unsigned long flag)
+{
+	return -EINVAL;
+}
+
+static inline void of_property_set_flag(struct property *p, unsigned long flag)
+{
+}
+
+static inline void of_property_clear_flag(struct property *p, unsigned long flag)
+{
+}
+#endif /* CONFIG_SPARC*/
+#endif
+
+#endif /* CONFIG_OF_DYNAMIC */
+#endif
+
+#if KERNEL_VERSION(5, 7, 0) > LINUX_VERSION_CODE
+static inline void __iomem *devm_platform_get_and_ioremap_resource(struct platform_device *pdev,
+								   unsigned int index,
+								   struct resource **res)
+{
+	struct resource *r;
+
+	r = platform_get_resource(pdev, IORESOURCE_MEM, index);
+	if (res)
+		*res = r;
+	return devm_ioremap_resource(&pdev->dev, r);
+}
+
+static inline int irq_inject_interrupt(unsigned int irq)
+{
+	return -EOPNOTSUPP;
+}
+#endif
+
+#ifndef fallthrough
+#define fallthrough __fallthrough
+#endif /* fallthrough */
+
+#ifndef __fallthrough
+#define __fallthrough __attribute__((fallthrough))
+#endif /* __fallthrough */
+
+static inline void kbase_lockdep_assert_not_held(struct mutex *lock)
+{
+#if (KERNEL_VERSION(5, 13, 0) <= LINUX_VERSION_CODE)
+	lockdep_assert_not_held(lock);
+#elif IS_ENABLED(CONFIG_LOCKDEP)
+	WARN_ON(debug_locks && lockdep_is_held(lock));
+#endif
+}
+
+#if KERNEL_VERSION(6, 3, 0) > LINUX_VERSION_CODE
+static inline size_t list_count_nodes(struct list_head *head)
+{
+	struct list_head *pos;
+	size_t count = 0;
+
+	list_for_each(pos, head)
+		count++;
+
+	return count;
+}
+#endif
+
+#if (KERNEL_VERSION(5, 10, 0) <= LINUX_VERSION_CODE)
+#include <linux/minmax.h>
+#else
+#include <linux/kernel.h>
 #endif
 
 #endif /* _VERSION_COMPAT_DEFS_H_ */

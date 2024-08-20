@@ -40,6 +40,7 @@
 #include <linux/version.h>
 #include <mali_kbase.h>
 #include <mali_kbase_mem_linux.h>
+#include <mali_kbase_mem_flags.h>
 #include <tl/mali_kbase_tracepoints.h>
 #include <uapi/gpu/arm/midgard/mali_kbase_ioctl.h>
 #include <mmu/mali_kbase_mmu.h>
@@ -312,7 +313,7 @@ struct kbase_va_region *kbase_mem_alloc(struct kbase_context *kctx, u64 va_pages
 	if (!(*flags & BASE_MEM_FIXED))
 		*gpu_va = 0; /* return 0 on failure */
 #else
-	if (!(*flags & BASE_MEM_FLAG_MAP_FIXED))
+	if (!(*flags & BASEP_MEM_FLAG_MAP_FIXED))
 		*gpu_va = 0; /* return 0 on failure */
 #endif
 	else
@@ -1470,10 +1471,6 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx, in
 	bool need_sync = false;
 	int group_id;
 
-	/* 64-bit address range is the max */
-	if (*va_pages > (U64_MAX / PAGE_SIZE))
-		return NULL;
-
 	dma_buf = dma_buf_get(fd);
 	if (IS_ERR_OR_NULL(dma_buf))
 		return NULL;
@@ -1484,15 +1481,16 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx, in
 		return NULL;
 	}
 
-	*va_pages = (PAGE_ALIGN(dma_buf->size) >> PAGE_SHIFT) + padding;
-	if (!*va_pages) {
-		dma_buf_detach(dma_buf, dma_attachment);
-		dma_buf_put(dma_buf);
-		return NULL;
-	}
+	*va_pages = (PAGE_ALIGN(dma_buf->size) >> PAGE_SHIFT) + (u64)padding;
+	if (!*va_pages)
+		goto dma_buf_exit;
+
+	/* 64-bit address range is the max */
+	if (*va_pages > (U64_MAX / PAGE_SIZE))
+		goto dma_buf_exit;
 
 	if (!kbase_import_size_is_valid(kctx->kbdev, *va_pages))
-		return NULL;
+		goto dma_buf_exit;
 
 	/* ignore SAME_VA */
 	*flags &= ~BASE_MEM_SAME_VA;
@@ -1530,11 +1528,8 @@ static struct kbase_va_region *kbase_mem_from_umm(struct kbase_context *kctx, in
 
 	reg = kbase_ctx_alloc_free_region(kctx, zone, 0, *va_pages);
 
-	if (!reg) {
-		dma_buf_detach(dma_buf, dma_attachment);
-		dma_buf_put(dma_buf);
-		return NULL;
-	}
+	if (!reg)
+		goto dma_buf_exit;
 
 	group_id = get_umm_memory_group_id(kctx, dma_buf);
 
@@ -1591,6 +1586,10 @@ error_out:
 	kbase_mem_phy_alloc_put(reg->cpu_alloc);
 no_alloc:
 	kfree(reg);
+
+dma_buf_exit:
+	dma_buf_detach(dma_buf, dma_attachment);
+	dma_buf_put(dma_buf);
 
 	return NULL;
 }
@@ -2079,7 +2078,7 @@ int kbase_mem_import(struct kbase_context *kctx, enum base_mem_import_type type,
 	}
 
 	/* clear out private flags */
-	*flags &= ((1UL << BASE_MEM_FLAGS_NR_BITS) - 1);
+	*flags &= BASE_MEM_ALL_FLAGS_MASK;
 
 	kbase_gpu_vm_unlock_with_pmode_sync(kctx);
 

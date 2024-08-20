@@ -30,18 +30,52 @@
 /** The wait completed because the GPU was lost. */
 #define KBASE_CSF_FW_IO_WAIT_GPU_LOST 1
 
-/** The wait was aborted because of an unexpected event. */
-#define KBASE_CSF_FW_IO_WAIT_UNSUPPORTED 255
+/**
+ * enum kbasep_csf_fw_io_status_bits - Status bits for firmware I/O interface.
+ *
+ * @KBASEP_FW_IO_STATUS_GPU_SUSPENDED: The GPU is suspended.
+ * @KBASEP_FW_IO_STATUS_NUM_BITS: Number of bits used to encode the status.
+ */
+enum kbasep_csf_fw_io_status_bits {
+	KBASEP_FW_IO_STATUS_GPU_SUSPENDED = 0,
+	KBASEP_FW_IO_STATUS_NUM_BITS,
+};
 
 /**
- * enum kbase_csf_fw_io_status_bits - Status bits for firmware I/O interface.
+ * struct kbasep_csf_fw_io_stream_pages - Addresses to CS I/O pages.
  *
- * @KBASE_FW_IO_STATUS_GPU_SUSPENDED: The GPU is suspended.
- * @KBASE_FW_IO_STATUS_NUM_BITS: Number of bits used to encode the state.
+ * @input: Address of CS input page.
+ * @output: Address of CS output page.
  */
-enum kbase_csf_fw_io_status_bits {
-	KBASE_FW_IO_STATUS_GPU_SUSPENDED = 0,
-	KBASE_FW_IO_STATUS_NUM_BITS,
+struct kbasep_csf_fw_io_stream_pages {
+	void *input;
+	void *output;
+};
+
+/**
+ * struct kbasep_csf_fw_io_group_pages - Addresses to CSG I/O pages.
+ *
+ * @input: Address of CSG input page.
+ * @output: Address of CSG output page.
+ * @streams_pages: Array of CSs' I/O pages.
+ */
+struct kbasep_csf_fw_io_group_pages {
+	void *input;
+	void *output;
+	struct kbasep_csf_fw_io_stream_pages *streams_pages;
+};
+
+/**
+ * struct kbasep_csf_fw_io_pages - Addresses to FW I/O pages.
+ *
+ * @input: Address of global input page.
+ * @output: Address of global output page.
+ * @groups_pages: Array of CSGs' I/O pages.
+ */
+struct kbasep_csf_fw_io_pages {
+	void *input;
+	void *output;
+	struct kbasep_csf_fw_io_group_pages *groups_pages;
 };
 
 /**
@@ -49,22 +83,23 @@ enum kbase_csf_fw_io_status_bits {
  *
  * @lock: Mutex to serialize access to the interface.
  * @status: Internal status of the MCU interface.
+ * @pages: Addresses to FW I/O pages
+ * @kbdev: Pointer to the instance of a GPU platform device that implements a CSF interface.
  */
 struct kbase_csf_fw_io {
 	spinlock_t lock;
-	DECLARE_BITMAP(status, KBASE_FW_IO_STATUS_NUM_BITS);
+	DECLARE_BITMAP(status, KBASEP_FW_IO_STATUS_NUM_BITS);
+	struct kbasep_csf_fw_io_pages pages;
+	struct kbase_device *kbdev;
 };
-
-struct kbase_csf_global_iface;
-struct kbase_csf_cmd_stream_group_info;
-struct kbase_csf_cmd_stream_info;
 
 /**
  * kbase_csf_fw_io_init() - Initialize manager of firmware input/output interface.
  *
  * @fw_io: Firmware I/O interface to initialize.
+ * @kbdev: Pointer to the instance of a GPU platform device that implements a CSF interface.
  */
-void kbase_csf_fw_io_init(struct kbase_csf_fw_io *fw_io);
+void kbase_csf_fw_io_init(struct kbase_csf_fw_io *fw_io, struct kbase_device *kbdev);
 
 /**
  * kbase_csf_fw_io_term() - Terminate manager of firmware input/output interface.
@@ -74,19 +109,82 @@ void kbase_csf_fw_io_init(struct kbase_csf_fw_io *fw_io);
 void kbase_csf_fw_io_term(struct kbase_csf_fw_io *fw_io);
 
 /**
+ * kbase_csf_fw_io_groups_pages_init() - Initialize an array for CSGs' I/O pages.
+ *
+ * @fw_io: Firmware I/O interface.
+ * @group_num: Number of CSGs.
+ *
+ * Return: 0 on success, -ENOMEM on failed initialization.
+ */
+int kbase_csf_fw_io_groups_pages_init(struct kbase_csf_fw_io *fw_io, u32 group_num);
+
+/**
+ * kbase_csf_fw_io_streams_pages_init() - Initialize an array for CSs' I/O pages.
+ *
+ * @fw_io: Firmware I/O interface.
+ * @group_id: CSG index.
+ * @stream_num: Number of CSs.
+ *
+ * Return: 0 on success, -ENOMEM on failed initialization.
+ */
+int kbase_csf_fw_io_streams_pages_init(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 stream_num);
+
+/**
+ * kbase_csf_fw_io_set_global_pages() - Set addresses to global I/O pages.
+ *
+ * @fw_io: Firmware I/O interface.
+ * @input: Source address to global input page.
+ * @output: Source address to global output page.
+ */
+void kbase_csf_fw_io_set_global_pages(struct kbase_csf_fw_io *fw_io, void *input, void *output);
+
+/**
+ * kbase_csf_fw_io_set_group_pages() - Set addresses to CSG's I/O pages.
+ *
+ * @fw_io: Firmware I/O interface.
+ * @group_id: CSG index.
+ * @input: Source address to CSG's input page.
+ * @output: Source address to CSG's output page.
+ */
+void kbase_csf_fw_io_set_group_pages(struct kbase_csf_fw_io *fw_io, u32 group_id, void *input,
+				     void *output);
+
+/**
+ * kbase_csf_fw_io_set_stream_pages() - Set addresses to CS's I/O pages.
+ *
+ * @fw_io: Firmware I/O interface.
+ * @group_id: CSG index.
+ * @stream_id: CS index.
+ * @input: Source address to CS's input page.
+ * @output: Source address to CS's output page.
+ */
+void kbase_csf_fw_io_set_stream_pages(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 stream_id,
+				      void *input, void *output);
+
+/**
+ * kbase_csf_fw_io_pages_term() - Terminate arrays of addresses to CSGs and CSs I/O pages.
+ *
+ * @fw_io: Firmware I/O interface.
+ * @group_num: Number of CSGs.
+ */
+void kbase_csf_fw_io_pages_term(struct kbase_csf_fw_io *fw_io, u32 group_num);
+
+/**
  * kbase_csf_fw_io_open() - Start a transaction with the firmware input/output interface.
  *
  * @fw_io: Firmware I/O interface to open.
+ * @flags: Pointer to the memory location that would store the previous
+ *	   interrupt state
  *
  * Return: 0 on success, otherwise an error code reflecting the status of the
  *         interface.
  */
-static inline int kbase_csf_fw_io_open(struct kbase_csf_fw_io *fw_io)
+static inline int kbase_csf_fw_io_open(struct kbase_csf_fw_io *fw_io, unsigned long *flags)
 {
-	if (test_bit(KBASE_FW_IO_STATUS_GPU_SUSPENDED, fw_io->status))
+	if (test_bit(KBASEP_FW_IO_STATUS_GPU_SUSPENDED, fw_io->status))
 		return -KBASE_CSF_FW_IO_WAIT_GPU_LOST;
 
-	spin_lock(&fw_io->lock);
+	spin_lock_irqsave(&fw_io->lock, *flags);
 
 	return 0;
 }
@@ -95,23 +193,27 @@ static inline int kbase_csf_fw_io_open(struct kbase_csf_fw_io *fw_io)
  * kbase_csf_fw_io_open_force() - Force a transaction with the firmware input/output interface.
  *
  * @fw_io: Firmware I/O interface to open.
+ * @flags: Pointer to the memory location that would store the previous
+ *	   interrupt state
  *
  * This function forces the start of a transaction regardless of the status
  * of the interface.
  */
-static inline void kbase_csf_fw_io_open_force(struct kbase_csf_fw_io *fw_io)
+static inline void kbase_csf_fw_io_open_force(struct kbase_csf_fw_io *fw_io, unsigned long *flags)
 {
-	spin_lock(&fw_io->lock);
+	spin_lock_irqsave(&fw_io->lock, *flags);
 }
 
 /**
  * kbase_csf_fw_io_close() - End a transaction with the firmware input/output interface.
  *
  * @fw_io: Firmware I/O interface to close.
+ * @flags: Previously stored interrupt state when FW IO interrupt
+ *	   spinlock was acquired.
  */
-static inline void kbase_csf_fw_io_close(struct kbase_csf_fw_io *fw_io)
+static inline void kbase_csf_fw_io_close(struct kbase_csf_fw_io *fw_io, unsigned long flags)
 {
-	spin_unlock(&fw_io->lock);
+	spin_unlock_irqrestore(&fw_io->lock, flags);
 }
 
 /**
@@ -129,182 +231,165 @@ static inline void kbase_csf_fw_io_assert_opened(struct kbase_csf_fw_io *fw_io)
  * kbase_csf_fw_io_global_write() - Write a word in the global input page.
  *
  * @fw_io:  Firmware I/O manager.
- * @iface:  CSF interface provided by the firmware.
  * @offset: Offset of the word to write, in bytes.
  * @value:  Value to be written.
  */
-void kbase_csf_fw_io_global_write(struct kbase_csf_fw_io *fw_io,
-				  const struct kbase_csf_global_iface *iface, u32 offset,
-				  u32 value);
+void kbase_csf_fw_io_global_write(struct kbase_csf_fw_io *fw_io, u32 offset, u32 value);
 
 /**
  * kbase_csf_fw_io_global_write_mask() - Write part of a word in the global input page.
  *
  * @fw_io:  Firmware I/O manager.
- * @iface:  CSF interface provided by the firmware.
  * @offset: Offset of the word to write, in bytes.
  * @value:  Value to be written.
  * @mask:   Bitmask with the bits to be modified set.
  */
-void kbase_csf_fw_io_global_write_mask(struct kbase_csf_fw_io *fw_io,
-				       const struct kbase_csf_global_iface *iface, u32 offset,
-				       u32 value, u32 mask);
+void kbase_csf_fw_io_global_write_mask(struct kbase_csf_fw_io *fw_io, u32 offset, u32 value,
+				       u32 mask);
 
 /**
  * kbase_csf_fw_io_global_input_read() - Read a word in the global input page.
  *
  * @fw_io:  Firmware I/O manager.
- * @iface:  CSF interface provided by the firmware.
  * @offset: Offset of the word to be read, in bytes.
  *
  * Return: Value of the word read from the global input page.
  */
-u32 kbase_csf_fw_io_global_input_read(struct kbase_csf_fw_io *fw_io,
-				      const struct kbase_csf_global_iface *iface, u32 offset);
+u32 kbase_csf_fw_io_global_input_read(struct kbase_csf_fw_io *fw_io, u32 offset);
 
 /**
  * kbase_csf_fw_io_global_read() - Read a word in the global output page.
  *
  * @fw_io:  Firmware I/O manager.
- * @iface:  CSF interface provided by the firmware.
  * @offset: Offset of the word to be read, in bytes.
  *
  * Return: Value of the word read from the global output page.
  */
-u32 kbase_csf_fw_io_global_read(struct kbase_csf_fw_io *fw_io,
-				const struct kbase_csf_global_iface *iface, u32 offset);
+u32 kbase_csf_fw_io_global_read(struct kbase_csf_fw_io *fw_io, u32 offset);
 
 /**
  * kbase_csf_fw_io_group_write() - Write a word in a CSG's input page.
  *
  * @fw_io:  Firmware I/O manager.
- * @info:   CSG interface provided by the firmware.
+ * @group_id: CSG index.
  * @offset: Offset of the word to write, in bytes.
  * @value:  Value to be written.
  */
-void kbase_csf_fw_io_group_write(struct kbase_csf_fw_io *fw_io,
-				 const struct kbase_csf_cmd_stream_group_info *info, u32 offset,
+void kbase_csf_fw_io_group_write(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset,
 				 u32 value);
 
 /**
  * kbase_csf_fw_io_group_write_mask() - Write part of a word in a CSG's input page.
  *
  * @fw_io:  Firmware I/O manager.
- * @info:   CSG interface provided by the firmware.
+ * @group_id: CSG index.
  * @offset: Offset of the word to write, in bytes.
  * @value:  Value to be written.
  * @mask:   Bitmask with the bits to be modified set.
  */
-void kbase_csf_fw_io_group_write_mask(struct kbase_csf_fw_io *fw_io,
-				      const struct kbase_csf_cmd_stream_group_info *info,
-				      u32 offset, u32 value, u32 mask);
+void kbase_csf_fw_io_group_write_mask(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset,
+				      u32 value, u32 mask);
 
 /**
  * kbase_csf_fw_io_group_input_read() - Read a word in a CSG's input page.
  *
  * @fw_io:  Firmware I/O manager.
- * @info:   CSG interface provided by the firmware.
+ * @group_id: CSG index.
  * @offset: Offset of the word to be read, in bytes.
  *
  * Return: Value of the word read from a CSG's input page.
  */
-u32 kbase_csf_fw_io_group_input_read(struct kbase_csf_fw_io *fw_io,
-				     const struct kbase_csf_cmd_stream_group_info *info,
-				     u32 offset);
+u32 kbase_csf_fw_io_group_input_read(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset);
 
 /**
  * kbase_csf_fw_io_group_read() - Read a word in a CSG's output page.
  *
  * @fw_io:  Firmware I/O manager.
- * @info:   CSG interface provided by the firmware.
+ * @group_id: CSG index.
  * @offset: Offset of the word to be read, in bytes.
  *
  * Return: Value of the word read from the CSG's output page.
  */
-u32 kbase_csf_fw_io_group_read(struct kbase_csf_fw_io *fw_io,
-			       const struct kbase_csf_cmd_stream_group_info *info, u32 offset);
+u32 kbase_csf_fw_io_group_read(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset);
+
 
 /**
  * kbase_csf_fw_io_stream_write() - Write a word in a CS's input page.
  *
  * @fw_io:  Firmware I/O manager.
- * @info:   CSI interface provided by the firmware.
+ * @group_id:  CSG index.
+ * @stream_id: CS index.
  * @offset: Offset of the word to write, in bytes.
  * @value:  Value to be written.
  */
-void kbase_csf_fw_io_stream_write(struct kbase_csf_fw_io *fw_io,
-				  const struct kbase_csf_cmd_stream_info *info, u32 offset,
-				  u32 value);
+void kbase_csf_fw_io_stream_write(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 stream_id,
+				  u32 offset, u32 value);
 
 /**
  * kbase_csf_fw_io_stream_write_mask() - Write part of a word in a CS's input page.
  *
  * @fw_io:  Firmware I/O manager.
- * @info:   CSI interface provided by the firmware.
+ * @group_id:  CSG index.
+ * @stream_id: CS index.
  * @offset: Offset of the word to write, in bytes.
  * @value:  Value to be written.
  * @mask:   Bitmask with the bits to be modified set.
  */
-void kbase_csf_fw_io_stream_write_mask(struct kbase_csf_fw_io *fw_io,
-				       const struct kbase_csf_cmd_stream_info *info, u32 offset,
-				       u32 value, u32 mask);
+void kbase_csf_fw_io_stream_write_mask(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 stream_id,
+				       u32 offset, u32 value, u32 mask);
 
 /**
  * kbase_csf_fw_io_stream_input_read() - Read a word in a CS's input page.
  *
  * @fw_io:  Firmware I/O manager.
- * @info:   CSI interface provided by the firmware.
+ * @group_id:  CSG index.
+ * @stream_id: CS index.
  * @offset: Offset of the word to be read, in bytes.
  *
  * Return: Value of the word read from a CS's input page.
  */
-u32 kbase_csf_fw_io_stream_input_read(struct kbase_csf_fw_io *fw_io,
-				      const struct kbase_csf_cmd_stream_info *info, u32 offset);
+u32 kbase_csf_fw_io_stream_input_read(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 stream_id,
+				      u32 offset);
 
 /**
  * kbase_csf_fw_io_stream_read() - Read a word in a CS's output page.
  *
  * @fw_io:  Firmware I/O manager.
- * @info:   CSI interface provided by the firmware.
+ * @group_id:  CSG index.
+ * @stream_id: CS index.
  * @offset: Offset of the word to be read, in bytes.
  *
  * Return: Value of the word read from the CS's output page.
  */
-u32 kbase_csf_fw_io_stream_read(struct kbase_csf_fw_io *fw_io,
-				const struct kbase_csf_cmd_stream_info *info, u32 offset);
+u32 kbase_csf_fw_io_stream_read(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 stream_id,
+				u32 offset);
 
 /**
- * kbase_csf_fw_io_set_status() - Set a FW I/O status bit.
+ * kbase_csf_fw_io_set_status_gpu_suspended() - Set GPU_SUSPENDED FW I/O status bit.
  *
  * @fw_io:      Firmware I/O manager.
- * @status_bit: Status bit to set.
  */
-void kbase_csf_fw_io_set_status(struct kbase_csf_fw_io *fw_io,
-				enum kbase_csf_fw_io_status_bits status_bit);
+void kbase_csf_fw_io_set_status_gpu_suspended(struct kbase_csf_fw_io *fw_io);
 
 /**
- * kbase_csf_fw_io_clear_status() - Clear a FW I/O status bit.
+ * kbase_csf_fw_io_clear_status_gpu_suspended() - Clear GPU_SUSPENDED FW I/O status bit.
  *
  * @fw_io:      Firmware I/O manager.
- * @status_bit: Status bit to clear.
  */
-void kbase_csf_fw_io_clear_status(struct kbase_csf_fw_io *fw_io,
-				  enum kbase_csf_fw_io_status_bits status_bit);
+void kbase_csf_fw_io_clear_status_gpu_suspended(struct kbase_csf_fw_io *fw_io);
 
 /**
- * kbase_csf_fw_io_test_status() - Test a FW I/O status bit.
+ * kbase_csf_fw_io_check_status_gpu_suspended() - Check if GPU_SUSPENDED FW I/O status bit is set.
  *
- * @fw_io:      Firmware I/O manager.
- * @status_bit: Status bit to test.
+ * @fw_io: Firmware I/O manager.
  *
- * Return: Value of the tested status bit.
+ * Return: True if GPU_SUSPENDED FW I/O status bit is set, false otherwise.
  */
-bool kbase_csf_fw_io_test_status(struct kbase_csf_fw_io *fw_io,
-				 enum kbase_csf_fw_io_status_bits status_bit);
+bool kbase_csf_fw_io_check_status_gpu_suspended(struct kbase_csf_fw_io *fw_io);
 
 /**
  * kbase_csf_fw_io_wait_event_timeout() - Wait until condition gets true, timeout
- * occurs or a FW I/O status bit is set. The rest of the functionalities is equal
+ * occurs or a GPU_SUSPENDED FW I/O status bit is set. The rest of the functionalities is equal
  * to wait_event_timeout().
  *
  * @fw_io:     Firmware I/O manager.
@@ -314,28 +399,17 @@ bool kbase_csf_fw_io_test_status(struct kbase_csf_fw_io *fw_io,
  *
  * Return: Remaining jiffies (at least 1) on success,
  *         0 on timeout,
- *         negative KBASE_CSF_FW_IO_WAIT_* error codes otherwise.
+ *         negative KBASE_CSF_FW_IO_WAIT_LOST error if GPU_SUSPENDED FW I/O status bit is set.
  */
-#define kbase_csf_fw_io_wait_event_timeout(fw_io, wq_head, condition, timeout)                \
-	({                                                                                    \
-		int __ret;                                                                    \
-		int __wait_remaining = wait_event_timeout(                                    \
-			wq_head, condition || kbasep_csf_fw_io_check_status(fw_io), timeout); \
-		__ret = kbasep_csf_fw_io_handle_wait_result(fw_io, __wait_remaining);         \
-		__ret;                                                                        \
+#define kbase_csf_fw_io_wait_event_timeout(fw_io, wq_head, condition, timeout)                     \
+	({                                                                                         \
+		int __ret;                                                                         \
+		int __wait_remaining = wait_event_timeout(                                         \
+			wq_head, (condition) || kbase_csf_fw_io_check_status_gpu_suspended(fw_io), \
+			timeout);                                                                  \
+		__ret = kbasep_csf_fw_io_handle_wait_result(fw_io, __wait_remaining);              \
+		__ret;                                                                             \
 	})
-
-/**
- * kbasep_csf_fw_io_check_status() - Private function to check if any FW I/O status bit is set.
- *
- * @fw_io: Firmware I/O manager.
- *
- * Return: True if any FW I/O status bit is set, false otherwise.
- */
-static inline bool kbasep_csf_fw_io_check_status(struct kbase_csf_fw_io *fw_io)
-{
-	return !bitmap_empty(fw_io->status, KBASE_FW_IO_STATUS_NUM_BITS);
-}
 
 /**
  * kbasep_csf_fw_io_handle_wait_result() - Private function to handle the wait_event_timeout()
@@ -346,17 +420,48 @@ static inline bool kbasep_csf_fw_io_check_status(struct kbase_csf_fw_io *fw_io)
  *
  * Return: Remaining jiffies (at least 1) on success,
  *         0 on timeout,
- *         negative KBASE_CSF_FW_IO_WAIT_* error codes otherwise.
+ *         negative KBASE_CSF_FW_IO_WAIT_LOST error if GPU_SUSPENDED FW I/O status bit is set.
  */
 static inline int kbasep_csf_fw_io_handle_wait_result(struct kbase_csf_fw_io *fw_io,
 						      int wait_remaining)
 {
-	/* Check for any FW IO status bit set */
-	if (!bitmap_empty(fw_io->status, KBASE_FW_IO_STATUS_NUM_BITS))
-		return (test_bit(KBASE_FW_IO_STATUS_GPU_SUSPENDED, fw_io->status)) ?
-				     -KBASE_CSF_FW_IO_WAIT_GPU_LOST :
-				     -KBASE_CSF_FW_IO_WAIT_UNSUPPORTED;
-
-	return wait_remaining;
+	return kbase_csf_fw_io_check_status_gpu_suspended(fw_io) ? -KBASE_CSF_FW_IO_WAIT_GPU_LOST :
+									 wait_remaining;
 }
-#endif
+
+#if IS_ENABLED(CONFIG_MALI_DEBUG) || IS_ENABLED(CONFIG_MALI_NO_MALI)
+/**
+ * kbase_csf_fw_io_mock_fw_global_write() - Mock a FW write to the global output page.
+ *
+ * @fw_io:  Firmware I/O manager.
+ * @offset: Offset of the word to write, in bytes.
+ * @value:  Value to be written.
+ */
+void kbase_csf_fw_io_mock_fw_global_write(struct kbase_csf_fw_io *fw_io, u32 offset, u32 value);
+
+/**
+ * kbase_csf_fw_io_mock_fw_group_write() - Mock a FW write to CSG's output page.
+ *
+ * @fw_io:  Firmware I/O manager.
+ * @group_id:  CSG index.
+ * @offset: Offset of the word to write, in bytes.
+ * @value:  Value to be written.
+ */
+void kbase_csf_fw_io_mock_fw_group_write(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset,
+					 u32 value);
+
+/**
+ * kbase_csf_fw_io_mock_fw_stream_write() - Mock a FW write to CS's output page.
+ *
+ * @fw_io:  Firmware I/O manager.
+ * @group_id:  CSG index.
+ * @stream_id: CS index.
+ * @offset: Offset of the word to write, in bytes.
+ * @value:  Value to be written.
+ */
+void kbase_csf_fw_io_mock_fw_stream_write(struct kbase_csf_fw_io *fw_io, u32 group_id,
+					  u32 stream_id, u32 offset, u32 value);
+
+#endif /* IS_ENABLED(CONFIG_MALI_DEBUG) || IS_ENABLED(CONFIG_MALI_NO_MALI) */
+
+#endif /* _KBASE_CSF_FW_IO_H_ */

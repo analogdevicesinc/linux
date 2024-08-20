@@ -20,6 +20,7 @@
  */
 
 #include <mali_kbase.h>
+#include <mali_kbase_mem_flags.h>
 #include "mali_kbase_csf_heap_context_alloc.h"
 
 /* Size of one heap context structure, in bytes. */

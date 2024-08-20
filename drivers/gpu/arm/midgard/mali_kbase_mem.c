@@ -45,6 +45,7 @@
 #include <mmu/mali_kbase_mmu.h>
 #include <mali_kbase_trace_gpu_mem.h>
 #include <linux/version_compat_defs.h>
+#include <mali_kbase_mem_flags.h>
 
 /* Static key used to determine if large pages are enabled or not */
 static DEFINE_STATIC_KEY_FALSE(large_pages_static_key);
@@ -52,10 +53,8 @@ static DEFINE_STATIC_KEY_FALSE(large_pages_static_key);
 #define VA_REGION_SLAB_NAME_PREFIX "va-region-slab-"
 #define VA_REGION_SLAB_NAME_SIZE (DEVNAME_SIZE + sizeof(VA_REGION_SLAB_NAME_PREFIX) + 1)
 
-#if GPU_PAGES_PER_CPU_PAGE > 1
 #define PAGE_METADATA_SLAB_NAME_PREFIX "page-metadata-slab-"
 #define PAGE_METADATA_SLAB_NAME_SIZE (DEVNAME_SIZE + sizeof(PAGE_METADATA_SLAB_NAME_PREFIX) + 1)
-#endif
 
 #if MALI_JIT_PRESSURE_LIMIT_BASE
 
@@ -202,14 +201,17 @@ int kbase_mem_init(struct kbase_device *kbdev)
 {
 	int err = 0;
 	char va_region_slab_name[VA_REGION_SLAB_NAME_SIZE];
-#if GPU_PAGES_PER_CPU_PAGE > 1
-	char page_metadata_slab_name[PAGE_METADATA_SLAB_NAME_SIZE];
-#endif
 #if IS_ENABLED(CONFIG_OF)
 	struct device_node *mgm_node = NULL;
 #endif
 
 	KBASE_DEBUG_ASSERT(kbdev);
+	/* Check if user and kernel-only flags do not overlap */
+	BUILD_BUG_ON(BASE_MEM_FLAGS_KERNEL_ONLY &
+		     (((base_mem_alloc_flags)1 << BASE_MEM_FLAGS_NR_BITS) - 1));
+	/* Check if BASEP control flags are synchronized */
+	BUILD_BUG_ON(((base_mem_alloc_flags)1 << (63 - BASEP_MEM_FLAGS_NR_BITS)) !=
+		     BASEP_MEM_FIRST_FREE_FLAG);
 
 	kbasep_mem_page_size_init(kbdev);
 
@@ -224,18 +226,22 @@ int kbase_mem_init(struct kbase_device *kbdev)
 		return -ENOMEM;
 	}
 
-#if GPU_PAGES_PER_CPU_PAGE > 1
-	scnprintf(page_metadata_slab_name, PAGE_METADATA_SLAB_NAME_SIZE,
-		  PAGE_METADATA_SLAB_NAME_PREFIX "%s", kbdev->devname);
-	kbdev->page_metadata_slab = kmem_cache_create(
-		page_metadata_slab_name, sizeof(struct kbase_page_metadata), 0, 0, NULL);
-	if (kbdev->page_metadata_slab == NULL) {
-		dev_err(kbdev->dev, "Failed to create page_metadata_slab");
-		return -ENOMEM;
-	}
-#endif
-
 	kbase_mem_migrate_init(kbdev);
+
+	if ((GPU_PAGES_PER_CPU_PAGE > 1) || kbase_is_page_migration_enabled()) {
+		char page_metadata_slab_name[PAGE_METADATA_SLAB_NAME_SIZE];
+
+		scnprintf(page_metadata_slab_name, PAGE_METADATA_SLAB_NAME_SIZE,
+			  PAGE_METADATA_SLAB_NAME_PREFIX "%s", kbdev->devname);
+		kbdev->page_metadata_slab = kmem_cache_create(
+			page_metadata_slab_name, sizeof(struct kbase_page_metadata), 0, 0, NULL);
+		if (kbdev->page_metadata_slab == NULL) {
+			dev_err(kbdev->dev, "Failed to create page_metadata_slab");
+			err = -ENOMEM;
+			goto page_metadata_slab_fail;
+		}
+	}
+
 	kbase_mem_pool_group_config_set_max_size(&kbdev->mem_pool_defaults,
 						 KBASE_MEM_POOL_MAX_SIZE_KCTX);
 
@@ -282,7 +288,16 @@ int kbase_mem_init(struct kbase_device *kbdev)
 							 KBASE_MEM_POOL_MAX_SIZE_KBDEV);
 
 		err = kbase_mem_pool_group_init(&kbdev->mem_pools, kbdev, &mem_pool_defaults, NULL);
+		if (likely(!err))
+			return err;
 	}
+
+	kmem_cache_destroy(kbdev->page_metadata_slab);
+	kbdev->page_metadata_slab = NULL;
+page_metadata_slab_fail:
+	kbase_mem_migrate_term(kbdev);
+	kmem_cache_destroy(kbdev->va_region_slab);
+	kbdev->va_region_slab = NULL;
 
 	return err;
 }
@@ -309,10 +324,8 @@ void kbase_mem_term(struct kbase_device *kbdev)
 
 	kbase_mem_migrate_term(kbdev);
 
-#if GPU_PAGES_PER_CPU_PAGE > 1
 	kmem_cache_destroy(kbdev->page_metadata_slab);
 	kbdev->page_metadata_slab = NULL;
-#endif
 	kmem_cache_destroy(kbdev->va_region_slab);
 	kbdev->va_region_slab = NULL;
 
@@ -1097,10 +1110,10 @@ out_unlock:
 KBASE_EXPORT_TEST_API(kbase_mem_free);
 
 int kbase_update_region_flags(struct kbase_context *kctx, struct kbase_va_region *reg,
-			      unsigned long flags)
+			      base_mem_alloc_flags flags)
 {
 	KBASE_DEBUG_ASSERT(reg != NULL);
-	KBASE_DEBUG_ASSERT((flags & ~((1ul << BASE_MEM_FLAGS_NR_BITS) - 1)) == 0);
+	KBASE_DEBUG_ASSERT((flags & ~BASE_MEM_ALL_FLAGS_MASK) == 0);
 
 	reg->flags |= kbase_cache_enabled(flags, reg->nr_pages);
 	/* all memory is now growable */
@@ -2130,16 +2143,16 @@ bool kbase_check_alloc_flags(struct kbase_context *kctx, unsigned long flags)
 		    kctx->api_version)))
 		return false;
 
-/* No unused bits are valid for allocations */
-#if MALI_USE_CSF
-	if ((flags & BASE_MEM_UNUSED_BIT_20) &&
-	    (mali_kbase_supports_reject_alloc_mem_unused_bit_20(kctx->api_version)))
+	/* No unused bits are valid for allocations */
+	if ((flags & BASE_MEM_UNUSED_BIT_5) &&
+	    (mali_kbase_supports_reject_alloc_mem_unused_bit_5(kctx->api_version)))
 		return false;
 
-	if ((flags & BASE_MEM_UNUSED_BIT_27) &&
-	    (mali_kbase_supports_reject_alloc_mem_unused_bit_27(kctx->api_version)))
+	if ((flags & BASE_MEM_UNUSED_BIT_7) &&
+	    (mali_kbase_supports_reject_alloc_mem_unused_bit_7(kctx->api_version)))
 		return false;
-#else /* MALI_USE_CSF */
+
+#if !MALI_USE_CSF
 	if ((flags & BASE_MEM_UNUSED_BIT_8) &&
 	    (mali_kbase_supports_reject_alloc_mem_unused_bit_8(kctx->api_version)))
 		return false;
@@ -2147,7 +2160,22 @@ bool kbase_check_alloc_flags(struct kbase_context *kctx, unsigned long flags)
 	if ((flags & BASE_MEM_UNUSED_BIT_19) &&
 	    (mali_kbase_supports_reject_alloc_mem_unused_bit_19(kctx->api_version)))
 		return false;
-#endif /* MALI_USE_CSF */
+
+#else
+	if ((flags & BASE_MEM_UNUSED_BIT_20) &&
+	    (mali_kbase_supports_reject_alloc_mem_unused_bit_20(kctx->api_version)))
+		return false;
+
+#endif /* !MALI_USE_CSF */
+	if ((flags & BASE_MEM_UNUSED_BIT_27) &&
+	    (mali_kbase_supports_reject_alloc_mem_unused_bit_27(kctx->api_version)))
+		return false;
+#if !MALI_USE_CSF
+
+	if ((flags & BASE_MEM_UNUSED_BIT_29) &&
+	    (mali_kbase_supports_reject_alloc_mem_unused_bit_29(kctx->api_version)))
+		return false;
+#endif /* !MALI_USE_CSF */
 
 	return true;
 }

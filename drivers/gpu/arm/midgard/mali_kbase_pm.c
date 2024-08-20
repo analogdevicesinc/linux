@@ -50,8 +50,10 @@ void kbase_pm_context_active(struct kbase_device *kbdev)
 	(void)kbase_pm_context_active_handle_suspend(kbdev, KBASE_PM_SUSPEND_HANDLER_NOT_POSSIBLE);
 }
 
-int kbase_pm_context_active_handle_suspend_locked(struct kbase_device *kbdev,
-						  enum kbase_pm_suspend_handler suspend_handler)
+static int
+kbasep_pm_context_active_handle_suspend_locked(struct kbase_device *kbdev,
+					       enum kbase_pm_suspend_handler suspend_handler,
+					       bool sched_lock_held)
 {
 	int c;
 
@@ -60,10 +62,18 @@ int kbase_pm_context_active_handle_suspend_locked(struct kbase_device *kbdev,
 		current->pid);
 	lockdep_assert_held(&kbdev->pm.lock);
 
+#if MALI_USE_CSF
+	/* Check scheduler lock */
+	if (sched_lock_held)
+		lockdep_assert_held(&kbdev->csf.scheduler.lock);
+	else
+		kbase_lockdep_assert_not_held(&kbdev->csf.scheduler.lock);
+#endif
+
 	/* If there is an Arbiter, wait for Arbiter to grant GPU back to KBase
 	 * so suspend request can be handled.
 	 */
-	if (kbase_arbiter_pm_ctx_active_handle_suspend(kbdev, suspend_handler))
+	if (kbase_arbiter_pm_ctx_active_handle_suspend(kbdev, suspend_handler, sched_lock_held))
 		return 1;
 
 	if (kbase_pm_is_suspending(kbdev)) {
@@ -99,13 +109,19 @@ int kbase_pm_context_active_handle_suspend_locked(struct kbase_device *kbdev,
 	return 0;
 }
 
+int kbase_pm_context_active_handle_suspend_locked(struct kbase_device *kbdev,
+						  enum kbase_pm_suspend_handler suspend_handler)
+{
+	return kbasep_pm_context_active_handle_suspend_locked(kbdev, suspend_handler, true);
+}
+
 int kbase_pm_context_active_handle_suspend(struct kbase_device *kbdev,
 					   enum kbase_pm_suspend_handler suspend_handler)
 {
 	int ret;
 
 	kbase_pm_lock(kbdev);
-	ret = kbase_pm_context_active_handle_suspend_locked(kbdev, suspend_handler);
+	ret = kbasep_pm_context_active_handle_suspend_locked(kbdev, suspend_handler, false);
 	kbase_pm_unlock(kbdev);
 
 	return ret;

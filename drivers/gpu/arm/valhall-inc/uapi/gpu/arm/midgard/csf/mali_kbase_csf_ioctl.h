@@ -120,10 +120,13 @@
  * - Reject non-protected allocations containing the BASE_MEM_PROTECTED memory flag.
  * - Reject allocations containing the BASE_MEM_DONT_NEED memory flag (it is only settable).
  * - Reject allocations containing the BASE_MEM_UNUSED_BIT_xx memory flags.
+ * 1.32:
+ * - Add UNUSED_BIT_5 and UNUSED_BIT_7 previously occupied by kernel-only flags
+ *   to kbase cap table.
  */
 
 #define BASE_UK_VERSION_MAJOR 1
-#define BASE_UK_VERSION_MINOR 31
+#define BASE_UK_VERSION_MINOR 32
 
 /**
  * struct kbase_ioctl_version_check - Check version compatibility between

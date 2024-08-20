@@ -595,8 +595,8 @@ __maybe_unused static const enum base_hw_issue base_hw_issues_tKRx_r0p0[] = {
 
 __maybe_unused static const enum base_hw_issue base_hw_issues_tKRx_r0p1[] = {
 	KBASE_HW_ISSUE_TTRX_1337,    KBASE_HW_ISSUE_TURSEHW_2716, KBASE_HW_ISSUE_GPU2022PRO_148,
-	KBASE_HW_ISSUE_KRAKEHW_2269, KBASE_HW_ISSUE_TURSEHW_2934, KBASE_HW_ISSUE_KRAKEHW_2321,
-	KBASE_HW_ISSUE_END
+	KBASE_HW_ISSUE_KRAKEHW_2151, KBASE_HW_ISSUE_KRAKEHW_2269, KBASE_HW_ISSUE_TURSEHW_2934,
+	KBASE_HW_ISSUE_KRAKEHW_2321, KBASE_HW_ISSUE_END
 };
 
 __maybe_unused static const enum base_hw_issue base_hw_issues_model_tKRx[] = {

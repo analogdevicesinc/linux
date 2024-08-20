@@ -122,6 +122,8 @@ void kbase_arbiter_pm_vm_event(struct kbase_device *kbdev, enum kbase_arbif_evt 
  * @kbdev: The kbase device structure for the device (must be a valid pointer)
  * @suspend_handler: The handler code for how to handle a suspend
  *                   that might occur
+ * @sched_lock_held: Flag variable that tells whether the caller grabs the
+ *                   scheduler lock or not
  *
  * This function handles a suspend event from the driver,
  * communicating with the arbiter and waiting synchronously for the GPU
@@ -130,7 +132,8 @@ void kbase_arbiter_pm_vm_event(struct kbase_device *kbdev, enum kbase_arbif_evt 
  * Return: 0 if success, 1 if failure due to system suspending/suspended
  */
 int kbase_arbiter_pm_ctx_active_handle_suspend(struct kbase_device *kbdev,
-					       enum kbase_pm_suspend_handler suspend_handler);
+					       enum kbase_pm_suspend_handler suspend_handler,
+					       bool sched_lock_held);
 
 /**
  * kbase_arbiter_pm_vm_stopped() - Handle stop event for the VM

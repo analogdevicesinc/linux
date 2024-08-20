@@ -53,10 +53,21 @@ static inline u32 output_page_read(const u32 *const output, const u32 offset)
 	return output[offset / sizeof(u32)];
 }
 
-void kbase_csf_fw_io_init(struct kbase_csf_fw_io *fw_io)
+#ifdef CONFIG_MALI_DEBUG
+static inline void output_page_write(u32 *const output, const u32 offset, const u32 value)
+{
+	WARN_ON(offset % sizeof(u32));
+
+	output[offset / sizeof(u32)] = value;
+}
+#endif /* CONFIG_MALI_DEBUG */
+
+
+void kbase_csf_fw_io_init(struct kbase_csf_fw_io *fw_io, struct kbase_device *kbdev)
 {
 	spin_lock_init(&fw_io->lock);
-	bitmap_zero(fw_io->status, KBASE_FW_IO_STATUS_NUM_BITS);
+	bitmap_zero(fw_io->status, KBASEP_FW_IO_STATUS_NUM_BITS);
+	fw_io->kbdev = kbdev;
 }
 KBASE_EXPORT_TEST_API(kbase_csf_fw_io_init);
 
@@ -66,186 +77,276 @@ void kbase_csf_fw_io_term(struct kbase_csf_fw_io *fw_io)
 }
 KBASE_EXPORT_TEST_API(kbase_csf_fw_io_term);
 
-void kbase_csf_fw_io_global_write(struct kbase_csf_fw_io *fw_io,
-				  const struct kbase_csf_global_iface *iface, u32 offset, u32 value)
+int kbase_csf_fw_io_groups_pages_init(struct kbase_csf_fw_io *fw_io, u32 group_num)
 {
-	const struct kbase_device *const kbdev = iface->kbdev;
+	struct kbasep_csf_fw_io_group_pages **groups_pages = &fw_io->pages.groups_pages;
+
+	*groups_pages = kcalloc(group_num, sizeof(**groups_pages), GFP_KERNEL);
+	return *groups_pages ? 0 : -ENOMEM;
+}
+
+int kbase_csf_fw_io_streams_pages_init(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 stream_num)
+{
+	struct kbasep_csf_fw_io_stream_pages **streams_pages =
+		&fw_io->pages.groups_pages[group_id].streams_pages;
+
+	*streams_pages = kcalloc(stream_num, sizeof(**streams_pages), GFP_KERNEL);
+	return *streams_pages ? 0 : -ENOMEM;
+}
+
+void kbase_csf_fw_io_set_global_pages(struct kbase_csf_fw_io *fw_io, void *input, void *output)
+{
+	fw_io->pages.input = input;
+	fw_io->pages.output = output;
+}
+
+void kbase_csf_fw_io_set_group_pages(struct kbase_csf_fw_io *fw_io, u32 group_id, void *input,
+				     void *output)
+{
+	fw_io->pages.groups_pages[group_id].input = input;
+	fw_io->pages.groups_pages[group_id].output = output;
+}
+
+void kbase_csf_fw_io_set_stream_pages(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 stream_id,
+				      void *input, void *output)
+{
+	fw_io->pages.groups_pages[group_id].streams_pages[stream_id].input = input;
+	fw_io->pages.groups_pages[group_id].streams_pages[stream_id].output = output;
+}
+
+void kbase_csf_fw_io_pages_term(struct kbase_csf_fw_io *fw_io, u32 group_num)
+{
+	struct kbasep_csf_fw_io_pages *fw_io_pages = &fw_io->pages;
+
+	if (fw_io_pages->groups_pages) {
+		unsigned int gid;
+
+		for (gid = 0; gid < group_num; ++gid)
+			kfree(fw_io_pages->groups_pages[gid].streams_pages);
+
+		kfree(fw_io_pages->groups_pages);
+		fw_io_pages->groups_pages = NULL;
+	}
+}
+
+void kbase_csf_fw_io_global_write(struct kbase_csf_fw_io *fw_io, u32 offset, u32 value)
+{
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_pages *pages = &fw_io->pages;
 
 	lockdep_assert_held(&fw_io->lock);
 
 	dev_dbg(kbdev->dev, "glob input w: reg %08x val %08x\n", offset, value);
-	input_page_write(iface->input, offset, value);
+	input_page_write(pages->input, offset, value);
 }
 KBASE_EXPORT_TEST_API(kbase_csf_fw_io_global_write);
 
-void kbase_csf_fw_io_global_write_mask(struct kbase_csf_fw_io *fw_io,
-				       const struct kbase_csf_global_iface *iface, u32 offset,
-				       u32 value, u32 mask)
+void kbase_csf_fw_io_global_write_mask(struct kbase_csf_fw_io *fw_io, u32 offset, u32 value,
+				       u32 mask)
 {
-	const struct kbase_device *const kbdev = iface->kbdev;
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_pages *pages = &fw_io->pages;
 
 	lockdep_assert_held(&fw_io->lock);
 
 	dev_dbg(kbdev->dev, "glob input w: reg %08x val %08x mask %08x\n", offset, value, mask);
-	input_page_partial_write(iface->input, offset, value, mask);
+	input_page_partial_write(pages->input, offset, value, mask);
 }
 KBASE_EXPORT_TEST_API(kbase_csf_fw_io_global_write_mask);
 
-u32 kbase_csf_fw_io_global_input_read(struct kbase_csf_fw_io *fw_io,
-				      const struct kbase_csf_global_iface *iface, u32 offset)
+u32 kbase_csf_fw_io_global_input_read(struct kbase_csf_fw_io *fw_io, u32 offset)
 {
-	const struct kbase_device *const kbdev = iface->kbdev;
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_pages *pages = &fw_io->pages;
 	u32 val;
 
-	lockdep_assert_held(&fw_io->lock);
-
-	val = input_page_read(iface->input, offset);
+	val = input_page_read(pages->input, offset);
 	dev_dbg(kbdev->dev, "glob input r: reg %08x val %08x\n", offset, val);
 
 	return val;
 }
 KBASE_EXPORT_TEST_API(kbase_csf_fw_io_global_input_read);
 
-u32 kbase_csf_fw_io_global_read(struct kbase_csf_fw_io *fw_io,
-				const struct kbase_csf_global_iface *iface, u32 offset)
+u32 kbase_csf_fw_io_global_read(struct kbase_csf_fw_io *fw_io, u32 offset)
 {
-	const struct kbase_device *const kbdev = iface->kbdev;
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_pages *pages = &fw_io->pages;
 	u32 val;
 
-	lockdep_assert_held(&fw_io->lock);
-
-	val = output_page_read(iface->output, offset);
+	val = output_page_read(pages->output, offset);
 	dev_dbg(kbdev->dev, "glob output r: reg %08x val %08x\n", offset, val);
 
 	return val;
 }
+KBASE_EXPORT_TEST_API(kbase_csf_fw_io_global_read);
 
-void kbase_csf_fw_io_group_write(struct kbase_csf_fw_io *fw_io,
-				 const struct kbase_csf_cmd_stream_group_info *info, u32 offset,
-				 u32 value)
+void kbase_csf_fw_io_group_write(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset, u32 value)
 {
-	const struct kbase_device *const kbdev = info->kbdev;
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_group_pages *group_pages = &fw_io->pages.groups_pages[group_id];
 
 	lockdep_assert_held(&fw_io->lock);
 
-	dev_dbg(kbdev->dev, "csg input w: reg %08x val %08x\n", offset, value);
-	input_page_write(info->input, offset, value);
+	dev_dbg(kbdev->dev, "csg input w: reg %08x val %08x csg_id %u\n", offset, value, group_id);
+	input_page_write(group_pages->input, offset, value);
 }
 KBASE_EXPORT_TEST_API(kbase_csf_fw_io_group_write);
 
-void kbase_csf_fw_io_group_write_mask(struct kbase_csf_fw_io *fw_io,
-				      const struct kbase_csf_cmd_stream_group_info *info,
-				      u32 offset, u32 value, u32 mask)
+void kbase_csf_fw_io_group_write_mask(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset,
+				      u32 value, u32 mask)
 {
-	const struct kbase_device *const kbdev = info->kbdev;
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_group_pages *group_pages = &fw_io->pages.groups_pages[group_id];
 
 	lockdep_assert_held(&fw_io->lock);
 
-	dev_dbg(kbdev->dev, "csg input w: reg %08x val %08x mask %08x\n", offset, value, mask);
-	input_page_partial_write(info->input, offset, value, mask);
+	dev_dbg(kbdev->dev, "csg input w: reg %08x val %08x mask %08x csg_id %u\n", offset, value,
+		mask, group_id);
+	input_page_partial_write(group_pages->input, offset, value, mask);
 }
 KBASE_EXPORT_TEST_API(kbase_csf_fw_io_group_write_mask);
 
-u32 kbase_csf_fw_io_group_input_read(struct kbase_csf_fw_io *fw_io,
-				     const struct kbase_csf_cmd_stream_group_info *info, u32 offset)
+u32 kbase_csf_fw_io_group_input_read(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset)
 {
-	const struct kbase_device *const kbdev = info->kbdev;
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_group_pages *group_pages = &fw_io->pages.groups_pages[group_id];
 	u32 val;
 
-	lockdep_assert_held(&fw_io->lock);
-
-	val = input_page_read(info->input, offset);
-	dev_dbg(kbdev->dev, "csg input r: reg %08x val %08x\n", offset, val);
+	val = input_page_read(group_pages->input, offset);
+	dev_dbg(kbdev->dev, "csg input r: reg %08x val %08x csg_id %u\n", offset, val, group_id);
 
 	return val;
 }
 KBASE_EXPORT_TEST_API(kbase_csf_fw_io_group_input_read);
 
-u32 kbase_csf_fw_io_group_read(struct kbase_csf_fw_io *fw_io,
-			       const struct kbase_csf_cmd_stream_group_info *info, u32 offset)
+u32 kbase_csf_fw_io_group_read(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset)
 {
-	const struct kbase_device *const kbdev = info->kbdev;
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_group_pages *group_pages = &fw_io->pages.groups_pages[group_id];
 	u32 val;
 
-	lockdep_assert_held(&fw_io->lock);
-
-	val = output_page_read(info->output, offset);
-	dev_dbg(kbdev->dev, "csg output r: reg %08x val %08x\n", offset, val);
+	val = output_page_read(group_pages->output, offset);
+	dev_dbg(kbdev->dev, "csg output r: reg %08x val %08x csg_id %u\n", offset, val, group_id);
 
 	return val;
 }
+KBASE_EXPORT_TEST_API(kbase_csf_fw_io_group_read);
 
-void kbase_csf_fw_io_stream_write(struct kbase_csf_fw_io *fw_io,
-				  const struct kbase_csf_cmd_stream_info *info, u32 offset,
-				  u32 value)
+
+void kbase_csf_fw_io_stream_write(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 stream_id,
+				  u32 offset, u32 value)
 {
-	const struct kbase_device *const kbdev = info->kbdev;
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_stream_pages *stream_pages =
+		&fw_io->pages.groups_pages[group_id].streams_pages[stream_id];
 
 	lockdep_assert_held(&fw_io->lock);
 
-	dev_dbg(kbdev->dev, "cs input w: reg %08x val %08x\n", offset, value);
-	input_page_write(info->input, offset, value);
+	dev_dbg(kbdev->dev, "cs input w: reg %08x val %08x csg_id %u cs_id %u\n", offset, value,
+		group_id, stream_id);
+	input_page_write(stream_pages->input, offset, value);
 }
 KBASE_EXPORT_TEST_API(kbase_csf_fw_io_stream_write);
 
-void kbase_csf_fw_io_stream_write_mask(struct kbase_csf_fw_io *fw_io,
-				       const struct kbase_csf_cmd_stream_info *info, u32 offset,
-				       u32 value, u32 mask)
+void kbase_csf_fw_io_stream_write_mask(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 stream_id,
+				       u32 offset, u32 value, u32 mask)
 {
-	const struct kbase_device *const kbdev = info->kbdev;
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_stream_pages *stream_pages =
+		&fw_io->pages.groups_pages[group_id].streams_pages[stream_id];
 
 	lockdep_assert_held(&fw_io->lock);
 
-	dev_dbg(kbdev->dev, "cs input w: reg %08x val %08x mask %08x\n", offset, value, mask);
-	input_page_partial_write(info->input, offset, value, mask);
+	dev_dbg(kbdev->dev, "cs input w: reg %08x val %08x mask %08x csg_id %u cs_id %u\n", offset,
+		value, mask, group_id, stream_id);
+	input_page_partial_write(stream_pages->input, offset, value, mask);
 }
 KBASE_EXPORT_TEST_API(kbase_csf_fw_io_stream_write_mask);
 
-u32 kbase_csf_fw_io_stream_input_read(struct kbase_csf_fw_io *fw_io,
-				      const struct kbase_csf_cmd_stream_info *info, u32 offset)
+u32 kbase_csf_fw_io_stream_input_read(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 stream_id,
+				      u32 offset)
 {
-	const struct kbase_device *const kbdev = info->kbdev;
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_stream_pages *stream_pages =
+		&fw_io->pages.groups_pages[group_id].streams_pages[stream_id];
 	u32 val;
 
-	lockdep_assert_held(&fw_io->lock);
-
-	val = input_page_read(info->input, offset);
-	dev_dbg(kbdev->dev, "cs input r: reg %08x val %08x\n", offset, val);
+	val = input_page_read(stream_pages->input, offset);
+	dev_dbg(kbdev->dev, "cs input r: reg %08x val %08x csg_id %u cs_id %u\n", offset, val,
+		group_id, stream_id);
 
 	return val;
 }
 KBASE_EXPORT_TEST_API(kbase_csf_fw_io_stream_input_read);
 
-u32 kbase_csf_fw_io_stream_read(struct kbase_csf_fw_io *fw_io,
-				const struct kbase_csf_cmd_stream_info *info, u32 offset)
+u32 kbase_csf_fw_io_stream_read(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 stream_id,
+				u32 offset)
 {
-	const struct kbase_device *const kbdev = info->kbdev;
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_stream_pages *stream_pages =
+		&fw_io->pages.groups_pages[group_id].streams_pages[stream_id];
 	u32 val;
 
-	lockdep_assert_held(&fw_io->lock);
-
-	val = output_page_read(info->output, offset);
-	dev_dbg(kbdev->dev, "cs output r: reg %08x val %08x\n", offset, val);
+	val = output_page_read(stream_pages->output, offset);
+	dev_dbg(kbdev->dev, "cs output r: reg %08x val %08x csg_id %u cs_id %u\n", offset, val,
+		group_id, stream_id);
 
 	return val;
 }
+KBASE_EXPORT_TEST_API(kbase_csf_fw_io_stream_read);
 
-void kbase_csf_fw_io_set_status(struct kbase_csf_fw_io *fw_io,
-				enum kbase_csf_fw_io_status_bits status_bit)
+void kbase_csf_fw_io_set_status_gpu_suspended(struct kbase_csf_fw_io *fw_io)
 {
-	set_bit(status_bit, fw_io->status);
+	set_bit(KBASEP_FW_IO_STATUS_GPU_SUSPENDED, fw_io->status);
 }
-KBASE_EXPORT_TEST_API(kbase_csf_fw_io_set_status);
+KBASE_EXPORT_TEST_API(kbase_csf_fw_io_set_status_gpu_suspended);
 
-void kbase_csf_fw_io_clear_status(struct kbase_csf_fw_io *fw_io,
-				  enum kbase_csf_fw_io_status_bits status_bit)
+void kbase_csf_fw_io_clear_status_gpu_suspended(struct kbase_csf_fw_io *fw_io)
 {
-	clear_bit(status_bit, fw_io->status);
+	clear_bit(KBASEP_FW_IO_STATUS_GPU_SUSPENDED, fw_io->status);
 }
 
-bool kbase_csf_fw_io_test_status(struct kbase_csf_fw_io *fw_io,
-				 enum kbase_csf_fw_io_status_bits status_bit)
+bool kbase_csf_fw_io_check_status_gpu_suspended(struct kbase_csf_fw_io *fw_io)
 {
-	return test_bit(status_bit, fw_io->status);
+	return !bitmap_empty(fw_io->status, KBASEP_FW_IO_STATUS_NUM_BITS);
 }
-KBASE_EXPORT_TEST_API(kbase_csf_fw_io_test_status);
+KBASE_EXPORT_TEST_API(kbase_csf_fw_io_check_status_gpu_suspended);
+
+#if IS_ENABLED(CONFIG_MALI_DEBUG)
+
+void kbase_csf_fw_io_mock_fw_global_write(struct kbase_csf_fw_io *fw_io, u32 offset, u32 value)
+{
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_pages *pages = &fw_io->pages;
+
+	dev_dbg(kbdev->dev, "mock fw glob output w: reg %08x val %08x\n", offset, value);
+	output_page_write(pages->output, offset, value);
+}
+KBASE_EXPORT_TEST_API(kbase_csf_fw_io_mock_fw_global_write);
+
+void kbase_csf_fw_io_mock_fw_group_write(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset,
+					 u32 value)
+{
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_group_pages *group_pages = &fw_io->pages.groups_pages[group_id];
+
+	dev_dbg(kbdev->dev, "mock fw csg output w: reg %08x val %08x csg_id %u\n", offset, value,
+		group_id);
+	output_page_write(group_pages->output, offset, value);
+}
+KBASE_EXPORT_TEST_API(kbase_csf_fw_io_mock_fw_group_write);
+
+void kbase_csf_fw_io_mock_fw_stream_write(struct kbase_csf_fw_io *fw_io, u32 group_id,
+					  u32 stream_id, u32 offset, u32 value)
+{
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_stream_pages *stream_pages =
+		&fw_io->pages.groups_pages[group_id].streams_pages[stream_id];
+
+	dev_dbg(kbdev->dev, "mock fw cs output w: reg %08x val %08x csg_id %u cs_id %u\n", offset,
+		value, group_id, stream_id);
+	output_page_write(stream_pages->output, offset, value);
+}
+KBASE_EXPORT_TEST_API(kbase_csf_fw_io_mock_fw_stream_write);
+
+#endif /* IS_ENABLED(CONFIG_MALI_DEBUG) */

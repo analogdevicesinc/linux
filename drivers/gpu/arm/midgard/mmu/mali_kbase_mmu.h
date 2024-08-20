@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -236,19 +236,46 @@ int kbase_mmu_update_csf_mcu_pages(struct kbase_device *kbdev, u64 vpfn, struct 
 #endif
 
 /**
- * kbase_mmu_migrate_page - Migrate GPU mappings and content between memory pages
+ * kbase_mmu_migrate_data_page - Migrate GPU mappings and content of data pages between memory pages
  *
  * @old_phys:     Old physical page to be replaced.
  * @new_phys:     New physical page used to replace old physical page.
  * @old_dma_addr: DMA address of the old page.
  * @new_dma_addr: DMA address of the new page.
- * @level:        MMU page table level of the provided PGD.
  *
  * The page migration process is made of 2 big steps:
  *
  * 1) Copy the content of the old page to the new page.
- * 2) Remap the virtual page, that is: replace either the ATE (if the old page
- *    was a regular page) or the PTE (if the old page was used as a PGD) in the
+ * 2) Remap the virtual page, that is: replace the ATE in the
+ *    MMU page table with the new page.
+ *
+ * During the process, the MMU region is locked to prevent GPU access to the
+ * virtual memory page that is being remapped.
+ *
+ * Before copying the content of the old page to the new page and while the
+ * MMU region is locked, a GPU cache flush is performed to make sure that
+ * pending GPU writes re finalized to the old page before copying.
+ * That is necessary because otherwise there's a risk that GPU writes might
+ * be finalized to the old page, and not new page, after migration.
+ * The MMU region is unlocked only at the end of the migration operation.
+ *
+ * Return: 0 on success, otherwise an error code.
+ */
+int kbase_mmu_migrate_data_page(struct tagged_addr old_phys, struct tagged_addr new_phys,
+				dma_addr_t old_dma_addr, dma_addr_t new_dma_addr);
+
+/**
+ * kbase_mmu_migrate_pgd_page - Migrate GPU mappings and content of PGD pages between memory pages
+ *
+ * @old_pgd_phys: Old physical page, used to GPU PGDs, to be replaced.
+ * @new_pgd_phys: New physical page used to replace old physical page used for GPU PGDs.
+ * @old_pgd_dma_addr: DMA address of the old PGD page.
+ * @new_pgd_dma_addr: DMA address of the new PGD page.
+ *
+ * The page migration process is made of 2 big steps:
+ *
+ * 1) Copy the content of the old page to the new page.
+ * 2) Remap the virtual page, that is: replace the PTE in the
  *    MMU page table with the new page.
  *
  * During the process, the MMU region is locked to prevent GPU access to the
@@ -263,8 +290,8 @@ int kbase_mmu_update_csf_mcu_pages(struct kbase_device *kbdev, u64 vpfn, struct 
  *
  * Return: 0 on success, otherwise an error code.
  */
-int kbase_mmu_migrate_page(struct tagged_addr old_phys, struct tagged_addr new_phys,
-			   dma_addr_t old_dma_addr, dma_addr_t new_dma_addr, int level);
+int kbase_mmu_migrate_pgd_page(struct tagged_addr old_pgd_phys, struct tagged_addr new_pgd_phys,
+			       dma_addr_t old_pgd_dma_addr, dma_addr_t new_pgd_dma_addr);
 
 /**
  * kbase_mmu_flush_pa_range() - Flush physical address range from the GPU caches

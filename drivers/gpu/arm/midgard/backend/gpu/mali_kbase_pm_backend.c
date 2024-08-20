@@ -151,6 +151,7 @@ int kbase_hwaccess_pm_init(struct kbase_device *kbdev)
 
 	init_waitqueue_head(&kbdev->pm.backend.reset_done_wait);
 	kbdev->pm.backend.reset_done = false;
+	atomic_set(&kbdev->pm.backend.reset_in_progress, 0);
 
 	init_waitqueue_head(&kbdev->pm.zero_active_count_wait);
 	init_waitqueue_head(&kbdev->pm.resume_wait);
@@ -185,7 +186,11 @@ int kbase_hwaccess_pm_init(struct kbase_device *kbdev)
 		kbase_hw_has_issue(kbdev, KBASE_HW_ISSUE_TITANHW_2938) &&
 		test_bit(KBASE_GPU_SUPPORTS_GPU_SLEEP, &kbdev->pm.backend.gpu_sleep_allowed);
 
-	/* FW Sleep-on-Idle is feature is kept disabled */
+	/* FW Sleep-on-Idle is only available in certain architecture revisions */
+	if ((kbdev->gpu_props.gpu_id.arch_major > 11) ||
+	    ((kbdev->gpu_props.gpu_id.arch_major == 11) &&
+	     (kbdev->gpu_props.gpu_id.arch_minor >= 8) && (kbdev->gpu_props.gpu_id.arch_rev >= 10)))
+		set_bit(KBASE_GPU_SUPPORTS_FW_SLEEP_ON_IDLE, &kbdev->pm.backend.gpu_sleep_allowed);
 #endif
 
 	if (IS_ENABLED(CONFIG_MALI_HW_ERRATA_1485982_NOT_AFFECTED))
@@ -1203,7 +1208,13 @@ int kbase_pm_handle_runtime_suspend(struct kbase_device *kbdev)
 	}
 
 	mcu_state = kbdev->pm.backend.mcu_state;
-	WARN_ON(!kbase_pm_is_mcu_inactive(kbdev, mcu_state));
+	if (unlikely(!kbase_pm_is_mcu_inactive(kbdev, mcu_state))) {
+		dev_WARN_ONCE(kbdev->dev, 1, "MCU SM in unexpected state %d on runtime suspend",
+			      mcu_state);
+		ret = -EBUSY;
+		spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+		goto unlock;
+	}
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
 	if (mcu_state == KBASE_MCU_IN_SLEEP) {

@@ -445,6 +445,7 @@ union kbase_pm_policy_data {
  *                         work function, kbase_pm_gpu_clock_control_worker.
  * @gpu_clock_control_work: work item to set GPU clock during L2 power cycle
  *                          using gpu_clock_control
+ * @reset_in_progress: Set if reset is ongoing, otherwise set to 0
  *
  * This structure contains data for the power management framework. There is one
  * instance of this structure per device in the system.
@@ -551,6 +552,8 @@ struct kbase_pm_backend_data {
 	bool gpu_clock_slow_down_desired;
 	bool gpu_clock_slowed_down;
 	struct work_struct gpu_clock_control_work;
+
+	atomic_t reset_in_progress;
 };
 
 #if MALI_USE_CSF

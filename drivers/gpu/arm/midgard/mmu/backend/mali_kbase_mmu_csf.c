@@ -179,7 +179,7 @@ void kbase_gpu_report_bus_fault_and_kill(struct kbase_context *kctx, struct kbas
 	 * All GPU command queue groups associated with the context would be
 	 * affected as they use the same GPU address space.
 	 */
-	kbase_csf_ctx_handle_fault(kctx, fault);
+	kbase_csf_ctx_handle_fault(kctx, fault, false);
 
 	/* Now clear the GPU fault */
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
@@ -261,7 +261,7 @@ void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx, struct kbase_as
 	 * All GPU command queue groups associated with the context would be
 	 * affected as they use the same GPU address space.
 	 */
-	kbase_csf_ctx_handle_fault(kctx, fault);
+	kbase_csf_ctx_handle_fault(kctx, fault, false);
 
 	/* Clear down the fault */
 	kbase_mmu_hw_clear_fault(kbdev, as, KBASE_MMU_FAULT_TYPE_PAGE_UNEXPECTED);
@@ -476,7 +476,7 @@ static void kbase_mmu_gpu_fault_worker(struct work_struct *data)
 		 status & GPU_FAULTSTATUS_ADDRESS_VALID_MASK ? "true" : "false");
 
 	kctx = kbase_ctx_sched_as_to_ctx(kbdev, as_nr);
-	kbase_csf_ctx_handle_fault(kctx, fault);
+	kbase_csf_ctx_handle_fault(kctx, fault, false);
 	kbase_ctx_sched_release_ctx_lock(kctx);
 
 	/* A work for GPU fault is complete.

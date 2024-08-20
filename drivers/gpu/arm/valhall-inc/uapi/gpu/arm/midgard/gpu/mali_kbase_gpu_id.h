@@ -126,7 +126,10 @@
 #define GPU_ID2_PRODUCT_LTIX GPU_ID2_MODEL_MAKE(12, 1)
 #define GPU_ID2_PRODUCT_TKRX GPU_ID2_MODEL_MAKE(13, 0)
 #define GPU_ID2_PRODUCT_LKRX GPU_ID2_MODEL_MAKE(13, 1)
-
+/* Do not increase the size of this macros any more.
+ * ID2 macros are deprecated but keeping them for backward compatibility.
+ * New GPU_ID_PRODUCT_XXXX macros in current file replace these macros.
+ */
 
 
 #define GPU_ID_U8_COMP(val3, val2, val1, val0) \

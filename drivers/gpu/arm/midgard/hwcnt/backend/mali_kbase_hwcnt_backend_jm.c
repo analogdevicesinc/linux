@@ -23,6 +23,7 @@
 #include "hwcnt/mali_kbase_hwcnt_gpu.h"
 #include "hwcnt/mali_kbase_hwcnt_types.h"
 #include "mali_kbase.h"
+#include "mali_kbase_mem_flags.h"
 #include "backend/gpu/mali_kbase_pm_ca.h"
 #include "mali_kbase_hwaccess_instr.h"
 #include "mali_kbase_hwaccess_time.h"
@@ -88,11 +89,8 @@ struct kbase_hwcnt_jm_physical_layout {
  * @vmap:                Dump buffer vmap.
  * @to_user_buf:         HWC sample buffer for client user, size
  *                       metadata.dump_buf_bytes.
+ * @to_user_block_states: HWC sample block states for client user.
  * @enabled:             True if dumping has been enabled, else false.
- * @accum_all_blk_stt:   Block State to accumulate on next sample, for all types
- *                       of block.
- * @sampled_all_blk_stt: Block State to accumulate into the current sample, for
- *                       all types of block.
  * @debug_core_mask:     User-set mask of shader cores that can be used.
  * @pm_core_mask:        PM state sync-ed shaders core mask for the enabled
  *                       dumping.
@@ -114,6 +112,8 @@ struct kbase_hwcnt_jm_physical_layout {
  * @rate_listener:       Clock rate listener callback state.
  * @ccswe_shader_cores:  Shader cores cycle count software estimator.
  * @phys_layout:         Physical memory layout information of HWC sample buffer.
+ * @dump_time_ns:        Holds the CPU timestamp captured at the time of
+ *                       dump_request().
  */
 struct kbase_hwcnt_backend_jm {
 	const struct kbase_hwcnt_backend_jm_info *info;
@@ -122,9 +122,8 @@ struct kbase_hwcnt_backend_jm {
 	void *cpu_dump_va;
 	struct kbase_vmap_struct *vmap;
 	u64 *to_user_buf;
+	blk_stt_t *to_user_block_states;
 	bool enabled;
-	blk_stt_t accum_all_blk_stt;
-	blk_stt_t sampled_all_blk_stt;
 	u64 debug_core_mask;
 	u64 pm_core_mask;
 	struct kbase_hwcnt_curr_config curr_config;
@@ -136,6 +135,7 @@ struct kbase_hwcnt_backend_jm {
 	struct kbase_clk_rate_listener rate_listener;
 	struct kbase_ccswe ccswe_shader_cores;
 	struct kbase_hwcnt_jm_physical_layout phys_layout;
+	u64 dump_time_ns;
 };
 
 /**
@@ -355,6 +355,42 @@ static u64 kbasep_hwcnt_backend_jm_timestamp_ns(struct kbase_hwcnt_backend *back
 	return ktime_get_raw_ns();
 }
 
+static void kbasep_hwcnt_backend_jm_append_block_states(struct kbase_hwcnt_backend_jm *backend_jm,
+							blk_stt_t block_state)
+{
+	size_t i;
+
+	for (i = 0; i < backend_jm->phys_layout.block_cnt; i++)
+		kbase_hwcnt_block_state_append(&backend_jm->to_user_block_states[i], block_state);
+}
+
+static void
+kbasep_hwcnt_backend_jm_get_physical_enable(struct kbase_hwcnt_backend_jm *backend_jm,
+					    const struct kbase_hwcnt_enable_map *enable_map,
+					    struct kbase_instr_hwcnt_enable *enable)
+{
+	enum kbase_hwcnt_physical_set phys_counter_set;
+	struct kbase_hwcnt_physical_enable_map phys_enable_map = { 0 };
+
+	kbase_hwcnt_gpu_enable_map_to_physical(&phys_enable_map, enable_map);
+
+	kbase_hwcnt_gpu_set_to_physical(&phys_counter_set, backend_jm->info->counter_set);
+
+	*enable = (struct kbase_instr_hwcnt_enable){
+		.fe_bm = phys_enable_map.fe_bm,
+		.shader_bm = phys_enable_map.shader_bm,
+		.tiler_bm = phys_enable_map.tiler_bm,
+		.mmu_l2_bm = phys_enable_map.mmu_l2_bm,
+		.counter_set = phys_counter_set,
+		.dump_buffer = backend_jm->gpu_dump_va,
+		.dump_buffer_bytes = backend_jm->info->dump_bytes,
+	};
+
+	/* The dummy model needs the CPU mapping. */
+	if (IS_ENABLED(CONFIG_MALI_NO_MALI))
+		enable->dump_buffer = (uintptr_t)backend_jm->cpu_dump_va;
+}
+
 /* JM backend implementation of kbase_hwcnt_backend_dump_enable_nolock_fn */
 static int
 kbasep_hwcnt_backend_jm_dump_enable_nolock(struct kbase_hwcnt_backend *backend,
@@ -364,8 +400,6 @@ kbasep_hwcnt_backend_jm_dump_enable_nolock(struct kbase_hwcnt_backend *backend,
 	struct kbase_hwcnt_backend_jm *backend_jm = (struct kbase_hwcnt_backend_jm *)backend;
 	struct kbase_context *kctx;
 	struct kbase_device *kbdev;
-	struct kbase_hwcnt_physical_enable_map phys_enable_map = { 0 };
-	enum kbase_hwcnt_physical_set phys_counter_set;
 	struct kbase_instr_hwcnt_enable enable = { 0 };
 	u64 timestamp_ns;
 
@@ -378,23 +412,7 @@ kbasep_hwcnt_backend_jm_dump_enable_nolock(struct kbase_hwcnt_backend *backend,
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
-	kbase_hwcnt_gpu_enable_map_to_physical(&phys_enable_map, enable_map);
-
-	kbase_hwcnt_gpu_set_to_physical(&phys_counter_set, backend_jm->info->counter_set);
-
-	enable = (struct kbase_instr_hwcnt_enable)
-	{
-		.fe_bm = phys_enable_map.fe_bm, .shader_bm = phys_enable_map.shader_bm,
-		.tiler_bm = phys_enable_map.tiler_bm, .mmu_l2_bm = phys_enable_map.mmu_l2_bm,
-		.counter_set = phys_counter_set,
-#if IS_ENABLED(CONFIG_MALI_NO_MALI)
-		/* The dummy model needs the CPU mapping. */
-			.dump_buffer = (uintptr_t)backend_jm->cpu_dump_va,
-#else
-		.dump_buffer = backend_jm->gpu_dump_va,
-#endif /* CONFIG_MALI_NO_MALI */
-		.dump_buffer_bytes = backend_jm->info->dump_bytes,
-	};
+	kbasep_hwcnt_backend_jm_get_physical_enable(backend_jm, enable_map, &enable);
 
 	timestamp_ns = kbasep_hwcnt_backend_jm_timestamp_ns(backend);
 
@@ -414,6 +432,7 @@ kbasep_hwcnt_backend_jm_dump_enable_nolock(struct kbase_hwcnt_backend *backend,
 	backend_jm->pm_core_mask = kbase_pm_ca_get_instr_core_mask(kbdev);
 
 	backend_jm->enabled = true;
+
 	/* Enabling counters is an indication that the power may have previously been off for all
 	 * blocks.
 	 *
@@ -424,13 +443,22 @@ kbasep_hwcnt_backend_jm_dump_enable_nolock(struct kbase_hwcnt_backend *backend,
 	 * cases where the caller requested such information. This is to handle when a
 	 * dump_enable() happens in between dump_wait() and dump_get().
 	 */
-	kbase_hwcnt_block_state_append(&backend_jm->accum_all_blk_stt, KBASE_HWCNT_STATE_OFF);
+	kbasep_hwcnt_backend_jm_append_block_states(backend_jm, KBASE_HWCNT_STATE_OFF);
 
 	kbasep_hwcnt_backend_jm_cc_enable(backend_jm, enable_map, timestamp_ns);
 
 	return 0;
 error:
 	return errcode;
+}
+
+static void
+kbasep_hwcnt_backend_jm_reset_consumed_buffers(struct kbase_hwcnt_backend_jm *backend_jm)
+{
+	size_t block_state_bytes = backend_jm->phys_layout.block_cnt *
+				   KBASE_HWCNT_BLOCK_STATE_BYTES * KBASE_HWCNT_BLOCK_STATE_STRIDE;
+
+	memset(backend_jm->to_user_block_states, 0, block_state_bytes);
 }
 
 /* JM backend implementation of kbase_hwcnt_backend_dump_enable_fn */
@@ -469,6 +497,7 @@ static void kbasep_hwcnt_backend_jm_dump_disable(struct kbase_hwcnt_backend *bac
 		    (enable_map && (backend_jm->info->metadata != enable_map->metadata)) ||
 		    (dump_buffer && !enable_map)))
 		return;
+
 	/* No WARN needed here, but still return early if backend is already disabled */
 	if (!backend_jm->enabled)
 		return;
@@ -478,17 +507,7 @@ static void kbasep_hwcnt_backend_jm_dump_disable(struct kbase_hwcnt_backend *bac
 	errcode = kbase_instr_hwcnt_disable_internal(backend_jm->kctx);
 	WARN_ON(errcode);
 
-	/* Disabling HWCNT is an indication that blocks have been powered off. This is important to
-	 * know for L2 and Tiler blocks, as this is currently the only way a backend can know if
-	 * they are being powered off.
-	 *
-	 * In any case, even if they weren't really powered off, we won't be counting whilst
-	 * disabled.
-	 *
-	 * Update the block state information in the block state accumulator to show this, so that
-	 * in the next dump blocks will have been seen as powered off for some of the time.
-	 */
-	kbase_hwcnt_block_state_append(&backend_jm->accum_all_blk_stt, KBASE_HWCNT_STATE_OFF);
+	kbasep_hwcnt_backend_jm_append_block_states(backend_jm, KBASE_HWCNT_STATE_OFF);
 
 	if (dump_buffer) {
 		/* In some use-cases, the caller will need the information whilst the counters are
@@ -500,18 +519,14 @@ static void kbasep_hwcnt_backend_jm_dump_disable(struct kbase_hwcnt_backend *bac
 		 * real dump_get() had happened), then transfer ownership of that to the caller
 		 * (i.e. erasing our copy of it).
 		 */
-		kbase_hwcnt_block_state_accumulate(&backend_jm->sampled_all_blk_stt,
-						   &backend_jm->accum_all_blk_stt);
-		kbase_hwcnt_dump_buffer_block_state_update(dump_buffer, enable_map,
-							   backend_jm->sampled_all_blk_stt);
+		kbase_hwcnt_dump_buffer_append_block_states(dump_buffer, enable_map,
+							    backend_jm->to_user_block_states);
+
 		/* Now the block state has been passed out into the caller's own accumulation
 		 * buffer, clear our own accumulated and sampled block state - ownership has been
 		 * transferred.
 		 */
-		kbase_hwcnt_block_state_set(&backend_jm->sampled_all_blk_stt,
-					    KBASE_HWCNT_STATE_UNKNOWN);
-		kbase_hwcnt_block_state_set(&backend_jm->accum_all_blk_stt,
-					    KBASE_HWCNT_STATE_UNKNOWN);
+		kbasep_hwcnt_backend_jm_reset_consumed_buffers(backend_jm);
 	}
 
 	backend_jm->enabled = false;
@@ -529,8 +544,7 @@ static int kbasep_hwcnt_backend_jm_dump_clear(struct kbase_hwcnt_backend *backen
 }
 
 /* JM backend implementation of kbase_hwcnt_backend_dump_request_fn */
-static int kbasep_hwcnt_backend_jm_dump_request(struct kbase_hwcnt_backend *backend,
-						u64 *dump_time_ns)
+static int kbasep_hwcnt_backend_jm_dump_request(struct kbase_hwcnt_backend *backend)
 {
 	struct kbase_hwcnt_backend_jm *backend_jm = (struct kbase_hwcnt_backend_jm *)backend;
 	struct kbase_device *kbdev;
@@ -539,7 +553,7 @@ static int kbasep_hwcnt_backend_jm_dump_request(struct kbase_hwcnt_backend *back
 	size_t clk;
 	int ret;
 
-	if (!backend_jm || !backend_jm->enabled || !dump_time_ns)
+	if (!backend_jm || !backend_jm->enabled)
 		return -EINVAL;
 
 	kbdev = backend_jm->kctx->kbdev;
@@ -548,7 +562,7 @@ static int kbasep_hwcnt_backend_jm_dump_request(struct kbase_hwcnt_backend *back
 	/* Disable pre-emption, to make the timestamp as accurate as possible */
 	preempt_disable();
 	{
-		*dump_time_ns = kbasep_hwcnt_backend_jm_timestamp_ns(backend);
+		backend_jm->dump_time_ns = kbasep_hwcnt_backend_jm_timestamp_ns(backend);
 		ret = kbase_instr_hwcnt_request_dump(backend_jm->kctx);
 
 		kbase_hwcnt_metadata_for_each_clock(metadata, clk) {
@@ -565,7 +579,7 @@ static int kbasep_hwcnt_backend_jm_dump_request(struct kbase_hwcnt_backend *back
 				 * domain.
 				 */
 				current_cycle_count = kbase_ccswe_cycle_at(
-					&backend_jm->ccswe_shader_cores, *dump_time_ns);
+					&backend_jm->ccswe_shader_cores, backend_jm->dump_time_ns);
 			}
 			backend_jm->cycle_count_elapsed[clk] =
 				current_cycle_count - backend_jm->prev_cycle_count[clk];
@@ -594,16 +608,6 @@ static int kbasep_hwcnt_backend_jm_dump_wait(struct kbase_hwcnt_backend *backend
 	if (errcode)
 		return errcode;
 
-	/* Now that we've completed a sample, also sample+clear the accumulated block state.
-	 *
-	 * This is to ensure that a dump_enable() that happens in between dump_wait() and
-	 * dump_get() is reported on the _next_ dump, not the _current_ dump. That is, the block
-	 * state is reported at the actual time that counters are being sampled.
-	 */
-	kbase_hwcnt_block_state_accumulate(&backend_jm->sampled_all_blk_stt,
-					   &backend_jm->accum_all_blk_stt);
-	kbase_hwcnt_block_state_set(&backend_jm->accum_all_blk_stt, KBASE_HWCNT_STATE_UNKNOWN);
-
 	return errcode;
 }
 
@@ -611,7 +615,7 @@ static int kbasep_hwcnt_backend_jm_dump_wait(struct kbase_hwcnt_backend *backend
 static int kbasep_hwcnt_backend_jm_dump_get(struct kbase_hwcnt_backend *backend,
 					    struct kbase_hwcnt_dump_buffer *dst,
 					    const struct kbase_hwcnt_enable_map *dst_enable_map,
-					    bool accumulate)
+					    bool accumulate, u64 *dump_time_ns)
 {
 	struct kbase_hwcnt_backend_jm *backend_jm = (struct kbase_hwcnt_backend_jm *)backend;
 	size_t clk;
@@ -621,7 +625,7 @@ static int kbasep_hwcnt_backend_jm_dump_get(struct kbase_hwcnt_backend *backend,
 #endif /* CONFIG_MALI_NO_MALI */
 	int errcode;
 
-	if (!backend_jm || !dst || !dst_enable_map ||
+	if (!backend_jm || !dst || !dst_enable_map || !dump_time_ns ||
 	    (backend_jm->info->metadata != dst->metadata) ||
 	    (dst_enable_map->metadata != dst->metadata))
 		return -EINVAL;
@@ -664,9 +668,11 @@ static int kbasep_hwcnt_backend_jm_dump_get(struct kbase_hwcnt_backend *backend,
 	if (errcode)
 		return errcode;
 
-	kbase_hwcnt_dump_buffer_block_state_update(dst, dst_enable_map,
-						   backend_jm->sampled_all_blk_stt);
-	kbase_hwcnt_block_state_set(&backend_jm->sampled_all_blk_stt, KBASE_HWCNT_STATE_UNKNOWN);
+	*dump_time_ns = backend_jm->dump_time_ns;
+	kbase_hwcnt_dump_buffer_append_block_states(dst, dst_enable_map,
+						    backend_jm->to_user_block_states);
+	kbasep_hwcnt_backend_jm_reset_consumed_buffers(backend_jm);
+
 	return errcode;
 }
 
@@ -747,6 +753,8 @@ static void kbasep_hwcnt_backend_jm_destroy(struct kbase_hwcnt_backend_jm *backe
 
 	kfree(backend->to_user_buf);
 
+	kfree(backend->to_user_block_states);
+
 	kfree(backend);
 }
 
@@ -763,6 +771,7 @@ static int kbasep_hwcnt_backend_jm_create(const struct kbase_hwcnt_backend_jm_in
 	int errcode;
 	struct kbase_device *kbdev;
 	struct kbase_hwcnt_backend_jm *backend = NULL;
+	size_t block_state_bytes;
 
 	WARN_ON(!info);
 	WARN_ON(!out_backend);
@@ -796,10 +805,17 @@ static int kbasep_hwcnt_backend_jm_create(const struct kbase_hwcnt_backend_jm_in
 	if (!backend->to_user_buf)
 		goto alloc_error;
 
+	block_state_bytes = backend->phys_layout.block_cnt * KBASE_HWCNT_BLOCK_STATE_BYTES *
+			    KBASE_HWCNT_BLOCK_STATE_STRIDE;
+
+	backend->to_user_block_states = kzalloc(block_state_bytes, GFP_KERNEL);
+	if (!backend->to_user_block_states)
+		goto alloc_error;
+
+	memset(backend->to_user_block_states, 0, block_state_bytes);
+
 	kbase_ccswe_init(&backend->ccswe_shader_cores);
 	backend->rate_listener.notify = kbasep_hwcnt_backend_jm_on_freq_change;
-	kbase_hwcnt_block_state_set(&backend->accum_all_blk_stt, KBASE_HWCNT_STATE_UNKNOWN);
-	kbase_hwcnt_block_state_set(&backend->sampled_all_blk_stt, KBASE_HWCNT_STATE_UNKNOWN);
 
 	*out_backend = backend;
 	return 0;

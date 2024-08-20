@@ -177,6 +177,8 @@ int kbase_gpu_gwt_dump(struct kbase_context *kctx, union kbase_ioctl_cinstr_gwt_
 	u32 ubuf_count = 0;
 	__user void *user_addr = (__user void *)(uintptr_t)gwt_dump->in.addr_buffer;
 	__user void *user_sizes = (__user void *)(uintptr_t)gwt_dump->in.size_buffer;
+	size_t copy_size;
+	int ret = 0;
 
 	/* We don't have any valid user space buffer to copy the write modified addresses. */
 	if (!gwt_dump->in.len || !gwt_dump->in.addr_buffer || !gwt_dump->in.size_buffer)
@@ -185,9 +187,9 @@ int kbase_gpu_gwt_dump(struct kbase_context *kctx, union kbase_ioctl_cinstr_gwt_
 	kbase_gpu_vm_lock(kctx);
 
 	if (!kctx->gwt_enabled) {
-		kbase_gpu_vm_unlock(kctx);
 		/* gwt_dump shouldn't be called when gwt is disabled */
-		return -EPERM;
+		ret = -EPERM;
+		goto unlock_and_exit;
 	}
 
 	if (list_empty(&kctx->gwt_snapshot_list) && !list_empty(&kctx->gwt_current_list)) {
@@ -222,19 +224,23 @@ int kbase_gpu_gwt_dump(struct kbase_context *kctx, union kbase_ioctl_cinstr_gwt_
 		}
 
 		if (count) {
-			err = copy_to_user((user_addr + (ubuf_count * sizeof(u64))),
-					   (void *)addr_buffer, size_mul(count, sizeof(u64)));
-			if (err) {
-				dev_err(kctx->kbdev->dev, "Copy to user failure\n");
-				kbase_gpu_vm_unlock(kctx);
-				return err;
+			if (check_mul_overflow((size_t)count, sizeof(u64), &copy_size)) {
+				ret = -EINVAL;
+				goto unlock_and_exit;
 			}
-			err = copy_to_user((user_sizes + (ubuf_count * sizeof(u64))),
-					   (void *)num_page_buffer, size_mul(count, sizeof(u64)));
+
+			err = copy_to_user((user_addr + (ubuf_count * sizeof(u64))),
+					   (void *)addr_buffer, copy_size);
 			if (err) {
 				dev_err(kctx->kbdev->dev, "Copy to user failure\n");
-				kbase_gpu_vm_unlock(kctx);
-				return err;
+				goto unlock_and_exit;
+			}
+
+			err = copy_to_user((user_sizes + (ubuf_count * sizeof(u64))),
+					   (void *)num_page_buffer, copy_size);
+			if (err) {
+				dev_err(kctx->kbdev->dev, "Copy to user failure\n");
+				goto unlock_and_exit;
 			}
 
 			ubuf_count += count;
@@ -250,6 +256,7 @@ int kbase_gpu_gwt_dump(struct kbase_context *kctx, union kbase_ioctl_cinstr_gwt_
 		gwt_dump->out.more_data_available = 0;
 
 	gwt_dump->out.no_of_addr_collected = ubuf_count;
+unlock_and_exit:
 	kbase_gpu_vm_unlock(kctx);
-	return 0;
+	return ret;
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2022-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -734,6 +734,13 @@ int kbase_csf_mcu_shared_regs_data_init(struct kbase_device *kbdev)
 	const u32 nr_dummy_phys = MAX(nr_susp_pages, KBASEP_NUM_CS_USER_IO_PAGES);
 	u32 i;
 	int err;
+
+	if (kbdev->csf.num_doorbells < nr_groups) {
+		dev_err(kbdev->dev,
+			"Insufficient number of doorbell register pages: %u, expected at least %u",
+			kbdev->csf.num_doorbells, nr_groups);
+		return -EINVAL;
+	}
 
 	shared_regs->userio_mem_rd_flags = get_userio_mmu_flags(kbdev);
 	INIT_LIST_HEAD(&shared_regs->unused_csg_regs);

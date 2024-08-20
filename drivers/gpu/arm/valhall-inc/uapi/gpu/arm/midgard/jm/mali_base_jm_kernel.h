@@ -25,52 +25,6 @@
 #include <linux/types.h>
 #include "../mali_base_common_kernel.h"
 
-/* Memory allocation, access/hint flags & mask specific to JM GPU.
- *
- * See base_mem_alloc_flags.
- */
-
-/* Unused bit for JM, only used in CSF for BASE_MEM_FIXED */
-#define BASE_MEM_UNUSED_BIT_8 ((base_mem_alloc_flags)1 << 8)
-
-/* Unused bit for JM, only used in CSF for BASE_CSF_EVENT */
-#define BASE_MEM_UNUSED_BIT_19 ((base_mem_alloc_flags)1 << 19)
-
-/**
- * BASE_MEM_TILER_ALIGN_TOP - Memory starting from the end of the initial commit is aligned
- * to 'extension' pages, where 'extension' must be a power of 2 and no more than
- * BASE_MEM_TILER_ALIGN_TOP_EXTENSION_MAX_PAGES
- */
-#define BASE_MEM_TILER_ALIGN_TOP ((base_mem_alloc_flags)1 << 20)
-
-/* Use the GPU VA chosen by the kernel client */
-#define BASE_MEM_FLAG_MAP_FIXED ((base_mem_alloc_flags)1 << 27)
-
-/* Force trimming of JIT allocations when creating a new allocation */
-#define BASEP_MEM_PERFORM_JIT_TRIM ((base_mem_alloc_flags)1 << 29)
-
-/* Note that the number of bits used for base_mem_alloc_flags
- * must be less than BASE_MEM_FLAGS_NR_BITS !!!
- */
-
-/* A mask of all the flags which are only valid within kbase,
- * and may not be passed to/from user space.
- */
-#define BASEP_MEM_FLAGS_KERNEL_ONLY                                                              \
-	(BASEP_MEM_PERMANENT_KERNEL_MAPPING | BASEP_MEM_NO_USER_FREE | BASE_MEM_FLAG_MAP_FIXED | \
-	 BASEP_MEM_PERFORM_JIT_TRIM)
-
-/* A mask of flags that, when provied, cause other flags to be
- * enabled but are not enabled themselves
- */
-#define BASE_MEM_FLAGS_ACTION_MODIFIERS (BASE_MEM_COHERENT_SYSTEM_REQUIRED | BASE_MEM_IMPORT_SHARED)
-
-/* A mask of all currently reserved flags */
-#define BASE_MEM_FLAGS_RESERVED ((base_mem_alloc_flags)0)
-
-/* A mask of all bits that are not used by a flag on JM */
-#define BASE_MEM_FLAGS_UNUSED (BASE_MEM_UNUSED_BIT_8 | BASE_MEM_UNUSED_BIT_19)
-
 /* Similar to BASE_MEM_TILER_ALIGN_TOP, memory starting from the end of the
  * initial commit is aligned to 'extension' pages, where 'extension' must be a power
  * of 2 and no more than BASE_MEM_TILER_ALIGN_TOP_EXTENSION_MAX_PAGES
