@@ -23,6 +23,7 @@ struct max_ser_subdev_priv {
 	struct max_ser_priv *priv;
 	const struct max_format *fmt;
 	const char *label;
+	struct v4l2_mbus_framefmt framefmt;
 
 	struct media_pad pads[MAX_SER_PAD_NUM];
 
@@ -268,6 +269,7 @@ static int max_ser_get_fmt(struct v4l2_subdev *sd,
 	if (!sd_priv->fmt)
 		return -EINVAL;
 
+	format->format = sd_priv->framefmt;
 	format->format.code = sd_priv->fmt->code;
 
 	return 0;
@@ -288,10 +290,13 @@ static int max_ser_set_fmt(struct v4l2_subdev *sd,
 		return -EINVAL;
 
 	fmt = max_format_by_code(format->format.code);
-	if (!fmt)
+	if (!fmt){
+		v4l2_err(sd, "Wrong format requested: %d", format->format.code);
 		return -EINVAL;
+	}
 
 	sd_priv->fmt = fmt;
+	sd_priv->framefmt = format->format;
 
 	mutex_lock(&priv->lock);
 
