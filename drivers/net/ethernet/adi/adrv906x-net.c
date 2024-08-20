@@ -551,7 +551,6 @@ static int adrv906x_set_hwtstamp_config(struct net_device *ndev, struct ifreq *i
 	struct adrv906x_ndma_dev *ndma_dev = adrv906x_dev->ndma_dev;
 	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
 	struct hwtstamp_config config;
-	u32 tx_tstamp_timeout;
 	u32 ptp_mode;
 
 	if (copy_from_user(&config, ifr->ifr_data, sizeof(config)))
@@ -591,8 +590,6 @@ static int adrv906x_set_hwtstamp_config(struct net_device *ndev, struct ifreq *i
 
 		ptp_mode = eth_if->ethswitch.enabled ? NDMA_PTP_MODE_1 : NDMA_PTP_MODE_4;
 		adrv906x_ndma_set_ptp_mode(ndma_dev, ptp_mode);
-		tx_tstamp_timeout = eth_if->ethswitch.enabled ? NDMA_TS_TX_DELAY_LONG : NDMA_TS_TX_DELAY;
-		adrv906x_ndma_set_tx_timeout_value(ndma_dev, tx_tstamp_timeout);
 
 		break;
 	default:
