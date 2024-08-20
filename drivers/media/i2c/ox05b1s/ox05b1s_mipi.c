@@ -802,6 +802,7 @@ static int ox05b1s_set_fmt(struct v4l2_subdev *sd,
 	fmt->format.code = ox05b1s_find_code(sensor->model, fmt->format.code);
 	sensor->mode = ox05b1s_nearest_size(sensor->model->supported_modes,
 					    sensor->model->supported_modes_count, fmt);
+	ox05b1s_update_controls(sensor);
 
 	fmt->format.width = sensor->mode->width;
 	fmt->format.height = sensor->mode->height;
