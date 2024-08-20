@@ -29,7 +29,7 @@
 channel@DESER_CH_REG {
 	reg = <DESER_CH_REG>;
 
-	max,phy-id = <GMSL_PHY>;
+	maxim,phy-id = <GMSL_PHY>;
 
 	ports {
 		#address-cells = <1>;
