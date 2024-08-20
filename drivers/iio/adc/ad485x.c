@@ -793,7 +793,7 @@ static int ad485x_setup(struct ad485x_dev *adc)
 		.bits_per_word = 8,
 		.cs_change = 1,
 	};
-	unsigned int product_id;
+	unsigned int product_id, dev_prod_id;
 	int ret;
 
 	ret = ad485x_set_sampling_freq(adc, 1000000);
@@ -820,35 +820,39 @@ static int ad485x_setup(struct ad485x_dev *adc)
 	if (ret < 0)
 		return ret;
 
-	switch (product_id) {
-	case AD4858_PRODUCT_ID:
-		adc->type = ID_AD4858;
+	switch (adc->type) {
+	case ID_AD4858:
+		dev_prod_id = AD4858_PRODUCT_ID;
 		break;
-	case AD4857_PRODUCT_ID:
-		adc->type = ID_AD4857;
+	case ID_AD4857:
+		dev_prod_id = AD4857_PRODUCT_ID;
 		break;
-	case AD4856_PRODUCT_ID:
-		adc->type = ID_AD4856;
+	case ID_AD4856:
+		dev_prod_id = AD4856_PRODUCT_ID;
 		break;
-	case AD4855_PRODUCT_ID:
-		adc->type = ID_AD4855;
+	case ID_AD4855:
+		dev_prod_id = AD4855_PRODUCT_ID;
 		break;
-	case AD4854_PRODUCT_ID:
-		adc->type = ID_AD4854;
+	case ID_AD4854:
+		dev_prod_id = AD4854_PRODUCT_ID;
 		break;
-	case AD4853_PRODUCT_ID:
-		adc->type = ID_AD4853;
+	case ID_AD4853:
+		dev_prod_id = AD4853_PRODUCT_ID;
 		break;
-	case AD4852_PRODUCT_ID:
-		adc->type = ID_AD4852;
+	case ID_AD4852:
+		dev_prod_id = AD4852_PRODUCT_ID;
 		break;
-	case AD4851_PRODUCT_ID:
-		adc->type = ID_AD4851;
+	case ID_AD4851:
+		dev_prod_id = AD4851_PRODUCT_ID;
 		break;
-	case AD4858I_PRODUCT_ID:
-		adc->type = ID_AD4858I;
+	case ID_AD4858I:
+		dev_prod_id = AD4858I_PRODUCT_ID;
 		break;
 	default:
+		return -EIO;
+	}
+
+	if(dev_prod_id != product_id) {
 		dev_err(&adc->spi->dev, "Unknown product ID: 0x%02X\n",
 			product_id);
 		return -EIO;
@@ -1177,6 +1181,7 @@ static struct iio_chan_spec_ext_info ad4857_ext_info[] = {
 static const struct axiadc_chip_info adc_chip_info[] = {
 	[ID_AD4858] = {
 		.name = "ad4858",
+		.id = ID_AD4858,
 		.max_rate = ad485x_throughput[ID_AD4858],
 		.num_channels = 8,
 		.channel[0] = AD485x_IIO_CHANNEL(0, 20, 32, ad4858_ext_info),
@@ -1190,6 +1195,7 @@ static const struct axiadc_chip_info adc_chip_info[] = {
 	},
 	[ID_AD4857] = {
 		.name = "ad4857",
+		.id = ID_AD4857,
 		.max_rate = ad485x_throughput[ID_AD4857],
 		.num_channels = 8,
 		.channel[0] = AD485x_IIO_CHANNEL(0, 16, 16, ad4857_ext_info),
@@ -1203,6 +1209,7 @@ static const struct axiadc_chip_info adc_chip_info[] = {
 	},
 	[ID_AD4856] = {
 		.name = "ad4856",
+		.id = ID_AD4856,
 		.max_rate = ad485x_throughput[ID_AD4856],
 		.num_channels = 8,
 		.channel[0] = AD485x_IIO_CHANNEL(0, 20, 32, ad4858_ext_info),
@@ -1216,6 +1223,7 @@ static const struct axiadc_chip_info adc_chip_info[] = {
 	},
 	[ID_AD4855] = {
 		.name = "ad4855",
+		.id = ID_AD4855,
 		.max_rate = ad485x_throughput[ID_AD4855],
 		.num_channels = 8,
 		.channel[0] = AD485x_IIO_CHANNEL(0, 16, 16, ad4857_ext_info),
@@ -1229,6 +1237,7 @@ static const struct axiadc_chip_info adc_chip_info[] = {
 	},
 	[ID_AD4854] = {
 		.name = "ad4854",
+		.id = ID_AD4854,
 		.max_rate = ad485x_throughput[ID_AD4854],
 		.num_channels = 4,
 		.channel[0] = AD485x_IIO_CHANNEL(0, 20, 32, ad4858_ext_info),
@@ -1238,6 +1247,7 @@ static const struct axiadc_chip_info adc_chip_info[] = {
 	},
 	[ID_AD4853] = {
 		.name = "ad4853",
+		.id = ID_AD4853,
 		.max_rate = ad485x_throughput[ID_AD4853],
 		.num_channels = 4,
 		.channel[0] = AD485x_IIO_CHANNEL(0, 16, 16, ad4857_ext_info),
@@ -1247,6 +1257,7 @@ static const struct axiadc_chip_info adc_chip_info[] = {
 	},
 	[ID_AD4852] = {
 		.name = "ad4852",
+		.id = ID_AD4852,
 		.max_rate = ad485x_throughput[ID_AD4852],
 		.num_channels = 4,
 		.channel[0] = AD485x_IIO_CHANNEL(0, 20, 32, ad4858_ext_info),
@@ -1256,6 +1267,7 @@ static const struct axiadc_chip_info adc_chip_info[] = {
 	},
 	[ID_AD4851] = {
 		.name = "ad4851",
+		.id = ID_AD4851,
 		.max_rate = ad485x_throughput[ID_AD4851],
 		.num_channels = 4,
 		.channel[0] = AD485x_IIO_CHANNEL(0, 16, 16, ad4857_ext_info),
@@ -1265,6 +1277,7 @@ static const struct axiadc_chip_info adc_chip_info[] = {
 	},
 	[ID_AD4858I] = {
 		.name = "ad4858i",
+		.id = ID_AD4858I,
 		.max_rate = ad485x_throughput[ID_AD4858I],
 		.num_channels = 8,
 		.channel[0] = AD485x_IIO_CHANNEL(0, 20, 32, ad4858_ext_info),
@@ -1280,10 +1293,15 @@ static const struct axiadc_chip_info adc_chip_info[] = {
 
 static int ad485x_probe(struct spi_device *spi)
 {
+	const struct axiadc_chip_info *info;
 	struct axiadc_converter	*conv;
 	struct iio_dev *indio_dev;
 	struct ad485x_dev *adc;
 	int ret;
+
+	info = of_device_get_match_data(&spi->dev);
+	if (!info)
+		return -ENODEV;
 
 	conv = devm_kzalloc(&spi->dev, sizeof(*conv), GFP_KERNEL);
 	if (!conv)
@@ -1344,13 +1362,15 @@ static int ad485x_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
+	adc->type = info->id;
+	conv->chip_info = info;
+
 	ret = ad485x_setup(adc);
 	if (ret < 0)
 		return ret;
 
 	conv->spi = spi;
 	conv->clk = adc->sampl_clk;
-	conv->chip_info = &adc_chip_info[adc->type];
 	conv->adc_output_mode = AD485x_AXI_ADC_TWOS_COMPLEMENT;
 	conv->reg_access = &ad485x_reg_access;
 	conv->write_raw = &ad485x_write_raw;
@@ -1366,17 +1386,18 @@ static int ad485x_probe(struct spi_device *spi)
 }
 
 static const struct of_device_id ad485x_of_match[] = {
-	{ .compatible = "adi,ad4858" },
-	{ .compatible = "adi,ad4857" },
-	{ .compatible = "adi,ad4856" },
-	{ .compatible = "adi,ad4855" },
-	{ .compatible = "adi,ad4854" },
-	{ .compatible = "adi,ad4853" },
-	{ .compatible = "adi,ad4852" },
-	{ .compatible = "adi,ad4851" },
-	{ .compatible = "adi,ad4858i" },
+	{ .compatible = "adi,ad4858", .data = &adc_chip_info[ID_AD4858], },
+	{ .compatible = "adi,ad4857", .data = &adc_chip_info[ID_AD4857], },
+	{ .compatible = "adi,ad4856", .data = &adc_chip_info[ID_AD4856], },
+	{ .compatible = "adi,ad4855", .data = &adc_chip_info[ID_AD4855], },
+	{ .compatible = "adi,ad4854", .data = &adc_chip_info[ID_AD4854], },
+	{ .compatible = "adi,ad4853", .data = &adc_chip_info[ID_AD4853], },
+	{ .compatible = "adi,ad4852", .data = &adc_chip_info[ID_AD4852], },
+	{ .compatible = "adi,ad4851", .data = &adc_chip_info[ID_AD4851], },
+	{ .compatible = "adi,ad4858i", .data = &adc_chip_info[ID_AD4858I], },
 	{}
 };
+MODULE_DEVICE_TABLE(of, ad9467_of_match);
 
 static struct spi_driver ad485x_driver = {
 	.probe = ad485x_probe,
