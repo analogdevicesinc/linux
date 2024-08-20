@@ -1174,6 +1174,7 @@ void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, ndma_callback tx_cb_
 
 		adrv906x_ndma_config_rx_filter(ndma_dev);
 		adrv906x_ndma_set_frame_size(ndma_dev);
+		adrv906x_ndma_set_tx_timeout_value(ndma_dev, NDMA_TS_TX_DELAY);
 
 		spin_lock_irqsave(&tx_chan->lock, flags1);
 		adrv906x_dma_rx_reset(tx_chan);

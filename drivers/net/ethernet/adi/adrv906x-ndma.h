@@ -56,9 +56,7 @@
 #define NDMA_RING_SIZE                     128
 
 /* default timestamp timeout delay */
-/* TODO Update when switch is verified */
-#define NDMA_TS_TX_DELAY 0x400
-#define NDMA_TS_TX_DELAY_LONG 0x2000
+#define NDMA_TS_TX_DELAY 0x9975
 
 enum adrv906x_ndma_chan_type {
 	NDMA_TX,
@@ -172,7 +170,6 @@ int adrv906x_ndma_start_xmit(struct adrv906x_ndma_dev *ndma_dev, struct sk_buff 
 int adrv906x_ndma_probe(struct platform_device *pdev, struct net_device *ndev,
 			struct device_node *ndma_np, struct adrv906x_ndma_dev *ndma_dev);
 void adrv906x_ndma_remove(struct adrv906x_ndma_dev *ndma_dev);
-void adrv906x_ndma_set_tx_timeout_value(struct adrv906x_ndma_dev *ndma_dev, u32 val);
 void adrv906x_ndma_set_ptp_mode(struct adrv906x_ndma_dev *ndma_dev, u32 ptp_mode);
 void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, ndma_callback tx_cb_fn,
 			ndma_callback rx_cb_fn, void *rx_cb_param, bool loopback_mode);
