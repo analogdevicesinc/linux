@@ -79,8 +79,8 @@ static void adrv906x_eth_cmn_recovered_clk_config(struct adrv906x_eth_dev *adrv9
 	void __iomem *regs = eth_if->emac_cmn_regs;
 	u32 val;
 
-	val = (adrv906x_dev->link_speed == SPEED_25000) ? eth_if->recovered_clk_div_25g :
-	      eth_if->recovered_clk_div_10g;
+	val = (adrv906x_dev->link_speed == SPEED_25000) ? eth_if->recovered_clk_div_25g - 1 :
+	      eth_if->recovered_clk_div_10g - 1;
 	val = FIELD_PREP(EMAC_CMN_RECOVERED_CLK_DIV_0, val);
 	val |= FIELD_PREP(EMAC_CMN_RECOVERED_CLK_DIV_1, val);
 	iowrite32(val, regs + EMAC_CMN_DIGITAL_CTRL1);
