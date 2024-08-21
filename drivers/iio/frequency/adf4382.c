@@ -94,15 +94,6 @@
 #define ADF4382_INV_CLK_OUT_MSK			BIT(4)
 #define ADF4382_N_INT_MSB_MSK			GENMASK(3, 0)
 
-/* ADF4382 REG0012 Map */
-#define ADF4382_FRAC1WORD_LSB_MSK		GENMASK(7, 0)
-
-/* ADF4382 REG0013 Map */
-#define ADF4382_FRAC1WORD_MID_MSK		GENMASK(7, 0)
-
-/* ADF4382 REG0014 Map */
-#define ADF4382_FRAC1WORD_MSB_MSK		GENMASK(7, 0)
-
 /* ADF4382 REG0015 Map */
 #define ADF4382_M_VCO_BAND_LSB_MSK		BIT(7)
 #define ADF4382_M_VCO_CORE_MSK			BIT(6)
@@ -113,24 +104,6 @@
 
 /* ADF4382 REG0016 Map */
 #define ADF4382_M_VCO_BAND_MSB_MSK		GENMASK(7, 0)
-
-/* ADF4382 REG0017 Map */
-#define ADF4382_FRAC2WORD_LSB_MSK		GENMASK(7, 0)
-
-/* ADF4382 REG0018 Map */
-#define ADF4382_FRAC2WORD_MID_MSK		GENMASK(7, 0)
-
-/* ADF4382 REG0019 Map */
-#define ADF4382_FRAC2WORD_MSB_MSK		GENMASK(7, 0)
-
-/* ADF4382 REG001A Map */
-#define ADF4382_MOD2WORD_LSB_MSK		GENMASK(7, 0)
-
-/* ADF4382 REG001B Map */
-#define ADF4382_MOD2WORD_MID_MSK		GENMASK(7, 0)
-
-/* ADF4382 REG001C Map */
-#define ADF4382_MOD2WORD_MSB_MSK		GENMASK(7, 0)
 
 /* ADF4382 REG001D Map */
 #define ADF4382_BLEED_I_LSB_MSK			GENMASK(7, 0)
@@ -409,6 +382,19 @@
 /* ADF4382 REG0054 Map */
 #define ADF4382_ADC_ST_CNV_MSK			BIT(0)
 
+#define ADF4382_MOD2WORD_LSB_MSK		GENMASK(7, 0)
+#define ADF4382_MOD2WORD_MID_MSK		GENMASK(15, 8)
+#define ADF4382_MOD2WORD_MSB_MSK		GENMASK(23, 16)
+
+#define ADF4382_FRAC1WORD_LSB_MSK		GENMASK(7, 0)
+#define ADF4382_FRAC1WORD_MID_MSK		GENMASK(15, 8)
+#define ADF4382_FRAC1WORD_MSB_MSK		GENMASK(23, 16)
+#define ADF4382_FRAC1WORD_MS_BIT_MSK		BIT(24)
+
+#define ADF4382_FRAC2WORD_LSB_MSK		GENMASK(7, 0)
+#define ADF4382_FRAC2WORD_MID_MSK		GENMASK(15, 8)
+#define ADF4382_FRAC2WORD_MSB_MSK		GENMASK(23, 16)
+
 #define ADF4382_REF_MIN				10000000ULL	// 10MHz
 #define ADF4382_REF_MAX				5000000000ULL	// 5GHz
 #define ADF4382_VCO_FREQ_MIN			11000000000ULL	// 11GHz
@@ -684,6 +670,11 @@ static int adf4382_set_freq(struct adf4382_state *st)
 			ldwin_pw = 1;
 	}
 
+	dev_dbg(&st->spi->dev,
+		"VCO=%llu PFD=%llu RFout_div=%u N=%u FRAC1=%u FRAC2=%u MOD2=%u\n",
+		vco, pfd_freq_hz, 1 << clkout_div, n_int,
+		frac1_word, frac2_word, mod2_word);
+
 	ret = regmap_update_bits(st->regmap, 0x28, ADF4382_VAR_MOD_EN_MSK,
 				 frac2_word != 0 ? 0xff : 0);
 	if (ret)
@@ -694,10 +685,11 @@ static int adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	var = st->bleed_word & ADF4382_BLEED_I_LSB_MSK;
-	ret = regmap_write(st->regmap, 0x1D, var);
+	ret = regmap_write(st->regmap, 0x1D, 
+			   FIELD_GET(ADF4382_BLEED_I_LSB_MSK, st->bleed_word));
 	if (ret)
 		return ret;
+
 	var = (st->bleed_word >> 8) & ADF4382_BLEED_I_MSB_MSK;
 	ret = regmap_update_bits(st->regmap, 0x1E, ADF4382_BLEED_I_MSB_MSK, var);
 	if (ret)
@@ -707,54 +699,53 @@ static int adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	var = mod2_word & ADF4382_MOD2WORD_LSB_MSK;
-	ret = regmap_write(st->regmap, 0x1A, var);
-	if (ret)
-		return ret;
-	var = (mod2_word >> 8) & ADF4382_MOD2WORD_MID_MSK;
-// TODO:instead of defining multiple GENMASK(7,0) for ADF4382_MOD2WORD_MID_MSK,
-// ADF4382_MOD2WORD_MSB_MSK etc, i'd create some generic macros:
-// #define ADF4382_WORD_LSB_MSK GENMASK(7, 0)
-// #define ADF4382_WORD_MID_MSK GENMASK(15, 8)
-// #define ADF4382_WORD_MSB_MSK GENMASK(23, 16)
-
-// In this manner you drop multiple identical macro definitions and also get rid
-// of explicit shifting by using FIELD_GET instead.
-	ret = regmap_write(st->regmap, 0x1B, var);
-	if (ret)
-		return ret;
-	var = (mod2_word >> 16) & ADF4382_MOD2WORD_MSB_MSK;
-	ret = regmap_write(st->regmap, 0x1C, var);
+	ret = regmap_write(st->regmap, 0x1A,
+			   FIELD_GET(ADF4382_MOD2WORD_LSB_MSK, mod2_word));
 	if (ret)
 		return ret;
 
-	var = frac1_word  & ADF4382_FRAC1WORD_LSB_MSK;
-	ret = regmap_write(st->regmap, 0x12, var);
+	ret = regmap_write(st->regmap, 0x1B,
+			   FIELD_GET(ADF4382_MOD2WORD_MID_MSK, mod2_word));
 	if (ret)
 		return ret;
-	var = (frac1_word >> 8)  & ADF4382_FRAC1WORD_MID_MSK;
-	ret = regmap_write(st->regmap, 0x13, var);
-	if (ret)
-		return ret;
-	var =  (frac1_word >> 16)  & ADF4382_FRAC1WORD_MSB_MSK;
-	ret = regmap_write(st->regmap, 0x14, var);
-	if (ret)
-		return ret;
-	var =  (frac1_word >> 24)  & ADF4382_FRAC1WORD_MSB;
-	ret = regmap_update_bits(st->regmap, 0x15, ADF4382_FRAC1WORD_MSB, var);
+	
+	ret = regmap_write(st->regmap, 0x1C,
+			   FIELD_GET(ADF4382_MOD2WORD_MSB_MSK, mod2_word));
 	if (ret)
 		return ret;
 
-	var = frac2_word  & ADF4382_FRAC2WORD_LSB_MSK;
-	ret = regmap_write(st->regmap, 0x17, var);
+	ret = regmap_write(st->regmap, 0x12, 
+			   FIELD_GET(ADF4382_FRAC1WORD_LSB_MSK, frac1_word));
 	if (ret)
 		return ret;
-	var = (frac2_word >> 8)  & ADF4382_FRAC2WORD_MID_MSK;
-	ret = regmap_write(st->regmap, 0x18, var);
+	
+	ret = regmap_write(st->regmap, 0x13,
+			   FIELD_GET(ADF4382_FRAC1WORD_MID_MSK, frac1_word));
 	if (ret)
 		return ret;
-	var = (frac2_word >> 16) & ADF4382_FRAC2WORD_MSB_MSK;
-	ret = regmap_write(st->regmap, 0x19, var);
+		
+	ret = regmap_write(st->regmap, 0x14,
+			   FIELD_GET(ADF4382_FRAC1WORD_MSB_MSK, frac1_word));
+	if (ret)
+		return ret;
+	
+	ret = regmap_update_bits(st->regmap, 0x15, ADF4382_FRAC1WORD_MSB,
+				 FIELD_GET(ADF4382_FRAC1WORD_MS_BIT_MSK, frac1_word));
+	if (ret)
+		return ret;
+
+	ret = regmap_write(st->regmap, 0x17, 
+			   FIELD_GET(ADF4382_FRAC2WORD_LSB_MSK, frac2_word));
+	if (ret)
+		return ret;
+		
+	ret = regmap_write(st->regmap, 0x18, 
+			   FIELD_GET(ADF4382_FRAC2WORD_MID_MSK, frac2_word));
+	if (ret)
+		return ret;
+		
+	ret = regmap_write(st->regmap, 0x19,
+			   FIELD_GET(ADF4382_FRAC2WORD_MSB_MSK, frac2_word));
 	if (ret)
 		return ret;
 
@@ -820,23 +811,13 @@ static int adf4382_set_freq(struct adf4382_state *st)
 		return ret;
 
 	// Need to set N_INT last to trigger an auto-calibration
-
 	var = (n_int >> 8) & ADF4382_N_INT_MSB_MSK;
 	ret = regmap_update_bits(st->regmap, 0x11, ADF4382_N_INT_MSB_MSK, var);
 	if (ret)
 		return ret;
 
-	var = n_int & ADF4382_N_INT_LSB_MSK;
-	ret = regmap_write(st->regmap, 0x10, var);
-	if (ret)
-		return ret;
-
-	dev_dbg(&st->spi->dev,
-		"VCO=%llu PFD=%llu RFout_div=%u N=%u FRAC1=%u FRAC2=%u MOD2=%u\n",
-		vco, pfd_freq_hz, 1 << clkout_div, n_int,
-		frac1_word, frac2_word, mod2_word);
-
-	return 0;
+	return regmap_write(st->regmap, 0x10,
+			    FIELD_PREP(ADF4382_N_INT_LSB_MSK, n_int));
 }
 
 static int adf4382_get_freq(struct adf4382_state *st, u64 *val)
@@ -859,70 +840,63 @@ static int adf4382_get_freq(struct adf4382_state *st, u64 *val)
 	if  (ret)
 		return ret;
 
-	n = tmp & ADF4382_N_INT_MSB_MSK;
+	n = FIELD_PREP(ADF4382_N_INT_MSB_MSK, tmp);
 	n = n << 8;
 
 	ret = regmap_read(st->regmap, 0x10, &tmp);
 	if  (ret)
 		return ret;
-	n |= tmp;
+	n |= FIELD_PREP(ADF4382_N_INT_LSB_MSK, tmp);
 
 	ret = regmap_read(st->regmap, 0x15, &tmp);
 	if  (ret)
 		return ret;
-	frac1 = tmp & ADF4382_FRAC1WORD_MSB;
-	frac1 = frac1 << 8;
+	frac1 |= FIELD_PREP(ADF4382_FRAC1WORD_MS_BIT_MSK, tmp);
 
 	ret = regmap_read(st->regmap, 0x14, &tmp);
 	if  (ret)
 		return ret;
-	frac1 |= tmp;
-	frac1 = frac1 << 8;
+	frac1 |= FIELD_PREP(ADF4382_FRAC1WORD_MSB_MSK, tmp);
 
 	ret = regmap_read(st->regmap, 0x13, &tmp);
 	if  (ret)
 		return ret;
-	frac1 |= tmp;
-	frac1 = frac1 << 8;
+	frac1 |= FIELD_PREP(ADF4382_FRAC1WORD_MID_MSK, tmp);
 
 	ret = regmap_read(st->regmap, 0x12, &tmp);
 	if  (ret)
 		return ret;
-	frac1 |= tmp;
+	frac1 |= FIELD_PREP(ADF4382_FRAC1WORD_LSB_MSK, tmp);
 
 	ret = regmap_read(st->regmap, 0x19, &tmp);
 	if  (ret)
 		return ret;
-	frac2 = tmp;
-	frac2 = frac2 << 8;
+	frac2 |= FIELD_PREP(ADF4382_FRAC2WORD_MSB_MSK, tmp);
 
 	ret = regmap_read(st->regmap, 0x18, &tmp);
 	if  (ret)
 		return ret;
-	frac2 |= tmp;
-	frac2 = frac2 << 8;
+	frac2 |= FIELD_PREP(ADF4382_FRAC2WORD_MID_MSK, tmp);
 
 	ret = regmap_read(st->regmap, 0x17, &tmp);
 	if  (ret)
 		return ret;
-	frac2 |= tmp;
+	frac2 |= FIELD_PREP(ADF4382_FRAC2WORD_LSB_MSK, tmp);
 
 	ret = regmap_read(st->regmap, 0x1c, &tmp);
 	if  (ret)
 		return ret;
-	mod2 = tmp;
-	mod2 = mod2 << 8;
+	mod2 |= FIELD_PREP(ADF4382_MOD2WORD_MSB_MSK, tmp);
 
 	ret = regmap_read(st->regmap, 0x1b, &tmp);
 	if  (ret)
 		return ret;
-	mod2 |= tmp;
-	mod2 = mod2 << 8;
+	mod2 |= FIELD_PREP(ADF4382_MOD2WORD_MID_MSK, tmp);
 
 	ret = regmap_read(st->regmap, 0x1a, &tmp);
 	if  (ret)
 		return ret;
-	mod2 |= tmp;
+	mod2 |= FIELD_PREP(ADF4382_MOD2WORD_LSB_MSK, tmp);
 
 	if(mod2 == 0)
 		mod2 = 1;
@@ -1006,29 +980,22 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_ps)
 
 static int adf4382_set_phase_pol(struct adf4382_state *st, bool sub_pol)
 {
-	u8 pol;
-
-	pol = FIELD_PREP(ADF4382_PHASE_ADJ_POL_MSK, sub_pol);
 	return regmap_update_bits(st->regmap, 0x32, ADF4382_PHASE_ADJ_POL_MSK,
-				  pol);
+				  FIELD_PREP(ADF4382_PHASE_ADJ_POL_MSK, sub_pol));
 }
 
 static int adf4382_set_out_power(struct adf4382_state *st, int ch, int pwr)
 {
-	u8 tmp;
-
 	if (pwr > ADF4382_OUT_PWR_MAX)
 		pwr = ADF4382_OUT_PWR_MAX;
 
 	if (!ch) {
-		tmp = FIELD_PREP(ADF4382_CLK1_OPWR_MSK, pwr);
 		return regmap_update_bits(st->regmap, 0x29, ADF4382_CLK1_OPWR_MSK,
-					  tmp);
-// TODO:just do the FIELD_PREP() in the function call directly...
+					  FIELD_PREP(ADF4382_CLK1_OPWR_MSK, pwr));
 	}
 
-	tmp = FIELD_PREP(ADF4382_CLK2_OPWR_MSK, pwr);
-	return regmap_update_bits(st->regmap, 0x29, ADF4382_CLK2_OPWR_MSK, tmp);
+	return regmap_update_bits(st->regmap, 0x29, ADF4382_CLK2_OPWR_MSK,
+				  FIELD_PREP(ADF4382_CLK2_OPWR_MSK, pwr));
 
 };
 
@@ -1051,18 +1018,14 @@ static int adf4382_get_out_power(struct adf4382_state *st, int ch, int *pwr)
 
 static int adf4382_set_en_chan(struct adf4382_state *st, int ch, int en)
 {
-	u8 enable;
-
 	if (!ch) {
-		enable = FIELD_PREP(ADF4382_PD_CLKOUT1_MSK, !en);
 		return regmap_update_bits(st->regmap, 0x2B,
 					  ADF4382_PD_CLKOUT1_MSK,
-					  enable);
+					  FIELD_PREP(ADF4382_PD_CLKOUT1_MSK, !en));
 	}
 
-	enable = FIELD_PREP(ADF4382_PD_CLKOUT2_MSK, !en);
 	return regmap_update_bits(st->regmap, 0x2B, ADF4382_PD_CLKOUT2_MSK,
-				  enable);
+				  FIELD_PREP(ADF4382_PD_CLKOUT2_MSK, !en));
 }
 
 static int adf4382_get_en_chan(struct adf4382_state *st, int ch, int *en)
