@@ -1922,14 +1922,6 @@ _GetPower(
 {
     int ret;
 
-#if defined(IMX_GPU_SUBSYSTEM) && defined(CONFIG_PM)
-    if (Platform->device->dev.of_node && use_imx_gpu_subsystem)
-    {
-        pm_runtime_enable(&Platform->device->dev);
-        pm_runtime_get_sync(&Platform->device->dev);
-    }
-#endif
-
     if (is_layerscape)
         ret = get_power_ls(&Platform->device->dev);
     else
@@ -1950,14 +1942,6 @@ _PutPower(
         put_power_ls();
     else
         put_power();
-
-#if defined(IMX_GPU_SUBSYSTEM) && defined(CONFIG_PM)
-    if (Platform->device->dev.of_node && use_imx_gpu_subsystem)
-    {
-        pm_runtime_put_sync(&Platform->device->dev);
-        pm_runtime_disable(&Platform->device->dev);
-    }
-#endif
 
     return gcvSTATUS_OK;
 }
