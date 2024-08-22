@@ -612,10 +612,12 @@ static int adf4382_set_freq(struct adf4382_state *st)
 	int ret;
 	u8 var;
 
+	mutex_lock(&st->lock);
+
 	ret = adf4382_pfd_compute(st, &pfd_freq_hz);
 	if (ret) {
 		dev_err(&st->spi->dev, "PFD frequency is out of range.\n");
-		return ret;
+		goto exit;
 	}
 
 	for (clkout_div = 0; clkout_div <= st->clkout_div_reg_val_max; clkout_div++) {
@@ -629,13 +631,14 @@ static int adf4382_set_freq(struct adf4382_state *st)
 
 	if (vco == 0) {
 		dev_err(&st->spi->dev, "Output frequency is out of range.\n");
-		return -EINVAL;
+		ret = -EINVAL;
+		goto exit;
 	}
 
 	ret = adf4382_pll_fract_n_compute(st, pfd_freq_hz, &n_int, &frac1_word,
 					  &frac2_word, &mod2_word);
 	if (ret)
-		return ret;
+		goto exit;
 
 	if (frac1_word || frac2_word) {
 		int_mode = 0;
@@ -678,76 +681,76 @@ static int adf4382_set_freq(struct adf4382_state *st)
 	ret = regmap_update_bits(st->regmap, 0x28, ADF4382_VAR_MOD_EN_MSK,
 				 frac2_word != 0 ? 0xff : 0);
 	if (ret)
-		return ret;
+		goto exit;
 
 	ret = regmap_update_bits(st->regmap, 0x15, ADF4382_INT_MODE_MSK,
 				 FIELD_PREP(ADF4382_INT_MODE_MSK, int_mode));
 	if (ret)
-		return ret;
+		goto exit;
 
 	ret = regmap_write(st->regmap, 0x1D, 
 			   FIELD_GET(ADF4382_BLEED_I_LSB_MSK, st->bleed_word));
 	if (ret)
-		return ret;
+		goto exit;
 
 	var = (st->bleed_word >> 8) & ADF4382_BLEED_I_MSB_MSK;
 	ret = regmap_update_bits(st->regmap, 0x1E, ADF4382_BLEED_I_MSB_MSK, var);
 	if (ret)
-		return ret;
+		goto exit;
 	ret = regmap_update_bits(st->regmap, 0x1F, ADF4382_EN_BLEED_MSK,
 				 FIELD_PREP(ADF4382_EN_BLEED_MSK, en_bleed));
 	if (ret)
-		return ret;
+		goto exit;
 
 	ret = regmap_write(st->regmap, 0x1A,
 			   FIELD_GET(ADF4382_MOD2WORD_LSB_MSK, mod2_word));
 	if (ret)
-		return ret;
+		goto exit;
 
 	ret = regmap_write(st->regmap, 0x1B,
 			   FIELD_GET(ADF4382_MOD2WORD_MID_MSK, mod2_word));
 	if (ret)
-		return ret;
+		goto exit;
 	
 	ret = regmap_write(st->regmap, 0x1C,
 			   FIELD_GET(ADF4382_MOD2WORD_MSB_MSK, mod2_word));
 	if (ret)
-		return ret;
+		goto exit;
 
 	ret = regmap_write(st->regmap, 0x12, 
 			   FIELD_GET(ADF4382_FRAC1WORD_LSB_MSK, frac1_word));
 	if (ret)
-		return ret;
+		goto exit;
 	
 	ret = regmap_write(st->regmap, 0x13,
 			   FIELD_GET(ADF4382_FRAC1WORD_MID_MSK, frac1_word));
 	if (ret)
-		return ret;
+		goto exit;
 		
 	ret = regmap_write(st->regmap, 0x14,
 			   FIELD_GET(ADF4382_FRAC1WORD_MSB_MSK, frac1_word));
 	if (ret)
-		return ret;
+		goto exit;
 	
 	ret = regmap_update_bits(st->regmap, 0x15, ADF4382_FRAC1WORD_MSB,
 				 FIELD_GET(ADF4382_FRAC1WORD_MS_BIT_MSK, frac1_word));
 	if (ret)
-		return ret;
+		goto exit;
 
 	ret = regmap_write(st->regmap, 0x17, 
 			   FIELD_GET(ADF4382_FRAC2WORD_LSB_MSK, frac2_word));
 	if (ret)
-		return ret;
+		goto exit;
 		
 	ret = regmap_write(st->regmap, 0x18, 
 			   FIELD_GET(ADF4382_FRAC2WORD_MID_MSK, frac2_word));
 	if (ret)
-		return ret;
+		goto exit;
 		
 	ret = regmap_write(st->regmap, 0x19,
 			   FIELD_GET(ADF4382_FRAC2WORD_MSB_MSK, frac2_word));
 	if (ret)
-		return ret;
+		goto exit;
 
 	dclk_div1 = 2;
 	div1 = 8;
@@ -762,62 +765,66 @@ static int adf4382_set_freq(struct adf4382_state *st)
 	ret = regmap_update_bits(st->regmap, 0x24, ADF4382_DCLK_DIV1_MSK,
 				 FIELD_PREP(ADF4382_DCLK_DIV1_MSK, dclk_div1));
 	if (ret)
-		return ret;
+		goto exit;
 
 	ret = regmap_update_bits(st->regmap, 0x31, ADF4382_DCLK_MODE_MSK, 0xff);
 	if (ret)
-		return ret;
+		goto exit;
 
 	ret = regmap_update_bits(st->regmap, 0x31, ADF4382_CAL_CT_SEL_MSK, 0xff);
 	if (ret)
-		return ret;
+		goto exit;
 
 	ret = regmap_write(st->regmap, 0x38, ADF4382_VCO_CAL_VTUNE);
 	if (ret)
-		return ret;
+		goto exit;
 
 	ret = regmap_write(st->regmap, 0x3a, ADF4382_VCO_CAL_ALC);
 	if (ret)
-		return ret;
+		goto exit;
 
 	ret = regmap_write(st->regmap, 0x37, ADF4382_VCO_CAL_CNT);
 	if (ret)
-		return ret;
+		goto exit;
 
 	var = DIV_ROUND_UP(div_u64(pfd_freq_hz, div1 * 400000) - 2, 4);
 	var = clamp_t(u8, var, 0U, 255U);
 	ret = regmap_write(st->regmap, 0x3e, var);
 	if (ret)
-		return ret;
+		goto exit;
 
 	ret = regmap_update_bits(st->regmap, 0x2c, ADF4382_LD_COUNT_OPWR_MSK,
 				 10);
 	if (ret)
-		return ret;
+		goto exit;
 
 	ret = regmap_update_bits(st->regmap, 0x2c, ADF4382_LDWIN_PW_MSK,
 				 FIELD_PREP(ADF4382_LDWIN_PW_MSK, ldwin_pw));
 	if (ret)
-		return ret;
+		goto exit;
 
 	ret = regmap_update_bits(st->regmap, 0x11, ADF4382_CLKOUT_DIV_MSK,
 				 FIELD_PREP(ADF4382_CLKOUT_DIV_MSK, clkout_div));
 	if (ret)
-		return ret;
+		goto exit;
 
 	// Set output power ch1 = 0x7 ch2 =0xf
 	ret = regmap_write(st->regmap, 0x29, 0x0b);
 	if (ret)
-		return ret;
+		goto exit;
 
 	// Need to set N_INT last to trigger an auto-calibration
 	var = (n_int >> 8) & ADF4382_N_INT_MSB_MSK;
 	ret = regmap_update_bits(st->regmap, 0x11, ADF4382_N_INT_MSB_MSK, var);
 	if (ret)
-		return ret;
+		goto exit;
 
-	return regmap_write(st->regmap, 0x10,
-			    FIELD_PREP(ADF4382_N_INT_LSB_MSK, n_int));
+	ret = regmap_write(st->regmap, 0x10,
+			   FIELD_PREP(ADF4382_N_INT_LSB_MSK, n_int));
+
+exit:
+	mutex_unlock(&st->lock);
+	return ret;
 }
 
 static int adf4382_get_freq(struct adf4382_state *st, u64 *val)
@@ -1057,9 +1064,6 @@ static ssize_t adf4382_write(struct iio_dev *indio_dev, uintptr_t private,
 	if (ret)
 		return ret;
 
-	mutex_lock(&st->lock);
-// TODO:i'd drop this mutex handling. it should go inside adf4382_set_freq.
-// Moreover, adf4382_set_out_power doesn't seem to need locking.
 	switch ((u32)private) {
 	case ADF4382_FREQ:
 		st->freq = val;
@@ -1069,12 +1073,8 @@ static ssize_t adf4382_write(struct iio_dev *indio_dev, uintptr_t private,
 		ret = adf4382_set_out_power(st, chan->channel, val);
 		break;
 	default:
-		ret = -EINVAL;
-// TODO:return directly.
-		break;
+		return -EINVAL;
 	}
-
-	mutex_unlock(&st->lock);
 
 	return ret ? ret : len;
 }
