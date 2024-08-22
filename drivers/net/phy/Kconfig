@@ -114,6 +114,7 @@ config ADIN1100_PHY
 
 config ADRV906X_PHY
 	tristate "ADRV906X Gigabit Ethernet PHY driver"
+	select LED_TRIGGER_PHY
 
 config AMCC_QT2025_PHY
 	tristate "AMCC QT2025 PHY"
