@@ -16,6 +16,17 @@ config AD3552R
 	  To compile this driver as a module, choose M here: the
 	  module will be called ad3552r.
 
+config AD3552R_AXI
+	tristate "Analog Devices AD3552R DAC driver, AXI version"
+	select IIO_BACKEND
+	help
+	  Say yes here to build support for Analog Devices AD3552R
+	  Digital to Analog Converter, connected through the Xilinx
+	  fpga AXI interface.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ad3552r-axi.
+
 config AD5064
 	tristate "Analog Devices AD5064 and similar multi-channel DAC driver"
 	depends on (SPI_MASTER && I2C!=m) || I2C
