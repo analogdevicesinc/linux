@@ -32,6 +32,20 @@
 		reg = <NDMA_0_RX_BASE 0x9C0 NDMA_0_TX_BASE 0x14
 			   NDMA_1_RX_BASE 0x9C0 NDMA_1_TX_BASE 0x14>;
 	};
+
+	leds: gpio-leds {
+		compatible = "gpio-leds";
+		ethernet-phy0 {
+			gpios = <&gpio0 ADI_ADRV906X_PIN_76 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "2b310000.mdio--1:00:link";
+		};
+		ethernet-phy1 {
+			gpios = <&gpio0 ADI_ADRV906X_PIN_77 GPIO_ACTIVE_HIGH>;
+			default-state = "off";
+			linux,default-trigger = "2b310000.mdio--1:01:link";
+		};
+	};
 };
 
 &uart0 {
