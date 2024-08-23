@@ -1132,8 +1132,8 @@ static int ad7768_setup(struct ad7768_state *st, int low_latency_en)
 	ret = ad7768_spi_reg_write(st, AD7768_REG_SYNC_RESET, 0x2);
 	if (ret)
 		return ret;
-
-	st->gpio_sync_in = devm_gpiod_get(&st->spi->dev, "adi,sync-in",
+	
+	st->gpio_sync_in = devm_gpiod_get_optional(&st->spi->dev, "adi,sync-in",
 					  GPIOD_IN);
 	if (IS_ERR(st->gpio_sync_in))
 		return PTR_ERR(st->gpio_sync_in);
@@ -1503,7 +1503,6 @@ static int ad7768_probe(struct spi_device *spi)
 		ad7768_fill_scale_tbl(st);
 		ad7768_set_pga_gain(st, st->chip->default_pga_mode);
 	}
-
 	ret = ad7768_set_channel_label(indio_dev, ARRAY_SIZE(ad7768_channels));
 	if (ret)
 		return ret;
