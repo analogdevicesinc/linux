@@ -31,7 +31,7 @@
 	};
 };
 
-&adp5585gpio {
+&adp5585 {
 	/* EXP_SEL RPi */
 	exp-sel-hog {
 		/delete-property/ output-low;

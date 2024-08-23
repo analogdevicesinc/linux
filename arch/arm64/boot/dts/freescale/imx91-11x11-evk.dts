@@ -45,7 +45,7 @@
 		regulator-name = "can2-stby";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
-		gpio = <&adp5585gpio 5 GPIO_ACTIVE_LOW>;
+		gpio = <&adp5585 6 GPIO_ACTIVE_LOW>;
 		enable-active-low;
 	};
 
@@ -132,7 +132,7 @@
 		regulator-name = "audio-pwr";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
-		gpio = <&adp5585gpio 1 GPIO_ACTIVE_HIGH>;
+		gpio = <&adp5585 1 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		regulator-always-on;
 	};
@@ -459,26 +459,19 @@
 		};
 	};
 
-	adp5585: mfd@34 {
-		compatible = "adi,adp5585";
+	adp5585: io-expander@34 {
+		compatible = "adi,adp5585-00", "adi,adp5585";
 		reg = <0x34>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		gpio-reserved-ranges = <5 1>;
+		#pwm-cells = <3>;
 
-		adp5585gpio: gpio-adp5585 {
-			compatible = "adp5585-gpio";
-			gpio-controller;
-			#gpio-cells = <2>;
-
-			/* EXP_SEL selects pins between board and RPi */
-			exp-sel-hog {
-				gpio-hog;
-				gpios = <4 GPIO_ACTIVE_HIGH>;
-				output-low;
-			};
-		};
-
-		adp5585pwm: pwm-adp5585 {
-			compatible = "adp5585-pwm";
-			#pwm-cells = <3>;
+		/* EXP_SEL selects pins between board and RPi */
+		exp-sel-hog {
+			gpio-hog;
+			gpios = <4 GPIO_ACTIVE_HIGH>;
+			output-low;
 		};
 	};
 };
