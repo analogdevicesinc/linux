@@ -469,6 +469,7 @@ struct enetc_ndev_priv {
 	struct device *dev; /* dma-mapping device */
 	struct enetc_si *si;
 	struct clk *ref_clk; /* RGMII/RMII reference clock */
+	struct pci_dev *rcec;
 
 	int bdr_int_num; /* number of Rx/Tx ring interrupts */
 	struct enetc_int_vector *int_vector[ENETC_MAX_BDR_INT];
@@ -495,6 +496,7 @@ struct enetc_ndev_priv {
 
 	struct enetc_cls_rule *cls_rules;
 	int max_ipf_entries;
+	u32 ipt_wol_eid;
 
 	union psfp_cap psfp_cap;
 	struct enetc_psfp_chain psfp_chain;
@@ -512,6 +514,7 @@ struct enetc_ndev_priv {
 	struct bpf_prog *xdp_prog;
 
 	unsigned long flags;
+	int wolopts;
 
 	struct work_struct	tx_onestep_tstamp;
 	struct sk_buff_head	tx_skbs;
@@ -545,6 +548,8 @@ int enetc_alloc_si_resources(struct enetc_ndev_priv *priv);
 void enetc_free_si_resources(struct enetc_ndev_priv *priv);
 int enetc_configure_si(struct enetc_ndev_priv *priv);
 
+int enetc_suspend(struct net_device *ndev, bool wol);
+int enetc_resume(struct net_device *ndev, bool wol);
 int enetc_open(struct net_device *ndev);
 int enetc_close(struct net_device *ndev);
 void enetc_start(struct net_device *ndev);

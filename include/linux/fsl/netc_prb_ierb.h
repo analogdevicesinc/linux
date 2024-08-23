@@ -14,6 +14,9 @@
 void netc_prb_ierb_register_emdio(struct device *emdio);
 int netc_prb_ierb_check_emdio_state(void);
 int netc_prb_ierb_add_emdio_consumer(struct device *consumer);
+void netc_ierb_enable_wakeonlan(void);
+void netc_ierb_disable_wakeonlan(void);
+int netc_ierb_may_wakeonlan(void);
 
 #else
 
@@ -29,6 +32,19 @@ static inline int netc_prb_ierb_check_emdio_state(void)
 static inline int netc_prb_ierb_add_emdio_consumer(struct device *consumer)
 {
 	return 0;
+}
+
+static inline void netc_ierb_enable_wakeonlan(void)
+{
+}
+
+static inline void netc_ierb_disable_wakeonlan(void)
+{
+}
+
+static inline int netc_ierb_may_wakeonlan(void)
+{
+	return -EINVAL;
 }
 
 #endif

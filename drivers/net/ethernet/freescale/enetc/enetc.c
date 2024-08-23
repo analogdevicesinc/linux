@@ -2830,6 +2830,18 @@ static void enetc_wait_bdrs(struct enetc_ndev_priv *priv)
 		enetc_wait_txbdr(hw, priv->tx_ring[i]);
 }
 
+static void enetc_restore_irqs_affinity(struct enetc_ndev_priv *priv)
+{
+	struct pci_dev *pdev = priv->si->pdev;
+	int i;
+
+	for (i = 0; i < priv->bdr_int_num; i++) {
+		int irq = pci_irq_vector(pdev, ENETC_BDR_INT_BASE_IDX + i);
+
+		irq_set_affinity_hint(irq, get_cpu_mask(i % num_online_cpus()));
+	}
+}
+
 static int enetc_setup_irqs(struct enetc_ndev_priv *priv)
 {
 	struct pci_dev *pdev = priv->si->pdev;
@@ -3211,6 +3223,81 @@ out_free_tx_res:
 out:
 	return err;
 }
+
+int enetc_suspend(struct net_device *ndev, bool wol)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+
+	enetc_stop(ndev);
+
+	enetc_free_rxtx_rings(priv);
+
+	/* Avoids dangling pointers and also frees old resources */
+	enetc_assign_rx_resources(priv, NULL);
+	enetc_assign_tx_resources(priv, NULL);
+
+	if (!wol) {
+		enetc_free_irqs(priv);
+		clk_disable_unprepare(priv->ref_clk);
+	}
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(enetc_suspend);
+
+int enetc_resume(struct net_device *ndev, bool wol)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_bdr_resource *tx_res, *rx_res;
+	bool extended;
+	int err;
+
+	extended = !!(priv->active_offloads & ENETC_F_RX_TSTAMP);
+
+	if (!wol) {
+		err = clk_prepare_enable(priv->ref_clk);
+			if (err)
+				return err;
+
+		err = enetc_setup_irqs(priv);
+		if (err)
+			goto out_setup_irqs;
+	} else {
+		enetc_restore_irqs_affinity(priv);
+	}
+
+	tx_res = enetc_alloc_tx_resources(priv);
+	if (IS_ERR(tx_res)) {
+		err = PTR_ERR(tx_res);
+		goto out_free_irqs;
+	}
+
+	rx_res = enetc_alloc_rx_resources(priv, extended);
+	if (IS_ERR(rx_res)) {
+		err = PTR_ERR(rx_res);
+		goto out_free_tx_res;
+	}
+
+	enetc_tx_onestep_tstamp_init(priv);
+	enetc_assign_tx_resources(priv, tx_res);
+	enetc_assign_rx_resources(priv, rx_res);
+	enetc_setup_bdrs(priv, extended);
+	enetc_start(priv->ndev);
+
+	return 0;
+
+out_free_tx_res:
+	enetc_free_tx_resources(tx_res, priv->num_tx_rings);
+out_free_irqs:
+	if (!wol)
+		enetc_free_irqs(priv);
+out_setup_irqs:
+	if (!wol)
+		clk_disable_unprepare(priv->ref_clk);
+
+	return err;
+}
+EXPORT_SYMBOL_GPL(enetc_resume);
 
 static void enetc_debug_tx_ring_prios(struct enetc_ndev_priv *priv)
 {

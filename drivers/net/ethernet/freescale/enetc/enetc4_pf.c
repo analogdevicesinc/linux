@@ -18,6 +18,9 @@ static void enetc4_get_port_caps(struct enetc_pf *pf)
 	struct enetc_hw *hw = &pf->si->hw;
 	u32 val;
 
+	val = enetc_port_rd(hw, ENETC4_ECAPR0);
+	pf->caps.wol = !!(val & ECAPR0_WO);
+
 	val = enetc_port_rd(hw, ENETC4_ECAPR1);
 	pf->caps.num_vsi = (val & ECAPR1_NUM_VSI) >> 24;
 	pf->caps.num_msix = ((val & ECAPR1_NUM_MSIX) >> 12) + 1;
@@ -963,6 +966,9 @@ static int enetc4_pf_netdev_create(struct enetc_si *si)
 	priv = netdev_priv(ndev);
 	mutex_init(&priv->mm_lock);
 
+	if (si->pdev->rcec)
+		priv->rcec = si->pdev->rcec;
+
 	priv->ref_clk = devm_clk_get_optional(dev, "enet_ref_clk");
 	if (IS_ERR(priv->ref_clk)) {
 		dev_err(dev, "Get enet_ref_clk failed\n");
@@ -1300,23 +1306,168 @@ static const struct pci_device_id enetc4_pf_id_table[] = {
 };
 MODULE_DEVICE_TABLE(pci, enetc4_pf_id_table);
 
+#ifdef CONFIG_PCI_IOV
+static int enetc4_sriov_suspend_resume_configure(struct pci_dev *pdev, bool suspend)
+{
+	struct enetc_si *si = pci_get_drvdata(pdev);
+	struct enetc_pf *pf = enetc_si_priv(si);
+	int err;
+
+	if (pf->num_vfs == 0)
+		return 0;
+
+	if (suspend) {
+		pci_disable_sriov(pdev);
+		enetc_msg_psi_free(pf);
+	} else {
+		err = enetc_msg_psi_init(pf);
+		if (err) {
+			dev_err(&pdev->dev, "enetc_msg_psi_init (%d)\n", err);
+			return err;
+		}
+
+		err = pci_enable_sriov(pdev, pf->num_vfs);
+		if (err) {
+			dev_err(&pdev->dev, "pci_enable_sriov err %d\n", err);
+			goto err_en_sriov;
+		}
+	}
+
+	return 0;
+
+err_en_sriov:
+	enetc_msg_psi_free(pf);
+
+	return err;
+}
+#else
+static int enetc4_sriov_suspend_resume_configure(struct pci_dev *pdev, bool suspend)
+{
+	return 0;
+}
+#endif
+
+static void enetc4_pf_power_down(struct enetc_si *si)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(si->ndev);
+	struct pci_dev *pdev = si->pdev;
+
+	enetc_free_msix(priv);
+	pci_disable_device(pdev);
+	pcie_flr(pdev);
+}
+
+static int enetc4_pf_power_up(struct pci_dev *pdev, struct device_node *node)
+{
+	struct enetc_ndev_priv *priv;
+	struct enetc_si *si;
+	struct enetc_pf *pf;
+	int err;
+
+	si = pci_get_drvdata(pdev);
+	pf = enetc_si_priv(si);
+	priv = netdev_priv(si->ndev);
+
+	err = pci_enable_device_mem(pdev);
+	if (err) {
+		dev_err(&pdev->dev, "device enable failed\n");
+		return err;
+	}
+
+	pci_set_master(pdev);
+	pci_restore_state(pdev);
+
+	err = enetc_init_cbdr(si);
+	if (err)
+		goto err_init_cbdr;
+
+	err = enetc_setup_mac_addresses(node, pf);
+	if (err)
+		goto err_init_address;
+
+	enetc_load_primary_mac_addr(&si->hw, priv->ndev);
+
+	enetc4_configure_port(pf);
+
+	err = enetc_configure_si(priv);
+	if (err) {
+		dev_err(&pdev->dev, "Failed to configure SI\n");
+		goto err_config_si;
+	}
+
+	err = enetc_alloc_msix(priv);
+	if (err) {
+		dev_err(&pdev->dev, "MSIX alloc failed\n");
+		goto err_alloc_msix;
+	}
+
+	return 0;
+
+err_alloc_msix:
+err_config_si:
+err_init_address:
+	enetc_free_cbdr(si);
+err_init_cbdr:
+	pci_disable_device(pdev);
+
+	return err;
+}
+
+static void enetc4_pf_set_wol(struct enetc_si *si, bool en)
+{
+	u32 val = enetc_port_mac_rd(si, ENETC4_PM_CMD_CFG(0));
+
+	if (en)
+		val |= PM_CMD_CFG_MG;
+	else
+		val &= ~PM_CMD_CFG_MG;
+	enetc_port_mac_wr(si, ENETC4_PM_CMD_CFG(0), val);
+
+	enetc_port_mac_wr(si, ENETC4_PLPMR, en ? PLPMR_WME : 0);
+}
+
 static int __maybe_unused enetc4_pf_suspend(struct device *dev)
 {
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct enetc_ndev_priv *priv;
 	struct enetc_si *si;
+	struct enetc_pf *pf;
 
 	if (enetc_pf_is_owned_by_mcore(pdev))
 		return 0;
 
 	si = pci_get_drvdata(pdev);
-	if (!netif_running(si->ndev))
-		return 0;
-
+	pf = enetc_si_priv(si);
 	priv = netdev_priv(si->ndev);
+
+	if (!netif_running(si->ndev)) {
+		rtnl_lock();
+		enetc4_pf_power_down(si);
+		rtnl_unlock();
+		return 0;
+	}
+
+	if (netc_ierb_may_wakeonlan() == 0)
+		enetc4_sriov_suspend_resume_configure(pdev, true);
+
 	netif_device_detach(si->ndev);
+
 	rtnl_lock();
-	phylink_suspend(priv->phylink, false);
+	enetc_suspend(si->ndev, netc_ierb_may_wakeonlan() > 0);
+
+	if (netc_ierb_may_wakeonlan() > 0) {
+		pci_pme_active(pdev, true);
+
+		enetc4_pf_set_wol(si, true);
+
+		pci_save_state(pdev);
+		pci_disable_device(pdev);
+		pci_set_power_state(pdev, PCI_D3hot);
+		phylink_suspend(priv->phylink, true);
+	} else {
+		phylink_suspend(priv->phylink, false);
+		enetc4_pf_power_down(si);
+	}
 	rtnl_unlock();
 
 	return 0;
@@ -1324,25 +1475,55 @@ static int __maybe_unused enetc4_pf_suspend(struct device *dev)
 
 static int __maybe_unused enetc4_pf_resume(struct device *dev)
 {
+	struct device_node *node = dev->of_node;
 	struct pci_dev *pdev = to_pci_dev(dev);
 	struct enetc_ndev_priv *priv;
 	struct enetc_si *si;
+	struct enetc_pf *pf;
+	int err;
 
 	if (enetc_pf_is_owned_by_mcore(pdev))
 		return 0;
 
 	si = pci_get_drvdata(pdev);
-	if (!netif_running(si->ndev))
-		return 0;
-
+	pf = enetc_si_priv(si);
 	priv = netdev_priv(si->ndev);
+	if (!netif_running(si->ndev)) {
+		rtnl_lock();
+		err = enetc4_pf_power_up(pdev, node);
+		goto err_unlock_rtnl;
+	}
+
 	rtnl_lock();
+
+	if (netc_ierb_may_wakeonlan() > 0) {
+		pci_set_power_state(pdev, PCI_D0);
+		err = pci_enable_device(pdev);
+		if (err)
+			goto err_unlock_rtnl;
+		pci_restore_state(pdev);
+		enetc4_pf_set_wol(si, false);
+	} else {
+		err = enetc4_pf_power_up(pdev, node);
+		if (err)
+			goto err_unlock_rtnl;
+	}
+
 	phylink_resume(priv->phylink);
+	enetc_resume(si->ndev, netc_ierb_may_wakeonlan() > 0);
+
 	rtnl_unlock();
 
 	netif_device_attach(si->ndev);
 
+	if (netc_ierb_may_wakeonlan() == 0)
+		enetc4_sriov_suspend_resume_configure(pdev, false);
+
 	return 0;
+
+err_unlock_rtnl:
+	rtnl_unlock();
+	return err;
 }
 
 static SIMPLE_DEV_PM_OPS(enetc4_pf_pm_ops, enetc4_pf_suspend, enetc4_pf_resume);
