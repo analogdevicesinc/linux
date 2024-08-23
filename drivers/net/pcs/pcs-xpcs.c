@@ -1131,9 +1131,22 @@ static void xpcs_get_state(struct phylink_pcs *pcs,
 		return;
 
 	switch (compat->an_mode) {
-	case DW_10GBASER:
+	case DW_10GBASER: {
+		int stat1;
+
+		stat1 = xpcs_read(xpcs, MDIO_MMD_PCS, MDIO_STAT1);
+		if (stat1 < 0) {
+			state->link = false;
+			break;
+		}
+
+		if (stat1 & MDIO_STAT1_FAULT)
+			xpcs_do_config(xpcs, state->interface, NULL,
+				       PHYLINK_PCS_NEG_NONE);
+
 		phylink_mii_c45_pcs_get_state(xpcs->mdiodev, state);
 		break;
+	}
 	case DW_AN_C73:
 		ret = xpcs_get_state_c73(xpcs, state, compat);
 		if (ret) {
