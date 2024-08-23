@@ -89,7 +89,7 @@
 		regulator-name = "can2-stby";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
-		gpio = <&adp5585gpio 5 GPIO_ACTIVE_LOW>;
+		gpio = <&adp5585 6 GPIO_ACTIVE_LOW>;
 		enable-active-low;
 	};
 
@@ -168,7 +168,7 @@
 		regulator-name = "audio-pwr";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
-		gpio = <&adp5585gpio 1 GPIO_ACTIVE_HIGH>;
+		gpio = <&adp5585 1 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		regulator-always-on;
 	};
@@ -512,21 +512,12 @@
 	pinctrl-0 = <&pinctrl_lpi2c3>;
 	status = "okay";
 
-	adp5585_isp: mfd-isp@34 {
-		compatible = "adi,adp5585";
+	adp5585_isp: io-expander-isp@34 {
+		compatible = "adi,adp5585-01", "adi,adp5585";
 		reg = <0x34>;
-		status = "okay";
-
-		adp5585gpio_isp: gpio-isp@34 {
-			compatible = "adp5585-gpio";
-			gpio-controller;
-			#gpio-cells = <2>;
-		};
-
-		adp5585pwm_isp: pwm-isp@34 {
-			compatible = "adp5585-pwm";
-			#pwm-cells = <3>;
-		};
+		gpio-controller;
+		#gpio-cells = <2>;
+		#pwm-cells = <3>;
 	};
 
 	ptn5110: tcpc@50 {

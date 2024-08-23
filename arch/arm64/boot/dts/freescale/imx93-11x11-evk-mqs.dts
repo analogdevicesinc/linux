@@ -11,7 +11,7 @@
 		regulator-name = "audio-switch";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
-		gpio = <&adp5585gpio 2 GPIO_ACTIVE_HIGH>;
+		gpio = <&adp5585 2 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 		regulator-always-on;
 	};

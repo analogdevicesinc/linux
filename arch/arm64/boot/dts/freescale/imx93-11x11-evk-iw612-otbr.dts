@@ -27,7 +27,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpspi3>;
 	cs-gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;
-	pinctrl-assert-gpios = <&adp5585gpio 4 GPIO_ACTIVE_LOW>;
+	pinctrl-assert-gpios = <&adp5585 4 GPIO_ACTIVE_LOW>;
 	pinctrl-assert-gpios = <&pcal6408 0 GPIO_ACTIVE_HIGH>;
 	status = "okay";
 
