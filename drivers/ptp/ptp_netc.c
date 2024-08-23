@@ -568,12 +568,6 @@ static int netc_timer_init(struct netc_timer *priv)
 
 	spin_unlock_irqrestore(&priv->lock, flags);
 
-	priv->clock = ptp_clock_register(&priv->caps, priv->dev);
-	if (IS_ERR(priv->clock))
-		return PTR_ERR(priv->clock);
-
-	priv->phc_index = ptp_clock_index(priv->clock);
-
 	return 0;
 }
 
@@ -582,8 +576,6 @@ static void netc_timer_deinit(struct netc_timer *priv)
 	unsigned long flags;
 	u32 fiper_ctrl;
 	int i;
-
-	ptp_clock_unregister(priv->clock);
 
 	spin_lock_irqsave(&priv->lock, flags);
 
@@ -667,10 +659,21 @@ static int netc_timer_probe(struct pci_dev *pdev,
 		dev_err(dev, "NETC Timer initialization failed\n");
 		goto disable_clk;
 	}
+
+	priv->clock = ptp_clock_register(&priv->caps, priv->dev);
+	if (IS_ERR(priv->clock)) {
+		err = PTR_ERR(priv->clock);
+		goto deinit_timer;
+	}
+
+	priv->phc_index = ptp_clock_index(priv->clock);
+
 	pci_set_drvdata(pdev, priv);
 
 	return 0;
 
+deinit_timer:
+	netc_timer_deinit(priv);
 disable_clk:
 	clk_disable_unprepare(priv->src_clk);
 free_irq:
@@ -693,6 +696,7 @@ static void netc_timer_remove(struct pci_dev *pdev)
 {
 	struct netc_timer *priv = pci_get_drvdata(pdev);
 
+	ptp_clock_unregister(priv->clock);
 	netc_timer_deinit(priv);
 	clk_disable_unprepare(priv->src_clk);
 
@@ -714,11 +718,120 @@ static const struct pci_device_id netc_timer_id_table[] = {
 };
 MODULE_DEVICE_TABLE(pci, netc_timer_id_table);
 
+static void ptp_netc_shutdown(struct netc_timer *priv)
+{
+	struct pci_dev *pdev = priv->pci_dev;
+
+	netc_timer_deinit(priv);
+	clk_disable_unprepare(priv->src_clk);
+	disable_irq(priv->irq);
+	irq_set_affinity_hint(priv->irq, NULL);
+	free_irq(priv->irq, priv);
+	pci_free_irq_vectors(pdev);
+
+	pci_save_state(pdev);
+	pci_disable_device(priv->pci_dev);
+
+	return;
+}
+
+static int ptp_netc_powerup(struct netc_timer *priv)
+{
+	struct pci_dev *pdev = priv->pci_dev;
+	int err, n;
+
+	err = pci_enable_device_mem(pdev);
+	if (err) {
+		dev_err(&pdev->dev, "device enable failed\n");
+		return err;
+	}
+	pci_restore_state(pdev);
+
+	pci_set_master(pdev);
+
+	n = pci_alloc_irq_vectors(pdev, 1, 1, PCI_IRQ_MSIX);
+	if (n != 1) {
+		err = -EPERM;
+		goto disable_dev;
+	}
+	priv->irq = pci_irq_vector(pdev, 0);
+	err = request_irq(priv->irq, netc_timer_isr, 0, priv->irq_name, priv);
+	if (err) {
+		dev_err(&pdev->dev, "request_irq() failed!\n");
+		goto free_irq_vectors;
+	}
+
+	err = clk_prepare_enable(priv->src_clk);
+	if (err) {
+		dev_err(&pdev->dev, "Enable timer source clock failed!\n");
+		goto free_irq;
+	}
+
+	err = netc_timer_init(priv);
+	if (err) {
+		dev_err(&pdev->dev, "NETC Timer initialization failed, err=%d\n", err);
+		goto disable_clk;
+	}
+
+	return 0;
+
+disable_clk:
+	clk_disable_unprepare(priv->src_clk);
+free_irq:
+	free_irq(priv->irq, priv);
+free_irq_vectors:
+	pci_free_irq_vectors(pdev);
+disable_dev:
+	pci_disable_device(pdev);
+
+	return err;
+}
+
+static int ptp_netc_suspend_noirq(struct device *dev)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct netc_timer *priv;
+
+	priv = pci_get_drvdata(pdev);
+
+	if (netc_ierb_may_wakeonlan())
+		return 0;
+	ptp_netc_shutdown(priv);
+
+	return 0;
+}
+
+static int ptp_netc_resume_noirq(struct device *dev)
+{
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct netc_timer *priv;
+	int err;
+
+	priv = pci_get_drvdata(pdev);
+
+	if (netc_ierb_may_wakeonlan())
+		return 0;
+
+	err = ptp_netc_powerup(priv);
+	if (err) {
+		dev_err(dev, "NETC Timer powerup failed\n");
+		return err;
+	}
+
+	return err;
+}
+
+static const struct dev_pm_ops __maybe_unused ptp_netc_pm_ops = {
+	SET_NOIRQ_SYSTEM_SLEEP_PM_OPS(ptp_netc_suspend_noirq,
+				      ptp_netc_resume_noirq)
+};
+
 static struct pci_driver netc_timer_driver = {
 	.name = KBUILD_MODNAME,
 	.id_table = netc_timer_id_table,
 	.probe = netc_timer_probe,
 	.remove = netc_timer_remove,
+	.driver.pm = &ptp_netc_pm_ops,
 };
 module_pci_driver(netc_timer_driver);
 
