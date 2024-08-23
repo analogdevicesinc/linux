@@ -81,7 +81,7 @@
 	lvds-to-hdmi-bridge@4c {
 		compatible = "ite,it6263";
 		reg = <0x4c>;
-		reset-gpios = <&adp5585gpio 6 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&adp5585 7 GPIO_ACTIVE_LOW>;
 		split-mode;
 
 		ports {

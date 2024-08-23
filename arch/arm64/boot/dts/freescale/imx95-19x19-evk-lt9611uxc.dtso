@@ -15,7 +15,7 @@
 	hdmi@2b {
 		compatible = "lontium,lt9611uxc";
 		reg = <0x2b>;
-		reset-gpios = <&adp5585gpio 4 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&adp5585 4 GPIO_ACTIVE_HIGH>;
 		interrupts-extended = <&gpio3 27 IRQ_TYPE_EDGE_FALLING>;
 
 		vdd-supply = <&reg_1p8v>;

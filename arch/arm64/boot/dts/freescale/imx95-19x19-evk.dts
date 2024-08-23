@@ -385,20 +385,13 @@
 	pinctrl-0 = <&pinctrl_lpi2c2>;
 	status = "okay";
 
-	adp5585: mfd@34 {
-		compatible = "adi,adp5585";
+	adp5585: io-expander@34 {
+		compatible = "adi,adp5585-00", "adi,adp5585";
 		reg = <0x34>;
-
-		adp5585gpio: gpio-adp5585 {
-			compatible = "adp5585-gpio";
-			gpio-controller;
-			#gpio-cells = <2>;
-		};
-
-		adp5585pwm: pwm-adp5585 {
-			compatible = "adp5585-pwm";
-			#pwm-cells = <3>;
-		};
+		gpio-controller;
+		#gpio-cells = <2>;
+		gpio-reserved-ranges = <5 1>;
+		#pwm-cells = <3>;
 	};
 };
 
