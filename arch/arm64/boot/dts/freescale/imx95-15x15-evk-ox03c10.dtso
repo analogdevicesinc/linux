@@ -21,6 +21,7 @@
 		status = "okay";
 
 		rst-gpios = <&pcal6524 17 GPIO_ACTIVE_LOW>;
+		v12p0-supply = <&reg_vcc_12v>;
 
 		#address-cells = <1>;
 		#size-cells = <0>;
