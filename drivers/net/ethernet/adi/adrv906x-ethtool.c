@@ -25,8 +25,10 @@
 #include "adrv906x-mac.h"
 #include "adrv906x-ethtool.h"
 
-#define NDMA_LOOPBACK_TEST_PATTERN     0x12
-#define NDMA_LOOPBACK_TEST_SIZE        1024
+#define NDMA_LOOPBACK_TEST_PATTERN              0x12
+#define NDMA_LOOPBACK_TEST_SIZE                 1024
+
+#define ADRV906X_PHY_FLAGS_PCS_RS_FEC_EN        BIT(0)
 
 /* TODO: Ugly global variable, need to be changed */
 #if IS_BUILTIN(CONFIG_PTP_1588_CLOCK_ADRV906X)
@@ -154,8 +156,8 @@ struct adrv906x_test_priv {
 
 static u8 adrv906x_packet_next_id;
 
-int adrv906x_eth_set_link_ksettings(struct net_device *ndev,
-				    const struct ethtool_link_ksettings *cmd)
+int adrv906x_ethtool_set_link_ksettings(struct net_device *ndev,
+					const struct ethtool_link_ksettings *cmd)
 {
 	__ETHTOOL_DECLARE_LINK_MODE_MASK(advertising);
 	u8 autoneg = cmd->base.autoneg;
@@ -199,7 +201,7 @@ int adrv906x_eth_set_link_ksettings(struct net_device *ndev,
 	return 0;
 }
 
-int adrv906x_eth_get_ts_info(struct net_device *ndev, struct ethtool_ts_info *info)
+int adrv906x_ethtool_get_ts_info(struct net_device *ndev, struct ethtool_ts_info *info)
 {
 	info->so_timestamping =
 		SOF_TIMESTAMPING_TX_SOFTWARE |
@@ -231,7 +233,7 @@ int adrv906x_eth_get_ts_info(struct net_device *ndev, struct ethtool_ts_info *in
 	return 0;
 }
 
-int adrv906x_eth_get_sset_count(struct net_device *netdev, int sset)
+int adrv906x_ethtool_get_sset_count(struct net_device *ndev, int sset)
 {
 	if (sset == ETH_SS_STATS)
 		return ADRV906X_NUM_STATS;
@@ -242,7 +244,7 @@ int adrv906x_eth_get_sset_count(struct net_device *netdev, int sset)
 	return -EOPNOTSUPP;
 }
 
-void adrv906x_eth_get_strings(struct net_device *netdev, u32 sset, u8 *buf)
+void adrv906x_ethtool_get_strings(struct net_device *ndev, u32 sset, u8 *buf)
 {
 	if (sset == ETH_SS_STATS)
 		memcpy(buf, &adrv906x_gstrings_stats_names,
@@ -253,10 +255,10 @@ void adrv906x_eth_get_strings(struct net_device *netdev, u32 sset, u8 *buf)
 		       sizeof(adrv906x_gstrings_selftest_names));
 }
 
-void adrv906x_eth_get_ethtool_stats(struct net_device *netdev, struct ethtool_stats *stats,
-				    u64 *data)
+void adrv906x_ethtool_get_stats(struct net_device *ndev, struct ethtool_stats *stats,
+				u64 *data)
 {
-	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(netdev);
+	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
 	union adrv906x_ndma_chan_stats *ndma_rx_stats = &adrv906x_dev->ndma_dev->rx_chan.stats;
 	union adrv906x_ndma_chan_stats *ndma_tx_stats = &adrv906x_dev->ndma_dev->tx_chan.stats;
 	struct adrv906x_mac_rx_stats *mac_rx_stats = &adrv906x_dev->mac.hw_stats_rx;
@@ -322,6 +324,49 @@ void adrv906x_eth_get_ethtool_stats(struct net_device *netdev, struct ethtool_st
 	data[57] = ndma_tx_stats->tx.done_work_units;
 	data[58] = ndma_tx_stats->tx.data_dma_errors;
 	data[59] = ndma_tx_stats->tx.status_dma_errors;
+}
+
+static int adrv906x_ethtool_get_fecparam(struct net_device *ndev,
+					 struct ethtool_fecparam *fecparam)
+{
+	struct phy_device *phydev = ndev->phydev;
+
+	fecparam->fec = ETHTOOL_FEC_RS;
+
+	mutex_lock(&phydev->lock);
+	if (phydev->speed == SPEED_25000 && phydev->dev_flags & ADRV906X_PHY_FLAGS_PCS_RS_FEC_EN)
+		fecparam->active_fec = ETHTOOL_FEC_RS;
+	else
+		fecparam->active_fec = ETHTOOL_FEC_OFF;
+	mutex_unlock(&phydev->lock);
+
+	return 0;
+}
+
+static int adrv906x_ethtool_set_fecparam(struct net_device *ndev,
+					 struct ethtool_fecparam *fecparam)
+{
+	struct phy_device *phydev = ndev->phydev;
+	bool fec_cur_en, fec_new_en;
+
+	if (!(fecparam->fec & ETHTOOL_FEC_OFF) && !(fecparam->fec & ETHTOOL_FEC_RS))
+		return -EOPNOTSUPP;
+
+	mutex_lock(&phydev->lock);
+	fec_cur_en = !!(phydev->dev_flags & ADRV906X_PHY_FLAGS_PCS_RS_FEC_EN);
+	fec_new_en = !!(fecparam->fec & ETHTOOL_FEC_RS);
+
+	if (fec_cur_en != fec_new_en) {
+		phydev->dev_flags ^= ADRV906X_PHY_FLAGS_PCS_RS_FEC_EN;
+
+		if (phy_is_started(phydev)) {
+			phydev->state = PHY_UP;
+			phy_start_machine(phydev);
+		}
+	}
+	mutex_unlock(&phydev->lock);
+
+	return 0;
 }
 
 static struct sk_buff *adrv906x_test_get_udp_skb(struct net_device *ndev,
@@ -662,7 +707,7 @@ static int adrv906x_ndma_loopback_test(struct net_device *ndev)
 	init_completion(&tpriv->comp);
 	tpriv->ndev = ndev;
 
-	if (eth_if->ethswitch.enabled == true) {
+	if (eth_if->ethswitch.enabled) {
 		if (kref_read(&ndma_dev->refcount) > 1) {
 			netdev_info(ndev, "switch enabled, shut down both interfaces");
 			all_down = true;
@@ -688,7 +733,7 @@ static int adrv906x_ndma_loopback_test(struct net_device *ndev)
 	}
 	ret = adrv906x_ndma_start_xmit(ndma_dev, tx_data1, port, 0, 0);
 	if (ret) {
-		dev_err(dev, "ndma tx failed to send sof frame:0x%x", ret);
+		dev_err(dev, "ndma tx failed to send frame:0x%x", ret);
 		ret = -EIO;
 		dev_kfree_skb(tx_data1);
 		goto out;
@@ -698,13 +743,13 @@ static int adrv906x_ndma_loopback_test(struct net_device *ndev)
 		dev_err(dev, "ndma loopback test timeout");
 		ret = -ETIMEDOUT;
 	}
-	if (tpriv->ok == false) {
+	if (!tpriv->ok) {
 		dev_err(dev, "ndma loopback test failed");
 		ret = -EINVAL;
 	}
 out:
 	adrv906x_ndma_close(ndma_dev);
-	if (all_down == true) {
+	if (all_down) {
 		for (i = 0; i < MAX_NETDEV_NUM; i++) {
 			temp_eth_dev = eth_if->adrv906x_dev[i];
 			temp_ndev = temp_eth_dev->ndev;
@@ -717,7 +762,7 @@ out:
 	return ret;
 }
 
-struct adrv906x_test adrv906x_eth_selftests[] = {
+struct adrv906x_test adrv906x_ethtool_selftests[] = {
 	{
 		.name = "PCS internal loopback",
 		.fn = adrv906x_pcs_internal_loopback_test,
@@ -735,15 +780,15 @@ struct adrv906x_test adrv906x_eth_selftests[] = {
 	},
 };
 
-void adrv906x_eth_selftest_run(struct net_device *ndev, struct ethtool_test *etest, u64 *buf)
+void adrv906x_ethtool_selftest_run(struct net_device *ndev, struct ethtool_test *etest, u64 *buf)
 {
 	int i, ret;
 	unsigned char etest_flags = etest->flags;
 
-	for (i = 0; i < ARRAY_SIZE(adrv906x_eth_selftests); i++) {
+	for (i = 0; i < ARRAY_SIZE(adrv906x_ethtool_selftests); i++) {
 		ret = 0;
-		if (etest_flags == adrv906x_eth_selftests[i].etest_flag)
-			ret = adrv906x_eth_selftests[i].fn(ndev);
+		if (etest_flags == adrv906x_ethtool_selftests[i].etest_flag)
+			ret = adrv906x_ethtool_selftests[i].fn(ndev);
 		if (ret)
 			etest->flags |= ETH_TEST_FL_FAILED;
 		buf[i] = ret;
@@ -752,12 +797,14 @@ void adrv906x_eth_selftest_run(struct net_device *ndev, struct ethtool_test *ete
 
 const struct ethtool_ops adrv906x_ethtool_ops = {
 	.get_link_ksettings	= phy_ethtool_get_link_ksettings,
-	.set_link_ksettings	= adrv906x_eth_set_link_ksettings,
-	.get_ts_info		= adrv906x_eth_get_ts_info,
-	.get_sset_count		= adrv906x_eth_get_sset_count,
-	.get_strings		= adrv906x_eth_get_strings,
-	.get_ethtool_stats	= adrv906x_eth_get_ethtool_stats,
-	.self_test		= adrv906x_eth_selftest_run,
+	.set_link_ksettings	= adrv906x_ethtool_set_link_ksettings,
+	.get_fecparam		= adrv906x_ethtool_get_fecparam,
+	.set_fecparam		= adrv906x_ethtool_set_fecparam,
+	.get_ts_info		= adrv906x_ethtool_get_ts_info,
+	.get_sset_count		= adrv906x_ethtool_get_sset_count,
+	.get_strings		= adrv906x_ethtool_get_strings,
+	.get_ethtool_stats	= adrv906x_ethtool_get_stats,
+	.self_test		= adrv906x_ethtool_selftest_run,
 };
 
 MODULE_LICENSE("GPL");

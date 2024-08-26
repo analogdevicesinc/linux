@@ -151,12 +151,9 @@
 #define   WDSIZE_256            0x00000500              /* Memory Transfer Word Size = 256 bits */
 #define   PSIZE_MSK             GENMASK(6, 4)           /* Peripheral Transfer Word Size Mask */
 #define   PSIZE_8               0x00000000              /* Peripheral Transfer Word Size = 8 bits */
-#define   PSIZE_16              0x00000010              /* Peripheral Transfer Word Size = 16 bits
-	                                                 */
-#define   PSIZE_32              0x00000020              /* Peripheral Transfer Word Size = 32 bits
-	                                                 */
-#define   PSIZE_64              0x00000030              /* Peripheral Transfer Word Size = 64 bits
-	                                                 */
+#define   PSIZE_16              0x00000010              /* Peripheral Transfer Word Size = 16 bits */
+#define   PSIZE_32              0x00000020              /* Peripheral Transfer Word Size = 32 bits */
+#define   PSIZE_64              0x00000030              /* Peripheral Transfer Word Size = 64 bits */
 #define   DMASYNC               BIT(2)                  /* DMA Buffer Clear SYNC */
 #define   WNR                   BIT(1)                  /* Channel Direction (W/R*) */
 #define   DMAEN                 BIT(0)                  /* DMA Channel Enable */
@@ -1133,8 +1130,11 @@ void adrv906x_ndma_config_loopback(struct adrv906x_ndma_dev *ndma_dev, bool enab
 	struct adrv906x_ndma_chan *tx_chan = &ndma_dev->tx_chan;
 	unsigned int val;
 
+	if (ndma_dev->loopback_en == enable)
+		return;
+
 	val = ioread32(rx_chan->ctrl_base + NDMA_RX_STAT_AND_CTRL);
-	if (enable == true) {
+	if (enable) {
 		val |= NDMA_LOOPBACK_EN;
 		ndma_dev->loopback_en = true;
 		tx_chan->tx_loopback_wu[0] = NDMA_TX_HDR_TYPE_LOOPBACK;
@@ -1175,6 +1175,7 @@ void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, ndma_callback tx_cb_
 		adrv906x_ndma_config_rx_filter(ndma_dev);
 		adrv906x_ndma_set_frame_size(ndma_dev);
 		adrv906x_ndma_set_tx_timeout_value(ndma_dev, NDMA_TS_TX_DELAY);
+		adrv906x_ndma_config_loopback(ndma_dev, loopback_mode);
 
 		spin_lock_irqsave(&tx_chan->lock, flags1);
 		adrv906x_dma_rx_reset(tx_chan);
@@ -1215,9 +1216,6 @@ void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, ndma_callback tx_cb_
 					  NDMA_TX_DATA_DMA_ERR_IRQ |
 					  NDMA_TX_STATUS_DMA_ERR_IRQ |
 					  NDMA_TX_STATUS_DMA_DONE_IRQ);
-
-		if (loopback_mode == true)
-			adrv906x_ndma_config_loopback(ndma_dev, true);
 
 		ndma_dev->enabled = true;
 		kref_init(&ndma_dev->refcount);
@@ -1289,9 +1287,6 @@ static void adrv906x_ndma_stop(struct kref *ref)
 	tx_chan->tx_frames_pending = 0;
 	tx_chan->tx_frames_waiting = 0;
 	spin_unlock_irqrestore(&tx_chan->lock, flags);
-
-	if (ndma_dev->loopback_en == true)
-		adrv906x_ndma_config_loopback(ndma_dev, false);
 
 	adrv906x_ndma_reset(ndma_dev);
 	ndma_dev->enabled = false;
@@ -1385,7 +1380,7 @@ void adrv906x_ndma_process_rx_work_unit(struct adrv906x_ndma_chan *ndma_ch,
 		ret = adrv906x_ndma_parse_rx_status_header(ndma_ch, skb->data, &ts,
 							   &port_id, &frame_size);
 		if (ret == NDMA_NO_ERROR || ret == NDMA_RX_SEQNUM_MISMATCH_ERROR ||
-		    unlikely(ndma_dev->loopback_en == true)) {
+		    unlikely(ndma_dev->loopback_en)) {
 			if (ndma_ch->skb_rx_data_wu) {
 				skb_put(ndma_ch->skb_rx_data_wu, NDMA_RX_HDR_DATA_SIZE +
 					frame_size);
