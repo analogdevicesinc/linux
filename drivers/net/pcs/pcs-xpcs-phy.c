@@ -271,7 +271,6 @@ static int xpcs_phy_usxgmii_init_seq_2(struct dw_xpcs *xpcs)
 			dev_err(&xpcs->phydev->dev, "Polling timeout, line: %d\n", __LINE__);
 			goto timeout;
 		}
-		msleep(10);
 		schedule();
 	} while (val & PMA_TX_GENCTRL2_TX_REQ_0);
 	orig_jiffies = jiffies;
@@ -281,7 +280,6 @@ static int xpcs_phy_usxgmii_init_seq_2(struct dw_xpcs *xpcs)
 			dev_err(&xpcs->phydev->dev, "Polling timeout, line: %d\n", __LINE__);
 			goto timeout;
 		}
-		msleep(10);
 		schedule();
 	} while (val & PMA_RX_GENCTRL2_RX_REQ_0);
 
@@ -344,7 +342,6 @@ static int xpcs_phy_usxgmii_init_seq_2(struct dw_xpcs *xpcs)
 			dev_err(&xpcs->phydev->dev, "Polling timeout, line: %d\n", __LINE__);
 			goto timeout;
 		}
-		msleep(10);
 		schedule();
 	} while (val & PMA_TX_GENCTRL2_TX_REQ_0);
 	orig_jiffies = jiffies;
@@ -354,7 +351,6 @@ static int xpcs_phy_usxgmii_init_seq_2(struct dw_xpcs *xpcs)
 			dev_err(&xpcs->phydev->dev, "Polling timeout, line: %d\n", __LINE__);
 			goto timeout;
 		}
-		msleep(10);
 		schedule();
 	} while (val & PMA_RX_GENCTRL2_RX_REQ_0);
 
@@ -385,7 +381,6 @@ void xpcs_phy_reg_lock(struct dw_xpcs *xpcs)
 			dev_err(&xpcs->phydev->dev, "Polling timeout, line: %d\n", __LINE__);
 			goto timeout;
 		}
-		msleep(10);
 		schedule();
 	} while (!(val & PMA_SRAM_INIT_DN));
 
@@ -400,7 +395,6 @@ void xpcs_phy_reg_lock(struct dw_xpcs *xpcs)
 			dev_err(&xpcs->phydev->dev, "Polling timeout, line: %d\n", __LINE__);
 			goto timeout;
 		}
-		msleep(10);
 		schedule();
 	} while (val & PCS_CTRL1_RESET);
 
@@ -487,7 +481,6 @@ int xpcs_phy_usxgmii_pma_config(struct dw_xpcs *xpcs)
 			dev_err(&xpcs->phydev->dev, "Polling timeout, line: %d\n", __LINE__);
 			goto timeout;
 		}
-		msleep(10);
 		schedule();
 	} while (val & PMA_TX_GENCTRL2_TX_REQ_0);
 	orig_jiffies = jiffies;
@@ -497,7 +490,6 @@ int xpcs_phy_usxgmii_pma_config(struct dw_xpcs *xpcs)
 			dev_err(&xpcs->phydev->dev, "Polling timeout, line: %d\n", __LINE__);
 			goto timeout;
 		}
-		msleep(10);
 		schedule();
 	} while (val & PMA_RX_GENCTRL2_RX_REQ_0);
 
@@ -795,7 +787,6 @@ int xpcs_phy_usxgmii_pma_config(struct dw_xpcs *xpcs)
 			dev_err(&xpcs->phydev->dev, "Polling timeout, line: %d\n", __LINE__);
 			goto timeout;
 		}
-		msleep(10);
 		schedule();
 	} while (!(val & PMA_SRAM_INIT_DN));
 
@@ -812,7 +803,6 @@ int xpcs_phy_usxgmii_pma_config(struct dw_xpcs *xpcs)
 			dev_err(&xpcs->phydev->dev, "Polling timeout, line: %d\n", __LINE__);
 			goto timeout;
 		}
-		msleep(10);
 		schedule();
 	} while (val & PCS_DIG_CTRL1_VR_RST);
 
@@ -847,7 +837,6 @@ int xpcs_phy_usxgmii_pma_config(struct dw_xpcs *xpcs)
 			dev_err(&xpcs->phydev->dev, "Polling timeout, line: %d\n", __LINE__);
 			goto timeout;
 		}
-		msleep(10);
 		schedule();
 	} while (val & PMA_RX_GENCTRL2_RX_REQ_0);
 
@@ -875,7 +864,6 @@ int xpcs_phy_usxgmii_pma_config(struct dw_xpcs *xpcs)
 			dev_err(&xpcs->phydev->dev, "Polling timeout, line: %d\n", __LINE__);
 			goto timeout;
 		}
-		msleep(10);
 		schedule();
 	} while (!(val & PMA_RX_LSTS_RX_VALID_0));
 
@@ -892,7 +880,6 @@ int xpcs_phy_usxgmii_pma_config(struct dw_xpcs *xpcs)
 			dev_err(&xpcs->phydev->dev, "Polling timeout, line: %d\n", __LINE__);
 			goto timeout;
 		}
-		msleep(10);
 		schedule();
 	} while (!(val & PMA_MISC_STS_RX_ADPT_ACK));
 
