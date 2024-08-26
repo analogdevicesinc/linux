@@ -94,33 +94,6 @@ static struct adrv906x_serdes_transition adrv906x_serdes_transitions[] = {
 	{ SERDES_STATE_PWR_DOWN,    SERDES_EVENT_LINK_UP,      adrv906x_serdes_cal_req,	     SERDES_STATE_CAL_REQUEST },
 };
 
-static char *adrv906x_serdes_state_to_str(u32 state)
-{
-	switch (state) {
-	case SERDES_STATE_IDLE:        return "IDLE";
-	case SERDES_STATE_CAL_REQUEST: return "CAL_REQUEST";
-	case SERDES_STATE_CAL_STARTED: return "CAL_STARTED";
-	case SERDES_STATE_LOS:         return "LOS";
-	case SERDES_STATE_RUNNING:     return "RUNNING";
-	case SERDES_STATE_PWR_DOWN:    return "PWR_DOWN";
-	default:                       return "UNKNOWN";
-	}
-}
-
-static char *adrv906x_serdes_event_to_str(u32 event)
-{
-	switch (event) {
-	case SERDES_EVENT_LINK_UP:      return "LINK_UP";
-	case SERDES_EVENT_LINK_DOWN:    return "LINK_DOWN";
-	case SERDES_EVENT_STOP_SUCCESS: return "STOP_SUCCESS";
-	case SERDES_EVENT_NETLINK_ACK:  return "NETLINK_ACK";
-	case SERDES_EVENT_NETLINK_NACK: return "NETLINK_NACK";
-	case SERDES_EVENT_SIGNAL_OK:    return "SIGNAL_OK";
-	case SERDES_EVENT_LOS_DETECTED: return "LOS_DETECTED";
-	default:                        return "UNKNOWN";
-	}
-}
-
 static struct nla_policy adrv906x_serdes_genl_policy[SERDES_ATTR_MAX + 1] = {
 	[SERDES_ATTR_CMD_PAYLOAD] = { .type = NLA_U32 },
 };
@@ -158,6 +131,33 @@ static struct genl_family adrv906x_serdes_fam __ro_after_init = {
 };
 
 static struct adrv906x_serdes *adrv906x_serdes_devs[SERDES_MAX_LANES];
+
+static char *adrv906x_serdes_state_to_str(u32 state)
+{
+	switch (state) {
+	case SERDES_STATE_IDLE:        return "IDLE";
+	case SERDES_STATE_CAL_REQUEST: return "CAL_REQUEST";
+	case SERDES_STATE_CAL_STARTED: return "CAL_STARTED";
+	case SERDES_STATE_LOS:         return "LOS";
+	case SERDES_STATE_RUNNING:     return "RUNNING";
+	case SERDES_STATE_PWR_DOWN:    return "PWR_DOWN";
+	default:                       return "UNKNOWN";
+	}
+}
+
+static char *adrv906x_serdes_event_to_str(u32 event)
+{
+	switch (event) {
+	case SERDES_EVENT_LINK_UP:      return "LINK_UP";
+	case SERDES_EVENT_LINK_DOWN:    return "LINK_DOWN";
+	case SERDES_EVENT_STOP_SUCCESS: return "STOP_SUCCESS";
+	case SERDES_EVENT_NETLINK_ACK:  return "NETLINK_ACK";
+	case SERDES_EVENT_NETLINK_NACK: return "NETLINK_NACK";
+	case SERDES_EVENT_SIGNAL_OK:    return "SIGNAL_OK";
+	case SERDES_EVENT_LOS_DETECTED: return "LOS_DETECTED";
+	default:                        return "UNKNOWN";
+	}
+}
 
 int adrv906x_serdes_genl_register_family(void)
 {
@@ -204,7 +204,7 @@ void adrv906x_serdes_lookup_transitions(struct adrv906x_serdes *serdes, u32 even
 	struct adrv906x_serdes_transition *transition;
 	int i;
 
-	for (i = 0; i < sizeof(adrv906x_serdes_transitions) / sizeof(struct adrv906x_serdes_transition); i++) {
+	for (i = 0; i < ARRAY_SIZE(adrv906x_serdes_transitions); i++) {
 		transition = &adrv906x_serdes_transitions[i];
 
 		if (transition->src_state == serdes->state && transition->event == event) {
