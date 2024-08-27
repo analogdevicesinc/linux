@@ -31,6 +31,7 @@ struct dpu_bliteng {
 	struct mutex mutex;
 
 	s32 irq_comctrl_sw[4];
+	char irq_comctrl_sw_name[4][50];
 
 	struct semaphore sema[4];
 	struct dpu_be_fence *fence[4];

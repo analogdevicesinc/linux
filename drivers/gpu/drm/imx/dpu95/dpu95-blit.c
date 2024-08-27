@@ -424,8 +424,10 @@ static int dpu95_bliteng_init(struct dpu_bliteng *dpu_bliteng)
 		dpu_bliteng->irq_comctrl_sw[i] = virq;
 
 		irq_set_status_flags(virq, IRQ_DISABLE_UNLAZY);
+		sprintf(dpu_bliteng->irq_comctrl_sw_name[i], "blit_ctrl%d-%s", i,
+				dev_name(dpu->dev));
 		ret = devm_request_irq(dpu->dev, virq, dpu95_bliteng_comctrl_sw_irq_handler, 0,
-				dev_name(dpu->dev), dpu_bliteng);
+				dpu_bliteng->irq_comctrl_sw_name[i], dpu_bliteng);
 		if (ret < 0) {
 			dev_err(dpu->dev, "irq_comctrl_sw%d irq request failed with %d.\n", i, ret);
 			return ret;
