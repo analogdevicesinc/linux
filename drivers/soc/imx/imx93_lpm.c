@@ -258,9 +258,13 @@ static void sys_freq_scaling(enum mode_type new_mode)
 		/* Scaling down the ddr frequency. */
 		scaling_dram_freq(new_mode == LD_MODE ? 0x1 : 0x2);
 
-		ele_voltage_change_req(se_dev, true);
+		if (!no_od_mode)
+			ele_voltage_change_req(se_dev, true);
+
 		regulator_set_voltage_tol(soc_reg, VDD_SOC_LD_VOLTAGE, 0);
-		ele_voltage_change_req(se_dev, false);
+
+		if (!no_od_mode)
+			ele_voltage_change_req(se_dev, false);
 
 		pr_info("System switching to LD/SWFFC mode...\n");
 	}
