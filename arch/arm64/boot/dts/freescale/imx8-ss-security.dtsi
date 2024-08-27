@@ -84,6 +84,7 @@ seco_mu2: se-fw2 {
 	mbox-names = "txdb", "rxdb";
 	mboxes = <&sec_mu3 2 0
 		  &sec_mu3 3 0>;
+	nvmem = <&ocotp>;
 };
 
 seco_mu3: seco_mu3 {
