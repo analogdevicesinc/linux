@@ -450,7 +450,7 @@ static int ad_sd_buffer_postenable(struct iio_dev *indio_dev)
 	 * Differs from upstream because of the spi engine support and we want to enable
 	 * the irq only after setting AD_SD_MODE_CONTINUOUS (as in the upstream lib)
 	 */
-	if (iio_device_get_current_mode(indio_dev) == INDIO_BUFFER_HARDWARE) {
+	if (iio_device_get_current_mode(indio_dev) != INDIO_BUFFER_HARDWARE) {
 		sigma_delta->irq_dis = false;
 		enable_irq(sigma_delta->irq_line);
 	}
