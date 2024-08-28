@@ -61,30 +61,30 @@
 		ad7175: adc@0 {
 			compatible = "adi,ad7175-2";
 			reg = <0>;
-			spi-cpha;
-			spi-cpol;
 			spi-max-frequency = <10000000>;
 			interrupt-parent = <&gpio0>;
 			interrupts = <88 4>;
+			interrupt-names = "rdy";
 			#io-channel-cells = <1>;
 
-			adi,channels {
-				#address-cells = <2>;
-				#size-cells = <0>;
+			#address-cells = <1>;
+			#size-cells = <0>;
 
-				channel@0,1 {
-					reg = <0 1>;
-					adi,bipolar;
-				};
+			channel@0 {
+				reg = <0>;
+				diff-channels = <0 1>;
+				bipolar;
+			};
 
-				channel@2,3 {
-					reg = <2 3>;
-					adi,bipolar;
-				};
+			channel@1 {
+				reg = <1>;
+				diff-channels = <2 3>;
+				bipolar;
+			};
 
-				channel@0,4 {
-					reg = <0 4>;
-				};
+			channel@2 {
+				reg = <2>;
+				diff-channels = <0 4>;
 			};
 		};
 
