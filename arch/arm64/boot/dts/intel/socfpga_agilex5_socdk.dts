@@ -282,17 +282,17 @@
 
 		input@10001 {
 			label = "Main Die corner bottom left max";
-			reg = <0x10001>;
+			reg = <0x10000>;
 		};
 
 		input@30001 {
 			label = "Main Die corner bottom right max";
-			reg = <0x30001>;
+			reg = <0x30000>;
 		};
 
 		input@40001 {
 			label = "Main Die corner top right max";
-			reg = <0x40001>;
+			reg = <0x40000>;
 		};
 	};
 };
