@@ -87,7 +87,7 @@
 			spi-max-frequency = <1000000>;
 		};
 		admv1455: admv1455@4 {
-			compatible = "adi,admv1355";
+			compatible = "adi,admv1455";
 			reg = <4>;
 			#address-cells = <1>;
 			#size-cells = <0>;
