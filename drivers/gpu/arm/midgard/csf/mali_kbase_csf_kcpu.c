@@ -1871,6 +1871,10 @@ int kbase_kcpu_fence_signal_init(struct kbase_kcpu_command_queue *kcpu_queue,
 KBASE_EXPORT_TEST_API(kbase_kcpu_fence_signal_init);
 #endif /* CONFIG_SYNC_FILE */
 
+static int gpu_fence_print_skip = 1;
+module_param(gpu_fence_print_skip, int, 0644);
+MODULE_PARM_DESC(gpu_fence_print_skip, "skip the fence print by default");
+
 static void kcpu_fence_timeout_dump(struct kbase_kcpu_command_queue *queue,
 				    struct kbasep_printer *kbpr)
 {
@@ -1881,6 +1885,11 @@ static void kcpu_fence_timeout_dump(struct kbase_kcpu_command_queue *queue,
 	struct dma_fence *fence;
 	struct kbase_sync_fence_info info;
 	u16 i;
+
+	if (gpu_fence_print_skip) {
+		dev_info(kctx->kbdev->dev, "skip fence dump, enable it via module_param if necessary !!!");
+		return;
+	}
 
 	mutex_lock(&queue->lock);
 
