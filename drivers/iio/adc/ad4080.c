@@ -166,23 +166,23 @@ static const int ad4080_dec_rate_value[] = {
 };
 
 static const char *const ad4080_filter_mode_iio_enum[] = {
-	[FILTER_DISABLE]   = "FILTER_DISABLE",
-	[SINC_1]           = "SINC_1",
-	[SINC_5]           = "SINC_5",
-	[SINC_5_COMP] = "SINC_5_+COMP",
+	[FILTER_DISABLE]   = "disabled",
+	[SINC_1]           = "sinc1",
+	[SINC_5]           = "sinc5",
+	[SINC_5_COMP] = "sinc5_plus_compensation",
 };
 
 static const char *const ad4080_dec_rate_iio_enum[] = {
-	[DEC_2]    = "DEC_2",
-	[DEC_4]    = "DEC_4",
-	[DEC_8]    = "DEC_8",
-	[DEC_16]   = "DEC_16",
-	[DEC_32]   = "DEC_32",
-	[DEC_64]   = "DEC_64",
-	[DEC_128]  = "DEC_128",
-	[DEC_256]  = "DEC_256",
-	[DEC_512]  = "DEC_512",
-	[DEC_1024] = "DEC_1024",
+	[DEC_2]    = "2",
+	[DEC_4]    = "4",
+	[DEC_8]    = "8",
+	[DEC_16]   = "16",
+	[DEC_32]   = "32",
+	[DEC_64]   = "64",
+	[DEC_128]  = "128",
+	[DEC_256]  = "256",
+	[DEC_512]  = "512",
+	[DEC_1024] = "1024",
 };
 
 struct ad4080_state {
@@ -555,16 +555,16 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	 .read = ad4080_lvds_cnv_en_read,
 	 .write = ad4080_lvds_cnv_en_write,
 	},
-	IIO_ENUM("dec_rate",
+	IIO_ENUM("sinc_dec_rate",
 		 IIO_SHARED_BY_ALL,
 		 &ad4080_dec_rate_enum),
-	IIO_ENUM_AVAILABLE("dec_rate",
+	IIO_ENUM_AVAILABLE("sinc_dec_rate",
 			   IIO_SHARED_BY_ALL,
 			   &ad4080_dec_rate_enum),
-	IIO_ENUM("filter_mode",
+	IIO_ENUM("filter_sel",
 		 IIO_SHARED_BY_ALL,
 		 &ad4080_filter_mode_enum),
-	IIO_ENUM_AVAILABLE("filter_mode",
+	IIO_ENUM_AVAILABLE("filter_sel",
 			   IIO_SHARED_BY_ALL,
 			   &ad4080_filter_mode_enum),
 	{},
