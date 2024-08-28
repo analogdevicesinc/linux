@@ -1208,13 +1208,9 @@ static int adf4382_parse_device(struct adf4382_state *st)
 						       "adi,ref-doubler-enable");
 	st->cmos_3v3 = device_property_read_bool(&st->spi->dev, "adi,cmos-3v3");
 
-	st->clkin = devm_clk_get(&st->spi->dev, "ref_clk");
-// TODO:likely you want devm_clk_get_enabled()
-	if (IS_ERR(st->clkin))
-		return PTR_ERR(st->clkin);
-// TODO:return PTR_ERR_OR_ZERO()?
-
-	return 0;
+	st->clkin = devm_clk_get_enabled(&st->spi->dev, "ref_clk");
+	
+	return PTR_ERR_OR_ZERO(st->clkin);
 }
 
 static int adf4382_scratchpad_check(struct adf4382_state *st)
