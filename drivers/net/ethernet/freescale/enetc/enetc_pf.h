@@ -22,8 +22,8 @@ struct enetc_vf_state {
 };
 
 struct enetc_port_caps {
-	bool half_duplex;
-	bool wol;
+	u32 half_duplex:1;
+	u32 wol:1;
 	int num_vsi;
 	int num_msix;
 	int num_rx_bdr;

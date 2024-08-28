@@ -19,7 +19,7 @@ static void enetc4_get_port_caps(struct enetc_pf *pf)
 	u32 val;
 
 	val = enetc_port_rd(hw, ENETC4_ECAPR0);
-	pf->caps.wol = !!(val & ECAPR0_WO);
+	pf->caps.wol = (val & ECAPR0_WO) ? 1 : 0;
 
 	val = enetc_port_rd(hw, ENETC4_ECAPR1);
 	pf->caps.num_vsi = (val & ECAPR1_NUM_VSI) >> 24;
@@ -30,7 +30,7 @@ static void enetc4_get_port_caps(struct enetc_pf *pf)
 	pf->caps.num_tx_bdr = val & ECAPR2_NUM_TX_BDR;
 
 	val = enetc_port_rd(hw, ENETC4_PMCAPR);
-	pf->caps.half_duplex = !!(val & PMCAPR_HD);
+	pf->caps.half_duplex = (val & PMCAPR_HD) ? 1 : 0;
 
 	val = enetc_port_rd(hw, ENETC4_PSIMAFCAPR);
 	pf->caps.mac_filter_num = val & PSIMAFCAPR_NUM_MAC_AFTE;
