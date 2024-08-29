@@ -130,7 +130,8 @@ static void enetc4_default_rings_allocation(struct enetc_pf *pf)
 {
 	struct enetc_hw *hw = &pf->si->hw;
 	u32 num_rx_bdr, num_tx_bdr, val;
-	int i;
+	u32 vf_tx_bdr, vf_rx_bdr;
+	int i, rx_rem, tx_rem;
 
 	if (pf->caps.num_rx_bdr < ENETC_SI_MAX_RING_NUM + pf->caps.num_vsi)
 		num_rx_bdr = pf->caps.num_rx_bdr - pf->caps.num_vsi;
@@ -145,12 +146,20 @@ static void enetc4_default_rings_allocation(struct enetc_pf *pf)
 	val = enetc4_psicfgr0_val_construct(false, num_tx_bdr, num_rx_bdr);
 	enetc_port_wr(hw, ENETC4_PSICFGR0(0), val);
 
-	num_rx_bdr = (pf->caps.num_rx_bdr - num_rx_bdr) / pf->caps.num_vsi;
-	num_tx_bdr = (pf->caps.num_tx_bdr - num_tx_bdr) / pf->caps.num_vsi;
+	num_rx_bdr = pf->caps.num_rx_bdr - num_rx_bdr;
+	rx_rem = num_rx_bdr % pf->caps.num_vsi;
+	num_rx_bdr = num_rx_bdr / pf->caps.num_vsi;
 
-	val = enetc4_psicfgr0_val_construct(true, num_tx_bdr, num_rx_bdr);
-	for (i = 0; i < pf->caps.num_vsi; i++)
+	num_tx_bdr = pf->caps.num_tx_bdr - num_tx_bdr;
+	tx_rem = num_tx_bdr % pf->caps.num_vsi;
+	num_tx_bdr = num_tx_bdr / pf->caps.num_vsi;
+
+	for (i = 0; i < pf->caps.num_vsi; i++) {
+		vf_tx_bdr = (i < tx_rem) ? num_tx_bdr + 1 : num_tx_bdr;
+		vf_rx_bdr = (i < rx_rem) ? num_rx_bdr + 1 : num_rx_bdr;
+		val = enetc4_psicfgr0_val_construct(true, vf_tx_bdr, vf_rx_bdr);
 		enetc_port_wr(hw, ENETC4_PSICFGR0(i + 1), val);
+	}
 }
 
 static void enetc4_allocate_si_rings(struct enetc_pf *pf)
