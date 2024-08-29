@@ -23,6 +23,7 @@
 #include <linux/gcd.h>
 #include <linux/math64.h>
 #include <linux/units.h>
+#include <linux/util_macros.h>
 
 /* ADF4382 REG0000 Map */
 #define ADF4382_SOFT_RESET_R_MSK		BIT(7)
@@ -429,11 +430,6 @@
 #define UA_PER_A				1000000
 
 enum {
-	ADF4382_FREQ,
-	ADF4382_CH_PWR,
-};
-
-enum {
 	ADF4382,
 	ADF4382A,
 };
@@ -464,8 +460,8 @@ struct adf4382_state {
 
 /* Charge pump current values expressed in uA */
 static const int adf4382_ci_ua[] = {
-	700, 900, 1100, 1300, 1400, 1800, 2200, 2500, 2900, 3600, 4300, 5000,
-	5800, 7200, 8600, 11100
+	790, 990, 1190, 1380, 1590, 1980, 2390, 2790, 3180, 3970, 4770, 5570,
+	6330, 7910, 9510, 11100
 };
 
 static const struct reg_sequence adf4382_reg_default[] = {
@@ -1172,6 +1168,7 @@ static int adf4382_parse_device(struct adf4382_state *st)
 {
 	u32 tmp;
 	int ret;
+	int i;
 
 	ret = device_property_read_u64(&st->spi->dev, "adi,power-up-frequency",
 				       &st->freq);
@@ -1185,19 +1182,18 @@ static int adf4382_parse_device(struct adf4382_state *st)
 	else
 		st->bleed_word = (u16)tmp;
 
-	ret = device_property_read_u32(&st->spi->dev, "adi,charge-pump-current",
+	ret = device_property_read_u32(&st->spi->dev, "adi,charge-pump-microamp",
 				       &tmp);
-	if (ret)
-// TODO:same here: property is optional in driver, while required in the dt bindings.
+	if (ret) {
 		st->cp_i = ADF4382_CP_I_DEFAULT;
-	else
-		st->cp_i = (u8)tmp;
+	} else {
+		i = find_closest(tmp, adf4382_ci_ua, ARRAY_SIZE(adf4382_ci_ua));
+		st->cp_i = (u8)i;
+	}
 
 	ret = device_property_read_u32(&st->spi->dev, "adi,ref-divider",
 				       &tmp);
 	if (ret || !tmp)
-// TODO:hmm, you treat "adi,ref-divider" property as optional, although you made it
-// a required property in the dt bindings.
 		st->ref_div = ADF4382_REF_DIV_DEFAULT;
 	else
 		st->ref_div = (u8)tmp;
@@ -1209,7 +1205,7 @@ static int adf4382_parse_device(struct adf4382_state *st)
 	st->cmos_3v3 = device_property_read_bool(&st->spi->dev, "adi,cmos-3v3");
 
 	st->clkin = devm_clk_get_enabled(&st->spi->dev, "ref_clk");
-	
+
 	return PTR_ERR_OR_ZERO(st->clkin);
 }
 
@@ -1389,8 +1385,6 @@ static int adf4382_probe(struct spi_device *spi)
 
 	indio_dev->info = &adf4382_info;
 	indio_dev->name = "adf4382";
-// TODO:you support two devices so ideally you would have the proper name when 
-// using adf4382a. Maybe have a chip_info struct only with const char *name
 	indio_dev->channels = adf4382_channels;
 	indio_dev->num_channels = ARRAY_SIZE(adf4382_channels);
 
@@ -1402,6 +1396,7 @@ static int adf4382_probe(struct spi_device *spi)
 	st->vco_min = ADF4382_VCO_FREQ_MIN;
 	st->clkout_div_reg_val_max = ADF4382_CLKOUT_DIV_REG_VAL_MAX;
 	if (spi_get_device_id(spi)->driver_data == ADF4382A) {
+		indio_dev->name = "adf4382a";
 		st->vco_max = ADF4382A_VCO_FREQ_MAX;
 		st->vco_min = ADF4382A_VCO_FREQ_MIN;
 		st->clkout_div_reg_val_max = ADF4382A_CLKOUT_DIV_REG_VAL_MAX;
