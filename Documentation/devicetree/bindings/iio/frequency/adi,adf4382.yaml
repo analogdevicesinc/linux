@@ -10,12 +10,11 @@ maintainers:
   - Antoniu Miclaus <antoniu.miclaus@analog.com>
   - Ciprian Hegbeli <ciprian.hegbeli@analog.com>
 
-description: |
-   The ADF4382 is a high performance, ultralow jitter, Frac-N PLL with
+description: The ADF4382 is a high performance, ultralow jitter, Frac-N PLL with
    integrated VCO ideally suited for LO generation for 5G applications
    or data converter clock applications.
 
-   https://www.analog.com/en/products/adf4382.html
+   https://www.analog.com/en/products/adf4382a.html
 
 properties:
   compatible:
@@ -33,38 +32,22 @@ properties:
     maxItems: 1
 
   clock-names:
-    description: |
+    description:
       External clock that provides reference input frequency.
     items:
       - const: ref_clk
 
-  adi,charge-pump-current:
-    description: |
+  adi,charge-pump-microamp:
+    description:
       The charge pump current that the external loop filter was designed for.
-      0 - 0.7 mA
-      1 - 0.9 mA
-      2 - 1.1 mA
-      3 - 1.3 mA
-      4 - 1.4 mA
-      5 - 1.8 mA
-      6 - 2.2 mA
-      7 - 2.5 mA
-      8 - 2.9 mA
-      9 - 3.6 mA
-      10 - 4.3 mA
-      11 - 5.0 mA
-      12 - 5.8 mA
-      13 - 7.2 mA
-      14 - 8.6 mA
-      15 - 10.1 mA
+      If this property is not specified, then the charge pump current is set to the
+      default 11100uA. The valid values are listed below. However, if the set value is
+      not supported, the driver will look for the closest valid charge pump current.
     allOf:
-      - $ref: /schemas/types.yaml#/definitions/uint32
-      - enum: [0, 1, 2, 3, 6, 7, 9, 10, 11, 14, 15]
-      - default: 15
-    maxItems: 1
+      - enum: [790, 990, 1190, 1380, 1590, 1980, 2390, 2790, 3180, 3970, 4770, 5570, 6330, 7910, 9510, 11100]
 
   adi,ref-divider:
-    description: |
+    description:
       Input divider of the reference frequency, cannot be lower then 1 or
       higher then 63.
     allOf:
@@ -75,13 +58,13 @@ properties:
     maxItems: 1
   
   adi,ref-doubler-enable:
-    description: |
+    description:
       Enables the doubling of the reference clock.
     type: boolean
     maxItems: 1
 
   adi,bleed-word:
-    description: |
+    description:
       A small programmable constant charge pump current, known as bleed current,
       can be used to optimize the phase noise and fractional spurious signals
       in fractional mode.
@@ -93,7 +76,7 @@ properties:
     maxItems: 1
 
   adi,power-up-frequency:
-    description: |
+    description:
       PLL tunes to the set frequency on probe or defaults to 2,305 GHz
     allOf:
       - $ref: /schemas/types.yaml#/definitions/uint64
@@ -103,13 +86,13 @@ properties:
     maxItems: 1
   
   adi,spi-3wire-enable:
-    description: |
+    description:
       Uses SPI in 3 wire mode, by default is uses 4 wire mode.
     type: boolean
     maxItems: 1
   
   adi,cmos-3v3:
-    description: |
+    description:
       Sets the SPI logic to 3.3V, by defautl it uses 1,8V.
     type: boolean
     maxItems: 1
@@ -119,8 +102,6 @@ required:
   - reg
   - clocks
   - clock-names
-  - adi,charge-pump-current
-  - adi,ref-divider
 
 additionalProperties: false
 

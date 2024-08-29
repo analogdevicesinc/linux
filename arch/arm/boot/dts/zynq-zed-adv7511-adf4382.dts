@@ -24,8 +24,10 @@
 		spi-max-frequency = <1000000>;
 		clocks = <&adf4382_clkin>;
 		clock-names = "ref_clk";
-		adi,charge-pump-current = <15>;
+		adi,charge-pump-microamp = <11100>;
 		adi,ref-divider = <1>;
+		clock-output-names = "adf4382_out_clk";
+		adi,power-up-frequency = /bits/ 64 <3550000000>;
 		// adi,spi-3wire-enable;
 		/* spi-cpha; */
 		/* spi-cpol; */
