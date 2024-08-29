@@ -132,6 +132,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply ADMV1014
 	imply ADMV1320
 	imply ADMV1355
+	imply ADMV1420
 	imply ADMV1455
 	imply ADMV4420
 	imply ADMV8818

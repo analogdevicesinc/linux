@@ -18,6 +18,7 @@ obj-$(CONFIG_ADMV1013) += admv1013.o
 obj-$(CONFIG_ADMV1014) += admv1014.o
 obj-$(CONFIG_ADMV1355) += admv1320.o
 obj-$(CONFIG_ADMV1355) += admv1355.o admv8827.o adfake.o
+obj-$(CONFIG_ADMV1355) += admv1420.o
 obj-$(CONFIG_ADMV1355) += admv1455.o
 obj-$(CONFIG_ADMV4420) += admv4420.o
 obj-$(CONFIG_ADRF6780) += adrf6780.o
