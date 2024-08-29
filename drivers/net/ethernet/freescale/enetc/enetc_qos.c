@@ -132,7 +132,7 @@ static int enetc4_setup_taprio(struct enetc_ndev_priv *priv,
 		pf->hw_ops->set_time_gating(hw, true);
 
 	/* Delete the pending administrative control list if it exists */
-	err = ntmp_tgst_delete_admin_gate_list(&si->cbdr, port);
+	err = ntmp_tgst_delete_admin_gate_list(&si->cbdrs, port);
 	if (err)
 		goto disable_tge;
 
@@ -169,7 +169,7 @@ static int enetc4_setup_taprio(struct enetc_ndev_priv *priv,
 	/* Set the maximum frame size for each traffic class */
 	pf->hw_ops->set_tc_msdu(hw, admin_conf->max_sdu);
 
-	err = ntmp_tgst_update_admin_gate_list(&si->cbdr, port, cfg);
+	err = ntmp_tgst_update_admin_gate_list(&si->cbdrs, port, cfg);
 	if (err) {
 		kfree(cfg);
 		goto disable_tge;
@@ -1504,14 +1504,13 @@ enetc4_get_rpt_entry_by_entry_id(struct enetc_ndev_priv *priv,
 
 static int enetc4_delete_sgit_entry(struct enetc_ndev_priv *priv, u32 entry_id)
 {
+	struct netc_cbdrs *cbdrs = &priv->si->cbdrs;
 	struct ntmp_sgclt_info *sgcl_info;
 	struct ntmp_sgit_info *sgi_info;
 	struct ntmp_sgit_cfg sgi_cfg;
-	struct netc_cbdr *cbdr;
 	u32 entry_size;
 	int err;
 
-	cbdr = &priv->si->cbdr;
 	sgi_info = kzalloc(sizeof(*sgi_info), GFP_KERNEL);
 	if (!sgi_info)
 		return -ENOMEM;
@@ -1520,7 +1519,7 @@ static int enetc4_delete_sgit_entry(struct enetc_ndev_priv *priv, u32 entry_id)
 	 * the entry id of the administrative gate control list and the
 	 * opertational gate control list.
 	 */
-	err = ntmp_sgit_query_entry(cbdr, entry_id, sgi_info);
+	err = ntmp_sgit_query_entry(cbdrs, entry_id, sgi_info);
 	if (err)
 		goto free_sgi_info;
 
@@ -1530,12 +1529,12 @@ static int enetc4_delete_sgit_entry(struct enetc_ndev_priv *priv, u32 entry_id)
 	memset(&sgi_cfg, 0, sizeof(sgi_cfg));
 	sgi_cfg.entry_id = entry_id;
 	sgi_cfg.admin_sgcl_eid = NTMP_NULL_ENTRY_ID;
-	err = ntmp_sgit_add_or_update_entry(cbdr, &sgi_cfg);
+	err = ntmp_sgit_add_or_update_entry(cbdrs, &sgi_cfg);
 	if (err)
 		goto free_sgi_info;
 
 	/* Step3: Delete the stream gate instance table entry. */
-	err = ntmp_sgit_delete_entry(cbdr, entry_id);
+	err = ntmp_sgit_delete_entry(cbdrs, entry_id);
 	if (err)
 		goto free_sgi_info;
 
@@ -1549,13 +1548,13 @@ static int enetc4_delete_sgit_entry(struct enetc_ndev_priv *priv, u32 entry_id)
 	}
 
 	if (sgi_info->admin_sgcl_eid != NTMP_NULL_ENTRY_ID) {
-		err = ntmp_sgclt_query_entry(cbdr, sgi_info->admin_sgcl_eid, sgcl_info);
+		err = ntmp_sgclt_query_entry(cbdrs, sgi_info->admin_sgcl_eid, sgcl_info);
 		if (err)
 			goto free_sgcl_info;
 
 		/* entry_size equals to 1 + ROUNDUP(N / 2) where N is number of gates */
 		entry_size = 1 + DIV_ROUND_UP(sgcl_info->list_len, 2);
-		err = ntmp_sgclt_delete_entry(cbdr, sgi_info->admin_sgcl_eid);
+		err = ntmp_sgclt_delete_entry(cbdrs, sgi_info->admin_sgcl_eid);
 		if (err)
 			goto free_sgcl_info;
 
@@ -1564,12 +1563,12 @@ static int enetc4_delete_sgit_entry(struct enetc_ndev_priv *priv, u32 entry_id)
 
 	if (sgi_info->oper_sgcl_eid != NTMP_NULL_ENTRY_ID) {
 		memset(sgcl_info, 0, sizeof(*sgcl_info));
-		err = ntmp_sgclt_query_entry(cbdr, sgi_info->oper_sgcl_eid, sgcl_info);
+		err = ntmp_sgclt_query_entry(cbdrs, sgi_info->oper_sgcl_eid, sgcl_info);
 		if (err)
 			goto free_sgcl_info;
 
 		entry_size = 1 + DIV_ROUND_UP(sgcl_info->list_len, 2);
-		err = ntmp_sgclt_delete_entry(cbdr, sgi_info->oper_sgcl_eid);
+		err = ntmp_sgclt_delete_entry(cbdrs, sgi_info->oper_sgcl_eid);
 		if (err)
 			goto free_sgcl_info;
 
@@ -1617,7 +1616,7 @@ static void enetc4_decrease_rpt_entry_refcount(struct enetc_ndev_priv *priv,
 		return;
 
 	if (refcount_dec_and_test(&cfg->refcount)) {
-		ntmp_rpt_delete_entry(&priv->si->cbdr, entry_id);
+		ntmp_rpt_delete_entry(&priv->si->cbdrs, entry_id);
 		hlist_del(&cfg->node);
 		kfree(cfg);
 	}
@@ -1626,18 +1625,15 @@ static void enetc4_decrease_rpt_entry_refcount(struct enetc_ndev_priv *priv,
 static void enetc4_psfp_delete_chain(struct enetc_ndev_priv *priv,
 				     struct enetc_psfp_node *psfp)
 {
-	struct enetc_si *si = priv->si;
-	struct netc_cbdr *cbdr;
+	struct netc_cbdrs *cbdrs = &priv->si->cbdrs;
 
-	cbdr = &si->cbdr;
-
-	ntmp_isit_delete_entry(cbdr, psfp->isit_cfg.entry_id);
+	ntmp_isit_delete_entry(cbdrs, psfp->isit_cfg.entry_id);
 	if (psfp->isf_eid != NTMP_NULL_ENTRY_ID)
-		ntmp_isft_delete_entry(cbdr, psfp->isf_eid);
+		ntmp_isft_delete_entry(cbdrs, psfp->isf_eid);
 
-	ntmp_ist_delete_entry(cbdr, psfp->isit_cfg.is_eid);
+	ntmp_ist_delete_entry(cbdrs, psfp->isit_cfg.is_eid);
 	clear_bit(psfp->isit_cfg.is_eid, priv->ist_bitmap);
-	ntmp_isct_operate_entry(cbdr, psfp->isc_eid, NTMP_CMD_DELETE, NULL);
+	ntmp_isct_operate_entry(cbdrs, psfp->isc_eid, NTMP_CMD_DELETE, NULL);
 	clear_bit(psfp->isc_eid, priv->isct_bitmap);
 
 	spin_lock(&priv->psfp_chain.psfp_lock);
@@ -1653,42 +1649,42 @@ static void enetc4_psfp_delete_chain(struct enetc_ndev_priv *priv,
 static int enetc4_psfp_set_related_table_entries(struct enetc_ndev_priv *priv,
 						 struct enetc_psfp_cfg psfp)
 {
-	struct netc_cbdr *cbdr = &priv->si->cbdr;
+	struct netc_cbdrs *cbdrs = &priv->si->cbdrs;
 	struct ntmp_sgit_cfg *sgi;
 	int err;
 
-	err = ntmp_isct_operate_entry(cbdr, psfp.isct_cfg->entry_id,
+	err = ntmp_isct_operate_entry(cbdrs, psfp.isct_cfg->entry_id,
 				      NTMP_CMD_ADD, NULL);
 	if (err)
 		return err;
 
-	err = ntmp_sgclt_add_entry(cbdr, psfp.sgclt_cfg);
+	err = ntmp_sgclt_add_entry(cbdrs, psfp.sgclt_cfg);
 	if (err)
 		goto delete_isct_entry;
 
-	err = ntmp_sgit_add_or_update_entry(cbdr, psfp.sgit_cfg);
+	err = ntmp_sgit_add_or_update_entry(cbdrs, psfp.sgit_cfg);
 	if (err) {
-		ntmp_sgclt_delete_entry(cbdr, psfp.sgclt_cfg->entry_id);
+		ntmp_sgclt_delete_entry(cbdrs, psfp.sgclt_cfg->entry_id);
 		goto delete_isct_entry;
 	}
 
 	if (psfp.rpt_cfg) {
-		err = ntmp_rpt_add_or_update_entry(cbdr, psfp.rpt_cfg);
+		err = ntmp_rpt_add_or_update_entry(cbdrs, psfp.rpt_cfg);
 		if (err)
 			goto delete_sgit_entry;
 	}
 
-	err = ntmp_ist_add_or_update_entry(cbdr, psfp.ist_cfg);
+	err = ntmp_ist_add_or_update_entry(cbdrs, psfp.ist_cfg);
 	if (err)
 		goto delete_rpt_entry;
 
 	if (psfp.isft_cfg) {
-		err = ntmp_isft_add_or_update_entry(cbdr, psfp.isft_cfg, true);
+		err = ntmp_isft_add_or_update_entry(cbdrs, psfp.isft_cfg, true);
 		if (err)
 			goto delete_ist_entry;
 	}
 
-	err = ntmp_isit_add_or_update_entry(cbdr, psfp.isit_cfg, true);
+	err = ntmp_isit_add_or_update_entry(cbdrs, psfp.isit_cfg, true);
 	if (err)
 		goto delete_isft_entry;
 
@@ -1696,14 +1692,14 @@ static int enetc4_psfp_set_related_table_entries(struct enetc_ndev_priv *priv,
 
 delete_isft_entry:
 	if (psfp.isft_cfg)
-		ntmp_isft_delete_entry(cbdr, psfp.isft_cfg->entry_id);
+		ntmp_isft_delete_entry(cbdrs, psfp.isft_cfg->entry_id);
 
 delete_ist_entry:
-	ntmp_ist_delete_entry(cbdr, psfp.ist_cfg->entry_id);
+	ntmp_ist_delete_entry(cbdrs, psfp.ist_cfg->entry_id);
 
 delete_rpt_entry:
 	if (psfp.rpt_cfg)
-		ntmp_rpt_delete_entry(cbdr, psfp.rpt_cfg->entry_id);
+		ntmp_rpt_delete_entry(cbdrs, psfp.rpt_cfg->entry_id);
 
 delete_sgit_entry:
 	sgi = enetc4_get_sgit_entry_by_entry_id(priv, psfp.sgit_cfg->entry_id);
@@ -1714,7 +1710,7 @@ delete_sgit_entry:
 		enetc4_delete_sgit_entry(priv, psfp.sgit_cfg->entry_id);
 
 delete_isct_entry:
-	ntmp_isct_operate_entry(cbdr, psfp.isct_cfg->entry_id,
+	ntmp_isct_operate_entry(cbdrs, psfp.isct_cfg->entry_id,
 				NTMP_CMD_DELETE, NULL);
 
 	return err;
@@ -2517,7 +2513,7 @@ static int enetc4_psfp_get_stats(struct enetc_ndev_priv *priv,
 	if (!psfp)
 		return -EINVAL;
 
-	err = ntmp_isct_operate_entry(&priv->si->cbdr, psfp->isc_eid,
+	err = ntmp_isct_operate_entry(&priv->si->cbdrs, psfp->isc_eid,
 				      NTMP_CMD_QUERY, &counters);
 	if (err)
 		return -EINVAL;

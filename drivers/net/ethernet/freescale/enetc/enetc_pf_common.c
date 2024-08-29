@@ -759,11 +759,11 @@ int enetc_pf_set_mac_exact_filter(struct enetc_pf *pf, int si_id,
 
 	/* Clear MAC filter table */
 	for (i = 0; i < mf_num; i++)
-		ntmp_maft_delete_entry(&si->cbdr, i);
+		ntmp_maft_delete_entry(&si->cbdrs, i);
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->mac_list, node) {
-		ntmp_maft_add_entry(&si->cbdr, i, entry->mfe.mac,
+		ntmp_maft_add_entry(&si->cbdrs, i, entry->mfe.mac,
 				    entry->mfe.si_bitmap);
 		i++;
 	}
@@ -859,11 +859,11 @@ static u16 enetc_msg_pf_del_vf_mac_entries(struct enetc_pf *pf, int vf_id)
 
 	/* Clear MAC filter table */
 	for (i = 0; i < mf_num; i++)
-		ntmp_maft_delete_entry(&si->cbdr, i);
+		ntmp_maft_delete_entry(&si->cbdrs, i);
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->mac_list, node) {
-		ntmp_maft_add_entry(&si->cbdr, i, entry->mfe.mac,
+		ntmp_maft_add_entry(&si->cbdrs, i, entry->mfe.mac,
 				    entry->mfe.si_bitmap);
 		i++;
 	}
@@ -957,11 +957,11 @@ void enetc_pf_flush_mac_exact_filter(struct enetc_pf *pf, int si_id,
 	}
 
 	for (i = 0; i < mf_num; i++)
-		ntmp_maft_delete_entry(&si->cbdr, i);
+		ntmp_maft_delete_entry(&si->cbdrs, i);
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->mac_list, node) {
-		ntmp_maft_add_entry(&si->cbdr, i, entry->mfe.mac,
+		ntmp_maft_add_entry(&si->cbdrs, i, entry->mfe.mac,
 				    entry->mfe.si_bitmap);
 		i++;
 	}
@@ -1170,11 +1170,11 @@ static int enetc_pf_set_vlan_exact_filter(struct enetc_pf *pf, int si_id,
 
 	/* Clear VLAN filter table */
 	for (i = 0; i < vf_num; i++)
-		ntmp_vaft_delete_entry(&si->cbdr, i);
+		ntmp_vaft_delete_entry(&si->cbdrs, i);
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->vlan_list, node) {
-		ntmp_vaft_add_entry(&si->cbdr, i, &entry->vfe);
+		ntmp_vaft_add_entry(&si->cbdrs, i, &entry->vfe);
 		i++;
 	}
 
@@ -1267,11 +1267,11 @@ static u16 enetc_msg_pf_del_vf_vlan_entries(struct enetc_pf *pf, int vf_id)
 					    msg->vlan_cnt);
 
 	for (i = 0; i < vf_num; i++)
-		ntmp_vaft_delete_entry(&si->cbdr, i);
+		ntmp_vaft_delete_entry(&si->cbdrs, i);
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->vlan_list, node) {
-		ntmp_vaft_add_entry(&si->cbdr, i, &entry->vfe);
+		ntmp_vaft_add_entry(&si->cbdrs, i, &entry->vfe);
 		i++;
 	}
 
@@ -1342,11 +1342,11 @@ static void enetc_pf_flush_vlan_exact_filter(struct enetc_pf *pf, int si_id)
 	}
 
 	for (i = 0; i < vf_num; i++)
-		ntmp_vaft_delete_entry(&si->cbdr, i);
+		ntmp_vaft_delete_entry(&si->cbdrs, i);
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->vlan_list, node) {
-		ntmp_vaft_add_entry(&si->cbdr, i, &entry->vfe);
+		ntmp_vaft_add_entry(&si->cbdrs, i, &entry->vfe);
 		i++;
 	}
 }

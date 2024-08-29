@@ -32,7 +32,7 @@ static int enetc_tgst_show(struct seq_file *s, void *data)
 		goto end;
 	}
 
-	err = ntmp_tgst_query_entry(&si->cbdr, port, info);
+	err = ntmp_tgst_query_entry(&si->cbdrs, port, info);
 	if (err)
 		goto end;
 
@@ -161,7 +161,7 @@ static int enetc_rx_mode_show(struct seq_file *s, void *data)
 	for (i = 0; i < pf->num_mac_fe; i++) {
 		struct ntmp_mfe entry;
 
-		err = ntmp_maft_query_entry(&si->cbdr, i, &entry);
+		err = ntmp_maft_query_entry(&si->cbdrs, i, &entry);
 		if (err)
 			return err;
 
@@ -351,7 +351,7 @@ static int enetc_psfp_show(struct seq_file *s, void *data)
 
 		seq_printf(s, "Show PSFP entry %d information.\n", i++);
 
-		err = ntmp_isit_query_entry(&si->cbdr, psfp->isit_cfg.entry_id,
+		err = ntmp_isit_query_entry(&si->cbdrs, psfp->isit_cfg.entry_id,
 					    isi_info);
 		if (err)
 			goto free_isc_info;
@@ -359,7 +359,7 @@ static int enetc_psfp_show(struct seq_file *s, void *data)
 			   psfp->isit_cfg.entry_id);
 		enetc_psfp_isi_show(s, isi_info);
 
-		err = ntmp_ist_query_entry(&si->cbdr, psfp->isit_cfg.is_eid,
+		err = ntmp_ist_query_entry(&si->cbdrs, psfp->isit_cfg.is_eid,
 					   is_info);
 		if (err)
 			goto free_isc_info;
@@ -368,7 +368,7 @@ static int enetc_psfp_show(struct seq_file *s, void *data)
 		enetc_psfp_is_show(s, is_info);
 
 		if (psfp->isf_eid != NTMP_NULL_ENTRY_ID) {
-			err = ntmp_isft_query_entry(&si->cbdr, psfp->isf_eid, isf_info);
+			err = ntmp_isft_query_entry(&si->cbdrs, psfp->isf_eid, isf_info);
 			if (err)
 				goto free_isc_info;
 			seq_printf(s, "Show ingress stream filter table entry %u:\n",
@@ -377,7 +377,7 @@ static int enetc_psfp_show(struct seq_file *s, void *data)
 		}
 
 		if (psfp->rp_eid != NTMP_NULL_ENTRY_ID) {
-			err = ntmp_rpt_query_entry(&si->cbdr, psfp->rp_eid, rp_info);
+			err = ntmp_rpt_query_entry(&si->cbdrs, psfp->rp_eid, rp_info);
 			if (err)
 				goto free_isc_info;
 			seq_printf(s, "Show rate policer table entry %u:\n", psfp->rp_eid);
@@ -385,7 +385,7 @@ static int enetc_psfp_show(struct seq_file *s, void *data)
 		}
 
 		if (psfp->sgi_eid != NTMP_NULL_ENTRY_ID) {
-			err = ntmp_sgit_query_entry(&si->cbdr, psfp->sgi_eid, sgi_info);
+			err = ntmp_sgit_query_entry(&si->cbdrs, psfp->sgi_eid, sgi_info);
 			if (err)
 				goto free_isc_info;
 			seq_printf(s, "Show stream gate instance table entry %u:\n",
@@ -394,7 +394,7 @@ static int enetc_psfp_show(struct seq_file *s, void *data)
 		}
 
 		if (psfp->sgcl_eid != NTMP_NULL_ENTRY_ID) {
-			err = ntmp_sgclt_query_entry(&si->cbdr, psfp->sgcl_eid, sgcl_info);
+			err = ntmp_sgclt_query_entry(&si->cbdrs, psfp->sgcl_eid, sgcl_info);
 			if (err)
 				goto free_isc_info;
 			seq_printf(s, "Show stream gate control list table entry %u:\n",
@@ -403,7 +403,7 @@ static int enetc_psfp_show(struct seq_file *s, void *data)
 		}
 
 		if (psfp->isc_eid != NTMP_NULL_ENTRY_ID) {
-			err = ntmp_isct_operate_entry(&si->cbdr, psfp->isc_eid, NTMP_CMD_QUERY,
+			err = ntmp_isct_operate_entry(&si->cbdrs, psfp->isc_eid, NTMP_CMD_QUERY,
 						      isc_info);
 			if (err)
 				goto free_isc_info;
@@ -443,7 +443,7 @@ static int enetc_ipf_entry_show(struct seq_file *s, struct enetc_si *si, u32 ent
 	if (!info)
 		return -ENOMEM;
 
-	err = ntmp_ipft_query_entry(&si->cbdr, entry_id, info);
+	err = ntmp_ipft_query_entry(&si->cbdrs, entry_id, info);
 	if (err)
 		goto end;
 

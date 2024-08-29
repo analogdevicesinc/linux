@@ -114,10 +114,6 @@ struct netc_cbdr_regs {
 	void __iomem *bar0;
 	void __iomem *bar1;
 	void __iomem *lenr;
-
-	/* station interface current time register */
-	void __iomem *sictr0;
-	void __iomem *sictr1;
 };
 
 struct netc_cbdr {
@@ -132,9 +128,17 @@ struct netc_cbdr {
 	void *addr_base_align;
 	dma_addr_t dma_base;
 	dma_addr_t dma_base_align;
-	struct device *dma_dev;
 
 	spinlock_t ring_lock; /* Avoid race condition */
+};
+
+struct netc_cbdrs {
+	int cbdr_num;	/* number of control BD ring */
+	int cbdr_size;	/* number of BDs per control BD ring */
+	struct device *dma_dev;
+	struct netc_cbdr *ring;
+
+	u64 (*get_current_time)(struct device *dev);
 };
 
 struct ntmp_mfe {
@@ -415,63 +419,62 @@ struct ntmp_ipft_info {
 };
 
 #if IS_ENABLED(CONFIG_FSL_NTMP)
-int netc_setup_cbdr(struct device *dev, int cbd_num,
-		    struct netc_cbdr_regs *regs,
+int netc_setup_cbdr(struct device *dev, int cbd_num, struct netc_cbdr_regs *regs,
 		    struct netc_cbdr *cbdr);
-void netc_free_cbdr(struct netc_cbdr *cbdr);
+void netc_teardown_cbdr(struct device *dev, struct netc_cbdr *cbdr);
 
 /* NTMP APIs */
-int ntmp_maft_add_entry(struct netc_cbdr *cbdr, u32 entry_id,
+int ntmp_maft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			const char *mac_addr, int si_bitmap);
-int ntmp_maft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+int ntmp_maft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			  struct ntmp_mfe *entry);
-int ntmp_maft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id);
-int ntmp_vaft_add_entry(struct netc_cbdr *cbdr, u32 entry_id,
+int ntmp_maft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
+int ntmp_vaft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			struct ntmp_vfe *vfe);
-int ntmp_vaft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+int ntmp_vaft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			  struct ntmp_vfe *entry);
-int ntmp_vaft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id);
-int ntmp_rsst_query_or_update_entry(struct netc_cbdr *cbdr, u32 *table,
+int ntmp_vaft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
+int ntmp_rsst_query_or_update_entry(struct netc_cbdrs *cbdrs, u32 *table,
 				    int count, bool query);
-int ntmp_tgst_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+int ntmp_tgst_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			  struct ntmp_tgst_info *info);
-int ntmp_tgst_update_admin_gate_list(struct netc_cbdr *cbdr, u32 entry_id,
+int ntmp_tgst_update_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id,
 				     struct ntmp_tgst_cfg *cfg);
-int ntmp_tgst_delete_admin_gate_list(struct netc_cbdr *cbdr, u32 entry_id);
-int ntmp_rpt_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_rpt_cfg *cfg);
-int ntmp_rpt_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+int ntmp_tgst_delete_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id);
+int ntmp_rpt_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_rpt_cfg *cfg);
+int ntmp_rpt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			 struct ntmp_rpt_info *info);
-int ntmp_rpt_delete_entry(struct netc_cbdr *cbdr, u32 entry_id);
-int ntmp_isit_add_or_update_entry(struct netc_cbdr *cbdr,
+int ntmp_rpt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
+int ntmp_isit_add_or_update_entry(struct netc_cbdrs *cbdrs,
 				  struct ntmp_isit_cfg *cfg, bool add);
-int ntmp_isit_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+int ntmp_isit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			  struct ntmp_isit_info *info);
-int ntmp_isit_delete_entry(struct netc_cbdr *cbdr, u32 entry_id);
-int ntmp_ist_add_or_update_entry(struct netc_cbdr *cbdr, struct ntmp_ist_cfg *cfg);
-int ntmp_ist_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+int ntmp_isit_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
+int ntmp_ist_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_ist_cfg *cfg);
+int ntmp_ist_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			 struct ntmp_ist_info *info);
-int ntmp_ist_delete_entry(struct netc_cbdr *cbdr, u32 entry_id);
-int ntmp_isft_add_or_update_entry(struct netc_cbdr *cbdr,
+int ntmp_ist_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
+int ntmp_isft_add_or_update_entry(struct netc_cbdrs *cbdrs,
 				  struct ntmp_isft_cfg *cfg, bool add);
-int ntmp_isft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+int ntmp_isft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			  struct ntmp_isft_info *info);
-int ntmp_isft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id);
-int ntmp_sgit_add_or_update_entry(struct netc_cbdr *cbdr,
+int ntmp_isft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
+int ntmp_sgit_add_or_update_entry(struct netc_cbdrs *cbdrs,
 				  struct ntmp_sgit_cfg *cfg);
-int ntmp_sgit_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+int ntmp_sgit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			  struct ntmp_sgit_info *info);
-int ntmp_sgit_delete_entry(struct netc_cbdr *cbdr, u32 entry_id);
-int ntmp_sgclt_add_entry(struct netc_cbdr *cbdr, struct ntmp_sgclt_cfg *cfg);
-int ntmp_sgclt_delete_entry(struct netc_cbdr *cbdr, u32 entry_id);
-int ntmp_sgclt_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+int ntmp_sgit_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
+int ntmp_sgclt_add_entry(struct netc_cbdrs *cbdrs, struct ntmp_sgclt_cfg *cfg);
+int ntmp_sgclt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
+int ntmp_sgclt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			   struct ntmp_sgclt_info *info);
-int ntmp_isct_operate_entry(struct netc_cbdr *cbdr, u32 entry_id,
+int ntmp_isct_operate_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			    int cmd, struct ntmp_isct_info *info);
-int ntmp_ipft_add_entry(struct netc_cbdr *cbdr, struct ntmp_ipft_key *key,
+int ntmp_ipft_add_entry(struct netc_cbdrs *cbdrs, struct ntmp_ipft_key *key,
 			struct ntmp_ipft_cfg *cfg, u32 *entry_id);
-int ntmp_ipft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+int ntmp_ipft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			  struct ntmp_ipft_info *info);
-int ntmp_ipft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id);
+int ntmp_ipft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
 #else
 static inline int netc_setup_cbdr(struct device *dev, int cbd_num,
 				  struct netc_cbdr_regs *regs,
@@ -480,182 +483,182 @@ static inline int netc_setup_cbdr(struct device *dev, int cbd_num,
 	return 0;
 }
 
-static inline void netc_free_cbdr(struct netc_cbdr *cbdr)
+static inline void netc_teardown_cbdr(struct device *dev, struct netc_cbdr *cbdr)
 {
 }
 
 /* NTMP APIs */
-static inline int ntmp_maft_add_entry(struct netc_cbdr *cbdr, u32 entry_id,
+static inline int ntmp_maft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 				      const char *mac_addr, int si_bitmap)
 {
 	return 0;
 }
 
-static inline int ntmp_maft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+static inline int ntmp_maft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 					struct ntmp_mfe *entry)
 {
 	return 0;
 }
 
-static inline int ntmp_maft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
+static inline int ntmp_maft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 {
 	return 0;
 }
 
-static inline int ntmp_vaft_add_entry(struct netc_cbdr *cbdr, u32 entry_id,
+static inline int ntmp_vaft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 				      struct ntmp_vfe *vfe)
 {
 	return 0;
 }
 
-static inline int ntmp_vaft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+static inline int ntmp_vaft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 					struct ntmp_vfe *entry)
 {
 	return 0;
 }
 
-static inline int ntmp_vaft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
+static inline int ntmp_vaft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 {
 	return 0;
 }
 
-static inline int ntmp_rsst_query_or_update_entry(struct netc_cbdr *cbdr,
+static inline int ntmp_rsst_query_or_update_entry(struct netc_cbdrs *cbdrs,
 						  u32 *table, int count,
 						  bool query)
 {
 	return 0;
 }
 
-static inline int ntmp_tgst_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+static inline int ntmp_tgst_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 					struct ntmp_tgst_info *info)
 {
 	return 0;
 }
 
-static inline int ntmp_tgst_update_admin_gate_list(struct netc_cbdr *cbdr,
+static inline int ntmp_tgst_update_admin_gate_list(struct netc_cbdrs *cbdrs,
 						   u32 entry_id,
 						   struct ntmp_tgst_cfg *cfg)
 {
 	return 0;
 }
 
-static inline int ntmp_tgst_delete_admin_gate_list(struct netc_cbdr *cbdr,
+static inline int ntmp_tgst_delete_admin_gate_list(struct netc_cbdrs *cbdrs,
 						   u32 entry_id)
 {
 	return 0;
 }
 
-static inline int ntmp_rpt_add_or_update_entry(struct netc_cbdr *cbdr,
+static inline int ntmp_rpt_add_or_update_entry(struct netc_cbdrs *cbdrs,
 					       struct ntmp_rpt_cfg *cfg)
 {
 	return 0;
 }
 
-static inline int ntmp_rpt_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+static inline int ntmp_rpt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 				       struct ntmp_rpt_info *info)
 {
 	return 0;
 }
 
-static inline int ntmp_rpt_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
+static inline int ntmp_rpt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 {
 	return 0;
 }
 
-static inline int ntmp_isit_add_or_update_entry(struct netc_cbdr *cbdr,
+static inline int ntmp_isit_add_or_update_entry(struct netc_cbdrs *cbdrs,
 						struct ntmp_isit_cfg *cfg,
 						bool add)
 {
 	return 0;
 }
 
-static inline int ntmp_isit_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+static inline int ntmp_isit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 					struct ntmp_isit_info *info)
 {
 	return 0;
 }
 
-static inline int ntmp_isit_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
+static inline int ntmp_isit_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 {
 	return 0;
 }
 
-static inline int ntmp_ist_add_or_update_entry(struct netc_cbdr *cbdr,
+static inline int ntmp_ist_add_or_update_entry(struct netc_cbdrs *cbdrs,
 					       struct ntmp_ist_cfg *cfg)
 {
 	return 0;
 }
 
-static inline int ntmp_ist_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+static inline int ntmp_ist_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 				       struct ntmp_ist_info *info)
 {
 	return 0;
 }
 
-static inline int ntmp_ist_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
+static inline int ntmp_ist_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 {
 	return 0;
 }
 
-static inline int ntmp_isft_add_or_update_entry(struct netc_cbdr *cbdr,
+static inline int ntmp_isft_add_or_update_entry(struct netc_cbdrs *cbdrs,
 						struct ntmp_isft_cfg *cfg,
 						bool add)
 {
 	return 0;
 }
 
-static inline int ntmp_isft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+static inline int ntmp_isft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 					struct ntmp_isft_info *info)
 {
 	return 0;
 }
 
-static inline int ntmp_isft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
+static inline int ntmp_isft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 {
 	return 0;
 }
 
-static inline int ntmp_sgit_add_or_update_entry(struct netc_cbdr *cbdr,
+static inline int ntmp_sgit_add_or_update_entry(struct netc_cbdrs *cbdrs,
 						struct ntmp_sgit_cfg *cfg)
 {
 	return 0;
 }
 
-static inline int ntmp_sgit_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+static inline int ntmp_sgit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 					struct ntmp_sgit_info *info)
 {
 	return 0;
 }
 
-static inline int ntmp_sgit_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
+static inline int ntmp_sgit_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 {
 	return 0;
 }
 
-static inline int ntmp_sgclt_add_entry(struct netc_cbdr *cbdr,
+static inline int ntmp_sgclt_add_entry(struct netc_cbdrs *cbdrs,
 				       struct ntmp_sgclt_cfg *cfg)
 {
 	return 0;
 }
 
-static inline int ntmp_sgclt_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
+static inline int ntmp_sgclt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 {
 	return 0;
 }
 
-static inline int ntmp_sgclt_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+static inline int ntmp_sgclt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 					 struct ntmp_sgclt_info *info)
 {
 	return 0;
 }
 
-static inline int ntmp_isct_operate_entry(struct netc_cbdr *cbdr, u32 entry_id,
+static inline int ntmp_isct_operate_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 					  int cmd, struct ntmp_isct_info *info)
 {
 	return 0;
 }
 
-static inline int ntmp_ipft_add_entry(struct netc_cbdr *cbdr,
+static inline int ntmp_ipft_add_entry(struct netc_cbdrs *cbdrs,
 				      struct ntmp_ipft_key *key,
 				      struct ntmp_ipft_cfg *cfg,
 				      u32 *entry_id)
@@ -663,13 +666,13 @@ static inline int ntmp_ipft_add_entry(struct netc_cbdr *cbdr,
 	return 0;
 }
 
-static inline int ntmp_ipft_query_entry(struct netc_cbdr *cbdr, u32 entry_id,
+static inline int ntmp_ipft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 					struct ntmp_ipft_info *info)
 {
 	return 0;
 }
 
-static inline int ntmp_ipft_delete_entry(struct netc_cbdr *cbdr, u32 entry_id)
+static inline int ntmp_ipft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 {
 	return 0;
 }

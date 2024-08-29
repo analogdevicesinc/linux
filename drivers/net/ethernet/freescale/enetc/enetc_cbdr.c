@@ -45,10 +45,36 @@ static int enetc_setup_cbdr(struct device *dev, struct enetc_hw *hw,
 	return 0;
 }
 
-static int enetc4_setup_cbdr(struct device *dev, struct enetc_hw *hw,
-			     int bd_count, struct netc_cbdr *cbdr)
+static u64 enetc_get_current_time(struct device *dev)
 {
+	struct pci_dev *pdev = to_pci_dev(dev);
+	struct enetc_si *si;
+	u32 time_l, time_h;
+	u64 current_time;
+
+	si = pci_get_drvdata(pdev);
+	time_l = enetc_rd_hot(&si->hw, ENETC_SICTR0);
+	time_h = enetc_rd_hot(&si->hw, ENETC_SICTR1);
+	current_time = (u64)time_h << 32 | time_l;
+
+	return current_time;
+}
+
+static int enetc4_setup_cbdr(struct enetc_si *si)
+{
+	struct netc_cbdrs *cbdrs = &si->cbdrs;
+	struct device *dev = &si->pdev->dev;
+	struct enetc_hw *hw = &si->hw;
 	struct netc_cbdr_regs regs;
+
+	cbdrs->cbdr_num = 1;
+	cbdrs->cbdr_size = NETC_CBDR_BD_NUM;
+	cbdrs->dma_dev = dev;
+	cbdrs->get_current_time = enetc_get_current_time;
+	cbdrs->ring = devm_kcalloc(dev, cbdrs->cbdr_num,
+				   sizeof(struct netc_cbdr), GFP_KERNEL);
+	if (!cbdrs->ring)
+		return -ENOMEM;
 
 	regs.pir = hw->reg + ENETC_SICBDRPIR;
 	regs.cir = hw->reg + ENETC_SICBDRCIR;
@@ -56,10 +82,8 @@ static int enetc4_setup_cbdr(struct device *dev, struct enetc_hw *hw,
 	regs.bar0 = hw->reg + ENETC_SICBDRBAR0;
 	regs.bar1 = hw->reg + ENETC_SICBDRBAR1;
 	regs.lenr = hw->reg + ENETC_SICBDRLENR;
-	regs.sictr0 =  hw->reg + ENETC_SICTR0;
-	regs.sictr1 =  hw->reg + ENETC_SICTR1;
 
-	return netc_setup_cbdr(dev, bd_count, &regs, cbdr);
+	return netc_setup_cbdr(dev, cbdrs->cbdr_size, &regs, cbdrs->ring);
 }
 
 int enetc_init_cbdr(struct enetc_si *si)
@@ -69,9 +93,7 @@ int enetc_init_cbdr(struct enetc_si *si)
 					ENETC_CBDR_DEFAULT_SIZE,
 					&si->cbd_ring);
 	else
-		return enetc4_setup_cbdr(&si->pdev->dev, &si->hw,
-					 NETC_CBDR_BD_NUM,
-					 &si->cbdr);
+		return enetc4_setup_cbdr(si);
 }
 EXPORT_SYMBOL_GPL(enetc_init_cbdr);
 
@@ -88,9 +110,10 @@ static void enetc_teardown_cbdr(struct enetc_cbdr *cbdr)
 	cbdr->dma_dev = NULL;
 }
 
-static void enetc4_teardown_cbdr(struct netc_cbdr *cbdr)
+static void enetc4_teardown_cbdr(struct netc_cbdrs *cbdrs)
 {
-	netc_free_cbdr(cbdr);
+	netc_teardown_cbdr(cbdrs->dma_dev, cbdrs->ring);
+	cbdrs->dma_dev = NULL;
 }
 
 void enetc_free_cbdr(struct enetc_si *si)
@@ -98,7 +121,7 @@ void enetc_free_cbdr(struct enetc_si *si)
 	if (is_enetc_rev1(si))
 		enetc_teardown_cbdr(&si->cbd_ring);
 	else
-		enetc4_teardown_cbdr(&si->cbdr);
+		enetc4_teardown_cbdr(&si->cbdrs);
 }
 EXPORT_SYMBOL_GPL(enetc_free_cbdr);
 

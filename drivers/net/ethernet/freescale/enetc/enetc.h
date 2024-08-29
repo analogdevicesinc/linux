@@ -281,7 +281,7 @@ struct enetc_si {
 	struct enetc_cbs *ecbs;
 
 	u64 clk_freq;
-	struct netc_cbdr cbdr;
+	struct netc_cbdrs cbdrs;
 	struct dentry *debugfs_root;
 
 	struct workqueue_struct *workqueue;

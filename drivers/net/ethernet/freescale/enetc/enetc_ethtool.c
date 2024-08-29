@@ -845,7 +845,7 @@ static int enetc4_set_wol_mg_ipft_entry(struct enetc_ndev_priv *priv)
 	cfg.filter = BIT(0) | BIT(4) | (NTMP_IPFT_FLTA_SI_BITMAP << 5);
 	cfg.flta_tgt = 1;
 
-	err = ntmp_ipft_add_entry(&si->cbdr, key, &cfg, &priv->ipt_wol_eid);
+	err = ntmp_ipft_add_entry(&si->cbdrs, key, &cfg, &priv->ipt_wol_eid);
 	if (err)
 		return err;
 
@@ -1012,7 +1012,7 @@ l4ip6:
 		cfg.filter = 0;
 	}
 
-	err = ntmp_ipft_add_entry(&si->cbdr, key, &cfg, entry_id);
+	err = ntmp_ipft_add_entry(&si->cbdrs, key, &cfg, entry_id);
 
 end:
 	kfree(key);
@@ -1128,7 +1128,7 @@ static int enetc4_configure_rxnfc(struct net_device *ndev, struct ethtool_rxnfc 
 			cls_rule = &priv->cls_rules[rxnfc->fs.location];
 			entry_id = cls_rule->entry_id;
 
-			err = ntmp_ipft_delete_entry(&si->cbdr, entry_id);
+			err = ntmp_ipft_delete_entry(&si->cbdrs, entry_id);
 			if (err)
 				return err;
 
@@ -1156,7 +1156,7 @@ static int enetc4_configure_rxnfc(struct net_device *ndev, struct ethtool_rxnfc 
 			return -EINVAL;
 
 		entry_id = priv->cls_rules[rxnfc->fs.location].entry_id;
-		err = ntmp_ipft_delete_entry(&si->cbdr, entry_id);
+		err = ntmp_ipft_delete_entry(&si->cbdrs, entry_id);
 		if (err)
 			return err;
 
@@ -1517,7 +1517,7 @@ static int enetc_set_wol(struct net_device *dev,
 				device_set_wakeup_enable(&priv->rcec->dev, 0);
 				priv->rcec->dev_flags &= ~PCI_DEV_FLAGS_NO_D3;
 			}
-			err = ntmp_ipft_delete_entry(&priv->si->cbdr,
+			err = ntmp_ipft_delete_entry(&priv->si->cbdrs,
 						     priv->ipt_wol_eid);
 			if (err)
 				return err;
