@@ -1301,6 +1301,15 @@ static int ad4170_setup(struct iio_dev *indio_dev)
 		ad4170_set_channel_freq(st, i, 125000, 0);
 		ad4170_fill_scale_tbl(indio_dev, i);
 	}
+
+	val = 0;
+	for (i = 0; i < st->num_vbias_pins; i++)
+		val |= BIT(st->vbias_pins[i]);
+
+	ret = regmap_write(st->regmap, AD4170_V_BIAS_REG, val);
+	if (ret)
+		return ret;
+
 	for (i = 0; i < AD4170_NUM_CURRENT_SOURCE; i++) {
 		val = FIELD_PREP(AD4170_CURRENT_SOURCE_I_OUT_PIN_MSK,
 				 st->cfg.current_source[i].i_out_pin) |
