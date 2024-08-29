@@ -49,7 +49,7 @@
 			#size-cells = <0>;
 			status = "okay";
 			ad7294: ad7294@62 {
-				compatible = "adi,ad7294";
+				compatible = "adi,ad7294-2";
 				reg = <0x62>;
 				interrupts = <4 IRQ_TYPE_EDGE_FALLING>;
 				interrupt-parent = <&gpio>;
@@ -59,13 +59,6 @@
 				avdd-supply = <&avdd>;
 				vdrive-supply = <&vdrive>;
 			};
-		};
-	};
-
-	fragment@2 {
-		target = <&ad7294>;
-		__dormant__ {
-			compatible = "adi,ad7294-2";
 		};
 	};
 };
