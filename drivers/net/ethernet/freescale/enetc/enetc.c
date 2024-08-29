@@ -29,6 +29,11 @@ EXPORT_SYMBOL_GPL(enetc_port_mac_wr);
 void enetc_change_preemptible_tcs(struct enetc_ndev_priv *priv,
 				  u8 preemptible_tcs)
 {
+	struct enetc_si *si = priv->si;
+
+	if (!(si->hw_features & ENETC_SI_F_QBU))
+		return;
+
 	priv->preemptible_tcs = preemptible_tcs;
 	enetc_mm_commit_preemptible_tcs(priv);
 }
