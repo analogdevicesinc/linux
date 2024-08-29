@@ -57,7 +57,13 @@ properties:
       from AVSS. Pin defaults to GPIO if this property is not present.
 
   adi,vbias-pins:
-    description: A ....V supply that powers the chip (VDD).
+    description: Analog inputs to apply a voltage bias of (AVDD − AVSS) / 2 to.
+    $ref: /schemas/types.yaml#/definitions/uint32-array
+    minItems: 1
+    maxItems: 9
+    items:
+      minimum: 0
+      maximum: 8
 
 required:
   - compatible
@@ -134,6 +140,7 @@ examples:
             interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
             interrupt-names = "adc_rdy";
             adi,dig-aux1-function = "rdy";
+            adi,vbias-pins = <5 6>;
 
             channel@0 {
                 reg = <0>;
