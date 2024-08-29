@@ -16,6 +16,16 @@ struct common_req_data {
 	u8 tbl_ver:4;
 };
 
+struct common_resp_query {
+	__le32 entry_id;
+};
+
+/* Generic structure for 'delete' or 'query' by entry ID  */
+struct ntmp_qd_by_eid {
+	struct common_req_data crd;
+	__le32 entry_id;
+};
+
 /* MAC Address Filter Table Request and Response Data Buffer Format */
 struct maft_keye_data {
 	u8 mac_addr[ETH_ALEN];
@@ -25,12 +35,6 @@ struct maft_keye_data {
 struct maft_cfge_data {
 	__le16 si_bitmap;
 	__le16 resv;
-};
-
-/* struct for query or delete operation */
-struct maft_req_qd {
-	struct common_req_data crd;
-	__le32 entry_id;
 };
 
 /* struct for add operation */
@@ -69,12 +73,6 @@ struct vaft_req_add {
 	struct vaft_cfge_data cfge;
 };
 
-/* VLAN Address Filter Table Query or Delete action */
-struct vaft_req_qd {
-	struct common_req_data crd;
-	__le32 entry_id;
-};
-
 /* VLAN Address Filter Table Response to Query action */
 struct vaft_resp_query {
 	__le32 entry_id;
@@ -83,12 +81,6 @@ struct vaft_resp_query {
 };
 
 /* RSS Table Request and Response Data Buffer Format */
-struct rsst_req_query {
-	struct common_req_data crd;
-	__le32 entry_id;
-};
-
-/* struct for update operation */
 struct rsst_req_update {
 	struct common_req_data crd;
 	__le32 entry_id;
@@ -117,11 +109,6 @@ struct tgst_req_update {
 	struct common_req_data crd;
 	__le32 entry_id;
 	struct tgst_cfge_data cfge;
-};
-
-struct tgst_req_query {
-	struct common_req_data crd;
-	__le32 entry_id;
 };
 
 struct tgst_olse_data {
@@ -202,11 +189,6 @@ struct rpt_req_ua {
 	struct rpt_fee_data fee;
 };
 
-struct rpt_req_nua {
-	struct common_req_data crd;
-	__le32 entry_id;
-};
-
 struct rpt_resp_query {
 	__le32 entry_id;
 	struct rpt_stse_data stse;
@@ -252,7 +234,7 @@ struct isit_req_ua {
 };
 
 /* struct for not update or add operation, such as delete, query */
-struct isit_req_nua {
+struct isit_req_qd {
 	struct common_req_data crd;
 	struct isit_access_key ak;
 };
@@ -299,11 +281,6 @@ struct ist_req_ua {
 	struct common_req_data crd;
 	__le32 entry_id;
 	struct ist_cfge_data cfge;
-};
-
-struct ist_req_nua {
-	struct common_req_data crd;
-	__le32 entry_id;
 };
 
 struct ist_resp_query {
@@ -353,7 +330,7 @@ struct isft_req_ua {
 	struct isft_cfge_data cfge;
 };
 
-struct isft_req_nua {
+struct isft_req_qd {
 	struct common_req_data crd;
 	struct isft_access_key ak;
 };
@@ -409,11 +386,6 @@ struct sgit_req_ua {
 	struct sgit_icfge_data icfge;
 };
 
-struct sgit_req_nua {
-	struct common_req_data crd;
-	__le32 entry_id;
-};
-
 struct sgit_resp_query {
 	__le32 entry_id;
 	struct sgit_sgise_data sgise;
@@ -451,12 +423,6 @@ struct sgclt_req_add {
 	struct common_req_data crd;
 	__le32 entry_id;
 	struct sgclt_cfge_data cfge;
-};
-
-/* struct for delete or query operation */
-struct sgclt_req_qd {
-	struct common_req_data crd;
-	__le32 entry_id;
 };
 
 struct sgclt_resp_query {

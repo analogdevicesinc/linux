@@ -116,6 +116,21 @@ struct netc_cbdr_regs {
 	void __iomem *lenr;
 };
 
+struct netc_tbl_vers {
+	u8 maft_ver;
+	u8 vaft_ver;
+	u8 rsst_ver;
+	u8 tgst_ver;
+	u8 rpt_ver;
+	u8 ipft_ver;
+	u8 isit_ver;
+	u8 ist_ver;
+	u8 isft_ver;
+	u8 sgit_ver;
+	u8 sgclt_ver;
+	u8 isct_ver;
+};
+
 struct netc_cbdr {
 	struct netc_cbdr_regs regs;
 
@@ -137,6 +152,7 @@ struct netc_cbdrs {
 	int cbdr_size;	/* number of BDs per control BD ring */
 	struct device *dma_dev;
 	struct netc_cbdr *ring;
+	struct netc_tbl_vers tbl;
 
 	u64 (*get_current_time)(struct device *dev);
 };
