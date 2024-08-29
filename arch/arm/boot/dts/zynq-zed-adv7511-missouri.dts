@@ -61,7 +61,7 @@
 			//reset-gpios = <&fmc_gpio 17 GPIO_ACTIVE_HIGH>;
 		};
 		admv1320: admv1320@1 {
-			compatible = "adi,admv1355";
+			compatible = "adi,admv1320";
 			reg = <1>;
 			#address-cells = <1>;
 			#size-cells = <0>;
