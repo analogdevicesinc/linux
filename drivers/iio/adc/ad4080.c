@@ -456,23 +456,11 @@ static int ad4080_set_filter_mode(struct iio_dev *dev,
 
 	mutex_lock(&st->lock);
 	if (mode) {
-		ret = regmap_write(st->regmap, AD4080_REG_ADC_DATA_INTF_CONFIG_B,
-				   FIELD_PREP(AD4080_LVDS_CNV_CLK_CNT_MSK, 2) |
-				   AD4080_LVDS_CNV_EN_MSK);
-		if (ret)
-			return ret;
-
 		reg_cntrl = axiadc_read(axi_adc_st, ADI_REG_CNTRL_3);
 		axiadc_write(axi_adc_st, ADI_REG_CNTRL_3, reg_cntrl | AXI_AD4080_ENABLE_FILTER_BIT);
 
 		st->filter_enabled = true;
 	} else {
-		ret = regmap_write(st->regmap, AD4080_REG_ADC_DATA_INTF_CONFIG_B,
-				   FIELD_PREP(AD4080_LVDS_CNV_CLK_CNT_MSK, 4) |
-				   AD4080_LVDS_CNV_EN_MSK);
-		if (ret)
-			return ret;
-
 		reg_cntrl = axiadc_read(axi_adc_st, ADI_REG_CNTRL_3);
 		axiadc_write(axi_adc_st, ADI_REG_CNTRL_3, reg_cntrl & ~AXI_AD4080_ENABLE_FILTER_BIT);
 
@@ -646,7 +634,7 @@ static int ad4080_setup(struct ad4080_state *st)
 
 	if (st->num_lanes)
 		regmap_write(st->regmap, AD4080_REG_ADC_DATA_INTF_CONFIG_B,
-			     FIELD_PREP(AD4080_LVDS_CNV_CLK_CNT_MSK, 4) |
+			     FIELD_PREP(AD4080_LVDS_CNV_CLK_CNT_MSK, 7) |
 			     AD4080_LVDS_CNV_EN_MSK);
 	else
 		regmap_write(st->regmap, AD4080_REG_ADC_DATA_INTF_CONFIG_B,
