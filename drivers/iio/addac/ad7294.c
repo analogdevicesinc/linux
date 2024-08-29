@@ -17,37 +17,47 @@
 #include <linux/regulator/consumer.h>
 #include <linux/units.h>
 
-#define AD7294_REG_CMD		     0x00
-#define AD7294_REG_RESULT	     0x01
-#define AD7294_REG_TEMP_BASE	     0x02
-#define AD7294_REG_DAC(x)	     ((x) + 0x01)
-#define AD7294_VOLTAGE_STATUS	     0x05
-#define AD7294_CURRENT_STATUS	     0x06
-#define AD7294_TEMP_STATUS	     0x07
-#define AD7294_REG_CONFIG	     0x09
-#define AD7294_REG_PWDN		     0x0A
-#define AD7294_REG_DATA_LOW(x)	     ((x) * 3 + 0x0B)
-#define AD7294_REG_DATA_HIGH(x)	     ((x) * 3 + 0x0C)
-#define AD7294_REG_HYSTERESIS(x)     ((x) * 3 + 0x0D)
+#define AD7294_REG_CMD			 0x00
+#define AD7294_REG_RESULT		 0x01
+#define AD7294_REG_TEMP_BASE		 0x02
+#define AD7294_REG_DAC(x)		 ((x) + 0x01)
+#define AD7294_VOLTAGE_STATUS		 0x05
+#define AD7294_CURRENT_STATUS		 0x06
+#define AD7294_TEMP_STATUS		 0x07
+#define AD7294_REG_CONFIG		 0x09
+#define AD7294_REG_PWDN			 0x0A
 
-#define AD7294_TEMP_ALERT_MASK	     GENMASK(6, 0)
-#define AD7294_CURRENT_ALERT_MASK    GENMASK(4, 0)
-#define AD7294_TEMP_VALUE_MASK	     GENMASK(10, 0)
-#define AD7294_ADC_VALUE_MASK	     GENMASK(11, 0)
-#define AD7294_ADC_EXTERNAL_REF_MASK BIT(5)
-#define AD7294_DAC_EXTERNAL_REF_MASK BIT(4)
-#define AD7294_DIFF_V3_V2	     BIT(1)
-#define AD7294_DIFF_V1_V0	     BIT(0)
-#define AD7294_ALERT_PIN	     BIT(2)
-#define AD7294_ALERT_LOW(x)	     BIT((x) * 2)
-#define AD7294_ALERT_HIGH(x)	     BIT((x) * 2 + 1)
+#define AD7294_REG_VOLTAGE_DATA_LOW(x)	 ((x) * 3 + 0x0B)
+#define AD7294_REG_VOLTAGE_DATA_HIGH(x)	 ((x) * 3 + 0x0C)
+#define AD7294_REG_VOLTAGE_HYSTERESIS(x) ((x) * 3 + 0x0D)
 
-#define AD7294_ADC_INTERNAL_VREF_MV  2500
-#define AD7294_DAC_INTERNAL_VREF_MV  2500
-#define AD7294_RESOLUTION	     12
-#define AD7294_VOLTAGE_CHENNEL_COUNT 4
+#define AD7294_REG_CURRENT_DATA_LOW(x)	 ((x) * 3 + 0x17)
+#define AD7294_REG_CURRENT_DATA_HIGH(x)	 ((x) * 3 + 0x18)
+#define AD7294_REG_CURRENT_HYSTERESIS(x) ((x) * 3 + 0x19)
+
+#define AD7294_REG_TEMP_DATA_LOW(x)	 ((x) * 3 + 0x1D)
+#define AD7294_REG_TEMP_DATA_HIGH(x)	 ((x) * 3 + 0x1E)
+#define AD7294_REG_TEMP_HYSTERESIS(x)	 ((x) * 3 + 0x1F)
+
+#define AD7294_TEMP_VALUE_MASK		 GENMASK(10, 0)
+#define AD7294_ADC_VALUE_MASK		 GENMASK(11, 0)
+#define AD7294_ADC_EXTERNAL_REF_MASK	 BIT(5)
+#define AD7294_DAC_EXTERNAL_REF_MASK	 BIT(4)
+#define AD7294_DIFF_V3_V2		 BIT(1)
+#define AD7294_DIFF_V1_V0		 BIT(0)
+#define AD7294_ALERT_PIN		 BIT(2)
+#define AD7294_ALERT_LOW(x)		 BIT((x) * 2)
+#define AD7294_ALERT_HIGH(x)		 BIT((x) * 2 + 1)
+
+#define AD7294_ADC_INTERNAL_VREF_MV	 2500
+#define AD7294_DAC_INTERNAL_VREF_MV	 2500
+#define AD7294_RESOLUTION		 12
+#define AD7294_VOLTAGE_CHANNEL_COUNT	 4
+#define AD7294_CURRENT_CHANNEL_COUNT	 2
+#define AD7294_TEMP_CHANNEL_COUNT	 3
 
 struct ad7294_state {
+	/* Protects device raw read write operations */
 	struct mutex lock;
 	struct regmap *regmap;
 	struct i2c_client *i2c;
@@ -73,10 +83,10 @@ static int ad7294_reg_size(unsigned int reg)
 
 static int ad7294_reg_read(void *context, unsigned int reg, unsigned int *val)
 {
-	int ret;
 	struct i2c_client *client = context;
-	unsigned char buffer[3] = { reg };
 	int reg_size = ad7294_reg_size(reg);
+	unsigned char buffer[3] = { reg };
+	int ret;
 
 	ret = i2c_master_send(client, buffer, 1);
 	if (ret < 0)
@@ -86,8 +96,6 @@ static int ad7294_reg_read(void *context, unsigned int reg, unsigned int *val)
 	if (ret < 0)
 		return ret;
 
-	dev_dbg(&client->dev, "Read [%x, %x] from reg:0x%x, size: %d",
-		buffer[1], buffer[2], reg, reg_size);
 	if (reg_size == 1)
 		*val = buffer[1];
 	else
@@ -97,13 +105,10 @@ static int ad7294_reg_read(void *context, unsigned int reg, unsigned int *val)
 
 static int ad7294_reg_write(void *context, unsigned int reg, unsigned int val)
 {
-	int ret;
 	struct i2c_client *client = context;
-	unsigned char buffer[3] = { reg };
 	int reg_size = ad7294_reg_size(reg);
-
-	dev_dbg(&client->dev, "Write [%x] to reg: %x, size: %d", val, reg,
-		reg_size);
+	unsigned char buffer[3] = { reg };
+	int ret;
 
 	if (reg_size == 1) {
 		/* Only take LSB of the data when writing to 1 byte reg */
@@ -151,6 +156,7 @@ static const struct iio_event_spec ad7294_events[] = {
 	},
 };
 
+// clang-format off
 #define AD7294_DAC_CHAN(_chan_id) {                           \
 	.type = IIO_VOLTAGE,                                  \
 	.channel = _chan_id,                                  \
@@ -160,9 +166,8 @@ static const struct iio_event_spec ad7294_events[] = {
 	.output = 1,                                          \
 }
 
-#define AD7294_VOLTAGE_CHAN(_type, _chan_id) {                \
+#define AD7294_VOLTAGE_CHAN(_type) {                          \
 	.type = _type,                                        \
-	.channel = _chan_id,                                  \
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),         \
 	.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE), \
 	.indexed = 1,                                         \
@@ -171,9 +176,8 @@ static const struct iio_event_spec ad7294_events[] = {
 	.num_event_specs = ARRAY_SIZE(ad7294_events),         \
 }
 
-#define AD7294_CURRENT_CHAN(_type, _chan_id) {                \
+#define AD7294_CURRENT_CHAN(_type) {                          \
 	.type = _type,                                        \
-	.channel = _chan_id,                                  \
 	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW)          \
 				| BIT(IIO_CHAN_INFO_SCALE),   \
 	.indexed = 1,                                         \
@@ -192,6 +196,7 @@ static const struct iio_event_spec ad7294_events[] = {
 	.event_spec = ad7294_events,                          \
 	.num_event_specs = ARRAY_SIZE(ad7294_events),         \
 }
+// clang-format on
 
 enum ad7294_temp_chan {
 	TSENSE_1,
@@ -204,12 +209,12 @@ static const struct iio_chan_spec ad7294_chan_spec[] = {
 	AD7294_DAC_CHAN(1),
 	AD7294_DAC_CHAN(2),
 	AD7294_DAC_CHAN(3),
-	AD7294_VOLTAGE_CHAN(IIO_VOLTAGE, 0),
-	AD7294_VOLTAGE_CHAN(IIO_VOLTAGE, 1),
-	AD7294_VOLTAGE_CHAN(IIO_VOLTAGE, 2),
-	AD7294_VOLTAGE_CHAN(IIO_VOLTAGE, 3),
-	AD7294_CURRENT_CHAN(IIO_CURRENT, 0),
-	AD7294_CURRENT_CHAN(IIO_CURRENT, 1),
+	AD7294_VOLTAGE_CHAN(0),
+	AD7294_VOLTAGE_CHAN(1),
+	AD7294_VOLTAGE_CHAN(2),
+	AD7294_VOLTAGE_CHAN(3),
+	AD7294_CURRENT_CHAN(0),
+	AD7294_CURRENT_CHAN(1),
 	AD7294_TEMP_CHAN(TSENSE_1),
 	AD7294_TEMP_CHAN(TSENSE_2),
 	AD7294_TEMP_CHAN(TSENSE_INTERNAL),
@@ -222,27 +227,25 @@ static const char *const ad7294_power_supplies[] = {
 
 static irqreturn_t ad7294_event_handler(int irq, void *private)
 {
-	int i;
 	struct iio_dev *indio_dev = private;
+	s64 timestamp = iio_get_time_ns(indio_dev);
 	struct ad7294_state *st = iio_priv(indio_dev);
 	unsigned int voltage_status, temp_status, current_status;
-	s64 timestamp = iio_get_time_ns(indio_dev);
+	int i;
 
 	if (regmap_read(st->regmap, AD7294_VOLTAGE_STATUS, &voltage_status))
 		return IRQ_HANDLED;
 
 	if (regmap_read(st->regmap, AD7294_CURRENT_STATUS, &current_status))
 		return IRQ_HANDLED;
-	current_status &= AD7294_CURRENT_ALERT_MASK;
 
 	if (regmap_read(st->regmap, AD7294_TEMP_STATUS, &temp_status))
 		return IRQ_HANDLED;
-	temp_status &= AD7294_TEMP_ALERT_MASK;
 
 	if (!(voltage_status || current_status || temp_status))
 		return IRQ_HANDLED;
 
-	for (i = 0; i < AD7294_VOLTAGE_CHENNEL_COUNT; i++) {
+	for (i = 0; i < AD7294_VOLTAGE_CHANNEL_COUNT; i++) {
 		if (voltage_status & AD7294_ALERT_LOW(i))
 			iio_push_event(indio_dev,
 				       IIO_UNMOD_EVENT_CODE(IIO_VOLTAGE, i,
@@ -257,38 +260,80 @@ static irqreturn_t ad7294_event_handler(int irq, void *private)
 				       timestamp);
 	}
 
-	for_each_set_bit(i, (long *)&temp_status, AD7294_TEMP_ALERT_MASK) {
-		if (i & 1)
+	for (i = 0; i < AD7294_CURRENT_CHANNEL_COUNT; i++) {
+		if (current_status & AD7294_ALERT_LOW(i))
 			iio_push_event(indio_dev,
-				       IIO_UNMOD_EVENT_CODE(IIO_TEMP, i >> 1,
-							    IIO_EV_TYPE_THRESH,
-							    IIO_EV_DIR_RISING),
-				       timestamp);
-		else
-			iio_push_event(indio_dev,
-				       IIO_UNMOD_EVENT_CODE(IIO_TEMP, i >> 1,
+				       IIO_UNMOD_EVENT_CODE(IIO_CURRENT, i,
 							    IIO_EV_TYPE_THRESH,
 							    IIO_EV_DIR_FALLING),
+				       timestamp);
+		if (current_status & AD7294_ALERT_HIGH(i))
+			iio_push_event(indio_dev,
+				       IIO_UNMOD_EVENT_CODE(IIO_CURRENT, i,
+							    IIO_EV_TYPE_THRESH,
+							    IIO_EV_DIR_RISING),
 				       timestamp);
 	}
 
-	for_each_set_bit(i, (long *)&current_status,
-			 AD7294_CURRENT_ALERT_MASK) {
-		if (i & 1)
+	for (i = 0; i < AD7294_TEMP_CHANNEL_COUNT; i++) {
+		if (temp_status & AD7294_ALERT_LOW(i))
 			iio_push_event(indio_dev,
-				       IIO_UNMOD_EVENT_CODE(IIO_CURRENT, i >> 1,
-							    IIO_EV_TYPE_THRESH,
-							    IIO_EV_DIR_RISING),
-				       timestamp);
-		else
-			iio_push_event(indio_dev,
-				       IIO_UNMOD_EVENT_CODE(IIO_CURRENT, i >> 1,
+				       IIO_UNMOD_EVENT_CODE(IIO_TEMP, i,
 							    IIO_EV_TYPE_THRESH,
 							    IIO_EV_DIR_FALLING),
+				       timestamp);
+		if (temp_status & AD7294_ALERT_HIGH(i))
+			iio_push_event(indio_dev,
+				       IIO_UNMOD_EVENT_CODE(IIO_TEMP, i,
+							    IIO_EV_TYPE_THRESH,
+							    IIO_EV_DIR_RISING),
 				       timestamp);
 	}
 
 	return IRQ_HANDLED;
+}
+
+static int ad7294_adc_read(struct ad7294_state *st, int channel, int reg_base,
+			   int *val)
+{
+	int ret;
+
+	ret = regmap_write(st->regmap, AD7294_REG_CMD, BIT(channel + reg_base));
+	if (ret)
+		return ret;
+	ret = regmap_read(st->regmap, AD7294_REG_RESULT, val);
+	if (ret)
+		return ret;
+	*val &= AD7294_ADC_VALUE_MASK;
+
+	return 0;
+}
+
+static int ad7294_voltage_scale(struct iio_chan_spec const *chan,
+				struct ad7294_state *st, int *val)
+{
+	int ret;
+
+	if (chan->output) {
+		if (st->dac_vref_reg) {
+			ret = regulator_get_voltage(st->dac_vref_reg);
+			if (ret < 0)
+				return ret;
+			*val = ret / MILLI;
+		} else {
+			*val = AD7294_DAC_INTERNAL_VREF_MV;
+		}
+	} else {
+		if (st->adc_vref_reg) {
+			ret = regulator_get_voltage(st->adc_vref_reg);
+			if (ret < 0)
+				return ret;
+			*val = ret / MILLI;
+		} else {
+			*val = AD7294_ADC_INTERNAL_VREF_MV;
+		}
+	}
+	return 0;
 }
 
 static int ad7294_read_raw(struct iio_dev *indio_dev,
@@ -296,31 +341,28 @@ static int ad7294_read_raw(struct iio_dev *indio_dev,
 			   int *val2, long mask)
 {
 	struct ad7294_state *st = iio_priv(indio_dev);
-	int ret, base = 0;
 	unsigned int regval;
+	int ret;
 
 	guard(mutex)(&st->lock);
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
 		switch (chan->type) {
 		case IIO_CURRENT:
-			base = AD7294_VOLTAGE_CHENNEL_COUNT;
-			goto adc_read;
+			ret = ad7294_adc_read(st, chan->channel,
+					      AD7294_VOLTAGE_CHANNEL_COUNT,
+					      val);
+			if (ret)
+				return ret;
+			return IIO_VAL_INT;
 		case IIO_VOLTAGE:
 			if (chan->output) {
 				*val = st->dac_value[chan->channel];
 				return IIO_VAL_INT;
 			}
-adc_read:
-			ret = regmap_write(st->regmap, AD7294_REG_CMD,
-					   BIT(chan->channel + base));
+			ret = ad7294_adc_read(st, chan->channel, 0, val);
 			if (ret)
 				return ret;
-			ret = regmap_read(st->regmap, AD7294_REG_RESULT,
-					  &regval);
-			if (ret)
-				return ret;
-			*val = regval & AD7294_ADC_VALUE_MASK;
 			return IIO_VAL_INT;
 		case IIO_TEMP:
 			ret = regmap_read(st->regmap,
@@ -337,27 +379,9 @@ adc_read:
 	case IIO_CHAN_INFO_SCALE:
 		switch (chan->type) {
 		case IIO_VOLTAGE:
-			if (chan->output) {
-				if (st->dac_vref_reg) {
-					ret = regulator_get_voltage(
-						st->dac_vref_reg);
-					if (ret < 0)
-						return ret;
-					*val = ret / MILLI;
-				} else {
-					*val = AD7294_DAC_INTERNAL_VREF_MV;
-				}
-			} else {
-				if (st->adc_vref_reg) {
-					ret = regulator_get_voltage(
-						st->adc_vref_reg);
-					if (ret < 0)
-						return ret;
-					*val = ret / MILLI;
-				} else {
-					*val = AD7294_ADC_INTERNAL_VREF_MV;
-				}
-			}
+			ret = ad7294_voltage_scale(chan, st, val);
+			if (ret)
+				return ret;
 			*val2 = AD7294_RESOLUTION;
 			return IIO_VAL_FRACTIONAL_LOG2;
 		case IIO_TEMP:
@@ -417,33 +441,53 @@ static unsigned int ad7294_threshold_reg(const struct iio_chan_spec *chan,
 					 enum iio_event_direction dir,
 					 enum iio_event_info info)
 {
-	unsigned int offset;
-
 	switch (chan->type) {
 	case IIO_VOLTAGE:
-		offset = chan->channel;
-		break;
+		switch (info) {
+		case IIO_EV_INFO_VALUE:
+			if (dir == IIO_EV_DIR_FALLING)
+				return AD7294_REG_VOLTAGE_DATA_LOW(
+					chan->channel);
+			else
+				return AD7294_REG_VOLTAGE_DATA_HIGH(
+					chan->channel);
+		case IIO_EV_INFO_HYSTERESIS:
+			return AD7294_REG_VOLTAGE_HYSTERESIS(chan->channel);
+		default:
+			return 0;
+		}
 	case IIO_CURRENT:
-		offset = chan->channel + 4;
-		break;
+		switch (info) {
+		case IIO_EV_INFO_VALUE:
+			if (dir == IIO_EV_DIR_FALLING)
+				return AD7294_REG_CURRENT_DATA_LOW(
+					chan->channel);
+			else
+				return AD7294_REG_CURRENT_DATA_HIGH(
+					chan->channel);
+		case IIO_EV_INFO_HYSTERESIS:
+			return AD7294_REG_CURRENT_HYSTERESIS(chan->channel);
+		default:
+			return 0;
+		}
 	case IIO_TEMP:
-		offset = chan->channel + 6;
-		break;
+		switch (info) {
+		case IIO_EV_INFO_VALUE:
+			if (dir == IIO_EV_DIR_FALLING)
+				return AD7294_REG_CURRENT_DATA_LOW(
+					chan->channel);
+			else
+				return AD7294_REG_CURRENT_DATA_HIGH(
+					chan->channel);
+		case IIO_EV_INFO_HYSTERESIS:
+			return AD7294_REG_CURRENT_HYSTERESIS(chan->channel);
+		default:
+			return 0;
+		}
 	default:
 		return 0;
 	}
 
-	switch (info) {
-	case IIO_EV_INFO_VALUE:
-		if (dir == IIO_EV_DIR_FALLING)
-			return AD7294_REG_DATA_LOW(offset);
-		else
-			return AD7294_REG_DATA_HIGH(offset);
-	case IIO_EV_INFO_HYSTERESIS:
-		return AD7294_REG_HYSTERESIS(offset);
-	default:
-		return 0;
-	}
 	return 0;
 }
 
