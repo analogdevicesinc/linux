@@ -162,8 +162,6 @@ do                                      \
 #define CYCLES_TO_PSEC(cycles,clk)  (((cycles) * 1000000) / (clk))
 
 /* Min, Max macros */
-#define MIN(a,b)    ((a) < (b) ? (a) : (b))
-#define MAX(a,b)    ((a) > (b) ? (a) : (b))
 #define IN_RANGE(min,val,max) ((min)<=(val) && (val)<=(max))
 
 #define ABS(a)  ((a<0)?(a*-1):a)
