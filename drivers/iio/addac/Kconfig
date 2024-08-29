@@ -20,7 +20,7 @@ config AD74115
 	  module will be called ad74115.
 
 config AD7294
-	tristate "Analog Devices AD7294/AD7294-2 driver"
+	tristate "Analog Devices AD7294 driver"
 	depends on I2C
 	select REGMAP_I2C
 	help
