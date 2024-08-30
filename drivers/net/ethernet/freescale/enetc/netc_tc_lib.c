@@ -945,6 +945,15 @@ int netc_psfp_flower_stat(struct ntmp_priv *priv, struct netc_flower_rule *rule,
 		return err;
 
 	sg_drop_cnt = le32_to_cpu(stse.sg_drop_count);
+	/* Workaround for ERR052134 on i.MX95 platform */
+	if (priv->errata & NTMP_ERR052134) {
+		u32 tmp;
+
+		sg_drop_cnt >>= 9;
+
+		tmp = le32_to_cpu(stse.resv3) & 0x1ff;
+		sg_drop_cnt |= (tmp << 23);
+	}
 
 	*pkt_cnt = le32_to_cpu(stse.rx_count);
 	*drop_cnt = le32_to_cpu(stse.msdu_drop_count) + sg_drop_cnt +

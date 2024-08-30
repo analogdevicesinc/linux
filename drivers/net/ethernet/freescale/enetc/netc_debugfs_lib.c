@@ -283,6 +283,7 @@ int netc_show_isct_entry(struct ntmp_priv *priv, struct seq_file *s,
 			 u32 entry_id)
 {
 	struct isct_stse_data *stse __free(kfree);
+	u32 sg_drop_cnt;
 	int err;
 
 	stse = kzalloc(sizeof(*stse), GFP_KERNEL);
@@ -296,12 +297,22 @@ int netc_show_isct_entry(struct ntmp_priv *priv, struct seq_file *s,
 		return err;
 	}
 
+	sg_drop_cnt = le32_to_cpu(stse->sg_drop_count);
+	/* Workaround for ERR052134 on i.MX95 platform */
+	if (priv->errata & NTMP_ERR052134) {
+		u32 tmp;
+
+		sg_drop_cnt >>= 9;
+
+		tmp = le32_to_cpu(stse->resv3) & 0x1ff;
+		sg_drop_cnt |= (tmp << 23);
+	}
+
 	seq_printf(s, "Show ingress stream count table entry 0x%x\n", entry_id);
 	seq_printf(s, "RX_COUNT: %u, MSDU_DROP_COUNT: %u\n",
 		   le32_to_cpu(stse->rx_count), le32_to_cpu(stse->msdu_drop_count));
 	seq_printf(s, "POLICER_DROP_COUNT: %u, SG_DROP_COUNT: %u\n",
-		   le32_to_cpu(stse->policer_drop_count),
-		   le32_to_cpu(stse->sg_drop_count));
+		   le32_to_cpu(stse->policer_drop_count), sg_drop_cnt);
 	seq_puts(s, "\n");
 
 	return 0;

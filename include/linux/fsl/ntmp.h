@@ -86,6 +86,9 @@
 #define NTMP_STREAM_GATE_STATE_CLOSE	0
 #define NTMP_STREAM_GATE_STATE_OPEN	1
 
+/* NTMP errata */
+#define NTMP_ERR052134			BIT(0)
+
 #pragma pack(1)
 
 /* The format of conctrol buffer descriptor */
@@ -462,6 +465,7 @@ struct ntmp_caps {
 struct ntmp_priv {
 	enum netc_dev_type dev_type;
 	struct netc_cbdrs cbdrs;
+	u32 errata;
 
 	struct ntmp_caps caps;
 	/* bitmap of table entry ID */

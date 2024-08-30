@@ -1011,6 +1011,9 @@ static int enetc4_init_ntmp_priv(struct enetc_si *si)
 
 	ntmp->dev_type = NETC_DEV_ENETC;
 
+	if (si->revision == NETC_REVISION_4_1)
+		ntmp->errata = NTMP_ERR052134;
+
 	err = enetc_init_cbdr(si);
 	if (err)
 		return err;
@@ -1045,6 +1048,8 @@ static int enetc4_pf_init(struct enetc_pf *pf)
 {
 	struct device *dev = &pf->si->pdev->dev;
 	int err;
+
+	enetc_get_ip_revision(pf->si);
 
 	/* Initialize the MAC address for PF and VFs */
 	err = enetc_setup_mac_addresses(dev->of_node, pf);

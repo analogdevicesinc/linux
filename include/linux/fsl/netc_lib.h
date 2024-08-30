@@ -7,6 +7,9 @@
 #include <linux/seq_file.h>
 #include <linux/fsl/ntmp.h>
 
+#define NETC_REVISION_4_1		0x0401
+#define NETC_REVISION_4_3		0x0403
+
 #define is_en(x)	(x) ? "Enabled" : "Disabled"
 #define is_yes(x)	(x) ? "Yes" : "No"
 

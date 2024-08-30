@@ -11,6 +11,15 @@
 
 #include "enetc_pf.h"
 
+void enetc_get_ip_revision(struct enetc_si *si)
+{
+	struct enetc_hw *hw = &si->hw;
+	u32 val;
+
+	val = enetc_global_rd(hw, ENETC_G_EIPBRR0);
+	si->revision = val & EIPBRR0_REVISION;
+}
+
 static int enetc_set_si_hw_addr(struct enetc_pf *pf, int si, u8 *mac_addr)
 {
 	struct enetc_hw *hw = &pf->si->hw;

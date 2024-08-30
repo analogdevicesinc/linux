@@ -276,6 +276,7 @@ struct enetc_si {
 	struct pci_dev *pdev;
 	struct enetc_hw hw;
 	enum enetc_errata errata;
+	u16 revision;
 
 	struct net_device *ndev; /* back ref. */
 

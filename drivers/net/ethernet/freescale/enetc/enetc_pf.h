@@ -130,6 +130,7 @@ int enetc_pf_set_mac_exact_filter(struct enetc_pf *pf, int si_id,
 				  struct enetc_mac_entry *mac,
 				  int mac_cnt);
 int enetc_pf_send_msg(struct enetc_pf *pf, u32 msg_code, u16 ms_mask);
+void enetc_get_ip_revision(struct enetc_si *si);
 
 static inline void enetc_pf_register_hw_ops(struct enetc_pf *pf,
 					    const struct enetc_pf_hw_ops *hw_ops)
