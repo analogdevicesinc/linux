@@ -57,8 +57,6 @@
 #define NTMP_RPT_UA_STSEU		BIT(3)
 
 #define ENETC_RSS_TABLE_ENTRY_NUM	64
-#define ENETC_RSS_CFGEU			BIT(0)
-#define ENETC_RSS_STSEU			BIT(1)
 #define ENETC_RSS_STSE_DATA_SIZE(n)	((n) * 8)
 #define ENETC_RSS_CFGE_DATA_SIZE(n)	(n)
 
@@ -430,28 +428,31 @@ static int ntmp_query_entry_by_id(struct netc_cbdrs *cbdrs, int tbl_id,
 }
 
 int ntmp_maft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			const char *mac_addr, int si_bitmap)
+			struct maft_entry_data *data)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct maft_req_add *req;
 	union netc_cbd cbd;
-	u32 len, data_size;
+	u32 len, req_len;
 	dma_addr_t dma;
 	void *tmp;
 	int err;
 
-	data_size = sizeof(*req);
-	tmp = ntmp_alloc_data_mem(dev, data_size, &dma, (void **)&req);
+	if (!data)
+		return -EINVAL;
+
+	req_len = sizeof(*req);
+	tmp = ntmp_alloc_data_mem(dev, req_len, &dma, (void **)&req);
 	if (!tmp)
 		return -ENOMEM;
 
 	/* Set mac address filter table request data buffer */
 	req->crd.tbl_ver = cbdrs->tbl.maft_ver;
 	req->entry_id = cpu_to_le32(entry_id);
-	ether_addr_copy(req->keye.mac_addr, mac_addr);
-	req->cfge.si_bitmap = cpu_to_le16(si_bitmap);
+	req->keye = data->keye;
+	req->cfge = data->cfge;
 
-	len = NTMP_REQ_RESP_LEN(data_size, 0);
+	len = NTMP_REQ_RESP_LEN(req_len, 0);
 	ntmp_fill_request_headr(&cbd, dma, len, NTMP_MAFT_ID,
 				NTMP_CMD_ADD, NTMP_AM_ENTRY_ID);
 
@@ -459,14 +460,14 @@ int ntmp_maft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 	if (err)
 		dev_err(dev, "Add MAFT entry failed (%d)!", err);
 
-	ntmp_free_data_mem(dev, data_size, tmp, dma);
+	ntmp_free_data_mem(dev, req_len, tmp, dma);
 
 	return err;
 }
 EXPORT_SYMBOL_GPL(ntmp_maft_add_entry);
 
 int ntmp_maft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct ntmp_mfe *entry)
+			  struct maft_entry_data *data)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct maft_resp_query *resp;
@@ -478,7 +479,7 @@ int ntmp_maft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 	u32 dma_len;
 	int err;
 
-	if (!entry || entry_id == NTMP_NULL_ENTRY_ID)
+	if (!data || entry_id == NTMP_NULL_ENTRY_ID)
 		return -EINVAL;
 
 	dma_len = max_t(u32, req_len, resp_len);
@@ -495,8 +496,8 @@ int ntmp_maft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 		goto end;
 
 	resp = (struct maft_resp_query *)req;
-	ether_addr_copy(entry->mac, resp->keye.mac_addr);
-	entry->si_bitmap = le16_to_cpu(resp->cfge.si_bitmap);
+	data->keye = resp->keye;
+	data->cfge = resp->cfge;
 
 end:
 	ntmp_free_data_mem(dev, dma_len, tmp, dma);
@@ -513,7 +514,7 @@ int ntmp_maft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 EXPORT_SYMBOL_GPL(ntmp_maft_delete_entry);
 
 int ntmp_vaft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			struct ntmp_vfe *vfe)
+			struct vaft_entry_data *data)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct vaft_req_add *req;
@@ -523,6 +524,9 @@ int ntmp_vaft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 	void *tmp;
 	int err;
 
+	if (!data)
+		return -EINVAL;
+
 	data_size = sizeof(*req);
 	tmp = ntmp_alloc_data_mem(dev, data_size, &dma, (void **)&req);
 	if (!tmp)
@@ -531,9 +535,8 @@ int ntmp_vaft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 	/* Set VLAN address filter table request data buffer */
 	req->crd.tbl_ver = cbdrs->tbl.vaft_ver;
 	req->entry_id = cpu_to_le32(entry_id);
-	req->keye.vlan_id = cpu_to_le16(vfe->vid);
-	req->keye.tpid = vfe->tpid;
-	req->cfge.si_bitmap = cpu_to_le16(vfe->si_bitmap);
+	req->keye = data->keye;
+	req->cfge = data->cfge;
 
 	len = NTMP_REQ_RESP_LEN(data_size, 0);
 	ntmp_fill_request_headr(&cbd, dma, len, NTMP_VAFT_ID,
@@ -550,7 +553,7 @@ int ntmp_vaft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 EXPORT_SYMBOL_GPL(ntmp_vaft_add_entry);
 
 int ntmp_vaft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct ntmp_vfe *entry)
+			  struct vaft_entry_data *data)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct vaft_resp_query *resp;
@@ -562,7 +565,7 @@ int ntmp_vaft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 	u32 dma_len;
 	int err;
 
-	if (!entry || entry_id == NTMP_NULL_ENTRY_ID)
+	if (!data || entry_id == NTMP_NULL_ENTRY_ID)
 		return -EINVAL;
 
 	dma_len = max_t(u32, req_len, resp_len);
@@ -579,9 +582,8 @@ int ntmp_vaft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 		goto end;
 
 	resp = (struct vaft_resp_query *)req;
-	entry->vid = le16_to_cpu(resp->keye.vlan_id);
-	entry->tpid = resp->keye.tpid;
-	entry->si_bitmap = le16_to_cpu(resp->cfge.si_bitmap);
+	data->keye = resp->keye;
+	data->cfge = resp->cfge;
 
 end:
 	ntmp_free_data_mem(dev, dma_len, tmp, dma);
@@ -631,7 +633,8 @@ int ntmp_rsst_query_or_update_entry(struct netc_cbdrs *cbdrs, u32 *table,
 					NTMP_CMD_QUERY, NTMP_AM_ENTRY_ID);
 	} else {
 		requ = (struct rsst_req_update *)req;
-		requ->crd.update_act = cpu_to_le16(ENETC_RSS_CFGEU | ENETC_RSS_STSEU);
+		requ->crd.update_act = cpu_to_le16(NTMP_GEN_UA_CFGEU |
+						   NTMP_GEN_UA_STSEU);
 		for (i = 0; i < count; i++)
 			requ->groups[i] = (u8)(table[i]);
 
@@ -664,7 +667,7 @@ EXPORT_SYMBOL_GPL(ntmp_rsst_query_or_update_entry);
 
 /* Test codes for Time gate scheduling table */
 int ntmp_tgst_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct ntmp_tgst_info *info)
+			  struct tgst_query_data *data)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct tgst_resp_query *resp;
@@ -675,11 +678,10 @@ int ntmp_tgst_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 	u32 req_len = sizeof(*req);
 	void *tmp = NULL;
 	dma_addr_t dma;
-	u16 list_len;
 	u32 dma_len;
 	int i, err;
 
-	if (!info || entry_id == NTMP_NULL_ENTRY_ID)
+	if (!data || entry_id == NTMP_NULL_ENTRY_ID)
 		return -EINVAL;
 
 	resp_len += struct_size(cfge, ge, NTMP_TGST_MAX_ENTRY_NUM) +
@@ -693,41 +695,34 @@ int ntmp_tgst_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 	req->entry_id = cpu_to_le32(entry_id);
 	err = ntmp_query_entry_by_id(cbdrs, NTMP_TGST_ID,
 				     NTMP_REQ_RESP_LEN(req_len, resp_len),
-				     req, &dma, true);
+				     req, &dma, false);
 	if (err)
 		goto end;
 
 	resp = (struct tgst_resp_query *)req;
 	cfge = (struct tgst_cfge_data *)resp->data;
-	list_len = le16_to_cpu(cfge->admin_cl_len);
 
-	info->status = le64_to_cpu(resp->status.cfg_ct);
-	info->entry_id = le32_to_cpu(resp->entry_id);
-	info->admin_bt = le64_to_cpu(cfge->admin_bt);
-	info->admin_ct = le32_to_cpu(cfge->admin_ct);
-	info->admin_ct_ext = le32_to_cpu(cfge->admin_ct_ext);
-	info->admin_cl_len = list_len;
-	for (i = 0; i < list_len; i++) {
-		info->admin[i].interval = le32_to_cpu(cfge->ge[i].interval);
-		info->admin[i].tc_gates = cfge->ge[i].tc_state;
-		info->admin[i].oper_type = le16_to_cpu(cfge->ge[i].hr_cb) &
-					   NTMP_TGST_HR_CB_GE;
+	data->config_change_time = resp->status.cfg_ct;
+	data->admin_bt = cfge->admin_bt;
+	data->admin_ct = cfge->admin_ct;
+	data->admin_ct_ext = cfge->admin_ct_ext;
+	data->admin_cl_len = cfge->admin_cl_len;
+	for (i = 0; i < le16_to_cpu(cfge->admin_cl_len); i++) {
+		data->cfge_ge[i].interval = cfge->ge[i].interval;
+		data->cfge_ge[i].tc_state = cfge->ge[i].tc_state;
+		data->cfge_ge[i].hr_cb = cfge->ge[i].hr_cb;
 	}
 
 	olse = (struct tgst_olse_data *)&cfge->ge[i];
-	list_len = le16_to_cpu(olse->oper_cl_len);
-
-	info->cfg_ct = le64_to_cpu(olse->cfg_ct);
-	info->cfg_ce = le64_to_cpu(olse->cfg_ce);
-	info->oper_bt = le64_to_cpu(olse->oper_bt);
-	info->oper_ct = le32_to_cpu(olse->oper_ct);
-	info->oper_ct_ext = le32_to_cpu(olse->oper_ct_ext);
-	info->oper_cl_len = list_len;
-	for (i = 0; i < list_len; i++) {
-		info->oper[i].interval = le32_to_cpu(olse->ge[i].interval);
-		info->oper[i].tc_gates = olse->ge[i].tc_state;
-		info->oper[i].oper_type = le16_to_cpu(olse->ge[i].hr_cb) &
-					  NTMP_TGST_HR_CB_GE;
+	data->oper_cfg_ct = olse->oper_cfg_ct;
+	data->oper_cfg_ce = olse->oper_cfg_ce;
+	data->oper_bt = olse->oper_bt;
+	data->oper_ct = olse->oper_ct;
+	data->oper_ct_ext = olse->oper_ct_ext;
+	for (i = 0; i < le16_to_cpu(olse->oper_cl_len); i++) {
+		data->olse_ge[i].interval = olse->ge[i].interval;
+		data->olse_ge[i].tc_state = olse->ge[i].tc_state;
+		data->olse_ge[i].hr_cb = olse->ge[i].hr_cb;
 	}
 
 end:
@@ -758,7 +753,7 @@ int ntmp_tgst_delete_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id)
 	/* Set the request data buffer and set the admin control list len
 	 * to zero to delete the existing admin control list.
 	 */
-	req->crd.update_act = cpu_to_le16(1);
+	req->crd.update_act = cpu_to_le16(NTMP_GEN_UA_CFGEU);
 	req->crd.tbl_ver = cbdrs->tbl.tgst_ver;
 	req->entry_id = cpu_to_le32(entry_id);
 	cfge->admin_cl_len = 0;
@@ -779,47 +774,37 @@ int ntmp_tgst_delete_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id)
 EXPORT_SYMBOL_GPL(ntmp_tgst_delete_admin_gate_list);
 
 int ntmp_tgst_update_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id,
-				     struct ntmp_tgst_cfg *cfg)
+				     struct tgst_cfge_data *cfge)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct tgst_req_update *req;
-	struct tgst_cfge_data *cfge;
+	u32 len, req_len, cfge_len;
 	union netc_cbd cbd;
-	struct tgst_ge *ge;
-	u32 len, data_size;
 	dma_addr_t dma;
-	int i, err;
+	u16 list_len;
 	void *tmp;
+	int err;
+
+	if (!cfge)
+		return -EINVAL;
+
+	list_len = le16_to_cpu(cfge->admin_cl_len);
+	cfge_len = struct_size(cfge, ge, list_len);
 
 	/* Calculate the size of request data buffer */
-	data_size = struct_size(req, cfge.ge, cfg->num_entries);
-	tmp = ntmp_alloc_data_mem(dev, data_size, &dma, (void **)&req);
+	req_len = struct_size(req, cfge.ge, list_len);
+	tmp = ntmp_alloc_data_mem(dev, req_len, &dma, (void **)&req);
 	if (!tmp)
 		return -ENOMEM;
 
-	cfge = &req->cfge;
-	ge = cfge->ge;
-
 	/* Set the request data buffer */
-	req->crd.update_act = cpu_to_le16(1);
+	req->crd.update_act = cpu_to_le16(NTMP_GEN_UA_CFGEU);
 	req->crd.tbl_ver = cbdrs->tbl.tgst_ver;
 	req->entry_id = cpu_to_le32(entry_id);
-	cfge->admin_bt = cpu_to_le64(cfg->base_time);
-	cfge->admin_ct = cpu_to_le32(cfg->cycle_time);
-	cfge->admin_ct_ext = cpu_to_le32(cfg->cycle_time_extension);
-	cfge->admin_cl_len = cpu_to_le16(cfg->num_entries);
-
-	for (i = 0; i < cfg->num_entries; i++) {
-		struct ntmp_tgst_ge *temp_entry = &cfg->entries[i];
-		struct tgst_ge *temp_ge = ge + i;
-
-		temp_ge->tc_state = (u8)temp_entry->tc_gates;
-		temp_ge->interval = cpu_to_le32(temp_entry->interval);
-		temp_ge->hr_cb = cpu_to_le16(temp_entry->oper_type);
-	}
+	memcpy(&req->cfge, cfge, cfge_len);
 
 	/* Request header */
-	len = NTMP_REQ_RESP_LEN(data_size, sizeof(struct tgst_resp_status));
+	len = NTMP_REQ_RESP_LEN(req_len, sizeof(struct tgst_resp_status));
 	ntmp_fill_request_headr(&cbd, dma, len, NTMP_TGST_ID,
 				NTMP_CMD_UPDATE, NTMP_AM_ENTRY_ID);
 
@@ -827,7 +812,7 @@ int ntmp_tgst_update_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id,
 	if (err)
 		dev_err(dev, "Update TGST entry failed (%d)!", err);
 
-	ntmp_free_data_mem(dev, data_size, tmp, dma);
+	ntmp_free_data_mem(dev, req_len, tmp, dma);
 
 	return err;
 }

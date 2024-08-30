@@ -92,6 +92,8 @@ void netc_delete_psfp_flower_rule(struct ntmp_priv *priv,
 				  struct netc_flower_rule *rule);
 int netc_psfp_flower_stat(struct ntmp_priv *priv, struct netc_flower_rule *rule,
 			  u64 *byte_cnt, u64 *pkt_cnt, u64 *drop_cnt);
+int netc_setup_taprio(struct ntmp_priv *priv, u32 entry_id,
+		      struct tc_taprio_qopt_offload *f);
 
 /* debugfs API */
 int netc_kstrtouint(const char __user *buffer, size_t count, loff_t *ppos, u32 *val);
@@ -104,6 +106,7 @@ int netc_show_sgclt_entry(struct ntmp_priv *priv, struct seq_file *s, u32 entry_
 int netc_show_isct_entry(struct ntmp_priv *priv, struct seq_file *s, u32 entry_id);
 int netc_show_rpt_entry(struct ntmp_priv *priv, struct seq_file *s, u32 entry_id);
 int netc_show_ipft_entry(struct ntmp_priv *priv, struct seq_file *s, u32 entry_id);
+int netc_show_tgst_entry(struct ntmp_priv *priv, struct seq_file *s, u32 entry_id);
 #else
 static inline int netc_kstrtouint(const char __user *buffer, size_t count,
 				  loff_t *ppos, u32 *val)
@@ -168,6 +171,12 @@ static inline int netc_psfp_flower_stat(struct ntmp_priv *priv,
 	return 0;
 }
 
+static inline int netc_setup_taprio(struct ntmp_priv *priv, u32 entry_id,
+				    struct tc_taprio_qopt_offload *f)
+{
+	return 0;
+}
+
 static inline void netc_show_psfp_flower(struct seq_file *s,
 					 struct netc_flower_rule *rule)
 {
@@ -216,6 +225,12 @@ static inline int netc_show_rpt_entry(struct ntmp_priv *priv,
 }
 
 static inline int netc_show_ipft_entry(struct ntmp_priv *priv,
+				       struct seq_file *s, u32 entry_id)
+{
+	return 0;
+}
+
+static inline int netc_show_tgst_entry(struct ntmp_priv *priv,
 				       struct seq_file *s, u32 entry_id)
 {
 	return 0;

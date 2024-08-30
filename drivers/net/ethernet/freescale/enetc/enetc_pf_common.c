@@ -723,6 +723,7 @@ int enetc_pf_set_mac_exact_filter(struct enetc_pf *pf, int si_id,
 {
 	int mf_max_num = pf->caps.mac_filter_num;
 	struct enetc_mac_list_entry *entry;
+	struct maft_entry_data data = {0};
 	struct enetc_si *si = pf->si;
 	int i = 0, used_cnt = 0;
 	u16 si_bit = BIT(si_id);
@@ -771,9 +772,9 @@ int enetc_pf_set_mac_exact_filter(struct enetc_pf *pf, int si_id,
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->mac_list, node) {
-		ntmp_maft_add_entry(&si->ntmp.cbdrs, i, entry->mfe.mac,
-				    entry->mfe.si_bitmap);
-		i++;
+		data.cfge.si_bitmap = cpu_to_le16(entry->mfe.si_bitmap);
+		ether_addr_copy(data.keye.mac_addr, entry->mfe.mac);
+		ntmp_maft_add_entry(&si->ntmp.cbdrs, i++, &data);
 	}
 
 	return 0;
@@ -839,6 +840,7 @@ static u16 enetc_msg_pf_del_vf_mac_entries(struct enetc_pf *pf, int vf_id)
 	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
 	struct enetc_msg_mac_exact_filter *msg;
 	struct enetc_mac_list_entry *entry;
+	struct maft_entry_data data = {0};
 	struct enetc_si *si = pf->si;
 	u16 si_bit = BIT(vf_id + 1);
 	union enetc_pf_msg pf_msg;
@@ -871,9 +873,9 @@ static u16 enetc_msg_pf_del_vf_mac_entries(struct enetc_pf *pf, int vf_id)
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->mac_list, node) {
-		ntmp_maft_add_entry(&si->ntmp.cbdrs, i, entry->mfe.mac,
-				    entry->mfe.si_bitmap);
-		i++;
+		data.cfge.si_bitmap = cpu_to_le16(entry->mfe.si_bitmap);
+		ether_addr_copy(data.keye.mac_addr, entry->mfe.mac);
+		ntmp_maft_add_entry(&si->ntmp.cbdrs, i++, &data);
 	}
 
 	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
@@ -942,6 +944,7 @@ void enetc_pf_flush_mac_exact_filter(struct enetc_pf *pf, int si_id,
 				     int mac_type)
 {
 	struct enetc_mac_list_entry *entry;
+	struct maft_entry_data data = {0};
 	struct enetc_si *si = pf->si;
 	u16 si_bit = BIT(si_id);
 	struct hlist_node *tmp;
@@ -969,9 +972,9 @@ void enetc_pf_flush_mac_exact_filter(struct enetc_pf *pf, int si_id,
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->mac_list, node) {
-		ntmp_maft_add_entry(&si->ntmp.cbdrs, i, entry->mfe.mac,
-				    entry->mfe.si_bitmap);
-		i++;
+		data.cfge.si_bitmap = cpu_to_le16(entry->mfe.si_bitmap);
+		ether_addr_copy(data.keye.mac_addr, entry->mfe.mac);
+		ntmp_maft_add_entry(&si->ntmp.cbdrs, i++, &data);
 	}
 }
 
@@ -1127,12 +1130,21 @@ static void enetc_vlan_list_del_matched_entries(struct enetc_pf *pf, u16 si_bit,
 	}
 }
 
+static void enetc_vfe_to_vaft_data(struct enetc_vfe *vfe,
+				   struct vaft_entry_data *vaft)
+{
+	vaft->keye.tpid = vfe->tpid;
+	vaft->keye.vlan_id = cpu_to_le16(vfe->vid);
+	vaft->cfge.si_bitmap = cpu_to_le16(vfe->si_bitmap);
+}
+
 static int enetc_pf_set_vlan_exact_filter(struct enetc_pf *pf, int si_id,
 					  struct enetc_vlan_entry *vlan,
 					  int vlan_cnt)
 {
 	int vf_max_num = pf->caps.vlan_filter_num;
 	struct enetc_vlan_list_entry *entry;
+	struct vaft_entry_data data = {0};
 	struct enetc_si *si = pf->si;
 	int i = 0, used_cnt = 0;
 	u16 si_bit = BIT(si_id);
@@ -1182,8 +1194,8 @@ static int enetc_pf_set_vlan_exact_filter(struct enetc_pf *pf, int si_id,
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->vlan_list, node) {
-		ntmp_vaft_add_entry(&si->ntmp.cbdrs, i, &entry->vfe);
-		i++;
+		enetc_vfe_to_vaft_data(&entry->vfe, &data);
+		ntmp_vaft_add_entry(&si->ntmp.cbdrs, i++, &data);
 	}
 
 	return 0;
@@ -1249,6 +1261,7 @@ static u16 enetc_msg_pf_del_vf_vlan_entries(struct enetc_pf *pf, int vf_id)
 	struct enetc_msg_swbd *msg_swbd = &pf->rxmsg[vf_id];
 	struct enetc_msg_vlan_exact_filter *msg;
 	struct enetc_vlan_list_entry *entry;
+	struct vaft_entry_data data = {0};
 	struct enetc_si *si = pf->si;
 	u16 si_bit = BIT(vf_id + 1);
 	union enetc_pf_msg pf_msg;
@@ -1279,8 +1292,8 @@ static u16 enetc_msg_pf_del_vf_vlan_entries(struct enetc_pf *pf, int vf_id)
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->vlan_list, node) {
-		ntmp_vaft_add_entry(&si->ntmp.cbdrs, i, &entry->vfe);
-		i++;
+		enetc_vfe_to_vaft_data(&entry->vfe, &data);
+		ntmp_vaft_add_entry(&si->ntmp.cbdrs, i++, &data);
 	}
 
 	pf_msg.class_id = ENETC_MSG_CLASS_ID_CMD_SUCCESS;
@@ -1328,6 +1341,7 @@ static u16 enetc_msg_pf_set_vf_vlan_hash_filter(struct enetc_pf *pf, int vf_id)
 static void enetc_pf_flush_vlan_exact_filter(struct enetc_pf *pf, int si_id)
 {
 	struct enetc_vlan_list_entry *entry;
+	struct vaft_entry_data data = {0};
 	struct enetc_si *si = pf->si;
 	u16 si_bit = BIT(si_id);
 	struct hlist_node *tmp;
@@ -1354,8 +1368,8 @@ static void enetc_pf_flush_vlan_exact_filter(struct enetc_pf *pf, int si_id)
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->vlan_list, node) {
-		ntmp_vaft_add_entry(&si->ntmp.cbdrs, i, &entry->vfe);
-		i++;
+		enetc_vfe_to_vaft_data(&entry->vfe, &data);
+		ntmp_vaft_add_entry(&si->ntmp.cbdrs, i++, &data);
 	}
 }
 

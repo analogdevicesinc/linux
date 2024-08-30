@@ -51,13 +51,24 @@ struct enetc_pf_hw_ops {
 	void (*set_time_gating)(struct enetc_hw *hw, bool en);
 };
 
+struct enetc_mfe {
+	u8 mac[ETH_ALEN];
+	u16 si_bitmap;
+};
+
 struct enetc_mac_list_entry {
-	struct ntmp_mfe mfe;
+	struct enetc_mfe mfe;
 	struct hlist_node node;
 };
 
+struct enetc_vfe {
+	u16 vid;
+	u8 tpid;
+	u16 si_bitmap;
+};
+
 struct enetc_vlan_list_entry {
-	struct ntmp_vfe vfe;
+	struct enetc_vfe vfe;
 	struct hlist_node node;
 };
 

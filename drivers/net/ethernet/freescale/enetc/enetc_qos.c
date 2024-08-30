@@ -46,6 +46,10 @@ static int enetc_setup_taprio(struct enetc_ndev_priv *priv,
 	if (admin_conf->num_entries > enetc_get_max_gcl_len(hw))
 		return -EINVAL;
 
+	if (admin_conf->cycle_time > U32_MAX ||
+	    admin_conf->cycle_time_extension > U32_MAX)
+		return -EINVAL;
+
 	/* Configure the (administrative) gate control list using the
 	 * control BD descriptor.
 	 */
@@ -101,96 +105,34 @@ static int enetc_setup_taprio(struct enetc_ndev_priv *priv,
 	return 0;
 }
 
-static u32 enetc4_get_tgst_free_words(struct enetc_hw *hw)
-{
-	u32 words_in_use;
-	u32 total_words;
-
-	/* Notice that the admin gate list should be delete first before call
-	 * this function, so the ENETC4_PTGAGLLR[ADMIN_GATE_LIST_LENGTH] equal
-	 * to zero. That is, the ENETC4_TGSTMOR only contains the words of the
-	 * operational gate control list.
-	 */
-	words_in_use = enetc_port_rd(hw, ENETC4_TGSTMOR) & TGSTMOR_NUM_WORDS;
-	total_words = enetc_port_rd(hw, ENETC4_TGSTCAPR) & TGSTCAPR_NUM_WORDS;
-
-	return total_words - words_in_use;
-}
-
 static int enetc4_setup_taprio(struct enetc_ndev_priv *priv,
 			       struct tc_taprio_qopt_offload *admin_conf)
 {
 	struct enetc_pf *pf = enetc_si_priv(priv->si);
-	u64 base_time = admin_conf->base_time;
 	struct enetc_si *si = priv->si;
 	struct enetc_hw *hw = &si->hw;
-	struct ntmp_tgst_cfg *cfg;
-	u64 max_cycle_time;
-	int port, i, err;
 	bool tge_enable;
-	u32 size;
+	int port, err;
 
 	if (!pf->hw_ops->set_time_gating || !pf->hw_ops->get_time_gating ||
 	    !pf->hw_ops->set_tc_msdu)
-		return -EOPNOTSUPP;
+		return -EINVAL;
 
 	port = enetc4_pf_to_port(si->pdev);
 	if (port < 0)
 		return -EINVAL;
 
+	/* Set the maximum frame size for each traffic class */
+	pf->hw_ops->set_tc_msdu(hw, admin_conf->max_sdu);
+
 	tge_enable = pf->hw_ops->get_time_gating(hw);
 	if (!tge_enable)
 		pf->hw_ops->set_time_gating(hw, true);
 
-	/* Delete the pending administrative control list if it exists */
-	err = ntmp_tgst_delete_admin_gate_list(&si->ntmp.cbdrs, port);
+	err = netc_setup_taprio(&si->ntmp, port, admin_conf);
 	if (err)
 		goto disable_tge;
 
-	if (admin_conf->num_entries > enetc4_get_tgst_free_words(hw)) {
-		err = -EINVAL;
-		goto disable_tge;
-	}
-
-	max_cycle_time = admin_conf->cycle_time + admin_conf->cycle_time_extension;
-	if (max_cycle_time > NTMP_TGST_MAX_CT_PLUS_CT_EXT) {
-		err = -EINVAL;
-		goto disable_tge;
-	}
-
-	size = struct_size(cfg, entries, admin_conf->num_entries);
-	cfg = kzalloc(size, GFP_KERNEL);
-	if (!cfg) {
-		err = -ENOMEM;
-		goto disable_tge;
-	}
-
-	if (si->ntmp.adjust_base_time)
-		base_time = si->ntmp.adjust_base_time(&si->ntmp, base_time,
-						      admin_conf->cycle_time);
-
-	cfg->base_time = base_time;
-	cfg->cycle_time = admin_conf->cycle_time;
-	cfg->cycle_time_extension = admin_conf->cycle_time_extension;
-	cfg->num_entries = admin_conf->num_entries;
-	for (i = 0; i < cfg->num_entries; i++) {
-		struct tc_taprio_sched_entry *temp_entry = &admin_conf->entries[i];
-		struct ntmp_tgst_ge *temp_ge = &cfg->entries[i];
-
-		temp_ge->tc_gates = temp_entry->gate_mask;
-		temp_ge->interval = temp_entry->interval;
-	}
-
-	/* Set the maximum frame size for each traffic class */
-	pf->hw_ops->set_tc_msdu(hw, admin_conf->max_sdu);
-
-	err = ntmp_tgst_update_admin_gate_list(&si->ntmp.cbdrs, port, cfg);
-	if (err) {
-		kfree(cfg);
-		goto disable_tge;
-	}
-
-	kfree(cfg);
 	priv->active_offloads |= ENETC_F_QBV;
 
 	return 0;
@@ -199,6 +141,9 @@ disable_tge:
 	/* We should disable tge if its initial state is disabled */
 	if (!tge_enable)
 		pf->hw_ops->set_time_gating(hw, false);
+
+	if (pf->hw_ops->reset_tc_msdu)
+		pf->hw_ops->reset_tc_msdu(hw);
 
 	return err;
 }
@@ -272,10 +217,6 @@ static int enetc_taprio_replace(struct net_device *ndev,
 	for (i = 0; i < priv->num_tx_rings; i++)
 		if (priv->tx_ring[i]->tsd_enable)
 			return -EBUSY;
-
-	if (offload->cycle_time > U32_MAX ||
-	    offload->cycle_time_extension > U32_MAX)
-		return -EINVAL;
 
 	if (is_enetc_rev1(si))
 		err = enetc_setup_taprio(priv, offload);

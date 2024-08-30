@@ -25,8 +25,7 @@ static const struct file_operations name##_fops = {			\
 static int enetc_tgst_show(struct seq_file *s, void *data)
 {
 	struct enetc_si *si = s->private;
-	struct ntmp_tgst_info *info;
-	int i, err, port;
+	int port;
 	u32 val;
 
 	val = enetc_port_rd(&si->hw, ENETC4_PTGSCR);
@@ -35,50 +34,11 @@ static int enetc_tgst_show(struct seq_file *s, void *data)
 		return 0;
 	}
 
-	info = kzalloc(sizeof(*info), GFP_KERNEL);
-	if (!info)
-		return -ENOMEM;
-
 	port = enetc4_pf_to_port(si->pdev);
-	if (port < 0) {
-		err = -EINVAL;
-		goto end;
-	}
+	if (port < 0)
+		return -EINVAL;
 
-	err = ntmp_tgst_query_entry(&si->ntmp.cbdrs, port, info);
-	if (err)
-		goto end;
-
-	seq_puts(s, "Dump Time Gate Scheduling Table Info:\n");
-	seq_printf(s, "Entry ID:%d\n", info->entry_id);
-	seq_printf(s, "Admin Base Time:%llu\n", info->admin_bt);
-	seq_printf(s, "Admin Cycle Time:%u\n", info->admin_ct);
-	seq_printf(s, "Admin Cycle Extend Time:%u\n", info->admin_ct_ext);
-	seq_printf(s, "Admin Control List Length:%u\n", info->admin_cl_len);
-	for (i = 0; i < info->admin_cl_len; i++) {
-		seq_printf(s, "Gate Entry %d info:\n", i);
-		seq_printf(s, "\tAdmin time interval:%u\n", info->admin[i].interval);
-		seq_printf(s, "\tAdmin Traffic Class states:%02x\n", info->admin[i].tc_gates);
-		seq_printf(s, "\tAdministrative gate operation type:%d\n",
-			   info->admin[i].oper_type);
-	}
-
-	seq_printf(s, "Config Change Time:%llu\n", info->cfg_ct);
-	seq_printf(s, "Config Change Error:%llu\n", info->cfg_ce);
-	seq_printf(s, "Operation Base Time:%llu\n", info->oper_bt);
-	seq_printf(s, "Operation Cycle Time:%u\n", info->oper_ct);
-	seq_printf(s, "Operation Cycle Externd Time:%u\n", info->oper_ct_ext);
-	seq_printf(s, "Operation Control List Length:%u\n", info->oper_cl_len);
-	for (i = 0; i < info->oper_cl_len; i++) {
-		seq_printf(s, "Gate Entry %d info:\n", i);
-		seq_printf(s, "\tOperation time interval:%u\n", info->oper[i].interval);
-		seq_printf(s, "\tOperation Traffic Class states:%02x\n", info->oper[i].tc_gates);
-		seq_printf(s, "\tOperation gate operation type:%d\n", info->oper[i].oper_type);
-	}
-
-end:
-	kfree(info);
-	return err;
+	return netc_show_tgst_entry(&si->ntmp, s, port);
 }
 DEFINE_SHOW_ATTRIBUTE(enetc_tgst);
 
@@ -148,8 +108,10 @@ static void enetc_show_si_mac_hash_filter(struct seq_file *s, struct enetc_hw *h
 
 static int enetc_rx_mode_show(struct seq_file *s, void *data)
 {
+	struct maft_entry_data maft_data;
 	struct enetc_si *si = s->private;
 	struct enetc_hw *hw = &si->hw;
+	struct maft_keye_data *keye;
 	struct enetc_pf *pf;
 	int i, err;
 	u32 val;
@@ -157,7 +119,7 @@ static int enetc_rx_mode_show(struct seq_file *s, void *data)
 	pf = enetc_si_priv(si);
 
 	val = enetc_port_rd(hw, ENETC4_PSIPMMR);
-	seq_printf(s, "Unicast Promisc:0x%lx. Multicast Promisc:0x%lx.\n",
+	seq_printf(s, "Unicast Promisc:0x%lx. Multicast Promisc:0x%lx\n",
 		   val & PSIPMMR_SI_MAC_UP, (val & PSIPMMR_SI_MAC_MP) >> 16);
 
 	/* Use MAC hash filter */
@@ -168,19 +130,18 @@ static int enetc_rx_mode_show(struct seq_file *s, void *data)
 		return 0;
 	}
 
-	seq_printf(s, "The total number of entries in MAC filter table is %d.\n",
+	seq_printf(s, "The total number of entries in MAC filter table is %d\n",
 		   pf->num_mac_fe);
 	/* Use MAC exact match table */
 	for (i = 0; i < pf->num_mac_fe; i++) {
-		struct ntmp_mfe entry;
-
-		err = ntmp_maft_query_entry(&si->ntmp.cbdrs, i, &entry);
+		memset(&maft_data, 0, sizeof(maft_data));
+		err = ntmp_maft_query_entry(&si->ntmp.cbdrs, i, &maft_data);
 		if (err)
 			return err;
 
-		seq_printf(s, "Entry %d: %02x:%02x:%02x:%02x:%02x:%02x SI bitmap:0x%04x.\n",
-			   i, entry.mac[0], entry.mac[1], entry.mac[2], entry.mac[3],
-			   entry.mac[4], entry.mac[5], entry.si_bitmap);
+		keye = &maft_data.keye;
+		seq_printf(s, "Entry %d, MAC %pM, SI bitmap:0x%04x\n", i,
+			   keye->mac_addr, le16_to_cpu(maft_data.cfge.si_bitmap));
 	}
 
 	for (i = 0; i < pf->num_vfs; i++)

@@ -11,7 +11,6 @@
 #include "enetc_pf.h"
 
 #define ENETC_SI_MAX_RING_NUM	8
-#define ENETC_SI_BITMAP(a)	BIT(a)
 
 static void enetc4_get_port_caps(struct enetc_pf *pf)
 {
@@ -938,6 +937,24 @@ static u64 enetc4_adjust_base_time(struct ntmp_priv *ntmp, u64 base_time,
 	return base_time;
 }
 
+static u32 enetc4_get_tgst_free_words(struct ntmp_priv *ntmp)
+{
+	struct enetc_si *si = ntmp_to_enetc_si(ntmp);
+	struct enetc_hw *hw = &si->hw;
+	u32 words_in_use;
+	u32 total_words;
+
+	/* Notice that the admin gate list should be delete first before call
+	 * this function, so the ENETC4_PTGAGLLR[ADMIN_GATE_LIST_LENGTH] equal
+	 * to zero. That is, the ENETC4_TGSTMOR only contains the words of the
+	 * operational gate control list.
+	 */
+	words_in_use = enetc_port_rd(hw, ENETC4_TGSTMOR) & TGSTMOR_NUM_WORDS;
+	total_words = enetc_port_rd(hw, ENETC4_TGSTCAPR) & TGSTCAPR_NUM_WORDS;
+
+	return total_words - words_in_use;
+}
+
 static int enetc4_ntmp_bitmap_init(struct ntmp_priv *ntmp)
 {
 	ntmp->ist_eid_bitmap = bitmap_zalloc(ntmp->caps.ist_num_entries,
@@ -1024,6 +1041,7 @@ static int enetc4_init_ntmp_priv(struct enetc_si *si)
 		goto free_cbdr;
 
 	ntmp->adjust_base_time = enetc4_adjust_base_time;
+	ntmp->get_tgst_free_words = enetc4_get_tgst_free_words;
 
 	INIT_HLIST_HEAD(&ntmp->flower_list);
 	mutex_init(&ntmp->flower_lock);

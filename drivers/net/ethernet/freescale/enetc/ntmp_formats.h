@@ -31,17 +31,6 @@ struct ntmp_qd_by_eid {
 };
 
 /* MAC Address Filter Table Request and Response Data Buffer Format */
-struct maft_keye_data {
-	u8 mac_addr[ETH_ALEN];
-	__le16 resv;
-};
-
-struct maft_cfge_data {
-	__le16 si_bitmap;
-	__le16 resv;
-};
-
-/* struct for add operation */
 struct maft_req_add {
 	struct common_req_data crd;
 	__le32 entry_id;
@@ -57,19 +46,6 @@ struct maft_resp_query {
 };
 
 /* VLAM Address Filter table Request and Response Data Buffer Format */
-struct vaft_keye_data {
-	__le16 vlan_id; /* bit0~11: vlan_id */
-	u8 tpid:2;
-	u8 resv1:6;
-	u8 resv2;
-};
-
-struct vaft_cfge_data {
-	__le16 si_bitmap;
-	__le16 resv;
-};
-
-/* VLAN Address Filter Table Add action */
 struct vaft_req_add {
 	struct common_req_data crd;
 	__le32 entry_id;
@@ -92,38 +68,10 @@ struct rsst_req_update {
 };
 
 /* Time Gate Scheduling Table Resquet and Response Data Buffer Format */
-struct tgst_ge {
-	__le32 interval;
-	u8 tc_state;
-	u8 resv;
-	__le16 hr_cb;	/* bit0~3: hr_cbd, bit4~15 reserved */
-};
-
-struct tgst_cfge_data {
-	__le64 admin_bt;
-	__le32 admin_ct;
-	__le32 admin_ct_ext;
-	__le16 admin_cl_len;
-	__le16 resv;
-	struct tgst_ge ge[];
-};
-
-/* struct for update operation */
 struct tgst_req_update {
 	struct common_req_data crd;
 	__le32 entry_id;
 	struct tgst_cfge_data cfge;
-};
-
-struct tgst_olse_data {
-	__le64 cfg_ct;
-	__le64 cfg_ce;
-	__le64 oper_bt;
-	__le32 oper_ct;
-	__le32 oper_ct_ext;
-	__le16 oper_cl_len;
-	__le16 resv;
-	struct tgst_ge ge[];
 };
 
 struct tgst_resp_status {

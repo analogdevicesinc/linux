@@ -22,8 +22,7 @@
 #define NTMP_TGST_MAX_ENTRY_NUM		64
 #define NTMP_SGCLT_MAX_GE_NUM		256
 
-#define NTMP_TGST_MAX_CT_PLUS_CT_EXT	0xffffffffU
-#define NTMP_SGIT_MAX_CT_PLUS_CT_EXT	0X3fffffff
+#define NTMP_SGIT_MAX_CT_PLUS_CT_EXT	0x3fffffffU
 
 #define NTMP_ISIT_KEY_TYPE0_SMAC_VLAN	0
 #define NTMP_ISIT_KEY_TYPE1_DMAC_VLAN	1
@@ -113,6 +112,57 @@ union netc_cbd {
 		__le16 error_rr; /* bit0~11: error, bit12~14: reserved, bit15: rr */
 		__le32 resv3[4];
 	} ntmp_resp_hdr; /* NTMP Response Message Header Format */
+};
+
+struct maft_keye_data {
+	u8 mac_addr[ETH_ALEN];
+	__le16 resv;
+};
+
+struct maft_cfge_data {
+	__le16 si_bitmap;
+	__le16 resv;
+};
+
+struct vaft_keye_data {
+	__le16 vlan_id; /* bit0~11: vlan_id */
+	u8 tpid:2;
+	u8 resv1:6;
+	u8 resv2;
+};
+
+struct vaft_cfge_data {
+	__le16 si_bitmap;
+	__le16 resv;
+};
+
+struct tgst_ge {
+	__le32 interval;
+	u8 tc_state;
+	u8 resv0;
+	u8 hr_cb:4;
+	u8 resv1:4;
+	u8 resv2;
+};
+
+struct tgst_cfge_data {
+	__le64 admin_bt;
+	__le32 admin_ct;
+	__le32 admin_ct_ext;
+	__le16 admin_cl_len;
+	__le16 resv;
+	struct tgst_ge ge[];
+};
+
+struct tgst_olse_data {
+	__le64 oper_cfg_ct;
+	__le64 oper_cfg_ce;
+	__le64 oper_bt;
+	__le32 oper_ct;
+	__le32 oper_ct_ext;
+	__le16 oper_cl_len;
+	__le16 resv;
+	struct tgst_ge ge[];
 };
 
 struct isit_keye_data {
@@ -479,48 +529,33 @@ struct ntmp_priv {
 	struct mutex flower_lock; /* flower_list lock */
 
 	u64 (*adjust_base_time)(struct ntmp_priv *priv, u64 bt, u32 ct);
+	u32 (*get_tgst_free_words)(struct ntmp_priv *priv);
 };
 
-struct ntmp_mfe {
-	u8 mac[ETH_ALEN];
-	u16 si_bitmap;
+struct maft_entry_data {
+	struct maft_keye_data keye;
+	struct maft_cfge_data cfge;
 };
 
-struct ntmp_vfe {
-	u16 vid;
-	u8 tpid;
-	u16 si_bitmap;
+struct vaft_entry_data {
+	struct vaft_keye_data keye;
+	struct vaft_cfge_data cfge;
 };
 
-struct ntmp_tgst_ge {
-	u32 tc_gates;
-	u32 interval;
-	u16 oper_type; /* bit0~3: hr_cbd, bit4~15 reserved */
-};
-
-struct ntmp_tgst_cfg {
-	u16 num_entries;
-	u64 base_time;
-	u64 cycle_time;
-	u64 cycle_time_extension;
-	struct ntmp_tgst_ge entries[];
-};
-
-struct ntmp_tgst_info {
-	u64 status;
-	u32 entry_id;
-	u64 admin_bt;
-	u32 admin_ct;
-	u32 admin_ct_ext;
-	u16 admin_cl_len;
-	u64 cfg_ct;
-	u64 cfg_ce;
-	u64 oper_bt;
-	u32 oper_ct;
-	u32 oper_ct_ext;
-	u16 oper_cl_len;
-	struct ntmp_tgst_ge admin[NTMP_TGST_MAX_ENTRY_NUM];
-	struct ntmp_tgst_ge oper[NTMP_TGST_MAX_ENTRY_NUM];
+struct tgst_query_data {
+	__le64 config_change_time;
+	__le64 admin_bt;
+	__le32 admin_ct;
+	__le32 admin_ct_ext;
+	__le16 admin_cl_len;
+	__le64 oper_cfg_ct;
+	__le64 oper_cfg_ce;
+	__le64 oper_bt;
+	__le32 oper_ct;
+	__le32 oper_ct_ext;
+	__le16 oper_cl_len;
+	struct tgst_ge olse_ge[NTMP_TGST_MAX_ENTRY_NUM];
+	struct tgst_ge cfge_ge[NTMP_TGST_MAX_ENTRY_NUM];
 };
 
 struct ntmp_isit_entry {
@@ -587,21 +622,21 @@ u32 ntmp_lookup_free_words(unsigned long *bitmap, u32 bitmap_size,
 void ntmp_clear_words_bitmap(unsigned long *bitmap, u32 entry_id,
 			     u32 num_words);
 int ntmp_maft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			const char *mac_addr, int si_bitmap);
+			struct maft_entry_data *data);
 int ntmp_maft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct ntmp_mfe *entry);
+			  struct maft_entry_data *data);
 int ntmp_maft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
 int ntmp_vaft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			struct ntmp_vfe *vfe);
+			struct vaft_entry_data *data);
 int ntmp_vaft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct ntmp_vfe *entry);
+			  struct vaft_entry_data *data);
 int ntmp_vaft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
 int ntmp_rsst_query_or_update_entry(struct netc_cbdrs *cbdrs, u32 *table,
 				    int count, bool query);
 int ntmp_tgst_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct ntmp_tgst_info *info);
+			  struct tgst_query_data *data);
 int ntmp_tgst_update_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id,
-				     struct ntmp_tgst_cfg *cfg);
+				     struct tgst_cfge_data *cfge);
 int ntmp_tgst_delete_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id);
 int ntmp_rpt_add_or_update_entry(struct netc_cbdrs *cbdrs,
 				 struct ntmp_rpt_entry *entry);
@@ -674,13 +709,13 @@ static inline void ntmp_clear_words_bitmap(unsigned long *bitmap, u32 entry_id,
 }
 
 static inline int ntmp_maft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-				      const char *mac_addr, int si_bitmap)
+				      struct maft_entry_data *data)
 {
 	return 0;
 }
 
 static inline int ntmp_maft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-					struct ntmp_mfe *entry)
+					struct maft_entry_data *data)
 {
 	return 0;
 }
@@ -691,13 +726,13 @@ static inline int ntmp_maft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 }
 
 static inline int ntmp_vaft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-				      struct ntmp_vfe *vfe)
+				      struct vaft_entry_data *data)
 {
 	return 0;
 }
 
 static inline int ntmp_vaft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-					struct ntmp_vfe *entry)
+					struct vaft_entry_data *data)
 {
 	return 0;
 }
@@ -715,14 +750,14 @@ static inline int ntmp_rsst_query_or_update_entry(struct netc_cbdrs *cbdrs,
 }
 
 static inline int ntmp_tgst_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-					struct ntmp_tgst_info *info)
+					struct tgst_query_data *data)
 {
 	return 0;
 }
 
 static inline int ntmp_tgst_update_admin_gate_list(struct netc_cbdrs *cbdrs,
 						   u32 entry_id,
-						   struct ntmp_tgst_cfg *cfg)
+						   struct tgst_cfge_data *cfge)
 {
 	return 0;
 }
