@@ -430,6 +430,10 @@
 #define UA_PER_A				1000000
 
 enum {
+	ADF4382_FREQ,
+};
+
+enum {
 	ADF4382,
 	ADF4382A,
 };
@@ -1048,6 +1052,66 @@ static int adf4382_get_en_chan(struct adf4382_state *st, int ch, int *en)
 	return 0;
 }
 
+static ssize_t adf4382_write(struct iio_dev *indio_dev, uintptr_t private,
+			     const struct iio_chan_spec *chan, const char *buf,
+			     size_t len)
+{
+	struct adf4382_state *st = iio_priv(indio_dev);
+	unsigned long long val;
+	int ret;
+
+	ret = kstrtoull(buf, 10, &val);
+	if (ret)
+		return ret;
+
+	switch ((u32)private) {
+	case ADF4382_FREQ:
+		st->freq = val;
+		ret = adf4382_set_freq(st);
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return ret ? ret : len;
+}
+
+static ssize_t adf4382_read(struct iio_dev *indio_dev, uintptr_t private,
+			    const struct iio_chan_spec *chan, char *buf)
+{
+	struct adf4382_state *st = iio_priv(indio_dev);
+	u64 val_u64 = 0;
+	int ret;
+
+	switch ((u32)private) {
+	case ADF4382_FREQ:
+		ret = adf4382_get_freq(st, &val_u64);
+		if (ret)
+			return ret;
+		return sysfs_emit(buf, "%llu\n", val_u64);
+	default:
+		return -EINVAL;
+	}
+}
+
+#define _ADF4382_EXT_INFO(_name, _shared, _ident) { \
+		.name = _name, \
+		.read = adf4382_read, \
+		.write = adf4382_write, \
+		.private = _ident, \
+		.shared = _shared, \
+}
+
+static const struct iio_chan_spec_ext_info adf4382_ext_info[] = {
+	/*
+	 * Usually we use IIO_CHAN_INFO_FREQUENCY, but there are
+	 * values > 2^32 in order to support the entire frequency range
+	 * in Hz. 
+	 */
+	_ADF4382_EXT_INFO("frequency", IIO_SHARED_BY_TYPE, ADF4382_FREQ),
+	{ },
+};
+
 static int adf4382_read_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan,
 			    int *val,
@@ -1055,17 +1119,9 @@ static int adf4382_read_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct adf4382_state *st = iio_priv(indio_dev);
-	u64 val_u64 = 0;
 	int ret;
 
 	switch (mask) {
-	case IIO_CHAN_INFO_FREQUENCY:
-		ret = adf4382_get_freq(st, &val_u64);
-		if (ret)
-			return ret;
-		*val = (u32)val_u64;
-		*val2 = (u32)(val_u64 >> 32);
-		return IIO_VAL_INT_64;
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		ret = adf4382_get_out_power(st, chan->channel, val);
 		if (ret)
@@ -1091,17 +1147,9 @@ static int adf4382_write_raw(struct iio_dev *indio_dev,
 			     long mask)
 {
 	struct adf4382_state *st = iio_priv(indio_dev);
-	u64 val_u64 = 0;
 	int ret;
 
 	switch (mask) {
-	case IIO_CHAN_INFO_FREQUENCY:
-// TODO: This should be removed for upstream
-		// val_u64 = ((u64)val2 << 32 | (u32)val);
-		val_u64 = (u32)val;
-		st->freq = val_u64;
-		return adf4382_set_freq(st);
-		return 0;	
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		return adf4382_set_out_power(st, chan->channel, val);
 	case IIO_CHAN_INFO_ENABLE:
@@ -1146,21 +1194,21 @@ static const struct iio_chan_spec adf4382_channels[] = {
 		.type = IIO_ALTVOLTAGE,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_ENABLE) |
 				      BIT(IIO_CHAN_INFO_HARDWAREGAIN),
-		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_PHASE) |
-					    BIT(IIO_CHAN_INFO_FREQUENCY),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_PHASE),
 		.indexed = 1,
 		.output = 1,
 		.channel = 0,
+		.ext_info = adf4382_ext_info,
 	},
 	{
 		.type = IIO_ALTVOLTAGE,
 		.info_mask_separate = BIT(IIO_CHAN_INFO_ENABLE) |
 				      BIT(IIO_CHAN_INFO_HARDWAREGAIN),
-		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_PHASE) |
-					    BIT(IIO_CHAN_INFO_FREQUENCY),
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_PHASE),
 		.indexed = 1,
 		.output = 1,
 		.channel = 1,
+		.ext_info = adf4382_ext_info,
 	},
 };
 
