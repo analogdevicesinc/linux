@@ -369,6 +369,7 @@ int ntmp_maft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 		return -ENOMEM;
 
 	/* Set mac address filter table request data buffer */
+	req->crd.tbl_ver = cbdrs->tbl.maft_ver;
 	req->entry_id = cpu_to_le32(entry_id);
 	ether_addr_copy(req->keye.mac_addr, mac_addr);
 	req->cfge.si_bitmap = cpu_to_le16(si_bitmap);
@@ -451,6 +452,7 @@ int ntmp_vaft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 		return -ENOMEM;
 
 	/* Set VLAN address filter table request data buffer */
+	req->crd.tbl_ver = cbdrs->tbl.vaft_ver;
 	req->entry_id = cpu_to_le32(entry_id);
 	req->keye.vlan_id = cpu_to_le16(vfe->vid);
 	req->keye.tpid = vfe->tpid;
@@ -545,6 +547,7 @@ int ntmp_rsst_query_or_update_entry(struct netc_cbdrs *cbdrs, u32 *table,
 		return -ENOMEM;
 
 	/* Set the request data buffer */
+	req->crd.tbl_ver = cbdrs->tbl.rsst_ver;
 	if (query) {
 		len = NTMP_REQ_RESP_LEN(sizeof(*req), data_size);
 		ntmp_fill_request_headr(&cbd, dma, len, NTMP_RSST_ID,
@@ -679,7 +682,7 @@ int ntmp_tgst_delete_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id)
 	 * to zero to delete the existing admin control list.
 	 */
 	req->crd.update_act = cpu_to_le16(1);
-	req->crd.tbl_ver = 0;
+	req->crd.tbl_ver = cbdrs->tbl.tgst_ver;
 	req->entry_id = cpu_to_le32(entry_id);
 	cfge->admin_cl_len = 0;
 
@@ -737,7 +740,7 @@ int ntmp_tgst_update_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id,
 
 	/* Set the request data buffer */
 	req->crd.update_act = cpu_to_le16(1);
-	req->crd.tbl_ver = 0;
+	req->crd.tbl_ver = cbdrs->tbl.tgst_ver;
 	req->entry_id = cpu_to_le32(entry_id);
 	base_time = ntmp_adjust_base_time(cbdrs, cfg->base_time, cfg->cycle_time);
 	cfge->admin_bt = cpu_to_le64(base_time);
@@ -785,6 +788,7 @@ int ntmp_rpt_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_rpt_cfg *
 		return -ENOMEM;
 
 	req->crd.update_act = cpu_to_le16(0xf);
+	req->crd.tbl_ver = cbdrs->tbl.rpt_ver;
 	req->entry_id = cpu_to_le32(cfg->entry_id);
 	req->cfge.cbs = cpu_to_le32(cfg->cbs);
 	req->cfge.cir = cpu_to_le32(cfg->cir);
@@ -896,6 +900,8 @@ int ntmp_isit_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_isit_cfg
 	else
 		/* Query ENTRY_ID only */
 		req->crd.query_act = 1;
+
+	req->crd.tbl_ver = cbdrs->tbl.isit_ver;
 	req->ak.key_type = cpu_to_le32(cfg->key_type);
 	ether_addr_copy(req->ak.fk.mac, cfg->mac);
 
@@ -1015,6 +1021,7 @@ int ntmp_ist_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_ist_cfg *
 
 	/* Fill up NTMP request data buffer */
 	req->crd.update_act = cpu_to_le16(1);
+	req->crd.tbl_ver = cbdrs->tbl.ist_ver;
 	req->entry_id = cpu_to_le32(cfg->entry_id);
 	req->cfge.sfe = cfg->sfe;
 	req->cfge.fa = cfg->fa;
@@ -1119,8 +1126,10 @@ int ntmp_isft_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_isft_cfg
 		return -ENOMEM;
 
 	req->crd.update_act = cpu_to_le16(1);
+	req->crd.tbl_ver = cbdrs->tbl.isft_ver;
 	if (add)
 		req->crd.query_act = 1;
+
 	req->ak.is_eid = cpu_to_le32(cfg->is_eid);
 	req->ak.pcp = cfg->priority;
 
@@ -1256,6 +1265,7 @@ int ntmp_sgclt_add_entry(struct netc_cbdrs *cbdrs, struct ntmp_sgclt_cfg *cfg)
 		return -ENOMEM;
 
 	/* Fill up NTMP request data buffer */
+	req->crd.tbl_ver = cbdrs->tbl.sgclt_ver;
 	req->entry_id = cpu_to_le32(cfg->entry_id);
 	req->cfge.ct = cpu_to_le32(cfg->ct);
 	req->cfge.ext_gtst = 1;
@@ -1384,6 +1394,7 @@ int ntmp_sgit_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_sgit_cfg
 		return -ENOMEM;
 
 	req->crd.update_act = cpu_to_le16(7);
+	req->crd.tbl_ver = cbdrs->tbl.sgit_ver;
 	req->entry_id = cpu_to_le32(cfg->entry_id);
 	req->acfge.admin_sgcl_eid = cpu_to_le32(cfg->admin_sgcl_eid);
 	req->acfge.admin_bt = cpu_to_le64(base_time);
@@ -1512,6 +1523,8 @@ int ntmp_isct_operate_entry(struct netc_cbdrs *cbdrs, u32 entry_id, int cmd,
 
 	if (cmd & NTMP_CMD_UPDATE)
 		req->crd.update_act = cpu_to_le16(1);
+
+	req->crd.tbl_ver = cbdrs->tbl.isct_ver;
 	req->entry_id = cpu_to_le32(entry_id);
 
 	/* Request header */
@@ -1571,6 +1584,7 @@ int ntmp_ipft_add_entry(struct netc_cbdrs *cbdrs, struct ntmp_ipft_key *key,
 	/* Fill up NTMP request data buffer */
 	req->crd.update_act = cpu_to_le16(3);
 	req->crd.query_act = 1;
+	req->crd.tbl_ver = cbdrs->tbl.ipft_ver;
 	req->keye.precedence = cpu_to_le16(key->precedence);
 	req->keye.frm_attr_flags = cpu_to_le16(key->frm_attr_flags);
 	req->keye.frm_attr_flags_mask = cpu_to_le16(key->frm_attr_flags_mask);
