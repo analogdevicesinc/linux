@@ -2528,12 +2528,13 @@ static int enetc_setup_default_rss_table(struct enetc_si *si, int num_groups)
 
 static int enetc4_get_rss_table(struct enetc_si *si, u32 *table, int count)
 {
-	return ntmp_rsst_query_or_update_entry(&si->cbdrs, table, count, true);
+	return ntmp_rsst_query_or_update_entry(&si->ntmp.cbdrs, table, count, true);
 }
 
 static int enetc4_set_rss_table(struct enetc_si *si, const u32 *table, int count)
 {
-	return ntmp_rsst_query_or_update_entry(&si->cbdrs, (u32 *)table, count, false);
+	return ntmp_rsst_query_or_update_entry(&si->ntmp.cbdrs,
+					       (u32 *)table, count, false);
 }
 
 static void enetc4_set_lso_flags_mask(struct enetc_hw *hw)

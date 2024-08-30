@@ -42,6 +42,20 @@
 
 #define ENETC_NTMP_ENTRY_ID_SIZE	4
 
+#define NTMP_QUERY_ACT_ENTRY_ID		1
+
+/* Generic Update Actions for most tables */
+#define NTMP_GEN_UA_CFGEU		BIT(0)
+#define NTMP_GEN_UA_STSEU		BIT(1)
+
+/* Update Actions for specific tables */
+#define NTMP_SGIT_UA_ACFGEU		BIT(0)
+#define NTMP_SGIT_UA_CFGEU		BIT(1)
+#define NTMP_SGIT_UA_SGISEU		BIT(2)
+#define NTMP_RPT_UA_FEEU		BIT(1)
+#define NTMP_RPT_UA_PSEU		BIT(2)
+#define NTMP_RPT_UA_STSEU		BIT(3)
+
 #define ENETC_RSS_TABLE_ENTRY_NUM	64
 #define ENETC_RSS_CFGEU			BIT(0)
 #define ENETC_RSS_STSEU			BIT(1)
@@ -267,6 +281,69 @@ static inline void ntmp_fill_request_headr(union netc_cbd *cbd, dma_addr_t dma,
 	/* For NTMP version 2.0 or later version */
 	cbd->ntmp_req_hdr.npf = cpu_to_le32(NTMP_REQ_HDR_NPF);
 }
+
+u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 bitmap_size)
+{
+	u32 entry_id;
+
+	if (!bitmap)
+		return NTMP_NULL_ENTRY_ID;
+
+	entry_id = find_first_zero_bit(bitmap, bitmap_size);
+	if (entry_id == bitmap_size)
+		return NTMP_NULL_ENTRY_ID;
+
+	/* Set the bit once we found it */
+	set_bit(entry_id, bitmap);
+
+	return entry_id;
+}
+EXPORT_SYMBOL_GPL(ntmp_lookup_free_eid);
+
+void ntmp_clear_eid_bitmap(unsigned long *bitmap, u32 entry_id)
+{
+	if (!bitmap || entry_id == NTMP_NULL_ENTRY_ID)
+		return;
+
+	clear_bit(entry_id, bitmap);
+}
+EXPORT_SYMBOL_GPL(ntmp_clear_eid_bitmap);
+
+u32 ntmp_lookup_free_words(unsigned long *bitmap, u32 bitmap_size,
+			   u32 num_words)
+{
+	u32 entry_id, next_eid, size;
+
+	if (!bitmap)
+		return NTMP_NULL_ENTRY_ID;
+
+	do {
+		entry_id = find_first_zero_bit(bitmap, bitmap_size);
+		if (entry_id == bitmap_size)
+			return NTMP_NULL_ENTRY_ID;
+
+		next_eid = find_next_bit(bitmap, bitmap_size, entry_id + 1);
+		size = next_eid - entry_id;
+	} while (size < num_words && next_eid != bitmap_size);
+
+	if (size < num_words)
+		return NTMP_NULL_ENTRY_ID;
+
+	bitmap_set(bitmap, entry_id, num_words);
+
+	return entry_id;
+}
+EXPORT_SYMBOL_GPL(ntmp_lookup_free_words);
+
+void ntmp_clear_words_bitmap(unsigned long *bitmap, u32 entry_id,
+			     u32 num_words)
+{
+	if (!bitmap || entry_id == NTMP_NULL_ENTRY_ID)
+		return;
+
+	bitmap_clear(bitmap, entry_id, num_words);
+}
+EXPORT_SYMBOL_GPL(ntmp_clear_words_bitmap);
 
 static int ntmp_delete_entry_by_id(struct netc_cbdrs *cbdrs, int tbl_id, u8 tbl_ver,
 				   u32 entry_id, u32 req_len, u32 resp_len)
@@ -701,20 +778,6 @@ int ntmp_tgst_delete_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id)
 }
 EXPORT_SYMBOL_GPL(ntmp_tgst_delete_admin_gate_list);
 
-static u64 ntmp_adjust_base_time(struct netc_cbdrs *cbdrs, u64 base_time, u32 cycle_time)
-{
-	u64 current_time, delta, n;
-
-	current_time = cbdrs->get_current_time(cbdrs->dma_dev);
-	if (base_time >= current_time)
-		return base_time;
-
-	delta = current_time - base_time;
-	n = DIV_ROUND_UP_ULL(delta, cycle_time);
-
-	return base_time + (n * (u64)cycle_time);
-}
-
 int ntmp_tgst_update_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id,
 				     struct ntmp_tgst_cfg *cfg)
 {
@@ -725,7 +788,6 @@ int ntmp_tgst_update_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id,
 	struct tgst_ge *ge;
 	u32 len, data_size;
 	dma_addr_t dma;
-	u64 base_time;
 	int i, err;
 	void *tmp;
 
@@ -742,8 +804,7 @@ int ntmp_tgst_update_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id,
 	req->crd.update_act = cpu_to_le16(1);
 	req->crd.tbl_ver = cbdrs->tbl.tgst_ver;
 	req->entry_id = cpu_to_le32(entry_id);
-	base_time = ntmp_adjust_base_time(cbdrs, cfg->base_time, cfg->cycle_time);
-	cfge->admin_bt = cpu_to_le64(base_time);
+	cfge->admin_bt = cpu_to_le64(cfg->base_time);
 	cfge->admin_ct = cpu_to_le32(cfg->cycle_time);
 	cfge->admin_ct_ext = cpu_to_le32(cfg->cycle_time_extension);
 	cfge->admin_cl_len = cpu_to_le16(cfg->num_entries);
@@ -772,7 +833,8 @@ int ntmp_tgst_update_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id,
 }
 EXPORT_SYMBOL_GPL(ntmp_tgst_update_admin_gate_list);
 
-int ntmp_rpt_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_rpt_cfg *cfg)
+int ntmp_rpt_add_or_update_entry(struct netc_cbdrs *cbdrs,
+				 struct ntmp_rpt_entry *entry)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct rpt_req_ua *req;
@@ -782,19 +844,20 @@ int ntmp_rpt_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_rpt_cfg *
 	void *tmp;
 	int err;
 
+	if (!entry)
+		return -EINVAL;
+
 	data_size = sizeof(*req);
 	tmp = ntmp_alloc_data_mem(dev, data_size, &dma, (void **)&req);
 	if (!tmp)
 		return -ENOMEM;
 
-	req->crd.update_act = cpu_to_le16(0xf);
+	req->crd.update_act = cpu_to_le16(NTMP_GEN_UA_CFGEU | NTMP_RPT_UA_FEEU |
+					  NTMP_RPT_UA_PSEU | NTMP_RPT_UA_STSEU);
 	req->crd.tbl_ver = cbdrs->tbl.rpt_ver;
-	req->entry_id = cpu_to_le32(cfg->entry_id);
-	req->cfge.cbs = cpu_to_le32(cfg->cbs);
-	req->cfge.cir = cpu_to_le32(cfg->cir);
-	req->cfge.ebs = cpu_to_le32(cfg->ebs);
-	req->cfge.eir = cpu_to_le32(cfg->eir);
-	req->fee.fen = 1;	//always enable the function
+	req->entry_id = cpu_to_le32(entry->entry_id);
+	req->cfge = entry->cfge;
+	req->fee = entry->fee;
 
 	/* Request header */
 	len = NTMP_REQ_RESP_LEN(data_size, 0);
@@ -812,7 +875,7 @@ int ntmp_rpt_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_rpt_cfg *
 EXPORT_SYMBOL_GPL(ntmp_rpt_add_or_update_entry);
 
 int ntmp_rpt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			 struct ntmp_rpt_info *info)
+			 struct ntmp_rpt_entry *entry)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct rpt_resp_query *resp;
@@ -824,7 +887,7 @@ int ntmp_rpt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 	u32 dma_len;
 	int err;
 
-	if (!info || entry_id == NTMP_NULL_ENTRY_ID)
+	if (!entry || entry_id == NTMP_NULL_ENTRY_ID)
 		return -EINVAL;
 
 	dma_len = max_t(u32, req_len, resp_len);
@@ -841,27 +904,10 @@ int ntmp_rpt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 		goto end;
 
 	resp = (struct rpt_resp_query *)req;
-
-	info->sts.byte_cnt = le64_to_cpu(resp->stse.byte_count);
-	info->sts.drop_frames = le32_to_cpu(resp->stse.drop_frames);
-	info->sts.dr0_grn_frames = le32_to_cpu(resp->stse.dr0_grn_frames);
-	info->sts.dr1_grn_frames = le32_to_cpu(resp->stse.dr1_grn_frames);
-	info->sts.dr2_ylw_frames = le32_to_cpu(resp->stse.dr2_ylw_frames);
-	info->sts.dr3_red_frames = le32_to_cpu(resp->stse.dr3_red_frames);
-	info->sts.remark_ylw_frames = le32_to_cpu(resp->stse.remark_ylw_frames);
-	info->sts.remark_red_frames = le32_to_cpu(resp->stse.remark_red_frames);
-	info->cfg.cir = le32_to_cpu(resp->cfge.cir);
-	info->cfg.cbs = le32_to_cpu(resp->cfge.cbs);
-	info->cfg.eir = le32_to_cpu(resp->cfge.eir);
-	info->cfg.ebs = le32_to_cpu(resp->cfge.ebs);
-	info->cfg.mren = resp->cfge.mren;
-	info->cfg.doy = resp->cfge.doy;
-	info->cfg.cm = resp->cfge.cm;
-	info->cfg.cf = resp->cfge.cf;
-	info->cfg.ndor = resp->cfge.ndor;
-	info->cfg.sdu_type = resp->cfge.sdu_type;
-	info->fen = !!resp->fee.fen;
-	info->mr = resp->pse.mr;
+	entry->stse = resp->stse;
+	entry->cfge = resp->cfge;
+	entry->fee = resp->fee;
+	entry->pse = resp->pse;
 
 end:
 	ntmp_free_data_mem(dev, dma_len, tmp, dma);
@@ -877,18 +923,20 @@ int ntmp_rpt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 }
 EXPORT_SYMBOL_GPL(ntmp_rpt_delete_entry);
 
-int ntmp_isit_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_isit_cfg *cfg,
-				  bool add)
+int ntmp_isit_add_or_update_entry(struct netc_cbdrs *cbdrs, bool add,
+				  struct ntmp_isit_entry *entry)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct isit_resp_query *resp;
 	struct isit_req_ua *req;
 	union netc_cbd cbd;
 	u32 data_size, len;
-	u16 v_pbit_vid = 0;
 	dma_addr_t dma;
 	void *tmp;
 	int err;
+
+	if (!entry)
+		return -EINVAL;
 
 	data_size = add ? sizeof(*resp) : sizeof(*req);
 	tmp = ntmp_alloc_data_mem(dev, data_size, &dma, (void **)&req);
@@ -896,21 +944,14 @@ int ntmp_isit_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_isit_cfg
 		return -ENOMEM;
 
 	if (!add)
-		req->crd.update_act = cpu_to_le16(1);
+		req->crd.update_act = cpu_to_le16(NTMP_GEN_UA_CFGEU);
 	else
 		/* Query ENTRY_ID only */
-		req->crd.query_act = 1;
+		req->crd.query_act = NTMP_QUERY_ACT_ENTRY_ID;
 
 	req->crd.tbl_ver = cbdrs->tbl.isit_ver;
-	req->ak.key_type = cpu_to_le32(cfg->key_type);
-	ether_addr_copy(req->ak.fk.mac, cfg->mac);
-
-	if (cfg->tagged)
-		v_pbit_vid = cfg->vid | BIT(15);
-
-	req->ak.fk.vlan_h = (v_pbit_vid >> 8) & 0xff;
-	req->ak.fk.vlan_l = v_pbit_vid & 0xff;
-	req->is_eid = cpu_to_le32(cfg->is_eid);
+	req->ak.keye = entry->keye;
+	req->is_eid = entry->is_eid;
 
 	/* Request header */
 	if (add) {
@@ -922,7 +963,7 @@ int ntmp_isit_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_isit_cfg
 		ntmp_fill_request_headr(&cbd, dma, len, NTMP_ISIT_ID,
 					NTMP_CMD_AQ, NTMP_AM_EXACT_KEY);
 	} else {
-		len = NTMP_REQ_RESP_LEN(sizeof(*req), sizeof(struct isit_resp_nq));
+		len = NTMP_REQ_RESP_LEN(sizeof(*req), sizeof(struct common_resp_nq));
 		ntmp_fill_request_headr(&cbd, dma, len, NTMP_ISIT_ID,
 					NTMP_CMD_UPDATE, NTMP_AM_EXACT_KEY);
 	}
@@ -936,7 +977,7 @@ int ntmp_isit_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_isit_cfg
 
 	if (add) {
 		resp = (struct isit_resp_query *)req;
-		cfg->entry_id = le32_to_cpu(resp->entry_id);
+		entry->entry_id = le32_to_cpu(resp->entry_id);
 	}
 
 end:
@@ -947,7 +988,7 @@ end:
 EXPORT_SYMBOL_GPL(ntmp_isit_add_or_update_entry);
 
 int ntmp_isit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct ntmp_isit_info *info)
+			  struct ntmp_isit_entry *entry)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct isit_resp_query *resp;
@@ -958,7 +999,7 @@ int ntmp_isit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 	dma_addr_t dma;
 	int err;
 
-	if (!info || entry_id == NTMP_NULL_ENTRY_ID)
+	if (!entry || entry_id == NTMP_NULL_ENTRY_ID)
 		return -EINVAL;
 
 	req_len = sizeof(*req);
@@ -968,7 +1009,7 @@ int ntmp_isit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 		return -ENOMEM;
 
 	req->crd.tbl_ver = cbdrs->tbl.isit_ver;
-	req->ak.entry_id = cpu_to_le32(entry_id);
+	req->ak.eid.entry_id = cpu_to_le32(entry_id);
 	err = ntmp_query_entry_by_id(cbdrs, NTMP_ISIT_ID,
 				     NTMP_REQ_RESP_LEN(req_len, resp_len),
 				     (struct ntmp_qd_by_eid *)req, &dma, false);
@@ -983,9 +1024,8 @@ int ntmp_isit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 		goto end;
 	}
 
-	info->key_type = le32_to_cpu(resp->key.key_type) & NTMP_ISIT_KEY_TYPE;
-	memcpy(info->key, resp->key.frame_key, NTMP_ISIT_FRAME_KEY_LEN);
-	info->is_eid = le32_to_cpu(resp->is_eid);
+	entry->keye = resp->keye;
+	entry->is_eid = resp->is_eid;
 
 end:
 	ntmp_free_data_mem(dev, dma_len, tmp, dma);
@@ -996,7 +1036,7 @@ EXPORT_SYMBOL_GPL(ntmp_isit_query_entry);
 
 int ntmp_isit_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 {
-	u32 resp_len = sizeof(struct isit_resp_nq);
+	u32 resp_len = sizeof(struct common_resp_nq);
 	u32 req_len = sizeof(struct isit_req_qd);
 
 	return ntmp_delete_entry_by_id(cbdrs, NTMP_ISIT_ID, cbdrs->tbl.isit_ver,
@@ -1004,7 +1044,8 @@ int ntmp_isit_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 }
 EXPORT_SYMBOL_GPL(ntmp_isit_delete_entry);
 
-int ntmp_ist_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_ist_cfg *cfg)
+int ntmp_ist_add_or_update_entry(struct netc_cbdrs *cbdrs,
+				 struct ntmp_ist_entry *entry)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct ist_req_ua *req;
@@ -1014,24 +1055,19 @@ int ntmp_ist_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_ist_cfg *
 	void *tmp;
 	int err;
 
+	if (!entry)
+		return -EINVAL;
+
 	data_size = sizeof(*req);
 	tmp = ntmp_alloc_data_mem(dev, data_size, &dma, (void **)&req);
 	if (!tmp)
 		return -ENOMEM;
 
 	/* Fill up NTMP request data buffer */
-	req->crd.update_act = cpu_to_le16(1);
+	req->crd.update_act = cpu_to_le16(NTMP_GEN_UA_CFGEU);
 	req->crd.tbl_ver = cbdrs->tbl.ist_ver;
-	req->entry_id = cpu_to_le32(cfg->entry_id);
-	req->cfge.sfe = cfg->sfe;
-	req->cfge.fa = cfg->fa;
-	req->cfge.msdu = cpu_to_le16(cfg->msdu);
-	req->cfge.rp_eid = cpu_to_le32(cfg->rp_eid);
-	req->cfge.sgi_eid = cpu_to_le32(cfg->sgi_eid);
-	req->cfge.isc_eid = cpu_to_le32(cfg->isc_eid);
-	req->cfge.si_bitmap = cpu_to_le16(cfg->si_bitmap);
-	req->cfge.orp = cfg->orp;
-	req->cfge.osgi = cfg->osgi;
+	req->entry_id = cpu_to_le32(entry->entry_id);
+	req->cfge = entry->cfge;
 
 	/* Request header */
 	len = NTMP_REQ_RESP_LEN(data_size, 0);
@@ -1049,7 +1085,7 @@ int ntmp_ist_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_ist_cfg *
 EXPORT_SYMBOL_GPL(ntmp_ist_add_or_update_entry);
 
 int ntmp_ist_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			 struct ntmp_ist_info *info)
+			 struct ist_cfge_data *cfge)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct ist_resp_query *resp;
@@ -1060,7 +1096,7 @@ int ntmp_ist_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 	dma_addr_t dma;
 	int err;
 
-	if (!info || entry_id == NTMP_NULL_ENTRY_ID)
+	if (!cfge || entry_id == NTMP_NULL_ENTRY_ID)
 		return -EINVAL;
 
 	resp_len = sizeof(*resp);
@@ -1078,21 +1114,7 @@ int ntmp_ist_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 		goto end;
 
 	resp = (struct ist_resp_query *)req;
-
-	info->sfe = resp->cfge.sfe;
-	info->ipv = resp->cfge.ipv;
-	info->oipv = resp->cfge.oipv;
-	info->dr = resp->cfge.dr;
-	info->odr = resp->cfge.odr;
-	info->orp = resp->cfge.orp;
-	info->osgi = resp->cfge.osgi;
-	info->fa = resp->cfge.fa;
-	info->sdu_type = resp->cfge.sdu_type;
-	info->msdu = le16_to_cpu(resp->cfge.msdu);
-	info->si_bitmap = le16_to_cpu(resp->cfge.si_bitmap);
-	info->rp_eid = le32_to_cpu(resp->cfge.rp_eid);
-	info->sgi_eid = le32_to_cpu(resp->cfge.sgi_eid);
-	info->isc_eid = le32_to_cpu(resp->cfge.isc_eid);
+	*cfge = resp->cfge;
 
 end:
 	ntmp_free_data_mem(dev, dma_len, tmp, dma);
@@ -1108,8 +1130,8 @@ int ntmp_ist_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 }
 EXPORT_SYMBOL_GPL(ntmp_ist_delete_entry);
 
-int ntmp_isft_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_isft_cfg *cfg,
-				  bool add)
+int ntmp_isft_add_or_update_entry(struct netc_cbdrs *cbdrs, bool add,
+				  struct ntmp_isft_entry *entry)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct isft_resp_query *resp;
@@ -1120,32 +1142,21 @@ int ntmp_isft_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_isft_cfg
 	void *tmp;
 	int err;
 
+	if (!entry)
+		return -EINVAL;
+
 	data_size = add ? sizeof(*resp) : sizeof(*req);
 	tmp = ntmp_alloc_data_mem(dev, data_size, &dma, (void **)&req);
 	if (!tmp)
 		return -ENOMEM;
 
-	req->crd.update_act = cpu_to_le16(1);
+	req->crd.update_act = cpu_to_le16(NTMP_GEN_UA_CFGEU);
 	req->crd.tbl_ver = cbdrs->tbl.isft_ver;
 	if (add)
-		req->crd.query_act = 1;
+		req->crd.query_act = NTMP_QUERY_ACT_ENTRY_ID;
 
-	req->ak.is_eid = cpu_to_le32(cfg->is_eid);
-	req->ak.pcp = cfg->priority;
-
-	/* Override flags need to be set */
-	if (cfg->or_flags & NTMP_ISFT_FLAG_ORP) {
-		req->cfge.orp = 1;
-		req->cfge.rp_eid = cpu_to_le32(cfg->rp_eid);
-	}
-
-	if (cfg->or_flags & NTMP_ISFT_FLAG_OSGI) {
-		req->cfge.osgi = 1;
-		req->cfge.sgi_eid = cpu_to_le32(cfg->sgi_eid);
-	}
-
-	req->cfge.isc_eid = cpu_to_le32(cfg->isc_eid);
-	req->cfge.msdu = cpu_to_le16(cfg->msdu);
+	req->ak.keye = entry->keye;
+	req->cfge = entry->cfge;
 
 	/* Request header */
 	if (add) {
@@ -1157,7 +1168,7 @@ int ntmp_isft_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_isft_cfg
 		ntmp_fill_request_headr(&cbd, dma, len, NTMP_ISFT_ID,
 					NTMP_CMD_AQ, NTMP_AM_EXACT_KEY);
 	} else {
-		len = NTMP_REQ_RESP_LEN(sizeof(*req), sizeof(struct isft_resp_nq));
+		len = NTMP_REQ_RESP_LEN(sizeof(*req), sizeof(struct common_resp_nq));
 		ntmp_fill_request_headr(&cbd, dma, len, NTMP_ISFT_ID,
 					NTMP_CMD_UPDATE, NTMP_AM_EXACT_KEY);
 	}
@@ -1171,7 +1182,7 @@ int ntmp_isft_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_isft_cfg
 
 	if (add) {
 		resp = (struct isft_resp_query *)req;
-		cfg->entry_id = le32_to_cpu(resp->entry_id);
+		entry->entry_id = le32_to_cpu(resp->entry_id);
 	}
 
 end:
@@ -1182,7 +1193,7 @@ end:
 EXPORT_SYMBOL_GPL(ntmp_isft_add_or_update_entry);
 
 int ntmp_isft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct ntmp_isft_info *info)
+			  struct ntmp_isft_entry *entry)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct isft_resp_query *resp;
@@ -1193,7 +1204,7 @@ int ntmp_isft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 	dma_addr_t dma;
 	int err;
 
-	if (!info || entry_id == NTMP_NULL_ENTRY_ID)
+	if (!entry || entry_id == NTMP_NULL_ENTRY_ID)
 		return -EINVAL;
 
 	req_len = sizeof(*req);
@@ -1203,7 +1214,7 @@ int ntmp_isft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 		return -ENOMEM;
 
 	req->crd.tbl_ver = cbdrs->tbl.isft_ver;
-	req->ak.entry_id = cpu_to_le32(entry_id);
+	req->ak.eid.entry_id = cpu_to_le32(entry_id);
 	err = ntmp_query_entry_by_id(cbdrs, NTMP_ISFT_ID,
 				     NTMP_REQ_RESP_LEN(req_len, resp_len),
 				     (struct ntmp_qd_by_eid *)req, &dma, false);
@@ -1218,19 +1229,8 @@ int ntmp_isft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 		goto end;
 	}
 
-	info->is_eid = le32_to_cpu(resp->keye.is_eid);
-	info->pcp = resp->keye.pcp;
-	info->ipv = resp->cfge.ipv;
-	info->oipv = resp->cfge.oipv;
-	info->dr = resp->cfge.dr;
-	info->odr = resp->cfge.odr;
-	info->osgi = resp->cfge.osgi;
-	info->orp = resp->cfge.orp;
-	info->sdu_type = resp->cfge.sdu_type;
-	info->msdu = le16_to_cpu(resp->cfge.msdu);
-	info->rp_eid = le32_to_cpu(resp->cfge.rp_eid);
-	info->sgi_eid = le32_to_cpu(resp->cfge.sgi_eid);
-	info->isc_eid = le32_to_cpu(resp->cfge.isc_eid);
+	entry->keye = resp->keye;
+	entry->cfge = resp->cfge;
 
 end:
 	ntmp_free_data_mem(dev, dma_len, tmp, dma);
@@ -1241,7 +1241,7 @@ EXPORT_SYMBOL_GPL(ntmp_isft_query_entry);
 
 int ntmp_isft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 {
-	u32 resp_len = sizeof(struct isft_resp_nq);
+	u32 resp_len = sizeof(struct common_resp_nq);
 	u32 req_len = sizeof(struct isft_req_qd);
 
 	return ntmp_delete_entry_by_id(cbdrs, NTMP_ISFT_ID, cbdrs->tbl.isft_ver,
@@ -1249,53 +1249,32 @@ int ntmp_isft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 }
 EXPORT_SYMBOL_GPL(ntmp_isft_delete_entry);
 
-int ntmp_sgclt_add_entry(struct netc_cbdrs *cbdrs, struct ntmp_sgclt_cfg *cfg)
+int ntmp_sgclt_add_entry(struct netc_cbdrs *cbdrs,
+			 struct ntmp_sgclt_entry *entry)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct sgclt_req_add *req;
+	u32 num_gates, cfge_len;
 	union netc_cbd cbd;
 	u32 data_size, len;
 	dma_addr_t dma;
-	int i, err;
 	void *tmp;
+	int err;
 
-	data_size = struct_size(req, cfge.ge, cfg->num_gates);
+	if (!entry)
+		return -EINVAL;
+
+	num_gates = entry->cfge.list_length + 1;
+	data_size = struct_size(req, cfge.ge, num_gates);
 	tmp = ntmp_alloc_data_mem(dev, data_size, &dma, (void **)&req);
 	if (!tmp)
 		return -ENOMEM;
 
 	/* Fill up NTMP request data buffer */
 	req->crd.tbl_ver = cbdrs->tbl.sgclt_ver;
-	req->entry_id = cpu_to_le32(cfg->entry_id);
-	req->cfge.ct = cpu_to_le32(cfg->ct);
-	req->cfge.ext_gtst = 1;
-	if (cfg->init_ipv >= 0) {
-		req->cfge.ext_oipv = 1;
-		req->cfge.ext_ipv = cfg->init_ipv & 0x7;
-	}
-
-	req->cfge.list_len = cfg->num_gates - 1;
-	for (i = 0; i < cfg->num_gates; i++) {
-		struct action_gate_entry *from = &cfg->entries[i];
-		struct sgclt_ge *to = &req->cfge.ge[i];
-
-		if (from->gate_state)
-			to->gtst = ENETC_STREAM_GATE_STATE_OPEN;
-
-		if (from->ipv >= 0) {
-			to->oipv = 1;
-			to->ipv = from->ipv & 0x7;
-		}
-
-		if (from->maxoctets >= 0) {
-			to->iomen |= 0x01;
-			to->iom[0] = from->maxoctets & 0xFF;
-			to->iom[1] = (from->maxoctets >> 8) & 0xFF;
-			to->iom[2] = (from->maxoctets >> 16) & 0xFF;
-		}
-
-		to->interval = from->interval;
-	}
+	req->entry_id = cpu_to_le32(entry->entry_id);
+	cfge_len = struct_size_t(struct sgclt_cfge_data, ge, num_gates);
+	memcpy(&req->cfge, &entry->cfge, cfge_len);
 
 	/* Request header */
 	len = NTMP_REQ_RESP_LEN(data_size, 0);
@@ -1313,18 +1292,19 @@ int ntmp_sgclt_add_entry(struct netc_cbdrs *cbdrs, struct ntmp_sgclt_cfg *cfg)
 EXPORT_SYMBOL_GPL(ntmp_sgclt_add_entry);
 
 int ntmp_sgclt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			   struct ntmp_sgclt_info *info)
+			   struct ntmp_sgclt_entry *entry, u32 cfge_size)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct sgclt_resp_query *resp;
 	struct ntmp_qd_by_eid *req;
 	u32 req_len = sizeof(*req);
+	u32 num_gates, cfge_len;
 	u32 resp_len, dma_len;
 	void *tmp = NULL;
 	dma_addr_t dma;
-	int i, err;
+	int err;
 
-	if (!info || entry_id == NTMP_NULL_ENTRY_ID)
+	if (!entry || entry_id == NTMP_NULL_ENTRY_ID)
 		return -EINVAL;
 
 	resp_len = struct_size(resp, cfge.ge, NTMP_SGCLT_MAX_GE_NUM);
@@ -1342,22 +1322,18 @@ int ntmp_sgclt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 		goto end;
 
 	resp = (struct sgclt_resp_query *)req;
+	entry->ref_count = resp->ref_count;
+	num_gates = resp->cfge.list_length + 1;
+	cfge_len = struct_size_t(struct sgclt_cfge_data, ge, num_gates);
+	if (cfge_len > cfge_size) {
+		err = -ENOMEM;
+		dev_err(dev, "SGCLT_CFGE buffer size is %u, larger than %u\n",
+			cfge_size, cfge_len);
 
-	info->cycle_time = le32_to_cpu(resp->cfge.ct);
-	info->ref_count = resp->ref_count;
-	info->list_len = resp->cfge.list_len + 1;
-	info->ext_gtst = resp->cfge.ext_gtst;
-	info->ext_ipv = resp->cfge.ext_ipv;
-	info->ext_oipv = resp->cfge.ext_oipv;
-	for (i = 0; i < info->list_len; i++) {
-		info->ge[i].interval = le32_to_cpu(resp->cfge.ge[i].interval);
-		info->ge[i].iom = resp->cfge.ge[i].iom[2] << 16 | resp->cfge.ge[i].iom[1] << 8 |
-				  resp->cfge.ge[i].iom[0];
-		info->ge[i].ipv = resp->cfge.ge[i].ipv;
-		info->ge[i].oipv = resp->cfge.ge[i].oipv;
-		info->ge[i].iomen = resp->cfge.ge[i].iomen;
-		info->ge[i].gtst = resp->cfge.ge[i].gtst;
+		goto end;
 	}
+
+	memcpy(&entry->cfge, &resp->cfge, cfge_len);
 
 end:
 	ntmp_free_data_mem(dev, dma_len, tmp, dma);
@@ -1373,40 +1349,32 @@ int ntmp_sgclt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 }
 EXPORT_SYMBOL_GPL(ntmp_sgclt_delete_entry);
 
-int ntmp_sgit_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_sgit_cfg *cfg)
+int ntmp_sgit_add_or_update_entry(struct netc_cbdrs *cbdrs,
+				  struct ntmp_sgit_entry *entry)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct sgit_req_ua *req;
 	union netc_cbd cbd;
 	u32 data_size, len;
 	dma_addr_t dma;
-	u64 base_time;
 	void *tmp;
 	int err;
 
-	base_time = cfg->admin_bt;
-	if (cfg->admin_sgcl_eid != NTMP_NULL_ENTRY_ID)
-		base_time = ntmp_adjust_base_time(cbdrs, cfg->admin_bt, cfg->sgcl_ct);
+	if (!entry)
+		return -EINVAL;
 
 	data_size = sizeof(*req);
 	tmp = ntmp_alloc_data_mem(dev, data_size, &dma, (void **)&req);
 	if (!tmp)
 		return -ENOMEM;
 
-	req->crd.update_act = cpu_to_le16(7);
+	req->crd.update_act = cpu_to_le16(NTMP_SGIT_UA_ACFGEU | NTMP_SGIT_UA_CFGEU |
+					  NTMP_SGIT_UA_SGISEU);
 	req->crd.tbl_ver = cbdrs->tbl.sgit_ver;
-	req->entry_id = cpu_to_le32(cfg->entry_id);
-	req->acfge.admin_sgcl_eid = cpu_to_le32(cfg->admin_sgcl_eid);
-	req->acfge.admin_bt = cpu_to_le64(base_time);
-	req->acfge.admin_ct_ext = cpu_to_le32(cfg->admin_ct_ext);
-	/* Specify the gate state to be open before the admin stream
-	 * control list takes effect.
-	 */
-	req->icfge.gst = 1;
-	if (cfg->init_ipv >= 0) {
-		req->icfge.oipv = 1;
-		req->icfge.ipv = cfg->init_ipv & 0x7;
-	}
+	req->entry_id = cpu_to_le32(entry->entry_id);
+	req->acfge = entry->acfge;
+	req->cfge = entry->cfge;
+	req->icfge = entry->icfge;
 
 	/* Request header */
 	len = NTMP_REQ_RESP_LEN(data_size, 0);
@@ -1424,7 +1392,7 @@ int ntmp_sgit_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_sgit_cfg
 EXPORT_SYMBOL_GPL(ntmp_sgit_add_or_update_entry);
 
 int ntmp_sgit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct ntmp_sgit_info *info)
+			  struct ntmp_sgit_entry *entry)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct sgit_resp_query *resp;
@@ -1436,7 +1404,7 @@ int ntmp_sgit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 	u32 dma_len;
 	int err;
 
-	if (!info || entry_id == NTMP_NULL_ENTRY_ID)
+	if (!entry || entry_id == NTMP_NULL_ENTRY_ID)
 		return -EINVAL;
 
 	dma_len = max_t(u32, req_len, resp_len);
@@ -1453,23 +1421,10 @@ int ntmp_sgit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 		goto end;
 
 	resp = (struct sgit_resp_query *)req;
-
-	info->cfg_ct = le64_to_cpu(resp->sgise.cfg_ct);
-	info->oper_bt = le64_to_cpu(resp->sgise.oper_bt);
-	info->admin_bt = le64_to_cpu(resp->acfge.admin_bt);
-	info->oper_ct_ext = le32_to_cpu(resp->sgise.oper_ct_ext);
-	info->admin_ct_ext = le32_to_cpu(resp->acfge.admin_ct_ext);
-	info->oper_sgcl_eid = le32_to_cpu(resp->sgise.oper_sgcl_eid);
-	info->admin_sgcl_eid = le32_to_cpu(resp->acfge.admin_sgcl_eid);
-	info->sdu_type = resp->cfge.sdu_type;
-	info->state = resp->sgise.state;
-	info->oex = resp->sgise.oex;
-	info->oexen = resp->cfge.oexen;
-	info->irx = resp->sgise.irx;
-	info->irxen = resp->cfge.irxen;
-	info->ipv = resp->icfge.ipv;
-	info->oipv = resp->icfge.oipv;
-	info->gst = resp->icfge.gst;
+	entry->sgise = resp->sgise;
+	entry->cfge = resp->cfge;
+	entry->icfge = resp->icfge;
+	entry->acfge = resp->acfge;
 
 end:
 	ntmp_free_data_mem(dev, dma_len, tmp, dma);
@@ -1486,7 +1441,7 @@ int ntmp_sgit_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 EXPORT_SYMBOL_GPL(ntmp_sgit_delete_entry);
 
 int ntmp_isct_operate_entry(struct netc_cbdrs *cbdrs, u32 entry_id, int cmd,
-			    struct ntmp_isct_info *info)
+			    struct isct_stse_data *stse)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct isct_resp_query *resp;
@@ -1501,13 +1456,13 @@ int ntmp_isct_operate_entry(struct netc_cbdrs *cbdrs, u32 entry_id, int cmd,
 	/* Check the command. */
 	switch (cmd) {
 	case NTMP_CMD_QUERY:
-		if (!info)
+	case NTMP_CMD_QD:
+	case NTMP_CMD_QU:
+		if (!stse)
 			return -EINVAL;
 		fallthrough;
 	case NTMP_CMD_DELETE:
 	case NTMP_CMD_UPDATE:
-	case NTMP_CMD_QD:
-	case NTMP_CMD_QU:
 	case NTMP_CMD_ADD:
 	break;
 	default:
@@ -1522,7 +1477,7 @@ int ntmp_isct_operate_entry(struct netc_cbdrs *cbdrs, u32 entry_id, int cmd,
 		return -ENOMEM;
 
 	if (cmd & NTMP_CMD_UPDATE)
-		req->crd.update_act = cpu_to_le16(1);
+		req->crd.update_act = cpu_to_le16(NTMP_GEN_UA_CFGEU);
 
 	req->crd.tbl_ver = cbdrs->tbl.isct_ver;
 	req->entry_id = cpu_to_le32(entry_id);
@@ -1548,10 +1503,7 @@ int ntmp_isct_operate_entry(struct netc_cbdrs *cbdrs, u32 entry_id, int cmd,
 			goto end;
 		}
 
-		info->rx_count = le32_to_cpu(resp->rx_count);
-		info->msdu_drop_count = le32_to_cpu(resp->msdu_drop_count);
-		info->policer_drop_count = le32_to_cpu(resp->policer_drop_count);
-		info->sg_drop_count = le32_to_cpu(resp->sg_drop_count);
+		*stse = resp->stse;
 	}
 
 end:
@@ -1561,8 +1513,8 @@ end:
 }
 EXPORT_SYMBOL_GPL(ntmp_isct_operate_entry);
 
-int ntmp_ipft_add_entry(struct netc_cbdrs *cbdrs, struct ntmp_ipft_key *key,
-			struct ntmp_ipft_cfg *cfg, u32 *entry_id)
+int ntmp_ipft_add_entry(struct netc_cbdrs *cbdrs, u32 *entry_id,
+			struct ntmp_ipft_entry *entry)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct ipft_resp_query *resp;
@@ -1570,10 +1522,10 @@ int ntmp_ipft_add_entry(struct netc_cbdrs *cbdrs, struct ntmp_ipft_key *key,
 	union netc_cbd cbd;
 	u32 data_size, len;
 	dma_addr_t dma;
-	int i, err;
 	void *tmp;
+	int err;
 
-	if (!key || !cfg || !entry_id)
+	if (!entry)
 		return -EINVAL;
 
 	data_size = sizeof(*resp);
@@ -1582,45 +1534,11 @@ int ntmp_ipft_add_entry(struct netc_cbdrs *cbdrs, struct ntmp_ipft_key *key,
 		return -ENOMEM;
 
 	/* Fill up NTMP request data buffer */
-	req->crd.update_act = cpu_to_le16(3);
-	req->crd.query_act = 1;
+	req->crd.update_act = cpu_to_le16(NTMP_GEN_UA_CFGEU | NTMP_GEN_UA_STSEU);
+	req->crd.query_act = NTMP_QUERY_ACT_ENTRY_ID;
 	req->crd.tbl_ver = cbdrs->tbl.ipft_ver;
-	req->keye.precedence = cpu_to_le16(key->precedence);
-	req->keye.frm_attr_flags = cpu_to_le16(key->frm_attr_flags);
-	req->keye.frm_attr_flags_mask = cpu_to_le16(key->frm_attr_flags_mask);
-	req->keye.dscp = cpu_to_le16(key->dscp);
-	req->keye.src_port = cpu_to_le16(key->src_port);
-	req->keye.outer_vlan_tci = key->outer_vlan_tci;
-	req->keye.outer_vlan_tci_mask = key->outer_vlan_tci_mask;
-	ether_addr_copy(req->keye.dmac, key->dmac);
-	ether_addr_copy(req->keye.dmac_mask, key->dmac_mask);
-	ether_addr_copy(req->keye.smac, key->smac);
-	ether_addr_copy(req->keye.smac_mask, key->smac_mask);
-	req->keye.inner_vlan_tci = key->inner_vlan_tci;
-	req->keye.inner_vlan_tci_mask = key->inner_vlan_tci_mask;
-	req->keye.ethertype = key->ethertype;
-	req->keye.ethertype_mask = key->ethertype_mask;
-	req->keye.ip_protocol = key->ip_protocol;
-	req->keye.ip_protocol_mask = key->ip_protocol_mask;
-	memcpy(req->keye.ip_src, key->ip_src, sizeof(req->keye.ip_src));
-	memcpy(req->keye.ip_src_mask, key->ip_src_mask, sizeof(req->keye.ip_src_mask));
-	req->keye.l4_src_port = key->l4_src_port;
-	req->keye.l4_src_port_mask = key->l4_src_port_mask;
-	memcpy(req->keye.ip_dst, key->ip_dst, sizeof(req->keye.ip_dst));
-	memcpy(req->keye.ip_dst_mask, key->ip_dst_mask, sizeof(req->keye.ip_dst_mask));
-	req->keye.l4_dst_port = key->l4_dst_port;
-	req->keye.l4_dst_port_mask = key->l4_dst_port_mask;
-	for (i = 0; i < NTMP_IPFT_MAX_PLD_LEN; i++) {
-		req->keye.byte[i].data = key->byte[i].data;
-		req->keye.byte[i].mask = key->byte[i].mask;
-	}
-
-	req->cfge.ipv = cfg->ipv;
-	req->cfge.oipv = cfg->oipv;
-	req->cfge.dr = cfg->dr;
-	req->cfge.odr = cfg->odr;
-	req->cfge.filter = cpu_to_le16(cfg->filter);
-	req->cfge.flta_tgt = cpu_to_le32(cfg->flta_tgt);
+	req->keye = entry->keye;
+	req->cfge = entry->cfge;
 
 	/* Request header */
 	len = NTMP_REQ_RESP_LEN(sizeof(*req), data_size);
@@ -1634,7 +1552,8 @@ int ntmp_ipft_add_entry(struct netc_cbdrs *cbdrs, struct ntmp_ipft_key *key,
 	}
 
 	resp = (struct ipft_resp_query *)req;
-	*entry_id = le32_to_cpu(resp->entry_id);
+	if (entry_id)
+		*entry_id = le32_to_cpu(resp->entry_id);
 
 end:
 	ntmp_free_data_mem(dev, data_size, tmp, dma);
@@ -1644,7 +1563,7 @@ end:
 EXPORT_SYMBOL_GPL(ntmp_ipft_add_entry);
 
 int ntmp_ipft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct ntmp_ipft_info *info)
+			  bool update, struct ntmp_ipft_entry *entry)
 {
 	struct device *dev = cbdrs->dma_dev;
 	struct ipft_resp_query *resp;
@@ -1653,16 +1572,26 @@ int ntmp_ipft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 	u32 req_len, dma_len;
 	void *tmp = NULL;
 	dma_addr_t dma;
-	int i, err;
+	int err;
 
-	if (!info || entry_id == NTMP_NULL_ENTRY_ID)
+	if (!entry || entry_id == NTMP_NULL_ENTRY_ID)
 		return -EINVAL;
 
 	req_len = sizeof(*req);
+	/* CFGE_DATA is present when performing an update command,
+	 * but we don't need to set this filed because only STSEU
+	 * is updated here.
+	 */
+	if (update)
+		req_len += sizeof(struct ipft_cfge_data);
+
 	dma_len = max_t(u32, req_len, resp_len);
 	tmp = ntmp_alloc_data_mem(dev, dma_len, &dma, (void **)&req);
 	if (!tmp)
 		return -ENOMEM;
+
+	if (update)
+		req->crd.update_act = cpu_to_le16(NTMP_GEN_UA_STSEU);
 
 	req->crd.tbl_ver = cbdrs->tbl.ipft_ver;
 	req->entry_id = cpu_to_le32(entry_id);
@@ -1678,43 +1607,9 @@ int ntmp_ipft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 		goto end;
 	}
 
-	info->key.precedence = le16_to_cpu(resp->keye.precedence);
-	info->key.frm_attr_flags = le16_to_cpu(resp->keye.frm_attr_flags);
-	info->key.frm_attr_flags_mask = le16_to_cpu(resp->keye.frm_attr_flags_mask);
-	info->key.dscp = le16_to_cpu(resp->keye.dscp);
-	info->key.src_port = le16_to_cpu(resp->keye.src_port);
-	info->key.outer_vlan_tci = resp->keye.outer_vlan_tci;
-	info->key.outer_vlan_tci_mask = resp->keye.outer_vlan_tci_mask;
-	ether_addr_copy(info->key.dmac, resp->keye.dmac);
-	ether_addr_copy(info->key.dmac_mask, resp->keye.dmac_mask);
-	ether_addr_copy(info->key.smac, resp->keye.smac);
-	ether_addr_copy(info->key.smac_mask, resp->keye.smac_mask);
-	info->key.inner_vlan_tci = resp->keye.inner_vlan_tci;
-	info->key.inner_vlan_tci_mask = resp->keye.inner_vlan_tci_mask;
-	info->key.ethertype = resp->keye.ethertype;
-	info->key.ethertype_mask = resp->keye.ethertype_mask;
-	info->key.ip_protocol = resp->keye.ip_protocol;
-	info->key.ip_protocol_mask = resp->keye.ip_protocol_mask;
-	memcpy(info->key.ip_src, resp->keye.ip_src, sizeof(info->key.ip_src));
-	memcpy(info->key.ip_src_mask, resp->keye.ip_src_mask, sizeof(info->key.ip_src_mask));
-	info->key.l4_src_port = resp->keye.l4_src_port;
-	info->key.l4_src_port_mask = resp->keye.l4_src_port_mask;
-	memcpy(info->key.ip_dst, resp->keye.ip_dst, sizeof(info->key.ip_dst));
-	memcpy(info->key.ip_dst_mask, resp->keye.ip_dst_mask, sizeof(info->key.ip_dst_mask));
-	info->key.l4_dst_port = resp->keye.l4_dst_port;
-	info->key.l4_dst_port_mask = resp->keye.l4_dst_port_mask;
-	for (i = 0; i < NTMP_IPFT_MAX_PLD_LEN; i++) {
-		info->key.byte[i].data = resp->keye.byte[i].data;
-		info->key.byte[i].mask = resp->keye.byte[i].mask;
-	}
-	info->match_count = le64_to_cpu(resp->stse.match_count);
-
-	info->cfg.ipv = resp->cfge.ipv;
-	info->cfg.oipv = resp->cfge.oipv;
-	info->cfg.dr = resp->cfge.dr;
-	info->cfg.odr = resp->cfge.odr;
-	info->cfg.filter = le16_to_cpu(resp->cfge.filter);
-	info->cfg.flta_tgt = le32_to_cpu(resp->cfge.flta_tgt);
+	entry->keye = resp->keye;
+	entry->match_count = resp->match_count;
+	entry->cfge = resp->cfge;
 
 end:
 	ntmp_free_data_mem(dev, dma_len, tmp, dma);
@@ -1725,7 +1620,7 @@ EXPORT_SYMBOL_GPL(ntmp_ipft_query_entry);
 
 int ntmp_ipft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 {
-	u32 resp_len = sizeof(struct ipft_resp_nq);
+	u32 resp_len = sizeof(struct common_resp_nq);
 	u32 req_len = sizeof(struct ipft_req_qd);
 
 	return ntmp_delete_entry_by_id(cbdrs, NTMP_IPFT_ID, cbdrs->tbl.ipft_ver,
@@ -1733,6 +1628,5 @@ int ntmp_ipft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 }
 EXPORT_SYMBOL_GPL(ntmp_ipft_delete_entry);
 
-MODULE_AUTHOR("Wei Fang <wei.fang@nxp.com>");
-MODULE_DESCRIPTION("NXP NETC Table Management Protocol");
+MODULE_DESCRIPTION("NXP NETC Library");
 MODULE_LICENSE("Dual BSD/GPL");

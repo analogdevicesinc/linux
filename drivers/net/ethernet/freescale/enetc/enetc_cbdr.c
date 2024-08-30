@@ -45,24 +45,9 @@ static int enetc_setup_cbdr(struct device *dev, struct enetc_hw *hw,
 	return 0;
 }
 
-static u64 enetc_get_current_time(struct device *dev)
-{
-	struct pci_dev *pdev = to_pci_dev(dev);
-	struct enetc_si *si;
-	u32 time_l, time_h;
-	u64 current_time;
-
-	si = pci_get_drvdata(pdev);
-	time_l = enetc_rd_hot(&si->hw, ENETC_SICTR0);
-	time_h = enetc_rd_hot(&si->hw, ENETC_SICTR1);
-	current_time = (u64)time_h << 32 | time_l;
-
-	return current_time;
-}
-
 static int enetc4_setup_cbdr(struct enetc_si *si)
 {
-	struct netc_cbdrs *cbdrs = &si->cbdrs;
+	struct netc_cbdrs *cbdrs = &si->ntmp.cbdrs;
 	struct device *dev = &si->pdev->dev;
 	struct enetc_hw *hw = &si->hw;
 	struct netc_cbdr_regs regs;
@@ -70,7 +55,6 @@ static int enetc4_setup_cbdr(struct enetc_si *si)
 	cbdrs->cbdr_num = 1;
 	cbdrs->cbdr_size = NETC_CBDR_BD_NUM;
 	cbdrs->dma_dev = dev;
-	cbdrs->get_current_time = enetc_get_current_time;
 	cbdrs->ring = devm_kcalloc(dev, cbdrs->cbdr_num,
 				   sizeof(struct netc_cbdr), GFP_KERNEL);
 	if (!cbdrs->ring)
@@ -121,7 +105,7 @@ void enetc_free_cbdr(struct enetc_si *si)
 	if (is_enetc_rev1(si))
 		enetc_teardown_cbdr(&si->cbd_ring);
 	else
-		enetc4_teardown_cbdr(&si->cbdrs);
+		enetc4_teardown_cbdr(&si->ntmp.cbdrs);
 }
 EXPORT_SYMBOL_GPL(enetc_free_cbdr);
 

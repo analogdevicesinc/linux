@@ -283,7 +283,7 @@ int enetc_pf_set_features(struct net_device *ndev, netdev_features_t features)
 	int err;
 
 	if (changed & NETIF_F_HW_TC) {
-		err = enetc_set_psfp(ndev, !!(features & NETIF_F_HW_TC));
+		err = enetc_set_tc_flower(ndev, !!(features & NETIF_F_HW_TC));
 		if (err)
 			return err;
 	}
@@ -383,8 +383,7 @@ void enetc_pf_netdev_setup(struct enetc_si *si, struct net_device *ndev,
 	if (si->hw_features & ENETC_SI_F_LSO)
 		priv->active_offloads |= ENETC_F_LSO;
 
-	if (si->hw_features & ENETC_SI_F_PSFP && !enetc_psfp_enable(priv)) {
-		priv->active_offloads |= ENETC_F_QCI;
+	if (si->hw_features & ENETC_SI_F_PSFP && !enetc_set_tc_flower(ndev, true)) {
 		ndev->features |= NETIF_F_HW_TC;
 		ndev->hw_features |= NETIF_F_HW_TC;
 	}
@@ -759,11 +758,11 @@ int enetc_pf_set_mac_exact_filter(struct enetc_pf *pf, int si_id,
 
 	/* Clear MAC filter table */
 	for (i = 0; i < mf_num; i++)
-		ntmp_maft_delete_entry(&si->cbdrs, i);
+		ntmp_maft_delete_entry(&si->ntmp.cbdrs, i);
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->mac_list, node) {
-		ntmp_maft_add_entry(&si->cbdrs, i, entry->mfe.mac,
+		ntmp_maft_add_entry(&si->ntmp.cbdrs, i, entry->mfe.mac,
 				    entry->mfe.si_bitmap);
 		i++;
 	}
@@ -859,11 +858,11 @@ static u16 enetc_msg_pf_del_vf_mac_entries(struct enetc_pf *pf, int vf_id)
 
 	/* Clear MAC filter table */
 	for (i = 0; i < mf_num; i++)
-		ntmp_maft_delete_entry(&si->cbdrs, i);
+		ntmp_maft_delete_entry(&si->ntmp.cbdrs, i);
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->mac_list, node) {
-		ntmp_maft_add_entry(&si->cbdrs, i, entry->mfe.mac,
+		ntmp_maft_add_entry(&si->ntmp.cbdrs, i, entry->mfe.mac,
 				    entry->mfe.si_bitmap);
 		i++;
 	}
@@ -957,11 +956,11 @@ void enetc_pf_flush_mac_exact_filter(struct enetc_pf *pf, int si_id,
 	}
 
 	for (i = 0; i < mf_num; i++)
-		ntmp_maft_delete_entry(&si->cbdrs, i);
+		ntmp_maft_delete_entry(&si->ntmp.cbdrs, i);
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->mac_list, node) {
-		ntmp_maft_add_entry(&si->cbdrs, i, entry->mfe.mac,
+		ntmp_maft_add_entry(&si->ntmp.cbdrs, i, entry->mfe.mac,
 				    entry->mfe.si_bitmap);
 		i++;
 	}
@@ -1170,11 +1169,11 @@ static int enetc_pf_set_vlan_exact_filter(struct enetc_pf *pf, int si_id,
 
 	/* Clear VLAN filter table */
 	for (i = 0; i < vf_num; i++)
-		ntmp_vaft_delete_entry(&si->cbdrs, i);
+		ntmp_vaft_delete_entry(&si->ntmp.cbdrs, i);
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->vlan_list, node) {
-		ntmp_vaft_add_entry(&si->cbdrs, i, &entry->vfe);
+		ntmp_vaft_add_entry(&si->ntmp.cbdrs, i, &entry->vfe);
 		i++;
 	}
 
@@ -1267,11 +1266,11 @@ static u16 enetc_msg_pf_del_vf_vlan_entries(struct enetc_pf *pf, int vf_id)
 					    msg->vlan_cnt);
 
 	for (i = 0; i < vf_num; i++)
-		ntmp_vaft_delete_entry(&si->cbdrs, i);
+		ntmp_vaft_delete_entry(&si->ntmp.cbdrs, i);
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->vlan_list, node) {
-		ntmp_vaft_add_entry(&si->cbdrs, i, &entry->vfe);
+		ntmp_vaft_add_entry(&si->ntmp.cbdrs, i, &entry->vfe);
 		i++;
 	}
 
@@ -1342,11 +1341,11 @@ static void enetc_pf_flush_vlan_exact_filter(struct enetc_pf *pf, int si_id)
 	}
 
 	for (i = 0; i < vf_num; i++)
-		ntmp_vaft_delete_entry(&si->cbdrs, i);
+		ntmp_vaft_delete_entry(&si->ntmp.cbdrs, i);
 
 	i = 0;
 	hlist_for_each_entry(entry, &pf->vlan_list, node) {
-		ntmp_vaft_add_entry(&si->cbdrs, i, &entry->vfe);
+		ntmp_vaft_add_entry(&si->ntmp.cbdrs, i, &entry->vfe);
 		i++;
 	}
 }

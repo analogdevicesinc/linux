@@ -32,5 +32,5 @@ fsl-enetc-mdio-y := enetc_pci_mdio.o enetc_mdio.o
 obj-$(CONFIG_FSL_ENETC_PTP_CLOCK) += fsl-enetc-ptp.o
 fsl-enetc-ptp-y := enetc_ptp.o
 
-obj-$(CONFIG_FSL_NTMP) += fsl-ntmp.o
-fsl-ntmp-objs := ntmp.o
+obj-$(CONFIG_NXP_NETC_LIB) += nxp-netc-lib.o
+nxp-netc-lib-objs := ntmp.o netc_tc_lib.o netc_debugfs_lib.o

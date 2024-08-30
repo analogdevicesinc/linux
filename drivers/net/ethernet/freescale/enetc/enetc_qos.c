@@ -9,6 +9,16 @@
 #include <net/pkt_cls.h>
 #include <net/tc_act/tc_gate.h>
 
+static const struct netc_flower enetc_flower[] = {
+	{
+		BIT_ULL(FLOW_ACTION_GATE),
+		BIT_ULL(FLOW_ACTION_POLICE),
+		BIT_ULL(FLOW_DISSECTOR_KEY_ETH_ADDRS) |
+		BIT_ULL(FLOW_DISSECTOR_KEY_VLAN),
+		FLOWER_TYPE_PSFP
+	},
+};
+
 static u16 enetc_get_max_gcl_len(struct enetc_hw *hw)
 {
 	return enetc_rd(hw, ENETC_PTGCAPR) & ENETC_PTGCAPR_MAX_GCL_LEN_MASK;
@@ -111,6 +121,7 @@ static int enetc4_setup_taprio(struct enetc_ndev_priv *priv,
 			       struct tc_taprio_qopt_offload *admin_conf)
 {
 	struct enetc_pf *pf = enetc_si_priv(priv->si);
+	u64 base_time = admin_conf->base_time;
 	struct enetc_si *si = priv->si;
 	struct enetc_hw *hw = &si->hw;
 	struct ntmp_tgst_cfg *cfg;
@@ -132,7 +143,7 @@ static int enetc4_setup_taprio(struct enetc_ndev_priv *priv,
 		pf->hw_ops->set_time_gating(hw, true);
 
 	/* Delete the pending administrative control list if it exists */
-	err = ntmp_tgst_delete_admin_gate_list(&si->cbdrs, port);
+	err = ntmp_tgst_delete_admin_gate_list(&si->ntmp.cbdrs, port);
 	if (err)
 		goto disable_tge;
 
@@ -154,7 +165,11 @@ static int enetc4_setup_taprio(struct enetc_ndev_priv *priv,
 		goto disable_tge;
 	}
 
-	cfg->base_time = admin_conf->base_time;
+	if (si->ntmp.adjust_base_time)
+		base_time = si->ntmp.adjust_base_time(&si->ntmp, base_time,
+						      admin_conf->cycle_time);
+
+	cfg->base_time = base_time;
 	cfg->cycle_time = admin_conf->cycle_time;
 	cfg->cycle_time_extension = admin_conf->cycle_time_extension;
 	cfg->num_entries = admin_conf->num_entries;
@@ -169,7 +184,7 @@ static int enetc4_setup_taprio(struct enetc_ndev_priv *priv,
 	/* Set the maximum frame size for each traffic class */
 	pf->hw_ops->set_tc_msdu(hw, admin_conf->max_sdu);
 
-	err = ntmp_tgst_update_admin_gate_list(&si->cbdrs, port, cfg);
+	err = ntmp_tgst_update_admin_gate_list(&si->ntmp.cbdrs, port, cfg);
 	if (err) {
 		kfree(cfg);
 		goto disable_tge;
@@ -1387,335 +1402,6 @@ static int enetc_psfp_policer_validate(const struct flow_action *action,
 	return 0;
 }
 
-static int enetc4_get_free_ist_entry_id(struct enetc_ndev_priv *priv)
-{
-	u32 max_size = priv->psfp_cap.ntmp.max_ist_entries;
-	unsigned long index;
-
-	index = find_first_zero_bit(priv->ist_bitmap, max_size);
-	if (index == max_size)
-		return -1;
-
-	return index;
-}
-
-static int enetc4_get_free_isct_entry_id(struct enetc_ndev_priv *priv)
-{
-	u32 max_size = priv->psfp_cap.ntmp.max_isct_entries;
-	unsigned long index;
-
-	index = find_first_zero_bit(priv->isct_bitmap, max_size);
-	if (index == max_size)
-		return -1;
-
-	return index;
-}
-
-static void enetc4_clear_sgclt_used_words(struct enetc_ndev_priv *priv,
-					  u32 entry_id, u32 entry_size)
-{
-	u32 i;
-
-	for (i = entry_id; i < entry_id + entry_size; i++)
-		clear_bit(i, priv->sgclt_used_words);
-}
-
-static int enetc4_get_free_sgclt_entry_id(struct enetc_ndev_priv *priv,
-					  u32 entry_size)
-{
-	u32 entry_id, next_eid, size, i;
-
-	do {
-		entry_id = find_first_zero_bit(priv->sgclt_used_words,
-					       priv->psfp_cap.ntmp.sgcl_num_words);
-		if (entry_id == priv->psfp_cap.ntmp.sgcl_num_words)
-			return -1;
-
-		next_eid = find_next_bit(priv->sgclt_used_words,
-					 priv->psfp_cap.ntmp.sgcl_num_words,
-					 entry_id + 1);
-		size = next_eid - entry_id;
-	} while (size < entry_size &&
-		 next_eid != priv->psfp_cap.ntmp.sgcl_num_words);
-
-	if (size < entry_size)
-		return -1;
-
-	for (i = entry_id; i < entry_id + entry_size; i++)
-		set_bit(i, priv->sgclt_used_words);
-
-	return entry_id;
-}
-
-static struct enetc_psfp_node *
-enetc4_get_psfp_node_by_isit_entry(struct enetc_ndev_priv *priv,
-				   struct ntmp_isit_cfg *cfg)
-{
-	struct enetc_psfp_node *psfp;
-
-	hlist_for_each_entry(psfp, &priv->psfp_chain.isit_list, node)
-		if (ether_addr_equal(cfg->mac, psfp->isit_cfg.mac) &&
-		    cfg->key_type == psfp->isit_cfg.key_type &&
-		    cfg->tagged == psfp->isit_cfg.tagged &&
-		    cfg->vid == psfp->isit_cfg.vid)
-			return psfp;
-
-	return NULL;
-}
-
-static struct enetc_psfp_node *
-enetc4_get_psfp_node_by_chain_index(struct enetc_ndev_priv *priv,
-				    u32 chain_index)
-{
-	struct enetc_psfp_node *psfp;
-
-	hlist_for_each_entry(psfp, &priv->psfp_chain.isit_list, node)
-		if (psfp->chain_index == chain_index)
-			return psfp;
-
-	return NULL;
-}
-
-static struct ntmp_sgit_cfg *
-enetc4_get_sgit_entry_by_entry_id(struct enetc_ndev_priv *priv,
-				  u32 entry_id)
-{
-	struct ntmp_sgit_cfg *cfg;
-
-	hlist_for_each_entry(cfg, &priv->psfp_chain.sgit_list, node)
-		if (cfg->entry_id == entry_id)
-			return cfg;
-
-	return NULL;
-}
-
-static struct ntmp_rpt_cfg *
-enetc4_get_rpt_entry_by_entry_id(struct enetc_ndev_priv *priv,
-				 u32 entry_id)
-{
-	struct ntmp_rpt_cfg *cfg;
-
-	hlist_for_each_entry(cfg, &priv->psfp_chain.rpt_list, node)
-		if (cfg->entry_id == entry_id)
-			return cfg;
-
-	return NULL;
-}
-
-static int enetc4_delete_sgit_entry(struct enetc_ndev_priv *priv, u32 entry_id)
-{
-	struct netc_cbdrs *cbdrs = &priv->si->cbdrs;
-	struct ntmp_sgclt_info *sgcl_info;
-	struct ntmp_sgit_info *sgi_info;
-	struct ntmp_sgit_cfg sgi_cfg;
-	u32 entry_size;
-	int err;
-
-	sgi_info = kzalloc(sizeof(*sgi_info), GFP_KERNEL);
-	if (!sgi_info)
-		return -ENOMEM;
-
-	/* Step1: Query the stream gate instance table entry to retrieve
-	 * the entry id of the administrative gate control list and the
-	 * opertational gate control list.
-	 */
-	err = ntmp_sgit_query_entry(cbdrs, entry_id, sgi_info);
-	if (err)
-		goto free_sgi_info;
-
-	/* Step2: Update the stream gate instance table entry to set
-	 * the entry id of the administrative gate control list to NULL.
-	 */
-	memset(&sgi_cfg, 0, sizeof(sgi_cfg));
-	sgi_cfg.entry_id = entry_id;
-	sgi_cfg.admin_sgcl_eid = NTMP_NULL_ENTRY_ID;
-	err = ntmp_sgit_add_or_update_entry(cbdrs, &sgi_cfg);
-	if (err)
-		goto free_sgi_info;
-
-	/* Step3: Delete the stream gate instance table entry. */
-	err = ntmp_sgit_delete_entry(cbdrs, entry_id);
-	if (err)
-		goto free_sgi_info;
-
-	/* Step4: Delete the administrative gate control list
-	 * and the operational gate control list.
-	 */
-	sgcl_info = kzalloc(sizeof(*sgcl_info), GFP_KERNEL);
-	if (!sgcl_info) {
-		err = -ENOMEM;
-		goto free_sgi_info;
-	}
-
-	if (sgi_info->admin_sgcl_eid != NTMP_NULL_ENTRY_ID) {
-		err = ntmp_sgclt_query_entry(cbdrs, sgi_info->admin_sgcl_eid, sgcl_info);
-		if (err)
-			goto free_sgcl_info;
-
-		/* entry_size equals to 1 + ROUNDUP(N / 2) where N is number of gates */
-		entry_size = 1 + DIV_ROUND_UP(sgcl_info->list_len, 2);
-		err = ntmp_sgclt_delete_entry(cbdrs, sgi_info->admin_sgcl_eid);
-		if (err)
-			goto free_sgcl_info;
-
-		enetc4_clear_sgclt_used_words(priv, sgi_info->admin_sgcl_eid, entry_size);
-	}
-
-	if (sgi_info->oper_sgcl_eid != NTMP_NULL_ENTRY_ID) {
-		memset(sgcl_info, 0, sizeof(*sgcl_info));
-		err = ntmp_sgclt_query_entry(cbdrs, sgi_info->oper_sgcl_eid, sgcl_info);
-		if (err)
-			goto free_sgcl_info;
-
-		entry_size = 1 + DIV_ROUND_UP(sgcl_info->list_len, 2);
-		err = ntmp_sgclt_delete_entry(cbdrs, sgi_info->oper_sgcl_eid);
-		if (err)
-			goto free_sgcl_info;
-
-		enetc4_clear_sgclt_used_words(priv, sgi_info->oper_sgcl_eid, entry_size);
-	}
-
-free_sgcl_info:
-	kfree(sgcl_info);
-
-free_sgi_info:
-	kfree(sgi_info);
-
-	return err;
-}
-
-static void enetc4_decrease_sgit_entry_refcount(struct enetc_ndev_priv *priv,
-						u32 entry_id)
-{
-	struct ntmp_sgit_cfg *cfg;
-
-	if (entry_id == NTMP_NULL_ENTRY_ID)
-		return;
-
-	cfg = enetc4_get_sgit_entry_by_entry_id(priv, entry_id);
-	if (!cfg)
-		return;
-
-	if (refcount_dec_and_test(&cfg->refcount)) {
-		enetc4_delete_sgit_entry(priv, entry_id);
-		hlist_del(&cfg->node);
-		kfree(cfg);
-	}
-}
-
-static void enetc4_decrease_rpt_entry_refcount(struct enetc_ndev_priv *priv,
-					       u32 entry_id)
-{
-	struct ntmp_rpt_cfg *cfg;
-
-	if (entry_id == NTMP_NULL_ENTRY_ID)
-		return;
-
-	cfg = enetc4_get_rpt_entry_by_entry_id(priv, entry_id);
-	if (!cfg)
-		return;
-
-	if (refcount_dec_and_test(&cfg->refcount)) {
-		ntmp_rpt_delete_entry(&priv->si->cbdrs, entry_id);
-		hlist_del(&cfg->node);
-		kfree(cfg);
-	}
-}
-
-static void enetc4_psfp_delete_chain(struct enetc_ndev_priv *priv,
-				     struct enetc_psfp_node *psfp)
-{
-	struct netc_cbdrs *cbdrs = &priv->si->cbdrs;
-
-	ntmp_isit_delete_entry(cbdrs, psfp->isit_cfg.entry_id);
-	if (psfp->isf_eid != NTMP_NULL_ENTRY_ID)
-		ntmp_isft_delete_entry(cbdrs, psfp->isf_eid);
-
-	ntmp_ist_delete_entry(cbdrs, psfp->isit_cfg.is_eid);
-	clear_bit(psfp->isit_cfg.is_eid, priv->ist_bitmap);
-	ntmp_isct_operate_entry(cbdrs, psfp->isc_eid, NTMP_CMD_DELETE, NULL);
-	clear_bit(psfp->isc_eid, priv->isct_bitmap);
-
-	spin_lock(&priv->psfp_chain.psfp_lock);
-
-	enetc4_decrease_sgit_entry_refcount(priv, psfp->sgi_eid);
-	enetc4_decrease_rpt_entry_refcount(priv, psfp->rp_eid);
-	hlist_del(&psfp->node);
-
-	spin_unlock(&priv->psfp_chain.psfp_lock);
-	kfree(psfp);
-}
-
-static int enetc4_psfp_set_related_table_entries(struct enetc_ndev_priv *priv,
-						 struct enetc_psfp_cfg psfp)
-{
-	struct netc_cbdrs *cbdrs = &priv->si->cbdrs;
-	struct ntmp_sgit_cfg *sgi;
-	int err;
-
-	err = ntmp_isct_operate_entry(cbdrs, psfp.isct_cfg->entry_id,
-				      NTMP_CMD_ADD, NULL);
-	if (err)
-		return err;
-
-	err = ntmp_sgclt_add_entry(cbdrs, psfp.sgclt_cfg);
-	if (err)
-		goto delete_isct_entry;
-
-	err = ntmp_sgit_add_or_update_entry(cbdrs, psfp.sgit_cfg);
-	if (err) {
-		ntmp_sgclt_delete_entry(cbdrs, psfp.sgclt_cfg->entry_id);
-		goto delete_isct_entry;
-	}
-
-	if (psfp.rpt_cfg) {
-		err = ntmp_rpt_add_or_update_entry(cbdrs, psfp.rpt_cfg);
-		if (err)
-			goto delete_sgit_entry;
-	}
-
-	err = ntmp_ist_add_or_update_entry(cbdrs, psfp.ist_cfg);
-	if (err)
-		goto delete_rpt_entry;
-
-	if (psfp.isft_cfg) {
-		err = ntmp_isft_add_or_update_entry(cbdrs, psfp.isft_cfg, true);
-		if (err)
-			goto delete_ist_entry;
-	}
-
-	err = ntmp_isit_add_or_update_entry(cbdrs, psfp.isit_cfg, true);
-	if (err)
-		goto delete_isft_entry;
-
-	return 0;
-
-delete_isft_entry:
-	if (psfp.isft_cfg)
-		ntmp_isft_delete_entry(cbdrs, psfp.isft_cfg->entry_id);
-
-delete_ist_entry:
-	ntmp_ist_delete_entry(cbdrs, psfp.ist_cfg->entry_id);
-
-delete_rpt_entry:
-	if (psfp.rpt_cfg)
-		ntmp_rpt_delete_entry(cbdrs, psfp.rpt_cfg->entry_id);
-
-delete_sgit_entry:
-	sgi = enetc4_get_sgit_entry_by_entry_id(priv, psfp.sgit_cfg->entry_id);
-	/* If the SGI entry has already existed which indicates that the SGI entry
-	 * has been referred by other table entries, so we can not delete it
-	 */
-	if (!sgi)
-		enetc4_delete_sgit_entry(priv, psfp.sgit_cfg->entry_id);
-
-delete_isct_entry:
-	ntmp_isct_operate_entry(cbdrs, psfp.isct_cfg->entry_id,
-				NTMP_CMD_DELETE, NULL);
-
-	return err;
-}
-
 static int enetc_psfp_parse_clsflower(struct enetc_ndev_priv *priv,
 				      struct flow_cls_offload *f)
 {
@@ -1984,390 +1670,6 @@ free_filter:
 	return err;
 }
 
-static int enetc4_psfp_parse_clsflower(struct enetc_ndev_priv *priv,
-				       struct flow_cls_offload *f)
-{
-	struct flow_action_entry *gate_entry = NULL, *police_entry = NULL;
-	struct flow_rule *rule = flow_cls_offload_flow_rule(f);
-	struct netlink_ext_ack *extack = f->common.extack;
-	struct ntmp_rpt_cfg *rpt_cfg = NULL, *old_rpt_cfg;
-	struct ntmp_sgit_cfg *sgit_cfg, *old_sgit_cfg;
-	struct enetc_psfp_node *psfp, *old_psfp;
-	struct ntmp_isft_cfg *isft_cfg = NULL;
-	struct ntmp_sgclt_cfg *sgclt_cfg;
-	struct flow_action_entry *entry;
-	struct enetc_psfp_cfg psfp_cfg;
-	struct ntmp_isct_cfg *isct_cfg;
-	struct ntmp_ist_cfg *ist_cfg;
-	u32 sgclt_entry_size;
-	int i, err, entry_id;
-	u64 max_cycle_time;
-	int sgclt_cfg_size;
-	int priority = -1;
-
-	if (f->common.chain_index >= priv->psfp_cap.ntmp.max_isit_entries) {
-		NL_SET_ERR_MSG_MOD(extack,
-				   "No ingress stream identification resource!");
-		return -ENOSPC;
-	}
-
-	/* Delete old PSFP node if the chain index already exists. */
-	old_psfp = enetc4_get_psfp_node_by_chain_index(priv, f->common.chain_index);
-	if (old_psfp)
-		/* If the chain has already existed, we delete the chain first and
-		 * then add the new chain.
-		 */
-		enetc4_psfp_delete_chain(priv, old_psfp);
-
-	/* Find gate action entry and police action entry*/
-	flow_action_for_each(i, entry, &rule->action)
-		if (entry->id == FLOW_ACTION_GATE)
-			gate_entry = entry;
-		else if (entry->id == FLOW_ACTION_POLICE)
-			police_entry = entry;
-
-	/* Not support without gate action */
-	if (!gate_entry)
-		return -EINVAL;
-
-	psfp = kzalloc(sizeof(*psfp), GFP_KERNEL);
-	if (!psfp)
-		return -ENOMEM;
-
-	psfp->chain_index = f->common.chain_index;
-	psfp->isf_eid = NTMP_NULL_ENTRY_ID;
-
-	/* if key of rule is ethernet address */
-	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_ETH_ADDRS)) {
-		struct flow_match_eth_addrs match;
-
-		/* get the ethernet address key and mask of rule */
-		flow_rule_match_eth_addrs(rule, &match);
-
-		/* Determine if give Ethernet address is all zeros. */
-		if (!is_zero_ether_addr(match.mask->dst) &&
-		    !is_zero_ether_addr(match.mask->src)) {
-			NL_SET_ERR_MSG_MOD(extack,
-					   "Cannot match on both source and destination MAC");
-			err = -EINVAL;
-			goto free_psfp;
-		}
-
-		if (!is_zero_ether_addr(match.mask->dst)) {
-			/* Determine if the destination ethernet address mast is broadcast.
-			 * Must be 0xffffff for ENETC.
-			 */
-			if (!is_broadcast_ether_addr(match.mask->dst)) {
-				NL_SET_ERR_MSG_MOD(extack,
-						   "Masked matching on destination MAC not supported");
-				err = -EINVAL;
-				goto free_psfp;
-			}
-			ether_addr_copy(psfp->isit_cfg.mac, match.key->dst);
-			psfp->isit_cfg.key_type = NTMP_ISIT_KEY_TYPE1_DMAC_VLAN;
-		}
-
-		if (!is_zero_ether_addr(match.mask->src)) {
-			/* Determine if the source ethernet address mast is broadcast.
-			 * Must be 0xffffff for ENETC.
-			 */
-			if (!is_broadcast_ether_addr(match.mask->src)) {
-				NL_SET_ERR_MSG_MOD(extack,
-						   "Masked matching on source MAC not supported");
-				err = -EINVAL;
-				goto free_psfp;
-			}
-			ether_addr_copy(psfp->isit_cfg.mac, match.key->src);
-			psfp->isit_cfg.key_type = NTMP_ISIT_KEY_TYPE0_SMAC_VLAN;
-		}
-	} else {
-		NL_SET_ERR_MSG_MOD(extack, "Unsupported, must include ETH_ADDRS");
-		err = -EINVAL;
-		goto free_psfp;
-	}
-
-	if (flow_rule_match_key(rule, FLOW_DISSECTOR_KEY_VLAN)) {
-		struct flow_match_vlan match;
-
-		/* get the key and mask of vlan of the rule */
-		flow_rule_match_vlan(rule, &match);
-
-		/* the mask of vlan id must be full mask */
-		if (match.mask->vlan_id) {
-			if (match.mask->vlan_id != VLAN_VID_MASK) {
-				NL_SET_ERR_MSG_MOD(extack,
-						   "Only full mask is supported for VLAN id");
-				err = -EINVAL;
-				goto free_psfp;
-			}
-
-			psfp->isit_cfg.vid = match.key->vlan_id;
-			psfp->isit_cfg.tagged = NTMP_ISIT_FRMAE_TAG;
-		}
-
-		if (match.mask->vlan_priority) {
-			if (match.mask->vlan_priority != VLAN_PRIO_MASK >> VLAN_PRIO_SHIFT) {
-				NL_SET_ERR_MSG_MOD(extack,
-						   "Only full mask is supported for VLAN priority");
-				err = -EINVAL;
-				goto free_psfp;
-			}
-
-			priority = match.key->vlan_priority;
-		}
-	} else {
-		psfp->isit_cfg.tagged = NTMP_ISIT_FRMAE_UNTAG;
-	}
-
-	/* Delete old PSFP node if the ISI entry already exists. */
-	old_psfp = enetc4_get_psfp_node_by_isit_entry(priv, &psfp->isit_cfg);
-	if (old_psfp)
-		/* If the ISI entry has already existed, correspondingly, the psfp chain
-		 * associated with it should be delete first, then add the new chain.
-		 */
-		enetc4_psfp_delete_chain(priv, old_psfp);
-
-	ist_cfg = kzalloc(sizeof(*ist_cfg), GFP_KERNEL);
-	if (!ist_cfg) {
-		err = -ENOMEM;
-		goto free_psfp;
-	}
-
-	entry_id = enetc4_get_free_ist_entry_id(priv);
-	if (entry_id < 0) {
-		NL_SET_ERR_MSG_MOD(extack, "No ingress stream resource!");
-		err = -ENOSPC;
-		goto free_ist_cfg;
-	}
-	set_bit(entry_id, priv->ist_bitmap);
-	ist_cfg->entry_id = entry_id;
-	psfp->isit_cfg.is_eid = ist_cfg->entry_id;
-	ist_cfg->rp_eid = NTMP_NULL_ENTRY_ID;
-	ist_cfg->sgi_eid = NTMP_NULL_ENTRY_ID;
-	ist_cfg->isc_eid = NTMP_NULL_ENTRY_ID;
-	ist_cfg->fa = NTMP_IST_FA_NO_SI_BITMAP;
-
-	/* parsing gate action */
-	if (gate_entry->hw_index >= priv->psfp_cap.ntmp.max_sgit_entries) {
-		NL_SET_ERR_MSG_MOD(extack, "No Stream Gate Instance resource!");
-		err = -ENOSPC;
-		goto clear_ist_bit;
-	}
-
-	max_cycle_time = gate_entry->gate.cycletime + gate_entry->gate.cycletimeext;
-	if (max_cycle_time > NTMP_SGIT_MAX_CT_PLUS_CT_EXT) {
-		NL_SET_ERR_MSG_MOD(extack,
-				   "cycle time + cycle time extension > 0x3ffffff ns.");
-		err = -EINVAL;
-		goto clear_ist_bit;
-	}
-
-	sgit_cfg = kzalloc(sizeof(*sgit_cfg), GFP_KERNEL);
-	if (!sgit_cfg) {
-		err = -ENOMEM;
-		goto clear_ist_bit;
-	}
-	refcount_set(&sgit_cfg->refcount, 1);
-	sgit_cfg->entry_id = gate_entry->hw_index;
-	sgit_cfg->init_ipv = gate_entry->gate.prio;
-	sgit_cfg->admin_bt = gate_entry->gate.basetime;
-	sgit_cfg->admin_sgcl_eid = NTMP_NULL_ENTRY_ID;	//initialize to NULL entry ID.
-	sgit_cfg->admin_ct_ext = gate_entry->gate.cycletimeext;
-	psfp->sgi_eid = sgit_cfg->entry_id;
-
-	if (gate_entry->gate.num_entries > NTMP_SGCLT_MAX_GE_NUM) {
-		NL_SET_ERR_MSG_MOD(extack, "Gate entries number exceeds maximum 256!");
-		err = -ENOSPC;
-		goto free_sgit_cfg;
-	}
-
-	sgclt_cfg_size = struct_size(sgclt_cfg, entries, gate_entry->gate.num_entries);
-	sgclt_cfg = kzalloc(sgclt_cfg_size, GFP_KERNEL);
-	if (!sgclt_cfg) {
-		err = -ENOMEM;
-		goto free_sgit_cfg;
-	}
-
-	sgclt_entry_size = 1 + DIV_ROUND_UP(gate_entry->gate.num_entries, 2);
-	entry_id = enetc4_get_free_sgclt_entry_id(priv, sgclt_entry_size);
-	if (entry_id < 0) {
-		NL_SET_ERR_MSG_MOD(extack, "No Stream Gate Control List resource!");
-		err = -ENOSPC;
-		goto free_sgclt_cfg;
-	}
-
-	sgclt_cfg->entry_id = entry_id;
-	sgclt_cfg->ct = gate_entry->gate.cycletime;
-	sgclt_cfg->num_gates = gate_entry->gate.num_entries;
-	sgclt_cfg->init_ipv = gate_entry->gate.prio;
-
-	memcpy(sgclt_cfg->entries, gate_entry->gate.entries,
-	       sizeof(struct action_gate_entry) * gate_entry->gate.num_entries);
-
-	sgit_cfg->admin_sgcl_eid = sgclt_cfg->entry_id;
-	sgit_cfg->sgcl_ct = sgclt_cfg->ct;
-	psfp->sgcl_eid = sgclt_cfg->entry_id;
-
-	isct_cfg = kzalloc(sizeof(*isct_cfg), GFP_KERNEL);
-	if (!isct_cfg) {
-		err = -ENOMEM;
-		goto free_sgclt_used_words;
-	}
-
-	entry_id = enetc4_get_free_isct_entry_id(priv);
-	if (entry_id < 0) {
-		NL_SET_ERR_MSG_MOD(extack, "No ingress stream count resource!");
-		err = -ENOSPC;
-		goto free_isct_cfg;
-	}
-	set_bit(entry_id, priv->isct_bitmap);
-	isct_cfg->entry_id = entry_id;
-	psfp->isc_eid = isct_cfg->entry_id;
-
-	/* Determine if a ingress stream filter entry is required. */
-	if (priority >= 0 && priority < BIT(3)) {
-		isft_cfg = kzalloc(sizeof(*isft_cfg), GFP_KERNEL);
-		if (!isft_cfg) {
-			err = -ENOMEM;
-			goto clear_isct_bit;
-		}
-		isft_cfg->is_eid = ist_cfg->entry_id;
-		isft_cfg->isc_eid = isct_cfg->entry_id;
-		isft_cfg->sgi_eid = sgit_cfg->entry_id;
-		isft_cfg->rp_eid = NTMP_NULL_ENTRY_ID;
-		isft_cfg->or_flags |= NTMP_ISFT_FLAG_OSGI;
-		isft_cfg->priority = priority;
-		/* Enable stream filter */
-		ist_cfg->sfe = 1;
-		ist_cfg->osgi = 0;
-	} else {
-		ist_cfg->osgi = 1;
-		ist_cfg->isc_eid = isct_cfg->entry_id;
-		ist_cfg->sgi_eid = sgit_cfg->entry_id;
-	}
-
-	if (police_entry) {
-		err = enetc_psfp_policer_validate(&rule->action, police_entry, extack);
-		if (err)
-			goto free_isft_cfg;
-
-		if (police_entry->hw_index > priv->psfp_cap.ntmp.max_rpt_entries) {
-			NL_SET_ERR_MSG_MOD(extack, "No rate policer resource!");
-			err = -ENOSPC;
-			goto free_isft_cfg;
-		}
-
-		if (police_entry->police.burst) {
-			u64 rate_bps;
-
-			rpt_cfg = kzalloc(sizeof(*rpt_cfg), GFP_KERNEL);
-			if (!rpt_cfg) {
-				err = -ENOMEM;
-				goto free_isft_cfg;
-			}
-			refcount_set(&rpt_cfg->refcount, 1);
-			/* The unit of rate_bytes_ps is 1Bps, the uint of cir is 3.725bps,
-			 * so convert it.
-			 */
-			rate_bps = police_entry->police.rate_bytes_ps * 8;
-			rpt_cfg->cir = div_u64(rate_bps * 1000, 3725);
-			rpt_cfg->cbs = police_entry->police.burst;
-			rpt_cfg->entry_id = police_entry->hw_index;
-			psfp->rp_eid = rpt_cfg->entry_id;
-			if (isft_cfg) {
-				isft_cfg->is_eid = ist_cfg->entry_id;
-				isft_cfg->rp_eid = rpt_cfg->entry_id;
-				isft_cfg->or_flags |= NTMP_ISFT_FLAG_ORP;
-				ist_cfg->orp = 0;
-			} else {
-				ist_cfg->orp = 1;
-				ist_cfg->rp_eid = rpt_cfg->entry_id;
-			}
-		}
-
-		if (police_entry->police.mtu) {
-			if (isft_cfg)
-				isft_cfg->msdu = police_entry->police.mtu;
-			else
-				ist_cfg->msdu = police_entry->police.mtu;
-		}
-	} else {
-		psfp->rp_eid = NTMP_NULL_ENTRY_ID;
-	}
-
-	psfp_cfg.ist_cfg = ist_cfg;
-	psfp_cfg.rpt_cfg = rpt_cfg;
-	psfp_cfg.isit_cfg = &psfp->isit_cfg;
-	psfp_cfg.isft_cfg = isft_cfg;
-	psfp_cfg.sgit_cfg = sgit_cfg;
-	psfp_cfg.isct_cfg = isct_cfg;
-	psfp_cfg.sgclt_cfg = sgclt_cfg;
-	err = enetc4_psfp_set_related_table_entries(priv, psfp_cfg);
-	if (err)
-		goto free_rpt_cfg;
-
-	spin_lock(&priv->psfp_chain.psfp_lock);
-
-	old_sgit_cfg = enetc4_get_sgit_entry_by_entry_id(priv, sgit_cfg->entry_id);
-	if (old_sgit_cfg) {
-		refcount_set(&sgit_cfg->refcount,
-			     refcount_read(&old_sgit_cfg->refcount) + 1);
-		hlist_del(&old_sgit_cfg->node);
-		kfree(old_sgit_cfg);
-	}
-	hlist_add_head(&sgit_cfg->node, &priv->psfp_chain.sgit_list);
-
-	if (rpt_cfg) {
-		old_rpt_cfg = enetc4_get_rpt_entry_by_entry_id(priv, rpt_cfg->entry_id);
-		if (old_rpt_cfg) {
-			refcount_set(&rpt_cfg->refcount,
-				     refcount_read(&old_rpt_cfg->refcount) + 1);
-			hlist_del(&old_rpt_cfg->node);
-			kfree(old_rpt_cfg);
-		}
-		hlist_add_head(&rpt_cfg->node, &priv->psfp_chain.rpt_list);
-	}
-
-	psfp->stats.lastused = jiffies;
-	if (isft_cfg)
-		psfp->isf_eid = isft_cfg->entry_id;
-
-	hlist_add_head(&psfp->node, &priv->psfp_chain.isit_list);
-
-	spin_unlock(&priv->psfp_chain.psfp_lock);
-
-	kfree(ist_cfg);
-	kfree(isft_cfg);
-	kfree(sgclt_cfg);
-	kfree(isct_cfg);
-
-	return 0;
-
-free_rpt_cfg:
-	kfree(rpt_cfg);
-free_isft_cfg:
-	kfree(isft_cfg);
-clear_isct_bit:
-	clear_bit(isct_cfg->entry_id, priv->isct_bitmap);
-free_isct_cfg:
-	kfree(isct_cfg);
-free_sgclt_used_words:
-	enetc4_clear_sgclt_used_words(priv, sgclt_cfg->entry_id,
-				      sgclt_entry_size);
-free_sgclt_cfg:
-	kfree(sgclt_cfg);
-free_sgit_cfg:
-	kfree(sgit_cfg);
-clear_ist_bit:
-	clear_bit(ist_cfg->entry_id, priv->ist_bitmap);
-free_ist_cfg:
-	kfree(ist_cfg);
-free_psfp:
-	kfree(psfp);
-
-	return err;
-}
-
 static int enetc_config_clsflower(struct enetc_ndev_priv *priv,
 				  struct flow_cls_offload *cls_flower)
 {
@@ -2395,10 +1697,7 @@ static int enetc_config_clsflower(struct enetc_ndev_priv *priv,
 	}
 
 	if (fwd->output & FILTER_ACTION_TYPE_PSFP) {
-		if (is_enetc_rev1(priv->si))
-			err = enetc_psfp_parse_clsflower(priv, cls_flower);
-		else
-			err = enetc4_psfp_parse_clsflower(priv, cls_flower);
+		err = enetc_psfp_parse_clsflower(priv, cls_flower);
 		if (err) {
 			NL_SET_ERR_MSG_MOD(extack, "Invalid PSFP inputs");
 			return err;
@@ -2436,34 +1735,10 @@ static int enetc_psfp_destroy_clsflower(struct enetc_ndev_priv *priv,
 	return 0;
 }
 
-static int enetc4_psfp_destroy_clsflower(struct enetc_ndev_priv *priv,
-					 struct flow_cls_offload *f)
-{
-	struct netlink_ext_ack *extack = f->common.extack;
-	struct enetc_psfp_node *psfp;
-
-	if (f->common.chain_index >= priv->psfp_cap.ntmp.max_isit_entries) {
-		NL_SET_ERR_MSG_MOD(extack,
-				   "No ingress stream identification resource!");
-		return -ENOSPC;
-	}
-
-	psfp = enetc4_get_psfp_node_by_chain_index(priv, f->common.chain_index);
-	if (!psfp)
-		return -EINVAL;
-
-	enetc4_psfp_delete_chain(priv, psfp);
-
-	return 0;
-}
-
 static int enetc_destroy_clsflower(struct enetc_ndev_priv *priv,
 				   struct flow_cls_offload *f)
 {
-	if (is_enetc_rev1(priv->si))
-		return enetc_psfp_destroy_clsflower(priv, f);
-	else
-		return enetc4_psfp_destroy_clsflower(priv, f);
+	return enetc_psfp_destroy_clsflower(priv, f);
 }
 
 static int enetc_psfp_get_stats(struct enetc_ndev_priv *priv,
@@ -2501,40 +1776,6 @@ static int enetc_psfp_get_stats(struct enetc_ndev_priv *priv,
 	return 0;
 }
 
-static int enetc4_psfp_get_stats(struct enetc_ndev_priv *priv,
-				 struct flow_cls_offload *f)
-{
-	struct ntmp_isct_info counters = {};
-	struct enetc_psfp_node *psfp;
-	struct flow_stats stats = {};
-	int err;
-
-	psfp = enetc4_get_psfp_node_by_chain_index(priv, f->common.chain_index);
-	if (!psfp)
-		return -EINVAL;
-
-	err = ntmp_isct_operate_entry(&priv->si->cbdrs, psfp->isc_eid,
-				      NTMP_CMD_QUERY, &counters);
-	if (err)
-		return -EINVAL;
-
-	spin_lock(&priv->psfp_chain.psfp_lock);
-	stats.pkts = counters.rx_count - psfp->stats.pkts;
-	stats.drops = counters.msdu_drop_count +
-		      counters.sg_drop_count +
-		      counters.policer_drop_count -
-		      psfp->stats.drops;
-	stats.lastused = psfp->stats.lastused;
-	psfp->stats.pkts += stats.pkts;
-	psfp->stats.drops += stats.drops;
-	spin_unlock(&priv->psfp_chain.psfp_lock);
-
-	flow_stats_update(&f->stats, 0x0, stats.pkts, stats.drops,
-			  stats.lastused, FLOW_ACTION_HW_STATS_DELAYED);
-
-	return 0;
-}
-
 static int enetc_setup_tc_cls_flower(struct enetc_ndev_priv *priv,
 				     struct flow_cls_offload *cls_flower)
 {
@@ -2544,10 +1785,154 @@ static int enetc_setup_tc_cls_flower(struct enetc_ndev_priv *priv,
 	case FLOW_CLS_DESTROY:
 		return enetc_destroy_clsflower(priv, cls_flower);
 	case FLOW_CLS_STATS:
-		if (is_enetc_rev1(priv->si))
-			return enetc_psfp_get_stats(priv, cls_flower);
-		else
-			return enetc4_psfp_get_stats(priv, cls_flower);
+		return enetc_psfp_get_stats(priv, cls_flower);
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
+static const struct netc_flower *enetc4_parse_tc_flower(u64 actions, u64 keys)
+{
+	u64 key_acts, all_acts;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(enetc_flower); i++) {
+		key_acts = enetc_flower[i].key_acts;
+		all_acts = enetc_flower[i].key_acts |
+			   enetc_flower[i].opt_acts;
+
+		/* key_acts must be matched */
+		if ((actions & key_acts) == key_acts &&
+		    (actions & all_acts) == actions &&
+		    keys & enetc_flower[i].keys)
+			return &enetc_flower[i];
+	}
+
+	return NULL;
+}
+
+static int enetc4_config_clsflower(struct enetc_ndev_priv *priv,
+				   struct flow_cls_offload *f)
+{
+	struct flow_rule *rule = flow_cls_offload_flow_rule(f);
+	struct netlink_ext_ack *extack = f->common.extack;
+	struct flow_action *action = &rule->action;
+	struct flow_dissector *dissector;
+	const struct netc_flower *flower;
+	struct flow_action_entry *entry;
+	u64 actions = 0;
+	int i;
+
+	dissector = rule->match.dissector;
+
+	if (!flow_action_has_entries(action)) {
+		NL_SET_ERR_MSG_MOD(extack, "At least one action is needed");
+		return -EINVAL;
+	}
+
+	if (!flow_action_basic_hw_stats_check(action, extack))
+		return -EOPNOTSUPP;
+
+	flow_action_for_each(i, entry, action)
+		actions |= BIT_ULL(entry->id);
+
+	flower = enetc4_parse_tc_flower(actions, dissector->used_keys);
+	if (!flower) {
+		NL_SET_ERR_MSG_MOD(extack, "Unsupported actions or keys");
+		return -EOPNOTSUPP;
+	}
+
+	switch (flower->type) {
+	case FLOWER_TYPE_PSFP:
+		return netc_setup_psfp(&priv->si->ntmp, 0, f);
+	default:
+		NL_SET_ERR_MSG_MOD(extack, "Unsupported flower type");
+		return -EOPNOTSUPP;
+	}
+}
+
+static void enetc4_destroy_flower_rule(struct ntmp_priv *ntmp,
+				       struct netc_flower_rule *rule)
+{
+	switch (rule->flower_type) {
+	case FLOWER_TYPE_PSFP:
+		netc_delete_psfp_flower_rule(ntmp, rule);
+		break;
+	default:
+		break;
+	}
+}
+
+static int enetc4_destroy_clsflower(struct enetc_ndev_priv *priv,
+				    struct flow_cls_offload *f)
+{
+	struct netlink_ext_ack *extack = f->common.extack;
+	struct ntmp_priv *ntmp = &priv->si->ntmp;
+	unsigned long cookie = f->cookie;
+	struct netc_flower_rule *rule;
+
+	guard(mutex)(&ntmp->flower_lock);
+	rule = netc_find_flower_rule_by_cookie(ntmp, 0, cookie);
+	if (!rule) {
+		NL_SET_ERR_MSG_MOD(extack, "Cannot find the rule");
+		return -EINVAL;
+	}
+
+	enetc4_destroy_flower_rule(ntmp, rule);
+
+	return 0;
+}
+
+static int enetc4_get_cls_flower_stats(struct enetc_ndev_priv *priv,
+				       struct flow_cls_offload *f)
+{
+	struct netlink_ext_ack *extack = f->common.extack;
+	struct ntmp_priv *ntmp = &priv->si->ntmp;
+	unsigned long cookie = f->cookie;
+	struct netc_flower_rule *rule;
+	u64 pkt_cnt, drop_cnt;
+	u64 byte_cnt = 0;
+	int err;
+
+	guard(mutex)(&ntmp->flower_lock);
+	rule = netc_find_flower_rule_by_cookie(ntmp, 0, cookie);
+	if (!rule) {
+		NL_SET_ERR_MSG_MOD(extack, "Cannot find the rule");
+		return -EINVAL;
+	}
+
+	switch (rule->flower_type) {
+	case FLOWER_TYPE_PSFP:
+		err = netc_psfp_flower_stat(ntmp, rule, &byte_cnt,
+					    &pkt_cnt, &drop_cnt);
+		if (err) {
+			NL_SET_ERR_MSG_MOD(extack,
+					   "Failed to get statistics of PSFP");
+			return err;
+		}
+		break;
+	default:
+		NL_SET_ERR_MSG_MOD(extack, "Unknown flower type");
+		return -EINVAL;
+	}
+
+	flow_stats_update(&f->stats, byte_cnt, pkt_cnt, drop_cnt,
+			  rule->lastused, FLOW_ACTION_HW_STATS_IMMEDIATE);
+	rule->lastused = jiffies;
+
+	return 0;
+}
+
+static int enetc4_setup_tc_cls_flower(struct enetc_ndev_priv *priv,
+				      struct flow_cls_offload *f)
+{
+	switch (f->command) {
+	case FLOW_CLS_REPLACE:
+		return enetc4_config_clsflower(priv, f);
+	case FLOW_CLS_DESTROY:
+		return enetc4_destroy_clsflower(priv, f);
+	case FLOW_CLS_STATS:
+		return enetc4_get_cls_flower_stats(priv, f);
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -2606,25 +1991,79 @@ static int enetc_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
 				   void *cb_priv)
 {
 	struct net_device *ndev = cb_priv;
+	struct enetc_ndev_priv *priv;
 
 	if (!tc_can_offload(ndev))
 		return -EOPNOTSUPP;
 
+	priv = netdev_priv(ndev);
 	switch (type) {
 	case TC_SETUP_CLSFLOWER:
-		return enetc_setup_tc_cls_flower(netdev_priv(ndev), type_data);
+		if (is_enetc_rev1(priv->si))
+			return enetc_setup_tc_cls_flower(priv, type_data);
+		else
+			return enetc4_setup_tc_cls_flower(priv, type_data);
 	default:
 		return -EOPNOTSUPP;
 	}
 }
 
-int enetc_set_psfp(struct net_device *ndev, bool en)
+void enetc4_clear_flower_list(struct enetc_si *si)
+{
+	struct ntmp_priv *ntmp = &si->ntmp;
+	struct netc_flower_rule *rule;
+	struct hlist_node *tmp;
+
+	guard(mutex)(&ntmp->flower_lock);
+	hlist_for_each_entry_safe(rule, tmp, &ntmp->flower_list, node)
+		enetc4_destroy_flower_rule(ntmp, rule);
+}
+
+static int enetc4_tc_flower_destory(struct enetc_ndev_priv *priv)
+{
+	if (!list_empty(&enetc_block_cb_list))
+		return -EBUSY;
+
+	enetc4_clear_flower_list(priv->si);
+
+	return 0;
+}
+
+static int enetc_tc_flower_enable(struct enetc_ndev_priv *priv)
+{
+	struct enetc_hw *hw = &priv->si->hw;
+	int err;
+
+	if (is_enetc_rev1(priv->si)) {
+		enetc_get_max_cap(priv);
+
+		err = enetc_psfp_init(priv);
+		if (err)
+			return err;
+
+		enetc_wr(hw, ENETC_PPSFPMR, enetc_rd(hw, ENETC_PPSFPMR) |
+			ENETC_PPSFPMR_PSFPEN | ENETC_PPSFPMR_VS |
+			ENETC_PPSFPMR_PVC | ENETC_PPSFPMR_PVZC);
+	}
+
+	return 0;
+}
+
+static int enetc_tc_flower_disable(struct enetc_ndev_priv *priv)
+{
+	if (is_enetc_rev1(priv->si))
+		return enetc_psfp_disable(priv);
+	else
+		return enetc4_tc_flower_destory(priv);
+}
+
+int enetc_set_tc_flower(struct net_device *ndev, bool en)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
 	int err;
 
 	if (en) {
-		err = enetc_psfp_enable(priv);
+		err = enetc_tc_flower_enable(priv);
 		if (err)
 			return err;
 
@@ -2632,7 +2071,7 @@ int enetc_set_psfp(struct net_device *ndev, bool en)
 		return 0;
 	}
 
-	err = enetc_psfp_disable(priv);
+	err = enetc_tc_flower_disable(priv);
 	if (err)
 		return err;
 
@@ -2655,85 +2094,6 @@ int enetc_psfp_init(struct enetc_ndev_priv *priv)
 
 	if (list_empty(&enetc_block_cb_list))
 		epsfp.dev_bitmap = 0;
-
-	return 0;
-}
-
-int enetc4_psfp_init(struct enetc_ndev_priv *priv)
-{
-	priv->sgclt_used_words = bitmap_zalloc(priv->psfp_cap.ntmp.sgcl_num_words,
-					       GFP_KERNEL);
-	if (!priv->sgclt_used_words)
-		return -ENOMEM;
-
-	priv->ist_bitmap = bitmap_zalloc(priv->psfp_cap.ntmp.max_ist_entries,
-					 GFP_KERNEL);
-	if (!priv->ist_bitmap)
-		return -ENOMEM;
-
-	priv->isct_bitmap = bitmap_zalloc(priv->psfp_cap.ntmp.max_isct_entries,
-					  GFP_KERNEL);
-	if (!priv->isct_bitmap)
-		return -ENOMEM;
-
-	spin_lock_init(&priv->psfp_chain.psfp_lock);
-
-	return 0;
-}
-
-static void enetc_clean_isit_list(struct enetc_ndev_priv *priv)
-{
-	struct enetc_psfp_node *psfp;
-	struct hlist_node *tmp;
-
-	hlist_for_each_entry_safe(psfp, tmp, &priv->psfp_chain.isit_list, node) {
-		hlist_del(&psfp->node);
-		kfree(psfp);
-	}
-}
-
-static void enetc_clean_sgit_list(struct enetc_ndev_priv *priv)
-{
-	struct ntmp_sgit_cfg *sgi;
-	struct hlist_node *tmp;
-
-	hlist_for_each_entry_safe(sgi, tmp, &priv->psfp_chain.sgit_list, node) {
-		hlist_del(&sgi->node);
-		kfree(sgi);
-	}
-}
-
-static void enetc_clean_rpt_list(struct enetc_ndev_priv *priv)
-{
-	struct ntmp_rpt_cfg *rp;
-	struct hlist_node *tmp;
-
-	hlist_for_each_entry_safe(rp, tmp, &priv->psfp_chain.rpt_list, node) {
-		hlist_del(&rp->node);
-		kfree(rp);
-	}
-}
-
-static void enetc4_clean_psfp_all(struct enetc_ndev_priv *priv)
-{
-	enetc_clean_isit_list(priv);
-	enetc_clean_sgit_list(priv);
-	enetc_clean_rpt_list(priv);
-
-	bitmap_free(priv->sgclt_used_words);
-	priv->sgclt_used_words = NULL;
-	bitmap_free(priv->ist_bitmap);
-	priv->ist_bitmap = NULL;
-	bitmap_free(priv->isct_bitmap);
-	priv->isct_bitmap = NULL;
-}
-
-int enetc4_psfp_clean(struct enetc_ndev_priv *priv)
-{
-	if (!list_empty(&enetc_block_cb_list))
-		return -EBUSY;
-
-	enetc4_clean_psfp_all(priv);
 
 	return 0;
 }

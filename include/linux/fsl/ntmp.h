@@ -27,20 +27,22 @@
 
 #define NTMP_ISIT_KEY_TYPE0_SMAC_VLAN	0
 #define NTMP_ISIT_KEY_TYPE1_DMAC_VLAN	1
-#define NTMP_ISIT_FRMAE_UNTAG		0
-#define NTMP_ISIT_FRMAE_TAG		1
 #define NTMP_ISIT_FRAME_KEY_LEN		16
 
 #define NTMP_IST_FA_DISCARD		0
 #define NTMP_IST_FA_NO_SI_BITMAP	1
 #define NTMP_IST_FA_SI_BITMAP		2
 
-#define NTMP_ISFT_FLAG_OIPV		BIT(0)
-#define NTMP_ISFT_FLAG_ODR		BIT(1)
-#define NTMP_ISFT_FLAG_OSGI		BIT(2)
-#define NTMP_ISFT_FLAG_ORP		BIT(3)
-
 #define NTMP_IPFT_MAX_PLD_LEN		24
+
+/* Ingress stream table forwarding actions of Switch */
+#define NTMP_IST_SWITCH_FA_DISCARD	0
+#define NTMP_IST_SWITCH_FA_REDIRECT	1
+#define NTMP_IST_SWITCH_FA_SF		2
+#define NTMP_IST_SWITCH_FA_BF		3
+#define NTMP_IST_SWITCH_FA_SF_COPY	4
+#define NTMP_IST_SWITCH_FA_BF_COPY	5
+
 /* Ingress port filter table frame attribute flags */
 #define NTMP_IPFT_FAF_OVLAN		BIT(2)
 #define NTMP_IPFT_FAF_IVLAN		BIT(3)
@@ -72,11 +74,17 @@
 #define NTMP_IPFT_DSCP_MASK		GENMASK(11, 6)
 #define NTMP_IPFT_SRC_PORT		GENMASK(4, 0)
 #define NTMP_IPFT_SRC_PORT_MASK		GENMASK(9, 6)
-#define NTMP_IPFT_FLTFA			GENMASK(2, 0)
-#define NTMP_IPFT_WOLTE			BIT(4)
-#define NTMP_IPFT_FLTA			GENMASK(6, 5)
-#define  NTMP_IPFT_FLTA_SI_BITMAP	3
-#define NTMP_IPFT_RPR			GENMASK(8, 7)
+#define NTMP_IPFT_FLTFA_DISCARD		0
+#define NTMP_IPFT_FLTFA_PERMIT		1
+#define NTMP_IPFT_FLTFA_REDIRECT	2 /* Switch only */
+#define NTMP_IPFT_FLTFA_COPY		3 /* Switch only */
+#define NTMP_IPFT_FLTA_NO_ACTION	0
+#define NTMP_IPFT_FLTA_RATE_POLICE	1
+#define NTMP_IPFT_FLTA_IS		2
+#define NTMP_IPFT_FLTA_SI_BITMAP	3
+
+#define NTMP_STREAM_GATE_STATE_CLOSE	0
+#define NTMP_STREAM_GATE_STATE_OPEN	1
 
 #pragma pack(1)
 
@@ -104,6 +112,284 @@ union netc_cbd {
 	} ntmp_resp_hdr; /* NTMP Response Message Header Format */
 };
 
+struct isit_keye_data {
+	u8 key_type:2;
+	u8 src_port_id:5; /* Only valid for switch */
+	u8 spm:1; /* Only valid for switch */
+	u8 resv[3];
+	u8 frame_key[NTMP_ISIT_FRAME_KEY_LEN];
+};
+
+struct ist_cfge_data {
+	u8 sfe:1;
+	u8 rrt:1; /* version 1 */
+	u8 bl2f:1; /* Only applicable to ENETC and version 1 */
+	u8 resv0:1;
+	u8 ipv:4;
+	u8 oipv:1;
+	u8 dr:2;
+	u8 odr:1;
+	u8 imire:1; /* Only applicable to NETC switch */
+	u8 timecape:1; /* Only applicable to NETC switch */
+	u8 resv1:1;
+	u8 sppd:1; /* Only applicable to NETC switch */
+	u8 isqga:2; /* Only applicable to NETC switch */
+	u8 orp:1;
+	u8 osgi:1;
+	u8 hr:4; /* Only applicable to NETC switch */
+	union {
+		struct {
+			u8 fa:3;
+			u8 sdu_type:2;
+			u8 resv2:3;
+		};
+
+		struct {
+			u8 fa:4;
+			u8 sdu_type:2;
+			u8 sdfa:1;
+			u8 osdfa:1;
+		} v1;
+	};
+	__le16 msdu;
+	/* bits 0~6: IFME_LEN_CHANGE, bits 7~11: EPORT, bits 12~13: OETEID,
+	 * bits 14~15: CTD
+	 */
+	__le16 switch_cfg; /* Only applicable to NETC switch */
+	__le32 isqg_eid; /* Only applicable to NETC switch */
+	__le32 rp_eid;
+	__le32 sgi_eid;
+	__le32 ifm_eid; /* Only applicable to NETC switch */
+	__le32 et_eid; /* Only applicable to NETC switch */
+	__le32 isc_eid;
+	/* bits 0~23: EGRESS_PORT_BITMAP. For version 1, bits 24~27: EVMEID */
+	__le32 bitmap_evmeid; /* Only applicable to NETC switch */
+	__le16 si_bitmap;
+};
+
+union ist_switch_cfg {
+	struct {
+		u16 ifme_len_change:7;
+		u16 eport:5;
+		u16 oeteid:2;
+		u16 ctd:2;
+	};
+	u16 val;
+};
+
+struct isft_keye_data {
+	__le32 is_eid;
+	u8 pcp:3;
+	u8 resv0:5;
+	u8 resv1[3];
+};
+
+struct isft_cfge_data {
+	u8 ipv:4;
+	u8 oipv:1;
+	u8 dr:2;
+	u8 odr:1;
+	u8 imire:1; /* Only applicable to NETC switch */
+	u8 timecape:1; /* Only applicable to NETC switch */
+	u8 osgi:1;
+	u8 ctd:1; /* Only applicable to NETC switch */
+	u8 orp:1;
+	u8 sdu_type:2;
+	u8 resv:1;
+	__le16 msdu;
+	__le32 rp_eid;
+	__le32 sgi_eid;
+	__le32 isc_eid;
+};
+
+struct sgit_acfge_data {
+	__le32 admin_sgcl_eid;
+	__le64 admin_base_time;
+	__le32 admin_cycle_time_ext;
+};
+
+struct sgit_cfge_data {
+	u8 oexen:1;
+	u8 irxen:1;
+	u8 sdu_type:2;
+	u8 resv:4;
+};
+
+struct sgit_icfge_data {
+	u8 ipv:4;
+	u8 oipv:1;
+	u8 gst:1;
+	u8 ctd:1; /* Only applicable to NETC switch */
+	u8 resv:1;
+};
+
+struct sgit_sgise_data {
+	__le32 oper_sgcl_eid;
+	__le64 config_change_time;
+	__le64 oper_base_time;
+	__le32 oper_cycle_time_ext;
+	u8 oex:1;
+	u8 irx:1;
+	u8 state:3;
+	u8 resv:3;
+};
+
+struct sgclt_ge {
+	__le32 interval;
+	u8 iom[3];
+	u8 ipv:4;
+	u8 oipv:1;
+	u8 ctd:1; /* Only applicable to NETC switch */
+	u8 iomen:1;
+	u8 gtst:1;
+};
+
+struct sgclt_cfge_data {
+	__le32 cycle_time;
+	u8 list_length;
+	u8 resv0;
+	u8 ext_oipv:1;
+	u8 ext_ipv:4;
+	u8 ext_ctd:1; /* Only applicable to NETC switch */
+	u8 ext_gtst:1;
+	u8 resv1:1;
+	u8 resv2;
+	struct sgclt_ge ge[];
+};
+
+struct rpt_cfge_data {
+	__le32 cir;
+	__le32 cbs;
+	__le32 eir;
+	__le32 ebs;
+	u8 mren:1;
+	u8 doy:1;
+	u8 cm:1;
+	u8 cf:1;
+	u8 ndor:1;
+	u8 sdu_type:2;
+	u8 resv0:1;
+	u8 resv1;
+};
+
+struct rpt_fee_data {
+	u8 fen:1;
+	u8 resv:7;
+};
+
+struct rpt_stse_data {
+	__le64 byte_count;
+	__le32 drop_frames;
+	__le32 rev0;
+	__le32 dr0_grn_frames;
+	__le32 rev1;
+	__le32 dr1_grn_frames;
+	__le32 rev2;
+	__le32 dr2_ylw_frames;
+	__le32 rev3;
+	__le32 remark_ylw_frames;
+	__le32 rev4;
+	__le32 dr3_red_frames;
+	__le32 rev5;
+	__le32 remark_red_frames;
+	__le32 rev6;
+	__le32 lts;
+	__le32 bci;
+	__le32 bcf_bcs;	/* bit0~30: bcf, bit31: bcs */
+	__le32 bei;
+	__le32 bef_bes; /* bit0~30: bef, bit31: bes */
+};
+
+struct rpt_pse_data {
+	u8 mr:1;
+	u8 rev:7;
+};
+
+struct isct_stse_data {
+	__le32 rx_count;
+	__le32 resv0;
+	__le32 msdu_drop_count;
+	__le32 resv1;
+	__le32 policer_drop_count;
+	__le32 resv2;
+	__le32 sg_drop_count;
+	__le32 resv3;
+};
+
+struct ipft_pld_byte {
+	u8 data;
+	u8 mask;
+};
+
+union ipft_src_port {
+	struct {
+		u16 id:5;
+		u16 mask:5;
+		u16 resv:6;
+	};
+	u16 val;
+};
+
+struct ipft_keye_data {
+	__le16 precedence;
+	__le16 resv0[3];
+	__le16 frm_attr_flags;
+	__le16 frm_attr_flags_mask;
+	/* bit 0~5: dscp, bit 6~11: mask, bit 12~15: reserved */
+	__le16 dscp;
+	/* bit 0~4: src_port, bit 5~9: mask, bit 10~15: reserved.
+	 * Note that this field is reserved for ENETC
+	 */
+	__le16 src_port;
+	__be16 outer_vlan_tci;
+	__be16 outer_vlan_tci_mask;
+	u8 dmac[ETH_ALEN];
+	u8 dmac_mask[ETH_ALEN];
+	u8 smac[ETH_ALEN];
+	u8 smac_mask[ETH_ALEN];
+	__be16 inner_vlan_tci;
+	__be16 inner_vlan_tci_mask;
+	__be16 ethertype;
+	__be16 ethertype_mask;
+	u8 ip_protocol;
+	u8 ip_protocol_mask;
+	__le16 resv1[7];
+	__be32 ip_src[4];
+	__le32 resv2[2];
+	__be32 ip_src_mask[4];
+	__be16 l4_src_port;
+	__be16 l4_src_port_mask;
+	__le32 resv3;
+	__be32 ip_dst[4];
+	__le32 resv4[2];
+	__be32 ip_dst_mask[4];
+	__be16 l4_dst_port;
+	__be16 l4_dst_port_mask;
+	__le32 resv5;
+	struct ipft_pld_byte byte[NTMP_IPFT_MAX_PLD_LEN];
+};
+
+struct ipft_cfge_data {
+	u8 ipv:4;
+	u8 oipv:1;
+	u8 dr:2;
+	u8 odr:1;
+	u8 fltfa:3;
+	u8 imire:1; /* Only applicable to NETC switch */
+	u8 wolte:1;
+	u8 flta:2;
+	u8 rpr_l:1;
+	u8 rpr_h:1;
+	u8 ctd:1; /* Only applicable to NETC switch */
+	u8 hr:4; /* Only applicable to NETC switch */
+	u8 timecape:1; /* Only applicable to NETC switch */
+	u8 rrt:1; /* Only applicable to NETC switch */
+	u8 bl2f:1; /* Only applicable to ENETC */
+	u8 resv:3;
+	u8 evmeid:4; /* Only applicable to NETC switch */
+	__le32 flta_tgt;
+};
+
 #pragma pack()
 
 struct netc_cbdr_regs {
@@ -114,6 +400,11 @@ struct netc_cbdr_regs {
 	void __iomem *bar0;
 	void __iomem *bar1;
 	void __iomem *lenr;
+};
+
+enum ntmp_table_version {
+	NTMP_TBL_VER0 = 0, /* MUST be 0 */
+	NTMP_TBL_VER1,
 };
 
 struct netc_tbl_vers {
@@ -153,8 +444,37 @@ struct netc_cbdrs {
 	struct device *dma_dev;
 	struct netc_cbdr *ring;
 	struct netc_tbl_vers tbl;
+};
 
-	u64 (*get_current_time)(struct device *dev);
+enum netc_dev_type {
+	NETC_DEV_ENETC,
+	NETC_DEV_SWITCH
+};
+
+struct ntmp_caps {
+	int rpt_num_entries;
+	int isct_num_entries;
+	int ist_num_entries;
+	int sgit_num_entries;
+	int sgclt_num_words;
+};
+
+struct ntmp_priv {
+	enum netc_dev_type dev_type;
+	struct netc_cbdrs cbdrs;
+
+	struct ntmp_caps caps;
+	/* bitmap of table entry ID */
+	unsigned long *ist_eid_bitmap;
+	unsigned long *rpt_eid_bitmap;
+	unsigned long *sgit_eid_bitmap;
+	unsigned long *isct_eid_bitmap;
+	unsigned long *sgclt_word_bitmap;
+
+	struct hlist_head flower_list;
+	struct mutex flower_lock; /* flower_list lock */
+
+	u64 (*adjust_base_time)(struct ntmp_priv *priv, u64 bt, u32 ct);
 };
 
 struct ntmp_mfe {
@@ -199,247 +519,69 @@ struct ntmp_tgst_info {
 	struct ntmp_tgst_ge oper[NTMP_TGST_MAX_ENTRY_NUM];
 };
 
-struct ntmp_isit_cfg {
-	u32 entry_id;    /* hardware assigns entry ID */
-	u8 mac[ETH_ALEN];
-	u32 key_type;
-	u16 vid;
-	u8 tagged;
-	u32 is_eid;     /* software assigns entry ID */
+struct ntmp_isit_entry {
+	u32 entry_id;  /* hardware assigns entry ID */
+	struct isit_keye_data keye;
+	__le32 is_eid; /* cfge data */
 };
 
-struct ntmp_isit_info {
-	u32 key_type; /* bit0~1: key type, other bits: reserved */
-	u8 key[NTMP_ISIT_FRAME_KEY_LEN];
-	u32 is_eid;
+struct ntmp_ist_entry {
+	u32 entry_id; /* software assigns entry ID */
+	struct ist_cfge_data cfge;
 };
 
-struct ntmp_ist_cfg {
-	u32 entry_id;      /* software assigns entry ID */
-	u32 rp_eid;
-	u32 sgi_eid;
-	u32 isc_eid;
-	u16 msdu;
-	u8 sfe:1;
-	u8 ipv:4;
-	u8 oipv:1;
-	u8 dr:2;
-	u8 odr:1;
-	u8 orp:1;
-	u8 osgi:1;
-	u8 fa:3;
-	u8 sdu_type:2;
-	u16 si_bitmap;
+struct ntmp_isft_entry {
+	u32 entry_id; /* hardware assigns entry ID */
+	struct isft_keye_data keye;
+	struct isft_cfge_data cfge;
 };
 
-struct ntmp_ist_info {
-	u32 sfe:1;
-	u32 ipv:4;
-	u32 oipv:1;
-	u32 dr:2;
-	u32 odr:1;
-	u32 orp:1;
-	u32 osgi:1;
-	u32 fa:3;
-	u32 sdu_type:2;
-	u16 msdu;
-	u16 si_bitmap;
-	u32 rp_eid;
-	u32 sgi_eid;
-	u32 isc_eid;
+struct ntmp_sgit_entry {
+	u32 entry_id; /* software assigns entry ID */
+	struct sgit_acfge_data acfge;
+	struct sgit_cfge_data cfge;
+	struct sgit_icfge_data icfge;
+	struct sgit_sgise_data sgise;
 };
 
-struct ntmp_isft_cfg {
-	u32 entry_id;    /* hardware assigns entry ID */
-	u32 is_eid;
-	u32 rp_eid;
-	u32 sgi_eid;
-	u32 isc_eid;
-	u16 msdu;
-	u8 priority;
-	u32 or_flags;
-};
-
-struct ntmp_isft_info {
-	u32 is_eid;
-	u16 pcp:3;
-	u16 ipv:4;
-	u16 oipv:1;
-	u16 dr:2;
-	u16 odr:1;
-	u16 osgi:1;
-	u16 orp:1;
-	u16 sdu_type:2;
-	u16 msdu;
-	u32 rp_eid;
-	u32 sgi_eid;
-	u32 isc_eid;
-};
-
-struct ntmp_sgit_cfg {
-	u32 entry_id;        /* software assigns entry ID */
-	s8 init_ipv;
-	u32 admin_sgcl_eid; /* software assigns entry ID */
-	u64 admin_bt;
-	u32 admin_ct_ext;
-	u32 sgcl_ct;
-	refcount_t refcount;
-	struct hlist_node node;
-};
-
-struct ntmp_sgclt_cfg {
+struct ntmp_sgclt_entry {
 	u32 entry_id;
-	s8 init_ipv;
-	u32 ct;
-	u32 num_gates;
-	struct action_gate_entry entries[];
+	u8 ref_count; /* SGCLSE_DATA */
+	struct sgclt_cfge_data cfge; /* Must be last member */
 };
 
-struct ntmp_rpt_cfg {
+struct ntmp_rpt_entry {
 	u32 entry_id;
-	u32 cir;
-	u32 cbs;
-	u32 eir;
-	u32 ebs;
-	refcount_t refcount;
-	struct hlist_node node;
+	struct rpt_cfge_data cfge;
+	struct rpt_fee_data fee;
+	struct rpt_stse_data stse;
+	struct rpt_pse_data pse;
 };
 
-struct ntmp_rpt_sts {
-	u64 byte_cnt;
-	u32 drop_frames;
-	u32 dr0_grn_frames;
-	u32 dr1_grn_frames;
-	u32 dr2_ylw_frames;
-	u32 remark_ylw_frames;
-	u32 dr3_red_frames;
-	u32 remark_red_frames;
-};
-
-struct ntmp_rpt_cfge {
-	u32 cir;
-	u32 cbs;
-	u32 eir;
-	u32 ebs;
-	u8 mren:1;
-	u8 doy:1;
-	u8 cm:1;
-	u8 cf:1;
-	u8 ndor:1;
-	u8 sdu_type:2;
-};
-
-struct ntmp_rpt_info {
-	struct ntmp_rpt_sts sts;
-	struct ntmp_rpt_cfge cfg;
-	bool fen;
-	u8 mr;
-};
-
-struct ntmp_isct_cfg {
+struct ntmp_isct_entry {
 	u32 entry_id;
+	struct isct_stse_data stse;
 };
 
-struct ntmp_sgit_info {
-	u64 cfg_ct;
-	u64 oper_bt;
-	u64 admin_bt;
-	u32 oper_ct_ext;
-	u32 admin_ct_ext;
-	u32 oper_sgcl_eid;
-	u32 admin_sgcl_eid;
-	u32 oex:1;
-	u32 irx:1;
-	u32 state:3;
-	u32 oexen:1;
-	u32 irxen:1;
-	u32 sdu_type:2;
-	u32 ipv:4;
-	u32 oipv:1;
-	u32 gst:1;
+struct ntmp_ipft_entry {
+	u32 entry_id;
+	struct ipft_keye_data keye;
+	struct ipft_cfge_data cfge;
+	__le64 match_count; /* STSE_DATA */
 };
 
-struct ntmp_sgclt_ge {
-	u32 interval;
-	u32 iom:24;
-	u32 ipv:4;
-	u32 oipv:1;
-	u32 iomen:1;
-	u32 gtst:1;
-};
-
-struct ntmp_sgclt_info {
-	u32 cycle_time;
-	u8 ref_count;
-	u16 list_len;
-	u8 ext_gtst:1;
-	u8 ext_ipv:4;
-	u8 ext_oipv:1;
-	struct ntmp_sgclt_ge ge[NTMP_SGCLT_MAX_GE_NUM];
-};
-
-struct ntmp_isct_info {
-	u32 rx_count;
-	u32 msdu_drop_count;
-	u32 policer_drop_count;
-	u32 sg_drop_count;
-};
-
-struct ipft_pld_data {
-	u8 data;
-	u8 mask;
-};
-
-struct ntmp_ipft_key {
-	u16 precedence;
-	u16 frm_attr_flags;
-	u16 frm_attr_flags_mask;
-	u16 dscp; /* bit0~5: dscp, bit6~11: mask, bit12~15: reserved */
-	u16 src_port; /* bit0~4: src_port, bit5~9: mask, bit10~15: reserved */
-	__be16 outer_vlan_tci;
-	__be16 outer_vlan_tci_mask;
-	u8 dmac[ETH_ALEN];
-	u8 dmac_mask[ETH_ALEN];
-	u8 smac[ETH_ALEN];
-	u8 smac_mask[ETH_ALEN];
-	__be16 inner_vlan_tci;
-	__be16 inner_vlan_tci_mask;
-	__be16 ethertype;
-	__be16 ethertype_mask;
-	u8 ip_protocol;
-	u8 ip_protocol_mask;
-	__be32 ip_src[4];
-	__be32 ip_src_mask[4];
-	__be16 l4_src_port;
-	__be16 l4_src_port_mask;
-	__be32 ip_dst[4];
-	__be32 ip_dst_mask[4];
-	__be16 l4_dst_port;
-	__be16 l4_dst_port_mask;
-	struct ipft_pld_data byte[NTMP_IPFT_MAX_PLD_LEN];
-};
-
-struct ntmp_ipft_cfg {
-	u8 ipv:4;
-	u8 oipv:1;
-	u8 dr:2;
-	u8 odr:1;
-	u16 filter; /* bit0~2: fltfa, bit4: wolte, bit5~6: flta, bit7~8: rpr */
-	u32 flta_tgt;
-};
-
-struct ntmp_ipft_info {
-	struct ntmp_ipft_key key;
-	u64 match_count;
-	struct ntmp_ipft_cfg cfg;
-};
-
-#if IS_ENABLED(CONFIG_FSL_NTMP)
+#if IS_ENABLED(CONFIG_NXP_NETC_LIB)
 int netc_setup_cbdr(struct device *dev, int cbd_num, struct netc_cbdr_regs *regs,
 		    struct netc_cbdr *cbdr);
 void netc_teardown_cbdr(struct device *dev, struct netc_cbdr *cbdr);
 
 /* NTMP APIs */
+u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 bitmap_size);
+void ntmp_clear_eid_bitmap(unsigned long *bitmap, u32 entry_id);
+u32 ntmp_lookup_free_words(unsigned long *bitmap, u32 bitmap_size,
+			   u32 entry_size);
+void ntmp_clear_words_bitmap(unsigned long *bitmap, u32 entry_id,
+			     u32 num_words);
 int ntmp_maft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 			const char *mac_addr, int si_bitmap);
 int ntmp_maft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
@@ -457,39 +599,42 @@ int ntmp_tgst_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 int ntmp_tgst_update_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id,
 				     struct ntmp_tgst_cfg *cfg);
 int ntmp_tgst_delete_admin_gate_list(struct netc_cbdrs *cbdrs, u32 entry_id);
-int ntmp_rpt_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_rpt_cfg *cfg);
+int ntmp_rpt_add_or_update_entry(struct netc_cbdrs *cbdrs,
+				 struct ntmp_rpt_entry *entry);
 int ntmp_rpt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			 struct ntmp_rpt_info *info);
+			 struct ntmp_rpt_entry *entry);
 int ntmp_rpt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
-int ntmp_isit_add_or_update_entry(struct netc_cbdrs *cbdrs,
-				  struct ntmp_isit_cfg *cfg, bool add);
+int ntmp_isit_add_or_update_entry(struct netc_cbdrs *cbdrs, bool add,
+				  struct ntmp_isit_entry *entry);
 int ntmp_isit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct ntmp_isit_info *info);
+			  struct ntmp_isit_entry *entry);
 int ntmp_isit_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
-int ntmp_ist_add_or_update_entry(struct netc_cbdrs *cbdrs, struct ntmp_ist_cfg *cfg);
+int ntmp_ist_add_or_update_entry(struct netc_cbdrs *cbdrs,
+				 struct ntmp_ist_entry *entry);
 int ntmp_ist_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			 struct ntmp_ist_info *info);
+			 struct ist_cfge_data *cfge);
 int ntmp_ist_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
-int ntmp_isft_add_or_update_entry(struct netc_cbdrs *cbdrs,
-				  struct ntmp_isft_cfg *cfg, bool add);
+int ntmp_isft_add_or_update_entry(struct netc_cbdrs *cbdrs, bool add,
+				  struct ntmp_isft_entry *entry);
 int ntmp_isft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct ntmp_isft_info *info);
+			  struct ntmp_isft_entry *entry);
 int ntmp_isft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
 int ntmp_sgit_add_or_update_entry(struct netc_cbdrs *cbdrs,
-				  struct ntmp_sgit_cfg *cfg);
+				  struct ntmp_sgit_entry *entry);
 int ntmp_sgit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct ntmp_sgit_info *info);
+			  struct ntmp_sgit_entry *entry);
 int ntmp_sgit_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
-int ntmp_sgclt_add_entry(struct netc_cbdrs *cbdrs, struct ntmp_sgclt_cfg *cfg);
+int ntmp_sgclt_add_entry(struct netc_cbdrs *cbdrs,
+			 struct ntmp_sgclt_entry *entry);
 int ntmp_sgclt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
 int ntmp_sgclt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			   struct ntmp_sgclt_info *info);
+			   struct ntmp_sgclt_entry *entry, u32 cfge_size);
 int ntmp_isct_operate_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			    int cmd, struct ntmp_isct_info *info);
-int ntmp_ipft_add_entry(struct netc_cbdrs *cbdrs, struct ntmp_ipft_key *key,
-			struct ntmp_ipft_cfg *cfg, u32 *entry_id);
+			    int cmd, struct isct_stse_data *data);
+int ntmp_ipft_add_entry(struct netc_cbdrs *cbdrs, u32 *entry_id,
+			struct ntmp_ipft_entry *entry);
 int ntmp_ipft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-			  struct ntmp_ipft_info *info);
+			  bool update, struct ntmp_ipft_entry *entry);
 int ntmp_ipft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id);
 #else
 static inline int netc_setup_cbdr(struct device *dev, int cbd_num,
@@ -504,6 +649,26 @@ static inline void netc_teardown_cbdr(struct device *dev, struct netc_cbdr *cbdr
 }
 
 /* NTMP APIs */
+static inline u32 ntmp_lookup_free_eid(unsigned long *bitmap, u32 size)
+{
+	return 0;
+}
+
+static inline void ntmp_clear_eid_bitmap(unsigned long *bitmap, u32 entry_id)
+{
+}
+
+static inline u32 ntmp_lookup_free_words(unsigned long *bitmap, u32 bitmap_size,
+			   u32 entry_size)
+{
+	return NTMP_NULL_ENTRY_ID;
+}
+
+static inline void ntmp_clear_words_bitmap(unsigned long *bitmap, u32 entry_id,
+					   u32 num_words)
+{
+}
+
 static inline int ntmp_maft_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
 				      const char *mac_addr, int si_bitmap)
 {
@@ -565,13 +730,13 @@ static inline int ntmp_tgst_delete_admin_gate_list(struct netc_cbdrs *cbdrs,
 }
 
 static inline int ntmp_rpt_add_or_update_entry(struct netc_cbdrs *cbdrs,
-					       struct ntmp_rpt_cfg *cfg)
+					       struct ntmp_rpt_entry *entry)
 {
 	return 0;
 }
 
 static inline int ntmp_rpt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-				       struct ntmp_rpt_info *info)
+				       struct ntmp_rpt_entry *entry)
 {
 	return 0;
 }
@@ -581,15 +746,14 @@ static inline int ntmp_rpt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 	return 0;
 }
 
-static inline int ntmp_isit_add_or_update_entry(struct netc_cbdrs *cbdrs,
-						struct ntmp_isit_cfg *cfg,
-						bool add)
+static inline int ntmp_isit_add_or_update_entry(struct netc_cbdrs *cbdrs, bool add,
+						struct ntmp_isit_entry *entry)
 {
 	return 0;
 }
 
 static inline int ntmp_isit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-					struct ntmp_isit_info *info)
+					struct ntmp_isit_entry *entry)
 {
 	return 0;
 }
@@ -600,13 +764,13 @@ static inline int ntmp_isit_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 }
 
 static inline int ntmp_ist_add_or_update_entry(struct netc_cbdrs *cbdrs,
-					       struct ntmp_ist_cfg *cfg)
+					       struct ntmp_ist_entry *entry)
 {
 	return 0;
 }
 
 static inline int ntmp_ist_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-				       struct ntmp_ist_info *info)
+				       struct ist_cfge_data *cfge)
 {
 	return 0;
 }
@@ -616,15 +780,14 @@ static inline int ntmp_ist_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 	return 0;
 }
 
-static inline int ntmp_isft_add_or_update_entry(struct netc_cbdrs *cbdrs,
-						struct ntmp_isft_cfg *cfg,
-						bool add)
+static inline int ntmp_isft_add_or_update_entry(struct netc_cbdrs *cbdrs, bool add,
+						struct ntmp_isft_entry *entry)
 {
 	return 0;
 }
 
 static inline int ntmp_isft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-					struct ntmp_isft_info *info)
+					struct ntmp_isft_entry *entry)
 {
 	return 0;
 }
@@ -635,13 +798,13 @@ static inline int ntmp_isft_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 }
 
 static inline int ntmp_sgit_add_or_update_entry(struct netc_cbdrs *cbdrs,
-						struct ntmp_sgit_cfg *cfg)
+						struct ntmp_sgit_entry *entry)
 {
 	return 0;
 }
 
 static inline int ntmp_sgit_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-					struct ntmp_sgit_info *info)
+					struct ntmp_sgit_entry *entry)
 {
 	return 0;
 }
@@ -651,8 +814,8 @@ static inline int ntmp_sgit_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id)
 	return 0;
 }
 
-static inline int ntmp_sgclt_add_entry(struct netc_cbdrs *cbdrs,
-				       struct ntmp_sgclt_cfg *cfg)
+static inline int ntmp_sgclt_add_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
+				       struct ntmp_sgclt_entry *entry)
 {
 	return 0;
 }
@@ -663,27 +826,25 @@ static inline int ntmp_sgclt_delete_entry(struct netc_cbdrs *cbdrs, u32 entry_id
 }
 
 static inline int ntmp_sgclt_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-					 struct ntmp_sgclt_info *info)
+					 struct ntmp_sgclt_entry *entry, u32 cfge_size)
 {
 	return 0;
 }
 
 static inline int ntmp_isct_operate_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-					  int cmd, struct ntmp_isct_info *info)
+					  int cmd, struct isct_stse_data *stse)
 {
 	return 0;
 }
 
-static inline int ntmp_ipft_add_entry(struct netc_cbdrs *cbdrs,
-				      struct ntmp_ipft_key *key,
-				      struct ntmp_ipft_cfg *cfg,
-				      u32 *entry_id)
+static inline int ntmp_ipft_add_entry(struct netc_cbdrs *cbdrs, u32 *entry_id,
+				      struct ntmp_ipft_entry *entry)
 {
 	return 0;
 }
 
 static inline int ntmp_ipft_query_entry(struct netc_cbdrs *cbdrs, u32 entry_id,
-					struct ntmp_ipft_info *info)
+					bool update, struct ntmp_ipft_entry *entry)
 {
 	return 0;
 }

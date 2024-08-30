@@ -7,6 +7,15 @@ config FSL_ENETC_CORE
 
 	  If compiled as module (M), the module name is fsl-enetc-core.
 
+config NXP_NETC_LIB
+	tristate
+	help
+	  This module provides common functionalities for both ENETC and
+	  NETC Switch, such as NETC Table Management Protocol (NTMP),
+	  common interfaces of tc flower and debugfs.
+
+	  If compiled as module (M), the module name is nxp-netc-lib.
+
 config FSL_ENETC
 	tristate "ENETC PF driver"
 	depends on PCI_MSI
@@ -33,6 +42,7 @@ config FSL_ENETC4
 	select MDIO_DEVRES
 	select FSL_ENETC_CORE
 	select FSL_ENETC_MDIO
+	select NXP_NETC_LIB
 	select PHYLINK
 	select PCS_LYNX
 	select PCS_XPCS
@@ -112,19 +122,3 @@ config FSL_ENETC_QOS
 	  enable/disable from user space via Qos commands(tc). In the kernel
 	  side, it can be loaded by Qos driver. Currently, it is only support
 	  taprio(802.1Qbv) and Credit Based Shaper(802.1Qbu).
-
-config FSL_NTMP
-	bool "NETC NTMP driver"
-	depends on FSL_ENETC4 || FSL_ENETC_VF
-	help
-	  Some NETC functionality is controlled using control messages
-	  sent to the hardware using BD ring interface with 32 bytes
-	  descriptors similar to the packet Transmit BD ring used on
-	  ENETC. This BD ring interface is referred to as the command
-	  BD ring. This is used to configure functionality where the
-	  underlying resources may be shared between different entities
-	  or being too large to configure using direct registers.
-	  Hence, a messaging protocol called the NETC Table Management
-	  Protocol (NTMP) is provided for exchanging configuration and
-	  management information between the software and the hardware
-	  using the command BD ring interface.

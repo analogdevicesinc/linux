@@ -7,7 +7,20 @@
 
 #include "enetc_pf.h"
 
-#define is_en(x)	(x) ? "enable" : "disable"
+#define DEFINE_ENETC_DEBUGFS(name, write_op)			\
+static int name##_open(struct inode *inode, struct file *file)		\
+{									\
+	return single_open(file, name##_show, inode->i_private);	\
+}									\
+									\
+static const struct file_operations name##_fops = {			\
+	.owner		= THIS_MODULE,					\
+	.open		= name##_open,					\
+	.read		= seq_read,					\
+	.write		= enetc_##write_op##_write,			\
+	.llseek		= seq_lseek,					\
+	.release	= single_release,				\
+}
 
 static int enetc_tgst_show(struct seq_file *s, void *data)
 {
@@ -32,7 +45,7 @@ static int enetc_tgst_show(struct seq_file *s, void *data)
 		goto end;
 	}
 
-	err = ntmp_tgst_query_entry(&si->cbdrs, port, info);
+	err = ntmp_tgst_query_entry(&si->ntmp.cbdrs, port, info);
 	if (err)
 		goto end;
 
@@ -161,7 +174,7 @@ static int enetc_rx_mode_show(struct seq_file *s, void *data)
 	for (i = 0; i < pf->num_mac_fe; i++) {
 		struct ntmp_mfe entry;
 
-		err = ntmp_maft_query_entry(&si->cbdrs, i, &entry);
+		err = ntmp_maft_query_entry(&si->ntmp.cbdrs, i, &entry);
 		if (err)
 			return err;
 
@@ -177,350 +190,153 @@ static int enetc_rx_mode_show(struct seq_file *s, void *data)
 }
 DEFINE_SHOW_ATTRIBUTE(enetc_rx_mode);
 
-static void enetc_psfp_isi_show(struct seq_file *s, struct ntmp_isit_info *info)
+static int enetc_flower_list_show(struct seq_file *s, void *data)
 {
-	int i;
-
-	seq_printf(s, "Key type:%u, IS_EID:%u.\n", info->key_type, info->is_eid);
-	seq_puts(s, "Keys:");
-	for (i = 0; i < NTMP_ISIT_FRAME_KEY_LEN; i++)
-		seq_printf(s, "%02x", info->key[i]);
-	seq_puts(s, "\n\n");
-}
-
-static void enetc_psfp_is_show(struct seq_file *s, struct ntmp_ist_info *info)
-{
-	seq_printf(s, "Stream Filtering %s. OIPV %s, IPV:%u.\n",
-		   is_en(info->sfe), is_en(info->oipv), info->ipv);
-	seq_printf(s, "ODR %s, DR:%u. ORP %s OSGI %s.\n", is_en(info->odr),
-		   info->dr, is_en(info->orp), is_en(info->osgi));
-	seq_printf(s, "Forwarding Action:%u. SDU type:%u. MSDU:%u.\n",
-		   info->fa, info->sdu_type, info->msdu);
-	seq_printf(s, "RP_EID:%u. SGI_EID:%u. ISC_EID:%u. SI_BITMAP:0x%04x.\n",
-		   info->rp_eid, info->sgi_eid, info->isc_eid, info->si_bitmap);
-	seq_puts(s, "\n");
-}
-
-static void enetc_psfp_isf_show(struct seq_file *s, struct ntmp_isft_info *info)
-{
-	seq_printf(s, "IS_EID:%u. PCP:%u. SDU type:%u. MSDU:%u.\n",
-		   info->is_eid, info->pcp, info->sdu_type, info->msdu);
-	seq_printf(s, "OIPV %s, IPV:%u. ODR %s, DR:%u. OSGI %s. ORP %s.\n",
-		   is_en(info->oipv), info->ipv, is_en(info->odr), info->dr,
-		   is_en(info->osgi), is_en(info->orp));
-	seq_printf(s, "RP_EID:%u. SGI_EID:%u. ISC_EID:%u.\n", info->rp_eid,
-		   info->sgi_eid, info->isc_eid);
-	seq_puts(s, "\n");
-}
-
-static void enetc_psfp_rp_show(struct seq_file *s, struct ntmp_rpt_info *info)
-{
-	seq_printf(s, "Byte count:%llu, drop frames:%u.\n", info->sts.byte_cnt,
-		   info->sts.drop_frames);
-	seq_printf(s, "DR0 green frames:%u, DR1 green frames:%u.\n",
-		   info->sts.dr0_grn_frames, info->sts.dr1_grn_frames);
-	seq_printf(s, "DR2 yellow frames:%u, remark yellow frames:%u.\n",
-		   info->sts.dr2_ylw_frames, info->sts.remark_ylw_frames);
-	seq_printf(s, "DR3 red frames:%u, remark red frames:%u.\n",
-		   info->sts.dr3_red_frames, info->sts.remark_red_frames);
-	seq_printf(s, "CIR:%u, CBS:%u, EIR:%u, EBS%u.\n", info->cfg.cir,
-		   info->cfg.cbs, info->cfg.eir, info->cfg.ebs);
-	seq_printf(s, "Mark all frames red %s. Drop on yellow %s.\n",
-		   is_en(info->cfg.mren), is_en(info->cfg.doy));
-	seq_printf(s, "Coupling flag:%u. Color mode:%s.\n", info->cfg.cf,
-		   info->cfg.cm ? "aware" : "blind");
-	seq_printf(s, "No drop on red %s. SDU type:%u.\n", is_en(info->cfg.ndor),
-		   info->cfg.sdu_type);
-	seq_puts(s, "\n");
-}
-
-static void enetc_psfp_sgi_show(struct seq_file *s, struct ntmp_sgit_info *info)
-{
-	seq_printf(s, "OPER_SGCL_EID:%u, Configuration Change Time:%llu.\n",
-		   info->oper_sgcl_eid, info->cfg_ct);
-	seq_printf(s, "Operational Base Time:%llu, Cycle Time Extension:%u.\n",
-		   info->oper_bt, info->oper_ct_ext);
-	seq_printf(s, "Octets Exceeded %s, Octets Exceeded Flag:%u.\n",
-		   is_en(info->oexen), info->oex);
-	seq_printf(s, "Invalid Receive %s, Invalid Receive Flag:%u.\n",
-		   is_en(info->irxen), info->irx);
-	seq_printf(s, "Current Gate Instance State:%u, SDU type:%u.\n",
-		   info->state, info->sdu_type);
-	seq_printf(s, "OIPV %s, IPV:%u. Gate State:%s.\n", is_en(info->oipv),
-		   info->ipv, info->gst ? "Open" : "Closed");
-	seq_printf(s, "ADMIN_SGCL_EID:%u, Admin Base Time:%llu, Cycle Time Extension:%u.\n",
-		   info->admin_sgcl_eid, info->admin_bt, info->admin_ct_ext);
-	seq_puts(s, "\n");
-}
-
-static void enetc_psfp_sgcl_show(struct seq_file *s, struct ntmp_sgclt_info *info)
-{
-	int i;
-
-	seq_printf(s, "Reference Count:%u, Cycle Time:%u, List Length:%u.\n",
-		   info->ref_count, info->cycle_time, info->list_len);
-	seq_printf(s, "EXT_OIPV %s, EXT_IPV:%u. Extension Gate State:%s.\n",
-		   is_en(info->ext_oipv), info->ext_ipv, info->ext_gtst ? "Open" : "Closed");
-
-	for (i = 0; i < info->list_len; i++) {
-		seq_printf(s, "Gate Entry %d Time Interval:%u, Interval Octets Maximum %s:%u.\n",
-			   i, info->ge[i].interval, is_en(info->ge[i].iomen), info->ge[i].iom);
-		seq_printf(s, "Override Interval Priority Value %s:%u. Gate State:%s\n",
-			   is_en(info->ge[i].oipv), info->ge[i].ipv,
-			   info->ge[i].gtst ? "Open" : "Closed");
-	}
-	seq_puts(s, "\n");
-}
-
-static void enetc_psfp_isc_show(struct seq_file *s, struct ntmp_isct_info *info)
-{
-	seq_printf(s, "Receive Count:%u, MSDU Drop Count:%u.\n",
-		   info->rx_count, info->msdu_drop_count);
-	seq_printf(s, "Policer Drop Count:%u, Stream Gating Drop Count:%u.\n",
-		   info->policer_drop_count, info->sg_drop_count);
-	seq_puts(s, "\n");
-}
-
-static int enetc_psfp_show(struct seq_file *s, void *data)
-{
-	struct ntmp_sgclt_info *sgcl_info;
-	struct ntmp_isit_info *isi_info;
-	struct ntmp_isft_info *isf_info;
-	struct ntmp_sgit_info *sgi_info;
-	struct ntmp_isct_info *isc_info;
-	struct ntmp_ist_info *is_info;
-	struct ntmp_rpt_info *rp_info;
 	struct enetc_si *si = s->private;
-	struct enetc_ndev_priv *priv;
-	struct enetc_psfp_node *psfp;
-	int err = 0, i = 0;
+	struct netc_flower_rule *rule;
 
-	priv = netdev_priv(si->ndev);
+	guard(mutex)(&si->ntmp.flower_lock);
+	hlist_for_each_entry(rule, &si->ntmp.flower_list, node) {
+		seq_printf(s, "Cookie:0x%lx\n", rule->cookie);
+		seq_printf(s, "Flower type:%d\n", rule->flower_type);
 
-	isi_info = kmalloc(sizeof(*isi_info), GFP_KERNEL);
-	if (!isi_info)
-		return -ENOMEM;
+		if (rule->flower_type == FLOWER_TYPE_PSFP)
+			netc_show_psfp_flower(s, rule);
 
-	is_info = kmalloc(sizeof(*is_info), GFP_KERNEL);
-	if (!is_info) {
-		err = -ENOMEM;
-		goto free_isi_info;
+		seq_puts(s, "\n");
 	}
 
-	isf_info = kmalloc(sizeof(*isf_info), GFP_KERNEL);
-	if (!isf_info) {
-		err = -ENOMEM;
-		goto free_is_info;
-	}
-
-	sgi_info = kmalloc(sizeof(*sgi_info), GFP_KERNEL);
-	if (!sgi_info) {
-		err = -ENOMEM;
-		goto free_isf_info;
-	}
-
-	sgcl_info = kmalloc(sizeof(*sgcl_info), GFP_KERNEL);
-	if (!sgcl_info) {
-		err = -ENOMEM;
-		goto free_sgi_info;
-	}
-
-	rp_info = kmalloc(sizeof(*rp_info), GFP_KERNEL);
-	if (!rp_info) {
-		err = -ENOMEM;
-		goto free_sgcl_info;
-	}
-
-	isc_info = kmalloc(sizeof(*isc_info), GFP_KERNEL);
-	if (!isc_info) {
-		err = -ENOMEM;
-		goto free_rp_info;
-	}
-
-	hlist_for_each_entry(psfp, &priv->psfp_chain.isit_list, node) {
-		if (!psfp)
-			continue;
-
-		memset(isi_info, 0, sizeof(*isi_info));
-		memset(is_info, 0, sizeof(*is_info));
-		memset(isf_info, 0, sizeof(*isf_info));
-		memset(sgi_info, 0, sizeof(*sgi_info));
-		memset(sgcl_info, 0, sizeof(*sgcl_info));
-		memset(rp_info, 0, sizeof(*rp_info));
-		memset(isc_info, 0, sizeof(*isc_info));
-
-		seq_printf(s, "Show PSFP entry %d information.\n", i++);
-
-		err = ntmp_isit_query_entry(&si->cbdrs, psfp->isit_cfg.entry_id,
-					    isi_info);
-		if (err)
-			goto free_isc_info;
-		seq_printf(s, "Show ingress stream identification table entry %u:\n",
-			   psfp->isit_cfg.entry_id);
-		enetc_psfp_isi_show(s, isi_info);
-
-		err = ntmp_ist_query_entry(&si->cbdrs, psfp->isit_cfg.is_eid,
-					   is_info);
-		if (err)
-			goto free_isc_info;
-		seq_printf(s, "Show ingress stream table entry %u:\n",
-			   psfp->isit_cfg.is_eid);
-		enetc_psfp_is_show(s, is_info);
-
-		if (psfp->isf_eid != NTMP_NULL_ENTRY_ID) {
-			err = ntmp_isft_query_entry(&si->cbdrs, psfp->isf_eid, isf_info);
-			if (err)
-				goto free_isc_info;
-			seq_printf(s, "Show ingress stream filter table entry %u:\n",
-				   psfp->isf_eid);
-			enetc_psfp_isf_show(s, isf_info);
-		}
-
-		if (psfp->rp_eid != NTMP_NULL_ENTRY_ID) {
-			err = ntmp_rpt_query_entry(&si->cbdrs, psfp->rp_eid, rp_info);
-			if (err)
-				goto free_isc_info;
-			seq_printf(s, "Show rate policer table entry %u:\n", psfp->rp_eid);
-			enetc_psfp_rp_show(s, rp_info);
-		}
-
-		if (psfp->sgi_eid != NTMP_NULL_ENTRY_ID) {
-			err = ntmp_sgit_query_entry(&si->cbdrs, psfp->sgi_eid, sgi_info);
-			if (err)
-				goto free_isc_info;
-			seq_printf(s, "Show stream gate instance table entry %u:\n",
-				   psfp->sgi_eid);
-			enetc_psfp_sgi_show(s, sgi_info);
-		}
-
-		if (psfp->sgcl_eid != NTMP_NULL_ENTRY_ID) {
-			err = ntmp_sgclt_query_entry(&si->cbdrs, psfp->sgcl_eid, sgcl_info);
-			if (err)
-				goto free_isc_info;
-			seq_printf(s, "Show stream gate control list table entry %u:\n",
-				   psfp->sgcl_eid);
-			enetc_psfp_sgcl_show(s, sgcl_info);
-		}
-
-		if (psfp->isc_eid != NTMP_NULL_ENTRY_ID) {
-			err = ntmp_isct_operate_entry(&si->cbdrs, psfp->isc_eid, NTMP_CMD_QUERY,
-						      isc_info);
-			if (err)
-				goto free_isc_info;
-			seq_printf(s, "Show ingress stream count table entry %u:\n", psfp->isc_eid);
-			enetc_psfp_isc_show(s, isc_info);
-		}
-	}
-
-free_isc_info:
-	kfree(isc_info);
-free_rp_info:
-	kfree(rp_info);
-free_sgcl_info:
-	kfree(sgcl_info);
-free_sgi_info:
-	kfree(sgi_info);
-free_isf_info:
-	kfree(isf_info);
-free_is_info:
-	kfree(is_info);
-free_isi_info:
-	kfree(isi_info);
-
-	return err;
+	return 0;
 }
-DEFINE_SHOW_ATTRIBUTE(enetc_psfp);
+DEFINE_SHOW_ATTRIBUTE(enetc_flower_list);
 
-static int enetc_ipf_entry_show(struct seq_file *s, struct enetc_si *si, u32 entry_id)
+static ssize_t enetc_isit_eid_write(struct file *filp, const char __user *buffer,
+				    size_t count, loff_t *ppos)
 {
-	struct ntmp_ipft_info *info;
-	u16 src_port, src_port_mask;
-	u16 dscp, dscp_mask;
-	u8 fltfa, flta, rpr;
-	int i, err;
+	struct seq_file *s = filp->private_data;
+	struct enetc_si *si = s->private;
 
-	info = kzalloc(sizeof(*info), GFP_KERNEL);
-	if (!info)
-		return -ENOMEM;
-
-	err = ntmp_ipft_query_entry(&si->cbdrs, entry_id, info);
-	if (err)
-		goto end;
-
-	dscp = info->key.dscp & NTMP_IPFT_DSCP;
-	dscp_mask = (info->key.dscp & NTMP_IPFT_DSCP_MASK) >> 6;
-	src_port = info->key.src_port & NTMP_IPFT_SRC_PORT;
-	src_port_mask = (info->key.src_port & NTMP_IPFT_SRC_PORT_MASK) >> 5;
-	fltfa = info->cfg.filter & NTMP_IPFT_FLTFA;
-	flta = (info->cfg.filter & NTMP_IPFT_FLTA) >> 5;
-	rpr = (info->cfg.filter & NTMP_IPFT_RPR) >> 7;
-
-	seq_printf(s, "Show ingress port filter table entry:%u\n", entry_id);
-	seq_printf(s, "Precedence:%u, Frame attribute flags:0x%04x, mask:0x%04x\n",
-		   info->key.precedence, info->key.frm_attr_flags,
-		   info->key.frm_attr_flags_mask);
-	seq_printf(s, "DSCP:%u, mask:0x%02x. Source port ID:%u, mask:0x%02x\n",
-		   dscp, dscp_mask, src_port, src_port_mask);
-	seq_printf(s, "Outer VLAN TCI:%u, mask:0x%04x. Inner VLAN TCI:%u, mask:0x%04x\n",
-		   ntohs(info->key.outer_vlan_tci), ntohs(info->key.outer_vlan_tci_mask),
-		   ntohs(info->key.inner_vlan_tci), ntohs(info->key.inner_vlan_tci_mask));
-	seq_printf(s, "Destination MAC:%02x:%02x:%02x:%02x:%02x:%02x\n",
-		   info->key.dmac[0], info->key.dmac[1], info->key.dmac[2],
-		   info->key.dmac[3], info->key.dmac[4], info->key.dmac[5]);
-	seq_printf(s, "Destination MAC mask:%02x:%02x:%02x:%02x:%02x:%02x\n",
-		   info->key.dmac_mask[0], info->key.dmac_mask[1], info->key.dmac_mask[2],
-		   info->key.dmac_mask[3], info->key.dmac_mask[4], info->key.dmac_mask[5]);
-	seq_printf(s, "Source MAC:%02x:%02x:%02x:%02x:%02x:%02x\n",
-		   info->key.smac[0], info->key.smac[1], info->key.smac[2],
-		   info->key.smac[3], info->key.smac[4], info->key.smac[5]);
-	seq_printf(s, "Source MAC mask:%02x:%02x:%02x:%02x:%02x:%02x\n",
-		   info->key.smac_mask[0], info->key.smac_mask[1], info->key.smac_mask[2],
-		   info->key.smac_mask[3], info->key.smac_mask[4], info->key.smac_mask[5]);
-	seq_printf(s, "Ether Type:0x%04x, mask:0x%04x. IP protocol:%u, mask:0x%02x\n",
-		   ntohs(info->key.ethertype), ntohs(info->key.ethertype_mask),
-		   info->key.ip_protocol, info->key.ip_protocol_mask);
-	seq_printf(s, "IP Source Address:%08x:%08x:%08x:%08x\n",
-		   ntohl(info->key.ip_src[0]), ntohl(info->key.ip_src[1]),
-		   ntohl(info->key.ip_src[2]), ntohl(info->key.ip_src[3]));
-	seq_printf(s, "IP Source Address mask:%08x:%08x:%08x:%08x\n",
-		   ntohl(info->key.ip_src_mask[0]), ntohl(info->key.ip_src_mask[1]),
-		   ntohl(info->key.ip_src_mask[2]), ntohl(info->key.ip_src_mask[3]));
-	seq_printf(s, "IP Destination Address:%08x:%08x:%08x:%08x\n",
-		   ntohl(info->key.ip_dst[0]), ntohl(info->key.ip_dst[1]),
-		   ntohl(info->key.ip_dst[2]), ntohl(info->key.ip_dst[3]));
-	seq_printf(s, "IP Destination Address mask:%08x:%08x:%08x:%08x\n",
-		   ntohl(info->key.ip_dst_mask[0]), ntohl(info->key.ip_dst_mask[1]),
-		   ntohl(info->key.ip_dst_mask[2]), ntohl(info->key.ip_dst_mask[3]));
-	seq_printf(s, "L4 Source Port:%u, mask:0x%04x. Destination Port:%u, mask:0x%04x\n",
-		   ntohs(info->key.l4_src_port), ntohs(info->key.l4_src_port_mask),
-		   ntohs(info->key.l4_dst_port), ntohs(info->key.l4_dst_port_mask));
-	for (i = 0; i < NTMP_IPFT_MAX_PLD_LEN; i = i + 6) {
-		seq_printf(s, "Payload byte %d~%d:%02x%02x%02x%02x%02x%02x\n", i, i + 5,
-			   info->key.byte[i].data, info->key.byte[i + 1].data,
-			   info->key.byte[i + 2].data, info->key.byte[i + 3].data,
-			   info->key.byte[i + 4].data, info->key.byte[i + 5].data);
-		seq_printf(s, "Payload byte %d~%d mask:%02x%02x%02x%02x%02x%02x\n", i, i + 5,
-			   info->key.byte[i].mask, info->key.byte[i + 1].mask,
-			   info->key.byte[i + 2].mask, info->key.byte[i + 3].mask,
-			   info->key.byte[i + 4].mask, info->key.byte[i + 5].mask);
-	}
-	seq_printf(s, "Match Count:%llu\n", info->match_count);
-	seq_printf(s, "Override internal Priority %s:%u\n", is_en(info->cfg.oipv), info->cfg.ipv);
-	seq_printf(s, "Override Drop Resilience %s:%u\n", is_en(info->cfg.odr), info->cfg.dr);
-	seq_printf(s, "Filter Forwarding Action:%u\n", fltfa);
-	seq_printf(s, "Wake-on-LAN Trigger %s\n", is_en(info->cfg.filter & NTMP_IPFT_WOLTE));
-	seq_printf(s, "Filter Action:%u\n", flta);
-	seq_printf(s, "Relative Precedent Resolution:%u\n", rpr);
-	seq_printf(s, "Target For Selected Filter Action:0x%x\n", info->cfg.flta_tgt);
-	seq_puts(s, "\n");
-
-end:
-	kfree(info);
-
-	return err;
+	return netc_kstrtouint(buffer, count, ppos, &si->dbg_params.isit_eid);
 }
 
-static int enetc_ipf_show(struct seq_file *s, void *data)
+static int enetc_isit_entry_show(struct seq_file *s, void *data)
+{
+	struct enetc_si *si = s->private;
+
+	return netc_show_isit_entry(&si->ntmp, s, si->dbg_params.isit_eid);
+}
+
+DEFINE_ENETC_DEBUGFS(enetc_isit_entry, isit_eid);
+
+static ssize_t enetc_ist_eid_write(struct file *filp, const char __user *buffer,
+				   size_t count, loff_t *ppos)
+{
+	struct seq_file *s = filp->private_data;
+	struct enetc_si *si = s->private;
+
+	return netc_kstrtouint(buffer, count, ppos, &si->dbg_params.ist_eid);
+}
+
+static int enetc_ist_entry_show(struct seq_file *s, void *data)
+{
+	struct enetc_si *si = s->private;
+
+	return netc_show_ist_entry(&si->ntmp, s, si->dbg_params.ist_eid);
+}
+
+DEFINE_ENETC_DEBUGFS(enetc_ist_entry, ist_eid);
+
+static ssize_t enetc_isft_eid_write(struct file *filp, const char __user *buffer,
+				    size_t count, loff_t *ppos)
+{
+	struct seq_file *s = filp->private_data;
+	struct enetc_si *si = s->private;
+
+	return netc_kstrtouint(buffer, count, ppos, &si->dbg_params.isft_eid);
+}
+
+static int enetc_isft_entry_show(struct seq_file *s, void *data)
+{
+	struct enetc_si *si = s->private;
+
+	return netc_show_isft_entry(&si->ntmp, s, si->dbg_params.isft_eid);
+}
+
+DEFINE_ENETC_DEBUGFS(enetc_isft_entry, isft_eid);
+
+static ssize_t enetc_sgit_eid_write(struct file *filp, const char __user *buffer,
+				    size_t count, loff_t *ppos)
+{
+	struct seq_file *s = filp->private_data;
+	struct enetc_si *si = s->private;
+
+	return netc_kstrtouint(buffer, count, ppos, &si->dbg_params.sgit_eid);
+}
+
+static int enetc_sgit_entry_show(struct seq_file *s, void *data)
+{
+	struct enetc_si *si = s->private;
+
+	return netc_show_sgit_entry(&si->ntmp, s, si->dbg_params.sgit_eid);
+}
+
+DEFINE_ENETC_DEBUGFS(enetc_sgit_entry, sgit_eid);
+
+static ssize_t enetc_sgclt_eid_write(struct file *filp, const char __user *buffer,
+				     size_t count, loff_t *ppos)
+{
+	struct seq_file *s = filp->private_data;
+	struct enetc_si *si = s->private;
+
+	return netc_kstrtouint(buffer, count, ppos, &si->dbg_params.sgclt_eid);
+}
+
+static int enetc_sgclt_entry_show(struct seq_file *s, void *data)
+{
+	struct enetc_si *si = s->private;
+
+	return netc_show_sgclt_entry(&si->ntmp, s, si->dbg_params.sgclt_eid);
+}
+
+DEFINE_ENETC_DEBUGFS(enetc_sgclt_entry, sgclt_eid);
+
+static ssize_t enetc_isct_eid_write(struct file *filp, const char __user *buffer,
+				    size_t count, loff_t *ppos)
+{
+	struct seq_file *s = filp->private_data;
+	struct enetc_si *si = s->private;
+
+	return netc_kstrtouint(buffer, count, ppos, &si->dbg_params.isct_eid);
+}
+
+static int enetc_isct_entry_show(struct seq_file *s, void *data)
+{
+	struct enetc_si *si = s->private;
+
+	return netc_show_isct_entry(&si->ntmp, s, si->dbg_params.isct_eid);
+}
+
+DEFINE_ENETC_DEBUGFS(enetc_isct_entry, isct_eid);
+
+static ssize_t enetc_rpt_eid_write(struct file *filp, const char __user *buffer,
+				   size_t count, loff_t *ppos)
+{
+	struct seq_file *s = filp->private_data;
+	struct enetc_si *si = s->private;
+
+	return netc_kstrtouint(buffer, count, ppos, &si->dbg_params.rpt_eid);
+}
+
+static int enetc_rpt_entry_show(struct seq_file *s, void *data)
+{
+	struct enetc_si *si = s->private;
+
+	return netc_show_rpt_entry(&si->ntmp, s, si->dbg_params.rpt_eid);
+}
+
+DEFINE_ENETC_DEBUGFS(enetc_rpt_entry, rpt_eid);
+
+static int enetc_ipft_show(struct seq_file *s, void *data)
 {
 	struct enetc_si *si = s->private;
 	struct enetc_hw *hw = &si->hw;
@@ -538,7 +354,8 @@ static int enetc_ipf_show(struct seq_file *s, void *data)
 	priv = netdev_priv(si->ndev);
 	for (i = 0; i < priv->max_ipf_entries; i++) {
 		if (priv->cls_rules[i].used) {
-			err = enetc_ipf_entry_show(s, si, priv->cls_rules[i].entry_id);
+			err = netc_show_ipft_entry(&si->ntmp, s,
+						   priv->cls_rules[i].entry_id);
 			if (err)
 				return err;
 		}
@@ -546,7 +363,7 @@ static int enetc_ipf_show(struct seq_file *s, void *data)
 
 	return 0;
 }
-DEFINE_SHOW_ATTRIBUTE(enetc_ipf);
+DEFINE_SHOW_ATTRIBUTE(enetc_ipft);
 
 static void enetc_txr_bd_show(struct seq_file *s, union enetc_tx_bd *txbd, int index)
 {
@@ -656,8 +473,15 @@ void enetc_create_debugfs(struct enetc_si *si)
 	if (si->hw.port) {
 		debugfs_create_file("enetc_tgst", 0444, root, si, &enetc_tgst_fops);
 		debugfs_create_file("rx_mode", 0444, root, si, &enetc_rx_mode_fops);
-		debugfs_create_file("enetc_psfp", 0444, root, si, &enetc_psfp_fops);
-		debugfs_create_file("enetc_ipf", 0444, root, si, &enetc_ipf_fops);
+		debugfs_create_file("isit_entry", 0600, root, si, &enetc_isit_entry_fops);
+		debugfs_create_file("ist_entry", 0600, root, si, &enetc_ist_entry_fops);
+		debugfs_create_file("isft_entry", 0600, root, si, &enetc_isft_entry_fops);
+		debugfs_create_file("sgit_entry", 0600, root, si, &enetc_sgit_entry_fops);
+		debugfs_create_file("sgclt_entry", 0600, root, si, &enetc_sgclt_entry_fops);
+		debugfs_create_file("isct_entry", 0600, root, si, &enetc_isct_entry_fops);
+		debugfs_create_file("rpt_entry", 0600, root, si, &enetc_rpt_entry_fops);
+		debugfs_create_file("flower_list", 0444, root, si, &enetc_flower_list_fops);
+		debugfs_create_file("enetc_ipft", 0444, root, si, &enetc_ipft_fops);
 	}
 
 	debugfs_create_file("enetc_txq", 0444, root, si, &enetc_txq_fops);

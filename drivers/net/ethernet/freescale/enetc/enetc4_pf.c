@@ -882,6 +882,165 @@ static const struct enetc_pf_hw_ops enetc4_pf_hw_ops = {
 	.set_time_gating = enetc4_pf_set_time_gating,
 };
 
+static void enetc4_get_ntmp_caps(struct enetc_si *si)
+{
+	struct ntmp_caps *caps = &si->ntmp.caps;
+	struct enetc_hw *hw = &si->hw;
+	u32 reg;
+
+	/* Get the max number of entris of RP table */
+	reg = enetc_port_rd(hw, ENETC4_RPITCAPR);
+	caps->rpt_num_entries = reg & RPITCAPR_NUM_ENTRIES;
+
+	/* Get the max number of entris of IS table */
+	reg = enetc_port_rd(hw, ENETC4_ISITCAPR);
+	caps->ist_num_entries = reg & ISITCAPR_NUM_ENTRIES;
+
+	/* Get the max number of entris of SGI table */
+	reg = enetc_port_rd(hw, ENETC4_SGIITCAPR);
+	caps->sgit_num_entries = reg & SGITCAPR_NUM_ENTRIES;
+
+	/* Get the max number of entris of ISC table */
+	reg = enetc_port_rd(hw, ENETC4_ISCICAPR);
+	caps->isct_num_entries = reg & ISCICAPR_NUM_ENTRIES;
+
+	/* Get the max number of words of SGCL table */
+	reg = enetc_port_rd(hw, ENETC4_SGCLITCAPR);
+	caps->sgclt_num_words = reg & SGCLITCAPR_NUM_WORDS;
+}
+
+static u64 enetc4_get_current_time(struct enetc_si *si)
+{
+	u32 time_l, time_h;
+	u64 current_time;
+
+	time_l = enetc_rd_hot(&si->hw, ENETC_SICTR0);
+	time_h = enetc_rd_hot(&si->hw, ENETC_SICTR1);
+	current_time = (u64)time_h << 32 | time_l;
+
+	return current_time;
+}
+
+static u64 enetc4_adjust_base_time(struct ntmp_priv *ntmp, u64 base_time,
+				   u32 cycle_time)
+{
+	struct enetc_si *si = ntmp_to_enetc_si(ntmp);
+	u64 current_time, delta, n;
+
+	current_time = enetc4_get_current_time(si);
+	if (base_time >= current_time)
+		return base_time;
+
+	delta = current_time - base_time;
+	n = DIV_ROUND_UP_ULL(delta, cycle_time);
+	base_time += (n * (u64)cycle_time);
+
+	return base_time;
+}
+
+static int enetc4_ntmp_bitmap_init(struct ntmp_priv *ntmp)
+{
+	ntmp->ist_eid_bitmap = bitmap_zalloc(ntmp->caps.ist_num_entries,
+					     GFP_KERNEL);
+	if (!ntmp->ist_eid_bitmap)
+		return -ENOMEM;
+
+	ntmp->sgit_eid_bitmap = bitmap_zalloc(ntmp->caps.sgit_num_entries,
+					      GFP_KERNEL);
+	if (!ntmp->sgit_eid_bitmap)
+		goto free_ist_bitmap;
+
+	ntmp->sgclt_word_bitmap = bitmap_zalloc(ntmp->caps.sgclt_num_words,
+						GFP_KERNEL);
+	if (!ntmp->sgclt_word_bitmap)
+		goto free_sgit_bitmap;
+
+	ntmp->isct_eid_bitmap = bitmap_zalloc(ntmp->caps.isct_num_entries,
+					      GFP_KERNEL);
+	if (!ntmp->isct_eid_bitmap)
+		goto free_sgclt_bitmap;
+
+	ntmp->rpt_eid_bitmap = bitmap_zalloc(ntmp->caps.rpt_num_entries,
+					     GFP_KERNEL);
+	if (!ntmp->rpt_eid_bitmap)
+		goto free_isct_bitmap;
+
+	return 0;
+
+free_isct_bitmap:
+	bitmap_free(ntmp->isct_eid_bitmap);
+	ntmp->isct_eid_bitmap = NULL;
+
+free_sgclt_bitmap:
+	bitmap_free(ntmp->sgclt_word_bitmap);
+	ntmp->sgclt_word_bitmap = NULL;
+
+free_sgit_bitmap:
+	bitmap_free(ntmp->sgit_eid_bitmap);
+	ntmp->sgit_eid_bitmap = NULL;
+
+free_ist_bitmap:
+	bitmap_free(ntmp->ist_eid_bitmap);
+	ntmp->ist_eid_bitmap = NULL;
+
+	return -ENOMEM;
+}
+
+static void enetc4_ntmp_bitmap_free(struct ntmp_priv *ntmp)
+{
+	bitmap_free(ntmp->rpt_eid_bitmap);
+	ntmp->rpt_eid_bitmap = NULL;
+
+	bitmap_free(ntmp->isct_eid_bitmap);
+	ntmp->isct_eid_bitmap = NULL;
+
+	bitmap_free(ntmp->sgclt_word_bitmap);
+	ntmp->sgclt_word_bitmap = NULL;
+
+	bitmap_free(ntmp->sgit_eid_bitmap);
+	ntmp->sgit_eid_bitmap = NULL;
+
+	bitmap_free(ntmp->ist_eid_bitmap);
+	ntmp->ist_eid_bitmap = NULL;
+}
+
+static int enetc4_init_ntmp_priv(struct enetc_si *si)
+{
+	struct ntmp_priv *ntmp = &si->ntmp;
+	int err;
+
+	ntmp->dev_type = NETC_DEV_ENETC;
+
+	err = enetc_init_cbdr(si);
+	if (err)
+		return err;
+
+	enetc4_get_ntmp_caps(si);
+	err = enetc4_ntmp_bitmap_init(ntmp);
+	if (err)
+		goto free_cbdr;
+
+	ntmp->adjust_base_time = enetc4_adjust_base_time;
+
+	INIT_HLIST_HEAD(&ntmp->flower_list);
+	mutex_init(&ntmp->flower_lock);
+
+	return 0;
+
+free_cbdr:
+	enetc_free_cbdr(si);
+
+	return err;
+}
+
+static void enetc4_deinit_ntmp_priv(struct enetc_si *si)
+{
+	enetc4_clear_flower_list(si);
+	mutex_destroy(&si->ntmp.flower_lock);
+	enetc4_ntmp_bitmap_free(&si->ntmp);
+	enetc_free_cbdr(si);
+}
+
 static int enetc4_pf_init(struct enetc_pf *pf)
 {
 	struct device *dev = &pf->si->pdev->dev;
@@ -894,7 +1053,7 @@ static int enetc4_pf_init(struct enetc_pf *pf)
 		return err;
 	}
 
-	err = enetc_init_cbdr(pf->si);
+	err =  enetc4_init_ntmp_priv(pf->si);
 	if (err) {
 		dev_err(dev, "Failed to init CBDR\n");
 		return err;
@@ -907,7 +1066,7 @@ static int enetc4_pf_init(struct enetc_pf *pf)
 
 static void enetc4_pf_deinit(struct enetc_pf *pf)
 {
-	enetc_free_cbdr(pf->si);
+	enetc4_deinit_ntmp_priv(pf->si);
 }
 
 static int enetc4_link_init(struct enetc_ndev_priv *priv,

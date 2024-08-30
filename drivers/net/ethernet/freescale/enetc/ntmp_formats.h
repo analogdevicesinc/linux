@@ -20,6 +20,10 @@ struct common_resp_query {
 	__le32 entry_id;
 };
 
+struct common_resp_nq {
+	__le32 status;
+};
+
 /* Generic structure for 'delete' or 'query' by entry ID  */
 struct ntmp_qd_by_eid {
 	struct common_req_data crd;
@@ -134,54 +138,6 @@ struct tgst_resp_query {
 };
 
 /* Rate Policer Table Request and Response Data Buffer Format */
-struct rpt_cfge_data {
-	__le32 cir;
-	__le32 cbs;
-	__le32 eir;
-	__le32 ebs;
-	u8 mren:1;
-	u8 doy:1;
-	u8 cm:1;
-	u8 cf:1;
-	u8 ndor:1;
-	u8 sdu_type:2;
-	u8 resv0:1;
-	u8 resv1;
-};
-
-struct rpt_fee_data {
-	u8 fen:1;
-	u8 resv:7;
-};
-
-struct rpt_stse_data {
-	__le64 byte_count;
-	__le32 drop_frames;
-	__le32 rev0;
-	__le32 dr0_grn_frames;
-	__le32 rev1;
-	__le32 dr1_grn_frames;
-	__le32 rev2;
-	__le32 dr2_ylw_frames;
-	__le32 rev3;
-	__le32 remark_ylw_frames;
-	__le32 rev4;
-	__le32 dr3_red_frames;
-	__le32 rev5;
-	__le32 remark_red_frames;
-	__le32 rev6;
-	__le32 lts;
-	__le32 bci;
-	__le32 bcf_bcs;	/* bit0~30: bcf, bit31: bcs */
-	__le32 bei;
-	__le32 bef_bes; /* bit0~30: bef, bit31: bes */
-};
-
-struct rpt_pse_data {
-	u8 mr:1;
-	u8 rev:7;
-};
-
 struct rpt_req_ua {
 	struct common_req_data crd;
 	__le32 entry_id;
@@ -198,85 +154,43 @@ struct rpt_resp_query {
 };
 
 /* Ingress Stream Identification Table Resquet and Response Data Buffer Format */
-
-/* Notice that current frame key only support NULL stream ID and
- * SMAC and VLAN stream ID, same with LS1028A.
- */
-struct frame_key {
-	u8 mac[ETH_ALEN];
-	u8 vlan_h;	// Most significant byte of the 2 bytes
-	u8 vlan_l;	// Least significant byte of the 2 bytes
-	__le32 resv[2];
+struct isit_ak_eid {
+	__le32 entry_id;
+	__le32 resv[4];
 };
 
-struct isit_access_key {
-	union {
-		__le32 entry_id;
-		__le32 resume_eid;
-		__le32 key_type; /* bit0~1: key type, other bits: reserved */
-	};
-	union {
-		__le32 resv[4];
-		struct frame_key fk;
-	};
+struct isit_ak_search {
+	__le32 resume_eid;
+	__le32 resv[4];
 };
 
-struct isit_key_data {
-	__le32 key_type; /* bit0~1: key type, other bits: reserved */
-	u8 frame_key[NTMP_ISIT_FRAME_KEY_LEN];
+union isit_access_key {
+	struct isit_ak_eid eid;
+	struct isit_keye_data keye;
+	struct isit_ak_search search;
 };
 
 /* struct for update or add operation*/
 struct isit_req_ua {
 	struct common_req_data crd;
-	struct isit_access_key ak;
+	union isit_access_key ak;
 	__le32 is_eid;
 };
 
 /* struct for not update or add operation, such as delete, query */
 struct isit_req_qd {
 	struct common_req_data crd;
-	struct isit_access_key ak;
+	union isit_access_key ak;
 };
 
 struct isit_resp_query {
 	__le32 status;
 	__le32 entry_id;
-	struct isit_key_data key;
+	struct isit_keye_data keye;
 	__le32 is_eid;
 };
 
-struct isit_resp_nq {
-	__le32 status;
-};
-
 /* Ingress Stream Table version 0 Resquet and Response Data Buffer Format */
-struct ist_cfge_data {
-	u8 sfe:1;
-	u8 resv0:3;
-	u8 ipv:4;
-	u8 oipv:1;
-	u8 dr:2;
-	u8 odr:1;
-	u8 resv1:4;
-	u8 resv2:2;
-	u8 orp:1;
-	u8 osgi:1;
-	u8 resv3:4;
-	u8 fa:3;
-	u8 sdu_type:2;
-	u8 resv4:3;
-	__le16 msdu;
-	__le16 resv5[3];
-	__le32 rp_eid;
-	__le32 sgi_eid;
-	__le32 resv6[2];
-	__le32 isc_eid;
-	__le32 resv7;
-	__le16 si_bitmap;
-};
-
-/* struct for update or add operation*/
 struct ist_req_ua {
 	struct common_req_data crd;
 	__le32 entry_id;
@@ -289,50 +203,31 @@ struct ist_resp_query {
 };
 
 /* Ingress Stream filter Table Resquet and Response Data Buffer Format */
-struct isft_access_key {
-	union {
-		__le32 entry_id;
-		__le32 resume_eid;
-		__le32 is_eid;
-	};
-	u8 pcp:3;	/* reserved for entry id and resume_eid */
-	u8 resv0:5;
-	u8 resv1[3];
+struct isft_ak_eid {
+	__le32 entry_id;
+	__le32 resv;
 };
 
-struct isft_cfge_data {
-	u8 ipv:4;
-	u8 oipv:1;
-	u8 dr:2;
-	u8 odr:1;
-	u8 resv0:2;
-	u8 osgi:1;
-	u8 resv1:1;
-	u8 orp:1;
-	u8 sdu_type:2;
-	u8 resv2:1;
-	__le16 msdu;
-	__le32 rp_eid;
-	__le32 sgi_eid;
-	__le32 isc_eid;
+struct isft_ak_search {
+	__le32 resume_eid;
+	__le32 resv;
 };
 
-struct isft_keye_data {
-	__le32 is_eid;
-	u8 pcp:3;
-	u8 resv0:5;
-	u8 resv1[3];
+union isft_access_key {
+	struct isft_ak_eid eid;
+	struct isft_keye_data keye;
+	struct isft_ak_search search;
 };
 
 struct isft_req_ua {
 	struct common_req_data crd;
-	struct isft_access_key ak;
+	union isft_access_key ak;
 	struct isft_cfge_data cfge;
 };
 
 struct isft_req_qd {
 	struct common_req_data crd;
-	struct isft_access_key ak;
+	union isft_access_key ak;
 };
 
 struct isft_resp_query {
@@ -342,42 +237,7 @@ struct isft_resp_query {
 	struct isft_cfge_data cfge;
 };
 
-struct isft_resp_nq {
-	__le32 status;
-};
-
 /* Stream Gate Instance Table Resquet and Response Data Buffer Format */
-struct sgit_acfge_data {
-	__le32 admin_sgcl_eid;
-	__le64 admin_bt;
-	__le32 admin_ct_ext;
-};
-
-struct sgit_cfge_data {
-	u8 oexen:1;
-	u8 irxen:1;
-	u8 sdu_type:2;
-	u8 resv:4;
-};
-
-struct sgit_icfge_data {
-	u8 ipv:4;
-	u8 oipv:1;
-	u8 gst:1;
-	u8 resv:2;
-};
-
-struct sgit_sgise_data {
-	__le32 oper_sgcl_eid;
-	__le64 cfg_ct;
-	__le64 oper_bt;
-	__le32 oper_ct_ext;
-	u8 oex:1;
-	u8 irx:1;
-	u8 state:3;
-	u8 resv:3;
-};
-
 struct sgit_req_ua {
 	struct common_req_data crd;
 	__le32 entry_id;
@@ -396,29 +256,6 @@ struct sgit_resp_query {
 };
 
 /* Stream Gate Control List Table Request and Response Data Buffer Format */
-struct sgclt_ge {
-	__le32 interval;
-	u8 iom[3];
-	u8 ipv:4;
-	u8 oipv:1;
-	u8 resv:1;
-	u8 iomen:1;
-	u8 gtst:1;
-};
-
-struct sgclt_cfge_data {
-	__le32 ct;
-	u8 list_len;
-	u8 resv1;
-	u8 ext_oipv:1;
-	u8 ext_ipv:4;
-	u8 resv2:1;
-	u8 ext_gtst:1;
-	u8 resv3:1;
-	u8 resv4;
-	struct sgclt_ge ge[];
-};
-
 struct sgclt_req_add {
 	struct common_req_data crd;
 	__le32 entry_id;
@@ -440,67 +277,10 @@ struct isct_req_data {
 
 struct isct_resp_query {
 	__le32 entry_id;
-	__le32 rx_count;
-	__le32 resv1;
-	__le32 msdu_drop_count;
-	__le32 resv2;
-	__le32 policer_drop_count;
-	__le32 resv3;
-	__le32 sg_drop_count;
-	__le32 resv4;
+	struct isct_stse_data stse;
 };
 
 /* Ingress Port Filter Table Request and Response Data Buffer Format */
-struct ipft_pld_byte {
-	u8 data;
-	u8 mask;
-};
-
-struct ipft_keye_data {
-	__le16 precedence;
-	__le16 resv0[3];
-	__le16 frm_attr_flags;
-	__le16 frm_attr_flags_mask;
-	__le16 dscp; /* bit0~5: dscp, bit6~11: mask, bit12~15: reserved */
-	__le16 src_port; /* bit0~4: src_port, bit5~9: mask, bit10~15: reserved */
-	__be16 outer_vlan_tci;
-	__be16 outer_vlan_tci_mask;
-	u8 dmac[ETH_ALEN];
-	u8 dmac_mask[ETH_ALEN];
-	u8 smac[ETH_ALEN];
-	u8 smac_mask[ETH_ALEN];
-	__be16 inner_vlan_tci;
-	__be16 inner_vlan_tci_mask;
-	__be16 ethertype;
-	__be16 ethertype_mask;
-	u8 ip_protocol;
-	u8 ip_protocol_mask;
-	__le16 resv1[7];
-	__be32 ip_src[4];
-	__le32 resv2[2];
-	__be32 ip_src_mask[4];
-	__be16 l4_src_port;
-	__be16 l4_src_port_mask;
-	__le32 resv3;
-	__be32 ip_dst[4];
-	__le32 resv4[2];
-	__be32 ip_dst_mask[4];
-	__be16 l4_dst_port;
-	__be16 l4_dst_port_mask;
-	__le32 resv5;
-	struct ipft_pld_byte byte[NTMP_IPFT_MAX_PLD_LEN];
-};
-
-struct ipft_cfge_data {
-	u8 ipv:4;
-	u8 oipv:1;
-	u8 dr:2;
-	u8 odr:1;
-	__le16 filter; /* bit0~2: fltfa, bit4: wolte, bit5~6: flta, bit7~8: rpr */
-	u8 resv;
-	__le32 flta_tgt;
-};
-
 struct ipft_req_add {
 	struct common_req_data crd;
 	struct ipft_keye_data keye;
@@ -514,21 +294,12 @@ struct ipft_req_qd {
 	__le32 resv[52];
 };
 
-struct ipft_stse_data {
-	__le64 match_count;
-};
-
 struct ipft_resp_query {
 	__le32 status;
 	__le32 entry_id;
 	struct ipft_keye_data keye;
-	struct ipft_stse_data stse;
+	__le64 match_count; /* STSE_DATA */
 	struct ipft_cfge_data cfge;
-};
-
-/* response data format of non-query action */
-struct ipft_resp_nq {
-	__le32 status;
 };
 
 #pragma pack()
