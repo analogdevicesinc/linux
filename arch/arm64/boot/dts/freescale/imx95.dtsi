@@ -741,7 +741,8 @@
 					     <GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH>,
 					     <GIC_SPI 158 IRQ_TYPE_LEVEL_HIGH>,
 					     <GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>,
-					     <GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>;
+					     <GIC_SPI 159 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 127 IRQ_TYPE_LEVEL_HIGH>; //error irq
 				clocks = <&scmi_clk IMX95_CLK_BUSWAKEUP>;
 				clock-names = "dma";
 			};
@@ -1424,7 +1425,8 @@
 					     <GIC_SPI 123 IRQ_TYPE_LEVEL_HIGH>,
 					     <GIC_SPI 124 IRQ_TYPE_LEVEL_HIGH>,
 					     <GIC_SPI 125 IRQ_TYPE_LEVEL_HIGH>,
-					     <GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>;
+					     <GIC_SPI 126 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 95 IRQ_TYPE_LEVEL_HIGH>; //error irq
 				clocks = <&scmi_clk IMX95_CLK_BUSAON>;
 				clock-names = "dma";
 			};
