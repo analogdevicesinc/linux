@@ -65,6 +65,12 @@ properties:
       minimum: 0
       maximum: 8
 
+  adi,burnout-current-nanoamp:
+    description: |
+      Burnout current in nanoamps to be applied for this channel.
+    enum: [0, 100, 2000, 10000]
+    default: 0
+
 required:
   - compatible
   - reg
