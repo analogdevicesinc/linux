@@ -117,7 +117,7 @@ static const unsigned int ad4170_iout_current_ua_tbl[AD4170_I_OUT_MAX] = {
 
 static const unsigned int ad4170_burnout_current_na_tbl[AD4170_BURNOUT_MAX] = {
 	[AD4170_BURNOUT_OFF] = 0,
-	[AD4170_BURNOUT_100NA] = 500,
+	[AD4170_BURNOUT_100NA] = 100,
 	[AD4170_BURNOUT_2000NA] = 2000,
 	[AD4170_BURNOUT_10000NA] = 10000,
 };
