@@ -290,7 +290,8 @@ static int ad4170_write_slot_setup(struct ad4170_state *st,
 	int ret;
 
 	val = FIELD_PREP(AD4170_ADC_SETUPS_MISC_CHOP_IEXC_MSK, setup->misc.chop_iexc) |
-	      FIELD_PREP(AD4170_ADC_SETUPS_MISC_CHOP_ADC_MSK, setup->misc.chop_adc);
+	      FIELD_PREP(AD4170_ADC_SETUPS_MISC_CHOP_ADC_MSK, setup->misc.chop_adc) |
+	      FIELD_PREP(AD4170_ADC_SETUPS_MISC_BURNOUT_MSK, setup->misc.burnout);
 
 	ret = regmap_write(st->regmap, AD4170_MISC_REG(slot), val);
 	if (ret)
