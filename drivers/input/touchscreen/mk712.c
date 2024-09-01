@@ -82,7 +82,7 @@ static irqreturn_t mk712_interrupt(int irq, void *dev_id)
 	static unsigned short last_x;
 	static unsigned short last_y;
 
-	spin_lock(&mk712_lock);
+	guard(spinlock)(&mk712_lock);
 
 	status = inb(mk712_io + MK712_STATUS);
 
@@ -110,15 +110,13 @@ static irqreturn_t mk712_interrupt(int irq, void *dev_id)
 	last_x = inw(mk712_io + MK712_X) & 0x0fff;
 	last_y = inw(mk712_io + MK712_Y) & 0x0fff;
 	input_sync(mk712_dev);
-	spin_unlock(&mk712_lock);
+
 	return IRQ_HANDLED;
 }
 
 static int mk712_open(struct input_dev *dev)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&mk712_lock, flags);
+	guard(spinlock_irqsave)(&mk712_lock);
 
 	outb(0, mk712_io + MK712_CONTROL); /* Reset */
 
@@ -129,20 +127,14 @@ static int mk712_open(struct input_dev *dev)
 
 	outb(10, mk712_io + MK712_RATE); /* 187 points per second */
 
-	spin_unlock_irqrestore(&mk712_lock, flags);
-
 	return 0;
 }
 
 static void mk712_close(struct input_dev *dev)
 {
-	unsigned long flags;
-
-	spin_lock_irqsave(&mk712_lock, flags);
+	guard(spinlock_irqsave)(&mk712_lock);
 
 	outb(0, mk712_io + MK712_CONTROL);
-
-	spin_unlock_irqrestore(&mk712_lock, flags);
 }
 
 static int __init mk712_init(void)
