@@ -47,11 +47,13 @@ properties:
     description: REFIN2- supply that can be used as reference for conversion.
 
   adi,gpio0-power-down-switch:
+    type: boolean
     description:
       Describes whether GPIO0 is used as a switch to disconnect bridge circuits
       from AVSS. Pin defaults to GPIO if this property is not present.
 
   adi,gpio1-power-down-switch:
+    type: boolean
     description:
       Describes whether GPIO1 is used as a switch to disconnect bridge circuits
       from AVSS. Pin defaults to GPIO if this property is not present.
