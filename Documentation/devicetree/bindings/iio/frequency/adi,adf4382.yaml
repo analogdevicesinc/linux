@@ -37,6 +37,12 @@ properties:
     items:
       - const: ref_clk
 
+  '#clock-cells':
+    const: 0
+
+  clock-output-names:
+    maxItems: 1
+
   adi,charge-pump-microamp:
     description:
       The charge pump current that the external loop filter was designed for.
@@ -110,7 +116,7 @@ examples:
     spi {
         #address-cells = <1>;
         #size-cells = <0>;
-        adf4382@0 {
+        frequency@0 {
           compatible = "adi,adf4382";
           reg = <0>;
           spi-max-frequency = <1000000>;
