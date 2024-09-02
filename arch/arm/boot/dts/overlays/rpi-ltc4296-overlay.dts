@@ -8,6 +8,9 @@
 /dts-v1/;
 /plugin/;
 
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
 / {
 	compatible = "brcm,bcm2711";
 };
@@ -25,9 +28,42 @@
 	#size-cells = <0>;
 	status = "okay";
 
+	ethernet@0 {
+		compatible = "adi,adin2111";
+		reg = <0>;
+		spi-max-frequency = <25000000>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		interrupt-parent = <&gpio>;
+		interrupts = <25 IRQ_TYPE_LEVEL_LOW>;
+		mac-address = [ CA 2F B7 10 23 63 ];
+
+		adi,spi-crc;
+
+		phy@0 {
+			compatible = "ethernet-phy-id0283.bca1";
+			reg = <0x0>;
+		};
+
+		phy@1 {
+			compatible = "ethernet-phy-id0283.bca1";
+			reg = <0x1>;
+		};
+	};
+};
+
+&spi1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
 	ltc4296: ltc4296@0 {
 		compatible = "adi,ltc4296";
 		reg = <0>;
 		spi-max-frequency = <500000>;
+		adi,sccpo-gpios = <&gpio 17 GPIO_ACTIVE_HIGH>;
+		adi,sccpi-gpios = <&gpio 18 GPIO_ACTIVE_HIGH>;
 	};
 };
