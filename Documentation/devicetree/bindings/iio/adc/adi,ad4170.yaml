@@ -142,6 +142,7 @@ unevaluatedProperties: false
 
 examples:
   - |
+    #include <dt-bindings/interrupt-controller/irq.h>
     #include <dt-bindings/iio/adc/adi,ad4170.h>
     spi {
         #address-cells = <1>;
