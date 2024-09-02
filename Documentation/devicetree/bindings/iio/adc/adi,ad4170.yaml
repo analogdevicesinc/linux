@@ -67,27 +67,6 @@ properties:
       minimum: 0
       maximum: 8
 
-  adi,burnout-current-nanoamp:
-    description: |
-      Burnout current in nanoamps to be applied for this channel.
-    enum: [0, 100, 2000, 10000]
-    default: 0
-
-  adi,chop-adc:
-    description:
-      Specifies the chopping/swapping functionality for a channel setup. Macros
-      for adi,chop-adc values are available in dt-bindings/iio/adi,ad4170.h.
-      When enabled, the analog inputs are continuously swapped and a conversion
-      is generated for each phase. The analog input pins are connected in one
-      direction, sampled, swapped, sampled again, and then the conversion
-      results are averaged. The input swapp minimizes system offset and offset
-      drif. This property also specifies wheter AC excitation using 2 or 4 GPIOs
-      are going to be used.
-    $ref: /schemas/types.yaml#/definitions/uint16
-    enum: [0, 1, 2, 3]
-    default: 0
-
-
 required:
   - compatible
   - reg
@@ -109,6 +88,27 @@ patternProperties:
         items:
           minimum: 0
           maximum: 15
+
+      adi,burnout-current-nanoamp:
+        description: |
+          Burnout current in nanoamps to be applied for this channel.
+        enum: [0, 100, 2000, 10000]
+        default: 0
+
+      adi,chop-adc:
+        description:
+          Specifies the chopping/swapping functionality for a channel setup.
+          Macros for adi,chop-adc values are available in
+          dt-bindings/iio/adi,ad4170.h. When enabled, the analog inputs are
+          continuously swapped and a conversion is generated for each phase.
+          The analog input pins are connected in one direction, sampled,
+          swapped, sampled again, and then the conversion results are averaged.
+          The input swapp minimizes system offset and offset drift.
+          This property also specifies wheter AC excitation using 2 or 4 GPIOs
+          are going to be used.
+        $ref: /schemas/types.yaml#/definitions/uint16
+        enum: [0, 1, 2, 3]
+        default: 0
 
       adi,reference-select:
         description: |
