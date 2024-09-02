@@ -61,7 +61,7 @@
 	};
 
 	ap1302: ap1302_mipi@3c {
-		compatible = "onnn,ap130x";
+		compatible = "onnn,ap1302";
 		reg = <0x3c>;
 		clocks = <&scmi_clk IMX95_CLK_24M>;
 		reset-gpios   = <&i2c7_pcal6524_23 20 GPIO_ACTIVE_LOW>;
