@@ -96,7 +96,7 @@ patternProperties:
         default: 0
 
       adi,chop-adc:
-        description:
+        description: |
           Specifies the chopping/swapping functionality for a channel setup.
           Macros for adi,chop-adc values are available in
           dt-bindings/iio/adi,ad4170.h. When enabled, the analog inputs are
@@ -106,6 +106,11 @@ patternProperties:
           The input swapp minimizes system offset and offset drift.
           This property also specifies wheter AC excitation using 2 or 4 GPIOs
           are going to be used.
+          0: No channel chop.
+          1: Chop/swap the channel inputs.
+          2: AC Excitation using 4 GPIOs.
+          3: AC Excitation using 2 GPIOs.
+          If this property is absent, no chopping is performed.
         $ref: /schemas/types.yaml#/definitions/uint16
         enum: [0, 1, 2, 3]
         default: 0
