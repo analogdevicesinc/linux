@@ -83,6 +83,7 @@ properties:
       results are averaged. The input swapp minimizes system offset and offset
       drif. This property also specifies wheter AC excitation using 2 or 4 GPIOs
       are going to be used.
+    $ref: /schemas/types.yaml#/definitions/uint16
     enum: [0, 1, 2, 3]
     default: 0
 
