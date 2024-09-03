@@ -495,6 +495,31 @@ static int protected_memory_allocator_probe(struct platform_device *pdev)
 	return 0;
 }
 
+#if (KERNEL_VERSION(6, 10, 0) <= LINUX_VERSION_CODE)
+static void protected_memory_allocator_remove(struct platform_device *pdev)
+{
+	struct protected_memory_allocator_device *pma_dev = platform_get_drvdata(pdev);
+	struct simple_pma_device *epma_dev;
+	struct device *dev;
+
+	if (!pma_dev)
+		return ;
+
+	epma_dev = container_of(pma_dev, struct simple_pma_device, pma_dev);
+	dev = epma_dev->dev;
+
+	if (epma_dev->num_free_pages < epma_dev->rmem_size) {
+		dev_warn(&pdev->dev, "Leaking %zu pages of protected memory\n",
+			 epma_dev->rmem_size - epma_dev->num_free_pages);
+	}
+
+	platform_set_drvdata(pdev, NULL);
+	devm_kfree(dev, epma_dev->allocated_pages_bitfield_arr);
+	devm_kfree(dev, epma_dev);
+
+	dev_info(&pdev->dev, "Protected memory allocator removed successfully\n");
+}
+#else
 static int protected_memory_allocator_remove(struct platform_device *pdev)
 {
 	struct protected_memory_allocator_device *pma_dev = platform_get_drvdata(pdev);
@@ -520,6 +545,7 @@ static int protected_memory_allocator_remove(struct platform_device *pdev)
 
 	return 0;
 }
+#endif
 
 static const struct of_device_id protected_memory_allocator_dt_ids[] = {
 	{ .compatible = "arm,protected-memory-allocator" },

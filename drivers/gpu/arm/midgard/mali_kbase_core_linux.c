@@ -5673,6 +5673,19 @@ void kbase_sysfs_term(struct kbase_device *kbdev)
 	put_device(kbdev->dev);
 }
 
+#if (KERNEL_VERSION(6, 10, 0) <= LINUX_VERSION_CODE)
+static void kbase_platform_device_remove(struct platform_device *pdev)
+{
+	struct kbase_device *kbdev = to_kbase_device(&pdev->dev);
+
+	if (!kbdev)
+		return;
+
+	kbase_device_term(kbdev);
+	dev_set_drvdata(kbdev->dev, NULL);
+	kbase_device_free(kbdev);
+}
+#else
 static int kbase_platform_device_remove(struct platform_device *pdev)
 {
 	struct kbase_device *kbdev = to_kbase_device(&pdev->dev);
@@ -5686,6 +5699,7 @@ static int kbase_platform_device_remove(struct platform_device *pdev)
 
 	return 0;
 }
+#endif
 
 void kbase_backend_devfreq_term(struct kbase_device *kbdev)
 {
