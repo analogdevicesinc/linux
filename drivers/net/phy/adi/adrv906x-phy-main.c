@@ -14,7 +14,9 @@
 
 #define ADRV906X_MAX_PHYS                                2
 
+/* currently in 2 different files - will be fixed after phy driver relocation to drivers/net/ethernet/adi */
 #define ADRV906X_PHY_FLAGS_PCS_RS_FEC_EN                 BIT(0)
+#define ADRV906X_PHY_FLAGS_LOOPBACK_TEST                 BIT(1)
 
 /* ADI PCS registers */
 #define ADRV906X_PCS_STATUS_3_REG                        9
@@ -429,7 +431,11 @@ int adrv906x_phy_read_status(struct phy_device *phydev)
 	int val;
 
 	val = phy_read_mmd(phydev, MDIO_MMD_PCS, MDIO_STAT1);
-	phydev->link = !!(val & MDIO_STAT1_LSTATUS);
+
+	if (phydev->dev_flags & ADRV906X_PHY_FLAGS_LOOPBACK_TEST)
+		phydev->link = 1;
+	else
+		phydev->link = !!(val & MDIO_STAT1_LSTATUS);
 
 	val = phy_read_mmd(phydev, MDIO_MMD_PCS, MDIO_CTRL2);
 	if ((val & ADRV906X_PCS_CTRL2_TYPE_SEL_MSK) == MDIO_PCS_CTRL2_10GBR) {
@@ -443,6 +449,11 @@ int adrv906x_phy_read_status(struct phy_device *phydev)
 		phydev->duplex = DUPLEX_UNKNOWN;
 	}
 
+	return 0;
+}
+
+int adrv906x_phy_set_loopback(struct phy_device *phydev, bool enable)
+{
 	return 0;
 }
 
@@ -530,22 +541,6 @@ static int adrv906x_phy_aneg_done(struct phy_device *phydev)
 	return !!(val & MDIO_STAT1_LSTATUS);
 }
 
-static int adrv906x_phy_set_loopback(struct phy_device *phydev, bool enable)
-{
-	int val;
-
-	val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_CFG_RX_REG);
-
-	if (enable)
-		val |= ADRV906X_PCS_CFG_RX_SERDES_LOOPBACK_EN;
-	else
-		val &= ~ADRV906X_PCS_CFG_RX_SERDES_LOOPBACK_EN;
-
-	phy_write_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_CFG_RX_REG, val);
-
-	return 0;
-}
-
 static int adrv906x_phy_config_init(struct phy_device *phydev)
 {
 	phydev->autoneg = AUTONEG_DISABLE;
@@ -600,11 +595,11 @@ static struct phy_driver adrv906x_phy_driver[] = {
 		.config_aneg = adrv906x_phy_config_aneg,
 		.aneg_done = adrv906x_phy_aneg_done,
 		.read_status = adrv906x_phy_read_status,
+		.set_loopback = adrv906x_phy_set_loopback,
 		.get_sset_count = adrv906x_phy_get_sset_count,
 		.get_strings = adrv906x_phy_get_strings,
 		.get_stats = adrv906x_phy_get_stats,
 		.get_features = adrv906x_phy_get_features,
-		.set_loopback = adrv906x_phy_set_loopback,
 		.resume = adrv906x_phy_resume,
 		.suspend = adrv906x_phy_suspend,
 		.link_change_notify = adrv906x_link_change_notify,
