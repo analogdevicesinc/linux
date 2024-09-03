@@ -24,6 +24,7 @@
 
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <linux/of_device.h>
 #include <linux/gpio/consumer.h>
 
 #include <asm/unaligned.h>
@@ -2215,6 +2216,10 @@ static int adrv9025_jesd204_post_running_stage(struct jesd204_dev *jdev,
 	clk_set_rate(phy->clks[RX_SAMPL_CLK], phy->rx_iqRate_kHz * 1000);
 	clk_set_rate(phy->clks[TX_SAMPL_CLK], phy->tx_iqRate_kHz * 1000);
 
+	ret = adi_adrv9025_AgcCfgSet(phy->madDevice, phy->agcConfig, 1);
+	if (ret)
+		return adrv9025_dev_err(phy);
+
 	ret = adi_adrv9025_RxTxEnableSet(phy->madDevice, 0xF, ADI_ADRV9025_TXALL);
 	if (ret)
 		return adrv9025_dev_err(phy);
@@ -2270,6 +2275,277 @@ static const struct jesd204_dev_data jesd204_adrv9025_init = {
 	.sizeof_priv = sizeof(struct adrv9025_jesd204_priv),
 };
 
+static int __adrv9025_of_get_u32(struct device *dev, struct device_node *np, const char *propname,
+				 u32 defval, void *out_value, u32 size, u32 min, u32 max)
+{
+	u32 tmp;
+	int ret;
+
+	ret = of_property_read_u32(np, propname, &tmp);
+	if (ret) {
+		tmp = defval;
+		ret = 0;
+	} else if (tmp < min || tmp > max) {
+		dev_err(dev, "%s dt property out of range (actual value %d, min %d, max %d)\n", propname, tmp, min, max);
+		return -EINVAL;
+	}
+
+	if (out_value) {
+		switch (size) {
+		case 1:
+			*(u8 *)out_value = tmp;
+			break;
+		case 2:
+			*(u16 *)out_value = tmp;
+			break;
+		case 4:
+			*(u32 *)out_value = tmp;
+			break;
+		}
+	}
+
+	return 0;
+}
+
+#define ADRV9025_OF_PROP(_dt_name, _member_, _default, min, max) \
+	__adrv9025_of_get_u32(dev, np, _dt_name, _default, _member_, sizeof(*_member_), min, max)
+
+static int adrv9025_phy_parse_agc_dt(struct iio_dev *iodev, struct device *dev)
+{
+	struct adrv9025_rf_phy *phy = iio_priv(iodev);
+	struct device_node *np = dev->of_node;
+	int ret;
+
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-agc-under-range-low-interval",
+			       &phy->agcConfig->agcPeak.agcUnderRangeLowInterval, 1229, 0, 65535);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-agc-under-range-mid-interval",
+			       &phy->agcConfig->agcPeak.agcUnderRangeMidInterval, 4, 0, 63);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-agc-under-range-high-interval",
+			       &phy->agcConfig->agcPeak.agcUnderRangeHighInterval, 4, 0, 63);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-apd-high-thresh",
+			       &phy->agcConfig->agcPeak.apdHighThresh, 42, 0, 63);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-apd-low-gain-mode-high-thresh",
+			       &phy->agcConfig->agcPeak.apdLowGainModeHighThresh, 0, 0, 63);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-apd-low-thresh",
+			       &phy->agcConfig->agcPeak.apdLowThresh, 30, 0, 63);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-apd-low-gain-mode-low-thresh",
+			       &phy->agcConfig->agcPeak.apdLowGainModeLowThresh, 0, 0, 63);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-apd-upper-thresh-peak-exceeded-cnt",
+			       &phy->agcConfig->agcPeak.apdUpperThreshPeakExceededCnt, 3, 0, 255);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-apd-lower-thresh-peak-exceeded-cnt",
+			       &phy->agcConfig->agcPeak.apdLowerThreshPeakExceededCnt, 3, 0, 255);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-apd-gain-step-attack",
+			       &phy->agcConfig->agcPeak.apdGainStepAttack, 4, 0, 31);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-apd-gain-step-recovery",
+			       &phy->agcConfig->agcPeak.apdGainStepRecovery, 0, 0, 31);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-enable-hb2-overload",
+			       &phy->agcConfig->agcPeak.enableHb2Overload, 1, 0, 1);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-hb2-overload-duration-cnt",
+			       &phy->agcConfig->agcPeak.hb2OverloadDurationCnt, 2, 0, 6);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-hb2-overload-thresh-cnt",
+			       &phy->agcConfig->agcPeak.hb2OverloadThreshCnt, 1, 1, 15);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-hb2-high-thresh",
+			       &phy->agcConfig->agcPeak.hb2HighThresh, 10388, 0, 16383);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-hb2-under-range-low-thresh",
+			       &phy->agcConfig->agcPeak.hb2UnderRangeLowThresh, 64, 0, 16383);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-hb2-under-range-mid-thresh",
+			       &phy->agcConfig->agcPeak.hb2UnderRangeMidThresh, 102, 0, 16383);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-hb2-under-range-high-thresh",
+			       &phy->agcConfig->agcPeak.hb2UnderRangeHighThresh, 128, 0, 16383);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-hb2-upper-thresh-peak-exceeded-cnt",
+			       &phy->agcConfig->agcPeak.hb2UpperThreshPeakExceededCnt, 3, 0, 255);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-hb2-under-range-high-thresh-exceeded-cnt",
+			       &phy->agcConfig->agcPeak.hb2UnderRangeHighThreshExceededCnt, 3, 0, 255);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-hb2-gain-step-high-recovery",
+			       &phy->agcConfig->agcPeak.hb2GainStepHighRecovery, 2, 0, 31);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-hb2-gain-step-low-recovery",
+			       &phy->agcConfig->agcPeak.hb2GainStepLowRecovery, 8, 0, 31);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-hb2-gain-step-mid-recovery",
+			       &phy->agcConfig->agcPeak.hb2GainStepMidRecovery, 4, 0, 31);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-hb2-gain-step-attack",
+			       &phy->agcConfig->agcPeak.hb2GainStepAttack, 4, 0, 31);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-hb2-overload-power-mode",
+			       &phy->agcConfig->agcPeak.hb2OverloadPowerMode, 1, 0, 1);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-hb2-thresh-config",
+			       &phy->agcConfig->agcPeak.hb2ThreshConfig, 3, 3, 3);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-hb2-under-range-mid-thresh-exceeded-cnt",
+			       &phy->agcConfig->agcPeak.hb2UnderRangeMidThreshExceededCnt, 3, 0, 255);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-peak-hb2-under-range-low-thresh-exceeded-cnt",
+			       &phy->agcConfig->agcPeak.hb2UnderRangeLowThreshExceededCnt, 3, 0, 255);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,rxagc-power-power-enable-measurement",
+			       &phy->agcConfig->agcPower.powerEnableMeasurement, 1, 0, 1);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-power-power-input-select",
+			       &phy->agcConfig->agcPower.powerInputSelect, 2, 0, 3);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-power-under-range-high-power-thresh",
+			       &phy->agcConfig->agcPower.underRangeHighPowerThresh, 13, 0, 127);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-power-under-range-low-power-thresh",
+			       &phy->agcConfig->agcPower.underRangeLowPowerThresh, 4, 0, 31);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-power-under-range-high-power-gain-step-recovery",
+			       &phy->agcConfig->agcPower.underRangeHighPowerGainStepRecovery, 4, 0, 31);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-power-under-range-low-power-gain-step-recovery",
+			       &phy->agcConfig->agcPower.underRangeLowPowerGainStepRecovery, 4, 0, 31);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-power-power-measurement-duration",
+			       &phy->agcConfig->agcPower.powerMeasurementDuration, 5, 0, 31);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-power-rx-tdd-power-meas-duration",
+			       &phy->agcConfig->agcPower.rxTddPowerMeasDuration, 31661, 0, 65535);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-power-rx-tdd-power-meas-delay",
+			       &phy->agcConfig->agcPower.rxTddPowerMeasDelay, 54098, 0, 65535);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-power-over-range-high-power-thresh",
+			       &phy->agcConfig->agcPower.overRangeHighPowerThresh, 10, 0, 127);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-power-over-range-low-power-thresh",
+			       &phy->agcConfig->agcPower.overRangeLowPowerThresh, 2, 0, 15);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-power-power-log-shift",
+			       &phy->agcConfig->agcPower.powerLogShift, 1, 0, 1);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-power-over-range-high-power-gain-step-attack",
+			       &phy->agcConfig->agcPower.overRangeHighPowerGainStepAttack, 4, 0, 31);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-power-over-range-low-power-gain-step-attack",
+			       &phy->agcConfig->agcPower.overRangeLowPowerGainStepAttack, 4, 0, 31);
+	if (ret)
+		return ret;
+
+	ret = ADRV9025_OF_PROP("adi,rxagc-rx-channel-mask",
+			       &phy->agcConfig->rxChannelMask, 0x0F, 0, 15);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-agc-peak-wait-time",
+			       &phy->agcConfig->agcPeakWaitTime, 4, 0, 31);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-agc-rx-max-gain-index",
+			       &phy->agcConfig->agcRxMaxGainIndex, 255, 0, 255);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-agc-rx-min-gain-index",
+			       &phy->agcConfig->agcRxMinGainIndex, 183, 0, 255);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-agc-gain-update-counter",
+			       &phy->agcConfig->agcGainUpdateCounter, 245760, 0, 4194303);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-agc-rx-attack-delay",
+			       &phy->agcConfig->agcRxAttackDelay, 10, 0, 63);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-agc-slow-loop-settling-delay",
+			       &phy->agcConfig->agcSlowLoopSettlingDelay, 16, 0, 127);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-agc-low-thresh-prevent-gain-inc",
+			       &phy->agcConfig->agcLowThreshPreventGainInc, 1, 0, 1);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-agc-change-gain-if-thresh-high",
+			       &phy->agcConfig->agcChangeGainIfThreshHigh, 3, 0, 3);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-agc-peak-thresh-gain-control-mode",
+			       &phy->agcConfig->agcPeakThreshGainControlMode, 1, 0, 1);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-agc-reset-on-rxon",
+			       &phy->agcConfig->agcResetOnRxon, 0, 0, 1);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-agc-enable-sync-pulse-for-gain-counter",
+			       &phy->agcConfig->agcEnableSyncPulseForGainCounter, 0, 0, 1);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-agc-enable-fast-recovery-loop",
+			       &phy->agcConfig->agcEnableFastRecoveryLoop, 0, 0, 1);
+	if (ret)
+		return ret;
+	ret = ADRV9025_OF_PROP("adi,rxagc-agc-adc-reset-gain-step",
+			       &phy->agcConfig->agcAdcResetGainStep, 0, 0, 31);
+	if (ret)
+		return ret;
+	return ADRV9025_OF_PROP("adi,rxagc-agc-slow-loop-fast-gain-change-block-enable",
+				&phy->agcConfig->agcSlowloopFastGainChangeBlockEnable, 0, 0, 1);
+}
+
 static int adrv9025_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
@@ -2279,12 +2555,12 @@ static int adrv9025_probe(struct spi_device *spi)
 	struct device_node *np = spi->dev.of_node;
 	adi_adrv9025_ApiVersion_t apiVersion;
 	struct clk *clk = NULL;
+
 	int ret, i;
 	const char *name;
 	u32 val;
 
 	int id = spi_get_device_id(spi)->driver_data;
-
 
 	jdev = devm_jesd204_dev_register(&spi->dev, &jesd204_adrv9025_init);
 	if (IS_ERR(jdev))
@@ -2304,7 +2580,14 @@ static int adrv9025_probe(struct spi_device *spi)
 	phy->spi_device_id = id;
 	phy->dev_clk = clk;
 	phy->jdev = jdev;
+	phy->agcConfig = kzalloc(sizeof(adi_adrv9025_AgcCfg_t), GFP_KERNEL);
+	if (!(phy->agcConfig))
+		return -ENOMEM;
 	mutex_init(&phy->lock);
+
+	ret = adrv9025_phy_parse_agc_dt(indio_dev, &spi->dev);
+	if (ret)
+		return ret;
 
 	priv = jesd204_dev_priv(jdev);
 	priv->phy = phy;
