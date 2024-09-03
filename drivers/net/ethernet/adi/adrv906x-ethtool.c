@@ -28,7 +28,9 @@
 #define NDMA_LOOPBACK_TEST_PATTERN              0x12
 #define NDMA_LOOPBACK_TEST_SIZE                 1024
 
+/* currently in 2 different files - will be fixed after phy driver relocation to drivers/net/ethernet/adi */
 #define ADRV906X_PHY_FLAGS_PCS_RS_FEC_EN        BIT(0)
+#define ADRV906X_PHY_FLAGS_LOOPBACK_TEST        BIT(1)
 
 /* TODO: Ugly global variable, need to be changed */
 #if IS_BUILTIN(CONFIG_PTP_1588_CLOCK_ADRV906X)
@@ -101,9 +103,9 @@ static const char adrv906x_gstrings_stats_names[][ETH_GSTRING_LEN] = {
 };
 
 static const char adrv906x_gstrings_selftest_names[][ETH_GSTRING_LEN] = {
-	"Internal loopback (offline):    ",
-	"MAC loopback on/off (online):   ",
-	"NDMA loopback (offline):        ",
+	"NDMA loopback:           ",
+	"Near-end loopback:       ",
+	"Far-end loopback on/off: ",
 };
 
 #define ADRV906X_NUM_STATS ARRAY_SIZE(adrv906x_gstrings_stats_names)
@@ -136,7 +138,6 @@ struct adrv906x_packet_attrs {
 	u8 id;
 	u16 queue_mapping;
 	u64 timestamp;
-	bool negative_test_flag;
 };
 
 struct adrv906x_test_priv {
@@ -145,7 +146,7 @@ struct adrv906x_test_priv {
 		struct net_device *ndev;
 	};
 	struct packet_type pt;
-	struct completion comp;
+	struct completion completion;
 	int ok;
 };
 
@@ -387,11 +388,7 @@ static struct sk_buff *adrv906x_test_get_udp_skb(struct net_device *ndev,
 
 	prefetchw(skb->data);
 
-	/* corrupt ethernet frame for negative test case */
-	if (attr->negative_test_flag)
-		ehdr = skb_push(skb, ETH_HLEN - 2);
-	else
-		ehdr = skb_push(skb, ETH_HLEN);
+	ehdr = skb_push(skb, ETH_HLEN);
 
 	skb_reset_mac_header(skb);
 
@@ -492,25 +489,26 @@ static int adrv906x_test_loopback_validate(struct sk_buff *skb, struct net_devic
 		goto out;
 
 	tpriv->ok = true;
-	complete(&tpriv->comp);
+	complete(&tpriv->completion);
 out:
 	kfree_skb(skb);
 	return 0;
 }
 
-static int adrv906x_test_phy_loopback_run(struct net_device *ndev,
-					  struct adrv906x_packet_attrs *attr)
+static int adrv906x_test_near_end_loopback_run(struct net_device *ndev,
+					       struct adrv906x_packet_attrs *attr)
 {
 	struct adrv906x_test_priv *tpriv;
 	struct sk_buff *skb = NULL;
-	int ret = 0;
+	int ret;
 
+	netdev_printk(KERN_DEBUG, ndev, "adrv906x_test_near_end_loopback_run");
 	tpriv = kzalloc(sizeof(*tpriv), GFP_KERNEL);
 	if (!tpriv)
 		return -ENOMEM;
 
 	tpriv->ok = false;
-	init_completion(&tpriv->comp);
+	init_completion(&tpriv->completion);
 
 	tpriv->pt.type = htons(ETH_P_IP);
 	tpriv->pt.func = adrv906x_test_loopback_validate;
@@ -518,127 +516,136 @@ static int adrv906x_test_phy_loopback_run(struct net_device *ndev,
 	tpriv->pt.af_packet_priv = tpriv;
 	tpriv->packet = attr;
 
-	if (!attr->dont_wait)
-		dev_add_pack(&tpriv->pt);
-
+	dev_add_pack(&tpriv->pt);
 	skb = adrv906x_test_get_udp_skb(ndev, attr);
 	if (!skb) {
 		ret = -ENOMEM;
 		goto cleanup;
 	}
 
-	ret = dev_direct_xmit(skb, attr->queue_mapping);
+	ret = __netdev_start_xmit(ndev->netdev_ops, skb, ndev, false);
 	if (ret)
 		goto cleanup;
 
-	if (attr->dont_wait)
-		goto cleanup;
-
-	if (!attr->timeout)
+	if (unlikely(!attr->timeout))
 		attr->timeout = ADRV906X_LB_TIMEOUT;
 
-	wait_for_completion_timeout(&tpriv->comp, attr->timeout);
+	wait_for_completion_timeout(&tpriv->completion, attr->timeout);
+
 	ret = tpriv->ok ? 0 : -ETIMEDOUT;
 
 cleanup:
-	if (!attr->dont_wait)
-		dev_remove_pack(&tpriv->pt);
+	dev_remove_pack(&tpriv->pt);
 	kfree(tpriv);
-
-	if (attr->negative_test_flag)
-		ret = 0;
 
 	return ret;
 }
 
-static int adrv906x_test_enable_phy_loopback(struct net_device *ndev, bool enable)
+static int adrv906x_test_set_phy_loopback(struct net_device *ndev, bool enable)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	struct phy_device *phydev = ndev->phydev;
 	void __iomem *regs;
-	u32 val;
+	u32 ctrl0, ctrl2, loopback_bit, enable_bits;
+
+	/* Start/stop update of PHY status in PAL */
+	phy_loopback(phydev, enable);
+
+	if (adrv906x_dev->port == 0) {
+		loopback_bit = EMAC_CMN_LOOPBACK_BYPASS_DESER_0;
+		enable_bits = EMAC_CMN_RX_LINK0_EN | EMAC_CMN_TX_LINK0_EN;
+	} else {
+		loopback_bit = EMAC_CMN_LOOPBACK_BYPASS_DESER_1;
+		enable_bits = EMAC_CMN_RX_LINK1_EN | EMAC_CMN_TX_LINK1_EN;
+	}
 
 	regs = adrv906x_dev->parent->emac_cmn_regs;
-	val = ioread32(regs + EMAC_CMN_DIGITAL_CTRL2);
+	ctrl0 = ioread32(regs + EMAC_CMN_DIGITAL_CTRL0);
+	ctrl2 = ioread32(regs + EMAC_CMN_DIGITAL_CTRL2);
+
+	ctrl0 &= ~enable_bits;
+	iowrite32(ctrl0, regs + EMAC_CMN_DIGITAL_CTRL0);
 
 	if (enable) {
-		if (adrv906x_dev->port == 0)
-			val |= BIT(20);
-		else
-			val |= BIT(21);
+		mutex_lock(&phydev->lock);
+		phydev->dev_flags |= ADRV906X_PHY_FLAGS_LOOPBACK_TEST;
+		mutex_unlock(&phydev->lock);
+		ctrl2 |= loopback_bit;
 	} else {
-		if (adrv906x_dev->port == 0)
-			val &= ~BIT(20);
-		else
-			val &= ~BIT(21);
+		mutex_lock(&phydev->lock);
+		phydev->dev_flags &= ~ADRV906X_PHY_FLAGS_LOOPBACK_TEST;
+		mutex_unlock(&phydev->lock);
+		ctrl2 &= ~loopback_bit;
 	}
+	iowrite32(ctrl2, regs + EMAC_CMN_DIGITAL_CTRL2);
 
-	iowrite32(val, regs + EMAC_CMN_DIGITAL_CTRL2);
+	ctrl0 |= enable_bits;
+	iowrite32(ctrl0, regs + EMAC_CMN_DIGITAL_CTRL0);
+
+	/* Give PHY time to establish link */
+	msleep(2000);
 
 	return 0;
 }
 
-static int adrv906x_pcs_internal_loopback_test(struct net_device *ndev)
+static int adrv906x_test_near_end_loopback_test(struct net_device *ndev)
 {
 	struct adrv906x_packet_attrs attr = { };
+	int dev_state = netif_running(ndev);
 	int ret;
 
+	netdev_printk(KERN_DEBUG, ndev, "adrv906x_test_near_end_loopback_test");
+
+	if (dev_state) {
+		netdev_printk(KERN_DEBUG, ndev, "stopping device in network stack");
+		netif_tx_stop_all_queues(ndev);
+		netif_carrier_off(ndev);
+	}
+	adrv906x_test_set_phy_loopback(ndev, true);
+
 	attr.dst = ndev->dev_addr;
+	ret = adrv906x_test_near_end_loopback_run(ndev, &attr);
+	netdev_printk(KERN_DEBUG, ndev, "test result: %d", ret);
+	if (ret)
+		goto out;
 
-	netdev_info(ndev, "adrv906x_pcs_internal_loopback_test");
-/* TODO: decide which one to use after testing on hw
- *	ret = phy_loopback(ndev->phydev, true);
- *	if (ret)
- *		return ret;
- */
-	ret = adrv906x_test_enable_phy_loopback(ndev, true);
-
-	mdelay(2000);
-	/* negative test case */
-	attr.negative_test_flag = true;
-	ret = adrv906x_test_phy_loopback_run(ndev, &attr);
-	if (ret) {
-		(void)phy_loopback(ndev->phydev, false);
-		return ret;
+out:
+	adrv906x_test_set_phy_loopback(ndev, false);
+	if (dev_state) {
+		netdev_printk(KERN_DEBUG, ndev, "restarting device in network stack");
+		netif_tx_start_all_queues(ndev);
+		netif_carrier_on(ndev);
 	}
 
-	/* normal test case */
-	attr.negative_test_flag = false;
-	ret = adrv906x_test_phy_loopback_run(ndev, &attr);
-	if (ret) {
-		(void)phy_loopback(ndev->phydev, false);
-		return ret;
-	}
+	msleep(2000);
+	netdev_printk(KERN_DEBUG, ndev, "adrv906x_test_near_end_loopback_test done");
 
-/* TODO: decide which one to use after testing on hw
- *	ret = phy_loopback(ndev->phydev, false);
- *	if (ret)
- *		return ret;
- */
-	ret = adrv906x_test_enable_phy_loopback(ndev, false);
-
-	return 0;
+	return ret;
 }
 
-static int adrv906x_mac_external_loopback_test(struct net_device *ndev)
+static int adrv906x_test_far_end_loopback_test(struct net_device *ndev)
 {
-	static bool loopback_state;
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	static bool loopback_state;
+	u32 val = 0, loopback_bit;
 	void __iomem *regs;
-	u32 val = 0;
 
-	netdev_info(ndev, "adrv906x_mac_external_loopback_test");
+	netdev_printk(KERN_DEBUG, ndev, "adrv906x_test_far_end_loopback_test");
 	regs = adrv906x_dev->parent->emac_cmn_regs;
+
+	loopback_bit = adrv906x_dev->port == 0 ?
+		       EMAC_CMN_LOOPBACK_BYPASS_MAC_0 : EMAC_CMN_LOOPBACK_BYPASS_MAC_1;
 
 	if (loopback_state) {
 		val = ioread32(regs + EMAC_CMN_DIGITAL_CTRL2);
-		iowrite32(val & (~EMAC_CMN_LOOPBACK_BYPASS_MAC), regs + EMAC_CMN_DIGITAL_CTRL2);
+		iowrite32(val & (~loopback_bit), regs + EMAC_CMN_DIGITAL_CTRL2);
 		loopback_state = 0;
 		netif_start_queue(ndev);
 		netdev_info(ndev, "Turn off MAC loopback");
 	} else {
 		netif_stop_queue(ndev);
 		val = ioread32(regs + EMAC_CMN_DIGITAL_CTRL2);
-		val |= EMAC_CMN_LOOPBACK_BYPASS_MAC;
+		val |= loopback_bit;
 		iowrite32(val, regs + EMAC_CMN_DIGITAL_CTRL2);
 		loopback_state = 1;
 		netdev_info(ndev, "Turn on MAC loopback");
@@ -658,31 +665,20 @@ static void adrv906x_ndma_loopback_rx_callback(struct sk_buff *skb, unsigned int
 {
 	struct adrv906x_test_priv *tpriv = (struct adrv906x_test_priv *)cb_param;
 	struct net_device *ndev = tpriv->ndev;
-	struct adrv906x_eth_dev *adrv906x_dev;
-	struct adrv906x_ndma_dev *ndma_dev;
-	struct adrv906x_eth_if *eth_if;
-	struct device *dev;
 	unsigned char *p;
 	int i;
-
-	adrv906x_dev = netdev_priv(ndev);
-	eth_if = adrv906x_dev->parent;
-
-	adrv906x_dev = eth_if->adrv906x_dev[port_id];
-	ndma_dev = adrv906x_dev->ndma_dev;
-	dev = ndma_dev->dev;
 
 	p = skb->data;
 	for (i = 0; i < NDMA_LOOPBACK_TEST_SIZE; i++) {
 		if (*p != NDMA_LOOPBACK_TEST_PATTERN) {
-			dev_err(dev, "rx:0x%x tx:0x%x", *p, i);
+			netdev_printk(KERN_DEBUG, ndev, "rx:0x%x tx:0x%x", *p, i);
 			tpriv->ok = false;
 			break;
 		}
 		p++;
 	}
 	dev_kfree_skb(skb);
-	complete(&tpriv->comp);
+	complete(&tpriv->completion);
 }
 
 static int adrv906x_ndma_loopback_test(struct net_device *ndev)
@@ -691,7 +687,6 @@ static int adrv906x_ndma_loopback_test(struct net_device *ndev)
 	struct adrv906x_ndma_dev *ndma_dev = adrv906x_dev->ndma_dev;
 	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
 	struct adrv906x_eth_dev *temp_eth_dev;
-	struct device *dev = ndma_dev->dev;
 	struct adrv906x_test_priv *tpriv;
 	int port = adrv906x_dev->port;
 	struct net_device *temp_ndev;
@@ -704,12 +699,12 @@ static int adrv906x_ndma_loopback_test(struct net_device *ndev)
 	if (!tpriv)
 		return -ENOMEM;
 	tpriv->ok = true;
-	init_completion(&tpriv->comp);
+	init_completion(&tpriv->completion);
 	tpriv->ndev = ndev;
 
 	if (eth_if->ethswitch.enabled) {
 		if (kref_read(&ndma_dev->refcount) > 1) {
-			netdev_info(ndev, "switch enabled, shut down both interfaces");
+			netdev_printk(KERN_DEBUG, ndev, "switch enabled, shut down both interfaces");
 			all_down = true;
 			for (i = 0; i < MAX_NETDEV_NUM; i++) {
 				temp_eth_dev = eth_if->adrv906x_dev[i];
@@ -733,18 +728,18 @@ static int adrv906x_ndma_loopback_test(struct net_device *ndev)
 	}
 	ret = adrv906x_ndma_start_xmit(ndma_dev, tx_data1, port, 0, 0);
 	if (ret) {
-		dev_err(dev, "ndma tx failed to send frame:0x%x", ret);
+		netdev_printk(KERN_DEBUG, ndev, "ndma tx failed to send frame:0x%x", ret);
 		ret = -EIO;
 		dev_kfree_skb(tx_data1);
 		goto out;
 	}
-	tmo = wait_for_completion_timeout(&tpriv->comp, msecs_to_jiffies(2000));
+	tmo = wait_for_completion_timeout(&tpriv->completion, ADRV906X_LB_TIMEOUT);
 	if (!tmo) {
-		dev_err(dev, "ndma loopback test timeout");
+		netdev_printk(KERN_DEBUG, ndev, "ndma loopback test timeout");
 		ret = -ETIMEDOUT;
 	}
 	if (!tpriv->ok) {
-		dev_err(dev, "ndma loopback test failed");
+		netdev_printk(KERN_DEBUG, ndev, "ndma loopback test failed");
 		ret = -EINVAL;
 	}
 out:
@@ -764,33 +759,34 @@ out:
 
 struct adrv906x_test adrv906x_ethtool_selftests[] = {
 	{
-		.name = "PCS internal loopback",
-		.fn = adrv906x_pcs_internal_loopback_test,
-		.etest_flag = ETH_TEST_FL_OFFLINE,
-	},
-	{
-		.name = "MAC external loopback",
-		.fn = adrv906x_mac_external_loopback_test,
-		.etest_flag = 0,
-	},
-	{
-		.name = "NDMA internal loopback",
+		.name = "NDMA loopback",
 		.fn = adrv906x_ndma_loopback_test,
 		.etest_flag = ETH_TEST_FL_OFFLINE,
+	},
+	{
+		.name = "Near-end loopback",
+		.fn = adrv906x_test_near_end_loopback_test,
+		.etest_flag = ETH_TEST_FL_OFFLINE,
+	},
+	{
+		.name = "Far-end loopback",
+		.fn = adrv906x_test_far_end_loopback_test,
+		.etest_flag = 0,
 	},
 };
 
 void adrv906x_ethtool_selftest_run(struct net_device *ndev, struct ethtool_test *etest, u64 *buf)
 {
-	int i, ret;
 	unsigned char etest_flags = etest->flags;
+	int i, ret;
 
 	for (i = 0; i < ARRAY_SIZE(adrv906x_ethtool_selftests); i++) {
-		ret = 0;
-		if (etest_flags == adrv906x_ethtool_selftests[i].etest_flag)
+		ret = 1;
+		if (etest_flags == adrv906x_ethtool_selftests[i].etest_flag) {
 			ret = adrv906x_ethtool_selftests[i].fn(ndev);
-		if (ret)
-			etest->flags |= ETH_TEST_FL_FAILED;
+			if (ret)
+				etest->flags |= ETH_TEST_FL_FAILED;
+		}
 		buf[i] = ret;
 	}
 }
