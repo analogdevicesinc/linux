@@ -157,14 +157,6 @@
 		enable-active-high;
 	};
 
-	reg_dvdd_sel: regulator-dvdd_sel {
-		compatible = "regulator-fixed";
-		regulator-name = "DVDD_SEL";
-		gpio = <&adp5585_isp 0 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
-		startup-delay-us = <2000>;
-	};
-
 	reg_dvdd_1v2: regulator-dvdd {
 		compatible = "regulator-fixed";
 		regulator-name = "DVDD_1V2";
@@ -172,34 +164,14 @@
 		regulator-min-microvolt = <1200000>;
 		regulator-max-microvolt = <1200000>;
 		enable-active-high;
-		vin-supply = <&reg_dvdd_sel>;
-	};
-
-	reg_vdd_3v3: regulator-vdd {
-		compatible = "regulator-fixed";
-		regulator-name = "VDD_3V3";
-		gpio = <&adp5585_isp 6 GPIO_ACTIVE_HIGH>;
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
-		startup-delay-us = <4000>;
-		enable-active-high;
 	};
 
 	reg_vddio_1v8: regulator-vddo {
 		compatible = "regulator-fixed";
 		regulator-name = "VDDIO_1V8";
-		gpio = <&adp5585_isp 10 GPIO_ACTIVE_HIGH>;
+		gpio = <&adp5585_isp 6 GPIO_ACTIVE_HIGH>;
 		regulator-min-microvolt = <1800000>;
 		regulator-max-microvolt = <1800000>;
-		startup-delay-us = <4000>;
-		enable-active-high;
-		vin-supply = <&reg_vdd_3v3>;
-	};
-
-	reg_vaa_sel: regulator-vaa_sel {
-		compatible = "regulator-fixed";
-		regulator-name = "VAA_SEL";
-		gpio = <&adp5585_isp 1 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
 	};
 
@@ -210,7 +182,15 @@
 		regulator-min-microvolt = <2800000>;
 		regulator-max-microvolt = <2800000>;
 		enable-active-high;
-		vin-supply = <&reg_vaa_sel>;
+	};
+
+	reg_hmisc_vddio: regulator-hmisc-vddio {
+		compatible = "regulator-fixed";
+		regulator-name = "HMISC_VDDIO_1V8";
+		gpio = <&adp5585_isp 10 GPIO_ACTIVE_HIGH>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		enable-active-high;
 	};
 
 	ethosu {
@@ -514,18 +494,45 @@
 	};
 
 	ap1302: ap1302_mipi@3c {
-		compatible = "onsemi,ap1302";
+		compatible = "onnn,ap1302";
 		reg = <0x3c>;
+		clocks = <&clk IMX93_CLK_24M>;
 		reset-gpios   = <&pcal6524_2 0 GPIO_ACTIVE_LOW>;
 		isp_en-gpios  = <&adp5585_isp 2 GPIO_ACTIVE_HIGH>;
 		DVDD-supply   = <&reg_dvdd_1v2>;
-		VDDIO-supply  = <&reg_vddio_1v8>;
-		AVDD-supply   = <&reg_avdd_2v8>;
+		VDDIO_HMISC-supply  = <&reg_hmisc_vddio>;
+		VDDIO_SMISC-supply   = <&reg_hmisc_vddio>;
 		status = "okay";
 
-		port {
-			ar1302_mipi_ep: endpoint {
-				remote-endpoint = <&mipi_csi_ep>;
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+			};
+
+			port@1 {
+				reg = <1>;
+			};
+
+			port@2 {
+				reg = <2>;
+			};
+		};
+
+		sensors {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			onnn,model = "onnn,ar0144";
+
+			sensor@0 {
+				reg = <0>;
+
+				vdd-supply = <&reg_dvdd_1v2>;
+				vddio-supply = <&reg_vddio_1v8>;
+				vaa-supply = <&reg_avdd_2v8>;
 			};
 		};
 	};
