@@ -1204,6 +1204,23 @@
 				status = "disabled";
 			};
 
+			isi: isi@4ae40000 {
+				compatible = "fsl,imx93-isi";
+				reg = <0x4ae40000 0x10000>;
+				interrupts = <GIC_SPI 172 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clk IMX93_CLK_ISI_GATE>,
+					 <&clk IMX93_CLK_MEDIA_AXI>;
+				clock-names = "axi", "apb";
+				assigned-clocks = <&clk IMX93_CLK_MEDIA_AXI>,
+						  <&clk IMX93_CLK_MEDIA_APB>;
+				assigned-clock-parents = <&clk IMX93_CLK_SYS_PLL_PFD1>,
+							 <&clk IMX93_CLK_SYS_PLL_PFD1_DIV2>;
+				assigned-clock-rates = <400000000>, <133333333>;
+				fsl,blk-ctrl = <&media_blk_ctrl>;
+				power-domains = <&media_blk_ctrl IMX93_MEDIABLK_PD_ISI>;
+				status = "disabled";
+			};
+
 			epxp: epxp@4ae20000 {
 				compatible = "fsl,imx93-pxp-dma", "fsl,imx8ulp-pxp-dma";
 				reg = <0x4ae20000 0x10000>;
