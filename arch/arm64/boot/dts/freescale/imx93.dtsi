@@ -1204,6 +1204,22 @@
 				status = "disabled";
 			};
 
+			mipi_csi: csi@4ae00000 {
+				compatible = "snps,dw-mipi-csi2", "syscon";
+				reg = <0x4ae00000 0x10000>;
+				interrupts = <GIC_SPI 175 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clk IMX93_CLK_MIPI_CSI_GATE>,
+					 <&clk IMX93_CLK_CAM_PIX>;
+				clock-names = "per", "pixel";
+				assigned-clocks = <&clk IMX93_CLK_CAM_PIX>;
+				assigned-clock-parents = <&clk IMX93_CLK_VIDEO_PLL>;
+				assigned-clock-rates = <140000000>;
+				phys = <&dphy_rx>;
+				phy-names = "dphy-rx";
+				power-domains = <&media_blk_ctrl IMX93_MEDIABLK_PD_MIPI_CSI>;
+				status = "disabled";
+			};
+
 			isi: isi@4ae40000 {
 				compatible = "fsl,imx93-isi";
 				reg = <0x4ae40000 0x10000>;
@@ -1378,6 +1394,19 @@
 						};
 					};
 				};
+			};
+
+			dphy_rx: dphy-rx {
+				compatible = "fsl,imx93-dphy-rx";
+				clocks = <&clk IMX93_CLK_MIPI_PHY_CFG>;
+				clock-names = "phy_cfg";
+				assigned-clocks = <&clk IMX93_CLK_MIPI_PHY_CFG>;
+				assigned-clock-parents = <&clk IMX93_CLK_24M>;
+				assigned-clock-rate = <24000000>;
+				#phy-cells = <0>;
+				fsl,csis = <&mipi_csi>;
+				power-domains = <&media_blk_ctrl IMX93_MEDIABLK_PD_MIPI_CSI>;
+				status = "disabled";
 			};
 		};
 
