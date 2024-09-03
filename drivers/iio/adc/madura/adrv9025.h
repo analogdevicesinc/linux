@@ -113,6 +113,8 @@ struct adrv9025_rf_phy {
 	adi_adrv9025_PostMcsInit_t adrv9025PostMcsInitInst;
 	adi_adrv9025_InitCals_t cal_mask;
 
+	adi_adrv9025_AgcCfg_t  *agcConfig;
+
 	struct jesd204_dev	*jdev;
 	/* protect against device accesses */
 	struct mutex		lock;
