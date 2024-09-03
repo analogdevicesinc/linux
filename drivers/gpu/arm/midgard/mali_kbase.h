@@ -22,13 +22,13 @@
 #ifndef _KBASE_H_
 #define _KBASE_H_
 
+#include <linux/version_compat_defs.h>
 #include <mali_malisw.h>
 
 #include <mali_kbase_debug.h>
 
 #include <uapi/gpu/arm/midgard/mali_base_kernel.h>
 #include <mali_kbase_linux.h>
-#include <linux/version_compat_defs.h>
 
 /*
  * Include mali_kbase_defs.h first as this provides types needed by other local

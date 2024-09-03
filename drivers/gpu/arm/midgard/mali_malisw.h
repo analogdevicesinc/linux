@@ -36,6 +36,7 @@
  * As a macro it may evaluate its arguments more than once.
  * Refer to MAX macro for more details
  */
+#ifndef MIN
 #define MIN(x, y) ((x) < (y) ? (x) : (y))
 
 /**
@@ -51,6 +52,7 @@
  * instead.
  */
 #define MAX(x, y) ((x) < (y) ? (y) : (x))
+#endif
 
 /**
  * CSTD_UNUSED - Function-like macro for suppressing unused variable warnings.
