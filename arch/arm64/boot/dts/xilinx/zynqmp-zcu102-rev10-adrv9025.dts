@@ -160,6 +160,66 @@
 		adi,rx-gaintable-channel-masks = <0xFF>;
 		adi,tx-attntable-names = "ADRV9025_TxAttenTable.csv";
 		adi,tx-attntable-channel-masks = <0x0F>;
+
+		/* General AGC Configuration */
+		adi,rxagc-rx-channel-mask = <0x0F>;
+		adi,rxagc-agc-peak-wait-time = <4>;
+		adi,rxagc-agc-rx-max-gain-index = <255>;
+		adi,rxagc-agc-rx-min-gain-index = <195>;
+		adi,rxagc-agc-gain-update-counter = <921600>;
+		adi,rxagc-agc-rx-attack-delay = <10>;
+		adi,rxagc-agc-slow-loop-settling-delay = <16>;
+		adi,rxagc-agc-low-thresh-prevent-gain-inc = <1>;
+		adi,rxagc-agc-change-gain-if-thresh-high = <1>;
+		adi,rxagc-agc-peak-thresh-gain-control-mode = <1>;
+		adi,rxagc-agc-reset-on-rxon = <0>;
+		adi,rxagc-agc-enable-sync-pulse-for-gain-counter = <0>;
+		adi,rxagc-agc-enable-fast-recovery-loop = <0>;
+
+		/* adi_adrv9025_AgcPeak_t agcPeak */
+		adi,rxagc-peak-agc-under-range-low-interval = <836>;
+		adi,rxagc-peak-agc-under-range-mid-interval = <2>;
+		adi,rxagc-peak-agc-under-range-high-interval = <4>;
+		adi,rxagc-peak-apd-high-thresh = <38>;
+		adi,rxagc-peak-apd-low-thresh = <25>;
+		adi,rxagc-peak-apd-upper-thresh-peak-exceeded-cnt = <10>;
+		adi,rxagc-peak-apd-lower-thresh-peak-exceeded-cnt = <3>;
+		adi,rxagc-peak-enable-hb2-overload = <1>;
+		adi,rxagc-peak-hb2-overload-duration-cnt = <1>;
+		adi,rxagc-peak-hb2-overload-thresh-cnt = <1>;
+		adi,rxagc-peak-hb2-high-thresh = <11598>;/* -3dbFS*/
+		adi,rxagc-peak-hb2-under-range-low-thresh = <8211>;
+		adi,rxagc-peak-hb2-under-range-mid-thresh = <5813>;
+		adi,rxagc-peak-hb2-under-range-high-thresh = <2913>;
+		adi,rxagc-peak-hb2-upper-thresh-peak-exceeded-cnt = <10>;
+		adi,rxagc-peak-hb2-under-range-high-thresh-exceeded-cnt = <3>;
+		adi,rxagc-peak-hb2-under-range-mid-thresh-exceeded-cnt = <3>;
+		adi,rxagc-peak-hb2-under-range-low-thresh-exceeded-cnt = <3>;
+		adi,rxagc-peak-hb2-overload-power-mode = <0>;
+		adi,rxagc-peak-hb2-thresh-config = <3>;
+
+		adi,rxagc-peak-apd-gain-step-attack = <4>;
+		adi,rxagc-peak-apd-gain-step-recovery = <2>;
+		adi,rxagc-peak-hb2-gain-step-attack = <4>;
+		adi,rxagc-peak-hb2-gain-step-high-recovery = <2>;
+		adi,rxagc-peak-hb2-gain-step-mid-recovery = <4>;
+		adi,rxagc-peak-hb2-gain-step-low-recovery = <8>;
+
+		/* adi_adrv9025_AgcPower_t agcPower */
+		adi,rxagc-power-power-enable-measurement = <0>;
+		adi,rxagc-power-power-input-select = <0>;
+		adi,rxagc-power-under-range-high-power-thresh = <9>;
+		adi,rxagc-power-under-range-low-power-thresh = <2>;
+		adi,rxagc-power-under-range-high-power-gain-step-recovery = <0>;
+		adi,rxagc-power-under-range-low-power-gain-step-recovery = <0>;
+		adi,rxagc-power-power-measurement-duration = <5>;
+		adi,rxagc-power-rx-tdd-power-meas-duration = <5>;
+		adi,rxagc-power-rx-tdd-power-meas-delay = <1>;
+		adi,rxagc-power-over-range-high-power-thresh = <2>;
+		adi,rxagc-power-over-range-low-power-thresh = <0>;
+		adi,rxagc-power-power-log-shift = <1>; /* Force to 1 */
+		adi,rxagc-power-over-range-high-power-gain-step-attack = <0>;
+		adi,rxagc-power-over-range-low-power-gain-step-attack = <0>;
 	};
 };
 
