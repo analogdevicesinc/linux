@@ -16,7 +16,9 @@
 #include <linux/console.h>
 #include <linux/dma-mapping.h>
 #include <linux/dmaengine.h>
+#include <linux/err.h>
 #include <linux/gpio.h>
+#include <linux/io.h>
 #include <linux/init.h>
 #include <linux/irq.h>
 #include <linux/module.h>
@@ -27,7 +29,6 @@
 #include <linux/sysrq.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
-#include <linux/io.h>
 #include <linux/circ_buf.h>
 
 #include <linux/soc/adi/uart4.h>
@@ -255,17 +256,19 @@ static void adi_uart4_serial_stop_tx(struct uart_port *port)
 	while (!(UART_GET_LSR(uart) & TEMT))
 		cpu_relax();
 
-	if (uart->tx_dma_channel) {
+	if (IS_ERR(uart->tx_dma_channel)) {
+		/* Clear TFI bit */
+		UART_PUT_LSR(uart, TFI);
+		UART_CLEAR_IER(uart, ETBEI);
+	} else {
 		if (!uart->tx_done)
 			dma_unmap_sg(uart->dev, &uart->tx_sgl, 1, DMA_TO_DEVICE);
+		
 		dmaengine_terminate_sync(uart->tx_dma_channel);
 		uart->port.icount.tx += uart->tx_count;
 		uart->tx_count = 0;
 		uart->tx_done = 1;
-	} else {
-		/* Clear TFI bit */
-		UART_PUT_LSR(uart, TFI);
-		UART_CLEAR_IER(uart, ETBEI);
+
 	}
 }
 
@@ -284,12 +287,12 @@ static void adi_uart4_serial_start_tx(struct uart_port *port)
 	if (tty->termios.c_line == N_IRDA)
 		adi_uart4_serial_reset_irda(port);
 
-	if (uart->tx_dma_channel) {
-		if (uart->tx_done)
-			adi_uart4_serial_dma_tx_chars(uart);
-	} else {
+	if (IS_ERR(uart->tx_dma_channel)) {
 		UART_SET_IER(uart, ETBEI);
 		adi_uart4_serial_tx_chars(uart);
+	} else {
+		if (uart->tx_done)
+			adi_uart4_serial_dma_tx_chars(uart);
 	}
 }
 
@@ -643,7 +646,7 @@ static int adi_uart4_serial_startup(struct uart_port *port)
 	if (ret)
 		return ret;
 
-	if (uart->tx_dma_channel) {
+	if (!IS_ERR(uart->tx_dma_channel)) {
 		/* RX channel:
 		 *	- src_addr is not configured because we're attached to
 		 *	peripheral
@@ -724,7 +727,7 @@ static void adi_uart4_serial_shutdown(struct uart_port *port)
 
 	dev_dbg(uart->dev, "in serial_shutdown\n");
 
-	if (uart->tx_dma_channel) {
+	if (!IS_ERR(uart->tx_dma_channel)) {
 		dmaengine_terminate_sync(uart->tx_dma_channel);
 		dmaengine_terminate_sync(uart->rx_dma_channel);
 		dma_unmap_single(uart->dev, uart->tx_dma_phy, UART_XMIT_SIZE,
@@ -1196,7 +1199,7 @@ static int adi_uart4_serial_probe(struct platform_device *pdev)
 		uart->tx_done	    = 1;
 		uart->tx_count	    = 0;
 
-		if (!tx_dma_channel) {
+		if (IS_ERR(tx_dma_channel)) {
 			uart->tx_irq = platform_get_irq_byname(pdev, "tx");
 			uart->rx_irq = platform_get_irq_byname(pdev, "rx");
 			uart->status_irq =
@@ -1273,13 +1276,15 @@ static int adi_uart4_serial_remove(struct platform_device *pdev)
 	struct adi_uart4_serial_port *uart = platform_get_drvdata(pdev);
 
 	dev_set_drvdata(&pdev->dev, NULL);
-
 	if (uart) {
 		uart_remove_one_port(&adi_uart4_serial_reg, &uart->port);
-		dma_release_channel(uart->tx_dma_channel);
-		dma_release_channel(uart->rx_dma_channel);
 		adi_uart4_serial_ports[uart->port.line] = NULL;
 		kfree(uart);
+		if(IS_ERR(uart->tx_dma_channel))
+			return 0;
+
+		dma_release_channel(uart->tx_dma_channel);
+		dma_release_channel(uart->rx_dma_channel);
 	}
 
 	return 0;
