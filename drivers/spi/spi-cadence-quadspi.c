@@ -1930,8 +1930,8 @@ static void cqspi_controller_init(struct cqspi_st *cqspi)
 	writel(0, cqspi->iobase + CQSPI_REG_REMAP);
 
 	/* Reset the Delay lines */
-	writel(CQSPI_REG_PHY_CONFIG_RESET_FLD_MASK,
-	       cqspi->iobase + CQSPI_REG_PHY_CONFIG);
+	// writel(CQSPI_REG_PHY_CONFIG_RESET_FLD_MASK,
+	//        cqspi->iobase + CQSPI_REG_PHY_CONFIG);
 
 	/* Disable all interrupts. */
 	writel(0, cqspi->iobase + CQSPI_REG_IRQMASK);
