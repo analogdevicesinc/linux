@@ -546,7 +546,7 @@ static int adrv906x_phy_config_init(struct phy_device *phydev)
 	phydev->autoneg = AUTONEG_DISABLE;
 	phydev->duplex = DUPLEX_FULL;
 	phydev->port = PORT_FIBRE;
-	phydev->speed = 10000;
+	phydev->speed = 25000;
 
 	adrv906x_tsu_set_ptp_timestamping_mode(phydev);
 
