@@ -121,6 +121,12 @@ config RESET_IMX8MP_AUDIOMIX
 	default CLK_IMX8MP
 	help
 	  This enables the reset controller driver for i.MX8MP AudioMix
+config RESET_IMX8ULP_CSR
+	tristate "i.MX8ULP MIPI CSI CSR module Reset Driver"
+	depends on ARCH_MXC
+	help
+	  This enables the MIPI CSI CSR module reset driver for
+	  i.MX8ULP SoC.
 
 config RESET_IMX8ULP_SIM
 	tristate "i.MX8ULP SIM Reset Driver"
