@@ -641,7 +641,7 @@ static void adrv906x_tod_hw_pps_external_enable(struct adrv906x_tod *tod)
 	u32 val;
 
 	val = ioread32(tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
-	val &= ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_MASK;
+	val &= ~ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_MASK;
 	val |= ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_SEL(BIT(TOD_EXTERNAL));
 	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
 }
