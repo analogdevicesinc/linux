@@ -34,7 +34,7 @@ static const struct iio_info admv8827_info = {
 };
 
 static const struct regmap_config admv8827_regmap_config = {
-	.reg_bits = 8,
+	.reg_bits = 16,
 	.val_bits = 8,
 	.read_flag_mask = BIT(7),
 };
