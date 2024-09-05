@@ -149,6 +149,7 @@ struct adrv906x_ndma_chan {
 	unsigned int rx_head;   /* Next entry in rx ring to give a new buffer */
 	unsigned int rx_free;   /* Number of free RX buffers */
 	struct napi_struct napi;
+	unsigned int rx_data_fragments;
 };
 
 struct adrv906x_ndma_dev {
