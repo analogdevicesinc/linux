@@ -286,7 +286,7 @@
 			status = "disabled";
 		};
 
-		uart0: uart@01003000 {
+		uart0: uart@31003000 {
 			compatible = "adi,uart4";
 			reg = <0x31003000 0x40>;
 			dmas = <&dma_cluster2 20>, <&dma_cluster2 21>;
