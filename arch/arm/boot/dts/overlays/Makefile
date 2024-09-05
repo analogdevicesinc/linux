@@ -182,6 +182,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	mmc.dtbo \
 	mz61581.dtbo \
 	ov2311.dtbo \
+	ov5640.dtbo \
 	ov5647.dtbo \
 	ov64a40.dtbo \
 	ov7251.dtbo \

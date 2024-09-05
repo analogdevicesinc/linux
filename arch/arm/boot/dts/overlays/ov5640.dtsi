@@ -1,0 +1,25 @@
+cam_node: ov5640@3c {
+	compatible = "ovti,ov5640";
+	reg = <0x3c>;
+	status = "disabled";
+
+	clocks = <&cam1_clk>;
+	clock-names = "xclk";
+
+	AVDD-supply = <&cam1_reg>;
+	DOVDD-supply = <&cam_dummy_reg>;
+	DVDD-supply = <&cam_dummy_reg>;
+
+	rotation = <0>;
+	orientation = <2>;
+
+	port {
+		cam_endpoint: endpoint {
+			clock-lanes = <0>;
+			data-lanes = <1 2>;
+			clock-noncontinuous;
+			link-frequencies =
+				/bits/ 64 <456000000>;
+		};
+	};
+};
