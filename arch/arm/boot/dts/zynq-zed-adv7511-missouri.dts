@@ -58,14 +58,14 @@
 			//cen-gpios = <&fmc_gpio 35 GPIO_ACTIVE_HIGH>;
 			//reset-gpios = <&fmc_gpio 4 GPIO_ACTIVE_HIGH>;
 		};
-		admv8855_2: admv8855_2@2 {
+		admv8855_rx: admv8855_rx@2 {
 			compatible = "adi,admv8827";
 			reg = <2>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			spi-max-frequency = <1000000>;
 		};
-		admv8855_3: admv8855_3@3 {
+		admv8855_tx: admv8855_tx@3 {
 			compatible = "adi,admv8827";
 			reg = <3>;
 			#address-cells = <1>;
@@ -81,7 +81,7 @@
 			//cen-gpios = <&fmc_gpio 32 GPIO_ACTIVE_HIGH>;
 			//reset-gpios = <&fmc_gpio 7 GPIO_ACTIVE_HIGH>;
 		};
-		admv8809_5: admv8809_5@5 {
+		admv8809_rx: admv8809_rx@5 {
 			compatible = "adi,admv8827";
 			reg = <5>;
 			#address-cells = <1>;
@@ -97,35 +97,35 @@
 			//cen-gpios = <&fmc_gpio 30 GPIO_ACTIVE_HIGH>;
 			//reset-gpios = <&fmc_gpio 12 GPIO_ACTIVE_HIGH>;
 		};
-		admv8809_7: admv8809_7@7 {
+		admv8809_tx: admv8809_tx@7 {
 			compatible = "adi,admv8827";
 			reg = <7>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			spi-max-frequency = <1000000>;
 		};
-		admv8809_8: admv8809_8@8 {
+		admv8818_tx: admv8818_tx@8 {		// CS_1320_8818
 			compatible = "adi,admv8827";
 			reg = <8>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			spi-max-frequency = <1000000>;
 		};
-		admv8809_9: admv8809_9@9 {
+		admv8827_rx: admv8827_rx@9 {
 			compatible = "adi,admv8827";
 			reg = <9>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			spi-max-frequency = <1000000>;
 		};
-		admv8827_10: admv8827_10@a {
+		admv8827_tx: admv8827_tx@a {
 			compatible = "adi,admv8827";
 			reg = <10>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			spi-max-frequency = <1000000>;
 		};
-		admv8827_11: admv8827_11@b {
+		admv8818_rx: admv8818_rx@b {		// CS_1420_8818
 			compatible = "adi,admv8827";
 			reg = <11>;
 			#address-cells = <1>;
@@ -168,9 +168,9 @@
 			<&fmc_gpio 26 0>,	// ADRF5032	CTRL	SPI_RF
 			<&fmc_gpio 27 0>,	// ADMV8909	RST	LO_RX
 			<&fmc_gpio 28 0>,	// ADMV8909	RST	LO_TX
-			<&fmc_gpio 29 0>,	// ADMV8818	CS	LO_RX
-			<&fmc_gpio 30 0>,	// AADMV1420	CEN	SPI_RF
-			<&fmc_gpio 31 0>,	// ADMV8818	CS	LO_TX
+			<&fmc_gpio 29 0>,	// ADMV8909	CS	LO_TX
+			<&fmc_gpio 30 0>,	// ADMV1420	CEN	SPI_RF
+			<&fmc_gpio 31 0>,	// ADMV8909	CS	LO_RX
 			<&fmc_gpio 32 0>,	// ADMV1455	CEN	SPI_RF
 			<&fmc_gpio 33 0>,	// ADMV8909	HPF_B1	LO_RX
 			<&fmc_gpio 34 0>,	// ADMV8909	HPF_B0	LO_RX
@@ -189,8 +189,7 @@
 			<&fmc_gpio 47 0>,	// ADMV8909	HPF_B0	LO_TX
 			<&fmc_gpio 48 0>,	// ADMV8909	HPF_B1	LO_TX
 			<&fmc_gpio 49 0>,	// ADMV8909	LPF_B1	LO_TX
-			<&fmc_gpio 50 0>,	// ADMV8909	LPF_B0	LO_TX
-			<&fmc_gpio 51 0>;	// ADMV8909	CS	LO_TX
+			<&fmc_gpio 50 0>;	// ADMV8909	LPF_B0	LO_TX
 
 		label = "missouri_gpio";
 
@@ -312,15 +311,15 @@
 		};
 		channel@29 {
 			reg = <29>;
-			label = "ADMV8818_CS_LO_RX";
+			label = "ADMV8909_CS_LO_TX";
 		};
 		channel@30 {
 			reg = <30>;
-			label = "AADMV1420_CEN_SPI_RF";
+			label = "ADMV1420_CEN_SPI_RF";
 		};
 		channel@31 {
 			reg = <31>;
-			label = "ADMV8818_CS_LO_TX";
+			label = "ADMV8909_CS_LO_RX";
 		};
 		channel@32 {
 			reg = <32>;
@@ -397,10 +396,6 @@
 		channel@50 {
 			reg = <50 0>;
 			label = "ADMV8909_LPF_B0_LO_TX";
-		};
-		channel@51 {
-			reg = <51 0>;
-			label = "ADMV8909_CS_LO_TX";
 		};
 	};
 };
