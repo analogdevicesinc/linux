@@ -1372,6 +1372,7 @@ void adrv906x_ndma_process_rx_work_unit(struct adrv906x_ndma_chan *ndma_ch,
 	struct device *dev = ndma_dev->dev;
 	struct timespec64 ts = { 0, 0 };
 	union adrv906x_ndma_chan_stats *stats = &ndma_ch->stats;
+	struct sk_buff *new_skb;
 	unsigned int port_id = 0, frame_size = 0;
 	int ret;
 
@@ -1383,7 +1384,8 @@ void adrv906x_ndma_process_rx_work_unit(struct adrv906x_ndma_chan *ndma_ch,
 		    unlikely(ndma_dev->loopback_en)) {
 			if (ndma_ch->skb_rx_data_wu) {
 				skb_put(ndma_ch->skb_rx_data_wu, NDMA_RX_HDR_DATA_SIZE +
-					frame_size);
+					frame_size - (ndma_ch->rx_data_fragments) * (NDMA_RX_PKT_BUF_SIZE
+										     - NDMA_RX_HDR_DATA_SIZE));
 				skb_pull(ndma_ch->skb_rx_data_wu, NDMA_RX_HDR_DATA_SIZE);
 				ndma_ch->status_cb_fn(ndma_ch->skb_rx_data_wu, port_id, ts,
 						      ndma_ch->status_cb_param);
@@ -1396,6 +1398,7 @@ void adrv906x_ndma_process_rx_work_unit(struct adrv906x_ndma_chan *ndma_ch,
 			if (ndma_ch->skb_rx_data_wu)
 				napi_consume_skb(ndma_ch->skb_rx_data_wu, budget);
 		}
+		ndma_ch->rx_data_fragments = 0;
 		ndma_ch->skb_rx_data_wu = NULL;
 		napi_consume_skb(skb, budget); /* free skb with status WU */
 		/* Data WU type */
@@ -1407,13 +1410,26 @@ void adrv906x_ndma_process_rx_work_unit(struct adrv906x_ndma_chan *ndma_ch,
 				napi_consume_skb(ndma_ch->skb_rx_data_wu, budget);
 			}
 			ndma_ch->skb_rx_data_wu = skb;
-		} else { /* Subsequent WU type is unsupported */
-			napi_consume_skb(skb, budget);
-			if (ndma_ch->skb_rx_data_wu)
+		} else { /* Subsequent WU type*/
+			skb_put(ndma_ch->skb_rx_data_wu, NDMA_RX_PKT_BUF_SIZE -
+				(NDMA_RX_HDR_DATA_SIZE * (1 && ndma_ch->rx_data_fragments)));
+			new_skb = skb_copy_expand(ndma_ch->skb_rx_data_wu,
+						  skb_headroom(ndma_ch->skb_rx_data_wu), skb_tailroom(ndma_ch->skb_rx_data_wu)
+						  + (int)NDMA_RX_PKT_BUF_SIZE, GFP_ATOMIC);
+			if (!new_skb) {
+				dev_err(dev, "%s_%u failed to extend skb to reassemble dma descriptors",
+					ndma_ch->chan_name, ndma_dev->dev_num);
 				napi_consume_skb(ndma_ch->skb_rx_data_wu, budget);
-			ndma_ch->skb_rx_data_wu = NULL;
-			dev_dbg(dev, "%s_%u unsupported type of received wu",
-				ndma_ch->chan_name, ndma_dev->dev_num);
+			} else {
+				napi_consume_skb(ndma_ch->skb_rx_data_wu, budget);
+				ndma_ch->skb_rx_data_wu = new_skb;
+				skb_put(skb, NDMA_RX_PKT_BUF_SIZE);
+				skb_pull(skb, NDMA_RX_HDR_DATA_SIZE);
+				skb_copy_from_linear_data(skb, skb_tail_pointer(ndma_ch->skb_rx_data_wu),
+							  NDMA_RX_PKT_BUF_SIZE - NDMA_RX_HDR_DATA_SIZE);
+				napi_consume_skb(skb, budget);
+				ndma_ch->rx_data_fragments++;
+			}
 		}
 		/* Incorrect WU type */
 	} else {
