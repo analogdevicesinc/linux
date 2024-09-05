@@ -118,9 +118,9 @@ static int sram_mmap(struct file *fp, struct vm_area_struct *vma)
 		}
 	}
 
-	dev_info(sram->dev, "Mapped 0x%zx : 0x%zx successfully\n",
-		 (size_t)(sram->rmem->base + vma->vm_pgoff * PAGE_SIZE),
-		 (size_t)(sram->rmem->base + vma->vm_pgoff * PAGE_SIZE + sram_size));
+	dev_dbg(sram->dev, "Mapped 0x%zx : 0x%zx successfully\n",
+		(size_t)(sram->rmem->base + vma->vm_pgoff * PAGE_SIZE),
+		(size_t)(sram->rmem->base + vma->vm_pgoff * PAGE_SIZE + sram_size));
 	return 0;
 }
 
