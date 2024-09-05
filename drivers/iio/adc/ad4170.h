@@ -242,21 +242,6 @@ enum ad4170_chan_to_gpio {
 };
 
 /**
- * @enum ad4170_dig_aux2_ctrl
- * @brief Configures Functionality of DIG_AUX2 Pin.
- */
-enum ad4170_dig_aux2_ctrl {
-	/** Dig_Aux2 Pin Disabled. High Impedance */
-	AD4170_DIG_AUX2_DISABLED,
-	/** Dig_Aux2 Pin Configured as DAC LDAC Input. */
-	AD4170_DIG_AUX2_LDAC,
-	/** Dig_Aux2 Pin Configured as START Input. */
-	AD4170_DIG_AUX2_SYNC,
-	/** Dig_Aux2 Pin Configured as Modulator Data Output. */
-	AD4170_DIG_AUX2_MODOUT
-};
-
-/**
  * @enum ad4170_dig_aux1_ctrl
  * @brief Configures Functionality of DIG_AUX1 Pin.
  */
@@ -267,8 +252,19 @@ enum ad4170_dig_aux1_ctrl {
 	AD4170_DIG_AUX1_RDY,
 	/** Dig_Aux1 Pin Configured as SYNC_OUT Output. */
 	AD4170_DIG_AUX1_SYNC,
-	/** Dig_Aux1 Pin Configured Modulator Data Output. */
-	AD4170_DIG_AUX1_MODOUT
+};
+
+/**
+ * @enum ad4170_dig_aux2_ctrl
+ * @brief Configures Functionality of DIG_AUX2 Pin.
+ */
+enum ad4170_dig_aux2_ctrl {
+	/** Dig_Aux2 Pin Disabled. High Impedance */
+	AD4170_DIG_AUX2_DISABLED,
+	/** Dig_Aux2 Pin Configured as DAC LDAC Input. */
+	AD4170_DIG_AUX2_LDAC,
+	/** Dig_Aux2 Pin Configured as START Input. */
+	AD4170_DIG_AUX2_SYNC,
 };
 
 /**
@@ -314,11 +310,11 @@ struct ad4170_pin_muxing {
 	/** Enables Current Channel Number Be Output to GPIO Pins. */
 	enum ad4170_chan_to_gpio chan_to_gpio;
 	/** Configures Functionality of DIG_AUX2 Pin. */
-	enum ad4170_dig_aux2_ctrl dig_aux2_ctrl;
+	u8 dig_aux2_ctrl;
 	/** Configures Functionality of DIG_AUX1 Pin. */
-	enum ad4170_dig_aux1_ctrl dig_aux1_ctrl;
+	u8 dig_aux1_ctrl;
 	/** Configures SYNC_IN Pin for ADC Synchronization. */
-	enum ad4170_sync_ctrl sync_ctrl;
+	u8 sync_ctrl;
 	/** Configures the drive strength of the Digital Outputs. */
 	enum ad4170_dig_out_str dig_out_str;
 	/** Reset Interface on CS or SCLK. */
