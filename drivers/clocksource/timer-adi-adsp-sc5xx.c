@@ -429,22 +429,18 @@ static int __init sc5xx_gptimer_controller_init(struct device_node *np)
 	int ret;
 	int i, n;
 
-	printk(KERN_ERR" sc5xx_gptimer_controller_init %d\n",__LINE__);
-
 	if (gptimer_controller.base) {
 		pr_err
 		    ("%s: Tried to initialize a second gptimer controller; check your device tree\n",
 		     __func__);
 		return -EINVAL;
 	}
-	printk(KERN_ERR" sc5xx_gptimer_controller_init %d\n",__LINE__);
 
 	base = of_iomap(np, 0);
 	if (!base) {
 		pr_err("%s: Unable to map gptimer registers\n", __func__);
 		return -ENODEV;
 	}
-	printk(KERN_ERR" sc5xx_gptimer_controller_init %d\n",__LINE__);
 
 	clk = of_clk_get(np, 0);
 	if (IS_ERR(clk)) {
@@ -452,7 +448,6 @@ static int __init sc5xx_gptimer_controller_init(struct device_node *np)
 		       PTR_ERR(clk));
 		return PTR_ERR(clk);
 	}
-	printk(KERN_ERR" sc5xx_gptimer_controller_init %d\n",__LINE__);
 
 	ret = clk_prepare_enable(clk);
 	if (ret) {
@@ -469,7 +464,6 @@ static int __init sc5xx_gptimer_controller_init(struct device_node *np)
 	gptimer_controller.timers =
 		kcalloc(n, sizeof(*gptimer_controller.timers), GFP_KERNEL);
 
-	printk(KERN_ERR" sc5xx_gptimer_controller_init %d\n",__LINE__);
 	if (!gptimer_controller.timers) {
 		pr_err("%s: Unable to allocate memory for timers\n",
 		       __func__);
@@ -481,7 +475,6 @@ static int __init sc5xx_gptimer_controller_init(struct device_node *np)
 		ret =
 		    sc5xx_gptimer_init(timer_np,
 				       &gptimer_controller.timers[i]);
-		    printk(KERN_ERR" sc5xx_gptimer_controller_init %d\n",__LINE__);
 		if (ret) {
 			of_node_put(timer_np);
 			return ret;
