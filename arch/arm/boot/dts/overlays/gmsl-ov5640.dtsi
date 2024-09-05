@@ -36,7 +36,7 @@ OV5640_LABEL: OV5640@OV5640_HEX_REG {
 	DVDD-supply = <&cam_vdig>;
 	AVDD-supply = <&cam1_reg>;
 	DOVDD-supply = <&cam_vddio>;
-	reset-gpios = <&OV5640_SER_LABEL 2 GPIO_ACTIVE_HIGH>;
+	reset-gpios = <&OV5640_SER_LABEL 0 GPIO_ACTIVE_HIGH>;
 	ports {
 		#address-cells = <1>;
 		#size-cells = <0>;
