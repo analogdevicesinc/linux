@@ -46,6 +46,9 @@ properties:
   refin2n-supply:
     description: REFIN2- supply that can be used as reference for conversion.
 
+  interrupts:
+    maxItems: 1
+
   adi,gpio0-power-down-switch:
     type: boolean
     description:
@@ -167,7 +170,6 @@ examples:
             spi-max-frequency = <20000000>;
             interrupt-parent = <&gpio_in>;
             interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
-            interrupt-names = "adc_rdy";
             adi,dig-aux1-function = "rdy";
             adi,vbias-pins = <5 6>;
 
