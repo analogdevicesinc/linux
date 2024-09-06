@@ -311,6 +311,16 @@
 		clock-names = "mclk";
 	};
 
+	ov5640_mipi: ov5640_mipi@3c {
+		compatible = "ovti,ov5640";
+		reg = <0x3c>;
+		clocks = <&cgc2 IMX8ULP_CLK_DSI_PHY_REF>;
+		clock-names = "xclk";
+		powerdown-gpios = <&pca6416_1 8 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&pca6416_1 7 GPIO_ACTIVE_LOW>;
+		status = "okay";
+	};
+
 	ite_bridge: it6161@6c {
 		compatible = "ite,it6161";
 		reg = <0x6c>;
