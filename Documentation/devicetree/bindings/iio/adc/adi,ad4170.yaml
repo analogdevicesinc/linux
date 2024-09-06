@@ -132,12 +132,6 @@ patternProperties:
           minimum: 0
           maximum: 15
 
-      adi,burnout-current-nanoamp:
-        description: |
-          Burnout current in nanoamps to be applied for this channel.
-        enum: [0, 100, 2000, 10000]
-        default: 0
-
       adi,chop-iexc:
         description: |
           Specifies the chopping/swapping functionality for excitation currents.
@@ -170,6 +164,20 @@ patternProperties:
         enum: [0, 1, 2, 3]
         default: 0
 
+      adi,burnout-current-nanoamp:
+        description: |
+          Burnout current in nanoamps to be applied for this channel.
+        enum: [0, 100, 2000, 10000]
+        default: 0
+
+      adi,buffered-negative:
+        description: Enable buffered mode for negative input.
+        type: boolean
+
+      adi,buffered-positive:
+        description: Enable buffered mode for positive input.
+        type: boolean
+
       adi,reference-select:
         description: |
           Select the reference source to use when converting on
@@ -186,14 +194,6 @@ patternProperties:
       diff-channels: true
 
       bipolar: true
-
-      adi,buffered-positive:
-        description: Enable buffered mode for positive input.
-        type: boolean
-
-      adi,buffered-negative:
-        description: Enable buffered mode for negative input.
-        type: boolean
 
     required:
       - reg
