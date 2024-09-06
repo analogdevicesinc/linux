@@ -110,6 +110,90 @@ properties:
     enum: [0, 1, 2]
     default: 1
 
+  adi,excitation-pin-0:
+    description: |
+      Specifies the pin on which IOUT0 will be made available.
+      Besides the analog pins 0 to 8, the excitation current can be output to
+      GPIO pins.
+      17: Output excitation current IOUT0 to GPIO0.
+      18: Output excitation current IOUT0 to GPIO1.
+      19: Output excitation current IOUT0 to GPIO2.
+      20: Output excitation current IOUT0 to GPIO3.
+      If this property is absent, IOUT0 is not routed to any pin.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20]
+    default: 0
+
+  adi,excitation-pin-1:
+    description: |
+      Specifies the pin on which IOUT1 will be made available.
+      Besides the analog pins 0 to 8, the excitation current can be output to
+      GPIO pins.
+      17: Output excitation current IOUT1 to GPIO0.
+      18: Output excitation current IOUT1 to GPIO1.
+      19: Output excitation current IOUT1 to GPIO2.
+      20: Output excitation current IOUT1 to GPIO3.
+      If this property is absent, IOUT1 is not routed to any pin.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20]
+    default: 0
+
+  adi,excitation-pin-2:
+    description: |
+      Specifies the pin on which IOUT2 will be made available.
+      Besides the analog pins 0 to 8, the excitation current can be output to
+      GPIO pins.
+      17: Output excitation current IOUT2 to GPIO0.
+      18: Output excitation current IOUT2 to GPIO1.
+      19: Output excitation current IOUT2 to GPIO2.
+      20: Output excitation current IOUT2 to GPIO3.
+      If this property is absent, IOUT2 is not routed to any pin.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20]
+    default: 0
+
+  adi,excitation-pin-3:
+    description: |
+      Specifies the pin on which IOUT3 will be made available.
+      Besides the analog pins 0 to 8, the excitation current can be output to
+      GPIO pins.
+      17: Output excitation current IOUT3 to GPIO0.
+      18: Output excitation current IOUT3 to GPIO1.
+      19: Output excitation current IOUT3 to GPIO2.
+      20: Output excitation current IOUT3 to GPIO3.
+      If this property is absent, IOUT3 is not routed to any pin.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20]
+    default: 0
+
+  adi,excitation-current-0-microamp:
+    description: |
+      Excitation current in microamps to be applied to IOUT0 output pin
+      specified in adi,excitation-pin-0.
+    enum: [0, 10, 50, 100, 250, 500, 1000, 1500]
+    default: 0
+
+  adi,excitation-current-1-microamp:
+    description: |
+      Excitation current in microamps to be applied to IOUT1 output pin
+      specified in adi,excitation-pin-1.
+    enum: [0, 10, 50, 100, 250, 500, 1000, 1500]
+    default: 0
+
+  adi,excitation-current-2-microamp:
+    description: |
+      Excitation current in microamps to be applied to IOUT2 output pin
+      specified in adi,excitation-pin-2.
+    enum: [0, 10, 50, 100, 250, 500, 1000, 1500]
+    default: 0
+
+  adi,excitation-current-3-microamp:
+    description: |
+      Excitation current in microamps to be applied to IOUT3 output pin
+      specified in adi,excitation-pin-3.
+    enum: [0, 10, 50, 100, 250, 500, 1000, 1500]
+    default: 0
+
 required:
   - compatible
   - reg
@@ -226,6 +310,10 @@ examples:
             adi,dig-aux2 = /bits/ 8 <0>;
             adi,sync-option = /bits/ 8 <0>;
             adi,vbias-pins = <5 6>;
+            adi,excitation-pin-0 = <17>;
+            adi,excitation-current-0-microamp = <50>;
+            adi,excitation-pin-1 = <18>;
+            adi,excitation-current-0-microamp = <50>;
 
             // Sample AIN0 with respect to AIN1 throughout AVDD/AVSS input range
             // Fully differential. If AVSS < 0V, Fully differential true bipolar
