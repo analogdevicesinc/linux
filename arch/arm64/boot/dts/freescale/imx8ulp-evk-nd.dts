@@ -27,6 +27,12 @@
 	/* Place Holder */
 };
 
+&mipi_csi {
+	assigned-clock-rates =  <105600000>,
+				<46000000>,
+				<79200000>;
+};
+
 &dsp {
 	assigned-clocks = <&cgc2 IMX8ULP_CLK_HIFI_SEL>, <&cgc2 IMX8ULP_CLK_HIFI_DIVCORE>;
 	assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4_PFD0>;
