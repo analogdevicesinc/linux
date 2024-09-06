@@ -138,6 +138,18 @@ patternProperties:
         enum: [0, 100, 2000, 10000]
         default: 0
 
+      adi,chop-iexc:
+        description: |
+          Specifies the chopping/swapping functionality for excitation currents.
+          0: No Chopping of Excitation Currents.
+          1: Chop/swap IOUT0 and IOUT1 (pair AB) excitation currents.
+          2: Chop/swap IOUT2 and IOUT3 (pair CD) excitation currents.
+          3: Chop/swap both pairs (pair AB and pair CD) of excitation currents.
+          If this property is absent, no chopping is performed.
+        $ref: /schemas/types.yaml#/definitions/uint16
+        enum: [0, 1, 2, 3]
+        default: 0
+
       adi,chop-adc:
         description: |
           Specifies the chopping/swapping functionality for a channel setup.
