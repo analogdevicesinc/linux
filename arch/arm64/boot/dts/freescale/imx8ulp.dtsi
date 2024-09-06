@@ -1016,6 +1016,18 @@
 				status = "disabled";
 			};
 
+			csr_regs: csr@2dad0000 {
+				compatible = "syscon", "simple-mfd";
+				reg = <0x2dad0000 0x10000>;
+				clocks = <&pcc5 IMX8ULP_CLK_CSI_REGS>;
+
+				csr_regs_rst: reset-controller {
+					compatible = "nxp,imx8ulp-csr-regs-reset";
+					#reset-cells = <1>;
+					fsl,offset = <0x44>;
+				};
+			};
+
 			dsi: dsi@2db00000 {
 				compatible = "fsl,imx8ulp-nwl-dsi";
 				reg = <0x2db00000 0x300>;
