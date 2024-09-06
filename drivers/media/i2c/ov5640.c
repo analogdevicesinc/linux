@@ -309,7 +309,9 @@ static const struct ov5640_pixfmt ov5640_csi2_formats[] = {
 		.bpp		= 8,
 		.ctrl00		= 0x00,
 		.mux		= OV5640_FMT_MUX_RAW_DPC,
-	}, {
+	},
+#if 0
+	{
 		/* Raw bayer, GBGB... / RGRG... */
 		.code		= MEDIA_BUS_FMT_SGBRG8_1X8,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
@@ -331,6 +333,7 @@ static const struct ov5640_pixfmt ov5640_csi2_formats[] = {
 		.ctrl00		= 0x03,
 		.mux		= OV5640_FMT_MUX_RAW_DPC,
 	},
+#endif
 	{ /* sentinel */ }
 };
 
