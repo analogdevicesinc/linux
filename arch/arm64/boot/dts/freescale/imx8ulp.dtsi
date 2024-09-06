@@ -1006,6 +1006,16 @@
 				status = "disabled";
 			};
 
+			isi: isi@2dac0000 {
+				compatible = "fsl,imx8ulp-isi";
+				reg = <0x2dac0000 0x10000>;
+				interrupts = <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&pcc5 IMX8ULP_CLK_ISI>;
+				clock-names = "per";
+				power-domains = <&scmi_devpd IMX8ULP_PD_ISI>;
+				status = "disabled";
+			};
+
 			dsi: dsi@2db00000 {
 				compatible = "fsl,imx8ulp-nwl-dsi";
 				reg = <0x2db00000 0x300>;
