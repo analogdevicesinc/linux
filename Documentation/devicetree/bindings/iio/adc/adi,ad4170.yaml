@@ -258,9 +258,10 @@ examples:
                 common-mode-channel = <AD4170_MAP_REFOUT>;
             };
             // Sample AIN6 with respect to DGND throughout REFIN+/REFIN- input range
-            // Pseudo-differential unipolar
+            // Pseudo-differential bipolar
             channel@6 {
                 reg = <6>;
+                bipolar;
                 adi,reference-select = <0>;
                 diff-channels = <AD4170_MAP_AIN6 AD4170_MAP_DGND>;
             };
