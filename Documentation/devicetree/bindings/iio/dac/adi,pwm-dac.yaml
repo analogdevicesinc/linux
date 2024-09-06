@@ -16,6 +16,10 @@ properties:
   reg:
     maxItems: 1
 
+  clocks:
+    items:
+      - description: Clock phandle for input clock
+
   adi,iovdd-microvolt:
     description: |
       The IOVDD voltagge [mV]
@@ -33,6 +37,7 @@ additionalProperties: false
 required:
   - compatible
   - reg
+  - clocks
   - adi,iovdd-microvolt
   - adi,gpio-max-frequency
 
@@ -41,7 +46,8 @@ examples:
     dac@PWM_BASE_UADDR {
         compatible = "adi,pwm-dac";
         reg = <PWM_BASE 0x100>;
+        clocks = <&hsdigclk>;
         adi,iovdd-microvolt = <3300000>;
-        adi,gpio-max-frequency = <983040000>;
+        adi,gpio-max-frequency = <122880000>;
     };
 ...

@@ -711,8 +711,9 @@
 	dac0: dac@PWM_BASE_UADDR {
 		compatible = "adi,pwm-dac";
 		reg = <PWM_BASE 0x100>;
+		clocks = <&hsdigclk>;
 		adi,iovdd-microvolt = <1800000>;
-		adi,gpio-max-frequency = <983040000>;
+		adi,gpio-max-frequency = <122880000>;
 		status = "disabled";
 	};
 
