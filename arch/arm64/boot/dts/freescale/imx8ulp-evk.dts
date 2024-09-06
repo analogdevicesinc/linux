@@ -319,6 +319,14 @@
 		powerdown-gpios = <&pca6416_1 8 GPIO_ACTIVE_HIGH>;
 		reset-gpios = <&pca6416_1 7 GPIO_ACTIVE_LOW>;
 		status = "okay";
+
+		port {
+			ov5640_mipi_out: endpoint {
+				remote-endpoint = <&mipi_csi_in>;
+				data-lanes = <1 2>;
+				clock-lanes = <0>;
+			};
+		};
 	};
 
 	ite_bridge: it6161@6c {
@@ -713,6 +721,50 @@
 		>;
 	};
 
+};
+
+&isi {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			isi_in: endpoint {
+				remote-endpoint = <&mipi_csi_out>;
+			};
+		};
+	};
+};
+
+&mipi_csi {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			mipi_csi_in: endpoint {
+				remote-endpoint = <&ov5640_mipi_out>;
+				data-lanes = <1 2>;
+				clock-lanes = <0>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			mipi_csi_out: endpoint {
+				remote-endpoint = <&isi_in>;
+			};
+		};
+	};
 };
 
 &epxp {
