@@ -450,23 +450,20 @@ static int adrv906x_phy_config_pcs_baser_mode(struct phy_device *phydev)
 		return -EINVAL;
 	}
 
+	adrv906x_phy_path_enable(phydev, false);
+
 	ctrl2 = phy_read_mmd(phydev, MDIO_MMD_PCS, MDIO_CTRL2);
 	ctrl2 &= ~ADRV906X_PCS_CTRL2_TYPE_SEL_MSK;
 
 	ctrl1 = phy_read_mmd(phydev, MDIO_MMD_PCS, MDIO_CTRL1);
 	ctrl1 &= ~MDIO_CTRL1_SPEEDSEL;
 
-	switch (phydev->speed) {
-	case SPEED_10000:
-		ctrl1 |= ADRV906X_PCS_CTRL1_SPEED10G;
-		ctrl2 |= ADRV906X_PCS_CTRL2_10GBR;
-		break;
-	case SPEED_25000:
+	if (phydev->speed == SPEED_25000) {
 		ctrl1 |= ADRV906X_PCS_CTRL1_SPEED25G;
 		ctrl2 |= ADRV906X_PCS_CTRL2_25GBR;
-		break;
-	default:
-		return -EINVAL;
+	} else {
+		ctrl1 |= ADRV906X_PCS_CTRL1_SPEED10G;
+		ctrl2 |= ADRV906X_PCS_CTRL2_10GBR;
 	}
 
 	cfg_tx = ADRV906X_PCS_CFG_TX_BUF_INIT;
@@ -547,6 +544,7 @@ static int adrv906x_phy_config_init(struct phy_device *phydev)
 	phydev->duplex = DUPLEX_FULL;
 	phydev->port = PORT_FIBRE;
 	phydev->speed = 25000;
+	phydev->dev_flags |= ADRV906X_PHY_FLAGS_PCS_RS_FEC_EN;
 
 	adrv906x_tsu_set_ptp_timestamping_mode(phydev);
 
@@ -571,8 +569,6 @@ static int adrv906x_phy_probe(struct phy_device *phydev)
 
 	adrv906x_parse_tsu_phy_delay(phydev);
 	adrv906x_tsu_set_phy_delay(phydev);
-
-	phydev->dev_flags |= ADRV906X_PHY_FLAGS_PCS_RS_FEC_EN;
 
 	ret = adrv906x_serdes_open(phydev, &adrv906x_phy->serdes,
 				   adrv906x_phy_config_pcs_baser_mode);

@@ -46,6 +46,40 @@ static u8 default_mac_addresses[MAX_MULTICAST_FILTER][ETH_ALEN] = {
 	{ 0x03, 0x00, 0x00, 0xC2, 0x80, 0x01 }
 };
 
+void adrv906x_eth_cmn_serdes_tx_sync_trigger(struct net_device *ndev, u32 lane)
+{
+	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
+	void __iomem *regs = eth_if->emac_cmn_regs;
+	unsigned int val, trig;
+
+	trig = (lane == 0) ? EMAC_CMN_TXSER_SYNC_TRIGGER_0 : EMAC_CMN_TXSER_SYNC_TRIGGER_1;
+
+	val = ioread32(regs + EMAC_CMN_PHY_CTRL);
+	val |= trig;
+	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
+	usleep_range(1, 10);
+	val &= ~trig;
+	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
+}
+EXPORT_SYMBOL(adrv906x_eth_cmn_serdes_tx_sync_trigger);
+
+void adrv906x_eth_cmn_serdes_reset_4pack(struct net_device *ndev)
+{
+	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
+	void __iomem *regs = eth_if->emac_cmn_regs;
+	unsigned int val;
+
+	val = ioread32(regs + EMAC_CMN_PHY_CTRL);
+	val &= ~EMAC_CMN_SERDES_REG_RESET_N;
+	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
+	usleep_range(1, 10);
+	val |= EMAC_CMN_SERDES_REG_RESET_N;
+	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
+}
+EXPORT_SYMBOL(adrv906x_eth_cmn_serdes_reset_4pack);
+
 struct adrv906x_macsec_priv *adrv906x_macsec_get(struct net_device *netdev)
 {
 #if IS_ENABLED(CONFIG_MACSEC)
@@ -125,38 +159,74 @@ static void adrv906x_eth_cdr_get_recovered_clk_divs(struct device_node *np,
 
 static void adrv906x_eth_cmn_init(void __iomem *regs, bool switch_enabled, bool macsec_enabled)
 {
-	unsigned int val1, val2;
+	unsigned int val1, val2, val3;
 
-	val1 = ioread32(regs + EMAC_CMN_DIGITAL_CTRL0);
-	val2 = ioread32(regs + EMAC_CMN_DIGITAL_CTRL3);
+	val1 = ioread32(regs + EMAC_CMN_PHY_CTRL);
+	val2 = ioread32(regs + EMAC_CMN_DIGITAL_CTRL0);
+	val3 = ioread32(regs + EMAC_CMN_DIGITAL_CTRL3);
 
-	val1 |= EMAC_CMN_RX_LINK0_EN
+	val1 |= EMAC_CMN_RXDES_FORCE_LANE_PD_0 |
+		EMAC_CMN_RXDES_FORCE_LANE_PD_1 |
+		EMAC_CMN_TXSER_FORCE_LANE_PD_0 |
+		EMAC_CMN_TXSER_FORCE_LANE_PD_1;
+	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
+	usleep_range(10, 20);
+	val1 &= ~(EMAC_CMN_RXDES_FORCE_LANE_PD_0 |
+		  EMAC_CMN_RXDES_FORCE_LANE_PD_1 |
+		  EMAC_CMN_TXSER_FORCE_LANE_PD_0 |
+		  EMAC_CMN_TXSER_FORCE_LANE_PD_1);
+	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
+	usleep_range(1, 10);
+
+	val1 &= ~EMAC_CMN_SERDES_REG_RESET_N;
+	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
+	usleep_range(1, 10);
+	val1 |= EMAC_CMN_SERDES_REG_RESET_N;
+	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
+
+	val1 &= ~(EMAC_CMN_TXSER_DIG_RESET_N_0 |
+		  EMAC_CMN_TXSER_DIG_RESET_N_1);
+	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
+	usleep_range(1, 10);
+	val1 |= EMAC_CMN_TXSER_DIG_RESET_N_0 |
+		EMAC_CMN_TXSER_DIG_RESET_N_1;
+	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
+
+	val1 &= ~(EMAC_CMN_RXDES_DIG_RESET_N_0 |
+		  EMAC_CMN_RXDES_DIG_RESET_N_1);
+	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
+	usleep_range(1, 10);
+	val1 |= EMAC_CMN_RXDES_DIG_RESET_N_0 |
+		EMAC_CMN_RXDES_DIG_RESET_N_1;
+	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
+
+	val2 |= EMAC_CMN_RX_LINK0_EN
 		| EMAC_CMN_RX_LINK1_EN
 		| EMAC_CMN_TX_LINK0_EN
 		| EMAC_CMN_TX_LINK1_EN;
 #if IS_ENABLED(CONFIG_MACSEC)
 	if (macsec_enabled)
-		val1 &= ~EMAC_CMN_MACSEC_BYPASS_EN;
+		val2 &= ~EMAC_CMN_MACSEC_BYPASS_EN;
 #endif
 
 	if (switch_enabled) {
-		val1 |= EMAC_CMN_SW_PORT0_EN |
+		val2 |= EMAC_CMN_SW_PORT0_EN |
 			EMAC_CMN_SW_PORT1_EN |
 			EMAC_CMN_SW_PORT2_EN;
-		val1 &= ~(EMAC_CMN_SW_LINK0_BYPASS_EN |
+		val2 &= ~(EMAC_CMN_SW_LINK0_BYPASS_EN |
 			  EMAC_CMN_SW_LINK1_BYPASS_EN);
-		val2 |= EMAC_CMN_SW_PORT2_DSA_INSERT_EN;
+		val3 |= EMAC_CMN_SW_PORT2_DSA_INSERT_EN;
 	} else {
-		val1 |= EMAC_CMN_SW_LINK0_BYPASS_EN |
+		val2 |= EMAC_CMN_SW_LINK0_BYPASS_EN |
 			EMAC_CMN_SW_LINK1_BYPASS_EN;
-		val1 &= ~(EMAC_CMN_SW_PORT0_EN |
+		val2 &= ~(EMAC_CMN_SW_PORT0_EN |
 			  EMAC_CMN_SW_PORT1_EN |
 			  EMAC_CMN_SW_PORT2_EN);
-		val2 &= ~EMAC_CMN_SW_PORT2_DSA_INSERT_EN;
+		val3 &= ~EMAC_CMN_SW_PORT2_DSA_INSERT_EN;
 	}
 
-	iowrite32(val1, regs + EMAC_CMN_DIGITAL_CTRL0);
-	iowrite32(val2, regs + EMAC_CMN_DIGITAL_CTRL3);
+	iowrite32(val2, regs + EMAC_CMN_DIGITAL_CTRL0);
+	iowrite32(val3, regs + EMAC_CMN_DIGITAL_CTRL3);
 }
 
 static ssize_t adrv906x_pcs_link_drop_cnt_store(struct device *dev,
