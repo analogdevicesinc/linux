@@ -11,6 +11,7 @@
 #include <linux/of_device.h>
 #include <linux/platform_device.h>
 #include <linux/jiffies.h>
+#include <linux/clk.h>
 
 
 #define PWM_CONTROL_REG                 0x40
@@ -22,6 +23,7 @@
 struct adi_pwm_dac {
 	void __iomem *base;
 	struct mutex lock;
+	unsigned long input_clk_rate;
 	u32 iovdd_microvolt;
 	u32 gpio_max_frequency;
 };
@@ -80,7 +82,7 @@ static int adi_pwm_dac_read_raw(struct iio_dev *indio_dev,
 
 	case IIO_CHAN_INFO_FREQUENCY:
 		reg = readl(dac->base + PWM_CLK_DIV_REG);
-		*val = dac->gpio_max_frequency / (reg + 1);
+		*val = dac->input_clk_rate / (reg + 1);
 		return IIO_VAL_INT;
 
 	default:
@@ -145,7 +147,7 @@ static int adi_pwm_dac_write_raw(struct iio_dev *indio_dev,
 		if (val > dac->gpio_max_frequency)
 			return -EINVAL;
 
-		reg = dac->gpio_max_frequency / val - 1;
+		reg = dac->input_clk_rate / val - 1;
 		writel(reg, dac->base + PWM_CLK_DIV_REG);
 		return 0;
 
@@ -166,10 +168,18 @@ static int adi_pwm_dac_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct iio_dev *indio_dev;
 	struct adi_pwm_dac *dac;
+	struct clk *input_clk;
 	int i, ret;
+	u32 val;
 
 	if (!np)
 		return -ENODEV;
+
+	input_clk = devm_clk_get(dev, NULL);
+	if (IS_ERR(input_clk)) {
+		dev_err(dev, "cannot get input clock");
+		return PTR_ERR(input_clk);
+	}
 
 	indio_dev = devm_iio_device_alloc(dev, sizeof(*dac));
 	if (!indio_dev)
@@ -190,20 +200,24 @@ static int adi_pwm_dac_probe(struct platform_device *pdev)
 	if (IS_ERR(dac->base))
 		return PTR_ERR(dac->base);
 
+	dac->input_clk_rate = clk_get_rate(input_clk);
+
 	ret = of_property_read_u32(dev->of_node, "adi,iovdd-microvolt",
-				   &dac->iovdd_microvolt);
+				   &val);
 	if (ret != 0) {
 		dev_err(dev, "Missing or bad adi,iovdd_microvolt property\n");
 		return -EINVAL;
 	}
+	dac->iovdd_microvolt = val;
 
 	ret = of_property_read_u32(dev->of_node, "adi,gpio-max-frequency",
-				   &dac->gpio_max_frequency);
-	if (ret != 0) {
+				   &val);
+	if (ret != 0 || val > dac->input_clk_rate) {
 		dev_err(dev,
 			"Missing or bad adi,gpio_max_frequency property\n");
 		return -EINVAL;
 	}
+	dac->gpio_max_frequency = val;
 
 	/* Disable all channels */
 	writel(0, dac->base + PWM_CONTROL_REG);
