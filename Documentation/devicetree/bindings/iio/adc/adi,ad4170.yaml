@@ -215,17 +215,61 @@ examples:
             adi,sync-option = /bits/ 8 <0>;
             adi,vbias-pins = <5 6>;
 
+            // Sample AIN0 with respect to AIN1 throughout AVDD/AVSS input range
+            // Fully differential. If AVSS < 0V, Fully differential true bipolar
             channel@0 {
                 reg = <0>;
-                adi,reference-select = <2>;
-                /* AIN8, DGND  */
-                diff-channels = <8 24>;
+                bipolar;
+                adi,reference-select = <3>;
+                diff-channels = <AD4170_MAP_AIN0 AD4170_AIN1>;
             };
-            channel@1 {
-                reg = <1>;
+            // Sample AIN2 with respect to DGND throughout AVDD/DGND input range
+            // Peseudo-differential unipolar (fig. 2a)
+            channel@2 {
+                reg = <2>;
+                adi,reference-select = <3>;
+                single-channel = <AD4170_MAP_AIN2>;
+                common-mode-channel = <AD4170_MAP_DGND>;
+            };
+            // Sample AIN3 with respect to 2.5V throughout AVDD/AVSS input range
+            // Pseudo-differential bipolar (fig. 2b)
+            channel@3 {
+                reg = <3>;
+                bipolar;
+                adi,reference-select = <3>;
+                single-channel = <AD4170_MAP_AIN3>;
+                common-mode-channel = <AD4170_MAP_REFOUT>;
+            };
+            // Sample AIN4 with respect to DGND throughout AVDD/AVSS input range
+            // Pseudo-differential ture bipolar if AVSS < 0V (fig. 2c)
+            channel@4 {
+                reg = <4>;
+                bipolar;
+                adi,reference-select = <3>;
+                single-channel = <AD4170_MAP_AIN4>;
+                common-mode-channel = <AD4170_MAP_DGND>;
+            };
+            // Sample AIN5 with respect to 2.5V throughout AVDD/REFOUT input range
+            // Pseudo-differential unipolar (AD4170 datasheet page 46 example)
+            channel@5 {
+                reg = <5>;
                 adi,reference-select = <2>;
-                /* TEMP_SENSOR+, TEMP_SENSOR- */
-                diff-channels = <17 17>;
+                single-channel = <AD4170_MAP_AIN5>;
+                common-mode-channel = <AD4170_MAP_REFOUT>;
+            };
+            // Sample AIN6 with respect to DGND throughout REFIN+/REFIN- input range
+            // Pseudo-differential unipolar
+            channel@6 {
+                reg = <6>;
+                adi,reference-select = <0>;
+                diff-channels = <AD4170_MAP_AIN6 AD4170_MAP_DGND>;
+            };
+            // Temperature sensor
+            channel@9 {
+                reg = <7>;
+                bipolar;
+                adi,reference-select = <0>;
+                diff-channels = <AD4170_MAP_TEMP_SENSOR_P AD4170_MAP_TEMP_SENSOR_N>;
             };
         };
     };
