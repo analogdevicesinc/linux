@@ -265,7 +265,7 @@ examples:
                 diff-channels = <AD4170_MAP_AIN6 AD4170_MAP_DGND>;
             };
             // Temperature sensor
-            channel@9 {
+            channel@7 {
                 reg = <7>;
                 bipolar;
                 adi,reference-select = <0>;
