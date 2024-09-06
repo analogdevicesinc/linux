@@ -179,6 +179,149 @@ static const struct imx8mq_plat_data imx8mq_data = {
 	.gpr_ops = &imx8mq_ops,
 };
 
+/* -----------------------------------------------------------------------------
+ * i.MX8ULP CSR
+ */
+
+#define CSI2SS_BASE_OFFSET			0x0
+
+#define CSI2SS_PLM_CTRL				(CSI2SS_BASE_OFFSET + 0x0)
+#define CSI2SS_PLM_CTRL_PL_CLK_RUN		BIT(31)
+#define CSI2SS_PLM_CTRL_VSYNC_OVERRIDE		BIT(9)
+#define CSI2SS_PLM_CTRL_HSYNC_OVERRIDE		BIT(10)
+#define CSI2SS_PLM_CTRL_VALID_OVERRIDE		BIT(11)
+#define CSI2SS_PLM_CTRL_POLARITY_MASK		BIT(12)
+#define CSI2SS_PLM_CTRL_ENABLE_PL		BIT(0)
+
+#define CSI2SS_PHY_CTRL				(CSI2SS_BASE_OFFSET + 0x4)
+#define CSI2SS_PHY_CTRL_PD			BIT(22)
+#define CSI2SS_PHY_CTRL_RTERM_SEL		BIT(21)
+#define CSI2SS_PHY_CTRL_RX_HS_SETTLE(x)		FIELD_PREP(GENMASK(9, 4), (x))
+#define CSI2SS_PHY_CTRL_CONT_CLK_MODE		BIT(3)
+#define CSI2SS_PHY_CTRL_DDRCLK_EN		BIT(2)
+#define CSI2SS_PHY_CTRL_AUTO_PD_EN		BIT(1)
+#define CSI2SS_PHY_CTRL_RX_ENABLE		BIT(0)
+
+#define CSI2SS_PHY_STATUS			(CSI2SS_BASE_OFFSET + 0x8)
+#define CSI2SS_PHY_TEST_STATUS			(CSI2SS_BASE_OFFSET + 0x10)
+#define CSI2SS_PHY_TEST_STATUS_D0		(CSI2SS_BASE_OFFSET + 0x14)
+#define CSI2SS_PHY_TEST_STATUS_D1		(CSI2SS_BASE_OFFSET + 0x18)
+#define CSI2SS_PHY_TEST_STATUS_D2		(CSI2SS_BASE_OFFSET + 0x1C)
+#define CSI2SS_PHY_TEST_STATUS_D3		(CSI2SS_BASE_OFFSET + 0x20)
+
+#define CSI2SS_VC_INTERLACED			(CSI2SS_BASE_OFFSET + 0x30)
+#define CSI2SS_VC_INTERLACED_VC3		BIT(3)
+#define CSI2SS_VC_INTERLACED_VC2		BIT(2)
+#define CSI2SS_VC_INTERLACED_VC1		BIT(1)
+#define CSI2SS_VC_INTERLACED_VC0		BIT(0)
+#define CSI2SS_VC_INTERLACED_MASK		GENMASK(3, 0)
+
+#define CSI2SS_DATA_TYPE			(CSI2SS_BASE_OFFSET + 0x38)
+#define CSI2SS_DATA_TYPE_LEGACY_YUV420_8BIT	BIT(2)
+#define CSI2SS_DATA_TYPE_YUV422_8BIT		BIT(6)
+#define CSI2SS_DATA_TYPE_YUV422_10BIT		BIT(7)
+#define CSI2SS_DATA_TYPE_RGB444			BIT(8)
+#define CSI2SS_DATA_TYPE_RGB555			BIT(9)
+#define CSI2SS_DATA_TYPE_RGB565			BIT(10)
+#define CSI2SS_DATA_TYPE_RGB666			BIT(11)
+#define CSI2SS_DATA_TYPE_RGB888			BIT(12)
+#define CSI2SS_DATA_TYPE_RAW6			BIT(16)
+#define CSI2SS_DATA_TYPE_RAW8			BIT(18)
+#define CSI2SS_DATA_TYPE_RAW10			BIT(19)
+#define CSI2SS_DATA_TYPE_RAW12			BIT(20)
+#define CSI2SS_DATA_TYPE_RAW14			BIT(21)
+
+#define CSI2SS_YUV420_1ST_LINE_DATA_TYPE	(CSI2SS_BASE_OFFSET + 0x40)
+#define CSI2SS_YUV420_1ST_LINE_DATA_TYPE_ODD	0
+#define CSI2SS_YUV420_1ST_LINE_DATA_TYPE_EVEN	1
+
+#define CSI2SS_STREAM_FENCE_CTRL		(CSI2SS_BASE_OFFSET + 0x48)
+#define CSI2SS_STREAM_FENCE_VC3			BIT(3)
+#define CSI2SS_STREAM_FENCE_VC2			BIT(2)
+#define CSI2SS_STREAM_FENCE_VC1			BIT(1)
+#define CSI2SS_STREAM_FENCE_VC0			BIT(0)
+#define CSI2SS_STREAM_FENCE_CTRL_MASK		GENMASK(3, 0)
+
+#define CSI2SS_STREAM_FENCE_STATUS		(CSI2SS_BASE_OFFSET + 0x4C)
+
+static int imx8ulp_gpr_enable(struct csi_state *state, u32 hs_settle)
+{
+	struct device *dev = state->dev;
+	u32 val;
+
+	/* format */
+	regmap_clear_bits(state->phy_gpr,
+			   state->phy_gpr_reg + CSI2SS_DATA_TYPE,
+			   0xffffff);
+
+	/* polarity */
+	regmap_clear_bits(state->phy_gpr,
+			   state->phy_gpr_reg + CSI2SS_PLM_CTRL,
+			   CSI2SS_PLM_CTRL_VSYNC_OVERRIDE |
+			   CSI2SS_PLM_CTRL_HSYNC_OVERRIDE |
+			   CSI2SS_PLM_CTRL_VALID_OVERRIDE |
+			   CSI2SS_PLM_CTRL_POLARITY_MASK);
+
+	val = CSI2SS_PHY_CTRL_RX_ENABLE |
+	      CSI2SS_PHY_CTRL_DDRCLK_EN |
+	      CSI2SS_PHY_CTRL_CONT_CLK_MODE |
+	      CSI2SS_PHY_CTRL_RX_HS_SETTLE(hs_settle) |
+	      CSI2SS_PHY_CTRL_PD |
+	      CSI2SS_PHY_CTRL_RTERM_SEL |
+	      CSI2SS_PHY_CTRL_AUTO_PD_EN;
+
+	regmap_update_bits(state->phy_gpr,
+			   state->phy_gpr_reg + CSI2SS_PHY_CTRL,
+			   0xffffff,
+			   val);
+
+	regmap_read(state->phy_gpr, state->phy_gpr_reg + CSI2SS_PLM_CTRL, &val);
+	while (val & CSI2SS_PLM_CTRL_PL_CLK_RUN) {
+		msleep(10);
+		regmap_read(state->phy_gpr, state->phy_gpr_reg + CSI2SS_PLM_CTRL, &val);
+		dev_dbg(dev, "Waiting pl clk running, val=0x%x\n", val);
+	}
+
+	/* Enable Pixel link Master*/
+	regmap_set_bits(state->phy_gpr,
+			state->phy_gpr_reg + CSI2SS_PLM_CTRL,
+			CSI2SS_PLM_CTRL_ENABLE_PL |
+			CSI2SS_PLM_CTRL_VALID_OVERRIDE);
+
+	/* PHY Enable */
+	regmap_update_bits(state->phy_gpr,
+			   state->phy_gpr_reg + CSI2SS_PHY_CTRL,
+			   CSI2SS_PHY_CTRL_PD,
+			   0x0);
+
+	/* Release Reset */
+	reset_control_deassert(state->rst);
+
+	return 0;
+}
+
+static void imx8ulp_gpr_disable(struct csi_state *state)
+{
+	/* Disable Pixel Link */
+	regmap_write(state->phy_gpr, state->phy_gpr_reg + CSI2SS_PLM_CTRL, 0x0);
+
+	/* Disable  PHY */
+	regmap_write(state->phy_gpr, state->phy_gpr_reg + CSI2SS_PHY_CTRL, 0x0);
+
+	/* Reset */
+	reset_control_deassert(state->rst);
+}
+
+static const struct imx8mq_gpr_ops imx8ulp_ops = {
+	.enable = imx8ulp_gpr_enable,
+	.disable = imx8ulp_gpr_disable,
+};
+
+static const struct imx8mq_plat_data imx8ulp_data = {
+	.name = "i.MX8ULP",
+	.gpr_ops = &imx8ulp_ops,
+};
+
 static const struct csi2_pix_format imx8mq_mipi_csi_formats[] = {
 	/* RAW (Bayer and greyscale) formats. */
 	{
@@ -1054,6 +1197,7 @@ static void imx8mq_mipi_csi_remove(struct platform_device *pdev)
 
 static const struct of_device_id imx8mq_mipi_csi_of_match[] = {
 	{ .compatible = "fsl,imx8mq-mipi-csi2", .data = &imx8mq_data },
+	{ .compatible = "fsl,imx8ulp-mipi-csi2", .data = &imx8ulp_data },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, imx8mq_mipi_csi_of_match);
