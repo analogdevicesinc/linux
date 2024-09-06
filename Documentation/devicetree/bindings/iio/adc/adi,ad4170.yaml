@@ -132,6 +132,10 @@ patternProperties:
           minimum: 0
           maximum: 15
 
+      diff-channels: true
+
+      bipolar: true
+
       adi,chop-iexc:
         description: |
           Specifies the chopping/swapping functionality for excitation currents.
@@ -190,10 +194,6 @@ patternProperties:
         $ref: /schemas/types.yaml#/definitions/uint32
         enum: [0, 1, 2, 3]
         default: 2
-
-      diff-channels: true
-
-      bipolar: true
 
     required:
       - reg
