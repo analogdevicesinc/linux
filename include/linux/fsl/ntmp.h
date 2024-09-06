@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
 /* Copyright 2022 NXP */
-#ifndef ENETC_NTMP_H
-#define ENETC_NTMP_H
+#ifndef __NETC_NTMP_H
+#define __NETC_NTMP_H
 
 #include <linux/bitops.h>
 #include <net/tc_act/tc_gate.h>

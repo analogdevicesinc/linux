@@ -5,6 +5,8 @@
  * Copyright (c) 2023 Wei Fang <wei.fang@nxp.com>
  */
 #include <linux/iopoll.h>
+#include <linux/fsl/netc_global.h>
+#include <linux/fsl/netc_lib.h>
 
 #include "ntmp_formats.h"
 
@@ -63,16 +65,6 @@
 #define NTMP_REQ_RESP_LEN(req, resp)	(((req) << 20 & NTMP_REQ_LEN_MASK) | \
 					 ((resp) & NTMP_RESP_LEN_MASK))
 
-static inline u32 netc_cbdr_read(void __iomem *reg)
-{
-	return ioread32(reg);
-}
-
-static inline void netc_cbdr_write(void __iomem *reg, u32 val)
-{
-	iowrite32(val, reg);
-}
-
 int netc_setup_cbdr(struct device *dev, int cbd_num,
 		    struct netc_cbdr_regs *regs,
 		    struct netc_cbdr *cbdr)
@@ -102,20 +94,20 @@ int netc_setup_cbdr(struct device *dev, int cbd_num,
 	spin_lock_init(&cbdr->ring_lock);
 
 	/* Step 1: Configure the base address of the Control BD Ring */
-	netc_cbdr_write(cbdr->regs.bar0, lower_32_bits(cbdr->dma_base_align));
-	netc_cbdr_write(cbdr->regs.bar1, upper_32_bits(cbdr->dma_base_align));
+	netc_write(cbdr->regs.bar0, lower_32_bits(cbdr->dma_base_align));
+	netc_write(cbdr->regs.bar1, upper_32_bits(cbdr->dma_base_align));
 
 	/* Step 2: Configure the producer index register */
-	netc_cbdr_write(cbdr->regs.pir, cbdr->next_to_clean);
+	netc_write(cbdr->regs.pir, cbdr->next_to_clean);
 
 	/* Step 3: Configure the consumer index register */
-	netc_cbdr_write(cbdr->regs.cir, cbdr->next_to_use);
+	netc_write(cbdr->regs.cir, cbdr->next_to_use);
 
 	/* Step4: Configure the number of BDs of the Control BD Ring */
-	netc_cbdr_write(cbdr->regs.lenr, cbdr->bd_num);
+	netc_write(cbdr->regs.lenr, cbdr->bd_num);
 
 	/* Step 5: Enable the Control BD Ring */
-	netc_cbdr_write(cbdr->regs.mr, NETC_CBDRMR_EN);
+	netc_write(cbdr->regs.mr, NETC_CBDRMR_EN);
 
 	return 0;
 }
@@ -124,7 +116,7 @@ EXPORT_SYMBOL_GPL(netc_setup_cbdr);
 void netc_teardown_cbdr(struct device *dev, struct netc_cbdr *cbdr)
 {
 	/* Disable the Control BD Ring */
-	netc_cbdr_write(cbdr->regs.mr, 0);
+	netc_write(cbdr->regs.mr, 0);
 
 	dma_free_coherent(dev, cbdr->dma_size, cbdr->addr_base, cbdr->dma_base);
 
@@ -149,7 +141,7 @@ static void netc_clean_cbdr(struct netc_cbdr *cbdr)
 	int i;
 
 	i = cbdr->next_to_clean;
-	while (netc_cbdr_read(cbdr->regs.cir) != i) {
+	while (netc_read(cbdr->regs.cir) != i) {
 		cbd = netc_get_cbd(cbdr, i);
 		memset(cbd, 0, sizeof(*cbd));
 		i = (i + 1) % cbdr->bd_num;
@@ -207,9 +199,9 @@ static int netc_xmit_ntmp_cmd(struct netc_cbdrs *cbdrs, union netc_cbd *cbd)
 	i = (i + 1) % cbdr->bd_num;
 	cbdr->next_to_use = i;
 	dma_wmb();
-	netc_cbdr_write(cbdr->regs.pir, i);
+	netc_write(cbdr->regs.pir, i);
 
-	err = read_poll_timeout_atomic(netc_cbdr_read, val, val == i,
+	err = read_poll_timeout_atomic(netc_read, val, val == i,
 				       10, NETC_CBDR_TIMEOUT, true,
 				       cbdr->regs.cir);
 	if (unlikely(err)) {
