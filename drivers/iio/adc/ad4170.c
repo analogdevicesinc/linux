@@ -86,24 +86,6 @@ struct ad4170_state {
 	unsigned int tx_data[2];
 };
 
-static const char * const ad4170_dig_aux_1_pin_names[] = {
-	[AD4170_DIG_AUX1_DISABLED] = "disabled",
-	[AD4170_DIG_AUX1_RDY] = "rdy",
-	[AD4170_DIG_AUX1_SYNC] = "sync",
-};
-
-static const char * const ad4170_dig_aux_2_pin_names[] = {
-	[AD4170_DIG_AUX2_DISABLED] = "disabled",
-	[AD4170_DIG_AUX2_LDAC] = "ldac",
-	[AD4170_DIG_AUX2_SYNC] = "sync",
-};
-
-static const char * const ad4170_sync_pin_names[] = {
-	[AD4170_SYNC_DISABLED] = "disabled",
-	[AD4170_SYNC_STANDARD] = "std",
-	[AD4170_SYNC_ALTERNATE] = "alt",
-};
-
 static const unsigned int ad4170_iout_current_ua_tbl[AD4170_I_OUT_MAX] = {
 	[AD4170_I_OUT_0UA] = 0,
 	[AD4170_I_OUT_10UA] = 10,
@@ -955,52 +937,61 @@ static int ad4170_of_clock_select(struct ad4170_state *st)
 	return clocksel;
 }
 
-static void ad4170_parse_digif_fw(struct iio_dev *indio_dev)
+static int ad4170_parse_digif_fw(struct iio_dev *indio_dev)
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
-	const char *function;
-	int ret, i;
+	struct device *dev = &st->spi->dev;
+	int ret;
 
+	/*
+	 * Optional adi,dig-aux1 defaults to 0, DIG_AUX1 pin disabled.
+	 */
 	st->cfg.pin_muxing.dig_aux1_ctrl = AD4170_DIG_AUX1_DISABLED;
-	ret = of_property_read_string(st->spi->dev.of_node,
-				      "adi,dig-aux1-function", &function);
+	ret = device_property_read_u8(dev, "adi,dig-aux1",
+				      &st->cfg.pin_muxing.dig_aux1_ctrl);
 	if (ret < 0)
-		dev_warn(&st->spi->dev, "Could not read dig-aux1-function\n");
+		return dev_err_probe(dev, ret,
+				     "Failed to read adi,dig-aux1 property\n");
 
-	for (i = 0; !ret && i < ARRAY_SIZE(ad4170_dig_aux_1_pin_names); i++) {
-		if (!strcmp(function, ad4170_dig_aux_1_pin_names[i])) {
-			st->cfg.pin_muxing.dig_aux1_ctrl = i;
-			break;
-		}
-	}
+	if (st->cfg.pin_muxing.dig_aux1_ctrl < AD4170_DIG_AUX1_DISABLED ||
+	    st->cfg.pin_muxing.dig_aux1_ctrl > AD4170_DIG_AUX1_SYNC)
+		return dev_err_probe(dev, -EINVAL,
+				     "Invalid adi,dig-aux1 value: %u\n",
+				     st->cfg.pin_muxing.dig_aux1_ctrl);
 
+	/*
+	 * Optional adi,dig-aux2 defaults to 0, DIG_AUX2 pin disabled.
+	 */
 	st->cfg.pin_muxing.dig_aux2_ctrl = AD4170_DIG_AUX2_DISABLED;
-
-	ret = of_property_read_string(st->spi->dev.of_node,
-				      "adi,dig-aux2-function", &function);
+	ret = device_property_read_u8(dev, "adi,dig-aux2",
+				      &st->cfg.pin_muxing.dig_aux2_ctrl);
 	if (ret < 0)
-		dev_warn(&st->spi->dev, "Could not read dig-aux2-function\n");
+		return dev_err_probe(dev, ret,
+				     "Failed to read adi,dig-aux2 property\n");
 
-	for (i = 0; !ret && i < ARRAY_SIZE(ad4170_dig_aux_2_pin_names); i++) {
-		if (!strcmp(function, ad4170_dig_aux_2_pin_names[i])) {
-			st->cfg.pin_muxing.dig_aux2_ctrl = i;
-			break;
-		}
-	}
+	if (st->cfg.pin_muxing.dig_aux2_ctrl < AD4170_DIG_AUX2_DISABLED ||
+	    st->cfg.pin_muxing.dig_aux2_ctrl > AD4170_DIG_AUX2_SYNC)
+		return dev_err_probe(dev, -EINVAL,
+				     "Invalid adi,dig-aux2 value: %u\n",
+				     st->cfg.pin_muxing.dig_aux2_ctrl);
 
+	/*
+	 * Optional adi,sync-option defaults to 1, standard sync functionality.
+	 */
 	st->cfg.pin_muxing.sync_ctrl = AD4170_SYNC_STANDARD;
-
-	ret = of_property_read_string(st->spi->dev.of_node, "adi,sync-function",
-				      &function);
+	ret = device_property_read_u8(dev, "adi,sync-option",
+				      &st->cfg.pin_muxing.sync_ctrl);
 	if (ret < 0)
-		dev_warn(&st->spi->dev, "Could not read sync-function\n");
+		return dev_err_probe(dev, ret,
+				     "Failed to read adi,sync-option property\n");
 
-	for (i = 0; !ret && i < ARRAY_SIZE(ad4170_sync_pin_names); i++) {
-		if (!strcmp(function, ad4170_sync_pin_names[i])) {
-			st->cfg.pin_muxing.sync_ctrl = i;
-			break;
-		}
-	}
+	if (st->cfg.pin_muxing.sync_ctrl < AD4170_SYNC_DISABLED ||
+	    st->cfg.pin_muxing.sync_ctrl > AD4170_SYNC_ALTERNATE)
+		return dev_err_probe(dev, -EINVAL,
+				     "Invalid adi,sync-option value: %u\n",
+				     st->cfg.pin_muxing.sync_ctrl);
+
+	return 0;
 }
 
 static int ad4170_parse_fw_setup(struct ad4170_state *st,
@@ -1150,7 +1141,9 @@ static int ad4170_parse_fw(struct iio_dev *indio_dev)
 				     "Failed to get mclk\n");
 
 	st->cfg.clock_ctrl.clocksel = ad4170_of_clock_select(st);
-	ad4170_parse_digif_fw(indio_dev);
+	ret = ad4170_parse_digif_fw(indio_dev);
+	if (ret < 0)
+		return ret;
 
 	st->pdsw0 = fwnode_property_read_bool(dev->fwnode, "adi,gpio0-power-down-switch");
 	st->pdsw1 = fwnode_property_read_bool(dev->fwnode, "adi,gpio1-power-down-switch");
