@@ -327,7 +327,7 @@ examples:
             channel@0 {
                 reg = <0>;
                 bipolar;
-                diff-channels = <AD4170_MAP_AIN0 AD4170_AIN1>;
+                diff-channels = <AD4170_MAP_AIN0 AD4170_MAP_AIN1>;
                 adi,config-setup-slot = <0>;
                 adi,reference-select = <3>;
                 adi,burnout-current-nanoamp = <100>;
