@@ -292,6 +292,9 @@ required:
   - avdd-supply
   - iovdd-supply
 
+allOf:
+  - $ref: /schemas/spi/spi-peripheral-props.yaml#
+
 unevaluatedProperties: false
 
 examples:
