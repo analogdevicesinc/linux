@@ -301,6 +301,7 @@ examples:
             compatible = "adi,ad4170";
             reg = <0>;
             avdd-supply = <&avdd>;
+            iovdd-supply = <&iovdd>;
             #address-cells = <1>;
             #size-cells = <0>;
             dmas = <&axi_dmac_0 0>;
