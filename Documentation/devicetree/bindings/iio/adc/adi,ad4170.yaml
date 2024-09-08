@@ -182,7 +182,8 @@ patternProperties:
 
       adi,burnout-current-nanoamp:
         description: |
-          Burnout current in nanoamps to be applied for this channel.
+          Current in nanoamps to be applied for this channel. Burnout currents
+          are only active when the channel is selected for conversion.
         enum: [0, 100, 2000, 10000]
         default: 0
 
@@ -296,6 +297,7 @@ examples:
                 diff-channels = <AD4170_MAP_AIN0 AD4170_AIN1>;
                 adi,config-setup-slot = <0>;
                 adi,reference-select = <3>;
+                adi,burnout-current-nanoamp = <100>;
             };
             // Sample AIN2 with respect to DGND throughout AVDD/DGND input range
             // Peseudo-differential unipolar (fig. 2a)
