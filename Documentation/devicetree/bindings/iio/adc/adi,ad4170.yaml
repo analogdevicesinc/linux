@@ -132,7 +132,35 @@ patternProperties:
           minimum: 0
           maximum: 15
 
-      diff-channels: true
+      diff-channels:
+        description: |
+          This property is used for defining the inputs of a differential
+          voltage channel. The first value is the positive input and the second
+          value is the negative input of the channel.
+
+          Besides the analog input pins AIN0 to AIN8, there are special inputs
+          that can be selected with the following values:
+            17: Temeprature sensor input
+            18: (AVDD-AVSS)/5
+            19: (IOVDD-DGND)/5
+            20: DAC output
+            21: ALDO
+            22: DLDO
+            23: AVSS
+            24: DGND
+            25: REFIN+
+            26: REFIN-
+            27: REFIN2+
+            28: REFIN2-
+            29: REFOUT
+
+          There are macros for those values in dt-bindings/iio/adi,ad4170.h.
+
+        items:
+          minimum: 0
+          maximum: 31
+
+      single-channel: true
 
       bipolar: true
 
