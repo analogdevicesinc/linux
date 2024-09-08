@@ -75,28 +75,4 @@
 #define AD4170_MAP_REFIN2_N		0x1C
 #define AD4170_MAP_REFOUT		0x1D
 
-/*
- * Configures Functionality of pin DIG_AUX1.
- * Use for adi,dig-aux1-function
- */
-#define AD4170_DIG_AUX1_DISABLED "disabled"
-#define AD4170_DIG_AUX1_RDY "rdy"
-#define AD4170_DIG_AUX1_SYNC "sync"
-
-/*
- * Configures Functionality of pin DIG_AUX2.
- * Use for adi,dig-aux2-function
- */
-#define AD4170_DIG_AUX2_DISABLED "disabled"
-#define AD4170_DIG_AUX2_LDAC "ldac"
-#define AD4170_DIG_AUX2_SYNC "sync"
-
-/*
- * Configures Functionality of pin SYNC.
- * Use for adi,sync-function
- */
-#define AD4170_SYNC_DISABLED "disabled"
-#define AD4170_SYNC_STANDARD "std"
-#define AD4170_SYNC_ALTERNATE "alt"
-
 #endif /* _DT_BINDINGS_IIO_ADC_AD4170_H_ */
