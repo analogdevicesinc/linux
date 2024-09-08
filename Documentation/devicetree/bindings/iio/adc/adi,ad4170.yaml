@@ -284,10 +284,6 @@ examples:
             adi,dig-aux2 = /bits/ 8 <0>;
             adi,sync-option = /bits/ 8 <0>;
             adi,vbias-pins = <5 6>;
-            adi,excitation-pin-0 = <17>;
-            adi,excitation-current-0-microamp = <50>;
-            adi,excitation-pin-1 = <18>;
-            adi,excitation-current-0-microamp = <50>;
 
             // Sample AIN0 with respect to AIN1 throughout AVDD/AVSS input range
             // Fully differential. If AVSS < 0V, Fully differential true bipolar
