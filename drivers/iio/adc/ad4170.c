@@ -1003,14 +1003,6 @@ static int ad4170_parse_fw_setup(struct ad4170_state *st,
 	int ret;
 
 	tmp = 0;
-	fwnode_property_read_u32(child, "adi,burnout-current-nanoamp", &tmp);
-	ret = ad4170_find_table_index(ad4170_burnout_current_na_tbl, tmp);
-	if (ret < 0)
-		return dev_err_probe(dev, ret,
-				     "Invalid burnout current %unA\n", tmp);
-	setup->misc.burnout = ret;
-
-	tmp = 0;
 	fwnode_property_read_u32(child, "adi,chop-iexc", &tmp);
 	setup->misc.chop_iexc = tmp;
 
@@ -1019,6 +1011,14 @@ static int ad4170_parse_fw_setup(struct ad4170_state *st,
 	setup->misc.chop_adc = tmp;
 
 	st->chop_adc = tmp > st->chop_adc ? tmp : st->chop_adc;
+
+	tmp = 0;
+	fwnode_property_read_u32(child, "adi,burnout-current-nanoamp", &tmp);
+	ret = ad4170_find_table_index(ad4170_burnout_current_na_tbl, tmp);
+	if (ret < 0)
+		return dev_err_probe(dev, ret,
+				     "Invalid burnout current %unA\n", tmp);
+	setup->misc.burnout = ret;
 
 	setup->afe.ref_buf_p = fwnode_property_read_bool(child, "adi,buffered-positive");
 	setup->afe.ref_buf_m = fwnode_property_read_bool(child, "adi,buffered-negative");
