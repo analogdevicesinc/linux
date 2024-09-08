@@ -280,10 +280,15 @@ patternProperties:
               single-channel: false
               common-mode-channel: false
               adi,current-channel: false
-          - required: [adi,current-channel]
-              diff-channels: false
-              single-channel: false
-              common-mode-channel: false
+
+      - if:
+          required:
+            - adi,current-channel
+        then:
+          properties:
+            diff-channels: false
+            single-channel: false
+            common-mode-channel: false
 
     additionalProperties: false
 
