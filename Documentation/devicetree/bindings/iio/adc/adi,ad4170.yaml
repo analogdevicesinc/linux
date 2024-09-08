@@ -74,9 +74,9 @@ properties:
     description:
       Describes whether DIG_AUX1 pin will operate as data ready output,
       synchronization output signal (SYNC_OUT), or if it will be disabled.
-      0: DIG_AUX1 pin disabled. High impedance.
-      1: Pin configured as ADC data ready output.
-      2: Pin configured as SYNC_OUT output.
+      A value of 0 indicates DIG_AUX1 pin disabled. High impedance.
+      A value of 1 indicates DIG_AUX1 is configured as ADC data ready output.
+      A value of 1 indicates DIG_AUX1 is configured as SYNC_OUT output.
       If this property is absent, DIG_AUX1 pin is disabled.
     $ref: /schemas/types.yaml#/definitions/uint8
     enum: [0, 1, 2]
@@ -86,9 +86,10 @@ properties:
     description:
       Describes whether DIG_AUX2 pin will function as DAC LDAC input,
       synchronization start input (START), or if it will be disabled.
-      0: DIG_AUX2 pin disabled. High impedance.
-      1: Pin configured as ADC data ready output.
-      2: Pin configured as START input.
+      A value of 0 indicates DIG_AUX2 pin is disabled. High impedance.
+      A value of 1 indicates DIG_AUX2 pin is configured as active-low LDAC input
+      for the DAC.
+      A value of 2 indicates DIG_AUX2 pin is configured as START input.
       If this property is absent, DIG_AUX2 pin is disabled.
     $ref: /schemas/types.yaml#/definitions/uint8
     enum: [0, 1, 2]
@@ -102,9 +103,9 @@ properties:
       Use option number 2 to set the alternate synchronization functionality
       which allows per channel conversion start control when multiple channels
       are enabled. Option number 0 disables synchronization.
-      0: No synchronization. SYNC_IN pin disabled.
-      1: Standard synchronization functionality.
-      2: Alternate synchronization functionality.
+      A value of 0 indicates no synchronization. SYNC_IN pin disabled.
+      A value of 1 indicates standard synchronization functionality.
+      A value of 2 indicates alternate synchronization functionality.
       If this property is absent, no synchronization is performed.
     $ref: /schemas/types.yaml#/definitions/uint8
     enum: [0, 1, 2]
