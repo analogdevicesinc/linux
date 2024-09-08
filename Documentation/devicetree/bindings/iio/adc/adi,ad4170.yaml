@@ -165,7 +165,6 @@ patternProperties:
           and gain register. More than one channel can use the same
           configuration setup slot in which case they will share the settings
           for the above mentioned registers.
-        $ref: /schemas/types.yaml#/definitions/uint8
         items:
           minimum: 0
           maximum: 7
