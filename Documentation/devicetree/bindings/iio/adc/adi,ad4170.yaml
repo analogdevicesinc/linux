@@ -225,8 +225,8 @@ patternProperties:
 
       adi,reference-select:
         description: |
-          Select the reference source to use when converting on
-          the specific channel. Valid values are:
+          Select the reference source to use when converting on the specific
+          channel. Valid values are:
           0: Differential reference voltage REFIN+ - REFIN−.
           1: Differential reference voltage REFIN2+ - REFIN2−.
           2: Internal 2.5V referece (REFOUT) relative to AVSS.
