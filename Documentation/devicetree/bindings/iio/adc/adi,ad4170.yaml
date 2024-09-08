@@ -136,6 +136,18 @@ patternProperties:
 
       bipolar: true
 
+      adi,config-setup-slot:
+        description: |
+          Specifies which of the eight setups are used to configure the channel.
+          A setup comprises of: AFE, FILTER, FILTER_FS, MISC, offset register,
+          and gain register. More than one channel can use the same
+          configuration setup slot in which case they will share the settings
+          for the above mentioned registers.
+        $ref: /schemas/types.yaml#/definitions/uint8
+        items:
+          minimum: 0
+          maximum: 7
+
       adi,chop-iexc:
         description: |
           Specifies the chopping/swapping functionality for excitation currents.
@@ -226,6 +238,7 @@ patternProperties:
 
     required:
       - reg
+      - adi,config-setup-slot
 
     allOf:
       - oneOf:
@@ -280,60 +293,68 @@ examples:
             channel@0 {
                 reg = <0>;
                 bipolar;
-                adi,reference-select = <3>;
                 diff-channels = <AD4170_MAP_AIN0 AD4170_AIN1>;
+                adi,config-setup-slot = <0>;
+                adi,reference-select = <3>;
             };
             // Sample AIN2 with respect to DGND throughout AVDD/DGND input range
             // Peseudo-differential unipolar (fig. 2a)
             channel@2 {
                 reg = <2>;
-                adi,reference-select = <3>;
                 single-channel = <AD4170_MAP_AIN2>;
                 common-mode-channel = <AD4170_MAP_DGND>;
+                adi,config-setup-slot = <1>;
+                adi,reference-select = <3>;
             };
             // Sample AIN3 with respect to 2.5V throughout AVDD/AVSS input range
             // Pseudo-differential bipolar (fig. 2b)
             channel@3 {
                 reg = <3>;
                 bipolar;
-                adi,reference-select = <3>;
                 single-channel = <AD4170_MAP_AIN3>;
                 common-mode-channel = <AD4170_MAP_REFOUT>;
+                adi,config-setup-slot = <2>;
+                adi,reference-select = <3>;
             };
             // Sample AIN4 with respect to DGND throughout AVDD/AVSS input range
             // Pseudo-differential ture bipolar if AVSS < 0V (fig. 2c)
             channel@4 {
                 reg = <4>;
                 bipolar;
-                adi,reference-select = <3>;
                 single-channel = <AD4170_MAP_AIN4>;
                 common-mode-channel = <AD4170_MAP_DGND>;
+                adi,config-setup-slot = <3>;
+                adi,reference-select = <3>;
             };
             // Sample AIN5 with respect to 2.5V throughout AVDD/REFOUT input range
             // Pseudo-differential unipolar (AD4170 datasheet page 46 example)
             channel@5 {
                 reg = <5>;
-                adi,reference-select = <2>;
                 single-channel = <AD4170_MAP_AIN5>;
                 common-mode-channel = <AD4170_MAP_REFOUT>;
+                adi,config-setup-slot = <4>;
+                adi,reference-select = <2>;
             };
             // Sample AIN6 with respect to DGND throughout REFIN+/REFIN- input range
             // Pseudo-differential bipolar
             channel@6 {
                 reg = <6>;
                 bipolar;
-                adi,reference-select = <0>;
                 diff-channels = <AD4170_MAP_AIN6 AD4170_MAP_DGND>;
+                adi,config-setup-slot = <5>;
+                adi,reference-select = <0>;
             };
             // Temperature sensor
             channel@7 {
                 reg = <7>;
                 bipolar;
-                adi,reference-select = <0>;
                 diff-channels = <AD4170_MAP_TEMP_SENSOR_P AD4170_MAP_TEMP_SENSOR_N>;
+                adi,config-setup-slot = <6>;
+                adi,reference-select = <0>;
             };
             channel@8 {
                 reg = <8>;
+                adi,config-setup-slot = <7>;
                 adi,chop-iexc = <2>;
                 adi,current-channel = <2>;
                 adi,current-out-pin = <19>;
@@ -341,6 +362,7 @@ examples:
             };
             channel@9 {
                 reg = <9>;
+                adi,config-setup-slot = <7>;
                 adi,chop-iexc = <2>;
                 adi,current-channel = <3>;
                 adi,current-out-pin = <20>;
