@@ -239,7 +239,7 @@ patternProperties:
       adi,current-channel:
         description: |
           Specifies the channel will function as a current output and which one
-          of 4 excitation currents (IOUT0 to IOUT3) it will output.
+          of 4 excitation currents sources (IOUT0 to IOUT3) it will output.
           If this property is present, adi,current-out-pin must be provided too.
           Omit this property for ADC input channels.
         $ref: /schemas/types.yaml#/definitions/uint32
