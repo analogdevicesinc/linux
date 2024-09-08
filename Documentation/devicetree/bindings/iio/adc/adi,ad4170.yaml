@@ -110,12 +110,6 @@ properties:
     enum: [0, 1, 2]
     default: 1
 
-required:
-  - compatible
-  - reg
-  - avdd-supply
-  - iovdd-supply
-
 patternProperties:
   "^channel@([0-9]|1[0-5])$":
     $ref: "adc.yaml"
@@ -291,6 +285,12 @@ patternProperties:
             common-mode-channel: false
 
     additionalProperties: false
+
+required:
+  - compatible
+  - reg
+  - avdd-supply
+  - iovdd-supply
 
 unevaluatedProperties: false
 
