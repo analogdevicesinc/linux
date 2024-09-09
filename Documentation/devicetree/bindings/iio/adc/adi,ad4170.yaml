@@ -370,33 +370,42 @@ examples:
                 adi,config-setup-slot = <4>;
                 adi,reference-select = <2>;
             };
-            // Sample AIN6 with respect to DGND throughout REFIN+/REFIN- input range
-            // Pseudo-differential bipolar
+            // Sample AIN6 with respect to REFIN+ throughout AVDD/AVSS input range
+            // Pseudo-differential unipolar
             channel@5 {
                 reg = <5>;
+                single-channel = <AD4170_MAP_AIN6>;
+                common-mode-channel = <AD4170_MAP_REFIN1_P>;
+                adi,config-setup-slot = <4>;
+                adi,reference-select = <2>;
+            };
+            // Sample AIN7 with respect to DGND throughout REFIN+/REFIN- input range
+            // Pseudo-differential bipolar
+            channel@6 {
+                reg = <6>;
                 bipolar;
-                diff-channels = <AD4170_MAP_AIN6 AD4170_MAP_DGND>;
+                diff-channels = <AD4170_MAP_AIN7 AD4170_MAP_DGND>;
                 adi,config-setup-slot = <5>;
                 adi,reference-select = <0>;
             };
             // Temperature sensor
-            channel@6 {
-                reg = <6>;
+            channel@7 {
+                reg = <7>;
                 bipolar;
                 diff-channels = <AD4170_MAP_TEMP_SENSOR_P AD4170_MAP_TEMP_SENSOR_N>;
                 adi,config-setup-slot = <6>;
                 adi,reference-select = <0>;
             };
-            channel@7 {
-                reg = <7>;
+            channel@8 {
+                reg = <8>;
                 adi,config-setup-slot = <7>;
                 adi,chop-iexc = <2>;
                 adi,current-out = <2>;
                 adi,current-out-pin = <19>;
                 adi,excitation-current-microamp = <50>;
             };
-            channel@8 {
-                reg = <8>;
+            channel@9 {
+                reg = <9>;
                 adi,config-setup-slot = <7>;
                 adi,chop-iexc = <2>;
                 adi,current-out = <3>;
