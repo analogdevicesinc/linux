@@ -790,6 +790,9 @@ static const struct file_operations viv_drm_fops = {
     .poll               = drm_poll,
     .read               = drm_read,
     .llseek             = no_llseek,
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+    .fop_flags = FOP_UNSIGNED_OFFSET,
+#endif
 };
 
 static struct drm_driver viv_drm_driver = {
