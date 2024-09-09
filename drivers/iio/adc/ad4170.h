@@ -556,13 +556,15 @@ struct ad4170_channel_map {
  */
 enum ad4170_chop_iexc {
 	/* No Chopping of Excitation Currents. */
-	AD4170_CHOP_IEXC_OFF,
+	AD4170_CHOP_IEXC_OFF = AD4170_MISC_CHOP_IEXC_OFF,
 	/* Chopping of Iout_A and Iout_B Excitation Currents. */
-	AD4170_CHOP_IEXC_AB,
+	AD4170_CHOP_IEXC_AB = AD4170_MISC_CHOP_IEXC_AB,
 	/* Chopping of Iout_C and Iout_D Excitation Currents. */
-	AD4170_CHOP_IEXC_CD,
+	AD4170_CHOP_IEXC_CD = AD4170_MISC_CHOP_IEXC_CD,
 	/* Chopping of Both Pairs of Excitation Currents. */
-	AD4170_CHOP_IEXC_ABCD
+	AD4170_CHOP_IEXC_ABCD = AD4170_MISC_CHOP_IEXC_ABCD,
+	/* Enum max value */
+	AD4170_IEXC_CHOP_MAX
 };
 
 /**
