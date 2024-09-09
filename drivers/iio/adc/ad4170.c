@@ -85,6 +85,13 @@ struct ad4170_state {
 	unsigned int tx_data[2];
 };
 
+static const unsigned int ad4170_iexc_chop_tbl[AD4170_IEXC_CHOP_MAX] = {
+	[AD4170_CHOP_IEXC_OFF] = AD4170_MISC_CHOP_IEXC_OFF,
+	[AD4170_CHOP_IEXC_AB] = AD4170_MISC_CHOP_IEXC_AB,
+	[AD4170_CHOP_IEXC_CD] = AD4170_MISC_CHOP_IEXC_CD,
+	[AD4170_CHOP_IEXC_ABCD] = AD4170_MISC_CHOP_IEXC_ABCD,
+};
+
 static const unsigned int ad4170_iout_current_ua_tbl[AD4170_I_OUT_MAX] = {
 	[AD4170_I_OUT_0UA] = 0,
 	[AD4170_I_OUT_10UA] = 10,
@@ -1007,10 +1014,6 @@ static int ad4170_parse_fw_setup(struct ad4170_state *st,
 	int ret;
 
 	tmp = 0;
-	fwnode_property_read_u32(child, "adi,chop-iexc", &tmp);
-	setup->misc.chop_iexc = tmp;
-
-	tmp = 0;
 	fwnode_property_read_u32(child, "adi,chop-adc", &tmp);
 	setup->misc.chop_adc = tmp;
 
@@ -1276,6 +1279,15 @@ static int ad4170_parse_fw(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
+	tmp = 0;
+	fwnode_property_read_u32(dev->fwnode, "adi,chop-iexc", &tmp);
+	ret = ad4170_find_table_index(ad4170_iexc_chop_tbl, tmp);
+	if (ret < 0)
+		return dev_err_probe(dev, ret,
+				     "Invalid adi,chop-iexc config: %u\n", tmp);
+
+	/* Set excitation current chop config to first channel setup config */
+	st->slots_info[indio_dev->channels[0].address].setup.misc.chop_iexc = tmp;
 	return 0;
 }
 
