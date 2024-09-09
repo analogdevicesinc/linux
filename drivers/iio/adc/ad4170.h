@@ -777,22 +777,6 @@ enum ad4170_i_out_pin {
 	AD4170_I_OUT_AIN7,
 	/* I_OUT is Available on AIN8. */
 	AD4170_I_OUT_AIN8,
-	/* I_OUT is Available on AIN9. */
-	AD4170_I_OUT_AIN9,
-	/* I_OUT is Available on AIN10. */
-	AD4170_I_OUT_AIN10,
-	/* I_OUT is Available on AIN11. */
-	AD4170_I_OUT_AIN11,
-	/* I_OUT is Available on AIN12. */
-	AD4170_I_OUT_AIN12,
-	/* I_OUT is Available on AIN13. */
-	AD4170_I_OUT_AIN13,
-	/* I_OUT is Available on AIN14. */
-	AD4170_I_OUT_AIN14,
-	/* I_OUT is Available on AIN15. */
-	AD4170_I_OUT_AIN15,
-	/* I_OUT is Available on AINCOM. */
-	AD4170_I_OUT_AINCOM,
 	/* I_OUT is Available on GPIO0. */
 	AD4170_I_OUT_GPIO0,
 	/* I_OUT is Available on GPIO1. */
