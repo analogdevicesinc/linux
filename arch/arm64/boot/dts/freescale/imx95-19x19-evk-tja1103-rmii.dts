@@ -42,13 +42,14 @@
 	status = "okay";
 };
 
-&netc_prb_ierb {
-	assigned-clock-rates = <666666666>, <50000000>;
-	netc-interfaces = <NXP_NETC_RMII
-			   NXP_NETC_RMII
-			   NXP_NETC_SERIAL>;
-	netc-rmii-clk-dir = <NXP_NETC_RMII_CLK_INPUT
-			     NXP_NETC_RMII_CLK_OUTPUT>;
+&netc_blk_ctrl {
+	assigned-clocks = <&scmi_clk IMX95_CLK_ENET>,
+			  <&scmi_clk IMX95_CLK_ENETREF>,
+			  <&netcmix_blk_ctrl IMX95_CLK_NETCMIX_ENETC1_RMII>;
+	assigned-clock-parents = <&scmi_clk IMX95_CLK_SYSPLL1_PFD2>,
+				 <&scmi_clk IMX95_CLK_SYSPLL1_PFD0>,
+				 <&scmi_clk IMX95_CLK_ENETREF>;
+	assigned-clock-rates = <666666666>, <50000000>, <0>;
 };
 
 &netc_emdio {

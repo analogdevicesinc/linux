@@ -2961,11 +2961,12 @@
 			power-domain-names = "pd_enc";
 		};
 
-		netc_prb_ierb: netc-prb-ierb@4cde0000 {
-			compatible = "fsl,imx95-netc-prb-ierb";
+		netc_blk_ctrl: netc-blk-ctrl@4cde0000 {
+			compatible = "nxp,imx95-netc-blk-ctrl";
 			reg = <0x0 0x4cde0000 0x0 0x10000>,
-			      <0x0 0x4cdf0000 0x0 0x10000>;
-			reg-names = "ierb_base", "prb_base";
+			      <0x0 0x4cdf0000 0x0 0x10000>,
+			      <0x0 0x4c81000c 0x0 0x18>;
+			reg-names = "ierb", "prb", "netcmix";
 			#address-cells = <2>;
 			#size-cells = <2>;
 			ranges;

@@ -13,9 +13,7 @@
 };
 
 /delete-node/ &netcmix_blk_ctrl;
-/delete-node/ &pcie_4ca00000;
-/delete-node/ &pcie_4cb00000;
-/delete-node/ &netc_prb_ierb;
+/delete-node/ &netc_blk_ctrl;
 /delete-node/ &pinctrl_enetc0;
 
 / {
