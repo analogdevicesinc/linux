@@ -334,8 +334,8 @@ examples:
             };
             // Sample AIN2 with respect to DGND throughout AVDD/DGND input range
             // Peseudo-differential unipolar (fig. 2a)
-            channel@2 {
-                reg = <2>;
+            channel@1 {
+                reg = <1>;
                 single-channel = <AD4170_MAP_AIN2>;
                 common-mode-channel = <AD4170_MAP_DGND>;
                 adi,config-setup-slot = <1>;
@@ -343,8 +343,8 @@ examples:
             };
             // Sample AIN3 with respect to 2.5V throughout AVDD/AVSS input range
             // Pseudo-differential bipolar (fig. 2b)
-            channel@3 {
-                reg = <3>;
+            channel@2 {
+                reg = <2>;
                 bipolar;
                 single-channel = <AD4170_MAP_AIN3>;
                 common-mode-channel = <AD4170_MAP_REFOUT>;
@@ -353,8 +353,8 @@ examples:
             };
             // Sample AIN4 with respect to DGND throughout AVDD/AVSS input range
             // Pseudo-differential ture bipolar if AVSS < 0V (fig. 2c)
-            channel@4 {
-                reg = <4>;
+            channel@3 {
+                reg = <3>;
                 bipolar;
                 single-channel = <AD4170_MAP_AIN4>;
                 common-mode-channel = <AD4170_MAP_DGND>;
@@ -363,8 +363,8 @@ examples:
             };
             // Sample AIN5 with respect to 2.5V throughout AVDD/REFOUT input range
             // Pseudo-differential unipolar (AD4170 datasheet page 46 example)
-            channel@5 {
-                reg = <5>;
+            channel@4 {
+                reg = <4>;
                 single-channel = <AD4170_MAP_AIN5>;
                 common-mode-channel = <AD4170_MAP_REFOUT>;
                 adi,config-setup-slot = <4>;
@@ -372,31 +372,31 @@ examples:
             };
             // Sample AIN6 with respect to DGND throughout REFIN+/REFIN- input range
             // Pseudo-differential bipolar
-            channel@6 {
-                reg = <6>;
+            channel@5 {
+                reg = <5>;
                 bipolar;
                 diff-channels = <AD4170_MAP_AIN6 AD4170_MAP_DGND>;
                 adi,config-setup-slot = <5>;
                 adi,reference-select = <0>;
             };
             // Temperature sensor
-            channel@7 {
-                reg = <7>;
+            channel@6 {
+                reg = <6>;
                 bipolar;
                 diff-channels = <AD4170_MAP_TEMP_SENSOR_P AD4170_MAP_TEMP_SENSOR_N>;
                 adi,config-setup-slot = <6>;
                 adi,reference-select = <0>;
             };
-            channel@8 {
-                reg = <8>;
+            channel@7 {
+                reg = <7>;
                 adi,config-setup-slot = <7>;
                 adi,chop-iexc = <2>;
                 adi,current-channel = <2>;
                 adi,current-out-pin = <19>;
                 adi,excitation-current-microamp = <50>;
             };
-            channel@9 {
-                reg = <9>;
+            channel@8 {
+                reg = <8>;
                 adi,config-setup-slot = <7>;
                 adi,chop-iexc = <2>;
                 adi,current-channel = <3>;
