@@ -5,7 +5,7 @@
 $id: http://devicetree.org/schemas/power/supply/ltc4162-l.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Linear Technology (Analog Devices) LTC4162-L Charger
+title: Linear Technology (Analog Devices) LTC4162 and LTC4015 Charger
 
 maintainers:
   - Mike Looijmans <mike.looijmans@topic.nl>
@@ -17,12 +17,18 @@ description: |
   panels, etc., and a rechargeable Lithium-Ion/Polymer battery.
 
   Specifications about the charger can be found at:
+    https://www.analog.com/en/products/ltc4162-l.html
+    https://www.analog.com/en/products/ltc4162-f.html
     https://www.analog.com/en/products/ltc4162-s.html
+    https://www.analog.com/en/products/ltc4015.html
 
 properties:
   compatible:
     enum:
       - lltc,ltc4162-l
+      - lltc,ltc4162-f
+      - lltc,ltc4162-s
+      - lltc,ltc4015
 
   reg:
     maxItems: 1
