@@ -111,6 +111,90 @@ properties:
     enum: [0, 1, 2]
     default: 1
 
+  adi,excitation-pin-0:
+    description: |
+      Specifies the pin on which IOUT0 will be made available.
+      Besides the analog pins 0 to 8, the excitation current can be output to
+      GPIO pins.
+      17: Output excitation current IOUT0 to GPIO0.
+      18: Output excitation current IOUT0 to GPIO1.
+      19: Output excitation current IOUT0 to GPIO2.
+      20: Output excitation current IOUT0 to GPIO3.
+      If this property is absent, IOUT0 is not routed to any pin.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20]
+    default: 0
+
+  adi,excitation-pin-1:
+    description: |
+      Specifies the pin on which IOUT1 will be made available.
+      Besides the analog pins 0 to 8, the excitation current can be output to
+      GPIO pins.
+      17: Output excitation current IOUT1 to GPIO0.
+      18: Output excitation current IOUT1 to GPIO1.
+      19: Output excitation current IOUT1 to GPIO2.
+      20: Output excitation current IOUT1 to GPIO3.
+      If this property is absent, IOUT1 is not routed to any pin.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20]
+    default: 0
+
+  adi,excitation-pin-2:
+    description: |
+      Specifies the pin on which IOUT2 will be made available.
+      Besides the analog pins 0 to 8, the excitation current can be output to
+      GPIO pins.
+      17: Output excitation current IOUT2 to GPIO0.
+      18: Output excitation current IOUT2 to GPIO1.
+      19: Output excitation current IOUT2 to GPIO2.
+      20: Output excitation current IOUT2 to GPIO3.
+      If this property is absent, IOUT2 is not routed to any pin.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20]
+    default: 0
+
+  adi,excitation-pin-3:
+    description: |
+      Specifies the pin on which IOUT3 will be made available.
+      Besides the analog pins 0 to 8, the excitation current can be output to
+      GPIO pins.
+      17: Output excitation current IOUT3 to GPIO0.
+      18: Output excitation current IOUT3 to GPIO1.
+      19: Output excitation current IOUT3 to GPIO2.
+      20: Output excitation current IOUT3 to GPIO3.
+      If this property is absent, IOUT3 is not routed to any pin.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20]
+    default: 0
+
+  adi,excitation-current-0-microamp:
+    description: |
+      Excitation current in microamps to be applied to IOUT0 output pin
+      specified in adi,excitation-pin-0.
+    enum: [0, 10, 50, 100, 250, 500, 1000, 1500]
+    default: 0
+
+  adi,excitation-current-1-microamp:
+    description: |
+      Excitation current in microamps to be applied to IOUT1 output pin
+      specified in adi,excitation-pin-1.
+    enum: [0, 10, 50, 100, 250, 500, 1000, 1500]
+    default: 0
+
+  adi,excitation-current-2-microamp:
+    description: |
+      Excitation current in microamps to be applied to IOUT2 output pin
+      specified in adi,excitation-pin-2.
+    enum: [0, 10, 50, 100, 250, 500, 1000, 1500]
+    default: 0
+
+  adi,excitation-current-3-microamp:
+    description: |
+      Excitation current in microamps to be applied to IOUT3 output pin
+      specified in adi,excitation-pin-3.
+    enum: [0, 10, 50, 100, 250, 500, 1000, 1500]
+    default: 0
+
 patternProperties:
   "^channel@([0-9]|1[0-5])$":
     $ref: "adc.yaml"
@@ -230,35 +314,6 @@ patternProperties:
         enum: [0, 1, 2, 3]
         default: 2
 
-      adi,current-out:
-        description: |
-          Specifies the channel will function as a current output and which one
-          of 4 excitation currents sources (IOUT0 to IOUT3) it will output.
-          If this property is present, adi,current-out-pin must be provided too.
-          Omit this property for ADC input channels.
-        $ref: /schemas/types.yaml#/definitions/uint32
-        enum: [0, 1, 2, 3]
-
-      adi,current-out-pin:
-        description: |
-          Specifies the pin on which output current will be made available.
-          Besides the analog pins 0 to 8, the excitation current can be output
-          to GPIO pins.
-          17: Output excitation current to GPIO0.
-          18: Output excitation current to GPIO1.
-          19: Output excitation current to GPIO2.
-          20: Output excitation current to GPIO3.
-          If this property is absent, the output curretn is not routed to any pin.
-        $ref: /schemas/types.yaml#/definitions/uint32
-        enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 17, 18, 19, 20]
-
-      adi,excitation-current-microamp:
-        description: |
-          Excitation current in microamps to be applied to the output pin
-          specified in adi,excitation-pin for the channel.
-        enum: [0, 10, 50, 100, 250, 500, 1000, 1500]
-        default: 0
-
     required:
       - reg
       - adi,config-setup-slot
@@ -268,21 +323,10 @@ patternProperties:
           - required: [single-channel]
             properties:
               diff-channels: false
-              adi,current-out: false
           - required: [diff-channels]
             properties:
               single-channel: false
               common-mode-channel: false
-              adi,current-out: false
-
-      - if:
-          required:
-            - adi,current-out
-        then:
-          properties:
-            diff-channels: false
-            single-channel: false
-            common-mode-channel: false
 
     additionalProperties: false
 
@@ -395,22 +439,6 @@ examples:
                 diff-channels = <AD4170_MAP_TEMP_SENSOR_P AD4170_MAP_TEMP_SENSOR_N>;
                 adi,config-setup-slot = <6>;
                 adi,reference-select = <0>;
-            };
-            channel@8 {
-                reg = <8>;
-                adi,config-setup-slot = <7>;
-                adi,chop-iexc = <2>;
-                adi,current-out = <2>;
-                adi,current-out-pin = <19>;
-                adi,excitation-current-microamp = <50>;
-            };
-            channel@9 {
-                reg = <9>;
-                adi,config-setup-slot = <7>;
-                adi,chop-iexc = <2>;
-                adi,current-out = <3>;
-                adi,current-out-pin = <20>;
-                adi,excitation-current-microamp = <50>;
             };
         };
     };
