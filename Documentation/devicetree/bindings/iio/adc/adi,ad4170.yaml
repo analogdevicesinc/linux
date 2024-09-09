@@ -230,7 +230,7 @@ patternProperties:
         enum: [0, 1, 2, 3]
         default: 2
 
-      adi,current-channel:
+      adi,current-out:
         description: |
           Specifies the channel will function as a current output and which one
           of 4 excitation currents sources (IOUT0 to IOUT3) it will output.
@@ -268,16 +268,16 @@ patternProperties:
           - required: [single-channel]
             properties:
               diff-channels: false
-              adi,current-channel: false
+              adi,current-out: false
           - required: [diff-channels]
             properties:
               single-channel: false
               common-mode-channel: false
-              adi,current-channel: false
+              adi,current-out: false
 
       - if:
           required:
-            - adi,current-channel
+            - adi,current-out
         then:
           properties:
             diff-channels: false
@@ -391,7 +391,7 @@ examples:
                 reg = <7>;
                 adi,config-setup-slot = <7>;
                 adi,chop-iexc = <2>;
-                adi,current-channel = <2>;
+                adi,current-out = <2>;
                 adi,current-out-pin = <19>;
                 adi,excitation-current-microamp = <50>;
             };
@@ -399,7 +399,7 @@ examples:
                 reg = <8>;
                 adi,config-setup-slot = <7>;
                 adi,chop-iexc = <2>;
-                adi,current-channel = <3>;
+                adi,current-out = <3>;
                 adi,current-out-pin = <20>;
                 adi,excitation-current-microamp = <50>;
             };
