@@ -195,6 +195,18 @@ properties:
     enum: [0, 10, 50, 100, 250, 500, 1000, 1500]
     default: 0
 
+  adi,chop-iexc:
+    description: |
+      Specifies the chopping/swapping functionality for excitation currents.
+      0: No Chopping of Excitation Currents.
+      1: Chop/swap IOUT0 and IOUT1 (pair AB) excitation currents.
+      2: Chop/swap IOUT2 and IOUT3 (pair CD) excitation currents.
+      3: Chop/swap both pairs (pair AB and pair CD) of excitation currents.
+      If this property is absent, no chopping is performed.
+    $ref: /schemas/types.yaml#/definitions/uint16
+    enum: [0, 1, 2, 3]
+    default: 0
+
 patternProperties:
   "^channel@([0-9]|1[0-5])$":
     $ref: "adc.yaml"
@@ -253,18 +265,6 @@ patternProperties:
         items:
           minimum: 0
           maximum: 7
-
-      adi,chop-iexc:
-        description: |
-          Specifies the chopping/swapping functionality for excitation currents.
-          0: No Chopping of Excitation Currents.
-          1: Chop/swap IOUT0 and IOUT1 (pair AB) excitation currents.
-          2: Chop/swap IOUT2 and IOUT3 (pair CD) excitation currents.
-          3: Chop/swap both pairs (pair AB and pair CD) of excitation currents.
-          If this property is absent, no chopping is performed.
-        $ref: /schemas/types.yaml#/definitions/uint16
-        enum: [0, 1, 2, 3]
-        default: 0
 
       adi,chop-adc:
         description: |
@@ -364,6 +364,11 @@ examples:
             adi,dig-aux1 = /bits/ 8 <0>;
             adi,dig-aux2 = /bits/ 8 <0>;
             adi,sync-option = /bits/ 8 <0>;
+            adi,excitation-pin-0 = <19>;
+            adi,excitation-current-0-microamp = <10>;
+            adi,excitation-pin-1 = <20>;
+            adi,excitation-current-1-microamp = <10>;
+            adi,chop-iexc = <1>;
             adi,vbias-pins = <5 6>;
 
             // Sample AIN0 with respect to AIN1 throughout AVDD/AVSS input range
