@@ -1038,16 +1038,68 @@ static int ad4170_parse_fw_setup(struct ad4170_state *st,
 	return 0;
 }
 
+static int ad4170_parse_fw_channel_type(struct device *dev,
+					struct fwnode_handle *child,
+					struct iio_chan_spec *chan)
+{
+	u32 pins[2];
+	u32 iout;
+	int ret;
+
+	/*
+	 * May be one of differential channel, single-ended channel, or current
+	 * channel.
+	 */
+	ret = fwnode_property_read_u32_array(child, "diff-channels", pins,
+					     ARRAY_SIZE(pins));
+	if (!ret) {
+		chan->differential = true;
+		chan->channel = pins[0];
+		chan->channel2 = pins[1];
+		return 0;
+	}
+	ret = fwnode_property_read_u32(child, "single-channel", &pins[0]);
+	if (!ret) {
+		chan->differential = false;
+		chan->channel = pins[0];
+
+		ret = fwnode_property_read_u32(child, "common-mode-channel", &pins[1]);
+		if (ret)
+			return dev_err_probe(dev, ret,
+				"common-mode-channel must be defined for single-ended channels.\n");
+		chan->channel2 = pins[1];
+		return 0;
+	}
+	ret = fwnode_property_read_u32(child, "adi,current-out", &iout);
+	if (!ret) {
+		chan->type = IIO_CURRENT;
+		chan->differential = false;
+		chan->info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
+					   BIT(IIO_CHAN_INFO_SCALE),
+		chan->info_mask_separate_available = BIT(IIO_CHAN_INFO_RAW),
+		chan->output = true;
+
+
+		ret = fwnode_property_read_u32(child, "adi,current-out-pin", &pins[0]);
+		if (ret)
+			return dev_err_probe(dev, ret,
+				"Must define adi,current-out-pin if channel has adi,current-out.\n");
+		chan->channel = pins[0];
+		return 0;
+	}
+	return dev_err_probe(dev, ret,
+		"Channel must define one of diff-channels, single-channel, or adi,current-out.\n");
+}
+
 static int ad4170_parse_fw_channel(struct iio_dev *indio_dev,
 				   struct iio_chan_spec *chan_array,
 				   struct fwnode_handle *child)
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
-	unsigned int index = 0;
+	unsigned int index, setup_slot = 0;
 	struct device *dev = &st->spi->dev;
 	struct ad4170_chan_info *chan_info;
 	struct iio_chan_spec *chan;
-	u32 pins[2];
 	int ret;
 
 	ret = fwnode_property_read_u32(child, "reg", &index);
@@ -1066,6 +1118,16 @@ static int ad4170_parse_fw_channel(struct iio_dev *indio_dev,
 	chan->scan_index = index;
 
 	chan_info->slot = AD4170_INVALID_SLOT;
+	ret = fwnode_property_read_u32(child, "adi,config-setup-slot", &setup_slot);
+	if (ret)
+		return dev_err_probe(dev, ret,
+				     "Channel idx greater than no of channels\n");
+
+	chan_info->slot = setup_slot;
+	ret = ad4170_parse_fw_channel_type(dev, child, chan);
+	if (ret < 0)
+		return ret;
+
 	chan_info->setup.filter.filter_type = AD4170_FILT_SINC5_AVG;
 	chan_info->setup.filter_fs = 0x4;
 
@@ -1073,13 +1135,6 @@ static int ad4170_parse_fw_channel(struct iio_dev *indio_dev,
 	if (chan_info->setup.afe.bipolar)
 		chan->scan_type.sign = 's';
 
-	ret = fwnode_property_read_u32_array(child, "diff-channels", pins,
-					     ARRAY_SIZE(pins));
-	if (ret)
-		return ret;
-
-	chan->channel = pins[0];
-	chan->channel2 = pins[1];
 
 	ret = ad4170_parse_fw_setup(st, child, &chan_info->setup);
 	if (ret)
