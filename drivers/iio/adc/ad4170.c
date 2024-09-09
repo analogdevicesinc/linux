@@ -1237,11 +1237,11 @@ static int ad4170_parse_fw(struct iio_dev *indio_dev)
 				 &st->cfg.current_source[1].i_out_pin);
 
 	st->cfg.current_source[2].i_out_pin = AD4170_I_OUT_AIN0;
-	fwnode_property_read_u32(dev->fwnode, "adi,excitation-pin-1",
+	fwnode_property_read_u32(dev->fwnode, "adi,excitation-pin-2",
 				 &st->cfg.current_source[2].i_out_pin);
 
 	st->cfg.current_source[3].i_out_pin = AD4170_I_OUT_AIN0;
-	fwnode_property_read_u32(dev->fwnode, "adi,excitation-pin-1",
+	fwnode_property_read_u32(dev->fwnode, "adi,excitation-pin-3",
 				 &st->cfg.current_source[3].i_out_pin);
 
 	tmp = 0;
