@@ -46,7 +46,6 @@ struct ad4170_slot_info {
 struct ad4170_chan_info {
 	struct ad4170_current_source current_source[AD4170_NUM_CURRENT_SOURCE];
 	unsigned int nr;
-	struct ad4170_setup setup;
 	int slot;
 	u32 scale_tbl[10][2];
 	bool enabled;
@@ -317,7 +316,7 @@ static int ad4170_write_channel_setup(struct ad4170_state *st,
 				      unsigned int channel)
 {
 	struct ad4170_chan_info *chan_info = &st->chan_info[channel];
-	struct ad4170_setup *setup = &st->chan_info[channel].setup;
+	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
 	int slot;
 	int ret;
 
@@ -387,7 +386,7 @@ static int ad4170_set_filter_type(struct iio_dev *indio_dev,
 	struct ad4170_state *st = iio_priv(indio_dev);
 	unsigned int channel = chan->scan_index;
 	struct ad4170_chan_info *chan_info = &st->chan_info[channel];
-	struct ad4170_setup *setup = &chan_info->setup;
+	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
 	enum ad4170_filter_type old_filter_type;
 	int freq_val, freq_val2;
 	unsigned int old_fs;
@@ -428,7 +427,8 @@ static int ad4170_get_filter_type(struct iio_dev *indio_dev,
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
 	unsigned int channel = chan->scan_index;
-	struct ad4170_setup *setup = &st->chan_info[channel].setup;
+	struct ad4170_chan_info *chan_info = &st->chan_info[chan->address];
+	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
 	enum ad4170_filter_type filter_type;
 
 	mutex_lock(&st->lock);
@@ -522,6 +522,7 @@ static int _ad4170_read_sample(struct iio_dev *indio_dev, unsigned int channel,
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
 	struct ad4170_chan_info *chan_info = &st->chan_info[channel];
+	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
 	int ret;
 
 	ret = ad4170_set_channel_enable(st, channel, true);
@@ -546,7 +547,7 @@ static int _ad4170_read_sample(struct iio_dev *indio_dev, unsigned int channel,
 	if (ret)
 		return ret;
 
-	if (chan_info->setup.afe.bipolar)
+	if (setup->afe.bipolar)
 		*val = sign_extend32(*val, ad4170_channel_template.scan_type.realbits - 1);
 out:
 	ret = ad4170_set_channel_enable(st, channel, false);
@@ -598,12 +599,13 @@ static void ad4170_channel_scale(struct iio_dev *indio_dev,
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
 	struct ad4170_chan_info *chan_info = &st->chan_info[chan->address];
-	int ch_resolution = chan->scan_type.realbits - chan_info->setup.afe.bipolar;
+	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
+	int ch_resolution = chan->scan_type.realbits - setup->afe.bipolar;
 	int pga_gain;
 
-	*val = ad4170_get_ref_voltage(st, chan_info->setup.afe.ref_select) / MILLI;
-	pga_gain = chan_info->setup.afe.pga_gain & 0x7;
-	if (chan_info->setup.afe.pga_gain & 0x8) /* handle cases pga_gain = 8 and 9 */
+	*val = ad4170_get_ref_voltage(st, setup->afe.ref_select) / MILLI;
+	pga_gain = setup->afe.pga_gain & 0x7;
+	if (setup->afe.pga_gain & 0x8) /* handle cases pga_gain = 8 and 9 */
 		pga_gain--;
 
 	*val2 = ch_resolution + pga_gain;
@@ -639,7 +641,8 @@ static int ad4170_read_raw(struct iio_dev *indio_dev,
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
 	unsigned int channel = chan->scan_index;
-	struct ad4170_setup *setup = &st->chan_info[channel].setup;
+	struct ad4170_chan_info *chan_info = &st->chan_info[channel];
+	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
 
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
@@ -674,12 +677,13 @@ static void ad4170_fill_scale_tbl(struct iio_dev *indio_dev, int channel)
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
 	struct ad4170_chan_info *chan_info = &st->chan_info[channel];
+	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
 	const struct iio_chan_spec *chan = &indio_dev->channels[channel];
-	int ch_resolution = chan->scan_type.realbits - chan_info->setup.afe.bipolar;
+	int ch_resolution = chan->scan_type.realbits - setup->afe.bipolar;
 	unsigned int ref_select_uv;
 	int pga;
 
-	ref_select_uv = ad4170_get_ref_voltage(st, chan_info->setup.afe.ref_select);
+	ref_select_uv = ad4170_get_ref_voltage(st, setup->afe.ref_select);
 
 	for (pga = 0; pga < AD4170_PGA_GAIN_MAX; pga++) {
 		u64 nv;
@@ -701,8 +705,8 @@ static int ad4170_read_avail(struct iio_dev *indio_dev,
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
 	unsigned int channel = chan->scan_index;
-	struct ad4170_setup *setup = &st->chan_info[channel].setup;
 	struct ad4170_chan_info *chan_info = &st->chan_info[channel];
+	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
 	const struct ad4170_filter_config *filter_config;
 
 	switch (info) {
@@ -748,7 +752,7 @@ static int ad4170_set_channel_pga(struct iio_dev *indio_dev,
 				  int val, int val2)
 {
 	struct ad4170_chan_info *chan_info = &st->chan_info[channel];
-	struct ad4170_setup *setup = &chan_info->setup;
+	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
 	unsigned int pga, old_pga;
 	int ret = 0;
 
@@ -781,7 +785,7 @@ static int ad4170_set_channel_freq(struct ad4170_state *st,
 				   unsigned int channel, int val, int val2)
 {
 	struct ad4170_chan_info *chan_info = &st->chan_info[channel];
-	struct ad4170_setup *setup = &chan_info->setup;
+	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
 	unsigned int fs, old_fs;
 	int ret = 0;
 
@@ -1099,6 +1103,7 @@ static int ad4170_parse_fw_channel(struct iio_dev *indio_dev,
 	unsigned int index, setup_slot = 0;
 	struct device *dev = &st->spi->dev;
 	struct ad4170_chan_info *chan_info;
+	struct ad4170_setup *setup;
 	struct iio_chan_spec *chan;
 	int ret;
 
@@ -1128,15 +1133,16 @@ static int ad4170_parse_fw_channel(struct iio_dev *indio_dev,
 	if (ret < 0)
 		return ret;
 
-	chan_info->setup.filter.filter_type = AD4170_FILT_SINC5_AVG;
-	chan_info->setup.filter_fs = 0x4;
+	setup = &st->slots_info[chan_info->slot].setup;
+	setup->filter.filter_type = AD4170_FILT_SINC5_AVG;
+	setup->filter_fs = 0x4;
 
-	chan_info->setup.afe.bipolar = fwnode_property_read_bool(child, "bipolar");
-	if (chan_info->setup.afe.bipolar)
+	setup->afe.bipolar = fwnode_property_read_bool(child, "bipolar");
+	if (setup->afe.bipolar)
 		chan->scan_type.sign = 's';
 
 
-	ret = ad4170_parse_fw_setup(st, child, &chan_info->setup);
+	ret = ad4170_parse_fw_setup(st, child, setup);
 	if (ret)
 		return ret;
 
