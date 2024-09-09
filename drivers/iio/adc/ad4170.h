@@ -5,6 +5,8 @@
  * Copyright 2023 Analog Devices Inc.
  */
 
+#include <dt-bindings/iio/adc/adi,ad4170.h>
+
 /* In development */
 #define AD4170_NAME				"ad4170"
 /* ADC Register Lengths*/
