@@ -21,6 +21,8 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 
+#include <linux/clk-provider.h>
+
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
 #include <linux/iio/frequency/adf4350.h>
@@ -32,6 +34,13 @@ enum {
 	ADF4350_PWRDOWN,
 };
 
+struct adf4350_output {
+	struct clk_hw hw;
+	struct iio_dev *indio_dev;
+};
+
+#define to_output(_hw) container_of(_hw, struct adf4350_output, hw)
+
 struct adf4350_state {
 	struct spi_device		*spi;
 	struct regulator		*reg;
@@ -41,6 +50,7 @@ struct adf4350_state {
 	struct clk			*clkout;
 	const char			*clk_out_name;
 	struct clk_hw			hw;
+	struct adf4350_output		output;
 	unsigned long			clkin;
 	unsigned long			chspc; /* Channel Spacing */
 	unsigned long			fpfd; /* Phase Frequency Detector */
@@ -250,7 +260,14 @@ static ssize_t adf4350_write(struct iio_dev *indio_dev,
 	mutex_lock(&st->lock);
 	switch ((u32)private) {
 	case ADF4350_FREQ:
-		ret = adf4350_set_freq(st, readin);
+		if (st->clkout) {
+			tmp = clk_round_rate(st->clkout, readin);
+			if (tmp != readin) {
+				ret = -EINVAL;
+				break;
+			}
+			ret = clk_set_rate(st->clkout, tmp);
+		}
 		break;
 	case ADF4350_FREQ_REFIN:
 		if (readin > ADF4350_MAX_FREQ_REFIN) {
@@ -377,32 +394,44 @@ static void adf4350_clk_del_provider(void *data)
 static unsigned long adf4350_clk_recalc_rate(struct clk_hw *hw,
 					     unsigned long parent_rate)
 {
-	struct adf4350_state *st = to_adf4350_state(hw);
+	struct iio_dev *indio_dev = to_output(hw)->indio_dev;
+	struct adf4350_state *st = iio_priv(indio_dev);
 	unsigned long long tmp;
 
-	tmp = (u64)(st->r0_int * st->r1_mod + st->r0_fract) * st->fpfd;
+	tmp = (u64)((st->r0_int * st->r1_mod) + st->r0_fract) *
+			st->fpfd;
+
 	do_div(tmp, st->r1_mod * (1 << st->r4_rf_div_sel));
 
 	return tmp;
+}
+
+static long adf4350_clk_round_rate(struct clk_hw *hw, unsigned long rate,
+				   unsigned long *prate)
+{
+	return rate;
 }
 
 static int adf4350_clk_set_rate(struct clk_hw *hw,
 				unsigned long rate,
 				unsigned long parent_rate)
 {
-	struct adf4350_state *st = to_adf4350_state(hw);
+	struct iio_dev *indio_dev = to_output(hw)->indio_dev;
+	struct adf4350_state *st = iio_priv(indio_dev);
 
 	if (parent_rate == 0 || parent_rate > ADF4350_MAX_FREQ_REFIN)
 		return -EINVAL;
 
-	st->clkin = parent_rate;
+	if (st->clkin != parent_rate)
+		st->clkin = parent_rate;
 
 	return adf4350_set_freq(st, rate);
 }
 
 static int adf4350_clk_prepare(struct clk_hw *hw)
 {
-	struct adf4350_state *st = to_adf4350_state(hw);
+	struct iio_dev *indio_dev = to_output(hw)->indio_dev;
+	struct adf4350_state *st = iio_priv(indio_dev);
 
 	st->regs[ADF4350_REG2] &= ~ADF4350_REG2_POWER_DOWN_EN;
 
@@ -411,7 +440,8 @@ static int adf4350_clk_prepare(struct clk_hw *hw)
 
 static void adf4350_clk_unprepare(struct clk_hw *hw)
 {
-	struct adf4350_state *st = to_adf4350_state(hw);
+	struct iio_dev *indio_dev = to_output(hw)->indio_dev;
+	struct adf4350_state *st = iio_priv(indio_dev);
 
 	st->regs[ADF4350_REG2] |= ADF4350_REG2_POWER_DOWN_EN;
 
@@ -420,13 +450,15 @@ static void adf4350_clk_unprepare(struct clk_hw *hw)
 
 static int adf4350_clk_is_enabled(struct clk_hw *hw)
 {
-	struct adf4350_state *st = to_adf4350_state(hw);
+	struct iio_dev *indio_dev = to_output(hw)->indio_dev;
+	struct adf4350_state *st = iio_priv(indio_dev);
 
 	return (st->regs[ADF4350_REG2] & ADF4350_REG2_POWER_DOWN_EN);
 }
 
 static const struct clk_ops adf4350_clk_ops = {
 	.recalc_rate = adf4350_clk_recalc_rate,
+	.round_rate = adf4350_clk_round_rate,
 	.set_rate = adf4350_clk_set_rate,
 	.prepare = adf4350_clk_prepare,
 	.unprepare = adf4350_clk_unprepare,
@@ -441,15 +473,9 @@ static int adf4350_clk_register(struct adf4350_state *st)
 	const char *parent_name;
 	int ret;
 
-	if (!device_property_present(&spi->dev, "#clock-cells"))
-		return 0;
-
-	if (device_property_read_string(&spi->dev, "clock-output-names", &init.name)) {
-		init.name = devm_kasprintf(&spi->dev, GFP_KERNEL, "%s-clk",
-					   fwnode_get_name(dev_fwnode(&spi->dev)));
-		if (!init.name)
-			return -ENOMEM;
-	}
+	init.name = spi->dev.of_node->name;
+	device_property_read_string(&spi->dev, "clock-output-names",
+				    &init.name);
 
 	parent_name = of_clk_get_parent_name(spi->dev.of_node, 0);
 	if (!parent_name)
@@ -458,10 +484,9 @@ static int adf4350_clk_register(struct adf4350_state *st)
 	init.ops = &adf4350_clk_ops;
 	init.parent_names = &parent_name;
 	init.num_parents = 1;
-	init.flags = CLK_SET_RATE_PARENT;
 
-	st->hw.init = &init;
-	clk = devm_clk_register(&spi->dev, &st->hw);
+	st->output.hw.init = &init;
+	clk = devm_clk_register(&spi->dev, &st->output.hw);
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
@@ -577,27 +602,32 @@ static int adf4350_probe(struct spi_device *spi)
 		pdata = spi->dev.platform_data;
 	}
 
+	dev_warn(&spi->dev, "print1\n");
+
 	if (!pdata) {
 		dev_warn(&spi->dev, "no platform data? using default\n");
 		pdata = &default_pdata;
 	}
 
+	dev_warn(&spi->dev, "print2\n");
+	
 	if (!pdata->clkin) {
 		clk = devm_clk_get(&spi->dev, "clkin");
 		if (IS_ERR(clk))
 			return -EPROBE_DEFER;
-
+	dev_warn(&spi->dev, "print3\n");
 		ret = clk_prepare_enable(clk);
 		if (ret < 0)
 			return ret;
+	dev_warn(&spi->dev, "print4\n");
 	}
-
+	dev_warn(&spi->dev, "print5\n");
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (indio_dev == NULL) {
 		ret =  -ENOMEM;
 		goto error_disable_clk;
 	}
-
+	dev_warn(&spi->dev, "print6\n");
 	st = iio_priv(indio_dev);
 
 	st->reg = devm_regulator_get(&spi->dev, "vcc");
@@ -606,6 +636,7 @@ static int adf4350_probe(struct spi_device *spi)
 		if (ret)
 			goto error_disable_clk;
 	}
+    dev_warn(&spi->dev, "print7\n");
 
 	spi_set_drvdata(spi, indio_dev);
 	st->spi = spi;
@@ -616,6 +647,10 @@ static int adf4350_probe(struct spi_device *spi)
 
 	indio_dev->info = &adf4350_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
+	indio_dev->channels = &adf4350_chan;
+	indio_dev->num_channels = 1;
+	indio_dev->dev.parent = &spi->dev;
+	st->output.indio_dev = indio_dev;
 
 	mutex_init(&st->lock);
 
@@ -634,11 +669,12 @@ static int adf4350_probe(struct spi_device *spi)
 
 	st->lock_detect_gpiod = devm_gpiod_get_optional(&spi->dev, NULL,
 							GPIOD_IN);
+	dev_warn(&spi->dev, "print8\n");
 	if (IS_ERR(st->lock_detect_gpiod)) {
 		ret = PTR_ERR(st->lock_detect_gpiod);
 		goto error_disable_reg;
 	}
-
+    dev_warn(&spi->dev, "print9\n");
 	if (st->lock_detect_gpiod) {
 		int i;
 
@@ -655,7 +691,7 @@ static int adf4350_probe(struct spi_device *spi)
 			}
 		}
 	}
-
+  dev_warn(&spi->dev, "print10\n");
 	st->regs[ADF4350_REG2] =
 		ADF4350_REG2_DOUBLE_BUFF_EN |
 		(pdata->ref_doubler_en ? ADF4350_REG2_RMULT2_EN : 0) |
@@ -685,7 +721,7 @@ static int adf4350_probe(struct spi_device *spi)
 
 	st->regs[ADF4350_REG5] = ADF4350_REG5_LD_PIN_MODE_DIGITAL |
 				BIT(19) | BIT(20);
-
+  dev_warn(&spi->dev, "print11\n");
 	if (pdata->power_up_frequency) {
 		ret = adf4350_set_freq(st, pdata->power_up_frequency);
 		if (ret)
@@ -694,17 +730,12 @@ static int adf4350_probe(struct spi_device *spi)
 
 	ret = adf4350_clk_register(st);
 	if (ret)
-		goto error_disable_reg;
-
-	if (!st->clkout) {
-		indio_dev->channels = &adf4350_chan;
-		indio_dev->num_channels = 1;
-	}
+		return ret;
 
 	ret = iio_device_register(indio_dev);
 	if (ret)
 		goto error_disable_reg;
-
+dev_warn(&spi->dev, "print15\n");
 	return 0;
 
 error_disable_reg:

@@ -69,12 +69,6 @@
 		clock-frequency = <25000000>;
 	};
 
-	adf4350_clkout: adf4350_clkout {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <400000000>;
-	};
-
 	gpio-control@0 {
 		compatible = "adi,one-bit-adc-dac";
 		#address-cells = <1>;
@@ -100,14 +94,18 @@
 };
 
 &spi1 {
-	adf4350: adf4350@1 {
+	adf4350_clkout: adf4350@1 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "adi,adf4350";
 		reg = <1>;
 		spi-max-frequency = <10000000>;
+		#clock-cells = <0>;
 		clocks = <&adf4350_clkin>;
 		clock-names = "clkin";
+		clock-output-names = "adf4350-out";
+		assigned-clocks = <&adf4350_clkout>;
+        assigned-clock-rates = <400000000>;
 		adi,reference-div-factor = <1>;
 		adi,channel-spacing = <100000>;
 		adi,lock-detect-function-integer-n-enable;
@@ -162,7 +160,7 @@
 		ad9508_0_c3:channel@3 {
 			reg = <3>;
 			adi,extended-name = "MACH1_CLK";
-			adi,driver-mode = <(DRIVER_PHASE_NORMAL | DRIVER_MODE_LVDS_1_25)>;
+			adi,driver-mode = <(DRIVER_PHASE_INVERTING | DRIVER_MODE_LVDS_1_25)>;
 			adi,divider-phase = <0>;
 			adi,channel-divider = <1>;
 		};
