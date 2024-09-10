@@ -583,6 +583,51 @@ static int ad4170_read_sample(struct iio_dev *indio_dev, unsigned int channel,
 	return ret;
 }
 
+static int ad4170_get_input_range(struct ad4170_state *st,
+				  struct iio_chan_spec const *chan,
+				  enum ad4170_ref_select ref_sel)
+{
+	struct ad4170_chan_info *chan_info = &st->chan_info[chan->address];
+	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
+	int scale_bits = chan->scan_type.realbits - setup->afe.bipolar;
+	int pos_ref, neg_ref;
+
+	/*
+	 * The ADC digitizes the analog input voltage over a span given by
+	 * the provided voltage reference and input type. For single-ended inputs,
+	 * the analog voltage input can swing from 0V to VREF (where VREF
+	 * is a voltage reference with voltage potential higher than system
+	 * ground).
+	 * The maximum input voltage is often called VFS (full-scale input voltage),
+	 * with VFS being determined by VREF but the input range is 0V to VREF
+	 * nevertheless.
+	 * For differential
+	 * inputs, the analog voltage inputs are allowed to swing from
+	 * -VREF to +VREF
+	 * (where -VREF is the voltage reference that has the lower voltage
+	 * potential while +VREF is the reference with the higher one).
+	 * In many cases, the negative reference (-VREF) is 0V (GND), but it may
+	 * be higher than GND (e.g. 2.5V) or even lower (e.g. -2.5V).
+	 * Regardless of the provided voltage reference(s), the analog inputs
+	 * must stay within 0V to VREF (for single-ended inputs) or within -VREF to
+	 * +VREF (for differential inputs).
+	 * With that, the least significant bit (LSB) of the ADC output code
+	 * depends on the input range and, for simple ADCs that output data
+	 * conversion in straight binary format, the LSB can be calculated as
+	 * input_range / 2^(precision_bits).
+	 * For example, if the device has 16-bit precision, VREF = 5V, and the
+	 * input is single-ended, then one LSB will represent
+	 * (VREF - 0V)/2^16 = 0.000076293945 V or 76.293945 micro volts.
+	 * If the input is differential, -VREF = 2.5V, and +VREF = 5V, then
+	 * 1 LSB = (+VREF - (-VREF))/2^16 = 2.5/2^16 = 38.146973 micro volts.
+	 * There is a third input type called Pseudo-differential.
+	 * Pseudo-differential inputs are made up from differential inputs by
+	 * fixing the negative input to a known voltage and only allowing the
+	 * positive input to vary. For those input types, the voltage input range
+	 * is defined the same as for differential inputs. ?
+	 */
+}
+
 static int ad4170_get_ref_voltage(struct ad4170_state *st,
 				  enum ad4170_ref_select ref_sel)
 {
