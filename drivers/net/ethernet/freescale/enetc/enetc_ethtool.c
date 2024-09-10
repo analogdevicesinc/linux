@@ -2,8 +2,7 @@
 /* Copyright 2017-2019 NXP */
 
 #include <linux/ethtool_netlink.h>
-#include <linux/fsl/netc_prb_ierb.h>
-#include <linux/fsl/ptp_netc.h>
+#include <linux/fsl/netc_global.h>
 #include <linux/net_tstamp.h>
 #include <linux/module.h>
 #include "enetc_pf.h"

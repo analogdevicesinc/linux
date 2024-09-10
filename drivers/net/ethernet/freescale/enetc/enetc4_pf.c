@@ -5,8 +5,8 @@
 #include <linux/of_platform.h>
 #include <linux/clk.h>
 #include <linux/pinctrl/consumer.h>
-#include <linux/fsl/netc_prb_ierb.h>
 #include <linux/unaligned.h>
+#include <linux/fsl/netc_global.h>
 
 #include "enetc_pf.h"
 
@@ -1207,7 +1207,7 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 	if (enetc_pf_is_owned_by_mcore(pdev))
 		return 0;
 
-	err = netc_prb_ierb_check_emdio_state();
+	err = netc_check_emdio_state();
 	if (err)
 		return err;
 
@@ -1251,7 +1251,7 @@ static int enetc4_pf_probe(struct pci_dev *pdev,
 
 	enetc_create_debugfs(si);
 
-	err = netc_prb_ierb_add_emdio_consumer(dev);
+	err = netc_emdio_consumer_register(dev);
 	if (err) {
 		dev_err(dev, "Failed to add EMDIO consumer\n");
 		goto err_add_emdio_consumer;

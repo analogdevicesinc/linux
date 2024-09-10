@@ -29,7 +29,7 @@ config FSL_ENETC
 
 config FSL_ENETC4
 	tristate "ENETC4 PF driver"
-	depends on PCI_MSI && FSL_NETC_PRB_IERB
+	depends on PCI_MSI && NXP_NETC_BLK_CTRL
 	select MDIO_DEVRES
 	select FSL_ENETC_CORE
 	select FSL_ENETC_MDIO
@@ -68,15 +68,19 @@ config FSL_ENETC_IERB
 
 	  If compiled as module (M), the module name is fsl-enetc-ierb.
 
-config FSL_NETC_PRB_IERB
-	tristate "NETC PRB and IERB driver"
+config NXP_NETC_BLK_CTRL
+	tristate "NETC blocks control driver"
 	help
-	  This driver configures Integrated Endpoint Register Block and Privileged
-	  Register Block on NXP i.MX95. The IERB contains registers that are used
-	  for pre-boot initialization, debug, and non-customer configuration. The
-	  PRB controls global reset and global error handling for NETC.
+	  This driver configures Integrated Endpoint Register Block (IERB) and
+	  Privileged Register Block (PRB) of NETC. For i.MX platforms, it also
+	  includes the configuration of NETCMIX block.
+	  The IERB contains registers that are used for pre-boot initialization,
+	  debug, and non-customer configuration. The PRB controls global reset
+	  and global error handling for NETC. The NETCMIX block is mainly used
+	  to set MII protocol and PCS protocol of the links, it also contains
+	  settings for some other functions.
 
-	  If compiled as module (M), the module name is fsl-netc-prb-ierb.
+	  If compiled as module (M), the module name is nxp-netc-blk-ctrl.
 
 config FSL_ENETC_MDIO
 	tristate "ENETC MDIO driver"
