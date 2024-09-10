@@ -10,8 +10,7 @@
 #include <linux/of_platform.h>
 #include <linux/pci.h>
 #include <linux/ptp_clock_kernel.h>
-#include <linux/fsl/netc_prb_ierb.h>
-#include <linux/fsl/ptp_netc.h>
+#include <linux/fsl/netc_global.h>
 
 #define NETC_TMR_CTRL			0x0080
 #define  TMR_CTRL_CK_SEL		GENMASK(1, 0)
