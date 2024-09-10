@@ -80,7 +80,9 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 {
 	int ret = 1; /* Assume GPU has been powered off */
 	int error;
+#ifdef CONFIG_MALI_DEBUG
 	unsigned long flags;
+#endif
 	struct imx_platform_ctx *ictx = kbdev->platform_context;
 
 	dev_dbg(kbdev->dev, "%s %pK\n", __func__, (void *)kbdev->dev->pm_domain);
@@ -97,6 +99,7 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 			ret = 0; //gpu still powered on.
 	}
 
+#ifdef CONFIG_MALI_DEBUG
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 	WARN_ON(kbdev->pm.backend.gpu_powered);
 	if (likely(kbdev->csf.firmware_inited)) {
@@ -104,6 +107,7 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 		WARN_ON(kbdev->pm.runtime_active);
 	}
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+#endif
 
 	enable_gpu_power_control(kbdev);
 	CSTD_UNUSED(error);
@@ -113,18 +117,18 @@ static int pm_callback_power_on(struct kbase_device *kbdev)
 
 static void pm_callback_power_off(struct kbase_device *kbdev)
 {
-	unsigned long flags;
 	struct imx_platform_ctx *ictx = kbdev->platform_context;
+#ifdef CONFIG_MALI_DEBUG
+	unsigned long flags;
 
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 	WARN_ON(kbdev->pm.backend.gpu_powered);
 	if (likely(kbdev->csf.firmware_inited)) {
-#ifdef CONFIG_MALI_DEBUG
 		WARN_ON(kbase_csf_scheduler_get_nr_active_csgs(kbdev));
-#endif
 		WARN_ON(kbdev->pm.backend.mcu_state != KBASE_MCU_OFF);
 	}
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
+#endif
 
 	/* Power down the GPU immediately */
 	disable_gpu_power_control(kbdev);
@@ -200,7 +204,11 @@ static void pm_callback_resume(struct kbase_device *kbdev)
 
 	ret = pm_callback_runtime_on(kbdev);
 
+#ifdef CONFIG_MALI_DEBUG
 	WARN_ON(ret);
+#else
+	CSTD_UNUSED(ret);
+#endif
 }
 
 static void pm_callback_suspend(struct kbase_device *kbdev)
