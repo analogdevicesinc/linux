@@ -315,7 +315,7 @@ static ssize_t ad4080_lvds_sync_write(struct iio_dev *indio_dev,
 	struct axiadc_state *axi_adc_st = iio_priv(indio_dev);
 	struct ad4080_state *st = ad4080_get_data(indio_dev);
 	unsigned int reg_cntrl, reg_cntrl_3;
-	unsigned int timeout = 100;
+	unsigned int timeout = 10000;
 	int ret;
 
 	mutex_lock(&st->lock);
