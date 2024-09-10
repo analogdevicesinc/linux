@@ -865,10 +865,16 @@ static int mxc_gpu_sub_probe(struct platform_device *pdev)
     return component_add(&pdev->dev, &mxc_gpu_sub_ops);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0)
+static void mxc_gpu_sub_remove(struct platform_device *pdev)
+#else
 static int mxc_gpu_sub_remove(struct platform_device *pdev)
+#endif
 {
     component_del(&pdev->dev, &mxc_gpu_sub_ops);
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 10, 0)
     return 0;
+#endif
 }
 
 struct platform_driver mxc_gpu_sub_driver =
