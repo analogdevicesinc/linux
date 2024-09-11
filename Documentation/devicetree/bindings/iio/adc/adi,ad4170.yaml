@@ -361,7 +361,7 @@ examples:
             spi-max-frequency = <20000000>;
             interrupt-parent = <&gpio_in>;
             interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
-            adi,dig-aux1 = /bits/ 8 <0>;
+            adi,dig-aux1 = /bits/ 8 <1>;
             adi,dig-aux2 = /bits/ 8 <0>;
             adi,sync-option = /bits/ 8 <0>;
             adi,excitation-pin-0 = <19>;
