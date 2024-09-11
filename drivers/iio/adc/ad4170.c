@@ -92,6 +92,22 @@ static const unsigned int ad4170_iexc_chop_tbl[AD4170_IEXC_CHOP_MAX] = {
 	[AD4170_CHOP_IEXC_ABCD] = AD4170_MISC_CHOP_IEXC_ABCD,
 };
 
+static const unsigned int ad4170_iout_pin_tbl[AD4170_I_OUT_PIN_MAX] = {
+	[AD4170_I_OUT_AIN0] = AD4170_CURRENT_IOUT_AIN0,
+	[AD4170_I_OUT_AIN1] = AD4170_CURRENT_IOUT_AIN1,
+	[AD4170_I_OUT_AIN2] = AD4170_CURRENT_IOUT_AIN2,
+	[AD4170_I_OUT_AIN3] = AD4170_CURRENT_IOUT_AIN3,
+	[AD4170_I_OUT_AIN4] = AD4170_CURRENT_IOUT_AIN4,
+	[AD4170_I_OUT_AIN5] = AD4170_CURRENT_IOUT_AIN5,
+	[AD4170_I_OUT_AIN6] = AD4170_CURRENT_IOUT_AIN6,
+	[AD4170_I_OUT_AIN7] = AD4170_CURRENT_IOUT_AIN7,
+	[AD4170_I_OUT_AIN8] = AD4170_CURRENT_IOUT_AIN8,
+	[AD4170_I_OUT_GPIO0] = AD4170_CURRENT_IOUT_GPIO0,
+	[AD4170_I_OUT_GPIO1] = AD4170_CURRENT_IOUT_GPIO1,
+	[AD4170_I_OUT_GPIO2] = AD4170_CURRENT_IOUT_GPIO2,
+	[AD4170_I_OUT_GPIO3] = AD4170_CURRENT_IOUT_GPIO3,
+};
+
 static const unsigned int ad4170_iout_current_ua_tbl[AD4170_I_OUT_MAX] = {
 	[AD4170_I_OUT_0UA] = 0,
 	[AD4170_I_OUT_10UA] = 10,
@@ -1330,51 +1346,101 @@ static int ad4170_parse_fw(struct iio_dev *indio_dev)
 	}
 
 	st->cfg.current_source[0].i_out_pin = AD4170_I_OUT_AIN0;
-	fwnode_property_read_u32(dev->fwnode, "adi,excitation-pin-0",
-				 &st->cfg.current_source[0].i_out_pin);
+	ret = fwnode_property_read_u32(dev->fwnode, "adi,excitation-pin-0",
+				       &st->cfg.current_source[0].i_out_pin);
+	if (!ret) {
+		/* Verify the value read from firmware is valid */
+		ret = ad4170_find_table_index(ad4170_iout_pin_tbl,
+					      st->cfg.current_source[0].i_out_pin);
+		if (ret < 0)
+			return dev_err_probe(dev, ret,
+					     "Invalid value for adi,excitation-pin-0: %u\n",
+					     st->cfg.current_source[0].i_out_pin);
+	}
 
 	st->cfg.current_source[1].i_out_pin = AD4170_I_OUT_AIN0;
-	fwnode_property_read_u32(dev->fwnode, "adi,excitation-pin-1",
-				 &st->cfg.current_source[1].i_out_pin);
+	ret = fwnode_property_read_u32(dev->fwnode, "adi,excitation-pin-1",
+				       &st->cfg.current_source[1].i_out_pin);
+	if (!ret) {
+		/* Verify the value read from firmware is valid */
+		ret = ad4170_find_table_index(ad4170_iout_pin_tbl,
+					      st->cfg.current_source[1].i_out_pin);
+		if (ret < 0)
+			return dev_err_probe(dev, ret,
+					     "Invalid value for adi,excitation-pin-1: %u\n",
+					     st->cfg.current_source[1].i_out_pin);
+	}
 
 	st->cfg.current_source[2].i_out_pin = AD4170_I_OUT_AIN0;
-	fwnode_property_read_u32(dev->fwnode, "adi,excitation-pin-2",
-				 &st->cfg.current_source[2].i_out_pin);
+	ret = fwnode_property_read_u32(dev->fwnode, "adi,excitation-pin-2",
+				       &st->cfg.current_source[2].i_out_pin);
+	if (!ret) {
+		/* Verify the value read from firmware is valid */
+		ret = ad4170_find_table_index(ad4170_iout_pin_tbl,
+					      st->cfg.current_source[2].i_out_pin);
+		if (ret < 0)
+			return dev_err_probe(dev, ret,
+					     "Invalid value for adi,excitation-pin-2: %u\n",
+					     st->cfg.current_source[2].i_out_pin);
+	}
 
 	st->cfg.current_source[3].i_out_pin = AD4170_I_OUT_AIN0;
-	fwnode_property_read_u32(dev->fwnode, "adi,excitation-pin-3",
-				 &st->cfg.current_source[3].i_out_pin);
+	ret = fwnode_property_read_u32(dev->fwnode, "adi,excitation-pin-3",
+				       &st->cfg.current_source[3].i_out_pin);
+	if (!ret) {
+		/* Verify the value read from firmware is valid */
+		ret = ad4170_find_table_index(ad4170_iout_pin_tbl,
+					      st->cfg.current_source[3].i_out_pin);
+		if (ret < 0)
+			return dev_err_probe(dev, ret,
+					     "Invalid value for adi,excitation-pin-3: %u\n",
+					     st->cfg.current_source[3].i_out_pin);
+	}
 
-	tmp = 0;
-	fwnode_property_read_u32(dev->fwnode, "adi,excitation-current-0-microamp", &tmp);
-	ret = ad4170_find_table_index(ad4170_iout_current_ua_tbl, tmp);
-	if (ret < 0)
-		return dev_err_probe(dev, ret,
-				     "Invalid excitation current %uuA\n", tmp);
-	st->cfg.current_source[0].i_out_val = ret;
+	st->cfg.current_source[0].i_out_val = AD4170_I_OUT_0UA;
+	ret = fwnode_property_read_u32(dev->fwnode, "adi,excitation-current-0-microamp",
+				       &st->cfg.current_source[0].i_out_val);
+	if (!ret) {
+		ret = ad4170_find_table_index(ad4170_iout_current_ua_tbl,
+					      st->cfg.current_source[0].i_out_val);
+		if (ret < 0)
+			return dev_err_probe(dev, ret,
+					     "Invalid excitation current %uuA\n",
+					     st->cfg.current_source[0].i_out_val);
+	}
 
-	tmp = 0;
-	fwnode_property_read_u32(dev->fwnode, "adi,excitation-current-1-microamp", &tmp);
-	ret = ad4170_find_table_index(ad4170_iout_current_ua_tbl, tmp);
-	if (ret < 0)
-		return dev_err_probe(dev, ret,
-				     "Invalid excitation current %uuA\n", tmp);
-	st->cfg.current_source[1].i_out_val = ret;
-	tmp = 0;
-	fwnode_property_read_u32(dev->fwnode, "adi,excitation-current-2-microamp", &tmp);
-	ret = ad4170_find_table_index(ad4170_iout_current_ua_tbl, tmp);
-	if (ret < 0)
-		return dev_err_probe(dev, ret,
-				     "Invalid excitation current %uuA\n", tmp);
-	st->cfg.current_source[2].i_out_val = ret;
+	st->cfg.current_source[1].i_out_val = AD4170_I_OUT_0UA;
+	ret = fwnode_property_read_u32(dev->fwnode, "adi,excitation-current-1-microamp",
+				       &st->cfg.current_source[1].i_out_val);
+	if (!ret) {
+		ret = ad4170_find_table_index(ad4170_iout_current_ua_tbl,
+					      st->cfg.current_source[1].i_out_val);
+		if (ret < 0)
+			return dev_err_probe(dev, ret,
+					     "Invalid excitation current %uuA\n",
+					     st->cfg.current_source[1].i_out_val);
+	}
 
-	tmp = 0;
-	fwnode_property_read_u32(dev->fwnode, "adi,excitation-current-3-microamp", &tmp);
-	ret = ad4170_find_table_index(ad4170_iout_current_ua_tbl, tmp);
-	if (ret < 0)
-		return dev_err_probe(dev, ret,
-				     "Invalid excitation current %uuA\n", tmp);
-	st->cfg.current_source[3].i_out_val = ret;
+	st->cfg.current_source[2].i_out_val = AD4170_I_OUT_0UA;
+	ret = fwnode_property_read_u32(dev->fwnode, "adi,excitation-current-2-microamp",
+				       &st->cfg.current_source[2].i_out_val);
+	if (!ret) {
+		ret = ad4170_find_table_index(ad4170_iout_current_ua_tbl, tmp);
+		if (ret < 0)
+			return dev_err_probe(dev, ret,
+					     "Invalid excitation current %uuA\n", tmp);
+	}
+
+	st->cfg.current_source[3].i_out_val = AD4170_I_OUT_0UA;
+	ret = fwnode_property_read_u32(dev->fwnode, "adi,excitation-current-3-microamp",
+				       &st->cfg.current_source[3].i_out_val);
+	if (!ret) {
+		ret = ad4170_find_table_index(ad4170_iout_current_ua_tbl,
+					      st->cfg.current_source[3].i_out_val);
+		if (ret < 0)
+			return dev_err_probe(dev, ret,
+					     "Invalid excitation current %uuA\n", tmp);
+	}
 
 	ret = ad4170_parse_fw_children(indio_dev);
 	if (ret)
