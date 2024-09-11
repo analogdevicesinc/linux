@@ -590,22 +590,54 @@ static int ad4170_get_input_range(struct ad4170_state *st,
 	struct ad4170_chan_info *chan_info = &st->chan_info[chan->address];
 	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
 	int scale_bits = chan->scan_type.realbits - setup->afe.bipolar;
+	int gain = setup->afe.gain;
+	bool bipolar = setup->afe.bipolar;
 	int pos_ref, neg_ref;
 
 	/*
+	 * The input range allowed to an ADC channel is crucial to determine the
+	 * scale factor for the channel.
 	 * The ADC digitizes the analog input voltage over a span given by
-	 * the provided voltage reference and input type. For single-ended inputs,
+	 * the provided voltage reference, the input type, and the input polarity.
+	 * For single-ended unipolar channels,
 	 * the analog voltage input can swing from 0V to VREF (where VREF
 	 * is a voltage reference with voltage potential higher than system
 	 * ground).
 	 * The maximum input voltage is often called VFS (full-scale input voltage),
-	 * with VFS being determined by VREF but the input range is 0V to VREF
-	 * nevertheless.
-	 * For differential
-	 * inputs, the analog voltage inputs are allowed to swing from
-	 * -VREF to +VREF
+	 * with VFS being determined by VREF.
+
+	 * The input voltage to a single-ended bipolar channel may fluctuate between
+	 * -VREF and +VREF
 	 * (where -VREF is the voltage reference that has the lower voltage
 	 * potential while +VREF is the reference with the higher one).
+	 * When -VREF is lower than the system GND these inputs are also
+	 * called single-ended true bipolar.
+
+	 * The analog signals to differential bipolar inputs are also allowed to swing
+	 * from -VREF to +VREF. However, a differential voltage measurement
+	 * digitizes the voltage level at the positive input relative to the
+	 * negative input (IN+ - IN-) over the -VREF to +VREF span.
+
+	 * For differential unipolar channels, the analog voltage at the positive
+	 * input must also stay above the level of the voltage at the negative input.
+	 * Thus, the actual input range allowed to a differential unipolar channel
+	 * is from the negative input to +VREF.
+
+	 * Thus, for differential unipolar channels, the positive input is always
+	 * offset by the voltage at the negative input. We provide user space that
+	 * to allow calculating the real voltage level of the positive input with
+	 * respect to system ground.
+	 * That does not influence how much voltage
+	 * the least significant bit (LSB) of ADC output code represent.
+
+	 * There is a third input type called Pseudo-differential.
+	 * Pseudo-differential inputs are made up from differential inputs by
+	 * fixing the negative input to a known voltage and only allowing the
+	 * positive input to vary. For those input types, the voltage input range
+	 * is defined the same as for differential inputs. ?
+	 */
+
+	/*
 	 * In many cases, the negative reference (-VREF) is 0V (GND), but it may
 	 * be higher than GND (e.g. 2.5V) or even lower (e.g. -2.5V).
 	 * Regardless of the provided voltage reference(s), the analog inputs
@@ -616,16 +648,56 @@ static int ad4170_get_input_range(struct ad4170_state *st,
 	 * conversion in straight binary format, the LSB can be calculated as
 	 * input_range / 2^(precision_bits).
 	 * For example, if the device has 16-bit precision, VREF = 5V, and the
-	 * input is single-ended, then one LSB will represent
+	 * input is single-ended unipolar, then one LSB will represent
 	 * (VREF - 0V)/2^16 = 0.000076293945 V or 76.293945 micro volts.
-	 * If the input is differential, -VREF = 2.5V, and +VREF = 5V, then
+	 * If the input is differential bipolar, -VREF = 2.5V, and +VREF = 5V, then
 	 * 1 LSB = (+VREF - (-VREF))/2^16 = 2.5/2^16 = 38.146973 micro volts.
-	 * There is a third input type called Pseudo-differential.
-	 * Pseudo-differential inputs are made up from differential inputs by
-	 * fixing the negative input to a known voltage and only allowing the
-	 * positive input to vary. For those input types, the voltage input range
-	 * is defined the same as for differential inputs. ?
 	 */
+
+	/* Differential Input Voltage Range: −VREF/gain to +VREF/gain (datasheet page 6) */
+	/* Single-Ended Input Voltage Range: 0 to VREF/gain (datasheet page 6) */
+	switch (ref_sel) {
+	case AD4170_REFIN_REFIN1:
+		pos_ref = regulator_get_voltage(st->regulators[AD4170_REFIN1P_SUPPLY].consumer);
+		neg_ref = regulator_get_voltage(st->regulators[AD4170_REFIN1N_SUPPLY].consumer);
+		break;
+	case AD4170_REFIN_REFIN2:
+		pos_ref = regulator_get_voltage(st->regulators[AD4170_REFIN2P_SUPPLY].consumer);
+		neg_ref = regulator_get_voltage(st->regulators[AD4170_REFIN2N_SUPPLY].consumer);
+		break;
+	case AD4170_REFIN_AVDD:
+		pos_ref = regulator_get_voltage(st->regulators[AD4170_AVDD_SUPPLY].consumer);
+		neg_ref = regulator_get_voltage(st->regulators[AD4170_AVSS_SUPPLY].consumer);
+		break;
+	case AD4170_REFIN_REFOUT:
+		neg_ref = regulator_get_voltage(st->regulators[AD4170_AVSS_SUPPLY].consumer);
+		if (neg_ref < 0)
+			neg_ref = 0;
+
+		/* REFOUT is 2.5 V relative to AVSS */
+		pos_ref = AD4170_INT_REF_2_5V - neg_ref;
+		break;
+	default:
+		return -EINVAL;
+	}
+	if (pos_ref < 0)
+		return pos_ref;
+
+	if (neg_ref < 0)
+		neg_ref = 0;
+
+	if (bipolar)
+		/* Assuming refin1n-supply not above 0V. */
+		/* Assuming refin2n-supply not above 0V. */
+		/* avss-supply is never above 0V. */
+		//input_range = abs(pos_ref - neg_ref);
+		input_range = pos_ref + abs(neg_ref);
+	else
+		//ADC output codes will range from neg_ret to pos_ref
+		//actual input_range = pos_ref - IN-;
+		input_range = pos_ref;
+
+	return 0;
 }
 
 static int ad4170_get_ref_voltage(struct ad4170_state *st,
