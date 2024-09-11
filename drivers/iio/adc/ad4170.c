@@ -56,8 +56,8 @@ struct ad4170_state {
 	bool spi_is_dma_mapped;
 	struct spi_device *spi;
 	struct clk *mclk;
-	struct regulator_bulk_data regulators[4];
-	struct mutex lock; /* Protect filter, PGA, GPIO, and channel config */
+	struct regulator_bulk_data regulators[7];
+	struct mutex lock; /* Protect filter, PGA, GPIO, chan read, chan config */
 	struct ad4170_chan_info *chan_info;
 	struct ad4170_slot_info slots_info[AD4170_NUM_SETUPS];
 	unsigned int num_channels;
@@ -1879,10 +1879,13 @@ static int ad4170_probe(struct spi_device *spi)
 
 	st->regmap = devm_regmap_init(dev, NULL, st, &ad4170_regmap_config);
 
-	st->regulators[0].supply = "avdd";
-	st->regulators[1].supply = "iovdd";
-	st->regulators[2].supply = "refin1";
-	st->regulators[3].supply = "refin2";
+	st->regulators[AD4170_AVDD_SUPPLY].supply = "avdd";
+	st->regulators[AD4170_AVSS_SUPPLY].supply = "avss";
+	st->regulators[AD4170_IOVDD_SUPPLY].supply = "iovdd";
+	st->regulators[AD4170_REFIN1P_SUPPLY].supply = "refin1p";
+	st->regulators[AD4170_REFIN1N_SUPPLY].supply = "refin1n";
+	st->regulators[AD4170_REFIN2P_SUPPLY].supply = "refin2p";
+	st->regulators[AD4170_REFIN2N_SUPPLY].supply = "refin2n";
 
 	ret = devm_regulator_bulk_get(dev, ARRAY_SIZE(st->regulators),
 				      st->regulators);
