@@ -590,9 +590,10 @@ static int ad4170_get_input_range(struct ad4170_state *st,
 	struct ad4170_chan_info *chan_info = &st->chan_info[chan->address];
 	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
 	int scale_bits = chan->scan_type.realbits - setup->afe.bipolar;
-	int gain = setup->afe.gain;
+	int pga_gain = setup->afe.pga_gain;
 	bool bipolar = setup->afe.bipolar;
 	int pos_ref, neg_ref;
+	int input_range;
 
 	/*
 	 * The input range allowed to an ADC channel is crucial to determine the
