@@ -1195,25 +1195,8 @@ static int ad4170_parse_fw_channel_type(struct device *dev,
 		chan->channel2 = pins[1];
 		return 0;
 	}
-	ret = fwnode_property_read_u32(child, "adi,current-out", &iout);
-	if (!ret) {
-		chan->type = IIO_CURRENT;
-		chan->differential = false;
-		chan->info_mask_separate = BIT(IIO_CHAN_INFO_RAW) |
-					   BIT(IIO_CHAN_INFO_SCALE),
-		chan->info_mask_separate_available = BIT(IIO_CHAN_INFO_RAW),
-		chan->output = true;
-
-
-		ret = fwnode_property_read_u32(child, "adi,current-out-pin", &pins[0]);
-		if (ret)
-			return dev_err_probe(dev, ret,
-				"Must define adi,current-out-pin if channel has adi,current-out.\n");
-		chan->channel = pins[0];
-		return 0;
-	}
 	return dev_err_probe(dev, ret,
-		"Channel must define one of diff-channels, single-channel, or adi,current-out.\n");
+		"Channel must define one of diff-channels or single-channel.\n");
 }
 
 static int ad4170_parse_fw_channel(struct iio_dev *indio_dev,
