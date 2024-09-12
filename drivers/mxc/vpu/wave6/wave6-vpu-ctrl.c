@@ -1029,10 +1029,19 @@ static struct thermal_cooling_device_ops wave6_cooling_ops = {
 
 static void wave6_cooling_remove(struct vpu_ctrl *ctrl)
 {
+	int i;
+
 	thermal_cooling_device_unregister(ctrl->cooling);
 
 	kfree(ctrl->freq_table);
 	ctrl->freq_table = NULL;
+
+	for (i = 0; i < ctrl->pd_list->num_pds; i++) {
+		struct device *pd_dev = ctrl->pd_list->pd_devs[i];
+
+		if (!pm_runtime_suspended(pd_dev))
+			pm_runtime_force_suspend(pd_dev);
+	}
 
 	dev_pm_domain_detach_list(ctrl->pd_list);
 	ctrl->pd_list = NULL;
@@ -1206,7 +1215,6 @@ static void wave6_vpu_ctrl_remove(struct platform_device *pdev)
 #endif
 
 	pm_runtime_disable(&pdev->dev);
-	pm_runtime_set_suspended(&pdev->dev);
 
 	wave6_vpu_ctrl_clear_buffers(ctrl);
 	wave6_cooling_remove(ctrl);
