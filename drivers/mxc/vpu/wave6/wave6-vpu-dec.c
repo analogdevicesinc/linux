@@ -1890,12 +1890,12 @@ int wave6_vpu_dec_register_device(struct vpu_device *dev)
 	vdev_dec->vfl_dir = VFL_DIR_M2M;
 	vdev_dec->device_caps = V4L2_CAP_VIDEO_M2M_MPLANE | V4L2_CAP_STREAMING;
 	vdev_dec->lock = &dev->dev_lock;
+	video_set_drvdata(vdev_dec, dev);
 
 	ret = video_register_device(vdev_dec, VFL_TYPE_VIDEO, -1);
 	if (ret)
 		return ret;
 
-	video_set_drvdata(vdev_dec, dev);
 
 	return 0;
 }
