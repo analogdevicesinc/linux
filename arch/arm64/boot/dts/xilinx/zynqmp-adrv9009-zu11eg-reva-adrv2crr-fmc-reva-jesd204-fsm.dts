@@ -21,34 +21,32 @@
 	jesd204-device;
 	#jesd204-cells = <2>;
 	jesd204-top-device = <0>; /* This is the TOP device */
-	jesd204-link-ids = <DEFRAMER_LINK_TX FRAMER_LINK_RX FRAMER_LINK_ORX>;
+	jesd204-link-ids = <FRAMER_LINK_RX>;
 
 	jesd204-inputs =
-		<&trx1_adrv9009 0 FRAMER_LINK_RX>,
-		<&trx1_adrv9009 0 FRAMER_LINK_ORX>,
-		<&trx1_adrv9009 0 DEFRAMER_LINK_TX>;
+		<&axi_adrv9009_rx_jesd 0 FRAMER_LINK_RX>,
 
 	/delete-property/ interrupts;
 	adi,jesd204-framer-a-lmfc-offset = <15>;
 };
 
-&trx1_adrv9009 {
-	jesd204-device;
-	#jesd204-cells = <2>;
-	jesd204-inputs =
-                <&axi_adrv9009_rx_jesd 0 FRAMER_LINK_RX>,
-		<&axi_adrv9009_rx_os_jesd 0 FRAMER_LINK_ORX>,
-		<&axi_adrv9009_core_tx 0 DEFRAMER_LINK_TX>;
+// &trx1_adrv9009 {
+// 	jesd204-device;
+// 	#jesd204-cells = <2>;
+// 	jesd204-inputs =
+//                 <&axi_adrv9009_rx_jesd 0 FRAMER_LINK_RX>,
+// 		<&axi_adrv9009_rx_os_jesd 0 FRAMER_LINK_ORX>,
+// 		<&axi_adrv9009_core_tx 0 DEFRAMER_LINK_TX>;
 
-	/delete-property/ interrupts;
-	adi,jesd204-framer-a-lmfc-offset = <15>;
-};
+// 	/delete-property/ interrupts;
+// 	adi,jesd204-framer-a-lmfc-offset = <15>;
+// };
 
-&axi_adrv9009_core_tx {
-	jesd204-device;
-	#jesd204-cells = <2>;
-	jesd204-inputs = <&axi_adrv9009_tx_jesd 0 DEFRAMER_LINK_TX>;
-};
+// &axi_adrv9009_core_tx {
+// 	jesd204-device;
+// 	#jesd204-cells = <2>;
+// 	jesd204-inputs = <&axi_adrv9009_tx_jesd 0 DEFRAMER_LINK_TX>;
+// };
 
 &axi_adrv9009_rx_jesd {
 	jesd204-device;
@@ -58,21 +56,21 @@
 	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 };
 
-&axi_adrv9009_rx_os_jesd {
-	jesd204-device;
-	#jesd204-cells = <2>;
-	jesd204-inputs = <&axi_adrv9009_adxcvr_rx_os 0 FRAMER_LINK_ORX>;
-	clocks = <&zynqmp_clk 71>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_rx_os 0>;
-	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
-};
+// &axi_adrv9009_rx_os_jesd {
+// 	jesd204-device;
+// 	#jesd204-cells = <2>;
+// 	jesd204-inputs = <&axi_adrv9009_adxcvr_rx_os 0 FRAMER_LINK_ORX>;
+// 	clocks = <&zynqmp_clk 71>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_rx_os 0>;
+// 	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+// };
 
-&axi_adrv9009_tx_jesd {
-	jesd204-device;
-	#jesd204-cells = <2>;
-	jesd204-inputs = <&axi_adrv9009_adxcvr_tx 0 DEFRAMER_LINK_TX>;
-	clocks = <&zynqmp_clk 71>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_tx 0>;
-	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
-};
+// &axi_adrv9009_tx_jesd {
+// 	jesd204-device;
+// 	#jesd204-cells = <2>;
+// 	jesd204-inputs = <&axi_adrv9009_adxcvr_tx 0 DEFRAMER_LINK_TX>;
+// 	clocks = <&zynqmp_clk 71>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_tx 0>;
+// 	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
+// };
 
 &axi_adrv9009_adxcvr_rx {
 	jesd204-device;
@@ -82,28 +80,26 @@
 	clocks = <&hmc7044 5>;
 };
 
-&axi_adrv9009_adxcvr_rx_os {
-	jesd204-device;
-	#jesd204-cells = <2>;
-	jesd204-inputs =  <&hmc7044 0 FRAMER_LINK_ORX>;
-	clock-names = "conv";
-	clocks = <&hmc7044 4>;
-};
+// &axi_adrv9009_adxcvr_rx_os {
+// 	jesd204-device;
+// 	#jesd204-cells = <2>;
+// 	jesd204-inputs =  <&hmc7044 0 FRAMER_LINK_ORX>;
+// 	clock-names = "conv";
+// 	clocks = <&hmc7044 4>;
+// };
 
-&axi_adrv9009_adxcvr_tx {
-	jesd204-device;
-	#jesd204-cells = <2>;
-	jesd204-inputs =  <&hmc7044 0 DEFRAMER_LINK_TX>;
-	clock-names = "conv";
-	clocks = <&hmc7044 4>;
-};
+// &axi_adrv9009_adxcvr_tx {
+// 	jesd204-device;
+// 	#jesd204-cells = <2>;
+// 	jesd204-inputs =  <&hmc7044 0 DEFRAMER_LINK_TX>;
+// 	clock-names = "conv";
+// 	clocks = <&hmc7044 4>;
+// };
 
 &hmc7044 {
 	jesd204-device;
 	#jesd204-cells = <2>;
-	jesd204-inputs = <&hmc7044_car 0 FRAMER_LINK_RX>,
-		<&hmc7044_car 0 FRAMER_LINK_ORX>,
-		<&hmc7044_car 0 DEFRAMER_LINK_TX>;
+	jesd204-inputs = <&hmc7044_car 0 FRAMER_LINK_RX>;
 
 	adi,pulse-generator-mode = <HMC7044_PULSE_GEN_16_PULSE>;
 	adi,sync-pin-mode = <1>;
