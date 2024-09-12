@@ -1242,7 +1242,7 @@ static int ad4170_parse_fw_channel(struct iio_dev *indio_dev,
 	ret = fwnode_property_read_u32(child, "adi,config-setup-slot", &setup_slot);
 	if (ret)
 		return dev_err_probe(dev, ret,
-				     "Channel idx greater than no of channels\n");
+				     "Failed to read adi,config-setup-slot\n");
 
 	chan_info->slot = setup_slot;
 	ret = ad4170_parse_fw_channel_type(dev, child, chan);
