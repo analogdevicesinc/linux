@@ -665,14 +665,18 @@ static void wave6_vpu_ctrl_load_firmware(const struct firmware *fw, void *contex
 
 exit:
 	mutex_lock(&ctrl->ctrl_lock);
-
 	if (!ret && wave6_vpu_ctrl_find_entity(ctrl, ctrl->current_entity)) {
 		wave6_vpu_ctrl_remap_code_buffer(ctrl);
 		ret = wave6_vpu_ctrl_init_vpu(ctrl);
 	} else {
 		ret = -EINVAL;
 	}
+	mutex_unlock(&ctrl->ctrl_lock);
 
+	pm_runtime_put_sync(ctrl->dev);
+	release_firmware(fw);
+
+	mutex_lock(&ctrl->ctrl_lock);
 	ctrl->current_entity = NULL;
 	if (ret)
 		wave6_vpu_ctrl_set_state(ctrl, WAVE6_VPU_STATE_OFF);
@@ -680,8 +684,6 @@ exit:
 		wave6_vpu_ctrl_boot_done(ctrl, 0);
 	mutex_unlock(&ctrl->ctrl_lock);
 
-	pm_runtime_put_sync(ctrl->dev);
-	release_firmware(fw);
 	wake_up_interruptible_all(&ctrl->load_fw_wq);
 }
 
@@ -1030,6 +1032,9 @@ static struct thermal_cooling_device_ops wave6_cooling_ops = {
 static void wave6_cooling_remove(struct vpu_ctrl *ctrl)
 {
 	int i;
+
+	if (!ctrl->pd_list)
+		return;
 
 	thermal_cooling_device_unregister(ctrl->cooling);
 
