@@ -336,27 +336,24 @@ static int ad4170_write_slot_setup(struct ad4170_state *st,
 }
 
 static int ad4170_write_channel_setup(struct ad4170_state *st,
-				      unsigned int channel)
+				      unsigned int channel_addr)
 {
-	struct ad4170_chan_info *chan_info = &st->chan_info[channel];
+	struct ad4170_chan_info *chan_info = &st->chan_info[channel_addr];
 	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
-	int slot;
+	int slot = chan_info->slot;
 	int ret;
 
-	slot = channel;
 	setup->afe.ref_buf_m = AD4170_REF_BUF_PRE;
 	setup->afe.ref_buf_p = AD4170_REF_BUF_PRE;
 	setup->filter.post_filter_sel = AD4170_POST_FILTER_NONE;
 	setup->gain = AD4170_DEFAULT_ADC_GAIN_COEF;
-
-	chan_info->slot = slot;
 
 	ret = ad4170_write_slot_setup(st, slot, setup);
 	if (ret)
 		return ret;
 
 	/* Hardcode default setup for channel x and write it */
-	ret = regmap_update_bits(st->regmap, AD4170_CHANNEL_SETUP_REG(channel),
+	ret = regmap_update_bits(st->regmap, AD4170_CHANNEL_SETUP_REG(slot),
 				 AD4170_CHANNEL_SETUPN_SETUP_N_MSK,
 				 FIELD_PREP(AD4170_CHANNEL_SETUPN_SETUP_N_MSK, slot));
 	if (ret)
@@ -408,7 +405,7 @@ static int ad4170_set_filter_type(struct iio_dev *indio_dev,
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
 	unsigned int channel = chan->scan_index;
-	struct ad4170_chan_info *chan_info = &st->chan_info[channel];
+	struct ad4170_chan_info *chan_info = &st->chan_info[chan->address];
 	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
 	enum ad4170_filter_type old_filter_type;
 	int freq_val, freq_val2;
@@ -434,7 +431,7 @@ static int ad4170_set_filter_type(struct iio_dev *indio_dev,
 
 	setup->filter.filter_type = val;
 
-	ret = ad4170_write_channel_setup(st, channel);
+	ret = ad4170_write_channel_setup(st, chan->address);
 	if (ret) {
 		setup->filter_fs = old_fs;
 		setup->filter.filter_type = old_filter_type;
@@ -449,7 +446,6 @@ static int ad4170_get_filter_type(struct iio_dev *indio_dev,
 				  const struct iio_chan_spec *chan)
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
-	unsigned int channel = chan->scan_index;
 	struct ad4170_chan_info *chan_info = &st->chan_info[chan->address];
 	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
 	enum ad4170_filter_type filter_type;
@@ -782,7 +778,7 @@ static int ad4170_read_raw(struct iio_dev *indio_dev,
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
 	unsigned int channel = chan->scan_index;
-	struct ad4170_chan_info *chan_info = &st->chan_info[channel];
+	struct ad4170_chan_info *chan_info = &st->chan_info[chan->address];
 	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
 
 	switch (info) {
@@ -846,7 +842,7 @@ static int ad4170_read_avail(struct iio_dev *indio_dev,
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
 	unsigned int channel = chan->scan_index;
-	struct ad4170_chan_info *chan_info = &st->chan_info[channel];
+	struct ad4170_chan_info *chan_info = &st->chan_info[chan->address];
 	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
 	const struct ad4170_filter_config *filter_config;
 
@@ -889,10 +885,10 @@ static int ad4170_write_raw_get_fmt(struct iio_dev *indio_dev,
 }
 
 static int ad4170_set_channel_pga(struct iio_dev *indio_dev,
-				  struct ad4170_state *st, unsigned int channel,
+				  struct ad4170_state *st, unsigned int channel_addr,
 				  int val, int val2)
 {
-	struct ad4170_chan_info *chan_info = &st->chan_info[channel];
+	struct ad4170_chan_info *chan_info = &st->chan_info[channel_addr];
 	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
 	unsigned int pga, old_pga;
 	int ret = 0;
@@ -913,7 +909,7 @@ static int ad4170_set_channel_pga(struct iio_dev *indio_dev,
 	old_pga = setup->afe.pga_gain;
 	setup->afe.pga_gain = pga;
 
-	ret = ad4170_write_channel_setup(st, channel);
+	ret = ad4170_write_channel_setup(st, channel_addr);
 	if (ret)
 		setup->afe.pga_gain = old_pga;
 
@@ -923,9 +919,9 @@ out:
 }
 
 static int ad4170_set_channel_freq(struct ad4170_state *st,
-				   unsigned int channel, int val, int val2)
+				   unsigned int channel_addr, int val, int val2)
 {
-	struct ad4170_chan_info *chan_info = &st->chan_info[channel];
+	struct ad4170_chan_info *chan_info = &st->chan_info[channel_addr];
 	struct ad4170_setup *setup = &st->slots_info[chan_info->slot].setup;
 	unsigned int fs, old_fs;
 	int ret = 0;
@@ -940,7 +936,7 @@ static int ad4170_set_channel_freq(struct ad4170_state *st,
 
 	setup->filter_fs = fs;
 
-	ret = ad4170_write_channel_setup(st, channel);
+	ret = ad4170_write_channel_setup(st, channel_addr);
 	if (ret)
 		setup->filter_fs = old_fs;
 
@@ -988,7 +984,7 @@ static int ad4170_write_raw(struct iio_dev *indio_dev,
 			    int val, int val2, long info)
 {
 	struct ad4170_state *st = iio_priv(indio_dev);
-	unsigned int channel = chan->scan_index;
+	unsigned int channel = chan->address;
 
 	switch (info) {
 	case IIO_CHAN_INFO_SCALE:
@@ -1520,7 +1516,7 @@ static int ad4170_setup(struct iio_dev *indio_dev)
 		struct iio_chan_spec const *chan = &indio_dev->channels[i];
 		unsigned int val;
 
-		ret = ad4170_write_channel_setup(st, i);
+		ret = ad4170_write_channel_setup(st, chan->address);
 		if (ret)
 			return ret;
 
@@ -1532,7 +1528,7 @@ static int ad4170_setup(struct iio_dev *indio_dev)
 			return ret;
 
 		//ad4170_set_channel_freq(st, i, 9615, 0);
-		ad4170_set_channel_freq(st, i, 125000, 0);
+		ad4170_set_channel_freq(st, chan->address, 125000, 0);
 		ad4170_fill_scale_tbl(indio_dev, i);
 	}
 
