@@ -120,7 +120,6 @@
 			#address-cells = <1>;
 			#size-cells = <0>;
 
-
 			// Sample AIN0 with respect to AIN1 throughout AVDD/AVSS input range
 			// Fully differential. If AVSS < 0V, Fully differential true bipolar
 			channel@0 {
@@ -195,6 +194,16 @@
 				adi,config-setup-slot = <6>;
 				adi,reference-select = <0>;
 			};
+			// Sample AIN8 with respect to DGND throughout AVDD/AVSS input range
+			// Differential channel in theory but pseudo-differential in practice
+			channel@8 {
+				reg = <8>;
+				bipolar;
+				diff-channels = <AD4170_MAP_AIN8 AD4170_MAP_DGND>;
+				adi,config-setup-slot = <7>;
+				adi,reference-select = <3>;
+			};
+
 		};
 	};
 
