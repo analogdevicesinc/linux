@@ -803,6 +803,66 @@ static void neoisp_node_buffer_queue(struct vb2_buffer *buf)
 	neoisp_schedule(neoisp, node_group, -1);
 }
 
+static void neoisp_set_ctx_default_params(struct neoisp_dev_s *neoispd, int ctx_id)
+{
+	memcpy(neoispd->node_group[ctx_id].params,
+		&neoisp_default_params,
+		sizeof(neoisp_default_params));
+}
+
+static int neoisp_prepare_node_streaming(struct neoisp_node_s *node)
+{
+	struct neoisp_node_group_s *node_group = node->node_group;
+	struct neoisp_dev_s *neoispd = node_group->neoisp_dev;
+	struct neoisp_meta_params_s *params = node_group->params;
+	__u32 pixfmt = node->format.fmt.pix_mp.pixelformat;
+
+	/*
+	 * Check if this is input0 node to preload default params
+	 */
+	if (node->id == NEOISP_INPUT0_NODE) {
+		neoisp_update_pipeline_bit_width(&params->regs, node->neoisp_format->bit_depth);
+		neoisp_update_head_color(&params->regs, pixfmt);
+	}
+
+	if (node->id == NEOISP_FRAME_NODE) {
+		struct neoisp_node_s *in0_node = &node_group->node[NEOISP_INPUT0_NODE];
+
+		if ((node->format.fmt.pix_mp.width != in0_node->crop.width)
+				|| (node->format.fmt.pix_mp.height != in0_node->crop.height)) {
+			dev_err(&neoispd->pdev->dev, "Crop size and output size does not match\n");
+			return -EPIPE;
+		}
+
+		if (FMT_IS_YUV(pixfmt))
+			neoisp_config_gcm_for_yuv(&params->regs);
+		else
+			neoisp_config_gcm_for_rgb(&params->regs);
+
+		if (!neoisp_node_link_state(&node_group->node[NEOISP_IR_NODE])) {
+			node_group->any_size = node->format.fmt.pix_mp.width
+						 * node->format.fmt.pix_mp.height
+						 * NEOISP_MAX_BPP;
+			node_group->any_buf = dma_alloc_coherent(&neoispd->pdev->dev,
+								 node_group->any_size,
+								 &node_group->any_dma, GFP_KERNEL);
+		}
+	}
+
+	if (node->id == NEOISP_IR_NODE) {
+		if (!neoisp_node_link_state(&node_group->node[NEOISP_FRAME_NODE])) {
+			node_group->any_size = node->format.fmt.pix_mp.width
+						 * node->format.fmt.pix_mp.height
+						 * NEOISP_MAX_BPP;
+			node_group->any_buf = dma_alloc_coherent(&neoispd->pdev->dev,
+								 node_group->any_size,
+								 &node_group->any_dma, GFP_KERNEL);
+		}
+	}
+
+	return 0;
+}
+
 static int neoisp_node_start_streaming(struct vb2_queue *q, __u32 count)
 {
 	struct neoisp_node_s *node = vb2_get_drv_priv(q);
@@ -814,17 +874,16 @@ static int neoisp_node_start_streaming(struct vb2_queue *q, __u32 count)
 
 	ret = pm_runtime_resume_and_get(&neoispd->pdev->dev);
 	if (ret < 0) {
-		spin_lock_irqsave(&node->ready_lock, flags);
-		list_for_each_entry_safe(buf, tmp, &node->ready_queue, ready_list) {
-			list_del(&buf->ready_list);
-			vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_QUEUED);
-		}
-		spin_unlock_irqrestore(&node->ready_lock, flags);
-		return ret;
+		goto error;
 	}
+
+	ret = neoisp_prepare_node_streaming(node);
+	if (ret < 0)
+		goto error;
 
 	spin_lock_irqsave(&neoispd->hw_lock, flags);
 	node->node_group->streaming_map |=  BIT(node->id);
+	node_group->frame_sequence = 0;
 	spin_unlock_irqrestore(&neoispd->hw_lock, flags);
 
 	dev_dbg(&neoispd->pdev->dev, "%s: for node %s (count %u)\n",
@@ -836,6 +895,15 @@ static int neoisp_node_start_streaming(struct vb2_queue *q, __u32 count)
 	neoisp_schedule(neoispd, node_group, -1);
 
 	return 0;
+
+error:
+	spin_lock_irqsave(&node->ready_lock, flags);
+	list_for_each_entry_safe(buf, tmp, &node->ready_queue, ready_list) {
+		list_del(&buf->ready_list);
+		vb2_buffer_done(&buf->vb.vb2_buf, VB2_BUF_STATE_QUEUED);
+	}
+	spin_unlock_irqrestore(&node->ready_lock, flags);
+	return ret;
 }
 
 static void neoisp_node_stop_streaming(struct vb2_queue *q)
@@ -873,6 +941,17 @@ static void neoisp_node_stop_streaming(struct vb2_queue *q)
 	spin_unlock_irqrestore(&neoispd->hw_lock, flags);
 
 	vb2_wait_for_all_buffers(&node->queue);
+
+	if (node->id == NEOISP_INPUT0_NODE)
+		neoisp_set_ctx_default_params(neoispd, node_group->id);
+
+	if (node_group->any_buf) {
+		dma_free_coherent(&neoispd->pdev->dev,
+				  node_group->any_size,
+				  node_group->any_buf,
+				  node_group->any_dma);
+		node_group->any_buf = NULL;
+	}
 
 	spin_lock_irqsave(&neoispd->hw_lock, flags);
 	node_group->streaming_map &= ~BIT(node->id);
@@ -1305,97 +1384,6 @@ static int neoisp_s_selection(struct file *file, void *fh, struct v4l2_selection
 	return 0;
 }
 
-static void neoisp_set_ctx_default_params(struct neoisp_dev_s *neoispd, int ctx_id)
-{
-	memcpy(neoispd->node_group[ctx_id].params,
-		&neoisp_default_params,
-		sizeof(neoisp_default_params));
-}
-
-static int neoisp_node_streamon(struct file *file, void *priv,
-		enum v4l2_buf_type type)
-{
-	struct neoisp_node_s *node = video_drvdata(file);
-	struct neoisp_node_group_s *node_group = node->node_group;
-	struct neoisp_dev_s *neoispd = node_group->neoisp_dev;
-	struct neoisp_meta_params_s *params = node_group->params;
-	__u32 pixfmt = node->format.fmt.pix_mp.pixelformat;
-
-	dev_dbg(&neoispd->pdev->dev, "Stream on for node %s\n", NODE_NAME(node));
-	/*
-	 * Check if this is input0 node to preload default params
-	 */
-	if (node->id == NEOISP_INPUT0_NODE) {
-		neoisp_update_pipeline_bit_width(&params->regs, node->neoisp_format->bit_depth);
-		neoisp_update_head_color(&params->regs, pixfmt);
-	}
-
-	if (node->id == NEOISP_FRAME_NODE) {
-		struct neoisp_node_s *in0_node = &node_group->node[NEOISP_INPUT0_NODE];
-
-		if ((node->format.fmt.pix_mp.width != in0_node->crop.width)
-				|| (node->format.fmt.pix_mp.height != in0_node->crop.height)) {
-			dev_err(&neoispd->pdev->dev, "Crop size and output size does not match\n");
-			return -EPIPE;
-		}
-
-		if (FMT_IS_YUV(pixfmt))
-			neoisp_config_gcm_for_yuv(&params->regs);
-		else
-			neoisp_config_gcm_for_rgb(&params->regs);
-
-		if (!neoisp_node_link_state(&node_group->node[NEOISP_IR_NODE])) {
-			node_group->any_size = node->format.fmt.pix_mp.width
-						 * node->format.fmt.pix_mp.height
-						 * NEOISP_MAX_BPP;
-			node_group->any_buf = dma_alloc_coherent(&neoispd->pdev->dev,
-								 node_group->any_size,
-								 &node_group->any_dma, GFP_KERNEL);
-		}
-	}
-
-	if (node->id == NEOISP_IR_NODE) {
-		if (!neoisp_node_link_state(&node_group->node[NEOISP_FRAME_NODE])) {
-			node_group->any_size = node->format.fmt.pix_mp.width
-						 * node->format.fmt.pix_mp.height
-						 * NEOISP_MAX_BPP;
-			node_group->any_buf = dma_alloc_coherent(&neoispd->pdev->dev,
-								 node_group->any_size,
-								 &node_group->any_dma, GFP_KERNEL);
-		}
-	}
-
-
-	INIT_LIST_HEAD(&node->ready_queue);
-
-	/* init frame_sequence */
-	node_group->frame_sequence = 0;
-
-	/* locking should be handled by the queue->lock? */
-	return vb2_streamon(&node->queue, type);
-}
-
-static int neoisp_node_streamoff(struct file *file, void *priv,
-		enum v4l2_buf_type type)
-{
-	struct neoisp_node_s *node = video_drvdata(file);
-	struct neoisp_node_group_s *node_group = node->node_group;
-	struct neoisp_dev_s *neoispd = node_group->neoisp_dev;
-
-	if (node->id == NEOISP_INPUT0_NODE)
-		neoisp_set_ctx_default_params(neoispd, node_group->id);
-
-	if (node_group->any_buf) {
-		dma_free_coherent(&neoispd->pdev->dev,
-				  node_group->any_size,
-				  node_group->any_buf,
-				  node_group->any_dma);
-		node_group->any_buf = NULL;
-	}
-
-	return vb2_streamoff(&node->queue, type);
-}
-
 static const struct v4l2_ioctl_ops neoisp_ioctl_ops = {
 	.vidioc_querycap		= neoisp_querycap,
 
@@ -1428,8 +1416,8 @@ static const struct v4l2_ioctl_ops neoisp_ioctl_ops = {
 	.vidioc_create_bufs		= vb2_ioctl_create_bufs,
 	.vidioc_expbuf			= vb2_ioctl_expbuf,
 
-	.vidioc_streamon		= neoisp_node_streamon,
-	.vidioc_streamoff		= neoisp_node_streamoff,
+	.vidioc_streamon		= vb2_ioctl_streamon,
+	.vidioc_streamoff		= vb2_ioctl_streamoff,
 
 	.vidioc_subscribe_event		= v4l2_ctrl_subscribe_event,
 	.vidioc_unsubscribe_event	= v4l2_event_unsubscribe,
