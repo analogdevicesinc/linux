@@ -788,7 +788,9 @@ enum ad4170_i_out_pin {
 	/* I_OUT is Available on GPIO2. */
 	AD4170_I_OUT_GPIO2,
 	/* I_OUT is Available on GPIO3. */
-	AD4170_I_OUT_GPIO3
+	AD4170_I_OUT_GPIO3,
+	/* */
+	AD4170_I_OUT_PIN_MAX
 };
 
 /**
