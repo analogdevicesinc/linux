@@ -396,6 +396,12 @@ static void adrv906x_phy_path_enable(struct phy_device *phydev, bool enable)
 			       ADRV906X_PCS_GENERAL_PATH_RESET, !enable);
 }
 
+static void adrv906x_phy_reset_datapath(struct phy_device *phydev)
+{
+	adrv906x_phy_path_enable(phydev, false);
+	adrv906x_phy_path_enable(phydev, true);
+}
+
 static int adrv906x_phy_suspend(struct phy_device *phydev)
 {
 	adrv906x_phy_path_enable(phydev, false);
@@ -469,10 +475,8 @@ static int adrv906x_phy_config_pcs_baser_mode(struct phy_device *phydev)
 	cfg_tx = ADRV906X_PCS_CFG_TX_BUF_INIT;
 	cfg_rx = ADRV906X_PCS_CFG_RX_BUF_INIT;
 	gen_tx = ADRV906X_PCS_GENERAL_SERDES_64_BITS_BUS_WIDTH |
-		 ADRV906X_PCS_GENERAL_PATH_RESET |
 		 ADRV906X_PCS_GENERAL_64_BITS_XGMII;
 	gen_rx = ADRV906X_PCS_GENERAL_SERDES_64_BITS_BUS_WIDTH |
-		 ADRV906X_PCS_GENERAL_PATH_RESET |
 		 ADRV906X_PCS_GENERAL_64_BITS_XGMII;
 
 	phy_write_mmd(phydev, MDIO_MMD_PCS, MDIO_CTRL1, ctrl1);
@@ -505,6 +509,10 @@ static int adrv906x_phy_config_aneg(struct phy_device *phydev)
 
 	if (!adrv906x_phy_valid_speed(phydev->speed))
 		return -EINVAL;
+
+	ret = adrv906x_phy_config_pcs_baser_mode(phydev);
+	if (ret)
+		return ret;
 
 	ret = adrv906x_serdes_cal_start(phydev);
 	if (ret)
@@ -570,8 +578,7 @@ static int adrv906x_phy_probe(struct phy_device *phydev)
 	adrv906x_parse_tsu_phy_delay(phydev);
 	adrv906x_tsu_set_phy_delay(phydev);
 
-	ret = adrv906x_serdes_open(phydev, &adrv906x_phy->serdes,
-				   adrv906x_phy_config_pcs_baser_mode);
+	ret = adrv906x_serdes_open(phydev, &adrv906x_phy->serdes, adrv906x_phy_reset_datapath);
 	if (ret)
 		return ret;
 

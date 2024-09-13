@@ -10,7 +10,7 @@
 #include <linux/types.h>
 #include <linux/bitfield.h>
 
-typedef int (*adrv906x_serdes_cal_done_cb)(struct phy_device *phydev);
+typedef void (*adrv906x_serdes_cal_done_cb)(struct phy_device *phydev);
 
 struct adrv906x_serdes {
 	struct phy_device *phydev;
