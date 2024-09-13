@@ -238,3 +238,7 @@ spi5_pins: &rp1_spi5_gpio13 {};
 	pinctrl-names = "default";
 	pinctrl-0 = <&spi5_pins>;
 };
+
+&v3d {
+	status = "okay";
+};
