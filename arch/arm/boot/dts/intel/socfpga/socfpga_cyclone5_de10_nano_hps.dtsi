@@ -36,6 +36,14 @@
 };
 
 &fpga_axi {
+	gpio_bd: gpio_bd@0x10080 {
+		compatible = "altr,pio-18.1", "altr,pio-1.0";
+		reg = <0x00010080 0x00000010>;
+		resetvalue = <0>;
+		#gpio-cells = <2>;
+		gpio-controller;
+	};
+
 	gpio_in: gpio_in@10100 {
 		compatible = "altr,pio-18.1", "altr,pio-1.0";
 		reg = <0x00010100 0x00000010>;
