@@ -253,6 +253,7 @@ static int adrv906x_serdes_signal_ok(struct sk_buff *skb, struct genl_info *info
 	netdev = phydev->attached_dev;
 
 	adrv906x_eth_cmn_serdes_tx_sync_trigger(netdev, lane);
+	serdes->cb(phydev);
 	adrv906x_serdes_lookup_transitions(serdes, SERDES_EVENT_SIGNAL_OK);
 
 	return 0;
@@ -421,7 +422,6 @@ int adrv906x_serdes_cal_start(struct phy_device *phydev)
 		return -EINVAL;
 
 	serdes->speed = phydev->speed;
-	serdes->cb(serdes->phydev);
 	adrv906x_serdes_lookup_transitions(serdes, SERDES_EVENT_LINK_UP);
 
 	return 0;
