@@ -82,6 +82,9 @@
 
 #define NETC_TMR_FIPER_PW		0x1f
 
+#define netc_timer_rd(p, o)		netc_read((p)->base + (o))
+#define netc_timer_wr(p, o, v)		netc_write((p)->base + (o), v)
+
 struct netc_timer {
 	void __iomem *base;
 	struct device *dev;
@@ -107,19 +110,6 @@ struct netc_timer {
 	u32 fiper[NETC_TMR_FIPER_NUM];
 };
 
-static inline u32 netc_timer_read(void __iomem *reg)
-{
-	return ioread32(reg);
-}
-
-static inline void netc_timer_write(void __iomem *reg, u32 val)
-{
-	iowrite32(val, reg);
-}
-
-#define netc_timer_read_reg(p, o)	netc_timer_read((p)->base + (o))
-#define netc_timer_write_reg(p, o, v)	netc_timer_write((p)->base + (o), v)
-
 static u64 netc_timer_cnt_read(struct netc_timer *priv)
 {
 	u32 tmr_cnt_l, tmr_cnt_h;
@@ -128,8 +118,8 @@ static u64 netc_timer_cnt_read(struct netc_timer *priv)
 	/* The user must read the TMR_CNC_L register first to get
 	 * correct 64-bit TMR_CNT_H/L counter values.
 	 */
-	tmr_cnt_l = netc_timer_read_reg(priv, NETC_TMR_CNT_L);
-	tmr_cnt_h = netc_timer_read_reg(priv, NETC_TMR_CNT_H);
+	tmr_cnt_l = netc_timer_rd(priv, NETC_TMR_CNT_L);
+	tmr_cnt_h = netc_timer_rd(priv, NETC_TMR_CNT_H);
 	ns = (((u64)tmr_cnt_h) << 32) | tmr_cnt_l;
 
 	return ns;
@@ -141,8 +131,8 @@ static void netc_timer_cnt_write(struct netc_timer *priv, u64 ns)
 	u32 tmr_cnt_l = lower_32_bits(ns);
 
 	/* The user must write to TMR_CNT_L register first. */
-	netc_timer_write_reg(priv, NETC_TMR_CNT_L, tmr_cnt_l);
-	netc_timer_write_reg(priv, NETC_TMR_CNT_H, tmr_cnt_h);
+	netc_timer_wr(priv, NETC_TMR_CNT_L, tmr_cnt_l);
+	netc_timer_wr(priv, NETC_TMR_CNT_H, tmr_cnt_h);
 }
 
 static void netc_timer_alarm_write(struct netc_timer *priv,
@@ -151,8 +141,8 @@ static void netc_timer_alarm_write(struct netc_timer *priv,
 	u32 alarm_h = upper_32_bits(alarm);
 	u32 alarm_l = lower_32_bits(alarm);
 
-	netc_timer_write_reg(priv, NETC_TMR_ALARM_L(index), alarm_l);
-	netc_timer_write_reg(priv, NETC_TMR_ALARM_H(index), alarm_h);
+	netc_timer_wr(priv, NETC_TMR_ALARM_L(index), alarm_l);
+	netc_timer_wr(priv, NETC_TMR_ALARM_H(index), alarm_h);
 }
 
 static u32 netc_timer_calculate_fiper_pulse_width(struct netc_timer *priv,
@@ -180,13 +170,13 @@ static void netc_timer_adjust_period(struct netc_timer *priv, u64 period)
 	u32 tmr_ctrl, old_tmr_ctrl;
 
 	guard(spinlock_irqsave)(&priv->lock);
-	old_tmr_ctrl = netc_timer_read_reg(priv, NETC_TMR_CTRL);
+	old_tmr_ctrl = netc_timer_rd(priv, NETC_TMR_CTRL);
 	tmr_ctrl = u32_replace_bits(old_tmr_ctrl, period_int,
 				    TMR_CTRL_TCLK_PERIOD);
 	if (tmr_ctrl != old_tmr_ctrl)
-		netc_timer_write_reg(priv, NETC_TMR_CTRL, tmr_ctrl);
+		netc_timer_wr(priv, NETC_TMR_CTRL, tmr_ctrl);
 
-	netc_timer_write_reg(priv, NETC_TMR_ADD, period_frac);
+	netc_timer_wr(priv, NETC_TMR_ADD, period_frac);
 }
 
 static irqreturn_t netc_timer_isr(int irq, void *data)
@@ -198,11 +188,11 @@ static irqreturn_t netc_timer_isr(int irq, void *data)
 
 	spin_lock_irqsave(&priv->lock, flags);
 
-	tmr_event = netc_timer_read_reg(priv, NETC_TMR_TEVENT);
-	tmr_emask = netc_timer_read_reg(priv, NETC_TMR_TEMASK);
+	tmr_event = netc_timer_rd(priv, NETC_TMR_TEVENT);
+	tmr_emask = netc_timer_rd(priv, NETC_TMR_TEMASK);
 
 	/* Clear interrupts status */
-	netc_timer_write_reg(priv, NETC_TMR_TEVENT, tmr_event);
+	netc_timer_wr(priv, NETC_TMR_TEVENT, tmr_event);
 
 	tmr_event &= tmr_emask;
 	if (tmr_event & TMR_TEVENT_PPEN_ALL) {
@@ -213,7 +203,7 @@ static irqreturn_t netc_timer_isr(int irq, void *data)
 	if (tmr_event & TMR_TEVENT_ALM1EN) {
 		tmr_emask &= ~TMR_TEVENT_ALM1EN;
 
-		netc_timer_write_reg(priv, NETC_TMR_TEMASK, tmr_emask);
+		netc_timer_wr(priv, NETC_TMR_TEMASK, tmr_emask);
 		netc_timer_alarm_write(priv, NETC_TMR_DEFAULT_ALARM, 0);
 	}
 
@@ -311,8 +301,8 @@ static int netc_timer_enable_pps(struct netc_timer *priv,
 
 	spin_lock_irqsave(&priv->lock, flags);
 
-	tmr_emask = netc_timer_read_reg(priv, NETC_TMR_TEMASK);
-	fiper_ctrl = netc_timer_read_reg(priv, NETC_TMR_FIPER_CTRL);
+	tmr_emask = netc_timer_rd(priv, NETC_TMR_TEMASK);
+	fiper_ctrl = netc_timer_rd(priv, NETC_TMR_FIPER_CTRL);
 
 	if (on) {
 		fiper = div_u64(NSEC_PER_SEC, priv->period_int) - 1;
@@ -327,9 +317,9 @@ static int netc_timer_enable_pps(struct netc_timer *priv,
 		fiper_ctrl |= FIPER_CTRL_DIS(0);
 	}
 
-	netc_timer_write_reg(priv, NETC_TMR_TEMASK, tmr_emask);
-	netc_timer_write_reg(priv, NETC_TMR_FIPER(0), fiper);
-	netc_timer_write_reg(priv, NETC_TMR_FIPER_CTRL, fiper_ctrl);
+	netc_timer_wr(priv, NETC_TMR_TEMASK, tmr_emask);
+	netc_timer_wr(priv, NETC_TMR_FIPER(0), fiper);
+	netc_timer_wr(priv, NETC_TMR_FIPER_CTRL, fiper_ctrl);
 
 	spin_unlock_irqrestore(&priv->lock, flags);
 
@@ -354,9 +344,9 @@ static int net_timer_enable_perout(struct netc_timer *priv,
 
 	spin_lock_irqsave(&priv->lock, flags);
 
-	tmr_ctrl = netc_timer_read_reg(priv, NETC_TMR_CTRL);
-	tmr_emask = netc_timer_read_reg(priv, NETC_TMR_TEMASK);
-	fiper_ctrl = netc_timer_read_reg(priv, NETC_TMR_FIPER_CTRL);
+	tmr_ctrl = netc_timer_rd(priv, NETC_TMR_CTRL);
+	tmr_emask = netc_timer_rd(priv, NETC_TMR_TEMASK);
+	fiper_ctrl = netc_timer_rd(priv, NETC_TMR_FIPER_CTRL);
 	if (!on) {
 		tmr_emask &= ~(TMR_TEVNET_PPEN(channel) |
 			     TMR_TEVENT_ALM1EN);
@@ -402,11 +392,11 @@ static int net_timer_enable_perout(struct netc_timer *priv,
 		alarm = alarm * priv->period_int;
 	}
 
-	netc_timer_write_reg(priv, NETC_TMR_CTRL, tmr_ctrl);
-	netc_timer_write_reg(priv, NETC_TMR_TEMASK, tmr_emask);
-	netc_timer_write_reg(priv, NETC_TMR_FIPER(channel), fiper);
+	netc_timer_wr(priv, NETC_TMR_CTRL, tmr_ctrl);
+	netc_timer_wr(priv, NETC_TMR_TEMASK, tmr_emask);
+	netc_timer_wr(priv, NETC_TMR_FIPER(channel), fiper);
 	netc_timer_alarm_write(priv, alarm, 0);
-	netc_timer_write_reg(priv, NETC_TMR_FIPER_CTRL, fiper_ctrl);
+	netc_timer_wr(priv, NETC_TMR_FIPER_CTRL, fiper_ctrl);
 
 	spin_unlock_irqrestore(&priv->lock, flags);
 
@@ -539,19 +529,19 @@ static int netc_timer_init(struct netc_timer *priv)
 	 * domain are not accesdible.
 	 */
 	tmr_ctrl = (priv->clk_select & TMR_CTRL_CK_SEL) | TMR_CTRL_TE;
-	netc_timer_write_reg(priv, NETC_TMR_CTRL, tmr_ctrl);
+	netc_timer_wr(priv, NETC_TMR_CTRL, tmr_ctrl);
 
 	/* Output FIPER pulse clock (TMR_GCLK) is generated by dividing the
 	 * input clock of Timer by priv->oclk_prsc. For example, if input
 	 * clock of Timer is 200MHz, and priv->oclk_prsc is 2, then TMR_GCLK
 	 * is 100MHz.
 	 */
-	netc_timer_write_reg(priv, NETC_TMR_PRSC, priv->oclk_prsc);
-	netc_timer_write_reg(priv, NETC_TMR_ALARM_CTRL, alarm_ctrl);
-	fiper_ctrl = netc_timer_read_reg(priv, NETC_TMR_FIPER_CTRL);
+	netc_timer_wr(priv, NETC_TMR_PRSC, priv->oclk_prsc);
+	netc_timer_wr(priv, NETC_TMR_ALARM_CTRL, alarm_ctrl);
+	fiper_ctrl = netc_timer_rd(priv, NETC_TMR_FIPER_CTRL);
 	for (i = 0; i < NETC_TMR_FIPER_NUM; i++)
 		fiper_ctrl |= FIPER_CTRL_DIS(i);
-	netc_timer_write_reg(priv, NETC_TMR_FIPER_CTRL, fiper_ctrl);
+	netc_timer_wr(priv, NETC_TMR_FIPER_CTRL, fiper_ctrl);
 
 	ktime_get_real_ts64(&now);
 	ns = timespec64_to_ns(&now);
@@ -562,8 +552,8 @@ static int netc_timer_init(struct netc_timer *priv)
 	 */
 	tmr_ctrl |= ((priv->period_int << 16) & TMR_CTRL_TCLK_PERIOD) |
 		    TMR_COMP_MODE;
-	netc_timer_write_reg(priv, NETC_TMR_CTRL, tmr_ctrl);
-	netc_timer_write_reg(priv, NETC_TMR_ADD, priv->period_frac);
+	netc_timer_wr(priv, NETC_TMR_CTRL, tmr_ctrl);
+	netc_timer_wr(priv, NETC_TMR_ADD, priv->period_frac);
 
 	spin_unlock_irqrestore(&priv->lock, flags);
 
@@ -578,15 +568,15 @@ static void netc_timer_deinit(struct netc_timer *priv)
 
 	spin_lock_irqsave(&priv->lock, flags);
 
-	netc_timer_write_reg(priv, NETC_TMR_TEMASK, 0);
+	netc_timer_wr(priv, NETC_TMR_TEMASK, 0);
 	netc_timer_alarm_write(priv, NETC_TMR_DEFAULT_ALARM, 0);
-	fiper_ctrl = netc_timer_read_reg(priv, NETC_TMR_FIPER_CTRL);
+	fiper_ctrl = netc_timer_rd(priv, NETC_TMR_FIPER_CTRL);
 	for (i = 0; i < NETC_TMR_FIPER_NUM; i++) {
-		netc_timer_write_reg(priv, NETC_TMR_FIPER(i),
+		netc_timer_wr(priv, NETC_TMR_FIPER(i),
 				     NETC_TMR_DEFAULT_FIPER);
 		fiper_ctrl |= FIPER_CTRL_DIS(i);
 	}
-	netc_timer_write_reg(priv, NETC_TMR_FIPER_CTRL, fiper_ctrl);
+	netc_timer_wr(priv, NETC_TMR_FIPER_CTRL, fiper_ctrl);
 
 	spin_unlock_irqrestore(&priv->lock, flags);
 }
