@@ -110,6 +110,8 @@ struct netc_timer {
 	u32 fiper[NETC_TMR_FIPER_NUM];
 };
 
+#define ptp_to_netc_timer(ptp)		container_of((ptp), struct netc_timer, caps)
+
 static u64 netc_timer_cnt_read(struct netc_timer *priv)
 {
 	u32 tmr_cnt_l, tmr_cnt_h;
@@ -184,9 +186,8 @@ static irqreturn_t netc_timer_isr(int irq, void *data)
 	struct netc_timer *priv = data;
 	struct ptp_clock_event event;
 	u32 tmr_event, tmr_emask;
-	unsigned long flags;
 
-	spin_lock_irqsave(&priv->lock, flags);
+	guard(spinlock_irqsave)(&priv->lock);
 
 	tmr_event = netc_timer_rd(priv, NETC_TMR_TEVENT);
 	tmr_emask = netc_timer_rd(priv, NETC_TMR_TEMASK);
@@ -207,15 +208,13 @@ static irqreturn_t netc_timer_isr(int irq, void *data)
 		netc_timer_alarm_write(priv, NETC_TMR_DEFAULT_ALARM, 0);
 	}
 
-	spin_unlock_irqrestore(&priv->lock, flags);
-
 	return IRQ_HANDLED;
 }
 
 /* ppm: parts per million, ppb: parts per billion */
 static int netc_timer_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
 {
-	struct netc_timer *priv = container_of(ptp, struct netc_timer, caps);
+	struct netc_timer *priv = ptp_to_netc_timer(ptp);
 	u64 new_period;
 
 	if (!scaled_ppm)
@@ -229,14 +228,11 @@ static int netc_timer_adjfine(struct ptp_clock_info *ptp, long scaled_ppm)
 
 static int netc_timer_adjtime(struct ptp_clock_info *ptp, s64 delta)
 {
-	struct netc_timer *priv;
-	unsigned long flags;
-	u64 ns, adj_ns;
+	struct netc_timer *priv = ptp_to_netc_timer(ptp);
+	u64 adj_ns = abs(delta);
+	u64 ns;
 
-	priv = container_of(ptp, struct netc_timer, caps);
-	adj_ns = abs(delta);
-
-	spin_lock_irqsave(&priv->lock, flags);
+	guard(spinlock_irqsave)(&priv->lock);
 
 	ns = netc_timer_cnt_read(priv);
 	if (delta < 0)
@@ -246,28 +242,20 @@ static int netc_timer_adjtime(struct ptp_clock_info *ptp, s64 delta)
 
 	netc_timer_cnt_write(priv, ns);
 
-	spin_unlock_irqrestore(&priv->lock, flags);
-
 	return 0;
 }
 
-static int netc_timer_gettimex64(struct ptp_clock_info *ptp,
-				 struct timespec64 *ts,
+static int netc_timer_gettimex64(struct ptp_clock_info *ptp, struct timespec64 *ts,
 				 struct ptp_system_timestamp *sts)
 {
-	struct netc_timer *priv;
-	unsigned long flags;
+	struct netc_timer *priv = ptp_to_netc_timer(ptp);
 	u64 ns;
 
-	priv = container_of(ptp, struct netc_timer, caps);
-
-	spin_lock_irqsave(&priv->lock, flags);
-
-	ptp_read_system_prets(sts);
-	ns = netc_timer_cnt_read(priv);
-	ptp_read_system_postts(sts);
-
-	spin_unlock_irqrestore(&priv->lock, flags);
+	scoped_guard(spinlock_irqsave, &priv->lock) {
+		ptp_read_system_prets(sts);
+		ns = netc_timer_cnt_read(priv);
+		ptp_read_system_postts(sts);
+	}
 
 	*ts = ns_to_timespec64(ns);
 
@@ -277,18 +265,12 @@ static int netc_timer_gettimex64(struct ptp_clock_info *ptp,
 static int netc_timer_settime64(struct ptp_clock_info *ptp,
 				const struct timespec64 *ts)
 {
-	struct netc_timer *priv;
-	unsigned long flags;
-	u64 ns;
+	struct netc_timer *priv = ptp_to_netc_timer(ptp);
+	u64 ns = timespec64_to_ns(ts);
 
-	priv = container_of(ptp, struct netc_timer, caps);
-	ns = timespec64_to_ns(ts);
-
-	spin_lock_irqsave(&priv->lock, flags);
+	guard(spinlock_irqsave)(&priv->lock);
 
 	netc_timer_cnt_write(priv, ns);
-
-	spin_unlock_irqrestore(&priv->lock, flags);
 
 	return 0;
 }
@@ -297,9 +279,8 @@ static int netc_timer_enable_pps(struct netc_timer *priv,
 				 struct ptp_clock_request *rq, int on)
 {
 	u32 tmr_emask, fiper, fiper_ctrl, fiper_pw;
-	unsigned long flags;
 
-	spin_lock_irqsave(&priv->lock, flags);
+	guard(spinlock_irqsave)(&priv->lock);
 
 	tmr_emask = netc_timer_rd(priv, NETC_TMR_TEMASK);
 	fiper_ctrl = netc_timer_rd(priv, NETC_TMR_FIPER_CTRL);
@@ -321,8 +302,6 @@ static int netc_timer_enable_pps(struct netc_timer *priv,
 	netc_timer_wr(priv, NETC_TMR_FIPER(0), fiper);
 	netc_timer_wr(priv, NETC_TMR_FIPER_CTRL, fiper_ctrl);
 
-	spin_unlock_irqrestore(&priv->lock, flags);
-
 	return 0;
 }
 
@@ -333,7 +312,6 @@ static int net_timer_enable_perout(struct netc_timer *priv,
 	struct timespec64 period, stime;
 	u64 alarm, period_ns, cur_time;
 	u32 channel, fiper_pw;
-	unsigned long flags;
 
 	if (rq->perout.flags)
 		return -EOPNOTSUPP;
@@ -342,7 +320,7 @@ static int net_timer_enable_perout(struct netc_timer *priv,
 	if (channel >= NETC_TMR_FIPER_NUM)
 		return -EINVAL;
 
-	spin_lock_irqsave(&priv->lock, flags);
+	guard(spinlock_irqsave)(&priv->lock);
 
 	tmr_ctrl = netc_timer_rd(priv, NETC_TMR_CTRL);
 	tmr_emask = netc_timer_rd(priv, NETC_TMR_TEMASK);
@@ -383,7 +361,6 @@ static int net_timer_enable_perout(struct netc_timer *priv,
 		cur_time = netc_timer_cnt_read(priv);
 		if (cur_time >= alarm) {
 			dev_err(priv->dev, "Start time must greater than current time!\n");
-			spin_unlock_irqrestore(&priv->lock, flags);
 
 			return -EINVAL;
 		}
@@ -398,17 +375,13 @@ static int net_timer_enable_perout(struct netc_timer *priv,
 	netc_timer_alarm_write(priv, alarm, 0);
 	netc_timer_wr(priv, NETC_TMR_FIPER_CTRL, fiper_ctrl);
 
-	spin_unlock_irqrestore(&priv->lock, flags);
-
 	return 0;
 }
 
 static int netc_timer_enable(struct ptp_clock_info *ptp,
 			     struct ptp_clock_request *rq, int on)
 {
-	struct netc_timer *priv;
-
-	priv = container_of(ptp, struct netc_timer, caps);
+	struct netc_timer *priv = ptp_to_netc_timer(ptp);
 
 	switch (rq->type) {
 	case PTP_CLK_REQ_PEROUT:
@@ -504,7 +477,6 @@ static int netc_timer_init(struct netc_timer *priv)
 	struct device_node *node = priv->dev->of_node;
 	u32 tmr_ctrl, alarm_ctrl, fiper_ctrl;
 	struct timespec64 now;
-	unsigned long flags;
 	u64 ns;
 	int i;
 
@@ -522,8 +494,8 @@ static int netc_timer_init(struct netc_timer *priv)
 	alarm_ctrl = ALARM_CTRL_PG(0) | ALARM_CTRL_PG(1);
 
 	spin_lock_init(&priv->lock);
-	spin_lock_irqsave(&priv->lock, flags);
 
+	guard(spinlock_irqsave)(&priv->lock);
 	/* Software must enable timer first and the clock selected must be
 	 * active, otherwise, the registers which are in the timer clock
 	 * domain are not accesdible.
@@ -555,18 +527,15 @@ static int netc_timer_init(struct netc_timer *priv)
 	netc_timer_wr(priv, NETC_TMR_CTRL, tmr_ctrl);
 	netc_timer_wr(priv, NETC_TMR_ADD, priv->period_frac);
 
-	spin_unlock_irqrestore(&priv->lock, flags);
-
 	return 0;
 }
 
 static void netc_timer_deinit(struct netc_timer *priv)
 {
-	unsigned long flags;
 	u32 fiper_ctrl;
 	int i;
 
-	spin_lock_irqsave(&priv->lock, flags);
+	guard(spinlock_irqsave)(&priv->lock);
 
 	netc_timer_wr(priv, NETC_TMR_TEMASK, 0);
 	netc_timer_alarm_write(priv, NETC_TMR_DEFAULT_ALARM, 0);
@@ -577,8 +546,6 @@ static void netc_timer_deinit(struct netc_timer *priv)
 		fiper_ctrl |= FIPER_CTRL_DIS(i);
 	}
 	netc_timer_wr(priv, NETC_TMR_FIPER_CTRL, fiper_ctrl);
-
-	spin_unlock_irqrestore(&priv->lock, flags);
 }
 
 static int netc_timer_probe(struct pci_dev *pdev,
