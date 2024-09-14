@@ -1247,8 +1247,6 @@
 					 <&src IMX8MQ_RESET_MIPI_CSI1_PHY_REF_RESET>,
 					 <&src IMX8MQ_RESET_MIPI_CSI1_ESC_RESET>;
 				fsl,mipi-phy-gpr = <&iomuxc_gpr 0x88>;
-				interconnects = <&noc IMX8MQ_ICM_CSI1 &noc IMX8MQ_ICS_DRAM>;
-				interconnect-names = "dram";
 				status = "disabled";
 
 				ports {
@@ -1299,8 +1297,6 @@
 					 <&src IMX8MQ_RESET_MIPI_CSI2_PHY_REF_RESET>,
 					 <&src IMX8MQ_RESET_MIPI_CSI2_ESC_RESET>;
 				fsl,mipi-phy-gpr = <&iomuxc_gpr 0xa4>;
-				interconnects = <&noc IMX8MQ_ICM_CSI2 &noc IMX8MQ_ICS_DRAM>;
-				interconnect-names = "dram";
 				status = "disabled";
 
 				ports {

@@ -325,6 +325,28 @@
 	pinctrl-0 = <&pinctrl_i2c1>;
 	status = "okay";
 
+	ov5640_mipi2: ov5640_mipi2@3c {
+		compatible = "ovti,ov5640";
+		reg = <0x3c>;
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_camera2_pwdn>, <&pinctrl_camera_rst>;
+		clocks = <&clk IMX8MQ_CLK_CLKO2>;
+		clock-names = "xclk";
+		assigned-clocks = <&clk IMX8MQ_CLK_CLKO2>;
+		assigned-clock-parents = <&clk IMX8MQ_SYS2_PLL_200M>;
+		assigned-clock-rates = <20000000>;
+		csi_id = <1>;
+		powerdown-gpios = <&gpio1 5 GPIO_ACTIVE_HIGH>;
+		port {
+			ov5640_to_mipi_csi2: endpoint {
+				remote-endpoint = <&imx8mq_mipi2_csi_in>;
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+			};
+		};
+	};
+
 	pmic@8 {
 		compatible = "fsl,pfuze100";
 		fsl,pfuze-support-disable-sw;
@@ -508,6 +530,73 @@
 
 		status = "disabled";
 	};
+};
+
+&i2c2 {
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c2>;
+	status = "okay";
+
+	ov5640_mipi: ov5640_mipi@3c {
+		compatible = "ovti,ov5640";
+		reg = <0x3c>;
+		status = "okay";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_camera1_pwdn>;
+		clocks = <&clk IMX8MQ_CLK_CLKO2>;
+		clock-names = "xclk";
+		assigned-clocks = <&clk IMX8MQ_CLK_CLKO2>;
+		assigned-clock-parents = <&clk IMX8MQ_SYS2_PLL_200M>;
+		assigned-clock-rates = <20000000>;
+		csi_id = <0>;
+		powerdown-gpios = <&gpio1 3 GPIO_ACTIVE_HIGH>;
+		port {
+			ov5640_to_mipi_csi1: endpoint {
+				remote-endpoint = <&imx8mq_mipi1_csi_in>;
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+			};
+		};
+	};
+};
+
+&mipi_csi1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	ports {
+		port@0 {
+			imx8mq_mipi1_csi_in: endpoint {
+				remote-endpoint = <&ov5640_to_mipi_csi1>;
+				data-lanes = <1 2>;
+				bus-type = <4>;
+			};
+		};
+	};
+};
+
+&mipi_csi2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+	ports {
+		port@0 {
+			imx8mq_mipi2_csi_in: endpoint {
+				remote-endpoint = <&ov5640_to_mipi_csi2>;
+				data-lanes = <1 2>;
+				bus-type = <4>;
+			};
+		};
+	};
+};
+
+&csi1 {
+	status = "okay";
+};
+
+&csi2 {
+	status = "okay";
 };
 
 &pcie0 {
@@ -771,6 +860,24 @@
 		>;
 	};
 
+	pinctrl_camera1_pwdn: camera1_pwdn_grp {
+		fsl,pins = <
+			MX8MQ_IOMUXC_GPIO1_IO03_GPIO1_IO3               0x19
+		>;
+	};
+	pinctrl_camera2_pwdn: camera2_pwdn_grp {
+		fsl,pins = <
+			MX8MQ_IOMUXC_GPIO1_IO05_GPIO1_IO5		0x19
+		>;
+	};
+
+	pinctrl_camera_rst: camera_rst_grp {
+		fsl,pins = <
+			MX8MQ_IOMUXC_GPIO1_IO06_GPIO1_IO6               0x19
+			MX8MQ_IOMUXC_GPIO1_IO15_CCMSRCGPCMIX_CLKO2      0x59
+		>;
+	};
+
 	pinctrl_fec1: fec1grp {
 		fsl,pins = <
 			MX8MQ_IOMUXC_ENET_MDC_ENET1_MDC			0x3
@@ -820,6 +927,13 @@
 	pinctrl_i2c3_dsi_ts_int: dsi_ts_int {
 		fsl,pins = <
 			MX8MQ_IOMUXC_ECSPI1_MOSI_GPIO5_IO7		0x59
+		>;
+	};
+
+	pinctrl_i2c2: i2c2grp {
+		fsl,pins = <
+			MX8MQ_IOMUXC_I2C2_SCL_I2C2_SCL			0x40000067
+			MX8MQ_IOMUXC_I2C2_SDA_I2C2_SDA			0x40000067
 		>;
 	};
 
