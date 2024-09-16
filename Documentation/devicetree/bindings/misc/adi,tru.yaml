@@ -44,24 +44,20 @@ required:
   - adi,tru-last-source-id
   - adi,tru-last-target-id
 
-optional:
-  - adi,tru-connections-preset
-  - adi,tru-connections-preset-locked
-
 examples:
   - |
-	tru0: tru@TRU_BASE_UADDR {
-		compatible = "adi,tru";
-		reg = <TRU_BASE 0x800>;
-		/* TODO replace 100 with actual last trigger source ID */
-		adi,tru-last-source-id = <100>;
-		adi,tru-last-target-id = <79>;
-		/* each connection is <source target> */
-		/*
-		adi,tru-connections-preset = <1 2>,
-				<25 32>,
-				<3 4>;
-		adi,tru-connections-preset-locked;
-		*/
-	};
+     tru0: tru@TRU_BASE_UADDR {
+       compatible = "adi,tru";
+       reg = <TRU_BASE 0x800>;
+       /* TODO replace 100 with actual last trigger source ID */
+       adi,tru-last-source-id = <100>;
+       adi,tru-last-target-id = <79>;
+       /* each connection is <source target> */
+       /*
+       adi,tru-connections-preset = <1 2>,
+                                    <25 32>,
+                                    <3 4>;
+       adi,tru-connections-preset-locked;
+       */
+     };
 ...

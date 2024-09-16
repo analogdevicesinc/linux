@@ -4,7 +4,7 @@
 $id: http://devicetree.org/schemas/ptp/ptp-adrv906x-tod.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: ADRV906x PTP Clock ToD Device Tree Bindings
+title: ADRV906x PTP Clock ToD Device Tree
 
 maintainers:
   - Kim Holdt <kim.holdt@analog.com>
@@ -23,25 +23,27 @@ properties:
     maxItems: 1
 
   clock-names:
-      items:
+    items:
       - const: lc_clk
       - const: gc_clk
 
   clocks:
     items:
-    - description: Clock phandle for ToD counter local clock, refer to common clock bindings.
-    - description: Clock phandle for Golden Counter clock.
+      - description: Clock phandle for ToD counter local clock,
+                     refer to common clock bindings.
+      - description: Clock phandle for Golden Counter clock.
 
   interrupts:
     items:
-    - description: ToD PPS interrupt
+      - description: ToD PPS interrupt
 
   interrupt-names:
     items:
-    - description: pps
+      - const: pps
 
   adi,ppsx-pulse-width-ns:
-    description: Value of PPSX pulse width in nanoseconds. Default is 10000000 (10ms).
+    description: Value of PPSX pulse width in nanoseconds. Default is 10000000
+                 (10ms).
     minimum: 1
     maximum: 99999999
 
@@ -53,48 +55,53 @@ properties:
       device(s) will be sourced from the input PPS signal.
 
   adrv906x-tod:
-    adi,default-tod-counter:
-    description:
-      Default selected ToD counter for the local ToD and CDC output.
+    type: object
+    properties:
+      adi,default-tod-counter:
+        description: Default selected ToD counter for the local ToD and CDC
+                     output.
 
-    adi,cdc-delay-value:
-      description:
-        this property is only for debugging or special use cases.
-        Instead, for normal operation, we need to configure this on the basis of the Ethernet interface speed
-        (which dictates the frequency for the Ethernet Subsystem) and the 'devclk' frequency.
-        Default is 0.
-      minimum: 0
-      maximum: 31
+      adi,cdc-delay-value:
+        description:
+          this property is only for debugging or special use cases.
+          Instead, for normal operation, we need to configure this on the basis
+          of the Ethernet interface speed (which dictates the frequency for
+          the Ethernet Subsystem) and the 'devclk' frequency.
+          Default is 0.
+        minimum: 0
+        maximum: 31
 
-    "#address-cells":
-      const: 1
+      "#address-cells":
+        const: 1
 
-    "#size-cells":
-      const: 0
+      "#size-cells":
+        const: 0
 
-    "tod-counter@[0-2]+$":
-      type: object
-      description: ADRV906x ToD counter(s)
-      properties:
-        reg:
-          maxItems: 1
-          description: The index of the ToD counter.
-          minimum: 0
-          maximum: 2
+    patternProperties:
+      "tod-counter@[0-2]+$":
+        type: object
+        description: ADRV906x ToD counter(s)
+        properties:
+          reg:
+            description: The index of the ToD counter.
+            minimum: 0
+            maximum: 2
 
-        adi,pps-mode:
-          type: boolean
-          description:
-            The read and write trigger mode of the ToD counter.
-            If present, the ToD counter runs in the 1PPS trigger mode, otherwise,  
-            the counter runs in the GC trigger mode.
+          adi,pps-mode:
+            type: boolean
+            description:
+              The read and write trigger mode of the ToD counter.
+              If present, the ToD counter runs in the 1PPS trigger mode,
+              otherwise, the counter runs in the GC trigger mode.
 
-        adi,trigger-delay-tick:
-          description:
-            The trigger delay for the GC trigger mode in clock cycles. 
-            Default is 491520.
-          minimum: 0
-          maximum: 0xFFFFFFFF
+          adi,trigger-delay-tick:
+            description:
+              The trigger delay for the GC trigger mode in clock cycles.
+              Default is 491520.
+            minimum: 0
+            maximum: 0xFFFFFFFF
+        additionalProperties: false
+    additionalProperties: false
 
 required:
   - compatible
@@ -112,11 +119,11 @@ examples:
     ptpclk: ptpclk {
       compatible = "adi,adi-tod";
       #address-cells = <1>;
-      #size-cells = <1>;    
+      #size-cells = <1>;
       reg = <EMAC_TOD_BASE 0xff>;
       interrupts = <GIC_SPI TOD_IRQ IRQ_TYPE_LEVEL_HIGH>;
       interrupt-names = "pps";
-      clocks = <&sysclk>, <&sysclk>; 
+      clocks = <&sysclk>, <&sysclk>;
       clock-names = "lc_clk", "gc_clk";
 
       adrv906x-tod {
@@ -127,19 +134,19 @@ examples:
           reg = <0>;
           adi,trigger-delay-tick = <491520>;
         };
-      };  
+      };
     };
   - |
     ptpclk: ptpclk {
       compatible = "adi,adi-tod";
       #address-cells = <1>;
-      #size-cells = <1>;    
+      #size-cells = <1>;
       reg = <EMAC_TOD_BASE 0xff>;
       interrupts = <GIC_SPI TOD_IRQ IRQ_TYPE_LEVEL_HIGH>;
       interrupt-names = "pps";
-      clocks = <&sysclk>, <&sysclk>; 
+      clocks = <&sysclk>, <&sysclk>;
       clock-names = "lc_clk", "gc_clk";
-      adi,ppsx-pulse-width-ns = <10000000>;        
+      adi,ppsx-pulse-width-ns = <10000000>;
       adi,external-pps;
 
       adrv906x-tod {

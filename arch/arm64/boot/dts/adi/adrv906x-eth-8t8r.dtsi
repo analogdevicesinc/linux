@@ -13,6 +13,8 @@
 		#size-cells = <1>;
 
 		ethernet-ports {
+			#address-cells = <1>;
+			#size-cells = <1>;
 			port@0 {
 				id = <0>;
 				reg = <SEC_EMAC_MAC_0_BASE 0x14>, <SEC_EMAC_MAC_0_TX 0x70>, <SEC_EMAC_MAC_0_RX 0x9c>;

@@ -10,8 +10,7 @@ maintainers:
   - Kim Holdt <kim.holdt@analog.com>
   - Sheng Wang <sheng.wang@analog.com>
 
-description: |
-  Bindings for ADRV906X 10G/25G Network Interface Controller Device
+description: Bindings for ADRV906X 10G/25G Network Interface Controller Device
 
 properties:
   compatible:
@@ -20,21 +19,35 @@ properties:
     maxItems: 1
     description: EMAC_CMN_BASE
   recovered_clk_10g:
-    description: Clock divider value for the recovered Ethernet clock that is used
-      as a reference to support SyncE in 10 GbE operation
+    description: Clock divider value for the recovered Ethernet clock that
+                 is used as a reference to support SyncE in 10 GbE operation
     const: 22
   recovered_clk_25g:
-    description: Clock divider value for the recovered Ethernet clock that is used
-      as a reference to support SyncE in 25 GbE operation
+    description: Clock divider value for the recovered Ethernet clock that
+                 is used as a reference to support SyncE in 25 GbE operation
     const: 55
   ethernet-ports:
     type: object
-    patternProperties:
+    properties:
       '#address-cells':
         const: 1
       '#size-cells':
         const: 1
-
+      macsec:
+        description: Physical base address for MACsec instance
+      interrupts:
+        description: macsecX interrupt. Do only populate macsec1 when the switch
+                     is enabled!
+      interrupt-names:
+        items:
+          - const: ts_event
+      ndma-handle:
+        maxItems: 1
+        description: phandle on NIC-DMA associated with the port
+      phy-handle:
+        maxItems: 1
+        description: phandle on PHY connected to the port
+    patternProperties:
       "^port@[0-9]+$":
         type: object
         description: ADI NIC external ports
@@ -44,30 +57,15 @@ properties:
             description: port id for the ethernet device
           reg:
             maxItems: 3
-            description: The address and size of the register must be in the below list order!
-                - description: The physical base address and size of the XMAC registers
-                - description: The physical base address and size of the EMAC TX control registers
-                - description: The physical base address and size of the EMAC RX control registers
-          macsec:
-            description: Physical base address for MACsec instance
-          interrupts:
-            description: macsecX interrupt. Do only populate macsec1 when the switch is enabled!
-          interrupt-names:
-            items:
-              - const: ts_event
-          ndma-handle:
-            maxItems: 1
-            description: phandle on NIC-DMA associated with the port
-          phy-handle:
-            maxItems: 1
-            description: phandle on PHY connected to the port
-        required:
-          - reg
-          - phy-handle
-          - phy-mode
-
-  mdio:
-    $ref: mdio.yaml#
+            description: The address and size of the register must be
+                         in the below list order!
+              - The physical base address and size of the XMAC registers
+              - The physical base address and size of the EMAC TX control
+                registers
+              - The physical base address and size of the EMAC RX control
+                registers
+        additionalProperties: false
+    additionalProperties: false
 
   ndmaX:
     type: object
@@ -106,45 +104,76 @@ properties:
           - const: rx_dma_error
       interrupt-ctrl:
         description: control register address for NDMA interrupt enable
+    additionalProperties: false
 
   oran_if:
-    description: Enable O-RAN IF to forward traffic to NDMA.
-    reg: OIF_0_RX_CTRL, OIF_0_TX_CTRL, OIF_1_RX_CTRL, OIF_1_TX_CTRL
+    type: object
+    properties:
+      reg:
+        items:
+          description: Enable O-RAN IF to forward traffic to NDMA.
+      reg-names:
+        items:
+          - const: OIF_0_TX_CTRL
+          - const: OIF_0_RX_CTRL
+          - const: OIF_1_RX_CTRL
+          - const: OIF_1_TX_CTRL
+    additionalProperties: false
 
   eth_recov_clk:
-    description: Enable Ethernet recovered clock output.
-    reg: EMAC_RECOVERED_CLK_CTRL
+    type: object
+    properties:
+      reg:
+        items:
+          description: Enable Ethernet recovered clock output.reg name
+
+      reg-names:
+        items:
+          - const: EMAC_RECOVERED_CLK_CTRL
+    additionalProperties: false
 
   eth_switch:
     type: object
     description: Switch used for daisy-chain and 8t8r operational modes.
-    patternProperties:
+    properties:
       '#address-cells':
         const: 1
       '#size-cells':
         const: 1
-    reg:
-      maxItems: 2
-      description: Physical base address for switch and switch matching engine.
-    interrupts:
-      maxItems: 1
-      items:
-        - description: switchportX error interrupt
-    interrupt-names:
-      items:
-        - const: switch_error_X
-    pvid: (u16) Should be '1' but can have any valid VLAN ID.
-    vids: (u16) A list of up to 4 VLANs applied to all switch ports.
-      maxItems: 4
-      description:
-    pcpregen: 0x76543210 - consult the HW UM.
-    pcp2ipv: 0x76543210 - consult the HW UM.
-    "^switch-port@[0-2]+$":
-      description: A child node for each physical port on the built-in switch. Must be in numerical order!
-      id: 0-2
       reg:
-        maxItems: 1
-        description: Physical base address for the specific switch port.
+        maxItems: 2
+        description: Physical base address for switch and switch matching
+                     engine.
+      interrupts:
+        items:
+          description: switchportX error interrupt
+      interrupt-names:
+        items:
+          - const: switch_error_X
+      pvid:
+        description: (u16) Should be '1' but can have any valid VLAN ID.
+      vids:
+        description: (u16) A list of up to '4' VLANs applied to all
+                     switch ports.
+        maxItems: 4
+      pcpregen:
+        description: 0x76543210 - consult the HW UM.
+      pcp2ipv:
+        description: 0x76543210 - consult the HW UM.
+    patternProperties:
+      "^switch-port@[0-2]+$":
+        type: object
+        description: A child node for each physical port on the built-in switch.
+                     Must be in numerical order!
+        properties:
+          id:
+            $ref: /schemas/types.yaml#definitions/uint32
+            description: port id for the ethernet switch, 0-2
+          reg:
+            maxItems: 1
+            description: Physical base address for the specific switch port.
+        additionalProperties: false
+    additionalProperties: false
 
 required:
   - compatible
@@ -161,16 +190,17 @@ unevaluatedProperties: false
 
 examples:
   - |
-  adrv906x_net: adi_eth_node@EMAC_CMN_BASE_UADDR {
-    compatible = "adi,adrv906x-net";
-    reg = <EMAC_CMN_BASE 0x3004>;
-    #address-cells = <1>;
-    #size-cells = <1>;
-    
-    ethernet-ports {
-      port@0 {
+    adrv906x_net: adi_eth_node@EMAC_CMN_BASE_UADDR {
+      compatible = "adi,adrv906x-net";
+      reg = <EMAC_CMN_BASE 0x3004>;
+      '#address-cells = <1>;'
+      '#size-cells = <1>;'
+
+      ethernet-ports {
+        port@0 {
         id = <0>;
-        reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>, <EMAC_MAC_0_RX 0x9c>;
+        reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>,
+              <EMAC_MAC_0_RX 0x9c>;
         macsec = <EMAC_MACSEC_0_BASE 0xa00>;
         interrupts = <GIC_SPI MACSEC_IRQ_0 IRQ_TYPE_LEVEL_HIGH>;
         interrupt-names = "ts_event";
@@ -180,7 +210,8 @@ examples:
       };
       port@1 {
         id = <1>;
-        reg = <EMAC_MAC_1_BASE 0x14>, <EMAC_MAC_1_TX 0x70>, <EMAC_MAC_1_RX 0x9c>;
+        reg = <EMAC_MAC_1_BASE 0x14>, <EMAC_MAC_1_TX 0x70>,
+              <EMAC_MAC_1_RX 0x9c>;
         macsec = <EMAC_MACSEC_1_BASE 0xa00>;
         interrupts = <GIC_SPI MACSEC_IRQ_1 IRQ_TYPE_LEVEL_HIGH>;
         interrupt-names = "ts_event";
@@ -189,19 +220,20 @@ examples:
         phy-mode = "rmii";
       };
     };
-    
     oran_if {
-      reg = <OIF_0_RX_CTRL 0x4>, <OIF_0_TX_CTRL 0x4>, <OIF_1_RX_CTRL 0x4>, <OIF_1_TX_CTRL 0x4>;
+      reg = <OIF_0_RX_CTRL 0x4>, <OIF_0_TX_CTRL 0x4>,
+      <OIF_1_RX_CTRL 0x4>, <OIF_1_TX_CTRL 0x4>;
+
     };
-      
     eth_recov_clk {
       reg = <EMAC_RECOVERED_CLK_CTRL 0x4>;
     };
-      
+
     eth_switch {
       reg = <EMAC_SW_BASE 0x30 EMAC_SW_MAE_BASE 0x30>;
       interrupt-names = "switch_error_0", "switch_error_1";
-      interrupts = <GIC_SPI ETH_IRQ_PCS_RX_ERROR_0 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI ETH_IRQ_PCS_RX_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;
+      interrupts = <GIC_SPI ETH_IRQ_PCS_RX_ERROR_0 IRQ_TYPE_LEVEL_HIGH>,
+                   <GIC_SPI ETH_IRQ_PCS_RX_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;
       pvid = /bits/ 16 <1>;
       vids = /bits/ 16 <2 3 4 5>;
       pcpregen = <0x77000000>;
@@ -219,24 +251,25 @@ examples:
         reg = <EMAC_SW_PORT_2_BASE 0x400>;
       };
     };
-  };
+    };
 
-  ndma0: ndma0@NDMA_0_TX_UADDR {
-    id = <0>;
-    reg = <NIC_DMA_0_TX 0x100>, 
-          <NIC_DMA_0_BASE 0x80>, 
-          <NIC_DMA_0_BASE 0x80>, 
-          <NIC_DMA_0_RX 0x1000>,
-          <NIC_DMA_0_BASE 0x80>;
-    reset-ctrl = <&ndma_rst>;
-    interrupts = <GIC_SPI MS_DDE_DONE_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
-                 <GIC_SPI MS_DDE_ERR_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
-                 <GIC_SPI MS_STAT_DDE_DONE_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
-                 <GIC_SPI MS_STAT_DDE_ERR_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
-                 <GIC_SPI MS_DDE_DONE_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
-                 <GIC_SPI MS_DDE_ERR_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>;
-    interrupt-names = "tx_data_dma_done", "tx_data_dma_error",
-                      "tx_status_dma_done", "tx_status_dma_error",
-                      "rx_dma_done", "rx_dma_error";
-    interrupt-ctrl = <&ndma0_interrupt_ctrl>;
-  };
+    ndma0: ndma0@NDMA_0_TX_UADDR {
+      id = <0>;
+      reg = <NIC_DMA_0_TX 0x100>,
+            <NIC_DMA_0_BASE 0x80>,
+            <NIC_DMA_0_BASE 0x80>,
+            <NIC_DMA_0_RX 0x1000>,
+            <NIC_DMA_0_BASE 0x80>;
+      reset-ctrl = <&ndma_rst>;
+      interrupts = <GIC_SPI MS_DDE_DONE_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
+                   <GIC_SPI MS_DDE_ERR_INTR_GATED_1 IRQ_TYPE_EDGE_RISING>,
+                   <GIC_SPI MS_STAT_DDE_DONE_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+                   <GIC_SPI MS_STAT_DDE_ERR_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+                   <GIC_SPI MS_DDE_DONE_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>,
+                   <GIC_SPI MS_DDE_ERR_INTR_GATED_0 IRQ_TYPE_EDGE_RISING>;
+      interrupt-names = "tx_data_dma_done", "tx_data_dma_error",
+                        "tx_status_dma_done", "tx_status_dma_error",
+                        "rx_dma_done", "rx_dma_error";
+      interrupt-ctrl = <&ndma0_interrupt_ctrl>;
+    };
+...
