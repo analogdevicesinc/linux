@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-# %YAML 1.2
+%YAML 1.2
 ---
 $id: http://devicetree.org/schemas/net/adi,adrv906x-1g.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
@@ -7,52 +7,51 @@ $schema: http://devicetree.org/meta-schemas/core.yaml#
 title: Analog Devices ADRV906X 1G Ethernet driver
 
 maintainers:
-        - Hans Schultz <hans.schultz@analog.com>
+  - Kim Holdt <kim.holdt@analog.com>
+  - Daniel Mateu <daniel.mateu@analog.com>
 
 description:
-        Bindings for Analog Devices ADRV906X 1G Ethernet Interface Devices
+  Bindings for Analog Devices ADRV906X 1G Ethernet Interface Devices
 
 properties:
   compatible:
-      const: adi,adrv906x-dwmac
+    const: adi,adrv906x-dwmac
+
   reg:
     maxItems: 1
     description: The register base address and range
   base-clk-speed:
     maxItems: 1
-    desription: The default clock speed at initialization in Mhz
-                The speed can be 50MHz, 125MHz or 250MHz
-
+    description: The default clock speed at initialization in Mhz
+                 The speed can be 50MHz, 125MHz or 250MHz
+additionalProperties: false
 examples:
   - |
-    #include "adrv906x_irq_def.h"
-    #include "adrv906x_def.h"
+    '#include "adrv906x_irq_def.h"'
+    '#include "adrv906x_def.h"'
     // Example 1 (rgmii)
     adi_dwmac_dev: adi_dwmac_node@EMAC_1G_BASE {
-        compatible = "adi,adrv906x-dwmac" , "snps,dwmac-5.10a";
-        reg = <EMAC_1G_BASE, 0x1168>;
-        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_26 IRQ_TYPE_LEVEL_HIGH>;
-        interrupt-names = "macirq";
-        phy-handle = <&adi_phy0>;
-        phy-mode = "rgmii";
-        snps,tso;
-        clock_divider {
-           reg = <EMAC_1G_YODA>;
-           base-clk-speed = 125;
-        }
+      compatible = "adi,adrv906x-dwmac" , "snps,dwmac-5.10a";
+      reg = <EMAC_1G_BASE, 0x1168>;
+      interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_26 IRQ_TYPE_LEVEL_HIGH>;
+      interrupt-names = "macirq";
+      phy-handle = <&adi_phy0>;
+      phy-mode = "rgmii";
+      clock_divider {
+        reg = <EMAC_1G_YODA>;
+          base-clk-speed = 125;
+      }
     }
-
     // Example 2 (gmii)
     adi_dwmac_dev: adi_dwmac_node@EMAC_1G_BASE {
-        compatible = "adi,adrv906x-dwmac" , "snps,dwmac-5.10a";
-        reg = <EMAC_1G_BASE, 0x1168>;
-        interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_26 IRQ_TYPE_LEVEL_HIGH>;
-        interrupt-names = "macirq";
-        phy-handle = <&adi_phy0>;
-        phy-mode = "gmii";
-        snps,tso;
-        clock_divider {
-           reg = <EMAC_1G_YODA>;
-           base-clk-speed = 125;
-        }
+      compatible = "adi,adrv906x-dwmac" , "snps,dwmac-5.10a";
+      reg = <EMAC_1G_BASE, 0x1168>;
+      interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_26 IRQ_TYPE_LEVEL_HIGH>;
+      interrupt-names = "macirq";
+      phy-handle = <&adi_phy0>;
+      phy-mode = "gmii";
+      clock_divider {
+        reg = <EMAC_1G_YODA>;
+        base-clk-speed = 125;
+      }
     }
