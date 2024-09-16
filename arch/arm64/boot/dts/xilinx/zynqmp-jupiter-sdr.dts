@@ -407,13 +407,6 @@
 		line-name = "usb-reset";
 	};
 
-	adrv9002_clksrc {
-		gpio-hog;
-		gpios = <79 GPIO_ACTIVE_HIGH>;
-		output-high;
-		line-name = "adrv9002-clksrc";
-	};
-
 	fan_ctl {
 		gpio-hog;
 		gpios = <145 GPIO_ACTIVE_HIGH>;
@@ -603,9 +596,36 @@
 
 #include "adi-adrv9002.dtsi"
 
+/ {
+	clocks {
+		adrv9002_clkin2: clock2 {
+			compatible = "fixed-clock";
+
+			clock-frequency = <30720000>;
+			clock-output-names = "adrv9002_refclk_mux0";
+			#clock-cells = <0>;
+		};
+	};
+
+	adrv9002_clk_mux: clk-mux {
+			#clock-cells = <0>;
+			compatible = "gpio-mux-clock";
+			/* 30.72MHz, 38.4MHz */
+			clocks = <&adrv9002_clkin2>, <&adrv9002_clkin>;
+			clock-output-names = "adrv9002_ext_refclk";
+			select-gpios = <&gpio 79 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&adrv9002_clkin {
+	clock-output-names = "adrv9002_refclk_mux1";
+};
+
 &adc0_adrv9002 {
 	reset-gpios = <&gpio 81 GPIO_ACTIVE_LOW>;
 	interrupts = <78 IRQ_TYPE_EDGE_RISING>;
+
+	clocks = <&adrv9002_clk_mux>;
 
 	adi,channels {
 		rx@0 {
