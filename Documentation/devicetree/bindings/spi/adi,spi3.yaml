@@ -29,7 +29,7 @@ properties:
 
   clocks:
     maxItems: 1
-  
+
   clock-names:
     items:
       - const: spi
@@ -64,9 +64,10 @@ patternProperties:
       adi,open-drain-mode:
         description: |
           Enable ODM - Open Drain Mode for all output pins.
-      adi,psse: 
+      adi,psse:
         description: |
           Enable PSSE - Controls signalling of MODF error.
+    additionalProperties: false
 
 required:
   - compatible
