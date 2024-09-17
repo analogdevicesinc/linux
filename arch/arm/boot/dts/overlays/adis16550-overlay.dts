@@ -1,0 +1,73 @@
+// SPDX-License-Identifier: GPL-2.0
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@1 {
+		target = <&spidev1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	 fragment@2 {
+		target = <&gpio>;
+		__overlay__ {
+			adis16550_pins: adis16550_pins {
+				brcm,pins = <6 12>; // interrupt and reset
+				brcm,function = <0 1>; // in out
+			};
+		};
+	};
+
+	fragment@3 {
+		target-path = "/";
+		__overlay__ {
+			vdd_reg_5v: vdd_reg_5v@0 {
+				compatible = "regulator-fixed";
+				regulator-name = "vdd";
+				regulator-min-microvolt = <5000000>;
+				regulator-max-microvolt = <5000000>;
+				enable-active-high;
+			};
+		};
+	};
+
+	fragment@4 {
+		target = <&spi0>;
+		__overlay__ {
+			/* needed to avoid dtc warning */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			status = "okay";
+                        
+			adis16550@0 {
+				compatible = "adi,adis16550";
+				reg = <0>;
+				pinctrl-names = "default";
+				pinctrl-0 = <&adis16550_pins>;
+				spi-cpha;
+				spi-cpol;
+				vdd-supply = <&vdd_reg_5v>;
+				reset-gpios = <&gpio 12 GPIO_ACTIVE_LOW>;
+				spi-max-frequency = <15000000>;
+				/* use DIO1 as data ready by default */
+				interrupts = <6 IRQ_TYPE_EDGE_RISING>;
+				interrupt-parent = <&gpio>;
+			};
+		};
+	};
+
+};
