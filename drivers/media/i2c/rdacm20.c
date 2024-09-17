@@ -23,6 +23,7 @@
 #include <linux/slab.h>
 #include <linux/videodev2.h>
 
+#include <media/mipi-csi2.h>
 #include <media/v4l2-async.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-subdev.h>
@@ -450,6 +451,29 @@ static int rdacm20_enum_frame_size(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int rdacm20_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
+			     struct v4l2_mbus_frame_desc *fd)
+{
+	struct v4l2_subdev_state *state;
+	struct v4l2_subdev_format format;
+
+	fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+	fd->num_entries = 1;
+
+	state = v4l2_subdev_lock_and_get_active_state(sd);
+
+	format.pad = 0;
+	rdacm20_get_fmt(sd, state, &format);
+
+	fd->entry[0].pixelcode = format.format.code;
+	fd->entry[0].bus.csi2.vc = 0;
+	fd->entry[0].bus.csi2.dt = MIPI_CSI2_DT_YUV422_8B;
+
+	v4l2_subdev_unlock_state(state);
+
+	return 0;
+}
+
 static const struct v4l2_subdev_video_ops rdacm20_video_ops = {
 	.s_stream	= rdacm20_s_stream,
 };
@@ -459,6 +483,7 @@ static const struct v4l2_subdev_pad_ops rdacm20_subdev_pad_ops = {
 	.get_fmt		= rdacm20_get_fmt,
 	.set_fmt		= rdacm20_get_fmt,
 	.enum_frame_size	= rdacm20_enum_frame_size,
+	.get_frame_desc		= rdacm20_get_frame_desc,
 };
 
 static const struct v4l2_subdev_ops rdacm20_subdev_ops = {
@@ -636,6 +661,10 @@ static int rdacm20_probe(struct i2c_client *client)
 	dev->pad.flags = MEDIA_PAD_FL_SOURCE;
 	dev->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
 	ret = media_entity_pads_init(&dev->sd.entity, 1, &dev->pad);
+	if (ret < 0)
+		goto error_free_ctrls;
+
+	ret = v4l2_subdev_init_finalize(&dev->sd);
 	if (ret < 0)
 		goto error_free_ctrls;
 
