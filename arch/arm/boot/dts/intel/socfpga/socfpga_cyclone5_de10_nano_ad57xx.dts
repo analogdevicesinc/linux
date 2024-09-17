@@ -1,0 +1,107 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD5791
+ * https://www.analog.com/en/products/ad5791.html
+ * https://analogdevicesinc.github.io/hdl/projects/ad57xx_ardz/index.html
+ * https://www.analog.com/en/resources/evaluation-hardware-and-software/evaluation-boards-kits/EVAL-AD5791ARDZ.html
+ * https://wiki.analog.com/resources/tools-software/linux-build/generic/socfpga
+ *
+ * hdl_project: <ad57xx_ardz/de10nano>
+ * board_revision: <B>
+ *
+ * Copyright (C) 2024 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "socfpga_cyclone5_de10_nano_hps.dtsi"
+#include <dt-bindings/dma/axi-dmac.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	dac_vdd: regulator-vdd {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <4096000>;
+		regulator-max-microvolt = <4096000>;
+		regulator-always-on;
+	};
+
+	dac_vss: regulator-vss {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <4096000>;
+		regulator-max-microvolt = <4096000>;
+		regulator-always-on;
+	};
+
+};
+
+&fpga_axi {
+
+	dac_trigger: pwm@0x00050000 {
+		compatible = "adi,axi-pwmgen-2.00.a";
+		reg = <0x00050000 0x1000>;
+		#pwm-cells = <3>;
+		clocks = <&spi_clk 0>;
+	};
+
+	tx_dma: tx-dma@0x00030000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x00030000 0x00000800>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 44 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&spi_clk 0>;
+	};
+
+	spi_clk: clock-controller@0x00060000 {
+		compatible = "altr,c5-fpll";
+		reg = <0x00060000 0x00000100>;
+		#clock-cells = <0x1>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+		clocks = <&sys_clk>;
+		assigned-clocks = <&spi_clk 0>;
+		assigned-clock-rates = <185000000>;
+		clock-output-names = "outclk0";
+		adi,fractional-carry-bit = <32>;
+
+		spi_c0: channel@0 {
+			reg = <0>;
+			adi,extended-name = "SPI_CLOCK";
+		};
+	};
+
+	spi@0x00040000 {
+		compatible = "adi-ex,axi-spi-engine-1.00.a";
+		reg = <0x00040000 0x00010000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 45 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sys_clk>, <&spi_clk 0>;
+		clock-names = "s_axi_aclk", "spi_clk";
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		ad57xx_1: dac@0 {
+			compatible = "adi,ad5791";
+			spi-cpha;
+			reg = <0>;
+			spi-max-frequency = <35000000>;
+			vss-supply = <&dac_vss>;
+			vdd-supply = <&dac_vdd>;
+			reset-gpios = <&gpio_bd 16 GPIO_ACTIVE_LOW>;
+			clear-gpios = <&gpio_bd 17 GPIO_ACTIVE_LOW>;
+			ldac-gpios = <&gpio_bd 18 GPIO_ACTIVE_LOW>;
+
+			clocks = <&spi_clk 0>;
+			clock-names = "ref_clk";
+
+			dmas = <&tx_dma 0>;
+			dma-names = "tx";
+			pwms = <&dac_trigger 0 1000 0>;
+			pwm-names = "cnv";
+
+		};
+	};
+};
