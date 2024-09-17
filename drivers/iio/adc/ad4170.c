@@ -662,6 +662,16 @@ static int ad4170_get_input_range(struct ad4170_state *st,
 	 */
 
 	/*
+	 * In some setups, the analog signal passes though an amplifier or gain
+	 * circuitry before reaching the ADC inputs. In those cases,
+	 * the actual input range is smaller (if the signal is amplified (gain > 1))
+	 * or larger (if the signal is attenuated (gain < 1)) than the input
+	 * range for each input type and polarity discussed above. To account
+	 * for that, the input range is divided (or multiplied) by the gain
+	 * factor.
+	 */
+
+	/*
 	 * In many cases, the negative reference (-VREF) is 0V (GND), but it may
 	 * be higher than GND (e.g. 2.5V) or even lower (e.g. -2.5V).
 	 * Regardless of the provided voltage reference(s), the analog inputs
