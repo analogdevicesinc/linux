@@ -552,7 +552,6 @@ static int adrv906x_phy_config_init(struct phy_device *phydev)
 	phydev->duplex = DUPLEX_FULL;
 	phydev->port = PORT_FIBRE;
 	phydev->speed = 25000;
-	phydev->dev_flags |= ADRV906X_PHY_FLAGS_PCS_RS_FEC_EN;
 
 	adrv906x_tsu_set_ptp_timestamping_mode(phydev);
 
