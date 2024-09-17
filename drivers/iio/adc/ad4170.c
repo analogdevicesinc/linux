@@ -612,42 +612,53 @@ static int ad4170_get_input_range(struct ad4170_state *st,
 	 * scale factor for the channel.
 	 * The ADC digitizes the analog input voltage over a span given by
 	 * the provided voltage reference, the input type, and the input polarity.
-	 * For single-ended unipolar channels,
+	 * For *single-ended unipolar* channels,
 	 * the analog voltage input can swing from 0V to VREF (where VREF
 	 * is a voltage reference with voltage potential higher than system
-	 * ground).
+	 * ground (GND)).
 	 * The maximum input voltage is often called VFS (full-scale input voltage),
 	 * with VFS being determined by VREF.
 
-	 * The input voltage to a single-ended bipolar channel may fluctuate between
+	 * The input voltage to a *single-ended bipolar* channel may fluctuate between
 	 * -VREF and +VREF
 	 * (where -VREF is the voltage reference that has the lower voltage
 	 * potential while +VREF is the reference with the higher one).
-	 * When -VREF is lower than the system GND these inputs are also
+	 * When -VREF is lower than the system ground these inputs are also
 	 * called single-ended true bipolar.
 
-	 * The analog signals to differential bipolar inputs are also allowed to swing
+	 * The analog signals to *differential bipolar* inputs are also allowed to swing
 	 * from -VREF to +VREF. However, a differential voltage measurement
-	 * digitizes the voltage level at the positive input relative to the
-	 * negative input (IN+ - IN-) over the -VREF to +VREF span.
+	 * digitizes the voltage level at the positive input (IN+) relative to the
+	 * negative input (IN-) over the -VREF to +VREF span. In other words,
+	 * a differential channel measures how many volts IN+ is away from IN-
+	 * (IN+ - IN-). If -VREF
+	 * is lower than system GND these are also called fully differential
+	 * true bipolar inputs.
 
-	 * For differential unipolar channels, the analog voltage at the positive
+	 * For *differential unipolar* channels, the analog voltage at the positive
 	 * input must also stay above the level of the voltage at the negative input.
 	 * Thus, the actual input range allowed to a differential unipolar channel
-	 * is from the negative input to +VREF.
+	 * is from IN- to +VREF.
 
-	 * Thus, for differential unipolar channels, the positive input is always
-	 * offset by the voltage at the negative input. We provide user space that
-	 * to allow calculating the real voltage level of the positive input with
-	 * respect to system ground.
+	 * Also for differential unipolar channels, the positive input is always
+	 * offset by the voltage at the negative input when compared to GND.
+	 * The IIO channel must provide and _offset attribute to tell user space
+	 * about that and allow applications to calculate the real voltage level
+	 * of the positive input with respect to system ground.
 	 * That does not influence how much voltage
-	 * the least significant bit (LSB) of ADC output code represent.
+	 * the least significant bit (LSB) of ADC output code represent, though.
 
-	 * There is a third input type called Pseudo-differential.
-	 * Pseudo-differential inputs are made up from differential inputs by
-	 * fixing the negative input to a known voltage and only allowing the
-	 * positive input to vary. For those input types, the voltage input range
-	 * is defined the same as for differential inputs. ?
+	 * There is a third input type called Pseudo-differential or
+	 * single-ended to differential configuration.
+	 * A pseudo-differential input is made up from a differential pair of
+	 * inputs byfixing the negative input to a known voltage and only
+	 * allowing the positive input to vary.
+	 * A *pseudo-differential unipolar* input has the same limitations of
+	 * a differential unipolar channel meaning the analog voltage to a
+	 * pseudo-differential input must stay between IN- and +VREF.
+	 * A *pseudo-differential bipolar* input is not limited by the level at
+	 * IN- but it may be limited to GND on the lower end of the input
+	 * range depending on the particular ADC.
 	 */
 
 	/*
