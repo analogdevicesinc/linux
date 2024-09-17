@@ -210,6 +210,7 @@
 		compatible = "is25lp512", "jedec,spi-nor";
 		reg = <0>;
 		spi-cpha;
+		adi,mmap;
 		spi-cpol;
 		spi-max-frequency = <25000000>;
 		spi-rx-bus-width = <4>;
