@@ -261,7 +261,7 @@ static void ad4630_get_sampling_freq(const struct ad4630_state *st, int *freq)
 	struct pwm_state conversion_state;
 
 	pwm_get_state(st->conv_trigger, &conversion_state);
-	*freq = DIV_ROUND_CLOSEST_ULL(PICO, conversion_state.period);
+	*freq = DIV_ROUND_CLOSEST_ULL(NANO, conversion_state.period);
 }
 
 static int ad4630_get_chan_gain(struct iio_dev *indio_dev, int ch, int *val)
