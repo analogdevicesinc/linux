@@ -112,7 +112,7 @@ static int gpmi_reset_block(void __iomem *reset_addr, bool just_enable)
 	return 0;
 
 error:
-	pr_err("%s(%p): module reset timeout\n", __func__, reset_addr);
+	pr_err("%s(%px): module reset timeout\n", __func__, reset_addr);
 	return -ETIMEDOUT;
 }
 
@@ -146,7 +146,7 @@ err_clk:
 static int gpmi_init(struct gpmi_nand_data *this)
 {
 	struct resources *r = &this->resources;
-	int ret;
+	int ret = 0;
 
 	ret = pm_runtime_resume_and_get(this->dev);
 	if (ret < 0)
@@ -731,7 +731,7 @@ static int common_nfc_set_geometry(struct gpmi_nand_data *this)
 static int bch_set_geometry(struct gpmi_nand_data *this)
 {
 	struct resources *r = &this->resources;
-	int ret;
+	int ret = 0;
 
 	ret = common_nfc_set_geometry(this);
 	if (ret)
@@ -755,7 +755,6 @@ static int bch_set_geometry(struct gpmi_nand_data *this)
 	/* Set *all* chip selects to use layout 0. */
 	writel(0, r->bch_regs + HW_BCH_LAYOUTSELECT);
 
-	ret = 0;
 err_out:
 	pm_runtime_mark_last_busy(this->dev);
 	pm_runtime_put_autosuspend(this->dev);
@@ -936,6 +935,9 @@ static int gpmi_nfc_apply_timings(struct gpmi_nand_data *this)
 	 */
 	if (GPMI_IS_MX6Q(this) || GPMI_IS_MX6SX(this))
 		clk_disable_unprepare(r->clock[0]);
+
+	if (GPMI_IS_MX6SX(this) && hw->clk_rate > 88000000)
+		hw->clk_rate = 88000000;
 
 	ret = clk_set_rate(r->clock[0], hw->clk_rate);
 	if (ret) {
@@ -1160,6 +1162,15 @@ static const struct gpmi_devdata gpmi_devdata_imx6q = {
 	.clks_count = ARRAY_SIZE(gpmi_clks_for_mx6),
 };
 
+static const struct gpmi_devdata gpmi_devdata_imx6qp = {
+	.type = IS_MX6QP,
+	.bch_max_ecc_strength = 40,
+	.max_chain_delay = 12000,
+	.support_edo_timing = true,
+	.clks = gpmi_clks_for_mx6,
+	.clks_count = ARRAY_SIZE(gpmi_clks_for_mx6),
+};
+
 static const struct gpmi_devdata gpmi_devdata_imx6sx = {
 	.type = IS_MX6SX,
 	.bch_max_ecc_strength = 62,
@@ -1182,8 +1193,8 @@ static const struct gpmi_devdata gpmi_devdata_imx7d = {
 	.clks_count = ARRAY_SIZE(gpmi_clks_for_mx7d),
 };
 
-static const char *gpmi_clks_for_mx8qxp[GPMI_CLK_MAX] = {
-	"gpmi_io", "gpmi_apb", "gpmi_bch", "gpmi_bch_apb",
+static const char * gpmi_clks_for_mx8qxp[GPMI_CLK_MAX] = {
+	"gpmi_clk", "gpmi_apb_clk", "bch_clk", "bch_apb_clk",
 };
 
 static const struct gpmi_devdata gpmi_devdata_imx8qxp = {
@@ -2298,7 +2309,7 @@ static int gpmi_init_last(struct gpmi_nand_data *this)
 	 *  (1) the chip is imx6, and
 	 *  (2) the size of the ECC parity is byte aligned.
 	 */
-	if (GPMI_IS_MX6(this) &&
+	if ((GPMI_IS_MX6(this) || GPMI_IS_MX8(this))  &&
 		((bch_geo->gf_len * bch_geo->ecc_strength) % 8) == 0) {
 		ecc->read_subpage = gpmi_ecc_read_subpage;
 		chip->options |= NAND_SUBPAGE_READ;
@@ -2709,7 +2720,7 @@ static int gpmi_nand_init(struct gpmi_nand_data *this)
 	this->base.ops = &gpmi_nand_controller_ops;
 	chip->controller = &this->base;
 
-	ret = nand_scan(chip, GPMI_IS_MX6(this) ? 2 : 1);
+	ret = nand_scan(chip, (GPMI_IS_MX6(this) || GPMI_IS_MX8(this)) ? 2 : 1);
 	if (ret)
 		goto err_out;
 
@@ -2736,8 +2747,9 @@ static const struct of_device_id gpmi_nand_id_table[] = {
 	{ .compatible = "fsl,imx23-gpmi-nand", .data = &gpmi_devdata_imx23, },
 	{ .compatible = "fsl,imx28-gpmi-nand", .data = &gpmi_devdata_imx28, },
 	{ .compatible = "fsl,imx6q-gpmi-nand", .data = &gpmi_devdata_imx6q, },
+	{ .compatible = "fsl,imx6qp-gpmi-nand", .data = &gpmi_devdata_imx6qp, },
 	{ .compatible = "fsl,imx6sx-gpmi-nand", .data = &gpmi_devdata_imx6sx, },
-	{ .compatible = "fsl,imx7d-gpmi-nand", .data = &gpmi_devdata_imx7d,},
+	{ .compatible = "fsl,imx7d-gpmi-nand", .data = &gpmi_devdata_imx7d, },
 	{ .compatible = "fsl,imx8qxp-gpmi-nand", .data = &gpmi_devdata_imx8qxp, },
 	{}
 };
