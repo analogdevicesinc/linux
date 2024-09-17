@@ -176,6 +176,7 @@ struct max9286_priv {
 	struct v4l2_subdev sd;
 	struct media_pad pads[MAX9286_N_PADS];
 	struct regulator *regulator;
+	struct mutex lock;
 
 	struct gpio_chip gpio;
 	u8 gpio_state;
@@ -204,6 +205,18 @@ struct max9286_priv {
 	unsigned int csi2_data_lanes;
 	struct max9286_source sources[MAX9286_NUM_GMSL];
 	struct v4l2_async_notifier notifier;
+	int enable_count;
+};
+
+static const struct v4l2_mbus_framefmt max9286_default_format = {
+	.width		= 1280,
+	.height		= 800,
+	.code		= MEDIA_BUS_FMT_UYVY8_1X16,
+	.colorspace	= V4L2_COLORSPACE_SRGB,
+	.field		= V4L2_FIELD_NONE,
+	.ycbcr_enc	= V4L2_YCBCR_ENC_DEFAULT,
+	.quantization	= V4L2_QUANTIZATION_DEFAULT,
+	.xfer_func	= V4L2_XFER_FUNC_DEFAULT,
 };
 
 static struct max9286_source *next_source(struct max9286_priv *priv,
@@ -440,7 +453,7 @@ static void max9286_reverse_channel_setup(struct max9286_priv *priv,
  *
  * Returns 0 for success, -EIO for errors.
  */
-static int max9286_check_video_links(struct max9286_priv *priv)
+static int max9286_check_video_links(struct max9286_priv *priv, u64 streams_mask)
 {
 	unsigned int i;
 	int ret;
@@ -455,7 +468,7 @@ static int max9286_check_video_links(struct max9286_priv *priv)
 		if (ret < 0)
 			return -EIO;
 
-		if ((ret & MAX9286_VIDEO_DETECT_MASK) == priv->source_mask)
+		if (((ret & MAX9286_VIDEO_DETECT_MASK) & streams_mask) == streams_mask)
 			break;
 
 		usleep_range(350, 500);
@@ -466,6 +479,9 @@ static int max9286_check_video_links(struct max9286_priv *priv)
 			"Unable to detect video links: 0x%02x\n", ret);
 		return -EIO;
 	}
+
+	if ((ret & MAX9286_VIDEO_DETECT_MASK) != MAX9286_VIDEO_DETECT_MASK)
+		return ret;
 
 	/* Make sure all enabled links are locked (4ms max). */
 	for (i = 0; i < 10; i++) {
@@ -484,7 +500,7 @@ static int max9286_check_video_links(struct max9286_priv *priv)
 		return -EIO;
 	}
 
-	return 0;
+	return ret;
 }
 
 /*
@@ -781,18 +797,54 @@ static void max9286_v4l2_notifier_unregister(struct max9286_priv *priv)
 	v4l2_async_nf_cleanup(&priv->notifier);
 }
 
-static int max9286_s_stream(struct v4l2_subdev *sd, int enable)
+static struct v4l2_subdev *max9286_xlate_streams(struct max9286_priv *priv,
+						  struct v4l2_subdev_state *state, u32 src_pad,
+						  u64 src_streams, u32 sink_pad, u64 *sink_streams,
+						  u32 *remote_pad)
+{
+	struct device *dev = &priv->client->dev;
+	u64 streams;
+	struct v4l2_subdev *remote_sd;
+	struct media_pad *pad;
+
+	streams = v4l2_subdev_state_xlate_streams(state, src_pad, sink_pad, &src_streams);
+	if (!streams)
+		dev_dbg(dev, "no streams found on sink pad\n");
+
+	pad = media_pad_remote_pad_first(&priv->pads[sink_pad]);
+	if (!pad) {
+		dev_err(dev, "no remote pad found for sink pad\n");
+		return ERR_PTR(-EPIPE);
+	}
+
+	remote_sd = media_entity_to_v4l2_subdev(pad->entity);
+	if (!remote_sd) {
+		dev_err(dev, "no entity connected to CSI2 input\n");
+		return ERR_PTR(-EPIPE);
+	}
+
+	*sink_streams = streams;
+	*remote_pad = pad->index;
+
+	return remote_sd;
+}
+
+static int max9286_enable_streams(struct v4l2_subdev *sd, struct v4l2_subdev_state *state,
+				   u32 src_pad, u64 streams_mask)
 {
 	struct max9286_priv *priv = sd_to_max9286(sd);
-	struct v4l2_subdev_state *state;
-	struct max9286_source *source;
+	struct device *dev = &priv->client->dev;
+	struct v4l2_subdev *remote_sd;
+	u32 remote_pad;
+	u64 sink_streams;
+	u64 sources_mask = streams_mask;
 	unsigned int i;
 	bool sync = false;
 	int ret = 0;
 
-	state = v4l2_subdev_lock_and_get_active_state(sd);
+	mutex_lock(&priv->lock);
 
-	if (enable) {
+	if (!priv->enable_count) {
 		const struct v4l2_mbus_framefmt *format;
 
 		/*
@@ -810,18 +862,37 @@ static int max9286_s_stream(struct v4l2_subdev *sd, int enable)
 		 * streaming to allow this synchronisation signal to be shared.
 		 */
 		max9286_i2c_mux_open(priv);
+	}
 
-		/* Start all cameras. */
-		for_each_source(priv, source) {
-			ret = v4l2_subdev_call(source->sd, video, s_stream, 1);
-			if (ret)
-				goto unlock;
+	/* Start all requested cameras. */
+	while (true) {
+		int pos = ffs(sources_mask) - 1;
+
+		if (pos == -1)
+			break;
+
+		remote_sd = max9286_xlate_streams(priv, state, src_pad, BIT(pos), pos,
+						   &sink_streams, &remote_pad);
+		if (IS_ERR(remote_sd)) {
+			ret = PTR_ERR(remote_sd);
+			goto unlock;
 		}
 
-		ret = max9286_check_video_links(priv);
-		if (ret)
+		ret = v4l2_subdev_enable_streams(remote_sd, remote_pad, 0x1);
+		if (ret) {
+			dev_err(dev, "failed to enable streams 0x%llx on '%s':%u: %d\n",
+				sink_streams, remote_sd->name, remote_pad, ret);
 			goto unlock;
+		}
 
+		sources_mask &= ~BIT(pos);
+	}
+
+	ret = max9286_check_video_links(priv, streams_mask);
+	if (ret < 0)
+		goto unlock;
+
+	if ((ret & MAX9286_VIDEO_DETECT_MASK) == MAX9286_VIDEO_DETECT_MASK) {
 		/*
 		 * Wait until frame synchronization is locked.
 		 *
@@ -844,7 +915,11 @@ static int max9286_s_stream(struct v4l2_subdev *sd, int enable)
 			ret = -EXDEV; /* Invalid cross-device link */
 			goto unlock;
 		}
+	}
 
+	ret = 0;
+
+	if (!priv->enable_count) {
 		/*
 		 * Configure the CSI-2 output to line interleaved mode (W x (N
 		 * x H), as opposed to the (N x W) x H mode that outputs the
@@ -853,22 +928,67 @@ static int max9286_s_stream(struct v4l2_subdev *sd, int enable)
 		max9286_write(priv, 0x15, MAX9286_CSI_IMAGE_TYP | MAX9286_VCTYPE |
 			      MAX9286_CSIOUTEN | MAX9286_EN_CCBSYB_CLK_STR |
 			      MAX9286_EN_GPI_CCBSYB);
-	} else {
+	}
+
+	priv->enable_count++;
+
+unlock:
+	mutex_unlock(&priv->lock);
+
+	return ret;
+}
+
+static int max9286_disable_streams(struct v4l2_subdev *sd, struct v4l2_subdev_state *state,
+				    u32 src_pad, u64 streams_mask)
+{
+	struct max9286_priv *priv = container_of(sd, struct max9286_priv, sd);
+	struct device *dev = &priv->client->dev;
+	struct v4l2_subdev *remote_sd;
+	u64 sink_streams;
+	u64 sources_mask = streams_mask;
+	u32 remote_pad;
+	int ret;
+
+	mutex_lock(&priv->lock);
+
+	priv->enable_count--;
+
+	/* disable cameras*/
+	while (true) {
+		int pos = ffs(sources_mask) - 1;
+
+		if (pos == -1)
+			break;
+
+		remote_sd = max9286_xlate_streams(priv, state, src_pad, BIT(pos), pos,
+						   &sink_streams, &remote_pad);
+		if (IS_ERR(remote_sd)) {
+			ret = PTR_ERR(remote_sd);
+			goto unlock;
+		}
+
+		ret = v4l2_subdev_disable_streams(remote_sd, remote_pad, 0x1);
+		if (ret) {
+			dev_err(dev,
+				"failed to disable streams 0x%llx on '%s':%u: %d\n",
+				sink_streams, remote_sd->name, remote_pad, ret);
+			goto unlock;
+		}
+
+		sources_mask &= ~BIT(pos);
+	}
+
+	if (!priv->enable_count) {
 		max9286_write(priv, 0x15, MAX9286_VCTYPE |
 			      MAX9286_EN_CCBSYB_CLK_STR |
 			      MAX9286_EN_GPI_CCBSYB);
-
-		/* Stop all cameras. */
-		for_each_source(priv, source)
-			v4l2_subdev_call(source->sd, video, s_stream, 0);
-
 		max9286_i2c_mux_close(priv);
 	}
 
 unlock:
-	v4l2_subdev_unlock_state(state);
+	mutex_unlock(&priv->lock);
 
-	return ret;
+	return 0;
 }
 
 static int max9286_get_frame_interval(struct v4l2_subdev *sd,
@@ -913,8 +1033,8 @@ static int max9286_set_fmt(struct v4l2_subdev *sd,
 			   struct v4l2_subdev_state *state,
 			   struct v4l2_subdev_format *format)
 {
-	struct max9286_priv *priv = sd_to_max9286(sd);
-	struct max9286_source *source;
+	struct v4l2_mbus_framefmt *sink_fmt;
+	struct v4l2_subdev_route *route;
 	unsigned int i;
 
 	/*
@@ -933,23 +1053,126 @@ static int max9286_set_fmt(struct v4l2_subdev *sd,
 	if (i == ARRAY_SIZE(max9286_formats))
 		format->format.code = max9286_formats[0].code;
 
-	/*
-	 * Apply the same format on all the other pad as all links must have the
-	 * same format.
-	 */
-	for_each_source(priv, source) {
-		unsigned int index = to_index(priv, source);
+	sink_fmt = v4l2_subdev_state_get_format(state, format->pad, format->stream);
+	if (!sink_fmt)
+		return -EINVAL;
 
-		*v4l2_subdev_state_get_format(state, index) = format->format;
+	*sink_fmt = format->format;
+
+	for_each_active_route(&state->routing, route) {
+		struct v4l2_mbus_framefmt *source_fmt;
+
+		if (route->sink_pad != format->pad || route->sink_stream != format->stream)
+			continue;
+
+		source_fmt = v4l2_subdev_state_get_format(state, route->source_pad,
+								 route->source_stream);
+		if (!source_fmt)
+			return -EINVAL;
+
+		*source_fmt = format->format;
 	}
-
-	*v4l2_subdev_state_get_format(state, MAX9286_SRC_PAD) = format->format;
 
 	return 0;
 }
 
+static int max9286_set_routing(struct v4l2_subdev *sd, struct v4l2_subdev_state *state,
+				enum v4l2_subdev_format_whence which,
+				struct v4l2_subdev_krouting *routing)
+{
+	int ret;
+
+	if (which == V4L2_SUBDEV_FORMAT_ACTIVE && media_entity_is_streaming(&sd->entity))
+		return -EBUSY;
+
+	ret = v4l2_subdev_routing_validate(sd, routing, V4L2_SUBDEV_ROUTING_ONLY_1_TO_1);
+	if (ret)
+		return ret;
+
+	return v4l2_subdev_set_routing_with_fmt(sd, state, routing, &max9286_default_format);
+}
+
+static int max9286_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
+				   struct v4l2_mbus_frame_desc *fd)
+{
+	struct max9286_priv *priv = container_of(sd, struct max9286_priv, sd);
+	struct device *dev = &priv->client->dev;
+	struct v4l2_subdev_state *state;
+	struct v4l2_subdev_route *route;
+	struct media_pad *remote_pad;
+	int ret = 0;
+	int i;
+
+	if (pad < MAX9286_SRC_PAD)
+		return -EINVAL;
+
+	memset(fd, 0, sizeof(*fd));
+
+	fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+
+	state = v4l2_subdev_lock_and_get_active_state(sd);
+
+	for_each_active_route(&state->routing, route) {
+		struct v4l2_mbus_frame_desc_entry *source_entry = NULL;
+		struct v4l2_mbus_frame_desc source_fd;
+
+		if (route->source_pad != pad)
+			continue;
+
+		remote_pad = media_pad_remote_pad_first(&priv->pads[route->sink_pad]);
+		if (!remote_pad) {
+			dev_err(dev, "no remote pad found for sink pad\n");
+			ret = -EPIPE;
+			goto unlock_state;
+		}
+
+		ret = v4l2_subdev_call(priv->sources[route->sink_pad].sd, pad, get_frame_desc,
+				       remote_pad->index, &source_fd);
+		if (ret) {
+			dev_err(dev, "Failed to get source frame desc for pad %u\n",
+				route->sink_pad);
+
+			goto unlock_state;
+		}
+
+		for (i = 0; i < source_fd.num_entries; i++) {
+			if (source_fd.entry[i].stream == route->sink_stream) {
+				source_entry = &source_fd.entry[i];
+				break;
+			}
+		}
+
+		if (!source_entry) {
+			dev_err(dev, "Failed to find stream from source frame desc\n");
+
+			ret = -EPIPE;
+			goto unlock_state;
+		}
+
+		fd->entry[fd->num_entries].stream = route->source_stream;
+		fd->entry[fd->num_entries].flags = source_entry->flags;
+		fd->entry[fd->num_entries].length = source_entry->length;
+		fd->entry[fd->num_entries].pixelcode = source_entry->pixelcode;
+
+		/*
+		 * TODO: Currently, the sink pad gives the VC number. But we need to fix this
+		 * if we're using the 2nd CSI port as well as we will end up with VC0 and VC1 on
+		 * CSI1 and VC2 and VC3 on CSI2. Should be VC0 and VC1 on CSI2.
+		 */
+		fd->entry[fd->num_entries].bus.csi2.vc = route->sink_pad;
+		fd->entry[fd->num_entries].bus.csi2.dt = source_entry->bus.csi2.dt;
+
+		fd->num_entries++;
+	}
+
+unlock_state:
+	v4l2_subdev_unlock_state(state);
+
+	return ret;
+}
+
 static const struct v4l2_subdev_video_ops max9286_video_ops = {
-	.s_stream	= max9286_s_stream,
+	.s_stream	= v4l2_subdev_s_stream_helper,
 };
 
 static const struct v4l2_subdev_pad_ops max9286_pad_ops = {
@@ -958,6 +1181,10 @@ static const struct v4l2_subdev_pad_ops max9286_pad_ops = {
 	.set_fmt	= max9286_set_fmt,
 	.get_frame_interval = max9286_get_frame_interval,
 	.set_frame_interval = max9286_set_frame_interval,
+	.set_routing = max9286_set_routing,
+	.get_frame_desc = max9286_get_frame_desc,
+	.enable_streams = max9286_enable_streams,
+	.disable_streams = max9286_disable_streams,
 };
 
 static const struct v4l2_subdev_ops max9286_subdev_ops = {
@@ -965,24 +1192,20 @@ static const struct v4l2_subdev_ops max9286_subdev_ops = {
 	.pad		= &max9286_pad_ops,
 };
 
-static const struct v4l2_mbus_framefmt max9286_default_format = {
-	.width		= 1280,
-	.height		= 800,
-	.code		= MEDIA_BUS_FMT_UYVY8_1X16,
-	.colorspace	= V4L2_COLORSPACE_SRGB,
-	.field		= V4L2_FIELD_NONE,
-	.ycbcr_enc	= V4L2_YCBCR_ENC_DEFAULT,
-	.quantization	= V4L2_QUANTIZATION_DEFAULT,
-	.xfer_func	= V4L2_XFER_FUNC_DEFAULT,
-};
-
 static int max9286_init_state(struct v4l2_subdev *sd,
 			      struct v4l2_subdev_state *state)
 {
 	struct v4l2_fract *interval;
+	struct v4l2_mbus_framefmt *fmt;
+	struct v4l2_subdev_krouting routing = {};
+	struct v4l2_subdev_route *routes;
+	int i;
 
-	for (unsigned int i = 0; i < MAX9286_N_PADS; i++)
-		*v4l2_subdev_state_get_format(state, i) = max9286_default_format;
+	for (unsigned int i = 0; i < MAX9286_N_PADS; i++) {
+		fmt = v4l2_subdev_state_get_format(state, i);
+		if (fmt)
+			*fmt = max9286_default_format;
+	}
 
 	/*
 	 * Special case: a null interval enables automatic FRAMESYNC mode.
@@ -991,10 +1214,29 @@ static int max9286_init_state(struct v4l2_subdev *sd,
 	 * configuration.
 	 */
 	interval = v4l2_subdev_state_get_interval(state, MAX9286_SRC_PAD);
-	interval->numerator = 0;
-	interval->denominator = 0;
+	if (interval) {
+		interval->numerator = 0;
+		interval->denominator = 0;
+	}
 
-	return 0;
+	routes = kcalloc(MAX9286_N_SINKS, sizeof(*routes), GFP_KERNEL);
+	if (!routes)
+		return -ENOMEM;
+
+	for (i = 0; i < MAX9286_N_SINKS; i++) {
+		struct v4l2_subdev_route *route = &routes[i];
+
+		route->source_pad = MAX9286_SRC_PAD;
+		route->source_stream = i;
+		route->sink_pad = i;
+		route->sink_stream = 0;
+		route->flags = V4L2_SUBDEV_ROUTE_FL_ACTIVE;
+	}
+
+	routing.num_routes = MAX9286_N_SINKS;
+	routing.routes = routes;
+
+	return v4l2_subdev_set_routing_with_fmt(sd, state, &routing, &max9286_default_format);
 }
 
 static const struct v4l2_subdev_internal_ops max9286_subdev_internal_ops = {
@@ -1035,7 +1277,7 @@ static int max9286_v4l2_register(struct max9286_priv *priv)
 	/* Configure V4L2 for the MAX9286 itself */
 	v4l2_i2c_subdev_init(&priv->sd, priv->client, &max9286_subdev_ops);
 	priv->sd.internal_ops = &max9286_subdev_internal_ops;
-	priv->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
+	priv->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_STREAMS;
 
 	v4l2_ctrl_handler_init(&priv->ctrls, 1);
 	priv->pixelrate_ctrl = v4l2_ctrl_new_std(&priv->ctrls,
@@ -1588,6 +1830,8 @@ static int max9286_probe(struct i2c_client *client)
 
 	priv->client = client;
 
+	mutex_init(&priv->lock);
+
 	/* GPIO values default to high */
 	priv->gpio_state = BIT(0) | BIT(1);
 
@@ -1660,6 +1904,8 @@ static void max9286_remove(struct i2c_client *client)
 	gpiod_set_value_cansleep(priv->gpiod_pwdn, 0);
 
 	max9286_cleanup_dt(priv);
+
+	mutex_destroy(&priv->lock);
 }
 
 static const struct of_device_id max9286_dt_ids[] = {
