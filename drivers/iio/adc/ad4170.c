@@ -853,7 +853,7 @@ static void ad4170_channel_scale(struct iio_dev *indio_dev,
 	int ch_resolution = chan->scan_type.realbits - setup->afe.bipolar;
 	int pga_gain;
 
-	*val = ad4170_get_ref_voltage(st, setup->afe.ref_select) / MILLI;
+	*val = chan_info->input_range_uv / MILLI;
 	pga_gain = setup->afe.pga_gain & 0x7;
 	if (setup->afe.pga_gain & 0x8) /* handle cases pga_gain = 8 and 9 */
 		pga_gain--;
@@ -933,7 +933,7 @@ static void ad4170_fill_scale_tbl(struct iio_dev *indio_dev, int channel)
 	unsigned int ref_select_uv;
 	int pga;
 
-	ref_select_uv = ad4170_get_ref_voltage(st, setup->afe.ref_select);
+	ref_select_uv = chan_info->input_range_uv;
 
 	for (pga = 0; pga < AD4170_PGA_GAIN_MAX; pga++) {
 		u64 nv;
