@@ -803,7 +803,7 @@ static int ad4170_get_input_range(struct ad4170_state *st,
 			/* Assuming refin1n-supply not above 0V. */
 			/* Assuming refin2n-supply not above 0V. */
 			/* avss-supply is never above 0V. */
-			input_range_mag = pos_ref + neg_ref;
+			return pos_ref + neg_ref;
 		}
 		/* Differential unipolar channel */
 		//ADC output codes will range from neg_ref to pos_ref ?
@@ -821,9 +821,10 @@ static int ad4170_get_input_range(struct ad4170_state *st,
 		/* Pseudo-differential unipolar channel */
 		/* Input allowd to swing from IN- to +VREF */
 		//ADC output codes will range from neg_ret to pos_ref ?
-		//input_range_mag = pos_ref - IN-;
+		//input_range_mag = pos_ref - IN-; ?
+		input_range_mag = pos_ref;
 	}
-	return 0;
+	return input_range_mag;
 }
 
 static int ad4170_get_ref_voltage(struct ad4170_state *st,
