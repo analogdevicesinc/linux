@@ -247,7 +247,6 @@ static inline void tstamp_to_timespec(struct timespec64 *ts, const struct adrv90
 		ts->tv_nsec = tstamp->nanoseconds + 1;
 }
 
-
 static int adrv906x_gc_get_cnt(struct adrv906x_tod_counter *counter, u64 *p_cnt)
 {
 	struct adrv906x_tod *tod = counter->parent;
@@ -268,6 +267,7 @@ static int adrv906x_gc_get_cnt(struct adrv906x_tod_counter *counter, u64 *p_cnt)
 
 	return 0;
 }
+
 static int adrv906x_gc_set_cnt(struct adrv906x_tod_counter *counter, u64 cnt)
 {
 	struct adrv906x_tod *tod = counter->parent;
@@ -304,33 +304,43 @@ static void adrv906x_tod_hw_op_trig(struct adrv906x_tod_counter *counter, u8 op_
 	iowrite32(val, tod->regs + regaddr);
 }
 
-static int adrv906x_tod_hw_op_poll(struct adrv906x_tod_counter *counter, u8 op_flag, const struct adrv906x_tod_trig_delay *p_delay)
+static int adrv906x_tod_hw_op_poll_reg(struct adrv906x_tod_counter *counter, u32 regaddr,
+				       u32 bit_mask, const struct adrv906x_tod_trig_delay *p_delay)
 {
-	struct adrv906x_tod *tod = counter->parent;
-	u32 state = HW_TOD_TRIG_OP_FLAG_GOING;
-	u8 trig_mode = counter->trigger_mode;
 	u32 delay_cnt = TOD_MAX_DELAY_COUNT;
-	u16 bitshift;
-	u16 regaddr;
+	u8 done = 0;
 	int err = 0;
-	u8 tod_idx;
 	u32 val;
 
-	tod_idx = counter->id;
-	regaddr = adrv906x_tod_reg_op_poll[op_flag][trig_mode].regaddr;
-	bitshift = adrv906x_tod_reg_op_poll[op_flag][trig_mode].bitshift;
-
-	while ((state == HW_TOD_TRIG_OP_FLAG_GOING) && (delay_cnt != 0)) {
+	while (!done && (delay_cnt != 0)) {
 		ndelay(p_delay->ns);
-		val = ioread32(tod->regs + regaddr);
-		state = ((val >> bitshift) & BIT(tod_idx)) ? HW_TOD_TRIG_OP_FLAG_DONE : HW_TOD_TRIG_OP_FLAG_GOING;
+		val = ioread32(counter->parent->regs + regaddr);
+		done = (val & bit_mask) == 0;
 		delay_cnt--;
 	}
 
-	if (state == HW_TOD_TRIG_OP_FLAG_GOING) {
-		dev_err(tod->dev, "trigger operation hasn't been finished, delay configured: %llu ns, count:%d ", p_delay->ns, delay_cnt);
+	if (!done) {
+		dev_err(counter->parent->dev,
+			"trigger operation hasn't been finished, delay configured: %llu ns, count:%d ",
+			p_delay->ns, delay_cnt);
 		err = -EAGAIN;
 	}
+
+	return err;
+}
+
+static int adrv906x_tod_hw_op_poll(struct adrv906x_tod_counter *counter, u8 op_flag,
+				   const struct adrv906x_tod_trig_delay *p_delay)
+{
+	u8 trig_mode = counter->trigger_mode;
+	u8 tod_idx = counter->id;
+	u32 bit_mask, reg_addr;
+	int err;
+
+	reg_addr = adrv906x_tod_reg_op_poll[op_flag][trig_mode].regaddr;
+	bit_mask = BIT(adrv906x_tod_reg_op_poll[op_flag][trig_mode].bitshift + tod_idx);
+	err = adrv906x_tod_hw_op_poll_reg(counter, reg_addr, bit_mask, p_delay);
+
 	return err;
 }
 
@@ -482,14 +492,11 @@ static int adrv906x_tod_hw_settstamp(struct adrv906x_tod_counter *counter,
 
 	adrv906x_tod_hw_set_trigger_delay(counter, &trig_delay);
 
-	/* Trigger ToD write */
 	adrv906x_tod_hw_op_trig(counter, HW_TOD_TRIG_OP_WR,
 				HW_TOD_TRIG_SET_FLAG_TRIG);
 
-	/* Poll the trigger */
 	err = adrv906x_tod_hw_op_poll(counter, HW_TOD_TRIG_OP_WR, &trig_delay);
 
-	/* Clean the ToD write operation */
 	if (!err)
 		adrv906x_tod_hw_op_trig(counter, HW_TOD_TRIG_OP_WR,
 					HW_TOD_TRIG_SET_FLAG_CLEAR);
@@ -575,10 +582,11 @@ static int adrv906x_tod_hw_cdc_output_enable(struct adrv906x_tod_counter *counte
 
 static int adrv906x_tod_hw_extts_enable(struct adrv906x_tod_counter *counter, u8 enable)
 {
+	struct adrv906x_tod_trig_delay trig_delay = { 0, 0 };
 	struct adrv906x_tod *tod = counter->parent;
 	u8 tod_idx = counter->id;
-	u32 rd_ctl;
 	u32 val;
+	int ret;
 
 	if (!counter->en) {
 		dev_err(tod->dev, "tod %d is disabled, cannot enable output", tod_idx);
@@ -586,18 +594,18 @@ static int adrv906x_tod_hw_extts_enable(struct adrv906x_tod_counter *counter, u8
 	}
 
 	val = ioread32(tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
-	rd_ctl = ioread32(tod->regs + ADRV906X_TOD_CFG_IO_CTRL);
+	val &= ~ADRV906X_TOD_CFG_IO_TOD_OUT_SRC_MASK;
+	val |= ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK;
 
-	if (enable) {
+	if (enable)
 		val |= ADRV906X_TOD_CFG_IO_TOD_OUT_SRC_SEL(BIT(tod_idx));
-		rd_ctl |= ADRV906X_TOD_CFG_IO_CTRL_TOD_OUT_EN_MASK;
-	} else {
+	else
 		val &= ~ADRV906X_TOD_CFG_IO_TOD_OUT_SRC_SEL(BIT(tod_idx));
-		rd_ctl &= ~ADRV906X_TOD_CFG_IO_CTRL_TOD_OUT_EN_MASK;
-	}
-
 	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
-	iowrite32(rd_ctl, tod->regs + ADRV906X_TOD_CFG_IO_CTRL);
+
+	adrv906x_tod_hw_set_trigger_delay(counter, &trig_delay);
+	ret = adrv906x_tod_hw_op_poll_reg(counter, ADRV906X_TOD_CFG_IO_SOURCE,
+					  ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK, &trig_delay);
 
 	return 0;
 }
@@ -631,51 +639,33 @@ static void adrv906x_tod_hw_pps_irq_external_enable(struct adrv906x_tod *tod)
 	iowrite32(val, tod->regs + ADRV906X_TOD_IRQ_MASK);
 }
 
-static void adrv906x_tod_hw_pps_irq_disable_all(struct adrv906x_tod *tod)
+static int adrv906x_tod_hw_pps_enable(struct adrv906x_tod_counter *counter, u8 enable)
 {
-	iowrite32(ADRV906X_TOD_IRQ_MASK_MASK, tod->regs + ADRV906X_TOD_IRQ_MASK);
-}
-
-static void adrv906x_tod_hw_pps_external_enable(struct adrv906x_tod *tod)
-{
-	u32 val;
-
-	val = ioread32(tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
-	val &= ~ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_MASK;
-	val |= ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_SEL(BIT(TOD_EXTERNAL));
-	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
-}
-
-static int adrv906x_tod_hw_pps_source_select(struct adrv906x_tod_counter *counter)
-{
+	struct adrv906x_tod_trig_delay trig_delay = { 0, 0 };
 	struct adrv906x_tod *tod = counter->parent;
-	u8 tod_idx = counter->id;
 	u32 val;
+	int ret;
 
 	val = ioread32(tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
-
 	val &= ~ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_MASK;
-	val |= ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_SEL(BIT(tod_idx));
+	val |= ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK;
 
+	/* Do not change source when external pps is enabled */
+	if (enable) {
+		if (tod->external_pps) {
+			val |= ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_SEL(BIT(TOD_EXTERNAL));
+			dev_info(tod->dev, "using external pps");
+		} else {
+			val |= ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_SEL(BIT(counter->id));
+		}
+	}
 	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
 
-	return 0;
-}
+	adrv906x_tod_hw_set_trigger_delay(counter, &trig_delay);
+	ret = adrv906x_tod_hw_op_poll_reg(counter, ADRV906X_TOD_CFG_IO_SOURCE,
+					  ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK, &trig_delay);
 
-static int adrv906x_tod_hw_pps_enable(struct adrv906x_tod *tod, u8 enable)
-{
-	u32 val;
-
-	val = ioread32(tod->regs + ADRV906X_TOD_CFG_IO_CTRL);
-
-	if (enable)
-		val |= ADRV906X_TOD_CFG_IO_CTRL_PPS_OUT_EN_MASK;
-	else
-		val &= ~ADRV906X_TOD_CFG_IO_CTRL_PPS_OUT_EN_MASK;
-
-	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_IO_CTRL);
-
-	return 0;
+	return ret;
 }
 
 static int adrv906x_tod_pps_enable(struct adrv906x_tod_counter *counter, u8 on)
@@ -683,13 +673,7 @@ static int adrv906x_tod_pps_enable(struct adrv906x_tod_counter *counter, u8 on)
 	struct adrv906x_tod *tod = counter->parent;
 
 	mutex_lock(&tod->reg_lock);
-	/* Do not change source when external pps is enabled */
-	if (!tod->external_pps)
-		adrv906x_tod_hw_pps_source_select(counter);
-	else
-		dev_info(tod->dev, "using external pps");
-
-	adrv906x_tod_hw_pps_enable(tod, on);
+	adrv906x_tod_hw_pps_enable(counter, on);
 	mutex_unlock(&tod->reg_lock);
 
 	return 0;
@@ -940,7 +924,6 @@ static int adrv906x_tod_cfg_cdc_delay_all(struct adrv906x_tod *tod)
 static void adrv906x_tod_hw_external_pps_override(struct adrv906x_tod *tod)
 {
 	adrv906x_tod_hw_pps_irq_external_enable(tod);
-	adrv906x_tod_hw_pps_external_enable(tod);
 }
 
 static int adrv906x_phc_enable(struct ptp_clock_info *ptp,
@@ -1066,6 +1049,14 @@ int adrv906x_tod_register_pll(struct ptp_clock_info *pll_caps)
 }
 EXPORT_SYMBOL(adrv906x_tod_register_pll);
 
+void adrv906x_tod_hw_disable_all(struct adrv906x_tod *tod)
+{
+	/* Disable debug outputs */
+	iowrite32(0, tod->regs + ADRV906X_TOD_CFG_IO_CTRL);
+	/* Disable all IRQs */
+	iowrite32(ADRV906X_TOD_IRQ_MASK_MASK, tod->regs + ADRV906X_TOD_IRQ_MASK);
+}
+
 int adrv906x_tod_probe(struct platform_device *pdev)
 {
 	struct device_node *np = pdev->dev.of_node;
@@ -1144,7 +1135,7 @@ int adrv906x_tod_probe(struct platform_device *pdev)
 
 	mutex_init(&adrv906x_tod->reg_lock);
 
-	adrv906x_tod_hw_pps_irq_disable_all(adrv906x_tod);
+	adrv906x_tod_hw_disable_all(adrv906x_tod);
 
 	child = NULL;
 	for_each_child_of_node(tod_np, child) {
@@ -1209,7 +1200,7 @@ err_out_unreg:
 			ptp_clock_unregister(adrv906x_tod->counter[i].ptp_clk);
 
 err_out:
-	adrv906x_tod_hw_pps_irq_disable_all(adrv906x_tod);
+	adrv906x_tod_hw_disable_all(adrv906x_tod);
 	return ret;
 }
 EXPORT_SYMBOL(adrv906x_tod_probe);
@@ -1221,7 +1212,7 @@ int adrv906x_tod_remove(struct platform_device *pdev)
 	if (!adrv906x_tod)
 		return -ENODEV;
 
-	adrv906x_tod_hw_pps_irq_disable_all(adrv906x_tod);
+	adrv906x_tod_hw_disable_all(adrv906x_tod);
 
 	for (i = 0; i < ADRV906X_HW_TOD_COUNTER_CNT; i++) {
 		if (adrv906x_tod->counter[i].en)
