@@ -47,6 +47,7 @@ struct ad4170_chan_info {
 	struct ad4170_current_source current_source[AD4170_NUM_CURRENT_SOURCE];
 	unsigned int nr;
 	int slot;
+	int input_range_uv;
 	u32 scale_tbl[10][2];
 	bool enabled;
 };
@@ -595,7 +596,8 @@ static int ad4170_read_sample(struct iio_dev *indio_dev, unsigned int channel,
 	return ret;
 }
 
-static int ad4170_get_AINM_voltage(struct ad4170_state *st, int ainm_n)
+static int ad4170_get_AINM_voltage(struct ad4170_state *st, int ainm_n,
+				   int *ain_voltage)
 {
 	int ret;
 
@@ -605,32 +607,60 @@ static int ad4170_get_AINM_voltage(struct ad4170_state *st, int ainm_n)
 		if (ret < 0)
 			return ret;
 
-		return ret / 5;
+		*ain_voltage = ret ? ret / 5 : 0;
+		return 0;
 	case AD4170_IOVDD_DGND_N:
 		ret = regulator_get_voltage(st->regulators[AD4170_IOVDD_SUPPLY].consumer);
 		if (ret < 0)
 			return ret;
 
-		return ret / 5;
+		*ain_voltage = ret ? ret / 5 : 0;
+		return 0;
 	case AD4170_AVSS:
-		return regulator_get_voltage(st->regulators[AD4170_AVSS_SUPPLY].consumer);
+		ret = regulator_get_voltage(st->regulators[AD4170_AVSS_SUPPLY].consumer);
+		if (ret < 0)
+			return ret;
+
+		/* AVSS is never above 0V, i.e., it can only be negative. */
+		*ain_voltage = -ret; /* AVSS is a negative voltage */
+		return 0;
 	case AD4170_DGND:
+		*ain_voltage = 0;
 		return 0;
 	case AD4170_REFIN1_P:
 		return regulator_get_voltage(st->regulators[AD4170_REFIN1P_SUPPLY].consumer);
 	case AD4170_REFIN1_N:
-		return regulator_get_voltage(st->regulators[AD4170_REFIN1N_SUPPLY].consumer);
+		/*
+		 * Making the assumption negative inputs of voltage references
+		 * are either at GND level or negative with respect to GND.
+		 */
+		ret = regulator_get_voltage(st->regulators[AD4170_REFIN1N_SUPPLY].consumer);
+		if (ret < 0)
+			return ret;
+
+		*ain_voltage = -ret;
+		return 0;
 	case AD4170_REFIN2_P:
 		return regulator_get_voltage(st->regulators[AD4170_REFIN2P_SUPPLY].consumer);
 	case AD4170_REFIN2_N:
-		return regulator_get_voltage(st->regulators[AD4170_REFIN2N_SUPPLY].consumer);
+		/*
+		 * Making the assumption negative inputs of voltage references
+		 * are either at GND level or negative with respect to GND.
+		 */
+		ret = regulator_get_voltage(st->regulators[AD4170_REFIN2N_SUPPLY].consumer);
+		if (ret < 0)
+			return ret;
+
+		*ain_voltage = -ret;
+		return 0;
 	case AD4170_REFOUT:
 		/* REFOUT is 2.5V relative to AVSS so take that into account */
 		ret = regulator_get_voltage(st->regulators[AD4170_AVSS_SUPPLY].consumer);
 		if (ret < 0)
 			return ret;
 
-		return AD4170_INT_REF_2_5V - ret;
+		*ain_voltage = AD4170_INT_REF_2_5V - ret;
+		return 0;
 	default:
 		return -EINVAL;
 	}
@@ -1304,6 +1334,7 @@ static int ad4170_parse_fw_channel(struct iio_dev *indio_dev,
 	struct ad4170_chan_info *chan_info;
 	struct ad4170_setup *setup;
 	struct iio_chan_spec *chan;
+	int ain_voltage;
 	int ret;
 
 	ret = fwnode_property_read_u32(child, "reg", &index);
@@ -1340,11 +1371,16 @@ static int ad4170_parse_fw_channel(struct iio_dev *indio_dev,
 	if (setup->afe.bipolar)
 		chan->scan_type.sign = 's';
 
-
 	ret = ad4170_parse_fw_setup(st, child, setup);
 	if (ret)
 		return ret;
 
+	ret = ad4170_get_input_range(st, chan, setup->afe.ref_select);
+	if (ret < 0)
+		return dev_err_probe(dev, ret, "Cannot use reference %u\n",
+				     setup->afe.ref_select);
+
+	chan_info->input_range_uv = ret;
 	return 0;
 }
 
