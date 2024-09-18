@@ -16,28 +16,6 @@
 		stdout-path = &uart2;
 	};
 
-	backlight_lvds: backlight-lvds {
-		compatible = "pwm-backlight";
-		pwms = <&pwm2 0 100000 0>;
-		brightness-levels = <0 100>;
-		num-interpolated-steps = <100>;
-		default-brightness-level = <100>;
-		power-supply = <&reg_per_12v>;
-		status = "disabled";
-	};
-
-	hdmi-connector {
-		compatible = "hdmi-connector";
-		label = "hdmi";
-		type = "a";
-
-		port {
-			hdmi_connector_in: endpoint {
-				remote-endpoint = <&adv7535_out>;
-			};
-		};
-	};
-
 	gpio-leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
@@ -54,18 +32,6 @@
 		device_type = "memory";
 		reg = <0x0 0x40000000 0 0xc0000000>,
 		      <0x1 0x00000000 0 0xc0000000>;
-	};
-
-	native-hdmi-connector {
-		compatible = "hdmi-connector";
-		label = "HDMI OUT";
-		type = "a";
-
-		port {
-			hdmi_in: endpoint {
-				remote-endpoint = <&hdmi_tx_out>;
-			};
-		};
 	};
 
 	pcie0_refclk: pcie0-refclk {
@@ -118,15 +84,6 @@
 		enable-active-high;
 	};
 
-	reg_per_12v: regulator-per-12v {
-		compatible = "regulator-fixed";
-		regulator-name = "PER_12V";
-		regulator-min-microvolt = <12000000>;
-		regulator-max-microvolt = <12000000>;
-		gpio = <&pca6416 1 GPIO_ACTIVE_HIGH>;
-		enable-active-high;
-	};
-
 	reg_usdhc2_vmmc: regulator-usdhc2 {
 		compatible = "regulator-fixed";
 		pinctrl-names = "default";
@@ -136,13 +93,6 @@
 		regulator-max-microvolt = <3300000>;
 		gpio = <&gpio2 19 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
-	};
-
-	reg_vext_3v3: regulator-vext-3v3 {
-		compatible = "regulator-fixed";
-		regulator-name = "VEXT_3V3";
-		regulator-min-microvolt = <3300000>;
-		regulator-max-microvolt = <3300000>;
 	};
 
 	audio_codec_bt_sco: audio-codec-bt-sco {
@@ -420,28 +370,6 @@
 	status = "disabled";/* can2 pin conflict with pdm */
 };
 
-&hdmi_pvi {
-	status = "okay";
-};
-
-&hdmi_tx {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_hdmi>;
-	status = "okay";
-
-	ports {
-		port@1 {
-			hdmi_tx_out: endpoint {
-				remote-endpoint = <&hdmi_in>;
-			};
-		};
-	};
-};
-
-&hdmi_tx_phy {
-	status = "okay";
-};
-
 &i2c1 {
 	clock-frequency = <400000>;
 	pinctrl-names = "default";
@@ -533,42 +461,6 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c2>;
 	status = "okay";
-
-	hdmi@3d {
-		compatible = "adi,adv7535";
-		reg = <0x3d>;
-		interrupt-parent = <&gpio1>;
-		interrupts = <9 IRQ_TYPE_EDGE_FALLING>;
-		adi,dsi-lanes = <4>;
-		avdd-supply = <&reg_buck5>;
-		dvdd-supply = <&reg_buck5>;
-		pvdd-supply = <&reg_buck5>;
-		a2vdd-supply = <&reg_buck5>;
-		v3p3-supply = <&reg_vext_3v3>;
-		v1p2-supply = <&reg_buck5>;
-
-		ports {
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			port@0 {
-				reg = <0>;
-
-				adv7535_in: endpoint {
-					remote-endpoint = <&dsi_out>;
-				};
-			};
-
-			port@1 {
-				reg = <1>;
-
-				adv7535_out: endpoint {
-					remote-endpoint = <&hdmi_connector_in>;
-				};
-			};
-
-		};
-	};
 };
 
 &i2c3 {
@@ -634,14 +526,6 @@
 	 */
 };
 
-&lcdif1 {
-	status = "okay";
-};
-
-&lcdif3 {
-	status = "okay";
-};
-
 &micfil {
 	#sound-dai-cells = <0>;
 	pinctrl-names = "default";
@@ -650,22 +534,6 @@
 	assigned-clock-parents = <&clk IMX8MP_AUDIO_PLL1_OUT>;
 	assigned-clock-rates = <196608000>;
 	status = "okay";
-};
-
-&mipi_dsi {
-	samsung,esc-clock-frequency = <10000000>;
-	status = "okay";
-
-	ports {
-		port@1 {
-			reg = <1>;
-
-			dsi_out: endpoint {
-				remote-endpoint = <&adv7535_in>;
-				data-lanes = <1 2 3 4>;
-			};
-		};
-	};
 };
 
 &pcie_phy {
@@ -893,14 +761,6 @@
 	pinctrl_gpio_led: gpioledgrp {
 		fsl,pins = <
 			MX8MP_IOMUXC_NAND_READY_B__GPIO3_IO16	0x140
-		>;
-	};
-
-	pinctrl_hdmi: hdmigrp {
-		fsl,pins = <
-			MX8MP_IOMUXC_HDMI_DDC_SCL__HDMIMIX_HDMI_SCL	0x1c2
-			MX8MP_IOMUXC_HDMI_DDC_SDA__HDMIMIX_HDMI_SDA	0x1c2
-			MX8MP_IOMUXC_HDMI_CEC__HDMIMIX_HDMI_CEC		0x10
 		>;
 	};
 
