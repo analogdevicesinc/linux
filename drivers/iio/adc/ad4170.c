@@ -605,7 +605,7 @@ static int ad4170_get_input_range(struct ad4170_state *st,
 	int pga_gain = setup->afe.pga_gain;
 	bool bipolar = setup->afe.bipolar;
 	int pos_ref, neg_ref;
-	int input_range;
+	int input_range_mag; /* Magnitude of the allowed input range in µV */
 
 	/*
 	 * The input range allowed to an ADC channel is crucial to determine the
@@ -709,6 +709,7 @@ static int ad4170_get_input_range(struct ad4170_state *st,
 			neg_ref = 0;
 
 		/* REFOUT is 2.5 V relative to AVSS */
+		/* avss-supply is never above 0V. */
 		pos_ref = AD4170_INT_REF_2_5V - neg_ref;
 		break;
 	default:
@@ -720,17 +721,36 @@ static int ad4170_get_input_range(struct ad4170_state *st,
 	if (neg_ref < 0)
 		neg_ref = 0;
 
-	if (bipolar)
-		/* Assuming refin1n-supply not above 0V. */
-		/* Assuming refin2n-supply not above 0V. */
-		/* avss-supply is never above 0V. */
-		//input_range = abs(pos_ref - neg_ref);
-		input_range = pos_ref + abs(neg_ref);
-	else
-		//ADC output codes will range from neg_ret to pos_ref
-		//actual input_range = pos_ref - IN-;
-		input_range = pos_ref;
-
+	/*
+	 * Find out the analog input range from the channel type, polarity, and
+	 * voltage reference selection.
+	 */
+	if (chan->differential) {
+		if (bipolar) {
+			/* Differential bipolar channel */
+			/* Assuming refin1n-supply not above 0V. */
+			/* Assuming refin2n-supply not above 0V. */
+			/* avss-supply is never above 0V. */
+			input_range_mag = pos_ref + neg_ref;
+		}
+		/* Differential unipolar channel */
+		//ADC output codes will range from neg_ref to pos_ref ?
+		//actual input_range = pos_ref - IN-; ?
+		// IN+ must be above IN- but IN- is allowed to swing too? weird
+		/* Not sure a use case for this actually exists. Skipping support for now */
+		return -EOPNOTSUPP;
+	}
+	/* AD4170 channels are either differential or pseudo-differential. */
+	if (bipolar) {
+		/* Pseudo-differential bipolar channel */
+		/* Input allowd to swing from GND to +VREF */
+		input_range_mag = pos_ref;
+	} else {
+		/* Pseudo-differential unipolar channel */
+		/* Input allowd to swing from IN- to +VREF */
+		//ADC output codes will range from neg_ret to pos_ref ?
+		//input_range_mag = pos_ref - IN-;
+	}
 	return 0;
 }
 
