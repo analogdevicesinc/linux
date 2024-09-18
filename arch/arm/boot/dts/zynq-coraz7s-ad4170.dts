@@ -24,35 +24,35 @@
 	};
 	avss: avss-regulator {
 		compatible = "regulator-fixed";
-		regulator-name = "fixed-supply";
+		regulator-name = "Eval AVSS supply";
 		regulator-min-microvolt = <0>;
 		regulator-max-microvolt = <0>;
 		regulator-boot-on;
 	};
 	avdd: avdd-regulator {
 		compatible = "regulator-fixed";
-		regulator-name = "fixed-supply";
+		regulator-name = "Eval AVDD supply";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
 		regulator-boot-on;
 	};
 	iovdd: iovdd-regulator {
 		compatible = "regulator-fixed";
-		regulator-name = "fixed-supply";
+		regulator-name = "Eval IOVDD supply";
 		regulator-min-microvolt = <3300000>;
 		regulator-max-microvolt = <3300000>;
 		regulator-boot-on;
 	};
 	refin1p: refin1p-regulator {
 		compatible = "regulator-fixed";
-		regulator-name = "fixed-supply";
+		regulator-name = "Eval REFIN+ voltage reference";
 		regulator-min-microvolt = <5000000>;
 		regulator-max-microvolt = <5000000>;
 		regulator-boot-on;
 	};
 	refin1n: refin1n-regulator {
 		compatible = "regulator-fixed";
-		regulator-name = "fixed-supply";
+		regulator-name = "Eval REFIN- voltage reference";
 		regulator-min-microvolt = <2500000>;
 		regulator-max-microvolt = <2500000>;
 		regulator-boot-on;
