@@ -1294,7 +1294,6 @@ static int ad4170_parse_fw_channel_type(struct device *dev,
 					struct iio_chan_spec *chan)
 {
 	u32 pins[2];
-	u32 iout;
 	int ret;
 
 	/*
