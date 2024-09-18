@@ -595,6 +595,48 @@ static int ad4170_read_sample(struct iio_dev *indio_dev, unsigned int channel,
 	return ret;
 }
 
+static int ad4170_get_AINM_voltage(struct ad4170_state *st, int ainm_n)
+{
+	int ret;
+
+	switch (ainm_n) {
+	case AD4170_AVDD_AVSS_N:
+		ret = regulator_get_voltage(st->regulators[AD4170_AVDD_SUPPLY].consumer);
+		if (ret < 0)
+			return ret;
+
+		return ret / 5;
+	case AD4170_IOVDD_DGND_N:
+		ret = regulator_get_voltage(st->regulators[AD4170_IOVDD_SUPPLY].consumer);
+		if (ret < 0)
+			return ret;
+
+		return ret / 5;
+	case AD4170_AVSS:
+		return regulator_get_voltage(st->regulators[AD4170_AVSS_SUPPLY].consumer);
+	case AD4170_DGND:
+		return 0;
+	case AD4170_REFIN1_P:
+		return regulator_get_voltage(st->regulators[AD4170_REFIN1P_SUPPLY].consumer);
+	case AD4170_REFIN1_N:
+		return regulator_get_voltage(st->regulators[AD4170_REFIN1N_SUPPLY].consumer);
+	case AD4170_REFIN2_P:
+		return regulator_get_voltage(st->regulators[AD4170_REFIN2P_SUPPLY].consumer);
+	case AD4170_REFIN2_N:
+		return regulator_get_voltage(st->regulators[AD4170_REFIN2N_SUPPLY].consumer);
+	case AD4170_REFOUT:
+		/* REFOUT is 2.5V relative to AVSS so take that into account */
+		ret = regulator_get_voltage(st->regulators[AD4170_AVSS_SUPPLY].consumer);
+		if (ret < 0)
+			return ret;
+
+		return AD4170_INT_REF_2_5V - ret;
+	default:
+		return -EINVAL;
+	}
+	return -EINVAL;
+}
+
 static int ad4170_get_input_range(struct ad4170_state *st,
 				  struct iio_chan_spec const *chan,
 				  enum ad4170_ref_select ref_sel)
