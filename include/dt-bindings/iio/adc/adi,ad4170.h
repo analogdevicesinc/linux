@@ -75,4 +75,22 @@
 #define AD4170_MAP_REFIN2_N		28
 #define AD4170_MAP_REFOUT		29
 
+/*
+ * Definitios for describing excitation current output pin selections
+ * Use for adi,excitation-pin-0/1/2/3
+ */
+#define AD4170_CURRENT_IOUT_AIN0			0
+#define AD4170_CURRENT_IOUT_AIN1			1
+#define AD4170_CURRENT_IOUT_AIN2			2
+#define AD4170_CURRENT_IOUT_AIN3			3
+#define AD4170_CURRENT_IOUT_AIN4			4
+#define AD4170_CURRENT_IOUT_AIN5			5
+#define AD4170_CURRENT_IOUT_AIN6			6
+#define AD4170_CURRENT_IOUT_AIN7			7
+#define AD4170_CURRENT_IOUT_AIN8			8
+#define AD4170_CURRENT_IOUT_GPIO0			17
+#define AD4170_CURRENT_IOUT_GPIO1			18
+#define AD4170_CURRENT_IOUT_GPIO2			19
+#define AD4170_CURRENT_IOUT_GPIO3			20
+
 #endif /* _DT_BINDINGS_IIO_ADC_AD4170_H_ */
