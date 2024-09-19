@@ -49,6 +49,7 @@ struct ad4170_chan_info {
 	int slot;
 	int input_range_uv;
 	u32 scale_tbl[10][2];
+	u32 offset_tbl[10];
 	bool enabled;
 };
 
@@ -884,6 +885,18 @@ static int ad4170_get_gain(struct iio_dev *indio_dev, int addr, int *val)
 	return 0;
 }
 
+static int ad4170_get_channel_offset(struct ad4170_chan_info *chan_info,
+				     struct ad4170_setup *setup)
+{
+	int pga_gain;
+
+	pga_gain = setup->afe.pga_gain & 0x7;
+	if (setup->afe.pga_gain & 0x8) /* handle cases pga_gain = 8 and 9 */
+		pga_gain--;
+
+	return chan_info->offset_tbl[pga_gain];
+}
+
 static int ad4170_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
 			   int *val, int *val2, long info)
@@ -902,7 +915,7 @@ static int ad4170_read_raw(struct iio_dev *indio_dev,
 		mutex_unlock(&st->lock);
 		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_OFFSET:
-		*val = 0;
+		*val = ad4170_get_channel_offset(chan_info, setup);
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		mutex_lock(&st->lock);
@@ -930,9 +943,18 @@ static void ad4170_fill_scale_tbl(struct iio_dev *indio_dev, int channel)
 	const struct iio_chan_spec *chan = &indio_dev->channels[channel];
 	int ch_resolution = chan->scan_type.realbits - setup->afe.bipolar;
 	unsigned int ref_select_uv;
-	int pga;
+	int pga, ainm_voltage, ret;
+	u32 offset;
 
 	ref_select_uv = chan_info->input_range_uv;
+
+	/* The _offset is the output code for the voltage level at AINM. */
+	ainm_voltage = 0; //for offset calculation
+	if (chan->channel2 > AD4170_MAP_TEMP_SENSOR_N) {
+		ret = ad4170_get_AINM_voltage(st, chan->channel2, &ainm_voltage);
+		if (ret < 0)
+			dev_info(&st->spi->dev, "ERROR from ad4170_get_AINM_voltage() %d\n", ret);
+	}
 
 	for (pga = 0; pga < AD4170_PGA_GAIN_MAX; pga++) {
 		u64 nv;
@@ -944,6 +966,14 @@ static void ad4170_fill_scale_tbl(struct iio_dev *indio_dev, int channel)
 		rshift = ch_resolution + (pga & 0x7) - lshift;
 		chan_info->scale_tbl[pga][0] = 0;
 		chan_info->scale_tbl[pga][1] = div_u64(nv >> rshift, MILLI);
+		/*
+		 * scale_tbl is in nano units.
+		 * 
+		 * would multiply ainm_voltage by GIGA but ainm_voltage in µV
+		 * so multi by MEGA only.
+		 */
+		offset = DIV_ROUND_CLOSEST(ainm_voltage * GIGA, chan_info->scale_tbl[pga][1]);
+		chan_info->offset_tbl[pga] = offset;
 	}
 }
 
