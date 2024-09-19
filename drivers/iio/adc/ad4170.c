@@ -723,7 +723,7 @@ static int ad4170_get_input_range(struct ad4170_state *st,
 	 * There is a third input type called Pseudo-differential or
 	 * single-ended to differential configuration.
 	 * A pseudo-differential input is made up from a differential pair of
-	 * inputs byfixing the negative input to a known voltage and only
+	 * inputs by fixing the negative input to a known voltage and only
 	 * allowing the positive input to vary.
 	 * A *pseudo-differential unipolar* input has the same limitations of
 	 * a differential unipolar channel meaning the analog voltage to a
