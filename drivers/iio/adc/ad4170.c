@@ -619,7 +619,7 @@ static int ad4170_get_AINM_voltage(struct ad4170_state *st, int ainm_n,
 	case AD4170_AVSS:
 		ret = regulator_get_voltage(st->regulators[AD4170_AVSS_SUPPLY].consumer);
 		if (ret < 0)
-			return ret;
+			ret = 0; /* Assume AVSS at 0V if not provided */
 
 		/* AVSS is never above 0V, i.e., it can only be negative. */
 		*ain_voltage = -ret; /* AVSS is a negative voltage */
@@ -657,7 +657,7 @@ static int ad4170_get_AINM_voltage(struct ad4170_state *st, int ainm_n,
 		/* REFOUT is 2.5V relative to AVSS so take that into account */
 		ret = regulator_get_voltage(st->regulators[AD4170_AVSS_SUPPLY].consumer);
 		if (ret < 0)
-			return ret;
+			ret = 0; /* Assume AVSS at 0V if not provided */
 
 		*ain_voltage = AD4170_INT_REF_2_5V - ret;
 		return 0;
