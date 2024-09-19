@@ -32,8 +32,8 @@
 #define ADI_REG_TDD_BURST_COUNT             0x004c
 #define ADI_REG_TDD_STARTUP_DELAY           0x0050
 #define ADI_REG_TDD_FRAME_LENGTH            0x0054
-#define ADI_REG_TDD_SYNC_COUNTER_LOW        0x0058
-#define ADI_REG_TDD_SYNC_COUNTER_HIGH       0x005c
+#define ADI_REG_TDD_SYNC_PERIOD_LOW         0x0058
+#define ADI_REG_TDD_SYNC_PERIOD_HIGH        0x005c
 #define ADI_REG_TDD_STATUS                  0x0060
 #define ADI_REG_TDD_CHANNEL_BASE            0x0080
 
@@ -233,6 +233,8 @@ static ssize_t adi_axi_tdd_show(struct device *dev,
 		ret = regmap_read(st->regs, ADI_REG_TDD_STARTUP_DELAY, &data);
 		if (ret)
 			return ret;
+		if (data)
+			data++;
 		return adi_axi_tdd_format_ms(st, data, buf);
 	case ADI_TDD_ATTR_FRAME_LENGTH_RAW:
 		ret = regmap_read(st->regs, ADI_REG_TDD_FRAME_LENGTH, &data);
@@ -243,18 +245,22 @@ static ssize_t adi_axi_tdd_show(struct device *dev,
 		ret = regmap_read(st->regs, ADI_REG_TDD_FRAME_LENGTH, &data);
 		if (ret)
 			return ret;
+		if (data)
+			data++;
 		return adi_axi_tdd_format_ms(st, data, buf);
 	case ADI_TDD_ATTR_INTERNAL_SYNC_PERIOD_RAW:
-		ret = regmap_bulk_read(st->regs, ADI_REG_TDD_SYNC_COUNTER_LOW,
+		ret = regmap_bulk_read(st->regs, ADI_REG_TDD_SYNC_PERIOD_LOW,
 				       &data64, 2);
 		if (ret)
 			return ret;
 		return sysfs_emit(buf, "%llu\n", data64);
 	case ADI_TDD_ATTR_INTERNAL_SYNC_PERIOD_MS:
-		ret = regmap_bulk_read(st->regs, ADI_REG_TDD_SYNC_COUNTER_LOW,
+		ret = regmap_bulk_read(st->regs, ADI_REG_TDD_SYNC_PERIOD_LOW,
 				       &data64, 2);
 		if (ret)
 			return ret;
+		if (data64)
+			data64++;
 		return adi_axi_tdd_format_ms(st, data64, buf);
 	case ADI_TDD_ATTR_STATE:
 		ret = regmap_read(st->regs, ADI_REG_TDD_STATUS, &data);
@@ -406,6 +412,8 @@ static int adi_axi_tdd_write_regs(const struct adi_axi_tdd_attribute *attr,
 			return ret;
 		if (FIELD_GET(GENMASK_ULL(63, 32), data64))
 			return -EINVAL;
+		if (data64)
+			data64--;
 		return regmap_write(st->regs, ADI_REG_TDD_STARTUP_DELAY,
 				    (u32)data64);
 	case ADI_TDD_ATTR_FRAME_LENGTH_RAW:
@@ -419,19 +427,23 @@ static int adi_axi_tdd_write_regs(const struct adi_axi_tdd_attribute *attr,
 			return ret;
 		if (FIELD_GET(GENMASK_ULL(63, 32), data64))
 			return -EINVAL;
+		if (data64)
+			data64--;
 		return regmap_write(st->regs, ADI_REG_TDD_FRAME_LENGTH,
 				    (u32)data64);
 	case ADI_TDD_ATTR_INTERNAL_SYNC_PERIOD_RAW:
 		ret = kstrtou64(buf, 0, &data64);
 		if (ret)
 			return ret;
-		return regmap_bulk_write(st->regs, ADI_REG_TDD_SYNC_COUNTER_LOW,
+		return regmap_bulk_write(st->regs, ADI_REG_TDD_SYNC_PERIOD_LOW,
 					 &data64, 2);
 	case ADI_TDD_ATTR_INTERNAL_SYNC_PERIOD_MS:
 		ret = adi_axi_tdd_parse_ms(st, buf, &data64);
 		if (ret)
 			return ret;
-		return regmap_bulk_write(st->regs, ADI_REG_TDD_SYNC_COUNTER_LOW,
+		if (data64)
+			data64--;
+		return regmap_bulk_write(st->regs, ADI_REG_TDD_SYNC_PERIOD_LOW,
 					 &data64, 2);
 	case ADI_TDD_ATTR_CHANNEL_ENABLE:
 		ret = kstrtou32(buf, 0, &data);
