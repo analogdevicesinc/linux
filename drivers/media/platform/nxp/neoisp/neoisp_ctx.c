@@ -180,9 +180,14 @@ struct neoisp_meta_params_s neoisp_default_params = {
 		.gain_ctrl_rgain = 1 << 8,
 		.gain_ctrl_bgain = 1 << 8,
 		.mat_rxcy = {
-			{76, 148,  29},
-			{-36, -73, 111},
-			{157, -130, -26},
+	/* Constants defined by V4L2_YCBCR_ENC_601, full range and
+	 * formatted in s8.8. This matrix will define the gcm.imat_rxcy
+	 * as its inverse.
+	 * https://www.kernel.org/doc/html/latest/userspace-api/media/v4l/colorspaces-details.html
+	 */
+			{77, 150,  29},
+			{-43, -85, 128},
+			{128, -107, -21},
 			},
 		.csc_offsets = {0, 0, 0},
 		},
@@ -203,24 +208,18 @@ struct neoisp_meta_params_s neoisp_default_params = {
 		.offset_offset = 0,
 		},
 	.gcm = {
-		.imat_rxcy = {
-			{256, 0, 292},
-			{256, -101, -149},
-			{256, 520, 0},
+		.imat_rxcy = { /* inv(mat(V4L2_YCBCR_ENC_601)), in s8.8 */
+			{256, 0, 359},
+			{256, -88, -183},
+			{256, 454, 0},
 			},
 		.ioffsets = {0, 0, 0},
-		.omat_rxcy = {
+		.omat_rxcy = { /* Identity matrix, in s8.8 */
 			{256, 0, 0},
 			{0, 256, 0},
 			{0, 0, 256},
 			},
 		.ooffsets = {0, 0, 0},
-		.gamma0_gamma0 = 106, /* 1/2.4 x 256 */
-		.gamma0_offset0 = 0,
-		.gamma1_gamma1 = 106, /* 1/2.4 x 256 */
-		.gamma1_offset1 = 0,
-		.gamma2_gamma2 = 106, /* 1/2.4 x 256 */
-		.gamma2_offset2 = 0,
 		.mat_confg_sign_confg = 1,
 		},
 	},
