@@ -2052,6 +2052,12 @@ static int ad4170_probe(struct spi_device *spi)
 	st->regulators[AD4170_REFIN2P_SUPPLY].supply = "refin2p";
 	st->regulators[AD4170_REFIN2N_SUPPLY].supply = "refin2n";
 
+	/*
+	 * If a regulator is not available, it will be set to a dummy regulator.
+	 * Each channel reference is checked with regulator_get_voltage() before
+	 * setting attributes so if any channel uses a dummy supply the driver
+	 * probe will fail.
+	 */
 	ret = devm_regulator_bulk_get(dev, ARRAY_SIZE(st->regulators),
 				      st->regulators);
 	if (ret)
