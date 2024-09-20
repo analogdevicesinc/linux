@@ -5,6 +5,7 @@
  *  Author: Lars-Peter Clausen <lars@metafoo.de>
  */
 
+#include "linux/printk.h"
 #include <linux/clk.h>
 #include <linux/completion.h>
 #include <linux/fpga/adi-axi-common.h>
@@ -212,7 +213,6 @@ static void spi_engine_gen_cs(struct spi_engine_program *p, bool dry,
 
 	if (assert)
 		mask ^= BIT(spi_get_chipselect(spi, 0));
-
 	spi_engine_program_add_cmd(p, dry, SPI_ENGINE_CMD_ASSERT(0, mask));
 }
 
@@ -522,15 +522,30 @@ static bool spi_engine_read_rx_fifo(struct spi_engine *spi_engine,
 	void __iomem *addr = spi_engine->base + SPI_ENGINE_REG_SDI_DATA_FIFO;
 	struct spi_engine_message_state *st = msg->state;
 	unsigned int n, m, i;
+	int j;
 
 	n = readl_relaxed(spi_engine->base + SPI_ENGINE_REG_SDI_FIFO_LEVEL);
+	printk("CS MASK: %d\r\n", spi_get_chipselect(msg->spi, 0));
+	printk("n: %d\r\n", n);
 	while (n && st->rx_length) {
 		if (st->rx_xfer->bits_per_word <= 8) {
 			u8 *buf = st->rx_buf;
 
 			m = min(n, st->rx_length);
 			for (i = 0; i < m; i++)
-				buf[i] = readl_relaxed(addr);
+			{
+				for (j = 3; j >= 0; j--)
+				{
+					printk("j : %d\r\n", j);
+					// printk("comp: %d\r\n", spi_get_chipselect(msg->spi, 0) == j);
+					if(spi_get_chipselect(msg->spi, 0) == j){
+						buf[i] = readl_relaxed(addr + j * 4);
+						printk("buf: %x\r\n", buf[i]);
+					} else {
+						printk("buf rej: %x\r\n", readl_relaxed(addr + j * 4));
+					}
+				}
+			}
 			st->rx_buf += m;
 			st->rx_length -= m;
 		} else if (st->rx_xfer->bits_per_word <= 16) {
