@@ -572,8 +572,8 @@ static void ad9467_scale(struct axiadc_converter *conv, int index,
 
 	tmp = (conv->chip_info->scale_table[index][0] * 1000000ULL) >>
 		    conv->chip_info->channel[0].scan_type.realbits;
-	*val = tmp / 1000000000;
-	*val2 = tmp % 1000000000;
+	*val = tmp / 1000000;
+	*val2 = tmp % 1000000;
 }
 
 static const char *const testmodes[] = {
