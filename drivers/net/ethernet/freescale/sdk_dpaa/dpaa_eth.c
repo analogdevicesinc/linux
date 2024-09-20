@@ -771,7 +771,8 @@ static int dpa_private_netdev_init(struct net_device *net_dev)
 	net_dev->max_mtu = dpa_get_max_mtu();
 
 	net_dev->hw_features |= NETIF_F_IP_CSUM | NETIF_F_IPV6_CSUM |
-				NETIF_F_RXCSUM | NETIF_F_LLTX;
+				NETIF_F_RXCSUM;
+	net_dev->lltx               = true;
 
 	/* Advertise S/G and HIGHDMA support for private interfaces */
 	net_dev->hw_features |= NETIF_F_SG | NETIF_F_HIGHDMA;
