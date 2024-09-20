@@ -2727,6 +2727,11 @@ power_off:
 	return ret;
 }
 
+static int ov5640_s_power(struct v4l2_subdev *sd, int on)
+{
+	return 0;
+}
+
 static int ov5640_sensor_suspend(struct device *dev)
 {
 	struct v4l2_subdev *sd = dev_get_drvdata(dev);
@@ -3781,6 +3786,7 @@ static int ov5640_init_state(struct v4l2_subdev *sd,
 }
 
 static const struct v4l2_subdev_core_ops ov5640_core_ops = {
+	.s_power = ov5640_s_power,
 	.log_status = v4l2_ctrl_subdev_log_status,
 	.subscribe_event = v4l2_ctrl_subdev_subscribe_event,
 	.unsubscribe_event = v4l2_event_subdev_unsubscribe,
