@@ -3,7 +3,7 @@
  * A V4L2 driver for Omnivision OX05B1S RGB-IR camera.
  * Copyright (C) 2024, NXP
  *
- * Inspired from Sony IMX219, Sony imx290 and imx214 camera drivers
+ * Inspired from Sony imx219, imx290, imx214 and imx334 camera drivers
  *
  */
 
@@ -703,10 +703,6 @@ static int ox05b1s_update_controls(struct ox05b1s *sensor)
 	}
 	__v4l2_ctrl_s_ctrl(sensor->ctrls.exposure, sensor->ctrls.exposure->default_value);
 
-	/* overwrite registers with hdr mode from user */
-	if (sensor->ctrls.hdr_mode)
-		__v4l2_ctrl_s_ctrl(sensor->ctrls.hdr_mode, sensor->ctrls.hdr_mode->default_value);
-
 out:
 	return ret;
 }
@@ -726,8 +722,11 @@ static int ox05b1s_apply_current_mode(struct ox05b1s *sensor)
 	if (ret)
 		goto out;
 
-	/* update controls that depend on current mode */
-	ret = ox05b1s_update_controls(sensor);
+	/* setup handler will write actual controls into sensor registers */
+	ret =  __v4l2_ctrl_handler_setup(&sensor->ctrls.handler);
+	if (ret)
+		goto out;
+
 out:
 	if (ret < 0)
 		dev_err(dev, "Failed to apply mode %dx%d,bpp=%d\n", sensor->mode->width,
@@ -802,6 +801,7 @@ static int ox05b1s_set_fmt(struct v4l2_subdev *sd,
 	fmt->format.code = ox05b1s_find_code(sensor->model, fmt->format.code);
 	sensor->mode = ox05b1s_nearest_size(sensor->model->supported_modes,
 					    sensor->model->supported_modes_count, fmt);
+	/* update controls that depend on current mode */
 	ox05b1s_update_controls(sensor);
 
 	fmt->format.width = sensor->mode->width;
