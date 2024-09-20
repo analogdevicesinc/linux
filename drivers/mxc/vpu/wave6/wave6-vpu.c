@@ -203,6 +203,16 @@ void wave6_vpu_pause(struct device *dev, int resume)
 	mutex_unlock(&vpu_dev->pause_lock);
 }
 
+void wave6_vpu_activate(struct vpu_device *dev)
+{
+	dev->active = true;
+}
+
+void wave6_vpu_wait_activated(struct vpu_device *dev)
+{
+	wave6_vpu_check_state(dev);
+}
+
 static int wave6_vpu_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -328,6 +338,7 @@ static int wave6_vpu_probe(struct platform_device *pdev)
 	}
 
 	if (dev->ctrl && wave6_vpu_ctrl_support_follower(dev->ctrl)) {
+		wave6_vpu_activate(dev);
 		ret = pm_runtime_resume_and_get(dev->dev);
 		if (ret)
 			goto err_enc_unreg;
@@ -385,7 +396,7 @@ static int wave6_vpu_runtime_suspend(struct device *dev)
 		return -ENODEV;
 
 	dprintk(dev, "runtime suspend\n");
-	if (vpu_dev->ctrl)
+	if (vpu_dev->ctrl && vpu_dev->active)
 		wave6_vpu_ctrl_put_sync(vpu_dev->ctrl, &vpu_dev->entity);
 	if (vpu_dev->num_clks)
 		clk_bulk_disable_unprepare(vpu_dev->num_clks, vpu_dev->clks);
@@ -410,7 +421,7 @@ static int wave6_vpu_runtime_resume(struct device *dev)
 		}
 	}
 
-	if (vpu_dev->ctrl) {
+	if (vpu_dev->ctrl && vpu_dev->active) {
 		ret = wave6_vpu_ctrl_resume_and_get(vpu_dev->ctrl, &vpu_dev->entity);
 		if (ret && vpu_dev->num_clks)
 			clk_bulk_disable_unprepare(vpu_dev->num_clks, vpu_dev->clks);

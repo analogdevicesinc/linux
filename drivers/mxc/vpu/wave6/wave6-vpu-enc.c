@@ -1939,13 +1939,14 @@ static int wave6_vpu_enc_create_instance(struct vpu_instance *inst)
 
 	memset(&open_param, 0, sizeof(struct enc_open_param));
 
+	wave6_vpu_activate(inst->dev);
 	ret = pm_runtime_resume_and_get(inst->dev->dev);
 	if (ret) {
 		dev_err(inst->dev->dev, "runtime_resume failed %d\n", ret);
 		return ret;
 	}
 
-	wave6_vpu_wait_active(inst);
+	wave6_vpu_wait_activated(inst->dev);
 
 	inst->std = wave6_to_vpu_wavestd(inst->dst_fmt.pixelformat);
 	if (inst->std == STD_UNKNOWN) {

@@ -1235,8 +1235,3 @@ void wave6_vpu_set_instance_state(struct vpu_instance *inst, u32 state)
 	if (state == VPU_INST_STATE_PIC_RUN && !inst->performance.ts_first)
 		inst->performance.ts_first = ktime_get_raw();
 }
-
-void wave6_vpu_wait_active(struct vpu_instance *inst)
-{
-	wave6_vpu_check_state(inst->dev);
-}

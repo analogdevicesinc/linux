@@ -1133,6 +1133,7 @@ struct vpu_device {
 	struct kfifo irq_status;
 	struct delayed_work task_timer;
 	struct wave6_vpu_entity entity;
+	bool active;
 	int pause_request;
 	struct mutex pause_lock;
 	const struct wave6_match_data *res;
@@ -1259,6 +1260,5 @@ int wave6_vpu_enc_give_command(struct vpu_instance *inst, enum codec_command cmd
 
 const char *wave6_vpu_instance_state_name(u32 state);
 void wave6_vpu_set_instance_state(struct vpu_instance *inst, u32 state);
-void wave6_vpu_wait_active(struct vpu_instance *inst);
 u64 wave6_cycle_to_ns(struct vpu_device *vpu_dev, u64 cycle);
 #endif
