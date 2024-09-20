@@ -5,6 +5,7 @@
  * Copyright 2017 Analog Devices Inc.
  */
 #include "linux/byteorder/little_endian.h"
+#include "linux/printk.h"
 #include <linux/bitfield.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
@@ -34,6 +35,7 @@
 #include <linux/iio/trigger.h>
 #include <linux/iio/triggered_buffer.h>
 #include <linux/iio/trigger_consumer.h>
+#include <linux/regmap.h>
 
 /* AD7768 registers definition */
 #define AD7768_REG_CHIP_TYPE		0x3
@@ -408,10 +410,12 @@ struct ad7768_chip_info {
 };
 struct ad7768_state {
 	const struct ad7768_chip_info *chip;
+	struct regmap			*regmap;
 	struct spi_device *spi;
 	struct regulator *regulator;
 	struct spi_transfer offload_xfer;
 	struct spi_message offload_msg;
+	int ad7768_quad_setup;
 	int bits_per_word;
 	int vref;
 	int pga_gain_mode;
@@ -442,7 +446,7 @@ struct ad7768_state {
 	 * transfer buffers to live in their own cache lines.
 	 */
 	union {
-		unsigned char buf[6];
+		unsigned char buf[16];
 		__le32 word;
 		struct {
 			__be32 chan;
@@ -457,21 +461,36 @@ static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
 	struct spi_transfer xfer = {
 		.rx_buf = st->data.buf,
 		.len = len + 1,
+		// .len = (len + 1) * 4,
 	};
 	unsigned char tx_data[4];
 	int ret;
 
 	tx_data[0] = AD7768_RD_FLAG_MSK(addr);
 	tx_data[1] = 0xFF;
-	tx_data[2] = 0xFF;
-	tx_data[3] = 0xFF;
 	xfer.tx_buf = tx_data;
 	ret = spi_sync_transfer(st->spi, &xfer, 1);
 	if (ret < 0)
 		return ret;
+	printk("buf 1: %X | 2: %X | 3: %X | 4 : %X\r\n", st->data.buf[1],st->data.buf[2],st->data.buf[3],st->data.buf[4]);
 	*data = (len == 1 ? st->data.buf[1] : cpu_to_be32(st->data.word));
 	return ret;
 }
+
+// static int ad7768_spi_reg_write_all(struct ad7768_state *st,
+// 				unsigned int addr,
+// 				unsigned int val)
+// {
+// 	struct spi_transfer xfer = {
+// 		.rx_buf = st->data.buf,
+// 		.len = 2,
+// 	};
+// 	u8 tx_data[4];
+// 	tx_data[0] = AD7768_WR_FLAG_MSK(addr);
+// 	tx_data[1] = val;
+// 	xfer.tx_buf = tx_data;
+// 	return spi_sync_transfer(st->spi, &xfer, 1);
+// }
 
 static int ad7768_spi_reg_write(struct ad7768_state *st,
 				unsigned int addr,
@@ -563,6 +582,7 @@ static int ad7768_reg_access(struct iio_dev *indio_dev,
 	mutex_lock(&st->lock);
 	if (readval) {
 		ret = ad7768_spi_reg_read(st, reg, readval, 1);
+		// ret = regmap_read(st->regmap, reg, readval);
 		if (ret < 0)
 			goto err_unlock;
 	} else {
@@ -1402,6 +1422,20 @@ static const struct ad7768_chip_info ad7768_chip_info[] = {
 	}
 };
 
+static int ad7768_get_device_count(struct ad7768_state *st)
+{
+	struct device *controller_dev = &st->spi->controller->dev;
+	struct fwnode_handle *child;
+	unsigned int adc_count = 0;
+
+	device_for_each_child_node(controller_dev, child) {
+		if (fwnode_property_match_string(child, "compatible",
+						 "adi,adaq7768-1") >= 0)
+			adc_count++;
+	}
+	return adc_count;
+}
+
 static int ad7768_probe(struct spi_device *spi)
 {
 	struct ad7768_state *st;
@@ -1420,6 +1454,10 @@ static int ad7768_probe(struct spi_device *spi)
 	* Request the SPI controller to make MOSI idle high.
 	*/
 	spi->mode |= SPI_MOSI_IDLE_HIGH;
+	printk("spi->mode: %X\r\n", spi->mode);
+	ret = device_property_read_u32(&spi->dev, "reg", &val);
+	printk("Chipselect: %d\r\n", val);
+	// spi->chip_select = val;
 	ret = spi_setup(spi);
 	if (ret < 0)
 		return ret;
@@ -1463,9 +1501,11 @@ static int ad7768_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
+	st->ad7768_quad_setup = ad7768_get_device_count(st) == 4;
+
 	indio_dev->channels = st->chip->channel_spec[val];
 	indio_dev->num_channels = st->chip->num_channels;
-	indio_dev->name = st->chip->name;
+	indio_dev->name = spi->dev.of_node->name;
 	indio_dev->info = &ad7768_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
@@ -1511,8 +1551,12 @@ static int ad7768_probe(struct spi_device *spi)
 		ret = ad7768_hardware_buffer_alloc(indio_dev);
 	else
 		ret = ad7768_triggered_buffer_alloc(indio_dev);
-	if (ret)
-		return ret;
+	// if (ret) {
+	// 	indio_dev->channels = 0;
+	// 	indio_dev->num_channels = 0;
+	// 	indio_dev->available_scan_masks = 0;
+	// }
+
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
