@@ -445,7 +445,6 @@ static void adi_spi_set_word_size(u32 word, struct adi_spi_controller *mmspi)
 	}
 
 	dev_info(mmspi->dev, "DEBUG: Word size set to %dB \n", word);
-	control |= SPI_CTL_EN;
 	control &= ~SPI_CTL_SOSI;
 	writel(control, &mmspi->regs->control);
 	mmspi->curr_word_sz = word;
@@ -469,13 +468,11 @@ static void adi_spi_read(struct adi_spi_controller *mmspi,
 		return;
 
 	word = adi_spi_get_word_size(mmspi);
-	writel(0, &mmspi->regs->tx_control);
-	writel(SPI_RXCTL_REN | SPI_RXCTL_RTI, &mmspi->regs->rx_control);
 	for (i = 0; i < op->data.nbytes; i++) {
 		buf_ptr = op->data.buf.in + i*(word);
 		
-		while (readl(&mmspi->regs->status) & SPI_STAT_RFE)
-			cpu_relax();
+	//	while (readl(&mmspi->regs->status) & SPI_STAT_RFE)
+	//		cpu_relax();
 		
 		switch (word) {
 			case 1:
@@ -524,9 +521,9 @@ static void adi_spi_send(void *buf, struct adi_spi_controller *mmspi, u32 len)
 
 		dev_info(mmspi->dev,"DEBUG: tfifo buf(%d):%08x\n", len, readl(&mmspi->regs->tfifo));
 		
-		while (readl(&mmspi->regs->status) & SPI_STAT_RFE)
-			cpu_relax();
-		readl(&mmspi->regs->rfifo);
+	//	while (readl(&mmspi->regs->status) & SPI_STAT_RFE)
+	//		cpu_relax();
+		//readl(&mmspi->regs->rfifo);
 	}
 }
 
@@ -609,17 +606,14 @@ static int adi_spi_mm_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 	adi_spi_write(mmspi, op);
 
 	adi_spi_mm_pr_regs(mmspi);
-	writel(0, &mmspi->regs->tx_control);
-	writel(0, &mmspi->regs->rx_control);
-
 	if(op->data.dir == SPI_MEM_DATA_IN) {
 		adi_spi_read(mmspi, op);
 	
 		adi_spi_mm_pr_regs(mmspi);
-		writel(0, &mmspi->regs->tx_control);
-		writel(0, &mmspi->regs->rx_control);
 	}
 
+	writel(0, &mmspi->regs->tx_control);
+	writel(0, &mmspi->regs->rx_control);
 	return 0;
 }
 
@@ -724,12 +718,13 @@ static int adi_spi_mm_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	writel(0x0000FE00, &mmspi->regs->ssel);
+	writel(0x0000FE02, &mmspi->regs->ssel);
 	writel(0x0, &mmspi->regs->delay);
 	control = SPI_CTL_MSTR;
 
 	control &= ~SPI_CTL_MIOM;
 	control &= ~SPI_CTL_SOSI;
+	control |= SPI_CTL_EN;
 	writel(control, &mmspi->regs->control);
 
 	/*this only supports reads directly to an address*/

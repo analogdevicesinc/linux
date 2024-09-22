@@ -307,6 +307,12 @@ struct adi_spi_controller {
 
 	struct clk *sclk;
 	unsigned long sclk_rate;
+
+	/* memory mapped spi flash */
+	void __iomem *mm_spi_flash;
+	u8 opcode;
+	u32 phy_addr;
+
 };
 
 struct adi_spi_device {
@@ -501,6 +507,39 @@ static void adi_spi_mm_pr_regs(struct adi_spi_controller *mmspi)
 	PR_ADI_SPI_REGISTER(mmspi->dev, ssel);
 }
 
+static void check_for_compatible_mm_op(u32 *buf, struct adi_spi_controller *drv)
+{
+	u32 compatible_ops[] = {0x03, 0x0B, 0x3B, 0x6B, 0xBB, 0xEB};
+	u32 opcode = *buf & 0xFF;
+	int i;
+
+	if(drv->opcode != 0)
+		return;
+
+	for(i=0; i<6; i++)
+		if(opcode == compatible_ops[i]) {
+			drv->opcode = opcode;
+			return;
+		}
+
+	return;
+}
+
+static void check_for_phy_addr(u32 *buf, struct adi_spi_controller *drv)
+{	
+	int i;
+
+	if(drv->opcode)
+		return;
+
+	/*covers all dummy cases*/
+	if ((!*buf) || (*buf > (SPI2_BASE + SPI2_SIZE)))
+		return;
+
+	drv->phy_addr = *buf;
+	return;
+}
+
 static int adi_spi_pio_xfer(struct spi_controller *controller, struct spi_device *spi,
 	struct spi_transfer *xfer)
 {
@@ -511,8 +550,21 @@ static int adi_spi_pio_xfer(struct spi_controller *controller, struct spi_device
 		iowrite32(SPI_RXCTL_REN, &drv->regs->rx_control);
 		iowrite32(SPI_TXCTL_TEN | SPI_TXCTL_TTI, &drv->regs->tx_control);
 		drv->ops->write(drv, xfer);
+
+		check_for_compatible_mm_op((u32*)xfer->tx_buf, drv);
+		check_for_phy_addr((u32*)xfer->tx_buf, drv);
 	} else if (!xfer->tx_buf) {
 		pr_info("read called! %08x\n", *(u32*)xfer->rx_buf);
+
+		if(drv->opcode) {
+			if(drv->phy_addr >= SPI2_BASE) {
+				pr_info("%08x\n", readl(drv->phy_addr));
+			} else {
+				pr_info("read request outside mmap region\n");
+			}
+		}
+
+
 		iowrite32(0, &drv->regs->tx_control);
 		iowrite32(SPI_RXCTL_REN | SPI_RXCTL_RTI, &drv->regs->rx_control);
 		drv->ops->read(drv, xfer);
@@ -522,7 +574,7 @@ static int adi_spi_pio_xfer(struct spi_controller *controller, struct spi_device
 		drv->ops->duplex(drv, xfer);
 	}
 
-	adi_spi_mm_pr_regs(drv);
+	//adi_spi_mm_pr_regs(drv);
 
 	iowrite32(0, &drv->regs->tx_control);
 	iowrite32(0, &drv->regs->rx_control);
@@ -653,18 +705,20 @@ int spi_write_data(struct spi_device *spi)
 static struct spi_mem *test_mem;
 int spi_read_data(struct spi_device *spi)
 {
-    int ret;
-    u8 *rx_buf = kzalloc(5, GFP_KERNEL);
-    struct spi_mem_op op = SPI_MEM_OP(SPI_MEM_OP_CMD(0xEB, 1),
-                                      SPI_MEM_OP_ADDR(4, SPI2_BASE + 28, 1),
+    int ret, i;
+    int size = 1024;
+    u32 *rx_buf = kzalloc(size, GFP_KERNEL);
+    struct spi_mem_op op = SPI_MEM_OP(SPI_MEM_OP_CMD(0x03, 1),
+                                      SPI_MEM_OP_ADDR(4, SPI2_BASE, 1),
                                       SPI_MEM_OP_NO_DUMMY,
-                                      SPI_MEM_OP_DATA_IN(4, rx_buf, 1));
+                                      SPI_MEM_OP_DATA_IN(size, rx_buf, 1));
 
     ret = spi_mem_exec_op(test_mem, &op);
     if (ret)
         pr_err("SPI read failed: %d\n", ret);
     else
-        pr_info("Read data: %02x %02x %02x %02x\n", rx_buf[0], rx_buf[1], rx_buf[2], rx_buf[3]);
+	    for(i=0; i<(size/32); i++)
+		pr_info("Read data: %08x\n", rx_buf[i]);
 
     kfree(rx_buf);
     return ret;
@@ -769,6 +823,8 @@ static int adi_spi_prepare_message(struct spi_controller *controller, struct spi
 		return ret;
 	}
 
+	drv->opcode = 0;
+	drv->phy_addr = 0;
 	adi_spi_mm_pr_regs(drv);
 	return 0;
 }
@@ -793,6 +849,11 @@ static void adi_spi_mm_cfg(struct adi_spi_controller *mmspi,
 	writel(0x05003BEB, &mmspi->regs->mmrdh);                    /*  Memory Mapped Read Header */
 	writel(0x7FFFFFFF, &mmspi->regs->mmtop);
 	writel(0x80240073, &mmspi->regs->control);
+}
+
+static void toggle_cs(bool cs_val) 
+{
+	
 }
 
 static int adi_spi_mm_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
@@ -976,6 +1037,13 @@ static int adi_spi_probe(struct platform_device *pdev)
 		return PTR_ERR(drv_data->regs);
 	}
 
+	drv_data->mm_spi_flash = ioremap(SPI2_BASE, SPI2_SIZE);
+	if (IS_ERR(drv_data->mm_spi_flash)) {
+		dev_err(dev, "Could not map spi flash memory\n");
+		return PTR_ERR(drv_data->mm_spi_flash);
+	}
+
+
 	irq_of_node = of_find_node_by_name(NULL,"interrupt-controller");
 	if (!irq_of_node) {
 	    dev_err(dev, "could not find node interrupt-controller\n");
@@ -1030,7 +1098,6 @@ static int adi_spi_probe(struct platform_device *pdev)
 					dev_name(&controller->dev));
 	adi_spi_mm_pr_regs(drv_data);
 
-	spi_set_csgpiod(test_mem->spi, 0, NULL);
 	test(test_mem->spi);
 	return ret;
 
