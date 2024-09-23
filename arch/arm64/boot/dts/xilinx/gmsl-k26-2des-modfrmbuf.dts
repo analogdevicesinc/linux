@@ -66,10 +66,10 @@
 #endif
 
 #ifdef GMSL_CAM_IMX490
-#define GMSL_CAM_0_HEX_ADDR	0x6e
-#define GMSL_CAM_1_HEX_ADDR	0x6f
-#define GMSL_CAM_2_HEX_ADDR	0x70
-#define GMSL_CAM_3_HEX_ADDR	0x71
+#define GMSL_CAM_0_HEX_ADDR	0x6e 0x2c
+#define GMSL_CAM_1_HEX_ADDR	0x6f 0x2d
+#define GMSL_CAM_2_HEX_ADDR	0x70 0x2e
+#define GMSL_CAM_3_HEX_ADDR	0x71 0x2f
 #define GMSL_CAM_4_HEX_ADDR	0x72
 #define GMSL_CAM_5_HEX_ADDR	0x73
 #define GMSL_CAM_6_HEX_ADDR	0x74
@@ -87,6 +87,12 @@
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <12000000>;
+	};
+
+	clk_25M: clk_25M {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <25000000>;
 	};
 
 	pwm_clk: pwm_clk {
@@ -962,7 +968,7 @@ camera_7_i2c_bus: &serializer_2_3_i2c_0 {};
 #endif
 #if defined(GMSL_CAM_IMX490)
 	#define IMX490_INDEX 0
-	#include "gmsl-imx490.dtsi"
+	#include "gmsl-gw5300-imx490.dtsi"
 #endif
 };
 #endif
@@ -979,7 +985,7 @@ camera_7_i2c_bus: &serializer_2_3_i2c_0 {};
 #endif
 #if defined(GMSL_CAM_IMX490)
 	#define IMX490_INDEX 1
-	#include "gmsl-imx490.dtsi"
+	#include "gmsl-gw5300-imx490.dtsi"
 #endif
 };
 #endif
@@ -996,7 +1002,7 @@ camera_7_i2c_bus: &serializer_2_3_i2c_0 {};
 #endif
 #if defined(GMSL_CAM_IMX490)
 	#define IMX490_INDEX 2
-	#include "gmsl-imx490.dtsi"
+	#include "gmsl-gw5300-imx490.dtsi"
 #endif
 };
 #endif
@@ -1013,7 +1019,7 @@ camera_7_i2c_bus: &serializer_2_3_i2c_0 {};
 #endif
 #if defined(GMSL_CAM_IMX490)
 	#define IMX490_INDEX 3
-	#include "gmsl-imx490.dtsi"
+	#include "gmsl-gw5300-imx490.dtsi"
 #endif
 };
 #endif

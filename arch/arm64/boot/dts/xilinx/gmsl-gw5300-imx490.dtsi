@@ -1,0 +1,119 @@
+#ifndef IMX490_HEX_REG
+#define IMX490_HEX_REG 0x6d
+#endif
+
+#ifdef IMX490_INDEX
+#define IMX490_SER_INDEX  IMX490_INDEX
+#define IMX490_SER_LABEL  CONCAT(serializer_, IMX490_SER_INDEX)
+#define IMX490_FSYNC_LABEL CONCAT(IMX490_SER_LABEL, _mfp3_fsync)
+#define IMX490_RCLK_LABEL CONCAT(IMX490_SER_LABEL, _mfp4_rclk)
+#define IMX490_OUT_LABEL CONCAT(int_cam_out, IMX490_INDEX)
+#define GW5300_IN_LABEL CONCAT(isp_in, IMX490_INDEX)
+#define GW5300_OUT_LABEL CONCAT(cam_out, IMX490_INDEX)
+#define SERIALIZER_IN_LABEL CONCAT(ser_in, IMX490_INDEX)
+#define IMX490_LABEL CONCAT(camera, IMX490_INDEX)
+#define GW5300_LABEL CONCAT(isp, IMX490_INDEX)
+#endif
+
+#if !defined(IMX490_SER_LABEL)
+#error
+#endif
+
+#if !defined(IMX490_FSYNC_LABEL)
+#error
+#endif
+
+#if !defined(IMX490_RCLK_LABEL)
+#error
+#endif
+
+#if !defined(IMX490_OUT_LABEL)
+#error
+#endif
+
+#if !defined(SERIALIZER_IN_LABEL)
+#error
+#endif
+
+#if !defined(GW5300_OUT_LABEL)
+#error
+#endif
+
+#if !defined(GW5300_IN_LABEL)
+#error
+#endif
+
+#if !defined(GW5300_LABEL)
+#error
+#endif
+
+#if !defined(IMX490_LABEL)
+#error
+#endif
+
+IMX490_LABEL: imx490@2b {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	compatible = "sony,imx490";
+	reg = <0x2b>;
+	clocks = <&ov_clk_12M>;
+	clock-names = "xclk";
+	dvdd-supply = <&ov_1_5V>;
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+
+			IMX490_OUT_LABEL: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				remote-endpoint = <&GW5300_IN_LABEL>;
+			};
+		};
+	};
+};
+
+GW5300_LABEL: gw5300@IMX490_HEX_REG {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	compatible = "geo,gw5300";
+	reg = <IMX490_HEX_REG>;
+	clocks = <&clk_25M>;
+	clock-names = "isp_clk";
+	pinctrl-0 = <&IMX490_RCLK_LABEL &IMX490_FSYNC_LABEL>;
+	pinctrl-names = "default";
+	reset-gpios = <&IMX490_SER_LABEL 8 GPIO_ACTIVE_LOW>;
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 {
+			reg = <0>;
+			GW5300_OUT_LABEL: endpoint {
+				clock-lanes = <0>;
+				data-lanes = <1 2 3 4>;
+				remote-endpoint = <&SERIALIZER_IN_LABEL>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			GW5300_IN_LABEL: endpoint {
+				remote-endpoint = <&IMX490_OUT_LABEL>;
+			};
+		};
+	};
+};
+
+#undef IMX490_HEX_REG
+#undef IMX490_INDEX
+#undef Ox03A_SER_INDEX
+#undef IMX490_SER_LABEL
+#undef IMX490_FSYNC_LABEL
+#undef IMX490_RCLK_LABEL
+#undef IMX490_LABEL
+#undef IMX490_OUT_LABEL
+#undef SERIALIZER_IN_LABEL
+#undef GW5300_LABEL
+#undef GW5300_OUT_LABEL
+#undef GW5300_IN_LABEL
