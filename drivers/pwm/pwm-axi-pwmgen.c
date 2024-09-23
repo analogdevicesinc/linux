@@ -61,13 +61,18 @@ struct axi_pwmgen_waveform {
 	u32 duty_offset_cnt;
 };
 
+static struct axi_pwmgen_ddata *axi_pwmgen_ddata_from_chip(struct pwm_chip *chip)
+{
+	return pwmchip_get_drvdata(chip);
+}
+
 static int axi_pwmgen_round_waveform_tohw(struct pwm_chip *chip,
 					  struct pwm_device *pwm,
 					  const struct pwm_waveform *wf,
 					  void *_wfhw)
 {
 	struct axi_pwmgen_waveform *wfhw = _wfhw;
-	struct axi_pwmgen_ddata *ddata = pwmchip_get_drvdata(chip);
+	struct axi_pwmgen_ddata *ddata = axi_pwmgen_ddata_from_chip(chip);
 
 	if (wf->period_length_ns == 0) {
 		*wfhw = (struct axi_pwmgen_waveform){
@@ -111,7 +116,7 @@ static int axi_pwmgen_round_waveform_fromhw(struct pwm_chip *chip, struct pwm_de
 					     const void *_wfhw, struct pwm_waveform *wf)
 {
 	const struct axi_pwmgen_waveform *wfhw = _wfhw;
-	struct axi_pwmgen_ddata *ddata = pwmchip_get_drvdata(chip);
+	struct axi_pwmgen_ddata *ddata = axi_pwmgen_ddata_from_chip(chip);
 
 	wf->period_length_ns = DIV64_U64_ROUND_UP((u64)wfhw->period_cnt * NSEC_PER_SEC,
 					ddata->clk_rate_hz);
@@ -130,7 +135,7 @@ static int axi_pwmgen_write_waveform(struct pwm_chip *chip,
 				     const void *_wfhw)
 {
 	const struct axi_pwmgen_waveform *wfhw = _wfhw;
-	struct axi_pwmgen_ddata *ddata = pwmchip_get_drvdata(chip);
+	struct axi_pwmgen_ddata *ddata = axi_pwmgen_ddata_from_chip(chip);
 	struct regmap *regmap = ddata->regmap;
 	unsigned int ch = pwm->hwpwm;
 	int ret;
@@ -155,7 +160,7 @@ static int axi_pwmgen_read_waveform(struct pwm_chip *chip,
 				    void *_wfhw)
 {
 	struct axi_pwmgen_waveform *wfhw = _wfhw;
-	struct axi_pwmgen_ddata *ddata = pwmchip_get_drvdata(chip);
+	struct axi_pwmgen_ddata *ddata = axi_pwmgen_ddata_from_chip(chip);
 	struct regmap *regmap = ddata->regmap;
 	unsigned int ch = pwm->hwpwm;
 	int ret;
