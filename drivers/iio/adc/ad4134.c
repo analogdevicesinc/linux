@@ -260,11 +260,6 @@ static void ad4134_disable_regulators(void *data)
 	regulator_bulk_disable(ARRAY_SIZE(st->regulators), st->regulators);
 }
 
-static void ad4134_disable_clk(void *data)
-{
-	clk_disable_unprepare(data);
-}
-
 static void ad4134_disable_pwm(void *data)
 {
 	pwm_disable(data);
@@ -277,18 +272,9 @@ static int ad4134_setup(struct ad4134_state *st)
 	struct clk *clk;
 	int ret;
 
-	clk = devm_clk_get(dev, "sys_clk");
+	clk = devm_clk_get_enabled(dev, "sys_clk");
 	if (IS_ERR(clk))
 		return dev_err_probe(dev, PTR_ERR(clk), "Failed to find SYS clock\n");
-
-	ret = clk_prepare_enable(clk);
-	if (ret)
-		return dev_err_probe(dev, ret, "Failed to enable SYS clock\n");
-
-	ret = devm_add_action_or_reset(dev, ad4134_disable_clk, clk);
-	if (ret)
-		return dev_err_probe(dev, ret,
-				     "Failed to add SYS clock disable action\n");
 
 	st->sys_clk_rate = clk_get_rate(clk);
 	if (!st->sys_clk_rate)
