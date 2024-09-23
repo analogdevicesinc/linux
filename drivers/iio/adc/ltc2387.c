@@ -156,14 +156,40 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	unsigned long long ref_clk_period_ns;
 	struct pwm_state clk_en_state, cnv_state;
 	int ret, clk_en_time;
+	u32 rem;
 
 	ref_clk_period_ns = DIV_ROUND_CLOSEST(NSEC_PER_SEC, ltc->ref_clk_rate);
 
 	cnv_state = (struct pwm_state) {
-		.period = DIV_ROUND_CLOSEST(NSEC_PER_SEC, freq),
 		.duty_cycle = ref_clk_period_ns,
 		.enabled = true,
 	};
+
+	/*
+	 * The goal here is that the PWM is configured with a minimal period not
+	 * less than 1 / freq (with freq measured in Hz).
+	 *
+	 * When a period P (measured in ns) is passed to pwm_apply_state(), the
+	 * actually implemented period is:
+	 *
+	 *      round_down(P * R / NSEC_PER_SEC) / R
+	 *
+	 * (measured in s) with R = ltc->ref_clk_rate. So we have:
+	 *
+	 *        round_down(P * R / NSEC_PER_SEC) / R ≥ 1 / freq
+	 *      ⟺ round_down(P * R / NSEC_PER_SEC) ≥ R / freq
+	 *
+	 * With the LHS being integer this is equivalent to:
+	 *
+	 *        round_down(P * R / NSEC_PER_SEC) ≥ round_up(R / freq)
+	 *      ⟺ P * R / NSEC_PER_SEC ≥ round_up(R / freq)
+	 *      ⟺ P ≥ round_up(R / freq) * NSEC_PER_SEC / R
+	 */
+
+	cnv_state.period = div_u64_rem((u64)DIV_ROUND_UP(ltc->ref_clk_rate, freq) * NSEC_PER_SEC,
+				       ltc->ref_clk_rate, &rem);
+	if (rem)
+		cnv_state.period += 1;
 
 	ret = pwm_apply_state(ltc->cnv, &cnv_state);
 	if (ret < 0)
