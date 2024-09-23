@@ -157,64 +157,6 @@ static u8 adi_sdhci_phy_readb(struct adi_sdhci_phy *adi_phy, int reg)
 	return readb(adi_phy->base + reg);
 }
 
-static int adi_sdhci_phy_config_dll(struct phy *phy, bool enable)
-{
-	struct adi_sdhci_phy *adi_phy = phy_get_drvdata(phy);
-	u8 u8_val;
-	u8 timeout;
-	int err = 0;
-
-	if (enable == false) {
-		/* DLL configuration (PHY instance 2)*/
-
-		/* sdhci PHY DLL slave's update delay input */
-		u8_val = adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_DLL_CNFG1_R_OFF) &
-			 ~(SDHCI_PHY_SLVDLY_BM | SDHCI_PHY_WAIT_CYCLE_BM);
-		u8_val |= (SDHCI_PHY_SLVDLY << SDHCI_PHY_SLVDLY_POS) |
-			  (SDHCI_PHY_WAIT_CYCLE << SDHCI_PHY_WAIT_CYCLE_POS);
-		adi_sdhci_phy_writeb(adi_phy, u8_val, SDHCI_PHY_DLL_CNFG1_R_OFF);
-
-		/* sdhci PHY DLL's jump step input */
-		u8_val = adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_DLL_CNFG2_R_OFF) &
-			 ~(SDHCI_PHY_JUMPSTEP_BM);
-		u8_val |= (SDHCI_PHY_JUMPSTEP << SDHCI_PHY_JUMPSTEP_POS);
-		adi_sdhci_phy_writeb(adi_phy, u8_val, SDHCI_PHY_DLL_CNFG2_R_OFF);
-
-		/* sdhci PHY Clock select for slave DL */
-		u8_val = adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_DLLDL_CNFG_R_OFF) &
-			 ~(SDHCI_PHY_MST_INPSEL_BM | SDHCI_PHY_SLV_INPSEL_BM);
-		u8_val |= (SDHCI_PHY_MST_INPSEL << SDHCI_PHY_MST_INPSEL_POS) |
-			  (SDHCI_PHY_SLV_INPSEL << SDHCI_PHY_SLV_INPSEL_POS);
-		adi_sdhci_phy_writeb(adi_phy, u8_val, SDHCI_PHY_DLLDL_CNFG_R_OFF);
-
-		/* sdhci PHY Low bandwidth timer */
-		adi_sdhci_phy_writeb(adi_phy, SDHCI_PHY_LBT_LOADVAL, SDHCI_PHY_DLLLBT_CNFG_R_OFF);
-	} else {
-		/* sdhci PHY Control settings - DLL enable */
-		u8_val = adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_DLL_CTRL_R_OFF) &
-			 ~(SDHCI_PHY_DLL_EN_BM);
-		u8_val |= (SDHCI_PHY_DLL_EN << SDHCI_PHY_DLL_EN_POS);
-		adi_sdhci_phy_writeb(adi_phy, u8_val, SDHCI_PHY_DLL_CTRL_R_OFF);
-
-		/* Wait for DLL lock */
-		timeout = SDHCI_PHY_TIMEOUT_100_MS;
-		while (0U == (adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_DLL_STATUS_R_OFF) & SDHCI_PHY_LOCK_STS_BM)) {
-			if (timeout-- > 0) {
-				udelay(1000U);
-			} else {
-				pr_err("%s: PHY DLL has not locked.\n", __func__);
-				return -ETIMEDOUT;
-			}
-		}
-		if (0U != (adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_DLL_STATUS_R_OFF) & SDHCI_PHY_ERROR_STS_BM)) {
-			pr_err("%s: PHY DLL is lock to default with errors.\n", __func__);
-			return -ETIMEDOUT;
-		}
-	}
-
-	return err;
-}
-
 static int adi_sdhci_phy_set_delay(struct phy *phy, u8 hs_timing)
 {
 	struct adi_sdhci_phy *adi_phy = phy_get_drvdata(phy);
@@ -241,12 +183,12 @@ static int adi_sdhci_phy_set_delay(struct phy *phy, u8 hs_timing)
 		dl1_code = adi_phy->dcode_legacy;
 	}
 
-	/* sdhci autotuning clock DelayLine configuration settings */
+	/* DelayLine 0 (auto-tuning clock) input source selection */
 	u8_val = adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_ATDL_CNFG_R_OFF) & ~SDHCI_INPSEL_CNFG_BM;
 	u8_val |= (dl0 << SDHCI_INPSEL_CNFG_POS);
 	adi_sdhci_phy_writeb(adi_phy, u8_val, SDHCI_PHY_ATDL_CNFG_R_OFF);
 
-	/* sdhci tx clock DelayLine configuration settings */
+	/* DelayLine 1 (tx clock) input source selection */
 	u8_val = adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_SDCLKDL_CNFG_R_OFF) & ~SDHCI_INPSEL_CNFG_BM;
 	u8_val |= (dl1 << SDHCI_INPSEL_CNFG_POS);
 	adi_sdhci_phy_writeb(adi_phy, u8_val, SDHCI_PHY_SDCLKDL_CNFG_R_OFF);
@@ -263,7 +205,7 @@ static int adi_sdhci_phy_set_delay(struct phy *phy, u8 hs_timing)
 	u8_val &= ~(SDHCI_UPDATE_DC << SDHCI_UPDATE_DC_POS);
 	adi_sdhci_phy_writeb(adi_phy, u8_val, SDHCI_PHY_SDCLKDL_CNFG_R_OFF);
 
-	/* sdhci rx sampling clock DelayLine configuration settings */
+	/* DelayLine 2 (rx sampling clock) input source selection */
 	u8_val = adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_SMPLDL_CNFG_R_OFF) & ~SDHCI_INPSEL_CNFG_BM;
 	u8_val |= (dl2 << SDHCI_INPSEL_CNFG_POS);
 	adi_sdhci_phy_writeb(adi_phy, u8_val, SDHCI_PHY_SMPLDL_CNFG_R_OFF);
@@ -271,13 +213,86 @@ static int adi_sdhci_phy_set_delay(struct phy *phy, u8 hs_timing)
 	return 0;
 }
 
+static int adi_sdhci_phy_config_dll(struct phy *phy, bool enable)
+{
+	struct adi_sdhci_phy *adi_phy = phy_get_drvdata(phy);
+	u8 u8_val;
+	u8 timeout;
+
+	if (enable == false) {
+		/* DLL configuration (PHY instance 2) */
+
+		/* Disable DLL */
+		u8_val = adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_DLL_CTRL_R_OFF) &
+			 ~(SDHCI_PHY_DLL_EN_BM);
+		adi_sdhci_phy_writeb(adi_phy, u8_val, SDHCI_PHY_DLL_CTRL_R_OFF);
+
+		/* DLL slave's update delay input */
+		u8_val = adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_DLL_CNFG1_R_OFF) &
+			 ~(SDHCI_PHY_SLVDLY_BM | SDHCI_PHY_WAIT_CYCLE_BM);
+		u8_val |= (SDHCI_PHY_SLVDLY << SDHCI_PHY_SLVDLY_POS) |
+			  (SDHCI_PHY_WAIT_CYCLE << SDHCI_PHY_WAIT_CYCLE_POS);
+		adi_sdhci_phy_writeb(adi_phy, u8_val, SDHCI_PHY_DLL_CNFG1_R_OFF);
+
+		/* DLL's jump step input */
+		u8_val = adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_DLL_CNFG2_R_OFF) &
+			 ~(SDHCI_PHY_JUMPSTEP_BM);
+		u8_val |= (SDHCI_PHY_JUMPSTEP << SDHCI_PHY_JUMPSTEP_POS);
+		adi_sdhci_phy_writeb(adi_phy, u8_val, SDHCI_PHY_DLL_CNFG2_R_OFF);
+
+		/* Delay Lines 0 (master) and 1 (slave) input source selection */
+		u8_val = adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_DLLDL_CNFG_R_OFF) &
+			 ~(SDHCI_PHY_MST_INPSEL_BM | SDHCI_PHY_SLV_INPSEL_BM);
+		u8_val |= (SDHCI_PHY_MST_INPSEL << SDHCI_PHY_MST_INPSEL_POS) |
+			  (SDHCI_PHY_SLV_INPSEL << SDHCI_PHY_SLV_INPSEL_POS);
+		adi_sdhci_phy_writeb(adi_phy, u8_val, SDHCI_PHY_DLLDL_CNFG_R_OFF);
+
+		/* DLL Low Bandwidth Timer */
+		adi_sdhci_phy_writew(adi_phy, SDHCI_PHY_LBT_LOADVAL, SDHCI_PHY_DLLLBT_CNFG_R_OFF);
+	} else {
+		/* Enable DLL */
+		u8_val = adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_DLL_CTRL_R_OFF) &
+			 ~(SDHCI_PHY_DLL_EN_BM);
+		u8_val |= (SDHCI_PHY_DLL_EN << SDHCI_PHY_DLL_EN_POS);
+		adi_sdhci_phy_writeb(adi_phy, u8_val, SDHCI_PHY_DLL_CTRL_R_OFF);
+
+		/* Wait for DLL lock */
+		timeout = SDHCI_PHY_TIMEOUT_100_MS;
+		while (0U == (adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_DLL_STATUS_R_OFF) & SDHCI_PHY_LOCK_STS_BM)) {
+			if (timeout-- > 0) {
+				udelay(1000U);
+			} else {
+				pr_err("%s: PHY DLL has not locked.\n", __func__);
+				return -ETIMEDOUT;
+			}
+		}
+		if (0U != (adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_DLL_STATUS_R_OFF) & SDHCI_PHY_ERROR_STS_BM)) {
+			pr_err("%s: PHY DLL is lock to default with errors.\n", __func__);
+			return -ETIMEDOUT;
+		}
+	}
+
+	return 0;
+}
+
 static int adi_sdhci_phy_init(struct phy *phy)
 {
 	struct adi_sdhci_phy *adi_phy = phy_get_drvdata(phy);
+	int err;
 	u32 u32_val;
 	u16 u16_val;
 	u8 u8_val;
 	u8 timeout;
+
+	/* Assert PHY Reset */
+	u32_val = adi_sdhci_phy_readl(adi_phy, SDHCI_PHY_CNFG_R_OFF);
+	u32_val &= ~SDHCI_PHY_RSTN_BM;
+	adi_sdhci_phy_writel(adi_phy, u32_val, SDHCI_PHY_CNFG_R_OFF);
+
+	/* Disable DLL */
+	u8_val = adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_DLL_CTRL_R_OFF) &
+		 ~(SDHCI_PHY_DLL_EN_BM);
+	adi_sdhci_phy_writeb(adi_phy, u8_val, SDHCI_PHY_DLL_CTRL_R_OFF);
 
 	/* sdhci PHY general configuration */
 	u32_val = adi_sdhci_phy_readl(adi_phy, SDHCI_PHY_CNFG_R_OFF);
@@ -285,36 +300,40 @@ static int adi_sdhci_phy_init(struct phy *phy)
 		    (SDHCI_PHY_PAD_SN << SDHCI_PAD_SN_POS));
 	adi_sdhci_phy_writel(adi_phy, u32_val, SDHCI_PHY_CNFG_R_OFF);
 
-	/* sdhci PHY's command/response PAD settings */
+	/* Command/response PAD settings */
 	u16_val = adi_sdhci_phy_readw(adi_phy, SDHCI_PHY_CMDPAD_CNFG_R_OFF) &
 		  ~(SDHCI_RXSEL_BM | SDHCI_WEAKPULL_EN_BM);
 	u16_val |= (SDHCI_RXSEL_CMD_PAD |
 		    (SDHCI_WEAKPULL_EN_CMD_PAD << SDHCI_WEAKPULL_EN_POS));
 	adi_sdhci_phy_writew(adi_phy, u16_val, SDHCI_PHY_CMDPAD_CNFG_R_OFF);
 
-	/* sdhci PHY's Data PAD settings */
+	/* Data PAD settings */
 	u16_val = adi_sdhci_phy_readw(adi_phy, SDHCI_PHY_DATPAD_CNFG_R_OFF) &
 		  ~(SDHCI_RXSEL_BM | SDHCI_WEAKPULL_EN_BM);
 	u16_val |= (SDHCI_RXSEL_DAT_PAD |
 		    (SDHCI_WEAKPULL_EN_DAT_PAD << SDHCI_WEAKPULL_EN_POS));
 	adi_sdhci_phy_writew(adi_phy, u16_val, SDHCI_PHY_DATPAD_CNFG_R_OFF);
 
-	/* sdhci PHY's RSTN PAD settings */
+	/* RSTN PAD settings */
 	u16_val = adi_sdhci_phy_readw(adi_phy, SDHCI_PHY_RSTNPAD_CNFG_R_OFF) &
 		  ~(SDHCI_RXSEL_BM | SDHCI_WEAKPULL_EN_BM);
 	u16_val |= (SDHCI_RXSEL_RST_N_PAD |
 		    (SDHCI_WEAKPULL_EN_RST_N_PAD << SDHCI_WEAKPULL_EN_POS));
 	adi_sdhci_phy_writew(adi_phy, u16_val, SDHCI_PHY_RSTNPAD_CNFG_R_OFF);
 
-	/* sdhci PHY's Strobe PAD settings */
+	/* Strobe PAD settings */
 	u16_val = adi_sdhci_phy_readw(adi_phy, SDHCI_PHY_STBPAD_CNFG_R_OFF) &
 		  ~(SDHCI_RXSEL_BM | SDHCI_WEAKPULL_EN_BM);
 	u16_val |= (SDHCI_RXSEL_STB_N_PAD |
 		    (SDHCI_WEAKPULL_EN_STB_PAD << SDHCI_WEAKPULL_EN_POS));
 	adi_sdhci_phy_writew(adi_phy, u16_val, SDHCI_PHY_STBPAD_CNFG_R_OFF);
 
-	/* Configure Delay Lines (PHY instance 0) for legacy mode */
-	adi_sdhci_phy_set_delay(phy, MMC_TIMING_LEGACY);
+	/* Set Delay Lines configuration for legacy mode */
+	err = adi_sdhci_phy_set_delay(phy, MMC_TIMING_LEGACY);
+	if (err != 0) {
+		pr_err("%s: SDHCI PHY: Failed to set delay.\n", __func__);
+		return err;
+	}
 
 	/* eMMC DelayLine's per step delay selection */
 	u8_val = adi_sdhci_phy_readb(adi_phy, SDHCI_PHY_COMMDL_CNFG_R_OFF) &
@@ -323,7 +342,7 @@ static int adi_sdhci_phy_init(struct phy *phy)
 	adi_sdhci_phy_writeb(adi_phy, u8_val, SDHCI_PHY_COMMDL_CNFG_R_OFF);
 
 	/* Wait max 100ms for the PHY Powergood to be 1. As per JEDEC Spec v5.1,
-	 * supply power-up time for sdhci operating at 1.8V is 25ms, but we give
+	 * supply power-up time for SDHCI operating at 1.8V is 25ms, but we give
 	 * more time for the PHY to powerup. */
 	timeout = SDHCI_PHY_TIMEOUT_100_MS;
 	while (0U == (adi_sdhci_phy_readl(adi_phy, SDHCI_PHY_CNFG_R_OFF) & SDHCI_PHY_POWERGOOD_BM)) {

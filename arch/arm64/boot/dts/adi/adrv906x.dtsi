@@ -475,11 +475,11 @@
 		non-removable;
 		no-sdio;
 		no-sd;
-		no-1-8-v;
-//		mmc-hs200-1_8v;
-//		/* HS400 (write operation) does not work in emulation (Protium/Palladium) */
-//		mmc-hs400-1_8v;
-//		mmc-hs400-enhanced-strobe;
+		mmc-hs200-1_8v;
+		mmc-hs400-1_8v;
+		mmc-hs400-enhanced-strobe;
+		adi,retune-period = <3600>;
+		cap-mmc-hw-reset;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
