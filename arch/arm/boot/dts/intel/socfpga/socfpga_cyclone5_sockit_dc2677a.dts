@@ -149,7 +149,7 @@
 				};
 
 				axi_pwm_gen: axi-pwm-gen@40000 {
-					compatible = "adi,axi-pwmgen";
+					compatible = "adi,axi-pwmgen-2.00.a";
 					reg = <0x00040000 0x1000>;
 					#pwm-cells = <2>;
 					clocks = <&sys_clk>;

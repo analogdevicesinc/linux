@@ -70,7 +70,7 @@
 	};
 
 	axi_pwm_gen: pwm@0x44a60000 {
-		compatible = "adi,axi-pwmgen";
+		compatible = "adi,axi-pwmgen-2.00.a";
 		reg = <0x44a60000 0x1000>;
 		label = "ltc2387_if";
 		#pwm-cells = <2>;
