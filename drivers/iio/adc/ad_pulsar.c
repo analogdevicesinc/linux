@@ -426,21 +426,38 @@ static int ad_pulsar_set_samp_freq(struct ad_pulsar_adc *adc, int freq)
 	unsigned long long ref_clk_period_ns;
 	struct pwm_state cnv_state;
 	int ret;
+	u32 rem;
 
 	/*
 	 * The objective here is to configure the PWM such that we don't have
 	 * more than $freq periods per second and duty_cycle and phase should be
 	 * their minimal positive value.
+	 *
+	 * When a period P (measured in ns) is passed to pwm_apply_state(), the
+	 * actually implemented period is:
+	 *
+	 * 	round_down(P * R / NSEC_PER_SEC) / R
+	 *
+	 * (measured in s) with R = adc->ref_clk_rate. We want
+	 *
+	 * 	  round_down(P * R / NSEC_PER_SEC) / R ≥ 1 / freq
+	 *	⟺ round_down(P * R / NSEC_PER_SEC) ≥ R / freq
+	 *	⟺ P * R / NSEC_PER_SEC ≥ round_up(R / freq)
+	 *	⟺ P ≥ round_up(R / freq) * NSEC_PER_SEC / R
 	 */
 	freq = clamp(freq, 1, adc->info->max_rate);
 	ref_clk_period_ns = DIV_ROUND_UP(NSEC_PER_SEC, adc->ref_clk_rate);
 
 	cnv_state = (struct pwm_state){
-		.period = DIV_ROUND_UP(NSEC_PER_SEC, freq),
 		.duty_cycle = ref_clk_period_ns,
 		.phase = ref_clk_period_ns,
 		.enabled = true,
 	};
+
+	cnv_state.period = div_u64_rem((u64)DIV_ROUND_UP(adc->ref_clk_rate, freq) * NSEC_PER_SEC,
+				       adc->ref_clk_rate, &rem);
+	if (rem)
+		cnv_state.period += 1;
 
 	ret = pwm_apply_state(adc->cnv, &cnv_state);
 	if (ret)
