@@ -25,15 +25,10 @@
 
 #define PLUS_10(x)  ((x)+(x)/10)
 
-#define V4L2_CID_FSYNC		(V4L2_CID_USER_BASE | 0x1002)
 #define V4L2_CID_TPG		(V4L2_CID_USER_BASE | 0x1003)
 
 static const char * const imx490_supply_names[] = {
 	"dvdd",
-};
-
-static const char * const imx490_ctrl_fsync_options[] = {
-	"Internal", "External",
 };
 
 static const char * const imx490_ctrl_test_pattern_options[] = {
@@ -124,34 +119,6 @@ static void imx490_power_off(struct imx490 *sensor)
 
 /* ------------------------------------------------------------------------- */
 
-static int imx490_set_gain(struct imx490 *sensor, s64 val)
-{
-	int ret = 0;
-
-	return ret;
-}
-
-static int imx490_set_auto_exposure(struct imx490 *sensor, bool enable)
-{
-	int ret = 0;
-
-	return ret;
-}
-
-static int imx490_set_exposure(struct imx490 *sensor, s64 val)
-{
-	int ret = 0;
-
-	return ret;
-}
-
-static int imx490_set_fsync_trigger_mode(struct imx490 *sensor)
-{
-  int ret = 0;
-
-  return ret;
-}
-
 static int imx490_set_tpg(struct imx490 *sensor, s32 val)
 {
 	u32 enabled = 0;
@@ -182,23 +149,6 @@ static int imx490_s_ctrl(struct v4l2_ctrl *ctrl)
 	format = v4l2_subdev_get_pad_format(&sensor->subdev, state, 0);
 
 	switch (ctrl->id) {
-	case V4L2_CID_EXPOSURE:
-		imx490_set_exposure(sensor, ctrl->val);
-		break;
-
-	case V4L2_CID_EXPOSURE_AUTO:
-		enable = ctrl->val == V4L2_EXPOSURE_AUTO;
-		imx490_set_auto_exposure(sensor, enable);
-		break;
-
-	case V4L2_CID_ANALOGUE_GAIN:
-		imx490_set_gain(sensor, ctrl->val);
-		break;
-
-	case V4L2_CID_FSYNC:
-		sensor->trigger_mode = ctrl->val;
-		break;
-
 	case V4L2_CID_TPG:
 		imx490_set_tpg(sensor, ctrl->val);
 		break;
@@ -213,16 +163,6 @@ static int imx490_s_ctrl(struct v4l2_ctrl *ctrl)
 
 static const struct v4l2_ctrl_ops imx490_ctrl_ops = {
 	.s_ctrl = imx490_s_ctrl,
-};
-
-static const struct v4l2_ctrl_config imx490_ctrl_fsync = {
-	.ops = &imx490_ctrl_ops,
-	.id = V4L2_CID_FSYNC,
-	.name = "FSYNC source",
-	.type = V4L2_CTRL_TYPE_MENU,
-	.max = ARRAY_SIZE(imx490_ctrl_fsync_options) - 1,
-	.def = 0,
-	.qmenu = imx490_ctrl_fsync_options,
 };
 
 static const struct v4l2_ctrl_config imx490_ctrl_tpg = {
@@ -245,15 +185,6 @@ static int imx490_ctrls_init(struct imx490 *sensor)
 		return ret;
 
 	v4l2_ctrl_handler_init(&sensor->ctrls, 9);
-
-	v4l2_ctrl_new_std(&sensor->ctrls, &imx490_ctrl_ops,
-			  V4L2_CID_EXPOSURE, 0, 33000, 1, 11010);
-	v4l2_ctrl_new_std(&sensor->ctrls, &imx490_ctrl_ops,
-			  V4L2_CID_ANALOGUE_GAIN, 0, 48, 1, 6);
-	v4l2_ctrl_new_std_menu(&sensor->ctrls, &imx490_ctrl_ops,
-				       V4L2_CID_EXPOSURE_AUTO,
-				       V4L2_EXPOSURE_MANUAL, 0,
-				       V4L2_EXPOSURE_AUTO);
 	/*
 	 * The sensor calculates the MIPI timings internally to achieve a bit
 	 * rate between 1122 and 1198 Mbps. The exact value is unfortunately not
@@ -266,9 +197,6 @@ static int imx490_ctrls_init(struct imx490 *sensor)
 
 	v4l2_ctrl_new_fwnode_properties(&sensor->ctrls, &imx490_ctrl_ops,
 					&props);
-
-	v4l2_ctrl_new_custom(&sensor->ctrls,
-				     &imx490_ctrl_fsync, NULL);
 
 	v4l2_ctrl_new_custom(&sensor->ctrls,
 				     &imx490_ctrl_tpg, NULL);
@@ -317,27 +245,12 @@ static int imx490_setup(struct imx490 *sensor, struct v4l2_subdev_state *state)
 
 static int imx490_stream_on(struct imx490 *sensor)
 {
-	int ret = 0;
-
-	if (sensor->trigger_mode){
-		ret = imx490_set_fsync_trigger_mode(sensor);
-		dev_dbg(sensor->dev, "[%s] : Putting camera sensor into Slave mode.\n", __func__);
-	}
-	if (ret)
-		dev_err(sensor->dev, "[%s] : Putting camera sensor into Slave mode failed.\n", __func__);
-
-	usleep_range(120000, PLUS_10(120000));
-
-	return ret;
+	return 0;
 }
 
 static int imx490_stream_off(struct imx490 *sensor)
 {
-	int ret = 0;
-
-	usleep_range(120000, PLUS_10(120000));
-
-	return ret;
+	return 0;
 }
 
 static int imx490_s_stream(struct v4l2_subdev *sd, int enable)
