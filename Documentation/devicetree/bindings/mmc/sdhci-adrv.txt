@@ -1,0 +1,72 @@
+* ADRV SDHCI controller
+
+This file documents the differences between the core properties in
+Documentation/devicetree/bindings/mmc/mmc.txt and the properties used by the
+sdhci-of-adi driver.
+
+Required properties:
+- compatible:		Must be "adi,dwcmshc-sdhci" for ADRV SDHCI controller
+                        Must be "adi,sdhci-phy" for ADRV SDHCI PHY controller
+- clocks:		Phandlers to the clock.
+- clock-names:		Must be "core"
+- cap-mmc-hw-reset:	Mandatory in eMMC
+- enable-phy-config:	Enable PHY configuration
+
+Optional properties:
+- adi,retune-period:    Set periodic clock retune period
+- adi,dcode-legacy:     Set legacy (PHY Tx delay line) data code
+- adi,dcode-hs200:      Set HS200 (PHY Tx delay line) data code
+- adi,dcode-hs400:      Set HS400 (PHY Tx delay line) data code
+
+Example:
+
+mmcclk: mmcclk {
+	compatible = "fixed-clock";
+	#clock-cells = <0>;
+	clock-frequency = <245000000>;
+};
+
+mmc0_phy: phy@24724300 {
+	compatible = "adi,sdhci-phy";
+	reg = <0x24724300 0x100>;
+	#phy-cells = <0>;
+	adi,dcode-legacy = <0x78>;
+	adi,dcode-hs200 = <0x00>;
+	adi,dcode-hs400 = <0x08>;
+	status = "disabled";
+};
+
+mmc0_regulator: fixed-regulator_1v8 {
+	compatible = "regulator-fixed";
+	regulator-name = "1V8";
+	regulator-min-microvolt = <1800000>;
+	regulator-max-microvolt = <1800000>;
+	regulator-always-on;
+	status = "disabled";
+};
+
+mmc0: mmc@24724000 {
+	compatible = "adi,dwcmshc-sdhci";
+	reg = <0x247243000 0x300>;
+	interrupts = <GIC_SPI W_INTR_PIPED IRQ_TYPE_LEVEL_HIGH>;
+	clocks = <&mmcclk>;
+	clock-names = "core";
+	phys = <&mmc0_phy>;
+	phy-names = "phy_adi_sdhci";
+	max-frequency = <196608000>;
+	bus-width = <8>;
+	vqmmc-supply = <&mmc0_regulator>;
+	status = "disabled";
+	enable-phy-config;
+	disable-wp;
+	non-removable;
+	no-sdio;
+	no-sd;
+	mmc-hs200-1_8v;
+	mmc-hs400-1_8v;
+	mmc-hs400-enhanced-strobe;
+	adi,retune-period = <3600>;
+	cap-mmc-hw-reset;
+	#address-cells = <1>;
+	#size-cells = <0>;
+};

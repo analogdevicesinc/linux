@@ -7,25 +7,30 @@
  */
 
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/kernel.h>
+#include <linux/mmc/mmc.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/phy/phy.h>
 #include <linux/sizes.h>
-#include <linux/delay.h>
 
 #include "sdhci-pltfm.h"
 
 /* Vendor register offsets */
 #define SDHCI_VENDOR1_MSHC_CTRL_R_OFF                  (0x508U)
-#define SDHCI_VENDOR1_EMMC_CTRL_R_OFF                  (0x52C)
+#define SDHCI_VENDOR1_EMMC_CTRL_R_OFF                  (0x52CU)
 #define SDHCI_VENDOR1_AT_CTRL_R_OFF                    (0x540U)
 
 /* Vendor register field bit masks */
 #define SDHCI_VENDOR1_NEGEDGE_DATAOUT_EN               BIT(1)
 #define SDHCI_VENDOR1_ENH_STROBE_EN_BM                 BIT(8)
 #define SDHCI_VENDOR1_CARD_IS_EMMC                     BIT(0)
+#define SDHCI_VENDOR1_AT_EN                            BIT(0)
+#define SDHCI_VENDOR1_SWIN_TH_EN                       BIT(2)
+#define SDHCI_VENDOR1_POST_CHANGE_DLY                  GENMASK(20, 19)
+#define SDHCI_VENDOR1_TUNE_CLK_STOP_EN                 BIT(16)
 
 /* Vendor register field values */
 #define POST_CHANGE_DLY_LESS_4_CYCLES                  (0x03U)
@@ -57,6 +62,7 @@
  * Note: This macro is just to identify the action taken on this issue
  */
 #define SDHCI_ADI_IP_1_8V
+
 /* PHY Delay Lines may cause a potential glitch on the RX clock (because PHY DL2
  * input (rx clock) is connected to PHY DL1 output (tx clock)). Delay lines
  * configuration comes from Synopsys, and.it is expected not to change for future
@@ -64,6 +70,7 @@
  * Note: This macro is just to identify the action taken on this issue
  */
 #define SDHCI_ADI_RX_CLOCK_GLITCH
+
 /* MMC HS400 in Adrv906x requires data to be sent out on negedge of cclk_tx.
  * This is a soc-specific requirement (coming from Adrv906x GLS simulations).
  */
@@ -71,9 +78,14 @@
 
 #define SDHCI_IDLE_TIMEOUT                       (20) /* 20 ms */
 
+/* There are up to 128 delay cells (each one around 50 ps) */
+#define MAX_DELAY_LINE_TAPS                      (128)
+
 struct dwcmshc_priv {
 	struct clk *bus_clk;
 	struct phy *phy;
+	bool is_emmc;
+	bool phy_init_done;
 };
 
 /*
@@ -174,13 +186,15 @@ static void adi_sdhci_fix_rx_clock_glitch(struct sdhci_host *host, u8 hs_timing)
 {
 	u32 reg;
 
+	reg = sdhci_readl(host, SDHCI_VENDOR1_AT_CTRL_R_OFF);
+	reg &= ~(SDHCI_VENDOR1_POST_CHANGE_DLY | SDHCI_VENDOR1_TUNE_CLK_STOP_EN);
 	/* This configuration helps to fix this issue (verified in RTL and GLS simulations) */
 	if ((hs_timing == MMC_TIMING_MMC_HS400) ||
 	    (hs_timing == MMC_TIMING_MMC_HS200))
-		reg = (POST_CHANGE_DLY_LESS_4_CYCLES << POST_CHANGE_DLY_OFF);
+		reg |= (POST_CHANGE_DLY_LESS_4_CYCLES << POST_CHANGE_DLY_OFF);
 	else
-		reg = (POST_CHANGE_DLY_LESS_4_CYCLES << POST_CHANGE_DLY_OFF) |
-		      (TUNE_CLK_STOP_EN << TUNE_CLK_STOP_EN_OFF);
+		reg |= (POST_CHANGE_DLY_LESS_4_CYCLES << POST_CHANGE_DLY_OFF) |
+		       (TUNE_CLK_STOP_EN << TUNE_CLK_STOP_EN_OFF);
 	sdhci_writel(host, reg, SDHCI_VENDOR1_AT_CTRL_R_OFF);
 }
 #endif
@@ -226,9 +240,6 @@ static int adi_sdhci_set_dll(struct phy *phy, u8 hs_timing, bool enable)
 	if (!phy)
 		return 0;
 
-	if (hs_timing != MMC_TIMING_MMC_HS400)
-		return 0;
-
 	/* Reusing dp struct: link_rate as MMC operation event */
 	opts.dp.link_rate = enable ? SDHCI_PHY_OPS_ENABLE_DLL_AFTER_CLK :
 			    SDHCI_PHY_OPS_CFG_DLL_NO_CLK;
@@ -271,6 +282,7 @@ static void adi_sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	int ret;
 	u16 clk;
 	u8 hs_timing;
+	bool dll_en;
 
 	host->mmc->actual_clock = 0;
 
@@ -284,15 +296,24 @@ static void adi_sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	priv = sdhci_pltfm_priv(pltfm_host);
 
 	hs_timing = host->mmc->ios.timing;
+	/*
+	 * General sdhci framework calls 'set_clock' twice after configuring
+	 * HS400. One before updating clock variable to 200 MHz (so still using
+	 * 52 Mhz clock as in HS mode) and one after it.
+	 * DLL fails to lock at clock freq lower than 100Mhz, so let's avoid DLL
+	 * configuration before clock var is high enough.
+	 */
+	dll_en = (hs_timing == MMC_TIMING_MMC_HS400) &&
+		 (clock > MMC_HIGH_52_MAX_DTR);
 
-	/* Configure Delay Lines */
+	/* Configure Delay Lines (PHY instance 1) */
 	ret = adi_sdhci_set_delay(host, priv->phy, hs_timing);
 	if (ret) {
 		pr_err("Error setting delay lines %d\n", ret);
 		return;
 	}
 
-	/* Configure DLL */
+	/* Disable and configure DLL (PHY instance 2) */
 	ret = adi_sdhci_set_dll(priv->phy, hs_timing, false);
 	if (ret) {
 		pr_err("Error setting DLL %d\n", ret);
@@ -303,11 +324,13 @@ static void adi_sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	clk = adi_sdhci_calc_clk(host, clock, &host->mmc->actual_clock);
 	sdhci_enable_clk(host, clk);
 
-	/* Enable and wait for DLL lock */
-	ret = adi_sdhci_set_dll(priv->phy, hs_timing, true);
-	if (ret) {
-		pr_err("Error enabling DLL %d\n", ret);
-		return;
+	/* Enable DLL and wait for it to lock */
+	if (dll_en) {
+		ret = adi_sdhci_set_dll(priv->phy, hs_timing, true);
+		if (ret) {
+			pr_err("Error enabling DLL %d\n", ret);
+			return;
+		}
 	}
 }
 
@@ -331,13 +354,174 @@ static void adi_sdhci_reset(struct sdhci_host *host, u8 mask)
 	}
 }
 
+/* Hook used for a totally different purpose (no reset).
+ * mmc_rescan function is doing the card initialization (CMD0, CMD1, ...)
+ * asynchronously to this ADI driver probe. We need to ensure that card
+ * initialization does not happen before probe is complete (which includes PHY
+ * init configuration as the last step)
+ * Note: this workaround does only apply to eMMC, since SD path does not include
+ * a PHY instance to configure).
+ */
+static void adi_sdhci_hw_reset(struct sdhci_host *host)
+{
+	struct sdhci_pltfm_host *pltfm_host;
+	struct dwcmshc_priv *priv;
+	int max_cnt = 200;
+
+	pltfm_host = sdhci_priv(host);
+	priv = sdhci_pltfm_priv(pltfm_host);
+
+	if (priv->is_emmc) {
+		if (!priv) {
+			pr_err("host priv is null");
+			return;
+		}
+
+		while (!priv->phy_init_done) {
+			if (-max_cnt <= 0) {
+				pr_err("PHY init not completed on time");
+				return;
+			}
+
+			mdelay(10);
+		}
+	}
+}
+
+/* This function is a pure copy-paste from sdhci.c file.
+ * TODO: You can remove it when upgrading to a more recent kernel version
+ *       (the function was made public on December 7th, 2023).
+ */
+static int __sdhci_execute_tuning(struct sdhci_host *host, u32 opcode)
+{
+	int i;
+
+	/*
+	 * Issue opcode repeatedly till Execute Tuning is set to 0 or the number
+	 * of loops reaches tuning loop count.
+	 */
+	for (i = 0; i < host->tuning_loop_count; i++) {
+		u16 ctrl;
+
+		sdhci_send_tuning(host, opcode);
+
+		if (!host->tuning_done) {
+			pr_debug("%s: Tuning timeout, falling back to fixed sampling clock\n",
+				 mmc_hostname(host->mmc));
+			sdhci_abort_tuning(host, opcode);
+			return -ETIMEDOUT;
+		}
+
+		/* Spec does not require a delay between tuning cycles */
+		if (host->tuning_delay > 0)
+			mdelay(host->tuning_delay);
+
+		ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
+		if (!(ctrl & SDHCI_CTRL_EXEC_TUNING)) {
+			if (ctrl & SDHCI_CTRL_TUNED_CLK)
+				return 0; /* Success! */
+			break;
+		}
+	}
+
+	pr_info("%s: Tuning failed, falling back to fixed sampling clock\n",
+		mmc_hostname(host->mmc));
+	sdhci_reset_tuning(host);
+	return -EAGAIN;
+}
+
+/* This hook is used to inject a workaround for an issue that has nothing to do
+ * with tuning, but it is the only place to do it.
+ * This code is a copy-paste from sdhci_execute_tuning (sdhci.c file), except
+ * for the workaround.
+ */
+static int adi_sdhci_execute_tuning(struct sdhci_host *host, u32 opcode)
+{
+	int err = 0;
+	unsigned int tuning_count = 0;
+	bool hs400_tuning;
+
+	hs400_tuning = host->flags & SDHCI_HS400_TUNING;
+
+	if (host->tuning_mode == SDHCI_TUNING_MODE_1)
+		tuning_count = host->tuning_count;
+
+	/*
+	 * The Host Controller needs tuning in case of SDR104 and DDR50
+	 * mode, and for SDR50 mode when Use Tuning for SDR50 is set in
+	 * the Capabilities register.
+	 * If the Host Controller supports the HS200 mode then the
+	 * tuning function has to be executed.
+	 */
+	switch (host->timing) {
+	/* HS400 tuning is done in HS200 mode */
+	case MMC_TIMING_MMC_HS400:
+		err = -EINVAL;
+		goto out;
+
+	case MMC_TIMING_MMC_HS200:
+		/*
+		 * Periodic re-tuning for HS400 is not expected to be needed, so
+		 * disable it here.
+		 */
+		if (hs400_tuning)
+			tuning_count = 0;
+		break;
+
+	case MMC_TIMING_UHS_SDR104:
+	case MMC_TIMING_UHS_DDR50:
+		break;
+
+	case MMC_TIMING_UHS_SDR50:
+		if (host->flags & SDHCI_SDR50_NEEDS_TUNING)
+			break;
+		fallthrough;
+
+	default:
+		goto out;
+	}
+	host->mmc->retune_period = tuning_count;
+
+	if (host->tuning_delay < 0)
+		host->tuning_delay = opcode == MMC_SEND_TUNING_BLOCK;
+
+	sdhci_start_tuning(host);
+
+	host->tuning_err = __sdhci_execute_tuning(host, opcode);
+
+	sdhci_end_tuning(host);
+
+	/* When configuring HS400, the next step in the sequence after tuning
+	 * (in HS200) is to downgrade to HS mode. This operation (CMD6) fails
+	 * sporadically.
+	 * Issue root cause:Unclear
+	 * Fix options (empirically found):
+	 * - repeat CMD6 (empirically it only fails the first attempt). This is
+	 *   general Linux driver code (not ADI code)
+	 * - reduce clock freq to 52MHz (this can be done in this hook)
+	 */
+
+	/* Reduce frequency to HS frequency */
+	if (host->flags & SDHCI_HS400_TUNING) {
+		struct mmc_ios *ios = &host->mmc->ios;
+		host->mmc->ios.clock = 52000000;
+		sdhci_set_ios(host->mmc, ios);
+	}
+
+	return 0;
+out:
+	return -1;
+}
+
 static const struct sdhci_ops sdhci_dwcmshc_ops = {
-	.set_clock		= adi_sdhci_set_clock,
-	.set_bus_width		= sdhci_set_bus_width,
-	.set_uhs_signaling	= dwcmshc_set_uhs_signaling,
-	.get_max_clock		= sdhci_pltfm_clk_get_max_clock,
-	.reset			= adi_sdhci_reset,
-	.adma_write_desc	= dwcmshc_adma_write_desc,
+	.set_clock			= adi_sdhci_set_clock,
+	.set_bus_width			= sdhci_set_bus_width,
+	.set_uhs_signaling		= dwcmshc_set_uhs_signaling,
+	.get_max_clock			= sdhci_pltfm_clk_get_max_clock,
+	.reset				= adi_sdhci_reset,
+	.adma_write_desc		= dwcmshc_adma_write_desc,
+	.hw_reset			= adi_sdhci_hw_reset,
+	.platform_execute_tuning	= adi_sdhci_execute_tuning,
 };
 
 static const struct sdhci_pltfm_data sdhci_dwcmshc_pdata = {
@@ -390,6 +574,8 @@ static int dwcmshc_probe(struct platform_device *pdev)
 	struct dwcmshc_priv *priv;
 	int err;
 	u32 extra;
+	u32 u32_reg_data;
+	u32 retune_period;
 	bool is_emmc;
 
 	host = sdhci_pltfm_init(pdev, &sdhci_dwcmshc_pdata,
@@ -397,12 +583,17 @@ static int dwcmshc_probe(struct platform_device *pdev)
 	if (IS_ERR(host))
 		return PTR_ERR(host);
 
+	pltfm_host = sdhci_priv(host);
+	priv = sdhci_pltfm_priv(pltfm_host);
+
+	is_emmc = device_property_read_bool(&pdev->dev, "non-removable");
+	priv->phy_init_done = 0;
+	priv->is_emmc = is_emmc ? 1 : 0;
+
 	/* Deinit to ensure a proper initialization */
 	err = adi_sdhci_deinit(host);
 	if (err)
 		goto free_pltfm;
-
-	is_emmc = device_property_read_bool(&pdev->dev, "non-removable");
 
 	if (is_emmc) {
 		int16_t emmc_ctrl;
@@ -454,9 +645,6 @@ static int dwcmshc_probe(struct platform_device *pdev)
 		extra = SDHCI_MAX_SEGS;
 	host->adma_table_cnt += extra;
 
-	pltfm_host = sdhci_priv(host);
-	priv = sdhci_pltfm_priv(pltfm_host);
-
 	pltfm_host->clk = devm_clk_get(&pdev->dev, "core");
 	if (IS_ERR(pltfm_host->clk)) {
 		err = PTR_ERR(pltfm_host->clk);
@@ -484,6 +672,29 @@ static int dwcmshc_probe(struct platform_device *pdev)
 	if (err)
 		goto err_clk;
 
+	if (is_emmc) {
+		/* Tuning procedure configuration: */
+
+		/* Initial tuning: sweep through all the taps (128) */
+		host->tuning_loop_count = MAX_DELAY_LINE_TAPS;
+		u32_reg_data = sdhci_readl(host, SDHCI_VENDOR1_AT_CTRL_R_OFF);
+		u32_reg_data &= ~SDHCI_VENDOR1_SWIN_TH_EN;
+
+		/* Configure re-tuning mode */
+		if (device_property_read_u32(&pdev->dev, "adi,retune-period", &retune_period) >= 0) {
+			/* Re-tuning mode 1 (periodic) */
+			host->tuning_mode = SDHCI_TUNING_MODE_1;
+			host->tuning_count = retune_period;         /* Unit: seconds */
+
+			u32_reg_data &= ~SDHCI_VENDOR1_AT_EN;
+		} else {
+			/* Re-tuning mode 3 (Auto-tuning) */
+			host->tuning_mode = SDHCI_TUNING_MODE_3;
+		}
+
+		sdhci_writel(host, u32_reg_data, SDHCI_VENDOR1_AT_CTRL_R_OFF);
+	}
+
 	if (device_property_read_bool(&pdev->dev, "enable-phy-config")) {
 		priv->phy = devm_phy_get(&pdev->dev, "phy_adi_sdhci");
 		if (IS_ERR(priv->phy)) {
@@ -496,6 +707,7 @@ static int dwcmshc_probe(struct platform_device *pdev)
 			dev_err(&pdev->dev, "phy_init err: %d\n", err);
 			goto remove_host;
 		}
+		priv->phy_init_done = 1;
 	} else {
 		priv->phy = NULL;
 	}
