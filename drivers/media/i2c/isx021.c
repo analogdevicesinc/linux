@@ -29,6 +29,15 @@
 #define V4L2_CID_TPG		(V4L2_CID_USER_BASE | 0x1003)
 #define V4L2_CID_DISTCOR	(V4L2_CID_USER_BASE | 0x1004)
 
+static const struct isx021_framerate {
+	u8 fps;
+	u16 reg;
+} isx021_framerates[] = {
+	{ .fps = 15, .reg = 1400 },
+	{ .fps = 20, .reg = 700 },
+	{ .fps = 30, .reg = 0 },
+};
+
 static const char * const isx021_supply_names[] = {
 	"dvdd",
 };
@@ -56,6 +65,7 @@ struct isx021 {
 
 	bool streaming;
 	int trigger_mode;
+	struct v4l2_fract frame_interval;
 
 	struct v4l2_subdev subdev;
 	struct media_pad pad;
@@ -796,7 +806,7 @@ static int isx021_setup(struct isx021 *sensor, struct v4l2_subdev_state *state)
 
 static int isx021_stream_on(struct isx021 *sensor)
 {
-	int ret = 0;
+	int i, ret = 0;
 
 	if (sensor->trigger_mode){
 		ret = isx021_set_fsync_trigger_mode(sensor);
@@ -804,6 +814,14 @@ static int isx021_stream_on(struct isx021 *sensor)
 	}
 	if (ret)
 		dev_err(sensor->dev, "[%s] : Putting camera sensor into Slave mode failed.\n", __func__);
+
+	for (i = 0; i < ARRAY_SIZE(isx021_framerates); i++)
+		if (isx021_framerates[i].fps == sensor->frame_interval.denominator)
+			break;
+	ret = isx021_write(sensor, 0x8a70, isx021_framerates[i].reg);
+	ret |= isx021_write(sensor, 0x8a71, isx021_framerates[i].reg >> 8);
+	if (ret)
+		dev_err(sensor->dev, "[%s] : Write to MODE_SET_F register failed.\n", __func__);
 
 	ret = isx021_write(sensor, 0x8a01, 0x80);  // transit to Streaming state
 	if (ret)
@@ -891,8 +909,9 @@ err_pm:
 static int isx021_g_frame_interval(struct v4l2_subdev *sd,
 				   struct v4l2_subdev_frame_interval *fi)
 {
-	fi->interval.numerator = 1;
-	fi->interval.denominator = 30;
+	struct isx021 *sensor = to_isx021(sd);
+
+	fi->interval = sensor->frame_interval;
 
 	return 0;
 }
@@ -908,6 +927,8 @@ static int isx021_s_frame_interval(struct v4l2_subdev *sd,
 
 	if (sensor->streaming)
 		return -EBUSY;
+
+	sensor->frame_interval = fi->interval;
 
 	return ret;
 }
@@ -954,11 +975,11 @@ static int isx021_enum_frame_interval(struct v4l2_subdev *sd,
 
 	if (fie->pad != 0)
 		return -EINVAL;
-	if (fie->index >= 1)
+	if (fie->index >= ARRAY_SIZE(isx021_framerates))
 		return -EINVAL;
 
 	tpf.numerator = 1;
-	tpf.denominator = 30;
+	tpf.denominator = isx021_framerates[fie->index].fps;
 
 	fie->interval = tpf;
 	return 0;
@@ -1173,6 +1194,8 @@ static int isx021_probe(struct i2c_client *client)
 		return PTR_ERR(sensor->regmap);
 
 	sensor->trigger_mode = 0;
+	sensor->frame_interval.numerator = 1;
+	sensor->frame_interval.denominator = 30;
 
 	/*
 	 * Enable power management. The driver supports runtime PM, but needs to
