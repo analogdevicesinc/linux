@@ -1,0 +1,82 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2024 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/hwmon/adi,max31875.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices MAX31875 Low-Power I2C Temperature Sensor
+
+maintainers:
+  - John Erasmus Mari Geronimo <johnerasmusmari.geronimo@analog.com>
+
+description: |
+  The MAX31875 is a ±1°C-accurate local temperature sensor with I2C/SMBus
+  interface. The combination of tiny package and excellent temperature
+  measurement accuracy makes this product ideal for a variety of equipment.
+  https://www.analog.com/media/en/technical-documentation/data-sheets/MAX31875.pdf
+
+properties:
+  compatible:
+    enum:
+      - adi,max31875
+
+  reg:
+    maxItems: 1
+
+  vdd-supply:
+    description:
+      Must have values in the interval (1.6V; 3.6V) in order for the device to
+      function correctly. Must also have regulator-name of "vref".
+
+  adi,extended-format:
+    description:
+      If present, the temperature register is read in extended format. If not
+      present, the temperature register is read in normal format (default).
+    type: boolean
+
+  adi,comp-int:
+    description:
+      If present, the Overtemperature Status bit operates in interrupt mode. If
+      not present, it operates in comparator mode (default).
+    type: boolean
+
+  adi,timeout-disable:
+    description:
+      Disables timeout. Bus timeout resets the I2C-compatible interface when SCL
+      is low for more than 30ms (nominal).
+    type: boolean
+
+  adi,fault-q:
+    description:
+      Select how many consecutive overtemperature faults must occur before an
+      overtemperature fault is indicated in the Overtemperature Status bit.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [1, 2, 4, 6]
+
+required:
+  - compatible
+  - reg
+  - vdd-supply
+
+additionalProperties: false
+
+examples:
+  - |
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        status = "okay";
+
+        temperature-sensor@48 {
+            compatible = "adi,max31875";
+            reg = <0x48>;
+            vdd-supply = <&vdd>;
+
+            adi,extended-format;
+            adi,comp-int;
+            adi,timeout-disable;
+            adi,fault-q = <1>;
+        };
+    };
+...
