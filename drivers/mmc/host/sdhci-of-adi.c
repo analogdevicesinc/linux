@@ -378,7 +378,7 @@ static void adi_sdhci_hw_reset(struct sdhci_host *host)
 		}
 
 		while (!priv->phy_init_done) {
-			if (-max_cnt <= 0) {
+			if (--max_cnt <= 0) {
 				pr_err("PHY init not completed on time");
 				return;
 			}
