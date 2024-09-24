@@ -138,6 +138,7 @@ Hardware Monitoring Kernel Drivers
    max31785
    max31790
    max31827
+   max31875
    max34440
    max6620
    max6639

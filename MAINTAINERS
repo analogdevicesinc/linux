@@ -12602,6 +12602,8 @@ L:	linux-hwmon@vger.kernel.org
 S:	Supported
 W:	http://ez.analog.com/community/linux-device-drivers
 F:	Documentation/devicetree/bindings/hwmon/adi,max31875.yaml
+F:	Documentation/hwmon/max31875.rst
+F:	drivers/hwmon/max31875.c
 
 MAX31335 RTC DRIVER
 M:	Antoniu Miclaus <antoniu.miclaus@analog.com>
