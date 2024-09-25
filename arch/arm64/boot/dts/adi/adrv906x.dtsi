@@ -295,6 +295,12 @@
 		clock-frequency = <0>;
 	};
 
+	emac0clk: emac0clk {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <250000000>;
+	};
+
 	watchdog {
 		compatible = "arm,smc-wdt";
 		timeout-sec = <60>;
@@ -510,6 +516,8 @@
 		reg = <EMAC_1G_BASE 0x1168>;
 		interrupts = <GIC_SPI EMAC_1G_SBD_INTR_PIPED IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-names = "macirq";
+		clocks = <&emac0clk>;
+		clock-names = "stmmaceth";
 		phy-mode = "rgmii";
 		snps,reset-gpio = <&gpio0 ADI_ADRV906X_PIN_88 GPIO_ACTIVE_LOW>;
 		snps,reset-delays-us = <1000 1000 1000>;
@@ -522,7 +530,6 @@
 		emac0_clk_div: clock_divider {
 			reg = <EMAC_1G_DIV_CTRL 0x04>;
 			ctrl_reg = <EMAC_1G_CLK_CTRL 0x08>;
-			base-clk-speed = <250>;
 		};
 	};
 

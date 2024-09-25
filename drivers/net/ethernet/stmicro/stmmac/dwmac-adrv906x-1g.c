@@ -208,8 +208,8 @@ static int dwmac_adrv906x_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	of_property_read_u32(clk_div_np, "base-clk-speed", &sam_priv->base_clk_speed);
-	dev_info(&pdev->dev, "base clock speed %d", sam_priv->base_clk_speed);
+	sam_priv->base_clk_speed = clk_get_rate(plat_dat->stmmac_clk) / 1000000;
+	dev_info(&pdev->dev, "base clock speed %d MHz", sam_priv->base_clk_speed);
 
 	of_property_read_u32_index(clk_div_np, "reg", 0, &addr);
 	of_property_read_u32_index(clk_div_np, "reg", 1, &len);

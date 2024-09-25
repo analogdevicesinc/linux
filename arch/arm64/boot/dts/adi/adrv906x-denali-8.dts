@@ -63,20 +63,19 @@
 };
 
 &emac0 {
-	status = "disabled";
+	status = "okay";
 	phy-mode = "rgmii";
-	/* Disabled for now to allow for Protium testing */
-	/* phy-handle = <&phy0>; */
 
-	/* Disabled for now to allow for Protium testing */
-	/*mdio0 {
+	phy-handle = <&phy0>;
+
+	mdio0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		compatible = "snps,dwmac-mdio";
 		phy0: ethernet-phy@0 {
 			reg = <15>;
 		};
-	};*/
+        };
 };
 
 &spi0 {
