@@ -26,6 +26,13 @@ properties:
   vdd-supply: true
   vss-supply: true
 
+  adi,rbuf_gain2:
+    description: |
+      Allows an external amplifier to be connected in a gain of two
+      configuration. In this configuration, the output spans from
+      2 x VREFN - VREFP to VREFP.
+    type: boolean
+
 required:
   - compatible
   - reg
