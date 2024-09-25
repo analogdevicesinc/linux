@@ -72,7 +72,7 @@
 #define EMAC_CMN_EMAC_SPARE                  0x3000
 
 #define MAX_NETDEV_NUM                       2
-#define MAX_MULTICAST_FILTER                 3
+#define MAX_MULTICAST_FILTERS                3
 
 struct adrv906x_oran_if {
 	void __iomem *oif_rx;

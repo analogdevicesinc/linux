@@ -40,10 +40,8 @@
 static char *macaddr[MAX_NETDEV_NUM];
 module_param_array(macaddr, charp, 0, 0644);
 MODULE_PARM_DESC(macaddr, "set dev0 and dev1 mac addresses via kernel module parameter");
-static u8 default_mac_addresses[MAX_MULTICAST_FILTER][ETH_ALEN] = {
-	{ 0x00, 0x00, 0x00, 0x19, 0x1B, 0x01 },
-	{ 0x0E, 0x00, 0x00, 0xC2, 0x80, 0x01 },
-	{ 0x03, 0x00, 0x00, 0xC2, 0x80, 0x01 }
+static u64 default_multicast_list[MAX_MULTICAST_FILTERS] = {
+	0x0000011B19000000, 0x00000180C200000E, 0x00000180C2000003
 };
 
 void adrv906x_eth_cmn_serdes_tx_sync_trigger(struct net_device *ndev, u32 lane)
@@ -582,15 +580,11 @@ static int __set_mac_address(struct adrv906x_eth_dev *adrv906x_dev, struct devic
 
 static void __set_default_multicast_filters(struct adrv906x_eth_dev *adrv906x_dev)
 {
-	struct adrv906x_mac *mac;
-	unsigned long addr;
-	int i = 0;
+	struct adrv906x_mac *mac = &adrv906x_dev->mac;
+	int i;
 
-	mac = &adrv906x_dev->mac;
-	for (i = 0; i < MAX_MULTICAST_FILTER; i++) {
-		memcpy(&addr, default_mac_addresses[i], sizeof(addr));
-		adrv906x_mac_set_multicast_filter(mac, addr, i);
-	}
+	for (i = 0; i < MAX_MULTICAST_FILTERS; i++)
+		adrv906x_mac_set_multicast_filter(mac, default_multicast_list[i], i);
 }
 
 static int adrv906x_eth_change_mtu(struct net_device *ndev, int new_mtu)

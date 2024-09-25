@@ -15,8 +15,9 @@ void adrv906x_mac_promiscuous_mode_en(struct adrv906x_mac *mac)
 	void __iomem *emac_rx = mac->emac_rx;
 	unsigned int val;
 
-	val = ioread32(emac_rx) | PROMISCUOUS_MODE_EN;
-	iowrite32(val, emac_rx);
+	val = ioread32(emac_rx + MAC_RX_CTRL);
+	val |= MAC_RX_PROMISCUOUS_MODE_EN;
+	iowrite32(val, emac_rx + MAC_RX_CTRL);
 }
 
 void adrv906x_mac_promiscuous_mode_dis(struct adrv906x_mac *mac)
@@ -24,8 +25,9 @@ void adrv906x_mac_promiscuous_mode_dis(struct adrv906x_mac *mac)
 	void __iomem *emac_rx = mac->emac_rx;
 	unsigned int val;
 
-	val = ioread32(emac_rx) & ~PROMISCUOUS_MODE_EN;
-	iowrite32(val, emac_rx);
+	val = ioread32(emac_rx + MAC_RX_CTRL);
+	val &= ~MAC_RX_PROMISCUOUS_MODE_EN;
+	iowrite32(val, emac_rx + MAC_RX_CTRL);
 }
 
 void adrv906x_mac_rx_path_en(struct adrv906x_mac *mac)
@@ -48,16 +50,19 @@ void adrv906x_mac_rx_path_dis(struct adrv906x_mac *mac)
 	iowrite32(val, emac_rx + MAC_RX_CTRL);
 }
 
-void adrv906x_mac_set_multicast_filter(struct adrv906x_mac *mac, unsigned long addr, int filter)
+void adrv906x_mac_set_multicast_filter(struct adrv906x_mac *mac, u64 mac_addr, int filter_id)
 {
 	void __iomem *emac_rx = mac->emac_rx;
-	unsigned long high = ((unsigned long long)addr >> 32) & 0xffff;
-	unsigned int val;
+	unsigned int low, high, val;
 
-	iowrite32(addr & 0xffffffff, emac_rx + CFG_MULT_ADDR0_LOW + filter * 4);
-	iowrite32(high, emac_rx + CFG_MULT_ADDR0_HIGH + filter * 4);
-	val = ioread32(emac_rx) | (PERMITTABLE_ADDRESS_EN << filter);
-	iowrite32(val, emac_rx);
+	low = FIELD_GET(0x0000FFFFFFFF, mac_addr);
+	high = FIELD_GET(0xFFFF00000000, mac_addr);
+
+	iowrite32(low, emac_rx + CFG_MULT_ADDR0_LOW + filter_id * 4);
+	iowrite32(high, emac_rx + CFG_MULT_ADDR0_HIGH + filter_id * 4);
+	val = ioread32(emac_rx + MAC_RX_CTRL);
+	val |= MAC_RX_PERMITTABLE_ADDR0_EN << filter_id;
+	iowrite32(val, emac_rx + MAC_RX_CTRL);
 }
 
 static void adrv906x_mac_set_mfs(struct adrv906x_mac *mac, unsigned int mfs)
@@ -159,6 +164,7 @@ void adrv906x_mac_cleanup(struct adrv906x_mac *mac)
 int adrv906x_mac_init(struct adrv906x_mac *mac, unsigned int size)
 {
 	adrv906x_mac_set_mfs(mac, size);
+	adrv906x_mac_promiscuous_mode_en(mac);
 
 	mac->id = ioread32(mac->xmac + MAC_IP_ID);
 	mac->version = ioread32(mac->xmac + MAC_IP_VERSION);
