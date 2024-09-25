@@ -12255,6 +12255,11 @@ S:	Maintained
 W:	http://linux-test-project.github.io/
 T:	git git://github.com/linux-test-project/ltp.git
 
+LTP8800 HARDWARE MONITOR DRIVER
+M:	Cedric Encarnacion <cedricjustine.encarnacion@analog.com>
+L:	linux-hwmon@vger.kernel.org
+S:	Supported
+
 LYNX 28G SERDES PHY DRIVER
 M:	Ioana Ciornei <ioana.ciornei@nxp.com>
 L:	netdev@vger.kernel.org
