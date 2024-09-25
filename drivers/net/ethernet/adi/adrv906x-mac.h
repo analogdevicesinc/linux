@@ -26,6 +26,10 @@
 
 #define MAC_RX_CTRL                      0x00000000
 #define   MAC_RX_PATH_EN                 BIT(0)
+#define   MAC_RX_PROMISCUOUS_MODE_EN     BIT(3)
+#define   MAC_RX_PERMITTABLE_ADDR0_EN    BIT(4)
+#define   MAC_RX_PERMITTABLE_ADDR1_EN    BIT(5)
+#define   MAC_RX_PERMITTABLE_ADDR2_EN    BIT(6)
 #define   MAC_RX_MFS                     GENMASK(29, 16)
 #define MAC_RX_STAT_OVERFLOW             0x00000060
 #define MAC_RX_STAT_CRC_ERRORS           0x00000068
@@ -50,9 +54,6 @@
 #define GMAC_STAT_PKTS_512TO1023_OCTETS  0x00000160
 #define GMAC_STAT_PKTS_1024TO1518_OCTETS 0x00000168
 #define GMAC_STAT_PKTS_1519TOX_OCTETS    0x00000170
-
-#define PROMISCUOUS_MODE_EN              0x00000008
-#define PERMITTABLE_ADDRESS_EN           0x00000010
 
 #define CFG_MULT_ADDR0_LOW               0x00000020
 #define CFG_MULT_ADDR1_LOW               0x00000024
@@ -113,7 +114,7 @@ void adrv906x_mac_promiscuous_mode_en(struct adrv906x_mac *mac);
 void adrv906x_mac_promiscuous_mode_dis(struct adrv906x_mac *mac);
 void adrv906x_mac_rx_path_en(struct adrv906x_mac *mac);
 void adrv906x_mac_rx_path_dis(struct adrv906x_mac *mac);
-void adrv906x_mac_set_multicast_filter(struct adrv906x_mac *mac, unsigned long addr, int filter);
+void adrv906x_mac_set_multicast_filter(struct adrv906x_mac *mac, u64 mac_addr, int filter_id);
 void adrv906x_mac_cleanup(struct adrv906x_mac *mac);
 int adrv906x_mac_init(struct adrv906x_mac *mac, unsigned int size);
 
