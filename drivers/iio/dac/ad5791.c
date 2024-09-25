@@ -14,6 +14,7 @@
 #include <linux/slab.h>
 #include <linux/sysfs.h>
 #include <linux/regulator/consumer.h>
+#include <linux/of.h>
 #include <linux/module.h>
 #include <linux/bitops.h>
 
@@ -339,12 +340,41 @@ static const struct iio_info ad5791_info = {
 	.write_raw = &ad5791_write_raw,
 };
 
+#ifdef CONFIG_OF
+static struct ad5791_platform_data *ad5791_parse_dt(struct device *dev)
+{
+	struct device_node *np = dev->of_node;
+	struct ad5791_platform_data *pdata;
+
+	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "could not allocate memory for platform data\n");
+		return NULL;
+	}
+
+	pdata->use_rbuf_gain2 = of_property_read_bool(np,
+						"adi,rbuf_gain2");
+
+	return pdata;
+}
+#else
+static struct ad5791_platform_data *ad5791_parse_dt(struct device *dev)
+{
+	return NULL;
+}
+#endif
+
 static int ad5791_probe(struct spi_device *spi)
 {
-	struct ad5791_platform_data *pdata = spi->dev.platform_data;
+	struct ad5791_platform_data *pdata;
 	struct iio_dev *indio_dev;
 	struct ad5791_state *st;
 	int ret, pos_voltage_uv = 0, neg_voltage_uv = 0;
+
+	if (spi->dev.of_node)
+		pdata = ad5791_parse_dt(&spi->dev);
+	else
+		pdata = spi->dev.platform_data;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
 	if (!indio_dev)
