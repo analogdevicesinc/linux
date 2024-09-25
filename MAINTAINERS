@@ -12259,6 +12259,8 @@ LTP8800 HARDWARE MONITOR DRIVER
 M:	Cedric Encarnacion <cedricjustine.encarnacion@analog.com>
 L:	linux-hwmon@vger.kernel.org
 S:	Supported
+F:	Documentation/hwmon/ltp8800.rst
+F:	drivers/hwmon/pmbus/ltp8800.c
 
 LYNX 28G SERDES PHY DRIVER
 M:	Ioana Ciornei <ioana.ciornei@nxp.com>
