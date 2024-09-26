@@ -821,6 +821,7 @@
 			clocks = <&clkmgr AGILEX5_L4_MP_CLK>, <&clkmgr AGILEX5_SDMCLK>;
 			clock-names = "biu", "ciu";
 			iommus = <&smmu 5>;
+			dma-coherent;
 			status = "disabled";
 		};
 
