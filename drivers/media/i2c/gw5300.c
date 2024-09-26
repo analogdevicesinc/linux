@@ -59,6 +59,8 @@ struct gw5300 {
 
 #define V4L2_CID_LDC (V4L2_CID_USER_BASE | 0x1001)
 #define V4L2_CID_FSYNC (V4L2_CID_USER_BASE | 0x1002)
+#define V4L2_CID_INT_TIME_MIN (V4L2_CID_USER_BASE | 0x1003)
+#define V4L2_CID_INT_TIME_MAX (V4L2_CID_USER_BASE | 0x1004)
 
 static const struct gw5300_mode {
 	bool ext_trigger;
@@ -144,61 +146,52 @@ static uint8_t gw5300_calc_checksum(const uint8_t *data, size_t size)
 	return result;
 }
 
-int gw5300_set_integration_time_on_aemode(struct gw5300 *priv,
-					  u16 max_integration_time,
-					  u16 min_integration_time)
+int gw5300_set_ae_integration_time_min(struct gw5300 *priv,
+				       u16 min_integration_time)
 {
 	u8 buf[6];
-	int ret = 0;
 
-	u8 cmd_integration_max[22] = {
-		0x33, 0x47, 0x0f, 0x00, 0x00, 0x00, 0x55, 0x00,
-		0x80, 0x05, 0x00, 0x15, 0x00, 0x01, 0x00, 0x04,
-		0x00, 0x70, 0x03, 0x00, 0x00, 0x00
-	}; // val = 0x70, 0x03, 0x00, 0x00
-	u8 cmd_integration_min[20] = {
-		0x33, 0x47, 0x0d, 0x00, 0x00, 0x00, 0x55, 0x00,
-		0x80, 0x05, 0x00, 0x21, 0x00, 0x01, 0x00, 0x02,
-		0x00, 0x70, 0x03, 0x00
-	}; //val = 0x70, 0x03
+	u8 cmd_integration_min[20] = { 0x33, 0x47, 0x0d, 0x00, 0x00, 0x00, 0x55,
+				       0x00, 0x80, 0x05, 0x00, 0x21, 0x00, 0x01,
+				       0x00, 0x02, 0x00, 0x70, 0x03, 0x00 };
 
-	const size_t max_val_pos = 17;
-	const size_t min_val_pos = 17;
 	uint32_t min_line = min_integration_time / 1000 * MS_TO_LINE_UNIT;
-	uint32_t max_line = max_integration_time / 1000 * MS_TO_LINE_UNIT;
-	uint8_t b1 = max_line & 0xFF;
-	uint8_t b2 = (max_line >> 8) & 0xFF;
-	uint8_t b3 = 0;
-	uint8_t b4 = 0;
 
-	cmd_integration_max[max_val_pos] = b1;
-	cmd_integration_max[max_val_pos + 1] = b2;
-	cmd_integration_max[max_val_pos + 2] = b3;
-	cmd_integration_max[max_val_pos + 3] = b4;
-	cmd_integration_max[sizeof(cmd_integration_max) - 1] =
-		gw5300_calc_checksum(cmd_integration_max,
-				     sizeof(cmd_integration_max));
-
-	b1 = min_line & 0xFF;
-	b2 = (min_line >> 8) & 0xFF;
-
-	cmd_integration_min[min_val_pos] = b1;
-	cmd_integration_min[min_val_pos + 1] = b2;
+	cmd_integration_min[17] = min_line & 0xFF;
+	cmd_integration_min[18] = (min_line >> 8) & 0xFF;
 
 	cmd_integration_min[sizeof(cmd_integration_min) - 1] =
 		gw5300_calc_checksum(cmd_integration_min,
 				     sizeof(cmd_integration_min));
 
-	msleep(20);
-	ret += gw5300_send_and_recv_msg(priv, cmd_integration_max,
-					sizeof(cmd_integration_max), buf,
-					sizeof(buf));
-	msleep(20);
-	ret += gw5300_send_and_recv_msg(priv, cmd_integration_min,
+	return gw5300_send_and_recv_msg(priv, cmd_integration_min,
 					sizeof(cmd_integration_min), buf,
 					sizeof(buf));
+}
 
-	return ret;
+int gw5300_set_ae_integration_time_max(struct gw5300 *priv,
+				       u32 max_integration_time)
+{
+	u8 buf[6];
+
+	u8 cmd_integration_max[22] = { 0x33, 0x47, 0x0f, 0x00, 0x00, 0x00,
+				       0x55, 0x00, 0x80, 0x05, 0x00, 0x15,
+				       0x00, 0x01, 0x00, 0x04, 0x00, 0x70,
+				       0x03, 0x00, 0x00, 0x00 };
+
+	uint32_t max_line = max_integration_time / 1000 * MS_TO_LINE_UNIT;
+
+	cmd_integration_max[17] = max_line & 0xFF;
+	cmd_integration_max[18] = (max_line >> 8) & 0xFF;
+	cmd_integration_max[19] = (max_line >> 16) & 0xFF;
+	cmd_integration_max[20] = (max_line >> 24) & 0xFF;
+	cmd_integration_max[sizeof(cmd_integration_max) - 1] =
+		gw5300_calc_checksum(cmd_integration_max,
+				     sizeof(cmd_integration_max));
+
+	return gw5300_send_and_recv_msg(priv, cmd_integration_max,
+					sizeof(cmd_integration_max), buf,
+					sizeof(buf));
 }
 
 int gw5300_set_distortion_correction(struct gw5300 *priv, bool val)
@@ -228,8 +221,8 @@ int gw5300_set_exposure(struct gw5300 *priv, u16 val)
 
 	integration_time[17] = val & 0xFF;
 	integration_time[18] = (val >> 8) & 0xFF;
-	integration_time[sizeof(integration_time) - 1] =
-		gw5300_calc_checksum(integration_time, sizeof(integration_time));
+	integration_time[sizeof(integration_time) - 1] = gw5300_calc_checksum(
+		integration_time, sizeof(integration_time));
 
 	return gw5300_send_and_recv_msg(priv, integration_time,
 					sizeof(integration_time), read_buf,
@@ -503,6 +496,14 @@ static int gw5300_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_ANALOGUE_GAIN:
 		break;
 
+	case V4L2_CID_INT_TIME_MIN:
+		gw5300_set_ae_integration_time_min(priv, ctrl->val);
+		break;
+
+	case V4L2_CID_INT_TIME_MAX:
+		gw5300_set_ae_integration_time_max(priv, ctrl->val);
+		break;
+
 	case V4L2_CID_LDC:
 		enable = ctrl->val != 0;
 		gw5300_set_distortion_correction(priv, enable);
@@ -550,6 +551,28 @@ static const struct v4l2_ctrl_config gw5300_ctrl_lens_distors_correct = {
 	.def = 1,
 };
 
+static const struct v4l2_ctrl_config gw5300_ctrl_int_time_min = {
+	.ops = &gw5300_ctrl_ops,
+	.id = V4L2_CID_INT_TIME_MIN,
+	.name = "Integration Time min",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.min = 0,
+	.max = 3000,
+	.step = 1,
+	.def = 1000,
+};
+
+static const struct v4l2_ctrl_config gw5300_ctrl_int_time_max = {
+	.ops = &gw5300_ctrl_ops,
+	.id = V4L2_CID_INT_TIME_MAX,
+	.name = "Integration Time max",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.min = 0,
+	.max = 30000,
+	.step = 1,
+	.def = 1000,
+};
+
 static int gw5300_ctrls_init(struct gw5300 *priv)
 {
 	struct device *dev = &priv->i2c_client->dev;
@@ -576,6 +599,8 @@ static int gw5300_ctrls_init(struct gw5300 *priv)
 	v4l2_ctrl_new_custom(&priv->ctrls, &gw5300_ctrl_fsync, NULL);
 	v4l2_ctrl_new_custom(&priv->ctrls, &gw5300_ctrl_lens_distors_correct,
 			     NULL);
+	v4l2_ctrl_new_custom(&priv->ctrls, &gw5300_ctrl_int_time_min, NULL);
+	v4l2_ctrl_new_custom(&priv->ctrls, &gw5300_ctrl_int_time_max, NULL);
 
 	if (priv->ctrls.error) {
 		dev_err(dev, "failed to add controls (%d)\n",
