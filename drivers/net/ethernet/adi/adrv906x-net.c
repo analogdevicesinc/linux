@@ -558,24 +558,18 @@ static int __set_mac_address(struct adrv906x_eth_dev *adrv906x_dev, struct devic
 	 */
 	if (macaddr[port])
 		mac_pton(macaddr[port], addr.sa_data);
-	/* 2) from device tree data */
+	/* 2) mac address in the device tree
+	 * it is filled in by u-boot if it
+	 * is not set
+	 */
 	if (!is_valid_ether_addr(addr.sa_data)) {
 		if (port_np) {
 			tmpaddr = of_get_mac_address(port_np);
-
 			if (!IS_ERR(tmpaddr))
 				ether_addr_copy(addr.sa_data, tmpaddr);
 		}
 	}
-	/* 3) from flash or fuse (via platform data) */
-	if (!is_valid_ether_addr(addr.sa_data)) {
-		/* TODO */
-	}
-	/* 4)mac registers set by bootloader */
-	if (!is_valid_ether_addr(addr.sa_data)) {
-		/* TODO */
-	}
-	/* 5) random mac address */
+	/* 3) random mac address */
 	if (!is_valid_ether_addr(addr.sa_data)) {
 		/* Report it and use a random ethernet address instead */
 		dev_warn(dev, "invalid MAC address: %pM, generate a random addr", addr.sa_data);
