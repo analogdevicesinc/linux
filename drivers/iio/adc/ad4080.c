@@ -274,23 +274,7 @@ static int ad4080_write_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_SCALE:
 		return -EINVAL;
 	case IIO_CHAN_INFO_SAMP_FREQ:
-		s_clk = clk_round_rate(st->clk, val);
-
-		if (st->filter_enabled) {
-			if (st->filter_mode == SINC_5_COMP)
-				dec_rate = ad4080_dec_rate_value[st->dec_rate] * 2;
-			else
-				dec_rate = ad4080_dec_rate_value[st->dec_rate];
-		}
-
-		s_clk *= dec_rate;
-
-		if (s_clk < AD4080_MIN_SAMP_FREQ)
-			s_clk = AD4080_MIN_SAMP_FREQ;
-		if (s_clk > AD4080_MAX_SAMP_FREQ)
-			s_clk = AD4080_MAX_SAMP_FREQ;
-
-		return clk_set_rate(st->clk, s_clk);
+		return -EINVAL;
 	default:
 		return -EINVAL;
 	}
