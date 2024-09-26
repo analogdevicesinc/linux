@@ -4,6 +4,7 @@
  */
 
 #include <dt-bindings/interrupt-controller/irq.h>
+#include "k230-pinctrl.h"
 
 /dts-v1/;
 / {
@@ -84,6 +85,11 @@
 			compatible = "canaan,k230-clint", "thead,c900-clint";
 			reg = <0xf 0x04000000 0x0 0x00010000>;
 			interrupts-extended = <&cpu0_intc 3>, <&cpu0_intc 7>;
+		};
+
+		pinctrl: pinctrl@91105000 {
+			compatible = "canaan,k230-pinctrl";
+			reg = <0x0 0x91105000 0x0 0x100>;
 		};
 
 		uart0: serial@91400000 {
