@@ -219,6 +219,23 @@ int gw5300_set_distortion_correction(struct gw5300 *priv, bool val)
 						sizeof(read_buf));
 }
 
+int gw5300_set_exposure(struct gw5300 *priv, u16 val)
+{
+	u8 read_buf[6];
+	u8 integration_time[] = { 0x33, 0x47, 0x0d, 0x00, 0x00, 0x00, 0x55,
+				  0x00, 0x80, 0x05, 0x00, 0x08, 0x00, 0x01,
+				  0x00, 0x02, 0x00, 0xe8, 0x03, 0x57 };
+
+	integration_time[17] = val & 0xFF;
+	integration_time[18] = (val >> 8) & 0xFF;
+	integration_time[sizeof(integration_time) - 1] =
+		gw5300_calc_checksum(integration_time, sizeof(integration_time));
+
+	return gw5300_send_and_recv_msg(priv, integration_time,
+					sizeof(integration_time), read_buf,
+					sizeof(read_buf));
+}
+
 int gw5300_set_mode(struct gw5300 *priv)
 {
 	u8 read_buf[6];
@@ -475,6 +492,7 @@ static int gw5300_s_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_EXPOSURE:
+		gw5300_set_exposure(priv, ctrl->val);
 		break;
 
 	case V4L2_CID_EXPOSURE_AUTO:
@@ -539,7 +557,7 @@ static int gw5300_ctrls_init(struct gw5300 *priv)
 	v4l2_ctrl_handler_init(&priv->ctrls, 9);
 
 	v4l2_ctrl_new_std(&priv->ctrls, &gw5300_ctrl_ops, V4L2_CID_EXPOSURE, 0,
-			  33000, 1, 11010);
+			  3000, 1, 1000);
 	v4l2_ctrl_new_std(&priv->ctrls, &gw5300_ctrl_ops,
 			  V4L2_CID_ANALOGUE_GAIN, 0, 48, 1, 6);
 	v4l2_ctrl_new_std_menu(&priv->ctrls, &gw5300_ctrl_ops,
