@@ -24,12 +24,12 @@
 #define ETH1G_DEVCLK_DIV_RB                     BIT(11)
 #define ETH1G_DEVCLK_BUFFER_ENABLE              BIT(12)
 #define ETH1G_DEVCLK_BUFFER_TERM_ENABLE         BIT(13)
-#define ETH1G_DEVCLK_DEFAULT_VAL                ETH1G_DEVCLK_DIV_FUND |         \
-	ETH1G_DEVCLK_DIV_KILLCLK |      \
-	ETH1G_DEVCLK_DIV_MCS_RESET |    \
-	ETH1G_DEVCLK_DIV_RATIO |        \
-	ETH1G_DEVCLK_DIV_RB |           \
-	ETH1G_DEVCLK_BUFFER_ENABLE
+#define ETH1G_DEVCLK_DEFAULT_VAL                (ETH1G_DEVCLK_DIV_FUND |         \
+						 ETH1G_DEVCLK_DIV_KILLCLK |      \
+						 ETH1G_DEVCLK_DIV_MCS_RESET |    \
+						 ETH1G_DEVCLK_DIV_RATIO |        \
+						 ETH1G_DEVCLK_DIV_RB |           \
+						 ETH1G_DEVCLK_BUFFER_ENABLE)
 
 #define ETH1G_REFCLK_MASK                       BIT(17)
 #define ETH1G_REFCLK_REFPATH_PD                 0 /* BIT(17) */
@@ -44,6 +44,10 @@ struct adrv906x_priv_data {
 	unsigned int base_clk_speed;
 	void __iomem *clk_div_base;
 };
+
+static char *macaddr;
+module_param(macaddr, charp, 0644);
+MODULE_PARM_DESC(macaddr, "set dev mac addresse via kernel module parameter");
 
 static void adrv906x_dwmac_mac_speed(void *priv, unsigned int speed)
 {
@@ -169,6 +173,7 @@ static int dwmac_adrv906x_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct device_node *clk_div_np;
 	struct net_device *ndev;
+	struct sockaddr sock_addr;
 	void __iomem *clk_ctrl_base;
 	u32 addr, len;
 	bool term_en;
@@ -200,6 +205,12 @@ static int dwmac_adrv906x_probe(struct platform_device *pdev)
 
 		/* Set default value for unicast filter entries */
 		plat_dat->unicast_filter_entries = 1;
+	}
+
+	if (macaddr) {
+		memset(sock_addr.sa_data, 0, sizeof(sock_addr.sa_data));
+		mac_pton(macaddr, sock_addr.sa_data);
+		stmmac_res.mac = sock_addr.sa_data;
 	}
 
 	clk_div_np = of_get_child_by_name(pdev->dev.of_node, "clock_divider");

@@ -47,6 +47,12 @@ properties:
       phy-handle:
         maxItems: 1
         description: phandle on PHY connected to the port
+      mac-address:
+        description: Optionally filled in by u-boot if property field is
+                     not defined and U-Boot is able to get the address
+                     from OTP or NVMEM.
+                     If the property is defined with any value including 0
+                     then it is not updated by U-Boot.
     patternProperties:
       "^port@[0-9]+$":
         type: object
@@ -217,6 +223,8 @@ examples:
         interrupt-names = "ts_event";
         ndma-handle = <&ndma1>;
         phy-handle = <&adi_phy1>;
+        mac-address = [ 00 00 00 00 00 00 ]; /* will not be filled in
+                                              by u-boot */
         phy-mode = "rmii";
       };
     };

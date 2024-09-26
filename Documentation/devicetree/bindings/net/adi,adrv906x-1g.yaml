@@ -24,6 +24,12 @@ properties:
     maxItems: 1
     description: The default clock speed at initialization in Mhz
                  The speed can be 50MHz, 125MHz or 250MHz
+  mac-address:
+    description: Optionally filled in by u-boot if this property is
+                 not defined and U-Boot is able to get the address
+                 from OTP or NVMEM.
+                 If the property is defined with any value including 0
+                 then it is not updated by U-Boot.
 additionalProperties: false
 examples:
   - |
@@ -37,6 +43,8 @@ examples:
       interrupt-names = "macirq";
       phy-handle = <&adi_phy0>;
       phy-mode = "rgmii";
+      mac-address = [ 00 00 00 00 00 00 ]; /* will not be filled in
+                                              by u-boot */
       clock_divider {
         reg = <EMAC_1G_YODA>;
           base-clk-speed = 125;
