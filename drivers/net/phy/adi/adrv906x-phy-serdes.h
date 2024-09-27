@@ -14,7 +14,7 @@ typedef void (*adrv906x_serdes_cal_done_cb)(struct phy_device *phydev);
 
 struct adrv906x_serdes {
 	struct phy_device *phydev;
-	struct delayed_work send_req;
+	struct delayed_work retry_send;
 	adrv906x_serdes_cal_done_cb cb;
 	int state;
 	int lane;

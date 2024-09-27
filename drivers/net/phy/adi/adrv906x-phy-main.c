@@ -467,8 +467,6 @@ static int adrv906x_phy_config_pcs_baser_mode(struct phy_device *phydev)
 		return -EINVAL;
 	}
 
-	adrv906x_phy_path_enable(phydev, false);
-
 	ctrl2 = phy_read_mmd(phydev, MDIO_MMD_PCS, MDIO_CTRL2);
 	ctrl2 &= ~ADRV906X_PCS_CTRL2_TYPE_SEL_MSK;
 
@@ -503,7 +501,7 @@ static int adrv906x_phy_config_pcs_baser_mode(struct phy_device *phydev)
 	else
 		phy_write_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_CTRL_REG, 0);
 
-	adrv906x_phy_path_enable(phydev, true);
+	adrv906x_phy_reset_datapath(phydev);
 
 	return 0;
 }
