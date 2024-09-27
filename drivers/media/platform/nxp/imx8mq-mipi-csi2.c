@@ -945,8 +945,11 @@ static int imx8mq_mipi_csi_suspend(struct device *dev)
 {
 	struct v4l2_subdev *sd = dev_get_drvdata(dev);
 	struct csi_state *state = mipi_sd_to_csi2_state(sd);
+	int ret;
 
-	imx8mq_mipi_csi_pm_suspend(dev);
+	ret = pm_runtime_force_suspend(dev);
+	if (ret < 0)
+		return ret;
 
 	state->state |= ST_SUSPENDED;
 
@@ -961,7 +964,7 @@ static int imx8mq_mipi_csi_resume(struct device *dev)
 	if (!(state->state & ST_SUSPENDED))
 		return 0;
 
-	return imx8mq_mipi_csi_pm_resume(dev);
+	return pm_runtime_force_resume(dev);
 }
 
 static int imx8mq_mipi_csi_runtime_suspend(struct device *dev)
