@@ -27,40 +27,40 @@ void adrv906x_eth_cmn_serdes_reset_4pack(struct net_device *ndev);
 typedef int (*adrv906x_serdes_action)(struct adrv906x_serdes *serdes);
 
 enum adrv906x_serdes_states {
-	SERDES_STATE_IDLE,
-	SERDES_STATE_CAL_REQUEST,
-	SERDES_STATE_CAL_STARTED,
-	SERDES_STATE_LOS,
-	SERDES_STATE_RUNNING,
-	SERDES_STATE_PWR_DOWN,
+	STATE_IDLE,
+	STATE_CAL_REQUEST,
+	STATE_CAL_STARTED,
+	STATE_LOS,
+	STATE_RUNNING,
+	STATE_PWR_DOWN,
 };
 
 enum adrv906x_serdes_events {
-	SERDES_EVENT_LINK_UP,
-	SERDES_EVENT_LINK_DOWN,
-	SERDES_EVENT_STOP_SUCCESS,
-	SERDES_EVENT_NETLINK_ACK,
-	SERDES_EVENT_NETLINK_NACK,
-	SERDES_EVENT_SIGNAL_OK,
-	SERDES_EVENT_LOS_DETECTED,
+	EVENT_LINK_UP,
+	EVENT_LINK_DOWN,
+	EVENT_STOP_SUCCESS,
+	EVENT_NETLINK_ACK,
+	EVENT_NETLINK_NACK,
+	EVENT_SIGNAL_OK,
+	EVENT_LOS_DETECTED,
 };
 
-enum {
-	SERDES_ATTR_UNSPEC,
-	SERDES_ATTR_CMD_PAYLOAD, /* u32, link speed (bits 31:16), lane id (bits 15:0) */
-	__SERDES_ATTR_MAX,
-	NUM_SERDES_ATTR = __SERDES_ATTR_MAX,
-	SERDES_ATTR_MAX = __SERDES_ATTR_MAX - 1,
+enum adrv906x_serdes_attrs {
+	ATTR_UNSPEC,
+	ATTR_COMMAND_PAYLOAD, /* u32, link speed (bits 31:16), lane id (bits 15:0) */
+	__ATTR_MAX,
+	NUM_ATTR	= __ATTR_MAX,
+	ATTR_MAX	= __ATTR_MAX - 1,
 };
 
 enum adrv906x_serdes_nl_commands {
-	SERDES_CMD_STOP_SUCCESS,
-	SERDES_CMD_SIGNAL_OK,
-	SERDES_CMD_LOS_DETECTED,
-	SERDES_CMD_CAL_REQ,
-	SERDES_CMD_PWR_DOWN_REQ,
-	SERDES_CMD_REQ_DONE,
-	SERDES_CMD_RESET_4PACK_REQ,
+	COMMAND_STOP_SUCCESS,
+	COMMAND_SIGNAL_OK,
+	COMMAND_LOS_DETECTED,
+	COMMAND_CAL_REQ,
+	COMMAND_PWR_DOWN_REQ,
+	COMMAND_REQ_DONE,
+	COMMAND_RESET_4PACK_REQ,
 };
 
 struct adrv906x_serdes_transition {
@@ -70,57 +70,57 @@ struct adrv906x_serdes_transition {
 	u32 dst_state;
 };
 
-static int adrv906x_serdes_stop_success(struct sk_buff *skb, struct genl_info *info);
-static int adrv906x_serdes_signal_ok(struct sk_buff *skb, struct genl_info *info);
-static int adrv906x_serdes_los_detected(struct sk_buff *skb, struct genl_info *info);
-static int adrv906x_serdes_reset_4pack(struct sk_buff *skb, struct genl_info *info);
-static int adrv906x_serdes_cal_req(struct adrv906x_serdes *serdes);
-static int adrv906x_serdes_pwr_down_req(struct adrv906x_serdes *serdes);
+static int adrv906x_serdes_stop_success_recv(struct sk_buff *skb, struct genl_info *info);
+static int adrv906x_serdes_signal_ok_recv(struct sk_buff *skb, struct genl_info *info);
+static int adrv906x_serdes_los_detected_recv(struct sk_buff *skb, struct genl_info *info);
+static int adrv906x_serdes_reset_4pack_recv(struct sk_buff *skb, struct genl_info *info);
+static int adrv906x_serdes_start_cal_send(struct adrv906x_serdes *serdes);
+static int adrv906x_serdes_pwr_down_send(struct adrv906x_serdes *serdes);
 static int adrv906x_serdes_start_timer(struct adrv906x_serdes *serdes);
 static int adrv906x_serdes_start_pcs(struct adrv906x_serdes *serdes);
 static int adrv906x_serdes_do_nothing(struct adrv906x_serdes *serdes);
 static int adrv906x_serdes_stop_timer(struct adrv906x_serdes *serdes);
 
 static struct adrv906x_serdes_transition adrv906x_serdes_transitions[] = {
-	/* Source State             Event                      Action                        Destination State       */
-	{ SERDES_STATE_IDLE,	    SERDES_EVENT_LINK_UP,      adrv906x_serdes_cal_req,	     SERDES_STATE_CAL_REQUEST },
-	{ SERDES_STATE_CAL_REQUEST, SERDES_EVENT_NETLINK_ACK,  adrv906x_serdes_do_nothing,   SERDES_STATE_CAL_STARTED },
-	{ SERDES_STATE_CAL_REQUEST, SERDES_EVENT_NETLINK_NACK, adrv906x_serdes_start_timer,  SERDES_STATE_CAL_REQUEST },
-	{ SERDES_STATE_CAL_REQUEST, SERDES_EVENT_LINK_DOWN,    adrv906x_serdes_pwr_down_req, SERDES_STATE_PWR_DOWN    },
-	{ SERDES_STATE_CAL_STARTED, SERDES_EVENT_LINK_UP,      adrv906x_serdes_cal_req,	     SERDES_STATE_CAL_REQUEST },
-	{ SERDES_STATE_CAL_STARTED, SERDES_EVENT_LINK_DOWN,    adrv906x_serdes_pwr_down_req, SERDES_STATE_PWR_DOWN    },
-	{ SERDES_STATE_CAL_STARTED, SERDES_EVENT_SIGNAL_OK,    adrv906x_serdes_start_pcs,    SERDES_STATE_RUNNING     },
-	{ SERDES_STATE_RUNNING,	    SERDES_EVENT_LINK_UP,      adrv906x_serdes_cal_req,	     SERDES_STATE_CAL_REQUEST },
-	{ SERDES_STATE_RUNNING,	    SERDES_EVENT_LOS_DETECTED, adrv906x_serdes_do_nothing,   SERDES_STATE_LOS	      },
-	{ SERDES_STATE_RUNNING,	    SERDES_EVENT_LINK_DOWN,    adrv906x_serdes_pwr_down_req, SERDES_STATE_PWR_DOWN    },
-	{ SERDES_STATE_LOS,	    SERDES_EVENT_LINK_UP,      adrv906x_serdes_cal_req,	     SERDES_STATE_CAL_REQUEST },
-	{ SERDES_STATE_LOS,	    SERDES_EVENT_SIGNAL_OK,    adrv906x_serdes_do_nothing,   SERDES_STATE_RUNNING     },
-	{ SERDES_STATE_LOS,	    SERDES_EVENT_LINK_DOWN,    adrv906x_serdes_pwr_down_req, SERDES_STATE_PWR_DOWN    },
-	{ SERDES_STATE_PWR_DOWN,    SERDES_EVENT_STOP_SUCCESS, adrv906x_serdes_do_nothing,   SERDES_STATE_IDLE	      },
-	{ SERDES_STATE_PWR_DOWN,    SERDES_EVENT_NETLINK_NACK, adrv906x_serdes_do_nothing,   SERDES_STATE_IDLE	      },
-	{ SERDES_STATE_PWR_DOWN,    SERDES_EVENT_LINK_UP,      adrv906x_serdes_cal_req,	     SERDES_STATE_CAL_REQUEST },
+	/* Source State      Event               Action                          Destination State */
+	{ STATE_IDLE,	     EVENT_LINK_UP,	 adrv906x_serdes_start_cal_send, STATE_CAL_REQUEST },
+	{ STATE_CAL_REQUEST, EVENT_NETLINK_ACK,	 adrv906x_serdes_do_nothing,	 STATE_CAL_STARTED },
+	{ STATE_CAL_REQUEST, EVENT_NETLINK_NACK, adrv906x_serdes_start_timer,	 STATE_CAL_REQUEST },
+	{ STATE_CAL_REQUEST, EVENT_LINK_DOWN,	 adrv906x_serdes_pwr_down_send,	 STATE_PWR_DOWN	   },
+	{ STATE_CAL_STARTED, EVENT_LINK_UP,	 adrv906x_serdes_start_cal_send, STATE_CAL_REQUEST },
+	{ STATE_CAL_STARTED, EVENT_LINK_DOWN,	 adrv906x_serdes_pwr_down_send,	 STATE_PWR_DOWN	   },
+	{ STATE_CAL_STARTED, EVENT_SIGNAL_OK,	 adrv906x_serdes_start_pcs,	 STATE_RUNNING	   },
+	{ STATE_RUNNING,     EVENT_LINK_UP,	 adrv906x_serdes_start_cal_send, STATE_CAL_REQUEST },
+	{ STATE_RUNNING,     EVENT_LOS_DETECTED, adrv906x_serdes_do_nothing,	 STATE_LOS	   },
+	{ STATE_RUNNING,     EVENT_LINK_DOWN,	 adrv906x_serdes_pwr_down_send,	 STATE_PWR_DOWN	   },
+	{ STATE_LOS,	     EVENT_LINK_UP,	 adrv906x_serdes_start_cal_send, STATE_CAL_REQUEST },
+	{ STATE_LOS,	     EVENT_SIGNAL_OK,	 adrv906x_serdes_do_nothing,	 STATE_RUNNING	   },
+	{ STATE_LOS,	     EVENT_LINK_DOWN,	 adrv906x_serdes_pwr_down_send,	 STATE_PWR_DOWN	   },
+	{ STATE_PWR_DOWN,    EVENT_STOP_SUCCESS, adrv906x_serdes_do_nothing,	 STATE_IDLE	   },
+	{ STATE_PWR_DOWN,    EVENT_NETLINK_NACK, adrv906x_serdes_do_nothing,	 STATE_IDLE	   },
+	{ STATE_PWR_DOWN,    EVENT_LINK_UP,	 adrv906x_serdes_start_cal_send, STATE_CAL_REQUEST },
 };
 
-static struct nla_policy adrv906x_serdes_genl_policy[SERDES_ATTR_MAX + 1] = {
-	[SERDES_ATTR_CMD_PAYLOAD] = { .type = NLA_U32 },
+static struct nla_policy adrv906x_serdes_genl_policy[ATTR_MAX + 1] = {
+	[ATTR_COMMAND_PAYLOAD] = { .type = NLA_U32 },
 };
 
 static const struct genl_small_ops adrv906x_serdes_genl_ops[] = {
 	{
-		.cmd = SERDES_CMD_SIGNAL_OK,
-		.doit = adrv906x_serdes_signal_ok,
+		.cmd = COMMAND_SIGNAL_OK,
+		.doit = adrv906x_serdes_signal_ok_recv,
 	},
 	{
-		.cmd = SERDES_CMD_STOP_SUCCESS,
-		.doit = adrv906x_serdes_stop_success,
+		.cmd = COMMAND_STOP_SUCCESS,
+		.doit = adrv906x_serdes_stop_success_recv,
 	},
 	{
-		.cmd = SERDES_CMD_LOS_DETECTED,
-		.doit = adrv906x_serdes_los_detected,
+		.cmd = COMMAND_LOS_DETECTED,
+		.doit = adrv906x_serdes_los_detected_recv,
 	},
 	{
-		.cmd = SERDES_CMD_RESET_4PACK_REQ,
-		.doit = adrv906x_serdes_reset_4pack,
+		.cmd = COMMAND_RESET_4PACK_REQ,
+		.doit = adrv906x_serdes_reset_4pack_recv,
 	},
 };
 
@@ -132,7 +132,7 @@ static struct genl_family adrv906x_serdes_fam __ro_after_init = {
 	.name		= SERDES_GENL_NAME,
 	.hdrsize	= 0,
 	.version	= SERDES_GENL_VERSION,
-	.maxattr	= SERDES_ATTR_MAX,
+	.maxattr	= ATTR_MAX,
 	.policy		= adrv906x_serdes_genl_policy,
 	.module		= THIS_MODULE,
 	.small_ops	= adrv906x_serdes_genl_ops,
@@ -146,27 +146,27 @@ static struct adrv906x_serdes *adrv906x_serdes_devs[SERDES_MAX_LANES];
 static char *adrv906x_serdes_state_to_str(u32 state)
 {
 	switch (state) {
-	case SERDES_STATE_IDLE:        return "IDLE";
-	case SERDES_STATE_CAL_REQUEST: return "CAL_REQUEST";
-	case SERDES_STATE_CAL_STARTED: return "CAL_STARTED";
-	case SERDES_STATE_LOS:         return "LOS";
-	case SERDES_STATE_RUNNING:     return "RUNNING";
-	case SERDES_STATE_PWR_DOWN:    return "PWR_DOWN";
-	default:                       return "UNKNOWN";
+	case STATE_IDLE:        return "IDLE";
+	case STATE_CAL_REQUEST: return "CAL_REQUEST";
+	case STATE_CAL_STARTED: return "CAL_STARTED";
+	case STATE_LOS:         return "LOS";
+	case STATE_RUNNING:     return "RUNNING";
+	case STATE_PWR_DOWN:    return "PWR_DOWN";
+	default:                return "UNKNOWN";
 	}
 }
 
 static char *adrv906x_serdes_event_to_str(u32 event)
 {
 	switch (event) {
-	case SERDES_EVENT_LINK_UP:      return "LINK_UP";
-	case SERDES_EVENT_LINK_DOWN:    return "LINK_DOWN";
-	case SERDES_EVENT_STOP_SUCCESS: return "STOP_SUCCESS";
-	case SERDES_EVENT_NETLINK_ACK:  return "NETLINK_ACK";
-	case SERDES_EVENT_NETLINK_NACK: return "NETLINK_NACK";
-	case SERDES_EVENT_SIGNAL_OK:    return "SIGNAL_OK";
-	case SERDES_EVENT_LOS_DETECTED: return "LOS_DETECTED";
-	default:                        return "UNKNOWN";
+	case EVENT_LINK_UP:      return "LINK_UP";
+	case EVENT_LINK_DOWN:    return "LINK_DOWN";
+	case EVENT_STOP_SUCCESS: return "STOP_SUCCESS";
+	case EVENT_NETLINK_ACK:  return "NETLINK_ACK";
+	case EVENT_NETLINK_NACK: return "NETLINK_NACK";
+	case EVENT_SIGNAL_OK:    return "SIGNAL_OK";
+	case EVENT_LOS_DETECTED: return "LOS_DETECTED";
+	default:                 return "UNKNOWN";
 	}
 }
 
@@ -180,11 +180,14 @@ int adrv906x_serdes_genl_unregister_family(void)
 	return genl_unregister_family(&adrv906x_serdes_fam);
 }
 
-int adrv906x_serdes_send_multicast(u32 cmd, u32 data)
+int adrv906x_serdes_send_message(u32 cmd, u32 lane, u32 speed)
 {
 	struct sk_buff *skb;
 	void *hdr;
+	u32 data;
 	int ret;
+
+	data = FIELD_PREP(SERDES_LANE_MSK, lane) | FIELD_PREP(SERDES_SPEED_MSK, speed);
 
 	skb = genlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
 	if (unlikely(!skb))
@@ -196,7 +199,7 @@ int adrv906x_serdes_send_multicast(u32 cmd, u32 data)
 		return -ENOMEM;
 	}
 
-	ret = nla_put_u32(skb, SERDES_ATTR_CMD_PAYLOAD, data);
+	ret = nla_put_u32(skb, ATTR_COMMAND_PAYLOAD, data);
 	if (ret) {
 		genlmsg_cancel(skb, hdr);
 		nlmsg_free(skb);
@@ -231,114 +234,110 @@ void adrv906x_serdes_lookup_transitions(struct adrv906x_serdes *serdes, u32 even
 	}
 }
 
-static int adrv906x_serdes_signal_ok(struct sk_buff *skb, struct genl_info *info)
+static int adrv906x_serdes_parse_message(struct genl_info *info, u32 *lane, u32 *speed)
+{
+	u32 data;
+
+	if (!info->attrs[ATTR_COMMAND_PAYLOAD])
+		return -EINVAL;
+
+	data = nla_get_u32(info->attrs[ATTR_COMMAND_PAYLOAD]);
+	*lane = FIELD_GET(SERDES_LANE_MSK, data);
+	*speed = FIELD_GET(SERDES_SPEED_MSK, data);
+
+	if (*lane >= SERDES_MAX_LANES)
+		return -EINVAL;
+
+	if (*speed != SPEED_10000 && *speed != SPEED_25000)
+		return -EINVAL;
+
+	return 0;
+}
+
+static int adrv906x_serdes_signal_ok_recv(struct sk_buff *skb, struct genl_info *info)
 {
 	struct adrv906x_serdes *serdes;
 	struct phy_device *phydev;
 	struct net_device *netdev;
-	u32 data, lane, speed;
+	u32 lane, speed;
+	int ret;
 
-	if (!info->attrs[SERDES_ATTR_CMD_PAYLOAD])
-		return -EINVAL;
-
-	data = nla_get_u32(info->attrs[SERDES_ATTR_CMD_PAYLOAD]);
-	lane = FIELD_GET(SERDES_LANE_MSK, data);
-	speed = FIELD_GET(SERDES_SPEED_MSK, data);
-
-	if (lane >= SERDES_MAX_LANES)
-		return -EINVAL;
+	ret = adrv906x_serdes_parse_message(info, &lane, &speed);
+	if (ret)
+		return ret;
 
 	serdes = adrv906x_serdes_devs[lane];
 	phydev = serdes->phydev;
 	netdev = phydev->attached_dev;
 
-	adrv906x_eth_cmn_serdes_tx_sync_trigger(netdev, lane);
 	serdes->cb(phydev);
-	adrv906x_serdes_lookup_transitions(serdes, SERDES_EVENT_SIGNAL_OK);
+	adrv906x_eth_cmn_serdes_tx_sync_trigger(netdev, lane);
+	adrv906x_serdes_lookup_transitions(serdes, EVENT_SIGNAL_OK);
 
 	return 0;
 }
 
-static int adrv906x_serdes_stop_success(struct sk_buff *skb, struct genl_info *info)
+static int adrv906x_serdes_stop_success_recv(struct sk_buff *skb, struct genl_info *info)
 {
 	struct adrv906x_serdes *serdes;
-	u32 data, lane, speed;
+	u32 lane, speed;
+	int ret;
 
-	if (!info->attrs[SERDES_ATTR_CMD_PAYLOAD])
-		return -EINVAL;
-
-	data = nla_get_u32(info->attrs[SERDES_ATTR_CMD_PAYLOAD]);
-	lane = FIELD_GET(SERDES_LANE_MSK, data);
-	speed = FIELD_GET(SERDES_SPEED_MSK, data);
-
-	if (lane >= SERDES_MAX_LANES)
-		return -EINVAL;
+	ret = adrv906x_serdes_parse_message(info, &lane, &speed);
+	if (ret)
+		return ret;
 
 	serdes = adrv906x_serdes_devs[lane];
-	adrv906x_serdes_lookup_transitions(serdes, SERDES_EVENT_STOP_SUCCESS);
+	adrv906x_serdes_lookup_transitions(serdes, EVENT_STOP_SUCCESS);
 
 	return 0;
 }
 
-static int adrv906x_serdes_los_detected(struct sk_buff *skb, struct genl_info *info)
+static int adrv906x_serdes_los_detected_recv(struct sk_buff *skb, struct genl_info *info)
 {
 	struct adrv906x_serdes *serdes;
-	u32 data, lane, speed;
+	u32 lane, speed;
+	int ret;
 
-	if (!info->attrs[SERDES_ATTR_CMD_PAYLOAD])
-		return -EINVAL;
-
-	data = nla_get_u32(info->attrs[SERDES_ATTR_CMD_PAYLOAD]);
-	lane = FIELD_GET(SERDES_LANE_MSK, data);
-	speed = FIELD_GET(SERDES_SPEED_MSK, data);
-
-	if (lane >= SERDES_MAX_LANES)
-		return -EINVAL;
+	ret = adrv906x_serdes_parse_message(info, &lane, &speed);
+	if (ret)
+		return ret;
 
 	serdes = adrv906x_serdes_devs[lane];
-	adrv906x_serdes_lookup_transitions(serdes, SERDES_EVENT_LOS_DETECTED);
+	adrv906x_serdes_lookup_transitions(serdes, EVENT_LOS_DETECTED);
 
 	return 0;
 }
 
-static int adrv906x_serdes_reset_4pack(struct sk_buff *skb, struct genl_info *info)
+static int adrv906x_serdes_reset_4pack_recv(struct sk_buff *skb, struct genl_info *info)
 {
 	struct adrv906x_serdes *serdes;
 	struct phy_device *phydev;
 	struct net_device *netdev;
-	u32 data, lane, speed;
+	u32 lane, speed;
+	int ret;
 
-	if (!info->attrs[SERDES_ATTR_CMD_PAYLOAD])
-		return -EINVAL;
-
-	data = nla_get_u32(info->attrs[SERDES_ATTR_CMD_PAYLOAD]);
-	lane = FIELD_GET(SERDES_LANE_MSK, data);
-	speed = FIELD_GET(SERDES_SPEED_MSK, data);
-
-	if (lane >= SERDES_MAX_LANES)
-		return -EINVAL;
+	ret = adrv906x_serdes_parse_message(info, &lane, &speed);
+	if (ret)
+		return ret;
 
 	serdes = adrv906x_serdes_devs[lane];
 	phydev = serdes->phydev;
 	netdev = phydev->attached_dev;
 
 	adrv906x_eth_cmn_serdes_reset_4pack(netdev);
-	adrv906x_serdes_send_multicast(SERDES_CMD_REQ_DONE, data);
+	adrv906x_serdes_send_message(COMMAND_REQ_DONE, lane, speed);
 
 	return 0;
 }
 
-int adrv906x_serdes_cal_req(struct adrv906x_serdes *serdes)
+int adrv906x_serdes_start_cal_send(struct adrv906x_serdes *serdes)
 {
 	u32 event;
-	u32 data;
 	int ret;
 
-	data = FIELD_PREP(SERDES_LANE_MSK, serdes->lane) |
-	       FIELD_PREP(SERDES_SPEED_MSK, serdes->speed);
-
-	ret = adrv906x_serdes_send_multicast(SERDES_CMD_CAL_REQ, data);
-	event = ret ? SERDES_EVENT_NETLINK_NACK : SERDES_EVENT_NETLINK_ACK;
+	ret = adrv906x_serdes_send_message(COMMAND_CAL_REQ, serdes->lane, serdes->speed);
+	event = ret ? EVENT_NETLINK_NACK : EVENT_NETLINK_ACK;
 
 	adrv906x_serdes_lookup_transitions(serdes, event);
 
@@ -347,40 +346,36 @@ int adrv906x_serdes_cal_req(struct adrv906x_serdes *serdes)
 
 int adrv906x_serdes_stop_timer(struct adrv906x_serdes *serdes)
 {
-	cancel_delayed_work(&serdes->send_req);
+	cancel_delayed_work(&serdes->retry_send);
 
 	return 0;
 }
 
 int adrv906x_serdes_start_timer(struct adrv906x_serdes *serdes)
 {
-	mod_delayed_work(system_long_wq, &serdes->send_req,
+	mod_delayed_work(system_long_wq, &serdes->retry_send,
 			 msecs_to_jiffies(SERDES_TIMEOUT_SECOND));
 
 	return 0;
 }
 
-int adrv906x_serdes_pwr_down_req(struct adrv906x_serdes *serdes)
+int adrv906x_serdes_pwr_down_send(struct adrv906x_serdes *serdes)
 {
-	u32 data;
 	int ret;
 
-	data = FIELD_PREP(SERDES_LANE_MSK, serdes->lane) |
-	       FIELD_PREP(SERDES_SPEED_MSK, serdes->speed);
-
 	adrv906x_serdes_stop_timer(serdes);
-	ret = adrv906x_serdes_send_multicast(SERDES_CMD_PWR_DOWN_REQ, data);
+	ret = adrv906x_serdes_send_message(COMMAND_PWR_DOWN_REQ, serdes->lane, serdes->speed);
 	if (ret)
-		adrv906x_serdes_lookup_transitions(serdes, SERDES_EVENT_NETLINK_NACK);
+		adrv906x_serdes_lookup_transitions(serdes, EVENT_NETLINK_NACK);
 
 	return 0;
 }
 
-static void adrv906x_serdes_send_req(struct work_struct *work)
+static void adrv906x_serdes_retry_start_cal_send(struct work_struct *work)
 {
-	struct adrv906x_serdes *serdes = container_of(work, struct adrv906x_serdes, send_req.work);
+	struct adrv906x_serdes *serdes = container_of(work, struct adrv906x_serdes, retry_send.work);
 
-	adrv906x_serdes_cal_req(serdes);
+	adrv906x_serdes_start_cal_send(serdes);
 }
 
 int adrv906x_serdes_start_pcs(struct adrv906x_serdes *serdes)
@@ -422,7 +417,7 @@ int adrv906x_serdes_cal_start(struct phy_device *phydev)
 		return -EINVAL;
 
 	serdes->speed = phydev->speed;
-	adrv906x_serdes_lookup_transitions(serdes, SERDES_EVENT_LINK_UP);
+	adrv906x_serdes_lookup_transitions(serdes, EVENT_LINK_UP);
 
 	return 0;
 }
@@ -434,7 +429,7 @@ int adrv906x_serdes_cal_stop(struct phy_device *phydev)
 	if (!serdes)
 		return -EINVAL;
 
-	adrv906x_serdes_lookup_transitions(serdes, SERDES_EVENT_LINK_DOWN);
+	adrv906x_serdes_lookup_transitions(serdes, EVENT_LINK_DOWN);
 
 	return 0;
 }
@@ -450,7 +445,7 @@ int adrv906x_serdes_open(struct phy_device *phydev, struct adrv906x_serdes *serd
 		return -EINVAL;
 
 	adrv906x_serdes_devs[serdes->lane] = serdes;
-	INIT_DELAYED_WORK(&serdes->send_req, adrv906x_serdes_send_req);
+	INIT_DELAYED_WORK(&serdes->retry_send, adrv906x_serdes_retry_start_cal_send);
 
 	return 0;
 }
@@ -463,7 +458,7 @@ int adrv906x_serdes_close(struct phy_device *phydev)
 	if (!serdes)
 		return -EINVAL;
 
-	cancel_delayed_work(&serdes->send_req);
+	cancel_delayed_work(&serdes->retry_send);
 
 	return 0;
 }
