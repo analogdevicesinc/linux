@@ -53,12 +53,14 @@ void adrv906x_eth_cmn_serdes_tx_sync_trigger(struct net_device *ndev, u32 lane)
 
 	trig = (lane == 0) ? EMAC_CMN_TXSER_SYNC_TRIGGER_0 : EMAC_CMN_TXSER_SYNC_TRIGGER_1;
 
+	mutex_lock(&eth_if->mtx);
 	val = ioread32(regs + EMAC_CMN_PHY_CTRL);
 	val |= trig;
 	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
 	usleep_range(1, 10);
 	val &= ~trig;
 	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
+	mutex_unlock(&eth_if->mtx);
 }
 EXPORT_SYMBOL(adrv906x_eth_cmn_serdes_tx_sync_trigger);
 
@@ -69,12 +71,14 @@ void adrv906x_eth_cmn_serdes_reset_4pack(struct net_device *ndev)
 	void __iomem *regs = eth_if->emac_cmn_regs;
 	unsigned int val;
 
+	mutex_lock(&eth_if->mtx);
 	val = ioread32(regs + EMAC_CMN_PHY_CTRL);
 	val &= ~EMAC_CMN_SERDES_REG_RESET_N;
 	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
 	usleep_range(1, 10);
 	val |= EMAC_CMN_SERDES_REG_RESET_N;
 	iowrite32(val, regs + EMAC_CMN_PHY_CTRL);
+	mutex_unlock(&eth_if->mtx);
 }
 EXPORT_SYMBOL(adrv906x_eth_cmn_serdes_reset_4pack);
 
@@ -121,8 +125,10 @@ static void adrv906x_eth_cmn_recovered_clk_config(struct adrv906x_eth_dev *adrv9
 static void adrv906x_eth_cmn_mode_cfg(struct adrv906x_eth_dev *adrv906x_dev)
 {
 	void __iomem *regs = adrv906x_dev->parent->emac_cmn_regs;
+	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
 	u32 val;
 
+	mutex_lock(&eth_if->mtx);
 	val = ioread32(regs + EMAC_CMN_DIGITAL_CTRL2);
 
 	if (adrv906x_dev->link_speed == SPEED_10000)
@@ -131,6 +137,7 @@ static void adrv906x_eth_cmn_mode_cfg(struct adrv906x_eth_dev *adrv906x_dev)
 		val &= ~EMAC_CMN_TX_BIT_REPEAT_RATIO;
 
 	iowrite32(val, regs + EMAC_CMN_DIGITAL_CTRL2);
+	mutex_unlock(&eth_if->mtx);
 }
 
 static void adrv906x_eth_cdr_get_recovered_clk_divs(struct device_node *np,
@@ -231,17 +238,18 @@ static ssize_t adrv906x_pcs_link_drop_cnt_store(struct device *dev,
 						struct device_attribute *attr,
 						const char *buf, size_t cnt)
 {
-	void __iomem *regs;
 	struct adrv906x_eth_if *adrv906x_eth;
+	void __iomem *regs;
 	u32 val;
 
 	adrv906x_eth = dev_get_drvdata(dev);
 	regs = adrv906x_eth->emac_cmn_regs;
 
-	/* Zero pcs link drop counters */
+	mutex_lock(&adrv906x_eth->mtx);
 	val = ioread32(regs + EMAC_CMN_DIGITAL_CTRL4);
 	val |= EMAC_CMN_CLEAR_PCS_STATUS_NE_CNT;
 	iowrite32(val, regs + EMAC_CMN_DIGITAL_CTRL4);
+	mutex_unlock(&adrv906x_eth->mtx);
 
 	return cnt;
 }
@@ -249,8 +257,8 @@ static ssize_t adrv906x_pcs_link_drop_cnt_store(struct device *dev,
 static ssize_t adrv906x_pcs_link_drop_cnt_show(struct device *dev,
 					       struct device_attribute *attr, char *buf)
 {
-	void __iomem *regs;
 	struct adrv906x_eth_if *adrv906x_eth;
+	void __iomem *regs;
 	u8 cnt0, cnt1;
 	int offset;
 	u32 val;
