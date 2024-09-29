@@ -194,6 +194,7 @@ static struct virtio_video_convert_table control_table[] = {
 			V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME },
 	{ VIRTIO_VIDEO_CONTROL_PREPEND_SPSPPS_TO_IDR,
 			V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR },
+	{ VIRTIO_VIDEO_CONTROL_GOP_SIZE, V4L2_CID_MPEG_VIDEO_GOP_SIZE },
 	{ 0 },
 };
 
@@ -243,10 +244,6 @@ void virtio_video_format_from_info(struct video_format_info *info,
 	pix_mp->width = info->frame_width;
 	pix_mp->height = info->frame_height;
 	pix_mp->field = V4L2_FIELD_NONE;
-	pix_mp->colorspace = V4L2_COLORSPACE_REC709;
-	pix_mp->xfer_func = 0;
-	pix_mp->ycbcr_enc = 0;
-	pix_mp->quantization = 0;
 	memset(pix_mp->reserved, 0, sizeof(pix_mp->reserved));
 	memset(pix_mp->plane_fmt[0].reserved, 0,
 	       sizeof(pix_mp->plane_fmt[0].reserved));

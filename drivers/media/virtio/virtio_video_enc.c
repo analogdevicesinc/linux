@@ -19,6 +19,7 @@
 
 #include <media/v4l2-event.h>
 #include <media/v4l2-ioctl.h>
+#include <linux/delay.h>
 
 #include "virtio_video.h"
 #include "virtio_video_enc.h"
@@ -149,6 +150,10 @@ static int virtio_video_enc_s_ctrl(struct v4l2_ctrl *ctrl)
 		ret = virtio_video_cmd_set_control(vv, stream->stream_id,
 						   control, ctrl->val);
 		break;
+	case V4L2_CID_MPEG_VIDEO_GOP_SIZE:
+		ret = virtio_video_cmd_set_control(vv, stream->stream_id,
+						   control, ctrl->val);
+		break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -188,7 +193,7 @@ int virtio_video_enc_init_ctrls(struct virtio_video_stream *stream)
 	struct virtio_video *vv = vvd->vv;
 	struct video_control_format *c_fmt = NULL;
 
-	v4l2_ctrl_handler_init(&stream->ctrl_handler, 1);
+	v4l2_ctrl_handler_init(&stream->ctrl_handler, 100);
 
 	ctrl = v4l2_ctrl_new_std(&stream->ctrl_handler,
 				&virtio_video_enc_ctrl_ops,
@@ -228,39 +233,42 @@ int virtio_video_enc_init_ctrls(struct virtio_video_stream *stream)
 		}
 	}
 
-	if (stream->control.bitrate) {
 		v4l2_ctrl_new_std(&stream->ctrl_handler,
 				  &virtio_video_enc_ctrl_ops,
 				  V4L2_CID_MPEG_VIDEO_BITRATE,
 				  // Set max to 1GBs to cover most use cases.
-				  1, 1000000000,
-				  1, stream->control.bitrate);
-	}
+				  0, 1000000000,
+				  1, 2097152);
 
 	v4l2_ctrl_new_std(&stream->ctrl_handler,
 			  &virtio_video_enc_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_BITRATE_PEAK,
 			  // Set max to 1GBs to cover most use cases.
-			  1, 1000000000,
-			  1, stream->control.bitrate_peak);
+			  0, 1000000000,
+			  1, 0);
 
 	v4l2_ctrl_new_std_menu(&stream->ctrl_handler,
 			       &virtio_video_enc_ctrl_ops,
 			       V4L2_CID_MPEG_VIDEO_BITRATE_MODE,
 			       V4L2_MPEG_VIDEO_BITRATE_MODE_CBR,
 			       0,
-			       V4L2_MPEG_VIDEO_BITRATE_MODE_VBR);
+			       V4L2_MPEG_VIDEO_BITRATE_MODE_CBR);
 
 	v4l2_ctrl_new_std(&stream->ctrl_handler,
 			  &virtio_video_enc_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_FORCE_KEY_FRAME,
-			  0, 0, 0, 0);
+			  0, 1, 1, 0);
 
 	v4l2_ctrl_new_std(&stream->ctrl_handler,
 			  &virtio_video_enc_ctrl_ops,
 			  V4L2_CID_MPEG_VIDEO_PREPEND_SPSPPS_TO_IDR,
 			  0, 1,
-			  1, 0);
+			  1, 1);
+
+	v4l2_ctrl_new_std(&stream->ctrl_handler,
+			  &virtio_video_enc_ctrl_ops,
+			  V4L2_CID_MPEG_VIDEO_GOP_SIZE,
+			  0, 2047, 1, 30);
 
 	if (stream->ctrl_handler.error)
 		return stream->ctrl_handler.error;
@@ -360,6 +368,10 @@ static int virtio_video_encoder_cmd(struct file *file, void *fh,
 			goto unlock;
 		}
 
+		while (v4l2_m2m_next_src_buf(stream->fh.m2m_ctx))
+			msleep(20);
+
+		v4l2_info(&vv->v4l2_dev, "encoder send CMD STOP\n");
 		ret = virtio_video_cmd_stream_drain(vv, stream->stream_id);
 		if (ret) {
 			v4l2_err(&vv->v4l2_dev, "failed to drain stream\n");

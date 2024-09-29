@@ -97,6 +97,7 @@ struct video_control_info {
 	uint32_t bitrate_mode;
 	uint32_t prepend_spspps_to_idr;
 	bool is_updated;
+	uint32_t gop;
 };
 
 struct virtio_video;
@@ -204,10 +205,16 @@ struct virtio_video_stream {
 	struct video_control_info control;
 	bool src_cleared;
 	bool dst_cleared;
+	bool src_try_destroy;
+	bool dst_try_destroy;
 	bool src_destroyed;
 	bool dst_destroyed;
 	struct work_struct work;
 	struct mutex event_mutex;
+	enum v4l2_colorspace colorspace;
+	enum v4l2_xfer_func xfer_func;
+	enum v4l2_ycbcr_encoding ycbcr_enc;
+	enum v4l2_quantization quantization;
 };
 
 struct virtio_video_buffer {
@@ -219,6 +226,8 @@ struct virtio_video_buffer {
 	uuid_t uuid;
 	uint32_t num_planes;
 	uint32_t plane_offsets[VIRTIO_VIDEO_MAX_PLANES];
+	uint32_t grant_ref_head;
+	uint32_t grant_ref_count;
 };
 
 static inline gfp_t
@@ -284,9 +293,8 @@ static inline uint32_t to_virtio_mem_type(enum vb2_memory v4l2_mem)
 	case VB2_MEMORY_UNKNOWN:
 	case VB2_MEMORY_MMAP:
 	case VB2_MEMORY_USERPTR:
-		return VIRTIO_VIDEO_MEM_TYPE_GUEST_PAGES;
 	case VB2_MEMORY_DMABUF:
-		return VIRTIO_VIDEO_MEM_TYPE_VIRTIO_OBJECT;
+		return VIRTIO_VIDEO_MEM_TYPE_GUEST_PAGES;
 	default:
 		return -1;
 	}
@@ -336,7 +344,7 @@ int virtio_video_cmd_resource_create_object(
 	struct virtio_video_object_entry *ents);
 int virtio_video_cmd_resource_destroy_all(struct virtio_video *vv,
 					  struct virtio_video_stream *stream,
-					  enum virtio_video_queue_type qtype);
+					  uint32_t queue_type);
 int virtio_video_cmd_resource_queue(struct virtio_video *vv, uint32_t stream_id,
 				    struct virtio_video_buffer *virtio_vb,
 				    uint32_t data_size[], uint8_t num_data_size,
@@ -371,7 +379,7 @@ void virtio_video_event_ack(struct virtqueue *vq);
 void virtio_video_dequeue_cmd_func(struct work_struct *work);
 void virtio_video_dequeue_event_func(struct work_struct *work);
 void virtio_video_buf_done(struct virtio_video_buffer *virtio_vb,
-			   uint32_t flags, uint64_t timestamp, uint32_t size);
+			   uint32_t flags, uint64_t timestamp, uint32_t size, uint32_t sequence);
 int virtio_video_buf_plane_init(uint32_t idx, uint32_t resource_id,
 				struct virtio_video_device *vvd,
 				struct virtio_video_stream *stream,

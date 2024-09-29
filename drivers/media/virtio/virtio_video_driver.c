@@ -31,7 +31,7 @@
 static unsigned int debug;
 module_param(debug, uint, 0644);
 
-static unsigned int use_dma_mem;
+static unsigned int use_dma_mem = 1;
 module_param(use_dma_mem, uint, 0644);
 MODULE_PARM_DESC(use_dma_mem, "Try to allocate buffers from the DMA zone");
 
@@ -170,6 +170,17 @@ static int virtio_video_probe(struct virtio_device *vdev)
 		v4l2_err(&vv->v4l2_dev, "failed to alloc vbufs\n");
 		goto err_vbufs;
 	}
+
+	v4l2_info(&vv->v4l2_dev, "command vq, desc 0x%llx, used 0x%llx, avail 0x%llx, size 0x%x\n",
+		  virtqueue_get_desc_addr(vv->commandq.vq),
+		  virtqueue_get_used_addr(vv->commandq.vq),
+		  virtqueue_get_avail_addr(vv->commandq.vq),
+		  virtqueue_get_vring_size(vv->commandq.vq));
+	v4l2_info(&vv->v4l2_dev, "event vq, desc 0x%llx, used 0x%llx, avail 0x%llx, size 0x%x\n",
+		  virtqueue_get_desc_addr(vv->eventq.vq),
+		  virtqueue_get_used_addr(vv->eventq.vq),
+		  virtqueue_get_avail_addr(vv->eventq.vq),
+		  virtqueue_get_vring_size(vv->eventq.vq));
 
 	virtio_cread(vdev, struct virtio_video_config, max_caps_length,
 		     &vv->max_caps_len);

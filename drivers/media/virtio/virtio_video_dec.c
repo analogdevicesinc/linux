@@ -19,6 +19,7 @@
 
 #include <media/v4l2-event.h>
 #include <media/v4l2-ioctl.h>
+#include <linux/delay.h>
 
 #include "virtio_video.h"
 #include "virtio_video_dec.h"
@@ -270,12 +271,10 @@ static int virtio_video_decoder_cmd(struct file *file, void *fh,
 			return 0;
 		}
 
-		if (!vb2_is_streaming(dst_vq)) {
-			v4l2_dbg(1, vv->debug,
-				 &vv->v4l2_dev, "capture is not streaming\n");
-			return 0;
-		}
+		while (v4l2_m2m_next_src_buf(stream->fh.m2m_ctx))
+			msleep(20);
 
+		v4l2_info(&vv->v4l2_dev, "decoder send CMD STOP\n");
 		current_state = stream->state;
 		stream->state = STREAM_STATE_DRAIN;
 		ret = virtio_video_cmd_stream_drain(vv, stream->stream_id);
@@ -284,6 +283,8 @@ static int virtio_video_decoder_cmd(struct file *file, void *fh,
 			v4l2_err(&vv->v4l2_dev, "failed to drain stream\n");
 			return ret;
 		}
+		v4l2_m2m_set_src_buffered(stream->fh.m2m_ctx, true);
+		v4l2_m2m_try_schedule(stream->fh.m2m_ctx);
 		break;
 	default:
 		return -EINVAL;
@@ -350,6 +351,8 @@ static int virtio_video_dec_enum_fmt_vid_out(struct file *file, void *fh,
 	list_for_each_entry(fmt, &vvd->input_fmt_list, formats_list_entry) {
 		if (f->index == idx) {
 			f->pixelformat = fmt->desc.format;
+			f->flags = 0;
+			f->flags = V4L2_FMT_FLAG_DYN_RESOLUTION | V4L2_FMT_FLAG_COMPRESSED;
 			return 0;
 		}
 		idx++;

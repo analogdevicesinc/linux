@@ -22,6 +22,8 @@
 #include <media/v4l2-event.h>
 #include <media/v4l2-ioctl.h>
 #include <media/videobuf2-dma-sg.h>
+#include <xen/grant_table.h>
+#include <xen/page.h>
 
 #include "virtio_video.h"
 #include "virtio_video_dec.h"
@@ -92,15 +94,18 @@ static int virtio_video_send_resource_create_object(struct vb2_buffer *vb,
 	int queue_type;
 	int ret;
 	bool *destroyed;
+	bool *try_destroy;
 	uint32_t plane_offsets[VIRTIO_VIDEO_MAX_PLANES];
 	int i;
 
 	if (V4L2_TYPE_IS_OUTPUT(vb->vb2_queue->type)) {
 		queue_type = VIRTIO_VIDEO_QUEUE_TYPE_INPUT;
 		destroyed = &stream->src_destroyed;
+		try_destroy = &stream->src_try_destroy;
 	} else {
 		queue_type = VIRTIO_VIDEO_QUEUE_TYPE_OUTPUT;
 		destroyed = &stream->dst_destroyed;
+		try_destroy = &stream->dst_try_destroy;
 	}
 
 	ent = kcalloc(1, sizeof(*ent), GFP_KERNEL);
@@ -136,6 +141,7 @@ static int virtio_video_send_resource_create_object(struct vb2_buffer *vb,
 	virtio_vb->num_planes = vb->num_planes;
 	memcpy(virtio_vb->plane_offsets, plane_offsets, sizeof(plane_offsets));
 	*destroyed = false;
+	*try_destroy = false;
 
 	return 0;
 }
@@ -143,18 +149,21 @@ static int virtio_video_send_resource_create_object(struct vb2_buffer *vb,
 static int virtio_video_buf_init_guest_pages(struct vb2_buffer *vb)
 {
 	int ret = 0;
-	unsigned int i, j;
+	unsigned int i, j, k;
 	struct scatterlist *sg;
 	struct virtio_video_mem_entry *ents;
 	uint32_t num_ents[VIRTIO_VIDEO_MAX_PLANES];
 	struct sg_table *sgt[VIRTIO_VIDEO_MAX_PLANES];
 	uint32_t resource_id, nents = 0;
+	uint32_t grant_cnt;
+	uint64_t cpu_plane_addr;
 	struct vb2_queue *vq = vb->vb2_queue;
 	enum v4l2_buf_type queue_type = vq->type;
 	struct virtio_video_stream *stream = vb2_get_drv_priv(vq);
 	struct virtio_video_buffer *virtio_vb = to_virtio_vb(vb);
 	struct virtio_video_device *vvd = to_virtio_vd(stream->video_dev);
 	struct virtio_video *vv = vvd->vv;
+	grant_ref_t gref_head;
 
 	virtio_video_resource_id_get(vv, &resource_id);
 
@@ -185,11 +194,32 @@ static int virtio_video_buf_init_guest_pages(struct vb2_buffer *vb)
 			return -ENOMEM;
 
 		for (i = 0; i < vb->num_planes; ++i) {
-			ents[i].addr =
-				cpu_to_le64(vb2_dma_contig_plane_dma_addr(vb,
-									  i));
+			cpu_plane_addr = vb2_dma_contig_plane_dma_addr(vb, i);
+			ents[i].addr = cpu_to_le64(cpu_plane_addr);
 			ents[i].length = cpu_to_le32(vb->planes[i].length);
 			num_ents[i] = 1;
+			grant_cnt = (vb->planes[i].length + XEN_PAGE_SIZE - 1) / XEN_PAGE_SIZE;
+			if (grant_cnt > 4096) {
+				v4l2_err(&vv->v4l2_dev, "grant cnt is too large %d\n", grant_cnt);
+				continue;
+			}
+
+			ret = gnttab_alloc_grant_reference_seq(grant_cnt,
+							       &gref_head);
+			if (ret) {
+				v4l2_err(&vv->v4l2_dev, "alloc ref table fail\n");
+				continue;
+			}
+
+			for (k = 0; k < grant_cnt; k++) {
+				gnttab_grant_foreign_access_ref(gref_head + k, 0,
+								(cpu_plane_addr >> XEN_PAGE_SHIFT)
+								+ k, 0);
+			}
+			ents[i].grant_ref_count = cpu_to_le32(grant_cnt);
+			ents[i].grant_ref_header = cpu_to_le32(gref_head);
+			virtio_vb->grant_ref_head = gref_head;
+			virtio_vb->grant_ref_count = grant_cnt;
 		}
 	}
 
@@ -213,6 +243,13 @@ static int virtio_video_buf_init_guest_pages(struct vb2_buffer *vb)
 
 	virtio_vb->queued = false;
 	virtio_vb->resource_id = resource_id;
+	if (V4L2_TYPE_IS_OUTPUT(vb->vb2_queue->type)) {
+		stream->src_destroyed = false;
+		stream->src_try_destroy = false;
+	} else {
+		stream->dst_destroyed = false;
+		stream->dst_try_destroy = false;
+	}
 
 	return 0;
 }
@@ -319,8 +356,36 @@ void virtio_video_buf_cleanup(struct vb2_buffer *vb)
 	struct virtio_video_buffer *virtio_vb = to_virtio_vb(vb);
 	struct virtio_video_device *vvd = to_virtio_vd(stream->video_dev);
 	struct virtio_video *vv = vvd->vv;
+	int ret;
+
+	if (V4L2_TYPE_IS_OUTPUT(vb->vb2_queue->type)) {
+		if (!stream->src_try_destroy) {
+			virtio_video_cmd_resource_destroy_all(vv, stream,
+							      VIRTIO_VIDEO_QUEUE_TYPE_INPUT);
+		}
+
+		ret = wait_event_timeout(vv->wq,
+					 stream->src_destroyed, 1 * HZ);
+	} else {
+		if (!stream->dst_try_destroy) {
+			virtio_video_cmd_resource_destroy_all(vv, stream,
+							      VIRTIO_VIDEO_QUEUE_TYPE_OUTPUT);
+		}
+
+		ret = wait_event_timeout(vv->wq,
+					 stream->dst_destroyed, 1 * HZ);
+	}
+
+	if (ret == 0)
+		v4l2_err(&vv->v4l2_dev, "timed out waiting for destroy resource\n");
 
 	virtio_video_resource_id_put(vv, virtio_vb->resource_id);
+
+	for (int i = 0; i < virtio_vb->grant_ref_count; i++)
+		gnttab_end_foreign_access_ref(virtio_vb->grant_ref_head + i);
+
+	gnttab_free_grant_reference_seq(virtio_vb->grant_ref_head, virtio_vb->grant_ref_count);
+
 }
 
 int virtio_video_querycap(struct file *file, void *fh,
@@ -526,6 +591,13 @@ int virtio_video_s_fmt(struct file *file, void *fh, struct v4l2_format *f)
 
 	virtio_video_format_from_info(p_info, pix_mp);
 
+	if (f->type == V4L2_BUF_TYPE_VIDEO_OUTPUT_MPLANE) {
+		stream->colorspace = pix_mp->colorspace;
+		stream->ycbcr_enc = pix_mp->ycbcr_enc;
+		stream->quantization = pix_mp->quantization;
+		stream->xfer_func = pix_mp->xfer_func;
+	}
+
 	return 0;
 }
 
@@ -702,7 +774,15 @@ int virtio_video_try_fmt(struct virtio_video_stream *stream,
 		pix_mp->num_planes = 1;
 		if (pix_mp->plane_fmt[0].sizeimage < 1024 * 1024)
 			pix_mp->plane_fmt[0].sizeimage = 1024 * 1024;
+
+		if (pix_mp->plane_fmt[0].sizeimage > 4 * 1024 * 1024)
+			pix_mp->plane_fmt[0].sizeimage = 4 * 1024 * 1024;
 	}
+
+	f->fmt.pix_mp.colorspace = stream->colorspace;
+	f->fmt.pix_mp.xfer_func = stream->ycbcr_enc;
+	f->fmt.pix_mp.ycbcr_enc = stream->quantization;
+	f->fmt.pix_mp.quantization = stream->xfer_func;
 
 	return 0;
 }
@@ -898,7 +978,7 @@ int virtio_video_update_params(struct virtio_video *vv,
 }
 
 void virtio_video_buf_done(struct virtio_video_buffer *virtio_vb,
-			   uint32_t flags, uint64_t timestamp, uint32_t size)
+			   uint32_t flags, uint64_t timestamp, uint32_t size, uint32_t sequence)
 {
 	int i;
 	enum vb2_buffer_state done_state = VB2_BUF_STATE_DONE;
@@ -927,11 +1007,9 @@ void virtio_video_buf_done(struct virtio_video_buffer *virtio_vb,
 		// Lock stream mutex as 'virtio_video_buf_done' can be called in
 		// response to a V4L2_ENC_CMD_STOP command before handling of the
 		// command has completed (see b/186588566).
-		mutex_lock(&stream->event_mutex);
 		v4l2_vb->flags |= V4L2_BUF_FLAG_LAST;
 		stream->state = STREAM_STATE_STOPPED;
-		mutex_unlock(&stream->event_mutex);
-		virtio_video_queue_eos_event(stream);
+		v4l2_vb->field = V4L2_FIELD_NONE;
 	}
 
 	/*
@@ -960,6 +1038,8 @@ void virtio_video_buf_done(struct virtio_video_buffer *virtio_vb,
 			break;
 		case VIRTIO_VIDEO_DEVICE_DECODER:
 			p_info = &stream->out_info;
+			v4l2_vb->sequence = sequence;
+			v4l2_vb->field = V4L2_FIELD_NONE;
 			/*
 			 * If the currently set V4L2 format is single-planar,
 			 * then all the component planes are laid one after
@@ -1119,6 +1199,10 @@ static int virtio_video_device_open(struct file *file)
 	stream->state = STREAM_STATE_IDLE;
 	stream->src_destroyed = true;
 	stream->dst_destroyed = true;
+	stream->colorspace = V4L2_COLORSPACE_DEFAULT;
+	stream->ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
+	stream->quantization = V4L2_QUANTIZATION_DEFAULT;
+	stream->xfer_func = V4L2_XFER_FUNC_DEFAULT;
 	mutex_init(&stream->event_mutex);
 
 	ret = virtio_video_cmd_get_params(vv, stream,
@@ -1140,16 +1224,6 @@ static int virtio_video_device_open(struct file *file)
 	if (ret) {
 		v4l2_err(&vv->v4l2_dev, "failed to get stream profile\n");
 		goto err_stream_get_params;
-	}
-
-	if (vvd->type == VIRTIO_VIDEO_DEVICE_DECODER &&
-	    stream->in_info.fourcc_format == VIRTIO_VIDEO_FORMAT_H264) {
-		ret = virtio_video_cmd_get_control(vv, stream,
-						   VIRTIO_VIDEO_CONTROL_LEVEL);
-		if (ret) {
-			v4l2_err(&vv->v4l2_dev, "failed to get stream level\n");
-			goto err_stream_get_params;
-		}
 	}
 
 	if (vvd->type == VIRTIO_VIDEO_DEVICE_ENCODER) {
@@ -1179,6 +1253,14 @@ static int virtio_video_device_open(struct file *file)
 		if (ret) {
 			v4l2_err(&vv->v4l2_dev,
 				 "failed to get stream prepend SPS/PPS to IDR control\n");
+			goto err_stream_get_params;
+		}
+
+		ret = virtio_video_cmd_get_control(vv, stream,
+						   VIRTIO_VIDEO_CONTROL_GOP_SIZE);
+		if (ret) {
+			v4l2_err(&vv->v4l2_dev,
+				 "failed to get stream gop size control\n");
 			goto err_stream_get_params;
 		}
 	}

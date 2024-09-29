@@ -278,7 +278,8 @@ struct virtio_video_stream_drain {
 struct virtio_video_mem_entry {
 	__le64 addr;
 	__le32 length;
-	__u8 padding[4];
+	__le32 grant_ref_count;
+	__le32 grant_ref_header;
 };
 
 struct virtio_video_object_entry {
@@ -330,6 +331,7 @@ struct virtio_video_resource_queue_resp {
 	__le64 timestamp;
 	__le32 flags; /* One of VIRTIO_VIDEO_BUFFER_FLAG_* flags */
 	__le32 size; /* Encoded size */
+	__le32 sequence;
 };
 
 /* VIRTIO_VIDEO_CMD_RESOURCE_DESTROY_ALL */
@@ -400,6 +402,7 @@ enum virtio_video_control_type {
 	VIRTIO_VIDEO_CONTROL_BITRATE_MODE,
 	VIRTIO_VIDEO_CONTROL_BITRATE_PEAK,
 	VIRTIO_VIDEO_CONTROL_PREPEND_SPSPPS_TO_IDR,
+	VIRTIO_VIDEO_CONTROL_GOP_SIZE,
 };
 
 struct virtio_video_query_control_profile {
@@ -473,6 +476,11 @@ struct virtio_video_control_val_level {
 
 struct virtio_video_control_val_prepend_spspps_to_idr {
 	__le32 prepend_spspps_to_idr;
+	__u8 padding[4];
+};
+
+struct virtio_video_control_val_gop_size {
+	__le32 gop;
 	__u8 padding[4];
 };
 

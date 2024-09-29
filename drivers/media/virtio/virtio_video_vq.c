@@ -21,6 +21,7 @@
  */
 
 #include "virtio_video.h"
+#include <linux/delay.h>
 
 #include "trace.h"
 
@@ -382,8 +383,8 @@ static void virtio_video_event_cb(struct virtio_video *vv,
 
 	switch (event_type) {
 	case VIRTIO_VIDEO_EVENT_DECODER_RESOLUTION_CHANGED:
-		virtio_video_update_params(vv, stream, NULL, NULL);
 		virtio_video_queue_res_chg_event(stream);
+		virtio_video_update_params(vv, stream, NULL, NULL);
 		if (stream->state == STREAM_STATE_INIT) {
 			stream->state = STREAM_STATE_METADATA;
 			wake_up(&vv->wq);
@@ -593,6 +594,11 @@ int virtio_video_cmd_resource_destroy_all(struct virtio_video *vv,
 	struct virtio_video_resource_destroy_all *req_p;
 	struct virtio_video_vbuffer *vbuf;
 
+	if (qtype == VIRTIO_VIDEO_QUEUE_TYPE_INPUT)
+		stream->src_try_destroy = true;
+	else
+		stream->dst_try_destroy = true;
+
 	req_p = virtio_video_alloc_req_resp
 		(vv, &virtio_video_cmd_resource_destroy_all_cb,
 		 &vbuf, sizeof(*req_p),
@@ -613,7 +619,7 @@ static void
 virtio_video_cmd_resource_queue_cb(struct virtio_video *vv,
 				   struct virtio_video_vbuffer *vbuf)
 {
-	uint32_t stream_id, flags, bytesused, queue_type;
+	uint32_t stream_id, flags, bytesused, queue_type, sequence;
 	uint64_t timestamp;
 	struct virtio_video_buffer *virtio_vb = vbuf->priv;
 	struct virtio_video_resource_queue *req =
@@ -627,12 +633,13 @@ virtio_video_cmd_resource_queue_cb(struct virtio_video *vv,
 	flags = le32_to_cpu(resp->flags);
 	bytesused = le32_to_cpu(resp->size);
 	timestamp = le64_to_cpu(resp->timestamp);
+	sequence = le32_to_cpu(resp->sequence);
 
 	trace_virtio_video_resource_queue_done(stream_id,
 		virtio_vb->resource_id, &bytesused, 1, queue_type,
 		timestamp);
 
-	virtio_video_buf_done(virtio_vb, flags, timestamp, bytesused);
+	virtio_video_buf_done(virtio_vb, flags, timestamp, bytesused, sequence);
 }
 
 int virtio_video_cmd_resource_queue(struct virtio_video *vv, uint32_t stream_id,
@@ -1095,6 +1102,27 @@ virtio_video_cmd_get_ctrl_prepend_spspps_to_idr(struct virtio_video *vv,
 	wake_up(&vv->wq);
 }
 
+static void
+virtio_video_cmd_get_ctrl_gop_size(struct virtio_video *vv,
+				   struct virtio_video_vbuffer *vbuf)
+{
+	struct virtio_video_get_control_resp *resp =
+		(struct virtio_video_get_control_resp *)vbuf->resp_buf;
+	struct virtio_video_control_val_gop_size *resp_ps = NULL;
+	struct virtio_video_stream *stream = vbuf->priv;
+	struct video_control_info *control = &stream->control;
+
+	if (!control)
+		return;
+
+	resp_ps = (void *)((char *)resp +
+			   sizeof(struct virtio_video_get_control_resp));
+
+	control->gop = le32_to_cpu(resp_ps->gop);
+	control->is_updated = true;
+	wake_up(&vv->wq);
+}
+
 int virtio_video_cmd_get_control(struct virtio_video *vv,
 				 struct virtio_video_stream *stream,
 				 uint32_t virtio_ctrl)
@@ -1134,6 +1162,10 @@ int virtio_video_cmd_get_control(struct virtio_video *vv,
 		resp_size += sizeof(
 			struct virtio_video_control_val_prepend_spspps_to_idr);
 		cb = &virtio_video_cmd_get_ctrl_prepend_spspps_to_idr;
+		break;
+	case VIRTIO_VIDEO_CONTROL_GOP_SIZE:
+		resp_size += sizeof(struct virtio_video_control_val_gop_size);
+		cb = &virtio_video_cmd_get_ctrl_gop_size;
 		break;
 	default:
 		return -1;
@@ -1177,6 +1209,7 @@ int virtio_video_cmd_set_control(struct virtio_video *vv, uint32_t stream_id,
 	struct virtio_video_control_val_bitrate_peak *ctrl_bp = NULL;
 	struct virtio_video_control_val_bitrate_mode *ctrl_bm = NULL;
 	struct virtio_video_control_val_prepend_spspps_to_idr *ctrl_ps = NULL;
+	struct virtio_video_control_val_gop_size *ctrl_gop = NULL;
 	size_t size;
 
 	if (!vv || value == 0)
@@ -1203,6 +1236,9 @@ int virtio_video_cmd_set_control(struct virtio_video *vv, uint32_t stream_id,
 		break;
 	case VIRTIO_VIDEO_CONTROL_PREPEND_SPSPPS_TO_IDR:
 		size = sizeof(struct virtio_video_control_val_prepend_spspps_to_idr);
+		break;
+	case VIRTIO_VIDEO_CONTROL_GOP_SIZE:
+		size = sizeof(struct virtio_video_control_val_gop_size);
 		break;
 	default:
 		return -1;
@@ -1249,6 +1285,11 @@ int virtio_video_cmd_set_control(struct virtio_video *vv, uint32_t stream_id,
 		ctrl_ps = (void *)((char *)req_p +
 				  sizeof(struct virtio_video_set_control));
 		ctrl_ps->prepend_spspps_to_idr = cpu_to_le32(value);
+		break;
+	case VIRTIO_VIDEO_CONTROL_GOP_SIZE:
+		ctrl_gop = (void *)((char *)req_p +
+				  sizeof(struct virtio_video_set_control));
+		ctrl_gop->gop = cpu_to_le32(value);
 		break;
 	}
 
