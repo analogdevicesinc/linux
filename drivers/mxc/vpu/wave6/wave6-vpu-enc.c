@@ -5,6 +5,7 @@
  * Copyright (C) 2021 CHIPS&MEDIA INC
  */
 #include <linux/pm_runtime.h>
+#include <linux/swiotlb.h>
 #include "wave6-vpu.h"
 #include "wave6-vpu-dbg.h"
 
@@ -706,6 +707,15 @@ static int wave6_vpu_enc_start_encode(struct vpu_instance *inst)
 			frame_buf.buf_cb = wave6_get_dma_addr(src_buf, 1);
 			frame_buf.buf_cr = wave6_get_dma_addr(src_buf, 2);
 		}
+		for (int i = 0; i < inst->src_fmt.num_planes; i++) {
+			dma_addr_t daddr = vb2_dma_contig_plane_dma_addr(&src_buf->vb2_buf, i);
+
+			if (is_swiotlb_buffer(inst->dev->dev, daddr)) {
+				dma_sync_single_for_device(inst->dev->dev, daddr,
+							   inst->src_fmt.plane_fmt[i].sizeimage,
+							   DMA_BIDIRECTIONAL);
+			}
+		}
 		wave6_update_frame_buf_addr(inst, &frame_buf);
 		frame_buf.stride = stride;
 		pic_param.src_idx = src_buf->vb2_buf.index;
@@ -812,6 +822,9 @@ static void wave6_handle_encoded_frame(struct vpu_instance *inst,
 		inst->error_recovery = true;
 		inst->error_buf_num++;
 	}
+	if (is_swiotlb_buffer(inst->dev->dev, info->bitstream_buffer))
+		dma_sync_single_for_cpu(inst->dev->dev, info->bitstream_buffer,
+					info->bitstream_size, DMA_BIDIRECTIONAL);
 	v4l2_m2m_buf_done(dst_buf, state);
 	inst->processed_buf_num++;
 
