@@ -1015,29 +1015,24 @@
 		};
 
 		usb31: usb1@11000000 {
-			compatible = "intel,agilex5-dwc3";
+			compatible = "intel,agilex5-dwc3", "snps,dwc3";
 			reg = <0x11000000 0x100000>;
 			ranges;
 			#address-cells = <1>;
 			#size-cells = <1>;
+			interrupts = <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&clkmgr AGILEX5_USB31_SUSPEND_CLK>,
 				 <&clkmgr AGILEX5_USB31_BUS_CLK_EARLY>;
 			resets = <&rst USB1_RESET>, <&rst USB1_OCP_RESET>;
 			reset-names = "dwc3", "dwc3-ecc";
+			iommus = <&smmu 7>;
+			phys = <&usbphy0>, <&usbphy0>;
+			phy-names = "usb2-phy", "usb3-phy";
+			maximum-speed = "super-speed";
+			snps,dis_u2_susphy_quirk;
+			snps,dis_u3_susphy_quirk;
+			snps,dma_set_40_bit_mask_quirk;
 			status = "disabled";
-
-			dwc3_0: usb@11000000{
-				compatible = "snps,dwc3";
-				reg = <0x11000000 0x100000>;
-				interrupts = <GIC_SPI 94 IRQ_TYPE_LEVEL_HIGH>;
-				iommus = <&smmu 7>;
-				phys = <&usbphy0>, <&usbphy0>;
-				phy-names = "usb2-phy", "usb3-phy";
-				maximum-speed = "super-speed";
-				snps,dis_u2_susphy_quirk;
-				snps,dis_u3_susphy_quirk;
-				snps,dma_set_40_bit_mask_quirk;
-			};
 		};
 
 		eccmgr {
