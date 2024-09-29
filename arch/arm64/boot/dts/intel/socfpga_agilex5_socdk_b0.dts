@@ -151,9 +151,6 @@
 
 &usb31 {
 	status = "okay";
-};
-
-&dwc3_0 {
 	dr_mode = "host";
 };
 

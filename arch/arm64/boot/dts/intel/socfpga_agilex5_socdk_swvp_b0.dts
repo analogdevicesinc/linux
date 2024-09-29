@@ -208,9 +208,6 @@
 
 &usb31 {
 	status = "okay";
-};
-
-&dwc3_0 {
 	extcon = <&extcon_usb1>;
 	dr_mode = "host";
 };
