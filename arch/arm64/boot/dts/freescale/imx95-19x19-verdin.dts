@@ -224,6 +224,12 @@
 	status = "disabled";
 };
 
+&lpuart5 {
+	bluetooth {
+		fw-init-baudrate = <115200>;
+	};
+};
+
 &scmi_iomuxc {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_hog>;
