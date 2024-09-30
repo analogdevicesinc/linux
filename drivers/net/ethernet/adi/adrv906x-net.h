@@ -8,10 +8,12 @@
 
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
+#include <linux/net_tstamp.h>
 #include "adrv906x-ndma.h"
 #include "adrv906x-mac.h"
 #include "adrv906x-switch.h"
 #include "adrv906x-macsec-ext.h"
+#include "adrv906x-tsu.h"
 
 #define REGMAP_RESET_SWITCH                  BIT(0)
 #define REGMAP_RESET_PCS_MAC0                BIT(4)
@@ -87,6 +89,7 @@ struct adrv906x_eth_dev {
 	struct hwtstamp_config tstamp_config;
 	struct adrv906x_mac mac;
 	struct adrv906x_oran_if oif;
+	struct adrv906x_tsu tsu;
 #if IS_ENABLED(CONFIG_MACSEC)
 	struct adrv906x_macsec_priv macsec;
 #endif // IS_ENABLED(CONFIG_MACSEC)

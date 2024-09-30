@@ -53,6 +53,38 @@ properties:
                      from OTP or NVMEM.
                      If the property is defined with any value including 0
                      then it is not updated by U-Boot.
+      static-phy-delay-tx-ns:
+        description: static phy delay for tx channel,this is the
+                     integer portion in units of ns
+        default: 0
+        minimum: 0
+        maximum: 0xFFFF
+
+      static-phy-delay-tx-frac-ns:
+        description: static phy delay for tx channel, this is the
+                     fractional portion in units of 2^(-16)ns.
+                     for example, 1.125ns is represented by 1ns
+                     and the frac-ns = 0x2000
+        default: 0
+        minimum: 0
+        maximum: 0xFFFF
+
+      static-phy-delay-rx-ns:
+        description: static phy delay for rx channel,this is the
+                     integer portion in units of ns
+        default: 0
+        minimum: 0
+        maximum: 0xFFFF
+
+      static-phy-delay-rx-frac-ns:
+        description: static phy delay for rx channel, this is the
+                     fractional portion in units of 2^(-16)ns.
+                     for example, 1.125ns is represented by 1ns
+                     and the frac-ns = 0x2000
+        default: 0
+        minimum: 0
+        maximum: 0xFFFF
+
     patternProperties:
       "^port@[0-9]+$":
         type: object
@@ -62,13 +94,15 @@ properties:
             $ref: /schemas/types.yaml#definitions/uint32
             description: port id for the ethernet device
           reg:
-            maxItems: 3
+            maxItems: 4
             description: The address and size of the register must be
                          in the below list order!
               - The physical base address and size of the XMAC registers
               - The physical base address and size of the EMAC TX control
                 registers
               - The physical base address and size of the EMAC RX control
+                registers
+              - The physical base address and size of the TSU control
                 registers
         additionalProperties: false
     additionalProperties: false
@@ -126,6 +160,29 @@ properties:
           - const: OIF_1_TX_CTRL
     additionalProperties: false
 
+  mdio_if:
+    type: object
+    properties:
+      reg:
+        items:
+          description: Enable MDIO bus interface binding for PHY control
+     regnames:
+	items:
+          - const EMAC_PCS_0_BASE
+          - const EMAC_PCS_1_BASE
+    patternProperties:
+      "^_phy@[0-9a-f]+$":
+        type: object
+        properties:
+          reg:
+            minimum: 0
+            maxumum: 31
+            description:
+              The ID number for the device
+        compatible:
+          const: ethernet-phy-ieee802.3-c45
+          description: PHY implements IEEE802.3 clause 45
+           
   eth_recov_clk:
     type: object
     properties:
@@ -186,7 +243,7 @@ unevaluatedProperties: false
 
 examples:
   - |
-    adrv906x_net: adi_eth_node@EMAC_CMN_BASE_UADDR {
+    adrv906x_net0: adrv906x_net@EMAC_CMN_BASE_UADDR {
       compatible = "adi,adrv906x-net";
       reg = <EMAC_CMN_BASE 0x3004>;
       '#address-cells = <1>;'
@@ -194,57 +251,77 @@ examples:
 
       ethernet-ports {
         port@0 {
-        id = <0>;
-        reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>,
-              <EMAC_MAC_0_RX 0x9c>;
-        macsec = <EMAC_MACSEC_0_BASE 0xa00>;
-        interrupts = <GIC_SPI MACSEC_IRQ_0 IRQ_TYPE_LEVEL_HIGH>;
-        interrupt-names = "ts_event";
-        ndma-handle = <&ndma0>;
-        phy-handle = <&adi_phy0>;
-        phy-mode = "rmii";
+          id = <0>;
+          reg = <EMAC_MAC_0_BASE 0x14>, <EMAC_MAC_0_TX 0x70>, 
+                <EMAC_MAC_0_RX 0x9c>, <EMAC_PCS_0_TSU 0x44>;
+          phy-handle = <&adrv906x_phy0>;
+          phy-mode = "rmii";
+          mac-address = [ 00 00 00 00 00 00 ]; /* will not be filled in
+                                                  by u-boot */
+          ndma-handle = <&ndma0>;
+          static-phy-delay-tx-ns = <0>;
+          static-phy-delay-tx-frac-ns = <0>;
+          static-phy-delay-rx-ns = <0>;
+          static-phy-delay-rx-frac-ns = <0>;
+        }; 
+        port@1 {
+          id = <1>;
+          reg = <EMAC_MAC_1_BASE 0x14>, <EMAC_MAC_1_TX 0x70>,
+                <EMAC_MAC_1_RX 0x9c>, <EMAC_PCS_1_TSU 0x44>;
+          phy-handle = <&adrv906x_phy1>;
+          phy-mode = "rmii";
+          mac-address = [ 00 00 00 00 00 00 ]; /* will not be filled in
+                                                  by u-boot */
+          ndma-handle = <&ndma1>;
+          static-phy-delay-tx-ns = <0>;
+          static-phy-delay-tx-frac-ns = <0>;
+          static-phy-delay-rx-ns = <0>;
+          static-phy-delay-rx-frac-ns = <0>;
+        };
       };
-      port@1 {
-        id = <1>;
-        reg = <EMAC_MAC_1_BASE 0x14>, <EMAC_MAC_1_TX 0x70>,
-              <EMAC_MAC_1_RX 0x9c>;
-        macsec = <EMAC_MACSEC_1_BASE 0xa00>;
-        interrupts = <GIC_SPI MACSEC_IRQ_1 IRQ_TYPE_LEVEL_HIGH>;
-        interrupt-names = "ts_event";
-        ndma-handle = <&ndma1>;
-        phy-handle = <&adi_phy1>;
-        mac-address = [ 00 00 00 00 00 00 ]; /* will not be filled in
-                                              by u-boot */
-        phy-mode = "rmii";
-      };
-    };
-    oran_if {
-      reg = <OIF_0_RX_CTRL 0x4>, <OIF_0_TX_CTRL 0x4>,
-      <OIF_1_RX_CTRL 0x4>, <OIF_1_TX_CTRL 0x4>;
 
-    };
-    eth_recov_clk {
-      reg = <EMAC_RECOVERED_CLK_CTRL 0x4>;
-    };
+      oran_if {
+        reg = <OIF_0_RX_CTRL 0x4>, <OIF_0_TX_CTRL 0x4>,
+              <OIF_1_RX_CTRL 0x4>, <OIF_1_TX_CTRL 0x4>;
 
-    eth_switch {
-      reg = <EMAC_SW_BASE 0x30 EMAC_SW_MAE_BASE 0x30>;
-      interrupt-names = "switch_error_0", "switch_error_1";
-      interrupts = <GIC_SPI ETH_IRQ_PCS_RX_ERROR_0 IRQ_TYPE_LEVEL_HIGH>,
-                   <GIC_SPI ETH_IRQ_PCS_RX_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;
-      switch_port0:switch-port@0 {
-        id = <0>;
-        reg = <EMAC_SW_PORT_0_BASE 0x400>;
       };
-      switch_port1:switch-port@1 {
-        id = <1>;
-        reg = <EMAC_SW_PORT_1_BASE 0x400>;
+
+      mdio_if {
+        reg = <EMAC_PCS_0_BASE 0x350>, <EMAC_PCS_1_BASE 0x350>;
+        '#address-cells = <1>;'
+        '#size-cells = <0>;'
+         adrv906x_phy0: ethernet-phy@0 {
+           compatible = "ethernet-phy-ieee802.3-c45";
+           reg = <0>;
+         };
+         adrv906x_phy1: ethernet-phy@1 {
+           compatible = "ethernet-phy-ieee802.3-c45";
+           reg = <1>;
+         };
+       };
+
+      eth_recov_clk {
+        reg = <EMAC_RECOVERED_CLK_CTRL 0x4>;
       };
-      switch_port2:switch-port@2 {
-        id = <2>;
-        reg = <EMAC_SW_PORT_2_BASE 0x400>;
+
+      eth_switch {
+        reg = <EMAC_SW_BASE 0x30 EMAC_SW_MAE_BASE 0x30>;
+        interrupt-names = "switch_error_0", "switch_error_1";
+        interrupts = <GIC_SPI ETH_IRQ_PCS_RX_ERROR_0 IRQ_TYPE_LEVEL_HIGH>,
+                     <GIC_SPI ETH_IRQ_PCS_RX_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;
+        switch_port0:switch-port@0 {
+          id = <0>;
+          reg = <EMAC_SW_PORT_0_BASE 0x400>;
+        };
+        switch_port1:switch-port@1 {
+          id = <1>;
+          reg = <EMAC_SW_PORT_1_BASE 0x400>;
+        };
+        switch_port2:switch-port@2 {
+          id = <2>;
+          reg = <EMAC_SW_PORT_2_BASE 0x400>;
+        };
       };
-    };
     };
 
     ndma0: ndma0@NDMA_0_TX_UADDR {

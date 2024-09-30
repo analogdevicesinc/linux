@@ -17,22 +17,46 @@
 			#size-cells = <1>;
 			port@0 {
 				id = <0>;
-				reg = <SEC_EMAC_MAC_0_BASE 0x14>, <SEC_EMAC_MAC_0_TX 0x70>, <SEC_EMAC_MAC_0_RX 0x9c>;
+				reg = <SEC_EMAC_MAC_0_BASE 0x14>, <SEC_EMAC_MAC_0_TX 0x70>, <SEC_EMAC_MAC_0_RX 0x9c>,
+					<SEC_EMAC_PCS_0_TSU 0x44>;
 				phy-handle = <&sec_adrv906x_phy0>;
 				phy-mode = "rmii";
 				ndma-handle = <&sec_ndma0>;
+				static-phy-delay-tx-ns = <0>;
+				static-phy-delay-tx-frac-ns = <0>;
+				static-phy-delay-rx-ns = <0>;
+				static-phy-delay-rx-frac-ns = <0>;
 			};
 			port@1 {
 				id = <1>;
-				reg = <SEC_EMAC_MAC_1_BASE 0x14>, <SEC_EMAC_MAC_1_TX 0x70>, <SEC_EMAC_MAC_1_RX 0x9c>;
+				reg = <SEC_EMAC_MAC_1_BASE 0x14>, <SEC_EMAC_MAC_1_TX 0x70>, <SEC_EMAC_MAC_1_RX 0x9c>,
+					<SEC_EMAC_PCS_1_TSU 0x44>;
 				phy-handle = <&sec_adrv906x_phy1>;
 				phy-mode = "rmii";
 				ndma-handle = <&sec_ndma1>;
+				static-phy-delay-tx-ns = <0>;
+				static-phy-delay-frac-ns = <0>;
+				static-phy-delay-rx-ns = <0>;
+				static-phy-delay-frac-ns = <0>;
 			};
 		};
 
 		oran_if {
 			reg = <SEC_OIF_0_RX_CTRL 0x4>, <SEC_OIF_0_TX_CTRL 0x4>, <SEC_OIF_1_RX_CTRL 0x4>, <SEC_OIF_1_TX_CTRL 0x4>;
+		};
+
+		mdio_if {
+			reg = <SEC_EMAC_PCS_0_BASE 0x350>, <SEC_EMAC_PCS_1_BASE 0x350>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+			adrv906x_phy0: ethernet-phy@0 {
+				compatible = "ethernet-phy-ieee802.3-c45";
+				reg = <0>;
+			};
+			adrv906x_phy1: ethernet-phy@1 {
+				compatible = "ethernet-phy-ieee802.3-c45";
+				reg = <1>;
+			};
 		};
 
 		eth_recov_clk {

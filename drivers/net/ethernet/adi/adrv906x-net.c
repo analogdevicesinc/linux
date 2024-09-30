@@ -10,7 +10,6 @@
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/ethtool.h>
-#include <linux/net_tstamp.h>
 #include <linux/skbuff.h>
 #include <linux/slab.h>
 #include <linux/of.h>
@@ -21,11 +20,13 @@
 #include <linux/string.h>
 #include <linux/bitfield.h>
 #include "adrv906x-ndma.h"
+#include "adrv906x-macsec-ext.h"
 #include "adrv906x-mac.h"
 #include "adrv906x-switch.h"
-#include "adrv906x-macsec-ext.h"
 #include "adrv906x-ethtool.h"
 #include "adrv906x-net.h"
+#include "adrv906x-mdio.h"
+#include "adrv906x-tsu.h"
 
 /* OIF register RX */
 #define OIF_RX_CTRL_EN                      BIT(0)
@@ -356,7 +357,11 @@ static DEVICE_ATTR_RW(adrv906x_eth_cdr_div_out_enable);
 static void adrv906x_eth_adjust_link(struct net_device *ndev)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	struct adrv906x_tsu *tsu;
 	struct phy_device *phydev = ndev->phydev;
+
+	tsu = &(adrv906x_dev->tsu);
+	adrv906x_tsu_set_speed(tsu, phydev);
 
 	if (!phydev->link) {
 		if (adrv906x_dev->link_speed) {
@@ -980,7 +985,6 @@ static int adrv906x_eth_dev_reg(struct platform_device *pdev,
 	priv->dev = dev;
 	priv->ndev = ndev;
 	priv->pdev = pdev;
-
 	ret = register_netdev(ndev);
 
 	if (ret) {
@@ -999,9 +1003,10 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 	struct net_device *ndev;
 	struct adrv906x_eth_if *eth_if;
 	struct adrv906x_eth_dev *adrv906x_dev;
+	struct adrv906x_tsu *tsu;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
-	struct device_node *eth_ports_np, *port_np, *oran_if_np, *eth_recov_clk_np, *ndma_np;
+	struct device_node *eth_ports_np, *port_np, *oran_if_np, *eth_recov_clk_np, *ndma_np, *mdio_np;
 	struct adrv906x_ndma_dev *ndma_devs[MAX_NETDEV_NUM] = { NULL };
 	unsigned int ndma_num;
 	int ret, i;
@@ -1025,6 +1030,9 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 	mutex_init(&eth_if->mtx);
 
 	adrv906x_eth_cdr_get_recovered_clk_divs(np, eth_if);
+
+	mdio_np = of_get_child_by_name(np, "mdio_if");
+	adrv906x_mdio_probe(pdev, ndev, mdio_np);
 
 	/* Get child node ethernet-ports */
 	eth_ports_np = of_get_child_by_name(np, "ethernet-ports");
@@ -1051,6 +1059,11 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 			continue;
 
 		ret = adrv906x_eth_dev_reg(pdev, &adrv906x_dev);
+		if (ret)
+			goto error;
+
+		tsu = &(adrv906x_dev->tsu);
+		ret = adrv906x_tsu_setup(pdev, tsu, port_np);
 		if (ret)
 			goto error;
 
@@ -1082,6 +1095,7 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 			dev_err(dev, "dt: failed to retrieve ndma phandle from device tree");
 			return -ENODEV;
 		}
+
 		if (of_property_read_u32(ndma_np, "id", &ndma_num)) {
 			dev_err(dev, "dt: failed to retrieve ndma device id from device tree");
 			return -ENODEV;
@@ -1100,6 +1114,7 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 				goto error_unregister_netdev;
 			}
 		}
+
 		adrv906x_dev->ndma_dev = ndma_devs[ndma_num];
 		dev_info(dev, "%s: connected to ndma%d", ndev->name, ndma_num);
 
@@ -1149,6 +1164,7 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 		if (ret)
 			goto error_unregister_netdev;
 	}
+
 	eth_if->tx_max_frames_pending =
 		eth_if->ethswitch.enabled ? NDMA_RING_SIZE / 2 : NDMA_RING_SIZE;
 
