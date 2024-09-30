@@ -724,30 +724,6 @@
 		status = "disabled";
 	};
 
-	adrv906x_mdio: mdio@EMAC_PCS_0_BASE_UADDR {
-		compatible = "adi,adrv906x-mdio";
-		reg = <EMAC_PCS_0_BASE 0x350>, <EMAC_PCS_0_TSU 0x44>,
-		      <EMAC_PCS_1_BASE 0x350>, <EMAC_PCS_1_TSU 0x44>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		adrv906x_phy0: ethernet-phy@0 {
-			compatible = "ethernet-phy-ieee802.3-c45";
-			reg = <0>;
-			static-phy-delay-tx-ns = <0>;
-			static-phy-delay-tx-frac-ns = <0>;
-			static-phy-delay-rx-ns = <0>;
-			static-phy-delay-rx-frac-ns = <0>;
-		};
-		adrv906x_phy1: ethernet-phy@1 {
-			compatible = "ethernet-phy-ieee802.3-c45";
-			reg = <1>;
-			static-phy-delay-tx-ns = <0>;
-			static-phy-delay-tx-frac-ns = <0>;
-			static-phy-delay-rx-ns = <0>;
-			static-phy-delay-rx-frac-ns = <0>;
-		};
-	};
-
 	ndma_reset_ctrl: reset@NDMA_RST_CTRL_UADDR{
 		reg = <NDMA_RST_CTRL 0x04>;
 	};

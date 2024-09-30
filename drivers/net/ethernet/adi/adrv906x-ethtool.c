@@ -11,7 +11,6 @@
 #include <linux/netdevice.h>
 #include <linux/etherdevice.h>
 #include <linux/phy.h>
-#include <linux/net_tstamp.h>
 #include <linux/ethtool.h>
 #include <linux/bitrev.h>
 #include <linux/completion.h>
@@ -23,14 +22,11 @@
 #include <net/udp.h>
 #include "adrv906x-net.h"
 #include "adrv906x-mac.h"
+#include "adrv906x-phy.h"
 #include "adrv906x-ethtool.h"
 
 #define NDMA_LOOPBACK_TEST_PATTERN              0x12
 #define NDMA_LOOPBACK_TEST_SIZE                 1024
-
-/* currently in 2 different files - will be fixed after phy driver relocation to drivers/net/ethernet/adi */
-#define ADRV906X_PHY_FLAGS_PCS_RS_FEC_EN        BIT(0)
-#define ADRV906X_PHY_FLAGS_LOOPBACK_TEST        BIT(1)
 
 /* TODO: Ugly global variable, need to be changed */
 #if IS_BUILTIN(CONFIG_PTP_1588_CLOCK_ADRV906X)
