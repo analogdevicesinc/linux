@@ -11,10 +11,7 @@
 #include <net/netlink.h>
 #include <net/genetlink.h>
 #include "adrv906x-phy-serdes.h"
-
-/* TODO replace with: '#include "adrv906x-net.h"' */
-void adrv906x_eth_cmn_serdes_tx_sync_trigger(struct net_device *adrv906x_dev, u32 lane);
-void adrv906x_eth_cmn_serdes_reset_4pack(struct net_device *ndev);
+#include "adrv906x-net.h"
 
 #define SERDES_GENL_NAME         "adrv906x"
 #define SERDES_GENL_VERSION      1
@@ -213,7 +210,7 @@ int adrv906x_serdes_send_message(u32 cmd, u32 lane, u32 speed)
 	return ret;
 }
 
-void adrv906x_serdes_lookup_transitions(struct adrv906x_serdes *serdes, u32 event)
+static void adrv906x_serdes_lookup_transitions(struct adrv906x_serdes *serdes, u32 event)
 {
 	struct adrv906x_serdes_transition *transition;
 	int i;
@@ -344,14 +341,14 @@ int adrv906x_serdes_start_cal_send(struct adrv906x_serdes *serdes)
 	return 0;
 }
 
-int adrv906x_serdes_stop_timer(struct adrv906x_serdes *serdes)
+static int adrv906x_serdes_stop_timer(struct adrv906x_serdes *serdes)
 {
 	cancel_delayed_work(&serdes->retry_send);
 
 	return 0;
 }
 
-int adrv906x_serdes_start_timer(struct adrv906x_serdes *serdes)
+static int adrv906x_serdes_start_timer(struct adrv906x_serdes *serdes)
 {
 	mod_delayed_work(system_long_wq, &serdes->retry_send,
 			 msecs_to_jiffies(SERDES_TIMEOUT_SECOND));
@@ -378,7 +375,7 @@ static void adrv906x_serdes_retry_start_cal_send(struct work_struct *work)
 	adrv906x_serdes_start_cal_send(serdes);
 }
 
-int adrv906x_serdes_start_pcs(struct adrv906x_serdes *serdes)
+static int adrv906x_serdes_start_pcs(struct adrv906x_serdes *serdes)
 {
 	struct phy_device *phydev = serdes->phydev;
 

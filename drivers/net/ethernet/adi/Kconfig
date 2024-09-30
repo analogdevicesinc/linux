@@ -27,6 +27,11 @@ config ADIN1110
 	  Low Power 10BASE-T1L Ethernet MAC-PHY.
 
 # SPDX-License-Identifier: GPL-2.0-only
+#
+config ADRV906X_PHY
+        tristate "ADRV906X Gigabit Ethernet PHY driver"
+        select LED_TRIGGER_PHY
+
 config ADRV906X_NET
     tristate "ADRV906X Ethernet MAC support"
     depends on ADRV906X_PHY && HAS_DMA
