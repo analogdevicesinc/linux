@@ -260,7 +260,7 @@
 									#size-cells = <0>;
 									reg = <0>;
 
-									adi,logical-lane-mapping = /bits/ 8 <0 2 7 6 1 5 4 3>;
+									adi,logical-lane-mapping = /bits/ 8 <7 5 0 1 6 2 3 4>;
 									adi,link-mode = <15>;			/* JESD Quick Configuration Mode */
 									adi,subclass = <1>;			/* JESD SUBCLASS 0,1,2 */
 									adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
