@@ -227,8 +227,7 @@ static int ad9783_timing_adjust(struct ad9783_phy *phy)
 			ret = ad9783_seek(phy);
 			if (ret < 0)
 				return ret;
-
-		} while (ret > 0 && hld < AD9783_MAX_HLD);
+		} while ((ret == table[smp][SEEK]) && hld < (AD9783_MAX_HLD - 1));
 
 		table[smp][HLD] = hld;
 		hld = 0;
@@ -250,7 +249,7 @@ static int ad9783_timing_adjust(struct ad9783_phy *phy)
 			if (ret < 0)
 				return ret;
 
-		} while (ret > 0 && set < AD9783_MAX_SET);
+		} while ((ret == table[smp][SEEK]) && set < (AD9783_MAX_SET - 1));
 
 		table[smp][SET] = set;
 	}
