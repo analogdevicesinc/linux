@@ -305,7 +305,7 @@ static void adrv906x_tod_hw_op_trig(struct adrv906x_tod_counter *counter, u8 op_
 }
 
 static int adrv906x_tod_hw_op_poll_reg(struct adrv906x_tod_counter *counter, u32 regaddr,
-				       u32 bit_mask, const struct adrv906x_tod_trig_delay *p_delay)
+				       u32 bit_mask, const struct adrv906x_tod_trig_delay *p_delay, bool done_high)
 {
 	u32 delay_cnt = TOD_MAX_DELAY_COUNT;
 	u8 done = 0;
@@ -315,14 +315,17 @@ static int adrv906x_tod_hw_op_poll_reg(struct adrv906x_tod_counter *counter, u32
 	while (!done && (delay_cnt != 0)) {
 		ndelay(p_delay->ns);
 		val = ioread32(counter->parent->regs + regaddr);
-		done = (val & bit_mask) == 0;
+
+		if (!done_high)
+			val = ~val;
+
+		done = (val & bit_mask) == bit_mask;
 		delay_cnt--;
 	}
 
 	if (!done) {
 		dev_err(counter->parent->dev,
-			"trigger operation hasn't been finished, delay configured: %llu ns, count:%d ",
-			p_delay->ns, delay_cnt);
+			"trigger operation hasn't been finished, delay configured: %llu ns", p_delay->ns);
 		err = -EAGAIN;
 	}
 
@@ -339,7 +342,7 @@ static int adrv906x_tod_hw_op_poll(struct adrv906x_tod_counter *counter, u8 op_f
 
 	reg_addr = adrv906x_tod_reg_op_poll[op_flag][trig_mode].regaddr;
 	bit_mask = BIT(adrv906x_tod_reg_op_poll[op_flag][trig_mode].bitshift + tod_idx);
-	err = adrv906x_tod_hw_op_poll_reg(counter, reg_addr, bit_mask, p_delay);
+	err = adrv906x_tod_hw_op_poll_reg(counter, reg_addr, bit_mask, p_delay, true);
 
 	return err;
 }
@@ -605,7 +608,7 @@ static int adrv906x_tod_hw_extts_enable(struct adrv906x_tod_counter *counter, u8
 
 	adrv906x_tod_hw_set_trigger_delay(counter, &trig_delay);
 	ret = adrv906x_tod_hw_op_poll_reg(counter, ADRV906X_TOD_CFG_IO_SOURCE,
-					  ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK, &trig_delay);
+					  ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK, &trig_delay, false);
 
 	return 0;
 }
@@ -663,7 +666,7 @@ static int adrv906x_tod_hw_pps_enable(struct adrv906x_tod_counter *counter, u8 e
 
 	adrv906x_tod_hw_set_trigger_delay(counter, &trig_delay);
 	ret = adrv906x_tod_hw_op_poll_reg(counter, ADRV906X_TOD_CFG_IO_SOURCE,
-					  ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK, &trig_delay);
+					  ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK, &trig_delay, false);
 
 	return ret;
 }
