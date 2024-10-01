@@ -45,6 +45,7 @@
 							     FIELD_PREP(M2K_DAC_FLAGS_RAW_ENABLE_CHAN_B_BIT, x))
 
 #define M2K_DAC_TRIGGER_CONDITION_MASK(x)	(0x155 << x)
+#define M2K_DAC_TRIGGER_AUTO_REARM		BIT(20)
 #define M2K_DAC_TRIGGER_SOURCE_MASK		GENMASK(19, 16)
 #define M2K_DAC_TRIGGER_EXT_SOURCE		GENMASK(17, 16)
 #define M2K_DAC_REG_RAW_PATTERN_CHAN_A_MASK	GENMASK(15, 0)
@@ -364,15 +365,53 @@ static ssize_t m2k_dac_write_dma_sync_start(struct device *dev,
 	return len;
 }
 
+static ssize_t m2k_dac_read_auto_rearm_trigger(struct device *dev,
+					       struct device_attribute *attr,
+					       char *buf)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	struct m2k_dac_ch *ch = iio_priv(indio_dev);
+	struct m2k_dac *m2k_dac = ch->dac;
+	unsigned int val;
+
+	val = ioread32(m2k_dac->regs + M2K_DAC_REG_INSTRUMENT_TRIGGER);
+	val &= M2K_DAC_TRIGGER_AUTO_REARM;
+
+	return sprintf(buf, "%d\n", val >> 20);
+}
+
+static ssize_t m2k_dac_write_auto_rearm_trigger(struct device *dev,
+						struct device_attribute *attr,
+						const char *buf, size_t len)
+{
+	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
+	bool val;
+	int ret;
+
+	ret = strtobool(buf, &val);
+	if (ret < 0)
+		return ret;
+
+	m2k_dac_reg_update(indio_dev, M2K_DAC_REG_INSTRUMENT_TRIGGER,
+			   val << 20,
+			   M2K_DAC_TRIGGER_AUTO_REARM);
+
+	return len;
+}
+
 static IIO_DEVICE_ATTR(dma_sync, 0664,
 	m2k_dac_read_dma_sync, m2k_dac_write_dma_sync, 0);
 
 static IIO_DEVICE_ATTR(dma_sync_start, 0664,
 	m2k_dac_read_dma_sync_start, m2k_dac_write_dma_sync_start, 0);
 
+static IIO_DEVICE_ATTR(auto_rearm_trigger, 0664,
+	m2k_dac_read_auto_rearm_trigger, m2k_dac_write_auto_rearm_trigger, 0);
+
 static struct attribute *m2k_dac_attributes[] = {
 	&iio_dev_attr_dma_sync.dev_attr.attr,
 	&iio_dev_attr_dma_sync_start.dev_attr.attr,
+	&iio_dev_attr_auto_rearm_trigger.dev_attr.attr,
 	NULL
 };
 
