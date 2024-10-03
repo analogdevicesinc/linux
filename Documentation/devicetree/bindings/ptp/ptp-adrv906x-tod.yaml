@@ -54,6 +54,12 @@ properties:
       If present, the PPS (not PPSX) output signal and trigger for the /dev/ppsX
       device(s) will be sourced from the input PPS signal.
 
+  adi,pps-in-pulse-width-ms:
+    description:
+      The expected pulse width of the input PPS signal in milliseconds.
+    minimum: 0
+    maximum: 1000
+
   adrv906x-tod:
     type: object
     properties:
