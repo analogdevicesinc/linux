@@ -124,13 +124,6 @@
 			clock-output-names = "jesd_adc_lane_clk";
 		};
 
-		axi_pulse_capture: axi-pulse-capture@9c700000 {
-			compatible = "adi,axi-pulse-capture-1.00.a";
-			reg = <0x9c700000 0x10000>;
-			interrupts = <0 104 4>;
-			clocks = <&axi_ad9094_adxcvr 1>;
-		};
-
 		rx_dma: rx-dmac@9c400000 {
 			compatible = "adi,axi-dmac-1.00.a";
 			reg = <0x9c400000 0x10000>;
@@ -144,9 +137,9 @@
 
 				dma-channel@0 {
 					reg = <0>;
-					adi,source-bus-width = <256>;
+					adi,source-bus-width = <128>;
 					adi,source-bus-type = <2>;
-					adi,destination-bus-width = <64>;
+					adi,destination-bus-width = <128>;
 					adi,destination-bus-type = <0>;
 				};
 			};
@@ -158,7 +151,6 @@
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
 			spibus-connected = <&ad9094>;
-			adi,axi-additional-channel-available;
 		};
 
 		axi_sysid: axi-sysid@85000000 {
@@ -179,11 +171,6 @@
 #define spi_vco		axi_spi_vco
 #define spi_clkgen	spi1
 #define spi_adc		spi0
-#define spi_afe_adc	axi_spi_afe_adc
 #define i2c_afe_dac	axi_i2c_afe_dac
 
 #include "adi-fmclidar1.dtsi"
-
-&ad7091 {
-	convst-gpios = <&gpio 115 0>;
-};
