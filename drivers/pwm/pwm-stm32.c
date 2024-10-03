@@ -327,7 +327,7 @@ static int stm32_pwm_write_waveform(struct pwm_chip *chip,
 				goto out;
 			}
 
-			regmap_read(priv->regmap, TIM_ARR, &arr);
+			ret = regmap_read(priv->regmap, TIM_ARR, &arr);
 			if (ret)
 				goto out;
 
