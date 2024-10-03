@@ -812,6 +812,7 @@
 		pinctrl-0 = <&pinctrl_one_pps>;
 		adi,ppsx-pulse-width-ns = <10000000>;
 		adi,external-pps;
+		adi,pps-in-pulse-width-ms = <500>;
 
 		adrv906x-tod {
 			adi,default-tod-counter = <0>;

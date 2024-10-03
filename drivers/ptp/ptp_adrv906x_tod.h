@@ -111,12 +111,18 @@ struct adrv906x_tod_counter {
 struct adrv906x_tod {
 	struct device *dev;
 	void __iomem *regs;
+	u16 ver_major;
+	u16 ver_minor;
 	u8 irq;
 	u8 tod_counter_src;
 	u8 external_pps;
 	u32 ppsx_pulse_width_ns;
 	u32 lc_freq_khz;                /* Clock frequency for the ToD counter block */
 	u32 gc_clk_freq_khz;            /* Clock frequency for the Golden counter block */
+	u16 pps_in_pulse_width_ms;      /* Input PPS pulse width in milliseconds */
+	bool pps_high;                  /* PPS state */
+	wait_queue_head_t pps_queue;    /* Wait queue for processes waiting on PPS signal */
+	struct delayed_work pps_work;   /* Clear PPS boolean work structure */
 	struct adrv906x_tod_cdc cdc;
 	struct adrv906x_tod_counter counter[ADRV906X_HW_TOD_COUNTER_CNT];
 	struct clk *lc_clk;
