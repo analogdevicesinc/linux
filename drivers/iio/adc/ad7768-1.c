@@ -19,6 +19,7 @@
 #include <linux/module.h>
 #include <linux/regulator/consumer.h>
 #include <linux/sysfs.h>
+#include "linux/util_macros.h"
 #include <linux/spi/spi.h>
 #include <linux/spi/spi-engine.h>
 
@@ -80,6 +81,10 @@
 #define AD7768_DIG_FIL_DEC_MSK		GENMASK(2, 0)
 #define AD7768_DIG_FIL_DEC_RATE(x)	FIELD_PREP(AD7768_DIG_FIL_DEC_MSK, x)
 
+/* AD7768_SINC3_DEC_RATE */
+#define AD7768_SINC3_DEC_RATE_MSB_MSK	GENMASK(12, 8)
+#define AD7768_SINC3_DEC_RATE_LSB_MSK	GENMASK(7, 0)
+
 /* AD7768_REG_CONVERSION */
 #define AD7768_CONV_MODE_MSK		GENMASK(2, 0)
 #define AD7768_CONV_MODE(x)		FIELD_PREP(AD7768_CONV_MODE_MSK, x)
@@ -121,22 +126,27 @@ enum ad7768_mclk_div {
 	AD7768_MCLK_DIV_2
 };
 
+enum ad7768_flt_mode {
+	SINC5,
+	SINC5_DEC_X8,
+	SINC5_DEC_X16,
+	SINC3,
+	WIDEBAND
+};
+
 enum ad7768_dec_rate {
 	AD7768_DEC_RATE_32 = 0,
 	AD7768_DEC_RATE_64 = 1,
 	AD7768_DEC_RATE_128 = 2,
 	AD7768_DEC_RATE_256 = 3,
 	AD7768_DEC_RATE_512 = 4,
-	AD7768_DEC_RATE_1024 = 5,
-	AD7768_DEC_RATE_8 = 9,
-	AD7768_DEC_RATE_16 = 10
+	AD7768_DEC_RATE_1024 = 5
 };
 
 struct ad7768_clk_configuration {
 	enum ad7768_mclk_div mclk_div;
 	enum ad7768_dec_rate dec_rate;
 	unsigned int clk_div;
-	enum ad7768_pwrmode pwrmode;
 };
 
 static const char * const ad7768_vcm_modes[] = {
@@ -150,21 +160,84 @@ static const char * const ad7768_vcm_modes[] = {
 	"OFF",
 };
 
-static const struct ad7768_clk_configuration ad7768_clk_config[] = {
-	{ AD7768_MCLK_DIV_2, AD7768_DEC_RATE_32, 64, AD7768_FAST_MODE },
-	{ AD7768_MCLK_DIV_2, AD7768_DEC_RATE_64, 128, AD7768_FAST_MODE },
-	{ AD7768_MCLK_DIV_2, AD7768_DEC_RATE_128, 256, AD7768_FAST_MODE },
-	{ AD7768_MCLK_DIV_4, AD7768_DEC_RATE_128, 512, AD7768_MED_MODE },
-	{ AD7768_MCLK_DIV_4, AD7768_DEC_RATE_256, 1024, AD7768_MED_MODE },
-	{ AD7768_MCLK_DIV_4, AD7768_DEC_RATE_512, 2048, AD7768_MED_MODE },
-	{ AD7768_MCLK_DIV_4, AD7768_DEC_RATE_1024, 4096, AD7768_MED_MODE },
-	{ AD7768_MCLK_DIV_8, AD7768_DEC_RATE_1024, 8192, AD7768_MED_MODE },
-	{ AD7768_MCLK_DIV_16, AD7768_DEC_RATE_1024, 16384, AD7768_ECO_MODE },
+struct ad7768_clk_div_range {
+	unsigned int clk_div_min;
+	unsigned int clk_div_max;
+};
+
+static const struct ad7768_clk_div_range ad7768_clk_div_ranges[] = {
+	[SINC5] = {.clk_div_min = 64, .clk_div_max = 16384},
+	[SINC5_DEC_X8] = {.clk_div_min = 16, .clk_div_max = 128},
+	[SINC5_DEC_X16] = {.clk_div_min = 32, .clk_div_max = 256},
+	[SINC3] = {.clk_div_min = 64, .clk_div_max = 327680},
+	[WIDEBAND] = {.clk_div_min = 64, .clk_div_max = 16384},
+};
+
+static const struct ad7768_clk_configuration ad7768_sinc5_wideband_clk_conf[] = {
+	{ AD7768_MCLK_DIV_2, AD7768_DEC_RATE_32, 64},
+	{ AD7768_MCLK_DIV_2, AD7768_DEC_RATE_64, 128 },
+	{ AD7768_MCLK_DIV_2, AD7768_DEC_RATE_128, 256 },
+	{ AD7768_MCLK_DIV_4, AD7768_DEC_RATE_128, 512 },
+	{ AD7768_MCLK_DIV_4, AD7768_DEC_RATE_256, 1024 },
+	{ AD7768_MCLK_DIV_4, AD7768_DEC_RATE_512, 2048 },
+	{ AD7768_MCLK_DIV_4, AD7768_DEC_RATE_1024, 4096 },
+	{ AD7768_MCLK_DIV_8, AD7768_DEC_RATE_1024, 8192 },
+	{ AD7768_MCLK_DIV_16, AD7768_DEC_RATE_1024, 16384 },
+};
+
+static int ad7768_freq_available_range[5][3];
+
+static const int ad7768_mclk_div_rates[4] = {
+	16, 8, 4, 2
+};
+
+static const int dec_rate_values[6] = {
+	32, 64, 128, 256, 512, 1024,
+};
+
+static const  int sinc3_dec_rate_max_values[4] = {
+	20480, 40960, 81920, 163840,
+};
+
+static const char * const ad7768_filter_enum[] = {
+	[SINC5] = "sinc5",
+	[SINC5_DEC_X8] = "sinc5-dec8",
+	[SINC5_DEC_X16] = "sinc5-dec16",
+	[SINC3] = "sinc3",
+	[WIDEBAND] = "wideband",
+};
+
+static const char * const ad7768_pwr_mode_enum[] = {
+	[AD7768_ECO_MODE]   = "eco_mode",
+	[AD7768_MED_MODE]   = "med_mode",
+	[AD7768_FAST_MODE]  = "fast_mode",
 };
 
 static int ad7768_get_vcm(struct iio_dev *dev, const struct iio_chan_spec *chan);
 static int ad7768_set_vcm(struct iio_dev *dev, const struct iio_chan_spec *chan,
 			  unsigned int mode);
+static int ad7768_get_dig_fil_attr(struct iio_dev *dev,
+			      const struct iio_chan_spec *chan);
+static int ad7768_set_dig_fil_attr(struct iio_dev *dev,
+			      const struct iio_chan_spec *chan, unsigned int filter);
+static int ad7768_get_pwr_mode(struct iio_dev *dev,
+			       const struct iio_chan_spec *chan);
+static int ad7768_set_pwr_mode(struct iio_dev *dev,
+			       const struct iio_chan_spec *chan, unsigned int pwr_mode);
+
+static const struct iio_enum ad7768_pwr_mode_iio_enum = {
+	.items = ad7768_pwr_mode_enum,
+	.num_items = ARRAY_SIZE(ad7768_pwr_mode_enum),
+	.set = ad7768_set_pwr_mode,
+	.get = ad7768_get_pwr_mode,
+};
+
+static const struct iio_enum ad7768_flt_type_iio_enum = {
+	.items = ad7768_filter_enum,
+	.num_items = ARRAY_SIZE(ad7768_filter_enum),
+	.set = ad7768_set_dig_fil_attr,
+	.get = ad7768_get_dig_fil_attr,
+};
 
 static const struct iio_enum ad7768_vcm_mode_enum = {
 	.items = ad7768_vcm_modes,
@@ -180,6 +253,10 @@ static struct iio_chan_spec_ext_info ad7768_ext_info[] = {
 	IIO_ENUM_AVAILABLE("common_mode_voltage",
 			   IIO_SHARED_BY_ALL,
 			   &ad7768_vcm_mode_enum),
+	IIO_ENUM("power_mode", IIO_SHARED_BY_ALL, &ad7768_pwr_mode_iio_enum),
+	IIO_ENUM_AVAILABLE("power_mode", IIO_SHARED_BY_ALL, &ad7768_pwr_mode_iio_enum),
+	IIO_ENUM("filter_mode", IIO_SHARED_BY_ALL, &ad7768_flt_type_iio_enum),
+	IIO_ENUM_AVAILABLE("filter_mode", IIO_SHARED_BY_ALL, &ad7768_flt_type_iio_enum),
 	{ },
 };
 
@@ -217,6 +294,8 @@ struct ad7768_state {
 	struct gpio_desc *gpio_sync_in;
 	const char *labels[ARRAY_SIZE(ad7768_channels)];
 	struct gpio_desc *gpio_reset;
+	enum ad7768_flt_mode filter_mode;
+	enum ad7768_pwrmode pwrmode;
 	bool spi_is_dma_mapped;
 	bool en_spi_sync;
 	bool en_gpio_sync;
@@ -234,6 +313,9 @@ struct ad7768_state {
 		} scan;
 	} data __aligned(IIO_DMA_MINALIGN);
 };
+
+static int ad7768_set_freq(struct ad7768_state *st,
+			   unsigned int freq);
 
 static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
 			       unsigned int *data, unsigned int len)
@@ -300,6 +382,25 @@ static int ad7768_send_sync_pulse(struct ad7768_state *st)
 		gpiod_set_value(st->gpio_sync_in, 0);
 	}
 
+	return ret;
+}
+
+static int ad7768_set_mclk_div(struct ad7768_state *st, unsigned int mclk_div)
+{
+	unsigned int mclk_div_value;
+	int ret;
+
+	mutex_lock(&st->lock);
+
+	ret = ad7768_spi_reg_read(st, AD7768_REG_POWER_CLOCK, &mclk_div_value, 1);
+	if (ret)
+		goto out;
+
+	mclk_div_value &= ~AD7768_PWR_MCLK_DIV_MSK;
+	mclk_div_value |= AD7768_PWR_MCLK_DIV(mclk_div);
+	ret = ad7768_spi_reg_write(st, AD7768_REG_POWER_CLOCK, mclk_div_value);
+out:
+	mutex_unlock(&st->lock);
 	return ret;
 }
 
@@ -373,23 +474,92 @@ err_unlock:
 	return ret;
 }
 
-static int ad7768_set_dig_fil(struct ad7768_state *st,
-			      enum ad7768_dec_rate dec_rate)
+static int ad7768_set_sinc3_dec_rate(struct ad7768_state *st, unsigned int dec_rate)
+{
+	unsigned int dec_rate_msb, dec_rate_lsb;
+	int ret;
+
+	mutex_lock(&st->lock);
+
+	dec_rate = clamp_t(unsigned int, dec_rate, 0, 5119);
+	dec_rate_msb = FIELD_GET(AD7768_SINC3_DEC_RATE_MSB_MSK, dec_rate);
+	dec_rate_lsb = FIELD_GET(AD7768_SINC3_DEC_RATE_LSB_MSK, dec_rate);
+
+	ret = ad7768_spi_reg_write(st, AD7768_REG_SINC3_DEC_RATE_MSB, dec_rate_msb);
+	if (ret < 0)
+		goto out;
+
+	ret = ad7768_spi_reg_write(st, AD7768_REG_SINC3_DEC_RATE_LSB, dec_rate_lsb);
+out:
+	mutex_unlock(&st->lock);
+	return ret;
+}
+
+static int ad7768_set_dec_rate(struct ad7768_state *st, unsigned int dec_rate)
 {
 	unsigned int mode;
 	int ret;
 
-	if (dec_rate == AD7768_DEC_RATE_8 || dec_rate == AD7768_DEC_RATE_16)
-		mode = AD7768_DIG_FIL_FIL(dec_rate);
-	else
-		mode = AD7768_DIG_FIL_DEC_RATE(dec_rate);
+	mutex_lock(&st->lock);
+
+	ret = ad7768_spi_reg_read(st, AD7768_REG_DIGITAL_FILTER, &mode, 1);
+	if (ret)
+		goto out;
+
+	mode &= ~AD7768_DIG_FIL_DEC_MSK;
+	mode |= AD7768_DIG_FIL_DEC_RATE(dec_rate);
+	ret = ad7768_spi_reg_write(st, AD7768_REG_DIGITAL_FILTER, mode);
+out:
+	mutex_unlock(&st->lock);
+	return ret;
+}
+
+static int ad7768_set_dig_fil(struct ad7768_state *st,
+			      enum ad7768_flt_mode filter_mode)
+{
+	unsigned int mode;
+	int ret;
+
+	mutex_lock(&st->lock);
+	st->filter_mode = filter_mode;
+	ret = ad7768_spi_reg_read(st, AD7768_REG_DIGITAL_FILTER, &mode, 1);
+	if (ret)
+		goto out;
+	mode &= ~AD7768_DIG_FIL_FIL_MSK;
+	mode |= AD7768_DIG_FIL_FIL(filter_mode);
 
 	ret = ad7768_spi_reg_write(st, AD7768_REG_DIGITAL_FILTER, mode);
-	if (ret < 0)
+out:
+	mutex_unlock(&st->lock);
+	return ret;
+}
+
+static int ad7768_set_dig_fil_attr(struct iio_dev *dev,
+			      const struct iio_chan_spec *chan,
+			      unsigned int filter)
+{
+	struct ad7768_state *st = iio_priv(dev);
+	int ret;
+
+	ret = ad7768_set_dig_fil(st, filter);
+	if (ret)
 		return ret;
 
-	/* A sync-in pulse is required every time the filter dec rate changes */
-	return ad7768_send_sync_pulse(st);
+	return ad7768_set_freq(st, st->samp_freq);
+}
+
+static int ad7768_get_dig_fil_attr(struct iio_dev *dev,
+			      const struct iio_chan_spec *chan)
+{
+	struct ad7768_state *st = iio_priv(dev);
+	int ret;
+	unsigned int mode;
+
+	ret = ad7768_spi_reg_read(st, AD7768_REG_DIGITAL_FILTER, &mode, 1);
+	if (ret)
+		return ret;
+
+	return FIELD_GET(AD7768_DIG_FIL_FIL_MSK, mode);
 }
 
 int ad7768_gpio_direction_input(struct gpio_chip *chip, unsigned int offset)
@@ -511,41 +681,111 @@ int ad7768_gpio_init(struct ad7768_state *st)
 static int ad7768_set_freq(struct ad7768_state *st,
 			   unsigned int freq)
 {
-	unsigned int diff_new, diff_old, pwr_mode, i, idx;
-	int res, ret;
+	unsigned int diff_new, diff_old, i, idx;
+	int res, dec_rate, mclk_div, temp, ret = 0;
 
 	diff_old = U32_MAX;
 	idx = 0;
 
+	if (freq == 0)
+		return -EINVAL;
+
 	res = DIV_ROUND_CLOSEST(st->mclk_freq, freq);
 
-	/* Find the closest match for the desired sampling frequency */
-	for (i = 0; i < ARRAY_SIZE(ad7768_clk_config); i++) {
-		diff_new = abs(res - ad7768_clk_config[i].clk_div);
-		if (diff_new < diff_old) {
-			diff_old = diff_new;
-			idx = i;
+	if (st->filter_mode == SINC3) {
+		/* Find the closest match for the desired sampling frequency */
+		for (i = 0; i < ARRAY_SIZE(ad7768_mclk_div_rates); i++) {
+			/* calculate decimation theorical decimation */
+			temp = res / ad7768_mclk_div_rates[i];
+			/* Maximum decimation rate depends on the mclk divider */
+			temp = clamp_t(int, temp, 32, sinc3_dec_rate_max_values[i]);
+			diff_new = abs(res - (temp * ad7768_mclk_div_rates[i]));
+			if (diff_new < diff_old) {
+				diff_old = diff_new;
+				idx = i;
+				dec_rate = temp;
+			}
 		}
+		mclk_div = idx;
+		/* Set decimation rate for sinc3 filter mode */
+		ret = ad7768_set_sinc3_dec_rate(st, (dec_rate / 32) - 1);
+	} else if ((st->filter_mode == SINC5_DEC_X16)
+		   || (st->filter_mode == SINC5_DEC_X8)) {
+		dec_rate = 8 * st->filter_mode;
+		/* Find the closest mclk_div for the desired sampling frequency */
+		mclk_div = find_closest_descending(res / dec_rate, ad7768_mclk_div_rates,
+						   ARRAY_SIZE(ad7768_mclk_div_rates));
+	} else {
+		/* Find the closest match for the desired sampling frequency */
+		for (i = 0; i < ARRAY_SIZE(ad7768_sinc5_wideband_clk_conf); i++) {
+			diff_new = abs(res - ad7768_sinc5_wideband_clk_conf[i].clk_div);
+			if (diff_new < diff_old) {
+				diff_old = diff_new;
+				idx = i;
+			}
+		}
+		mclk_div = ad7768_sinc5_wideband_clk_conf[idx].mclk_div;
+		/* Set decimation rate for sinc5 and wideband filter modes */
+		ret = ad7768_set_dec_rate(st, ad7768_sinc5_wideband_clk_conf[idx].dec_rate);
+		dec_rate = dec_rate_values[ad7768_sinc5_wideband_clk_conf[idx].dec_rate];
 	}
-
-	/*
-	 * Set both the mclk_div and pwrmode with a single write to the
-	 * POWER_CLOCK register
-	 */
-	pwr_mode = AD7768_PWR_MCLK_DIV(ad7768_clk_config[idx].mclk_div) |
-		   AD7768_PWR_PWRMODE(ad7768_clk_config[idx].pwrmode);
-	ret = ad7768_spi_reg_write(st, AD7768_REG_POWER_CLOCK, pwr_mode);
-	if (ret < 0)
+	if (ret)
 		return ret;
-
-	ret =  ad7768_set_dig_fil(st, ad7768_clk_config[idx].dec_rate);
-	if (ret < 0)
+	/* Set mclk_div keeping the value of pwrmode */
+	ret = ad7768_set_mclk_div(st, mclk_div);
+	if (ret)
 		return ret;
 
 	st->samp_freq = DIV_ROUND_CLOSEST(st->mclk_freq,
-					  ad7768_clk_config[idx].clk_div);
+					  ad7768_mclk_div_rates[mclk_div] * dec_rate);
 
-	return 0;
+	/* A sync-in pulse is required every time the filter dec rate changes */
+	return ad7768_send_sync_pulse(st);
+}
+
+static int ad7768_get_pwr_mode(struct iio_dev *dev,
+			       const struct iio_chan_spec *chan)
+{
+	struct ad7768_state *st = iio_priv(dev);
+	unsigned int val;
+	int ret;
+
+	mutex_lock(&st->lock);
+
+	ret = ad7768_spi_reg_read(st, AD7768_REG_POWER_CLOCK, &val, 1);
+	if (ret)
+		goto out;
+
+	ret = FIELD_GET(AD7768_PWR_PWRMODE_MSK, val);
+out:
+	mutex_unlock(&st->lock);
+	return ret;
+}
+
+static int ad7768_set_pwr_mode(struct iio_dev *dev,
+			       const struct iio_chan_spec *chan, unsigned int pwr_mode)
+{
+	struct ad7768_state *st = iio_priv(dev);
+	unsigned int mode;
+	int ret;
+
+	mutex_lock(&st->lock);
+
+	st->pwrmode = pwr_mode;
+	ret = ad7768_spi_reg_read(st, AD7768_REG_POWER_CLOCK, &mode, 1);
+	if (ret)
+		goto out;
+
+	mode &= ~AD7768_PWR_PWRMODE_MSK;
+	mode |= AD7768_PWR_PWRMODE(pwr_mode);
+	ret = ad7768_spi_reg_write(st, AD7768_REG_POWER_CLOCK, mode);
+	if (ret < 0)
+		goto out;
+
+	ret = ad7768_send_sync_pulse(st);
+out:
+	mutex_unlock(&st->lock);
+	return ret;
 }
 
 static int ad7768_get_vcm(struct iio_dev *dev, const struct iio_chan_spec *chan)
@@ -570,27 +810,29 @@ static int ad7768_set_vcm(struct iio_dev *dev,
 	return ret;
 }
 
-static ssize_t ad7768_sampling_freq_avail(struct device *dev,
-					  struct device_attribute *attr,
-					  char *buf)
+static ssize_t sampling_frequency_available_show(struct device *dev,
+		struct device_attribute *attr,
+		char *buf)
 {
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct ad7768_state *st = iio_priv(indio_dev);
 	unsigned int freq;
 	int i, len = 0;
 
-	for (i = 0; i < ARRAY_SIZE(ad7768_clk_config); i++) {
-		freq = DIV_ROUND_CLOSEST(st->mclk_freq,
-					 ad7768_clk_config[i].clk_div);
+	/* Return Frequency available in range format */
+	buf[len++] = '[';
+	for (i = 0; i < ARRAY_SIZE(ad7768_freq_available_range[st->filter_mode]); i++) {
+		freq = ad7768_freq_available_range[st->filter_mode][i];
 		len += scnprintf(buf + len, PAGE_SIZE - len, "%d ", freq);
 	}
 
-	buf[len - 1] = '\n';
+	buf[len - 1] = ']';
+	buf[len++] = '\n';
 
 	return len;
 }
 
-static IIO_DEV_ATTR_SAMP_FREQ_AVAIL(ad7768_sampling_freq_avail);
+static IIO_DEVICE_ATTR_RO(sampling_frequency_available, 0);
 
 static int ad7768_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
@@ -673,6 +915,20 @@ static const struct iio_info ad7768_info = {
 	.debugfs_reg_access = &ad7768_reg_access,
 };
 
+static void ad7768_fill_freq_available_range(struct ad7768_state *st)
+{
+	int i;
+
+	for (i = 0; i <= WIDEBAND; i++) {
+		ad7768_freq_available_range[i][0] = DIV_ROUND_CLOSEST(st->mclk_freq,
+						    ad7768_clk_div_ranges[i].clk_div_max);
+		ad7768_freq_available_range[i][1] = DIV_ROUND_CLOSEST(st->mclk_freq,
+						    ad7768_clk_div_ranges[i].clk_div_max);
+		ad7768_freq_available_range[i][2] = DIV_ROUND_CLOSEST(st->mclk_freq,
+						    ad7768_clk_div_ranges[i].clk_div_min);
+	}
+}
+
 static int ad7768_setup(struct ad7768_state *st)
 {
 	int ret;
@@ -716,6 +972,14 @@ static int ad7768_setup(struct ad7768_state *st)
 		st->en_spi_sync = true;
 
 	ret = ad7768_gpio_init(st);
+	if (ret < 0)
+		return ret;
+
+	/* fill the frequency available range for every filter mode */
+	ad7768_fill_freq_available_range(st);
+
+	/* Set Default Filter mode */
+	ret = ad7768_set_dig_fil(st, SINC5);
 	if (ret < 0)
 		return ret;
 
