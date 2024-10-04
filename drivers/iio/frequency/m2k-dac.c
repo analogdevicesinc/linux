@@ -641,7 +641,7 @@ static const struct iio_chan_spec_ext_info m2k_dac_ext_info[] = {
 			   	  &m2k_dac_trig_condition_enum),
 	IIO_ENUM_AVAILABLE_SHARED("raw_enable", IIO_SEPARATE, &m2k_dac_raw_enable_enum),
 	IIO_ENUM("raw_enable", IIO_SEPARATE, &m2k_dac_raw_enable_enum),
-	IIO_ENUM_AVAILABLE("trigger_status", IIO_SEPARATE, &m2k_dac_trigger_status_enum),
+	IIO_ENUM_AVAILABLE_SHARED("trigger_status", IIO_SEPARATE, &m2k_dac_trigger_status_enum),
 	IIO_ENUM("trigger_status", IIO_SEPARATE, &m2k_dac_trigger_status_enum),
 	{ },
 };
