@@ -18,10 +18,6 @@
 		// TODO Add interrupt from C2C
 		//interrupt-names = "switch_error_0", "switch_error_1";
 		//interrupts = <GIC_SPI ETH_IRQ_PCS_RX_ERROR_0 IRQ_TYPE_LEVEL_HIGH>, <GIC_SPI ETH_IRQ_PCS_RX_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;
-		pvid = /bits/ 16 <1>;
-		vids = /bits/ 16 <2 3 4 5>;
-		pcpregen = <0x77000000>;
-		pcp2ipv = <0x10000000>;
 		switch_port0:switch-port@0 {
 			id = <0>;
 			reg = <SEC_EMAC_SW_PORT_0_BASE 0x400>;

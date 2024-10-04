@@ -156,16 +156,6 @@ properties:
       interrupt-names:
         items:
           - const: switch_error_X
-      pvid:
-        description: (u16) Should be '1' but can have any valid VLAN ID.
-      vids:
-        description: (u16) A list of up to '4' VLANs applied to all
-                     switch ports.
-        maxItems: 4
-      pcpregen:
-        description: 0x76543210 - consult the HW UM.
-      pcp2ipv:
-        description: 0x76543210 - consult the HW UM.
     patternProperties:
       "^switch-port@[0-2]+$":
         type: object
@@ -242,10 +232,6 @@ examples:
       interrupt-names = "switch_error_0", "switch_error_1";
       interrupts = <GIC_SPI ETH_IRQ_PCS_RX_ERROR_0 IRQ_TYPE_LEVEL_HIGH>,
                    <GIC_SPI ETH_IRQ_PCS_RX_ERROR_1 IRQ_TYPE_LEVEL_HIGH>;
-      pvid = /bits/ 16 <1>;
-      vids = /bits/ 16 <2 3 4 5>;
-      pcpregen = <0x77000000>;
-      pcp2ipv = <0x10000000>;
       switch_port0:switch-port@0 {
         id = <0>;
         reg = <EMAC_SW_PORT_0_BASE 0x400>;
