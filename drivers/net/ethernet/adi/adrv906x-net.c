@@ -1166,7 +1166,6 @@ error_delete_cdr_div_out_enable_sysfs:
 	dev_set_drvdata(&eth_if->adrv906x_dev[i]->ndev->dev, NULL);
 error_delete_groups:
 	sysfs_remove_groups(&pdev->dev.kobj, adrv906x_eth_debug_groups);
-	adrv906x_switch_unregister_attr(&eth_if->ethswitch);
 error_unregister_netdev:
 	for (i = 0; i < MAX_NETDEV_NUM; i++)
 		if (eth_if->adrv906x_dev[i] && eth_if->adrv906x_dev[i]->ndev)
@@ -1184,8 +1183,6 @@ static int adrv906x_eth_remove(struct platform_device *pdev)
 
 	mutex_destroy(&eth_if->mtx);
 	sysfs_remove_groups(&pdev->dev.kobj, adrv906x_eth_debug_groups);
-	if (es->enabled)
-		adrv906x_switch_unregister_attr(&eth_if->ethswitch);
 
 	for (i = 0; i < MAX_NETDEV_NUM; i++) {
 		if (eth_if->adrv906x_dev[i]) {
