@@ -61,6 +61,7 @@
 			vref-supply = <&vref>;
 			channel@0 {
 				reg = <0>;
+				bipolar;
 				diff-channels = <0 1>;
 			};
 		};
