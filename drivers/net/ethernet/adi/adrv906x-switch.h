@@ -69,18 +69,11 @@ struct switch_isr_args {
 struct adrv906x_eth_switch {
 	struct platform_device *pdev;
 	bool enabled;
-	unsigned int pcp_ipv_mapping;
-	unsigned int pcp_regen_val;
 	struct switch_port switch_port[SWITCH_MAX_PORT_NUM];
 	struct list_head vlan_cfg_list;
 	struct mutex vlan_cfg_list_lock; /* VLan cfg list lock */
-	struct device_attribute port_vlan_ctrl_attr;
-	struct device_attribute pcp_regen_attr;
-	struct device_attribute pcp2ipv_attr;
-	struct attribute_group attr_group;
 	void __iomem *reg_match_action;
 	void __iomem *reg_switch;
-	u16 default_vids[SWITCH_MAX_PCP_PLANE_NUM];
 	u16 pvid;
 	int err_irqs[2];
 	struct switch_isr_args isr_pre_args;
