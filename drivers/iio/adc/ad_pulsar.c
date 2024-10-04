@@ -531,7 +531,7 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
-		if (chan->differential)
+		if (chan->scan_type.sign == 's')
 			*val = sign_extend32(*val, adc->info->resolution - 1);
 
 		return IIO_VAL_INT;
@@ -546,7 +546,14 @@ static int ad_pulsar_read_raw(struct iio_dev *indio_dev,
 			if (ret < 0)
 				return ret;
 			*val = ret / 1000;
-			*val2 = adc->info->resolution;
+			/* When the channel is bipolar, one of the precision
+			 * bits accounts for the sign and we end up with one
+			 * less bit to express voltage magnitude.
+			 */
+			if (chan->scan_type.sign == 's')
+				*val2 = adc->info->resolution - 1;
+			else
+				*val2 = adc->info->resolution;
 
 			return IIO_VAL_FRACTIONAL_LOG2;
 		case IIO_TEMP:
