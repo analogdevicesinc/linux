@@ -10,7 +10,7 @@
 		adf4382_clkin: clock@0 {
 		     #clock-cells = <0>;
 		     compatible = "fixed-clock";
-		     clock-frequency = <250000000>; // 125MHz
+		     clock-frequency = <125000000>; // 125MHz
 		};
 	};
 };
@@ -26,6 +26,7 @@
 		clock-names = "ref_clk";
 		adi,charge-pump-microamp = <11100>;
 		adi,ref-divider = <1>;
+		adi,ref-doubler-enable;
 		clock-output-names = "adf4382_out_clk";
 		adi,power-up-frequency = /bits/ 64 <3550000000>;
 		// adi,spi-3wire-enable;
