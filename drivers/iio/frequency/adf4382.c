@@ -420,12 +420,14 @@
 #define ADF4382_RFOUT_DEFAULT			2875000000ULL	// 2.875GHz
 #define ADF4382_SCRATCHPAD_VAL			0xA5
 
-#define ADF4382_PHASE_BLEED_CNST		2044000
+#define ADF4382_PHASE_BLEED_CNST_MUL		511
+#define ADF4382_PHASE_BLEED_CNST_DIV		285
 #define ADF4382_VCO_CAL_CNT			202
 #define ADF4382_VCO_CAL_VTUNE			124
 #define ADF4382_VCO_CAL_ALC			250
 
-#define NS_PER_S				NANO
+#define FS_PER_NS				MICRO
+#define NS_PER_MS				MICRO
 #define PS_PER_NS				1000
 #define UA_PER_A				1000000
 
@@ -917,15 +919,15 @@ static int adf4382_get_freq(struct adf4382_state *st, u64 *val)
 	return 0;
 }
 
-static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_ps)
+static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_fs)
 {
 	u8 phase_reg_value;
+	u64 phase_deg_fs;
+	u64 phase_deg_ns;
+	u64 phase_deg_ms;
+ 	u64 phase_bleed;
+	u64 phase_value;
 	u64 pfd_freq_hz;
-	u64 rfout_deg_s;
-	u32 rfout_deg_ns;
-	u64 phase_bleed;
-	u32 phase_deg_ns;
-	u16 phase_deg;
 	u64 phase_ci;
 	int ret;
 
@@ -941,43 +943,37 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_ps)
 	ret = regmap_update_bits(st->regmap, 0x32, ADF4382_DEL_MODE_MSK, 0x0);
 	if (ret)
 		return ret;
-
-	//Determine the output freq. in degrees/s
-	rfout_deg_s = 360 * st->freq;
-	//Convert it to degrees/ns
-	rfout_deg_ns = div_u64(rfout_deg_s, NS_PER_S);
-	//Determine the phase adjustment in degrees relative the output freq.
-	phase_deg_ns = rfout_deg_ns * phase_ps;
-	//Convert it to degrees/ps
-	phase_deg = div_u64(phase_deg_ns, PS_PER_NS);
-
-	if (phase_deg > 360) {
-		dev_err(&st->spi->dev, "Phase Adjustment cannot exceed 360deg per Clock Period");
-		return -EINVAL;
-	}
-
-	/* 
-	 * Phase adjustment can only be done if bleed is active, and a bleed
-	 * constant needs to be added
-	 */
-	phase_bleed = phase_deg * ADF4382_PHASE_BLEED_CNST;
-	//The charge pump current will also need to be taken in to account
-	phase_ci = phase_bleed * adf4382_ci_ua[st->cp_i];
-	phase_ci = div_u64(phase_ci, UA_PER_A);
-
-	//Computation of the register value for the phase adjust
+	
 	ret = adf4382_pfd_compute(st, &pfd_freq_hz);
 	if (ret) {
 		dev_err(&st->spi->dev, "PFD frequency is out of range.\n");
 		return ret;
 	}
 
-	phase_reg_value = div_u64((phase_ci * pfd_freq_hz), (360 * st->freq));
+	// Determine the phase adjustment in degrees relative the output freq.
+	phase_deg_fs = phase_fs * st->freq;
+	phase_deg_ns = div_u64(phase_deg_fs, FS_PER_NS);
+	phase_deg_ns = 360 * phase_deg_ns;
+	phase_deg_ms = div_u64(phase_deg_ns, NS_PER_MS);
 
-	if (phase_reg_value > 255)
-		phase_reg_value -= 255;
+	/* The charge pump current will also need to be taken in to account
+	as well as the Bleed constant*/
+	phase_ci = phase_deg_ms * adf4382_ci_ua[st->cp_i];
+	phase_bleed = phase_ci * ADF4382_PHASE_BLEED_CNST_MUL;
+	phase_bleed = div_u64(phase_bleed, ADF4382_PHASE_BLEED_CNST_DIV);
 
-	ret = regmap_write(st->regmap, 0x33, phase_reg_value);
+	// Computation of the register value for the phase adjust
+	phase_value = phase_bleed * pfd_freq_hz;
+	phase_value = div_u64(phase_value, st->freq);
+	phase_value = div_u64(phase_value, 360);
+	phase_value = DIV_ROUND_CLOSEST_ULL(phase_value, MILLI);
+
+	dev_info(&st->spi->dev, "Phase Adjustment value: %llu\n", phase_value);
+
+	// Mask the value to 8 bits
+	phase_reg_value = phase_value & 0xff;
+
+	ret = regmap_write(st->regmap, 0x33, phase_ci);
 	if (ret)
 		return ret;
 
