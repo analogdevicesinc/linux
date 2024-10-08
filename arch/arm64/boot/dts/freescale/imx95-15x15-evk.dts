@@ -167,7 +167,6 @@
 		regulator-max-microvolt = <5000000>;
 		gpio = <&pcal6524 3 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
-		regulator-always-on;
 	};
 
 	usdhc3_pwrseq: usdhc3_pwrseq {
