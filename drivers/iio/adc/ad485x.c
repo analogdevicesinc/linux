@@ -629,7 +629,7 @@ static int ad485x_set_calibscale(struct ad485x_dev *adc,
 
 	gain = (val * 1000000 + val2);
 	gain = gain * 32768;
-	do_div(gain, 1000000);
+	gain = DIV_ROUND_CLOSEST_ULL(gain, 1000000);
 
 	reg_val = gain;
 
