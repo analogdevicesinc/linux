@@ -1336,11 +1336,6 @@ static int adf4382_freq_change(struct notifier_block *nb, unsigned long action,
 	return NOTIFY_OK;
 }
 
-static void adf4382_clk_disable(void *data)
-{
-	clk_disable_unprepare(data);
-}
-
 static int adf4382_clock_set_rate(struct clk_hw *hw, unsigned long rate,
 				  unsigned long parent_rate)
 {
@@ -1405,8 +1400,7 @@ static int adf4382_setup_clk(struct adf4382_state *st)
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
-	return of_clk_add_provider(dev->of_node, of_clk_src_simple_get, clk);
-// TODO:devm_of_clk_add_hw_provider()
+	return devm_of_clk_add_hw_provider(dev, of_clk_hw_simple_get, clk);
 }
 
 static int adf4382_probe(struct spi_device *spi)
@@ -1448,15 +1442,6 @@ static int adf4382_probe(struct spi_device *spi)
 	mutex_init(&st->lock);
 
 	ret = adf4382_parse_device(st);
-	if (ret)
-		return ret;
-
-	ret = clk_prepare_enable(st->clkin);
-	if (ret)
-		return ret;
-// TODO:you can drop the above with one of my previous comments
-
-	ret = devm_add_action_or_reset(&spi->dev, adf4382_clk_disable, st->clkin);
 	if (ret)
 		return ret;
 
