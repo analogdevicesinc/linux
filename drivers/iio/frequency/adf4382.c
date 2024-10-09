@@ -4,7 +4,7 @@
  *
  * Copyright 2022-2024 Analog Devices Inc.
  */
-//TODO:This does not add much. Typically there's a small subject 
+//TODO:This does not add much. Typically there's a small subject
 //(like the datasheet title). Look at other examples please
 
 #include <linux/bitfield.h>
@@ -463,7 +463,7 @@ struct adf4382_state {
 	u64			vco_min;
 };
 
-#define to_adf4382_state(_hw) container_of(_hw, struct adf4382_state, clk_hw);
+#define to_adf4382_state(_hw) container_of(_hw, struct adf4382_state, clk_hw)
 
 /* Charge pump current values expressed in uA */
 static const int adf4382_ci_ua[] = {
@@ -472,28 +472,28 @@ static const int adf4382_ci_ua[] = {
 };
 
 static const struct reg_sequence adf4382_reg_default[] = {
-	{ 0x00a, 0xA5 }, { 0x200, 0x00 }, { 0x201, 0x00 }, { 0x202, 0x00 }, 
-	{ 0x203, 0x00 }, { 0x203, 0x00 }, { 0x203, 0x00 }, { 0x100, 0x25 }, 
-	{ 0x101, 0x3F }, { 0x102, 0x3F }, { 0x103, 0x3F }, { 0x104, 0x3F }, 
-	{ 0x105, 0x3F }, { 0x106, 0x3F }, { 0x107, 0x3F }, { 0x108, 0x3F }, 
-	{ 0x109, 0x25 }, { 0x10A, 0x25 }, { 0x10B, 0x3F }, { 0x10C, 0x3F }, 
-	{ 0x10D, 0x3F }, { 0x10E, 0x3F }, { 0x10F, 0x3F }, { 0x110, 0x3F }, 
-	{ 0x111, 0x3F }, { 0x054, 0x00 }, { 0x053, 0x45 }, { 0x052, 0x00 }, 
-	{ 0x051, 0x00 }, { 0x050, 0x00 }, { 0x04f, 0x08 }, { 0x04e, 0x06 }, 
-	{ 0x04d, 0x00 }, { 0x04c, 0x2B }, { 0x04b, 0x5D }, { 0x04a, 0x00 }, 
-	{ 0x048, 0x00 }, { 0x047, 0x00 }, { 0x046, 0x00 }, { 0x045, 0x62 }, 
-	{ 0x044, 0x3F }, { 0x043, 0xB8 }, { 0x042, 0x01 }, { 0x041, 0x00 }, 
-	{ 0x040, 0x00 }, { 0x03f, 0x82 }, { 0x03e, 0x4E }, { 0x03c, 0x00 }, 
-	{ 0x03b, 0x00 }, { 0x03a, 0xFA }, { 0x039, 0x00 }, { 0x038, 0x71 }, 
-	{ 0x037, 0x82 }, { 0x036, 0xC0 }, { 0x035, 0x00 }, { 0x034, 0x36 }, 
-	{ 0x033, 0x00 }, { 0x032, 0x40 }, { 0x031, 0x63 }, { 0x030, 0x0F }, 
-	{ 0x02f, 0x3F }, { 0x02e, 0x00 }, { 0x02d, 0xF1 }, { 0x02c, 0x0E }, 
-	{ 0x02b, 0x01 }, { 0x02a, 0x30 }, { 0x029, 0x09 }, { 0x028, 0x00 }, 
-	{ 0x027, 0xF0 }, { 0x026, 0x00 }, { 0x025, 0x01 }, { 0x024, 0x01 }, 
-	{ 0x023, 0x00 }, { 0x022, 0x00 }, { 0x021, 0x00 }, { 0x01e, 0x20 }, 
-	{ 0x01d, 0x00 }, { 0x01c, 0x00 }, { 0x01b, 0x00 }, { 0x01a, 0x00 }, 
-	{ 0x019, 0x00 }, { 0x018, 0x00 }, { 0x017, 0x00 }, { 0x016, 0x00 }, 
-	{ 0x015, 0x06 }, { 0x014, 0x00 }, { 0x013, 0x00 }, { 0x012, 0x00 }, 
+	{ 0x00a, 0xA5 }, { 0x200, 0x00 }, { 0x201, 0x00 }, { 0x202, 0x00 },
+	{ 0x203, 0x00 }, { 0x203, 0x00 }, { 0x203, 0x00 }, { 0x100, 0x25 },
+	{ 0x101, 0x3F }, { 0x102, 0x3F }, { 0x103, 0x3F }, { 0x104, 0x3F },
+	{ 0x105, 0x3F }, { 0x106, 0x3F }, { 0x107, 0x3F }, { 0x108, 0x3F },
+	{ 0x109, 0x25 }, { 0x10A, 0x25 }, { 0x10B, 0x3F }, { 0x10C, 0x3F },
+	{ 0x10D, 0x3F }, { 0x10E, 0x3F }, { 0x10F, 0x3F }, { 0x110, 0x3F },
+	{ 0x111, 0x3F }, { 0x054, 0x00 }, { 0x053, 0x45 }, { 0x052, 0x00 },
+	{ 0x051, 0x00 }, { 0x050, 0x00 }, { 0x04f, 0x08 }, { 0x04e, 0x06 },
+	{ 0x04d, 0x00 }, { 0x04c, 0x2B }, { 0x04b, 0x5D }, { 0x04a, 0x00 },
+	{ 0x048, 0x00 }, { 0x047, 0x00 }, { 0x046, 0x00 }, { 0x045, 0x62 },
+	{ 0x044, 0x3F }, { 0x043, 0xB8 }, { 0x042, 0x01 }, { 0x041, 0x00 },
+	{ 0x040, 0x00 }, { 0x03f, 0x82 }, { 0x03e, 0x4E }, { 0x03c, 0x00 },
+	{ 0x03b, 0x00 }, { 0x03a, 0xFA }, { 0x039, 0x00 }, { 0x038, 0x71 },
+	{ 0x037, 0x82 }, { 0x036, 0xC0 }, { 0x035, 0x00 }, { 0x034, 0x36 },
+	{ 0x033, 0x00 }, { 0x032, 0x40 }, { 0x031, 0x63 }, { 0x030, 0x0F },
+	{ 0x02f, 0x3F }, { 0x02e, 0x00 }, { 0x02d, 0xF1 }, { 0x02c, 0x0E },
+	{ 0x02b, 0x01 }, { 0x02a, 0x30 }, { 0x029, 0x09 }, { 0x028, 0x00 },
+	{ 0x027, 0xF0 }, { 0x026, 0x00 }, { 0x025, 0x01 }, { 0x024, 0x01 },
+	{ 0x023, 0x00 }, { 0x022, 0x00 }, { 0x021, 0x00 }, { 0x01e, 0x20 },
+	{ 0x01d, 0x00 }, { 0x01c, 0x00 }, { 0x01b, 0x00 }, { 0x01a, 0x00 },
+	{ 0x019, 0x00 }, { 0x018, 0x00 }, { 0x017, 0x00 }, { 0x016, 0x00 },
+	{ 0x015, 0x06 }, { 0x014, 0x00 }, { 0x013, 0x00 }, { 0x012, 0x00 },
 	{ 0x011, 0x00 }, { 0x010, 0x50 }
 };
 
@@ -502,8 +502,6 @@ static const struct regmap_config adf4382_regmap_config = {
 	.val_bits = 8,
 	.read_flag_mask = BIT(7),
 };
-// TODO:this is only used in the probe function so ideally you should reduce it's
-// scope
 
 static int adf4382_pfd_compute(struct adf4382_state *st, u64 *pfd_freq_hz)
 {
@@ -522,8 +520,8 @@ static int adf4382_pfd_compute(struct adf4382_state *st, u64 *pfd_freq_hz)
 }
 
 static int adf4382_frac2_compute(struct adf4382_state *st, u64 res,
-			  unsigned int pfd_freq_hz, u32 *frac2_word,
-			  u32 *mod2_word)
+				 unsigned int pfd_freq_hz, u32 *frac2_word,
+				 u32 *mod2_word)
 {
 	u32 channel_spacing;
 	u8 en_phase_resync;
@@ -570,8 +568,8 @@ static int adf4382_frac2_compute(struct adf4382_state *st, u64 res,
 }
 
 static int adf4382_pll_fract_n_compute(struct adf4382_state *st, unsigned int pfd_freq_hz,
-				u16 *n_int, u32 *frac1_word, u32 *frac2_word,
-				u32 *mod2_word)
+				       u16 *n_int, u32 *frac1_word, u32 *frac2_word,
+				       u32 *mod2_word)
 {
 	u64 rem;
 	u64 res;
@@ -688,7 +686,7 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, 0x1D, 
+	ret = regmap_write(st->regmap, 0x1D,
 			   FIELD_GET(ADF4382_BLEED_I_LSB_MSK, st->bleed_word));
 	if (ret)
 		return ret;
@@ -711,42 +709,42 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 			   FIELD_GET(ADF4382_MOD2WORD_MID_MSK, mod2_word));
 	if (ret)
 		return ret;
-	
+
 	ret = regmap_write(st->regmap, 0x1C,
 			   FIELD_GET(ADF4382_MOD2WORD_MSB_MSK, mod2_word));
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, 0x12, 
+	ret = regmap_write(st->regmap, 0x12,
 			   FIELD_GET(ADF4382_FRAC1WORD_LSB_MSK, frac1_word));
 	if (ret)
 		return ret;
-	
+
 	ret = regmap_write(st->regmap, 0x13,
 			   FIELD_GET(ADF4382_FRAC1WORD_MID_MSK, frac1_word));
 	if (ret)
 		return ret;
-		
+
 	ret = regmap_write(st->regmap, 0x14,
 			   FIELD_GET(ADF4382_FRAC1WORD_MSB_MSK, frac1_word));
 	if (ret)
 		return ret;
-	
+
 	ret = regmap_update_bits(st->regmap, 0x15, ADF4382_FRAC1WORD_MSB,
 				 FIELD_GET(ADF4382_FRAC1WORD_MS_BIT_MSK, frac1_word));
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, 0x17, 
+	ret = regmap_write(st->regmap, 0x17,
 			   FIELD_GET(ADF4382_FRAC2WORD_LSB_MSK, frac2_word));
 	if (ret)
 		return ret;
-		
-	ret = regmap_write(st->regmap, 0x18, 
+
+	ret = regmap_write(st->regmap, 0x18,
 			   FIELD_GET(ADF4382_FRAC2WORD_MID_MSK, frac2_word));
 	if (ret)
 		return ret;
-		
+
 	ret = regmap_write(st->regmap, 0x19,
 			   FIELD_GET(ADF4382_FRAC2WORD_MSB_MSK, frac2_word));
 	if (ret)
@@ -821,7 +819,6 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 
 	return regmap_write(st->regmap, 0x10,
 			    FIELD_PREP(ADF4382_N_INT_LSB_MSK, n_int));
-
 }
 
 static int adf4382_set_freq(struct adf4382_state *st)
@@ -847,9 +844,8 @@ static int adf4382_get_freq(struct adf4382_state *st, u64 *val)
 	int ret;
 
 	ret = adf4382_pfd_compute(st, &pfd);
-	if (ret) {
+	if (ret)
 		return ret;
-	}
 
 	ret = regmap_read(st->regmap, 0x11, &tmp);
 	if  (ret)
@@ -913,7 +909,7 @@ static int adf4382_get_freq(struct adf4382_state *st, u64 *val)
 		return ret;
 	mod2 |= FIELD_PREP(ADF4382_MOD2WORD_LSB_MSK, tmp);
 
-	if(mod2 == 0)
+	if (mod2 == 0)
 		mod2 = 1;
 
 	freq = frac2 * pfd;
@@ -932,7 +928,7 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_fs)
 	u64 phase_deg_fs;
 	u64 phase_deg_ns;
 	u64 phase_deg_ms;
- 	u64 phase_bleed;
+	u64 phase_bleed;
 	u64 phase_value;
 	u64 pfd_freq_hz;
 	u64 phase_ci;
@@ -950,7 +946,7 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_fs)
 	ret = regmap_update_bits(st->regmap, 0x32, ADF4382_DEL_MODE_MSK, 0x0);
 	if (ret)
 		return ret;
-	
+
 	ret = adf4382_pfd_compute(st, &pfd_freq_hz);
 	if (ret) {
 		dev_err(&st->spi->dev, "PFD frequency is out of range.\n");
@@ -964,7 +960,8 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_fs)
 	phase_deg_ms = div_u64(phase_deg_ns, NS_PER_MS);
 
 	/* The charge pump current will also need to be taken in to account
-	as well as the Bleed constant*/
+	 * as well as the Bleed constant
+	 */
 	phase_ci = phase_deg_ms * adf4382_ci_ua[st->cp_i];
 	phase_bleed = phase_ci * ADF4382_PHASE_BLEED_CNST_MUL;
 	phase_bleed = div_u64(phase_bleed, ADF4382_PHASE_BLEED_CNST_DIV);
@@ -1108,7 +1105,7 @@ static const struct iio_chan_spec_ext_info adf4382_ext_info[] = {
 	/*
 	 * Usually we use IIO_CHAN_INFO_FREQUENCY, but there are
 	 * values > 2^32 in order to support the entire frequency range
-	 * in Hz. 
+	 * in Hz.
 	 */
 	_ADF4382_EXT_INFO("frequency", IIO_SHARED_BY_TYPE, ADF4382_FREQ),
 	{ },
@@ -1127,7 +1124,7 @@ static int adf4382_read_raw(struct iio_dev *indio_dev,
 	case IIO_CHAN_INFO_HARDWAREGAIN:
 		ret = adf4382_get_out_power(st, chan->channel, val);
 		if (ret)
-			return ret;		
+			return ret;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_ENABLE:
 		ret = adf4382_get_en_chan(st, chan->channel, val);
@@ -1273,7 +1270,7 @@ static int adf4382_scratchpad_check(struct adf4382_state *st)
 		return ret;
 
 	if (val != ADF4382_SCRATCHPAD_VAL)
-		 return dev_err_probe(&st->spi->dev, -EINVAL,
+		return dev_err_probe(&st->spi->dev, -EINVAL,
 				      "Scratch pad test failed please check SPI connection");
 
 	return 0;
@@ -1297,7 +1294,7 @@ static int adf4382_init(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	ret = regmap_write(st->regmap, 0x3D, 
+	ret = regmap_write(st->regmap, 0x3D,
 			   FIELD_PREP(ADF4382_CMOS_OV_MSK, st->cmos_3v3));
 	if (ret)
 		return ret;
@@ -1366,7 +1363,7 @@ static unsigned long adf4382_clock_recalc_rate(struct clk_hw *hw,
 {
 	struct adf4382_state *st = to_adf4382_state(hw);
 	u64 freq = 0;
-	
+
 	adf4382_get_freq(st, &freq);
 
 	return freq;
