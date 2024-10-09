@@ -772,11 +772,15 @@ int virtio_video_try_fmt(struct virtio_video_stream *stream,
 	/* If the format is a coded format, set a single plane. */
 	if (!v4l2_format_info(pix_mp->pixelformat)) {
 		pix_mp->num_planes = 1;
-		if (pix_mp->plane_fmt[0].sizeimage < 1024 * 1024)
-			pix_mp->plane_fmt[0].sizeimage = 1024 * 1024;
 
-		if (pix_mp->plane_fmt[0].sizeimage > 4 * 1024 * 1024)
-			pix_mp->plane_fmt[0].sizeimage = 4 * 1024 * 1024;
+		/*
+		 * The default IO_TLB_SEGSIZE is 256KB
+		 * So the max size of bounce buffer is 256KB
+		 * We need to limit codec buffer size
+		 * If IOMMU is enable, we can revert this condition
+		 */
+		if (pix_mp->plane_fmt[0].sizeimage > 256 * 1024)
+			pix_mp->plane_fmt[0].sizeimage = 256 * 1024;
 	}
 
 	f->fmt.pix_mp.colorspace = stream->colorspace;
