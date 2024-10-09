@@ -220,7 +220,6 @@ static const struct file_operations kbasep_csf_firmware_log_debugfs_fops = {
 	.owner = THIS_MODULE,
 	.open = kbasep_csf_firmware_log_debugfs_open,
 	.read = kbasep_csf_firmware_log_debugfs_read,
-	.llseek = no_llseek,
 };
 
 DEFINE_DEBUGFS_ATTRIBUTE(kbase_csf_firmware_log_mode_fops, kbase_csf_firmware_log_mode_read,

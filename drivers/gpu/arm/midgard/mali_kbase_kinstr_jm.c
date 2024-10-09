@@ -651,7 +651,6 @@ static __poll_t reader_poll(struct file *const file, struct poll_table_struct *c
 
 /* The file operations virtual function table */
 static const struct file_operations file_operations = { .owner = THIS_MODULE,
-							.llseek = no_llseek,
 							.read = reader_read,
 							.poll = reader_poll,
 							.release = reader_release };
