@@ -114,6 +114,8 @@
 #define WIDEBAND_DEC_RATE_MIN		32
 #define WIDEBAND_DEC_RATE_MAX		1024
 
+#define AD7768_CHAN_INFO_NONE		0
+
 enum {
 	DEC_RATE,
 };
@@ -267,23 +269,34 @@ static struct iio_chan_spec_ext_info ad7768_ext_info[] = {
 	{ },
 };
 
+#define AD7768_CHAN(_idx, _msk_avail) {	\
+		.type = IIO_VOLTAGE,\
+		.info_mask_separate_available = _msk_avail,\
+		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),\
+		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),\
+		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
+		.ext_info = ad7768_ext_info,\
+		.indexed = 1,\
+		.channel = _idx,\
+		.scan_index = _idx,\
+		.has_ext_scan_type = 1,\
+		.ext_scan_type = ad7768_scan_type,\
+		.num_ext_scan_type = ARRAY_SIZE(ad7768_scan_type),\
+}
+
 static const struct iio_chan_spec ad7768_channels[] = {
-	{
-		.type = IIO_VOLTAGE,
-		.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
-		.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE),
-		.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),
-		.ext_info = ad7768_ext_info,
-		.indexed = 1,
-		.channel = 0,
-		.scan_index = 0,
-		.has_ext_scan_type = 1,
-		.ext_scan_type = ad7768_scan_type,
-		.num_ext_scan_type = ARRAY_SIZE(ad7768_scan_type),
-	},
+	AD7768_CHAN(0, AD7768_CHAN_INFO_NONE),
+};
+
+struct ad7768_chip_info {
+	const char *name;
+	const struct iio_chan_spec *channel_spec;
+	const unsigned long *available_masks;
+	int num_channels;
 };
 
 struct ad7768_state {
+	const struct ad7768_chip_info *chip;
 	struct spi_device *spi;
 	struct regulator *vref;
 	struct mutex lock;
@@ -1249,6 +1262,18 @@ static int ad7768_set_channel_label(struct iio_dev *indio_dev,
 	return 0;
 }
 
+static const unsigned long ad7768_channel_masks[] = {
+	BIT(0),
+	0,
+};
+
+static const struct ad7768_chip_info ad7768_chip_info = {
+	.name = "ad7768-1",
+	.channel_spec = ad7768_channels,
+	.num_channels = ARRAY_SIZE(ad7768_channels),
+	.available_masks = ad7768_channel_masks,
+};
+
 static int ad7768_probe(struct spi_device *spi)
 {
 	struct ad7768_state *st;
@@ -1293,11 +1318,17 @@ static int ad7768_probe(struct spi_device *spi)
 	st->spi_is_dma_mapped = spi_engine_ex_offload_supported(spi);
 	st->irq = spi->irq;
 
+	st->chip = spi_get_device_match_data(spi);
+	if (!st->chip)
+		return dev_err_probe(&spi->dev, -ENODEV,
+				     "Could not find chip info data\n");
+
 	mutex_init(&st->lock);
 
-	indio_dev->channels = ad7768_channels;
-	indio_dev->num_channels = ARRAY_SIZE(ad7768_channels);
-	indio_dev->name = spi_get_device_id(spi)->name;
+	indio_dev->channels = st->chip->channel_spec;
+	indio_dev->num_channels = st->chip->num_channels;
+	indio_dev->available_scan_masks = st->chip->available_masks;
+	indio_dev->name = st->chip->name;
 	indio_dev->info = &ad7768_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
@@ -1307,7 +1338,7 @@ static int ad7768_probe(struct spi_device *spi)
 		return ret;
 	}
 
-	ret = ad7768_set_channel_label(indio_dev, ARRAY_SIZE(ad7768_channels));
+	ret = ad7768_set_channel_label(indio_dev, st->chip->num_channels);
 	if (ret)
 		return ret;
 
@@ -1322,13 +1353,13 @@ static int ad7768_probe(struct spi_device *spi)
 }
 
 static const struct spi_device_id ad7768_id_table[] = {
-	{ "ad7768-1", 0 },
+	{ "ad7768-1", (kernel_ulong_t)&ad7768_chip_info },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad7768_id_table);
 
 static const struct of_device_id ad7768_of_match[] = {
-	{ .compatible = "adi,ad7768-1" },
+	{ .compatible = "adi,ad7768-1", .data = &ad7768_chip_info },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, ad7768_of_match);
