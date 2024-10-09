@@ -1,0 +1,134 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD8460
+ * https://www.analog.com/en/products/ad8460.html
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/platforms/zynq
+ * https://wiki.analog.com/resources/fpga/xilinx/kc705/ad8460
+ *
+ * hdl_project: <ad8460/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2012-2019 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+/ {
+	hvcc: regulator-hvcc {
+		regulator-name = "hvcc";
+		regulator-min-microvolt = <12000000>;
+		regulator-max-microvolt = <55000000>;
+		regulator-always-on;
+	};
+
+	hvee: regulator-hvee {
+		regulator-name = "hvee";
+		regulator-min-microvolt = <(-55000000)>;
+		regulator-max-microvolt = <(-12000000)>;
+		regulator-always-on;
+	};
+
+	vcc_5: regulator-vcc_5 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc_5";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	vref_5: regulator-vref_5 {
+		compatible = "regulator-fixed";
+		regulator-name = "vref_5";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	avdd_3_3: regulator-avdd_3_3 {
+		compatible = "regulator-fixed";
+		regulator-name = "avdd_3_3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	dvdd_3_3: regulator-dvdd_3_3 {
+		compatible = "regulator-fixed";
+		regulator-name = "dvdd_3_3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	refio_1_2: regulator-refio_1_2 {
+		regulator-name = "refio_1_2";
+		regulator-min-microvolt = <120000>;
+		regulator-max-microvolt = <1200000>;
+		regulator-always-on;
+	};
+
+	clocks {
+		sync_ext_clk: ext-clk {
+			#clock-cells = <0x0>;
+			compatible = "fixed-clock";
+			clock-frequency = <500000>;
+			clock-output-names = "sync_ext_clk";
+		};
+	};
+};
+
+&fpga_axi {
+
+	tx_dma: tx_dmac@44000000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44000000 0x1000>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+		#dma-cells = <1>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <64>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <32>;
+				adi,destination-bus-type = <2>;
+				adi,cyclic;
+			};
+		};
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	ad8460: dac@0 {
+		compatible = "adi,ad8460";
+		reg = <0>;
+		spi-max-frequency = <8000000>;
+
+		dma-names = "tx";
+		dmas = <&tx_dma 0>;
+
+		clocks = <&sync_ext_clk>;
+		clock-names = "sync_clk";
+
+		hvcc-supply = <&hvcc>;
+		hvee-supply = <&hvee>;
+		vcc-5v-supply = <&vcc_5>;
+		vref-5v-supply = <&vref_5>;
+		dvdd-3p3v-supply = <&dvdd_3_3>;
+		avdd-3p3v-supply = <&avdd_3_3>;
+		refio-1p2v-supply = <&refio_1_2>;
+
+		adi,external-resistor-ohms = <2000>;
+		adi,range-microvolt = <(-40000000) 40000000>;
+		adi,range-microamp = <(-50000) 50000>;
+		adi,max-millicelsius = <50000>;
+	};
+};
