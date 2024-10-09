@@ -10,7 +10,7 @@
 #define LANE_MIN 1
 #define LANE_MAX AD916x_JESD_NOF_LANES
 #define K_MAX 32
-#define M_DEFAULT 2
+#define M_DEFAULT 1
 #define N_DEFAULT 16
 #define NP_DEFAULT 16
 #define S_MIN 1
@@ -166,6 +166,7 @@ static int check_interpolation_range(uint8_t interpolation, uint16_t prod_id )
 
 static int check_jesd_params_range(jesd_param_t jesd_param)
 {
+	printk(KERN_INFO "AD916x API params: %d, %d, %d, %d\n", jesd_param.jesd_L, jesd_param.jesd_F, jesd_param.jesd_M, jesd_param.jesd_S);
 	/*Transport layer Parameter Ranges Table 22*/
 	if ((jesd_param.jesd_L < LANE_MIN) ||
 		(jesd_param.jesd_L > LANE_MAX) ||
@@ -310,31 +311,38 @@ ADI_API int ad916x_jesd_config_datapath(ad916x_handle_t *h,
 	uint8_t cdr_serdes_cfg[4] = {0x0, 0x0, 0x0, 0x0};
 	ad916x_chip_id_t chip_id;
 
+	printk(KERN_INFO "AD916x API invalid pointer\n");
 	if (h == INVALID_POINTER) {
 		return API_ERROR_INVALID_HANDLE_PTR;
 	}
 
+
+	printk(KERN_INFO "AD916x API invalid chipid\n");
 	err = ad916x_get_chip_id(h, &chip_id);
 	if (err != API_ERROR_OK) {
 		return err;
 	}
 	
+	printk(KERN_INFO "AD916x API invalid interpolation\n");
 	err = check_interpolation_range(interpolation, chip_id.prod_id);
 	if (err != API_ERROR_OK) {
 		return err;
 	}
 
+	printk(KERN_INFO "AD916x API invalid params\n");
 	err = check_jesd_params_range(jesd_param);
 	if (err != API_ERROR_OK) {
 		return err;
 	}
 
+	printk(KERN_INFO "AD916x API invalid frequency\n");
 	dac_clk_freq_mhz = DIV_U64(h->dac_freq_hz, 1000000);
 	if((dac_clk_freq_mhz < DAC_CLK_FREQ_MIN) ||
 			(dac_clk_freq_mhz > DAC_CLK_FREQ_MAX)) {
 		return API_ERROR_INVALID_PARAM;
 	}
 
+	printk(KERN_INFO "AD916x API invalid interpolation\n");
 	if (interpolation == 1) {
 		M = 1;
 	} else {
@@ -346,6 +354,7 @@ ADI_API int ad916x_jesd_config_datapath(ad916x_handle_t *h,
 		return err;
 	}
 
+	printk(KERN_INFO "AD916x API invalid lane rate\n");
 	/*Calculate Lane Rate & Check Range*/
 	dac_rate_mhz = DIV_U64(dac_clk_freq_mhz, interpolation);
 	tmp_lane_rate_mbps = DIV_U64((dac_rate_mhz * (20 * M)), jesd_param.jesd_L);
@@ -375,6 +384,7 @@ ADI_API int ad916x_jesd_config_datapath(ad916x_handle_t *h,
 		}
 	}
 
+	printk(KERN_INFO "AD916x API invalid interpolation something\n");
 	/*Configure Lane and Interpolation Rate*/
 	tmp_reg = ((jesd_param.jesd_L << 4) |
 				((interpol_mode) & AD916x_FLD_INTPL_MODE));
@@ -383,6 +393,7 @@ ADI_API int ad916x_jesd_config_datapath(ad916x_handle_t *h,
 		return err;
 	}
 
+	printk(KERN_INFO "AD916x API invalid serdes and pll\n");
 	/*Look up and Configure CDR and Serdes PLL Settings for Lane Rate*/
 	get_cdr_serdes_cfg(tmp_lane_rate_mbps, &cdr_serdes_cfg[0]);
 
@@ -400,6 +411,7 @@ ADI_API int ad916x_jesd_config_datapath(ad916x_handle_t *h,
 		return err;
 	}
 
+	printk(KERN_INFO "AD916x API invalid serdes settings\n");
 	/*Apply SERDES PLL Settings*/
 	err = ad916x_register_read(h, AD916x_REG_REF_CLK_DIVIDER_LDO, &tmp_reg);
 	if (err != API_ERROR_OK) {
@@ -419,10 +431,12 @@ ADI_API int ad916x_jesd_config_datapath(ad916x_handle_t *h,
 		return err;
 	}
 
+	printk(KERN_INFO "AD916x API invalid reference clock\n");
 	err = ad916x_register_read(h, AD916x_REG_PLL_REF_CLK_PD, &tmp_reg);
 	if (err != API_ERROR_OK) {
 		return err;
 	}
+	printk(KERN_INFO "AD916x API invalid reference clock rate\n");
 	tmp_reg = (tmp_reg & ~AD916x_FLD_PLL_REF_CLK_RATE) |
 				((cdr_serdes_cfg[2] << 4) & AD916x_FLD_PLL_REF_CLK_RATE);
 	err = ad916x_register_write(h, AD916x_REG_PLL_REF_CLK_PD, tmp_reg);

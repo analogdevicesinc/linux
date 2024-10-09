@@ -158,6 +158,8 @@ static int ad916x_set_data_clk(struct ad9162_state *st, const u64 rate)
 {
 	int ret;
 
+	struct device *dev = &st->conv.spi->dev;
+	dev_info(dev,"Setting data clock");
 	ret = clk_set_rate_scaled(st->conv.clk[CLK_DAC], rate,
 				  &st->conv.clkscale[CLK_DAC]);
 	if (ret)
@@ -201,6 +203,7 @@ static int ad916x_jesd_link_status(struct ad9162_state *st)
 	dev_printk(level, dev, "init_lane_sync_stat: %x\n",
 		link_status.init_lane_sync_stat);
 
+	dev_info(dev, "Link status check");
 	return ret;
 }
 
@@ -211,6 +214,7 @@ static int ad916x_jesd_pll_status(struct ad9162_state *st)
 	bool locked;
 	int ret;
 	char *level = KERN_INFO;
+	dev_info(dev, "Working on the PLL status");
 
 	ret = ad916x_jesd_get_pll_status(&st->dac_h, &pll_lock_status);
 	if (ret != 0) {
@@ -240,6 +244,7 @@ static int ad916x_setup_jesd(struct ad9162_state *st)
 	unsigned long lane_rate_kHz;
 	int ret;
 
+	dev_info(dev, "SETUP the JESD");
 	/* check nco only mode */
 	 if (st->dc_test_mode) {
 	 	dev_info(dev,
@@ -251,6 +256,7 @@ static int ad916x_setup_jesd(struct ad9162_state *st)
 
 	JESD204_LNK_READ_OCTETS_PER_FRAME(dev, np, &st->jesd204_link,
 		&st->jesd_param.jesd_F, 1);
+	dev_info(dev, "AD916x octets per frame: %d", st->jesd_param.jesd_F);
 
 	JESD204_LNK_READ_FRAMES_PER_MULTIFRAME(dev, np, &st->jesd204_link,
 		&st->jesd_param.jesd_K, 32);
@@ -263,15 +269,18 @@ static int ad916x_setup_jesd(struct ad9162_state *st)
 
 	JESD204_LNK_READ_NUM_CONVERTERS(dev, np, &st->jesd204_link,
 		&st->jesd_param.jesd_M, 2);
+	dev_info(dev, "AD916x converters: %d", st->jesd_param.jesd_M);
 
 	JESD204_LNK_READ_CTRL_BITS_PER_SAMPLE(dev, np, &st->jesd204_link,
 		&st->jesd_param.jesd_CS, 0);
 
 	JESD204_LNK_READ_NUM_LANES(dev, np, &st->jesd204_link,
 		&st->jesd_param.jesd_L, 8);
+	dev_info(dev, "AD916x lanes: %d", st->jesd_param.jesd_L);
 
 	JESD204_LNK_READ_SAMPLES_PER_CONVERTER_PER_FRAME(dev, np,
 		&st->jesd204_link, &st->jesd_param.jesd_S, 2);
+	dev_info(dev, "AD916x samples per frame: %d", st->jesd_param.jesd_S);
 
 	JESD204_LNK_READ_SUBCLASS(dev, np, &st->jesd204_link,
 		&st->jesd_subclass, 0);
@@ -289,18 +298,21 @@ static int ad916x_setup_jesd(struct ad9162_state *st)
 	if (st->jesd_param.jesd_M == 2)
 		st->conv.id = ID_AD9162_COMPLEX;
 
+	dev_info(dev, "AD916x before JESD setup");
 	/*
 	 * When using the jesd204-fsm the remaining setup steps ore handled
 	 * in the Link states, so return here.
 	 */
 	if (st->jdev)
 		return 0;
-
+		
+	dev_info(dev, "AD916x did not return in FSM");
 	ret = ad916x_jesd_config_datapath(ad916x_h, st->jesd_param,
 				    st->interpolation, NULL);
 	if (ret != 0)
 		return ret;
 
+	dev_info(dev, "AD916x DATAPATH configured");
 	ret = ad916x_jesd_enable_datapath(ad916x_h,
 		GENMASK(st->jesd_param.jesd_L - 1, 0), 1, 1);
 	if (ret != 0)
@@ -308,6 +320,7 @@ static int ad916x_setup_jesd(struct ad9162_state *st)
 
 	msleep(100);
 
+	dev_info(dev, "AD916x Waiting for PLL. L is ok");
 	ret = ad916x_jesd_pll_status(st);
 	if (ret)
 		return ret;
@@ -358,6 +371,7 @@ static int ad9162_jesd204_link_init(struct jesd204_dev *jdev,
 	u64 rate;
 	int ret;
 
+	dev_info(dev, "Initi the JESD");
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
 
@@ -393,9 +407,11 @@ static int ad9162_jesd204_clks_enable(struct jesd204_dev *jdev,
 	struct ad9162_state *st = priv->st;
 	int ret;
 
+	dev_info(dev, "Enabling jesd clocks");
 	dev_info(dev, "%s:%d link_num %u reason %s\n", __func__,
 		__LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
 
+	dev_info(dev, "probably jesd_config_Datapath fails");
 	if (reason == JESD204_STATE_OP_REASON_INIT) {
 		ret = ad916x_jesd_config_datapath(&st->dac_h, st->jesd_param,
 				st->interpolation, NULL);
@@ -403,6 +419,7 @@ static int ad9162_jesd204_clks_enable(struct jesd204_dev *jdev,
 			return ret;
 	}
 
+	dev_info(dev, "No, jesd_config_Datapath did not fail");
 	ret = ad916x_jesd_enable_datapath(&st->dac_h,
 		GENMASK(st->jesd_param.jesd_L - 1, 0),
 		reason == JESD204_STATE_OP_REASON_INIT, 1);
@@ -436,6 +453,7 @@ static int ad9162_jesd204_link_enable(struct jesd204_dev *jdev,
 	struct ad9162_jesd204_priv *priv = jesd204_dev_priv(jdev);
 	struct ad9162_state *st = priv->st;
 	int ret;
+	dev_info(dev, "Enabling JESD link");
 
 	dev_info(dev, "%s:%d link_num %u reason %s\n", __func__,
 		 __LINE__, lnk->link_id, jesd204_state_op_reason_str(reason));
@@ -459,6 +477,7 @@ static int ad9162_jesd204_link_running(struct jesd204_dev *jdev,
 	struct ad9162_state *st = priv->st;
 	int ret;
 
+	dev_info(dev, "Link is running");
 	if (reason != JESD204_STATE_OP_REASON_INIT)
 		return JESD204_STATE_CHANGE_DONE;
 
@@ -1143,6 +1162,7 @@ static int ad9162_probe(struct spi_device *spi)
 
 	return jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
 out:
+	dev_info(&spi->dev, "Returned around FSM.\n");
 	return ret;
 }
 
