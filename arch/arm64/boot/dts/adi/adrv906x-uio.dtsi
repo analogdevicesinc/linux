@@ -1465,71 +1465,71 @@
     };
     uio-adrv906x-interrupt-336 {
         compatible = "generic-uio";
-        interrupts = <GIC_SPI O_PDS_ORX0_INTR_IRQ_3 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI O_PDS_ORX0_INTR_IRQ_3 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-759 {
         compatible = "generic-uio";
-        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_0 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_0 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-760 {
         compatible = "generic-uio";
-        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_1 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_1 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-761 {
         compatible = "generic-uio";
-        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_2 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_2 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-762 {
         compatible = "generic-uio";
-        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_3 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_3 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-763 {
         compatible = "generic-uio";
-        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_4 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_4 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-764 {
         compatible = "generic-uio";
-        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_5 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_5 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-765 {
         compatible = "generic-uio";
-        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_6 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_6 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-766 {
         compatible = "generic-uio";
-        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_7 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI O_CDDC_RSSI_READY_TXRX_0_IRQ_7 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-800 {
         compatible = "generic-uio";
-        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_0 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_0 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-801 {
         compatible = "generic-uio";
-        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_1 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_1 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-802 {
         compatible = "generic-uio";
-        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_2 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_2 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-803 {
         compatible = "generic-uio";
-        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_3 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_3 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-804 {
         compatible = "generic-uio";
-        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_4 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_4 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-805 {
         compatible = "generic-uio";
-        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_5 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_5 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-806 {
         compatible = "generic-uio";
-        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_6 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_6 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-807 {
         compatible = "generic-uio";
-        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_7 IRQ_TYPE_LEVEL_HIGH>;
+        interrupts = <GIC_SPI O_CDUC_TSSI_READY_TXRX_0_IRQ_7 IRQ_TYPE_EDGE_RISING>;
     };
     uio-adrv906x-interrupt-263 {
         compatible = "generic-uio";
