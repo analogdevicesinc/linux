@@ -444,6 +444,7 @@ struct adf4382_state {
 	struct spi_device	*spi;
 	struct regmap		*regmap;
 	struct clk		*clkin;
+	struct clk		*clkout;
 	struct clk_hw		clk_hw;
 	/* Protect against concurrent accesses to the device and data content */
 	struct mutex		lock;
@@ -1371,9 +1372,36 @@ static unsigned long adf4382_clock_recalc_rate(struct clk_hw *hw,
 	return freq;
 }
 
+static int adf4382_clock_enable(struct clk_hw *hw)
+{
+	struct adf4382_state *st = to_adf4382_state(hw);
+
+	return regmap_update_bits(st->regmap, 0x2B,
+				  ADF4382_PD_CLKOUT1_MSK | ADF4382_PD_CLKOUT2_MSK,
+				  0x00);
+}
+
+static void adf4382_clock_disable(struct clk_hw *hw)
+{
+	struct adf4382_state *st = to_adf4382_state(hw);
+
+	regmap_update_bits(st->regmap, 0x2B,
+			   ADF4382_PD_CLKOUT1_MSK | ADF4382_PD_CLKOUT2_MSK,
+			   0xff);
+}
+
+static long adf4382_clock_round_rate(struct clk_hw *hw, unsigned long rate,
+				     unsigned long *parent_rate)
+{
+	return rate;
+}
+
 static const struct clk_ops adf4382_clock_ops = {
 	.set_rate = adf4382_clock_set_rate,
 	.recalc_rate = adf4382_clock_recalc_rate,
+	.round_rate = adf4382_clock_round_rate,
+	.enable = adf4382_clock_enable,
+	.disable = adf4382_clock_disable,
 };
 
 static int adf4382_setup_clk(struct adf4382_state *st)
@@ -1406,6 +1434,8 @@ static int adf4382_setup_clk(struct adf4382_state *st)
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
+	st->clkout = clk;
+
 	return devm_of_clk_add_hw_provider(dev, of_clk_hw_simple_get, clk);
 }
 
@@ -1428,8 +1458,6 @@ static int adf4382_probe(struct spi_device *spi)
 
 	indio_dev->info = &adf4382_info;
 	indio_dev->name = "adf4382";
-	indio_dev->channels = adf4382_channels;
-	indio_dev->num_channels = ARRAY_SIZE(adf4382_channels);
 
 	st->regmap = regmap;
 	st->spi = spi;
@@ -1467,17 +1495,11 @@ static int adf4382_probe(struct spi_device *spi)
 	adf4382_setup_clk(st);
 	if (ret)
 		return ret;
-// TODO:The above is questionable. We do it for a couple of drivers and remember 
-// there was a reason for having both clock provider and an IIO userspace 
-// interface (like having different waveforms through IIO). But if the only reason 
-// is to have both userspace access top changing the frequency and having the clock
-// exported as part of CCF at the same time, that will be more difficult to justify.
 
-// Anyways, one thing that should be protected is that if the channel is being 
-// exported through CCF, we should not allow to change it's frequency though the 
-// IIO interface as that could breaks potential consumers of the clock,
-
-// Anyways, let's see what upstream has to say about this.
+	if (!st->clkout) {
+		indio_dev->channels = adf4382_channels;
+		indio_dev->num_channels = ARRAY_SIZE(adf4382_channels);
+	}
 
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
