@@ -431,6 +431,9 @@
 #define PS_PER_NS				1000
 #define UA_PER_A				1000000
 
+#define PERIOD_IN_DEG				360
+#define PERIOD_IN_DEG_MS			360000
+
 #define	ADF4382_CLK_SCALE			10
 
 enum {
@@ -958,8 +961,13 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_fs)
 	// Determine the phase adjustment in degrees relative the output freq.
 	phase_deg_fs = phase_fs * st->freq;
 	phase_deg_ns = div_u64(phase_deg_fs, FS_PER_NS);
-	phase_deg_ns = 360 * phase_deg_ns;
+	phase_deg_ns = PERIOD_IN_DEG * phase_deg_ns;
 	phase_deg_ms = div_u64(phase_deg_ns, NS_PER_MS);
+
+	if (phase_deg_ms > PERIOD_IN_DEG_MS) {
+		dev_err(&st->spi->dev, "Phase adjustment is out of range.\n");
+		return -EINVAL;
+	}
 
 	/* The charge pump current will also need to be taken in to account
 	 * as well as the Bleed constant
@@ -971,7 +979,7 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_fs)
 	// Computation of the register value for the phase adjust
 	phase_value = phase_bleed * pfd_freq_hz;
 	phase_value = div_u64(phase_value, st->freq);
-	phase_value = div_u64(phase_value, 360);
+	phase_value = div_u64(phase_value, PERIOD_IN_DEG);
 	phase_value = DIV_ROUND_CLOSEST_ULL(phase_value, MILLI);
 
 	dev_info(&st->spi->dev, "Phase Adjustment value: %llu\n", phase_value);
