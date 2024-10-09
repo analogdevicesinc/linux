@@ -431,6 +431,8 @@
 #define PS_PER_NS				1000
 #define UA_PER_A				1000000
 
+#define	ADF4382_CLK_SCALE			10
+
 enum {
 	ADF4382_FREQ,
 };
@@ -1346,7 +1348,7 @@ static int adf4382_clock_set_rate(struct clk_hw *hw, unsigned long rate,
 	struct adf4382_state *st = to_adf4382_state(hw);
 
 	st->ref_freq_hz = parent_rate;
-	st->freq = rate;
+	st->freq = rate * ADF4382_CLK_SCALE;
 
 	return adf4382_set_freq(st);
 }
@@ -1365,6 +1367,7 @@ static unsigned long adf4382_clock_recalc_rate(struct clk_hw *hw,
 	u64 freq = 0;
 
 	adf4382_get_freq(st, &freq);
+	freq = div_u64(freq, ADF4382_CLK_SCALE);
 
 	return freq;
 }
