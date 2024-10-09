@@ -1,0 +1,95 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices CN0540
+ * https://www.analog.com/en/design-center/reference-designs/circuits-from-the-lab/cn0540.html
+ * https://www.analog.com/en/products/ad4170.html
+ * https://wiki.analog.com/resources/tools-software/linux-build/generic/socfpga
+ *
+ * hdl_project: <cn0540/de10nano>
+ * board_revision: <A>
+ *
+ * Copyright (C) 2024 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "socfpga_cyclone5_de10_nano.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/iio/adc/adi,ad4170.h>
+
+/ {
+	avdd: fixedregulator@0 {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-boot-on;
+	};
+};
+
+&fpga_axi {
+	axi_dmac_0: rx-dma@0x00020000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x00020000 0x00000800>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 44 IRQ_TYPE_LEVEL_HIGH>;
+		#dma-cells = <1>;
+		clocks = <&h2f_user0_clk>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <1>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	spi@0x00030000 {
+		compatible = "adi-ex,axi-spi-engine-1.00.a";
+		reg = <0x00030000 0x00010000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 45 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&sys_clk &h2f_user0_clk>;
+		clock-names = "s_axi_aclk", "spi_clk";
+		num-cs = <1>;
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		ad4170@0 {
+			compatible = "adi,ad4170";
+			reg = <0>;
+			spi-cpol;
+			spi-cpha;
+			avdd-supply = <&avdd>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			dmas = <&axi_dmac_0 0>;
+			dma-names = "rx";
+
+			spi-max-frequency = <20000000>;
+			interrupt-parent = <&gpio_in>;
+			interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
+			interrupt-names = "adc_rdy";
+			adi,dig-aux1-function = "rdy";
+
+			channel@0 {
+				reg = <0>;
+				adi,reference-select = <2>;
+				/* AIN8, DGND  */
+				diff-channels = <8 24>;
+			};
+
+			channel@1 {
+				reg = <1>;
+				adi,reference-select = <2>;
+				/* TEMP_SENSOR+, TEMP_SENSOR- */
+				diff-channels = <17 17>;
+			};
+		};
+	};
+};

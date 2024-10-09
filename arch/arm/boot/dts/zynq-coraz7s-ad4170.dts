@@ -1,0 +1,247 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD4170
+ *
+ * hdl_project: <ad4170_asdz/coraz7s>
+ * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/ad4170_asdz
+ * board_revision: <A>
+ *
+ * Copyright (C) 2024 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "zynq-coraz7s.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/iio/adc/adi,ad4170.h>
+
+/ {
+	vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <4096000>;
+		regulator-max-microvolt = <4096000>;
+		regulator-always-on;
+	};
+	avdd: avdd-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "Eval AVDD supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-boot-on;
+	};
+	iovdd: iovdd-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "Eval IOVDD supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-boot-on;
+	};
+	refin1p: refin1p-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "Eval REFIN+ voltage reference";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-boot-on;
+	};
+	refin1n: refin1n-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "Eval REFIN- voltage reference";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		regulator-boot-on;
+	};
+};
+
+&fpga_axi {
+	rx_dma: rx-dmac@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x1000>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <1>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	spi_engine: spi@0x44a00000 {
+		compatible = "adi-ex,axi-spi-engine-1.00.a";
+		reg = <0x44a00000 0x10000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15 &spi_clk>;
+		clock-names = "s_axi_aclk", "spi_clk";
+		num-cs = <1>;
+
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		ad4170@0 {
+			compatible = "adi,ad4170";
+			reg = <0>;
+			spi-max-frequency = <20000000>;
+			spi-cpol;
+			spi-cpha;
+			avdd-supply = <&avdd>;
+			iovdd-supply = <&iovdd>;
+			refin1p-supply = <&refin1p>;
+			refin1n-supply = <&refin1n>;
+			interrupt-parent = <&gpio0>;
+			interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
+			interrupt-names = "adc_rdy";
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			adi,dig-aux1 = /bits/ 8 <1>;
+			adi,dig-aux2 = /bits/ 8 <0>;
+			adi,sync-option = /bits/ 8 <0>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			// Sample AIN0 with respect to AIN1 throughout AVDD/AVSS input range
+			// Fully differential. If AVSS < 0V, Fully differential true bipolar
+			channel@0 {
+				// Feature under test: General functionality
+				// Test setup
+				// AVDD = 5V; AVSS = GND (0V)
+				// AIN0 = square, 1 Hz, 100mV p-p centered at 1V.
+				// AIN1 = sine, 10 Hz, 100mV p-p centered at 1V, 180º phase shifted.
+				reg = <0>;
+				bipolar;
+				diff-channels = <AD4170_MAP_AIN0 AD4170_MAP_AIN1>;
+				adi,config-setup-slot = <0>;
+				adi,reference-select = <3>;
+				adi,burnout-current-nanoamp = <100>;
+			};
+			// Sample AIN2 with respect to DGND throughout AVDD/DGND input range
+			// Peseudo-differential unipolar (fig. 2a)
+			channel@1 {
+				// Feature under test: Pseudo-diff scale
+				// Test setup
+				// AVDD = 5V; AVSS = GND (0V)
+				// AIN2 = sine, 1 kHz, 100mV p-p centered at 2V.
+				reg = <1>;
+				single-channel = <AD4170_MAP_AIN2>;
+				common-mode-channel = <AD4170_MAP_DGND>;
+				adi,config-setup-slot = <1>;
+				adi,reference-select = <3>;
+			};
+			// Sample AIN3 with respect to REFOUT throughout AVDD/AVSS input range
+			// Pseudo-differential bipolar (fig. 2b)
+			channel@2 {
+				// Feature under test: Channel offset
+				// Test setup
+				// AVDD = 5V; AVSS = GND (0V)
+				// AIN7 = sine 100 mV p-p centered at 2.5V
+				reg = <2>;
+				bipolar;
+				single-channel = <AD4170_MAP_AIN3>;
+				common-mode-channel = <AD4170_MAP_REFOUT>;
+				adi,config-setup-slot = <2>;
+				adi,reference-select = <3>;
+			};
+			// Sample AIN4 with respect to DGND throughout AVDD/AVSS input range
+			// Pseudo-differential true bipolar if AVSS < 0V (fig. 2c)
+			channel@3 {
+				reg = <3>;
+				bipolar;
+				single-channel = <AD4170_MAP_AIN4>;
+				common-mode-channel = <AD4170_MAP_DGND>;
+				adi,config-setup-slot = <3>;
+				adi,reference-select = <3>;
+			};
+			// Sample AIN5 with respect to REFOUT throughout AVDD/REFOUT input range
+			// Pseudo-differential unipolar (AD4170 datasheet page 46 example)
+			channel@4 {
+				// Feature under test: Channel offset
+				// Test setup
+				// AVDD = 5V; AVSS = GND (0V)
+				// AIN5 = sine 100 mV p-p centered at 3.6V
+				reg = <4>;
+				single-channel = <AD4170_MAP_AIN5>;
+				common-mode-channel = <AD4170_MAP_REFOUT>;
+				adi,config-setup-slot = <4>;
+				adi,reference-select = <3>;
+			};
+			// Sample AIN6 with respect to AVSS throughout AVDD/AVSS input range
+			// Pseudo-differential unipolar
+			channel@5 {
+				// Feature under test: Channel scale
+				// Test setup
+				// AVDD = 5V; AVSS = GND (0V)
+				// AIN5 = sine 100 mV p-p centered at 3.6V
+				reg = <5>;
+				single-channel = <AD4170_MAP_AIN6>;
+				common-mode-channel = <AD4170_MAP_AVSS>;
+				adi,config-setup-slot = <4>;
+				adi,reference-select = <3>;
+			};
+			// Sample AIN7 with respect to (AVDD-AVSS)/5 throughout REFIN+/REFIN- input range
+			// Pseudo-differential bipolar
+			channel@6 {
+				reg = <6>;
+				bipolar;
+				single-channel = <AD4170_MAP_AIN7>;
+				common-mode-channel = <AD4170_MAP_AVDD_AVSS_P>;
+				adi,config-setup-slot = <5>;
+				adi,reference-select = <0>;
+			};
+			// Temperature sensor
+			channel@7 {
+				reg = <7>;
+				bipolar;
+				diff-channels = <AD4170_MAP_TEMP_SENSOR_P AD4170_MAP_TEMP_SENSOR_N>;
+				adi,config-setup-slot = <6>;
+				adi,reference-select = <0>;
+			};
+			// Sample AIN8 with respect to DGND throughout AVDD/AVSS input range
+			// Pseudo-differential channel
+			channel@8 {
+				reg = <8>;
+				bipolar;
+				single-channel = <AD4170_MAP_AIN8>;
+				common-mode-channel = <AD4170_MAP_DGND>;
+				adi,config-setup-slot = <7>;
+				adi,reference-select = <3>;
+			};
+
+		};
+	};
+
+	axi_i2c_0:axi-iic@0x44a40000{
+		compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
+		reg = <0x44a40000 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ltc2606: ltc2606@10 {
+			compatible = "adi,ltc2606";
+			reg = <0x10>;
+			vref-supply = <&vref>;
+		};
+	};
+
+	spi_clk: axi-clkgen@0x44a70000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44a70000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 15>;
+		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "spi_clk";
+	};
+};
