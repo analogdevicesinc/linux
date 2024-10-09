@@ -270,7 +270,7 @@ static int ad9508_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
 		ret = ad9508_read(indio_dev, AD9508_CHANNEL_OUT_PHASE(chan->channel));
-		div = ad9508_read(indio_dev, AD9508_CHANNEL_OUT_DIV(chan->channel));
+		div = 3; //ad9508_read(indio_dev, AD9508_CHANNEL_OUT_DIV(chan->channel));
 		div += 1;
 		code = DIV_ROUND_CLOSEST(ret * 3141592, div);
 		*val = code / 1000000;
@@ -360,7 +360,7 @@ static unsigned long ad9508_clk_recalc_rate(struct clk_hw *hw,
 		unsigned long parent_rate)
 {
 	struct iio_dev *indio_dev = to_ad9508_clk_output(hw)->indio_dev;
-	int ret = ad9508_read(indio_dev, AD9508_CHANNEL_OUT_DIV(to_ad9508_clk_output(hw)->num));
+	int ret =3;// ad9508_read(indio_dev, AD9508_CHANNEL_OUT_DIV(to_ad9508_clk_output(hw)->num));
 
 	return parent_rate / (ret + 1);
 }
