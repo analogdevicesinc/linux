@@ -162,8 +162,8 @@
 		/* GPIO */
 		reset-gpios = <&gpio 133 0>;
 		sysref-req-gpios = <&gpio 121 0>;
-		rx2-enable-gpios = <&gpio 135 0>;
-		rx1-enable-gpios = <&gpio 134 0>;
+
+
 		tx2-enable-gpios = <&gpio 137 0>;
 		tx1-enable-gpios = <&gpio 136 0>;
 
