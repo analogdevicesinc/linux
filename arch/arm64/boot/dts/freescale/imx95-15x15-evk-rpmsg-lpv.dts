@@ -11,3 +11,31 @@
 	/delete-property/ fsl,enable-lpa;
 	/delete-property/ fsl,rpmsg-in;
 };
+
+&rpmsg_micfil {
+	pinctrl-0 = <&pinctrl_pdm2>;
+};
+
+&ethphy0 {
+	/delete-property/ reset-gpios;
+	/delete-property/ reset-assert-us;
+	/delete-property/ reset-deassert-us;
+};
+
+&ethphy1 {
+	/delete-property/ reset-gpios;
+	/delete-property/ reset-assert-us;
+	/delete-property/ reset-deassert-us;
+};
+
+&scmi_iomuxc {
+	pinctrl_pdm2: pdm2grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO04__AONMIX_TOP_PDM_CLK			0x31e
+			IMX95_PAD_GPIO_IO05__AONMIX_TOP_PDM_BIT_STREAM_BIT0	0x31e
+			IMX95_PAD_GPIO_IO06__AONMIX_TOP_PDM_BIT_STREAM_BIT1	0x31e
+			IMX95_PAD_GPIO_IO12__AONMIX_TOP_PDM_BIT_STREAM_BIT2	0x31e
+			IMX95_PAD_GPIO_IO13__AONMIX_TOP_PDM_BIT_STREAM_BIT3	0x31e
+		>;
+	};
+};
