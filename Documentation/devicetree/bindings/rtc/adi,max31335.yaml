@@ -16,14 +16,37 @@ description:
 allOf:
   - $ref: rtc.yaml#
 
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - adi,max31335
+    then:
+      properties:
+        reg:
+          items:
+            - const: 0x69
+    else:
+      properties:
+        reg:
+          items:
+            - const: 0x68
+
 properties:
   compatible:
-    const: adi,max31335
+    enum:
+      - adi,max31331
+      - adi,max31335
 
   reg:
-    maxItems: 1
+    description: I2C address of the RTC
+    items:
+      - enum: [0x68, 0x69]
 
   interrupts:
+    description: |
+      Alarm1 interrupt line of the RTC.
     maxItems: 1
 
   "#clock-cells":
@@ -59,7 +82,7 @@ examples:
 
         rtc@68 {
             compatible = "adi,max31335";
-            reg = <0x68>;
+            reg = <0x69>;
             pinctrl-0 = <&rtc_nint_pins>;
             interrupts-extended = <&gpio1 16 IRQ_TYPE_LEVEL_HIGH>;
             aux-voltage-chargeable = <1>;
