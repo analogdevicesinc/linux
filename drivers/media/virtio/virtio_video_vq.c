@@ -589,7 +589,7 @@ virtio_video_cmd_resource_destroy_all_cb(struct virtio_video *vv,
 
 int virtio_video_cmd_resource_destroy_all(struct virtio_video *vv,
 					  struct virtio_video_stream *stream,
-					  enum virtio_video_queue_type qtype)
+					  uint32_t qtype)
 {
 	struct virtio_video_resource_destroy_all *req_p;
 	struct virtio_video_vbuffer *vbuf;
