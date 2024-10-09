@@ -39,6 +39,12 @@
 		clock-output-names = "clkin";
 		#clock-cells = <0>;
 		};
+    jesd_dac_clk_in: clock@1 {
+		compatible = "fixed-clock";
+		clock-frequency =  /bits/ 64 <12000000000>;
+		clock-output-names = "jesd_dac_clk_in";
+		#clock-cells = <0>;
+		};
 
 		adf4355_out_div4: hmc365 {
 			#clock-cells = <0>;
@@ -151,7 +157,7 @@
 
 		clocks = <&adf4355_clkin>;
 		clock-names = "clkin";
-		clock-scales = <1 2>;
+		clock-scales = <1 1>;
 
 		clock-output-names = "adf4355_clk";
 		#clock-cells = <0>;
@@ -237,10 +243,10 @@
 			compatible = "adi,ad9164";
 			reg = <1>;
 			spi-max-frequency = <1000000>;
-			clocks = <&adf4355_clk>, <&ad9508_clk 3>;
-			clock-names = "dac_clk", "dac_sysref";
+			clocks = <&jesd_dac_clk_in>, <&adf4355_clk>, <&ad9508_clk 3> ;
+			clock-names = "jesd_dac_clk", "dac_clk", "dac_sysref";
 
-			dac_clk-clock-scales = <1 2>;
+//			dac_clk-clock-scales = <1 2>;
 			adi,full-scale-current-microamp = <20000>;
 
 			/* jesd204-fsm support */
@@ -249,7 +255,9 @@
 			jesd204-top-device = <0>; /* This is the TOP device */
 			jesd204-link-ids = <0>;
 			jesd204-inputs = <&axi_ad9164_core 0 0>;
-			adi,jesd204-ignore-errors;
+//			adi,jesd204-ignore-errors;
+			adi,jesd-link-mode = <4>;
+			adi,dac-rate-khz = <12000000>;
 
 			adi,subclass = <0>;			/* JESD SUBCLASS 0,1,2 */
 			adi,version = <1>;			/* JESD VERSION 0=204A,1=204B,2=204C */
@@ -262,7 +270,7 @@
 			adi,lanes-per-device = <4>;		/* JESD L */
 			adi,samples-per-converter-per-frame = <2>; /* JESD S */
 
-			adi,interpolation = <2>;
+			adi,interpolation = <4>;
 			txen-gpios = <&gpio 99 0>;
 		};
  };
