@@ -5,7 +5,7 @@
 $id: http://devicetree.org/schemas/power/supply/ltc4162-l.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Linear Technology (Analog Devices) LTC4162-L Charger
+title: Linear Technology (Analog Devices) LTC4162 and LTC4015 Charger
 
 maintainers:
   - Mike Looijmans <mike.looijmans@topic.nl>
@@ -17,26 +17,32 @@ description: |
   panels, etc., and a rechargeable Lithium-Ion/Polymer battery.
 
   Specifications about the charger can be found at:
+    https://www.analog.com/en/products/ltc4162-l.html
+    https://www.analog.com/en/products/ltc4162-f.html
     https://www.analog.com/en/products/ltc4162-s.html
+    https://www.analog.com/en/products/ltc4015.html
 
 properties:
   compatible:
     enum:
-      - lltc,ltc4162-l
+      - adi,ltc4162-l
+      - adi,ltc4162-f
+      - adi,ltc4162-s
+      - adi,ltc4015
 
   reg:
     maxItems: 1
     description: I2C address of the charger.
 
-  lltc,rsnsb-micro-ohms:
+  adi,rsnsb-micro-ohms:
     description: Battery sense resistor in microohm.
     minimum: 1000
 
-  lltc,rsnsi-micro-ohms:
+  adi,rsnsi-micro-ohms:
     description: Input current sense resistor in microohm.
     minimum: 1000
 
-  lltc,cell-count:
+  adi,cell-count:
     $ref: /schemas/types.yaml#/definitions/uint32
     description: |
       Number of battery cells. If not provided, will be obtained from the chip
@@ -47,8 +53,8 @@ properties:
 required:
   - compatible
   - reg
-  - lltc,rsnsb-micro-ohms
-  - lltc,rsnsi-micro-ohms
+  - adi,rsnsb-micro-ohms
+  - adi,rsnsi-micro-ohms
 
 additionalProperties: false
 
@@ -58,10 +64,10 @@ examples:
       #address-cells = <1>;
       #size-cells = <0>;
       charger: battery-charger@68 {
-              compatible = "lltc,ltc4162-l";
+              compatible = "adi,ltc4162-l";
               reg = <0x68>;
-              lltc,rsnsb-micro-ohms = <10000>;
-              lltc,rsnsi-micro-ohms = <16000>;
-              lltc,cell-count = <2>;
+              adi,rsnsb-micro-ohms = <10000>;
+              adi,rsnsi-micro-ohms = <16000>;
+              adi,cell-count = <2>;
       };
     };

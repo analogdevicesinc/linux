@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- *  Driver for Analog Devices (Linear Technology) LTC4162-L charger IC.
+ *  Driver for Analog Devices (Linear Technology)
+ *  LTC4162-L 35V/3.2A Multi-Cell Lithium-Ion Step-Down Battery Charger
+ *  LTC4162-F 35V/3.2A Multi-Cell LiFePO4 Step-Down Battery Charger
+ *  LTC4162-S 35V/3.2A Lead-Acid Step-Down Battery Charger
+ *  LTC4015 35V/3.2A Multichemistry Buck Battery Charger Controller
  *  Copyright (C) 2020, Topic Embedded Products
  */
 
@@ -47,6 +51,13 @@
 #define LTC4162L_VBAT_FILT			0x47
 #define LTC4162L_INPUT_UNDERVOLTAGE_DAC		0x4B
 
+enum ltc4162l_type {
+	ltc4162l,
+	ltc4162f,
+	ltc4162s,
+	ltc4015,
+};
+
 /* Enumeration as in datasheet. Individual bits are mutually exclusive. */
 enum ltc4162l_state {
 	battery_detection = 2048,
@@ -79,6 +90,7 @@ struct ltc4162l_info {
 	struct i2c_client	*client;
 	struct regmap		*regmap;
 	struct power_supply	*charger;
+	enum ltc4162l_type	type;
 	u32 rsnsb;	/* Series resistor that sets charge current, microOhm */
 	u32 rsnsi;	/* Series resistor to measure input current, microOhm */
 	u8 cell_count;	/* Number of connected cells, 0 while unknown */
@@ -106,6 +118,19 @@ static u8 ltc4162l_get_cell_count(struct ltc4162l_info *info)
 	info->cell_count = val;
 
 	return val;
+};
+
+static u8 ltc4162l_get_chem_type(struct ltc4162l_info *info)
+{
+	int ret;
+	unsigned int val;
+
+	ret = regmap_read(info->regmap, LTC4162L_CHEM_CELLS_REG, &val);
+	if (ret)
+		return ret;
+
+	/* Upper 4 bits is the chemistry type */
+	return val >> 8 & 0x0f;
 };
 
 /* Convert enum value to POWER_SUPPLY_STATUS value */
@@ -230,13 +255,40 @@ static int ltc4162l_get_vbat(struct ltc4162l_info *info,
 	if (ret)
 		return ret;
 
-	/* cell_count × 192.4μV/LSB */
-	regval *= 1924;
-	regval *= ltc4162l_get_cell_count(info);
-	regval /= 10;
-	val->intval = regval;
+	/*
+	 * cell_count × scaling factor
+	 * For ltc4162-s, it uses a cell_count value of 2 for each group of 3
+	 * physical (2V) cells, thus will return 2, 4, 6, 8 for 6V, 12V, 18V,
+	 * and 24V respectively, and has to divide by 2 to multiply the scale
+	 * factor by 1, 2, 3, or 4 to represent a 6V, 12V, 18V, or 24V battery
+	 * respectively.
+	 */
+	switch (info->type) {
+	case ltc4162l:
+	case ltc4162f:
+		regval *= 1924;
+		regval *= ltc4162l_get_cell_count(info);
+		regval /= 10;
+		val->intval = regval;
 
-	return 0;
+		return 0;
+	case ltc4162s:
+		regval *= 3848;
+		regval *= ltc4162l_get_cell_count(info) / 2;
+		regval /= 10;
+		val->intval = regval;
+
+		return 0;
+	case ltc4015:
+		regval *= ltc4162l_get_chem_type(info) <= 6 ? 192264 : 128176;
+		regval *= ltc4162l_get_cell_count(info);
+		regval /= 1000;
+		val->intval = regval;
+
+		return 0;
+	default:
+		return -EINVAL;
+	}
 }
 
 static int ltc4162l_get_ibat(struct ltc4162l_info *info,
@@ -249,9 +301,13 @@ static int ltc4162l_get_ibat(struct ltc4162l_info *info,
 	if (ret)
 		return ret;
 
-	/* Signed 16-bit number, 1.466μV / RSNSB amperes/LSB. */
+	/*
+	 * Signed 16-bit number, 1.466μV / RSNSB amperes/LSB.
+	 * 1.46487 / RSNSB amperes/LSB for LTC4015
+	 */
 	ret = (s16)(regval & 0xFFFF);
-	val->intval = 100 * mult_frac(ret, 14660, (int)info->rsnsb);
+	val->intval = 100 * mult_frac(ret, info->type == ltc4015 ? 146487 :
+				      14660, (int)info->rsnsb);
 
 	return 0;
 }
@@ -267,8 +323,8 @@ static int ltc4162l_get_input_voltage(struct ltc4162l_info *info,
 	if (ret)
 		return ret;
 
-	/* 1.649mV/LSB */
-	val->intval =  regval * 1694;
+	/* 1.649mV/LSB, 1.648mV/LSB for LTC4015 */
+	val->intval =  regval * (info->type == ltc4015 ? 1648 : 1649);
 
 	return 0;
 }
@@ -283,11 +339,14 @@ static int ltc4162l_get_input_current(struct ltc4162l_info *info,
 	if (ret)
 		return ret;
 
-	/* Signed 16-bit number, 1.466μV / RSNSI amperes/LSB. */
+	/*
+	 * Signed 16-bit number, 1.466μV / RSNSI amperes/LSB.
+	 * 1.46487µV / RSNSI for LTC4015.
+	 */
 	ret = (s16)(regval & 0xFFFF);
-	ret *= 14660;
+	ret *= info->type == ltc4015 ? 146487 : 14660;
 	ret /= info->rsnsi;
-	ret *= 100;
+	ret *= info->type == ltc4015 ? 1000 : 100;
 
 	val->intval = ret;
 
@@ -347,38 +406,113 @@ static int ltc4162l_get_vcharge(struct ltc4162l_info *info,
 	regval &= BIT(6) - 1; /* Only the lower 5 bits */
 
 	/*
-	 * charge voltage setting can be computed from
-	 * cell_count × (vcharge_setting × 12.5mV + 3.8125V)
-	 * where vcharge_setting ranges from 0 to 31 (4.2V max).
+	 * charge voltage setting can be computed by:
+	 * cell_count × (vcharge_setting × a + b)
+	 * where vcharge_setting ranges from 0 to c (d).
+	 * for ltc4162l: a = 12.5mV , b = 3.8125V, c = 31, d = 4.2Vmax
+	 * for ltc4162f: a = 12.5mV , b = 3.4125V, c = 31, d = 3.8Vmax
+	 * for ltc4105:
+	 * Li-Ion: a = 1/80V, b = 3.8125V, c = 31, d = 4.2Vmax
+	 * LiFePO4: a = 1/80V, b = 3.4125V, c = 31, d = 3.8Vmax
+	 * Lead Acid: a = 1/105V, b = 2V, c = 35, d = 2.6Vmax
+	 *
+	 * for ltc4162s, the charge voltage setting can be computed by:
+	 * N x (vcharge_setting x 28.571mV + 6.0V)
+	 * where N is 1, 2, 3, or 4 for 6V, 12V, 18V, or 24V battery respectively,
+	 * and vcharge_setting ranges from 0 to 31.
 	 */
-	voltage = 3812500 + (regval * 12500);
-	voltage *= ltc4162l_get_cell_count(info);
-	val->intval = voltage;
+	switch (info->type) {
+	case ltc4162l:
+		voltage = 3812500 + (regval * 12500);
+		voltage *= ltc4162l_get_cell_count(info);
+		val->intval = voltage;
 
-	return 0;
+		return 0;
+	case ltc4162f:
+		voltage = 3412500 + (regval * 12500);
+		voltage *= ltc4162l_get_cell_count(info);
+		val->intval = voltage;
+
+		return 0;
+	case ltc4162s:
+		voltage = 6000000 + (regval * 28571);
+		voltage *= ltc4162l_get_cell_count(info) / 2;
+		val->intval = voltage;
+
+		return 0;
+	case ltc4015:
+		if (ltc4162l_get_chem_type(info) <= 3)
+			voltage = 3812500 + (regval * 12500);
+		else if (ltc4162l_get_chem_type(info) > 3 ||
+			 ltc4162l_get_chem_type(info) < 7)
+			voltage = 3412500 + (regval * 12500);
+		else
+			voltage = 2000000 + (regval * 9523);
+
+		voltage *= ltc4162l_get_cell_count(info);
+		val->intval = voltage;
+
+		return 0;
+	default:
+		return -EINVAL;
+	}
 }
 
-static int ltc4162l_set_vcharge(struct ltc4162l_info *info,
-				unsigned int reg,
-				unsigned int value)
+static int ltc4162l_vcharge(struct ltc4162l_info *info,
+			    unsigned int base_voltage,
+			    unsigned int scale_factor,
+			    unsigned int range,
+			    unsigned int value)
 {
-	u8 cell_count = ltc4162l_get_cell_count(info);
+	u8 cell_count;
+
+	cell_count = info->type == ltc4162s ? ltc4162l_get_cell_count(info) / 2 :
+			ltc4162l_get_cell_count(info);
 
 	if (!cell_count)
 		return -EBUSY; /* Not available yet, try again later */
 
 	value /= cell_count;
 
-	if (value < 3812500)
+	if (value < base_voltage)
 		return -EINVAL;
 
-	value -= 3812500;
-	value /= 12500;
+	value -= base_voltage;
+	value /= scale_factor;
 
-	if (value > 31)
+	if (value > range)
 		return -EINVAL;
 
-	return regmap_write(info->regmap, reg, value);
+	return value;
+}
+
+static int ltc4162l_set_vcharge(struct ltc4162l_info *info,
+				unsigned int reg,
+				unsigned int value)
+{
+	switch (info->type) {
+	case ltc4162l:
+		value = ltc4162l_vcharge(info, 3812500, 12500, 31, value);
+		return regmap_write(info->regmap, reg, value);
+	case ltc4162f:
+		value = ltc4162l_vcharge(info, 3412500, 12500, 31, value);
+		return regmap_write(info->regmap, reg, value);
+	case ltc4162s:
+		value = ltc4162l_vcharge(info, 6000000, 28571, 31, value);
+		return regmap_write(info->regmap, reg, value);
+	case ltc4015:
+		if (ltc4162l_get_chem_type(info) <= 3)
+			value = ltc4162l_vcharge(info, 3812500, 12500, 31, value);
+		else if (ltc4162l_get_chem_type(info) > 3 ||
+			 ltc4162l_get_chem_type(info) < 7)
+			value = ltc4162l_vcharge(info, 3412500, 12500, 31, value);
+		else
+			value = ltc4162l_vcharge(info, 2000000, 9523, 35, value);
+
+		return regmap_write(info->regmap, reg, value);
+	default:
+		return -EINVAL;
+	}
 }
 
 static int ltc4162l_get_iin_limit_dac(struct ltc4162l_info *info,
@@ -427,14 +561,29 @@ static int ltc4162l_get_die_temp(struct ltc4162l_info *info,
 	if (ret)
 		return ret;
 
-	/* die_temp × 0.0215°C/LSB - 264.4°C */
-	ret = (s16)(regval & 0xFFFF);
-	ret *= 215;
-	ret /= 100; /* Centidegrees scale */
-	ret -= 26440;
-	val->intval = ret;
+	switch (info->type) {
+	case ltc4162l:
+	case ltc4162f:
+	case ltc4162s:
+		/* die_temp × 0.0215°C/LSB - 264.4°C */
+		ret = (s16)(regval & 0xFFFF);
+		ret *= 215;
+		ret /= 100; /* Centidegrees scale */
+		ret -= 26440;
+		val->intval = ret;
 
-	return 0;
+		return 0;
+	case ltc4015:
+		/* (die_temp - 12010) / 45.6°C */
+		ret = (s16)(regval & 0xFFFF);
+		ret -= 12010;
+		ret = div_s64((s64)ret * 1000, 45600);
+		val->intval = ret;
+
+		return 0;
+	default:
+		return -EINVAL;
+	}
 }
 
 static int ltc4162l_get_term_current(struct ltc4162l_info *info,
@@ -589,6 +738,9 @@ static ssize_t force_telemetry_show(struct device *dev,
 	if (ret)
 		return ret;
 
+	if (info->type == ltc4015)
+		return sprintf(buf, "%u\n", regval & BIT(4) ? 1 : 0);
+
 	return sprintf(buf, "%u\n", regval & BIT(2) ? 1 : 0);
 }
 
@@ -605,6 +757,15 @@ static ssize_t force_telemetry_store(struct device *dev,
 	ret = kstrtouint(buf, 0, &value);
 	if (ret < 0)
 		return ret;
+
+	if (info->type == ltc4015) {
+		ret = regmap_update_bits(info->regmap, LTC4162L_CONFIG_BITS_REG,
+					 BIT(4), value ? BIT(4) : 0);
+		if (ret < 0)
+			return ret;
+
+		return count;
+	}
 
 	ret = regmap_update_bits(info->regmap, LTC4162L_CONFIG_BITS_REG,
 				 BIT(2), value ? BIT(2) : 0);
@@ -772,7 +933,17 @@ static enum power_supply_property ltc4162l_properties[] = {
 };
 
 static const struct power_supply_desc ltc4162l_desc = {
-	.name		= "ltc4162-l",
+	.name		= "ltc4162",
+	.type		= POWER_SUPPLY_TYPE_MAINS,
+	.properties	= ltc4162l_properties,
+	.num_properties	= ARRAY_SIZE(ltc4162l_properties),
+	.get_property	= ltc4162l_get_property,
+	.set_property	= ltc4162l_set_property,
+	.property_is_writeable = ltc4162l_property_is_writeable,
+};
+
+static const struct power_supply_desc ltc4015_desc = {
+	.name		= "ltc4015",
 	.type		= POWER_SUPPLY_TYPE_MAINS,
 	.properties	= ltc4162l_properties,
 	.num_properties	= ARRAY_SIZE(ltc4162l_properties),
@@ -826,6 +997,7 @@ static int ltc4162l_probe(struct i2c_client *client,
 	struct device *dev = &client->dev;
 	struct ltc4162l_info *info;
 	struct power_supply_config ltc4162l_config = {};
+	enum ltc4162l_type type;
 	u32 value;
 	int ret;
 
@@ -846,33 +1018,40 @@ static int ltc4162l_probe(struct i2c_client *client,
 		return PTR_ERR(info->regmap);
 	}
 
-	ret = device_property_read_u32(dev, "lltc,rsnsb-micro-ohms",
+	type = (enum ltc4162l_type)(uintptr_t)device_get_match_data(dev);
+
+	ret = device_property_read_u32(dev, "adi,rsnsb-micro-ohms",
 				       &info->rsnsb);
 	if (ret) {
-		dev_err(dev, "Missing lltc,rsnsb-micro-ohms property\n");
+		dev_err(dev, "Missing adi,rsnsb-micro-ohms property\n");
 		return ret;
 	}
 	if (!info->rsnsb)
 		return -EINVAL;
 
-	ret = device_property_read_u32(dev, "lltc,rsnsi-micro-ohms",
+	ret = device_property_read_u32(dev, "adi,rsnsi-micro-ohms",
 				       &info->rsnsi);
 	if (ret) {
-		dev_err(dev, "Missing lltc,rsnsi-micro-ohms property\n");
+		dev_err(dev, "Missing adi,rsnsi-micro-ohms property\n");
 		return ret;
 	}
 	if (!info->rsnsi)
 		return -EINVAL;
 
-	if (!device_property_read_u32(dev, "lltc,cell-count", &value))
+	if (!device_property_read_u32(dev, "adi,cell-count", &value))
 		info->cell_count = value;
 
 	ltc4162l_config.of_node = dev->of_node;
 	ltc4162l_config.drv_data = info;
 	ltc4162l_config.attr_grp = ltc4162l_attr_groups;
 
-	info->charger = devm_power_supply_register(dev, &ltc4162l_desc,
-						   &ltc4162l_config);
+	if (type == ltc4015)
+		info->charger = devm_power_supply_register(dev, &ltc4015_desc,
+							   &ltc4162l_config);
+	else
+		info->charger = devm_power_supply_register(dev, &ltc4162l_desc,
+							   &ltc4162l_config);
+
 	if (IS_ERR(info->charger)) {
 		dev_err(dev, "Failed to register charger\n");
 		return PTR_ERR(info->charger);
@@ -904,14 +1083,20 @@ static void ltc4162l_alert(struct i2c_client *client,
 }
 
 static const struct i2c_device_id ltc4162l_i2c_id_table[] = {
-	{ "ltc4162-l", 0 },
+	{ "ltc4162-l", ltc4162l },
+	{ "ltc4162-f", ltc4162f },
+	{ "ltc4162-s", ltc4162s },
+	{ "ltc4015", ltc4015 },
 	{ },
 };
 MODULE_DEVICE_TABLE(i2c, ltc4162l_i2c_id_table);
 
 static const struct of_device_id ltc4162l_of_match[] = {
-	{ .compatible = "lltc,ltc4162-l", },
-	{ },
+	{ .compatible = "adi,ltc4162-l", .data = (void *)ltc4162l },
+	{ .compatible = "adi,ltc4162-f", .data = (void *)ltc4162f },
+	{ .compatible = "adi,ltc4162-s", .data = (void *)ltc4162s },
+	{ .compatible = "adi,ltc4015", .data = (void *)ltc4015 },
+	{ }
 };
 MODULE_DEVICE_TABLE(of, ltc4162l_of_match);
 
@@ -920,7 +1105,7 @@ static struct i2c_driver ltc4162l_driver = {
 	.alert		= ltc4162l_alert,
 	.id_table	= ltc4162l_i2c_id_table,
 	.driver = {
-		.name		= "ltc4162-l-charger",
+		.name		= "ltc4162-charger",
 		.of_match_table	= of_match_ptr(ltc4162l_of_match),
 	},
 };
@@ -928,4 +1113,4 @@ module_i2c_driver(ltc4162l_driver);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Mike Looijmans <mike.looijmans@topic.nl>");
-MODULE_DESCRIPTION("LTC4162-L charger driver");
+MODULE_DESCRIPTION("LTC4162 and LTC4015 charger driver");
