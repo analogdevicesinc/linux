@@ -48,8 +48,6 @@
 		      <0x0 0x86000000 0x0 0x3000>;
 		reg-names = "dram", "mailbox";
 
-		clocks = <&scmi_clk IMX95_CLK_BUSWAKEUP>;
-
 		memory-region = <&adma_res>;
 
 		mboxes = <&mu7 2 0>, <&mu7 2 1>, <&mu7 3 0>, <&mu7 3 1>;
