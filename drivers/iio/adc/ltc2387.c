@@ -215,10 +215,14 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 		return ret;
 
 	/* Gate the active period of the clock (see page 10-13 for both LTC's) */
-	if (ltc->lane_mode == TWO_LANES)
+	if (ltc->lane_mode == TWO_LANES) {
 		clk_en_time = DIV_ROUND_UP_ULL(ltc->device_info->resolution, 4);
-	else
+		printk("\n\n\n\nclock enabled time TWO LANES=%d\n\n\n\n", clk_en_time);
+	}
+	else {
 		clk_en_time = DIV_ROUND_UP_ULL(ltc->device_info->resolution, 2);
+		printk("\n\n\n\nclock enabled time ONE LANE=%d\n\n\n\n", clk_en_time);
+	}
 
 	clk_en_state = (struct pwm_state) {
 		.period = cnv_state.period,
@@ -226,12 +230,13 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 		.phase = LTC2387_T_FIRSTCLK_NS,
 		.enabled = true,
 	};
-
+	printk("\n\n\n\nclk en state duty cycle=%d\n\n\n\n", clk_en_state.duty_cycle);
 	ret = pwm_apply_state(ltc->clk_en, &clk_en_state);
 	if (ret < 0)
 		return ret;
 
 	ltc->sampling_freq = freq;
+	printk("\n\n\n\nltc sampling_freq=%d\n\n\n\n", freq);
 
 	return 0;
 }
