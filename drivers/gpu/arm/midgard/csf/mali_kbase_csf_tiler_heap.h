@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -117,6 +117,20 @@ int kbase_csf_tiler_heap_term(struct kbase_context *kctx, u64 gpu_heap_va);
 int kbase_csf_tiler_heap_alloc_new_chunk(struct kbase_context *kctx, u64 gpu_heap_va,
 					 u32 nr_in_flight, u32 pending_frag_count,
 					 u64 *new_chunk_ptr);
+
+/**
+ * kbase_csf_tiler_heap_free_chunk - Free the allocated chunk for tiler heap.
+ *
+ * @kctx:               Pointer to the kbase context in which the tiler heap was initialized.
+ * @gpu_heap_va:        GPU virtual address of the heap context.
+ * @chunk_hdr_val:      Header value containing GPU VA & size of the chunk to be freed.
+ *
+ * This function will free the chunk allocation and update the chunk link.
+ *
+ * Return: 0 on success,
+ *		   otherwise an appropriate negative error code.
+ */
+int kbase_csf_tiler_heap_free_chunk(struct kbase_context *kctx, u64 gpu_heap_va, u64 chunk_hdr_val);
 
 /**
  * kbase_csf_tiler_heap_scan_kctx_unused_pages - Performs the tiler heap shrinker calim's scan

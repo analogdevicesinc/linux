@@ -1468,7 +1468,7 @@ void kbase_free_alloced_region(struct kbase_va_region *reg)
 			 * unmapped and freed below, if it has been reclaimed
 			 * then the operations below are no-ops.
 			 */
-			if (reg->flags & KBASE_REG_DONT_NEED) {
+			if (reg->flags & BASEP_MEM_DONT_NEED) {
 				KBASE_DEBUG_ASSERT(reg->cpu_alloc->type == KBASE_MEM_TYPE_NATIVE);
 				kbase_mem_evictable_unmake(reg->gpu_alloc);
 			}

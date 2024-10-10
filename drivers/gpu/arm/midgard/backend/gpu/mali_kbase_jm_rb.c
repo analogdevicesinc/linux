@@ -39,6 +39,7 @@
 #include <device/mali_kbase_device.h>
 #include <backend/gpu/mali_kbase_jm_internal.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
+#include <mali_kbase_io.h>
 
 /**
  * SLOT_RB_EMPTY - Return whether the specified ringbuffer is empty.
@@ -674,7 +675,7 @@ static int kbase_jm_enter_protected_mode(struct kbase_device *kbdev, struct kbas
 
 			if (kbase_pm_get_ready_cores(kbdev, KBASE_PM_CORE_L2) ||
 			    kbase_pm_get_trans_cores(kbdev, KBASE_PM_CORE_L2) ||
-			    kbase_is_gpu_removed(kbdev)) {
+			    !kbase_io_has_gpu(kbdev)) {
 				/*
 				 * The L2 is still powered, wait for all
 				 * the users to finish with it before doing
@@ -864,7 +865,7 @@ void kbase_backend_slot_update(struct kbase_device *kbdev)
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
-	if (kbase_reset_gpu_is_active(kbdev) || (kbase_is_gpu_removed(kbdev)))
+	if (kbase_reset_gpu_is_active(kbdev) || !kbase_io_has_gpu(kbdev))
 		return;
 
 	for (js = 0; js < kbdev->gpu_props.num_job_slots; js++) {
@@ -1338,7 +1339,7 @@ void kbase_gpu_complete_hw(struct kbase_device *kbdev, unsigned int js, u32 comp
 	if (katom->event_code != BASE_JD_EVENT_JOB_CANCELLED)
 		katom->event_code = (enum base_jd_event_code)completion_code;
 
-		/* Complete the job, and start new ones
+	/* Complete the job, and start new ones
 	 *
 	 * Also defer remaining work onto the workqueue:
 	 * - Re-queue Soft-stopped jobs
@@ -1346,28 +1347,6 @@ void kbase_gpu_complete_hw(struct kbase_device *kbdev, unsigned int js, u32 comp
 	 * - Schedule out the parent context if necessary, and schedule a new
 	 *   one in.
 	 */
-#if IS_ENABLED(CONFIG_GPU_TRACEPOINTS)
-	{
-		/* The atom in the HEAD */
-		struct kbase_jd_atom *next_katom = kbase_gpu_inspect(kbdev, js, 0);
-
-		if (next_katom && next_katom->gpu_rb_state == KBASE_ATOM_GPU_RB_SUBMITTED) {
-			char js_string[16];
-
-			trace_gpu_sched_switch(kbasep_make_job_slot_string(js, js_string,
-									   sizeof(js_string)),
-					       ktime_to_ns(*end_timestamp),
-					       (u32)next_katom->kctx->id, 0, next_katom->work_id);
-		} else {
-			char js_string[16];
-
-			trace_gpu_sched_switch(kbasep_make_job_slot_string(js, js_string,
-									   sizeof(js_string)),
-					       ktime_to_ns(ktime_get_raw()), 0, 0, 0);
-		}
-	}
-#endif
-
 	if (kbdev->serialize_jobs & KBASE_SERIALIZE_RESET)
 		kbase_reset_gpu_silent(kbdev);
 
@@ -1438,7 +1417,7 @@ void kbase_backend_reset(struct kbase_device *kbdev, ktime_t *end_timestamp)
 			 * then leave it in the RB and next time we're kicked
 			 * it will be processed again from the starting state.
 			 */
-			if (!kbase_is_gpu_removed(kbdev) && keep_in_jm_rb) {
+			if (kbase_io_has_gpu(kbdev) && keep_in_jm_rb) {
 				katom->protected_state.exit = KBASE_ATOM_EXIT_PROTECTED_CHECK;
 				/* As the atom was not removed, increment the
 				 * index so that we read the correct atom in the

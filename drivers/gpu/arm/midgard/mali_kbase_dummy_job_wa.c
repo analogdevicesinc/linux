@@ -216,7 +216,7 @@ static DEVICE_ATTR_RO(dummy_job_wa_info);
 
 static bool wa_blob_load_needed(struct kbase_device *kbdev)
 {
-	if (of_machine_is_compatible("arm,juno"))
+	if (kbdev->gpu_props.impl_tech >= THREAD_FEATURES_IMPLEMENTATION_TECHNOLOGY_FPGA)
 		return false;
 
 	if (kbase_hw_has_issue(kbdev, KBASE_HW_ISSUE_TTRX_3485))

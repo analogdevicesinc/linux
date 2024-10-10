@@ -44,6 +44,9 @@ static int busy_wait_cache_operation(struct kbase_device *kbdev, u32 irq_bit)
 	bool completed = false;
 	s64 diff;
 	u32 irq_bits_to_check = irq_bit;
+#if MALI_USE_CSF
+	const bool has_host_pwr_iface = kbdev->pm.backend.has_host_pwr_iface;
+#endif /* MALI_USE_CSF */
 
 	/* hwaccess_lock must be held to prevent concurrent threads from
 	 * cleaning the IRQ bits, otherwise it could be possible for this thread
@@ -57,6 +60,9 @@ static int busy_wait_cache_operation(struct kbase_device *kbdev, u32 irq_bit)
 	 * been reset which implies that any cache flush operation has been
 	 * completed, too.
 	 */
+#if MALI_USE_CSF
+	if (!has_host_pwr_iface)
+#endif /* MALI_USE_CSF */
 	{
 		irq_bits_to_check |= RESET_COMPLETED;
 	}
@@ -70,6 +76,18 @@ static int busy_wait_cache_operation(struct kbase_device *kbdev, u32 irq_bit)
 				completed = true;
 				break;
 			}
+#if MALI_USE_CSF
+			/* Check whether the GPU has been reset, which implies that any
+			 * cache flush operation has been completed.
+			 */
+			if (has_host_pwr_iface) {
+				if (kbase_reg_read32(kbdev, HOST_POWER_ENUM(PWR_IRQ_RAWSTAT)) &
+				    PWR_IRQ_RESET_COMPLETED) {
+					completed = true;
+					break;
+				}
+			}
+#endif /* MALI_USE_CSF */
 		}
 
 		diff = ktime_to_ms(ktime_sub(ktime_get_raw(), wait_loop_start));

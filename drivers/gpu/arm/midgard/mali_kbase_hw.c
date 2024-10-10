@@ -31,7 +31,7 @@
 
 void kbase_hw_set_features_mask(struct kbase_device *kbdev)
 {
-	const enum base_hw_feature *features;
+	const enum base_hw_feature *features = base_hw_features_generic;
 
 	switch (kbdev->gpu_props.gpu_id.product_model) {
 	case GPU_ID_PRODUCT_TMIX:
@@ -87,8 +87,17 @@ void kbase_hw_set_features_mask(struct kbase_device *kbdev)
 	case GPU_ID_PRODUCT_LKRX:
 		features = base_hw_features_tKRx;
 		break;
+	case GPU_ID_PRODUCT_IDRX:
+	case GPU_ID_PRODUCT_TDRX:
+	case GPU_ID_PRODUCT_LDRX:
+		if (kbdev->gpu_props.gpu_id.version_major == 0) {
+			if (kbdev->gpu_props.gpu_id.version_minor == 1)
+				features = base_hw_features_tDRx_r0p1;
+			else
+				features = base_hw_features_tDRx_r0p0;
+		}
+		break;
 	default:
-		features = base_hw_features_generic;
 		break;
 	}
 
@@ -226,7 +235,7 @@ static const enum base_hw_issue *kbase_hw_get_issues_for_new_id(struct kbase_dev
 		{ GPU_ID_PRODUCT_TVAX,
 		  { { GPU_ID_VERSION_MAKE(0, 0, 0), base_hw_issues_tVAx_r0p0 },
 		    { GPU_ID_VERSION_MAKE(0, 0, 5), base_hw_issues_tVAx_r0p0 },
-		    { GPU_ID_VERSION_MAKE(0, 1, 0), base_hw_issues_tVAx_r0p1 },
+		    { GPU_ID_VERSION_MAKE(1, 0, 0), base_hw_issues_tVAx_r1p0 },
 		    { U32_MAX, NULL } } },
 
 		{ GPU_ID_PRODUCT_TTUX,
@@ -263,6 +272,18 @@ static const enum base_hw_issue *kbase_hw_get_issues_for_new_id(struct kbase_dev
 		{ GPU_ID_PRODUCT_LKRX,
 		  { { GPU_ID_VERSION_MAKE(0, 0, 0), base_hw_issues_tKRx_r0p0 },
 		    { GPU_ID_VERSION_MAKE(0, 1, 0), base_hw_issues_tKRx_r0p1 },
+		    { U32_MAX, NULL } } },
+		{ GPU_ID_PRODUCT_IDRX,
+		  { { GPU_ID_VERSION_MAKE(0, 0, 0), base_hw_issues_tDRx_r0p0 },
+		    { GPU_ID_VERSION_MAKE(0, 1, 0), base_hw_issues_tDRx_r0p1 },
+		    { U32_MAX, NULL } } },
+		{ GPU_ID_PRODUCT_TDRX,
+		  { { GPU_ID_VERSION_MAKE(0, 0, 0), base_hw_issues_tDRx_r0p0 },
+		    { GPU_ID_VERSION_MAKE(0, 1, 0), base_hw_issues_tDRx_r0p1 },
+		    { U32_MAX, NULL } } },
+		{ GPU_ID_PRODUCT_LDRX,
+		  { { GPU_ID_VERSION_MAKE(0, 0, 0), base_hw_issues_tDRx_r0p0 },
+		    { GPU_ID_VERSION_MAKE(0, 1, 0), base_hw_issues_tDRx_r0p1 },
 		    { U32_MAX, NULL } } },
 	};
 
@@ -412,6 +433,11 @@ int kbase_hw_set_issues_mask(struct kbase_device *kbdev)
 		case GPU_ID_PRODUCT_TKRX:
 		case GPU_ID_PRODUCT_LKRX:
 			issues = base_hw_issues_model_tKRx;
+			break;
+		case GPU_ID_PRODUCT_IDRX:
+		case GPU_ID_PRODUCT_TDRX:
+		case GPU_ID_PRODUCT_LDRX:
+			issues = base_hw_issues_model_tDRx;
 			break;
 		default:
 			dev_err(kbdev->dev, "HW issues - Unknown Product ID %x",

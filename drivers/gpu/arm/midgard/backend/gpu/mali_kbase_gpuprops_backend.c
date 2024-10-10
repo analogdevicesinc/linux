@@ -27,6 +27,7 @@
 #include <device/mali_kbase_device.h>
 #include <mali_kbase_hwaccess_gpuprops.h>
 #include <mali_kbase_gpuprops_private_types.h>
+#include <mali_kbase_io.h>
 
 int kbase_backend_gpuprops_get(struct kbase_device *kbdev, struct kbasep_gpuprops_regdump *regdump)
 {
@@ -73,6 +74,11 @@ int kbase_backend_gpuprops_get(struct kbase_device *kbdev, struct kbasep_gpuprop
 #if MALI_USE_CSF
 	if (kbase_reg_is_valid(kbdev, GPU_CONTROL_ENUM(GPU_FEATURES)))
 		regdump->gpu_features = KBASE_REG_READ(kbdev, GPU_CONTROL_ENUM(GPU_FEATURES));
+	/* Only applicable to GPUs with power control domain registers */
+	if (kbase_hw_has_feature(kbdev, KBASE_HW_FEATURE_POWER_CONTROL)) {
+		regdump->base_present = kbase_reg_read64(kbdev, HOST_POWER_ENUM(BASE_PRESENT));
+		regdump->neural_present = kbase_reg_read64(kbdev, HOST_POWER_ENUM(NEURAL_PRESENT));
+	}
 #endif /* MALI_USE_CSF */
 
 	regdump->tiler_features = KBASE_REG_READ(kbdev, GPU_CONTROL_ENUM(TILER_FEATURES));
@@ -93,7 +99,7 @@ int kbase_backend_gpuprops_get(struct kbase_device *kbdev, struct kbasep_gpuprop
 				kbase_reg_read32(kbdev, GPU_TEXTURE_FEATURES_OFFSET(i));
 	}
 
-	if (kbase_is_gpu_removed(kbdev))
+	if (!kbase_io_has_gpu(kbdev))
 		return -EIO;
 	return 0;
 }
@@ -110,7 +116,7 @@ int kbase_backend_gpuprops_get_curr_config(struct kbase_device *kbdev,
 		kbase_reg_read64(kbdev, GPU_CONTROL_ENUM(SHADER_PRESENT));
 	curr_config_regdump->l2_present = kbase_reg_read64(kbdev, GPU_CONTROL_ENUM(L2_PRESENT));
 
-	if (kbase_is_gpu_removed(kbdev))
+	if (!kbase_io_has_gpu(kbdev))
 		return -EIO;
 
 	return 0;
@@ -132,7 +138,7 @@ int kbase_backend_gpuprops_get_l2_features(struct kbase_device *kbdev,
 		}
 #endif /* MALI_USE_CSF */
 
-		if (kbase_is_gpu_removed(kbdev))
+		if (!kbase_io_has_gpu(kbdev))
 			return -EIO;
 	}
 

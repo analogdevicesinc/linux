@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2015-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2015-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -107,7 +107,7 @@ static bool set_pool_new_page_metadata(struct kbase_mem_pool *pool, struct page 
 	 * Only update page status and add the page to the memory pool if
 	 * it is not isolated.
 	 */
-	if (!IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT))
+	if (!kbase_is_page_migration_enabled())
 		not_movable = true;
 	else {
 		spin_lock(&page_md->migrate_lock);
@@ -265,7 +265,7 @@ static void kbase_mem_pool_spill(struct kbase_mem_pool *next_pool, struct page *
 	kbase_mem_pool_add(next_pool, p);
 }
 
-struct page *kbase_mem_alloc_page(struct kbase_mem_pool *pool, const bool alloc_from_kthread)
+struct page *kbase_mem_alloc_page(struct kbase_mem_pool *pool)
 {
 	struct page *p;
 	gfp_t gfp = __GFP_ZERO;
@@ -279,14 +279,6 @@ struct page *kbase_mem_alloc_page(struct kbase_mem_pool *pool, const bool alloc_
 		gfp |= GFP_HIGHUSER | __GFP_NOWARN;
 	else
 		gfp |= kbase_is_page_migration_enabled() ? GFP_HIGHUSER_MOVABLE : GFP_HIGHUSER;
-	/* Do not invoke OOM killer if allocation is done from the context of kernel thread */
-	if (alloc_from_kthread) {
-#if (KERNEL_VERSION(4, 13, 0) <= LINUX_VERSION_CODE)
-		gfp |= __GFP_RETRY_MAYFAIL;
-#else
-		gfp |= __GFP_REPEAT;
-#endif
-	}
 
 	p = kbdev->mgm_dev->ops.mgm_alloc_page(kbdev->mgm_dev, pool->group_id, gfp, pool->order);
 	if (!p)
@@ -388,7 +380,6 @@ int kbase_mem_pool_grow(struct kbase_mem_pool *pool, size_t nr_to_grow,
 {
 	struct page *p;
 	size_t i;
-	const bool alloc_from_kthread = !!(current->flags & PF_KTHREAD);
 
 	kbase_mem_pool_lock(pool);
 
@@ -409,7 +400,7 @@ int kbase_mem_pool_grow(struct kbase_mem_pool *pool, size_t nr_to_grow,
 		if (unlikely(!can_alloc_page(pool, page_owner)))
 			return -EPERM;
 
-		p = kbase_mem_alloc_page(pool, alloc_from_kthread);
+		p = kbase_mem_alloc_page(pool);
 		if (!p) {
 			kbase_mem_pool_lock(pool);
 			pool->dont_reclaim = false;
@@ -715,7 +706,6 @@ int kbase_mem_pool_alloc_pages(struct kbase_mem_pool *pool, size_t nr_small_page
 	size_t i = 0;
 	int err = -ENOMEM;
 	size_t nr_pages_internal;
-	const bool alloc_from_kthread = !!(current->flags & PF_KTHREAD);
 
 	nr_pages_internal = nr_small_pages / (1u << (pool->order));
 
@@ -760,7 +750,7 @@ int kbase_mem_pool_alloc_pages(struct kbase_mem_pool *pool, size_t nr_small_page
 			if (unlikely(!can_alloc_page(pool, page_owner)))
 				goto err_rollback;
 
-			p = kbase_mem_alloc_page(pool, alloc_from_kthread);
+			p = kbase_mem_alloc_page(pool);
 			if (!p) {
 				if (partial_allowed)
 					goto done;

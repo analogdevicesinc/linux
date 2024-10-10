@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2021-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2021-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -20,6 +20,7 @@
  */
 #include <mali_kbase.h>
 #include "mali_kbase_csf_event.h"
+#include <mali_kbase_io.h>
 
 /**
  * struct kbase_csf_event_cb - CSF event callback.
@@ -92,11 +93,12 @@ static void sync_update_notify_gpu(struct kbase_context *kctx)
 	unsigned long flags;
 
 	spin_lock_irqsave(&kctx->kbdev->hwaccess_lock, flags);
-	can_notify_gpu = kctx->kbdev->pm.backend.gpu_powered;
+	can_notify_gpu = kbase_io_is_gpu_powered(kctx->kbdev);
 #ifdef KBASE_PM_RUNTIME
 	if (kctx->kbdev->pm.backend.gpu_sleep_mode_active)
 		can_notify_gpu = false;
 #endif
+
 
 	if (can_notify_gpu) {
 		kbase_csf_ring_doorbell(kctx->kbdev, CSF_KERNEL_DOORBELL_NR);

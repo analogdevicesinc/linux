@@ -28,14 +28,6 @@
 #include <mali_kbase_reset_gpu.h>
 #include <mmu/mali_kbase_mmu.h>
 
-bool kbase_is_gpu_removed(struct kbase_device *kbdev)
-{
-	if (!kbase_has_arbiter(kbdev))
-		return false;
-
-	return (KBASE_REG_READ(kbdev, GPU_CONTROL_ENUM(GPU_ID)) == 0);
-}
-
 /**
  * kbase_report_gpu_fault - Report a GPU fault.
  * @kbdev:    Kbase device pointer

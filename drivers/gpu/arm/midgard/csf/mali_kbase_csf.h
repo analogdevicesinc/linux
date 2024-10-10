@@ -581,4 +581,148 @@ void kbase_csf_process_protm_event_request(struct kbase_queue_group *group);
  */
 void kbase_csf_glb_fatal_worker(struct work_struct *const data);
 
+/**
+ * kbase_csf_queue_oom_state_str() - Helper function to get string
+ *                                   for kbase queue OoM tracking state.
+ * @state: kbase OoM track state
+ *
+ * Return: string representation of kbase OoM track state
+ */
+static inline const char *kbase_csf_queue_oom_state_str(enum kbase_csf_queue_oom_state state)
+{
+	switch (state) {
+	case KBASE_CSF_QUEUE_OOM_NONE:
+		return "KBASE_CSF_QUEUE_OOM_NONE";
+	case KBASE_CSF_QUEUE_OOM_PENDING:
+		return "KBASE_CSF_QUEUE_OOM_PENDING";
+	case KBASE_CSF_QUEUE_OOM_COMPLETE:
+		return "KBASE_CSF_QUEUE_OOM_COMPLETE";
+	case KBASE_CSF_QUEUE_OOM_ERROR_ABORT:
+		return "KBASE_CSF_QUEUE_OOM_ERROR_ABORT";
+	default:
+		return "[UnknownState]";
+	}
+}
+
+/**
+ * kbase_csf_cs_get_pending_oom - Get the data for the pending OoM event.
+ *
+ * @kbdev: Instance of a GPU platform device that implements a CSF interface.
+ * @queue: Pointer to the queue to process.
+ * @slot_id: Slot index where the CSG is residing.
+ *
+ * The OoM data and the request state is saved in the queue's OoM tracking
+ * structure.
+ *
+ * Return: 0 on success,
+ *         -EINVAL if slot_id is invalid, or tiler OoM state is incorrect.
+ *         -EBUSY if tiler OoM is already in KBASE_CSF_QUEUE_OOM_PENDING state.
+ */
+int kbase_csf_cs_get_pending_oom(struct kbase_device *kbdev, struct kbase_queue *queue,
+				 int const slot_id);
+
+/**
+ * kbase_csf_program_cs_oom_prepared_chunk - Program the prepared OoM chunk to CSF.
+ *
+ * @queue: Pointer to the queue to process.
+ * @slot_id: Slot index where the CSG is residing.
+ * @cs_oom_req: Value for CS_REQ reg to clear the pending Tiler OoM request.
+ *
+ */
+void kbase_csf_program_cs_oom_prepared_chunk(struct kbase_queue *queue, u32 slot_id,
+					     u32 cs_oom_req);
+
+/**
+ * kbase_csf_cs_prepare_pending_oom_tiler_heap_chunk - Prepare the chunk for
+ * the pending Tiler OoM event.
+ *
+ * @queue: Pointer to the queue to process.
+ *
+ * The pointer to the allocated chunk is saved in the queue's OoM tracking data and
+ * the OoM tracking state is updated.
+ *
+ * Return: 0 on success,
+ *         -EINVAL if tiler OoM tracking state is incorrect.
+ *         negative error code on allocation failure.
+ */
+int kbase_csf_cs_prepare_pending_oom_tiler_heap_chunk(struct kbase_queue *queue);
+
+/**
+ * kbase_csf_free_oom_tiler_heap_chunk - Free the allocated tiler OoM chunk
+ *
+ * @queue: Pointer to the queue to process.
+ *
+ * This function should be used to free the allocated chunk if the chunk can't be
+ * programmed to FW. OoM tracking data and state are updated.
+ *
+ * Return: 0 on success,
+ *         -EINVAL if tiler OoM tracking state is incorrect.
+ *         negative error code on freeing failure.
+ */
+int kbase_csf_free_oom_tiler_heap_chunk(struct kbase_queue *queue);
+
+/**
+ * kbase_csf_handle_pending_oom_interrupt() - Handler for a tiler heap OoM request IRQ.
+ *
+ * @queue:    Pointer to queue for which OoM event was received.
+ * @group_id: CSG index.
+ *
+ * Get pending OoM request and enqueue the OoM event work.
+ *
+ * Return: 0 on success,
+ *         -EBUSY when trying to enqueue an already-queued OoM work.
+ */
+int kbase_csf_handle_pending_oom_interrupt(struct kbase_queue *const queue, u32 group_id);
+
+/**
+ * kbase_csf_report_cs_fault_info() - Assmble the CS fault event information.
+ *
+ * @queue:   Pointer to queue for which a fault event was received.
+ * @slot_id: On-slot CSG index, where the queue fault was raised.
+ * @atomic_ctx: Calling from an interrupt handler, or from a kthread.
+ *
+ * Assembles the CS fault information and prints it out in a meaningful way in the log. The
+ * function is expected to be only called when the caller is notified with a valid CS fault
+ * event and the queue/bound-csg resides in the given slot.
+ */
+void kbase_csf_report_cs_fault_info(struct kbase_queue *const queue, u32 slot_id, bool atomic_ctx);
+
+/**
+ * kbase_csf_report_cs_fatal_info() - Assmble the CS fatal information.
+ *
+ * @queue:    Pointer to queue for which fatal event was received.
+ * @slot_id: On-slot CSG index, where the queue fatal error was raised.
+ * @atomic_ctx: Calling from an interrupt handler, or from a kthread.
+ *
+ * Assembles the CS fatal information and prints it out in a meaningful way in the log. The
+ * function is expected to be only called when the caller is notified with a valid CS fatal
+ * error event and the queue/bound-csg resides in the given slot.
+ *
+ * Return: the extracted CS_FATAL_EXCEPTION_TYPE.
+ */
+u32 kbase_csf_report_cs_fatal_info(struct kbase_queue *const queue, u32 slot_id, bool atomic_ctx);
+
+/**
+ * kbase_csf_dev_has_ne - Report whether the device has Neural Engine support.
+ *
+ * @kbdev: Instance of a GPU platform device that implements a CSF interface.
+ *
+ * Return: true on Neural Engine supported, otherwise false.
+ */
+static inline bool kbase_csf_dev_has_ne(struct kbase_device *kbdev)
+{
+	return kbdev->gpu_props.gpu_features.neural_engine;
+}
+
+/**
+ * kbase_csf_dev_has_rtu - Report whether the device has Ray Traversal support.
+ *
+ * @kbdev: Instance of a GPU platform device that implements a CSF interface.
+ *
+ * Return: true if Ray Traversal supported, otherwise false.
+ */
+static inline bool kbase_csf_dev_has_rtu(struct kbase_device *kbdev)
+{
+	return kbdev->gpu_props.gpu_features.ray_traversal;
+}
 #endif /* _KBASE_CSF_H_ */

@@ -144,6 +144,7 @@ struct kbase_device;
 struct kbase_as;
 struct kbase_mmu_setup;
 struct kbase_kinstr_jm;
+struct kbase_io;
 
 #if IS_ENABLED(CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD)
 /**
@@ -302,7 +303,9 @@ struct kbase_fault {
  *                           this is a back-reference to the context, otherwise
  *                           it is NULL.
  * @scratch_mem:             Scratch memory used for MMU operations, which are
- *                           serialized by the @mmu_lock.
+ *                           serialized by the mmu_lock.
+ * @scratch_mem.free_pgds.pgds: Array of pointers to PGDs to free.
+ * @scratch_mem.free_pgds.head_index: Index of first free element in the PGDs array.
  * @pgd_pages_list:          List head to link all 16K/64K pages allocated for the PGDs of mmut.
  *                           These pages will be used to allocate 4KB PGD pages for
  *                           the GPU page table.
@@ -319,27 +322,23 @@ struct kbase_mmu_table {
 	u8 group_id;
 	struct kbase_context *kctx;
 	union {
-		/**
-		 * @teardown_pages: Scratch memory used for backup copies of whole
-		 *                  PGD pages when tearing down levels upon
-		 *                  termination of the MMU table.
+		/* Scratch memory used for backup copies of whole
+		 * PGD pages when tearing down levels upon
+		 * termination of the MMU table.
 		 */
 		struct {
 			/**
 			 * @levels: Array of PGD pages, large enough to copy one PGD
-			 *          for each level of the MMU table.
+			 * for each level of the MMU table.
 			 */
 			u64 levels[MIDGARD_MMU_BOTTOMLEVEL][GPU_PAGE_SIZE / sizeof(u64)];
 		} teardown_pages;
-		/**
-		 * @free_pgds: Scratch memory used for insertion, update and teardown
-		 *             operations to store a temporary list of PGDs to be freed
-		 *             at the end of the operation.
+		/* Scratch memory used for insertion, update and teardown
+		 * operations to store a temporary list of PGDs to be freed
+		 * at the end of the operation.
 		 */
 		struct {
-			/** @pgds: Array of pointers to PGDs to free. */
 			phys_addr_t pgds[MAX_FREE_PGDS];
-			/** @head_index: Index of first free element in the PGDs array. */
 			size_t head_index;
 		} free_pgds;
 	} scratch_mem;
@@ -742,6 +741,8 @@ struct kbase_mem_migrate {
  *                         issues present in the GPU.
  * @hw_quirks_gpu:         Configuration to be used for the Job Manager or CSF/MCU
  *                         subsystems as per the HW issues present in the GPU.
+ * @hw_quirks_ne:          Configuration to be used for the Neural Engine as per
+ *                         the HW issues present in the GPU.
  * @entry:                 Links the device instance to the global list of GPU
  *                         devices. The list would have as many entries as there
  *                         are GPU device instances.
@@ -801,6 +802,9 @@ struct kbase_mem_migrate {
  * @serving_mmu_irq:       function to execute work items queued when model mimics
  *                         the raising of MMU irq, mimics the interrupt handler
  *                         processing MMU interrupts.
+ * @serving_irqaw_irq:     function to execute work items queued when model mimics
+ *                         the raising of IRQAW irq, mimics the interrupt handler
+ *                         processing IRQAW interrupts.
  * @reg_op_lock:           lock used by model to serialize the handling of register
  *                         accesses made by the driver.
  * @pm:                    Per device object for storing data for power management
@@ -1070,12 +1074,16 @@ struct kbase_mem_migrate {
  * @pcm_prioritized_process_nb: Notifier block for the Priority Control Manager
  *                              driver, this is used to be informed of the
  *                              changes in the list of prioritized processes.
+ * @io:                     kbase IO object for the GPU device.
  */
 struct kbase_device {
 	u32 hw_quirks_sc;
 	u32 hw_quirks_tiler;
 	u32 hw_quirks_mmu;
 	u32 hw_quirks_gpu;
+#if MALI_USE_CSF
+	u32 hw_quirks_ne;
+#endif
 
 	struct list_head entry;
 	struct device *dev;
@@ -1116,6 +1124,7 @@ struct kbase_device {
 	atomic_t serving_job_irq;
 	atomic_t serving_gpu_irq;
 	atomic_t serving_mmu_irq;
+	atomic_t serving_irqaw_irq;
 	spinlock_t reg_op_lock;
 #endif /* !IS_ENABLED(CONFIG_MALI_REAL_HW) */
 	struct kbase_pm_device_data pm;
@@ -1381,6 +1390,8 @@ struct kbase_device {
 #endif
 
 	struct notifier_block pcm_prioritized_process_nb;
+
+	struct kbase_io *io;
 	struct dev_pm_domain_list  *pd_list;
 	struct device *dev_gpuperf;
 };
@@ -1715,12 +1726,6 @@ struct kbase_sub_alloc {
  *                        device to powered on so as to dump the CPU/GPU timestamps.
  * @waiting_soft_jobs_lock: Lock to protect @waiting_soft_jobs list from concurrent
  *                        accesses.
- * @dma_fence:            Object containing list head for the list of dma-buf fence
- *                        waiting atoms and the waitqueue to process the work item
- *                        queued for the atoms blocked on the signaling of dma-buf
- *                        fences.
- * @dma_fence.waiting_resource: list head for the list of dma-buf fence
- * @dma_fence.wq:         waitqueue to process the work item queued
  * @as_nr:                id of the address space being used for the scheduled in
  *                        context. This is effectively part of the Run Pool, because
  *                        it only has a valid setting (!=KBASEP_AS_NR_INVALID) whilst
@@ -1784,7 +1789,6 @@ struct kbase_sub_alloc {
  *                        context, across all slots.
  * @slots_pullable:       Bitmask of slots, indicating the slots for which the
  *                        context has pullable atoms in the runnable tree.
- * @work:                 Work structure used for deferred ASID assignment.
  * @completed_jobs:       List containing completed atoms for which base_jd_event is
  *                        to be posted.
  * @work_count:           Number of work items, corresponding to atoms, currently

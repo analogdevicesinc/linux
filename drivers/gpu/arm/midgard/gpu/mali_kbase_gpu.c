@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -23,10 +23,11 @@
 #include <mali_kbase_defs.h>
 #include <gpu/mali_kbase_gpu_fault.h>
 
-const char *kbase_gpu_access_type_name(u32 fault_status)
+const char *kbase_gpu_access_type_name(struct kbase_device *kbdev, u32 fault_status)
 {
 	switch (AS_FAULTSTATUS_ACCESS_TYPE_GET(fault_status)) {
 	case AS_FAULTSTATUS_ACCESS_TYPE_ATOMIC:
+		CSTD_UNUSED(kbdev);
 		return "ATOMIC";
 	case AS_FAULTSTATUS_ACCESS_TYPE_READ:
 		return "READ";

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2017-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2017-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -20,6 +20,7 @@
  */
 
 #include <mali_kbase.h>
+#include <mali_kbase_io.h>
 #include <mali_kbase_defs.h>
 #include "mali_kbase_ctx_sched.h"
 #include "tl/mali_kbase_tracepoints.h"
@@ -111,7 +112,7 @@ int kbase_ctx_sched_retain_ctx(struct kbase_context *kctx)
 	lockdep_assert_held(&kbdev->mmu_hw_mutex);
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
-	WARN_ON(!kbdev->pm.backend.gpu_powered);
+	WARN_ON(!kbase_io_is_gpu_powered(kbdev));
 
 	if (atomic_inc_return(&kctx->refcount) == 1) {
 		int const free_as = kbasep_ctx_sched_find_as_for_ctx(kctx);
@@ -213,7 +214,7 @@ void kbase_ctx_sched_remove_ctx(struct kbase_context *kctx)
 	WARN_ON(atomic_read(&kctx->refcount) != 0);
 
 	if ((kctx->as_nr >= 0) && (kctx->as_nr < BASE_MAX_NR_AS)) {
-		if (kbdev->pm.backend.gpu_powered)
+		if (kbase_io_is_gpu_powered(kbdev))
 			kbase_mmu_disable(kctx);
 
 		KBASE_TLSTREAM_TL_KBASE_CTX_UNASSIGN_AS(kbdev, kctx->id);
@@ -232,7 +233,7 @@ void kbase_ctx_sched_restore_all_as(struct kbase_device *kbdev)
 	lockdep_assert_held(&kbdev->mmu_hw_mutex);
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
-	WARN_ON(!kbdev->pm.backend.gpu_powered);
+	WARN_ON(!kbase_io_is_gpu_powered(kbdev));
 
 	kbdev->mmu_unresponsive = false;
 

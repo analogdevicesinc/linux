@@ -21,11 +21,11 @@
 
 #include <mali_kbase.h>
 #include <mali_kbase_ctx_sched.h>
+#include <mali_kbase_io.h>
 #include <hwcnt/mali_kbase_hwcnt_context.h>
 #include <device/mali_kbase_device.h>
 #include <backend/gpu/mali_kbase_irq_internal.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
-#include <mali_kbase_regs_history_debugfs.h>
 #include <csf/mali_kbase_csf_trace_buffer.h>
 #include <csf/ipa_control/mali_kbase_csf_ipa_control.h>
 #include <mali_kbase_reset_gpu.h>
@@ -243,6 +243,16 @@ static void kbase_csf_debug_dump_registers(struct kbase_device *kbdev)
 		kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_IRQ_MASK)),
 		kbase_reg_read32(kbdev, JOB_CONTROL_ENUM(JOB_IRQ_MASK)),
 		kbase_reg_read32(kbdev, MMU_CONTROL_ENUM(IRQ_MASK)));
+#if MALI_USE_CSF
+	if (kbdev->pm.backend.has_host_pwr_iface) {
+		dev_err(kbdev->dev, "  PWR_IRQ_RAWSTAT=0x%08x",
+			kbase_reg_read32(kbdev, HOST_POWER_ENUM(PWR_IRQ_RAWSTAT)));
+		dev_err(kbdev->dev, "  PWR_IRQ_MASK=0x%08x",
+			kbase_reg_read32(kbdev, HOST_POWER_ENUM(PWR_IRQ_MASK)));
+		dev_err(kbdev->dev, "  PWR_STATUS=0x%016llx",
+			kbase_reg_read64(kbdev, HOST_POWER_ENUM(PWR_STATUS)));
+	}
+#endif
 	if (kbdev->gpu_props.gpu_id.arch_id < GPU_ID_ARCH_MAKE(14, 10, 0)) {
 		dev_err(kbdev->dev, "  PWR_OVERRIDE0=0x%08x  PWR_OVERRIDE1=0x%08x",
 			kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(PWR_OVERRIDE0)),
@@ -254,6 +264,16 @@ static void kbase_csf_debug_dump_registers(struct kbase_device *kbdev)
 			kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(TILER_CONFIG)));
 	}
 
+#if MALI_USE_CSF
+	if (kbdev->pm.backend.has_host_pwr_iface) {
+		if (kbdev->gpu_props.gpu_id.arch_id < GPU_ID_ARCH_MAKE(14, 10, 0))
+			dev_err(kbdev->dev, "  NEURAL_CONFIG=0x%08x",
+				kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(NEURAL_CONFIG)));
+		if (kbase_pm_get_domain_status(kbdev, PWR_COMMAND_DOMAIN_L2, 0))
+			dev_err(kbdev->dev, "  L2_PWR_STATUS=0x%05llx",
+				kbase_reg_read64(kbdev, HOST_POWER_ENUM(PWR_CMDARG)));
+	}
+#endif
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 }
 
@@ -282,8 +302,8 @@ static void kbase_csf_hwcnt_on_reset_error(struct kbase_device *kbdev)
 	kbase_csf_scheduler_spin_unlock(kbdev, flags);
 }
 
-static enum kbasep_soft_reset_status kbase_csf_reset_gpu_once(struct kbase_device *kbdev,
-							      bool firmware_inited, bool silent)
+static noinline enum kbasep_soft_reset_status
+kbase_csf_reset_gpu_once(struct kbase_device *kbdev, bool firmware_inited, bool silent)
 {
 	unsigned long flags;
 	int err;
@@ -399,7 +419,7 @@ static int kbase_csf_reset_gpu_now(struct kbase_device *kbdev, bool firmware_ini
 	 * of active CSG slots would also be done as a part of reset.
 	 */
 	if (likely(firmware_inited))
-		kbase_csf_scheduler_reset(kbdev);
+		kbase_csf_scheduler_reset(kbdev, false);
 
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 	kbdev->csf.firmware_reload_needed = false;
@@ -500,7 +520,7 @@ static void kbase_csf_reset_gpu_worker(struct work_struct *data)
 
 bool kbase_prepare_to_reset_gpu(struct kbase_device *kbdev, unsigned int flags)
 {
-	if (kbase_pm_is_gpu_lost(kbdev)) {
+	if (kbase_io_is_gpu_lost(kbdev)) {
 		/* GPU access has been removed, reset will be done by Arbiter instead */
 		return false;
 	}

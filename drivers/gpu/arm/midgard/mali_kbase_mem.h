@@ -35,6 +35,7 @@
 #include <mali_kbase_hw.h>
 #include "mali_kbase_pm.h"
 #include "mali_kbase_defs.h"
+#include "mali_kbase_mem_flags.h"
 /* Required for kbase_mem_evictable_unmake */
 #include "mali_kbase_mem_linux.h"
 #include "mali_kbase_reg_track.h"
@@ -191,15 +192,6 @@ static inline void kbase_process_page_usage_inc(struct kbase_context *kctx, int 
 
 #define KBASE_REG_PROTECTED (1ul << 19)
 
-/* Region belongs to a shrinker.
- *
- * This can either mean that it is part of the JIT/Ephemeral or tiler heap
- * shrinker paths. Should be removed only after making sure that there are
- * no references remaining to it in these paths, as it may cause the physical
- * backing of the region to disappear during use.
- */
-#define KBASE_REG_DONT_NEED (1ul << 20)
-
 /* Imported buffer is padded? */
 #define KBASE_REG_IMPORT_PAD (1ul << 21)
 
@@ -249,9 +241,6 @@ static inline void kbase_process_page_usage_inc(struct kbase_context *kctx, int 
  * otherwise it points to a u64 holding the lowest address of unused memory.
  */
 #define KBASE_REG_HEAP_INFO_IS_SIZE (1ul << 27)
-
-/* Allocation is actively used for JIT memory */
-#define KBASE_REG_ACTIVE_JIT_ALLOC (1ul << 28)
 
 #if MALI_USE_CSF
 /* This flag only applies to allocations in the EXEC_FIXED_VA and FIXED_VA
@@ -613,11 +602,6 @@ int kbase_mem_init(struct kbase_device *kbdev);
 void kbase_mem_halt(struct kbase_device *kbdev);
 void kbase_mem_term(struct kbase_device *kbdev);
 
-static inline unsigned int kbase_mem_phy_alloc_ref_read(struct kbase_mem_phy_alloc *alloc)
-{
-	return kref_read(&alloc->kref);
-}
-
 static inline struct kbase_mem_phy_alloc *kbase_mem_phy_alloc_get(struct kbase_mem_phy_alloc *alloc)
 {
 	kref_get(&alloc->kref);
@@ -756,7 +740,7 @@ static inline bool kbase_is_region_invalid_or_free(struct kbase_va_region *reg)
  */
 static inline bool kbase_is_region_shrinkable(struct kbase_va_region *reg)
 {
-	return (reg->flags & KBASE_REG_DONT_NEED) || (reg->flags & KBASE_REG_ACTIVE_JIT_ALLOC);
+	return (reg->flags & BASEP_MEM_DONT_NEED) || (reg->flags & BASEP_MEM_ACTIVE_JIT_ALLOC);
 }
 
 void kbase_remove_va_region(struct kbase_device *kbdev, struct kbase_va_region *reg);
@@ -1310,14 +1294,13 @@ void kbase_mem_pool_mark_dying(struct kbase_mem_pool *pool);
 /**
  * kbase_mem_alloc_page - Allocate a new page for a device
  * @pool:  Memory pool to allocate a page from
- * @alloc_from_kthread:  Flag indicating that the current thread is a kernel thread.
  *
  * Most uses should use kbase_mem_pool_alloc to allocate a page. However that
  * function can fail in the event the pool is empty.
  *
  * Return: A new page or NULL if no memory
  */
-struct page *kbase_mem_alloc_page(struct kbase_mem_pool *pool, const bool alloc_from_kthread);
+struct page *kbase_mem_alloc_page(struct kbase_mem_pool *pool);
 
 /**
  * kbase_mem_pool_free_page - Free a page from a memory pool.
@@ -2265,17 +2248,6 @@ int kbase_user_buf_from_empty_to_gpu_mapped(struct kbase_context *kctx,
 					    struct kbase_va_region *reg);
 
 /**
- * kbase_user_buf_from_pinned_to_empty - Transition user buffer from "pinned" to "empty".
- * @kctx: kbase context.
- * @reg:  The region associated with the imported user buffer.
- *
- * This function transitions a user buffer from the "pinned" state, in which physical pages
- * have been acquired and pinned but no mappings are present, to the "empty" state, in which
- * physical pages have been unpinned.
- */
-void kbase_user_buf_from_pinned_to_empty(struct kbase_context *kctx, struct kbase_va_region *reg);
-
-/**
  * kbase_user_buf_from_pinned_to_gpu_mapped - Transition user buffer from "pinned" to "GPU mapped".
  * @kctx: kbase context.
  * @reg:  The region associated with the imported user buffer.
@@ -2305,18 +2277,6 @@ int kbase_user_buf_from_pinned_to_gpu_mapped(struct kbase_context *kctx,
  */
 void kbase_user_buf_from_dma_mapped_to_pinned(struct kbase_context *kctx,
 					      struct kbase_va_region *reg);
-
-/**
- * kbase_user_buf_from_dma_mapped_to_empty - Transition user buffer from "DMA mapped" to "empty".
- * @kctx: kbase context.
- * @reg:  The region associated with the imported user buffer.
- *
- * This function transitions a user buffer from the "DMA mapped" state, in which physical pages
- * have been acquired and pinned and DMA mappings have been obtained, to the "empty" state,
- * in which DMA mappings have been released and physical pages have been unpinned.
- */
-void kbase_user_buf_from_dma_mapped_to_empty(struct kbase_context *kctx,
-					     struct kbase_va_region *reg);
 
 /**
  * kbase_user_buf_from_dma_mapped_to_gpu_mapped - Transition user buffer from "DMA mapped" to "GPU mapped".
@@ -2352,22 +2312,6 @@ int kbase_user_buf_from_dma_mapped_to_gpu_mapped(struct kbase_context *kctx,
  */
 void kbase_user_buf_from_gpu_mapped_to_pinned(struct kbase_context *kctx,
 					      struct kbase_va_region *reg);
-
-/**
- * kbase_user_buf_from_gpu_mapped_to_empty - Transition user buffer from "GPU mapped" to "empty".
- * @kctx: kbase context.
- * @reg:  The region associated with the imported user buffer.
- *
- * This function transitions a user buffer from the "GPU mapped" state, in which physical pages
- * have been acquired and pinned, DMA mappings have been obtained, and GPU mappings have been
- * created, to the "empty" state, in which all mappings have been torn down and physical pages
- * have been unpinned.
- *
- * However, the function does not update the counter of GPU mappings in usage, because different
- * policies may be applied in different points of the driver.
- */
-void kbase_user_buf_from_gpu_mapped_to_empty(struct kbase_context *kctx,
-					     struct kbase_va_region *reg);
 
 /**
  * kbase_sticky_resource_init - Initialize sticky resource management.

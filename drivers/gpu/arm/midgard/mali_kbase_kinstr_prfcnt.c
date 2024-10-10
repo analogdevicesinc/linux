@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2021-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2021-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -451,6 +451,10 @@ static enum prfcnt_block_type kbase_hwcnt_metadata_block_type_to_prfcnt_block_ty
 		block_type = PRFCNT_BLOCK_TYPE_CSG;
 		break;
 
+	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_NEURAL:
+	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_NEURAL2:
+		block_type = PRFCNT_BLOCK_TYPE_NE;
+		break;
 
 	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_FE_UNDEFINED:
 	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_SC_UNDEFINED:
@@ -458,6 +462,7 @@ static enum prfcnt_block_type kbase_hwcnt_metadata_block_type_to_prfcnt_block_ty
 	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_CSG_UNDEFINED:
 	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_TILER_UNDEFINED:
 	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_MEMSYS_UNDEFINED:
+	case KBASE_HWCNT_GPU_V5_BLOCK_TYPE_PERF_NEURAL_UNDEFINED:
 	default:
 		block_type = PRFCNT_BLOCK_TYPE_RESERVED;
 		break;
@@ -1576,6 +1581,10 @@ kbasep_kinstr_prfcnt_parse_request_enable(const struct prfcnt_request_enable *re
 		break;
 	case PRFCNT_BLOCK_TYPE_CSG:
 		kbasep_kinstr_prfcnt_block_enable_req_to_cfg(config->enable_cm.csg_bm,
+							     req_enable->enable_mask);
+		break;
+	case PRFCNT_BLOCK_TYPE_NE:
+		kbasep_kinstr_prfcnt_block_enable_req_to_cfg(config->enable_cm.neural_bm,
 							     req_enable->enable_mask);
 		break;
 	default:

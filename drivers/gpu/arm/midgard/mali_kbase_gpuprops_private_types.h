@@ -50,6 +50,8 @@
  * @thread_tls_alloc: Number of threads per core to allocate TLS storage for
  * @l2_config: Level 2 cache configuration
  * @l2_slice_hash: ASN Hash function arguments
+ * @base_present: Shader core base present bitmap
+ * @neural_present: Neural engine present bitmap
  *
  * This structure is used to store raw GPU register values that will be used as-is
  * or parsed into respective properties.
@@ -78,6 +80,8 @@ struct kbasep_gpuprops_regdump {
 	u32 thread_tls_alloc;
 	u32 l2_config;
 	u32 l2_slice_hash[GPU_ASN_HASH_COUNT];
+	u64 base_present;
+	u64 neural_present;
 };
 
 struct kbasep_gpuprops_priv_data {

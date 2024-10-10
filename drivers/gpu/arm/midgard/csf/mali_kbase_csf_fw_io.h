@@ -26,20 +26,10 @@
 #include <linux/types.h>
 #include <linux/wait.h>
 #include <linux/spinlock.h>
+#include <mali_kbase_io.h>
 
 /** The wait completed because the GPU was lost. */
 #define KBASE_CSF_FW_IO_WAIT_GPU_LOST 1
-
-/**
- * enum kbasep_csf_fw_io_status_bits - Status bits for firmware I/O interface.
- *
- * @KBASEP_FW_IO_STATUS_GPU_SUSPENDED: The GPU is suspended.
- * @KBASEP_FW_IO_STATUS_NUM_BITS: Number of bits used to encode the status.
- */
-enum kbasep_csf_fw_io_status_bits {
-	KBASEP_FW_IO_STATUS_GPU_SUSPENDED = 0,
-	KBASEP_FW_IO_STATUS_NUM_BITS,
-};
 
 /**
  * struct kbasep_csf_fw_io_stream_pages - Addresses to CS I/O pages.
@@ -82,13 +72,11 @@ struct kbasep_csf_fw_io_pages {
  * struct kbase_csf_fw_io - Manager of firmware input/output interface.
  *
  * @lock: Mutex to serialize access to the interface.
- * @status: Internal status of the MCU interface.
  * @pages: Addresses to FW I/O pages
  * @kbdev: Pointer to the instance of a GPU platform device that implements a CSF interface.
  */
 struct kbase_csf_fw_io {
 	spinlock_t lock;
-	DECLARE_BITMAP(status, KBASEP_FW_IO_STATUS_NUM_BITS);
 	struct kbasep_csf_fw_io_pages pages;
 	struct kbase_device *kbdev;
 };
@@ -181,7 +169,7 @@ void kbase_csf_fw_io_pages_term(struct kbase_csf_fw_io *fw_io, u32 group_num);
  */
 static inline int kbase_csf_fw_io_open(struct kbase_csf_fw_io *fw_io, unsigned long *flags)
 {
-	if (test_bit(KBASEP_FW_IO_STATUS_GPU_SUSPENDED, fw_io->status))
+	if (kbase_io_test_status(fw_io->kbdev, KBASE_IO_STATUS_GPU_SUSPENDED))
 		return -KBASE_CSF_FW_IO_WAIT_GPU_LOST;
 
 	spin_lock_irqsave(&fw_io->lock, *flags);
@@ -312,6 +300,39 @@ u32 kbase_csf_fw_io_group_input_read(struct kbase_csf_fw_io *fw_io, u32 group_id
  */
 u32 kbase_csf_fw_io_group_read(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset);
 
+/**
+ * kbase_csf_fw_io_group_write64() - Write a double-word in a CSG's input page.
+ *
+ * @fw_io:  Firmware I/O manager.
+ * @group_id: CSG index.
+ * @offset: Offset of the word to write, in bytes.
+ * @value:  Value to be written.
+ */
+void kbase_csf_fw_io_group_write64(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset,
+				   u64 value);
+
+/**
+ * kbase_csf_fw_io_group_input64_read() - Read a double-word in a CSG's input page.
+ *
+ * @fw_io:  Firmware I/O manager.
+ * @group_id: CSG index.
+ * @offset: Offset of the word to be read, in bytes.
+ *
+ * Return: Value of the word read from a CSG's input page.
+ */
+u32 kbase_csf_fw_io_group_input64_read(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset);
+
+/**
+ * kbase_csf_fw_io_group_write64_mask() - Write part of a double-word in a CSG's input page.
+ *
+ * @fw_io:  Firmware I/O manager.
+ * @group_id: CSG index.
+ * @offset: Offset of the word to write, in bytes.
+ * @value:  Value to be written.
+ * @mask:   Bitmask with the bits to be modified set.
+ */
+void kbase_csf_fw_io_group_write64_mask(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset,
+					u64 value, u64 mask);
 
 /**
  * kbase_csf_fw_io_stream_write() - Write a word in a CS's input page.

@@ -183,6 +183,8 @@ static int invent_cmd_stream_group_info(struct kbase_device *kbdev,
 			STREAM_FEATURES_WORK_REGISTERS_SET(0, 80) |
 			STREAM_FEATURES_SCOREBOARDS_SET(0, 8) | STREAM_FEATURES_COMPUTE_SET(0, 1) |
 			STREAM_FEATURES_FRAGMENT_SET(0, 1) | STREAM_FEATURES_TILER_SET(0, 1);
+		if (kbdev->gpu_props.gpu_id.arch_id >= GPU_ID_ARCH_MAKE(14, 0, 0))
+			stream->features |= STREAM_FEATURES_NEURAL_SET(0, 1);
 		stream->sid = sid;
 		stream->gid = ginfo->gid;
 
@@ -651,6 +653,8 @@ void kbase_csf_firmware_update_core_attr(struct kbase_device *kbdev, bool update
 	struct kbase_csf_fw_io *fw_io = &kbdev->csf.fw_io;
 	unsigned long flags, fw_io_flags;
 
+	if (kbase_hw_has_feature(kbdev, KBASE_HW_FEATURE_GOV_CORE_MASK_SUPPORT))
+		core_mask = U64_MAX;
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
@@ -926,6 +930,7 @@ u64 kbase_csf_firmware_get_mcu_core_pwroff_time(struct kbase_device *kbdev)
 
 	return pwroff_ns;
 }
+KBASE_EXPORT_TEST_API(kbase_csf_firmware_get_mcu_core_pwroff_time);
 
 u32 kbase_csf_firmware_set_mcu_core_pwroff_time(struct kbase_device *kbdev, u64 dur_ns)
 {
@@ -1301,6 +1306,10 @@ bool kbase_csf_firmware_mcu_halt_req_complete(struct kbase_device *kbdev)
 	return kbase_csf_firmware_mcu_halted(kbdev);
 }
 
+void kbase_csf_firmware_set_glb_state_active(struct kbase_device *kbdev)
+{
+	/* Nothing to do for NO_MALI */
+}
 
 int kbase_csf_trigger_firmware_config_update(struct kbase_device *kbdev)
 {

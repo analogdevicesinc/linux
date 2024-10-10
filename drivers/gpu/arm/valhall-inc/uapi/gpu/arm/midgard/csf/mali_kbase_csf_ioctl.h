@@ -123,10 +123,12 @@
  * 1.32:
  * - Add UNUSED_BIT_5 and UNUSED_BIT_7 previously occupied by kernel-only flags
  *   to kbase cap table.
+ * 1.33:
+ * - Increased KBASE_MEM_PROFILE_MAX_BUF_SIZE for more cctx memory classes.
  */
 
 #define BASE_UK_VERSION_MAJOR 1
-#define BASE_UK_VERSION_MINOR 32
+#define BASE_UK_VERSION_MINOR 33
 
 /**
  * struct kbase_ioctl_version_check - Check version compatibility between
@@ -363,8 +365,18 @@ union kbase_ioctl_cs_queue_group_create_1_18 {
  * @in.csi_handlers:  Flags to signal that the application intends to use CSI
  *                    exception handlers in some linear buffers to deal with
  *                    the given exception types.
+ * @in.neural_max:    Maximum number of neural endpoints the group is
+ *                    allowed to use.
  * @in.cs_fault_report_enable:  Flag to indicate reporting of CS_FAULTs
  *                    to userspace.
+ * @in.dvs_buf: buffer for deferred vertex shader
+ * @in.neural_mask:   Mask of neural endpoints the group is allowed to use.
+ * @in.comp_pri_threshold: The number of compute endpoints required to be
+ *                         allocated to the GPU queue group before compute
+ *                         endpoints are prioritized for compute iterator.
+ * @in.comp_pri_ratio: The ratio of the cores after comp_pri_threshold
+ *                     has been reached which are prioritized for compute
+ *                     iterator tasks.
  * @in.padding:       Currently unused, must be zero
  * @out:              Output parameters
  * @out.group_handle: Handle of a newly created queue group.
@@ -382,16 +394,13 @@ union kbase_ioctl_cs_queue_group_create {
 		__u8 fragment_max;
 		__u8 compute_max;
 		__u8 csi_handlers;
-		/**
-		 * @in.reserved:   Reserved, currently unused, must be zero.
-		 */
-		__u8 reserved;
+		__u8 neural_max;
 		__u8 cs_fault_report_enable;
-		/**
-		 * @in.dvs_buf: buffer for deferred vertex shader
-		 */
 		__u64 dvs_buf;
-		__u64 padding[9];
+		__u64 neural_mask;
+		__u8 comp_pri_threshold;
+		__u8 comp_pri_ratio;
+		__u8 padding[62];
 	} in;
 	struct {
 		__u8 group_handle;

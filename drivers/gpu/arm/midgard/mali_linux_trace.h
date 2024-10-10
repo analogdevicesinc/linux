@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -127,6 +127,7 @@ TRACE_EVENT(mali_total_alloc_pages_change, TP_PROTO(u32 gpu_id, s64 event_id),
 	KBASE_MMU_FAULT_CODE_LEVEL(KBASE_MMU_FAULT_STATUS_CODE(status))
 
 #define KBASE_MMU_FAULT_STATUS_ACCESS(status) ((status)&AS_FAULTSTATUS_ACCESS_TYPE_MASK)
+
 #define KBASE_MMU_FAULT_ACCESS_SYMBOLIC_STRINGS                                \
 	_ENSURE_PARENTHESIS({ AS_FAULTSTATUS_ACCESS_TYPE_ATOMIC, "ATOMIC" },   \
 			    { AS_FAULTSTATUS_ACCESS_TYPE_EXECUTE, "EXECUTE" }, \
@@ -211,6 +212,7 @@ TRACE_EVENT(
 		KBASE_MMU_FAULT_STATUS_LEVEL(__entry->status),
 		KBASE_MMU_FAULT_STATUS_ACCESS(__entry->status) >> 8,
 		KBASE_MMU_FAULT_STATUS_ACCESS_PRINT(__entry->status), __entry->status >> 16));
+
 
 /*
  * Just-in-time memory allocation subsystem tracepoints

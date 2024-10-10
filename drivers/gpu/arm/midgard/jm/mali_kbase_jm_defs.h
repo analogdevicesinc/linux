@@ -397,11 +397,6 @@ enum kbase_atom_exit_protected_state {
  * @jc:                    GPU address of the job-chain.
  * @softjob_data:          Copy of data read from the user space buffer that @jc
  *                         points to.
- * @fence:                 Stores either an input or output sync fence,
- *                         depending on soft-job type
- * @sync_waiter:           Pointer to the sync fence waiter structure passed to
- *                         the callback function on signaling of the input
- *                         fence.
  * @dma_fence:             object containing pointers to both input & output
  *                         fences and other related members used for explicit
  *                         sync through soft jobs and for the implicit
@@ -437,9 +432,6 @@ enum kbase_atom_exit_protected_state {
  *                         as per KBASE_JD_ATOM_STATE_*, that whether it is not
  *                         in use or its queued in JD or given to JS or
  *                         submitted to Hw or it completed the execution on Hw.
- * @work_id:               used for GPU tracepoints, its a snapshot of the
- *                         'work_id' counter in kbase_jd_context which is
- *                         incremented on every call to base_jd_submit.
  * @slot_nr:               Job slot chosen for the atom.
  * @atom_flags:            bitmask of KBASE_KATOM_FLAG* flags capturing the
  *                         excat low level state of the atom.
@@ -566,9 +558,6 @@ struct kbase_jd_atom {
 
 	wait_queue_head_t completed;
 	enum kbase_jd_atom_state status;
-#if IS_ENABLED(CONFIG_GPU_TRACEPOINTS)
-	int work_id;
-#endif
 	unsigned int slot_nr;
 
 	u32 atom_flags;
@@ -715,8 +704,6 @@ static inline bool kbase_jd_atom_is_earlier(const struct kbase_jd_atom *katom_a,
  * @tb_wrap_offset:           Offset to the end location in the trace buffer,
  *                            the write pointer is moved to the beginning on
  *                            reaching this offset.
- * @work_id:                  atomic variable used for GPU tracepoints,
- *                            incremented on every call to base_jd_submit.
  * @jit_atoms_head:           A list of the just-in-time memory soft-jobs, both
  *                            allocate & free, in submission order, protected
  *                            by kbase_jd_context.lock.
@@ -736,10 +723,6 @@ struct kbase_jd_context {
 	u32 *tb;
 	u32 job_nr;
 	size_t tb_wrap_offset;
-
-#if IS_ENABLED(CONFIG_GPU_TRACEPOINTS)
-	atomic_t work_id;
-#endif
 
 	struct list_head jit_atoms_head;
 	struct list_head jit_pending_alloc;

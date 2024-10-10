@@ -235,7 +235,56 @@ kbasep_hwcnt_backend_csf_if_fw_cc_disable(struct kbase_hwcnt_backend_csf_if_fw_c
  */
 static u64 kbasep_hwcnt_backend_csf_core_mask(struct kbase_gpu_props *gpu_props)
 {
+	/* Calculate according to Virtual Core IDs */
+	if (gpu_props->gpu_id.arch_id >= GPU_ID_ARCH_MAKE(14, 8, 4)) {
+		const u64 nr_cores = hweight64(gpu_props->coherency_info.group.core_mask);
+
+		if (nr_cores == 64)
+			return U64_MAX;
+
+		return (1ULL << nr_cores) - 1;
+	}
 	return gpu_props->coherency_info.group.core_mask;
+}
+
+/**
+ * kbasep_hwcnt_backend_csf_physical_mask_to_vid() - Obtain Virtual Core Mask
+ *
+ * @shader_present:  core present bitmap
+ * @subset_mask: core subset mask
+ *
+ * Compute effective core mask for VID using core shader present bitmap and
+ * subset mask. virtual_core_mask is combination of shader present and subset mask in way:
+ * for each active shader core (bit set to "1"), coresponding bit from subset_mask is added to
+ * virtual_core_mask ("1" or "0")
+ * example: shader_present = 10111, subset_mask = 10011, virtual_core_mask = 1011
+ *
+ * Return:      calculated effective core mask
+ */
+static u64 kbasep_hwcnt_backend_csf_physical_mask_to_vid(u64 shader_present, u64 subset_mask)
+{
+	DECLARE_BITMAP(sc_mask, BITS_PER_TYPE(u64));
+	u64 virtual_core_mask = 0;
+	u64 curr_core;
+
+	/* Converting the u64 into a series of unsigned longs to
+	 * allow for use of kernel macros.
+	 */
+	bitmap_from_u64(sc_mask, shader_present);
+
+	/* To ensure the subset check below works with virtual core IDs,
+	 * we need to perform the conversion from the physical core
+	 * mask to the virtual one, re-creating the physical -> virtual mapping.
+	 */
+	for_each_set_bit(curr_core, sc_mask, BITS_PER_TYPE(u64)) {
+		if (subset_mask & BIT_MASK(curr_core)) {
+			u64 lower_mask = GENMASK(curr_core, 0);
+			u64 vid = hweight64(shader_present & lower_mask) - 1;
+
+			virtual_core_mask |= BIT_MASK(vid);
+		}
+	}
+	return virtual_core_mask;
 }
 #endif
 
@@ -258,6 +307,7 @@ static void kbasep_hwcnt_backend_csf_if_fw_get_prfcnt_info(
 		.prfcnt_block_size = KBASE_DUMMY_MODEL_BLOCK_SIZE,
 		.clk_cnt = 1,
 		.clearing_samples = true,
+		.ne_core_mask = 0,
 	};
 
 	fw_ctx->buf_bytes = prfcnt_info->dump_bytes;
@@ -271,6 +321,7 @@ static void kbasep_hwcnt_backend_csf_if_fw_get_prfcnt_info(
 	u32 fw_block_count = 0;
 	u32 prfcnt_block_size =
 		KBASE_HWCNT_V5_DEFAULT_VALUES_PER_BLOCK * KBASE_HWCNT_VALUE_HW_BYTES;
+	bool has_virtual_core_ids;
 
 	WARN_ON(!ctx);
 	WARN_ON(!prfcnt_info);
@@ -281,6 +332,7 @@ static void kbasep_hwcnt_backend_csf_if_fw_get_prfcnt_info(
 	prfcnt_size = kbdev->csf.global_iface.prfcnt_size;
 	prfcnt_hw_size = GLB_PRFCNT_SIZE_HARDWARE_SIZE_GET(prfcnt_size);
 	prfcnt_fw_size = GLB_PRFCNT_SIZE_FIRMWARE_SIZE_GET(prfcnt_size);
+	has_virtual_core_ids = kbdev->gpu_props.gpu_id.arch_id >= GPU_ID_ARCH_MAKE(14, 8, 4);
 
 	/* Read the block size if the GPU has the register PRFCNT_FEATURES
 	 * which was introduced in architecture version 11.x.7.
@@ -314,8 +366,19 @@ static void kbasep_hwcnt_backend_csf_if_fw_get_prfcnt_info(
 		.csg_count = fw_block_count > 1 ? csg_count : 0,
 		.clk_cnt = fw_ctx->clk_cnt,
 		.clearing_samples = true,
+		.has_ne = kbdev->gpu_props.gpu_features.neural_engine,
+		.ne_core_mask = kbdev->gpu_props.gpu_features.neural_engine ?
+					      kbasep_hwcnt_backend_csf_physical_mask_to_vid(
+						kbdev->gpu_props.coherency_info.group.core_mask,
+						kbdev->gpu_props.neural_present) :
+					      0,
+		.has_virtual_ids = has_virtual_core_ids
 	};
 
+	if (prfcnt_info->has_ne)
+		WARN_ON(prfcnt_info->ne_core_mask == 0);
+	else
+		WARN_ON(prfcnt_info->ne_core_mask != 0);
 
 	/* Block size must be multiple of counter size. */
 	WARN_ON((prfcnt_info->prfcnt_block_size % KBASE_HWCNT_VALUE_HW_BYTES) != 0);
@@ -599,6 +662,9 @@ kbasep_hwcnt_backend_csf_if_fw_dump_enable(struct kbase_hwcnt_backend_csf_if_ctx
 	/* Enable all of the CSGs by default. */
 	kbase_csf_fw_io_global_write(&kbdev->csf.fw_io, GLB_PRFCNT_CSG_SELECT, csg_mask);
 
+	if (kbdev->gpu_props.neural_present)
+		kbase_csf_fw_io_global_write(&kbdev->csf.fw_io, GLB_PRFCNT_NEURAL_EN,
+					     enable->neural_bm);
 
 	/* Configure the HWC set and buffer size */
 	kbase_csf_fw_io_global_write(&kbdev->csf.fw_io, GLB_PRFCNT_CONFIG, prfcnt_config);

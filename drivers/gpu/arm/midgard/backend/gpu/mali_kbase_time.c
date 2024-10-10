@@ -28,6 +28,7 @@
 #include <device/mali_kbase_device.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
 #include <mali_kbase_config_defaults.h>
+#include <mali_kbase_io.h>
 #include <linux/version_compat_defs.h>
 #include <asm/arch_timer.h>
 #include <linux/mali_hw_access.h>
@@ -70,6 +71,10 @@ static struct kbase_timeout_info timeout_info[KBASE_TIMEOUT_SELECTOR_COUNT] = {
 	[IPA_INACTIVE_TIMEOUT] = { "IPA_INACTIVE_TIMEOUT", IPA_INACTIVE_TIMEOUT_CYCLES },
 	[CSF_FIRMWARE_STOP_TIMEOUT] = { "CSF_FIRMWARE_STOP_TIMEOUT",
 					CSF_FIRMWARE_STOP_TIMEOUT_CYCLES },
+	[CSF_PWR_DELEGATE_TIMEOUT] = { "CSF_PWR_DELEGATE_TIMEOUT",
+				       CSF_PWR_DELEGATE_TIMEOUT_CYCLES },
+	[CSF_PWR_INSPECT_TIMEOUT] = { "CSF_PWR_INSPECT_TIMEOUT", CSF_PWR_INSPECT_TIMEOUT_CYCLES },
+	[CSF_GPU_SUSPEND_TIMEOUT] = { "CSF_GPU_SUSPEND_TIMEOUT", CSF_GPU_SUSPEND_TIMEOUT_CYCLES },
 };
 #else
 static struct kbase_timeout_info timeout_info[KBASE_TIMEOUT_SELECTOR_COUNT] = {
@@ -174,25 +179,27 @@ KBASE_EXPORT_TEST_API(kbase_backend_get_gpu_time_norequest);
  *
  * @kbdev: Kbase device
  *
- * Return: true if CYCLE_COUNT_ACTIVE is active within the timeout.
+ * Return: 0 if CYCLE_COUNT_ACTIVE is active within the timeout,
+ *         otherwise a negative error code.
  */
-static bool timedwait_cycle_count_active(struct kbase_device *kbdev)
+static int timedwait_cycle_count_active(struct kbase_device *kbdev)
 {
 #if IS_ENABLED(CONFIG_MALI_NO_MALI)
-	return true;
+	return 0;
 #else
-	bool success = false;
 	const unsigned int timeout = 100;
 	const unsigned long remaining = jiffies + msecs_to_jiffies(timeout);
 
 	while (time_is_after_jiffies(remaining)) {
+		if (kbase_io_is_gpu_lost(kbdev))
+			return -ENODEV;
+
 		if ((kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_STATUS)) &
-		     GPU_STATUS_CYCLE_COUNT_ACTIVE)) {
-			success = true;
-			break;
-		}
+		     GPU_STATUS_CYCLE_COUNT_ACTIVE))
+			return 0;
 	}
-	return success;
+
+	return -ETIMEDOUT;
 #endif
 }
 #endif
@@ -202,8 +209,11 @@ void kbase_backend_get_gpu_time(struct kbase_device *kbdev, u64 *cycle_counter, 
 {
 #if !MALI_USE_CSF
 	kbase_pm_request_gpu_cycle_counter(kbdev);
-	WARN_ONCE(kbdev->pm.backend.l2_state != KBASE_L2_ON, "L2 not powered up");
-	WARN_ONCE((!timedwait_cycle_count_active(kbdev)), "Timed out on CYCLE_COUNT_ACTIVE");
+	if (!kbase_io_is_gpu_lost(kbdev))
+		WARN_ONCE(kbdev->pm.backend.l2_state != KBASE_L2_ON, "L2 not powered up");
+
+	WARN_ONCE(timedwait_cycle_count_active(kbdev) == -ETIMEDOUT,
+		  "Timed out on CYCLE_COUNT_ACTIVE");
 #endif
 	kbase_backend_get_gpu_time_norequest(kbdev, cycle_counter, system_time, ts);
 #if !MALI_USE_CSF
@@ -240,7 +250,7 @@ void kbase_device_set_timeout_ms(struct kbase_device *kbdev, enum kbase_timeout_
 	selector_str = timeout_info[selector].selector_str;
 
 #if MALI_USE_CSF
-	if (IS_ENABLED(CONFIG_MALI_REAL_HW) && !IS_ENABLED(CONFIG_MALI_IS_FPGA) &&
+	if ((kbdev->gpu_props.impl_tech <= THREAD_FEATURES_IMPLEMENTATION_TECHNOLOGY_SILICON) &&
 	    unlikely(timeout_ms >= MAX_TIMEOUT_MS)) {
 		dev_warn(kbdev->dev, "%s is capped from %dms to %dms\n",
 			 timeout_info[selector].selector_str, timeout_ms, MAX_TIMEOUT_MS);
@@ -327,6 +337,15 @@ static int kbase_timeout_scaling_init(struct kbase_device *kbdev)
 		 */
 		if (selector == CSF_SCHED_PROTM_PROGRESS_TIMEOUT)
 			nr_cycles = kbase_csf_timeout_get(kbdev);
+
+		if (selector == KCPU_FENCE_SIGNAL_TIMEOUT) {
+			if ((kbdev->gpu_props.impl_tech ==
+			     THREAD_FEATURES_IMPLEMENTATION_TECHNOLOGY_FPGA) ||
+			    (kbdev->gpu_props.impl_tech ==
+			     THREAD_FEATURES_IMPLEMENTATION_TECHNOLOGY_SOFTWARE)) {
+				nr_cycles = KCPU_FENCE_SIGNAL_TIMEOUT_CYCLES_FPGA;
+			}
+		}
 #endif
 
 		/* Since we are in control of the iteration bounds for the selector,

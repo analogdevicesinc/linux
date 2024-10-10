@@ -417,7 +417,8 @@ struct mali_base_gpu_tiler_props {
  * @max_thread_group_split: Max. allowed value [1..15] of the Thread Group Split
  *                          field.
  * @impl_tech:              0 = Not specified, 1 = Silicon, 2 = FPGA,
- *                          3 = SW Model/Emulation
+ *                          3 = SW Model/Emulation,
+ *                          U8_MAX (255) = NO_MALI, not in spec
  * @padding:                padding to align to 8-byte
  * @tls_alloc:              Number of threads per core that TLS must be
  *                          allocated for
@@ -517,6 +518,8 @@ struct mali_base_gpu_coherent_group_info {
  *                  available modes as exposed in the coherency_features register
  * @thread_tls_alloc: Number of threads per core that TLS must be allocated for
  * @gpu_features: GPU features
+ * @neural_present: Neural engine present bitmap
+ * @base_present: Shader core base present bitmap
  *
  * The information is presented inefficiently for access. For frequent access,
  * the values should be better expressed in an unpacked form in the
@@ -539,16 +542,12 @@ struct gpu_raw_gpu_props {
 	__u32 core_features;
 	__u32 mem_features;
 	__u32 mmu_features;
-
 	__u32 as_present;
-
 	__u32 js_present;
 	__u32 js_features[GPU_MAX_JOB_SLOTS];
 	__u32 tiler_features;
 	__u32 texture_features[BASE_GPU_NUM_TEXTURE_FEATURES_REGISTERS];
-
 	__u32 gpu_id;
-
 	__u32 thread_max_threads;
 	__u32 thread_max_workgroup_size;
 	__u32 thread_max_barrier_size;
@@ -562,6 +561,8 @@ struct gpu_raw_gpu_props {
 
 	__u32 thread_tls_alloc;
 	__u64 gpu_features;
+	__u64 neural_present;
+	__u64 base_present;
 };
 
 /**

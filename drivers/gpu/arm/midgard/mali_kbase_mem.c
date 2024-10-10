@@ -552,28 +552,22 @@ int kbase_gpu_munmap(struct kbase_context *kctx, struct kbase_va_region *reg)
 							kctx->as_nr);
 	} break;
 	case KBASE_MEM_TYPE_IMPORTED_USER_BUF: {
-		/* Progress through all stages to destroy the GPU mapping and release
-		 * all resources.
+		/** Progress GPU mappings to pinned state.
+		 * No need to release mappings as we expect there to always be at least one
+		 * physical allocation referenced. The refcount can only be
+		 * zero via kbase_mem_phy_alloc_put().
 		 */
 		switch (alloc->imported.user_buf.state) {
 		case KBASE_USER_BUF_STATE_GPU_MAPPED: {
 			alloc->imported.user_buf.current_mapping_usage_count = 0;
-			kbase_mem_phy_alloc_ref_read(alloc) ?
-				      kbase_user_buf_from_gpu_mapped_to_pinned(kctx, reg) :
-				      kbase_user_buf_from_gpu_mapped_to_empty(kctx, reg);
+			kbase_user_buf_from_gpu_mapped_to_pinned(kctx, reg);
 			break;
 		}
 		case KBASE_USER_BUF_STATE_DMA_MAPPED: {
-			kbase_mem_phy_alloc_ref_read(alloc) ?
-				      kbase_user_buf_from_dma_mapped_to_pinned(kctx, reg) :
-				      kbase_user_buf_from_dma_mapped_to_empty(kctx, reg);
+			kbase_user_buf_from_dma_mapped_to_pinned(kctx, reg);
 			break;
 		}
-		case KBASE_USER_BUF_STATE_PINNED: {
-			if (!kbase_mem_phy_alloc_ref_read(alloc))
-				kbase_user_buf_from_pinned_to_empty(kctx, reg);
-			break;
-		}
+		case KBASE_USER_BUF_STATE_PINNED:
 		case KBASE_USER_BUF_STATE_EMPTY: {
 			/* Nothing to do. This is a legal possibility, because an imported
 			 * memory handle can be destroyed just after creation without being
@@ -994,7 +988,7 @@ int kbase_mem_free_region(struct kbase_context *kctx, struct kbase_va_region *re
 	 * If the memory hasn't been reclaimed it will be unmapped and freed
 	 * below, if it has been reclaimed then the operations below are no-ops.
 	 */
-	if (reg->flags & KBASE_REG_DONT_NEED) {
+	if (reg->flags & BASEP_MEM_DONT_NEED) {
 		WARN_ON(reg->cpu_alloc->type != KBASE_MEM_TYPE_NATIVE);
 		mutex_lock(&kctx->jit_evict_lock);
 		/* Unlink the physical allocation before unmaking it evictable so
@@ -1209,6 +1203,8 @@ int kbase_update_region_flags(struct kbase_context *kctx, struct kbase_va_region
 		reg->flags |= KBASE_REG_FIXED_ADDRESS;
 #endif
 
+	if (flags & BASEP_MEM_ACTIVE_JIT_ALLOC)
+		reg->flags |= BASEP_MEM_ACTIVE_JIT_ALLOC;
 	return 0;
 }
 
@@ -1441,7 +1437,7 @@ invalid_request:
 KBASE_EXPORT_TEST_API(kbase_alloc_phy_pages_helper);
 
 static size_t free_partial_locked(struct kbase_context *kctx, struct kbase_mem_pool *pool,
-				  struct tagged_addr tp)
+				  struct tagged_addr tp, bool syncback)
 {
 	struct page *p, *head_page;
 	struct kbase_sub_alloc *sa;
@@ -1454,9 +1450,13 @@ static size_t free_partial_locked(struct kbase_context *kctx, struct kbase_mem_p
 	head_page = (struct page *)p->lru.prev;
 	sa = (struct kbase_sub_alloc *)head_page->lru.next;
 	clear_bit(p - head_page, sa->sub_pages);
+	if (syncback) {
+		kbase_sync_single_for_device(kctx->kbdev, kbase_dma_addr_as_priv(p), PAGE_SIZE,
+					     DMA_BIDIRECTIONAL);
+	}
 	if (bitmap_empty(sa->sub_pages, NUM_PAGES_IN_2MB_LARGE_PAGE)) {
 		list_del(&sa->link);
-		kbase_mem_pool_free_locked(pool, head_page, true);
+		kbase_mem_pool_free_locked(pool, head_page, false);
 		kfree(sa);
 		nr_pages_to_account = NUM_PAGES_IN_2MB_LARGE_PAGE;
 	} else if (bitmap_weight(sa->sub_pages, NUM_PAGES_IN_2MB_LARGE_PAGE) ==
@@ -1645,7 +1645,7 @@ alloc_failed:
 					nr_pages_to_free -= NUM_PAGES_IN_2MB_LARGE_PAGE;
 					start_free += NUM_PAGES_IN_2MB_LARGE_PAGE;
 				} else if (is_partial(*start_free)) {
-					free_partial_locked(kctx, pool, *start_free);
+					free_partial_locked(kctx, pool, *start_free, false);
 					nr_pages_to_free--;
 					start_free++;
 				}
@@ -1668,7 +1668,8 @@ invalid_request:
 	return NULL;
 }
 
-static size_t free_partial(struct kbase_context *kctx, int group_id, struct tagged_addr tp)
+static size_t free_partial(struct kbase_context *kctx, int group_id, struct tagged_addr tp,
+			   bool syncback)
 {
 	struct page *p, *head_page;
 	struct kbase_sub_alloc *sa;
@@ -1677,11 +1678,15 @@ static size_t free_partial(struct kbase_context *kctx, int group_id, struct tagg
 	p = as_page(tp);
 	head_page = (struct page *)p->lru.prev;
 	sa = (struct kbase_sub_alloc *)head_page->lru.next;
+	if (syncback) {
+		kbase_sync_single_for_device(kctx->kbdev, kbase_dma_addr_as_priv(p), PAGE_SIZE,
+					     DMA_BIDIRECTIONAL);
+	}
 	spin_lock(&kctx->mem_partials_lock);
 	clear_bit(p - head_page, sa->sub_pages);
 	if (bitmap_empty(sa->sub_pages, NUM_PAGES_IN_2MB_LARGE_PAGE)) {
 		list_del(&sa->link);
-		kbase_mem_pool_free(&kctx->mem_pools.large[group_id], head_page, true);
+		kbase_mem_pool_free(&kctx->mem_pools.large[group_id], head_page, false);
 		kfree(sa);
 		nr_pages_to_account = NUM_PAGES_IN_2MB_LARGE_PAGE;
 	} else if (bitmap_weight(sa->sub_pages, NUM_PAGES_IN_2MB_LARGE_PAGE) ==
@@ -1744,7 +1749,8 @@ int kbase_free_phy_pages_helper(struct kbase_mem_phy_alloc *alloc, size_t nr_pag
 			freed += NUM_PAGES_IN_2MB_LARGE_PAGE;
 			nr_pages_to_account += NUM_PAGES_IN_2MB_LARGE_PAGE;
 		} else if (is_partial(*start_free)) {
-			nr_pages_to_account += free_partial(kctx, alloc->group_id, *start_free);
+			nr_pages_to_account +=
+				free_partial(kctx, alloc->group_id, *start_free, syncback);
 			nr_pages_to_free--;
 			start_free++;
 			freed++;
@@ -1851,7 +1857,8 @@ void kbase_free_phy_pages_helper_locked(struct kbase_mem_phy_alloc *alloc,
 			nr_pages_to_account += NUM_PAGES_IN_2MB_LARGE_PAGE;
 		} else if (is_partial(*start_free)) {
 			WARN_ON(!pool->order);
-			nr_pages_to_account += free_partial_locked(kctx, pool, *start_free);
+			nr_pages_to_account +=
+				free_partial_locked(kctx, pool, *start_free, syncback);
 			nr_pages_to_free--;
 			start_free++;
 			freed++;
@@ -3323,7 +3330,8 @@ struct kbase_va_region *kbase_jit_allocate(struct kbase_context *kctx,
 		/* No suitable JIT allocation was found so create a new one */
 		base_mem_alloc_flags flags = BASE_MEM_PROT_CPU_RD | BASE_MEM_PROT_GPU_RD |
 					     BASE_MEM_PROT_GPU_WR | BASE_MEM_GROW_ON_GPF |
-					     BASE_MEM_COHERENT_LOCAL | BASEP_MEM_NO_USER_FREE;
+					     BASE_MEM_COHERENT_LOCAL | BASEP_MEM_NO_USER_FREE |
+					     BASEP_MEM_ACTIVE_JIT_ALLOC;
 		u64 gpu_addr;
 
 #if !MALI_USE_CSF
@@ -3404,7 +3412,8 @@ struct kbase_va_region *kbase_jit_allocate(struct kbase_context *kctx,
 
 	reg->jit_usage_id = info->usage_id;
 	reg->jit_bin_id = info->bin_id;
-	reg->flags |= KBASE_REG_ACTIVE_JIT_ALLOC;
+	/* Reinstate the active flag, covering cases where the region is from the eviction list */
+	reg->flags |= BASEP_MEM_ACTIVE_JIT_ALLOC;
 #if MALI_JIT_PRESSURE_LIMIT_BASE
 	if (info->flags & BASE_JIT_ALLOC_HEAP_INFO_IS_SIZE)
 		reg->flags = reg->flags | KBASE_REG_HEAP_INFO_IS_SIZE;
@@ -3474,8 +3483,8 @@ void kbase_jit_free(struct kbase_context *kctx, struct kbase_va_region *reg)
 		return;
 	}
 	kbase_mem_evictable_mark_reclaim(reg->gpu_alloc);
-	reg->flags |= KBASE_REG_DONT_NEED;
-	reg->flags &= ~KBASE_REG_ACTIVE_JIT_ALLOC;
+	reg->flags |= BASEP_MEM_DONT_NEED;
+	reg->flags &= ~BASEP_MEM_ACTIVE_JIT_ALLOC;
 	kbase_mem_shrink_cpu_mapping(kctx, reg, 0, reg->gpu_alloc->nents);
 
 	/* Inactive JIT regions should be freed by the shrinker and not impacted
@@ -4497,15 +4506,6 @@ pin_pages_fail:
 	return ret;
 }
 
-void kbase_user_buf_from_pinned_to_empty(struct kbase_context *kctx, struct kbase_va_region *reg)
-{
-	dev_dbg(kctx->kbdev->dev, "%s %pK in kctx %pK\n", __func__, (void *)reg, (void *)kctx);
-	if (WARN_ON(reg->gpu_alloc->imported.user_buf.state != KBASE_USER_BUF_STATE_PINNED))
-		return;
-	kbase_user_buf_unpin_pages(reg->gpu_alloc);
-	reg->gpu_alloc->imported.user_buf.state = KBASE_USER_BUF_STATE_EMPTY;
-}
-
 int kbase_user_buf_from_pinned_to_gpu_mapped(struct kbase_context *kctx,
 					     struct kbase_va_region *reg)
 {
@@ -4551,22 +4551,6 @@ void kbase_user_buf_from_dma_mapped_to_pinned(struct kbase_context *kctx,
 	reg->gpu_alloc->imported.user_buf.state = KBASE_USER_BUF_STATE_PINNED;
 }
 
-void kbase_user_buf_from_dma_mapped_to_empty(struct kbase_context *kctx,
-					     struct kbase_va_region *reg)
-{
-	dev_dbg(kctx->kbdev->dev, "%s %pK in kctx %pK\n", __func__, (void *)reg, (void *)kctx);
-	if (WARN_ON(reg->gpu_alloc->imported.user_buf.state != KBASE_USER_BUF_STATE_DMA_MAPPED))
-		return;
-#if !MALI_USE_CSF
-	kbase_mem_shrink_cpu_mapping(kctx, reg, 0, reg->gpu_alloc->nents);
-#endif
-	kbase_user_buf_dma_unmap_pages(kctx, reg);
-
-	/* Termination code path: fall through to next state transition. */
-	reg->gpu_alloc->imported.user_buf.state = KBASE_USER_BUF_STATE_PINNED;
-	kbase_user_buf_from_pinned_to_empty(kctx, reg);
-}
-
 int kbase_user_buf_from_dma_mapped_to_gpu_mapped(struct kbase_context *kctx,
 						 struct kbase_va_region *reg)
 {
@@ -4594,15 +4578,4 @@ void kbase_user_buf_from_gpu_mapped_to_pinned(struct kbase_context *kctx,
 	kbase_user_buf_unmap(kctx, reg);
 	kbase_user_buf_dma_unmap_pages(kctx, reg);
 	reg->gpu_alloc->imported.user_buf.state = KBASE_USER_BUF_STATE_PINNED;
-}
-
-void kbase_user_buf_from_gpu_mapped_to_empty(struct kbase_context *kctx,
-					     struct kbase_va_region *reg)
-{
-	dev_dbg(kctx->kbdev->dev, "%s %pK in kctx %pK\n", __func__, (void *)reg, (void *)kctx);
-	kbase_user_buf_unmap(kctx, reg);
-
-	/* Termination code path: fall through to next state transition. */
-	reg->gpu_alloc->imported.user_buf.state = KBASE_USER_BUF_STATE_DMA_MAPPED;
-	kbase_user_buf_from_dma_mapped_to_empty(kctx, reg);
 }

@@ -37,7 +37,7 @@ struct kbase_hwcnt_backend_csf;
 
 /**
  * kbase_hwcnt_backend_csf_create() - Create a CSF hardware counter backend
- *                                    interface.
+ *                                    interface, with set timer interval.
  * @csf_if:       Non-NULL pointer to a hwcnt backend CSF interface structure
  *                used to create backend interface.
  * @ring_buf_cnt: The buffer count of CSF hwcnt backend, used when allocate ring
@@ -46,6 +46,7 @@ struct kbase_hwcnt_backend_csf;
  *                to create backend interface.
  * @iface:        Non-NULL pointer to backend interface structure that is filled
  *                in on creation success.
+ * @watchdog_timer_interval_ms: Interval in milliseconds between hwcnt samples.
  *
  * Calls to iface->dump_enable_nolock() require the CSF Scheduler IRQ lock.
  *
@@ -53,7 +54,8 @@ struct kbase_hwcnt_backend_csf;
  */
 int kbase_hwcnt_backend_csf_create(struct kbase_hwcnt_backend_csf_if *csf_if, u32 ring_buf_cnt,
 				   struct kbase_hwcnt_watchdog_interface *watchdog_if,
-				   struct kbase_hwcnt_backend_interface *iface);
+				   struct kbase_hwcnt_backend_interface *iface,
+				   u32 watchdog_timer_interval_ms);
 
 /**
  * kbase_hwcnt_backend_csf_metadata_init() - Initialize the metadata for a CSF

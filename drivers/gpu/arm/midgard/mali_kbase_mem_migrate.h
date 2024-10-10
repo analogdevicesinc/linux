@@ -50,15 +50,6 @@ struct page;
 
 #define IS_PAGE_MOVABLE(status) ((bool)(status & PAGE_MOVABLE_MASK))
 
-/* Global integer used to determine if module parameter value has been
- * provided and if page migration feature is enabled.
- */
-#if !IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT)
-extern const int kbase_page_migration_enabled;
-#else
-extern int kbase_page_migration_enabled;
-#endif
-
 /**
  * kbase_alloc_page_metadata - Allocate and initialize page metadata
  * @kbdev:    Pointer to kbase device.

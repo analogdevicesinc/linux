@@ -23,6 +23,7 @@
 #include <mali_kbase_config_defaults.h>
 #include "backend/gpu/mali_kbase_clk_rate_trace_mgr.h"
 #include "mali_kbase_csf_ipa_control.h"
+#include <mali_kbase_io.h>
 
 /*
  * Status flags from the STATUS register of the IPA Control interface.
@@ -108,6 +109,9 @@ static int apply_select_config(struct kbase_device *kbdev, u64 *select)
 	kbase_reg_write64(kbdev, IPA_CONTROL_ENUM(SELECT_TILER), select[KBASE_IPA_CORE_TYPE_TILER]);
 	kbase_reg_write64(kbdev, IPA_CONTROL_ENUM(SELECT_SHADER),
 			  select[KBASE_IPA_CORE_TYPE_SHADER]);
+	if (kbase_csf_dev_has_ne(kbdev))
+		kbase_reg_write64(kbdev, GOV_IPA_CONTROL_ENUM(SELECT_NEURAL),
+				  select[KBASE_IPA_CORE_TYPE_NEURAL]);
 
 	ret = wait_status(kbdev, STATUS_COMMAND_ACTIVE);
 
@@ -135,6 +139,11 @@ static u64 read_value_cnt(struct kbase_device *kbdev, u8 type, u8 select_idx)
 
 	case KBASE_IPA_CORE_TYPE_SHADER:
 		return kbase_reg_read64(kbdev, IPA_VALUE_SHADER_OFFSET(select_idx));
+	case KBASE_IPA_CORE_TYPE_NEURAL:
+		if (kbase_csf_dev_has_ne(kbdev))
+			return kbase_reg_read64(kbdev, IPA_VALUE_NEURAL_OFFSET(select_idx));
+		else
+			return 0;
 	default:
 		WARN(1, "Unknown core type: %u\n", type);
 		return 0;
@@ -340,7 +349,7 @@ void kbase_ipa_control_term(struct kbase_device *kbdev)
 	kfree(ipa_ctrl->rtm_listener_data);
 
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
-	if (kbdev->pm.backend.gpu_powered)
+	if (kbase_io_is_gpu_powered(kbdev))
 		kbase_reg_write32(kbdev, IPA_CONTROL_ENUM(TIMER), 0);
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 }

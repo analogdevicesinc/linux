@@ -223,6 +223,8 @@ void kbase_csf_scheduler_early_term(struct kbase_device *kbdev);
  *                             queue groups.
  *
  * @kbdev: Instance of a GPU platform device that implements a CSF interface.
+ * @skip_suspension: Flag to indicate that suspension of CSGs need to be skipped.
+ *                   Passed as true for the GPU lost event.
  *
  * This function will first iterate through all the active/scheduled GPU
  * command queue groups and suspend them (to avoid losing work for groups
@@ -238,7 +240,7 @@ void kbase_csf_scheduler_early_term(struct kbase_device *kbdev);
  * Should be called either after initiating the GPU reset or when MCU reset is
  * expected to follow such as GPU_LOST case.
  */
-void kbase_csf_scheduler_reset(struct kbase_device *kbdev);
+void kbase_csf_scheduler_reset(struct kbase_device *kbdev, bool skip_suspension);
 
 /**
  * kbase_csf_scheduler_enable_tick_timer - Enable the scheduler tick timer.

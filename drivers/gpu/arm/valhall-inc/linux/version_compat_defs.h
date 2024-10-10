@@ -28,8 +28,11 @@
 #include <linux/iopoll.h>
 #include <linux/bitmap.h>
 #include <linux/math64.h>
+#include <linux/mm.h>
 #include <linux/moduleparam.h>
 #include <linux/lockdep.h>
+#include <linux/ptrace.h>
+#include <linux/compiler.h>
 
 #if (KERNEL_VERSION(4, 4, 267) < LINUX_VERSION_CODE)
 #include <linux/overflow.h>
@@ -249,6 +252,10 @@ static inline void vm_flags_clear(struct vm_area_struct *vma, vm_flags_t flags)
 {
 	vma->vm_flags &= ~flags;
 }
+static inline void __vm_flags_mod(struct vm_area_struct *vma, vm_flags_t set, vm_flags_t clear)
+{
+	vma->vm_flags = (vma->vm_flags | set) & ~clear;
+}
 #endif
 
 static inline void kbase_unpin_user_buf_page(struct page *page)
@@ -303,29 +310,37 @@ static inline long kbase_pin_user_pages_remote(struct task_struct *tsk, struct m
 #define kbase_totalram_pages() totalram_pages()
 #endif /* KERNEL_VERSION(5, 0, 0) > LINUX_VERSION_CODE */
 
-#ifndef read_poll_timeout_atomic
-#define read_poll_timeout_atomic(op, val, cond, delay_us, timeout_us, delay_before_read, args...) \
-	({                                                                                        \
-		const u64 __timeout_us = (timeout_us);                                            \
-		s64 __left_ns = __timeout_us * NSEC_PER_USEC;                                     \
-		const unsigned long __delay_us = (delay_us);                                      \
-		const u64 __delay_ns = __delay_us * NSEC_PER_USEC;                                \
-		if (delay_before_read && __delay_us)                                              \
-			udelay(__delay_us);                                                       \
-		if (__timeout_us)                                                                 \
-			__left_ns -= __delay_ns;                                                  \
-		do {                                                                              \
-			(val) = op(args);                                                         \
-			if (__timeout_us) {                                                       \
-				if (__delay_us) {                                                 \
-					udelay(__delay_us);                                       \
-					__left_ns -= __delay_ns;                                  \
-				}                                                                 \
-				__left_ns--;                                                      \
-			}                                                                         \
-		} while (!(cond) && (!__timeout_us || (__left_ns > 0)));                          \
-		(cond) ? 0 : -ETIMEDOUT;                                                          \
+/* For kernel versions from 6.5 onward, the read_poll_timeout_atomic() implementation does not
+ * suit our usecase where we have a delay_us of zero. This causes the timeout to take allot longer
+ * than expected. mali_read_poll_timeout_atomic() is the previous kernel implementation with the
+ * desired timekeeping.
+ */
+#define mali_read_poll_timeout_atomic(op, val, cond, delay_us, timeout_us, delay_before_read, \
+				      args...)                                                \
+	({                                                                                    \
+		u64 __timeout_us = (timeout_us);                                              \
+		unsigned long __delay_us = (delay_us);                                        \
+		ktime_t __timeout = ktime_add_us(ktime_get(), __timeout_us);                  \
+		if (delay_before_read && __delay_us)                                          \
+			udelay(__delay_us);                                                   \
+		for (;;) {                                                                    \
+			(val) = op(args);                                                     \
+			if (cond)                                                             \
+				break;                                                        \
+			if (__timeout_us && ktime_compare(ktime_get(), __timeout) > 0) {      \
+				(val) = op(args);                                             \
+				break;                                                        \
+			}                                                                     \
+			if (__delay_us)                                                       \
+				udelay(__delay_us);                                           \
+		}                                                                             \
+		(cond) ? 0 : -ETIMEDOUT;                                                      \
 	})
+
+#ifndef read_poll_timeout_atomic
+#define read_poll_timeout_atomic(op, val, cond, delay_us, timeout_us, delay_before_read, ...) \
+	mali_read_poll_timeout_atomic(op, val, cond, delay_us, timeout_us, delay_before_read, \
+				      __VA_ARGS__)
 #endif
 
 #if (KERNEL_VERSION(4, 11, 0) > LINUX_VERSION_CODE)
@@ -446,53 +461,6 @@ static inline struct devfreq *devfreq_get_devfreq_by_node(struct device_node *no
 	return devfreq_get_devfreq_by_phandle(&pdev->dev, 0);
 }
 #endif
-
-/* clang-format off */
-#if (KERNEL_VERSION(5, 16, 0) <= LINUX_VERSION_CODE &&       \
-	KERNEL_VERSION(5, 18, 0) > LINUX_VERSION_CODE) ||       \
-	(KERNEL_VERSION(5, 11, 0) <= LINUX_VERSION_CODE &&   \
-	KERNEL_VERSION(5, 15, 85) >= LINUX_VERSION_CODE) || \
-	(KERNEL_VERSION(5, 10, 200) >= LINUX_VERSION_CODE)
-/*
- * Kernel revisions
- *  - up to 5.10.200
- *  - between 5.11.0 and 5.15.85 inclusive
- *  - between 5.16.0 and 5.17.15 inclusive
- * do not provide an implementation of
- * size_add, size_sub and size_mul.
- * The implementations below provides
- * backward compatibility implementations of these functions.
- */
-
-static inline size_t __must_check size_mul(size_t factor1, size_t factor2)
-{
-	size_t ret_val;
-
-	if (check_mul_overflow(factor1, factor2, &ret_val))
-		return SIZE_MAX;
-	return ret_val;
-}
-
-static inline size_t __must_check size_add(size_t addend1, size_t addend2)
-{
-	size_t ret_val;
-
-	if (check_add_overflow(addend1, addend2, &ret_val))
-		return SIZE_MAX;
-	return ret_val;
-}
-
-static inline size_t __must_check size_sub(size_t minuend, size_t subtrahend)
-{
-	size_t ret_val;
-
-	if (minuend == SIZE_MAX || subtrahend == SIZE_MAX ||
-	    check_sub_overflow(minuend, subtrahend, &ret_val))
-		return SIZE_MAX;
-	return ret_val;
-}
-#endif
-/* clang-format on */
 
 #if KERNEL_VERSION(5, 5, 0) > LINUX_VERSION_CODE
 static inline unsigned long bitmap_get_value8(const unsigned long *map, unsigned long start)
@@ -667,6 +635,33 @@ static inline size_t list_count_nodes(struct list_head *head)
 #include <linux/minmax.h>
 #else
 #include <linux/kernel.h>
+#endif
+
+static inline unsigned long
+kbase_mm_get_unmapped_area_helper(struct mm_struct *mm, struct file *filp, unsigned long addr,
+				  unsigned long len, unsigned long pgoff, unsigned long flags)
+{
+#if (KERNEL_VERSION(6, 10, 0) <= LINUX_VERSION_CODE)
+	return mm_get_unmapped_area(mm, filp, addr, len, pgoff, flags);
+#else
+	return mm->get_unmapped_area(filp, addr, len, pgoff, flags);
+#endif
+}
+
+static inline void kbase_lockdep_assert_held_read(struct rw_semaphore *rwlock)
+{
+#if (KERNEL_VERSION(4, 10, 0) <= LINUX_VERSION_CODE)
+	lockdep_assert_held_read(rwlock);
+#else
+	CSTD_UNUSED(rwlock);
+#endif
+}
+
+#if (KERNEL_VERSION(4, 20, 0) > LINUX_VERSION_CODE)
+static unsigned long __maybe_unused regs_get_kernel_argument(struct pt_regs *regs, unsigned int n)
+{
+	return regs_get_register(regs, n);
+}
 #endif
 
 #endif /* _VERSION_COMPAT_DEFS_H_ */

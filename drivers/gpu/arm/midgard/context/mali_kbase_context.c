@@ -320,7 +320,7 @@ int kbase_context_mem_alloc_page(struct kbase_context *kctx)
 {
 	struct page *p;
 
-	p = kbase_mem_alloc_page(&kctx->mem_pools.small[KBASE_MEM_GROUP_SINK], false);
+	p = kbase_mem_alloc_page(&kctx->mem_pools.small[KBASE_MEM_GROUP_SINK]);
 	if (!p)
 		return -ENOMEM;
 

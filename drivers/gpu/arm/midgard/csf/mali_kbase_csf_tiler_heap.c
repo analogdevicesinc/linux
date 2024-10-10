@@ -113,7 +113,7 @@ static void remove_external_chunk_mappings(struct kbase_context *const kctx,
 					     chunk->region->cpu_alloc->nents);
 	}
 #if !defined(CONFIG_MALI_VECTOR_DUMP)
-	chunk->region->flags |= KBASE_REG_DONT_NEED;
+	chunk->region->flags |= BASEP_MEM_DONT_NEED;
 #endif
 
 	dev_dbg(kctx->kbdev->dev, "Removed external mappings from chunk 0x%llX", chunk->gpu_va);
@@ -221,7 +221,7 @@ static void remove_unlinked_chunk(struct kbase_context *kctx,
 
 	kbase_gpu_vm_lock_with_pmode_sync(kctx);
 	kbase_vunmap(kctx, &chunk->map);
-	/* KBASE_REG_DONT_NEED regions will be confused with ephemeral regions (inc freed JIT
+	/* BASEP_MEM_DONT_NEED regions will be confused with ephemeral regions (inc freed JIT
 	 * regions), and so we must clear that flag too before freeing.
 	 * For "no user free count", we check that the count is 1 as it is a shrinkable region;
 	 * no other code part within kbase can take a reference to it.
@@ -229,7 +229,7 @@ static void remove_unlinked_chunk(struct kbase_context *kctx,
 	WARN_ON(atomic64_read(&chunk->region->no_user_free_count) > 1);
 	kbase_va_region_no_user_free_dec(chunk->region);
 #if !defined(CONFIG_MALI_VECTOR_DUMP)
-	chunk->region->flags &= ~KBASE_REG_DONT_NEED;
+	chunk->region->flags &= ~BASEP_MEM_DONT_NEED;
 #endif
 	kbase_mem_free_region(kctx, chunk->region);
 	kbase_gpu_vm_unlock_with_pmode_sync(kctx);
@@ -302,9 +302,9 @@ static struct kbase_csf_tiler_heap_chunk *alloc_new_chunk(struct kbase_context *
 		goto unroll_region;
 	}
 
-	/* There is a race condition with regard to KBASE_REG_DONT_NEED, where another
+	/* There is a race condition with regard to BASEP_MEM_DONT_NEED, where another
 	 * thread can have the "no user free" refcount increased between kbase_mem_alloc
-	 * and kbase_gpu_vm_lock (above) and before KBASE_REG_DONT_NEED is set by
+	 * and kbase_gpu_vm_lock (above) and before BASEP_MEM_DONT_NEED is set by
 	 * remove_external_chunk_mappings (below).
 	 *
 	 * It should be fine and not a security risk if we let the region leak till
@@ -329,12 +329,12 @@ static struct kbase_csf_tiler_heap_chunk *alloc_new_chunk(struct kbase_context *
 		goto unroll_region;
 	}
 
-	if (WARN((chunk->region->flags & KBASE_REG_ACTIVE_JIT_ALLOC),
+	if (WARN((chunk->region->flags & BASEP_MEM_ACTIVE_JIT_ALLOC),
 		 "NO_USER_FREE chunks should not have been freed and then reallocated as JIT regions")) {
 		goto unroll_region;
 	}
 
-	if (WARN((chunk->region->flags & KBASE_REG_DONT_NEED),
+	if (WARN((chunk->region->flags & BASEP_MEM_DONT_NEED),
 		 "NO_USER_FREE chunks should not have been made ephemeral")) {
 		goto unroll_region;
 	}
@@ -364,12 +364,12 @@ static struct kbase_csf_tiler_heap_chunk *alloc_new_chunk(struct kbase_context *
 	return chunk;
 
 unroll_region:
-	/* KBASE_REG_DONT_NEED regions will be confused with ephemeral regions (inc freed JIT
+	/* BASEP_MEM_DONT_NEED regions will be confused with ephemeral regions (inc freed JIT
 	 * regions), and so we must clear that flag too before freeing.
 	 */
 	kbase_va_region_no_user_free_dec(chunk->region);
 #if !defined(CONFIG_MALI_VECTOR_DUMP)
-	chunk->region->flags &= ~KBASE_REG_DONT_NEED;
+	chunk->region->flags &= ~BASEP_MEM_DONT_NEED;
 #endif
 	kbase_mem_free_region(kctx, chunk->region);
 	kbase_gpu_vm_unlock(kctx);
@@ -1359,4 +1359,50 @@ u32 kbase_csf_tiler_heap_count_kctx_unused_pages(struct kbase_context *kctx)
 		return U32_MAX;
 	else
 		return (u32)page_cnt;
+}
+
+int kbase_csf_tiler_heap_free_chunk(struct kbase_context *kctx, u64 gpu_heap_va, u64 chunk_hdr_val)
+{
+	u64 chunk_gpu_va;
+	struct kbase_csf_tiler_heap *heap;
+	int err = 0;
+
+	if (!chunk_hdr_val) {
+		dev_err(kctx->kbdev->dev, "Null chunk header value");
+		return -EINVAL;
+	}
+
+	mutex_lock(&kctx->csf.tiler_heaps.lock);
+	heap = find_tiler_heap(kctx, gpu_heap_va);
+	if (!likely(heap)) {
+		dev_err(kctx->kbdev->dev, "Heap 0x%llX does not exist", gpu_heap_va);
+		err = -EINVAL;
+		goto unlock;
+	}
+
+	chunk_gpu_va = chunk_hdr_val & CHUNK_ADDR_MASK;
+
+	if (chunk_gpu_va) {
+		/* Dummy value to hold next header value in which we are not interested. */
+		u64 dummy_hdr_val;
+
+		if (!delete_chunk_physical_pages(heap, chunk_gpu_va, &dummy_hdr_val)) {
+			dev_err(heap->kctx->kbdev->dev,
+				"Unable to delete chunk(0x%llX) on tiler heap(0x%llX)\n",
+				chunk_gpu_va, heap->gpu_va);
+			err = -EFAULT;
+			goto unlock;
+		}
+	}
+
+	/* Update context tiler heaps memory usage */
+	dev_dbg(heap->kctx->kbdev->dev, "Freed one chunk and %lu pages\n",
+		PFN_UP(heap->chunk_size));
+
+	kctx->running_total_tiler_heap_memory -= PFN_UP(heap->chunk_size) << PAGE_SHIFT;
+	kctx->running_total_tiler_heap_nr_chunks--;
+unlock:
+	mutex_unlock(&kctx->csf.tiler_heaps.lock);
+
+	return err;
 }

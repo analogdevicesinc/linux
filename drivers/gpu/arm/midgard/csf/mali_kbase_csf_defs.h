@@ -268,6 +268,7 @@ enum kbase_queue_group_priority {
  * @CSF_PM_TIMEOUT: Timeout for GPU Power Management to reach the desired
  *                  Shader, L2 and MCU state.
  * @CSF_GPU_RESET_TIMEOUT: Waiting timeout for GPU reset to complete.
+ * @CSF_GPU_SUSPEND_TIMEOUT: Waiting timeout for GPU suspend to complete.
  * @CSF_CSG_TERM_TIMEOUT: Timeout given for a CSG to be terminated.
  * @CSF_FIRMWARE_BOOT_TIMEOUT: Maximum time to wait for firmware to boot.
  * @CSF_FIRMWARE_WAKE_UP_TIMEOUT: Maximum time to wait for firmware to wake up from sleep.
@@ -284,6 +285,9 @@ enum kbase_queue_group_priority {
  * @KBASE_AS_INACTIVE_TIMEOUT: Waiting time for MCU address space to become inactive.
  * @IPA_INACTIVE_TIMEOUT: Waiting time for IPA_CONTROL_STATUS flags to be cleared.
  * @CSF_FIRMWARE_STOP_TIMEOUT: Waiting time for the firmware to stop.
+ * @CSF_PWR_DELEGATE_TIMEOUT: Waiting time to delegate or retract host power control
+ *                            between host and FW.
+ * @CSF_PWR_INSPECT_TIMEOUT: Waiting time to inspect command to complete.
  * @KBASE_TIMEOUT_SELECTOR_COUNT: Number of timeout selectors. Must be last in
  *                                the enum.
  * @KBASE_DEFAULT_TIMEOUT: Default timeout used when an invalid selector is passed
@@ -293,6 +297,7 @@ enum kbase_timeout_selector {
 	CSF_FIRMWARE_TIMEOUT,
 	CSF_PM_TIMEOUT,
 	CSF_GPU_RESET_TIMEOUT,
+	CSF_GPU_SUSPEND_TIMEOUT,
 	CSF_CSG_TERM_TIMEOUT,
 	CSF_FIRMWARE_BOOT_TIMEOUT,
 	CSF_FIRMWARE_WAKE_UP_TIMEOUT,
@@ -306,10 +311,32 @@ enum kbase_timeout_selector {
 	KBASE_AS_INACTIVE_TIMEOUT,
 	IPA_INACTIVE_TIMEOUT,
 	CSF_FIRMWARE_STOP_TIMEOUT,
+	CSF_PWR_DELEGATE_TIMEOUT,
+	CSF_PWR_INSPECT_TIMEOUT,
 
 	/* Must be the last in the enum */
 	KBASE_TIMEOUT_SELECTOR_COUNT,
 	KBASE_DEFAULT_TIMEOUT = CSF_FIRMWARE_TIMEOUT
+};
+
+/**
+ * enum kbase_csf_queue_oom_state - The flow state of the CSF queue tiler OoM request on additional
+ *                                  tiler heap chunk memory.
+ * @KBASE_CSF_QUEUE_OOM_NONE: No request, or the previous request has been completed and has
+ *                            subsequently been subjected to a suspend-resume cycle.
+ * @KBASE_CSF_QUEUE_OOM_PENDING: A request has been notified and the relevant information has
+ *                               been saved in the per-queue oom_track object.
+ * @KBASE_CSF_QUEUE_OOM_COMPLETE: The request has been dealt with. A newly allocated chunk has
+ *                                been placed inside the oom_track object, and the interface has
+ *                                programmed the ack handshake, if the queue is on-slot.
+ * @KBASE_CSF_QUEUE_OOM_ERROR_ABORT: The dealing of the request has suffered an error, the CSG
+ *                                   needs to be terminated by kbase.
+ */
+enum kbase_csf_queue_oom_state {
+	KBASE_CSF_QUEUE_OOM_NONE,
+	KBASE_CSF_QUEUE_OOM_PENDING,
+	KBASE_CSF_QUEUE_OOM_COMPLETE,
+	KBASE_CSF_QUEUE_OOM_ERROR_ABORT
 };
 
 /**
@@ -322,6 +349,30 @@ enum kbase_timeout_selector {
 struct kbase_csf_notification {
 	struct base_csf_notification data;
 	struct list_head link;
+};
+
+/**
+ * struct kbase_queue_oom_transact - OOM transaction tracking object for CSF queue
+ *                                   for managing additional tiler-heap memory request
+ *
+ * @state:     State of the oom request transaction reflecting the flow stage.
+ * @info:      Information record for the tracked transaction.
+ * @info.rp_in_flight:     Number of inflight render pass associated with the request.
+ * @info.pending_frag_cnt: Pending fragments yet to be completed.
+ * @info.heap_va:          Heap pointer for the request, valid only at state:
+ *                         KBASE_CSF_QUEUE_OOM_PENDING.
+ *                         KBASE_CSF_QUEUE_OOM_COMPLETE
+ * @info.chunk_ptr:        Chunk successfully allocated, valid only at state:
+ *                         KBASE_CSF_QUEUE_OOM_COMPLETE.
+ */
+struct kbase_queue_oom_transact {
+	enum kbase_csf_queue_oom_state state;
+	struct {
+		u32 rp_in_flight;
+		u32 pending_frag_cnt;
+		u64 heap_va;
+		u64 chunk_ptr;
+	} info;
 };
 
 /**
@@ -406,8 +457,13 @@ struct kbase_csf_notification {
  * @cs_error_fatal:   Flag to track if the CS fault or CS fatal event occurred.
  * @cs_error_acked:   Flag to indicate that acknowledging the fault has been done
  *                    at top-half of fault handler.
+ * @cs_error_trace_id0:  Extra trace info(ID0) for CS fault/fatal event.
+ * @cs_error_trace_id1:  Extra trace info(ID1) for CS fault/fatal event.
+ * @cs_error_trace_task: Extra trace info(TASK) for CS fault/fatal event.
+ * @cs_error_has_trace:  True when the extra trace info is filled.
  * @clear_faults:     Flag to track if the CS fault reporting is enabled for this queue.
  *                    It's protected by &kbase_context.csf.lock.
+ * @oom_track:   Per-queue tiler OoM request operational flow tracking component.
  * @extract_ofs: The current EXTRACT offset, this is only updated when handling
  *               the GLB IDLE IRQ if the idle timeout value is non-0 in order
  *               to help detect a queue's true idle status.
@@ -452,7 +508,12 @@ struct kbase_queue {
 	u32 cs_error;
 	bool cs_error_fatal;
 	bool cs_error_acked;
+	u32 cs_error_trace_id0;
+	u32 cs_error_trace_id1;
+	u32 cs_error_trace_task;
+	bool cs_error_has_trace;
 	bool clear_faults;
+	struct kbase_queue_oom_transact oom_track;
 	u64 extract_ofs;
 	u64 saved_cmd_ptr;
 };
@@ -513,6 +574,13 @@ struct kbase_protected_suspend_buffer {
  * @compute_max:    Maximum number of compute endpoints the group is
  *                  allowed to use.
  * @csi_handlers:   Requested CSI exception handler flags for the group.
+ * @neural_max:  Maximum number of neural endpoints the group is allowed to use.
+ * @neural_mask: Mask of neural endpoints the group is allowed to use.
+ * @comp_pri_threshold: The number of compute endpoints required to be allocated
+ *                      to the GPU queue group before compute endpoints are
+ *                      prioritized for compute iterator.
+ * @comp_pri_ratio:     The ratio of the cores after comp_pri_threshold has been
+ *                      reached which are  prioritized for compute iterator tasks.
  * @cs_fault_report_enable:	Indicated if reporting of CS_FAULTs to
  *				userspace is enabled.
  * @tiler_mask:     Mask of tiler endpoints the group is allowed to use.
@@ -589,7 +657,10 @@ struct kbase_queue_group {
 	u8 fragment_max;
 	u8 compute_max;
 	u8 csi_handlers;
-
+	__u8 neural_max;
+	__u64 neural_mask;
+	__u8 comp_pri_threshold;
+	__u8 comp_pri_ratio;
 	__u8 cs_fault_report_enable;
 	u64 tiler_mask;
 	u64 fragment_mask;
@@ -1114,12 +1185,6 @@ struct kbase_csf_mcu_shared_regions {
  *                          other phases.
  * @non_idle_scanout_grps:  Count on the non-idle groups in the scan-out
  *                          list at the scheduling prepare stage.
- * @pm_active_count:        Count indicating if the scheduler is owning a power
- *                          management reference count. Reference is taken when
- *                          the count becomes 1 and is dropped when the count
- *                          becomes 0. It is used to enable the power up of MCU
- *                          after GPU and L2 cache have been powered up. So when
- *                          this count is zero, MCU will not be powered up.
  * @csg_scheduling_period_ms: Duration of Scheduling tick in milliseconds.
  * @tick_protm_pending_seq: Scan out sequence number of the group that has
  *                          protected mode execution pending for the queue(s)
@@ -1187,7 +1252,6 @@ struct kbase_csf_scheduler {
 	atomic_t gpu_no_longer_idle;
 	atomic_t non_idle_offslot_grps;
 	u32 non_idle_scanout_grps;
-	u32 pm_active_count;
 	unsigned int csg_scheduling_period_ms;
 	u32 tick_protm_pending_seq;
 	u32 csg_scan_sched_count;
@@ -1269,6 +1333,7 @@ struct kbase_csf_scheduler {
  * @KBASE_IPA_CORE_TYPE_MEMSYS: Memory System counters.
  * @KBASE_IPA_CORE_TYPE_TILER:  Tiler counters.
  * @KBASE_IPA_CORE_TYPE_SHADER: Shader Core counters.
+ * @KBASE_IPA_CORE_TYPE_NEURAL: Neural Engine counters.
  * @KBASE_IPA_CORE_TYPE_NUM:    Number of core types.
  */
 enum kbase_ipa_core_type {
@@ -1276,6 +1341,7 @@ enum kbase_ipa_core_type {
 	KBASE_IPA_CORE_TYPE_MEMSYS,
 	KBASE_IPA_CORE_TYPE_TILER,
 	KBASE_IPA_CORE_TYPE_SHADER,
+	KBASE_IPA_CORE_TYPE_NEURAL,
 
 	/* Must be the last in the enum */
 	KBASE_IPA_CORE_TYPE_NUM

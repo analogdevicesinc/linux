@@ -242,10 +242,10 @@ enum {
 #if IS_ENABLED(CONFIG_MALI_VECTOR_DUMP)
 /* Set a large value to avoid timing out while vector dumping */
 #define KCPU_FENCE_SIGNAL_TIMEOUT_CYCLES (250000000000ull)
-#elif IS_ENABLED(CONFIG_MALI_IS_FPGA)
-#define KCPU_FENCE_SIGNAL_TIMEOUT_CYCLES (2500000000ull)
+#define KCPU_FENCE_SIGNAL_TIMEOUT_CYCLES_FPGA (250000000000ull)
 #else
 #define KCPU_FENCE_SIGNAL_TIMEOUT_CYCLES (1000000000ull)
+#define KCPU_FENCE_SIGNAL_TIMEOUT_CYCLES_FPGA (2500000000ull)
 #endif
 
 /* Timeout for polling the GPU in clock cycles.
@@ -260,6 +260,17 @@ enum {
  */
 #define CSF_FIRMWARE_STOP_TIMEOUT_CYCLES (12000000000ull)
 
+/* Waiting timeout to delegate or retract host power control in clock cycles.
+ *
+ * Based on 1ms timeout at 100MHz.
+ */
+#define CSF_PWR_DELEGATE_TIMEOUT_CYCLES (1000000)
+
+/* Waiting timeout to inspect command to complete in clock cycles.
+ *
+ * Based on 1us timeout at 100MHz.
+ */
+#define CSF_PWR_INSPECT_TIMEOUT_CYCLES (1000)
 
 /* Waiting timeout for task execution on an endpoint. Based on the
  * DEFAULT_PROGRESS_TIMEOUT.
@@ -283,11 +294,10 @@ enum {
 /* Firmware iterators' suspend timeout, default 4000ms. Customer can update this by
  * using debugfs -- csg_suspend_timeout
  */
-#if IS_ENABLED(CONFIG_MALI_REAL_HW) && !IS_ENABLED(CONFIG_MALI_IS_FPGA)
 #define CSG_SUSPEND_TIMEOUT_FIRMWARE_MS (4000)
-#else
-#define CSG_SUSPEND_TIMEOUT_FIRMWARE_MS (31000)
-#endif
+
+#define CSG_SUSPEND_TIMEOUT_FIRMWARE_FPGA_MS (31000)
+
 #if (CSG_SUSPEND_TIMEOUT_FIRMWARE_MS < CSG_SUSPEND_TIMEOUT_FIRMWARE_MS_MIN) || \
 	(CSG_SUSPEND_TIMEOUT_FIRMWARE_MS > CSG_SUSPEND_TIMEOUT_FIRMWARE_MS_MAX)
 #error "CSG_SUSPEND_TIMEOUT_FIRMWARE_MS is out of range"
@@ -300,6 +310,9 @@ enum {
 
 /* Host side CSG suspend timeout */
 #define CSG_SUSPEND_TIMEOUT_MS (CSG_SUSPEND_TIMEOUT_FIRMWARE_MS + CSG_SUSPEND_TIMEOUT_HOST_ADDED_MS)
+
+#define CSG_SUSPEND_TIMEOUT_FPGA_MS \
+	(CSG_SUSPEND_TIMEOUT_FIRMWARE_FPGA_MS + CSG_SUSPEND_TIMEOUT_HOST_ADDED_MS)
 
 /* MAX allowed timeout value(ms) on host side, should be less than ANR timeout */
 #define MAX_TIMEOUT_MS (4500)
@@ -389,5 +402,9 @@ enum {
 /* Default value of the time interval at which GPU metrics tracepoints are emitted. */
 #define DEFAULT_GPU_METRICS_TP_EMIT_INTERVAL_NS (500000000u) /* 500 ms */
 #endif
+
+#define HWCNT_BACKEND_WATCHDOG_TIMER_INTERVAL_MS ((u32)1000)
+
+#define HWCNT_BACKEND_WATCHDOG_TIMER_INTERVAL_FPGA_MS ((u32)18000)
 
 #endif /* _KBASE_CONFIG_DEFAULTS_H_ */

@@ -60,11 +60,34 @@ static inline void output_page_write(u32 *const output, const u32 offset, const 
 	output[offset / sizeof(u32)] = value;
 }
 
+#define CHECK_ALIGN64_VIOLATION(offset) WARN_ON((offset) % sizeof(u64))
+
+static inline u64 input_page_read64(const u64 *const input, const u32 offset)
+{
+	CHECK_ALIGN64_VIOLATION(offset);
+
+	return input[offset / sizeof(u64)];
+}
+
+static inline void input_page_write64(u64 *const input, const u32 offset, const u64 value)
+{
+	CHECK_ALIGN64_VIOLATION(offset);
+
+	input[offset / sizeof(u64)] = value;
+}
+
+static inline void input_page_partial_write64(u64 *const input, const u32 offset, u64 value,
+					      u64 mask)
+{
+	CHECK_ALIGN64_VIOLATION(offset);
+
+	input[offset / sizeof(u64)] = (input_page_read64(input, offset) & ~mask) | (value & mask);
+}
 
 void kbase_csf_fw_io_init(struct kbase_csf_fw_io *fw_io, struct kbase_device *kbdev)
 {
 	spin_lock_init(&fw_io->lock);
-	bitmap_zero(fw_io->status, KBASEP_FW_IO_STATUS_NUM_BITS);
+	kbase_io_clear_status(kbdev->io, KBASE_IO_STATUS_GPU_SUSPENDED);
 	fw_io->kbdev = kbdev;
 }
 KBASE_EXPORT_TEST_API(kbase_csf_fw_io_init);
@@ -256,6 +279,46 @@ u32 kbase_csf_fw_io_group_read(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 
 }
 KBASE_EXPORT_TEST_API(kbase_csf_fw_io_group_read);
 
+void kbase_csf_fw_io_group_write64(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset,
+				   u64 value)
+{
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_group_pages *group_pages = &fw_io->pages.groups_pages[group_id];
+
+	lockdep_assert_held(&fw_io->lock);
+
+	dev_dbg(kbdev->dev, "csg input w: reg %08x val %016llx csg_id %u\n", offset, value,
+		group_id);
+	input_page_write64(group_pages->input, offset, value);
+}
+KBASE_EXPORT_TEST_API(kbase_csf_fw_io_group_write64);
+
+u32 kbase_csf_fw_io_group_input64_read(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset)
+{
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_group_pages *group_pages = &fw_io->pages.groups_pages[group_id];
+	u64 val;
+
+	val = input_page_read64(group_pages->input, offset);
+	dev_dbg(kbdev->dev, "csg input r: reg %08x val %016llx csg_id %u\n", offset, val, group_id);
+
+	return val;
+}
+KBASE_EXPORT_TEST_API(kbase_csf_fw_io_group_input64_read);
+
+void kbase_csf_fw_io_group_write64_mask(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 offset,
+					u64 value, u64 mask)
+{
+	const struct kbase_device *const kbdev = fw_io->kbdev;
+	struct kbasep_csf_fw_io_group_pages *group_pages = &fw_io->pages.groups_pages[group_id];
+
+	lockdep_assert_held(&fw_io->lock);
+
+	dev_dbg(kbdev->dev, "csg input w: reg %08x val %016llx mask %016llx csg_id %u\n", offset,
+		value, mask, group_id);
+	input_page_partial_write64(group_pages->input, offset, value, mask);
+}
+KBASE_EXPORT_TEST_API(kbase_csf_fw_io_group_write64_mask);
 
 void kbase_csf_fw_io_stream_write(struct kbase_csf_fw_io *fw_io, u32 group_id, u32 stream_id,
 				  u32 offset, u32 value)
@@ -330,18 +393,19 @@ KBASE_EXPORT_TEST_API(kbase_csf_fw_io_stream_read);
 
 void kbase_csf_fw_io_set_status_gpu_suspended(struct kbase_csf_fw_io *fw_io)
 {
-	set_bit(KBASEP_FW_IO_STATUS_GPU_SUSPENDED, fw_io->status);
+	kbase_io_set_status(fw_io->kbdev->io, KBASE_IO_STATUS_GPU_SUSPENDED);
 }
 KBASE_EXPORT_TEST_API(kbase_csf_fw_io_set_status_gpu_suspended);
 
 void kbase_csf_fw_io_clear_status_gpu_suspended(struct kbase_csf_fw_io *fw_io)
 {
-	clear_bit(KBASEP_FW_IO_STATUS_GPU_SUSPENDED, fw_io->status);
+	kbase_io_clear_status(fw_io->kbdev->io, KBASE_IO_STATUS_GPU_SUSPENDED);
 }
+KBASE_EXPORT_TEST_API(kbase_csf_fw_io_clear_status_gpu_suspended);
 
 bool kbase_csf_fw_io_check_status_gpu_suspended(struct kbase_csf_fw_io *fw_io)
 {
-	return !bitmap_empty(fw_io->status, KBASEP_FW_IO_STATUS_NUM_BITS);
+	return kbase_io_test_status(fw_io->kbdev, KBASE_IO_STATUS_GPU_SUSPENDED);
 }
 KBASE_EXPORT_TEST_API(kbase_csf_fw_io_check_status_gpu_suspended);
 

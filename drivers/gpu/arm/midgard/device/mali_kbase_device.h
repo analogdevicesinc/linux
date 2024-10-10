@@ -88,20 +88,6 @@ int kbase_device_init(struct kbase_device *kbdev);
 void kbase_device_term(struct kbase_device *kbdev);
 
 /**
- * kbase_is_gpu_removed() - Has the GPU been removed.
- * @kbdev:    Kbase device pointer
- *
- * When Kbase takes too long to give up the GPU, the Arbiter
- * can remove it.  This will then be followed by a GPU lost event.
- * This function will return true if the GPU has been removed.
- * When this happens register reads will be zero. A zero GPU_ID is
- * invalid so this is used to detect when GPU is removed.
- *
- * Return: True if GPU removed
- */
-bool kbase_is_gpu_removed(struct kbase_device *kbdev);
-
-/**
  * kbase_gpu_cache_flush_pa_range_and_busy_wait() - Start a cache physical range flush
  * and busy wait
  *
@@ -210,4 +196,15 @@ void kbase_clean_caches_done(struct kbase_device *kbdev);
  */
 void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val);
 
+#if MALI_USE_CSF
+/**
+ * kbase_pwr_interrupt - GPU power interrupt handler
+ * @kbdev: Kbase device pointer
+ * @val:   The value of the PWR IRQ status register which triggered the call
+ *
+ * This function is called from the interrupt handler when a PWR irq is to be
+ * handled.
+ */
+void kbase_pwr_interrupt(struct kbase_device *kbdev, u32 val);
+#endif /* MALI_USE_CSF */
 #endif /* _MALI_KBASE_DEVICE_H_ */

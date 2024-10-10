@@ -36,14 +36,6 @@
 #define BASE_MAX_NR_CLOCKS_REGULATORS 2
 #endif
 
-#if IS_ENABLED(CONFIG_MALI_IS_FPGA) && !IS_ENABLED(CONFIG_MALI_NO_MALI)
-/* Backend watch dog timer interval in milliseconds: 18 seconds. */
-#define HWCNT_BACKEND_WATCHDOG_TIMER_INTERVAL_MS ((u32)18000)
-#else
-/* Backend watch dog timer interval in milliseconds: 1 second. */
-#define HWCNT_BACKEND_WATCHDOG_TIMER_INTERVAL_MS ((u32)1000)
-#endif /* IS_FPGA && !NO_MALI */
-
 /* Used to check for a sample in which all counters in the block are disabled */
 #define HWCNT_BLOCK_EMPTY_SAMPLE (2)
 
@@ -160,6 +152,7 @@ enum kbase_hwcnt_backend_csf_enable_state {
  * @metadata:                     Hardware counter metadata.
  * @prfcnt_info:                  Performance counter information.
  * @watchdog_if:                  Watchdog interface object pointer.
+ * @watchdog_timer_interval_ms:   Watchdog timer interval
  */
 struct kbase_hwcnt_backend_csf_info {
 	struct kbase_hwcnt_backend_csf *backend;
@@ -171,6 +164,7 @@ struct kbase_hwcnt_backend_csf_info {
 	const struct kbase_hwcnt_metadata *metadata;
 	struct kbase_hwcnt_backend_csf_if_prfcnt_info prfcnt_info;
 	struct kbase_hwcnt_watchdog_interface *watchdog_if;
+	u32 watchdog_timer_interval_ms;
 };
 
 /**
@@ -192,6 +186,7 @@ struct kbase_hwcnt_backend_csf_info {
  * @headers_per_block:  For any block, the number of counters designated as block's header.
  * @counters_per_block: For any block, the number of counters designated as block's payload.
  * @values_per_block:   For any block, the number of counters in total (header + payload).
+ * @ne_cnt:             NE block count.
  */
 struct kbase_hwcnt_csf_physical_layout {
 	u8 fe_cnt;
@@ -206,6 +201,7 @@ struct kbase_hwcnt_csf_physical_layout {
 	size_t headers_per_block;
 	size_t counters_per_block;
 	size_t values_per_block;
+	size_t ne_cnt;
 };
 
 /**
@@ -317,6 +313,30 @@ void kbase_hwcnt_backend_csf_set_hw_availability(struct kbase_hwcnt_backend_inte
 	if (!csf_info || !csf_info->backend)
 		return;
 
+	if (csf_info->prfcnt_info.has_virtual_ids) {
+		DECLARE_BITMAP(sc_mask, BITS_PER_TYPE(u64));
+		u64 virtual_core_mask = 0;
+		u64 curr_core;
+
+		/* Converting the u64 into a series of unsigned longs to
+		 * allow for use of kernel macros.
+		 */
+		bitmap_from_u64(sc_mask, shader_present);
+
+		/* To ensure the subset check below works with virtual core IDs,
+		 * we need to perform the conversion from the physical core
+		 * mask to the virtual one, re-creating the physical -> virtual mapping.
+		 */
+		for_each_set_bit(curr_core, sc_mask, BITS_PER_TYPE(u64)) {
+			if (power_core_mask & BIT_MASK(curr_core)) {
+				u64 lower_mask = GENMASK(curr_core, 0);
+				u64 vid = hweight64(shader_present & lower_mask) - 1;
+
+				virtual_core_mask |= BIT_MASK(vid);
+			}
+		}
+		norm_shader_present = virtual_core_mask;
+	}
 
 	if (WARN_ON(csf_info->backend->enable_state != KBASE_HWCNT_BACKEND_CSF_DISABLED))
 		return;
@@ -417,6 +437,7 @@ void kbasep_hwcnt_backend_csf_process_enable_map(
 
 	phys_enable_map->csg_bm |= 3;
 
+	phys_enable_map->neural_bm |= 3;
 }
 
 static void kbasep_hwcnt_backend_csf_init_layout(
@@ -428,7 +449,7 @@ static void kbasep_hwcnt_backend_csf_init_layout(
 	size_t fw_block_cnt;
 	size_t hw_block_cnt;
 	size_t core_cnt;
-
+	size_t ne_core_cnt;
 
 	WARN_ON(!prfcnt_info);
 	WARN_ON(!phys_layout);
@@ -439,6 +460,11 @@ static void kbasep_hwcnt_backend_csf_init_layout(
 	hw_block_cnt = div_u64(prfcnt_info->prfcnt_hw_size, prfcnt_info->prfcnt_block_size);
 
 	core_cnt = shader_core_cnt;
+	/* In the presence of heterogeneous NE, the SCs that don't have dedicated
+	 * NEs will still have empty gaps in the HW dump buffer.
+	 */
+	ne_core_cnt = prfcnt_info->has_ne ? shader_core_cnt : 0;
+	core_cnt += ne_core_cnt;
 
 	/* The number of hardware counters reported by the GPU matches the legacy guess-work we
 	 * have done in the past
@@ -459,6 +485,7 @@ static void kbasep_hwcnt_backend_csf_init_layout(
 		.values_per_block = values_per_block,
 		.counters_per_block = values_per_block - KBASE_HWCNT_V5_HEADERS_PER_BLOCK,
 		.enable_mask_offset = KBASE_HWCNT_V5_PRFCNT_EN_HEADER,
+		.ne_cnt = ne_core_cnt,
 	};
 }
 
@@ -552,7 +579,11 @@ void kbasep_hwcnt_backend_csf_update_block_state(struct kbase_hwcnt_backend_csf 
 		(size_t)(phys_layout->block_cnt - phys_layout->shader_cnt);
 	bool is_shader_core_block;
 
-	is_shader_core_block = (block_idx >= shader_core_block_offset);
+	size_t neural_core_block_offset = phys_layout->block_cnt - phys_layout->ne_cnt;
+	bool is_neural_core_block = (block_idx >= neural_core_block_offset);
+	shader_core_block_offset -= phys_layout->ne_cnt;
+	is_shader_core_block =
+		((block_idx >= shader_core_block_offset) && (block_idx < neural_core_block_offset));
 
 	/* Set power bits for the block state for the block, for the sample */
 	switch (backend->enable_state) {
@@ -565,7 +596,7 @@ void kbasep_hwcnt_backend_csf_update_block_state(struct kbase_hwcnt_backend_csf 
 	/* Enabled states */
 	case KBASE_HWCNT_BACKEND_CSF_ENABLED:
 	case KBASE_HWCNT_BACKEND_CSF_TRANSITIONING_TO_DISABLED:
-		if (!is_shader_core_block)
+		if (!is_shader_core_block && !is_neural_core_block)
 			kbase_hwcnt_block_state_append(block_state, KBASE_HWCNT_STATE_ON);
 		else if (!exiting_protm) {
 			/* When not exiting protected mode, a zero enable mask on a shader core
@@ -616,6 +647,17 @@ void kbasep_hwcnt_backend_csf_update_block_state(struct kbase_hwcnt_backend_csf 
 		if (current_shader_core & backend->info->backend->powered_shader_core_mask)
 			kbase_hwcnt_block_state_append(block_state, KBASE_HWCNT_STATE_AVAILABLE);
 		else if (current_shader_core & ~backend->info->backend->powered_shader_core_mask)
+			kbase_hwcnt_block_state_append(block_state, KBASE_HWCNT_STATE_UNAVAILABLE);
+		else
+			WARN_ON_ONCE(true);
+	} else if (is_neural_core_block) {
+		u64 current_neural_core = 1ULL << (block_idx - neural_core_block_offset);
+
+		WARN_ON_ONCE(backend->phys_layout.ne_cnt > 64);
+
+		if (current_neural_core & backend->info->prfcnt_info.ne_core_mask)
+			kbase_hwcnt_block_state_append(block_state, KBASE_HWCNT_STATE_AVAILABLE);
+		else if (current_neural_core & ~backend->info->prfcnt_info.ne_core_mask)
 			kbase_hwcnt_block_state_append(block_state, KBASE_HWCNT_STATE_UNAVAILABLE);
 		else
 			WARN_ON_ONCE(true);
@@ -871,7 +913,7 @@ static void kbasep_hwcnt_backend_watchdog_timer_cb(void *info)
 	    (backend_csf->enable_state == KBASE_HWCNT_BACKEND_CSF_TRANSITIONING_TO_ENABLED)) {
 		/* Reschedule the timer for next watchdog callback. */
 		csf_info->watchdog_if->modify(csf_info->watchdog_if->timer,
-					      HWCNT_BACKEND_WATCHDOG_TIMER_INTERVAL_MS);
+					      csf_info->watchdog_timer_interval_ms);
 	}
 
 	csf_info->csf_if->unlock(csf_info->csf_if->ctx, flags);
@@ -1117,6 +1159,7 @@ kbasep_hwcnt_backend_csf_get_physical_enable(struct kbase_hwcnt_backend_csf *bac
 	enable->mmu_l2_bm = phys_enable_map.mmu_l2_bm;
 	enable->fw_bm = phys_enable_map.fw_bm;
 	enable->csg_bm = phys_enable_map.csg_bm;
+	enable->neural_bm = phys_enable_map.neural_bm;
 	enable->counter_set = phys_counter_set;
 	enable->clk_enable_map = enable_map->clk_enable_map;
 }
@@ -1164,7 +1207,7 @@ kbasep_hwcnt_backend_csf_dump_enable_nolock(struct kbase_hwcnt_backend *backend,
 		return -EIO;
 
 	err = backend_csf->info->watchdog_if->enable(backend_csf->info->watchdog_if->timer,
-						     HWCNT_BACKEND_WATCHDOG_TIMER_INTERVAL_MS,
+						     backend_csf->info->watchdog_timer_interval_ms,
 						     kbasep_hwcnt_backend_watchdog_timer_cb,
 						     backend_csf->info);
 	if (err)
@@ -1459,7 +1502,7 @@ static int kbasep_hwcnt_backend_csf_dump_request(struct kbase_hwcnt_backend *bac
 	 * just requested.
 	 */
 	backend_csf->info->watchdog_if->modify(backend_csf->info->watchdog_if->timer,
-					       HWCNT_BACKEND_WATCHDOG_TIMER_INTERVAL_MS);
+					       backend_csf->info->watchdog_timer_interval_ms);
 
 	return 0;
 }
@@ -1815,13 +1858,15 @@ static void kbasep_hwcnt_backend_csf_info_destroy(const struct kbase_hwcnt_backe
  * @watchdog_if:  Non-NULL pointer to a hwcnt watchdog interface structure used to create
  *                backend interface.
  * @out_info:     Non-NULL pointer to where info is stored on success.
+ * @watchdog_timer_interval_ms:	Interval in milliseconds between hwcnt samples.
  *
  * Return: 0 on success, else error code.
  */
 static int
 kbasep_hwcnt_backend_csf_info_create(struct kbase_hwcnt_backend_csf_if *csf_if, u32 ring_buf_cnt,
 				     struct kbase_hwcnt_watchdog_interface *watchdog_if,
-				     const struct kbase_hwcnt_backend_csf_info **out_info)
+				     const struct kbase_hwcnt_backend_csf_info **out_info,
+				     u32 watchdog_timer_interval_ms)
 {
 	struct kbase_hwcnt_backend_csf_info *info = NULL;
 
@@ -1846,6 +1891,7 @@ kbasep_hwcnt_backend_csf_info_create(struct kbase_hwcnt_backend_csf_if *csf_if, 
 		.backend = NULL, .csf_if = csf_if, .ring_buf_cnt = ring_buf_cnt,
 		.fw_in_protected_mode = false, .unrecoverable_error_happened = false,
 		.watchdog_if = watchdog_if,
+		.watchdog_timer_interval_ms = watchdog_timer_interval_ms,
 	};
 	*out_info = info;
 
@@ -2202,6 +2248,8 @@ int kbase_hwcnt_backend_csf_metadata_init(struct kbase_hwcnt_backend_interface *
 	gpu_info.clk_cnt = csf_info->prfcnt_info.clk_cnt;
 	gpu_info.prfcnt_values_per_block =
 		csf_info->prfcnt_info.prfcnt_block_size / KBASE_HWCNT_VALUE_HW_BYTES;
+	gpu_info.has_ne = csf_info->prfcnt_info.has_ne;
+	gpu_info.ne_core_mask = csf_info->prfcnt_info.ne_core_mask;
 	return kbase_hwcnt_csf_metadata_create(&gpu_info, csf_info->counter_set,
 					       &csf_info->metadata);
 }
@@ -2222,7 +2270,8 @@ void kbase_hwcnt_backend_csf_metadata_term(struct kbase_hwcnt_backend_interface 
 
 int kbase_hwcnt_backend_csf_create(struct kbase_hwcnt_backend_csf_if *csf_if, u32 ring_buf_cnt,
 				   struct kbase_hwcnt_watchdog_interface *watchdog_if,
-				   struct kbase_hwcnt_backend_interface *iface)
+				   struct kbase_hwcnt_backend_interface *iface,
+				   u32 watchdog_timer_interval_ms)
 {
 	int errcode;
 	const struct kbase_hwcnt_backend_csf_info *info = NULL;
@@ -2234,7 +2283,8 @@ int kbase_hwcnt_backend_csf_create(struct kbase_hwcnt_backend_csf_if *csf_if, u3
 	if (!is_power_of_2(ring_buf_cnt))
 		return -EINVAL;
 
-	errcode = kbasep_hwcnt_backend_csf_info_create(csf_if, ring_buf_cnt, watchdog_if, &info);
+	errcode = kbasep_hwcnt_backend_csf_info_create(csf_if, ring_buf_cnt, watchdog_if, &info,
+						       watchdog_timer_interval_ms);
 	if (errcode)
 		return errcode;
 

@@ -28,6 +28,7 @@
 #include <mali_kbase_hwaccess_instr.h>
 #include <device/mali_kbase_device.h>
 #include <backend/gpu/mali_kbase_instr_internal.h>
+#include <mali_kbase_io.h>
 
 #define WAIT_FOR_DUMP_TIMEOUT_MS 5000
 
@@ -68,7 +69,7 @@ int kbase_instr_hwcnt_enable_internal(struct kbase_device *kbdev, struct kbase_c
 		return err;
 	}
 
-	if (kbase_is_gpu_removed(kbdev)) {
+	if (!kbase_io_has_gpu(kbdev)) {
 		/* GPU has been removed by Arbiter */
 		spin_unlock_irqrestore(&kbdev->hwcnt.lock, flags);
 		return err;
@@ -140,7 +141,7 @@ static void kbasep_instr_hwc_disable_hw_prfcnt(struct kbase_device *kbdev)
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 	lockdep_assert_held(&kbdev->hwcnt.lock);
 
-	if (kbase_is_gpu_removed(kbdev))
+	if (!kbase_io_has_gpu(kbdev))
 		/* GPU has been removed by Arbiter */
 		return;
 
@@ -243,7 +244,7 @@ int kbase_instr_hwcnt_request_dump(struct kbase_context *kctx)
 		goto unlock;
 	}
 
-	if (kbase_is_gpu_removed(kbdev)) {
+	if (!kbase_io_has_gpu(kbdev)) {
 		/* GPU has been removed by Arbiter */
 		goto unlock;
 	}
@@ -373,7 +374,7 @@ int kbase_instr_hwcnt_clear(struct kbase_context *kctx)
 	if (kbdev->hwcnt.kctx != kctx || kbdev->hwcnt.backend.state != KBASE_INSTR_STATE_IDLE)
 		goto unlock;
 
-	if (kbase_is_gpu_removed(kbdev)) {
+	if (!kbase_io_has_gpu(kbdev)) {
 		/* GPU has been removed by Arbiter */
 		goto unlock;
 	}

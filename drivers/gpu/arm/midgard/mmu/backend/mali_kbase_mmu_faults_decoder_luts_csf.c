@@ -75,6 +75,19 @@ static struct decode_lut_element lut_fault_source_csf_r_t_major_12[] = {
 	{ 0xFFFF, 13, "mcu" },
 };
 
+static struct decode_lut_element lut_fault_source_csf_r_t_major_13[] = {
+	{ 0xFFFF, 0, "pref0" },
+	{ 0xFFFF, 4, "iter0" },
+	{ 0xFFFF, 12, "lsu" },
+	{ 0xFFFF, 13, "mcu" },
+};
+
+static struct decode_lut_element lut_fault_source_csf_r_t_major_14[] = {
+	{ 0xFFFF, 0, "pref0_jasid0" }, { 0xFFFF, 4, "iter0_jasid0" }, { 0xFFFF, 12, "lsu_jasid0" },
+	{ 0xFFFF, 13, "mcu_jasid0" },  { 0xFFFF, 16, "pref0_other" }, { 0xFFFF, 20, "iter0_other" },
+	{ 0xFFFF, 28, "lsu_other" },   { 0xFFFF, 29, "mcu_other" },
+};
+
 static struct decode_lut_element lut_fault_source_csf_w_t_major_10[] = {
 	{ 0xFFFF, 8, "pcb0" },
 	{ 0xFFFF, 12, "lsu" },
@@ -91,6 +104,17 @@ static struct decode_lut_element lut_fault_source_csf_w_t_major_12[] = {
 	{ 0xFFFF, 8, "pcb0" },
 	{ 0xFFFF, 12, "lsu" },
 	{ 0xFFFF, 13, "mcu" },
+};
+
+static struct decode_lut_element lut_fault_source_csf_w_t_major_13[] = {
+	{ 0xFFFF, 8, "pcb0" },
+	{ 0xFFFF, 12, "lsu" },
+	{ 0xFFFF, 13, "mcu" },
+};
+
+static struct decode_lut_element lut_fault_source_csf_w_t_major_14[] = {
+	{ 0xFFFF, 8, "pcb0_jasid0" }, { 0xFFFF, 12, "lsu_jasid0" }, { 0xFFFF, 13, "mcu_jasid0" },
+	{ 0xFFFF, 24, "pcb0_other" }, { 0xFFFF, 28, "lsu_other" },  { 0xFFFF, 29, "mcu_other" },
 };
 
 
@@ -111,6 +135,14 @@ const char *decode_fault_source_csf_r_t(u16 idx, u32 gpu_id)
 	case 12:
 		ret = decode_lut_element_lookup(min_rev, idx, lut_fault_source_csf_r_t_major_12,
 						NELEMS(lut_fault_source_csf_r_t_major_12));
+		break;
+	case 13:
+		ret = decode_lut_element_lookup(min_rev, idx, lut_fault_source_csf_r_t_major_13,
+						NELEMS(lut_fault_source_csf_r_t_major_13));
+		break;
+	case 14:
+		ret = decode_lut_element_lookup(min_rev, idx, lut_fault_source_csf_r_t_major_14,
+						NELEMS(lut_fault_source_csf_r_t_major_14));
 		break;
 	}
 	return ret;
@@ -133,6 +165,14 @@ const char *decode_fault_source_csf_w_t(u16 idx, u32 gpu_id)
 	case 12:
 		ret = decode_lut_element_lookup(min_rev, idx, lut_fault_source_csf_w_t_major_12,
 						NELEMS(lut_fault_source_csf_w_t_major_12));
+		break;
+	case 13:
+		ret = decode_lut_element_lookup(min_rev, idx, lut_fault_source_csf_w_t_major_13,
+						NELEMS(lut_fault_source_csf_w_t_major_13));
+		break;
+	case 14:
+		ret = decode_lut_element_lookup(min_rev, idx, lut_fault_source_csf_w_t_major_14,
+						NELEMS(lut_fault_source_csf_w_t_major_14));
 		break;
 	}
 	return ret;

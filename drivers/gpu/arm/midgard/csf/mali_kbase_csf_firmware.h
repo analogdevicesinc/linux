@@ -72,8 +72,7 @@
 /* All implementations of the host interface with major version 0 must comply
  * with these restrictions:
  */
-/* GLB_GROUP_NUM: At least 3 CSGs, but no more than 31 */
-#define MIN_SUPPORTED_CSGS 3
+/* GLB_GROUP_NUM: No more than 31 */
 #define MAX_SUPPORTED_CSGS 31
 /* GROUP_STREAM_NUM: At least 8 CSs per CSG, but no more than 32 */
 #define MIN_SUPPORTED_STREAMS_PER_GROUP 8
@@ -436,6 +435,15 @@ static inline bool kbase_csf_firmware_mcu_halted(struct kbase_device *kbdev)
  */
 bool kbase_csf_firmware_mcu_halt_req_complete(struct kbase_device *kbdev);
 
+/**
+ * kbase_csf_firmware_set_glb_state_active - Set the GLB_REQ.STATE as active
+ *
+ * @kbdev: Instance of a GPU platform device that implements a CSF interface.
+ *
+ * This function needs to be called before requesting the change of MCU state to
+ * active from sleep or halt state.
+ */
+void kbase_csf_firmware_set_glb_state_active(struct kbase_device *kbdev);
 
 /**
  * kbase_csf_firmware_trigger_mcu_halt - Send the Global request to firmware to
@@ -496,7 +504,6 @@ void kbase_csf_firmware_trigger_mcu_sleep(struct kbase_device *kbdev);
 bool kbase_csf_firmware_is_mcu_in_sleep(struct kbase_device *kbdev);
 
 #endif
-
 
 /**
  * kbase_csf_firmware_trigger_reload() - Trigger the reboot of MCU firmware, for

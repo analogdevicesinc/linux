@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -36,6 +36,7 @@ const char *kbase_gpu_exception_name(u32 exception_code);
 /**
  * kbase_gpu_access_type_name - Convert MMU_AS_CONTROL.FAULTSTATUS.ACCESS_TYPE
  * into string.
+ * @kbdev: The kbase device structure for the device (must be a valid pointer)
  * @fault_status:  value of FAULTSTATUS register.
  *
  * After MMU fault, this function can be used to get readable information about
@@ -43,6 +44,6 @@ const char *kbase_gpu_exception_name(u32 exception_code);
  *
  * Return: String of the access type.
  */
-const char *kbase_gpu_access_type_name(u32 fault_status);
+const char *kbase_gpu_access_type_name(struct kbase_device *kbdev, u32 fault_status);
 
 #endif /* _KBASE_GPU_FAULT_H_ */

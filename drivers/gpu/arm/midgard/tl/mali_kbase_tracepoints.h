@@ -404,7 +404,7 @@ void __kbase_tlstream_tl_kbase_new_device(
 	u32 kbase_device_sb_entry_count,
 	u32 kbase_device_has_cross_stream_sync,
 	u32 kbase_device_supports_gpu_sleep,
-	u32 kbase_device_has_vd54d34dbb40917c8cea48cca407a8789413be0db
+	u32 kbase_device_has_neural_engine
 );
 
 void __kbase_tlstream_tl_kbase_gpucmdqueue_kick(
@@ -2026,7 +2026,7 @@ struct kbase_tlstream;
  * @kbase_device_sb_entry_count: The number of entries each scoreboard set in the physical hardware has available
  * @kbase_device_has_cross_stream_sync: Whether cross-stream synchronization is supported
  * @kbase_device_supports_gpu_sleep: Whether GPU sleep is supported
- * @kbase_device_has_vd54d34dbb40917c8cea48cca407a8789413be0db: Whether v34932631451e2dea4ed0fab0025a0d2767d5e427 is supported
+ * @kbase_device_has_neural_engine: Whether neural engine is supported
  */
 #if MALI_USE_CSF
 #define KBASE_TLSTREAM_TL_KBASE_NEW_DEVICE(	\
@@ -2038,7 +2038,7 @@ struct kbase_tlstream;
 	kbase_device_sb_entry_count,	\
 	kbase_device_has_cross_stream_sync,	\
 	kbase_device_supports_gpu_sleep,	\
-	kbase_device_has_vd54d34dbb40917c8cea48cca407a8789413be0db	\
+	kbase_device_has_neural_engine	\
 	)	\
 	do {	\
 		u32 enabled = (u32)atomic_read(&kbdev->timeline_flags);	\
@@ -2052,7 +2052,7 @@ struct kbase_tlstream;
 				kbase_device_sb_entry_count,	\
 				kbase_device_has_cross_stream_sync,	\
 				kbase_device_supports_gpu_sleep,	\
-				kbase_device_has_vd54d34dbb40917c8cea48cca407a8789413be0db	\
+				kbase_device_has_neural_engine	\
 				);	\
 	} while (0)
 #else
@@ -2065,7 +2065,7 @@ struct kbase_tlstream;
 	kbase_device_sb_entry_count,	\
 	kbase_device_has_cross_stream_sync,	\
 	kbase_device_supports_gpu_sleep,	\
-	kbase_device_has_vd54d34dbb40917c8cea48cca407a8789413be0db	\
+	kbase_device_has_neural_engine	\
 	)	\
 	do { } while (0)
 #endif /* MALI_USE_CSF */

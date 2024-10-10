@@ -176,6 +176,8 @@ static void kbase_gpuprops_parse_gpu_features(struct kbase_gpu_features_props *p
 {
 	props->ray_intersection = KBASE_UBFX64(gpu_features, 2U, 1);
 	props->cross_stream_sync = KBASE_UBFX64(gpu_features, 3U, 1);
+	props->neural_engine = KBASE_UBFX64(gpu_features, 4U, 1);
+	props->ray_traversal = KBASE_UBFX64(gpu_features, 5U, 1);
 }
 
 static void kbase_gpuprops_parse_js_features(struct kbase_js_features_props *props, u32 js_features)
@@ -219,6 +221,8 @@ static int kbase_gpuprops_get_props(struct kbase_device *kbdev)
 	gpu_props->tiler_present = regdump->tiler_present;
 	gpu_props->stack_present = regdump->stack_present;
 	gpu_props->l2_present = regdump->l2_present;
+	gpu_props->base_present = regdump->base_present;
+	gpu_props->neural_present = regdump->neural_present;
 
 	gpu_props->num_cores = hweight64(regdump->shader_present);
 	gpu_props->num_core_groups = hweight64(regdump->l2_present);
@@ -241,6 +245,12 @@ static int kbase_gpuprops_get_props(struct kbase_device *kbdev)
 #else /* MALI_USE_CSF */
 	gpu_props->impl_tech = KBASE_UBFX32(regdump->thread_features, 30U, 2);
 #endif /* MALI_USE_CSF */
+
+	if (IS_ENABLED(CONFIG_MALI_NO_MALI))
+		gpu_props->impl_tech = THREAD_FEATURES_IMPLEMENTATION_TECHNOLOGY_NO_MALI;
+
+	if (of_machine_is_compatible("arm,juno"))
+		gpu_props->impl_tech = THREAD_FEATURES_IMPLEMENTATION_TECHNOLOGY_FPGA;
 
 	/* Features */
 	kbase_gpuprops_parse_gpu_features(&gpu_props->gpu_features, regdump->gpu_features);
@@ -482,11 +492,20 @@ int kbase_gpuprops_update_l2_features(struct kbase_device *kbdev)
 
 #if !IS_ENABLED(CONFIG_MALI_NO_MALI)
 			if (!enable && kbdev->l2_hash_values_override) {
+				if (kbdev->gpu_props.gpu_id.arch_id >= GPU_ID_ARCH_MAKE(14, 8, 4))
+					dev_err(kbdev->dev,
+						"Failed to use requested L2C_SLICE_HASH, fallback to default");
+				else
 					dev_err(kbdev->dev,
 						"Failed to use requested ASN_HASH, fallback to default");
 			}
 #endif
 			for (idx = 0; idx < GPU_L2_SLICE_HASH_COUNT; idx++)
+				if (kbdev->gpu_props.gpu_id.arch_id >= GPU_ID_ARCH_MAKE(14, 8, 4))
+					dev_info(kbdev->dev, "%s L2C_SLICE_HASH[%d] is [0x%08x]\n",
+						 enable ? "Overridden" : "Default", idx,
+						 regdump->l2_slice_hash[idx]);
+				else
 					dev_info(kbdev->dev, "%s ASN_HASH[%d] is [0x%08x]\n",
 						 enable ? "Overridden" : "Default", idx,
 						 regdump->l2_slice_hash[idx]);
@@ -540,6 +559,8 @@ static struct {
 	PROP(RAW_TILER_PRESENT, raw_props.tiler_present),
 	PROP(RAW_L2_PRESENT, raw_props.l2_present),
 	PROP(RAW_STACK_PRESENT, raw_props.stack_present),
+	PROP(RAW_BASE_PRESENT, raw_props.base_present),
+	PROP(RAW_NEURAL_PRESENT, raw_props.neural_present),
 	PROP(RAW_L2_FEATURES, raw_props.l2_features),
 	PROP(RAW_CORE_FEATURES, raw_props.core_features),
 	PROP(RAW_MEM_FEATURES, raw_props.mem_features),
@@ -723,6 +744,8 @@ static void kbase_populate_user_data(struct kbase_device *kbdev, struct gpu_prop
 	data->raw_props.thread_tls_alloc = regdump->thread_tls_alloc;
 	data->raw_props.gpu_features = regdump->gpu_features;
 
+	data->raw_props.base_present = regdump->base_present;
+	data->raw_props.neural_present = regdump->neural_present;
 }
 
 int kbase_gpuprops_populate_user_buffer(struct kbase_device *kbdev)

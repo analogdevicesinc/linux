@@ -402,7 +402,7 @@ struct basep_cs_group_control {
 struct base_gpu_queue_group_error_fatal_payload {
 	__u64 sideband;
 	__u32 status;
-	__u32 padding;
+	__u8 padding[20];
 };
 
 /**
@@ -421,7 +421,18 @@ struct base_gpu_queue_error_fatal_payload {
 	__u64 sideband;
 	__u32 status;
 	__u8 csi_index;
-	__u8 padding[3];
+	__u8 padding[6];
+	/**
+	 * @has_extra: Set to 0x1 (true) when the extra trace data is filled,
+	 * otherwise 0 (false)
+	 */
+	__u8 has_extra;
+	/** @trace_id0: The extra EXCEPTION_TRACE_ID0 value */
+	__u32 trace_id0;
+	/** @trace_id1: The extra EXCEPTION_TRACE_ID1 value */
+	__u32 trace_id1;
+	/** @trace_task: The extra EXCEPTION_TRACE_TASK value */
+	__u32 trace_task;
 };
 
 /**
@@ -435,12 +446,21 @@ struct base_gpu_queue_error_fatal_payload {
  *                INSTR_INVALID_PC (0x50).
  * @csi_index:    Index of the CSF interface the queue is bound to.
  * @padding:      Padding to make multiple of 64bits
+ * @has_extra:    Set to 0x1 (true) when the extra trace data is filled,
+ *                otherwise 0 (false)
+ * @trace_id0:    The extra EXCEPTION_TRACE_ID0 value.
+ * @trace_id1:    The extra EXCEPTION_TRACE_ID1 value.
+ * @trace_task:   The extra EXCEPTION_TRACE_TASK value.
  */
 struct base_gpu_queue_error_fault_payload {
 	__u64 sideband;
 	__u32 status;
 	__u8 csi_index;
-	__u8 padding[3];
+	__u8 padding[6];
+	__u8 has_extra;
+	__u32 trace_id0;
+	__u32 trace_id1;
+	__u32 trace_task;
 };
 
 /**

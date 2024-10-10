@@ -30,6 +30,7 @@
 #if IS_ENABLED(CONFIG_DEVFREQ_THERMAL)
 #include <linux/devfreq_cooling.h>
 #endif
+#include <linux/pm_domain.h>
 
 #include <linux/version.h>
 #include <linux/pm_opp.h>
@@ -141,6 +142,14 @@ static int kbase_devfreq_target(struct device *dev, unsigned long *target_freq, 
 	}
 #if KERNEL_VERSION(4, 11, 0) <= LINUX_VERSION_CODE
 	dev_pm_opp_put(opp);
+#endif
+#if KERNEL_VERSION(4, 15, 0) <= LINUX_VERSION_CODE
+	err = dev_pm_genpd_set_performance_state(kbdev->dev, nominal_freq);
+	/* For ENODEV or EOPNOTSUPP do not return error code */
+	if (err && !((err == -ENODEV) || (err == -EOPNOTSUPP))) {
+		dev_err(dev, "Failed to set opp (%d) (target %lu)\n", err, *target_freq);
+		return err;
+	}
 #endif
 	/*
 	 * Only update if there is a change of frequency
@@ -482,7 +491,31 @@ static int kbase_devfreq_init_core_mask_table(struct kbase_device *kbdev)
 				opp_freq);
 			continue;
 		}
+#if MALI_USE_CSF
+		if (kbase_csf_dev_has_ne(kbdev)) {
+			u64 neural_present = kbdev->gpu_props.neural_present;
+			u64 sc_with_ne = shader_present & neural_present;
 
+			if (!sc_with_ne) {
+				dev_err(kbdev->dev,
+					"No shader cores with NE cores present in configuration with NE!");
+				continue;
+			}
+
+			if ((neural_present & shader_present) != neural_present) {
+				dev_err(kbdev->dev,
+					"Detected NE core without a corresponding shader core: NEURAL_PRESENT %llx SHADER_PRESENT %llx",
+					neural_present, shader_present);
+			}
+
+			if (!(core_mask & sc_with_ne)) {
+				dev_err(kbdev->dev,
+					"Ignoring OPP %d - No shader cores with NE cores present in the given core mask %llx",
+					i, core_mask);
+				continue;
+			}
+		}
+#endif /* MALI_USE_CSF */
 
 		core_count_p = of_get_property(node, "opp-core-count", NULL);
 		if (core_count_p) {

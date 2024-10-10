@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2021-2022 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2021-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -43,6 +43,7 @@
  * @watchdog_iface: Non-NULL pointer to an hardware counter watchdog interface.
  * @out_iface:      Non-NULL pointer to backend interface structure that is filled in
  *                  on creation success.
+ * @watchdog_timer_interval_ms: Interval in milliseconds between hwcnt samples.
  *
  * Calls to out_iface->dump_enable_nolock() require kbdev->hwaccess_lock held.
  *
@@ -50,7 +51,8 @@
  */
 int kbase_hwcnt_backend_jm_watchdog_create(struct kbase_hwcnt_backend_interface *backend_iface,
 					   struct kbase_hwcnt_watchdog_interface *watchdog_iface,
-					   struct kbase_hwcnt_backend_interface *out_iface);
+					   struct kbase_hwcnt_backend_interface *out_iface,
+					   u32 watchdog_timer_interval_ms);
 
 /**
  * kbase_hwcnt_backend_jm_watchdog_destroy() - Destroy a job manager hardware counter watchdog

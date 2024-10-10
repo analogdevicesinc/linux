@@ -39,6 +39,7 @@
 #include <linux/migrate.h>
 #include <linux/version.h>
 #include <mali_kbase.h>
+#include <mali_kbase_io.h>
 #include <mali_kbase_mem_linux.h>
 #include <mali_kbase_mem_flags.h>
 #include <tl/mali_kbase_tracepoints.h>
@@ -593,7 +594,7 @@ int kbase_mem_query(struct kbase_context *kctx, u64 gpu_addr, u64 query, u64 *co
 		if (KBASE_REG_SHARE_IN & reg->flags)
 			*out |= BASE_MEM_COHERENT_LOCAL;
 		if (mali_kbase_supports_query_mem_dont_need(kctx->api_version)) {
-			if (KBASE_REG_DONT_NEED & reg->flags)
+			if (BASEP_MEM_DONT_NEED & reg->flags)
 				*out |= BASE_MEM_DONT_NEED;
 		}
 		if (mali_kbase_supports_query_mem_grow_on_gpf(kctx->api_version)) {
@@ -886,7 +887,7 @@ void kbase_mem_evictable_make(struct kbase_mem_phy_alloc *gpu_alloc)
 	mutex_unlock(&kctx->jit_evict_lock);
 	kbase_mem_evictable_mark_reclaim(gpu_alloc);
 
-	gpu_alloc->reg->flags |= KBASE_REG_DONT_NEED;
+	gpu_alloc->reg->flags |= BASEP_MEM_DONT_NEED;
 }
 
 bool kbase_mem_evictable_unmake(struct kbase_mem_phy_alloc *gpu_alloc)
@@ -945,7 +946,7 @@ bool kbase_mem_evictable_unmake(struct kbase_mem_phy_alloc *gpu_alloc)
 
 	/* If the region is still alive remove the DONT_NEED attribute. */
 	if (gpu_alloc->reg)
-		gpu_alloc->reg->flags &= ~KBASE_REG_DONT_NEED;
+		gpu_alloc->reg->flags &= ~BASEP_MEM_DONT_NEED;
 
 	return (err == 0);
 }
@@ -1044,7 +1045,7 @@ static int kbase_mem_flags_change_imported_umm(struct kbase_context *kctx,
 static int kbase_mem_flags_change_native(struct kbase_context *kctx, base_mem_alloc_flags flags,
 					 struct kbase_va_region *reg)
 {
-	bool kbase_reg_dont_need_flag = (KBASE_REG_DONT_NEED & reg->flags);
+	bool kbase_reg_dont_need_flag = (BASEP_MEM_DONT_NEED & reg->flags);
 	bool requested_dont_need_flag = (BASE_MEM_DONT_NEED & flags);
 	int ret = 0;
 
@@ -2188,7 +2189,7 @@ int kbase_mem_commit(struct kbase_context *kctx, u64 gpu_addr, u64 new_pages)
 	if (0 == (reg->flags & KBASE_REG_GROWABLE))
 		goto out_unlock;
 
-	if (reg->flags & KBASE_REG_ACTIVE_JIT_ALLOC)
+	if (reg->flags & BASEP_MEM_ACTIVE_JIT_ALLOC)
 		goto out_unlock;
 
 	/* Would overflow the VA region */
@@ -2470,7 +2471,7 @@ static vm_fault_t kbase_cpu_vm_fault(struct vm_fault *vmf)
 		goto exit;
 
 	/* Fault on access to DONT_NEED regions */
-	if (map->alloc->reg && (map->alloc->reg->flags & KBASE_REG_DONT_NEED))
+	if (map->alloc->reg && (map->alloc->reg->flags & BASEP_MEM_DONT_NEED))
 		goto exit;
 
 	/* We are inserting all valid pages from the start of CPU mapping and
@@ -2531,7 +2532,8 @@ static int kbase_cpu_mmap(struct kbase_context *kctx, struct kbase_va_region *re
 	 * See MIDBASE-1057
 	 */
 
-	vm_flags_set(vma, VM_DONTCOPY | VM_DONTDUMP | VM_DONTEXPAND | VM_IO);
+	__vm_flags_mod(vma, VM_DONTCOPY | VM_DONTDUMP | VM_DONTEXPAND | VM_IO, 0);
+
 	vma->vm_ops = &kbase_vm_ops;
 	vma->vm_private_data = map;
 
@@ -2558,11 +2560,11 @@ static int kbase_cpu_mmap(struct kbase_context *kctx, struct kbase_va_region *re
 	}
 
 	if (!kaddr)
-		vm_flags_set(vma, VM_PFNMAP);
+		__vm_flags_mod(vma, VM_PFNMAP, 0);
 	else {
 		WARN_ON(aligned_offset);
 		/* MIXEDMAP so we can vfree the kaddr early and not track it after map time */
-		vm_flags_set(vma, VM_MIXEDMAP);
+		__vm_flags_mod(vma, VM_MIXEDMAP, 0);
 		/* vmalloc remaping is easy... */
 		err = remap_vmalloc_range(vma, kaddr, 0);
 		WARN_ON(err);
@@ -2975,7 +2977,7 @@ static void kbase_vmap_phy_pages_migrate_count_increment(struct tagged_addr *pag
 {
 	size_t i;
 
-	if (!IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT))
+	if (!kbase_is_page_migration_enabled())
 		return;
 
 	for (i = 0; i < page_count; i++) {
@@ -3027,7 +3029,7 @@ static void kbase_vunmap_phy_pages_migrate_count_decrement(struct tagged_addr *p
 {
 	size_t i;
 
-	if (!IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT))
+	if (!kbase_is_page_migration_enabled())
 		return;
 
 	for (i = 0; i < page_count; i++) {
@@ -3315,8 +3317,8 @@ static int kbase_tracking_page_setup(struct kbase_context *kctx, struct vm_area_
 		return -EINVAL;
 
 	/* no real access */
-	vm_flags_clear(vma, VM_READ | VM_MAYREAD | VM_WRITE | VM_MAYWRITE | VM_EXEC | VM_MAYEXEC);
-	vm_flags_set(vma, VM_DONTCOPY | VM_DONTEXPAND | VM_DONTDUMP | VM_IO);
+	__vm_flags_mod(vma, VM_DONTCOPY | VM_DONTEXPAND | VM_DONTDUMP | VM_IO,
+		       VM_READ | VM_MAYREAD | VM_WRITE | VM_MAYWRITE | VM_EXEC | VM_MAYEXEC);
 
 	return 0;
 }
@@ -3534,13 +3536,13 @@ static int kbase_csf_cpu_mmap_user_io_pages(struct kbase_context *kctx, struct v
 	if (err)
 		goto map_failed;
 
-	vm_flags_set(vma, VM_DONTCOPY | VM_DONTDUMP | VM_DONTEXPAND | VM_IO);
+	__vm_flags_mod(vma, VM_DONTCOPY | VM_DONTDUMP | VM_DONTEXPAND | VM_IO, 0);
 	/* TODO use VM_MIXEDMAP, since it is more appropriate as both types of
 	 * memory with and without "struct page" backing are being inserted here.
 	 * Hw Doorbell pages comes from the device register area so kernel does
 	 * not use "struct page" for them.
 	 */
-	vm_flags_set(vma, VM_PFNMAP);
+	__vm_flags_mod(vma, VM_PFNMAP, 0);
 
 	vma->vm_ops = &kbase_csf_user_io_pages_vm_ops;
 	vma->vm_private_data = queue;
@@ -3658,6 +3660,7 @@ static vm_fault_t kbase_csf_user_reg_vm_fault(struct vm_fault *vmf)
 	size_t nr_pages = PFN_DOWN(vma->vm_end - vma->vm_start);
 	vm_fault_t ret = VM_FAULT_SIGBUS;
 	unsigned long flags;
+	bool use_dummy_page = false;
 
 	/* Few sanity checks up front */
 
@@ -3679,7 +3682,9 @@ static vm_fault_t kbase_csf_user_reg_vm_fault(struct vm_fault *vmf)
 	 *
 	 * In no mail builds, always map in the dummy page.
 	 */
-	if (IS_ENABLED(CONFIG_MALI_NO_MALI) || !kbdev->pm.backend.gpu_powered)
+	use_dummy_page = IS_ENABLED(CONFIG_MALI_NO_MALI) || !kbase_io_is_gpu_powered(kbdev);
+
+	if (use_dummy_page)
 		pfn = PFN_DOWN(as_phys_addr_t(kbdev->csf.user_reg.dummy_page));
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 

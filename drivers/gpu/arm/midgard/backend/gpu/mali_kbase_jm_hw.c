@@ -38,7 +38,7 @@
 #include <device/mali_kbase_device.h>
 #include <backend/gpu/mali_kbase_irq_internal.h>
 #include <backend/gpu/mali_kbase_jm_internal.h>
-#include <mali_kbase_regs_history_debugfs.h>
+#include <mali_kbase_io.h>
 
 static void kbasep_try_reset_gpu_early_locked(struct kbase_device *kbdev);
 static u64 kbasep_apply_limited_core_mask(const struct kbase_device *kbdev, const u64 affinity,
@@ -217,18 +217,6 @@ int kbase_job_hw_submit(struct kbase_device *kbdev, struct kbase_jd_atom *katom,
 
 	/* Update the slot's last katom submission kctx */
 	ptr_slot_rb->last_kctx_tagged = SLOT_RB_TAG_KCTX(kctx);
-
-#if IS_ENABLED(CONFIG_GPU_TRACEPOINTS)
-	if (!kbase_backend_nr_atoms_submitted(kbdev, js)) {
-		/* If this is the only job on the slot, trace it as starting */
-		char js_string[16];
-
-		trace_gpu_sched_switch(kbasep_make_job_slot_string(js, js_string,
-								   sizeof(js_string)),
-				       ktime_to_ns(katom->start_timestamp), (u32)katom->kctx->id, 0,
-				       katom->work_id);
-	}
-#endif
 
 	trace_sysgraph_gpu(SGR_SUBMIT, kctx->id, kbase_jd_atom_id(kctx, katom), js);
 
@@ -704,7 +692,7 @@ u32 kbase_backend_get_current_flush_id(struct kbase_device *kbdev)
 
 	if (kbase_hw_has_feature(kbdev, KBASE_HW_FEATURE_FLUSH_REDUCTION)) {
 		mutex_lock(&kbdev->pm.lock);
-		if (kbdev->pm.backend.gpu_powered)
+		if (kbase_io_is_gpu_powered(kbdev))
 			flush_id = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(LATEST_FLUSH));
 		mutex_unlock(&kbdev->pm.lock);
 	}
@@ -950,9 +938,8 @@ static void kbasep_reset_timeout_worker(struct work_struct *data)
 		const u32 timeout_us =
 			kbase_get_timeout_ms(kbdev, KBASE_CLEAN_CACHE_TIMEOUT) * USEC_PER_MSEC;
 		/* Ensure that L2 is not transitioning when we send the reset command */
-		const int err = read_poll_timeout_atomic(kbase_pm_get_trans_cores, val, !val, 0,
-							 timeout_us, false, kbdev,
-							 KBASE_PM_CORE_L2);
+		const int err = kbase_reg_poll64_timeout(kbdev, GPU_CONTROL_ENUM(L2_PWRTRANS), val,
+							 !val, 0, timeout_us, false);
 
 		WARN(err, "L2 power transition timed out while trying to reset\n");
 	}
@@ -1128,7 +1115,7 @@ bool kbase_prepare_to_reset_gpu_locked(struct kbase_device *kbdev, unsigned int 
 {
 	unsigned int i;
 
-	if (kbase_pm_is_gpu_lost(kbdev)) {
+	if (kbase_io_is_gpu_lost(kbdev)) {
 		/* GPU access has been removed, reset will be done by
 		 * Arbiter instead
 		 */

@@ -28,14 +28,6 @@
 #include <hwcnt/backend/mali_kbase_hwcnt_backend_jm_watchdog.h>
 #include <hwcnt/mali_kbase_hwcnt_watchdog_if.h>
 
-#if IS_ENABLED(CONFIG_MALI_IS_FPGA) && !IS_ENABLED(CONFIG_MALI_NO_MALI)
-/* Backend watch dog timer interval in milliseconds: 18 seconds. */
-static const u32 hwcnt_backend_watchdog_timer_interval_ms = 18000;
-#else
-/* Backend watch dog timer interval in milliseconds: 1 second. */
-static const u32 hwcnt_backend_watchdog_timer_interval_ms = 1000;
-#endif /* IS_FPGA && !NO_MALI */
-
 /*
  * IDLE_BUFFER_EMPTY -> USER_DUMPING_BUFFER_EMPTY     on dump_request.
  * IDLE_BUFFER_EMPTY -> TIMER_DUMPING                 after
@@ -136,10 +128,12 @@ enum wd_init_state {
  *                       hardware counter in case no reads are requested within
  *                       a certain time, used to avoid hardware counter's buffer
  *                       saturation.
+ * @watchdog_timer_interval_ms: Interval in milliseconds between hwcnt samples.
  */
 struct kbase_hwcnt_backend_jm_watchdog_info {
 	struct kbase_hwcnt_backend_interface *jm_backend_iface;
 	struct kbase_hwcnt_watchdog_interface *dump_watchdog_iface;
+	u32 watchdog_timer_interval_ms;
 };
 
 /**
@@ -259,7 +253,8 @@ static void kbasep_hwcnt_backend_jm_watchdog_timer_callback(void *backend)
 
 static struct kbase_hwcnt_backend_jm_watchdog_info *
 kbasep_hwcnt_backend_jm_watchdog_info_create(struct kbase_hwcnt_backend_interface *backend_iface,
-					     struct kbase_hwcnt_watchdog_interface *watchdog_iface)
+					     struct kbase_hwcnt_watchdog_interface *watchdog_iface,
+					     u32 watchdog_timer_interval_ms)
 {
 	struct kbase_hwcnt_backend_jm_watchdog_info *const info =
 		kmalloc(sizeof(*info), GFP_KERNEL);
@@ -268,7 +263,9 @@ kbasep_hwcnt_backend_jm_watchdog_info_create(struct kbase_hwcnt_backend_interfac
 		return NULL;
 
 	*info = (struct kbase_hwcnt_backend_jm_watchdog_info){
-		.jm_backend_iface = backend_iface, .dump_watchdog_iface = watchdog_iface
+		.jm_backend_iface = backend_iface,
+		.dump_watchdog_iface = watchdog_iface,
+		.watchdog_timer_interval_ms = watchdog_timer_interval_ms
 	};
 
 	return info;
@@ -367,7 +364,7 @@ static int kbasep_hwcnt_backend_jm_watchdog_init(const struct kbase_hwcnt_backen
 
 	*wd_backend = (struct kbase_hwcnt_backend_jm_watchdog){
 		.info = wd_info,
-		.timeout_ms = hwcnt_backend_watchdog_timer_interval_ms,
+		.timeout_ms = wd_info->watchdog_timer_interval_ms,
 		.locked = { .state = HWCNT_JM_WD_IDLE_BUFFER_EMPTY, .is_enabled = false }
 	};
 
@@ -794,14 +791,16 @@ static int kbasep_hwcnt_backend_jm_watchdog_dump_get(
 
 int kbase_hwcnt_backend_jm_watchdog_create(struct kbase_hwcnt_backend_interface *backend_iface,
 					   struct kbase_hwcnt_watchdog_interface *watchdog_iface,
-					   struct kbase_hwcnt_backend_interface *out_iface)
+					   struct kbase_hwcnt_backend_interface *out_iface,
+					   u32 watchdog_timer_interval_ms)
 {
 	struct kbase_hwcnt_backend_jm_watchdog_info *info = NULL;
 
 	if (WARN_ON(!backend_iface) || WARN_ON(!watchdog_iface) || WARN_ON(!out_iface))
 		return -EINVAL;
 
-	info = kbasep_hwcnt_backend_jm_watchdog_info_create(backend_iface, watchdog_iface);
+	info = kbasep_hwcnt_backend_jm_watchdog_info_create(backend_iface, watchdog_iface,
+							    watchdog_timer_interval_ms);
 	if (!info)
 		return -ENOMEM;
 

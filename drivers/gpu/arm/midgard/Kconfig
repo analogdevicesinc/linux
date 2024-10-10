@@ -20,7 +20,6 @@
 
 menuconfig MALI_MIDGARD
 	tristate "Mali Midgard series support"
-	select GPU_TRACEPOINTS if ANDROID
 	select DMA_SHARED_BUFFER
 	select PM_DEVFREQ
 	select DEVFREQ_THERMAL
@@ -73,13 +72,6 @@ config MALI_NO_MALI_DEFAULT_GPU
 	default "tMIx"
 	help
 	  This option sets the default GPU to identify as for No Mali builds.
-
-config MALI_IS_FPGA
-	bool "Enable build of Mali kernel driver for FPGA"
-	depends on MALI_MIDGARD
-	default n
-	help
-	  This is the default HW backend.
 
 menu "Platform specific options"
 source "$(MALI_KCONFIG_EXT_PREFIX)drivers/gpu/arm/midgard/platform/Kconfig"
@@ -205,22 +197,6 @@ config LARGE_PAGE_SUPPORT
 	 This depends on GPU support.
 
 	 If in doubt, say Y.
-
-config PAGE_MIGRATION_SUPPORT
-	bool "Enable support for page migration"
-	depends on MALI_MIDGARD && MALI_EXPERT
-	default y
-	default n if ANDROID
-	help
-	  Compile in support for page migration.
-	  If set to disabled ('n') then page migration cannot
-	  be enabled at all, and related symbols are not compiled in.
-	  If not set, page migration is compiled in by default, and
-	  if not explicitly enabled or disabled with the insmod parameter,
-	  page migration becomes automatically enabled with large pages.
-
-	  If in doubt, say Y. To strip out page migration symbols and support,
-	  say N.
 
 config MALI_CORESTACK
 	bool "Enable support of GPU core stack power control"
@@ -348,18 +324,6 @@ config MALI_JOB_DUMP
 
 comment "Workarounds"
 	depends on MALI_MIDGARD && MALI_EXPERT
-
-config MALI_PWRSOFT_765
-	bool "Enable workaround for PWRSOFT-765"
-	depends on MALI_MIDGARD && MALI_EXPERT
-	default n
-	help
-	  PWRSOFT-765 fixes devfreq cooling devices issues. The fix was merged
-	  in kernel v4.10, however if backported into the kernel then this
-	  option must be manually selected.
-
-	  If using kernel >= v4.10 then say N, otherwise if devfreq cooling
-	  changes have been backported say Y to avoid compilation errors.
 
 config MALI_HW_ERRATA_1485982_USE_CLOCK_ALTERNATIVE
 	bool "Use alternative workaround for KBASE_HW_ISSUE_GPU2017_1336"

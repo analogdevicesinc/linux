@@ -173,10 +173,12 @@
  * 11.48:
  * - Add UNUSED_BIT_5, UNUSED_BIT_7, UNUSED_BIT_27 and UNUSED_BIT_29 previously occupied by
  *   kernel-only flags to kbase cap table.
+ * 11.49:
+ * - Increased KBASE_MEM_PROFILE_MAX_BUF_SIZE for more cctx memory classes.
   */
 
 #define BASE_UK_VERSION_MAJOR 11
-#define BASE_UK_VERSION_MINOR 48
+#define BASE_UK_VERSION_MINOR 49
 
 /**
  * struct kbase_ioctl_version_check - Check version compatibility between

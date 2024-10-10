@@ -28,6 +28,7 @@
 #include <mali_kbase_pm.h>
 #include <backend/gpu/mali_kbase_pm_internal.h>
 #include <mali_kbase_reset_gpu.h>
+#include <mali_kbase_io.h>
 
 #if MALI_USE_CSF && defined CONFIG_MALI_DEBUG
 #include <csf/mali_kbase_csf_firmware.h>
@@ -121,7 +122,7 @@ void kbase_pm_update_active(struct kbase_device *kbdev)
 		/* Power on the GPU and any cores requested by the policy */
 		if (!pm->backend.invoke_poweroff_wait_wq_when_l2_off &&
 		    pm->backend.poweroff_wait_in_progress) {
-			KBASE_DEBUG_ASSERT(kbdev->pm.backend.gpu_powered);
+			KBASE_DEBUG_ASSERT(kbase_io_is_gpu_powered(kbdev));
 			pm->backend.poweron_required = true;
 			spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 		} else {
@@ -136,7 +137,7 @@ void kbase_pm_update_active(struct kbase_device *kbdev)
 			pm->backend.poweroff_wait_in_progress = false;
 			pm->backend.l2_desired = true;
 #if MALI_USE_CSF
-			pm->backend.mcu_desired = pm->backend.mcu_poweron_required;
+			pm->backend.mcu_desired = true;
 #endif
 
 			spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
@@ -151,7 +152,7 @@ void kbase_pm_update_active(struct kbase_device *kbdev)
 		pm->backend.poweron_required = false;
 
 		/* Request power off */
-		if (pm->backend.gpu_powered) {
+		if (kbase_io_is_gpu_powered(kbdev)) {
 			spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
 			/* Power off the GPU immediately */

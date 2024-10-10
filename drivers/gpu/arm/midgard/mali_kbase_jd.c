@@ -626,63 +626,7 @@ bool kbase_jd_done_nolock(struct kbase_jd_atom *katom, bool post_immediately)
 	KBASE_TLSTREAM_TL_JD_DONE_NO_LOCK_END(kctx->kbdev, katom);
 	return need_to_try_schedule_context;
 }
-
 KBASE_EXPORT_TEST_API(kbase_jd_done_nolock);
-
-#if IS_ENABLED(CONFIG_GPU_TRACEPOINTS)
-enum {
-	CORE_REQ_DEP_ONLY,
-	CORE_REQ_SOFT,
-	CORE_REQ_COMPUTE,
-	CORE_REQ_FRAGMENT,
-	CORE_REQ_VERTEX,
-	CORE_REQ_TILER,
-	CORE_REQ_FRAGMENT_VERTEX,
-	CORE_REQ_FRAGMENT_VERTEX_TILER,
-	CORE_REQ_FRAGMENT_TILER,
-	CORE_REQ_VERTEX_TILER,
-	CORE_REQ_UNKNOWN
-};
-static const char *const core_req_strings[] = {
-	"Dependency Only Job",
-	"Soft Job",
-	"Compute Shader Job",
-	"Fragment Shader Job",
-	"Vertex/Geometry Shader Job",
-	"Tiler Job",
-	"Fragment Shader + Vertex/Geometry Shader Job",
-	"Fragment Shader + Vertex/Geometry Shader Job + Tiler Job",
-	"Fragment Shader + Tiler Job",
-	"Vertex/Geometry Shader Job + Tiler Job",
-	"Unknown Job"
-};
-static const char *kbasep_map_core_reqs_to_string(base_jd_core_req core_req)
-{
-	if (core_req & BASE_JD_REQ_SOFT_JOB)
-		return core_req_strings[CORE_REQ_SOFT];
-	if (core_req & BASE_JD_REQ_ONLY_COMPUTE)
-		return core_req_strings[CORE_REQ_COMPUTE];
-	switch (core_req & (BASE_JD_REQ_FS | BASE_JD_REQ_CS | BASE_JD_REQ_T)) {
-	case BASE_JD_REQ_DEP:
-		return core_req_strings[CORE_REQ_DEP_ONLY];
-	case BASE_JD_REQ_FS:
-		return core_req_strings[CORE_REQ_FRAGMENT];
-	case BASE_JD_REQ_CS:
-		return core_req_strings[CORE_REQ_VERTEX];
-	case BASE_JD_REQ_T:
-		return core_req_strings[CORE_REQ_TILER];
-	case (BASE_JD_REQ_FS | BASE_JD_REQ_CS):
-		return core_req_strings[CORE_REQ_FRAGMENT_VERTEX];
-	case (BASE_JD_REQ_FS | BASE_JD_REQ_T):
-		return core_req_strings[CORE_REQ_FRAGMENT_TILER];
-	case (BASE_JD_REQ_CS | BASE_JD_REQ_T):
-		return core_req_strings[CORE_REQ_VERTEX_TILER];
-	case (BASE_JD_REQ_FS | BASE_JD_REQ_CS | BASE_JD_REQ_T):
-		return core_req_strings[CORE_REQ_FRAGMENT_VERTEX_TILER];
-	}
-	return core_req_strings[CORE_REQ_UNKNOWN];
-}
-#endif
 
 /* Trace an atom submission. */
 static void jd_trace_atom_submit(struct kbase_context *const kctx,
@@ -951,12 +895,6 @@ static bool jd_submit_atom(struct kbase_context *const kctx,
 			return kbase_jd_done_nolock(katom, true);
 		}
 	}
-
-#if IS_ENABLED(CONFIG_GPU_TRACEPOINTS)
-	katom->work_id = atomic_inc_return(&jctx->work_id);
-	trace_gpu_job_enqueue(kctx->id, katom->work_id,
-			      kbasep_map_core_reqs_to_string(katom->core_req));
-#endif
 
 	if (queued && !IS_GPU_ATOM(katom))
 		return false;

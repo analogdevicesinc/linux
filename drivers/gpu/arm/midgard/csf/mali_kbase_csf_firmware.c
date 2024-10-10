@@ -40,6 +40,7 @@
 #include <csf/ipa_control/mali_kbase_csf_ipa_control.h>
 #include <csf/mali_kbase_csf_registers.h>
 #include <csf/mali_kbase_csf_fw_io.h>
+#include <mali_kbase_io.h>
 #include <linux/list.h>
 #include <linux/slab.h>
 #include <linux/firmware.h>
@@ -274,6 +275,74 @@ static int setup_shared_iface_static_region(struct kbase_device *kbdev)
 	return ret;
 }
 
+static u32 get_global_ack_state(struct kbase_csf_fw_io *fw_io)
+{
+	u32 const glb_ack = kbase_csf_fw_io_global_read(fw_io, GLB_ACK);
+
+	return GLB_ACK_STATE_GET(glb_ack);
+}
+
+#if IS_ENABLED(CONFIG_MALI_DEBUG)
+static u32 get_global_req_state(struct kbase_csf_fw_io *fw_io)
+{
+	u32 const glb_req = kbase_csf_fw_io_global_input_read(fw_io, GLB_REQ);
+
+	return GLB_REQ_STATE_GET(glb_req);
+}
+#endif
+
+static void check_active_state(struct kbase_csf_fw_io *fw_io, u32 new_glb_req_state)
+{
+#if IS_ENABLED(CONFIG_MALI_DEBUG)
+	struct kbase_device *const kbdev = fw_io->kbdev;
+	u32 const glb_req_state = get_global_req_state(fw_io);
+	u32 const glb_ack_state = get_global_ack_state(fw_io);
+
+	if (glb_req_state != GLB_REQ_STATE_ACTIVE)
+		dev_warn(kbdev->dev, "GLB_REQ_STATE (%u) not as active when changing state to %u",
+			 glb_req_state, new_glb_req_state);
+
+	if (glb_ack_state != GLB_ACK_STATE_ACTIVE)
+		dev_warn(kbdev->dev, "GLB_ACK_STATE (%u) not as active when changing state to %u",
+			 glb_ack_state, new_glb_req_state);
+#endif
+}
+
+static void set_global_req_state(struct kbase_csf_fw_io *fw_io, u32 const glb_req_state)
+{
+	struct kbase_device *const kbdev = fw_io->kbdev;
+	u32 glb_req;
+
+	lockdep_assert_held(&kbdev->hwaccess_lock);
+	kbase_csf_fw_io_assert_opened(fw_io);
+
+	glb_req = kbase_csf_fw_io_global_input_read(fw_io, GLB_REQ);
+	glb_req = GLB_REQ_STATE_SET(glb_req, glb_req_state);
+	kbase_csf_fw_io_global_write(fw_io, GLB_REQ, glb_req);
+}
+
+static void set_global_req_state_as_sleep(struct kbase_csf_fw_io *fw_io)
+{
+	struct kbase_device *const kbdev = fw_io->kbdev;
+
+	lockdep_assert_held(&kbdev->hwaccess_lock);
+	kbase_csf_fw_io_assert_opened(fw_io);
+
+	check_active_state(fw_io, GLB_REQ_STATE_SLEEP);
+	set_global_req_state(fw_io, GLB_REQ_STATE_SLEEP);
+}
+
+static void set_global_req_state_as_halt(struct kbase_csf_fw_io *fw_io)
+{
+	struct kbase_device *const kbdev = fw_io->kbdev;
+
+	lockdep_assert_held(&kbdev->hwaccess_lock);
+	kbase_csf_fw_io_assert_opened(fw_io);
+
+	check_active_state(fw_io, GLB_REQ_STATE_HALT);
+	set_global_req_state(fw_io, GLB_REQ_STATE_HALT);
+}
+
 
 void kbase_csf_firmware_disable_mcu(struct kbase_device *kbdev)
 {
@@ -385,7 +454,7 @@ static void unload_mmu_tables(struct kbase_device *kbdev)
 
 	mutex_lock(&kbdev->mmu_hw_mutex);
 	spin_lock_irqsave(&kbdev->hwaccess_lock, irq_flags);
-	if (kbdev->pm.backend.gpu_powered)
+	if (kbase_io_is_gpu_powered(kbdev))
 		kbase_mmu_disable_as(kbdev, MCU_AS_NR);
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, irq_flags);
 	mutex_unlock(&kbdev->mmu_hw_mutex);
@@ -1300,9 +1369,9 @@ static int parse_capabilities(struct kbase_device *kbdev)
 
 	iface->group_num = shared_info[GLB_GROUP_NUM / 4];
 
-	if (iface->group_num < MIN_SUPPORTED_CSGS || iface->group_num > MAX_SUPPORTED_CSGS) {
-		dev_err(kbdev->dev, "Interface containing %u CSGs outside of range %u-%u",
-			iface->group_num, MIN_SUPPORTED_CSGS, MAX_SUPPORTED_CSGS);
+	if ((iface->group_num == 0) || (iface->group_num > MAX_SUPPORTED_CSGS)) {
+		dev_err(kbdev->dev, "Invalid number of CSGs (%u), MAX_SUPPORTED_CSGS = %u",
+			iface->group_num, MAX_SUPPORTED_CSGS);
 		return -EINVAL;
 	}
 
@@ -1683,6 +1752,12 @@ static void set_csg_suspend_timeout(struct kbase_device *const kbdev)
 {
 	u32 dur_ms, dur_val;
 	u32 no_modifier = 0;
+	const u32 timeout_ms =
+		(kbdev->gpu_props.impl_tech == THREAD_FEATURES_IMPLEMENTATION_TECHNOLOGY_FPGA) ||
+				(kbdev->gpu_props.impl_tech ==
+				 THREAD_FEATURES_IMPLEMENTATION_TECHNOLOGY_SOFTWARE) ?
+			      CSG_SUSPEND_TIMEOUT_FPGA_MS :
+			      CSG_SUSPEND_TIMEOUT_MS;
 	struct kbase_csf_fw_io *fw_io = &kbdev->csf.fw_io;
 
 	kbase_csf_scheduler_spin_lock_assert_held(kbdev);
@@ -1694,9 +1769,9 @@ static void set_csg_suspend_timeout(struct kbase_device *const kbdev)
 		     dur_ms > CSG_SUSPEND_TIMEOUT_FIRMWARE_MS_MAX +
 				      CSG_SUSPEND_TIMEOUT_HOST_ADDED_MS)) {
 		dev_err(kbdev->dev, "Unexpected CSG suspend timeout: %ums, default to: %ums",
-			dur_ms, CSG_SUSPEND_TIMEOUT_MS);
-		kbdev->csf.csg_suspend_timeout_ms = CSG_SUSPEND_TIMEOUT_MS;
-		dur_ms = CSG_SUSPEND_TIMEOUT_MS;
+			dur_ms, timeout_ms);
+		kbdev->csf.csg_suspend_timeout_ms = timeout_ms;
+		dur_ms = timeout_ms;
 	}
 	dur_ms = dur_ms - CSG_SUSPEND_TIMEOUT_HOST_ADDED_MS;
 
@@ -1812,7 +1887,8 @@ static void global_init(struct kbase_device *const kbdev, u64 core_mask)
 		GLB_ACK_IRQ_MASK_PROTM_EXIT_MASK | GLB_ACK_IRQ_MASK_FIRMWARE_CONFIG_UPDATE_MASK |
 		GLB_ACK_IRQ_MASK_CFG_PWROFF_TIMER_MASK | GLB_ACK_IRQ_MASK_IDLE_EVENT_MASK |
 		GLB_REQ_DEBUG_CSF_REQ_MASK | GLB_ACK_IRQ_MASK_IDLE_ENABLE_MASK |
-		GLB_ACK_IRQ_MASK_CFG_EVICTION_TIMER_MASK | GLB_ACK_IRQ_MASK_ITER_TRACE_ENABLE_MASK;
+		GLB_ACK_IRQ_MASK_CFG_EVICTION_TIMER_MASK | GLB_ACK_IRQ_MASK_ITER_TRACE_ENABLE_MASK |
+		GLB_ACK_FATAL_MASK;
 	bool const fw_soi_allowed = kbase_pm_fw_sleep_on_idle_allowed(kbdev);
 	struct kbase_csf_fw_io *fw_io = &kbdev->csf.fw_io;
 	unsigned long flags, fw_io_flags;
@@ -1854,6 +1930,8 @@ static void global_init(struct kbase_device *const kbdev, u64 core_mask)
 	 */
 	set_csg_suspend_timeout(kbdev);
 
+	if (kbdev->pm.backend.has_host_pwr_iface)
+		ack_irq_mask |= GLB_ACK_IRQ_MASK_STATE_MASK;
 	/* Unmask the interrupts */
 	kbase_csf_fw_io_global_write(fw_io, GLB_ACK_IRQ_MASK, ack_irq_mask);
 
@@ -1939,6 +2017,8 @@ void kbase_csf_firmware_update_core_attr(struct kbase_device *kbdev, bool update
 	struct kbase_csf_fw_io *fw_io = &kbdev->csf.fw_io;
 	unsigned long flags, fw_io_flags;
 
+	if (kbase_hw_has_feature(kbdev, KBASE_HW_FEATURE_GOV_CORE_MASK_SUPPORT))
+		core_mask = U64_MAX;
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
@@ -2030,6 +2110,14 @@ void kbase_csf_firmware_reload_completed(struct kbase_device *kbdev)
 	if (unlikely(!kbdev->csf.firmware_inited))
 		return;
 
+	if (IS_ENABLED(CONFIG_MALI_DEBUG) && kbdev->pm.backend.has_host_pwr_iface) {
+		const u32 glb_ack_state = get_global_ack_state(&kbdev->csf.fw_io);
+
+		if (glb_ack_state != GLB_ACK_STATE_ACTIVE)
+			dev_warn(kbdev->dev,
+				 "Active state check failed on firmware reboot, state set as %u",
+				 glb_ack_state);
+	}
 
 	/* Check firmware rebooted properly: we do not expect
 	 * the version number to change with a running reboot.
@@ -2040,8 +2128,6 @@ void kbase_csf_firmware_reload_completed(struct kbase_device *kbdev)
 		dev_err(kbdev->dev, "Version check failed in firmware reboot.");
 
 	KBASE_KTRACE_ADD(kbdev, CSF_FIRMWARE_REBOOT, NULL, 0u);
-
-
 	/* Tell MCU state machine to transit to next state */
 	kbdev->csf.firmware_reloaded = true;
 	kbase_pm_update_state(kbdev);
@@ -2257,6 +2343,7 @@ u64 kbase_csf_firmware_get_mcu_core_pwroff_time(struct kbase_device *kbdev)
 
 	return pwroff_ns;
 }
+KBASE_EXPORT_TEST_API(kbase_csf_firmware_get_mcu_core_pwroff_time);
 
 u32 kbase_csf_firmware_set_mcu_core_pwroff_time(struct kbase_device *kbdev, u64 dur_ns)
 {
@@ -2321,6 +2408,12 @@ void kbase_csf_firmware_early_term(struct kbase_device *kbdev)
 int kbase_csf_firmware_late_init(struct kbase_device *kbdev)
 {
 	u32 no_modifier = 0;
+	const u32 timeout_ms =
+		(kbdev->gpu_props.impl_tech == THREAD_FEATURES_IMPLEMENTATION_TECHNOLOGY_FPGA) ||
+				(kbdev->gpu_props.impl_tech ==
+				 THREAD_FEATURES_IMPLEMENTATION_TECHNOLOGY_SOFTWARE) ?
+			      CSG_SUSPEND_TIMEOUT_FPGA_MS :
+			      CSG_SUSPEND_TIMEOUT_MS;
 
 	kbdev->csf.gpu_idle_hysteresis_ns = FIRMWARE_IDLE_HYSTERESIS_TIME_NS;
 
@@ -2333,7 +2426,7 @@ int kbase_csf_firmware_late_init(struct kbase_device *kbdev)
 		convert_dur_to_idle_count(kbdev, kbdev->csf.gpu_idle_hysteresis_ns, &no_modifier);
 	kbdev->csf.gpu_idle_dur_count_no_modifier = no_modifier;
 
-	kbdev->csf.csg_suspend_timeout_ms = CSG_SUSPEND_TIMEOUT_MS;
+	kbdev->csf.csg_suspend_timeout_ms = timeout_ms;
 
 	return 0;
 }
@@ -2856,7 +2949,6 @@ int kbase_csf_firmware_ping_wait(struct kbase_device *const kbdev, unsigned int 
 						    wait_timeout_ms);
 }
 
-
 int kbase_csf_firmware_set_timeout(struct kbase_device *const kbdev, u64 const timeout)
 {
 	struct kbase_csf_fw_io *fw_io = &kbdev->csf.fw_io;
@@ -2970,6 +3062,9 @@ void kbase_csf_firmware_trigger_mcu_halt(struct kbase_device *kbdev)
 
 	KBASE_TLSTREAM_TL_KBASE_CSFFW_FW_REQUEST_HALT(kbdev, kbase_backend_get_cycle_cnt(kbdev));
 
+	if (kbdev->pm.backend.has_host_pwr_iface)
+		set_global_req_state_as_halt(fw_io);
+	else
 		set_global_request(fw_io, GLB_REQ_HALT_MASK);
 	dev_dbg(kbdev->dev, "Sending request to HALT MCU");
 	kbase_csf_ring_doorbell(kbdev, CSF_KERNEL_DOORBELL_NR);
@@ -2985,7 +3080,10 @@ void kbase_csf_firmware_enable_mcu(struct kbase_device *kbdev)
 	unsigned long fw_io_flags;
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
-	{
+	if (kbdev->pm.backend.has_host_pwr_iface)
+		/* Set the state to ACTIVE before triggering the boot of MCU firmware */
+		kbase_csf_firmware_set_glb_state_active(kbdev);
+	else {
 		/* Clear the HALT bit before triggering the boot of MCU firmware,
 		 * regardless of FW I/O status.
 		 */
@@ -3009,6 +3107,9 @@ void kbase_csf_firmware_trigger_mcu_sleep(struct kbase_device *kbdev)
 
 	KBASE_TLSTREAM_TL_KBASE_CSFFW_FW_REQUEST_SLEEP(kbdev, kbase_backend_get_cycle_cnt(kbdev));
 
+	if (kbdev->pm.backend.has_host_pwr_iface)
+		set_global_req_state_as_sleep(fw_io);
+	else
 		set_global_request(fw_io, GLB_REQ_SLEEP_MASK);
 	dev_dbg(kbdev->dev, "Sending sleep request to MCU");
 	kbase_csf_ring_doorbell(kbdev, CSF_KERNEL_DOORBELL_NR);
@@ -3030,22 +3131,38 @@ bool kbase_csf_firmware_is_mcu_in_sleep(struct kbase_device *kbdev)
 	if (!db_notif_disabled || !kbase_csf_firmware_mcu_halted(kbdev))
 		return false;
 
+	if (kbdev->pm.backend.has_host_pwr_iface)
+		return (get_global_ack_state(fw_io) == GLB_ACK_STATE_SLEEP);
 
 	return global_request_complete(fw_io, GLB_REQ_SLEEP_MASK);
 }
 KBASE_EXPORT_TEST_API(kbase_csf_firmware_is_mcu_in_sleep);
 
-
-#endif
+#endif /* KBASE_PM_RUNTIME */
 
 bool kbase_csf_firmware_mcu_halt_req_complete(struct kbase_device *kbdev)
 {
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
+	if (kbdev->pm.backend.has_host_pwr_iface)
+		return (get_global_ack_state(&kbdev->csf.fw_io) == GLB_ACK_STATE_HALT) &&
+		       kbase_csf_firmware_mcu_halted(kbdev);
 
 	return kbase_csf_firmware_mcu_halted(kbdev);
 }
 
+void kbase_csf_firmware_set_glb_state_active(struct kbase_device *kbdev)
+{
+	struct kbase_csf_fw_io *fw_io = &kbdev->csf.fw_io;
+	unsigned long fw_io_flags;
+
+	lockdep_assert_held(&kbdev->hwaccess_lock);
+
+	/* Set Active state regardless of FW I/O status */
+	kbase_csf_fw_io_open_force(fw_io, &fw_io_flags);
+	set_global_req_state(fw_io, GLB_REQ_STATE_ACTIVE);
+	kbase_csf_fw_io_close(fw_io, fw_io_flags);
+}
 
 int kbase_csf_trigger_firmware_config_update(struct kbase_device *kbdev)
 {
@@ -3316,8 +3433,12 @@ void kbase_csf_firmware_soi_update(struct kbase_device *kbdev)
 
 	kbase_csf_scheduler_lock(kbdev);
 
-	if (unlikely(scheduler->pm_active_count > 1))
+	mutex_lock(&kbdev->pm.lock);
+	if (unlikely(kbdev->pm.active_count > 1)) {
+		mutex_unlock(&kbdev->pm.lock);
 		goto out_unlock_scheduler_lock;
+	}
+	mutex_unlock(&kbdev->pm.lock);
 
 	if ((scheduler->state == SCHED_SUSPENDED) || (scheduler->state == SCHED_SLEEPING))
 		goto out_unlock_scheduler_lock;

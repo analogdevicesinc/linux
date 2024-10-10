@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2014-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -20,12 +20,113 @@
  */
 
 #include "mali_kbase.h"
-#include "mali_kbase_regs_history_debugfs.h"
+#include "mali_kbase_io.h"
+#include <mali_kbase_linux.h>
+#include <hw_access/mali_kbase_hw_access.h>
+#include <linux/debugfs.h>
+
+/**
+ * struct kbase_io - Manager of kbase input/output interface.
+ *
+ * @status: Internal status of the GPU.
+ * @kbdev: Pointer to the instance of a GPU platform device.
+ */
+struct kbase_io {
+	DECLARE_BITMAP(status, KBASE_IO_STATUS_NUM_BITS);
+	struct kbase_device *kbdev;
+};
+
+/**
+ * kbase_io_is_gpu_removed() - Has the GPU been removed.
+ * @kbdev:    Kbase device pointer
+ *
+ * When Kbase takes too long to give up the GPU, the Arbiter
+ * can remove it.  This will then be followed by a GPU lost event.
+ * This function will return true if the GPU has been removed.
+ * When this happens register reads will be zero. A zero GPU_ID is
+ * invalid so this is used to detect when GPU is removed.
+ *
+ * Return: True if GPU removed
+ */
+static bool kbase_io_is_gpu_removed(struct kbase_device *kbdev)
+{
+	if (!kbase_has_arbiter(kbdev))
+		return false;
+	return (KBASE_REG_READ(kbdev, GPU_CONTROL_ENUM(GPU_ID)) == 0);
+}
+
+void kbase_io_set_status(struct kbase_io *io, enum kbase_io_status_bits status_bit)
+{
+	set_bit(status_bit, io->status);
+}
+KBASE_EXPORT_TEST_API(kbase_io_set_status);
+
+void kbase_io_clear_status(struct kbase_io *io, enum kbase_io_status_bits status_bit)
+{
+	clear_bit(status_bit, io->status);
+}
+KBASE_EXPORT_TEST_API(kbase_io_clear_status);
+
+bool kbase_io_test_status(struct kbase_device *kbdev, enum kbase_io_status_bits status_bit)
+{
+	return test_bit(status_bit, kbdev->io->status);
+}
+KBASE_EXPORT_TEST_API(kbase_io_test_status);
+
+bool kbase_io_is_gpu_powered(struct kbase_device *kbdev)
+{
+	return !test_bit(KBASE_IO_STATUS_GPU_OFF, kbdev->io->status);
+}
+KBASE_EXPORT_TEST_API(kbase_io_is_gpu_powered);
+
+bool kbase_io_is_gpu_lost(struct kbase_device *kbdev)
+{
+	return (kbdev->arb.arb_if && test_bit(KBASE_IO_STATUS_GPU_LOST, kbdev->io->status));
+}
+KBASE_EXPORT_TEST_API(kbase_io_is_gpu_lost);
+
+bool kbase_io_has_gpu(struct kbase_device *kbdev)
+{
+	if (!bitmap_empty(kbdev->io->status, KBASE_IO_STATUS_NUM_BITS))
+		return false;
+
+	if (kbase_io_is_gpu_removed(kbdev)) {
+		kbase_io_set_status(kbdev->io, KBASE_IO_STATUS_GPU_LOST);
+		return false;
+	}
+
+	return true;
+}
+KBASE_EXPORT_TEST_API(kbase_io_has_gpu);
+
+int __must_check kbase_io_init(struct kbase_device *kbdev)
+{
+	struct kbase_io *io = NULL;
+
+	io = kzalloc(sizeof(*io), GFP_KERNEL);
+	if (!io)
+		return -ENOMEM;
+
+	bitmap_zero(io->status, KBASE_IO_STATUS_NUM_BITS);
+	kbase_io_set_status(io, KBASE_IO_STATUS_GPU_OFF);
+	kbdev->io = io;
+	io->kbdev = kbdev;
+
+	return 0;
+}
+KBASE_EXPORT_TEST_API(kbase_io_init);
+
+void kbase_io_term(struct kbase_device *kbdev)
+{
+	if (!kbdev->io)
+		return;
+
+	kfree(kbdev->io);
+	kbdev->io = NULL;
+}
+KBASE_EXPORT_TEST_API(kbase_io_term);
 
 #if defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_NO_MALI)
-
-#include <linux/debugfs.h>
-#include <linux/version_compat_defs.h>
 
 /**
  * kbase_io_history_resize - resize the register access history buffer.

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -149,7 +149,7 @@ int kbasep_pm_metrics_init(struct kbase_device *kbdev)
 	 * is skipped for Juno platforms that have timing problems.
 	 */
 	kbdev->pm.backend.metrics.skip_gpu_active_sanity_check =
-		of_machine_is_compatible("arm,juno");
+		(kbdev->gpu_props.impl_tech >= THREAD_FEATURES_IMPLEMENTATION_TECHNOLOGY_FPGA);
 #endif
 
 	return 0;

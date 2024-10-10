@@ -782,6 +782,9 @@ struct kbase_ioctl_tlstream_stats {
 #define KBASE_GPUPROP_RAW_THREAD_TLS_ALLOC 83
 #define KBASE_GPUPROP_TLS_ALLOC 84
 #define KBASE_GPUPROP_RAW_GPU_FEATURES 85
+#define KBASE_GPUPROP_RAW_BASE_PRESENT 86
+#define KBASE_GPUPROP_RAW_NEURAL_PRESENT 87
+
 #ifdef __cplusplus
 }
 #endif

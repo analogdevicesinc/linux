@@ -109,11 +109,27 @@ void kbase_mmu_report_mcu_as_fault_and_reset(struct kbase_device *kbdev, struct 
 			"source id 0x%X (core_id:utlb:IR 0x%X:0x%X:0x%X): %s, %s\n",
 			fault->addr, fault->status, exception_type,
 			kbase_gpu_exception_name(exception_type), access_type,
-			kbase_gpu_access_type_name(fault->status), source_id,
+			kbase_gpu_access_type_name(kbdev, fault->status), source_id,
 			FAULT_SOURCE_ID_CORE_ID_GET(source_id),
 			FAULT_SOURCE_ID_UTLB_ID_GET(source_id),
 			fault_source_id_internal_requester_get(kbdev, source_id),
 			fault_source_id_core_type_description_get(kbdev, source_id),
+			fault_source_id_internal_requester_get_str(kbdev, source_id, access_type));
+	} else {
+		dev_err(kbdev->dev,
+			"Unexpected Page fault in firmware address space at VA 0x%016llX\n"
+			"raw fault status: 0x%X\n"
+			"exception type 0x%X: %s\n"
+			"access type 0x%X: %s\n"
+			"source id 0x%X (type:idx:IR 0x%X:0x%X:0x%X): %s %u, %s\n",
+			fault->addr, fault->status, exception_type,
+			kbase_gpu_exception_name(exception_type), access_type,
+			kbase_gpu_access_type_name(kbdev, fault->status), source_id,
+			FAULT_SOURCE_ID_CORE_TYPE_GET(source_id),
+			FAULT_SOURCE_ID_CORE_INDEX_GET(source_id),
+			fault_source_id_internal_requester_get(kbdev, source_id),
+			fault_source_id_core_type_description_get(kbdev, source_id),
+			FAULT_SOURCE_ID_CORE_INDEX_GET(source_id),
 			fault_source_id_internal_requester_get_str(kbdev, source_id, access_type));
 	}
 
@@ -145,6 +161,7 @@ void kbase_gpu_report_bus_fault_and_kill(struct kbase_context *kctx, struct kbas
 	unsigned int as_no = as->number;
 	unsigned long flags;
 	const uintptr_t fault_addr = fault->addr;
+	int err;
 
 	/* terminal fault, print info about the fault */
 	if (kbdev->gpu_props.gpu_id.product_model < GPU_ID_MODEL_MAKE(14, 0)) {
@@ -158,13 +175,49 @@ void kbase_gpu_report_bus_fault_and_kill(struct kbase_context *kctx, struct kbas
 			"pid: %d\n",
 			as_no, (void *)fault_addr, addr_valid, status, exception_type,
 			kbase_gpu_exception_name(exception_type), access_type,
-			kbase_gpu_access_type_name(access_type), source_id,
+			kbase_gpu_access_type_name(kbdev, access_type), source_id,
 			FAULT_SOURCE_ID_CORE_ID_GET(source_id),
 			FAULT_SOURCE_ID_UTLB_ID_GET(source_id),
 			fault_source_id_internal_requester_get(kbdev, source_id),
 			fault_source_id_core_type_description_get(kbdev, source_id),
 			fault_source_id_internal_requester_get_str(kbdev, source_id, access_type),
 			kctx->pid);
+	} else {
+		dev_err(kbdev->dev,
+			"GPU bus fault in AS%u at PA %pK\n"
+			"PA_VALID: %s\n"
+			"raw fault status: 0x%X\n"
+			"exception type 0x%X: %s\n"
+			"access type 0x%X: %s\n"
+			"source id 0x%X (type:idx:IR 0x%X:0x%X:0x%X): %s %u, %s\n"
+			"pid: %d\n",
+			as_no, (void *)fault_addr, addr_valid, status, exception_type,
+			kbase_gpu_exception_name(exception_type), access_type,
+			kbase_gpu_access_type_name(kbdev, access_type), source_id,
+			FAULT_SOURCE_ID_CORE_TYPE_GET(source_id),
+			FAULT_SOURCE_ID_CORE_INDEX_GET(source_id),
+			fault_source_id_internal_requester_get(kbdev, source_id),
+			fault_source_id_core_type_description_get(kbdev, source_id),
+			FAULT_SOURCE_ID_CORE_INDEX_GET(source_id),
+			fault_source_id_internal_requester_get_str(kbdev, source_id, access_type),
+			kctx->pid);
+	}
+
+	err = kbase_reset_gpu_try_prevent(kbdev);
+	if (!err) {
+		/* Switching to UNMAPPED mode will make the firmware recovered from a faulty
+		 * state and become responsive. Just after switching to UNMAPPED mode, if this
+		 * worker thread gets prempted then it wouldn't yet complete terminating affected
+		 * CSG groups and notifying user space of the fault. During the preemption period
+		 * if other thread tries to create or terminate a CSG group for the affected
+		 * context it could end up with a problem racing on this faulty context between
+		 * this worker thread and other thread.
+		 *
+		 * Holding 'csf.lock' in this worker thread before switching UNMAPPED mode will
+		 * hold other threads until the fault handling is done by this worker thread, which
+		 * will prevent the racing problem.
+		 */
+		mutex_lock(&kctx->csf.lock);
 	}
 
 	/* AS transaction begin */
@@ -173,13 +226,18 @@ void kbase_gpu_report_bus_fault_and_kill(struct kbase_context *kctx, struct kbas
 	kbase_ctx_flag_set(kctx, KCTX_AS_DISABLED_ON_FAULT);
 	spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
 
-	/* Switching to UNMAPPED mode above would have enabled the firmware to
-	 * recover from the fault (if the memory access was made by firmware)
-	 * and it can then respond to CSG termination requests to be sent now.
-	 * All GPU command queue groups associated with the context would be
-	 * affected as they use the same GPU address space.
-	 */
-	kbase_csf_ctx_handle_fault(kctx, fault, false);
+	if (!err) {
+		/* Switching to UNMAPPED mode above would have enabled the firmware to
+		 * recover from the fault (if the memory access was made by firmware)
+		 * and it can then respond to CSG termination requests to be sent now.
+		 * All GPU command queue groups associated with the context would be
+		 * affected as they use the same GPU address space.
+		 */
+		kbase_csf_ctx_handle_fault(kctx, fault, false);
+		mutex_unlock(&kctx->csf.lock);
+
+		kbase_reset_gpu_allow(kbdev);
+	}
 
 	/* Now clear the GPU fault */
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
@@ -197,6 +255,7 @@ void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx, struct kbase_as
 {
 	unsigned long flags;
 	struct kbase_device *kbdev = kctx->kbdev;
+	int err;
 
 	/* Make sure the context was active */
 	if (WARN_ON(atomic_read(&kctx->refcount) <= 0))
@@ -222,7 +281,7 @@ void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx, struct kbase_as
 				"pid: %d\n",
 				as_no, fault->addr, reason_str, status, exception_type,
 				kbase_gpu_exception_name(exception_type), access_type,
-				kbase_gpu_access_type_name(status), source_id,
+				kbase_gpu_access_type_name(kbdev, status), source_id,
 				FAULT_SOURCE_ID_CORE_ID_GET(source_id),
 				FAULT_SOURCE_ID_UTLB_ID_GET(source_id),
 				fault_source_id_internal_requester_get(kbdev, source_id),
@@ -230,7 +289,44 @@ void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx, struct kbase_as
 				fault_source_id_internal_requester_get_str(kbdev, source_id,
 									   access_type),
 				kctx->pid);
+		} else {
+			dev_err(kbdev->dev,
+				"Unhandled Page fault in AS%u at VA 0x%016llX\n"
+				"Reason: %s\n"
+				"raw fault status: 0x%X\n"
+				"exception type 0x%X: %s\n"
+				"access type 0x%X: %s\n"
+				"source id 0x%X (type:idx:IR 0x%X:0x%X:0x%X): %s %u, %s\n"
+				"pid: %d\n",
+				as_no, fault->addr, reason_str, status, exception_type,
+				kbase_gpu_exception_name(exception_type), access_type,
+				kbase_gpu_access_type_name(kbdev, status), source_id,
+				FAULT_SOURCE_ID_CORE_TYPE_GET(source_id),
+				FAULT_SOURCE_ID_CORE_INDEX_GET(source_id),
+				fault_source_id_internal_requester_get(kbdev, source_id),
+				fault_source_id_core_type_description_get(kbdev, source_id),
+				FAULT_SOURCE_ID_CORE_INDEX_GET(source_id),
+				fault_source_id_internal_requester_get_str(kbdev, source_id,
+									   access_type),
+				kctx->pid);
 		}
+	}
+
+	err = kbase_reset_gpu_try_prevent(kbdev);
+	if (!err) {
+		/* Switching to UNMAPPED mode will make the firmware recovered from a faulty
+		 * state and become responsive. Just after switching to UNMAPPED mode, if this
+		 * worker thread gets prempted then it wouldn't yet complete terminating affected
+		 * CSG groups and notifying user space of the fault. During the preemption period
+		 * if other thread tries to create or terminate a CSG group for the affected
+		 * context it could end up with a problem racing on this faulty context between
+		 * this worker thread and other thread.
+		 *
+		 * Holding 'csf.lock' in this worker thread before switching UNMAPPED mode will
+		 * hold other threads until the fault handling is done by this worker thread, which
+		 * will prevent the racing problem.
+		 */
+		mutex_lock(&kctx->csf.lock);
 	}
 
 	/* AS transaction begin */
@@ -255,13 +351,18 @@ void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx, struct kbase_as
 
 	/* AS transaction end */
 
-	/* Switching to UNMAPPED mode above would have enabled the firmware to
-	 * recover from the fault (if the memory access was made by firmware)
-	 * and it can then respond to CSG termination requests to be sent now.
-	 * All GPU command queue groups associated with the context would be
-	 * affected as they use the same GPU address space.
-	 */
-	kbase_csf_ctx_handle_fault(kctx, fault, false);
+	if (!err) {
+		/* Switching to UNMAPPED mode above would have enabled the firmware to
+		 * recover from the fault (if the memory access was made by firmware)
+		 * and it can then respond to CSG termination requests to be sent now.
+		 * All GPU command queue groups associated with the context would be
+		 * affected as they use the same GPU address space.
+		 */
+		kbase_csf_ctx_handle_fault(kctx, fault, false);
+		mutex_unlock(&kctx->csf.lock);
+
+		kbase_reset_gpu_allow(kbdev);
+	}
 
 	/* Clear down the fault */
 	kbase_mmu_hw_clear_fault(kbdev, as, KBASE_MMU_FAULT_TYPE_PAGE_UNEXPECTED);
@@ -474,9 +575,19 @@ static void kbase_mmu_gpu_fault_worker(struct work_struct *data)
 		 status, kbase_gpu_exception_name(GPU_FAULTSTATUS_EXCEPTION_TYPE_GET(status)),
 		 as_nr, (void *)phys_addr, as_valid ? "true" : "false",
 		 status & GPU_FAULTSTATUS_ADDRESS_VALID_MASK ? "true" : "false");
-
 	kctx = kbase_ctx_sched_as_to_ctx(kbdev, as_nr);
-	kbase_csf_ctx_handle_fault(kctx, fault, false);
+	if (!kctx) {
+		atomic_dec(&kbdev->faults_pending);
+		return;
+	}
+	if (!kbase_reset_gpu_try_prevent(kbdev)) {
+		mutex_lock(&kctx->csf.lock);
+		kbase_csf_ctx_handle_fault(kctx, fault, false);
+		mutex_unlock(&kctx->csf.lock);
+
+		kbase_reset_gpu_allow(kbdev);
+	}
+
 	kbase_ctx_sched_release_ctx_lock(kctx);
 
 	/* A work for GPU fault is complete.

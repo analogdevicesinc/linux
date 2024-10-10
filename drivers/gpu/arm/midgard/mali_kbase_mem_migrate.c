@@ -25,47 +25,39 @@
 #include <linux/migrate.h>
 
 #include <mali_kbase.h>
+#include <mali_kbase_mem.h>
 #include <mali_kbase_mem_migrate.h>
 #include <mmu/mali_kbase_mmu.h>
 
 /* Static key used to determine if page migration is enabled or not */
 static DEFINE_STATIC_KEY_FALSE(page_migration_static_key);
 
-/* Global integer used to determine if module parameter value has been
- * provided and if page migration feature is enabled.
- * Feature is disabled on all platforms by default.
- */
-#if !IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT)
-/* If page migration support is explicitly compiled out, there should be no way to change
- * this int. Its value is automatically 0 as a global.
- */
-const int kbase_page_migration_enabled;
-/* module_param is not called so this value cannot be changed at insmod when compiled
- * without support for page migration.
- */
-#else
 /* -1 as default, 0 when manually set as off and 1 when manually set as on */
-int kbase_page_migration_enabled = -1;
+#ifdef __ANDROID_COMMON_KERNEL__
+static int kbase_page_migration_enabled;
+#else
+static int kbase_page_migration_enabled = -1;
+#endif /* __ANDROID_COMMON_KERNEL__ */
 module_param(kbase_page_migration_enabled, int, 0444);
 MODULE_PARM_DESC(kbase_page_migration_enabled,
 		 "Explicitly enable or disable page migration with 1 or 0 respectively.");
-#endif /* !IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT) */
-
-KBASE_EXPORT_TEST_API(kbase_page_migration_enabled);
 
 #if (KERNEL_VERSION(6, 0, 0) <= LINUX_VERSION_CODE)
 static const struct movable_operations movable_ops;
 #endif
+
+bool kbase_is_page_migration_enabled(void)
+{
+	return static_branch_unlikely(&page_migration_static_key);
+}
+KBASE_EXPORT_TEST_API(kbase_is_page_migration_enabled);
 
 bool kbase_alloc_page_metadata(struct kbase_device *kbdev, struct page *p, dma_addr_t dma_addr,
 			       u8 group_id)
 {
 	struct kbase_page_metadata *page_md;
 
-	/* A check for kbase_page_migration_enabled would help here too but it's already being
-	 * checked in the only caller of this function.
-	 */
-	if (!IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT))
+	if (!kbase_is_page_migration_enabled())
 		return false;
 
 	/* Composite large-page is excluded from migration, trigger a warn if a development
@@ -124,8 +116,9 @@ static void kbase_free_page_metadata(struct kbase_device *kbdev, struct page *p,
 	struct kbase_page_metadata *page_md;
 	dma_addr_t dma_addr;
 
-	if (!IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT))
+	if (!kbase_is_page_migration_enabled())
 		return;
+
 	page_md = kbase_page_private(p);
 	if (!page_md)
 		return;
@@ -140,7 +133,6 @@ static void kbase_free_page_metadata(struct kbase_device *kbdev, struct page *p,
 	ClearPagePrivate(p);
 }
 
-#if IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT)
 /* This function is only called when page migration
  * support is not explicitly compiled out.
  */
@@ -172,14 +164,14 @@ static void kbase_free_pages_worker(struct work_struct *work)
 		kbdev->mgm_dev->ops.mgm_free_page(kbdev->mgm_dev, group_id, p, 0);
 	}
 }
-#endif
 
 void kbase_free_page_later(struct kbase_device *kbdev, struct page *p)
 {
 	struct kbase_mem_migrate *mem_migrate = &kbdev->mem_migrate;
 
-	if (!IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT))
+	if (!kbase_is_page_migration_enabled())
 		return;
+
 	spin_lock(&mem_migrate->free_pages_lock);
 	list_add(&p->lru, &mem_migrate->free_pages_list);
 	spin_unlock(&mem_migrate->free_pages_lock);
@@ -198,8 +190,7 @@ void kbase_free_page_later(struct kbase_device *kbdev, struct page *p)
  * the movable property. The meta data attached to the PGD page is transferred to the
  * new (replacement) page.
  *
- * This function returns early with an error if called when not compiled with
- * CONFIG_PAGE_MIGRATION_SUPPORT.
+ * This function returns early with an error if called when page migration is disabled.
  *
  * Return: 0 on migration success, or -EAGAIN for a later retry. Otherwise it's a failure
  *          and the migration is aborted.
@@ -207,14 +198,23 @@ void kbase_free_page_later(struct kbase_device *kbdev, struct page *p)
 static int kbasep_migrate_page_pt_mapped(struct page *old_page, struct page *new_page)
 {
 	struct kbase_page_metadata *page_md = kbase_page_private(old_page);
-	struct kbase_context *kctx = page_md->data.pt_mapped.mmut->kctx;
-	struct kbase_device *kbdev = kctx->kbdev;
-	dma_addr_t old_dma_addr = page_md->dma_addr;
-	dma_addr_t new_dma_addr;
+	struct kbase_context *kctx;
+	struct kbase_device *kbdev;
+	dma_addr_t old_dma_addr, new_dma_addr;
 	int ret;
 
-	if (!IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT))
+	if (!kbase_is_page_migration_enabled())
 		return -EINVAL;
+
+	if (WARN_ONCE(PAGE_STATUS_GET(page_md->status) != PT_MAPPED,
+		      "Page metadata status %d does match expected value %d", page_md->status,
+		      PT_MAPPED))
+		return -EINVAL;
+
+	kctx = page_md->data.pt_mapped.mmut->kctx;
+	kbdev = kctx->kbdev;
+
+	old_dma_addr = page_md->dma_addr;
 
 	/* Create a new dma map for the new page */
 	new_dma_addr = dma_map_page(kbdev->dev, new_page, 0, PAGE_SIZE, DMA_BIDIRECTIONAL);
@@ -271,21 +271,32 @@ static int kbasep_migrate_page_pt_mapped(struct page *old_page, struct page *new
  * page shall be set as movable and not isolated, while the old page shall lose
  * the movable property.
  *
- * This function returns early with an error if called when not compiled with
- * CONFIG_PAGE_MIGRATION_SUPPORT.
+ * This function returns early with an error if called when page migration is disabled.
  */
 static int kbasep_migrate_page_allocated_mapped(struct page *old_page, struct page *new_page)
 {
 	struct kbase_page_metadata *page_md = kbase_page_private(old_page);
-	struct kbase_context *kctx = page_md->data.mapped.mmut->kctx;
+	struct kbase_context *kctx;
+	struct kbase_device *kbdev;
 	dma_addr_t old_dma_addr, new_dma_addr;
 	int ret;
 
-	if (!IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT))
+	if (!kbase_is_page_migration_enabled())
 		return -EINVAL;
+
+	if (WARN_ONCE(PAGE_STATUS_GET(page_md->status) != ALLOCATED_MAPPED,
+		      "Page metadata status %d does match expected value %d", page_md->status,
+		      ALLOCATED_MAPPED))
+		return -EINVAL;
+
+	kctx = page_md->data.mapped.mmut->kctx;
+	kbdev = kctx->kbdev;
+
 	old_dma_addr = page_md->dma_addr;
-	new_dma_addr = dma_map_page(kctx->kbdev->dev, new_page, 0, PAGE_SIZE, DMA_BIDIRECTIONAL);
-	if (dma_mapping_error(kctx->kbdev->dev, new_dma_addr))
+
+	/* Create a new dma map for the new page */
+	new_dma_addr = dma_map_page(kbdev->dev, new_page, 0, PAGE_SIZE, DMA_BIDIRECTIONAL);
+	if (dma_mapping_error(kbdev->dev, new_dma_addr))
 		return -ENOMEM;
 
 	/* Lock context to protect access to array of pages in physical allocation.
@@ -304,7 +315,7 @@ static int kbasep_migrate_page_allocated_mapped(struct page *old_page, struct pa
 					  new_dma_addr);
 
 	if (ret == 0) {
-		dma_unmap_page(kctx->kbdev->dev, old_dma_addr, PAGE_SIZE, DMA_BIDIRECTIONAL);
+		dma_unmap_page(kbdev->dev, old_dma_addr, PAGE_SIZE, DMA_BIDIRECTIONAL);
 
 		SetPagePrivate(new_page);
 		get_page(new_page);
@@ -319,13 +330,13 @@ static int kbasep_migrate_page_allocated_mapped(struct page *old_page, struct pa
 		__SetPageMovable(new_page, &movable_ops);
 		page_md->status = PAGE_MOVABLE_SET(page_md->status);
 #else
-		if (kctx->kbdev->mem_migrate.inode->i_mapping) {
-			__SetPageMovable(new_page, kctx->kbdev->mem_migrate.inode->i_mapping);
+		if (kbdev->mem_migrate.inode->i_mapping) {
+			__SetPageMovable(new_page, kbdev->mem_migrate.inode->i_mapping);
 			page_md->status = PAGE_MOVABLE_SET(page_md->status);
 		}
 #endif
 	} else
-		dma_unmap_page(kctx->kbdev->dev, new_dma_addr, PAGE_SIZE, DMA_BIDIRECTIONAL);
+		dma_unmap_page(kbdev->dev, new_dma_addr, PAGE_SIZE, DMA_BIDIRECTIONAL);
 
 	/* Page fault handler for CPU mapping unblocked. */
 	kbase_gpu_vm_unlock_with_pmode_sync(kctx);
@@ -340,7 +351,7 @@ static int kbasep_migrate_page_allocated_mapped(struct page *old_page, struct pa
  * @mode: LRU Isolation modes.
  *
  * Callback function for Linux to isolate a page and prepare it for migration.
- * This callback is not registered if compiled without CONFIG_PAGE_MIGRATION_SUPPORT.
+ * This callback is not registered if page migration is disabled.
  *
  * Return: true on success, false otherwise.
  */
@@ -350,8 +361,9 @@ static bool kbase_page_isolate(struct page *p, isolate_mode_t mode)
 	struct kbase_mem_pool *mem_pool = NULL;
 	struct kbase_page_metadata *page_md = kbase_page_private(p);
 
-	if (!IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT))
+	if (!kbase_is_page_migration_enabled())
 		return false;
+
 	CSTD_UNUSED(mode);
 
 	if (!page_md || !IS_PAGE_MOVABLE(page_md->status))
@@ -439,11 +451,11 @@ static bool kbase_page_isolate(struct page *p, isolate_mode_t mode)
  * @mapping:  Pointer to address_space struct associated with pages.
  * @new_page: Pointer to the page struct of new page.
  * @old_page: Pointer to the page struct of old page.
- * @mode:     Mode to determine if migration will be synchronised.
+ * @mode:     Mode to determine if migration will be synchronized.
  *
  * Callback function for Linux to migrate the content of the old page to the
  * new page provided.
- * This callback is not registered if compiled without CONFIG_PAGE_MIGRATION_SUPPORT.
+ * This callback is not registered if page migration is disabled.
  *
  * Return: 0 on success, error code otherwise.
  */
@@ -554,7 +566,7 @@ static int kbase_page_migrate(struct page *new_page, struct page *old_page, enum
  * will only be called for a page that has been isolated but failed to
  * migrate. This function will put back the given page to the state it was
  * in before it was isolated.
- * This callback is not registered if compiled without CONFIG_PAGE_MIGRATION_SUPPORT.
+ * This callback is not registered if page migration is disabled.
  */
 static void kbase_page_putback(struct page *p)
 {
@@ -564,8 +576,9 @@ static void kbase_page_putback(struct page *p)
 	struct kbase_page_metadata *page_md = kbase_page_private(p);
 	struct kbase_device *kbdev = NULL;
 
-	if (!IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT))
+	if (!kbase_is_page_migration_enabled())
 		return;
+
 	/* If we don't have page metadata, the page may not belong to the
 	 * driver or may already have been freed, and there's nothing we can do
 	 */
@@ -667,10 +680,6 @@ void kbase_mem_migrate_set_address_space_ops(struct kbase_device *kbdev, struct 
 
 void kbase_mem_migrate_init(struct kbase_device *kbdev)
 {
-#if !IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT)
-	/* Page migration explicitly disabled at compile time - do nothing */
-	return;
-#else
 	struct kbase_mem_migrate *mem_migrate = &kbdev->mem_migrate;
 
 	/* Page migration support compiled in, either explicitly or
@@ -695,26 +704,15 @@ void kbase_mem_migrate_init(struct kbase_device *kbdev)
 	mem_migrate->free_pages_workq =
 		alloc_workqueue("free_pages_workq", WQ_UNBOUND | WQ_MEM_RECLAIM, 1);
 	INIT_WORK(&mem_migrate->free_pages_work, kbase_free_pages_worker);
-#endif
 }
 
 void kbase_mem_migrate_term(struct kbase_device *kbdev)
 {
 	struct kbase_mem_migrate *mem_migrate = &kbdev->mem_migrate;
 
-#if !IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT)
-	/* Page migration explicitly disabled at compile time - do nothing */
-	return;
-#endif
 	if (mem_migrate->free_pages_workq)
 		destroy_workqueue(mem_migrate->free_pages_workq);
 #if (KERNEL_VERSION(6, 0, 0) > LINUX_VERSION_CODE)
 	iput(mem_migrate->inode);
 #endif
 }
-
-bool kbase_is_page_migration_enabled(void)
-{
-	return static_branch_unlikely(&page_migration_static_key);
-}
-KBASE_EXPORT_TEST_API(kbase_is_page_migration_enabled);

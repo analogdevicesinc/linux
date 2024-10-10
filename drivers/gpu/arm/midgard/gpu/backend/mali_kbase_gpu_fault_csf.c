@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -64,6 +64,24 @@ const char *kbase_gpu_exception_name(u32 const exception_code)
 		break;
 	case CS_FAULT_EXCEPTION_TYPE_INSTR_BARRIER_FAULT:
 		e = "INSTR_BARRIER_FAULT";
+		break;
+	case CS_FAULT_EXCEPTION_TYPE_RT_STACK_OVERFLOW:
+		e = "RT_STACK_OVERFLOW";
+		break;
+	case CS_FAULT_EXCEPTION_TYPE_NE_WEIGHT_STREAM_ERROR:
+		e = "NE_WEIGHT_STREAM_ERROR";
+		break;
+	case CS_FAULT_EXCEPTION_TYPE_NE_DATA_INVALID_FAULT:
+		e = "NE_DATA_INVALID_FAULT";
+		break;
+	case CS_FAULT_EXCEPTION_TYPE_NE_ADDR_RANGE_FAULT:
+		e = "NE_ADDR_RANGE_FAULT";
+		break;
+	case CS_FAULT_EXCEPTION_TYPE_NE_TSU_SPACE_FAULT:
+		e = "NE_TSU_SPACE_FAULT";
+		break;
+	case CS_FAULT_EXCEPTION_TYPE_NE_TSU_INVALID_ENC:
+		e = "NE_TSU_INVALID_ENC";
 		break;
 	/* Iterator exceptions */
 	case CS_FAULT_EXCEPTION_TYPE_KABOOM:

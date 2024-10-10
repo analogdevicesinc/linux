@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2011-2016, 2018-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -43,14 +43,6 @@
  */
 void kbase_job_done_slot(struct kbase_device *kbdev, int s, u32 completion_code, u64 job_tail,
 			 ktime_t *end_timestamp);
-
-#if IS_ENABLED(CONFIG_GPU_TRACEPOINTS)
-static inline char *kbasep_make_job_slot_string(unsigned int js, char *js_string, size_t js_size)
-{
-	(void)scnprintf(js_string, js_size, "job_slot_%u", js);
-	return js_string;
-}
-#endif
 
 /**
  * kbase_job_hw_submit() - Submit a job to the GPU

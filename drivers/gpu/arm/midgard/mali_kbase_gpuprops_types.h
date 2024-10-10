@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note */
 /*
  *
- * (C) COPYRIGHT 2011-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2011-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -142,12 +142,16 @@ struct kbase_gpu_id_props {
  *                                   from GPU_FEATURES register.
  * @ray_intersection:  Ray tracing intersection instructions supported
  * @cross_stream_sync: Cross stream sync supported
+ * @neural_engine:  Neural Engine supported
+ * @ray_traversal:  Hardware ray traversal supported
  *
  * This register is only present on certain CSF GPUs.
  */
 struct kbase_gpu_features_props {
 	bool ray_intersection;
 	bool cross_stream_sync;
+	bool neural_engine;
+	bool ray_traversal;
 };
 
 /**
@@ -199,6 +203,8 @@ struct kbase_js_features_props {
  * @stack_present: Core stack present bitmap
  * @tiler_present: Tiler present bitmap
  * @l2_present: L2 cache present bitmap
+ * @base_present: Shader core base present bitmap
+ * @neural_present: Neural engine present bitmap
  * @num_cores: Number of shader cores present
  * @num_core_groups: Number of L2 cache present
  * @num_address_spaces: Number of address spaces
@@ -231,6 +237,8 @@ struct kbase_gpu_props {
 	u64 stack_present;
 	u64 tiler_present;
 	u64 l2_present;
+	u64 base_present;
+	u64 neural_present;
 
 	u8 num_cores;
 	u8 num_core_groups;

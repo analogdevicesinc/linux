@@ -27,6 +27,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/migrate.h>
 #include <mali_kbase.h>
+#include <mali_kbase_io.h>
 #include <gpu/mali_kbase_gpu_fault.h>
 #include <hw_access/mali_kbase_hw_access_regmap.h>
 #include <tl/mali_kbase_tracepoints.h>
@@ -1286,7 +1287,7 @@ void kbase_mmu_page_fault_worker(struct work_struct *data)
 #endif
 
 	/* check if we still have GPU */
-	if (unlikely(kbase_is_gpu_removed(kbdev))) {
+	if (unlikely(!kbase_io_has_gpu(kbdev))) {
 		dev_dbg(kbdev->dev, "%s: GPU has been removed", __func__);
 		goto fault_done;
 	}
@@ -1470,7 +1471,7 @@ page_fault_retry:
 		goto fault_done;
 	}
 
-	if ((region->flags & KBASE_REG_DONT_NEED)) {
+	if ((region->flags & BASEP_MEM_DONT_NEED)) {
 		kbase_gpu_vm_unlock(kctx);
 		kbase_mmu_report_fault_and_kill(kctx, faulting_as,
 						"Don't need memory can't be grown", fault);
@@ -1576,7 +1577,7 @@ page_fault_retry:
 	pages_to_grow = 0;
 
 #if MALI_JIT_PRESSURE_LIMIT_BASE
-	if ((region->flags & KBASE_REG_ACTIVE_JIT_ALLOC) && !pages_trimmed) {
+	if ((region->flags & BASEP_MEM_ACTIVE_JIT_ALLOC) && !pages_trimmed) {
 		kbase_jit_request_phys_increase(kctx, new_pages);
 		pages_trimmed = new_pages;
 	}
@@ -1623,11 +1624,11 @@ page_fault_retry:
 			goto fault_done;
 		}
 		KBASE_TLSTREAM_AUX_PAGEFAULT(kbdev, kctx->id, as_no, (u64)new_pages);
-		if (kbase_reg_is_valid(kbdev, MMU_AS_OFFSET(as_no, FAULTEXTRA)))
-			trace_mali_mmu_page_fault_extra_grow(region, fault, new_pages);
-		else
-			trace_mali_mmu_page_fault_grow(region, fault, new_pages);
 
+			if (kbase_reg_is_valid(kbdev, MMU_AS_OFFSET(as_no, FAULTEXTRA)))
+				trace_mali_mmu_page_fault_extra_grow(region, fault, new_pages);
+			else
+				trace_mali_mmu_page_fault_grow(region, fault, new_pages);
 		/* AS transaction begin */
 
 		/* clear MMU interrupt - this needs to be done after updating
@@ -2596,7 +2597,7 @@ static void kbase_mmu_progress_migration_on_insert(struct tagged_addr phys,
 	struct page *phys_page = as_page(phys);
 	struct kbase_page_metadata *page_md = kbase_page_private(phys_page);
 
-	if (!IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT))
+	if (!kbase_is_page_migration_enabled())
 		return;
 
 	spin_lock(&page_md->migrate_lock);
@@ -2633,7 +2634,7 @@ static void kbase_mmu_progress_migration_on_teardown(struct kbase_device *kbdev,
 {
 	size_t i;
 
-	if (!IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT))
+	if (!kbase_is_page_migration_enabled())
 		return;
 
 	for (i = 0; i < requested_nr; i++) {
@@ -3050,12 +3051,17 @@ void kbase_mmu_disable(struct kbase_context *kctx)
 	struct kbase_mmu_hw_op_param op_param = { 0 };
 	int lock_err, flush_err;
 
-	/* ASSERT that the context has a valid as_nr, which is only the case
-	 * when it's scheduled in.
+	/* Assert that the context has a valid as_nr, which is only the case
+	 * when it's scheduled in. as_nr can be invalid, for example, when
+	 * the ctx was descheduled while the MMU fault IRQ handling was
+	 * pending.
 	 *
-	 * as_nr won't change because the caller has the hwaccess_lock
+	 * as_nr won't change because the caller has the hwaccess_lock.
 	 */
-	KBASE_DEBUG_ASSERT(kctx->as_nr != KBASEP_AS_NR_INVALID);
+	if (kctx->as_nr == KBASEP_AS_NR_INVALID) {
+		dev_dbg(kbdev->dev, "Invalid as_nr for ctx %d_%d", kctx->tgid, kctx->id);
+		return;
+	}
 
 	lockdep_assert_held(&kctx->kbdev->hwaccess_lock);
 
@@ -3766,7 +3772,7 @@ static void mmu_undo_migrate_pgd_sub_page(struct kbase_mmu_table *mmut, phys_add
 					  phys_addr_t new_pgd_phys, dma_addr_t new_pgd_dma_addr,
 					  u64 pgd_vpfn_level)
 {
-	struct kbase_device *kbdev = mmut->kctx->kbdev;
+	struct kbase_device *kbdev;
 	u64 vpfn = PGD_VPFN_LEVEL_GET_VPFN(pgd_vpfn_level);
 	int level = PGD_VPFN_LEVEL_GET_LEVEL(pgd_vpfn_level);
 	unsigned int index = (vpfn >> ((3 - level) * 9)) & 0x1FFU;
@@ -3774,6 +3780,8 @@ static void mmu_undo_migrate_pgd_sub_page(struct kbase_mmu_table *mmut, phys_add
 	u64 *parent_pgd_page, *new_pgd_page, *target;
 	phys_addr_t parent_pgd;
 	u64 managed_pte;
+
+	kbdev = mmut->kctx->kbdev;
 
 	lockdep_assert_held(&mmut->kctx->reg_lock);
 	lockdep_assert_held(&mmut->mmu_lock);
@@ -3824,8 +3832,8 @@ static int mmu_migrate_pgd_sub_page(phys_addr_t old_pgd_phys, phys_addr_t new_pg
 {
 	struct kbase_page_metadata *page_md = kbase_page_private(phys_to_page(old_pgd_phys));
 	struct kbase_mmu_hw_op_param op_param;
-	struct kbase_mmu_table *mmut = page_md->data.pt_mapped.mmut;
-	struct kbase_device *kbdev = mmut->kctx->kbdev;
+	struct kbase_mmu_table *mmut;
+	struct kbase_device *kbdev;
 	u64 *old_pgd_page, *new_pgd_page, *parent_pgd_page, *target;
 	u64 vpfn = PGD_VPFN_LEVEL_GET_VPFN(pgd_vpfn_level);
 	int level = PGD_VPFN_LEVEL_GET_LEVEL(pgd_vpfn_level);
@@ -3835,6 +3843,14 @@ static int mmu_migrate_pgd_sub_page(phys_addr_t old_pgd_phys, phys_addr_t new_pg
 	phys_addr_t parent_pgd;
 	u64 managed_pte;
 	int ret = 0;
+
+	if (WARN_ONCE(PAGE_STATUS_GET(page_md->status) != PT_MAPPED,
+		      "Page metadata status %d does match expected value %d", page_md->status,
+		      PT_MAPPED))
+		return -EINVAL;
+
+	mmut = page_md->data.pt_mapped.mmut;
+	kbdev = mmut->kctx->kbdev;
 
 	lockdep_assert_held(&mmut->kctx->reg_lock);
 	lockdep_assert_held(&mmut->mmu_lock);
@@ -4045,7 +4061,7 @@ int kbase_mmu_migrate_pgd_page(struct tagged_addr old_pgd_phys, struct tagged_ad
 			       dma_addr_t old_pgd_dma_addr, dma_addr_t new_pgd_dma_addr)
 {
 	struct kbase_page_metadata *page_md = kbase_page_private(as_page(old_pgd_phys));
-	struct kbase_mmu_table *mmut = page_md->data.pt_mapped.mmut;
+	struct kbase_mmu_table *mmut;
 	struct kbase_device *kbdev;
 	u32 sub_page_index;
 	u64 old_pgd_phys_addr = as_phys_addr_t(old_pgd_phys);
@@ -4053,12 +4069,19 @@ int kbase_mmu_migrate_pgd_page(struct tagged_addr old_pgd_phys, struct tagged_ad
 	int check_state, ret = 0;
 
 	/* If page migration support is not compiled in, return with fault */
-	if (!IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT))
+	if (!kbase_is_page_migration_enabled())
 		return -EINVAL;
+
+	if (WARN_ONCE(PAGE_STATUS_GET(page_md->status) != PT_MAPPED,
+		      "Page metadata status %d does match expected value %d", page_md->status,
+		      PT_MAPPED))
+		return -EINVAL;
+
+	mmut = page_md->data.pt_mapped.mmut;
 	/* Due to the hard binding of mmu_command_instr with kctx_id via kbase_mmu_hw_op_param,
 	 * here we skip the no kctx case, which is only used with MCU's mmut.
 	 */
-	if (!mmut->kctx)
+	if (WARN_ONCE(!mmut->kctx, "Migration failed as kctx is null"))
 		return -EINVAL;
 
 	kbdev = mmut->kctx->kbdev;
@@ -4177,7 +4200,7 @@ int kbase_mmu_migrate_data_page(struct tagged_addr old_phys, struct tagged_addr 
 {
 	struct kbase_page_metadata *page_md = kbase_page_private(as_page(old_phys));
 	struct kbase_mmu_hw_op_param op_param;
-	struct kbase_mmu_table *mmut = page_md->data.mapped.mmut;
+	struct kbase_mmu_table *mmut;
 	struct kbase_device *kbdev;
 	phys_addr_t pgd;
 	u64 *old_page, *new_page, *pgd_page, *target, vpfn;
@@ -4191,12 +4214,20 @@ int kbase_mmu_migrate_data_page(struct tagged_addr old_phys, struct tagged_addr 
 	unsigned int i;
 
 	/* If page migration support is not compiled in, return with fault */
-	if (!IS_ENABLED(CONFIG_PAGE_MIGRATION_SUPPORT))
+	if (!kbase_is_page_migration_enabled())
 		return -EINVAL;
+
+	if (WARN_ONCE(PAGE_STATUS_GET(page_md->status) != ALLOCATED_MAPPED,
+		      "Page metadata status %d does match expected value %d", page_md->status,
+		      ALLOCATED_MAPPED))
+		return -EINVAL;
+
+	mmut = page_md->data.mapped.mmut;
+
 	/* Due to the hard binding of mmu_command_instr with kctx_id via kbase_mmu_hw_op_param,
 	 * here we skip the no kctx case, which is only used with MCU's mmut.
 	 */
-	if (!mmut->kctx)
+	if (WARN_ONCE(!mmut->kctx, "Migration failed as kctx is null"))
 		return -EINVAL;
 
 	lockdep_assert_held(&mmut->kctx->reg_lock);
@@ -4800,7 +4831,7 @@ void kbase_mmu_bus_fault_worker(struct work_struct *data)
 	}
 
 	/* check if we still have GPU */
-	if (unlikely(kbase_is_gpu_removed(kbdev))) {
+	if (unlikely(!kbase_io_has_gpu(kbdev))) {
 		dev_dbg(kbdev->dev, "%s: GPU has been removed", __func__);
 		release_ctx(kbdev, kctx);
 		atomic_dec(&kbdev->faults_pending);

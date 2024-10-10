@@ -66,6 +66,14 @@ void kbase_devfreq_set_core_mask(struct kbase_device *kbdev, u64 core_mask)
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 
 #if MALI_USE_CSF
+	if (kbase_hw_has_feature(kbdev, KBASE_HW_FEATURE_GOV_CORE_MASK_SUPPORT)) {
+		if (kbase_io_is_gpu_powered(kbdev)) {
+			kbase_reg_write64(kbdev, GPU_GOVERNOR_ENUM(GOV_CORE_MASK),
+					  core_mask & kbdev->pm.debug_core_mask);
+		}
+
+		goto unlock;
+	}
 
 	if (!(core_mask & kbdev->pm.debug_core_mask)) {
 		dev_err(kbdev->dev,

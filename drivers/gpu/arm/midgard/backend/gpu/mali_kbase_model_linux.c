@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2010-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2010-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -70,6 +70,13 @@ static void mmu_irq(struct kbase_device *kbdev)
 }
 DEFINE_SERVE_IRQ(mmu_irq)
 
+static void irqaw_irq(struct kbase_device *kbdev)
+{
+	/* Make sure no worker is already serving this IRQ */
+	while (atomic_cmpxchg(&kbdev->serving_irqaw_irq, 1, 0) == 1)
+		kbase_get_interrupt_handler(kbdev, 0)(0, kbdev);
+}
+DEFINE_SERVE_IRQ(irqaw_irq)
 
 void gpu_device_raise_irq(void *model, u32 irq)
 {
@@ -97,6 +104,10 @@ void gpu_device_raise_irq(void *model, u32 irq)
 		INIT_WORK(&data->work, serve_mmu_irq);
 		atomic_set(&kbdev->serving_mmu_irq, 1);
 		break;
+	case MODEL_LINUX_IRQAW_IRQ:
+		INIT_WORK(&data->work, serve_irqaw_irq);
+		atomic_set(&kbdev->serving_irqaw_irq, 1);
+		break;
 	default:
 		dev_warn(kbdev->dev, "Unknown IRQ");
 		kmem_cache_free(kbdev->irq_slab, data);
@@ -115,6 +126,7 @@ int kbase_install_interrupts(struct kbase_device *kbdev)
 	atomic_set(&kbdev->serving_job_irq, 0);
 	atomic_set(&kbdev->serving_gpu_irq, 0);
 	atomic_set(&kbdev->serving_mmu_irq, 0);
+	atomic_set(&kbdev->serving_irqaw_irq, 0);
 
 	kbdev->irq_workq = alloc_ordered_workqueue("dummy irq queue", 0);
 	if (kbdev->irq_workq == NULL)
@@ -129,6 +141,8 @@ int kbase_install_interrupts(struct kbase_device *kbdev)
 
 	kbdev->nr_irqs = 3;
 
+	if (kbdev->gpu_props.gpu_id.arch_id >= GPU_ID_ARCH_MAKE(14, 8, 0))
+		kbdev->nr_irqs = 1;
 
 	return 0;
 }

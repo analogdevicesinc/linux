@@ -25,6 +25,7 @@
 #include <mali_kbase.h>
 #include "mali_kbase_hw_access.h"
 #include "mali_kbase_hw_access_regmap.h"
+#include <mali_kbase_io.h>
 
 #include <uapi/gpu/arm/midgard/gpu/mali_kbase_gpu_id.h>
 
@@ -71,7 +72,7 @@ bool kbase_reg_is_powered_access_allowed(struct kbase_device *kbdev, u32 reg_enu
 {
 	if (kbdev->regmap.flags[reg_enum] & KBASE_REGMAP_ACCESS_ALWAYS_POWERED)
 		return true;
-	return kbdev->pm.backend.gpu_powered;
+	return kbase_io_is_gpu_powered(kbdev);
 }
 
 bool kbase_reg_is_size64(struct kbase_device *kbdev, u32 reg_enum)

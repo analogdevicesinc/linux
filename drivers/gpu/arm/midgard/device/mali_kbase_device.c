@@ -49,9 +49,9 @@
 #include "mali_kbase_device_internal.h"
 #include "backend/gpu/mali_kbase_pm_internal.h"
 #include "backend/gpu/mali_kbase_irq_internal.h"
-#include "mali_kbase_regs_history_debugfs.h"
 #include "mali_kbase_pbha.h"
 #include "arbiter/mali_kbase_arbiter_pm.h"
+#include <mali_kbase_io.h>
 
 #if defined(CONFIG_DEBUG_FS) && !IS_ENABLED(CONFIG_MALI_NO_MALI)
 
@@ -577,7 +577,7 @@ backend_term:
 	kbase_device_backend_term(kbdev);
 	kbase_regmap_term(kbdev);
 pm_runtime_term:
-	if (kbdev->pm.backend.gpu_powered)
+	if (kbase_io_is_gpu_powered(kbdev))
 		kbase_pm_register_access_disable(kbdev);
 
 	kbase_pm_runtime_term(kbdev);

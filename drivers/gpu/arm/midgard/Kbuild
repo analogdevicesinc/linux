@@ -26,12 +26,6 @@ src:=$(if $(patsubst /%,,$(src)),$(src),$(src))
 # Prevent misuse when Kernel configurations are not present by default
 # in out-of-tree builds
 #
-ifneq ($(CONFIG_ANDROID),n)
-ifeq ($(CONFIG_GPU_TRACEPOINTS),n)
-    $(error CONFIG_GPU_TRACEPOINTS must be set in Kernel configuration)
-endif
-endif
-
 ifeq ($(CONFIG_DMA_SHARED_BUFFER),n)
     $(error CONFIG_DMA_SHARED_BUFFER must be set in Kernel configuration)
 endif
@@ -69,7 +63,7 @@ endif
 #
 
 # Driver version string which is returned to userspace via an ioctl
-MALI_RELEASE_NAME ?= '"r51p0-00eac0"'
+MALI_RELEASE_NAME ?= '"r52p0-00eac0"'
 # Set up defaults if not defined by build system
 ifeq ($(CONFIG_MALI_DEBUG), y)
     MALI_UNIT_TEST = 1
@@ -171,11 +165,11 @@ mali_kbase-y := \
     mali_kbase_mem_pool_debugfs.o \
     mali_kbase_debugfs_helper.o \
     mali_kbase_as_fault_debugfs.o \
-    mali_kbase_regs_history_debugfs.o \
     mali_kbase_dvfs_debugfs.o \
     mali_power_gpu_frequency_trace.o \
     mali_kbase_trace_gpu_mem.o \
-    mali_kbase_pbha.o
+    mali_kbase_pbha.o \
+    mali_kbase_io.o
 
 mali_kbase-$(CONFIG_DEBUG_FS) += mali_kbase_pbha_debugfs.o
 

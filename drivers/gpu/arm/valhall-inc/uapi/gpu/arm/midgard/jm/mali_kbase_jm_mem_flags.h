@@ -55,7 +55,7 @@
  * only (ie BASEP_MEM_* flags), located from 63 bit downwards:
  *   < 63 .. (64 - BASEP_MEM_FLAGS_NR_BITS) >
  */
-#define BASEP_MEM_FLAGS_NR_BITS (4)
+#define BASEP_MEM_FLAGS_NR_BITS (6)
 
 /* A mask of all bits that are not used by a flag on JM */
 #define BASE_MEM_FLAGS_UNUSED                                                    \

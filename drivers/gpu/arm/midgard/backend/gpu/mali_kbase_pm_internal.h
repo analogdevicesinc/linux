@@ -1074,5 +1074,19 @@ static inline bool kbase_pm_l2_allow_mmu_page_migration(struct kbase_device *kbd
 	return (backend->l2_state != KBASE_L2_PEND_ON && backend->l2_state != KBASE_L2_PEND_OFF);
 }
 
+#if MALI_USE_CSF
+/**
+ * kbase_pm_get_domain_status - get pm domain status for particular endpoint
+ *
+ * @kbdev:     The kbase device structure for the device (must be a valid pointer)
+ * @pm_domain: The pm domain whose status is to be obtained
+ * @endpoint:  The pm domain endpoint number whose status is to be obtained
+ *
+ * This function get status for particular endpoint in pm domain using INSPECT command.
+ *
+ * Return: status of endpoint in pm domain
+ */
+u32 kbase_pm_get_domain_status(struct kbase_device *kbdev, u32 pm_domain, u32 endpoint);
+#endif /* MALI_USE_CSF */
 
 #endif /* _KBASE_BACKEND_PM_INTERNAL_H_ */

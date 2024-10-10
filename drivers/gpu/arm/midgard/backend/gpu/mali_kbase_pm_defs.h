@@ -61,13 +61,29 @@ struct kbase_jd_atom;
  *
  * They specify which type of core should be acted on.
  */
-
+#if MALI_USE_CSF
+enum kbase_pm_core_type {
+	KBASE_PM_CORE_L2 = HOST_POWER_ENUM(L2_PRESENT),
+	KBASE_PM_CORE_SHADER = HOST_POWER_ENUM(SHADER_PRESENT),
+	KBASE_PM_CORE_TILER = HOST_POWER_ENUM(TILER_PRESENT),
+	KBASE_PM_CORE_STACK = HOST_POWER_ENUM(STACK_PRESENT),
+	/**
+	 * @KBASE_PM_CORE_NEURAL: Neural engine
+	 */
+	KBASE_PM_CORE_NEURAL = HOST_POWER_ENUM(NEURAL_PRESENT),
+	/**
+	 * @KBASE_PM_CORE_BASE: Shader core base domain
+	 */
+	KBASE_PM_CORE_BASE = HOST_POWER_ENUM(BASE_PRESENT)
+};
+#else
 enum kbase_pm_core_type {
 	KBASE_PM_CORE_L2 = GPU_CONTROL_ENUM(L2_PRESENT),
 	KBASE_PM_CORE_SHADER = GPU_CONTROL_ENUM(SHADER_PRESENT),
 	KBASE_PM_CORE_TILER = GPU_CONTROL_ENUM(TILER_PRESENT),
 	KBASE_PM_CORE_STACK = GPU_CONTROL_ENUM(STACK_PRESENT)
 };
+#endif
 
 /*
  * enum kbase_l2_core_state - The states used for the L2 cache & tiler power
@@ -270,11 +286,6 @@ union kbase_pm_policy_data {
  * @gpu_in_desired_state_wait: Wait queue set when the GPU is in the desired
  *                             state according to the L2 and shader power state
  *                             machines
- * @gpu_powered:       Set to true when the GPU is powered and register
- *                     accesses are possible, false otherwise. Access to this
- *                     variable should be protected by: both the hwaccess_lock
- *                     spinlock and the pm.lock mutex for writes; or at least
- *                     one of either lock for reads.
  * @gpu_ready:         Indicates whether the GPU is in a state in which it is
  *                     safe to perform PM changes. When false, the PM state
  *                     machine needs to wait before making changes to the GPU
@@ -467,7 +478,6 @@ struct kbase_pm_backend_data {
 
 	wait_queue_head_t gpu_in_desired_state_wait;
 
-	bool gpu_powered;
 	bool gpu_ready;
 
 	u64 pm_shaders_core_mask;
@@ -527,6 +537,16 @@ struct kbase_pm_backend_data {
 	enum kbase_pm_runtime_suspend_abort_reason runtime_suspend_abort_reason;
 #endif
 
+	/**
+	 * @has_host_pwr_iface: GPU supports the host power control interface.
+	 */
+	bool has_host_pwr_iface;
+	/**
+	 * @pwr_cntl_delegated: Flag indicating that control for PM domains (Tiler,
+	 *                      Shading engine and Neural engine) has been delegated
+	 *                      to the MCU firmware.
+	 */
+	bool pwr_cntl_delegated;
 	bool l2_force_off_after_mcu_halt;
 #endif
 	bool l2_desired;

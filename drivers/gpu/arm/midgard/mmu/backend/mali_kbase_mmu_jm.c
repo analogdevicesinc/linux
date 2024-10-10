@@ -71,7 +71,7 @@ void kbase_gpu_report_bus_fault_and_kill(struct kbase_context *kctx, struct kbas
 		"pid: %d\n",
 		as_no, (void *)fault_addr, status, exception_type,
 		kbase_gpu_exception_name(exception_type), access_type,
-		kbase_gpu_access_type_name(access_type), source_id,
+		kbase_gpu_access_type_name(kbdev, access_type), source_id,
 		FAULT_SOURCE_ID_CORE_ID_GET(source_id), FAULT_SOURCE_ID_UTLB_ID_GET(source_id),
 		fault_source_id_internal_requester_get(kbdev, source_id),
 		fault_source_id_core_type_description_get(kbdev, source_id),
@@ -129,7 +129,7 @@ void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx, struct kbase_as
 				"pid: %d\n",
 				as_no, fault->addr, reason_str, status, exception_type,
 				kbase_gpu_exception_name(exception_type), access_type,
-				kbase_gpu_access_type_name(status), kctx->pid);
+				kbase_gpu_access_type_name(kbdev, status), kctx->pid);
 		} else {
 			dev_err(kbdev->dev,
 				"Unhandled Page fault in AS%u at VA 0x%016llX\n"
@@ -141,7 +141,7 @@ void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx, struct kbase_as
 				"pid: %d\n",
 				as_no, fault->addr, reason_str, status, exception_type,
 				kbase_gpu_exception_name(exception_type), access_type,
-				kbase_gpu_access_type_name(status), source_id,
+				kbase_gpu_access_type_name(kbdev, status), source_id,
 				FAULT_SOURCE_ID_CORE_ID_GET(source_id),
 				FAULT_SOURCE_ID_UTLB_ID_GET(source_id),
 				fault_source_id_internal_requester_get(kbdev, source_id),

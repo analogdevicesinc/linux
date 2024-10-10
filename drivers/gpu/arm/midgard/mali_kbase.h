@@ -60,10 +60,6 @@
 #include "csf/mali_kbase_csf.h"
 #endif
 
-#if IS_ENABLED(CONFIG_GPU_TRACEPOINTS)
-#include <trace/events/gpu.h>
-#endif
-
 #include "mali_linux_trace.h"
 
 #include <linux/atomic.h>
@@ -495,41 +491,6 @@ static inline bool kbase_pm_is_suspending(struct kbase_device *kbdev)
 static inline bool kbase_pm_is_resuming(struct kbase_device *kbdev)
 {
 	return kbdev->pm.resuming;
-}
-
-/*
- * Check whether a gpu lost is in progress
- *
- * @kbdev: The kbase device structure for the device (must be a valid pointer)
- *
- * Indicates whether a gpu lost has been received and jobs are no longer
- * being scheduled.
- *
- * Return: false if GPU is already lost or if no Arbiter is present (as GPU will
- *         always be present in this case), true otherwise.
- */
-static inline bool kbase_pm_is_gpu_lost(struct kbase_device *kbdev)
-{
-	return (kbdev->arb.arb_if && ((bool)atomic_read(&kbdev->pm.gpu_lost)));
-}
-
-/*
- * Set or clear gpu lost state
- *
- * @kbdev: The kbase device structure for the device (must be a valid pointer)
- * @gpu_lost: true to activate GPU lost state, FALSE is deactive it
- *
- * Puts power management code into gpu lost state or takes it out of the
- * state.  Once in gpu lost state new GPU jobs will no longer be
- * scheduled.
- */
-static inline void kbase_pm_set_gpu_lost(struct kbase_device *kbdev, bool gpu_lost)
-{
-	const int new_val = (gpu_lost ? 1 : 0);
-	const int cur_val = atomic_xchg(&kbdev->pm.gpu_lost, new_val);
-
-	if (new_val != cur_val)
-		KBASE_KTRACE_ADD(kbdev, ARB_GPU_LOST, NULL, (u64)new_val);
 }
 
 /**
