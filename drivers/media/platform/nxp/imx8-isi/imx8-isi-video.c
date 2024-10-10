@@ -573,6 +573,7 @@ static void mxc_isi_video_frame_write_done(struct mxc_isi_pipe *pipe,
 					   u32 status)
 {
 	struct mxc_isi_video *video = &pipe->video;
+	const struct mxc_isi_plat_data *pdata = pipe->isi->pdata;
 	struct device *dev = pipe->isi->dev;
 	struct mxc_isi_buffer *next_buf;
 	struct mxc_isi_buffer *buf;
@@ -634,7 +635,7 @@ static void mxc_isi_video_frame_write_done(struct mxc_isi_pipe *pipe,
 	 */
 
 	/* Check which buffer has just completed. */
-	buf_id = pipe->isi->pdata->buf_active_reverse
+	buf_id = pdata->buf_active_reverse
 	       ? (status & CHNL_STS_BUF1_ACTIVE ? MXC_ISI_BUF2 : MXC_ISI_BUF1)
 	       : (status & CHNL_STS_BUF1_ACTIVE ? MXC_ISI_BUF1 : MXC_ISI_BUF2);
 
@@ -688,6 +689,7 @@ static void mxc_isi_video_frame_write_done(struct mxc_isi_pipe *pipe,
 	}
 
 	mxc_isi_channel_set_outbuf(pipe, next_buf->dma_addrs, buf_id);
+	mxc_isi_channel_set_max_size(pipe, &next_buf->v4l2_buf, pdata->buf_max_size);
 	next_buf->id = buf_id;
 
 	/*
@@ -850,6 +852,7 @@ static void mxc_isi_video_return_buffers(struct mxc_isi_video *video,
 
 static void mxc_isi_video_queue_first_buffers(struct mxc_isi_video *video)
 {
+	const struct mxc_isi_plat_data *pdata = video->pipe->isi->pdata;
 	unsigned int discard;
 	unsigned int i;
 
@@ -877,6 +880,7 @@ static void mxc_isi_video_queue_first_buffers(struct mxc_isi_video *video)
 		buf = list_first_entry(list, struct mxc_isi_buffer, list);
 
 		mxc_isi_channel_set_outbuf(video->pipe, buf->dma_addrs, buf_id);
+		mxc_isi_channel_set_max_size(video->pipe, &buf->v4l2_buf, pdata->buf_max_size);
 		buf->id = buf_id;
 		list_move_tail(&buf->list, &video->out_active);
 	}

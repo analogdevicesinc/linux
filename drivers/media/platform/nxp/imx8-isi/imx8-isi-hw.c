@@ -80,6 +80,18 @@ void mxc_isi_channel_set_outbuf(struct mxc_isi_pipe *pipe,
 	mxc_isi_write(pipe, CHNL_OUT_BUF_CTRL, val);
 }
 
+void mxc_isi_channel_set_max_size(struct mxc_isi_pipe *pipe,
+				  const struct vb2_v4l2_buffer *v4l2_buf,
+				  const bool buf_max_size)
+{
+	if (!buf_max_size)
+		return;
+
+	mxc_isi_write(pipe, CHNL_OUT_BUF_MAX_SIZE_Y, v4l2_buf->planes[0].length);
+	mxc_isi_write(pipe, CHNL_OUT_BUF_MAX_SIZE_U, v4l2_buf->planes[1].length);
+	mxc_isi_write(pipe, CHNL_OUT_BUF_MAX_SIZE_V, v4l2_buf->planes[2].length);
+}
+
 void mxc_isi_channel_m2m_start(struct mxc_isi_pipe *pipe)
 {
 	u32 val;
