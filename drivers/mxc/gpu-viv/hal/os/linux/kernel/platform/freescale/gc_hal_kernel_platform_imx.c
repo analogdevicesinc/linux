@@ -1246,7 +1246,7 @@ static int patch_param(struct platform_device *pdev,
 
     if (res && !args->baseAddress && !args->physSize) {
         args->baseAddress = res->start;
-        args->physSize = res->end - res->start + 1;
+        args->physSize = res->end > res->start ? res->end - res->start + 1 : 0;
     }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 1, 0)
