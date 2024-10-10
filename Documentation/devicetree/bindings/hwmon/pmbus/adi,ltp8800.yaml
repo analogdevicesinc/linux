@@ -1,0 +1,44 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/hwmon/pmbus/adi,ltp8800.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices LTP8800 DC/DC uModule regulator with PMBus interface
+
+maintainers:
+  - Cedric Encarnacion <cedricjustine.encarnacion@analog.com>
+
+description: |
+  The LTP8800 is a family of step-down μModule regulators that provides
+  microprocessor core voltage from 54V power distribution architecture. LTP8800
+  features telemetry monitoring of input/output voltage, input current, output
+  power, and temperature over PMBus.
+
+properties:
+  compatible:
+    enum:
+      - adi,ltp8800-1a
+      - adi,ltp8800-4a
+      - adi,ltp8800-2
+
+  reg:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        hwmon@41 {
+            compatible = "adi,ltp8800-2";
+            reg = <0x41>;
+        };
+    };
