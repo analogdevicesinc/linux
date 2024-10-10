@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices AD7768-1
+ * Analog Devices ADAQ7767-1
  * https://wiki.analog.com/resources/eval/user-guides/ad7768-1
  *
  * hdl_project: <ad77681evb/zed>
@@ -65,7 +65,7 @@
 	};
 
 	axi_spi_engine_0: spi@0x44a00000 {
-		compatible = "adi,axi-spi-engine-1.00.a";
+		compatible = "adi-ex,axi-spi-engine-1.00.a";
 		reg = <0x44a00000 0x1000>;
 		interrupt-parent = <&intc>;
 		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
@@ -76,15 +76,16 @@
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
 
-		ad7768_1: adc@0 {
-			compatible = "adi,ad7768-1";
+		adaq7767_1: adc@0 {
+			compatible = "adi,adaq7767-1";
 			reg = <0>;
-			spi-max-frequency = <20000000>;
+			spi-max-frequency = <40000000>;
 			spi-cpol;
 			spi-cpha;
 			vref-supply = <&vref>;
-			adi,low-latency = <0>;
+			adi,low-latency = <1>;
 			adi,sync-in-gpios = <&gpio0 92 GPIO_ACTIVE_LOW>;
+			adi,aaf-gain = <143>;
 			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
 			clocks = <&ad7768_1_mclk>;
 			clock-names = "mclk";
