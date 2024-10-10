@@ -152,6 +152,12 @@ enum {
 	AD4630_MAX_PGA,
 };
 
+enum ad4630_scan_type {
+	AD4630_SCAN_TYPE_NORMAL,
+	AD4630_SCAN_TYPE_COMMON_MODE,
+	AD4630_SCAN_TYPE_NORMAL_AND_COMMON_MODE,
+};
+
 /*
  * Gains computed as fractions of 1000 so they can be expressed by integers.
  */
@@ -202,6 +208,7 @@ struct ad4630_state {
 	int scale_tbl[ARRAY_SIZE(ad4630_gains)][2];
 	unsigned int out_data;
 	unsigned int max_rate;
+	enum ad4630_scan_type current_scan_type;
 
 	/* offload sampling spi message */
 	struct spi_transfer offload_xfer;
@@ -317,6 +324,7 @@ static int ad4630_read_raw(struct iio_dev *indio_dev,
 			   int *val2, long info)
 {
 	struct ad4630_state *st = iio_priv(indio_dev);
+	const struct iio_scan_type *scan_type = iio_get_current_scan_type(indio_dev, chan);
 	unsigned int temp;
 	int ret;
 
@@ -331,7 +339,7 @@ static int ad4630_read_raw(struct iio_dev *indio_dev,
 			return IIO_VAL_INT_PLUS_NANO;
 		}
 		*val = (st->vref * 2) / 1000;
-		*val2 = chan->scan_type.realbits;
+		*val2 = scan_type->realbits;
 		return IIO_VAL_FRACTIONAL_LOG2;
 	case IIO_CHAN_INFO_CALIBSCALE:
 		ret = ad4630_get_chan_gain(indio_dev, chan->channel, &temp);
@@ -456,12 +464,17 @@ static int ad4630_set_chan_offset(struct iio_dev *indio_dev, int ch, int offset)
 	return ret;
 }
 
-static void ad4630_fill_scale_tbl(struct ad4630_state *st)
+static void ad4630_fill_scale_tbl(struct iio_dev *indio_dev,
+				  struct ad4630_state *st)
 {
+	const struct iio_scan_type *scan_type;
 	int val, val2, tmp0, tmp1, i;
 	u64 tmp2;
 
-	val2 = st->chip->modes[st->out_data].channels->scan_type.realbits;
+	scan_type = iio_get_current_scan_type(indio_dev,
+					      st->chip->modes[st->out_data].channels);
+
+	val2 = scan_type->realbits;
 	for (i = 0; i < ARRAY_SIZE(ad4630_gains); i++) {
 		val = (st->vref * 2) / 1000;
 		/* Multiply by MILLI here to avoid losing precision */
@@ -571,14 +584,27 @@ static int ad4630_write_raw(struct iio_dev *indio_dev,
 			    int val2, long info)
 {
 	struct ad4630_state *st = iio_priv(indio_dev);
+	const struct iio_scan_type *scan_type;
+	enum ad4630_scan_type cur_scan_type;
 	int gain_idx;
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		return ad4630_set_sampling_freq(indio_dev, val);
 	case IIO_CHAN_INFO_SCALE:
+		/*
+		 * Common mode and normal + common mode scan types declare
+		 * different amount of realbits. Though, to get to the scale
+		 * factor for converting ADC output codes to voltage units only
+		 * the ADC precision bits matter. Thus, use normal scan_type
+		 * realbits to calcalte scale related parameters.
+		 */
+		cur_scan_type = st->current_scan_type;
+		st->current_scan_type = AD4630_SCAN_TYPE_NORMAL;
+		scan_type = iio_get_current_scan_type(indio_dev, chan);
 		gain_idx = ad4630_calc_pga_gain(val, val2, st->vref,
-						chan->scan_type.realbits);
+						scan_type->realbits);
+		st->current_scan_type = cur_scan_type;
 		return ad4630_set_pga_gain(indio_dev, gain_idx);
 	case IIO_CHAN_INFO_CALIBSCALE:
 		return ad4630_set_chan_gain(indio_dev, chan->channel, val,
@@ -759,6 +785,32 @@ out_error:
 	return ret;
 }
 
+static int ad4630_set_scan_type(struct iio_dev *dev,
+				const struct iio_chan_spec *chan,
+				unsigned int scan_type)
+{
+	struct ad4630_state *st = iio_priv(dev);
+	int ret;
+
+	ret = iio_device_claim_direct_mode(dev);
+	if (ret)
+		return ret;
+
+	if (chan->has_ext_scan_type)
+		st->current_scan_type = scan_type;
+
+	iio_device_release_direct_mode(dev);
+	return 0;
+}
+
+static int ad4630_get_scan_type(struct iio_dev *dev,
+				const struct iio_chan_spec *chan)
+{
+	const struct ad4630_state *st = iio_priv(dev);
+
+	return st->current_scan_type;
+}
+
 static const char *const ad4630_average_modes[] = {
 	"2", "4", "8", "16", "32", "64", "128", "256", "512", "1024",
 	"2048", "4096", "8192", "16384", "32768", "65536"
@@ -776,6 +828,25 @@ static const struct iio_chan_spec_ext_info ad4630_ext_info[] = {
 		 &ad4630_avg_frame_len_enum),
 	IIO_ENUM_AVAILABLE("sample_averaging", IIO_SHARED_BY_TYPE,
 			   &ad4630_avg_frame_len_enum),
+	{}
+};
+
+static const char *const ad4630_scan_types[] = {
+	"conversion_data", "common_mode_data", "conversion_plus_common_mode_data"
+};
+
+static const struct iio_enum ad4630_scan_type_enum = {
+	.items = ad4630_scan_types,
+	.num_items = ARRAY_SIZE(ad4630_scan_types),
+	.set = ad4630_set_scan_type,
+	.get = ad4630_get_scan_type,
+};
+
+static const struct iio_chan_spec_ext_info ad4630_com_ext_info[] = {
+	IIO_ENUM("scan_type", IIO_SHARED_BY_TYPE,
+		 &ad4630_scan_type_enum),
+	IIO_ENUM_AVAILABLE("scan_type", IIO_SHARED_BY_TYPE,
+			   &ad4630_scan_type_enum),
 	{}
 };
 
@@ -798,6 +869,114 @@ static const struct iio_chan_spec_ext_info ad4630_ext_info[] = {
 	},								\
 }
 
+#define AD4630_COM_CHAN(_idx, _msk_avail, _storage, _real, _shift, _count, _info) {\
+	.info_mask_separate = BIT(IIO_CHAN_INFO_CALIBSCALE) |		\
+			BIT(IIO_CHAN_INFO_CALIBBIAS),			\
+	.info_mask_separate_available = _msk_avail,			\
+	.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
+	.info_mask_shared_by_type =  BIT(IIO_CHAN_INFO_SCALE),		\
+	.type = IIO_VOLTAGE,						\
+	.indexed = 1,							\
+	.channel = _idx,						\
+	.scan_index = _idx,						\
+	.ext_info = ad4630_com_ext_info,				\
+	.has_ext_scan_type = 1,						\
+	.ext_scan_type = ad4630_scan_type_##_real##_count,		\
+	.num_ext_scan_type = ARRAY_SIZE(ad4630_scan_type_##_real##_count),\
+}
+
+/*
+ * IIO correctly sign-extend buffer data elements to a twos-complement
+ * signed number if their scan_type is set to signed. However, if common mode
+ * data bits are together with ADC conversion bits, sign extend will also affect
+ * common mode bits. To avoid that, set AD4630_SCAN_TYPE_NORMAL_AND_COMMON_MODE
+ * scan_types to unsigned. This will have the side effect of applications having
+ * to sign-extend ADC conversion data themselves, though.
+ */
+static const struct iio_scan_type ad4630_scan_type_16_dual[] = {
+	[AD4630_SCAN_TYPE_NORMAL] = {
+		.sign = 's',
+		.storagebits = 64,
+		.realbits = 16,
+		.shift = 8,
+	},
+	[AD4630_SCAN_TYPE_COMMON_MODE] = {
+		.sign = 'u',
+		.storagebits = 64,
+		.realbits = 8,
+		.shift = 0,
+	},
+	[AD4630_SCAN_TYPE_NORMAL_AND_COMMON_MODE] = {
+		.sign = 'u',
+		.storagebits = 64,
+		.realbits = 32,
+		.shift = 0,
+	},
+};
+
+static const struct iio_scan_type ad4630_scan_type_24_dual[] = {
+	[AD4630_SCAN_TYPE_NORMAL] = {
+		.sign = 's',
+		.storagebits = 64,
+		.realbits = 24,
+		.shift = 8,
+	},
+	[AD4630_SCAN_TYPE_COMMON_MODE] = {
+		.sign = 'u',
+		.storagebits = 64,
+		.realbits = 8,
+		.shift = 0,
+	},
+	[AD4630_SCAN_TYPE_NORMAL_AND_COMMON_MODE] = {
+		.sign = 'u',
+		.storagebits = 64,
+		.realbits = 32,
+		.shift = 0,
+	},
+};
+
+static const struct iio_scan_type ad4630_scan_type_16_single[] = {
+	[AD4630_SCAN_TYPE_NORMAL] = {
+		.sign = 's',
+		.storagebits = 32,
+		.realbits = 16,
+		.shift = 8,
+	},
+	[AD4630_SCAN_TYPE_COMMON_MODE] = {
+		.sign = 'u',
+		.storagebits = 32,
+		.realbits = 8,
+		.shift = 0,
+	},
+	[AD4630_SCAN_TYPE_NORMAL_AND_COMMON_MODE] = {
+		.sign = 'u',
+		.storagebits = 32,
+		.realbits = 24,
+		.shift = 0,
+	},
+};
+
+static const struct iio_scan_type ad4630_scan_type_24_single[] = {
+	[AD4630_SCAN_TYPE_NORMAL] = {
+		.sign = 's',
+		.storagebits = 32,
+		.realbits = 24,
+		.shift = 8,
+	},
+	[AD4630_SCAN_TYPE_COMMON_MODE] = {
+		.sign = 'u',
+		.storagebits = 32,
+		.realbits = 8,
+		.shift = 0,
+	},
+	[AD4630_SCAN_TYPE_NORMAL_AND_COMMON_MODE] = {
+		.sign = 'u',
+		.storagebits = 32,
+		.realbits = 32,
+		.shift = 0,
+	},
+};
+
 /*
  * We need the sample size to be 64 bytes when both channels are enabled as the
  * HW will always fill in the DMA bus which is 64bits. If we had just 16 bits
@@ -815,13 +994,15 @@ static const struct ad4630_out_mode ad4030_24_modes[] = {
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 16, 8, NULL),
+			AD4630_COM_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 16, 8,
+					_dual, NULL),
 		},
 		.data_width = 24,
 	},
 	[AD4630_24_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 24, 8, NULL),
+			AD4630_COM_CHAN(0, AD4630_CHAN_INFO_NONE, 64, 24, 8,
+					_dual, NULL),
 		},
 		.data_width = 32,
 	},
@@ -844,8 +1025,10 @@ static const struct ad4630_out_mode ad4630_16_modes[] = {
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 16, 8, NULL),
-			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 16, 8, NULL),
+			AD4630_COM_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 16, 8,
+					_single, NULL),
+			AD4630_COM_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 16, 8,
+					_single, NULL),
 		},
 		.data_width = 24,
 	},
@@ -870,15 +1053,19 @@ static const struct ad4630_out_mode ad4630_24_modes[] = {
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 16, 8, NULL),
-			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 16, 8, NULL),
+			AD4630_COM_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 16, 8,
+					_single, NULL),
+			AD4630_COM_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 16, 8,
+					_single, NULL),
 		},
 		.data_width = 24,
 	},
 	[AD4630_24_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 24, 8, NULL),
-			AD4630_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 24, 8, NULL),
+			AD4630_COM_CHAN(0, AD4630_CHAN_INFO_NONE, 32, 24, 8,
+					_single, NULL),
+			AD4630_COM_CHAN(1, AD4630_CHAN_INFO_NONE, 32, 24, 8,
+					_single, NULL),
 		},
 		.data_width = 32,
 	},
@@ -902,7 +1089,8 @@ static const struct ad4630_out_mode adaq4216_modes[] = {
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 8, NULL),
+			AD4630_COM_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 8,
+					_dual, NULL),
 		},
 		.data_width = 24,
 	},
@@ -923,7 +1111,8 @@ static const struct ad4630_out_mode adaq4220_modes[] = {
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 8, NULL),
+			AD4630_COM_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 8,
+					_dual, NULL),
 		},
 		.data_width = 24,
 	},
@@ -944,13 +1133,15 @@ static const struct ad4630_out_mode adaq4224_modes[] = {
 	},
 	[AD4630_16_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 8, NULL),
+			AD4630_COM_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 16, 8,
+					_dual, NULL),
 		},
 		.data_width = 24,
 	},
 	[AD4630_24_DIFF_8_COM] = {
 		.channels = {
-			AD4630_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 24, 8, NULL),
+			AD4630_COM_CHAN(0, BIT(IIO_CHAN_INFO_SCALE), 64, 24, 8,
+					_dual, NULL),
 		},
 		.data_width = 32,
 	},
@@ -1323,10 +1514,19 @@ static int ad4630_config(struct ad4630_state *st)
 		return ret;
 
 	st->max_rate = AD4630_MAX_RATE;
+	st->current_scan_type = AD4630_SCAN_TYPE_NORMAL;
 
 	ad4630_prepare_spi_sampling_msg(st, clock_mode, lane_mode, data_rate);
 
 	return 0;
+}
+
+static int ad4630_get_current_scan_type(const struct iio_dev *indio_dev,
+					const struct iio_chan_spec *chan)
+{
+	struct ad4630_state *st = iio_priv(indio_dev);
+
+	return st->current_scan_type;
 }
 
 static const struct iio_buffer_setup_ops ad4630_buffer_setup_ops = {
@@ -1339,6 +1539,7 @@ static const struct iio_info ad4630_info = {
 	.read_avail = &ad4630_read_avail,
 	.write_raw = &ad4630_write_raw,
 	.write_raw_get_fmt = &ad4630_write_raw_get_fmt,
+	.get_current_scan_type = &ad4630_get_current_scan_type,
 	.debugfs_reg_access = &ad4630_reg_access,
 };
 
@@ -1520,11 +1721,6 @@ static int ad4630_probe(struct spi_device *spi)
 		return dev_err_probe(&spi->dev, ret,
 				     "Config failed: %d\n", ret);
 
-	if (st->pga_gpios) {
-		ad4630_fill_scale_tbl(st);
-		ad4630_set_pga_gain(indio_dev, 0);
-	}
-
 	/*
 	 * Due to a hardware bug in some chips when using average mode zero
 	 * (no averaging), set default averaging mode to 2 samples.
@@ -1545,6 +1741,11 @@ static int ad4630_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_BUFFER_HARDWARE;
 	indio_dev->available_scan_masks = st->chip->available_masks;
 	indio_dev->setup_ops = &ad4630_buffer_setup_ops;
+
+	if (st->pga_gpios) {
+		ad4630_fill_scale_tbl(indio_dev, st);
+		ad4630_set_pga_gain(indio_dev, 0);
+	}
 
 	ret = devm_iio_dmaengine_buffer_setup(dev, indio_dev, "rx",
 					      IIO_BUFFER_DIRECTION_IN);
