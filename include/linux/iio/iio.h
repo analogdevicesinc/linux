@@ -638,6 +638,32 @@ int iio_push_event(struct iio_dev *indio_dev, u64 ev_code, s64 timestamp);
 int iio_device_claim_direct_mode(struct iio_dev *indio_dev);
 void iio_device_release_direct_mode(struct iio_dev *indio_dev);
 
+/*
+ * This autocleanup logic is normally used via
+ * iio_device_claim_direct_scoped().
+ */
+DEFINE_GUARD(iio_claim_direct, struct iio_dev *, iio_device_claim_direct_mode(_T),
+	     iio_device_release_direct_mode(_T))
+
+DEFINE_GUARD_COND(iio_claim_direct, _try, ({
+			struct iio_dev *dev;
+			int d = iio_device_claim_direct_mode(_T);
+
+			if (d < 0)
+				dev = NULL;
+			else
+				dev = _T;
+			dev;
+		}))
+
+/**
+ * iio_device_claim_direct_scoped() - Scoped call to iio_device_claim_direct.
+ * @fail: What to do on failure to claim device.
+ * @iio_dev: Pointer to the IIO devices structure
+ */
+#define iio_device_claim_direct_scoped(fail, iio_dev) \
+	scoped_cond_guard(iio_claim_direct_try, fail, iio_dev)
+
 extern struct bus_type iio_bus_type;
 
 /**
@@ -756,6 +782,24 @@ static inline struct dentry *iio_get_debugfs_dentry(struct iio_dev *indio_dev)
 	return NULL;
 }
 #endif
+
+/**
+ * iio_get_masklength - Get length of the channels mask
+ * @indio_dev: the IIO device to get the masklength for
+ */
+static inline unsigned int iio_get_masklength(const struct iio_dev *indio_dev)
+{
+	return ACCESS_PRIVATE(indio_dev, masklength);
+}
+
+/**
+ * iio_for_each_active_channel - Iterated over active channels
+ * @indio_dev: the IIO device
+ * @chan: Holds the index of the enabled channel
+ */
+#define iio_for_each_active_channel(indio_dev, chan) \
+	for_each_set_bit((chan), (indio_dev)->active_scan_mask, \
+			 iio_get_masklength(indio_dev))
 
 ssize_t iio_format_value(char *buf, unsigned int type, int size, int *vals);
 
