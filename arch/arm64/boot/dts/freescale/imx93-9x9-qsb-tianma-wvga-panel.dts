@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+#include "imx93-9x9-qsb-ontat-wvga-panel.dts"
+
+&panel {
+	compatible = "tianma,tm050rdh03";
+	standby-gpios = <&pcal6524 8 GPIO_ACTIVE_LOW>;
+	/delete-property/ enable-gpios;
+};
+
+&pcal6524 {
+	exp-sel-hog {
+		gpio-hog;
+		gpios = <22 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};

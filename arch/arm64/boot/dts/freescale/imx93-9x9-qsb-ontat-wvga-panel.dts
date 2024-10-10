@@ -11,7 +11,7 @@
 		gpios = <&pcal6524 2 GPIO_ACTIVE_HIGH>;
 	};
 
-	panel {
+	panel: panel {
 		compatible = "ontat,kd50g21-40nt-a1";
 		backlight = <&backlight>;
 		power-supply = <&reg_rpi_3v3>;
