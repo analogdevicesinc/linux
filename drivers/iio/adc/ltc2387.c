@@ -247,6 +247,7 @@ static int ltc2387_setup(struct iio_dev *indio_dev)
 	}
 	else { // if "adi,use-one-lane"
 		ltc->lane_mode = ONE_LANE;
+		printk("\n\n\n\nSUNT IN MOD ONE LANE\n\n\n\n");
 		return ltc2387_set_sampling_freq(ltc, 7.5 * MHz);
 	}
 }
@@ -412,7 +413,7 @@ static int ltc2387_probe(struct platform_device *pdev)
 	indio_dev->num_channels = ltc->device_info->num_channels;
 	indio_dev->dev.parent = &pdev->dev;
 	indio_dev->name = pdev->dev.of_node->name;
-	printk("\n\n%s\n\n", indio_dev->name);
+	printk("\n\n\n\nindio_dev->numele este=%s\n\n\n\n", indio_dev->name);
 	indio_dev->info = &ltc2387_info;
 	indio_dev->modes = INDIO_BUFFER_HARDWARE;
 	ret = devm_iio_dmaengine_buffer_setup(indio_dev->dev.parent,
@@ -426,13 +427,13 @@ static int ltc2387_probe(struct platform_device *pdev)
 	//axi_pwmgen_write(pwm,
 
 	// get the device out of reset
-	writel(0x1, 0x44A00040);
+	//writel(0x1, 0x44A00040);
 	// set the SIGN_EXTENSION, FORMAT_TYPE and FORMAT_ENABLE
-	writel(0x50, 0x44A00400);
+	//writel(0x50, 0x44A00400);
 	// change the PULSE_OFFSET for PWM_1 to 8
-	writel(0x8, AXI_PWMGEN_BASE_ADDR + AXI_PWMGEN_REG_PULSE_1_OFFSET);
+	//writel(0x8, AXI_PWMGEN_BASE_ADDR + AXI_PWMGEN_REG_PULSE_1_OFFSET);
 	// load the new configuration for axi_pwm_gen
-	writel(0x2, AXI_PWMGEN_BASE_ADDR + AXI_PWMGEN_LOAD_CONIG);
+	//writel(0x2, AXI_PWMGEN_BASE_ADDR + AXI_PWMGEN_LOAD_CONFIG);
 
 	if (ret < 0) {
 		dev_err(&pdev->dev, "\nltc2387 setup failed\n");
