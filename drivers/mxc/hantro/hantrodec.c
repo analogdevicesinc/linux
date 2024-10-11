@@ -93,9 +93,9 @@ MODULE_PARM_DESC(hantro_dynamic_clock, "enable or disable dynamic clock rate");
 #define HANTRO_G2_DEC_FIRST_REG            0
 #define HANTRO_G2_DEC_LAST_REG             (HANTRO_G2_DEC_REGS - 1)
 
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#define MAX_VAL(a, b) (((a) > (b)) ? (a) : (b))
 
-#define DEC_IO_SIZE_MAX             (MAX(HANTRO_G2_DEC_REGS, HANTRO_G1_TOTAL_REGS) * 4)
+#define DEC_IO_SIZE_MAX             (MAX_VAL(HANTRO_G2_DEC_REGS, HANTRO_G1_TOTAL_REGS) * 4)
 
 /********************************************************************
  *                                              PORTING SEGMENT
