@@ -789,7 +789,9 @@ static const struct file_operations viv_drm_fops = {
 #    endif
     .poll               = drm_poll,
     .read               = drm_read,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 11, 0)
     .llseek             = no_llseek,
+#endif
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
     .fop_flags = FOP_UNSIGNED_OFFSET,
 #endif
