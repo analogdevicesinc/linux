@@ -8,7 +8,7 @@
  *
  * Copyright (C) 2023 Analog Devices Inc.
  */
-#include "socfpga_cyclone5_de10_nano.dtsi"
+#include "socfpga_cyclone5_de10_nano_hps.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
 
