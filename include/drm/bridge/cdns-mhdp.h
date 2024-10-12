@@ -914,9 +914,7 @@ int cdns_hdmi_set_plugged_cb(struct cdns_mhdp_device *mhdp, hdmi_codec_plugged_c
 			     struct device *codec_dev);
 
 /* CEC */
-#ifdef CONFIG_DRM_CDNS_HDMI_CEC
 int cdns_mhdp_register_cec_driver(struct cdns_mhdp_cec *cec);
 int cdns_mhdp_unregister_cec_driver(struct cdns_mhdp_cec *cec);
-#endif
 
 #endif /* CDNS_MHDP_H_ */
