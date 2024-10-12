@@ -12,6 +12,18 @@
 		ethernet2 = &enetc_port2;
 	};
 
+	chosen {
+		stdout-path = &lpuart1;
+		#address-cells = <2>;
+		#size-cells = <2>;
+		/* will be updated by U-boot when booting Xen */
+		module@0 {
+			bootargs = "console=hvc0 loglevel=8 root=/dev/mmcblk1p2 rw rootwait";
+			compatible = "xen,linux-zimage", "xen,multiboot-module";
+			reg = <0x00000000 0x9e000000 0x00000000 0x2000000>;
+		};
+	};
+
 	dummy_reg: dummy_reg {
 		compatible = "regulator-fixed";
 		regulator-name = "dummy_reg";
