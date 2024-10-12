@@ -685,6 +685,9 @@ static void enetc4_pl_mac_link_up(struct phylink_config *config,
 	enetc4_set_rx_pause(pf, rx_pause);
 	enetc4_enable_mac(pf, true);
 
+	priv->eee.eee_active = phylink_init_eee(priv->phylink, true) >= 0;
+	enetc_eee_mode_set(si->ndev, priv->eee.eee_active);
+
 	if (si->hw_features & ENETC_SI_F_QBU)
 		enetc_mm_link_state_update(priv, true);
 
@@ -700,6 +703,9 @@ static void enetc4_pl_mac_link_down(struct phylink_config *config,
 	struct enetc_ndev_priv *priv;
 
 	priv = netdev_priv(si->ndev);
+
+	priv->eee.eee_active = false;
+	enetc_eee_mode_set(si->ndev, priv->eee.eee_active);
 
 	if (si->hw_features & ENETC_SI_F_QBU)
 		enetc_mm_link_state_update(priv, false);

@@ -477,6 +477,7 @@ struct enetc_ndev_priv {
 	int max_ipf_entries;
 	u32 ipt_wol_eid;
 
+	struct ethtool_keee eee;
 	struct psfp_cap psfp_cap;
 
 	/* Minimum number of TX queues required by the network stack */
@@ -550,6 +551,7 @@ void enetc_refresh_vlan_ht_filter(struct enetc_si *si);
 void enetc_set_ethtool_ops(struct net_device *ndev);
 void enetc_mm_link_state_update(struct enetc_ndev_priv *priv, bool link);
 void enetc_mm_commit_preemptible_tcs(struct enetc_ndev_priv *priv);
+void enetc_eee_mode_set(struct net_device *dev, bool enable);
 
 /* control buffer descriptor ring (CBDR) */
 int enetc_init_cbdr(struct enetc_si *si);

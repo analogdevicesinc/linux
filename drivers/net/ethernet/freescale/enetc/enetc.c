@@ -2978,8 +2978,8 @@ static void enetc_clear_interrupts(struct enetc_ndev_priv *priv)
 static int enetc_phylink_connect(struct net_device *ndev)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct ethtool_keee *edata = &priv->eee;
 	struct enetc_si *si = priv->si;
-	struct ethtool_keee edata;
 	int err;
 
 	if (!priv->phylink) {
@@ -3005,9 +3005,8 @@ static int enetc_phylink_connect(struct net_device *ndev)
 		return err;
 	}
 
-	/* disable EEE autoneg, until ENETC driver supports it */
-	memset(&edata, 0, sizeof(struct ethtool_keee));
-	phylink_ethtool_set_eee(priv->phylink, &edata);
+	/* disable EEE autoneg when boot, can enable it by ethtool */
+	phylink_ethtool_set_eee(priv->phylink, edata);
 
 	phylink_start(priv->phylink);
 
@@ -3062,6 +3061,20 @@ void enetc_start(struct net_device *ndev)
 }
 EXPORT_SYMBOL_GPL(enetc_start);
 
+static void enetc_set_eee(struct net_device *ndev)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct ethtool_keee *eee = &priv->eee;
+
+	if (is_enetc_rev1(priv->si) || !enetc_si_is_pf(priv->si))
+		return;
+
+	if (eee->eee_enabled && eee->tx_lpi_enabled && eee->tx_lpi_timer)
+		enetc_eee_mode_set(ndev, true);
+	else
+		enetc_eee_mode_set(ndev, false);
+}
+
 int enetc_open(struct net_device *ndev)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
@@ -3102,6 +3115,8 @@ int enetc_open(struct net_device *ndev)
 	enetc_assign_rx_resources(priv, rx_res);
 	enetc_setup_bdrs(priv, extended);
 	enetc_start(ndev);
+
+	enetc_set_eee(ndev);
 
 	return 0;
 
@@ -3341,6 +3356,8 @@ int enetc_resume(struct net_device *ndev, bool wol)
 	enetc_assign_rx_resources(priv, rx_res);
 	enetc_setup_bdrs(priv, extended);
 	enetc_start(priv->ndev);
+
+	enetc_set_eee(ndev);
 
 	return 0;
 

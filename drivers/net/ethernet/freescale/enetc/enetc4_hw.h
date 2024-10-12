@@ -333,6 +333,10 @@
 /* Port MAC 0/1 Pause Quanta Threshold Register */
 #define ENETC4_PM_PAUSE_THRESH(mac)	(0x5064 + (mac) * 0x400)
 
+#define ENETC4_PM_LPWAKE_TIMER(mac)	(0x50B8 + (mac) * 0x400)
+#define ENETC4_PM_SLEEP_TIMER(mac)	(0x50BC + (mac) * 0x400)
+#define  PM_EEE_TIMER			GENMASK(23, 0)
+
 #define ENETC4_PM_SINGLE_STEP(mac)	(0x50C0 + (mac) * 0x400)
 #define  PM_SINGLE_STEP_CH		BIT(6)
 #define  PM_SINGLE_STEP_OFFSET_MASK	GENMASK(15, 7)

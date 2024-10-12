@@ -1545,6 +1545,89 @@ static int enetc_set_wol(struct net_device *dev,
 	return 0;
 }
 
+static int enetc_us_to_tx_cycle(struct net_device *dev, u32 *us)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(dev);
+	u32 cycle, max_us;
+
+	max_us = enetc_cycles_to_usecs(PM_EEE_TIMER, priv->si->clk_freq);
+	if (*us > max_us) {
+		netdev_info(dev, "ENETC supports maximum tx_lpi_timer: %uus, using %uus instead.\n",
+			    max_us, max_us);
+		*us = max_us;
+	}
+	cycle = enetc_usecs_to_cycles(*us, priv->si->clk_freq);
+
+	return cycle;
+}
+
+void enetc_eee_mode_set(struct net_device *dev, bool enable)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(dev);
+	unsigned int sleep_cycle = 0, wake_cycle = 0;
+	struct ethtool_keee *eee = &priv->eee;
+	struct enetc_si *si = priv->si;
+
+	if (eee->eee_active) {
+		if (enable) {
+			sleep_cycle = enetc_us_to_tx_cycle(dev, &eee->tx_lpi_timer);
+			wake_cycle = sleep_cycle;
+		} else {
+			eee->tx_lpi_timer = 0;
+		}
+		eee->eee_enabled = enable;
+	}
+	eee->tx_lpi_enabled = eee->eee_active;
+
+	enetc_port_mac_wr(si, ENETC4_PM_SLEEP_TIMER(0), sleep_cycle);
+	enetc_port_mac_wr(si, ENETC4_PM_LPWAKE_TIMER(0), wake_cycle);
+}
+EXPORT_SYMBOL_GPL(enetc_eee_mode_set);
+
+static int enetc_ethtool_op_get_eee(struct net_device *dev,
+				    struct ethtool_keee *edata)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(dev);
+	struct enetc_si *si = priv->si;
+
+	if (is_enetc_rev1(si))
+		return -EOPNOTSUPP;
+
+	edata->eee_enabled = priv->eee.eee_enabled;
+	edata->tx_lpi_timer = priv->eee.tx_lpi_timer;
+	edata->tx_lpi_enabled = priv->eee.tx_lpi_enabled;
+
+	return phylink_ethtool_get_eee(priv->phylink, edata);
+}
+
+static int enetc_ethtool_op_set_eee(struct net_device *dev,
+				    struct ethtool_keee *edata)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(dev);
+	struct ethtool_keee *eee = &priv->eee;
+
+	if (is_enetc_rev1(priv->si))
+		return -EOPNOTSUPP;
+
+	if (!netif_running(dev))
+		return -ENETDOWN;
+
+	eee->tx_lpi_timer = edata->tx_lpi_timer;
+
+	if (!edata->eee_enabled || !edata->tx_lpi_enabled ||
+	    !edata->tx_lpi_timer) {
+		enetc_eee_mode_set(dev, false);
+		if (edata->eee_enabled) {
+			netdev_info(dev, "Please set tx_lpi_timer at same time. EEE not enabled.\n");
+			edata->eee_enabled = false;
+		}
+	} else {
+		enetc_eee_mode_set(dev, true);
+	}
+
+	return phylink_ethtool_set_eee(priv->phylink, edata);
+}
+
 static void enetc_get_pauseparam(struct net_device *dev,
 				 struct ethtool_pauseparam *pause)
 {
@@ -1997,6 +2080,8 @@ static const struct ethtool_ops enetc_pf_ethtool_ops = {
 	.get_ts_info = enetc_get_ts_info,
 	.get_wol = enetc_get_wol,
 	.set_wol = enetc_set_wol,
+	.get_eee = enetc_ethtool_op_get_eee,
+	.set_eee = enetc_ethtool_op_set_eee,
 	.get_pauseparam = enetc_get_pauseparam,
 	.set_pauseparam = enetc_set_pauseparam,
 	.get_mm = enetc_get_mm,
