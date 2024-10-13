@@ -43,15 +43,20 @@
 
 &fpga_axi {
 	gpio_in: gpio_in@0x00010100 {
-		compatible = "altr,pio-18.1", "altr,pio-1.0";
+		compatible = "altr,pio-21.1", "altr,pio-1.0";
 		reg = <0x00010100 0x00000010>;
-		altr,gpio-bank-width = <32>;
-		altr,interrupt-type = <4>;
-		altr,interrupt_type = <4>;
-		level_trigger = <1>;
-		resetvalue = <0>;
+		interrupts = <0 42 1>;
+		altr,gpio-bank-width = <32>;	/* embeddedsw.dts.params.altr,gpio-bank-width type NUMBER */
+		altr,interrupt-type = <2>;	/* embeddedsw.dts.params.altr,interrupt-type type NUMBER */
+		altr,interrupt_type = <2>;	/* embeddedsw.dts.params.altr,interrupt_type type NUMBER */
+		edge_type = <1>;	/* embeddedsw.dts.params.edge_type type NUMBER */
+		level_trigger = <0>;	/* embeddedsw.dts.params.level_trigger type NUMBER */
+		resetvalue = <0>;	/* embeddedsw.dts.params.resetvalue type NUMBER */
 		#gpio-cells = <2>;
 		gpio-controller;
+
+		#interrupt-cells = <2>;
+		interrupt-controller;
 	};
 
 	gpio_out: gpio_out@0x00109000 {
