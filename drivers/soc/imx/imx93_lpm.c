@@ -315,6 +315,10 @@ static ssize_t lpm_enable_store(struct device *dev,
 	if (new_mode == OD_MODE && no_od_mode)
 		return -EINVAL;
 
+	/* Skip if set to the same mode */
+	if (new_mode == system_run_mode.current_mode)
+		return count;
+
 	/* make sure auto clock gating is disabled before DDR frequency scaling */
 	regmap_update_bits(regmap, AUTO_CG_CTRL, AUTO_CG_EN, 0);
 
