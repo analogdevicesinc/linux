@@ -1,21 +1,30 @@
 # SPDX-License-Identifier: GPL-2.0
+# Copyright 2024 Analog Devices Inc.
 %YAML 1.2
 ---
 $id: http://devicetree.org/schemas/iio/adc/adi,ad7768-1.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Analog Devices AD7768-1 ADC device driver
+title: Analog Devices AD7768-1 ADC family device driver
 
 maintainers:
   - Michael Hennerich <michael.hennerich@analog.com>
 
 description: |
-  Datasheet at:
-    https://www.analog.com/media/en/technical-documentation/data-sheets/ad7768-1.pdf
+  Analog Devices AD7768-1 24-Bit Single Channel Low Power sigma-delta ADC family
+
+  https://www.analog.com/media/en/technical-documentation/data-sheets/ad7768-1.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/adaq7767-1.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/adaq7768-1.pdf
+  https://www.analog.com/media/en/technical-documentation/data-sheets/adaq7769-1.pdf
 
 properties:
   compatible:
-    const: adi,ad7768-1
+    enum:
+      - adi,ad7768-1
+      - adi,adaq7767-1
+      - adi,adaq7768-1
+      - adi,adaq7769-1
 
   reg:
     maxItems: 1
@@ -38,6 +47,16 @@ properties:
   vref-supply:
     description:
       ADC reference voltage supply
+
+  adi,gain-milli:
+    description: |
+      Specifies the analog anti-aliasing filter (AAF) gain applied
+      to the ADC input, in milli-units. Required for ADAQ7767-1 and
+      ADAQ7769-1 devices, the gain is determined by the pin selection
+      (IN1, IN2, IN3) on the ADAQ7767-1 or the connections of OUT_PGA
+      with IN1_AAF, IN2_AAF, or IN3_AAF on the ADAQ7769-1.
+    $ref: /schemas/types.yaml#/definitions/uint16
+    enum: [143, 364, 1000]
 
   adi,sync-in-gpios:
     maxItems: 1
