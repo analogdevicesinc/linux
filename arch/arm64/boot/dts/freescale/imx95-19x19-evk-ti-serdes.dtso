@@ -137,6 +137,9 @@
 							clocks = <&serializer1>;
 							fsin-gpios = <&serializer1 0 GPIO_ACTIVE_HIGH>;
 
+							orientation = <2>;
+							rotation = <0>;
+
 							port {
 								ox03c10_1_out: endpoint {
 									remote-endpoint = <&ub953_1_in>;
@@ -196,6 +199,9 @@
 
 							clocks = <&serializer2>;
 							fsin-gpios = <&serializer2 0 GPIO_ACTIVE_HIGH>;
+
+							orientation = <2>;
+							rotation = <0>;
 
 							port {
 								ox03c10_2_out: endpoint {
@@ -257,6 +263,9 @@
 							clocks = <&serializer3>;
 							fsin-gpios = <&serializer3 0 GPIO_ACTIVE_HIGH>;
 
+							orientation = <2>;
+							rotation = <0>;
+
 							port {
 								ox03c10_3_out: endpoint {
 									remote-endpoint = <&ub953_3_in>;
@@ -316,6 +325,9 @@
 
 							clocks = <&serializer4>;
 							fsin-gpios = <&serializer4 0 GPIO_ACTIVE_HIGH>;
+
+							orientation = <2>;
+							rotation = <0>;
 
 							port {
 								ox03c10_4_out: endpoint {
