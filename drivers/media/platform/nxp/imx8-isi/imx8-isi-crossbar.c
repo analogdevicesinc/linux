@@ -161,6 +161,13 @@ mxc_isi_crossbar_xlate_streams(struct mxc_isi_crossbar *xbar,
 	}
 
 	pad = media_pad_remote_pad_first(&xbar->pads[sink_pad]);
+	if (!pad) {
+		dev_err(xbar->isi->dev,
+			"no remote pad found for sink pad %u\n",
+			sink_pad);
+		return ERR_PTR(-EPIPE);
+	}
+
 	sd = media_entity_to_v4l2_subdev(pad->entity);
 	if (!sd) {
 		dev_dbg(xbar->isi->dev,
@@ -372,7 +379,7 @@ static int mxc_isi_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 	for_each_active_route(&state->routing, route) {
 		struct v4l2_mbus_frame_desc_entry *source_entry = NULL;
 		struct v4l2_mbus_frame_desc source_fd;
-		struct v4l2_subdev *remote_sd;
+		struct v4l2_subdev *remote_sd = NULL;
 		struct media_pad *remote_pad;
 		unsigned int i;
 
@@ -380,7 +387,8 @@ static int mxc_isi_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 			continue;
 
 		remote_pad = media_pad_remote_pad_first(&xbar->pads[route->sink_pad]);
-		remote_sd = media_entity_to_v4l2_subdev(remote_pad->entity);
+		if (remote_pad)
+			remote_sd = media_entity_to_v4l2_subdev(remote_pad->entity);
 		if (!remote_sd) {
 			dev_err(dev, "no entity connected to crossbar input %u\n",
 				route->sink_pad);
