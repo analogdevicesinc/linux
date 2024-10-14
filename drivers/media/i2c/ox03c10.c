@@ -459,7 +459,6 @@ static int ox03c10_digital_gain_set(struct ox03c10 *sensor, struct ox03c10_digit
 static int ox03c10_wb_gain_set(struct ox03c10 *sensor, struct ox03c10_wb_capture_gain *wb_gain)
 {
 	int i, ret = 0;
-	struct ox03c10_wb_capture_gain *gain;
 	u8 buf[8];
 	u16 base_addr[4] = {
 		OX03C10_AWB_GAIN_HCG_0,
@@ -471,15 +470,15 @@ static int ox03c10_wb_gain_set(struct ox03c10 *sensor, struct ox03c10_wb_capture
 	if (sensor->streaming)
 		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x03); /* set group hold 3 */
 
-	for (i = 0, gain = wb_gain + i * sizeof(struct ox03c10_wb_capture_gain); i < 4; i++) {
-		buf[0] = (gain->b >> 8) & 0xff;
-		buf[1] = gain->b & 0xff;
-		buf[2] = (gain->gb >> 8) & 0xff;
-		buf[3] = gain->gb & 0xff;
-		buf[4] = (gain->gr >> 8) & 0xff;
-		buf[5] = gain->gr & 0xff;
-		buf[6] = (gain->r >> 8) & 0xff;
-		buf[7] = gain->r & 0xff;
+	for (i = 0; i < 4; i++, wb_gain++) {
+		buf[0] = (wb_gain->b >> 8) & 0xff;
+		buf[1] = wb_gain->b & 0xff;
+		buf[2] = (wb_gain->gb >> 8) & 0xff;
+		buf[3] = wb_gain->gb & 0xff;
+		buf[4] = (wb_gain->gr >> 8) & 0xff;
+		buf[5] = wb_gain->gr & 0xff;
+		buf[6] = (wb_gain->r >> 8) & 0xff;
+		buf[7] = wb_gain->r & 0xff;
 
 		ret |= regmap_bulk_write(sensor->rmap, base_addr[i], buf, 8);
 	}
