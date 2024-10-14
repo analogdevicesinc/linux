@@ -66,6 +66,8 @@
 		clocks = <&scmi_clk IMX95_CLK_24M>;
 		reset-gpios   = <&i2c7_pcal6524_23 20 GPIO_ACTIVE_LOW>;
 		isp_en-gpios  = <&adp5585_isp 2 GPIO_ACTIVE_HIGH>;
+		orientation = <2>;
+		rotation = <0>;
 		DVDD-supply   = <&reg_dvdd_1v2>;
 		VDDIO_HMISC-supply  = <&reg_hmisc_vddio>;
 		VDDIO_SMISC-supply   = <&reg_hmisc_vddio>;
