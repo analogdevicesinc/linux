@@ -1113,74 +1113,6 @@
 	};
 };
 
-&isi_0 {
-	status = "disabled";
-
-	cap_device {
-		status = "okay";
-	};
-
-	m2m_device {
-		status = "okay";
-	};
-};
-
-&isi_1 {
-	status = "disabled";
-
-	cap_device {
-		status = "okay";
-	};
-};
-
-&isi_2 {
-	status = "disabled";
-
-	cap_device {
-		status = "okay";
-	};
-};
-
-&isi_3 {
-	status = "disabled";
-
-	cap_device {
-		status = "okay";
-	};
-};
-
-&isi_4 {
-	status = "disabled";
-
-	cap_device {
-		status = "okay";
-	};
-};
-
-&isi_5 {
-	status = "disabled";
-
-	cap_device {
-		status = "okay";
-	};
-};
-
-&isi_6 {
-	status = "disabled";
-
-	cap_device {
-		status = "okay";
-	};
-};
-
-&isi_7 {
-	status = "disabled";
-
-	cap_device {
-		status = "okay";
-	};
-};
-
 &irqsteer_csi0 {
 	status = "okay";
 };
@@ -1829,14 +1761,6 @@
 /delete-node/ &i2c1_lvds1;
 /delete-node/ &irqsteer_csi0;
 /delete-node/ &irqsteer_csi1;
-/delete-node/ &isi_0;
-/delete-node/ &isi_1;
-/delete-node/ &isi_2;
-/delete-node/ &isi_3;
-/delete-node/ &isi_4;
-/delete-node/ &isi_5;
-/delete-node/ &isi_6;
-/delete-node/ &isi_7;
 /delete-node/ &jpegdec;
 /delete-node/ &jpegenc;
 /delete-node/ &ldb2;

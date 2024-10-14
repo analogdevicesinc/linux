@@ -349,257 +349,168 @@ img_subsys: bus@58000000 {
 		status = "disabled";
 	};
 
-	cameradev: camera {
-		compatible = "fsl,mxc-md", "simple-bus";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges;
+	isi: isi@58100000 {
+		reg = <0x58100000 0x90000>;
+		interrupts = <GIC_SPI 297 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 298 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 299 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 300 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 301 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 302 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 303 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 304 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gic>;
+		clocks = <&pdma0_lpcg 0>,
+			 <&pdma1_lpcg 0>,
+			 <&pdma2_lpcg 0>,
+			 <&pdma3_lpcg 0>,
+			 <&pdma4_lpcg 0>,
+			 <&pdma5_lpcg 0>,
+			 <&pdma6_lpcg 0>,
+			 <&pdma7_lpcg 0>;
+		clock-names = "per0",
+			      "per1",
+			      "per2",
+			      "per3",
+			      "per4",
+			      "per5",
+			      "per6",
+			      "per7";
+		power-domains = <&pd IMX_SC_R_ISI_CH0>,
+				<&pd IMX_SC_R_ISI_CH1>,
+				<&pd IMX_SC_R_ISI_CH2>,
+				<&pd IMX_SC_R_ISI_CH3>,
+				<&pd IMX_SC_R_ISI_CH4>,
+				<&pd IMX_SC_R_ISI_CH5>,
+				<&pd IMX_SC_R_ISI_CH6>,
+				<&pd IMX_SC_R_ISI_CH7>;
+		no-reset-control;
+		status = "disabled";
 
-		isi_0: isi@58100000 {
-			compatible = "fsl,imx8-isi";
-			reg = <0x58100000 0x10000>;
-			interrupts = <GIC_SPI 297 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-parent = <&gic>;
-			clocks = <&pdma0_lpcg 0>;
-			clock-names = "per";
-			power-domains = <&pd IMX_SC_R_ISI_CH0>;
-			interface = <2 0 2>;
-			no-reset-control;
-			status = "disabled";
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
 
-			cap_device {
-				compatible = "imx-isi-capture";
-				status = "disabled";
+			port@0 {
+				reg = <0>;
 			};
 
-			m2m_device{
-				compatible = "imx-isi-m2m";
-				status = "disabled";
+			port@1 {
+				reg = <1>;
+			};
+
+			port@2 {
+				reg = <2>;
+			};
+
+			port@3 {
+				reg = <3>;
 			};
 		};
+	};
 
-		isi_1: isi@58110000 {
-			compatible = "fsl,imx8-isi";
-			reg = <0x58110000 0x10000>;
-			interrupts = <GIC_SPI 298 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-parent = <&gic>;
-			clocks = <&pdma1_lpcg 0>;
-			clock-names = "per";
-			power-domains = <&pd IMX_SC_R_ISI_CH1>;
-			interface = <2 1 2>;
-			no-reset-control;
-			status = "disabled";
+	csi0_csr: syscon@58221000 {
+		compatible = "syscon", "simple-mfd";
+		reg = <0x58221000 0x1000>;
+	};
 
-			cap_device {
-				compatible = "imx-isi-capture";
-				status = "disabled";
-			};
-		};
+	csi1_csr: syscon@58241000 {
+		compatible = "syscon", "simple-mfd";
+		reg = <0x58241000 0x1000>;
+	};
 
-		isi_2: isi@58120000 {
-			compatible = "fsl,imx8-isi";
-			reg = <0x58120000 0x10000>;
-			interrupts = <GIC_SPI 299 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-parent = <&gic>;
-			clocks = <&pdma2_lpcg 0>;
-			clock-names = "per";
-			power-domains = <&pd IMX_SC_R_ISI_CH2>;
-			interface = <2 2 2>;
-			no-reset-control;
-			status = "disabled";
+	mipi_csi_0: csi@58227000 {
+		compatible = "fsl,imx8qm-mipi-csi2";
+		reg = <0x58227000 0x1000>;
+		clocks = <&csi0_core_lpcg 0>,
+			 <&csi0_esc_lpcg 0>,
+			 <&csi0_pxl_lpcg 0>;
+		clock-names = "core", "esc", "ui";
+		assigned-clocks = <&csi0_core_lpcg 0>,
+				  <&csi0_esc_lpcg 0>;
+		assigned-clock-rates = <360000000>, <72000000>;
+		power-domains = <&pd IMX_SC_R_CSI_0>,
+				<&pd IMX_SC_R_ISI_CH0>;
+		fsl,mipi-phy-gpr = <&csi0_csr 0x0>;
+		status = "disabled";
+	};
 
-			cap_device {
-				compatible = "imx-isi-capture";
-				status = "disabled";
-			};
-		};
+	mipi_csi_1: csi@58247000{
+		compatible = "fsl,imx8qm-mipi-csi2";
+		reg = <0x58247000 0x1000>;
+		clocks = <&csi1_core_lpcg 0>,
+			 <&csi1_esc_lpcg 0>,
+			 <&csi1_pxl_lpcg 0>;
+		clock-names = "core", "esc", "ui";
+		assigned-clocks = <&csi1_core_lpcg 0>,
+				  <&csi1_esc_lpcg 0>;
+		assigned-clock-rates = <360000000>, <72000000>;
+		power-domains = <&pd IMX_SC_R_CSI_1>,
+				<&pd IMX_SC_R_ISI_CH0>;
+		fsl,mipi-phy-gpr = <&csi1_csr 0x0>;
+		status = "disabled";
+	};
 
-		isi_3: isi@58130000 {
-			compatible = "fsl,imx8-isi";
-			reg = <0x58130000 0x10000>;
-			interrupts = <GIC_SPI 300 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-parent = <&gic>;
-			clocks = <&pdma3_lpcg 0>;
-			clock-names = "per";
-			power-domains = <&pd IMX_SC_R_ISI_CH3>;
-			interface = <2 3 2>;
-			no-reset-control;
-			status = "disabled";
+	parallel_csi: pcsi@58261000 {
+		compatible = "fsl,imx8-parallel-csi";
+		reg = <0x58261000 0x1000>;
+		clocks = <&pi0_pxl_lpcg 0>,
+			 <&pi0_ipg_lpcg 0>;
+		clock-names = "pixel", "ipg";
+		assigned-clocks = <&clk IMX_SC_R_PI_0 IMX_SC_PM_CLK_PER>;
+		assigned-clock-parents = <&clk IMX_SC_R_PI_0_PLL IMX_SC_PM_CLK_PLL>;
+		assigned-clock-rates = <160000000>;  /* 160MHz */
+		power-domains = <&pd IMX_SC_R_PI_0>, <&pd IMX_SC_R_ISI_CH0>;
+		status = "disabled";
+	};
 
-			cap_device {
-				compatible = "imx-isi-capture";
-				status = "disabled";
-			};
-		};
+	jpegdec: jpegdec@58400000 {
+		compatible = "fsl,imx8-jpgdec";
+		reg = <0x58400000 0x00050000 >;
+		interrupts = <GIC_SPI 309 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 310 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 311 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 312 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&img_jpeg_dec_clk 0>,
+			 <&img_jpeg_dec_clk 1>;
+		clock-names = "per", "ipg";
+		assigned-clocks = <&img_jpeg_dec_clk 0>,
+				  <&img_jpeg_dec_clk 1>;
+		assigned-clock-rates = <200000000>;
+		power-domains = <&pd IMX_SC_R_ISI_CH0>,
+				<&pd IMX_SC_R_MJPEG_DEC_MP>,
+				<&pd IMX_SC_R_MJPEG_DEC_S0>,
+				<&pd IMX_SC_R_MJPEG_DEC_S1>,
+				<&pd IMX_SC_R_MJPEG_DEC_S2>,
+				<&pd IMX_SC_R_MJPEG_DEC_S3>;
+		power-domain-names = "pd_isi_ch0", "pd_dec_mp",
+				     "pd_dec_s0", "pd_dec_s1",
+				     "pd_dec_s2", "pd_dec_s3";
+		status = "disabled";
+	};
 
-		isi_4: isi@58140000 {
-			compatible = "fsl,imx8-isi";
-			reg = <0x58140000 0x10000>;
-			interrupts = <GIC_SPI 301 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-parent = <&gic>;
-			clocks = <&pdma4_lpcg 0>;
-			clock-names = "per";
-			power-domains = <&pd IMX_SC_R_ISI_CH4>;
-			interface = <3 0 2>;
-			no-reset-control;
-			status = "disabled";
-
-			cap_device {
-				compatible = "imx-isi-capture";
-				status = "disabled";
-			};
-		};
-
-		isi_5: isi@58150000 {
-			compatible = "fsl,imx8-isi";
-			reg = <0x58150000 0x10000>;
-			interrupts = <GIC_SPI 302 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-parent = <&gic>;
-			clocks = <&pdma5_lpcg 0>;
-			clock-names = "per";
-			power-domains = <&pd IMX_SC_R_ISI_CH5>;
-			interface = <3 1 2>;
-			no-reset-control;
-			status = "disabled";
-
-			cap_device {
-				compatible = "imx-isi-capture";
-				status = "disabled";
-			};
-		};
-
-		isi_6: isi@58160000 {
-			compatible = "fsl,imx8-isi";
-			reg = <0x58160000 0x10000>;
-			interrupts = <GIC_SPI 303 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-parent = <&gic>;
-			clocks = <&pdma6_lpcg 0>;
-			clock-names = "per";
-			power-domains = <&pd IMX_SC_R_ISI_CH6>;
-			interface = <3 2 2>;
-			no-reset-control;
-			status = "disabled";
-
-			cap_device {
-				compatible = "imx-isi-capture";
-				status = "disabled";
-			};
-		};
-
-		isi_7: isi@58170000 {
-			compatible = "fsl,imx8-isi";
-			reg = <0x58170000 0x10000>;
-			interrupts = <GIC_SPI 304 IRQ_TYPE_LEVEL_HIGH>;
-			interrupt-parent = <&gic>;
-			clocks = <&pdma7_lpcg 0>;
-			clock-names = "per";
-			power-domains = <&pd IMX_SC_R_ISI_CH7>;
-			interface = <3 3 2>;
-			no-reset-control;
-			status = "disabled";
-
-			cap_device {
-				compatible = "imx-isi-capture";
-				status = "disabled";
-			};
-		};
-
-		mipi_csi_0: csi@58227000 {
-			compatible = "fsl,mxc-mipi-csi2";
-			reg = <0x58227000 0x1000>,
-			      <0x58221000 0x1000>;
-			clocks = <&csi0_core_lpcg 0>,
-				 <&csi0_esc_lpcg 0>,
-				 <&csi0_pxl_lpcg 0>;
-			clock-names = "clk_core", "clk_esc", "clk_pxl";
-			assigned-clocks = <&csi0_core_lpcg 0>,
-					  <&csi0_esc_lpcg 0>;
-			assigned-clock-rates = <360000000>, <72000000>;
-			power-domains = <&pd IMX_SC_R_CSI_0>, <&pd IMX_SC_R_ISI_CH0>;
-			power-domain-names = "pd_csi", "pd_isi_ch0";
-			status = "disabled";
-		};
-
-		mipi_csi_1: csi@58247000{
-			compatible = "fsl,mxc-mipi-csi2";
-			reg = <0x58247000 0x1000>,
-			      <0x58241000 0x1000>;
-			clocks = <&csi1_core_lpcg 0>,
-				 <&csi1_esc_lpcg 0>,
-				 <&csi1_pxl_lpcg 0>;
-			clock-names = "clk_core", "clk_esc", "clk_pxl";
-			assigned-clocks = <&csi1_core_lpcg 0>,
-					  <&csi1_esc_lpcg 0>;
-			assigned-clock-rates = <360000000>, <72000000>;
-			power-domains = <&pd IMX_SC_R_CSI_1>, <&pd IMX_SC_R_ISI_CH0>;
-			power-domain-names = "pd_csi", "pd_isi_ch0";
-			status = "disabled";
-		};
-
-		parallel_csi: pcsi@58261000 {
-			compatible = "fsl,mxc-parallel-csi";
-			reg = <0x58261000 0x1000>;
-			clocks = <&pi0_pxl_lpcg 0>,
-				 <&pi0_ipg_lpcg 0>,
-				 <&clk IMX_SC_R_PI_0 IMX_SC_PM_CLK_PER>,
-				 <&clk IMX_SC_R_PI_0_PLL IMX_SC_PM_CLK_PLL>;
-			clock-names = "pixel", "ipg", "div", "dpll";
-			assigned-clocks = <&clk IMX_SC_R_PI_0 IMX_SC_PM_CLK_PER>;
-			assigned-clock-parents = <&clk IMX_SC_R_PI_0_PLL IMX_SC_PM_CLK_PLL>;
-			assigned-clock-rates = <160000000>;  /* 160MHz */
-			power-domains = <&pd IMX_SC_R_PI_0>, <&pd IMX_SC_R_ISI_CH0>;
-			power-domain-names = "pd_pi", "pd_isi_ch0";
-			status = "disabled";
-		};
-
-		jpegdec: jpegdec@58400000 {
-			compatible = "fsl,imx8-jpgdec";
-			reg = <0x58400000 0x00050000 >;
-			interrupts = <GIC_SPI 309 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 310 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 311 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 312 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&img_jpeg_dec_clk 0>,
-				 <&img_jpeg_dec_clk 1>;
-			clock-names = "per", "ipg";
-			assigned-clocks = <&img_jpeg_dec_clk 0>,
-					  <&img_jpeg_dec_clk 1>;
-			assigned-clock-rates = <200000000>;
-			power-domains = <&pd IMX_SC_R_ISI_CH0>,
-					<&pd IMX_SC_R_MJPEG_DEC_MP>,
-					<&pd IMX_SC_R_MJPEG_DEC_S0>,
-					<&pd IMX_SC_R_MJPEG_DEC_S1>,
-					<&pd IMX_SC_R_MJPEG_DEC_S2>,
-					<&pd IMX_SC_R_MJPEG_DEC_S3>;
-			power-domain-names = "pd_isi_ch0", "pd_dec_mp",
-					     "pd_dec_s0", "pd_dec_s1",
-					     "pd_dec_s2", "pd_dec_s3";
-			status = "disabled";
-		};
-
-		jpegenc: jpegenc@58450000 {
-			compatible = "fsl,imx8-jpgenc";
-			reg = <0x58450000 0x00050000 >;
-			interrupts = <GIC_SPI 305 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 306 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 307 IRQ_TYPE_LEVEL_HIGH>,
-				     <GIC_SPI 308 IRQ_TYPE_LEVEL_HIGH>;
-			clocks = <&img_jpeg_enc_clk 0>,
-				 <&img_jpeg_enc_clk 1>;
-			clock-names = "per", "ipg";
-			assigned-clocks = <&img_jpeg_enc_clk 0>,
-					  <&img_jpeg_enc_clk 1>;
-			assigned-clock-rates = <200000000>;
-			power-domains = <&pd IMX_SC_R_ISI_CH0>,
-					<&pd IMX_SC_R_MJPEG_ENC_MP>,
-					<&pd IMX_SC_R_MJPEG_ENC_S0>,
-					<&pd IMX_SC_R_MJPEG_ENC_S1>,
-					<&pd IMX_SC_R_MJPEG_ENC_S2>,
-					<&pd IMX_SC_R_MJPEG_ENC_S3>;
-			power-domain-names = "pd_isi_ch0", "pd_enc_mp",
-					     "pd_enc_s0", "pd_enc_s1",
-					     "pd_enc_s2", "pd_enc_s3";
-			status = "disabled";
-		};
+	jpegenc: jpegenc@58450000 {
+		compatible = "fsl,imx8-jpgenc";
+		reg = <0x58450000 0x00050000 >;
+		interrupts = <GIC_SPI 305 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 306 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 307 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 308 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&img_jpeg_enc_clk 0>,
+			 <&img_jpeg_enc_clk 1>;
+		clock-names = "per", "ipg";
+		assigned-clocks = <&img_jpeg_enc_clk 0>,
+				  <&img_jpeg_enc_clk 1>;
+		assigned-clock-rates = <200000000>;
+		power-domains = <&pd IMX_SC_R_ISI_CH0>,
+				<&pd IMX_SC_R_MJPEG_ENC_MP>,
+				<&pd IMX_SC_R_MJPEG_ENC_S0>,
+				<&pd IMX_SC_R_MJPEG_ENC_S1>,
+				<&pd IMX_SC_R_MJPEG_ENC_S2>,
+				<&pd IMX_SC_R_MJPEG_ENC_S3>;
+		power-domain-names = "pd_isi_ch0", "pd_enc_mp",
+				     "pd_enc_s0", "pd_enc_s1",
+				     "pd_enc_s2", "pd_enc_s3";
+		status = "disabled";
 	};
 };

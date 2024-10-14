@@ -12,6 +12,30 @@
 	compatible = "nxp,imx8qxp-jpgenc";
 };
 
+&isi {
+	compatible = "fsl,imx8qxp-isi";
+	interrupts = <GIC_SPI 297 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 301 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 302 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 303 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 304 IRQ_TYPE_LEVEL_HIGH>;
+	clocks = <&pdma0_lpcg 0>,
+		 <&pdma4_lpcg 0>,
+		 <&pdma5_lpcg 0>,
+		 <&pdma6_lpcg 0>,
+		 <&pdma7_lpcg 0>;
+	clock-names = "per0",
+		      "per4",
+		      "per5",
+		      "per6",
+		      "per7";
+	power-domains = <&pd IMX_SC_R_ISI_CH0>,
+			<&pd IMX_SC_R_ISI_CH4>,
+			<&pd IMX_SC_R_ISI_CH5>,
+			<&pd IMX_SC_R_ISI_CH6>,
+			<&pd IMX_SC_R_ISI_CH7>;
+};
+
 &csi1_pxl_lpcg {
 	status = "disabled";
 };

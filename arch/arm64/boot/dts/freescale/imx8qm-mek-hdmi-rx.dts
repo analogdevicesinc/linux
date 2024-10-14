@@ -28,76 +28,25 @@
 	status = "okay";
 };
 
-&isi_0 {
-	status = "okay";
-
-	cap_device {
-		status = "okay";
-	};
-
-	m2m_device {
-		status = "okay";
-	};
-};
-
-&isi_1 {
-	status = "disabled";
-
-	cap_device {
-		status = "disabled";
-	};
-};
-
 /* HDMI RX */
-&isi_2 {
-	interface = <4 0 2>;  /* <Input MIPI_VCx Output>
-						Input:  0-DC0, 1-DC1, 2-MIPI CSI0, 3-MIPI CSI1, 4-HDMI, 5-MEM
-						VCx:    0-VC0, 1-VC1, 2-VC2, 3-VC3, MIPI CSI only
-						Output: 0-DC0, 1-DC1, 2-MEM */
-	status = "okay";
-	cap_device {
-		status = "okay";
-	};
-};
+&isi {
+	/* <Input MIPI_VCx Output>
+	 *	Input:  0-DC0, 1-DC1, 2-MIPI CSI0, 3-MIPI CSI1, 4-HDMI, 5-MEM
+	 *	VCx:    0-VC0, 1-VC1, 2-VC2, 3-VC3, MIPI CSI only
+	 *	Output: 0-DC0, 1-DC1, 2-MEM
+	 */
 
-&isi_3 {
-	/* For HDMI RX 4K chain buf */
-	interface = <4 0 2>;
-	status = "okay";
-	cap_device {
-		status = "okay";
-	};
-};
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
 
-&isi_4 {
-	status = "disabled";
+		port@4 {
+			reg = <4>;
 
-	cap_device {
-		status = "disabled";
-	};
-};
-
-&isi_5 {
-	status = "disabled";
-
-	cap_device {
-		status = "disabled";
-	};
-};
-
-&isi_6 {
-	status = "disabled";
-
-	cap_device {
-		status = "disabled";
-	};
-};
-
-&isi_7 {
-	status = "disabled";
-
-	cap_device {
-		status = "disabled";
+			isi_in_4: endpoint {
+				remote-endpoint = <&hdmi_rx_out>;
+			};
+		};
 	};
 };
 
@@ -184,4 +133,10 @@
 							<&clk IMX_SC_R_HDMI_RX_BYPASS IMX_SC_PM_CLK_MISC2>;
 	assigned-clock-rates = <400000000>, <0>;
 	status = "okay";
+
+	port {
+		hdmi_rx_out: endpoint {
+			remote-endpoint = <&isi_in_4>;
+		};
+	};
 };

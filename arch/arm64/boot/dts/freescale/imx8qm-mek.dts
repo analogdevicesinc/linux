@@ -1254,71 +1254,28 @@
 	};
 };
 
-&isi_0 {
+&isi {
 	status = "okay";
 
-	cap_device {
-		status = "okay";
-	};
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
 
-	m2m_device {
-		status = "okay";
-	};
-};
+		port@2 {
+			reg = <2>;
 
-&isi_1 {
-	status = "okay";
+			isi_in_2: endpoint {
+				remote-endpoint = <&mipi_csi0_out>;
+			};
+		};
 
-	cap_device {
-		status = "okay";
-	};
-};
+		port@3 {
+			reg = <3>;
 
-&isi_2 {
-	status = "okay";
-
-	cap_device {
-		status = "okay";
-	};
-};
-
-&isi_3 {
-	status = "okay";
-
-	cap_device {
-		status = "okay";
-	};
-};
-
-&isi_4 {
-	status = "okay";
-
-	cap_device {
-		status = "okay";
-	};
-};
-
-&isi_5 {
-	status = "okay";
-
-	cap_device {
-		status = "okay";
-	};
-};
-
-&isi_6 {
-	status = "okay";
-
-	cap_device {
-		status = "okay";
-	};
-};
-
-&isi_7 {
-	status = "okay";
-
-	cap_device {
-		status = "okay";
+			isi_in_3: endpoint {
+				remote-endpoint = <&mipi_csi1_out>;
+			};
+		};
 	};
 };
 
@@ -1339,9 +1296,18 @@
 	/* Camera 0  MIPI CSI-2 (CSIS0) */
 	port@0 {
 		reg = <0>;
+
 		mipi_csi0_ep: endpoint {
 			remote-endpoint = <&max9286_0_ep>;
 			data-lanes = <1 2 3 4>;
+		};
+	};
+
+	port@1 {
+		reg = <1>;
+
+		mipi_csi0_out: endpoint {
+			remote-endpoint = <&isi_in_2>;
 		};
 	};
 };
@@ -1353,11 +1319,18 @@
 	status = "okay";
 
 	/* Camera 1  MIPI CSI-2 (CSIS1) */
-	port@1 {
-		reg = <1>;
+	port@0 {
 		mipi_csi1_ep: endpoint {
 			remote-endpoint = <&max9286_1_ep>;
 			data-lanes = <1 2 3 4>;
+		};
+	};
+
+	port@1 {
+		reg = <1>;
+
+		mipi_csi1_out: endpoint {
+			remote-endpoint = <&isi_in_3>;
 		};
 	};
 };

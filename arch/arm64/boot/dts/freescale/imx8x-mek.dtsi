@@ -445,7 +445,7 @@
 		fsl,txs-rxm;
 	};
 
-	ov5640: ov5640@3c {
+	ov5640_pi: ov5640@3c {
 		compatible = "ovti,ov5640";
 		reg = <0x3c>;
 		pinctrl-names = "default";
@@ -456,13 +456,15 @@
 		clock-names = "xclk";
 		powerdown-gpios = <&lsio_gpio3 2 GPIO_ACTIVE_HIGH>;
 		reset-gpios = <&lsio_gpio3 3 GPIO_ACTIVE_LOW>;
-		csi_id = <0>;
 		mclk = <24000000>;
 		mclk_source = <0>;
 		status = "okay";
+
 		port {
 			ov5640_ep: endpoint {
 				remote-endpoint = <&parallel_csi_ep>;
+				data-lanes = <1 2>;
+				clocks-lanes = <0>;
 				bus-type = <5>; /* V4L2_FWNODE_BUS_TYPE_PARALLEL */
 				bus-width = <8>;
 				vsync-active = <0>;
@@ -1211,55 +1213,34 @@
 	status = "okay";
 };
 
-&isi_0 {
+&isi {
 	status = "okay";
 
-	cap_device {
-		status = "okay";
-	};
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
 
-	m2m_device {
-		status = "okay";
-	};
-};
+		port@2 {
+			reg = <2>;
 
-&isi_1 {
-	status = "okay";
+			isi_in_2: endpoint {
+				remote-endpoint = <&mipi_csi0_out>;
+			};
+		};
 
-	cap_device {
-		status = "okay";
-	};
-};
+		port@4 {
+			reg = <4>;
 
-&isi_2 {
-	status = "okay";
-
-	cap_device {
-		status = "okay";
-	};
-};
-
-&isi_3 {
-	status = "okay";
-
-	cap_device {
-		status = "okay";
-	};
-};
-
-&isi_4 {
-	interface = <6 0 2>;
-	status = "okay";
-
-	cap_device {
-		status = "okay";
+			isi_in_4: endpoint {
+				remote-endpoint = <&parallel_csi_out>;
+			};
+		};
 	};
 };
 
 &irqsteer_csi0 {
 	status = "okay";
 };
-
 
 &mipi_csi_0 {
 	#address-cells = <1>;
@@ -1270,16 +1251,20 @@
 	/* Camera 0  MIPI CSI-2 (CSIS0) */
 	port@0 {
 		reg = <0>;
+
 		mipi_csi0_ep: endpoint {
 			remote-endpoint = <&max9286_0_ep>;
 			data-lanes = <1 2 3 4>;
 		};
 	};
-};
 
-&cameradev {
-	parallel_csi;
-	status = "okay";
+	port@1 {
+		reg = <1>;
+
+		mipi_csi0_out: endpoint {
+			remote-endpoint = <&isi_in_2>;
+		};
+	};
 };
 
 &parallel_csi {
@@ -1288,8 +1273,17 @@
 	status = "okay";
 	port@0 {
 		reg = <0>;
+
 		parallel_csi_ep: endpoint {
 			remote-endpoint = <&ov5640_ep>;
+		};
+	};
+
+	port@1 {
+		reg = <1>;
+
+		parallel_csi_out: endpoint {
+			remote-endpoint = <&isi_in_4>;
 		};
 	};
 };

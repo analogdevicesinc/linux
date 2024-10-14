@@ -22,3 +22,8 @@
 &pi0_misc_lpcg {
 	status = "disabled";
 };
+
+&isi {
+	compatible = "fsl,imx8qm-isi";
+};
+

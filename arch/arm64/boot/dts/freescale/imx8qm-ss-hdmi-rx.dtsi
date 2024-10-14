@@ -194,7 +194,7 @@
 	};
 };
 
-&cameradev {
+&img_subsys {
 	hdmi_rx: hdmi_rx@58268000 {
 		#address-cells = <1>;
 		#size-cells = <0>;

@@ -3,80 +3,13 @@
 
 #include "imx8qm-mek.dts"
 
-&isi_0 {
-	status = "okay";
-
-	cap_device {
-		status = "okay";
-	};
-
-	m2m_device {
-		status = "okay";
-	};
-};
-
-&isi_1 {
-	status = "disabled";
-
-	cap_device {
-		status = "disabled";
-	};
-};
-
-&isi_2 {
-	status = "disabled";
-
-	cap_device {
-		status = "disabled";
-	};
-};
-
-&isi_3 {
-	status = "disabled";
-
-	cap_device {
-		status = "disabled";
-	};
-};
-
-&isi_4 {
-	status = "okay";
-
-	cap_device {
-		status = "okay";
-	};
-};
-
-&isi_5 {
-	status = "disabled";
-
-	cap_device {
-		status = "disabled";
-	};
-};
-
-&isi_6 {
-	status = "disabled";
-
-	cap_device {
-		status = "disabled";
-	};
-};
-
-&isi_7 {
-	status = "disabled";
-
-	cap_device {
-		status = "disabled";
-	};
-};
-
 &mipi_csi_0 {
 	/delete-property/virtual-channel;
 
 	/* Camera 0  MIPI CSI-2 (CSIS0) */
 	port@0 {
 		reg = <0>;
+
 		mipi_csi0_ep: endpoint {
 			remote-endpoint = <&ov5640_mipi_0_ep>;
 			data-lanes = <1 2>;
@@ -89,8 +22,7 @@
 	/delete-property/virtual-channel;
 
 	/* Camera 1  MIPI CSI-2 (CSIS0) */
-	port@1 {
-		reg = <1>;
+	port@0 {
 		mipi_csi1_ep: endpoint {
 			remote-endpoint = <&ov5640_mipi_1_ep>;
 			data-lanes = <1 2>;
