@@ -2583,7 +2583,7 @@ adi_ad9081_adc_path_or_bypass_config(adi_ad9081_device_t *device, uint8_t cddcs,
 	err = adi_ad9081_adc_xbar_set(device, adc_cddc_xbar, cddc_fddc_xbar);
 	AD9081_ERROR_RETURN(err);
 	err = adi_ad9081_adc_pfir_din_select_set(
-		device, AD9081_ADC_PFIR_ADC_PAIR0, 0,
+		device, AD9081_ADC_PFIR_ADC_PAIR_ALL, 0,
 		((die_id & 0x80) == 0) ? 1 : 0);
 	AD9081_ERROR_RETURN(err);
 	if (!bypass_mode) {
@@ -3376,11 +3376,6 @@ int32_t adi_ad9081_adc_pfir_config_set(
 	AD9081_NULL_POINTER_RETURN(device);
 	AD9081_LOG_FUNC();
 
-	err = adi_ad9081_adc_pfir_coeff_clear_set(device, ctl_pages, 1);
-	AD9081_ERROR_RETURN(err);
-	err = adi_ad9081_adc_pfir_coeff_clear_set(device, ctl_pages, 0);
-	AD9081_ERROR_RETURN(err);
-
 	err = adi_ad9081_adc_pfir_i_mode_set(device, ctl_pages, i_mode);
 	AD9081_ERROR_RETURN(err);
 	err = adi_ad9081_adc_pfir_q_mode_set(device, ctl_pages, q_mode);
@@ -3405,6 +3400,213 @@ int32_t adi_ad9081_adc_pfir_config_set(
 	err = adi_ad9081_adc_pfir_coeff_load_sel_set(device, ctl_pages, 0);
 	AD9081_ERROR_RETURN(err);
 
+	return API_CMS_ERROR_OK;
+}
+
+int32_t adi_ad9081_adc_pfir_coeff_table_load_set(
+	adi_ad9081_device_t *device, adi_ad9081_adc_pfir_ctl_page_e ctl_pages,
+	adi_ad9081_adc_pfir_coeff_page_e coeff_pages,
+	adi_ad9081_adc_pfir_i_mode_e i_mode,
+	adi_ad9081_adc_pfir_q_mode_e q_mode, adi_ad9081_adc_pfir_gain_t *gain,
+	int16_t *coeffs, uint8_t clear_coeffs)
+{
+	int32_t err;
+	uint8_t die_id, coeff_bank_sel = 0;
+	uint16_t *incr_coeffs;
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_NULL_POINTER_RETURN(gain);
+	AD9081_NULL_POINTER_RETURN(coeffs);
+	AD9081_LOG_FUNC();
+	AD9081_INVALID_PARAM_RETURN(clear_coeffs > 1);
+
+	/* coeffs array must be 192 in length, zero padded if necessary*/
+
+	/* clear all current coefficients*/
+	if (clear_coeffs) {
+		err = adi_ad9081_adc_pfir_coeff_clear_set(
+			device, AD9081_ADC_PFIR_ADC_PAIR_ALL, 1);
+		AD9081_ERROR_RETURN(err);
+		err = adi_ad9081_adc_pfir_coeff_clear_set(
+			device, AD9081_ADC_PFIR_ADC_PAIR_ALL, 0);
+		AD9081_ERROR_RETURN(err);
+	}
+
+	/* set quad mode for mxfe */
+	err = adi_ad9081_device_die_id_get(device, &die_id);
+	AD9081_ERROR_RETURN(err);
+	err = adi_ad9081_adc_pfir_quad_mode_set(device,
+						AD9081_ADC_PFIR_ADC_PAIR_ALL,
+						((die_id & 0x80) == 0 ? 0 : 1));
+	AD9081_ERROR_RETURN(err);
+
+	/* check ctl_page with die_id */
+	if ((die_id & 0x80) == 0 && ctl_pages != AD9081_ADC_PFIR_ADC_PAIR_ALL) {
+		AD9081_LOG_ERR(
+			"For 4T2R devices, ctl_page must be set to page all.");
+		return API_CMS_ERROR_INVALID_PARAM;
+	}
+
+	/* pick i mode and q mode */
+	if (i_mode == AD9081_ADC_PFIR_I_MODE_REAL_N4 &&
+	    q_mode == AD9081_ADC_PFIR_Q_MODE_REAL_N4) {
+		if (gain->iy_gain != 0 && gain->qx_gain != 0) {
+			AD9081_LOG_WARN(
+				"excess pfir gain settings passed for selected mode.");
+		}
+		err = adi_ad9081_adc_pfir_config_set(
+			device, ctl_pages, coeff_pages, i_mode, q_mode,
+			gain->ix_gain, gain->iy_gain, gain->qx_gain,
+			gain->qy_gain, AD9081_ADC_PFIR_REAL_I_LOAD,
+			(uint16_t *)coeffs, 48);
+		AD9081_ERROR_RETURN(err);
+		incr_coeffs = (uint16_t *)&coeffs[96];
+		err = adi_ad9081_adc_pfir_config_set(
+			device, ctl_pages, coeff_pages, i_mode, q_mode,
+			gain->ix_gain, gain->iy_gain, gain->qx_gain,
+			gain->qy_gain, AD9081_ADC_PFIR_REAL_Q_LOAD, incr_coeffs,
+			48);
+		AD9081_ERROR_RETURN(err);
+	} else if (i_mode == AD9081_ADC_PFIR_I_MODE_REAL_N2 &&
+		   q_mode == AD9081_ADC_PFIR_Q_MODE_REAL_N2) {
+		if (gain->iy_gain != 0 && gain->qx_gain != 0) {
+			AD9081_LOG_WARN(
+				"excess pfir gain settings passed for selected mode.");
+		}
+		err = adi_ad9081_adc_pfir_config_set(
+			device, ctl_pages, coeff_pages, i_mode, q_mode,
+			gain->ix_gain, gain->iy_gain, gain->qx_gain,
+			gain->qy_gain, AD9081_ADC_PFIR_REAL_I_LOAD,
+			(uint16_t *)coeffs, 96);
+		AD9081_ERROR_RETURN(err);
+		incr_coeffs = (uint16_t *)&coeffs[96];
+		err = adi_ad9081_adc_pfir_config_set(
+			device, ctl_pages, coeff_pages, i_mode, q_mode,
+			gain->ix_gain, gain->iy_gain, gain->qx_gain,
+			gain->qy_gain, AD9081_ADC_PFIR_REAL_Q_LOAD, incr_coeffs,
+			96);
+		AD9081_ERROR_RETURN(err);
+	} else if (i_mode == AD9081_ADC_PFIR_I_MODE_MATRIX &&
+		   q_mode == AD9081_ADC_PFIR_Q_MODE_MATRIX) {
+		err = adi_ad9081_adc_pfir_config_set(
+			device, ctl_pages, coeff_pages, i_mode, q_mode,
+			gain->ix_gain, gain->iy_gain, gain->qx_gain,
+			gain->qy_gain, AD9081_ADC_PFIR_REAL_I_LOAD,
+			(uint16_t *)coeffs, 48);
+		AD9081_ERROR_RETURN(err);
+		incr_coeffs = (uint16_t *)&coeffs[48];
+		err = adi_ad9081_adc_pfir_config_set(
+			device, ctl_pages, coeff_pages, i_mode, q_mode,
+			gain->ix_gain, gain->iy_gain, gain->qx_gain,
+			gain->qy_gain, AD9081_ADC_PFIR_REAL_CROSS_I_LOAD,
+			incr_coeffs, 48);
+		AD9081_ERROR_RETURN(err);
+		incr_coeffs = (uint16_t *)&coeffs[96];
+		err = adi_ad9081_adc_pfir_config_set(
+			device, ctl_pages, coeff_pages, i_mode, q_mode,
+			gain->ix_gain, gain->iy_gain, gain->qx_gain,
+			gain->qy_gain, AD9081_ADC_PFIR_REAL_CROSS_Q_LOAD,
+			incr_coeffs, 48);
+		AD9081_ERROR_RETURN(err);
+		incr_coeffs = (uint16_t *)&coeffs[144];
+		err = adi_ad9081_adc_pfir_config_set(
+			device, ctl_pages, coeff_pages, i_mode, q_mode,
+			gain->ix_gain, gain->iy_gain, gain->qx_gain,
+			gain->qy_gain, AD9081_ADC_PFIR_REAL_Q_LOAD, incr_coeffs,
+			48);
+		AD9081_ERROR_RETURN(err);
+	} else if (i_mode == AD9081_ADC_PFIR_I_MODE_COMPLEX_FULL &&
+		   q_mode == AD9081_ADC_PFIR_Q_MODE_COMPLEX_FULL) {
+		if (gain->ix_gain != gain->qx_gain) {
+			AD9081_LOG_WARN(
+				"incorrect pfir gain settings passed for selected mode.");
+		}
+		err = adi_ad9081_adc_pfir_config_set(
+			device, ctl_pages, coeff_pages, i_mode, q_mode,
+			gain->ix_gain, gain->iy_gain, gain->qx_gain,
+			gain->qy_gain, AD9081_ADC_PFIR_COMPLEX_LOAD,
+			(uint16_t *)coeffs, 64);
+		AD9081_ERROR_RETURN(err);
+		incr_coeffs = (uint16_t *)&coeffs[96];
+		err = adi_ad9081_adc_pfir_config_set(
+			device, ctl_pages, coeff_pages, i_mode, q_mode,
+			gain->ix_gain, gain->iy_gain, gain->qx_gain,
+			gain->qy_gain, AD9081_ADC_PFIR_COMPLEX_LOAD,
+			incr_coeffs, 64);
+		AD9081_ERROR_RETURN(err);
+	} else if (i_mode == AD9081_ADC_PFIR_I_MODE_COMPLEX_HALF &&
+		   q_mode == AD9081_ADC_PFIR_Q_MODE_REAL_N2) {
+		if (gain->iy_gain != 0 || gain->qy_gain != 0) {
+			AD9081_LOG_WARN(
+				"excess pfir gain settings passed for selected mode.");
+		}
+		err = adi_ad9081_adc_pfir_config_set(
+			device, ctl_pages, coeff_pages, i_mode, q_mode,
+			gain->ix_gain, gain->iy_gain, gain->qx_gain,
+			gain->qy_gain, AD9081_ADC_PFIR_REAL_CROSS_I_LOAD,
+			(uint16_t *)coeffs, 96);
+		AD9081_ERROR_RETURN(err);
+		incr_coeffs = (uint16_t *)&coeffs[96];
+		err = adi_ad9081_adc_pfir_config_set(
+			device, ctl_pages, coeff_pages, i_mode, q_mode,
+			gain->ix_gain, gain->iy_gain, gain->qx_gain,
+			gain->qy_gain, AD9081_ADC_PFIR_REAL_Q_LOAD, incr_coeffs,
+			96);
+		AD9081_ERROR_RETURN(err);
+	} else if (i_mode == AD9081_ADC_PFIR_I_MODE_REAL_N2 &&
+		   q_mode == AD9081_ADC_PFIR_Q_MODE_COMPLEX_HALF) {
+		if (gain->ix_gain != 0 || gain->qx_gain != 0) {
+			AD9081_LOG_WARN(
+				"excess pfir gain settings passed for selected mode.");
+		}
+		err = adi_ad9081_adc_pfir_config_set(
+			device, ctl_pages, coeff_pages, i_mode, q_mode,
+			gain->ix_gain, gain->iy_gain, gain->qx_gain,
+			gain->qy_gain, AD9081_ADC_PFIR_REAL_I_LOAD,
+			(uint16_t *)coeffs, 96);
+		AD9081_ERROR_RETURN(err);
+		incr_coeffs = (uint16_t *)&coeffs[96];
+		err = adi_ad9081_adc_pfir_config_set(
+			device, ctl_pages, coeff_pages, i_mode, q_mode,
+			gain->ix_gain, gain->iy_gain, gain->qx_gain,
+			gain->qy_gain, AD9081_ADC_PFIR_REAL_CROSS_Q_LOAD,
+			incr_coeffs, 96);
+		AD9081_ERROR_RETURN(err);
+	} else if (i_mode == AD9081_ADC_PFIR_I_MODE_REAL_N &&
+		   q_mode == AD9081_ADC_PFIR_Q_MODE_DISABLE) {
+		if (gain->iy_gain != 0 || gain->qx_gain != 0 ||
+		    gain->qy_gain != 0) {
+			AD9081_LOG_WARN(
+				"excess pfir gain settings passed for selected mode.");
+		}
+		err = adi_ad9081_adc_pfir_config_set(
+			device, ctl_pages, coeff_pages, i_mode, q_mode,
+			gain->ix_gain, gain->iy_gain, gain->qx_gain,
+			gain->qy_gain, AD9081_ADC_PFIR_REAL_I_LOAD,
+			(uint16_t *)coeffs, 192);
+		AD9081_ERROR_RETURN(err);
+	} else if (i_mode == AD9081_ADC_PFIR_I_MODE_DISABLE &&
+		   q_mode == AD9081_ADC_PFIR_Q_MODE_REAL_N) {
+		if (gain->ix_gain != 0 || gain->iy_gain != 0 ||
+		    gain->qx_gain != 0) {
+			AD9081_LOG_WARN(
+				"excess pfir gain settings passed for selected mode.");
+		}
+		err = adi_ad9081_adc_pfir_config_set(
+			device, ctl_pages, coeff_pages, i_mode, q_mode,
+			gain->ix_gain, gain->iy_gain, gain->qx_gain,
+			gain->qy_gain, AD9081_ADC_PFIR_REAL_Q_LOAD,
+			(uint16_t *)coeffs, 192);
+		AD9081_ERROR_RETURN(err);
+	} else {
+		AD9081_LOG_ERR("pfir mode combination is invalid.");
+		return API_CMS_ERROR_INVALID_PARAM;
+	}
+
+	/* page coeff bank and xfer all coefficients */
+	coeff_bank_sel = adi_api_utils_log2(coeff_pages) & 0xF;
+	err = adi_ad9081_adc_pfir_rd_coeff_page_sel_set(device, ctl_pages,
+							coeff_bank_sel);
+	AD9081_ERROR_RETURN(err);
 	err = adi_ad9081_adc_pfir_coeff_xfer_set(device, ctl_pages, 1);
 	AD9081_ERROR_RETURN(err);
 	err = adi_ad9081_adc_pfir_coeff_xfer_set(device, ctl_pages, 0);
