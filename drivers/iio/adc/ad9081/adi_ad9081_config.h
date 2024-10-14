@@ -40,7 +40,7 @@
 #define __FUNCTION_NAME__ __FUNCTION__
 #endif
 
-#define AD9081_API_REV 0x00010600
+#define AD9081_API_REV 0x00010700
 #define AD9081_API_HW_RESET_LOW 600000
 #define AD9081_API_RESET_WAIT 500000
 #define AD9081_PLL_LOCK_TRY 75
@@ -439,6 +439,23 @@ int32_t adi_ad9081_dac_duc_nco_ftw0_set(adi_ad9081_device_t *device,
 					uint8_t dacs, uint8_t channels,
 					uint64_t ftw);
 
+#if AD9081_USE_FLOATING_TYPE > 0
+/**
+ * \brief  Block Top Level API. \n Configure NCO Shift Freq.
+ *         Call after adi_ad9081_device_startup_tx().
+ *
+ * \param[in]  device       Pointer to the device structure
+ * \param[in]  dacs         DAC mask, like AD9081_DAC_0, ...
+ * \param[in]  channels     Channel mask, like AD9081_DAC_CH_0, ...
+ * \param[in]  nco_shift_hz NCO shift freq in Hz
+ *
+ * \returns API_CMS_ERROR_OK                     API Completed Successfully
+ * \returns <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_dac_duc_nco_set_f(adi_ad9081_device_t *device, uint8_t dacs,
+				     uint8_t channels, double nco_shift_hz);
+#endif
+
 /**
  * \brief Enables soft off gain block for specified DACs.
  *
@@ -582,6 +599,23 @@ int32_t adi_ad9081_adc_power_up_set(adi_ad9081_device_t *device, uint8_t adcs,
 uint8_t
 adi_ad9081_adc_ddc_coarse_dcm_decode(adi_ad9081_adc_coarse_ddc_dcm_e cddc_dcm);
 
+#if AD9081_USE_FLOATING_TYPE > 0
+/**
+ * /brief  Configure NCO frequency for the coarse DDCs
+ *         Call after adi_ad9081_device_startup_rx().
+ *
+ * \param[in]  device        Pointer to the device structure
+ * \param[in]  cddcs         Coarse DDCs selection, @see adi_ad9081_adc_coarse_ddc_select_e
+ * \param[in]  cddc_shift_hz Value of frequency shift in Hz
+ *
+ * \returns API_CMS_ERROR_OK                     API Completed Successfully
+ * \returns <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_adc_ddc_coarse_nco_set_f(adi_ad9081_device_t *device,
+					    uint8_t cddcs,
+					    double cddc_shift_hz);
+#endif
+
 /**
  * \brief Decodes ADC fine DDC decimation values.
  *
@@ -594,6 +628,22 @@ adi_ad9081_adc_ddc_coarse_dcm_decode(adi_ad9081_adc_coarse_ddc_dcm_e cddc_dcm);
  */
 uint8_t
 adi_ad9081_adc_ddc_fine_dcm_decode(adi_ad9081_adc_fine_ddc_dcm_e fddc_dcm);
+
+#if AD9081_USE_FLOATING_TYPE > 0
+/**
+ * \brief  Configure NCO frequency for fine DDCs
+ *         Call after adi_ad9081_device_startup_rx().
+ *
+ * \param[in]  device        Pointer to the device structure
+ * \param[in]  fddcs         Fine DDCs selection, @see adi_ad9081_adc_fine_ddc_select_e
+ * \param[in]  fddc_shift_hz Value of frequency shift in Hz
+ *
+ * \returns API_CMS_ERROR_OK                     API Completed Successfully
+ * \returns <0                                   Failed. @see adi_cms_error_e for details.
+ */
+int32_t adi_ad9081_adc_ddc_fine_nco_set_f(adi_ad9081_device_t *device,
+					  uint8_t fddcs, double fddc_shift_hz);
+#endif
 
 /**
  * \brief Selects the GPIOs to which PERI_I_SEL21/22 are connected.
