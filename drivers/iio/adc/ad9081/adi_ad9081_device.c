@@ -460,6 +460,13 @@ int32_t adi_ad9081_device_clk_pll_startup(adi_ad9081_device_t *device,
 		AD9081_LOG_ERR("Cannot find any settings to lock device PLL.");
 		return API_CMS_ERROR_INVALID_PARAM;
 	}
+	if (device->clk_info.sysref_mode == SYSREF_CONT ||
+	    device->clk_info.sysref_mode == SYSREF_ONESHOT) {
+		if (pll_div != 1) {
+			AD9081_LOG_WARN(
+				"D must be 1 to achieve deterministic latency via an external SYSREF signal.");
+		}
+	}
 
 	/* calculate fb div */
 	if (n_div == 5)
@@ -892,7 +899,7 @@ int32_t adi_ad9081_device_init(adi_ad9081_device_t *device)
 				       "api v%d.%d.%d commit %s for ad%x ",
 				       (AD9081_API_REV & 0xff0000) >> 16,
 				       (AD9081_API_REV & 0xff00) >> 8,
-				       (AD9081_API_REV & 0xff), "c094613",
+				       (AD9081_API_REV & 0xff), "16f8aea",
 				       AD9081_ID);
 	AD9081_ERROR_RETURN(err);
 
@@ -1347,8 +1354,9 @@ int32_t adi_ad9081_device_startup_tx_or_nco_test(
 	err = adi_ad9081_dac_tx_enable_set(device, AD9081_DAC_ALL, 1);
 	AD9081_ERROR_RETURN(err);
 
-	/* power up dac */
-	err = adi_ad9081_dac_power_up_set(device, used_dacs, 1);
+	/* power down unused dacs */
+	err = adi_ad9081_dac_power_up_set(device,
+					  (AD9081_DAC_ALL & ~(used_dacs)), 0);
 	AD9081_ERROR_RETURN(err);
 
 	/* startup dac dll */
@@ -1470,11 +1478,10 @@ int32_t adi_ad9081_device_startup_tx(adi_ad9081_device_t *device,
 	return API_CMS_ERROR_OK;
 }
 
-int32_t
-adi_ad9081_device_startup_nco_test(adi_ad9081_device_t *device,
-				   uint8_t main_interp, uint8_t chan_interp,
-				   uint8_t dac_chan[4], int64_t main_shift[4],
-				   int64_t chan_shift[8], uint16_t dc_offset)
+int32_t adi_ad9081_device_startup_nco_test_mode(
+	adi_ad9081_device_t *device, uint8_t main_interp, uint8_t chan_interp,
+	uint8_t dac_chan[4], int64_t main_shift[4], int64_t chan_shift[8],
+	adi_cms_jesd_param_t *jesd_param, uint16_t dc_offset)
 {
 	int32_t err;
 	uint8_t i;
@@ -1490,7 +1497,8 @@ adi_ad9081_device_startup_nco_test(adi_ad9081_device_t *device,
 
 	/* workaround to enable datapath output */
 	err = adi_ad9081_hal_bf_set(device, REG_JESD_MODE_ADDR,
-				    BF_TX_JESD_MODE_INFO, 16); /* not paged */
+				    BF_TX_JESD_MODE_INFO,
+				    jesd_param->jesd_mode_id); /* not paged */
 	AD9081_ERROR_RETURN(err);
 	err = adi_ad9081_hal_bf_set(device, REG_JRX_DL_204C_0_ADDR,
 				    BF_JRX_DL_204C_ENABLE_INFO,
@@ -1527,6 +1535,27 @@ adi_ad9081_device_startup_nco_test(adi_ad9081_device_t *device,
 			AD9081_ERROR_RETURN(err);
 		}
 	}
+
+	return API_CMS_ERROR_OK;
+}
+
+int32_t
+adi_ad9081_device_startup_nco_test(adi_ad9081_device_t *device,
+				   uint8_t main_interp, uint8_t chan_interp,
+				   uint8_t dac_chan[4], int64_t main_shift[4],
+				   int64_t chan_shift[8], uint16_t dc_offset)
+{
+	int32_t err;
+	adi_cms_jesd_param_t default_nco_jesd_mode = { 8,  4,  16, 1, 0, 32,
+						       16, 16, 0,  0, 0, 0,
+						       0,  0,  1,  0, 1, 16 };
+	AD9081_NULL_POINTER_RETURN(device);
+	AD9081_LOG_FUNC();
+
+	err = adi_ad9081_device_startup_nco_test_mode(
+		device, main_interp, chan_interp, dac_chan, main_shift,
+		chan_shift, &default_nco_jesd_mode, dc_offset);
+	AD9081_ERROR_RETURN(err);
 
 	return API_CMS_ERROR_OK;
 }
