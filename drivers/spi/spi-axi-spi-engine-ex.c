@@ -374,7 +374,17 @@ int spi_engine_ex_offload_load_msg(struct spi_device *spi,
 
 	/* TODO: validate that we don't exceed the offload SDO FIFO size */
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
-		if (!xfer->tx_buf)
+		/*
+		 * To allow offload to stream a "tx" type of xfer we need the write flag
+		 * set but no messages on the SDO memory of the offload engine. but the
+		 * current code relies on the tx_buf pointer for both of these operations,
+		 * so there is no way to separate the two. So we use a pointer value of
+		 * -1 as flag to indicate this is a tx stream type of xfer not fot the fifo.
+		 * the work-in-progress offload will handle this with proper flags in
+		 * the core spi structures, So while that is merged upstream use this
+		 * workaround for DAC offload.
+		 */
+		if (!xfer->tx_buf || xfer->tx_buf == (void *)-1)
 			continue;
 
 		if (xfer->bits_per_word <= 8) {
