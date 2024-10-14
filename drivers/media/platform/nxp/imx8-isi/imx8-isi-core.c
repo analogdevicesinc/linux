@@ -274,6 +274,25 @@ static const struct mxc_isi_set_thd mxc_imx8_isi_thd_v1 = {
 	.panic_set_thd_v = { .mask = 0xf0000, .offset = 16, .threshold = 0x7 },
 };
 
+static const struct clk_bulk_data mxc_imx8qm_clks[] = {
+	{ .id = "per0" },
+	{ .id = "per1" },
+	{ .id = "per2" },
+	{ .id = "per3" },
+	{ .id = "per4" },
+	{ .id = "per5" },
+	{ .id = "per6" },
+	{ .id = "per7" },
+};
+
+static const struct clk_bulk_data mxc_imx8qxp_clks[] = {
+	{ .id = "per0" },
+	{ .id = "per4" },
+	{ .id = "per5" },
+	{ .id = "per6" },
+	{ .id = "per7" },
+};
+
 static const struct clk_bulk_data mxc_imx8mn_clks[] = {
 	{ .id = "axi" },
 	{ .id = "apb" },
@@ -373,6 +392,33 @@ static const struct mxc_isi_plat_data mxc_imx95_data = {
 	.raw32_chan_cfg		= true,
 	.buf_max_size		= true,
 };
+
+static const struct mxc_isi_plat_data mxc_imx8qm_data = {
+	.model			= MXC_ISI_IMX8QM,
+	.num_ports		= 5,
+	.num_channels		= 8,
+	.reg_offset		= 0x10000,
+	.ier_reg		= &mxc_imx8_isi_ier_v1,
+	.set_thd		= &mxc_imx8_isi_thd_v1,
+	.clks			= mxc_imx8qm_clks,
+	.num_clks		= ARRAY_SIZE(mxc_imx8qm_clks),
+	.buf_active_reverse	= true,
+	.has_36bit_dma		= false,
+};
+
+static const struct mxc_isi_plat_data mxc_imx8qxp_data = {
+	.model			= MXC_ISI_IMX8QXP,
+	.num_ports		= 5,
+	.num_channels		= 5,
+	.reg_offset		= 0x10000,
+	.ier_reg		= &mxc_imx8_isi_ier_v1,
+	.set_thd		= &mxc_imx8_isi_thd_v1,
+	.clks			= mxc_imx8qxp_clks,
+	.num_clks		= ARRAY_SIZE(mxc_imx8qxp_clks),
+	.buf_active_reverse	= true,
+	.has_36bit_dma		= false,
+};
+
 
 /* -----------------------------------------------------------------------------
  * Power management
@@ -602,6 +648,8 @@ static const struct of_device_id mxc_isi_of_match[] = {
 	{ .compatible = "fsl,imx91-isi", .data = &mxc_imx91_data },
 	{ .compatible = "fsl,imx93-isi", .data = &mxc_imx93_data },
 	{ .compatible = "fsl,imx95-isi", .data = &mxc_imx95_data },
+	{ .compatible = "fsl,imx8qm-isi", .data = &mxc_imx8qm_data },
+	{ .compatible = "fsl,imx8qxp-isi", .data = &mxc_imx8qxp_data },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, mxc_isi_of_match);
