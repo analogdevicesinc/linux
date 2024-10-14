@@ -574,7 +574,7 @@ static int ox03c10_otp_correction_get(struct ox03c10 *sensor, void *ret_values)
 {
 	struct ox03c10_otp_correction *otp = ret_values;
 	int ret;
-	u8 reg_val[3];
+	u8 reg_val[3] = {0};
 
 	ret = regmap_bulk_read(sensor->rmap, 0x7057, reg_val, 3);
 	otp->val1 = (reg_val[0] << 16) | (reg_val[1] << 8) | reg_val[2];
@@ -788,7 +788,7 @@ int ox03c10_streaming_start(struct ox03c10 *sensor, bool start)
 		/* Wait a maximum of 1 time frame. Worst case is 33.33ms. */
 		msleep(34);
 	} else {
-		ret |= regmap_write(sensor->rmap, OX03C10_SMIA_R0100, 1);
+		ret = regmap_write(sensor->rmap, OX03C10_SMIA_R0100, 1);
 	}
 
 	sensor->streaming = start;
