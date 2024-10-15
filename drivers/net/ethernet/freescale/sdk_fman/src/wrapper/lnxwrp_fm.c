@@ -809,9 +809,9 @@ static t_Error CheckNConfigFmAdvArgs (t_LnxWrpFmDev *p_LnxWrpFmDev)
     str_prop = (char *)of_get_property(dev_node, "dma-aid-mode", &lenp);
     if (str_prop) {
         if (strcmp(str_prop, "port") == 0)
-            err = FM_ConfigDmaAidMode(p_LnxWrpFmDev->h_Dev, e_FM_DMA_AID_OUT_PORT_ID);
+            err = FM_ConfigDmaAidMode(p_LnxWrpFmDev->h_Dev, E_FMAN_DMA_AID_OUT_PORT_ID);
         else if (strcmp(str_prop, "tnum") == 0)
-            err = FM_ConfigDmaAidMode(p_LnxWrpFmDev->h_Dev, e_FM_DMA_AID_OUT_TNUM);
+            err = FM_ConfigDmaAidMode(p_LnxWrpFmDev->h_Dev, E_FMAN_DMA_AID_OUT_TNUM);
 
         if (err != E_OK)
             RETURN_ERROR(MINOR, err, NO_MSG);

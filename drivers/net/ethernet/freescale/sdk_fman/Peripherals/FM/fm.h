@@ -165,16 +165,6 @@ switch (exception){                                         \
             fsl_cache_override =  E_FMAN_DMA_NO_CACHE_OR; break;    \
     }
 
-#define FMAN_AID_MODE_TRANS(fsl_aid_mode, _aid_mode) \
-    switch (_aid_mode){ \
-        case  e_FM_DMA_AID_OUT_PORT_ID:                    \
-            fsl_aid_mode =  E_FMAN_DMA_AID_OUT_PORT_ID; break;    \
-        case  e_FM_DMA_AID_OUT_TNUM:                    \
-            fsl_aid_mode =  E_FMAN_DMA_AID_OUT_TNUM; break;        \
-        default: \
-            fsl_aid_mode =  E_FMAN_DMA_AID_OUT_PORT_ID; break;    \
-    }
-
 #define FMAN_DMA_DBG_CNT_TRANS(fsl_dma_dbg_cnt, _dma_dbg_cnt) \
     switch (_dma_dbg_cnt){ \
         case  e_FM_DMA_DBG_NO_CNT:                    \

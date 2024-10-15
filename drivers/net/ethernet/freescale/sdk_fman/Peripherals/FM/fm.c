@@ -3450,8 +3450,7 @@ t_Handle FM_Config(t_FmParams *p_FmParam)
 
 #ifdef FM_AID_MODE_NO_TNUM_SW005
     if (p_Fm->p_FmStateStruct->revInfo.majorRev >= 6)
-		p_Fm->p_FmDriverParam->dma_aid_mode =
-			(enum fman_dma_aid_mode)e_FM_DMA_AID_OUT_PORT_ID;
+        p_Fm->p_FmDriverParam->dma_aid_mode = E_FMAN_DMA_AID_OUT_PORT_ID;
 #endif /* FM_AID_MODE_NO_TNUM_SW005 */
 #ifndef FM_QMI_NO_DEQ_OPTIONS_SUPPORT
    if (p_Fm->p_FmStateStruct->revInfo.majorRev != 4)
@@ -3889,19 +3888,17 @@ t_Error FM_ConfigDmaAidOverride(t_Handle h_Fm, bool aidOverride)
     return E_OK;
 }
 
-t_Error FM_ConfigDmaAidMode(t_Handle h_Fm, e_FmDmaAidMode aidMode)
+t_Error FM_ConfigDmaAidMode(t_Handle h_Fm, enum fman_dma_aid_mode aid_mode)
 {
-    t_Fm                    *p_Fm = (t_Fm*)h_Fm;
-    enum fman_dma_aid_mode  fsl_aid_mode;
+	t_Fm *p_Fm = (t_Fm *)h_Fm;
 
-    SANITY_CHECK_RETURN_ERROR(p_Fm, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_Fm->p_FmDriverParam, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR((p_Fm->guestId == NCSW_MASTER_ID), E_NOT_SUPPORTED);
+	SANITY_CHECK_RETURN_ERROR(p_Fm, E_INVALID_HANDLE);
+	SANITY_CHECK_RETURN_ERROR(p_Fm->p_FmDriverParam, E_INVALID_HANDLE);
+	SANITY_CHECK_RETURN_ERROR((p_Fm->guestId == NCSW_MASTER_ID), E_NOT_SUPPORTED);
 
-    FMAN_AID_MODE_TRANS(fsl_aid_mode, aidMode);
-    p_Fm->p_FmDriverParam->dma_aid_mode = fsl_aid_mode;
+	p_Fm->p_FmDriverParam->dma_aid_mode = aid_mode;
 
-    return E_OK;
+	return E_OK;
 }
 
 t_Error FM_ConfigDmaErr(t_Handle h_Fm, e_FmDmaErr dmaErr)

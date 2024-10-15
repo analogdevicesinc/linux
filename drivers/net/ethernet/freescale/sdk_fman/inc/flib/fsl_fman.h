@@ -285,6 +285,7 @@ enum fman_dma_cache_override {
 	E_FMAN_DMA_STASH_DATA /**< Stashing performed in system level cache */
 };
 
+/* Enum for choosing the field that will be output on AID */
 enum fman_dma_aid_mode {
 	E_FMAN_DMA_AID_OUT_PORT_ID = 0,           /**< 4 LSB of PORT_ID */
 	E_FMAN_DMA_AID_OUT_TNUM                   /**< 4 LSB of TNUM */

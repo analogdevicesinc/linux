@@ -600,14 +600,6 @@ typedef enum e_FmDmaExtBusPri {
 } e_FmDmaExtBusPri;
 
 /**************************************************************************//**
- @Description   Enum for choosing the field that will be output on AID
-*//***************************************************************************/
-typedef enum e_FmDmaAidMode {
-    e_FM_DMA_AID_OUT_PORT_ID = 0,           /**< 4 LSB of PORT_ID */
-    e_FM_DMA_AID_OUT_TNUM                   /**< 4 LSB of TNUM */
-} e_FmDmaAidMode;
-
-/**************************************************************************//**
  @Description   Enum for selecting FPM Catastrophic error behavior
 *//***************************************************************************/
 typedef enum e_FmCatastrophicErr {
@@ -792,7 +784,7 @@ t_Error FM_ConfigDmaAidOverride(t_Handle h_Fm, bool aidOverride);
                 driver data base from its default configuration [DEFAULT_aidMode]
 
  @Param[in]     h_Fm            A handle to an FM Module.
- @Param[in]     aidMode         The selected new value.
+ @Param[in]     aid_mode        The selected new value.
 
  @Return        E_OK on success; Error code otherwise.
 
@@ -800,7 +792,7 @@ t_Error FM_ConfigDmaAidOverride(t_Handle h_Fm, bool aidOverride);
                 This routine should NOT be called from guest-partition
                 (i.e. guestId != NCSW_MASTER_ID)
 *//***************************************************************************/
-t_Error FM_ConfigDmaAidMode(t_Handle h_Fm, e_FmDmaAidMode aidMode);
+t_Error FM_ConfigDmaAidMode(t_Handle h_Fm, enum fman_dma_aid_mode aid_mode);
 
 /**************************************************************************//**
  @Function      FM_ConfigDmaErr
