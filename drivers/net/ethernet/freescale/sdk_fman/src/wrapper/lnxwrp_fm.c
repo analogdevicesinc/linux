@@ -74,6 +74,7 @@
 #include "fm_ioctls.h"
 
 #include "lnxwrp_fm.h"
+#include "lnxwrp_fm_port.h"
 #include "lnxwrp_resources.h"
 #include "lnxwrp_sysfs_fm.h"
 #include "lnxwrp_sysfs_fm_port.h"
@@ -81,10 +82,6 @@
 #include "fm_common.h"
 #include "../../sdk_fman/Peripherals/FM/fm.h"
 #define __ERR_MODULE__  MODULE_FM
-
-extern struct device_node *GetFmPortAdvArgsDevTreeNode (struct device_node *fm_node,
-                                                         e_FmPortType       portType,
-                                                         uint8_t            portId);
 
 #define PROC_PRINT(args...) offset += sprintf(buf+offset,args)
 

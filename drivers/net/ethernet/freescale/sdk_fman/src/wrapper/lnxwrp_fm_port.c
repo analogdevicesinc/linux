@@ -53,6 +53,7 @@
 
 #include "sprint_ext.h"
 #include "fm_common.h"
+#include "lnxwrp_fm_port.h"
 #include "lnxwrp_fsl_fman.h"
 #include "fm_port_ext.h"
 #if (DPAA_VERSION >= 11)
@@ -515,9 +516,9 @@ static t_LnxWrpFmPortDev *ReadFmPortDevTreeNode(struct platform_device
 	return p_LnxWrpFmPortDev;
 }
 
-struct device_node * GetFmPortAdvArgsDevTreeNode (struct device_node *fm_node,
-                                                         e_FmPortType       portType,
-                                                         uint8_t            portId)
+struct device_node *GetFmPortAdvArgsDevTreeNode(struct device_node *fm_node,
+						e_FmPortType portType,
+						uint8_t portId)
 {
     struct device_node  *port_node;
     const uint32_t      *uint32_prop;
