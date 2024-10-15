@@ -590,23 +590,6 @@ typedef enum e_FmDmaExtBusPri {
 } e_FmDmaExtBusPri;
 
 /**************************************************************************//**
- @Description   Enum for selecting FPM Catastrophic error behavior
-*//***************************************************************************/
-typedef enum e_FmCatastrophicErr {
-    e_FM_CATASTROPHIC_ERR_STALL_PORT = 0,   /**< Port_ID is stalled (only reset can release it) */
-    e_FM_CATASTROPHIC_ERR_STALL_TASK        /**< Only erroneous task is stalled */
-} e_FmCatastrophicErr;
-
-/**************************************************************************//**
- @Description   Enum for selecting FPM DMA Error behavior
-*//***************************************************************************/
-typedef enum e_FmDmaErr {
-    e_FM_DMA_ERR_CATASTROPHIC = 0,          /**< Dma error is treated as a catastrophic
-                                                 error (e_FmCatastrophicErr)*/
-    e_FM_DMA_ERR_REPORT                     /**< Dma error is just reported */
-} e_FmDmaErr;
-
-/**************************************************************************//**
  @Description   Enum for selecting DMA Emergency level by BMI emergency signal
 *//***************************************************************************/
 typedef enum e_FmDmaEmergencyLevel {
@@ -784,25 +767,6 @@ t_Error FM_ConfigDmaAidOverride(t_Handle h_Fm, bool aidOverride);
                 (i.e. guestId != NCSW_MASTER_ID)
 *//***************************************************************************/
 t_Error FM_ConfigDmaAidMode(t_Handle h_Fm, enum fman_dma_aid_mode aid_mode);
-
-/**************************************************************************//**
- @Function      FM_ConfigCatastrophicErr
-
- @Description   Define FM behavior on catastrophic error.
-                Calling this routine changes the FM behavior on catastrophic
-                error in the internal driver data base from its default
-                [DEFAULT_catastrophicErr].
-
- @Param[in]     h_Fm                A handle to an FM Module.
- @Param[in]     catastrophicErr     The selected new choice.
-
- @Return        E_OK on success; Error code otherwise.
-
- @Cautions      Allowed only following FM_Config() and before FM_Init().
-                This routine should NOT be called from guest-partition
-                (i.e. guestId != NCSW_MASTER_ID)
-*//***************************************************************************/
-t_Error FM_ConfigCatastrophicErr(t_Handle h_Fm, e_FmCatastrophicErr catastrophicErr);
 
 /**************************************************************************//**
  @Function      FM_ConfigEnableMuramTestMode

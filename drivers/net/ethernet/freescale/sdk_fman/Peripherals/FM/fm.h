@@ -151,16 +151,6 @@ switch (exception){                                         \
         break;                                                                                      \
     }
 
-#define FMAN_CATASTROPHIC_ERR_TRANS(fsl_catastrophic_err, _catastrophic_err) \
-    switch (_catastrophic_err){ \
-        case  e_FM_CATASTROPHIC_ERR_STALL_PORT:                    \
-            fsl_catastrophic_err =  E_FMAN_CATAST_ERR_STALL_PORT; break;    \
-        case  e_FM_CATASTROPHIC_ERR_STALL_TASK:                    \
-            fsl_catastrophic_err =  E_FMAN_CATAST_ERR_STALL_TASK; break;        \
-        default: \
-            fsl_catastrophic_err =  E_FMAN_CATAST_ERR_STALL_PORT; break;    \
-    }
-
 #define FMAN_COUNTERS_TRANS(fsl_counters, _counters) \
     switch (_counters){ \
         case  e_FM_COUNTERS_ENQ_TOTAL_FRAME:                    \
@@ -221,7 +211,6 @@ switch (exception){                                         \
 #define DEFAULT_dmaReadIntBufHigh           ((DMA_THRESH_MAX_BUF+1)*3/4)
 #define DEFAULT_dmaWriteIntBufLow           ((DMA_THRESH_MAX_BUF+1)/2)
 #define DEFAULT_dmaWriteIntBufHigh          ((DMA_THRESH_MAX_BUF+1)*3/4)
-#define DEFAULT_catastrophicErr             e_FM_CATASTROPHIC_ERR_STALL_PORT
 #define DEFAULT_resetOnInit                 FALSE
 #define DEFAULT_resetOnInitOverrideCallback NULL
 #define DEFAULT_haltOnExternalActivation    FALSE   /* do not change! if changed, must be disabled for rev1 ! */
