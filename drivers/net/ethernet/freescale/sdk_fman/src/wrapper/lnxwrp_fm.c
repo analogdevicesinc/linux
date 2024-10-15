@@ -1017,7 +1017,7 @@ static unsigned int get_rcwsr(int regnum)
  *
  * @Return        None.
  */
-static void ResetOnInitErrata_A007273(t_Handle h_Fm)
+static void __maybe_unused ResetOnInitErrata_A007273(t_Handle h_Fm)
 {
 	struct ccsr_guts __iomem *guts_regs = NULL;
 	struct device_node *guts_node;
