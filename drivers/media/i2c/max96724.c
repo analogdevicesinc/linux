@@ -1061,8 +1061,8 @@ static int max96724_enable_streams(struct v4l2_subdev *sd, struct v4l2_subdev_st
 	struct device *dev = &priv->client->dev;
 	struct v4l2_subdev *remote_sd;
 	int ret = 0;
-	u32 remote_pad;
-	u64 sink_streams;
+	u32 remote_pad = 0;
+	u64 sink_streams = 0;
 	u64 sources_mask = streams_mask;
 
 	mutex_lock(&priv->lock);
@@ -1118,9 +1118,9 @@ static int max96724_disable_streams(struct v4l2_subdev *sd, struct v4l2_subdev_s
 	struct max96724_priv *priv = container_of(sd, struct max96724_priv, sd);
 	struct device *dev = &priv->client->dev;
 	struct v4l2_subdev *remote_sd;
-	u64 sink_streams;
+	u64 sink_streams = 0;
 	u64 sources_mask = streams_mask;
-	u32 remote_pad;
+	u32 remote_pad = 0;
 	int ret;
 
 	mutex_lock(&priv->lock);
@@ -1185,7 +1185,7 @@ static int max96724_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
 
 	for_each_active_route(&state->routing, route) {
 		struct v4l2_mbus_frame_desc_entry *source_entry = NULL;
-		struct v4l2_mbus_frame_desc source_fd;
+		struct v4l2_mbus_frame_desc source_fd = {0};
 
 		if (route->source_pad != pad)
 			continue;
