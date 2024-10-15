@@ -1096,8 +1096,8 @@ static t_Error FmHandleIpcMsgCB(t_Handle  h_Fm,
         }
         case (FM_GET_COUNTER):
         {
-            e_FmCounters    inCounter;
-            uint32_t        outCounter;
+            enum fman_counters inCounter;
+            uint32_t outCounter;
 
             memcpy((uint8_t*)&inCounter, p_IpcMsg->msgBody, sizeof(uint32_t));
             outCounter = FM_GetCounter(h_Fm, inCounter);
@@ -4623,13 +4623,12 @@ t_Error FM_GetFmanCtrlCodeRevision(t_Handle h_Fm, t_FmCtrlCodeRevisionInfo *p_Re
     return E_OK;
 }
 
-uint32_t FM_GetCounter(t_Handle h_Fm, e_FmCounters counter)
+uint32_t FM_GetCounter(t_Handle h_Fm, enum fman_counters counter)
 {
     t_Fm        *p_Fm = (t_Fm*)h_Fm;
     t_Error     err;
     uint32_t    counterValue;
     struct fman_rg       fman_rg;
-    enum fman_counters fsl_counter;
 
     SANITY_CHECK_RETURN_VALUE(p_Fm, E_INVALID_HANDLE, 0);
     SANITY_CHECK_RETURN_VALUE(!p_Fm->p_FmDriverParam, E_INVALID_STATE, 0);
@@ -4683,10 +4682,9 @@ uint32_t FM_GetCounter(t_Handle h_Fm, e_FmCounters counter)
     check that counters are enabled */
     switch (counter)
     {
-        case (e_FM_COUNTERS_DEQ_1):
-        case (e_FM_COUNTERS_DEQ_2):
-            fallthrough;
-        case (e_FM_COUNTERS_DEQ_3):
+        case E_FMAN_COUNTERS_DEQ_1:
+        case E_FMAN_COUNTERS_DEQ_2:
+        case E_FMAN_COUNTERS_DEQ_3:
             if ((p_Fm->p_FmStateStruct->revInfo.majorRev == 4) ||
                 (p_Fm->p_FmStateStruct->revInfo.majorRev >= 6))
             {
@@ -4694,14 +4692,13 @@ uint32_t FM_GetCounter(t_Handle h_Fm, e_FmCounters counter)
                 return 0;
             }
             fallthrough;
-        case (e_FM_COUNTERS_ENQ_TOTAL_FRAME):
-        case (e_FM_COUNTERS_DEQ_TOTAL_FRAME):
-        case (e_FM_COUNTERS_DEQ_0):
-        case (e_FM_COUNTERS_DEQ_FROM_DEFAULT):
-        case (e_FM_COUNTERS_DEQ_FROM_CONTEXT):
-        case (e_FM_COUNTERS_DEQ_FROM_FD):
-            fallthrough;
-        case (e_FM_COUNTERS_DEQ_CONFIRM):
+        case E_FMAN_COUNTERS_ENQ_TOTAL_FRAME:
+        case E_FMAN_COUNTERS_DEQ_TOTAL_FRAME:
+        case E_FMAN_COUNTERS_DEQ_0:
+        case E_FMAN_COUNTERS_DEQ_FROM_DEFAULT:
+        case E_FMAN_COUNTERS_DEQ_FROM_CONTEXT:
+        case E_FMAN_COUNTERS_DEQ_FROM_FD:
+        case E_FMAN_COUNTERS_DEQ_CONFIRM:
             if (!(GET_UINT32(p_Fm->p_FmQmiRegs->fmqm_gc) & QMI_CFG_EN_COUNTERS))
             {
                 REPORT_ERROR(MAJOR, E_INVALID_STATE, ("Requested counter was not enabled"));
@@ -4712,15 +4709,13 @@ uint32_t FM_GetCounter(t_Handle h_Fm, e_FmCounters counter)
             break;
     }
 
-    FMAN_COUNTERS_TRANS(fsl_counter, counter);
-    return fman_get_counter(&fman_rg, fsl_counter);
+    return fman_get_counter(&fman_rg, counter);
 }
 
-t_Error FM_ModifyCounter(t_Handle h_Fm, e_FmCounters counter, uint32_t val)
+t_Error FM_ModifyCounter(t_Handle h_Fm, enum fman_counters counter, uint32_t val)
 {
     t_Fm *p_Fm = (t_Fm*)h_Fm;
     struct fman_rg          fman_rg;
-    enum fman_counters fsl_counter;
 
     SANITY_CHECK_RETURN_ERROR(p_Fm, E_INVALID_HANDLE);
     SANITY_CHECK_RETURN_ERROR(!p_Fm->p_FmDriverParam, E_INVALID_STATE);
@@ -4730,8 +4725,7 @@ t_Error FM_ModifyCounter(t_Handle h_Fm, e_FmCounters counter, uint32_t val)
    fman_rg.fpm_rg = p_Fm->p_FmFpmRegs;
    fman_rg.dma_rg = p_Fm->p_FmDmaRegs;
 
-   FMAN_COUNTERS_TRANS(fsl_counter, counter);
-   return  (t_Error)fman_modify_counter(&fman_rg, fsl_counter, val);
+   return (t_Error)fman_modify_counter(&fman_rg, counter, val);
 }
 
 void FM_SetDmaEmergency(t_Handle h_Fm, e_FmDmaMuramPort muramPort, bool enable)

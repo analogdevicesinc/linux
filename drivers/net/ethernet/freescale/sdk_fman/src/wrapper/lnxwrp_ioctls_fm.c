@@ -455,7 +455,7 @@ void LnxWrpPCDIOCTLEnumChecking(void)
     /* fm_ext.h == fm_ioctls.h */
     ASSERT_COND((unsigned long)e_IOC_FM_PORT_TYPE_DUMMY == (unsigned long)e_FM_PORT_TYPE_DUMMY);
     ASSERT_COND((unsigned long)e_IOC_EX_MURAM_ECC == (unsigned long)e_FM_EX_MURAM_ECC);
-    ASSERT_COND((unsigned long)e_IOC_FM_COUNTERS_DEQ_CONFIRM == (unsigned long)e_FM_COUNTERS_DEQ_CONFIRM);
+    ASSERT_COND((unsigned long)e_IOC_FM_COUNTERS_DEQ_CONFIRM == (unsigned long)E_FMAN_COUNTERS_DEQ_CONFIRM);
 
     /* fm_pcd_ext.h == fm_pcd_ioctls.h */
     ASSERT_COND((unsigned long)e_IOC_FM_PCD_PRS_COUNTERS_FPM_COMMAND_STALL_CYCLES == (unsigned long)e_FM_PCD_PRS_COUNTERS_FPM_COMMAND_STALL_CYCLES);
@@ -3576,9 +3576,8 @@ t_Error LnxwrpFmIOCTL(t_LnxWrpFmDev *p_LnxWrpFmDev, unsigned int cmd, unsigned l
                 }
             }
 
-			err = FM_ModifyCounter(p_LnxWrpFmDev->h_Dev,
-					       (e_FmCounters)param->cnt,
-					       param->val);
+            err = FM_ModifyCounter(p_LnxWrpFmDev->h_Dev, (enum fman_counters)param->cnt,
+                                   param->val);
 
             XX_Free(param);
             break;
@@ -3613,8 +3612,8 @@ t_Error LnxwrpFmIOCTL(t_LnxWrpFmDev *p_LnxWrpFmDev, unsigned int cmd, unsigned l
                 }
             }
 
-			param->val = FM_GetCounter(p_LnxWrpFmDev->h_Dev,
-						   (e_FmCounters)param->cnt);
+            param->val = FM_GetCounter(p_LnxWrpFmDev->h_Dev,
+                                       (enum fman_counters)param->cnt);
 
 #if defined(CONFIG_COMPAT)
             if (compat)

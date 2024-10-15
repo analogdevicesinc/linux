@@ -1095,22 +1095,6 @@ typedef enum e_FmDmaMuramPort {
 } e_FmDmaMuramPort;
 
 /**************************************************************************//**
- @Description   Enum for defining FM counters
-*//***************************************************************************/
-typedef enum e_FmCounters {
-    e_FM_COUNTERS_ENQ_TOTAL_FRAME = 0,              /**< QMI total enqueued frames counter */
-    e_FM_COUNTERS_DEQ_TOTAL_FRAME,                  /**< QMI total dequeued frames counter */
-    e_FM_COUNTERS_DEQ_0,                            /**< QMI 0 frames from QMan counter */
-    e_FM_COUNTERS_DEQ_1,                            /**< QMI 1 frames from QMan counter */
-    e_FM_COUNTERS_DEQ_2,                            /**< QMI 2 frames from QMan counter */
-    e_FM_COUNTERS_DEQ_3,                            /**< QMI 3 frames from QMan counter */
-    e_FM_COUNTERS_DEQ_FROM_DEFAULT,                 /**< QMI dequeue from default queue counter */
-    e_FM_COUNTERS_DEQ_FROM_CONTEXT,                 /**< QMI dequeue from FQ context counter */
-    e_FM_COUNTERS_DEQ_FROM_FD,                      /**< QMI dequeue from FD command field counter */
-    e_FM_COUNTERS_DEQ_CONFIRM                       /**< QMI dequeue confirm counter */
-} e_FmCounters;
-
-/**************************************************************************//**
  @Description   A Structure for returning FM revision information
 *//***************************************************************************/
 typedef struct t_FmRevisionInfo {
@@ -1264,7 +1248,7 @@ t_Error FM_GetFmanCtrlCodeRevision(t_Handle h_Fm, t_FmCtrlCodeRevisionInfo *p_Re
                 for enabled counters, and there will be no indication if a
                 disabled counter is accessed.
 *//***************************************************************************/
-uint32_t  FM_GetCounter(t_Handle h_Fm, e_FmCounters counter);
+uint32_t  FM_GetCounter(t_Handle h_Fm, enum fman_counters counter);
 
 /**************************************************************************//**
  @Function      FM_ModifyCounter
@@ -1281,7 +1265,7 @@ uint32_t  FM_GetCounter(t_Handle h_Fm, e_FmCounters counter);
                 This routine should NOT be called from guest-partition
                 (i.e. guestId != NCSW_MASTER_ID)
 *//***************************************************************************/
-t_Error  FM_ModifyCounter(t_Handle h_Fm, e_FmCounters counter, uint32_t val);
+t_Error  FM_ModifyCounter(t_Handle h_Fm, enum fman_counters counter, uint32_t val);
 
 /**************************************************************************//**
  @Function      FM_Resume

@@ -46,9 +46,6 @@
 #include "../../sdk_fman/Peripherals/FM/fm.h"
 #include <linux/delay.h>
 
-
-static int fm_get_counter(void *h_fm, e_FmCounters cnt_e, uint32_t *cnt_val);
-
 enum fm_dma_match_stats {
 	FM_DMA_COUNTERS_CMQ_NOT_EMPTY,
 	FM_DMA_COUNTERS_BUS_ERROR,
@@ -61,43 +58,43 @@ static const struct sysfs_stats_t fm_sysfs_stats[] = {
 	/* FM statistics */
 	{
 	 .stat_name = "enq_total_frame",
-	 .stat_counter = e_FM_COUNTERS_ENQ_TOTAL_FRAME,
+	 .stat_counter = E_FMAN_COUNTERS_ENQ_TOTAL_FRAME,
 	 },
 	{
 	 .stat_name = "deq_total_frame",
-	 .stat_counter = e_FM_COUNTERS_DEQ_TOTAL_FRAME,
+	 .stat_counter = E_FMAN_COUNTERS_DEQ_TOTAL_FRAME,
 	 },
 	{
 	 .stat_name = "deq_0",
-	 .stat_counter = e_FM_COUNTERS_DEQ_0,
+	 .stat_counter = E_FMAN_COUNTERS_DEQ_0,
 	 },
 	{
 	 .stat_name = "deq_1",
-	 .stat_counter = e_FM_COUNTERS_DEQ_1,
+	 .stat_counter = E_FMAN_COUNTERS_DEQ_1,
 	 },
 	{
 	 .stat_name = "deq_2",
-	 .stat_counter = e_FM_COUNTERS_DEQ_2,
+	 .stat_counter = E_FMAN_COUNTERS_DEQ_2,
 	 },
 	{
 	 .stat_name = "deq_3",
-	 .stat_counter = e_FM_COUNTERS_DEQ_3,
+	 .stat_counter = E_FMAN_COUNTERS_DEQ_3,
 	 },
 	{
 	 .stat_name = "deq_from_default",
-	 .stat_counter = e_FM_COUNTERS_DEQ_FROM_DEFAULT,
+	 .stat_counter = E_FMAN_COUNTERS_DEQ_FROM_DEFAULT,
 	 },
 	{
 	 .stat_name = "deq_from_context",
-	 .stat_counter = e_FM_COUNTERS_DEQ_FROM_CONTEXT,
+	 .stat_counter = E_FMAN_COUNTERS_DEQ_FROM_CONTEXT,
 	 },
 	{
 	 .stat_name = "deq_from_fd",
-	 .stat_counter = e_FM_COUNTERS_DEQ_FROM_FD,
+	 .stat_counter = E_FMAN_COUNTERS_DEQ_FROM_FD,
 	 },
 	{
 	 .stat_name = "deq_confirm",
-	 .stat_counter = e_FM_COUNTERS_DEQ_CONFIRM,
+	 .stat_counter = E_FMAN_COUNTERS_DEQ_CONFIRM,
 	 },
 	/* FM:DMA  statistics */
 	{
@@ -330,6 +327,58 @@ static ssize_t show_fm_dma_stats(struct device *dev,
 	return n;
 }
 
+static int fm_get_counter(void *h_fm, enum fman_counters cnt_e, uint32_t *cnt_val)
+{
+	t_Fm *p_fm = h_fm;
+
+	/* When applicable (when there is an "enable counters" bit),
+	 * check that counters are enabled
+	 */
+	if ((cnt_e == E_FMAN_COUNTERS_DEQ_1 || cnt_e == E_FMAN_COUNTERS_DEQ_2 ||
+	     cnt_e == E_FMAN_COUNTERS_DEQ_3) &&
+	    p_fm->p_FmStateStruct->revInfo.majorRev >= 6)
+		return -EINVAL; /* counter not available */
+
+	switch (cnt_e) {
+	case E_FMAN_COUNTERS_ENQ_TOTAL_FRAME:
+		*cnt_val = ioread32be(&p_fm->p_FmQmiRegs->fmqm_etfc);
+		return 0;
+	case E_FMAN_COUNTERS_DEQ_TOTAL_FRAME:
+		*cnt_val = ioread32be(&p_fm->p_FmQmiRegs->fmqm_dtfc);
+		return 0;
+	case E_FMAN_COUNTERS_DEQ_0:
+		*cnt_val = ioread32be(&p_fm->p_FmQmiRegs->fmqm_dc0);
+		return 0;
+	case E_FMAN_COUNTERS_DEQ_1:
+		*cnt_val = ioread32be(&p_fm->p_FmQmiRegs->fmqm_dc1);
+		return 0;
+	case E_FMAN_COUNTERS_DEQ_2:
+		*cnt_val = ioread32be(&p_fm->p_FmQmiRegs->fmqm_dc2);
+		return 0;
+	case E_FMAN_COUNTERS_DEQ_3:
+		*cnt_val = ioread32be(&p_fm->p_FmQmiRegs->fmqm_dc3);
+		return 0;
+	case E_FMAN_COUNTERS_DEQ_FROM_DEFAULT:
+		*cnt_val = ioread32be(&p_fm->p_FmQmiRegs->fmqm_dfdc);
+		return 0;
+	case E_FMAN_COUNTERS_DEQ_FROM_CONTEXT:
+		*cnt_val = ioread32be(&p_fm->p_FmQmiRegs->fmqm_dfcc);
+		return 0;
+	case E_FMAN_COUNTERS_DEQ_FROM_FD:
+		*cnt_val = ioread32be(&p_fm->p_FmQmiRegs->fmqm_dffc);
+		return 0;
+	case E_FMAN_COUNTERS_DEQ_CONFIRM:
+		if (!(ioread32be(&p_fm->p_FmQmiRegs->fmqm_gc) & QMI_CFG_EN_COUNTERS))
+			return -EINVAL; /* Requested counter not available */
+
+		*cnt_val = ioread32be(&p_fm->p_FmQmiRegs->fmqm_dcc);
+		return 0;
+	default:
+		/* should never get here */
+		return -EINVAL; /* counter not available */
+	}
+}
+
 static ssize_t show_fm_stats(struct device *dev,
 			     struct device_attribute *attr, char *buf)
 {
@@ -353,9 +402,7 @@ static ssize_t show_fm_stats(struct device *dev,
 			attr->attr.name,
 			fm_sysfs_stats, NULL);
 
-	err = fm_get_counter(p_wrp_fm_dev->h_Dev,
-		(e_FmCounters) cnt_e, &cnt_val);
-
+	err = fm_get_counter(p_wrp_fm_dev->h_Dev, cnt_e, &cnt_val);
 	if (err)
 		return err;
 
@@ -1792,72 +1839,4 @@ int fm_plcr_dump_regs(void *h_fm_pcd, char *buf, int nn)
 			&p_pcd->p_FmPcdPlcr->p_FmPcdPlcrRegs->fmpl_pmr[i]);
 
 	return n;
-}
-
-int fm_get_counter(void *h_fm, e_FmCounters cnt_e, uint32_t *cnt_val)
-{
-	t_Fm		*p_fm = (t_Fm *)h_fm;
-
-	/* When applicable (when there is an "enable counters" bit),
-	check that counters are enabled */
-
-	switch (cnt_e) {
-	case (e_FM_COUNTERS_DEQ_1):
-	case (e_FM_COUNTERS_DEQ_2):
-		fallthrough;
-	case (e_FM_COUNTERS_DEQ_3):
-		if (p_fm->p_FmStateStruct->revInfo.majorRev >= 6)
-			return -EINVAL; /* counter not available */
-
-		fallthrough;
-	case (e_FM_COUNTERS_ENQ_TOTAL_FRAME):
-	case (e_FM_COUNTERS_DEQ_TOTAL_FRAME):
-	case (e_FM_COUNTERS_DEQ_0):
-	case (e_FM_COUNTERS_DEQ_FROM_DEFAULT):
-	case (e_FM_COUNTERS_DEQ_FROM_CONTEXT):
-	case (e_FM_COUNTERS_DEQ_FROM_FD):
-		fallthrough;
-	case (e_FM_COUNTERS_DEQ_CONFIRM):
-		if (!(ioread32be(&p_fm->p_FmQmiRegs->fmqm_gc) &
-			QMI_CFG_EN_COUNTERS))
-			return -EINVAL; /* Requested counter not available */
-		break;
-	default:
-		break;
-	}
-
-	switch (cnt_e) {
-	case (e_FM_COUNTERS_ENQ_TOTAL_FRAME):
-		*cnt_val = ioread32be(&p_fm->p_FmQmiRegs->fmqm_etfc);
-		return 0;
-	case (e_FM_COUNTERS_DEQ_TOTAL_FRAME):
-		*cnt_val =  ioread32be(&p_fm->p_FmQmiRegs->fmqm_dtfc);
-		return 0;
-	case (e_FM_COUNTERS_DEQ_0):
-		*cnt_val =  ioread32be(&p_fm->p_FmQmiRegs->fmqm_dc0);
-		return 0;
-	case (e_FM_COUNTERS_DEQ_1):
-		*cnt_val =  ioread32be(&p_fm->p_FmQmiRegs->fmqm_dc1);
-		return 0;
-	case (e_FM_COUNTERS_DEQ_2):
-		*cnt_val =  ioread32be(&p_fm->p_FmQmiRegs->fmqm_dc2);
-		return 0;
-	case (e_FM_COUNTERS_DEQ_3):
-		*cnt_val =  ioread32be(&p_fm->p_FmQmiRegs->fmqm_dc3);
-		return 0;
-	case (e_FM_COUNTERS_DEQ_FROM_DEFAULT):
-		*cnt_val =  ioread32be(&p_fm->p_FmQmiRegs->fmqm_dfdc);
-		return 0;
-	case (e_FM_COUNTERS_DEQ_FROM_CONTEXT):
-		*cnt_val =  ioread32be(&p_fm->p_FmQmiRegs->fmqm_dfcc);
-		return 0;
-	case (e_FM_COUNTERS_DEQ_FROM_FD):
-		*cnt_val =  ioread32be(&p_fm->p_FmQmiRegs->fmqm_dffc);
-		return 0;
-	case (e_FM_COUNTERS_DEQ_CONFIRM):
-		*cnt_val =  ioread32be(&p_fm->p_FmQmiRegs->fmqm_dcc);
-		return 0;
-	}
-	/* should never get here */
-	return -EINVAL; /* counter not available */
 }

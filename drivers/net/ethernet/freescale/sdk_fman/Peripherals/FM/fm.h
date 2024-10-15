@@ -151,32 +151,6 @@ switch (exception){                                         \
         break;                                                                                      \
     }
 
-#define FMAN_COUNTERS_TRANS(fsl_counters, _counters) \
-    switch (_counters){ \
-        case  e_FM_COUNTERS_ENQ_TOTAL_FRAME:                    \
-            fsl_counters =  E_FMAN_COUNTERS_ENQ_TOTAL_FRAME; break;    \
-        case  e_FM_COUNTERS_DEQ_TOTAL_FRAME:                    \
-            fsl_counters =  E_FMAN_COUNTERS_DEQ_TOTAL_FRAME; break;        \
-        case  e_FM_COUNTERS_DEQ_0:                    \
-            fsl_counters =  E_FMAN_COUNTERS_DEQ_0; break;    \
-        case  e_FM_COUNTERS_DEQ_1:                    \
-            fsl_counters =  E_FMAN_COUNTERS_DEQ_1; break;        \
-        case  e_FM_COUNTERS_DEQ_2:                    \
-            fsl_counters =  E_FMAN_COUNTERS_DEQ_2; break;    \
-        case  e_FM_COUNTERS_DEQ_3:                    \
-            fsl_counters =  E_FMAN_COUNTERS_DEQ_3; break;        \
-        case  e_FM_COUNTERS_DEQ_FROM_DEFAULT:                    \
-            fsl_counters =  E_FMAN_COUNTERS_DEQ_FROM_DEFAULT; break;    \
-        case  e_FM_COUNTERS_DEQ_FROM_CONTEXT:                    \
-            fsl_counters =  E_FMAN_COUNTERS_DEQ_FROM_CONTEXT; break;        \
-        case  e_FM_COUNTERS_DEQ_FROM_FD:                    \
-            fsl_counters =  E_FMAN_COUNTERS_DEQ_FROM_FD; break;    \
-        case  e_FM_COUNTERS_DEQ_CONFIRM:                    \
-            fsl_counters =  E_FMAN_COUNTERS_DEQ_CONFIRM; break;        \
-        default: \
-            fsl_counters =  E_FMAN_COUNTERS_ENQ_TOTAL_FRAME; break;    \
-    }
-
 /**************************************************************************//**
  @Description       defaults
 *//***************************************************************************/
