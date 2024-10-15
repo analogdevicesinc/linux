@@ -44,6 +44,7 @@
 #include "debug_ext.h"
 #include "fm_muram_ext.h"
 
+#include "../Pcd/fm_prs.h"
 #include "fman_common.h"
 #include "fm_port.h"
 #include "fm_port_dsar.h"
@@ -5777,11 +5778,6 @@ static uint32_t AR_ComputeOffsets(struct arOffsets* of,
     return size;
 }
 
-void PrsEnable(t_Handle p_FmPcd);
-void PrsDisable(t_Handle p_FmPcd);
-int PrsIsEnabled(t_Handle p_FmPcd);
-t_Handle FM_PCD_GetHcPort(t_Handle h_FmPcd);
-
 static t_Error DsarCheckParams(t_FmPortDsarParams *params,
                                t_FmPortDsarTablesSizes *sizes)
 {
@@ -6287,7 +6283,7 @@ t_Error FM_PORT_EnterDsarFinal(t_Handle h_DsarRxPort, t_Handle h_DsarTxPort)
 	t_FmGetSetParams fmGetSetParams;
 	t_FmPort *p_FmPort = (t_FmPort *)h_DsarRxPort;
 	t_FmPort *p_FmPortTx = (t_FmPort *)h_DsarTxPort;
-	t_Handle *h_FmPcd = FmGetPcd(p_FmPort->h_Fm);
+	t_FmPcd *h_FmPcd = FmGetPcd(p_FmPort->h_Fm);
 	t_FmPort *p_FmPortHc = FM_PCD_GetHcPort(h_FmPcd);
 	memset(&fmGetSetParams, 0, sizeof (t_FmGetSetParams));
         fmGetSetParams.setParams.type = UPDATE_FM_CLD;

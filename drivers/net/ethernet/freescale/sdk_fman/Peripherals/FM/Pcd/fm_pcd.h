@@ -433,13 +433,6 @@ t_Error     PlcrSetPortProfiles(t_FmPcd    *p_FmPcd,
                                 uint16_t   base);
 t_Error     PlcrClearPortProfiles(t_FmPcd *p_FmPcd, uint8_t hardwarePortId);
 
-t_Handle    PrsConfig(t_FmPcd *p_FmPcd,t_FmPcdParams *p_FmPcdParams);
-t_Error     PrsInit(t_FmPcd *p_FmPcd);
-void        PrsEnable(t_FmPcd *p_FmPcd);
-void        PrsDisable(t_FmPcd *p_FmPcd);
-void        PrsFree(t_FmPcd *p_FmPcd );
-t_Error     PrsIncludePortInStatistics(t_FmPcd *p_FmPcd, uint8_t hardwarePortId, bool include);
-
 t_Error     FmPcdCcGetGrpParams(t_Handle treeId, uint8_t grpId, uint32_t *p_GrpBits, uint8_t *p_GrpBase);
 uint8_t     FmPcdCcGetOffset(t_Handle h_CcNode);
 uint8_t     FmPcdCcGetParseCode(t_Handle h_CcNode);

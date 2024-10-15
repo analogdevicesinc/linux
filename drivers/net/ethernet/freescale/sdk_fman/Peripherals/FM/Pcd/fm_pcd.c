@@ -50,6 +50,7 @@
 #include "fm_common.h"
 #include "fm_pcd.h"
 #include "fm_pcd_ipc.h"
+#include "fm_prs.h"
 #include "fm_hc.h"
 #include "fm_muram_ext.h"
 
