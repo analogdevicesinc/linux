@@ -6377,12 +6377,6 @@ t_Error FM_PORT_EnterDsarFinal(t_Handle h_DsarRxPort, t_Handle h_DsarTxPort)
 
 EXPORT_SYMBOL(FM_PORT_EnterDsarFinal);
 
-void FM_PORT_Dsar_DumpRegs(void)
-{
-    uint32_t* hh = XX_PhysToVirt(PTR_TO_UINT(ARDesc));
-    DUMP_MEMORY(hh, 0x220);
-}
-
 void FM_PORT_ExitDsar(t_Handle h_FmPortRx, t_Handle h_FmPortTx)
 {
     t_FmPort *p_FmPort = (t_FmPort *)h_FmPortRx;

@@ -1625,14 +1625,6 @@ int fm_port_enable_rx_l4csum(struct fm_port *port, bool enable)
 }
 EXPORT_SYMBOL(fm_port_enable_rx_l4csum);
 
-void FM_PORT_Dsar_DumpRegs(void);
-int ar_showmem(struct file *file, const char __user *buffer,
-		unsigned long count, void *data)
-{
-	FM_PORT_Dsar_DumpRegs();
-	return 2;
-}
-
 struct auto_res_tables_sizes *fm_port_get_autores_maxsize(
 	struct fm_port *port)
 {

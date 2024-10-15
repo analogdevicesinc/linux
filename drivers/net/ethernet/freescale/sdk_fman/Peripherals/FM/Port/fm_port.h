@@ -993,7 +993,4 @@ static __inline__ uint16_t GetNextBdId(t_FmPort *p_FmPort, uint16_t id)
         return 0;
 }
 
-void FM_PORT_Dsar_DumpRegs(void);
-
-
 #endif /* __FM_PORT_H */
