@@ -86,7 +86,7 @@ struct map_node {
     u8 node_type;
 };
 
-static struct map_node compat_ptr2id_array[COMPAT_PTR2ID_ARRAY_MAX] = {{NULL},{FM_MAP_TYPE_UNSPEC}};
+static struct map_node compat_ptr2id_array[COMPAT_PTR2ID_ARRAY_MAX];
 
 void compat_del_ptr2id(void *p, enum fm_map_node_type node_type)
 {
