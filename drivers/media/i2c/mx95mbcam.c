@@ -193,16 +193,6 @@ static int mx95mbcam_get_selection(struct v4l2_subdev *sd, struct v4l2_subdev_st
 	return -EINVAL;
 }
 
-static int mx95mbcam_ctrl_type_op_validate(const struct v4l2_ctrl *ctrl, union v4l2_ctrl_ptr ptr)
-{
-	return true;
-}
-
-static const struct v4l2_ctrl_type_ops mx95mbcam_ctrl_type_ops = {
-	.init		= v4l2_ctrl_type_op_init,
-	.validate	= mx95mbcam_ctrl_type_op_validate,
-};
-
 static const struct v4l2_subdev_video_ops mx95mbcam_video_ops = {
 	.s_stream	= mx95mbcam_s_stream,
 };
