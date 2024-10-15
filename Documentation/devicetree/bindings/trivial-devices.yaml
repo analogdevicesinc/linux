@@ -43,6 +43,12 @@ properties:
           - adi,adp5589
             # Analog Devices LT7182S Dual Channel 6A, 20V PolyPhase Step-Down Silent Switcher
           - adi,lt7182s
+            # Analog Devices LTP8800-1A 150A, 54V DC/DC μModule regulator
+          - adi,ltp8800-1a
+            # Analog Devices LTP8800-2 135A, 54V DC/DC μModule regulator
+          - adi,ltp8800-2
+            # Analog Devices LTP8800-4A 200A, 54V DC/DC μModule regulator
+          - adi,ltp8800-4a
             # AMS iAQ-Core VOC Sensor
           - ams,iaq-core
             # i2c serial eeprom (24cxx)
