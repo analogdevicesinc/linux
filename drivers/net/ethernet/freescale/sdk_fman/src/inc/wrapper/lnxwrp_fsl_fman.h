@@ -450,18 +450,6 @@ u64 *fm_port_get_buffer_time_stamp(const struct fm_port *port,
 		const void *data);
 
 /**************************************************************************//**
- @Function	fm_port_get_base_address
-
- @Description	Get base address of this port. Useful for accessing
-		port-specific registers (i.e., not common ones).
-
- @Param[in]	port		- A handle of the FM port device.
-
- @Param[out]	base_addr	- The port's base addr (virtual address).
-*//***************************************************************************/
-void fm_port_get_base_addr(const struct fm_port *port, uint64_t *base_addr);
-
-/**************************************************************************//**
  @Function	fm_mutex_lock
 
  @Description   Lock function required before any FMD/LLD call.

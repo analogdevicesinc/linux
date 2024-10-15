@@ -1513,14 +1513,6 @@ u64 *fm_port_get_buffer_time_stamp(const struct fm_port *port,
 }
 EXPORT_SYMBOL(fm_port_get_buffer_time_stamp);
 
-void fm_port_get_base_addr(const struct fm_port *port, uint64_t *base_addr)
-{
-    t_LnxWrpFmPortDev   *p_LnxWrpFmPortDev = (t_LnxWrpFmPortDev *)port;
-
-    *base_addr = p_LnxWrpFmPortDev->settings.param.baseAddr;
-}
-EXPORT_SYMBOL(fm_port_get_base_addr);
-
 void fm_port_pcd_bind (struct fm_port *port, struct fm_port_pcd_param *params)
 {
     t_LnxWrpFmPortDev   *p_LnxWrpFmPortDev = (t_LnxWrpFmPortDev*)port;
