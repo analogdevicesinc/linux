@@ -384,11 +384,20 @@ static void FreeInitResources(t_Dtsec *p_Dtsec)
 }
 
 /* ........................................................................... */
+#if !defined(FM_GRS_ERRATA_DTSEC_A002) && \
+	!defined(FM_GTS_ERRATA_DTSEC_A004) && \
+	!defined(FM_GTS_AFTER_MAC_ABORTED_FRAME_ERRATA_DTSEC_A0012) && \
+	!defined(FM_GTS_UNDERRUN_ERRATA_DTSEC_A0014) && \
+	!defined(FM_GTS_AFTER_DROPPED_FRAME_ERRATA_DTSEC_A004839)
+#define GRACEFUL_STOP_POLL_IEVENT
+#endif
 
 static t_Error GracefulStop(t_Dtsec *p_Dtsec, e_CommMode mode)
 {
     struct dtsec_regs *p_MemMap;
+#if defined(GRACEFUL_STOP_POLL_IEVENT)
     int pollTimeout = 0;
+#endif
 
     ASSERT_COND(p_Dtsec);
 
@@ -426,16 +435,17 @@ static t_Error GracefulStop(t_Dtsec *p_Dtsec, e_CommMode mode)
     }
 
     /* Poll GRSC/GTSC bits in IEVENT register until both are set */
-#if defined(FM_GRS_ERRATA_DTSEC_A002) || defined(FM_GTS_ERRATA_DTSEC_A004) || defined(FM_GTS_AFTER_MAC_ABORTED_FRAME_ERRATA_DTSEC_A0012) || defined(FM_GTS_UNDERRUN_ERRATA_DTSEC_A0014) || defined(FM_GTS_AFTER_DROPPED_FRAME_ERRATA_DTSEC_A004839)
-    XX_UDelay(10);
-#else
-    while (fman_dtsec_get_event(p_MemMap, DTSEC_IMASK_GRSCEN | DTSEC_IMASK_GTSCEN) != (DTSEC_IMASK_GRSCEN | DTSEC_IMASK_GTSCEN))
+#if defined(GRACEFUL_STOP_POLL_IEVENT)
+    while (fman_dtsec_get_event(p_MemMap, DTSEC_IMASK_GRSCEN | DTSEC_IMASK_GTSCEN) !=
+           (DTSEC_IMASK_GRSCEN | DTSEC_IMASK_GTSCEN))
     {
         if (pollTimeout == 100)
             break;
         XX_UDelay(1);
         pollTimeout++;
     }
+#else
+    XX_UDelay(10);
 #endif
 
     return E_OK;
