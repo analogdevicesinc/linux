@@ -114,6 +114,7 @@ static int virtio_video_probe(struct virtio_device *vdev)
 	int ret;
 	struct virtio_video *vv;
 	struct virtqueue *vqs[2];
+	struct virtqueue_info *vqs_info;
 	struct device *dev = &vdev->dev;
 
 	static const char * const names[] = { "control", "event" };
@@ -156,7 +157,14 @@ static int virtio_video_probe(struct virtio_device *vdev)
 	virtio_video_init_vq(&vv->commandq, virtio_video_dequeue_cmd_func);
 	virtio_video_init_vq(&vv->eventq, virtio_video_dequeue_event_func);
 
-	ret = virtio_find_vqs(vdev, 2, vqs, callbacks, names, NULL);
+	vqs_info = devm_kcalloc(dev, 2, sizeof(*vqs_info), GFP_KERNEL);
+	vqs_info[0].name = names[0];
+	vqs_info[0].callback = callbacks[0];
+
+	vqs_info[1].name = names[1];
+	vqs_info[1].callback = callbacks[1];
+
+	ret = virtio_find_vqs(vdev, 2, vqs, vqs_info, NULL);
 	if (ret) {
 		v4l2_err(&vv->v4l2_dev, "failed to find virt queues\n");
 		goto err_vqs;

@@ -198,7 +198,7 @@ int virtio_video_dec_init_queues(void *priv, struct vb2_queue *src_vq,
 	src_vq->buf_struct_size = sizeof(struct virtio_video_buffer);
 	src_vq->ops = &virtio_video_dec_qops;
 	src_vq->mem_ops = virtio_video_mem_ops(vv);
-	src_vq->min_buffers_needed = stream->in_info.min_buffers;
+	src_vq->min_queued_buffers = stream->in_info.min_buffers;
 	src_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	src_vq->lock = &stream->vq_mutex;
 	src_vq->gfp_flags = virtio_video_gfp_flags(vv);
@@ -214,7 +214,7 @@ int virtio_video_dec_init_queues(void *priv, struct vb2_queue *src_vq,
 	dst_vq->buf_struct_size = sizeof(struct virtio_video_buffer);
 	dst_vq->ops = &virtio_video_dec_qops;
 	dst_vq->mem_ops = virtio_video_mem_ops(vv);
-	dst_vq->min_buffers_needed = stream->out_info.min_buffers;
+	dst_vq->min_queued_buffers = stream->out_info.min_buffers;
 	dst_vq->timestamp_flags = V4L2_BUF_FLAG_TIMESTAMP_COPY;
 	dst_vq->lock = &stream->vq_mutex;
 	dst_vq->gfp_flags = virtio_video_gfp_flags(vv);
