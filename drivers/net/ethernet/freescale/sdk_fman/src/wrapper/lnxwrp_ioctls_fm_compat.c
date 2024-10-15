@@ -782,10 +782,9 @@ void compat_copy_fm_pcd_kg_schemes_params(
     }
 }
 
-void compat_copy_fm_port_pcd_cc(
-    ioc_compat_fm_port_pcd_cc_params_t *compat_cc_params ,
-    ioc_fm_port_pcd_cc_params_t *p_cc_params,
-    uint8_t compat)
+static void compat_copy_fm_port_pcd_cc(ioc_compat_fm_port_pcd_cc_params_t *compat_cc_params,
+				       ioc_fm_port_pcd_cc_params_t *p_cc_params,
+				       uint8_t compat)
 {
     if (compat == COMPAT_US_TO_K){
         p_cc_params->cc_tree_id = compat_pcd_id2ptr(compat_cc_params->cc_tree_id);

@@ -3463,7 +3463,7 @@ invalid_port_id:
     return E_OK;
 }
 
-void FM_Get_Api_Version(ioc_fm_api_version_t *p_version)
+static void FM_Get_Api_Version(ioc_fm_api_version_t *p_version)
 {
 	p_version->version.major = FMD_API_VERSION_MAJOR;
 	p_version->version.minor = FMD_API_VERSION_MINOR;
