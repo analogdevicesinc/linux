@@ -5777,7 +5777,6 @@ static uint32_t AR_ComputeOffsets(struct arOffsets* of,
     return size;
 }
 
-uint32_t* ARDesc;
 void PrsEnable(t_Handle p_FmPcd);
 void PrsDisable(t_Handle p_FmPcd);
 int PrsIsEnabled(t_Handle p_FmPcd);
@@ -6279,9 +6278,7 @@ t_Error FM_PORT_EnterDsar(t_Handle h_FmPortRx, t_FmPortDsarParams *params)
 	// FMDPSLPCR[FM_STOP] to one.
 	fm_soc_suspend();
 
-    ARDesc = UINT_TO_PTR(XX_VirtToPhys(ArCommonDescPtr));
     return E_OK;
-
 }
 
 void FM_ChangeClock(t_Handle h_Fm, int hardwarePortId);
