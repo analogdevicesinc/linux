@@ -168,25 +168,6 @@ void XX_Print(char *str, ...)
     va_end(args);
 }
 
-void XX_Fprint(void *file, char *str, ...)
-{
-    va_list args;
-#ifdef CONFIG_SMP
-    char buf[BUF_SIZE];
-#endif /* CONFIG_SMP */
-
-    va_start(args, str);
-#ifdef CONFIG_SMP
-    if (vsnprintf (buf, BUF_SIZE, str, args) >= BUF_SIZE)
-        printk(KERN_WARNING "Illegal string to print!\n    more than %d characters.\n\tString was not printed completelly.\n", BUF_SIZE);
-    printk (KERN_CRIT "cpu %d: %s", smp_processor_id(), buf);
-
-#else
-    vprintk(str, args);
-#endif /* CONFIG_SMP */
-    va_end(args);
-}
-
 #ifdef DEBUG_XX_MALLOC
 typedef void (*t_ffn)(void *);
 typedef struct {
@@ -329,61 +310,19 @@ void XX_Free(void *p)
 }
 #endif /* not DEBUG_XX_MALLOC */
 
-
-#if (defined(REPORT_EVENTS) && (REPORT_EVENTS > 0))
-void XX_EventById(uint32_t event, t_Handle appId, uint16_t flags, char *msg)
-{
-    e_Event eventCode = (e_Event)event;
-
-    UNUSED(eventCode);
-    UNUSED(appId);
-    UNUSED(flags);
-    UNUSED(msg);
-}
-#endif /* (defined(REPORT_EVENTS) && ... */
-
-
 uint32_t XX_DisableAllIntr(void)
 {
     unsigned long flags;
 
-#ifdef local_irq_save_nort
-    local_irq_save_nort(flags);
-#else
     local_irq_save(flags);
-#endif
 
     return (uint32_t)flags;
 }
 
 void XX_RestoreAllIntr(uint32_t flags)
 {
-#ifdef local_irq_restore_nort
-    local_irq_restore_nort((unsigned long)flags);
-#else
     local_irq_restore((unsigned long)flags);
-#endif
 }
-
-t_Error XX_Call( uint32_t qid, t_Error (* f)(t_Handle), t_Handle id, t_Handle appId, uint16_t flags )
-{
-    UNUSED(qid);
-    UNUSED(appId);
-    UNUSED(flags);
-
-    return f(id);
-}
-
-int XX_IsICacheEnable(void)
-{
-    return TRUE;
-}
-
-int XX_IsDCacheEnable(void)
-{
-    return TRUE;
-}
-
 
 typedef struct {
     t_Isr       *f_Isr;
@@ -699,11 +638,6 @@ void XX_UDelay(uint32_t usecs)
 #define MSG_BODY_SIZE       512
 typedef t_Error (t_MsgHandler) (t_Handle h_Mod, uint32_t msgId, uint8_t msgBody[MSG_BODY_SIZE]);
 typedef void (t_MsgCompletionCB) (t_Handle h_Arg, uint8_t msgBody[MSG_BODY_SIZE]);
-t_Error XX_SendMessage(char                 *p_DestAddr,
-                       uint32_t             msgId,
-                       uint8_t              msgBody[MSG_BODY_SIZE],
-                       t_MsgCompletionCB    *f_CompletionCB,
-                       t_Handle             h_CBArg);
 
 typedef struct {
     char            *p_Addr;
@@ -714,100 +648,6 @@ typedef struct {
 #define MSG_HNDLR_OBJECT(ptr)  LIST_OBJECT(ptr, t_MsgHndlr, node)
 
 LIST(msgHndlrList);
-
-static void EnqueueMsgHndlr(t_MsgHndlr *p_MsgHndlr)
-{
-    uint32_t   intFlags;
-
-    intFlags = XX_DisableAllIntr();
-    LIST_AddToTail(&p_MsgHndlr->node, &msgHndlrList);
-    XX_RestoreAllIntr(intFlags);
-}
-/* TODO: add this for multi-platform support
-static t_MsgHndlr * DequeueMsgHndlr(void)
-{
-    t_MsgHndlr *p_MsgHndlr = NULL;
-    uint32_t   intFlags;
-
-    intFlags = XX_DisableAllIntr();
-    if (!LIST_IsEmpty(&msgHndlrList))
-    {
-        p_MsgHndlr = MSG_HNDLR_OBJECT(msgHndlrList.p_Next);
-        LIST_DelAndInit(&p_MsgHndlr->node);
-    }
-    XX_RestoreAllIntr(intFlags);
-
-    return p_MsgHndlr;
-}
-*/
-static t_MsgHndlr * FindMsgHndlr(char *p_Addr)
-{
-    t_MsgHndlr  *p_MsgHndlr;
-    t_List      *p_Pos;
-
-    LIST_FOR_EACH(p_Pos, &msgHndlrList)
-    {
-        p_MsgHndlr = MSG_HNDLR_OBJECT(p_Pos);
-        if (strstr(p_MsgHndlr->p_Addr, p_Addr))
-            return p_MsgHndlr;
-    }
-
-    return NULL;
-}
-
-t_Error XX_RegisterMessageHandler   (char *p_Addr, t_MsgHandler *f_MsgHandlerCB, t_Handle h_Mod)
-{
-    t_MsgHndlr  *p_MsgHndlr;
-    uint32_t    len;
-
-    p_MsgHndlr = (t_MsgHndlr*)XX_Malloc(sizeof(t_MsgHndlr));
-    if (!p_MsgHndlr)
-        RETURN_ERROR(MINOR, E_NO_MEMORY, ("message handler object!!!"));
-    memset(p_MsgHndlr, 0, sizeof(t_MsgHndlr));
-
-    len = strlen(p_Addr);
-    p_MsgHndlr->p_Addr = (char*)XX_Malloc(len+1);
-    strncpy(p_MsgHndlr->p_Addr,p_Addr, (uint32_t)(len+1));
-
-    p_MsgHndlr->f_MsgHandlerCB = f_MsgHandlerCB;
-    p_MsgHndlr->h_Mod = h_Mod;
-    INIT_LIST(&p_MsgHndlr->node);
-    EnqueueMsgHndlr(p_MsgHndlr);
-
-    return E_OK;
-}
-
-t_Error XX_UnregisterMessageHandler (char *p_Addr)
-{
-    t_MsgHndlr *p_MsgHndlr = FindMsgHndlr(p_Addr);
-    if (!p_MsgHndlr)
-        RETURN_ERROR(MINOR, E_NO_DEVICE, ("message handler not found in list!!!"));
-
-    LIST_Del(&p_MsgHndlr->node);
-    XX_Free(p_MsgHndlr->p_Addr);
-    XX_Free(p_MsgHndlr);
-
-    return E_OK;
-}
-
-t_Error XX_SendMessage(char                 *p_DestAddr,
-                       uint32_t             msgId,
-                       uint8_t              msgBody[MSG_BODY_SIZE],
-                       t_MsgCompletionCB    *f_CompletionCB,
-                       t_Handle             h_CBArg)
-{
-    t_Error     ans;
-    t_MsgHndlr  *p_MsgHndlr = FindMsgHndlr(p_DestAddr);
-    if (!p_MsgHndlr)
-        RETURN_ERROR(MINOR, E_NO_DEVICE, ("message handler not found in list!!!"));
-
-    ans = p_MsgHndlr->f_MsgHandlerCB(p_MsgHndlr->h_Mod, msgId, msgBody);
-
-    if (f_CompletionCB)
-        f_CompletionCB(h_CBArg, msgBody);
-
-    return ans;
-}
 
 t_Error XX_IpcRegisterMsgHandler(char                   addr[XX_IPC_MAX_ADDR_NAME_LENGTH],
                                  t_IpcMsgHandler        *f_MsgHandler,
