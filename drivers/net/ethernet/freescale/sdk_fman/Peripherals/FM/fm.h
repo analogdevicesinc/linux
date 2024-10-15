@@ -151,38 +151,6 @@ switch (exception){                                         \
         break;                                                                                      \
     }
 
-#define FMAN_DMA_DBG_CNT_TRANS(fsl_dma_dbg_cnt, _dma_dbg_cnt) \
-    switch (_dma_dbg_cnt){ \
-        case  e_FM_DMA_DBG_NO_CNT:                    \
-            fsl_dma_dbg_cnt =  E_FMAN_DMA_DBG_NO_CNT; break;    \
-        case  e_FM_DMA_DBG_CNT_DONE:                    \
-            fsl_dma_dbg_cnt =  E_FMAN_DMA_DBG_CNT_DONE; break;        \
-        case  e_FM_DMA_DBG_CNT_COMM_Q_EM:                    \
-            fsl_dma_dbg_cnt =  E_FMAN_DMA_DBG_CNT_COMM_Q_EM; break;    \
-        case  e_FM_DMA_DBG_CNT_INT_READ_EM:                        \
-            fsl_dma_dbg_cnt =  E_FMAN_DMA_DBG_CNT_INT_READ_EM; break;        \
-        case  e_FM_DMA_DBG_CNT_INT_WRITE_EM:                        \
-            fsl_dma_dbg_cnt = E_FMAN_DMA_DBG_CNT_INT_WRITE_EM ; break;        \
-        case  e_FM_DMA_DBG_CNT_FPM_WAIT:                        \
-            fsl_dma_dbg_cnt = E_FMAN_DMA_DBG_CNT_FPM_WAIT ; break;        \
-        case  e_FM_DMA_DBG_CNT_SIGLE_BIT_ECC:                        \
-            fsl_dma_dbg_cnt = E_FMAN_DMA_DBG_CNT_SIGLE_BIT_ECC ; break;        \
-        case  e_FM_DMA_DBG_CNT_RAW_WAR_PROT:                        \
-            fsl_dma_dbg_cnt = E_FMAN_DMA_DBG_CNT_RAW_WAR_PROT ; break;        \
-        default: \
-            fsl_dma_dbg_cnt =  E_FMAN_DMA_DBG_NO_CNT; break;    \
-    }
-
-#define FMAN_DMA_EMER_TRANS(fsl_dma_emer, _dma_emer) \
-    switch (_dma_emer){ \
-        case  e_FM_DMA_EM_EBS:                    \
-            fsl_dma_emer =  E_FMAN_DMA_EM_EBS; break;    \
-        case  e_FM_DMA_EM_SOS:                    \
-            fsl_dma_emer =  E_FMAN_DMA_EM_SOS; break;        \
-        default: \
-            fsl_dma_emer =  E_FMAN_DMA_EM_EBS; break;    \
-    }
-
 #define FMAN_DMA_ERR_TRANS(fsl_dma_err, _dma_err) \
     switch (_dma_err){ \
         case  e_FM_DMA_ERR_CATASTROPHIC:                    \
