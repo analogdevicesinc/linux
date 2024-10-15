@@ -17,6 +17,14 @@
 #include <linux/regulator/consumer.h>
 #include <linux/module.h>
 #include <linux/bitops.h>
+#include <linux/spi/spi.h>
+#include <linux/spi/spi-engine-ex.h>
+#include <linux/pwm.h>
+#include <linux/clk.h>
+#include <linux/iio/buffer_impl.h>
+#include <linux/iio/buffer.h>
+#include <linux/iio/buffer-dma.h>
+#include <linux/iio/buffer-dmaengine.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -60,15 +68,23 @@
 #define AD5791_DAC_PWRDN_6K		0
 #define AD5791_DAC_PWRDN_3STATE		1
 
+/*
+ * Arbitrary sane max sampling rate. datasheet only mentions
+ * max SPI bauderate of 35Mbps (x 24 bits)
+ */
+#define AD5791_MAX_SAMPLING_RATE	1000000
+
 /**
  * struct ad5791_chip_info - chip specific information
  * @name:		name of the dac chip
  * @channel:		channel specification
+ * @channel_offload:	offload channel specification
  * @get_lin_comp:	function pointer to the device specific function
  */
 struct ad5791_chip_info {
 	const char *name;
 	const struct iio_chan_spec channel;
+	const struct iio_chan_spec channel_offload;
 	int (*get_lin_comp)(unsigned int span);
 };
 
@@ -81,6 +97,10 @@ struct ad5791_chip_info {
  * @gpio_clear:		clear gpio
  * @gpio_ldac:		load dac gpio
  * @chip_info:		chip model specific constants
+ * @spi_msg:		spi message for offload
+ * @spi_transfer:	spi transfer for offload message
+ * @cnv_trigger:	pwm for offload trigger
+ * @ref_clk_rate:	cnv pwm  reference clk
  * @vref_mv:		actual reference voltage used
  * @vref_neg_mv:	voltage of the negative supply
  * @ctrl:		control register cache
@@ -96,6 +116,10 @@ struct ad5791_state {
 	struct gpio_desc		*gpio_clear;
 	struct gpio_desc		*gpio_ldac;
 	const struct ad5791_chip_info	*chip_info;
+	struct spi_message		spi_msg;
+	struct spi_transfer		spi_transfer;
+	struct pwm_device		*cnv_trigger;
+	unsigned long			ref_clk_rate;
 	unsigned short			vref_mv;
 	unsigned int			vref_neg_mv;
 	unsigned			ctrl;
@@ -232,6 +256,64 @@ static int ad5780_get_lin_comp(unsigned int span)
 		return AD5780_LINCOMP_10_20;
 }
 
+static int ad5791_get_sampling_freq(struct ad5791_state *st)
+{
+	return DIV_ROUND_UP_ULL(NSEC_PER_SEC,
+			    pwm_get_period(st->cnv_trigger));
+}
+
+static int __ad5791_set_sampling_freq(struct ad5791_state *st, int freq)
+{
+	struct pwm_state cnv_state;
+	u32 rem;
+
+	pwm_init_state(st->cnv_trigger, &cnv_state);
+
+	/*
+	 * From the Datasheet max SPI sample rate of 35Mbps (x24bits) and a voltage
+	 * settling time of 1uS, we can induce a max samplig rate of 1Msps which
+	 * should not be exceeded. (period value should not be lower than 1/freq)
+	 *
+	 * pwm_apply_state() implemented period is:
+	 *
+	 *       round_down(P * R / NSEC_PER_SEC) / R
+	 *       round_down(P * R / NSEC_PER_SEC) / R ≥ 1 / freq
+	 *       round_down(P * R / NSEC_PER_SEC) ≥ R / freq
+	 *
+	 * With the LHS being integer this is equivalent to:
+	 *
+	 *         round_down(P * R / NSEC_PER_SEC) ≥ round_up(R / freq)
+	 *         P * R / NSEC_PER_SEC ≥ round_up(R / freq)
+	 *         P ≥ round_up(R / freq) * NSEC_PER_SEC / R
+	 */
+	cnv_state.period = div_u64_rem((u64)DIV_ROUND_UP(st->ref_clk_rate, freq) * NSEC_PER_SEC,
+				       st->ref_clk_rate, &rem);
+	if (rem)
+		cnv_state.period += 1;
+
+	cnv_state.duty_cycle = DIV_ROUND_UP(NSEC_PER_SEC, st->ref_clk_rate);
+
+	return pwm_apply_state(st->cnv_trigger, &cnv_state);
+}
+
+static int ad5791_set_sampling_freq(struct iio_dev *indio_dev, unsigned int freq)
+{
+	struct ad5791_state *st = iio_priv(indio_dev);
+	int ret;
+
+	if (!freq || freq > AD5791_MAX_SAMPLING_RATE)
+		return -EINVAL;
+
+	ret = iio_device_claim_direct_mode(indio_dev);
+	if (ret)
+		return ret;
+
+	ret = __ad5791_set_sampling_freq(st, freq);
+	iio_device_release_direct_mode(indio_dev);
+
+	return ret;
+}
+
 static int ad5791_read_raw(struct iio_dev *indio_dev,
 			   struct iio_chan_spec const *chan,
 			   int *val,
@@ -244,7 +326,11 @@ static int ad5791_read_raw(struct iio_dev *indio_dev,
 
 	switch (m) {
 	case IIO_CHAN_INFO_RAW:
+		ret = iio_device_claim_direct_mode(indio_dev);
+		if (ret)
+			return ret;
 		ret = ad5791_spi_read(st, chan->address, val);
+		iio_device_release_direct_mode(indio_dev);
 		if (ret)
 			return ret;
 		*val &= AD5791_DAC_MASK;
@@ -258,6 +344,9 @@ static int ad5791_read_raw(struct iio_dev *indio_dev,
 		val64 = (((u64)st->vref_neg_mv) << chan->scan_type.realbits);
 		do_div(val64, st->vref_mv);
 		*val = -val64;
+		return IIO_VAL_INT;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		*val = ad5791_get_sampling_freq(st);
 		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
@@ -299,6 +388,24 @@ static const struct ad5791_chip_info _name##_chip_info = {		\
 			},						\
 			.ext_info = ad5791_ext_info,			\
 	},								\
+	.channel_offload = {						\
+			.type = IIO_VOLTAGE,				\
+			.output = 1,					\
+			.indexed = 1,					\
+			.address = AD5791_ADDR_DAC0,			\
+			.channel = 0,					\
+			.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),	\
+			.info_mask_shared_by_type = BIT(IIO_CHAN_INFO_SCALE) |	\
+				BIT(IIO_CHAN_INFO_OFFSET),		\
+			.info_mask_shared_by_all = BIT(IIO_CHAN_INFO_SAMP_FREQ),\
+			.scan_type = {					\
+				.sign = 'u',				\
+				.realbits = (bits),			\
+				.storagebits = 32,			\
+				.shift = (_shift),			\
+			},						\
+			.ext_info = ad5791_ext_info,			\
+	},								\
 }
 
 AD5791_DEFINE_CHIP_INFO(ad5760, 16, 4, ad5780_get_lin_comp);
@@ -314,17 +421,110 @@ static int ad5791_write_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct ad5791_state *st = iio_priv(indio_dev);
+	int ret;
 
 	switch (mask) {
 	case IIO_CHAN_INFO_RAW:
 		val &= GENMASK(chan->scan_type.realbits - 1, 0);
 		val <<= chan->scan_type.shift;
-
-		return ad5791_spi_write(st, chan->address, val);
-
+		ret = iio_device_claim_direct_mode(indio_dev);
+		if (ret)
+			return ret;
+		ret =  ad5791_spi_write(st, chan->address, val);
+		iio_device_release_direct_mode(indio_dev);
+		return ret;
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return ad5791_set_sampling_freq(indio_dev, val);
 	default:
 		return -EINVAL;
 	}
+}
+
+static int ad5791_buffer_preenable(struct iio_dev *indio_dev)
+{
+	struct ad5791_state *st = iio_priv(indio_dev);
+
+	if (st->pwr_down)
+		return -EINVAL;
+
+	spi_engine_ex_offload_enable(st->spi, true);
+
+	return 0;
+}
+
+static int ad5791_buffer_postdisable(struct iio_dev *indio_dev)
+{
+	struct ad5791_state *st = iio_priv(indio_dev);
+
+	spi_engine_ex_offload_enable(st->spi, false);
+
+	return 0;
+}
+
+static const struct iio_buffer_setup_ops ad5791_buffer_setup_ops = {
+	.preenable = &ad5791_buffer_preenable,
+	.postdisable = &ad5791_buffer_postdisable,
+};
+
+static void ad5791_pwm_disable(void *data)
+{
+	pwm_disable(data);
+}
+
+static int ad5791_pwm_setup(struct spi_device *spi, struct ad5791_state *st)
+{
+	struct clk *ref_clk;
+	int ret;
+
+	ref_clk = devm_clk_get_enabled(&spi->dev, "ref_clk");
+	if (IS_ERR(ref_clk))
+		return PTR_ERR(ref_clk);
+
+	st->ref_clk_rate = clk_get_rate(ref_clk);
+
+	st->cnv_trigger = devm_pwm_get(&spi->dev, "cnv");
+	if (IS_ERR(st->cnv_trigger))
+		return PTR_ERR(st->cnv_trigger);
+
+	ret = __ad5791_set_sampling_freq(st, AD5791_MAX_SAMPLING_RATE);
+	if (ret)
+		return ret;
+
+	ret = pwm_enable(st->cnv_trigger);
+	if (ret)
+		return ret;
+
+	return devm_add_action_or_reset(&spi->dev, ad5791_pwm_disable,
+				       st->cnv_trigger);
+}
+
+static int ad5791_offload_setup(struct iio_dev *indio_dev)
+{
+	struct ad5791_state *st = iio_priv(indio_dev);
+	int ret;
+
+	st->spi_transfer.len = 4;
+	st->spi_transfer.bits_per_word = 24;
+	st->spi_transfer.tx_buf = (void *)-1; /* steaming tx */
+
+	spi_message_init_with_transfers(&st->spi_msg, &st->spi_transfer, 1);
+
+	ret = devm_spi_optimize_message(&st->spi->dev, st->spi, &st->spi_msg);
+	if (ret)
+		return ret;
+
+	ret = spi_engine_ex_offload_load_msg(st->spi, &st->spi_msg);
+	if (ret < 0)
+		return ret;
+
+	ret = ad5791_pwm_setup(st->spi, st);
+	if (ret)
+		return ret;
+
+	return devm_iio_dmaengine_buffer_setup_ext(&st->spi->dev,
+					       indio_dev, "tx",
+					       IIO_BUFFER_DIRECTION_OUT,
+					       NULL, NULL);
 }
 
 static const struct iio_info ad5791_info = {
@@ -416,6 +616,15 @@ static int ad5791_probe(struct spi_device *spi)
 	indio_dev->channels = &st->chip_info->channel;
 	indio_dev->num_channels = 1;
 	indio_dev->name = st->chip_info->name;
+	if (spi_engine_ex_offload_supported(spi)) {
+		indio_dev->channels = &st->chip_info->channel_offload;
+		indio_dev->setup_ops = &ad5791_buffer_setup_ops;
+		ret =  ad5791_offload_setup(indio_dev);
+		if (ret)
+			return dev_err_probe(&spi->dev, ret,
+					"fail to setup offload\n");
+	}
+
 	return devm_iio_device_register(&spi->dev, indio_dev);
 }
 
