@@ -361,36 +361,6 @@ t_Error  P1023_GetFmFactor(uintptr_t gutilBase, uint32_t *p_FmMulFactor, uint32_
 *//***************************************************************************/
 uint32_t P1023_GetCcbFactor(uintptr_t gutilBase);
 
-#if 0
-/**************************************************************************//**
- @Function      P1023_GetDdrFactor
-
- @Description   returns the multiplication factor of the clock in for the DDR clock .
-                Note: assumes the ddr_in_clk is identical to the sys_in_clk
-
- @Param[in]     gutilBase       - Base address of P1023 GUTIL registers.
- @Param         p_DdrMulFactor  - returns DDR in clk multification factor.
- @Param         p_DdrDivFactor  - returns DDR division factor.
-
- @Return        E_OK on success; Other value otherwise..
-*//***************************************************************************/
-t_Error P1023_GetDdrFactor( uintptr_t   gutilBase,
-                            uint32_t    *p_DdrMulFactor,
-                            uint32_t    *p_DdrDivFactor);
-
-/**************************************************************************//**
- @Function      P1023_GetDdrType
-
- @Description   returns the multiplication factor of the clock in for the DDR clock .
-
- @Param[in]     gutilBase       - Base address of P1023 GUTIL registers.
- @Param         p_DdrType   - (Out) returns DDR type DDR1/DDR2/DDR3.
-
- @Return        E_OK on success; Other value otherwise.
-*//***************************************************************************/
-t_Error P1023_GetDdrType(uintptr_t gutilBase, e_DdrType *p_DdrType );
-#endif
-
 /** @} */ /* end of 1023_init_grp group */
 /** @} */ /* end of 1023_grp group */
 

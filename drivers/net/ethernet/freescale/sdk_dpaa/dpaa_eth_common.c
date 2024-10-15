@@ -344,19 +344,6 @@ static void dpa_ts_tx_disable(struct net_device *dev)
 {
 	struct dpa_priv_s *priv = netdev_priv(dev);
 
-#if 0
-/* the RTC might be needed by the Rx Ts, cannot disable here
- * no separate ptp_disable API for Rx/Tx, cannot disable here
- */
-	struct mac_device *mac_dev = priv->mac_dev;
-
-	if (mac_dev->fm_rtc_disable)
-		mac_dev->fm_rtc_disable(get_fm_handle(dev));
-
-	if (mac_dev->ptp_disable)
-		mac_dev->ptp_disable(mac_dev->get_mac_handle(mac_dev));
-#endif
-
 	priv->ts_tx_en = false;
 }
 
@@ -374,19 +361,6 @@ static void dpa_ts_rx_enable(struct net_device *dev)
 static void dpa_ts_rx_disable(struct net_device *dev)
 {
 	struct dpa_priv_s *priv = netdev_priv(dev);
-
-#if 0
-/* the RTC might be needed by the Tx Ts, cannot disable here
- * no separate ptp_disable API for Rx/Tx, cannot disable here
- */
-	struct mac_device *mac_dev = priv->mac_dev;
-
-	if (mac_dev->fm_rtc_disable)
-		mac_dev->fm_rtc_disable(get_fm_handle(dev));
-
-	if (mac_dev->ptp_disable)
-		mac_dev->ptp_disable(mac_dev->get_mac_handle(mac_dev));
-#endif
 
 	priv->ts_rx_en = false;
 }

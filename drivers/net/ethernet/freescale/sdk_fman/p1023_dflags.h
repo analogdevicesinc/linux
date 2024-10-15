@@ -35,9 +35,6 @@
 
 
 #define NCSW_LINUX
-#if 0
-#define DEBUG
-#endif
 
 #define P1023
 #define NCSW_PPC_CORE

@@ -988,11 +988,6 @@ static t_Error InitFmPortDev(t_LnxWrpFmPortDev *p_LnxWrpFmPortDev)
  *  . for P4080, MXT is in range (0..63)
  *
  */
-#if 0
-	if ((p_LnxWrpFmPortDev->defPcd != e_NO_PCD) &&
-	    (InitFmPort3TupleDefPcd(p_LnxWrpFmPortDev) != E_OK))
-		RETURN_ERROR(MAJOR, E_INVALID_STATE, NO_MSG);
-#endif
 	return E_OK;
 }
 

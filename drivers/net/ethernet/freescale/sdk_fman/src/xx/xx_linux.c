@@ -451,17 +451,6 @@ int XX_ScheduleTask(t_TaskletHandle h_Tasklet, int immediate)
     return ans;
 }
 
-#if 0
-void XX_FlushScheduledTasks(void)
-{
-#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
-    flush_scheduled_tasks();
-#else
-    flush_scheduled_work();
-#endif    /* LINUX_VERSION_CODE */
-}
-#endif
-
 int XX_TaskletIsQueued(t_TaskletHandle h_Tasklet)
 {
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,20)
@@ -544,85 +533,6 @@ uint32_t XX_CurrentTime(void)
 {
     return (jiffies*1000)/HZ;
 }
-
-#if 0
-t_Handle XX_CreateTimer(void)
-{
-    struct timer_list *p_Timer = (struct timer_list *)XX_Malloc(sizeof(struct timer_list));
-    if (p_Timer)
-    {
-        memset(p_Timer, 0, sizeof(struct timer_list));
-        init_timer(p_Timer);
-    }
-    return (t_Handle)p_Timer;
-}
-
-void XX_FreeTimer(t_Handle h_Timer)
-{
-    if (h_Timer)
-        XX_Free(h_Timer);
-}
-
-void XX_StartTimer(t_Handle h_Timer,
-                   uint32_t msecs,
-                   bool     periodic,
-                   void     (*f_TimerExpired)(t_Handle),
-                   t_Handle h_Arg)
-{
-    int                 tmp_jiffies = (msecs*HZ)/1000;
-    struct timer_list   *p_Timer = (struct timer_list *)h_Timer;
-
-    SANITY_CHECK_RETURN((periodic == FALSE), E_NOT_SUPPORTED);
-
-    p_Timer->function = (void (*)(unsigned long))f_TimerExpired;
-    p_Timer->data = (unsigned long)h_Arg;
-    if ((msecs*HZ)%1000)
-        tmp_jiffies++;
-    p_Timer->expires = (jiffies + tmp_jiffies);
-
-    add_timer((struct timer_list *)h_Timer);
-}
-
-void XX_SetTimerData(t_Handle h_Timer, t_Handle data)
-{
-    struct timer_list   *p_Timer = (struct timer_list *)h_Timer;
-
-    p_Timer->data = (unsigned long)data;
-}
-
-t_Handle XX_GetTimerData(t_Handle h_Timer)
-{
-    struct timer_list   *p_Timer = (struct timer_list *)h_Timer;
-
-    return (t_Handle)p_Timer->data;
-}
-
-uint32_t   XX_GetExpirationTime(t_Handle h_Timer)
-{
-    struct timer_list   *p_Timer = (struct timer_list *)h_Timer;
-
-    return (uint32_t)p_Timer->expires;
-}
-
-void XX_StopTimer(t_Handle h_Timer)
-{
-    del_timer((struct timer_list *)h_Timer);
-}
-
-void XX_ModTimer(t_Handle h_Timer, uint32_t msecs)
-{
-    int tmp_jiffies = (msecs*HZ)/1000;
-
-    if ((msecs*HZ)%1000)
-        tmp_jiffies++;
-    mod_timer((struct timer_list *)h_Timer, jiffies + tmp_jiffies);
-}
-
-int XX_TimerIsActive(t_Handle h_Timer)
-{
-  return timer_pending((struct timer_list *)h_Timer);
-}
-#endif
 
 uint32_t XX_Sleep(uint32_t msecs)
 {
