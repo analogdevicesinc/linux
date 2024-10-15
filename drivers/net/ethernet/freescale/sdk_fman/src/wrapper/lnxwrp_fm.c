@@ -1201,8 +1201,36 @@ static t_Error InitFmDev(t_LnxWrpFmDev  *p_LnxWrpFmDev)
     return E_OK;
 }
 
-/* TODO: to be moved back here */
-extern void FreeFmPcdDev(t_LnxWrpFmDev  *p_LnxWrpFmDev);
+static void FqFree(struct qman_fq *fq)
+{
+	int _errno;
+
+	_errno = qman_retire_fq(fq, NULL);
+	if (unlikely(_errno < 0))
+		printk(KERN_WARNING "qman_retire_fq(%u) = %d\n", qman_fq_fqid(fq), _errno);
+
+	_errno = qman_oos_fq(fq);
+	if (unlikely(_errno < 0))
+		printk(KERN_WARNING "qman_oos_fq(%u) = %d\n", qman_fq_fqid(fq), _errno);
+
+	qman_destroy_fq(fq, 0);
+	XX_Free((t_FmTestFq *) fq);
+}
+
+static void FreeFmPcdDev(t_LnxWrpFmDev *p_LnxWrpFmDev)
+{
+	if (p_LnxWrpFmDev->h_PcdDev)
+		FM_PCD_Free(p_LnxWrpFmDev->h_PcdDev);
+
+	if (p_LnxWrpFmDev->hc_tx_err_fq)
+		FqFree(p_LnxWrpFmDev->hc_tx_err_fq);
+
+	if (p_LnxWrpFmDev->hc_tx_conf_fq)
+		FqFree(p_LnxWrpFmDev->hc_tx_conf_fq);
+
+	if (p_LnxWrpFmDev->hc_tx_fq)
+		FqFree(p_LnxWrpFmDev->hc_tx_fq);
+}
 
 static void FreeFmDev(t_LnxWrpFmDev  *p_LnxWrpFmDev)
 {

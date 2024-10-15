@@ -194,22 +194,6 @@ static struct qman_fq *FqAlloc(t_LnxWrpFmDev * p_LnxWrpFmDev,
 	return fq;
 }
 
-static void FqFree(struct qman_fq *fq)
-{
-	int _errno;
-
-	_errno = qman_retire_fq(fq, NULL);
-	if (unlikely(_errno < 0))
-		printk(KERN_WARNING "qman_retire_fq(%u) = %d\n", qman_fq_fqid(fq), _errno);
-
-	_errno = qman_oos_fq(fq);
-	if (unlikely(_errno < 0))
-		printk(KERN_WARNING "qman_oos_fq(%u) = %d\n", qman_fq_fqid(fq), _errno);
-
-	qman_destroy_fq(fq, 0);
-	XX_Free((t_FmTestFq *) fq);
-}
-
 static t_Error QmEnqueueCB(t_Handle h_Arg, void *p_Fd)
 {
 	t_LnxWrpFmDev *p_LnxWrpFmDev = (t_LnxWrpFmDev *) h_Arg;
@@ -1269,22 +1253,6 @@ static t_Error InitFmPcdDev(t_LnxWrpFmDev *p_LnxWrpFmDev)
 	}
 
 	return E_OK;
-}
-
-void FreeFmPcdDev(t_LnxWrpFmDev *p_LnxWrpFmDev)
-{
-
-	if (p_LnxWrpFmDev->h_PcdDev)
-		FM_PCD_Free(p_LnxWrpFmDev->h_PcdDev);
-
-	if (p_LnxWrpFmDev->hc_tx_err_fq)
-		FqFree(p_LnxWrpFmDev->hc_tx_err_fq);
-
-	if (p_LnxWrpFmDev->hc_tx_conf_fq)
-		FqFree(p_LnxWrpFmDev->hc_tx_conf_fq);
-
-	if (p_LnxWrpFmDev->hc_tx_fq)
-		FqFree(p_LnxWrpFmDev->hc_tx_fq);
 }
 
 static void FreeFmPortDev(t_LnxWrpFmPortDev *p_LnxWrpFmPortDev)
