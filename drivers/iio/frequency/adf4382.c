@@ -1373,11 +1373,12 @@ static unsigned long adf4382_clock_recalc_rate(struct clk_hw *hw,
 {
 	struct adf4382_state *st = to_adf4382_state(hw);
 	u64 freq = 0;
+	unsigned long rate;
 
 	adf4382_get_freq(st, &freq);
-	freq = div_u64(freq, ADF4382_CLK_SCALE);
+	rate = DIV_ROUND_CLOSEST_ULL(freq, ADF4382_CLK_SCALE);
 
-	return freq;
+	return rate;
 }
 
 static int adf4382_clock_enable(struct clk_hw *hw)
@@ -1401,6 +1402,21 @@ static void adf4382_clock_disable(struct clk_hw *hw)
 static long adf4382_clock_round_rate(struct clk_hw *hw, unsigned long rate,
 				     unsigned long *parent_rate)
 {
+	struct adf4382_state *st = to_adf4382_state(hw);
+	u64 freq = rate * ADF4382_CLK_SCALE;
+	u8 div_rate;
+	u64 tmp;
+
+	for (div_rate = 0; div_rate <= st->clkout_div_reg_val_max; div_rate++) {
+		tmp = (1 << div_rate) * freq;
+		if (tmp >= st->vco_min)
+			break;
+	}
+	div_rate = clamp_t(u8, div_rate, 0U, st->clkout_div_reg_val_max);
+	freq = clamp_t(u64, tmp, st->vco_min, st->vco_max);
+	freq = div_u64(freq, 1 << div_rate);
+
+	rate = DIV_ROUND_CLOSEST_ULL(freq, ADF4382_CLK_SCALE);
 	return rate;
 }
 
