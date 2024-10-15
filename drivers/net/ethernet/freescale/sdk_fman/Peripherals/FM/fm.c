@@ -3860,19 +3860,18 @@ t_Error FM_ConfigTotalFifoSize(t_Handle h_Fm, uint32_t totalFifoSize)
     return E_OK;
 }
 
-t_Error FM_ConfigDmaCacheOverride(t_Handle h_Fm, e_FmDmaCacheOverride cacheOverride)
+t_Error FM_ConfigDmaCacheOverride(t_Handle h_Fm,
+				  enum fman_dma_cache_override cache_override)
 {
-    t_Fm                            *p_Fm = (t_Fm*)h_Fm;
-    enum fman_dma_cache_override    fsl_cache_override;
+	t_Fm *p_Fm = (t_Fm*)h_Fm;
 
-    SANITY_CHECK_RETURN_ERROR(p_Fm, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_Fm->p_FmDriverParam, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR((p_Fm->guestId == NCSW_MASTER_ID), E_NOT_SUPPORTED);
+	SANITY_CHECK_RETURN_ERROR(p_Fm, E_INVALID_HANDLE);
+	SANITY_CHECK_RETURN_ERROR(p_Fm->p_FmDriverParam, E_INVALID_HANDLE);
+	SANITY_CHECK_RETURN_ERROR((p_Fm->guestId == NCSW_MASTER_ID), E_NOT_SUPPORTED);
 
-    FMAN_CACHE_OVERRIDE_TRANS(fsl_cache_override, cacheOverride)
-    p_Fm->p_FmDriverParam->dma_cache_override = fsl_cache_override;
+	p_Fm->p_FmDriverParam->dma_cache_override = cache_override;
 
-    return E_OK;
+	return E_OK;
 }
 
 t_Error FM_ConfigDmaAidOverride(t_Handle h_Fm, bool aidOverride)

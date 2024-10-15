@@ -151,20 +151,6 @@ switch (exception){                                         \
         break;                                                                                      \
     }
 
-#define FMAN_CACHE_OVERRIDE_TRANS(fsl_cache_override, _cache_override) \
-    switch (_cache_override){ \
-        case  e_FM_DMA_NO_CACHE_OR:                    \
-            fsl_cache_override =  E_FMAN_DMA_NO_CACHE_OR; break;    \
-        case  e_FM_DMA_NO_STASH_DATA:                    \
-            fsl_cache_override =  E_FMAN_DMA_NO_STASH_DATA; break;        \
-        case  e_FM_DMA_MAY_STASH_DATA:                    \
-            fsl_cache_override =  E_FMAN_DMA_MAY_STASH_DATA; break;    \
-        case  e_FM_DMA_STASH_DATA:                        \
-            fsl_cache_override =  E_FMAN_DMA_STASH_DATA; break;        \
-        default: \
-            fsl_cache_override =  E_FMAN_DMA_NO_CACHE_OR; break;    \
-    }
-
 #define FMAN_DMA_DBG_CNT_TRANS(fsl_dma_dbg_cnt, _dma_dbg_cnt) \
     switch (_dma_dbg_cnt){ \
         case  e_FM_DMA_DBG_NO_CNT:                    \

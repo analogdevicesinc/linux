@@ -278,6 +278,7 @@ struct fman_rg {
 	struct fman_qmi_regs *qmi_rg;
 };
 
+/* Enum for selecting DMA Cache Override */
 enum fman_dma_cache_override {
 	E_FMAN_DMA_NO_CACHE_OR = 0, /**< No override of the Cache field */
 	E_FMAN_DMA_NO_STASH_DATA, /**< No data stashing in system level cache */

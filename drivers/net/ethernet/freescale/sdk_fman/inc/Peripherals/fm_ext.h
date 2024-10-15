@@ -580,16 +580,6 @@ typedef enum e_FmDmaDbgCntMode {
 } e_FmDmaDbgCntMode;
 
 /**************************************************************************//**
- @Description   Enum for selecting DMA Cache Override
-*//***************************************************************************/
-typedef enum e_FmDmaCacheOverride {
-    e_FM_DMA_NO_CACHE_OR = 0,               /**< No override of the Cache field */
-    e_FM_DMA_NO_STASH_DATA,                 /**< Data should not be stashed in system level cache */
-    e_FM_DMA_MAY_STASH_DATA,                /**< Data may be stashed in system level cache */
-    e_FM_DMA_STASH_DATA                     /**< Data should be stashed in system level cache */
-} e_FmDmaCacheOverride;
-
-/**************************************************************************//**
  @Description   Enum for selecting DMA External Bus Priority
 *//***************************************************************************/
 typedef enum e_FmDmaExtBusPri {
@@ -748,7 +738,7 @@ t_Error FM_ConfigTotalFifoSize(t_Handle h_Fm, uint32_t totalFifoSize);
                 in the internal driver data base from its default configuration [DEFAULT_cacheOverride]
 
  @Param[in]     h_Fm            A handle to an FM Module.
- @Param[in]     cacheOverride   The selected new value.
+ @Param[in]     cache_override  The selected new value.
 
  @Return        E_OK on success; Error code otherwise.
 
@@ -756,7 +746,8 @@ t_Error FM_ConfigTotalFifoSize(t_Handle h_Fm, uint32_t totalFifoSize);
                 This routine should NOT be called from guest-partition
                 (i.e. guestId != NCSW_MASTER_ID)
 *//***************************************************************************/
-t_Error FM_ConfigDmaCacheOverride(t_Handle h_Fm, e_FmDmaCacheOverride cacheOverride);
+t_Error FM_ConfigDmaCacheOverride(t_Handle h_Fm,
+				  enum fman_dma_cache_override cache_override);
 
 /**************************************************************************//**
  @Function      FM_ConfigDmaAidOverride
