@@ -1472,24 +1472,9 @@ static struct platform_driver fm_port_driver = {
 	.remove = fm_port_remove
 };
 
-
-t_Error LNXWRP_FM_Port_Init(void)
-{
-	/* Register to the DTB for basic FM port API */
-	if (platform_driver_register(&fm_port_driver))
-		return E_NO_DEVICE;
-
-	return E_OK;
-}
-
-void LNXWRP_FM_Port_Free(void)
-{
-	platform_driver_unregister(&fm_port_driver);
-}
-
 static int __init __cold fm_port_load(void)
 {
-	if (LNXWRP_FM_Port_Init() != E_OK) {
+	if (platform_driver_register(&fm_port_driver)) {
 		printk(KERN_ERR "Failed to init FM Ports wrapper!\n");
 		return -ENODEV;
 	}
@@ -1501,7 +1486,7 @@ static int __init __cold fm_port_load(void)
 
 static void __exit __cold fm_port_unload(void)
 {
-	LNXWRP_FM_Port_Free();
+	platform_driver_unregister(&fm_port_driver);
 }
 
 module_init(fm_port_load);
