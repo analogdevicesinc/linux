@@ -305,6 +305,7 @@ static t_Error CalculateTableSize(t_FmPcdManipParams *p_FmPcdManipParams,
     return E_OK;
 }
 
+#if (DPAA_VERSION >= 11)
 static t_Error GetPrOffsetByHeaderOrField(t_FmManipHdrInfo *p_HdrInfo,
                                           uint8_t *parseArrayOffset)
 {
@@ -421,6 +422,7 @@ static t_Error GetPrOffsetByHeaderOrField(t_FmManipHdrInfo *p_HdrInfo,
     }
     return E_OK;
 }
+#endif
 
 static t_Error BuildHmct(t_FmPcdManip *p_Manip,
                          t_FmPcdManipParams *p_FmPcdManipParams,
@@ -3081,6 +3083,7 @@ static t_Error CapwapRmvDtlsHdr(t_FmPcd *p_FmPcd, t_FmPcdManip *p_Manip)
     return err;
 }
 
+#if (DPAA_VERSION >= 11)
 static t_Error CapwapReassembly(t_CapwapReassemblyParams *p_ManipParams,
         t_FmPcdManip *p_Manip,
         t_FmPcd *p_FmPcd,
@@ -3191,6 +3194,7 @@ static t_Error CapwapReassembly(t_CapwapReassemblyParams *p_ManipParams,
 
     return E_OK;
 }
+#endif
 
 static t_Error CapwapFragmentation(t_CapwapFragmentationParams *p_ManipParams,
         t_FmPcdManip *p_Manip,
@@ -4096,6 +4100,7 @@ static t_Error IPSecManip(t_FmPcdManipParams *p_ManipParams,
     return err;
 }
 
+#if (DPAA_VERSION >= 11)
 static t_Error SetCapwapReassmManip(t_FmPcdManip *p_Manip)
 {
     t_FmPcd *p_FmPcd = (t_FmPcd *)p_Manip->h_FmPcd;
@@ -4116,6 +4121,7 @@ static t_Error SetCapwapReassmManip(t_FmPcdManip *p_Manip)
     /* Fill reassembly manipulation parameter in the Reassembly Action Descriptor */
     return FillReassmManipParams(p_Manip, HEADER_TYPE_CAPWAP);
 }
+#endif
 
 static void setCapwapReassmSchemeParams(t_FmPcd* p_FmPcd,
                                         t_FmPcdKgSchemeParams *p_Scheme,
@@ -4221,6 +4227,7 @@ static t_Error CapwapFragmentationStats(t_FmPcdManip *p_Manip,
 	return E_OK;
 }
 
+#if (DPAA_VERSION >= 11)
 static t_Error CapwapReassembly(t_FmPcdManipReassemParams *p_ManipReassmParams,
                                 t_FmPcdManip *p_Manip)
 {
@@ -4274,6 +4281,7 @@ static t_Error CapwapReassembly(t_FmPcdManipReassemParams *p_ManipReassmParams,
 
     return E_OK;
 }
+#endif
 
 static t_Error CapwapFragmentation(t_FmPcdManipFragCapwapParams *p_ManipParams,
                                    t_FmPcdManip *p_Manip)
