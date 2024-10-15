@@ -5212,27 +5212,3 @@ t_Handle FmGetPcd(t_Handle h_Fm)
 {
 	return ((t_Fm*)h_Fm)->h_Pcd;
 }
-#if (DPAA_VERSION >= 11)
-extern void *g_MemacRegs;
-void fm_clk_down(void);
-uint32_t fman_memac_get_event(void *regs, uint32_t ev_mask);
-void FM_ChangeClock(t_Handle h_Fm, int hardwarePortId)
-{
-	int macId;
-	uint32_t    event, rcr;
-	t_Fm *p_Fm = (t_Fm*)h_Fm;
-	rcr = GET_UINT32(p_Fm->p_FmFpmRegs->fm_rcr);
-	rcr |= 0x04000000;
-	WRITE_UINT32(p_Fm->p_FmFpmRegs->fm_rcr, rcr);
-
-	HW_PORT_ID_TO_SW_PORT_ID(macId, hardwarePortId);
-	do
-	{
-		event = fman_memac_get_event(g_MemacRegs, 0xFFFFFFFF);
-	} while ((event & 0x00000020) == 0);
-	fm_clk_down();
-	rcr = GET_UINT32(p_Fm->p_FmFpmRegs->fm_rcr);
-	rcr &= ~0x04000000;
-	WRITE_UINT32(p_Fm->p_FmFpmRegs->fm_rcr, rcr);
-}
-#endif
