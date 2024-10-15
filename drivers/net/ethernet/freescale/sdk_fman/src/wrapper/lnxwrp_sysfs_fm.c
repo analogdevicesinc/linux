@@ -1515,8 +1515,8 @@ int fm_dump_cls_plan(void *h_fm_pcd, int cpn, char *buf, int nn)
 int fm_profile_dump_regs(void *h_fm_pcd, int ppn, char *buf, int nn)
 {
 	t_FmPcd				*p_pcd = (t_FmPcd *)h_fm_pcd;
-	t_FmPcdPlcrProfileRegs		*p_prof_regs;
-	t_FmPcdPlcrRegs			*p_plcr_regs;
+	t_FmPcdPlcrProfileRegs __iomem	*p_prof_regs;
+	t_FmPcdPlcrRegs __iomem		*p_plcr_regs;
 	t_FmPcdPlcr			*p_plcr;
 	uint32_t			tmp;
 	unsigned long			i_flg;

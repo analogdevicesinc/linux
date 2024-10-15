@@ -123,38 +123,37 @@ switch (exception){                                                 \
 #pragma pack(push,1)
 #endif /* defined(__MWERKS__) && ... */
 
-
 typedef struct {
-/* General Configuration and Status Registers */
-    volatile uint32_t fmpl_gcr;         /* 0x000 FMPL_GCR  - FM Policer General Configuration */
-    volatile uint32_t fmpl_gsr;         /* 0x004 FMPL_GSR  - FM Policer Global Status Register */
-    volatile uint32_t fmpl_evr;         /* 0x008 FMPL_EVR  - FM Policer Event Register */
-    volatile uint32_t fmpl_ier;         /* 0x00C FMPL_IER  - FM Policer Interrupt Enable Register */
-    volatile uint32_t fmpl_ifr;         /* 0x010 FMPL_IFR  - FM Policer Interrupt Force Register */
-    volatile uint32_t fmpl_eevr;        /* 0x014 FMPL_EEVR - FM Policer Error Event Register */
-    volatile uint32_t fmpl_eier;        /* 0x018 FMPL_EIER - FM Policer Error Interrupt Enable Register */
-    volatile uint32_t fmpl_eifr;        /* 0x01C FMPL_EIFR - FM Policer Error Interrupt Force Register */
-/* Global Statistic Counters */
-    volatile uint32_t fmpl_rpcnt;       /* 0x020 FMPL_RPC  - FM Policer RED Packets Counter */
-    volatile uint32_t fmpl_ypcnt;       /* 0x024 FMPL_YPC  - FM Policer YELLOW Packets Counter */
-    volatile uint32_t fmpl_rrpcnt;      /* 0x028 FMPL_RRPC - FM Policer Recolored RED Packet Counter */
-    volatile uint32_t fmpl_rypcnt;      /* 0x02C FMPL_RYPC - FM Policer Recolored YELLOW Packet Counter */
-    volatile uint32_t fmpl_tpcnt;       /* 0x030 FMPL_TPC  - FM Policer Total Packet Counter */
-    volatile uint32_t fmpl_flmcnt;      /* 0x034 FMPL_FLMC - FM Policer Frame Length Mismatch Counter */
-    volatile uint32_t fmpl_res0[21];    /* 0x038 - 0x08B Reserved */
-/* Profile RAM Access Registers */
-    volatile uint32_t fmpl_par;         /* 0x08C FMPL_PAR    - FM Policer Profile Action Register*/
-    t_FmPcdPlcrProfileRegs profileRegs;
-/* Error Capture Registers */
-    volatile uint32_t fmpl_serc;        /* 0x100 FMPL_SERC - FM Policer Soft Error Capture */
-    volatile uint32_t fmpl_upcr;        /* 0x104 FMPL_UPCR - FM Policer Uninitialized Profile Capture Register */
-    volatile uint32_t fmpl_res2;        /* 0x108 Reserved */
-/* Debug Registers */
-    volatile uint32_t fmpl_res3[61];    /* 0x10C-0x200 Reserved Debug*/
-/* Profile Selection Mapping Registers Per Port-ID (n=1-11, 16) */
-    volatile uint32_t fmpl_dpmr;        /* 0x200 FMPL_DPMR - FM Policer Default Mapping Register */
-    volatile uint32_t fmpl_pmr[63];     /*+default 0x204-0x2FF FMPL_PMR1 - FMPL_PMR63, - FM Policer Profile Mapping Registers.
-                                           (for port-ID 1-11, only for supported Port-ID registers) */
+	/* General Configuration and Status Registers */
+	uint32_t fmpl_gcr;         /* 0x000 FMPL_GCR  - FM Policer General Configuration */
+	uint32_t fmpl_gsr;         /* 0x004 FMPL_GSR  - FM Policer Global Status Register */
+	uint32_t fmpl_evr;         /* 0x008 FMPL_EVR  - FM Policer Event Register */
+	uint32_t fmpl_ier;         /* 0x00C FMPL_IER  - FM Policer Interrupt Enable Register */
+	uint32_t fmpl_ifr;         /* 0x010 FMPL_IFR  - FM Policer Interrupt Force Register */
+	uint32_t fmpl_eevr;        /* 0x014 FMPL_EEVR - FM Policer Error Event Register */
+	uint32_t fmpl_eier;        /* 0x018 FMPL_EIER - FM Policer Error Interrupt Enable Register */
+	uint32_t fmpl_eifr;        /* 0x01C FMPL_EIFR - FM Policer Error Interrupt Force Register */
+	/* Global Statistic Counters */
+	uint32_t fmpl_rpcnt;       /* 0x020 FMPL_RPC  - FM Policer RED Packets Counter */
+	uint32_t fmpl_ypcnt;       /* 0x024 FMPL_YPC  - FM Policer YELLOW Packets Counter */
+	uint32_t fmpl_rrpcnt;      /* 0x028 FMPL_RRPC - FM Policer Recolored RED Packet Counter */
+	uint32_t fmpl_rypcnt;      /* 0x02C FMPL_RYPC - FM Policer Recolored YELLOW Packet Counter */
+	uint32_t fmpl_tpcnt;       /* 0x030 FMPL_TPC  - FM Policer Total Packet Counter */
+	uint32_t fmpl_flmcnt;      /* 0x034 FMPL_FLMC - FM Policer Frame Length Mismatch Counter */
+	uint32_t fmpl_res0[21];    /* 0x038 - 0x08B Reserved */
+	/* Profile RAM Access Registers */
+	uint32_t fmpl_par;         /* 0x08C FMPL_PAR    - FM Policer Profile Action Register*/
+	t_FmPcdPlcrProfileRegs profileRegs;
+	/* Error Capture Registers */
+	uint32_t fmpl_serc;        /* 0x100 FMPL_SERC - FM Policer Soft Error Capture */
+	uint32_t fmpl_upcr;        /* 0x104 FMPL_UPCR - FM Policer Uninitialized Profile Capture Register */
+	uint32_t fmpl_res2;        /* 0x108 Reserved */
+	/* Debug Registers */
+	uint32_t fmpl_res3[61];    /* 0x10C-0x200 Reserved Debug*/
+	/* Profile Selection Mapping Registers Per Port-ID (n=1-11, 16) */
+	uint32_t fmpl_dpmr;        /* 0x200 FMPL_DPMR - FM Policer Default Mapping Register */
+	uint32_t fmpl_pmr[63];     /* +default 0x204-0x2FF FMPL_PMR1 - FMPL_PMR63, - FM Policer Profile Mapping Registers.
+				    * (for port-ID 1-11, only for supported Port-ID registers) */
 } t_FmPcdPlcrRegs;
 
 #if defined(__MWERKS__) && !defined(__GNUC__)
