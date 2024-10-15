@@ -508,22 +508,13 @@ EXPORT_SYMBOL_GPL(netc_timer_get_phc_index);
 
 static int netc_timer_init(struct netc_timer *priv)
 {
-	struct device_node *node = priv->dev->of_node;
 	u32 tmr_ctrl, alarm_ctrl, fiper_ctrl;
 	struct timespec64 now;
 	u64 ns;
 	int i;
 
 	priv->caps = netc_timer_ptp_caps;
-
-	/* Get the output clock division prescale factor, it must be an even value. */
-	if (of_property_read_u32(node, "fsl,oclk-prsc", &priv->oclk_prsc))
-		priv->oclk_prsc = NETC_TMR_DEFAULT_PRSC;
-	if (priv->oclk_prsc % 2) {
-		dev_warn(priv->dev, "PRSC_OCK should be an even value (PRSC_OCK: %d -> %d)\n",
-			 priv->oclk_prsc, priv->oclk_prsc + 1);
-		priv->oclk_prsc += 1;
-	}
+	priv->oclk_prsc = NETC_TMR_DEFAULT_PRSC;
 
 	alarm_ctrl = ALARM_CTRL_PG(0) | ALARM_CTRL_PG(1);
 
