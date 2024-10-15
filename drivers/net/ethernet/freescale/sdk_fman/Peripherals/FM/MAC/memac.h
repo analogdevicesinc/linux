@@ -104,8 +104,8 @@ typedef struct
 
 #define MEMAC_TO_MII_OFFSET         0x030       /* Offset from the MEM map to the MDIO mem map */
 
+t_Handle MEMAC_Config(t_FmMacParams *p_FmMacParam);
 t_Error MEMAC_MII_WritePhyReg(t_Handle h_Memac, uint8_t phyAddr, uint8_t reg, uint16_t data);
 t_Error MEMAC_MII_ReadPhyReg(t_Handle h_Memac,  uint8_t phyAddr, uint8_t reg, uint16_t *p_Data);
-
 
 #endif /* __MEMAC_H */

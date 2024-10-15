@@ -45,7 +45,6 @@
 #include "fm_mac_ext.h"
 #include "fm_common.h"
 
-
 #define __ERR_MODULE__  MODULE_FM_MAC
 
 /**************************************************************************//**
@@ -141,15 +140,7 @@ typedef struct {
     uint16_t            clkFreq;
 } t_FmMacControllerDriver;
 
-
-#if (DPAA_VERSION == 10)
-t_Handle    DTSEC_Config(t_FmMacParams *p_FmMacParam);
-t_Handle    TGEC_Config(t_FmMacParams *p_FmMacParams);
-#else
-t_Handle    MEMAC_Config(t_FmMacParams *p_FmMacParam);
-#endif /* (DPAA_VERSION == 10) */
 uint16_t    FM_MAC_GetMaxFrameLength(t_Handle FmMac);
-
 
 /* ........................................................................... */
 

@@ -224,5 +224,6 @@ typedef struct {
     struct dtsec_cfg            *p_DtsecDriverParam;
 } t_Dtsec;
 
+t_Handle DTSEC_Config(t_FmMacParams *p_FmMacParam);
 
 #endif /* __DTSEC_H */

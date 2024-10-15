@@ -143,9 +143,8 @@ typedef struct {
     struct tgec_cfg             *p_TgecDriverParam;
 } t_Tgec;
 
-
+t_Handle TGEC_Config(t_FmMacParams *p_FmMacParam);
 t_Error TGEC_MII_WritePhyReg(t_Handle h_Tgec, uint8_t phyAddr, uint8_t reg, uint16_t data);
 t_Error TGEC_MII_ReadPhyReg(t_Handle h_Tgec,  uint8_t phyAddr, uint8_t reg, uint16_t *p_Data);
-
 
 #endif /* __TGEC_H */

@@ -1463,7 +1463,7 @@ static void InitFmMacControllerDriver(t_FmMacControllerDriver *p_FmMacController
 
 /* .............................................................................. */
 
-t_Handle  DTSEC_Config(t_FmMacParams *p_FmMacParam)
+t_Handle DTSEC_Config(t_FmMacParams *p_FmMacParam)
 {
     t_Dtsec             *p_Dtsec;
     struct dtsec_cfg    *p_DtsecDriverParam;
