@@ -468,6 +468,7 @@ static int max96724_dt_parse_sink_ep(struct max96724_priv *priv, struct device_n
 	struct max96724_source *source;
 	struct device_node *csi_ep;
 	struct of_endpoint csi_of_ep;
+	unsigned int csi_port;
 
 	/* Skip if the corresponding GMSL link is unavailable. */
 	if (!(priv->gmsl_link_mask & BIT(ep->port)))
@@ -477,7 +478,14 @@ static int max96724_dt_parse_sink_ep(struct max96724_priv *priv, struct device_n
 		csi_ep = of_graph_get_remote_endpoint(node);
 		of_graph_parse_endpoint(csi_ep, &csi_of_ep);
 
-		priv->csi2_video_pipe_mask[csi_of_ep.port - MAX96724_SRC_PAD] |= BIT(ep->port);
+		csi_port = csi_of_ep.port - MAX96724_SRC_PAD;
+
+		if (csi_port > 1) {
+			dev_err(dev, "Wrong CSI port, deserializer has only 2 ports.\n");
+			return -EINVAL;
+		}
+
+		priv->csi2_video_pipe_mask[csi_port] |= BIT(ep->port);
 		of_node_put(csi_ep);
 		return 0;
 	}
@@ -526,7 +534,9 @@ static int max96724_parse_dt(struct max96724_priv *priv)
 			continue;
 		}
 
-		max96724_dt_parse_sink_ep(priv, node, &ep);
+		ret = max96724_dt_parse_sink_ep(priv, node, &ep);
+		if (ret)
+			return ret;
 	}
 	of_node_put(node);
 
