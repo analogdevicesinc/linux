@@ -1253,6 +1253,8 @@ static int max96724_enum_mbus_code(struct v4l2_subdev *sd, struct v4l2_subdev_st
 
 		fmt = v4l2_subdev_state_get_opposite_stream_format(sd_state, code->pad,
 								   code->stream);
+		if (!fmt)
+			return -EINVAL;
 
 		code->code = fmt->code;
 
