@@ -53,6 +53,7 @@
 
 #include "sprint_ext.h"
 #include "fm_common.h"
+#include "lnxwrp_fm.h"
 #include "lnxwrp_fm_port.h"
 #include "lnxwrp_fsl_fman.h"
 #include "fm_port_ext.h"

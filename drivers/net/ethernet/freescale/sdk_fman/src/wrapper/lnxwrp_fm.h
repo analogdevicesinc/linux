@@ -290,5 +290,6 @@ static __inline__ t_Error AllocSchemesForPort(t_LnxWrpFmDev *p_LnxWrpFmDev, uint
 
 void LnxWrpPCDIOCTLTypeChecking(void);
 void LnxWrpPCDIOCTLEnumChecking(void);
+struct device_node *GetFmAdvArgsDevTreeNode(uint8_t fmIndx);
 
 #endif /* __LNXWRP_FM_H__ */
