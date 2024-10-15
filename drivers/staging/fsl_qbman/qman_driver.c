@@ -501,9 +501,6 @@ static void portal_set_cpu(struct qm_portal_config *pcfg, int cpu)
 {
 #ifdef CONFIG_FSL_PAMU
 	int ret;
-	int window_count = 1;
-	struct iommu_domain_geometry geom_attr;
-	struct pamu_stash_attribute stash_attr;
 
 	pcfg->iommu_domain = iommu_domain_alloc(&platform_bus_type);
 	if (!pcfg->iommu_domain) {
@@ -511,55 +508,20 @@ static void portal_set_cpu(struct qm_portal_config *pcfg, int cpu)
 			   __func__);
 		goto _no_iommu;
 	}
-	geom_attr.aperture_start = 0;
-	geom_attr.aperture_end =
-		((dma_addr_t)1 << min(8 * sizeof(dma_addr_t), (size_t)36)) - 1;
-	geom_attr.force_aperture = true;
-	ret = iommu_domain_set_attr(pcfg->iommu_domain, DOMAIN_ATTR_GEOMETRY,
-				    &geom_attr);
-	if (ret < 0) {
-		pr_err(KBUILD_MODNAME ":%s(): iommu_domain_set_attr() = %d",
-			   __func__, ret);
-		goto _iommu_domain_free;
-	}
-	ret = iommu_domain_set_attr(pcfg->iommu_domain, DOMAIN_ATTR_WINDOWS,
-				    &window_count);
-	if (ret < 0) {
-		pr_err(KBUILD_MODNAME ":%s(): iommu_domain_set_attr() = %d",
-			   __func__, ret);
-		goto _iommu_domain_free;
-	}
-	stash_attr.cpu = cpu;
-	stash_attr.cache = PAMU_ATTR_CACHE_L1;
+
 	/* set stash information for the window */
-	ret = iommu_domain_set_attr(pcfg->iommu_domain,
-				    DOMAIN_ATTR_FSL_PAMU_STASH,
-				    &stash_attr);
+	ret = fsl_pamu_configure_l1_stash(pcfg->iommu_domain, cpu);
 	if (ret < 0) {
 		pr_err(KBUILD_MODNAME ":%s(): iommu_domain_set_attr() = %d",
 			   __func__, ret);
 		goto _iommu_domain_free;
 	}
-	ret = iommu_domain_window_enable(pcfg->iommu_domain, 0, 0, 1ULL << 36,
-					 IOMMU_READ | IOMMU_WRITE);
-	if (ret < 0) {
-		pr_err(KBUILD_MODNAME ":%s(): iommu_domain_window_enable() = %d",
-			   __func__, ret);
-		goto _iommu_domain_free;
-	}
+
 	ret = iommu_attach_device(pcfg->iommu_domain, &pcfg->dev);
 	if (ret < 0) {
 		pr_err(KBUILD_MODNAME ":%s(): iommu_device_attach() = %d",
 			   __func__, ret);
 		goto _iommu_domain_free;
-	}
-	ret = iommu_domain_set_attr(pcfg->iommu_domain,
-				    DOMAIN_ATTR_FSL_PAMU_ENABLE,
-				    &window_count);
-	if (ret < 0) {
-		pr_err(KBUILD_MODNAME ":%s(): iommu_domain_set_attr() = %d",
-			   __func__, ret);
-		goto _iommu_detach_device;
 	}
 
 _no_iommu:
@@ -572,8 +534,6 @@ _no_iommu:
 	return;
 
 #ifdef CONFIG_FSL_PAMU
-_iommu_detach_device:
-	iommu_detach_device(pcfg->iommu_domain, NULL);
 _iommu_domain_free:
 	iommu_domain_free(pcfg->iommu_domain);
 #endif
@@ -670,15 +630,11 @@ static void qman_portal_update_sdest(const struct qm_portal_config *pcfg,
 							unsigned int cpu)
 {
 #ifdef CONFIG_FSL_PAMU
-	struct pamu_stash_attribute stash_attr;
 	int ret;
 
 	if (pcfg->iommu_domain) {
-		stash_attr.cpu = cpu;
-		stash_attr.cache = PAMU_ATTR_CACHE_L1;
 		/* set stash information for the window */
-		ret = iommu_domain_set_attr(pcfg->iommu_domain,
-				DOMAIN_ATTR_FSL_PAMU_STASH, &stash_attr);
+		ret = fsl_pamu_configure_l1_stash(pcfg->iommu_domain, cpu);
 		if (ret < 0) {
 			pr_err("Failed to update pamu stash setting\n");
 			return;

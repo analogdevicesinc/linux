@@ -16,6 +16,8 @@ enum pamu_stash_target {
 	PAMU_ATTR_CACHE_L3,
 };
 
+int fsl_pamu_configure_cache_stash(struct iommu_domain *domain, u32 cpu,
+				   enum pamu_stash_target stash_dest);
 int fsl_pamu_configure_l1_stash(struct iommu_domain *domain, u32 cpu);
 
 #endif  /* __FSL_PAMU_STASH_H */
