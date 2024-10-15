@@ -436,7 +436,7 @@ static void __hot _dpa_tx_conf(struct net_device	*net_dev,
 	dev_kfree_skb(skb);
 }
 
-enum qman_cb_dqrr_result
+static enum qman_cb_dqrr_result
 priv_rx_error_dqrr(struct qman_portal		*portal,
 		      struct qman_fq			*fq,
 		      const struct qm_dqrr_entry	*dq)
@@ -467,8 +467,7 @@ priv_rx_error_dqrr(struct qman_portal		*portal,
 	return qman_cb_dqrr_consume;
 }
 
-
-enum qman_cb_dqrr_result __hot
+static enum qman_cb_dqrr_result __hot
 priv_rx_default_dqrr(struct qman_portal		*portal,
 			struct qman_fq			*fq,
 			const struct qm_dqrr_entry	*dq)
@@ -508,7 +507,7 @@ priv_rx_default_dqrr(struct qman_portal		*portal,
 	return qman_cb_dqrr_consume;
 }
 
-enum qman_cb_dqrr_result
+static enum qman_cb_dqrr_result
 priv_tx_conf_error_dqrr(struct qman_portal		*portal,
 		      struct qman_fq			*fq,
 		      const struct qm_dqrr_entry	*dq)
@@ -530,7 +529,7 @@ priv_tx_conf_error_dqrr(struct qman_portal		*portal,
 	return qman_cb_dqrr_consume;
 }
 
-enum qman_cb_dqrr_result __hot
+static enum qman_cb_dqrr_result __hot
 priv_tx_conf_default_dqrr(struct qman_portal		*portal,
 			struct qman_fq			*fq,
 			const struct qm_dqrr_entry	*dq)
@@ -556,9 +555,8 @@ priv_tx_conf_default_dqrr(struct qman_portal		*portal,
 	return qman_cb_dqrr_consume;
 }
 
-void priv_ern(struct qman_portal	*portal,
-		       struct qman_fq		*fq,
-		       const struct qm_mr_entry	*msg)
+static void priv_ern(struct qman_portal *portal, struct qman_fq *fq,
+		     const struct qm_mr_entry *msg)
 {
 	struct net_device	*net_dev;
 	const struct dpa_priv_s	*priv;
