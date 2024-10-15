@@ -539,5 +539,6 @@ static __inline__ void FmPcdLockUnlock(t_FmPcdLock *p_Lock)
     p_Lock->flag = FALSE;
 }
 
+t_Handle FM_PCD_GetHcPort(t_Handle h_FmPcd);
 
 #endif /* __FM_PCD_H */
