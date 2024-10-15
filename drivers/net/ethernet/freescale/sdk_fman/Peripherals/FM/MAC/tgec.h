@@ -47,8 +47,7 @@
 #include "tgec_mii_acc.h"
 #include "fm_mac.h"
 
-
-#define DEFAULT_exceptions                        \
+#define TGEC_EXCEPTIONS                           \
     ((uint32_t)(TGEC_IMASK_MDIO_SCAN_EVENT     |  \
                 TGEC_IMASK_REM_FAULT           |  \
                 TGEC_IMASK_LOC_FAULT           |  \
@@ -65,7 +64,8 @@
                 TGEC_IMASK_RX_CRC_ER           |  \
                 TGEC_IMASK_RX_ALIGN_ER))
 
-#define GET_EXCEPTION_FLAG(bitMask, exception)      switch (exception){ \
+#define TGEC_GET_EXCEPTION_FLAG(bitMask, exception)                     \
+    switch (exception) {                                                \
     case e_FM_MAC_EX_10G_MDIO_SCAN_EVENTMDIO:                           \
         bitMask = TGEC_IMASK_MDIO_SCAN_EVENT    ; break;                \
     case e_FM_MAC_EX_10G_MDIO_CMD_CMPL:                                 \

@@ -47,11 +47,11 @@
 #include "fm_mac.h"
 #include "fsl_fman_memac.h"
 
-
-#define MEMAC_default_exceptions    \
+#define MEMAC_EXCEPTIONS    \
         ((uint32_t)(MEMAC_IMASK_TSECC_ER | MEMAC_IMASK_TECC_ER | MEMAC_IMASK_RECC_ER | MEMAC_IMASK_MGI))
 
-#define GET_EXCEPTION_FLAG(bitMask, exception)       switch (exception){    \
+#define MEMAC_GET_EXCEPTION_FLAG(bitMask, exception)                        \
+    switch (exception) {                                                    \
     case e_FM_MAC_EX_10G_1TX_ECC_ER:                                        \
         bitMask = MEMAC_IMASK_TECC_ER; break;                               \
     case e_FM_MAC_EX_10G_RX_ECC_ER:                                         \

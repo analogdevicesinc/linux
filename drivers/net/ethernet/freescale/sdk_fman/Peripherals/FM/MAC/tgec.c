@@ -299,7 +299,7 @@ static t_Error TgecConfigException(t_Handle h_Tgec, e_FmMacExceptions exception,
     SANITY_CHECK_RETURN_ERROR(p_Tgec, E_INVALID_HANDLE);
     SANITY_CHECK_RETURN_ERROR(p_Tgec->p_TgecDriverParam, E_INVALID_STATE);
 
-    GET_EXCEPTION_FLAG(bitMask, exception);
+    TGEC_GET_EXCEPTION_FLAG(bitMask, exception);
     if (bitMask)
     {
         if (enable)
@@ -723,7 +723,7 @@ static t_Error TgecSetExcpetion(t_Handle h_Tgec, e_FmMacExceptions exception, bo
     SANITY_CHECK_RETURN_ERROR(p_Tgec, E_INVALID_HANDLE);
     SANITY_CHECK_RETURN_ERROR(!p_Tgec->p_TgecDriverParam, E_INVALID_STATE);
 
-    GET_EXCEPTION_FLAG(bitMask, exception);
+    TGEC_GET_EXCEPTION_FLAG(bitMask, exception);
     if (bitMask)
     {
         if (enable)
@@ -1009,7 +1009,7 @@ t_Handle TGEC_Config(t_FmMacParams *p_FmMacParam)
     p_Tgec->addr            = ENET_ADDR_TO_UINT64(p_FmMacParam->addr);
     p_Tgec->enetMode        = p_FmMacParam->enetMode;
     p_Tgec->macId           = p_FmMacParam->macId;
-    p_Tgec->exceptions      = DEFAULT_exceptions;
+    p_Tgec->exceptions      = TGEC_EXCEPTIONS;
     p_Tgec->mdioIrq         = p_FmMacParam->mdioIrq;
     p_Tgec->f_Exception     = p_FmMacParam->f_Exception;
     p_Tgec->f_Event         = p_FmMacParam->f_Event;

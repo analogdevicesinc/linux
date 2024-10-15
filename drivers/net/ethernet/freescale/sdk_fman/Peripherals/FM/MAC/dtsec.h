@@ -46,8 +46,7 @@
 #include "dtsec_mii_acc.h"
 #include "fm_mac.h"
 
-
-#define DEFAULT_exceptions            \
+#define DTSEC_EXCEPTIONS              \
     ((uint32_t)(DTSEC_IMASK_BREN    | \
                 DTSEC_IMASK_RXCEN   | \
                 DTSEC_IMASK_BTEN    | \
@@ -62,7 +61,8 @@
                 DTSEC_IMASK_TDPEEN  | \
                 DTSEC_IMASK_RDPEEN))
 
-#define GET_EXCEPTION_FLAG(bitMask, exception)  switch (exception){ \
+#define DTSEC_GET_EXCEPTION_FLAG(bitMask, exception)                \
+    switch (exception) {                                            \
     case e_FM_MAC_EX_1G_BAB_RX:                                     \
         bitMask = DTSEC_IMASK_BREN; break;                          \
     case e_FM_MAC_EX_1G_RX_CTL:                                     \

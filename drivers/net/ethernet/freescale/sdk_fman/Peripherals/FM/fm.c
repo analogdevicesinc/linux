@@ -3414,12 +3414,12 @@ t_Handle FM_Config(t_FmParams *p_FmParam)
     p_Fm->p_FmDriverParam->qmi_deq_option_support = TRUE;
 #endif /* !FM_QMI_NO_DEQ_OPTIONS_SUPPORT */
 
-    p_Fm->p_FmStateStruct->ramsEccEnable        = FALSE;
-    p_Fm->p_FmStateStruct->extraFifoPoolSize    = 0;
-    p_Fm->p_FmStateStruct->exceptions           = DEFAULT_exceptions;
-    p_Fm->resetOnInit                          = DEFAULT_resetOnInit;
-    p_Fm->f_ResetOnInitOverride                = DEFAULT_resetOnInitOverrideCallback;
-    p_Fm->fwVerify                             = DEFAULT_VerifyUcode;
+    p_Fm->p_FmStateStruct->ramsEccEnable = FALSE;
+    p_Fm->p_FmStateStruct->extraFifoPoolSize = 0;
+    p_Fm->p_FmStateStruct->exceptions = FM_EXCEPTIONS;
+    p_Fm->resetOnInit = FM_RESET_ON_INIT;
+    p_Fm->f_ResetOnInitOverride = FM_RESET_ON_INIT_OVERRIDE_CALLBACK;
+    p_Fm->fwVerify = FM_VERIFY_UCODE;
     p_Fm->firmware.size                        = p_FmParam->firmware.size;
     if (p_Fm->firmware.size)
     {
@@ -3466,14 +3466,14 @@ t_Handle FM_Config(t_FmParams *p_FmParam)
         p_Fm->p_FmStateStruct->maxNumOfOpenDmas     = BMI_MAX_NUM_OF_DMAS;
 #endif /* FM_HAS_TOTAL_DMAS */
 #if (DPAA_VERSION < 11)
-        p_Fm->p_FmDriverParam->dma_comm_qtsh_clr_emer        = DEFAULT_dmaCommQLow;
-        p_Fm->p_FmDriverParam->dma_comm_qtsh_asrt_emer       = DEFAULT_dmaCommQHigh;
-        p_Fm->p_FmDriverParam->dma_cam_num_of_entries        = DEFAULT_dmaCamNumOfEntries;
-        p_Fm->p_FmDriverParam->dma_read_buf_tsh_clr_emer      = DEFAULT_dmaReadIntBufLow;
-        p_Fm->p_FmDriverParam->dma_read_buf_tsh_asrt_emer     = DEFAULT_dmaReadIntBufHigh;
-        p_Fm->p_FmDriverParam->dma_write_buf_tsh_clr_emer     = DEFAULT_dmaWriteIntBufLow;
-        p_Fm->p_FmDriverParam->dma_write_buf_tsh_asrt_emer    = DEFAULT_dmaWriteIntBufHigh;
-        p_Fm->p_FmDriverParam->dma_axi_dbg_num_of_beats       = DEFAULT_axiDbgNumOfBeats;
+        p_Fm->p_FmDriverParam->dma_comm_qtsh_clr_emer = FM_DMA_COMM_Q_LOW;
+        p_Fm->p_FmDriverParam->dma_comm_qtsh_asrt_emer = FM_DMA_COMM_Q_HIGH;
+        p_Fm->p_FmDriverParam->dma_cam_num_of_entries = FM_DMA_CAM_NUM_OF_ENTRIES;
+        p_Fm->p_FmDriverParam->dma_read_buf_tsh_clr_emer = FM_DMA_READ_INT_BUF_LOW;
+        p_Fm->p_FmDriverParam->dma_read_buf_tsh_asrt_emer = FM_DMA_READ_INT_BUF_HIGH;
+        p_Fm->p_FmDriverParam->dma_write_buf_tsh_clr_emer = FM_DMA_WRITE_INT_BUF_LOW;
+        p_Fm->p_FmDriverParam->dma_write_buf_tsh_asrt_emer = FM_DMA_WRITE_INT_BUF_HIGH;
+        p_Fm->p_FmDriverParam->dma_axi_dbg_num_of_beats = FM_AXI_DBG_NUM_OF_BEATS;
 #endif /* (DPAA_VERSION < 11) */
 #ifdef FM_NO_TNUM_AGING
     p_Fm->p_FmDriverParam->tnum_aging_period = 0;
@@ -3970,7 +3970,7 @@ t_Error FM_ConfigException(t_Handle h_Fm, e_FmExceptions exception, bool enable)
     SANITY_CHECK_RETURN_ERROR(p_Fm->p_FmDriverParam, E_INVALID_HANDLE);
     SANITY_CHECK_RETURN_ERROR((p_Fm->guestId == NCSW_MASTER_ID), E_NOT_SUPPORTED);
 
-    GET_EXCEPTION_FLAG(bitMask, exception);
+    FM_GET_EXCEPTION_FLAG(bitMask, exception);
     if (bitMask)
     {
         if (enable)
@@ -4540,7 +4540,7 @@ t_Error FM_SetException(t_Handle h_Fm, e_FmExceptions exception, bool enable)
     fman_rg.fpm_rg = p_Fm->p_FmFpmRegs;
     fman_rg.dma_rg = p_Fm->p_FmDmaRegs;
 
-    GET_EXCEPTION_FLAG(bitMask, exception);
+    FM_GET_EXCEPTION_FLAG(bitMask, exception);
     if (bitMask)
     {
         if (enable)

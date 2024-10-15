@@ -78,7 +78,7 @@
 #define DMA_THRESH_READ_INT_BUF_MASK        0x007F0000
 #define DMA_THRESH_WRITE_INT_BUF_MASK       0x0000007F
 
-#define GET_EXCEPTION_FLAG(bitMask, exception)              \
+#define FM_GET_EXCEPTION_FLAG(bitMask, exception)           \
 switch (exception){                                         \
     case e_FM_EX_DMA_BUS_ERROR:                             \
         bitMask = FM_EX_DMA_BUS_ERROR; break;               \
@@ -154,7 +154,7 @@ switch (exception){                                         \
 /**************************************************************************//**
  @Description       defaults
 *//***************************************************************************/
-#define DEFAULT_exceptions                 (FM_EX_DMA_BUS_ERROR            |\
+#define FM_EXCEPTIONS                      (FM_EX_DMA_BUS_ERROR            |\
                                             FM_EX_DMA_READ_ECC              |\
                                             FM_EX_DMA_SYSTEM_WRITE_ECC      |\
                                             FM_EX_DMA_FM_WRITE_ECC          |\
@@ -171,26 +171,25 @@ switch (exception){                                         \
                                             FM_EX_QMI_DOUBLE_ECC            |\
                                             FM_EX_QMI_SINGLE_ECC)
 
-#define DEFAULT_eccEnable                   FALSE
+#define FM_ECC_ENABLE                       FALSE
 #ifdef FM_PEDANTIC_DMA
-#define DEFAULT_aidOverride                 TRUE
+#define FM_AID_OVERRIDE                     TRUE
 #else
-#define DEFAULT_aidOverride                 FALSE
+#define FM_AID_OVERRIDE                     FALSE
 #endif /* FM_PEDANTIC_DMA */
-#define DEFAULT_aidMode                     e_FM_DMA_AID_OUT_TNUM
-#define DEFAULT_dmaStopOnBusError           FALSE
-#define DEFAULT_stopAtBusError              FALSE
-#define DEFAULT_axiDbgNumOfBeats            1
-#define DEFAULT_dmaReadIntBufLow            ((DMA_THRESH_MAX_BUF+1)/2)
-#define DEFAULT_dmaReadIntBufHigh           ((DMA_THRESH_MAX_BUF+1)*3/4)
-#define DEFAULT_dmaWriteIntBufLow           ((DMA_THRESH_MAX_BUF+1)/2)
-#define DEFAULT_dmaWriteIntBufHigh          ((DMA_THRESH_MAX_BUF+1)*3/4)
-#define DEFAULT_resetOnInit                 FALSE
-#define DEFAULT_resetOnInitOverrideCallback NULL
-#define DEFAULT_haltOnExternalActivation    FALSE   /* do not change! if changed, must be disabled for rev1 ! */
-#define DEFAULT_haltOnUnrecoverableEccError FALSE   /* do not change! if changed, must be disabled for rev1 ! */
-#define DEFAULT_externalEccRamsEnable       FALSE
-#define DEFAULT_VerifyUcode                 FALSE
+#define FM_DMA_STOP_ON_BUS_ERROR            FALSE
+#define FM_STOP_ON_BUS_ERROR                FALSE
+#define FM_AXI_DBG_NUM_OF_BEATS             1
+#define FM_DMA_READ_INT_BUF_LOW             ((DMA_THRESH_MAX_BUF+1)/2)
+#define FM_DMA_READ_INT_BUF_HIGH            ((DMA_THRESH_MAX_BUF+1)*3/4)
+#define FM_DMA_WRITE_INT_BUF_LOW            ((DMA_THRESH_MAX_BUF+1)/2)
+#define FM_DMA_WRITE_INT_BUF_HIGH           ((DMA_THRESH_MAX_BUF+1)*3/4)
+#define FM_RESET_ON_INIT                    FALSE
+#define FM_RESET_ON_INIT_OVERRIDE_CALLBACK  NULL
+#define FM_HALT_ON_EXTERNAL_ACTIVATION      FALSE   /* do not change! if changed, must be disabled for rev1 ! */
+#define FM_HALT_ON_UNRECOVERABLE_ECC_ERROR  FALSE   /* do not change! if changed, must be disabled for rev1 ! */
+#define FM_EXTERNAL_ECC_RAMS_ENABLE         FALSE
+#define FM_VERIFY_UCODE                     FALSE
 
 #if (DPAA_VERSION < 11)
 #define DEFAULT_totalFifoSize(major, minor)     \

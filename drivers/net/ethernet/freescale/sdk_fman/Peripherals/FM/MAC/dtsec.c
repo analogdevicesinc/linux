@@ -573,7 +573,7 @@ static t_Error DtsecConfigException(t_Handle h_Dtsec, e_FmMacExceptions exceptio
 
     if (exception != e_FM_MAC_EX_1G_1588_TS_RX_ERR)
     {
-        GET_EXCEPTION_FLAG(bitMask, exception);
+        DTSEC_GET_EXCEPTION_FLAG(bitMask, exception);
         if (bitMask)
         {
             if (enable)
@@ -1217,7 +1217,7 @@ static t_Error DtsecSetException(t_Handle h_Dtsec, e_FmMacExceptions exception, 
 
     if (exception != e_FM_MAC_EX_1G_1588_TS_RX_ERR)
     {
-        GET_EXCEPTION_FLAG(bitMask, exception);
+        DTSEC_GET_EXCEPTION_FLAG(bitMask, exception);
         if (bitMask)
         {
             if (enable)
@@ -1503,7 +1503,7 @@ t_Handle  DTSEC_Config(t_FmMacParams *p_FmMacParam)
     p_Dtsec->addr               = ENET_ADDR_TO_UINT64(p_FmMacParam->addr);
     p_Dtsec->enetMode           = p_FmMacParam->enetMode;
     p_Dtsec->macId              = p_FmMacParam->macId;
-    p_Dtsec->exceptions         = DEFAULT_exceptions;
+    p_Dtsec->exceptions         = DTSEC_EXCEPTIONS;
     p_Dtsec->mdioIrq            = p_FmMacParam->mdioIrq;
     p_Dtsec->f_Exception        = p_FmMacParam->f_Exception;
     p_Dtsec->f_Event            = p_FmMacParam->f_Event;

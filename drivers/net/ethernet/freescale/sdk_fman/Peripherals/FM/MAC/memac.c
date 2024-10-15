@@ -423,7 +423,7 @@ static t_Error MemacConfigException(t_Handle h_Memac, e_FmMacExceptions exceptio
     SANITY_CHECK_RETURN_ERROR(p_Memac, E_INVALID_HANDLE);
     SANITY_CHECK_RETURN_ERROR(p_Memac->p_MemacDriverParam, E_INVALID_STATE);
 
-    GET_EXCEPTION_FLAG(bitMask, exception);
+    MEMAC_GET_EXCEPTION_FLAG(bitMask, exception);
     if (bitMask)
     {
         if (enable)
@@ -846,7 +846,7 @@ static t_Error MemacSetException(t_Handle h_Memac, e_FmMacExceptions exception, 
     SANITY_CHECK_RETURN_ERROR(p_Memac, E_INVALID_HANDLE);
     SANITY_CHECK_RETURN_ERROR(!p_Memac->p_MemacDriverParam, E_INVALID_STATE);
 
-    GET_EXCEPTION_FLAG(bitMask, exception);
+    MEMAC_GET_EXCEPTION_FLAG(bitMask, exception);
     if (bitMask)
     {
         if (enable)
@@ -1150,7 +1150,7 @@ t_Handle MEMAC_Config(t_FmMacParams *p_FmMacParam)
 
     p_Memac->enetMode       = p_FmMacParam->enetMode;
     p_Memac->macId          = p_FmMacParam->macId;
-    p_Memac->exceptions     = MEMAC_default_exceptions;
+    p_Memac->exceptions     = MEMAC_EXCEPTIONS;
     p_Memac->f_Exception    = p_FmMacParam->f_Exception;
     p_Memac->f_Event        = p_FmMacParam->f_Event;
     p_Memac->h_App          = p_FmMacParam->h_App;
