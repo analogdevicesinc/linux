@@ -5972,16 +5972,6 @@ static int fm_soc_suspend(void)
 	return 0;
 }
 
-void fm_clk_down(void)
-{
-	uint32_t *fmclk, tmp32;
-	fmclk = ioremap(SCFG_FMCLKDPSLPCR_ADDR, 4);
-	tmp32 = GET_UINT32(*fmclk);
-	WRITE_UINT32(*fmclk, SCFG_FMCLKDPSLPCR_DS_VAL | 0x40000000);
-	tmp32 = GET_UINT32(*fmclk);
-	iounmap(fmclk);
-}
-
 t_Error FM_PORT_EnterDsar(t_Handle h_FmPortRx, t_FmPortDsarParams *params)
 {
     int i, j;
