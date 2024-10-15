@@ -270,7 +270,7 @@ int max96717_gmsl_speed_set(struct max96717 *ser, enum max96717_gmsl_speed speed
 {
 	struct regmap *rmap = ser->rmap;
 	int ret;
-	int reg_val;
+	int reg_val = 0;
 
 	/* Set GMSL link speed to 6Gbps */
 	ret = regmap_update_bits(rmap, MAX96717_DEV_REG1, TX_RATE_MASK, speed << TX_RATE_SHIFT);
