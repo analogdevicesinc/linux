@@ -120,9 +120,6 @@ typedef  uint32_t t_ErrorDisable;
 
 #define GROUP_ADDRESS                   0x0000010000000000LL /* Group address bit indication */
 
-#define HASH_TABLE_SIZE                 256 /* Hash table size (= 32 bits * 8 regs) */
-
-#define HASH_TABLE_SIZE                 256 /* Hash table size (32 bits * 8 regs) */
 #define EXTENDED_HASH_TABLE_SIZE        512 /* Extended Hash table size (32 bits * 16 regs) */
 
 #define DTSEC_TO_MII_OFFSET             0x1000  /* number of pattern match registers (entries) */

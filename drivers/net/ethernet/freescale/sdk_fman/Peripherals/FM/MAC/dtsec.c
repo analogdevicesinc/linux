@@ -49,6 +49,8 @@
 #include "fsl_fman_dtsec.h"
 #include "fsl_fman_dtsec_mii_acc.h"
 
+#define DTSEC_HASH_TABLE_SIZE 256 /* Hash table size (= 32 bits * 8 regs) */
+
 /*****************************************************************************/
 /*                      Internal routines                                    */
 /*****************************************************************************/
@@ -1336,7 +1338,7 @@ static t_Error DtsecInit(t_Handle h_Dtsec)
         RETURN_ERROR(MAJOR, E_NO_MEMORY, ("MC hash table is FAILED"));
     }
 
-    p_Dtsec->p_UnicastAddrHash = AllocHashTable(HASH_TABLE_SIZE);
+    p_Dtsec->p_UnicastAddrHash = AllocHashTable(DTSEC_HASH_TABLE_SIZE);
     if (!p_Dtsec->p_UnicastAddrHash)
     {
         FreeInitResources(p_Dtsec);

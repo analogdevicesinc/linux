@@ -47,6 +47,7 @@
 #include "fm_common.h"
 #include "memac.h"
 
+#define MEMAC_HASH_TABLE_SIZE			64
 
 /*****************************************************************************/
 /*                      Internal routines                                    */
@@ -989,14 +990,14 @@ static t_Error MemacInit(t_Handle h_Memac)
     if (err)
         RETURN_ERROR(MAJOR, err, ("settings Mac max frame length is FAILED"));
 
-    p_Memac->p_MulticastAddrHash = AllocHashTable(HASH_TABLE_SIZE);
+    p_Memac->p_MulticastAddrHash = AllocHashTable(MEMAC_HASH_TABLE_SIZE);
     if (!p_Memac->p_MulticastAddrHash)
     {
         FreeInitResources(p_Memac);
         RETURN_ERROR(MAJOR, E_NO_MEMORY, ("allocation hash table is FAILED"));
     }
 
-    p_Memac->p_UnicastAddrHash = AllocHashTable(HASH_TABLE_SIZE);
+    p_Memac->p_UnicastAddrHash = AllocHashTable(MEMAC_HASH_TABLE_SIZE);
     if (!p_Memac->p_UnicastAddrHash)
     {
         FreeInitResources(p_Memac);

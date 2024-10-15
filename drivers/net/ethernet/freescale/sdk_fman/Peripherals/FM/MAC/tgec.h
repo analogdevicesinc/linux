@@ -112,8 +112,6 @@
 
 #define GROUP_ADDRESS               0x0000010000000000LL /* Group address bit indication */
 
-#define HASH_TABLE_SIZE             512                 /* Hash table size (= 32 bits * 8 regs) */
-
 #define TGEC_TO_MII_OFFSET          0x1030              /* Offset from the MEM map to the MDIO mem map */
 
 /* 10-gigabit Ethernet MAC Controller ID (10GEC_ID) */

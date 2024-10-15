@@ -49,6 +49,7 @@
 #include "fsl_fman_tgec.h"
 #include "tgec.h"
 
+#define TGEC_HASH_TABLE_SIZE		512	/* Hash table size (= 32 bits * 8 regs) */
 
 /*****************************************************************************/
 /*                      Internal routines                                    */
@@ -850,14 +851,14 @@ static t_Error TgecInit(t_Handle h_Tgec)
         fman_tgec_set_erratum_tx_fifo_corruption_10gmac_a007(p_Tgec->p_MemMap);
 #endif /* FM_TX_FIFO_CORRUPTION_ERRATA_10GMAC_A007 */
 
-    p_Tgec->p_MulticastAddrHash = AllocHashTable(HASH_TABLE_SIZE);
+    p_Tgec->p_MulticastAddrHash = AllocHashTable(TGEC_HASH_TABLE_SIZE);
     if (!p_Tgec->p_MulticastAddrHash)
     {
         FreeInitResources(p_Tgec);
         RETURN_ERROR(MAJOR, E_NO_MEMORY, ("allocation hash table is FAILED"));
     }
 
-    p_Tgec->p_UnicastAddrHash = AllocHashTable(HASH_TABLE_SIZE);
+    p_Tgec->p_UnicastAddrHash = AllocHashTable(TGEC_HASH_TABLE_SIZE);
     if (!p_Tgec->p_UnicastAddrHash)
     {
         FreeInitResources(p_Tgec);
