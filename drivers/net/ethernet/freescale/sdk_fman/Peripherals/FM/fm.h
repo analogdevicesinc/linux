@@ -151,16 +151,6 @@ switch (exception){                                         \
         break;                                                                                      \
     }
 
-#define FMAN_DMA_ERR_TRANS(fsl_dma_err, _dma_err) \
-    switch (_dma_err){ \
-        case  e_FM_DMA_ERR_CATASTROPHIC:                    \
-            fsl_dma_err =  E_FMAN_DMA_ERR_CATASTROPHIC; break;    \
-        case  e_FM_DMA_ERR_REPORT:                    \
-            fsl_dma_err =  E_FMAN_DMA_ERR_REPORT; break;        \
-        default: \
-            fsl_dma_err =  E_FMAN_DMA_ERR_CATASTROPHIC; break;    \
-    }
-
 #define FMAN_CATASTROPHIC_ERR_TRANS(fsl_catastrophic_err, _catastrophic_err) \
     switch (_catastrophic_err){ \
         case  e_FM_CATASTROPHIC_ERR_STALL_PORT:                    \
@@ -232,7 +222,6 @@ switch (exception){                                         \
 #define DEFAULT_dmaWriteIntBufLow           ((DMA_THRESH_MAX_BUF+1)/2)
 #define DEFAULT_dmaWriteIntBufHigh          ((DMA_THRESH_MAX_BUF+1)*3/4)
 #define DEFAULT_catastrophicErr             e_FM_CATASTROPHIC_ERR_STALL_PORT
-#define DEFAULT_dmaErr                      e_FM_DMA_ERR_CATASTROPHIC
 #define DEFAULT_resetOnInit                 FALSE
 #define DEFAULT_resetOnInitOverrideCallback NULL
 #define DEFAULT_haltOnExternalActivation    FALSE   /* do not change! if changed, must be disabled for rev1 ! */

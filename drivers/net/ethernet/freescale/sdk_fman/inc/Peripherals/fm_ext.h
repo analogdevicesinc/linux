@@ -786,25 +786,6 @@ t_Error FM_ConfigDmaAidOverride(t_Handle h_Fm, bool aidOverride);
 t_Error FM_ConfigDmaAidMode(t_Handle h_Fm, enum fman_dma_aid_mode aid_mode);
 
 /**************************************************************************//**
- @Function      FM_ConfigDmaErr
-
- @Description   DMA error treatment.
-                Calling this routine changes the DMA error treatment
-                in the internal driver data base from its default
-                configuration [DEFAULT_dmaErr].
-
- @Param[in]     h_Fm    A handle to an FM Module.
- @Param[in]     dmaErr  The selected new choice.
-
- @Return        E_OK on success; Error code otherwise.
-
- @Cautions      Allowed only following FM_Config() and before FM_Init().
-                This routine should NOT be called from guest-partition
-                (i.e. guestId != NCSW_MASTER_ID)
-*//***************************************************************************/
-t_Error FM_ConfigDmaErr(t_Handle h_Fm, e_FmDmaErr dmaErr);
-
-/**************************************************************************//**
  @Function      FM_ConfigCatastrophicErr
 
  @Description   Define FM behavior on catastrophic error.

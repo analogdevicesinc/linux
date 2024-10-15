@@ -3900,21 +3900,6 @@ t_Error FM_ConfigDmaAidMode(t_Handle h_Fm, enum fman_dma_aid_mode aid_mode)
 	return E_OK;
 }
 
-t_Error FM_ConfigDmaErr(t_Handle h_Fm, e_FmDmaErr dmaErr)
-{
-    t_Fm                *p_Fm = (t_Fm*)h_Fm;
-    enum fman_dma_err   fsl_dma_err;
-
-    SANITY_CHECK_RETURN_ERROR(p_Fm, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_Fm->p_FmDriverParam, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR((p_Fm->guestId == NCSW_MASTER_ID), E_NOT_SUPPORTED);
-
-    FMAN_DMA_ERR_TRANS(fsl_dma_err, dmaErr);
-    p_Fm->p_FmDriverParam->dma_err = fsl_dma_err;
-
-    return E_OK;
-}
-
 t_Error FM_ConfigCatastrophicErr(t_Handle h_Fm, e_FmCatastrophicErr catastrophicErr)
 {
     t_Fm                        *p_Fm = (t_Fm*)h_Fm;
