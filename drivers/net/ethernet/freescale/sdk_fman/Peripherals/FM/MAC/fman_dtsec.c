@@ -29,12 +29,11 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+#define __ERR_MODULE__  MODULE_FM_MAC
 
 #include "std_ext.h"
 #include "error_ext.h"
 #include "fsl_fman_dtsec.h"
-
 
 void fman_dtsec_stop_rx(struct dtsec_regs *regs)
 {

@@ -29,8 +29,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-
+#define __ERR_MODULE__  MODULE_FM_MAC
 
 #include "error_ext.h"
 #include "std_ext.h"
@@ -39,7 +38,6 @@
 #include "xx_ext.h"
 
 #include "fm_common.h"
-
 
 /*****************************************************************************/
 t_Error TGEC_MII_WritePhyReg(t_Handle   h_Tgec,

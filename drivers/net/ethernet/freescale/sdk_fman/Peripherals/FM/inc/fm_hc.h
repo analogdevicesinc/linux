@@ -39,9 +39,6 @@
 #include "error_ext.h"
 #include "fsl_fman_kg.h"
 
-#define __ERR_MODULE__  MODULE_FM_PCD
-
-
 typedef struct t_FmHcParams {
     t_Handle        h_Fm;
     t_Handle        h_FmPcd;

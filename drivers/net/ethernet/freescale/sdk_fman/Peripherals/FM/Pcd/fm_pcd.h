@@ -47,9 +47,6 @@
 #include "fsl_fman_prs.h"
 #include "fsl_fman_kg.h"
 
-#define __ERR_MODULE__  MODULE_FM_PCD
-
-
 /****************************/
 /* Defaults                 */
 /****************************/

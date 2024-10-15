@@ -49,9 +49,6 @@
 #include "fm_port_ext.h"
 #include "fsl_fman_port.h"
 
-#define __ERR_MODULE__  MODULE_FM_PORT
-
-
 #define MIN_EXT_BUF_SIZE                                64
 #define DATA_ALIGNMENT                                  64
 #define MAX_LIODN_OFFSET                                64

@@ -45,9 +45,6 @@
 #include "std_ext.h"
 #include "fm_rtc_ext.h"
 
-
-#define __ERR_MODULE__  MODULE_FM_RTC
-
 /* General definitions */
 
 #define ACCUMULATOR_OVERFLOW            ((uint64_t)(1LL << 32))

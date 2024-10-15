@@ -37,12 +37,13 @@
  @Description   FM dtsec MII register access MAC ...
 *//***************************************************************************/
 
+#define __ERR_MODULE__  MODULE_FM_MAC
+
 #include "error_ext.h"
 #include "std_ext.h"
 #include "fm_mac.h"
 #include "dtsec.h"
 #include "fsl_fman_dtsec_mii_acc.h"
-
 
 /*****************************************************************************/
 t_Error DTSEC_MII_WritePhyReg(t_Handle    h_Dtsec,

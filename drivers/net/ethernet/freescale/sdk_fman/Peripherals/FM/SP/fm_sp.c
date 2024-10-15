@@ -36,6 +36,7 @@
 
  @Description   FM PCD Storage profile  ...
 *//***************************************************************************/
+#define __ERR_MODULE__  MODULE_FM_SP
 
 #include "std_ext.h"
 #include "error_ext.h"
@@ -47,7 +48,6 @@
 #include "fm_sp.h"
 #include "fm_common.h"
 #include "fsl_fman_sp.h"
-
 
 #if (DPAA_VERSION >= 11)
 static t_Error CheckParamsGeneratedInternally(t_FmVspEntry *p_FmVspEntry)

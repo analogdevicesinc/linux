@@ -53,6 +53,7 @@
 #endif
 #include "fsl_fman.h"
 
+#define __ERR_MODULE__  MODULE_FM
 
 /****************************************/
 /*       static functions               */

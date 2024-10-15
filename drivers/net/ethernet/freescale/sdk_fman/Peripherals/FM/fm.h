@@ -46,8 +46,6 @@
 
 #include "fsl_fman.h"
 
-#define __ERR_MODULE__  MODULE_FM
-
 #define FM_MAX_NUM_OF_HW_PORT_IDS           64
 #define FM_MAX_NUM_OF_GUESTS                100
 

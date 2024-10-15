@@ -38,6 +38,8 @@
 
  @Cautions      None
 *//***************************************************************************/
+#define __ERR_MODULE__  MODULE_FM_RTC
+
 #include <linux/math64.h>
 #include "error_ext.h"
 #include "debug_ext.h"
@@ -48,8 +50,6 @@
 
 #include "fm_rtc.h"
 #include "fm_common.h"
-
-
 
 /*****************************************************************************/
 static t_Error CheckInitParameters(t_FmRtc *p_Rtc)

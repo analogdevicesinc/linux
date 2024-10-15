@@ -36,6 +36,8 @@
 
  @Description   FM Port Independent-Mode ...
 *//***************************************************************************/
+#define __ERR_MODULE__  MODULE_FM_PORT
+
 #include "std_ext.h"
 #include "string_ext.h"
 #include "error_ext.h"

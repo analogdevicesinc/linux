@@ -37,6 +37,8 @@
 
  @Description   FM PCD ...
 *//***************************************************************************/
+#define __ERR_MODULE__ MODULE_FM_PCD
+
 #include "std_ext.h"
 #include "error_ext.h"
 #include "string_ext.h"
@@ -50,7 +52,6 @@
 #include "fm_pcd_ipc.h"
 #include "fm_kg.h"
 #include "fsl_fman_kg.h"
-
 
 /****************************************/
 /*       static functions               */

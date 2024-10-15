@@ -29,13 +29,12 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+#define __ERR_MODULE__  MODULE_FM_MAC
 
 #include "std_ext.h"
 #include "error_ext.h"
 #include "common/general.h"
 #include "fsl_fman_dtsec_mii_acc.h"
-
 
 /**
  * dtsec_mii_get_div() - calculates the value of the dtsec mii divider

@@ -184,45 +184,6 @@ typedef enum e_ModuleId
 
 #define NUM_OF_MODULES  e_MODULE_ID_DUMMY_LAST
 
-#if 0 /* using unified values */
-/*****************************************************************************
- INTEGRATION-SPECIFIC MODULE CODES
-******************************************************************************/
-#define MODULE_UNKNOWN          0x00000000
-#define MODULE_MEM              0x00010000
-#define MODULE_MM               0x00020000
-#define MODULE_CORE             0x00030000
-#define MODULE_T4240            0x00040000
-#define MODULE_T4240_PLATFORM   0x00050000
-#define MODULE_PM               0x00060000
-#define MODULE_MMU              0x00070000
-#define MODULE_PIC              0x00080000
-#define MODULE_CPC              0x00090000
-#define MODULE_DUART            0x000a0000
-#define MODULE_SERDES           0x000b0000
-#define MODULE_PIO              0x000c0000
-#define MODULE_QM               0x000d0000
-#define MODULE_BM               0x000e0000
-#define MODULE_SEC              0x000f0000
-#define MODULE_LAW              0x00100000
-#define MODULE_LBC              0x00110000
-#define MODULE_PAMU             0x00120000
-#define MODULE_FM               0x00130000
-#define MODULE_FM_MURAM         0x00140000
-#define MODULE_FM_PCD           0x00150000
-#define MODULE_FM_RTC           0x00160000
-#define MODULE_FM_MAC           0x00170000
-#define MODULE_FM_PORT          0x00180000
-#define MODULE_FM_SP            0x00190000
-#define MODULE_DPA_PORT         0x001a0000
-#define MODULE_MII              0x001b0000
-#define MODULE_I2C              0x001c0000
-#define MODULE_DMA              0x001d0000
-#define MODULE_DDR              0x001e0000
-#define MODULE_ESPI             0x001f0000
-#define MODULE_DPAA_IPSEC       0x00200000
-#endif /* using unified values */
-
 /*****************************************************************************
  PAMU INTEGRATION-SPECIFIC DEFINITIONS
 ******************************************************************************/

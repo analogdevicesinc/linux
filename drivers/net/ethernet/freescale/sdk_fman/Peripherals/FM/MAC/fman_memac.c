@@ -29,10 +29,9 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+#define __ERR_MODULE__  MODULE_FM_MAC
 
 #include "fsl_fman_memac.h"
-
 
 uint32_t fman_memac_get_event(struct memac_regs *regs, uint32_t ev_mask)
 {

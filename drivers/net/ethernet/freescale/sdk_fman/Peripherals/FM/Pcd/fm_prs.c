@@ -36,6 +36,8 @@
 
  @Description   FM PCD ...
 *//***************************************************************************/
+#define __ERR_MODULE__ MODULE_FM_PCD
+
 #include <linux/math64.h>
 #include "std_ext.h"
 #include "error_ext.h"

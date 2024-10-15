@@ -46,9 +46,6 @@
 #include "fm_sp_common.h"
 #include "fm_common.h"
 
-
-#define __ERR_MODULE__  MODULE_FM_SP
-
 typedef struct {
     t_FmBufferPrefixContent             bufferPrefixContent;
     e_FmDmaSwapOption                   dmaSwapData;

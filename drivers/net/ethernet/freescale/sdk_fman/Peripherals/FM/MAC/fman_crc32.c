@@ -29,11 +29,10 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+#define __ERR_MODULE__  MODULE_FM_MAC
 
 #include "fman_crc32.h"
 #include "common/general.h"
-
 
 /* precomputed CRC values for address hashing */
 static const uint32_t crc_tbl[256] = {

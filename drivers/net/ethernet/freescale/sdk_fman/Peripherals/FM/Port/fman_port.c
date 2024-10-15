@@ -29,7 +29,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
+#define __ERR_MODULE__  MODULE_FM_PORT
 
 #include "std_ext.h"
 #include "error_ext.h"
@@ -37,7 +37,6 @@
 
 #include "fman_common.h"
 #include "fsl_fman_port.h"
-
 
 /* problem Eyal: the following should not be here*/
 #define NIA_FM_CTL_AC_NO_IPACC_PRE_BMI_ENQ_FRAME        0x00000028

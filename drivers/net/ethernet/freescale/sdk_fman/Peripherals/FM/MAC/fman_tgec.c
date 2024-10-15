@@ -29,10 +29,7 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-
 #include "fsl_fman_tgec.h"
-
 
 void fman_tgec_set_mac_address(struct tgec_regs *regs, uint8_t *adr)
 {

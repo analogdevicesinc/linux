@@ -36,6 +36,8 @@
 
  @Description   FM MURAM ...
 *//***************************************************************************/
+#define __ERR_MODULE__  MODULE_FM_MURAM
+
 #include "error_ext.h"
 #include "std_ext.h"
 #include "mm_ext.h"
@@ -43,9 +45,6 @@
 #include "sprint_ext.h"
 #include "fm_muram_ext.h"
 #include "fm_common.h"
-
-#define __ERR_MODULE__  MODULE_FM_MURAM
-
 
 typedef struct
 {

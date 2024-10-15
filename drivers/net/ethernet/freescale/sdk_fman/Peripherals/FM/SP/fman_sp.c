@@ -29,9 +29,9 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#define __ERR_MODULE__  MODULE_FM_SP
 
 #include "fsl_fman_sp.h"
-
 
 uint32_t fman_vsp_get_statistics(struct fm_pcd_storage_profile_regs   *regs,
                     uint16_t                      index)

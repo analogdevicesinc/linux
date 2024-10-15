@@ -37,6 +37,8 @@
 
  @Description   FM driver routines implementation.
  *//***************************************************************************/
+#define __ERR_MODULE__  MODULE_FM_PORT
+
 #include "error_ext.h"
 #include "std_ext.h"
 #include "string_ext.h"

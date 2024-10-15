@@ -36,6 +36,7 @@
 
  @Description   FM mEMAC driver
 *//***************************************************************************/
+#define __ERR_MODULE__  MODULE_FM_MAC
 
 #include "std_ext.h"
 #include "string_ext.h"
