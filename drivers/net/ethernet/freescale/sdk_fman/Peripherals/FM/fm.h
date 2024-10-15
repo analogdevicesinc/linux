@@ -143,12 +143,6 @@ switch (exception){                                         \
             if (_id >= FM_MAX_NUM_OF_1G_MACS) _event = e_FM_EV_DUMMY_LAST;                          \
             else _event = (_intrType == e_FM_INTR_TYPE_ERR) ? (e_FM_EV_ERR_1G_MAC0 + _id) : (e_FM_EV_1G_MAC0 + _id); \
             break;                                                                                  \
-        case e_FM_MOD_MACSEC:                                                                       \
-            switch (_id){                                                                           \
-                 case (0): _event = (_intrType == e_FM_INTR_TYPE_ERR) ? e_FM_EV_ERR_MACSEC_MAC0:e_FM_EV_MACSEC_MAC0; \
-                 break;                                                                             \
-                 }                                                                                  \
-            break;                                                                                  \
         case e_FM_MOD_FMAN_CTRL:                                                                    \
             if (_intrType == e_FM_INTR_TYPE_ERR) _event = e_FM_EV_DUMMY_LAST;                       \
             else _event = (e_FM_EV_FMAN_CTRL_0 + _id);                                              \

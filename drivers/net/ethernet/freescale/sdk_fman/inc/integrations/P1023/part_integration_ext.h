@@ -131,7 +131,6 @@ typedef enum e_ModuleId
     e_MODULE_ID_FM_RISC1,          /**< FM risc #1 */
     e_MODULE_ID_FM_1GMAC0,         /**< FM 1G MAC #0 */
     e_MODULE_ID_FM_1GMAC1,         /**< FM 1G MAC #1 */
-    e_MODULE_ID_FM_MACSEC,         /**< FM MACSEC */
 
     e_MODULE_ID_DUMMY_LAST
 } e_ModuleId;
@@ -206,7 +205,6 @@ typedef enum e_ModuleId
 #define P1023_OFFSET_FM_PRS_IRAM            (P1023_OFFSET_FM + 0x000C7000)
 #define P1023_OFFSET_FM_RISC0               (P1023_OFFSET_FM + 0x000D0000)
 #define P1023_OFFSET_FM_RISC1               (P1023_OFFSET_FM + 0x000D0400)
-#define P1023_OFFSET_FM_MACSEC              (P1023_OFFSET_FM + 0x000D8000)
 #define P1023_OFFSET_FM_1GMAC0              (P1023_OFFSET_FM + 0x000E0000)
 #define P1023_OFFSET_FM_1GMDIO0             (P1023_OFFSET_FM + 0x000E1120)
 #define P1023_OFFSET_FM_1GMAC1              (P1023_OFFSET_FM + 0x000E2000)
@@ -424,7 +422,6 @@ t_Error P1023_GetDdrType(uintptr_t gutilBase, e_DdrType *p_DdrType );
 #define MODULE_FM_RTC           0x00130000
 #define MODULE_FM_MAC           0x00140000
 #define MODULE_FM_PORT          0x00150000
-#define MODULE_FM_MACSEC        0x00160000
 #define MODULE_FM_MACSEC_SECY   0x00170000
 #define MODULE_FM_SP            0x00280000
 #define MODULE_ECM              0x00190000

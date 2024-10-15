@@ -167,15 +167,6 @@ typedef enum {
 #define BMI_MAX_FIFO_SIZE              (FM_MURAM_SIZE)
 #define PORT_MAX_WEIGHT                 4
 
-/*****************************************************************************
- FM MACSEC INTEGRATION-SPECIFIC DEFINITIONS
-******************************************************************************/
-#define NUM_OF_RX_SC                16
-#define NUM_OF_TX_SC                16
-
-#define NUM_OF_SA_PER_RX_SC         2
-#define NUM_OF_SA_PER_TX_SC         2
-
 /**************************************************************************//**
  @Description   Enum for inter-module interrupts registration
 *//***************************************************************************/

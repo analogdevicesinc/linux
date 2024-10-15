@@ -79,7 +79,6 @@ enum fman_event_modules {
 	E_FMAN_MOD_1G_MAC,                /**< 1G MAC event */
 	E_FMAN_MOD_TMR,                   /**< Timer event */
 	E_FMAN_MOD_FMAN_CTRL,             /**< FMAN Controller  Timer event */
-	E_FMAN_MOD_MACSEC,
 	E_FMAN_MOD_DUMMY_LAST
 };
 

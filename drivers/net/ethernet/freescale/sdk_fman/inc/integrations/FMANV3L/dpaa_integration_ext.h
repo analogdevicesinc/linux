@@ -272,22 +272,4 @@ typedef enum
 #define FM_AID_MODE_NO_TNUM_SW005 /* refer to pdm TKT068794 - only support of port_id on aid */
 #define FM_ERROR_VSP_NO_MATCH_SW006 /* refer to pdm TKT174304 - no match between errorQ and VSP */
 
-/*****************************************************************************
- RMan INTEGRATION-SPECIFIC DEFINITIONS
-******************************************************************************/
-#define RM_MAX_NUM_OF_IB        4           /**< Number of inbound blocks */
-#define RM_NUM_OF_IBCU          8           /**< NUmber of classification units in an inbound block */
-
-/* RMan erratas */
-#define RM_ERRONEOUS_ACK_ERRATA_RMAN_A006756
-
-/*****************************************************************************
- FM MACSEC INTEGRATION-SPECIFIC DEFINITIONS
-******************************************************************************/
-#define NUM_OF_RX_SC                16
-#define NUM_OF_TX_SC                16
-
-#define NUM_OF_SA_PER_RX_SC         2
-#define NUM_OF_SA_PER_TX_SC         2
-
 #endif /* __DPAA_INTEGRATION_EXT_H */

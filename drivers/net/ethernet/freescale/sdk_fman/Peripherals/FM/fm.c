@@ -3904,95 +3904,6 @@ t_Error FM_ConfigDmaAidMode(t_Handle h_Fm, e_FmDmaAidMode aidMode)
     return E_OK;
 }
 
-t_Error FM_ConfigDmaAxiDbgNumOfBeats(t_Handle h_Fm, uint8_t axiDbgNumOfBeats)
-{
-    t_Fm *p_Fm = (t_Fm*)h_Fm;
-
-    SANITY_CHECK_RETURN_ERROR(p_Fm, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_Fm->p_FmDriverParam, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR((p_Fm->guestId == NCSW_MASTER_ID), E_NOT_SUPPORTED);
-
-#if (DPAA_VERSION >= 11)
-    RETURN_ERROR(MINOR, E_NOT_SUPPORTED, ("Not available for this FM revision!"));
-#else
-    p_Fm->p_FmDriverParam->dma_axi_dbg_num_of_beats = axiDbgNumOfBeats;
-
-    return E_OK;
-#endif /* (DPAA_VERSION >= 11) */
-}
-
-t_Error FM_ConfigDmaCamNumOfEntries(t_Handle h_Fm, uint8_t numOfEntries)
-{
-    t_Fm *p_Fm = (t_Fm*)h_Fm;
-
-    SANITY_CHECK_RETURN_ERROR(p_Fm, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_Fm->p_FmDriverParam, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR((p_Fm->guestId == NCSW_MASTER_ID), E_NOT_SUPPORTED);
-
-    p_Fm->p_FmDriverParam->dma_cam_num_of_entries = numOfEntries;
-
-    return E_OK;
-}
-
-t_Error FM_ConfigDmaDbgCounter(t_Handle h_Fm, e_FmDmaDbgCntMode fmDmaDbgCntMode)
-{
-    t_Fm                        *p_Fm = (t_Fm*)h_Fm;
-    enum fman_dma_dbg_cnt_mode  fsl_dma_dbg_cnt;
-
-    SANITY_CHECK_RETURN_ERROR(p_Fm, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_Fm->p_FmDriverParam, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR((p_Fm->guestId == NCSW_MASTER_ID), E_NOT_SUPPORTED);
-
-    FMAN_DMA_DBG_CNT_TRANS(fsl_dma_dbg_cnt, fmDmaDbgCntMode);
-    p_Fm->p_FmDriverParam->dma_dbg_cnt_mode = fsl_dma_dbg_cnt;
-
-    return E_OK;
-}
-
-t_Error FM_ConfigDmaStopOnBusErr(t_Handle h_Fm, bool stop)
-{
-    t_Fm *p_Fm = (t_Fm*)h_Fm;
-
-    SANITY_CHECK_RETURN_ERROR(p_Fm, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_Fm->p_FmDriverParam, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR((p_Fm->guestId == NCSW_MASTER_ID), E_NOT_SUPPORTED);
-
-    p_Fm->p_FmDriverParam->dma_stop_on_bus_error = stop;
-
-    return E_OK;
-}
-
-t_Error FM_ConfigDmaEmergency(t_Handle h_Fm, t_FmDmaEmergency *p_Emergency)
-{
-    t_Fm                            *p_Fm = (t_Fm*)h_Fm;
-    enum fman_dma_emergency_level   fsl_dma_emer;
-
-    SANITY_CHECK_RETURN_ERROR(p_Fm, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_Fm->p_FmDriverParam, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR((p_Fm->guestId == NCSW_MASTER_ID), E_NOT_SUPPORTED);
-
-    FMAN_DMA_EMER_TRANS(fsl_dma_emer, p_Emergency->emergencyLevel);
-    p_Fm->p_FmDriverParam->dma_en_emergency = TRUE;
-    p_Fm->p_FmDriverParam->dma_emergency_bus_select = (uint32_t)p_Emergency->emergencyBusSelect;
-    p_Fm->p_FmDriverParam->dma_emergency_level = fsl_dma_emer;
-
-    return E_OK;
-}
-
-t_Error FM_ConfigDmaEmergencySmoother(t_Handle h_Fm, uint32_t emergencyCnt)
-{
-    t_Fm *p_Fm = (t_Fm*)h_Fm;
-
-    SANITY_CHECK_RETURN_ERROR(p_Fm, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_Fm->p_FmDriverParam, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR((p_Fm->guestId == NCSW_MASTER_ID), E_NOT_SUPPORTED);
-
-    p_Fm->p_FmDriverParam->dma_en_emergency_smoother = TRUE;
-    p_Fm->p_FmDriverParam->dma_emergency_switch_counter = emergencyCnt;
-
-    return E_OK;
-}
-
 t_Error FM_ConfigDmaErr(t_Handle h_Fm, e_FmDmaErr dmaErr)
 {
     t_Fm                *p_Fm = (t_Fm*)h_Fm;
@@ -4232,17 +4143,6 @@ t_Error FM_ConfigDmaWatchdog(t_Handle h_Fm, uint32_t watchdogValue)
     SANITY_CHECK_RETURN_ERROR((p_Fm->guestId == NCSW_MASTER_ID), E_NOT_SUPPORTED);
 
     p_Fm->p_FmDriverParam->dma_watchdog = watchdogValue;
-
-    return E_OK;
-}
-
-t_Error FM_ConfigEnableCounters(t_Handle h_Fm)
-{
-    t_Fm                *p_Fm = (t_Fm*)h_Fm;
-
-    SANITY_CHECK_RETURN_ERROR(p_Fm, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_Fm->p_FmDriverParam, E_INVALID_HANDLE);
-UNUSED(p_Fm);
 
     return E_OK;
 }

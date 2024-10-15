@@ -46,7 +46,6 @@
 #include "dpaa_integration_ext.h"
 #include "fm_port_ext.h"
 #include "fm_mac_ext.h"
-#include "fm_macsec_ext.h"
 #include "fm_rtc_ext.h"
 
 /**************************************************************************//**
@@ -70,161 +69,7 @@
 /*                  Internal Linux kernel routines                           */
 /*****************************************************************************/
 
-/**************************************************************************//**
- @Description   MACSEC Exceptions wrapper
-*//***************************************************************************/
-typedef enum fm_macsec_exception {
-	SINGLE_BIT_ECC = e_FM_MACSEC_EX_SINGLE_BIT_ECC,
-	MULTI_BIT_ECC = e_FM_MACSEC_EX_MULTI_BIT_ECC
-} fm_macsec_exception;
-
-/**************************************************************************//**
- @Description   Unknown sci frame treatment wrapper
-*//***************************************************************************/
-typedef enum fm_macsec_unknown_sci_frame_treatment {
-	SCI_DISCARD_BOTH = e_FM_MACSEC_UNKNOWN_SCI_FRAME_TREATMENT_DISCARD_BOTH,
-	SCI_DISCARD_UNCTRL_DELIVER_DISCARD_CTRL = \
-		e_FM_MACSEC_UNKNOWN_SCI_FRAME_TREATMENT_DISCARD_UNCONTROLLED_DELIVER_OR_DISCARD_CONTROLLED,
-	SCI_DELIVER_UNCTRL_DISCARD_CTRL = \
-		e_FM_MACSEC_UNKNOWN_SCI_FRAME_TREATMENT_DELIVER_UNCONTROLLED_DISCARD_CONTROLLED,
-	SCI_DELIVER_DISCARD_UNCTRL_DELIVER_DISCARD_CTRL = \
-		e_FM_MACSEC_UNKNOWN_SCI_FRAME_TREATMENT_DELIVER_OR_DISCARD_UNCONTROLLED_DELIVER_OR_DISCARD_CONTROLLED
-} fm_macsec_unknown_sci_frame_treatment;
-
-/**************************************************************************//**
- @Description   Untag frame treatment wrapper
-*//***************************************************************************/
-typedef enum fm_macsec_untag_frame_treatment {
-	UNTAG_DELIVER_UNCTRL_DISCARD_CTRL = \
-		e_FM_MACSEC_UNTAG_FRAME_TREATMENT_DELIVER_UNCONTROLLED_DISCARD_CONTROLLED,
-	UNTAG_DISCARD_BOTH = e_FM_MACSEC_UNTAG_FRAME_TREATMENT_DISCARD_BOTH,
-	UNTAG_DISCARD_UNCTRL_DELIVER_CTRL_UNMODIFIED = \
-		e_FM_MACSEC_UNTAG_FRAME_TREATMENT_DISCARD_UNCONTROLLED_DELIVER_CONTROLLED_UNMODIFIED
-} fm_macsec_untag_frame_treatment;
-
-/**************************************************************************//**
-@Description   MACSEC SECY Cipher Suite wrapper
-*//***************************************************************************/
-typedef enum fm_macsec_secy_cipher_suite {
-	SECY_GCM_AES_128 = e_FM_MACSEC_SECY_GCM_AES_128,    /**< GCM-AES-128 */
-#if (DPAA_VERSION >= 11)
-	SECY_GCM_AES_256 = e_FM_MACSEC_SECY_GCM_AES_256     /**< GCM-AES-256 */
-#endif /* (DPAA_VERSION >= 11) */
-} fm_macsec_secy_cipher_suite;
-
-/**************************************************************************//**
- @Description   MACSEC SECY Exceptions wrapper
-*//***************************************************************************/
-typedef enum fm_macsec_secy_exception {
-	SECY_EX_FRAME_DISCARDED = e_FM_MACSEC_SECY_EX_FRAME_DISCARDED
-} fm_macsec_secy_exception;
-
-/**************************************************************************//**
- @Description   MACSEC SECY Events wrapper
-*//***************************************************************************/
-typedef enum fm_macsec_secy_event {
-	SECY_EV_NEXT_PN = e_FM_MACSEC_SECY_EV_NEXT_PN
-} fm_macsec_secy_event;
-
-/**************************************************************************//**
- @Description   Valid frame behaviors wrapper
-*//***************************************************************************/
-typedef enum fm_macsec_valid_frame_behavior {
-	VALID_FRAME_BEHAVIOR_DISABLE = e_FM_MACSEC_VALID_FRAME_BEHAVIOR_DISABLE,
-	VALID_FRAME_BEHAVIOR_CHECK = e_FM_MACSEC_VALID_FRAME_BEHAVIOR_CHECK,
-	VALID_FRAME_BEHAVIOR_STRICT = e_FM_MACSEC_VALID_FRAME_BEHAVIOR_STRICT
-} fm_macsec_valid_frame_behavior;
-
-/**************************************************************************//**
- @Description   SCI insertion modes wrapper
-*//***************************************************************************/
-typedef enum fm_macsec_sci_insertion_mode {
-	SCI_INSERTION_MODE_EXPLICIT_SECTAG = \
-		e_FM_MACSEC_SCI_INSERTION_MODE_EXPLICIT_SECTAG,
-	SCI_INSERTION_MODE_EXPLICIT_MAC_SA = \
-		e_FM_MACSEC_SCI_INSERTION_MODE_EXPLICIT_MAC_SA,
-	SCI_INSERTION_MODE_IMPLICT_PTP = e_FM_MACSEC_SCI_INSERTION_MODE_IMPLICT_PTP
-} fm_macsec_sci_insertion_mode;
-
-typedef macsecSAKey_t macsec_sa_key_t;
-typedef macsecSCI_t macsec_sci_t;
-typedef macsecAN_t macsec_an_t;
 typedef t_Handle handle_t;
-
-/**************************************************************************//**
- @Function      fm_macsec_secy_exception_callback wrapper
- @Description   Exceptions user callback routine, will be called upon an
-                exception passing the exception identification.
- @Param[in]     app_h       A handle to an application layer object; This handle
-                            will be passed by the driver upon calling this callback.
- @Param[in]     exception   The exception.
-*//***************************************************************************/
-typedef void (fm_macsec_secy_exception_callback) (handle_t app_h,
-				fm_macsec_secy_exception exception);
-
-/**************************************************************************//**
- @Function      fm_macsec_secy_event_callback wrapper
- @Description   Events user callback routine, will be called upon an
-                event passing the event identification.
- @Param[in]     app_h       A handle to an application layer object; This handle
-                            will be passed by the driver upon calling this callback.
- @Param[in]     event       The event.
-*//***************************************************************************/
-typedef void (fm_macsec_secy_event_callback) (handle_t app_h,
-				fm_macsec_secy_event event);
-
-/**************************************************************************//**
- @Function      fm_macsec_exception_callback wrapper
- @Description   Exceptions user callback routine, will be called upon an
-                exception passing the exception identification.
- @Param[in]     app_h       A handle to an application layer object; This handle
-                            will be passed by the driver upon calling this callback.
- @Param[in]     exception   The exception.
-*//***************************************************************************/
-typedef void (fm_macsec_exception_callback) (handle_t app_h,
-				fm_macsec_exception exception);
-
-/**************************************************************************//**
- @Description   MACSEC SecY SC Params wrapper
-*//***************************************************************************/
-struct fm_macsec_secy_sc_params {
-	macsec_sci_t sci;
-	fm_macsec_secy_cipher_suite cipher_suite;
-};
-
-/**************************************************************************//**
- @Description   FM MACSEC SecY config input wrapper
-*//***************************************************************************/
-struct fm_macsec_secy_params {
-	handle_t fm_macsec_h;
-	struct fm_macsec_secy_sc_params tx_sc_params;
-	uint32_t num_receive_channels;
-	fm_macsec_secy_exception_callback *exception_f;
-	fm_macsec_secy_event_callback *event_f;
-	handle_t app_h;
-};
-
-/**************************************************************************//**
- @Description   FM MACSEC config input wrapper
-*//***************************************************************************/
-struct fm_macsec_params {
-	handle_t fm_h;
-	bool guest_mode;
-
-	union {
-		struct {
-			uint8_t fm_mac_id;
-		} guest_params;
-
-		struct {
-			uintptr_t base_addr;
-			handle_t fm_mac_h;
-			fm_macsec_exception_callback *exception_f;
-			handle_t app_h;
-		} non_guest_params;
-	};
-
-};
 
 /**************************************************************************//**
  @Description	FM device opaque structure used for type checking
@@ -235,12 +80,6 @@ struct fm;
  @Description	FM MAC device opaque structure used for type checking
 *//***************************************************************************/
 struct fm_mac_dev;
-
-/**************************************************************************//**
- @Description	FM MACSEC device opaque structure used for type checking
-*//***************************************************************************/
-struct fm_macsec_dev;
-struct fm_macsec_secy_dev;
 
 /**************************************************************************//**
  @Description	A structure ..,
@@ -823,104 +662,6 @@ static inline int fm_rtc_set_fiper(struct fm *fm_dev, uint32_t id,
 
 int fm_mac_set_wol(struct fm_port *port, struct fm_mac_dev *fm_mac_dev,
 			bool en);
-
-/**************************************************************************//**
-@Function     fm_macsec_set_exception
-
-@Description  Set MACSEC exception state.
-
-@Param[in]    fm_macsec_dev   - A handle of the FM MACSEC device.
-@Param[in]    exception    - FM MACSEC exception type.
-@Param[in]    enable       - new state.
-
-*//***************************************************************************/
-
-int fm_macsec_set_exception(struct fm_macsec_dev *fm_macsec_dev,
-			fm_macsec_exception exception, bool enable);
-int fm_macsec_free(struct fm_macsec_dev *fm_macsec_dev);
-struct fm_macsec_dev *fm_macsec_config(struct fm_macsec_params *fm_params);
-int fm_macsec_init(struct fm_macsec_dev *fm_macsec_dev);
-int fm_macsec_config_unknown_sci_frame_treatment(struct fm_macsec_dev
-				*fm_macsec_dev,
-				fm_macsec_unknown_sci_frame_treatment treat_mode);
-int fm_macsec_config_invalid_tags_frame_treatment(struct fm_macsec_dev *fm_macsec_dev,
-				bool deliver_uncontrolled);
-int fm_macsec_config_kay_frame_treatment(struct fm_macsec_dev *fm_macsec_dev,
-				bool discard_uncontrolled);
-int fm_macsec_config_untag_frame_treatment(struct fm_macsec_dev *fm_macsec_dev,
-				    fm_macsec_untag_frame_treatment treat_mode);
-int fm_macsec_config_pn_exhaustion_threshold(struct fm_macsec_dev *fm_macsec_dev,
-					uint32_t pnExhThr);
-int fm_macsec_config_keys_unreadable(struct fm_macsec_dev *fm_macsec_dev);
-int fm_macsec_config_sectag_without_sci(struct fm_macsec_dev *fm_macsec_dev);
-int fm_macsec_config_exception(struct fm_macsec_dev *fm_macsec_dev,
-			    fm_macsec_exception exception, bool enable);
-int fm_macsec_get_revision(struct fm_macsec_dev *fm_macsec_dev,
-			    int *macsec_revision);
-int fm_macsec_enable(struct fm_macsec_dev *fm_macsec_dev);
-int fm_macsec_disable(struct fm_macsec_dev *fm_macsec_dev);
-
-
-int fm_macsec_secy_config_exception(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-				    fm_macsec_secy_exception exception,
-				    bool enable);
-int fm_macsec_secy_free(struct fm_macsec_secy_dev *fm_macsec_secy_dev);
-struct fm_macsec_secy_dev *fm_macsec_secy_config(struct fm_macsec_secy_params *secy_params);
-int fm_macsec_secy_init(struct fm_macsec_secy_dev *fm_macsec_secy_dev);
-int fm_macsec_secy_config_sci_insertion_mode(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-				fm_macsec_sci_insertion_mode sci_insertion_mode);
-int fm_macsec_secy_config_protect_frames(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-				bool protect_frames);
-int fm_macsec_secy_config_replay_window(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-				bool replay_protect, uint32_t replay_window);
-int fm_macsec_secy_config_validation_mode(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-				fm_macsec_valid_frame_behavior validate_frames);
-int fm_macsec_secy_config_confidentiality(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-				bool confidentiality_enable,
-				uint32_t confidentiality_offset);
-int fm_macsec_secy_config_point_to_point(struct fm_macsec_secy_dev *fm_macsec_secy_dev);
-int fm_macsec_secy_config_event(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-				    fm_macsec_secy_event event,
-				    bool enable);
-struct rx_sc_dev *fm_macsec_secy_create_rxsc(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-				struct fm_macsec_secy_sc_params *params);
-int fm_macsec_secy_delete_rxsc(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-				struct rx_sc_dev *sc);
-int fm_macsec_secy_create_rx_sa(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-				struct rx_sc_dev *sc, macsec_an_t an,
-				uint32_t lowest_pn, macsec_sa_key_t key);
-int fm_macsec_secy_delete_rx_sa(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-				struct rx_sc_dev *sc, macsec_an_t an);
-int fm_macsec_secy_rxsa_enable_receive(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-					struct rx_sc_dev *sc,
-					macsec_an_t an);
-int fm_macsec_secy_rxsa_disable_receive(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-					struct rx_sc_dev *sc,
-					macsec_an_t an);
-int fm_macsec_secy_rxsa_update_next_pn(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-					struct rx_sc_dev *sc,
-					macsec_an_t an, uint32_t updt_next_pn);
-int fm_macsec_secy_rxsa_update_lowest_pn(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-					struct rx_sc_dev *sc,
-					macsec_an_t an, uint32_t updt_lowest_pn);
-int fm_macsec_secy_rxsa_modify_key(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-					struct rx_sc_dev *sc,
-					macsec_an_t an, macsec_sa_key_t key);
-int fm_macsec_secy_create_tx_sa(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-				macsec_an_t an, macsec_sa_key_t key);
-int fm_macsec_secy_delete_tx_sa(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-				macsec_an_t an);
-int fm_macsec_secy_txsa_modify_key(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-					macsec_an_t next_active_an,
-					macsec_sa_key_t key);
-int fm_macsec_secy_txsa_set_active(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-					macsec_an_t an);
-int fm_macsec_secy_txsa_get_active(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-					macsec_an_t *p_an);
-int fm_macsec_secy_get_rxsc_phys_id(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-				struct rx_sc_dev *sc, uint32_t *sc_phys_id);
-int fm_macsec_secy_get_txsc_phys_id(struct fm_macsec_secy_dev *fm_macsec_secy_dev,
-				    uint32_t *sc_phys_id);
 
 /** @} */ /* end of FM_LnxKern_ctrl_grp group */
 /** @} */ /* end of FM_LnxKern_grp group */

@@ -40,39 +40,6 @@
 #include "stdarg_ext.h"
 #include "std_ext.h"
 
-
-/**
- * strtoul - convert a string to an uint32_t
- * @cp: The start of the string
- * @endp: A pointer to the end of the parsed string will be placed here
- * @base: The number base to use
- */
-uint32_t strtoul(const char *cp,char **endp,uint32_t base);
-
-/**
- * strtol - convert a string to a int32_t
- * @cp: The start of the string
- * @endp: A pointer to the end of the parsed string will be placed here
- * @base: The number base to use
- */
-long strtol(const char *cp,char **endp,uint32_t base);
-
-/**
- * strtoull - convert a string to an uint64_t
- * @cp: The start of the string
- * @endp: A pointer to the end of the parsed string will be placed here
- * @base: The number base to use
- */
-uint64_t strtoull(const char *cp,char **endp,uint32_t base);
-
-/**
- * strtoll - convert a string to a int64 long
- * @cp: The start of the string
- * @endp: A pointer to the end of the parsed string will be placed here
- * @base: The number base to use
- */
-long long strtoll(const char *cp,char **endp,uint32_t base);
-
 /**
  * atoi - convert a character to a int
  * @s: The start of the string

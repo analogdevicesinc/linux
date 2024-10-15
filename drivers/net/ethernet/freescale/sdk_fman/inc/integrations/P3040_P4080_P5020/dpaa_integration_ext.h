@@ -263,14 +263,4 @@ typedef enum
 #define FM_NO_CTXA_COPY_ERRATA_FMAN_SW001
 #define FM_KG_ERASE_FLOW_ID_ERRATA_FMAN_SW004
 
-/*****************************************************************************
- FM MACSEC INTEGRATION-SPECIFIC DEFINITIONS
-******************************************************************************/
-#define NUM_OF_RX_SC                16
-#define NUM_OF_TX_SC                16
-
-#define NUM_OF_SA_PER_RX_SC         2
-#define NUM_OF_SA_PER_TX_SC         2
-
-
 #endif /* __DPAA_INTEGRATION_EXT_H */

@@ -87,7 +87,6 @@ typedef enum e_FmEventModules{
     e_FM_MOD_1G_MAC,                /**< 1G MAC event */
     e_FM_MOD_TMR,                   /**< Timer event */
     e_FM_MOD_FMAN_CTRL,             /**< FMAN Controller  Timer event */
-    e_FM_MOD_MACSEC,
     e_FM_MOD_DUMMY_LAST
 } e_FmEventModules;
 

@@ -803,110 +803,6 @@ t_Error FM_ConfigDmaAidOverride(t_Handle h_Fm, bool aidOverride);
 t_Error FM_ConfigDmaAidMode(t_Handle h_Fm, e_FmDmaAidMode aidMode);
 
 /**************************************************************************//**
- @Function      FM_ConfigDmaAxiDbgNumOfBeats
-
- @Description   Define DMA AXI number of beats.
-                Calling this routine changes the AXI number of beats in the internal
-                driver data base from its default configuration [DEFAULT_axiDbgNumOfBeats]
-
- @Param[in]     h_Fm                A handle to an FM Module.
- @Param[in]     axiDbgNumOfBeats    The selected new value.
-
- @Return        E_OK on success; Error code otherwise.
-
- @Cautions      Allowed only following FM_Config() and before FM_Init().
-                This routine should NOT be called from guest-partition
-                (i.e. guestId != NCSW_MASTER_ID)
-*//***************************************************************************/
-t_Error FM_ConfigDmaAxiDbgNumOfBeats(t_Handle h_Fm, uint8_t axiDbgNumOfBeats);
-
-/**************************************************************************//**
- @Function      FM_ConfigDmaCamNumOfEntries
-
- @Description   Define number of CAM entries.
-                Calling this routine changes the number of CAM entries in the internal
-                driver data base from its default configuration [DEFAULT_dmaCamNumOfEntries].
-
- @Param[in]     h_Fm            A handle to an FM Module.
- @Param[in]     numOfEntries    The selected new value.
-
- @Return        E_OK on success; Error code otherwise.
-
- @Cautions      Allowed only following FM_Config() and before FM_Init().
-                This routine should NOT be called from guest-partition
-                (i.e. guestId != NCSW_MASTER_ID)
-*//***************************************************************************/
-t_Error FM_ConfigDmaCamNumOfEntries(t_Handle h_Fm, uint8_t numOfEntries);
-
-/**************************************************************************//**
- @Function      FM_ConfigEnableCounters
-
- @Description   Obsolete, always return E_OK.
-
- @Param[in]     h_Fm    A handle to an FM Module.
-
- @Return        E_OK on success; Error code otherwise.
-*//***************************************************************************/
-t_Error FM_ConfigEnableCounters(t_Handle h_Fm);
-
-/**************************************************************************//**
- @Function      FM_ConfigDmaDbgCounter
-
- @Description   Define DMA debug counter.
-                Calling this routine changes the number of the DMA debug counter in the internal
-                driver data base from its default configuration [DEFAULT_dmaDbgCntMode].
-
- @Param[in]     h_Fm                A handle to an FM Module.
- @Param[in]     fmDmaDbgCntMode     An enum selecting the debug counter mode.
-
- @Return        E_OK on success; Error code otherwise.
-
- @Cautions      Allowed only following FM_Config() and before FM_Init().
-                This routine should NOT be called from guest-partition
-                (i.e. guestId != NCSW_MASTER_ID)
-*//***************************************************************************/
-t_Error FM_ConfigDmaDbgCounter(t_Handle h_Fm, e_FmDmaDbgCntMode fmDmaDbgCntMode);
-
-/**************************************************************************//**
- @Function      FM_ConfigDmaStopOnBusErr
-
- @Description   Define bus error behavior.
-                Calling this routine changes the bus error behavior definition
-                in the internal driver data base from its default
-                configuration [DEFAULT_dmaStopOnBusError].
-
- @Param[in]     h_Fm    A handle to an FM Module.
- @Param[in]     stop    TRUE to stop on bus error, FALSE to continue.
-
- @Return        E_OK on success; Error code otherwise.
-
- @Cautions      Allowed only following FM_Config() and before FM_Init().
-                Only if bus error is enabled.
-                This routine should NOT be called from guest-partition
-                (i.e. guestId != NCSW_MASTER_ID)
-*//***************************************************************************/
-t_Error FM_ConfigDmaStopOnBusErr(t_Handle h_Fm, bool stop);
-
-/**************************************************************************//**
- @Function      FM_ConfigDmaEmergency
-
- @Description   Define DMA emergency.
-                Calling this routine changes the DMA emergency definition
-                in the internal driver data base from its default
-                configuration where's it's disabled.
-
- @Param[in]     h_Fm        A handle to an FM Module.
- @Param[in]     p_Emergency An OR mask of all required options.
-
- @Return        E_OK on success; Error code otherwise.
-
- @Cautions      Allowed only following FM_Config() and before FM_Init().
-                This routine should NOT be called from guest-partition
-                (i.e. guestId != NCSW_MASTER_ID)
-*//***************************************************************************/
-t_Error FM_ConfigDmaEmergency(t_Handle h_Fm, t_FmDmaEmergency *p_Emergency);
-
-/**************************************************************************//**
  @Function      FM_ConfigDmaErr
 
  @Description   DMA error treatment.
@@ -1082,26 +978,6 @@ t_Error FM_ConfigExternalEccRamsEnable(t_Handle h_Fm, bool enable);
                 allowed.
 *//***************************************************************************/
 t_Error FM_ConfigTnumAgingPeriod(t_Handle h_Fm, uint16_t tnumAgingPeriod);
-
-/**************************************************************************//*
- @Function      FM_ConfigDmaEmergencySmoother
-
- @Description   Define DMA emergency smoother.
-                Calling this routine changes the definition of the minimum
-                amount of DATA beats transferred on the AXI READ and WRITE
-                ports before lowering the emergency level.
-                By default smoother is disabled.
-
- @Param[in]     h_Fm            A handle to an FM Module.
- @Param[in]     emergencyCnt    emergency switching counter.
-
- @Return        E_OK on success; Error code otherwise.
-
- @Cautions      Allowed only following FM_Config() and before FM_Init().
-                This routine should NOT be called from guest-partition
-                (i.e. guestId != NCSW_MASTER_ID)
-*//***************************************************************************/
-t_Error FM_ConfigDmaEmergencySmoother(t_Handle h_Fm, uint32_t emergencyCnt);
 
 /**************************************************************************//*
  @Function      FM_ConfigThresholds

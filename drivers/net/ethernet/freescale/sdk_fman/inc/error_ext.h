@@ -338,29 +338,10 @@ int ERROR_DYNAMIC_LEVEL = ERROR_GLOBAL_LEVEL;
 #define RETURN_ERROR(_level, _err, _vmsg) \
         return ERROR_CODE(_err)
 
-#if (REPORT_EVENTS > 0)
-
-#define REPORT_EVENT(_ev, _appId, _flg, _vmsg) \
-    do { \
-        if (_ev##_LEVEL <= EVENT_DYNAMIC_LEVEL) { \
-            XX_EventById((uint32_t)(_ev), (t_Handle)(_appId), (uint16_t)(_flg), NO_MSG); \
-        } \
-    } while (0)
-
-#else
-
-#define REPORT_EVENT(_ev, _appId, _flg, _vmsg)
-
-#endif /* (REPORT_EVENTS > 0) */
-
-
 #else /* DEBUG_ERRORS > 0 */
 
 extern const char *dbgLevelStrings[];
 extern const char *moduleStrings[];
-#if (REPORT_EVENTS > 0)
-extern const char *eventStrings[];
-#endif /* (REPORT_EVENTS > 0) */
 
 char * ErrTypeStrings (e_ErrorType err);
 
@@ -402,30 +383,6 @@ char * ErrTypeStrings (e_ErrorType err);
         REPORT_ERROR(_level, (_err), _vmsg); \
         return ERROR_CODE(_err); \
     } while (0)
-
-
-#if (REPORT_EVENTS > 0)
-
-#define REPORT_EVENT(_ev, _appId, _flg, _vmsg) \
-    do { \
-        if (_ev##_LEVEL <= EVENT_DYNAMIC_LEVEL) { \
-            XX_Print("~ %s %s Event " PRINT_FORMAT ": %s (flags: 0x%04x); ", \
-                     dbgLevelStrings[_ev##_LEVEL - 1], \
-                     moduleStrings[__ERR_MODULE__ >> 16], \
-                     PRINT_FMT_PARAMS, \
-                     eventStrings[((_ev) - EV_NO_EVENT - 1)], \
-                     (uint16_t)(_flg)); \
-            XX_Print _vmsg; \
-            XX_Print("\r\n"); \
-            XX_EventById((uint32_t)(_ev), (t_Handle)(_appId), (uint16_t)(_flg), NO_MSG); \
-        } \
-    } while (0)
-
-#else /* not REPORT_EVENTS */
-
-#define REPORT_EVENT(_ev, _appId, _flg, _vmsg)
-
-#endif /* (REPORT_EVENTS > 0) */
 
 #endif /* (DEBUG_ERRORS > 0) */
 
