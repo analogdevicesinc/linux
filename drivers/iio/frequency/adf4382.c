@@ -4,8 +4,6 @@
  *
  * Copyright 2022-2024 Analog Devices Inc.
  */
-//TODO:This does not add much. Typically there's a small subject
-//(like the datasheet title). Look at other examples please
 
 #include <linux/bitfield.h>
 #include <linux/bits.h>
@@ -811,12 +809,10 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	// Set output power ch1 = 0x7 ch2 =0xf
 	ret = regmap_write(st->regmap, 0x29, 0x0b);
 	if (ret)
 		return ret;
 
-	// Need to set N_INT last to trigger an auto-calibration
 	var = (n_int >> 8) & ADF4382_N_INT_MSB_MSK;
 	ret = regmap_update_bits(st->regmap, 0x11, ADF4382_N_INT_MSB_MSK, var);
 	if (ret)
@@ -969,7 +965,8 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_fs)
 		return -EINVAL;
 	}
 
-	/* The charge pump current will also need to be taken in to account
+	/*
+	 * The charge pump current will also need to be taken in to account
 	 * as well as the Bleed constant
 	 */
 	phase_ci = phase_deg_ms * adf4382_ci_ua[st->cp_i];
