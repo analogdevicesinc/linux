@@ -1354,10 +1354,10 @@ static t_Error SetPcd(t_FmPort *p_FmPort, t_FmPortPcdParams *p_PcdParams)
     }
 
     /* if CC is used directly after BMI */
-    if ((p_PcdParams->pcdSupport == e_FM_PORT_PCD_SUPPORT_CC_ONLY)
+    if (p_PcdParams->pcdSupport == e_FM_PORT_PCD_SUPPORT_CC_ONLY
 #ifdef FM_CAPWAP_SUPPORT
-    || (p_PcdParams->pcdSupport == e_FM_PORT_PCD_SUPPORT_CC_AND_KG)
-    || (p_PcdParams->pcdSupport == e_FM_PORT_PCD_SUPPORT_CC_AND_KG_AND_PLCR)
+     || p_PcdParams->pcdSupport == e_FM_PORT_PCD_SUPPORT_CC_AND_KG
+     || p_PcdParams->pcdSupport == e_FM_PORT_PCD_SUPPORT_CC_AND_KG_AND_PLCR
 #endif /* FM_CAPWAP_SUPPORT */
     )
     {
