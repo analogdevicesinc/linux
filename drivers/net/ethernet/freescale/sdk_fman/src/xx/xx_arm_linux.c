@@ -592,7 +592,7 @@ t_Handle XX_IpcInitSession(char destAddr[XX_IPC_MAX_ADDR_NAME_LENGTH],
                            char srcAddr[XX_IPC_MAX_ADDR_NAME_LENGTH])
 {
     UNUSED(destAddr); UNUSED(srcAddr);
-    return E_OK;
+    return NULL;
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)

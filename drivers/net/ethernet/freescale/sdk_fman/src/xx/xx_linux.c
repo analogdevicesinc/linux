@@ -597,7 +597,7 @@ t_Handle XX_IpcInitSession(char destAddr[XX_IPC_MAX_ADDR_NAME_LENGTH],
                            char srcAddr[XX_IPC_MAX_ADDR_NAME_LENGTH])
 {
     UNUSED(destAddr); UNUSED(srcAddr);
-    return E_OK;
+    return NULL;
 }
 
 /*Forced to introduce due to PRINT_FMT_PARAMS define*/
