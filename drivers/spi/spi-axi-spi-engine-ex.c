@@ -369,7 +369,7 @@ int spi_engine_ex_offload_load_msg(struct spi_device *spi,
 
 	/* TODO: validate that we don't exceed the offload SDO FIFO size */
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
-		if (!xfer->tx_buf)
+		if (!xfer->tx_buf || xfer->tx_buf == (void *)-1)
 			continue;
 
 		if (xfer->bits_per_word <= 8) {
