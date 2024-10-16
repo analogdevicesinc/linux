@@ -925,7 +925,7 @@ static int vsi_v4l2_dec_s_ctrl(struct v4l2_ctrl *ctrl)
 	case V4L2_CID_MPEG_VIDEO_HEVC_PROFILE:
 		ret = vsi_set_profile(ctx, ctrl->id, ctrl->val);
 		return ret;
-	case V4L2_CID_DIS_REORDER:
+	case V4L2_CID_MPEG_VIDEO_DEC_DISPLAY_DELAY_ENABLE:
 		ctx->mediacfg.decparams.io_buffer.no_reordering_decoding = ctrl->val;
 		break;
 	case V4L2_CID_SECUREMODE:
@@ -1011,16 +1011,6 @@ static const struct v4l2_ctrl_ops vsi_dec_ctrl_ops = {
 static struct v4l2_ctrl_config vsi_v4l2_dec_ctrl_defs[] = {
 	{
 		.ops = &vsi_dec_ctrl_ops,
-		.id = V4L2_CID_DIS_REORDER,
-		.name = "frame disable reorder ctrl",
-		.type = V4L2_CTRL_TYPE_BOOLEAN,
-		.min = 0,
-		.max = 1,
-		.step = 1,
-		.def = 0,
-	},
-	{
-		.ops = &vsi_dec_ctrl_ops,
 		.type_ops = &vsi_dec_type_ops,
 		.id = V4L2_CID_HDR10META,
 		.name = "vsi get 10bit meta",
@@ -1078,6 +1068,22 @@ static struct v4l2_ctrl_config vsi_v4l2_dec_ctrl_defs[] = {
 		.max = MAX_MIN_BUFFERS_FOR_OUTPUT,
 		.step = 1,
 		.def = 1,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_DEC_DISPLAY_DELAY_ENABLE,
+		.type = V4L2_CTRL_TYPE_BOOLEAN,
+		.min = 0,
+		.max = 1,
+		.step = 1,
+		.def = 0,
+	},
+	{
+		.id = V4L2_CID_MPEG_VIDEO_DEC_DISPLAY_DELAY,
+		.type = V4L2_CTRL_TYPE_INTEGER,
+		.min = 0,
+		.max = 0,
+		.step = 1,
+		.def = 0,
 	},
 	{
 		.ops = &vsi_dec_ctrl_ops,
