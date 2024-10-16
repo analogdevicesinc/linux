@@ -839,11 +839,10 @@ static t_Error ReleaseModifiedDataStructure(
     return E_OK;
 }
 
-static t_Handle BuildNewAd(
-        t_Handle h_Ad,
-        t_FmPcdModifyCcKeyAdditionalParams *p_FmPcdModifyCcKeyAdditionalParams,
-        t_FmPcdCcNode *p_CcNode,
-        t_FmPcdCcNextEngineParams *p_FmPcdCcNextEngineParams)
+static t_Error BuildNewAd(t_Handle h_Ad,
+                          t_FmPcdModifyCcKeyAdditionalParams *p_FmPcdModifyCcKeyAdditionalParams,
+                          t_FmPcdCcNode *p_CcNode,
+                          t_FmPcdCcNextEngineParams *p_FmPcdCcNextEngineParams)
 {
     t_FmPcdCcNode *p_FmPcdCcNodeTmp;
     t_Handle h_OrigAd = NULL;
@@ -851,8 +850,7 @@ static t_Handle BuildNewAd(
     p_FmPcdCcNodeTmp = (t_FmPcdCcNode*)XX_Malloc(sizeof(t_FmPcdCcNode));
     if (!p_FmPcdCcNodeTmp)
     {
-        REPORT_ERROR(MAJOR, E_NO_MEMORY, ("p_FmPcdCcNodeTmp"));
-        return NULL;
+        RETURN_ERROR(MAJOR, E_NO_MEMORY, ("p_FmPcdCcNodeTmp"));
     }
     memset(p_FmPcdCcNodeTmp, 0, sizeof(t_FmPcdCcNode));
 
@@ -881,9 +879,8 @@ static t_Handle BuildNewAd(
                     p_FmPcdCcNextEngineParams->params.ccParams.h_CcNode)
                     != E_OK)
             {
-                REPORT_ERROR(MAJOR, E_INVALID_STATE, NO_MSG);
                 XX_Free(p_FmPcdCcNodeTmp);
-                return NULL;
+                RETURN_ERROR(MAJOR, E_INVALID_STATE, NO_MSG);
             }
         }
         FillAdOfTypeContLookup(h_Ad, NULL, p_CcNode->h_FmPcd, p_FmPcdCcNodeTmp,
@@ -1037,7 +1034,9 @@ static t_Error DoDynamicChange(
 			nextEngineParams.nextEngine = e_FM_PCD_CC;
 			nextEngineParams.params.ccParams.h_CcNode = (t_Handle)p_CcNode;
 
-			BuildNewAd(h_Ad, p_AdditionalParams, p_CcNode, &nextEngineParams);
+			err = BuildNewAd(h_Ad, p_AdditionalParams, p_CcNode, &nextEngineParams);
+			if (err)
+				RETURN_ERROR(MAJOR, err, NO_MSG);
 
 			/* HC to copy from the new Ad (old updated structures) to current Ad (uses shadow structures) */
 			err = DynamicChangeHc(h_FmPcd, h_OldPointersLst, h_NewPointersLst,
@@ -3570,6 +3569,7 @@ static t_Error UpdatePtrWhichPointOnCrntMdfNode(
     t_CcNodeInformation ccNodeInfo = { 0 };
     t_Handle h_NewAd;
     t_Handle h_OrigAd = NULL;
+    t_Error err;
 
     /* Building a list of all action descriptors that point to the previous node */
     if (!LIST_IsEmpty(&p_CcNode->ccPrevNodesLst))
@@ -3590,8 +3590,10 @@ static t_Error UpdatePtrWhichPointOnCrntMdfNode(
         MemSet8(h_NewAd, 0, FM_PCD_CC_AD_ENTRY_SIZE);
 
         h_OrigAd = p_CcNode->h_Ad;
-        BuildNewAd(h_NewAd, p_FmPcdModifyCcKeyAdditionalParams, p_CcNode,
-                   p_NextEngineParams);
+        err = BuildNewAd(h_NewAd, p_FmPcdModifyCcKeyAdditionalParams, p_CcNode,
+                         p_NextEngineParams);
+        if (err)
+            RETURN_ERROR(MAJOR, err, NO_MSG);
 
         ccNodeInfo.h_CcNode = h_NewAd;
         EnqueueNodeInfoToRelevantLst(h_NewLst, &ccNodeInfo, NULL);
