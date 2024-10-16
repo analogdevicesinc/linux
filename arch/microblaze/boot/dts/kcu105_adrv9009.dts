@@ -218,7 +218,7 @@
 &trx0_adrv9009 {
 	reset-gpios = <&axi_gpio 52 0>;
 	test-gpios = <&axi_gpio 53 0>;
-	sysref_req-gpios = <&axi_gpio 58 0>;
+	sysref-req-gpios = <&axi_gpio 58 0>;
 	rx2_enable-gpios = <&axi_gpio 54 0>;
 	rx1_enable-gpios = <&axi_gpio 55 0>;
 	tx2_enable-gpios = <&axi_gpio 56 0>;
