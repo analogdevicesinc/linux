@@ -29,6 +29,7 @@ properties:
     maximum: 75000000
 
   clocks:
+    description: Clock to provide CLKIN reference clock signal.
     maxItems: 1
 
   clock-names:
@@ -49,7 +50,7 @@ properties:
       If this property is not specified, then the charge pump current is set to the
       default 11100uA. The valid values are listed below. However, if the set value is
       not supported, the driver will look for the closest valid charge pump current.
-    allOf:
+    anyOf:
       - enum: [790, 990, 1190, 1380, 1590, 1980, 2390, 2790, 3180, 3970, 4770, 5570, 6330, 7910, 9510, 11100]
 
   adi,ref-divider:
@@ -124,5 +125,6 @@ examples:
           clock-names = "ref_clk";
           adi,charge-pump-current = <15>;
           adi,ref-divider = <1>;
+        };
     };
 ...
