@@ -56,33 +56,12 @@
 #define COMPAT_PTR2ID_WATERMARK 0xface0000
 #define COMPAT_PTR2ID_WM_MASK   0xffff0000
 
-/* define it for debug trace */
-/*#define FM_COMPAT_DBG*/
-
 #define _fm_cpt_prk(stage, format, arg...)	\
 	printk(stage "fm_cpt (cpu:%u): " format, raw_smp_processor_id(), ##arg)
 
 #define _fm_cpt_inf(format, arg...) _fm_cpt_prk(KERN_INFO, format, ##arg)
 #define _fm_cpt_wrn(format, arg...) _fm_cpt_prk(KERN_WARNING, format, ##arg)
 #define _fm_cpt_err(format, arg...) _fm_cpt_prk(KERN_ERR, format, ##arg)
-
-/* used for compat IOCTL debugging */
-#if defined(FM_COMPAT_DBG)
-	#define _fm_cpt_dbg(from, format, arg...) \
-		do{ \
-			if (from == COMPAT_US_TO_K) \
-				printk("fm_cpt to KS [%s:%u](cpu:%u) - " format,	\
-					__func__, __LINE__, raw_smp_processor_id(), ##arg); \
-			else if (from == COMPAT_K_TO_US) \
-				printk("fm_cpt to US [%s:%u](cpu:%u) - " format,	\
-					__func__, __LINE__, raw_smp_processor_id(), ##arg); \
-            else \
-                printk("fm_cpt [%s:%u](cpu:%u) - " format,    \
-                    __func__, __LINE__, raw_smp_processor_id(), ##arg); \
-		}while(0)
-#else
-#	define _fm_cpt_dbg(arg...)
-#endif
 
 /*TODO: per FMan module:
  *
