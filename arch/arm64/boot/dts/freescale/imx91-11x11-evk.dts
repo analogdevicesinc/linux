@@ -291,6 +291,7 @@
 
 		ethphy1: ethernet-phy@1 {
 			reg = <1>;
+			realtek,clkout-disable;
 		};
 	};
 };
@@ -312,6 +313,7 @@
 		ethphy2: ethernet-phy@2 {
 			reg = <2>;
 			eee-broken-1000t;
+			realtek,clkout-disable;
 		};
 	};
 };
