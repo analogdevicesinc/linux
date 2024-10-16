@@ -2771,6 +2771,7 @@ static t_Error CheckManipParamsAndSetType(t_FmPcdManip *p_Manip,
                                             E_INVALID_STATE,
                                             ("unsupported insert by header type"));
                             }
+                            break;
                         }
                         case (e_FM_PCD_MANIP_INSRT_GENERIC):
                             break;
