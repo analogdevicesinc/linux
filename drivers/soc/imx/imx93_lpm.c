@@ -197,8 +197,15 @@ static void sys_freq_scaling(enum mode_type new_mode)
 		/*
 		 * if switch from LD mode to ND mode, voltage should be increase firstly.
 		 */
-		if (system_run_mode.current_mode == LD_MODE)
+		if (system_run_mode.current_mode == LD_MODE || no_od_mode) {
 			regulator_set_voltage_tol(soc_reg, VDD_SOC_ND_VOLTAGE, 0);
+			if (of_machine_is_compatible("fsl,imx93"))
+				clk_set_parent(path[NIC_AXI].clk, clks[SYS_PLL_PFD1].clk);
+			else
+				clk_set_parent(path[NIC_AXI].clk, clks[SYS_PLL_PFD0].clk);
+
+			clk_set_rate(path[NIC_AXI].clk, path[NIC_AXI].mode_rate[ND_MODE]);
+		}
 
 		for (i = 0; i < CLK_PATH_END; i++) {
 			if (i == M33_ROOT) {
@@ -208,10 +215,7 @@ static void sys_freq_scaling(enum mode_type new_mode)
 			} else if (i == ML_AXI) {
 				clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1].clk);
 			} else if (i == NIC_AXI) {
-				if (of_machine_is_compatible("fsl,imx93"))
-					clk_set_parent(path[i].clk, clks[SYS_PLL_PFD1].clk);
-				else
-					clk_set_parent(path[i].clk, clks[SYS_PLL_PFD0].clk);
+				continue;
 			} else if (i == WAKEUP_AXI) {
 				if (of_machine_is_compatible("fsl,imx93"))
 					clk_set_parent(path[i].clk, clks[SYS_PLL_PFD2].clk);
@@ -225,8 +229,15 @@ static void sys_freq_scaling(enum mode_type new_mode)
 		/* Scaling down the ddr frequency. */
 		scaling_dram_freq(no_od_mode ? 0x0 : 0x1);
 
-		if (system_run_mode.current_mode != LD_MODE)
+		if (system_run_mode.current_mode != LD_MODE && !no_od_mode) {
+			if (of_machine_is_compatible("fsl,imx93"))
+				clk_set_parent(path[NIC_AXI].clk, clks[SYS_PLL_PFD1].clk);
+			else
+				clk_set_parent(path[NIC_AXI].clk, clks[SYS_PLL_PFD0].clk);
+
+			clk_set_rate(path[NIC_AXI].clk, path[NIC_AXI].mode_rate[ND_MODE]);
 			regulator_set_voltage_tol(soc_reg, VDD_SOC_ND_VOLTAGE, 0);
+		}
 
 		pr_info("System switching to ND mode...\n");
 	} else if (new_mode == LD_MODE || new_mode == SWFFC_MODE) {
