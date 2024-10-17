@@ -158,7 +158,7 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	int ret, clk_en_time;
 	u32 rem;
 
-	ref_clk_period_ns = DIV_ROUND_CLOSEST(NSEC_PER_SEC, ltc->ref_clk_rate);
+	ref_clk_period_ns = DIV_ROUND_UP(NSEC_PER_SEC, ltc->ref_clk_rate);
 
 	cnv_state = (struct pwm_state) {
 		.duty_cycle = ref_clk_period_ns,
