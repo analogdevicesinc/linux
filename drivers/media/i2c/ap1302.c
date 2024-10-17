@@ -1537,6 +1537,7 @@ static const struct v4l2_ctrl_config ap1302_ctrls[] = {
 
 static int ap1302_ctrls_init(struct ap1302_device *ap1302)
 {
+	struct v4l2_fwnode_device_properties props;
 	unsigned int i;
 	int ret;
 
@@ -1549,15 +1550,27 @@ static int ap1302_ctrls_init(struct ap1302_device *ap1302)
 
 	if (ap1302->ctrls.error) {
 		ret = ap1302->ctrls.error;
-		v4l2_ctrl_handler_free(&ap1302->ctrls);
-		return ret;
+		goto free_ctrls;
 	}
+
+	ret = v4l2_fwnode_device_parse(ap1302->dev, &props);
+	if (ret)
+		goto free_ctrls;
+
+	ret = v4l2_ctrl_new_fwnode_properties(&ap1302->ctrls,
+					      &ap1302_ctrl_ops, &props);
+	if (ret)
+		goto free_ctrls;
 
 	/* Use same lock for controls as for everything else. */
 	ap1302->ctrls.lock = &ap1302->lock;
 	ap1302->sd.ctrl_handler = &ap1302->ctrls;
 
 	return 0;
+
+free_ctrls:
+	v4l2_ctrl_handler_free(&ap1302->ctrls);
+	return ret;
 }
 
 static void ap1302_ctrls_cleanup(struct ap1302_device *ap1302)
