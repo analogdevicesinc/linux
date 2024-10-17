@@ -12,12 +12,6 @@
 };
 
 &lpm {
-	clocks = <&clk IMX91_CLK_DUMMY>, <&clk IMX91_CLK_WAKEUP_AXI>,
-		 <&clk IMX91_CLK_NIC_AXI>, <&clk IMX91_CLK_MEDIA_AXI>,
-		 <&clk IMX91_CLK_A55_PERIPH>, <&clk IMX91_CLK_A55_CORE>, <&clk IMX91_CLK_DUMMY>,
-		 <&clk IMX91_CLK_SYS_PLL_PFD0>, <&clk IMX91_CLK_SYS_PLL_PFD0_DIV2>,
-		 <&clk IMX91_CLK_SYS_PLL_PFD1>, <&clk IMX91_CLK_SYS_PLL_PFD1_DIV2>,
-		 <&clk IMX91_CLK_SYS_PLL_PFD2>, <&clk IMX91_CLK_SYS_PLL_PFD2_DIV2>;
 	no-od-mode;
 	ld-mode-enabled;
 	soc-supply = <&buck1>;
