@@ -32,6 +32,10 @@
 			"ad9528-1_out11", "ad9528-1_out12", "ad9528-1_out13";
 		#clock-cells = <1>;
 
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-sysref-provider;
+
 		adi,vcxo-freq = <122880000>;
 
 		adi,refa-enable;
