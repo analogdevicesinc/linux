@@ -923,12 +923,25 @@ static void imx_pcie_ltssm_disable(struct device *dev)
 	reset_control_assert(imx_pcie->apps_reset);
 }
 
+static void imx_pcie_linkcap_update(struct dw_pcie *pci, u32 new)
+{
+	u32 val;
+	u8 offset = dw_pcie_find_capability(pci, PCI_CAP_ID_EXP);
+
+	val = dw_pcie_readl_dbi(pci, offset + PCI_EXP_LNKCAP);
+	dw_pcie_dbi_ro_wr_en(pci);
+	val &= ~PCI_EXP_LNKCAP_SLS;
+	val |= new;
+	dw_pcie_writel_dbi(pci, offset + PCI_EXP_LNKCAP, val);
+	dw_pcie_dbi_ro_wr_dis(pci);
+}
+
 static int imx_pcie_start_link(struct dw_pcie *pci)
 {
 	struct imx_pcie *imx_pcie = to_imx_pcie(pci);
 	struct device *dev = pci->dev;
 	u8 offset = dw_pcie_find_capability(pci, PCI_CAP_ID_EXP);
-	u32 tmp;
+	u32 tmp, link_cap;
 	int ret;
 
 	/*
@@ -936,12 +949,8 @@ static int imx_pcie_start_link(struct dw_pcie *pci)
 	 * started in Gen2 mode, there is a possibility the devices on the
 	 * bus will not be detected at all.  This happens with PCIe switches.
 	 */
-	dw_pcie_dbi_ro_wr_en(pci);
-	tmp = dw_pcie_readl_dbi(pci, offset + PCI_EXP_LNKCAP);
-	tmp &= ~PCI_EXP_LNKCAP_SLS;
-	tmp |= PCI_EXP_LNKCAP_SLS_2_5GB;
-	dw_pcie_writel_dbi(pci, offset + PCI_EXP_LNKCAP, tmp);
-	dw_pcie_dbi_ro_wr_dis(pci);
+	link_cap = dw_pcie_readl_dbi(pci, offset + PCI_EXP_LNKCAP);
+	imx_pcie_linkcap_update(pci, PCI_EXP_LNKCAP_SLS_2_5GB);
 
 	/* Start LTSSM. */
 	imx_pcie_ltssm_enable(dev);
@@ -952,16 +961,12 @@ static int imx_pcie_start_link(struct dw_pcie *pci)
 
 	if (pci->max_link_speed > 1) {
 		/* Allow faster modes after the link is up */
-		dw_pcie_dbi_ro_wr_en(pci);
-		tmp = dw_pcie_readl_dbi(pci, offset + PCI_EXP_LNKCAP);
-		tmp &= ~PCI_EXP_LNKCAP_SLS;
-		tmp |= pci->max_link_speed;
-		dw_pcie_writel_dbi(pci, offset + PCI_EXP_LNKCAP, tmp);
-
+		imx_pcie_linkcap_update(pci, pci->max_link_speed);
 		/*
 		 * Start Directed Speed Change so the best possible
 		 * speed both link partners support can be negotiated.
 		 */
+		dw_pcie_dbi_ro_wr_en(pci);
 		tmp = dw_pcie_readl_dbi(pci, PCIE_LINK_WIDTH_SPEED_CONTROL);
 		tmp |= PORT_LOGIC_SPEED_CHANGE;
 		dw_pcie_writel_dbi(pci, PCIE_LINK_WIDTH_SPEED_CONTROL, tmp);
@@ -1003,6 +1008,7 @@ err_reset_phy:
 	dev_dbg(dev, "PHY DEBUG_R0=0x%08x DEBUG_R1=0x%08x\n",
 		dw_pcie_readl_dbi(pci, PCIE_PORT_DEBUG0),
 		dw_pcie_readl_dbi(pci, PCIE_PORT_DEBUG1));
+	imx_pcie_linkcap_update(pci, link_cap);
 	imx_pcie_reset_phy(imx_pcie);
 	return 0;
 }
