@@ -118,6 +118,7 @@ struct spi_engine {
 	unsigned int int_enable;
 
 	struct timer_list watchdog_timer;
+	unsigned int word_length;
 };
 
 static void spi_engine_program_add_cmd(struct spi_engine_program *p,
@@ -173,6 +174,18 @@ static unsigned int spi_engine_get_word_length(struct spi_engine *spi_engine,
 		return spi->bits_per_word;
 	else
 		return 8;
+}
+
+static void spi_engine_update_xfer_len(struct spi_engine *spi_engine,
+				       struct spi_transfer *xfer)
+{
+	unsigned int word_length = spi_engine->word_length;
+	unsigned int word_len_bytes = word_length / 8;
+
+	if ((xfer->len * 8) < word_length)
+		xfer->len = 1;
+	else
+		xfer->len = DIV_ROUND_UP(xfer->len, word_len_bytes);
 }
 
 static void spi_engine_gen_xfer(struct spi_engine_program *p, bool dry,
@@ -259,6 +272,7 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 		new_word_len = spi_engine_get_word_length(spi_engine, spi, xfer);
 		if (new_word_len != word_len) {
 			word_len = new_word_len;
+			spi_engine->word_length = word_len;
 			spi_engine_program_add_cmd(p, dry,
 				SPI_ENGINE_CMD_WRITE(SPI_ENGINE_CMD_REG_WORD_LENGTH,
 					word_len));
@@ -267,6 +281,7 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 		if (cs_change)
 			spi_engine_gen_cs(p, dry, spi, true);
 
+		spi_engine_update_xfer_len(spi_engine, xfer);
 		spi_engine_gen_xfer(p, dry, xfer);
 		spi_engine_gen_sleep(p, dry, spi_engine, xfer->delay, clk_div,
 				     xfer);
@@ -288,7 +303,7 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 
 bool spi_engine_offload_supported(struct spi_device *spi)
 {
-	if (strcmp(spi->master->dev.parent->driver->name, "spi-engine") != 0)
+	if (strcmp(spi->controller->dev.parent->driver->name, "spi-engine") != 0)
 		return false;
 
 	return true;
@@ -297,8 +312,8 @@ EXPORT_SYMBOL_GPL(spi_engine_offload_supported);
 
 void spi_engine_offload_enable(struct spi_device *spi, bool enable)
 {
-	struct spi_master *master = spi->master;
-	struct spi_engine *spi_engine = spi_master_get_devdata(master);
+	struct spi_controller *host = spi->controller;
+	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
 	unsigned int reg;
 
 	reg = readl(spi_engine->base + SPI_ENGINE_REG_OFFLOAD_CTRL(0));
@@ -313,8 +328,8 @@ EXPORT_SYMBOL_GPL(spi_engine_offload_enable);
 int spi_engine_offload_load_msg(struct spi_device *spi,
 	struct spi_message *msg)
 {
-	struct spi_master *master = spi->master;
-	struct spi_engine *spi_engine = spi_master_get_devdata(master);
+	struct spi_controller *host = spi->controller;
+	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
 	struct spi_engine_program p_dry;
 	struct spi_engine_program *p;
 	struct spi_transfer *xfer;
@@ -433,19 +448,52 @@ static bool spi_engine_write_cmd_fifo(struct spi_engine *spi_engine)
 	return spi_engine->cmd_length != 0;
 }
 
-static bool spi_engine_write_tx_fifo(struct spi_engine *spi_engine)
+static void spi_engine_read_buff(struct spi_engine *spi_engine, uint8_t m)
+{
+	void __iomem *addr = spi_engine->base + SPI_ENGINE_REG_SDI_DATA_FIFO;
+	uint32_t val;
+	uint8_t bytes_len, i, j, *buf;
+
+	bytes_len = DIV_ROUND_UP(spi_engine->word_length, 8);
+	buf = spi_engine->rx_buf;
+
+	for (i = 0; i < (m * bytes_len); i += bytes_len) {
+		val = readl_relaxed(addr);
+		for (j = 0; j < bytes_len; j++)
+			buf[j] = val >> (8 * j);
+		buf += bytes_len;
+	}
+
+	spi_engine->rx_buf += i;
+}
+
+static void spi_engine_write_buff(struct spi_engine *spi_engine, uint8_t m)
 {
 	void __iomem *addr = spi_engine->base + SPI_ENGINE_REG_SDO_DATA_FIFO;
-	unsigned int n, m, i;
-	const uint8_t *buf;
+	uint8_t bytes_len, word_len, i, j;
+	uint32_t val = 0;
+
+	bytes_len = DIV_ROUND_DOWN_ULL(spi_engine->word_length, 8);
+	word_len = spi_engine->word_length;
+
+	for (i = 0; i < (m * bytes_len); i += bytes_len) {
+		for (j = 0; j < bytes_len; j++)
+			val |= spi_engine->tx_buf[i + j] << (word_len - 8 * (j + 1));
+		writel_relaxed(val, addr);
+		val = 0;
+	}
+
+	spi_engine->tx_buf += i;
+}
+
+static bool spi_engine_write_tx_fifo(struct spi_engine *spi_engine)
+{
+	unsigned int n, m;
 
 	n = readl_relaxed(spi_engine->base + SPI_ENGINE_REG_SDO_FIFO_ROOM);
 	while (n && spi_engine->tx_length) {
 		m = min(n, spi_engine->tx_length);
-		buf = spi_engine->tx_buf;
-		for (i = 0; i < m; i++)
-			writel_relaxed(buf[i], addr);
-		spi_engine->tx_buf += m;
+		spi_engine_write_buff(spi_engine, m);
 		spi_engine->tx_length -= m;
 		n -= m;
 		if (spi_engine->tx_length == 0)
@@ -457,17 +505,12 @@ static bool spi_engine_write_tx_fifo(struct spi_engine *spi_engine)
 
 static bool spi_engine_read_rx_fifo(struct spi_engine *spi_engine)
 {
-	void __iomem *addr = spi_engine->base + SPI_ENGINE_REG_SDI_DATA_FIFO;
-	unsigned int n, m, i;
-	uint8_t *buf;
+	unsigned int n, m;
 
 	n = readl_relaxed(spi_engine->base + SPI_ENGINE_REG_SDI_FIFO_LEVEL);
 	while (n && spi_engine->rx_length) {
 		m = min(n, spi_engine->rx_length);
-		buf = spi_engine->rx_buf;
-		for (i = 0; i < m; i++)
-			buf[i] = readl_relaxed(addr);
-		spi_engine->rx_buf += m;
+		spi_engine_read_buff(spi_engine, m);
 		spi_engine->rx_length -= m;
 		n -= m;
 		if (spi_engine->rx_length == 0)
@@ -486,6 +529,12 @@ static void spi_engine_complete_message(struct spi_controller *host, int status)
 	msg->status = status;
 	msg->actual_length = msg->frame_length;
 	spi_engine->msg = NULL;
+	spi_engine->tx_xfer = NULL;
+	spi_engine->tx_buf = NULL;
+	spi_engine->tx_length = 0;
+	spi_engine->rx_xfer = NULL;
+	spi_engine->rx_buf = NULL;
+	spi_engine->rx_length = 0;
 	spi_finalize_current_message(host);
 }
 
@@ -497,7 +546,6 @@ static irqreturn_t spi_engine_irq(int irq, void *devid)
 	unsigned int pending;
 
 	pending = readl_relaxed(spi_engine->base + SPI_ENGINE_REG_INT_PENDING);
-
 	if (pending & SPI_ENGINE_INT_SYNC) {
 		writel_relaxed(SPI_ENGINE_INT_SYNC,
 			spi_engine->base + SPI_ENGINE_REG_INT_PENDING);
@@ -620,8 +668,8 @@ static int spi_engine_probe(struct platform_device *pdev)
 	int ret;
 
 	irq = platform_get_irq(pdev, 0);
-	if (irq < 0)
-		return irq;
+	if (irq <= 0)
+		return -ENXIO;
 
 	spi_engine = devm_kzalloc(&pdev->dev, sizeof(*spi_engine), GFP_KERNEL);
 	if (!spi_engine)
@@ -682,8 +730,8 @@ static int spi_engine_probe(struct platform_device *pdev)
 
 	host->dev.of_node = pdev->dev.of_node;
 	host->mode_bits = SPI_CPOL | SPI_CPHA | SPI_3WIRE;
-	host->bits_per_word_mask = SPI_BPW_MASK(8);
 	host->max_speed_hz = clk_get_rate(spi_engine->ref_clk) / 2;
+	host->bits_per_word_mask = GENMASK(31, 0);
 	host->transfer_one_message = spi_engine_transfer_one_message;
 	host->num_chipselect = 8;
 
@@ -707,7 +755,7 @@ err_put_host:
 	return ret;
 }
 
-static void spi_engine_remove(struct platform_device *pdev)
+static int spi_engine_remove(struct platform_device *pdev)
 {
 	struct spi_controller *host = spi_controller_get(platform_get_drvdata(pdev));
 	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
@@ -725,6 +773,8 @@ static void spi_engine_remove(struct platform_device *pdev)
 
 	clk_disable_unprepare(spi_engine->ref_clk);
 	clk_disable_unprepare(spi_engine->clk);
+
+	return 0;
 }
 
 static const struct of_device_id spi_engine_match_table[] = {
@@ -735,7 +785,7 @@ MODULE_DEVICE_TABLE(of, spi_engine_match_table);
 
 static struct platform_driver spi_engine_driver = {
 	.probe = spi_engine_probe,
-	.remove_new = spi_engine_remove,
+	.remove = spi_engine_remove,
 	.driver = {
 		.name = "spi-engine",
 		.of_match_table = spi_engine_match_table,
