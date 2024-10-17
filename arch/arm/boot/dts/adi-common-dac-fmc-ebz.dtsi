@@ -1,3 +1,5 @@
+#include <dt-bindings/dma/axi-dmac.h>
+
 &dac_dma {
 	compatible = "adi,axi-dmac-1.00.a";
 
@@ -10,9 +12,9 @@
 		dma-channel@0 {
 			reg = <0>;
 			adi,source-bus-width = <64>;
-			adi,source-bus-type = <0>;
+			adi,source-bus-type = <AXI_DMAC_BUS_TYPE_AXI_MM>;
 			adi,destination-bus-width = <256>;
-			adi,destination-bus-type = <2>;
+			adi,destination-bus-type = <AXI_DMAC_BUS_TYPE_FIFO>;
 		};
 	};
 };

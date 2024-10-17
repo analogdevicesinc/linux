@@ -11,6 +11,7 @@
  */
 
 #include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/dma/axi-dmac.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/iio/adc/adi,ad9208.h>
 #include <dt-bindings/jesd204/adxcvr.h>
@@ -75,9 +76,9 @@
 				dma-channel@0 {
 					reg = <0>;
 					adi,source-bus-width = <128>;
-					adi,source-bus-type = <1>;
+					adi,source-bus-type = <AXI_DMAC_BUS_TYPE_AXI_STREAM>;
 					adi,destination-bus-width = <128>;
-					adi,destination-bus-type = <0>;
+					adi,destination-bus-type = <AXI_DMAC_BUS_TYPE_AXI_MM>;
 				};
 			};
 		};
