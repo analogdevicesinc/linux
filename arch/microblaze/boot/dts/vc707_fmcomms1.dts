@@ -1,6 +1,7 @@
 
 /dts-v1/;
 #include "vc707.dtsi"
+#include <dt-bindings/dma/axi-dmac.h>
 
 #define fmc_i2c fmc1_hpc_iic
 
@@ -46,9 +47,9 @@
 			dma-channel@0 {
 				reg = <0>;
 				adi,source-bus-width = <64>;
-				adi,source-bus-type = <2>;
+				adi,source-bus-type = <AXI_DMAC_BUS_TYPE_FIFO>;
 				adi,destination-bus-width = <64>;
-				adi,destination-bus-type = <0>;
+				adi,destination-bus-type = <AXI_DMAC_BUS_TYPE_AXI_MM>;
 			};
 		};
 	};

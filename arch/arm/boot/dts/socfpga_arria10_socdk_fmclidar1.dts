@@ -10,6 +10,7 @@
  */
 /dts-v1/;
 #include "socfpga_arria10_socdk.dtsi"
+#include <dt-bindings/dma/axi-dmac.h>
 #include <dt-bindings/iio/frequency/ad9528.h>
 
 &mmc {
@@ -151,9 +152,9 @@
 					dma-channel@0 {
 						reg = <0>;
 						adi,source-bus-width = <256>;
-						adi,source-bus-type = <2>;
+						adi,source-bus-type = <AXI_DMAC_BUS_TYPE_FIFO>;
 						adi,destination-bus-width = <64>;
-						adi,destination-bus-type = <0>;
+						adi,destination-bus-type = <AXI_DMAC_BUS_TYPE_AXI_MM>;
 					};
 				};
 			};
