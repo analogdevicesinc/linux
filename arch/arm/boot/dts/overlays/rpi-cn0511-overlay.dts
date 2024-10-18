@@ -19,7 +19,7 @@
 
 	fragment@1 {
 		target = <&spi0_cs_pins>;
-		frag0: __overlay__ {
+		__overlay__ {
 				brcm,pins = <8 7 25>;
 				brcm,function = <1>; //output
 		};
@@ -27,7 +27,7 @@
 
 	fragment@2 {
 		target = <&spi0>;
-		frag1: __overlay__ {
+		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
 
