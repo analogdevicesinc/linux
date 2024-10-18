@@ -20,7 +20,7 @@
 	/* We have 2 spidev */
 	fragment@1 {
 		target = <&spi0_cs_pins>;
-		frag0: __overlay__ {
+		__overlay__ {
 			brcm,pins = <8 7 27>;
 			brcm,function = <1>; //output
 		};
