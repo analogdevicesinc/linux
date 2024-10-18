@@ -2624,11 +2624,6 @@ static int ap1302_config_v4l2(struct ap1302_device *ap1302)
 	sd->dev = ap1302->dev;
 	v4l2_i2c_subdev_init(sd, ap1302->client, &ap1302_subdev_ops);
 
-	strscpy(sd->name, DRIVER_NAME, sizeof(sd->name));
-	strlcat(sd->name, ".", sizeof(sd->name));
-	strlcat(sd->name, dev_name(ap1302->dev), sizeof(sd->name));
-	dev_dbg(ap1302->dev, "name %s\n", sd->name);
-
 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS;
 	sd->internal_ops = &ap1302_subdev_internal_ops;
 	sd->entity.function = MEDIA_ENT_F_PROC_VIDEO_ISP;
