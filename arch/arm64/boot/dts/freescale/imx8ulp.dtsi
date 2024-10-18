@@ -1010,8 +1010,9 @@
 				compatible = "fsl,imx8ulp-isi";
 				reg = <0x2dac0000 0x10000>;
 				interrupts = <GIC_SPI 119 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&pcc5 IMX8ULP_CLK_ISI>;
-				clock-names = "per";
+				clocks = <&pcc5 IMX8ULP_CLK_ISI>,
+					 <&cgc2 IMX8ULP_CLK_LPAV_BUS_DIV>;
+				clock-names = "axi", "apb";
 				power-domains = <&scmi_devpd IMX8ULP_PD_ISI>;
 				status = "disabled";
 			};
