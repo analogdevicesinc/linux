@@ -5,15 +5,16 @@
  * Copyright 2020 Analog Devices Inc.
  */
 
-#include "clk-ad9545.h"
 #include <linux/bitfield.h>
 #include <linux/device.h>
 #include <linux/err.h>
-#include <linux/iio/iio.h>
 #include <linux/module.h>
+#include <linux/mod_devicetable.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/spi/spi.h>
+
+#include "clk-ad9545.h"
 
 #define AD9545_CONFIG_0			0x0000
 

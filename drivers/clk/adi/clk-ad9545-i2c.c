@@ -5,14 +5,15 @@
  * Copyright 2020 Analog Devices Inc.
  */
 
-#include "clk-ad9545.h"
 #include <linux/device.h>
 #include <linux/err.h>
 #include <linux/i2c.h>
-#include <linux/iio/iio.h>
 #include <linux/module.h>
+#include <linux/mod_devicetable.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
+
+#include "clk-ad9545.h"
 
 static const struct regmap_config ad9545_regmap_config = {
 	.reg_bits = 16,
