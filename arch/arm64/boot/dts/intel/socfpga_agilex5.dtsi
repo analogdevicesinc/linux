@@ -1012,6 +1012,7 @@
 			clocks = <&clkmgr AGILEX5_USB2OTG_HCLK>;
 			clock-names = "otg";
 			iommus = <&smmu 6>;
+			dma-coherent;
 			status = "disabled";
 		};
 
@@ -1033,6 +1034,7 @@
 			snps,dis_u2_susphy_quirk;
 			snps,dis_u3_susphy_quirk;
 			snps,dma_set_40_bit_mask_quirk;
+			dma-coherent;
 			status = "disabled";
 		};
 
