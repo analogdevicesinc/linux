@@ -25,7 +25,7 @@
 			#size-cells = <0>;
 			status = "okay";
 
-			ad5677r@0f{
+			ad5677r@f{
 				compatible = "adi,ad5677r";
 				reg = <0x0f>;
 				vcc-supply = <&adc_vref>;
