@@ -1,0 +1,31 @@
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+/*
+ * SPI:
+ * spi0_csn      # "JA1"
+ * spi0_mosi     # "JA2"
+ * spi0_miso     # "JA3"
+ * spi0_clk      # "JA4"
+ * gpio_cftl[0]] # "JA7"        GPIO 54 + 32 + 0
+ * gpio_cftl[1]] # "JA10"       GPIO 54 + 32 + 1
+ */
+
+
+&spi0 {
+	status = "okay";
+	num-cs = <4>;
+	is-decoded-cs = <0>;
+
+			adf7242@0 {
+				compatible = "adi,adf7242";
+				reg = <0x0>;
+				interrupt-parent = <&gpio0>;
+				interrupts = <86 0x4>;
+				spi-max-frequency = <12500000>;
+				adi,hw-aack-mode-enable;
+				adi,auto-csma-ca-mode-enable;
+			};
+};

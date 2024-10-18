@@ -1,0 +1,159 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for AD9172-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * Copyright (C) 2018-2019 Analog Devices Inc.
+ */
+#include <dt-bindings/iio/frequency/ad9528.h>
+#include <dt-bindings/iio/adc/adi,ad9083.h>
+
+&spi0 {
+	ad9528: ad9528@1 {
+		compatible = "adi,ad9528";
+		reg = <1>;
+		spi-cpol;
+		spi-cpha;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-sysref-provider;
+
+		spi-max-frequency = <10000000>;
+		adi,spi-3wire-enable;
+
+		clock-output-names = "ad9528-1_out0", "ad9528-1_out1", "ad9528-1_out2",
+			"ad9528-1_out3", "ad9528-1_out4", "ad9528-1_out5", "ad9528-1_out6",
+			"ad9528-1_out7", "ad9528-1_out8", "ad9528-1_out9", "ad9528-1_out10",
+			"ad9528-1_out11", "ad9528-1_out12", "ad9528-1_out13";
+		#clock-cells = <1>;
+
+		adi,vcxo-freq = <100000000>;
+
+		adi,refa-enable;
+		adi,refa-diff-rcv-enable;
+		adi,refa-r-div = <1>;
+		adi,osc-in-cmos-neg-inp-enable;
+
+		/* SYSREF config */
+		adi,sysref-src = <SYSREF_SRC_INTERNAL>;
+		adi,sysref-pattern-mode = <SYSREF_PATTERN_NSHOT>;
+		adi,sysref-k-div = <256>;
+		adi,sysref-nshot-mode = <SYSREF_NSHOT_4_PULSES>;
+		adi,sysref-request-trigger-mode = <SYSREF_LEVEL_HIGH>;
+		adi,jesd204-max-sysref-frequency-hz = <400000>;
+
+		/* PLL1 config */
+		adi,pll1-feedback-src-vcxo;
+		adi,pll1-feedback-div = <4>;
+		adi,pll1-charge-pump-current-nA = <5000>;
+		adi,osc-in-diff-enable;
+
+		/* PLL2 config */
+		/*
+		 * Valid ranges based on VCO locking range:
+		 *   1150.000 MHz - 1341.666 MHz
+		 *    862.500 MHz - 1006.250 MHz
+		 *    690.000 MHz -  805.000 MHz
+		 */
+		adi,pll2-m1-frequency = <1000000000>;
+		adi,pll2-charge-pump-current-nA = <805000>;
+
+		adi,rpole2 = <RPOLE2_900_OHM>;
+		adi,rzero = <RZERO_1850_OHM>;
+		adi,cpole1 = <CPOLE1_16_PF>;
+
+		adi,status-mon-pin0-function-select = <0xFF>; /* No function */
+		adi,status-mon-pin1-function-select = <0xFF>; /* No function */
+
+		ad9528_0_c1: channel@1 {
+			reg = <1>;
+			adi,extended-name = "FPGA_GLBL_CLK";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <8>; /* 125 MHz */
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_0_c3: channel@3 {
+			reg = <3>;
+			adi,extended-name = "FPGA_REF_CLK";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <2>; /* 500 MHz */
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_0_c13: channel@13 {
+			reg = <13>;
+			adi,extended-name = "ADC_REF_CLK";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <4>; /* 250 MHz */
+			adi,signal-source = <SOURCE_VCO>;
+		};
+
+		ad9528_0_c12: channel@12 {
+			reg = <12>;
+			adi,extended-name = "DEV_SYSREF";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <5>;
+			adi,signal-source = <SOURCE_SYSREF_VCO>;
+		};
+
+		ad9528_0_c0: channel@0 {
+			reg = <0>;
+			adi,extended-name = "FMC_SYSREF";
+			adi,driver-mode = <DRIVER_MODE_LVDS>;
+			adi,divider-phase = <0>;
+			adi,channel-divider = <5>;
+			adi,signal-source = <SOURCE_SYSREF_VCO>;
+		};
+	};
+
+	adc0_ad9083: ad9083@0 {
+		compatible = "adi,ad9083";
+		reg = <0>;
+
+		jesd204-device;
+		#jesd204-cells = <2>;
+		jesd204-top-device = <0>;
+		jesd204-link-ids = <0>;
+		jesd204-inputs = <&axi_ad9083_core_rx 0 0>;
+
+		spi-max-frequency = <1000000>;
+		clocks = <&ad9528 13>;
+		clock-names = "adc_ref_clk";
+		adi,adc-frequency-hz= /bits/ 64 <2000000000>; /* 2 GHz */
+
+		/* adi_ad9083 config */
+
+		adi,vmax-microvolt = <1800>;
+		adi,fc-hz =  /bits/ 64 <800000000>;
+		adi,rterm-ohms = <100>;
+		adi,backoff = <0>;
+		adi,finmax-hz = /bits/ 64 <100000000>;
+		adi,nco0_freq-hz = /bits/ 64 <0>;
+		adi,nco1_freq-hz = /bits/ 64 <0>;
+		adi,nco2_freq-hz = /bits/ 64 <0>;
+		adi,cic_decimation = /bits/ 8 <AD9083_CIC_DEC_4>;
+		adi,j_decimation = /bits/ 8 <AD9083_J_DEC_4>;
+		adi,g_decimation = /bits/ 8 <0>;
+		adi,h_decimation = /bits/ 8 <0>;
+		adi,nco0_datapath_mode = /bits/ 8 <AD9083_DATAPATH_ADC_CIC_J>;
+
+		/* JESD204 parameters */
+
+		adi,octets-per-frame = <8>;
+		adi,frames-per-multiframe = <32>;
+		adi,converter-resolution = <16>;
+		adi,bits-per-sample = <16>;
+		adi,converters-per-device = <16>;
+		adi,control-bits-per-sample = <0>;
+		adi,lanes-per-device = <4>;
+		adi,subclass = <0>;
+	};
+};
+

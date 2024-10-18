@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADAQ8092
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/adaq8092
+ *
+ * hdl_project: <adaq8092_fmc/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2022 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	clocks {
+		adaq8092_clkin: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <105000000>;
+		};
+	};
+
+	avcc: regulator-avcc {
+		compatible = "regulator-fixed";
+
+		regulator-name = "avcc";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	avdd: regulator-avdd {
+		compatible = "regulator-fixed";
+
+		regulator-name = "avdd";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+
+		gpio = <&gpio0 89 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+};
+
+&fpga_axi {
+	rx_dma: rx-dmac@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x10000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	axi_adc_adaq8092: adaq8092@44a00000 {
+		compatible = "adi,axi-adc-10.0.a";
+		reg = <0x44a00000 0x10000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&adaq8092>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+
+	adaq8092: adc@0 {
+		compatible = "adi,adaq8092";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+
+		adc-pd1-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>;
+		adc-pd2-gpios = <&gpio0 88 GPIO_ACTIVE_HIGH>;
+
+		avcc-supply = <&avcc>;
+		avdd-supply = <&avdd>;
+
+		clocks = <&adaq8092_clkin>;
+		clock-names = "clkin";
+	};
+};

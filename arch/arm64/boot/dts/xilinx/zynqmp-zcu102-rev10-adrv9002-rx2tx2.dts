@@ -1,0 +1,155 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV9002
+ *
+ * hdl_project: <adrv9001/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2020 Analog Devices Inc.
+ */
+#include "zynqmp-zcu102-rev1.0.dts"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+&i2c1 {
+	i2c-mux@75 {
+		i2c@0 { /* HPC0 */
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			/* HPC0_IIC */
+			eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+
+		};
+	};
+};
+
+/ {
+	fpga_axi  {
+		interrupt-parent = <&gic>;
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges = <0 0 0 0xffffffff>;
+
+		rx_dma: dma@84A30000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84A30000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <2>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <0>;
+				};
+			};
+		};
+
+		tx_dma: dma@84A50000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x84A50000 0x10000>;
+			#dma-cells = <1>;
+			interrupts = <0 105 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&zynqmp_clk 71>;
+
+			adi,channels {
+				#size-cells = <0>;
+				#address-cells = <1>;
+
+				dma-channel@0 {
+					reg = <0>;
+					adi,source-bus-width = <64>;
+					adi,source-bus-type = <0>;
+					adi,destination-bus-width = <64>;
+					adi,destination-bus-type = <2>;
+				};
+			};
+		};
+
+		axi_adrv9002_core_rx: axi-adrv9002-rx-lpc@84A00000 {
+			compatible = "adi,axi-adrv9002-rx-1.0";
+			reg = <0x84A00000 0x6000>;
+			clocks = <&adc0_adrv9002 0>;
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			spibus-connected = <&adc0_adrv9002>;
+		};
+
+		axi_adrv9002_core_tx: axi-adrv9002-tx-lpc@84A04000 {
+			compatible = "adi,axi-adrv9002-rx2tx2-1.0";
+			reg = <0x84A02000 0x2000>;
+			clocks = <&adc0_adrv9002 1>;
+			clock-names = "sampl_clk";
+			dmas = <&tx_dma 0>;
+			dma-names = "tx";
+			adi,axi-dds-default-scale = <0x800>;
+			adi,axi-dds-default-frequency = <2000000>;
+		};
+
+		axi_adrv9002_core_tdd: axi-adrv9002-core-tdd-lpc@44A0C800 {
+			compatible = "adi,axi-tdd-1.00";
+			reg = <0x84A0C800 0x400>;
+			clocks = <&zynqmp_clk 71>, <&adc0_adrv9002 2>;
+			clock-names = "s_axi_aclk", "intf_clk";
+		};
+
+		axi_sysid_0: axi-sysid-0@85000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x85000000 0x10000>;
+		};
+
+    };
+};
+
+&spi0 {
+	status = "okay";
+};
+
+#define fmc_spi spi0
+
+#include "adi-adrv9002.dtsi"
+
+/*
+Name		HDL	Linux
+ssi_sync	54	132
+mcs		53	131
+output_enable	52	130
+tx2_enable	51	129
+tx1_enable	50	128
+rx2_enable	49	127
+rx1_enable	48	126
+sm_fan_tach	47	125
+reset_trx	46	124
+mode		45	123
+gp_int		44	122
+dgpio_11	43	121
+dgpio_10	42	120
+dgpio_9		41	119
+dgpio_8		40	118
+dgpio_7		39	117
+dgpio_6		38	116
+dgpio_5		37	115
+dgpio_4		36	114
+dgpio_3		35	113
+dgpio_2		34	112
+dgpio_1		33	111
+dgpio_0		32	110
+*/
+
+&adc0_adrv9002 {
+	compatible = "adi,adrv9002-rx2tx2";
+	reset-gpios = <&gpio 124 GPIO_ACTIVE_LOW>;
+	ssi-sync-gpios = <&gpio 132 GPIO_ACTIVE_HIGH>;
+	clock-output-names = "rx1_sampl_clk", "tx1_sampl_clk", "tdd1_intf_clk";
+};

@@ -1,0 +1,118 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD9081-FMC-EBZ
+ * https://wiki.analog.com/resources/eval/user-guides/quadmxfe/quick-start
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-mxfe/ad9081
+ *
+ * hdl_project: <ad9081_fmca_ebz/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2022 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev10-ad9081-m8-l4.dts"
+
+/ {
+	mux0: mux-controller0 {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&gpio 110 0>, <&gpio 111 0>, <&gpio 112 0>,
+			<&gpio 113 0>, <&gpio 114 0>;
+	};
+
+	tx_mux0: mux-txffh {
+		compatible = "adi,gen_mux";
+		mux-controls = <&mux0>;
+		mux-state-names =
+			"0", "1", "2", "3", "4", "5", "6", "7",
+			"8", "9", "10", "11", "12", "13", "14", "15",
+			"16", "17", "18", "19", "20", "21", "22", "23",
+			"24", "25", "26", "27", "28", "29", "30";
+		label = "mux-txffh";
+	};
+
+	mux1: mux-controller1 {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&gpio 116 0>, <&gpio 117 0>, <&gpio 118 0>,
+			<&gpio 119 0>;
+	};
+
+	rx_mux1: mux-rxffh {
+		compatible = "adi,gen_mux";
+		mux-controls = <&mux1>;
+		mux-state-names =
+			"0", "1", "2", "3", "4", "5", "6", "7",
+			"8", "9", "10", "11", "12", "13", "14", "15";
+		label = "mux-rxffh";
+	};
+
+	mux2: mux-controller2 {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&gpio 140 0>, <&gpio 141 0>;
+	};
+
+	rx_mux2: mux-rxnco {
+		compatible = "adi,gen_mux";
+		mux-controls = <&mux2>;
+		mux-state-names =
+			"0", "1", "2", "3";
+		label = "mux-rxnco";
+	};
+
+	mux3: mux-controller3 {
+		compatible = "gpio-mux";
+		#mux-control-cells = <0>;
+
+		mux-gpios = <&gpio 138 0>, <&gpio 139 0>;
+	};
+
+	rx_mux3: mux-txnco {
+		compatible = "adi,gen_mux";
+		mux-controls = <&mux3>;
+		mux-state-names =
+			"0", "1", "2", "3";
+		label = "mux-txnco";
+	};
+};
+
+&gpio {
+	ad9081_gpio5 {
+		gpio-hog;
+		gpios = <115 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "GPIO_5 high";
+	};
+};
+
+&trx0_ad9081 {
+	adi,rx-adcs {
+		adi,ffh-gpio-mux-sel = /bits/ 8 <
+			AD9081_PERI_SEL_SYNCINB1_N
+			AD9081_PERI_SEL_SYNCINB1_P
+			AD9081_PERI_SEL_GPIO6
+			AD9081_PERI_SEL_GPIO7
+			AD9081_PERI_SEL_GPIO8
+			AD9081_PERI_SEL_GPIO9>;
+	};
+};
+
+&ad9081_adc0 {
+	adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_4GPIO_MODE>;
+};
+
+&ad9081_adc1 {
+	adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_4GPIO_MODE>;
+};
+
+&ad9081_adc2 {
+	adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_4GPIO_MODE>;
+};
+
+&ad9081_adc3 {
+	adi,nco-channel-select-mode = /bits/ 8 <AD9081_FFH_CHAN_SEL_4GPIO_MODE>;
+};

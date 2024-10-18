@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices ADRV9002
+ *
+ * hdl_project: <adrv9001/zc706>
+ * board_revision: <1.0>
+ *
+ * Copyright (C) 2021 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zc706.dtsi"
+#include "zynq-zc706-adv7511.dtsi"
+#include "zynq-adrv9002-rx2tx2.dtsi"
