@@ -371,7 +371,11 @@
 };
 
 &axi_data_offload_tx {
-	/delete-property/ adi,oneshot;
+	adi,oneshot;
+};
+
+&axi_data_offload_rx {
+	adi,bypass;
 };
 
 &iio_axi_tdd_0 {
