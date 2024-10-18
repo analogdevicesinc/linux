@@ -10,6 +10,7 @@
 
 #include "zynqmp.dtsi"
 #include "zynqmp-clk-ccf.dtsi"
+#include <dt-bindings/dma/axi-dmac.h>
 #include <dt-bindings/input/input.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pinctrl/pinctrl-zynqmp.h>
@@ -1337,9 +1338,9 @@
 				rx_dma_channel: dma-channel@0 {
 					reg = <0>;
 					adi,source-bus-width = <128>;
-					adi,source-bus-type = <2>;
+					adi,source-bus-type = <AXI_DMAC_BUS_TYPE_FIFO>;
 					adi,destination-bus-width = <128>;
-					adi,destination-bus-type = <0>;
+					adi,destination-bus-type = <AXI_DMAC_BUS_TYPE_AXI_MM>;
 				};
 			};
 		};
@@ -1359,9 +1360,9 @@
 				rx_obs_dma_channel: dma-channel@0 {
 					reg = <0>;
 					adi,source-bus-width = <128>;
-					adi,source-bus-type = <2>;
+					adi,source-bus-type = <AXI_DMAC_BUS_TYPE_FIFO>;
 					adi,destination-bus-width = <128>;
-					adi,destination-bus-type = <0>;
+					adi,destination-bus-type = <AXI_DMAC_BUS_TYPE_AXI_MM>;
 				};
 			};
 		};
@@ -1381,9 +1382,9 @@
 				tx_dma_channel: dma-channel@0 {
 					reg = <0>;
 					adi,source-bus-width = <128>;
-					adi,source-bus-type = <0>;
+					adi,source-bus-type = <AXI_DMAC_BUS_TYPE_AXI_MM>;
 					adi,destination-bus-width = <256>;
-					adi,destination-bus-type = <1>;
+					adi,destination-bus-type = <AXI_DMAC_BUS_TYPE_AXI_STREAM>;
 				};
 			};
 		};

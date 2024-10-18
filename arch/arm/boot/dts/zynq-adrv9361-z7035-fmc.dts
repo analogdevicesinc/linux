@@ -12,6 +12,7 @@
 /dts-v1/;
 #include "zynq-adrv9361-z7035.dtsi"
 
+#include <dt-bindings/dma/axi-dmac.h>
 #include <dt-bindings/input/input.h>
 
 / {
@@ -184,9 +185,9 @@
 				dma-channel@0 {
 					reg = <0>;
 					adi,source-bus-width = <64>;
-					adi,source-bus-type = <0>;
+					adi,source-bus-type = <AXI_DMAC_BUS_TYPE_AXI_MM>;
 					adi,destination-bus-width = <64>;
-					adi,destination-bus-type = <1>;
+					adi,destination-bus-type = <AXI_DMAC_BUS_TYPE_AXI_STREAM>;
 				};
 			};
 		};

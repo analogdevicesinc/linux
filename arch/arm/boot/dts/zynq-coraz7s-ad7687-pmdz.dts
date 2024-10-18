@@ -11,6 +11,7 @@
  */
 /dts-v1/;
 #include "zynq-coraz7s.dtsi"
+#include <dt-bindings/dma/axi-dmac.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
 
@@ -82,9 +83,9 @@
 			dma-channel@0 {
 				reg = <0>;
 				adi,source-bus-width = <32>;
-				adi,source-bus-type = <1>;
+				adi,source-bus-type = <AXI_DMAC_BUS_TYPE_AXI_STREAM>;
 				adi,destination-bus-width = <64>;
-				adi,destination-bus-type = <0>;
+				adi,destination-bus-type = <AXI_DMAC_BUS_TYPE_AXI_MM>;
 			};
 		};
 	};

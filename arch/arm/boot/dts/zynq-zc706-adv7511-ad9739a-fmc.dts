@@ -13,6 +13,7 @@
 
 #include "zynq-zc706.dtsi"
 #include "zynq-zc706-adv7511.dtsi"
+#include <dt-bindings/dma/axi-dmac.h>
 
 &i2c_mux {
 	fmc_i2c: i2c@6 {
@@ -57,9 +58,9 @@
 			dma-channel@0 {
 				reg = <0>;
 				adi,source-bus-width = <256>;
-				adi,source-bus-type = <0>;
+				adi,source-bus-type = <AXI_DMAC_BUS_TYPE_AXI_MM>;
 				adi,destination-bus-width = <256>;
-				adi,destination-bus-type = <2>;
+				adi,destination-bus-type = <AXI_DMAC_BUS_TYPE_FIFO>;
 			};
 		};
 	};

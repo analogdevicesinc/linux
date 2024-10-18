@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright (C) 2024 Analog Devices Inc. */
 /*
  * Analog Devices AD9265-FMC-500EBZ FPGA FMC Card
  */

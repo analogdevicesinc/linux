@@ -7,6 +7,7 @@
  *
  * Copyright 2023 Analog Devices Inc.
  */
+#include <dt-bindings/dma/axi-dmac.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/pwm/pwm.h>
@@ -141,9 +142,9 @@
 						dma-channel@0 {
 							reg = <0>;
 							adi,source-bus-width = <256>;
-							adi,source-bus-type = <2>;
+							adi,source-bus-type = <AXI_DMAC_BUS_TYPE_FIFO>;
 							adi,destination-bus-width = <64>;
-							adi,destination-bus-type = <0>;
+							adi,destination-bus-type = <AXI_DMAC_BUS_TYPE_AXI_MM>;
 						};
 					};
 				};
