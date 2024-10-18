@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright (C) 2024 Analog Devices Inc. */
 
 &fmc_i2c {
 	spi_xcomm0: spi_xcomm0@58 {
