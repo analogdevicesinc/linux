@@ -1,0 +1,40 @@
+/ {
+	clocks {
+		ad9517_ref_clk: clock@0 {
+				compatible = "fixed-clock";
+
+				clock-frequency = <250000000>;
+				clock-output-names = "ad9517_refclk";
+				#clock-cells = <0>;
+		};
+	};
+};
+
+&fmc_spi {
+	adc_ad9467: ad9467@0 {
+		compatible = "adi,ad9467";
+		reg = <0>;
+
+		spi-max-frequency = <10000000>;
+		adi,spi-3wire-enable;
+
+		clocks = <&clk_ad9517 3>;
+		clock-names = "adc_clk";
+	};
+
+	clk_ad9517: ad9517@1 {
+		compatible = "adi,ad9517-4";
+		reg = <1>;
+
+		spi-max-frequency = <10000000>;
+		adi,spi-3wire-enable;
+
+		clocks = <&ad9517_ref_clk>, <&ad9517_ref_clk>;
+		clock-names = "refclk", "clkin";
+
+		clock-output-names = "out0", "out1", "out2", "out3", "out4", "out5", "out6", "out7";
+		#clock-cells = <1>;
+
+		firmware = "ad9467_intbypass_ad9517.stp";
+	};
+};

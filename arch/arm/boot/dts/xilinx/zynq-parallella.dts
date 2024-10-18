@@ -9,7 +9,7 @@
  *  Copyright (C) 2013 Xilinx
  */
 /dts-v1/;
-/include/ "zynq-7000.dtsi"
+#include "zynq-7000.dtsi"
 
 / {
 	model = "Adapteva Parallella board";
