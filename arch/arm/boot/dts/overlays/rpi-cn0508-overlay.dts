@@ -7,7 +7,7 @@
 
 	fragment@0 {
 		target = <&spi0_cs_pins>;
-		frag0: __overlay__ {
+		__overlay__ {
 			brcm,pins = <22 27 8 7>;
 			brcm,function = <1>; /* output */
 		};
@@ -15,7 +15,7 @@
 
 	fragment@1 {
 		target = <&spi0>;
-		frag1: __overlay__ {
+		__overlay__ {
 			cs-gpios = <&gpio 22 1>, <&gpio 27 1>,
 				<&gpio 8 1>, <&gpio 7 1>;
 			status = "okay";
@@ -23,19 +23,19 @@
 	};
 
 	__overrides__ {
-		cs0_pin  = <&frag0>,"brcm,pins:0",
-			   <&frag1>,"cs-gpios:4";
-		cs1_pin  = <&frag0>,"brcm,pins:4",
-			   <&frag1>,"cs-gpios:16";
-		cs2_pin	=  <&frag0>,"brcm,pins:8",
-			   <&frag1>,"cs-gpios:28";
-		cs3_pin	=  <&frag0>,"brcm,pins:12",
-			   <&frag1>,"cs-gpios:40";
+		cs0_pin  = <&spi0_cs_pins>, "brcm,pins:0",
+			   <&spi0>, "cs-gpios:4";
+		cs1_pin  = <&spi0_cs_pins>, "brcm,pins:4",
+			   <&spi0>, "cs-gpios:16";
+		cs2_pin	=  <&spi0_cs_pins>, "brcm,pins:8",
+			   <&spi0>, "cs-gpios:28";
+		cs3_pin	=  <&spi0_cs_pins>, "brcm,pins:12",
+			   <&spi0>, "cs-gpios:40";
 
-		speed =   <&pitft>,"spi-max-frequency:0";
-		rotate =  <&pitft>,"rotate:0";
-		fps =     <&pitft>,"fps:0";
-		debug =   <&pitft>,"debug:0";
+		speed = <&pitft>, "spi-max-frequency:0";
+		rotate = <&pitft>, "rotate:0";
+		fps = <&pitft>, "fps:0";
+		debug = <&pitft>, "debug:0";
 	};
 
 	fragment@2 {
