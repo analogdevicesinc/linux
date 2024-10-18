@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Analog Devices ADRV9361-Z7035 board DTS (Z7035/AD9361 SOM)
  *
  * Copyright (C) 2015-2017 Analog Devices Inc.
- *
- * Licensed under the GPL-2.
  */
 #include "zynq.dtsi"
 
