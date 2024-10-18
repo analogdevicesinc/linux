@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * Analog Devices ADRV9364-Z7020 board DTS (Z7020/AD9364 SOM)
  *
  * Copyright (C) 2016-2017 Analog Devices Inc.
- *
- * Licensed under the GPL-2.
  */
 #include "zynq.dtsi"
 
