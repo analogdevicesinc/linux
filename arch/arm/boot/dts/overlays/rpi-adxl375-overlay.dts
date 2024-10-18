@@ -12,7 +12,7 @@
 			#size-cells = <0>;
 			status = "okay";
 
-			adxl375@053 {
+			adxl375@53 {
 				compatible = "adi,adxl375";
 				reg = <0x53>;
 				interrupt-parent = <&gpio>;
