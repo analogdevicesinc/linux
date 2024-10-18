@@ -25,6 +25,8 @@ struct device;
  * @cpu_addr:           Kernel mapped address
  * @dma_addr:           DMA address
  * @dma_addr_orig:      Original DMA address before range mapping
+ * @firmware_name:      Neutron custom firmware file name
+ * @firmware_p:         Neutron Custom firmware pointer.
  */
 struct neutron_buffer {
 	struct neutron_device *ndev;
@@ -33,6 +35,8 @@ struct neutron_buffer {
 	size_t                size;
 	void                  *cpu_addr;
 	dma_addr_t            dma_addr;
+	const char            *firmware_name;
+	const struct firmware *firmware_p;
 };
 
 /****************************************************************************/
@@ -46,6 +50,8 @@ struct neutron_buffer {
  */
 int neutron_buffer_create(struct neutron_device *ndev,
 			  size_t size, __u64 *addr_out);
+
+struct neutron_buffer *neutron_buffer_get_from_fd(int fd);
 
 /**
  * neutron_buffer_get() - Gut buffer

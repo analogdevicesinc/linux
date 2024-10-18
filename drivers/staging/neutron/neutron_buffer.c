@@ -11,6 +11,7 @@
 #include <linux/file.h>
 #include <linux/fs.h>
 #include <linux/uaccess.h>
+#include <linux/firmware.h>
 
 #include "neutron_buffer.h"
 #include "neutron_device.h"
@@ -37,6 +38,9 @@ static void neutron_buffer_destroy(struct kref *kref)
 		container_of(kref, struct neutron_buffer, kref);
 
 	dev_dbg(buf->ndev->dev, "Buffer destroy. buf=0x%pS\n", buf);
+
+	if (buf->firmware_p)
+		release_firmware(buf->firmware_p);
 
 	dma_free_coherent(buf->ndev->dev, buf->size, buf->cpu_addr,
 			  buf->dma_addr);
@@ -116,6 +120,21 @@ free_buf:
 	devm_kfree(buf->ndev->dev, buf);
 
 	return ret;
+}
+
+struct neutron_buffer *neutron_buffer_get_from_fd(int fd)
+{
+	struct neutron_buffer *buf;
+	struct file *file;
+
+	file = fget(fd);
+	if (!file)
+		return ERR_PTR(-EINVAL);
+
+	buf = file->private_data;
+	fput(file);
+
+	return buf;
 }
 
 void neutron_buffer_get(struct neutron_buffer *buf)

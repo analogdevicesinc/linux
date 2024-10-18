@@ -40,8 +40,10 @@ namespace Neutron {
 						   struct neutron_uapi_inference_args)
 #define NEUTRON_IOCTL_INFERENCE_STATE	NEUTRON_IOW(0x0a, \
 						   struct neutron_uapi_result_status)
-#define NEUTRON_IOCTL_LOG_GET	NEUTRON_IOW(0x0b, \
+#define NEUTRON_IOCTL_LOG_GET		NEUTRON_IOW(0x0b, \
 						   struct neutron_uapi_log_get)
+#define NEUTRON_IOCTL_FIRMWARE_LOAD	NEUTRON_IOW(0x0c, \
+						    struct neutron_uapi_firmware_load)
 
 /****************************************************************************
  * Types
@@ -77,6 +79,18 @@ struct neutron_uapi_log_get {
 struct neutron_uapi_result_status {
 	enum neutron_uapi_status status;
 	__u32 error_code;
+};
+
+/**
+ * struct neutron_uapi_firmware_load - load firmware
+ * @fd:          Inference fd
+ * @data_offset: firmware data offset
+ * @fw_name:     firmware file name
+ */
+struct neutron_uapi_firmware_load {
+	__u32 buf_fd;
+	__u64 data_offset;
+	char fw_name[50];
 };
 
 /**
@@ -117,6 +131,8 @@ struct neutron_uapi_inference_args {
 		__u32  args3;
 	};
 	__u32 dram_base;
+	__u32  firmw_id;
+	__u32  buf_id;
 	__u32 reserve[2];
 };
 
