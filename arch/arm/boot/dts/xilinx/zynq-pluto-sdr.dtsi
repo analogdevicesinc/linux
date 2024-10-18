@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * ZYNQ Pluto SDR (Z7010/AD9363)
  *
  * Copyright (C) 2016 Analog Devices Inc.
- *
- * Licensed under the GPL-2.
  */
 #include "zynq.dtsi"
 
