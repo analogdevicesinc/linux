@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright (C) 2024 Analog Devices Inc. */
+
 #include "zynq-zc706-adv7511-ad9361-fmcomms2-3.dts"
 
 &ad9361_clkin {

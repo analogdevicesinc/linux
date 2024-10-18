@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * ZYNQ M2k (Z7010)
  *
  * Copyright (C) 2017 Analog Devices Inc.
- *
- * Licensed under the GPL-2.
  */
 #include "zynq.dtsi"
 
