@@ -1,0 +1,35 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD-FMCOMMS8-EBZ (JESD204 FSM variant)
+ * https://wiki.analog.com/resources/eval/user-guides/ad-fmcomms8-ebz
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-transceiver/adrv9009
+ * https://wiki.analog.com/resources/tools-software/linux-software/adrv9009_advanced_plugin
+ *
+ * hdl_project: <fmcomms8/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2022 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev10-adrv9009-fmcomms8-jesd204-fsm.dts"
+
+&fmc_spi {
+	trx2_adrv9009: adrv9009-phy-c@0 {
+		/* JESD204 */
+
+		/* JESD204 OBS */
+		adi,jesd204-framer-b-m = <4>;
+
+		/* JESD204 TX */
+		adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x03>;
+	};
+	trx3_adrv9009: adrv9009-phy-d@1 {
+		/* JESD204 */
+
+		/* JESD204 OBS */
+		adi,jesd204-framer-b-m = <4>;
+
+		/* JESD204 TX */
+		adi,jesd204-deframer-a-deserializer-lanes-enabled = <0x03>;
+	};
+};

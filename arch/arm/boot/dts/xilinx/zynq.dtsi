@@ -1,0 +1,32 @@
+
+#include "zynq-7000.dtsi"
+
+/ {
+	interrupt-parent = <&intc>;
+
+	aliases: aliases {
+		ethernet0 = &gem0;
+		serial0 = &uart1;
+	};
+};
+
+&gem0 {
+	status = "okay";
+};
+
+&clkc {
+	ps-clk-frequency = <33333333>;
+};
+
+&usb0 {
+	status = "okay";
+	dr_mode = "host"; /* This breaks OTG mode */
+};
+
+&uart1 {
+	status = "okay";
+};
+
+&sdhci0 {
+	status = "okay";
+};

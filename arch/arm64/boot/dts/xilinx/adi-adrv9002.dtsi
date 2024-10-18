@@ -1,0 +1,91 @@
+// SPDX-License-Identifier: GPL-2.0
+#include <dt-bindings/iio/adc/adi,adrv9002.h>
+
+/ {
+	clocks {
+		adrv9002_clkin: clock@0 {
+			compatible = "fixed-clock";
+
+			clock-frequency = <38400000>;
+			clock-output-names = "adrv9002_ext_refclk";
+			#clock-cells = <0>;
+		};
+	};
+};
+
+&fmc_spi {
+	status = "okay";
+
+	adc0_adrv9002: adrv9002-phy@0 {
+		compatible = "adi,adrv9002";
+		reg = <0>;
+
+		interrupt-parent = <&gpio>;
+		interrupts = <122 IRQ_TYPE_EDGE_RISING>;
+
+		spi-max-frequency = <20000000>;
+		/* Clocks */
+		clocks = <&adrv9002_clkin>;
+		clock-names = "adrv9002_ext_refclk";
+		clock-output-names = "rx1_sampl_clk", "tx1_sampl_clk", "tdd1_intf_clk",
+				"rx2_sampl_clk", "tx2_sampl_clk", "tdd2_intf_clk";
+		#clock-cells = <1>;
+
+		adi,channels {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			rx@0 {
+				reg = <0>;
+				adi,port = <0>;
+				orx-gpios = <&gpio 110 GPIO_ACTIVE_HIGH>; /* dgpio0 */
+			};
+
+			rx@1 {
+				reg = <1>;
+				adi,port = <0>;
+				orx-gpios = <&gpio 111 GPIO_ACTIVE_HIGH>; /* dgpio1 */
+			};
+
+			tx@0 {
+				reg = <0>;
+				adi,port = <1>;
+				adi,dpd;
+			};
+
+			tx@1 {
+				reg = <1>;
+				adi,port = <1>;
+				adi,dpd;
+			};
+
+		};
+
+		adi,gpios {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			gpio@0 {
+				reg = <ADRV9002_DGPIO_0>;
+				adi,signal = <ADRV9002_GPIO_SIGNAL_ORX_ENABLE_1>;
+			};
+
+			gpio@1 {
+				reg = <ADRV9002_DGPIO_1>;
+				adi,signal = <ADRV9002_GPIO_SIGNAL_ORX_ENABLE_2>;
+			};
+		};
+
+		/* Frequency hopping properties */
+		adi,frequency-hopping {
+			adi,fh-mode = <ADRV9002_FH_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP>;
+			adi-fh-rx-zero-if-en;
+
+			/* Depends on @adi,fh-mode being set to dual hop */
+			adi,fh-hop-signal-2 {
+				adi,fh-hop-rx-ports = <ADRV9002_RX_2>;
+				adi,fh-hop-tx-ports = <ADRV9002_TX_2>;
+			};
+		};
+	};
+};

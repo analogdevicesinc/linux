@@ -1,0 +1,40 @@
+&dac_dma {
+	compatible = "adi,axi-dmac-1.00.a";
+
+	#dma-cells = <1>;
+
+	adi,channels {
+		#size-cells = <0>;
+		#address-cells = <1>;
+
+		dma-channel@0 {
+			reg = <0>;
+			adi,source-bus-width = <64>;
+			adi,source-bus-type = <0>;
+			adi,destination-bus-width = <256>;
+			adi,destination-bus-type = <2>;
+		};
+	};
+};
+
+&jesd204_transport {
+	compatible = "adi,axi-ad9136-1.0";
+
+	dmas = <&dac_dma 0>;
+	dma-names = "tx";
+
+	spibus-connected = <&dac>;
+	adi,axi-pl-fifo-enable;
+
+	/* jesd204-fsm support */
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&jesd204_link 0 0>;
+};
+
+&jesd204_link {
+	compatible = "adi,axi-jesd204-tx-1.0";
+
+	#clock-cells = <0>;
+	clock-output-names = "jesd_dac_lane_clk";
+};

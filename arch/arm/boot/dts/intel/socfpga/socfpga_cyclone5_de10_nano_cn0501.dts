@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-3-Clause)
+/*
+ * Analog Devices CN0501
+ * https://www.analog.com/en/products/ad7768.html
+ *
+ * hdl_project: <cn0501/de10nano>
+ * board_revision: <A>
+ *
+ * Copyright (C) 2021 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "socfpga_cyclone5_de10_nano.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+
+/ {
+	vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <4096000>;
+		regulator-max-microvolt = <4096000>;
+		regulator-always-on;
+	};
+
+	clocks {
+		ad7768_mclk: clock@0 {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <32768000>;
+		};
+	};
+};
+
+&spi1 {
+	ad7768: adc@0 {
+		compatible = "adi,ad7768";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+
+		vref-supply = <&vref>;
+
+		clocks = <&ad7768_mclk>;
+		clock-names = "mclk";
+	};
+};
+
+&fpga_axi {
+	rx_dma: rx-dmac@0x00028000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x00028000 0x00000800>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 45 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&h2f_user0_clk>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <256>;
+				adi,source-bus-type = <2>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <0>;
+			};
+		};
+	};
+
+	axi_adc_ad7768: cf_axi_adc@0x00030000 {
+		compatible = "adi,axi-adc-10.0.a";
+		reg = <0x00030000 0x10000>;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		spibus-connected = <&ad7768>;
+	};
+};

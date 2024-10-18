@@ -1,0 +1,4 @@
+&gem1 {
+	status = "okay";
+	phy-mode = "mii";
+};
