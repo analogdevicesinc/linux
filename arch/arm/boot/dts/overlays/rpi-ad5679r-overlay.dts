@@ -19,7 +19,7 @@
 
 	fragment@1 {
 		target = <&pwm>;
-		frag1: __overlay__ {
+		__overlay__ {
 			pinctrl-names = "default";
 			pinctrl-0 = <&pwm_pins>;
 			assigned-clock-rates = <100000000>;
@@ -30,7 +30,7 @@
 	__overrides__ {
 		pin   = <&pwm_pins>,"brcm,pins:0";
 		func  = <&pwm_pins>,"brcm,function:0";
-		clock = <&frag1>,"assigned-clock-rates:0";
+		clock = <&pwm>,"assigned-clock-rates:0";
 	};
 
 	fragment@2 {
