@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright (C) 2024 Analog Devices Inc. */
+
+&jesd204_transport {
+	compatible = "adi,axi-ad9136-1.0";
+
+	dmas = <&dac_dma 0>;
+	dma-names = "tx";
+
+	spibus-connected = <&dac>;
+	adi,axi-pl-fifo-enable;
+
+	/* jesd204-fsm support */
+	jesd204-device;
+	#jesd204-cells = <2>;
+	jesd204-inputs = <&jesd204_link 0 0>;
+};
+
+&jesd204_link {
+	compatible = "adi,axi-jesd204-tx-1.0";
+
+	#clock-cells = <0>;
+	clock-output-names = "jesd_dac_lane_clk";
+};

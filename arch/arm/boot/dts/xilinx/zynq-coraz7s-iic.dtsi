@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright (C) 2024 Analog Devices Inc. */
+
+&fpga_axi {
+	axi_i2c_0: i2c@41600000 {
+		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+		reg = <0x41600000 0x10000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 55 4>;
+		clocks = <&clkc 15>;
+		clock-names = "pclk";
+
+		#size-cells = <0>;
+		#address-cells = <1>;
+	};
+};

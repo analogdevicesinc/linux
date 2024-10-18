@@ -1,0 +1,145 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD4696
+ *
+ * hdl_project: <ad469x_fmc/zed>
+ * https://analogdevicesinc.github.io/hdl/projects/ad469x_evb/
+ * https://www.analog.com/en/resources/evaluation-hardware-and-software/evaluation-boards-kits/eval-ad4696.html
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad4695
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/iio/adc/adi,ad4695.h>
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+/ {
+	eval_u3: regulator-eval-u3 {
+		compatible = "regulator-fixed";
+		regulator-name = "ADR4550 5.0V REFERENCE (U3)";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	eval_u5: regulator-eval-u5 {
+		compatible = "regulator-fixed";
+		regulator-name = "12V/5V,-3.3V/-2.5V DUAL-LDO (U5)";
+		regulator-always-on;
+	};
+
+	eval_u6: regulator-eval-u6 {
+		compatible = "regulator-fixed";
+		regulator-name = "5V/1.8V LDO (U6)";
+		regulator-always-on;
+	};
+
+	eval_a8: regulator-eval-a8 {
+		compatible = "regulator-fixed";
+		regulator-name = "VREF/2 DIVIDER CIRCUIT (A8)";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		regulator-always-on;
+	};
+
+	/* This is only used if you are using IN1 for a common mode input. */
+	// in1_vcm: regulator-in1-vcm {
+	// 	compatible = "regulator-fixed";
+	// 	regulator-name = "External signal generator common mode output";
+	// 	regulator-min-microvolt = <2500000>;
+	// 	regulator-max-microvolt = <2500000>;
+	// 	regulator-always-on;
+	// };
+};
+
+&fpga_axi {
+	rx_dma: dma-controller@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x1000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+	};
+
+	adc_trigger: pwm@44b00000 {
+		compatible = "adi,axi-pwmgen-2.00.a";
+		reg = <0x44b00000 0x1000>;
+		#pwm-cells = <3>;
+		clocks = <&clkc 15>, <&spi_clk>;
+		clock-names = "axi", "ext";
+	};
+
+	spi_clk: clock-controller@44a70000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44a70000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 15>;
+		clock-names = "clkin1", "s_axi_aclk";
+		clock-output-names = "spi_clk";
+	};
+
+	axi_spi_engine: spi@44a00000 {
+		compatible = "adi,axi-spi-engine-1.00.a";
+		reg = <0x44a00000 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>, <&spi_clk>;
+		clock-names = "s_axi_aclk", "spi_clk";
+
+		dmas = <&rx_dma 0>;
+		dma-names = "offload0-rx";
+		trigger-sources = <&ad4696 AD4695_TRIGGER_EVENT_BUSY
+					   AD4695_TRIGGER_PIN_GP0>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ad4696: adc@0 {
+			compatible = "adi,ad4696";
+			reg = <0>;
+
+			spi-cpol;
+			spi-cpha;
+			spi-max-frequency = <80000000>;
+
+			avdd-supply = <&eval_u5>;
+			/* JP7 in default position A. */
+			ldo-in-supply = <&eval_u5>;
+			/* JP8 in default position A. */
+			vio-supply = <&eval_u6>;
+			/* JP11 in default position B. */
+			ref-supply = <&eval_u3>;
+			/* Uncomment this line if JP6 is changed from default. */
+			// com-supply = <&eval_a8>;
+			/* Uncomment this line of using IN1 as common mode input. */
+			// in1-supply = <&in1_vcm>;
+
+			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
+			cnv-gpios = <&gpio0 88 GPIO_ACTIVE_HIGH>;
+			pwms = <&adc_trigger 0 10000 0>;
+
+			#trigger-source-cells = <2>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/*
+			 * Default configuration is for all channels to be
+			 * configured as single-ended inputs with REFGND.
+			 */
+
+			/* Uncomment this node if using IN0/IN1 pair as pseudo-differential pair. */
+			// /* Pseudo-differential channel between IN0 and IN1. */
+			// channel@0 {
+			// 	reg = <0>;
+			// 	common-mode-channel = <1>;
+			// 	bipolar;
+			// };
+		};
+	};
+};

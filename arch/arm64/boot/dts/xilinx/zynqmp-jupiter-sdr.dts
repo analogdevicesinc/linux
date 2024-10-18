@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for Analog Devices, Inc. Jupiter SDR
+ *
+ * hdl_project: <jupiter_sdr>
+ * board_revision: <>
+ *
+ * Copyright (C) 2021 Analog Devices Inc.
+ */
+
+/dts-v1/;
+
+#include "zynqmp-jupiter-sdr.dtsi"
+
+&fpga_axi {
+	rx2_dma: dma-controller@84A40000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x84A40000 0x10000>;
+		#dma-cells = <1>;
+		dma-coherent;
+		interrupts = <0 108 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&zynqmp_clk 71>;
+	};
+
+	tx2_dma: dma-controller@84A6000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x84A60000 0x10000>;
+		#dma-cells = <1>;
+		dma-coherent;
+		interrupts = <0 106 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&zynqmp_clk 71>;
+	};
+
+	axi_adrv9002_core_rx2: axi-adrv9002-rx2-lpc@84A02000 {
+		compatible = "adi,axi-adrv9002-rx2-1.0";
+		reg = <0x84A09000 0x1000>;
+		clocks = <&adc0_adrv9002 3>;
+		clock-names = "sampl_clk";
+		dmas = <&rx2_dma 0>;
+		dma-names = "rx";
+	};
+
+	axi_adrv9002_core_tx2: axi-adrv9002-tx2-lpc@84A06000 {
+		compatible = "adi,axi-adrv9002-tx-1.0";
+		reg = <0x84A0C000 0x2000>;
+		clocks = <&adc0_adrv9002 4>;
+		clock-names = "sampl_clk";
+		dmas = <&tx2_dma 0>;
+		dma-names = "tx";
+		adi,axi-dds-default-scale = <0x800>;
+		adi,axi-dds-default-frequency = <2000000>;
+	};
+};
+

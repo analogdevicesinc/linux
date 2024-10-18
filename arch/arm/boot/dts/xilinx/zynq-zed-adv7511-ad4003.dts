@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD4003
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad400x
+ * https://wiki.analog.com/resources/eval/user-guides/ad400x
+ * https://www.analog.com/en/products/ad4003.html
+ *
+ * hdl_project: <pulsar_adc/zed>
+ * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/pulsar_adc
+ * board_revision: <>
+ *
+ * Copyright (C) 2016-2025 Analog Devices Inc.
+ */
+/dts-v1/;
+#include "zynq-zed-adv7511-ad4000.dtsi"
+
+&ad4000_adc {
+	compatible = "adi,ad4003";
+};

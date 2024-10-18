@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright (C) 2024 Analog Devices Inc. */
+
+&gem0 {
+	status = "okay";
+	phy-mode = "rgmii-id";
+	phy-handle = <&ethernet_gem0_phy1>;
+	compatible = "xlnx,zynq-gem";
+
+	ethernet_gem0_phy1: ethernet-phy@1 {
+		reg = <1>;
+	};
+
+	gmiitorgmii_gem0_phy1: gmiitorgmii@8 {
+		compatible = "xlnx,gmii-to-rgmii-1.0";
+		reg = <8>;
+		phy-handle = <&ethernet_gem0_phy1>;
+	};
+};
+
+&gem1 {
+	status = "okay";
+	phy-mode = "rgmii-id";
+	phy-handle = <&ethernet_gem1_phy2>;
+	compatible = "xlnx,zynq-gem";
+
+	ethernet_gem1_phy2: ethernet-phy@2 {
+		reg = <2>;
+	};
+
+	gmiitorgmii_gem1_phy2: gmiitorgmii@8 {
+		compatible = "xlnx,gmii-to-rgmii-1.0";
+		reg = <8>;
+		phy-handle = <&ethernet_gem1_phy2>;
+	};
+};

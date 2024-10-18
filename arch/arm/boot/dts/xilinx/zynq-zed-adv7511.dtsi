@@ -1,0 +1,331 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright (C) 2024 Analog Devices Inc. */
+
+/*
+ * This file contains the common zedboard FPGA devices defined in:
+ * https://github.com/analogdevicesinc/hdl/tree/main/projects/common/zed
+ */
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/linux-event-codes.h>
+
+/ {
+	fpga_axi: fpga-axi@0 {
+		compatible = "simple-bus";
+		#address-cells = <0x1>;
+		#size-cells = <0x1>;
+		ranges;
+
+		i2c@41600000 {
+			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+			reg = <0x41600000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 58 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 15>;
+			clock-names = "pclk";
+
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			adv7511: hdmi@39 {
+				compatible = "adi,adv7511";
+				reg = <0x39>, <0x3f>;
+				reg-names = "primary", "edid";
+
+				adi,input-depth = <8>;
+				adi,input-colorspace = "yuv422";
+				adi,input-clock = "1x";
+				adi,input-style = <1>;
+				adi,input-justification = "right";
+				adi,clock-delay = <0>;
+
+				#sound-dai-cells = <1>;
+
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					port@0 {
+						reg = <0>;
+						adv7511_in: endpoint {
+							remote-endpoint = <&axi_hdmi_out>;
+						};
+					};
+
+					port@1 {
+						reg = <1>;
+					};
+				};
+			};
+
+			adau1761: audio-codec@3b {
+				compatible = "adi,adau1761";
+				reg = <0x3b>;
+
+				clocks = <&audio_clock>;
+				clock-names = "mclk";
+
+				#sound-dai-cells = <0>;
+			};
+		};
+
+		i2c@41620000 {
+			compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+			reg = <0x41620000 0x10000>;
+			interrupt-parent = <&intc>;
+			interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 15>;
+			clock-names = "pclk";
+
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			eeprom1: eeprom@50 {
+				compatible = "at24,24c02";
+				reg = <0x50>;
+			};
+
+		};
+
+		hdmi_dma: dma-controller@43000000 {
+			compatible = "adi,axi-dmac-1.00.a";
+			reg = <0x43000000 0x1000>;
+			#dma-cells = <1>;
+			interrupts = <0 59 IRQ_TYPE_LEVEL_HIGH>;
+			clocks = <&clkc 16>;
+		};
+
+		hdmi_clock: clock-controller@79000000 {
+			compatible = "adi,axi-clkgen-2.00.a";
+			reg = <0x79000000 0x10000>;
+			#clock-cells = <0>;
+			clocks = <&clkc 16>, <&clkc 15>;
+			clock-names = "clkin1", "s_axi_aclk";
+		};
+
+		lcd-controller@70e00000 {
+			compatible = "adi,axi-hdmi-tx-1.00.a";
+			reg = <0x70e00000 0x10000>;
+			dmas = <&hdmi_dma 0>;
+			dma-names = "video";
+			clocks = <&hdmi_clock>;
+
+			port {
+				axi_hdmi_out: endpoint {
+					remote-endpoint = <&adv7511_in>;
+				};
+			};
+		};
+
+		axi_spdif_tx_0: spdif@75c00000 {
+			compatible = "adi,axi-spdif-tx-1.00.a";
+			reg = <0x75c00000 0x1000>;
+			dmas = <&dmac_s 0>;
+			dma-names = "tx";
+			clocks = <&clkc 15>, <&audio_clock>;
+			clock-names = "axi", "ref";
+
+			#sound-dai-cells = <0>;
+		};
+
+		axi_i2s_0: i2s@77600000 {
+			compatible = "adi,axi-i2s-1.00.a";
+			reg = <0x77600000 0x1000>;
+			dmas = <&dmac_s 1 &dmac_s 2>;
+			dma-names = "tx", "rx";
+			clocks = <&clkc 15>, <&audio_clock>;
+			clock-names = "axi", "ref";
+
+			#sound-dai-cells = <0>;
+		};
+
+		axi_sysid_0: sysid@45000000 {
+			compatible = "adi,axi-sysid-1.00.a";
+			reg = <0x45000000 0x10000>;
+		};
+	};
+
+	audio_clock: audio_clock {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <12288000>;
+	};
+
+	adv7511_hdmi_snd {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "HDMI monitor";
+		simple-audio-card,widgets =
+			"Speaker", "Speaker";
+		simple-audio-card,routing =
+			"Speaker", "TX";
+
+		simple-audio-card,dai-link@0 {
+			format = "spdif";
+			cpu {
+				sound-dai = <&axi_spdif_tx_0>;
+			};
+			codec {
+				sound-dai = <&adv7511 1>;
+			};
+		};
+	};
+
+	zed_sound {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "ZED ADAU1761";
+		simple-audio-card,widgets =
+			"Microphone", "Mic In",
+			"Headphone", "Headphone Out",
+			"Line", "Line In",
+			"Line", "Line Out";
+		simple-audio-card,routing =
+			"Line Out", "LOUT",
+			"Line Out", "ROUT",
+			"Headphone Out", "LHP",
+			"Headphone Out", "RHP",
+			"Mic In", "MICBIAS",
+			"LINN", "Mic In",
+			"RINN", "Mic In",
+			"LAUX", "Line In",
+			"RAUX", "Line In";
+
+		simple-audio-card,dai-link@0 {
+			format = "i2s";
+			cpu {
+				sound-dai = <&axi_i2s_0>;
+			};
+			codec {
+				sound-dai = <&adau1761>;
+			};
+		};
+	};
+
+	leds {
+		compatible = "gpio-leds";
+		ld0 {
+			label = "ld0:red";
+			gpios = <&gpio0 73 GPIO_ACTIVE_HIGH>;
+		};
+
+		ld1 {
+			label = "ld1:red";
+			gpios = <&gpio0 74 GPIO_ACTIVE_HIGH>;
+		};
+
+		ld2 {
+			label = "ld2:red";
+			gpios = <&gpio0 75 GPIO_ACTIVE_HIGH>;
+		};
+
+		ld3 {
+			label = "ld3:red";
+			gpios = <&gpio0 76 GPIO_ACTIVE_HIGH>;
+		};
+
+		ld4 {
+			label = "ld4:red";
+			gpios = <&gpio0 77 GPIO_ACTIVE_HIGH>;
+		};
+
+		ld5 {
+			label = "ld5:red";
+			gpios = <&gpio0 78 GPIO_ACTIVE_HIGH>;
+		};
+
+		ld6 {
+			label = "ld6:red";
+			gpios = <&gpio0 79 GPIO_ACTIVE_HIGH>;
+		};
+
+		ld7 {
+			label = "ld7:red";
+			gpios = <&gpio0 80 GPIO_ACTIVE_HIGH>;
+		};
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		button-center {
+			label = "BTNC";
+			linux,code = <BTN_SELECT>;
+			gpios = <&gpio0 54 GPIO_ACTIVE_HIGH>;
+		};
+
+		button-down {
+			label = "BTND";
+			linux,code = <BTN_DPAD_DOWN>;
+			gpios = <&gpio0 55 GPIO_ACTIVE_HIGH>;
+		};
+
+		button-left {
+			label = "BTNL";
+			linux,code = <BTN_DPAD_LEFT>;
+			gpios = <&gpio0 56 GPIO_ACTIVE_HIGH>;
+		};
+
+		button-right {
+			label = "BTNR";
+			linux,code = <BTN_DPAD_RIGHT>;
+			gpios = <&gpio0 57 GPIO_ACTIVE_HIGH>;
+		};
+
+		button-up {
+			label = "BTNU";
+			linux,code = <BTN_DPAD_UP>;
+			gpios = <&gpio0 58 GPIO_ACTIVE_HIGH>;
+		};
+
+		switch-0 {
+			label = "SW0";
+			linux,code = <BTN_0>;
+			gpios = <&gpio0 65 GPIO_ACTIVE_HIGH>;
+		};
+
+		switch-1 {
+			label = "SW1";
+			linux,code = <BTN_1>;
+			gpios = <&gpio0 66 GPIO_ACTIVE_HIGH>;
+		};
+
+		switch-2 {
+			label = "SW2";
+			linux,code = <BTN_2>;
+			gpios = <&gpio0 67 GPIO_ACTIVE_HIGH>;
+		};
+
+		switch-3 {
+			label = "SW3";
+			linux,code = <BTN_3>;
+			gpios = <&gpio0 68 GPIO_ACTIVE_HIGH>;
+		};
+
+		switch-4 {
+			label = "SW4";
+			linux,code = <BTN_4>;
+			gpios = <&gpio0 69 GPIO_ACTIVE_HIGH>;
+		};
+
+		switch-5 {
+			label = "SW5";
+			linux,code = <BTN_5>;
+			gpios = <&gpio0 70 GPIO_ACTIVE_HIGH>;
+		};
+
+		switch-6 {
+			label = "SW6";
+			linux,code = <BTN_6>;
+			gpios = <&gpio0 71 GPIO_ACTIVE_HIGH>;
+		};
+
+		switch-7 {
+			label = "SW7";
+			linux,code = <BTN_7>;
+			gpios = <&gpio0 72 GPIO_ACTIVE_HIGH>;
+		};
+	};
+};
+
+&usb0 {
+	xlnx,phy-reset-gpio = <&gpio0 85 GPIO_ACTIVE_HIGH>;
+};
