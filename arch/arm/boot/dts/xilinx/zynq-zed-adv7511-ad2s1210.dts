@@ -1,0 +1,63 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD2S1210
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-resolver/ad2s1210
+ * https://wiki.analog.com/resources/eval/user-guides/ad2s1210_sdz
+ *
+ * hdl_project: <ad2s1210_sdz/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2023 BayLibre SAS.
+ */
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+&spi0 {
+	 status = "okay";
+
+	 ad2s1210@0 {
+		 compatible = "adi,ad2s1210";
+		 reg = <0>;
+		 spi-cpha;
+		 spi-max-frequency = <20000000>;
+		 clocks = <&ad2s1210_clkin>;
+		 sample-gpios = <&gpio0 90 GPIO_ACTIVE_LOW>;
+		 mode-gpios = <&gpio0 87 0>, <&gpio0 86 0>;
+		 resolution-gpios = <&gpio0 89 0>, <&gpio0 88 0>;
+		 assigned-resolution-bits = <16>;
+		 avdd-supply = <&ad2s1210_avdd>;
+		 dvdd-supply = <&ad2s1210_dvdd>;
+		 vdrive-supply = <&ad2s1210_dvdd>;
+	 };
+};
+
+/ {
+	 /* external oscilator on AD2S1210 eval board */
+	 ad2s1210_clkin: ad2s1210-clkin-clock {
+		 compatible = "fixed-clock";
+		 #clock-cells = <0>;
+		 clock-frequency = <8192000>;
+	 };
+
+	/* U704 on eval board */
+	 ad2s1210_avdd: ad2s1210-avdd-regulator {
+		 compatible = "regulator-fixed";
+		 regulator-name = "ad2s1210_avdd";
+		 regulator-min-microvolt = <5000000>;
+		 regulator-max-microvolt = <5000000>;
+		 regulator-always-on;
+	 };
+
+	/* U700 on eval board */
+	 ad2s1210_dvdd: ad2s1210-dvdd-regulator {
+		 compatible = "regulator-fixed";
+		 regulator-name = "ad2s1210_dvdd";
+		 regulator-min-microvolt = <5000000>;
+		 regulator-max-microvolt = <5000000>;
+		 regulator-always-on;
+	 };
+};

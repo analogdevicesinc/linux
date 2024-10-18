@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD4630-24
+ *
+ * hdl_project: <ad4630_fmc/zed>
+ * board_revision: <B>
+ *
+ * Copyright (C) 2022 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pwm/pwm.h>
+
+/ {
+	vref: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
+
+	vdd_1_8: regulator-vdd-1-8 {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	vio: regulator-vio {
+		compatible = "regulator-fixed";
+		regulator-name = "fixed-supply";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		regulator-always-on;
+	};
+
+	clocks {
+		cnv_ext_clk: ext-clk {
+			#clock-cells = <0x0>;
+			compatible = "fixed-clock";
+			clock-frequency = <100000000>;
+			clock-output-names = "cnv_ext_clk";
+		};
+	};
+};
+
+&fpga_axi {
+	ref_clk: clock-controller@44B00000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44B00000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 15>;
+		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "ref_clk";
+	};
+
+	dac_tx_dma: dma-controller@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x10000>;
+		#dma-cells = <1>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
+
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <0>;
+				adi,destination-bus-width = <32>;
+				adi,destination-bus-type = <1>;
+			};
+		};
+	};
+
+	axi_dac: spi@44a70000 {
+		compatible = "adi,axi-ad3552r";
+		reg = <0x44a70000 0x1000>;
+		dmas = <&dac_tx_dma 0>;
+		dma-names = "tx";
+		#io-backend-cells = <0>;
+		clocks = <&clkc 15>, <&ref_clk>;
+		clock-names = "s_axi_aclk", "dac_clk";
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		dac@0 {
+			reg = <0>;
+			compatible = "adi,ad3552r";
+			reset-gpios = <&gpio0 92 GPIO_ACTIVE_LOW>;
+			io-backends = <&axi_dac>;
+
+			spi-3-wire;
+			spi-tx-bus-width = <4>;
+			spi-rx-bus-width = <4>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			channel@0 {
+				reg = <0>;
+				adi,output-range-microvolt = <0 5000000>;
+			};
+
+			channel@1 {
+				reg = <1>;
+				adi,output-range-microvolt = <0 5000000>;
+			};
+		};
+	};
+};

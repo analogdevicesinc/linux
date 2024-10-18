@@ -1,0 +1,57 @@
+// SPDX-License-Identifier: GPL-2.0
+/* Copyright (C) 2024 Analog Devices Inc. */
+
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+&fpga_axi {
+	fmc_i2c: i2c@41620000 {
+		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
+		reg = <0x41620000 0x10000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+		clock-names = "pclk";
+
+		#size-cells = <0>;
+		#address-cells = <1>;
+	};
+
+	rx_dma: dma-controller@7c400000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c400000 0x1000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+	};
+
+	tx_dma: dma-controller@7c420000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x7c420000 0x1000>;
+		#dma-cells = <1>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 16>;
+	};
+
+	cf_ad9643_core_0: cf-ad9643-core-lpc@79020000 {
+		compatible = "adi,axi-ad9643-6.00.a";
+		reg = <0x79020000 0x10000 >;
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+
+		spibus-connected = <&adc0_ad9467>;
+	};
+
+	cf_ad9122_core_0: cf-ad9122-core-lpc@74204000 {
+		compatible = "adi,axi-ad9122-6.00.a";
+		reg = <0x74204000 0x10000>;
+		dmas = <&tx_dma 0>;
+		dma-names = "tx";
+
+		spibus-connected = <&dac0_ad9122>;
+	};
+};
+
+#include "adi-fmcomms1.dtsi"

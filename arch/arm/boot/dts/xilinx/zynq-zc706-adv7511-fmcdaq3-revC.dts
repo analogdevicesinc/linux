@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD-FMCDAQ3-EBZ
+ * https://wiki.analog.com/resources/eval/user-guides/ad-fmcdaq3-ebz
+ *
+ * hdl_project: <daq3/zc706>
+ * board_revision: <Rev.C>
+ *
+ * Copyright (C) 2015-2022 Analog Devices Inc.
+ */
+#include "zynq-zc706-adv7511-fmcdaq3.dts"
