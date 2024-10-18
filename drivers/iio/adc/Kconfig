@@ -399,6 +399,15 @@ config ADM1177
 	  To compile this driver as a module, choose M here: the
 	  module will be called adm1177.
 
+config AD9467
+	tristate "Analog Devices AD9467 etc. high speed ADCs"
+	depends on SPI
+	select CF_AXI_ADC
+	help
+	  Say yes here to build support for Analog Devices:
+	  AD9467, AD9643, AD9250, AD9265, AD9683, AD9434, AD9625, AD9652
+	  high speed ADCs. Provides direct access via sysfs.
+
 config ADI_AXI_ADC
 	tristate "Analog Devices Generic AXI ADC IP core driver"
 	depends on MICROBLAZE || NIOS2 || ARCH_ZYNQ || ARCH_ZYNQMP || ARCH_INTEL_SOCFPGA || COMPILE_TEST
