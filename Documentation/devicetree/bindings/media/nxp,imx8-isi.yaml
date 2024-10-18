@@ -21,6 +21,8 @@ properties:
     enum:
       - fsl,imx8mn-isi
       - fsl,imx8mp-isi
+      - fsl,imx8qm-isi
+      - fsl,imx8qxp-isi
       - fsl,imx8ulp-isi
       - fsl,imx91-isi
       - fsl,imx93-isi
@@ -29,17 +31,36 @@ properties:
     maxItems: 1
 
   clocks:
-    items:
-      - description: The AXI clock
-      - description: The APB clock
-      # TODO: Check if the per-channel ipg_proc_clk clocks need to be specified
-      # as well, in case some SoCs have the ability to control them separately.
-      # This may be the case of the i.MX8[DQ]X(P)
+    oneOf:
+      - items:
+        - description: The AXI clock
+        - description: The APB clock
+
+      - items:
+        - description: Channel 0 IPG clock
+        - description: Channel 1 IPG clock
+        - description: Channel 2 IPG clock
+        - description: Channel 3 IPG clock
+        - description: Channel 4 IPG clock
+        - description: Channel 5 IPG clock
+        - description: Channel 6 IPG clock
+        - description: Channel 7 IPG clock
 
   clock-names:
-    items:
-      - const: axi
-      - const: apb
+    oneOf:
+      - items:
+        - const: axi
+        - const: apb
+
+      - items:
+        - const: per0
+        - const: per1
+        - const: per2
+        - const: per3
+        - const: per4
+        - const: per5
+        - const: per6
+        - const: per7
 
   fsl,blk-ctrl:
     $ref: /schemas/types.yaml#/definitions/phandle
@@ -50,10 +71,10 @@ properties:
   interrupts:
     description: Processing pipeline interrupts, one per pipeline
     minItems: 1
-    maxItems: 2
+    maxItems: 8
 
   power-domains:
-    maxItems: 1
+    maxItems: 8
 
   ports:
     $ref: /schemas/graph.yaml#/properties/ports
@@ -110,6 +131,49 @@ allOf:
           required:
             - port@0
             - port@1
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: fsl,imx8qm-isi
+    then:
+      properties:
+        clocks:
+          minItems: 8
+        interrupts:
+          minItems: 8
+        ports:
+          properties:
+            port@2:
+              description: MIPI CSI-2 RX 0
+            port@3:
+              description: MIPI CSI-2 RX 1
+          required:
+            - port@2
+            - port@3
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: fsl,imx8qxp-isi
+    then:
+      properties:
+        clocks:
+          minItems: 5
+        interrupts:
+          minItems: 5
+        ports:
+          properties:
+            port@2:
+              description: MIPI CSI-2 RX
+            port@3: false
+            port@6:
+              description: MIPI CSI-2 Parallel RX
+          required:
+            - port@2
+            - port@6
 
 additionalProperties: false
 
