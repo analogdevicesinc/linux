@@ -4,21 +4,18 @@
 
 / {
 	compatible = "brcm,bcm2708";
+};
 
-	fragment@0 {
-		target = <&spi0>;
-		__overlay__ {
-			#address-cells = <1>;
-			#size-cells = <0>;
-			status = "okay";
+&spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
 
-			adxl372@0 {
-				compatible = "adi,adxl372";
-				reg = <0>;
-				spi-max-frequency = <1000000>;
-				interrupts = <25 2>;
-				interrupt-parent = <&gpio>;
-			};
-		};
+	adxl372@0 {
+		compatible = "adi,adxl372";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+		interrupts = <25 2>;
+		interrupt-parent = <&gpio>;
 	};
 };
