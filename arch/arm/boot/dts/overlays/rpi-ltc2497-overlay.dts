@@ -16,7 +16,6 @@
 		regulator-name = "vref";
 		regulator-min-microvolt = <2500000>;
 		regulator-max-microvolt = <2500000>;
-		phandle = <0x1>;
 	};
 };
 
