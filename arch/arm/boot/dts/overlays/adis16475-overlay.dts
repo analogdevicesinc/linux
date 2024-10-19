@@ -8,70 +8,6 @@
 / {
 	compatible = "brcm,bcm2835";
 
-	fragment@0 {
-		target = <&spi0>;
-		__overlay__ {
-			status = "okay";
-		};
-	};
-
-	fragment@1 {
-		target = <&spidev0>;
-		__overlay__ {
-			status = "disabled";
-		};
-	};
-
-	fragment@2 {
-		target = <&spidev1>;
-		__overlay__ {
-			status = "disabled";
-		};
-	};
-
-	 fragment@3 {
-		target = <&gpio>;
-		__overlay__ {
-			adis16475_pins: adis16475_pins {
-				brcm,pins = <4 12>; // interrupt and reset
-				brcm,function = <0 1>; // in out
-			};
-		};
-	};
-
-	fragment@4 {
-		target-path = "/";
-		__overlay__ {
-			clocks {
-				adis16475_ref_clk: clock@0 {
-					     #clock-cells = <0>;
-					     compatible = "fixed-clock";
-				};
-			};
-		};
-	};
-
-	fragment@5 {
-		target = <&spi0>;
-		__overlay__ {
-			/* needed to avoid dtc warning */
-			#address-cells = <1>;
-			#size-cells = <0>;
-
-			adis16475: adis16475@0 {
-				reg = <0>;
-				pinctrl-names = "default";
-				pinctrl-0 = <&adis16475_pins>;
-				spi-cpha;
-				spi-cpol;
-				reset-gpios = <&gpio 12 GPIO_ACTIVE_LOW>;
-				spi-max-frequency = <2000000>;
-				interrupts = <4 IRQ_TYPE_EDGE_RISING>;
-				interrupt-parent = <&gpio>;
-			};
-		};
-	};
-
 	__overrides__ {
 		/*
 		 * This gives an option to use the gpio25 as the data ready pin. This
@@ -87,5 +23,51 @@
 		sync_mode = <&adis16475>,"adi,sync-mode:0";
 		ext_sync_freq = <&adis16475_ref_clk>, "clock-frequency:0",
 				<&adis16475>,"clocks:0=",<&adis16475_ref_clk>;
+	};
+};
+
+&spi0 {
+	status = "okay";
+};
+
+&spidev0 {
+	status = "disabled";
+};
+
+&spidev1 {
+	status = "disabled";
+};
+
+&gpio {
+	adis16475_pins: adis16475_pins {
+		brcm,pins = <4 12>; // interrupt and reset
+		brcm,function = <0 1>; // in out
+	};
+};
+
+&{/} {
+	clocks {
+		adis16475_ref_clk: clock@0 {
+			     #clock-cells = <0>;
+			     compatible = "fixed-clock";
+		};
+	};
+};
+
+&spi0 {
+	/* needed to avoid dtc warning */
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	adis16475: adis16475@0 {
+		reg = <0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&adis16475_pins>;
+		spi-cpha;
+		spi-cpol;
+		reset-gpios = <&gpio 12 GPIO_ACTIVE_LOW>;
+		spi-max-frequency = <2000000>;
+		interrupts = <4 IRQ_TYPE_EDGE_RISING>;
+		interrupt-parent = <&gpio>;
 	};
 };
