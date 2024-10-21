@@ -22,6 +22,10 @@
 	status = "okay";
 };
 
+&uart4 {
+	status = "okay";
+};
+
 &mmc0 {
 	status = "okay";
 };
