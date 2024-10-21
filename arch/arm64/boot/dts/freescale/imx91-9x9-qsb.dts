@@ -317,8 +317,8 @@
 
 			ldo_snvs: LDO_SNVS {
 				regulator-name = "LDO_SNVS";
-				regulator-min-microvolt = <800000>;
-				regulator-max-microvolt = <3000000>;
+				regulator-min-microvolt = <1200000>;
+				regulator-max-microvolt = <3400000>;
 				regulator-boot-on;
 				regulator-always-on;
 			};
