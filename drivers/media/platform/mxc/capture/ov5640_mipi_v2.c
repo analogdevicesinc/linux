@@ -1221,8 +1221,7 @@ static int ov5640_init_mode(struct ov5640 *sensor,
 	int retval = 0;
 	enum ov5640_downsize_mode dn_mode, orig_dn_mode;
 
-	if ((mode > ov5640_mode_MAX || mode < ov5640_mode_MIN)
-		&& (mode != ov5640_mode_INIT)) {
+	if ((mode > ov5640_mode_MAX) && (mode != ov5640_mode_INIT)) {
 		dev_err(dev, "Wrong ov5640 mode detected!\n");
 		return -1;
 	}
