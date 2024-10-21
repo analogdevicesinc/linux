@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (c) 2022 - 2024, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2023 - 2024, Analog Devices Incorporated, All Rights Reserved
  */
 
 /dts-v1/;
@@ -923,15 +923,6 @@
         compatible = "generic-uio";
         status = "disabled";
         interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_44 IRQ_TYPE_LEVEL_HIGH>;
-    };
-    uio-adrv906x-interrupt-46 {
-        compatible = "generic-uio";
-        interrupts = <GIC_SPI CB_DONE_INTR_0 IRQ_TYPE_LEVEL_HIGH>;
-    };
-    uio-adrv906x-c2c-interrupt-446 {
-        compatible = "generic-uio";
-        status = "disabled";
-        interrupts = <GIC_SPI C2C_OUT_HW_INTERRUPT_47 IRQ_TYPE_LEVEL_HIGH>;
     };
     uio-adrv906x-interrupt-55 {
         compatible = "generic-uio";
