@@ -84,17 +84,6 @@
 			#clock-cells = <0>;
 			interrupts = <0 97 IRQ_TYPE_LEVEL_HIGH>;
 			clocks = <&versal_clk PMC_PL1_REF>;
-
-			adi,channels {
-				#size-cells = <0>;
-				#address-cells = <1>;
-
-				dma-channel@0 {
-					reg = <0>;
-					adi,source-bus-type = <2>;
-					adi,destination-bus-type = <0>;
-				};
-			};
 		};
 
 		axi_ad9081_core_rx: axi-ad9081-rx-hpc@a4a10000 {

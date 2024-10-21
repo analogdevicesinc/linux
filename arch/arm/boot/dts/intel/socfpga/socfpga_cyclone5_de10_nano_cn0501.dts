@@ -52,19 +52,6 @@
 		interrupt-parent = <&intc>;
 		interrupts = <0 45 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&h2f_user0_clk>;
-
-		adi,channels {
-			#size-cells = <0>;
-			#address-cells = <1>;
-
-			dma-channel@0 {
-				reg = <0>;
-				adi,source-bus-width = <256>;
-				adi,source-bus-type = <2>;
-				adi,destination-bus-width = <64>;
-				adi,destination-bus-type = <0>;
-			};
-		};
 	};
 
 	axi_adc_ad7768: cf_axi_adc@0x00030000 {

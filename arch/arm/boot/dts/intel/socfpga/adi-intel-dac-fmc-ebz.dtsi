@@ -39,7 +39,9 @@
 			};
 
 			dac_dma: dmac@40000 {
+				compatible = "adi,axi-dmac-1.00.a";
 				reg = <0x40000 0x4000>;
+				#dma-cells = <1>;
 
 				interrupt-parent = <&intc>;
 				interrupts = <0 30 0>;

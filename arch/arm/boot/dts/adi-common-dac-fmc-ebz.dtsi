@@ -1,25 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /* Copyright (C) 2024 Analog Devices Inc. */
 
-&dac_dma {
-	compatible = "adi,axi-dmac-1.00.a";
-
-	#dma-cells = <1>;
-
-	adi,channels {
-		#size-cells = <0>;
-		#address-cells = <1>;
-
-		dma-channel@0 {
-			reg = <0>;
-			adi,source-bus-width = <64>;
-			adi,source-bus-type = <0>;
-			adi,destination-bus-width = <256>;
-			adi,destination-bus-type = <2>;
-		};
-	};
-};
-
 &jesd204_transport {
 	compatible = "adi,axi-ad9136-1.0";
 

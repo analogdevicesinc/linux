@@ -175,12 +175,6 @@
 		#dma-cells = <1>;
 		interrupts = <0 54 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
-
-		dma-channel {
-			adi,source-bus-width = <32>;
-			adi,destination-bus-width = <64>;
-			adi,type = <0>;
-		};
 	};
 /*
 	rx_dma1: dma@7c440000 {
@@ -202,13 +196,6 @@
 		#dma-cells = <1>;
 		interrupts = <0 53 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
-
-		dma-channel {
-			adi,source-bus-width = <64>;
-			adi,destination-bus-width = <16>;
-			adi,type = <1>;
-			adi,cyclic;
-		};
 	};
 
 	tx_dma1: dma@7c460000 {
@@ -217,13 +204,6 @@
 		#dma-cells = <1>;
 		interrupts = <0 52 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
-
-		dma-channel {
-			adi,source-bus-width = <64>;
-			adi,destination-bus-width = <16>;
-			adi,type = <1>;
-			adi,cyclic;
-		};
 	};
 
 	m2k-adc@70200000 {
@@ -262,12 +242,6 @@
 		#dma-cells = <1>;
 		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
-
-		dma-channel {
-			adi,source-bus-width = <16>;
-			adi,destination-bus-width = <64>;
-			adi,type = <0>;
-		};
 	};
 
 	logic_analyzer_tx_dma: dma@7c420000 {
@@ -277,13 +251,6 @@
 		#dma-cells = <1>;
 		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
-
-		dma-channel {
-			adi,source-bus-width = <64>;
-			adi,destination-bus-width = <16>;
-			adi,type = <1>;
-			adi,cyclic;
-		};
 	};
 
 	logic_analyzer@7010000 {

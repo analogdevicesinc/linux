@@ -55,19 +55,6 @@
 		interrupts = <0 47 IRQ_TYPE_LEVEL_HIGH>;
 		#dma-cells = <1>;
 		clocks = <&sys_clk>;
-
-		adi,channels {
-			#size-cells = <0>;
-			#address-cells = <1>;
-
-			dma-channel@0 {
-				reg = <0>;
-				adi,source-bus-width = <64>;
-				adi,source-bus-type = <0>;
-				adi,destination-bus-width = <64>;
-				adi,destination-bus-type = <1>;
-			};
-		};
 	};
 
 	axi_hdmi@0x00090000 {
