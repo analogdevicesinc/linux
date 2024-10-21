@@ -1664,13 +1664,17 @@ static uint64_t pxp_store_d_shift_calc(uint32_t in_fmt, uint32_t out_fmt,
 		output_color = pxp_find_yuv_color(out_fmt);
 	}
 
+	if (!input_color || !output_color)
+		WARN_ONCE(1,
+			  "BUG: input_color/output_color shouldn't be NULL\n");
+
 	for (i = 0; i < 4; i++) {
 		input_comp  = &input_color->comp[i];
-		if (!input_comp->length)
+		if (!input_comp || !input_comp->length)
 			continue;
 
 		output_comp = pxp_find_comp(output_color, input_comp->id);
-		if (!output_comp->length)
+		if (!output_comp || !output_comp->length)
 			continue;
 
 		/* only rgb format can drop color bits */
@@ -1866,12 +1870,19 @@ static uint32_t pxp_fetch_shift_calc(uint32_t in_fmt, uint32_t out_fmt,
 		output_color = pxp_find_yuv_color(out_fmt);
 	}
 
+	if (!input_color || !output_color)
+		WARN_ONCE(1,
+			  "BUG: input_color/output_color shouldn't be NULL\n");
+
 	for(i = 0; i < 4; i++) {
 		output_comp = &output_color->comp[i];
-		if (!output_comp->length)
+		if (!output_comp || !output_comp->length)
 			continue;
 
 		input_comp = pxp_find_comp(input_color, output_comp->id);
+		if (!input_comp)
+			WARN_ONCE(1,
+				  "BUG: input_comp shouldn't be NULL\n");
 		switch (i) {
 		case 0:
 			shift_offset.offset0 = input_comp->offset;
