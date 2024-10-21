@@ -208,19 +208,6 @@
 				interrupts = <0 31 4>;
 				#dma-cells = <1>;
 				clocks = <&dma_clk>;
-
-				adi,channels {
-					#size-cells = <0>;
-					#address-cells = <1>;
-
-					dma-channel@0 {
-						reg = <0>;
-						adi,source-bus-width = <256>;
-						adi,source-bus-type = <2>;
-						adi,destination-bus-width = <128>;
-						adi,destination-bus-type = <0>;
-					};
-				};
 			};
 
 			rx_obs_dma: rx-obs-dmac@4c000  {
@@ -230,19 +217,6 @@
 				interrupts = <0 32 4>;
 				#dma-cells = <1>;
 				clocks = <&dma_clk>;
-
-				adi,channels {
-					#size-cells = <0>;
-					#address-cells = <1>;
-
-					dma-channel@0 {
-						reg = <0>;
-						adi,source-bus-width = <128>;
-						adi,source-bus-type = <2>;
-						adi,destination-bus-width = <128>;
-						adi,destination-bus-type = <0>;
-					};
-				};
 			};
 
 			tx_dma: tx-dmac@70000 {
@@ -252,19 +226,6 @@
 				interrupts = <0 30 4>;
 				#dma-cells = <1>;
 				clocks = <&dma_clk>;
-
-				adi,channels {
-					#size-cells = <0>;
-					#address-cells = <1>;
-
-					dma-channel@0 {
-						reg = <0>;
-						adi,source-bus-width = <128>;
-						adi,source-bus-type = <0>;
-						adi,destination-bus-width = <256>;
-						adi,destination-bus-type = <1>;
-					};
-				};
 			};
 
 

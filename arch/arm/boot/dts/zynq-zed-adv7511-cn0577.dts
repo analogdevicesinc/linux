@@ -54,19 +54,6 @@
 		#dma-cells = <1>;
 		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
-
-		adi,channels {
-			#size-cells = <0>;
-			#address-cells = <1>;
-
-			dma-channel@0 {
-				reg = <0>;
-				adi,source-bus-width = <16>;
-				adi,source-bus-type = <2>;
-				adi,destination-bus-width = <64>;
-				adi,destination-bus-type = <0>;
-			};
-		};
 	};
 
 	axi_pwm_gen: pwm@0x44a60000 {
