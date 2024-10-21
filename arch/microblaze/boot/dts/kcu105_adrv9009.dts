@@ -35,10 +35,6 @@
 		spibus-connected = <&trx0_adrv9009>;
 		adi,axi-decimation-core-available;
 		decimation-gpios = <&axi_gpio 61 GPIO_ACTIVE_HIGH>;
-
-		jesd204-device;
-		#jesd204-cells = <2>;
-		jesd204-inputs = <&axi_adrv9009_rx_jesd 0 FRAMER_LINK_RX>;
 	};
 	axi_adrv9009_core_rx_obs: axi-adrv9009-rx-obs-hpc@44a08000 {
 		compatible = "adi,axi-adrv9009-obs-1.0";
@@ -47,10 +43,6 @@
 		dma-names = "rx";
 		clocks = <&trx0_adrv9009 1>;
 		clock-names = "sampl_clk";
-
-		jesd204-device;
-		#jesd204-cells = <2>;
-		jesd204-inputs = <&axi_adrv9009_rx_os_jesd 0 FRAMER_LINK_ORX>;
 	};
 	axi_adrv9009_core_tx: axi-adrv9009-tx-hpc@44a04000 {
 		compatible = "adi,axi-adrv9009-tx-1.0";
@@ -265,6 +257,7 @@
 	#jesd204-cells = <2>;
 	jesd204-top-device = <0>; /* This is the TOP device */
 	jesd204-link-ids = <DEFRAMER_LINK_TX FRAMER_LINK_RX FRAMER_LINK_ORX>;
+	jesd204-ignore-errors;
 
 	jesd204-inputs =
 		<&axi_adrv9009_rx_jesd 0 FRAMER_LINK_RX>,

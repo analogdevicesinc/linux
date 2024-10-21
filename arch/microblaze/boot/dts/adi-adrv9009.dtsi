@@ -55,9 +55,8 @@
 
 		/* SYSREF config */
 		adi,sysref-src = <SYSREF_SRC_INTERNAL>;
-		adi,sysref-pattern-mode = <SYSREF_PATTERN_CONTINUOUS>;
+		adi,sysref-pattern-mode = <SYSREF_PATTERN_NSHOT>;
 		adi,sysref-k-div = <512>;
-		adi,sysref-request-enable;
 		adi,sysref-nshot-mode = <SYSREF_NSHOT_4_PULSES>;
 		adi,sysref-request-trigger-mode = <SYSREF_LEVEL_HIGH>;
 
