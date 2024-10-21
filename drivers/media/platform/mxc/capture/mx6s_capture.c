@@ -1457,6 +1457,9 @@ static int mx6s_vidioc_s_fmt_vid_cap(struct file *file, void *priv,
 		return ret;
 
 	csi_dev->fmt           = format_by_fourcc(f->fmt.pix.pixelformat);
+	if (!csi_dev->fmt)
+		return -EINVAL;
+
 	csi_dev->mbus_code     = csi_dev->fmt->mbus_code;
 	csi_dev->pix.width     = f->fmt.pix.width;
 	csi_dev->pix.height    = f->fmt.pix.height;
