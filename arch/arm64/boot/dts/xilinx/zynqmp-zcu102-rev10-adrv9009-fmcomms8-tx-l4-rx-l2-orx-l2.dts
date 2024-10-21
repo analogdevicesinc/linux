@@ -97,34 +97,6 @@
 	};
 / {
 	fpga_axi: fpga-axi@0 {
-
-		rx_dma: dma@9d420000 {
-			adi,channels {
-				dma-channel@0 {
-					adi,source-bus-width = <128>;
-					adi,destination-bus-width = <128>;
-				};
-			};
-		};
-
-		rx_obs_dma: dma@9d440000 {
-			adi,channels {
-				dma-channel@0 {
-					adi,source-bus-width = <64>;
-					adi,destination-bus-width = <128>;
-				};
-			};
-		};
-
-		tx_dma: dma@9d400000  {
-			adi,channels {
-				dma-channel@0 {
-					adi,source-bus-width = <128>;
-					adi,destination-bus-width = <128>;
-				};
-			};
-		};
-
 		axi_adrv9009_rx_jesd: axi-jesd204-rx@85a50000 {
 			clocks = <&zynqmp_clk 71>, <&hmc7044_fmc 9>, <&axi_adrv9009_adxcvr_rx 1>, <&axi_adrv9009_adxcvr_rx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "link_clk", "lane_clk";
