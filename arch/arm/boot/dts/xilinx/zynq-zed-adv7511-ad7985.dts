@@ -19,118 +19,118 @@
 #include "zynq-zed-adv7511.dtsi"
 
 / {
-	 eval_u3: eval-board-u3-regulator {
-		 compatible = "regulator-fixed";
-		 regulator-name = "EVAL +2.5V supply (U3)";
-		 regulator-min-microvolt = <2500000>;
-		 regulator-max-microvolt = <2500000>;
-		 regulator-always-on;
-	 };
+	eval_u3: eval-board-u3-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL +2.5V supply (U3)";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		regulator-always-on;
+	};
 
-	 eval_u5: eval-board-u5-regulator {
-		 compatible = "regulator-fixed";
-		 regulator-name = "EVAL +5V supply (U5)";
-		 regulator-min-microvolt = <5000000>;
-		 regulator-max-microvolt = <5000000>;
-		 regulator-always-on;
-	 };
+	eval_u5: eval-board-u5-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL +5V supply (U5)";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
 
-	 eval_u10: eval-board-u10-regulator {
-		 compatible = "regulator-fixed";
-		 regulator-name = "EVAL +5V supply (U10)";
-		 regulator-min-microvolt = <5000000>;
-		 regulator-max-microvolt = <5000000>;
-		 regulator-always-on;
-	 };
+	eval_u10: eval-board-u10-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL +5V supply (U10)";
+		regulator-min-microvolt = <5000000>;
+		regulator-max-microvolt = <5000000>;
+		regulator-always-on;
+	};
 
-	 eval_u12: eval-board-u12-regulator {
-		 compatible = "regulator-fixed";
-		 regulator-name = "EVAL +2.5V supply (U12)";
-		 regulator-min-microvolt = <2500000>;
-		 regulator-max-microvolt = <2500000>;
-		 regulator-always-on;
-	 };
+	eval_u12: eval-board-u12-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL +2.5V supply (U12)";
+		regulator-min-microvolt = <2500000>;
+		regulator-max-microvolt = <2500000>;
+		regulator-always-on;
+	};
 };
 
 &fpga_axi {
-	 adc_trigger: pwm@44b00000 {
-		 compatible = "adi,axi-pwmgen-2.00.a";
-		 reg = <0x44b00000 0x1000>;
-		 #pwm-cells = <2>;
-		 clocks = <&spi_clk>;
-	 };
+	adc_trigger: pwm@44b00000 {
+		compatible = "adi,axi-pwmgen-2.00.a";
+		reg = <0x44b00000 0x1000>;
+		#pwm-cells = <2>;
+		clocks = <&spi_clk>;
+	};
 
-	 rx_dma: rx-dmac@44a30000 {
-		 compatible = "adi,axi-dmac-1.00.a";
-		 reg = <0x44a30000 0x1000>;
-		 #dma-cells = <1>;
-		 interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
-		 clocks = <&clkc 17>;
+	rx_dma: rx-dmac@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x1000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 17>;
 
-		 adi,channels {
-			 #size-cells = <0>;
-			 #address-cells = <1>;
+		adi,channels {
+			#size-cells = <0>;
+			#address-cells = <1>;
 
-			 dma-channel@0 {
-				 reg = <0>;
-				 adi,source-bus-width = <32>;
-				 adi,source-bus-type = <AXI_DMAC_BUS_TYPE_AXI_STREAM>;
-				 adi,destination-bus-width = <64>;
-				 adi,destination-bus-type = <AXI_DMAC_BUS_TYPE_AXI_MM>;
-			 };
-		 };
-	 };
+			dma-channel@0 {
+				reg = <0>;
+				adi,source-bus-width = <32>;
+				adi,source-bus-type = <AXI_DMAC_BUS_TYPE_AXI_STREAM>;
+				adi,destination-bus-width = <64>;
+				adi,destination-bus-type = <AXI_DMAC_BUS_TYPE_AXI_MM>;
+			};
+		};
+	};
 
-	 spi_clk: clock-controller@44a70000 {
-		 compatible = "adi,axi-clkgen-2.00.a";
-		 reg = <0x44a70000 0x1000>;
-		 #clock-cells = <0>;
-		 clocks = <&clkc 15>, <&clkc 15>;
-		 clock-names = "s_axi_aclk", "clkin1";
-		 clock-output-names = "spi_clk";
+	spi_clk: clock-controller@44a70000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44a70000 0x1000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 15>;
+		clock-names = "s_axi_aclk", "clkin1";
+		clock-output-names = "spi_clk";
 
-		 /* needs to be high enough to allow >= 91.5MHz SCLK for turbo */
-		 assigned-clocks = <&spi_clk>;
-		 assigned-clock-rates = <185000000>;
-	 };
+		/* needs to be high enough to allow >= 91.5MHz SCLK for turbo */
+		assigned-clocks = <&spi_clk>;
+		assigned-clock-rates = <185000000>;
+	};
 
-	 axi_spi_engine_0: spi@44a00000 {
-		 compatible = "adi-ex,axi-spi-engine-1.00.a";
-		 reg = <0x44a00000 0x1000>;
-		 interrupt-parent = <&intc>;
-		 interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
-		 clocks = <&clkc 15>, <&spi_clk>;
-		 clock-names = "s_axi_aclk", "spi_clk";
+	axi_spi_engine_0: spi@44a00000 {
+		compatible = "adi-ex,axi-spi-engine-1.00.a";
+		reg = <0x44a00000 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>, <&spi_clk>;
+		clock-names = "s_axi_aclk", "spi_clk";
 
-		 #address-cells = <1>;
-		 #size-cells = <0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
 
-		 ad7985: adc@0 {
-			 compatible = "adi,ad7985";
-			 reg = <0>;
-			 spi-max-frequency = <111111111>; /* 9 ns period */
-			 adi,spi-mode = "single";
-			 avdd-supply = <&eval_u12>;
-			 dvdd-supply = <&eval_u12>;
-			 vio-supply = <&eval_u3>;
-			 bvdd-supply = <&eval_u10>;
-			 ref-supply = <&eval_u5>;
-			 turbo-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>;
+		ad7985: adc@0 {
+			compatible = "adi,ad7985";
+			reg = <0>;
+			spi-max-frequency = <111111111>; /* 9 ns period */
+			adi,spi-mode = "single";
+			avdd-supply = <&eval_u12>;
+			dvdd-supply = <&eval_u12>;
+			vio-supply = <&eval_u3>;
+			bvdd-supply = <&eval_u10>;
+			ref-supply = <&eval_u5>;
+			turbo-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>;
 
-			 /* out of tree extensions */
-			 dmas = <&rx_dma 0>;
-			 dma-names = "rx";
-			 pwms = <&adc_trigger 0 0>;
-			 pwm-names = "cnv";
-		 };
-	 };
+			/* out of tree extensions */
+			dmas = <&rx_dma 0>;
+			dma-names = "rx";
+			pwms = <&adc_trigger 0 0>;
+			pwm-names = "cnv";
+		};
+	};
 };
 
 &gpio0 {
-	 ad7985-mode {
-		 /* pull SDI line on ADC high for 3-wire mode */
-		 gpio-hog;
-		 gpios = <88 GPIO_ACTIVE_HIGH>;
-		 output-high;
-	 };
+	ad7985-mode {
+		/* pull SDI line on ADC high for 3-wire mode */
+		gpio-hog;
+		gpios = <88 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
 };
