@@ -1293,7 +1293,7 @@ static __poll_t vsi_dec_poll(struct file *file, poll_table *wait)
 		 * and start processing.
 		 */
 		if ((!vb2_is_streaming(src_q) || src_q->error || list_empty(&src_q->queued_list)) &&
-		    !ctx->reschange_notified && ctx->reschange_cnt &&
+		    !ctx->reschange_notified &&
 		    (!vb2_is_streaming(dst_q) || dst_q->error ||
 		     (list_empty(&dst_q->queued_list) && !dst_q->last_buffer_dequeued))) {
 			ret |= EPOLLERR;
