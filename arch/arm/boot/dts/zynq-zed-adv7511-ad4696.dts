@@ -73,19 +73,6 @@
 		#dma-cells = <1>;
 		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15>;
-
-		adi,channels {
-			#size-cells = <0>;
-			#address-cells = <1>;
-
-			dma-channel@0 {
-				reg = <0>;
-				adi,source-bus-width = <64>;
-				adi,source-bus-type = <AXI_DMAC_BUS_TYPE_AXI_STREAM>;
-				adi,destination-bus-width = <64>;
-				adi,destination-bus-type = <AXI_DMAC_BUS_TYPE_AXI_MM>;
-			};
-		};
 	};
 
 	adc_trigger: pwm@44b00000 {
