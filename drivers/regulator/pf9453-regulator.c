@@ -352,10 +352,10 @@ static const struct linear_range pf9453_ldo2_volts[] = {
 
 /*
  * LDOSNVS
- * 0.8 to 3.0V (25mV step)
+ * 1.2 to 3.4V (25mV step)
  */
 static const struct linear_range pf9453_ldosnvs_volts[] = {
-	REGULATOR_LINEAR_RANGE(800000, 0x00, 0x58, 25000),
+	REGULATOR_LINEAR_RANGE(1200000, 0x00, 0x58, 25000),
 };
 
 static int buck_set_dvs(const struct regulator_desc *desc,
