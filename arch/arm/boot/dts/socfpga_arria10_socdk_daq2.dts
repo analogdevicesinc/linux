@@ -77,18 +77,6 @@
 				interrupt-parent = <&intc>;
 				interrupts = <0 29 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&dma_clk>;
-
-				adi,channels {
-					#size-cells = <0>;
-					#address-cells = <1>;
-					dma-channel@0 {
-						reg = <0>;
-						adi,source-bus-width = <128>;
-						adi,source-bus-type = <1>;
-						adi,destination-bus-width = <128>;
-						adi,destination-bus-type = <0>;
-					};
-				};
 			};
 
 			tx_dma: tx-dmac@2c000 {
@@ -98,19 +86,6 @@
 				interrupt-parent = <&intc>;
 				interrupts = <0 30 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&dma_clk>;
-
-				adi,channels {
-					#size-cells = <0>;
-					#address-cells = <1>;
-					dma-channel@0 {
-						reg = <0>;
-						adi,source-bus-width = <128>;
-						adi,source-bus-type = <0>;
-						adi,destination-bus-width = <128>;
-						adi,destination-bus-type = <1>;
-					adi,cyclic;
-					};
-				};
 			};
 
 			axi_ad9144_core: axi-ad9144-hpc@34000 {

@@ -563,19 +563,6 @@
 		#clock-cells = <0>;
 		interrupts = <0 95 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&zynqmp_clk 73>;
-
-		adi,channels {
-			#size-cells = <0>;
-			#address-cells = <1>;
-
-			dma-channel@0 {
-				reg = <0>;
-				adi,source-bus-width = <64>;
-				adi,source-bus-type = <0>;
-				adi,destination-bus-width = <32>;
-				adi,destination-bus-type = <1>;
-			};
-		};
 	};
 
 	i2s_rx_dma: dma@81000000  {
@@ -585,19 +572,6 @@
 		#clock-cells = <0>;
 		interrupts = <0 96 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&zynqmp_clk 73>;
-
-		adi,channels {
-			#size-cells = <0>;
-			#address-cells = <1>;
-
-			dma-channel@0 {
-				reg = <0>;
-				adi,source-bus-width = <32>;
-				adi,source-bus-type = <1>;
-				adi,destination-bus-width = <64>;
-				adi,destination-bus-type = <0>;
-			};
-		};
 	};
 
 	axi_i2s_adi: axi-i2s-adi@82000000 {

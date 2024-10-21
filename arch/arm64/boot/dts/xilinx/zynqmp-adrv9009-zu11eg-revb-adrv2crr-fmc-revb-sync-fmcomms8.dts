@@ -40,20 +40,6 @@
 	clocks = <&hmc7044_fmc 4>, <&hmc7044 6>;
 };
 
-&rx_dma_channel {
-	adi,source-bus-width = <256>;
-	adi,destination-bus-width = <256>;
-};
-
-&rx_obs_dma_channel {
-	adi,source-bus-width = <256>;
-	adi,destination-bus-width = <256>;
-};
-
-&tx_dma_channel {
-	adi,source-bus-width = <256>;
-};
-
 &axi_adrv9009_tx_jesd {
 	adi,converter-resolution = <16>;
 	adi,converters-per-device = <16>;
