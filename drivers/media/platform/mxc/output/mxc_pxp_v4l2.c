@@ -560,6 +560,9 @@ static int pxp_s_fmt_video_output(struct file *file, void *fh,
 	ret = pxp_try_fmt_video_output(file, fh, f);
 	if (ret == 0) {
 		pxp->s0_fmt = pxp_get_format(f);
+		if (!pxp->s0_fmt)
+			return -EINVAL;
+
 		pxp->pxp_conf.s0_param.pixel_fmt =
 			v4l2_fmt_to_pxp_fmt(pxp->s0_fmt->fourcc);
 		pxp->pxp_conf.s0_param.width = pf->width;
