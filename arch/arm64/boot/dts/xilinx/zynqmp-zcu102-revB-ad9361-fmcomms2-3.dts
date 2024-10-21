@@ -1,9 +1,8 @@
+// SPDX-License-Identifier: GPL-2.0
 /*
  * dts file for FMCOMMS2/3 AD9361 on Xilinx ZynqMP ZCU102 RevB
  *
  * Copyright (C) 2016 Analog Devices Inc.
- *
- * Licensed under the GPL-2.
  */
 
 #include "zynqmp-zcu102-revB.dts"
