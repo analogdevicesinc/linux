@@ -308,12 +308,6 @@
 			interrupt-parent = <&sys_cpu>;
 			interrupts = <10>;
 			clocks = <&dma_clk>;
-
-			dma-channel {
-				adi,source-bus-width = <128>;
-				adi,destination-bus-width = <128>;
-				adi,type = <0>;
-			};
 		};
 
 		tx_dma: tx-dmac@1002c000 {
@@ -323,13 +317,6 @@
 			interrupt-parent = <&sys_cpu>;
 			interrupts = <11>;
 			clocks = <&dma_clk>;
-
-			dma-channel {
-				adi,source-bus-width = <128>;
-				adi,destination-bus-width = <128>;
-				adi,type = <1>;
-				adi,cyclic;
-			};
 		};
 
 		axi_ad9144_core: axi-ad9144-hpc@10034000 {

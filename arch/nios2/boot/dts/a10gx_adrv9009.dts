@@ -765,19 +765,6 @@
 			#dma-cells = <1>;
 			clocks = <&dma_clk>;
 			clock-names = "dma_clkin";
-
-			adi,channels {
-				#size-cells = <0>;
-				#address-cells = <1>;
-
-				dma-channel@0 {
-					reg = <0>;
-					adi,source-bus-width = <128>;
-					adi,source-bus-type = <0>;
-					adi,destination-bus-width = <128>;
-					adi,destination-bus-type = <1>;
-				};
-			};
 		};
 
 		rx_dma: rx-dmac@1004c000 {
@@ -788,19 +775,6 @@
 			#dma-cells = <1>;
 			clocks = <&dma_clk>;
 			clock-names = "dma_clkin";
-
-			adi,channels {
-				#size-cells = <0>;
-				#address-cells = <1>;
-
-				dma-channel@0 {
-					reg = <0>;
-					adi,source-bus-width = <64>;
-					adi,source-bus-type = <2>;
-					adi,destination-bus-width = <128>;
-					adi,destination-bus-type = <0>;
-				};
-			};
 		};
 
 		rx_os_dma: rx-obs-dmac@1005c000  {
@@ -811,19 +785,6 @@
 			#dma-cells = <1>;
 			clocks = <&dma_clk>;
 			clock-names = "dma_clkin";
-
-			adi,channels {
-				#size-cells = <0>;
-				#address-cells = <1>;
-
-				dma-channel@0 {
-					reg = <0>;
-					adi,source-bus-width = <64>;
-					adi,source-bus-type = <2>;
-					adi,destination-bus-width = <128>;
-					adi,destination-bus-type = <0>;
-				};
-			};
 		};
 
 		axi_adrv9009_core_rx: axi-adrv9009-rx-hpc@10060000 {
