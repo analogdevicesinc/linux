@@ -113,16 +113,6 @@ static uint32_t axi_clkgen_lookup_lock(unsigned int m)
 	return 0x1f1f00fa;
 }
 
-#ifdef ARCH_ZYNQMP
-static unsigned int fpfd_max = 450000;
-static unsigned int fvco_min = 800000;
-static unsigned int fvco_max = 1600000;
-#else
-static unsigned int fpfd_max = 300000;
-static unsigned int fvco_min = 600000;
-static unsigned int fvco_max = 1200000;
-#endif
-
 static const struct axi_clkgen_limits axi_clkgen_zynqmp_default_limits = {
 	.fpfd_min = 10000,
 	.fpfd_max = 450000,
@@ -263,6 +253,7 @@ static void axi_clkgen_read(struct axi_clkgen *axi_clkgen,
  */
 static void axi_clkgen_setup_ranges(struct axi_clkgen *axi_clkgen)
 {
+	struct axi_clkgen_limits *limits = &axi_clkgen->limits;
 	unsigned int reg_value;
 	unsigned int tech, family, speed_grade, voltage;
 
@@ -276,31 +267,31 @@ static void axi_clkgen_setup_ranges(struct axi_clkgen *axi_clkgen)
 
 	switch (speed_grade) {
 	case ADI_AXI_FPGA_SPEED_1 ... ADI_AXI_FPGA_SPEED_1LV:
-		fvco_max = 1200000;
-		fpfd_max = 450000;
+		limits->fvco_max = 1200000;
+		limits->fpfd_max = 450000;
 		break;
 	case ADI_AXI_FPGA_SPEED_2 ... ADI_AXI_FPGA_SPEED_2LV:
-		fvco_max = 1440000;
-		fpfd_max = 500000;
+		limits->fvco_max = 1440000;
+		limits->fpfd_max = 500000;
 		if ((family == ADI_AXI_FPGA_FAMILY_KINTEX) ||
 		    (family == ADI_AXI_FPGA_FAMILY_ARTIX)) {
 			if (voltage < 950) {
-				fvco_max = 1200000;
-				fpfd_max = 450000;
+				limits->fvco_max = 1200000;
+				limits->fpfd_max = 450000;
 			}
 		}
 		break;
 	case ADI_AXI_FPGA_SPEED_3:
-		fvco_max = 1600000;
-		fpfd_max = 550000;
+		limits->fvco_max = 1600000;
+		limits->fpfd_max = 550000;
 		break;
 	default:
 		break;
 	};
 
 	if (tech == ADI_AXI_FPGA_TECH_ULTRASCALE_PLUS) {
-		fvco_max = 1600000;
-		fvco_min = 800000;
+		limits->fvco_max = 1600000;
+		limits->fvco_min = 800000;
 	}
 }
 
@@ -607,9 +598,6 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 	axi_clkgen_read(axi_clkgen, ADI_AXI_REG_VERSION,
 			&axi_clkgen->pcore_version);
 
-	if (ADI_AXI_PCORE_VER_MAJOR(axi_clkgen->pcore_version) > 0x04)
-		axi_clkgen_setup_ranges(axi_clkgen);
-
 	for (i = 0, init.num_parents = 0; i < ARRAY_SIZE(axi_clkgen->parent_clocks); i++) {
 		sprintf(clkin_name, "clkin%d", i + 1);
 		axi_clkgen->parent_clocks[i] = devm_clk_get(&pdev->dev, clkin_name);
@@ -641,6 +629,9 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 	}
 
 	memcpy(&axi_clkgen->limits, dflt_limits, sizeof(axi_clkgen->limits));
+
+	if (ADI_AXI_PCORE_VER_MAJOR(axi_clkgen->pcore_version) > 0x04)
+		axi_clkgen_setup_ranges(axi_clkgen);
 
 	clk_name = pdev->dev.of_node->name;
 	of_property_read_string(pdev->dev.of_node, "clock-output-names",
