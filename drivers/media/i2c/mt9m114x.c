@@ -17,9 +17,11 @@
 #include <linux/types.h>
 #include <linux/videodev2.h>
 
+#include <media/v4l2-async.h>
 #include <media/v4l2-device.h>
-#include <media/v4l2-mediabus.h>
 #include <media/v4l2-fwnode.h>
+#include <media/v4l2-mediabus.h>
+#include <media/v4l2-subdev.h>
 
 /* Sysctl registers */
 #define MT9M114_CHIP_ID					0x0000
@@ -1142,6 +1144,7 @@ static const struct media_entity_operations mt9m114_sd_media_ops = {
 
 static int mt9m114_probe(struct i2c_client *client)
 {
+	struct device *dev = &client->dev;
 	struct mt9m114 *sensor;
 	struct v4l2_subdev *sd;
 	struct v4l2_mbus_framefmt *fmt;
@@ -1165,7 +1168,7 @@ static int mt9m114_probe(struct i2c_client *client)
 
 	ret = mt9m114_get_gpios(sensor);
 	if (ret)
-		goto fail;
+		goto err_power;
 
 	mt9m114_hw_reset(sensor);
 
@@ -1196,16 +1199,21 @@ static int mt9m114_probe(struct i2c_client *client)
 
 	ret = mt9m114_init_config(sensor);
 	if (ret)
-		goto fail;
+		goto err_power;
+
+	v4l2_i2c_subdev_init(&sensor->sd, client, &mt9m114_subdev_ops);
 
 	sd = &sensor->sd;
-	sd->flags          |= V4L2_SUBDEV_FL_HAS_EVENTS;
+	sd->flags          |= V4L2_SUBDEV_FL_HAS_EVENTS
+			   | V4L2_SUBDEV_FL_HAS_DEVNODE;
 	sd->entity.ops      = &mt9m114_sd_media_ops;
 	sd->entity.function = MEDIA_ENT_F_CAM_SENSOR;
-	v4l2_i2c_subdev_init(sd, client, &mt9m114_subdev_ops);
 
 	sensor->pads[MT9M114_SENS_PAD_SOURCE].flags = MEDIA_PAD_FL_SOURCE;
 	ret = media_entity_pads_init(&sd->entity, MT9M114_SENS_PADS_NUM, sensor->pads);
+	if (ret)
+		goto err_power;
+	ret = v4l2_subdev_init_finalize(sd);
 	if (ret)
 		goto err_power;
 
@@ -1245,7 +1253,9 @@ static void mt9m114_remove(struct i2c_client *client)
 	if (!pm_runtime_status_suspended(dev))
 		mt9m114_sensor_suspend(dev);
 	pm_runtime_set_suspended(dev);
-	v4l2_device_unregister_subdev(sd);
+
+	v4l2_async_unregister_subdev(sd);
+	media_entity_cleanup(&sensor->sd.entity);
 	kfree(sensor);
 }
 
