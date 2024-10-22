@@ -93,6 +93,10 @@ int cdns_mhdp_audio_stop(struct cdns_mhdp_device *mhdp,
 {
 	int ret;
 
+	/* Remove Audio info frame */
+	if (audio->connector_type == DRM_MODE_CONNECTOR_HDMIA)
+		cdns_mhdp_infoframe_remove(mhdp, 1, HDMI_INFOFRAME_TYPE_AUDIO);
+
 	if (audio->connector_type == DRM_MODE_CONNECTOR_DisplayPort) {
 		ret = cdns_mhdp_reg_write(mhdp, AUDIO_PACK_CONTROL, 0);
 		if (ret) {

@@ -14,7 +14,7 @@
 #include <linux/regmap.h>
 
 void cdns_mhdp_infoframe_set(struct cdns_mhdp_device *mhdp,
-					u8 entry_id, u8 packet_len, u8 *packet, u8 packet_type)
+			     u8 entry_id, u8 packet_len, u8 *packet, u8 packet_type)
 {
 	u32 *packet32, len32;
 	u32 val, i;
@@ -45,6 +45,18 @@ void cdns_mhdp_infoframe_set(struct cdns_mhdp_device *mhdp,
 	cdns_mhdp_bus_write(val, mhdp, SOURCE_PIF_PKT_ALLOC_REG);
 
 	cdns_mhdp_bus_write(F_PKT_ALLOC_WR_EN(1), mhdp, SOURCE_PIF_PKT_ALLOC_WR_EN);
+}
+
+void cdns_mhdp_infoframe_remove(struct cdns_mhdp_device *mhdp,
+				u8 entry_id, u8 packet_type)
+{
+	u32 val;
+
+	/* invalidate entry */
+	val = F_ACTIVE_IDLE_TYPE(1) | F_PKT_ALLOC_ADDRESS(entry_id) |
+	      F_PACKET_TYPE(packet_type);
+	writel(val, mhdp->regs_base + SOURCE_PIF_PKT_ALLOC_REG);
+	writel(F_PKT_ALLOC_WR_EN(1), mhdp->regs_base + SOURCE_PIF_PKT_ALLOC_WR_EN);
 }
 
 int cdns_hdmi_get_edid_block(void *data, u8 *edid,

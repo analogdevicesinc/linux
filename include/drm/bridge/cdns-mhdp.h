@@ -815,6 +815,7 @@ struct cdns_mhdp_device {
 			struct cdns_mhdp_cec cec;
 			u32 char_rate;
 			u32 hdmi_type;
+			bool hdr_enable;
 		} hdmi;
 	};
 	const struct cdns_plat_data *plat_data;
@@ -880,7 +881,9 @@ int cdns_mhdp_mailbox_validate_receive(struct cdns_mhdp_device *mhdp,
 					      u8 module_id, u8 opcode,
 					      u16 req_size);
 void cdns_mhdp_infoframe_set(struct cdns_mhdp_device *mhdp,
-					u8 entry_id, u8 packet_len, u8 *packet, u8 packet_type);
+			     u8 entry_id, u8 packet_len, u8 *packet, u8 packet_type);
+void cdns_mhdp_infoframe_remove(struct cdns_mhdp_device *mhdp,
+				u8 entry_id, u8 packet_type);
 int cdns_hdmi_get_edid_block(void *data, u8 *edid, u32 block, size_t length);
 int cdns_hdmi_scdc_read(struct cdns_mhdp_device *mhdp, u8 addr, u8 *data);
 int cdns_hdmi_scdc_write(struct cdns_mhdp_device *mhdp, u8 addr, u8 value);

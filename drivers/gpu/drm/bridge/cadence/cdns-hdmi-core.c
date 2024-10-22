@@ -162,8 +162,14 @@ static void hdmi_drm_info_set(struct cdns_mhdp_device *mhdp)
 
 	conn_state = mhdp->connector.base.state;
 
-	if (!conn_state->hdr_output_metadata)
+	if (!conn_state->hdr_output_metadata) {
+		/* Disable HDR info frame if it had enabled */
+		if (mhdp->hdmi.hdr_enable) {
+			cdns_mhdp_infoframe_remove(mhdp, 2, HDMI_INFOFRAME_TYPE_DRM);
+			mhdp->hdmi.hdr_enable = false;
+		}
 		return;
+	}
 
 	ret = drm_hdmi_infoframe_set_hdr_metadata(&frame, conn_state);
 	if (ret < 0) {
@@ -180,6 +186,8 @@ static void hdmi_drm_info_set(struct cdns_mhdp_device *mhdp)
 	buf[0] = 0;
 	cdns_mhdp_infoframe_set(mhdp, 2, sizeof(buf),
 				buf, HDMI_INFOFRAME_TYPE_DRM);
+
+	mhdp->hdmi.hdr_enable = true;
 }
 
 static void hdmi_spd_info_set(struct cdns_mhdp_device *mhdp)
