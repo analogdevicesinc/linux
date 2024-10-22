@@ -11,10 +11,12 @@
 #include <linux/i2c.h>
 #include <linux/init.h>
 #include <linux/module.h>
+#include <linux/pm_runtime.h>
+#include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/types.h>
-#include <linux/regulator/consumer.h>
 #include <linux/videodev2.h>
+
 #include <media/v4l2-device.h>
 #include <media/v4l2-mediabus.h>
 #include <media/v4l2-fwnode.h>
@@ -669,6 +671,10 @@ static int mt9m114_s_stream(struct v4l2_subdev *sd, int enable)
 	int ret;
 
 	if (enable) {
+		ret = pm_runtime_resume_and_get(&sensor->i2c_client->dev);
+		if (ret < 0)
+			return ret;
+
 		if (sensor->pending_mode_change) {
 			sensor->last_mode = mode;
 			ret = mt9m114_set_res(client, mode->width, mode->height);
@@ -687,6 +693,11 @@ static int mt9m114_s_stream(struct v4l2_subdev *sd, int enable)
 	} else {
 		ret = mt9m114_set_state(client,
 				MT9M114_SYS_STATE_ENTER_SUSPEND);
+	}
+
+	if (!enable || ret) {
+		pm_runtime_mark_last_busy(&sensor->i2c_client->dev);
+		pm_runtime_put_autosuspend(&sensor->i2c_client->dev);
 	}
 
 	if (ret < 0) {
@@ -1098,6 +1109,26 @@ static int mt9m114_init_config(struct mt9m114 *sensor)
 	return 0;
 }
 
+static int mt9m114_sensor_suspend(struct device *dev)
+{
+	struct v4l2_subdev *sd = dev_get_drvdata(dev);
+	struct mt9m114 *sensor = to_mt9m114(sd);
+
+	return mt9m114_set_power(sensor, false);
+}
+
+static int mt9m114_sensor_resume(struct device *dev)
+{
+	struct v4l2_subdev *sd = dev_get_drvdata(dev);
+	struct mt9m114 *sensor = to_mt9m114(sd);
+
+	return mt9m114_set_power(sensor, true);
+}
+
+static const struct dev_pm_ops mt9m114_pm_ops = {
+	SET_RUNTIME_PM_OPS(mt9m114_sensor_suspend, mt9m114_sensor_resume, NULL)
+};
+
 static int mt9m114_link_setup(struct media_entity *entity,
 			      const struct media_pad *local,
 			      const struct media_pad *remote, u32 flags)
@@ -1140,11 +1171,11 @@ static int mt9m114_probe(struct i2c_client *client)
 
 	ret = mt9m114_get_chip_id(sensor);
 	if (ret)
-		goto fail;
+		goto err_power;
 
 	ret = mt9m114_soft_reset(sensor);
 	if (ret)
-		goto fail;
+		goto err_power;
 
 	/*
 	 * config default format
@@ -1176,16 +1207,30 @@ static int mt9m114_probe(struct i2c_client *client)
 	sensor->pads[MT9M114_SENS_PAD_SOURCE].flags = MEDIA_PAD_FL_SOURCE;
 	ret = media_entity_pads_init(&sd->entity, MT9M114_SENS_PADS_NUM, sensor->pads);
 	if (ret)
-		goto fail;
+		goto err_power;
+
+	pm_runtime_set_active(dev);
+	pm_runtime_get_noresume(dev);
+	pm_runtime_enable(dev);
 
 	ret = v4l2_async_register_subdev_sensor(sd);
 	if (ret)
 		goto fail;
 
+	pm_runtime_set_autosuspend_delay(dev, 1000);
+	pm_runtime_use_autosuspend(dev);
+	pm_runtime_mark_last_busy(dev);
+	pm_runtime_put_autosuspend(dev);
+
 	v4l2_info(client, "MT9M114 is found\n");
 	return 0;
 
 fail:
+	pm_runtime_put_noidle(dev);
+	pm_runtime_disable(dev);
+	media_entity_cleanup(&sensor->sd.entity);
+
+err_power:
 	mt9m114_set_power(sensor, false);
 	return ret;
 }
@@ -1194,7 +1239,12 @@ static void mt9m114_remove(struct i2c_client *client)
 {
 	struct v4l2_subdev *sd = i2c_get_clientdata(client);
 	struct mt9m114 *sensor = to_mt9m114(sd);
+	struct device *dev = &client->dev;
 
+	pm_runtime_disable(dev);
+	if (!pm_runtime_status_suspended(dev))
+		mt9m114_sensor_suspend(dev);
+	pm_runtime_set_suspended(dev);
 	v4l2_device_unregister_subdev(sd);
 	kfree(sensor);
 }
