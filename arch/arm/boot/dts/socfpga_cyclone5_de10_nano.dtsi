@@ -80,13 +80,11 @@
 
 &mmc0 {
 	status = "okay";
-	u-boot,dm-pre-reloc;
 };
 
 &uart0 {
 	status = "okay";
 	clock-frequency = <100000000>;
-	u-boot,dm-pre-reloc;
 };
 
 &usb1 {
