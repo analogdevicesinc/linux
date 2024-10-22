@@ -39,7 +39,6 @@
 	gpio_in: gpio_in@10100 {
 		compatible = "altr,pio-18.1", "altr,pio-1.0";
 		reg = <0x00010100 0x00000010>;
-		altr,gpio-bank-width = <32>;
 		altr,interrupt-type = <4>;
 		altr,interrupt_type = <4>;
 		level_trigger = <1>;
@@ -105,7 +104,6 @@
 	gpio_out: gpio_out@109000 {
 		compatible = "altr,pio-1.0";
 		reg = <0x00109000 0x00000010>;
-		altr,gpio-bank-width = <32>;
 		resetvalue = <0>;
 		#gpio-cells = <2>;
 		gpio-controller;
