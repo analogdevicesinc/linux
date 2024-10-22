@@ -83,18 +83,6 @@
 	u-boot,dm-pre-reloc;
 };
 
-&porta {
-	bank-name = "porta";
-};
-
-&portb {
-	bank-name = "portb";
-};
-
-&portc {
-	bank-name = "portc";
-};
-
 &uart0 {
 	status = "okay";
 	clock-frequency = <100000000>;
