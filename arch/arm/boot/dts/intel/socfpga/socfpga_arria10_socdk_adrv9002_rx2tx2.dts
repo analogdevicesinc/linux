@@ -53,7 +53,6 @@
 				reg = <0x00060000 0x00000010>;
 				interrupt-parent = <&intc>;
 				interrupts = <0 33 4>;
-				altr,gpio-bank-width = <19>;
 				altr,interrupt-type = <4>;
 				altr,interrupt_type = <4>;
 				level_trigger = <1>;

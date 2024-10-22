@@ -51,7 +51,6 @@
 			sys_gpio_out: gpio@20 {
 				compatible = "altr,pio-1.0";
 				reg = <0x00000020 0x00000010>;
-				altr,gpio-bank-width = <32>;
 				resetvalue = <0>;
 				#gpio-cells = <2>;
 				gpio-controller;
