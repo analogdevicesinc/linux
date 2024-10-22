@@ -172,7 +172,6 @@
 				gpio: gpio@9000 {
 					compatible = "altr,pio-1.0";
 					reg = <0x00009000 0x00000010>;
-					altr,gpio-bank-width = <5>;
 					resetvalue = <0>;
 					#gpio-cells = <2>;
 					gpio-controller;
