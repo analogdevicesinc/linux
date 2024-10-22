@@ -24,7 +24,7 @@
 	};
 
 	soc {
-		fpga_axi: axi_h2f_lw_bridge@0xff200000 {
+		fpga_axi: axi_h2f_lw_bridge@ff200000 {
 			compatible = "simple-bus";
 			reg = <0xff200000 0x00200000>;
 			#address-cells = <1>;
