@@ -90,8 +90,7 @@
 };
 
 &fpga_axi {
-
-	axi_dmac_0: rx-dma@0x00020000 {
+	axi_dmac_0: rx-dma@20000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x00020000 0x00000800>;
 		interrupt-parent = <&intc>;
@@ -113,7 +112,7 @@
 		};
 	};
 
-	spi@0x00030000 {
+	spi@30000 {
 		compatible = "adi,axi-spi-engine-1.00.a";
 		reg = <0x00030000 0x00010000>;
 		interrupt-parent = <&intc>;
