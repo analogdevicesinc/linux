@@ -18,6 +18,14 @@
 	};
 };
 
+/* Remove CTSIN and RTSOUT. CTSIN conflicts with GPIO 51 below */
+&pinctrl_uart4 {
+	adi,pins = <
+	UART4_RXSIN_PIN		(ADI_CONFIG_ENABLE_SCHMITT_TRIGGER)
+	UART4_TXSOUT_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	>;
+};
+
 &uart0 {
 	status = "okay";
 };
