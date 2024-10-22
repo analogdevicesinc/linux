@@ -8,7 +8,6 @@
  */
 /dts-v1/;
 
-#include <dt-bindings/dma/axi-dmac.h>
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/iio/adi,ad4695.h>
