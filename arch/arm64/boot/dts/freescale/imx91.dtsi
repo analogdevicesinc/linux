@@ -1112,48 +1112,45 @@
 				status = "disabled";
 			};
 
-			cameradev: camera {
-				compatible = "fsl,mxc-md", "simple-bus";
-				#address-cells = <1>;
-				#size-cells = <1>;
-				ranges;
+			isi: isi@4ae40000 {
+				compatible = "fsl,imx91-isi";
+				reg = <0x4ae40000 0x10000>;
+				interrupts = <GIC_SPI 172 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clk IMX91_CLK_ISI_GATE>,
+					<&clk IMX91_CLK_MEDIA_AXI>;
+				clock-names = "axi", "apb";
+				assigned-clocks = <&clk IMX91_CLK_MEDIA_AXI>,
+						<&clk IMX91_CLK_MEDIA_APB>;
+				assigned-clock-parents = <&clk IMX91_CLK_SYS_PLL_PFD0>,
+							<&clk IMX91_CLK_SYS_PLL_PFD1_DIV2>;
+				assigned-clock-rates = <333333334>, <133333333>;
+				power-domains = <&media_blk_ctrl IMX91_MEDIABLK_PD_ISI>;
+				status = "disabled";
+			};
+
+			parallel_csi: pcsi@4ac10070 {
+				compatible = "fsl,imx91-parallel-csi";
+				reg = <0x4ac10070 0x10>;
+				clocks = <&clk IMX91_CLK_MIPI_CSI_GATE>,
+				<&clk IMX91_CLK_MEDIA_APB>;
+				clock-names = "pixel", "ipg";
+				assigned-clocks = <&clk IMX91_CLK_CAM_PIX>;
+				assigned-clock-parents = <&clk IMX91_CLK_VIDEO_PLL>;
+				assigned-clock-rates = <140000000>;
+				power-domains = <&media_blk_ctrl IMX91_MEDIABLK_PD_MIPI_CSI>;
 				status = "disabled";
 
-				isi_0: isi@4ae40000{
-					compatible = "nxp,imx93-isi", "fsl,imx8-isi";
-					reg = <0x4ae40000 0x10000>;
-					interrupts = <GIC_SPI 172 IRQ_TYPE_LEVEL_HIGH>;
-					clocks = <&clk IMX91_CLK_ISI_GATE>,
-						 <&clk IMX91_CLK_MEDIA_AXI>;
-					clock-names = "per", "axi";
-					assigned-clocks = <&clk IMX91_CLK_MEDIA_AXI>,
-							  <&clk IMX91_CLK_MEDIA_APB>;
-					assigned-clock-parents = <&clk IMX91_CLK_SYS_PLL_PFD0>,
-								 <&clk IMX91_CLK_SYS_PLL_PFD1_DIV2>;
-					assigned-clock-rates = <333333334>, <133333333>;
-					interface = <2 0 2>;
-					no-reset-control;
-					power-domains = <&media_blk_ctrl IMX91_MEDIABLK_PD_ISI>;
-					gasket = <&media_blk_ctrl>;
-					status = "disabled";
+				ports {
+					#address-cells = <1>;
+					#size-cells = <0>;
 
-					cap_device {
-						compatible = "imx-isi-capture";
-						status = "disabled";
+					port@0 {
+						reg = <0>;
 					};
-				};
 
-				parallel_csi: pcsi@4ac10070 {
-					compatible = "fsl,imx91-parallel-csi";
-					reg = <0x4ac10070 0x10>;
-					clocks = <&clk IMX91_CLK_MIPI_CSI_GATE>,
-					<&clk IMX91_CLK_MEDIA_APB>;
-					clock-names = "pixel", "ipg";
-					assigned-clocks = <&clk IMX91_CLK_CAM_PIX>;
-					assigned-clock-parents = <&clk IMX91_CLK_VIDEO_PLL>;
-					assigned-clock-rates = <140000000>;
-					power-domains = <&media_blk_ctrl IMX91_MEDIABLK_PD_MIPI_CSI>;
-					status = "disabled";
+					port@1 {
+						reg = <1>;
+					};
 				};
 			};
 		};

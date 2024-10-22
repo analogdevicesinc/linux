@@ -261,6 +261,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx91-11x11-evk.dtb \
 			  imx91-11x11-evk-lpuart.dtb \
 			  imx91-11x11-evk-mqs.dtb imx91-11x11-evk-aud-hat.dtb \
 			  imx91-11x11-evk-tianma-wvga-panel.dtb \
+			  imx91-11x11-evk-mt9m114.dtb \
 			  imx91-11x11-evk-ld.dtb \
 			  imx91-11x11-evk-i2c-spi-slave.dtb \
 			  imx91-11x11-evk-i3c.dtb
@@ -314,6 +315,7 @@ dtb-$(CONFIG_ARCH_MXC) += imx91-9x9-qsb.dtb \
 			  imx91-9x9-qsb-flexspi-nand.dtb \
 			  imx91-9x9-qsb-flexspi-m2.dtb \
 			  imx91-9x9-qsb-hfp.dtb \
+			  imx91-9x9-qsb-mt9m114.dtb \
 			  imx91-9x9-qsb-tianma-wvga-panel.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx91-9x9-qsb-aud-hat.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx91-9x9-qsb-ld.dtb
