@@ -12,13 +12,18 @@
 #include "socfpga_cyclone5_de10_nano.dtsi"
 
 / {
-	clocks {
-		sys_clk: sys_clk {
-			#clock-cells = <0x0>;
-			compatible = "fixed-clock";
-			clock-frequency = <50000000>;
-			clock-output-names = "sys_clk";
-		};
+	sys_clk: sys_clk {
+		#clock-cells = <0x0>;
+		compatible = "fixed-clock";
+		clock-frequency = <50000000>;
+		clock-output-names = "sys_clk";
+	};
+
+	ref_clk: ref_clk {
+		#clock-cells = <0x0>;
+		compatible = "fixed-clock";
+		clock-frequency = <50000000>;
+		clock-output-names = "reference_clock";
 	};
 
 	ltc2308_vref: voltage-regulator {
@@ -83,13 +88,6 @@
 				remote-endpoint = <&adv7513_in>;
 			};
 		};
-	};
-
-	ref_clk: ref_clk {
-		#clock-cells = <0x0>;
-		compatible = "fixed-clock";
-		clock-frequency = <50000000>;
-		clock-output-names = "reference_clock";
 	};
 
 	pixel_clock: fpll@100000 {
