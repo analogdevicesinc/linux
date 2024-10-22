@@ -22,12 +22,10 @@
 		regulator-always-on;
 	};
 
-	clocks {
-		ad7768_mclk: clock@0 {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <32768000>;
-		};
+	ad7768_mclk: ad7768-mclock {
+		#clock-cells = <0>;
+		compatible = "fixed-clock";
+		clock-frequency = <32768000>;
 	};
 };
 
