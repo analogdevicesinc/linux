@@ -45,7 +45,7 @@
 };
 
 &fpga_axi {
-	rx_dma: rx-dmac@0x00028000 {
+	rx_dma: rx-dmac@28000 {
 		compatible = "adi,axi-dmac-1.00.a";
 		reg = <0x00028000 0x00000800>;
 		#dma-cells = <1>;
@@ -54,7 +54,7 @@
 		clocks = <&h2f_user0_clk>;
 	};
 
-	axi_adc_ad7768: cf_axi_adc@0x00030000 {
+	axi_adc_ad7768: cf_axi_adc@30000 {
 		compatible = "adi,axi-adc-10.0.a";
 		reg = <0x00030000 0x10000>;
 		dmas = <&rx_dma 0>;
