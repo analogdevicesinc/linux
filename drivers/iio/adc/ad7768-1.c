@@ -218,6 +218,8 @@ struct ad7768_state {
 	const char *labels[ARRAY_SIZE(ad7768_channels)];
 	struct gpio_desc *gpio_reset;
 	bool spi_is_dma_mapped;
+	bool en_spi_sync;
+	bool en_gpio_sync;
 	int irq;
 	/*
 	 * DMA (thus cache coherency maintenance) may require the
@@ -284,6 +286,21 @@ static int ad7768_spi_reg_write_masked(struct ad7768_state *st,
 		return ret;
 
 	return ad7768_spi_reg_write(st, addr, (reg_val & ~mask) | val);
+}
+
+static int ad7768_send_sync_pulse(struct ad7768_state *st)
+{
+	int ret = 0;
+
+	if (st->en_spi_sync)
+		ret = ad7768_spi_reg_write(st, AD7768_REG_SYNC_RESET, 0x00);
+
+	if (st->en_gpio_sync) {
+		gpiod_set_value(st->gpio_sync_in, 1);
+		gpiod_set_value(st->gpio_sync_in, 0);
+	}
+
+	return ret;
 }
 
 static int ad7768_set_mode(struct ad7768_state *st,
@@ -372,10 +389,7 @@ static int ad7768_set_dig_fil(struct ad7768_state *st,
 		return ret;
 
 	/* A sync-in pulse is required every time the filter dec rate changes */
-	gpiod_set_value(st->gpio_sync_in, 1);
-	gpiod_set_value(st->gpio_sync_in, 0);
-
-	return 0;
+	return ad7768_send_sync_pulse(st);
 }
 
 int ad7768_gpio_direction_input(struct gpio_chip *chip, unsigned int offset)
@@ -689,10 +703,17 @@ static int ad7768_setup(struct ad7768_state *st)
 	if (ret)
 		return ret;
 
-	st->gpio_sync_in = devm_gpiod_get(&st->spi->dev, "adi,sync-in",
+	if (device_property_present(&st->spi->dev, "adi,sync-in-gpios")) {
+		st->en_gpio_sync = true;
+		st->gpio_sync_in = devm_gpiod_get(&st->spi->dev, "adi,sync-in",
 					  GPIOD_OUT_LOW);
-	if (IS_ERR(st->gpio_sync_in))
-		return PTR_ERR(st->gpio_sync_in);
+		if (IS_ERR(st->gpio_sync_in))
+			return PTR_ERR(st->gpio_sync_in);
+
+	}
+
+	if (device_property_present(&st->spi->dev, "adi,sync-in-spi"))
+		st->en_spi_sync = true;
 
 	ret = ad7768_gpio_init(st);
 	if (ret < 0)
