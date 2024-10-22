@@ -18,11 +18,6 @@
 		stdout-path = "serial0:115200n8";
 	};
 
-	aliases {
-		ethernet0 = &gmac1;
-		udc0 = &usb1;
-	};
-
 	memory@0 {
 		device_type = "memory";
 		reg = <0x0 0x40000000>;	/* 1GB */
