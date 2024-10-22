@@ -112,7 +112,13 @@ static u32 mxc_isi_channel_scaling_ratio(unsigned int from, unsigned int to,
 	else
 		*dec = 8;
 
-	return min_t(u32, from * 0x1000 / (to * *dec), ISI_DOWNSCALE_THRESHOLD);
+	/*
+	 * As mentioned in reference manual, ISI actual output line
+	 * value will be rounded up to an integer, so in some cases,
+	 * its output line value will bigger than the value set by
+	 * user. So adjust scale factor to make them equal.
+	 */
+	return min_t(u32, DIV_ROUND_UP(from * 0x1000, to * *dec), ISI_DOWNSCALE_THRESHOLD);
 }
 
 static void mxc_isi_channel_set_scaling(struct mxc_isi_pipe *pipe,
