@@ -60,6 +60,7 @@ struct ad9528_channel_spec {
  * @sysref_nshot_mode: SYSREF pattern NSHOT mode
  * @sysref_req_trigger_mode: SYSREF request trigger mode
  * @sysref_req_en: SYSREF request pin mode enable (default SPI mode)
+ * @jdev_skip_clk_sync: Skip/omit clock synchronisation FSM step
  * @jdev_max_sysref_freq: Maximum SYSREF frequency allowed (Hz)
  * @dev_desired_sysref_freq: Desired SYSREF frequency (Hz)
  * @pll2_charge_pump_current_nA: Magnitude of PLL2 charge pump current (nA).
@@ -116,6 +117,7 @@ struct ad9528_platform_data {
 	unsigned char			sysref_nshot_mode;
 	unsigned char			sysref_req_trigger_mode;
 	bool				sysref_req_en;
+	bool				jdev_skip_clk_sync;
 	u32				jdev_max_sysref_freq;
 	u32				jdev_desired_sysref_freq;
 
