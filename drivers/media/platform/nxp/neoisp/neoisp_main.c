@@ -647,14 +647,15 @@ static void neoisp_update_head_color(struct neoisp_reg_params_s *regs, __u32 pix
  */
 static int neoisp_set_pipe_conf(struct neoisp_dev_s *neoispd)
 {
-	struct neoisp_buffer_s *buf = neoispd->queued_job.buf[NEOISP_INPUT0_NODE];
+	struct neoisp_buffer_s *buf_inp0 = neoispd->queued_job.buf[NEOISP_INPUT0_NODE];
+	struct neoisp_buffer_s *buf_inp1 = neoispd->queued_job.buf[NEOISP_INPUT1_NODE];
 	struct neoisp_buffer_s *buf_out = neoispd->queued_job.buf[NEOISP_FRAME_NODE];
 	struct neoisp_buffer_s *buf_ir = neoispd->queued_job.buf[NEOISP_IR_NODE];
 	struct neoisp_node_s *nd = &neoispd->queued_job.node_group->node[NEOISP_FRAME_NODE];
 	struct neoisp_mparam_conf_s *cfg = &mod_params.conf;
-	__u32 width, height, obpp, ibpp, irbpp, inp0_stride;
+	__u32 width, height, obpp, ibpp, irbpp, inp0_stride, inp1_stride;
 	__u32 out_pixfmt = nd->format.fmt.pix_mp.pixelformat;
-	dma_addr_t inp0_addr, out_addr;
+	dma_addr_t inp0_addr, inp1_addr, out_addr;
 
 	if (!neoisp_node_link_state(nd))
 		/* frame node could be disabled then only ir node is needed */
@@ -668,7 +669,13 @@ static int neoisp_set_pipe_conf(struct neoisp_dev_s *neoispd)
 	inp0_stride = nd->format.fmt.pix_mp.plane_fmt[0].bytesperline;
 	cfg->img_conf_cam0_ibpp0 = nd->neoisp_format->bpp_enc;
 	/* take crop into account if any */
-	inp0_addr = get_addr(buf, 0) + (nd->crop.left * ibpp) + (nd->crop.top * inp0_stride);
+	inp0_addr = get_addr(buf_inp0, 0) + (nd->crop.left * ibpp) + (nd->crop.top * inp0_stride);
+
+	nd = &neoispd->queued_job.node_group->node[NEOISP_INPUT1_NODE];
+	ibpp = (nd->neoisp_format->bit_depth + 7) / 8;
+	inp1_stride = nd->format.fmt.pix_mp.plane_fmt[0].bytesperline;
+	inp1_addr = get_addr(buf_inp1, 0) + (nd->crop.left * ibpp) + (nd->crop.top * inp1_stride);
+	cfg->img_conf_cam0_ibpp1 = nd->neoisp_format->bpp_enc;
 
 	regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_IMG_CONF_CAM0_IDX],
 			NEO_PIPE_CONF_IMG_CONF_CAM0_IBPP0_SET(cfg->img_conf_cam0_ibpp0)
@@ -685,8 +692,19 @@ static int neoisp_set_pipe_conf(struct neoisp_dev_s *neoispd)
 	/* raw image addr from video output input0 node buffer */
 	regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_IMG0_IN_ADDR_CAM0_IDX],
 			NEO_PIPE_CONF_ADDR_SET(inp0_addr));
-	regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_IMG1_IN_ADDR_CAM0_IDX], 0u);
-	regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_IMG1_IN_LS_CAM0_IDX], 0u);
+	/* Handle hdr inputs */
+	nd = &neoispd->queued_job.node_group->node[NEOISP_INPUT1_NODE];
+	if (neoisp_node_link_state(nd)) {
+		regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_IMG1_IN_ADDR_CAM0_IDX],
+				   NEO_PIPE_CONF_ADDR_SET(inp1_addr));
+		regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_IMG1_IN_LS_CAM0_IDX],
+				   NEO_PIPE_CONF_IMG0_IN_LS_CAM0_LS_SET(inp0_stride));
+	} else {
+		regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_IMG1_IN_ADDR_CAM0_IDX],
+				   NEO_PIPE_CONF_ADDR_SET(0u));
+		regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_IMG1_IN_LS_CAM0_IDX],
+				   NEO_PIPE_CONF_IMG0_IN_LS_CAM0_LS_SET(0u));
+	}
 
 	nd = &neoispd->queued_job.node_group->node[NEOISP_FRAME_NODE];
 	if (neoisp_node_link_state(nd)) {
@@ -987,6 +1005,14 @@ static int neoisp_prepare_node_streaming(struct neoisp_node_s *node)
 		neoisp_update_pipeline_bit_width(&params->regs, node->neoisp_format->bit_depth);
 		neoisp_update_head_color(&params->regs, pixfmt);
 		neoisp_update_monochrome(&params->regs, pixfmt);
+	}
+
+	/*
+	 * Check if this is input1 node (hdr mode)
+	 */
+	if (node->id == NEOISP_INPUT1_NODE) {
+		params->regs.hdr_merge.ctrl_enable = 1;
+		params->regs.decompress_input1.ctrl_enable = 1;
 	}
 
 	if (node->id == NEOISP_FRAME_NODE) {
