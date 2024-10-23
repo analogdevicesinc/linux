@@ -487,6 +487,12 @@ imx95-19x19-evk-os08a20-isp-it6263-lvds0-dtbs := imx95-19x19-evk-neoisp.dtb imx9
                         imx95-19x19-evk-it6263-lvds0.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-os08a20-isp-it6263-lvds0.dtb
 
+imx95-19x19-evk-dual-os08a20-isp-it6263-lvds0-dtbs := imx95-19x19-evk-neoisp.dtb \
+						      imx95-19x19-evk-os08a20.dtbo \
+						      imx95-19x19-evk-os08a20-combo.dtbo \
+						      imx95-19x19-evk-it6263-lvds0.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-dual-os08a20-isp-it6263-lvds0.dtb
+
 imx95-19x19-evk-ox03c10-isp-it6263-lvds0-dtbs := imx95-19x19-evk-neoisp.dtb imx95-19x19-evk-ox03c10.dtbo \
                         imx95-19x19-evk-it6263-lvds0.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-evk-ox03c10-isp-it6263-lvds0.dtb
