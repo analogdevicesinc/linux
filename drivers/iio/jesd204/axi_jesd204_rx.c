@@ -1336,7 +1336,8 @@ static int axi_jesd204_rx_remove(struct platform_device *pdev)
 {
 	struct axi_jesd204_rx *jesd = platform_get_drvdata(pdev);
 
-	jesd204_fsm_stop(jesd->jdev, JESD204_LINKS_ALL);
+	if (jesd->jdev)
+		jesd204_fsm_stop(jesd->jdev, JESD204_LINKS_ALL);
 
 	axi_jesd204_rx_create_remove_devattrs(&pdev->dev, jesd, false);
 
