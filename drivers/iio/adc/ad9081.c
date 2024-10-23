@@ -3532,7 +3532,7 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 	struct ad9081_phy *phy = conv->phy;
 	adi_ad9081_deser_mode_e dmode;
 	adi_cms_jesd_prbs_pattern_e prbs;
-	s16 eye_data[192];
+	s16 eye_data[195];
 	u64 val = 0;
 	ssize_t len = 0;
 	int ret, i, j, spo_steps;
@@ -3622,7 +3622,7 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 
 			switch (dmode) {
 			case AD9081_QUART_RATE:
-				spo_steps = 32;
+				spo_steps = 33;
 
 				ret = adi_ad9081_jesd_cal_bg_cal_pause(&phy->ad9081);
 				if (ret)
@@ -3634,7 +3634,7 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 				ret = adi_ad9081_jesd_cal_bg_cal_start(&phy->ad9081);
 				break;
 			case AD9081_HALF_RATE:
-				spo_steps = 64;
+				spo_steps = 65;
 				ret = adi_ad9081_jesd_rx_hr_two_dim_eye_scan(&phy->ad9081,
 					lane, prbs, duration, eye_data);
 				break;
@@ -3654,7 +3654,7 @@ static ssize_t ad9081_debugfs_read(struct file *file, char __user *userbuf,
 				lane, spo_steps, phy->jrx_link_tx[0].lane_rate_kbps);
 
 			for (i = 0; i < (spo_steps * 3); i += 3)
-				if (eye_data[i])
+				if (eye_data[i + 1] || eye_data[i + 2])
 					len += snprintf(phy->dbuf + len,
 						sizeof(phy->dbuf),
 						"%d,%d,%d\n", eye_data[i],
