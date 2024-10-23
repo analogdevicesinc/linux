@@ -1411,6 +1411,7 @@ static int ad9528_jesd204_clks_sync(struct jesd204_dev *jdev,
 {
 	struct device *dev = jesd204_dev_to_device(jdev);
 	struct iio_dev *indio_dev = dev_get_drvdata(dev);
+	struct ad9528_state *st = iio_priv(indio_dev);
 	int ret;
 
 	if (reason != JESD204_STATE_OP_REASON_INIT)
@@ -1418,6 +1419,9 @@ static int ad9528_jesd204_clks_sync(struct jesd204_dev *jdev,
 
 	dev_dbg(dev, "%s:%d reason %s\n", __func__, __LINE__,
 		jesd204_state_op_reason_str(reason));
+
+	if (st->pdata->jdev_skip_clk_sync)
+		return JESD204_STATE_CHANGE_DONE;
 
 	ret = ad9528_sync(indio_dev);
 	if (ret)
@@ -1536,6 +1540,9 @@ static struct ad9528_platform_data *ad9528_parse_dt(struct device *dev)
 
 	of_property_read_u32(np, "adi,jesd204-desired-sysref-frequency-hz",
 			     &pdata->jdev_desired_sysref_freq);
+
+	pdata->jdev_skip_clk_sync =
+		of_property_read_bool(np, "adi,jesd204-skip-clock-sync");
 
 	/* PLL2 Setting */
 	of_property_read_u32(np, "adi,pll2-charge-pump-current-nA",
