@@ -1158,7 +1158,6 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 {
 	struct axi_jesd204_rx *jesd;
 	struct jesd204_dev *jdev;
-	struct resource *res;
 	int irq;
 	int ret;
 	u32 tmp;
@@ -1183,8 +1182,7 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 	jesd->dev = &pdev->dev;
 	jesd->jdev = jdev;
 
-	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	jesd->base = devm_ioremap_resource(&pdev->dev, res);
+	jesd->base = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(jesd->base))
 		return PTR_ERR(jesd->base);
 
@@ -1306,16 +1304,11 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_remove_debugfs;
 
-	dev_info(&pdev->dev, "AXI-JESD204-RX (%d.%.2d.%c) at 0x%08llX. Encoder %s, width %u/%u, lanes %d%s.",
-		ADI_AXI_PCORE_VER_MAJOR(jesd->version),
-		ADI_AXI_PCORE_VER_MINOR(jesd->version),
-		ADI_AXI_PCORE_VER_PATCH(jesd->version),
-		(unsigned long long)res->start,
-		jesd204_encoder_str(jesd->encoder),
-		jesd->data_path_width,
-		jesd->tpl_data_path_width,
-		jesd->num_lanes,
-		jdev ? ", jesd204-fsm" : "");
+	dev_info(&pdev->dev, "AXI-JESD204-RX (%d.%.2d.%c). Encoder %s, width %u/%u, lanes %d%s.",
+		 ADI_AXI_PCORE_VER_MAJOR(jesd->version), ADI_AXI_PCORE_VER_MINOR(jesd->version),
+		 ADI_AXI_PCORE_VER_PATCH(jesd->version), jesd204_encoder_str(jesd->encoder),
+		 jesd->data_path_width, jesd->tpl_data_path_width, jesd->num_lanes,
+		 jdev ? ", jesd204-fsm" : "");
 
 	return 0;
 
