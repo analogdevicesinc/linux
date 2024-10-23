@@ -1062,7 +1062,8 @@ static int axi_jesd204_tx_remove(struct platform_device *pdev)
 	struct axi_jesd204_tx *jesd = platform_get_drvdata(pdev);
 	int irq = platform_get_irq(pdev, 0);
 
-	jesd204_fsm_stop(jesd->jdev, JESD204_LINKS_ALL);
+	if (jesd->jdev)
+		jesd204_fsm_stop(jesd->jdev, JESD204_LINKS_ALL);
 
 	device_remove_file(&pdev->dev, &dev_attr_status);
 	device_remove_file(&pdev->dev, &dev_attr_encoder);
