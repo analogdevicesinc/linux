@@ -1218,6 +1218,10 @@ static int adxcvr_remove(struct platform_device *pdev)
 {
 	struct adxcvr_state *st = platform_get_drvdata(pdev);
 
+	/* sync up the worker */
+	cancel_work_sync(&st->work);
+	if (!IS_ERR(st->lane_rate_div40_clk) && __clk_is_enabled(st->lane_rate_div40_clk))
+		clk_disable_unprepare(st->lane_rate_div40_clk);
 	adxcvr_eyescan_unregister(st);
 	if (st->clks[1])
 		clk_unregister_fixed_factor(st->clks[1]);
