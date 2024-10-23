@@ -18,19 +18,13 @@
 		stdout-path = "serial0:115200n8";
 	};
 
-	aliases {
-		ethernet0 = &gmac1;
-		udc0 = &usb1;
-	};
-
-	memory {
-		name = "memory";
+	memory@0 {
 		device_type = "memory";
 		reg = <0x0 0x40000000>;	/* 1GB */
 	};
 
 	soc {
-		fpga_axi: axi_h2f_lw_bridge@0xff200000 {
+		fpga_axi: axi_h2f_lw_bridge@ff200000 {
 			compatible = "simple-bus";
 			reg = <0xff200000 0x00200000>;
 			#address-cells = <1>;
@@ -80,25 +74,10 @@
 
 &mmc0 {
 	status = "okay";
-	u-boot,dm-pre-reloc;
-};
-
-&porta {
-	bank-name = "porta";
-};
-
-&portb {
-	bank-name = "portb";
-};
-
-&portc {
-	bank-name = "portc";
 };
 
 &uart0 {
-	status = "okay";
 	clock-frequency = <100000000>;
-	u-boot,dm-pre-reloc;
 };
 
 &usb1 {
