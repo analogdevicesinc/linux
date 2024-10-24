@@ -823,7 +823,7 @@ static int cfe_get_vc_dt(struct cfe_device *cfe, unsigned int channel, u8 *vc,
 		cfe_dbg(cfe, "source does not support get_frame_desc, use fallback\n");
 		return cfe_get_vc_dt_fallback(cfe, vc, dt);
 	} else if (ret) {
-		cfe_err(cfe, "Failed to get frame descriptor\n");
+		cfe_err(cfe, "Failed to get frame descriptor: %d\n", ret);
 		return ret;
 	}
 
