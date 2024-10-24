@@ -148,4 +148,14 @@ config MAX31865
 	  This driver can also be build as a module. If so, the module
 	  will be called max31865.
 
+config MAX30210
+	tristate "MAX30210 Low-Power I2C Digital Temperature Sensor"
+	depends on I2C
+	help
+	  If you say yes here you get support for MAX30210 low-power digital
+	  temperature sensor chip connected via I2C.
+
+	  This driver can also be build as a module. If so, the module
+	  will be called max30210.
+
 endmenu
