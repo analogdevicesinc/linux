@@ -11,6 +11,7 @@
 #include <linux/clk/clkscale.h>
 #include <linux/clkdev.h>
 #include <linux/clk-provider.h>
+#include <linux/debugfs.h>
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/notifier.h>
@@ -393,6 +394,13 @@
 #define ADF4382_FRAC2WORD_LSB_MSK		GENMASK(7, 0)
 #define ADF4382_FRAC2WORD_MID_MSK		GENMASK(15, 8)
 #define ADF4382_FRAC2WORD_MSB_MSK		GENMASK(23, 16)
+
+#define ADF4382_DEL_CNT_LSB_MSK			GENMASK(7, 0)
+#define ADF4382_DEL_CNT_MSB_MSK			GENMASK(15, 8)
+
+#define ADF4382_DEL_CNT_FINE_MSK		GENMASK(8, 0)
+#define ADF4382_DEL_CNT_COARSE_MSK		GENMASK(12, 9)
+#define ADF4382_DEL_CNT_BLEED_POL_MSK		BIT(15)
 
 #define ADF4382_REF_MIN				10000000ULL	// 10MHz
 #define ADF4382_REF_MAX				5000000000ULL	// 5GHz
@@ -1238,6 +1246,138 @@ static const struct iio_chan_spec adf4382_channels[] = {
 	},
 };
 
+#ifdef CONFIG_DEBUG_FS
+static int adf4382_show_del_cnt_raw(void *arg, u64 *val)
+{
+	struct iio_dev *indio_dev = arg;
+	struct adf4382_state *st = iio_priv(indio_dev);
+	unsigned int tmp;
+	u16 del_cnt = 0;
+	int ret;
+
+	ret = regmap_read(st->regmap, 0x64, &tmp);
+	if (ret)
+		return ret;
+	del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_LSB_MSK, tmp);
+
+	ret = regmap_read(st->regmap, 0x65, &tmp);
+	if (ret)
+		return ret;
+	del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_MSB_MSK, tmp);
+
+	*val = del_cnt;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(adf4382_del_cnt_raw_fops,
+			 adf4382_show_del_cnt_raw, NULL, "%llu\n");
+
+static int adf4382_show_bleed_pol(void *arg, u64 *val)
+{
+	struct iio_dev *indio_dev = arg;
+	struct adf4382_state *st = iio_priv(indio_dev);
+	unsigned int tmp;
+	u16 del_cnt = 0;
+	u8 bleed_pol = 0;
+	int ret;
+
+	ret = regmap_read(st->regmap, 0x64, &tmp);
+	if (ret)
+		return ret;
+	del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_LSB_MSK, tmp);
+
+	ret = regmap_read(st->regmap, 0x65, &tmp);
+	if (ret)
+		return ret;
+	del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_MSB_MSK, tmp);
+
+	bleed_pol = FIELD_GET(ADF4382_DEL_CNT_BLEED_POL_MSK, del_cnt);
+
+	*val = bleed_pol;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(adf4382_bleed_pol_fops,
+			 adf4382_show_bleed_pol, NULL, "%llu\n");
+
+static int adf4382_show_fine_current(void *arg, u64 *val)
+{
+	struct iio_dev *indio_dev = arg;
+	struct adf4382_state *st = iio_priv(indio_dev);
+	u8 fine_current = 0;
+	unsigned int tmp;
+	u16 del_cnt = 0;
+	int ret;
+
+	ret = regmap_read(st->regmap, 0x64, &tmp);
+	if (ret)
+		return ret;
+	del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_LSB_MSK, tmp);
+
+	ret = regmap_read(st->regmap, 0x65, &tmp);
+	if (ret)
+		return ret;
+	del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_MSB_MSK, tmp);
+
+	fine_current = FIELD_GET(ADF4382_DEL_CNT_FINE_MSK, del_cnt);
+
+	*val = fine_current;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(adf4382_fine_current_fops,
+			 adf4382_show_fine_current, NULL, "%llu\n");
+
+static int adf4382_show_coarse_current(void *arg, u64 *val)
+{
+	struct iio_dev *indio_dev = arg;
+	struct adf4382_state *st = iio_priv(indio_dev);
+	u8 coarse_current = 0;
+	unsigned int tmp;
+	u16 del_cnt = 0;
+	int ret;
+
+	ret = regmap_read(st->regmap, 0x64, &tmp);
+	if (ret)
+		return ret;
+	del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_LSB_MSK, tmp);
+
+	ret = regmap_read(st->regmap, 0x65, &tmp);
+	if (ret)
+		return ret;
+	del_cnt |= FIELD_PREP(ADF4382_DEL_CNT_MSB_MSK, tmp);
+
+	coarse_current = FIELD_GET(ADF4382_DEL_CNT_COARSE_MSK, del_cnt);
+
+	*val = coarse_current;
+
+	return 0;
+}
+DEFINE_DEBUGFS_ATTRIBUTE(adf4382_coarse_current_fops,
+			 adf4382_show_coarse_current, NULL, "%llu\n");
+
+static void adf4382_debugfs_init(struct iio_dev *indio_dev)
+{
+	struct dentry *d = iio_get_debugfs_dentry(indio_dev);
+
+	debugfs_create_file_unsafe("del_cnt_raw", 0400, d,
+				   indio_dev, &adf4382_del_cnt_raw_fops);
+	
+	debugfs_create_file_unsafe("bleed_pol", 0400, d,
+				   indio_dev, &adf4382_bleed_pol_fops);
+
+	debugfs_create_file_unsafe("fine_current", 0400, d,
+				   indio_dev, &adf4382_fine_current_fops);
+				   
+	debugfs_create_file_unsafe("coarse_current", 0400, d,
+				   indio_dev, &adf4382_coarse_current_fops);
+}
+#else
+static void adf4382_debugfs_init(struct iio_dev *indio_dev)
+{
+}
+#endif
+
 static int adf4382_parse_device(struct adf4382_state *st)
 {
 	u32 tmp;
@@ -1533,7 +1673,7 @@ static int adf4382_probe(struct spi_device *spi)
 	if (ret)
 		return dev_err_probe(&spi->dev, ret, "adf4382 init failed\n");
 
-	adf4382_setup_clk(st);
+	ret = adf4382_setup_clk(st);
 	if (ret)
 		return ret;
 
@@ -1542,7 +1682,14 @@ static int adf4382_probe(struct spi_device *spi)
 		indio_dev->num_channels = ARRAY_SIZE(adf4382_channels);
 	}
 
-	return devm_iio_device_register(&spi->dev, indio_dev);
+	ret = devm_iio_device_register(&spi->dev, indio_dev);
+	if (ret)
+		return ret;
+	
+	if (IS_ENABLED(CONFIG_DEBUG_FS))
+		adf4382_debugfs_init(indio_dev);
+	
+	return 0;
 }
 
 static const struct spi_device_id adf4382_id[] = {
