@@ -609,8 +609,122 @@ static void ox03c10_ctrl_type_op_log(const struct v4l2_ctrl *ctrl)
 	/* no logging yet */
 }
 
+static struct ox03c10_exposure ox03c10_initial_exposure;
+static struct ox03c10_analog_gain ox03c10_initial_analog_gain;
+static struct ox03c10_digital_gain ox03c10_initial_digital_gain;
+static struct ox03c10_wb_capture_gain ox03c10_initial_wb_capture_gain[4];
+static struct ox03c10_pwl_ctrl ox03c10_initial_pwl_ctrl;
+static u8 ox03c10_initial_pwl_knee_points_lut[OX03C10_PWL_LUT_SIZE];
+
+static int ox03c10_get_initial_params(struct ox03c10 *sensor)
+{
+	u16 wb_base_addr[4] = {
+		OX03C10_AWB_GAIN_HCG_0,
+		OX03C10_AWB_GAIN_LCG_0,
+		OX03C10_AWB_GAIN_SPD_0,
+		OX03C10_AWB_GAIN_VS_0,
+	};
+	int ret = 0;
+	u8 buf[8];
+	int i;
+
+	/* get initial exposure */
+	ret |= regmap_bulk_read(sensor->rmap, OX03C10_AEC_HCG_CTRL_01, buf, 2);
+	ox03c10_initial_exposure.dcg = buf[0] << 8 | buf[1];
+	ret |= regmap_bulk_read(sensor->rmap, OX03C10_AEC_SPD_CTRL_01, buf, 2);
+	ox03c10_initial_exposure.spd = buf[0] << 8 | buf[1];
+	ret |= regmap_bulk_read(sensor->rmap, OX03C10_AEC_VS_CTRL_01, buf, 2);
+	ox03c10_initial_exposure.vs = buf[0] << 8 | buf[1];
+
+	/* get initial analog gains */
+	ret |= regmap_bulk_read(sensor->rmap, OX03C10_AEC_HCG_CTRL_08, buf, 2);
+	ox03c10_initial_analog_gain.hcg = ((buf[0] & 0xf) << 4) | ((buf[1] & 0xf0) >> 4);
+	ret |= regmap_bulk_read(sensor->rmap, OX03C10_AEC_SPD_CTRL_08, buf, 2);
+	ox03c10_initial_analog_gain.spd = ((buf[0] & 0xf) << 4) | ((buf[1] & 0xf0) >> 4);
+	ret |= regmap_bulk_read(sensor->rmap, OX03C10_AEC_LCG_CTRL_08, buf, 2);
+	ox03c10_initial_analog_gain.lcg = ((buf[0] & 0xf) << 4) | ((buf[1] & 0xf0) >> 4);
+	ret |= regmap_bulk_read(sensor->rmap, OX03C10_AEC_VS_CTRL_08, buf, 2);
+	ox03c10_initial_analog_gain.vs = ((buf[0] & 0xf) << 4) | ((buf[1] & 0xf0) >> 4);
+
+	/* get initial digital gains */
+	ret |= regmap_bulk_read(sensor->rmap, OX03C10_AEC_HCG_CTRL_0A, buf, 3);
+	ox03c10_initial_digital_gain.hcg = ((buf[0] & 0xf) << 10) | (buf[1] << 2) |
+					   ((buf[2] & 0x3) >> 6);
+	ret |= regmap_bulk_read(sensor->rmap, OX03C10_AEC_SPD_CTRL_0A, buf, 3);
+	ox03c10_initial_digital_gain.spd = ((buf[0] & 0xf) << 10) | (buf[1] << 2) |
+					   ((buf[2] & 0x3) >> 6);
+	ret |= regmap_bulk_read(sensor->rmap, OX03C10_AEC_LCG_CTRL_0A, buf, 3);
+	ox03c10_initial_digital_gain.lcg = ((buf[0] & 0xf) << 10) | (buf[1] << 2) |
+					   ((buf[2] & 0x3) >> 6);
+	ret |= regmap_bulk_read(sensor->rmap, OX03C10_AEC_VS_CTRL_0A, buf, 3);
+	ox03c10_initial_digital_gain.vs = ((buf[0] & 0xf) << 10) | (buf[1] << 2) |
+					  ((buf[2] & 0x3) >> 6);
+
+	/* get initial white balance settings */
+	for (i = 0; i < 4; i++) {
+		ret |= regmap_bulk_read(sensor->rmap, wb_base_addr[i], buf, 8);
+		ox03c10_initial_wb_capture_gain[i].b  = (buf[0] << 8) | buf[1];
+		ox03c10_initial_wb_capture_gain[i].gb = (buf[2] << 8) | buf[3];
+		ox03c10_initial_wb_capture_gain[i].gr = (buf[4] << 8) | buf[5];
+		ox03c10_initial_wb_capture_gain[i].r  = (buf[6] << 8) | buf[7];
+	}
+
+	/* get initial PWL control params */
+	ret |= regmap_bulk_read(sensor->rmap, OX03C10_FORMAT_REG_1F, buf, 1);
+	ox03c10_initial_pwl_ctrl.pack24bit_sel = (buf[0] & 0xc0) >> 6;
+	ox03c10_initial_pwl_ctrl.pwl_mode = (buf[0] & 0x18) >> 3;
+
+	/* get initial PWL knee points LUT */
+	ret |= regmap_bulk_read(sensor->rmap, OX03C10_PWL0_0_1,
+				ox03c10_initial_pwl_knee_points_lut, OX03C10_PWL_LUT_SIZE);
+
+	return ret ? -EIO : 0;
+}
+
+static void ox03c10_v4l2_ctrl_type_op_init(const struct v4l2_ctrl *ctrl, u32 from_idx,
+					   union v4l2_ctrl_ptr ptr)
+{
+	u32 tot_elems = ctrl->elems;
+	u32 elems = tot_elems - from_idx;
+
+	if (from_idx >= elems)
+		return;
+
+	switch (ctrl->id) {
+	case V4L2_CID_OX03C10_EXPOSURE:
+		memcpy(ptr.p, &ox03c10_initial_exposure, sizeof(ox03c10_initial_exposure));
+		break;
+
+	case V4L2_CID_OX03C10_ANALOGUE_GAIN:
+		memcpy(ptr.p, &ox03c10_initial_analog_gain, sizeof(ox03c10_initial_analog_gain));
+		break;
+
+	case V4L2_CID_OX03C10_DIGITAL_GAIN:
+		memcpy(ptr.p, &ox03c10_initial_digital_gain, sizeof(ox03c10_initial_digital_gain));
+		break;
+
+	case V4L2_CID_OX03C10_WB_GAIN:
+		memcpy(ptr.p, &ox03c10_initial_wb_capture_gain,
+		       sizeof(ox03c10_initial_wb_capture_gain));
+		break;
+
+	case V4L2_CID_OX03C10_PWL_CTRL:
+		memcpy(ptr.p, &ox03c10_initial_pwl_ctrl, sizeof(ox03c10_initial_pwl_ctrl));
+		break;
+
+	case V4L2_CID_OX03C10_PWL_KNEE_POINTS_LUT:
+		memcpy(ptr.p, &ox03c10_initial_pwl_knee_points_lut,
+		       sizeof(ox03c10_initial_pwl_knee_points_lut));
+		break;
+
+	default:
+		v4l2_ctrl_type_op_init(ctrl, from_idx, ptr);
+		break;
+	}
+}
+
 static const struct v4l2_ctrl_type_ops ox03c10_ctrl_type_ops = {
-	.init		= v4l2_ctrl_type_op_init,
+	.init		= ox03c10_v4l2_ctrl_type_op_init,
 	.validate	= v4l2_ctrl_type_op_validate,
 	.equal		= v4l2_ctrl_type_op_equal,
 	.log		= ox03c10_ctrl_type_op_log,
@@ -673,7 +787,7 @@ static const struct v4l2_ctrl_config ox03c10_ctrl_cfgs[] = {
 		.min		= false,
 		.max		= true,
 		.step		= 1,
-		.def		= false,
+		.def		= true,
 	},
 	{
 		.ops		= &ox03c10_ctrl_ops,
@@ -814,17 +928,30 @@ static int ox03c10_sensor_init(struct ox03c10 *sensor)
 	for (i = 0; i < ARRAY_SIZE(ox03c10_init_data); i++) {
 		reg = &ox03c10_init_data[i];
 
+		/*
+		 * Re-enable the cache after the embedded data registers ranges have been set.
+		 */
+		if (reg->addr == OX03C10_GRP_HOLD_8 && (reg->val == 0x14 || reg->val == 0x15))
+			regcache_cache_bypass(sensor->rmap, false);
+
 		ret = regmap_write(sensor->rmap, reg->addr, reg->val);
 		if (ret < 0) {
 			dev_err(&sensor->client->dev, "Failed to write addr 0x%04x with 0x%02x\n",
 				reg->addr, reg->val);
 			return ret;
 		}
+
+		/*
+		 * Make sure we bypass the cache when setting address ranges for embedded data.
+		 * Otherwise, our cache will hold a range instead of the actual value...
+		 */
+		if (reg->addr == OX03C10_GRP_HOLD_8 && (reg->val == 0x04 || reg->val == 0x05))
+			regcache_cache_bypass(sensor->rmap, true);
 	}
 
 	sensor->cur_mode = &ox03c10_modes[0];
 
-	return 0;
+	return ox03c10_get_initial_params(sensor);
 }
 
 struct ox03c10 *ox03c10_init_with_dummy_client(struct i2c_client *client,
