@@ -40,6 +40,16 @@ static const struct mxc_isi_bus_format_info mxc_isi_bus_formats[] = {
 		.pads		= BIT(MXC_ISI_PIPE_PAD_SINK),
 		.encoding	= MXC_ISI_ENC_YUV,
 	}, {
+		.mbus_code	= MEDIA_BUS_FMT_UYVY8_2X8,
+		.output		= MEDIA_BUS_FMT_YUV8_1X24,
+		.pads		= BIT(MXC_ISI_PIPE_PAD_SINK),
+		.encoding	= MXC_ISI_ENC_YUV,
+	}, {
+		.mbus_code	= MEDIA_BUS_FMT_YUYV8_2X8,
+		.output		= MEDIA_BUS_FMT_YUV8_1X24,
+		.pads		= BIT(MXC_ISI_PIPE_PAD_SINK),
+		.encoding	= MXC_ISI_ENC_YUV,
+	}, {
 		.mbus_code	= MEDIA_BUS_FMT_YUV8_1X24,
 		.output		= MEDIA_BUS_FMT_YUV8_1X24,
 		.pads		= BIT(MXC_ISI_PIPE_PAD_SOURCE),
