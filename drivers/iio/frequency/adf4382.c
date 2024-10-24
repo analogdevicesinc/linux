@@ -382,6 +382,9 @@
 /* ADF4382 REG0054 Map */
 #define ADF4382_ADC_ST_CNV_MSK			BIT(0)
 
+/* ADF4382 REG0058 Map */
+#define ADF4382_PLL_LOCK_MSK			BIT(0)
+
 #define ADF4382_MOD2WORD_LSB_MSK		GENMASK(7, 0)
 #define ADF4382_MOD2WORD_MID_MSK		GENMASK(15, 8)
 #define ADF4382_MOD2WORD_MSB_MSK		GENMASK(23, 16)
@@ -620,6 +623,7 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	u64 pfd_freq_hz;
 	u32 frac1_word;
 	u8 clkout_div;
+	u32 read_val;
 	u8 dclk_div1;
 	u8 int_mode;
 	u8 en_bleed;
@@ -830,8 +834,23 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	if (ret)
 		return ret;
 
-	return regmap_write(st->regmap, 0x10,
+	ret  = regmap_write(st->regmap, 0x10,
 			    FIELD_PREP(ADF4382_N_INT_LSB_MSK, n_int));
+	if (ret)
+		return ret;
+
+	mdelay(1);
+
+	ret = regmap_read(st->regmap, 0x58, &read_val);
+	if (ret)
+		return ret;
+	
+	if (!FIELD_GET(ADF4382_PLL_LOCK_MSK, read_val)) {
+		dev_err(&st->spi->dev, "PLL is not locked.\n");
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static int adf4382_set_freq(struct adf4382_state *st)
