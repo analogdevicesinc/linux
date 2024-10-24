@@ -438,6 +438,8 @@
 
 #define FS_PER_NS				MICRO
 #define NS_PER_MS				MICRO
+#define MS_PER_NS				MICRO
+#define NS_PER_FS				MICRO
 #define PS_PER_NS				1000
 #define UA_PER_A				1000000
 
@@ -475,7 +477,7 @@ struct adf4382_state {
 	u64			freq;
 	bool			spi_3wire_en;
 	bool			ref_doubler_en;
-	bool 			auto_align_en;
+	bool			auto_align_en;
 	u8			ref_div;
 	u8			clkout_div_reg_val_max;
 	u16			bleed_word;
@@ -844,7 +846,7 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 	ret = regmap_read(st->regmap, 0x58, &read_val);
 	if (ret)
 		return ret;
-	
+
 	if (!FIELD_GET(ADF4382_PLL_LOCK_MSK, read_val)) {
 		dev_err(&st->spi->dev, "PLL is not locked.\n");
 		return -EINVAL;
@@ -1017,8 +1019,8 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_fs)
 	if (ret)
 		return ret;
 
-	if (st->auto_align_en) 
-		return regmap_update_bits(st->regmap, 0x32, 
+	if (st->auto_align_en)
+		return regmap_update_bits(st->regmap, 0x32,
 					  ADF4382_EN_AUTO_ALIGN_MSK, 0xff);
 
 	ret = regmap_update_bits(st->regmap, 0x32, ADF4382_EN_AUTO_ALIGN_MSK, 0x0);
@@ -1028,10 +1030,63 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_fs)
 	return regmap_update_bits(st->regmap, 0x34, ADF4382_PHASE_ADJ_MSK, 0xff);
 }
 
-static int adf4382_set_phase_pol(struct adf4382_state *st, bool sub_pol)
+static int adf4382_get_phase_adjust(struct adf4382_state *st, u32 *val)
+{
+	unsigned int tmp;
+	u8 phase_reg_value;
+	u64 phase_value;
+	u64 pfd_freq_hz;
+	int ret;
+
+	ret = regmap_read(st->regmap, 0x33, &tmp);
+	if (ret)
+		return ret;
+
+	phase_reg_value = tmp;
+
+	ret = adf4382_pfd_compute(st, &pfd_freq_hz);
+	if (ret) {
+		dev_err(&st->spi->dev, "PFD frequency is out of range.\n");
+		return ret;
+	}
+
+	phase_value = phase_reg_value * PERIOD_IN_DEG;
+	phase_value = phase_value * st->freq;
+	phase_value = div64_u64(phase_value, pfd_freq_hz);
+
+	phase_value = phase_value * ADF4382_PHASE_BLEED_CNST_DIV;
+	phase_value = phase_value * MS_PER_NS;
+	phase_value = div_u64(phase_value, ADF4382_PHASE_BLEED_CNST_MUL);
+	phase_value = phase_value * MILLI;
+	phase_value = div_u64(phase_value, adf4382_ci_ua[st->cp_i]);
+
+	phase_value = phase_value * NS_PER_FS;
+	phase_value = div_u64(phase_value, PERIOD_IN_DEG);
+	phase_value = div64_u64(phase_value, st->freq);
+
+	*val = (u32)phase_value;
+
+	return 0;
+}
+
+static int adf4382_set_phase_pol(struct adf4382_state *st, bool ph_pol)
 {
 	return regmap_update_bits(st->regmap, 0x32, ADF4382_PHASE_ADJ_POL_MSK,
-				  FIELD_PREP(ADF4382_PHASE_ADJ_POL_MSK, sub_pol));
+				  FIELD_PREP(ADF4382_PHASE_ADJ_POL_MSK, ph_pol));
+}
+
+static int adf4382_get_phase_pol(struct adf4382_state *st, bool *ph_pol)
+{
+	unsigned int tmp;
+	int ret;
+
+	ret =  regmap_read(st->regmap, 0x32, &tmp);
+	if (ret)
+		return ret;
+
+	*ph_pol = FIELD_GET(ADF4382_PHASE_ADJ_POL_MSK, tmp);
+
+	return 0;
 }
 
 static int adf4382_set_out_power(struct adf4382_state *st, int ch, int pwr)
@@ -1174,6 +1229,8 @@ static int adf4382_read_raw(struct iio_dev *indio_dev,
 			    long mask)
 {
 	struct adf4382_state *st = iio_priv(indio_dev);
+	bool pol;
+	u32 tmp;
 	int ret;
 
 	switch (mask) {
@@ -1188,7 +1245,18 @@ static int adf4382_read_raw(struct iio_dev *indio_dev,
 			return ret;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
-		*val = st->phase;
+		ret = adf4382_get_phase_adjust(st, &tmp);
+		if (ret)
+			return ret;
+		*val = tmp;
+
+		ret = adf4382_get_phase_pol(st, &pol);
+		if (ret)
+			return ret;
+
+		if (pol)
+			*val *= -1;
+
 		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
@@ -1383,13 +1451,13 @@ static void adf4382_debugfs_init(struct iio_dev *indio_dev)
 
 	debugfs_create_file_unsafe("del_cnt_raw", 0400, d,
 				   indio_dev, &adf4382_del_cnt_raw_fops);
-	
+
 	debugfs_create_file_unsafe("bleed_pol", 0400, d,
 				   indio_dev, &adf4382_bleed_pol_fops);
 
 	debugfs_create_file_unsafe("fine_current", 0400, d,
 				   indio_dev, &adf4382_fine_current_fops);
-				   
+
 	debugfs_create_file_unsafe("coarse_current", 0400, d,
 				   indio_dev, &adf4382_coarse_current_fops);
 }
@@ -1721,10 +1789,10 @@ static int adf4382_probe(struct spi_device *spi)
 	ret = devm_iio_device_register(&spi->dev, indio_dev);
 	if (ret)
 		return ret;
-	
+
 	if (IS_ENABLED(CONFIG_DEBUG_FS))
 		adf4382_debugfs_init(indio_dev);
-	
+
 	return 0;
 }
 
