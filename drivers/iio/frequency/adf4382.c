@@ -381,9 +381,6 @@
 /* ADF4382 REG0054 Map */
 #define ADF4382_ADC_ST_CNV_MSK			BIT(0)
 
-/* ADF4382 REG0063 Map */
-#define ADF4382_CUM_PHASE_ADJ_MSB		BIT(0)
-
 #define ADF4382_MOD2WORD_LSB_MSK		GENMASK(7, 0)
 #define ADF4382_MOD2WORD_MID_MSK		GENMASK(15, 8)
 #define ADF4382_MOD2WORD_MSB_MSK		GENMASK(23, 16)
@@ -396,10 +393,6 @@
 #define ADF4382_FRAC2WORD_LSB_MSK		GENMASK(7, 0)
 #define ADF4382_FRAC2WORD_MID_MSK		GENMASK(15, 8)
 #define ADF4382_FRAC2WORD_MSB_MSK		GENMASK(23, 16)
-
-#define ADF4382_CUM_PHASE_ADJ_LSB_MSK		GENMASK(7, 0)
-#define ADF4382_CUM_PHASE_ADJ_MID_MSK		GENMASK(15, 8)
-#define ADF4382_CUM_PHASE_ADJ_MSB_MSK		BIT(16)
 
 #define ADF4382_REF_MIN				10000000ULL	// 10MHz
 #define ADF4382_REF_MAX				5000000000ULL	// 5GHz
@@ -984,16 +977,14 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_fs)
 
 	// Computation of the register value for the phase adjust
 	phase_value = phase_bleed * pfd_freq_hz;
-	phase_value = div_u64(phase_value, st->freq);
+	phase_value = div64_u64(phase_value, st->freq);
 	phase_value = div_u64(phase_value, PERIOD_IN_DEG);
 	phase_value = DIV_ROUND_CLOSEST_ULL(phase_value, MILLI);
-
-	dev_info(&st->spi->dev, "Phase Adjustment value: %llu\n", phase_value);
 
 	// Mask the value to 8 bits
 	phase_reg_value = phase_value & 0xff;
 
-	ret = regmap_write(st->regmap, 0x33, phase_ci);
+	ret = regmap_write(st->regmap, 0x33, phase_reg_value);
 	if (ret)
 		return ret;
 
@@ -1006,30 +997,6 @@ static int adf4382_set_phase_adjust(struct adf4382_state *st, u32 phase_fs)
 		return ret;
 
 	return regmap_update_bits(st->regmap, 0x34, ADF4382_PHASE_ADJ_MSK, 0xff);
-}
-
-static int adf4382_get_phase_adjust(struct adf4382_state *st, u32 *val)
-{
-	unsigned int tmp;
-	int ret;
-
-	ret = regmap_read(st->regmap, 0x61, &tmp);
-	if (ret)
-		return ret;	
-	*val |= FIELD_PREP(ADF4382_CUM_PHASE_ADJ_LSB_MSK, tmp);
-
-	ret = regmap_read(st->regmap, 0x62, &tmp);
-	if (ret)
-		return ret;
-	*val |= FIELD_PREP(ADF4382_CUM_PHASE_ADJ_MID_MSK, tmp);
-
-	ret = regmap_read(st->regmap, 0x63, &tmp);
-	if (ret)
-		return ret;	
-	tmp = FIELD_GET(ADF4382_CUM_PHASE_ADJ_MSB, tmp);
-	*val |= FIELD_PREP(ADF4382_CUM_PHASE_ADJ_MSB_MSK, tmp);
-
-	return 0;
 }
 
 static int adf4382_set_phase_pol(struct adf4382_state *st, bool sub_pol)
@@ -1192,9 +1159,7 @@ static int adf4382_read_raw(struct iio_dev *indio_dev,
 			return ret;
 		return IIO_VAL_INT;
 	case IIO_CHAN_INFO_PHASE:
-		ret = adf4382_get_phase_adjust(st, val);
-		if (ret)
-			return ret;
+		*val = st->phase;
 		return IIO_VAL_INT;
 	default:
 		return -EINVAL;
