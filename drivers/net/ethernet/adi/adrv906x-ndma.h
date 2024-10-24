@@ -50,7 +50,8 @@
 
 #define NDMA_RX_FRAME_LEN_MSB              (NDMA_RX_HDR_STATUS_SIZE - 1)
 #define NDMA_RX_FRAME_LEN_LSB              (NDMA_RX_HDR_STATUS_SIZE - 2)
-#define NDMA_RX_PKT_BUF_SIZE               ALIGN(1536 + NDMA_RX_HDR_DATA_SIZE + NET_IP_ALIGN, 8)
+#define NDMA_RX_WU_BUF_SIZE                ALIGN(1536 + NDMA_RX_HDR_DATA_SIZE + NET_IP_ALIGN, 8)
+#define NDMA_RX_PKT_BUF_SIZE               (NDMA_RX_WU_BUF_SIZE - NDMA_RX_HDR_DATA_SIZE)
 
 #define NDMA_NAPI_POLL_WEIGHT              64
 #define NDMA_RING_SIZE                     128
@@ -59,8 +60,8 @@
 #define NDMA_TS_TX_DELAY 0x9975
 
 enum adrv906x_ndma_chan_type {
-	NDMA_TX,
-	NDMA_RX,
+	NDMA_TX_CHANNEL,
+	NDMA_RX_CHANNEL,
 	MAX_NDMA_CHANNELS
 };
 
@@ -84,8 +85,8 @@ struct adrv906x_ndma_reset {
 union adrv906x_ndma_chan_stats {
 	struct {
 		u64 frame_size_errors;
-		u64 data_header_errors;
-		u64 status_header_errors;
+		u64 wu_data_header_errors;
+		u64 wu_status_header_errors;
 		u64 tstamp_timeout_errors;
 		u64 seqnumb_mismatch_errors;
 		u64 unknown_errors;
@@ -101,7 +102,7 @@ union adrv906x_ndma_chan_stats {
 		u64 frame_dropped_splane_errors;
 		u64 frame_dropped_mplane_errors;
 		u64 seqnumb_mismatch_errors;
-		u64 status_header_errors;
+		u64 wu_header_errors;
 		u64 unknown_errors;
 		u64 pending_work_units;
 		u64 done_work_units;
@@ -112,7 +113,6 @@ union adrv906x_ndma_chan_stats {
 struct adrv906x_ndma_chan {
 	struct adrv906x_ndma_dev *parent;
 	enum adrv906x_ndma_chan_type chan_type;
-	char *chan_name;
 	void __iomem *ctrl_base;
 	union adrv906x_ndma_chan_stats stats;
 	ndma_callback status_cb_fn;
@@ -139,7 +139,7 @@ struct adrv906x_ndma_chan {
 
 	/* RX DMA channel related fields */
 	void __iomem *rx_dma_base;
-	struct sk_buff *skb_rx_data_wu;
+	struct list_head rx_data_wu_list;
 	void *rx_buffs[NDMA_RING_SIZE];
 	int rx_dma_done_irq;
 	int rx_dma_error_irq;
@@ -149,7 +149,6 @@ struct adrv906x_ndma_chan {
 	unsigned int rx_head;   /* Next entry in rx ring to give a new buffer */
 	unsigned int rx_free;   /* Number of free RX buffers */
 	struct napi_struct napi;
-	unsigned int rx_data_fragments;
 };
 
 struct adrv906x_ndma_dev {

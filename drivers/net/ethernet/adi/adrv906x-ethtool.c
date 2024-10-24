@@ -80,19 +80,19 @@ static const char adrv906x_gstrings_stats_names[][ETH_GSTRING_LEN] = {
 	"mac_tx_underflow",
 	"mac_tx_padded",
 	"ndma_rx_frame_error",
-	"ndma_rx_frame_Size_error",
+	"ndma_rx_frame_size_error",
 	"ndma_rx_frame_dropped_error",
 	"ndma_rx_frame_dropped_s_plane",
 	"ndma_rx_frame_dropped_m_plane",
 	"ndma_rx_seqnumb_mismatch_error",
-	"ndma_rx_status_header_error",
+	"ndma_rx_wu_header_error",
 	"ndma_rx_unknown_error",
 	"ndma_rx_pending_work_unit",
 	"ndma_rx_done_work_unit",
 	"ndma_rx_dma_error",
 	"ndma_tx_frame_size_error",
-	"ndma_tx_data_header_error",
-	"ndma_tx_status_header_error",
+	"ndma_tx_wu_data_header_error",
+	"ndma_tx_wu_status_header_error",
 	"ndma_tx_tstamp_timeout_error",
 	"ndma_tx_seqnumb_mismatch_error",
 	"ndma_tx_unknown_error",
@@ -310,14 +310,14 @@ void adrv906x_ethtool_get_stats(struct net_device *ndev, struct ethtool_stats *s
 	data[42] = ndma_rx_stats->rx.frame_dropped_splane_errors;
 	data[43] = ndma_rx_stats->rx.frame_dropped_mplane_errors;
 	data[44] = ndma_rx_stats->rx.seqnumb_mismatch_errors;
-	data[45] = ndma_rx_stats->rx.status_header_errors;
+	data[45] = ndma_rx_stats->rx.wu_header_errors;
 	data[46] = ndma_rx_stats->rx.unknown_errors;
 	data[47] = ndma_rx_stats->rx.pending_work_units;
 	data[48] = ndma_rx_stats->rx.done_work_units;
 	data[49] = ndma_rx_stats->rx.dma_errors;
 	data[50] = ndma_tx_stats->tx.frame_size_errors;
-	data[51] = ndma_tx_stats->tx.data_header_errors;
-	data[52] = ndma_tx_stats->tx.status_header_errors;
+	data[51] = ndma_tx_stats->tx.wu_data_header_errors;
+	data[52] = ndma_tx_stats->tx.wu_status_header_errors;
 	data[53] = ndma_tx_stats->tx.tstamp_timeout_errors;
 	data[54] = ndma_tx_stats->tx.seqnumb_mismatch_errors;
 	data[55] = ndma_tx_stats->tx.unknown_errors;

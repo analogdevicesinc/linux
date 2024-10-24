@@ -126,13 +126,13 @@
 #define   DI_EN_P               0x00300000              /* Data Interrupt Enable in Peripheral */
 #define   DI_EN                 DI_EN_X                 /* Data Interrupt Enable */
 #define   NDSIZE                GENMASK(18, 16)         /* Next Descriptor */
-#define   NDSIZE_0              0x00000000              /* Next Descriptor Size = 1 */
-#define   NDSIZE_1              0x00010000              /* Next Descriptor Size = 2 */
-#define   NDSIZE_2              0x00020000              /* Next Descriptor Size = 3 */
-#define   NDSIZE_3              0x00030000              /* Next Descriptor Size = 4 */
-#define   NDSIZE_4              0x00040000              /* Next Descriptor Size = 5 */
-#define   NDSIZE_5              0x00050000              /* Next Descriptor Size = 6 */
-#define   NDSIZE_6              0x00060000              /* Next Descriptor Size = 7 */
+#define   NDSIZE_0              0x00000000              /* Next Descriptor Size 1 */
+#define   NDSIZE_1              0x00010000              /* Next Descriptor Size 2 */
+#define   NDSIZE_2              0x00020000              /* Next Descriptor Size 3 */
+#define   NDSIZE_3              0x00030000              /* Next Descriptor Size 4 */
+#define   NDSIZE_4              0x00040000              /* Next Descriptor Size 5 */
+#define   NDSIZE_5              0x00050000              /* Next Descriptor Size 6 */
+#define   NDSIZE_6              0x00060000              /* Next Descriptor Size 7 */
 #define   NDSIZE_OFFSET         16                      /* Next Descriptor Size Offset */
 #define   DMAFLOW               GENMASK(14, 12)         /* Flow Control */
 #define   DMAFLOW_STOP          0x00000000              /* Stop Mode */
@@ -143,17 +143,17 @@
 #define   DMAFLOW_LIST_DEMAND   0x00006000              /* Descriptor Demand List Mode */
 #define   DMAFLOW_ARRAY_DEMAND  0x00007000              /* Descriptor Demand Array Mode */
 #define   WDSIZE_MSK            GENMASK(10, 8)          /* Memory Transfer Word Size Mask */
-#define   WDSIZE_8              0x00000000              /* Memory Transfer Word Size = 8 bits */
-#define   WDSIZE_16             0x00000100              /* Memory Transfer Word Size = 16 bits */
-#define   WDSIZE_32             0x00000200              /* Memory Transfer Word Size = 32 bits */
-#define   WDSIZE_64             0x00000300              /* Memory Transfer Word Size = 64 bits */
-#define   WDSIZE_128            0x00000400              /* Memory Transfer Word Size = 128 bits */
-#define   WDSIZE_256            0x00000500              /* Memory Transfer Word Size = 256 bits */
+#define   WDSIZE_8              0x00000000              /* Memory Transfer Word Size 8 bits */
+#define   WDSIZE_16             0x00000100              /* Memory Transfer Word Size 16 bits */
+#define   WDSIZE_32             0x00000200              /* Memory Transfer Word Size 32 bits */
+#define   WDSIZE_64             0x00000300              /* Memory Transfer Word Size 64 bits */
+#define   WDSIZE_128            0x00000400              /* Memory Transfer Word Size 128 bits */
+#define   WDSIZE_256            0x00000500              /* Memory Transfer Word Size 256 bits */
 #define   PSIZE_MSK             GENMASK(6, 4)           /* Peripheral Transfer Word Size Mask */
-#define   PSIZE_8               0x00000000              /* Peripheral Transfer Word Size = 8 bits */
-#define   PSIZE_16              0x00000010              /* Peripheral Transfer Word Size = 16 bits */
-#define   PSIZE_32              0x00000020              /* Peripheral Transfer Word Size = 32 bits */
-#define   PSIZE_64              0x00000030              /* Peripheral Transfer Word Size = 64 bits */
+#define   PSIZE_8               0x00000000              /* Peripheral Transfer Word Size 8 bits */
+#define   PSIZE_16              0x00000010              /* Peripheral Transfer Word Size 16 bits */
+#define   PSIZE_32              0x00000020              /* Peripheral Transfer Word Size 32 bits */
+#define   PSIZE_64              0x00000030              /* Peripheral Transfer Word Size 64 bits */
 #define   DMASYNC               BIT(2)                  /* DMA Buffer Clear SYNC */
 #define   WNR                   BIT(1)                  /* Channel Direction (W/R*) */
 #define   DMAEN                 BIT(0)                  /* DMA Channel Enable */
@@ -171,11 +171,12 @@
 #define DSCPTR_PRV              0x28
 #define DMA_ADDR_CUR            0x2c
 #define DMA_STAT                0x30
-#define   DMA_RUN_MASK          GENMASK(10, 8)          /* DMA Running Bits Mask */
-#define   DMA_RUN_DFETCH        0x00000100              /* DMA Running Fetch */
-#define   DMA_RUN               0x00000200              /* DMA Running Trans */
-#define   DMA_RUN_WAIT_TRIG     0x00000300              /* DMA Running WAIT TRIG */
-#define   DMA_RUN_WAIT_ACK      0x00000400              /* DMA Running WAIT ACK */
+#define   DMA_RUN_MASK          GENMASK(10, 8)          /* DMA Run Bits Mask */
+#define   DMA_RUN_IDLE          0x00000000              /* DMA Run IDLE */
+#define   DMA_RUN_DFETCH        0x00000100              /* DMA Run Fetch */
+#define   DMA_RUN               0x00000200              /* DMA Run Trans */
+#define   DMA_RUN_WAIT_TRIG     0x00000300              /* DMA Run WAIT TRIG */
+#define   DMA_RUN_WAIT_ACK      0x00000400              /* DMA Run WAIT ACK */
 #define   DMA_PIRQ              BIT(2)                  /* DMA Peripheral Error Interrupt Status */
 #define   DMA_ERR               BIT(1)                  /* DMA Error Interrupt Status */
 #define   DMA_DONE              BIT(0)                  /* DMA Completion Interrupt Status */
@@ -393,6 +394,7 @@ static void adrv906x_dma_rx_start(struct adrv906x_ndma_chan *ndma_ch)
 	desc_addr = ndma_ch->rx_ring_dma + sizeof(struct dma_desc) * ndma_ch->rx_tail;
 
 	iowrite32(0, ndma_ch->rx_dma_base + DMA_CFG);
+	iowrite32(0, ndma_ch->rx_dma_base + DMA_STAT);
 	iowrite32(desc_addr, ndma_ch->rx_dma_base + DMA_NEXT_DESC);
 	iowrite32(ndma_ch->rx_ring[ndma_ch->rx_tail].cfg, ndma_ch->rx_dma_base + DMA_CFG);
 }
@@ -417,7 +419,7 @@ static irqreturn_t adrv906x_dma_rx_done_irq_handler(int irq, void *ctx)
 
 	if (napi_schedule_prep(&ndma_ch->napi)) {
 		spin_lock_irqsave(&ndma_ch->lock, flags);
-		if (ndma_ch->chan_type == NDMA_RX)
+		if (ndma_ch->chan_type == NDMA_RX_CHANNEL)
 			adrv906x_ndma_disable_irqs(ndma_dev, NDMA_RX_DMA_DONE_IRQ);
 		else
 			adrv906x_ndma_disable_irqs(ndma_dev, NDMA_TX_STATUS_DMA_DONE_IRQ);
@@ -451,18 +453,15 @@ static irqreturn_t adrv906x_dma_error_irq_handler_thread(int irq, void *ctx)
 	struct device *dev = ndma_dev->dev;
 	unsigned long flags;
 
+	/* TODO: Implement recovery procedure */
 	spin_lock_irqsave(&ndma_ch->lock, flags);
-	if (ndma_ch->chan_type == NDMA_RX) {
+	if (ndma_ch->chan_type == NDMA_RX_CHANNEL) {
 		ndma_ch->stats.rx.dma_errors++;
-		adrv906x_dma_rx_start(ndma_ch);
 	} else {
-		if (ndma_ch->rx_dma_error_irq == irq) {
+		if (ndma_ch->rx_dma_error_irq == irq)
 			ndma_ch->stats.tx.status_dma_errors++;
-			adrv906x_dma_rx_start(ndma_ch);
-		} else {
+		else
 			ndma_ch->stats.tx.data_dma_errors++;
-			adrv906x_dma_tx_start(ndma_ch);
-		}
 	}
 	spin_unlock_irqrestore(&ndma_ch->lock, flags);
 
@@ -475,7 +474,8 @@ static void adrv906x_ndma_chan_enable(struct adrv906x_ndma_chan *ndma_ch)
 {
 	unsigned int val, offset;
 
-	offset = (ndma_ch->chan_type == NDMA_RX) ? NDMA_RX_STAT_AND_CTRL : NDMA_TX_STAT_AND_CTRL;
+	offset = (ndma_ch->chan_type == NDMA_RX_CHANNEL) ?
+		 NDMA_RX_STAT_AND_CTRL : NDMA_TX_STAT_AND_CTRL;
 
 	val = ioread32(ndma_ch->ctrl_base + offset);
 	val |= NDMA_DATAPATH_EN;
@@ -486,7 +486,8 @@ static bool adrv906x_ndma_chan_enabled(struct adrv906x_ndma_chan *ndma_ch)
 {
 	unsigned int val, offset;
 
-	offset = (ndma_ch->chan_type == NDMA_RX) ? NDMA_RX_STAT_AND_CTRL : NDMA_TX_STAT_AND_CTRL;
+	offset = (ndma_ch->chan_type == NDMA_RX_CHANNEL) ?
+		 NDMA_RX_STAT_AND_CTRL : NDMA_TX_STAT_AND_CTRL;
 	val = ioread32(ndma_ch->ctrl_base + offset);
 	return val & NDMA_DATAPATH_EN;
 }
@@ -495,7 +496,8 @@ static void adrv906x_ndma_chan_disable(struct adrv906x_ndma_chan *ndma_ch)
 {
 	unsigned int val, offset;
 
-	offset = (ndma_ch->chan_type == NDMA_RX) ? NDMA_RX_STAT_AND_CTRL : NDMA_TX_STAT_AND_CTRL;
+	offset = (ndma_ch->chan_type == NDMA_RX_CHANNEL) ?
+		 NDMA_RX_STAT_AND_CTRL : NDMA_TX_STAT_AND_CTRL;
 
 	val = ioread32(ndma_ch->ctrl_base + offset);
 	val &= ~NDMA_DATAPATH_EN;
@@ -656,15 +658,15 @@ static int adrv906x_ndma_refill_rx(struct adrv906x_ndma_chan *ndma_ch, int budge
 	dma_addr_t addr;
 	int done = 0;
 
-	while (ndma_ch->rx_free < NDMA_RING_SIZE && done < budget) {
-		skb = napi_alloc_skb(&ndma_ch->napi, NDMA_RX_PKT_BUF_SIZE);
+	while (ndma_ch->rx_free < NDMA_RING_SIZE) {
+		skb = napi_alloc_skb(&ndma_ch->napi, NDMA_RX_WU_BUF_SIZE);
 		ndma_ch->rx_buffs[ndma_ch->rx_head] = skb;
 		if (!skb)
 			break;
 
 		/* Initialize the first byte of work unit header to 0 */
 		skb->data[0] = 0;
-		addr = dma_map_single(dev, skb->data, NDMA_RX_PKT_BUF_SIZE,
+		addr = dma_map_single(dev, skb->data, NDMA_RX_WU_BUF_SIZE,
 				      DMA_FROM_DEVICE);
 		if (unlikely(dma_mapping_error(dev, addr))) {
 			napi_consume_skb(skb, budget);
@@ -895,6 +897,9 @@ static void adrv906x_ndma_tx_timeout(struct timer_list *t)
 	unsigned int size;
 	unsigned char port;
 
+	if (!ndma_ch->tx_frames_pending)
+		return;
+
 	dev_warn(dev, "transmit timed out: tx status not received");
 
 	spin_lock_irqsave(&ndma_ch->lock, flags);
@@ -951,9 +956,7 @@ static int adrv906x_ndma_device_init(struct adrv906x_ndma_dev *ndma_dev, struct 
 	if (ret)
 		return ret;
 	tx_chan->rx_dma_base = devm_ioremap(dev->parent, reg, len);
-
-	tx_chan->chan_type = NDMA_TX;
-	tx_chan->chan_name = "NDMA_TX";
+	tx_chan->chan_type = NDMA_TX_CHANNEL;
 	tx_chan->parent = ndma_dev;
 
 	/* config RX  */
@@ -971,8 +974,7 @@ static int adrv906x_ndma_device_init(struct adrv906x_ndma_dev *ndma_dev, struct 
 	if (ret)
 		return ret;
 	rx_chan->rx_dma_base = devm_ioremap(dev->parent, reg, len);
-	rx_chan->chan_type = NDMA_RX;
-	rx_chan->chan_name = "NDMA_RX";
+	rx_chan->chan_type = NDMA_RX_CHANNEL;
 	rx_chan->parent = ndma_dev;
 
 	ret = adrv906x_ndma_init_irqs(np, ndma_dev);
@@ -993,7 +995,7 @@ static void adrv906x_ndma_enable_events(struct adrv906x_ndma_chan *ndma_ch, unsi
 {
 	unsigned int val, offset;
 
-	offset = (ndma_ch->chan_type == NDMA_RX) ? NDMA_RX_EVENT_EN : NDMA_TX_EVENT_EN;
+	offset = (ndma_ch->chan_type == NDMA_RX_CHANNEL) ? NDMA_RX_EVENT_EN : NDMA_TX_EVENT_EN;
 
 	val = ioread32(ndma_ch->ctrl_base + offset);
 	val |= events;
@@ -1004,7 +1006,7 @@ static void adrv906x_ndma_disable_all_event(struct adrv906x_ndma_chan *ndma_ch)
 {
 	unsigned int offset;
 
-	offset = (ndma_ch->chan_type == NDMA_RX) ? NDMA_RX_EVENT_EN : NDMA_TX_EVENT_EN;
+	offset = (ndma_ch->chan_type == NDMA_RX_CHANNEL) ? NDMA_RX_EVENT_EN : NDMA_TX_EVENT_EN;
 
 	iowrite32(0, ndma_ch->ctrl_base + offset);
 }
@@ -1074,11 +1076,11 @@ int adrv906x_ndma_alloc_rings(struct adrv906x_ndma_dev *ndma_dev)
 		return -ENOMEM;
 
 	for (i = 0; i < NDMA_RING_SIZE; i++) {
-		rx_chan->rx_ring[i].cfg = (DESCIDCPY | DI_EN_X | NDSIZE_4 |
+		rx_chan->rx_ring[i].cfg = (DESCIDCPY | DI_EN_X | NDSIZE_4 | DMASYNC |
 					   WDSIZE_64 | PSIZE_64 | WNR | DMAEN);
 		rx_chan->rx_ring[i].cfg |=
 			(i == NDMA_RING_SIZE - 1) ? DMAFLOW_STOP : DMAFLOW_LIST;
-		rx_chan->rx_ring[i].xcnt = NDMA_RX_PKT_BUF_SIZE / XMODE_64;
+		rx_chan->rx_ring[i].xcnt = NDMA_RX_WU_BUF_SIZE / XMODE_64;
 		rx_chan->rx_ring[i].xmod = XMODE_64;
 		rx_chan->rx_ring[i].next = rx_chan->rx_ring_dma +
 					   sizeof(struct dma_desc) * ((i + 1) % NDMA_RING_SIZE);
@@ -1139,8 +1141,7 @@ void adrv906x_ndma_config_loopback(struct adrv906x_ndma_dev *ndma_dev, bool enab
 		ndma_dev->loopback_en = true;
 		tx_chan->tx_loopback_wu[0] = NDMA_TX_HDR_TYPE_LOOPBACK;
 		tx_chan->tx_loopback_addr = dma_map_single(ndma_dev->dev, tx_chan->tx_loopback_wu,
-							   NDMA_TX_HDR_LOOPBACK_SIZE,
-							   DMA_TO_DEVICE);
+							   NDMA_TX_HDR_LOOPBACK_SIZE, DMA_TO_DEVICE);
 		tx_chan->tx_loopback_desc.cfg = (DESCIDCPY | DI_EN_X | NDSIZE_4 |
 						 WDSIZE_8 | PSIZE_32 | DMAEN);
 		tx_chan->tx_loopback_desc.xcnt = NDMA_TX_HDR_LOOPBACK_SIZE / XMODE_8;
@@ -1227,6 +1228,16 @@ void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, ndma_callback tx_cb_
 	spin_unlock_irqrestore(&ndma_dev->lock, flags0);
 }
 
+static void adrv906x_ndma_rx_free_data_wu_list(struct list_head *data_wu_list, int budget)
+{
+	struct sk_buff *skb, *next;
+
+	list_for_each_entry_safe(skb, next, data_wu_list, list) {
+		skb_list_del_init(skb);
+		napi_consume_skb(skb, budget);
+	}
+}
+
 static void adrv906x_ndma_stop(struct kref *ref)
 {
 	struct adrv906x_ndma_dev *ndma_dev = container_of(ref, struct adrv906x_ndma_dev, refcount);
@@ -1253,11 +1264,12 @@ static void adrv906x_ndma_stop(struct kref *ref)
 	adrv906x_ndma_disable_all_event(rx_chan);
 	adrv906x_ndma_chan_disable(rx_chan);
 
+	adrv906x_ndma_rx_free_data_wu_list(&rx_chan->rx_data_wu_list, 0);
 	while (rx_chan->rx_free) {
 		skb = (struct sk_buff *)rx_chan->rx_buffs[rx_chan->rx_tail];
 		addr = rx_chan->rx_ring[rx_chan->rx_tail].start;
 
-		dma_unmap_single(dev, addr, NDMA_RX_PKT_BUF_SIZE, DMA_FROM_DEVICE);
+		dma_unmap_single(dev, addr, NDMA_RX_WU_BUF_SIZE, DMA_FROM_DEVICE);
 		dev_kfree_skb(skb);
 
 		rx_chan->rx_tail = (rx_chan->rx_tail + 1) % NDMA_RING_SIZE;
@@ -1310,8 +1322,7 @@ static int adrv906x_ndma_parse_rx_status_header(struct adrv906x_ndma_chan *ndma_
 
 	get_ts_from_status(status_hdr, ts);
 	*port_id = FIELD_GET(NDMA_RX_HDR_STATUS_PORT_ID, status_hdr[0]);
-	*frame_size = (status_hdr[NDMA_RX_FRAME_LEN_MSB] << 8)
-		      | (status_hdr[NDMA_RX_FRAME_LEN_LSB]);
+	*frame_size = (status_hdr[NDMA_RX_FRAME_LEN_MSB] << 8) | (status_hdr[NDMA_RX_FRAME_LEN_LSB]);
 
 	if (NDMA_RX_HDR_STATUS_FR_ERR & status_hdr[0]) {
 		error = ioread32(ndma_ch->ctrl_base + NDMA_RX_EVENT_STAT) & NDMA_RX_ERROR_EVENTS;
@@ -1321,40 +1332,31 @@ static int adrv906x_ndma_parse_rx_status_header(struct adrv906x_ndma_chan *ndma_
 		 * so to avoid losing them, we clear only one error bit at a time.
 		 */
 		if (NDMA_RX_FRAME_SIZE_ERR_EVENT & error) {
-			dev_dbg(dev, "%s_%u frame size error",
-				ndma_ch->chan_name, ndma_dev->dev_num);
+			dev_dbg(dev, "frame size error");
 			stats->rx.frame_size_errors++;
 			if (NDMA_RX_HDR_STATUS_FR_DROP_ERR & status_hdr[0])
-				dev_dbg(dev, "%s_%u partial frame dropped error",
-					ndma_ch->chan_name, ndma_dev->dev_num);
-			iowrite32(NDMA_RX_FRAME_SIZE_ERR_EVENT, ndma_ch->ctrl_base +
-				  NDMA_RX_EVENT_STAT);
+				dev_dbg(dev, "partial frame dropped error");
+			iowrite32(NDMA_RX_FRAME_SIZE_ERR_EVENT, ndma_ch->ctrl_base + NDMA_RX_EVENT_STAT);
 			ret = NDMA_RX_FRAME_SIZE_ERR_EVENT;
 		} else if (NDMA_RX_ERR_EVENT & error) {
-			dev_dbg(dev, "%s_%u mac error(s) signaled by tuser[0]",
-				ndma_ch->chan_name, ndma_dev->dev_num);
+			dev_dbg(dev, "mac error(s) signaled by tuser[0]");
 			stats->rx.frame_errors++;
-			iowrite32(NDMA_RX_ERR_EVENT, ndma_ch->ctrl_base +
-				  NDMA_RX_EVENT_STAT);
+			iowrite32(NDMA_RX_ERR_EVENT, ndma_ch->ctrl_base + NDMA_RX_EVENT_STAT);
 			ret = NDMA_RX_ERR_EVENT;
 		} else if (NDMA_RX_FRAME_DROPPED_ERR_EVENT & error) {
-			dev_dbg(dev, "%s_%u frame dropped error",
-				ndma_ch->chan_name, ndma_dev->dev_num);
-			iowrite32(NDMA_RX_FRAME_DROPPED_ERR_EVENT, ndma_ch->ctrl_base +
-				  NDMA_RX_EVENT_STAT);
+			dev_dbg(dev, "frame dropped error");
+			iowrite32(NDMA_RX_FRAME_DROPPED_ERR_EVENT, ndma_ch->ctrl_base + NDMA_RX_EVENT_STAT);
 			ret = NDMA_RX_FRAME_DROPPED_ERR_EVENT;
 		} else {
-			dev_dbg(dev, "%s_%u status wu has error flag set but no interrupt generated",
-				ndma_ch->chan_name, ndma_dev->dev_num);
+			dev_dbg(dev, "status wu has error flag set but no interrupt generated");
 			stats->rx.unknown_errors++;
 			ret = NDMA_RX_UNKNOWN_ERROR;
 		}
 	} else {
 		/* If no error, check and update sequence number */
 		if (status_hdr[1] != ndma_ch->expected_seq_num) {
-			dev_dbg(dev, "%s_%u frame seq number mismatch, exp:0x%x recv:0x%x",
-				ndma_ch->chan_name, ndma_dev->dev_num, ndma_ch->expected_seq_num,
-				status_hdr[1]);
+			dev_dbg(dev, "frame seq number mismatch, exp:0x%x recv:0x%x",
+				ndma_ch->expected_seq_num, status_hdr[1]);
 			stats->rx.seqnumb_mismatch_errors++;
 			ndma_ch->expected_seq_num = status_hdr[1];
 			ret = NDMA_RX_SEQNUM_MISMATCH_ERROR;
@@ -1365,80 +1367,113 @@ static int adrv906x_ndma_parse_rx_status_header(struct adrv906x_ndma_chan *ndma_
 	return ret;
 }
 
-void adrv906x_ndma_process_rx_work_unit(struct adrv906x_ndma_chan *ndma_ch,
-					struct sk_buff *skb, int budget)
+static int adrv906x_ndma_rx_validate_data_wu_list(struct list_head *data_wu_list,
+						  int frame_size)
 {
+	int n_elem_exp, n_elem = 0;
+	struct list_head *pos;
+
+	n_elem_exp = DIV_ROUND_UP(frame_size, NDMA_RX_PKT_BUF_SIZE);
+
+	list_for_each(pos, data_wu_list) {
+		n_elem++;
+	}
+
+	return (n_elem_exp != n_elem) ? -EINVAL : 0;
+}
+
+static struct sk_buff *adrv906x_ndma_rx_build_linear_pkt_buf(struct list_head *data_wu_list,
+							     unsigned int frame_size)
+{
+	struct sk_buff *frag, *skb = NULL;
+	struct list_head *pos;
+	unsigned int length;
+
+	if (frame_size > NDMA_MAX_FRAME_SIZE_VALUE)
+		goto out;
+
+	if (adrv906x_ndma_rx_validate_data_wu_list(data_wu_list, frame_size))
+		goto out;
+
+	/* If the data work unit list contains only one entry, we avoid allocating a new buffer.
+	 * Instead, we hold a reference to the existing buffer to prevent it from being freed
+	 * by adrv906x_ndma_rx_free_data_wu_list().
+	 */
+	if (list_is_singular(data_wu_list)) {
+		skb = list_first_entry(data_wu_list, struct sk_buff, list);
+		skb_put(skb, NDMA_RX_HDR_DATA_SIZE + frame_size);
+		skb_pull(skb, NDMA_RX_HDR_DATA_SIZE);
+		skb_get(skb);
+	} else {
+		skb = alloc_skb(frame_size, GFP_ATOMIC);
+		if (!skb)
+			goto out;
+		list_for_each(pos, data_wu_list) {
+			frag = list_entry(pos, struct sk_buff, list);
+			length = (frame_size > NDMA_RX_PKT_BUF_SIZE) ? NDMA_RX_PKT_BUF_SIZE : frame_size;
+			frame_size -= length;
+			skb_put(frag, NDMA_RX_HDR_DATA_SIZE + length);
+			skb_pull(frag, NDMA_RX_HDR_DATA_SIZE);
+			skb_copy_from_linear_data(frag, skb_tail_pointer(skb), length);
+			skb_put(skb, length);
+		}
+	}
+out:
+	return skb;
+}
+
+static void adrv906x_ndma_process_rx_work_unit(struct adrv906x_ndma_chan *ndma_ch,
+					       struct sk_buff *skb, int budget)
+{
+	union adrv906x_ndma_chan_stats *stats = &ndma_ch->stats;
 	struct adrv906x_ndma_dev *ndma_dev = ndma_ch->parent;
+	unsigned int port_id = 0, frame_size = 0, hdr_type;
 	struct device *dev = ndma_dev->dev;
 	struct timespec64 ts = { 0, 0 };
-	union adrv906x_ndma_chan_stats *stats = &ndma_ch->stats;
-	struct sk_buff *new_skb;
-	unsigned int port_id = 0, frame_size = 0;
+	struct sk_buff *pktbuf;
 	int ret;
 
-	/* Status WU type */
-	if (FIELD_GET(NDMA_HDR_TYPE_MASK, skb->data[0]) == NDMA_RX_HDR_TYPE_STATUS) {
-		ret = adrv906x_ndma_parse_rx_status_header(ndma_ch, skb->data, &ts,
-							   &port_id, &frame_size);
-		if (ret == NDMA_NO_ERROR || ret == NDMA_RX_SEQNUM_MISMATCH_ERROR ||
-		    unlikely(ndma_dev->loopback_en)) {
-			if (ndma_ch->skb_rx_data_wu) {
-				skb_put(ndma_ch->skb_rx_data_wu, NDMA_RX_HDR_DATA_SIZE +
-					frame_size - (ndma_ch->rx_data_fragments) * (NDMA_RX_PKT_BUF_SIZE
-										     - NDMA_RX_HDR_DATA_SIZE));
-				skb_pull(ndma_ch->skb_rx_data_wu, NDMA_RX_HDR_DATA_SIZE);
-				ndma_ch->status_cb_fn(ndma_ch->skb_rx_data_wu, port_id, ts,
-						      ndma_ch->status_cb_param);
-			} else {
-				dev_dbg(dev, "%s_%u received status without preceding data wu",
-					ndma_ch->chan_name, ndma_dev->dev_num);
-			}
+	hdr_type = FIELD_GET(NDMA_HDR_TYPE_MASK, skb->data[0]);
+
+	switch (hdr_type) {
+	case NDMA_RX_HDR_TYPE_STATUS:
+		if (list_empty(&ndma_ch->rx_data_wu_list)) {
+			dev_dbg(dev, "status received without preceding data work units");
 		} else {
-			/* If error detected, free skb with associated data WU */
-			if (ndma_ch->skb_rx_data_wu)
-				napi_consume_skb(ndma_ch->skb_rx_data_wu, budget);
+			ret = adrv906x_ndma_parse_rx_status_header(ndma_ch, skb->data, &ts, &port_id,
+								   &frame_size);
+			if (ret == NDMA_NO_ERROR || ret == NDMA_RX_SEQNUM_MISMATCH_ERROR ||
+			    unlikely(ndma_dev->loopback_en)) {
+				pktbuf = adrv906x_ndma_rx_build_linear_pkt_buf(&ndma_ch->rx_data_wu_list,
+									       frame_size);
+				if (pktbuf)
+					ndma_ch->status_cb_fn(pktbuf, port_id, ts, ndma_ch->status_cb_param);
+			}
 		}
-		ndma_ch->rx_data_fragments = 0;
-		ndma_ch->skb_rx_data_wu = NULL;
+		adrv906x_ndma_rx_free_data_wu_list(&ndma_ch->rx_data_wu_list, budget);
 		napi_consume_skb(skb, budget); /* free skb with status WU */
-		/* Data WU type */
-	} else if (FIELD_GET(NDMA_HDR_TYPE_MASK, skb->data[0]) == NDMA_RX_HDR_TYPE_DATA) {
-		if (skb->data[0] & NDMA_RX_HDR_TYPE_DATA_SOF) { /* Start of Frame */
-			if (ndma_ch->skb_rx_data_wu) {
-				dev_dbg(dev, "%s_%u no status received for previous frame",
-					ndma_ch->chan_name, ndma_dev->dev_num);
-				napi_consume_skb(ndma_ch->skb_rx_data_wu, budget);
+		break;
+	case NDMA_RX_HDR_TYPE_DATA:
+		if (FIELD_GET(NDMA_RX_HDR_TYPE_DATA_SOF, skb->data[0])) {
+			if (!list_empty(&ndma_ch->rx_data_wu_list)) {
+				dev_dbg(dev, "no status received for previous data work units");
+				adrv906x_ndma_rx_free_data_wu_list(&ndma_ch->rx_data_wu_list, budget);
 			}
-			ndma_ch->skb_rx_data_wu = skb;
-		} else { /* Subsequent WU type*/
-			skb_put(ndma_ch->skb_rx_data_wu, NDMA_RX_PKT_BUF_SIZE -
-				(NDMA_RX_HDR_DATA_SIZE * (1 && ndma_ch->rx_data_fragments)));
-			new_skb = skb_copy_expand(ndma_ch->skb_rx_data_wu,
-						  skb_headroom(ndma_ch->skb_rx_data_wu), skb_tailroom(ndma_ch->skb_rx_data_wu)
-						  + (int)NDMA_RX_PKT_BUF_SIZE, GFP_ATOMIC);
-			if (!new_skb) {
-				dev_err(dev, "%s_%u failed to extend skb to reassemble dma descriptors",
-					ndma_ch->chan_name, ndma_dev->dev_num);
-				napi_consume_skb(ndma_ch->skb_rx_data_wu, budget);
-			} else {
-				napi_consume_skb(ndma_ch->skb_rx_data_wu, budget);
-				ndma_ch->skb_rx_data_wu = new_skb;
-				skb_put(skb, NDMA_RX_PKT_BUF_SIZE);
-				skb_pull(skb, NDMA_RX_HDR_DATA_SIZE);
-				skb_copy_from_linear_data(skb, skb_tail_pointer(ndma_ch->skb_rx_data_wu),
-							  NDMA_RX_PKT_BUF_SIZE - NDMA_RX_HDR_DATA_SIZE);
+			list_add_tail(&skb->list, &ndma_ch->rx_data_wu_list);
+		} else {
+			if (list_empty(&ndma_ch->rx_data_wu_list)) {
+				dev_dbg(dev, "start of frame not detected");
 				napi_consume_skb(skb, budget);
-				ndma_ch->rx_data_fragments++;
+			} else {
+				list_add_tail(&skb->list, &ndma_ch->rx_data_wu_list);
 			}
 		}
-		/* Incorrect WU type */
-	} else {
-		dev_dbg(dev, "%s_%u incorrect type of received wu",
-			ndma_ch->chan_name, ndma_dev->dev_num);
+		break;
+	default:
+		dev_dbg(dev, "incorrect wu header detected");
+		adrv906x_ndma_rx_free_data_wu_list(&ndma_ch->rx_data_wu_list, budget);
 		napi_consume_skb(skb, budget);
-		if (ndma_ch->skb_rx_data_wu)
-			napi_consume_skb(ndma_ch->skb_rx_data_wu, budget);
-		ndma_ch->skb_rx_data_wu = NULL;
+		stats->rx.wu_header_errors++;
 	}
 
 	stats->rx.done_work_units++;
@@ -1451,21 +1486,19 @@ static int adrv906x_ndma_parse_tx_status_header(struct adrv906x_ndma_chan *ndma_
 	struct adrv906x_ndma_dev *ndma_dev = ndma_ch->parent;
 	union adrv906x_ndma_chan_stats *stats = &ndma_ch->stats;
 	struct device *dev = ndma_dev->dev;
-	unsigned int error;
 	int ret = NDMA_NO_ERROR;
+	unsigned int error;
 
 	if (FIELD_GET(NDMA_HDR_TYPE_MASK, status_hdr[0]) != NDMA_TX_HDR_TYPE_STATUS) {
-		dev_dbg(dev, "%s_%u incorrect format of wu status header: 0x%x",
-			ndma_ch->chan_name, ndma_dev->dev_num, status_hdr[0]);
-		stats->tx.status_header_errors++;
+		dev_dbg(dev, "incorrect format of wu status header: 0x%x", status_hdr[0]);
+		stats->tx.wu_status_header_errors++;
 		ret = NDMA_TX_STATUS_HEADER_ERROR;
 	} else {
 		get_ts_from_status(status_hdr, ts);
 
 		if (status_hdr[1] != ndma_ch->expected_seq_num) {
-			dev_dbg(dev, "%s_%u frame seq number mismatch, exp:0x%x recv:0x%x",
-				ndma_ch->chan_name, ndma_dev->dev_num, ndma_ch->expected_seq_num,
-				status_hdr[1]);
+			dev_dbg(dev, "frame seq number mismatch, exp:0x%x recv:0x%x",
+				ndma_ch->expected_seq_num, status_hdr[1]);
 			stats->tx.seqnumb_mismatch_errors++;
 			/* seq number mismatch, update it to new value */
 			ndma_ch->expected_seq_num = status_hdr[1];
@@ -1476,10 +1509,8 @@ static int adrv906x_ndma_parse_tx_status_header(struct adrv906x_ndma_chan *ndma_
 			ndma_ch->expected_seq_num++;
 
 		if (NDMA_TX_HDR_STATUS_FR_ERR & status_hdr[0]) {
-			if (adrv906x_ndma_chan_enabled(ndma_ch) &&
-			    is_timestamp_all_zero(status_hdr)) {
-				dev_dbg(dev, "%s_%u hw timestamp timeout error",
-					ndma_ch->chan_name, ndma_dev->dev_num);
+			if (adrv906x_ndma_chan_enabled(ndma_ch) && is_timestamp_all_zero(status_hdr)) {
+				dev_dbg(dev, "hw timestamp timeout error");
 				stats->tx.tstamp_timeout_errors++;
 				ret = NDMA_TX_TSTAMP_TIMEOUT_ERROR;
 			} else {
@@ -1487,26 +1518,21 @@ static int adrv906x_ndma_parse_tx_status_header(struct adrv906x_ndma_chan *ndma_
 				 * Note: More than one error bit in IRQ status register can be set,
 				 * so to avoid losing them, we clear only one error bit at a time.
 				 */
-				error = ioread32(ndma_ch->ctrl_base + NDMA_TX_EVENT_STAT) &
-					NDMA_TX_ERROR_EVENTS;
+				error = ioread32(ndma_ch->ctrl_base + NDMA_TX_EVENT_STAT) & NDMA_TX_ERROR_EVENTS;
 
 				if (NDMA_TX_FRAME_SIZE_ERR_EVENT & error) {
-					dev_dbg(dev, "%s_%u frame size error",
-						ndma_ch->chan_name, ndma_dev->dev_num);
+					dev_dbg(dev, "frame size error");
 					stats->tx.frame_size_errors++;
 					iowrite32(NDMA_TX_FRAME_SIZE_ERR_EVENT, ndma_ch->ctrl_base +
 						  NDMA_TX_EVENT_STAT);
 					ret = NDMA_TX_FRAME_SIZE_ERROR;
 				} else if (NDMA_TX_WU_HEADER_ERR_EVENT & error) {
-					dev_dbg(dev, "%s_%u incorrect format of wu data header",
-						ndma_ch->chan_name, ndma_dev->dev_num);
-					stats->tx.data_header_errors++;
-					iowrite32(NDMA_TX_WU_HEADER_ERR_EVENT, ndma_ch->ctrl_base +
-						  NDMA_TX_EVENT_STAT);
+					dev_dbg(dev, "incorrect format of wu data header");
+					stats->tx.wu_data_header_errors++;
+					iowrite32(NDMA_TX_WU_HEADER_ERR_EVENT, ndma_ch->ctrl_base + NDMA_TX_EVENT_STAT);
 					ret = NDMA_TX_DATA_HEADER_ERROR;
 				} else {
-					dev_dbg(dev, "%s_%u status wu has set error flag but there is no error flag in status register",
-						ndma_ch->chan_name, ndma_dev->dev_num);
+					dev_dbg(dev, "unknown error: status register does not indicate an error");
 					stats->tx.unknown_errors++;
 					ret = NDMA_RX_UNKNOWN_ERROR;
 				}
@@ -1659,7 +1685,7 @@ static int adrv906x_ndma_tx_status_poll(struct napi_struct *napi, int budget)
 		state = ioread32(ndma_ch->rx_dma_base + DMA_STAT);
 		if (addr_cur >= addr &&
 		    addr_cur < addr + NDMA_TX_HDR_STATUS_SIZE &&
-		    (DMA_RUN_MASK & state) == DMA_RUN)
+		    (DMA_RUN_MASK & state) != DMA_RUN_IDLE)
 			break; /* WU copy in proggress */
 
 		adrv906x_ndma_process_tx_status(ndma_ch, buff);
@@ -1698,10 +1724,13 @@ static int adrv906x_ndma_rx_data_and_status_poll(struct napi_struct *napi, int b
 
 	spin_lock_irqsave(&ndma_ch->lock, flags);
 	while (count < budget) {
+		if (!ndma_ch->rx_buffs[ndma_ch->rx_tail])
+			break;
+
 		skb = (struct sk_buff *)ndma_ch->rx_buffs[ndma_ch->rx_tail];
 		addr = ndma_ch->rx_ring[ndma_ch->rx_tail].start;
 
-		dma_sync_single_for_cpu(dev, addr, NDMA_RX_PKT_BUF_SIZE, DMA_FROM_DEVICE);
+		dma_sync_single_for_cpu(dev, addr, NDMA_RX_WU_BUF_SIZE, DMA_FROM_DEVICE);
 
 		if (skb->data[0] == 0)
 			break; /* WU not copied */
@@ -1712,23 +1741,23 @@ static int adrv906x_ndma_rx_data_and_status_poll(struct napi_struct *napi, int b
 		addr_cur = ioread32(ndma_ch->rx_dma_base + DMA_ADDR_CUR);
 		state = ioread32(ndma_ch->rx_dma_base + DMA_STAT);
 		if (addr_cur >= addr &&
-		    addr_cur < addr + NDMA_RX_PKT_BUF_SIZE &&
-		    (DMA_RUN_MASK & state) == DMA_RUN)
+		    addr_cur < addr + NDMA_RX_WU_BUF_SIZE &&
+		    (DMA_RUN_MASK & state) != DMA_RUN_IDLE)
 			break; /* WU copy in proggress */
 
 		ndma_ch->rx_buffs[ndma_ch->rx_tail] = NULL;
+		dma_unmap_single(dev, addr, NDMA_RX_WU_BUF_SIZE, DMA_FROM_DEVICE);
 		adrv906x_ndma_process_rx_work_unit(ndma_ch, skb, budget);
-
-		dma_unmap_single(dev, addr, NDMA_RX_PKT_BUF_SIZE, DMA_FROM_DEVICE);
 
 		ndma_ch->rx_tail = (ndma_ch->rx_tail + 1) % NDMA_RING_SIZE;
 		ndma_ch->rx_free--;
 		count++;
 	}
 
-	adrv906x_ndma_refill_rx(ndma_ch, budget);
-	if (ndma_ch->rx_tail == 0) /* we reach end of descriptor list */
+	if (ndma_ch->rx_free == 0) {/* we reach end of descriptor list */
+		adrv906x_ndma_refill_rx(ndma_ch, budget);
 		adrv906x_dma_rx_start(ndma_ch);
+	}
 
 	spin_unlock_irqrestore(&ndma_ch->lock, flags);
 
@@ -1782,6 +1811,8 @@ int adrv906x_ndma_probe(struct platform_device *pdev, struct net_device *ndev,
 	ret = adrv906x_ndma_alloc_rings(ndma_dev);
 	if (ret)
 		return ret;
+
+	INIT_LIST_HEAD(&rx_chan->rx_data_wu_list);
 
 	netif_napi_add(ndev, &rx_chan->napi,
 		       adrv906x_ndma_rx_data_and_status_poll, NDMA_NAPI_POLL_WEIGHT);
