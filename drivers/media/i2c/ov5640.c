@@ -19,6 +19,7 @@
 #include <linux/regulator/consumer.h>
 #include <linux/slab.h>
 #include <linux/types.h>
+#include <media/mipi-csi2.h>
 #include <media/v4l2-async.h>
 #include <media/v4l2-ctrls.h>
 #include <media/v4l2-device.h>
@@ -192,6 +193,7 @@ enum ov5640_format_mux {
 
 struct ov5640_pixfmt {
 	u32 code;
+	u8 dt;
 	u32 colorspace;
 	u8 bpp;
 	u8 ctrl00;
@@ -270,6 +272,7 @@ static const struct ov5640_pixfmt ov5640_csi2_formats[] = {
 	{
 		/* YUV422, YUYV */
 		.code		= MEDIA_BUS_FMT_JPEG_1X8,
+		.dt		= MIPI_CSI2_DT_RAW8,
 		.colorspace	= V4L2_COLORSPACE_JPEG,
 		.bpp		= 16,
 		.ctrl00		= 0x30,
@@ -277,6 +280,7 @@ static const struct ov5640_pixfmt ov5640_csi2_formats[] = {
 	}, {
 		/* YUV422, UYVY */
 		.code		= MEDIA_BUS_FMT_UYVY8_1X16,
+		.dt		= MIPI_CSI2_DT_YUV422_8B,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
 		.bpp		= 16,
 		.ctrl00		= 0x3f,
@@ -284,6 +288,7 @@ static const struct ov5640_pixfmt ov5640_csi2_formats[] = {
 	}, {
 		/* YUV422, YUYV */
 		.code		= MEDIA_BUS_FMT_YUYV8_1X16,
+		.dt		= MIPI_CSI2_DT_YUV422_8B,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
 		.bpp		= 16,
 		.ctrl00		= 0x30,
@@ -291,6 +296,7 @@ static const struct ov5640_pixfmt ov5640_csi2_formats[] = {
 	}, {
 		/* RGB565 {g[2:0],b[4:0]},{r[4:0],g[5:3]} */
 		.code		= MEDIA_BUS_FMT_RGB565_1X16,
+		.dt		= MIPI_CSI2_DT_RGB565,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
 		.bpp		= 16,
 		.ctrl00		= 0x6f,
@@ -298,6 +304,7 @@ static const struct ov5640_pixfmt ov5640_csi2_formats[] = {
 	}, {
 		/* BGR888: RGB */
 		.code		= MEDIA_BUS_FMT_BGR888_1X24,
+		.dt		= MIPI_CSI2_DT_RGB888,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
 		.bpp		= 24,
 		.ctrl00		= 0x23,
@@ -305,6 +312,7 @@ static const struct ov5640_pixfmt ov5640_csi2_formats[] = {
 	}, {
 		/* Raw, BGBG... / GRGR... */
 		.code		= MEDIA_BUS_FMT_SBGGR8_1X8,
+		.dt		= MIPI_CSI2_DT_RAW8,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
 		.bpp		= 8,
 		.ctrl00		= 0x00,
@@ -312,6 +320,7 @@ static const struct ov5640_pixfmt ov5640_csi2_formats[] = {
 	}, {
 		/* Raw bayer, GBGB... / RGRG... */
 		.code		= MEDIA_BUS_FMT_SGBRG8_1X8,
+		.dt		= MIPI_CSI2_DT_RAW8,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
 		.bpp		= 8,
 		.ctrl00		= 0x01,
@@ -319,6 +328,7 @@ static const struct ov5640_pixfmt ov5640_csi2_formats[] = {
 	}, {
 		/* Raw bayer, GRGR... / BGBG... */
 		.code		= MEDIA_BUS_FMT_SGRBG8_1X8,
+		.dt		= MIPI_CSI2_DT_RAW8,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
 		.bpp		= 8,
 		.ctrl00		= 0x02,
@@ -326,6 +336,7 @@ static const struct ov5640_pixfmt ov5640_csi2_formats[] = {
 	}, {
 		/* Raw bayer, RGRG... / GBGB... */
 		.code		= MEDIA_BUS_FMT_SRGGB8_1X8,
+		.dt		= MIPI_CSI2_DT_RAW8,
 		.colorspace	= V4L2_COLORSPACE_SRGB,
 		.bpp		= 8,
 		.ctrl00		= 0x03,
@@ -510,6 +521,14 @@ static u32 ov5640_code_to_bpp(struct ov5640_dev *sensor, u32 code)
 								   code);
 
 	return format->bpp;
+}
+
+static u32 ov5640_code_to_dt(struct ov5640_dev *sensor, u32 code)
+{
+	const struct ov5640_pixfmt *format = ov5640_code_to_pixfmt(sensor,
+								   code);
+
+	return format->dt;
 }
 
 /*
@@ -3780,6 +3799,22 @@ static int ov5640_init_state(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int ov5640_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
+				 struct v4l2_mbus_frame_desc *fd)
+{
+	struct ov5640_dev *sensor = to_ov5640_dev(sd);
+
+	if (sensor->ep.bus_type != V4L2_MBUS_CSI2_DPHY)
+		return -EINVAL;
+
+	fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+	fd->entry[0].bus.csi2.vc = 0;
+	fd->entry[0].bus.csi2.dt = ov5640_code_to_dt(sensor, sensor->fmt.code);
+	fd->num_entries = 1;
+
+	return 0;
+}
+
 static const struct v4l2_subdev_core_ops ov5640_core_ops = {
 	.log_status = v4l2_ctrl_subdev_log_status,
 	.subscribe_event = v4l2_ctrl_subdev_subscribe_event,
@@ -3799,6 +3834,7 @@ static const struct v4l2_subdev_pad_ops ov5640_pad_ops = {
 	.set_frame_interval = ov5640_set_frame_interval,
 	.enum_frame_size = ov5640_enum_frame_size,
 	.enum_frame_interval = ov5640_enum_frame_interval,
+	.get_frame_desc = ov5640_get_frame_desc,
 };
 
 static const struct v4l2_subdev_ops ov5640_subdev_ops = {
