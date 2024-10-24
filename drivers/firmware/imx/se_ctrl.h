@@ -106,6 +106,11 @@ struct se_if_defines {
 	u8 fw_api_ver;
 };
 
+struct se_lg_fl_info {
+	loff_t offset;
+	struct file *lg_file;
+	struct path root;
+};
 struct se_if_priv {
 	struct device *dev;
 
@@ -125,6 +130,7 @@ struct se_if_priv {
 
 	struct gen_pool *mem_pool;
 	const struct se_if_defines *if_defs;
+	struct se_lg_fl_info lg_fl_info;
 
 	struct se_if_device_ctx *priv_dev_ctx;
 	struct list_head dev_ctx_list;
@@ -132,4 +138,12 @@ struct se_if_priv {
 	u32 dev_ctx_mono_count;
 };
 
+#define SE_DUMP_IOCTL_BUFS	0
+#define SE_DUMP_MU_SND_BUFS	1
+#define SE_DUMP_MU_RCV_BUFS	2
+#define SE_DUMP_KDEBUG_BUFS	3
+
+int se_dump_to_logfl(struct se_if_device_ctx *dev_ctx,
+		     u8 caller_type, int buf_size,
+		     const char *buf, ...);
 #endif

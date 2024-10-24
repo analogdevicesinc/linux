@@ -10,6 +10,7 @@
 #include "se_ctrl.h"
 
 #define ELE_SUCCESS_IND			0xD6
+#define ELE_ABORT_ERR_CODE		0xFF29
 
 #define IMX_ELE_FW_DIR                 "imx/ele/"
 

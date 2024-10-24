@@ -11,6 +11,7 @@
 #include <linux/export.h>
 #include <linux/firmware.h>
 #include <linux/firmware/imx/se_api.h>
+#include <linux/fs_struct.h>
 #include <linux/genalloc.h>
 #include <linux/init.h>
 #include <linux/io.h>
@@ -32,6 +33,8 @@
 #define MAX_SOC_INFO_DATA_SZ		256
 #define MBOX_TX_NAME			"tx"
 #define MBOX_RX_NAME			"rx"
+
+#define IMX_SE_LOG_PATH "/var/lib/se_"
 
 struct se_fw_img_name {
 	const u8 *prim_fw_nm_in_rfs;
@@ -343,6 +346,125 @@ static int se_load_firmware(struct se_if_priv *priv)
 
 exit:
 	return ret;
+}
+
+#define NANO_SEC_PRN_LEN	9
+#define SEC_PRN_LEN		5
+
+int se_dump_to_logfl(struct se_if_device_ctx *dev_ctx,
+		     u8 caller_type, int buf_size,
+		     const char *buf, ...)
+{
+	struct se_lg_fl_info *lg_fl_info = &dev_ctx->priv->lg_fl_info;
+	u8 fmt_str[256] = "[%lld.%ld]: %s: %s: %s";
+	const u8 *devname = dev_ctx->devname;
+	int fmt_str_idx = strlen(fmt_str);
+	const u8 *caller_type_str;
+	u8 dump_ln[1024] = {'\0'};
+	u8 loc_buf[512] = {'\0'};
+	u8 file_name[128] = {'\0'};
+	struct timespec64 log_tm;
+	bool is_hex = true;
+	int dump_ln_len;
+	ssize_t wret;
+	int w_ct;
+
+	switch (caller_type) {
+	case SE_DUMP_IOCTL_BUFS:
+		caller_type_str = "_IOCTL";
+		break;
+	case SE_DUMP_MU_SND_BUFS:
+		caller_type_str = "MU_SND";
+		break;
+	case SE_DUMP_MU_RCV_BUFS:
+		caller_type_str = "MU_RCV";
+		break;
+	default:
+		va_list args;
+
+		is_hex = false;
+		caller_type_str = "SE_DBG";
+		va_start(args, buf);
+		buf_size = vsprintf(loc_buf, buf, args);
+		va_end(args);
+	}
+
+	if (is_hex) {
+		for (w_ct = 0; w_ct < buf_size >> 2; w_ct++) {
+			fmt_str[fmt_str_idx] = '%';
+			fmt_str_idx++;
+			fmt_str[fmt_str_idx] = '0';
+			fmt_str_idx++;
+			fmt_str[fmt_str_idx] = '8';
+			fmt_str_idx++;
+			fmt_str[fmt_str_idx] = 'x';
+			fmt_str_idx++;
+			fmt_str[fmt_str_idx] = ' ';
+			fmt_str_idx++;
+		}
+	}
+
+	fmt_str[fmt_str_idx] = '\n';
+
+	ktime_get_ts64(&log_tm);
+	if (!lg_fl_info->lg_file) {
+		task_lock(&init_task);
+		get_fs_root(init_task.fs, &lg_fl_info->root);
+		task_unlock(&init_task);
+
+		sprintf(file_name, "%s%s_%d.%lld_%ld",
+			IMX_SE_LOG_PATH,
+			get_se_if_name(dev_ctx->priv->if_defs->se_if_type),
+			dev_ctx->priv->if_defs->se_instance_id,
+			log_tm.tv_sec,
+			log_tm.tv_nsec);
+
+		lg_fl_info->lg_file = file_open_root(&lg_fl_info->root,
+						file_name,
+						O_CREAT | O_WRONLY | O_SYNC,
+						0);
+		path_put(&lg_fl_info->root);
+		if (IS_ERR(lg_fl_info->lg_file)) {
+			dev_err(dev_ctx->priv->dev, "open file %s failed[%ld]\n",
+				file_name, PTR_ERR(lg_fl_info->lg_file));
+
+			wret = PTR_ERR(lg_fl_info->lg_file);
+			lg_fl_info->lg_file = NULL;
+			return wret;
+		}
+	}
+	dump_ln_len = SEC_PRN_LEN + NANO_SEC_PRN_LEN +
+			fmt_str_idx + strlen(devname) +
+			strlen(caller_type_str) + buf_size;
+	snprintf(dump_ln, dump_ln_len, fmt_str,
+					log_tm.tv_sec,
+					log_tm.tv_nsec,
+					devname,
+					caller_type_str,
+					loc_buf,
+					((uint32_t *)buf)[0], ((uint32_t *)buf)[1],
+					((uint32_t *)buf)[2], ((uint32_t *)buf)[3],
+					((uint32_t *)buf)[4], ((uint32_t *)buf)[5],
+					((uint32_t *)buf)[6], ((uint32_t *)buf)[7],
+					((uint32_t *)buf)[8], ((uint32_t *)buf)[9],
+					((uint32_t *)buf)[10], ((uint32_t *)buf)[11],
+					((uint32_t *)buf)[12], ((uint32_t *)buf)[13],
+					((uint32_t *)buf)[14], ((uint32_t *)buf)[15]);
+
+	wret = kernel_write(lg_fl_info->lg_file,
+				dump_ln, dump_ln_len,
+				&lg_fl_info->offset);
+	if (wret < 0) {
+		dev_err(dev_ctx->priv->dev,
+			"Error writing log file: %s.\n",
+			file_name);
+	} else if (wret != dump_ln_len) {
+		dev_err(dev_ctx->priv->dev,
+			"Wrote only %ld bytes of %d writing to log file %s\n",
+			wret, dump_ln_len, file_name);
+	}
+
+	return 0;
 }
 
 static int init_se_shared_mem(struct se_if_device_ctx *dev_ctx)
@@ -994,6 +1116,9 @@ static int se_if_fops_open(struct inode *nd, struct file *fp)
 			err);
 		goto exit;
 	}
+	se_dump_to_logfl(dev_ctx,
+			 SE_DUMP_KDEBUG_BUFS, 0,
+			 "IOCTL: %s", __func__);
 
 	fp->private_data = dev_ctx;
 
@@ -1025,6 +1150,9 @@ static int se_if_fops_close(struct inode *nd, struct file *fp)
 	list_del(&dev_ctx->link);
 
 	mutex_unlock(&dev_ctx->fops_lock);
+	se_dump_to_logfl(dev_ctx,
+			 SE_DUMP_KDEBUG_BUFS, 0,
+			 "IOCTL: %s", __func__);
 	kfree(dev_ctx->devname);
 	kfree(dev_ctx);
 
@@ -1056,6 +1184,9 @@ static long se_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 			}
 			priv->cmd_receiver_clbk_hdl.rx_msg_sz = MAX_NVM_MSG_LEN;
 			priv->cmd_receiver_clbk_hdl.dev_ctx = dev_ctx;
+			se_dump_to_logfl(dev_ctx,
+					SE_DUMP_KDEBUG_BUFS, 0,
+					"IOCTL: %s", "SE_IOCTL_ENABLE_CMD_RCV");
 			err = 0;
 		} else {
 			err = -EBUSY;
@@ -1136,6 +1267,7 @@ static void se_if_probe_cleanup(void *plat_dev)
 	struct device *dev = &pdev->dev;
 	struct se_fw_load_info *load_fw;
 	struct se_if_priv *priv;
+	int wret;
 
 	priv = dev_get_drvdata(dev);
 	load_fw = get_load_fw_instance(priv);
@@ -1166,6 +1298,14 @@ static void se_if_probe_cleanup(void *plat_dev)
 	if (priv->priv_dev_ctx && priv->priv_dev_ctx->miscdev) {
 		devm_remove_action(dev, if_misc_deregister, &priv->priv_dev_ctx->miscdev);
 		misc_deregister(priv->priv_dev_ctx->miscdev);
+	}
+
+	if (priv->lg_fl_info.lg_file &&
+		filp_close(priv->lg_fl_info.lg_file, NULL)) {
+		wret = filp_close(priv->lg_fl_info.lg_file, NULL);
+		if (wret)
+			pr_err("Error %pe closing log file.\n",
+				ERR_PTR(wret));
 	}
 
 	/* No need to check, if reserved memory is allocated
