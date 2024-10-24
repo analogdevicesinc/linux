@@ -806,7 +806,10 @@ static int ad7768_probe(struct spi_device *spi)
 	if (!st->chip_info)
 		return -ENODEV;
 
-	ret = devm_regulator_get_enable(&spi->dev, "vref");
+	st->vref = devm_regulator_get(&spi->dev, "vref");
+	if (IS_ERR(st->vref))
+		return PTR_ERR(st->vref);
+	ret = regulator_enable(st->vref);
 	if (ret)
 		return ret;
 
