@@ -352,19 +352,46 @@ import_pfn_map(gckOS Os, struct device *dev, struct um_desc *um,
     for (i = 0; i < pfn_count; i++) {
 #if gcdUSING_PFN_FOLLOW || (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 5, 0))
         int ret = 0;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+        struct follow_pfnmap_args args = { .vma = vma, .address = addr };
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0)
+        pte_t *ptep;
+        spinlock_t *ptl;
+#endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+        ret = follow_pfnmap_start(&args);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0)
+        ret = follow_pte(vma, addr, &ptep, &ptl);
+#else
         ret = follow_pfn(vma, addr, &pfns[i]);
+#endif
         if (ret < 0) {
             /* Case maybe provides unmapped addr. */
             ret = gckOS_ReadMappedPointer(Os, (gctPOINTER)addr, &data);
-            if (!ret)
+            if (!ret) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+                args.address = addr;
+                ret = follow_pfnmap_start(&args);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0)
+                ret = follow_pte(vma, addr, &ptep, &ptl);
+#else
                 ret = follow_pfn(vma, addr, &pfns[i]);
+#endif
+            }
 
             if (ret < 0) {
                 up_read(&current_mm_mmap_sem);
                 goto err;
             }
         }
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+        pfns[i] = args.pfn;
+        follow_pfnmap_end(&args);
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0)
+        pfns[i] = pte_pfn(ptep_get(ptep));
+        pte_unmap_unlock(ptep, ptl);
+#endif
 #else
         /* protect pfns[i] */
         spinlock_t  *ptl;
