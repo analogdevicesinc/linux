@@ -422,6 +422,7 @@
 #define ADF4382A_CLKOUT_DIV_REG_VAL_MAX		2
 
 #define ADF4382_CP_I_DEFAULT			15
+#define ADF4382_OPOWER_DEFAULT			11
 #define ADF4382_REF_DIV_DEFAULT			1
 #define ADF4382_RFOUT_DEFAULT			2875000000ULL	// 2.875GHz
 #define ADF4382_SCRATCHPAD_VAL			0xA5
@@ -467,6 +468,7 @@ struct adf4382_state {
 	struct notifier_block	nb;
 	unsigned int		ref_freq_hz;
 	u8			cp_i;
+	u8			opwr_a;
 	u64			freq;
 	bool			spi_3wire_en;
 	bool			ref_doubler_en;
@@ -820,10 +822,6 @@ static int _adf4382_set_freq(struct adf4382_state *st)
 
 	ret = regmap_update_bits(st->regmap, 0x11, ADF4382_CLKOUT_DIV_MSK,
 				 FIELD_PREP(ADF4382_CLKOUT_DIV_MSK, clkout_div));
-	if (ret)
-		return ret;
-
-	ret = regmap_write(st->regmap, 0x29, 0x0b);
 	if (ret)
 		return ret;
 
@@ -1409,6 +1407,13 @@ static int adf4382_parse_device(struct adf4382_state *st)
 		st->cp_i = (u8)i;
 	}
 
+	ret = device_property_read_u32(&st->spi->dev, "adi,output-power-value",
+				       &tmp);
+	if (ret)
+		st->opwr_a = ADF4382_OPOWER_DEFAULT;
+	else
+		st->opwr_a = clamp_t(u8, tmp, 0, 15);
+
 	ret = device_property_read_u32(&st->spi->dev, "adi,ref-divider",
 				       &tmp);
 	if (ret || !tmp)
@@ -1491,6 +1496,14 @@ static int adf4382_init(struct adf4382_state *st)
 		return ret;
 
 	st->ref_freq_hz = clk_get_rate(st->clkin);
+
+	ret = adf4382_set_out_power(st, 0, st->opwr_a);
+	if (ret)
+		return ret;
+
+	ret = adf4382_set_out_power(st, 1, st->opwr_a);
+	if (ret)
+		return ret;
 
 	return _adf4382_set_freq(st);
 }
