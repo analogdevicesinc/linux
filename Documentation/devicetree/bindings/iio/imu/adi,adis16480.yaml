@@ -15,7 +15,10 @@ properties:
       - adi,adis16375
       - adi,adis16480
       - adi,adis16485
+      - adi,adis16486
+      - adi,adis16487
       - adi,adis16488
+      - adi,adis16489
       - adi,adis16490
       - adi,adis16495-1
       - adi,adis16495-2
