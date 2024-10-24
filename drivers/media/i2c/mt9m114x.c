@@ -23,6 +23,11 @@
 #include <media/v4l2-mediabus.h>
 #include <media/v4l2-subdev.h>
 
+#define MT9M114_PIXEL_ARRAY_TOP				0
+#define MT9M114_PIXEL_ARRAY_LEFT			0
+#define MT9M114_PIXEL_ARRAY_WIDTH			1280
+#define MT9M114_PIXEL_ARRAY_HEIGHT			720
+
 /* Sysctl registers */
 #define MT9M114_CHIP_ID					0x0000
 #define MT9M114_COMMAND_REGISTER			0x0080
@@ -787,6 +792,17 @@ static int mt9m114_get_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static const struct v4l2_mbus_framefmt mt9m114_default_fmt = {
+	.code = MEDIA_BUS_FMT_UYVY8_2X8,
+	.width = MT9M114_PIXEL_ARRAY_WIDTH,
+	.height = MT9M114_PIXEL_ARRAY_HEIGHT,
+	.colorspace = V4L2_COLORSPACE_SRGB,
+	.ycbcr_enc = V4L2_MAP_YCBCR_ENC_DEFAULT(V4L2_COLORSPACE_SRGB),
+	.quantization = V4L2_QUANTIZATION_FULL_RANGE,
+	.xfer_func = V4L2_MAP_XFER_FUNC_DEFAULT(V4L2_COLORSPACE_SRGB),
+	.field = V4L2_FIELD_NONE,
+};
+
 static int mt9m114_set_fmt(struct v4l2_subdev *sd,
 			  struct v4l2_subdev_state *sd_state,
 			  struct v4l2_subdev_format *format)
@@ -815,6 +831,27 @@ static int mt9m114_set_fmt(struct v4l2_subdev *sd,
 	mutex_unlock(&sensor->lock);
 	return 0;
 }
+
+static int mt9m114_init_state(struct v4l2_subdev *sd,
+				struct v4l2_subdev_state *state)
+{
+	struct v4l2_mbus_framefmt *fmt =
+				v4l2_subdev_state_get_format(state, 0);
+	struct v4l2_rect *crop = v4l2_subdev_state_get_crop(state, 0);
+
+	*fmt =  mt9m114_default_fmt;
+
+	crop->left = MT9M114_PIXEL_ARRAY_LEFT;
+	crop->top = MT9M114_PIXEL_ARRAY_TOP;
+	crop->width = MT9M114_PIXEL_ARRAY_WIDTH;
+	crop->height = MT9M114_PIXEL_ARRAY_HEIGHT;
+
+	return 0;
+}
+
+static const struct v4l2_subdev_internal_ops mt9m114_internal_ops = {
+	.init_state = mt9m114_init_state,
+};
 
 static int mt9m114_enum_frame_size(struct v4l2_subdev *sd,
 				  struct v4l2_subdev_state *sd_state,
@@ -1208,6 +1245,7 @@ static int mt9m114_probe(struct i2c_client *client)
 			   | V4L2_SUBDEV_FL_HAS_DEVNODE;
 	sd->entity.ops      = &mt9m114_sd_media_ops;
 	sd->entity.function = MEDIA_ENT_F_CAM_SENSOR;
+	sensor->sd.internal_ops = &mt9m114_internal_ops;
 
 	sensor->pads[MT9M114_SENS_PAD_SOURCE].flags = MEDIA_PAD_FL_SOURCE;
 	ret = media_entity_pads_init(&sd->entity, MT9M114_SENS_PADS_NUM, sensor->pads);
