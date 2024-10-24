@@ -440,7 +440,11 @@
 #define PERIOD_IN_DEG				360
 #define PERIOD_IN_DEG_MS			360000
 
-#define	ADF4382_CLK_SCALE			10
+#ifdef CONFIG_64BIT
+#define ADF4382_CLK_SCALE			1
+#else
+#define	ADF4382_CLK_SCALE			10ULL
+#endif
 
 enum {
 	ADF4382_FREQ,
