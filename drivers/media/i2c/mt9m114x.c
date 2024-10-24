@@ -803,6 +803,44 @@ static const struct v4l2_mbus_framefmt mt9m114_default_fmt = {
 	.field = V4L2_FIELD_NONE,
 };
 
+static const struct mt9m114_format *mt9m114_code_to_pixfmt(u32 code)
+{
+	unsigned int i;
+
+	for (i = 0; i < ARRAY_SIZE(mt9m114_formats); i++) {
+		if (code == mt9m114_formats[i].mbus_code)
+			return &mt9m114_formats[i];
+	}
+
+	return &mt9m114_formats[0];
+}
+
+static int mt9m114_try_fmt_internal(struct v4l2_subdev *sd,
+				struct v4l2_mbus_framefmt *fmt,
+				const struct mt9m114_resolution **new_mode)
+{
+	struct mt9m114 *sensor = to_mt9m114(sd);
+	static const struct mt9m114_resolution *mode;
+	const struct mt9m114_format *pixfmt;
+
+	mode = mt9m114_find_mode(sensor, fmt->width, fmt->height);
+
+	pixfmt = mt9m114_code_to_pixfmt(fmt->code);
+
+	fmt->width = mode->width;
+	fmt->height = mode->height;
+
+	if (new_mode)
+		*new_mode = mode;
+	fmt->code = pixfmt->mbus_code;
+	fmt->colorspace = pixfmt->colorspace;
+	fmt->ycbcr_enc = V4L2_MAP_YCBCR_ENC_DEFAULT(fmt->colorspace);
+	fmt->quantization = V4L2_QUANTIZATION_FULL_RANGE;
+	fmt->xfer_func = V4L2_MAP_XFER_FUNC_DEFAULT(fmt->colorspace);
+
+	return 0;
+}
+
 static int mt9m114_set_fmt(struct v4l2_subdev *sd,
 			  struct v4l2_subdev_state *sd_state,
 			  struct v4l2_subdev_format *format)
@@ -811,14 +849,21 @@ static int mt9m114_set_fmt(struct v4l2_subdev *sd,
 	struct v4l2_mbus_framefmt *fmt = &sensor->fmt;
 	struct v4l2_mbus_framefmt *mbus_fmt = &format->format;
 	const struct mt9m114_resolution *new_mode;
+	int ret;
 
 	if (format->pad != 0)
 		return -EINVAL;
 
 	mutex_lock(&sensor->lock);
-	new_mode = mt9m114_find_mode(sensor, mbus_fmt->width, mbus_fmt->height);
-	if (!new_mode)
-	      return -EINVAL;
+
+	ret = mt9m114_try_fmt_internal(sd, mbus_fmt, &new_mode);
+	if (ret)
+		goto out;
+
+	if (format->which == V4L2_SUBDEV_FORMAT_TRY) {
+		*v4l2_subdev_state_get_format(sd_state, 0) = *mbus_fmt;
+		goto out;
+	}
 
 	sensor->curr_mode = new_mode;
 	if (sensor->curr_mode != sensor->last_mode) {
@@ -828,8 +873,12 @@ static int mt9m114_set_fmt(struct v4l2_subdev *sd,
 		fmt->height = new_mode->vact;
 	}
 
+	/* update format even if code is unchanged, resolution might change */
+	sensor->fmt = *mbus_fmt;
+
+out:
 	mutex_unlock(&sensor->lock);
-	return 0;
+	return ret;
 }
 
 static int mt9m114_init_state(struct v4l2_subdev *sd,
