@@ -120,6 +120,7 @@ struct ad7944_chip_info {
 	const char *name;
 	const struct ad7944_timing_spec *timing_spec;
 	const struct iio_chan_spec channels[2];
+	const struct iio_chan_spec offload_channels[1];
 };
 
 /*
@@ -149,6 +150,23 @@ static const struct ad7944_chip_info _name##_chip_info = {		\
 					| BIT(IIO_CHAN_INFO_SCALE),	\
 		},							\
 		IIO_CHAN_SOFT_TIMESTAMP(1),				\
+	},								\
+	.offload_channels = {						\
+		{							\
+			.type = IIO_VOLTAGE,				\
+			.indexed = 1,					\
+			.differential = _diff,				\
+			.channel = 0,					\
+			.channel2 = _diff ? 1 : 0,			\
+			.scan_index = 0,				\
+			.scan_type.sign = _diff ? 's' : 'u',		\
+			.scan_type.realbits = _bits,			\
+			.scan_type.storagebits = 32,			\
+			.scan_type.endianness = IIO_CPU,		\
+			.info_mask_separate = BIT(IIO_CHAN_INFO_RAW)	\
+					| BIT(IIO_CHAN_INFO_SCALE)	\
+					| BIT(IIO_CHAN_INFO_SAMP_FREQ),	\
+		},							\
 	},								\
 }
 
@@ -194,7 +212,7 @@ static int ad7944_3wire_cs_mode_init_msg(struct device *dev, struct ad7944_adc *
 
 	/* Then we can read the data during the acquisition phase */
 	xfers[2].rx_buf = &adc->sample.raw;
-	xfers[2].len = BITS_TO_BYTES(chan->scan_type.storagebits);
+	xfers[2].len = chan->scan_type.realbits > 16 ? 4 : 2;
 	xfers[2].bits_per_word = chan->scan_type.realbits;
 
 	spi_message_init_with_transfers(&adc->msg, xfers, 3);
@@ -228,7 +246,7 @@ static int ad7944_3wire_cs_mode_init_turbo_msg(struct device *dev,
 
 	/* read sample data from previous conversion */
 	xfers[1].rx_buf = &adc->sample.raw;
-	xfers[1].len = BITS_TO_BYTES(chan->scan_type.storagebits);
+	xfers[1].len = chan->scan_type.realbits > 16 ? 4 : 2;
 	xfers[1].bits_per_word = chan->scan_type.realbits;
 	/*
 	 * CNV has to be high at end of conversion to avoid triggering the busy
@@ -279,7 +297,7 @@ static int ad7944_4wire_mode_init_msg(struct device *dev, struct ad7944_adc *adc
 	xfers[0].delay.unit = SPI_DELAY_UNIT_NSECS;
 
 	xfers[1].rx_buf = &adc->sample.raw;
-	xfers[1].len = BITS_TO_BYTES(chan->scan_type.storagebits);
+	xfers[1].len = chan->scan_type.realbits > 16 ? 4 : 2;
 	xfers[1].bits_per_word = chan->scan_type.realbits;
 
 	spi_message_init_with_transfers(&adc->msg, xfers, 3);
@@ -356,7 +374,7 @@ static int ad7944_single_conversion(struct ad7944_adc *adc,
 		return -EOPNOTSUPP;
 	}
 
-	if (chan->scan_type.storagebits > 16)
+	if (chan->scan_type.realbits > 16)
 		*val = adc->sample.raw.u32;
 	else
 		*val = adc->sample.raw.u16;
@@ -399,90 +417,60 @@ static int ad7944_read_raw(struct iio_dev *indio_dev,
 			return -EINVAL;
 		}
 
+	case IIO_CHAN_INFO_SAMP_FREQ: {
+		/* TODO: get actual hw period */
+		u64 period_ns = pwm_get_period(adc->pwm);
+
+		*val = DIV_ROUND_UP_ULL(NSEC_PER_SEC, period_ns);
+		return IIO_VAL_INT;
+	}
+
 	default:
 		return -EINVAL;
 	}
 }
 
-static ssize_t ad7944_sampling_frequency_show(struct device *dev,
-					      struct device_attribute *attr,
-					      char *buf)
+static int ad7944_write_raw(struct iio_dev *indio_dev,
+			    const struct iio_chan_spec *chan,
+			    int val, int val2, long info)
 {
-	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	struct ad7944_adc *adc = iio_priv(indio_dev);
-	u64 period_ns;
 
-	if (!adc->pwm)
-		return -ENODEV;
+	switch (info) {
+	case IIO_CHAN_INFO_SAMP_FREQ: {
+		struct pwm_state state;
 
-	period_ns = pwm_get_period(adc->pwm);
+		if (val < 0)
+			return -EINVAL;
 
-	return sysfs_emit(buf, "%llu\n", div64_u64(NSEC_PER_SEC, period_ns));
-}
+		pwm_init_state(adc->pwm, &state);
+		state.period = DIV_ROUND_UP(NSEC_PER_SEC, val);
+		state.duty_cycle = AD7944_PWM_TRIGGER_DUTY_CYCLE_NS;
+		state.enabled = true;
 
-static ssize_t ad7944_sampling_frequency_store(struct device *dev,
-					       struct device_attribute *attr,
-					       const char *buf, size_t len)
-{
-	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
-	struct ad7944_adc *adc = iio_priv(indio_dev);
-	struct pwm_state sample_state;
-	u32 val;
-	int ret;
-
-	if (!adc->pwm)
-		return -ENODEV;
-
-	ret = kstrtouint(buf, 0, &val);
-	if (ret)
-		return ret;
-
-	if (val == 0)
+		return pwm_apply_state(adc->pwm, &state);
+	}
+	default:
 		return -EINVAL;
-
-	pwm_init_state(adc->pwm, &sample_state);
-	sample_state.period = div_u64(NSEC_PER_SEC, val);
-	sample_state.duty_cycle = AD7944_PWM_TRIGGER_DUTY_CYCLE_NS;
-	sample_state.enabled = true;
-
-	ret = pwm_apply_state(adc->pwm, &sample_state);
-	if (ret)
-		return ret;
-
-	return len;
+	}
 }
 
-static IIO_DEV_ATTR_SAMP_FREQ(0644, ad7944_sampling_frequency_show,
-			      ad7944_sampling_frequency_store);
-
-static struct attribute *ad7944_attrs[] = {
-	&iio_dev_attr_sampling_frequency.dev_attr.attr,
-	NULL
-};
-
-static umode_t ad7944_attrs_is_visible(struct kobject *kobj,
-				       struct attribute *attr, int unused)
+static int ad7944_write_raw_get_fmt(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan,
+				    long info)
 {
-	struct device *dev = kobj_to_dev(kobj);
-	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
-	struct ad7944_adc *adc = iio_priv(indio_dev);
-
-	/* hide sampling_frequency attribute when there is no pwm */
-	if (attr == &iio_dev_attr_sampling_frequency.dev_attr.attr && !adc->pwm)
-		return 0;
-
-	/* show all other attributes */
-	return attr->mode;
+	switch (info) {
+	case IIO_CHAN_INFO_SAMP_FREQ:
+		return IIO_VAL_INT;
+	default:
+		return IIO_VAL_INT_PLUS_MICRO;
+	}
 }
-
-static const struct attribute_group ad7944_group = {
-	.attrs = ad7944_attrs,
-	.is_visible = ad7944_attrs_is_visible,
-};
 
 static const struct iio_info ad7944_iio_info = {
 	.read_raw = &ad7944_read_raw,
-	.attrs = &ad7944_group,
+	.write_raw = &ad7944_write_raw,
+	.write_raw_get_fmt = &ad7944_write_raw_get_fmt,
 };
 
 static int ad7944_offload_ex_buffer_preenable(struct iio_dev *indio_dev)
@@ -730,8 +718,6 @@ static int ad7944_probe(struct spi_device *spi)
 	indio_dev->name = chip_info->name;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &ad7944_iio_info;
-	indio_dev->channels = chip_info->channels;
-	indio_dev->num_channels = ARRAY_SIZE(chip_info->channels);
 
 	if (spi_engine_ex_offload_supported(spi)) {
 		struct pwm_state state = {
@@ -739,6 +725,10 @@ static int ad7944_probe(struct spi_device *spi)
 			.duty_cycle = AD7944_PWM_TRIGGER_DUTY_CYCLE_NS,
 			.enabled = true,
 		};
+
+		indio_dev->channels = chip_info->offload_channels;
+		indio_dev->num_channels = ARRAY_SIZE(chip_info->offload_channels);
+		indio_dev->setup_ops = &ad7944_offload_ex_buffer_setup_ops;
 
 		adc->pwm = devm_pwm_get(dev, NULL);
 		if (IS_ERR(adc->pwm))
@@ -754,12 +744,10 @@ static int ad7944_probe(struct spi_device *spi)
 						      IIO_BUFFER_DIRECTION_IN);
 		if (ret)
 			return ret;
-
-		indio_dev->setup_ops = &ad7944_offload_ex_buffer_setup_ops;
-
-		/* can't have soft timestamp with SPI offload */
-		indio_dev->num_channels--;
 	} else {
+		indio_dev->channels = chip_info->channels;
+		indio_dev->num_channels = ARRAY_SIZE(chip_info->channels);
+
 		ret = devm_iio_triggered_buffer_setup(dev, indio_dev,
 						      iio_pollfunc_store_time,
 						      ad7944_trigger_handler,
