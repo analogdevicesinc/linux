@@ -27,7 +27,7 @@
 		clock-frequency = <32768000>;
 	};
 
-	cn0579_control@0 {
+	cn0579_control {
 		compatible = "adi,one-bit-adc-dac";
 		#address-cells = <1>;
 		#size-cells = <0>;
