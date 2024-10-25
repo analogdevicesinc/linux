@@ -12,10 +12,6 @@
 	compatible = "raspberrypi,3-model-b-plus", "brcm,bcm2837";
 	model = "Raspberry Pi 3 Model B+";
 
-	chosen {
-		bootargs = "coherent_pool=1M 8250.nr_uarts=1 snd_bcm2835.enable_headphones=0";
-	};
-
 	aliases {
 		serial0 = &uart1;
 		serial1 = &uart0;
