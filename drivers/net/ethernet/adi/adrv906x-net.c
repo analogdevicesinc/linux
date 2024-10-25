@@ -598,7 +598,10 @@ static int adrv906x_eth_change_mtu(struct net_device *ndev, int new_mtu)
 {
 	if (netif_running(ndev))
 		return -EBUSY;
-
+	if (new_mtu > ndev->max_mtu) {
+		netdev_err(ndev, "Tried to set mtu size to a bigger than max, maximum value is %d", ndev->max_mtu);
+		return -EINVAL;
+	}
 	ndev->mtu = new_mtu;
 
 	netdev_info(ndev, "set mtu size to %d", ndev->mtu);
@@ -1072,8 +1075,7 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 		adrv906x_dev->port = i;
 		adrv906x_dev->dev = dev;
 		ndev = adrv906x_dev->ndev;
-		ndev->max_mtu = ETH_DATA_LEN; /* TODO: when MSP fragmentation will be supported, */
-		/* this should be changed to ETH_MAX_MTU */
+		ndev->max_mtu = MAX_MTU_SIZE;
 		ndev->min_mtu = ETH_MIN_MTU;
 		ndev->mtu = ETH_DATA_LEN;
 		/* Headroom required for ndma headers for tx packets */
