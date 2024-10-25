@@ -37,7 +37,7 @@
 				static-phy-delay-tx-ns = <0>;
 				static-phy-delay-frac-ns = <0>;
 				static-phy-delay-rx-ns = <0>;
-				static-phy-delay-frac-ns = <0>;
+				static-phy-delay-rx-frac-ns = <0>;
 			};
 		};
 
@@ -49,11 +49,11 @@
 			reg = <SEC_EMAC_PCS_0_BASE 0x350>, <SEC_EMAC_PCS_1_BASE 0x350>;
 			#address-cells = <1>;
 			#size-cells = <0>;
-			adrv906x_phy0: ethernet-phy@0 {
+			sec_adrv906x_phy0: ethernet-phy@0 {
 				compatible = "ethernet-phy-ieee802.3-c45";
 				reg = <0>;
 			};
-			adrv906x_phy1: ethernet-phy@1 {
+			sec_adrv906x_phy1: ethernet-phy@1 {
 				compatible = "ethernet-phy-ieee802.3-c45";
 				reg = <1>;
 			};
