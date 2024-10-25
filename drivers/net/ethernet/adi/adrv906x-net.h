@@ -75,6 +75,7 @@
 
 #define MAX_NETDEV_NUM                       2
 #define MAX_MULTICAST_FILTERS                3
+#define MAX_MTU_SIZE                         (NDMA_MAX_FRAME_SIZE_VALUE - ETH_HLEN - VLAN_HLEN - ETH_FCS_LEN)
 
 struct adrv906x_oran_if {
 	void __iomem *oif_rx;
