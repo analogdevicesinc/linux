@@ -76,7 +76,9 @@
 
 &emac0 {
 	status = "okay";
-	phy-mode = "rgmii";
+	/* Default to RGMII. For RMII uncomment the next lines:
+	phy-mode = "rmii";
+	pinctrl-0 = <&pinctrl_emac0_rmii>; */
 
 	phy-handle = <&phy0>;
 
@@ -87,7 +89,7 @@
 		phy0: ethernet-phy@0 {
 			reg = <15>;
 		};
-        };
+	};
 };
 
 &spi0 {

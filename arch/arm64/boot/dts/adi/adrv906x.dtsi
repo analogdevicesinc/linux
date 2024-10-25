@@ -523,7 +523,7 @@
 		snps,reset-delays-us = <1000 1000 1000>;
 		snps,tso;
 		pinctrl-names = "default";
-		pinctrl-0 = <&pinctrl_emac0>;
+		pinctrl-0 = <&pinctrl_emac0_rgmii>;
 		status = "disabled";
 		#address-cells = <1>;
 	        #size-cells = <1>;
