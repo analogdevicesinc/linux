@@ -31,7 +31,7 @@
 		clock-frequency = <16384000>;
 	};
 
-	one-bit-adc-dac@0 {
+	one-bit-adc-dac {
 		compatible = "adi,one-bit-adc-dac";
 		#address-cells = <1>;
 		#size-cells = <0>;
