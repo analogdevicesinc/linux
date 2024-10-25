@@ -125,6 +125,7 @@ config IIO_ALL_ADI_DRIVERS
 	imply ADF4360
 	imply ADF4371
 	imply ADF4377
+	imply ADF4382
 	imply ADF5355
 	imply ADL5960
 	imply ADMFM2000
