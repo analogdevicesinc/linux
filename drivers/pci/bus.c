@@ -345,13 +345,6 @@ void pci_bus_add_device(struct pci_dev *dev)
 	pci_proc_attach_device(dev);
 	pci_bridge_d3_update(dev);
 
-	dev->match_driver = !dn || of_device_is_available(dn);
-	retval = device_attach(&dev->dev);
-	if (retval < 0 && retval != -EPROBE_DEFER)
-		pci_warn(dev, "device attach failed (%d)\n", retval);
-
-	pci_dev_assign_added(dev, true);
-
 	if (dev_of_node(&dev->dev) && pci_is_bridge(dev)) {
 		for_each_available_child_of_node_scoped(dn, child) {
 			/*
@@ -370,6 +363,25 @@ void pci_bus_add_device(struct pci_dev *dev)
 				pci_err(dev, "failed to create OF node: %s\n", child->name);
 		}
 	}
+
+	/*
+	 * Create a device link between the PCI device and pwrctl device (if
+	 * exists). This ensures that the pwrctl drivers are probed before the
+	 * PCI client drivers.
+	 */
+	pdev = of_find_device_by_node(dn);
+	if (pdev) {
+		if (!device_link_add(&dev->dev, &pdev->dev, DL_FLAG_AUTOREMOVE_CONSUMER))
+			pci_err(dev, "failed to add device link between %s and %s\n",
+				dev_name(&dev->dev), pdev->name);
+	}
+
+	dev->match_driver = !dn || of_device_is_available(dn);
+	retval = device_attach(&dev->dev);
+	if (retval < 0 && retval != -EPROBE_DEFER)
+		pci_warn(dev, "device attach failed (%d)\n", retval);
+
+	pci_dev_assign_added(dev, true);
 }
 EXPORT_SYMBOL_GPL(pci_bus_add_device);
 
