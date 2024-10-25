@@ -10,16 +10,35 @@ maintainers:
   - Radu Sabau <radu.sabau@analog.com>
 
 description: |
-   The ADP1050 is used to monitor system voltages, currents and temperatures.
+   The ADP1050, ADP1051, and ADP1055 are used to monitor system voltages,
+   currents, power and temperatures.
+
    Through the PMBus interface, the ADP1050 targets isolated power supplies
    and has four individual monitors for input/output voltage, input current
    and temperature.
    Datasheet:
      https://www.analog.com/en/products/adp1050.html
 
+   Through the PMBus interface, the ADP1051 targets isolated power supplies
+   and has six individual monitors for input/output voltage, input/output
+   current and temperature.
+   Datasheet:
+     https://www.analog.com/en/products/adp1051.html
+
+   Through the PMBus interface, the ADP1055 targets isolated power supplies
+   and has six individual monitors for input/output voltage, input/output
+   current, power, and temperature.
+   Datasheet:
+     https://www.analog.com/en/products/adp1055.html
+
 properties:
+
   compatible:
-    const: adi,adp1050
+    items:
+      - enum:
+          - adi,adp1050
+          - adi,adp1051
+          - adi,adp1055
 
   reg:
     maxItems: 1
@@ -39,11 +58,20 @@ examples:
         #address-cells = <1>;
         #size-cells = <0>;
         clock-frequency = <100000>;
+        status = "okay";
 
         hwmon@70 {
-            compatible = "adi,adp1050";
+            compatible = "adi,adp1050", "adi,adp1051";
             reg = <0x70>;
             vcc-supply = <&vcc>;
+            status = "okay";
+        };
+
+        hwmon@4b {
+            compatible = "adi,adp1055";
+            reg = <0x4b>;
+            vcc-supply = <&vcc>;
+            status = "okay";
         };
     };
 ...
