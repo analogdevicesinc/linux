@@ -17,6 +17,9 @@
 #include <linux/delay.h>
 #include "adrv906x-switch.h"
 
+#define EAPOL_MAC_ADDR  0x0180c2000003
+#define ESMC_MAC_ADDR   0x0180c2000002
+
 static u16 default_vids[SWITCH_MAX_PCP_PLANE_NUM] = { 2, 3, 4, 5 };
 static unsigned int pcp_regen_val = 0x77000000;
 static unsigned int pcp_ipv_mapping = 0x10000000;
@@ -355,8 +358,35 @@ int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device
 	return 0;
 }
 
+static int adrv906x_switch_add_fdb_entry(struct device *dev, void __iomem *io,
+					 u64 mac_addr, int port)
+{
+	u32 val, count = 0;
+
+	do {
+		val = ioread32(io + SWITCH_MAS_OP_CTRL) & ~SWITCH_MAS_OP_CTRL_OPCODE_MASK;
+		if (val) {
+			if (count == 2) {
+				dev_err(dev, "switch is busy");
+				return -EBUSY;
+			}
+		} else {
+			break;
+		}
+		count++;
+	} while (1);
+	iowrite32(BIT(2), io + SWITCH_MAS_PORT_MASK1);
+	iowrite32((mac_addr & 0xffffffff0000) >> 16, io + SWITCH_MAS_FDB_MAC_INSERT_1);
+	iowrite32(((mac_addr & 0xffff) << 16) | SWITCH_INSERT_VALID |
+		  SWITCH_INSERT_OVERWRITE | SWITCH_INSERT_STATIC, io + SWITCH_MAS_FDB_MAC_INSERT_2);
+	iowrite32(0x100, io + SWITCH_MAS_OP_CTRL);
+	return 0;
+}
+
 int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 {
+	struct platform_device *pdev = es->pdev;
+	struct device *dev = &pdev->dev;
 	int i, portid, ret;
 	void __iomem *io;
 	u32 val;
@@ -373,19 +403,28 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 				return ret;
 		}
 	}
-
 	ret = adrv906x_switch_port_pvid_set(es, pvid);
 	if (ret)
 		return ret;
 
-	/* Trap PTP from port 1 & 2 to port 3 */
-	val = BIT(SWITCH_PTP_ENABLE_BIT) | BIT(SWITCH_PTP_DSTPORT_START_BIT + 2);
+	/* Trap PTP messages from port 0 & 1 to port 2 */
+	val = SWITCH_TRAP_ENABLE | SWITCH_TRAP_DSTPORT_CPU;
 	io = es->switch_port[0].reg_switch_port;
 	iowrite32(val, io + SWITCH_PORT_TRAP_PTP);
 	io = es->switch_port[1].reg_switch_port;
 	iowrite32(val, io + SWITCH_PORT_TRAP_PTP);
-	adrv906x_switch_port_enable(es, true);
 
+	/* set up a FDB entry to trap EAPOL messages to port 2 */
+	ret = adrv906x_switch_add_fdb_entry(dev, es->reg_match_action, EAPOL_MAC_ADDR,
+					    SWITCH_CPU_PORT);
+	if (ret)
+		return ret;
+	/* set up a FDB entry to trap ESMC messages to port 2 */
+	ret = adrv906x_switch_add_fdb_entry(dev, es->reg_match_action, ESMC_MAC_ADDR,
+					    SWITCH_CPU_PORT);
+	if (ret)
+		return ret;
+	adrv906x_switch_port_enable(es, true);
 	return ret;
 }
 
