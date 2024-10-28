@@ -171,10 +171,10 @@ enum kbase_pm_runtime_suspend_abort_reason {
  *           with 2 (2x256ns).
  */
 struct kbasep_pm_metrics {
-	u32 time_busy;
-	u32 time_idle;
+	u64 time_busy;
+	u64 time_idle;
 #if MALI_USE_CSF
-	u32 time_in_protm;
+	u64 time_in_protm;
 #else
 	u32 busy_cl[2];
 	u32 busy_gl;
