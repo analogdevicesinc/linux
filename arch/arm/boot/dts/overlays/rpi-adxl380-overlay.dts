@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Overlay for the 5 channel LTC2672 DAC
+ * Overlay for the ADXL380 MEMS Accelerometer
  *
  * Copyright 2024 Analog Devices Inc.
  */
