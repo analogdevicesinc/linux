@@ -2275,20 +2275,21 @@ int v4l2_subdev_enable_streams(struct v4l2_subdev *sd, u32 pad,
 				    &found_streams, &enabled_streams);
 
 	if (found_streams != streams_mask) {
-		dev_dbg(dev, "streams 0x%llx not found on %s:%u\n",
+		dev_err(dev, "streams 0x%llx not found on %s:%u\n",
 			streams_mask & ~found_streams, sd->entity.name, pad);
 		ret = -EINVAL;
 		goto done;
 	}
 
 	if (enabled_streams) {
-		dev_dbg(dev, "streams 0x%llx already enabled on %s:%u\n",
+		dev_err(dev, "streams 0x%llx already enabled on %s:%u\n",
 			enabled_streams, sd->entity.name, pad);
 		ret = -EALREADY;
 		goto done;
 	}
 
-	dev_dbg(dev, "enable streams %u:%#llx\n", pad, streams_mask);
+	dev_dbg(dev, "enable streams %s:%u:%#llx\n",
+		sd->entity.name, pad, streams_mask);
 
 	already_streaming = v4l2_subdev_is_streaming(sd);
 
@@ -2305,8 +2306,8 @@ int v4l2_subdev_enable_streams(struct v4l2_subdev *sd, u32 pad,
 	}
 
 	if (ret) {
-		dev_dbg(dev, "enable streams %u:%#llx failed: %d\n", pad,
-			streams_mask, ret);
+		dev_err(dev, "enable streams %s:%u:%#llx failed: %d\n",
+			sd->entity.name, pad, streams_mask, ret);
 		goto done;
 	}
 
@@ -2375,20 +2376,21 @@ int v4l2_subdev_disable_streams(struct v4l2_subdev *sd, u32 pad,
 				    &found_streams, &enabled_streams);
 
 	if (found_streams != streams_mask) {
-		dev_dbg(dev, "streams 0x%llx not found on %s:%u\n",
+		dev_err(dev, "streams 0x%llx not found on %s:%u\n",
 			streams_mask & ~found_streams, sd->entity.name, pad);
 		ret = -EINVAL;
 		goto done;
 	}
 
 	if (enabled_streams != streams_mask) {
-		dev_dbg(dev, "streams 0x%llx already disabled on %s:%u\n",
+		dev_err(dev, "streams 0x%llx already disabled on %s:%u\n",
 			streams_mask & ~enabled_streams, sd->entity.name, pad);
 		ret = -EALREADY;
 		goto done;
 	}
 
-	dev_dbg(dev, "disable streams %u:%#llx\n", pad, streams_mask);
+	dev_dbg(dev, "disable streams %s:%u:%#llx\n",
+		sd->entity.name, pad, streams_mask);
 
 	if (!use_s_stream) {
 		/* Call the .disable_streams() operation. */
@@ -2404,8 +2406,8 @@ int v4l2_subdev_disable_streams(struct v4l2_subdev *sd, u32 pad,
 	}
 
 	if (ret) {
-		dev_dbg(dev, "disable streams %u:%#llx failed: %d\n", pad,
-			streams_mask, ret);
+		dev_err(dev, "disable streams %s:%u:%#llx failed: %d\n",
+			sd->entity.name, pad, streams_mask, ret);
 		goto done;
 	}
 
