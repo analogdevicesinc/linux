@@ -514,11 +514,11 @@ static void adrv906x_ndma_set_frame_size(struct adrv906x_ndma_dev *ndma_dev)
 	struct adrv906x_ndma_chan *tx_chan = &ndma_dev->tx_chan;
 	unsigned int val;
 
-	val = FIELD_PREP(NDMA_RX_MIN_FRAME_SIZE, NDMA_MIN_FRAME_SIZE_VALUE)
+	val = FIELD_PREP(NDMA_RX_MIN_FRAME_SIZE, NDMA_RX_MIN_FRAME_SIZE_VALUE)
 	      | FIELD_PREP(NDMA_RX_MAX_FRAME_SIZE, NDMA_MAX_FRAME_SIZE_VALUE);
 	iowrite32(val, rx_chan->ctrl_base + NDMA_RX_FRAME_SIZE);
 
-	val = FIELD_PREP(NDMA_TX_MIN_FRAME_SIZE, NDMA_MIN_FRAME_SIZE_VALUE)
+	val = FIELD_PREP(NDMA_TX_MIN_FRAME_SIZE, NDMA_TX_MIN_FRAME_SIZE_VALUE)
 	      | FIELD_PREP(NDMA_TX_MAX_FRAME_SIZE, NDMA_MAX_FRAME_SIZE_VALUE);
 	iowrite32(val, tx_chan->ctrl_base + NDMA_TX_FRAME_SIZE);
 }
@@ -1114,7 +1114,7 @@ int adrv906x_ndma_alloc_rings(struct adrv906x_ndma_dev *ndma_dev)
 	for (i = 0; i < NDMA_RING_SIZE; i++) {
 		tx_chan->rx_buffs[i] = tx_status_buffs + i * NDMA_TX_HDR_STATUS_SIZE;
 
-		tx_chan->rx_ring[i].cfg = (DESCIDCPY | DI_EN_X | NDSIZE_4 |
+		tx_chan->rx_ring[i].cfg = (DESCIDCPY | DI_EN_X | NDSIZE_4 | DMASYNC |
 					   WDSIZE_64 | PSIZE_32 | WNR | DMAEN | DMAFLOW_LIST);
 		tx_chan->rx_ring[i].xcnt = NDMA_TX_HDR_STATUS_SIZE / XMODE_64;
 		tx_chan->rx_ring[i].xmod = XMODE_64;
@@ -1608,8 +1608,8 @@ int adrv906x_ndma_start_xmit(struct adrv906x_ndma_dev *ndma_dev, struct sk_buff 
 		goto out;
 	}
 
-	if (skb->len < NDMA_MIN_FRAME_SIZE_VALUE)
-		skb_put(skb, NDMA_MIN_FRAME_SIZE_VALUE - skb->len);
+	if (skb->len < NDMA_TX_MIN_FRAME_SIZE_VALUE)
+		skb_put(skb, NDMA_TX_MIN_FRAME_SIZE_VALUE - skb->len);
 
 	adrv906x_ndma_add_tx_header(ndma_dev, skb, ndma_ch->seq_num, port, hw_tstamp_en, dsa_en);
 
