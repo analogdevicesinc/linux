@@ -757,6 +757,7 @@ static int adxcvr_clk_register(struct device *dev,
 {
 	struct adxcvr_state *st = dev_get_drvdata(dev);
 	unsigned int out_clk_divider, out_clk_multiplier;
+	struct clk_hw *fixed_factor;
 	struct clk_init_data init;
 	const char *clk_names[3];
 	unsigned int num_clks;
@@ -784,13 +785,18 @@ static int adxcvr_clk_register(struct device *dev,
 	st->lane_clk_hw.init = &init;
 
 	/* register the clock */
-	st->clks[0] = devm_clk_register(dev, &st->lane_clk_hw);
-	if (IS_ERR(st->clks[0]))
-		return PTR_ERR(st->clks[0]);
+	ret = devm_clk_hw_register(dev, &st->lane_clk_hw);
+	if (ret)
+		return ret;
 
 	/* Backwards compatibility */
 	if (num_clks == 1)
-		return of_clk_add_provider(node, of_clk_src_simple_get, st->clks[0]);
+		return devm_of_clk_add_hw_provider(dev, of_clk_hw_simple_get, &st->lane_clk_hw);
+
+	st->clk_lookup = devm_kzalloc(dev, struct_size(st->clk_lookup, hws, num_clks),
+				      GFP_KERNEL);
+	if (!st->clk_lookup)
+		return -ENOMEM;
 
 	if (num_clks == 3) {
 		init.name = clk_names[2];
@@ -803,9 +809,11 @@ static int adxcvr_clk_register(struct device *dev,
 		st->qpll_clk_hw.init = &init;
 
 		/* register the clock */
-		st->clks[2] = devm_clk_register(dev, &st->qpll_clk_hw);
-		if (IS_ERR(st->clks[2]))
-			return PTR_ERR(st->clks[2]);
+		ret = devm_clk_hw_register(dev, &st->qpll_clk_hw);
+		if (ret)
+			return ret;
+
+		st->clk_lookup->hws[2] = &st->qpll_clk_hw;
 	}
 
 	switch (st->out_clk_sel) {
@@ -847,19 +855,16 @@ static int adxcvr_clk_register(struct device *dev,
 		return 0;
 	}
 
-	st->clks[1] = clk_register_fixed_factor(dev, clk_names[1],
-		parent_name, 0, out_clk_multiplier, out_clk_divider);
+	fixed_factor = devm_clk_hw_register_fixed_factor(dev, clk_names[1], parent_name, 0,
+							 out_clk_multiplier, out_clk_divider);
+	if (IS_ERR(fixed_factor))
+		return PTR_ERR(fixed_factor);
 
-	st->clk_lookup.clks = st->clks;
-	st->clk_lookup.clk_num = ARRAY_SIZE(st->clks);
+	st->clk_lookup->hws[0] = &st->lane_clk_hw;
+	st->clk_lookup->hws[1] = fixed_factor;
+	st->clk_lookup->num = num_clks;
 
-	ret = of_clk_add_provider(node, of_clk_src_onecell_get,
-		&st->clk_lookup);
-
-	if (ret)
-		clk_unregister_fixed_factor(st->clks[1]);
-
-	return ret;
+	return devm_of_clk_add_hw_provider(dev, of_clk_hw_onecell_get, st->clk_lookup);
 }
 
 static void adxcvr_parse_dt_vco_ranges(struct adxcvr_state *st,
@@ -974,6 +979,21 @@ static const char *adxcvr_gt_names[] = {
 static const struct jesd204_dev_data adxcvr_jesd204_data = {
 };
 
+static void adxcvr_clock_disable(void *clk)
+{
+	clk_disable_unprepare(clk);
+}
+
+static void adxvcr_lane_rate_disable(void *data)
+{
+	struct adxcvr_state *st = data;
+
+	/* sync up the worker */
+	cancel_work_sync(&st->work);
+	if (__clk_is_enabled(st->lane_rate_div40_clk))
+		clk_disable_unprepare(st->lane_rate_div40_clk);
+}
+
 static void adxcvr_device_remove_files(void *data)
 {
 	struct adxcvr_state *st = data;
@@ -992,12 +1012,31 @@ static void adxcvr_device_remove_files(void *data)
 	device_remove_file(st->dev, &dev_attr_reg_access);
 }
 
+static void adxcvr_unregister_eyescan(void *st)
+{
+	adxcvr_eyescan_unregister(st);
+}
+
 static void adxcvr_fsm_en_work(struct work_struct *work)
 {
 	struct adxcvr_state *st =
 		container_of(work, struct adxcvr_state, jesd_fsm_en_work.work);
 
-	jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
+	st->fsm_start_delayed_ret = jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
+}
+
+static void adxvcr_jesd204_fsm_stop(void *data)
+{
+	struct adxcvr_state *st = data;
+
+	/* unlikely but just in case... */
+	if (st->fsm_enable_delay_ms)
+		cancel_delayed_work_sync(&st->jesd_fsm_en_work);
+
+	if (st->fsm_start_delayed_ret)
+		return;
+
+	jesd204_fsm_stop(st->jdev, JESD204_LINKS_ALL);
 }
 
 static int adxcvr_probe(struct platform_device *pdev)
@@ -1015,7 +1054,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (IS_ERR(st->jdev))
 		return PTR_ERR(st->jdev);
 
-	st->conv_clk = devm_clk_get(&pdev->dev, "conv");
+	st->conv_clk = devm_clk_get_enabled(&pdev->dev, "conv");
 	if (IS_ERR(st->conv_clk))
 		return PTR_ERR(st->conv_clk);
 
@@ -1044,14 +1083,15 @@ static int adxcvr_probe(struct platform_device *pdev)
 		st->lane_rate_div40_clk = ERR_PTR(-ENOENT);
 	}
 
-	ret = clk_prepare_enable(st->conv_clk);
-	if (ret < 0)
-		return ret;
-
 	if (st->conv2_clk) {
 		ret = clk_prepare_enable(st->conv2_clk);
 		if (ret)
-			goto disable_unprepare_conv_clk;
+			return ret;
+
+		ret = devm_add_action_or_reset(&pdev->dev, adxcvr_clock_disable,
+					       st->conv2_clk);
+		if (ret)
+			return ret;
 	}
 
 	st->xcvr.dev = &pdev->dev;
@@ -1067,7 +1107,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 	st->regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(st->regs)) {
 		ret = PTR_ERR(st->regs);
-		goto disable_unprepare_conv_clk2;
+		return ret;
 	}
 
 	st->dev = &pdev->dev;
@@ -1100,8 +1140,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 			break;
 		default:
 			pr_err("axi_adxcvr: not supported\n");
-			ret = -EINVAL;
-			goto disable_unprepare_conv_clk2;
+			return -EINVAL;
 		}
 	} else
 		st->xcvr.type = xcvr_type;
@@ -1115,8 +1154,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 	default:
 		dev_err(&pdev->dev, "Unknown transceiver type: %d\n",
 			st->xcvr.type);
-		ret = -EINVAL;
-		goto disable_unprepare_conv_clk2;
+		return -EINVAL;
 	}
 
 	st->xcvr.encoding = ENC_8B10B;
@@ -1146,11 +1184,15 @@ static int adxcvr_probe(struct platform_device *pdev)
 
 	ret = adxcvr_clk_register(&pdev->dev, np, __clk_get_name(st->conv_clk));
 	if (ret)
-		goto disable_unprepare_conv_clk2;
+		return ret;
 
 	ret = adxcvr_eyescan_register(st);
 	if (ret)
-		goto unreg_adxcvr_clk;
+		return ret;
+
+	ret = devm_add_action_or_reset(&pdev->dev, adxcvr_unregister_eyescan, st);
+	if (ret)
+		return ret;
 
 	device_create_file(st->dev, &dev_attr_reg_access);
 
@@ -1166,16 +1208,30 @@ static int adxcvr_probe(struct platform_device *pdev)
 		}
 	}
 
-	devm_add_action_or_reset(st->dev, adxcvr_device_remove_files, st);
+	ret = devm_add_action_or_reset(st->dev, adxcvr_device_remove_files, st);
+	if (ret)
+		return ret;
 
-	if (st->fsm_enable_delay_ms) {
-		INIT_DELAYED_WORK(&st->jesd_fsm_en_work, adxcvr_fsm_en_work);
-		schedule_delayed_work(&st->jesd_fsm_en_work,
-			msecs_to_jiffies(st->fsm_enable_delay_ms));
-	} else {
-		ret = jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
+	if (st->jdev) {
+		if (st->fsm_enable_delay_ms) {
+			INIT_DELAYED_WORK(&st->jesd_fsm_en_work, adxcvr_fsm_en_work);
+			schedule_delayed_work(&st->jesd_fsm_en_work,
+					      msecs_to_jiffies(st->fsm_enable_delay_ms));
+		} else {
+			ret = jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
+			if (ret)
+				return ret;
+		}
+
+		ret = devm_add_action_or_reset(&pdev->dev, adxvcr_jesd204_fsm_stop, st);
 		if (ret)
-			goto unreg_eyescan;
+			return ret;
+	}
+
+	if (!IS_ERR(st->lane_rate_div40_clk)) {
+		ret = devm_add_action_or_reset(&pdev->dev, adxvcr_lane_rate_disable, st);
+		if (ret)
+			return ret;
 	}
 
 	dev_info(&pdev->dev, "AXI-ADXCVR-%s (%d.%.2d.%c) using %s on %s. Number of lanes: %d.",
@@ -1186,55 +1242,14 @@ static int adxcvr_probe(struct platform_device *pdev)
 		 st->num_lanes);
 
 	return 0;
-
-unreg_eyescan:
-	adxcvr_eyescan_unregister(st);
-unreg_adxcvr_clk:
-	if (st->clks[1])
-		clk_unregister_fixed_factor(st->clks[1]);
-	of_clk_del_provider(pdev->dev.of_node);
-disable_unprepare_conv_clk2:
-	clk_disable_unprepare(st->conv2_clk);
-disable_unprepare_conv_clk:
-	clk_disable_unprepare(st->conv_clk);
-
-	return ret;
-}
-
-/**
- * adxcvr_remove - unbinds the driver from the AIM device.
- * @of_dev:	pointer to OF device structure
- *
- * This function is called if a device is physically removed from the system or
- * if the driver module is being unloaded. It frees any resources allocated to
- * the device.
- */
-static int adxcvr_remove(struct platform_device *pdev)
-{
-	struct adxcvr_state *st = platform_get_drvdata(pdev);
-
-	/* sync up the worker */
-	cancel_work_sync(&st->work);
-	if (!IS_ERR(st->lane_rate_div40_clk) && __clk_is_enabled(st->lane_rate_div40_clk))
-		clk_disable_unprepare(st->lane_rate_div40_clk);
-	adxcvr_eyescan_unregister(st);
-	if (st->clks[1])
-		clk_unregister_fixed_factor(st->clks[1]);
-	of_clk_del_provider(pdev->dev.of_node);
-	clk_disable_unprepare(st->conv2_clk);
-	clk_disable_unprepare(st->conv_clk);
-
-	return 0;
 }
 
 static struct platform_driver adxcvr_of_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
-		.owner = THIS_MODULE,
 		.of_match_table = adxcvr_of_match,
 	},
 	.probe  = adxcvr_probe,
-	.remove = adxcvr_remove,
 };
 
 module_platform_driver(adxcvr_of_driver);

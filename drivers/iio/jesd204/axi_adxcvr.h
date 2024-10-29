@@ -78,9 +78,9 @@ struct adxcvr_state {
 	u32			sys_clk_sel;
 	u32			out_clk_sel;
 	u32			fsm_enable_delay_ms;
+	int			fsm_start_delayed_ret;
 
-	struct clk		*clks[3];
-	struct clk_onecell_data clk_lookup;
+	struct clk_hw_onecell_data *clk_lookup;
 
 	struct xilinx_xcvr	xcvr;
 	struct adxcvr_eyescan   *eye;
