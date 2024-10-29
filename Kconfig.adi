@@ -92,6 +92,7 @@ config KERNEL_ALL_ADI_DRIVERS
 	imply RTC_DRV_MAX31335
 	imply REGULATOR_MAX77503
 	imply REGULATOR_MAX77857
+	imply REGULATOR_LT8722
 
 source "drivers/clk/Kconfig.adi"
 source "drivers/hwmon/Kconfig.adi"
