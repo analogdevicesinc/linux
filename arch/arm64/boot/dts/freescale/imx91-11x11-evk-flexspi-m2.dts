@@ -5,6 +5,10 @@
 
 #include "imx91-11x11-evk.dts"
 
+&reg_m2_pwr {
+	status = "disabled";
+};
+
 &reg_usdhc3_vmmc {
 	status = "disabled";
 };

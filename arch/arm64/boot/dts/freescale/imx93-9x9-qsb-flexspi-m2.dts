@@ -5,6 +5,10 @@
 
 #include "imx93-9x9-qsb.dts"
 
+&reg_m2_pwr {
+	status = "disabled";
+};
+
 &reg_usdhc3_vmmc {
 	status = "disabled";
 };
