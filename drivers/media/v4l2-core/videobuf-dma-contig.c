@@ -182,9 +182,13 @@ static int videobuf_dma_contig_user_get(struct videobuf_dma_contig_memory *mem,
 	user_address = untagged_baddr;
 
 	while (pages_done < (mem->size >> PAGE_SHIFT)) {
-		ret = follow_pfn(vma, user_address, &this_pfn);
+		struct follow_pfnmap_args args = { .vma = vma, .address = user_address };
+
+		ret = follow_pfnmap_start(&args);
 		if (ret)
 			break;
+
+		this_pfn = args.pfn;
 
 		if (pages_done == 0)
 			mem->dma_handle = (this_pfn << PAGE_SHIFT) + offset;
@@ -195,6 +199,7 @@ static int videobuf_dma_contig_user_get(struct videobuf_dma_contig_memory *mem,
 			break;
 
 		prev_pfn = this_pfn;
+		follow_pfnmap_end(&args);
 		user_address += PAGE_SIZE;
 		pages_done++;
 	}
