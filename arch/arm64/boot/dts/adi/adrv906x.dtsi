@@ -787,7 +787,6 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_one_pps>;
 		adi,ppsx-pulse-width-ns = <10000000>;
-		adi,external-pps;
 		adi,pps-in-pulse-width-ms = <500>;
 
 		adrv906x-tod {
@@ -797,6 +796,14 @@
 			tod-counter@0 {
 				reg = <0>;
 				adi,trigger-delay-tick = <491520>;
+			};
+			tod-counter@1 {
+				reg = <1>;
+				adi,trigger-delay-tick = <491520>;
+			};
+			tod-counter@2 {
+				reg = <2>;
+				adi,pps-mode;
 			};
 		};
 	};

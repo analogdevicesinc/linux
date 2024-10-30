@@ -70,7 +70,10 @@ properties:
     patternProperties:
       "tod-counter@[0-2]+$":
         type: object
-        description: ADRV906x ToD counter(s)
+        description: 
+          ADRV906x ToD counter(s). Each ToD node declares a counter that can be 
+          synchronized to an external source, and will be represented by a /dev/ptpX 
+          and /dev/ppsX.
         properties:
           reg:
             description: The index of the ToD counter.
