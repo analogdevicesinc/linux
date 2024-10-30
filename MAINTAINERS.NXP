@@ -282,9 +282,9 @@ M: G.n. Zhou <guoniu.zhou@nxp.com>
 F: drivers/media/i2c/mt9m114.c
 
 capture/pi
-M: G.n. Zhou <guoniu.zhou@nxp.com>
-F: Documentation/devicetree/bindings/media/imx8-parallel-csi.txt
-F: drivers/staging/media/imx/imx8-parallel-csi.c
+M: Alice Yuan <alice.yuan@nxp.com>
+F: Documentation/devicetree/bindings/media/nxp,imx-parallel-csi.yaml
+F: drivers/media/platform/nxp/imx-parallel-csi.c
 
 capture/ox05b1s
 M: Mirela Rabulea <mirela.rabulea@nxp.com>
