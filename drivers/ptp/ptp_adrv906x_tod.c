@@ -1003,6 +1003,7 @@ static int adrv906x_phc_gettimex(struct ptp_clock_info *ptp,
 static struct ptp_clock_info adrv906x_tod_caps = {
 	.owner		= THIS_MODULE,
 	.n_per_out	= 1,
+	.n_ext_ts	= 1,
 	.pps		= 1,
 	.adjfine	= NULL,
 	.adjfreq	= &adrv906x_phc_adjfreq,
