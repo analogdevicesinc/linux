@@ -91,10 +91,17 @@ static int adrv906x_phy_get_features(struct phy_device *phydev)
 
 	val = phy_read_mmd(phydev, MDIO_MMD_PCS, MDIO_STAT2);
 
-	if (val & ADRV906X_PCS_STAT2_10GBR)
-		linkmode_set_bit(ETHTOOL_LINK_MODE_10000baseT_Full_BIT, phydev->supported);
+	if (val & ADRV906X_PCS_STAT2_10GBR) {
+		linkmode_set_bit(ETHTOOL_LINK_MODE_10000baseCR_Full_BIT, phydev->supported);
+		linkmode_set_bit(ETHTOOL_LINK_MODE_10000baseKR_Full_BIT, phydev->supported);
+		linkmode_set_bit(ETHTOOL_LINK_MODE_10000baseSR_Full_BIT, phydev->supported);
+		linkmode_set_bit(ETHTOOL_LINK_MODE_10000baseLR_Full_BIT, phydev->supported);
+		linkmode_set_bit(ETHTOOL_LINK_MODE_10000baseLRM_Full_BIT, phydev->supported);
+	}
 	if (val & ADRV906X_PCS_STAT2_25GBR) {
 		linkmode_set_bit(ETHTOOL_LINK_MODE_25000baseCR_Full_BIT, phydev->supported);
+		linkmode_set_bit(ETHTOOL_LINK_MODE_25000baseKR_Full_BIT, phydev->supported);
+		linkmode_set_bit(ETHTOOL_LINK_MODE_25000baseSR_Full_BIT, phydev->supported);
 		linkmode_set_bit(ETHTOOL_LINK_MODE_FEC_RS_BIT, phydev->supported);
 	}
 
@@ -319,6 +326,8 @@ static int __init adrv906x_phy_init(void)
 	ret = phy_drivers_register(adrv906x_phy_driver,
 				   ARRAY_SIZE(adrv906x_phy_driver),
 				   THIS_MODULE);
+	if (ret)
+		return ret;
 
 	ret = adrv906x_serdes_genl_register_family();
 	if (ret) {
