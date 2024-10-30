@@ -34,8 +34,8 @@
 #define SPI_ENGINE_REG_SDI_DATA_FIFO		0xe8
 #define SPI_ENGINE_REG_SDI_DATA_FIFO_PEEK	0xec
 
-#define SPI_ENGINE_REG_OFFLOAD_CTRL(x)		(0x100 + 0x20 * (x))
-#define SPI_ENGINE_REG_OFFLOAD_STATUS(x)	(0x104 + 0x20 * (x))
+#define SPI_ENGINE_REG_OFFLOAD_CTRL(x)		(0x118 + 0x20 * (x))
+#define SPI_ENGINE_REG_OFFLOAD_STATUS(x)	(0x11c + 0x20 * (x))
 #define SPI_ENGINE_REG_OFFLOAD_RESET(x)		(0x108 + 0x20 * (x))
 #define SPI_ENGINE_REG_OFFLOAD_CMD_MEM(x)	(0x110 + 0x20 * (x))
 #define SPI_ENGINE_REG_OFFLOAD_SDO_MEM(x)	(0x114 + 0x20 * (x))
@@ -519,33 +519,18 @@ static bool spi_engine_write_tx_fifo(struct spi_engine *spi_engine,
 static bool spi_engine_read_rx_fifo(struct spi_engine *spi_engine,
 				    struct spi_message *msg)
 {
-	void __iomem *addr = spi_engine->base + SPI_ENGINE_REG_SDI_DATA_FIFO;
+	void __iomem *addr = spi_engine->base + SPI_ENGINE_REG_SDI_DATA_FIFO + spi_get_chipselect(msg->spi, 0) * 4;
 	struct spi_engine_message_state *st = msg->state;
 	unsigned int n, m, i;
-	int j;
 
 	n = readl_relaxed(spi_engine->base + SPI_ENGINE_REG_SDI_FIFO_LEVEL);
-	printk("CS MASK: %d\r\n", spi_get_chipselect(msg->spi, 0));
-	printk("n: %d\r\n", n);
 	while (n && st->rx_length) {
 		if (st->rx_xfer->bits_per_word <= 8) {
 			u8 *buf = st->rx_buf;
 
 			m = min(n, st->rx_length);
 			for (i = 0; i < m; i++)
-			{
-				for (j = 3; j >= 0; j--)
-				{
-					printk("j : %d\r\n", j);
-					// printk("comp: %d\r\n", spi_get_chipselect(msg->spi, 0) == j);
-					if(spi_get_chipselect(msg->spi, 0) == j){
-						buf[i] = readl_relaxed(addr + j * 4);
-						printk("buf: %x\r\n", buf[i]);
-					} else {
-						printk("buf rej: %x\r\n", readl_relaxed(addr + j * 4));
-					}
-				}
-			}
+				buf[i] = readl_relaxed(addr);
 			st->rx_buf += m;
 			st->rx_length -= m;
 		} else if (st->rx_xfer->bits_per_word <= 16) {
