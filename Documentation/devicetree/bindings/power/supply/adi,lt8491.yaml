@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/power/supply/adi,lt8491.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Linear Technology (Analog Devices) LT8491 Battery Charger
+
+maintainers:
+  - John Erasmus Mari Geronimo <johnerasmusmari.geronimo@analog.com>
+
+description: |
+  The LT8491 is a buck-boost switching regulator battery charger that implements
+  a constant-current constant-voltage (CCCV) charging profile used for most
+  battery types, including sealed lead-acid (SLA), flooded, gel and lithium-ion.
+
+  Specifications about the charger can be found at:
+    https://www.analog.com/en/products/lt8491.html
+
+properties:
+  compatible:
+    enum:
+      - adi,lt8491
+
+  reg:
+    maxItems: 1
+
+  adi,rsense1-micro-ohms:
+    description: Resistance value of RSENSE1 in micro ohms.
+
+  adi,rimon-out-ohms:
+    description: Resistance value of RIMON_OUT in ohms.
+
+  adi,rsense2-micro-ohms:
+    description: Resistance value of RSENSE2 in micro ohms.
+
+  adi,rdaco-ohms:
+    description: Resistance value of RDACO1 + RDACO2 in ohms.
+
+  adi,rfbout1-ohms:
+    description: Resistance value of RFBOUT1 in ohms.
+
+  adi,rfbout2-ohms:
+    description: Resistance value of RFBOUT2 in ohms.
+
+  adi,rdaci-ohms:
+    description: Resistance value of RDACI1 + RDACI2 in ohms.
+
+  adi,rfbin2-ohms:
+    description: Resistance value of RFBIN2 in ohms.
+
+  adi,rfbin1-ohms:
+    description: Resistance value of RFBIN1 in ohms.
+
+required:
+  - compatible
+  - reg
+  - adi,rsense1-micro-ohms
+  - adi,rimon-out-ohms
+  - adi,rsense2-micro-ohms
+  - adi,rdaco-ohms
+  - adi,rfbout1-ohms
+  - adi,rfbout2-ohms
+  - adi,rdaci-ohms
+  - adi,rfbin2-ohms
+  - adi,rfbin1-ohms
+
+additionalProperties: false
+
+examples:
+  - |
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        battery-charger@10 {
+            compatible = "adi,lt8491";
+            reg = <0x10>;
+            adi,rsense1-micro-ohms = <5000>;
+            adi,rimon-out-ohms = <124000>;
+            adi,rsense2-micro-ohms = <3000>;
+            adi,rdaco-ohms = <64900>;
+            adi,rfbout1-ohms = <113000>;
+            adi,rfbout2-ohms = <10000>;
+            adi,rdaci-ohms = <7000>;
+            adi,rfbin2-ohms = <3480>;
+            adi,rfbin1-ohms = <102000>;
+        };
+    };
