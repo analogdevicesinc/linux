@@ -15,18 +15,14 @@
 #define ADRV906X_PHY_FLAGS_PCS_RS_FEC_EN        BIT(0)
 #define ADRV906X_PHY_FLAGS_LOOPBACK_TEST        BIT(1)
 
-/* Configuration values of PCS specific registers */
-#define ADRV906X_PCS_CTRL2_TYPE_SEL_MSK                  GENMASK(3, 0)  /* PCS type selection */
-#define ADRV906X_PCS_CTRL2_10GBR                         0x0000
-#define ADRV906X_PCS_CTRL2_25GBR                         0x0007         /* 25GBASE-R type */
-#define ADRV906X_PCS_CTRL1_SPEED10G (MDIO_CTRL1_SPEEDSELEXT | 0x00)     /* 10 Gb/s */
-#define ADRV906X_PCS_CTRL1_SPEED25G (MDIO_CTRL1_SPEEDSELEXT | 0x14)     /* 25 Gb/s */
-
-#define ADRV906X_PCS_STAT2_25GBR                         0x0080         /* 25GBASE-R */
-#define ADRV906X_PCS_STAT2_10GBR                         0x0001         /* 10GBASE-R */
-
 /* ADI PCS registers */
+
+/* The following registers and bitfields are defined in 802.3 clause 45.
+ * We should replace them with those from mdio.h in future.
+ */
 #define ADRV906X_PCS_STATUS_3_REG                        9
+#define ADRV906X_PCS_BRMGBT_STAT2                        33
+#define   ADRV906X_PCS_BRMGBT_STAT2_LBLKLK               BIT(15)
 #define ADRV906X_PCS_SEED_A0_REG                         34
 #define ADRV906X_PCS_SEED_A1_REG                         35
 #define ADRV906X_PCS_SEED_A2_REG                         36
@@ -40,6 +36,19 @@
 #define ADRV906X_PCS_BER_HIGH_REG                        44
 #define ADRV906X_PCS_ERROR_BLOCKS_REG                    45
 
+/* Configuration values of PCS specific registers */
+#define ADRV906X_PCS_CTRL2_TYPE_SEL_MSK                  GENMASK(3, 0)  /* PCS type selection */
+#define ADRV906X_PCS_CTRL2_10GBR                         0x0000
+#define ADRV906X_PCS_CTRL2_25GBR                         0x0007         /* 25GBASE-R type */
+#define ADRV906X_PCS_CTRL1_SPEED10G (MDIO_CTRL1_SPEEDSELEXT | 0x00)     /* 10 Gb/s */
+#define ADRV906X_PCS_CTRL1_SPEED25G (MDIO_CTRL1_SPEEDSELEXT | 0x14)     /* 25 Gb/s */
+
+#define ADRV906X_PCS_STAT2_25GBR                         0x0080         /* 25GBASE-R */
+#define ADRV906X_PCS_STAT2_10GBR                         0x0001         /* 10GBASE-R */
+
+/* 802.3 clause 45 states PCS vendor registers to be numbered from 32768.
+ * But ADRV906x PCS vendor registers are numbered from 46.
+ */
 #define ADRV906X_PCS_GENERAL_TX_REG                      46
 #define ADRV906X_PCS_GENERAL_RX_REG                      47
 #define   ADRV906X_PCS_GENERAL_SCRAMBLER_BYPASS_EN       BIT(15)
@@ -71,13 +80,18 @@
 #define   ADRV906X_PCS_CFG_RX_BUF_BYPASS_EN              BIT(0)
 
 #define ADRV906X_PCS_BUF_STAT_TX_REG                     50
+#define   ADRV906X_PCS_BUF_STAT_TX_FINE_DELAY            GENMASK(7, 0)
 #define ADRV906X_PCS_BUF_STAT_RX_REG                     51
+#define   ADRV906X_PCS_BUF_STAT_RX_FINE_DELAY            GENMASK(7, 0)
 #define ADRV906X_PCS_DELAY_RX_REG                        52
+#define   ADRV906X_PCS_DELAY_RX_BIT_SLIP                 GENMASK(14, 8)
 #define ADRV906X_PCS_DISP_ERR_REG                        53
 #define ADRV906X_PCS_CODE_ERR_REG                        54
 #define ADRV906X_PCS_CPCS_SHCV_REG                       55
 
 #define ADRV906X_PCS_RS_FEC_CTRL_REG                     200
 #define   ADRV906X_PCS_RS_FEC_CTRL_EN                    BIT(2)
+#define ADRV906X_PCS_RS_FEC_STAT_REG                     201
+#define   ADRV906X_PCS_RS_FEC_STAT_ALIGN                 BIT(14)
 
 #endif /* __ADRV906X_PHY_H__ */
