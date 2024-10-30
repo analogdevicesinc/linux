@@ -133,6 +133,9 @@ static struct adrv906x_tod *adrv906x_tod;
 int adrv906x_phc_index = -1;
 EXPORT_SYMBOL(adrv906x_phc_index);
 
+int adrv906x_tod_cfg_cdc_delay = -1;
+EXPORT_SYMBOL(adrv906x_tod_cfg_cdc_delay);
+
 struct adrv906x_tod_reg {
 	u16 bitshift;
 	u16 regaddr;
@@ -767,7 +770,7 @@ static int adrv906x_tod_perout_enable(struct adrv906x_tod_counter *counter,
 	return 0;
 }
 
-static int adrv906x_tod_cfg_cdc_delay(struct adrv906x_tod_counter *counter)
+static int adrv906x_tod_cfg_cdc_delay_set(struct adrv906x_tod_counter *counter)
 {
 	struct adrv906x_tod *tod = counter->parent;
 	u32 i;
@@ -775,6 +778,11 @@ static int adrv906x_tod_cfg_cdc_delay(struct adrv906x_tod_counter *counter)
 	for (i = 0; i < ADRV906X_HW_TOD_CDC_DOMAIN_CNT; i++)
 		iowrite32(tod->cdc.delay_cnt[i],
 			  tod->regs + ADRV906X_TOD_CFG_CDC_DELAY + i * sizeof(u32));
+
+	/* According to the user manual, all CFG_CDC_DELAY:CDC register fields
+	 * shall have the same value. So we just pick the first one.
+	 */
+	adrv906x_tod_cfg_cdc_delay = tod->cdc.delay_cnt[0];
 
 	return 0;
 }
@@ -951,7 +959,7 @@ static int adrv906x_tod_cfg_cdc_delay_all(struct adrv906x_tod *tod)
 
 	for (i = 0; i < ADRV906X_HW_TOD_COUNTER_CNT; i++) {
 		if (tod->counter[i].en) {
-			adrv906x_tod_cfg_cdc_delay(&(tod->counter[i]));
+			adrv906x_tod_cfg_cdc_delay_set(&tod->counter[i]);
 			break;
 		}
 	}
