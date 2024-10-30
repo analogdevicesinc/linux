@@ -286,6 +286,10 @@ M: Alice Yuan <alice.yuan@nxp.com>
 F: Documentation/devicetree/bindings/media/nxp,imx-parallel-csi.yaml
 F: drivers/media/platform/nxp/imx-parallel-csi.c
 
+capture/csi
+M: Alice Yuan <alice.yuan@nxp.com>
+F: drivers/media/platform/nxp/imx7-media-csi.c
+
 capture/ox05b1s
 M: Mirela Rabulea <mirela.rabulea@nxp.com>
 F: drivers/media/i2c/ox05b1s/*
