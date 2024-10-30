@@ -744,12 +744,10 @@ static void mipi_csis_start_stream(struct mipi_csis_device *csis,
 	mipi_csis_sw_reset(csis);
 	mipi_csis_set_params(csis, format, csis_fmt);
 	mipi_csis_system_enable(csis, true);
-	mipi_csis_enable_interrupts(csis, true);
 }
 
 static void mipi_csis_stop_stream(struct mipi_csis_device *csis)
 {
-	mipi_csis_enable_interrupts(csis, false);
 	mipi_csis_system_enable(csis, false);
 }
 
@@ -974,6 +972,7 @@ static int mipi_csis_s_stream(struct v4l2_subdev *sd, int enable)
 		v4l2_subdev_disable_streams(csis->source.sd,
 					    csis->source.pad->index, BIT(0));
 
+		mipi_csis_enable_interrupts(csis, false);
 		mipi_csis_stop_stream(csis);
 		if (csis->debug.enable)
 			mipi_csis_log_counters(csis, true);
@@ -1005,6 +1004,7 @@ static int mipi_csis_s_stream(struct v4l2_subdev *sd, int enable)
 	if (ret < 0)
 		goto err_stop;
 
+	mipi_csis_enable_interrupts(csis, true);
 	mipi_csis_log_counters(csis, true);
 
 	v4l2_subdev_unlock_state(state);
