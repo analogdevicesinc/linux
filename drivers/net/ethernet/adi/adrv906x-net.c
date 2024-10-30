@@ -361,7 +361,7 @@ static void adrv906x_eth_adjust_link(struct net_device *ndev)
 	struct phy_device *phydev = ndev->phydev;
 
 	tsu = &(adrv906x_dev->tsu);
-	adrv906x_tsu_set_speed(tsu, phydev);
+	adrv906x_tsu_set_speed(tsu, phydev->speed);
 
 	if (!phydev->link) {
 		if (adrv906x_dev->link_speed) {

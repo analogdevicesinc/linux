@@ -22,10 +22,12 @@
 				phy-handle = <&sec_adrv906x_phy0>;
 				phy-mode = "rmii";
 				ndma-handle = <&sec_ndma0>;
-				static-phy-delay-tx-ns = <0>;
-				static-phy-delay-tx-frac-ns = <0>;
-				static-phy-delay-rx-ns = <0>;
-				static-phy-delay-rx-frac-ns = <0>;
+				clocks = <&hsdigclk>;
+				clock-names = "hsdig_clk";
+				adi,pcb-delay-tx-ns = <0>;
+				adi,pcb-delay-tx-frac-ns = <0>;
+				adi,pcb-delay-rx-ns = <0>;
+				adi,pcb-delay-rx-frac-ns = <0>;
 			};
 			port@1 {
 				id = <1>;
@@ -34,10 +36,12 @@
 				phy-handle = <&sec_adrv906x_phy1>;
 				phy-mode = "rmii";
 				ndma-handle = <&sec_ndma1>;
-				static-phy-delay-tx-ns = <0>;
-				static-phy-delay-frac-ns = <0>;
-				static-phy-delay-rx-ns = <0>;
-				static-phy-delay-rx-frac-ns = <0>;
+				clocks = <&hsdigclk>;
+				clock-names = "hsdig_clk";
+				adi,pcb-delay-tx-ns = <0>;
+				adi,pcb-delay-tx-frac-ns = <0>;
+				adi,pcb-delay-rx-ns = <0>;
+				adi,pcb-delay-rx-frac-ns = <0>;
 			};
 		};
 

@@ -33,6 +33,12 @@ properties:
         const: 1
       '#size-cells':
         const: 1
+      clock-names:
+        items:
+        - const: hsdig_clk
+      clocks:
+        items:
+        - description: Clock phandle for HSDIG clock
       macsec:
         description: Physical base address for MACsec instance
       interrupts:
@@ -53,34 +59,32 @@ properties:
                      from OTP or NVMEM.
                      If the property is defined with any value including 0
                      then it is not updated by U-Boot.
-      static-phy-delay-tx-ns:
-        description: static phy delay for tx channel,this is the
-                     integer portion in units of ns
+      adi,pcb-delay-tx-ns:
+        description: PCB delay for tx channel, which is part of static PHY delay.
+                     This is the integer portion in units of ns.
         default: 0
         minimum: 0
         maximum: 0xFFFF
 
-      static-phy-delay-tx-frac-ns:
-        description: static phy delay for tx channel, this is the
-                     fractional portion in units of 2^(-16)ns.
-                     for example, 1.125ns is represented by 1ns
-                     and the frac-ns = 0x2000
+      adi,pcb-delay-tx-frac-ns:
+        description: PCB delay for tx channel, which is part of static PHY delay.
+                     This is the fractional portion in units of 2^(-16)ns.
+                     for example, 1.125ns is represented by 1ns and the frac-ns = 0x2000
         default: 0
         minimum: 0
         maximum: 0xFFFF
 
-      static-phy-delay-rx-ns:
-        description: static phy delay for rx channel,this is the
-                     integer portion in units of ns
+      adi,pcb-delay-rx-ns:
+        description: PCB delay for rx channel, which is part of static PHY delay.
+                     This is the integer portion in units of ns.
         default: 0
         minimum: 0
         maximum: 0xFFFF
 
-      static-phy-delay-rx-frac-ns:
-        description: static phy delay for rx channel, this is the
-                     fractional portion in units of 2^(-16)ns.
-                     for example, 1.125ns is represented by 1ns
-                     and the frac-ns = 0x2000
+      adi,pcb-delay-rx-frac-ns:
+        description: PCB delay for rx channel, which is part of static PHY delay.
+                     This is the fractional portion in units of 2^(-16)ns.
+                     for example, 1.125ns is represented by 1ns and the frac-ns = 0x2000
         default: 0
         minimum: 0
         maximum: 0xFFFF
@@ -259,10 +263,12 @@ examples:
           mac-address = [ 00 00 00 00 00 00 ]; /* will not be filled in
                                                   by u-boot */
           ndma-handle = <&ndma0>;
-          static-phy-delay-tx-ns = <0>;
-          static-phy-delay-tx-frac-ns = <0>;
-          static-phy-delay-rx-ns = <0>;
-          static-phy-delay-rx-frac-ns = <0>;
+          clocks = <&hsdigclk>;
+          clock-names = "hsdig_clk";
+          adi,pcb-delay-tx-ns = <0>;
+          adi,pcb-delay-tx-frac-ns = <0>;
+          adi,pcb-delay-rx-ns = <0>;
+          adi,pcb-delay-rx-frac-ns = <0>;
         }; 
         port@1 {
           id = <1>;
@@ -273,10 +279,12 @@ examples:
           mac-address = [ 00 00 00 00 00 00 ]; /* will not be filled in
                                                   by u-boot */
           ndma-handle = <&ndma1>;
-          static-phy-delay-tx-ns = <0>;
-          static-phy-delay-tx-frac-ns = <0>;
-          static-phy-delay-rx-ns = <0>;
-          static-phy-delay-rx-frac-ns = <0>;
+          clocks = <&hsdigclk>;
+          clock-names = "hsdig_clk";
+          adi,pcb-delay-tx-ns = <0>;
+          adi,pcb-delay-tx-frac-ns = <0>;
+          adi,pcb-delay-rx-ns = <0>;
+          adi,pcb-delay-rx-frac-ns = <0>;
         };
       };
 

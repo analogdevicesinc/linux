@@ -10,6 +10,8 @@
 #include <linux/platform_device.h>
 #include "adrv906x-phy.h"
 #include "adrv906x-phy-serdes.h"
+#include "adrv906x-net.h"
+#include "adrv906x-tsu.h"
 
 struct adrv906x_phy_priv {
 	struct adrv906x_serdes serdes;
@@ -133,9 +135,73 @@ static int adrv906x_phy_suspend(struct phy_device *phydev)
 	return 0;
 }
 
-static void adrv906x_link_change_notify(struct phy_device *phydev)
+static void adrv906x_phy_link_change_notify(struct phy_device *phydev)
 {
-	/* TODO  set delay */
+	struct net_device *netdev = phydev->attached_dev;
+	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(netdev);
+	struct adrv906x_tsu *tsu = &adrv906x_dev->tsu;
+	u32 bit_slip, buf_delay_tx, buf_delay_rx;
+	bool rs_fec_enabled = false;
+	int i, val;
+
+	if (!phydev->link)
+		return;
+
+	if (adrv906x_tod_cfg_cdc_delay < 0) {
+		phydev_err(phydev, "tod cfg_cdc_delay not initialized yet");
+		return;
+	}
+
+	/* We need a dummy read to get the correct value. */
+	phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_BRMGBT_STAT2);
+	val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_BRMGBT_STAT2);
+	if (!(val & ADRV906X_PCS_BRMGBT_STAT2_LBLKLK)) {
+		phydev_warn(phydev, "pcs not locked and synced to the ethernet block");
+		return;
+	}
+
+	val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_CTRL_REG);
+	if (val & ADRV906X_PCS_RS_FEC_CTRL_EN) {
+		val = phy_read_mmd(phydev, MDIO_MMD_PCS,
+				   ADRV906X_PCS_RS_FEC_STAT_REG);
+		if (!(val & ADRV906X_PCS_RS_FEC_STAT_ALIGN)) {
+			phydev_warn(phydev, "rs-fec is not locked and aligned");
+			return;
+		}
+
+		rs_fec_enabled = true;
+	}
+
+	val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_DELAY_RX_REG);
+	bit_slip = FIELD_GET(ADRV906X_PCS_DELAY_RX_BIT_SLIP, val);
+
+	buf_delay_rx = U32_MAX;
+	for (i = 0; i < 10; i++) {
+		u32 d;
+
+		val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_BUF_STAT_RX_REG);
+		d = FIELD_GET(ADRV906X_PCS_BUF_STAT_RX_FINE_DELAY, val);
+		if (d < buf_delay_rx)
+			buf_delay_rx = d;
+	}
+
+	buf_delay_tx = U32_MAX;
+	for (i = 0; i < 10; i++) {
+		u32 d;
+
+		val = phy_read_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_BUF_STAT_TX_REG);
+		d = FIELD_GET(ADRV906X_PCS_BUF_STAT_TX_FINE_DELAY, val);
+		if (d < buf_delay_tx)
+			buf_delay_tx = d;
+	}
+
+	adrv906x_tsu_calculate_phy_delay(tsu, phydev->speed, rs_fec_enabled,
+					 bit_slip, buf_delay_tx, buf_delay_rx);
+
+	phydev_info(phydev, "static phy delay tx: 0x%08x", tsu->phy_delay_tx);
+	phydev_info(phydev, "static phy delay rx: 0x%08x", tsu->phy_delay_rx);
+
+	adrv906x_tsu_set_phy_delay(tsu);
 }
 
 static int adrv906x_phy_resume(struct phy_device *phydev)
@@ -315,7 +381,7 @@ static struct phy_driver adrv906x_phy_driver[] = {
 		.get_features = adrv906x_phy_get_features,
 		.resume = adrv906x_phy_resume,
 		.suspend = adrv906x_phy_suspend,
-		.link_change_notify = adrv906x_link_change_notify,
+		.link_change_notify = adrv906x_phy_link_change_notify,
 	},
 };
 
