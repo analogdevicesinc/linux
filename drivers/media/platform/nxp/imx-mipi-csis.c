@@ -722,7 +722,7 @@ static int mipi_csis_clk_get(struct mipi_csis_device *csis)
 	for (i = 0; i < csis->info->num_clocks; i++)
 		csis->clks[i].id = mipi_csis_clk_id[i];
 
-	ret = devm_clk_bulk_get(csis->dev, csis->info->num_clocks,
+	ret = devm_clk_bulk_get_optional(csis->dev, csis->info->num_clocks,
 				csis->clks);
 	if (ret < 0)
 		return ret;
