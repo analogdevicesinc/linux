@@ -533,6 +533,15 @@ config CHARGER_LT3651
 	  Say Y to include support for the Analog Devices (Linear Technology)
 	  LT3651 battery charger which reports its status via GPIO lines.
 
+config CHARGER_LT8491
+	tristate "Analog Devices LT8491 charger"
+	depends on I2C
+	help
+	  Say Y to include support for the Analog Devices (Linear Technology)
+	  LT8491 battery charge controller connected to I2C. The LT8491 is a
+	  high voltage buck-boost switching regulator battery charger
+	  controller.
+
 config CHARGER_LTC4162L
 	tristate "LTC4162-L charger"
 	depends on I2C
