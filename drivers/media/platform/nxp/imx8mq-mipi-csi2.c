@@ -9,6 +9,7 @@
 #include <linux/clk-provider.h>
 #include <linux/delay.h>
 #include <linux/errno.h>
+#include <linux/firmware/imx/svc/misc.h>
 #include <linux/interconnect.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
@@ -18,11 +19,14 @@
 #include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/pm_domain.h>
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
 #include <linux/reset.h>
 #include <linux/spinlock.h>
+
+#include <dt-bindings/firmware/imx/rsrc.h>
 
 #include <media/mipi-csi2.h>
 #include <media/v4l2-common.h>
@@ -93,6 +97,8 @@ struct imx8mq_gpr_ops {
 
 struct imx8mq_plat_data {
 	const char *name;
+	bool has_reset;
+	bool use_scu;
 	const struct imx8mq_gpr_ops *gpr_ops;
 };
 
@@ -110,6 +116,10 @@ struct imx8mq_plat_data {
  * can be set to 16 and ignored.
  */
 #define CSI2RX_SEND_LEVEL			64
+struct csi_pm_domain {
+	struct device *dev;
+	struct device_link *link;
+};
 
 struct csi_state {
 	struct device *dev;
@@ -128,6 +138,8 @@ struct csi_state {
 
 	struct mutex lock; /* Protect state */
 	u32 state;
+	u32 id;
+	struct csi_pm_domain pm_domains[2];
 
 	struct regmap *phy_gpr;
 	u8 phy_gpr_reg;
@@ -135,6 +147,8 @@ struct csi_state {
 	struct icc_path			*icc_path;
 	s32				icc_path_bw;
 };
+
+static struct imx_sc_ipc *pm_ipc_handle;
 
 /* -----------------------------------------------------------------------------
  * Format helpers
@@ -176,8 +190,14 @@ static const struct imx8mq_gpr_ops imx8mq_ops = {
 
 static const struct imx8mq_plat_data imx8mq_data = {
 	.name = "i.MX8MQ",
+	.has_reset = true,
+	.use_scu = false,
 	.gpr_ops = &imx8mq_ops,
 };
+
+#define CSI2SS_PL_CLK_INTERVAL_US		10000
+#define CSI2SS_PL_CLK_TIMEOUT_US		100000
+
 
 /* -----------------------------------------------------------------------------
  * i.MX8ULP CSR
@@ -196,6 +216,7 @@ static const struct imx8mq_plat_data imx8mq_data = {
 #define CSI2SS_PHY_CTRL				(CSI2SS_BASE_OFFSET + 0x4)
 #define CSI2SS_PHY_CTRL_PD			BIT(22)
 #define CSI2SS_PHY_CTRL_RTERM_SEL		BIT(21)
+#define CSI2SS_PLM_CTRL_POLARITY		BIT(12)
 #define CSI2SS_PHY_CTRL_RX_HS_SETTLE(x)		FIELD_PREP(GENMASK(9, 4), (x))
 #define CSI2SS_PHY_CTRL_CONT_CLK_MODE		BIT(3)
 #define CSI2SS_PHY_CTRL_DDRCLK_EN		BIT(2)
@@ -234,6 +255,9 @@ static const struct imx8mq_plat_data imx8mq_data = {
 #define CSI2SS_YUV420_1ST_LINE_DATA_TYPE	(CSI2SS_BASE_OFFSET + 0x40)
 #define CSI2SS_YUV420_1ST_LINE_DATA_TYPE_ODD	0
 #define CSI2SS_YUV420_1ST_LINE_DATA_TYPE_EVEN	1
+
+#define CSI2SS_CTRL_CLK_RESET			(CSI2SS_BASE_OFFSET + 0x44)
+#define CSI2SS_CTRL_CLK_RESET_EN		BIT(0)
 
 #define CSI2SS_STREAM_FENCE_CTRL		(CSI2SS_BASE_OFFSET + 0x48)
 #define CSI2SS_STREAM_FENCE_VC3			BIT(3)
@@ -319,8 +343,105 @@ static const struct imx8mq_gpr_ops imx8ulp_ops = {
 
 static const struct imx8mq_plat_data imx8ulp_data = {
 	.name = "i.MX8ULP",
+	.has_reset = true,
+	.use_scu = false,
 	.gpr_ops = &imx8ulp_ops,
 };
+
+/* -----------------------------------------------------------------------------
+ * i.MX8QM GPR
+ */
+
+static int imx8qm_gpr_enable(struct csi_state *state, u32 hs_settle)
+{
+	int ret;
+	u32 val;
+
+	/* format */
+	regmap_clear_bits(state->phy_gpr,
+			   state->phy_gpr_reg + CSI2SS_DATA_TYPE,
+			   0xffffff);
+
+	/* polarity */
+	regmap_clear_bits(state->phy_gpr,
+			   state->phy_gpr_reg + CSI2SS_PLM_CTRL,
+			   CSI2SS_PLM_CTRL_VSYNC_OVERRIDE |
+			   CSI2SS_PLM_CTRL_HSYNC_OVERRIDE |
+			   CSI2SS_PLM_CTRL_VALID_OVERRIDE |
+			   CSI2SS_PLM_CTRL_POLARITY_MASK);
+
+	val = CSI2SS_PHY_CTRL_RX_ENABLE |
+	      CSI2SS_PHY_CTRL_DDRCLK_EN |
+	      CSI2SS_PHY_CTRL_CONT_CLK_MODE |
+	      CSI2SS_PHY_CTRL_RX_HS_SETTLE(hs_settle) |
+	      CSI2SS_PHY_CTRL_PD |
+	      CSI2SS_PHY_CTRL_RTERM_SEL |
+	      CSI2SS_PHY_CTRL_AUTO_PD_EN;
+
+	regmap_update_bits(state->phy_gpr,
+			   state->phy_gpr_reg + CSI2SS_PHY_CTRL,
+			   0xffffff,
+			   val);
+
+	ret = regmap_read_poll_timeout(state->phy_gpr,
+				       state->phy_gpr_reg + CSI2SS_PLM_CTRL,
+				       val,
+				       !(val & CSI2SS_PLM_CTRL_PL_CLK_RUN),
+				       CSI2SS_PL_CLK_INTERVAL_US,
+				       CSI2SS_PL_CLK_TIMEOUT_US);
+
+	if (ret) {
+		dev_err(state->dev, "Timeout waiting for Pixel-Link clock");
+		return ret;
+	}
+
+	/* Enable Pixel link Master*/
+	regmap_set_bits(state->phy_gpr,
+			state->phy_gpr_reg + CSI2SS_PLM_CTRL,
+			CSI2SS_PLM_CTRL_ENABLE_PL |
+			CSI2SS_PLM_CTRL_VALID_OVERRIDE);
+
+	/* PHY Enable */
+	regmap_update_bits(state->phy_gpr,
+			   state->phy_gpr_reg + CSI2SS_PHY_CTRL,
+			   CSI2SS_PHY_CTRL_PD |
+			   CSI2SS_PLM_CTRL_POLARITY,
+			   0x0);
+
+	/* Release Reset */
+	regmap_set_bits(state->phy_gpr,
+			state->phy_gpr_reg + CSI2SS_CTRL_CLK_RESET,
+			CSI2SS_CTRL_CLK_RESET_EN);
+
+	return 0;
+}
+
+static void imx8qm_gpr_disable(struct csi_state *state)
+{
+	/* Disable Pixel Link */
+	regmap_write(state->phy_gpr, state->phy_gpr_reg + CSI2SS_PLM_CTRL, 0x0);
+
+	/* Disable  PHY */
+	regmap_write(state->phy_gpr, state->phy_gpr_reg + CSI2SS_PHY_CTRL, 0x0);
+
+	/* Reset */
+	regmap_clear_bits(state->phy_gpr,
+			state->phy_gpr_reg + CSI2SS_CTRL_CLK_RESET,
+			CSI2SS_CTRL_CLK_RESET_EN);
+}
+
+static const struct imx8mq_gpr_ops imx8qm_ops = {
+	.enable = imx8qm_gpr_enable,
+	.disable = imx8qm_gpr_disable,
+};
+
+static const struct imx8mq_plat_data imx8qm_data = {
+	.name = "i.MX8QM",
+	.has_reset = false,
+	.use_scu = true,
+	.gpr_ops = &imx8qm_ops,
+};
+
 
 static const struct csi2_pix_format imx8mq_mipi_csi_formats[] = {
 	/* RAW (Bayer and greyscale) formats. */
@@ -568,10 +689,11 @@ static int imx8mq_mipi_csi_calc_hs_settle(struct csi_state *state,
 static int imx8mq_mipi_csi_start_stream(struct csi_state *state,
 					struct v4l2_subdev_state *sd_state)
 {
-	int ret;
+	int ret = 0;
 	u32 hs_settle = 0;
 
-	ret = imx8mq_mipi_csi_sw_reset(state);
+	if (state->pdata->has_reset)
+		ret = imx8mq_mipi_csi_sw_reset(state);
 	if (ret)
 		return ret;
 
@@ -921,6 +1043,27 @@ static int imx8mq_mipi_csi_pm_resume(struct device *dev)
 
 	mutex_lock(&state->lock);
 
+	if (state->pdata->use_scu) {
+		u32 rsrc_id;
+
+		ret = imx_scu_get_handle(&pm_ipc_handle);
+		if (ret) {
+			dev_err(dev, "sc_misc_MIPI get ipc handle failed! ret = (%d)\n", ret);
+			goto unlock;
+		}
+
+		rsrc_id = (state->id == 1) ? IMX_SC_R_CSI_1 : IMX_SC_R_CSI_0;
+
+		ret = imx_sc_misc_set_control(pm_ipc_handle,
+					      rsrc_id, IMX_SC_C_MIPI_RESET, 1);
+		if (ret < 0) {
+			dev_err(dev, "sc_misc_MIPI reset failed! ret = (%d)\n", ret);
+			goto unlock;
+		}
+
+		fsleep(10000);
+	}
+
 	if (!(state->state & ST_POWERED)) {
 		state->state |= ST_POWERED;
 		ret = imx8mq_mipi_csi_clk_enable(state);
@@ -1043,6 +1186,76 @@ static int imx8mq_mipi_csi_subdev_init(struct csi_state *state)
 	return 0;
 }
 
+static void imx8mq_mipi_csi_detach_pm_domains(struct csi_state *state)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(state->pm_domains); i++) {
+		struct csi_pm_domain *dom = &state->pm_domains[i];
+
+		if (!dom->dev)
+			continue;
+
+		if (!pm_runtime_suspended(dom->dev))
+			pm_runtime_force_suspend(dom->dev);
+		if (dom->link)
+			device_link_del(dom->link);
+		dev_pm_domain_detach(dom->dev, true);
+
+		dom->dev = NULL;
+		dom->link = NULL;
+	}
+}
+
+static int imx8mq_mipi_csi_attach_pm_domains(struct csi_state *state)
+{
+	struct device *dev = state->dev;
+	struct device_node *np = dev->of_node;
+	int i, num_domains;
+	int ret = 0;
+
+	num_domains = of_count_phandle_with_args(np, "power-domains",
+					   "#power-domain-cells");
+	if (num_domains < 0) {
+		dev_err(dev, "No power domains defined!\n");
+		return num_domains;
+	}
+	/* genpd_dev_pm_attach() attach automatically if power domains count is 1 */
+	if (num_domains == 1)
+		return 0;
+
+	for (i = 0; i < num_domains; i++) {
+		struct csi_pm_domain *dom = &state->pm_domains[i];
+
+		dom->dev = dev_pm_domain_attach_by_id(dev, i);
+		if (IS_ERR(dom->dev)) {
+			ret = PTR_ERR(dom->dev);
+			dom->dev = NULL;
+			break;
+		}
+
+		dom->link = device_link_add(dev, dom->dev,
+					    DL_FLAG_STATELESS |
+					    DL_FLAG_PM_RUNTIME);
+
+		if (dom->link == NULL) {
+			ret = -ENODEV;
+			break;
+		}
+
+		if (IS_ERR(dom->link)) {
+			ret = PTR_ERR(dom->link);
+			dom->link = NULL;
+			break;
+		}
+	}
+
+	if (ret < 0)
+		imx8mq_mipi_csi_detach_pm_domains(state);
+
+	return ret;
+}
+
 static void imx8mq_mipi_csi_release_icc(struct platform_device *pdev)
 {
 	struct v4l2_subdev *sd = dev_get_drvdata(&pdev->dev);
@@ -1075,10 +1288,14 @@ static int imx8mq_mipi_csi_parse_dt(struct csi_state *state)
 	u32 out_val[2];
 	int ret = 0;
 
-	state->rst = devm_reset_control_array_get_exclusive(dev);
-	if (IS_ERR(state->rst)) {
-		dev_err(dev, "Failed to get reset: %pe\n", state->rst);
-		return PTR_ERR(state->rst);
+	state->id = of_alias_get_id(np, "csi");
+
+	if (state->pdata->has_reset) {
+		state->rst = devm_reset_control_array_get_exclusive(dev);
+		if (IS_ERR(state->rst)) {
+			dev_err(dev, "Failed to get reset: %pe\n", state->rst);
+			return PTR_ERR(state->rst);
+		}
 	}
 
 	ret = of_property_read_u32_array(np, "fsl,mipi-phy-gpr", out_val,
@@ -1136,6 +1353,10 @@ static int imx8mq_mipi_csi_probe(struct platform_device *pdev)
 	ret = imx8mq_mipi_csi_clk_get(state);
 	if (ret < 0)
 		return ret;
+
+	ret = imx8mq_mipi_csi_attach_pm_domains(state);
+	if (ret < 0)
+		return dev_err_probe(dev, ret, "failed to attach power domains\n");
 
 	platform_set_drvdata(pdev, &state->sd);
 
@@ -1196,11 +1417,13 @@ static void imx8mq_mipi_csi_remove(struct platform_device *pdev)
 	mutex_destroy(&state->lock);
 	pm_runtime_set_suspended(&pdev->dev);
 	imx8mq_mipi_csi_release_icc(pdev);
+	imx8mq_mipi_csi_detach_pm_domains(state);
 }
 
 static const struct of_device_id imx8mq_mipi_csi_of_match[] = {
 	{ .compatible = "fsl,imx8mq-mipi-csi2", .data = &imx8mq_data },
 	{ .compatible = "fsl,imx8ulp-mipi-csi2", .data = &imx8ulp_data },
+	{ .compatible = "fsl,imx8qm-mipi-csi2", .data = &imx8qm_data },
 	{ /* sentinel */ },
 };
 MODULE_DEVICE_TABLE(of, imx8mq_mipi_csi_of_match);
