@@ -72,6 +72,15 @@ properties:
       in any way, for example if the filter decimation rate changes.
       As the line is active low, it should be marked GPIO_ACTIVE_LOW.
 
+  adi,sync-in-spi:
+    description:
+      Enables synchronization of multiple devices over SPI. This property is
+      used when a signal synchronous to the base MCLK signal cannot be provided
+      via GPIO. It requires the SYNC_OUT pin to be connected to the SYNC_IN pin
+      on the ADC. In the case of multiple devices, the SYNC_OUT pin of one device
+      should be routed to the SYNC_IN pins of the other devices.
+    type: boolean
+
   reset-gpios:
     maxItems: 1
 
@@ -90,7 +99,6 @@ required:
   - vref-supply
   - spi-cpol
   - spi-cpha
-  - adi,sync-in-gpios
 
 patternProperties:
   "^channel@([0-9]|1[0-5])$":
@@ -128,6 +136,20 @@ allOf:
     else:
       properties:
         adi,aaf-gain: false
+
+  # adi,sync-in-gpios and adi,sync-in-spi are mutually exclusive (neither is also valid)
+  - if:
+      required:
+        - adi,sync-in-gpios
+    then:
+      properties:
+        adi,sync-in-spi: false
+  - if:
+      required:
+        - adi,sync-in-spi
+    then:
+      properties:
+        adi,sync-in-gpios: false
 
 unevaluatedProperties: false
 
