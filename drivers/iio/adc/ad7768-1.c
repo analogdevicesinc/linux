@@ -140,6 +140,13 @@ struct ad7768_clk_configuration {
 	enum ad7768_pwrmode pwrmode;
 };
 
+enum ad7768_scan_type {
+	AD7768_SCAN_TYPE_DMA_NORMAL,
+	AD7768_SCAN_TYPE_DMA_HIGH_SPEED,
+	AD7768_SCAN_TYPE_NORMAL,
+	AD7768_SCAN_TYPE_HIGH_SPEED,
+};
+
 static const char * const ad7768_vcm_modes[] = {
 	"(AVDD1-AVSS)/2",
 	"2V5",
@@ -149,6 +156,10 @@ static const char * const ad7768_vcm_modes[] = {
 	"1V1",
 	"0V9",
 	"OFF",
+};
+
+static const int ad7768_mclk_div_rates[4] = {
+	16, 8, 4, 2,
 };
 
 static const struct ad7768_clk_configuration ad7768_clk_config[] = {
@@ -161,6 +172,33 @@ static const struct ad7768_clk_configuration ad7768_clk_config[] = {
 	{ AD7768_MCLK_DIV_4, AD7768_DEC_RATE_1024, 4096, AD7768_MED_MODE },
 	{ AD7768_MCLK_DIV_8, AD7768_DEC_RATE_1024, 8192, AD7768_MED_MODE },
 	{ AD7768_MCLK_DIV_16, AD7768_DEC_RATE_1024, 16384, AD7768_ECO_MODE },
+};
+
+static const struct iio_scan_type ad7768_scan_type[] = {
+	[AD7768_SCAN_TYPE_NORMAL] = {
+		.sign = 's',
+		.realbits = 24,
+		.storagebits = 32,
+		.endianness = IIO_BE,
+	},
+	[AD7768_SCAN_TYPE_HIGH_SPEED] = {
+		.sign = 's',
+		.realbits = 16,
+		.storagebits = 32,
+		.endianness = IIO_BE,
+	},
+	[AD7768_SCAN_TYPE_DMA_NORMAL] = {
+		.sign = 's',
+		.realbits = 24,
+		.storagebits = 32,
+		.endianness = IIO_CPU,
+	},
+	[AD7768_SCAN_TYPE_DMA_HIGH_SPEED] = {
+		.sign = 's',
+		.realbits = 16,
+		.storagebits = 32,
+		.endianness = IIO_CPU,
+	},
 };
 
 static int ad7768_get_vcm(struct iio_dev *dev, const struct iio_chan_spec *chan);
@@ -194,12 +232,9 @@ static const struct iio_chan_spec ad7768_channels[] = {
 		.indexed = 1,
 		.channel = 0,
 		.scan_index = 0,
-		.scan_type = {
-			.sign = 's',
-			.realbits = 24,
-			.storagebits = 32,
-			.shift = 8,
-		},
+		.has_ext_scan_type = 1,
+		.ext_scan_type = ad7768_scan_type,
+		.num_ext_scan_type = ARRAY_SIZE(ad7768_scan_type),
 	},
 };
 
@@ -211,6 +246,7 @@ struct ad7768_state {
 	struct gpio_chip gpiochip;
 	unsigned int gpio_avail_map;
 	unsigned int mclk_freq;
+	unsigned int dec_rate;
 	unsigned int samp_freq;
 	unsigned int common_mode_voltage;
 	struct completion completion;
@@ -324,6 +360,15 @@ static int ad7768_scan_direct(struct iio_dev *indio_dev)
 	ret = ad7768_spi_reg_read(st, AD7768_REG_ADC_DATA, &readval, 3);
 	if (ret < 0)
 		return ret;
+
+	/*
+	 * When the decimation rate is set to x8, the ADC data precision is reduced
+	 * from 24 bits to 16 bits. Since the AD7768_REG_ADC_DATA register provides
+	 * 24-bit data, the precision is reduced by right-shifting the read value
+	 * by 8 bits.
+	 */
+	if (st->dec_rate == 8)
+		readval = readval >> 8;
 	/*
 	 * Any SPI configuration of the AD7768-1 can only be
 	 * performed in continuous conversion mode.
@@ -505,6 +550,8 @@ static int ad7768_set_freq(struct ad7768_state *st,
 	if (ret < 0)
 		return ret;
 
+	st->dec_rate = ad7768_clk_config[idx].clk_div /
+		       ad7768_mclk_div_rates[ad7768_clk_config[idx].mclk_div];
 	st->samp_freq = DIV_ROUND_CLOSEST(st->mclk_freq,
 					  ad7768_clk_config[idx].clk_div);
 
@@ -560,7 +607,12 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 			   int *val, int *val2, long info)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
+	const struct iio_scan_type *scan_type;
 	int scale_uv, ret;
+
+	scan_type = iio_get_current_scan_type(indio_dev, chan);
+	if (IS_ERR(scan_type))
+		return PTR_ERR(scan_type);
 
 	switch (info) {
 	case IIO_CHAN_INFO_RAW:
@@ -570,7 +622,7 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 
 		ret = ad7768_scan_direct(indio_dev);
 		if (ret >= 0)
-			*val = sign_extend32(ret, chan->scan_type.realbits - 1);
+			*val = sign_extend32(ret, scan_type->realbits - 1);
 
 		iio_device_release_direct_mode(indio_dev);
 		if (ret < 0)
@@ -584,7 +636,7 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 			return scale_uv;
 
 		*val = (scale_uv * 2) / 1000;
-		*val2 = chan->scan_type.realbits;
+		*val2 = scan_type->realbits;
 
 		return IIO_VAL_FRACTIONAL_LOG2;
 
@@ -628,11 +680,25 @@ static const struct attribute_group ad7768_group = {
 	.attrs = ad7768_attributes,
 };
 
+static int ad7768_get_current_scan_type(const struct iio_dev *indio_dev,
+					const struct iio_chan_spec *chan)
+{
+	struct ad7768_state *st = iio_priv(indio_dev);
+
+	if (st->spi_is_dma_mapped)
+		return st->dec_rate == 8 ? AD7768_SCAN_TYPE_DMA_HIGH_SPEED :
+		       AD7768_SCAN_TYPE_DMA_NORMAL;
+
+	return st->dec_rate == 8 ? AD7768_SCAN_TYPE_HIGH_SPEED :
+		AD7768_SCAN_TYPE_NORMAL;
+}
+
 static const struct iio_info ad7768_info = {
 	.attrs = &ad7768_group,
 	.read_raw = &ad7768_read_raw,
 	.write_raw = &ad7768_write_raw,
 	.read_label = ad7768_read_label,
+	.get_current_scan_type = &ad7768_get_current_scan_type,
 	.debugfs_reg_access = &ad7768_reg_access,
 };
 
@@ -720,13 +786,19 @@ static irqreturn_t ad7768_interrupt(int irq, void *dev_id)
 static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
+	const struct iio_scan_type *scan_type;
 	struct spi_transfer xfer = {
 		.len = 1,
-		.bits_per_word = 32
 	};
 	unsigned int rx_data[2];
 	struct spi_message msg;
 	int ret;
+
+	scan_type = iio_get_current_scan_type(indio_dev, &indio_dev->channels[0]);
+	if (IS_ERR(scan_type))
+		return PTR_ERR(scan_type);
+
+	xfer.bits_per_word = scan_type->realbits;
 
 	/*
 	* Write a 1 to the LSB of the INTERFACE_FORMAT register to enter
