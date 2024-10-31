@@ -217,6 +217,7 @@ dtbo-$(CONFIG_ARCH_BCM2835) += \
 	proto-codec.dtbo \
 	pwm.dtbo \
 	pwm-2chan.dtbo \
+	pwm-gpio.dtbo \
 	pwm-ir-tx.dtbo \
 	pwm1.dtbo \
 	qca7000.dtbo \
