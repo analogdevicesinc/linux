@@ -23,6 +23,8 @@
 #include "linux/util_macros.h"
 #include <linux/spi/spi.h>
 #include <linux/spi/spi-engine-ex.h>
+#include <linux/units.h>
+#include <linux/rational.h>
 
 #include <linux/iio/buffer.h>
 #include <linux/iio/buffer-dma.h>
@@ -93,12 +95,19 @@
 /* AD7768_REG_GPIO_CONTROL */
 #define AD7768_GPIO_CONTROL_MSK		GENMASK(3, 0)
 #define AD7768_GPIO_UNIVERSAL_EN	BIT(7)
+#define AD7768_GPIO_PGIA_EN		(AD7768_GPIO_UNIVERSAL_EN | GENMASK(2, 0))
 
 /* AD7768_REG_GPIO_WRITE */
 #define AD7768_GPIO_WRITE_MSK		GENMASK(3, 0)
+#define AD7768_GPIO_WRITE(x)		FIELD_PREP(AD7768_GPIO_WRITE_MSK, x)
 
 /* AD7768_REG_GPIO_READ */
 #define AD7768_GPIO_READ_MSK		GENMASK(3, 0)
+#define AD7768_GPIO_READ(x)		FIELD_PREP(AD7768_GPIO_READ_MSK, x)
+
+/* AD7768_REG_CONVLEN */
+#define AD7768_REG_CONVLEN_MSK		GENMASK(3, 3)
+#define AD7768_REG_CONVLEN(x)		FIELD_PREP(AD7768_REG_CONVLEN_MSK, x)
 
 #define AD7768_GPIO_INPUT(x)		0x00
 #define AD7768_GPIO_OUTPUT(x)		BIT(x)
@@ -115,6 +124,9 @@
 #define WIDEBAND_DEC_RATE_MAX		1024
 
 #define AD7768_CHAN_INFO_NONE		0
+
+#define ADAQ776X_GAIN_MAX_NANO		(128 * NANO)
+#define ADAQ776X_MAX_GAIN_MODES		8
 
 enum {
 	DEC_RATE,
@@ -165,6 +177,54 @@ enum ad7768_scan_type {
 	AD7768_SCAN_TYPE_DMA_HIGH_SPEED,
 	AD7768_SCAN_TYPE_NORMAL,
 	AD7768_SCAN_TYPE_HIGH_SPEED,
+};
+
+enum {
+	AD7768_PGA_GAIN_0,
+	AD7768_PGA_GAIN_1,
+	AD7768_PGA_GAIN_2,
+	AD7768_PGA_GAIN_3,
+	AD7768_PGA_GAIN_4,
+	AD7768_PGA_GAIN_5,
+	AD7768_PGA_GAIN_6,
+	AD7768_PGA_GAIN_7,
+	AD7768_MAX_PGA_GAIN,
+};
+
+enum {
+	AD7768_AAF_IN1,
+	AD7768_AAF_IN2,
+	AD7768_AAF_IN3,
+};
+
+/*
+ * Gains computed as fractions of 1000 so they can be expressed by integers.
+ */
+static const int adaq7768_gains[7] = {
+	[AD7768_PGA_GAIN_0] = 325,
+	[AD7768_PGA_GAIN_1] = 650,
+	[AD7768_PGA_GAIN_2] = 1300,
+	[AD7768_PGA_GAIN_3] = 2600,
+	[AD7768_PGA_GAIN_4] = 5200,
+	[AD7768_PGA_GAIN_5] = 10400,
+	[AD7768_PGA_GAIN_6] = 20800
+};
+
+static const int adaq7769_gains[8] = {
+	[AD7768_PGA_GAIN_0] = 1000,
+	[AD7768_PGA_GAIN_1] = 2000,
+	[AD7768_PGA_GAIN_2] = 4000,
+	[AD7768_PGA_GAIN_3] = 8000,
+	[AD7768_PGA_GAIN_4] = 16000,
+	[AD7768_PGA_GAIN_5] = 32000,
+	[AD7768_PGA_GAIN_6] = 64000,
+	[AD7768_PGA_GAIN_7] = 128000
+};
+
+static const int ad7768_aaf_gains[3] = {
+	[AD7768_AAF_IN1] = 1000,
+	[AD7768_AAF_IN2] = 364,
+	[AD7768_AAF_IN3] = 143
 };
 
 static const char * const ad7768_vcm_modes[] = {
@@ -288,8 +348,18 @@ static const struct iio_chan_spec ad7768_channels[] = {
 	AD7768_CHAN(0, AD7768_CHAN_INFO_NONE),
 };
 
+static const struct iio_chan_spec adaq776x_channels[] = {
+	AD7768_CHAN(0, BIT(IIO_CHAN_INFO_SCALE)),
+};
+
 struct ad7768_chip_info {
 	const char *name;
+	bool has_variable_aaf;
+	bool has_pga;
+	int num_pga_modes;
+	int default_pga_mode;
+	int pgia_mode2pin_offset;
+	const int *pga_gains;
 	const struct iio_chan_spec *channel_spec;
 	const unsigned long *available_masks;
 	int num_channels;
@@ -299,6 +369,8 @@ struct ad7768_state {
 	const struct ad7768_chip_info *chip;
 	struct spi_device *spi;
 	int vref_uv;
+	int pga_gain_mode;
+	int aaf_gain;
 	struct mutex lock;
 	struct clk *mclk;
 	struct gpio_chip gpiochip;
@@ -315,6 +387,7 @@ struct ad7768_state {
 	struct iio_trigger *trig;
 	struct gpio_desc *gpio_sync_in;
 	const char *labels[ARRAY_SIZE(ad7768_channels)];
+	int scale_tbl[ADAQ776X_MAX_GAIN_MODES][2];
 	struct gpio_desc *gpio_reset;
 	bool spi_is_dma_mapped;
 	bool en_spi_sync;
@@ -559,6 +632,43 @@ static int ad7768_set_dec_rate(struct ad7768_state *st, unsigned int dec_rate)
 	return 0;
 }
 
+static void ad7768_fill_scale_tbl(struct iio_dev *dev)
+{
+	struct ad7768_state *st = iio_priv(dev);
+	const struct iio_scan_type *scan_type;
+	int val, val2, tmp0, tmp1, i;
+	unsigned long denominator, numerator;
+	u64 tmp2;
+
+	scan_type = iio_get_current_scan_type(dev, &dev->channels[0]);
+	if (scan_type->sign == 's')
+		val2 = scan_type->realbits - 1;
+	else
+		val2 = scan_type->realbits;
+
+	for (i = 0; i < st->chip->num_pga_modes; i++) {
+		/* Convert gain to a fraction format */
+		numerator = st->chip->pga_gains[i];
+		denominator = MILLI;
+		if (st->chip->has_variable_aaf) {
+			numerator *= ad7768_aaf_gains[st->aaf_gain];
+			denominator *= MILLI;
+		}
+
+		rational_best_approximation(numerator, denominator, __INT_MAX__, __INT_MAX__,
+					    &numerator, &denominator);
+
+		val = st->vref_uv / 1000;
+		/* Multiply by MILLI here to avoid losing precision */
+		val = mult_frac(val, denominator * MILLI, numerator);
+		/* Would multiply by NANO here but we already multiplied by MILLI */
+		tmp2 = shift_right((u64)val * MICRO, val2);
+		tmp0 = (int)div_s64_rem(tmp2, NANO, &tmp1);
+		st->scale_tbl[i][0] = tmp0; /* Integer part */
+		st->scale_tbl[i][1] = abs(tmp1); /* Fractional part */
+	}
+}
+
 static int ad7768_set_dig_fil(struct iio_dev *dev,
 			      enum ad7768_flt_mode filter_mode)
 {
@@ -579,6 +689,9 @@ static int ad7768_set_dig_fil(struct iio_dev *dev,
 		return ret;
 
 	st->filter_mode = filter_mode;
+
+	/* Update scale table: scale values vary according to the precision */
+	ad7768_fill_scale_tbl(dev);
 
 	return 0;
 }
@@ -660,6 +773,61 @@ static int ad7768_get_dig_fil_attr(struct iio_dev *dev,
 		return SINC5;
 
 	return mode;
+}
+
+static int ad7768_calc_pga_gain(struct ad7768_state *st, int gain_int,
+				int gain_fract,
+				int precision)
+{
+	u64 gain_nano, tmp;
+	int gain_idx;
+
+	precision--;
+	gain_nano = gain_int * NANO + gain_fract;
+	if (gain_nano < 0 || gain_nano > ADAQ776X_GAIN_MAX_NANO)
+		return -EINVAL;
+
+	tmp = DIV_ROUND_CLOSEST_ULL(gain_nano << precision, NANO);
+	gain_nano = DIV_ROUND_CLOSEST_ULL(st->vref_uv, tmp);
+	if (st->chip->has_variable_aaf)
+		/* remove the AAF gain from the gain */
+		gain_nano = DIV_ROUND_CLOSEST_ULL(gain_nano *  MILLI,
+						  ad7768_aaf_gains[st->aaf_gain]);
+	tmp = st->chip->num_pga_modes;
+	gain_idx = find_closest(gain_nano, st->chip->pga_gains, tmp);
+
+	return gain_idx;
+}
+
+static int ad7768_set_pga_gain(struct ad7768_state *st,
+			       int gain_mode)
+{
+	int ret;
+	int check_val;
+	int pgia_pins_value = abs(gain_mode - st->chip->pgia_mode2pin_offset);
+
+	guard(mutex)(&st->lock);
+	/* Check GPIO control register */
+	ret = ad7768_spi_reg_read(st, AD7768_REG_GPIO_CONTROL, &check_val, 1);
+	if (ret < 0)
+		return ret;
+
+	if ((check_val & AD7768_GPIO_PGIA_EN) != AD7768_GPIO_PGIA_EN) {
+		/* Enable PGIA GPIOs and set them as output */
+		ret = ad7768_spi_reg_write(st, AD7768_REG_GPIO_CONTROL, AD7768_GPIO_PGIA_EN);
+		if (ret < 0)
+			return ret;
+	}
+
+	/* Write the respective gain values to GPIOs 0, 1, 2 */
+	ret = ad7768_spi_reg_write(st, AD7768_REG_GPIO_WRITE,
+				   AD7768_GPIO_WRITE(pgia_pins_value));
+	if (ret < 0)
+		return ret;
+
+	st->pga_gain_mode = gain_mode;
+
+	return 0;
 }
 
 int ad7768_gpio_direction_input(struct gpio_chip *chip, unsigned int offset)
@@ -922,7 +1090,7 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 	const struct iio_scan_type *scan_type;
-	int scale_uv, ret;
+	int ret;
 
 	scan_type = iio_get_current_scan_type(indio_dev, chan);
 	if (IS_ERR(scan_type))
@@ -945,12 +1113,19 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 
 	case IIO_CHAN_INFO_SCALE:
-		scale_uv = st->vref_uv;
-		if (scale_uv < 0)
-			return scale_uv;
-
-		*val = (scale_uv * 2) / 1000;
-		*val2 = scan_type->realbits;
+		if (st->chip->has_pga) {
+			*val = st->scale_tbl[st->pga_gain_mode][0];
+			*val2 = st->scale_tbl[st->pga_gain_mode][1];
+			return IIO_VAL_INT_PLUS_NANO;
+		}
+		*val = st->vref_uv / 1000;
+		if (st->chip->has_variable_aaf)
+			*val = (*val * MILLI) / ad7768_aaf_gains[st->aaf_gain];
+		/*
+		 * ADC output code is two's complement so only (realbits - 1)
+		 * bits express voltage magnitude
+		 */
+		*val2 = scan_type->realbits - 1;
 
 		return IIO_VAL_FRACTIONAL_LOG2;
 
@@ -963,15 +1138,59 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 	return -EINVAL;
 }
 
+static int ad7768_read_avail(struct iio_dev *indio_dev,
+			     struct iio_chan_spec const *chan,
+			     const int **vals, int *type, int *length,
+			     long info)
+{
+	struct ad7768_state *st = iio_priv(indio_dev);
+
+	switch (info) {
+	case IIO_CHAN_INFO_SCALE:
+		*vals = (int *)st->scale_tbl;
+		*length = st->chip->num_pga_modes * 2;
+		*type = IIO_VAL_INT_PLUS_NANO;
+		return IIO_AVAIL_LIST;
+	default:
+		return -EINVAL;
+	}
+}
+
+static int ad7768_write_raw_get_fmt(struct iio_dev *indio_dev,
+				    struct iio_chan_spec const *chan, long mask)
+{
+	switch (mask) {
+	case IIO_CHAN_INFO_SCALE:
+		return IIO_VAL_INT_PLUS_NANO;
+	default:
+		return IIO_VAL_INT_PLUS_MICRO;
+	}
+
+	return -EINVAL;
+}
+
 static int ad7768_write_raw(struct iio_dev *indio_dev,
 			    struct iio_chan_spec const *chan,
 			    int val, int val2, long info)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
+	const struct iio_scan_type *scan_type;
+	int gain_mode;
+
+	scan_type = iio_get_current_scan_type(indio_dev, chan);
+	if (IS_ERR(scan_type))
+		return PTR_ERR(scan_type);
 
 	switch (info) {
 	case IIO_CHAN_INFO_SAMP_FREQ:
 		return ad7768_set_freq(st, val);
+	case IIO_CHAN_INFO_SCALE:
+		if (!st->chip->has_pga)
+			return -EOPNOTSUPP;
+
+		gain_mode = ad7768_calc_pga_gain(st, val, val2,
+						 scan_type->realbits);
+		return ad7768_set_pga_gain(st, gain_mode);
 	default:
 		return -EINVAL;
 	}
@@ -1011,7 +1230,9 @@ static int ad7768_get_current_scan_type(const struct iio_dev *indio_dev,
 static const struct iio_info ad7768_info = {
 	.attrs = &ad7768_group,
 	.read_raw = &ad7768_read_raw,
+	.read_avail = &ad7768_read_avail,
 	.write_raw = &ad7768_write_raw,
+	.write_raw_get_fmt = &ad7768_write_raw_get_fmt,
 	.read_label = ad7768_read_label,
 	.get_current_scan_type = &ad7768_get_current_scan_type,
 	.debugfs_reg_access = &ad7768_reg_access,
@@ -1267,10 +1488,46 @@ static const struct ad7768_chip_info ad7768_chip_info = {
 	.available_masks = ad7768_channel_masks,
 };
 
+static const struct ad7768_chip_info adaq7767_chip_info = {
+	.name = "adaq7767-1",
+	.channel_spec = ad7768_channels,
+	.num_channels = ARRAY_SIZE(ad7768_channels),
+	.available_masks = ad7768_channel_masks,
+	.has_pga = false,
+	.has_variable_aaf = true
+};
+
+static const struct ad7768_chip_info adaq7768_chip_info = {
+	.name = "adaq7768-1",
+	.channel_spec = adaq776x_channels,
+	.num_channels = ARRAY_SIZE(adaq776x_channels),
+	.available_masks = ad7768_channel_masks,
+	.pga_gains = adaq7768_gains,
+	.default_pga_mode = AD7768_PGA_GAIN_2,
+	.num_pga_modes = ARRAY_SIZE(adaq7768_gains),
+	.pgia_mode2pin_offset = 6,
+	.has_pga = true,
+	.has_variable_aaf = false
+};
+
+static const struct ad7768_chip_info adaq7769_chip_info = {
+	.name = "adaq7769-1",
+	.channel_spec = adaq776x_channels,
+	.num_channels = ARRAY_SIZE(adaq776x_channels),
+	.available_masks = ad7768_channel_masks,
+	.pga_gains = adaq7769_gains,
+	.default_pga_mode = AD7768_PGA_GAIN_0,
+	.num_pga_modes = ARRAY_SIZE(adaq7769_gains),
+	.pgia_mode2pin_offset = 0,
+	.has_pga = true,
+	.has_variable_aaf = true
+};
+
 static int ad7768_probe(struct spi_device *spi)
 {
 	struct ad7768_state *st;
 	struct iio_dev *indio_dev;
+	u32 val;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
@@ -1317,11 +1574,43 @@ static int ad7768_probe(struct spi_device *spi)
 	indio_dev->info = &ad7768_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
+	st->aaf_gain = AD7768_AAF_IN1;
+	ret = device_property_read_u32(&spi->dev, "adi,aaf-gain", &val);
+	if (ret) {
+		/* AAF gain required, but not specified */
+		if (st->chip->has_variable_aaf)
+			return dev_err_probe(&spi->dev, -EINVAL, "AAF gain not specified\n");
+
+	} else if (!st->chip->has_variable_aaf) {
+		/* AAF gain provided, but not supported */
+		return dev_err_probe(&spi->dev, -EINVAL, "AAF gain not supported for %s\n",
+				     st->chip->name);
+	} else {
+		/* Device supports variable AAF gain, validate and set the gain */
+		switch (val) {
+		case 1000:
+			st->aaf_gain = AD7768_AAF_IN1;
+			break;
+		case 364:
+			st->aaf_gain = AD7768_AAF_IN2;
+			break;
+		case 143:
+			st->aaf_gain = AD7768_AAF_IN3;
+			break;
+		default:
+			return dev_err_probe(&spi->dev, -EINVAL,
+					     "Invalid firmware provided gain\n");
+		}
+	}
+
 	ret = ad7768_setup(st, indio_dev);
 	if (ret < 0) {
 		dev_err(&spi->dev, "AD7768 setup failed\n");
 		return ret;
 	}
+
+	if (st->chip->has_pga)
+		ad7768_set_pga_gain(st, st->chip->default_pga_mode);
 
 	ret = ad7768_set_channel_label(indio_dev, st->chip->num_channels);
 	if (ret)
@@ -1339,12 +1628,18 @@ static int ad7768_probe(struct spi_device *spi)
 
 static const struct spi_device_id ad7768_id_table[] = {
 	{ "ad7768-1", (kernel_ulong_t)&ad7768_chip_info },
+	{ "adaq7767-1", (kernel_ulong_t)&adaq7767_chip_info },
+	{ "adaq7768-1", (kernel_ulong_t)&adaq7768_chip_info },
+	{ "adaq7769-1", (kernel_ulong_t)&adaq7769_chip_info },
 	{}
 };
 MODULE_DEVICE_TABLE(spi, ad7768_id_table);
 
 static const struct of_device_id ad7768_of_match[] = {
 	{ .compatible = "adi,ad7768-1", .data = &ad7768_chip_info },
+	{ .compatible = "adi,adaq7767-1", .data = &adaq7767_chip_info },
+	{ .compatible = "adi,adaq7768-1", .data = &adaq7768_chip_info },
+	{ .compatible = "adi,adaq7769-1", .data = &adaq7769_chip_info },
 	{ },
 };
 MODULE_DEVICE_TABLE(of, ad7768_of_match);
