@@ -88,6 +88,17 @@ config LTC6952
 	  To compile this driver as a module, choose M here: the
 	  module will be called ltc6952.
 
+config ADF4030
+	tristate "Analog Devices ADF4030 10-Channel Precision Synchronizer"
+	depends on SPI && COMMON_CLK
+	help
+	  Say yes here to build support for Analog Devices ADF4030
+	  10-Channel Precision Synchronizer. The driver provides direct access
+	  via sysfs.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called adf4030.
+
 endmenu
 
 menu "Direct Digital Synthesis"
