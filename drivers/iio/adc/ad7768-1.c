@@ -725,7 +725,6 @@ static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 		.bits_per_word = 32
 	};
 	unsigned int rx_data[2];
-	unsigned int tx_data[2];
 	struct spi_message msg;
 	int ret;
 
@@ -741,8 +740,6 @@ static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 	if (st->spi_is_dma_mapped) {
 		spi_bus_lock(st->spi->master);
 
-		tx_data[0] = AD7768_RD_FLAG_MSK(AD7768_REG_ADC_DATA) << 24;
-		xfer.tx_buf = tx_data;
 		xfer.rx_buf = rx_data;
 		spi_message_init_with_transfers(&msg, &xfer, 1);
 		ret = spi_engine_offload_load_msg(st->spi, &msg);
