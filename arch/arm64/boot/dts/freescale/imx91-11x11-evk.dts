@@ -240,7 +240,7 @@
 	pinctrl-names = "default", "sleep";
 	pinctrl-0 = <&pinctrl_spdif>;
 	pinctrl-1 = <&pinctrl_spdif_sleep>;
-	clocks = <&clk IMX91_CLK_BUS_WAKEUP>,
+	clocks = <&clk IMX91_CLK_SPDIF_IPG>,
 		<&clk IMX91_CLK_SPDIF_GATE>,
 		<&clk IMX91_CLK_DUMMY>,
 		<&clk IMX91_CLK_AUD_XCVR_GATE>,

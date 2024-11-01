@@ -839,7 +839,7 @@
 					     <GIC_SPI 203 IRQ_TYPE_LEVEL_HIGH>,
 						 /* XCVR IRQ 1 */
 					     <GIC_SPI 204 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&clk IMX91_CLK_BUS_WAKEUP>,
+				clocks = <&clk IMX91_CLK_SPDIF_IPG>,
 					 <&clk IMX91_CLK_SPDIF_GATE>,
 					 <&clk IMX91_CLK_DUMMY>,
 					 <&clk IMX91_CLK_AUD_XCVR_GATE>;
