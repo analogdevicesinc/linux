@@ -63,7 +63,9 @@
 			};
 		};
 
-		eth_recov_clk {
+		eth_recov_clk {					
+			pinctrl-names = "default";
+			pinctrl-0 = <&pinctrl_eth_recov_clk>;
 			reg = <SEC_EMAC_RECOVERED_CLK_CTRL 0x4>;
 		};
 	};

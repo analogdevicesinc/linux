@@ -336,4 +336,11 @@
 		ONE_PPS_CLK_OUTPUT_SE_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 		>;
 	};
+
+	pinctrl_eth_recov_clk: eth-recov-clk-grp {
+		adi,pins = <
+		/* Pin 134: Ethernet recovered clock */
+		ETHERNET_RECOVERED_CLK_PIN (ADI_CONFIG_NO_PULL | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
 };
