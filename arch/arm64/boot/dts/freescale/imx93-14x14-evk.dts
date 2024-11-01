@@ -251,7 +251,7 @@
 	#sound-dai-cells = <0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_spdif>;
-	clocks = <&clk IMX93_CLK_BUS_WAKEUP>,
+	clocks = <&clk IMX93_CLK_SPDIF_IPG>,
 		<&clk IMX93_CLK_SPDIF_GATE>,
 		<&clk IMX93_CLK_DUMMY>,
 		<&clk IMX93_CLK_AUD_XCVR_GATE>,
