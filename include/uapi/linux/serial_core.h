@@ -245,4 +245,7 @@
 /* Sunplus UART */
 #define PORT_SUNPLUS	123
 
+/* RPi firmware UART */
+#define PORT_RPI_FW	124
+
 #endif /* _UAPILINUX_SERIAL_CORE_H */
