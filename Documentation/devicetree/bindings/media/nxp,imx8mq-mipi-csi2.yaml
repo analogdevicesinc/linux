@@ -18,6 +18,7 @@ properties:
   compatible:
     enum:
       - fsl,imx8mq-mipi-csi2
+      - fsl,imx8qm-mipi-csi2
 
   reg:
     maxItems: 1
@@ -39,7 +40,8 @@ properties:
       - const: ui
 
   power-domains:
-    maxItems: 1
+    minItems: 1
+    maxItems: 2
 
   resets:
     items:
@@ -112,7 +114,6 @@ required:
   - clocks
   - clock-names
   - power-domains
-  - resets
   - fsl,mipi-phy-gpr
   - ports
 
