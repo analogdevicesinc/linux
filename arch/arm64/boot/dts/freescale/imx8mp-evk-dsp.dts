@@ -73,7 +73,7 @@
 				  "per_clk7", "per_clk8", "per_clk9";
 	firmware-name = "imx/dsp/hifi4.bin";
 	power-domains = <&audiomix_pd>;
-	mbox-names = "tx0", "rx0", "rxdb0";
+	mbox-names = "tx", "rx", "rxdb";
 	mboxes = <&mu2 0 0>,
 			 <&mu2 1 0>,
 			 <&mu2 3 0>;
