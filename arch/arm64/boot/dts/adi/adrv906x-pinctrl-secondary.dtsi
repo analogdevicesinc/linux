@@ -12,4 +12,11 @@
 
 	pinctrl_secondary_hog: secondary-hog-grp {
 	};
+
+	pinctrl_secondary_eth_recov_clk: secondary-eth-recov-clk-grp {
+		adi,pins = <
+		/* Pin 134: Ethernet recovered clock */
+		ETHERNET_RECOVERED_CLK_PIN (ADI_CONFIG_NO_PULL | ADI_CONFIG_DRIVE_STRENGTH_4)
+		>;
+	};
 };
