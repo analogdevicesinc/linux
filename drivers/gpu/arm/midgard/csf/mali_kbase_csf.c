@@ -1826,10 +1826,28 @@ void kbase_csf_ctx_term(struct kbase_context *kctx)
 			term_queue_group(group);
 		}
 	}
+
 	mutex_unlock(&kctx->csf.lock);
 
 	if (reset_prevented)
 		kbase_reset_gpu_allow(kbdev);
+
+	kbase_csf_event_wait_remove(kctx, kbase_csf_scheduler_check_group_sync_update_cb, kctx);
+
+	/* wait until there is no more protm work */
+	for (i = 0; i < MAX_QUEUE_GROUP_NUM; i++) {
+		struct kbase_queue_group *group = kctx->csf.queue_groups[i];
+
+		if (group) {
+			/* Drain a pending protected mode request if any */
+			kbase_csf_scheduler_wait_for_kthread_pending_work(
+				group->kctx->kbdev, &group->pending_protm_event_work);
+		}
+	}
+
+	/* Drain pending SYNC_UPDATE work if any */
+	kbase_csf_scheduler_wait_for_kthread_pending_work(kctx->kbdev,
+							  &kctx->csf.pending_sync_update);
 
 	/* Now that all queue groups have been terminated, there can be no
 	 * more OoM or timer event interrupts but there can be inflight work
