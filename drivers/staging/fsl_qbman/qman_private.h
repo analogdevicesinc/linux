@@ -37,10 +37,6 @@
 #include <asm/fsl_pamu_stash.h>
 #endif
 
-#if !defined(CONFIG_FSL_QMAN_FQ_LOOKUP) && defined(CONFIG_PPC64)
-#error "_PPC64 requires _FSL_QMAN_FQ_LOOKUP"
-#endif
-
 #define QBMAN_ANY_PORTAL_IDX 0xffffffff
 	/* ----------------- */
 	/* Congestion Groups */

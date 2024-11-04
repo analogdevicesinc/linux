@@ -35,29 +35,6 @@
 /* Portal register assists */
 /***************************/
 
-#if defined(CONFIG_PPC32) || defined(CONFIG_PPC64)
-
-/* Cache-inhibited register offsets */
-#define BM_REG_RCR_PI_CINH	0x0000
-#define BM_REG_RCR_CI_CINH	0x0004
-#define BM_REG_RCR_ITR		0x0008
-#define BM_REG_CFG		0x0100
-#define BM_REG_SCN(n)		(0x0200 + ((n) << 2))
-#define BM_REG_ISR		0x0e00
-#define BM_REG_IIR              0x0e0c
-
-/* Cache-enabled register offsets */
-#define BM_CL_CR		0x0000
-#define BM_CL_RR0		0x0100
-#define BM_CL_RR1		0x0140
-#define BM_CL_RCR		0x1000
-#define BM_CL_RCR_PI_CENA	0x3000
-#define BM_CL_RCR_CI_CENA	0x3100
-
-#endif
-
-#if defined(CONFIG_ARM) || defined(CONFIG_ARM64)
-
 /* Cache-inhibited register offsets */
 #define BM_REG_RCR_PI_CINH	0x3000
 #define BM_REG_RCR_CI_CINH	0x3100
@@ -74,8 +51,6 @@
 #define BM_CL_RCR		0x1000
 #define BM_CL_RCR_PI_CENA	0x3000
 #define BM_CL_RCR_CI_CENA	0x3100
-
-#endif
 
 /* BTW, the drivers (and h/w programming model) already obtain the required
  * synchronisation for portal accesses via lwsync(), hwsync(), and
@@ -262,9 +237,6 @@ static inline struct bm_rcr_entry *bm_rcr_start(struct bm_portal *portal)
 #ifdef CONFIG_FSL_DPA_CHECKING
 	rcr->busy = 1;
 #endif
-#if defined(CONFIG_PPC32) || defined(CONFIG_PPC64)
-	dcbz_64(rcr->cursor);
-#endif
 	return rcr->cursor;
 }
 
@@ -289,9 +261,6 @@ static inline struct bm_rcr_entry *bm_rcr_pend_and_next(
 	dcbf_64(rcr->cursor);
 	RCR_INC(rcr);
 	rcr->available--;
-#if defined(CONFIG_PPC32) || defined(CONFIG_PPC64)
-	dcbz_64(rcr->cursor);
-#endif
 	return rcr->cursor;
 }
 
@@ -439,9 +408,6 @@ static inline struct bm_mc_command *bm_mc_start(struct bm_portal *portal)
 	DPA_ASSERT(mc->state == mc_idle);
 #ifdef CONFIG_FSL_DPA_CHECKING
 	mc->state = mc_user;
-#endif
-#if defined(CONFIG_PPC32) || defined(CONFIG_PPC64)
-	dcbz_64(mc->cr);
 #endif
 	return mc->cr;
 }

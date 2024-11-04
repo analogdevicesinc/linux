@@ -73,9 +73,7 @@ static unsigned long pfn_size;
 static DEFINE_SPINLOCK(mem_lock);
 
 /* The range of TLB1 indices */
-static unsigned int first_tlb;
 static unsigned int num_tlb = 1;
-static unsigned int current_tlb; /* loops around for fault handling */
 
 /* Memory reservation is represented as a list of 'mem_fragment's, some of which
  * may be mapped. Unmapped fragments are always merged where possible. */
@@ -355,30 +353,6 @@ static void compress_frags(void)
 		/* Re evaluate the list, things may merge now */
 		frag = list_entry(mem_list.next, struct mem_fragment, list);
 	}
-}
-
-/* Hook from arch/powerpc/mm/mem.c */
-int usdpaa_test_fault(unsigned long pfn, u64 *phys_addr, u64 *size)
-{
-	struct mem_fragment *frag;
-	int idx = -1;
-	if ((pfn < pfn_start) || (pfn >= (pfn_start + pfn_size)))
-		return -1;
-	/* It's in-range, we need to find the fragment */
-	spin_lock(&mem_lock);
-	list_for_each_entry(frag, &mem_list, list) {
-		if ((pfn >= frag->pfn_base) && (pfn < (frag->pfn_base +
-						       frag->pfn_len))) {
-			*phys_addr = frag->base;
-			*size = frag->len;
-			idx = current_tlb++;
-			if (current_tlb >= (first_tlb + num_tlb))
-				current_tlb = first_tlb;
-			break;
-		}
-	}
-	spin_unlock(&mem_lock);
-	return idx;
 }
 
 static int usdpaa_open(struct inode *inode, struct file *filp)
@@ -2497,10 +2471,6 @@ __init int fsl_usdpaa_init_early(void)
 	}
 	pfn_start = phys_start >> PAGE_SHIFT;
 	pfn_size = phys_size >> PAGE_SHIFT;
-#ifdef CONFIG_PPC
-	first_tlb = current_tlb = tlbcam_index;
-	tlbcam_index += num_tlb;
-#endif
 	pr_info("USDPAA region at %llx:%llx(%lx:%lx), %d TLB1 entries)\n",
 		phys_start, phys_size, pfn_start, pfn_size, num_tlb);
 	return 0;

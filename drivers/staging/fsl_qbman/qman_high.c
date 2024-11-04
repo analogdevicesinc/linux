@@ -596,15 +596,7 @@ struct qman_portal *qman_create_portal(
 
 	__p = &portal->p;
 
-#if (defined CONFIG_PPC || defined CONFIG_PPC64) && defined CONFIG_FSL_PAMU
-        /* PAMU is required for stashing */
-        portal->use_eqcr_ci_stashing = ((qman_ip_rev >= QMAN_REV30) ?
-					1 : 0);
-#elif defined(CONFIG_ARM) || defined(CONFIG_ARM64)
 	portal->use_eqcr_ci_stashing = 1;
-#else
-        portal->use_eqcr_ci_stashing = 0;
-#endif
 
 	/* prep the low-level portal struct with the mapped addresses from the
 	 * config, everything that follows depends on it and "config" is more

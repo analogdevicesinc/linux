@@ -76,16 +76,11 @@
 /* Misc inline assists */
 /***********************/
 
-#if defined CONFIG_PPC32
-#include "dpa_sys_ppc32.h"
-#elif defined CONFIG_PPC64
-#include "dpa_sys_ppc64.h"
-#elif defined CONFIG_ARM
+#if defined CONFIG_ARM
 #include "dpa_sys_arm.h"
 #elif defined CONFIG_ARM64
 #include "dpa_sys_arm64.h"
 #endif
-
 
 #ifdef CONFIG_FSL_DPA_CHECKING
 #define DPA_ASSERT(x) \
