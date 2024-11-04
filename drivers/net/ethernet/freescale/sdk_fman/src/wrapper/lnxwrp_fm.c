@@ -1140,12 +1140,6 @@ static t_Error InitFmDev(t_LnxWrpFmDev  *p_LnxWrpFmDev)
 #endif /* FM_HANG_AT_RESET_MAC_CLK_DISABLED_ERRATA_FMAN_A007273 */
 #endif /* CONFIG_FMAN_ARM */
 
-#ifdef CONFIG_FMAN_P1023
-    if (FM_ConfigDmaAidOverride(p_LnxWrpFmDev->h_Dev, TRUE) != E_OK)
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("FM"));
-#endif
-
-
     CheckNConfigFmAdvArgs(p_LnxWrpFmDev);
 
     if (FM_Init(p_LnxWrpFmDev->h_Dev) != E_OK)

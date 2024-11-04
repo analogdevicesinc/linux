@@ -5,9 +5,6 @@ NET_DPA     = $(srctree)/drivers/net
 DRV_DPA     = $(srctree)/drivers/net/ethernet/freescale/sdk_dpaa
 FMAN        = $(srctree)/drivers/net/ethernet/freescale/sdk_fman
 
-ifeq ("$(CONFIG_FMAN_P1023)", "y")
-ccflags-y +=-include $(FMAN)/p1023_dflags.h
-endif
 ifdef CONFIG_FMAN_V3H
 ccflags-y +=-include $(FMAN)/fmanv3h_dflags.h
 endif
@@ -25,9 +22,6 @@ ccflags-y += -I$(FMAN)/inc/etc
 ccflags-y += -I$(FMAN)/inc/Peripherals
 ccflags-y += -I$(FMAN)/inc/flib
 
-ifeq ("$(CONFIG_FMAN_P1023)", "y")
-ccflags-y += -I$(FMAN)/inc/integrations/P1023
-endif
 ifdef CONFIG_FMAN_V3H
 ccflags-y += -I$(FMAN)/inc/integrations/FMANV3H
 endif

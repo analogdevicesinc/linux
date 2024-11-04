@@ -28,9 +28,6 @@ config FMAN_ARM
 	  Choose "LS1043" for the ARM platforms:
 	  LS1043
 
-config FMAN_P1023
-	bool "P1023"
-
 config FMAN_V3H
 	bool "FmanV3H"
 	help

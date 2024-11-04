@@ -251,10 +251,6 @@ static t_LnxWrpFmPortDev *ReadFmPortDevTreeNode(struct platform_device
 	int _errno = 0, lenp;
 	uint32_t tmp_prop;
 
-#ifdef CONFIG_FMAN_P1023
-	static unsigned char have_oh_port/* = 0 */;
-#endif
-
 	port_node = of_node_get(of_dev->dev.of_node);
 
 	/* Get the FM node */
@@ -301,17 +297,9 @@ static t_LnxWrpFmPortDev *ReadFmPortDevTreeNode(struct platform_device
 			return NULL;
 		}
 
-#ifdef CONFIG_FMAN_P1023
-		/* Beware, this can be done when there is only
-		   one FMan to be initialized */
-		if (!have_oh_port) {
-			have_oh_port = 1; /* first OP/HC port
-					     is used for host command */
-#else
 		/* Here it is hardcoded the use of the OH port 1
 		   (with cell-index 0) */
 		if (tmp_prop == 0) {
-#endif
 			p_LnxWrpFmPortDev = &p_LnxWrpFmDev->hcPort;
 			p_LnxWrpFmPortDev->id = 0;
 			/*
