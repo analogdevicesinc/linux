@@ -5974,29 +5974,3 @@ bool FM_PORT_IsInDsar(t_Handle h_FmPort)
     t_FmPort *p_FmPort = (t_FmPort *)h_FmPort;
     return PTR_TO_UINT(p_FmPort->deepSleepVars.autoResOffsets);
 }
-
-t_Error FM_PORT_GetDsarStats(t_Handle h_FmPortRx, t_FmPortDsarStats *stats)
-{
-    t_FmPort *p_FmPort = (t_FmPort *)h_FmPortRx;
-    struct arOffsets *of = (struct arOffsets*)p_FmPort->deepSleepVars.autoResOffsets;
-    uint8_t* fmMuramVirtBaseAddr = XX_PhysToVirt(p_FmPort->fmMuramPhysBaseAddr);
-    uint32_t *param_page = XX_PhysToVirt(p_FmPort->fmMuramPhysBaseAddr + GET_UINT32(p_FmPort->p_FmPortBmiRegs->rxPortBmiRegs.fmbm_rgpr));
-    t_ArCommonDesc *ArCommonDescPtr = (t_ArCommonDesc*)(XX_PhysToVirt(p_FmPort->fmMuramPhysBaseAddr + GET_UINT32(*param_page)));
-    t_DsarArpDescriptor *ArpDescriptor = (t_DsarArpDescriptor*)(PTR_TO_UINT(ArCommonDescPtr) + of->arp);
-    t_DsarArpStatistics* arp_stats = (t_DsarArpStatistics*)(PTR_TO_UINT(ArpDescriptor->p_Statistics) + fmMuramVirtBaseAddr);
-    t_DsarIcmpV4Descriptor* ICMPV4Descriptor = (t_DsarIcmpV4Descriptor*)(PTR_TO_UINT(ArCommonDescPtr) + of->icmpv4);
-    t_DsarIcmpV4Statistics* icmpv4_stats = (t_DsarIcmpV4Statistics*)(PTR_TO_UINT(ICMPV4Descriptor->p_Statistics) + fmMuramVirtBaseAddr);
-    t_DsarNdDescriptor* NDDescriptor = (t_DsarNdDescriptor*)(PTR_TO_UINT(ArCommonDescPtr) + of->nd);
-    t_NdStatistics* nd_stats = (t_NdStatistics*)(PTR_TO_UINT(NDDescriptor->p_Statistics) + fmMuramVirtBaseAddr);
-    t_DsarIcmpV6Descriptor* ICMPV6Descriptor = (t_DsarIcmpV6Descriptor*)(PTR_TO_UINT(ArCommonDescPtr) + of->icmpv6);
-    t_DsarIcmpV6Statistics* icmpv6_stats = (t_DsarIcmpV6Statistics*)(PTR_TO_UINT(ICMPV6Descriptor->p_Statistics) + fmMuramVirtBaseAddr);
-    t_DsarSnmpDescriptor* SnmpDescriptor = (t_DsarSnmpDescriptor*)(PTR_TO_UINT(ArCommonDescPtr) + of->snmp);
-    t_DsarSnmpStatistics* snmp_stats = (t_DsarSnmpStatistics*)(PTR_TO_UINT(SnmpDescriptor->p_Statistics) + fmMuramVirtBaseAddr);
-    stats->arpArCnt = arp_stats->arCnt;
-    stats->echoIcmpv4ArCnt = icmpv4_stats->arCnt;
-    stats->ndpArCnt = nd_stats->arCnt;
-    stats->echoIcmpv6ArCnt = icmpv6_stats->arCnt;
-    stats->snmpGetCnt = snmp_stats->snmpGetReqCnt;
-    stats->snmpGetNextCnt = snmp_stats->snmpGetNextReqCnt;
-    return E_OK;
-}

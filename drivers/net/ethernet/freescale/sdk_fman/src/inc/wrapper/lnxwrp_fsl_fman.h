@@ -527,9 +527,6 @@ bool fm_port_is_in_auto_res_mode(struct fm_port *port);
 struct auto_res_tables_sizes *fm_port_get_autores_maxsize(
 	struct fm_port *port);
 
-int fm_port_get_autores_stats(struct fm_port *port, struct auto_res_port_stats
-	*stats);
-
 int fm_port_resume(struct fm_port *port);
 
 int fm_port_suspend(struct fm_port *port);

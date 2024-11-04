@@ -1560,16 +1560,6 @@ struct auto_res_tables_sizes *fm_port_get_autores_maxsize(
 }
 EXPORT_SYMBOL(fm_port_get_autores_maxsize);
 
-int fm_port_get_autores_stats(struct fm_port *port,
-	struct auto_res_port_stats *stats)
-{
-	t_LnxWrpFmPortDev *p_LnxWrpFmPortDev = (t_LnxWrpFmPortDev *)port;
-    	if (WARN_ON(sizeof(t_FmPortDsarStats) != sizeof(struct auto_res_port_stats)))
-            return -EFAULT;
-	return FM_PORT_GetDsarStats(p_LnxWrpFmPortDev->h_Dev, (t_FmPortDsarStats*)stats);
-}
-EXPORT_SYMBOL(fm_port_get_autores_stats);
-
 int fm_port_suspend(struct fm_port *port)
 {
 	t_LnxWrpFmPortDev *p_LnxWrpFmPortDev = (t_LnxWrpFmPortDev *)port;

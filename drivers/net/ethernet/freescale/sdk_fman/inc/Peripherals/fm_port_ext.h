@@ -1529,28 +1529,6 @@ typedef struct t_FmPortDsarParams
 *//***************************************************************************/
 bool FM_PORT_IsInDsar(t_Handle h_FmPort);
 
-typedef struct t_FmPortDsarStats
-{
-    uint32_t arpArCnt;
-    uint32_t echoIcmpv4ArCnt;
-    uint32_t ndpArCnt;
-    uint32_t echoIcmpv6ArCnt;
-    uint32_t snmpGetCnt;
-    uint32_t snmpGetNextCnt;
-} t_FmPortDsarStats;
-
-/**************************************************************************//**
- @Function      FM_PORT_GetDsarStats
-
- @Description   Return statistics for Deep Sleep Auto Response
-
- @Param[in]     h_FmPortRx - FM PORT module descriptor
- @Param[out]    stats - structure containing the statistics counters
-
- @Return        E_OK on success; Error code otherwise.
-*//***************************************************************************/
-t_Error FM_PORT_GetDsarStats(t_Handle h_FmPortRx, t_FmPortDsarStats *stats);
-
 #if (defined(DEBUG_ERRORS) && (DEBUG_ERRORS > 0))
 /**************************************************************************//**
  @Function      FM_PORT_DumpRegs
