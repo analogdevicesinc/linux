@@ -1374,71 +1374,11 @@ static const struct of_device_id fm_match[] = {
 MODULE_DEVICE_TABLE(of, fm_match);
 #endif /* !MODULE */
 
-#if defined CONFIG_PM && (defined CONFIG_PPC || defined CONFIG_PPC64)
-
-#define SCFG_FMCLKDPSLPCR_ADDR 0xFFE0FC00C
-#define SCFG_FMCLKDPSLPCR_DS_VAL 0x48402000
-#define SCFG_FMCLKDPSLPCR_NORMAL_VAL 0x00402000
-
-struct device *g_fm_dev;
-
-static int fm_soc_suspend(struct device *dev)
-{
-	int err = 0;
-	uint32_t *fmclk;
-	t_LnxWrpFmDev *p_LnxWrpFmDev = dev_get_drvdata(get_device(dev));
-	g_fm_dev = dev;
-	fmclk = ioremap(SCFG_FMCLKDPSLPCR_ADDR, 4);
-	WRITE_UINT32(*fmclk, SCFG_FMCLKDPSLPCR_DS_VAL);
-	if (p_LnxWrpFmDev->h_DsarRxPort)
-	{
-#ifdef CONFIG_FSL_QORIQ_PM
-		device_set_wakeup_enable(p_LnxWrpFmDev->dev, 1);
-#endif
-		err = FM_PORT_EnterDsarFinal(p_LnxWrpFmDev->h_DsarRxPort,
-			p_LnxWrpFmDev->h_DsarTxPort);
-	}
-	return err;
-}
-
-static int fm_soc_resume(struct device *dev)
-{
-	t_LnxWrpFmDev *p_LnxWrpFmDev = dev_get_drvdata(get_device(dev));
-	uint32_t *fmclk;
-	fmclk = ioremap(SCFG_FMCLKDPSLPCR_ADDR, 4);
-	WRITE_UINT32(*fmclk, SCFG_FMCLKDPSLPCR_NORMAL_VAL);
-	if (p_LnxWrpFmDev->h_DsarRxPort)
-	{
-#ifdef CONFIG_FSL_QORIQ_PM
-		device_set_wakeup_enable(p_LnxWrpFmDev->dev, 0);
-#endif
-		FM_PORT_ExitDsar(p_LnxWrpFmDev->h_DsarRxPort,
-			p_LnxWrpFmDev->h_DsarTxPort);
-		p_LnxWrpFmDev->h_DsarRxPort = 0;
-		p_LnxWrpFmDev->h_DsarTxPort = 0;
-	}
-	return 0;
-}
-
-static const struct dev_pm_ops fm_pm_ops = {
-	.suspend = fm_soc_suspend,
-	.resume = fm_soc_resume,
-};
-
-#define FM_PM_OPS (&fm_pm_ops)
-
-#else /* CONFIG_PM && (CONFIG_PPC || CONFIG_PPC64) */
-
-#define FM_PM_OPS NULL
-
-#endif /* CONFIG_PM && (CONFIG_PPC || CONFIG_PPC64) */
-
 static struct platform_driver fm_driver = {
     .driver = {
         .name           = "fsl-fman",
         .of_match_table    = fm_match,
         .owner          = THIS_MODULE,
-	.pm		= FM_PM_OPS,
     },
     .probe          = fm_probe,
     .remove         = fm_remove

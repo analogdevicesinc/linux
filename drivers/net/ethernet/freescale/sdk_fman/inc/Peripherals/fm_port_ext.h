@@ -1533,39 +1533,6 @@ typedef struct t_FmPortDsarParams
 t_Error FM_PORT_EnterDsar(t_Handle h_FmPortRx, t_FmPortDsarParams *params);
 
 /**************************************************************************//**
- @Function      FM_PORT_EnterDsarFinal
-
- @Description   Enter Deep Sleep Auto Response mode.
-                This function sets the Tx port in independent mode as needed
-                and redirect the receive flow to go through the
-                Dsar Fman-ctrl code
-
- @Param[in]     h_DsarRxPort - FM Rx PORT module descriptor
- @Param[in]     h_DsarTxPort - FM Tx PORT module descriptor
-
- @Return        E_OK on success; Error code otherwise.
-
- @Cautions      Allowed only following FM_PORT_Init().
-*//***************************************************************************/
-t_Error FM_PORT_EnterDsarFinal(t_Handle h_DsarRxPort, t_Handle h_DsarTxPort);
-
-/**************************************************************************//**
- @Function      FM_PORT_ExitDsar
-
- @Description   Exit Deep Sleep Auto Response mode.
-                This function reverse the AR mode and put the ports back into
-                their original wake mode
-
- @Param[in]     h_FmPortRx - FM PORT Rx module descriptor
- @Param[in]     h_FmPortTx - FM PORT Tx module descriptor
-
- @Return        E_OK on success; Error code otherwise.
-
- @Cautions      Allowed only following FM_PORT_EnterDsar().
-*//***************************************************************************/
-void FM_PORT_ExitDsar(t_Handle h_FmPortRx, t_Handle h_FmPortTx);
-
-/**************************************************************************//**
  @Function      FM_PORT_IsInDsar
 
  @Description   This function returns TRUE if the port was set as Auto Response
