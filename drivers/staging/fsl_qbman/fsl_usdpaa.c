@@ -1503,43 +1503,10 @@ found:
 static void portal_config_pamu(struct qm_portal_config *pcfg, uint8_t sdest,
 			       uint32_t cpu, uint32_t cache, uint32_t window)
 {
-#ifdef CONFIG_FSL_PAMU
-	int ret;
-
-	pcfg->iommu_domain = iommu_domain_alloc(&platform_bus_type);
-	if (!pcfg->iommu_domain) {
-		pr_err(KBUILD_MODNAME ":%s(): iommu_domain_alloc() failed",
-			   __func__);
-		goto _no_iommu;
-	}
-
-	ret = fsl_pamu_configure_cache_stash(pcfg->iommu_domain, cpu, cache);
-	if (ret < 0) {
-		pr_err(KBUILD_MODNAME ":%s(): iommu_domain_set_attr() = %d",
-			   __func__, ret);
-		goto _iommu_domain_free;
-	}
-
-	ret = iommu_attach_device(pcfg->iommu_domain, &pcfg->dev);
-	if (ret < 0) {
-		pr_err(KBUILD_MODNAME ":%s(): iommu_device_attach() = %d",
-			   __func__, ret);
-		goto _iommu_domain_free;
-	}
-_no_iommu:
-#endif
-
 #ifdef CONFIG_FSL_QMAN_CONFIG
 	if (qman_set_sdest(pcfg->public_cfg.channel, sdest))
 #endif
 		pr_warn("Failed to set QMan portal's stash request queue\n");
-
-	return;
-
-#ifdef CONFIG_FSL_PAMU
-_iommu_domain_free:
-	iommu_domain_free(pcfg->iommu_domain);
-#endif
 }
 
 static long ioctl_allocate_raw_portal(struct file *fp, struct ctx *ctx,

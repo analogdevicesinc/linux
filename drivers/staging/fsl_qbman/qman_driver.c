@@ -499,44 +499,10 @@ static struct qm_portal_config *get_pcfg_idx(struct list_head *list, u32 idx)
 
 static void portal_set_cpu(struct qm_portal_config *pcfg, int cpu)
 {
-#ifdef CONFIG_FSL_PAMU
-	int ret;
-
-	pcfg->iommu_domain = iommu_domain_alloc(&platform_bus_type);
-	if (!pcfg->iommu_domain) {
-		pr_err(KBUILD_MODNAME ":%s(): iommu_domain_alloc() failed",
-			   __func__);
-		goto _no_iommu;
-	}
-
-	/* set stash information for the window */
-	ret = fsl_pamu_configure_l1_stash(pcfg->iommu_domain, cpu);
-	if (ret < 0) {
-		pr_err(KBUILD_MODNAME ":%s(): iommu_domain_set_attr() = %d",
-			   __func__, ret);
-		goto _iommu_domain_free;
-	}
-
-	ret = iommu_attach_device(pcfg->iommu_domain, &pcfg->dev);
-	if (ret < 0) {
-		pr_err(KBUILD_MODNAME ":%s(): iommu_device_attach() = %d",
-			   __func__, ret);
-		goto _iommu_domain_free;
-	}
-
-_no_iommu:
-#endif
 #ifdef CONFIG_FSL_QMAN_CONFIG
 	if (qman_set_sdest(pcfg->public_cfg.channel, cpu))
 #endif
 		pr_warn("Failed to set QMan portal's stash request queue\n");
-
-	return;
-
-#ifdef CONFIG_FSL_PAMU
-_iommu_domain_free:
-	iommu_domain_free(pcfg->iommu_domain);
-#endif
 }
 
 struct qm_portal_config *qm_get_unused_portal_idx(u32 idx)
@@ -629,18 +595,6 @@ __setup("qportals=", parse_qportals);
 static void qman_portal_update_sdest(const struct qm_portal_config *pcfg,
 							unsigned int cpu)
 {
-#ifdef CONFIG_FSL_PAMU
-	int ret;
-
-	if (pcfg->iommu_domain) {
-		/* set stash information for the window */
-		ret = fsl_pamu_configure_l1_stash(pcfg->iommu_domain, cpu);
-		if (ret < 0) {
-			pr_err("Failed to update pamu stash setting\n");
-			return;
-		}
-	}
-#endif
 #ifdef CONFIG_FSL_QMAN_CONFIG
 	if (qman_set_sdest(pcfg->public_cfg.channel, cpu))
 		pr_warn("Failed to update portal's stash request queue\n");

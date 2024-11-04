@@ -33,10 +33,6 @@
 #include <linux/fsl_qman.h>
 #include <linux/iommu.h>
 
-#if defined(CONFIG_FSL_PAMU)
-#include <asm/fsl_pamu_stash.h>
-#endif
-
 #define QBMAN_ANY_PORTAL_IDX 0xffffffff
 	/* ----------------- */
 	/* Congestion Groups */
