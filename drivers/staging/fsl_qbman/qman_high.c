@@ -313,21 +313,6 @@ static inline void hw_fqd_to_cpu(struct qm_fqd *fqd)
 }
 
 /* Swap a 40 bit address */
-static inline u64 cpu_to_be40(u64 in)
-{
-#if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-	return in;
-#else
-	u64 out = 0;
-	u8 *p = (u8 *) &out;
-	p[0] = in >> 32;
-	p[1] = in >> 24;
-	p[2] = in >> 16;
-	p[3] = in >> 8;
-	p[4] = in >> 0;
-	return out;
-#endif
-}
 static inline u64 be40_to_cpu(u64 in)
 {
 #if __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
