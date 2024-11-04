@@ -56,6 +56,7 @@
 			      BIT(IIO_CHAN_INFO_SCALE) |			\
 			      (_offl ? BIT(IIO_CHAN_INFO_SAMP_FREQ) : 0),	\
 	.info_mask_separate_available = (_reg_access ? BIT(IIO_CHAN_INFO_SCALE) : 0),\
+	.scan_index = 0,							\
 	.scan_type = {								\
 		.sign = _sign,							\
 		.realbits = _real_bits,						\
@@ -70,6 +71,12 @@
 			      (((_offl) || ((_real_bits) > 16)) ? 32 : 16),	\
 			      (_reg_access), (_offl))
 
+#define AD4000_DIFF_CHANNELS(_sign, _real_bits, _reg_access, _offl)		\
+{										\
+	AD4000_DIFF_CHANNEL(_sign, _real_bits, _reg_access, _offl),		\
+	IIO_CHAN_SOFT_TIMESTAMP(1)						\
+}
+
 #define __AD4000_PSEUDO_DIFF_CHANNEL(_sign, _real_bits, _storage_bits,		\
 				     _reg_access, _offl)			\
 {										\
@@ -81,6 +88,7 @@
 			      BIT(IIO_CHAN_INFO_OFFSET) |			\
 			      (_offl ? BIT(IIO_CHAN_INFO_SAMP_FREQ) : 0),	\
 	.info_mask_separate_available = (_reg_access ? BIT(IIO_CHAN_INFO_SCALE) : 0),\
+	.scan_index = 0,							\
 	.scan_type = {								\
 		.sign = _sign,							\
 		.realbits = _real_bits,						\
@@ -94,6 +102,12 @@
 	__AD4000_PSEUDO_DIFF_CHANNEL((_sign), (_real_bits),			\
 				     (((_offl) || ((_real_bits) > 16)) ? 32 : 16),\
 				     (_reg_access), (_offl))
+
+#define AD4000_PSEUDO_DIFF_CHANNELS(_sign, _real_bits, _reg_access, _offl)	\
+{										\
+	AD4000_PSEUDO_DIFF_CHANNEL(_sign, _real_bits, _reg_access, _offl),	\
+	IIO_CHAN_SOFT_TIMESTAMP(1)						\
+}
 
 static const char * const ad4000_power_supplies[] = {
 	"vdd", "vio"
@@ -121,8 +135,8 @@ static const int ad4000_gains[] = {
 
 struct ad4000_chip_info {
 	const char *dev_name;
-	struct iio_chan_spec chan_spec;
-	struct iio_chan_spec reg_access_chan_spec;
+	struct iio_chan_spec chan_spec[2];
+	struct iio_chan_spec reg_access_chan_spec[2];
 	struct iio_chan_spec offload_chan_spec;
 	struct iio_chan_spec reg_access_offload_chan_spec;
 	bool has_hardware_gain;
@@ -131,8 +145,8 @@ struct ad4000_chip_info {
 
 static const struct ad4000_chip_info ad4000_chip_info = {
 	.dev_name = "ad4000",
-	.chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 16, 0, 0),
-	.reg_access_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 16, 1, 0),
+	.chan_spec = AD4000_PSEUDO_DIFF_CHANNELS('u', 16, 0, 0),
+	.reg_access_chan_spec = AD4000_PSEUDO_DIFF_CHANNELS('u', 16, 1, 0),
 	.offload_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 16, 0, 1),
 	.reg_access_offload_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 16, 1, 1),
 	.max_rate_hz  = 2 * MEGA,
@@ -140,8 +154,8 @@ static const struct ad4000_chip_info ad4000_chip_info = {
 
 static const struct ad4000_chip_info ad4001_chip_info = {
 	.dev_name = "ad4001",
-	.chan_spec = AD4000_DIFF_CHANNEL('s', 16, 0, 0),
-	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 16, 1, 0),
+	.chan_spec = AD4000_DIFF_CHANNELS('s', 16, 0, 0),
+	.reg_access_chan_spec = AD4000_DIFF_CHANNELS('s', 16, 1, 0),
 	.offload_chan_spec = AD4000_DIFF_CHANNEL('s', 16, 0, 1),
 	.reg_access_offload_chan_spec = AD4000_DIFF_CHANNEL('s', 16, 1, 1),
 	.max_rate_hz  = 2 * MEGA,
@@ -149,8 +163,8 @@ static const struct ad4000_chip_info ad4001_chip_info = {
 
 static const struct ad4000_chip_info ad4002_chip_info = {
 	.dev_name = "ad4002",
-	.chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 0, 0),
-	.reg_access_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 1, 0),
+	.chan_spec = AD4000_PSEUDO_DIFF_CHANNELS('u', 18, 0, 0),
+	.reg_access_chan_spec = AD4000_PSEUDO_DIFF_CHANNELS('u', 18, 1, 0),
 	.offload_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 0, 1),
 	.reg_access_offload_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 1, 1),
 	.max_rate_hz  = 2 * MEGA,
@@ -158,8 +172,8 @@ static const struct ad4000_chip_info ad4002_chip_info = {
 
 static const struct ad4000_chip_info ad4003_chip_info = {
 	.dev_name = "ad4003",
-	.chan_spec = AD4000_DIFF_CHANNEL('s', 18, 0, 0),
-	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 18, 1, 0),
+	.chan_spec = AD4000_DIFF_CHANNELS('s', 18, 0, 0),
+	.reg_access_chan_spec = AD4000_DIFF_CHANNELS('s', 18, 1, 0),
 	.offload_chan_spec = AD4000_DIFF_CHANNEL('s', 18, 0, 1),
 	.reg_access_offload_chan_spec = AD4000_DIFF_CHANNEL('s', 18, 1, 1),
 	.max_rate_hz  = 2 * MEGA,
@@ -167,8 +181,8 @@ static const struct ad4000_chip_info ad4003_chip_info = {
 
 static const struct ad4000_chip_info ad4004_chip_info = {
 	.dev_name = "ad4004",
-	.chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 16, 0, 0),
-	.reg_access_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 16, 1, 0),
+	.chan_spec = AD4000_PSEUDO_DIFF_CHANNELS('u', 16, 0, 0),
+	.reg_access_chan_spec = AD4000_PSEUDO_DIFF_CHANNELS('u', 16, 1, 0),
 	.offload_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 16, 0, 1),
 	.reg_access_offload_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 16, 1, 1),
 	.max_rate_hz  = 1 * MEGA,
@@ -176,8 +190,8 @@ static const struct ad4000_chip_info ad4004_chip_info = {
 
 static const struct ad4000_chip_info ad4005_chip_info = {
 	.dev_name = "ad4005",
-	.chan_spec = AD4000_DIFF_CHANNEL('s', 16, 0, 0),
-	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 16, 1, 0),
+	.chan_spec = AD4000_DIFF_CHANNELS('s', 16, 0, 0),
+	.reg_access_chan_spec = AD4000_DIFF_CHANNELS('s', 16, 1, 0),
 	.offload_chan_spec = AD4000_DIFF_CHANNEL('s', 16, 0, 1),
 	.reg_access_offload_chan_spec = AD4000_DIFF_CHANNEL('s', 16, 1, 1),
 	.max_rate_hz  = 1 * MEGA,
@@ -185,8 +199,8 @@ static const struct ad4000_chip_info ad4005_chip_info = {
 
 static const struct ad4000_chip_info ad4006_chip_info = {
 	.dev_name = "ad4006",
-	.chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 0, 0),
-	.reg_access_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 1, 0),
+	.chan_spec = AD4000_PSEUDO_DIFF_CHANNELS('u', 18, 0, 0),
+	.reg_access_chan_spec = AD4000_PSEUDO_DIFF_CHANNELS('u', 18, 1, 0),
 	.offload_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 0, 1),
 	.reg_access_offload_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 1, 1),
 	.max_rate_hz  = 1 * MEGA,
@@ -194,8 +208,8 @@ static const struct ad4000_chip_info ad4006_chip_info = {
 
 static const struct ad4000_chip_info ad4007_chip_info = {
 	.dev_name = "ad4007",
-	.chan_spec = AD4000_DIFF_CHANNEL('s', 18, 0, 0),
-	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 18, 1, 0),
+	.chan_spec = AD4000_DIFF_CHANNELS('s', 18, 0, 0),
+	.reg_access_chan_spec = AD4000_DIFF_CHANNELS('s', 18, 1, 0),
 	.offload_chan_spec = AD4000_DIFF_CHANNEL('s', 18, 0, 1),
 	.reg_access_offload_chan_spec = AD4000_DIFF_CHANNEL('s', 18, 1, 1),
 	.max_rate_hz  = 1 * MEGA,
@@ -203,8 +217,8 @@ static const struct ad4000_chip_info ad4007_chip_info = {
 
 static const struct ad4000_chip_info ad4008_chip_info = {
 	.dev_name = "ad4008",
-	.chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 16, 0, 0),
-	.reg_access_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 16, 1, 0),
+	.chan_spec = AD4000_PSEUDO_DIFF_CHANNELS('u', 16, 0, 0),
+	.reg_access_chan_spec = AD4000_PSEUDO_DIFF_CHANNELS('u', 16, 1, 0),
 	.offload_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 16, 0, 1),
 	.reg_access_offload_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 16, 1, 1),
 	.max_rate_hz  =  500 * KILO,
@@ -212,8 +226,8 @@ static const struct ad4000_chip_info ad4008_chip_info = {
 
 static const struct ad4000_chip_info ad4010_chip_info = {
 	.dev_name = "ad4010",
-	.chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 0, 0),
-	.reg_access_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 1, 0),
+	.chan_spec = AD4000_PSEUDO_DIFF_CHANNELS('u', 18, 0, 0),
+	.reg_access_chan_spec = AD4000_PSEUDO_DIFF_CHANNELS('u', 18, 1, 0),
 	.offload_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 0, 1),
 	.reg_access_offload_chan_spec = AD4000_PSEUDO_DIFF_CHANNEL('u', 18, 1, 1),
 	.max_rate_hz  =  500 * KILO,
@@ -221,8 +235,8 @@ static const struct ad4000_chip_info ad4010_chip_info = {
 
 static const struct ad4000_chip_info ad4011_chip_info = {
 	.dev_name = "ad4011",
-	.chan_spec = AD4000_DIFF_CHANNEL('s', 18, 0, 0),
-	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 18, 1, 0),
+	.chan_spec = AD4000_DIFF_CHANNELS('s', 18, 0, 0),
+	.reg_access_chan_spec = AD4000_DIFF_CHANNELS('s', 18, 1, 0),
 	.offload_chan_spec = AD4000_DIFF_CHANNEL('s', 18, 0, 1),
 	.reg_access_offload_chan_spec = AD4000_DIFF_CHANNEL('s', 18, 1, 1),
 	.max_rate_hz  =  500 * KILO,
@@ -230,8 +244,8 @@ static const struct ad4000_chip_info ad4011_chip_info = {
 
 static const struct ad4000_chip_info ad4020_chip_info = {
 	.dev_name = "ad4020",
-	.chan_spec = AD4000_DIFF_CHANNEL('s', 20, 0, 0),
-	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 20, 1, 0),
+	.chan_spec = AD4000_DIFF_CHANNELS('s', 20, 0, 0),
+	.reg_access_chan_spec = AD4000_DIFF_CHANNELS('s', 20, 1, 0),
 	.offload_chan_spec = AD4000_DIFF_CHANNEL('s', 20, 0, 1),
 	.reg_access_offload_chan_spec = AD4000_DIFF_CHANNEL('s', 20, 1, 1),
 	.max_rate_hz  = 1800 * KILO,
@@ -239,8 +253,8 @@ static const struct ad4000_chip_info ad4020_chip_info = {
 
 static const struct ad4000_chip_info ad4021_chip_info = {
 	.dev_name = "ad4021",
-	.chan_spec = AD4000_DIFF_CHANNEL('s', 20, 0, 0),
-	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 20, 1, 0),
+	.chan_spec = AD4000_DIFF_CHANNELS('s', 20, 0, 0),
+	.reg_access_chan_spec = AD4000_DIFF_CHANNELS('s', 20, 1, 0),
 	.offload_chan_spec = AD4000_DIFF_CHANNEL('s', 20, 0, 1),
 	.reg_access_offload_chan_spec = AD4000_DIFF_CHANNEL('s', 20, 1, 1),
 	.max_rate_hz  = 1 * MEGA,
@@ -248,8 +262,8 @@ static const struct ad4000_chip_info ad4021_chip_info = {
 
 static const struct ad4000_chip_info ad4022_chip_info = {
 	.dev_name = "ad4022",
-	.chan_spec = AD4000_DIFF_CHANNEL('s', 20, 0, 0),
-	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 20, 1, 0),
+	.chan_spec = AD4000_DIFF_CHANNELS('s', 20, 0, 0),
+	.reg_access_chan_spec = AD4000_DIFF_CHANNELS('s', 20, 1, 0),
 	.offload_chan_spec = AD4000_DIFF_CHANNEL('s', 20, 0, 1),
 	.reg_access_offload_chan_spec = AD4000_DIFF_CHANNEL('s', 20, 1, 1),
 	.max_rate_hz  =  500 * KILO,
@@ -257,8 +271,8 @@ static const struct ad4000_chip_info ad4022_chip_info = {
 
 static const struct ad4000_chip_info adaq4001_chip_info = {
 	.dev_name = "adaq4001",
-	.chan_spec = AD4000_DIFF_CHANNEL('s', 16, 0, 0),
-	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 16, 1, 0),
+	.chan_spec = AD4000_DIFF_CHANNELS('s', 16, 0, 0),
+	.reg_access_chan_spec = AD4000_DIFF_CHANNELS('s', 16, 1, 0),
 	.offload_chan_spec = AD4000_DIFF_CHANNEL('s', 16, 0, 1),
 	.reg_access_offload_chan_spec = AD4000_DIFF_CHANNEL('s', 16, 1, 1),
 	.has_hardware_gain = true,
@@ -267,8 +281,8 @@ static const struct ad4000_chip_info adaq4001_chip_info = {
 
 static const struct ad4000_chip_info adaq4003_chip_info = {
 	.dev_name = "adaq4003",
-	.chan_spec = AD4000_DIFF_CHANNEL('s', 18, 0, 0),
-	.reg_access_chan_spec = AD4000_DIFF_CHANNEL('s', 18, 1, 0),
+	.chan_spec = AD4000_DIFF_CHANNELS('s', 18, 0, 0),
+	.reg_access_chan_spec = AD4000_DIFF_CHANNELS('s', 18, 1, 0),
 	.offload_chan_spec = AD4000_DIFF_CHANNEL('s', 18, 0, 1),
 	.reg_access_offload_chan_spec = AD4000_DIFF_CHANNEL('s', 18, 1, 1),
 	.has_hardware_gain = true,
@@ -886,11 +900,11 @@ static int ad4000_probe(struct spi_device *spi)
 
 		if (st->using_offload) {
 			indio_dev->channels = &chip->reg_access_offload_chan_spec;
-			ret = ad4000_prepare_offload_turbo_message(st, indio_dev->channels);
+			ret = ad4000_prepare_offload_turbo_message(st, &indio_dev->channels[0]);
 			if (ret)
 				return ret;
 		} else {
-			indio_dev->channels = &chip->reg_access_chan_spec;
+			indio_dev->channels = chip->reg_access_chan_spec;
 		}
 		ret = ad4000_prepare_3wire_mode_message(st, &indio_dev->channels[0]);
 		if (ret)
@@ -908,12 +922,12 @@ static int ad4000_probe(struct spi_device *spi)
 
 			spi->cs_hold.value = AD4000_TCONV_NS;
 			spi->cs_hold.unit = SPI_DELAY_UNIT_NSECS;
-			ret = ad4000_prepare_offload_message(st, indio_dev->channels);
+			ret = ad4000_prepare_offload_message(st, &indio_dev->channels[0]);
 			if (ret)
 				return ret;
 		} else {
 			indio_dev->info = &ad4000_info;
-			indio_dev->channels = &chip->chan_spec;
+			indio_dev->channels = chip->chan_spec;
 		}
 		ret = ad4000_prepare_3wire_mode_message(st, &indio_dev->channels[0]);
 		if (ret)
@@ -926,7 +940,7 @@ static int ad4000_probe(struct spi_device *spi)
 					     "Unsupported sdi-pin + offload config\n");
 
 		indio_dev->info = &ad4000_info;
-		indio_dev->channels = &chip->chan_spec;
+		indio_dev->channels = chip->chan_spec;
 		ret = ad4000_prepare_4wire_mode_message(st, indio_dev->channels);
 		if (ret)
 			return ret;
@@ -942,7 +956,10 @@ static int ad4000_probe(struct spi_device *spi)
 
 	st->max_rate_hz = chip->max_rate_hz;
 	indio_dev->name = chip->dev_name;
-	indio_dev->num_channels = 1;
+	if (st->using_offload)
+		indio_dev->num_channels = 1;
+	else
+		indio_dev->num_channels = 2;
 
 	ret = devm_mutex_init(dev, &st->lock);
 	if (ret)
@@ -963,7 +980,7 @@ static int ad4000_probe(struct spi_device *spi)
 		}
 	}
 
-	ad4000_fill_scale_tbl(st, indio_dev->channels);
+	ad4000_fill_scale_tbl(st, &indio_dev->channels[0]);
 
 	if (st->using_offload) {
 		ret = ad4000_pwm_setup(spi, st);
