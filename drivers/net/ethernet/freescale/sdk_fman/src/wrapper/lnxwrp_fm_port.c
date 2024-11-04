@@ -643,57 +643,6 @@ static t_Error CheckNConfigFmPortAdvArgs (t_LnxWrpFmPortDev *p_LnxWrpFmPortDev)
             RETURN_ERROR(MINOR, err, NO_MSG);
     }
 
-    uint32_prop = (uint32_t *)of_get_property(port_node, "ar-tables-sizes",
-	&lenp);
-    if (uint32_prop) {
-
-    	if (WARN_ON(lenp != sizeof(uint32_t)*8))
-            RETURN_ERROR(MINOR, E_INVALID_VALUE, NO_MSG);
-    	if (WARN_ON(p_LnxWrpFmPortDev->settings.param.portType !=
-		e_FM_PORT_TYPE_RX) &&
-		(p_LnxWrpFmPortDev->settings.param.portType !=
-		e_FM_PORT_TYPE_RX_10G))
-            RETURN_ERROR(MINOR, E_INVALID_VALUE,
-		("Auto Response is an Rx port atribute."));
-
-        memset(&p_LnxWrpFmPortDev->dsar_table_sizes, 0, sizeof(struct auto_res_tables_sizes));
-
-        p_LnxWrpFmPortDev->dsar_table_sizes.max_num_of_arp_entries        =
-		(uint16_t)be32_to_cpu(uint32_prop[0]);
-        p_LnxWrpFmPortDev->dsar_table_sizes.max_num_of_echo_ipv4_entries  =
-		(uint16_t)be32_to_cpu(uint32_prop[1]);
-        p_LnxWrpFmPortDev->dsar_table_sizes.max_num_of_ndp_entries        =
-		(uint16_t)be32_to_cpu(uint32_prop[2]);
-        p_LnxWrpFmPortDev->dsar_table_sizes.max_num_of_echo_ipv6_entries  =
-		(uint16_t)be32_to_cpu(uint32_prop[3]);
-        p_LnxWrpFmPortDev->dsar_table_sizes.max_num_of_snmp_ipv4_entries   =
-		(uint16_t)be32_to_cpu(uint32_prop[4]);
-        p_LnxWrpFmPortDev->dsar_table_sizes.max_num_of_snmp_ipv6_entries   =
-		(uint16_t)be32_to_cpu(uint32_prop[5]);
-        p_LnxWrpFmPortDev->dsar_table_sizes.max_num_of_snmp_oid_entries   =
-		(uint16_t)be32_to_cpu(uint32_prop[6]);
-        p_LnxWrpFmPortDev->dsar_table_sizes.max_num_of_snmp_char          =
-		(uint16_t)be32_to_cpu(uint32_prop[7]);
-
-	uint32_prop = (uint32_t *)of_get_property(port_node,
-		"ar-filters-sizes", &lenp);
-        if (uint32_prop) {
-        	if (WARN_ON(lenp != sizeof(uint32_t)*3))
-                RETURN_ERROR(MINOR, E_INVALID_VALUE, NO_MSG);
-
-            p_LnxWrpFmPortDev->dsar_table_sizes.max_num_of_ip_prot_filtering  =
-		(uint16_t)be32_to_cpu(uint32_prop[0]);
-            p_LnxWrpFmPortDev->dsar_table_sizes.max_num_of_tcp_port_filtering =
-		(uint16_t)be32_to_cpu(uint32_prop[1]);
-            p_LnxWrpFmPortDev->dsar_table_sizes.max_num_of_udp_port_filtering =
-		(uint16_t)be32_to_cpu(uint32_prop[2]);
-        }
-
-        if ((err = FM_PORT_ConfigDsarSupport(p_LnxWrpFmPortDev->h_Dev,
-		(t_FmPortDsarTablesSizes*)&p_LnxWrpFmPortDev->dsar_table_sizes)) != E_OK)
-		RETURN_ERROR(MINOR, err, NO_MSG);
-    }
-
     of_node_put(port_node);
     of_node_put(fm_node);
 

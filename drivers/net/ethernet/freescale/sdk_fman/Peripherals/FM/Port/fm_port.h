@@ -862,16 +862,6 @@ typedef struct t_FmPortRxPoolsParams
     uint16_t    largestBufSize;
 } t_FmPortRxPoolsParams;
 
-typedef struct t_FmPortDsarVars {
-    t_Handle                    *autoResOffsets;
-    t_FmPortDsarTablesSizes     *autoResMaxSizes;
-    uint32_t                    fmbm_tcfg;
-    uint32_t                    fmbm_tcmne;
-    uint32_t                    fmbm_rfne;
-    uint32_t                    fmbm_rfpne;
-    uint32_t                    fmbm_rcfg;
-    bool                        dsarEnabledParser;
-} t_FmPortDsarVars;
 typedef struct {
     struct fman_port            port;
     t_Handle                    h_Fm;
@@ -939,7 +929,6 @@ typedef struct {
     e_FmPortGprFuncType         gprFunc;
     t_FmPcdCtrlParamsPage       *p_ParamsPage;
 #endif /* (DPAA_VERSION >= 11) */
-    t_FmPortDsarVars            deepSleepVars;
     t_FmPortDriverParam         *p_FmPortDriverParam;
 } t_FmPort;
 

@@ -118,9 +118,6 @@ typedef struct {
 #if (DPAA_VERSION >= 11)
     struct device_attribute     *dev_attr_ipv4_opt;
 #endif
-    struct device_attribute     *dev_attr_dsar_regs;
-    struct device_attribute     *dev_attr_dsar_mem;
-    struct auto_res_tables_sizes dsar_table_sizes;
 } t_LnxWrpFmPortDev;
 
 typedef struct {
@@ -216,9 +213,6 @@ typedef struct {
     t_Handle                    h_MuramDev;
     t_Handle                    h_PcdDev;
     t_Handle                    h_RtcDev;
-
-    t_Handle			h_DsarRxPort;
-    t_Handle			h_DsarTxPort;
 
     t_LnxWrpFmPortDev           hcPort;
     t_LnxWrpFmPortDev           opPorts[FM_MAX_NUM_OF_OH_PORTS-1];

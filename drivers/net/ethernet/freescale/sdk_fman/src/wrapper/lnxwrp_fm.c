@@ -1552,39 +1552,21 @@ int fm_port_enable_rx_l4csum(struct fm_port *port, bool enable)
 }
 EXPORT_SYMBOL(fm_port_enable_rx_l4csum);
 
-struct auto_res_tables_sizes *fm_port_get_autores_maxsize(
-	struct fm_port *port)
-{
-	t_LnxWrpFmPortDev   *p_LnxWrpFmPortDev = (t_LnxWrpFmPortDev *)port;
-	return &p_LnxWrpFmPortDev->dsar_table_sizes;
-}
-EXPORT_SYMBOL(fm_port_get_autores_maxsize);
-
 int fm_port_suspend(struct fm_port *port)
 {
 	t_LnxWrpFmPortDev *p_LnxWrpFmPortDev = (t_LnxWrpFmPortDev *)port;
-	if (!FM_PORT_IsInDsar(p_LnxWrpFmPortDev->h_Dev))
-		return FM_PORT_Disable(p_LnxWrpFmPortDev->h_Dev);
-	else
-		return 0;
+
+	return FM_PORT_Disable(p_LnxWrpFmPortDev->h_Dev);
 }
 EXPORT_SYMBOL(fm_port_suspend);
 
 int fm_port_resume(struct fm_port *port)
 {
 	t_LnxWrpFmPortDev *p_LnxWrpFmPortDev = (t_LnxWrpFmPortDev *)port;
-	if (!FM_PORT_IsInDsar(p_LnxWrpFmPortDev->h_Dev))
-		return FM_PORT_Enable(p_LnxWrpFmPortDev->h_Dev);
-	else
-		return 0;
+
+	return FM_PORT_Enable(p_LnxWrpFmPortDev->h_Dev);
 }
 EXPORT_SYMBOL(fm_port_resume);
-
-bool fm_port_is_in_auto_res_mode(struct fm_port *port)
-{
-	return FM_PORT_IsInDsar(port);
-}
-EXPORT_SYMBOL(fm_port_is_in_auto_res_mode);
 
 #ifdef CONFIG_FMAN_PFC
 int fm_port_set_pfc_priorities_mapping_to_qman_wq(struct fm_port *port,
@@ -2122,13 +2104,6 @@ int fm_mac_set_wol(struct fm_port *port, struct fm_mac_dev *fm_mac_dev, bool en)
 {
 	int _errno;
 	t_Error err;
-	t_LnxWrpFmPortDev *p_LnxWrpFmPortDev = (t_LnxWrpFmPortDev *)port;
-
-	/* Do not set WoL on AR ports */
-	if (FM_PORT_IsInDsar(p_LnxWrpFmPortDev->h_Dev)) {
-		printk(KERN_WARNING "Port is AutoResponse enabled! WoL will not be set on this port!\n");
-		return 0;
-	}
 
 	err = FM_MAC_SetWakeOnLan(fm_mac_dev, en);
 

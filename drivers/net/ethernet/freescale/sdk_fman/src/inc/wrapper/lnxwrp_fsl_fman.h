@@ -519,14 +519,6 @@ struct auto_res_port_stats
     uint32_t echo_icmpv6_ar_cnt;
 };
 
-int fm_port_config_autores_for_deepsleep_support(struct fm_port *port,
-	struct auto_res_tables_sizes *params);
-
-bool fm_port_is_in_auto_res_mode(struct fm_port *port);
-
-struct auto_res_tables_sizes *fm_port_get_autores_maxsize(
-	struct fm_port *port);
-
 int fm_port_resume(struct fm_port *port);
 
 int fm_port_suspend(struct fm_port *port);
