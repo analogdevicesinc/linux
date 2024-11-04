@@ -522,12 +522,6 @@ struct auto_res_port_stats
 int fm_port_config_autores_for_deepsleep_support(struct fm_port *port,
 	struct auto_res_tables_sizes *params);
 
-int fm_port_enter_autores_for_deepsleep(struct fm_port *port,
-	struct auto_res_port_params *params);
-
-void fm_port_exit_auto_res_for_deep_sleep(struct fm_port *port_rx,
-	struct fm_port *port_tx);
-
 bool fm_port_is_in_auto_res_mode(struct fm_port *port);
 
 struct auto_res_tables_sizes *fm_port_get_autores_maxsize(

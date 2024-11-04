@@ -1560,29 +1560,6 @@ struct auto_res_tables_sizes *fm_port_get_autores_maxsize(
 }
 EXPORT_SYMBOL(fm_port_get_autores_maxsize);
 
-int fm_port_enter_autores_for_deepsleep(struct fm_port *port,
-	struct auto_res_port_params *params)
-{
-	t_LnxWrpFmPortDev   *p_LnxWrpFmPortDev = (t_LnxWrpFmPortDev *)port;
-	t_LnxWrpFmDev* p_LnxWrpFmDev = (t_LnxWrpFmDev*)p_LnxWrpFmPortDev->h_LnxWrpFmDev;
-	p_LnxWrpFmDev->h_DsarRxPort = p_LnxWrpFmPortDev->h_Dev;
-	p_LnxWrpFmDev->h_DsarTxPort = params->h_FmPortTx;
-
-		/*Register other under /proc/autoresponse */
-    	if (WARN_ON(sizeof(t_FmPortDsarParams) != sizeof(struct auto_res_port_params)))
-            return -EFAULT;
-
-	FM_PORT_EnterDsar(p_LnxWrpFmPortDev->h_Dev, (t_FmPortDsarParams*)params);
-	return 0;
-}
-EXPORT_SYMBOL(fm_port_enter_autores_for_deepsleep);
-
-void fm_port_exit_auto_res_for_deep_sleep(struct fm_port *port_rx,
-	struct fm_port *port_tx)
-{
-}
-EXPORT_SYMBOL(fm_port_exit_auto_res_for_deep_sleep);
-
 int fm_port_get_autores_stats(struct fm_port *port,
 	struct auto_res_port_stats *stats)
 {

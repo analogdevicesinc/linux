@@ -1517,22 +1517,6 @@ typedef struct t_FmPortDsarParams
 } t_FmPortDsarParams;
 
 /**************************************************************************//**
- @Function      FM_PORT_EnterDsar
-
- @Description   Enter Deep Sleep Auto Response mode.
-                This function write the apropriate values to in the relevant
-                tables in the MURAM.
-
- @Param[in]     h_FmPortRx - FM PORT module descriptor
- @Param[in]     params - Auto Response parameters
-
- @Return        E_OK on success; Error code otherwise.
-
- @Cautions      Allowed only following FM_PORT_Init().
-*//***************************************************************************/
-t_Error FM_PORT_EnterDsar(t_Handle h_FmPortRx, t_FmPortDsarParams *params);
-
-/**************************************************************************//**
  @Function      FM_PORT_IsInDsar
 
  @Description   This function returns TRUE if the port was set as Auto Response
