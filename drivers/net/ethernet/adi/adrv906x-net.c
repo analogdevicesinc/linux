@@ -45,6 +45,32 @@ static u64 default_multicast_list[MAX_MULTICAST_FILTERS] = {
 	0x0000011B19000000, 0x00000180C200000E, 0x00000180C2000003
 };
 
+void adrv906x_eth_cmn_set_link(struct net_device *ndev, u32 lane, bool rx_only, bool enable)
+{
+	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
+	void __iomem *regs = eth_if->emac_cmn_regs;
+	unsigned int val, enable_bit;
+
+	if (rx_only)
+		enable_bit = (lane == 0) ? EMAC_CMN_RX_LINK0_EN : EMAC_CMN_RX_LINK1_EN;
+	else
+		enable_bit = (lane == 0) ? EMAC_CMN_RX_LINK0_EN | EMAC_CMN_TX_LINK0_EN :
+			     EMAC_CMN_RX_LINK1_EN | EMAC_CMN_TX_LINK1_EN;
+
+	mutex_lock(&eth_if->mtx);
+	val = ioread32(regs + EMAC_CMN_DIGITAL_CTRL0);
+
+	if (enable)
+		val |= enable_bit;
+	else
+		val &= ~enable_bit;
+
+	iowrite32(val, regs + EMAC_CMN_DIGITAL_CTRL0);
+	mutex_unlock(&eth_if->mtx);
+}
+EXPORT_SYMBOL(adrv906x_eth_cmn_set_link);
+
 void adrv906x_eth_cmn_serdes_tx_sync_trigger(struct net_device *ndev, u32 lane)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
@@ -206,10 +232,8 @@ static void adrv906x_eth_cmn_init(void __iomem *regs, bool switch_enabled, bool 
 		EMAC_CMN_RXDES_DIG_RESET_N_1;
 	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
 
-	val2 |= EMAC_CMN_RX_LINK0_EN
-		| EMAC_CMN_RX_LINK1_EN
-		| EMAC_CMN_TX_LINK0_EN
-		| EMAC_CMN_TX_LINK1_EN;
+	val2 |= EMAC_CMN_TX_LINK0_EN |
+		EMAC_CMN_TX_LINK1_EN;
 #if IS_ENABLED(CONFIG_MACSEC)
 	if (macsec_enabled)
 		val2 &= ~EMAC_CMN_MACSEC_BYPASS_EN;
@@ -357,8 +381,9 @@ static DEVICE_ATTR_RW(adrv906x_eth_cdr_div_out_enable);
 static void adrv906x_eth_adjust_link(struct net_device *ndev)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
-	struct adrv906x_tsu *tsu;
+	struct adrv906x_mac *mac = &adrv906x_dev->mac;
 	struct phy_device *phydev = ndev->phydev;
+	struct adrv906x_tsu *tsu;
 
 	tsu = &(adrv906x_dev->tsu);
 	adrv906x_tsu_set_speed(tsu, phydev->speed);
@@ -380,7 +405,7 @@ static void adrv906x_eth_adjust_link(struct net_device *ndev)
 
 	adrv906x_eth_cmn_mode_cfg(adrv906x_dev);
 	adrv906x_eth_cmn_recovered_clk_config(adrv906x_dev);
-
+	adrv906x_mac_set_path(mac, true);
 	phy_print_status(phydev);
 }
 

@@ -30,6 +30,26 @@ void adrv906x_mac_promiscuous_mode_dis(struct adrv906x_mac *mac)
 	iowrite32(val, emac_rx + MAC_RX_CTRL);
 }
 
+void adrv906x_mac_tx_path_en(struct adrv906x_mac *mac)
+{
+	void __iomem *emac_tx = mac->emac_tx;
+	unsigned int val;
+
+	val = ioread32(emac_tx + MAC_TX_CTRL);
+	val |= MAC_TX_PATH_EN;
+	iowrite32(val, emac_tx + MAC_TX_CTRL);
+}
+
+void adrv906x_mac_tx_path_dis(struct adrv906x_mac *mac)
+{
+	void __iomem *emac_tx = mac->emac_tx;
+	unsigned int val;
+
+	val = ioread32(emac_tx + MAC_TX_CTRL);
+	val &= ~MAC_TX_PATH_EN;
+	iowrite32(val, emac_tx + MAC_TX_CTRL);
+}
+
 void adrv906x_mac_rx_path_en(struct adrv906x_mac *mac)
 {
 	void __iomem *emac_rx = mac->emac_rx;
@@ -49,6 +69,18 @@ void adrv906x_mac_rx_path_dis(struct adrv906x_mac *mac)
 	val &= ~MAC_RX_PATH_EN;
 	iowrite32(val, emac_rx + MAC_RX_CTRL);
 }
+
+void adrv906x_mac_set_path(struct adrv906x_mac *mac, bool enable)
+{
+	if (enable) {
+		adrv906x_mac_rx_path_en(mac);
+		adrv906x_mac_tx_path_en(mac);
+	} else {
+		adrv906x_mac_tx_path_dis(mac);
+		adrv906x_mac_rx_path_dis(mac);
+	}
+}
+
 
 void adrv906x_mac_set_multicast_filter(struct adrv906x_mac *mac, u64 mac_addr, int filter_id)
 {
@@ -169,6 +201,9 @@ int adrv906x_mac_init(struct adrv906x_mac *mac, unsigned int size)
 	mac->id = ioread32(mac->xmac + MAC_IP_ID);
 	mac->version = ioread32(mac->xmac + MAC_IP_VERSION);
 	mac->cap = ioread32(mac->xmac + MAC_IP_CAPABILITIES);
+
+	adrv906x_mac_tx_path_dis(mac);
+	adrv906x_mac_rx_path_dis(mac);
 
 	mutex_init(&mac->mac_hw_stats_lock);
 	INIT_DELAYED_WORK(&mac->update_stats, adrv906x_mac_update_hw_stats);
