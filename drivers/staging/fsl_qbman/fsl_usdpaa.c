@@ -2531,7 +2531,6 @@ static int __init usdpaa_init(void)
 	int ret;
 	u64 tmp_size = phys_size;
 	u64 tmp_start = phys_start;
-	u64 tmp_pfn_size = pfn_size;
 	u64 tmp_pfn_start = pfn_start;
 
 	pr_info("Freescale USDPAA process driver\n");
@@ -2561,7 +2560,6 @@ static int __init usdpaa_init(void)
 		tmp_start += frag_size;
 		tmp_size -= frag_size;
 		tmp_pfn_start += frag_size / PAGE_SIZE;
-		tmp_pfn_size -= frag_size / PAGE_SIZE;
 	}
 	ret = misc_register(&usdpaa_miscdev);
 	if (ret)
