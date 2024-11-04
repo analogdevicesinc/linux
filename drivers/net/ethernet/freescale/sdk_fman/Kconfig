@@ -28,12 +28,6 @@ config FMAN_ARM
 	  Choose "LS1043" for the ARM platforms:
 	  LS1043
 
-config FMAN_V3L
-	bool "FmanV3L"
-	help
-	  Choose "FmanV3L" for Fman rev3L:
-	  T1040, T1042, T1020, T1022, T1023, T1024, etc
-
 endchoice
 endmenu
 
@@ -104,7 +98,7 @@ config FSL_FM_RX_EXTRA_HEADROOM
 
 config FMAN_PFC
 	bool "FMan PFC support (EXPERIMENTAL)"
-	depends on (FMAN_V3L || FMAN_ARM) && FSL_SDK_FMAN
+	depends on FMAN_ARM && FSL_SDK_FMAN
 	default n
 	help
 		This option enables PFC support on FMan v3 ports.
