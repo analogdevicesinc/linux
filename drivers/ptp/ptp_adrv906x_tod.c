@@ -392,23 +392,22 @@ static int adrv906x_tod_hw_update_tstamp(struct adrv906x_tod_counter *counter,
 	u32 seconds;
 	u32 ns;
 
-	/* Calculate the trigger delay time */
+	/* Do not compensate timestamps when updating on PPS edges */
 	if (counter->trigger_mode == HW_TOD_TRIG_MODE_PPS) {
-		/* In 1PPS mode, the trigger delay should be 100 milliseconds */
-		trig_delay.ns = 100 * NSEC_PER_MSEC;
-		trig_delay.rem_ns = 0;
-	} else {
-		/*
-		 * In GC mode, the trigger delay value depends on the 'trig_delay_tick'
-		 * adrv906x_tod_trig_delay.ns = counter->trig_delay_tick * 1e6 / tod->gc_clk_freq_khz
-		 * adrv906x_tod_trig_delay.rem_ns = counter->trig_delay_tick * 1e6 % tod->gc_clk_freq_khz
-		 * 1e6 is used to calculate the nanosecond of the trigger tick in order that the
-		 * "counter->trig_delay_tick * 1e6" will not overflow unless
-		 * counter->trig_delay_tick beyond the value "2^44".
-		 */
-		trig_delay.ns = div_u64_rem(counter->trig_delay_tick * USEC_PER_SEC,
-					    tod->gc_clk_freq_khz, &(trig_delay.rem_ns));
+		memcpy(dest_tstamp, ori_tstamp, sizeof(struct adrv906x_tod_tstamp));
+		return 0;
 	}
+
+	/*
+	 * In GC mode, the trigger delay value depends on the 'trig_delay_tick'
+	 * adrv906x_tod_trig_delay.ns = counter->trig_delay_tick * 1e6 / tod->gc_clk_freq_khz
+	 * adrv906x_tod_trig_delay.rem_ns = counter->trig_delay_tick * 1e6 % tod->gc_clk_freq_khz
+	 * 1e6 is used to calculate the nanosecond of the trigger tick in order that the
+	 * "counter->trig_delay_tick * 1e6" will not overflow unless
+	 * counter->trig_delay_tick beyond the value "2^44".
+	 */
+	trig_delay.ns = div_u64_rem(counter->trig_delay_tick * USEC_PER_SEC,
+				    tod->gc_clk_freq_khz, &(trig_delay.rem_ns));
 
 	/*
 	 * Update the ToD vector value:
