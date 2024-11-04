@@ -542,9 +542,8 @@ static inline int bm_shutdown_pool(struct bm_portal *p, u32 bpid)
 {
 	struct bm_mc_command *bm_cmd;
 	struct bm_mc_result *bm_res;
-
-	int aq_count = 0;
 	bool stop = false;
+
 	while (!stop) {
 		/* Acquire buffers until empty */
 		bm_cmd = bm_mc_start(p);
@@ -558,8 +557,7 @@ static inline int bm_shutdown_pool(struct bm_portal *p, u32 bpid)
 			   case some other some blocks keep buffers 'on deck',
 			   which may also be problematic */
 			stop = true;
-		} else
-			++aq_count;
+		}
 	}
 	return 0;
 }
