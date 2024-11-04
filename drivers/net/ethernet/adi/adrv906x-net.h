@@ -116,5 +116,6 @@ struct adrv906x_eth_if {
 
 void adrv906x_eth_cmn_serdes_tx_sync_trigger(struct net_device *ndev, u32 lane);
 void adrv906x_eth_cmn_serdes_reset_4pack(struct net_device *ndev);
+void adrv906x_eth_cmn_set_link(struct net_device *ndev, u32 lane, bool rx_only, bool enable);
 
 #endif /* __ADRV906X_NET_H__ */

@@ -590,11 +590,15 @@ static int adrv906x_test_set_phy_loopback(struct net_device *ndev, bool enable)
 
 static int adrv906x_test_near_end_loopback_test(struct net_device *ndev)
 {
-	struct adrv906x_packet_attrs attr = { };
+	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
 	int dev_state = netif_running(ndev);
+	struct adrv906x_mac *mac = &adrv906x_dev->mac;
+	struct adrv906x_packet_attrs attr = { };
 	int ret;
 
 	netdev_printk(KERN_DEBUG, ndev, "adrv906x_test_near_end_loopback_test");
+
+	adrv906x_mac_set_path(mac, true);
 
 	if (dev_state) {
 		netdev_printk(KERN_DEBUG, ndev, "stopping device in network stack");
@@ -619,7 +623,7 @@ out:
 
 	msleep(2000);
 	netdev_printk(KERN_DEBUG, ndev, "adrv906x_test_near_end_loopback_test done");
-
+	adrv906x_mac_set_path(mac, false);
 	return ret;
 }
 
