@@ -9,7 +9,6 @@
  * kind, whether express or implied.
  */
 
-
 #include <linux/miscdevice.h>
 #include <linux/fs.h>
 #include <linux/cdev.h>
@@ -22,10 +21,6 @@
 #include <linux/of_reserved_mem.h>
 #include <linux/eventfd.h>
 #include <linux/fdtable.h>
-
-#if !(defined(CONFIG_ARM) || defined(CONFIG_ARM64))
-#include <mm/mmu_decl.h>
-#endif
 
 #include "dpa_sys.h"
 #include <linux/fsl_usdpaa.h>
@@ -1242,7 +1237,6 @@ static long ioctl_dma_unmap(struct ctx *ctx, void __user *arg)
 	struct mem_fragment *current_frag;
 	size_t sz;
 	unsigned long base;
-	unsigned long vaddr;
 
 	down_write(&current->mm->mmap_lock);
 	vma = find_vma(current->mm, (unsigned long)arg);
@@ -1276,20 +1270,9 @@ map_match:
 	}
 
 	current_frag = map->root_frag;
-	vaddr = (unsigned long) map->virt_addr;
 	for (i = 0; i < map->frag_count; i++) {
 		DPA_ASSERT(current_frag->refs > 0);
 		--current_frag->refs;
-#if !(defined(CONFIG_ARM) || defined(CONFIG_ARM64))
-		/*
-		 * Make sure we invalidate the TLB entry for
-		 * this fragment, otherwise a remap of a different
-		 * page to this vaddr would give acces to an
-		 * incorrect piece of memory
-		 */
-		cleartlbcam(vaddr, mfspr(SPRN_PID));
-#endif
-		vaddr += current_frag->len;
 		current_frag = list_entry(current_frag->list.prev,
 					  struct mem_fragment, list);
 	}
