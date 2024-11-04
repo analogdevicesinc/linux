@@ -35,11 +35,10 @@
 	};
 
 	sof-sound-wm8962 {
-		compatible = "simple-audio-card";
+		compatible = "audio-graph-card2";
 		links = <&cpu>;
 		label = "wm8962-audio";
 		hp-det-gpio = <&lsio_gpio1 0 0>;
-		mic-det-gpio = <&lsio_gpio1 0 0>;
 		widgets =
 			"Headphone", "Headphones",
 			"Microphone", "Headset Mic",
