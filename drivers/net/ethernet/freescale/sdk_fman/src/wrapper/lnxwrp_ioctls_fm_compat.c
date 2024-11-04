@@ -53,9 +53,6 @@
 #include <linux/ioport.h>
 #include <asm/uaccess.h>
 #include <asm/errno.h>
-#ifndef CONFIG_FMAN_ARM
-#include <sysdev/fsl_soc.h>
-#endif
 
 #include "part_ext.h"
 #include "fm_ioctls.h"

@@ -84,12 +84,10 @@ typedef  phys_addr_t physAddress_t;
 /************************/
 /* memory access macros */
 /************************/
-#ifdef CONFIG_FMAN_ARM
 #define in_be16(a)		__be16_to_cpu(__raw_readw(a))
 #define in_be32(a)		__be32_to_cpu(__raw_readl(a))
 #define out_be16(a, v)		__raw_writew(__cpu_to_be16(v), a)
 #define out_be32(a, v)		__raw_writel(__cpu_to_be32(v), a)
-#endif
 
 #define GET_UINT8(arg)              *(volatile uint8_t *)(&(arg))
 #define GET_UINT16(arg)             in_be16(&(arg))//*(volatile uint16_t*)(&(arg))

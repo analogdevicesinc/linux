@@ -5,20 +5,14 @@ NET_DPA     = $(srctree)/drivers/net
 DRV_DPA     = $(srctree)/drivers/net/ethernet/freescale/sdk_dpaa
 FMAN        = $(srctree)/drivers/net/ethernet/freescale/sdk_fman
 
-ifdef CONFIG_FMAN_ARM
 ccflags-y +=-include $(FMAN)/ls1043_dflags.h
-endif
-
 ccflags-y += -I$(DRV_DPA)/
 ccflags-y += -I$(FMAN)/inc
 ccflags-y += -I$(FMAN)/inc/cores
 ccflags-y += -I$(FMAN)/inc/etc
 ccflags-y += -I$(FMAN)/inc/Peripherals
 ccflags-y += -I$(FMAN)/inc/flib
-
-ifdef CONFIG_FMAN_ARM
 ccflags-y += -I$(FMAN)/inc/integrations/LS1043
-endif
 
 # FM_COMPAT is used in kernel headers in case of kernel option leaking
 ifeq ("$(CONFIG_COMPAT)", "y")

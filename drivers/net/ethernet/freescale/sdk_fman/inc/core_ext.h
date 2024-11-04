@@ -43,28 +43,8 @@
 #ifndef __CORE_EXT_H
 #define __CORE_EXT_H
 
-#ifdef CONFIG_FMAN_ARM
 #include "arm_ext.h"
 #include <linux/smp.h>
-#else
-#ifdef NCSW_PPC_CORE
-#include "ppc_ext.h"
-#elif defined(NCSW_VXWORKS)
-#include "core_vxw_ext.h"
-#else
-#error "Core is not defined!"
-#endif /* NCSW_CORE */
-
-#if (!defined(CORE_IS_LITTLE_ENDIAN) && !defined(CORE_IS_BIG_ENDIAN))
-#error "Must define core as little-endian or big-endian!"
-#endif /* (!defined(CORE_IS_LITTLE_ENDIAN) && ... */
-
-#ifndef CORE_CACHELINE_SIZE
-#error "Must define the core cache-line size!"
-#endif /* !CORE_CACHELINE_SIZE */
-
-#endif /* CONFIG_FMAN_ARM */
-
 
 /**************************************************************************//**
  @Function      CORE_GetId

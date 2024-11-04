@@ -48,9 +48,6 @@
 #include "fm_common.h"
 #include "fm_ipc.h"
 #include "fm.h"
-#ifndef CONFIG_FMAN_ARM
-#include <linux/fsl/svr.h>
-#endif
 #include "fsl_fman.h"
 
 #define __ERR_MODULE__  MODULE_FM

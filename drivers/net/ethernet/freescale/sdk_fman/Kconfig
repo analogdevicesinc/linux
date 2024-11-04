@@ -16,21 +16,6 @@ config FSL_SDK_FMAN_TEST
 	help
 		This option compiles test code for FMan.
 
-menu "FMAN Processor support"
-choice
-	depends on FSL_SDK_FMAN
-	prompt "Processor Type"
-
-config FMAN_ARM
-	bool "LS1043"
-	depends on ARM64 || ARM
-	help
-	  Choose "LS1043" for the ARM platforms:
-	  LS1043
-
-endchoice
-endmenu
-
 config FSL_SDK_FMAN_RTC_API
 	bool "FMan RTC (1588 timer) APIs"
 	default n
@@ -51,7 +36,6 @@ config FMAN_MIB_CNT_OVF_IRQ_EN
 
 config FSL_FM_MAX_FRAME_SIZE
 	int "Maximum L2 frame size"
-	depends on FSL_SDK_FMAN
 	range 64 9600
 	default "1522"
 	help
@@ -78,7 +62,6 @@ config FSL_FM_MAX_FRAME_SIZE
 
 config FSL_FM_RX_EXTRA_HEADROOM
 	int "Add extra headroom at beginning of data buffers"
-	depends on FSL_SDK_FMAN
 	range 16 384
 	default "64"
 	help
@@ -98,7 +81,6 @@ config FSL_FM_RX_EXTRA_HEADROOM
 
 config FMAN_PFC
 	bool "FMan PFC support (EXPERIMENTAL)"
-	depends on FMAN_ARM && FSL_SDK_FMAN
 	default n
 	help
 		This option enables PFC support on FMan v3 ports.
@@ -108,7 +90,7 @@ config FMAN_PFC
 if FMAN_PFC
 config FMAN_PFC_COS_COUNT
 	int "Number of PFC Classes of Service"
-	depends on FMAN_PFC && FSL_SDK_FMAN
+	depends on FMAN_PFC
 	range 1 4
 	default "3"
 	help
@@ -116,25 +98,25 @@ config FMAN_PFC_COS_COUNT
 
 config FMAN_PFC_QUANTA_0
 	int "The pause quanta for PFC CoS 0"
-	depends on FMAN_PFC && FSL_SDK_FMAN
+	depends on FMAN_PFC
 	range 0 65535
 	default "65535"
 
 config FMAN_PFC_QUANTA_1
 	int "The pause quanta for PFC CoS 1"
-	depends on FMAN_PFC && FSL_SDK_FMAN
+	depends on FMAN_PFC
 	range 0 65535
 	default "65535"
 
 config FMAN_PFC_QUANTA_2
 	int "The pause quanta for PFC CoS 2"
-	depends on FMAN_PFC && FSL_SDK_FMAN
+	depends on FMAN_PFC
 	range 0 65535
 	default "65535"
 
 config FMAN_PFC_QUANTA_3
 	int "The pause quanta for PFC CoS 3"
-	depends on FMAN_PFC && FSL_SDK_FMAN
+	depends on FMAN_PFC
 	range 0 65535
 	default "65535"
 endif

@@ -54,10 +54,6 @@
 #include <linux/platform_device.h>
 #include <linux/uaccess.h>
 #include <asm/errno.h>
-#ifndef CONFIG_FMAN_ARM
-#include <sysdev/fsl_soc.h>
-#include <linux/fsl/svr.h>
-#endif
 
 #if defined(CONFIG_COMPAT)
 #include <linux/compat.h>
@@ -68,11 +64,6 @@
 #include "fm_pcd_ioctls.h"
 #include "fm_port_ioctls.h"
 #include "fm_vsp_ext.h"
-
-#ifndef CONFIG_FMAN_ARM
-#define IS_T1023_T1024	(SVR_SOC_VER(mfspr(SPRN_SVR)) == SVR_T1024 || \
-			SVR_SOC_VER(mfspr(SPRN_SVR)) == SVR_T1023)
-#endif
 
 #define __ERR_MODULE__  MODULE_FM
 
@@ -1561,15 +1552,7 @@ Status: feature not supported
 
                     case (e_IOC_FM_PORT_TYPE_RX_10G):
                         if (port_params->port_id < FM_MAX_NUM_OF_10G_RX_PORTS) {
-#ifndef CONFIG_FMAN_ARM
-                            if (IS_T1023_T1024) {
-                                h_Port = p_LnxWrpFmDev->rxPorts[port_params->port_id].h_Dev;
-                            } else {
-#else
-                            {
-#endif
-                                h_Port = p_LnxWrpFmDev->rxPorts[port_params->port_id + FM_MAX_NUM_OF_1G_RX_PORTS].h_Dev;
-                            }
+                            h_Port = p_LnxWrpFmDev->rxPorts[port_params->port_id + FM_MAX_NUM_OF_1G_RX_PORTS].h_Dev;
                             break;
                         }
                         goto invalid_port_id;

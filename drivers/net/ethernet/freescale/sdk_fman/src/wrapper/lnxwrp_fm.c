@@ -55,11 +55,6 @@
 #include <linux/clk.h>
 #include <asm/uaccess.h>
 #include <asm/errno.h>
-#ifndef CONFIG_FMAN_ARM
-#include <sysdev/fsl_soc.h>
-#include <linux/fsl/guts.h>
-#include <linux/fsl/svr.h>
-#endif
 #include <linux/stat.h>	   /* For file access mask */
 #include <linux/skbuff.h>
 #include <linux/proc_fs.h>
@@ -670,16 +665,6 @@ static t_LnxWrpFmDev * ReadFmDevTreeNode (struct platform_device *of_dev)
             p_LnxWrpFmDev->fmMuramBaseAddr = 0;
             p_LnxWrpFmDev->fmMuramPhysBaseAddr = res.start;
             p_LnxWrpFmDev->fmMuramMemSize = res.end + 1 - res.start;
-
-#ifndef CONFIG_FMAN_ARM
-            {
-               uint32_t svr;
-                svr = mfspr(SPRN_SVR);
-
-                if ((svr & ~SVR_VER_IGNORE_MASK) >= SVR_B4860_REV2_VALUE)
-                    p_LnxWrpFmDev->fmMuramMemSize = 0x80000;
-            }
-#endif
         }
     }
 
@@ -964,95 +949,6 @@ static t_Error ConfigureFmDev(t_LnxWrpFmDev  *p_LnxWrpFmDev)
     return FillRestFmInfo(p_LnxWrpFmDev);
 }
 
-#ifndef CONFIG_FMAN_ARM
-/*
- * Table for matching compatible strings, for device tree
- * guts node, for QorIQ SOCs.
- * "fsl,qoriq-device-config-2.0" corresponds to T4 & B4
- * SOCs. For the older SOCs "fsl,qoriq-device-config-1.0"
- * string would be used.
-*/
-static const struct of_device_id guts_device_ids[] = {
-        { .compatible = "fsl,qoriq-device-config-1.0", },
-        { .compatible = "fsl,qoriq-device-config-2.0", },
-        {}
-};
-
-static unsigned int get_rcwsr(int regnum)
-{
-	struct ccsr_guts __iomem *guts_regs = NULL;
-	struct device_node *guts_node;
-
-	guts_node = of_find_matching_node(NULL, guts_device_ids);
-	if (!guts_node) {
-		pr_err("could not find GUTS node\n");
-		return 0;
-	}
-	guts_regs = of_iomap(guts_node, 0);
-	of_node_put(guts_node);
-	if (!guts_regs) {
-		pr_err("ioremap of GUTS node failed\n");
-		return 0;
-	}
-
-	return ioread32be(&guts_regs->rcwsr[regnum]);
-}
-
-#define FMAN1_ALL_MACS_MASK	0xFCC00000
-#define FMAN2_ALL_MACS_MASK	0x000FCC00
-
-/**
- * @Function      	ResetOnInitErrata_A007273
- *
- * @Description		Workaround for Errata A-007273
- * 					This workaround is required to avoid a FMan hang during reset on initialization.
- * 					Enable all MACs in guts.devdisr2 register,
- * 					then perform a regular FMan reset and then restore MACs to their original state.
- *
- * @Param[in]     h_Fm - FM module descriptor
- *
- * @Return        None.
- */
-static void __maybe_unused ResetOnInitErrata_A007273(t_Handle h_Fm)
-{
-	struct ccsr_guts __iomem *guts_regs = NULL;
-	struct device_node *guts_node;
-	u32 devdisr2, enableMacs;
-
-	/* Get guts registers */
-	guts_node = of_find_matching_node(NULL, guts_device_ids);
-	if (!guts_node) {
-		pr_err("could not find GUTS node\n");
-		return;
-	}
-	guts_regs = of_iomap(guts_node, 0);
-	of_node_put(guts_node);
-	if (!guts_regs) {
-		pr_err("ioremap of GUTS node failed\n");
-		return;
-	}
-
-	/* Read current state */
-	devdisr2 = ioread32be(&guts_regs->devdisr2);
-
-	if (FmGetId(h_Fm) == 0)
-		enableMacs = devdisr2 & ~FMAN1_ALL_MACS_MASK;
-	else
-		enableMacs = devdisr2 & ~FMAN2_ALL_MACS_MASK;
-
-	/* Enable all MACs */
-	iowrite32be(enableMacs, &guts_regs->devdisr2);
-
-	/* Perform standard FMan reset */
-	FmReset(h_Fm);
-
-	/* Restore devdisr2 value */
-	iowrite32be(devdisr2, &guts_regs->devdisr2);
-
-	iounmap(guts_regs);
-}
-#endif
-
 static t_Error InitFmDev(t_LnxWrpFmDev  *p_LnxWrpFmDev)
 {
     const struct qe_firmware *fw;
@@ -1081,7 +977,6 @@ static t_Error InitFmDev(t_LnxWrpFmDev  *p_LnxWrpFmDev)
                    fw->microcode[0].revision));
     }
 
-#ifdef CONFIG_FMAN_ARM
 	{ /* endianness adjustments: byteswap the ucode retrieved from the f/w blob */
 		int i;
 		int usz = p_LnxWrpFmDev->fmDevSettings.param.firmware.size;
@@ -1094,7 +989,6 @@ static t_Error InitFmDev(t_LnxWrpFmDev  *p_LnxWrpFmDev)
 
 		p_LnxWrpFmDev->fmDevSettings.param.firmware.p_Code = dest;
 	}
-#endif
 
     p_LnxWrpFmDev->fmDevSettings.param.h_FmMuram = p_LnxWrpFmDev->h_MuramDev;
 
@@ -1106,25 +1000,7 @@ static t_Error InitFmDev(t_LnxWrpFmDev  *p_LnxWrpFmDev)
     }
 #endif
 
-#ifdef CONFIG_FMAN_ARM
     p_LnxWrpFmDev->fmDevSettings.param.fmMacClkRatio = 1;
-#else
-    if(p_LnxWrpFmDev->fmDevSettings.param.fmId == 0)
-        p_LnxWrpFmDev->fmDevSettings.param.fmMacClkRatio =
-            !!(get_rcwsr(4) & 0x2); /* RCW[FM_MAC_RAT0] */
-    else
-        p_LnxWrpFmDev->fmDevSettings.param.fmMacClkRatio =
-            !!(get_rcwsr(4) & 0x1); /* RCW[FM_MAC_RAT1] */
-
-    {
-    /* T4 Devices ClkRatio is always 1 regardless of RCW[FM_MAC_RAT1] */
-        uint32_t svr;
-        svr = mfspr(SPRN_SVR);
-
-        if ((svr & SVR_DEVICE_ID_MASK) == SVR_T4_DEVICE_ID)
-            p_LnxWrpFmDev->fmDevSettings.param.fmMacClkRatio = 1;
-    }
-#endif /* CONFIG_FMAN_ARM */
 
     if ((p_LnxWrpFmDev->h_Dev = FM_Config(&p_LnxWrpFmDev->fmDevSettings.param)) == NULL)
         RETURN_ERROR(MAJOR, E_INVALID_HANDLE, ("FM"));
@@ -1132,13 +1008,6 @@ static t_Error InitFmDev(t_LnxWrpFmDev  *p_LnxWrpFmDev)
 
     if (FM_ConfigResetOnInit(p_LnxWrpFmDev->h_Dev, TRUE) != E_OK)
         RETURN_ERROR(MAJOR, E_INVALID_STATE, ("FM"));
-
-#ifndef CONFIG_FMAN_ARM
-#ifdef FM_HANG_AT_RESET_MAC_CLK_DISABLED_ERRATA_FMAN_A007273
-	if (FM_ConfigResetOnInitOverrideCallback(p_LnxWrpFmDev->h_Dev, ResetOnInitErrata_A007273) != E_OK)
-		RETURN_ERROR(MAJOR, E_INVALID_STATE, ("FM"));
-#endif /* FM_HANG_AT_RESET_MAC_CLK_DISABLED_ERRATA_FMAN_A007273 */
-#endif /* CONFIG_FMAN_ARM */
 
     CheckNConfigFmAdvArgs(p_LnxWrpFmDev);
 
