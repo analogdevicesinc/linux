@@ -288,15 +288,10 @@ static t_LnxWrpFmPortDev *ReadFmPortDevTreeNode(struct platform_device
 	    of_device_is_compatible(port_node, "fsl,fman-v2-port-oh") ||
 	    of_device_is_compatible(port_node, "fsl,fman-v3-port-oh")) {
 #ifndef CONFIG_FMAN_ARM
-#ifdef CONFIG_FMAN_P3040_P4080_P5020
-		/* On PPC FMan v2, OH ports start from cell-index 0x1 */
-		tmp_prop -= 0x1;
-#else
 		/* On PPC FMan v3 (Low and High), OH ports start from
 		 * cell-index 0x2
 		 */
 		tmp_prop -= 0x2;
-#endif // CONFIG_FMAN_P3040_P4080_P5020
 #endif // CONFIG_FMAN_ARM
 
 		if (unlikely(tmp_prop >= FM_MAX_NUM_OF_OH_PORTS)) {
