@@ -34,8 +34,5 @@
 #define __GENERAL_H
 
 #include "std_ext.h"
-#if !defined(NCSW_LINUX)
-#include "errno.h"
-#endif
 
 #endif /* __GENERAL_H */

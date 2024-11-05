@@ -29,21 +29,11 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-
 #ifndef __STDARG_EXT_H
 #define __STDARG_EXT_H
 
-
-#if defined(NCSW_LINUX) && defined(__KERNEL__)
 #include <linux/stdarg.h>
 
-#else
-#include <stdarg.h>
-
-#endif /* defined(NCSW_LINUX) && defined(__KERNEL__) */
-
 #include "std_ext.h"
-
 
 #endif /* __STDARG_EXT_H */

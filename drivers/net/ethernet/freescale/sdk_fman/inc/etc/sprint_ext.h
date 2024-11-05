@@ -41,19 +41,9 @@
 #ifndef __SPRINT_EXT_H
 #define __SPRINT_EXT_H
 
-
-#if defined(NCSW_LINUX) && defined(__KERNEL__)
 #include <linux/kernel.h>
 
-#elif defined(NCSW_VXWORKS)
-#include "private/stdioP.h"
-
-#else
-#include <stdio.h>
-#endif /* defined(NCSW_LINUX) && defined(__KERNEL__) */
-
 #include "std_ext.h"
-
 
 /**************************************************************************//**
  @Group         etc_id   Utility Library Application Programming Interface

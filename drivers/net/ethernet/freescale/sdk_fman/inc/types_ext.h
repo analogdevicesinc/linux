@@ -40,23 +40,6 @@
 #ifndef __TYPES_EXT_H
 #define __TYPES_EXT_H
 
-#if defined(NCSW_LINUX)
 #include "types_linux.h"
-
-#elif defined(NCSW_VXWORKS)
-#include "types_vxworks.h"
-
-#elif defined(__GNUC__) && defined(__cplusplus)
-#include "types_bb_gpp.h"
-
-#elif defined(__GNUC__)
-#include "types_bb_gcc.h"
-
-#elif defined(__ghs__)
-#include "types_ghs.h"
-
-#else
-#include "types_dflt.h"
-#endif /* defined (__ROCOO__) */
 
 #endif /* __TYPES_EXT_H */

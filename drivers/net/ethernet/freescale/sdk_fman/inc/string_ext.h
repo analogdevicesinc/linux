@@ -29,28 +29,13 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-
 #ifndef __STRING_EXT_H
 #define __STRING_EXT_H
 
-
-#if defined(NCSW_LINUX) && defined(__KERNEL__)
 #include <linux/kernel.h>
 #include <linux/string.h>
 extern char * strtok ( char * str, const char * delimiters );
 
-#elif defined(__KERNEL__)
-#include "linux/types.h"
-#include "linux/posix_types.h"
-#include "linux/string.h"
-
-#else
-#include <string.h>
-
-#endif /* defined(NCSW_LINUX) && defined(__KERNEL__) */
-
 #include "std_ext.h"
-
 
 #endif /* __STRING_EXT_H */

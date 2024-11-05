@@ -33,9 +33,6 @@
 #ifndef __dflags_h
 #define __dflags_h
 
-
-#define NCSW_LINUX
-
 #define LS1043
 
 #define DEBUG_ERRORS        1

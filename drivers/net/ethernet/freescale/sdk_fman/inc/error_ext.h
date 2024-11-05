@@ -40,10 +40,6 @@
 #ifndef __ERROR_EXT_H
 #define __ERROR_EXT_H
 
-#if !defined(NCSW_LINUX)
-#include <errno.h>
-#endif
-
 #include "std_ext.h"
 #include "xx_ext.h"
 #include "core_ext.h"

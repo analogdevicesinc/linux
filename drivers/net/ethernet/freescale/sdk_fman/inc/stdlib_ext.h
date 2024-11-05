@@ -29,14 +29,9 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-
-
 #ifndef __STDLIB_EXT_H
 #define __STDLIB_EXT_H
 
-
-#if (defined(NCSW_LINUX)) && defined(__KERNEL__)
 #include "stdarg_ext.h"
 #include "std_ext.h"
 
@@ -118,12 +113,6 @@ int vsnprintf(char *buf, size_t size, const char *fmt, va_list args);
  */
 int vsprintf(char *buf, const char *fmt, va_list args);
 
-#else
-#include <stdlib.h>
-#include <stdio.h>
-#endif /* defined(NCSW_LINUX) && defined(__KERNEL__) */
-
 #include "std_ext.h"
-
 
 #endif /* __STDLIB_EXT_H */
