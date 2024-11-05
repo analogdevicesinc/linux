@@ -70,7 +70,6 @@ static ssize_t dpaa_eth_show_fqids(struct device *dev,
 {
 	struct dpa_priv_s *priv = netdev_priv(to_net_dev(dev));
 	ssize_t bytes = 0;
-	int i = 0;
 	char *str;
 	struct dpa_fq *fq;
 	struct dpa_fq *tmp;
@@ -127,7 +126,6 @@ static ssize_t dpaa_eth_show_fqids(struct device *dev,
 
 		prev = fq;
 		prevstr = str;
-		i++;
 	}
 
 	if (prev) {
