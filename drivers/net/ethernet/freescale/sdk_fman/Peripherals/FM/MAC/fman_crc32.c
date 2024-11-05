@@ -32,7 +32,6 @@
 #define __ERR_MODULE__  MODULE_FM_MAC
 
 #include "fman_crc32.h"
-#include "common/general.h"
 
 /* precomputed CRC values for address hashing */
 static const uint32_t crc_tbl[256] = {

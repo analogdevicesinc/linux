@@ -33,7 +33,7 @@
 #ifndef __FSL_FMAN_H
 #define __FSL_FMAN_H
 
-#include "common/general.h"
+#include "std_ext.h"
 
 struct fman_ext_pool_params {
 	uint8_t                 id;    /**< External buffer pool id */

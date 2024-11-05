@@ -33,7 +33,7 @@
 #ifndef __FSL_FMAN_RTC_H
 #define __FSL_FMAN_RTC_H
 
-#include "common/general.h"
+#include "std_ext.h"
 
 /* FM RTC Registers definitions */
 #define FMAN_RTC_TMR_CTRL_ALMP1                  0x80000000

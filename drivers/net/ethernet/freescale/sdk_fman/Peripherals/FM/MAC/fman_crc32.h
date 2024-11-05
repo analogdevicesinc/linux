@@ -34,8 +34,7 @@
 #ifndef __FMAN_CRC32_H
 #define __FMAN_CRC32_H
 
-#include "common/general.h"
-
+#include "std_ext.h"
 
 uint32_t get_mac_addr_crc(uint64_t _addr);
 

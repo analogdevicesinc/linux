@@ -34,7 +34,7 @@
 #ifndef __FSL_FMAN_MEMAC_H
 #define __FSL_FMAN_MEMAC_H
 
-#include "common/general.h"
+#include "std_ext.h"
 #include "fsl_enet.h"
 
 

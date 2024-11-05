@@ -33,7 +33,7 @@
 #ifndef __FSL_FMAN_KG_H
 #define __FSL_FMAN_KG_H
 
-#include "common/general.h"
+#include "std_ext.h"
 
 #define FM_KG_NUM_OF_GENERIC_REGS	8 /**< Num of generic KeyGen regs */
 #define FMAN_MAX_NUM_OF_HW_PORTS	64

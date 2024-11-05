@@ -33,7 +33,7 @@
 #ifndef __FSL_FMAN_MEMAC_MII_ACC_H
 #define __FSL_FMAN_MEMAC_MII_ACC_H
 
-#include "common/general.h"
+#include "std_ext.h"
 #include "fsl_enet.h"
 /* MII Management Registers */
 #define MDIO_CFG_CLK_DIV_MASK       0x0080ff80

@@ -33,7 +33,7 @@
 #ifndef __FSL_FMAN_SP_H
 #define __FSL_FMAN_SP_H
 
-#include "common/general.h"
+#include "std_ext.h"
 #include "fsl_fman.h"
 
 

@@ -33,7 +33,7 @@
 #ifndef __FSL_FMAN_PRS_H
 #define __FSL_FMAN_PRS_H
 
-#include "common/general.h"
+#include "std_ext.h"
 
 #define FM_PCD_EX_PRS_DOUBLE_ECC	0x02000000
 #define FM_PCD_EX_PRS_SINGLE_ECC	0x01000000

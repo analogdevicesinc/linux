@@ -49,7 +49,6 @@
 #include "../Pcd/fm_prs.h"
 #include "fman_common.h"
 #include "fm_port.h"
-#include "common/general.h"
 
 /****************************************/
 /*       static functions               */
