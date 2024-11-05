@@ -212,7 +212,7 @@ static const struct parallel_csi_plat_data imx91_pdata = {
 	.interface_ctrl_reg = 0x8,
 	.interface_ctrl_reg1 = 0xc,
 	.def_hsync_pol = 0,
-	.def_vsync_pol = 0,
+	.def_vsync_pol = 1,
 	.def_pixel_clk_pol = 0,
 	.def_csi_in_data_type = CSI_IN_DT_YVYU_8,
 };
