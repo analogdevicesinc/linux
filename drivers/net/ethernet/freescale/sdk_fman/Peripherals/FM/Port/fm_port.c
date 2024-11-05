@@ -4825,6 +4825,70 @@ t_Error FM_PORT_DetachPCD(t_Handle h_FmPort)
     return E_OK;
 }
 
+static int FM_PORT_ConfigureMuramPage(t_Handle h_FmPort)
+{
+	t_FmPort *p_FmPort = (t_FmPort*)h_FmPort;
+	t_FmPortGetSetCcParams fmPortGetSetCcParams;
+	t_FmPcdCtrlParamsPage *p_ParamsPage;
+	uint32_t nia;
+	int err;
+
+	memset(&fmPortGetSetCcParams, 0, sizeof(t_FmPortGetSetCcParams));
+
+	/* Set up the Next Invoked Action to do frame processing through the
+	 * FMan Controller. If advanced offload support has been previously
+	 * enabled through ioctl, set up this NIA's Action Code to "Pop To
+	 * Next Step" (0x0e), otherwise to "Pop to Next Step NonIPACCOffload"
+	 * (0x2c).
+	 */
+	fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_CMNE;
+	if (FmPcdIsAdvancedOffloadSupported(p_FmPort->h_FmPcd))
+		nia = NIA_FM_CTL_AC_POP_TO_N_STEP | NIA_ENG_FM_CTL;
+	else
+		nia = NIA_FM_CTL_AC_NO_IPACC_POP_TO_N_STEP | NIA_ENG_FM_CTL;
+
+	fmPortGetSetCcParams.setCcParams.nia = nia;
+
+	err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams);
+	if (err)
+		return err;
+
+	/* Allocate a MURAM page which will be used by the microcode
+	 * for IP reassembly.
+	 */
+	FmPortSetGprFunc(p_FmPort, e_FM_PORT_GPR_MURAM_PAGE,
+			 (void**)&p_ParamsPage);
+	ASSERT_COND(p_ParamsPage);
+
+	if (FmPcdIsAdvancedOffloadSupported(p_FmPort->h_FmPcd)) {
+		WRITE_UINT32(p_ParamsPage->misc,
+			     GET_UINT32(p_ParamsPage->misc) |
+			     FM_CTL_PARAMS_PAGE_OFFLOAD_SUPPORT_EN);
+	}
+
+	/* For OH ports, communicate the discard mask to the microcode
+	 * through the MURAM page
+	 */
+	if (p_FmPort->h_IpReassemblyManip || p_FmPort->h_CapwapReassemblyManip) {
+		if (p_FmPort->portType == e_FM_PORT_TYPE_OH_OFFLINE_PARSING) {
+			WRITE_UINT32(p_ParamsPage->discardMask,
+				     GET_UINT32(p_FmPort->p_FmPortBmiRegs->ohPortBmiRegs.fmbm_ofsdm));
+		} else {
+			WRITE_UINT32(p_ParamsPage->discardMask,
+				     GET_UINT32(p_FmPort->p_FmPortBmiRegs->rxPortBmiRegs.fmbm_rfsdm));
+		}
+	}
+#ifdef FM_ERROR_VSP_NO_MATCH_SW006
+	if (p_FmPort->vspe) {
+		WRITE_UINT32(p_ParamsPage->misc,
+			     GET_UINT32(p_ParamsPage->misc) |
+			     (p_FmPort->dfltRelativeId & FM_CTL_PARAMS_PAGE_ERROR_VSP_MASK));
+	}
+#endif /* FM_ERROR_VSP_NO_MATCH_SW006 */
+
+	return 0;
+}
+
 t_Error FM_PORT_SetPCD(t_Handle h_FmPort, t_FmPortPcdParams *p_PcdParam)
 {
     t_FmPort *p_FmPort = (t_FmPort*)h_FmPort;
@@ -5113,57 +5177,15 @@ t_Error FM_PORT_SetPCD(t_Handle h_FmPort, t_FmPortPcdParams *p_PcdParam)
     else
         FmPcdLockUnlockAll(p_FmPort->h_FmPcd);
 
-    {
-        t_FmPcdCtrlParamsPage *p_ParamsPage;
-
-        memset(&fmPortGetSetCcParams, 0, sizeof(t_FmPortGetSetCcParams));
-
-        fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_CMNE;
-        if (FmPcdIsAdvancedOffloadSupported(p_FmPort->h_FmPcd))
-            fmPortGetSetCcParams.setCcParams.nia = NIA_FM_CTL_AC_POP_TO_N_STEP
-                    | NIA_ENG_FM_CTL;
-        else
-            fmPortGetSetCcParams.setCcParams.nia =
-                    NIA_FM_CTL_AC_NO_IPACC_POP_TO_N_STEP | NIA_ENG_FM_CTL;
-        if ((err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams))
-                != E_OK)
-        {
-            DeletePcd(p_FmPort);
-            if (p_FmPort->h_ReassemblyTree)
-            {
-                FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
-                p_FmPort->h_ReassemblyTree = NULL;
-            }RELEASE_LOCK(p_FmPort->lock);
-            RETURN_ERROR(MAJOR, err, NO_MSG);
+    err = FM_PORT_ConfigureMuramPage(h_FmPort);
+    if (err) {
+        DeletePcd(p_FmPort);
+        if (p_FmPort->h_ReassemblyTree) {
+            FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
+            p_FmPort->h_ReassemblyTree = NULL;
         }
-
-        FmPortSetGprFunc(p_FmPort, e_FM_PORT_GPR_MURAM_PAGE,
-                         (void**)&p_ParamsPage);
-        ASSERT_COND(p_ParamsPage);
-
-        if (FmPcdIsAdvancedOffloadSupported(p_FmPort->h_FmPcd))
-            WRITE_UINT32(
-                    p_ParamsPage->misc,
-                    GET_UINT32(p_ParamsPage->misc) | FM_CTL_PARAMS_PAGE_OFFLOAD_SUPPORT_EN);
-
-        if ((p_FmPort->h_IpReassemblyManip)
-                || (p_FmPort->h_CapwapReassemblyManip))
-        {
-            if (p_FmPort->portType == e_FM_PORT_TYPE_OH_OFFLINE_PARSING)
-                WRITE_UINT32(
-                        p_ParamsPage->discardMask,
-                        GET_UINT32(p_FmPort->p_FmPortBmiRegs->ohPortBmiRegs.fmbm_ofsdm));
-            else
-                WRITE_UINT32(
-                        p_ParamsPage->discardMask,
-                        GET_UINT32(p_FmPort->p_FmPortBmiRegs->rxPortBmiRegs.fmbm_rfsdm));
-        }
-#ifdef FM_ERROR_VSP_NO_MATCH_SW006
-        if (p_FmPort->vspe)
-            WRITE_UINT32(
-                    p_ParamsPage->misc,
-                    GET_UINT32(p_ParamsPage->misc) | (p_FmPort->dfltRelativeId & FM_CTL_PARAMS_PAGE_ERROR_VSP_MASK));
-#endif /* FM_ERROR_VSP_NO_MATCH_SW006 */
+        RELEASE_LOCK(p_FmPort->lock);
+        RETURN_ERROR(MAJOR, err, NO_MSG);
     }
 
     err = AttachPCD(h_FmPort);
