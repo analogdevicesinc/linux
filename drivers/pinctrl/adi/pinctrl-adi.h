@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright (c) 2022, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2022 ~ 2024, Analog Devices Incorporated, All Rights Reserved
  */
 
 #ifndef __DRIVERS_PINCTRL_ADI_H
@@ -24,6 +24,7 @@
 #define ADI_CONFIG_PULL_UP_DOWN_ENABLEMENT_MASK_BIT_POSITION  (5U)
 #define ADI_CONFIG_PULLUP_ENABLE_MASK                         (0x00000040U)
 #define ADI_CONFIG_PULLUP_ENABLE_MASK_BIT_POSITION            (6)
+#define ADI_CONFIG_MUX_SEL_MASK                               (0x000000FFU)
 
 struct platform_device;
 extern const struct pinmux_ops adi_pmx_ops;

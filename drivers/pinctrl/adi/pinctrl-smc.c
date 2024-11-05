@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (c) 2022, Analog Devices Incorporated, All Rights Reserved
+ * Copyright (c) 2022 ~ 2024, Analog Devices Incorporated, All Rights Reserved
  */
 
 #include <linux/err.h>
@@ -40,6 +40,10 @@ int adi_pinconf_get_smc(struct pinctrl_dev *pctldev, unsigned int pin_id,
 {
 	struct arm_smccc_res res;
 	struct adi_pinctrl *ipctl;
+	unsigned int drive_strength;
+	unsigned int schmitt_trig_enable;
+	unsigned int pin_pull_enablement;
+	unsigned int pin_pull_up_enable;
 	const struct adi_pin_reg *pin_reg;
 
 	if (!pctldev || !config)
@@ -78,7 +82,7 @@ int adi_pinconf_get_smc(struct pinctrl_dev *pctldev, unsigned int pin_id,
 	arm_smccc_smc(ADI_PINCTRL_SIP_SERVICE_FUNCTION_ID,
 		      ADI_PINCTRL_GET,
 		      pin_reg->pin_num,
-		      0, 0, 0, 0, 0,
+		      0, 0, 0, ipctl->phys_addr, 0,
 		      &res);
 
 	/*
@@ -91,10 +95,22 @@ int adi_pinconf_get_smc(struct pinctrl_dev *pctldev, unsigned int pin_id,
 	/*
 	 *  Here we output the received mux settings {3-bit field} , drivestrength
 	 */
-	if ((res.a2 & ADI_GET_BITFIELD_1_PIN_CONFIGURED_BIT_POSITION) == 0)
+	if ((res.a2 & BIT(ADI_GET_BITFIELD_1_PIN_CONFIGURED_BIT_POSITION)) == 0) {
 		*config = 0U;
-	else
-		*config = res.a3;
+	} else {
+		drive_strength = res.a3 & ADI_CONFIG_DRIVE_STRENGTH_MASK;
+		schmitt_trig_enable = res.a3 & ADI_CONFIG_SCHMITT_TRIG_ENABLE_MASK;
+		pin_pull_enablement = res.a3 & ADI_CONFIG_PULL_UP_DOWN_ENABLEMENT_MASK;
+		pin_pull_up_enable = res.a3 & ADI_CONFIG_PULLUP_ENABLE_MASK;
+
+		*config = drive_strength;
+		if (schmitt_trig_enable)
+			*config |= BIT(ADI_CONFIG_SCHMITT_TRIG_ENABLE_MASK_BIT_POSITION);
+		if (pin_pull_enablement)
+			*config |= BIT(ADI_CONFIG_PULL_UP_DOWN_ENABLEMENT_MASK_BIT_POSITION);
+		if (pin_pull_up_enable)
+			*config |= BIT(ADI_CONFIG_PULLUP_ENABLE_MASK_BIT_POSITION);
+	}
 
 	return 0;
 }
@@ -109,9 +125,9 @@ int adi_pinconf_set_smc(struct pinctrl_dev *pctldev, unsigned int pin_id,
 	int pin_pull_enablement;
 	int pin_pull_up_enable;
 	int config_bitfield;
-	unsigned long config;
 	unsigned int pin_num;
 	unsigned int mux_sel;
+	unsigned long config;
 
 	if (!pctldev)
 		return -EINVAL;
