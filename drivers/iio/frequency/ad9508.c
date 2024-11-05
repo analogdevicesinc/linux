@@ -87,7 +87,8 @@ struct ad9508_state {
 
 	struct gpio_desc		*reset_gpio;
 	struct gpio_desc		*sync_gpio;
-
+	bool			write_mode_only;
+	unsigned long		regs_hw[44];
 	struct mutex		lock;
 
 	/*
@@ -105,6 +106,9 @@ static int ad9508_read(struct iio_dev *indio_dev, unsigned addr)
 	struct ad9508_state *st = iio_priv(indio_dev);
 	int ret;
 	u32 mask = ~0U >> (32 - 8 * AD9508_TRANSF_LEN(addr));
+
+	if (st->write_mode_only)
+		return st->regs_hw[AD9508_ADDR(addr)];
 
 	/* We encode the register size 1..3 bytes into the register address.
 	 * On transfer we get the size from the register datum, and make sure
@@ -160,6 +164,8 @@ static int ad9508_write(struct iio_dev *indio_dev, unsigned addr, unsigned val)
 
 	if (ret < 0)
 		dev_err(&indio_dev->dev, "write failed (%d)", ret);
+
+	st->regs_hw[AD9508_ADDR(addr)] = val;
 
 	return ret;
 }
@@ -660,6 +666,20 @@ static int ad9508_probe(struct spi_device *spi)
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->channels = st->ad9508_channels;
 	indio_dev->num_channels = pdata->num_channels;
+
+	if (device_property_present(&st->spi->dev, "adi,write-mode-only"))
+		st->write_mode_only = true;
+
+	memset(st->regs_hw, 0xFF, sizeof(st->regs_hw));
+
+	/* Initialize the regs_hw array with the reset values */
+
+	st->regs_hw[AD9508_ADDR(AD9508_PART_ID)]  = 0x0500;
+	st->regs_hw[AD9508_ADDR(AD9508_SYNC_BAR)] = 0x1;
+	st->regs_hw[AD9508_ADDR(AD9508_CHANNEL_OUT_DRIVER(0))] = 0x14;
+	st->regs_hw[AD9508_ADDR(AD9508_CHANNEL_OUT_DRIVER(1))] = 0x14;
+	st->regs_hw[AD9508_ADDR(AD9508_CHANNEL_OUT_DRIVER(2))] = 0x14;
+	st->regs_hw[AD9508_ADDR(AD9508_CHANNEL_OUT_DRIVER(3))] = 0x14;
 
 	ret = ad9508_setup(indio_dev);
 	if (ret < 0)
