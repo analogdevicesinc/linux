@@ -4891,318 +4891,288 @@ static int FM_PORT_ConfigureMuramPage(t_Handle h_FmPort)
 
 t_Error FM_PORT_SetPCD(t_Handle h_FmPort, t_FmPortPcdParams *p_PcdParam)
 {
-    t_FmPort *p_FmPort = (t_FmPort*)h_FmPort;
-    t_Error err = E_OK;
-    t_FmPortPcdParams modifiedPcdParams, *p_PcdParams;
-    t_FmPcdCcTreeParams *p_FmPcdCcTreeParams;
-    t_FmPortPcdCcParams fmPortPcdCcParams;
-    t_FmPortGetSetCcParams fmPortGetSetCcParams;
+	t_FmPort *p_FmPort = (t_FmPort*)h_FmPort;
+	t_Error err = E_OK;
+	t_FmPortPcdParams modifiedPcdParams, *p_PcdParams;
+	t_FmPcdCcTreeParams *p_FmPcdCcTreeParams;
+	t_FmPortPcdCcParams fmPortPcdCcParams;
+	t_FmPortGetSetCcParams fmPortGetSetCcParams;
 
-    SANITY_CHECK_RETURN_ERROR(h_FmPort, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_PcdParam, E_NULL_POINTER);
-    SANITY_CHECK_RETURN_ERROR(!p_FmPort->p_FmPortDriverParam, E_INVALID_STATE);
+	SANITY_CHECK_RETURN_ERROR(h_FmPort, E_INVALID_HANDLE);
+	SANITY_CHECK_RETURN_ERROR(p_PcdParam, E_NULL_POINTER);
+	SANITY_CHECK_RETURN_ERROR(!p_FmPort->p_FmPortDriverParam, E_INVALID_STATE);
 
-    if (p_FmPort->imEn)
-        RETURN_ERROR(MAJOR, E_INVALID_OPERATION,
-                     ("available for non-independent mode ports only"));
+	if (p_FmPort->imEn) {
+		RETURN_ERROR(MAJOR, E_INVALID_OPERATION,
+			     ("available for non-independent mode ports only"));
+	}
 
-    if ((p_FmPort->portType != e_FM_PORT_TYPE_RX_10G)
-            && (p_FmPort->portType != e_FM_PORT_TYPE_RX)
-            && (p_FmPort->portType != e_FM_PORT_TYPE_OH_OFFLINE_PARSING))
-        RETURN_ERROR( MAJOR, E_INVALID_OPERATION,
-                     ("available for Rx and offline parsing ports only"));
+	if (p_FmPort->portType != e_FM_PORT_TYPE_RX_10G &&
+	    p_FmPort->portType != e_FM_PORT_TYPE_RX &&
+	    p_FmPort->portType != e_FM_PORT_TYPE_OH_OFFLINE_PARSING) {
+		RETURN_ERROR(MAJOR, E_INVALID_OPERATION,
+			     ("available for Rx and offline parsing ports only"));
+	}
 
-    if (!TRY_LOCK(p_FmPort->h_Spinlock, &p_FmPort->lock))
-    {
-        DBG(TRACE, ("FM Port Try Lock - BUSY"));
-        return ERROR_CODE(E_BUSY);
-    }
+	if (!TRY_LOCK(p_FmPort->h_Spinlock, &p_FmPort->lock)) {
+		DBG(TRACE, ("FM Port Try Lock - BUSY"));
+		return ERROR_CODE(E_BUSY);
+	}
 
-    p_FmPort->h_FmPcd = FmGetPcdHandle(p_FmPort->h_Fm);
-    ASSERT_COND(p_FmPort->h_FmPcd);
+	p_FmPort->h_FmPcd = FmGetPcdHandle(p_FmPort->h_Fm);
+	ASSERT_COND(p_FmPort->h_FmPcd);
 
-    if (p_PcdParam->p_CcParams && !p_PcdParam->p_CcParams->h_CcTree)
-        RETURN_ERROR(MAJOR, E_INVALID_HANDLE,
-                     ("Tree handle must be given if CC is required"));
+	if (p_PcdParam->p_CcParams && !p_PcdParam->p_CcParams->h_CcTree) {
+		RETURN_ERROR(MAJOR, E_INVALID_HANDLE,
+			     ("Tree handle must be given if CC is required"));
+	}
 
-    memcpy(&modifiedPcdParams, p_PcdParam, sizeof(t_FmPortPcdParams));
-    p_PcdParams = &modifiedPcdParams;
-    if ((p_PcdParams->h_IpReassemblyManip)
-            || (p_PcdParams->h_CapwapReassemblyManip)
-            )
-    {
-        if ((p_PcdParams->pcdSupport != e_FM_PORT_PCD_SUPPORT_PRS_AND_KG)
-                && (p_PcdParams->pcdSupport
-                        != e_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_CC)
-                && (p_PcdParams->pcdSupport
-                        != e_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_CC_AND_PLCR)
-                && (p_PcdParams->pcdSupport
-                        != e_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_PLCR))
-        {
-            RELEASE_LOCK(p_FmPort->lock);
-            RETURN_ERROR( MAJOR, E_INVALID_STATE,
-                         ("pcdSupport must have KG for supporting Reassembly"));
-        }
-        p_FmPort->h_IpReassemblyManip = p_PcdParams->h_IpReassemblyManip;
-        if ((p_PcdParams->h_IpReassemblyManip)
-                && (p_PcdParams->h_CapwapReassemblyManip))
-            RETURN_ERROR(MAJOR, E_INVALID_STATE,
-                         ("Either IP-R or CAPWAP-R is allowed"));
-        if ((p_PcdParams->h_CapwapReassemblyManip)
-                && (p_FmPort->portType != e_FM_PORT_TYPE_OH_OFFLINE_PARSING))
-            RETURN_ERROR(MAJOR, E_INVALID_STATE,
-                         ("CAPWAP-R is allowed only on offline-port"));
-        if (p_PcdParams->h_CapwapReassemblyManip)
-            p_FmPort->h_CapwapReassemblyManip =
-                    p_PcdParams->h_CapwapReassemblyManip;
+	memcpy(&modifiedPcdParams, p_PcdParam, sizeof(t_FmPortPcdParams));
+	p_PcdParams = &modifiedPcdParams;
+	if (p_PcdParams->h_IpReassemblyManip ||
+	    p_PcdParams->h_CapwapReassemblyManip) {
+		if (p_PcdParams->pcdSupport != e_FM_PORT_PCD_SUPPORT_PRS_AND_KG &&
+		    p_PcdParams->pcdSupport != e_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_CC &&
+		    p_PcdParams->pcdSupport != e_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_CC_AND_PLCR &&
+		    p_PcdParams->pcdSupport != e_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_PLCR) {
+			RELEASE_LOCK(p_FmPort->lock);
+			RETURN_ERROR(MAJOR, E_INVALID_STATE,
+				     ("pcdSupport must have KG for supporting Reassembly"));
+		}
+		p_FmPort->h_IpReassemblyManip = p_PcdParams->h_IpReassemblyManip;
+		if (p_PcdParams->h_IpReassemblyManip && p_PcdParams->h_CapwapReassemblyManip) {
+			RETURN_ERROR(MAJOR, E_INVALID_STATE,
+				     ("Either IP-R or CAPWAP-R is allowed"));
+		}
+		if (p_PcdParams->h_CapwapReassemblyManip &&
+		    p_FmPort->portType != e_FM_PORT_TYPE_OH_OFFLINE_PARSING) {
+			RETURN_ERROR(MAJOR, E_INVALID_STATE,
+				     ("CAPWAP-R is allowed only on offline-port"));
+		}
+		if (p_PcdParams->h_CapwapReassemblyManip)
+			p_FmPort->h_CapwapReassemblyManip = p_PcdParams->h_CapwapReassemblyManip;
 
-        if (!p_PcdParams->p_CcParams)
-        {
-            if (!((p_PcdParams->pcdSupport == e_FM_PORT_PCD_SUPPORT_PRS_AND_KG)
-                    || (p_PcdParams->pcdSupport
-                            == e_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_PLCR)))
-            {
-                RELEASE_LOCK(p_FmPort->lock);
-                RETURN_ERROR(
-                        MAJOR,
-                        E_INVALID_STATE,
-                        ("PCD initialization structure is not consistent with pcdSupport"));
-            }
+		if (!p_PcdParams->p_CcParams) {
+			if (!(p_PcdParams->pcdSupport == e_FM_PORT_PCD_SUPPORT_PRS_AND_KG ||
+			      p_PcdParams->pcdSupport == e_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_PLCR)) {
+				RELEASE_LOCK(p_FmPort->lock);
+				RETURN_ERROR(MAJOR, E_INVALID_STATE,
+					     ("PCD initialization structure is not consistent with pcdSupport"));
+			}
 
-            /* No user-tree, need to build internal tree */
-            p_FmPcdCcTreeParams = (t_FmPcdCcTreeParams*)XX_Malloc(
-                    sizeof(t_FmPcdCcTreeParams));
-            if (!p_FmPcdCcTreeParams)
-                RETURN_ERROR(MAJOR, E_NO_MEMORY, ("p_FmPcdCcTreeParams"));
-            memset(p_FmPcdCcTreeParams, 0, sizeof(t_FmPcdCcTreeParams));
-            p_FmPcdCcTreeParams->h_NetEnv = p_PcdParams->h_NetEnv;
-            p_FmPort->h_ReassemblyTree = FM_PCD_CcRootBuild(
-                    p_FmPort->h_FmPcd, p_FmPcdCcTreeParams);
+			/* No user-tree, need to build internal tree */
+			p_FmPcdCcTreeParams = (t_FmPcdCcTreeParams*)XX_Malloc(sizeof(t_FmPcdCcTreeParams));
+			if (!p_FmPcdCcTreeParams)
+				RETURN_ERROR(MAJOR, E_NO_MEMORY, ("p_FmPcdCcTreeParams"));
 
-            if (!p_FmPort->h_ReassemblyTree)
-            {
-                RELEASE_LOCK(p_FmPort->lock);
-                XX_Free(p_FmPcdCcTreeParams);
-                RETURN_ERROR( MAJOR, E_INVALID_HANDLE,
-                             ("FM_PCD_CcBuildTree for Reassembly failed"));
-            }
-            if (p_PcdParams->pcdSupport == e_FM_PORT_PCD_SUPPORT_PRS_AND_KG)
-                p_PcdParams->pcdSupport =
-                        e_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_CC;
-            else
-                p_PcdParams->pcdSupport =
-                        e_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_CC_AND_PLCR;
+			memset(p_FmPcdCcTreeParams, 0, sizeof(t_FmPcdCcTreeParams));
+			p_FmPcdCcTreeParams->h_NetEnv = p_PcdParams->h_NetEnv;
 
-            memset(&fmPortPcdCcParams, 0, sizeof(t_FmPortPcdCcParams));
-            fmPortPcdCcParams.h_CcTree = p_FmPort->h_ReassemblyTree;
-            p_PcdParams->p_CcParams = &fmPortPcdCcParams;
-            XX_Free(p_FmPcdCcTreeParams);
-        }
+			p_FmPort->h_ReassemblyTree = FM_PCD_CcRootBuild(p_FmPort->h_FmPcd,
+									p_FmPcdCcTreeParams);
+			if (!p_FmPort->h_ReassemblyTree) {
+				RELEASE_LOCK(p_FmPort->lock);
+				XX_Free(p_FmPcdCcTreeParams);
+				RETURN_ERROR(MAJOR, E_INVALID_HANDLE,
+					     ("FM_PCD_CcBuildTree for Reassembly failed"));
+			}
+			if (p_PcdParams->pcdSupport == e_FM_PORT_PCD_SUPPORT_PRS_AND_KG)
+				p_PcdParams->pcdSupport = e_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_CC;
+			else
+				p_PcdParams->pcdSupport = e_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_CC_AND_PLCR;
 
-        if (p_FmPort->h_IpReassemblyManip)
-            err = FmPcdCcTreeAddIPR(p_FmPort->h_FmPcd,
-                                    p_PcdParams->p_CcParams->h_CcTree,
-                                    p_PcdParams->h_NetEnv,
-                                    p_FmPort->h_IpReassemblyManip, TRUE);
-        else
-            if (p_FmPort->h_CapwapReassemblyManip)
-                err = FmPcdCcTreeAddCPR(p_FmPort->h_FmPcd,
-                                        p_PcdParams->p_CcParams->h_CcTree,
-                                        p_PcdParams->h_NetEnv,
-                                        p_FmPort->h_CapwapReassemblyManip,
-                                        TRUE);
-        if (err != E_OK)
-        {
-            if (p_FmPort->h_ReassemblyTree)
-            {
-                FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
-                p_FmPort->h_ReassemblyTree = NULL;
-            }RELEASE_LOCK(p_FmPort->lock);
-            RETURN_ERROR(MAJOR, err, NO_MSG);
-        }
-    }
+			memset(&fmPortPcdCcParams, 0, sizeof(t_FmPortPcdCcParams));
+			fmPortPcdCcParams.h_CcTree = p_FmPort->h_ReassemblyTree;
+			p_PcdParams->p_CcParams = &fmPortPcdCcParams;
+			XX_Free(p_FmPcdCcTreeParams);
+		}
 
-    if (!FmPcdLockTryLockAll(p_FmPort->h_FmPcd))
-    {
-        if (p_FmPort->h_ReassemblyTree)
-        {
-            FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
-            p_FmPort->h_ReassemblyTree = NULL;
-        }RELEASE_LOCK(p_FmPort->lock);
-        DBG(TRACE, ("Try LockAll - BUSY"));
-        return ERROR_CODE(E_BUSY);
-    }
+		if (p_FmPort->h_IpReassemblyManip) {
+			err = FmPcdCcTreeAddIPR(p_FmPort->h_FmPcd,
+						p_PcdParams->p_CcParams->h_CcTree,
+						p_PcdParams->h_NetEnv,
+						p_FmPort->h_IpReassemblyManip, TRUE);
+		} else if (p_FmPort->h_CapwapReassemblyManip) {
+			err = FmPcdCcTreeAddCPR(p_FmPort->h_FmPcd,
+						p_PcdParams->p_CcParams->h_CcTree,
+						p_PcdParams->h_NetEnv,
+						p_FmPort->h_CapwapReassemblyManip,
+						TRUE);
+		}
+		if (err != E_OK) {
+			if (p_FmPort->h_ReassemblyTree) {
+				FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
+				p_FmPort->h_ReassemblyTree = NULL;
+			}
+			RELEASE_LOCK(p_FmPort->lock);
+			RETURN_ERROR(MAJOR, err, NO_MSG);
+		}
+	}
 
-    err = SetPcd(h_FmPort, p_PcdParams);
-    if (err)
-    {
-        if (p_FmPort->h_ReassemblyTree)
-        {
-            FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
-            p_FmPort->h_ReassemblyTree = NULL;
-        }
-        FmPcdLockUnlockAll(p_FmPort->h_FmPcd);
-        RELEASE_LOCK(p_FmPort->lock);
-        RETURN_ERROR(MAJOR, err, NO_MSG);
-    }
+	if (!FmPcdLockTryLockAll(p_FmPort->h_FmPcd)) {
+		if (p_FmPort->h_ReassemblyTree) {
+			FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
+			p_FmPort->h_ReassemblyTree = NULL;
+		}
+		RELEASE_LOCK(p_FmPort->lock);
+		DBG(TRACE, ("Try LockAll - BUSY"));
+		return ERROR_CODE(E_BUSY);
+	}
 
-    if ((p_FmPort->pcdEngines & FM_PCD_PRS)
-            && (p_PcdParams->p_PrsParams->includeInPrsStatistics))
-    {
-        err = FmPcdPrsIncludePortInStatistics(p_FmPort->h_FmPcd,
-                                              p_FmPort->hardwarePortId, TRUE);
-        if (err)
-        {
-            DeletePcd(p_FmPort);
-            if (p_FmPort->h_ReassemblyTree)
-            {
-                FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
-                p_FmPort->h_ReassemblyTree = NULL;
-            }
-            FmPcdLockUnlockAll(p_FmPort->h_FmPcd);
-            RELEASE_LOCK(p_FmPort->lock);
-            RETURN_ERROR(MAJOR, err, NO_MSG);
-        }
-        p_FmPort->includeInPrsStatistics = TRUE;
-    }
+	err = SetPcd(h_FmPort, p_PcdParams);
+	if (err) {
+		if (p_FmPort->h_ReassemblyTree) {
+			FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
+			p_FmPort->h_ReassemblyTree = NULL;
+		}
+		FmPcdLockUnlockAll(p_FmPort->h_FmPcd);
+		RELEASE_LOCK(p_FmPort->lock);
+		RETURN_ERROR(MAJOR, err, NO_MSG);
+	}
 
-    FmPcdIncNetEnvOwners(p_FmPort->h_FmPcd, p_FmPort->netEnvId);
+	if ((p_FmPort->pcdEngines & FM_PCD_PRS) &&
+	    p_PcdParams->p_PrsParams->includeInPrsStatistics) {
+		err = FmPcdPrsIncludePortInStatistics(p_FmPort->h_FmPcd,
+						      p_FmPort->hardwarePortId,
+						      TRUE);
+		if (err) {
+			DeletePcd(p_FmPort);
+			if (p_FmPort->h_ReassemblyTree) {
+				FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
+				p_FmPort->h_ReassemblyTree = NULL;
+			}
+			FmPcdLockUnlockAll(p_FmPort->h_FmPcd);
+			RELEASE_LOCK(p_FmPort->lock);
+			RETURN_ERROR(MAJOR, err, NO_MSG);
+		}
+		p_FmPort->includeInPrsStatistics = TRUE;
+	}
 
-    if (FmPcdIsAdvancedOffloadSupported(p_FmPort->h_FmPcd))
-    {
-        memset(&fmPortGetSetCcParams, 0, sizeof(t_FmPortGetSetCcParams));
+	FmPcdIncNetEnvOwners(p_FmPort->h_FmPcd, p_FmPort->netEnvId);
 
-        if (p_FmPort->portType == e_FM_PORT_TYPE_OH_OFFLINE_PARSING)
-        {
+	if (FmPcdIsAdvancedOffloadSupported(p_FmPort->h_FmPcd)) {
+		memset(&fmPortGetSetCcParams, 0, sizeof(t_FmPortGetSetCcParams));
+
+		if (p_FmPort->portType == e_FM_PORT_TYPE_OH_OFFLINE_PARSING) {
+			t_FmPcdCtrlParamsPage *p_ParamsPage;
+
 #ifdef FM_KG_ERASE_FLOW_ID_ERRATA_FMAN_SW004
-            if ((p_FmPort->fmRevInfo.majorRev < 6) &&
-                    (p_FmPort->pcdEngines & FM_PCD_KG))
-            {
-                int i;
-                for (i = 0; i<p_PcdParams->p_KgParams->numOfSchemes; i++)
-                /* The following function must be locked */
-                FmPcdKgCcGetSetParams(p_FmPort->h_FmPcd,
-                        p_PcdParams->p_KgParams->h_Schemes[i],
-                        UPDATE_KG_NIA_CC_WA,
-                        0);
-            }
+			if (p_FmPort->fmRevInfo.majorRev < 6 &&
+			    p_FmPort->pcdEngines & FM_PCD_KG) {
+				int i;
+
+				for (i = 0; i < p_PcdParams->p_KgParams->numOfSchemes; i++) {
+					/* The following function must be locked */
+					FmPcdKgCcGetSetParams(p_FmPort->h_FmPcd,
+							      p_PcdParams->p_KgParams->h_Schemes[i],
+							      UPDATE_KG_NIA_CC_WA, 0);
+				}
+			}
 #endif /* FM_KG_ERASE_FLOW_ID_ERRATA_FMAN_SW004 */
 
-            {
-                t_FmPcdCtrlParamsPage *p_ParamsPage;
+			FmPortSetGprFunc(p_FmPort, e_FM_PORT_GPR_MURAM_PAGE,
+					 (void**)&p_ParamsPage);
+			ASSERT_COND(p_ParamsPage);
+			WRITE_UINT32(p_ParamsPage->postBmiFetchNia, p_FmPort->savedBmiNia);
 
-                FmPortSetGprFunc(p_FmPort, e_FM_PORT_GPR_MURAM_PAGE,
-                                 (void**)&p_ParamsPage);
-                ASSERT_COND(p_ParamsPage);
-                WRITE_UINT32(p_ParamsPage->postBmiFetchNia,
-                             p_FmPort->savedBmiNia);
-            }
+			/* Set post-bmi-fetch nia */
+			p_FmPort->savedBmiNia &= BMI_RFNE_FDCS_MASK;
+			p_FmPort->savedBmiNia |= NIA_FM_CTL_AC_POST_BMI_FETCH | NIA_ENG_FM_CTL;
 
-            /* Set post-bmi-fetch nia */
-            p_FmPort->savedBmiNia &= BMI_RFNE_FDCS_MASK;
-            p_FmPort->savedBmiNia |= (NIA_FM_CTL_AC_POST_BMI_FETCH
-                    | NIA_ENG_FM_CTL);
+			/* Set pre-bmi-fetch nia */
+			fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_PNDN;
+			fmPortGetSetCcParams.setCcParams.nia = NIA_FM_CTL_AC_PRE_BMI_FETCH_FULL_FRAME |
+							       NIA_ENG_FM_CTL;
 
-            /* Set pre-bmi-fetch nia */
-            fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_PNDN;
-            fmPortGetSetCcParams.setCcParams.nia =
-                    (NIA_FM_CTL_AC_PRE_BMI_FETCH_FULL_FRAME | NIA_ENG_FM_CTL);
-            if ((err = FmPortGetSetCcParams(p_FmPort, &fmPortGetSetCcParams))
-                    != E_OK)
-            {
-                DeletePcd(p_FmPort);
-                if (p_FmPort->h_ReassemblyTree)
-                {
-                    FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
-                    p_FmPort->h_ReassemblyTree = NULL;
-                }
-                FmPcdLockUnlockAll(p_FmPort->h_FmPcd);
-                RELEASE_LOCK(p_FmPort->lock);
-                RETURN_ERROR(MAJOR, err, NO_MSG);
-            }
-        }
+			err = FmPortGetSetCcParams(p_FmPort, &fmPortGetSetCcParams);
+			if (err != E_OK) {
+				DeletePcd(p_FmPort);
+				if (p_FmPort->h_ReassemblyTree) {
+					FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
+					p_FmPort->h_ReassemblyTree = NULL;
+				}
+				FmPcdLockUnlockAll(p_FmPort->h_FmPcd);
+				RELEASE_LOCK(p_FmPort->lock);
+				RETURN_ERROR(MAJOR, err, NO_MSG);
+			}
+		}
 
-        FmPcdLockUnlockAll(p_FmPort->h_FmPcd);
+		FmPcdLockUnlockAll(p_FmPort->h_FmPcd);
 
-        /* Set pop-to-next-step nia */
-        fmPortGetSetCcParams.getCcParams.type = GET_NIA_FPNE;
-        if ((err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams))
-                != E_OK)
-        {
-            DeletePcd(p_FmPort);
-            if (p_FmPort->h_ReassemblyTree)
-            {
-                FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
-                p_FmPort->h_ReassemblyTree = NULL;
-            }RELEASE_LOCK(p_FmPort->lock);
-            RETURN_ERROR(MAJOR, err, NO_MSG);
-        }
+		/* Set pop-to-next-step nia */
+		fmPortGetSetCcParams.getCcParams.type = GET_NIA_FPNE;
+		err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams);
+		if (err != E_OK) {
+			DeletePcd(p_FmPort);
+			if (p_FmPort->h_ReassemblyTree) {
+				FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
+				p_FmPort->h_ReassemblyTree = NULL;
+			}
+			RELEASE_LOCK(p_FmPort->lock);
+			RETURN_ERROR(MAJOR, err, NO_MSG);
+		}
 
-        /* Set post-bmi-prepare-to-enq nia */
-        fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_FENE;
-        fmPortGetSetCcParams.setCcParams.nia = (NIA_FM_CTL_AC_POST_BMI_ENQ
-                | NIA_ENG_FM_CTL);
-        if ((err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams))
-                != E_OK)
-        {
-            DeletePcd(p_FmPort);
-            if (p_FmPort->h_ReassemblyTree)
-            {
-                FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
-                p_FmPort->h_ReassemblyTree = NULL;
-            }RELEASE_LOCK(p_FmPort->lock);
-            RETURN_ERROR(MAJOR, err, NO_MSG);
-        }
+		/* Set post-bmi-prepare-to-enq nia */
+		fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_FENE;
+		fmPortGetSetCcParams.setCcParams.nia = NIA_FM_CTL_AC_POST_BMI_ENQ | NIA_ENG_FM_CTL;
 
-        if ((p_FmPort->h_IpReassemblyManip)
-                || (p_FmPort->h_CapwapReassemblyManip))
-        {
-            /* Set the ORR bit (for order-restoration) */
-            fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_FPNE;
-            fmPortGetSetCcParams.setCcParams.nia =
-                    fmPortGetSetCcParams.getCcParams.nia | NIA_ORDER_RESTOR;
-            if ((err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams))
-                    != E_OK)
-            {
-                DeletePcd(p_FmPort);
-                if (p_FmPort->h_ReassemblyTree)
-                {
-                    FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
-                    p_FmPort->h_ReassemblyTree = NULL;
-                }RELEASE_LOCK(p_FmPort->lock);
-                RETURN_ERROR(MAJOR, err, NO_MSG);
-            }
-        }
-    }
-    else
-        FmPcdLockUnlockAll(p_FmPort->h_FmPcd);
+		err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams);
+		if (err != E_OK) {
+			DeletePcd(p_FmPort);
+			if (p_FmPort->h_ReassemblyTree) {
+				FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
+				p_FmPort->h_ReassemblyTree = NULL;
+			}
+			RELEASE_LOCK(p_FmPort->lock);
+			RETURN_ERROR(MAJOR, err, NO_MSG);
+		}
 
-    err = FM_PORT_ConfigureMuramPage(h_FmPort);
-    if (err) {
-        DeletePcd(p_FmPort);
-        if (p_FmPort->h_ReassemblyTree) {
-            FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
-            p_FmPort->h_ReassemblyTree = NULL;
-        }
-        RELEASE_LOCK(p_FmPort->lock);
-        RETURN_ERROR(MAJOR, err, NO_MSG);
-    }
+		if (p_FmPort->h_IpReassemblyManip || p_FmPort->h_CapwapReassemblyManip) {
+			/* Set the ORR bit (for order-restoration) */
+			fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_FPNE;
+			fmPortGetSetCcParams.setCcParams.nia = fmPortGetSetCcParams.getCcParams.nia |
+							       NIA_ORDER_RESTOR;
 
-    err = AttachPCD(h_FmPort);
-    if (err)
-    {
-        DeletePcd(p_FmPort);
-        if (p_FmPort->h_ReassemblyTree)
-        {
-            FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
-            p_FmPort->h_ReassemblyTree = NULL;
-        }RELEASE_LOCK(p_FmPort->lock);
-        RETURN_ERROR(MAJOR, err, NO_MSG);
-    }
+			err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams);
+			if (err != E_OK) {
+				DeletePcd(p_FmPort);
+				if (p_FmPort->h_ReassemblyTree) {
+					FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
+					p_FmPort->h_ReassemblyTree = NULL;
+				}
+				RELEASE_LOCK(p_FmPort->lock);
+				RETURN_ERROR(MAJOR, err, NO_MSG);
+			}
+		}
+	} else {
+		FmPcdLockUnlockAll(p_FmPort->h_FmPcd);
+	}
 
-    RELEASE_LOCK(p_FmPort->lock);
+	err = FM_PORT_ConfigureMuramPage(h_FmPort);
+	if (err) {
+		DeletePcd(p_FmPort);
+		if (p_FmPort->h_ReassemblyTree) {
+			FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
+			p_FmPort->h_ReassemblyTree = NULL;
+		}
+		RELEASE_LOCK(p_FmPort->lock);
+		RETURN_ERROR(MAJOR, err, NO_MSG);
+	}
 
-    return err;
+	err = AttachPCD(h_FmPort);
+	if (err) {
+		DeletePcd(p_FmPort);
+		if (p_FmPort->h_ReassemblyTree) {
+			FM_PCD_CcRootDelete(p_FmPort->h_ReassemblyTree);
+			p_FmPort->h_ReassemblyTree = NULL;
+		}
+		RELEASE_LOCK(p_FmPort->lock);
+		RETURN_ERROR(MAJOR, err, NO_MSG);
+	}
+
+	RELEASE_LOCK(p_FmPort->lock);
+
+	return err;
 }
 
 t_Error FM_PORT_DeletePCD(t_Handle h_FmPort)
