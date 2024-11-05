@@ -229,9 +229,10 @@ EXPORT_SYMBOL(dpa_timeout);
 /* net_device */
 
 /**
- * @param net_dev the device for which statistics are calculated
- * @param stats the function fills this structure with the device's statistics
- * @return the address of the structure containing the statistics
+ * dpa_get_stats64() - Implementation of ndo_get_stats64()
+ *
+ * @net_dev: the device for which statistics are calculated
+ * @stats: the function fills this structure with the device's statistics
  *
  * Calculates the statistics for the given device by adding the statistics
  * collected by each CPU.
@@ -971,8 +972,7 @@ void dpaa_eth_add_channel(u16 channel)
 }
 EXPORT_SYMBOL(dpaa_eth_add_channel);
 
-/**
- * Congestion group state change notification callback.
+/* Congestion group state change notification callback.
  * Stops the device's egress queues while they are congested and
  * wakes them upon exiting congested state.
  * Also updates some CGR-related stats.
@@ -1632,8 +1632,7 @@ void count_ern(struct dpa_percpu_priv_s *percpu_priv,
 }
 EXPORT_SYMBOL(count_ern);
 
-/**
- * Turn on HW checksum computation for this outgoing frame.
+/* Turn on HW checksum computation for this outgoing frame.
  * If the current protocol is not something we support in this regard
  * (or if the stack has already computed the SW checksum), we do nothing.
  *

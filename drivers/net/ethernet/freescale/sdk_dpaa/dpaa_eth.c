@@ -329,7 +329,7 @@ static void _dpa_tx_error(struct net_device		*net_dev,
  * @fd: Pointer to QMan frame descriptor structure
  * @skb: Pointer to socket buffer which will have its ip_summed field
  *	overwritten
- * @use_gro will only be written with 0, if the frame is definitely not
+ * @use_gro: will only be written with 0, if the frame is definitely not
  *	GRO-able; otherwise, it will be left unchanged
  * @dcl4c_valid: if set, we assume no parser errors, since any error frame is
  *	dropped before this function is called. When FMBM_RFNE[FDCS] is set, RX
