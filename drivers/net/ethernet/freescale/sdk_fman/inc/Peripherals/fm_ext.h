@@ -1487,27 +1487,4 @@ t_Handle FM_GetMuramHandle(t_Handle h_Fm);
 /** @} */ /* end of FM_lib_grp group */
 /** @} */ /* end of FM_grp group */
 
-
-#ifdef NCSW_BACKWARD_COMPATIBLE_API
-typedef t_FmFirmwareParams          t_FmPcdFirmwareParams;
-typedef t_FmBufferPrefixContent     t_FmPortBufferPrefixContent;
-typedef t_FmExtPoolParams           t_FmPortExtPoolParams;
-typedef t_FmExtPools                t_FmPortExtPools;
-typedef t_FmBackupBmPools           t_FmPortBackupBmPools;
-typedef t_FmBufPoolDepletion        t_FmPortBufPoolDepletion;
-typedef e_FmDmaSwapOption           e_FmPortDmaSwapOption;
-typedef e_FmDmaCacheOption          e_FmPortDmaCacheOption;
-
-#define FM_CONTEXTA_GET_OVVERIDE    FM_CONTEXTA_GET_OVERRIDE
-#define FM_CONTEXTA_SET_OVVERIDE    FM_CONTEXTA_SET_OVERRIDE
-
-#define e_FM_EX_BMI_PIPELINE_ECC    e_FM_EX_BMI_STORAGE_PROFILE_ECC
-#define e_FM_PORT_DMA_NO_SWP        e_FM_DMA_NO_SWP
-#define e_FM_PORT_DMA_SWP_PPC_LE    e_FM_DMA_SWP_PPC_LE
-#define e_FM_PORT_DMA_SWP_BE        e_FM_DMA_SWP_BE
-#define e_FM_PORT_DMA_NO_STASH      e_FM_DMA_NO_STASH
-#define e_FM_PORT_DMA_STASH         e_FM_DMA_STASH
-#endif /* NCSW_BACKWARD_COMPATIBLE_API */
-
-
 #endif /* __FM_EXT */

@@ -2281,11 +2281,4 @@ t_Error  FM_PORT_ImRx(t_Handle h_FmPort);
 /** @} */ /* end of FM_PORT_grp group */
 /** @} */ /* end of FM_grp group */
 
-
-
-#ifdef NCSW_BACKWARD_COMPATIBLE_API
-#define FM_PORT_ConfigTxFifoDeqPipelineDepth FM_PORT_ConfigFifoDeqPipelineDepth
-#endif /* NCSW_BACKWARD_COMPATIBLE_API */
-
-
 #endif /* __FM_PORT_EXT */
