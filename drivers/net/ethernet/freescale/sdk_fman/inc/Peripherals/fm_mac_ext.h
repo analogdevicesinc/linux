@@ -116,8 +116,6 @@ typedef enum e_FmMacStatisticsLevel {
     e_FM_MAC_FULL_STATISTICS            /**< All counters available; Not optimized for performance */
 } e_FmMacStatisticsLevel;
 
-
-#if (DPAA_VERSION >= 11)
 /**************************************************************************//**
  @Description   Priority Flow Control Parameters
 *//***************************************************************************/
@@ -130,7 +128,6 @@ typedef struct t_FmMacPfcParams {
 
 
 } t_FmMacPfcParams;
-#endif /* (DPAA_VERSION >= 11) */
 
 /**************************************************************************//**
  @Function      t_FmMacExceptionCallback

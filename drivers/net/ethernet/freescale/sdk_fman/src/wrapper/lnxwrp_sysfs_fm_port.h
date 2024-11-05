@@ -48,9 +48,6 @@ void fm_port_sysfs_destroy(struct device *dev);
 int fm_port_dump_regs(void *h_dev, char *buf, int n);
 int fm_port_dump_regs_bmi(void *h_dev, char *buf, int n);
 int fm_port_dump_regs_qmi(void *h_dev, char *buf, int n);
-
-#if (DPAA_VERSION >= 11)
 int fm_port_dump_ipv4_opt(void *h_dev, char *buf, int n);
-#endif
 
 #endif /* LNXWRP_SYSFS_FM_PORT_H_ */

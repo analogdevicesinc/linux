@@ -120,10 +120,8 @@
 #error Error: please synchronize IOC_ defines!
 #endif
 
-#if DPAA_VERSION >= 11
 #if CMP_IOC_DEFINE(FM_PCD_FRM_REPLIC_MAX_NUM_OF_ENTRIES)
 #error Error: please synchronize IOC_ defines!
-#endif
 #endif
 
 #if CMP_IOC_DEFINE(FM_PCD_MAX_NUM_OF_CC_TREES)
@@ -313,7 +311,6 @@ void LnxWrpPCDIOCTLTypeChecking(void)
     /* fm_pcd_ext.h == fm_pcd_ioctls.h */
     /*ioc_fm_pcd_counters_params_t  : NOT USED */
     /*ioc_fm_pcd_exception_params_t : private */
-#if (DPAA_VERSION >= 11)
     ASSERT_COND(sizeof(ioc_fm_pcd_manip_frag_capwap_params_t) == sizeof(t_FmPcdManipFragCapwapParams));
     ASSERT_COND(sizeof(ioc_fm_pcd_manip_reassem_capwap_params_t) == sizeof(t_FmPcdManipReassemCapwapParams));
     ASSERT_COND(sizeof(ioc_fm_pcd_manip_hdr_insrt_by_hdr_params_t) == sizeof(t_FmPcdManipHdrInsrtByHdrParams));
@@ -325,7 +322,6 @@ void LnxWrpPCDIOCTLTypeChecking(void)
     ASSERT_COND(sizeof(ioc_fm_pcd_manip_frag_capwap_stats_t) == sizeof(t_FmPcdManipFragCapwapStats));
     ASSERT_COND(sizeof(ioc_fm_pcd_manip_reassem_capwap_stats_t) == sizeof(t_FmPcdManipReassemCapwapStats));
     ASSERT_COND(sizeof(ioc_fm_pcd_manip_frag_params_t) == sizeof(t_FmPcdManipFragParams));
-#endif /* (DPAA_VERSION >= 11) */
 
     ASSERT_COND(sizeof(ioc_fm_pcd_prs_label_params_t) == sizeof(t_FmPcdPrsLabelParams));
     ASSERT_COND(sizeof(ioc_fm_pcd_prs_sw_params_t) == sizeof(t_FmPcdPrsSwParams));
@@ -352,9 +348,7 @@ void LnxWrpPCDIOCTLTypeChecking(void)
     ASSERT_COND(sizeof(ioc_fm_pcd_kg_extracted_or_params_t) == sizeof(t_FmPcdKgExtractedOrParams));
     ASSERT_COND(sizeof(ioc_fm_pcd_kg_scheme_counter_t) == sizeof(t_FmPcdKgSchemeCounter));
     ASSERT_COND(sizeof(ioc_fm_pcd_kg_plcr_profile_t) == sizeof(t_FmPcdKgPlcrProfile));
-#if (DPAA_VERSION >= 11)
     ASSERT_COND(sizeof(ioc_fm_pcd_kg_storage_profile_t) == sizeof(t_FmPcdKgStorageProfile));
-#endif
     ASSERT_COND(sizeof(ioc_fm_pcd_kg_cc_t) == sizeof(t_FmPcdKgCc));
 #if !defined(CONFIG_COMPAT)
     /* different alignment */
@@ -420,9 +414,7 @@ void LnxWrpPCDIOCTLTypeChecking(void)
     ASSERT_COND(sizeof(ioc_fm_pcd_manip_reassem_stats_t) == sizeof(t_FmPcdManipReassemStats));
     ASSERT_COND(sizeof(ioc_fm_pcd_manip_frag_stats_t) == sizeof(t_FmPcdManipFragStats));
     ASSERT_COND(sizeof(ioc_fm_pcd_manip_stats_t) == sizeof(t_FmPcdManipStats));
-#if DPAA_VERSION >= 11
     ASSERT_COND(sizeof(ioc_fm_pcd_frm_replic_group_params_t) == sizeof(t_FmPcdFrmReplicGroupParams) + sizeof(void *));
-#endif
 
     /* fm_port_ext.h == fm_port_ioctls.h */
     ASSERT_COND(sizeof(ioc_fm_port_rate_limit_t) == sizeof(t_FmPortRateLimit));
@@ -2975,7 +2967,6 @@ invalid_port_id:
             break;
 	}
 
-#if (DPAA_VERSION >= 11)
 #if defined(CONFIG_COMPAT)
 	case FM_PCD_IOC_FRM_REPLIC_GROUP_SET_COMPAT:
 #endif
@@ -3415,7 +3406,6 @@ invalid_port_id:
 
         break;
     }
-#endif /* (DPAA_VERSION >= 11) */
 
 #ifdef FM_CAPWAP_SUPPORT
 #warning "feature not supported!"
@@ -3962,9 +3952,7 @@ t_Error LnxwrpFmPortIOCTL(t_LnxWrpFmPortDev *p_LnxWrpFmPortDev, unsigned int cmd
                     port_pcd_params->p_kg_params           = compat_ptr(compat_port_pcd_params->p_kg_params);
                     port_pcd_params->p_plcr_params         = compat_ptr(compat_port_pcd_params->p_plcr_params);
                     port_pcd_params->p_ip_reassembly_manip = compat_ptr(compat_port_pcd_params->p_ip_reassembly_manip);
-#if (DPAA_VERSION >= 11)
                     port_pcd_params->p_capwap_reassembly_manip = compat_ptr(compat_port_pcd_params->p_capwap_reassembly_manip);
-#endif
                     /* the prs member is the same, no compat structure...memcpy only */
                     if (port_pcd_params->p_prs_params)
                     {
@@ -4506,7 +4494,6 @@ t_Error LnxwrpFmPortIOCTL(t_LnxWrpFmPortDev *p_LnxWrpFmPortDev, unsigned int cmd
             break;
         }
 
-#if (DPAA_VERSION >= 11)
 #if defined(CONFIG_COMPAT)
         case FM_PORT_IOC_VSP_ALLOC_COMPAT:
 #endif
@@ -4580,7 +4567,6 @@ t_Error LnxwrpFmPortIOCTL(t_LnxWrpFmPortDev *p_LnxWrpFmPortDev, unsigned int cmd
             XX_Free(param);
             break;
         }
-#endif /* (DPAA_VERSION >= 11) */
 
         case FM_PORT_IOC_GET_MAC_STATISTICS:
         {

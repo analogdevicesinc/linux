@@ -103,46 +103,6 @@
 
 #define DEFAULT_notSupported                            0xff
 
-#if (DPAA_VERSION < 11)
-#define DEFAULT_PORT_rxFifoPriElevationLevel            MAX_PORT_FIFO_SIZE
-#define DEFAULT_PORT_rxFifoThreshold                    (MAX_PORT_FIFO_SIZE*3/4)
-
-#define DEFAULT_PORT_txFifoMinFillLevel                 0
-#define DEFAULT_PORT_txFifoLowComfLevel                 (5*KILOBYTE)
-#define DEFAULT_PORT_fifoDeqPipelineDepth_1G            1
-#define DEFAULT_PORT_fifoDeqPipelineDepth_10G           4
-
-#define DEFAULT_PORT_fifoDeqPipelineDepth_OH            2
-
-/* Host command port MUST NOT be changed to more than 1 !!! */
-#define DEFAULT_PORT_numOfTasks(type)                       \
-    (uint32_t)((((type) == e_FM_PORT_TYPE_RX_10G) ||        \
-                ((type) == e_FM_PORT_TYPE_TX_10G)) ? 16 :   \
-               ((((type) == e_FM_PORT_TYPE_RX) ||           \
-                 ((type) == e_FM_PORT_TYPE_TX) ||           \
-                 ((type) == e_FM_PORT_TYPE_OH_OFFLINE_PARSING)) ? 3 : 1))
-
-#define DEFAULT_PORT_extraNumOfTasks(type)                  \
-    (uint32_t)(((type) == e_FM_PORT_TYPE_RX_10G)  ? 8 :    \
-               (((type) == e_FM_PORT_TYPE_RX) ? 2 : 0))
-
-#define DEFAULT_PORT_numOfOpenDmas(type)                    \
-    (uint32_t)((((type) == e_FM_PORT_TYPE_TX_10G) ||        \
-                ((type) == e_FM_PORT_TYPE_RX_10G)) ? 8 : 1 )
-
-#define DEFAULT_PORT_extraNumOfOpenDmas(type)               \
-    (uint32_t)(((type) == e_FM_PORT_TYPE_RX_10G) ? 8 :    \
-               (((type) == e_FM_PORT_TYPE_RX) ? 1 : 0))
-
-#define DEFAULT_PORT_numOfFifoBufs(type)                    \
-    (uint32_t)((((type) == e_FM_PORT_TYPE_RX_10G) ||        \
-                ((type) == e_FM_PORT_TYPE_TX_10G)) ? 48 :   \
-                ((type) == e_FM_PORT_TYPE_RX) ? 45 :        \
-                ((type) == e_FM_PORT_TYPE_TX) ? 44 : 8)
-
-#define DEFAULT_PORT_extraNumOfFifoBufs             0
-
-#else  /* (DPAA_VERSION < 11) */
 /* Defaults are registers' reset values */
 #define DEFAULT_PORT_rxFifoPriElevationLevel            MAX_PORT_FIFO_SIZE
 #define DEFAULT_PORT_rxFifoThreshold                    MAX_PORT_FIFO_SIZE
@@ -179,8 +139,6 @@
 
 #define DEFAULT_PORT_extraNumOfFifoBufs             0
 
-#endif /* (DPAA_VERSION < 11) */
-
 #define DEFAULT_PORT_txBdRingLength                 16
 #define DEFAULT_PORT_rxBdRingLength                 128
 #define DEFAULT_PORT_ImfwExtStructsMemId            0
@@ -210,11 +168,6 @@ typedef uint32_t fmPcdEngines_t; /**< options as defined below: */
 /***********************************************************************/
 /*          SW parser OFFLOAD labels (offsets)                         */
 /***********************************************************************/
-#if (DPAA_VERSION == 10)
-#define OFFLOAD_SW_PATCH_IPv4_IPR_LABEL         0x300
-#define OFFLOAD_SW_PATCH_IPv6_IPR_LABEL         0x325
-#define OFFLOAD_SW_PATCH_IPv6_IPF_LABEL         0x325
-#else
 #define OFFLOAD_SW_PATCH_IPv4_IPR_LABEL         0x100
 /* Will be used for:
  * 1. identify fragments
@@ -227,12 +180,6 @@ typedef uint32_t fmPcdEngines_t; /**< options as defined below: */
  */
 #define OFFLOAD_SW_PATCH_IPv6_IPF_LABEL         0x261
 #define OFFLOAD_SW_PATCH_CAPWAP_LABEL           0x38d
-#endif /* (DPAA_VERSION == 10) */
-
-#if ((DPAA_VERSION == 10) && defined(FM_CAPWAP_SUPPORT))
-#define UDP_LITE_SW_PATCH_LABEL                 0x2E0
-#endif /* ((DPAA_VERSION == 10) && defined(FM_CAPWAP_SUPPORT)) */
-
 
 /**************************************************************************//**
  @Description       Memory Mapped Registers
@@ -492,11 +439,9 @@ typedef _Packed struct
 /**************************************************************************//**
  @Description       BMI defines
 *//***************************************************************************/
-#if (DPAA_VERSION >= 11)
 #define BMI_SP_ID_MASK                          0xff000000
 #define BMI_SP_ID_SHIFT                         24
 #define BMI_SP_EN                               0x01000000
-#endif /* (DPAA_VERSION >= 11) */
 
 #define BMI_PORT_CFG_EN                         0x80000000
 #define BMI_PORT_CFG_EN_MACSEC                  0x00800000
@@ -845,10 +790,7 @@ typedef struct {
     bool                                setNumOfTasks;
     bool                                setNumOfOpenDmas;
     bool                                setSizeOfFifo;
-#if (DPAA_VERSION >= 11)
     bool                                noScatherGather;
-#endif /* (DPAA_VERSION >= 11) */
-
 #ifdef FM_HEAVY_TRAFFIC_HANG_ERRATA_FMAN_A005669
     bool                                bcbWorkaround;
 #endif /* FM_HEAVY_TRAFFIC_HANG_ERRATA_FMAN_A005669 */
@@ -923,12 +865,10 @@ typedef struct {
     t_Handle                    h_CapwapReassemblyManip;
     t_Handle                    h_ReassemblyTree;
     uint64_t                    fmMuramPhysBaseAddr;
-#if (DPAA_VERSION >= 11)
     bool                        vspe;
     uint8_t                     dfltRelativeId;
     e_FmPortGprFuncType         gprFunc;
     t_FmPcdCtrlParamsPage       *p_ParamsPage;
-#endif /* (DPAA_VERSION >= 11) */
     t_FmPortDriverParam         *p_FmPortDriverParam;
 } t_FmPort;
 

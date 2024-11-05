@@ -91,12 +91,6 @@ static t_Error CheckFmParameters(t_Fm *p_Fm)
 {
     if (IsFmanCtrlCodeLoaded(p_Fm) && !p_Fm->resetOnInit)
         RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("Old FMan CTRL code is loaded; FM must be reset!"));
-#if (DPAA_VERSION < 11)
-    if (!p_Fm->p_FmDriverParam->dma_axi_dbg_num_of_beats ||
-        (p_Fm->p_FmDriverParam->dma_axi_dbg_num_of_beats > DMA_MODE_MAX_AXI_DBG_NUM_OF_BEATS))
-        RETURN_ERROR(MAJOR, E_INVALID_VALUE,
-                     ("axiDbgNumOfBeats has to be in the range 1 - %d", DMA_MODE_MAX_AXI_DBG_NUM_OF_BEATS));
-#endif /* (DPAA_VERSION < 11) */
     if (p_Fm->p_FmDriverParam->dma_cam_num_of_entries % DMA_CAM_UNITS)
         RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("dma_cam_num_of_entries has to be divisble by %d", DMA_CAM_UNITS));
 //    if (!p_Fm->p_FmDriverParam->dma_cam_num_of_entries || (p_Fm->p_FmDriverParam->dma_cam_num_of_entries > DMA_MODE_MAX_CAM_NUM_OF_ENTRIES))
@@ -107,20 +101,6 @@ static t_Error CheckFmParameters(t_Fm *p_Fm)
         RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("dma_comm_qtsh_clr_emer can not be larger than %d", DMA_THRESH_MAX_COMMQ));
     if (p_Fm->p_FmDriverParam->dma_comm_qtsh_clr_emer >= p_Fm->p_FmDriverParam->dma_comm_qtsh_asrt_emer)
         RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("dma_comm_qtsh_clr_emer must be smaller than dma_comm_qtsh_asrt_emer"));
-#if (DPAA_VERSION < 11)
-    if (p_Fm->p_FmDriverParam->dma_read_buf_tsh_asrt_emer > DMA_THRESH_MAX_BUF)
-        RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("dma_read_buf_tsh_asrt_emer can not be larger than %d", DMA_THRESH_MAX_BUF));
-    if (p_Fm->p_FmDriverParam->dma_read_buf_tsh_clr_emer > DMA_THRESH_MAX_BUF)
-        RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("dma_read_buf_tsh_clr_emer can not be larger than %d", DMA_THRESH_MAX_BUF));
-    if (p_Fm->p_FmDriverParam->dma_read_buf_tsh_clr_emer >= p_Fm->p_FmDriverParam->dma_read_buf_tsh_asrt_emer)
-        RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("dma_read_buf_tsh_clr_emer must be smaller than dma_read_buf_tsh_asrt_emer"));
-    if (p_Fm->p_FmDriverParam->dma_write_buf_tsh_asrt_emer > DMA_THRESH_MAX_BUF)
-        RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("dma_write_buf_tsh_asrt_emer can not be larger than %d", DMA_THRESH_MAX_BUF));
-    if (p_Fm->p_FmDriverParam->dma_write_buf_tsh_clr_emer > DMA_THRESH_MAX_BUF)
-        RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("dma_write_buf_tsh_clr_emer can not be larger than %d", DMA_THRESH_MAX_BUF));
-    if (p_Fm->p_FmDriverParam->dma_write_buf_tsh_clr_emer >= p_Fm->p_FmDriverParam->dma_write_buf_tsh_asrt_emer)
-        RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("dma_write_buf_tsh_clr_emer must be smaller than dma_write_buf_tsh_asrt_emer"));
-#else /* (DPAA_VERSION >= 11) */
     if ((p_Fm->p_FmDriverParam->dma_dbg_cnt_mode == E_FMAN_DMA_DBG_CNT_INT_READ_EM)||
             (p_Fm->p_FmDriverParam->dma_dbg_cnt_mode == E_FMAN_DMA_DBG_CNT_INT_WRITE_EM) ||
             (p_Fm->p_FmDriverParam->dma_dbg_cnt_mode == E_FMAN_DMA_DBG_CNT_RAW_WAR_PROT))
@@ -136,7 +116,6 @@ static t_Error CheckFmParameters(t_Fm *p_Fm)
 #endif /* FM_AID_MODE_NO_TNUM_SW005 */
     if (p_Fm->p_FmDriverParam->dma_axi_dbg_num_of_beats)
         RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("dma_axi_dbg_num_of_beats not supported by this integration."));
-#endif /* (DPAA_VERSION < 11) */
 
     if (!p_Fm->p_FmStateStruct->fmClkFreq)
         RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("fmClkFreq must be set."));
@@ -144,10 +123,8 @@ static t_Error CheckFmParameters(t_Fm *p_Fm)
         RETURN_ERROR(MAJOR, E_INVALID_VALUE,
                      ("dma_watchdog depends on FM clock. dma_watchdog(in microseconds) * clk (in Mhz), may not exceed %u", DMA_MAX_WATCHDOG));
 
-#if (DPAA_VERSION >= 11)
     if ((p_Fm->partVSPBase + p_Fm->partNumOfVSPs) > FM_VSP_MAX_NUM_OF_ENTRIES)
         RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("partVSPBase+partNumOfVSPs out of range!!!"));
-#endif /* (DPAA_VERSION >= 11) */
 
     if (p_Fm->p_FmStateStruct->totalFifoSize % BMI_FIFO_UNITS)
         RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("totalFifoSize number has to be divisible by %d", BMI_FIFO_UNITS));
@@ -606,7 +583,6 @@ do {                                    \
 #endif
 }
 
-#if (DPAA_VERSION >= 11)
 static t_Error SetVSPWindow(t_Handle  h_Fm,
                             uint8_t   hardwarePortId,
                             uint8_t   baseStorageProfile,
@@ -779,7 +755,6 @@ static void FreeVSPsForPartition(t_Handle  h_Fm, uint8_t base, uint8_t numOfProf
             DBG(WARNING, ("Request for freeing storage profile window which wasn't allocated to this partition"));
     }
 }
-#endif /* (DPAA_VERSION >= 11) */
 
 static t_Error FmGuestHandleIpcMsgCB(t_Handle  h_Fm,
                                      uint8_t   *p_Msg,
@@ -972,7 +947,6 @@ static t_Error FmHandleIpcMsgCB(t_Handle  h_Fm,
                 REPORT_ERROR(MINOR, err, NO_MSG);
             break;
         }
-#if (DPAA_VERSION >= 11)
         case (FM_VSP_ALLOC) :
         {
             t_FmIpcResourceAllocParams  ipcAllocParams;
@@ -1009,7 +983,6 @@ static t_Error FmHandleIpcMsgCB(t_Handle  h_Fm,
                                                   fmIpcSetCongestionGroupPfcPriority.priorityBitMap);
             return err;
         }
-#endif /* (DPAA_VERSION >= 11) */
 
         case (FM_FREE_PORT):
         {
@@ -1393,7 +1366,6 @@ uintptr_t FmGetPcdPlcrBaseAddr(t_Handle h_Fm)
     return (p_Fm->baseAddr + FM_MM_PLCR);
 }
 
-#if (DPAA_VERSION >= 11)
 uintptr_t FmGetVSPBaseAddr(t_Handle h_Fm)
 {
     t_Fm        *p_Fm = (t_Fm*)h_Fm;
@@ -1402,7 +1374,6 @@ uintptr_t FmGetVSPBaseAddr(t_Handle h_Fm)
 
     return p_Fm->vspBaseAddr;
 }
-#endif /* (DPAA_VERSION >= 11) */
 
 t_Handle FmGetMuramHandle(t_Handle h_Fm)
 {
@@ -1465,7 +1436,6 @@ void FmGetPhysicalMuramBase(t_Handle h_Fm, t_FmPhysAddr *p_FmPhysAddr)
                      ("running in guest-mode without neither IPC nor mapped register!"));
 }
 
-#if (DPAA_VERSION >= 11)
 t_Error FmVSPAllocForPort (t_Handle        h_Fm,
                            e_FmPortType    portType,
                            uint8_t         portId,
@@ -1580,7 +1550,6 @@ t_Error FmVSPFreeForPort(t_Handle        h_Fm,
 
     return E_OK;
 }
-#endif /* (DPAA_VERSION >= 11) */
 
 t_Error FmAllocFmanCtrlEventReg(t_Handle h_Fm, uint8_t *p_EventId)
 {
@@ -2375,11 +2344,9 @@ t_Error FmResetMac(t_Handle h_Fm, e_FmMacType type, uint8_t macId)
     t_Error             err;
     struct fman_fpm_regs *fpm_rg = p_Fm->p_FmFpmRegs;
 
-#if (DPAA_VERSION >= 11)
     if (p_Fm->p_FmStateStruct->revInfo.majorRev >= 6)
         RETURN_ERROR(MINOR, E_NOT_SUPPORTED,
                      ("FMan MAC reset!"));
-#endif /*(DPAA_VERSION >= 11)*/
 
     if ((p_Fm->guestId != NCSW_MASTER_ID) &&
         !p_Fm->baseAddr &&
@@ -2921,7 +2888,6 @@ t_Error FmSetNumOfOpenDmas(t_Handle h_Fm,
     return E_OK;
 }
 
-#if (DPAA_VERSION >= 11)
 t_Error FmVSPCheckRelativeProfile(t_Handle        h_Fm,
                                   e_FmPortType    portType,
                                   uint8_t         portId,
@@ -2984,7 +2950,6 @@ t_Error FmVSPGetAbsoluteProfileId(t_Handle        h_Fm,
 
     return E_OK;
 }
-#endif /* (DPAA_VERSION >= 11) */
 
 static t_Error InitFmDma(t_Fm *p_Fm)
 {
@@ -3150,11 +3115,9 @@ static t_Error InitGuestMode(t_Fm *p_Fm)
         }
     }
 
-#if (DPAA_VERSION >= 11)
     p_Fm->partVSPBase = AllocVSPsForPartition(p_Fm, p_Fm->partVSPBase, p_Fm->partNumOfVSPs, p_Fm->guestId);
     if (p_Fm->partVSPBase == (uint8_t)(ILLEGAL_BASE))
         DBG(WARNING, ("partition VSPs allocation is FAILED"));
-#endif /* (DPAA_VERSION >= 11) */
 
     /* General FM driver initialization */
     if (p_Fm->baseAddr)
@@ -3348,7 +3311,6 @@ t_Handle FM_Config(t_FmParams *p_FmParam)
     }
     memset(p_Fm->p_FmDriverParam, 0, sizeof(struct fman_cfg));
 
-#if (DPAA_VERSION >= 11)
     p_Fm->p_FmSp = (t_FmSp *)XX_Malloc(sizeof(t_FmSp));
     if (!p_Fm->p_FmSp)
     {
@@ -3362,7 +3324,6 @@ t_Handle FM_Config(t_FmParams *p_FmParam)
 
     for (i=0; i<FM_VSP_MAX_NUM_OF_ENTRIES; i++)
         p_Fm->p_FmSp->profiles[i].profilesMng.ownerId = (uint8_t)ILLEGAL_BASE;
-#endif /* (DPAA_VERSION >= 11) */
 
     /* Initialize FM parameters which will be kept by the driver */
     p_Fm->p_FmStateStruct->fmId                 = p_FmParam->fmId;
@@ -3385,9 +3346,7 @@ t_Handle FM_Config(t_FmParams *p_FmParam)
 
     p_Fm->h_Spinlock = XX_InitSpinlock();
 	if (!p_Fm->h_Spinlock) {
-#if (DPAA_VERSION >= 11)
 		XX_Free(p_Fm->p_FmSp);
-#endif /* (DPAA_VERSION >= 11) */
 		XX_Free(p_Fm->p_FmDriverParam);
 		XX_Free(p_Fm->p_FmStateStruct);
 		XX_Free(p_Fm);
@@ -3395,11 +3354,9 @@ t_Handle FM_Config(t_FmParams *p_FmParam)
 		return NULL;
 	}
 
-#if (DPAA_VERSION >= 11)
     p_Fm->partVSPBase   = p_FmParam->partVSPBase;
     p_Fm->partNumOfVSPs = p_FmParam->partNumOfVSPs;
     p_Fm->vspBaseAddr = p_FmParam->vspBaseAddr;
-#endif /* (DPAA_VERSION >= 11) */
 
     fman_defconfig(p_Fm->p_FmDriverParam,
                   !!(p_Fm->guestId == NCSW_MASTER_ID));
@@ -3425,9 +3382,7 @@ t_Handle FM_Config(t_FmParams *p_FmParam)
         if (!p_Fm->firmware.p_Code)
         {
             XX_FreeSpinlock(p_Fm->h_Spinlock);
-#if (DPAA_VERSION >= 11)
 			XX_Free(p_Fm->p_FmSp);
-#endif /* (DPAA_VERSION >= 11) */
             XX_Free(p_Fm->p_FmStateStruct);
             XX_Free(p_Fm->p_FmDriverParam);
             XX_Free(p_Fm);
@@ -3463,16 +3418,6 @@ t_Handle FM_Config(t_FmParams *p_FmParam)
 #ifdef FM_HAS_TOTAL_DMAS
         p_Fm->p_FmStateStruct->maxNumOfOpenDmas     = BMI_MAX_NUM_OF_DMAS;
 #endif /* FM_HAS_TOTAL_DMAS */
-#if (DPAA_VERSION < 11)
-        p_Fm->p_FmDriverParam->dma_comm_qtsh_clr_emer = FM_DMA_COMM_Q_LOW;
-        p_Fm->p_FmDriverParam->dma_comm_qtsh_asrt_emer = FM_DMA_COMM_Q_HIGH;
-        p_Fm->p_FmDriverParam->dma_cam_num_of_entries = FM_DMA_CAM_NUM_OF_ENTRIES;
-        p_Fm->p_FmDriverParam->dma_read_buf_tsh_clr_emer = FM_DMA_READ_INT_BUF_LOW;
-        p_Fm->p_FmDriverParam->dma_read_buf_tsh_asrt_emer = FM_DMA_READ_INT_BUF_HIGH;
-        p_Fm->p_FmDriverParam->dma_write_buf_tsh_clr_emer = FM_DMA_WRITE_INT_BUF_LOW;
-        p_Fm->p_FmDriverParam->dma_write_buf_tsh_asrt_emer = FM_DMA_WRITE_INT_BUF_HIGH;
-        p_Fm->p_FmDriverParam->dma_axi_dbg_num_of_beats = FM_AXI_DBG_NUM_OF_BEATS;
-#endif /* (DPAA_VERSION < 11) */
 #ifdef FM_NO_TNUM_AGING
     p_Fm->p_FmDriverParam->tnum_aging_period = 0;
 #endif
@@ -3601,11 +3546,9 @@ t_Error FM_Init(t_Handle h_Fm)
     WRITE_BLOCK(UINT_TO_PTR(p_Fm->resAddr), 0, 256);
 #endif /* FM_CAPWAP_SUPPORT */
 
-#if (DPAA_VERSION >= 11)
     p_Fm->partVSPBase = AllocVSPsForPartition(h_Fm, p_Fm->partVSPBase, p_Fm->partNumOfVSPs, p_Fm->guestId);
     if (p_Fm->partVSPBase == (uint8_t)(ILLEGAL_BASE))
         DBG(WARNING, ("partition VSPs allocation is FAILED"));
-#endif /* (DPAA_VERSION >= 11) */
 
     /* General FM driver initialization */
     p_Fm->fmMuramPhysBaseAddr =
@@ -3744,7 +3687,6 @@ t_Error FM_Free(t_Handle h_Fm)
 
     if (p_Fm->guestId != NCSW_MASTER_ID)
     {
-#if (DPAA_VERSION >= 11)
         FreeVSPsForPartition(h_Fm, p_Fm->partVSPBase, p_Fm->partNumOfVSPs, p_Fm->guestId);
 
         if (p_Fm->p_FmSp)
@@ -3752,7 +3694,6 @@ t_Error FM_Free(t_Handle h_Fm)
             XX_Free(p_Fm->p_FmSp);
             p_Fm->p_FmSp = NULL;
         }
-#endif /* (DPAA_VERSION >= 11) */
 
         if (p_Fm->fmModuleName[0] != 0)
             XX_IpcUnregisterMsgHandler(p_Fm->fmModuleName);
@@ -3784,7 +3725,6 @@ t_Error FM_Free(t_Handle h_Fm)
         }
     }
 
-#if (DPAA_VERSION >= 11)
     FreeVSPsForPartition(h_Fm, p_Fm->partVSPBase, p_Fm->partNumOfVSPs, p_Fm->guestId);
 
     if (p_Fm->p_FmSp)
@@ -3792,7 +3732,6 @@ t_Error FM_Free(t_Handle h_Fm)
         XX_Free(p_Fm->p_FmSp);
         p_Fm->p_FmSp = NULL;
     }
-#endif /* (DPAA_VERSION >= 11) */
 
     if (p_Fm->h_Spinlock)
         XX_FreeSpinlock(p_Fm->h_Spinlock);
@@ -4056,14 +3995,7 @@ t_Error FM_ConfigDmaWriteBufThresholds(t_Handle h_Fm, t_FmDmaThresholds *p_FmDma
     SANITY_CHECK_RETURN_ERROR(p_Fm->p_FmDriverParam, E_INVALID_HANDLE);
     SANITY_CHECK_RETURN_ERROR((p_Fm->guestId == NCSW_MASTER_ID), E_NOT_SUPPORTED);
 
-#if (DPAA_VERSION >= 11)
     RETURN_ERROR(MINOR, E_NOT_SUPPORTED, ("Not available for this FM revision!"));
-#else
-    p_Fm->p_FmDriverParam->dma_write_buf_tsh_asrt_emer = p_FmDmaThresholds->assertEmergency;
-    p_Fm->p_FmDriverParam->dma_write_buf_tsh_clr_emer  = p_FmDmaThresholds->clearEmergency;
-
-    return E_OK;
-#endif
 }
 
 t_Error FM_ConfigDmaCommQThresholds(t_Handle h_Fm, t_FmDmaThresholds *p_FmDmaThresholds)
@@ -4088,14 +4020,7 @@ t_Error FM_ConfigDmaReadBufThresholds(t_Handle h_Fm, t_FmDmaThresholds *p_FmDmaT
     SANITY_CHECK_RETURN_ERROR(p_Fm->p_FmDriverParam, E_INVALID_HANDLE);
     SANITY_CHECK_RETURN_ERROR((p_Fm->guestId == NCSW_MASTER_ID), E_NOT_SUPPORTED);
 
-#if (DPAA_VERSION >= 11)
     RETURN_ERROR(MINOR, E_NOT_SUPPORTED, ("Not available for this FM revision!"));
-#else
-    p_Fm->p_FmDriverParam->dma_read_buf_tsh_clr_emer   = p_FmDmaThresholds->clearEmergency;
-    p_Fm->p_FmDriverParam->dma_read_buf_tsh_asrt_emer  = p_FmDmaThresholds->assertEmergency;
-
-    return E_OK;
-#endif
 }
 
 t_Error FM_ConfigDmaWatchdog(t_Handle h_Fm, uint32_t watchdogValue)

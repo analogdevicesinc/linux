@@ -229,9 +229,7 @@ typedef struct {
     bool                extractedOrs;
     uint8_t             bitOffsetInPlcrProfile;
     bool                directPlcr;
-#if (DPAA_VERSION >= 11)
     bool                vspe;
-#endif
 } t_FmPcdKgScheme;
 
 typedef union {
@@ -373,11 +371,9 @@ typedef struct {
     t_FmPcdDriverParam          *p_FmPcdDriverParam;
 } t_FmPcd;
 
-#if (DPAA_VERSION >= 11)
 typedef uint8_t t_FmPcdFrmReplicUpdateType;
 #define FRM_REPLIC_UPDATE_COUNTER             0x01
 #define FRM_REPLIC_UPDATE_INFO                0x02
-#endif /* (DPAA_VERSION >= 11) */
 /***********************************************************************/
 /*  PCD internal routines                                              */
 /***********************************************************************/
@@ -448,7 +444,6 @@ t_Error     FmPcdManipCheckParamsWithCcNodeParams(t_Handle h_Manip, t_Handle h_F
 t_Handle    FmPcdManipApplSpecificBuild(void);
 bool        FmPcdManipIsCapwapApplSpecific(t_Handle h_Manip);
 #endif /* FM_CAPWAP_SUPPORT */
-#if (DPAA_VERSION >= 11)
 void *      FrmReplicGroupGetSourceTableDescriptor(t_Handle h_ReplicGroup);
 void        FrmReplicGroupUpdateOwner(t_Handle h_ReplicGroup, bool add);
 void        FrmReplicGroupUpdateAd(t_Handle h_ReplicGroup, void *p_Ad, t_Handle *h_AdNew);
@@ -457,7 +452,6 @@ void        FmPcdCcGetAdTablesThatPointOnReplicGroup(t_Handle   h_Node,
                                                      t_Handle   h_ReplicGroup,
                                                      t_List     *p_AdTables,
                                                      uint32_t   *p_NumOfAdTables);
-#endif /* (DPAA_VERSION >= 11) */
 
 void EnqueueNodeInfoToRelevantLst(t_List *p_List, t_CcNodeInformation *p_CcInfo, t_Handle h_Spinlock);
 void DequeueNodeInfoFromRelevantLst(t_List *p_List, t_Handle h_Info, t_Handle h_Spinlock);
@@ -469,9 +463,7 @@ typedef struct
 {
     t_Handle    h_StatsAd;
     t_Handle    h_StatsCounters;
-#if (DPAA_VERSION >= 11)
     t_Handle    h_StatsFLRs;
-#endif /* (DPAA_VERSION >= 11) */
 } t_FmPcdCcStatsParams;
 
 void NextStepAd(t_Handle                     h_Ad,

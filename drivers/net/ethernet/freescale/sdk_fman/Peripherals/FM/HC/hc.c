@@ -71,11 +71,7 @@
 
 #define HC_HCOR_KG_SCHEME_COUNTER           0x00000400
 
-#if (DPAA_VERSION == 10)
-#define HC_HCOR_KG_SCHEME_REGS_MASK         0xFFFFF800
-#else
 #define HC_HCOR_KG_SCHEME_REGS_MASK         0xFFFFFE00
-#endif /* (DPAA_VERSION == 10) */
 
 #define SIZE_OF_HC_FRAME_PORT_REGS          (sizeof(t_HcFrame)-sizeof(struct fman_kg_scheme_regs)+sizeof(t_FmPcdKgPortRegs))
 #define SIZE_OF_HC_FRAME_SCHEME_REGS        sizeof(t_HcFrame)

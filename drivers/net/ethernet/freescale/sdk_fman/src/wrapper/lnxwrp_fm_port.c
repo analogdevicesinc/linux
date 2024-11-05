@@ -54,9 +54,7 @@
 #include "lnxwrp_fm_port.h"
 #include "lnxwrp_fsl_fman.h"
 #include "fm_port_ext.h"
-#if (DPAA_VERSION >= 11)
 #include "fm_vsp_ext.h"
-#endif /* DPAA_VERSION >= 11 */
 #include "fm_ioctls.h"
 #include "lnxwrp_resources.h"
 #include "lnxwrp_sysfs_fm_port.h"
@@ -612,7 +610,6 @@ static t_Error CheckNSetFmPortAdvArgs (t_LnxWrpFmPortDev *p_LnxWrpFmPortDev)
     if (!port_node) /* no advance parameters for FMan-Port */
         return E_OK;
 
-#if (DPAA_VERSION >= 11)
     uint32_prop = (uint32_t *)of_get_property(port_node, "vsp-window", &lenp);
     if (uint32_prop) {
         t_FmPortVSPAllocParams  portVSPAllocParams;
@@ -683,9 +680,6 @@ static t_Error CheckNSetFmPortAdvArgs (t_LnxWrpFmPortDev *p_LnxWrpFmPortDev)
         if ((err = FM_VSP_Init(p_LnxWrpFmPortDev->h_DfltVsp)) != E_OK)
             RETURN_ERROR(MINOR, err, NO_MSG);
     }
-#else
-UNUSED(err); UNUSED(uint32_prop); UNUSED(lenp);
-#endif /* (DPAA_VERSION >= 11) */
 
     of_node_put(port_node);
     of_node_put(fm_node);

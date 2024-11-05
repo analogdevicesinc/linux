@@ -217,7 +217,6 @@ typedef union ioc_fm_api_version_t {
     uint32_t ver;
 } ioc_fm_api_version_t;
 
-#if (DPAA_VERSION >= 11)
 /**************************************************************************//**
  @Description   A structure of information about each of the external
                 buffer pools used by a port or storage-profile.
@@ -254,7 +253,6 @@ typedef struct ioc_fm_vsp_params_t {
                                                  defined in relevant FM object */
     void                *id;                /**< return value */
 } ioc_fm_vsp_params_t;
-#endif /* (DPAA_VERSION >= 11) */
 
 /**************************************************************************//**
  @Description   A structure for defining BM pool depletion criteria
@@ -272,19 +270,15 @@ typedef struct ioc_fm_buf_pool_depletion_t {
     bool        pools_to_consider_for_single_mode[BM_MAX_NUM_OF_POOLS];
                                                     /**< For each pool, TRUE if it should be considered for
                                                          depletion (Note - this pool must be used by this port!) */
-#if (DPAA_VERSION >= 11)
     bool        pfc_priorities_en[FM_MAX_NUM_OF_PFC_PRIORITIES];
                                                     /**< This field is used by the MAC as the Priority Enable Vector in the PFC frame
                                                          which is transmitted */
-#endif /* (DPAA_VERSION >= 11) */
 } ioc_fm_buf_pool_depletion_t;
 
-#if (DPAA_VERSION >= 11)
 typedef struct ioc_fm_buf_pool_depletion_params_t {
     void        *p_fm_vsp;
     ioc_fm_buf_pool_depletion_t fm_buf_pool_depletion;
 } ioc_fm_buf_pool_depletion_params_t;
-#endif /* (DPAA_VERSION >= 11) */
 
 typedef struct ioc_fm_buffer_prefix_content_t {
     uint16_t    priv_data_size;       /**< Number of bytes to be left at the beginning
@@ -306,8 +300,7 @@ typedef struct ioc_fm_buffer_prefix_content_t {
                                          if write optimization is used, must be >= 16. */
     uint8_t     manip_extra_space;    /**< Maximum extra size needed (insertion-size minus removal-size);
                                          Note that this field impacts the size of the buffer-prefix
-                                         (i.e. it pushes the data offset);
-                                         This field is irrelevant if DPAA_VERSION==10 */
+                                         (i.e. it pushes the data offset); */
 } ioc_fm_buffer_prefix_content_t;
 
 typedef struct ioc_fm_buffer_prefix_content_params_t {
@@ -315,7 +308,6 @@ typedef struct ioc_fm_buffer_prefix_content_params_t {
     ioc_fm_buffer_prefix_content_t fm_buffer_prefix_content;
 } ioc_fm_buffer_prefix_content_params_t;
 
-#if (DPAA_VERSION >= 11)
 typedef struct ioc_fm_vsp_config_no_sg_params_t {
     void        *p_fm_vsp;
     bool        no_sg;
@@ -325,7 +317,6 @@ typedef struct ioc_fm_vsp_prs_result_params_t {
     void        *p_fm_vsp;
     void        *p_data;
 } ioc_fm_vsp_prs_result_params_t;
-#endif
 
 typedef struct fm_ctrl_mon_t {
     uint8_t     percent_cnt[2];
@@ -417,7 +408,6 @@ typedef struct ioc_fm_ctrl_mon_counters_params_t {
 *//***************************************************************************/
 #define FM_IOC_GET_API_VERSION                               _IOR(FM_IOC_TYPE_BASE, FM_IOC_NUM(7), ioc_fm_api_version_t)
 
-#if (DPAA_VERSION >= 11)
 /**************************************************************************//**
  @Function      FM_VSP_Config
 
@@ -558,7 +548,6 @@ typedef struct ioc_fm_ctrl_mon_counters_params_t {
 #define FM_IOC_VSP_GET_BUFFER_PRS_RESULT_COMPAT            _IOWR(FM_IOC_TYPE_BASE, FM_IOC_NUM(14), ioc_compat_fm_vsp_prs_result_params_t)
 #endif
 #define FM_IOC_VSP_GET_BUFFER_PRS_RESULT                   _IOWR(FM_IOC_TYPE_BASE, FM_IOC_NUM(14), ioc_fm_vsp_prs_result_params_t)
-#endif /* (DPAA_VERSION >= 11) */
 
 /**************************************************************************//**
  @Function      FM_CtrlMonStart

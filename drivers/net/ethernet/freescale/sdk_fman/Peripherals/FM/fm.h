@@ -189,36 +189,6 @@ switch (exception){                                         \
 #define FM_EXTERNAL_ECC_RAMS_ENABLE         FALSE
 #define FM_VERIFY_UCODE                     FALSE
 
-#if (DPAA_VERSION < 11)
-#define DEFAULT_totalFifoSize(major, minor)     \
-    (((major == 2) || (major == 5)) ?           \
-     (100*KILOBYTE) : ((major == 4) ?           \
-     (49*KILOBYTE) : (122*KILOBYTE)))
-#define DEFAULT_totalNumOfTasks(major, minor)   \
-            BMI_MAX_NUM_OF_TASKS
-
-#define DEFAULT_dmaCommQLow                 ((DMA_THRESH_MAX_COMMQ+1)/2)
-#define DEFAULT_dmaCommQHigh                ((DMA_THRESH_MAX_COMMQ+1)*3/4)
-#define DEFAULT_cacheOverride               e_FM_DMA_NO_CACHE_OR
-#define DEFAULT_dmaCamNumOfEntries          32
-#define DEFAULT_dmaDbgCntMode               e_FM_DMA_DBG_NO_CNT
-#define DEFAULT_dmaEnEmergency              FALSE
-#define DEFAULT_dmaSosEmergency             0
-#define DEFAULT_dmaWatchdog                 0 /* disabled */
-#define DEFAULT_dmaEnEmergencySmoother      FALSE
-#define DEFAULT_dmaEmergencySwitchCounter   0
-
-#define DEFAULT_dispLimit                   0
-#define DEFAULT_prsDispTh                   16
-#define DEFAULT_plcrDispTh                  16
-#define DEFAULT_kgDispTh                    16
-#define DEFAULT_bmiDispTh                   16
-#define DEFAULT_qmiEnqDispTh                16
-#define DEFAULT_qmiDeqDispTh                16
-#define DEFAULT_fmCtl1DispTh                16
-#define DEFAULT_fmCtl2DispTh                16
-
-#else  /* (DPAA_VERSION < 11) */
 /* Defaults are registers' reset values */
 #define DEFAULT_totalFifoSize(major, minor)			\
 	(((major == 6) && ((minor == 1) || (minor == 4))) ?	\
@@ -248,7 +218,6 @@ switch (exception){                                         \
 #define DEFAULT_qmiDeqDispTh                16
 #define DEFAULT_fmCtl1DispTh                16
 #define DEFAULT_fmCtl2DispTh                16
-#endif /* (DPAA_VERSION < 11) */
 
 #define FM_TIMESTAMP_1_USEC_BIT             8
 
@@ -448,7 +417,6 @@ typedef struct
     uint16_t                    macMaxFrameLengths1G[FM_MAX_NUM_OF_1G_MACS];
 } t_FmStateStruct;
 
-#if (DPAA_VERSION >= 11)
 typedef struct t_FmMapParam {
     uint16_t        profilesBase;
     uint16_t        numOfProfiles;
@@ -471,7 +439,6 @@ typedef struct t_FmSp {
     t_FmPcdSpEntry  profiles[FM_VSP_MAX_NUM_OF_ENTRIES];
     t_FmMapParam    portsMapping[FM_MAX_NUM_OF_PORTS];
 } t_FmSp;
-#endif /* (DPAA_VERSION >= 11) */
 
 typedef struct t_Fm
 {
@@ -504,12 +471,10 @@ typedef struct t_Fm
     bool                        recoveryMode;
     t_FmStateStruct             *p_FmStateStruct;
     uint16_t                    tnumAgingPeriod;
-#if (DPAA_VERSION >= 11)
     t_FmSp                      *p_FmSp;
     uint8_t                     partNumOfVSPs;
     uint8_t                     partVSPBase;
     uintptr_t                   vspBaseAddr;
-#endif /* (DPAA_VERSION >= 11) */
     bool                        portsPreFetchConfigured[FM_MAX_NUM_OF_HW_PORT_IDS]; /* Prefetch configration per Tx-port */
     bool                        portsPreFetchValue[FM_MAX_NUM_OF_HW_PORT_IDS];      /* Prefetch configration per Tx-port */
 

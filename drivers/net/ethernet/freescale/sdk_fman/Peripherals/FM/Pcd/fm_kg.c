@@ -1258,7 +1258,6 @@ static t_Error BuildSchemeRegs(t_FmPcdKgScheme            *p_Scheme,
 
     p_SchemeRegs->kgse_mv = p_Scheme->matchVector;
 
-#if (DPAA_VERSION >= 11)
     if (p_SchemeParams->overrideStorageProfile)
     {
         p_SchemeRegs->kgse_om |= KG_SCH_OM_VSPE;
@@ -1293,7 +1292,6 @@ static t_Error BuildSchemeRegs(t_FmPcdKgScheme            *p_Scheme,
     }
     else
         p_SchemeRegs->kgse_vsp = KG_SCH_VSP_NO_KSP_EN;
-#endif /* (DPAA_VERSION >= 11) */
 
     if (p_SchemeParams->useHash)
     {
@@ -1402,11 +1400,9 @@ static t_Error BuildSchemeRegs(t_FmPcdKgScheme            *p_Scheme,
                 case (e_FM_PCD_EXTRACT_BY_HDR):
                     switch (p_Extract->extractByHdr.hdr)
                     {
-#if (DPAA_VERSION >= 11) || ((DPAA_VERSION == 10) && defined(FM_CAPWAP_SUPPORT))
                         case (HEADER_TYPE_UDP_LITE):
                             p_Extract->extractByHdr.hdr = HEADER_TYPE_UDP;
                             break;
-#endif /* (DPAA_VERSION >= 11) || ((DPAA_VERSION == 10) && defined(FM_CAPWAP_SUPPORT)) */
                         case (HEADER_TYPE_UDP_ENCAP_ESP):
                             switch (p_Extract->extractByHdr.type)
                             {
@@ -2777,13 +2773,10 @@ uint8_t FmPcdKgGetSchemeId(t_Handle h_Scheme)
 
 }
 
-#if (DPAA_VERSION >= 11)
 bool FmPcdKgGetVspe(t_Handle h_Scheme)
 {
     return ((t_FmPcdKgScheme*)h_Scheme)->vspe;
-
 }
-#endif /* (DPAA_VERSION >= 11) */
 
 uint8_t FmPcdKgGetRelativeSchemeId(t_Handle h_FmPcd, uint8_t schemeId)
 {

@@ -267,11 +267,8 @@ typedef _Packed struct t_FmIpcResourceAllocParams {
 *//***************************************************************************/
 #define FM_PCD_PRS_INC_PORT_STATS               26
 
-#if (DPAA_VERSION >= 11)
 /* TODO - doc */
 #define FM_PCD_ALLOC_SP                         27
-#endif /* (DPAA_VERSION >= 11) */
-
 
 /** @} */ /* end of FM_PCD_IPC_grp group */
 /** @} */ /* end of FM_grp group */

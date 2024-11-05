@@ -49,7 +49,6 @@
 #include "fm_common.h"
 #include "fsl_fman_sp.h"
 
-#if (DPAA_VERSION >= 11)
 static t_Error CheckParamsGeneratedInternally(t_FmVspEntry *p_FmVspEntry)
 {
     t_Error err = E_OK;
@@ -86,8 +85,6 @@ static t_Error CheckParams(t_FmVspEntry *p_FmVspEntry)
 
     return err;
 }
-#endif /* (DPAA_VERSION >= 11) */
-
 
 /*****************************************************************************/
 /*              Inter-module API routines                                    */
@@ -400,8 +397,6 @@ t_Error FmSpBuildBufferStructure(t_FmSpIntContextDataCopy   *p_FmSpIntContextDat
 }
 /*********************** End of inter-module routines ************************/
 
-
-#if (DPAA_VERSION >= 11)
 /*****************************************************************************/
 /*              API routines                                                 */
 /*****************************************************************************/
@@ -757,5 +752,3 @@ uint8_t * FM_VSP_GetBufferHashResult(t_Handle h_FmVsp, char *p_Data)
 
     return (uint8_t *)PTR_MOVE(p_Data, p_FmVspEntry->bufferOffsets.hashResultOffset);
 }
-
-#endif /* (DPAA_VERSION >= 11) */

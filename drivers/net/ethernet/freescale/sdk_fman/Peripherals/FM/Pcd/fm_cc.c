@@ -235,22 +235,18 @@ static void UpdateStatsAd(t_FmPcdCcStatsParams *p_FmPcdCcStatsParams,
 {
     t_AdOfTypeStats *p_StatsAd;
     uint32_t statsCountersAddr, nextActionAddr, tmp;
-#if (DPAA_VERSION >= 11)
     uint32_t frameLengthRangesAddr;
-#endif /* (DPAA_VERSION >= 11) */
 
     p_StatsAd = (t_AdOfTypeStats *)p_FmPcdCcStatsParams->h_StatsAd;
 
     tmp = FM_PCD_AD_STATS_TYPE;
 
-#if (DPAA_VERSION >= 11)
     if (p_FmPcdCcStatsParams->h_StatsFLRs)
     {
         frameLengthRangesAddr = (uint32_t)((XX_VirtToPhys(
                 p_FmPcdCcStatsParams->h_StatsFLRs) - physicalMuramBase));
         tmp |= (frameLengthRangesAddr & FM_PCD_AD_STATS_FLR_ADDR_MASK);
     }
-#endif /* (DPAA_VERSION >= 11) */
     WRITE_UINT32(p_StatsAd->profileTableAddr, tmp);
 
     nextActionAddr = (uint32_t)((XX_VirtToPhys(h_Ad) - physicalMuramBase));
@@ -259,10 +255,8 @@ static void UpdateStatsAd(t_FmPcdCcStatsParams *p_FmPcdCcStatsParams,
             & FM_PCD_AD_STATS_NEXT_ACTION_MASK);
     tmp |= (FM_PCD_AD_STATS_NAD_EN | FM_PCD_AD_STATS_OP_CODE);
 
-#if (DPAA_VERSION >= 11)
     if (p_FmPcdCcStatsParams->h_StatsFLRs)
         tmp |= FM_PCD_AD_STATS_FLR_EN;
-#endif /* (DPAA_VERSION >= 11) */
 
     WRITE_UINT32(p_StatsAd->nextActionIndx, tmp);
 
@@ -320,7 +314,6 @@ static void FillAdOfTypeContLookup(t_Handle h_Ad,
         UpdateStatsAd(p_FmPcdCcStatsParams, h_Ad, p_FmPcd->physicalMuramBase);
     }
 
-#if DPAA_VERSION >= 11
     if (h_Manip && h_FrmReplic)
         FmPcdManipUpdateAdContLookupForCc(
                 h_Manip,
@@ -333,7 +326,6 @@ static void FillAdOfTypeContLookup(t_Handle h_Ad,
         if (h_FrmReplic)
             FrmReplicGroupUpdateAd(h_FrmReplic, h_Ad, &p_AdNewPtr);
         else
-#endif /* (DPAA_VERSION >= 11) */
             if (h_Manip)
                 FmPcdManipUpdateAdContLookupForCc(
                         h_Manip,
@@ -759,11 +751,9 @@ static t_Error ReleaseModifiedDataStructure(
         PutStatsObj((t_FmPcdCcNode *)(p_AdditionalParams->h_CurrentNode),
                     p_AdditionalParams->p_StatsObjForRmv);
 
-#if (DPAA_VERSION >= 11)
     if (p_AdditionalParams->h_FrmReplicForRmv)
         FrmReplicGroupUpdateOwner(p_AdditionalParams->h_FrmReplicForRmv,
                                   FALSE/* remove */);
-#endif /* (DPAA_VERSION >= 11) */
 
     if (!useShadowStructs)
     {
@@ -887,7 +877,6 @@ static t_Error BuildNewAd(t_Handle h_Ad,
                                h_OrigAd ? NULL : p_FmPcdCcNextEngineParams->h_Manip, NULL);
     }
 
-#if (DPAA_VERSION >= 11)
     if ((p_FmPcdCcNextEngineParams->nextEngine == e_FM_PCD_FR)
             && (p_FmPcdCcNextEngineParams->params.frParams.h_FrmReplic))
     {
@@ -896,7 +885,6 @@ static t_Error BuildNewAd(t_Handle h_Ad,
                 p_FmPcdCcNextEngineParams->h_Manip,
                 p_FmPcdCcNextEngineParams->params.frParams.h_FrmReplic);
     }
-#endif /* (DPAA_VERSION >= 11) */
 
     XX_Free(p_FmPcdCcNodeTmp);
 
@@ -1687,12 +1675,10 @@ t_Error ValidateNextEngineParams(
                              ("handler to next Node is NULL"));
             break;
 
-#if (DPAA_VERSION >= 11)
         case (e_FM_PCD_FR):
             if (!p_FmPcdCcNextEngineParams->params.frParams.h_FrmReplic)
                 err = E_NOT_SUPPORTED;
             break;
-#endif /* (DPAA_VERSION >= 11) */
 
         default:
             RETURN_ERROR(MAJOR, E_INVALID_STATE,
@@ -2244,12 +2230,10 @@ static void FillAdOfTypeResult(t_Handle h_Ad,
                         tmp = FM_PCD_AD_RESULT_CONTRL_FLOW_TYPE;
                         tmp |=
                                 p_CcNextEngineParams->params.enqueueParams.newFqid;
-#if (DPAA_VERSION >= 11)
                         tmp |=
                                 (p_CcNextEngineParams->params.enqueueParams.newRelativeStorageProfileId
                                         & FM_PCD_AD_RESULT_VSP_MASK)
                                         << FM_PCD_AD_RESULT_VSP_SHIFT;
-#endif /* (DPAA_VERSION >= 11) */
                     }
                     else
                     {
@@ -2270,12 +2254,10 @@ static void FillAdOfTypeResult(t_Handle h_Ad,
                 {
                     tmp = FM_PCD_AD_RESULT_CONTRL_FLOW_TYPE;
                     tmp |= p_CcNextEngineParams->params.kgParams.newFqid;
-#if (DPAA_VERSION >= 11)
                     tmp |=
                             (p_CcNextEngineParams->params.kgParams.newRelativeStorageProfileId
                                     & FM_PCD_AD_RESULT_VSP_MASK)
                                     << FM_PCD_AD_RESULT_VSP_SHIFT;
-#endif /* (DPAA_VERSION >= 11) */
                 }
                 else
                 {
@@ -2316,12 +2298,10 @@ static void FillAdOfTypeResult(t_Handle h_Ad,
                                 p_CcNextEngineParams->params.plcrParams.newRelativeProfileId;
 
                     tmp |= p_CcNextEngineParams->params.plcrParams.newFqid;
-#if (DPAA_VERSION >= 11)
                     tmp |=
                             (p_CcNextEngineParams->params.plcrParams.newRelativeStorageProfileId
                                     & FM_PCD_AD_RESULT_VSP_MASK)
                                     << FM_PCD_AD_RESULT_VSP_SHIFT;
-#endif /* (DPAA_VERSION >= 11) */
                     WRITE_UINT32(
                             p_AdResult->plcrProfile,
                             (uint32_t)((uint32_t)profileId << FM_PCD_AD_PROFILEID_FOR_CNTRL_SHIFT));
@@ -2349,9 +2329,7 @@ static void FillAdOfTypeResult(t_Handle h_Ad,
             tmpNia |= FM_PCD_AD_RESULT_NADEN;
         }
 
-#if (DPAA_VERSION >= 11)
         tmpNia |= FM_PCD_AD_RESULT_NO_OM_VSPE;
-#endif /* (DPAA_VERSION >= 11) */
         WRITE_UINT32(p_AdResult->nia, tmpNia);
     }
 }
@@ -2683,10 +2661,7 @@ static t_Error BuildNewNodeAddOrMdfyKeyAndNextEngine(
 
                 statsParams.h_StatsAd = p_StatsObj->h_StatsAd;
                 statsParams.h_StatsCounters = p_StatsObj->h_StatsCounters;
-#if (DPAA_VERSION >= 11)
                 statsParams.h_StatsFLRs = p_CcNode->h_StatsFLRs;
-
-#endif /* (DPAA_VERSION >= 11) */
 
                 /* Building action descriptor for the received new key */
                 NextStepAd(p_AdTableNewTmp, &statsParams,
@@ -2838,13 +2813,10 @@ static t_Error BuildNewNodeAddOrMdfyKeyAndNextEngine(
     if (p_KeyParams->ccNextEngineParams.h_Manip)
         p_AdditionalInfo->h_ManipForAdd =
                 p_KeyParams->ccNextEngineParams.h_Manip;
-
-#if (DPAA_VERSION >= 11)
     if ((p_KeyParams->ccNextEngineParams.nextEngine == e_FM_PCD_FR)
             && (p_KeyParams->ccNextEngineParams.params.frParams.h_FrmReplic))
         p_AdditionalInfo->h_FrmReplicForAdd =
                 p_KeyParams->ccNextEngineParams.params.frParams.h_FrmReplic;
-#endif /* (DPAA_VERSION >= 11) */
 
     if (!add)
     {
@@ -2864,13 +2836,11 @@ static t_Error BuildNewNodeAddOrMdfyKeyAndNextEngine(
                     p_CcNode->keyAndNextEngineParams[keyIndex].p_StatsObj;
         }
 
-#if (DPAA_VERSION >= 11)
         if ((p_CcNode->keyAndNextEngineParams[keyIndex].nextEngineParams.nextEngine
                 == e_FM_PCD_FR)
                 && (p_CcNode->keyAndNextEngineParams[keyIndex].nextEngineParams.params.frParams.h_FrmReplic))
             p_AdditionalInfo->h_FrmReplicForRmv =
                     p_CcNode->keyAndNextEngineParams[keyIndex].nextEngineParams.params.frParams.h_FrmReplic;
-#endif /* (DPAA_VERSION >= 11) */
     }
 
     return E_OK;
@@ -2938,13 +2908,11 @@ static t_Error BuildNewNodeRemoveKey(
                 p_CcNode->keyAndNextEngineParams[keyIndex].p_StatsObj;
     }
 
-#if (DPAA_VERSION >= 11)
     if ((p_CcNode->keyAndNextEngineParams[keyIndex].nextEngineParams.nextEngine
             == e_FM_PCD_FR)
             && (p_CcNode->keyAndNextEngineParams[keyIndex].nextEngineParams.params.frParams.h_FrmReplic))
         p_AdditionalInfo->h_FrmReplicForRmv =
                 p_CcNode->keyAndNextEngineParams[keyIndex].nextEngineParams.params.frParams.h_FrmReplic;
-#endif /* (DPAA_VERSION >= 11) */
 
     return E_OK;
 }
@@ -3160,13 +3128,11 @@ static t_Error BuildNewNodeModifyNextEngine(
             p_AdditionalInfo->h_ManipForRmv =
                     p_FmPcdCcNode1->keyAndNextEngineParams[keyIndex].nextEngineParams.h_Manip;
 
-#if (DPAA_VERSION >= 11)
         if ((p_FmPcdCcNode1->keyAndNextEngineParams[keyIndex].nextEngineParams.nextEngine
                 == e_FM_PCD_FR)
                 && (p_FmPcdCcNode1->keyAndNextEngineParams[keyIndex].nextEngineParams.params.frParams.h_FrmReplic))
             p_AdditionalInfo->h_FrmReplicForRmv =
                     p_FmPcdCcNode1->keyAndNextEngineParams[keyIndex].nextEngineParams.params.frParams.h_FrmReplic;
-#endif /* (DPAA_VERSION >= 11) */
     }
     else
     {
@@ -3182,13 +3148,11 @@ static t_Error BuildNewNodeModifyNextEngine(
             p_AdditionalInfo->h_ManipForRmv =
                     p_FmPcdCcTree->keyAndNextEngineParams[keyIndex].nextEngineParams.h_Manip;
 
-#if (DPAA_VERSION >= 11)
         if ((p_FmPcdCcTree->keyAndNextEngineParams[keyIndex].nextEngineParams.nextEngine
                 == e_FM_PCD_FR)
                 && (p_FmPcdCcTree->keyAndNextEngineParams[keyIndex].nextEngineParams.params.frParams.h_FrmReplic))
             p_AdditionalInfo->h_FrmReplicForRmv =
                     p_FmPcdCcTree->keyAndNextEngineParams[keyIndex].nextEngineParams.params.frParams.h_FrmReplic;
-#endif /* (DPAA_VERSION >= 11) */
     }
 
     if ((p_CcNextEngineParams->nextEngine == e_FM_PCD_CC)
@@ -3239,11 +3203,8 @@ static t_Error BuildNewNodeModifyNextEngine(
         statsParams.h_StatsAd = p_StatsObj->h_StatsAd;
         statsParams.h_StatsCounters = p_StatsObj->h_StatsCounters;
 
-#if (DPAA_VERSION >= 11)
         statsParams.h_StatsFLRs =
                 ((t_FmPcdCcNode *)h_FmPcdCcNodeOrTree)->h_StatsFLRs;
-
-#endif /* (DPAA_VERSION >= 11) */
 
         NextStepAd(p_Ad, &statsParams, p_CcNextEngineParams, h_FmPcd);
     }
@@ -3330,12 +3291,10 @@ static t_Error BuildNewNodeModifyNextEngine(
 
         p_AdditionalInfo->keyAndNextEngineParams[keyIndex].p_StatsObj = NULL;
     }
-#if (DPAA_VERSION >= 11)
     if ((p_CcNextEngineParams->nextEngine == e_FM_PCD_FR)
             && (p_CcNextEngineParams->params.frParams.h_FrmReplic))
         p_AdditionalInfo->h_FrmReplicForAdd =
                 p_CcNextEngineParams->params.frParams.h_FrmReplic;
-#endif /* (DPAA_VERSION >= 11) */
 
     return E_OK;
 }
@@ -3666,7 +3625,6 @@ static t_Error ValidateAndCalcStatsParams(t_FmPcdCcNode *p_CcNode,
             *p_CountersArraySize = 2 * FM_PCD_CC_STATS_COUNTER_SIZE;
             return E_OK;
 
-#if (DPAA_VERSION >= 11)
         case e_FM_PCD_CC_STATS_MODE_RMON:
         {
             uint16_t *p_FrameLengthRanges =
@@ -3710,7 +3668,6 @@ static t_Error ValidateAndCalcStatsParams(t_FmPcdCcNode *p_CcNode,
 
         }
             return E_OK;
-#endif /* (DPAA_VERSION >= 11) */
 
         default:
             RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("Statistics mode"));
@@ -4329,11 +4286,8 @@ static t_Error MatchTableGetKeyStatistics(
                 PTR_MOVE(p_StatsCounters, FM_PCD_CC_STATS_COUNTER_SIZE);
 
         p_KeyStatistics->frameCount += GET_UINT32(*p_StatsCounters);
-
-#if (DPAA_VERSION >= 11)
         p_KeyStatistics->frameLengthRangeCount[i - 1] =
                 GET_UINT32(*p_StatsCounters);
-#endif /* (DPAA_VERSION >= 11) */
     }
 
     return E_OK;
@@ -4349,9 +4303,7 @@ static t_Error MatchTableSet(t_Handle h_FmPcd, t_FmPcdCcNode *p_CcNode,
     bool glblMask = FALSE;
     t_FmPcdCcKeyParams *p_KeyParams;
     t_Handle h_FmMuram, p_KeysMatchTblTmp, p_AdTableTmp;
-#if (DPAA_VERSION >= 11)
     t_Handle h_StatsFLRs;
-#endif /* (DPAA_VERSION >= 11) */
     bool fullField = FALSE;
     ccPrivateInfo_t icCode = CC_PRIVATE_INFO_NONE;
     bool isKeyTblAlloc, fromIc = FALSE;
@@ -4672,7 +4624,6 @@ static t_Error MatchTableSet(t_Handle h_FmPcd, t_FmPcdCcNode *p_CcNode,
                 * (p_CcNode->numOfKeys + 1));
     }
 
-#if (DPAA_VERSION >= 11)
     switch (p_CcNode->statisticsMode)
     {
 
@@ -4711,7 +4662,6 @@ static t_Error MatchTableSet(t_Handle h_FmPcd, t_FmPcdCcNode *p_CcNode,
         default:
             break;
     }
-#endif /* (DPAA_VERSION >= 11) */
 
     /* Allocate keys match table. Not required for some CC nodes, for example for IPv4 TTL
      identification, IPv6 hop count identification, etc. */
@@ -4780,10 +4730,8 @@ static t_Error MatchTableSet(t_Handle h_FmPcd, t_FmPcdCcNode *p_CcNode,
 
             statsParams.h_StatsAd = p_StatsObj->h_StatsAd;
             statsParams.h_StatsCounters = p_StatsObj->h_StatsCounters;
-#if (DPAA_VERSION >= 11)
             statsParams.h_StatsFLRs = p_CcNode->h_StatsFLRs;
 
-#endif /* (DPAA_VERSION >= 11) */
             NextStepAd(p_AdTableTmp, &statsParams,
                        &p_KeyParams->ccNextEngineParams, p_FmPcd);
 
@@ -4820,10 +4768,7 @@ static t_Error MatchTableSet(t_Handle h_FmPcd, t_FmPcdCcNode *p_CcNode,
 
         statsParams.h_StatsAd = p_StatsObj->h_StatsAd;
         statsParams.h_StatsCounters = p_StatsObj->h_StatsCounters;
-#if (DPAA_VERSION >= 11)
         statsParams.h_StatsFLRs = p_CcNode->h_StatsFLRs;
-
-#endif /* (DPAA_VERSION >= 11) */
 
         NextStepAd(p_AdTableTmp, &statsParams,
                    &p_CcNodeParam->keysParams.ccNextEngineParamsForMiss,
@@ -5032,7 +4977,6 @@ void NextStepAd(t_Handle h_Ad, t_FmPcdCcStatsParams *p_FmPcdCcStatsParams,
             FillAdOfTypeResult(h_Ad, p_FmPcdCcStatsParams, p_FmPcd,
                                p_FmPcdCcNextEngineParams);
             break;
-#if (DPAA_VERSION >= 11)
         case (e_FM_PCD_FR):
             if (p_FmPcdCcNextEngineParams->params.frParams.h_FrmReplic)
             {
@@ -5046,7 +4990,6 @@ void NextStepAd(t_Handle h_Ad, t_FmPcdCcStatsParams *p_FmPcdCcStatsParams,
                         TRUE/* add */);
             }
             break;
-#endif /* (DPAA_VERSION >= 11) */
 
         case (e_FM_PCD_CC):
             /* if NIA is not CC, create a TD to continue the CC lookup */
@@ -5988,7 +5931,6 @@ t_Error FmPcdUpdateCcShadow(t_FmPcd *p_FmPcd, uint32_t size, uint32_t align)
     return E_OK;
 }
 
-#if (DPAA_VERSION >= 11)
 void FmPcdCcGetAdTablesThatPointOnReplicGroup(t_Handle h_Node,
                                               t_Handle h_ReplicGroup,
                                               t_List *p_AdTables,
@@ -6023,7 +5965,6 @@ void FmPcdCcGetAdTablesThatPointOnReplicGroup(t_Handle h_Node,
 
     ASSERT_COND(i != p_CurrentNode->numOfKeys);
 }
-#endif /* (DPAA_VERSION >= 11) */
 /*********************** End of inter-module routines ************************/
 
 /****************************************/
@@ -6369,14 +6310,12 @@ t_Error FM_PCD_CcRootDelete(t_Handle h_CcTree)
         }
 #endif /* FM_CAPWAP_SUPPORT */
 
-#if (DPAA_VERSION >= 11)
         if ((p_CcTree->keyAndNextEngineParams[i].nextEngineParams.nextEngine
                 == e_FM_PCD_FR)
                 && (p_CcTree->keyAndNextEngineParams[i].nextEngineParams.params.frParams.h_FrmReplic))
             FrmReplicGroupUpdateOwner(
                     p_CcTree->keyAndNextEngineParams[i].nextEngineParams.params.frParams.h_FrmReplic,
                     FALSE);
-#endif /* (DPAA_VERSION >= 11) */
     }
 
     if (p_CcTree->p_Lock)
@@ -6489,7 +6428,6 @@ t_Error FM_PCD_MatchTableDelete(t_Handle h_CcNode)
                     p_CcNode->keyAndNextEngineParams[i].nextEngineParams.h_Manip,
                     FALSE);
 
-#if (DPAA_VERSION >= 11)
         if ((p_CcNode->keyAndNextEngineParams[i].nextEngineParams.nextEngine
                 == e_FM_PCD_FR)
                 && (p_CcNode->keyAndNextEngineParams[i].nextEngineParams.params.frParams.h_FrmReplic))
@@ -6498,7 +6436,6 @@ t_Error FM_PCD_MatchTableDelete(t_Handle h_CcNode)
                     p_CcNode->keyAndNextEngineParams[i].nextEngineParams.params.frParams.h_FrmReplic,
                     FALSE);
         }
-#endif /* (DPAA_VERSION >= 11) */
     }
 
     DeleteNode(p_CcNode);
@@ -7183,14 +7120,12 @@ t_Handle FM_PCD_HashTableSet(t_Handle h_FmPcd, t_FmPcdHashTableParams *p_Param)
         return NULL;
     }
 
-#if (DPAA_VERSION >= 11)
     if (p_Param->statisticsMode == e_FM_PCD_CC_STATS_MODE_RMON)
     {
         REPORT_ERROR(MAJOR, E_INVALID_VALUE,
                 ("RMON statistics mode is not supported for hash table"));
         return NULL;
     }
-#endif /* (DPAA_VERSION >= 11) */
 
     p_ExactMatchCcNodeParam = (t_FmPcdCcNodeParams*)XX_Malloc(
             sizeof(t_FmPcdCcNodeParams));

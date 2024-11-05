@@ -476,16 +476,10 @@ static t_Error VerifySizeOfFifo(t_FmPort *p_FmPort)
                 }
                 else
                 {
-#if (DPAA_VERSION >= 11)
                     minFifoSizeRequired =
                             (uint32_t)(ROUND_UP(p_FmPort->maxFrameLength, BMI_FIFO_UNITS)
                                     + (5 * BMI_FIFO_UNITS));
                     /* 4 according to spec + 1 for FOF>0 */
-#else
-                    minFifoSizeRequired = (uint32_t)
-                    (ROUND_UP(MIN(p_FmPort->maxFrameLength, p_FmPort->rxPoolsParams.largestBufSize), BMI_FIFO_UNITS)
-                            + (7*BMI_FIFO_UNITS));
-#endif /* (DPAA_VERSION >= 11) */
                 }
 
                 optFifoSizeForB2B = minFifoSizeRequired;
@@ -504,16 +498,12 @@ static t_Error VerifySizeOfFifo(t_FmPort *p_FmPort)
                 if ((p_FmPort->portType == e_FM_PORT_TYPE_OH_OFFLINE_PARSING)
                         || (p_FmPort->portType == e_FM_PORT_TYPE_OH_HOST_COMMAND))
                 {
-#if (DPAA_VERSION >= 11)
                     optFifoSizeForB2B =
                             minFifoSizeRequired =
                                     (uint32_t)(ROUND_UP(p_FmPort->maxFrameLength, BMI_FIFO_UNITS)
                                             + ((p_FmPort->p_FmPortDriverParam->dfltCfg.tx_fifo_deq_pipeline_depth
                                                     + 5) * BMI_FIFO_UNITS));
                     /* 4 according to spec + 1 for FOF>0 */
-#else
-                    optFifoSizeForB2B = minFifoSizeRequired = (uint32_t)((p_FmPort->tasks.num + 2) * BMI_FIFO_UNITS);
-#endif /* (DPAA_VERSION >= 11) */
                 }
 
     ASSERT_COND(minFifoSizeRequired > 0);
@@ -624,7 +614,6 @@ static t_Error SetExtBufferPools(t_FmPort *p_FmPort)
         }
     }
 
-#if (DPAA_VERSION >= 11)
     /* fill QbbPEV */
     if (p_BufPoolDepletion->poolsGrpModeEnable
             || p_BufPoolDepletion->singlePoolModeEnable)
@@ -637,7 +626,6 @@ static t_Error SetExtBufferPools(t_FmPort *p_FmPort)
             }
         }
     }
-#endif /* (DPAA_VERSION >= 11) */
 
     /* Issue flibs function */
     err = fman_port_set_bpools(&p_FmPort->port, &bpools);
@@ -1301,14 +1289,12 @@ static t_Error SetPcd(t_FmPort *p_FmPort, t_FmPortPcdParams *p_PcdParams)
             /* build vector */
             p_FmPort->schemesPerPortVector |= 1
                     << (31 - (uint32_t)physicalSchemeId);
-#if (DPAA_VERSION >= 11)
             /*because of the state that VSPE is defined per port - all PCD path should be according to this requirement
              if !VSPE - in port, for relevant scheme VSPE can not be set*/
             if (!p_FmPort->vspe
                     && FmPcdKgGetVspe((p_PcdParams->p_KgParams->h_Schemes[i])))
                 RETURN_ERROR(MAJOR, E_INVALID_STATE,
                              ("VSPE is not at port level"));
-#endif /* (DPAA_VERSION >= 11) */
         }
 
         err = FmPcdKgBindPortToSchemes(p_FmPort->h_FmPcd, &schemeBind);
@@ -1370,19 +1356,15 @@ static t_Error SetPcd(t_FmPort *p_FmPort, t_FmPortPcdParams *p_PcdParams)
     if (p_FmPort->pcdEngines & FM_PCD_PRS)
     {
         ASSERT_COND(p_PcdParams->p_PrsParams);
-#if (DPAA_VERSION >= 11)
         if (p_PcdParams->p_PrsParams->firstPrsHdr == HEADER_TYPE_CAPWAP)
             hdrNum = OFFLOAD_SW_PATCH_CAPWAP_LABEL;
         else
         {
-#endif /* (DPAA_VERSION >= 11) */
             /* if PRS is used it is always first */
                 hdrNum = GetPrsHdrNum(p_PcdParams->p_PrsParams->firstPrsHdr);
             if (hdrNum == ILLEGAL_HDR_NUM)
                 RETURN_ERROR(MAJOR, E_NOT_SUPPORTED, ("Unsupported header."));
-#if (DPAA_VERSION >= 11)
         }
-#endif /* (DPAA_VERSION >= 11) */
         p_FmPort->savedBmiNia |= (uint32_t)(NIA_ENG_PRS | (uint32_t)(hdrNum));
         /* set after parser NIA */
         tmpReg = 0;
@@ -1588,16 +1570,6 @@ static t_Error SetPcd(t_FmPort *p_FmPort, t_FmPortPcdParams *p_PcdParams)
                 }
             }
 
-#if ((DPAA_VERSION == 10) && defined(FM_CAPWAP_SUPPORT))
-        if (FmPcdNetEnvIsHdrExist(p_FmPort->h_FmPcd, p_FmPort->netEnvId,
-                        HEADER_TYPE_UDP_LITE))
-        {
-            /* link to sw parser code for udp lite - only if no other code is applied. */
-            hdrNum = GetPrsHdrNum(HEADER_TYPE_IPv6);
-            if (!(tmpHxs[hdrNum] & PRS_HDR_SW_PRS_EN))
-            tmpHxs[hdrNum] |= (PRS_HDR_SW_PRS_EN | UDP_LITE_SW_PATCH_LABEL);
-        }
-#endif /* ((DPAA_VERSION == 10) && defined(FM_CAPWAP_SUPPORT)) */
         for (i = 0; i < FM_PCD_PRS_NUM_OF_HDRS; i++)
         {
             /* For all header set LCV as taken from netEnv*/
@@ -1928,7 +1900,6 @@ uint32_t FmPortGetPcdEngines(t_Handle h_FmPort)
     return ((t_FmPort*)h_FmPort)->pcdEngines;
 }
 
-#if (DPAA_VERSION >= 11)
 t_Error FmPortSetGprFunc(t_Handle h_FmPort, e_FmPortGprFuncType gprFunc,
                          void **p_Value)
 {
@@ -1993,7 +1964,6 @@ t_Error FmPortSetGprFunc(t_Handle h_FmPort, e_FmPortGprFuncType gprFunc,
 
     return E_OK;
 }
-#endif /* (DPAA_VERSION >= 11) */
 
 t_Error FmPortGetSetCcParams(t_Handle h_FmPort,
                              t_FmPortGetSetCcParams *p_CcParams)
@@ -2393,10 +2363,8 @@ t_Handle FM_PORT_Config(t_FmPortParams *p_FmPortParams)
                     DEFAULT_PORT_errorsToDiscard;
             p_FmPort->p_FmPortDriverParam->forwardReuseIntContext =
                     DEFAULT_PORT_forwardIntContextReuse;
-#if (DPAA_VERSION >= 11)
             p_FmPort->p_FmPortDriverParam->noScatherGather =
                     DEFAULT_PORT_noScatherGather;
-#endif /* (DPAA_VERSION >= 11) */
             break;
 
         case (e_FM_PORT_TYPE_TX):
@@ -2435,10 +2403,8 @@ t_Handle FM_PORT_Config(t_FmPortParams *p_FmPortParams)
         case (e_FM_PORT_TYPE_OH_OFFLINE_PARSING):
             p_FmPort->p_FmPortDriverParam->errorsToDiscard =
                     DEFAULT_PORT_errorsToDiscard;
-#if (DPAA_VERSION >= 11)
             p_FmPort->p_FmPortDriverParam->noScatherGather =
                     DEFAULT_PORT_noScatherGather;
-#endif /* (DPAA_VERSION >= 11) */
             fallthrough;
         case (e_FM_PORT_TYPE_OH_HOST_COMMAND):
             p_FmPort->p_FmPortDriverParam->deqPrefetchOption =
@@ -2714,7 +2680,6 @@ t_Error FM_PORT_Init(t_Handle h_FmPort)
 
     FmPortDriverParamFree(p_FmPort);
 
-#if (DPAA_VERSION >= 11)
     if ((p_FmPort->portType == e_FM_PORT_TYPE_RX_10G)
             || (p_FmPort->portType == e_FM_PORT_TYPE_RX)
             || (p_FmPort->portType == e_FM_PORT_TYPE_OH_OFFLINE_PARSING))
@@ -2748,7 +2713,6 @@ t_Error FM_PORT_Init(t_Handle h_FmPort)
                     (GET_UINT32(p_FmPort->p_FmPortBmiRegs->rxPortBmiRegs.fmbm_rfsdm) | GET_UINT32(p_FmPort->p_FmPortBmiRegs->rxPortBmiRegs.fmbm_rfsem)));
 #endif /* FM_ERROR_VSP_NO_MATCH_SW006 */
     }
-#endif /* (DPAA_VERSION >= 11) */
 
     return E_OK;
 }
@@ -2796,14 +2760,12 @@ t_Error FM_PORT_Free(t_Handle h_FmPort)
 
     FmFreePortParams(p_FmPort->h_Fm, &fmParams);
 
-#if (DPAA_VERSION >= 11)
     if (FmVSPFreeForPort(p_FmPort->h_Fm, p_FmPort->portType, p_FmPort->portId)
             != E_OK)
         RETURN_ERROR(MAJOR, E_INVALID_STATE, ("VSP free of port FAILED"));
 
     if (p_FmPort->p_ParamsPage)
         FM_MURAM_FreeMem(p_FmPort->h_FmMuram, p_FmPort->p_ParamsPage);
-#endif /* (DPAA_VERSION >= 11) */
 
     if (p_FmPort->h_Spinlock)
         XX_FreeSpinlock(p_FmPort->h_Spinlock);
@@ -3200,7 +3162,6 @@ t_Error FM_PORT_ConfigDmaWriteOptimize(t_Handle h_FmPort, bool optimize)
     return E_OK;
 }
 
-#if (DPAA_VERSION >= 11)
 t_Error FM_PORT_ConfigNoScatherGather(t_Handle h_FmPort, bool noScatherGather)
 {
     t_FmPort *p_FmPort = (t_FmPort*)h_FmPort;
@@ -3215,7 +3176,6 @@ t_Error FM_PORT_ConfigNoScatherGather(t_Handle h_FmPort, bool noScatherGather)
 
     return E_OK;
 }
-#endif /* (DPAA_VERSION >= 11) */
 
 t_Error FM_PORT_ConfigForwardReuseIntContext(t_Handle h_FmPort,
                                              bool forwardReuse)
@@ -4429,7 +4389,6 @@ t_Error FM_PORT_SetRxL4ChecksumVerify(t_Handle h_FmPort, bool enable)
 /*       API Run-time PCD Control unit functions                             */
 /*****************************************************************************/
 
-#if (DPAA_VERSION >= 11)
 t_Error FM_PORT_VSPAlloc(t_Handle h_FmPort, t_FmPortVSPAllocParams *p_VSPParams)
 {
     t_FmPort *p_FmPort = (t_FmPort*)h_FmPort;
@@ -4523,7 +4482,6 @@ t_Error FM_PORT_VSPAlloc(t_Handle h_FmPort, t_FmPortVSPAllocParams *p_VSPParams)
     WRITE_UINT32(*p_BmiVspe, tmpReg | BMI_SP_EN | tmp);
     return E_OK;
 }
-#endif /* (DPAA_VERSION >= 11) */
 
 t_Error FM_PORT_PcdPlcrAllocProfiles(t_Handle h_FmPort, uint16_t numOfProfiles)
 {
@@ -4927,9 +4885,7 @@ t_Error FM_PORT_SetPCD(t_Handle h_FmPort, t_FmPortPcdParams *p_PcdParam)
     memcpy(&modifiedPcdParams, p_PcdParam, sizeof(t_FmPortPcdParams));
     p_PcdParams = &modifiedPcdParams;
     if ((p_PcdParams->h_IpReassemblyManip)
-#if (DPAA_VERSION >= 11)
             || (p_PcdParams->h_CapwapReassemblyManip)
-#endif /* (DPAA_VERSION >= 11) */
             )
     {
         if ((p_PcdParams->pcdSupport != e_FM_PORT_PCD_SUPPORT_PRS_AND_KG)
@@ -4945,7 +4901,6 @@ t_Error FM_PORT_SetPCD(t_Handle h_FmPort, t_FmPortPcdParams *p_PcdParam)
                          ("pcdSupport must have KG for supporting Reassembly"));
         }
         p_FmPort->h_IpReassemblyManip = p_PcdParams->h_IpReassemblyManip;
-#if (DPAA_VERSION >= 11)
         if ((p_PcdParams->h_IpReassemblyManip)
                 && (p_PcdParams->h_CapwapReassemblyManip))
             RETURN_ERROR(MAJOR, E_INVALID_STATE,
@@ -4957,7 +4912,6 @@ t_Error FM_PORT_SetPCD(t_Handle h_FmPort, t_FmPortPcdParams *p_PcdParam)
         if (p_PcdParams->h_CapwapReassemblyManip)
             p_FmPort->h_CapwapReassemblyManip =
                     p_PcdParams->h_CapwapReassemblyManip;
-#endif /* (DPAA_VERSION >= 11) */
 
         if (!p_PcdParams->p_CcParams)
         {
@@ -5007,7 +4961,6 @@ t_Error FM_PORT_SetPCD(t_Handle h_FmPort, t_FmPortPcdParams *p_PcdParam)
                                     p_PcdParams->p_CcParams->h_CcTree,
                                     p_PcdParams->h_NetEnv,
                                     p_FmPort->h_IpReassemblyManip, TRUE);
-#if (DPAA_VERSION >= 11)
         else
             if (p_FmPort->h_CapwapReassemblyManip)
                 err = FmPcdCcTreeAddCPR(p_FmPort->h_FmPcd,
@@ -5015,8 +4968,6 @@ t_Error FM_PORT_SetPCD(t_Handle h_FmPort, t_FmPortPcdParams *p_PcdParam)
                                         p_PcdParams->h_NetEnv,
                                         p_FmPort->h_CapwapReassemblyManip,
                                         TRUE);
-#endif /* (DPAA_VERSION >= 11) */
-
         if (err != E_OK)
         {
             if (p_FmPort->h_ReassemblyTree)
@@ -5094,7 +5045,6 @@ t_Error FM_PORT_SetPCD(t_Handle h_FmPort, t_FmPortPcdParams *p_PcdParam)
             }
 #endif /* FM_KG_ERASE_FLOW_ID_ERRATA_FMAN_SW004 */
 
-#if (DPAA_VERSION >= 11)
             {
                 t_FmPcdCtrlParamsPage *p_ParamsPage;
 
@@ -5104,7 +5054,6 @@ t_Error FM_PORT_SetPCD(t_Handle h_FmPort, t_FmPortPcdParams *p_PcdParam)
                 WRITE_UINT32(p_ParamsPage->postBmiFetchNia,
                              p_FmPort->savedBmiNia);
             }
-#endif /* (DPAA_VERSION >= 11) */
 
             /* Set post-bmi-fetch nia */
             p_FmPort->savedBmiNia &= BMI_RFNE_FDCS_MASK;
@@ -5113,12 +5062,8 @@ t_Error FM_PORT_SetPCD(t_Handle h_FmPort, t_FmPortPcdParams *p_PcdParam)
 
             /* Set pre-bmi-fetch nia */
             fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_PNDN;
-#if (DPAA_VERSION >= 11)
             fmPortGetSetCcParams.setCcParams.nia =
                     (NIA_FM_CTL_AC_PRE_BMI_FETCH_FULL_FRAME | NIA_ENG_FM_CTL);
-#else
-            fmPortGetSetCcParams.setCcParams.nia = (NIA_FM_CTL_AC_PRE_BMI_FETCH_HEADER | NIA_ENG_FM_CTL);
-#endif /* (DPAA_VERSION >= 11) */
             if ((err = FmPortGetSetCcParams(p_FmPort, &fmPortGetSetCcParams))
                     != E_OK)
             {
@@ -5137,19 +5082,7 @@ t_Error FM_PORT_SetPCD(t_Handle h_FmPort, t_FmPortPcdParams *p_PcdParam)
         FmPcdLockUnlockAll(p_FmPort->h_FmPcd);
 
         /* Set pop-to-next-step nia */
-#if (DPAA_VERSION == 10)
-        if (p_FmPort->fmRevInfo.majorRev < 6)
-        {
-            fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_PNEN;
-            fmPortGetSetCcParams.setCcParams.nia = NIA_FM_CTL_AC_POP_TO_N_STEP | NIA_ENG_FM_CTL;
-        }
-        else
-        {
-#endif /* (DPAA_VERSION == 10) */
         fmPortGetSetCcParams.getCcParams.type = GET_NIA_FPNE;
-#if (DPAA_VERSION == 10)
-    }
-#endif /* (DPAA_VERSION == 10) */
         if ((err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams))
                 != E_OK)
         {
@@ -5181,24 +5114,10 @@ t_Error FM_PORT_SetPCD(t_Handle h_FmPort, t_FmPortPcdParams *p_PcdParam)
         if ((p_FmPort->h_IpReassemblyManip)
                 || (p_FmPort->h_CapwapReassemblyManip))
         {
-#if (DPAA_VERSION == 10)
-            if (p_FmPort->fmRevInfo.majorRev < 6)
-            {
-                /* Overwrite post-bmi-prepare-to-enq nia */
-                fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_FENE;
-                fmPortGetSetCcParams.setCcParams.nia = (NIA_FM_CTL_AC_POST_BMI_ENQ_ORR | NIA_ENG_FM_CTL | NIA_ORDER_RESTOR);
-                fmPortGetSetCcParams.setCcParams.overwrite = TRUE;
-            }
-            else
-            {
-#endif /* (DPAA_VERSION == 10) */
             /* Set the ORR bit (for order-restoration) */
             fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_FPNE;
             fmPortGetSetCcParams.setCcParams.nia =
                     fmPortGetSetCcParams.getCcParams.nia | NIA_ORDER_RESTOR;
-#if (DPAA_VERSION == 10)
-        }
-#endif /* (DPAA_VERSION == 10) */
             if ((err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams))
                     != E_OK)
             {
@@ -5215,7 +5134,6 @@ t_Error FM_PORT_SetPCD(t_Handle h_FmPort, t_FmPortPcdParams *p_PcdParam)
     else
         FmPcdLockUnlockAll(p_FmPort->h_FmPcd);
 
-#if (DPAA_VERSION >= 11)
     {
         t_FmPcdCtrlParamsPage *p_ParamsPage;
 
@@ -5268,7 +5186,6 @@ t_Error FM_PORT_SetPCD(t_Handle h_FmPort, t_FmPortPcdParams *p_PcdParam)
                     GET_UINT32(p_ParamsPage->misc) | (p_FmPort->dfltRelativeId & FM_CTL_PARAMS_PAGE_ERROR_VSP_MASK));
 #endif /* FM_ERROR_VSP_NO_MATCH_SW006 */
     }
-#endif /* (DPAA_VERSION >= 11) */
 
     err = AttachPCD(h_FmPort);
     if (err)
@@ -5455,9 +5372,7 @@ t_Error FM_PORT_AddCongestionGrps(t_Handle h_FmPort,
     uint8_t mod, index;
     uint32_t i, grpsMap[FMAN_PORT_CG_MAP_NUM];
     int err;
-#if (DPAA_VERSION >= 11)
     int j;
-#endif /* (DPAA_VERSION >= 11) */
 
     SANITY_CHECK_RETURN_ERROR(p_FmPort, E_INVALID_HANDLE);
 
@@ -5501,15 +5416,12 @@ t_Error FM_PORT_AddCongestionGrps(t_Handle h_FmPort,
 
     for (i = 0; i < p_CongestionGrps->numOfCongestionGrpsToConsider; i++)
     {
-#if (DPAA_VERSION >= 11)
         for (j = 0; j < FM_MAX_NUM_OF_PFC_PRIORITIES; j++)
             if (p_CongestionGrps->pfcPrioritiesEn[i][j])
                 priorityTmpArray[p_CongestionGrps->congestionGrpsToConsider[i]] |=
                         (0x01 << (FM_MAX_NUM_OF_PFC_PRIORITIES - j - 1));
-#endif /* (DPAA_VERSION >= 11) */
     }
 
-#if (DPAA_VERSION >= 11)
     for (i = 0; i < FM_PORT_NUM_OF_CONGESTION_GRPS; i++)
     {
         err = FmSetCongestionGroupPFCpriority(p_FmPort->h_Fm, i,
@@ -5517,7 +5429,6 @@ t_Error FM_PORT_AddCongestionGrps(t_Handle h_FmPort,
         if (err)
             return err;
     }
-#endif /* (DPAA_VERSION >= 11) */
 
     err = fman_port_add_congestion_grps(&p_FmPort->port, grpsMap);
     if (err != 0)
@@ -5568,7 +5479,6 @@ t_Error FM_PORT_RemoveCongestionGrps(t_Handle h_FmPort,
             grpsMap[0] |= (uint32_t)(1 << mod);
     }
 
-#if (DPAA_VERSION >= 11)
     for (i = 0; i < p_CongestionGrps->numOfCongestionGrpsToConsider; i++)
     {
         t_Error err = FmSetCongestionGroupPFCpriority(
@@ -5577,7 +5487,6 @@ t_Error FM_PORT_RemoveCongestionGrps(t_Handle h_FmPort,
         if (err)
             return err;
     }
-#endif /* (DPAA_VERSION >= 11) */
 
     err = fman_port_remove_congestion_grps(&p_FmPort->port, grpsMap);
     if (err != 0)
@@ -5586,7 +5495,6 @@ t_Error FM_PORT_RemoveCongestionGrps(t_Handle h_FmPort,
     return E_OK;
 }
 
-#if (DPAA_VERSION >= 11)
 t_Error FM_PORT_GetIPv4OptionsCount(t_Handle h_FmPort,
                                     uint32_t *p_Ipv4OptionsCount)
 {
@@ -5603,4 +5511,3 @@ t_Error FM_PORT_GetIPv4OptionsCount(t_Handle h_FmPort,
 
     return E_OK;
 }
-#endif /* (DPAA_VERSION >= 11) */

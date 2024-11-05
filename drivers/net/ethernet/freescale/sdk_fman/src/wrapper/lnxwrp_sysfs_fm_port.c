@@ -280,7 +280,6 @@ static ssize_t show_fm_port_regs(struct device *dev,
 #endif
 }
 
-#if (DPAA_VERSION >= 11)
 static ssize_t show_fm_port_ipv4_options(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -326,8 +325,6 @@ static ssize_t show_fm_port_ipv4_options(struct device *dev,
 	return n;
 #endif
 }
-
-#endif
 
 static ssize_t show_fm_port_bmi_regs(struct device *dev,
 		struct device_attribute *attr, char *buf)
@@ -414,9 +411,7 @@ static ssize_t show_fm_port_qmi_regs(struct device *dev,
 static DEVICE_ATTR(fm_port_regs, S_IRUGO | S_IRUSR, show_fm_port_regs, NULL);
 static DEVICE_ATTR(fm_port_qmi_regs, S_IRUGO | S_IRUSR, show_fm_port_qmi_regs, NULL);
 static DEVICE_ATTR(fm_port_bmi_regs, S_IRUGO | S_IRUSR, show_fm_port_bmi_regs, NULL);
-#if (DPAA_VERSION >= 11)
 static DEVICE_ATTR(fm_port_ipv4_opt, S_IRUGO | S_IRUSR, show_fm_port_ipv4_options, NULL);
-#endif
 
 int fm_port_sysfs_create(struct device *dev)
 {
@@ -433,9 +428,8 @@ int fm_port_sysfs_create(struct device *dev)
 	p_LnxWrpFmPortDev->dev_attr_regs = &dev_attr_fm_port_regs;
 	p_LnxWrpFmPortDev->dev_attr_qmi_regs = &dev_attr_fm_port_qmi_regs;
 	p_LnxWrpFmPortDev->dev_attr_bmi_regs = &dev_attr_fm_port_bmi_regs;
-#if (DPAA_VERSION >= 11)
 	p_LnxWrpFmPortDev->dev_attr_ipv4_opt = &dev_attr_fm_port_ipv4_opt;
-#endif
+
 	/* Registers dump entry - in future will be moved to debugfs */
 	if (device_create_file(dev, &dev_attr_fm_port_regs) != 0)
 		return -EIO;
@@ -443,10 +437,8 @@ int fm_port_sysfs_create(struct device *dev)
 		return -EIO;
 	if (device_create_file(dev, &dev_attr_fm_port_bmi_regs) != 0)
 		return -EIO;
-#if (DPAA_VERSION >= 11)
 	if (device_create_file(dev, &dev_attr_fm_port_ipv4_opt) != 0)
 		return -EIO;
-#endif
 
 	/* FM Ports statistics */
 	switch (p_LnxWrpFmPortDev->settings.param.portType) {
@@ -514,9 +506,7 @@ void fm_port_sysfs_destroy(struct device *dev)
 	device_remove_file(dev, p_LnxWrpFmPortDev->dev_attr_regs);
 	device_remove_file(dev, p_LnxWrpFmPortDev->dev_attr_qmi_regs);
 	device_remove_file(dev, p_LnxWrpFmPortDev->dev_attr_bmi_regs);
-#if (DPAA_VERSION >= 11)
 	device_remove_file(dev, p_LnxWrpFmPortDev->dev_attr_ipv4_opt);
-#endif
 }
 
 
@@ -558,8 +548,6 @@ int fm_port_dump_regs(void *h_dev, char *buf, int nn)
 	return n;
 }
 
-#if (DPAA_VERSION >= 11)
-
 int fm_port_dump_ipv4_opt(void *h_dev, char *buf, int nn)
 {
 	t_FmPort *p_FmPort;
@@ -573,7 +561,6 @@ int fm_port_dump_ipv4_opt(void *h_dev, char *buf, int nn)
 
 	return n;
 }
-#endif
 
 int fm_port_dump_regs_bmi(void *h_dev, char *buf, int nn)
 {
@@ -783,10 +770,8 @@ int fm_port_dump_regs_bmi(void *h_dev, char *buf, int nn)
 		FM_DMP_V32(buf, n, &p_bmi->txPortBmiRegs, fmbm_tcfqid);
 		FM_DMP_V32(buf, n, &p_bmi->txPortBmiRegs, fmbm_tfeqid);
 		FM_DMP_V32(buf, n, &p_bmi->txPortBmiRegs, fmbm_tfene);
-#if (DPAA_VERSION >= 11)
 		FM_DMP_V32(buf, n, &p_bmi->txPortBmiRegs, fmbm_tfne);
 		FM_DMP_V32(buf, n, &p_bmi->txPortBmiRegs, fmbm_tcmne);
-#endif /* (DPAA_VERSION >= 11) */
 		FM_DMP_V32(buf, n, &p_bmi->txPortBmiRegs, fmbm_trlmts);
 		FM_DMP_V32(buf, n, &p_bmi->txPortBmiRegs, fmbm_trlmt);
 		FM_DMP_V32(buf, n, &p_bmi->txPortBmiRegs, fmbm_tstc);

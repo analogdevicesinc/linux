@@ -71,10 +71,7 @@
 #define FM_MM_IMEM              0x000C4000
 #define FM_MM_CGP               0x000DB000
 #define FM_MM_TRB(i)            (0x000D0200 + 0x400 * (i))
-#if (DPAA_VERSION >= 11)
 #define FM_MM_SP                0x000dc000
-#endif /* (DPAA_VERSION >= 11) */
-
 
 /**************************************************************************//**
  @Description   Enum for inter-module interrupts registration
@@ -479,11 +476,7 @@ static __inline__ bool TRY_LOCK(t_Handle h_Spinlock, volatile bool *p_Flag)
 /**************************************************************************//**
  @Description       Port Id defines
 *//***************************************************************************/
-#if (DPAA_VERSION == 10)
-#define BASE_OH_PORTID              1
-#else
 #define BASE_OH_PORTID              2
-#endif /* (DPAA_VERSION == 10) */
 #define BASE_1G_RX_PORTID           8
 #define BASE_10G_RX_PORTID          0x10
 #define BASE_1G_TX_PORTID           0x28
@@ -700,9 +693,7 @@ uint16_t    FmPcdKgGetClsPlanGrpSize(t_Handle h_FmPcd, uint8_t clsPlanGrp);
 t_Error     FmPcdKgBuildClsPlanGrp(t_Handle h_FmPcd, t_FmPcdKgInterModuleClsPlanGrpParams *p_Grp, t_FmPcdKgInterModuleClsPlanSet *p_ClsPlanSet);
 
 uint8_t     FmPcdKgGetSchemeId(t_Handle h_Scheme);
-#if (DPAA_VERSION >= 11)
 bool        FmPcdKgGetVspe(t_Handle h_Scheme);
-#endif /* (DPAA_VERSION >= 11) */
 uint8_t     FmPcdKgGetRelativeSchemeId(t_Handle h_FmPcd, uint8_t schemeId);
 void        FmPcdKgDestroyClsPlanGrp(t_Handle h_FmPcd, uint8_t grpId);
 t_Error     FmPcdKgCheckInvalidateSchemeSw(t_Handle h_Scheme);
@@ -791,7 +782,6 @@ t_Error     FmPcdManipUpdate(t_Handle h_FmPcd, t_Handle h_PcdParams, t_Handle h_
 /***********************************************************************/
 /*          Common API for FM-Port module                            */
 /***********************************************************************/
-#if (DPAA_VERSION >= 11)
 typedef enum e_FmPortGprFuncType
 {
     e_FM_PORT_GPR_EMPTY = 0,
@@ -799,18 +789,13 @@ typedef enum e_FmPortGprFuncType
 } e_FmPortGprFuncType;
 
 t_Error     FmPortSetGprFunc(t_Handle h_FmPort, e_FmPortGprFuncType gprFunc, void **p_Value);
-#endif /* DPAA_VERSION >= 11) */
 t_Error     FmGetSetParams(t_Handle h_Fm, t_FmGetSetParams *p_FmGetSetParams);
 t_Error     FmPortGetSetCcParams(t_Handle h_FmPort, t_FmPortGetSetCcParams *p_FmPortGetSetCcParams);
 uint8_t     FmPortGetNetEnvId(t_Handle h_FmPort);
 uint8_t     FmPortGetHardwarePortId(t_Handle h_FmPort);
 uint32_t    FmPortGetPcdEngines(t_Handle h_FmPort);
 void        FmPortPcdKgSwUnbindClsPlanGrp (t_Handle h_FmPort);
-
-
-#if (DPAA_VERSION >= 11)
 t_Error     FmPcdFrmReplicUpdate(t_Handle h_FmPcd, t_Handle h_FmPort, t_Handle h_FrmReplic);
-#endif /* (DPAA_VERSION >= 11) */
 
 /**************************************************************************//**
  @Function      FmRegisterIntr
@@ -1187,7 +1172,6 @@ t_Error     FmSetCongestionGroupPFCpriority(t_Handle    h_Fm,
                                             uint32_t    congestionGroupId,
                                             uint8_t     priorityBitMap);
 
-#if (DPAA_VERSION >= 11)
 t_Error     FmVSPAllocForPort(t_Handle         h_Fm,
                               e_FmPortType     portType,
                               uint8_t          portId,
@@ -1208,7 +1192,5 @@ t_Error FmVSPCheckRelativeProfile(t_Handle        h_Fm,
                                   uint16_t        relativeProfile);
 
 uintptr_t   FmGetVSPBaseAddr(t_Handle h_Fm);
-#endif /* (DPAA_VERSION >= 11) */
-
 
 #endif /* __FM_COMMON_H */

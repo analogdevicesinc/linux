@@ -1195,7 +1195,6 @@ t_Error FM_PORT_ConfigRxFifoPriElevationLevel(t_Handle h_FmPort, uint32_t priEle
 t_Error FM_PORT_ConfigBCBWorkaround(t_Handle h_FmPort);
 #endif /* FM_HEAVY_TRAFFIC_HANG_ERRATA_FMAN_A005669 */
 
-#if (DPAA_VERSION >= 11)
 /**************************************************************************//*
  @Function      FM_PORT_ConfigInternalBuffOffset
 
@@ -1211,7 +1210,6 @@ t_Error FM_PORT_ConfigBCBWorkaround(t_Handle h_FmPort);
  @Cautions      Allowed only following FM_PORT_Config() and before FM_PORT_Init().
 *//***************************************************************************/
 t_Error FM_PORT_ConfigInternalBuffOffset(t_Handle h_FmPort, uint8_t val);
-#endif /* (DPAA_VERSION >= 11) */
 
 /** @} */ /* end of FM_PORT_advanced_init_grp group */
 /** @} */ /* end of FM_PORT_init_grp group */
@@ -1286,12 +1284,10 @@ typedef struct t_FmPortCongestionGrps {
                                                         /**< An array of CG indexes;
                                                              Note that the size of the array should be
                                                              'numOfCongestionGrpsToConsider'. */
-#if (DPAA_VERSION >= 11)
     bool        pfcPrioritiesEn[FM_PORT_NUM_OF_CONGESTION_GRPS][FM_MAX_NUM_OF_PFC_PRIORITIES];
                                                         /**< a matrix that represents the map between the CG ids
                                                              defined in 'congestionGrpsToConsider' to the priorties
                                                              mapping array. */
-#endif /* (DPAA_VERSION >= 11) */
 } t_FmPortCongestionGrps;
 
 #if (defined(DEBUG_ERRORS) && (DEBUG_ERRORS > 0))
@@ -1965,9 +1961,7 @@ typedef struct t_FmPortPcdParams {
                                                      profile is not generated
                                                      ('bypassPlcrProfileGeneration selected'). */
     t_Handle                h_IpReassemblyManip;    /**< IP Reassembly manipulation */
-#if (DPAA_VERSION >= 11)
     t_Handle                h_CapwapReassemblyManip;/**< CAPWAP Reassembly manipulation */
-#endif /* (DPAA_VERSION >= 11) */
 } t_FmPortPcdParams;
 
 /**************************************************************************//**
@@ -1980,7 +1974,6 @@ typedef struct t_FmPcdPrsStart {
                                              'parsingOffset' */
 } t_FmPcdPrsStart;
 
-#if (DPAA_VERSION >= 11)
 /**************************************************************************//**
  @Description   struct for defining external buffer margins
 *//***************************************************************************/
@@ -1991,8 +1984,6 @@ typedef struct t_FmPortVSPAllocParams {
                                              if relevant function called for Rx port */
     t_Handle    h_FmTxPort;             /**< Handle to coupled Tx Port; not relevant for OP port. */
 } t_FmPortVSPAllocParams;
-#endif /* (DPAA_VERSION >= 11) */
-
 
 /**************************************************************************//**
  @Function      FM_PORT_SetPCD
@@ -2098,7 +2089,6 @@ t_Error FM_PORT_PcdPlcrAllocProfiles(t_Handle h_FmPort, uint16_t numOfProfiles);
 *//***************************************************************************/
 t_Error FM_PORT_PcdPlcrFreeProfiles(t_Handle h_FmPort);
 
-#if (DPAA_VERSION >= 11)
 /**************************************************************************//**
  @Function      FM_PORT_VSPAlloc
 
@@ -2115,7 +2105,6 @@ t_Error FM_PORT_PcdPlcrFreeProfiles(t_Handle h_FmPort);
                 and also before FM_PORT_Enable(); i.e. the port should be disabled.
 *//***************************************************************************/
 t_Error FM_PORT_VSPAlloc(t_Handle h_FmPort, t_FmPortVSPAllocParams *p_Params);
-#endif /* (DPAA_VERSION >= 11) */
 
 /**************************************************************************//**
  @Function      FM_PORT_PcdKgModifyInitialScheme

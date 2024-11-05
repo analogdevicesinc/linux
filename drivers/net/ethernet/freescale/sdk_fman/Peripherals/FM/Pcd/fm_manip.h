@@ -52,63 +52,16 @@
 
 #define NUM_OF_SCRATCH_POOL_BUFFERS             1000 /*TODO - Change it!!*/
 
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-#define HMAN_OC_RMV_N_OR_INSRT_INT_FRM_HDR                      0x2e
-#define HMAN_OC_INSRT_HDR_BY_TEMPL_N_OR_FRAG_AFTER              0x31
-#define HMAN_OC_MV_INT_FRAME_HDR_FROM_FRM_TO_BUFFER_PREFFIX     0x2f
-#define HMAN_OC_CAPWAP_RMV_DTLS_IF_EXIST                        0x30
-#define HMAN_OC_CAPWAP_REASSEMBLY                               0x11 /* dummy */
-#define HMAN_OC_CAPWAP_INDEXED_STATS                            0x32 /* dummy */
-#define HMAN_OC_CAPWAP_FRAGMENTATION                            0x33
-#else
 #define HMAN_OC_CAPWAP_MANIP                                    0x2F
 #define HMAN_OC_CAPWAP_FRAG_CHECK                               0x2E
 #define HMAN_OC_CAPWAP_FRAGMENTATION                            0x33
 #define HMAN_OC_CAPWAP_REASSEMBLY                               0x30
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
 #define HMAN_OC_IP_MANIP                                        0x34
 #define HMAN_OC_IP_FRAGMENTATION                                0x74
 #define HMAN_OC_IP_REASSEMBLY                                   0xB4
 #define HMAN_OC_IPSEC_MANIP                                     0xF4
 #define HMAN_OC                                                 0x35
 
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-#define HMAN_RMV_HDR                               0x80000000
-#define HMAN_INSRT_INT_FRM_HDR                     0x40000000
-
-#define UDP_CHECKSUM_FIELD_OFFSET_FROM_UDP          6
-#define UDP_CHECKSUM_FIELD_SIZE                     2
-#define UDP_LENGTH_FIELD_OFFSET_FROM_UDP            4
-
-#define IPv4_DSCECN_FIELD_OFFSET_FROM_IP            1
-#define IPv4_TOTALLENGTH_FIELD_OFFSET_FROM_IP       2
-#define IPv4_HDRCHECKSUM_FIELD_OFFSET_FROM_IP       10
-#define VLAN_TAG_FIELD_OFFSET_FROM_ETH              12
-#define IPv4_ID_FIELD_OFFSET_FROM_IP                4
-
-#define IPv6_PAYLOAD_LENGTH_OFFSET_FROM_IP          4
-#define IPv6_NEXT_HEADER_OFFSET_FROM_IP             6
-
-#define FM_PCD_MANIP_CAPWAP_REASM_TABLE_SIZE               0x80
-#define FM_PCD_MANIP_CAPWAP_REASM_TABLE_ALIGN              8
-#define FM_PCD_MANIP_CAPWAP_REASM_RFD_SIZE                 32
-#define FM_PCD_MANIP_CAPWAP_REASM_AUTO_LEARNING_HASH_ENTRY_SIZE 4
-#define FM_PCD_MANIP_CAPWAP_REASM_TIME_OUT_ENTRY_SIZE      8
-
-
-#define FM_PCD_MANIP_CAPWAP_REASM_TIME_OUT_BETWEEN_FRAMES          0x40000000
-#define FM_PCD_MANIP_CAPWAP_REASM_HALT_ON_DUPLICATE_FRAG           0x10000000
-#define FM_PCD_MANIP_CAPWAP_REASM_AUTOMATIC_LEARNIN_HASH_8_WAYS    0x08000000
-#define FM_PCD_MANIP_CAPWAP_REASM_PR_COPY                          0x00800000
-
-#define FM_PCD_MANIP_CAPWAP_FRAG_COMPR_OPTION_FIELD_EN             0x80000000
-
-#define FM_PCD_MANIP_INDEXED_STATS_ENTRY_SIZE               4
-#define FM_PCD_MANIP_INDEXED_STATS_CNIA                     0x20000000
-#define FM_PCD_MANIP_INDEXED_STATS_DPD                      0x10000000
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
-
-#if (DPAA_VERSION >= 11)
 #define FM_PCD_MANIP_CAPWAP_DTLS                            0x00040000
 #define FM_PCD_MANIP_CAPWAP_NADEN                           0x20000000
 
@@ -121,7 +74,6 @@
 #define FM_PCD_MANIP_CAPWAP_FRAG_SG_BDID_EN                 0x08000000
 #define FM_PCD_MANIP_CAPWAP_FRAG_SG_BDID_MASK               0xFF000000
 #define FM_PCD_MANIP_CAPWAP_FRAG_SG_BDID_SHIFT              24
-#endif /* (DPAA_VERSION >= 11) */
 
 #define FM_PCD_MANIP_REASM_TABLE_SIZE                    0x40
 #define FM_PCD_MANIP_REASM_TABLE_ALIGN                   8
@@ -326,34 +278,6 @@ typedef enum e_ManipInfo {
 #pragma pack(push,1)
 #endif /* defined(__MWERKS__) && ... */
 
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-typedef struct t_CapwapReasmPram {
-    volatile uint32_t mode;
-    volatile uint32_t autoLearnHashTblPtr;
-    volatile uint32_t intStatsTblPtr;
-    volatile uint32_t reasmFrmDescPoolTblPtr;
-    volatile uint32_t reasmFrmDescIndexPoolTblPtr;
-    volatile uint32_t timeOutTblPtr;
-    volatile uint32_t bufferPoolIdAndRisc1SetIndexes;
-    volatile uint32_t risc23SetIndexes;
-    volatile uint32_t risc4SetIndexesAndExtendedStatsTblPtr;
-    volatile uint32_t extendedStatsTblPtr;
-    volatile uint32_t expirationDelay;
-    volatile uint32_t totalProcessedFragCounter;
-    volatile uint32_t totalUnsuccessfulReasmFramesCounter;
-    volatile uint32_t totalDuplicatedFragCounter;
-    volatile uint32_t totalMalformdFragCounter;
-    volatile uint32_t totalTimeOutCounter;
-    volatile uint32_t totalSetBusyCounter;
-    volatile uint32_t totalRfdPoolBusyCounter;
-    volatile uint32_t totalDiscardedFragsCounter;
-    volatile uint32_t totalMoreThan16FramesCounter;
-    volatile uint32_t internalBufferBusy;
-    volatile uint32_t externalBufferBusy;
-    volatile uint32_t reserved1[4];
-} t_CapwapReasmPram;
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
-
 typedef _Packed struct t_ReassTbl {
     volatile uint16_t waysNumAndSetSize;
     volatile uint16_t autoLearnHashKeyMask;
@@ -412,32 +336,9 @@ typedef _Packed struct t_Hmtd {
 /***********************************************************************/
 /*  Driver's internal structures                                       */
 /***********************************************************************/
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-typedef struct
-{
-    t_Handle p_AutoLearnHashTbl;
-    t_Handle p_ReassmFrmDescrPoolTbl;
-    t_Handle p_ReassmFrmDescrIndxPoolTbl;
-    t_Handle p_TimeOutTbl;
-    uint16_t maxNumFramesInProcess;
-    uint8_t  numOfTasks;
-    //uint8_t  poolId;
-    uint8_t  prOffset;
-    uint16_t dataOffset;
-    uint8_t  sgBpid;
-    uint8_t  hwPortId;
-    uint32_t fqidForTimeOutFrames;
-    uint32_t timeoutRoutineRequestTime;
-    uint32_t bitFor1Micro;
-} t_CapwapFragParams;
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
-
 typedef struct
 {
     t_AdOfTypeContLookup    *p_Frag;
-#if (DPAA_VERSION == 10)
-    uint8_t                 scratchBpid;
-#endif /* (DPAA_VERSION == 10) */
 } t_FragParams;
 
 typedef struct t_ReassmParams
@@ -516,10 +417,6 @@ typedef struct{
     bool                    frag;
     bool                    reassm;
     uint16_t                sizeForFragmentation;
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-    t_Handle                h_Frag;
-    t_CapwapFragParams      capwapFragParams;
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
     union {
         t_ReassmParams    	reassmParams;
         t_FragParams      	fragParams;

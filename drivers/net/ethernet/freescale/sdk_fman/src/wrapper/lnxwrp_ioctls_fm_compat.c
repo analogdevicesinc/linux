@@ -285,18 +285,14 @@ static inline void compat_copy_fm_pcd_cc_next_kg(
     {
         param->new_fqid         = compat_param->new_fqid;
         param->override_fqid    = compat_param->override_fqid;
-#if DPAA_VERSION >= 11
         param->new_relative_storage_profile_id = compat_param->new_relative_storage_profile_id;
-#endif
         param->p_direct_scheme  = compat_pcd_id2ptr(compat_param->p_direct_scheme);
     }
     else
     {
         compat_param->new_fqid          = param->new_fqid;
         compat_param->override_fqid     = param->override_fqid;
-#if DPAA_VERSION >= 11
         compat_param->new_relative_storage_profile_id = param->new_relative_storage_profile_id;
-#endif
         compat_param->p_direct_scheme   = compat_pcd_ptr2id(param->p_direct_scheme);
     }
 }
@@ -323,11 +319,9 @@ static inline void compat_copy_fm_pcd_cc_next_engine(
 
         switch (param->next_engine)
         {
-#if DPAA_VERSION >= 11
             case e_IOC_FM_PCD_FR:
                 param->params.fr_params.frm_replic_id = compat_pcd_id2ptr(compat_param->params.fr_params.frm_replic_id);
                 break;
-#endif /* DPAA_VERSION >= 11 */
             case e_IOC_FM_PCD_CC:
                 param->manip_id = compat_pcd_id2ptr(compat_param->manip_id);
                 compat_copy_fm_pcd_cc_next_cc(&compat_param->params.cc_params, &param->params.cc_params, compat);
@@ -351,11 +345,9 @@ static inline void compat_copy_fm_pcd_cc_next_engine(
 
         switch (compat_param->next_engine)
         {
-#if DPAA_VERSION >= 11
             case e_IOC_FM_PCD_FR:
                 compat_param->params.fr_params.frm_replic_id = compat_pcd_ptr2id(param->params.fr_params.frm_replic_id);
                 break;
-#endif /* DPAA_VERSION >= 11 */
             case e_IOC_FM_PCD_CC:
                 compat_param->manip_id = compat_pcd_ptr2id(param->manip_id);
                 compat_copy_fm_pcd_cc_next_cc(&compat_param->params.cc_params, &param->params.cc_params, compat);
@@ -605,11 +597,9 @@ void compat_copy_fm_pcd_kg_scheme(
                sizeof(ioc_fm_pcd_kg_key_extract_and_hash_params_t));
         param->bypass_fqid_generation = compat_param->bypass_fqid_generation;
         param->base_fqid = compat_param->base_fqid;
-#if DPAA_VERSION >= 11
         param->override_storage_profile =
                                  compat_param->override_storage_profile;
         param->storage_profile = compat_param->storage_profile;
-#endif
         param->num_of_used_extracted_ors = compat_param->num_of_used_extracted_ors;
         memcpy(param->extracted_ors,
                compat_param->extracted_ors,
@@ -658,11 +648,9 @@ void compat_copy_fm_pcd_kg_scheme(
         memcpy(&compat_param->key_extract_and_hash_params, &param->key_extract_and_hash_params, sizeof(ioc_fm_pcd_kg_key_extract_and_hash_params_t));
         compat_param->bypass_fqid_generation = param->bypass_fqid_generation;
         compat_param->base_fqid = param->base_fqid;
-#if DPAA_VERSION >= 11
         compat_param->override_storage_profile =
                                         param->override_storage_profile;
         compat_param->storage_profile =  param->storage_profile;
-#endif
         compat_param->num_of_used_extracted_ors = param->num_of_used_extracted_ors;
         memcpy(compat_param->extracted_ors, param->extracted_ors, IOC_FM_PCD_KG_NUM_OF_GENERIC_REGS * sizeof(ioc_fm_pcd_kg_extracted_or_params_t));
         compat_param->next_engine = param->next_engine;
@@ -785,9 +773,7 @@ void compat_copy_fm_port_pcd(
         if (param->p_plcr_params)
             param->p_plcr_params->plcr_profile_id = compat_pcd_id2ptr(compat_port_pcd_plcr_params->plcr_profile_id);
         param->p_ip_reassembly_manip = compat_pcd_id2ptr(compat_param->p_ip_reassembly_manip);
-#if (DPAA_VERSION >= 11)
         param->p_capwap_reassembly_manip = compat_pcd_id2ptr(compat_param->p_capwap_reassembly_manip);
-#endif
     }
 }
 
@@ -800,7 +786,6 @@ void compat_copy_fm_port_pcd_modify_tree(
         id->obj = compat_pcd_id2ptr(compat_id->obj);
 }
 
-#if (DPAA_VERSION >= 11)
 void compat_copy_fm_port_vsp_alloc_params(
         ioc_compat_fm_port_vsp_alloc_params_t *compat_param,
         ioc_fm_port_vsp_alloc_params_t *param,
@@ -813,7 +798,6 @@ void compat_copy_fm_port_vsp_alloc_params(
         param->p_fm_tx_port = compat_pcd_id2ptr(compat_param->p_fm_tx_port);
     }
 }
-#endif /* (DPAA_VERSION >= 11) */
 
 void compat_copy_fm_pcd_cc_tbl_get_stats(
         ioc_compat_fm_pcd_cc_tbl_get_stats_t *compat_param,
@@ -890,12 +874,10 @@ void compat_copy_keys(
         param->statistics_mode = compat_param->statistics_mode;
         param->num_of_keys     = compat_param->num_of_keys;
         param->key_size        = compat_param->key_size;
-#if (DPAA_VERSION >= 11)
         memcpy(&param->frame_length_ranges,
                 &compat_param->frame_length_ranges,
                 sizeof(param->frame_length_ranges[0]) *
                     IOC_FM_PCD_CC_STATS_MAX_NUM_OF_FLR);
-#endif /* (DPAA_VERSION >= 11) */
     }
     else {
         compat_param->max_num_of_keys = param->max_num_of_keys;
@@ -903,12 +885,10 @@ void compat_copy_keys(
         compat_param->statistics_mode = param->statistics_mode;
         compat_param->num_of_keys     = param->num_of_keys;
         compat_param->key_size        = param->key_size;
-#if (DPAA_VERSION >= 11)
         memcpy(&compat_param->frame_length_ranges,
             &param->frame_length_ranges,
             sizeof(compat_param->frame_length_ranges[0]) *
                 IOC_FM_PCD_CC_STATS_MAX_NUM_OF_FLR);
-#endif /* (DPAA_VERSION >= 11) */
     }
 
     for (k=0; k < IOC_FM_PCD_MAX_NUM_OF_KEYS; k++)
@@ -1051,7 +1031,6 @@ void compat_copy_fm_pcd_manip_get_stats(
 	}
 }
 
-#if (DPAA_VERSION >= 11)
 void compat_copy_fm_pcd_frm_replic_group_params(
 	ioc_compat_fm_pcd_frm_replic_group_params_t *compat_param,
 	ioc_fm_pcd_frm_replic_group_params_t *param,
@@ -1186,4 +1165,3 @@ void compat_copy_fm_vsp_prs_result_params(
         compat_param->p_data = (compat_uptr_t)((unsigned long long)param->p_data & 0xFFFFFFFF);
     }
 }
-#endif /* (DPAA_VERSION >= 11) */

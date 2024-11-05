@@ -65,19 +65,7 @@ t_Handle FM_MAC_Config (t_FmMacParams *p_FmMacParam)
         return NULL;
     }
 
-#if (DPAA_VERSION == 10)
-    if (ENET_SPEED_FROM_MODE(p_FmMacParam->enetMode) < e_ENET_SPEED_10000)
-        p_FmMacControllerDriver = (t_FmMacControllerDriver *)DTSEC_Config(p_FmMacParam);
-    else
-#if FM_MAX_NUM_OF_10G_MACS > 0
-        p_FmMacControllerDriver = (t_FmMacControllerDriver *)TGEC_Config(p_FmMacParam);
-#else
-        p_FmMacControllerDriver = NULL;
-#endif /* FM_MAX_NUM_OF_10G_MACS > 0 */
-#else
     p_FmMacControllerDriver = (t_FmMacControllerDriver *)MEMAC_Config(p_FmMacParam);
-#endif /* (DPAA_VERSION == 10) */
-
     if (!p_FmMacControllerDriver)
         return NULL;
 

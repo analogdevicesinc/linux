@@ -358,11 +358,7 @@ typedef _Packed struct {
 
     static const uint8_t     phys1GRxPortId[] = {0x8,0x9,0xa,0xb,0xc,0xd,0xe,0xf};
     static const uint8_t     phys10GRxPortId[] = {0x10,0x11};
-#if (DPAA_VERSION >= 11)
     static const uint8_t     physOhPortId[] = {/* 0x1, */0x2,0x3,0x4,0x5,0x6,0x7};
-#else
-    static const uint8_t     physOhPortId[] = {0x1,0x2,0x3,0x4,0x5,0x6,0x7};
-#endif
     static const uint8_t     phys1GTxPortId[] = {0x28,0x29,0x2a,0x2b,0x2c,0x2d,0x2e,0x2f};
     static const uint8_t     phys10GTxPortId[] = {0x30,0x31};
 
@@ -693,7 +689,6 @@ static t_LnxWrpFmDev * ReadFmDevTreeNode (struct platform_device *of_dev)
     }
 #endif
 
-#if (DPAA_VERSION >= 11)
     /* Get the VSP base address */
     for_each_child_of_node(fm_node, dev_node) {
         if (of_device_is_compatible(dev_node, "fsl,fman-vsps")) {
@@ -708,7 +703,6 @@ static t_LnxWrpFmDev * ReadFmDevTreeNode (struct platform_device *of_dev)
             p_LnxWrpFmDev->fmVspMemSize = res.end + 1 - res.start;
         }
     }
-#endif
 
     /* Get all PCD nodes */
     p_LnxWrpFmDev->prsActive = HasFmPcdOfNode(fm_node, ids, "parser", "fsl,fman-parser");
@@ -926,7 +920,6 @@ static t_Error ConfigureFmDev(t_LnxWrpFmDev  *p_LnxWrpFmDev)
     }
 #endif
 
-#if (DPAA_VERSION >= 11)
     if (p_LnxWrpFmDev->fmVspPhysBaseAddr) {
         dev_res = __devm_request_region(p_LnxWrpFmDev->dev, p_LnxWrpFmDev->res, p_LnxWrpFmDev->fmVspPhysBaseAddr, p_LnxWrpFmDev->fmVspMemSize, "fman-vsp");
         if (unlikely(dev_res == NULL))
@@ -936,7 +929,6 @@ static t_Error ConfigureFmDev(t_LnxWrpFmDev  *p_LnxWrpFmDev)
         if (unlikely(p_LnxWrpFmDev->fmVspBaseAddr == 0))
 	    RETURN_ERROR(MAJOR, E_INVALID_STATE, ("devm_ioremap() failed"));
     }
-#endif
 
     p_LnxWrpFmDev->fmDevSettings.param.baseAddr     = p_LnxWrpFmDev->fmBaseAddr;
     p_LnxWrpFmDev->fmDevSettings.param.fmId         = p_LnxWrpFmDev->id;
@@ -992,13 +984,11 @@ static t_Error InitFmDev(t_LnxWrpFmDev  *p_LnxWrpFmDev)
 
     p_LnxWrpFmDev->fmDevSettings.param.h_FmMuram = p_LnxWrpFmDev->h_MuramDev;
 
-#if (DPAA_VERSION >= 11)
     if (p_LnxWrpFmDev->fmVspBaseAddr) {
         p_LnxWrpFmDev->fmDevSettings.param.vspBaseAddr = p_LnxWrpFmDev->fmVspBaseAddr;
         p_LnxWrpFmDev->fmDevSettings.param.partVSPBase = 0;
         p_LnxWrpFmDev->fmDevSettings.param.partNumOfVSPs = FM_VSP_MAX_NUM_OF_ENTRIES;
     }
-#endif
 
     p_LnxWrpFmDev->fmDevSettings.param.fmMacClkRatio = 1;
 
@@ -1691,9 +1681,6 @@ int fm_mac_adjust_link(struct fm_mac_dev *fm_mac_dev,
 	t_Error	 err;
 
 	if (!link) {
-#if (DPAA_VERSION < 11)
-		FM_MAC_RestartAutoneg(fm_mac_dev);
-#endif
 		return 0;
 	}
 

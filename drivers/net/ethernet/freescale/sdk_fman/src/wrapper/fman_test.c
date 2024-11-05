@@ -58,9 +58,7 @@
 #include "fm_ext.h"
 #include "lnxwrp_fsl_fman.h"
 #include "fm_port_ext.h"
-#if (DPAA_VERSION == 11)
 #include "../../Peripherals/FM/MAC/memac.h"
-#endif
 #include "fm_test_ioctls.h"
 #include "fsl_fman_test.h"
 
@@ -141,11 +139,9 @@ struct fmt_s {
 /* fm test structure */
 static struct fmt_s fm_test;
 
-#if (DPAA_VERSION == 11)
 struct mac_priv_s {
         t_Handle        mac;
 };
-#endif
 
 #define DTSEC_BASE_ADDR         0x000e0000
 #define DTSEC_MEM_RANGE         0x00002000
@@ -155,33 +151,6 @@ static int set_1gmac_loopback(
 		struct fmt_port_s *fmt_port,
 		bool en)
 {
-#if (DPAA_VERSION <= 10)
-	uint32_t dtsec_idx = fmt_port->id; /* dtsec for which port */
-	uint32_t dtsec_idx_off = dtsec_idx * DTSEC_MEM_RANGE;
-	phys_addr_t maccfg1_hw;
-	void *maccfg1_map;
-	uint32_t maccfg1_val;
-
-	/* compute the maccfg1 register address */
-	maccfg1_hw = fmt_port->fm_phys_base_addr +
-			(phys_addr_t)(DTSEC_BASE_ADDR +
-					dtsec_idx_off +
-					MAC_1G_MACCFG1);
-
-	/* map register */
-	maccfg1_map = ioremap(maccfg1_hw, sizeof(u32));
-
-	/* set register */
-	maccfg1_val = in_be32(maccfg1_map);
-	if (en)
-		maccfg1_val |= MAC_1G_LOOP_MASK;
-	else
-		maccfg1_val &= ~MAC_1G_LOOP_MASK;
-	out_be32(maccfg1_map, maccfg1_val);
-
-	/* unmap register */
-	iounmap(maccfg1_map);
-#else
 	struct mac_device *mac_dev;
 	struct mac_priv_s *priv;
 	t_Memac *p_memac;
@@ -205,7 +174,6 @@ static int set_1gmac_loopback(
 		return -EINVAL;
 
 	memac_set_loopback(p_memac->p_MemMap, en);
-#endif
 	return 0;
 }
 

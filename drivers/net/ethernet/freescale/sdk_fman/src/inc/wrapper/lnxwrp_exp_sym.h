@@ -109,12 +109,10 @@ EXPORT_SYMBOL(FM_PCD_ManipNodeSet);
 EXPORT_SYMBOL(FM_PCD_ManipNodeDelete);
 EXPORT_SYMBOL(FM_PCD_ManipGetStatistics);
 EXPORT_SYMBOL(FM_PCD_ManipNodeReplace);
-#if (DPAA_VERSION >= 11)
 EXPORT_SYMBOL(FM_PCD_FrmReplicSetGroup);
 EXPORT_SYMBOL(FM_PCD_FrmReplicDeleteGroup);
 EXPORT_SYMBOL(FM_PCD_FrmReplicAddMember);
 EXPORT_SYMBOL(FM_PCD_FrmReplicRemoveMember);
-#endif /* DPAA_VERSION >= 11 */
 
 #ifdef FM_CAPWAP_SUPPORT
 EXPORT_SYMBOL(FM_PCD_StatisticsSetNode);

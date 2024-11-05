@@ -400,8 +400,7 @@ typedef struct t_FmBufferPrefixContent {
                                          if write optimization is used, must be >= 16. */
     uint8_t     manipExtraSpace;    /**< Maximum extra size needed (insertion-size minus removal-size);
                                          Note that this field impacts the size of the buffer-prefix
-                                         (i.e. it pushes the data offset);
-                                         This field is irrelevant if DPAA_VERSION==10 */
+                                         (i.e. it pushes the data offset); */
 } t_FmBufferPrefixContent;
 
 /**************************************************************************//**
@@ -454,10 +453,8 @@ typedef struct t_FmBufPoolDepletion {
     bool        poolsToConsiderForSingleMode[BM_MAX_NUM_OF_POOLS];
                                                     /**< For each pool, TRUE if it should be considered for
                                                          depletion (Note - this pool must be used by this port!) */
-#if (DPAA_VERSION >= 11)
     bool        pfcPrioritiesEn[FM_MAX_NUM_OF_PFC_PRIORITIES];
                                                     /**< This field is used by the MAC as the Priority Enable Vector in the PFC frame which is transmitted */
-#endif /* (DPAA_VERSION >= 11) */
 } t_FmBufPoolDepletion;
 
 /**************************************************************************//**
@@ -500,15 +497,12 @@ typedef struct t_FmParams {
                                                          Relevant when FM not runs in "guest-mode". */
     t_FmFirmwareParams      firmware;               /**< The firmware parameters structure;
                                                          Relevant when FM not runs in "guest-mode". */
-
-#if (DPAA_VERSION >= 11)
     uintptr_t               vspBaseAddr;            /**< A pointer to base of memory mapped FM VSP registers (virtual);
                                                          i.e. up to 24KB, depending on the specific chip. */
     uint8_t                 partVSPBase;            /**< The first Virtual-Storage-Profile-id dedicated to this partition.
                                                          NOTE: this parameter relevant only when working with multiple partitions. */
     uint8_t                 partNumOfVSPs;          /**< Number of VSPs dedicated to this partition.
                                                          NOTE: this parameter relevant only when working with multiple partitions. */
-#endif /* (DPAA_VERSION >= 11) */
 } t_FmParams;
 
 

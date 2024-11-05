@@ -105,10 +105,6 @@ typedef enum ioc_fm_port_pcd_support {
     , e_IOC_FM_PORT_PCD_SUPPORT_PRS_AND_CC              /**< Use Parser and Coarse Classification */
     , e_IOC_FM_PORT_PCD_SUPPORT_PRS_AND_CC_AND_PLCR     /**< Use Parser and Coarse Classification and Policer */
     , e_IOC_FM_PORT_PCD_SUPPORT_CC_ONLY                 /**< Use only Coarse Classification */
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-    , e_IOC_FM_PORT_PCD_SUPPORT_CC_AND_KG               /**< Use Coarse Classification,and Keygen */
-    , e_IOC_FM_PORT_PCD_SUPPORT_CC_AND_KG_AND_PLCR      /**< Use Coarse Classification, Keygen and Policer */
-#endif /* FM_CAPWAP_SUPPORT */
 } ioc_fm_port_pcd_support;
 
 
@@ -222,12 +218,10 @@ typedef struct ioc_fm_port_congestion_groups_t {
                                                         /**< An array of CG indexes;
                                                              Note that the size of the array should be
                                                              'num_of_congestion_grps_to_consider'. */
-#if DPAA_VERSION >= 11
     bool        pfc_priorities_enable[FM_PORT_NUM_OF_CONGESTION_GRPS][FM_MAX_NUM_OF_PFC_PRIORITIES];
                                                         /**< A matrix that represents the map between the CG ids
                                                              defined in 'congestion_grps_to_consider' to the priorities
                                                              mapping array. */
-#endif /* DPAA_VERSION >= 11 */
 } ioc_fm_port_congestion_groups_t;
 
 
@@ -520,9 +514,7 @@ typedef struct ioc_fm_port_pcd_params_t {
     ioc_fm_port_pcd_kg_params_t     *p_kg_params;   /**< Keygen parameters for this port */
     ioc_fm_port_pcd_plcr_params_t   *p_plcr_params; /**< Policer parameters for this port */
     void                            *p_ip_reassembly_manip;/**< IP Reassembly manipulation */
-#if (DPAA_VERSION >= 11)
     void                            *p_capwap_reassembly_manip;/**< CAPWAP Reassembly manipulation */
-#endif /* (DPAA_VERSION >= 11) */
 } ioc_fm_port_pcd_params_t;
 
 /**************************************************************************//**
@@ -893,7 +885,6 @@ typedef struct ioc_fm_port_mac_statistics_t {
 *//***************************************************************************/
 #define FM_PORT_IOC_CONFIG_BUFFER_PREFIX_CONTENT _IOW(FM_IOC_TYPE_BASE, FM_PORT_IOC_NUM(39), ioc_fm_buffer_prefix_content_t)
 
-#if (DPAA_VERSION >= 11)
 typedef struct ioc_fm_port_vsp_alloc_params_t {
     uint8_t     num_of_profiles;          /**< Number of Virtual Storage Profiles */
     uint8_t     dflt_relative_id;         /**< The default Virtual-Storage-Profile-id dedicated to Rx/OP port
@@ -921,7 +912,6 @@ typedef struct ioc_fm_port_vsp_alloc_params_t {
 #define FM_PORT_IOC_VSP_ALLOC_COMPAT _IOW(FM_IOC_TYPE_BASE, FM_PORT_IOC_NUM(38), ioc_compat_fm_port_vsp_alloc_params_t)
 #endif
 #define FM_PORT_IOC_VSP_ALLOC _IOW(FM_IOC_TYPE_BASE, FM_PORT_IOC_NUM(38), ioc_fm_port_vsp_alloc_params_t)
-#endif /* (DPAA_VERSION >= 11) */
 
 /**************************************************************************//**
  @Function      FM_PORT_GetBmiCounters

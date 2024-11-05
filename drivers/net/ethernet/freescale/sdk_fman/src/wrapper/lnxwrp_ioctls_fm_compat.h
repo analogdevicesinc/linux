@@ -160,7 +160,6 @@ typedef struct ioc_compat_fm_pcd_port_schemes_params_t {
     compat_uptr_t  scheme_ids[FM_PCD_KG_NUM_OF_SCHEMES];
 } ioc_compat_fm_pcd_port_schemes_params_t;
 
-#if (DPAA_VERSION >= 11)
 typedef struct ioc_compat_fm_port_vsp_alloc_params_t {
     uint8_t       num_of_profiles;          /**< Number of Virtual Storage Profiles */
     uint8_t   	  dflt_relative_id;         /**< The default Virtual-Storage-Profile-id dedicated to Rx/OP port
@@ -168,7 +167,6 @@ typedef struct ioc_compat_fm_port_vsp_alloc_params_t {
                                              if relevant function called for Rx port */
     compat_uptr_t p_fm_tx_port;             /**< Handle to coupled Tx Port; not relevant for OP port. */
 }ioc_compat_fm_port_vsp_alloc_params_t;
-#endif /* (DPAA_VERSION >= 11) */
 
 typedef struct ioc_compat_fm_pcd_net_env_params_t {
     uint8_t                         num_of_distinction_units;
@@ -189,9 +187,7 @@ typedef struct ioc_compat_fm_pcd_prs_sw_params_t {
 typedef struct ioc_compat_fm_pcd_cc_next_kg_params_t {
     bool          override_fqid;
     uint32_t      new_fqid;
-#if DPAA_VERSION >= 11
     uint8_t       new_relative_storage_profile_id;
-#endif
     compat_uptr_t p_direct_scheme;
 } ioc_compat_fm_pcd_cc_next_kg_params_t;
 
@@ -199,11 +195,9 @@ typedef struct ioc_compat_fm_pcd_cc_next_cc_params_t {
     compat_uptr_t       cc_node_id;
 } ioc_compat_fm_pcd_cc_next_cc_params_t;
 
-#if DPAA_VERSION >= 11
 typedef struct ioc_compat_fm_pcd_cc_next_fr_params_t {
     compat_uptr_t       frm_replic_id;
 } ioc_compat_fm_pcd_cc_next_fr_params_t;
-#endif /* DPAA_VERSION >= 11 */
 
 typedef struct ioc_compat_fm_pcd_cc_next_engine_params_t {
     ioc_fm_pcd_engine                          next_engine;
@@ -212,9 +206,7 @@ typedef struct ioc_compat_fm_pcd_cc_next_engine_params_t {
         ioc_fm_pcd_cc_next_plcr_params_t       plcr_params;    /**< same structure*/
         ioc_fm_pcd_cc_next_enqueue_params_t    enqueue_params; /**< same structure*/
         ioc_compat_fm_pcd_cc_next_kg_params_t  kg_params;      /**< compat structure*/
-#if DPAA_VERSION >= 11
         ioc_compat_fm_pcd_cc_next_fr_params_t  fr_params;      /**< compat structure*/
-#endif /* DPAA_VERSION >= 11 */
     } params;
     compat_uptr_t                               manip_id;
     bool                                        statistics_en;
@@ -250,9 +242,7 @@ typedef struct ioc_compat_keys_params_t {
     uint16_t                                   max_num_of_keys;
     bool                                       mask_support;
     ioc_fm_pcd_cc_stats_mode                   statistics_mode;
-#if (DPAA_VERSION >= 11)
     uint16_t                                   frame_length_ranges[IOC_FM_PCD_CC_STATS_MAX_NUM_OF_FLR];
-#endif /* (DPAA_VERSION >= 11) */
     uint16_t                                   num_of_keys;
     uint8_t                                    key_size;
     ioc_compat_fm_pcd_cc_key_params_t          key_params[IOC_FM_PCD_MAX_NUM_OF_KEYS]; /**< compat structure*/
@@ -329,9 +319,7 @@ typedef struct ioc_compat_fm_port_pcd_params_t {
     compat_uptr_t                    p_kg_params;
     compat_uptr_t                    p_plcr_params;
     compat_uptr_t                    p_ip_reassembly_manip;
-#if DPAA_VERSION >= 11
     compat_uptr_t                    p_capwap_reassembly_manip;
-#endif
 } ioc_compat_fm_port_pcd_params_t;
 
 typedef struct ioc_compat_fm_pcd_kg_cc_t {
@@ -360,10 +348,8 @@ typedef struct ioc_compat_fm_pcd_kg_scheme_params_t {
     uint32_t                            base_fqid;
     uint8_t                             num_of_used_extracted_ors;
     ioc_fm_pcd_kg_extracted_or_params_t extracted_ors[IOC_FM_PCD_KG_NUM_OF_GENERIC_REGS];
-#if DPAA_VERSION >= 11
     bool                                override_storage_profile;
     ioc_fm_pcd_kg_storage_profile_t     storage_profile;
-#endif /* DPAA_VERSION >= 11 */
     ioc_fm_pcd_engine                   next_engine;
     union{
         ioc_fm_pcd_done_action          done_action;
@@ -400,7 +386,6 @@ typedef struct ioc_compat_fm_pcd_manip_hdr_insrt_t {
     compat_uptr_t p_data;        /**< data to be inserted */
 } ioc_compat_fm_pcd_manip_hdr_insrt_t;
 
-#if (DPAA_VERSION >= 11)
 typedef struct ioc_compat_fm_pcd_manip_hdr_insrt_ip_params_t {
     bool    calc_l4_checksum; /**< Calculate L4 checksum. */
     ioc_fm_pcd_manip_hdr_qos_mapping_mode   mapping_mode; /**< TODO */
@@ -416,16 +401,13 @@ typedef struct ioc_compat_fm_pcd_manip_hdr_insrt_ip_params_t {
      * Otherwise set it to '0'. */
     ioc_compat_fm_pcd_manip_hdr_insrt_t insrt; /**< size and data to be inserted. */
 } ioc_compat_fm_pcd_manip_hdr_insrt_ip_params_t;
-#endif /* (DPAA_VERSION >= 11) */
 
 typedef struct ioc_compat_fm_pcd_manip_hdr_insrt_by_hdr_params_t {
     ioc_fm_pcd_manip_hdr_insrt_by_hdr_type                      type;
     union {
        ioc_compat_fm_pcd_manip_hdr_insrt_specific_l2_params_t   specific_l2_params;
-#if (DPAA_VERSION >= 11)
         ioc_compat_fm_pcd_manip_hdr_insrt_ip_params_t          ip_params;
         ioc_compat_fm_pcd_manip_hdr_insrt_t             insrt;
-#endif /* (DPAA_VERSION >= 11) */
     } u;
 } ioc_compat_fm_pcd_manip_hdr_insrt_by_hdr_params_t;
 
@@ -434,10 +416,6 @@ typedef struct ioc_compat_fm_pcd_manip_hdr_insrt_params_t {
     union {
         ioc_compat_fm_pcd_manip_hdr_insrt_by_hdr_params_t   by_hdr;
         ioc_compat_fm_pcd_manip_hdr_insrt_generic_params_t  generic;
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-#error "FM_CAPWAP_SUPPORT feature not supported!"
-        ioc_fm_pcd_manip_hdr_insrt_by_template_params_t     by_template;
-#endif /* FM_CAPWAP_SUPPORT */
     } u;
 } ioc_compat_fm_pcd_manip_hdr_insrt_params_t;
 
@@ -468,9 +446,7 @@ typedef struct ioc_compat_fm_pcd_manip_special_offload_params_t {
 	ioc_fm_pcd_manip_special_offload_type               type;
     union {
 		ioc_compat_fm_pcd_manip_special_offload_ipsec_params_t ipsec;
-#if (DPAA_VERSION >= 11)
 		ioc_fm_pcd_manip_special_offload_capwap_params_t  capwap;
-#endif /* (DPAA_VERSION >= 11) */
     } u;
 } ioc_compat_fm_pcd_manip_special_offload_params_t;
 
@@ -483,11 +459,6 @@ typedef struct ioc_compat_fm_pcd_manip_params_t {
         ioc_compat_fm_pcd_manip_special_offload_params_t special_offload;
     } u;
     compat_uptr_t                                 p_next_manip;
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-#error "FM_CAPWAP_SUPPORT feature not supported!"
-    bool                                          frag_or_reasm;
-    ioc_fm_pcd_manip_frag_or_reasm_params_t       frag_or_reasm_params;
-#endif /* FM_CAPWAP_SUPPORT */
     compat_uptr_t                                 id;
 } ioc_compat_fm_pcd_manip_params_t;
 
@@ -496,7 +467,6 @@ typedef struct ioc_compat_fm_pcd_manip_get_stats_t {
 	ioc_fm_pcd_manip_stats_t	stats;
 } ioc_compat_fm_pcd_manip_get_stats_t;
 
-#if (DPAA_VERSION >= 11)
 typedef struct ioc_compat_fm_pcd_frm_replic_group_params_t {
 	uint8_t                     max_num_of_entries;
 	uint8_t                     num_of_entries;
@@ -550,7 +520,6 @@ typedef struct ioc_compat_fm_vsp_prs_result_params_t {
     compat_uptr_t p_data;
 } ioc_compat_fm_vsp_prs_result_params_t;
 
-#endif /* (DPAA_VERSION >= 11) */
 typedef struct ioc_compat_fm_pcd_kg_scheme_spc_t {
     uint32_t        val;
     compat_uptr_t   id;
@@ -650,12 +619,10 @@ void compat_copy_fm_port_pcd(
         ioc_fm_port_pcd_params_t *param,
         uint8_t compat);
 
-#if (DPAA_VERSION >= 11)
 void compat_copy_fm_port_vsp_alloc_params(
         ioc_compat_fm_port_vsp_alloc_params_t *compat_param,
         ioc_fm_port_vsp_alloc_params_t *param,
         uint8_t compat);
-#endif /* (DPAA_VERSION >= 11) */
 
 void compat_copy_fm_pcd_net_env(
         ioc_compat_fm_pcd_net_env_params_t *compat_param,
@@ -692,7 +659,6 @@ void compat_copy_fm_port_pcd_modify_tree(
         ioc_fm_obj_t *id,
         uint8_t compat);
 
-#if (DPAA_VERSION >= 11)
 void compat_copy_fm_pcd_frm_replic_group_params(
 	ioc_compat_fm_pcd_frm_replic_group_params_t *compat_param,
 	ioc_fm_pcd_frm_replic_group_params_t *param,
@@ -732,8 +698,6 @@ void compat_copy_fm_vsp_prs_result_params(
     ioc_compat_fm_vsp_prs_result_params_t *compat_param,
     ioc_fm_vsp_prs_result_params_t *param,
     uint8_t compat);
-
-#endif /* (DPAA_VERSION >= 11) */
 
 void compat_copy_fm_pcd_kg_scheme_spc(
         ioc_compat_fm_pcd_kg_scheme_spc_t *compat_param,

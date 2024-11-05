@@ -115,9 +115,7 @@ typedef struct {
     struct device_attribute     *dev_attr_regs;
     struct device_attribute     *dev_attr_bmi_regs;
     struct device_attribute     *dev_attr_qmi_regs;
-#if (DPAA_VERSION >= 11)
     struct device_attribute     *dev_attr_ipv4_opt;
-#endif
 } t_LnxWrpFmPortDev;
 
 typedef struct {

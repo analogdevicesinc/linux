@@ -140,10 +140,8 @@ static t_Error CalculateTableSize(t_FmPcdManipParams *p_FmPcdManipParams,
                 switch (p_FmPcdManipParams->u.hdr.rmvParams.u.byHdr.type)
                 {
                     case (e_FM_PCD_MANIP_RMV_BY_HDR_SPECIFIC_L2):
-#if (DPAA_VERSION >= 11)
                     case (e_FM_PCD_MANIP_RMV_BY_HDR_CAPWAP):
                     case (e_FM_PCD_MANIP_RMV_BY_HDR_FROM_START):
-#endif /* (DPAA_VERSION >= 11) */
                         tableSize += HMCD_BASIC_SIZE;
                         break;
                     default:
@@ -192,7 +190,6 @@ static t_Error CalculateTableSize(t_FmPcdManipParams *p_FmPcdManipParams,
                                 RETURN_ERROR(MINOR, E_NOT_SUPPORTED, NO_MSG);
                         }
                         break;
-#if (DPAA_VERSION >= 11)
                     case (e_FM_PCD_MANIP_INSRT_BY_HDR_IP):
                         tableSize +=
                                 (HMCD_BASIC_SIZE + HMCD_PTR_SIZE
@@ -212,7 +209,6 @@ static t_Error CalculateTableSize(t_FmPcdManipParams *p_FmPcdManipParams,
                                 (HMCD_BASIC_SIZE
                                         + p_FmPcdManipParams->u.hdr.insrtParams.u.byHdr.u.insrt.size);
                         break;
-#endif /* (DPAA_VERSION >= 11) */
                     default:
                         RETURN_ERROR(MINOR, E_INVALID_SELECTION,
                                      ("Unknown byHdr.type"));
@@ -307,7 +303,6 @@ static t_Error CalculateTableSize(t_FmPcdManipParams *p_FmPcdManipParams,
     return E_OK;
 }
 
-#if (DPAA_VERSION >= 11)
 static t_Error GetPrOffsetByHeaderOrField(t_FmManipHdrInfo *p_HdrInfo,
                                           uint8_t *parseArrayOffset)
 {
@@ -424,7 +419,6 @@ static t_Error GetPrOffsetByHeaderOrField(t_FmManipHdrInfo *p_HdrInfo,
     }
     return E_OK;
 }
-#endif
 
 static t_Error BuildHmct(t_FmPcdManip *p_Manip,
                          t_FmPcdManipParams *p_FmPcdManipParams,
@@ -486,7 +480,6 @@ static t_Error BuildHmct(t_FmPcdManip *p_Manip,
                         tmpReg |= hmcdOpt << HMCD_L2_MODE_SHIFT;
                         break;
                     }
-#if (DPAA_VERSION >= 11)
                     case (e_FM_PCD_MANIP_RMV_BY_HDR_CAPWAP):
                         tmpReg = (uint32_t)(HMCD_OPCODE_CAPWAP_RMV)
                                 << HMCD_OC_SHIFT;
@@ -509,7 +502,6 @@ static t_Error BuildHmct(t_FmPcdManip *p_Manip,
                         tmpReg |= ((uint32_t)prsArrayOffset << 16);
                     }
                         break;
-#endif /* (DPAA_VERSION >= 11) */
                     default:
                         RETURN_ERROR(MINOR, E_NOT_SUPPORTED,
                                      ("manip header remove by hdr type!"));
@@ -625,7 +617,6 @@ static t_Error BuildHmct(t_FmPcdManip *p_Manip,
                         p_TmpData += size;
                     }
                         break;
-#if (DPAA_VERSION >= 11)
                     case (e_FM_PCD_MANIP_INSRT_BY_HDR_IP):
                         tmpReg = (uint32_t)(HMCD_OPCODE_IP_INSRT)
                                 << HMCD_OC_SHIFT;
@@ -715,7 +706,6 @@ static t_Error BuildHmct(t_FmPcdManip *p_Manip,
                                 p_FmPcdManipParams->u.hdr.insrtParams.u.byHdr.u.insrt.size
                                         / 4;
                         break;
-#endif /* (DPAA_VERSION >= 11) */
                     default:
                         RETURN_ERROR(MINOR, E_NOT_SUPPORTED,
                                      ("manip header insert by header type!"));
@@ -1373,494 +1363,6 @@ static t_Error CreateManipActionBackToOrig(
     return E_OK;
 }
 
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-static t_Error UpdateManipIc(t_Handle h_Manip, uint8_t icOffset)
-{
-    t_FmPcdManip *p_Manip = (t_FmPcdManip *)h_Manip;
-    t_Handle p_Ad;
-    uint32_t tmpReg32 = 0;
-    SANITY_CHECK_RETURN_ERROR(h_Manip, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_Manip->h_Ad, E_INVALID_HANDLE);
-
-    switch (p_Manip->opcode)
-    {
-        case (HMAN_OC_MV_INT_FRAME_HDR_FROM_FRM_TO_BUFFER_PREFFIX):
-        p_Ad = (t_AdOfTypeContLookup *)p_Manip->h_Ad;
-        if (p_Manip->updateParams & INTERNAL_CONTEXT_OFFSET)
-        {
-            tmpReg32 =
-            *(uint32_t *)&((t_AdOfTypeContLookup *)p_Ad)->pcAndOffsets;
-            tmpReg32 |= (uint32_t)((uint32_t)icOffset << 16);
-            *(uint32_t *)&((t_AdOfTypeContLookup *)p_Ad)->pcAndOffsets =
-            tmpReg32;
-            p_Manip->updateParams &= ~INTERNAL_CONTEXT_OFFSET;
-            p_Manip->icOffset = icOffset;
-        }
-        else
-        {
-            if (p_Manip->icOffset != icOffset)
-            RETURN_ERROR(
-                    MAJOR,
-                    E_INVALID_VALUE,
-                    ("this manipulation was updated previously by different value"););
-        }
-        break;
-        case (HMAN_OC_CAPWAP_RMV_DTLS_IF_EXIST):
-        if (p_Manip->h_Frag)
-        {
-            if (p_Manip->updateParams & INTERNAL_CONTEXT_OFFSET)
-            {
-                p_Ad = (t_AdOfTypeContLookup *)p_Manip->h_Ad;
-                tmpReg32 |= GET_UINT32(((t_AdOfTypeContLookup *)p_Ad)->pcAndOffsets);
-                tmpReg32 |= (uint32_t)((uint32_t)icOffset << 16);
-                WRITE_UINT32(((t_AdOfTypeContLookup *)p_Ad)->pcAndOffsets, tmpReg32);
-                p_Manip->updateParams &= ~INTERNAL_CONTEXT_OFFSET;
-                p_Manip->icOffset = icOffset;
-            }
-            else
-            {
-                if (p_Manip->icOffset != icOffset)
-                RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("this manipulation was updated previousely by different value"););
-            }
-        }
-        break;
-    }
-
-    return E_OK;
-}
-
-static t_Error UpdateInitMvIntFrameHeaderFromFrameToBufferPrefix(
-        t_Handle h_FmPort, t_FmPcdManip *p_Manip, t_Handle h_Ad, bool validate)
-{
-
-    t_AdOfTypeContLookup *p_Ad = (t_AdOfTypeContLookup *)h_Ad;
-    t_FmPortGetSetCcParams fmPortGetSetCcParams;
-    t_Error err;
-    uint32_t tmpReg32;
-
-    memset(&fmPortGetSetCcParams, 0, sizeof(t_FmPortGetSetCcParams));
-
-    SANITY_CHECK_RETURN_ERROR(p_Manip, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(
-            (p_Manip->opcode & HMAN_OC_MV_INT_FRAME_HDR_FROM_FRM_TO_BUFFER_PREFFIX),
-            E_INVALID_STATE);
-    SANITY_CHECK_RETURN_ERROR(!p_Manip->muramAllocate, E_INVALID_STATE);
-
-    if (p_Manip->updateParams)
-    {
-        if ((!(p_Manip->updateParams & OFFSET_OF_PR))
-                || (p_Manip->shadowUpdateParams & OFFSET_OF_PR))
-        RETURN_ERROR(
-                MAJOR, E_INVALID_STATE,
-                ("in this stage parameters from Port has not be updated"));
-
-        fmPortGetSetCcParams.getCcParams.type = p_Manip->updateParams;
-        fmPortGetSetCcParams.setCcParams.type = UPDATE_PSO;
-        fmPortGetSetCcParams.setCcParams.psoSize = 16;
-
-        err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams);
-        if (err)
-        RETURN_ERROR(MAJOR, err, NO_MSG);
-        if (fmPortGetSetCcParams.getCcParams.type & OFFSET_OF_PR)
-        RETURN_ERROR(
-                MAJOR, E_INVALID_STATE,
-                ("Parser result offset wasn't configured previousely"));
-#ifdef FM_LOCKUP_ALIGNMENT_ERRATA_FMAN_SW004
-        ASSERT_COND(!(fmPortGetSetCcParams.getCcParams.prOffset % 16));
-#endif
-    }
-    else
-    if (validate)
-    {
-        if ((!(p_Manip->shadowUpdateParams & OFFSET_OF_PR))
-                || (p_Manip->updateParams & OFFSET_OF_PR))
-        RETURN_ERROR(
-                MAJOR, E_INVALID_STATE,
-                ("in this stage parameters from Port has be updated"));
-        fmPortGetSetCcParams.getCcParams.type = p_Manip->shadowUpdateParams;
-        fmPortGetSetCcParams.setCcParams.type = UPDATE_PSO;
-        fmPortGetSetCcParams.setCcParams.psoSize = 16;
-
-        err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams);
-        if (err)
-        RETURN_ERROR(MAJOR, err, NO_MSG);
-        if (fmPortGetSetCcParams.getCcParams.type & OFFSET_OF_PR)
-        RETURN_ERROR(
-                MAJOR, E_INVALID_STATE,
-                ("Parser result offset wasn't configured previousely"));
-
-    }
-
-    ASSERT_COND(p_Ad);
-
-    if (p_Manip->updateParams & OFFSET_OF_PR)
-    {
-        tmpReg32 = 0;
-        tmpReg32 |= fmPortGetSetCcParams.getCcParams.prOffset;
-        WRITE_UINT32(p_Ad->matchTblPtr,
-                (GET_UINT32(p_Ad->matchTblPtr) | tmpReg32));
-        p_Manip->updateParams &= ~OFFSET_OF_PR;
-        p_Manip->shadowUpdateParams |= OFFSET_OF_PR;
-    }
-    else
-    if (validate)
-    {
-        tmpReg32 = GET_UINT32(p_Ad->matchTblPtr);
-        if ((uint8_t)tmpReg32 != fmPortGetSetCcParams.getCcParams.prOffset)
-        RETURN_ERROR(
-                MAJOR,
-                E_INVALID_STATE,
-                ("this manipulation was updated previousely by different value"););
-    }
-
-    return E_OK;
-}
-
-static t_Error UpdateModifyCapwapFragmenation(t_FmPcdManip *p_Manip, t_Handle h_Ad, bool validate,t_Handle h_FmTree)
-{
-    t_AdOfTypeContLookup *p_Ad = (t_AdOfTypeContLookup *)h_Ad;
-    t_FmPcdCcSavedManipParams *p_SavedManipParams = NULL;
-    uint32_t tmpReg32 = 0;
-
-    SANITY_CHECK_RETURN_ERROR(p_Manip,E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_Manip->h_Frag,E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_Manip->frag,E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(((p_Manip->opcode == HMAN_OC_CAPWAP_FRAGMENTATION) || (p_Manip->opcode == HMAN_OC_INSRT_HDR_BY_TEMPL_N_OR_FRAG_AFTER)), E_INVALID_STATE);
-
-    p_Ad = (t_AdOfTypeContLookup *)p_Manip->h_Frag;
-
-    if (p_Manip->updateParams)
-    {
-
-        if ((!(p_Manip->updateParams & OFFSET_OF_DATA)) ||
-                ((p_Manip->shadowUpdateParams & OFFSET_OF_DATA)))
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("in this stage parameters from Port has not be updated"));
-        p_SavedManipParams = FmPcdCcTreeGetSavedManipParams(h_FmTree);
-        if (!p_SavedManipParams)
-        RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("for this manipulation tree has to be configured previosely with this type"));
-        p_Manip->capwapFragParams.dataOffset = p_SavedManipParams->capwapParams.dataOffset;
-
-        tmpReg32 = GET_UINT32(p_Ad->pcAndOffsets);
-        tmpReg32 |= ((uint32_t)p_Manip->capwapFragParams.dataOffset<< 16);
-        WRITE_UINT32(p_Ad->pcAndOffsets,tmpReg32);
-
-        p_Manip->updateParams &= ~OFFSET_OF_DATA;
-        p_Manip->shadowUpdateParams |= OFFSET_OF_DATA;
-    }
-    else if (validate)
-    {
-
-        p_SavedManipParams = FmPcdCcTreeGetSavedManipParams(h_FmTree);
-        if (!p_SavedManipParams)
-        RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("for this manipulation tree has to be configured previosely with this type"));
-        if (p_Manip->capwapFragParams.dataOffset != p_SavedManipParams->capwapParams.dataOffset)
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("this manipulation was updated previousely by different value"));
-    }
-
-    return E_OK;
-}
-
-static t_Error UpdateInitCapwapFragmentation(t_Handle h_FmPort,
-        t_FmPcdManip *p_Manip,
-        t_Handle h_Ad,
-        bool validate,
-        t_Handle h_FmTree)
-{
-    t_AdOfTypeContLookup *p_Ad;
-    t_FmPortGetSetCcParams fmPortGetSetCcParams;
-    t_Error err;
-    uint32_t tmpReg32 = 0;
-    t_FmPcdCcSavedManipParams *p_SavedManipParams;
-
-    UNUSED(h_Ad);
-
-    SANITY_CHECK_RETURN_ERROR(p_Manip,E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_Manip->h_Frag,E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_Manip->frag,E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(((p_Manip->opcode == HMAN_OC_CAPWAP_FRAGMENTATION) ||
-                    (p_Manip->opcode == HMAN_OC_INSRT_HDR_BY_TEMPL_N_OR_FRAG_AFTER)), E_INVALID_STATE);
-
-    p_Ad = (t_AdOfTypeContLookup *)p_Manip->h_Frag;
-
-    if (p_Manip->updateParams)
-    {
-        if ((!(p_Manip->updateParams & OFFSET_OF_DATA)) ||
-                ((p_Manip->shadowUpdateParams & OFFSET_OF_DATA)))
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("in this stage parameters from Port has not be updated"));
-        fmPortGetSetCcParams.getCcParams.type = p_Manip->updateParams;
-        fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_PNEN | UPDATE_FMFP_PRC_WITH_ONE_RISC_ONLY;
-        fmPortGetSetCcParams.setCcParams.nia = NIA_FM_CTL_AC_POP_TO_N_STEP | NIA_ENG_FM_CTL;
-        /* For CAPWAP Rassembly used FMAN_CTRL2 hardcoded - so for fragmentation its better to use FMAN_CTRL1 */
-        fmPortGetSetCcParams.setCcParams.orFmanCtrl = FPM_PORT_FM_CTL1;
-
-        err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams);
-        if (err)
-        RETURN_ERROR(MAJOR, err, NO_MSG);
-
-        if (fmPortGetSetCcParams.getCcParams.type & OFFSET_OF_DATA)
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("Data offset wasn't configured previousely"));
-
-        p_SavedManipParams = (t_FmPcdCcSavedManipParams *)XX_Malloc(sizeof(t_FmPcdCcSavedManipParams));
-        p_SavedManipParams->capwapParams.dataOffset = fmPortGetSetCcParams.getCcParams.dataOffset;
-
-#ifdef FM_LOCKUP_ALIGNMENT_ERRATA_FMAN_SW004
-        ASSERT_COND(!(p_SavedManipParams->capwapParams.dataOffset % 16));
-#endif /* FM_LOCKUP_ALIGNMENT_ERRATA_FMAN_SW004 */
-
-        FmPcdCcTreeSetSavedManipParams(h_FmTree, (t_Handle)p_SavedManipParams);
-    }
-    else if (validate)
-    {
-        if ((!(p_Manip->shadowUpdateParams & OFFSET_OF_DATA)) ||
-                ((p_Manip->updateParams & OFFSET_OF_DATA)))
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("in this stage parameters from Port has be updated"));
-        fmPortGetSetCcParams.getCcParams.type = p_Manip->shadowUpdateParams;
-        fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_PNEN | UPDATE_FMFP_PRC_WITH_ONE_RISC_ONLY;
-        fmPortGetSetCcParams.setCcParams.nia = NIA_FM_CTL_AC_POP_TO_N_STEP | NIA_ENG_FM_CTL;
-        err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams);
-        if (err)
-        RETURN_ERROR(MAJOR, err, NO_MSG);
-
-        if (fmPortGetSetCcParams.getCcParams.type & OFFSET_OF_DATA)
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("Data offset wasn't configured previousely"));
-    }
-
-    if (p_Manip->updateParams)
-    {
-        tmpReg32 = GET_UINT32(p_Ad->pcAndOffsets);
-        tmpReg32 |= ((uint32_t)fmPortGetSetCcParams.getCcParams.dataOffset<< 16);
-        WRITE_UINT32(p_Ad->pcAndOffsets,tmpReg32);
-
-        p_Manip->updateParams &= ~OFFSET_OF_DATA;
-        p_Manip->shadowUpdateParams |= OFFSET_OF_DATA;
-        p_Manip->capwapFragParams.dataOffset = fmPortGetSetCcParams.getCcParams.dataOffset;
-    }
-    else if (validate)
-    {
-        if (p_Manip->capwapFragParams.dataOffset != fmPortGetSetCcParams.getCcParams.dataOffset)
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("this manipulation was updated previousely by different value"));
-    }
-
-    return E_OK;
-}
-
-static t_Error UpdateInitCapwapReasm(t_Handle h_FmPcd,
-        t_Handle h_FmPort,
-        t_FmPcdManip *p_Manip,
-        t_Handle h_Ad,
-        bool validate)
-{
-    t_CapwapReasmPram *p_ReassmTbl;
-    t_Error err;
-    t_FmPortGetSetCcParams fmPortGetSetCcParams;
-    uint8_t i = 0;
-    uint16_t size;
-    uint32_t tmpReg32;
-    t_FmPcd *p_FmPcd = (t_FmPcd *)h_FmPcd;
-    t_FmPcdCcCapwapReassmTimeoutParams ccCapwapReassmTimeoutParams;
-
-    SANITY_CHECK_RETURN_ERROR(p_Manip,E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_Manip->h_Frag,E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(!p_Manip->frag,E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR((p_Manip->opcode == HMAN_OC_CAPWAP_RMV_DTLS_IF_EXIST), E_INVALID_STATE);
-    SANITY_CHECK_RETURN_ERROR(h_FmPcd,E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_FmPcd->h_Hc,E_INVALID_HANDLE);
-
-    if (p_Manip->h_FmPcd != h_FmPcd)
-    RETURN_ERROR(MAJOR, E_INVALID_STATE,
-            ("handler of PCD previously was initiated by different value"));
-
-    UNUSED(h_Ad);
-
-    memset(&fmPortGetSetCcParams, 0, sizeof(t_FmPortGetSetCcParams));
-    p_ReassmTbl = (t_CapwapReasmPram *)p_Manip->h_Frag;
-
-    if (p_Manip->updateParams)
-    {
-        if ((!(p_Manip->updateParams & NUM_OF_TASKS) &&
-                        !(p_Manip->updateParams & OFFSET_OF_DATA) &&
-                        !(p_Manip->updateParams & OFFSET_OF_PR) &&
-                        !(p_Manip->updateParams & HW_PORT_ID)) ||
-                ((p_Manip->shadowUpdateParams & NUM_OF_TASKS) ||
-                        (p_Manip->shadowUpdateParams & OFFSET_OF_DATA) || (p_Manip->shadowUpdateParams & OFFSET_OF_PR) ||
-                        (p_Manip->shadowUpdateParams & HW_PORT_ID)))
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("in this stage parameters from Port has not be updated"));
-
-        fmPortGetSetCcParams.getCcParams.type = p_Manip->updateParams;
-        fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_PNEN;
-        fmPortGetSetCcParams.setCcParams.nia = NIA_FM_CTL_AC_POP_TO_N_STEP | NIA_ENG_FM_CTL;
-
-        err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams);
-        if (err)
-        RETURN_ERROR(MAJOR, err, NO_MSG);
-
-        if (fmPortGetSetCcParams.getCcParams.type & NUM_OF_TASKS)
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("Num of tasks wasn't configured previousely"));
-        if (fmPortGetSetCcParams.getCcParams.type & OFFSET_OF_DATA)
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("offset of the data  wasn't configured previousely"));
-        if (fmPortGetSetCcParams.getCcParams.type & HW_PORT_ID)
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("hwPortId wasn't updated"));
-#ifdef FM_LOCKUP_ALIGNMENT_ERRATA_FMAN_SW004
-        ASSERT_COND((fmPortGetSetCcParams.getCcParams.dataOffset % 16) == 0);
-#endif /* FM_LOCKUP_ALIGNMENT_ERRATA_FMAN_SW004 */
-    }
-    else if (validate)
-    {
-        if ((!(p_Manip->shadowUpdateParams & NUM_OF_TASKS) &&
-                        !(p_Manip->shadowUpdateParams & OFFSET_OF_DATA) &&
-                        !(p_Manip->shadowUpdateParams & OFFSET_OF_PR) &&
-                        !(p_Manip->shadowUpdateParams & HW_PORT_ID)) &&
-                ((p_Manip->updateParams & NUM_OF_TASKS) ||
-                        (p_Manip->updateParams & OFFSET_OF_DATA) || (p_Manip->updateParams & OFFSET_OF_PR) ||
-                        (p_Manip->updateParams & HW_PORT_ID)))
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("in this stage parameters from Port has be updated"));
-
-        fmPortGetSetCcParams.getCcParams.type = p_Manip->shadowUpdateParams;
-        fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_PNEN;
-        fmPortGetSetCcParams.setCcParams.nia = NIA_FM_CTL_AC_POP_TO_N_STEP | NIA_ENG_FM_CTL;
-
-        err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams);
-        if (err)
-        RETURN_ERROR(MAJOR, err, NO_MSG);
-
-        if (fmPortGetSetCcParams.getCcParams.type & NUM_OF_TASKS)
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("NumOfTasks wasn't configured previously"));
-        if (fmPortGetSetCcParams.getCcParams.type & OFFSET_OF_DATA)
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("offset of the data  wasn't configured previously"));
-        if (fmPortGetSetCcParams.getCcParams.type & HW_PORT_ID)
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("hwPortId wasn't updated"));
-    }
-
-    if (p_Manip->updateParams)
-    {
-        if (p_Manip->updateParams & NUM_OF_TASKS)
-        {
-            /*recommendation of Microcode team - (maxNumFramesInProcess * 2) */
-            size = (uint16_t)(p_Manip->capwapFragParams.maxNumFramesInProcess*2 + fmPortGetSetCcParams.getCcParams.numOfTasks);
-            if (size > 255)
-            RETURN_ERROR(MAJOR,E_INVALID_VALUE, ("numOfOpenReassmEntries + numOfTasks per port can not be greater than 256"));
-
-            p_Manip->capwapFragParams.numOfTasks = fmPortGetSetCcParams.getCcParams.numOfTasks;
-
-            /*p_ReassmFrmDescrIndxPoolTbl*/
-            p_Manip->capwapFragParams.p_ReassmFrmDescrIndxPoolTbl =
-            (t_Handle)FM_MURAM_AllocMem(p_FmPcd->h_FmMuram,
-                    (uint32_t)(size + 1),
-                    4);
-            if (!p_Manip->capwapFragParams.p_ReassmFrmDescrIndxPoolTbl)
-            RETURN_ERROR(MAJOR, E_NO_MEMORY, ("MURAM alloc for CAPWAP Reassembly frame buffer index pool table"));
-
-            MemSet8(p_Manip->capwapFragParams.p_ReassmFrmDescrIndxPoolTbl, 0, (uint32_t)(size + 1));
-
-            for ( i = 0; i < size; i++)
-            WRITE_UINT8(*(uint8_t *)PTR_MOVE(p_Manip->capwapFragParams.p_ReassmFrmDescrIndxPoolTbl, i), (uint8_t)(i+1));
-
-            tmpReg32 = (uint32_t)(XX_VirtToPhys(p_Manip->capwapFragParams.p_ReassmFrmDescrIndxPoolTbl) - p_FmPcd->physicalMuramBase);
-
-            WRITE_UINT32(p_ReassmTbl->reasmFrmDescIndexPoolTblPtr, tmpReg32);
-
-            /*p_ReassmFrmDescrPoolTbl*/
-            p_Manip->capwapFragParams.p_ReassmFrmDescrPoolTbl =
-            (t_Handle)FM_MURAM_AllocMem(p_FmPcd->h_FmMuram,
-                    (uint32_t)((size + 1) * FM_PCD_MANIP_CAPWAP_REASM_RFD_SIZE),
-                    4);
-
-            if (!p_Manip->capwapFragParams.p_ReassmFrmDescrPoolTbl)
-            RETURN_ERROR(MAJOR, E_NO_MEMORY, ("MURAM alloc for CAPWAP Reassembly frame buffer pool table"));
-
-            MemSet8(p_Manip->capwapFragParams.p_ReassmFrmDescrPoolTbl, 0, (uint32_t)((size +1)* FM_PCD_MANIP_CAPWAP_REASM_RFD_SIZE));
-
-            tmpReg32 = (uint32_t)(XX_VirtToPhys(p_Manip->capwapFragParams.p_ReassmFrmDescrPoolTbl) - p_FmPcd->physicalMuramBase);
-
-            WRITE_UINT32(p_ReassmTbl->reasmFrmDescPoolTblPtr, tmpReg32);
-
-            /*p_TimeOutTbl*/
-
-            p_Manip->capwapFragParams.p_TimeOutTbl =
-            (t_Handle)FM_MURAM_AllocMem(p_FmPcd->h_FmMuram,
-                    (uint32_t)((size + 1)* FM_PCD_MANIP_CAPWAP_REASM_TIME_OUT_ENTRY_SIZE),
-                    4);
-
-            if (!p_Manip->capwapFragParams.p_TimeOutTbl)
-            RETURN_ERROR(MAJOR, E_NO_MEMORY, ("MURAM alloc for CAPWAP Reassembly timeout table"));
-
-            MemSet8(p_Manip->capwapFragParams.p_TimeOutTbl, 0, (uint16_t)((size + 1)*FM_PCD_MANIP_CAPWAP_REASM_TIME_OUT_ENTRY_SIZE));
-
-            tmpReg32 = (uint32_t)(XX_VirtToPhys(p_Manip->capwapFragParams.p_TimeOutTbl) - p_FmPcd->physicalMuramBase);
-            WRITE_UINT32(p_ReassmTbl->timeOutTblPtr, tmpReg32);
-
-            p_Manip->updateParams &= ~NUM_OF_TASKS;
-            p_Manip->shadowUpdateParams |= NUM_OF_TASKS;
-        }
-
-        if (p_Manip->updateParams & OFFSET_OF_DATA)
-        {
-            p_Manip->capwapFragParams.dataOffset = fmPortGetSetCcParams.getCcParams.dataOffset;
-            tmpReg32 = GET_UINT32(p_ReassmTbl->mode);
-            tmpReg32|= p_Manip->capwapFragParams.dataOffset;
-            WRITE_UINT32(p_ReassmTbl->mode, tmpReg32);
-            p_Manip->updateParams &= ~OFFSET_OF_DATA;
-            p_Manip->shadowUpdateParams |= OFFSET_OF_DATA;
-        }
-
-        if (!(fmPortGetSetCcParams.getCcParams.type & OFFSET_OF_PR))
-        {
-            p_Manip->capwapFragParams.prOffset = fmPortGetSetCcParams.getCcParams.prOffset;
-
-            tmpReg32 = GET_UINT32(p_ReassmTbl->mode);
-            tmpReg32|= FM_PCD_MANIP_CAPWAP_REASM_PR_COPY;
-            WRITE_UINT32(p_ReassmTbl->mode, tmpReg32);
-
-            tmpReg32 = GET_UINT32(p_ReassmTbl->intStatsTblPtr);
-            tmpReg32 |= (uint32_t)p_Manip->capwapFragParams.prOffset << 24;
-            WRITE_UINT32(p_ReassmTbl->intStatsTblPtr, tmpReg32);
-            p_Manip->updateParams &= ~OFFSET_OF_PR;
-            p_Manip->shadowUpdateParams |= OFFSET_OF_PR;
-        }
-        else
-        {
-            p_Manip->capwapFragParams.prOffset = 0xff;
-            p_Manip->updateParams &= ~OFFSET_OF_PR;
-            p_Manip->shadowUpdateParams |= OFFSET_OF_PR;
-        }
-
-        p_Manip->capwapFragParams.hwPortId = fmPortGetSetCcParams.getCcParams.hardwarePortId;
-        p_Manip->updateParams &= ~HW_PORT_ID;
-        p_Manip->shadowUpdateParams |= HW_PORT_ID;
-
-        /*timeout hc */
-        ccCapwapReassmTimeoutParams.fqidForTimeOutFrames = p_Manip->capwapFragParams.fqidForTimeOutFrames;
-        ccCapwapReassmTimeoutParams.portIdAndCapwapReassmTbl = (uint32_t)p_Manip->capwapFragParams.hwPortId << 24;
-        ccCapwapReassmTimeoutParams.portIdAndCapwapReassmTbl |= (uint32_t)((XX_VirtToPhys(p_ReassmTbl) - p_FmPcd->physicalMuramBase));
-        ccCapwapReassmTimeoutParams.timeoutRequestTime = (((uint32_t)1<<p_Manip->capwapFragParams.bitFor1Micro) * p_Manip->capwapFragParams.timeoutRoutineRequestTime)/2;
-        return FmHcPcdCcCapwapTimeoutReassm(p_FmPcd->h_Hc,&ccCapwapReassmTimeoutParams);
-    }
-
-    else if (validate)
-    {
-        if (fmPortGetSetCcParams.getCcParams.hardwarePortId != p_Manip->capwapFragParams.hwPortId)
-        RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("Reassembly manipulation previously was assigned to another port"));
-        if (fmPortGetSetCcParams.getCcParams.numOfTasks != p_Manip->capwapFragParams.numOfTasks)
-        RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("numOfTasks for this manipulation previously was defined by another value "));
-
-        if (!(fmPortGetSetCcParams.getCcParams.type & OFFSET_OF_PR))
-        {
-            if (p_Manip->capwapFragParams.prOffset != fmPortGetSetCcParams.getCcParams.prOffset)
-            RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("Parse result offset previously was defined by another value "));
-        }
-        else
-        {
-            if (p_Manip->capwapFragParams.prOffset != 0xff)
-            RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("Parse result offset previously was defined by another value "));
-        }
-        if (fmPortGetSetCcParams.getCcParams.dataOffset != p_Manip->capwapFragParams.dataOffset)
-        RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("Data offset previously was defined by another value "));
-    }
-
-    return E_OK;
-}
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
-
 t_Error FmPcdRegisterReassmPort(t_Handle h_FmPcd, t_Handle h_ReasmCommonPramTbl)
 {
     t_FmPcd *p_FmPcd = (t_FmPcd*)h_FmPcd;
@@ -2098,10 +1600,7 @@ static t_Error CreateReassTable(t_FmPcdManip *p_Manip, e_NetHeaderType hdr)
         default:
             RETURN_ERROR(MAJOR, E_NOT_SUPPORTED, ("header type"));
     }
-    keySize += 2; /* 2 bytes reserved for RFDIndex */
-#if (DPAA_VERSION >= 11)
-    keySize += 2; /* 2 bytes reserved */
-#endif /* (DPAA_VERSION >= 11) */
+    keySize += 4; /* 2 bytes reserved for RFDIndex, 2 bytes reserved */
     waySize = ROUND_UP(keySize, 8);
 
     /* Allocates the Reassembly Parameters Table - This table is located in the MURAM.*/
@@ -2213,9 +1712,7 @@ static t_Error UpdateInitReasm(t_Handle h_FmPcd, t_Handle h_PcdParams,
     uint32_t tmpReg32;
     t_Error err;
     t_FmPortPcdParams *p_PcdParams = (t_FmPortPcdParams *)h_PcdParams;
-#if (DPAA_VERSION >= 11)
     t_FmPcdCtrlParamsPage *p_ParamsPage;
-#endif /* (DPAA_VERSION >= 11) */
 
     SANITY_CHECK_RETURN_ERROR(p_Manip, E_INVALID_HANDLE);
     SANITY_CHECK_RETURN_ERROR(!p_Manip->frag, E_INVALID_HANDLE);
@@ -2341,7 +1838,6 @@ static t_Error UpdateInitReasm(t_Handle h_FmPcd, t_Handle h_PcdParams,
                     p_Manip->reassmParams.ip.h_Ipv6Scheme;
             p_PcdParams->p_KgParams->numOfSchemes++;
         }
-#if (DPAA_VERSION >= 11)
         if (fmPortGetSetCcParams.getCcParams.revInfo.majorRev >= 6)
         {
             if ((err = FmPortSetGprFunc(h_FmPort, e_FM_PORT_GPR_MURAM_PAGE,
@@ -2367,58 +1863,9 @@ static t_Error UpdateInitReasm(t_Handle h_FmPcd, t_Handle h_PcdParams,
                 WRITE_UINT32(p_ParamsPage->iprIpv6Nia, tmpReg32);
             }
         }
-#else
-        if (fmPortGetSetCcParams.getCcParams.revInfo.majorRev < 6)
-        {
-            WRITE_UINT32(p_Manip->reassmParams.p_ReassCommonTbl->discardMask,
-                    fmPortGetSetCcParams.getCcParams.discardMask);
-        }
-#endif /* (DPAA_VERSION >= 11) */
     }
     return E_OK;
 }
-
-#if (DPAA_VERSION == 10)
-static t_Error FmPcdFragHcScratchPoolFill(t_Handle h_FmPcd, uint8_t scratchBpid)
-{
-    t_FmPcd *p_FmPcd = (t_FmPcd*)h_FmPcd;
-    t_FmPcdCcFragScratchPoolCmdParams fmPcdCcFragScratchPoolCmdParams;
-    t_Error err;
-
-    SANITY_CHECK_RETURN_ERROR(p_FmPcd, E_INVALID_HANDLE);
-
-    memset(&fmPcdCcFragScratchPoolCmdParams, 0, sizeof(t_FmPcdCcFragScratchPoolCmdParams));
-
-    fmPcdCcFragScratchPoolCmdParams.numOfBuffers = NUM_OF_SCRATCH_POOL_BUFFERS;
-    fmPcdCcFragScratchPoolCmdParams.bufferPoolId = scratchBpid;
-    if ((err = FmHcPcdCcIpFragScratchPollCmd(p_FmPcd->h_Hc, TRUE, &fmPcdCcFragScratchPoolCmdParams)) != E_OK)
-    RETURN_ERROR(MAJOR, err, NO_MSG);
-
-    if (fmPcdCcFragScratchPoolCmdParams.numOfBuffers != 0)
-    RETURN_ERROR(MAJOR, E_INVALID_STATE, ("Fill scratch pool failed,"
-                    "Failed to release %d buffers to the BM (missing FBPRs)",
-                    fmPcdCcFragScratchPoolCmdParams.numOfBuffers));
-
-    return E_OK;
-}
-
-static t_Error FmPcdFragHcScratchPoolEmpty(t_Handle h_FmPcd, uint8_t scratchBpid)
-{
-    t_FmPcd *p_FmPcd = (t_FmPcd*)h_FmPcd;
-    t_FmPcdCcFragScratchPoolCmdParams fmPcdCcFragScratchPoolCmdParams;
-    t_Error err;
-
-    SANITY_CHECK_RETURN_ERROR(p_FmPcd, E_INVALID_HANDLE);
-
-    memset(&fmPcdCcFragScratchPoolCmdParams, 0, sizeof(t_FmPcdCcFragScratchPoolCmdParams));
-
-    fmPcdCcFragScratchPoolCmdParams.bufferPoolId = scratchBpid;
-    if ((err = FmHcPcdCcIpFragScratchPollCmd(p_FmPcd->h_Hc, FALSE, &fmPcdCcFragScratchPoolCmdParams)) != E_OK)
-    RETURN_ERROR(MAJOR, err, NO_MSG);
-
-    return E_OK;
-}
-#endif /* (DPAA_VERSION == 10) */
 
 static void ReleaseManipHandler(t_FmPcdManip *p_Manip, t_FmPcd *p_FmPcd)
 {
@@ -2435,33 +1882,10 @@ static void ReleaseManipHandler(t_FmPcdManip *p_Manip, t_FmPcd *p_FmPcd)
         FM_MURAM_FreeMem(p_FmPcd->h_FmMuram, p_Manip->p_Template);
         p_Manip->p_Template = NULL;
     }
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-    if (p_Manip->h_Frag)
-    {
-        if (p_Manip->capwapFragParams.p_AutoLearnHashTbl)
-        FM_MURAM_FreeMem(p_FmPcd->h_FmMuram,
-                p_Manip->capwapFragParams.p_AutoLearnHashTbl);
-        if (p_Manip->capwapFragParams.p_ReassmFrmDescrPoolTbl)
-        FM_MURAM_FreeMem(p_FmPcd->h_FmMuram,
-                p_Manip->capwapFragParams.p_ReassmFrmDescrPoolTbl);
-        if (p_Manip->capwapFragParams.p_ReassmFrmDescrIndxPoolTbl)
-        FM_MURAM_FreeMem(p_FmPcd->h_FmMuram,
-                p_Manip->capwapFragParams.p_ReassmFrmDescrIndxPoolTbl);
-        if (p_Manip->capwapFragParams.p_TimeOutTbl)
-        FM_MURAM_FreeMem(p_FmPcd->h_FmMuram,
-                p_Manip->capwapFragParams.p_TimeOutTbl);
-        FM_MURAM_FreeMem(p_FmPcd->h_FmMuram, p_Manip->h_Frag);
-
-    }
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
     if (p_Manip->frag)
     {
         if (p_Manip->fragParams.p_Frag)
         {
-#if (DPAA_VERSION == 10)
-            FmPcdFragHcScratchPoolEmpty((t_Handle)p_FmPcd, p_Manip->fragParams.scratchBpid);
-#endif /* (DPAA_VERSION == 10) */
-
             FM_MURAM_FreeMem(p_FmPcd->h_FmMuram, p_Manip->fragParams.p_Frag);
         }
     }
@@ -2528,138 +1952,6 @@ static void ReleaseManipHandler(t_FmPcdManip *p_Manip, t_FmPcd *p_FmPcd)
         FM_MURAM_FreeMem(p_FmPcd->h_FmMuram, p_Manip->p_StatsTbl);
 }
 
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-static t_Error CheckManipParamsAndSetType(t_FmPcdManip *p_Manip, t_FmPcdManipParams *p_ManipParams)
-{
-    if (p_ManipParams->u.hdr.rmv)
-    {
-        switch (p_ManipParams->u.hdr.rmvParams.type)
-        {
-            case (e_FM_PCD_MANIP_RMV_BY_HDR):
-            switch (p_ManipParams->u.hdr.rmvParams.u.byHdr.type)
-            {
-                case (e_FM_PCD_MANIP_RMV_BY_HDR_FROM_START) :
-                if (p_ManipParams->u.hdr.rmvParams.u.byHdr.u.fromStartByHdr.include)
-                {
-                    switch (p_ManipParams->u.hdr.rmvParams.u.byHdr.u.fromStartByHdr.hdrInfo.hdr)
-                    {
-                        case (HEADER_TYPE_CAPWAP_DTLS) :
-                        p_Manip->opcode = HMAN_OC_CAPWAP_RMV_DTLS_IF_EXIST;
-                        p_Manip->muramAllocate = TRUE;
-                        if (p_ManipParams->u.hdr.insrt)
-                        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("for  CAPWAP_DTLS_HDR remove can not be insrt manipualtion after"));
-                        if (p_ManipParams->fragOrReasm)
-                        {
-                            if (!p_ManipParams->fragOrReasmParams.frag)
-                            {
-                                switch (p_ManipParams->fragOrReasmParams.hdr)
-                                {
-                                    case (HEADER_TYPE_CAPWAP):
-                                    p_Manip->opcode = HMAN_OC_CAPWAP_REASSEMBLY;
-                                    break;
-                                    default:
-                                    RETURN_ERROR(MAJOR, E_INVALID_STATE, ("unsupported header for Reassembly"));
-                                }
-                            }
-                            else
-                            RETURN_ERROR(MAJOR, E_INVALID_STATE, ("for this type of manipulation frag can not be TRUE"));
-                        }
-                        break;
-                        default:
-                        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("non valid net header of remove location"));
-                    }
-                }
-                else
-                {
-                    switch (p_ManipParams->u.hdr.rmvParams.u.byHdr.u.fromStartByHdr.hdrInfo.hdr)
-                    {
-                        case (HEADER_TYPE_CAPWAP_DTLS) :
-                        case (HEADER_TYPE_CAPWAP) :
-                        if (p_ManipParams->fragOrReasm || p_ManipParams->u.hdr.insrt)
-                        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("for the type of remove e_FM_PCD_MANIP_RMV_FROM_START_OF_FRAME_TILL_CAPWAP can not be insert or fragOrReasm TRUE"));
-                        p_Manip->opcode = HMAN_OC_RMV_N_OR_INSRT_INT_FRM_HDR;
-                        p_Manip->muramAllocate = TRUE;
-                        p_ManipParams->u.hdr.insrt = TRUE; //internal frame header
-                        break;
-                        default :
-                        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("invalid type of remove manipulation"));
-                    }
-                }
-                break;
-                default :
-                RETURN_ERROR(MAJOR, E_INVALID_STATE, ("invalid type of remove manipulation"));
-            }
-            break;
-            default:
-            RETURN_ERROR(MAJOR, E_INVALID_STATE, ("invalid type of remove manipulation"));
-        }
-    }
-    else if (p_ManipParams->u.hdr.insrt)
-    {
-        switch (p_ManipParams->u.hdr.insrtParams.type)
-        {
-            case (e_FM_PCD_MANIP_INSRT_BY_TEMPLATE) :
-
-            p_Manip->opcode = HMAN_OC_INSRT_HDR_BY_TEMPL_N_OR_FRAG_AFTER;
-            p_Manip->muramAllocate = FALSE;
-            if (p_ManipParams->fragOrReasm)
-            {
-                if (p_ManipParams->fragOrReasmParams.frag)
-                {
-                    switch (p_ManipParams->fragOrReasmParams.hdr)
-                    {
-                        case (HEADER_TYPE_CAPWAP):
-                        p_Manip->opcode = HMAN_OC_CAPWAP_FRAGMENTATION;
-                        break;
-                        default:
-                        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("Invalid header for fragmentation"));
-                    }
-                }
-                else
-                RETURN_ERROR(MAJOR, E_INVALID_STATE,("can not reach this point"));
-            }
-            break;
-
-            default:
-            RETURN_ERROR(MAJOR, E_INVALID_STATE, ("for only isert manipulation unsupported type"));
-        }
-    }
-    else if (p_ManipParams->fragOrReasm)
-    {
-        if (p_ManipParams->fragOrReasmParams.frag)
-        {
-            switch (p_ManipParams->fragOrReasmParams.hdr)
-            {
-                case (HEADER_TYPE_CAPWAP):
-                p_Manip->opcode = HMAN_OC_CAPWAP_FRAGMENTATION;
-                p_Manip->muramAllocate = FALSE;
-                break;
-                default:
-                RETURN_ERROR(MAJOR, E_INVALID_STATE, ("Unsupported header for fragmentation"));
-            }
-        }
-        else
-        {
-            switch (p_ManipParams->fragOrReasmParams.hdr)
-            {
-                case (HEADER_TYPE_CAPWAP):
-                RETURN_ERROR(MAJOR, E_INVALID_STATE, ("Reassembly has to be with additional operation - rmv = TRUE, type of remove - e_FM_PCD_MANIP_RMV_FROM_START_OF_FRAME_INCLUDE_SPECIFIC_LOCATION,type = e_FM_PCD_MANIP_LOC_BY_HDR, hdr = HEADER_TYPE_CAPWAP_DTLS"));
-                default:
-                RETURN_ERROR(MAJOR, E_INVALID_STATE, ("Unsupported header for reassembly"));
-            }
-        }
-
-    }
-    else
-    RETURN_ERROR(MAJOR, E_INVALID_STATE, ("User didn't ask for any manipulation"));
-
-    p_Manip->insrt = p_ManipParams->u.hdr.insrt;
-    p_Manip->rmv = p_ManipParams->u.hdr.rmv;
-
-    return E_OK;
-}
-
-#else /* not (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
 static t_Error CheckManipParamsAndSetType(t_FmPcdManip *p_Manip,
                                           t_FmPcdManipParams *p_ManipParams)
 {
@@ -2692,7 +1984,6 @@ static t_Error CheckManipParamsAndSetType(t_FmPcdManip *p_Manip,
                         {
                             case (e_FM_PCD_MANIP_RMV_BY_HDR_SPECIFIC_L2):
                                 break;
-#if (DPAA_VERSION >= 11)
                             case (e_FM_PCD_MANIP_RMV_BY_HDR_CAPWAP):
                                 break;
                             case (e_FM_PCD_MANIP_RMV_BY_HDR_FROM_START):
@@ -2708,7 +1999,6 @@ static t_Error CheckManipParamsAndSetType(t_FmPcdManip *p_Manip,
                                     RETURN_ERROR(MAJOR, err, NO_MSG);
                                 break;
                             }
-#endif /* (DPAA_VERSION >= 11) */
                             default:
                                 RETURN_ERROR(
                                         MAJOR,
@@ -2738,7 +2028,6 @@ static t_Error CheckManipParamsAndSetType(t_FmPcdManip *p_Manip,
                                 case (e_FM_PCD_MANIP_INSRT_BY_HDR_SPECIFIC_L2):
                                     /* nothing to check */
                                     break;
-#if (DPAA_VERSION >= 11)
                                 case (e_FM_PCD_MANIP_INSRT_BY_HDR_IP):
                                     if (p_ManipParams->u.hdr.insrtParams.u.byHdr.u.ipParams.insrt.size
                                             % 4)
@@ -2764,7 +2053,6 @@ static t_Error CheckManipParamsAndSetType(t_FmPcdManip *p_Manip,
                                                 E_INVALID_VALUE,
                                                 ("Inserted header must be of size 8"));
                                     break;
-#endif /* (DPAA_VERSION >= 11) */
                                 default:
                                     RETURN_ERROR(
                                             MAJOR,
@@ -2876,12 +2164,10 @@ static t_Error CheckManipParamsAndSetType(t_FmPcdManip *p_Manip,
                     p_Manip->reassmParams.hdr = HEADER_TYPE_IPv6;
                     p_Manip->opcode = HMAN_OC_IP_REASSEMBLY;
                     break;
-#if (DPAA_VERSION >= 11)
                 case (HEADER_TYPE_CAPWAP):
                     p_Manip->reassmParams.hdr = HEADER_TYPE_CAPWAP;
                     p_Manip->opcode = HMAN_OC_CAPWAP_REASSEMBLY;
                     break;
-#endif /* (DPAA_VERSION >= 11) */
                 default:
                     RETURN_ERROR(MAJOR, E_NOT_SUPPORTED,
                                  ("header for reassembly"));
@@ -2897,11 +2183,9 @@ static t_Error CheckManipParamsAndSetType(t_FmPcdManip *p_Manip,
                 case (HEADER_TYPE_IPv6):
                     p_Manip->opcode = HMAN_OC_IP_FRAGMENTATION;
                     break;
-#if (DPAA_VERSION >= 11)
                 case (HEADER_TYPE_CAPWAP):
                     p_Manip->opcode = HMAN_OC_CAPWAP_FRAGMENTATION;
                     break;
-#endif /* (DPAA_VERSION >= 11) */
                 default:
                     RETURN_ERROR(MAJOR, E_NOT_SUPPORTED,
                                  ("header for fragmentation"));
@@ -2915,12 +2199,10 @@ static t_Error CheckManipParamsAndSetType(t_FmPcdManip *p_Manip,
                     p_Manip->opcode = HMAN_OC_IPSEC_MANIP;
                     p_Manip->muramAllocate = TRUE;
                     break;
-#if (DPAA_VERSION >= 11)
                 case (e_FM_PCD_MANIP_SPECIAL_OFFLOAD_CAPWAP):
                     p_Manip->opcode = HMAN_OC_CAPWAP_MANIP;
                     p_Manip->muramAllocate = TRUE;
                     break;
-#endif /* (DPAA_VERSION >= 11) */
                 default:
                     RETURN_ERROR(MAJOR, E_NOT_SUPPORTED,
                                  ("special offload type"));
@@ -2932,555 +2214,6 @@ static t_Error CheckManipParamsAndSetType(t_FmPcdManip *p_Manip,
 
     return E_OK;
 }
-#endif /* not (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
-
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-
-static t_Error UpdateIndxStats(t_Handle h_FmPcd,
-        t_Handle h_FmPort,
-        t_FmPcdManip *p_Manip)
-{
-    t_FmPcd *p_FmPcd = (t_FmPcd *)h_FmPcd;
-    uint32_t tmpReg32 = 0;
-    t_AdOfTypeContLookup *p_Ad;
-    t_FmPortGetSetCcParams fmPortGetSetCcParams;
-    t_Error err;
-
-    SANITY_CHECK_RETURN_ERROR(p_Manip,E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_Manip->h_Ad,E_INVALID_HANDLE);
-
-    p_Ad = (t_AdOfTypeContLookup *)p_Manip->h_Ad;
-    if (p_Manip->h_FmPcd != h_FmPcd)
-    RETURN_ERROR(MAJOR, E_INVALID_STATE,
-            ("handler of PCD previously was initiated by different value"));
-
-    memset(&fmPortGetSetCcParams, 0, sizeof(t_FmPortGetSetCcParams));
-
-    if (!p_Manip->p_StatsTbl)
-    {
-
-        fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_PNDN;
-        fmPortGetSetCcParams.setCcParams.nia = NIA_FM_CTL_AC_CC;
-        err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams);
-        if (err)
-        RETURN_ERROR(MAJOR, err, NO_MSG);
-
-        tmpReg32 = GET_UINT32(p_Ad->ccAdBase);
-
-        p_Manip->p_StatsTbl =
-        (t_Handle)FM_MURAM_AllocMem(p_FmPcd->h_FmMuram,
-                (uint32_t)p_Manip->owner * FM_PCD_MANIP_INDEXED_STATS_ENTRY_SIZE,
-                4);
-        if (!p_Manip->p_StatsTbl)
-        RETURN_ERROR(MAJOR, E_NO_MEMORY, ("MURAM alloc for Manipulation indexed statistics table"));
-
-        MemSet8(p_Manip->p_StatsTbl, 0, (uint32_t)(p_Manip->owner * 4));
-
-        tmpReg32 |= (uint32_t)(XX_VirtToPhys(p_Manip->p_StatsTbl) - p_FmPcd->physicalMuramBase);
-
-        if (p_Manip->cnia)
-        tmpReg32 |= FM_PCD_MANIP_INDEXED_STATS_CNIA;
-
-        tmpReg32 |= FM_PCD_MANIP_INDEXED_STATS_DPD;
-        WRITE_UINT32(p_Ad->ccAdBase, tmpReg32);
-    }
-    else
-    {
-        fmPortGetSetCcParams.setCcParams.type = UPDATE_NIA_PNDN;
-        fmPortGetSetCcParams.setCcParams.nia = NIA_FM_CTL_AC_CC;
-        err = FmPortGetSetCcParams(h_FmPort, &fmPortGetSetCcParams);
-        if (err)
-        RETURN_ERROR(MAJOR, err, NO_MSG);
-    }
-
-    return E_OK;
-}
-
-static t_Error RmvHdrTillSpecLocNOrInsrtIntFrmHdr(t_FmPcdManipHdrRmvParams *p_ManipParams, t_FmPcdManip *p_Manip)
-{
-    t_AdOfTypeContLookup *p_Ad;
-    uint32_t tmpReg32 = 0;
-    uint8_t prsArrayOffset = 0;
-    t_Error err;
-
-    SANITY_CHECK_RETURN_ERROR(p_Manip,E_NULL_POINTER);
-    SANITY_CHECK_RETURN_ERROR(p_ManipParams,E_NULL_POINTER);
-    SANITY_CHECK_RETURN_ERROR(p_Manip->h_Ad,E_INVALID_HANDLE);
-
-    p_Ad = (t_AdOfTypeContLookup *)p_Manip->h_Ad;
-    if (p_Manip->rmv)
-    {
-        err = GetPrOffsetByHeaderOrField(&p_ManipParams->u.byHdr.u.fromStartByHdr.hdrInfo, &prsArrayOffset);
-        if (err)
-        RETURN_ERROR(MAJOR, err, NO_MSG);
-
-        tmpReg32 |= (uint32_t)prsArrayOffset << 24;
-        tmpReg32 |= HMAN_RMV_HDR;
-    }
-
-    if (p_Manip->insrt)
-    tmpReg32 |= HMAN_INSRT_INT_FRM_HDR;
-
-    tmpReg32 |= (uint32_t)HMAN_OC_RMV_N_OR_INSRT_INT_FRM_HDR;
-
-    WRITE_UINT32(p_Ad->pcAndOffsets, tmpReg32);
-
-    tmpReg32 = 0;
-    tmpReg32 |= FM_PCD_AD_CONT_LOOKUP_TYPE;
-    WRITE_UINT32(p_Ad->ccAdBase, tmpReg32);
-
-    return E_OK;
-}
-
-static t_Error MvIntFrameHeaderFromFrameToBufferPrefix(t_FmPcdManip *p_Manip,
-        bool caamUsed)
-{
-    t_AdOfTypeContLookup *p_Ad = (t_AdOfTypeContLookup *)p_Manip->h_Ad;
-    uint32_t tmpReg32 = 0;
-
-    SANITY_CHECK_RETURN_ERROR(p_Ad, E_INVALID_HANDLE);
-
-    p_Manip->updateParams |= OFFSET_OF_PR | INTERNAL_CONTEXT_OFFSET;
-
-    tmpReg32 = 0;
-    tmpReg32 |= FM_PCD_AD_CONT_LOOKUP_TYPE;
-    *(uint32_t *)&p_Ad->ccAdBase = tmpReg32;
-
-    tmpReg32 = 0;
-    tmpReg32 |= HMAN_OC_MV_INT_FRAME_HDR_FROM_FRM_TO_BUFFER_PREFFIX;
-    tmpReg32 |= (uint32_t)0x16 << 16;
-    *(uint32_t *)&p_Ad->pcAndOffsets = tmpReg32;
-
-    if (caamUsed)
-    *(uint32_t *)&p_Ad->gmask = 0xf0000000;
-
-    return E_OK;
-}
-
-static t_Error CapwapRmvDtlsHdr(t_FmPcd *p_FmPcd, t_FmPcdManip *p_Manip)
-{
-    t_AdOfTypeContLookup *p_Ad;
-    uint32_t tmpReg32 = 0;
-    t_Error err = E_OK;
-
-    SANITY_CHECK_RETURN_ERROR(p_Manip->h_Ad,E_INVALID_HANDLE);
-
-    p_Ad = (t_AdOfTypeContLookup *)p_Manip->h_Ad;
-
-    tmpReg32 = 0;
-    tmpReg32 |= (uint32_t)HMAN_OC_CAPWAP_RMV_DTLS_IF_EXIST;
-    WRITE_UINT32(p_Ad->pcAndOffsets, tmpReg32);
-
-    tmpReg32 = 0;
-    tmpReg32 |= FM_PCD_AD_CONT_LOOKUP_TYPE;
-
-
-    if (p_Manip->h_Frag)
-    {
-        p_Manip->updateParams |= INTERNAL_CONTEXT_OFFSET;
-        tmpReg32 |= (uint32_t)(XX_VirtToPhys(p_Manip->h_Frag) - (p_FmPcd->physicalMuramBase));
-    }
-
-    WRITE_UINT32(p_Ad->ccAdBase, tmpReg32);
-
-    return err;
-}
-
-#if (DPAA_VERSION >= 11)
-static t_Error CapwapReassembly(t_CapwapReassemblyParams *p_ManipParams,
-        t_FmPcdManip *p_Manip,
-        t_FmPcd *p_FmPcd,
-        uint8_t poolId)
-{
-    t_Handle p_Table;
-    uint32_t tmpReg32 = 0;
-    int i = 0;
-    uint8_t log2Num;
-    uint8_t numOfSets;
-    uint32_t j = 0;
-    uint32_t bitFor1Micro;
-
-    SANITY_CHECK_RETURN_ERROR(p_Manip->h_Ad, E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_FmPcd->h_Hc, E_INVALID_HANDLE);
-
-    if (!p_FmPcd->h_Hc)
-        RETURN_ERROR(MAJOR, E_INVALID_VALUE,("hc port has to be initialized in this mode"));
-    if (!POWER_OF_2(p_ManipParams->timeoutRoutineRequestTime))
-        RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("timeoutRoutineRequestTime has to be power of 2"));
-    if (!POWER_OF_2(p_ManipParams->maxNumFramesInProcess))
-        RETURN_ERROR(MAJOR, E_INVALID_VALUE,("maxNumFramesInProcess has to be power of 2"));
-    if (!p_ManipParams->timeoutRoutineRequestTime && p_ManipParams->timeoutThresholdForReassmProcess)
-        DBG(WARNING, ("if timeoutRoutineRequestTime 0,  timeoutThresholdForReassmProcess is uselessly"));
-    if (p_ManipParams->numOfFramesPerHashEntry == e_FM_PCD_MANIP_FOUR_WAYS_HASH)
-    {
-        if ((p_ManipParams->maxNumFramesInProcess < 4) ||
-                (p_ManipParams->maxNumFramesInProcess > 512))
-        RETURN_ERROR(MAJOR,E_INVALID_VALUE, ("In the case of numOfFramesPerHashEntry = e_FM_PCD_MANIP_EIGHT_WAYS_HASH maxNumFramesInProcess has to be in the range 4-512"));
-    }
-    else
-    {
-        if ((p_ManipParams->maxNumFramesInProcess < 8) ||
-                (p_ManipParams->maxNumFramesInProcess > 2048))
-        RETURN_ERROR(MAJOR,E_INVALID_VALUE, ("In the case of numOfFramesPerHashEntry = e_FM_PCD_MANIP_FOUR_WAYS_HASH maxNumFramesInProcess has to be in the range 8-2048"));
-    }
-
-    bitFor1Micro = FmGetTimeStampScale(p_FmPcd->h_Fm);
-    if (bitFor1Micro == 0)
-        RETURN_ERROR(MAJOR, E_NOT_AVAILABLE, ("Timestamp scale"));
-
-    p_Manip->updateParams |= (NUM_OF_TASKS | OFFSET_OF_PR | OFFSET_OF_DATA | HW_PORT_ID);
-
-    p_Manip->h_Frag = (t_Handle)FM_MURAM_AllocMem(p_FmPcd->h_FmMuram,
-            FM_PCD_MANIP_CAPWAP_REASM_TABLE_SIZE,
-            FM_PCD_MANIP_CAPWAP_REASM_TABLE_ALIGN);
-    if (!p_Manip->h_Frag)
-        RETURN_ERROR(MAJOR, E_NO_MEMORY, ("MURAM alloc CAPWAP reassembly parameters table"));
-
-    MemSet8(p_Manip->h_Frag, 0, FM_PCD_MANIP_CAPWAP_REASM_TABLE_SIZE);
-
-    p_Table = (t_CapwapReasmPram *)p_Manip->h_Frag;
-
-    p_Manip->capwapFragParams.p_AutoLearnHashTbl =
-    (t_Handle)FM_MURAM_AllocMem(p_FmPcd->h_FmMuram,
-            (uint32_t)(p_ManipParams->maxNumFramesInProcess * 2 * FM_PCD_MANIP_CAPWAP_REASM_AUTO_LEARNING_HASH_ENTRY_SIZE),
-            FM_PCD_MANIP_CAPWAP_REASM_TABLE_ALIGN);
-
-    if (!p_Manip->capwapFragParams.p_AutoLearnHashTbl)
-        RETURN_ERROR(MAJOR, E_NO_MEMORY,("MURAM alloc for CAPWAP automatic learning hash table"));
-
-    MemSet8(p_Manip->capwapFragParams.p_AutoLearnHashTbl, 0, (uint32_t)(p_ManipParams->maxNumFramesInProcess * 2 * FM_PCD_MANIP_CAPWAP_REASM_AUTO_LEARNING_HASH_ENTRY_SIZE));
-
-    tmpReg32 = (uint32_t)(XX_VirtToPhys(p_Manip->capwapFragParams.p_AutoLearnHashTbl) - p_FmPcd->physicalMuramBase);
-
-    WRITE_UINT32(((t_CapwapReasmPram *)p_Table)->autoLearnHashTblPtr, tmpReg32);
-
-    tmpReg32 = 0;
-    if (p_ManipParams->timeOutMode == e_FM_PCD_MANIP_TIME_OUT_BETWEEN_FRAMES)
-        tmpReg32 |= FM_PCD_MANIP_CAPWAP_REASM_TIME_OUT_BETWEEN_FRAMES;
-    if (p_ManipParams->haltOnDuplicationFrag)
-        tmpReg32 |= FM_PCD_MANIP_CAPWAP_REASM_HALT_ON_DUPLICATE_FRAG;
-    if (p_ManipParams->numOfFramesPerHashEntry == e_FM_PCD_MANIP_EIGHT_WAYS_HASH)
-    {
-        i = 8;
-        tmpReg32 |= FM_PCD_MANIP_CAPWAP_REASM_AUTOMATIC_LEARNIN_HASH_8_WAYS;
-    }
-    else
-    i = 4;
-
-    numOfSets = (uint8_t)((p_ManipParams->maxNumFramesInProcess * 2) / i);
-    LOG2(numOfSets, log2Num);
-    tmpReg32 |= (uint32_t)(log2Num - 1) << 24;
-
-    WRITE_UINT32(((t_CapwapReasmPram *)p_Table)->mode, tmpReg32);
-
-    for (j=0; j<p_ManipParams->maxNumFramesInProcess*2; j++)
-        if (((j / i) % 2)== 0)
-            WRITE_UINT32(*(uint32_t *)PTR_MOVE(p_Manip->capwapFragParams.p_AutoLearnHashTbl, j * FM_PCD_MANIP_CAPWAP_REASM_AUTO_LEARNING_HASH_ENTRY_SIZE), 0x80000000);
-
-    tmpReg32 = 0x00008000;
-    tmpReg32 |= (uint32_t)poolId << 16;
-    WRITE_UINT32(((t_CapwapReasmPram *)p_Table)->bufferPoolIdAndRisc1SetIndexes, tmpReg32);
-    WRITE_UINT32(((t_CapwapReasmPram *)p_Table)->risc23SetIndexes, 0x80008000);
-    WRITE_UINT32(((t_CapwapReasmPram *)p_Table)->risc4SetIndexesAndExtendedStatsTblPtr, 0x80000000);
-
-    p_Manip->capwapFragParams.maxNumFramesInProcess = p_ManipParams->maxNumFramesInProcess;
-
-    p_Manip->capwapFragParams.sgBpid = poolId;
-
-    p_Manip->capwapFragParams.fqidForTimeOutFrames = p_ManipParams->fqidForTimeOutFrames;
-    p_Manip->capwapFragParams.timeoutRoutineRequestTime = p_ManipParams->timeoutRoutineRequestTime;
-    p_Manip->capwapFragParams.bitFor1Micro = bitFor1Micro;
-
-    tmpReg32 = 0;
-    tmpReg32 |= (((uint32_t)1<<p_Manip->capwapFragParams.bitFor1Micro) * p_ManipParams->timeoutThresholdForReassmProcess);
-    WRITE_UINT32(((t_CapwapReasmPram *)p_Table)->expirationDelay, tmpReg32);
-
-    return E_OK;
-}
-#endif
-
-static t_Error CapwapFragmentation(t_CapwapFragmentationParams *p_ManipParams,
-        t_FmPcdManip *p_Manip,
-        t_FmPcd *p_FmPcd,
-        uint8_t poolId)
-{
-    t_AdOfTypeContLookup *p_Ad;
-    uint32_t tmpReg32 = 0;
-
-    SANITY_CHECK_RETURN_ERROR(p_Manip->h_Ad,E_INVALID_HANDLE);
-
-    p_Manip->updateParams |= OFFSET_OF_DATA;
-
-    p_Manip->frag = TRUE;
-
-    p_Manip->h_Frag = (t_Handle)FM_MURAM_AllocMem(p_FmPcd->h_FmMuram,
-            FM_PCD_CC_AD_ENTRY_SIZE,
-            FM_PCD_CC_AD_TABLE_ALIGN);
-    if (!p_Manip->h_Frag)
-    RETURN_ERROR(MAJOR, E_NO_MEMORY, ("MURAM alloc for CAPWAP fragmentation table descriptor"));
-
-    MemSet8(p_Manip->h_Frag, 0, FM_PCD_CC_AD_ENTRY_SIZE);
-
-    p_Ad = (t_AdOfTypeContLookup *)p_Manip->h_Frag;
-
-    tmpReg32 = 0;
-    tmpReg32 |= (uint32_t)HMAN_OC_CAPWAP_FRAGMENTATION;
-
-    if (p_ManipParams->headerOptionsCompr)
-    tmpReg32 |= FM_PCD_MANIP_CAPWAP_FRAG_COMPR_OPTION_FIELD_EN;
-    tmpReg32 |= ((uint32_t)poolId << 8);
-    WRITE_UINT32(p_Ad->pcAndOffsets, tmpReg32);
-
-    tmpReg32 = 0;
-    tmpReg32 |= FM_PCD_AD_CONT_LOOKUP_TYPE;
-    WRITE_UINT32(p_Ad->ccAdBase, tmpReg32);
-
-    p_Manip->sizeForFragmentation = p_ManipParams->sizeForFragmentation;
-    p_Manip->capwapFragParams.sgBpid = poolId;
-
-    return E_OK;
-}
-
-static t_Error IndxStats(t_FmPcdStatsParams *p_StatsParams,t_FmPcdManip *p_Manip,t_FmPcd *p_FmPcd)
-{
-    t_AdOfTypeContLookup *p_Ad;
-    uint32_t tmpReg32 = 0;
-
-    SANITY_CHECK_RETURN_ERROR(p_Manip->h_Ad,E_INVALID_HANDLE);
-
-    UNUSED(p_FmPcd);
-
-    p_Ad = (t_AdOfTypeContLookup *)p_Manip->h_Ad;
-
-    tmpReg32 = 0;
-    tmpReg32 |= (uint32_t)HMAN_OC_CAPWAP_INDEXED_STATS;
-    if (p_StatsParams->type == e_FM_PCD_STATS_PER_FLOWID)
-    tmpReg32 |= (uint32_t)0x16 << 16;
-    WRITE_UINT32(p_Ad->pcAndOffsets, tmpReg32);
-
-    tmpReg32 = 0;
-    tmpReg32 |= FM_PCD_AD_CONT_LOOKUP_TYPE;
-    WRITE_UINT32(p_Ad->ccAdBase, tmpReg32);
-
-    return E_OK;
-}
-
-static t_Error InsrtHdrByTempl(t_FmPcdManipHdrInsrtParams *p_ManipParams, t_FmPcdManip *p_Manip, t_FmPcd *p_FmPcd)
-{
-    t_FmPcdManipHdrInsrtByTemplateParams *p_InsrtByTemplate = &p_ManipParams->u.byTemplate;
-    uint8_t tmpReg8 = 0xff;
-    t_AdOfTypeContLookup *p_Ad;
-    bool ipModify = FALSE;
-    uint32_t tmpReg32 = 0, tmpRegNia = 0;
-    uint16_t tmpReg16 = 0;
-    t_Error err = E_OK;
-    uint8_t extraAddedBytes = 0, blockSize = 0, extraAddedBytesAlignedToBlockSize = 0, log2Num = 0;
-    uint8_t *p_Template = NULL;
-
-    SANITY_CHECK_RETURN_ERROR(p_ManipParams,E_NULL_POINTER);
-    SANITY_CHECK_RETURN_ERROR(p_Manip,E_NULL_POINTER);
-    SANITY_CHECK_RETURN_ERROR(p_Manip->h_Ad,E_INVALID_HANDLE);
-    SANITY_CHECK_RETURN_ERROR(p_FmPcd,E_NULL_POINTER);
-
-    p_Ad = (t_AdOfTypeContLookup *)p_Manip->h_Ad;
-    if (p_Manip->insrt)
-    {
-        if ((!p_InsrtByTemplate->size && p_InsrtByTemplate->modifyOuterIp) ||
-                (!p_InsrtByTemplate->size && p_InsrtByTemplate->modifyOuterVlan))
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("Inconsistent parameters : asking for header template modifications with no template for insertion (template size)"));
-
-        if (p_InsrtByTemplate->size && p_InsrtByTemplate->modifyOuterIp && (p_InsrtByTemplate->size <= p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset))
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("Inconsistent parameters : size of template < ipOuterOffset"));
-
-        if (p_InsrtByTemplate->size > 128)
-        RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("Size of header template for insertion can not be more than 128"));
-
-        if (p_InsrtByTemplate->size)
-        {
-            p_Manip->p_Template = (uint8_t *)FM_MURAM_AllocMem(p_FmPcd->h_FmMuram,
-                    p_InsrtByTemplate->size,
-                    FM_PCD_CC_AD_TABLE_ALIGN);
-            if(!p_Manip->p_Template)
-            RETURN_ERROR(MAJOR, E_NO_MEMORY, ("Memory allocation in MURAM FAILED"));
-
-            tmpReg32 = (uint32_t)(XX_VirtToPhys(p_Manip->p_Template) - (p_FmPcd->physicalMuramBase));
-            tmpReg32 |= (uint32_t)p_InsrtByTemplate->size << 24;
-            *(uint32_t *)&p_Ad->matchTblPtr = tmpReg32;
-        }
-
-        tmpReg32 = 0;
-
-        p_Template = (uint8_t *)XX_Malloc(p_InsrtByTemplate->size * sizeof(uint8_t));
-
-        if (!p_Template)
-        RETURN_ERROR(MAJOR, E_NO_MEMORY, ("XX_Malloc allocation FAILED"));
-
-        memcpy(p_Template, p_InsrtByTemplate->hdrTemplate, p_InsrtByTemplate->size * sizeof(uint8_t));
-
-        if (p_InsrtByTemplate->modifyOuterIp)
-        {
-            ipModify = TRUE;
-
-            tmpReg8 = (uint8_t)p_Template[p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset];
-
-            if((tmpReg8 & 0xf0) == 0x40)
-            tmpReg8 = 4;
-            else if((tmpReg8 & 0xf0) == 0x60)
-            tmpReg8 = 6;
-            else
-            tmpReg8 = 0xff;
-
-            if (tmpReg8 != 0xff)
-            {
-                if(p_InsrtByTemplate->modifyOuterIpParams.dscpEcn & 0xff00)
-                RETURN_ERROR(MAJOR, E_INVALID_STATE, ("Inconsistent parameters : IPV4 present in header template, dscpEcn has to be only 1 byte"));
-                if(p_InsrtByTemplate->modifyOuterIpParams.recalculateLength)
-                {
-
-                    if((p_InsrtByTemplate->modifyOuterIpParams.recalculateLengthParams.extraBytesAddedAlignedToBlockSize + p_InsrtByTemplate->modifyOuterIpParams.recalculateLengthParams.extraBytesAddedNotAlignedToBlockSize) > 255)
-                    RETURN_ERROR(MAJOR, E_INVALID_STATE, ("extra Byte added can not be more than 256 bytes"));
-                    extraAddedBytes = (uint8_t) (p_InsrtByTemplate->modifyOuterIpParams.recalculateLengthParams.extraBytesAddedAlignedToBlockSize + p_InsrtByTemplate->modifyOuterIpParams.recalculateLengthParams.extraBytesAddedNotAlignedToBlockSize);
-                    blockSize = p_InsrtByTemplate->modifyOuterIpParams.recalculateLengthParams.blockSize;
-                    extraAddedBytesAlignedToBlockSize = p_InsrtByTemplate->modifyOuterIpParams.recalculateLengthParams.extraBytesAddedAlignedToBlockSize;
-                    /*IP header template - IP totalLength -
-                     (1 byte) extraByteForIp = headerTemplateSize - ipOffset + insertedBytesAfterThisStage ,
-                     in the case of SEC insertedBytesAfterThisStage - SEC trailer (21/31) + header(13)
-                     second byte - extraByteForIp = headerTemplate - ipOffset + insertedBytesAfterThisStage*/
-                }
-                if (blockSize)
-                {
-                    if (!POWER_OF_2(blockSize))
-                    RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("inputFrmPaddingUpToBlockSize has to be power of 2"));
-                }
-
-            }
-            if (tmpReg8 == 4)
-            {
-                if ((IPv4_HDRCHECKSUM_FIELD_OFFSET_FROM_IP + p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset) > p_InsrtByTemplate->size)
-                RETURN_ERROR(MAJOR, E_INVALID_STATE, ("Inconsistent parameters : IP present in header template, user asked for IP modifications but ipOffset + ipTotalLengthFieldOffset in header template bigger than template size"));
-
-                p_Template[p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset + IPv4_DSCECN_FIELD_OFFSET_FROM_IP] = (uint8_t)p_InsrtByTemplate->modifyOuterIpParams.dscpEcn;
-
-                if (blockSize)
-                blockSize -= 1;
-
-                if ((p_InsrtByTemplate->size - p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset + extraAddedBytes) > 255)
-                RETURN_ERROR(MAJOR, E_INVALID_STATE, ("p_InsrtByTemplate->size - p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset + extraAddedBytes has to be less than 255"));
-
-                p_Template[p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset + IPv4_TOTALLENGTH_FIELD_OFFSET_FROM_IP + 1] = blockSize; // IPV6 - in AD instead of SEQ IND
-                p_Template[p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset + IPv4_TOTALLENGTH_FIELD_OFFSET_FROM_IP] = (uint8_t)(p_InsrtByTemplate->size - p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset + extraAddedBytes);// for IPV6 decrement additional 40 bytes of IPV6 heade size
-
-                p_Template[p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset + IPv4_ID_FIELD_OFFSET_FROM_IP] = 0x00;
-                p_Template[p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset + IPv4_ID_FIELD_OFFSET_FROM_IP + 1] = extraAddedBytesAlignedToBlockSize;
-
-                /*IP header template - relevant only for ipv4 CheckSum = 0*/
-                p_Template[p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset + IPv4_HDRCHECKSUM_FIELD_OFFSET_FROM_IP] = 0x00;
-                p_Template[p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset + IPv4_HDRCHECKSUM_FIELD_OFFSET_FROM_IP + 1] = 0x00;
-
-                /*UDP checksum has to be 0*/
-                if (p_InsrtByTemplate->modifyOuterIpParams.udpPresent)
-                {
-                    if ((p_InsrtByTemplate->modifyOuterIpParams.udpOffset + UDP_CHECKSUM_FIELD_OFFSET_FROM_UDP + UDP_CHECKSUM_FIELD_SIZE) > p_InsrtByTemplate->size)
-                    RETURN_ERROR(MAJOR, E_INVALID_STATE, ("Inconsistent parameters : UDP present according to user but (UDP offset + UDP header size) < size of header template"));
-
-                    p_Template[p_InsrtByTemplate->modifyOuterIpParams.udpOffset + UDP_CHECKSUM_FIELD_OFFSET_FROM_UDP ] = 0x00;
-                    p_Template[p_InsrtByTemplate->modifyOuterIpParams.udpOffset + UDP_CHECKSUM_FIELD_OFFSET_FROM_UDP + 1] = 0x00;
-
-                }
-
-                if (p_InsrtByTemplate->modifyOuterIpParams.ipIdentGenId > 7)
-                RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("ipIdentGenId has to be one out of 8 sequence number generators (0 - 7) for IP identification field"));
-
-                tmpRegNia |= (uint32_t)p_InsrtByTemplate->modifyOuterIpParams.ipIdentGenId<<24;
-            }
-            else if (tmpReg8 == 6)
-            {
-                /*TODO - add check for maximum value of blockSize;*/
-                if (blockSize)
-                LOG2(blockSize, log2Num);
-                tmpRegNia |= (uint32_t)log2Num << 24;
-
-                // for IPV6 decrement additional 40 bytes of IPV6 heade size - because IPV6 header size is not included in payloadLength
-                p_Template[p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset + IPv6_PAYLOAD_LENGTH_OFFSET_FROM_IP] = (uint8_t)(p_InsrtByTemplate->size - p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset + extraAddedBytes - 40);
-                p_Template[p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset + IPv6_PAYLOAD_LENGTH_OFFSET_FROM_IP + 1] = extraAddedBytesAlignedToBlockSize;
-                if (p_InsrtByTemplate->modifyOuterIpParams.udpPresent)
-                {
-                    if ((p_InsrtByTemplate->modifyOuterIpParams.udpOffset + UDP_CHECKSUM_FIELD_OFFSET_FROM_UDP + UDP_CHECKSUM_FIELD_SIZE) > p_InsrtByTemplate->size)
-                    RETURN_ERROR(MAJOR, E_INVALID_STATE, ("Inconsistent parameters : UDP present according to user but (UDP offset + UDP header size) < size of header template"));
-                    if (p_Template[p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset + IPv6_NEXT_HEADER_OFFSET_FROM_IP] != 0x88)
-                    RETURN_ERROR(MAJOR, E_INVALID_STATE, ("OUr suppport is only IPv6/UDPLite"));
-                    p_Template[p_InsrtByTemplate->modifyOuterIpParams.udpOffset + UDP_LENGTH_FIELD_OFFSET_FROM_UDP] = 0x00;
-                    p_Template[p_InsrtByTemplate->modifyOuterIpParams.udpOffset + UDP_LENGTH_FIELD_OFFSET_FROM_UDP + 1] = 0x08;
-                    p_Template[p_InsrtByTemplate->modifyOuterIpParams.udpOffset + UDP_CHECKSUM_FIELD_OFFSET_FROM_UDP] = 0x00;
-                    p_Template[p_InsrtByTemplate->modifyOuterIpParams.udpOffset + UDP_CHECKSUM_FIELD_OFFSET_FROM_UDP + 1] = 0x00;
-                }
-            }
-            else
-            RETURN_ERROR(MAJOR, E_INVALID_STATE, ("IP version supported only IPV4"));
-        }
-
-        tmpReg32 = tmpReg16 = tmpReg8 = 0;
-        /*TODO - check it*/
-        if (p_InsrtByTemplate->modifyOuterVlan)
-        {
-            if (p_InsrtByTemplate->modifyOuterVlanParams.vpri & ~0x07)
-            RETURN_ERROR(MAJOR, E_INVALID_STATE,("Inconsistent parameters : user asked for VLAN modifications but VPRI more than 3 bits"));
-
-            memcpy(&tmpReg16, &p_Template[VLAN_TAG_FIELD_OFFSET_FROM_ETH], 2*(sizeof(uint8_t)));
-            if ((tmpReg16 != 0x9100) && (tmpReg16!= 0x9200) && (tmpReg16 != 0x8100))
-            RETURN_ERROR(MAJOR, E_INVALID_STATE,("Inconsistent parameters : user asked for VLAN modifications but Tag Protocol identifier is not VLAN "));
-
-            memcpy(&tmpReg8, &p_Template[14],1*(sizeof(uint8_t)));
-            tmpReg8 &= 0x1f;
-            tmpReg8 |= (uint8_t)(p_InsrtByTemplate->modifyOuterVlanParams.vpri << 5);
-
-            p_Template[14] = tmpReg8;
-        }
-
-        MemCpy8(p_Manip->p_Template, p_Template, p_InsrtByTemplate->size);
-
-        XX_Free(p_Template);
-    }
-
-    tmpReg32 = 0;
-    if (p_Manip->h_Frag)
-    {
-        tmpRegNia |= (uint32_t)(XX_VirtToPhys(p_Manip->h_Frag) - (p_FmPcd->physicalMuramBase));
-        tmpReg32 |= (uint32_t)p_Manip->sizeForFragmentation << 16;
-    }
-    else
-    tmpReg32 = 0xffff0000;
-
-    if (ipModify)
-    tmpReg32 |= (uint32_t)p_InsrtByTemplate->modifyOuterIpParams.ipOuterOffset << 8;
-    else
-    tmpReg32 |= (uint32_t)0x0000ff00;
-
-    tmpReg32 |= (uint32_t)HMAN_OC_INSRT_HDR_BY_TEMPL_N_OR_FRAG_AFTER;
-    *(uint32_t *)&p_Ad->pcAndOffsets = tmpReg32;
-
-    tmpRegNia |= FM_PCD_AD_CONT_LOOKUP_TYPE;
-    *(uint32_t *)&p_Ad->ccAdBase = tmpRegNia;
-
-    return err;
-}
-
-static t_Error CheckStatsParamsAndSetType(t_FmPcdManip *p_Manip, t_FmPcdStatsParams *p_StatsParams)
-{
-
-    switch (p_StatsParams->type)
-    {
-        case (e_FM_PCD_STATS_PER_FLOWID):
-        p_Manip->opcode = HMAN_OC_CAPWAP_INDEXED_STATS;
-        p_Manip->muramAllocate = TRUE;
-        break;
-        default:
-        RETURN_ERROR(MAJOR, E_INVALID_STATE, ("Unsupported statistics type"));
-    }
-
-    return E_OK;
-}
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
 
 static t_Error FillReassmManipParams(t_FmPcdManip *p_Manip, e_NetHeaderType hdr)
 {
@@ -3532,30 +2265,22 @@ static t_Error FillReassmManipParams(t_FmPcdManip *p_Manip, e_NetHeaderType hdr)
 
     if ((hdr == HEADER_TYPE_IPv6) || (hdr == HEADER_TYPE_IPv4))
     {
-#if (DPAA_VERSION == 10)
-        tmpReg32 = (uint32_t)(p_Manip->reassmParams.sgBpid << 8);
-        WRITE_UINT32(p_Ad->matchTblPtr, tmpReg32);
-#endif /* (DPAA_VERSION == 10) */
-#if (DPAA_VERSION >= 11)
         if (p_Manip->reassmParams.ip.nonConsistentSpFqid != 0)
         {
             tmpReg32 = FM_PCD_AD_NCSPFQIDM_MASK
                     | (uint32_t)(p_Manip->reassmParams.ip.nonConsistentSpFqid);
             WRITE_UINT32(p_Ad->gmask, tmpReg32);
         }
-#endif /* (DPAA_VERSION >= 11) */
         /* Sets the third Ad register (pcAndOffsets)- IP Reassemble Operation Code*/
         tmpReg32 = 0;
         tmpReg32 |= (uint32_t)HMAN_OC_IP_REASSEMBLY;
     }
-#if (DPAA_VERSION >= 11)
     else
         if (hdr == HEADER_TYPE_CAPWAP)
         {
             tmpReg32 = 0;
             tmpReg32 |= (uint32_t)HMAN_OC_CAPWAP_REASSEMBLY;
         }
-#endif /* (DPAA_VERSION >= 11) */
 
     WRITE_UINT32(p_Ad->pcAndOffsets, tmpReg32);
 
@@ -3657,16 +2382,11 @@ static t_Error IpReassembly(t_FmPcdManipReassemParams *p_ManipReassmParams,
             reassmManipParams.timeoutThresholdForReassmProcess;
     p_Manip->reassmParams.dataMemId = reassmManipParams.dataMemId;
     p_Manip->reassmParams.dataLiodnOffset = reassmManipParams.dataLiodnOffset;
-#if (DPAA_VERSION == 10)
-    p_Manip->reassmParams.sgBpid = reassmManipParams.sgBpid;
-#endif /* (DPAA_VERSION == 10) */
-#if (DPAA_VERSION >= 11)
     if (reassmManipParams.nonConsistentSpFqid != 0)
     {
         p_Manip->reassmParams.ip.nonConsistentSpFqid =
                 reassmManipParams.nonConsistentSpFqid;
     }
-#endif /* (DPAA_VERSION >= 11) */
 
     /* Creates and initializes the IP Reassembly common parameter table */
     CreateReassCommonTable(p_Manip);
@@ -3830,10 +2550,8 @@ static t_Error IpReassemblyStats(t_FmPcdManip *p_Manip,
             GET_UINT32(p_Manip->reassmParams.p_ReassCommonTbl->totalSgFragmentCounter);
     p_Stats->dmaSemaphoreDepletion =
             GET_UINT32(p_Manip->reassmParams.p_ReassCommonTbl->totalDmaSemaphoreDepletionCounter);
-#if (DPAA_VERSION >= 11)
     p_Stats->nonConsistentSp =
             GET_UINT32(p_Manip->reassmParams.p_ReassCommonTbl->totalNCSPCounter);
-#endif /* (DPAA_VERSION >= 11) */
 
     if (p_Manip->reassmParams.ip.p_Ipv4ReassTbl)
     {
@@ -3898,9 +2616,6 @@ static t_Error IpFragmentation(t_FmPcdManipFragIpParams *p_ManipParams,
 {
     uint32_t pcAndOffsetsReg = 0, ccAdBaseReg = 0, gmaskReg = 0;
     t_FmPcd *p_FmPcd;
-#if (DPAA_VERSION == 10)
-    t_Error err = E_OK;
-#endif /* (DPAA_VERSION == 10) */
 
     SANITY_CHECK_RETURN_ERROR(p_Manip->h_Ad, E_INVALID_HANDLE);
     SANITY_CHECK_RETURN_ERROR(p_ManipParams->sizeForFragmentation != 0xFFFF,
@@ -3937,11 +2652,7 @@ static t_Error IpFragmentation(t_FmPcdManipFragIpParams *p_ManipParams,
     /* Prepare the first Ad register (gmask) - scratch buffer pool id and Pointer to fragment ID */
     gmaskReg = (uint32_t)(XX_VirtToPhys(UINT_TO_PTR(p_FmPcd->ipv6FrameIdAddr))
             - p_FmPcd->physicalMuramBase);
-#if (DPAA_VERSION == 10)
-    gmaskReg |= p_ManipParams->scratchBpid << FM_PCD_MANIP_IP_FRAG_SCRATCH_BPID;
-#else
     gmaskReg |= (0xFF) << FM_PCD_MANIP_IP_FRAG_SCRATCH_BPID;
-#endif /* (DPAA_VERSION == 10) */
 
     /* Set all Ad registers */
     WRITE_UINT32(p_Manip->fragParams.p_Frag->pcAndOffsets, pcAndOffsetsReg);
@@ -3951,18 +2662,6 @@ static t_Error IpFragmentation(t_FmPcdManipFragIpParams *p_ManipParams,
     /* Saves user's fragmentation manipulation parameters */
     p_Manip->frag = TRUE;
     p_Manip->sizeForFragmentation = p_ManipParams->sizeForFragmentation;
-
-#if (DPAA_VERSION == 10)
-    p_Manip->fragParams.scratchBpid = p_ManipParams->scratchBpid;
-
-    /* scratch buffer pool initialization */
-    if ((err = FmPcdFragHcScratchPoolFill((t_Handle)p_FmPcd, p_ManipParams->scratchBpid)) != E_OK)
-    {
-        FM_MURAM_FreeMem(p_FmPcd->h_FmMuram, p_Manip->fragParams.p_Frag);
-        p_Manip->fragParams.p_Frag = NULL;
-        RETURN_ERROR(MAJOR, err, NO_MSG);
-    }
-#endif /* (DPAA_VERSION == 10) */
 
     return E_OK;
 }
@@ -3989,12 +2688,8 @@ static t_Error IPManip(t_FmPcdManip *p_Manip)
                 << FM_PCD_MANIP_IP_MTU_SHIFT;
     }
 
-    tmpRegNia |= FM_PCD_AD_CONT_LOOKUP_TYPE;
+    tmpRegNia |= FM_PCD_AD_CONT_LOOKUP_TYPE | FM_PCD_MANIP_IP_CNIA;
     tmpReg32 |= HMAN_OC_IP_MANIP;
-
-#if (DPAA_VERSION >= 11)
-    tmpRegNia |= FM_PCD_MANIP_IP_CNIA;
-#endif /* (DPAA_VERSION >= 11) */
 
     WRITE_UINT32(p_Ad->pcAndOffsets, tmpReg32);
     WRITE_UINT32(p_Ad->ccAdBase, tmpRegNia);
@@ -4103,7 +2798,6 @@ static t_Error IPSecManip(t_FmPcdManipParams *p_ManipParams,
     return err;
 }
 
-#if (DPAA_VERSION >= 11)
 static t_Error SetCapwapReassmManip(t_FmPcdManip *p_Manip)
 {
     t_FmPcd *p_FmPcd = (t_FmPcd *)p_Manip->h_FmPcd;
@@ -4124,7 +2818,6 @@ static t_Error SetCapwapReassmManip(t_FmPcdManip *p_Manip)
     /* Fill reassembly manipulation parameter in the Reassembly Action Descriptor */
     return FillReassmManipParams(p_Manip, HEADER_TYPE_CAPWAP);
 }
-#endif
 
 static void setCapwapReassmSchemeParams(t_FmPcd* p_FmPcd,
                                         t_FmPcdKgSchemeParams *p_Scheme,
@@ -4172,7 +2865,6 @@ static void setCapwapReassmSchemeParams(t_FmPcd* p_FmPcd,
     p_Scheme->keyExtractAndHashParams.dflts[0].dfltSelect = e_FM_PCD_KG_DFLT_PRIVATE_0;
 }
 
-#if (DPAA_VERSION >= 11)
 static t_Error CapwapReassemblyStats(t_FmPcdManip *p_Manip,
                                      t_FmPcdManipReassemCapwapStats *p_Stats)
 {
@@ -4230,7 +2922,6 @@ static t_Error CapwapFragmentationStats(t_FmPcdManip *p_Manip,
 	return E_OK;
 }
 
-#if (DPAA_VERSION >= 11)
 static t_Error CapwapReassembly(t_FmPcdManipReassemParams *p_ManipReassmParams,
                                 t_FmPcdManip *p_Manip)
 {
@@ -4284,7 +2975,6 @@ static t_Error CapwapReassembly(t_FmPcdManipReassemParams *p_ManipReassmParams,
 
     return E_OK;
 }
-#endif
 
 static t_Error CapwapFragmentation(t_FmPcdManipFragCapwapParams *p_ManipParams,
                                    t_FmPcdManip *p_Manip)
@@ -4424,7 +3114,6 @@ static t_Error CapwapManip(t_FmPcdManipParams *p_ManipParams,
 
     return err;
 }
-#endif /* (DPAA_VERSION >= 11) */
 
 static t_Handle ManipOrStatsSetNode(t_Handle h_FmPcd, t_Handle *p_Params,
                                     bool stats)
@@ -4448,17 +3137,12 @@ static t_Handle ManipOrStatsSetNode(t_Handle h_FmPcd, t_Handle *p_Params,
     if (!stats)
         err = CheckManipParamsAndSetType(p_Manip,
                                          (t_FmPcdManipParams *)p_Params);
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-    else
-        err = CheckStatsParamsAndSetType(p_Manip, (t_FmPcdStatsParams *)p_Params);
-#else /* not (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
     else
     {
         REPORT_ERROR(MAJOR, E_NOT_SUPPORTED, ("Statistics node!"));
         XX_Free(p_Manip);
         return NULL;
     }
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
     if (err)
     {
         REPORT_ERROR(MAJOR, E_INVALID_VALUE, ("Invalid header manipulation type"));
@@ -4586,27 +3270,6 @@ static t_Error FmPcdManipInitUpdate(t_Handle h_FmPcd, t_Handle h_PcdParams,
 
     switch (p_Manip->opcode)
     {
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-        case (HMAN_OC_MV_INT_FRAME_HDR_FROM_FRM_TO_BUFFER_PREFFIX):
-        err = UpdateInitMvIntFrameHeaderFromFrameToBufferPrefix(h_FmPort,
-                p_Manip,
-                h_Ad,
-                validate);
-        break;
-        case (HMAN_OC_INSRT_HDR_BY_TEMPL_N_OR_FRAG_AFTER):
-        if (!p_Manip->h_Frag)
-        break;
-        case (HMAN_OC_CAPWAP_FRAGMENTATION):
-        err = UpdateInitCapwapFragmentation(h_FmPort, p_Manip, h_Ad, validate, h_FmTree);
-        break;
-        case (HMAN_OC_CAPWAP_RMV_DTLS_IF_EXIST):
-        if (p_Manip->h_Frag)
-        err = UpdateInitCapwapReasm(h_FmPcd, h_FmPort, p_Manip, h_Ad, validate);
-        break;
-        case (HMAN_OC_CAPWAP_INDEXED_STATS):
-        err = UpdateIndxStats(h_FmPcd, h_FmPort, p_Manip);
-        break;
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
         case (HMAN_OC_IP_REASSEMBLY):
             err = UpdateInitReasm(h_FmPcd, h_PcdParams, h_FmPort, p_Manip, h_Ad,
                                   validate);
@@ -4615,7 +3278,6 @@ static t_Error FmPcdManipInitUpdate(t_Handle h_FmPcd, t_Handle h_PcdParams,
             err = UpdateInitIpFrag(h_FmPcd, h_PcdParams, h_FmPort, p_Manip,
                                    h_Ad, validate);
             break;
-#if (DPAA_VERSION >= 11)
         case (HMAN_OC_CAPWAP_FRAGMENTATION):
             err = UpdateInitCapwapFrag(h_FmPcd, h_PcdParams, h_FmPort, p_Manip,
                                        h_Ad, validate);
@@ -4624,7 +3286,6 @@ static t_Error FmPcdManipInitUpdate(t_Handle h_FmPcd, t_Handle h_PcdParams,
             err = UpdateInitReasm(h_FmPcd, h_PcdParams, h_FmPort, p_Manip, h_Ad,
                                   validate);
             break;
-#endif /* (DPAA_VERSION >= 11) */
         default:
             return E_OK;
     }
@@ -4644,30 +3305,6 @@ static t_Error FmPcdManipModifyUpdate(t_Handle h_Manip, t_Handle h_Ad,
 
     switch (p_Manip->opcode)
     {
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-        case (HMAN_OC_MV_INT_FRAME_HDR_FROM_FRM_TO_BUFFER_PREFFIX):
-        RETURN_ERROR(
-                MAJOR,
-                E_INVALID_STATE,
-                ("modify node with this type of manipulation  is not suppported"));
-        case (HMAN_OC_CAPWAP_RMV_DTLS_IF_EXIST):
-
-        if (p_Manip->h_Frag)
-        {
-            if (!(p_Manip->shadowUpdateParams & NUM_OF_TASKS)
-                    && !(p_Manip->shadowUpdateParams & OFFSET_OF_DATA)
-                    && !(p_Manip->shadowUpdateParams & OFFSET_OF_PR))
-            RETURN_ERROR(
-                    MAJOR,
-                    E_INVALID_STATE,
-                    ("modify node with this type of manipulation requires manipulation be updated previously in SetPcd function"));
-        }
-        break;
-        case (HMAN_OC_INSRT_HDR_BY_TEMPL_N_OR_FRAG_AFTER):
-        if (p_Manip->h_Frag)
-        err = UpdateModifyCapwapFragmenation(p_Manip, h_Ad, validate, h_FmTree);
-        break;
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
         default:
             return E_OK;
     }
@@ -4728,9 +3365,6 @@ t_Error FmPcdManipCheckParamsForCcNextEngine(
         uint32_t *requiredAction)
 {
     t_FmPcdManip *p_Manip;
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-    t_Error err = E_OK;
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))*/
     bool pointFromCc = TRUE;
 
     SANITY_CHECK_RETURN_ERROR(p_FmPcdCcNextEngineParams, E_NULL_POINTER);
@@ -4744,44 +3378,10 @@ t_Error FmPcdManipCheckParamsForCcNextEngine(
     {
         switch (p_Manip->opcode)
         {
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-            case (HMAN_OC_CAPWAP_INDEXED_STATS):
-                if (p_FmPcdCcNextEngineParams->nextEngine != e_FM_PCD_DONE)
-                    RETURN_ERROR(MAJOR,	E_INVALID_STATE, ("For this type of header manipulation has to be nextEngine e_FM_PCD_DONE"));
-                if (p_FmPcdCcNextEngineParams->params.enqueueParams.overrideFqid)
-                    p_Manip->cnia = TRUE;
-            case (HMAN_OC_CAPWAP_RMV_DTLS_IF_EXIST):
-                *requiredAction = UPDATE_NIA_ENQ_WITHOUT_DMA;
-            case (HMAN_OC_RMV_N_OR_INSRT_INT_FRM_HDR):
-                p_Manip->ownerTmp++;
-                break;
-            case (HMAN_OC_INSRT_HDR_BY_TEMPL_N_OR_FRAG_AFTER):
-                if ((p_FmPcdCcNextEngineParams->nextEngine != e_FM_PCD_DONE)
-                    && !p_FmPcdCcNextEngineParams->params.enqueueParams.overrideFqid)
-                    RETURN_ERROR(
-                        MAJOR,
-                        E_INVALID_STATE,
-                        ("For this type of header manipulation has to be nextEngine e_FM_PCD_DONE with fqidForCtrlFlow FALSE"));
-                p_Manip->ownerTmp++;
-                break;
-            case (HMAN_OC_MV_INT_FRAME_HDR_FROM_FRM_TO_BUFFER_PREFFIX):
-                if ((p_FmPcdCcNextEngineParams->nextEngine != e_FM_PCD_CC)
-                    && (FmPcdCcGetParseCode(p_FmPcdCcNextEngineParams->params.ccParams.h_CcNode)
-                        != CC_PC_GENERIC_IC_HASH_INDEXED))
-                    RETURN_ERROR(MAJOR, E_INVALID_STATE, ("For this type of header manipulation next engine has to be CC and action = e_FM_PCD_ACTION_INDEXED_LOOKUP"));
-                err = UpdateManipIc(p_FmPcdCcNextEngineParams->h_Manip,
-                                    FmPcdCcGetOffset(p_FmPcdCcNextEngineParams->params.ccParams.h_CcNode));
-                if (err)
-                    RETURN_ERROR(MAJOR, err, NO_MSG);
-                *requiredAction = UPDATE_NIA_ENQ_WITHOUT_DMA;
-                break;
- #endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
             case (HMAN_OC_IP_FRAGMENTATION):
             case (HMAN_OC_IP_REASSEMBLY):
-#if (DPAA_VERSION >= 11)
             case (HMAN_OC_CAPWAP_REASSEMBLY):
             case (HMAN_OC_CAPWAP_FRAGMENTATION):
-#endif /* (DPAA_VERSION >= 11) */
                 if (p_FmPcdCcNextEngineParams->nextEngine != e_FM_PCD_DONE)
                     RETURN_ERROR(
                             MAJOR,
@@ -4790,9 +3390,7 @@ t_Error FmPcdManipCheckParamsForCcNextEngine(
                 p_Manip->ownerTmp++;
                 break;
             case (HMAN_OC_IPSEC_MANIP):
-#if (DPAA_VERSION >= 11)
             case (HMAN_OC_CAPWAP_MANIP):
-#endif /* (DPAA_VERSION >= 11) */
                 p_Manip->ownerTmp++;
                 break;
             case (HMAN_OC):
@@ -4831,28 +3429,6 @@ t_Error FmPcdManipCheckParamsWithCcNodeParams(t_Handle h_Manip,
 
     switch (p_Manip->opcode)
     {
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-        case (HMAN_OC_CAPWAP_INDEXED_STATS):
-        if (p_Manip->ownerTmp != FmPcdCcGetNumOfKeys(h_FmPcdCcNode))
-        RETURN_ERROR(
-                MAJOR,
-                E_INVALID_VALUE,
-                ("The manipulation of the type statistics flowId if exist has to be pointed by all numOfKeys"));
-        break;
-        case (HMAN_OC_CAPWAP_RMV_DTLS_IF_EXIST):
-        if (p_Manip->h_Frag)
-        {
-            if (p_Manip->ownerTmp != FmPcdCcGetNumOfKeys(h_FmPcdCcNode))
-            RETURN_ERROR(
-                    MAJOR,
-                    E_INVALID_VALUE,
-                    ("The manipulation of the type remove DTLS if exist has to be pointed by all numOfKeys"));
-            err = UpdateManipIc(h_Manip, FmPcdCcGetOffset(h_FmPcdCcNode));
-            if (err)
-            RETURN_ERROR(MAJOR, err, NO_MSG);
-        }
-        break;
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
         default:
             break;
     }
@@ -4880,43 +3456,20 @@ void FmPcdManipUpdateAdResultForCc(
      * p_Ad ( the AD in the match table) and set p_AdNew = NULL. */
     switch (p_Manip->opcode)
     {
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-        case (HMAN_OC_RMV_N_OR_INSRT_INT_FRM_HDR):
-        case (HMAN_OC_CAPWAP_RMV_DTLS_IF_EXIST):
-        case (HMAN_OC_CAPWAP_INDEXED_STATS):
-        *p_AdNewPtr = p_Manip->h_Ad;
-        break;
-        case (HMAN_OC_INSRT_HDR_BY_TEMPL_N_OR_FRAG_AFTER):
-        case (HMAN_OC_CAPWAP_FRAGMENTATION):
-        WRITE_UINT32(((t_AdOfTypeResult *)p_Ad)->fqid,
-                ((t_AdOfTypeResult *)(p_Manip->h_Ad))->fqid);
-        WRITE_UINT32(((t_AdOfTypeResult *)p_Ad)->plcrProfile,
-                ((t_AdOfTypeResult *)(p_Manip->h_Ad))->plcrProfile);
-        WRITE_UINT32(((t_AdOfTypeResult *)p_Ad)->nia,
-                ((t_AdOfTypeResult *)(p_Manip->h_Ad))->nia);
-        *p_AdNewPtr = NULL;
-        break;
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
         case (HMAN_OC_IPSEC_MANIP):
-#if (DPAA_VERSION >= 11)
         case (HMAN_OC_CAPWAP_MANIP):
-#endif /* (DPAA_VERSION >= 11) */
             *p_AdNewPtr = p_Manip->h_Ad;
             break;
         case (HMAN_OC_IP_FRAGMENTATION):
-#if (DPAA_VERSION >= 11)
         case (HMAN_OC_CAPWAP_FRAGMENTATION):
-#endif /* (DPAA_VERSION >= 11) */
             if ((p_CcNextEngineParams->nextEngine == e_FM_PCD_DONE)
                     && (!p_CcNextEngineParams->params.enqueueParams.overrideFqid))
             {
                 memcpy((uint8_t *)p_Ad, (uint8_t *)p_Manip->h_Ad,
                        sizeof(t_AdOfTypeContLookup));
-#if (DPAA_VERSION >= 11)
                 WRITE_UINT32(
                         ((t_AdOfTypeContLookup *)p_Ad)->ccAdBase,
                         GET_UINT32(((t_AdOfTypeContLookup *)p_Ad)->ccAdBase) & ~FM_PCD_MANIP_IP_CNIA);
-#endif /* (DPAA_VERSION >= 11) */
                 *p_AdNewPtr = NULL;
             }
             else
@@ -4943,14 +3496,12 @@ void FmPcdManipUpdateAdResultForCc(
                    sizeof(t_AdOfTypeContLookup));
             *p_AdNewPtr = NULL;
             break;
-#if (DPAA_VERSION >= 11)
         case (HMAN_OC_CAPWAP_REASSEMBLY):
             *p_AdNewPtr = p_Manip->reassmParams.capwap.h_Ad;
             memcpy((uint8_t *)p_Ad, (uint8_t *)*p_AdNewPtr,
                    sizeof(t_AdOfTypeContLookup));
             *p_AdNewPtr = NULL;
             break;
-#endif /* (DPAA_VERSION >= 11) */
         case (HMAN_OC):
             /* Allocate and initialize HMTD */
             *p_AdNewPtr = p_Manip->h_Ad;
@@ -4974,24 +3525,6 @@ void FmPcdManipUpdateAdContLookupForCc(t_Handle h_Manip, t_Handle p_Ad,
 
     switch (p_Manip->opcode)
     {
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-        case (HMAN_OC_MV_INT_FRAME_HDR_FROM_FRM_TO_BUFFER_PREFFIX):
-        WRITE_UINT32(((t_AdOfTypeContLookup *)p_Ad)->ccAdBase,
-                ((t_AdOfTypeContLookup *)(p_Manip->h_Ad))->ccAdBase);
-        WRITE_UINT32(
-                ((t_AdOfTypeContLookup *)p_Ad)->matchTblPtr,
-                ((t_AdOfTypeContLookup *)(p_Manip->h_Ad))->matchTblPtr);
-        WRITE_UINT32(
-                ((t_AdOfTypeContLookup *)p_Ad)->pcAndOffsets,
-                ((t_AdOfTypeContLookup *)(p_Manip->h_Ad))->pcAndOffsets);
-        WRITE_UINT32(((t_AdOfTypeContLookup *)p_Ad)->gmask,
-                ((t_AdOfTypeContLookup *)(p_Manip->h_Ad))->gmask);
-        WRITE_UINT32(
-                ((t_AdOfTypeContLookup *)p_Ad)->ccAdBase,
-                (GET_UINT32(((t_AdOfTypeContLookup *)p_Ad)->ccAdBase) | adTableOffset));
-        *p_AdNewPtr = NULL;
-        break;
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
         case (HMAN_OC):
             /* Initialize HMTD within the match table*/
             MemSet8(p_Ad, 0, FM_PCD_CC_AD_ENTRY_SIZE);
@@ -5057,13 +3590,8 @@ t_Error FmPcdManipBuildIpReassmScheme(t_FmPcd *p_FmPcd, t_Handle h_NetEnv,
             (isIpv4 == TRUE) ? p_Manip->reassmParams.ip.relativeSchemeId[0] :
                     p_Manip->reassmParams.ip.relativeSchemeId[1]);
     p_SchemeParams->schemeCounter.update = TRUE;
-#if (DPAA_VERSION >= 11)
     p_SchemeParams->alwaysDirect = TRUE;
     p_SchemeParams->bypassFqidGeneration = TRUE;
-#else
-    p_SchemeParams->keyExtractAndHashParams.hashDistributionNumOfFqids = 1;
-    p_SchemeParams->baseFqid = 0xFFFFFF; /*TODO- baseFqid*/
-#endif /* (DPAA_VERSION >= 11) */
 
     setIpReassmSchemeParams(p_FmPcd, p_SchemeParams, h_CcTree, isIpv4, groupId);
 
@@ -5155,52 +3683,6 @@ t_Error FmPcdManipDeleteCapwapReassmSchemes(t_Handle h_Manip)
     return E_OK;
 }
 
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-t_Handle FmPcdManipApplSpecificBuild(void)
-{
-    t_FmPcdManip *p_Manip;
-
-    p_Manip = (t_FmPcdManip*)XX_Malloc(sizeof(t_FmPcdManip));
-    if (!p_Manip)
-    {
-        REPORT_ERROR(MAJOR, E_NO_MEMORY, ("No memory"));
-        return NULL;
-    }
-    memset(p_Manip, 0, sizeof(t_FmPcdManip));
-
-    p_Manip->opcode = HMAN_OC_MV_INT_FRAME_HDR_FROM_FRM_TO_BUFFER_PREFFIX;
-    p_Manip->muramAllocate = FALSE;
-
-    p_Manip->h_Ad = (t_Handle)XX_Malloc(FM_PCD_CC_AD_ENTRY_SIZE * sizeof(uint8_t));
-    if (!p_Manip->h_Ad)
-    {
-        REPORT_ERROR(MAJOR, E_NO_MEMORY, ("Allocation of Manipulation action descriptor"));
-        XX_Free(p_Manip);
-        return NULL;
-    }
-
-    memset(p_Manip->h_Ad, 0, FM_PCD_CC_AD_ENTRY_SIZE * sizeof(uint8_t));
-
-    /*treatFdStatusFieldsAsErrors = TRUE hardcoded - assumption its always come after CAAM*/
-    /*Application specific = type of flowId index, move internal frame header from data to IC,
-     SEC errors check*/
-    if (MvIntFrameHeaderFromFrameToBufferPrefix(p_Manip, TRUE)!= E_OK)
-    {
-        XX_Free(p_Manip->h_Ad);
-        XX_Free(p_Manip);
-        return NULL;
-    }
-    return p_Manip;
-}
-
-bool FmPcdManipIsCapwapApplSpecific(t_Handle h_Manip)
-{
-    t_FmPcdManip *p_Manip = (t_FmPcdManip *)h_Manip;
-    ASSERT_COND(h_Manip);
-
-    return (bool)((p_Manip->opcode == HMAN_OC_CAPWAP_RMV_DTLS_IF_EXIST) ? TRUE : FALSE);
-}
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
 /*********************** End of inter-module routines ************************/
 
 /****************************************/
@@ -5225,11 +3707,9 @@ t_Handle FM_PCD_ManipNodeSet(t_Handle h_FmPcd,
             || (p_Manip->opcode == HMAN_OC_IP_FRAGMENTATION)
             || (p_Manip->opcode == HMAN_OC)
             || (p_Manip->opcode == HMAN_OC_IPSEC_MANIP)
-#if (DPAA_VERSION >= 11)
             || (p_Manip->opcode == HMAN_OC_CAPWAP_MANIP)
             || (p_Manip->opcode == HMAN_OC_CAPWAP_FRAGMENTATION)
             || (p_Manip->opcode == HMAN_OC_CAPWAP_REASSEMBLY)
-#endif /* (DPAA_VERSION >= 11) */
             ) && (!FmPcdIsAdvancedOffloadSupported(p_FmPcd)))
     {
         REPORT_ERROR(MAJOR, E_INVALID_STATE, ("Advanced-offload must be enabled"));
@@ -5263,7 +3743,6 @@ t_Handle FM_PCD_ManipNodeSet(t_Handle h_FmPcd,
         case (HMAN_OC_IPSEC_MANIP):
             err = IPSecManip(p_ManipParams, p_Manip);
             break;
-#if (DPAA_VERSION >= 11)
         case (HMAN_OC_CAPWAP_REASSEMBLY):
             /* CapwapReassembly */
             err = CapwapReassembly(&p_ManipParams->u.reassem, p_Manip);
@@ -5276,49 +3755,6 @@ t_Handle FM_PCD_ManipNodeSet(t_Handle h_FmPcd,
         case (HMAN_OC_CAPWAP_MANIP):
             err = CapwapManip(p_ManipParams, p_Manip);
             break;
-#endif /* (DPAA_VERSION >= 11) */
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-            case (HMAN_OC_RMV_N_OR_INSRT_INT_FRM_HDR):
-            /* HmanType1 */
-            err = RmvHdrTillSpecLocNOrInsrtIntFrmHdr(&p_ManipParams->u.hdr.rmvParams, p_Manip);
-            break;
-            case (HMAN_OC_CAPWAP_FRAGMENTATION):
-            err = CapwapFragmentation(&p_ManipParams->fragOrReasmParams.u.capwapFragParams,
-                    p_Manip,
-                    p_FmPcd,
-                    p_ManipParams->fragOrReasmParams.sgBpid);
-            if (err)
-            {
-                REPORT_ERROR(MAJOR, E_INVALID_VALUE, ("UNSUPPORTED HEADER MANIPULATION TYPE"));
-                goto err_out;
-            }
-            if (p_Manip->insrt)
-            p_Manip->opcode = HMAN_OC_INSRT_HDR_BY_TEMPL_N_OR_FRAG_AFTER;
-            case (HMAN_OC_INSRT_HDR_BY_TEMPL_N_OR_FRAG_AFTER):
-            /* HmanType2 + if user asked only for fragmentation still need to allocate HmanType2 */
-            err = InsrtHdrByTempl(&p_ManipParams->u.hdr.insrtParams, p_Manip, p_FmPcd);
-            break;
-            case (HMAN_OC_CAPWAP_REASSEMBLY):
-            err = CapwapReassembly(&p_ManipParams->fragOrReasmParams.u.capwapReasmParams,
-                    p_Manip,
-                    p_FmPcd,
-                    p_ManipParams->fragOrReasmParams.sgBpid);
-            if (err)
-            {
-                REPORT_ERROR(MAJOR, E_INVALID_VALUE, ("UNSUPPORTED HEADER MANIPULATION TYPE"));
-                goto err_out;
-            }
-            if (p_Manip->rmv)
-            p_Manip->opcode = HMAN_OC_CAPWAP_RMV_DTLS_IF_EXIST;
-            case (HMAN_OC_CAPWAP_RMV_DTLS_IF_EXIST):
-            /*CAPWAP decapsulation + if user asked only for reassembly still need to allocate CAPWAP decapsulation*/
-            err = CapwapRmvDtlsHdr(p_FmPcd, p_Manip);
-            break;
-            case (HMAN_OC_MV_INT_FRAME_HDR_FROM_FRM_TO_BUFFER_PREFFIX):
-            /*Application Specific type 1*/
-            err = MvIntFrameHeaderFromFrameToBufferPrefix(p_Manip, TRUE);
-            break;
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */
         case (HMAN_OC):
             /* New Manip */
             err = CreateManipActionNew(p_Manip, p_ManipParams);
@@ -5527,14 +3963,12 @@ t_Error FM_PCD_ManipGetStatistics(t_Handle h_ManipNode,
         case (HMAN_OC_IP_FRAGMENTATION):
             return IpFragmentationStats(p_Manip,
                                         &p_FmPcdManipStats->u.frag.u.ipFrag);
-#if (DPAA_VERSION >= 11)
         case (HMAN_OC_CAPWAP_REASSEMBLY):
             return CapwapReassemblyStats(
                     p_Manip, &p_FmPcdManipStats->u.reassem.u.capwapReassem);
 	case (HMAN_OC_CAPWAP_FRAGMENTATION):
 		return CapwapFragmentationStats(
 			p_Manip, &p_FmPcdManipStats->u.frag.u.capwapFrag);
-#endif /* (DPAA_VERSION >= 11) */
         default:
             RETURN_ERROR(MAJOR, E_NOT_SUPPORTED,
                          ("no statistics to this type of manip"));
@@ -5542,42 +3976,3 @@ t_Error FM_PCD_ManipGetStatistics(t_Handle h_ManipNode,
 
     return E_OK;
 }
-
-#if (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10))
-t_Handle FM_PCD_StatisticsSetNode(t_Handle h_FmPcd, t_FmPcdStatsParams *p_StatsParams)
-{
-    t_FmPcd *p_FmPcd = (t_FmPcd *)h_FmPcd;
-    t_FmPcdManip *p_Manip;
-    t_Error err;
-
-    SANITY_CHECK_RETURN_VALUE(h_FmPcd,E_INVALID_HANDLE,NULL);
-    SANITY_CHECK_RETURN_VALUE(p_StatsParams,E_INVALID_HANDLE,NULL);
-
-    p_Manip = ManipOrStatsSetNode(h_FmPcd, (t_Handle)p_StatsParams, TRUE);
-    if (!p_Manip)
-    return NULL;
-
-    switch (p_Manip->opcode)
-    {
-        case (HMAN_OC_CAPWAP_INDEXED_STATS):
-        /* Indexed statistics */
-        err = IndxStats(p_StatsParams, p_Manip, p_FmPcd);
-        break;
-        default:
-        REPORT_ERROR(MAJOR, E_INVALID_VALUE, ("UNSUPPORTED Statistics type"));
-        ReleaseManipHandler(p_Manip, p_FmPcd);
-        XX_Free(p_Manip);
-        return NULL;
-    }
-
-    if (err)
-    {
-        REPORT_ERROR(MAJOR, err, NO_MSG);
-        ReleaseManipHandler(p_Manip, p_FmPcd);
-        XX_Free(p_Manip);
-        return NULL;
-    }
-
-    return p_Manip;
-}
-#endif /* (defined(FM_CAPWAP_SUPPORT) && (DPAA_VERSION == 10)) */

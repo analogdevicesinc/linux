@@ -45,7 +45,6 @@
 /*          Keygen defines                                             */
 /***********************************************************************/
 /* maskes */
-#if (DPAA_VERSION >= 11)
 #define KG_SCH_VSP_SHIFT_MASK                   0x0003f000
 #define KG_SCH_OM_VSPE                          0x00000001
 #define KG_SCH_VSP_NO_KSP_EN                    0x80000000
@@ -53,7 +52,6 @@
 #define MAX_SP_SHIFT                            23
 #define KG_SCH_VSP_MASK_SHIFT                   12
 #define KG_SCH_VSP_SHIFT                        24
-#endif /* (DPAA_VERSION >= 11) */
 
 typedef uint32_t t_KnownFieldsMasks;
 #define KG_SCH_KN_PORT_ID                   0x80000000
