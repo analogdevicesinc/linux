@@ -143,10 +143,6 @@ struct mac_priv_s {
         t_Handle        mac;
 };
 
-#define DTSEC_BASE_ADDR         0x000e0000
-#define DTSEC_MEM_RANGE         0x00002000
-#define MAC_1G_MACCFG1          0x00000100
-#define MAC_1G_LOOP_MASK        0x00000100
 static int set_1gmac_loopback(
 		struct fmt_port_s *fmt_port,
 		bool en)

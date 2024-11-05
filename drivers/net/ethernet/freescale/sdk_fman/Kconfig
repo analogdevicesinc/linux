@@ -25,15 +25,6 @@ config FSL_SDK_FMAN_RTC_API
 		it is selected for RTC (1588 timer). Neither of them
 		were not able to be used together.
 
-config FMAN_MIB_CNT_OVF_IRQ_EN
-	bool "Enable the dTSEC MIB counters overflow interrupt"
-	default n
-	help
-		Enable the dTSEC MIB counters overflow interrupt to get
-		accurate MIB counters values. Enabled it compensates
-		for the counters overflow but reduces performance and
-		triggers error messages in HV setups.
-
 config FSL_FM_MAX_FRAME_SIZE
 	int "Maximum L2 frame size"
 	range 64 9600

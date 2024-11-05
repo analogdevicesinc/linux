@@ -62,12 +62,6 @@ enum enet_speed {
 	E_ENET_SPEED_10000	= 10000	/**< 10000 Mbps = 10 Gbps */
 };
 
-enum mac_type {
-	E_MAC_DTSEC,
-	E_MAC_TGEC,
-	E_MAC_MEMAC
-};
-
 /**************************************************************************//**
  @Description   Enum for inter-module interrupts registration
 *//***************************************************************************/
@@ -90,83 +84,7 @@ enum fman_intr_type {
 	E_FMAN_INTR_TYPE_NORMAL
 };
 
-/**************************************************************************//**
- @Description   enum for defining MAC types
-*//***************************************************************************/
-enum fman_mac_type {
-	E_FMAN_MAC_10G = 0,               /**< 10G MAC */
-	E_FMAN_MAC_1G                     /**< 1G MAC */
-};
-
 enum fman_mac_exceptions {
-	E_FMAN_MAC_EX_10G_MDIO_SCAN_EVENTMDIO = 0,
-		/**< 10GEC MDIO scan event interrupt */
-	E_FMAN_MAC_EX_10G_MDIO_CMD_CMPL,
-		/**< 10GEC MDIO command completion interrupt */
-	E_FMAN_MAC_EX_10G_REM_FAULT,
-		/**< 10GEC, mEMAC Remote fault interrupt */
-	E_FMAN_MAC_EX_10G_LOC_FAULT,
-		/**< 10GEC, mEMAC Local fault interrupt */
-	E_FMAN_MAC_EX_10G_1TX_ECC_ER,
-		/**< 10GEC, mEMAC Transmit frame ECC error interrupt */
-	E_FMAN_MAC_EX_10G_TX_FIFO_UNFL,
-		/**< 10GEC, mEMAC Transmit FIFO underflow interrupt */
-	E_FMAN_MAC_EX_10G_TX_FIFO_OVFL,
-		/**< 10GEC, mEMAC Transmit FIFO overflow interrupt */
-	E_FMAN_MAC_EX_10G_TX_ER,
-		/**< 10GEC Transmit frame error interrupt */
-	E_FMAN_MAC_EX_10G_RX_FIFO_OVFL,
-		/**< 10GEC, mEMAC Receive FIFO overflow interrupt */
-	E_FMAN_MAC_EX_10G_RX_ECC_ER,
-		/**< 10GEC, mEMAC Receive frame ECC error interrupt */
-	E_FMAN_MAC_EX_10G_RX_JAB_FRM,
-		/**< 10GEC Receive jabber frame interrupt */
-	E_FMAN_MAC_EX_10G_RX_OVRSZ_FRM,
-		/**< 10GEC Receive oversized frame interrupt */
-	E_FMAN_MAC_EX_10G_RX_RUNT_FRM,
-		/**< 10GEC Receive runt frame interrupt */
-	E_FMAN_MAC_EX_10G_RX_FRAG_FRM,
-		/**< 10GEC Receive fragment frame interrupt */
-	E_FMAN_MAC_EX_10G_RX_LEN_ER,
-		/**< 10GEC Receive payload length error interrupt */
-	E_FMAN_MAC_EX_10G_RX_CRC_ER,
-		/**< 10GEC Receive CRC error interrupt */
-	E_FMAN_MAC_EX_10G_RX_ALIGN_ER,
-		/**< 10GEC Receive alignment error interrupt */
-	E_FMAN_MAC_EX_1G_BAB_RX,
-		/**< dTSEC Babbling receive error */
-	E_FMAN_MAC_EX_1G_RX_CTL,
-		/**< dTSEC Receive control (pause frame) interrupt */
-	E_FMAN_MAC_EX_1G_GRATEFUL_TX_STP_COMPLET,
-		/**< dTSEC Graceful transmit stop complete */
-	E_FMAN_MAC_EX_1G_BAB_TX,
-		/**< dTSEC Babbling transmit error */
-	E_FMAN_MAC_EX_1G_TX_CTL,
-		/**< dTSEC Transmit control (pause frame) interrupt */
-	E_FMAN_MAC_EX_1G_TX_ERR,
-		/**< dTSEC Transmit error */
-	E_FMAN_MAC_EX_1G_LATE_COL,
-		/**< dTSEC Late collision */
-	E_FMAN_MAC_EX_1G_COL_RET_LMT,
-		/**< dTSEC Collision retry limit */
-	E_FMAN_MAC_EX_1G_TX_FIFO_UNDRN,
-		/**< dTSEC Transmit FIFO underrun */
-	E_FMAN_MAC_EX_1G_MAG_PCKT,
-		/**< dTSEC Magic Packet detection */
-	E_FMAN_MAC_EX_1G_MII_MNG_RD_COMPLET,
-		/**< dTSEC MII management read completion */
-	E_FMAN_MAC_EX_1G_MII_MNG_WR_COMPLET,
-		/**< dTSEC MII management write completion */
-	E_FMAN_MAC_EX_1G_GRATEFUL_RX_STP_COMPLET,
-		/**< dTSEC Graceful receive stop complete */
-	E_FMAN_MAC_EX_1G_TX_DATA_ERR,
-		/**< dTSEC Internal data error on transmit */
-	E_FMAN_MAC_EX_1G_RX_DATA_ERR,
-		/**< dTSEC Internal data error on receive */
-	E_FMAN_MAC_EX_1G_1588_TS_RX_ERR,
-		/**< dTSEC Time-Stamp Receive Error */
-	E_FMAN_MAC_EX_1G_RX_MIB_CNT_OVFL,
-		/**< dTSEC MIB counter overflow */
 	E_FMAN_MAC_EX_TS_FIFO_ECC_ERR,
 		/**< mEMAC Time-stamp FIFO ECC error interrupt;
 		not supported on T4240/B4860 rev1 chips */

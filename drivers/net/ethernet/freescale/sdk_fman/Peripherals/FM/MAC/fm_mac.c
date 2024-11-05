@@ -45,8 +45,6 @@
 #include "fm_ext.h"
 #include "fm_common.h"
 #include "fm_mac.h"
-#include "dtsec.h"
-#include "tgec.h"
 #include "memac.h"
 
 /* ......................................................................... */

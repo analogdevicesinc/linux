@@ -56,7 +56,7 @@
 
 #include "mac.h"
 
-#define DTSEC_SUPPORTED \
+#define MEMAC_SUPPORTED \
 	(SUPPORTED_10baseT_Half \
 	| SUPPORTED_10baseT_Full \
 	| SUPPORTED_100baseT_Half \
@@ -70,24 +70,6 @@
 	| SUPPORTED_MII \
 	| SUPPORTED_Backplane)
 
-static struct mac_device * __cold
-alloc_macdev(struct device *dev, size_t sizeof_priv,
-		void (*setup)(struct mac_device *mac_dev))
-{
-	struct mac_device	*mac_dev;
-
-	mac_dev = devm_kzalloc(dev, sizeof(*mac_dev) + sizeof_priv, GFP_KERNEL);
-	if (unlikely(mac_dev == NULL))
-		mac_dev = ERR_PTR(-ENOMEM);
-	else {
-		mac_dev->dev = dev;
-		dev_set_drvdata(dev, mac_dev);
-		setup(mac_dev);
-	}
-
-	return mac_dev;
-}
-
 static int __cold free_macdev(struct mac_device *mac_dev)
 {
 	dev_set_drvdata(mac_dev->dev, NULL);
@@ -96,15 +78,7 @@ static int __cold free_macdev(struct mac_device *mac_dev)
 }
 
 static const struct of_device_id mac_match[] = {
-	[DTSEC] = {
-		.compatible	= "fsl,fman-dtsec"
-	},
-	[XGMAC] = {
-		.compatible	= "fsl,fman-xgec"
-	},
-	[MEMAC] = {
-		.compatible	= "fsl,fman-memac"
-	},
+	{ .compatible	= "fsl,fman-memac" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, mac_match);
@@ -133,10 +107,10 @@ static int __cold mac_probe(struct platform_device *_of_dev)
 		;
 	BUG_ON(i >= ARRAY_SIZE(mac_match) - 1);
 
-	mac_dev = alloc_macdev(dev, mac_sizeof_priv[i], mac_setup[i]);
+	mac_dev = memac_alloc(dev);
 	if (IS_ERR(mac_dev)) {
 		_errno = PTR_ERR(mac_dev);
-		dev_err(dev, "alloc_macdev() = %d\n", _errno);
+		dev_err(dev, "memac_alloc() = %d\n", _errno);
 		goto _return;
 	}
 
@@ -298,7 +272,7 @@ static int __cold mac_probe(struct platform_device *_of_dev)
 	mac_dev->half_duplex	= false;
 	mac_dev->speed		= phylink_interface_max_speed(mac_dev->phy_if);
 	mac_dev->max_speed	= mac_dev->speed;
-	mac_dev->if_support = DTSEC_SUPPORTED;
+	mac_dev->if_support = MEMAC_SUPPORTED;
 	/* We don't support half-duplex in SGMII mode */
 	if (mac_dev->phy_if == PHY_INTERFACE_MODE_SGMII ||
 	    mac_dev->phy_if == PHY_INTERFACE_MODE_QSGMII ||

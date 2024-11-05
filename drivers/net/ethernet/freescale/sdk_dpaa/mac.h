@@ -39,8 +39,6 @@
 
 #include "lnxwrp_fsl_fman.h"	/* struct port_device */
 
-enum {DTSEC, XGMAC, MEMAC};
-
 struct mac_device {
 	struct device		*dev;
 	void			*priv;
@@ -125,8 +123,7 @@ static inline __attribute((nonnull)) void *macdev_priv(
 }
 
 extern const char	*mac_driver_description;
-extern const size_t	 mac_sizeof_priv[];
-extern void (*const mac_setup[])(struct mac_device *mac_dev);
+struct mac_device *memac_alloc(struct device *dev);
 
 int set_mac_active_pause(struct mac_device *mac_dev, bool rx, bool tx);
 void get_pause_cfg(struct mac_device *mac_dev, bool *rx_pause, bool *tx_pause);
