@@ -271,8 +271,7 @@ static const struct qman_error_info_mdata error_mdata[] = {
 /* Add this in Kconfig */
 #define QMAN_ERRS_TO_UNENABLE (QM_EIRQ_PLWI | QM_EIRQ_PEBI)
 
-/**
- * qm_err_isr_<reg>_<verb> - Manipulate global interrupt registers
+/* qm_err_isr_<reg>_<verb> - Manipulate global interrupt registers
  * @v: for accessors that write values, this is the 32-bit value
  *
  * Manipulates QMAN_ERR_ISR, QMAN_ERR_IER, QMAN_ERR_ISDR, QMAN_ERR_IIR. All

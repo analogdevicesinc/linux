@@ -143,8 +143,7 @@ static const struct bman_error_info_mdata error_mdata[] = {
 /* Add this in Kconfig */
 #define BMAN_ERRS_TO_UNENABLE (BM_EIRQ_FLWI)
 
-/**
- * bm_err_isr_<reg>_<verb> - Manipulate global interrupt registers
+/* bm_err_isr_<reg>_<verb> - Manipulate global interrupt registers
  * @v: for accessors that write values, this is the 32-bit value
  *
  * Manipulates BMAN_ERR_ISR, BMAN_ERR_IER, BMAN_ERR_ISDR, BMAN_ERR_IIR. All
