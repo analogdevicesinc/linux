@@ -43,7 +43,6 @@
 #ifndef __CORE_EXT_H
 #define __CORE_EXT_H
 
-#include "arm_ext.h"
 #include <linux/smp.h>
 
 /**************************************************************************//**
@@ -64,7 +63,9 @@ uint32_t CORE_GetId(void);
 
  @Return        None.
 *//***************************************************************************/
-void CORE_MemoryBarrier(void);
-#define fsl_mem_core_barrier() CORE_MemoryBarrier()
+static inline void CORE_MemoryBarrier(void)
+{
+	mb();
+}
 
 #endif /* __CORE_EXT_H */
