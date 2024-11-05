@@ -1181,7 +1181,7 @@ static int adxl380_read_raw(struct iio_dev *indio_dev,
 			return ret;
 
 		ret = adxl380_read_chn(st, chan->address);
-		if (ret)
+		if (ret < 0)
 			return ret;
 
 		iio_device_release_direct_mode(indio_dev);
