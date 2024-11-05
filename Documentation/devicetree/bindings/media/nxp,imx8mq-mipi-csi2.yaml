@@ -72,6 +72,12 @@ properties:
   interconnect-names:
     const: dram
 
+  virtual-channel:
+    type: boolean
+    description: |
+      Indicates that the CSI receiver should use virtual channels and establish
+      multiple routes for them.
+
   ports:
     $ref: /schemas/graph.yaml#/properties/ports
 
