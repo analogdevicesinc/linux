@@ -105,11 +105,6 @@ static uint16_t tx_timeout = 1000;
 module_param(tx_timeout, ushort, S_IRUGO);
 MODULE_PARM_DESC(tx_timeout, "The Tx timeout in ms");
 
-static const char rtx[][3] = {
-	[RX] = "RX",
-	[TX] = "TX"
-};
-
 /* BM */
 
 #define DPAA_ETH_MAX_PAD (L1_CACHE_BYTES * 8)
