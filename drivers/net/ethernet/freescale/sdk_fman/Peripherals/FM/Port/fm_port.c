@@ -163,10 +163,6 @@ static t_Error CheckInitParameters(t_FmPort *p_FmPort)
             if (!p_Params->dfltFqid)
                 RETURN_ERROR(MAJOR, E_INVALID_VALUE,
                              ("dfltFqid must be between 1 and 2^24-1"));
-#if defined(FM_CAPWAP_SUPPORT) && defined(FM_LOCKUP_ALIGNMENT_ERRATA_FMAN_SW004)
-            if (p_FmPort->p_FmPortDriverParam->bufferPrefixContent.manipExtraSpace % 16)
-            RETURN_ERROR(MAJOR, E_INVALID_VALUE, ("bufferPrefixContent.manipExtraSpace has to be devidable by 16"));
-#endif /* defined(FM_CAPWAP_SUPPORT) && ... */
         }
 
         /****************************************/
@@ -1184,17 +1180,6 @@ static t_Error SetPcd(t_FmPort *p_FmPort, t_FmPortPcdParams *p_PcdParams)
         case (e_FM_PORT_PCD_SUPPORT_CC_ONLY):
             p_FmPort->pcdEngines |= FM_PCD_CC;
             break;
-#ifdef FM_CAPWAP_SUPPORT
-            case (e_FM_PORT_PCD_SUPPORT_CC_AND_KG):
-            p_FmPort->pcdEngines |= FM_PCD_CC;
-            p_FmPort->pcdEngines |= FM_PCD_KG;
-            break;
-            case (e_FM_PORT_PCD_SUPPORT_CC_AND_KG_AND_PLCR):
-            p_FmPort->pcdEngines |= FM_PCD_CC;
-            p_FmPort->pcdEngines |= FM_PCD_KG;
-            p_FmPort->pcdEngines |= FM_PCD_PLCR;
-            break;
-#endif /* FM_CAPWAP_SUPPORT */
 
         default:
             RETURN_ERROR(MAJOR, E_INVALID_STATE, ("invalid pcdSupport"));
@@ -1337,12 +1322,7 @@ static t_Error SetPcd(t_FmPort *p_FmPort, t_FmPortPcdParams *p_PcdParams)
     }
 
     /* if CC is used directly after BMI */
-    if (p_PcdParams->pcdSupport == e_FM_PORT_PCD_SUPPORT_CC_ONLY
-#ifdef FM_CAPWAP_SUPPORT
-     || p_PcdParams->pcdSupport == e_FM_PORT_PCD_SUPPORT_CC_AND_KG
-     || p_PcdParams->pcdSupport == e_FM_PORT_PCD_SUPPORT_CC_AND_KG_AND_PLCR
-#endif /* FM_CAPWAP_SUPPORT */
-    )
+    if (p_PcdParams->pcdSupport == e_FM_PORT_PCD_SUPPORT_CC_ONLY)
     {
         if (p_FmPort->portType != e_FM_PORT_TYPE_OH_OFFLINE_PARSING)
             RETURN_ERROR(

@@ -102,10 +102,6 @@ typedef enum e_FmPortPcdSupport {
     , e_FM_PORT_PCD_SUPPORT_PRS_AND_CC              /**< Use Parser and Coarse Classification */
     , e_FM_PORT_PCD_SUPPORT_PRS_AND_CC_AND_PLCR     /**< Use Parser and Coarse Classification and Policer */
     , e_FM_PORT_PCD_SUPPORT_CC_ONLY                 /**< Use only Coarse Classification */
-#ifdef FM_CAPWAP_SUPPORT
-    , e_FM_PORT_PCD_SUPPORT_CC_AND_KG               /**< Use Coarse Classification,and Keygen */
-    , e_FM_PORT_PCD_SUPPORT_CC_AND_KG_AND_PLCR      /**< Use Coarse Classification, Keygen and Policer */
-#endif /* FM_CAPWAP_SUPPORT */
 } e_FmPortPcdSupport;
 
 /**************************************************************************//**
@@ -137,11 +133,6 @@ typedef uint32_t    fmPortFrameErrSelect_t;                         /**< typedef
 #define FM_PORT_FRM_ERR_IPR_NCSP                (FM_FD_ERR_IPR_NCSP & ~FM_FD_IPR)   /**< IPR non-consistent-sp */
 
 #define FM_PORT_FRM_ERR_IPFE                    0                                   /**< Obsolete; will be removed in the future */
-
-#ifdef FM_CAPWAP_SUPPORT
-#define FM_PORT_FRM_ERR_CRE                     FM_FD_ERR_CRE
-#define FM_PORT_FRM_ERR_CHE                     FM_FD_ERR_CHE
-#endif /* FM_CAPWAP_SUPPORT */
 
 #define FM_PORT_FRM_ERR_PHYSICAL                FM_FD_ERR_PHYSICAL              /**< Rx FIFO overflow, FCS error, code error, running disparity
                                                                                      error (SGMII and TBI modes), FIFO parity error. PHY

@@ -161,11 +161,6 @@ typedef _Packed struct t_FmPrsResult {
 #define FM_FD_ERR_IPR                   (0x00200000 | FM_FD_IPR)    /**< IPR error */
 #define FM_FD_ERR_IPR_TO                (0x00300000 | FM_FD_IPR)    /**< IPR timeout */
 
-#ifdef FM_CAPWAP_SUPPORT
-#define FM_FD_ERR_CRE                   0x00200000
-#define FM_FD_ERR_CHE                   0x00100000
-#endif /* FM_CAPWAP_SUPPORT */
-
 #define FM_FD_ERR_PHYSICAL              0x00080000  /**< Rx FIFO overflow, FCS error, code error, running disparity
                                                          error (SGMII and TBI modes), FIFO parity error. PHY
                                                          Sequence error, PHY error control character detected. */

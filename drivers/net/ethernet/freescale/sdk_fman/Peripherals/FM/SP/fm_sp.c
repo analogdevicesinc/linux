@@ -373,15 +373,7 @@ t_Error FmSpBuildBufferStructure(t_FmSpIntContextDataCopy   *p_FmSpIntContextDat
     if (p_BufferPrefixContent->manipExtraSpace)
     {
         uint8_t extraSpace;
-#ifdef FM_CAPWAP_SUPPORT
-        if ((p_BufferPrefixContent->manipExtraSpace + CAPWAP_FRAG_EXTRA_SPACE) >= 256)
-            RETURN_ERROR(MAJOR, E_INVALID_VALUE,
-                         ("p_BufferPrefixContent->manipExtraSpace should be less than %d",
-                          256-CAPWAP_FRAG_EXTRA_SPACE));
-        extraSpace = (uint8_t)(p_BufferPrefixContent->manipExtraSpace + CAPWAP_FRAG_EXTRA_SPACE);
-#else
         extraSpace = p_BufferPrefixContent->manipExtraSpace;
-#endif /* FM_CAPWAP_SUPPORT */
         p_FmSpBufferOffsets->manipOffset = p_FmSpBufMargins->startMargins;
         p_FmSpBufMargins->startMargins += extraSpace;
         *internalBufferOffset = extraSpace;

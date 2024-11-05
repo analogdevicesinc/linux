@@ -378,15 +378,6 @@ void LnxWrpPCDIOCTLTypeChecking(void)
     ASSERT_COND(sizeof(ioc_fm_pcd_plcr_profile_params_t) == sizeof(t_FmPcdPlcrProfileParams) + sizeof(void *));
     /*ioc_fm_pcd_cc_tree_modify_next_engine_params_t : private */
 
-#ifdef FM_CAPWAP_SUPPORT
-#error TODO: unsupported feature
-/*
-    ASSERT_COND(sizeof(TODO) == sizeof(t_FmPcdManipHdrInsrtByTemplateParams));
-    ASSERT_COND(sizeof(TODO) == sizeof(t_CapwapFragmentationParams));
-    ASSERT_COND(sizeof(TODO) == sizeof(t_CapwapReassemblyParams));
-*/
-#endif
-
     /*ioc_fm_pcd_cc_node_modify_next_engine_params_t : private */
     /*ioc_fm_pcd_cc_node_remove_key_params_t : private */
     /*ioc_fm_pcd_cc_node_modify_key_and_next_engine_params_t : private */
@@ -461,31 +452,18 @@ void LnxWrpPCDIOCTLEnumChecking(void)
     ASSERT_COND((unsigned long)e_IOC_FM_PCD_PLCR_PROFILE_RECOLOURED_RED_PACKET_TOTAL_COUNTER == (unsigned long)e_FM_PCD_PLCR_PROFILE_RECOLOURED_RED_PACKET_TOTAL_COUNTER);
     ASSERT_COND((unsigned long)e_IOC_FM_PCD_ACTION_INDEXED_LOOKUP == (unsigned long)e_FM_PCD_ACTION_INDEXED_LOOKUP);
     ASSERT_COND((unsigned long)e_IOC_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_PLCR == (unsigned long)e_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_PLCR);
-#if !defined(FM_CAPWAP_SUPPORT)
     ASSERT_COND((unsigned long)e_IOC_FM_PCD_MANIP_INSRT_GENERIC == (unsigned long)e_FM_PCD_MANIP_INSRT_GENERIC);
     ASSERT_COND((unsigned long)e_IOC_FM_PCD_MANIP_RMV_GENERIC == (unsigned long)e_FM_PCD_MANIP_RMV_GENERIC);
-#else
-    ASSERT_COND((unsigned long)e_IOC_FM_PCD_MANIP_INSRT_BY_TEMPLATE == (unsigned long)e_FM_PCD_MANIP_INSRT_BY_TEMPLATE);
-    ASSERT_COND((unsigned long)e_IOC_FM_PCD_MANIP_RMV_BY_HDR == (unsigned long)e_FM_PCD_MANIP_RMV_BY_HDR);
-    ASSERT_COND((unsigned long)e_IOC_FM_PCD_MANIP_RMV_BY_HDR_FROM_START == (unsigned long)e_FM_PCD_MANIP_RMV_BY_HDR_FROM_START);
-#endif
     ASSERT_COND((unsigned long)e_IOC_FM_PCD_MANIP_TIME_OUT_BETWEEN_FRAG == (unsigned long)e_FM_PCD_MANIP_TIME_OUT_BETWEEN_FRAG);
     ASSERT_COND((unsigned long)e_IOC_FM_PCD_MANIP_EIGHT_WAYS_HASH == (unsigned long)e_FM_PCD_MANIP_EIGHT_WAYS_HASH);
 
-#ifdef FM_CAPWAP_SUPPORT
-    ASSERT_COND((unsigned long)e_IOC_FM_PCD_STATS_PER_FLOWID == (unsigned long)e_FM_PCD_STATS_PER_FLOWID);
-#endif
     ASSERT_COND((unsigned long)e_IOC_FM_PCD_MANIP_SPECIAL_OFFLOAD == (unsigned long)e_FM_PCD_MANIP_SPECIAL_OFFLOAD);
     ASSERT_COND((unsigned long)e_IOC_FM_PCD_CC_STATS_MODE_FRAME == (unsigned long)e_FM_PCD_CC_STATS_MODE_FRAME);
     ASSERT_COND((unsigned long)e_IOC_FM_PCD_MANIP_CONTINUE_WITHOUT_FRAG == (unsigned long)e_FM_PCD_MANIP_CONTINUE_WITHOUT_FRAG);
     ASSERT_COND((unsigned long)e_IOC_FM_PCD_MANIP_SPECIAL_OFFLOAD_IPSEC == (unsigned long)e_FM_PCD_MANIP_SPECIAL_OFFLOAD_IPSEC);
 
     /* fm_port_ext.h == fm_port_ioctls.h */
-#if !defined(FM_CAPWAP_SUPPORT)
     ASSERT_COND((unsigned long)e_IOC_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_PLCR == (unsigned long)e_FM_PORT_PCD_SUPPORT_PRS_AND_KG_AND_PLCR);
-#else
-    ASSERT_COND((unsigned long)e_IOC_FM_PORT_PCD_SUPPORT_CC_AND_KG_AND_PLCR == (unsigned long)e_FM_PORT_PCD_SUPPORT_CC_AND_KG_AND_PLCR);
-#endif
     ASSERT_COND((unsigned long)e_IOC_FM_PORT_COUNTERS_DEQ_CONFIRM == (unsigned long)e_FM_PORT_COUNTERS_DEQ_CONFIRM);
     ASSERT_COND((unsigned long)e_IOC_FM_PORT_DUAL_RATE_LIMITER_SCALE_DOWN_BY_8 == (unsigned long)e_FM_PORT_DUAL_RATE_LIMITER_SCALE_DOWN_BY_8);
 
@@ -559,13 +537,6 @@ Status: not exported
 
     FM_VSP_GetStatistics -- it's not available yet
 #endif
-
-Status: feature not supported
-#ifdef FM_CAPWAP_SUPPORT
-#error unsupported feature
-    FM_PCD_StatisticsSetNode
-#endif
-
  */
     _fm_ioctl_dbg("cmd:0x%08x(type:0x%02x, nr:%u).\n",
             cmd, _IOC_TYPE(cmd), _IOC_NR(cmd) - 20);
@@ -3406,23 +3377,6 @@ invalid_port_id:
 
         break;
     }
-
-#ifdef FM_CAPWAP_SUPPORT
-#warning "feature not supported!"
-#if defined(CONFIG_COMPAT)
-        case FM_PCD_IOC_STATISTICS_SET_NODE_COMPAT:
-#endif
-        case FM_PCD_IOC_STATISTICS_SET_NODE:
-        {
-/*          ioc_fm_pcd_stats_params_t param;
-            ...
-            param->id = FM_PCD_StatisticsSetNode(p_LnxWrpFmDev->h_PcdDev,
-                                (t_FmPcdStatsParams *)&param);
-*/
-            err = E_NOT_SUPPORTED;
-            break;
-        }
-#endif /* FM_CAPWAP_SUPPORT */
 
         default:
             RETURN_ERROR(MINOR, E_INVALID_SELECTION,

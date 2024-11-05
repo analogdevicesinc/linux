@@ -440,10 +440,6 @@ void        FmPcdManipUpdateAdResultForCc(t_Handle                     h_Manip,
 void        FmPcdManipUpdateAdContLookupForCc(t_Handle h_Manip, t_Handle p_Ad, t_Handle *p_AdNew, uint32_t adTableOffset);
 void        FmPcdManipUpdateOwner(t_Handle h_Manip, bool add);
 t_Error     FmPcdManipCheckParamsWithCcNodeParams(t_Handle h_Manip, t_Handle h_FmPcdCcNode);
-#ifdef FM_CAPWAP_SUPPORT
-t_Handle    FmPcdManipApplSpecificBuild(void);
-bool        FmPcdManipIsCapwapApplSpecific(t_Handle h_Manip);
-#endif /* FM_CAPWAP_SUPPORT */
 void *      FrmReplicGroupGetSourceTableDescriptor(t_Handle h_ReplicGroup);
 void        FrmReplicGroupUpdateOwner(t_Handle h_ReplicGroup, bool add);
 void        FrmReplicGroupUpdateAd(t_Handle h_ReplicGroup, void *p_Ad, t_Handle *h_AdNew);

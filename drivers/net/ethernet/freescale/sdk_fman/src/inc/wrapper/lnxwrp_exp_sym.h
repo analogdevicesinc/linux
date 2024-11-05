@@ -114,10 +114,6 @@ EXPORT_SYMBOL(FM_PCD_FrmReplicDeleteGroup);
 EXPORT_SYMBOL(FM_PCD_FrmReplicAddMember);
 EXPORT_SYMBOL(FM_PCD_FrmReplicRemoveMember);
 
-#ifdef FM_CAPWAP_SUPPORT
-EXPORT_SYMBOL(FM_PCD_StatisticsSetNode);
-#endif /* FM_CAPWAP_SUPPORT */
-
 EXPORT_SYMBOL(FM_PCD_SetAdvancedOffloadSupport);
 
 /* FMAN MAC exported routines */

@@ -332,13 +332,8 @@ static void FillAdOfTypeContLookup(t_Handle h_Ad,
                         h_Ad,
                         &p_AdNewPtr,
 
-#ifdef FM_CAPWAP_SUPPORT
-                        /*no check for opcode of manip - this step can be reached only with capwap_applic_specific*/
-                        (uint32_t)((XX_VirtToPhys(p_Node->h_AdTable) - p_FmPcd->physicalMuramBase))
-#else  /* not FM_CAPWAP_SUPPORT */
                         (uint32_t)((XX_VirtToPhys(p_Node->h_Ad)
                                 - p_FmPcd->physicalMuramBase))
-#endif /* not FM_CAPWAP_SUPPORT */
                         );
 
     /* if (p_AdNewPtr = NULL) --> Done. (case (3)) */
@@ -1042,29 +1037,6 @@ static t_Error DoDynamicChange(
 
     return E_OK;
 }
-
-#ifdef FM_CAPWAP_SUPPORT
-static bool IsCapwapApplSpecific(t_Handle h_Node)
-{
-    t_FmPcdCcNode *p_CcNode = (t_FmPcdCcNode *)h_Node;
-    bool isManipForCapwapApplSpecificBuild = FALSE;
-    int i = 0;
-
-    ASSERT_COND(h_Node);
-    /* assumption that this function called only for INDEXED_FLOW_ID - so no miss*/
-    for (i = 0; i < p_CcNode->numOfKeys; i++)
-    {
-        if ( p_CcNode->keyAndNextEngineParams[i].nextEngineParams.h_Manip &&
-                FmPcdManipIsCapwapApplSpecific(p_CcNode->keyAndNextEngineParams[i].nextEngineParams.h_Manip))
-        {
-            isManipForCapwapApplSpecificBuild = TRUE;
-            break;
-        }
-    }
-    return isManipForCapwapApplSpecificBuild;
-
-}
-#endif /* FM_CAPWAP_SUPPORT */
 
 static t_Error CcUpdateParam(
         t_Handle h_FmPcd, t_Handle h_PcdParams, t_Handle h_FmPort,
@@ -6016,24 +5988,6 @@ t_Handle FM_PCD_CcRootBuild(t_Handle h_FmPcd,
 
     INIT_LIST(&p_FmPcdCcTree->fmPortsLst);
 
-#ifdef FM_CAPWAP_SUPPORT
-    if ((p_PcdGroupsParam->numOfGrps == 1) &&
-            (p_PcdGroupsParam->ccGrpParams[0].numOfDistinctionUnits == 0) &&
-            (p_PcdGroupsParam->ccGrpParams[0].nextEnginePerEntriesInGrp[0].nextEngine == e_FM_PCD_CC) &&
-            p_PcdGroupsParam->ccGrpParams[0].nextEnginePerEntriesInGrp[0].params.ccParams.h_CcNode &&
-            IsCapwapApplSpecific(p_PcdGroupsParam->ccGrpParams[0].nextEnginePerEntriesInGrp[0].params.ccParams.h_CcNode))
-    {
-        p_PcdGroupsParam->ccGrpParams[0].nextEnginePerEntriesInGrp[0].h_Manip = FmPcdManipApplSpecificBuild();
-        if (!p_PcdGroupsParam->ccGrpParams[0].nextEnginePerEntriesInGrp[0].h_Manip)
-        {
-            DeleteTree(p_FmPcdCcTree,p_FmPcd);
-            XX_Free(p_Params);
-            REPORT_ERROR(MAJOR, E_INVALID_STATE, NO_MSG);
-            return NULL;
-        }
-    }
-#endif /* FM_CAPWAP_SUPPORT */
-
     numOfEntries = 0;
     p_FmPcdCcTree->netEnvId = FmPcdGetNetEnvId(p_PcdGroupsParam->h_NetEnv);
 
@@ -6297,18 +6251,6 @@ t_Error FM_PCD_CcRootDelete(t_Handle h_CcTree)
             FmPcdManipUpdateOwner(
                     p_CcTree->keyAndNextEngineParams[i].nextEngineParams.h_Manip,
                     FALSE);
-
-#ifdef FM_CAPWAP_SUPPORT
-        if ((p_CcTree->numOfGrps == 1) &&
-                (p_CcTree->fmPcdGroupParam[0].numOfEntriesInGroup == 1) &&
-                (p_CcTree->keyAndNextEngineParams[0].nextEngineParams.nextEngine == e_FM_PCD_CC) &&
-                p_CcTree->keyAndNextEngineParams[0].nextEngineParams.params.ccParams.h_CcNode &&
-                IsCapwapApplSpecific(p_CcTree->keyAndNextEngineParams[0].nextEngineParams.params.ccParams.h_CcNode))
-        {
-            if (FM_PCD_ManipNodeDelete(p_CcTree->keyAndNextEngineParams[0].nextEngineParams.h_Manip) != E_OK)
-            return E_INVALID_STATE;
-        }
-#endif /* FM_CAPWAP_SUPPORT */
 
         if ((p_CcTree->keyAndNextEngineParams[i].nextEngineParams.nextEngine
                 == e_FM_PCD_FR)

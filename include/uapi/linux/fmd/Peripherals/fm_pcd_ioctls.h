@@ -102,11 +102,6 @@
 #define IOC_FM_PCD_FRM_REPLIC_MAX_NUM_OF_ENTRIES        64                  /**< Maximum possible entries for frame replicator group */
 /* @} */
 
-#ifdef FM_CAPWAP_SUPPORT
-#error "FM_CAPWAP_SUPPORT not implemented!"
-#endif
-
-
 /**************************************************************************//**
  @Group         lnx_ioctl_FM_PCD_init_grp FM PCD Initialization Unit
 

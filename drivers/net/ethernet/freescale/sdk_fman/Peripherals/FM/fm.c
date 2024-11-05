@@ -3537,15 +3537,6 @@ t_Error FM_Init(t_Handle h_Fm)
     }
 #endif /* FM_UCODE_NOT_RESET_ERRATA_BUGZILLA6173 */
 
-#ifdef FM_CAPWAP_SUPPORT
-    /* save first 256 byte in MURAM */
-    p_Fm->resAddr = PTR_TO_UINT(FM_MURAM_AllocMem(p_Fm->h_FmMuram, 256, 0));
-    if (!p_Fm->resAddr)
-        RETURN_ERROR(MAJOR, E_NO_MEMORY, ("MURAM alloc for reserved Area failed"));
-
-    WRITE_BLOCK(UINT_TO_PTR(p_Fm->resAddr), 0, 256);
-#endif /* FM_CAPWAP_SUPPORT */
-
     p_Fm->partVSPBase = AllocVSPsForPartition(h_Fm, p_Fm->partVSPBase, p_Fm->partNumOfVSPs, p_Fm->guestId);
     if (p_Fm->partVSPBase == (uint8_t)(ILLEGAL_BASE))
         DBG(WARNING, ("partition VSPs allocation is FAILED"));
