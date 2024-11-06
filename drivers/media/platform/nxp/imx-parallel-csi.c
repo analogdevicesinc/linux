@@ -18,6 +18,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/pm_domain.h>
 #include <linux/pm_runtime.h>
 #include <linux/regulator/consumer.h>
 #include <linux/reset.h>
@@ -143,6 +144,11 @@ struct parallel_csi_plat_data {
 	u8 def_csi_in_data_type;
 };
 
+struct csi_pm_domain {
+	struct device *dev;
+	struct device_link *link;
+};
+
 struct parallel_csi_device {
 	struct device *dev;
 	void __iomem *regs;
@@ -162,6 +168,8 @@ struct parallel_csi_device {
 		struct v4l2_subdev *sd;
 		const struct media_pad *pad;
 	} source;
+
+	struct csi_pm_domain pm_domains[2];
 
 	u8 mode;
 	u8 uv_swap;
@@ -192,6 +200,19 @@ static const struct parallel_csi_pix_format parallel_csi_formats[] = {
 		.width = 16,
 	},
 };
+
+static const struct parallel_csi_plat_data imx8_pdata = {
+	.version = PI_V1,
+	.if_ctrl_reg = 0x0,
+	.interface_status = 0x20,
+	.interface_ctrl_reg = 0x10,
+	.interface_ctrl_reg1 = 0x30,
+	.def_hsync_pol = 1,
+	.def_vsync_pol = 0,
+	.def_pixel_clk_pol = 0,
+	.def_csi_in_data_type = CSI_IN_DT_UYVY_BT656_8,
+};
+
 
 static const struct parallel_csi_plat_data imx93_pdata = {
 	.version = PI_V2,
@@ -879,6 +900,77 @@ static int parallel_csi_subdev_init(struct parallel_csi_device *pcsidev)
 	return ret;
 }
 
+static void parallel_csi_detach_pm_domains(struct parallel_csi_device *pcsidev)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(pcsidev->pm_domains); i++) {
+		struct csi_pm_domain *dom = &pcsidev->pm_domains[i];
+
+		if (!dom->dev)
+			continue;
+
+		if (!pm_runtime_suspended(dom->dev))
+			pm_runtime_force_suspend(dom->dev);
+		if (dom->link)
+			device_link_del(dom->link);
+		dev_pm_domain_detach(dom->dev, true);
+
+		dom->dev = NULL;
+		dom->link = NULL;
+	}
+}
+
+static int parallel_csi_attach_pm_domains(struct parallel_csi_device *pcsidev)
+{
+	struct device *dev = pcsidev->dev;
+	struct device_node *np = dev->of_node;
+	int i, num_domains;
+	int ret = 0;
+
+	num_domains = of_count_phandle_with_args(np, "power-domains",
+					   "#power-domain-cells");
+	if (num_domains < 0) {
+		dev_err(dev, "No power domains defined!\n");
+		return num_domains;
+	}
+	/* genpd_dev_pm_attach() attach automatically if power domains count is 1 */
+	if (num_domains == 1)
+		return 0;
+
+	for (i = 0; i < num_domains; i++) {
+		struct csi_pm_domain *dom = &pcsidev->pm_domains[i];
+
+		dom->dev = dev_pm_domain_attach_by_id(dev, i);
+		if (IS_ERR(dom->dev)) {
+			ret = PTR_ERR(dom->dev);
+			dom->dev = NULL;
+			break;
+		}
+
+		dom->link = device_link_add(dev, dom->dev,
+					    DL_FLAG_STATELESS |
+					    DL_FLAG_PM_RUNTIME);
+
+		if (dom->link == NULL) {
+			ret = -ENODEV;
+			break;
+		}
+
+		if (IS_ERR(dom->link)) {
+			ret = PTR_ERR(dom->link);
+			dom->link = NULL;
+			break;
+		}
+	}
+
+	if (ret < 0)
+		parallel_csi_detach_pm_domains(pcsidev);
+
+	return ret;
+}
+
+
 /* -----------------------------------------------------------------------------
  * Probe/remove & platform driver
  */
@@ -914,6 +1006,10 @@ static int parallel_csi_probe(struct platform_device *pdev)
 	ret = parallel_csi_clk_get(pcsidev);
 	if (ret < 0)
 		return ret;
+
+	ret = parallel_csi_attach_pm_domains(pcsidev);
+	if (ret < 0)
+		return dev_err_probe(dev, ret, "failed to attach power domains\n");
 
 	/* Initialize and register the subdev. */
 	ret = parallel_csi_subdev_init(pcsidev);
@@ -964,9 +1060,11 @@ static void parallel_csi_remove(struct platform_device *pdev)
 	v4l2_subdev_cleanup(&pcsidev->sd);
 	media_entity_cleanup(&pcsidev->sd.entity);
 	pm_runtime_set_suspended(&pdev->dev);
+	parallel_csi_detach_pm_domains(pcsidev);
 }
 
 static const struct of_device_id _of_match[] = {
+	{.compatible = "fsl,imx8-parallel-csi", .data = &imx8_pdata },
 	{.compatible = "fsl,imx93-parallel-csi", .data = &imx93_pdata },
 	{.compatible = "fsl,imx91-parallel-csi", .data = &imx91_pdata },
 	{ /* sentinel */  },
