@@ -298,7 +298,7 @@ struct ad7768_chip_info {
 struct ad7768_state {
 	const struct ad7768_chip_info *chip;
 	struct spi_device *spi;
-	struct regulator *vref;
+	int vref_uv;
 	struct mutex lock;
 	struct clk *mclk;
 	struct gpio_chip gpiochip;
@@ -945,7 +945,7 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 		return IIO_VAL_INT;
 
 	case IIO_CHAN_INFO_SCALE:
-		scale_uv = regulator_get_voltage(st->vref);
+		scale_uv = st->vref_uv;
 		if (scale_uv < 0)
 			return scale_uv;
 
@@ -1187,13 +1187,6 @@ static const struct iio_trigger_ops ad7768_trigger_ops = {
 	.validate_device = iio_trigger_validate_own_device,
 };
 
-static void ad7768_regulator_disable(void *data)
-{
-	struct ad7768_state *st = data;
-
-	regulator_disable(st->vref);
-}
-
 static int ad7768_triggered_buffer_alloc(struct iio_dev *indio_dev)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
@@ -1296,19 +1289,11 @@ static int ad7768_probe(struct spi_device *spi)
 		return ret;
 	st->spi = spi;
 
-	st->vref = devm_regulator_get(&spi->dev, "vref");
-	if (IS_ERR(st->vref))
-		return PTR_ERR(st->vref);
-
-	ret = regulator_enable(st->vref);
-	if (ret) {
-		dev_err(&spi->dev, "Failed to enable specified vref supply\n");
-		return ret;
-	}
-
-	ret = devm_add_action_or_reset(&spi->dev, ad7768_regulator_disable, st);
-	if (ret)
-		return ret;
+	ret = devm_regulator_get_enable_read_voltage(&spi->dev, "vref");
+	if (ret < 0)
+		return dev_err_probe(&spi->dev, ret,
+				     "Failed to get VREF voltage\n");
+	st->vref_uv = ret;
 
 	st->mclk = devm_clk_get_enabled(&spi->dev, "mclk");
 	if (IS_ERR(st->mclk))
