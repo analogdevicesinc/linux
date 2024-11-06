@@ -2849,8 +2849,8 @@
 
 		mali: gpu@4d900000 {
 			compatible = "arm,mali-valhall", "nxp,imx95-mali";
-			reg = <0 0x4d900000 0 0x480000>, <0 0x4d810000 0 0x10000>;
-			reg-names = "gpu_base", "gpumix_blk_ctrl";
+			reg = <0 0x4d900000 0 0x480000>;
+			reg-names = "gpu_base";
 			interrupts = <GIC_SPI 288 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 289 IRQ_TYPE_LEVEL_HIGH>,
 				     <GIC_SPI 290 IRQ_TYPE_LEVEL_HIGH>;
