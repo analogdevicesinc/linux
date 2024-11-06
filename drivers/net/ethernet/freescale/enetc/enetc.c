@@ -2222,18 +2222,6 @@ void enetc_get_si_caps(struct enetc_si *si)
 
 	if (val & ENETC_SIPCAPR0_LSO)
 		si->hw_features |= ENETC_SI_F_LSO;
-
-	if (val & ENETC_SIPCAPR0_QBV)
-		si->hw_features |= ENETC_SI_F_QBV;
-
-	if (val & ENETC_SIPCAPR0_QBU) {
-		si->hw_features |= ENETC_SI_F_QBU;
-		si->pmac_offset = is_enetc_rev1(si) ? ENETC_PMAC_OFFSET :
-						      ENETC4_PMAC_OFFSET;
-	}
-
-	if (val & ENETC_SIPCAPR0_PSFP)
-		si->hw_features |= ENETC_SI_F_PSFP;
 }
 EXPORT_SYMBOL_GPL(enetc_get_si_caps);
 
