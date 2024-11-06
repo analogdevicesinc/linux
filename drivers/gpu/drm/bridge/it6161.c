@@ -1,6 +1,6 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+// SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright (C) 2021 NXP
+ * Copyright 2021-2024 NXP
  */
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_bridge.h>
