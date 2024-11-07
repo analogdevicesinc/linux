@@ -2534,7 +2534,8 @@ static int of_spi_parse_dt(struct spi_controller *ctlr, struct spi_device *spi,
 	 * By default spi->chip_select[0] will hold the physical CS number so, set
 	 * spi->cs_index_mask as 0x01.
 	 */
-	spi->cs_index_mask = 0x01;
+	for (idx = 0; idx < rc; idx++)
+		spi->cs_index_mask |= BIT(cs[idx]);
 
 	/* Device speed */
 	if (!of_property_read_u32(nc, "spi-max-frequency", &value))
