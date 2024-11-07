@@ -363,6 +363,13 @@ static const struct iio_chan_spec adaq776x_channels[] = {
 	AD7768_CHAN(0, BIT(IIO_CHAN_INFO_SCALE)),
 };
 
+static const struct iio_chan_spec quad_adaq776x_channels[] = {
+	AD7768_CHAN(0, BIT(IIO_CHAN_INFO_SCALE)),
+	AD7768_CHAN(1, BIT(IIO_CHAN_INFO_SCALE)),
+	AD7768_CHAN(2, BIT(IIO_CHAN_INFO_SCALE)),
+	AD7768_CHAN(3, BIT(IIO_CHAN_INFO_SCALE)),
+};
+
 struct ad7768_chip_info {
 	const char *name;
 	bool has_variable_aaf;
@@ -1439,6 +1446,14 @@ static const unsigned long ad7768_channel_masks[] = {
 	0,
 };
 
+static const unsigned long quad_ad7768_channel_masks[] = {
+	BIT(0),
+	BIT(1),
+	BIT(2),
+	BIT(3),
+	0,
+};
+
 static const struct ad7768_chip_info ad7768_chip_info = {
 	.name = "ad7768-1",
 	.channel_spec = ad7768_channels,
@@ -1460,6 +1475,19 @@ static const struct ad7768_chip_info adaq7768_chip_info = {
 	.channel_spec = adaq776x_channels,
 	.num_channels = 1,
 	.available_masks = ad7768_channel_masks,
+	.pga_gains = adaq7768_gains,
+	.default_pga_mode = AD7768_PGA_GAIN_2,
+	.num_pga_modes = ARRAY_SIZE(adaq7768_gains),
+	.pgia_mode2pin_offset = 6,
+	.has_pga = true,
+	.has_variable_aaf = false
+};
+
+static const struct ad7768_chip_info quad_adaq7768_chip_info = {
+	.name = "quad_adaq7768-1",
+	.channel_spec = quad_adaq776x_channels,
+	.num_channels = ARRAY_SIZE(quad_adaq776x_channels),
+	.available_masks = quad_ad7768_channel_masks,
 	.pga_gains = adaq7768_gains,
 	.default_pga_mode = AD7768_PGA_GAIN_2,
 	.num_pga_modes = ARRAY_SIZE(adaq7768_gains),
@@ -1590,6 +1618,7 @@ static const struct spi_device_id ad7768_id_table[] = {
 	{ "ad7768-1", (kernel_ulong_t)&ad7768_chip_info },
 	{ "adaq7767-1", (kernel_ulong_t)&adaq7767_chip_info },
 	{ "adaq7768-1", (kernel_ulong_t)&adaq7768_chip_info },
+	{ "quad_adaq7768-1", (kernel_ulong_t)&quad_adaq7768_chip_info },
 	{ "adaq7769-1", (kernel_ulong_t)&adaq7769_chip_info },
 	{}
 };
@@ -1599,6 +1628,7 @@ static const struct of_device_id ad7768_of_match[] = {
 	{ .compatible = "adi,ad7768-1", .data = &ad7768_chip_info },
 	{ .compatible = "adi,adaq7767-1", .data = &adaq7767_chip_info },
 	{ .compatible = "adi,adaq7768-1", .data = &adaq7768_chip_info },
+	{ .compatible = "adi,quad_adaq7768-1", .data = &quad_adaq7768_chip_info },
 	{ .compatible = "adi,adaq7769-1", .data = &adaq7769_chip_info },
 	{ },
 };
