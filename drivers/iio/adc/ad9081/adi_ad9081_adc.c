@@ -3524,14 +3524,7 @@ int32_t adi_ad9081_adc_pfir_coeff_table_load_set(
 			device, ctl_pages, coeff_pages, i_mode, q_mode,
 			gain->ix_gain, gain->iy_gain, gain->qx_gain,
 			gain->qy_gain, AD9081_ADC_PFIR_COMPLEX_LOAD,
-			(uint16_t *)coeffs, 64);
-		AD9081_ERROR_RETURN(err);
-		incr_coeffs = (uint16_t *)&coeffs[96];
-		err = adi_ad9081_adc_pfir_config_set(
-			device, ctl_pages, coeff_pages, i_mode, q_mode,
-			gain->ix_gain, gain->iy_gain, gain->qx_gain,
-			gain->qy_gain, AD9081_ADC_PFIR_COMPLEX_LOAD,
-			incr_coeffs, 64);
+			(uint16_t *)coeffs, 128);
 		AD9081_ERROR_RETURN(err);
 	} else if (i_mode == AD9081_ADC_PFIR_I_MODE_COMPLEX_HALF &&
 		   q_mode == AD9081_ADC_PFIR_Q_MODE_REAL_N2) {
