@@ -354,8 +354,36 @@ static int neoisp_set_packetizer(struct neoisp_dev_s *neoispd)
 	struct neoisp_node_s *nd = &neoispd->queued_job.node_group->node[NEOISP_FRAME_NODE];
 	__u32 pixfmt = nd->format.fmt.pix_mp.pixelformat;
 
+	/* set output bits per pixel */
+	pck->ch0_ctrl_cam0_obpp = nd->neoisp_format->bpp_enc;
+	pck->ch12_ctrl_cam0_obpp = nd->neoisp_format->bpp_enc;
+
 	switch (pixfmt) {
+	case V4L2_PIX_FMT_Y10:
+		pck->ch0_ctrl_cam0_rsa = 2;
+		pck->ch0_ctrl_cam0_lsa = 0;
+		break;
+	case V4L2_PIX_FMT_Y12:
+		pck->ch0_ctrl_cam0_rsa = 0;
+		pck->ch0_ctrl_cam0_lsa = 0;
+		break;
+	case V4L2_PIX_FMT_Y16:
+		pck->ch0_ctrl_cam0_rsa = 0;
+		pck->ch0_ctrl_cam0_lsa = 4;
+		break;
+	default:
+		pck->ch0_ctrl_cam0_rsa = 4;
+		pck->ch0_ctrl_cam0_lsa = 0;
+		break;
+	}
+
+	switch (pixfmt) {
+	case V4L2_PIX_FMT_GREY:
 	case V4L2_PIX_FMT_NV12:
+	case V4L2_PIX_FMT_Y10:
+	case V4L2_PIX_FMT_Y12:
+	case V4L2_PIX_FMT_Y16:
+	case V4L2_PIX_FMT_Y16_BE:
 		pck->ctrl_cam0_type = 0;
 		pck->ch12_ctrl_cam0_subsample = 2;
 		/* set channels orders */
@@ -560,6 +588,20 @@ static void neoisp_update_pipeline_bit_width(struct neoisp_reg_params_s *regp, _
 }
 
 /*
+ * Check if sensor is monochrome, then update concerned parameters.
+ */
+static void neoisp_update_monochrome(struct neoisp_reg_params_s *regs, __u32 pixfmt)
+{
+	if (FMT_IS_MONOCHROME(pixfmt)) {
+		regs->demosaic.ctrl_fmt = 2; /* monochrome format */
+		regs->bnr.ctrl_nhood = 1; /* neighborhood */
+	} else {
+		regs->demosaic.ctrl_fmt = 0; /* bayer format */
+		regs->bnr.ctrl_nhood = 0;
+	}
+}
+
+/*
  * Set Head Color selection
  */
 static void neoisp_update_head_color(struct neoisp_reg_params_s *regs, __u32 pixfmt)
@@ -612,7 +654,7 @@ static int neoisp_set_pipe_conf(struct neoisp_dev_s *neoispd)
 	struct neoisp_mparam_conf_s *cfg = &mod_params.conf;
 	__u32 width, height, obpp, ibpp, irbpp, inp0_stride;
 	__u32 out_pixfmt = nd->format.fmt.pix_mp.pixelformat;
-	dma_addr_t inp0_addr;
+	dma_addr_t inp0_addr, out_addr;
 
 	if (!neoisp_node_link_state(nd))
 		/* frame node could be disabled then only ir node is needed */
@@ -624,7 +666,7 @@ static int neoisp_set_pipe_conf(struct neoisp_dev_s *neoispd)
 	nd = &neoispd->queued_job.node_group->node[NEOISP_INPUT0_NODE];
 	ibpp = (nd->neoisp_format->bit_depth + 7) / 8;
 	inp0_stride = nd->format.fmt.pix_mp.plane_fmt[0].bytesperline;
-	cfg->img_conf_cam0_ibpp0 = nd->neoisp_format->ibpp;
+	cfg->img_conf_cam0_ibpp0 = nd->neoisp_format->bpp_enc;
 	/* take crop into account if any */
 	inp0_addr = get_addr(buf, 0) + (nd->crop.left * ibpp) + (nd->crop.top * inp0_stride);
 
@@ -649,36 +691,48 @@ static int neoisp_set_pipe_conf(struct neoisp_dev_s *neoispd)
 	nd = &neoispd->queued_job.node_group->node[NEOISP_FRAME_NODE];
 	if (neoisp_node_link_state(nd)) {
 		/* planar/multiplanar output image addresses */
-		if (out_pixfmt == V4L2_PIX_FMT_NV12
-				|| out_pixfmt == V4L2_PIX_FMT_NV21
-				|| out_pixfmt == V4L2_PIX_FMT_NV16
-				|| out_pixfmt == V4L2_PIX_FMT_NV61) {
+		switch (out_pixfmt) {
+		case V4L2_PIX_FMT_GREY:
+		case V4L2_PIX_FMT_NV12:
+		case V4L2_PIX_FMT_NV21:
+		case V4L2_PIX_FMT_NV16:
+		case V4L2_PIX_FMT_NV61:
+		case V4L2_PIX_FMT_Y10:
+		case V4L2_PIX_FMT_Y12:
+		case V4L2_PIX_FMT_Y16:
+		case V4L2_PIX_FMT_Y16_BE:
+			if (!FMT_IS_MONOCHROME(out_pixfmt))
+				out_addr = get_addr(buf_out, 1);
+			else
+				out_addr = nd->node_group->any_dma;
+
 			regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH0_ADDR_CAM0_IDX],
 					NEO_PIPE_CONF_ADDR_SET(get_addr(buf_out, 0)));
 			regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH0_LS_CAM0_IDX],
 					NEO_PIPE_CONF_OUTCH0_LS_CAM0_LS_SET(obpp * width));
-
 			regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH1_ADDR_CAM0_IDX],
-					NEO_PIPE_CONF_ADDR_SET(get_addr(buf_out, 1)));
+					NEO_PIPE_CONF_ADDR_SET(out_addr));
 			regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH1_LS_CAM0_IDX],
 					NEO_PIPE_CONF_OUTCH1_LS_CAM0_LS_SET(obpp * width));
-		} else {
+			break;
+		default:
 			regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH0_ADDR_CAM0_IDX],
-					   0u);
+					NEO_PIPE_CONF_ADDR_SET(0));
 			regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH0_LS_CAM0_IDX],
-					   0u);
+					NEO_PIPE_CONF_OUTCH1_LS_CAM0_LS_SET(0));
 
 			regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH1_ADDR_CAM0_IDX],
 					NEO_PIPE_CONF_ADDR_SET(get_addr(buf_out, 0)));
 			regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH1_LS_CAM0_IDX],
 					NEO_PIPE_CONF_OUTCH1_LS_CAM0_LS_SET(obpp * width));
+			break;
 		}
 	} else {
 		regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH0_ADDR_CAM0_IDX],
-				NEO_PIPE_CONF_ADDR_SET(neoispd->queued_job.node_group->any_dma));
+				NEO_PIPE_CONF_ADDR_SET(nd->node_group->any_dma));
 		regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH0_LS_CAM0_IDX], 0u);
 		regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH1_ADDR_CAM0_IDX],
-				NEO_PIPE_CONF_ADDR_SET(neoispd->queued_job.node_group->any_dma));
+				NEO_PIPE_CONF_ADDR_SET(nd->node_group->any_dma));
 		regmap_field_write(neoispd->regs.fields[NEO_PIPE_CONF_OUTCH1_LS_CAM0_IDX], 0u);
 	}
 	nd = &neoispd->queued_job.node_group->node[NEOISP_IR_NODE];
@@ -932,6 +986,7 @@ static int neoisp_prepare_node_streaming(struct neoisp_node_s *node)
 	if (node->id == NEOISP_INPUT0_NODE) {
 		neoisp_update_pipeline_bit_width(&params->regs, node->neoisp_format->bit_depth);
 		neoisp_update_head_color(&params->regs, pixfmt);
+		neoisp_update_monochrome(&params->regs, pixfmt);
 	}
 
 	if (node->id == NEOISP_FRAME_NODE) {
@@ -951,7 +1006,8 @@ static int neoisp_prepare_node_streaming(struct neoisp_node_s *node)
 					node->format.fmt.pix_mp.ycbcr_enc),
 				  node->format.fmt.pix_mp.quantization);
 
-		if (!neoisp_node_link_state(&node_group->node[NEOISP_IR_NODE])) {
+		if (!neoisp_node_link_state(&node_group->node[NEOISP_IR_NODE])
+				|| FMT_IS_MONOCHROME(pixfmt)) {
 			node_group->any_size = node->format.fmt.pix_mp.width
 						 * node->format.fmt.pix_mp.height
 						 * NEOISP_MAX_BPP;

@@ -38,9 +38,9 @@
 #define NEOISP_MAX_CTRLS         (1)
 #define NEOISP_CTRL_PARAMS       (0)
 
-#define NEOISP_FMT_VCAP_COUNT    (14)
+#define NEOISP_FMT_VCAP_COUNT    (19)
 #define NEOISP_FMT_VCAP_IR_COUNT (2)
-#define NEOISP_FMT_VOUT_COUNT    (24)
+#define NEOISP_FMT_VOUT_COUNT    (29)
 #define NEOISP_FMT_MCAP_COUNT    (1)
 #define NEOISP_FMT_MOUT_COUNT    (1)
 
@@ -67,6 +67,14 @@
 #define TYPE_IS_META(typ) ( \
 		((typ) == V4L2_BUF_TYPE_META_OUTPUT) || \
 		((typ) == V4L2_BUF_TYPE_META_CAPTURE))
+
+#define FMT_IS_MONOCHROME(x) ( \
+		((x) == V4L2_PIX_FMT_GREY) || \
+		((x) == V4L2_PIX_FMT_Y10)  || \
+		((x) == V4L2_PIX_FMT_Y12)  || \
+		((x) == V4L2_PIX_FMT_Y14)  || \
+		((x) == V4L2_PIX_FMT_Y16)  || \
+		((x) == V4L2_PIX_FMT_Y16_BE))
 
 #define NEOISP_SUSPEND_TIMEOUT_MS (500)
 
@@ -146,7 +154,7 @@ struct neoisp_fmt_s {
 	__u32 bit_depth;
 	__u32 num_planes;
 	__u8 pl_divisors[VB2_MAX_PLANES];
-	__u8 ibpp;
+	__u8 bpp_enc;
 	__u8 is_rgb;
 	__u32 colorspace_mask;
 	enum v4l2_colorspace colorspace_default;
