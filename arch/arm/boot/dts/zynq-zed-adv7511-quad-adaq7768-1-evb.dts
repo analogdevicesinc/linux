@@ -76,76 +76,9 @@
 		#address-cells = <0x1>;
 		#size-cells = <0x0>;
 
-		adc@4 {
-			compatible = "adi,quad-adaq7768-1";
-			//reg = <0, 1, 2, 3>;
-			reg = <4>;
-
-			spi-max-frequency = <2000000>;
-			spi-cpol;
-			spi-cpha;
-			vref-supply = <&vref>;
-			interrupts = <25 IRQ_TYPE_EDGE_RISING>;
-			interrupt-parent = <&gpio0>;
-			adi,sync-in-gpios = <&gpio0 22 GPIO_ACTIVE_LOW>;
-			reset-gpios = <&gpio0 27 GPIO_ACTIVE_LOW>;
-			clocks = <&ad7768_1_mclk>;
-			clock-names = "mclk";
-
-			adc0 = <&frst_adaq7768_1>;
-			adc1 = <&scnd_adaq7768_1>;
-			adc2 = <&thrd_adaq7768_1>;
-			adc3 = <&frth_adaq7768_1>;
-		};
-
-		frst_adaq7768_1: adc@0 {
-			compatible = "adi,adaq7768-1";
-			reg = <0>;
-			spi-max-frequency = <40000000>;
-			spi-cpol;
-			spi-cpha;
-			vref-supply = <&vref>;
-			adi,sync-in-spi;
-			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
-			clocks = <&ad7768_1_mclk>;
-			clock-names = "mclk";
-			dmas = <&rx_dma 0>;
-			dma-names = "rx";
-			#io-channel-cells = <1>;
-		};
-		scnd_adaq7768_1: adc@1 {
-			compatible = "adi,adaq7768-1";
-			reg = <1>;
-			spi-max-frequency = <40000000>;
-			spi-cpol;
-			spi-cpha;
-			vref-supply = <&vref>;
-			adi,sync-in-spi;
-			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
-			clocks = <&ad7768_1_mclk>;
-			clock-names = "mclk";
-			dmas = <&rx_dma 0>;
-			dma-names = "rx";
-			#io-channel-cells = <1>;
-		};
-		thrd_adaq7768_1: adc@2 {
-			compatible = "adi,adaq7768-1";
-			reg = <2>;
-			spi-max-frequency = <40000000>;
-			spi-cpol;
-			spi-cpha;
-			vref-supply = <&vref>;
-			adi,sync-in-spi;
-			reset-gpios = <&gpio0 86 GPIO_ACTIVE_LOW>;
-			clocks = <&ad7768_1_mclk>;
-			clock-names = "mclk";
-			dmas = <&rx_dma 0>;
-			dma-names = "rx";
-			#io-channel-cells = <1>;
-		};
-		frth_adaq7768_1: adc@3 {
-			compatible = "adi,adaq7768-1";
-			reg = <3>;
+		adaq7768_1: adc@0 {
+			compatible = "adi,quad_adaq7768-1";
+			reg = <0 1 2 3>; //builds
 			spi-max-frequency = <40000000>;
 			spi-cpol;
 			spi-cpha;
