@@ -847,21 +847,23 @@ static enum drm_mode_status
 imx95_dsi_validate_mode(struct imx95_dsi *dsi, const struct drm_display_mode *mode)
 {
 	struct drm_bridge *bridge = dw_mipi_dsi_get_bridge(dsi->dmd);
+	struct drm_encoder *encoder = bridge->encoder;
+	struct drm_bridge *iter;
 
-	/* Get the last bridge */
-	while (drm_bridge_get_next_bridge(bridge))
-		bridge = drm_bridge_get_next_bridge(bridge);
+	list_for_each_entry_reverse(iter, &encoder->bridge_chain, chain_node) {
+		if ((iter->ops & DRM_BRIDGE_OP_DETECT) &&
+		    (iter->ops & DRM_BRIDGE_OP_EDID)) {
+			/*
+			 * Since clk_round_rate() returns unreasonable rate for
+			 * dsi->clk_pixel, we have to validate mode against
+			 * magic mode clock rates.
+			 */
+			if (mode->clock != 297000 && mode->clock != 148500 &&
+			    mode->clock != 74250)
+				return MODE_NOCLOCK;
 
-	if ((bridge->ops & DRM_BRIDGE_OP_DETECT) &&
-	    (bridge->ops & DRM_BRIDGE_OP_EDID)) {
-		/*
-		 * Since clk_round_rate() returns unreasonable rate for
-		 * dsi->clk_pixel, we have to validate mode against
-		 * magic mode clock rates.
-		 */
-		if (mode->clock != 297000 && mode->clock != 148500 &&
-		    mode->clock != 74250)
-			return MODE_NOCLOCK;
+			break;
+		}
 	}
 
 	return MODE_OK;
