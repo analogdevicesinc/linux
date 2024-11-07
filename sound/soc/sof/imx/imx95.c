@@ -240,7 +240,7 @@ static int imx95_set_power_state(struct snd_sof_dev *sdev,
 static int imx95_suspend_resume(struct snd_sof_dev *sdev, bool suspend)
 {
 	struct imx95_priv *priv;
-	int ret;
+	int ret, i;
 
 	priv = sdev->pdata->hw_pdata;
 
@@ -252,12 +252,18 @@ static int imx95_suspend_resume(struct snd_sof_dev *sdev, bool suspend)
 		}
 
 		clk_bulk_disable_unprepare(priv->clk_num, priv->clks);
+
+		for (i = 0; i < DSP_MU_CHAN_NUM; i++)
+			imx_dsp_free_channel(priv->ipc_handle, i);
 	} else {
 		ret = clk_bulk_prepare_enable(priv->clk_num, priv->clks);
 		if (ret < 0) {
 			dev_err(sdev->dev, "failed to enable clocks: %d\n", ret);
 			return ret;
 		}
+
+		for (i = 0; i < DSP_MU_CHAN_NUM; i++)
+			imx_dsp_request_channel(priv->ipc_handle, i);
 	}
 
 	return 0;
