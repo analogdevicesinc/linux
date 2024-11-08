@@ -24,9 +24,11 @@ properties:
   compatible:
     oneOf:
       - enum:
+          - fsl,imx8-parallel-csi
           - fsl,imx93-parallel-csi
           - fsl,imx91-parallel-csi
       - items:
+          - const: fsl,imx8-parallel-csi
           - const: fsl,imx93-parallel-csi
           - const: fsl,imx91-parallel-csi
 
@@ -41,7 +43,7 @@ properties:
       - const: pixel, ipg
 
   power-domains:
-    maxItems: 1
+    maxItems: 2
 
   port:
     $ref: /schemas/graph.yaml#/properties/port
@@ -54,18 +56,6 @@ required:
   - port
 
 additionalProperties: false
-
-allOf:
-  - if:
-      properties:
-        compatible:
-          contains:
-            enum:
-              - fsl,imx93-parallel-csi
-              - fsl,imx91-parallel-csi
-    then:
-      required:
-        - power-domains
 
 examples:
   - |
