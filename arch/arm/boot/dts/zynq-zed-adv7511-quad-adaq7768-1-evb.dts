@@ -90,6 +90,26 @@
 			dmas = <&rx_dma 0>;
 			dma-names = "rx";
 			#io-channel-cells = <1>;
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			channel@0 {
+				reg = <0>;
+				label = "channel_0";
+			};
+			channel@1 {
+				reg = <1>;
+				label = "channel_1";
+			};
+			channel@2 {
+				reg = <2>;
+				label = "channel_2";
+			};
+			channel@3 {
+				reg = <3>;
+				label = "channel_3";
+			};
 		};
 	};
 };
