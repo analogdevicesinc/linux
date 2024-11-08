@@ -47,7 +47,8 @@ struct adrv906x_tsu {
 };
 
 void adrv906x_tsu_set_speed(struct adrv906x_tsu *tsu, int speed);
-int adrv906x_tsu_setup(struct platform_device *pdev, struct adrv906x_tsu *tsu, struct device_node *eth_port_np);
+int adrv906x_tsu_setup(struct platform_device *pdev, struct adrv906x_tsu *tsu,
+		       struct device_node *eth_port_np);
 void adrv906x_tsu_calculate_phy_delay(struct adrv906x_tsu *tsu, int speed,
 				      bool rs_fec_enabled, u32 bit_slip,
 				      u32 buf_delay_tx, u32 buf_delay_rx);

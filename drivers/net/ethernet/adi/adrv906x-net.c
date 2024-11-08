@@ -385,7 +385,7 @@ static void adrv906x_eth_adjust_link(struct net_device *ndev)
 	struct phy_device *phydev = ndev->phydev;
 	struct adrv906x_tsu *tsu;
 
-	tsu = &(adrv906x_dev->tsu);
+	tsu = &adrv906x_dev->tsu;
 	adrv906x_tsu_set_speed(tsu, phydev->speed);
 
 	if (!phydev->link) {
@@ -624,7 +624,8 @@ static int adrv906x_eth_change_mtu(struct net_device *ndev, int new_mtu)
 	if (netif_running(ndev))
 		return -EBUSY;
 	if (new_mtu > ndev->max_mtu) {
-		netdev_err(ndev, "Tried to set mtu size to a bigger than max, maximum value is %d", ndev->max_mtu);
+		netdev_err(ndev, "Tried to set mtu size to a bigger than max, maximum value is %d",
+			   ndev->max_mtu);
 		return -EINVAL;
 	}
 	ndev->mtu = new_mtu;
@@ -841,7 +842,8 @@ static int adrv906x_eth_open(struct net_device *ndev)
 
 	phy_start(ndev->phydev);
 
-	adrv906x_ndma_open(ndma_dev, adrv906x_eth_tx_callback, adrv906x_eth_rx_callback, ndev, false);
+	adrv906x_ndma_open(ndma_dev, adrv906x_eth_tx_callback, adrv906x_eth_rx_callback, ndev,
+			   false);
 
 #if IS_ENABLED(CONFIG_MACSEC)
 	if (adrv906x_dev->macsec.enabled)
@@ -1034,7 +1036,8 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 	struct adrv906x_tsu *tsu;
 	struct device *dev = &pdev->dev;
 	struct device_node *np = dev->of_node;
-	struct device_node *eth_ports_np, *port_np, *oran_if_np, *eth_recov_clk_np, *ndma_np, *mdio_np;
+	struct device_node *eth_ports_np, *port_np, *oran_if_np, *eth_recov_clk_np, *ndma_np,
+			   *mdio_np;
 	struct adrv906x_ndma_dev *ndma_devs[MAX_NETDEV_NUM] = { NULL };
 	unsigned int ndma_num;
 	int ret, i;
@@ -1090,7 +1093,7 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 		if (ret)
 			goto error;
 
-		tsu = &(adrv906x_dev->tsu);
+		tsu = &adrv906x_dev->tsu;
 		ret = adrv906x_tsu_setup(pdev, tsu, port_np);
 		if (ret)
 			goto error;
