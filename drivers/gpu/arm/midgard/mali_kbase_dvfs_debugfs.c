@@ -44,6 +44,11 @@ static int kbasep_dvfs_utilization_debugfs_show(struct seq_file *file, void *dat
 		   kbdev->pm.backend.metrics.values.time_idle,
 		   kbdev->pm.backend.metrics.values.time_in_protm);
 
+	seq_printf(file, "shader_frag_busy_time: %llu shader_compute_busy_time: %llu tiler_busy_time: %llu\n",
+		   kbdev->pm.backend.metrics.values.shader_frag_time_busy,
+		   kbdev->pm.backend.metrics.values.shader_compute_time_busy,
+		   kbdev->pm.backend.metrics.values.tiler_time_busy);
+
 #else
 	seq_printf(file, "busy_time: %u idle_time: %u\n",
 		   kbdev->pm.backend.metrics.values.time_busy,

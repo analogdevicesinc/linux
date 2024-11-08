@@ -175,10 +175,22 @@ struct kbasep_pm_metrics {
 	u64 time_idle;
 #if MALI_USE_CSF
 	u64 time_in_protm;
+	u64 shader_frag_time_busy;
+	u64 shader_compute_time_busy;
+	u64 tiler_time_busy;
+
 #else
 	u32 busy_cl[2];
 	u32 busy_gl;
 #endif
+};
+
+enum kbase_pm_metrics_counter_type {
+	KBASE_PM_METRICS_CNT_GPU = 0,
+	KBASE_PM_METRICS_CNT_SHADER_FRAG,
+	KBASE_PM_METRICS_CNT_SHADER_COMPUTE,
+	KBASE_PM_METRICS_CNT_TILER,
+	KBASE_PM_METRICS_CNT_COUNT
 };
 
 /**
