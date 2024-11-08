@@ -1222,6 +1222,7 @@
 				method = "smc";
 				memory-region = <&service_reserved>;
 				iommus = <&smmu 10>;
+				interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>;
 				altr,smmu_enable_quirk;
 
 				fpga_mgr: fpga-mgr {
