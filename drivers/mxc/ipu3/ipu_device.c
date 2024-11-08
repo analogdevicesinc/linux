@@ -3259,8 +3259,7 @@ static int ipu_task_thread(void *argv)
 	if (!data->is_vdoa) {
 		cpu = cpumask_first(cpu_online_mask);
 		cpumask_set_cpu(cpu, &cpu_mask);
-		ret = sched_setaffinity(data->ipu->thread[data->id]->pid,
-			&cpu_mask);
+		ret = sched_setaffinity(current->pid, &cpu_mask);
 		if (ret < 0) {
 			pr_err("%s: sched_setaffinity fail:%d.\n", __func__, ret);
 		}
