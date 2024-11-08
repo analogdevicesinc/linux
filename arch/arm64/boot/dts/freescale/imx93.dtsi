@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 /*
- * Copyright 2022 NXP
+ * Copyright 2022, 2024 NXP
  */
 
 #include <dt-bindings/clock/imx93-clock.h>
@@ -1646,8 +1646,8 @@
 		status = "disabled";
 	};
 
-	ele_fw2: se-fw2 {
-		compatible = "fsl,imx93-se-fw";
+	ele_fw2: secure-enclave {
+		compatible = "fsl,imx93-se";
 		mbox-names = "tx", "rx";
 		mboxes = <&s4muap 0 0>,
 			<&s4muap 1 0>;
