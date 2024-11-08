@@ -1141,7 +1141,8 @@ void adrv906x_ndma_config_loopback(struct adrv906x_ndma_dev *ndma_dev, bool enab
 		ndma_dev->loopback_en = true;
 		tx_chan->tx_loopback_wu[0] = NDMA_TX_HDR_TYPE_LOOPBACK;
 		tx_chan->tx_loopback_addr = dma_map_single(ndma_dev->dev, tx_chan->tx_loopback_wu,
-							   NDMA_TX_HDR_LOOPBACK_SIZE, DMA_TO_DEVICE);
+							   NDMA_TX_HDR_LOOPBACK_SIZE,
+							   DMA_TO_DEVICE);
 		tx_chan->tx_loopback_desc.cfg = (DESCIDCPY | DI_EN_X | NDSIZE_4 |
 						 WDSIZE_8 | PSIZE_32 | DMAEN);
 		tx_chan->tx_loopback_desc.xcnt = NDMA_TX_HDR_LOOPBACK_SIZE / XMODE_8;
@@ -1322,7 +1323,8 @@ static int adrv906x_ndma_parse_rx_status_header(struct adrv906x_ndma_chan *ndma_
 
 	get_ts_from_status(status_hdr, ts);
 	*port_id = FIELD_GET(NDMA_RX_HDR_STATUS_PORT_ID, status_hdr[0]);
-	*frame_size = (status_hdr[NDMA_RX_FRAME_LEN_MSB] << 8) | (status_hdr[NDMA_RX_FRAME_LEN_LSB]);
+	*frame_size = (status_hdr[NDMA_RX_FRAME_LEN_MSB] << 8) |
+		      (status_hdr[NDMA_RX_FRAME_LEN_LSB]);
 
 	if (NDMA_RX_HDR_STATUS_FR_ERR & status_hdr[0]) {
 		error = ioread32(ndma_ch->ctrl_base + NDMA_RX_EVENT_STAT) & NDMA_RX_ERROR_EVENTS;
@@ -1336,7 +1338,8 @@ static int adrv906x_ndma_parse_rx_status_header(struct adrv906x_ndma_chan *ndma_
 			stats->rx.frame_size_errors++;
 			if (NDMA_RX_HDR_STATUS_FR_DROP_ERR & status_hdr[0])
 				dev_dbg(dev, "partial frame dropped error");
-			iowrite32(NDMA_RX_FRAME_SIZE_ERR_EVENT, ndma_ch->ctrl_base + NDMA_RX_EVENT_STAT);
+			iowrite32(NDMA_RX_FRAME_SIZE_ERR_EVENT,
+				  ndma_ch->ctrl_base + NDMA_RX_EVENT_STAT);
 			ret = NDMA_RX_FRAME_SIZE_ERR_EVENT;
 		} else if (NDMA_RX_ERR_EVENT & error) {
 			dev_dbg(dev, "mac error(s) signaled by tuser[0]");
@@ -1345,7 +1348,8 @@ static int adrv906x_ndma_parse_rx_status_header(struct adrv906x_ndma_chan *ndma_
 			ret = NDMA_RX_ERR_EVENT;
 		} else if (NDMA_RX_FRAME_DROPPED_ERR_EVENT & error) {
 			dev_dbg(dev, "frame dropped error");
-			iowrite32(NDMA_RX_FRAME_DROPPED_ERR_EVENT, ndma_ch->ctrl_base + NDMA_RX_EVENT_STAT);
+			iowrite32(NDMA_RX_FRAME_DROPPED_ERR_EVENT,
+				  ndma_ch->ctrl_base + NDMA_RX_EVENT_STAT);
 			ret = NDMA_RX_FRAME_DROPPED_ERR_EVENT;
 		} else {
 			dev_dbg(dev, "status wu has error flag set but no interrupt generated");
@@ -1410,7 +1414,8 @@ static struct sk_buff *adrv906x_ndma_rx_build_linear_pkt_buf(struct list_head *d
 			goto out;
 		list_for_each(pos, data_wu_list) {
 			frag = list_entry(pos, struct sk_buff, list);
-			length = (frame_size > NDMA_RX_PKT_BUF_SIZE) ? NDMA_RX_PKT_BUF_SIZE : frame_size;
+			length = (frame_size > NDMA_RX_PKT_BUF_SIZE) ?
+				 NDMA_RX_PKT_BUF_SIZE : frame_size;
 			frame_size -= length;
 			skb_put(frag, NDMA_RX_HDR_DATA_SIZE + length);
 			skb_pull(frag, NDMA_RX_HDR_DATA_SIZE);
@@ -1440,14 +1445,15 @@ static void adrv906x_ndma_process_rx_work_unit(struct adrv906x_ndma_chan *ndma_c
 		if (list_empty(&ndma_ch->rx_data_wu_list)) {
 			dev_dbg(dev, "status received without preceding data work units");
 		} else {
-			ret = adrv906x_ndma_parse_rx_status_header(ndma_ch, skb->data, &ts, &port_id,
-								   &frame_size);
+			ret = adrv906x_ndma_parse_rx_status_header(ndma_ch, skb->data, &ts,
+								   &port_id, &frame_size);
 			if (ret == NDMA_NO_ERROR || ret == NDMA_RX_SEQNUM_MISMATCH_ERROR ||
 			    unlikely(ndma_dev->loopback_en)) {
 				pktbuf = adrv906x_ndma_rx_build_linear_pkt_buf(&ndma_ch->rx_data_wu_list,
 									       frame_size);
 				if (pktbuf)
-					ndma_ch->status_cb_fn(pktbuf, port_id, ts, ndma_ch->status_cb_param);
+					ndma_ch->status_cb_fn(pktbuf, port_id, ts,
+							      ndma_ch->status_cb_param);
 			}
 		}
 		adrv906x_ndma_rx_free_data_wu_list(&ndma_ch->rx_data_wu_list, budget);
@@ -1457,7 +1463,8 @@ static void adrv906x_ndma_process_rx_work_unit(struct adrv906x_ndma_chan *ndma_c
 		if (FIELD_GET(NDMA_RX_HDR_TYPE_DATA_SOF, skb->data[0])) {
 			if (!list_empty(&ndma_ch->rx_data_wu_list)) {
 				dev_dbg(dev, "no status received for previous data work units");
-				adrv906x_ndma_rx_free_data_wu_list(&ndma_ch->rx_data_wu_list, budget);
+				adrv906x_ndma_rx_free_data_wu_list(&ndma_ch->rx_data_wu_list,
+								   budget);
 			}
 			list_add_tail(&skb->list, &ndma_ch->rx_data_wu_list);
 		} else {
@@ -1509,7 +1516,8 @@ static int adrv906x_ndma_parse_tx_status_header(struct adrv906x_ndma_chan *ndma_
 			ndma_ch->expected_seq_num++;
 
 		if (NDMA_TX_HDR_STATUS_FR_ERR & status_hdr[0]) {
-			if (adrv906x_ndma_chan_enabled(ndma_ch) && is_timestamp_all_zero(status_hdr)) {
+			if (adrv906x_ndma_chan_enabled(ndma_ch) &&
+			    is_timestamp_all_zero(status_hdr)) {
 				dev_dbg(dev, "hw timestamp timeout error");
 				stats->tx.tstamp_timeout_errors++;
 				ret = NDMA_TX_TSTAMP_TIMEOUT_ERROR;
@@ -1518,7 +1526,8 @@ static int adrv906x_ndma_parse_tx_status_header(struct adrv906x_ndma_chan *ndma_
 				 * Note: More than one error bit in IRQ status register can be set,
 				 * so to avoid losing them, we clear only one error bit at a time.
 				 */
-				error = ioread32(ndma_ch->ctrl_base + NDMA_TX_EVENT_STAT) & NDMA_TX_ERROR_EVENTS;
+				error = ioread32(ndma_ch->ctrl_base + NDMA_TX_EVENT_STAT) &
+					NDMA_TX_ERROR_EVENTS;
 
 				if (NDMA_TX_FRAME_SIZE_ERR_EVENT & error) {
 					dev_dbg(dev, "frame size error");
@@ -1529,7 +1538,8 @@ static int adrv906x_ndma_parse_tx_status_header(struct adrv906x_ndma_chan *ndma_
 				} else if (NDMA_TX_WU_HEADER_ERR_EVENT & error) {
 					dev_dbg(dev, "incorrect format of wu data header");
 					stats->tx.wu_data_header_errors++;
-					iowrite32(NDMA_TX_WU_HEADER_ERR_EVENT, ndma_ch->ctrl_base + NDMA_TX_EVENT_STAT);
+					iowrite32(NDMA_TX_WU_HEADER_ERR_EVENT, ndma_ch->ctrl_base +
+						  NDMA_TX_EVENT_STAT);
 					ret = NDMA_TX_DATA_HEADER_ERROR;
 				} else {
 					dev_dbg(dev, "unknown error: status register does not indicate an error");

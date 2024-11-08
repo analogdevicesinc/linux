@@ -596,7 +596,7 @@ static int adrv906x_test_near_end_loopback_test(struct net_device *ndev)
 	struct adrv906x_packet_attrs attr = { };
 	int ret;
 
-	netdev_printk(KERN_DEBUG, ndev, "adrv906x_test_near_end_loopback_test");
+	netdev_printk(KERN_DEBUG, ndev, "enter %s", __func__);
 
 	adrv906x_mac_set_path(mac, true);
 
@@ -622,8 +622,9 @@ out:
 	}
 
 	msleep(2000);
-	netdev_printk(KERN_DEBUG, ndev, "adrv906x_test_near_end_loopback_test done");
 	adrv906x_mac_set_path(mac, false);
+	netdev_printk(KERN_DEBUG, ndev, "%s done", __func__);
+
 	return ret;
 }
 
