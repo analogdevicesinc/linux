@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2019 NXP
+ * Copyright 2019, 2024 NXP
  */
 
 #include <dt-bindings/firmware/imx/rsrc.h>
@@ -72,15 +72,15 @@ security_subsys: bus@31400000 {
 	};
 };
 
-seco_mu1: seco-she {
-	compatible = "fsl,imx8dxl-se-fw";
+seco_mu1: secure-enclave-0 {
+	compatible = "fsl,imx8dxl-se";
 	mbox-names = "txdb", "rxdb";
 	mboxes = <&sec_mu2 2 0
 		  &sec_mu2 3 0>;
 };
 
-seco_mu2: se-fw2 {
-	compatible = "fsl,imx8dxl-se-fw";
+seco_mu2: secure-envlave-1{
+	compatible = "fsl,imx8dxl-se";
 	mbox-names = "txdb", "rxdb";
 	mboxes = <&sec_mu3 2 0
 		  &sec_mu3 3 0>;

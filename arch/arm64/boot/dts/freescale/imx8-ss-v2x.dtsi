@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0+
 /*
- * Copyright 2021 NXP
+ * Copyright 2021, 2024 NXP
  */
 
 #include <dt-bindings/firmware/imx/rsrc.h>
@@ -53,36 +53,36 @@ v2x_subsys: bus@2C000000 {
 	};
 };
 
-v2x_mu_sv0: v2x-sv0 {
-	compatible = "fsl,imx8dxl-se-fw";
+v2x_mu_sv0: secure-enclave-2 {
+	compatible = "fsl,imx8dxl-se";
 	mbox-names = "txdb", "rxdb";
 	mboxes = <&v2x_sv0 2 0
 		  &v2x_sv0 3 0>;
 	status = "okay";
 };
-v2x_mu_sv1: v2x-sv1 {
-	compatible = "fsl,imx8dxl-se-fw";
+v2x_mu_sv1: secure-enclave-3 {
+	compatible = "fsl,imx8dxl-se";
 	mbox-names = "txdb", "rxdb";
 	mboxes = <&v2x_sv1 2 0
 		  &v2x_sv1 3 0>;
 	status = "okay";
 };
-v2x_mu_she: v2x-she {
-	compatible = "fsl,imx8dxl-se-fw";
+v2x_mu_she: secure-enclave-4 {
+	compatible = "fsl,imx8dxl-se";
 	mbox-names = "txdb", "rxdb";
 	mboxes = <&v2x_she 2 0
 		  &v2x_she 3 0>;
 	status = "okay";
 };
-v2x_mu_sg0: v2x-sg0 {
-	compatible = "fsl,imx8dxl-se-fw";
+v2x_mu_sg0: secure-enclave-5 {
+	compatible = "fsl,imx8dxl-se";
 	mbox-names = "txdb", "rxdb";
 	mboxes = <&v2x_sg0 2 0
 		  &v2x_sg0 3 0>;
 	status = "okay";
 };
-v2x_mu_sg1: v2x-sg1 {
-	compatible = "fsl,imx8dxl-se-fw";
+v2x_mu_sg1: secure-enclave-6 {
+	compatible = "fsl,imx8dxl-se";
 	mbox-names = "txdb", "rxdb";
 	mboxes = <&v2x_sg1 2 0
 		  &v2x_sg1 3 0>;
