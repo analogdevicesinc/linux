@@ -70,6 +70,11 @@ struct se_ioctl_signed_message {
 	__u32 error_code;
 };
 
+struct se_time_frame {
+	struct timespec64 t_start;
+	struct timespec64 t_end;
+};
+
 /* IO Buffer Flags */
 #define SE_IO_BUF_FLAGS_IS_OUTPUT	(0x00u)
 #define SE_IO_BUF_FLAGS_IS_INPUT	(0x01u)
@@ -130,4 +135,11 @@ struct se_ioctl_signed_message {
  */
 #define SE_IOCTL_CMD_SEND_RCV_RSP _IOWR(SE_IOCTL, 0x07, \
 					struct se_ioctl_cmd_snd_rcv_rsp_info)
+
+/*
+ * ioctl to capture the timestamp at the request to FW and response from FW
+ * for a crypto operation
+ */
+#define SE_IOCTL_GET_TIMER	_IOR(SE_IOCTL, 0x08, struct se_time_frame)
+
 #endif

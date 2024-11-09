@@ -112,6 +112,12 @@ struct se_lg_fl_info {
 	struct file *lg_file;
 	struct path root;
 };
+
+struct perf_time_frame {
+	struct timespec64 t_start;
+	struct timespec64 t_end;
+};
+
 struct se_if_priv {
 	struct list_head priv_data;
 	struct device *dev;
@@ -142,6 +148,8 @@ struct se_if_priv {
 	struct list_head dev_ctx_list;
 	u32 active_devctx_count;
 	u32 dev_ctx_mono_count;
+
+	struct perf_time_frame time_frame;
 };
 
 #define SE_DUMP_IOCTL_BUFS	0
