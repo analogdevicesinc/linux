@@ -97,8 +97,6 @@ struct ele_dev_info {
 #define ELE_READ_FUSE_RSP_MSG_SZ	0x0C
 #define ELE_READ_FUSE_OTP_UNQ_ID_RSP_MSG_SZ \
 					0x1C
-#define OTP_UNIQ_ID			0x01
-#define OTFAD_CONFIG			0x2
 
 #define ELE_VOLT_CHANGE_START_REQ			0x12
 #define ELE_VOLT_CHANGE_FINISH_REQ			0x13

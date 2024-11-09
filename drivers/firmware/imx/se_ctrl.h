@@ -112,6 +112,7 @@ struct se_lg_fl_info {
 	struct path root;
 };
 struct se_if_priv {
+	struct list_head priv_data;
 	struct device *dev;
 
 	struct se_clbk_handle cmd_receiver_clbk_hdl;

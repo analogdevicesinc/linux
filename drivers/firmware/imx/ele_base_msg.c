@@ -8,6 +8,7 @@
 #include <linux/completion.h>
 #include <linux/dma-mapping.h>
 #include <linux/genalloc.h>
+#include <linux/firmware/imx/se_api.h>
 
 #include "ele_base_msg.h"
 #include "ele_common.h"
@@ -382,26 +383,30 @@ exit:
 }
 
 /**
- * read_common_fuse() - Brief description of function.
- * @struct device *dev: Device to send the request to read fuses.
- * @uint16_t fuse_id: Fuse identifier to read.
- * @u32 *value: unsigned integer array to store the fused-values.
+ * imx_se_write_fuse() - API to request SE-FW to write to fuses.
+ * @void *se_if_data: refs to data attached to the se interface.
+ * @uint16_t fuse_index: Fuse identifier to write to.
+ * @u32 value: unsigned integer value that to be written to the fuse.
+ * @bool block: Flag to check if it is a block.
  *
  * Secure-enclave like EdgeLock Enclave, manages the fuse. This API
- * requests FW to read the common fuses. FW sends the read value as
- * response.
+ * requests the FW to read the common fuses. FW responds with the read
+ * values.
  *
- * Context: This function takes two mutex locks: one on the command
- *          and second on the message unit.
- *          such that multiple commands cannot be sent.
- *          for the device Describes whether the function can sleep, what locks it takes,
- *          releases, or expects to be held. It can extend over multiple
- *          lines.
- * Return: Describe the return value of function_name.
+ * Context:
  *
- * The return value description can also have multiple paragraphs, and should
- * be placed at the end of the comment block.
+ * Return value:
+ *   0,   means success.
+ *   < 0, means failure.
  */
+int imx_se_write_fuse(void *se_if_data, uint16_t fuse_index,
+		   u32 value, bool block)
+{
+	return ele_write_fuse((struct se_if_priv *)se_if_data, fuse_index,
+				value, block);
+}
+EXPORT_SYMBOL_GPL(imx_se_write_fuse);
+
 int read_common_fuse(struct se_if_priv *priv,
 		     uint16_t fuse_id, u32 *value)
 {
@@ -472,6 +477,29 @@ exit:
 	return ret;
 }
 
+/**
+ * imx_se_read_fuse() - API to request SE-FW to read the fuse(s) value.
+ * @void *se_if_data: refs to data attached to the se interface.
+ * @uint16_t fuse_id: Fuse identifier to read.
+ * @u32 *value: unsigned integer array to store the fused-values.
+ *
+ * Secure-enclave like EdgeLock Enclave, manages the fuse. This API
+ * requests the FW to read the common fuses. FW responds with the read
+ * values.
+ *
+ * Context:
+ *
+ * Return value:
+ *   0,   means success.
+ *   < 0, means failure.
+ */
+int imx_se_read_fuse(void *se_if_data,
+		     uint16_t fuse_id, u32 *value)
+{
+	return read_common_fuse((struct se_if_priv *)se_if_data, fuse_id, value);
+}
+EXPORT_SYMBOL_GPL(imx_se_read_fuse);
+
 int ele_voltage_change_req(struct se_if_priv *priv, bool start)
 {
 	struct se_api_msg *tx_msg __free(kfree) = NULL;
@@ -520,3 +548,25 @@ int ele_voltage_change_req(struct se_if_priv *priv, bool start)
 exit:
 	return ret;
 }
+
+/**
+ * imx_se_voltage_change_req() - API to request change in voltage.
+ * @void *se_if_data: refs to data attached to the se interface.
+ * @bool start: if true, trigger the change in voltage.
+ *              if false, finish the change in voltage.
+ *
+ * Secure-enclave like EdgeLock Enclave, manages the fuse. This API
+ * requests the FW to read the common fuses. FW responds with the read
+ * values.
+ *
+ * Context:
+ *
+ * Return value:
+ *   0,   means success.
+ *   < 0, means failure.
+ */
+int imx_se_voltage_change_req(void *se_if_data, bool start)
+{
+	return ele_voltage_change_req((struct se_if_priv *)se_if_data, start);
+}
+EXPORT_SYMBOL_GPL(imx_se_voltage_change_req);

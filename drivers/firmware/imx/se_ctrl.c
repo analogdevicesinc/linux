@@ -90,6 +90,8 @@ static struct se_var_info var_se_info = {
 	},
 };
 
+static LIST_HEAD(priv_data_list);
+
 static struct se_if_node_info_list imx8ulp_info = {
 	.num_mu = 1,
 	.soc_id = SOC_ID_OF_IMX8ULP,
@@ -193,6 +195,46 @@ uint32_t get_se_soc_id(struct se_if_priv *priv)
 		return info_list->soc_id;
 
 }
+
+void *imx_get_se_data_info(uint32_t soc_id, u32 idx)
+{
+	const struct se_if_node_info_list *info_list;
+	struct se_if_priv *priv;
+
+	if (var_se_info.soc_id != soc_id)
+		return NULL;
+
+	switch (var_se_info.soc_id) {
+	case SOC_ID_OF_IMX8ULP:
+		info_list = &imx8ulp_info; break;
+	case SOC_ID_OF_IMX8DXL:
+		info_list = &imx8dxl_info; break;
+	case SOC_ID_OF_IMX8QXP:
+		info_list = &imx8dxl_info; break;
+	case SOC_ID_OF_IMX93:
+		info_list = &imx93_info; break;
+	case SOC_ID_OF_IMX95:
+		info_list = &imx95_info; break;
+	default:
+		return NULL;
+	}
+
+	if (idx >= info_list->num_mu) {
+		pr_err("%s-<index>, acceptable index range is 0..%d\n",
+			NODE_NAME,
+			info_list->num_mu - 1);
+		return NULL;
+	}
+
+	list_for_each_entry(priv, &priv_data_list, priv_data) {
+		if (priv->if_defs == &info_list->info[idx].if_defs)
+			return (void *)priv;
+	}
+	pr_err("No matching index found for soc_id = %d.", soc_id);
+
+	return NULL;
+}
+EXPORT_SYMBOL_GPL(imx_get_se_data_info);
 
 static int se_soc_info(struct se_if_priv *priv)
 {
@@ -1317,6 +1359,7 @@ static void se_if_probe_cleanup(void *plat_dev)
 				ERR_PTR(wret));
 	}
 
+	__list_del_entry(&priv->priv_data);
 	/* No need to check, if reserved memory is allocated
 	 * before calling for its release. Or clearing the
 	 * un-set bit.
@@ -1363,6 +1406,8 @@ static int se_if_probe(struct platform_device *pdev)
 	priv->dev = dev;
 	priv->if_defs = &info->if_defs;
 	dev_set_drvdata(dev, priv);
+
+	list_add_tail(&priv->priv_data, &priv_data_list);
 
 	ret = devm_add_action(dev, se_if_probe_cleanup, pdev);
 	if (ret)
