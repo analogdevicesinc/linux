@@ -12,6 +12,7 @@
 #include <net/genetlink.h>
 #include "adrv906x-phy-serdes.h"
 #include "adrv906x-net.h"
+#include "adrv906x-cmn.h"
 
 #define SERDES_GENL_NAME         "adrv906x"
 #define SERDES_GENL_VERSION      1

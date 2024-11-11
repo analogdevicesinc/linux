@@ -21,6 +21,7 @@
 #include <net/tcp.h>
 #include <net/udp.h>
 #include "adrv906x-net.h"
+#include "adrv906x-cmn.h"
 #include "adrv906x-mac.h"
 #include "adrv906x-phy.h"
 #include "adrv906x-ethtool.h"
@@ -540,47 +541,22 @@ cleanup:
 static int adrv906x_test_set_phy_loopback(struct net_device *ndev, bool enable)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
-	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
 	struct phy_device *phydev = ndev->phydev;
-	void __iomem *regs;
-	u32 ctrl0, ctrl2, loopback_bit, enable_bits;
 
 	/* Start/stop update of PHY status in PAL */
 	phy_loopback(phydev, enable);
-
-	if (adrv906x_dev->port == 0) {
-		loopback_bit = EMAC_CMN_LOOPBACK_BYPASS_DESER_0;
-		enable_bits = EMAC_CMN_RX_LINK0_EN | EMAC_CMN_TX_LINK0_EN;
-	} else {
-		loopback_bit = EMAC_CMN_LOOPBACK_BYPASS_DESER_1;
-		enable_bits = EMAC_CMN_RX_LINK1_EN | EMAC_CMN_TX_LINK1_EN;
-	}
-
-	regs = adrv906x_dev->parent->emac_cmn_regs;
-
-	mutex_lock(&eth_if->mtx);
-	ctrl0 = ioread32(regs + EMAC_CMN_DIGITAL_CTRL0);
-	ctrl2 = ioread32(regs + EMAC_CMN_DIGITAL_CTRL2);
-
-	ctrl0 &= ~enable_bits;
-	iowrite32(ctrl0, regs + EMAC_CMN_DIGITAL_CTRL0);
 
 	if (enable) {
 		mutex_lock(&phydev->lock);
 		phydev->dev_flags |= ADRV906X_PHY_FLAGS_LOOPBACK_TEST;
 		mutex_unlock(&phydev->lock);
-		ctrl2 |= loopback_bit;
 	} else {
 		mutex_lock(&phydev->lock);
 		phydev->dev_flags &= ~ADRV906X_PHY_FLAGS_LOOPBACK_TEST;
 		mutex_unlock(&phydev->lock);
-		ctrl2 &= ~loopback_bit;
 	}
-	iowrite32(ctrl2, regs + EMAC_CMN_DIGITAL_CTRL2);
 
-	ctrl0 |= enable_bits;
-	iowrite32(ctrl0, regs + EMAC_CMN_DIGITAL_CTRL0);
-	mutex_unlock(&eth_if->mtx);
+	adrv906x_cmn_set_phy_loopback(adrv906x_dev, enable);
 
 	/* Give PHY time to establish link */
 	msleep(2000);
@@ -631,36 +607,26 @@ out:
 static int adrv906x_test_far_end_loopback_test(struct net_device *ndev)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
-	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
-	static bool loopback_state;
-	u32 val = 0, loopback_bit;
-	void __iomem *regs;
+	static bool loopback_state[2];
+	u32 index;
 
 	netdev_printk(KERN_DEBUG, ndev, "adrv906x_test_far_end_loopback_test");
-	regs = adrv906x_dev->parent->emac_cmn_regs;
 
-	loopback_bit = adrv906x_dev->port == 0 ?
-		       EMAC_CMN_LOOPBACK_BYPASS_MAC_0 : EMAC_CMN_LOOPBACK_BYPASS_MAC_1;
+	index = adrv906x_dev->port;
+	if (index > 1) {
+		netdev_err(ndev, "port index %d is out of range", index);
+		return -EFAULT;
+	}
 
-	if (loopback_state) {
-		mutex_lock(&eth_if->mtx);
-		val = ioread32(regs + EMAC_CMN_DIGITAL_CTRL2);
-		iowrite32(val & (~loopback_bit), regs + EMAC_CMN_DIGITAL_CTRL2);
-		mutex_unlock(&eth_if->mtx);
-
-		loopback_state = 0;
+	if (loopback_state[index]) {
+		adrv906x_cmn_set_mac_loopback(adrv906x_dev, false);
+		loopback_state[index] = 0;
 		netif_start_queue(ndev);
 		netdev_info(ndev, "Turn off MAC loopback");
 	} else {
 		netif_stop_queue(ndev);
-
-		mutex_lock(&eth_if->mtx);
-		val = ioread32(regs + EMAC_CMN_DIGITAL_CTRL2);
-		val |= loopback_bit;
-		iowrite32(val, regs + EMAC_CMN_DIGITAL_CTRL2);
-		mutex_unlock(&eth_if->mtx);
-
-		loopback_state = 1;
+		adrv906x_cmn_set_mac_loopback(adrv906x_dev, true);
+		loopback_state[index] = 1;
 		netdev_info(ndev, "Turn on MAC loopback");
 	}
 
