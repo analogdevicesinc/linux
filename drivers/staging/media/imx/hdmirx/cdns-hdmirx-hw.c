@@ -11,9 +11,9 @@
 #include "cdns-mhdp-hdmirx.h"
 #include "cdns-hdmirx-phy.h"
 
-#include <asm/unaligned.h>
 #include <linux/firmware.h>
 #include <linux/ktime.h>
+#include <linux/unaligned.h>
 
 u8 block0[128] = {
 	0x00, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x00,

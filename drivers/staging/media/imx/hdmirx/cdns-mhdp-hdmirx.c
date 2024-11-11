@@ -8,8 +8,8 @@
  *
  */
 
-#include <asm/unaligned.h>
 #include <drm/bridge/cdns-mhdp.h>
+#include <linux/unaligned.h>
 #include "cdns-mhdp-hdmirx.h"
 
 #define MAILBOX_RETRY_US		1000
