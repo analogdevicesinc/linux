@@ -2006,10 +2006,6 @@ static const struct mx6s_csi_soc mx6sl_soc = {
 	.rx_fifo_rst = false,
 	.baseaddr_switch = 0,
 };
-static const struct mx6s_csi_soc mx8mq_soc = {
-	.rx_fifo_rst = true,
-	.baseaddr_switch = 0x80030,
-};
 
 static const struct of_device_id mx6s_csi_dt_ids[] = {
 	{ .compatible = "fsl,imx6s-csi",
@@ -2017,9 +2013,6 @@ static const struct of_device_id mx6s_csi_dt_ids[] = {
 	},
 	{ .compatible = "fsl,imx6sl-csi",
 	  .data = &mx6sl_soc,
-	},
-	{ .compatible = "fsl,imx8mq-csi",
-	  .data = &mx8mq_soc,
 	},
 	{ /* sentinel */ }
 };
