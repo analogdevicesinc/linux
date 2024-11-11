@@ -20,12 +20,11 @@
 #include <linux/iopoll.h>
 #include <linux/reset.h>
 
-#include <asm/unaligned.h>
-
 #include <drm/bridge/cdns-mhdp.h>
 #include <drm/drm_modes.h>
 #include <drm/drm_print.h>
 #include <linux/regmap.h>
+#include <linux/unaligned.h>
 
 #include "cdns-mhdp.h"
 

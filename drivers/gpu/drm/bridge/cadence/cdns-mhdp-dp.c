@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include <asm/unaligned.h>
 #include <drm/bridge/cdns-mhdp.h>
 #include <drm/drm_print.h>
 #include <linux/io.h>
+#include <linux/unaligned.h>
 
 #define LINK_TRAINING_TIMEOUT_MS	500
 #define LINK_TRAINING_RETRY_MS		20
