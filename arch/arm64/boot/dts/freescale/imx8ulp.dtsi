@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR MIT)
 /*
- * Copyright 2021 NXP
+ * Copyright 2021, 2024 NXP
  */
 
 #include <dt-bindings/clock/imx8ulp-clock.h>
@@ -1249,8 +1249,8 @@
 		compatible = "nxp,rpmsg-lifecycle";
 	};
 
-	ele_fw2: se-fw2 {
-		 compatible = "fsl,imx8ulp-se-fw";
+	ele_fw2: secure-enclave-0 {
+		 compatible = "fsl,imx8ulp-se";
 		 mbox-names = "tx", "rx";
 		 mboxes = <&s4muap 0 0>,
 			<&s4muap 1 0>;
