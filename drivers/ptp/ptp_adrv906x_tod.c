@@ -253,7 +253,7 @@ static inline void tstamp_to_timespec(struct timespec64 *ts, const struct adrv90
 		ts->tv_nsec = tstamp->nanoseconds + 1;
 }
 
-static int adrv906x_gc_get_cnt(struct adrv906x_tod_counter *counter, u64 *p_cnt)
+static int adrv906x_tod_hw_gc_get_cnt(struct adrv906x_tod_counter *counter, u64 *p_cnt)
 {
 	struct adrv906x_tod *tod = counter->parent;
 	u32 gc_reg_cnt[2] = { 0, 0 };
@@ -274,7 +274,7 @@ static int adrv906x_gc_get_cnt(struct adrv906x_tod_counter *counter, u64 *p_cnt)
 	return 0;
 }
 
-static int adrv906x_gc_set_cnt(struct adrv906x_tod_counter *counter, u64 cnt)
+static int adrv906x_tod_hw_gc_set_cnt(struct adrv906x_tod_counter *counter, u64 cnt)
 {
 	struct adrv906x_tod *tod = counter->parent;
 	u32 gc_reg_cnt[2] = { 0, 0 };
@@ -359,8 +359,8 @@ static int adrv906x_tod_hw_op_poll_reg(struct adrv906x_tod_counter *counter, u32
 
 	if (!done) {
 		dev_err(counter->parent->dev,
-			"trigger operation on reg 0x%x bit(s) 0x%x missed, delay configured: %llu ms",
-			regaddr, bit_mask, p_delay->ns / NSEC_PER_MSEC);
+			"trigger operation on reg 0x%x bit(s) 0x%x missed, delay configured: %llu us",
+			regaddr, bit_mask, p_delay->ns / NSEC_PER_USEC);
 		err = -EAGAIN;
 	}
 
@@ -382,60 +382,44 @@ static int adrv906x_tod_hw_op_poll(struct adrv906x_tod_counter *counter, u8 op_f
 	return err;
 }
 
-static int adrv906x_tod_hw_update_tstamp(struct adrv906x_tod_counter *counter,
-					 const struct adrv906x_tod_tstamp *ori_tstamp,
-					 struct adrv906x_tod_tstamp *dest_tstamp)
+static int adrv906x_tod_compensate_tstamp(struct adrv906x_tod_counter *counter,
+					  struct adrv906x_tod_tstamp *tstamp,
+					  const struct adrv906x_tod_trig_delay *trig_delay)
 {
-	struct adrv906x_tod_trig_delay trig_delay = { 0, 0 };
 	struct adrv906x_tod *tod = counter->parent;
+	struct adrv906x_tod_tstamp old_tstamp;
 	u32 frac_ns_tstamp;
 	u32 seconds;
 	u32 ns;
 
-	/* Do not compensate timestamps when updating on PPS edges */
-	if (counter->trigger_mode == HW_TOD_TRIG_MODE_PPS) {
-		memcpy(dest_tstamp, ori_tstamp, sizeof(struct adrv906x_tod_tstamp));
-		return 0;
-	}
-
-	/*
-	 * In GC mode, the trigger delay value depends on the 'trig_delay_tick'
-	 * adrv906x_tod_trig_delay.ns = counter->trig_delay_tick * 1e6 / tod->gc_clk_freq_khz
-	 * adrv906x_tod_trig_delay.rem_ns = counter->trig_delay_tick * 1e6 % tod->gc_clk_freq_khz
-	 * 1e6 is used to calculate the nanosecond of the trigger tick in order that the
-	 * "counter->trig_delay_tick * 1e6" will not overflow unless
-	 * counter->trig_delay_tick beyond the value "2^44".
-	 */
-	trig_delay.ns = div_u64_rem(counter->trig_delay_tick * USEC_PER_SEC,
-				    tod->gc_clk_freq_khz, &(trig_delay.rem_ns));
-
 	/*
 	 * Update the ToD vector value:
-	 * new_tod_value = input_tod + trigger_delay_time
+	 * new_tstamp_value = old_tstamp + trigger_delay
 	 */
+	memcpy(&old_tstamp, tstamp, sizeof(struct adrv906x_tod_tstamp));
 
 	/*
 	 * Fraction part of the nanosecond stored as a 16bit value in the ToD tstamp:
 	 * frac_ns_tstamp = (trig_delay.rem_ns / gc_clk_frequency) * 2^16
 	 */
-	frac_ns_tstamp = (u32)div_u64(trig_delay.rem_ns * TOD_FRAC_NANO_NUM, tod->gc_clk_freq_khz);
+	frac_ns_tstamp = (u32)div_u64(trig_delay->rem_ns * TOD_FRAC_NANO_NUM, tod->gc_clk_freq_khz);
 
 	/* Update the fraction part of nanosecond and the nanosecond part in the tstamp */
-	if ((ori_tstamp->frac_nanoseconds + frac_ns_tstamp) < TOD_FRAC_NANO_NUM) {
-		dest_tstamp->frac_nanoseconds = (u16)(ori_tstamp->frac_nanoseconds + frac_ns_tstamp);
-		dest_tstamp->nanoseconds = ori_tstamp->nanoseconds + trig_delay.ns;
+	if ((old_tstamp.frac_nanoseconds + frac_ns_tstamp) < TOD_FRAC_NANO_NUM) {
+		tstamp->frac_nanoseconds = (u16)(old_tstamp.frac_nanoseconds + frac_ns_tstamp);
+		tstamp->nanoseconds = old_tstamp.nanoseconds + trig_delay->ns;
 	} else {
-		dest_tstamp->frac_nanoseconds = (u16)((ori_tstamp->frac_nanoseconds + frac_ns_tstamp) - TOD_FRAC_NANO_NUM);
-		dest_tstamp->nanoseconds = ori_tstamp->nanoseconds + trig_delay.ns + 1;
+		tstamp->frac_nanoseconds = (u16)((old_tstamp.frac_nanoseconds + frac_ns_tstamp) - TOD_FRAC_NANO_NUM);
+		tstamp->nanoseconds = old_tstamp.nanoseconds + trig_delay->ns + 1;
 	}
 
 	/* Update the second part in the tstamp */
-	if (dest_tstamp->nanoseconds >= NSEC_PER_SEC) {
-		seconds = div_u64_rem(dest_tstamp->nanoseconds, NSEC_PER_SEC, &ns);
-		dest_tstamp->nanoseconds = ns;
-		dest_tstamp->seconds = ori_tstamp->seconds + seconds;
+	if (tstamp->nanoseconds >= NSEC_PER_SEC) {
+		seconds = div_u64_rem(tstamp->nanoseconds, NSEC_PER_SEC, &ns);
+		tstamp->nanoseconds = ns;
+		tstamp->seconds = old_tstamp.seconds + seconds;
 	} else {
-		dest_tstamp->seconds = ori_tstamp->seconds;
+		tstamp->seconds = old_tstamp.seconds;
 	}
 
 	return 0;
@@ -482,36 +466,33 @@ static int adrv906x_tod_hw_gettstamp_from_reg(struct adrv906x_tod_counter *count
 	return 0;
 }
 
-static void adrv906x_tod_hw_set_trigger_delay(struct adrv906x_tod_counter *counter,
-					      struct adrv906x_tod_trig_delay *trig_delay)
+static void adrv906x_tod_hw_set_trigger_delay(struct adrv906x_tod_counter *counter)
 {
-	struct adrv906x_tod *tod = counter->parent;
 	u64 gc_cnt = 0;
 
-	/* Calculate the trigger delay time */
-	if (counter->trigger_mode == HW_TOD_TRIG_MODE_PPS) {
-		/* In 1PPS mode, the trigger delay should be 100 milliseconds */
-		trig_delay->ns = 100 * NSEC_PER_MSEC;
-		trig_delay->rem_ns = 0;
-	} else {
-		counter->trig_delay_tick = counter->trig_delay_tick;
-		/**
-		 * In GC mode, the trigger delay value depends on the counter->trig_delay_tick
-		 * adrv906x_tod_trig_delay.ns = counter->trig_delay_tick * 1e6 / tod->gc_clk_freq_khz
-		 * adrv906x_tod_trig_delay.frac_ns = counter->trig_delay_tick * 1e6 % tod->gc_clk_freq_khz
-		 * 1e6 is used to calculate the nano-second of the trigger tick so that the
-		 * "counter->trig_delay_tick * 1e6" will not overflow unless counter->trig_delay_tick beyond
-		 * the value "2^44".
-		 */
-		trig_delay->ns = div_u64_rem(counter->trig_delay_tick * USEC_PER_SEC,
-					     tod->gc_clk_freq_khz,
-					     &(trig_delay->rem_ns));
-	}
-
 	/* Set the trigger delay to GC value register */
-	adrv906x_gc_get_cnt(counter, &gc_cnt);
+	adrv906x_tod_hw_gc_get_cnt(counter, &gc_cnt);
 	gc_cnt += counter->trig_delay_tick;
-	adrv906x_gc_set_cnt(counter, gc_cnt);
+	adrv906x_tod_hw_gc_set_cnt(counter, gc_cnt);
+}
+
+static void adrv906x_tod_get_trigger_delay(struct adrv906x_tod_counter *counter,
+					   struct adrv906x_tod_trig_delay *trig_delay)
+{
+	struct adrv906x_tod *tod = counter->parent;
+
+	counter->trig_delay_tick = counter->trig_delay_tick;
+	/**
+	 * The trigger delay value depends on the counter->trig_delay_tick.
+	 * adrv906x_tod_trig_delay.ns = counter->trig_delay_tick * 1e6 / tod->gc_clk_freq_khz
+	 * adrv906x_tod_trig_delay.frac_ns = counter->trig_delay_tick * 1e6 % tod->gc_clk_freq_khz
+	 * 1e6 is used to calculate the nano-second of the trigger tick so that the
+	 * "counter->trig_delay_tick * 1e6" will not overflow unless counter->trig_delay_tick beyond
+	 * the value "2^44".
+	 */
+	trig_delay->ns = div_u64_rem(counter->trig_delay_tick * USEC_PER_SEC,
+				     tod->gc_clk_freq_khz,
+				     &(trig_delay->rem_ns));
 }
 
 static int adrv906x_tod_hw_settstamp(struct adrv906x_tod_counter *counter,
@@ -521,14 +502,20 @@ static int adrv906x_tod_hw_settstamp(struct adrv906x_tod_counter *counter,
 	struct adrv906x_tod_tstamp tstamp = { 0, 0, 0 };
 	int err;
 
-	adrv906x_tod_hw_update_tstamp(counter, vector, &tstamp);
+	memcpy(&tstamp, vector, sizeof(struct adrv906x_tod_tstamp));
+
+	if (counter->trigger_mode == HW_TOD_TRIG_MODE_GC) {
+		adrv906x_tod_get_trigger_delay(counter, &trig_delay);
+		adrv906x_tod_compensate_tstamp(counter, &tstamp, &trig_delay);
+		adrv906x_tod_hw_set_trigger_delay(counter);
+	} else {
+		/* We set the delay to time out polling after a second. */
+		trig_delay.ns = 100 * NSEC_PER_MSEC;
+	}
 
 	adrv906x_tod_hw_settstamp_to_reg(counter, &tstamp);
 
-	adrv906x_tod_hw_set_trigger_delay(counter, &trig_delay);
-
 	adrv906x_tod_hw_op_trig_set(counter, HW_TOD_TRIG_OP_WR);
-
 	err = adrv906x_tod_hw_op_poll(counter, HW_TOD_TRIG_OP_WR, &trig_delay);
 
 	if (!err)
@@ -543,10 +530,15 @@ static int adrv906x_tod_get_tstamp(struct adrv906x_tod_counter *counter,
 	struct adrv906x_tod_trig_delay trig_delay = { 0, 0 };
 	int err;
 
-	adrv906x_tod_hw_set_trigger_delay(counter, &trig_delay);
+	adrv906x_tod_get_trigger_delay(counter, &trig_delay);
+
+	if (counter->trigger_mode == HW_TOD_TRIG_MODE_GC)
+		adrv906x_tod_hw_set_trigger_delay(counter);
+	else
+		/* We set the delay to time out polling after a second. */
+		trig_delay.ns = 100 * NSEC_PER_MSEC;
 
 	adrv906x_tod_hw_op_trig_set(counter, HW_TOD_TRIG_OP_RD);
-
 	err = adrv906x_tod_hw_op_poll(counter, HW_TOD_TRIG_OP_RD, &trig_delay);
 
 	if (!err)
@@ -622,6 +614,9 @@ static int adrv906x_tod_hw_extts_enable(struct adrv906x_tod_counter *counter, u8
 		return -EOPNOTSUPP;
 	}
 
+	adrv906x_tod_get_trigger_delay(counter, &trig_delay);
+	adrv906x_tod_hw_set_trigger_delay(counter);
+
 	val = ioread32(tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
 	val &= ~ADRV906X_TOD_CFG_IO_TOD_OUT_SRC_MASK;
 	val |= ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK;
@@ -632,7 +627,6 @@ static int adrv906x_tod_hw_extts_enable(struct adrv906x_tod_counter *counter, u8
 		val &= ~ADRV906X_TOD_CFG_IO_TOD_OUT_SRC_SEL(BIT(tod_idx));
 	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
 
-	adrv906x_tod_hw_set_trigger_delay(counter, &trig_delay);
 	ret = adrv906x_tod_hw_op_poll_reg(counter, ADRV906X_TOD_CFG_IO_SOURCE,
 					  ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK, &trig_delay, false);
 
@@ -675,6 +669,9 @@ static int adrv906x_tod_hw_pps_enable(struct adrv906x_tod_counter *counter, u8 e
 	u32 val;
 	int ret;
 
+	adrv906x_tod_get_trigger_delay(counter, &trig_delay);
+	adrv906x_tod_hw_set_trigger_delay(counter);
+
 	val = ioread32(tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
 	val &= ~ADRV906X_TOD_CFG_IO_PPS_OUT_SRC_MASK;
 	val |= ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK;
@@ -690,7 +687,6 @@ static int adrv906x_tod_hw_pps_enable(struct adrv906x_tod_counter *counter, u8 e
 	}
 	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_IO_SOURCE);
 
-	adrv906x_tod_hw_set_trigger_delay(counter, &trig_delay);
 	ret = adrv906x_tod_hw_op_poll_reg(counter, ADRV906X_TOD_CFG_IO_SOURCE,
 					  ADRV906X_TOD_CFG_IO_WR_OUTPUT_CFG_MASK, &trig_delay, false);
 
