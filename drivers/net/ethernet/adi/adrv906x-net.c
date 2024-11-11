@@ -274,6 +274,8 @@ static ssize_t adrv906x_pcs_link_drop_cnt_store(struct device *dev,
 	val = ioread32(regs + EMAC_CMN_DIGITAL_CTRL4);
 	val |= EMAC_CMN_CLEAR_PCS_STATUS_NE_CNT;
 	iowrite32(val, regs + EMAC_CMN_DIGITAL_CTRL4);
+	val &= ~EMAC_CMN_CLEAR_PCS_STATUS_NE_CNT;
+	iowrite32(val, regs + EMAC_CMN_DIGITAL_CTRL4);
 	mutex_unlock(&adrv906x_eth->mtx);
 
 	return cnt;
