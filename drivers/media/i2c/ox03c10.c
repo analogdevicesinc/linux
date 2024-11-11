@@ -376,9 +376,6 @@ static int ox03c10_exposure_set(struct ox03c10 *sensor, struct ox03c10_exposure 
 	int ret = 0;
 	u8 buf[2];
 
-	if (sensor->streaming)
-		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x00); /* set group hold 0 */
-
 	buf[0] = (exp->dcg >> 8) & 0xff;
 	buf[1] = exp->dcg & 0xff;
 	ret |= regmap_bulk_write(sensor->rmap, OX03C10_AEC_HCG_CTRL_01, buf, 2);
@@ -388,6 +385,18 @@ static int ox03c10_exposure_set(struct ox03c10 *sensor, struct ox03c10_exposure 
 	buf[0] = (exp->vs >> 8) & 0xff;
 	buf[1] = exp->vs & 0xff;
 	ret |= regmap_bulk_write(sensor->rmap, OX03C10_AEC_VS_CTRL_01, buf, 2);
+
+	return ret ? -EIO : 0;
+}
+
+static int ox03c10_exposure_set_gh(struct ox03c10 *sensor, struct ox03c10_exposure *exp)
+{
+	int ret = 0;
+
+	if (sensor->streaming)
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x00); /* set group hold 0 */
+
+	ret |= ox03c10_exposure_set(sensor, exp);
 
 	if (sensor->streaming) {
 		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x10); /* end group hold 0 */
@@ -402,9 +411,6 @@ static int ox03c10_analogue_gain_set(struct ox03c10 *sensor, struct ox03c10_anal
 	int ret = 0;
 	u8 buf[2];
 
-	if (sensor->streaming)
-		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x01); /* set group hold 1 */
-
 	buf[0] = (gain->hcg >> 4) & 0xf;
 	buf[1] = (gain->hcg & 0xf) << 4;
 	ret |= regmap_bulk_write(sensor->rmap, OX03C10_AEC_HCG_CTRL_08, buf, 2);
@@ -418,9 +424,21 @@ static int ox03c10_analogue_gain_set(struct ox03c10 *sensor, struct ox03c10_anal
 	buf[1] = (gain->vs & 0xf) << 4;
 	ret |= regmap_bulk_write(sensor->rmap, OX03C10_AEC_VS_CTRL_08, buf, 2);
 
+	return ret ? -EIO : 0;
+}
+
+static int ox03c10_analogue_gain_set_gh(struct ox03c10 *sensor, struct ox03c10_analog_gain *gain)
+{
+	int ret = 0;
+
+	if (sensor->streaming)
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x00); /* set group hold 0 */
+
+	ret |= ox03c10_analogue_gain_set(sensor, gain);
+
 	if (sensor->streaming) {
-		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x11); /* end group hold 1 */
-		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xE1); /* quick launch */
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x10); /* end group hold 0 */
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xE0); /* quick launch */
 	}
 
 	return ret ? -EIO : 0;
@@ -430,9 +448,6 @@ static int ox03c10_digital_gain_set(struct ox03c10 *sensor, struct ox03c10_digit
 {
 	int ret = 0;
 	u8 buf[3];
-
-	if (sensor->streaming)
-		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x02); /* set group hold 2 */
 
 	buf[0] = (gain->hcg >> 10) & 0xf;
 	buf[1] = (gain->hcg >> 2) & 0xff;
@@ -451,9 +466,21 @@ static int ox03c10_digital_gain_set(struct ox03c10 *sensor, struct ox03c10_digit
 	buf[2] = (gain->vs & 0x3) << 6;
 	ret |= regmap_bulk_write(sensor->rmap, OX03C10_AEC_VS_CTRL_0A, buf, 3);
 
+	return ret ? -EIO : 0;
+}
+
+static int ox03c10_digital_gain_set_gh(struct ox03c10 *sensor, struct ox03c10_digital_gain *gain)
+{
+	int ret = 0;
+
+	if (sensor->streaming)
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x00); /* set group hold 0 */
+
+	ret |= ox03c10_digital_gain_set(sensor, gain);
+
 	if (sensor->streaming) {
-		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x12); /* end group hold 2 */
-		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xE2); /* quick launch */
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x10); /* end group hold 0 */
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xE0); /* quick launch */
 	}
 
 	return ret ? -EIO : 0;
@@ -470,9 +497,6 @@ static int ox03c10_wb_gain_set(struct ox03c10 *sensor, struct ox03c10_wb_capture
 		OX03C10_AWB_GAIN_VS_0
 	};
 
-	if (sensor->streaming)
-		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x03); /* set group hold 3 */
-
 	for (i = 0; i < 4; i++, wb_gain++) {
 		buf[0] = (wb_gain->b >> 8) & 0xff;
 		buf[1] = wb_gain->b & 0xff;
@@ -486,9 +510,21 @@ static int ox03c10_wb_gain_set(struct ox03c10 *sensor, struct ox03c10_wb_capture
 		ret |= regmap_bulk_write(sensor->rmap, base_addr[i], buf, 8);
 	}
 
+	return ret ? -EIO : 0;
+}
+
+static int ox03c10_wb_gain_set_gh(struct ox03c10 *sensor, struct ox03c10_wb_capture_gain *wb_gain)
+{
+	int ret = 0;
+
+	if (sensor->streaming)
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x00); /* set group hold 0 */
+
+	ret |= ox03c10_wb_gain_set(sensor, wb_gain);
+
 	if (sensor->streaming) {
-		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x13); /* end group hold 3 */
-		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xE3); /* quick launch */
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0x10); /* end group hold 3 */
+		ret |= regmap_write(sensor->rmap, OX03C10_GRP_HOLD_8, 0xE0); /* quick launch */
 	}
 
 	return ret ? -EIO : 0;
@@ -544,16 +580,16 @@ static int ox03c10_s_ctrl(struct v4l2_ctrl *ctrl)
 
 	switch (ctrl->id) {
 	case V4L2_CID_OX03C10_EXPOSURE:
-		return ox03c10_exposure_set(sensor, ctrl->p_new.p);
+		return ox03c10_exposure_set_gh(sensor, ctrl->p_new.p);
 
 	case V4L2_CID_OX03C10_ANALOGUE_GAIN:
-		return ox03c10_analogue_gain_set(sensor, ctrl->p_new.p);
+		return ox03c10_analogue_gain_set_gh(sensor, ctrl->p_new.p);
 
 	case V4L2_CID_OX03C10_DIGITAL_GAIN:
-		return ox03c10_digital_gain_set(sensor, ctrl->p_new.p);
+		return ox03c10_digital_gain_set_gh(sensor, ctrl->p_new.p);
 
 	case V4L2_CID_OX03C10_WB_GAIN:
-		return ox03c10_wb_gain_set(sensor, ctrl->p_new.p);
+		return ox03c10_wb_gain_set_gh(sensor, ctrl->p_new.p);
 
 	case V4L2_CID_OX03C10_PWL_EN:
 		return ox03c10_pwl_enable(sensor, ctrl->val);
