@@ -6,6 +6,8 @@
 #ifndef _OX03C10_PRIV_H_
 #define _OX03C10_PRIV_H_
 
+#include <uapi/linux/ox03c10.h>
+
 struct ox03c10 {
 	struct i2c_client *client;
 	struct device *dev;
@@ -16,6 +18,13 @@ struct ox03c10 {
 	struct ox03c10_mode *cur_mode;
 
 	bool streaming;
+
+	s32 exposure_input;
+	struct ox03c10_exposure exposure;
+	s32 again_input;
+	struct ox03c10_analog_gain again;
+	s32 dgain_input;
+	struct ox03c10_digital_gain dgain;
 
 	/* this needs to be the last element in the structure */
 	struct v4l2_ctrl *ctrls[];
