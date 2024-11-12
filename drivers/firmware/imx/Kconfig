@@ -42,7 +42,7 @@ config IMX_SEC_ENCLAVE
 
 	help
 	  It is possible to use APIs exposed by the iMX Secure Enclave HW IP called:
-	  - EdgeLock Enclave Firmware (for i.MX8ULP, i.MX93),
+	  - EdgeLock Enclave Firmware (for i.MX8ULP, i.MX93, i.MX95),
 	    like base, HSM, V2X & SHE using the SAB protocol via the shared Messaging
 	    Unit. This driver exposes these interfaces via a set of file descriptors
 	    allowing to configure shared memory, send and receive messages.

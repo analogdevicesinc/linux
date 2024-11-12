@@ -15,6 +15,7 @@
 #define RES_STATUS(x)			FIELD_GET(0x000000ff, x)
 #define MAX_DATA_SIZE_PER_USER		(65 * 1024)
 #define MAX_NVM_MSG_LEN			(256)
+#define MESSAGING_VERSION_2		0x2
 #define MESSAGING_VERSION_6		0x6
 #define MESSAGING_VERSION_7		0x7
 #define NODE_NAME			"secure-enclave"
@@ -129,6 +130,7 @@ struct se_if_priv {
 	struct mbox_client se_mb_cl;
 	struct mbox_chan *tx_chan, *rx_chan;
 
+	struct se_shared_mem mu_mem;
 	struct gen_pool *mem_pool;
 	const struct se_if_defines *if_defs;
 	struct se_lg_fl_info lg_fl_info;

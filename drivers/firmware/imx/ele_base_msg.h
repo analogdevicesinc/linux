@@ -103,6 +103,10 @@ struct ele_dev_info {
 #define ELE_VOLT_CHANGE_REQ_MSG_SZ			0x4
 #define ELE_VOLT_CHANGE_RSP_MSG_SZ			0x8
 
+#define ELE_GET_STATE			0xB2
+#define ELE_GET_STATE_REQ_SZ		0x04
+#define ELE_GET_STATE_RSP_SZ		0x10
+
 int ele_get_info(struct se_if_priv *priv, struct ele_dev_info *s_info);
 int ele_fetch_soc_info(struct se_if_priv *priv, void *data);
 int ele_ping(struct se_if_priv *priv);
@@ -116,4 +120,5 @@ int ele_write_fuse(struct se_if_priv *priv, uint16_t fuse_index,
 int ele_voltage_change_req(struct se_if_priv *priv, bool start);
 int read_common_fuse(struct se_if_priv *priv,
 		     uint16_t fuse_id, u32 *value);
+int ele_get_v2x_fw_state(struct se_if_priv *priv, uint32_t *state);
 #endif
