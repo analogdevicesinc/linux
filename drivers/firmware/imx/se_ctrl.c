@@ -31,12 +31,15 @@
 #include "ele_fw_api.h"
 #include "ele_trng.h"
 #include "se_ctrl.h"
+#include "seco_init.h"
 #include "v2x_base_msg.h"
 #include "v2x_common.h"
 
 #define MAX_SOC_INFO_DATA_SZ		256
 #define MBOX_TX_NAME			"tx"
 #define MBOX_RX_NAME			"rx"
+#define MBOX_TXDB_NAME			"txdb"
+#define MBOX_RXDB_NAME			"rxdb"
 
 #define IMX_SE_LOG_PATH "/var/lib/se_"
 
@@ -162,11 +165,9 @@ static struct se_if_node_info_list imx95_info = {
 	.soc_id = SOC_ID_OF_IMX95,
 	.soc_register = false,
 	.se_fetch_soc_info = ele_fetch_soc_info,
-	.load_hsm_fw = {
+	.se_fw_img_nm = {
 		.prim_fw_nm_in_rfs = NULL,
 		.seco_fw_nm_in_rfs = NULL,
-		.is_fw_loaded = true,
-		.handle_susp_resm = false,
 	},
 	.info = {
 			{
@@ -244,10 +245,150 @@ static struct se_if_node_info_list imx95_info = {
 	},
 };
 
+static struct se_if_node_info_list imx8dxl_info = {
+	.num_mu = 7,
+	.soc_id = SOC_ID_OF_IMX8DXL,
+	.soc_register = false,
+	.se_fetch_soc_info = seco_fetch_soc_info,
+	.se_fw_img_nm = {
+		.prim_fw_nm_in_rfs = NULL,
+		.seco_fw_nm_in_rfs = NULL,
+	},
+	.info = {
+			{
+			.se_if_id = 0,
+			.mu_buff_size = 0,
+			.if_defs = {
+				.se_if_type = SE_TYPE_ID_SHE,
+				.se_instance_id = 0,
+				.cmd_tag = 0x17,
+				.rsp_tag = 0xe1,
+				.success_tag = SECO_SUCCESS_IND,
+				.base_api_ver = MESSAGING_VERSION_6,
+				.fw_api_ver = MESSAGING_VERSION_7,
+			},
+			.reserved_dma_ranges = false,
+			.start_rng = NULL,
+			.init_trng = NULL,
+			.se_if_early_init = imx_scu_init_fw,
+			.se_if_late_init = NULL,
+			},
+			{
+			.se_if_id = 1,
+			.mu_buff_size = 0,
+			.if_defs = {
+				.se_if_type = SE_TYPE_ID_HSM,
+				.se_instance_id = 0,
+				.cmd_tag = 0x17,
+				.rsp_tag = 0xe1,
+				.success_tag = SECO_SUCCESS_IND,
+				.base_api_ver = MESSAGING_VERSION_6,
+				.fw_api_ver = MESSAGING_VERSION_7,
+			},
+			.reserved_dma_ranges = false,
+			.start_rng = NULL,
+			.init_trng = NULL,
+			.se_if_early_init = imx_scu_init_fw,
+			.se_if_late_init = NULL,
+			},
+			{
+			.se_if_id = 2,
+			.mu_buff_size = 0,
+			.if_defs = {
+				.se_if_type = SE_TYPE_ID_V2X_SV,
+				.se_instance_id = 0,
+				.cmd_tag = 0x18,
+				.rsp_tag = 0xe2,
+				.success_tag = SECO_SUCCESS_IND,
+				.base_api_ver = MESSAGING_VERSION_2,
+				.fw_api_ver = MESSAGING_VERSION_7,
+			},
+			.reserved_dma_ranges = false,
+			.start_rng = NULL,
+			.init_trng = NULL,
+			.se_if_early_init = imx_scu_init_fw,
+			.se_if_late_init = NULL,
+			},
+			{
+			.se_if_id = 3,
+			.mu_buff_size = 0,
+			.if_defs = {
+				.se_if_type = SE_TYPE_ID_V2X_SV,
+				.se_instance_id = 1,
+				.cmd_tag = 0x19,
+				.rsp_tag = 0xe3,
+				.success_tag = SECO_SUCCESS_IND,
+				.base_api_ver = MESSAGING_VERSION_2,
+				.fw_api_ver = MESSAGING_VERSION_7,
+			},
+			.reserved_dma_ranges = false,
+			.start_rng = NULL,
+			.init_trng = NULL,
+			.se_if_early_init = imx_scu_init_fw,
+			.se_if_late_init = NULL,
+			},
+			{
+			.se_if_id = 4,
+			.mu_buff_size = 16,
+			.if_defs = {
+				.se_if_type = SE_TYPE_ID_V2X_SHE,
+				.se_instance_id = 0,
+				.cmd_tag = 0x1a,
+				.rsp_tag = 0xe4,
+				.success_tag = SECO_SUCCESS_IND,
+				.base_api_ver = MESSAGING_VERSION_2,
+				.fw_api_ver = MESSAGING_VERSION_7,
+			},
+			.reserved_dma_ranges = false,
+			.start_rng = NULL,
+			.init_trng = NULL,
+			.se_if_early_init = imx_scu_init_fw,
+			.se_if_late_init = NULL,
+			},
+			{
+			.se_if_id = 5,
+			.mu_buff_size = 0,
+			.if_defs = {
+				.se_if_type = SE_TYPE_ID_V2X_SG,
+				.se_instance_id = 0,
+				.cmd_tag = 0x1d,
+				.rsp_tag = 0xe7,
+				.success_tag = SECO_SUCCESS_IND,
+				.base_api_ver = MESSAGING_VERSION_2,
+				.fw_api_ver = MESSAGING_VERSION_7,
+			},
+			.reserved_dma_ranges = false,
+			.start_rng = NULL,
+			.init_trng = NULL,
+			.se_if_early_init = imx_scu_init_fw,
+			.se_if_late_init = NULL,
+			},
+			{
+			.se_if_id = 6,
+			.mu_buff_size = 0,
+			.if_defs = {
+				.se_if_type = SE_TYPE_ID_V2X_SG,
+				.se_instance_id = 1,
+				.cmd_tag = 0x1e,
+				.rsp_tag = 0xe8,
+				.success_tag = SECO_SUCCESS_IND,
+				.base_api_ver = MESSAGING_VERSION_2,
+				.fw_api_ver = MESSAGING_VERSION_7,
+			},
+			.reserved_dma_ranges = false,
+			.start_rng = NULL,
+			.init_trng = NULL,
+			.se_if_early_init = imx_scu_init_fw,
+			.se_if_late_init = NULL,
+			},
+	},
+};
+
 static const struct of_device_id se_match[] = {
 	{ .compatible = "fsl,imx8ulp-se", .data = (void *)&imx8ulp_info},
 	{ .compatible = "fsl,imx93-se", .data = (void *)&imx93_info},
 	{ .compatible = "fsl,imx95-se", .data = (void *)&imx95_info},
+	{ .compatible = "fsl,imx8dxl-se", .data = (void *)&imx8dxl_info},
 	{},
 };
 
@@ -351,10 +492,19 @@ static int se_soc_info(struct se_if_priv *priv)
 			dev_err(priv->dev, "Failed to fetch SoC Info.");
 			return err;
 		}
-		s_info = (void *)data;
-		var_se_info.board_type = 0;
-		var_se_info.soc_id = info_list->soc_id;
-		var_se_info.soc_rev = s_info->d_info.soc_rev;
+		if (info_list->soc_id == SOC_ID_OF_IMX8DXL) {
+			struct seco_soc_info *soc_data = (void *)data;
+
+			var_se_info.board_type = soc_data->board_type;
+			var_se_info.soc_id = soc_data->soc_id;
+			var_se_info.soc_rev = soc_data->soc_rev;
+		} else {
+			s_info = (void *)data;
+
+			var_se_info.board_type = 0;
+			var_se_info.soc_id = info_list->soc_id;
+			var_se_info.soc_rev = s_info->d_info.soc_rev;
+		}
 	} else {
 		dev_err(priv->dev, "Failed to fetch SoC revision.");
 		if (info_list->soc_register)
@@ -630,6 +780,15 @@ static int init_se_shared_mem(struct se_if_device_ctx *dev_ctx)
 					     GFP_KERNEL);
 	if (!se_shared_mem_mgmt->non_secure_mem.ptr)
 		return -ENOMEM;
+
+	if (priv->flags & SCU_MEM_CFG) {
+		if (imx_scu_mem_access(dev_ctx)) {
+			dev_err(dev_ctx->priv->dev,
+				"%s: Failed to share access to shared memory\n",
+				dev_ctx->devname);
+			return -EPERM;
+		}
+	}
 
 	se_shared_mem_mgmt->non_secure_mem.size = MAX_DATA_SIZE_PER_USER;
 	se_shared_mem_mgmt->non_secure_mem.pos = 0;
@@ -981,6 +1140,12 @@ static int se_ioctl_get_mu_info(struct se_if_device_ctx *dev_ctx,
 	if_info.se_if_id = 0;
 	if_info.interrupt_idx = 0;
 	if_info.tz = 0;
+	if (get_se_soc_id(priv) == SOC_ID_OF_IMX8DXL) {
+		if_info.se_if_id = info->se_if_id + 1;
+		if (priv->if_defs->se_if_type > SE_TYPE_ID_SHE)
+			if_info.se_if_id++;
+	}
+
 	if_info.did = info->se_if_did;
 	if_info.cmd_tag = priv->if_defs->cmd_tag;
 	if_info.rsp_tag = priv->if_defs->rsp_tag;
@@ -1045,8 +1210,16 @@ static int se_ioctl_setup_iobuf_handler(struct se_if_device_ctx *dev_ctx,
 	/* Select the shared memory to be used for this buffer. */
 	if (io.flags & SE_IO_BUF_FLAGS_USE_MU_BUF)
 		shared_mem = &dev_ctx->priv->mu_mem;
-	else
-		shared_mem = &dev_ctx->se_shared_mem_mgmt.non_secure_mem;
+	else {
+		if ((io.flags & SE_IO_BUF_FLAGS_USE_SEC_MEM) &&
+				(dev_ctx->priv->flags & SCU_MEM_CFG)) {
+			/* App requires to use secure memory for this buffer.*/
+			shared_mem = &dev_ctx->se_shared_mem_mgmt.secure_mem;
+		} else {
+			/* No specific requirement for this buffer. */
+			shared_mem = &dev_ctx->se_shared_mem_mgmt.non_secure_mem;
+		}
+	}
 
 	/* Check there is enough space in the shared memory. */
 	dev_dbg(dev_ctx->priv->dev,
@@ -1068,6 +1241,14 @@ static int se_ioctl_setup_iobuf_handler(struct se_if_device_ctx *dev_ctx,
 	pos = shared_mem->pos;
 	shared_mem->pos += round_up(io.length, 8u);
 	io.ele_addr = (u64)shared_mem->dma_addr + pos;
+
+	if (dev_ctx->priv->flags & SCU_MEM_CFG) {
+		if ((io.flags & SE_IO_BUF_FLAGS_USE_SEC_MEM) &&
+				!(io.flags & SE_IO_BUF_FLAGS_USE_SHORT_ADDR)) {
+			/*Add base address to get full address.#TODO: Add API*/
+			io.ele_addr += SECURE_RAM_BASE_ADDRESS_SCU;
+		}
+	}
 
 	if (dev_ctx->priv->mu_mem.pos)
 		memset_io(shared_mem->ptr + pos, 0, io.length);
@@ -1134,6 +1315,70 @@ static int se_ioctl_get_se_soc_info_handler(struct se_if_device_ctx *dev_ctx,
 exit:
 	return err;
 }
+
+/* Configure the shared memory according to user config */
+static int se_ioctl_shared_mem_cfg_handler(struct file *fp,
+					   struct se_if_device_ctx *dev_ctx,
+					   unsigned long arg)
+{
+	struct se_ioctl_shared_mem_cfg cfg;
+	int err = -EINVAL;
+
+	/* Check if not already configured. */
+	if (dev_ctx->se_shared_mem_mgmt.secure_mem.dma_addr != 0u) {
+		dev_err(dev_ctx->priv->dev, "Shared memory not configured\n");
+		return err;
+	}
+
+	err = (int)copy_from_user(&cfg, (u8 *)arg, sizeof(cfg));
+	if (err) {
+		dev_err(dev_ctx->priv->dev, "Fail copy memory config\n");
+		err = -EFAULT;
+		return err;
+	}
+
+	dev_dbg(dev_ctx->priv->dev, "cfg offset: %u(%d)\n", cfg.base_offset, cfg.size);
+
+	err = imx_scu_sec_mem_cfg(fp, cfg.base_offset, cfg.size);
+	if (err) {
+		dev_err(dev_ctx->priv->dev, "Failt to map memory\n");
+		err = -ENOMEM;
+		return err;
+	}
+
+	return err;
+}
+
+static int se_ioctl_signed_msg_handler(struct file *fp,
+				       struct se_if_device_ctx *dev_ctx,
+				       unsigned long arg)
+{
+	struct se_ioctl_signed_message msg;
+	int err;
+
+	err = copy_from_user(&msg, (u8 *)arg, sizeof(msg));
+	if (err) {
+		dev_err(dev_ctx->priv->dev, "Failed to copy from user: %d\n", err);
+		return -EFAULT;
+	}
+
+	err = imx_scu_signed_msg(fp, msg.message, msg.msg_size, &msg.error_code);
+	if (err) {
+		dev_err(dev_ctx->priv->dev,
+			"Failed to send signed message: %d\n",
+			err);
+		return err;
+	}
+
+	err = copy_to_user((u8 *)arg, &msg, sizeof(msg));
+	if (err) {
+		dev_err(dev_ctx->priv->dev, "Failed to copy to user: %d\n", err);
+		return -EFAULT;
+	}
+
+	return err;
+}
+
 
 /*
  * File operations for user-space
@@ -1364,6 +1609,14 @@ static long se_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 	case SE_IOCTL_CMD_SEND_RCV_RSP:
 		err = se_ioctl_cmd_snd_rcv_rsp_handler(dev_ctx, arg);
 		break;
+	case SE_IOCTL_SHARED_BUF_CFG:
+		if (priv->flags & SCU_MEM_CFG)
+			err = se_ioctl_shared_mem_cfg_handler(fp, dev_ctx, arg);
+		break;
+	case SE_IOCTL_SIGNED_MESSAGE:
+		if (priv->flags & SCU_SIGNED_MSG_CFG)
+			err = se_ioctl_signed_msg_handler(fp, dev_ctx, arg);
+		break;
 	default:
 		err = -EINVAL;
 		dev_dbg(priv->dev,
@@ -1537,12 +1790,17 @@ static int se_if_probe(struct platform_device *pdev)
 	priv->se_mb_cl.rx_callback	= se_if_rx_callback;
 
 	ret = se_if_request_channel(dev, &priv->tx_chan,
-			&priv->se_mb_cl, MBOX_TX_NAME);
+				    &priv->se_mb_cl,
+				    (info_list->soc_id == SOC_ID_OF_IMX8DXL) ?
+					MBOX_TXDB_NAME : MBOX_TX_NAME);
 	if (ret)
 		goto exit;
 
-	ret = se_if_request_channel(dev, &priv->rx_chan,
-			&priv->se_mb_cl, MBOX_RX_NAME);
+	ret = se_if_request_channel(dev,
+				    &priv->rx_chan,
+				    &priv->se_mb_cl,
+				    (info_list->soc_id == SOC_ID_OF_IMX8DXL) ?
+					MBOX_RXDB_NAME : MBOX_RX_NAME);
 	if (ret)
 		goto exit;
 

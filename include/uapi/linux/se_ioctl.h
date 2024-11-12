@@ -61,6 +61,13 @@ struct se_ioctl_cmd_snd_rcv_rsp_info {
 struct se_ioctl_get_soc_info {
 	__u16 soc_id;
 	__u16 soc_rev;
+	__u8  board_type;
+};
+
+struct se_ioctl_signed_message {
+	__u8 *message;
+	__u32 msg_size;
+	__u32 error_code;
 };
 
 /* IO Buffer Flags */
@@ -68,6 +75,7 @@ struct se_ioctl_get_soc_info {
 #define SE_IO_BUF_FLAGS_IS_INPUT	(0x01u)
 #define SE_IO_BUF_FLAGS_USE_SEC_MEM	(0x02u)
 #define SE_IO_BUF_FLAGS_USE_SHORT_ADDR	(0x04u)
+#define SE_IO_BUF_FLAGS_USE_MU_BUF	(0x08u)
 #define SE_IO_BUF_FLAGS_IS_IN_OUT	(0x10u)
 
 /* IOCTLS */
@@ -80,6 +88,11 @@ struct se_ioctl_get_soc_info {
  */
 #define SE_IOCTL_ENABLE_CMD_RCV	_IO(SE_IOCTL, 0x01)
 
+/*
+ * ioctl to get configure the SCU shared buffer.
+ */
+#define SE_IOCTL_SHARED_BUF_CFG	_IOW(SE_IOCTL, 0x02, \
+				struct se_ioctl_shared_mem_cfg)
 /*
  * ioctl to get the buffer allocated from the memory, which is shared
  * between kernel and FW.
@@ -99,6 +112,13 @@ struct se_ioctl_get_soc_info {
  */
 #define SE_IOCTL_GET_MU_INFO	_IOR(SE_IOCTL, 0x04, \
 					struct se_ioctl_get_if_info)
+
+/*
+ * ioctl to send signed message to SE.
+ */
+#define SE_IOCTL_SIGNED_MESSAGE     _IOR(SE_IOCTL, 0x05, \
+					struct se_ioctl_signed_message)
+
 /*
  * ioctl to get SoC Info from user-space.
  */

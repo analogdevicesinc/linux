@@ -130,11 +130,14 @@ struct se_if_priv {
 	struct mbox_client se_mb_cl;
 	struct mbox_chan *tx_chan, *rx_chan;
 
+	uint32_t flags;
 	struct se_shared_mem mu_mem;
 	struct gen_pool *mem_pool;
 	const struct se_if_defines *if_defs;
 	struct se_lg_fl_info lg_fl_info;
 
+	struct imx_sc_ipc *ipc_scu;
+	u8 part_owner;
 	struct se_if_device_ctx *priv_dev_ctx;
 	struct list_head dev_ctx_list;
 	u32 active_devctx_count;

@@ -9,7 +9,11 @@
 #include <linux/types.h>
 
 #define SOC_ID_OF_IMX8ULP		0x084D
+#define SOC_ID_OF_IMX8DXL		0xE
+#define SOC_ID_OF_IMX8QM		0x1
+#define SOC_ID_OF_IMX8QXP		0x2
 #define SOC_ID_OF_IMX93			0x9300
+#define SOC_ID_OF_IMX95			0x9500
 
 #define OTP_UNIQ_ID			0x01
 #define OTFAD_CONFIG			0x2
