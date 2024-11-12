@@ -481,7 +481,6 @@ static void adrv906x_tod_get_trigger_delay(struct adrv906x_tod_counter *counter,
 {
 	struct adrv906x_tod *tod = counter->parent;
 
-	counter->trig_delay_tick = counter->trig_delay_tick;
 	/**
 	 * The trigger delay value depends on the counter->trig_delay_tick.
 	 * adrv906x_tod_trig_delay.ns = counter->trig_delay_tick * 1e6 / tod->gc_clk_freq_khz
@@ -818,8 +817,9 @@ static int adrv906x_tod_dt_parse(struct adrv906x_tod_counter *counter, struct de
 
 	ret = of_property_read_u32(np, "adi,trigger-delay-tick", &val);
 	if (ret) {
-		dev_info(dev, "'adi,trigger-delay-tick' not set, using '491520'");
-		val = (u32)div_u64((u64)tod->gc_clk_freq_khz, 491520);
+		/* Use a default of 500 us based on the provided clock speed */
+		val = tod->gc_clk_freq_khz * 500 / 1000;
+		dev_info(dev, "'adi,trigger-delay-tick' not set, using '%u'", val);
 	}
 	counter->trig_delay_tick = val;
 
