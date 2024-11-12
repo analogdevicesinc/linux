@@ -7,7 +7,7 @@
 #
 # This script is used to upload files to ADI internal artifactory server
 #
-# Copyright (C) 2019-2023 Analog Devices Inc.
+# Copyright (C) 2019-2024 Analog Devices Inc.
 #
 #######################################################################
 
@@ -22,7 +22,7 @@ from glob import glob
 
 LOCAL_PATHS_LIST = []
 # If you try to upload files in a different folder than the ones in below list, there will be printed a message and files won't be uploaded
-SERVER_FOLDERS_LIST = [ "hdl", "linux", "linux_rpi", "arm_trusted_firmware", "boot_partition", "rootfs", "u-boot", "HighSpeedConverterToolbox", "TransceiverToolbox", "SD_card_image"]
+SERVER_FOLDERS_LIST = ["linux", "linux_rpi"]
 
 ########### Define arguments and help section #################
 
