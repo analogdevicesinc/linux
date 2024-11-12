@@ -28,6 +28,8 @@
 
 #include "ele_base_msg.h"
 #include "ele_common.h"
+#include "ele_fw_api.h"
+#include "ele_trng.h"
 #include "se_ctrl.h"
 
 #define MAX_SOC_INFO_DATA_SZ		256
@@ -55,6 +57,10 @@ struct se_if_node_info {
 	struct se_if_defines if_defs;
 	u8 *pool_name;
 	bool reserved_dma_ranges;
+	int (*start_rng)(struct se_if_priv *priv);
+	int (*init_trng)(struct se_if_priv *priv);
+	int (*se_if_early_init)(struct se_if_priv *priv);
+	int (*se_if_late_init)(struct se_if_priv *priv);
 };
 
 /* contains fixed information */
@@ -125,8 +131,7 @@ static struct se_if_node_info_list imx93_info = {
 	},
 	.info = {
 			{
-			.se_if_id = 2,
-			.se_if_did = 3,
+			.se_if_id = 0,
 			.if_defs = {
 				.se_if_type = SE_TYPE_ID_HSM,
 				.se_instance_id = 1,
@@ -137,6 +142,10 @@ static struct se_if_node_info_list imx93_info = {
 				.fw_api_ver = MESSAGING_VERSION_7,
 			},
 			.reserved_dma_ranges = true,
+			.start_rng = ele_start_rng,
+			.init_trng = ele_trng_init,
+			.se_if_early_init = NULL,
+			.se_if_late_init = ele_init_fw,
 			},
 	},
 };
@@ -1418,6 +1427,25 @@ static int se_if_probe(struct platform_device *pdev)
 				"failed[%pe] to fetch SoC Info\n", ERR_PTR(ret));
 			goto exit;
 		}
+	}
+
+	if (info->se_if_late_init) {
+		ret = info->se_if_late_init(priv);
+		if (ret)
+			goto exit;
+	}
+
+	/* start ele rng */
+	if (info->start_rng) {
+		ret = info->start_rng(priv);
+		if (ret)
+			dev_err(dev, "Failed[0x%x] to start ele rng.\n", ret);
+	}
+
+	if (info->init_trng) {
+		ret = info->init_trng(priv);
+		if (ret)
+			dev_err(dev, "Failed[0x%x] to init trng.\n", ret);
 	}
 
 	/* By default, there is no pending FW to be loaded.*/

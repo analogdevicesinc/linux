@@ -271,3 +271,252 @@ int ele_fw_authenticate(struct se_if_priv *priv, phys_addr_t addr)
 exit:
 	return ret;
 }
+
+/*
+ * ele_start_rng() - prepare and send the command to start
+ *                   initialization of the ELE RNG context
+ *
+ * returns:  0 on success.
+ */
+int ele_start_rng(struct se_if_priv *priv)
+{
+	struct se_api_msg *tx_msg __free(kfree) = NULL;
+	struct se_api_msg *rx_msg __free(kfree) = NULL;
+	int ret = 0;
+
+	if (!priv) {
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	tx_msg = kzalloc(ELE_START_RNG_REQ_MSG_SZ, GFP_KERNEL);
+	if (!tx_msg) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	rx_msg = kzalloc(ELE_START_RNG_RSP_MSG_SZ, GFP_KERNEL);
+	if (!rx_msg) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	ret = se_fill_cmd_msg_hdr(priv,
+				  (struct se_msg_hdr *)&tx_msg->header,
+				  ELE_START_RNG_REQ,
+				  ELE_START_RNG_REQ_MSG_SZ,
+				  true);
+	if (ret)
+		goto exit;
+
+	ret = ele_msg_send_rcv(priv->priv_dev_ctx,
+			       tx_msg,
+			       ELE_START_RNG_REQ_MSG_SZ,
+			       rx_msg,
+			       ELE_START_RNG_RSP_MSG_SZ);
+	if (ret < 0)
+		goto exit;
+
+	ret = se_val_rsp_hdr_n_status(priv,
+				      rx_msg,
+				      ELE_START_RNG_REQ,
+				      ELE_START_RNG_RSP_MSG_SZ,
+				      true);
+exit:
+	return ret;
+}
+
+int ele_write_fuse(struct se_if_priv *priv, uint16_t fuse_index,
+		   u32 value, bool block)
+{
+	struct se_api_msg *tx_msg __free(kfree) = NULL;
+	struct se_api_msg *rx_msg __free(kfree) = NULL;
+	int ret = 0;
+
+	if (!priv) {
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	tx_msg = kzalloc(ELE_WRITE_FUSE_REQ_MSG_SZ, GFP_KERNEL);
+	if (!tx_msg) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	rx_msg = kzalloc(ELE_WRITE_FUSE_RSP_MSG_SZ, GFP_KERNEL);
+	if (!rx_msg) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	ret = se_fill_cmd_msg_hdr(priv,
+				  (struct se_msg_hdr *)&tx_msg->header,
+				  ELE_WRITE_FUSE,
+				  ELE_WRITE_FUSE_REQ_MSG_SZ,
+				  true);
+	if (ret)
+		goto exit;
+
+	tx_msg->data[0] = (32 << 16) | (fuse_index << 5);
+	if (block)
+		tx_msg->data[0] |= BIT(31);
+
+	tx_msg->data[1] = value;
+
+	ret = ele_msg_send_rcv(priv->priv_dev_ctx,
+			       tx_msg,
+			       ELE_WRITE_FUSE_REQ_MSG_SZ,
+			       rx_msg,
+			       ELE_WRITE_FUSE_RSP_MSG_SZ);
+	if (ret < 0)
+		goto exit;
+
+	ret = se_val_rsp_hdr_n_status(priv,
+				      rx_msg,
+				      ELE_WRITE_FUSE,
+				      ELE_WRITE_FUSE_RSP_MSG_SZ,
+				      true);
+exit:
+	return ret;
+}
+
+/**
+ * read_common_fuse() - Brief description of function.
+ * @struct device *dev: Device to send the request to read fuses.
+ * @uint16_t fuse_id: Fuse identifier to read.
+ * @u32 *value: unsigned integer array to store the fused-values.
+ *
+ * Secure-enclave like EdgeLock Enclave, manages the fuse. This API
+ * requests FW to read the common fuses. FW sends the read value as
+ * response.
+ *
+ * Context: This function takes two mutex locks: one on the command
+ *          and second on the message unit.
+ *          such that multiple commands cannot be sent.
+ *          for the device Describes whether the function can sleep, what locks it takes,
+ *          releases, or expects to be held. It can extend over multiple
+ *          lines.
+ * Return: Describe the return value of function_name.
+ *
+ * The return value description can also have multiple paragraphs, and should
+ * be placed at the end of the comment block.
+ */
+int read_common_fuse(struct se_if_priv *priv,
+		     uint16_t fuse_id, u32 *value)
+{
+	struct se_api_msg *tx_msg __free(kfree) = NULL;
+	struct se_api_msg *rx_msg __free(kfree) = NULL;
+	int rx_msg_sz = ELE_READ_FUSE_RSP_MSG_SZ;
+	int ret = 0;
+
+	if (!priv) {
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	tx_msg = kzalloc(ELE_READ_FUSE_REQ_MSG_SZ, GFP_KERNEL);
+	if (!tx_msg) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	if (fuse_id == OTP_UNIQ_ID)
+		rx_msg_sz = ELE_READ_FUSE_OTP_UNQ_ID_RSP_MSG_SZ;
+
+	rx_msg = kzalloc(rx_msg_sz, GFP_KERNEL);
+	if (!rx_msg) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	ret = se_fill_cmd_msg_hdr(priv, (struct se_msg_hdr *)&tx_msg->header,
+				  ELE_READ_FUSE_REQ, ELE_READ_FUSE_REQ_MSG_SZ,
+				  true);
+	if (ret) {
+		dev_err(priv->dev, "Error: se_fill_cmd_msg_hdr failed.\n");
+		goto exit;
+	}
+
+	tx_msg->data[0] = fuse_id;
+
+	ret = ele_msg_send_rcv(priv->priv_dev_ctx,
+			       tx_msg,
+			       ELE_READ_FUSE_REQ_MSG_SZ,
+			       rx_msg,
+			       rx_msg_sz);
+	if (ret < 0)
+		goto exit;
+
+	ret = se_val_rsp_hdr_n_status(priv,
+				      rx_msg,
+				      ELE_READ_FUSE_REQ,
+				      rx_msg_sz,
+				      true);
+	if (ret)
+		goto exit;
+
+	switch (fuse_id) {
+	case OTP_UNIQ_ID:
+		value[0] = rx_msg->data[1];
+		value[1] = rx_msg->data[2];
+		value[2] = rx_msg->data[3];
+		value[3] = rx_msg->data[4];
+		break;
+	default:
+		value[0] = rx_msg->data[1];
+		break;
+	}
+
+exit:
+	return ret;
+}
+
+int ele_voltage_change_req(struct se_if_priv *priv, bool start)
+{
+	struct se_api_msg *tx_msg __free(kfree) = NULL;
+	struct se_api_msg *rx_msg __free(kfree) = NULL;
+	uint8_t cmd = start ? ELE_VOLT_CHANGE_START_REQ : ELE_VOLT_CHANGE_FINISH_REQ;
+	int ret = 0;
+
+	if (!priv) {
+		ret = -EINVAL;
+		goto exit;
+	}
+
+	tx_msg = kzalloc(ELE_VOLT_CHANGE_REQ_MSG_SZ, GFP_KERNEL);
+	if (!tx_msg) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	rx_msg = kzalloc(ELE_VOLT_CHANGE_RSP_MSG_SZ, GFP_KERNEL);
+	if (!rx_msg) {
+		ret = -ENOMEM;
+		goto exit;
+	}
+
+	ret = se_fill_cmd_msg_hdr(priv,
+				  (struct se_msg_hdr *)&tx_msg->header,
+				  cmd,
+				  ELE_VOLT_CHANGE_REQ_MSG_SZ,
+				  true);
+	if (ret)
+		goto exit;
+
+	ret = ele_msg_send_rcv(priv->priv_dev_ctx,
+			       tx_msg,
+			       ELE_VOLT_CHANGE_REQ_MSG_SZ,
+			       rx_msg,
+			       ELE_VOLT_CHANGE_RSP_MSG_SZ);
+	if (ret < 0)
+		goto exit;
+
+	ret = se_val_rsp_hdr_n_status(priv,
+				      rx_msg,
+				      cmd,
+				      ELE_VOLT_CHANGE_RSP_MSG_SZ,
+				      true);
+exit:
+	return ret;
+}
