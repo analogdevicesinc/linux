@@ -149,19 +149,20 @@ arch/arm64/boot/dts/xilinx/versal-x-ebm-03-revA.dtsi
 # or some DTs that never had an equivalent HDL project.
 # Either way, they are not needed on the SD-card release image.
 
-arch/arm/boot/dts/zynq-zc702-adv7511-ad9364-fmcomms4.dts
+arch/arm/boot/dts/zynq-adrv9361-z7035-packrf.dts
+arch/arm/boot/dts/zynq-adrv9364-z7020-packrf.dts
 arch/arm/boot/dts/zynq-zc706-adv7511-ad9364-fmcomms4.dts
 arch/arm/boot/dts/zynq-zed-adv7511-ad9364-fmcomms4.dts
-arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-ad9364-fmcomms4.dts
 arch/arm/boot/dts/zynq-microzed-cn0363.dts
 arch/arm/boot/dts/zynq-coraz7s.dts
 arch/arm/boot/dts/zynq-zc702-adv7511-adrv9363.dts
 arch/arm/boot/dts/zynq-zc702-adv7511-fmcomms1.dts
+arch/arm/boot/dts/zynq-zc706-adv7511-ad9625-fmcadc2.dts
+arch/arm/boot/dts/zynq-zc706-adv7511-ad9625-fmcadc3.dts
+arch/arm/boot/dts/zynq-zc706-adv7511-ad9739a-fmc.dts
 arch/arm/boot/dts/zynq-zc706-adv7511-adrv9363.dts
 arch/arm/boot/dts/zynq-zc706-adv7511-fmcadc4.dts
 arch/arm/boot/dts/zynq-zc706-adv7511-fmcdaq1.dts
-arch/arm/boot/dts/zynq-zc706-adv7511-fmcjesdadc1.dts
-arch/arm/boot/dts/zynq-zc706-adv7511-fmcomms11.dts
 arch/arm/boot/dts/zynq-zc706-adv7511-fmcomms11-RevA.dts
 arch/arm/boot/dts/zynq-zc706-adv7511-fmcomms1.dts
 arch/arm/boot/dts/zynq-zc706-adv7511-fmcomms6.dts
@@ -178,8 +179,12 @@ arch/arm/boot/dts/zynq-zed-adv7511-pmod-ad1-da1.dts
 arch/arm/boot/dts/zynq-zed-imageon.dts
 arch/arm/boot/dts/zynq-zed-seps525.dts
 arch/arm/boot/dts/socfpga_arria10_socdk_ad9136_fmc_ebz.dts
+arch/arm/boot/dts/socfpga_arria10_socdk_fmclidar1.dts
+arch/arm64/boot/dts/xilinx/zynqmp-zcu102-rev10-fmclidar1.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu102-revB-ad9361-fmcomms2-3.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu102-revB-adrv9363.dts
 arch/arm/boot/dts/zynq-zc706-adv7511-ad9361-fmcomms5-userspace.dts
 arch/arm64/boot/dts/xilinx/zynqmp-zcu102-revB-ad9364-fmcomms4.dts
 arch/arm/boot/dts/zynq-zc706-adv7511-ad9625-fmcadc7.dts
+arch/microblaze/boot/dts/vc707_fmcadc2.dts
+arch/microblaze/boot/dts/vc707_fmcadc5.dts
