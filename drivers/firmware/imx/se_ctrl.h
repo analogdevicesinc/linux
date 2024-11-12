@@ -97,7 +97,8 @@ struct se_api_msg {
 };
 
 struct se_if_defines {
-	const void *info;
+	const u8 se_if_type;
+	const u8 se_instance_id;
 	u8 cmd_tag;
 	u8 rsp_tag;
 	u8 success_tag;

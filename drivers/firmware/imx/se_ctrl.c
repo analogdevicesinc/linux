@@ -29,13 +29,17 @@
 #include "ele_common.h"
 #include "se_ctrl.h"
 
+#define MAX_SOC_INFO_DATA_SZ		256
 #define MBOX_TX_NAME			"tx"
 #define MBOX_RX_NAME			"rx"
-#define SE_TYPE_HSM			"hsm"
 
-struct se_fw_load_info {
+struct se_fw_img_name {
 	const u8 *prim_fw_nm_in_rfs;
 	const u8 *seco_fw_nm_in_rfs;
+};
+
+struct se_fw_load_info {
+	const struct se_fw_img_name *se_fw_img_nm;
 	struct mutex se_fw_load;
 	bool is_fw_loaded;
 	bool handle_susp_resm;
@@ -46,51 +50,63 @@ struct se_if_node_info {
 	u8 se_if_id;
 	u8 se_if_did;
 	struct se_if_defines if_defs;
-	u8 *se_name;
 	u8 *pool_name;
-	bool soc_register;
 	bool reserved_dma_ranges;
-	int (*se_fetch_soc_info)(struct se_if_priv *priv, u16 *soc_rev, u64 *serial_num);
 };
 
+/* contains fixed information */
 struct se_if_node_info_list {
 	const u8 num_mu;
 	const u16 soc_id;
-	struct se_fw_load_info load_hsm_fw;
+	bool soc_register;
+	int (*se_fetch_soc_info)(struct se_if_priv *priv, void *data);
+	const struct se_fw_img_name se_fw_img_nm;
 	const struct se_if_node_info info[];
 };
 
-static u16 se_soc_rev;
+struct se_var_info {
+	uint8_t board_type;
+	u16 soc_id;
+	u16 soc_rev;
+	struct se_fw_load_info load_fw;
+};
+
+static struct se_var_info var_se_info = {
+	.board_type = 0,
+	.soc_id = 0,
+	.soc_rev = 0,
+	.load_fw = {
+		.is_fw_loaded = true,
+		.handle_susp_resm = false,
+	},
+};
+
 static struct se_if_node_info_list imx8ulp_info = {
 	.num_mu = 1,
 	.soc_id = SOC_ID_OF_IMX8ULP,
-	.load_hsm_fw = {
+	.soc_register = true,
+	.se_fetch_soc_info = ele_fetch_soc_info,
+	.se_fw_img_nm = {
 		.prim_fw_nm_in_rfs = IMX_ELE_FW_DIR
 			"mx8ulpa2-ahab-container.img",
 		.seco_fw_nm_in_rfs = IMX_ELE_FW_DIR
 			"mx8ulpa2ext-ahab-container.img",
-		.is_fw_loaded = false,
-		.handle_susp_resm = true,
-		.imem = {
-			.state = ELE_IMEM_STATE_OK,
-		},
 	},
 	.info = {
 			{
 			.se_if_id = 0,
 			.se_if_did = 7,
 			.if_defs = {
+				.se_if_type = SE_TYPE_ID_HSM,
+				.se_instance_id = 1,
 				.cmd_tag = 0x17,
 				.rsp_tag = 0xe1,
 				.success_tag = ELE_SUCCESS_IND,
 				.base_api_ver = MESSAGING_VERSION_6,
 				.fw_api_ver = MESSAGING_VERSION_7,
 			},
-			.se_name = SE_TYPE_HSM"1",
 			.pool_name = "sram",
-			.soc_register = true,
 			.reserved_dma_ranges = true,
-			.se_fetch_soc_info = ele_fetch_soc_info,
 			},
 	},
 };
@@ -98,26 +114,26 @@ static struct se_if_node_info_list imx8ulp_info = {
 static struct se_if_node_info_list imx93_info = {
 	.num_mu = 1,
 	.soc_id = SOC_ID_OF_IMX93,
-	.load_hsm_fw = {
+	.soc_register = false,
+	.se_fetch_soc_info = ele_fetch_soc_info,
+	.se_fw_img_nm = {
 		.prim_fw_nm_in_rfs = NULL,
 		.seco_fw_nm_in_rfs = NULL,
-		.is_fw_loaded = true,
-		.handle_susp_resm = false,
 	},
 	.info = {
 			{
 			.se_if_id = 2,
 			.se_if_did = 3,
 			.if_defs = {
+				.se_if_type = SE_TYPE_ID_HSM,
+				.se_instance_id = 1,
 				.cmd_tag = 0x17,
 				.rsp_tag = 0xe1,
 				.success_tag = ELE_SUCCESS_IND,
 				.base_api_ver = MESSAGING_VERSION_6,
 				.fw_api_ver = MESSAGING_VERSION_7,
 			},
-			.se_name = SE_TYPE_HSM"1",
 			.reserved_dma_ranges = true,
-			.soc_register = true,
 			},
 	},
 };
@@ -128,66 +144,95 @@ static const struct of_device_id se_match[] = {
 	{},
 };
 
-static const struct se_if_node_info
-	*get_se_if_node_info(const struct se_if_node_info_list *info_list,
-			     const u32 idx)
+static char *get_se_if_name(u8 se_if_id)
 {
-	return &info_list->info[idx];
+	switch (se_if_id) {
+	case SE_TYPE_ID_DBG: return SE_TYPE_STR_DBG;
+	case SE_TYPE_ID_HSM: return SE_TYPE_STR_HSM;
+	case SE_TYPE_ID_SHE: return SE_TYPE_STR_SHE;
+	case SE_TYPE_ID_V2X_DBG: return SE_TYPE_STR_V2X_DBG;
+	case SE_TYPE_ID_V2X_SHE: return SE_TYPE_STR_V2X_SHE;
+	case SE_TYPE_ID_V2X_SV: return SE_TYPE_STR_V2X_SV;
+	case SE_TYPE_ID_V2X_SG: return SE_TYPE_STR_V2X_SG;
+	}
+
+	return NULL;
+}
+
+/*
+ * get_se_soc_id() - to fetch the soc_id of the platform
+ *
+ * @priv  : reference to the private data per SE MU interface.
+ *
+ * This function returns the SoC ID.
+ *
+ * Context: Other module, requiring to access the secure services based on SoC Id.
+ *
+ * Return: SoC Id of the device.
+ */
+uint32_t get_se_soc_id(struct se_if_priv *priv)
+{
+	const struct se_if_node_info_list *info_list
+			= device_get_match_data(priv->dev);
+
+	if (var_se_info.soc_rev)
+		return var_se_info.soc_id;
+	else
+		return info_list->soc_id;
+
 }
 
 static int se_soc_info(struct se_if_priv *priv)
 {
-	const struct se_if_node_info *info;
-	struct se_if_node_info_list *info_list;
+	const struct se_if_node_info_list *info_list
+			= device_get_match_data(priv->dev);
 	struct soc_device_attribute *attr;
+	struct ele_dev_info *s_info;
 	struct soc_device *sdev;
-	u64 serial_num;
+	u8 data[MAX_SOC_INFO_DATA_SZ];
 	int err = 0;
-
-	info = container_of(priv->if_defs,
-			typeof(*info),
-			if_defs);
-	info_list = container_of(info,
-			typeof(*info_list),
-			info[info->se_if_id]);
 
 	/* This function should be called once.
 	 * Check if the se_soc_rev is zero to continue.
 	 */
-	if (se_soc_rev)
+	if (var_se_info.soc_rev)
 		return err;
 
-	if (info->se_fetch_soc_info) {
-		err = info->se_fetch_soc_info(priv, &se_soc_rev, &serial_num);
+	if (info_list->se_fetch_soc_info) {
+		err = info_list->se_fetch_soc_info(priv, &data);
 		if (err < 0) {
 			dev_err(priv->dev, "Failed to fetch SoC Info.");
 			return err;
 		}
+		s_info = (void *)data;
+		var_se_info.board_type = 0;
+		var_se_info.soc_id = info_list->soc_id;
+		var_se_info.soc_rev = s_info->d_info.soc_rev;
 	} else {
 		dev_err(priv->dev, "Failed to fetch SoC revision.");
-		if (info->soc_register)
+		if (info_list->soc_register)
 			dev_err(priv->dev, "Failed to do SoC registration.");
 		err = -EINVAL;
 		return err;
 	}
 
-	if (!info->soc_register)
+	if (!info_list->soc_register)
 		return 0;
 
 	attr = devm_kzalloc(priv->dev, sizeof(*attr), GFP_KERNEL);
 	if (!attr)
 		return -ENOMEM;
 
-	if (FIELD_GET(DEV_GETINFO_MIN_VER_MASK, se_soc_rev))
+	if (FIELD_GET(DEV_GETINFO_MIN_VER_MASK, var_se_info.soc_rev))
 		attr->revision = devm_kasprintf(priv->dev, GFP_KERNEL, "%x.%x",
 						FIELD_GET(DEV_GETINFO_MIN_VER_MASK,
-							  se_soc_rev),
+							  var_se_info.soc_rev),
 						FIELD_GET(DEV_GETINFO_MAJ_VER_MASK,
-							  se_soc_rev));
+							  var_se_info.soc_rev));
 	else
 		attr->revision = devm_kasprintf(priv->dev, GFP_KERNEL, "%x",
 						FIELD_GET(DEV_GETINFO_MAJ_VER_MASK,
-							  se_soc_rev));
+							  var_se_info.soc_rev));
 
 	switch (info_list->soc_id) {
 	case SOC_ID_OF_IMX8ULP:
@@ -208,7 +253,8 @@ static int se_soc_info(struct se_if_priv *priv)
 	attr->family = devm_kasprintf(priv->dev, GFP_KERNEL, "Freescale i.MX");
 
 	attr->serial_number
-		= devm_kasprintf(priv->dev, GFP_KERNEL, "%016llX", serial_num);
+		= devm_kasprintf(priv->dev, GFP_KERNEL, "%016llX",
+				 GET_SERIAL_NUM_FROM_UID(s_info->d_info.uid, MAX_UID_SIZE >> 2));
 
 	sdev = soc_device_register(attr);
 	if (IS_ERR(sdev))
@@ -219,22 +265,7 @@ static int se_soc_info(struct se_if_priv *priv)
 
 static struct se_fw_load_info *get_load_fw_instance(struct se_if_priv *priv)
 {
-	const struct se_if_node_info *info = container_of(priv->if_defs,
-							typeof(*info),
-							if_defs);
-	struct se_if_node_info_list *info_list;
-	struct se_fw_load_info *load_fw = NULL;
-
-	info_list = container_of(info,
-			typeof(*info_list),
-			info[info->se_if_id]);
-
-	if (!memcmp(SE_TYPE_HSM, info->se_name, strlen(SE_TYPE_HSM)))
-		load_fw = &info_list->load_hsm_fw;
-	else
-		dev_err(priv->dev, "Invalid load fw configuration.");
-
-	return load_fw;
+	return &var_se_info.load_fw;
 }
 
 static int se_load_firmware(struct se_if_priv *priv)
@@ -250,8 +281,8 @@ static int se_load_firmware(struct se_if_priv *priv)
 	if (load_fw->is_fw_loaded)
 		return 0;
 
-	se_img_file_to_load = load_fw->seco_fw_nm_in_rfs;
-	if (load_fw->prim_fw_nm_in_rfs) {
+	se_img_file_to_load = load_fw->se_fw_img_nm->seco_fw_nm_in_rfs;
+	if (load_fw->se_fw_img_nm->prim_fw_nm_in_rfs) {
 		/* allocate buffer where SE store encrypted IMEM */
 		load_fw->imem.buf = dmam_alloc_coherent(priv->dev, ELE_IMEM_SIZE,
 							&load_fw->imem.phyaddr,
@@ -264,7 +295,7 @@ static int se_load_firmware(struct se_if_priv *priv)
 		}
 		if (load_fw->imem.state == ELE_IMEM_STATE_BAD)
 			se_img_file_to_load
-					= load_fw->prim_fw_nm_in_rfs;
+					= load_fw->se_fw_img_nm->prim_fw_nm_in_rfs;
 	}
 
 	do {
@@ -300,8 +331,8 @@ static int se_load_firmware(struct se_if_priv *priv)
 		release_firmware(fw);
 
 		if (!ret && load_fw->imem.state == ELE_IMEM_STATE_BAD &&
-				se_img_file_to_load == load_fw->prim_fw_nm_in_rfs)
-			se_img_file_to_load = load_fw->seco_fw_nm_in_rfs;
+				se_img_file_to_load == load_fw->se_fw_img_nm->prim_fw_nm_in_rfs)
+			se_img_file_to_load = load_fw->se_fw_img_nm->seco_fw_nm_in_rfs;
 		else
 			se_img_file_to_load = NULL;
 
@@ -473,9 +504,6 @@ static int init_device_context(struct se_if_priv *priv, int ch_id,
 			struct se_if_device_ctx **new_dev_ctx,
 			const struct file_operations *se_if_fops)
 {
-	const struct se_if_node_info *info = container_of(priv->if_defs,
-							typeof(*info),
-							if_defs);
 	struct se_if_device_ctx *dev_ctx;
 	int ret = 0;
 
@@ -492,12 +520,15 @@ static int init_device_context(struct se_if_priv *priv, int ch_id,
 	dev_ctx->priv = priv;
 
 	if (ch_id)
-		dev_ctx->devname = kasprintf(GFP_KERNEL, "%s_ch%d",
-					     info->se_name, ch_id);
+		dev_ctx->devname = kasprintf(GFP_KERNEL, "%s%d_ch%d",
+					     get_se_if_name(priv->if_defs->se_if_type),
+					     priv->if_defs->se_instance_id,
+					     ch_id);
 	else
-		dev_ctx->devname = devm_kasprintf(priv->dev,
-						  GFP_KERNEL, "%s_ch%d",
-						  info->se_name, ch_id);
+		dev_ctx->devname = devm_kasprintf(priv->dev, GFP_KERNEL, "%s%d_ch%d",
+					     get_se_if_name(priv->if_defs->se_if_type),
+					     priv->if_defs->se_instance_id,
+					     ch_id);
 	if (!dev_ctx->devname) {
 		ret = -ENOMEM;
 		if (ch_id)
@@ -562,14 +593,7 @@ static int init_device_context(struct se_if_priv *priv, int ch_id,
 static int se_ioctl_cmd_snd_rcv_rsp_handler(struct se_if_device_ctx *dev_ctx,
 					    u64 arg)
 {
-	const struct se_if_node_info *info = container_of(dev_ctx->priv->if_defs,
-							typeof(*info),
-							if_defs);
 	struct se_ioctl_cmd_snd_rcv_rsp_info cmd_snd_rcv_rsp_info;
-	struct se_if_node_info_list *info_list
-				= container_of(info,
-						typeof(*info_list),
-						info[info->se_if_id]);
 	struct se_if_priv *priv = dev_ctx->priv;
 	struct se_api_msg *tx_msg __free(kfree) = NULL;
 	struct se_api_msg *rx_msg __free(kfree) = NULL;
@@ -613,7 +637,7 @@ static int se_ioctl_cmd_snd_rcv_rsp_handler(struct se_if_device_ctx *dev_ctx,
 	}
 
 	if (tx_msg->header.ver == priv->if_defs->fw_api_ver &&
-		!info_list->load_hsm_fw.is_fw_loaded) {
+		!get_load_fw_instance(priv)->is_fw_loaded) {
 		err = se_load_firmware(priv);
 		if (err) {
 			dev_err(priv->dev, "Could not send the message as FW is not loaded.");
@@ -679,7 +703,7 @@ static int se_ioctl_get_mu_info(struct se_if_device_ctx *dev_ctx,
 
 	info = container_of(priv->if_defs, typeof(*info), if_defs);
 
-	if_info.se_if_id = info->se_if_id;
+	if_info.se_if_id = 0;
 	if_info.interrupt_idx = 0;
 	if_info.tz = 0;
 	if_info.did = info->se_if_did;
@@ -712,7 +736,7 @@ exit:
  * messages
  */
 static int se_ioctl_setup_iobuf_handler(struct se_if_device_ctx *dev_ctx,
-					    u64 arg)
+					u64 arg)
 {
 	struct se_shared_mem *shared_mem = NULL;
 	struct se_ioctl_setup_iobuf io = {0};
@@ -747,8 +771,14 @@ static int se_ioctl_setup_iobuf_handler(struct se_if_device_ctx *dev_ctx,
 	shared_mem = &dev_ctx->se_shared_mem_mgmt.non_secure_mem;
 
 	/* Check there is enough space in the shared memory. */
+	dev_dbg(dev_ctx->priv->dev,
+		"%s: req_size = %d, max_size= %d, curr_pos = %d",
+		dev_ctx->devname,
+		round_up(io.length, 8u),
+		shared_mem->size, shared_mem->pos);
+
 	if (shared_mem->size < shared_mem->pos ||
-		round_up(io.length, 8u) >= (shared_mem->size - shared_mem->pos)) {
+		round_up(io.length, 8u) > (shared_mem->size - shared_mem->pos)) {
 		dev_err(dev_ctx->priv->dev,
 			"%s: Not enough space in shared memory\n",
 			dev_ctx->devname);
@@ -803,16 +833,12 @@ exit:
 static int se_ioctl_get_se_soc_info_handler(struct se_if_device_ctx *dev_ctx,
 					     u64 arg)
 {
-	const struct se_if_node_info_list *info_list;
 	struct se_ioctl_get_soc_info soc_info;
 	int err = -EINVAL;
 
-	info_list = device_get_match_data(dev_ctx->priv->dev);
-	if (!info_list)
-		goto exit;
-
-	soc_info.soc_id = info_list->soc_id;
-	soc_info.soc_rev = se_soc_rev;
+	soc_info.soc_id = var_se_info.soc_id;
+	soc_info.soc_rev = var_se_info.soc_rev;
+	soc_info.board_type = var_se_info.board_type;
 
 	err = (int)copy_to_user((u8 __user *)arg, (u8 *)(&soc_info), sizeof(soc_info));
 	if (err) {
@@ -1173,12 +1199,11 @@ static int se_if_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	info = get_se_if_node_info(info_list, idx);
+	info = &info_list->info[idx];
 	if (!info) {
 		ret = -EINVAL;
 		goto exit;
 	}
-
 
 	priv = devm_kzalloc(dev, sizeof(*priv), GFP_KERNEL);
 	if (!priv) {
@@ -1246,24 +1271,31 @@ static int se_if_probe(struct platform_device *pdev)
 		goto exit;
 	}
 
-	ret = se_soc_info(priv);
-	if (ret) {
-		dev_err(dev,
-			"failed[%pe] to fetch SoC Info\n", ERR_PTR(ret));
-		goto exit;
+	if (info->if_defs.se_if_type == SE_TYPE_ID_HSM) {
+		ret = se_soc_info(priv);
+		if (ret) {
+			dev_err(dev,
+				"failed[%pe] to fetch SoC Info\n", ERR_PTR(ret));
+			goto exit;
+		}
 	}
 
-	load_fw = get_load_fw_instance(priv);
 	/* By default, there is no pending FW to be loaded.*/
-	if (load_fw->is_fw_loaded) {
+	if (info_list->se_fw_img_nm.prim_fw_nm_in_rfs ||
+			info_list->se_fw_img_nm.seco_fw_nm_in_rfs) {
+		load_fw = get_load_fw_instance(priv);
+		load_fw->se_fw_img_nm = &info_list->se_fw_img_nm;
+
+		load_fw->is_fw_loaded = false;
 		mutex_init(&load_fw->se_fw_load);
 		ret = se_load_firmware(priv);
 		if (ret)
 			dev_warn(dev, "Failed to load firmware.");
 		ret = 0;
 	}
-	dev_info(dev, "i.MX secure-enclave: %s interface to firmware, configured.\n",
-		 info->se_name);
+	dev_info(dev, "i.MX secure-enclave: %s%d interface to firmware, configured.\n",
+			get_se_if_name(priv->if_defs->se_if_type),
+			priv->if_defs->se_instance_id);
 	return ret;
 
 exit:
@@ -1316,7 +1348,7 @@ static const struct dev_pm_ops se_pm = {
 
 static struct platform_driver se_driver = {
 	.driver = {
-		.name = "fsl-se-fw",
+		.name = "fsl-se",
 		.of_match_table = se_match,
 		.pm = &se_pm,
 	},

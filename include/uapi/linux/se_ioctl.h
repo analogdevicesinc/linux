@@ -8,6 +8,23 @@
 
 #include <linux/types.h>
 
+#define SE_TYPE_STR_DBG			"dbg"
+#define SE_TYPE_STR_HSM			"hsm"
+#define SE_TYPE_STR_SHE			"she"
+#define SE_TYPE_STR_V2X_SV		"v2x_sv"
+#define SE_TYPE_STR_V2X_SG		"v2x_sg"
+#define SE_TYPE_STR_V2X_SHE		"v2x_she"
+#define SE_TYPE_STR_V2X_DBG		"v2x_dbg"
+
+#define SE_TYPE_ID_UNKWN		0x0
+#define SE_TYPE_ID_DBG			0x1
+#define SE_TYPE_ID_HSM			0x2
+#define SE_TYPE_ID_SHE			0x3
+#define SE_TYPE_ID_V2X_DBG		0x4
+#define SE_TYPE_ID_V2X_SHE		0x5
+#define SE_TYPE_ID_V2X_SV		0x6
+#define SE_TYPE_ID_V2X_SG		0x7
+
 /* IOCTL definitions. */
 
 struct se_ioctl_setup_iobuf {

@@ -85,7 +85,7 @@ struct ele_dev_info {
 #define ELE_FW_AUTH_RSP_MSG_SZ		0x08
 
 int ele_get_info(struct se_if_priv *priv, struct ele_dev_info *s_info);
-int ele_fetch_soc_info(struct se_if_priv *priv, u16 *soc_rev, u64 *serial_num);
+int ele_fetch_soc_info(struct se_if_priv *priv, void *data);
 int ele_ping(struct se_if_priv *priv);
 int ele_service_swap(struct se_if_priv *priv,
 		     phys_addr_t addr,

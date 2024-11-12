@@ -97,19 +97,13 @@ exit:
 	return ret;
 }
 
-int ele_fetch_soc_info(struct se_if_priv *priv, u16 *soc_rev, u64 *serial_num)
+int ele_fetch_soc_info(struct se_if_priv *priv, void *data)
 {
-	struct ele_dev_info s_info = {0};
 	int err;
 
-	err = ele_get_info(priv, &s_info);
+	err = ele_get_info(priv, data);
 	if (err < 0)
 		return err;
-
-	if (soc_rev)
-		*soc_rev = s_info.d_info.soc_rev;
-	if (serial_num)
-		*serial_num = GET_SERIAL_NUM_FROM_UID(s_info.d_info.uid, MAX_UID_SIZE >> 2);
 
 	return err;
 }
