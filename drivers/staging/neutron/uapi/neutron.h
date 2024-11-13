@@ -44,7 +44,8 @@ namespace Neutron {
 						   struct neutron_uapi_log_get)
 #define NEUTRON_IOCTL_FIRMWARE_LOAD	NEUTRON_IOW(0x0c, \
 						    struct neutron_uapi_firmware_load)
-
+#define NEUTRON_IOCTL_CACHE_SYNC	NEUTRON_IOW(0x0d, \
+						    struct neutron_uapi_cache_sync)
 /****************************************************************************
  * Types
  ****************************************************************************/
@@ -94,6 +95,20 @@ struct neutron_uapi_firmware_load {
 };
 
 /**
+ * struct neutron_uapi_cache_sync - sync cache
+ * @fd:          The buffer file descriptor to be synchronized.
+ * @offset:      Offset address needs to be synchronized.
+ * @size:        Buffer size needs to be synchronized.
+ * @direction:   direction: 0 sync for device, else sync for cpu.
+ */
+struct neutron_uapi_cache_sync {
+	int fd;
+	__u32 offset;
+	__u32 size;
+	__u32 direction;
+};
+
+/**
  * struct neutron_uapi_buffer_create - Create buffer request
  * @size:   Capacity of the buffer
  * @addr:   Dma addr of the buffer
@@ -111,6 +126,10 @@ struct neutron_uapi_buffer_create {
  * @microcode_offset:  Microcode address offset
  * @tensor_count:      Valid tensor number.
  * @dram_base:         Physical base address in DDR, used by neutron.
+ * @input_offset:      Offset address for input data.
+ * @input_size:        Size of input data.
+ * @output_offset:     Offset address for output data.
+ * @output_size:       Size of output data.
  * @reserve:           Reserve for future.
  */
 struct neutron_uapi_inference_args {
@@ -131,9 +150,14 @@ struct neutron_uapi_inference_args {
 		__u32  args3;
 	};
 	__u32 dram_base;
-	__u32  firmw_id;
-	__u32  buf_id;
-	__u32 reserve[2];
+	__u32 reserve_dram_h;
+	__u32 firmw_id;
+	__u32 buf_id;
+	__u32 input_offset;
+	__u32 input_size;
+	__u32 output_offset;
+	__u32 output_size;
+	__u32 reserve[5];
 };
 
 #ifdef __cplusplus

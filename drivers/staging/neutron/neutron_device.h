@@ -12,6 +12,7 @@
 #include <linux/cdev.h>
 #include <linux/io.h>
 #include <linux/mutex.h>
+#include <linux/dma-mapping.h>
 
 #ifdef DEBUG
  #define neu_dbg(fmt, arg...) pr_info("neutron: " fmt, ##arg)
@@ -125,5 +126,8 @@ int neutron_rproc_boot(struct neutron_device *ndev, const char *fw_name);
 int neutron_rproc_shutdown(struct neutron_device *ndev);
 int neutron_hw_reset(struct neutron_device *ndev);
 int neutron_firmw_reload(struct neutron_device *ndev, struct neutron_buffer *buf);
+void neutron_memory_sync(struct neutron_device *ndev, dma_addr_t addr,
+			 size_t size, enum dma_data_direction dir);
+
 #endif /* NEUTRON_DEVICE_H */
 

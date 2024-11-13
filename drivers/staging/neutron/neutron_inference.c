@@ -7,6 +7,7 @@
  * Includes
  ****************************************************************************/
 
+#include <linux/dma-mapping.h>
 #include <linux/anon_inodes.h>
 #include <linux/file.h>
 #include <linux/fs.h>
@@ -100,6 +101,10 @@ static int neutron_inference_run(struct neutron_inference *inf)
 		return 0;
 
 	ndev = inf->ndev;
+
+	/* Sync the input data for device before running inference job */
+	neutron_memory_sync(ndev, inf->buf->dma_addr + inf->args.input_offset,
+			    inf->args.input_size, DMA_TO_DEVICE);
 
 	// reload only when firmware was changed
 	if (ndev->firmw_id  != inf->args.firmw_id) {
@@ -274,11 +279,15 @@ static void inference_done_callback(struct work_struct *work)
 	if (inf->status == NEUTRON_UAPI_STATUS_RUNNING)
 		inf->status = NEUTRON_UAPI_STATUS_DONE;
 
-	/* Wake up the waiting process */
-	wake_up_interruptible(&inf->waitq);
-
 	ndev = inf->ndev;
 	mbox = ndev->mbox;
+
+	/* Sync the output data for cpu after inference is done */
+	neutron_memory_sync(ndev, inf->buf->dma_addr + inf->args.output_offset,
+			    inf->args.output_size, DMA_FROM_DEVICE);
+
+	/* Wake up the waiting process */
+	wake_up_interruptible(&inf->waitq);
 
 	/* Reset neutron */
 	if (mbox->ops->send_reset(ndev->mbox))
