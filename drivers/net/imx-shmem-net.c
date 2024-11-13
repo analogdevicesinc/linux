@@ -1041,6 +1041,7 @@ static int imx_shm_net_probe(struct platform_device *pdev)
 	void *shm = NULL;
 	u32 ivpos;
 	int ret;
+	char dev_addr[6];
 
 	/* check if 1st probe or another attempt after EAGAIN */
 	if (pdev->dev.driver_data) {
@@ -1117,7 +1118,8 @@ static int imx_shm_net_probe(struct platform_device *pdev)
 
 	INIT_WORK(&in->state_work, imx_shm_net_state_change);
 
-	eth_random_addr(ndev->dev_addr);
+	eth_random_addr(dev_addr);
+	dev_addr_set(ndev, dev_addr);
 	ndev->netdev_ops = &imx_shm_net_ops;
 	ndev->ethtool_ops = &imx_shm_net_ethtool_ops;
 	ndev->mtu = min_t(u32, IMX_SHM_NET_MTU_DEF, in->qsize / 16);
@@ -1188,7 +1190,7 @@ err_free_dma:
 	return ret;
 }
 
-static int imx_shm_net_remove(struct platform_device *pdev)
+static void imx_shm_net_remove(struct platform_device *pdev)
 {
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct imx_shm_net *in = netdev_priv(ndev);
@@ -1217,8 +1219,6 @@ static int imx_shm_net_remove(struct platform_device *pdev)
 	cancel_work_sync(&in->state_work);
 	destroy_workqueue(in->state_wq);
 	free_netdev(ndev);
-
-	return 0;
 }
 
 #ifdef CONFIG_PM_SLEEP
