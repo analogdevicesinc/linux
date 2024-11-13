@@ -11,6 +11,8 @@
 /delete-node/ &dsp_vdev0buffer;
 
 / {
+	compatible = "fsl,imx8qxp-mek-wcpu";
+
 	/delete-node/ sound-wm8960;
 	/delete-node/ sound-wm8962;
 
