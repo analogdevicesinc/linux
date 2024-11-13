@@ -139,6 +139,9 @@
 					nxp,camera_sensor_reset_pin = <8>;
 					nxp,camera_sensor_clock_pin = <4>;
 
+					orientation = <2>;
+					rotation = <0>;
+
 					port {
 						mx95mbcam_gmsl_a_out: endpoint {
 							remote-endpoint = <&max96724_gmsl_a_in>;
@@ -157,6 +160,9 @@
 					reg = <0x40>;
 					nxp,camera_sensor_reset_pin = <8>;
 					nxp,camera_sensor_clock_pin = <4>;
+
+					orientation = <2>;
+					rotation = <0>;
 
 					port {
 						mx95mbcam_gmsl_b_out: endpoint {
@@ -177,6 +183,9 @@
 					nxp,camera_sensor_reset_pin = <8>;
 					nxp,camera_sensor_clock_pin = <4>;
 
+					orientation = <2>;
+					rotation = <0>;
+
 					port {
 						mx95mbcam_gmsl_c_out: endpoint {
 							remote-endpoint = <&max96724_gmsl_c_in>;
@@ -196,6 +205,9 @@
 					reg = <0x40>;
 					nxp,camera_sensor_reset_pin = <8>;
 					nxp,camera_sensor_clock_pin = <4>;
+
+					orientation = <2>;
+					rotation = <0>;
 
 					port {
 						mx95mbcam_gmsl_d_out: endpoint {
