@@ -268,7 +268,7 @@
 			i3c1: i3c-master@44330000 {
 				#address-cells = <3>;
 				#size-cells = <0>;
-				compatible = "fsl,imx93-i3c-master", "silvaco,i3c-master";
+				compatible = "silvaco,i3c-master-v1";
 				reg = <0x44330000 0x10000>;
 				interrupts = <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clk IMX91_CLK_BUS_AON>,
