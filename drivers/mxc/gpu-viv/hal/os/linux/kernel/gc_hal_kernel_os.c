@@ -420,9 +420,9 @@ _QueryProcessPageTable(IN gctPOINTER Logical, OUT gctPHYS_ADDR_T *Address)
         struct vm_area_struct *vma;
         unsigned long          pfn = 0;
         int                    ret = 0;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
         struct follow_pfnmap_args args = { };
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0)
         pte_t *ptep;
         spinlock_t *ptl;
 #endif
@@ -433,11 +433,11 @@ _QueryProcessPageTable(IN gctPOINTER Logical, OUT gctPHYS_ADDR_T *Address)
             up_read(&current_mm_mmap_sem);
             return gcvSTATUS_NOT_FOUND;
         }
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
         args.address = logical;
         args.vma = vma;
         ret = follow_pfnmap_start(&args);
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0)
         ret = follow_pte(vma, logical, &ptep, &ptl);
 #else
         ret = follow_pfn(vma, logical, &pfn);
@@ -446,10 +446,10 @@ _QueryProcessPageTable(IN gctPOINTER Logical, OUT gctPHYS_ADDR_T *Address)
         if (ret < 0) {
             return gcvSTATUS_NOT_FOUND;
         } else {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 11, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 12, 0)
             pfn = args.pfn;
             follow_pfnmap_end(&args);
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(6, 9, 0)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(6, 10, 0)
             pfn = pte_pfn(ptep_get(ptep));
             pte_unmap_unlock(ptep, ptl);
 #endif
