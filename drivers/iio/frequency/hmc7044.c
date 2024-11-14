@@ -1353,6 +1353,13 @@ static int hmc7044_setup(struct iio_dev *indio_dev)
 				   &hmc->clk_data);
 }
 
+static void hcm7044_clk_del_provider(void *dev)
+{
+	struct spi_device *spi = dev;
+
+	of_clk_del_provider(spi->dev.of_node);
+}
+
 static int hmc7043_setup(struct iio_dev *indio_dev)
 {
 	struct hmc7044 *hmc = iio_priv(indio_dev);
@@ -1539,9 +1546,13 @@ static int hmc7043_setup(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
-	return of_clk_add_provider(hmc->spi->dev.of_node,
-				of_clk_src_onecell_get,
-				&hmc->clk_data);
+	ret = of_clk_add_provider(hmc->spi->dev.of_node,
+				  of_clk_src_onecell_get,
+				  &hmc->clk_data);
+	if (ret)
+		return ret;
+
+	return devm_add_action_or_reset(&hmc->spi->dev, hcm7044_clk_del_provider, hmc->spi);
 }
 
 static int hmc7044_parse_dt(struct device *dev,
@@ -2277,7 +2288,9 @@ static int hmc7044_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = iio_device_register(indio_dev);
+	ret = devm_iio_device_register(&spi->dev, indio_dev);
+	if (ret)
+		return ret;
 
 	if (iio_get_debugfs_dentry(indio_dev) && (hmc->device_id == HMC7044)) {
 		debugfs_create_devm_seqfile(&spi->dev, "status",
@@ -2285,19 +2298,8 @@ static int hmc7044_probe(struct spi_device *spi)
 					    hmc7044_status_show);
 	}
 
-	return jesd204_fsm_start(hmc->jdev, JESD204_LINKS_ALL);
+	return devm_jesd204_fsm_start(&spi->dev, hmc->jdev, JESD204_LINKS_ALL);
 
-}
-
-static void hmc7044_remove(struct spi_device *spi)
-{
-	struct iio_dev *indio_dev = spi_get_drvdata(spi);
-	struct hmc7044 *hmc = iio_priv(indio_dev);
-
-	jesd204_fsm_stop(hmc->jdev, JESD204_LINKS_ALL);
-	iio_device_unregister(indio_dev);
-
-	of_clk_del_provider(spi->dev.of_node);
 }
 
 static const struct spi_device_id hmc7044_id[] = {
@@ -2312,7 +2314,6 @@ static struct spi_driver hmc7044_driver = {
 		.name = "hmc7044",
 	},
 	.probe = hmc7044_probe,
-	.remove = hmc7044_remove,
 	.id_table = hmc7044_id,
 };
 module_spi_driver(hmc7044_driver);
