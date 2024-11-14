@@ -2750,7 +2750,7 @@ static int adrv9025_probe(struct spi_device *spi)
 		 apiVersion.majorVer, apiVersion.minorVer,
 		 apiVersion.maintenanceVer, apiVersion.buildVer);
 
-	ret = jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
+	ret = devm_jesd204_fsm_start(&spi->dev, phy->jdev, JESD204_LINKS_ALL);
 	if (ret)
 		goto out_iio_device_unregister;
 
