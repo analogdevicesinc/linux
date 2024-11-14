@@ -10,7 +10,7 @@
 #define LANE_MIN 1
 #define LANE_MAX AD916x_JESD_NOF_LANES
 #define K_MAX 32
-#define M_DEFAULT 2
+#define M_DEFAULT 1
 #define N_DEFAULT 16
 #define NP_DEFAULT 16
 #define S_MIN 1
@@ -262,7 +262,7 @@ static int get_cdr_serdes_cfg(uint64_t lane_rate_mhz, uint8_t *serializer_cfg)
 	uint8_t serdes_pll_div_fctr = 0x0;
 
 	/*Get Clock Data Recovery & SERDES Settings*/
-	if ((lane_rate_mhz > LANE_RATE_MIN) && 
+	if ((lane_rate_mhz > LANE_RATE_MIN) &&
 			(lane_rate_mhz <= (LANE_RATE_MIN*2))) {
 		cdr_en_half_rate = 0x0;
 		cdr_div_rate = 0x2;
@@ -318,7 +318,7 @@ ADI_API int ad916x_jesd_config_datapath(ad916x_handle_t *h,
 	if (err != API_ERROR_OK) {
 		return err;
 	}
-	
+
 	err = check_interpolation_range(interpolation, chip_id.prod_id);
 	if (err != API_ERROR_OK) {
 		return err;
@@ -442,7 +442,7 @@ ADI_API int ad916x_jesd_get_cfg_status(ad916x_handle_t *h,
 	if (h == INVALID_POINTER) {
 		return API_ERROR_INVALID_HANDLE_PTR;
 	}
-	
+
 	if( jesd_cfg_stat == INVALID_POINTER) {
 		return API_ERROR_INVALID_PARAM;
 	}
