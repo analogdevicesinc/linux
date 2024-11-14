@@ -145,6 +145,8 @@ struct ltc2387_dev {
 	struct pwm_device *clk_en;
 	struct regulator *vref;
 	struct pwm_device *cnv;
+	struct pwm_waveform clk_gate_wf;
+	struct pwm_waveform cnv_wf;
 	struct clk *ref_clk;
 
 	unsigned int vref_mv;
@@ -154,16 +156,13 @@ struct ltc2387_dev {
 static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 {
 	unsigned long long ref_clk_period_ns;
-	struct pwm_state clk_en_state, cnv_state;
+	struct pwm_waveform clk_gate_wf = { }, cnv_wf = { };
 	int ret, clk_en_time;
 	u32 rem;
 
 	ref_clk_period_ns = DIV_ROUND_UP(NSEC_PER_SEC, ltc->ref_clk_rate);
 
-	cnv_state = (struct pwm_state) {
-		.duty_cycle = ref_clk_period_ns,
-		.enabled = true,
-	};
+	cnv_wf.duty_length_ns = ref_clk_period_ns;
 
 	/*
 	 * The goal here is that the PWM is configured with a minimal period not
@@ -186,12 +185,12 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	 *      ⟺ P ≥ round_up(R / freq) * NSEC_PER_SEC / R
 	 */
 
-	cnv_state.period = div_u64_rem((u64)DIV_ROUND_UP(ltc->ref_clk_rate, freq) * NSEC_PER_SEC,
-				       ltc->ref_clk_rate, &rem);
+	cnv_wf.period_length_ns = div_u64_rem((u64)DIV_ROUND_UP(ltc->ref_clk_rate, freq) * NSEC_PER_SEC,
+					      ltc->ref_clk_rate, &rem);
 	if (rem)
-		cnv_state.period += 1;
+		cnv_wf.period_length_ns += 1;
 
-	ret = pwm_apply_state(ltc->cnv, &cnv_state);
+	ret = pwm_set_waveform_might_sleep(ltc->cnv, &cnv_wf, false);
 	if (ret < 0)
 		return ret;
 
@@ -201,14 +200,11 @@ static int ltc2387_set_sampling_freq(struct ltc2387_dev *ltc, int freq)
 	else
 		clk_en_time = DIV_ROUND_UP_ULL(ltc->device_info->resolution, 2);
 
-	clk_en_state = (struct pwm_state) {
-		.period = cnv_state.period,
-		.duty_cycle = ref_clk_period_ns * clk_en_time,
-		.phase = LTC2387_T_FIRSTCLK_NS,
-		.enabled = true,
-	};
+	clk_gate_wf.period_length_ns = cnv_wf.period_length_ns;
+	clk_gate_wf.duty_length_ns = ref_clk_period_ns * clk_en_time;
+	clk_gate_wf.duty_offset_ns = LTC2387_T_FIRSTCLK_NS;
 
-	ret = pwm_apply_state(ltc->clk_en, &clk_en_state);
+	ret = pwm_set_waveform_might_sleep(ltc->clk_en, &clk_gate_wf, false);
 	if (ret < 0)
 		return ret;
 
