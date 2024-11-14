@@ -2572,9 +2572,11 @@ static int cf_axi_dds_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, indio_dev);
 
-	ret = jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
-	if (ret)
-		return ret;
+	if (st->jdev) {
+		ret = devm_jesd204_fsm_start(&pdev->dev, st->jdev, JESD204_LINKS_ALL);
+		if (ret)
+			return ret;
+	}
 
 	dev_info(&pdev->dev,
 		 "Analog Devices CF_AXI_DDS_DDS %s (%d.%.2d.%c) at 0x%08llX mapped to 0x%p, probed DDS %s\n",
