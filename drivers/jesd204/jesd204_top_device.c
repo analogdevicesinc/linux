@@ -381,7 +381,7 @@ static int jesd204_top_device_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev, "JESD204-GENERIC-TOP-DEVICE probed %d links\n",
 		tdev->jesd204_dev_data.max_num_links);
 
-	return jesd204_fsm_start(jdev, JESD204_LINKS_ALL);
+	return devm_jesd204_fsm_start(&pdev->dev, jdev, JESD204_LINKS_ALL);
 }
 
 static struct platform_driver jesd204_top_device_driver = {
