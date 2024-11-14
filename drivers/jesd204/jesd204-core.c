@@ -1205,9 +1205,9 @@ static void jesd204_dev_unregister(struct jesd204_dev *jdev)
 	jdev->fsm_inited = false;
 }
 
-static void devm_jesd204_dev_unreg(struct device *dev, void *res)
+static void devm_jesd204_dev_unreg(void *jdev)
 {
-	jesd204_dev_unregister(*(struct jesd204_dev **)res);
+	jesd204_dev_unregister(jdev);
 }
 
 /**
@@ -1227,28 +1227,23 @@ static void devm_jesd204_dev_unreg(struct device *dev, void *res)
 struct jesd204_dev *devm_jesd204_dev_register(struct device *dev,
 					      const struct jesd204_dev_data *i)
 {
-	struct jesd204_dev **jdevp, *jdev;
+	struct jesd204_dev *jdev;
+	int ret;
 
 	if (!dev_is_jesd204_dev(dev))
 		return NULL;
 
-	jdevp = devres_alloc(devm_jesd204_dev_unreg, sizeof(*jdevp),
-			     GFP_KERNEL);
-	if (!jdevp)
-		return ERR_PTR(-ENOMEM);
-
 	jdev = jesd204_dev_register(dev, i);
-	if (!IS_ERR(jdev)) {
-		*jdevp = jdev;
-		devres_add(dev, jdevp);
-	} else {
-		devres_free(jdevp);
-	}
+	if (IS_ERR(jdev))
+		return jdev;
+
+	ret = devm_add_action_or_reset(dev, devm_jesd204_dev_unreg, jdev);
+	if (ret)
+		return ERR_PTR(ret);
 
 	return jdev;
 }
 EXPORT_SYMBOL_GPL(devm_jesd204_dev_register);
-
 
 static int jesd204_overlay_has_device(struct device_node *node)
 {
