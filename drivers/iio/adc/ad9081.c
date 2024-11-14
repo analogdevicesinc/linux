@@ -5250,7 +5250,7 @@ static int ad9081_probe(struct spi_device *spi)
 		 conv->id, phy->chip_id.dev_revision,
 		 phy->chip_id.prod_grade, api_rev[0], api_rev[1], api_rev[2]);
 
-	ret = jesd204_fsm_start(jdev, JESD204_LINKS_ALL);
+	ret = devm_jesd204_fsm_start(&spi->dev, jdev, JESD204_LINKS_ALL);
 	if (ret)
 		goto out_clk_del_provider;
 
