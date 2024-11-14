@@ -612,7 +612,7 @@ static int adxcvr_probe(struct platform_device *pdev)
 	if (ret)
 		dev_err(&pdev->dev, "Can't create the sysfs group\n");
 
-	ret = jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
+	ret = devm_jesd204_fsm_start(&pdev->dev, st->jdev, JESD204_LINKS_ALL);
 	if (ret)
 		return ret;
 
