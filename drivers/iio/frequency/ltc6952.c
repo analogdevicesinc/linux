@@ -600,6 +600,13 @@ static void ltc6952_clk_disable_unprepare(void *data)
 	clk_disable_unprepare(clk);
 }
 
+static void ltc6952_clk_del_provider(void *dev)
+{
+	struct spi_device *spi = dev;
+
+	of_clk_del_provider(spi->dev.of_node);
+}
+
 static int ltc6952_setup(struct iio_dev *indio_dev)
 {
 	struct ltc6952_state *st = iio_priv(indio_dev);
@@ -777,9 +784,12 @@ follower:
 	st->clk_data.clks = st->clks;
 	st->clk_data.clk_num = LTC6952_NUM_CHAN;
 
-	return of_clk_add_provider(st->spi->dev.of_node,
-				   of_clk_src_onecell_get,
-				   &st->clk_data);
+	ret = of_clk_add_provider(st->spi->dev.of_node, of_clk_src_onecell_get,
+				  &st->clk_data);
+	if (ret)
+		return ret;
+
+	return devm_add_action_or_reset(&st->spi->dev, ltc6952_clk_del_provider, st->spi);
 err_unlock:
 	mutex_unlock(&st->lock);
 	return ret;
@@ -1063,11 +1073,9 @@ static int ltc6952_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = iio_device_register(indio_dev);
-	if (ret < 0) {
-		of_clk_del_provider(spi->dev.of_node);
+	ret = devm_iio_device_register(&spi->dev, indio_dev);
+	if (ret < 0)
 		return ret;
-	}
 
 	if (iio_get_debugfs_dentry(indio_dev))
 		debugfs_create_devm_seqfile(&spi->dev, "status",
@@ -1093,16 +1101,7 @@ static int ltc6952_probe(struct spi_device *spi)
 			status & LTC6952_LOCK_MSK ? "Locked" : "Unlocked",
 			st->jdev ? "(jesd204-fsm)" : "");
 
-	return jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
-}
-
-static void ltc6952_remove(struct spi_device *spi)
-{
-	struct iio_dev *indio_dev = spi_get_drvdata(spi);
-
-	iio_device_unregister(indio_dev);
-
-	of_clk_del_provider(spi->dev.of_node);
+	return devm_jesd204_fsm_start(&spi->dev, st->jdev, JESD204_LINKS_ALL);
 }
 
 static const struct spi_device_id ltc6952_id[] = {
@@ -1125,7 +1124,6 @@ static struct spi_driver ltc6952_driver = {
 		.of_match_table = ltc6952_of_match,
 	},
 	.probe = ltc6952_probe,
-	.remove = ltc6952_remove,
 	.id_table = ltc6952_id,
 };
 module_spi_driver(ltc6952_driver);
