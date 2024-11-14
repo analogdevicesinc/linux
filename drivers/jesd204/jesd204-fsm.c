@@ -1103,6 +1103,33 @@ int jesd204_fsm_start(struct jesd204_dev *jdev, unsigned int link_idx)
 }
 EXPORT_SYMBOL_GPL(jesd204_fsm_start);
 
+static void __jesd204_fsm_stop(void *jdev)
+{
+	jesd204_fsm_stop(jdev, JESD204_LINKS_ALL);
+}
+
+/**
+ * devm_jesd204_fsm_start() - Managed Device version of jesd204_fsm_start()
+ * @jdev:      Pointer to the JESD204 device structure.
+ * @link_idx:  Index of the link to start.
+ *
+ * See jesd204_fsm_start()
+ *
+ * Return: 0 on success, negative error code on failure.
+ */
+int devm_jesd204_fsm_start(struct device *dev, struct jesd204_dev *jdev,
+			   unsigned int link_idx)
+{
+	int ret;
+
+	ret = __jesd204_fsm_start(jdev, link_idx, false);
+	if (ret)
+		return ret;
+
+	return devm_add_action_or_reset(dev, __jesd204_fsm_stop, jdev);
+}
+EXPORT_SYMBOL_GPL(devm_jesd204_fsm_start);
+
 /**
  * jesd204_fsm_resume() - Resume the JESD204 state machine for a specific link
  * @jdev:      Pointer to the JESD204 device structure.
