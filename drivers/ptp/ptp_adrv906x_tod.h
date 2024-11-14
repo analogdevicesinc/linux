@@ -15,16 +15,8 @@
 #define ADRV906X_HW_TOD_COUNTER_CNT                          (3u)
 #define ADRV906X_HW_TOD_PPS_CNT                              (4u)
 
-#define ADRV906X_HW_TOD_DISABLE                              (0)
-#define ADRV906X_HW_TOD_ENABLE                               (1)
-
-#define ADRV906X_HW_TOD_PPS_OUTPUT_OFF                       (0)
-#define ADRV906X_HW_TOD_PPS_OUTPUT_ON                        (1)
-
-#define ADRV906X_HW_TOD_PPS_IRQ_OFF                          (0)
-#define ADRV906X_HW_TOD_PPS_IRQ_ON                           (1)
-
-struct hw_tod;
+#define ADRV906X_DISABLE                                     (0)
+#define ADRV906X_ENABLE                                      (1)
 
 enum adrv906x_hw_tod_trig_mode {
 	HW_TOD_TRIG_MODE_GC	= 0,    /* ToD triggered by the Golden Counter */
@@ -58,12 +50,6 @@ enum adrv906x_hw_tod_trig_set_flag {
 	HW_TOD_TRIG_SET_FLAG_CLEAR	= 0,
 	HW_TOD_TRIG_SET_FLAG_TRIG	= 1,
 	HW_TOD_TRIG_SET_FALG_CNT
-};
-
-enum adrv906x_hw_tod_trig_op_flag {
-	HW_TOD_TRIG_OP_FLAG_GOING	= 0,
-	HW_TOD_TRIG_OP_FLAG_DONE	= 1,
-	HW_TOD_TRIG_OP_FALG_CNT
 };
 
 enum adrv906x_hw_tod_source {
@@ -120,7 +106,7 @@ struct adrv906x_tod {
 	u32 lc_freq_khz;                /* Clock frequency for the ToD counter block */
 	u32 gc_clk_freq_khz;            /* Clock frequency for the Golden counter block */
 	u16 pps_in_pulse_width_ms;      /* Input PPS pulse width in milliseconds */
-	bool pps_high;                  /* PPS state */
+	atomic_t pps_state;             /* PPS state */
 	wait_queue_head_t pps_queue;    /* Wait queue for processes waiting on PPS signal */
 	struct delayed_work pps_work;   /* Clear PPS boolean work structure */
 	struct adrv906x_tod_cdc cdc;
