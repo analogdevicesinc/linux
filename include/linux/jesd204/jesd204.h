@@ -262,6 +262,8 @@ int jesd204_get_links_data(struct jesd204_dev *jdev,
 			   const unsigned int num_links);
 
 int jesd204_fsm_start(struct jesd204_dev *jdev, unsigned int link_idx);
+int devm_jesd204_fsm_start(struct device *dev, struct jesd204_dev *jdev,
+			   unsigned int link_idx);
 void jesd204_fsm_stop(struct jesd204_dev *jdev, unsigned int link_idx);
 
 int jesd204_fsm_resume(struct jesd204_dev *jdev, unsigned int link_idx);
@@ -316,6 +318,13 @@ static inline int jesd204_get_links_data(struct jesd204_dev *jdev,
 
 static inline int jesd204_fsm_start(struct jesd204_dev *jdev,
 				    unsigned int link_idx)
+{
+	return 0;
+}
+
+static inline int devm_jesd204_fsm_start(struct device *dev,
+					 struct jesd204_dev *jdev,
+					 unsigned int link_idx)
 {
 	return 0;
 }
