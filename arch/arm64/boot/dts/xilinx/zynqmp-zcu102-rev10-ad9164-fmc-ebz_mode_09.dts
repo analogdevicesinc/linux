@@ -1,0 +1,23 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD917x-FMC-EBZ
+ * https://wiki.analog.com/resources/eval/dpg/ad917x-fmc-ebz
+ * https://wiki.analog.com/resources/eval/dpg/eval-ad9164
+ *
+ * hdl_project: <dac_fmc_ebz/zcu102>
+ * board_revision: <>
+ *
+ * Copyright (C) 2018-2022 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev10-ad9164-fmc-ebz_mode_08.dts"
+
+&fmc_spi {
+        dac0_ad9164: ad9164@1 {
+		adi,dac-interpolation = <1>;
+		adi,channel-interpolation = <1>;
+        adi,converters-per-device = <1>;	/* JESD M */
+        adi,samples-per-converter-per-frame = <4>; /* JESD S */
+        adi,interpolation = <1>;
+        };
+ };
