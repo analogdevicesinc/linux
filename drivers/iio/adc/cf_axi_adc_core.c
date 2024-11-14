@@ -1064,7 +1064,6 @@ static int axiadc_probe(struct platform_device *pdev)
 	const struct of_device_id *id;
 	struct iio_dev *indio_dev;
 	struct axiadc_state *st;
-	struct resource *mem;
 	struct axiadc_spidev *axiadc_spidev;
 	struct axiadc_converter *conv;
 	struct device_link *link;
@@ -1125,9 +1124,7 @@ static int axiadc_probe(struct platform_device *pdev)
 	if (IS_ERR(st->jdev))
 		return PTR_ERR(st->jdev);
 
-	mem = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	st->regs_size = resource_size(mem);
-	st->regs = devm_ioremap_resource(&pdev->dev, mem);
+	st->regs = devm_platform_ioremap_resource(pdev, 0);
 	if (IS_ERR(st->regs))
 		return PTR_ERR(st->regs);
 
@@ -1249,18 +1246,18 @@ static int axiadc_probe(struct platform_device *pdev)
 				"post_iio_register callback failed (%d)", ret);
 	}
 
-	ret = jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
-	if (ret)
-		return ret;
+	if (st->jdev) {
+		ret = devm_jesd204_fsm_start(&pdev->dev, st->jdev, JESD204_LINKS_ALL);
+		if (ret)
+			return ret;
+	}
 
 	dev_info(&pdev->dev,
-		 "ADI AIM (%d.%.2d.%c) at 0x%08llX mapped to 0x%p probed ADC %s as %s\n",
+		 "ADI AIM (%d.%.2d.%c) probed ADC %s as %s\n",
 		 ADI_AXI_PCORE_VER_MAJOR(st->pcore_version),
 		 ADI_AXI_PCORE_VER_MINOR(st->pcore_version),
 		 ADI_AXI_PCORE_VER_PATCH(st->pcore_version),
-		 (unsigned long long)mem->start, st->regs,
-		 conv->chip_info->name,
-		 axiadc_read(st, ADI_AXI_REG_ID) ? "SLAVE" : "MASTER");
+		 conv->chip_info->name, axiadc_read(st, ADI_AXI_REG_ID) ? "SLAVE" : "MASTER");
 
 	return 0;
 }
