@@ -5109,10 +5109,12 @@ static int ad9371_probe(struct spi_device *spi)
 	if (ret < 0)
 		dev_warn(&spi->dev, "%s: failed to register debugfs", __func__);
 
-	if (!phy->jdev)
+	if (!phy->jdev) {
 		ad9371_info(phy);
+		return 0;
+	}
 
-	ret = jesd204_fsm_start(phy->jdev, JESD204_LINKS_ALL);
+	ret = devm_jesd204_fsm_start(&spi->dev, phy->jdev, JESD204_LINKS_ALL);
 	if (ret)
 		goto out_iio_device_unregister;
 
