@@ -63,8 +63,11 @@ struct ad7294_state {
 	struct i2c_client *i2c;
 	struct regulator *adc_vref_reg;
 	struct regulator *dac_vref_reg;
-	u32 shunt_ohms[2];
-	u16 dac_value[2];
+	u32 shunt_ohms[AD7294_CURRENT_CHANNEL_COUNT];
+	u16 dac_value[AD7294_VOLTAGE_CHANNEL_COUNT];
+	bool voltage_alerts[AD7294_VOLTAGE_CHANNEL_COUNT][2];
+	bool current_alerts[AD7294_CURRENT_CHANNEL_COUNT][2];
+	bool temp_alerts[AD7294_CURRENT_CHANNEL_COUNT][2];
 };
 
 static int ad7294_reg_size(unsigned int reg)
@@ -142,12 +145,14 @@ static const struct iio_event_spec ad7294_events[] = {
 	{
 		.type = IIO_EV_TYPE_THRESH,
 		.dir = IIO_EV_DIR_RISING,
-		.mask_separate = BIT(IIO_EV_INFO_VALUE),
+		.mask_separate = BIT(IIO_EV_INFO_VALUE) |
+				 BIT(IIO_EV_INFO_ENABLE),
 	},
 	{
 		.type = IIO_EV_TYPE_THRESH,
 		.dir = IIO_EV_DIR_FALLING,
-		.mask_separate = BIT(IIO_EV_INFO_VALUE),
+		.mask_separate = BIT(IIO_EV_INFO_VALUE) |
+				 BIT(IIO_EV_INFO_ENABLE),
 	},
 	{
 		.type = IIO_EV_TYPE_THRESH,
@@ -527,9 +532,103 @@ static int ad7294_write_event_value(struct iio_dev *indio_dev,
 			    val);
 }
 
+static int ad7294_get_alert_status(struct ad7294_state *st,
+				   const struct iio_chan_spec *chan,
+				   enum iio_event_direction dir)
+{
+	int offset;
+
+	switch (dir) {
+	case IIO_EV_DIR_FALLING:
+		offset = 0;
+		break;
+	case IIO_EV_DIR_RISING:
+		offset = 1;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	switch (chan->type) {
+	case IIO_VOLTAGE:
+		return st->voltage_alerts[chan->channel][offset];
+	case IIO_CURRENT:
+		return st->current_alerts[chan->channel][offset];
+	case IIO_TEMP:
+		return st->temp_alerts[chan->channel][offset];
+	default:
+		return -EINVAL;
+	}
+}
+
+static int ad7294_set_alert_status(struct ad7294_state *st,
+				   const struct iio_chan_spec *chan,
+				   enum iio_event_direction dir, bool value)
+{
+	int offset;
+
+	switch (dir) {
+	case IIO_EV_DIR_FALLING:
+		offset = 0;
+		break;
+	case IIO_EV_DIR_RISING:
+		offset = 1;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	switch (chan->type) {
+	case IIO_VOLTAGE:
+		st->voltage_alerts[chan->channel][offset] = value;
+		break;
+	case IIO_CURRENT:
+		st->current_alerts[chan->channel][offset] = value;
+		break;
+	case IIO_TEMP:
+		st->temp_alerts[chan->channel][offset] = value;
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
+static int ad7294_read_event_config(struct iio_dev *indio_dev,
+				    const struct iio_chan_spec *chan,
+				    enum iio_event_type type,
+				    enum iio_event_direction dir)
+{
+	struct ad7294_state *st = iio_priv(indio_dev);
+
+	guard(mutex)(&st->lock);
+	return ad7294_get_alert_status(st, chan, dir);
+}
+
+static int ad7294_write_event_config(struct iio_dev *indio_dev,
+				     const struct iio_chan_spec *chan,
+				     enum iio_event_type type,
+				     enum iio_event_direction dir, int state)
+{
+	struct ad7294_state *st = iio_priv(indio_dev);
+	int ret = 0;
+
+	guard(mutex)(&st->lock);
+	ret = ad7294_set_alert_status(st, chan, dir, dir > 0);
+	if (ret)
+		return ret;
+
+	return regmap_write(st->regmap,
+			    ad7294_threshold_reg(chan, dir, IIO_EV_INFO_VALUE),
+			    state > 0 ? AD7294_ADC_VALUE_MASK : 0);
+}
+
 struct iio_info ad7294_info = {
 	.read_raw = ad7294_read_raw,
 	.write_raw = ad7294_write_raw,
+	.read_event_config = &ad7294_read_event_config,
+	.write_event_config = &ad7294_write_event_config,
 	.debugfs_reg_access = ad7294_reg_access,
 	.read_event_value = &ad7294_read_event_value,
 	.write_event_value = &ad7294_write_event_value,
