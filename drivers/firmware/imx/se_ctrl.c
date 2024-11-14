@@ -711,6 +711,7 @@ int se_dump_to_logfl(struct se_if_device_ctx *dev_ctx,
 	int dump_ln_len;
 	ssize_t wret;
 	int w_ct;
+	va_list args;
 
 	/* if logging is set to be disabled, return */
 	if (!se_log)
@@ -727,7 +728,6 @@ int se_dump_to_logfl(struct se_if_device_ctx *dev_ctx,
 		caller_type_str = "MU_RCV";
 		break;
 	default:
-		va_list args;
 
 		is_hex = false;
 		caller_type_str = "SE_DBG";
@@ -1651,7 +1651,7 @@ static long se_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 {
 	struct se_if_device_ctx *dev_ctx = fp->private_data;
 	struct se_if_priv *priv = dev_ctx->priv;
-	int err;
+	int err = -EINVAL;
 
 	/* Prevent race during change of device context */
 	if (mutex_lock_interruptible(&dev_ctx->fops_lock))
@@ -1694,10 +1694,14 @@ static long se_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 	case SE_IOCTL_SHARED_BUF_CFG:
 		if (priv->flags & SCU_MEM_CFG)
 			err = se_ioctl_shared_mem_cfg_handler(fp, dev_ctx, arg);
+		else
+			err = -EPERM;
 		break;
 	case SE_IOCTL_SIGNED_MESSAGE:
 		if (priv->flags & SCU_SIGNED_MSG_CFG)
 			err = se_ioctl_signed_msg_handler(fp, dev_ctx, arg);
+		else
+			err = -EPERM;
 		break;
 	case SE_IOCTL_GET_TIMER:
 		err = se_ioctl_get_time(dev_ctx, arg);
