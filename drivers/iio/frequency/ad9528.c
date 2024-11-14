@@ -1747,7 +1747,7 @@ static int ad9528_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	return jesd204_fsm_start(st->jdev, JESD204_LINKS_ALL);
+	return devm_jesd204_fsm_start(&spi->dev, st->jdev, JESD204_LINKS_ALL);
 }
 
 static const struct spi_device_id ad9528_id[] = {
