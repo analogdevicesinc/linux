@@ -450,7 +450,6 @@ static int ad_pulsar_set_samp_freq(struct ad_pulsar_adc *adc, int freq)
 
 	cnv_state = (struct pwm_state){
 		.duty_cycle = ref_clk_period_ns,
-		.phase = ref_clk_period_ns,
 		.enabled = true,
 	};
 
