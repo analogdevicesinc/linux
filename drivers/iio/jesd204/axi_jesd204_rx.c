@@ -1172,11 +1172,6 @@ static void axi_jesd204_rx_rmattr(void *data)
 	axi_jesd204_rx_create_remove_devattrs(jesd->dev, jesd, false);
 }
 
-static void axi_jesd204_stop_fsm(void *jdev)
-{
-	jesd204_fsm_stop(jdev, JESD204_LINKS_ALL);
-}
-
 static int axi_jesd204_rx_probe(struct platform_device *pdev)
 {
 	struct axi_jesd204_rx *jesd;
@@ -1331,11 +1326,7 @@ static int axi_jesd204_rx_probe(struct platform_device *pdev)
 		return ret;
 
 	if (jesd->jdev) {
-		ret = jesd204_fsm_start(jesd->jdev, JESD204_LINKS_ALL);
-		if (ret)
-			return ret;
-
-		ret = devm_add_action_or_reset(&pdev->dev, axi_jesd204_stop_fsm, jesd->jdev);
+		ret = devm_jesd204_fsm_start(&pdev->dev, jesd->jdev, JESD204_LINKS_ALL);
 		if (ret)
 			return ret;
 	}
