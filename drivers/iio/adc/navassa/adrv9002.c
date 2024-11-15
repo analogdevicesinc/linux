@@ -4362,8 +4362,7 @@ static ssize_t adrv9002_init_cals_bin_read(struct file *filp, struct kobject *ko
 		 * That's why we are going with this trouble to allocate + free the memory every
 		 * time one wants to save the current coefficients.
 		 */
-		phy->warm_boot.cals = devm_kzalloc(&phy->spi->dev, cals.warmbootMemoryNumBytes,
-						   GFP_KERNEL);
+		phy->warm_boot.cals = kzalloc(cals.warmbootMemoryNumBytes, GFP_KERNEL);
 		if (!phy->warm_boot.cals)
 			return -ENOMEM;
 
@@ -4385,7 +4384,7 @@ static ssize_t adrv9002_init_cals_bin_read(struct file *filp, struct kobject *ko
 		 * buffer.
 		 */
 		dev_dbg(&phy->spi->dev, "Freeing memory(%u)...\n", phy->warm_boot.size);
-		devm_kfree(&phy->spi->dev, phy->warm_boot.cals);
+		kfree(phy->warm_boot.cals);
 		phy->warm_boot.cals = NULL;
 	}
 
@@ -4567,6 +4566,13 @@ static int adrv9002_iio_channels_get(struct adrv9002_rf_phy *phy)
 	return 0;
 }
 
+static void adrv9002_free_coeffs(void *dev)
+{
+	struct adrv9002_rf_phy *phy = dev;
+
+	kfree(phy->warm_boot.cals);
+}
+
 static const char * const clk_names[NUM_ADRV9002_CLKS] = {
 	[RX1_SAMPL_CLK] = "-rx1_sampl_clk",
 	[RX2_SAMPL_CLK] = "-rx2_sampl_clk",
@@ -4712,6 +4718,14 @@ int adrv9002_post_init(struct adrv9002_rf_phy *phy)
 		if (ret)
 			return ret;
 	}
+
+	/*
+	 * Add an action for freeing warmboot coeffs. Reading them might span multiple read(2) calls
+	 * which means we could leak some memory if we unbing the device concurrently with reading.
+	 */
+	ret = devm_add_action(&spi->dev, adrv9002_free_coeffs, phy);
+	if (ret)
+		return ret;
 
 	ret = devm_iio_device_register(&spi->dev, indio_dev);
 	if (ret < 0)
