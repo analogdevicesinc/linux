@@ -4019,12 +4019,20 @@ static ssize_t adrv9002_profile_bin_read(struct file *filp, struct kobject *kobj
 	return memory_read_from_buffer(buf, count, &pos, phy->profile_buf, phy->profile_len);
 }
 
+struct adrv9002_fh_bin_table {
+	/*
+	 * page size should be more than enough for a max of 64 entries!
+	 * +1 so we the table can be properly NULL terminated.
+	 */
+	u8 bin_table[PAGE_SIZE + 1];
+	adi_adrv9001_FhHopFrame_t hop_tbl[ADI_ADRV9001_FH_MAX_HOP_TABLE_SIZE];
+};
+
 static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *buf, loff_t off,
 					   size_t count, int hop, int table)
 {
-	struct adrv9002_fh_bin_table *tbl = &phy->fh_table_bin_attr;
 	char *p, *line;
-	int entry = 0, ret, max_sz = ARRAY_SIZE(tbl->hop_tbl);
+	int entry = 0, ret, max_sz;
 
 	/* force a one write() call as it simplifies things a lot */
 	if (off) {
@@ -4043,10 +4051,15 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 		return -ENOTSUPP;
 	}
 
+	struct adrv9002_fh_bin_table *tbl __free(kfree) = kzalloc(sizeof(*tbl), GFP_KERNEL);
+	if (!tbl)
+		return -ENOMEM;
+
 	memcpy(tbl->bin_table, buf, count);
 	/* The bellow is always safe as @bin_table is bigger (by 1 byte) than the bin attribute */
 	tbl->bin_table[count] = '\0';
 
+	max_sz = ARRAY_SIZE(tbl->hop_tbl);
 	if (phy->fh.mode == ADI_ADRV9001_FHMODE_LO_RETUNE_REALTIME_PROCESS_DUAL_HOP)
 		max_sz /= 2;
 
