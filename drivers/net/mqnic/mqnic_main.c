@@ -721,6 +721,7 @@ static int mqnic_platform_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct resource *res;
 	struct reset_control *rst;
+	struct gpio_desc *reset_gpio;
 
 	dev_info(dev, DRIVER_NAME " platform probe");
 
@@ -748,7 +749,17 @@ static int mqnic_platform_probe(struct platform_device *pdev)
 	// Reset device
 	rst = devm_reset_control_get(dev, NULL);
 	if (IS_ERR(rst)) {
-		dev_warn(dev, "Cannot control device reset");
+		// Verify if we have reset-gpios
+		reset_gpio = devm_gpiod_get(dev, "reset",
+					    GPIOD_OUT_LOW);
+		if (IS_ERR(reset_gpio)) {
+			dev_warn(dev, "Cannot control device reset");
+		} else {
+			dev_info(dev, "Resetting device");
+			gpiod_set_value(reset_gpio, 1);
+			udelay(2);
+			gpiod_set_value(reset_gpio, 0);
+		}
 	} else {
 		dev_info(dev, "Resetting device");
 		reset_control_assert(rst);
