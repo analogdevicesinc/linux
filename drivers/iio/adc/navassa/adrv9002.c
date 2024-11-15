@@ -102,7 +102,11 @@
 #define ADRV9002_EXT_LO_FREQ_MAX	12000000000ULL
 #define ADRV9002_DEV_CLKOUT_MIN		(10 * MEGA)
 #define ADRV9002_DEV_CLKOUT_MAX		(80 * MEGA)
-
+/*
+ * The entries are reported as %freq_min,%freq_max and we have max of 7 entries. 256 bytes should
+ * be more than enough!
+ */
+#define ADRV9002_BIN_FH_ENTRIES_SZ	256
 /* Frequency hopping */
 #define ADRV9002_FH_TABLE_COL_SZ	7
 
@@ -4093,8 +4097,6 @@ static ssize_t adrv9002_fh_bin_table_write(struct adrv9002_rf_phy *phy, char *bu
 	return ret ? ret : count;
 }
 
-static char fh_table[PAGE_SIZE + 1];
-
 static ssize_t adrv9002_dpd_tx_fh_regions_read(struct adrv9002_rf_phy *phy, char *buf,
 					       loff_t off, size_t count, int c)
 {
@@ -4116,6 +4118,10 @@ static ssize_t adrv9002_dpd_tx_fh_regions_read(struct adrv9002_rf_phy *phy, char
 	ret = adrv9002_channel_to_state(phy, &tx->channel, tx->channel.cached_state, false);
 	if (ret)
 		return ret;
+
+	char *fh_table __free(kfree) = kzalloc(ADRV9002_BIN_FH_ENTRIES_SZ, GFP_KERNEL);
+	if (!fh_table)
+		return -ENOMEM;
 
 	for (f = 0; f < ARRAY_SIZE(fh_regions); f++) {
 		/* We ask for all the possible entries and identify 0,0 as end of table */
@@ -4156,6 +4162,10 @@ static ssize_t adrv9002_dpd_tx_fh_regions_write(struct adrv9002_rf_phy *phy, cha
 		dev_err(dev, "Frequency hopping not enabled\n");
 		return -ENOTSUPP;
 	}
+
+	char *fh_table __free(kfree) = kzalloc(count + 1, GFP_KERNEL);
+	if (!fh_table)
+		return -ENOMEM;
 
 	memcpy(fh_table, buf, count);
 	/* terminate it */
@@ -4222,8 +4232,6 @@ static int adrv9002_dpd_coeficcients_get_line(const struct device *dev,
 	return ret;
 }
 
-static char coeffs[PAGE_SIZE + 1];
-
 static ssize_t adrv9002_dpd_tx_coeficcients_read(struct adrv9002_rf_phy *phy, char *buf,
 						 loff_t off, size_t count, int c, int region)
 {
@@ -4247,6 +4255,11 @@ static ssize_t adrv9002_dpd_tx_coeficcients_read(struct adrv9002_rf_phy *phy, ch
 	if (ret)
 		return ret;
 
+	/* we have 208 bytes for the coefficients. 2K should be enough to accommodate all of them */
+	char *coeffs __free(kfree) = kzalloc(2 * KILO, GFP_KERNEL);
+	if (!coeffs)
+		return -ENOMEM;
+
 	for (i = 0; i < ARRAY_SIZE(dpd_coeffs.coefficients); i++) {
 		/* 16 coefficients per line */
 		if (!((i + 1) % 16))
@@ -4258,7 +4271,7 @@ static ssize_t adrv9002_dpd_tx_coeficcients_read(struct adrv9002_rf_phy *phy, ch
 	return memory_read_from_buffer(buf, count, &off, coeffs, sz);
 }
 
-static ssize_t adrv9002_dpd_tx_coeficcients_write(struct adrv9002_rf_phy *phy, char *buf,
+static ssize_t adrv9002_dpd_tx_coefficients_write(struct adrv9002_rf_phy *phy, char *buf,
 						  loff_t off, size_t count, int c, int region)
 {
 	struct adi_adrv9001_DpdCoefficients dpd_coeffs = {0};
@@ -4294,6 +4307,10 @@ static ssize_t adrv9002_dpd_tx_coeficcients_write(struct adrv9002_rf_phy *phy, c
 		dev_err(dev, "Multiple regions not allowed...\n");
 		return -ENOTSUPP;
 	}
+
+	char *coeffs __free(kfree) = kzalloc(count + 1, GFP_KERNEL);
+	if (!coeffs)
+		return -ENOMEM;
 
 	memcpy(coeffs, buf, count);
 	/* terminate it */
@@ -4497,7 +4514,7 @@ static ssize_t adrv9002_dpd_tx##nr##_region##r##_write(struct file *filp, struct
 	struct iio_dev *indio_dev = dev_to_iio_dev(kobj_to_dev(kobj));				\
 	struct adrv9002_rf_phy *phy = iio_priv(indio_dev);					\
 												\
-	return adrv9002_dpd_tx_coeficcients_write(phy, buf, off, count, nr, r);			\
+	return adrv9002_dpd_tx_coefficients_write(phy, buf, off, count, nr, r);			\
 }												\
 												\
 static ssize_t adrv9002_dpd_tx##nr##_region##r##_read(struct file *filp, struct kobject *kobj,	\
