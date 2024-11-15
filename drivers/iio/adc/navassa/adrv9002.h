@@ -218,15 +218,6 @@ struct adrv9002_gpio {
 	u32 signal;
 };
 
-struct adrv9002_fh_bin_table {
-	/*
-	 * page size should be more than enough for a max of 64 entries!
-	 * +1 so we the table can be properly NULL terminated.
-	 */
-	u8 bin_table[PAGE_SIZE + 1];
-	adi_adrv9001_FhHopFrame_t hop_tbl[ADI_ADRV9001_FH_MAX_HOP_TABLE_SIZE];
-};
-
 #define to_clk_priv(_hw) container_of(_hw, struct adrv9002_clock, hw)
 
 struct adrv9002_chip_info {
@@ -274,7 +265,6 @@ struct adrv9002_rf_phy {
 	char				*bin_attr_buf;
 	u8				*stream_buf;
 	u16				stream_size;
-	struct adrv9002_fh_bin_table	fh_table_bin_attr;
 	adi_adrv9001_FhCfg_t		fh;
 	struct adrv9002_rx_chan		rx_channels[ADRV9002_CHANN_MAX];
 	struct adrv9002_tx_chan		tx_channels[ADRV9002_CHANN_MAX];
