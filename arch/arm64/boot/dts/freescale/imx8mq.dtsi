@@ -1735,7 +1735,7 @@
 		};
 
 		vpu_v4l2: vpu_v4l2 {
-			compatible = "nxp,imx8m-vsiv4l2";
+			compatible = "nxp,imx8mq-vsiv4l2";
 			status = "disabled";
 		};
 	};
