@@ -347,9 +347,6 @@ static int fsl_asrc_process_buffer_pre(struct completion *complete,
 	if (!wait_for_completion_interruptible_timeout(complete, 10 * HZ)) {
 		pr_err("%sput DMA task timeout\n", DIR_STR(dir));
 		return -ETIME;
-	} else if (signal_pending(current)) {
-		pr_err("%sput task forcibly aborted\n", DIR_STR(dir));
-		return -ERESTARTSYS;
 	}
 
 	return 0;
@@ -869,12 +866,6 @@ static int fsl_asrc_open(struct inode *inode, struct file *file)
 	struct fsl_asrc_pair *pair;
 	struct fsl_asrc_m2m *m2m;
 	int ret;
-
-	ret = signal_pending(current);
-	if (ret) {
-		dev_err(dev, "current process has a signal pending\n");
-		return ret;
-	}
 
 	pair = kzalloc(sizeof(struct fsl_asrc_pair) + asrc->pair_priv_size, GFP_KERNEL);
 	if (!pair) {
