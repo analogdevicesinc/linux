@@ -18,13 +18,13 @@ void mqnic_clk_info_init(struct mqnic_dev *mdev)
 
 	mdev->ref_clk_nom_per_ns_num = val >> 16;
 	mdev->ref_clk_nom_per_ns_denom = val & 0xffff;
-	mdev->ref_clk_nom_freq_hz = (mdev->ref_clk_nom_per_ns_denom * 1000000000ull) / mdev->ref_clk_nom_per_ns_num;
+	mdev->ref_clk_nom_freq_hz = div_s64((mdev->ref_clk_nom_per_ns_denom * 1000000000ull), mdev->ref_clk_nom_per_ns_num);
 
 	val = ioread32(mdev->clk_info_rb->regs + MQNIC_RB_CLK_INFO_CLK_NOM_PER);
 
 	mdev->core_clk_nom_per_ns_num = val >> 16;
 	mdev->core_clk_nom_per_ns_denom = val & 0xffff;
-	mdev->core_clk_nom_freq_hz = (mdev->core_clk_nom_per_ns_denom * 1000000000ull) / mdev->core_clk_nom_per_ns_num;
+	mdev->core_clk_nom_freq_hz = div_s64((mdev->core_clk_nom_per_ns_denom * 1000000000ull), mdev->core_clk_nom_per_ns_num);
 
 	mdev->clk_info_channels = ioread32(mdev->clk_info_rb->regs + MQNIC_RB_CLK_INFO_COUNT);
 }
@@ -64,7 +64,7 @@ u64 mqnic_core_clk_cycles_to_ns(struct mqnic_dev *mdev, u64 cycles)
 	if (!mdev->clk_info_rb || !mdev->core_clk_nom_per_ns_denom)
 		return 0;
 
-	return (cycles * (u64)mdev->core_clk_nom_per_ns_num) / (u64)mdev->core_clk_nom_per_ns_denom;
+	return (cycles * div_s64((u64)mdev->core_clk_nom_per_ns_num, (u64)mdev->core_clk_nom_per_ns_denom));
 }
 EXPORT_SYMBOL(mqnic_core_clk_cycles_to_ns);
 
@@ -73,7 +73,7 @@ u64 mqnic_core_clk_ns_to_cycles(struct mqnic_dev *mdev, u64 ns)
 	if (!mdev->clk_info_rb || !mdev->core_clk_nom_per_ns_num)
 		return 0;
 
-	return (ns * (u64)mdev->core_clk_nom_per_ns_denom) / (u64)mdev->core_clk_nom_per_ns_num;
+	return (ns * div_s64((u64)mdev->core_clk_nom_per_ns_denom, (u64)mdev->core_clk_nom_per_ns_num));
 }
 EXPORT_SYMBOL(mqnic_core_clk_ns_to_cycles);
 
@@ -82,7 +82,7 @@ u64 mqnic_ref_clk_cycles_to_ns(struct mqnic_dev *mdev, u64 cycles)
 	if (!mdev->clk_info_rb || !mdev->ref_clk_nom_per_ns_denom)
 		return 0;
 
-	return (cycles * (u64)mdev->ref_clk_nom_per_ns_num) / (u64)mdev->ref_clk_nom_per_ns_denom;
+	return (cycles * div_s64((u64)mdev->ref_clk_nom_per_ns_num, (u64)mdev->ref_clk_nom_per_ns_denom));
 }
 EXPORT_SYMBOL(mqnic_ref_clk_cycles_to_ns);
 
@@ -91,6 +91,6 @@ u64 mqnic_ref_clk_ns_to_cycles(struct mqnic_dev *mdev, u64 ns)
 	if (!mdev->clk_info_rb || !mdev->ref_clk_nom_per_ns_num)
 		return 0;
 
-	return (ns * (u64)mdev->ref_clk_nom_per_ns_denom) / (u64)mdev->ref_clk_nom_per_ns_num;
+	return (ns * div_s64((u64)mdev->ref_clk_nom_per_ns_denom, (u64)mdev->ref_clk_nom_per_ns_num));
 }
 EXPORT_SYMBOL(mqnic_ref_clk_ns_to_cycles);
