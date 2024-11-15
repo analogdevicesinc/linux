@@ -43,6 +43,21 @@
 
 #define DRIVER_NAME	"vsiv4l2"
 
+#define VSI_IS_ENC BIT(0)
+#define VSI_IS_DEC BIT(1)
+
+struct vsi_match_data {
+	int flags;
+};
+
+static const struct vsi_match_data imx8m_data = {
+	.flags = VSI_IS_ENC | VSI_IS_DEC,
+};
+
+static const struct vsi_match_data imx8mq_data = {
+	.flags = VSI_IS_DEC,
+};
+
 int vsi_kloglvl = LOGLVL_ERROR;
 module_param(vsi_kloglvl, int, 0644);
 
@@ -873,8 +888,15 @@ static void vsi_daemonsdevice_release(struct device *dev)
 static int v4l2_probe(struct platform_device *pdev)
 {
 	struct vsi_v4l2_device *vpu = NULL;
+	const struct vsi_match_data *match_data;
 	struct video_device *venc, *vdec;
 	int ret = 0;
+
+	match_data = device_get_match_data(&pdev->dev);
+	if (!match_data) {
+		v4l2_klog(LOGLVL_ERROR, "missing match_data\n");
+		return -EINVAL;
+	}
 
 	v4l2_klog(LOGLVL_BRIEF, "%s", __func__);
 	if (gvsidev != NULL)
@@ -898,15 +920,19 @@ static int v4l2_probe(struct platform_device *pdev)
 
 	vpu->venc = NULL;
 	vpu->vdec = NULL;
-	venc = vsi_v4l2_probe_enc(pdev, vpu);
-	if (venc == NULL)
-		goto err;
-	vpu->venc = venc;
+	if (match_data->flags & VSI_IS_ENC) {
+		venc = vsi_v4l2_probe_enc(pdev, vpu);
+		if (!venc)
+			goto err;
+		vpu->venc = venc;
+	}
 
-	vdec = vsi_v4l2_probe_dec(pdev, vpu);
-	if (vdec == NULL)
-		goto err;
-	vpu->vdec = vdec;
+	if (match_data->flags & VSI_IS_DEC) {
+		vdec = vsi_v4l2_probe_dec(pdev, vpu);
+		if (!vdec)
+			goto err;
+		vpu->vdec = vdec;
+	}
 
 	ret = vsiv4l2_initdaemon();
 	if (ret < 0)
@@ -989,7 +1015,8 @@ static const struct platform_device_id v4l2_platform_ids[] = {
 };
 
 static const struct of_device_id v4l2_of_match[] = {
-	{ .compatible = "nxp,imx8m-vsiv4l2", },
+	{ .compatible = "nxp,imx8m-vsiv4l2", .data = &imx8m_data},
+	{ .compatible = "nxp,imx8mq-vsiv4l2", .data = &imx8mq_data},
 	{/* sentinel */}
 };
 
