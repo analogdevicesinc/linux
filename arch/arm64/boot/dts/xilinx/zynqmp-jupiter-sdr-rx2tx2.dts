@@ -1,0 +1,28 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * dts file for Analog Devices, Inc. Jupiter SDR
+ *
+ * hdl_project: <jupiter_sdr>
+ * board_revision: <>
+ *
+ * Copyright (C) 2024 Analog Devices Inc.
+ */
+
+/dts-v1/;
+
+#include "zynqmp-jupiter-sdr.dts"
+
+/delete-node/ &rx2_dma;
+/delete-node/ &tx2_dma;
+/delete-node/ &axi_adrv9002_core_rx2;
+/delete-node/ &axi_adrv9002_core_tx2;
+
+&axi_adrv9002_core_tx1 {
+	compatible = "adi,axi-adrv9002-rx2tx2-1.0";
+};
+
+&adc0_adrv9002 {
+	compatible = "adi,adrv9002-rx2tx2";
+	ssi-sync-gpios = <&gpio 85 GPIO_ACTIVE_HIGH>;
+	clock-output-names = "rx1_sampl_clk", "tx1_sampl_clk", "tdd1_intf_clk";
+};
