@@ -1182,6 +1182,7 @@ static int mxsfb_mmap(struct fb_info *info, struct vm_area_struct *vma)
 
 static struct fb_ops mxsfb_ops = {
 	.owner = THIS_MODULE,
+	__FB_DEFAULT_IOMEM_OPS_RDWR,
 	.fb_check_var = mxsfb_check_var,
 	.fb_set_par = mxsfb_set_par,
 	.fb_setcolreg = mxsfb_setcolreg,
