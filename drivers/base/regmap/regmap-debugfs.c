@@ -556,9 +556,10 @@ void regmap_debugfs_init(struct regmap *map)
 	 * a mutex or a spinlock, but if the regmap owner decided to disable
 	 * all locking mechanisms, this is no longer the case. For safety:
 	 * don't create the debugfs entries if locking is disabled.
+	 * Or disabled explicitly in driver.
 	 */
 	if (map->debugfs_disable) {
-		dev_dbg(map->dev, "regmap locking disabled - not creating debugfs entries\n");
+		dev_dbg(map->dev, "regmap debugfs disabled - not creating debugfs entries\n");
 		return;
 	}
 

@@ -1005,6 +1005,32 @@ static int phy_check_link_status(struct phy_device *phydev)
 	return 0;
 }
 
+int phy_validate_inband_aneg(struct phy_device *phydev,
+			     phy_interface_t interface)
+{
+	/* We may be called before phy_attach_direct() force-binds the
+	 * generic PHY driver to this device. In that case, report an unknown
+	 * setting rather than -EIO as most other functions do.
+	 */
+	if (!phydev->drv || !phydev->drv->validate_inband_aneg)
+		return PHY_INBAND_ANEG_UNKNOWN;
+
+	return phydev->drv->validate_inband_aneg(phydev, interface);
+}
+EXPORT_SYMBOL_GPL(phy_validate_inband_aneg);
+
+int phy_config_inband_aneg(struct phy_device *phydev, bool enabled)
+{
+	if (!phydev->drv)
+		return -EIO;
+
+	if (!phydev->drv->config_inband_aneg)
+		return -EOPNOTSUPP;
+
+	return phydev->drv->config_inband_aneg(phydev, enabled);
+}
+EXPORT_SYMBOL_GPL(phy_config_inband_aneg);
+
 /**
  * _phy_start_aneg - start auto-negotiation for this PHY device
  * @phydev: the phy_device struct

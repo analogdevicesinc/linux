@@ -1354,7 +1354,7 @@ static void setup_txtime(struct taprio_sched *q,
 	}
 }
 
-static struct tc_taprio_qopt_offload *taprio_offload_alloc(int num_entries)
+struct tc_taprio_qopt_offload *taprio_offload_alloc(int num_entries)
 {
 	struct __tc_taprio_qopt_offload *__offload;
 
@@ -1367,6 +1367,7 @@ static struct tc_taprio_qopt_offload *taprio_offload_alloc(int num_entries)
 
 	return &__offload->offload;
 }
+EXPORT_SYMBOL_GPL(taprio_offload_alloc);
 
 struct tc_taprio_qopt_offload *taprio_offload_get(struct tc_taprio_qopt_offload
 						  *offload)

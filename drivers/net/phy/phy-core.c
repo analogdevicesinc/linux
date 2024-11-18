@@ -13,7 +13,7 @@
  */
 const char *phy_speed_to_str(int speed)
 {
-	BUILD_BUG_ON_MSG(__ETHTOOL_LINK_MODE_MASK_NBITS != 103,
+	BUILD_BUG_ON_MSG(__ETHTOOL_LINK_MODE_MASK_NBITS != 105,
 		"Enum ethtool_link_mode_bit_indices and phylib are out of sync. "
 		"If a speed or mode has been added please update phy_speed_to_str "
 		"and the PHY settings array.\n");
@@ -123,6 +123,7 @@ int phy_interface_num_ports(phy_interface_t interface)
 	case PHY_INTERFACE_MODE_RTBI:
 	case PHY_INTERFACE_MODE_XGMII:
 	case PHY_INTERFACE_MODE_XLGMII:
+	case PHY_INTERFACE_MODE_40GKR4:
 	case PHY_INTERFACE_MODE_MOCA:
 	case PHY_INTERFACE_MODE_TRGMII:
 	case PHY_INTERFACE_MODE_USXGMII:
@@ -133,11 +134,13 @@ int phy_interface_num_ports(phy_interface_t interface)
 	case PHY_INTERFACE_MODE_5GBASER:
 	case PHY_INTERFACE_MODE_10GBASER:
 	case PHY_INTERFACE_MODE_25GBASER:
+	case PHY_INTERFACE_MODE_25GKR:
 	case PHY_INTERFACE_MODE_10GKR:
 	case PHY_INTERFACE_MODE_100BASEX:
 	case PHY_INTERFACE_MODE_RXAUI:
 	case PHY_INTERFACE_MODE_XAUI:
 	case PHY_INTERFACE_MODE_1000BASEKX:
+	case PHY_INTERFACE_MODE_2500SGMII:
 		return 1;
 	case PHY_INTERFACE_MODE_QSGMII:
 	case PHY_INTERFACE_MODE_QUSGMII:

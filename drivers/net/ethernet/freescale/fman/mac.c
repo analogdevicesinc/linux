@@ -164,7 +164,9 @@ static int mac_probe(struct platform_device *_of_dev)
 	u32			 val;
 	u8			fman_id;
 	phy_interface_t          phy_if;
+	const char		*managed;
 
+	phy_if = PHY_INTERFACE_MODE_NA;
 	dev = &_of_dev->dev;
 	mac_node = dev->of_node;
 	init = of_device_get_match_data(dev);
@@ -318,13 +320,25 @@ static int mac_probe(struct platform_device *_of_dev)
 		dev_node = NULL;
 	}
 
-	/* Get the PHY connection type */
-	err = of_get_phy_mode(mac_node, &phy_if);
-	if (err) {
-		dev_warn(dev,
-			 "of_get_phy_mode() for %pOF failed. Defaulting to SGMII\n",
-			 mac_node);
-		phy_if = PHY_INTERFACE_MODE_SGMII;
+	/* Get the PHY connection type, except for C73 managed links where we
+	 * let phylink select state->interface, regardless of what's in the
+	 * device tree.
+	 *
+	 * Although, U-Boot's board_ft_fman_fixup_port() will "fix up" the
+	 * device tree and force a fixed-link on 10G ports, unless we use
+	 * phy-connection-type = "10gbase-kr". So we do expect to find device
+	 * trees with this phy-connection-type value, yet we still deliberately
+	 * ignore it.
+	 */
+	if (of_property_read_string(mac_node, "managed", &managed) != 0 ||
+	    strcmp(managed, "c73") != 0) {
+		err = of_get_phy_mode(mac_node, &phy_if);
+		if (err) {
+			dev_warn(dev,
+				 "of_get_phy_mode() for %pOF failed. Defaulting to SGMII\n",
+				 mac_node);
+			phy_if = PHY_INTERFACE_MODE_SGMII;
+		}
 	}
 	mac_dev->phy_if = phy_if;
 

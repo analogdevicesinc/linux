@@ -13,6 +13,7 @@
 #include <soc/mscc/ocelot.h>
 #include <linux/dsa/ocelot.h>
 #include <linux/pcs-lynx.h>
+#include <linux/phy/phy.h>
 #include <net/pkt_sched.h>
 #include <linux/iopoll.h>
 #include <linux/mdio.h>
@@ -34,7 +35,8 @@
 					 OCELOT_PORT_MODE_QSGMII | \
 					 OCELOT_PORT_MODE_1000BASEX | \
 					 OCELOT_PORT_MODE_2500BASEX | \
-					 OCELOT_PORT_MODE_USXGMII)
+					 OCELOT_PORT_MODE_USXGMII | \
+					 OCELOT_PORT_MODE_10G_QXGMII)
 
 static const u32 vsc9959_port_modes[VSC9959_NUM_PORTS] = {
 	VSC9959_PORT_MODE_SERDES,
@@ -958,13 +960,14 @@ static int vsc9959_mdio_bus_alloc(struct ocelot *ocelot)
 	struct pci_dev *pdev = to_pci_dev(ocelot->dev);
 	struct felix *felix = ocelot_to_felix(ocelot);
 	struct enetc_mdio_priv *mdio_priv;
+	struct dsa_switch *ds = felix->ds;
 	struct device *dev = ocelot->dev;
 	resource_size_t imdio_base;
 	void __iomem *imdio_regs;
 	struct resource res;
 	struct enetc_hw *hw;
 	struct mii_bus *bus;
-	int port;
+	struct dsa_port *dp;
 	int rc;
 
 	felix->pcs = devm_kcalloc(dev, felix->info->num_ports,
@@ -1019,23 +1022,24 @@ static int vsc9959_mdio_bus_alloc(struct ocelot *ocelot)
 
 	felix->imdio = bus;
 
-	for (port = 0; port < felix->info->num_ports; port++) {
-		struct ocelot_port *ocelot_port = ocelot->ports[port];
+	dsa_switch_for_each_available_port(dp, ds) {
+		struct ocelot_port *ocelot_port = ocelot->ports[dp->index];
+		size_t num_phys = ocelot_port->serdes ? 1 : 0;
 		struct phylink_pcs *phylink_pcs;
-
-		if (dsa_is_unused_port(felix->ds, port))
-			continue;
 
 		if (ocelot_port->phy_mode == PHY_INTERFACE_MODE_INTERNAL)
 			continue;
 
-		phylink_pcs = lynx_pcs_create_mdiodev(felix->imdio, port);
+		phylink_pcs = lynx_pcs_create_mdiodev(felix->imdio, dp->index,
+						      &ocelot_port->serdes,
+						      num_phys);
 		if (IS_ERR(phylink_pcs))
 			continue;
 
-		felix->pcs[port] = phylink_pcs;
+		felix->pcs[dp->index] = phylink_pcs;
 
-		dev_info(dev, "Found PCS at internal MDIO address %d\n", port);
+		dev_info(dev, "Found PCS at internal MDIO address %d\n",
+			 dp->index);
 	}
 
 	return 0;

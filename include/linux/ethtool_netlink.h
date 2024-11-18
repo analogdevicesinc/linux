@@ -42,6 +42,8 @@ void ethtool_aggregate_pause_stats(struct net_device *dev,
 void ethtool_aggregate_rmon_stats(struct net_device *dev,
 				  struct ethtool_rmon_stats *rmon_stats);
 bool ethtool_dev_mm_supported(struct net_device *dev);
+void mm_state_to_cfg(const struct ethtool_mm_state *state,
+		     struct ethtool_mm_cfg *cfg);
 
 #else
 static inline int ethnl_cable_test_alloc(struct phy_device *phydev, u8 cmd)
@@ -118,6 +120,11 @@ ethtool_aggregate_rmon_stats(struct net_device *dev,
 static inline bool ethtool_dev_mm_supported(struct net_device *dev)
 {
 	return false;
+}
+
+static inline void mm_state_to_cfg(const struct ethtool_mm_state *state,
+				   struct ethtool_mm_cfg *cfg)
+{
 }
 
 #endif /* IS_ENABLED(CONFIG_ETHTOOL_NETLINK) */

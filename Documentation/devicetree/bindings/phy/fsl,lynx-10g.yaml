@@ -1,0 +1,70 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/phy/fsl,lynx-10g.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Freescale Lynx 10G SerDes PHY
+
+description:
+  The Lynx 10G is a multi-protocol SerDes block which handles networking, PCIe,
+  SATA, USB and other high-speed interfaces. It is present on most QorIQ and
+  Layerscape SoCs. The integration is SoC-specific, with the differences
+  consisting in register endianness, the number of lanes, protocol converters
+  available per lane and their location in the PCCR registers. Some SoCs have
+  multiple SerDes blocks and even those differ in their protocol configuration.
+
+maintainers:
+  - Vladimir Oltean <vladimir.oltean@nxp.com>
+
+properties:
+  compatible:
+    items:
+      - enum:
+          - fsl,ls1028a-serdes
+          - fsl,ls1046a-serdes1
+          - fsl,ls1046a-serdes2
+          - fsl,ls1088a-serdes1
+          - fsl,ls2088a-serdes1
+          - fsl,ls2088a-serdes2
+      - const: fsl,lynx-10g
+
+  reg:
+    maxItems: 1
+
+  "#phy-cells":
+    const: 1
+    description:
+      Encodes lane number from consumer's perspective (lane A corresponds to 0).
+      This number corresponds to the lane as visible in the SerDes IP's
+      registers (such as LNaPSSR0), and this may not be necessarily identical
+      to the lane numbering scheme from the SoC's pinout.
+
+  fsl,dcfg-handle:
+    description:
+      Should be a phandle to the DCFG block of the SoC. On some SoC
+      integrations, major reconfiguration of the networking SerDes protocol
+      requires an RCW override procedure, which is handled by the DCFG.
+      The RCW override procedure requires hardware validation for each SoC and
+      is currently not implemented.
+    $ref: /schemas/types.yaml#/definitions/phandle
+
+required:
+  - compatible
+  - reg
+  - "#phy-cells"
+
+additionalProperties: false
+
+examples:
+  - |
+    soc {
+      #address-cells = <2>;
+      #size-cells = <2>;
+
+      serdes_1: phy@1ea0000 {
+        compatible = "fsl,ls1028a-serdes", "fsl,lynx-10g";
+        reg = <0x0 0x1ea0000 0x0 0xffff>;
+        #phy-cells = <1>;
+      };
+    };

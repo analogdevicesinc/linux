@@ -110,5 +110,6 @@ source "drivers/phy/tegra/Kconfig"
 source "drivers/phy/ti/Kconfig"
 source "drivers/phy/intel/Kconfig"
 source "drivers/phy/xilinx/Kconfig"
+source "drivers/phy/inphi/Kconfig"
 
 endmenu

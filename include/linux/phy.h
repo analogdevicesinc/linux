@@ -129,6 +129,8 @@ extern const int phy_10gbit_features_array[1];
  * @PHY_INTERFACE_MODE_QUSGMII: Quad Universal SGMII
  * @PHY_INTERFACE_MODE_1000BASEKX: 1000Base-KX - with Clause 73 AN
  * @PHY_INTERFACE_MODE_10G_QXGMII: 10G-QXGMII - 4 ports over 10G USXGMII
+ * @PHY_INTERFACE_MODE_25GKR: 25GBASE-KR - with Clause 73 AN
+ * @PHY_INTERFACE_MODE_40GKR4: 40GBASE-KR4 - with Clause 73 AN
  * @PHY_INTERFACE_MODE_MAX: Book keeping
  *
  * Describes the interface between the MAC and PHY.
@@ -170,6 +172,9 @@ typedef enum {
 	PHY_INTERFACE_MODE_QUSGMII,
 	PHY_INTERFACE_MODE_1000BASEKX,
 	PHY_INTERFACE_MODE_10G_QXGMII,
+	PHY_INTERFACE_MODE_2500SGMII,
+	PHY_INTERFACE_MODE_25GKR,
+	PHY_INTERFACE_MODE_40GKR4,
 	PHY_INTERFACE_MODE_MAX,
 } phy_interface_t;
 
@@ -235,6 +240,8 @@ static inline const char *phy_modes(phy_interface_t interface)
 		return "gmii";
 	case PHY_INTERFACE_MODE_SGMII:
 		return "sgmii";
+	case PHY_INTERFACE_MODE_2500SGMII:
+		return "sgmii-2500";
 	case PHY_INTERFACE_MODE_TBI:
 		return "tbi";
 	case PHY_INTERFACE_MODE_REVMII:
@@ -293,6 +300,10 @@ static inline const char *phy_modes(phy_interface_t interface)
 		return "qusgmii";
 	case PHY_INTERFACE_MODE_10G_QXGMII:
 		return "10g-qxgmii";
+	case PHY_INTERFACE_MODE_25GKR:
+		return "25gbase-kr";
+	case PHY_INTERFACE_MODE_40GKR4:
+		return "40gbase-kr4";
 	default:
 		return "unknown";
 	}
@@ -818,6 +829,12 @@ struct phy_tdr_config {
 };
 #define PHY_PAIR_ALL -1
 
+enum phy_inband_aneg {
+	PHY_INBAND_ANEG_UNKNOWN		= BIT(0),
+	PHY_INBAND_ANEG_OFF		= BIT(1),
+	PHY_INBAND_ANEG_ON		= BIT(2),
+};
+
 /**
  * struct phy_plca_cfg - Configuration of the PLCA (Physical Layer Collision
  * Avoidance) Reconciliation Sublayer.
@@ -981,6 +998,22 @@ struct phy_driver {
 	 * if phydev->autoneg is off
 	 */
 	int (*config_aneg)(struct phy_device *phydev);
+
+	/**
+	 * @validate_inband_aneg: Report what types of in-band auto-negotiation
+	 * are available for the given PHY interface type. Returns a bit mask
+	 * of type enum phy_inband_aneg. Returning negative error codes is not
+	 * permitted.
+	 */
+	int (*validate_inband_aneg)(struct phy_device *phydev,
+				    phy_interface_t interface);
+
+	/**
+	 * @config_inband_aneg: Enable or disable in-band auto-negotiation for
+	 * the system-side interface if the PHY operates in a mode that
+	 * requires it: (Q)SGMII, USXGMII, 1000Base-X, etc.
+	 */
+	int (*config_inband_aneg)(struct phy_device *phydev, bool enabled);
 
 	/** @aneg_done: Determines the auto negotiation result */
 	int (*aneg_done)(struct phy_device *phydev);
@@ -1805,6 +1838,9 @@ void phy_stop(struct phy_device *phydev);
 int phy_config_aneg(struct phy_device *phydev);
 int _phy_start_aneg(struct phy_device *phydev);
 int phy_start_aneg(struct phy_device *phydev);
+int phy_validate_inband_aneg(struct phy_device *phydev,
+			     phy_interface_t interface);
+int phy_config_inband_aneg(struct phy_device *phydev, bool enabled);
 int phy_aneg_done(struct phy_device *phydev);
 int phy_speed_down(struct phy_device *phydev, bool sync);
 int phy_speed_up(struct phy_device *phydev);

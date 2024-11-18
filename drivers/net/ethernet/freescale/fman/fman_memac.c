@@ -289,10 +289,10 @@ struct fman_mac {
 	struct memac_cfg *memac_drv_param;
 	void *fm;
 	struct fman_rev_info fm_rev_info;
-	struct phy *serdes;
 	struct phylink_pcs *sgmii_pcs;
 	struct phylink_pcs *qsgmii_pcs;
 	struct phylink_pcs *xfi_pcs;
+	struct phylink_pcs *c73_pcs;
 	bool allmulti_enabled;
 	bool rgmii_no_half_duplex;
 };
@@ -523,33 +523,6 @@ static void free_init_resources(struct fman_mac *memac)
 	memac->unicast_addr_hash = NULL;
 }
 
-static int memac_enable(struct fman_mac *memac)
-{
-	int ret;
-
-	ret = phy_init(memac->serdes);
-	if (ret) {
-		dev_err(memac->dev_id->dev,
-			"could not initialize serdes: %pe\n", ERR_PTR(ret));
-		return ret;
-	}
-
-	ret = phy_power_on(memac->serdes);
-	if (ret) {
-		dev_err(memac->dev_id->dev,
-			"could not power on serdes: %pe\n", ERR_PTR(ret));
-		phy_exit(memac->serdes);
-	}
-
-	return ret;
-}
-
-static void memac_disable(struct fman_mac *memac)
-{
-	phy_power_off(memac->serdes);
-	phy_exit(memac->serdes);
-}
-
 static int memac_set_promiscuous(struct fman_mac *memac, bool new_val)
 {
 	struct memac_regs __iomem *regs = memac->regs;
@@ -649,9 +622,11 @@ static u32 memac_if_mode(phy_interface_t interface)
 		return IF_MODE_GMII | IF_MODE_RGMII;
 	case PHY_INTERFACE_MODE_SGMII:
 	case PHY_INTERFACE_MODE_1000BASEX:
+	case PHY_INTERFACE_MODE_1000BASEKX:
 	case PHY_INTERFACE_MODE_QSGMII:
 		return IF_MODE_GMII;
 	case PHY_INTERFACE_MODE_10GBASER:
+	case PHY_INTERFACE_MODE_10GKR:
 		return IF_MODE_10G;
 	default:
 		WARN_ON_ONCE(1);
@@ -663,6 +638,9 @@ static struct phylink_pcs *memac_select_pcs(struct phylink_config *config,
 					    phy_interface_t iface)
 {
 	struct fman_mac *memac = fman_config_to_mac(config)->fman_mac;
+
+	if (phylink_autoneg_c73(config->cfg_link_an_mode))
+		return memac->c73_pcs;
 
 	switch (iface) {
 	case PHY_INTERFACE_MODE_SGMII:
@@ -677,29 +655,18 @@ static struct phylink_pcs *memac_select_pcs(struct phylink_config *config,
 	}
 }
 
-static int memac_prepare(struct phylink_config *config, unsigned int mode,
-			 phy_interface_t iface)
-{
-	struct fman_mac *memac = fman_config_to_mac(config)->fman_mac;
-
-	switch (iface) {
-	case PHY_INTERFACE_MODE_SGMII:
-	case PHY_INTERFACE_MODE_1000BASEX:
-	case PHY_INTERFACE_MODE_QSGMII:
-	case PHY_INTERFACE_MODE_10GBASER:
-		return phy_set_mode_ext(memac->serdes, PHY_MODE_ETHERNET,
-					iface);
-	default:
-		return 0;
-	}
-}
-
 static void memac_mac_config(struct phylink_config *config, unsigned int mode,
 			     const struct phylink_link_state *state)
 {
 	struct mac_device *mac_dev = fman_config_to_mac(config);
 	struct memac_regs __iomem *regs = mac_dev->fman_mac->regs;
 	u32 tmp = ioread32be(&regs->if_mode);
+
+	/* state->interface is only known at mac_link_up() time with C73
+	 * autoneg, so delay programming the IF_MODE register
+	 */
+	if (phylink_autoneg_c73(mode))
+		return;
 
 	tmp &= ~(IF_MODE_MASK | IF_MODE_RGMII);
 	tmp |= memac_if_mode(state->interface);
@@ -776,7 +743,6 @@ static void memac_link_down(struct phylink_config *config, unsigned int mode,
 static const struct phylink_mac_ops memac_mac_ops = {
 	.mac_get_caps = memac_get_caps,
 	.mac_select_pcs = memac_select_pcs,
-	.mac_prepare = memac_prepare,
 	.mac_config = memac_mac_config,
 	.mac_link_up = memac_link_up,
 	.mac_link_down = memac_link_down,
@@ -984,6 +950,7 @@ static int memac_free(struct fman_mac *memac)
 {
 	free_init_resources(memac);
 
+	pcs_put(memac->c73_pcs);
 	pcs_put(memac->sgmii_pcs);
 	pcs_put(memac->qsgmii_pcs);
 	pcs_put(memac->xfi_pcs);
@@ -1034,8 +1001,9 @@ static struct fman_mac *memac_config(struct mac_device *mac_dev,
 }
 
 static struct phylink_pcs *memac_pcs_create(struct device_node *mac_node,
-					    int index)
+					    int index, struct phy *serdes)
 {
+	size_t num_phys = serdes ? 1 : 0;
 	struct device_node *node;
 	struct phylink_pcs *pcs;
 
@@ -1043,22 +1011,54 @@ static struct phylink_pcs *memac_pcs_create(struct device_node *mac_node,
 	if (!node)
 		return ERR_PTR(-ENODEV);
 
-	pcs = lynx_pcs_create_fwnode(of_fwnode_handle(node));
+	pcs = lynx_pcs_create_fwnode(of_fwnode_handle(node), &serdes,
+				     num_phys);
 	of_node_put(node);
 
 	return pcs;
 }
 
-static bool memac_supports(struct mac_device *mac_dev, phy_interface_t iface)
+static int memac_get_optional_pcs(struct mac_device *mac_dev,
+				  struct device_node *mac_node,
+				  struct phylink_pcs **pcsp, const char *name,
+				  struct phy *serdes)
 {
-	/* If there's no serdes device, assume that it's been configured for
-	 * whatever the default interface mode is.
-	 */
-	if (!mac_dev->fman_mac->serdes)
-		return mac_dev->phy_if == iface;
-	/* Otherwise, ask the serdes */
-	return !phy_validate(mac_dev->fman_mac->serdes, PHY_MODE_ETHERNET,
-			     iface, NULL);
+	struct phylink_pcs *pcs;
+	int err;
+
+	err = of_property_match_string(mac_node, "pcs-handle-names", name);
+	if (err >= 0) {
+		pcs = memac_pcs_create(mac_node, err, serdes);
+		if (IS_ERR(pcs)) {
+			err = PTR_ERR(pcs);
+			return dev_err_probe(mac_dev->dev, err,
+					     "missing %s pcs\n", name);
+		}
+
+		*pcsp = pcs;
+	} else if (err != -EINVAL && err != -ENODATA) {
+		return err;
+	}
+
+	return 0;
+}
+
+static int memac_get_default_pcs(struct mac_device *mac_dev,
+				 struct device_node *mac_node,
+				 struct phylink_pcs **pcsp, struct phy *serdes)
+{
+	struct phylink_pcs *pcs;
+	int err;
+
+	pcs = memac_pcs_create(mac_node, 0, serdes);
+	if (IS_ERR(pcs)) {
+		err = PTR_ERR(pcs);
+		return dev_err_probe(mac_dev->dev, err, "missing default pcs\n");
+	}
+
+	*pcsp = pcs;
+
+	return 0;
 }
 
 int memac_initialization(struct mac_device *mac_dev,
@@ -1066,10 +1066,10 @@ int memac_initialization(struct mac_device *mac_dev,
 			 struct fman_mac_params *params)
 {
 	int			 err;
-	struct phylink_pcs	*pcs;
 	struct fman_mac		*memac;
 	unsigned long		 capabilities;
 	unsigned long		*supported;
+	struct phy		*serdes;
 
 	/* The internal connection to the serdes is XGMII, but this isn't
 	 * really correct for the phy mode (which is the external connection).
@@ -1088,8 +1088,6 @@ int memac_initialization(struct mac_device *mac_dev,
 	mac_dev->set_allmulti		= memac_set_allmulti;
 	mac_dev->set_tstamp		= memac_set_tstamp;
 	mac_dev->set_multi		= fman_set_multi;
-	mac_dev->enable			= memac_enable;
-	mac_dev->disable		= memac_disable;
 
 	mac_dev->fman_mac = memac_config(mac_dev, params);
 	if (!mac_dev->fman_mac)
@@ -1099,98 +1097,78 @@ int memac_initialization(struct mac_device *mac_dev,
 	memac->memac_drv_param->max_frame_length = fman_get_max_frm();
 	memac->memac_drv_param->reset_on_init = true;
 
-	err = of_property_match_string(mac_node, "pcs-handle-names", "xfi");
-	if (err >= 0) {
-		memac->xfi_pcs = memac_pcs_create(mac_node, err);
-		if (IS_ERR(memac->xfi_pcs)) {
-			err = PTR_ERR(memac->xfi_pcs);
-			dev_err_probe(mac_dev->dev, err, "missing xfi pcs\n");
-			goto _return_fm_mac_free;
-		}
-	} else if (err != -EINVAL && err != -ENODATA) {
+	serdes = devm_of_phy_optional_get(mac_dev->dev, mac_node, NULL);
+	if (!serdes) {
+		dev_dbg(mac_dev->dev, "could not get (optional) serdes\n");
+	} else if (IS_ERR(serdes)) {
+		err = PTR_ERR(serdes);
 		goto _return_fm_mac_free;
 	}
 
-	err = of_property_match_string(mac_node, "pcs-handle-names", "qsgmii");
-	if (err >= 0) {
-		memac->qsgmii_pcs = memac_pcs_create(mac_node, err);
-		if (IS_ERR(memac->qsgmii_pcs)) {
-			err = PTR_ERR(memac->qsgmii_pcs);
-			dev_err_probe(mac_dev->dev, err,
-				      "missing qsgmii pcs\n");
-			goto _return_fm_mac_free;
-		}
-	} else if (err != -EINVAL && err != -ENODATA) {
+	err = memac_get_optional_pcs(mac_dev, mac_node, &memac->xfi_pcs, "xfi",
+				     serdes);
+	if (err)
 		goto _return_fm_mac_free;
-	}
+
+	err = memac_get_optional_pcs(mac_dev, mac_node, &memac->qsgmii_pcs,
+				     "qsgmii", serdes);
+	if (err)
+		goto _return_fm_mac_free;
+
+	err = memac_get_optional_pcs(mac_dev, mac_node, &memac->sgmii_pcs,
+				     "sgmii", serdes);
+	if (err)
+		goto _return_fm_mac_free;
+
+	err = memac_get_optional_pcs(mac_dev, mac_node, &memac->c73_pcs,
+				     "c73", serdes);
+	if (err)
+		goto _return_fm_mac_free;
 
 	/* For compatibility, if pcs-handle-names is missing, we assume this
 	 * phy is the first one in pcsphy-handle
 	 */
-	err = of_property_match_string(mac_node, "pcs-handle-names", "sgmii");
-	if (err == -EINVAL || err == -ENODATA)
-		pcs = memac_pcs_create(mac_node, 0);
-	else if (err < 0)
-		goto _return_fm_mac_free;
-	else
-		pcs = memac_pcs_create(mac_node, err);
-
-	if (IS_ERR(pcs)) {
-		err = PTR_ERR(pcs);
-		dev_err_probe(mac_dev->dev, err, "missing pcs\n");
-		goto _return_fm_mac_free;
+	if (mac_dev->phy_if == PHY_INTERFACE_MODE_10GBASER && !memac->xfi_pcs) {
+		err = memac_get_default_pcs(mac_dev, mac_node, &memac->xfi_pcs,
+					    serdes);
+		if (err)
+			goto _return_fm_mac_free;
+	} else if (!memac->sgmii_pcs) {
+		err = memac_get_default_pcs(mac_dev, mac_node,
+					    &memac->sgmii_pcs, serdes);
+		if (err)
+			goto _return_fm_mac_free;
 	}
 
-	/* If err is set here, it means that pcs-handle-names was missing above
-	 * (and therefore that xfi_pcs cannot be set). If we are defaulting to
-	 * XGMII, assume this is for XFI. Otherwise, assume it is for SGMII.
-	 */
-	if (err && mac_dev->phy_if == PHY_INTERFACE_MODE_10GBASER)
-		memac->xfi_pcs = pcs;
-	else
-		memac->sgmii_pcs = pcs;
-
-	memac->serdes = devm_of_phy_optional_get(mac_dev->dev, mac_node,
-						 "serdes");
-	if (!memac->serdes) {
-		dev_dbg(mac_dev->dev, "could not get (optional) serdes\n");
-	} else if (IS_ERR(memac->serdes)) {
-		err = PTR_ERR(memac->serdes);
-		goto _return_fm_mac_free;
-	}
-
-	/* TODO: The following interface modes are supported by (some) hardware
-	 * but not by this driver:
-	 * - 1000BASE-KX
-	 * - 10GBASE-KR
-	 * - XAUI/HiGig
-	 */
 	supported = mac_dev->phylink_config.supported_interfaces;
 
 	/* Note that half duplex is only supported on 10/100M interfaces. */
 
-	if (memac->sgmii_pcs &&
-	    (memac_supports(mac_dev, PHY_INTERFACE_MODE_SGMII) ||
-	     memac_supports(mac_dev, PHY_INTERFACE_MODE_1000BASEX))) {
-		__set_bit(PHY_INTERFACE_MODE_SGMII, supported);
-		__set_bit(PHY_INTERFACE_MODE_1000BASEX, supported);
-	}
-
-	if (memac->sgmii_pcs &&
-	    memac_supports(mac_dev, PHY_INTERFACE_MODE_2500BASEX))
-		__set_bit(PHY_INTERFACE_MODE_2500BASEX, supported);
+	if (memac->sgmii_pcs)
+		lynx_pcs_set_supported_interfaces(memac->sgmii_pcs,
+						  mac_dev->phy_if,
+						  supported);
 
 	if (memac->qsgmii_pcs &&
-	    memac_supports(mac_dev, PHY_INTERFACE_MODE_QSGMII))
-		__set_bit(PHY_INTERFACE_MODE_QSGMII, supported);
+	    mac_dev->phy_if == PHY_INTERFACE_MODE_QSGMII)
+		lynx_pcs_set_supported_interfaces(memac->qsgmii_pcs,
+						  mac_dev->phy_if,
+						  supported);
 	else if (mac_dev->phy_if == PHY_INTERFACE_MODE_QSGMII)
 		dev_warn(mac_dev->dev, "no QSGMII pcs specified\n");
 
-	if (memac->xfi_pcs &&
-	    memac_supports(mac_dev, PHY_INTERFACE_MODE_10GBASER)) {
-		__set_bit(PHY_INTERFACE_MODE_10GBASER, supported);
-	} else {
-		/* From what I can tell, no 10g macs support RGMII. */
+	if (memac->xfi_pcs)
+		lynx_pcs_set_supported_interfaces(memac->xfi_pcs,
+						  mac_dev->phy_if,
+						  supported);
+
+	if (memac->c73_pcs)
+		lynx_pcs_set_supported_interfaces(memac->c73_pcs,
+						  mac_dev->phy_if,
+						  supported);
+
+	if (!memac->sgmii_pcs && !memac->qsgmii_pcs && !memac->xfi_pcs &&
+	    !memac->c73_pcs) {
 		phy_interface_set_rgmii(supported);
 		__set_bit(PHY_INTERFACE_MODE_MII, supported);
 	}

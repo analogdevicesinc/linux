@@ -42,6 +42,17 @@
 #define VEND1_GLOBAL_MAILBOX_INTERFACE6_LSW_DATA_MASK	GENMASK(15, 0)
 #define VEND1_GLOBAL_MAILBOX_INTERFACE6_LSW_DATA(x)	FIELD_PREP(VEND1_GLOBAL_MAILBOX_INTERFACE6_LSW_DATA_MASK, (u16)(x))
 
+/* Global start rate; the protocol associated with this speed is used by
+ * default on the SI.
+ */
+#define VEND1_GLOBAL_STARTUP_RATE		0x031a
+#define VEND1_GLOBAL_STARTUP_RATE_OFF		0
+#define VEND1_GLOBAL_STARTUP_RATE_100M		1
+#define VEND1_GLOBAL_STARTUP_RATE_1G		2
+#define VEND1_GLOBAL_STARTUP_RATE_10G		3
+#define VEND1_GLOBAL_STARTUP_RATE_2_5G		4
+#define VEND1_GLOBAL_STARTUP_RATE_5G		5
+
 /* The following registers all have similar layouts; first the registers... */
 #define VEND1_GLOBAL_CFG_10M			0x0310
 #define VEND1_GLOBAL_CFG_100M			0x031b
@@ -55,6 +66,10 @@
 #define VEND1_GLOBAL_CFG_SERDES_MODE_SGMII	3
 #define VEND1_GLOBAL_CFG_SERDES_MODE_OCSGMII	4
 #define VEND1_GLOBAL_CFG_SERDES_MODE_XFI5G	6
+#define VEND1_GLOBAL_CFG_AN_ENABLE		BIT(3)
+#define VEND1_GLOBAL_CFG_LT_ENABLE		BIT(4)
+#define VEND1_GLOBAL_CFG_RESET_ON_TRANSITION	BIT(5)
+#define VEND1_GLOBAL_CFG_SERDES_SILENCE		BIT(6)
 #define VEND1_GLOBAL_CFG_RATE_ADAPT		GENMASK(8, 7)
 #define VEND1_GLOBAL_CFG_RATE_ADAPT_NONE	0
 #define VEND1_GLOBAL_CFG_RATE_ADAPT_USX		1
@@ -177,6 +192,13 @@ static const struct aqr107_hw_stat aqr107_hw_stats[] = {
 struct aqr107_priv {
 	u64 sgmii_stats[AQR107_SGMII_STAT_SZ];
 	unsigned long leds_active_low;
+};
+
+struct aqr_syscfg {
+	int start_reg;
+	int end_reg;
+	u16 start_rate;
+	u16 val;
 };
 
 #if IS_REACHABLE(CONFIG_HWMON)

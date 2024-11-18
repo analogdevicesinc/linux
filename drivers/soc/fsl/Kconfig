@@ -33,6 +33,13 @@ config FSL_MC_DPIO
 	  objects individually, but groups them under a service layer
 	  API.
 
+config FSL_SLEEP_FSM
+	bool
+	help
+	  This driver configures a hardware FSM (Finite State Machine) for deep sleep.
+	  The FSM is used to finish clean-ups at the last stage of system entering deep
+	  sleep, and also wakes up system when a wake up event happens.
+
 config DPAA2_CONSOLE
 	tristate "QorIQ DPAA2 console driver"
 	depends on OF && (ARCH_LAYERSCAPE || COMPILE_TEST)
@@ -52,4 +59,15 @@ config FSL_RCPM
 	  tasks associated with power management, such as wakeup source control.
 	  Note that currently this driver will not support PowerPC based
 	  QorIQ processor.
+
+config FSL_QIXIS
+	tristate "QIXIS system controller driver"
+	depends on OF
+	select REGMAP_I2C
+	select REGMAP_MMIO
+	default n
+	help
+	  Say y here to enable QIXIS system controller api. The qixis driver
+	  provides FPGA functions to control system.
+
 endmenu

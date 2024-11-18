@@ -9,6 +9,7 @@
 #include <linux/of_mdio.h>
 #include <linux/of_net.h>
 #include <linux/pcs-lynx.h>
+#include <linux/phy/phy.h>
 #include "enetc_ierb.h"
 #include "enetc_pf.h"
 
@@ -855,7 +856,15 @@ static int enetc_imdio_create(struct enetc_pf *pf)
 	struct enetc_mdio_priv *mdio_priv;
 	struct phylink_pcs *phylink_pcs;
 	struct mii_bus *bus;
+	struct phy *serdes;
+	size_t num_phys;
 	int err;
+
+	serdes = devm_of_phy_optional_get(dev, dev->of_node, NULL);
+	if (IS_ERR(serdes))
+		return PTR_ERR(serdes);
+
+	num_phys = serdes ? 1 : 0;
 
 	bus = mdiobus_alloc_size(sizeof(*mdio_priv));
 	if (!bus)
@@ -879,7 +888,7 @@ static int enetc_imdio_create(struct enetc_pf *pf)
 		goto free_mdio_bus;
 	}
 
-	phylink_pcs = lynx_pcs_create_mdiodev(bus, 0);
+	phylink_pcs = lynx_pcs_create_mdiodev(bus, 0, &serdes, num_phys);
 	if (IS_ERR(phylink_pcs)) {
 		err = PTR_ERR(phylink_pcs);
 		dev_err(dev, "cannot create lynx pcs (%d)\n", err);

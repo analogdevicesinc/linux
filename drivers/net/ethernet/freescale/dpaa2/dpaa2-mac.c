@@ -79,10 +79,13 @@ static enum dpmac_eth_if dpmac_eth_if_mode(phy_interface_t if_mode)
 	case PHY_INTERFACE_MODE_SGMII:
 		return DPMAC_ETH_IF_SGMII;
 	case PHY_INTERFACE_MODE_10GBASER:
+	case PHY_INTERFACE_MODE_10GKR:
+	case PHY_INTERFACE_MODE_40GKR4:
 		return DPMAC_ETH_IF_XFI;
 	case PHY_INTERFACE_MODE_1000BASEX:
 		return DPMAC_ETH_IF_1000BASEX;
 	case PHY_INTERFACE_MODE_25GBASER:
+	case PHY_INTERFACE_MODE_25GKR:
 		return DPMAC_ETH_IF_CAUI;
 	default:
 		return DPMAC_ETH_IF_MII;
@@ -136,11 +139,20 @@ static int dpaa2_mac_get_if_mode(struct fwnode_handle *dpmac_node,
 				 struct dpmac_attr attr)
 {
 	phy_interface_t if_mode;
+	const char *managed;
 	int err;
 
 	err = fwnode_get_phy_mode(dpmac_node);
 	if (err > 0)
 		return err;
+
+	/* Let phylink select state->interface, ignoring the dpmac eth_if value
+	 * provided by the MC firmware. That is even slightly bogus
+	 * (for 40G-KR4, the MC firmware returns DPMAC_ETH_IF_XFI)
+	 */
+	if (fwnode_property_read_string(dpmac_node, "managed", &managed) == 0 &&
+	    strcmp(managed, "c73") == 0)
+		return PHY_INTERFACE_MODE_NA;
 
 	err = phy_mode(attr.eth_if, &if_mode);
 	if (!err)
@@ -162,6 +174,7 @@ static void dpaa2_mac_config(struct phylink_config *config, unsigned int mode,
 {
 	struct dpaa2_mac *mac = phylink_to_dpaa2_mac(config);
 	struct dpmac_link_state *dpmac_state = &mac->state;
+	size_t i;
 	int err;
 
 	if (linkmode_test_bit(ETHTOOL_LINK_MODE_Autoneg_BIT,
@@ -176,18 +189,20 @@ static void dpaa2_mac_config(struct phylink_config *config, unsigned int mode,
 		netdev_err(mac->net_dev, "%s: dpmac_set_link_state() = %d\n",
 			   __func__, err);
 
-	if (!mac->serdes_phy)
+	if (!mac->num_phys || phylink_autoneg_c73(mode))
 		return;
 
 	/* This happens only if we support changing of protocol at runtime */
 	err = dpmac_set_protocol(mac->mc_io, 0, mac->mc_dev->mc_handle,
 				 dpmac_eth_if_mode(state->interface));
 	if (err)
-		netdev_err(mac->net_dev,  "dpmac_set_protocol() = %d\n", err);
+		netdev_err(mac->net_dev, "dpmac_set_protocol(%s) = %pe\n",
+			   phy_modes(state->interface), ERR_PTR(err));
 
-	err = phy_set_mode_ext(mac->serdes_phy, PHY_MODE_ETHERNET, state->interface);
-	if (err)
-		netdev_err(mac->net_dev, "phy_set_mode_ext() = %d\n", err);
+	/* Configure any optional retimers for the current interface mode */
+	for (i = mac->num_lanes; i < mac->num_phys; i++)
+		phy_set_mode_ext(mac->phys[i], PHY_MODE_ETHERNET,
+				 state->interface);
 }
 
 static void dpaa2_mac_link_up(struct phylink_config *config,
@@ -224,6 +239,20 @@ static void dpaa2_mac_link_up(struct phylink_config *config,
 	if (err)
 		netdev_err(mac->net_dev, "%s: dpmac_set_link_state() = %d\n",
 			   __func__, err);
+
+	/* The resolved C73 interface is only known at mac_link_up() time.
+	 * It is not necessary to configure any retimers here, since they
+	 * are incompatible with C73 and thus will be absent in any real life
+	 * backplane setup (they block the transmission of DME base pages).
+	 */
+	if (phylink_autoneg_c73(mode)) {
+		err = dpmac_set_protocol(mac->mc_io, 0, mac->mc_dev->mc_handle,
+					 dpmac_eth_if_mode(interface));
+		if (err) {
+			netdev_err(mac->net_dev, "dpmac_set_protocol(%s) = %pe\n",
+				   phy_modes(interface), ERR_PTR(err));
+		}
+	}
 }
 
 static void dpaa2_mac_link_down(struct phylink_config *config,
@@ -262,7 +291,7 @@ static int dpaa2_pcs_create(struct dpaa2_mac *mac,
 		return 0;
 	}
 
-	pcs = lynx_pcs_create_fwnode(node);
+	pcs = lynx_pcs_create_fwnode(node, mac->phys, mac->num_lanes);
 	fwnode_handle_put(node);
 
 	if (pcs == ERR_PTR(-EPROBE_DEFER)) {
@@ -298,53 +327,20 @@ static void dpaa2_pcs_destroy(struct dpaa2_mac *mac)
 
 static void dpaa2_mac_set_supported_interfaces(struct dpaa2_mac *mac)
 {
-	int intf, err;
+	struct phylink_config *cfg = &mac->phylink_config;
 
-	/* We support the current interface mode, and if we have a PCS
-	 * similar interface modes that do not require the SerDes lane to be
-	 * reconfigured.
+	/* We support the current interface mode, and if we have a PCS, the
+	 * interface modes that the SerDes allows switching between.
 	 */
-	__set_bit(mac->if_mode, mac->phylink_config.supported_interfaces);
-	if (mac->pcs) {
-		switch (mac->if_mode) {
-		case PHY_INTERFACE_MODE_1000BASEX:
-		case PHY_INTERFACE_MODE_SGMII:
-			__set_bit(PHY_INTERFACE_MODE_1000BASEX,
-				  mac->phylink_config.supported_interfaces);
-			__set_bit(PHY_INTERFACE_MODE_SGMII,
-				  mac->phylink_config.supported_interfaces);
-			break;
-
-		default:
-			break;
-		}
-	}
-
-	if (!mac->serdes_phy)
-		return;
-
-	/* In case we have access to the SerDes phy/lane, then ask the SerDes
-	 * driver what interfaces are supported based on the current PLL
-	 * configuration.
-	 */
-	for (intf = 0; intf < PHY_INTERFACE_MODE_MAX; intf++) {
-		if (intf == PHY_INTERFACE_MODE_NA)
-			continue;
-
-		err = phy_validate(mac->serdes_phy, PHY_MODE_ETHERNET, intf, NULL);
-		if (err)
-			continue;
-
-		__set_bit(intf, mac->phylink_config.supported_interfaces);
-	}
+	__set_bit(mac->if_mode, cfg->supported_interfaces);
+	if (mac->pcs)
+		lynx_pcs_set_supported_interfaces(mac->pcs, mac->if_mode,
+						  cfg->supported_interfaces);
 }
 
 void dpaa2_mac_start(struct dpaa2_mac *mac)
 {
 	ASSERT_RTNL();
-
-	if (mac->serdes_phy)
-		phy_power_on(mac->serdes_phy);
 
 	phylink_start(mac->phylink);
 }
@@ -354,16 +350,68 @@ void dpaa2_mac_stop(struct dpaa2_mac *mac)
 	ASSERT_RTNL();
 
 	phylink_stop(mac->phylink);
+}
 
-	if (mac->serdes_phy)
-		phy_power_off(mac->serdes_phy);
+static int dpaa2_mac_get_phys(struct dpaa2_mac *mac)
+{
+	struct device_node *dn = to_of_node(mac->fw_node);
+	struct device *dev = &mac->mc_dev->dev;
+	struct phy *phy;
+	size_t i;
+	int err;
+	u32 val;
+
+	err = of_count_phandle_with_args(dn, "phys", "#phy-cells");
+	if (err <= 0) {
+		mac->num_phys = 0;
+		return 0;
+	}
+	mac->num_phys = err;
+
+	if (fwnode_property_read_u32(mac->fw_node, "num-lanes", &val))
+		mac->num_lanes = 1;
+	else
+		mac->num_lanes = val;
+
+	mac->phys = devm_kcalloc(dev, mac->num_phys, sizeof(struct phy *),
+				 GFP_KERNEL);
+	if (!mac->phys)
+		return -ENOMEM;
+
+	for (i = 0; i < mac->num_phys; i++) {
+		phy = devm_of_phy_get_by_index(dev, dn, i);
+		if (IS_ERR(phy))
+			return PTR_ERR(phy);
+
+		mac->phys[i] = phy;
+	}
+
+	/* PHYs 0 .. num_lanes-1 are SerDes lanes and are managed by the PCS.
+	 * The rest up to num_phys are optional retimers or other PHYs that
+	 * may be in the signal path and need to be managed. These will be
+	 * managed by the dpaa2-mac driver.
+	 */
+	for (i = mac->num_lanes; i < mac->num_phys; i++) {
+		err = phy_init(mac->phys[i]);
+		if (err)
+			return err;
+	}
+
+	return 0;
+}
+
+static void dpaa2_mac_put_phys(struct dpaa2_mac *mac)
+{
+	size_t i;
+
+	for (i = mac->num_lanes; i < mac->num_phys; i++)
+		phy_exit(mac->phys[i]);
 }
 
 int dpaa2_mac_connect(struct dpaa2_mac *mac)
 {
 	struct net_device *net_dev = mac->net_dev;
 	struct fwnode_handle *dpmac_node;
-	struct phy *serdes_phy = NULL;
 	struct phylink *phylink;
 	int err;
 
@@ -383,16 +431,10 @@ int dpaa2_mac_connect(struct dpaa2_mac *mac)
 	if (mac->features & DPAA2_MAC_FEATURE_PROTOCOL_CHANGE &&
 	    !phy_interface_mode_is_rgmii(mac->if_mode) &&
 	    is_of_node(dpmac_node)) {
-		serdes_phy = of_phy_get(to_of_node(dpmac_node), NULL);
-
-		if (serdes_phy == ERR_PTR(-ENODEV))
-			serdes_phy = NULL;
-		else if (IS_ERR(serdes_phy))
-			return PTR_ERR(serdes_phy);
-		else
-			phy_init(serdes_phy);
+		err = dpaa2_mac_get_phys(mac);
+		if (err)
+			return err;
 	}
-	mac->serdes_phy = serdes_phy;
 
 	/* The MAC does not have the capability to add RGMII delays so
 	 * error out if the interface mode requests them and there is no PHY
@@ -420,7 +462,7 @@ int dpaa2_mac_connect(struct dpaa2_mac *mac)
 
 	mac->phylink_config.mac_capabilities = MAC_SYM_PAUSE | MAC_ASYM_PAUSE |
 		MAC_10FD | MAC_100FD | MAC_1000FD | MAC_2500FD | MAC_5000FD |
-		MAC_10000FD | MAC_25000FD;
+		MAC_10000FD | MAC_25000FD | MAC_40000FD | MAC_100000FD;
 
 	dpaa2_mac_set_supported_interfaces(mac);
 
@@ -459,8 +501,7 @@ void dpaa2_mac_disconnect(struct dpaa2_mac *mac)
 
 	phylink_destroy(mac->phylink);
 	dpaa2_pcs_destroy(mac);
-	of_phy_put(mac->serdes_phy);
-	mac->serdes_phy = NULL;
+	dpaa2_mac_put_phys(mac);
 }
 
 int dpaa2_mac_open(struct dpaa2_mac *mac)

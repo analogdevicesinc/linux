@@ -333,6 +333,14 @@ Some of the interface modes are described below:
     SerDes lane, each port having speeds of 2.5G / 1G / 100M / 10M achieved
     through symbol replication. The PCS expects the standard USXGMII code word.
 
+``PHY_INTERFACE_MODE_25GKR``
+    This is the 25GBASE-R PCS as defined by IEEE 802.3 Clause 107, resolved
+    through Clause 73 autonegotiation.
+
+``PHY_INTERFACE_MODE_40GKR4``
+    This is the 40GBASE-R PCS as defined by IEEE 802.3 Clause 84, resolved
+    through Clause 73 autonegotiation.
+
 Pause frames / flow control
 ===========================
 

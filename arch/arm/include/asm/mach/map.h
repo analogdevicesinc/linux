@@ -18,9 +18,9 @@ struct map_desc {
 	unsigned int type;
 };
 
-/* types 0-3 are defined in asm/io.h */
+/* types 0-4 are defined in asm/io.h */
 enum {
-	MT_UNCACHED = 4,
+	MT_UNCACHED = 5,
 	MT_CACHECLEAN,
 	MT_MINICLEAN,
 	MT_LOW_VECTORS,

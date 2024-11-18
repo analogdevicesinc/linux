@@ -708,6 +708,8 @@ patternProperties:
     description: InnoComm Mobile Technology Corp.
   "^innolux,.*":
     description: Innolux Corporation
+  "^inphi,.*":
+    description: Inphi Corporation
   "^inside-secure,.*":
     description: INSIDE Secure
   "^insignal,.*":
