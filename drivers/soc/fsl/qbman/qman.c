@@ -1728,14 +1728,8 @@ const cpumask_t *qman_affine_cpus(void)
 }
 EXPORT_SYMBOL(qman_affine_cpus);
 
-u16 qman_affine_channel(int cpu)
+u16 qman_affine_channel(unsigned int cpu)
 {
-	if (cpu < 0) {
-		struct qman_portal *portal = get_affine_portal();
-
-		cpu = portal->config->cpu;
-		put_affine_portal();
-	}
 	WARN_ON(!cpumask_test_cpu(cpu, &affine_mask));
 	return affine_channels[cpu];
 }
