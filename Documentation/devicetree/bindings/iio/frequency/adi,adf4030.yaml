@@ -1,0 +1,225 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+# Copyright 2024 Analog Devices Inc.
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/frequency/adi,adf4030.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Analog Devices ADF4030 10-Channel Precision Synchronizer IC
+
+maintainers:
+  - Michael Hennerich <michael.hennerich@analog.com>
+
+description: |
+  Bindings for the Analog Devices ADF4030 10-Channel Precision Synchronizer IC.
+
+  The ADF4030 provides for 10 bidirectional synchronized clock (BSYNC) channels and
+  accepts a reference clock input (REFIN) signal as a frequency reference for
+  generating an output clock on any BSYNC channels that are configured as an output.
+  The hallmark feature of the ADF4030 is the ability to time align the clock edges
+  of any one or more BSYNC channels to <5 ps (at the device pins) with respect to
+  the BSYNC channel selected as the reference BSYNC channel.
+
+  https://www.analog.com/en/products/adf4030.html
+
+$ref: /schemas/spi/spi-peripheral-props.yaml#
+
+properties:
+  compatible:
+    enum:
+      - adi,adf4030
+
+  clocks:
+    maxItems: 1
+    description: Input reference clock.
+
+  clock-names:
+    items:
+      - const: refin
+
+  adi,vco-frequency-hz:
+    description: VCO output frequency in Hz.
+    minimum: 2375000000
+    maximum: 2625000000
+
+  adi,bsync-frequency-hz:
+    description: Primary BSync output frequency in Hz.
+    minimum: 650000
+    maximum: 250000000
+
+  adi,bsync-secondary-frequency-hz:
+    description: Secondary BSync output frequency in Hz.
+    minimum: 650000
+    maximum: 250000000
+
+  adi,bsync-autoalign-reference-channel:
+    description: Reference channel number for auto alignment.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 26]
+
+  adi,bsync-autoalign-iteration-count:
+    description: Number of iterations for auto alignment.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 8
+
+  adi,bsync-autoalign-threshold-fs:
+    description: Threshold for auto alignment in femtoseconds.
+    $ref: /schemas/types.yaml#/definitions/uint32
+    minimum: 0
+    maximum: 88200
+
+  clock-output-names:
+    description: Names of the clock outputs.
+    minItems: 1
+    maxItems: 10
+
+  label: true
+
+  '#clock-cells':
+    const: 1
+
+  '#address-cells':
+    const: 1
+
+  '#size-cells':
+    const: 0
+
+patternProperties:
+  "^channel@[0-9]+$":
+    type: object
+    additionalProperties: false
+    description: ADF4030 channel configuration.
+
+    properties:
+      reg:
+        description: Channel number.
+        minimum: 0
+        maximum: 9
+
+      adi,delay-fs:
+        description: Delay in femtoseconds.
+        $ref: /schemas/types.yaml#/definitions/uint32
+
+      adi,extended-name:
+        description: Extended name for the channel.
+        $ref: /schemas/types.yaml#/definitions/string
+
+      adi,reference-channel-num:
+        description: Reference channel number.
+        $ref: /schemas/types.yaml#/definitions/uint32
+        enum: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 26]
+
+      adi,output-en:
+        description: Enable drive/output for the channel.
+        type: boolean
+
+      adi,input-output-reconfig-en:
+        description: Enable input-output reconfiguration for the channel.
+        type: boolean
+
+      adi,use-secondary-odiv-b-en:
+        description: Enable use of secondary ODIV B.
+        type: boolean
+
+      auto-align-on-sync-en:
+        description: Enable auto alignment on sync.
+        type: boolean
+
+      adi,invert-en:
+        description: Enable inversion for the channel.
+        type: boolean
+
+      adi,ac-coupled-en:
+        description: Enable AC coupling for the channel.
+        type: boolean
+
+      adi,link-tx-en:
+        description: Enable link TX for the channel.
+        type: boolean
+
+      adi,link-rx-en:
+        description: Enable link RX for the channel.
+        type: boolean
+
+      adi,float-tx-en:
+        description: Enable float TX for the channel.
+        type: boolean
+
+      adi,float-rx-en:
+        description: Enable float RX for the channel.
+        type: boolean
+
+      adi,rcm:
+        description: RCM (Common Mode Resistor) value for the channel.
+        $ref: /schemas/types.yaml#/definitions/uint32
+        minimum: 0
+        maximum: 63
+
+    required:
+      - reg
+
+required:
+  - compatible
+  - adi,vco-frequency-hz
+  - adi,bsync-frequency-hz
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    spi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        frequency@0 {
+            #clock-cells = <1>;
+            compatible = "adi,adf4030";
+            reg = <0>;
+
+            #address-cells = <1>;
+            #size-cells = <0>;
+
+            spi-max-frequency = <1000000>;
+
+            clocks = <&ltc6952 5>;
+            clock-names = "refin";
+            clock-output-names = "adf4030_bsync_0", "adf4030_bsync_1",
+                "adf4030_bsync_2", "adf4030_bsync_3", "adf4030_bsync_4",
+                "adf4030_bsync_5", "adf4030_bsync_6", "adf4030_bsync_7",
+                "adf4030_bsync_8", "adf4030_bsync_9";
+
+            label = "adf4030";
+
+            adi,vco-frequency-hz = <2500000000>; /* 2.5 GHz */
+            adi,bsync-frequency-hz = <12500000>; /* 12.5 MHz */
+            adi,bsync-autoalign-reference-channel = <8>;
+            adi,bsync-autoalign-iteration-count = <6>;
+
+            channel@0 {
+                reg = <0>;
+                adi,extended-name = "SYSREF_0";
+                adi,output-en;
+                adi,input-output-reconfig-en;
+                auto-align-on-sync-en;
+                adi,rcm = <1>;
+            };
+            channel@1 {
+                reg = <1>;
+                adi,extended-name = "SYSREF_1";
+                adi,output-en;
+                adi,input-output-reconfig-en;
+                auto-align-on-sync-en;
+                adi,rcm = <1>;
+            };
+            channel@4 {
+                reg = <4>;
+                adi,extended-name = "FPGA_SYSREF_0";
+                adi,output-en;
+                adi,input-output-reconfig-en;
+                auto-align-on-sync-en;
+                adi,rcm = <62>;
+            };
+        };
+    };
+...
