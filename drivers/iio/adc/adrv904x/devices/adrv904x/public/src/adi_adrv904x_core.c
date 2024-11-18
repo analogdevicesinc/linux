@@ -288,7 +288,11 @@ cleanup :
 ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_Initialize(adi_adrv904x_Device_t* const        device,
                                                          const adi_adrv904x_Init_t* const    init)
 {
+#ifndef __KERNEL__
         adi_adrv904x_Info_t devStateInfoClear;
+#else
+	adi_adrv904x_Info_t *devStateInfoClear = &device->devStateInfoClear;
+#endif
     adi_adrv904x_ErrAction_e recoveryAction = ADI_ADRV904X_ERR_ACT_CHECK_PARAM;
     uint8_t idx = 0U;
     uint8_t TX_SPIMODE_ENABLE_ALLCH = 0xFFU;
@@ -301,6 +305,7 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_Initialize(adi_adrv904x_Device_t* 
 
     ADI_ADRV904X_NULL_PTR_REPORT_GOTO(&device->common, init, cleanup);
 
+#ifndef __KERNEL__
     ADI_LIBRARY_MEMSET(&devStateInfoClear, 0, sizeof(adi_adrv904x_Info_t));
     
     /* There is no HW Reset occurring right here, so we cannot throw away current Shared Resource States */
@@ -314,6 +319,21 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_Initialize(adi_adrv904x_Device_t* 
     (void)ADI_LIBRARY_MEMCPY(&devStateInfoClear.vswrWaveformLoaded, &device->devStateInfo.vswrWaveformLoaded, sizeof(device->devStateInfo.vswrWaveformLoaded));
     devStateInfoClear.devState = device->devStateInfo.devState;
     device->devStateInfo = devStateInfoClear;
+#else
+    ADI_LIBRARY_MEMSET(devStateInfoClear, 0, sizeof(adi_adrv904x_Info_t));
+
+    /* There is no HW Reset occurring right here, so we cannot throw away current Shared Resource States */
+    /* Restore Shared Resource Manager from current device structure.*/
+    ADI_LIBRARY_MEMCPY(devStateInfoClear->sharedResourcePool, &device->devStateInfo.sharedResourcePool, sizeof(device->devStateInfo.sharedResourcePool) );
+
+    /* Restore silicon revision from current device structure */
+    devStateInfoClear->deviceSiRev = device->devStateInfo.deviceSiRev;
+    devStateInfoClear->swTest = device->devStateInfo.swTest;
+    devStateInfoClear->dfeSwTest = device->devStateInfo.dfeSwTest;
+    (void)ADI_LIBRARY_MEMCPY(devStateInfoClear->vswrWaveformLoaded, &device->devStateInfo.vswrWaveformLoaded, sizeof(device->devStateInfo.vswrWaveformLoaded));
+    devStateInfoClear->devState = device->devStateInfo.devState;
+    device->devStateInfo = *devStateInfoClear;
+#endif
 
 
     /* Set the Memory Repair Start */

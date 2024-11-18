@@ -986,7 +986,11 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_DeviceInfoExtract(adi_adrv904x_Dev
     uint32_t                        bandIdx             = 0U;
     uint32_t                        targetIdx           = 0U;
     uint32_t                        digMask             = 0U;
+#ifdef __KERNEL__
+    adi_adrv904x_InitExtract_t      *InitExtractClear = &device->InitExtractClear;
+#else
     adi_adrv904x_InitExtract_t      InitExtractClear;
+#endif
     adrv904x_TxConfig_t             txConfig;
     adrv904x_RxConfig_t             rxConfig;
     adrv904x_OrxConfig_t            orxConfig;
@@ -1010,7 +1014,11 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_DeviceInfoExtract(adi_adrv904x_Dev
 
     ADI_ADRV904X_NULL_PTR_REPORT_GOTO(&device->common, cpuProfileBinaryInfoPtr->filePath, cleanup);
 
+#ifndef __KERNEL__
     ADI_LIBRARY_MEMSET(&InitExtractClear, 0, sizeof(InitExtractClear));
+#else
+    ADI_LIBRARY_MEMSET(InitExtractClear, 0, sizeof(adi_adrv904x_InitExtract_t));
+#endif
     ADI_LIBRARY_MEMSET(&txConfig, 0, sizeof(txConfig));
     ADI_LIBRARY_MEMSET(&rxConfig, 0, sizeof(rxConfig));
     ADI_LIBRARY_MEMSET(&orxConfig, 0, sizeof(orxConfig));
@@ -1078,7 +1086,11 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_DeviceInfoExtract(adi_adrv904x_Dev
     }
 
     /* Clear all variables */
+#ifndef __KERNEL__
     device->initExtract = InitExtractClear;
+#else
+    device->initExtract = *InitExtractClear;
+#endif
 
     /* Read scaled device clock frequency */
     offset = ADI_LIBRARY_OFFSETOF(adrv904x_RadioProfile_t, deviceClkScaledFreq_kHz);
@@ -2263,14 +2275,25 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_PostMcsInit(adi_adrv904x_Device_t*
 {
         adi_adrv904x_ErrAction_e recoveryAction = ADI_ADRV904X_ERR_ACT_CHECK_PARAM;
     const uint32_t INIT_CALS_TIMEOUT_MS = 60000U;   /* 60 Seconds Timeout */
+#ifndef __KERNEL__
     adi_adrv904x_InitCalErrData_t initCalErrData;
+#else
+    adi_adrv904x_InitCalErrData_t* initCalErrData = &device->initCalErrData;
+#endif
     uint8_t idx = 0U;
+#ifndef __KERNEL__
     adi_adrv904x_RadioCtrlTxRxEnCfg_t allDisabledTxRxEnCfg;
-    
+#else
+    adi_adrv904x_RadioCtrlTxRxEnCfg_t* allDisabledTxRxEnCfg = &device->allDisabledTxRxEnCfg;
+#endif
 
     uint8_t i = 0U;
     uint32_t chanMask = 0U;
+#ifndef __KERNEL__
     adi_adrv904x_GpIntMask_t gpIntClear = { 0ULL, 0ULL };
+#else
+    adi_adrv904x_GpIntMask_t* gpIntClear = &device->gpIntClear;
+#endif
 
     ADI_ADRV904X_NULL_DEVICE_PTR_RETURN(device);
 
@@ -2278,8 +2301,15 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_PostMcsInit(adi_adrv904x_Device_t*
 
     ADI_ADRV904X_NULL_PTR_REPORT_GOTO(&device->common, utilityInit, cleanup);
 
+#ifndef __KERNEL__
     ADI_LIBRARY_MEMSET(&initCalErrData, 0, sizeof(adi_adrv904x_InitCalErrData_t));
     ADI_LIBRARY_MEMSET(&allDisabledTxRxEnCfg, 0, sizeof(allDisabledTxRxEnCfg));
+#else
+    ADI_LIBRARY_MEMSET(initCalErrData, 0, sizeof(adi_adrv904x_InitCalErrData_t));
+    ADI_LIBRARY_MEMSET(allDisabledTxRxEnCfg, 0, sizeof(adi_adrv904x_RadioCtrlTxRxEnCfg_t));
+    ADI_LIBRARY_MEMSET(gpIntClear, 0, sizeof(adi_adrv904x_GpIntMask_t));
+#endif
+
 
 
     /* Initializing Radio Sequence configuration */
@@ -2307,10 +2337,17 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_PostMcsInit(adi_adrv904x_Device_t*
     /* Sets up Radio Ctrl TxRx Enable Config for Pin mode (Config will be ignore in SPI mode) */
     if ((utilityInit->radioCtrlTxRxEnCfgSel != 0U) || (utilityInit->radioCtrlTxRxEnPinSel != 0U))
     {
+#ifndef __KERNEL__
         recoveryAction = adi_adrv904x_RadioCtrlTxRxEnCfgSet(device,
                                                             &allDisabledTxRxEnCfg,
                                                             ADI_ADRV904X_TXRXEN_PINALL,
                                                             ADI_ADRV904X_TXRXEN_TX_ENABLE_MAP | ADI_ADRV904X_TXRXEN_RX_ENABLE_MAP);
+#else
+	recoveryAction = adi_adrv904x_RadioCtrlTxRxEnCfgSet(device,
+							    allDisabledTxRxEnCfg,
+							    ADI_ADRV904X_TXRXEN_PINALL,
+							    ADI_ADRV904X_TXRXEN_TX_ENABLE_MAP | ADI_ADRV904X_TXRXEN_RX_ENABLE_MAP);
+#endif
         if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
         {
             ADI_API_ERROR_REPORT(&device->common, recoveryAction, "Radio Control TxRxEnCfg set to default failed");
@@ -2374,7 +2411,11 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_PostMcsInit(adi_adrv904x_Device_t*
             goto cleanup;
         }
 
+#ifndef __KERNEL__
         recoveryAction = adi_adrv904x_InitCalsWait_v2(device, INIT_CALS_TIMEOUT_MS, &initCalErrData);
+#else
+	recoveryAction = adi_adrv904x_InitCalsWait_v2(device, INIT_CALS_TIMEOUT_MS, initCalErrData);
+#endif
         if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
         {
             ADI_API_ERROR_REPORT(&device->common, recoveryAction, "Initial Calibration Wait Issue");
@@ -2383,7 +2424,11 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_PostMcsInit(adi_adrv904x_Device_t*
 
         for (idx = 0; idx < ADI_ADRV904X_NUM_INIT_CAL_CHANNELS; ++idx)
         {
+#ifndef __KERNEL__
             if (initCalErrData.channel[idx].errCode != 0)
+#else
+	    if (initCalErrData->channel[idx].errCode != 0)
+#endif
             {
                 recoveryAction = ADI_ADRV904X_ERR_ACT_CHECK_FEATURE;
                 ADI_API_ERROR_REPORT(&device->common, recoveryAction, "InitCals Error - Get More Information via Detailed Status Get");
@@ -2397,9 +2442,15 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_PostMcsInit(adi_adrv904x_Device_t*
     if (device->devStateInfo.profilesValid & ADI_ADRV904X_TX_PROFILE_VALID)
     {
         /* Clear the Tx PA GP Int */
+#ifndef __KERNEL__
         gpIntClear.lowerMask = 0x3FFC00ULL;
         gpIntClear.upperMask = 0x1C7FFFC00ULL;
         recoveryAction = adi_adrv904x_GpIntStatusClear(device, &gpIntClear);
+#else
+	gpIntClear->lowerMask = 0x3FFC00ULL;
+	gpIntClear->upperMask = 0x1C7FFFC00ULL;
+	recoveryAction = adi_adrv904x_GpIntStatusClear(device, gpIntClear);
+#endif
         if (recoveryAction != ADI_ADRV904X_ERR_ACT_NONE)
         {
             ADI_API_ERROR_REPORT(&device->common, recoveryAction, "GP INT Tx PA protection bit clear failed");

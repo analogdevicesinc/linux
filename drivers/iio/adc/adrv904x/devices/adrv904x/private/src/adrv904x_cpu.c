@@ -988,7 +988,11 @@ ADI_API adi_adrv904x_ErrAction_e adrv904x_CpuCmdSend(adi_adrv904x_Device_t* cons
     adrv904x_CpuCmdResp_t *rxRsp = NULL;
     adrv904x_CpuCmdId_t rspCmdId;
     adrv904x_CpuCmdStatus_e cmdStatus;
+#ifndef __KERNEL__
     uint8_t cmdBuf[sizeof(adrv904x_MaxCpuCmdBufSz_t)];
+#else
+    uint8_t *cmdBuf = device->cmdBuf;
+#endif
 
     ADI_ADRV904X_NULL_DEVICE_PTR_RETURN(device);
 
@@ -1052,7 +1056,11 @@ ADI_API adi_adrv904x_ErrAction_e adrv904x_CpuCmdSend(adi_adrv904x_Device_t* cons
     }
 
     /* Verify command payload size is acceptable */
+#ifndef __KERNEL__
     if (cmdPayloadSz > (sizeof(cmdBuf) - sizeof(adrv904x_CpuCmd_t)))
+#else
+    if (cmdPayloadSz > (sizeof(device->cmdBuf) - sizeof(adrv904x_CpuCmd_t)))
+#endif
     {
         recoveryAction = ADI_ADRV904X_ERR_ACT_CHECK_PARAM;
         ADI_PARAM_ERROR_REPORT(&device->common, recoveryAction, cmdPayloadSz, "cmdPayloadSz is too large for command buffer.");
@@ -1060,7 +1068,11 @@ ADI_API adi_adrv904x_ErrAction_e adrv904x_CpuCmdSend(adi_adrv904x_Device_t* cons
     }
 
     /* Verify response payload size is acceptable */
+#ifndef __KERNEL__
     if (respPayloadSz > (sizeof(cmdBuf) - sizeof(adrv904x_CpuCmdResp_t)))
+#else
+    if (respPayloadSz > (sizeof(device->cmdBuf) - sizeof(adrv904x_CpuCmdResp_t)))
+#endif
     {
         recoveryAction = ADI_ADRV904X_ERR_ACT_CHECK_PARAM;
         ADI_PARAM_ERROR_REPORT(&device->common, recoveryAction, respPayloadSz, "respPayloadSz is too large for command buffer.");

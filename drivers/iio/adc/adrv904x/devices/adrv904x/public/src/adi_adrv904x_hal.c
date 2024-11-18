@@ -2147,7 +2147,12 @@ ADI_API adi_adrv904x_ErrAction_e adi_adrv904x_RegistersByteRead(adi_adrv904x_Dev
     uint32_t localCacheCount = 0U; /* Number of total bytes packed into the byte array for SPI transactions */
     uint32_t currentRdCount = 0U; /* Number of registers that are to be read in the current byte array. Different than localCacheCount b/c it doesn't include address packing */
     uint32_t readDataIndex = 0U; /* The current index in readData where data should be placed after it is read. Since it's possible multiple SPI transactions can occur based on the number of bytes requested */
+#ifdef __KERNEL__
+    uint8_t *localCache = device->spiCache;
+    (void) ADI_LIBRARY_MEMSET(localCache, 0, sizeof(device->spiCache));
+#else
     uint8_t localCache[ADI_HAL_SPI_FIFO_SIZE] = { 0U };
+#endif
     uint32_t currentAddress = 0U; /* In the case when we need to flush in the middle of byte packing we need to keep track of where the next buffer will start from */
     uint8_t *readDataBytes; /* Used to cast readData array to a byte array */
     uint8_t parsedDataStride = 0U; /* Used when parsing data to determine where the next register value should be placed in readData */
