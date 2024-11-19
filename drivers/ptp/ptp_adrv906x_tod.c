@@ -54,13 +54,9 @@ static struct adrv906x_tod *adrv906x_tod;
 
 #define ADRV906X_TOD_CFG_TOD_OP                         (0x20U)
 #define   ADRV906X_TOD_CFG_TOD_OP_WR_TOD_MASK           GENMASK(2, 0)
-#define    ADRV906X_TOD_CFG_TOD_OP_WR_TOD_SHIFT         (0)
 #define   ADRV906X_TOD_CFG_TOD_OP_RD_TOD_MASK           GENMASK(6, 4)
-#define    ADRV906X_TOD_CFG_TOD_OP_RD_TOD_SHIFT         (4)
 #define   ADRV906X_TOD_CFG_TOD_OP_WR_TOD_PPS_MASK       GENMASK(10, 8)
-#define    ADRV906X_TOD_CFG_TOD_OP_WR_TOD_PPS_SHIFT     (8)
 #define   ADRV906X_TOD_CFG_TOD_OP_RD_TOD_PPS_MASK       GENMASK(14, 12)
-#define    ADRV906X_TOD_CFG_TOD_OP_RD_TOD_PPS_SHIFT     (12)
 
 #define ADRV906X_TOD_CFG_TV_NSEC                        (0x24U)
 #define   ADRV906X_TOD_CFG_TV_NSEC_FRAC_NSEC_MASK       GENMASK(15, 0)
@@ -138,66 +134,6 @@ EXPORT_SYMBOL(adrv906x_phc_index);
 int adrv906x_tod_cfg_cdc_delay = -1;
 EXPORT_SYMBOL(adrv906x_tod_cfg_cdc_delay);
 
-struct adrv906x_tod_reg {
-	u16 bitshift;
-	u16 regaddr;
-	u32 regmask;
-};
-
-static struct adrv906x_tod_reg adrv906x_tod_reg_op_trig[HW_TOD_TRIG_OP_CNT][HW_TOD_TRIG_MODE_CNT] = {
-	[HW_TOD_TRIG_OP_WR] =		 {
-		[HW_TOD_TRIG_MODE_GC] =	 {
-			.regaddr	= ADRV906X_TOD_CFG_TOD_OP,
-			.regmask	= ADRV906X_TOD_CFG_TOD_OP_WR_TOD_MASK,
-			.bitshift	= ADRV906X_TOD_CFG_TOD_OP_WR_TOD_SHIFT
-		},
-		[HW_TOD_TRIG_MODE_PPS] = {
-			.regaddr	= ADRV906X_TOD_CFG_TOD_OP,
-			.regmask	= ADRV906X_TOD_CFG_TOD_OP_WR_TOD_PPS_MASK,
-			.bitshift	= ADRV906X_TOD_CFG_TOD_OP_WR_TOD_PPS_SHIFT
-		}
-	},
-	[HW_TOD_TRIG_OP_RD] =		 {
-		[HW_TOD_TRIG_MODE_GC] =	 {
-			.regaddr	= ADRV906X_TOD_CFG_TOD_OP,
-			.regmask	= ADRV906X_TOD_CFG_TOD_OP_RD_TOD_MASK,
-			.bitshift	= ADRV906X_TOD_CFG_TOD_OP_RD_TOD_SHIFT
-		},
-		[HW_TOD_TRIG_MODE_PPS] = {
-			.regaddr	= ADRV906X_TOD_CFG_TOD_OP,
-			.regmask	= ADRV906X_TOD_CFG_TOD_OP_RD_TOD_PPS_MASK,
-			.bitshift	= ADRV906X_TOD_CFG_TOD_OP_RD_TOD_PPS_SHIFT
-		}
-	}
-};
-
-static struct adrv906x_tod_reg adrv906x_tod_reg_op_poll[HW_TOD_TRIG_OP_CNT][HW_TOD_TRIG_MODE_CNT] = {
-	[HW_TOD_TRIG_OP_WR] =		 {
-		[HW_TOD_TRIG_MODE_GC] =	 {
-			.regaddr	= ADRV906X_TOD_STAT_TOD_OP,
-			.regmask	= ADRV906X_TOD_STAT_TOD_OP_WR_TOD_MASK,
-			.bitshift	= ADRV906X_TOD_STAT_TOD_OP_WR_TOD_SHIFT
-		},
-		[HW_TOD_TRIG_MODE_PPS] = {
-			.regaddr	= ADRV906X_TOD_STAT_TOD_OP,
-			.regmask	= ADRV906X_TOD_STAT_TOD_OP_WR_TOD_PPS_MASK,
-			.bitshift	= ADRV906X_TOD_STAT_TOD_OP_WR_TOD_PPS_SHIFT
-		}
-	},
-	[HW_TOD_TRIG_OP_RD] =		 {
-		[HW_TOD_TRIG_MODE_GC] =	 {
-			.regaddr	= ADRV906X_TOD_STAT_TOD_OP,
-			.regmask	= ADRV906X_TOD_STAT_TOD_OP_RD_TOD_MASK,
-			.bitshift	= ADRV906X_TOD_STAT_TOD_OP_RD_TOD_SHIFT
-		},
-		[HW_TOD_TRIG_MODE_PPS] = {
-			.regaddr	= ADRV906X_TOD_STAT_TOD_OP,
-			.regmask	= ADRV906X_TOD_STAT_TOD_OP_RD_TOD_PPS_MASK,
-			.bitshift	= ADRV906X_TOD_STAT_TOD_OP_RD_TOD_PPS_SHIFT
-		}
-	}
-};
-
 struct adrv906x_tod_lc_clk_cfg adrv906x_lc_clk_cfg[HW_TOD_LC_CLK_FREQ_CNT] = {
 	[HW_TOD_LC_100_P_000_M] = { 100000, 10, 0x0000, 0x00 },
 	[HW_TOD_LC_122_P_880_M] = { 122880, 8,	0x2355, 0x04 },
@@ -256,6 +192,25 @@ static inline void tstamp_to_timespec(struct timespec64 *ts,
 		ts->tv_nsec = tstamp->nanoseconds + 1;
 }
 
+static inline u32 adrv906x_tod_op_to_mask(u8 op_flag, bool is_pps, u32 val)
+{
+	u32 mask = 0;
+
+	if (op_flag == HW_TOD_TRIG_OP_WR) {
+		if (is_pps)
+			mask = FIELD_PREP(ADRV906X_TOD_CFG_TOD_OP_WR_TOD_PPS_MASK, val);
+		else
+			mask = FIELD_PREP(ADRV906X_TOD_CFG_TOD_OP_WR_TOD_MASK, val);
+	} else {
+		if (is_pps)
+			mask = FIELD_PREP(ADRV906X_TOD_CFG_TOD_OP_RD_TOD_PPS_MASK, val);
+		else
+			mask = FIELD_PREP(ADRV906X_TOD_CFG_TOD_OP_RD_TOD_MASK, val);
+	}
+
+	return mask;
+}
+
 static int adrv906x_tod_hw_gc_get_cnt(struct adrv906x_tod_counter *counter, u64 *p_cnt)
 {
 	struct adrv906x_tod *tod = counter->parent;
@@ -301,35 +256,31 @@ static void adrv906x_tod_clear_soft_pps(struct work_struct *work)
 	wake_up_all(&tod->pps_queue);
 }
 
-static void adrv906x_tod_hw_op_trig(struct adrv906x_tod_counter *counter, u8 op_flag, u8 set_flag)
+static void adrv906x_tod_hw_op_trig(struct adrv906x_tod_counter *counter, u8 op_flag, bool is_pps,
+				    bool set_flag)
 {
 	struct adrv906x_tod *tod = counter->parent;
-	u8 trig_mode = counter->trigger_mode;
-	u16 bitshift;
-	u16 regaddr;
-	u8 tod_idx;
-	u32 val;
+	u8 tod_idx = BIT(counter->id);
+	u32 mask, val;
 
-	tod_idx = counter->id;
-	regaddr = adrv906x_tod_reg_op_trig[op_flag][trig_mode].regaddr;
-	bitshift = adrv906x_tod_reg_op_trig[op_flag][trig_mode].bitshift;
+	mask = adrv906x_tod_op_to_mask(op_flag, is_pps, tod_idx);
 
-	val = ioread32(tod->regs + regaddr);
-	if (set_flag == HW_TOD_TRIG_SET_FLAG_TRIG)
-		val |= (BIT(tod_idx) << bitshift);
+	val = ioread32(tod->regs + ADRV906X_TOD_CFG_TOD_OP);
+	if (set_flag)
+		val |= mask;
 	else
-		val &= ~(BIT(tod_idx) << bitshift);
-	iowrite32(val, tod->regs + regaddr);
+		val &= ~mask;
+	iowrite32(val, tod->regs + ADRV906X_TOD_CFG_TOD_OP);
 }
 
 static void adrv906x_tod_hw_op_trig_set(struct adrv906x_tod_counter *counter, u8 op_flag)
 {
-	adrv906x_tod_hw_op_trig(counter, op_flag, HW_TOD_TRIG_SET_FLAG_TRIG);
+	adrv906x_tod_hw_op_trig(counter, op_flag, counter->trigger_mode, true);
 }
 
 static void adrv906x_tod_hw_op_trig_clear(struct adrv906x_tod_counter *counter, u8 op_flag)
 {
-	adrv906x_tod_hw_op_trig(counter, op_flag, HW_TOD_TRIG_SET_FLAG_CLEAR);
+	adrv906x_tod_hw_op_trig(counter, op_flag, counter->trigger_mode, false);
 }
 
 static int adrv906x_tod_hw_op_poll_reg(struct adrv906x_tod_counter *counter, u32 regaddr,
@@ -365,16 +316,11 @@ static int adrv906x_tod_hw_op_poll_reg(struct adrv906x_tod_counter *counter, u32
 static int adrv906x_tod_hw_op_poll(struct adrv906x_tod_counter *counter, u8 op_flag,
 				   const struct adrv906x_tod_trig_delay *p_delay)
 {
-	u8 trig_mode = counter->trigger_mode;
-	u8 tod_idx = counter->id;
-	u32 bit_mask, regaddr;
-	int err;
+	u8 tod_idx = BIT(counter->id);
+	u32 mask;
 
-	regaddr = adrv906x_tod_reg_op_poll[op_flag][trig_mode].regaddr;
-	bit_mask = BIT(adrv906x_tod_reg_op_poll[op_flag][trig_mode].bitshift + tod_idx);
-	err = adrv906x_tod_hw_op_poll_reg(counter, regaddr, bit_mask, p_delay, true);
-
-	return err;
+	mask = adrv906x_tod_op_to_mask(op_flag, counter->trigger_mode, tod_idx);
+	return adrv906x_tod_hw_op_poll_reg(counter, ADRV906X_TOD_STAT_TOD_OP, mask, p_delay, true);
 }
 
 static int adrv906x_tod_compensate_tstamp(struct adrv906x_tod_counter *counter,
@@ -484,7 +430,7 @@ static void adrv906x_tod_get_trigger_delay(struct adrv906x_tod_counter *counter,
 {
 	struct adrv906x_tod *tod = counter->parent;
 
-	/**
+	/*
 	 * The trigger delay value depends on the counter->trig_delay_tick.
 	 * adrv906x_tod_trig_delay.ns = counter->trig_delay_tick * 1e6 / tod->gc_clk_freq_khz
 	 * adrv906x_tod_trig_delay.frac_ns = counter->trig_delay_tick * 1e6 % tod->gc_clk_freq_khz
@@ -557,33 +503,63 @@ static int adrv906x_tod_get_tstamp(struct adrv906x_tod_counter *counter,
 	return err;
 }
 
-static int adrv906x_tod_adjust_time(struct adrv906x_tod_counter *counter, s64 delta)
+static int adrv906x_tod_hw_adjust_time(struct adrv906x_tod_counter *counter, s64 delta)
 {
-	struct adrv906x_tod_tstamp tstamp = { 0 };
-	s64 seconds;
+	struct adrv906x_tod_trig_delay trig_delay = { 0, 0 };
+	struct adrv906x_tod_tstamp ts0 = { 0 }, ts1 = { 0 };
+	u64 gc0, gc1, gc2;
+	struct timespec64 tmp;
+	ktime_t kt0, kt1;
+	u32 op_mask;
 	int err;
-	s32 ns;
 
-	err = adrv906x_tod_get_tstamp(counter, &tstamp);
+	adrv906x_tod_get_trigger_delay(counter, &trig_delay);
 
-	seconds = div_s64_rem(delta, NSEC_PER_SEC, &ns);
-	if (!err) {
-		if (ns < 0 && abs(ns) > tstamp.nanoseconds) {
-			tstamp.nanoseconds = NSEC_PER_SEC + ns + tstamp.nanoseconds;
-			tstamp.seconds -= 1;
-		} else {
-			tstamp.nanoseconds += ns;
-		}
+	/*
+	 * The time adjustment will need to know the tstamp for a specific GC value
+	 * to be able to adjust the time correctly.
+	 *     gc0   gc1   gc2
+	 * |---*-----*-----*-----|
+	 *           ts0   ts1
+	 */
 
-		if (tstamp.nanoseconds < NSEC_PER_SEC) {
-			tstamp.seconds += seconds;
-		} else {
-			tstamp.nanoseconds -= NSEC_PER_SEC;
-			tstamp.seconds += seconds + 1;
-		}
+	adrv906x_tod_hw_gc_get_cnt(counter, &gc0);
 
-		err = adrv906x_tod_hw_settstamp(counter, &tstamp);
-	}
+	gc1 = gc0 + counter->trig_delay_tick;
+	adrv906x_tod_hw_gc_set_cnt(counter, gc1);
+
+	adrv906x_tod_hw_op_trig(counter, HW_TOD_TRIG_OP_RD, false, true);
+	op_mask = FIELD_PREP(ADRV906X_TOD_CFG_TOD_OP_RD_TOD_MASK, BIT(counter->id));
+	err = adrv906x_tod_hw_op_poll_reg(counter, ADRV906X_TOD_STAT_TOD_OP, op_mask, &trig_delay,
+					  true);
+	adrv906x_tod_hw_op_trig(counter, HW_TOD_TRIG_OP_RD, false, false);
+	if (err)
+		return err;
+
+	adrv906x_tod_hw_gettstamp_from_reg(counter, &ts0);
+
+	/*
+	 * We leverage the 'delta' variable to do the adjustment calculation before
+	 * converting to the ADRV906X format.
+	 */
+	kt0 = ktime_set(ts0.seconds, ts0.nanoseconds);
+	kt1 = ktime_add_ns(kt0, delta);
+	tmp = ktime_to_timespec64(kt1);
+	timespec_to_tstamp(&ts1, &tmp);
+	ts1.frac_nanoseconds = ts0.frac_nanoseconds;
+
+	adrv906x_tod_compensate_tstamp(counter, &ts1, &trig_delay);
+
+	gc2 = gc1 + counter->trig_delay_tick;
+	adrv906x_tod_hw_gc_set_cnt(counter, gc2);
+	adrv906x_tod_hw_settstamp_to_reg(counter, &ts1);
+
+	adrv906x_tod_hw_op_trig(counter, HW_TOD_TRIG_OP_WR, false, true);
+	op_mask = FIELD_PREP(ADRV906X_TOD_CFG_TOD_OP_WR_TOD_MASK, BIT(counter->id));
+	err = adrv906x_tod_hw_op_poll_reg(counter, ADRV906X_TOD_STAT_TOD_OP, op_mask, &trig_delay,
+					  true);
+
+	adrv906x_tod_hw_op_trig(counter, HW_TOD_TRIG_OP_WR, false, false);
 
 	return err;
 }
@@ -948,7 +924,7 @@ static int adrv906x_tod_adjtime(struct adrv906x_tod_counter *counter, s64 delta)
 	int err;
 
 	mutex_lock(&tod->reg_lock);
-	err = adrv906x_tod_adjust_time(counter, delta);
+	err = adrv906x_tod_hw_adjust_time(counter, delta);
 	mutex_unlock(&tod->reg_lock);
 
 	return err;
