@@ -303,7 +303,8 @@ static int fsb_s400_fuse_write(void *priv, unsigned int offset, void *val, size_
 	if (bytes != 4)
 		return -EINVAL;
 
-	index = offset;
+	/* divide the offset by the word size to get the word count */
+	index = offset / 4;
 
 	mutex_lock(&fuse->lock);
 	ret = imx_se_write_fuse(fuse->se_data, index, *buf, false);
