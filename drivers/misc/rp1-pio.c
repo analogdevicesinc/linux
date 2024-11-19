@@ -476,6 +476,28 @@ int rp1_pio_sm_set_dmactrl(struct rp1_pio_client *client, void *param)
 }
 EXPORT_SYMBOL_GPL(rp1_pio_sm_set_dmactrl);
 
+int rp1_pio_sm_fifo_state(struct rp1_pio_client *client, void *param)
+{
+	struct rp1_pio_sm_fifo_state_args *args = param;
+	const int level_offset = offsetof(struct rp1_pio_sm_fifo_state_args, level);
+	int ret;
+
+	ret = rp1_pio_message_resp(client->pio, PIO_SM_FIFO_STATE, args, sizeof(*args),
+				   &args->level, NULL, sizeof(*args) - level_offset);
+	if (ret >= 0)
+		return level_offset + ret;
+	return ret;
+}
+EXPORT_SYMBOL_GPL(rp1_pio_sm_fifo_state);
+
+int rp1_pio_sm_drain_tx(struct rp1_pio_client *client, void *param)
+{
+	struct rp1_pio_sm_clear_fifos_args *args = param;
+
+	return rp1_pio_message(client->pio, PIO_SM_DRAIN_TX, args, sizeof(*args));
+}
+EXPORT_SYMBOL_GPL(rp1_pio_sm_drain_tx);
+
 int rp1_pio_gpio_init(struct rp1_pio_client *client, void *param)
 {
 	struct rp1_gpio_init_args *args = param;
@@ -848,6 +870,8 @@ struct handler_info {
 	HANDLER(SM_PUT, sm_put),
 	HANDLER(SM_GET, sm_get),
 	HANDLER(SM_SET_DMACTRL, sm_set_dmactrl),
+	HANDLER(SM_FIFO_STATE, sm_fifo_state),
+	HANDLER(SM_DRAIN_TX, sm_drain_tx),
 
 	HANDLER(GPIO_INIT, gpio_init),
 	HANDLER(GPIO_SET_FUNCTION, gpio_set_function),

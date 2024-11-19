@@ -47,6 +47,9 @@ enum rp1_pio_ops {
 	READ_HW,		// src address, len -> data bytes
 	WRITE_HW,		// dst address, data
 
+	PIO_SM_FIFO_STATE,	// u16 sm, u8 tx -> u16 level, u8 empty, u8 full
+	PIO_SM_DRAIN_TX,	// u16 sm
+
 	PIO_COUNT
 };
 
