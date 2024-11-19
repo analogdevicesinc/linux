@@ -143,6 +143,7 @@
 		vin-supply = <&reg_m2_pwr>;
 		gpio = <&i2c7_pcal6524 6 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+		regulator-always-on;
 	};
 
 	reg_slot_pwr: regulator-slot-pwr {
