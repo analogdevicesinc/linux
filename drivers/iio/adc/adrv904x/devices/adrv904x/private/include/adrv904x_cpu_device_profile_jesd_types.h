@@ -16,7 +16,11 @@
 #ifndef __ADRV904X_CPU_DEVICE_PROFILE_JESD_TYPES_H__
 #define __ADRV904X_CPU_DEVICE_PROFILE_JESD_TYPES_H__
 
+#ifdef __KERNEL__
+#include <linux/kernel.h>
+#else
 #include <stdint.h>
+#endif
 #include "adi_adrv904x_platform_pack.h"
 
 

@@ -14,7 +14,11 @@
 #ifndef ADRV904X_DFE_SVC_DFE_CTC_ACTUATOR_CMN_T_H_
 #define ADRV904X_DFE_SVC_DFE_CTC_ACTUATOR_CMN_T_H_
 
+#ifdef __KERNEL__
+#include <linux/kernel.h>
+#else
 #include <stdint.h>
+#endif
 #include "adi_adrv904x_platform_pack.h"
 
 #define ADI_ADRV904X_DFE_SVC_DFE_CTC_ACT_MAX_NUM_ROW    (8u)

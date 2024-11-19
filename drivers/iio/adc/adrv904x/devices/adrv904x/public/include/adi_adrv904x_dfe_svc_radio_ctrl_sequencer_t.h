@@ -14,7 +14,11 @@
 #ifndef __ADI_ADRV904X_DFE_SVC_RADIO_CTRL_SEQUENCER_T_H__
 #define __ADI_ADRV904X_DFE_SVC_RADIO_CTRL_SEQUENCER_T_H__
 
+#ifdef __KERNEL__
+#include <linux/stddef.h>
+#else
 #include <stddef.h>
+#endif
 
 /**
  *  \brief Enum of Radio Sequencers

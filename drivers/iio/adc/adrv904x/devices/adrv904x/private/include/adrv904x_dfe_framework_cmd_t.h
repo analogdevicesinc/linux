@@ -15,8 +15,12 @@
 #ifndef _FRAMEWORK_CMD_T_H
 #define _FRAMEWORK_CMD_T_H
 
+#ifdef __KERNEL__
+#include <linux/kernel.h>
+#else
 #include "stdint.h"
 #include "stdbool.h"
+#endif
 #include "adi_adrv904x_dfe_svc_err_codes_t.h"
 #include "adi_adrv904x_dfe_app_err_codes_t.h"
 #include "adi_adrv904x_platform_pack.h"

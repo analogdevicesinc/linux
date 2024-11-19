@@ -18,7 +18,11 @@
 #ifndef __ADI_ADRV904X_DFE_SVC_ERR_OBJID_T_H__
 #define __ADI_ADRV904X_DFE_SVC_ERR_OBJID_T_H__
 
+#ifdef __KERNEL__
+#include <linux/kernel.h>
+#else
 #include <stdint.h>
+#endif
 
 /**
  * \brief DFE firmware object IDs

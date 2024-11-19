@@ -1,6 +1,10 @@
 #include "../../private/include/adrv904x_struct_endian.h"
 
+#ifdef __KERNEL__
+#include <linux/kernel.h>
+#else
 #include <stdint.h>
+#endif
 
 static float byteSwapFloat(float val)
 {

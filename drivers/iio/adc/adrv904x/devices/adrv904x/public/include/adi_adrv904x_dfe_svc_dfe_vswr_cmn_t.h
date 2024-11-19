@@ -14,7 +14,11 @@
 #ifndef ADI_ADRV904X_DFE_SVC_DFE_VSWR_CMN_T_H_
 #define ADI_ADRV904X_DFE_SVC_DFE_VSWR_CMN_T_H_
 
+#ifdef __KERNEL__
+#include <linux/kernel.h>
+#else
 #include <stdint.h>
+#endif
 #include "adi_adrv904x_platform_pack.h"
 
 #define ADI_ADRV904X_VSWR_PLAYBACK_DATA_MAX_NUM_SAMPLES    1023U /*!< VSWR playback data maximum number of samples */

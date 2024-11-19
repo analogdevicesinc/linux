@@ -17,7 +17,11 @@
 #ifndef __ADI_ADRV904X_CPU_ERROR_CODES_TYPES_H__
 #define __ADI_ADRV904X_CPU_ERROR_CODES_TYPES_H__
 
+#ifdef __KERNEL__
+#include <linux/kernel.h>
+#else
 #include <stdint.h>
+#endif
 
 /* Typedef and enumeration for CPU system-wide error codes */
 typedef uint32_t adi_adrv904x_CpuErrorCode_t;

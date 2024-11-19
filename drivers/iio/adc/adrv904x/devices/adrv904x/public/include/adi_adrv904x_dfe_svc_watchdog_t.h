@@ -15,7 +15,11 @@
 
 /*============= I N C L U D E S =============*/
 
+#ifdef __KERNEL__
+#include <linux/kernel.h>
+#else
 #include <stdint.h>
+#endif
 
 /**
  * \brief Watchdog instance enumerations

@@ -16,7 +16,11 @@
 #ifndef ADRV904X_DFE_CAL_DPD_TYPES_H__
 #define ADRV904X_DFE_CAL_DPD_TYPES_H__
 
+#ifdef __KERNEL__
+#include <linux/kernel.h>
+#else
 #include <stdint.h>
+#endif
 #include "adi_adrv904x_platform_pack.h"
 #include "adi_adrv904x_dfe_svc_dfe_actuator_cmn_t.h"
 #include "adi_adrv904x_dfe_svc_dfe_capture_cmn_t.h"

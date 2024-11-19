@@ -14,7 +14,11 @@
 #ifndef __ADI_ADRV904X_DFE_SVC_BBIC_BRIDGE_VERSION_T_H__
 #define __ADI_ADRV904X_DFE_SVC_BBIC_BRIDGE_VERSION_T_H__
 
+#ifdef __KERNEL__
+#include <linux/kernel.h>
+#else
 #include <stdint.h>
+#endif
 #include "adi_adrv904x_platform_pack.h"
 
 /**

@@ -16,7 +16,11 @@
 #ifndef ADRV904X_DFE_CAL_VSWR_TYPES_H__
 #define ADRV904X_DFE_CAL_VSWR_TYPES_H__
 
+#ifdef __KERNEL__
+#include <linux/kernel.h>
+#else
 #include <stdint.h>
+#endif
 #include "adi_adrv904x_platform_pack.h"
 #include "adi_adrv904x_cals_structs.h"
 

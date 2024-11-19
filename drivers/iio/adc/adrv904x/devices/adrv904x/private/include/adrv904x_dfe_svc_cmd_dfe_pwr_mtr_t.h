@@ -18,7 +18,11 @@
 #ifndef __ADRV904X_DFE_SVC_CMD_DFE_PWR_MTR_T_H__
 #define __ADRV904X_DFE_SVC_CMD_DFE_PWR_MTR_T_H__
 
+#ifdef __KERNEL__
+#include <linux/kernel.h>
+#else
 #include <stdint.h>
+#endif
 #include "adi_adrv904x_platform_pack.h"
 #include "adi_adrv904x_dfe_svc_err_codes_t.h"
 #include "adrv904x_dfe_svc_cmd_t.h"

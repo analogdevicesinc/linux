@@ -14,7 +14,11 @@
 #ifndef _ADI_ADRV904X_GPIO_TYPES_H_
 #define _ADI_ADRV904X_GPIO_TYPES_H_
 
+#ifdef __KERNEL__
+#include <linux/kernel.h>
+#else
 #include <stdint.h>
+#endif
 
 #define ADI_ADRV904X_GPIO_COUNT 24U
 #define ADI_ADRV904X_GPIO_ANALOG_COUNT 16U

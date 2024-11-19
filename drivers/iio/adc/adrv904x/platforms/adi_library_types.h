@@ -12,6 +12,10 @@
 #ifndef _ADI_LIBRARY_TYPES_H_
 #define _ADI_LIBRARY_TYPES_H_
 
+#ifdef __KERNEL__
+#include <linux/kernel.h>
+#include <linux/time.h>
+#else
 #include <stddef.h>
 #include <stdio.h>
 #include <stdint.h>

@@ -532,7 +532,11 @@
 #define ADRV904X_ADDR_ORX1_CPT_CONFIG                      (0x611500D0U)
 #define ADRV904X_ADDR_ORX1_CPT_STATUS0                     (0x611500D4U)
 
+#ifdef __KERNEL__
+#include <linux/kernel.h>
+#else
 #include <stdint.h>
+#endif
 
 typedef struct adrv904x_CpuMemDump
 {

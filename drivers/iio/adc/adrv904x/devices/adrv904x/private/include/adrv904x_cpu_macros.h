@@ -14,7 +14,11 @@
 #ifndef _ADRV904X_CPU_MACROS_H_
 #define _ADRV904X_CPU_MACROS_H_
 
+#ifdef __KERNEL__
+#include <linux/kernel.h>
+#else
 #include <stdint.h>
+#endif
 #include "adrv904x_cpu_memory.h"
 
 #define ADRV904X_CPU_0MD_ERRCODE(armOpCode, armObjId, armErrorFlag)  \

@@ -17,7 +17,9 @@
 #include "adi_adrv904x_dfe_svc_err_codes_t.h"
 #include "adi_adrv904x_platform_pack.h"
 #include "adi_adrv904x_dfe_svc_log_trace_events_t.h"
+#ifndef __KERNEL__
 #include <stdbool.h>
+#endif
 
 #define ADI_ADRV904X_DFE_SVC_LOGTRACE_RELEASE     (0)
 #define ADI_ADRV904X_DFE_SVC_LOGTRACE_BUSY        (1)

@@ -7,9 +7,21 @@
 #ifndef __ADI_PLATFORM_IMPL_TYPES_H__
 #define __ADI_PLATFORM_IMPL_TYPES_H__
 
+#ifndef __KERNEL__
 #include <pthread.h>
 typedef pthread_mutex_t adi_hal_mutex_t;
 typedef pthread_t adi_hal_thread_t;
+#else
+#include <linux/kernel.h>
+#include <linux/firmware.h>
+#include <linux/mutex.h>
+#include <linux/slab.h>
+#include <linux/spi/spi.h>
+#include <linux/gpio/consumer.h>
+#include <linux/fs.h>
+typedef struct mutex adi_hal_mutex_t;
+#endif
+
 /**
  *  \brief  Default filepath for logfiles if none provided
  *

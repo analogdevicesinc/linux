@@ -18,7 +18,11 @@
 #ifndef __ADI_ADRV904X_CPU_LOG_TYPES_H__
 #define __ADI_ADRV904X_CPU_LOG_TYPES_H__
 
+#ifdef __KERNEL__
+#include <linux/kernel.h>
+#else
 #include <stdint.h>
+#endif
 
 /**
  * \brief CPU log events
