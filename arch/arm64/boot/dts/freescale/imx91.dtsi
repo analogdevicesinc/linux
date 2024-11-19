@@ -1123,8 +1123,8 @@
 				assigned-clocks = <&clk IMX91_CLK_MEDIA_AXI>,
 						<&clk IMX91_CLK_MEDIA_APB>;
 				assigned-clock-parents = <&clk IMX91_CLK_SYS_PLL_PFD0>,
-							<&clk IMX91_CLK_SYS_PLL_PFD1_DIV2>;
-				assigned-clock-rates = <333333334>, <133333333>;
+							<&clk IMX91_CLK_SYS_PLL_PFD0_DIV2>;
+				assigned-clock-rates = <333333334>, <125000000>;
 				power-domains = <&media_blk_ctrl IMX91_MEDIABLK_PD_ISI>;
 				status = "disabled";
 			};
@@ -1331,7 +1331,7 @@
 			assigned-clock-parents = <&clk IMX91_CLK_24M>,
 						 <&clk IMX91_CLK_VIDEO_PLL>,
 						 <&clk IMX91_CLK_SYS_PLL_PFD0>,
-						 <&clk IMX91_CLK_SYS_PLL_PFD1_DIV2>;
+						 <&clk IMX91_CLK_SYS_PLL_PFD0_DIV2>;
 			power-domains = <&media_blk_ctrl IMX91_MEDIABLK_PD_LCDIF>;
 			status = "disabled";
 
@@ -1405,11 +1405,13 @@
 		regmap = <&ddrmix_blk_ctrl>;
 		clocks = <&clk IMX91_CLK_M33>, <&clk IMX91_CLK_WAKEUP_AXI>,
 			 <&clk IMX91_CLK_NIC_AXI>, <&clk IMX91_CLK_MEDIA_AXI>,
-			 <&clk IMX91_CLK_A55_PERIPH>, <&clk IMX91_CLK_A55_CORE>, <&clk IMX91_CLK_DUMMY>,
+			 <&clk IMX91_CLK_MEDIA_APB>, <&clk IMX91_CLK_A55_PERIPH>,
+			 <&clk IMX91_CLK_A55_CORE>, <&clk IMX91_CLK_DUMMY>,
 			 <&clk IMX91_CLK_SYS_PLL_PFD0>, <&clk IMX91_CLK_SYS_PLL_PFD0_DIV2>,
 			 <&clk IMX91_CLK_SYS_PLL_PFD1>, <&clk IMX91_CLK_SYS_PLL_PFD1_DIV2>,
 			 <&clk IMX91_CLK_SYS_PLL_PFD2>, <&clk IMX91_CLK_SYS_PLL_PFD2_DIV2>;
-		clock-names = "m33_root", "wakeup_axi", "nic_axi", "media_axi", "a55_periph",
+		clock-names = "m33_root", "wakeup_axi", "nic_axi",
+				  "media_axi", "media_apb", "a55_periph",
 			      "a55_core", "ml_axi", "sys_pll_pfd0", "sys_pll_pfd0_div2",
 			      "sys_pll_pfd1", "sys_pll_pfd1_div2", "sys_pll_pfd2",
 			      "sys_pll_pfd2_div2";
