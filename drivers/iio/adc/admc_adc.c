@@ -1,7 +1,7 @@
 /*
  * Analog Devices MC-ADC Module
  *
- * Copyright 2013 Analog Devices Inc.
+ * Copyright 2024 Analog Devices Inc.
  *
  * Licensed under the GPL-2.
  */
@@ -43,6 +43,8 @@
 
 #include <linux/fpga/adi-axi-common.h>
 
+#include <linux/bitfield.h>
+
 /* ADC Common */
 #define ADI_REG_RSTN			0x0040
 #define ADI_RSTN			(1 << 0)
@@ -53,8 +55,43 @@
 /* ADC Channel */
 #define ADI_REG_CHAN_CNTRL(c)		(0x0400 + (c) * 0x40)
 #define ADI_ENABLE			(1 << 0)
+#define REG_CHAN_USR_CNTRL_2 	0x424
+#define DEC_RATE_MASK			GENMASK(15,0)
 
 #define ID_AD_MC_ADC   1
+
+enum ad7405_dec_rate {
+	DR_32 = 32,
+	DR_64 = 64,
+	DR_128 = 128,
+	DR_256 = 256,
+	DR_512 = 512
+	};
+
+static const char * const ad7405_dec_rate_enum[] = {
+	[DR_32]  = "32",
+	[DR_64]  = "64",
+	[DR_128] = "128",
+	[DR_256] = "256",
+	[DR_512] = "512",
+};
+
+static int ad7405_set_dec_rate(struct iio_dev *indio_dev, const struct iio_chan_spec *chan, unsigned int dec_rate);
+static int ad7405_get_dec_rate(struct iio_dev *indio_dev, const struct iio_chan_spec *chan);
+
+static const struct iio_enum ad7405_dec_rate_iio_enum = {
+	.items = ad7405_dec_rate_enum,
+	.num_items = ARRAY_SIZE(ad7405_dec_rate_enum),
+	.set = ad7405_set_dec_rate,
+	.get = ad7405_get_dec_rate,
+};
+
+static struct iio_chan_spec_ext_info ad7405_ext_info[] = {
+
+	IIO_ENUM("dec_rate", IIO_SHARED_BY_ALL, &ad7405_dec_rate_iio_enum),
+	IIO_ENUM_AVAILABLE("dec_rate", IIO_SHARED_BY_ALL, &ad7405_dec_rate_iio_enum),
+	{ },
+};
 
 struct axiadc_chip_info {
 	char				*name;
@@ -70,6 +107,8 @@ struct axiadc_state {
 	struct mutex			lock;
 	void __iomem			*regs;
 	unsigned int			pcore_version;
+	struct clk 				*axi_clk_gen;
+	unsigned int            dec_rate;
 };
 
 static inline void axiadc_write(struct axiadc_state *st, unsigned reg, unsigned val)
@@ -80,6 +119,27 @@ static inline void axiadc_write(struct axiadc_state *st, unsigned reg, unsigned 
 static inline unsigned int axiadc_read(struct axiadc_state *st, unsigned reg)
 {
 	return ioread32(st->regs + reg);
+}
+
+static int ad7405_set_dec_rate(struct iio_dev *indio_dev,const struct iio_chan_spec *chan, unsigned int dec_rate)
+{
+	struct axiadc_state *st = iio_priv(indio_dev);
+
+    st->dec_rate = dec_rate;
+
+	axiadc_write(st, REG_CHAN_USR_CNTRL_2, dec_rate);
+
+	return 0;
+}
+
+static int ad7405_get_dec_rate(struct iio_dev *indio_dev, const struct iio_chan_spec *chan)
+{
+	struct axiadc_state *st = iio_priv(indio_dev);
+	unsigned int readval;
+
+	readval = axiadc_read(st, REG_CHAN_USR_CNTRL_2);
+
+	return FIELD_GET(DEC_RATE_MASK, readval);
 }
 
 static int axiadc_hw_submit_block(struct iio_dma_buffer_queue *queue,
@@ -163,6 +223,7 @@ static const struct iio_info axiadc_info = {
 
 #define AIM_CHAN_NOCALIB(_chan, _si, _bits, _sign)		  \
 	{ .type = IIO_VOLTAGE,					  \
+	  .ext_info = ad7405_ext_info,		 \
 	  .indexed = 1,						 \
 	  .channel = _chan,					 \
 	  .scan_index = _si,						\
@@ -177,12 +238,11 @@ static const struct iio_info axiadc_info = {
 static const struct axiadc_chip_info axiadc_chip_info_tbl[] = {
 	[ID_AD_MC_ADC] = {
 		.name = "AD-MC-ADC",
-		.max_rate = 1000000UL,
-		.num_channels = 3,
+		//.max_rate = 625000UL,
+		.max_rate = 78100UL,
+		.num_channels = 1,
 		.channel = {
 			AIM_CHAN_NOCALIB(0, 0, 16, 'u'),
-			AIM_CHAN_NOCALIB(1, 1, 16, 'u'),
-			AIM_CHAN_NOCALIB(2, 2, 16, 'u'),
 		},
 	},
 };
@@ -209,6 +269,16 @@ static int axiadc_probe(struct platform_device *pdev)
 	chip_info = &axiadc_chip_info_tbl[ID_AD_MC_ADC];
 
 	platform_set_drvdata(pdev, indio_dev);
+
+	axiadc_write(st, REG_CHAN_USR_CNTRL_2, 256);
+
+	st->axi_clk_gen = devm_clk_get(&pdev->dev, NULL);
+	if (IS_ERR(st->axi_clk_gen))
+		return PTR_ERR(st->axi_clk_gen);
+
+	ret = clk_prepare_enable(st->axi_clk_gen);
+	if (ret)
+		return ret;
 
 	/* Reset all HDL Cores */
 	axiadc_write(st, ADI_REG_RSTN, 0);
