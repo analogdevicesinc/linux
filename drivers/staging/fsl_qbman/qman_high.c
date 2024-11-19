@@ -436,12 +436,13 @@ static inline void hw_ccgr_query_to_cpu(struct qm_mcr_ceetm_ccgr_query *ccgr_q)
 
 void qman_enable_irqs(void)
 {
+	const cpumask_t *cpus = qman_affine_cpus();
 	struct qman_portal *p;
-	int i;
+	int cpu;
 
-	for (i = 0; i < NR_CPUS; i++) {
-		if (affine_portals[i]) {
-			p = (struct qman_portal *)affine_portals[i];
+	for_each_cpu(cpu, cpus) {
+		p = affine_portals[cpu];
+		if (p) {
 			qm_isr_status_clear(&p->p, 0xffffffff);
 			qm_isr_uninhibit(&p->p);
 		}
@@ -907,12 +908,13 @@ EXPORT_SYMBOL(qman_get_portal_config);
 
 struct qm_portal *qm_get_portal_for_channel(u16 channel)
 {
+	const cpumask_t *cpus = qman_affine_cpus();
 	const struct qman_portal_config *pcfg;
 	struct qman_portal *p;
-	int i;
+	int cpu;
 
-	for (i = 0; i < num_possible_cpus(); i++) {
-		p = (struct qman_portal *)affine_portals[i];
+	for_each_cpu(cpu, cpus) {
+		p = affine_portals[cpu];
 		if (!p)
 			continue;
 
