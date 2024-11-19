@@ -32,11 +32,8 @@
 static const struct imx_rproc_att neutron_rproc_att_imx95[] = {
 	/* dev addr , sys addr  , size	    , flags */
 
-	/* DTCM-Data NON-SECURE 16K */
-	{ 0x00040000, 0x4AB08000, 0x00004000, ATT_OWN | ATT_IOMEM },
-
-	/* DTCM-Ring NON-SECURE 16K */
-	{ 0x00044000, 0x4AB0C000, 0x00004000, ATT_OWN | ATT_IOMEM },
+	/* DTCM-Data NON-SECURE 32K */
+	{ 0x00040000, 0x4AB08000, 0x00008000, ATT_OWN | ATT_IOMEM },
 
 	/* ITCM NON-SECURE 64K */
 	{ 0x00000000, 0x4AB10000, 0x00010000, ATT_OWN | ATT_IOMEM },
