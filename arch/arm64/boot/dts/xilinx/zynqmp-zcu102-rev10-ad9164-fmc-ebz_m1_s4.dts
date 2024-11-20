@@ -1,0 +1,31 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * AD9164-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * JESD Custom Link Mode 8 Example: M1, L8, S4, F1,  NP'16, Interpolation: 1
+ *
+ * https://analogdevicesinc.github.io/hdl/projects/dac_fmc_ebz/index.html
+ *
+ * hdl_project: <dac_fmc_ebz/zcu102>
+ * ADI_DAC_DEVICE: <AD9164>
+ * ADI_LANE_RATE: <12.5>
+ * ADI_DAC_MODE: <08>
+ * M: <1>
+ * S: <4>
+ * command: make ADI_DAC_DEVICE=AD9164 ADI_LANE_RATE=12.5 ADI_DAC_MODE=08 M=1 S=4
+ * board_revision: <H>
+ *
+ * Copyright (C) 2024 Analog Devices Inc.
+ */
+
+#include "zynqmp-zcu102-rev10-ad9164-fmc-ebz_m2_s2.dts"
+
+&fmc_spi {
+        dac0_ad9164: ad9164@1 {
+		adi,dac-interpolation = <1>;
+		adi,channel-interpolation = <1>;
+        adi,converters-per-device = <1>;	/* JESD M */
+        adi,samples-per-converter-per-frame = <4>; /* JESD S */
+        adi,interpolation = <1>;
+        };
+ };

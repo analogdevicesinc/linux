@@ -1,13 +1,19 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Analog Devices AD917x-FMC-EBZ
- * https://wiki.analog.com/resources/eval/dpg/ad917x-fmc-ebz
- * https://wiki.analog.com/resources/eval/dpg/eval-ad9164
+ * AD9164-FMC-EBZ on Xilinx ZynqMP ZCU102 Rev 1.0
+ *
+ * JESD Link Mode 8 Example: M2, L8, S2, F1,  NP'16, Interpolation: 2
+ *
+ * https://analogdevicesinc.github.io/hdl/projects/dac_fmc_ebz/index.html
  *
  * hdl_project: <dac_fmc_ebz/zcu102>
- * board_revision: <>
+ * ADI_DAC_DEVICE: <AD9164>
+ * ADI_LANE_RATE: <12.5>
+ * ADI_DAC_MODE: <08>
+ * command: make ADI_DAC_DEVICE=AD9164 ADI_LANE_RATE=12.5 ADI_DAC_MODE=08
+ * board_revision: <H>
  *
- * Copyright (C) 2018-2022 Analog Devices Inc.
+ * Copyright (C) 2024 Analog Devices Inc.
  */
 
 #include "zynqmp-zcu102-rev1.0.dts"
