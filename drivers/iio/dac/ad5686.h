@@ -116,7 +116,7 @@ struct ad5686_chip_info {
 };
 
 /**
- * struct ad5446_state - driver instance specific data
+ * struct ad5686_state - driver instance specific data
  * @spi:		spi_device
  * @pwm:		pwm used for buffer trigger
  * @chip_info:		chip model specific constants, available modes etc
