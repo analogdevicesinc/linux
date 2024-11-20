@@ -9,6 +9,24 @@
 / {
 	model = "ADI ADRV906X Titan 4T4R Evaluation Kit";
 	compatible = "adi,adrv906x-titan-4", "adi,adrv906x";
+
+	sfp_port0: sfp_port0 {
+		compatible = "sff,sfp";
+		i2c-bus = <&i2c1>;
+		los-gpio = <&gpio0 ADI_ADRV906X_PIN_72 GPIO_ACTIVE_HIGH>;
+		mod-def0-gpio = <&gpio0 ADI_ADRV906X_PIN_73 GPIO_ACTIVE_LOW>;
+		tx-disable-gpio = <&gpio0 ADI_ADRV906X_PIN_70 GPIO_ACTIVE_HIGH>;
+		tx-fault-gpio = <&gpio0 ADI_ADRV906X_PIN_71 GPIO_ACTIVE_HIGH>;
+	};
+
+	sfp_port1: sfp_port1 {
+		compatible = "sff,sfp";
+		i2c-bus = <&i2c7>;
+		los-gpio = <&gpio0 ADI_ADRV906X_PIN_58 GPIO_ACTIVE_HIGH>;
+		mod-def0-gpio = <&gpio0 ADI_ADRV906X_PIN_59 GPIO_ACTIVE_LOW>;
+		tx-disable-gpio = <&gpio0 ADI_ADRV906X_PIN_56 GPIO_ACTIVE_HIGH>;
+		tx-fault-gpio = <&gpio0 ADI_ADRV906X_PIN_57 GPIO_ACTIVE_HIGH>;
+	};
 };
 
 &mmc1 {
@@ -78,4 +96,12 @@
 	A55_GPIO_NS_74_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	A55_GPIO_NS_75_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	>;
+};
+
+&adrv906x_phy0 {
+	sfp = <&sfp_port0>;
+};
+
+&adrv906x_phy1 {
+	sfp = <&sfp_port1>;
 };
