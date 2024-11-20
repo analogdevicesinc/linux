@@ -247,7 +247,7 @@ static inline bool pio_can_add_program_at_offset(struct rp1_pio_client *client,
 	return !rp1_pio_can_add_program(client, &args);
 }
 
-uint pio_add_program(struct rp1_pio_client *client, const pio_program_t *program)
+static inline uint pio_add_program(struct rp1_pio_client *client, const pio_program_t *program)
 {
 	struct rp1_pio_add_program_args args;
 	int offset;
@@ -367,7 +367,7 @@ static inline int pio_sm_set_config(struct rp1_pio_client *client, uint sm,
 	return rp1_pio_sm_set_config(client, &args);
 }
 
-int pio_sm_exec(struct rp1_pio_client *client, uint sm, uint instr)
+static inline int pio_sm_exec(struct rp1_pio_client *client, uint sm, uint instr)
 {
 	struct rp1_pio_sm_exec_args args = { .sm = sm, .instr = instr, .blocking = false };
 
@@ -377,7 +377,7 @@ int pio_sm_exec(struct rp1_pio_client *client, uint sm, uint instr)
 	return rp1_pio_sm_exec(client, &args);
 }
 
-int pio_sm_exec_wait_blocking(struct rp1_pio_client *client, uint sm, uint instr)
+static inline int pio_sm_exec_wait_blocking(struct rp1_pio_client *client, uint sm, uint instr)
 {
 	struct rp1_pio_sm_exec_args args = { .sm = sm, .instr = instr, .blocking = true };
 
