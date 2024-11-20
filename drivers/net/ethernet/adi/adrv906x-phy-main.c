@@ -7,6 +7,7 @@
 #include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/of_mdio.h>
+#include <linux/sfp.h>
 #include <linux/platform_device.h>
 #include "adrv906x-phy.h"
 #include "adrv906x-phy-serdes.h"
@@ -331,6 +332,22 @@ static int adrv906x_phy_config_init(struct phy_device *phydev)
 	return 0;
 }
 
+static int adrv906x_phy_module_info(struct phy_device *dev,
+				    struct ethtool_modinfo *modinfo)
+{
+	int ret = -EOPNOTSUPP;
+
+	if (dev->sfp_bus)
+		ret = sfp_get_module_info(dev->sfp_bus, modinfo);
+
+	return ret;
+}
+
+static const struct sfp_upstream_ops adrv906x_sfp_ops = {
+	.attach = phy_sfp_attach,
+	.detach = phy_sfp_detach,
+};
+
 static int adrv906x_phy_probe(struct phy_device *phydev)
 {
 	struct device *dev = &phydev->mdio.dev;
@@ -363,7 +380,7 @@ static int adrv906x_phy_probe(struct phy_device *phydev)
 	if (ret)
 		return ret;
 
-	return 0;
+	return phy_sfp_probe(phydev, &adrv906x_sfp_ops);
 }
 
 static void adrv906x_phy_remove(struct phy_device *phydev)
@@ -390,6 +407,7 @@ static struct phy_driver adrv906x_phy_driver[] = {
 		.resume = adrv906x_phy_resume,
 		.suspend = adrv906x_phy_suspend,
 		.link_change_notify = adrv906x_phy_link_change_notify,
+		.module_info = adrv906x_phy_module_info,
 	},
 };
 
