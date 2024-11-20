@@ -87,7 +87,7 @@
 		fsl,txs-rxm;
 	};
 
-	ov5640: ov5640@3c {
+	ov5640_pi: ov5640@3c {
 		compatible = "ovti,ov5640";
 		reg = <0x3c>;
 		pinctrl-names = "default";
@@ -101,17 +101,7 @@
 		csi_id = <0>;
 		mclk = <24000000>;
 		mclk_source = <0>;
-		status = "okay";
-		port {
-			ov5640_ep: endpoint {
-				remote-endpoint = <&parallel_csi_ep>;
-				bus-type = <5>; /* V4L2_FWNODE_BUS_TYPE_PARALLEL */
-				bus-width = <8>;
-				vsync-active = <0>;
-				hsync-active = <1>;
-				pclk-sample = <1>;
-			};
-		};
+		status = "disabled";
 	};
 };
 
