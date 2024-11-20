@@ -980,7 +980,7 @@ static int parallel_csi_probe(struct platform_device *pdev)
 	struct device *dev = &pdev->dev;
 	struct parallel_csi_device *pcsidev;
 	struct resource *mem_res;
-	int ret;
+	int ret = 0;
 
 	pcsidev = devm_kzalloc(dev, sizeof(*pcsidev), GFP_KERNEL);
 	if (!pcsidev)
