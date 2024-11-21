@@ -878,7 +878,7 @@ static int parallel_csi_subdev_init(struct parallel_csi_device *pcsidev)
 	sd->flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	sd->ctrl_handler = NULL;
 
-	sd->entity.function = MEDIA_ENT_F_IO_V4L;
+	sd->entity.function = MEDIA_ENT_F_VID_IF_BRIDGE;
 	sd->entity.ops = &parallel_csi_entity_ops;
 
 	sd->dev = pcsidev->dev;
