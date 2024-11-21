@@ -817,7 +817,8 @@
 					     <GIC_SPI 286 IRQ_TYPE_LEVEL_HIGH>,
 					     <GIC_SPI 286 IRQ_TYPE_LEVEL_HIGH>,
 					     <GIC_SPI 287 IRQ_TYPE_LEVEL_HIGH>,
-					     <GIC_SPI 287 IRQ_TYPE_LEVEL_HIGH>;
+					     <GIC_SPI 287 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 250 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&scmi_clk IMX95_CLK_BUSWAKEUP>;
 				clock-names = "dma";
 			};
