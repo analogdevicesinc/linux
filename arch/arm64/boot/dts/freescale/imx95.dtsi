@@ -821,6 +821,7 @@
 					     <GIC_SPI 250 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&scmi_clk IMX95_CLK_BUSWAKEUP>;
 				clock-names = "dma";
+				status = "disabled";
 			};
 
 			mu7: mailbox@42430000 {
