@@ -1,0 +1,94 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices EVAL-AD7625FMCZ
+ * https://www.analog.com/en/products/ad7625.html
+ *
+ * hdl_project: <pulsar_lvds_adc/zed>
+ * Link: https://github.com/analogdevicesinc/hdl/tree/main/projects/pulsar_lvds_adc
+ * board_revision: <A>
+ *
+ * Copyright (C) 2025 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/pwm/pwm.h>
+
+/ {
+	eval_u10: eval-board-u10-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL +5V supply (U10)";
+		regulator-always-on;
+	};
+
+	eval_u12: eval-board-u12-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL +2.5V supply (U12)";
+		regulator-always-on;
+	};
+
+	eval_u16: eval-board-u16-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL +2.5V supply (U16)";
+		regulator-always-on;
+	};
+
+	eval_u14: regulator-vref {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL REF supply (U14)";
+		regulator-min-microvolt = <4096000>;
+		regulator-max-microvolt = <4096000>;
+		regulator-always-on;
+	};
+
+	ad7625 {
+		compatible = "adi,ad7625";
+		clocks = <&ref_clk>;
+		pwms = <&axi_pwm_gen 0 0 0>, <&axi_pwm_gen 1 0 0>;
+		pwm-names = "cnv", "clk_gate";
+		ref-supply = <&eval_u14>;
+		vio-supply = <&eval_u16>;
+		vdd1-supply = <&eval_u10>;
+		vdd2-supply = <&eval_u12>;
+		io-backends = <&iio_backend>;
+		en0-gpios = <&gpio0 86 GPIO_ACTIVE_HIGH>;
+		en1-gpios = <&gpio0 87 GPIO_ACTIVE_HIGH>;
+	};
+};
+
+&fpga_axi {
+	rx_dma: dma-controller@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x1000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>;
+	};
+
+	ref_clk: clock@0x44a80000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44a80000 0x10000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 15>;
+		clock-names = "clkin1", "s_axi_aclk";
+		clock-output-names = "ref_clk";
+	};
+
+	axi_pwm_gen: pwm@0x44a60000 {
+		compatible = "adi,axi-pwmgen-2.00.a";
+		reg = <0x44a60000 0x1000>;
+		label = "adc_conversion_trigger";
+		#pwm-cells = <3>;
+		clocks = <&ref_clk>;
+	};
+
+	iio_backend: backend@0x44a00000{
+		reg = <0x44a00000 0x10000>;
+		compatible = "adi,axi-adc-10.0.a";
+		dmas = <&rx_dma 0>;
+		dma-names = "rx";
+		clocks = <&ref_clk>;
+	};
+};
