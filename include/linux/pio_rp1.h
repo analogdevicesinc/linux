@@ -176,7 +176,7 @@ typedef rp1_pio_sm_config pio_sm_config;
 typedef struct rp1_pio_client *PIO;
 
 void pio_set_error(struct rp1_pio_client *client, int err);
-int pio_get_error(struct rp1_pio_client *client);
+int pio_get_error(const struct rp1_pio_client *client);
 void pio_clear_error(struct rp1_pio_client *client);
 
 int rp1_pio_can_add_program(struct rp1_pio_client *client, void *param);

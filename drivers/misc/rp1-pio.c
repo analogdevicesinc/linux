@@ -22,6 +22,9 @@
 #include <linux/init.h>
 #include <linux/ioctl.h>
 #include <linux/module.h>
+#include <linux/of.h>
+#include <linux/pio_rp1.h>
+#include <linux/platform_device.h>
 #include <linux/rp1-firmware.h>
 #include <linux/semaphore.h>
 #include <linux/slab.h>
