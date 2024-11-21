@@ -324,7 +324,7 @@ static void ak5558_reset(struct ak5558_priv *ak5558, bool active)
 		return;
 
 	gpiod_set_value_cansleep(ak5558->reset_gpiod, active);
-	usleep_range(1000, 2000);
+	usleep_range(5000, 6000);
 }
 
 static int ak5558_probe(struct snd_soc_component *component)
@@ -372,7 +372,14 @@ static int __maybe_unused ak5558_runtime_resume(struct device *dev)
 	regcache_cache_only(ak5558->regmap, false);
 	regcache_mark_dirty(ak5558->regmap);
 
-	return regcache_sync(ak5558->regmap);
+	ret = regcache_sync(ak5558->regmap);
+	if (ret) {
+		regulator_bulk_disable(ARRAY_SIZE(ak5558->supplies),
+				       ak5558->supplies);
+		return ret;
+	}
+
+	return 0;
 }
 
 static const struct dev_pm_ops ak5558_pm = {
