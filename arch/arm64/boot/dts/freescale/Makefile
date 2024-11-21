@@ -358,6 +358,20 @@ dtb-$(CONFIG_ARCH_MXC) += imx93-11x11-evk.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-14x14-evk.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-kontron-bl-osm-s.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-phyboard-segin.dtb
+
+imx8qxp-mek-ov5640-csi-dtbs := imx8qxp-mek.dtb imx8qxp-mek-ov5640-csi.dtbo
+dtb-${CONFIG_ARCH_MXC} += imx8qxp-mek-ov5640-csi.dtb
+imx8qxp-mek-ov5640-parallel-dtbs := imx8qxp-mek.dtb imx8qxp-mek-ov5640-parallel.dtbo
+dtb-${CONFIG_ARCH_MXC} += imx8qxp-mek-ov5640-parallel.dtb
+imx8qxp-mek-ov5640-dual-dtbs := imx8qxp-mek.dtb imx8qxp-mek-ov5640-csi.dtbo imx8qxp-mek-ov5640-parallel.dtbo
+dtb-${CONFIG_ARCH_MXC} += imx8qxp-mek-ov5640-dual.dtb
+imx8qxp-mek-ov5640-csi-rpmsg-dtbs := imx8qxp-mek-rpmsg.dtb imx8qxp-mek-ov5640-csi.dtbo
+dtb-${CONFIG_ARCH_MXC} += imx8qxp-mek-ov5640-csi-rpmsg.dtb
+imx8qxp-mek-ov5640-parallel-rpmsg-dtbs := imx8qxp-mek-rpmsg.dtb imx8qxp-mek-ov5640-parallel.dtbo
+dtb-${CONFIG_ARCH_MXC} += imx8qxp-mek-ov5640-parallel-rpmsg.dtb
+imx8qxp-mek-ov5640-dual-rpmsg-dtbs := imx8qxp-mek-rpmsg.dtb imx8qxp-mek-ov5640-csi.dtbo imx8qxp-mek-ov5640-parallel.dtbo
+dtb-${CONFIG_ARCH_MXC} += imx8qxp-mek-ov5640-dual-rpmsg.dtb
+
 dtb-$(CONFIG_ARCH_MXC) += imx93-tqma9352-mba93xxca.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-tqma9352-mba93xxla.dtb
 dtb-$(CONFIG_ARCH_MXC) += imx93-var-som-symphony.dtb
