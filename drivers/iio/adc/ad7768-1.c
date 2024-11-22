@@ -429,6 +429,29 @@ struct ad7768_state {
 static int ad7768_set_freq(struct ad7768_state *st,
 			   unsigned int freq);
 
+static int ad7768_spi_reg_read_select_chn(struct ad7768_state *st, unsigned int addr,
+			       unsigned int *data, unsigned int len, unsigned int channel_idx)
+{
+	struct spi_transfer xfer = {
+		.rx_buf = st->data.buf,
+		.len = len + 1,
+		.bits_per_word = (len == 3 ? 32 : 16),
+		.cs_assert_mask_en = true,
+		.cs_assert_mask = BIT(channel_idx),
+	};
+	unsigned char tx_data[4];
+	int ret;
+
+	tx_data[len] = AD7768_RD_FLAG_MSK(addr);
+	xfer.tx_buf = tx_data;
+	ret = spi_sync_transfer(st->spi, &xfer, 1);
+	if (ret < 0)
+		return ret;
+	*data = (len == 1 ? st->data.buf[0] : st->data.word);
+
+	return ret;
+}
+
 static int ad7768_spi_reg_read(struct ad7768_state *st, unsigned int addr,
 			       unsigned int *data, unsigned int len)
 {
@@ -531,7 +554,7 @@ static int ad7768_set_mode(struct ad7768_state *st,
 	return ad7768_spi_reg_write(st, AD7768_REG_CONVERSION, regval);
 }
 
-static int ad7768_scan_direct(struct iio_dev *indio_dev)
+static int ad7768_scan_direct(struct iio_dev *indio_dev, unsigned int channel_idx)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
 	int readval, ret;
@@ -550,7 +573,7 @@ static int ad7768_scan_direct(struct iio_dev *indio_dev)
 			return -ETIMEDOUT;
 	}
 
-	ret = ad7768_spi_reg_read(st, AD7768_REG_ADC_DATA, &readval, 3);
+	ret = ad7768_spi_reg_read_select_chn(st, AD7768_REG_ADC_DATA, &readval, 3, channel_idx);
 	if (ret < 0)
 		return ret;
 
@@ -1060,7 +1083,7 @@ static int ad7768_read_raw(struct iio_dev *indio_dev,
 		if (ret)
 			return ret;
 
-		ret = ad7768_scan_direct(indio_dev);
+		ret = ad7768_scan_direct(indio_dev, chan->scan_index);
 		if (ret >= 0)
 			*val = sign_extend32(ret, scan_type->realbits - 1);
 
