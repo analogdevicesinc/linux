@@ -66,40 +66,15 @@
 #define EMAC_CMN_GPIO_SELECT                 0x0060
 #define EMAC_CMN_EMAC_SPARE                  0x3000
 
-void adrv906x_eth_cmn_set_link(struct net_device *ndev, u32 lane, bool rx_only, bool enable)
-{
-	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
-	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
-	void __iomem *regs = eth_if->emac_cmn_regs;
-	unsigned int val, enable_bit;
-
-	if (rx_only)
-		enable_bit = (lane == 0) ? EMAC_CMN_RX_LINK0_EN : EMAC_CMN_RX_LINK1_EN;
-	else
-		enable_bit = (lane == 0) ? EMAC_CMN_RX_LINK0_EN | EMAC_CMN_TX_LINK0_EN :
-			     EMAC_CMN_RX_LINK1_EN | EMAC_CMN_TX_LINK1_EN;
-
-	mutex_lock(&eth_if->mtx);
-	val = ioread32(regs + EMAC_CMN_DIGITAL_CTRL0);
-
-	if (enable)
-		val |= enable_bit;
-	else
-		val &= ~enable_bit;
-
-	iowrite32(val, regs + EMAC_CMN_DIGITAL_CTRL0);
-	mutex_unlock(&eth_if->mtx);
-}
-EXPORT_SYMBOL(adrv906x_eth_cmn_set_link);
-
-void adrv906x_eth_cmn_serdes_tx_sync_trigger(struct net_device *ndev, u32 lane)
+void adrv906x_eth_cmn_serdes_tx_sync_trigger(struct net_device *ndev)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
 	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
 	void __iomem *regs = eth_if->emac_cmn_regs;
 	unsigned int val, trig;
 
-	trig = (lane == 0) ? EMAC_CMN_TXSER_SYNC_TRIGGER_0 : EMAC_CMN_TXSER_SYNC_TRIGGER_1;
+	trig = (adrv906x_dev->port == 0) ?
+	       EMAC_CMN_TXSER_SYNC_TRIGGER_0 : EMAC_CMN_TXSER_SYNC_TRIGGER_1;
 
 	mutex_lock(&eth_if->mtx);
 	val = ioread32(regs + EMAC_CMN_PHY_CTRL);
@@ -222,8 +197,10 @@ void adrv906x_eth_cmn_init(void __iomem *regs, bool switch_enabled, bool macsec_
 		EMAC_CMN_RXDES_DIG_RESET_N_1;
 	iowrite32(val1, regs + EMAC_CMN_PHY_CTRL);
 
-	val2 |= EMAC_CMN_TX_LINK0_EN |
-		EMAC_CMN_TX_LINK1_EN;
+	val2 |= EMAC_CMN_RX_LINK0_EN
+		| EMAC_CMN_RX_LINK1_EN
+		| EMAC_CMN_TX_LINK0_EN
+		| EMAC_CMN_TX_LINK1_EN;
 #if IS_ENABLED(CONFIG_MACSEC)
 	if (macsec_enabled)
 		val2 &= ~EMAC_CMN_MACSEC_BYPASS_EN;
