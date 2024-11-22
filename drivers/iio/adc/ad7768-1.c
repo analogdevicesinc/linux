@@ -1343,6 +1343,10 @@ static int ad7768_buffer_postenable(struct iio_dev *indio_dev)
 	if (ret)
 		return ret;
 
+	ret = ad7768_send_sync_pulse(st);
+	if (ret)
+		return ret;
+
 	if (st->spi_is_dma_mapped) {
 		st->offload_xfer.rx_buf = rx_data;
 		spi_message_init_with_transfers(&st->offload_msg, &st->offload_xfer, 1);
