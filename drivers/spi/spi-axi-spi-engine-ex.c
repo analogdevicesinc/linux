@@ -34,8 +34,8 @@
 #define SPI_ENGINE_REG_SDI_DATA_FIFO		0xe8
 #define SPI_ENGINE_REG_SDI_DATA_FIFO_PEEK	0xec
 
-#define SPI_ENGINE_REG_OFFLOAD_CTRL(x)		(0x100 + 0x20 * (x))
-#define SPI_ENGINE_REG_OFFLOAD_STATUS(x)	(0x104 + 0x20 * (x))
+#define SPI_ENGINE_REG_OFFLOAD_CTRL(x)		(0x118 + 0x20 * (x))
+#define SPI_ENGINE_REG_OFFLOAD_STATUS(x)	(0x11c + 0x20 * (x))
 #define SPI_ENGINE_REG_OFFLOAD_RESET(x)		(0x108 + 0x20 * (x))
 #define SPI_ENGINE_REG_OFFLOAD_CMD_MEM(x)	(0x110 + 0x20 * (x))
 #define SPI_ENGINE_REG_OFFLOAD_SDO_MEM(x)	(0x114 + 0x20 * (x))
@@ -207,7 +207,7 @@ static void spi_engine_gen_sleep(struct spi_engine_program *p, bool dry,
 }
 
 static void spi_engine_gen_cs(struct spi_engine_program *p, bool dry,
-		struct spi_device *spi, bool assert)
+		struct spi_device *spi, bool assert, unsigned int assert_mask)
 {
 	unsigned long cs_index_mask = spi->cs_index_mask;
 	unsigned int mask = 0xff;
@@ -215,7 +215,7 @@ static void spi_engine_gen_cs(struct spi_engine_program *p, bool dry,
 
 	if (assert)
 		for_each_set_bit(cs_bit, &cs_index_mask, SPI_CS_CNT_MAX)
-			mask ^= BIT(spi_get_chipselect(spi, cs_bit));
+			mask ^= BIT(spi_get_chipselect(spi, cs_bit)) & assert_mask;
 
 	spi_engine_program_add_cmd(p, dry, SPI_ENGINE_CMD_ASSERT(0, mask));
 }
@@ -250,6 +250,7 @@ static void spi_engine_compile_message(struct spi_message *msg, bool dry,
 	int clk_div, new_clk_div, inst_ns;
 	bool keep_cs = false;
 	u8 bits_per_word = 0;
+	unsigned int cs_assert_mask = U32_MAX;
 
 	/*
 	 * Take into account instruction execution time for more accurate sleep
@@ -264,7 +265,10 @@ static void spi_engine_compile_message(struct spi_message *msg, bool dry,
 			spi_engine_get_config(spi)));
 
 	xfer = list_first_entry(&msg->transfers, struct spi_transfer, transfer_list);
-	spi_engine_gen_cs(p, dry, spi, !xfer->cs_off);
+	if (xfer->cs_assert_mask_en)
+		cs_assert_mask = xfer->cs_assert_mask;
+
+	spi_engine_gen_cs(p, dry, spi, !xfer->cs_off, cs_assert_mask);
 
 	list_for_each_entry(xfer, &msg->transfers, transfer_list) {
 		new_clk_div = host->max_speed_hz / xfer->effective_speed_hz;
@@ -292,23 +296,23 @@ static void spi_engine_compile_message(struct spi_message *msg, bool dry,
 				keep_cs = true;
 			} else {
 				if (!xfer->cs_off)
-					spi_engine_gen_cs(p, dry, spi, false);
+					spi_engine_gen_cs(p, dry, spi, false, xfer->cs_assert_mask);
 
 				spi_engine_gen_sleep(p, dry, spi_delay_to_ns(
 					&xfer->cs_change_delay, xfer), inst_ns,
 					xfer->effective_speed_hz);
 
 				if (!list_next_entry(xfer, transfer_list)->cs_off)
-					spi_engine_gen_cs(p, dry, spi, true);
+					spi_engine_gen_cs(p, dry, spi, true, xfer->cs_assert_mask);
 			}
 		} else if (!list_is_last(&xfer->transfer_list, &msg->transfers) &&
 			   xfer->cs_off != list_next_entry(xfer, transfer_list)->cs_off) {
-			spi_engine_gen_cs(p, dry, spi, xfer->cs_off);
+			spi_engine_gen_cs(p, dry, spi, xfer->cs_off, xfer->cs_assert_mask);
 		}
 	}
 
 	if (!keep_cs)
-		spi_engine_gen_cs(p, dry, spi, false);
+		spi_engine_gen_cs(p, dry, spi, false, xfer->cs_assert_mask);
 
 	/*
 	 * Restore clockdiv to default so that future gen_sleep commands don't
@@ -520,10 +524,10 @@ static bool spi_engine_write_tx_fifo(struct spi_engine *spi_engine,
 	return st->tx_length != 0;
 }
 
-static bool spi_engine_read_rx_fifo(struct spi_engine *spi_engine,
-				    struct spi_message *msg)
+static bool spi_engine_get_data_rx_fifo(struct spi_engine *spi_engine,
+				        struct spi_message *msg,
+				        void __iomem *addr)
 {
-	void __iomem *addr = spi_engine->base + SPI_ENGINE_REG_SDI_DATA_FIFO;
 	struct spi_engine_message_state *st = msg->state;
 	unsigned int n, m, i;
 
@@ -560,6 +564,36 @@ static bool spi_engine_read_rx_fifo(struct spi_engine *spi_engine,
 	}
 
 	return st->rx_length != 0;
+}
+
+static bool spi_engine_read_rx_fifo(struct spi_engine *spi_engine,
+				    struct spi_message *msg)
+{
+	void __iomem *addr = spi_engine->base + SPI_ENGINE_REG_SDI_DATA_FIFO;
+	struct spi_engine_message_state *st = msg->state;
+	unsigned int cs_bit, temp;
+	unsigned long cs_index = msg->spi->cs_index_mask;
+	bool ret;
+
+	if (!st->rx_xfer->cs_assert_mask_en)
+		return spi_engine_get_data_rx_fifo(spi_engine, msg, addr);
+
+	/*
+	 * FIXME:  This does not work when we enable more than one CS
+	 * Reason: Length should be higher, but this value is used for the
+	 * transfer
+	 */
+	for_each_set_bit(cs_bit, &cs_index, SPI_CS_CNT_MAX) {
+		temp = spi_get_chipselect(msg->spi, cs_bit);
+		if (BIT(temp) & st->rx_xfer->cs_assert_mask) {
+			ret = spi_engine_get_data_rx_fifo(spi_engine, msg, addr + temp * 4);
+			if (!ret)
+				goto out;
+		}
+	}
+
+out:
+	return ret;
 }
 
 static irqreturn_t spi_engine_irq(int irq, void *devid)
