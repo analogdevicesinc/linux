@@ -735,6 +735,19 @@ static int imx7d_pcie_enable_ref_clk(struct imx_pcie *imx_pcie, bool enable)
 	return 0;
 }
 
+static int imx95_pcie_enable_ref_clk(struct imx_pcie *imx_pcie, bool enable)
+{
+	u32 val;
+
+	val = dw_pcie_find_ext_capability(imx_pcie->pci, PCI_EXT_CAP_ID_L1SS);
+	if (enable)
+		dw_pcie_writel_dbi(imx_pcie->pci, val + PCI_L1SS_CTL1, BIT(1));
+	else
+		dw_pcie_writel_dbi(imx_pcie->pci, val + PCI_L1SS_CTL1, 0);
+
+	return 0;
+}
+
 static int imx_pcie_clk_enable(struct imx_pcie *imx_pcie)
 {
 	struct dw_pcie *pci = imx_pcie->pci;
@@ -1920,6 +1933,7 @@ static const struct imx_pcie_drvdata drvdata[] = {
 		.mode_off[0]  = IMX95_PE0_GEN_CTRL_1,
 		.mode_mask[0] = IMX95_PCIE_DEVICE_TYPE,
 		.init_phy = imx95_pcie_init_phy,
+		.enable_ref_clk = imx95_pcie_enable_ref_clk,
 	},
 	[IMX6Q_EP] = {
 		.variant = IMX6Q_EP,
