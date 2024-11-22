@@ -113,23 +113,22 @@ static int adrv906x_phy_get_features(struct phy_device *phydev)
 	return 0;
 }
 
-static void adrv906x_phy_path_enable(struct phy_device *phydev, bool enable)
+static void adrv906x_phy_rx_path_enable(struct phy_device *phydev, bool enable)
 {
 	phy_modify_mmd_changed(phydev, MDIO_MMD_PCS, ADRV906X_PCS_GENERAL_RX_REG,
 			       ADRV906X_PCS_GENERAL_PATH_RESET, !enable);
+}
+
+static void adrv906x_phy_tx_path_enable(struct phy_device *phydev, bool enable)
+{
 	phy_modify_mmd_changed(phydev, MDIO_MMD_PCS, ADRV906X_PCS_GENERAL_TX_REG,
 			       ADRV906X_PCS_GENERAL_PATH_RESET, !enable);
 }
 
-static void adrv906x_phy_reset_datapath(struct phy_device *phydev)
-{
-	adrv906x_phy_path_enable(phydev, false);
-	adrv906x_phy_path_enable(phydev, true);
-}
-
 static int adrv906x_phy_suspend(struct phy_device *phydev)
 {
-	adrv906x_phy_path_enable(phydev, false);
+	adrv906x_phy_rx_path_enable(phydev, false);
+	adrv906x_phy_tx_path_enable(phydev, false);
 	adrv906x_serdes_cal_stop(phydev);
 
 	return 0;
@@ -206,7 +205,8 @@ static void adrv906x_phy_link_change_notify(struct phy_device *phydev)
 
 static int adrv906x_phy_resume(struct phy_device *phydev)
 {
-	adrv906x_phy_path_enable(phydev, true);
+	adrv906x_phy_rx_path_enable(phydev, true);
+	adrv906x_phy_tx_path_enable(phydev, true);
 
 	return 0;
 }
@@ -286,8 +286,6 @@ static int adrv906x_phy_config_pcs_baser_mode(struct phy_device *phydev)
 	else
 		phy_write_mmd(phydev, MDIO_MMD_PCS, ADRV906X_PCS_RS_FEC_CTRL_REG, 0);
 
-	adrv906x_phy_reset_datapath(phydev);
-
 	return 0;
 }
 
@@ -351,7 +349,8 @@ static int adrv906x_phy_probe(struct phy_device *phydev)
 
 	phydev->priv = adrv906x_phy;
 
-	ret = adrv906x_serdes_open(phydev, &adrv906x_phy->serdes, adrv906x_phy_reset_datapath);
+	ret = adrv906x_serdes_open(phydev, &adrv906x_phy->serdes,
+				   adrv906x_phy_tx_path_enable, adrv906x_phy_rx_path_enable);
 	if (ret)
 		return ret;
 

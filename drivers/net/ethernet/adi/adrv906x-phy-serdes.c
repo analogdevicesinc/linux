@@ -11,7 +11,6 @@
 #include <net/netlink.h>
 #include <net/genetlink.h>
 #include "adrv906x-phy-serdes.h"
-#include "adrv906x-net.h"
 #include "adrv906x-cmn.h"
 
 #define SERDES_GENL_NAME         "adrv906x"
@@ -75,7 +74,6 @@ static int adrv906x_serdes_reset_4pack_recv(struct sk_buff *skb, struct genl_inf
 static int adrv906x_serdes_start_cal_send(struct adrv906x_serdes *serdes);
 static int adrv906x_serdes_pwr_down_send(struct adrv906x_serdes *serdes);
 static int adrv906x_serdes_start_timer(struct adrv906x_serdes *serdes);
-static int adrv906x_serdes_start_pcs(struct adrv906x_serdes *serdes);
 static int adrv906x_serdes_do_nothing(struct adrv906x_serdes *serdes);
 static int adrv906x_serdes_stop_timer(struct adrv906x_serdes *serdes);
 
@@ -87,7 +85,7 @@ static struct adrv906x_serdes_transition adrv906x_serdes_transitions[] = {
 	{ STATE_CAL_REQUEST, EVENT_LINK_DOWN,	 adrv906x_serdes_pwr_down_send,	 STATE_PWR_DOWN	   },
 	{ STATE_CAL_STARTED, EVENT_LINK_UP,	 adrv906x_serdes_start_cal_send, STATE_CAL_REQUEST },
 	{ STATE_CAL_STARTED, EVENT_LINK_DOWN,	 adrv906x_serdes_pwr_down_send,	 STATE_PWR_DOWN	   },
-	{ STATE_CAL_STARTED, EVENT_SIGNAL_OK,	 adrv906x_serdes_start_pcs,	 STATE_RUNNING	   },
+	{ STATE_CAL_STARTED, EVENT_SIGNAL_OK,	 adrv906x_serdes_stop_timer,	 STATE_RUNNING	   },
 	{ STATE_RUNNING,     EVENT_LINK_UP,	 adrv906x_serdes_start_cal_send, STATE_CAL_REQUEST },
 	{ STATE_RUNNING,     EVENT_LOS_DETECTED, adrv906x_serdes_do_nothing,	 STATE_LOS	   },
 	{ STATE_RUNNING,     EVENT_LINK_DOWN,	 adrv906x_serdes_pwr_down_send,	 STATE_PWR_DOWN	   },
@@ -178,7 +176,7 @@ int adrv906x_serdes_genl_unregister_family(void)
 	return genl_unregister_family(&adrv906x_serdes_fam);
 }
 
-int adrv906x_serdes_send_message(u32 cmd, u32 lane, u32 speed)
+static int adrv906x_serdes_send_message(u32 cmd, u32 lane, u32 speed)
 {
 	struct sk_buff *skb;
 	void *hdr;
@@ -268,9 +266,8 @@ static int adrv906x_serdes_signal_ok_recv(struct sk_buff *skb, struct genl_info 
 	phydev = serdes->phydev;
 	netdev = phydev->attached_dev;
 
-	serdes->cb(phydev);
-	adrv906x_eth_cmn_set_link(netdev, lane, true, true);
-	adrv906x_eth_cmn_serdes_tx_sync_trigger(netdev, lane);
+	serdes->rx_path_en(phydev, true);
+	adrv906x_eth_cmn_serdes_tx_sync_trigger(netdev);
 	adrv906x_serdes_lookup_transitions(serdes, EVENT_SIGNAL_OK);
 
 	return 0;
@@ -295,6 +292,8 @@ static int adrv906x_serdes_stop_success_recv(struct sk_buff *skb, struct genl_in
 static int adrv906x_serdes_los_detected_recv(struct sk_buff *skb, struct genl_info *info)
 {
 	struct adrv906x_serdes *serdes;
+	struct phy_device *phydev;
+	struct net_device *netdev;
 	u32 lane, speed;
 	int ret;
 
@@ -303,6 +302,10 @@ static int adrv906x_serdes_los_detected_recv(struct sk_buff *skb, struct genl_in
 		return ret;
 
 	serdes = adrv906x_serdes_devs[lane];
+	phydev = serdes->phydev;
+	netdev = phydev->attached_dev;
+
+	serdes->rx_path_en(phydev, false);
 	adrv906x_serdes_lookup_transitions(serdes, EVENT_LOS_DETECTED);
 
 	return 0;
@@ -330,7 +333,7 @@ static int adrv906x_serdes_reset_4pack_recv(struct sk_buff *skb, struct genl_inf
 	return 0;
 }
 
-int adrv906x_serdes_start_cal_send(struct adrv906x_serdes *serdes)
+static int adrv906x_serdes_start_cal_send(struct adrv906x_serdes *serdes)
 {
 	u32 event;
 	int ret;
@@ -358,7 +361,7 @@ static int adrv906x_serdes_start_timer(struct adrv906x_serdes *serdes)
 	return 0;
 }
 
-int adrv906x_serdes_pwr_down_send(struct adrv906x_serdes *serdes)
+static int adrv906x_serdes_pwr_down_send(struct adrv906x_serdes *serdes)
 {
 	int ret;
 
@@ -375,16 +378,6 @@ static void adrv906x_serdes_retry_start_cal_send(struct work_struct *work)
 	struct adrv906x_serdes *serdes = container_of(work, struct adrv906x_serdes, retry_send.work);
 
 	adrv906x_serdes_start_cal_send(serdes);
-}
-
-static int adrv906x_serdes_start_pcs(struct adrv906x_serdes *serdes)
-{
-	struct phy_device *phydev = serdes->phydev;
-
-	adrv906x_serdes_stop_timer(serdes);
-	phydev->speed = serdes->speed;
-
-	return 0;
 }
 
 static int adrv906x_serdes_do_nothing(struct adrv906x_serdes *serdes)
@@ -417,7 +410,8 @@ int adrv906x_serdes_cal_start(struct phy_device *phydev)
 	if (!serdes)
 		return -EINVAL;
 
-	adrv906x_eth_cmn_set_link(netdev, serdes->lane, true, false);
+	serdes->rx_path_en(phydev, false);
+	serdes->tx_path_en(phydev, true);
 	serdes->speed = phydev->speed;
 	adrv906x_serdes_lookup_transitions(serdes, EVENT_LINK_UP);
 
@@ -437,11 +431,12 @@ int adrv906x_serdes_cal_stop(struct phy_device *phydev)
 }
 
 int adrv906x_serdes_open(struct phy_device *phydev, struct adrv906x_serdes *serdes,
-			 adrv906x_serdes_cal_done_cb cb)
+			 adrv906x_serdes_cb tx_cb, adrv906x_serdes_cb rx_cb)
 {
 	serdes->phydev = phydev;
 	serdes->lane = phydev->mdio.addr;
-	serdes->cb = cb;
+	serdes->tx_path_en = tx_cb;
+	serdes->rx_path_en = rx_cb;
 
 	if (serdes->lane >= SERDES_MAX_LANES)
 		return -EINVAL;
