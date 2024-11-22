@@ -117,7 +117,7 @@
 };
 
 &spi_adc {
-	ad9094: ad9094@1 {
+	ad9094: ad9094@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;
@@ -130,16 +130,6 @@
 		/* Clocks */
 		clocks = <&axi_ad9094_rx_jesd>, <&ad9528 0>, <&ad9528 1>;
 		clock-names = "jesd_adc_clk", "adc_clk", "adc_sysref";
-	};
-};
-
-&spi_afe_adc {
-	ad7091: ad7091@0 {
-		compatible = "adi,ad7091";
-		reg = <0>;
-		spi-max-frequency = <1000000>;
-		spi-cpol;
-		vcc-supply = <&vref_adc>;
 	};
 };
 
