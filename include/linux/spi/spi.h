@@ -1037,6 +1037,8 @@ struct spi_transfer {
 	unsigned	dummy_data:1;
 	unsigned	cs_off:1;
 	unsigned	cs_change:1;
+	bool		cs_assert_mask_en;
+	int		cs_assert_mask;
 	unsigned	tx_nbits:3;
 	unsigned	rx_nbits:3;
 #define	SPI_NBITS_SINGLE	0x01 /* 1bit transfer */
