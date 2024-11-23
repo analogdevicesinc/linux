@@ -1,0 +1,108 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Analog Devices AD7380
+ * https://wiki.analog.com/resources/tools-software/linux-drivers/iio-adc/ad738x
+ * https://wiki.analog.com/resources/eval/user-guides/ad738x
+ *
+ * hdl_project: <ad738x_fmc/zed>
+ * board_revision: <>
+ *
+ * Copyright (C) 2024 Analog Devices Inc.
+ */
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+
+#include "zynq-zed.dtsi"
+#include "zynq-zed-adv7511.dtsi"
+
+/ {
+	eval_u2: eval-board-u2-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL +3.3V supply (U2)";
+		regulator-always-on;
+	};
+
+	eval_u3: eval-board-u3-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL +3.3V supply (U3)";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		regulator-always-on;
+	};
+
+	eval_u6: eval-board-u6-regulator {
+		compatible = "regulator-fixed";
+		regulator-name = "EVAL +2.3V supply (U6)";
+		regulator-always-on;
+	};
+};
+
+&fpga_axi {
+
+	/*
+	 * clkc 15 = peripheral fclk0 (fpga clock 0)
+	 * clkc 16 = peripheral fclk1 (fpga clock 1)
+	 */
+
+	axi-sysid-0@45000000 {
+		compatible = "adi,axi-sysid-1.00.a";
+		reg = <0x45000000 0x10000>;
+	};
+
+	adc_trigger: pwm@44b00000 {
+		compatible = "adi,axi-pwmgen-2.00.a";
+		reg = <0x44b00000 0x1000>;
+		label = "adc_conversion_trigger";
+		#pwm-cells = <3>;
+		clocks = <&spi_clk>;
+	};
+
+	spi_clk: clock-controller@44a70000 {
+		compatible = "adi,axi-clkgen-2.00.a";
+		reg = <0x44a70000 0x1000>;
+		#clock-cells = <0>;
+		clocks = <&clkc 15>, <&clkc 15>;
+		clock-names = "clkin1", "s_axi_aclk";
+		clock-output-names = "spi_clk";
+		assigned-clocks = <&spi_clk>;
+		assigned-clock-rates = <160000000>;
+	};
+
+	rx_dma: rx-dmac@44a30000 {
+		compatible = "adi,axi-dmac-1.00.a";
+		reg = <0x44a30000 0x1000>;
+		#dma-cells = <1>;
+		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 17>;
+	};
+
+	axi_spi_engine_0: spi@44a00000 {
+		compatible = "adi-ex,axi-spi-engine-1.00.a";
+		reg = <0x44a00000 0x1000>;
+		interrupt-parent = <&intc>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&clkc 15>, <&spi_clk>;
+		clock-names = "s_axi_aclk", "spi_clk";
+		num-cs = <1>;
+
+		#address-cells = <0x1>;
+		#size-cells = <0x0>;
+
+		adc@0 {
+			compatible = "adi,ad7380";
+			reg = <0>;
+
+			spi-cpol;
+			spi-max-frequency = <80000000>;
+
+			interrupts = <86 IRQ_TYPE_EDGE_FALLING>;
+			interrupt-parent = <&gpio0>;
+
+			vcc-supply = <&eval_u2>;
+			vlogic-supply = <&eval_u6>;
+			refio-supply = <&eval_u3>;
+		};
+	};
+};
