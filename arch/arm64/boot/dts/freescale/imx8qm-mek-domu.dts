@@ -212,18 +212,6 @@
 		clock-names = "apb_pclk";
 	};
 
-	modem_reset: modem-reset {
-		compatible = "gpio-reset";
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&pinctrl_modem_reset>;
-		pinctrl-1 = <&pinctrl_modem_reset_sleep>;
-		reset-gpios = <&lsio_gpio4 22 GPIO_ACTIVE_LOW>;
-		reset-delay-us = <2000>;
-		reset-post-delay-ms = <40>;
-		#reset-cells = <0>;
-		xen,passthrough;
-	};
-
 	passthrough {
 		compatible = "simple-bus";
 		ranges;
@@ -751,18 +739,6 @@
 		>;
 	};
 
-	pinctrl_modem_reset: modemresetgrp {
-		fsl,pins = <
-			IMX8QM_QSPI1A_DQS_LSIO_GPIO4_IO22		0x06000021
-		>;
-	};
-
-	pinctrl_modem_reset_sleep: modemreset_sleepgrp {
-		fsl,pins = <
-			IMX8QM_QSPI1A_DQS_LSIO_GPIO4_IO22		0x07800021
-		>;
-	};
-
 	pinctrl_i2c_mipi_csi0: i2c_mipi_csi0 {
 		fsl,pins = <
 			IMX8QM_MIPI_CSI0_I2C0_SCL_MIPI_CSI0_I2C0_SCL		0xc2000020
@@ -1156,7 +1132,6 @@
 &lpuart1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart1>;
-	resets = <&modem_reset>;
 	status = "okay";
 	dmas = <&edma214 15 0 0>, <&edma214 14 0 1>;
 };

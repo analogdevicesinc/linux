@@ -727,10 +727,6 @@
 	xen,passthrough;
 };
 
-&modem_reset {
-	status = "disabled";
-};
-
 &edma214 {
 	xen,passthrough;
 	#stream-id-cells = <1>;
