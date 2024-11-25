@@ -6,10 +6,6 @@
 #include "imx8mq-evk.dts"
 
 / {
-	modem_reset: modem-reset {
-		reset-gpios = <&gpio3 5 GPIO_ACTIVE_HIGH>;
-	};
-
 	usdhc2_pwrseq: usdhc2_pwrseq {
 		compatible = "mmc-pwrseq-simple";
 		pinctrl-names = "default";
@@ -115,6 +111,14 @@
 		gpio-hog;
 		gpios = <4 GPIO_ACTIVE_HIGH>;
 		output-high;
+	};
+};
+
+&gpio3 {
+	/* enable the M.2 BT */
+	bt-reg-on-hog {
+		/delete-property/ output-high;
+		output-low;
 	};
 };
 

@@ -22,14 +22,6 @@
 		reg = <0x00000000 0x40000000 0 0xc0000000>;
 	};
 
-	modem_reset: modem-reset {
-		compatible = "gpio-reset";
-		reset-gpios = <&gpio3 5 GPIO_ACTIVE_LOW>;
-		reset-delay-us = <2000>;
-		reset-post-delay-ms = <40>;
-		#reset-cells = <0>;
-	};
-
 	ir_recv: ir-receiver {
 		compatible = "gpio-ir-receiver";
 		gpios = <&gpio1 12 GPIO_ACTIVE_LOW>;
@@ -305,6 +297,18 @@
 			vddh: vddh-regulator {
 			};
 		};
+	};
+};
+
+&gpio3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_bt_reset>;
+
+	/* enable the on-board BT */
+	bt-reg-on-hog {
+		gpio-hog;
+		gpios = <5 GPIO_ACTIVE_HIGH>;
+		output-high;
 	};
 };
 
@@ -763,7 +767,6 @@
 	assigned-clocks = <&clk IMX8MQ_CLK_UART3>;
 	assigned-clock-parents = <&clk IMX8MQ_SYS1_PLL_80M>;
 	fsl,uart-has-rtscts;
-	resets = <&modem_reset>;
 	status = "okay";
 
 	bluetooth {
@@ -1090,7 +1093,6 @@
 			MX8MQ_IOMUXC_UART3_RXD_UART3_DCE_RX		0x49
 			MX8MQ_IOMUXC_ECSPI1_MISO_UART3_DCE_CTS_B	0x49
 			MX8MQ_IOMUXC_ECSPI1_SS0_UART3_DCE_RTS_B		0x49
-			MX8MQ_IOMUXC_NAND_CLE_GPIO3_IO5			0x19
 		>;
 	};
 
@@ -1190,6 +1192,12 @@
 	pinctrl_wdog: wdog1grp {
 		fsl,pins = <
 			MX8MQ_IOMUXC_GPIO1_IO02_WDOG1_WDOG_B		0xc6
+		>;
+	};
+
+	pinctrl_bt_reset: btresetgrp {
+		fsl,pins = <
+			MX8MQ_IOMUXC_NAND_CLE_GPIO3_IO5			0x16
 		>;
 	};
 

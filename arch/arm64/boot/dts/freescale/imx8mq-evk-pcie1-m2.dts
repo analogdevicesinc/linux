@@ -14,14 +14,16 @@
 
 #include "imx8mq-evk.dts"
 
-/ {
-	modem_reset: modem-reset {
-		reset-gpios = <&gpio3 5 GPIO_ACTIVE_HIGH>;
-	};
-};
-
 &pcie0{
 	status = "disabled";
+};
+
+&gpio3 {
+	/* enable the M.2 BT */
+	bt-reg-on-hog {
+		/delete-property/ output-high;
+		output-low;
+	};
 };
 
 &gpio5 {

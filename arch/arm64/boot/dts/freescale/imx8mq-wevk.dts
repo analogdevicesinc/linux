@@ -8,10 +8,6 @@
 #include "imx8mq-evk.dts"
 
 / {
-	modem_reset: modem-reset {
-		reset-gpios = <&gpio3 5 GPIO_ACTIVE_HIGH>;
-	};
-
 	reg_pcie0: regulator-pcie0 {
 		compatible = "regulator-fixed";
 		regulator-name = "MPCIE_3V3";
@@ -54,6 +50,14 @@
 			gpios = <5 GPIO_ACTIVE_LOW>;
 			output-low;
 		};
+	};
+};
+
+&gpio3 {
+	/* enable the M.2 BT */
+	bt-reg-on-hog {
+		/delete-property/ output-high;
+		output-low;
 	};
 };
 
