@@ -1739,11 +1739,6 @@ static void se_if_probe_cleanup(void *plat_dev)
 		}
 	}
 
-	if (priv->priv_dev_ctx && priv->priv_dev_ctx->miscdev) {
-		devm_remove_action(dev, if_misc_deregister, &priv->priv_dev_ctx->miscdev);
-		misc_deregister(priv->priv_dev_ctx->miscdev);
-	}
-
 	if (priv->lg_fl_info.lg_file &&
 		filp_close(priv->lg_fl_info.lg_file, NULL)) {
 		wret = filp_close(priv->lg_fl_info.lg_file, NULL);
@@ -1895,7 +1890,7 @@ static int se_if_probe(struct platform_device *pdev)
 	if (info->start_rng) {
 		ret = info->start_rng(priv);
 		if (ret)
-			dev_err(dev, "Failed[0x%x] to start ele rng.\n", ret);
+			dev_err(dev, "Failed[0x%x] to start rng.\n", ret);
 	}
 
 	if (info->init_trng) {
@@ -1926,8 +1921,6 @@ exit:
 	/* if execution control reaches here, if probe fails.
 	 */
 	return dev_err_probe(dev, ret, "%s: Probe failed.", __func__);
-
-	return ret;
 }
 
 static void se_if_remove(struct platform_device *pdev)
