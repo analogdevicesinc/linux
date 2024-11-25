@@ -2669,6 +2669,9 @@
 			#size-cells = <2>;
 			device_type = "pci";
 			linux,pci-domain = <0>;
+			msi-map = <0x0 &its 0x10 0x1>,
+				  <0x100 &its 0x11 0x7>;
+			msi-map-mask = <0x1ff>; /* Suppose only 1 physic device connect */
 			bus-range = <0x00 0xff>;
 			num-lanes = <1>;
 			num-viewport = <8>;
