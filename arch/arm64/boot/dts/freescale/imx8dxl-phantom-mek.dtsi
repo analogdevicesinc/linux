@@ -17,17 +17,6 @@
 		stdout-path = &lpuart0;
 	};
 
-	modem_reset: modem-reset {
-		compatible = "gpio-reset";
-		pinctrl-names = "default", "sleep";
-		pinctrl-0 = <&pinctrl_modem_reset>;
-		pinctrl-1 = <&pinctrl_modem_reset_sleep>;
-		reset-gpios = <&lsio_gpio3 1 GPIO_ACTIVE_LOW>;
-		reset-delay-us = <2000>;
-		reset-post-delay-ms = <40>;
-		#reset-cells = <0>;
-	};
-
 	reserved-memory {
 		#address-cells = <2>;
 		#size-cells = <2>;
@@ -293,18 +282,6 @@
 			>;
 		};
 
-		pinctrl_modem_reset: modemresetgrp {
-			fsl,pins = <
-				IMX8QXP_CSI_MCLK_LSIO_GPIO3_IO01	0x06000021
-			>;
-		};
-
-		pinctrl_modem_reset_sleep: modemreset_sleepgrp {
-			fsl,pins = <
-				IMX8QXP_CSI_MCLK_LSIO_GPIO3_IO01	0x07800021
-			>;
-		};
-
 		pinctrl_sai1: sai1grp {
 			fsl,pins = <
 				IMX8QXP_FLEXCAN1_TX_ADMA_SAI1_RXD	0x06000040
@@ -452,7 +429,6 @@
 &lpuart1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart1>;
-	resets = <&modem_reset>;
 	status = "okay";
 };
 

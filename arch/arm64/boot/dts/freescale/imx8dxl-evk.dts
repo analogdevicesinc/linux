@@ -97,14 +97,6 @@
 		#reset-cells = <0>;
 	};
 
-	modem_reset: modem-reset {
-		compatible = "gpio-reset";
-		reset-gpios = <&pca6416_2 0 GPIO_ACTIVE_LOW>;
-		reset-delay-us = <2000>;
-		reset-post-delay-ms = <40>;
-		#reset-cells = <0>;
-	};
-
 	reg_pcieb: fixedregulator@100 {
 		compatible = "regulator-fixed";
 		regulator-min-microvolt = <3300000>;
@@ -606,7 +598,6 @@
 &lpuart1 {
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_lpuart1>;
-	resets = <&modem_reset>;
 	status = "okay";
 
 	bluetooth {
