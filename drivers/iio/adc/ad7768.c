@@ -103,9 +103,9 @@ struct ad7768_avail_freq {
 struct ad7768_state {
 	struct spi_device *spi;
 	struct mutex lock;
-	struct regulator *vref;
 	struct clk *mclk;
 	struct gpio_chip gpiochip;
+	u64 vref_nv;
 	unsigned int datalines;
 	unsigned int sampling_freq;
 	enum ad7768_power_modes power_mode;
@@ -473,16 +473,9 @@ static ssize_t ad7768_scale(struct device *dev,
 	struct iio_dev *indio_dev = dev_to_iio_dev(dev);
 	const struct iio_chan_spec *chan = &indio_dev->channels[0];
 	struct ad7768_state *st = ad7768_get_data(indio_dev);
-	u64 vref_nv;
 	u64 scale;
-	int ret;
 
-	ret = regulator_get_voltage(st->vref);
-	if (ret < 0)
-		return ret;
-
-	vref_nv = (u64)ret * NANO * 2;
-	scale = div64_ul(vref_nv, BIT(chan->scan_type.realbits));
+	scale = div64_ul(st->vref_nv, BIT(chan->scan_type.realbits));
 
 	return scnprintf(buf, PAGE_SIZE, "0.%012llu\n", scale);
 }
@@ -789,10 +782,16 @@ int ad7768_gpio_setup(struct ad7768_state *st)
 	return devm_gpiochip_add_data(&st->spi->dev, &st->gpiochip, st);
 }
 
+static void ad7768_regulator_disable(void *reg)
+{
+	regulator_disable(reg);
+}
+
 static int ad7768_probe(struct spi_device *spi)
 {
 	struct gpio_desc *gpio_reset;
 	struct ad7768_state *st;
+	struct regulator *vref;
 	struct iio_dev *indio_dev;
 	int ret;
 
@@ -806,9 +805,24 @@ static int ad7768_probe(struct spi_device *spi)
 	if (!st->chip_info)
 		return -ENODEV;
 
-	ret = devm_regulator_get_enable(&spi->dev, "vref");
+	vref = devm_regulator_get(&spi->dev, "vref");
+	if (IS_ERR(vref))
+		return PTR_ERR(vref);
+
+	ret = regulator_enable(vref);
 	if (ret)
 		return ret;
+
+	ret = devm_add_action_or_reset(&spi->dev, ad7768_regulator_disable,
+				       vref);
+	if (ret)
+		return ret;
+
+	ret = regulator_get_voltage(vref);
+	if (ret < 0)
+		return ret;
+
+	st->vref_nv = (u64)ret * NANO * 2;
 
 	st->mclk = devm_clk_get_enabled(&spi->dev, "mclk");
 	if (IS_ERR(st->mclk))
