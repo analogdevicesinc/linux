@@ -12,6 +12,7 @@
  */
 /dts-v1/;
 #include "zynq-coraz7s.dtsi"
+#include "zynq-coraz7s-iic.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
 
@@ -121,7 +122,7 @@
 		compatible = "adi,axi-spi-engine-1.00.a";
 		reg = <0x44a00000 0x10000>;
 		interrupt-parent = <&intc>;
-		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
+		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
 		clocks = <&clkc 15 &spi_clk>;
 		clock-names = "s_axi_aclk", "spi_clk";
 		num-cs = <1>;
@@ -148,23 +149,6 @@
 		};
 	};
 
-	axi_i2c_0:axi-iic@0x44a40000{
-		compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
-		reg = <0x44a40000 0x1000>;
-		interrupt-parent = <&intc>;
-		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clkc 15>;
-
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		ltc2606: ltc2606@10 {
-			compatible = "adi,ltc2606";
-			reg = <0x10>;
-			vref-supply = <&vref>;
-		};
-	};
-
 	spi_clk: axi-clkgen@0x44a70000 {
 		compatible = "adi,axi-clkgen-2.00.a";
 		reg = <0x44a70000 0x10000>;
@@ -172,5 +156,13 @@
 		clocks = <&clkc 15>, <&clkc 15>;
 		clock-names = "s_axi_aclk", "clkin1";
 		clock-output-names = "spi_clk";
+	};
+};
+
+&axi_i2c_0 {
+	ltc2606: ltc2606@10 {
+		compatible = "adi,ltc2606";
+		reg = <0x10>;
+		vref-supply = <&vref>;
 	};
 };
