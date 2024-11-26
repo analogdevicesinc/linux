@@ -22,13 +22,6 @@
 		status = "disabled";
 	};
 
-	modem_reset: modem-reset {
-		compatible = "gpio-reset";
-		reset-gpios = <&gpio1 2 GPIO_ACTIVE_LOW>;
-		reset-delay-us = <1000>;
-		#reset-cells = <0>;
-	};
-
 	usdhc1_pwrseq: usdhc1_pwrseq {
 		compatible = "mmc-pwrseq-simple";
 		reset-gpios = <&gpio4 7 GPIO_ACTIVE_LOW>;
@@ -41,12 +34,6 @@
 
 &iomuxc {
 	imx6qdl-sabresd-murata-v2 {
-		pinctrl_btreg: btreggrp {
-			fsl,pins = <
-				MX6QDL_PAD_GPIO_2__GPIO1_IO02 0x1b0b0
-			>;
-		};
-
 		/* add MUXing entry for SD2 4-bit interface and configure control pins */
 		pinctrl_wifi: wifigrp {
 			fsl,pins = <
@@ -70,10 +57,8 @@
 
 &uart5 {
 	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_uart5_1
-		     &pinctrl_btreg>;
+	pinctrl-0 = <&pinctrl_uart5_1>;
 	fsl,uart-has-rtscts;
-	resets = <&modem_reset>;
 	status = "okay";
 	/* for DTE mode, add below change */
 	/* fsl,dte-mode; */
