@@ -28,7 +28,7 @@
 
 	aliases {
 		ethernet0 = &gem3;
-		ethernet1 = &gem0;
+		// ethernet1 = &gem0;
 		gpio0 = &gpio;
 		i2c0 = &i2c0;
 		i2c1 = &i2c1;
@@ -137,36 +137,36 @@
 	status = "okay";
 };
 
-&qspi {
-	status = "okay";
-	is-dual = <1>;
-	num-cs = <1>;
-	primary_flash: qspi@0 {
-		#address-cells = <1>;
-		#size-cells = <1>;
-		spi-tx-bus-width = <1>;
-		spi-rx-bus-width = <4>;
-		compatible = "n25q512a", "jedec,spi-nor";
-		reg = <0x0>;
-		spi-max-frequency = <50000000>;
-		partition@qspi-fsbl-uboot {
-			label = "qspi-fsbl-uboot";
-			reg = <0x0 0x2000000>; /* 32M */
-		};
-		partition@qspi-uboot-env {
-			label = "qspi-uboot-env";
-			reg = <0x2000000 0x20000>; /* 128k */
-		};
-		partition@qspi-nvmfs {
-			label = "qspi-nvmfs";
-			reg = <0x2020000 0xE0000>; /* 1M */
-		};
-		partition@qspi-linux {
-			label = "qspi-linux";
-			reg = <0x2100000 0x5E00000>; /* 94M */
-		};
-	};
-};
+// &qspi {
+// 	status = "okay";
+// 	is-dual = <1>;
+// 	num-cs = <1>;
+// 	primary_flash: qspi@0 {
+// 		#address-cells = <1>;
+// 		#size-cells = <1>;
+// 		spi-tx-bus-width = <1>;
+// 		spi-rx-bus-width = <4>;
+// 		compatible = "n25q512a", "jedec,spi-nor";
+// 		reg = <0x0>;
+// 		spi-max-frequency = <50000000>;
+// 		partition@qspi-fsbl-uboot {
+// 			label = "qspi-fsbl-uboot";
+// 			reg = <0x0 0x2000000>; /* 32M */
+// 		};
+// 		partition@qspi-uboot-env {
+// 			label = "qspi-uboot-env";
+// 			reg = <0x2000000 0x20000>; /* 128k */
+// 		};
+// 		partition@qspi-nvmfs {
+// 			label = "qspi-nvmfs";
+// 			reg = <0x2020000 0xE0000>; /* 1M */
+// 		};
+// 		partition@qspi-linux {
+// 			label = "qspi-linux";
+// 			reg = <0x2100000 0x5E00000>; /* 94M */
+// 		};
+// 	};
+//  };
 
 &spi0 {
 	status = "okay";
@@ -189,7 +189,7 @@
 
 		/* Clocks */
 		clocks = <&axi_adrv9009_rx_jesd>, <&hmc7044 0>,
-			<&hmc7044 5>, <&hmc7044 1>, <&hmc7044 8>;
+			<&hmc7044 4>, <&hmc7044 1>, <&hmc7044 8>;
 
 		clock-names = "jesd_rx_clk",
 			"dev_clk", "fmc_clk", "sysref_dev_clk",
@@ -202,7 +202,7 @@
 		/* JESD204 */
 
 		/* JESD204 RX */
-		adi,jesd204-framer-a-bank-id = <1>;
+		adi,jesd204-framer-a-bank-id = <0>;
 		adi,jesd204-framer-a-device-id = <0>;
 		adi,jesd204-framer-a-lane0-id = <0>;
 		adi,jesd204-framer-a-m = <4>;
@@ -213,7 +213,7 @@
 		adi,jesd204-framer-a-external-sysref = <1>;
 		adi,jesd204-framer-a-serializer-lanes-enabled = <0x03>;
 		adi,jesd204-framer-a-serializer-lane-crossbar = <0xE4>;
-		adi,jesd204-framer-a-lmfc-offset = <15>;
+		adi,jesd204-framer-a-lmfc-offset = <31>;
 		adi,jesd204-framer-a-new-sysref-on-relink = <0>;
 		adi,jesd204-framer-a-syncb-in-select = <0>;
 		adi,jesd204-framer-a-over-sample = <0>;
@@ -273,14 +273,14 @@
 
 		adi,rx-profile-rx-fir-gain_db = <(-6)>;
 		adi,rx-profile-rx-fir-num-fir-coefs = <72>;
-		adi,rx-profile-rx-fir-coefs = /bits/ 16 <(-1) (-1) (0) (2) (3) (1) (-6) (-13) (-12) (-6) (34) (49) (25) (-45) (-123) (-136) (-30) (174) (348) (318) (-4) (-497) (-834) (-659) (134) (1197) (1813) (1294) (-486) (-2771) (-4098) (-3000) (1114) (7405) (13780) (17786) (17786) (13780) (7405) (1114) (-3000) (-4098) (-2771) (-942) (-486) (1294) (1813) (1197) (134) (-659) (-834) (-497) (-4) (318) (348) (174) (-30) (-136) (-123) (-45) (25) (49) (34) (6) (-12) (-13) (-6) (1) (3) (2) (0) (-1) (-1)>;
+		adi,rx-profile-rx-fir-coefs = /bits/ 16 <(0) (0) (2) (0) (-7) (-1) (15) (4) (-31) (-10) (57) (23) (-99) (-47) (161) (86) (-247) (-146) (372) (238) (-542) (-381) (762) (583) (-1064) (-883) (1470) (1331) (-2057) (-2059) (2975) (3403) (-4748) (-6898) (9698) (30806) (30806) (9698) (-6898) (-4748) (3403) (2975) (-2059) (-2057) (1331) (1470) (-883) (-1064) (583) (762) (-381) (-542) (238) (372) (-146) (-247) (86) (161) (-47) (-99) (23) (57) (-10) (-31) (4) (15) (-1) (-7) (0) (2) (0) (0)>;
 
-		adi,rx-profile-rx-fir-decimation = <4>;
+		adi,rx-profile-rx-fir-decimation = <2>;
 		adi,rx-profile-rx-dec5-decimation = <4>;
 		adi,rx-profile-rhb1-decimation = <2>;
-		adi,rx-profile-rx-output-rate_khz = <61440>;
-		adi,rx-profile-rf-bandwidth_hz = <35000000>;
-		adi,rx-profile-rx-bbf3d-bcorner_khz = <40000>;
+		adi,rx-profile-rx-output-rate_khz = <122880>;
+		adi,rx-profile-rf-bandwidth_hz = <100000000>;
+		adi,rx-profile-rx-bbf3d-bcorner_khz = <100000>;
 		adi,rx-profile-rx-adc-profile = /bits/ 16 <265 146 181 90 1280 366 1257 27 1258 17 718 39 48 46 27 161 0 0 0 0 40 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
 
 		adi,rx-profile-rx-ddc-mode = <0>;
@@ -947,7 +947,7 @@
 		hmc7044_c0: channel@0 {
 			reg = <0>;
 			adi,extended-name = "DEV_REFCLK_A";
-			adi,divider = <24>;	// 245760000
+			adi,divider = <12>;	// 245760000
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 			adi,coarse-digital-delay = <15>;
 		};
@@ -960,46 +960,46 @@
 			adi,high-performance-mode-disable;
 			adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
 		};
-		hmc7044_c2: channel@2 {
-			reg = <2>;
-			adi,extended-name = "DEV_REFCLK_B";
-			adi,divider = <24>;	// 245760000
-			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
-			adi,coarse-digital-delay = <15>;
-		};
-		hmc7044_c3: channel@3 {
-			reg = <3>;
-			adi,extended-name = "DEV_SYSREF_B";
-			adi,divider = <3840>;	// 768000
-			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
-			adi,startup-mode-dynamic-enable;
-			adi,high-performance-mode-disable;
-			adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
-		};
+		// hmc7044_c2: channel@2 {
+		// 	reg = <2>;
+		// 	adi,extended-name = "DEV_REFCLK_B";
+		// 	adi,divider = <12>;	// 245760000
+		// 	adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+		// 	adi,coarse-digital-delay = <15>;
+		// };
+		// hmc7044_c3: channel@3 {
+		// 	reg = <3>;
+		// 	adi,extended-name = "DEV_SYSREF_B";
+		// 	adi,divider = <3840>;	// 768000
+		// 	adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+		// 	adi,startup-mode-dynamic-enable;
+		// 	adi,high-performance-mode-disable;
+		// 	adi,driver-impedance-mode = <HMC7044_DRIVER_IMPEDANCE_100_OHM>;
+		// };
 		hmc7044_c4: channel@4 {
 			reg = <4>;
 			adi,extended-name = "JESD_REFCLK_TX_OBS_AB";
-			adi,divider = <24>;	// 245760000
+			adi,divider = <12>;	// 245760000
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
-		hmc7044_c5: channel@5 {
-			reg = <5>;
-			adi,extended-name = "JESD_REFCLK_RX_AB";
-			adi,divider = <24>;	// 245760000
-			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
-		};
+		// hmc7044_c5: channel@5 {
+		// 	reg = <5>;
+		// 	adi,extended-name = "JESD_REFCLK_RX_AB";
+		// 	adi,divider = <12>;	// 245760000
+		// 	adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+		// };
 		hmc7044_c6: channel@6 {
 			reg = <6>;
 			adi,extended-name = "CORE_CLK_TX_OBS_AB";
-			adi,divider = <48>;	// 122880000
+			adi,divider = <24>;	// 122880000
 			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
 		};
-		hmc7044_c7: channel@7 {
-			reg = <7>;
-			adi,extended-name = "CORE_CLK_RX_AB";
-			adi,divider = <48>;	// 245760000
-			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
-		};
+		// hmc7044_c7: channel@7 {
+		// 	reg = <7>;
+		// 	adi,extended-name = "CORE_CLK_RX_AB";
+		// 	adi,divider = <24>;	// 245760000
+		// 	adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+		// };
 		hmc7044_c8: channel@8 {
 			reg = <8>;
 			adi,extended-name = "FPGA_SYSREF_TX_OBS_AB";
@@ -1008,14 +1008,14 @@
 			adi,startup-mode-dynamic-enable;
 			adi,high-performance-mode-disable;
 		};
-		hmc7044_c9: channel@9 {
-			reg = <9>;
-			adi,extended-name = "FPGA_SYSREF_RX_AB";
-			adi,divider = <3840>;	// 768000
-			adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
-			adi,startup-mode-dynamic-enable;
-			adi,high-performance-mode-disable;
-		};
+		// hmc7044_c9: channel@9 {
+		// 	reg = <9>;
+		// 	adi,extended-name = "FPGA_SYSREF_RX_AB";
+		// 	adi,divider = <3840>;	// 768000
+		// 	adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;	// LVDS
+		// 	adi,startup-mode-dynamic-enable;
+		// 	adi,high-performance-mode-disable;
+		// };
 	};
 };
 
@@ -1217,7 +1217,7 @@
 			compatible = "adi,axi-adxcvr-1.0";
 			reg = <0x0 0x84a40000 0x1000>;
 
-			clocks = <&hmc7044 5>, <&hmc7044 7>;
+			clocks = <&hmc7044 4>, <&hmc7044 6>;
 			clock-names = "conv", "div40";
 
 			#clock-cells = <1>;
@@ -1234,7 +1234,7 @@
 
 			interrupts = <0 109 IRQ_TYPE_LEVEL_HIGH>;
 
-			clocks = <&zynqmp_clk 71>, <&hmc7044 7>, <&axi_adrv9009_adxcvr_rx 0>;
+			clocks = <&zynqmp_clk 71>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_rx 0>;
 			clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 
 			#clock-cells = <0>;

@@ -207,13 +207,13 @@
  * Using gem0, GTR Lane0
  */
 
-&gem0 {
-	status = "okay";
-	phy-handle = <&phy1>;
-	phy-mode = "sgmii";
-	phys = <&psgtr 0 PHY_TYPE_SGMII 0 1>;
-	mdiobus-connected = <&gem3>;
-};
+// &gem0 {
+// 	status = "okay";
+// 	phy-handle = <&phy1>;
+// 	phy-mode = "sgmii";
+// 	phys = <&psgtr 0 PHY_TYPE_SGMII 0 1>;
+// 	mdiobus-connected = <&gem3>;
+// };
 
 &gem3 {
 	phy1: phy@1 {
@@ -227,32 +227,32 @@
  * Using: GTR Lane3, Lane2
  */
 
-&zynqmp_dpsub {
-	status = "okay";
-	phy-names = "dp-phy0", "dp-phy1";
-	phys = <&psgtr 3 PHY_TYPE_DP 0 2>,
-	       <&psgtr 2 PHY_TYPE_DP 1 2>;
-};
+// &zynqmp_dpsub {
+// 	status = "okay";
+// 	phy-names = "dp-phy0", "dp-phy1";
+// 	phys = <&psgtr 3 PHY_TYPE_DP 0 2>,
+// 	       <&psgtr 2 PHY_TYPE_DP 1 2>;
+// };
 
-&zynqmp_dp_snd_pcm0 {
-	status = "okay";
-};
+// &zynqmp_dp_snd_pcm0 {
+// 	status = "okay";
+// };
 
-&zynqmp_dp_snd_pcm1 {
-	status = "okay";
-};
+// &zynqmp_dp_snd_pcm1 {
+// 	status = "okay";
+// };
 
-&zynqmp_dp_snd_card0 {
-	status = "okay";
-};
+// &zynqmp_dp_snd_card0 {
+// 	status = "okay";
+// };
 
-&zynqmp_dp_snd_codec0 {
-	status = "okay";
-};
+// &zynqmp_dp_snd_codec0 {
+// 	status = "okay";
+// };
 
-&zynqmp_dpdma {
-	status = "okay";
-};
+// &zynqmp_dpdma {
+// 	status = "okay";
+// };
 
 /*
  * USB 2.0 & 3.0
@@ -265,14 +265,14 @@
 	pinctrl-0 = <&pinctrl_usb0_default>;
 };
 
-&dwc3_0 {
-	status = "okay";
-	dr_mode = "host";
-	phy-names = "usb3-phy";
-	//snps,usb3_lpm_capable;
-	phys = <&psgtr 1 PHY_TYPE_USB3 0 3>;
-	maximum-speed = "super-speed";
-};
+// &dwc3_0 {
+// 	status = "okay";
+// 	dr_mode = "host";
+// 	phy-names = "usb3-phy";
+// 	//snps,usb3_lpm_capable;
+// 	phys = <&psgtr 1 PHY_TYPE_USB3 0 3>;
+// 	maximum-speed = "super-speed";
+// };
 
 &gpio {
 	phy_reset {

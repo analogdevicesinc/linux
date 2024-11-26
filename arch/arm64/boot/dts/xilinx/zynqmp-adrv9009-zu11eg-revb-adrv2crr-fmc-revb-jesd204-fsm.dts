@@ -52,7 +52,7 @@
 	jesd204-device;
 	#jesd204-cells = <2>;
 	jesd204-inputs = <&axi_adrv9009_adxcvr_rx 0 FRAMER_LINK_RX>;
-	clocks = <&zynqmp_clk 71>, <&hmc7044 7>, <&axi_adrv9009_adxcvr_rx 0>;
+	clocks = <&zynqmp_clk 71>, <&hmc7044 6>, <&axi_adrv9009_adxcvr_rx 0>;
 	clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 };
 
@@ -77,7 +77,7 @@
 	#jesd204-cells = <2>;
 	jesd204-inputs =  <&hmc7044 0 FRAMER_LINK_RX>;
 	clock-names = "conv";
-	clocks = <&hmc7044 5>;
+	clocks = <&hmc7044 4>;
 };
 
 // &axi_adrv9009_adxcvr_rx_os {
