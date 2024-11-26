@@ -716,9 +716,11 @@ static int fsl_edma_probe(struct platform_device *pdev)
 		snprintf(fsl_chan->chan_name, sizeof(fsl_chan->chan_name), "%s-CH%02d",
 							   dev_name(&pdev->dev), i);
 
-		if (!(drvdata->flags & FSL_EDMA_DRV_ERRIRQ_SHARE))
-			snprintf(fsl_chan->errirq_name, sizeof(fsl_chan->errirq_name),
-				 "%s-CH%02d-err", dev_name(&pdev->dev), i);
+		if (drvdata->flags & FSL_EDMA_DRV_EDMA3) {
+			if (!(drvdata->flags & FSL_EDMA_DRV_ERRIRQ_SHARE))
+				snprintf(fsl_chan->errirq_name, sizeof(fsl_chan->errirq_name),
+					 "%s-CH%02d-err", dev_name(&pdev->dev), i);
+		}
 
 		fsl_chan->edma = fsl_edma;
 		fsl_chan->pm_state = RUNNING;

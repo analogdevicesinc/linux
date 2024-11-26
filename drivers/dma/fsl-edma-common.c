@@ -850,13 +850,15 @@ int fsl_edma_alloc_chan_resources(struct dma_chan *chan)
 			return ret;
 		}
 
-		if (!(fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_ERRIRQ_SHARE)) {
-			ret = request_irq(fsl_chan->errirq, fsl_chan->errirq_handler, IRQF_SHARED,
-					 fsl_chan->errirq_name, fsl_chan);
+		if (fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_EDMA3) {
+			if (!(fsl_edma_drvflags(fsl_chan) & FSL_EDMA_DRV_ERRIRQ_SHARE)) {
+				ret = request_irq(fsl_chan->errirq, fsl_chan->errirq_handler,
+						  IRQF_SHARED, fsl_chan->errirq_name, fsl_chan);
 
-			if (ret) {
-				dma_pool_destroy(fsl_chan->tcd_pool);
-				return ret;
+				if (ret) {
+					dma_pool_destroy(fsl_chan->tcd_pool);
+					return ret;
+				}
 			}
 		}
 	}
