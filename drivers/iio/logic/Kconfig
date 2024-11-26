@@ -12,3 +12,8 @@ config M2K_LOGIC_ANALYZER
 	  ADALM-2000 (M2k) platform.
 
 endmenu
+
+config AXI_AION_TRIG
+	tristate "AXI AION Trigger support"
+	help
+	  Support for the AXI AION Trigger module HDL IP Core.
