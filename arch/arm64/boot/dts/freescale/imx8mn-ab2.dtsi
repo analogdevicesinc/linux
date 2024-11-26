@@ -11,13 +11,6 @@
 	/delete-node/ sound-micfil;
 	/delete-node/ sound-ak5558;
 
-	ak4458_reset: gpio-reset {
-		compatible = "gpio-reset";
-		reset-gpios = <&pca6416 4 GPIO_ACTIVE_LOW>;
-		#reset-cells = <0>;
-		initially-in-reset;
-	};
-
 	gpio-leds {
 		panel {
 			label = "green:panel";
@@ -176,7 +169,7 @@
 		sound-name-prefix = "0";
 		compatible = "asahi-kasei,ak4458";
 		reg = <0x10>;
-		resets = <&ak4458_reset>;
+		reset-gpios = <&pca6416 4 GPIO_ACTIVE_LOW>;
 		AVDD-supply = <&reg_dac_avdd_5v0>;
 		DVDD-supply = <&reg_dac_dvdd_3v3>;
 		status = "okay";
@@ -187,7 +180,7 @@
 		sound-name-prefix = "1";
 		compatible = "asahi-kasei,ak4458";
 		reg = <0x12>;
-		resets = <&ak4458_reset>;
+		reset-gpios = <&pca6416 4 GPIO_ACTIVE_LOW>;
 		AVDD-supply = <&reg_dac_avdd_5v0>;
 		DVDD-supply = <&reg_dac_dvdd_3v3>;
 		status = "disabled";
@@ -198,7 +191,7 @@
 		sound-name-prefix = "2";
 		compatible = "asahi-kasei,ak4458";
 		reg = <0x11>;
-		resets = <&ak4458_reset>;
+		reset-gpios = <&pca6416 4 GPIO_ACTIVE_LOW>;
 		AVDD-supply = <&reg_dac_avdd_5v0>;
 		DVDD-supply = <&reg_dac_dvdd_3v3>;
 		status = "disabled";
