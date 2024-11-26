@@ -118,7 +118,7 @@
 		#clock-cells = <1>;
 		clock-output-names = "rx_gt_clk", "rx_out_clk";
 		adi,sys-clk-select = <XCVR_CPLL>;
-		adi,out-clk-select = <XCVR_REFCLK>;
+		adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 		adi,use-lpm-enable;
 
 		jesd204-device;
@@ -135,7 +135,7 @@
 		#clock-cells = <1>;
 		clock-output-names = "rx_os_gt_clk", "rx_os_out_clk";
 		adi,sys-clk-select = <XCVR_CPLL>;
-		adi,out-clk-select = <XCVR_REFCLK>;
+		adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 		adi,use-lpm-enable;
 
 		jesd204-device;
@@ -152,7 +152,7 @@
 		#clock-cells = <1>;
 		clock-output-names = "tx_gt_clk", "tx_out_clk";
 		adi,sys-clk-select = <XCVR_QPLL>;
-		adi,out-clk-select = <XCVR_REFCLK>;
+		adi,out-clk-select = <XCVR_REFCLK_DIV2>;
 
 		jesd204-device;
 		#jesd204-cells = <2>;
@@ -183,7 +183,7 @@
 		clock-names = "s_axi_aclk", "device_clk", "lane_clk";
 		#clock-cells = <0>;
 		clock-output-names = "jesd_rx_os_lane_clk";
-		adi,octets-per-frame = <4>;
+		adi,octets-per-frame = <2>;
 		adi,frames-per-multiframe = <32>;
 
 		jesd204-device;
