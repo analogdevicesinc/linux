@@ -10,6 +10,7 @@
  */
 /dts-v1/;
 #include "zynq-coraz7s.dtsi"
+#include "zynq-coraz7s-iic.dtsi"
 #include <dt-bindings/interrupt-controller/irq.h>
 #include <dt-bindings/gpio/gpio.h>
 
@@ -66,26 +67,8 @@
 		reg = <0x44a30000 0x1000>;
 		#dma-cells = <1>;
 		interrupt-parent = <&intc>;
-		interrupts = <0 57 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clkc 16>;
-	};
-
-	axi_i2c_0: i2c@44a40000{
-		compatible = "xlnx,axi-iic-1.02.a", "xlnx,xps-iic-2.00.a";
-		reg = <0x44a40000 0x1000>;
-		interrupt-parent = <&intc>;
 		interrupts = <0 56 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clkc 15>;
-
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		ad5696: dac@c {
-			compatible = "adi,ad5696";
-			reg = <0x0c>;
-			vref-supply = <&vref>;
-
-		};
+		clocks = <&clkc 16>;
 	};
 
 	axi_adc_ad7768: cf_axi_adc@44a00000{
@@ -94,6 +77,14 @@
 		dmas = <&rx_dma 0>;
 		dma-names = "rx";
 		spibus-connected = <&ad7768>;
+	};
+};
+
+&axi_i2c_0 {
+	ad5696: dac@c {
+		compatible = "adi,ad5696";
+		reg = <0x0c>;
+		vref-supply = <&vref>;
 	};
 };
 
