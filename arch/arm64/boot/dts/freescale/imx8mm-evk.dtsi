@@ -19,13 +19,6 @@
 		reg = <0x0 0x40000000 0 0x80000000>;
 	};
 
-	ak4458_reset: gpio-reset {
-		compatible = "gpio-reset";
-		reset-gpios = <&pca6416 4 GPIO_ACTIVE_LOW>;
-		#reset-cells = <0>;
-		initially-in-reset;
-	};
-
 	ir_recv: ir-receiver {
 		compatible = "gpio-ir-receiver";
 		gpios = <&gpio1 13 GPIO_ACTIVE_LOW>;
@@ -512,7 +505,7 @@
 		sound-name-prefix = "0";
 		compatible = "asahi-kasei,ak4458";
 		reg = <0x10>;
-		resets = <&ak4458_reset>;
+		reset-gpios = <&pca6416 4 GPIO_ACTIVE_LOW>;
 		AVDD-supply = <&reg_audio_board>;
 		DVDD-supply = <&reg_audio_board>;
 	};
@@ -522,7 +515,7 @@
 		sound-name-prefix = "1";
 		compatible = "asahi-kasei,ak4458";
 		reg = <0x12>;
-		resets = <&ak4458_reset>;
+		reset-gpios = <&pca6416 4 GPIO_ACTIVE_LOW>;
 		AVDD-supply = <&reg_audio_board>;
 		DVDD-supply = <&reg_audio_board>;
 	};
