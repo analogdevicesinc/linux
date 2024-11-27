@@ -262,6 +262,8 @@ void adrv906x_ethtool_get_stats(struct net_device *ndev, struct ethtool_stats *s
 	struct adrv906x_mac_rx_stats *mac_rx_stats = &adrv906x_dev->mac.hw_stats_rx;
 	struct adrv906x_mac_tx_stats *mac_tx_stats = &adrv906x_dev->mac.hw_stats_tx;
 
+	adrv906x_ndma_update_frame_drop_stats(adrv906x_dev->ndma_dev);
+
 	data[0] = mac_rx_stats->general_stats.drop_events;
 	data[1] = mac_rx_stats->general_stats.octets;
 	data[2] = mac_rx_stats->general_stats.pkts;

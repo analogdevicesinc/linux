@@ -171,5 +171,6 @@ void adrv906x_ndma_set_ptp_mode(struct adrv906x_ndma_dev *ndma_dev, u32 ptp_mode
 void adrv906x_ndma_open(struct adrv906x_ndma_dev *ndma_dev, ndma_callback tx_cb_fn,
 			ndma_callback rx_cb_fn, void *rx_cb_param, bool loopback_mode);
 void adrv906x_ndma_close(struct adrv906x_ndma_dev *ndma_dev);
+void adrv906x_ndma_update_frame_drop_stats(struct adrv906x_ndma_dev *ndma_dev);
 
 #endif /* __ADRV906X_NDMA_H__ */
