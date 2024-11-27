@@ -8,6 +8,16 @@
 
 #include "imx95-clock.h"
 #include <dt-bindings/gpio/gpio.h>
+#include "imx95-pinfunc.h"
+
+&scmi_iomuxc {
+	pinctrl_touch: touchgrp {
+		fsl,pins = <
+			IMX95_PAD_XSPI1_DATA7__GPIO5_IO_BIT7			0x31e
+			IMX95_PAD_CCM_CLKO3__GPIO4_IO_BIT28				0x31e
+		>;
+	};
+};
 
 &display_pixel_link {
 	status = "okay";
