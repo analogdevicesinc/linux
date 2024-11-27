@@ -102,20 +102,89 @@
 	jesd204-inputs = <&hmc7044_car 0 FRAMER_LINK_RX>;
 
 	adi,pulse-generator-mode = <HMC7044_PULSE_GEN_16_PULSE>;
-	adi,sync-pin-mode = <1>;
+	adi,sync-pin-mode = <0>;
 
 	/delete-property/ adi,pll2-autocal-bypass-manual-cap-bank-sel;
 	adi,hmc-two-level-tree-sync-en;
+
+	adi,clkin1-vco-in-enable;
+	adi,clkin0-rf-sync-enable;
+
+	adi,clkin0-buffer-mode = <0x0b>; /* Needs HW modification - remove AC couble Caps */
+	adi,clkin1-buffer-mode = <0x0b>;
+
+	clocks = <&hmc7044_car 2>;
+	clock-names = "clkin1";
 };
+
+&hmc7044_c0 {
+	adi,high-performance-mode-disable;
+};
+
+&hmc7044_c1 {
+	adi,high-performance-mode-disable;
+};
+
+&hmc7044_c4 {
+	adi,divider = <1>;
+	adi,high-performance-mode-disable;
+};
+
+&hmc7044_c6 {
+	adi,high-performance-mode-disable;
+};
+
+&hmc7044_c8 {
+	adi,high-performance-mode-disable;
+};
+
+#define REF_DIV 12 /* 2949.12 / 245.76 MHz */
 
 &hmc7044_car {
 	jesd204-device;
 	#jesd204-cells = <2>;
 	jesd204-sysref-provider;
 
-	adi,pulse-generator-mode = <HMC7044_PULSE_GEN_16_PULSE>;
+	/* SYSREF Provider */
+	adi,pulse-generator-mode = <HMC7044_PULSE_GEN_1_PULSE>;
 	adi,sync-pin-mode = <0>;
 
 	/delete-property/ adi,pll2-autocal-bypass-manual-cap-bank-sel;
 	adi,hmc-two-level-tree-sync-en;
+
+	hmc7044_car_c0: channel@0 {
+		reg = <0>;
+		adi,extended-name = "RFSYNC_SOM";
+		adi,divider = <1024>; /* set by the jesd204-fsm */
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		adi,startup-mode-dynamic-enable;
+		adi,high-performance-mode-disable;
+		adi,force-mute-enable;
+	};
+
+	hmc7044_car_c2: channel@2 {
+		reg = <2>;
+		adi,extended-name = "REFCLK_OUT2";
+		adi,divider = <REF_DIV>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+	};
+
+	hmc7044_car_c8: channel@8 {
+		reg = <8>;
+		adi,extended-name = "RFSYNC_FMC";
+		adi,divider = <1024>; /* set by the jesd204-fsm */
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+		adi,startup-mode-dynamic-enable;
+		adi,high-performance-mode-disable;
+		adi,coarse-digital-delay = <0x01>;
+		adi,force-mute-enable;
+	};
+
+	hmc7044_car_c9: channel@9 {
+		reg = <9>;
+		adi,extended-name = "REFCLK_OUT4";
+		adi,divider = <REF_DIV>;
+		adi,coarse-digital-delay = <0x01>;
+		adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+	};
 };
