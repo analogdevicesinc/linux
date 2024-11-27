@@ -32,10 +32,6 @@
 			"ad9528-1_out11", "ad9528-1_out12", "ad9528-1_out13";
 		#clock-cells = <1>;
 
-		jesd204-device;
-		#jesd204-cells = <2>;
-		jesd204-sysref-provider;
-
 		adi,vcxo-freq = <122880000>;
 
 		adi,refa-enable;
@@ -55,8 +51,9 @@
 
 		/* SYSREF config */
 		adi,sysref-src = <SYSREF_SRC_INTERNAL>;
-		adi,sysref-pattern-mode = <SYSREF_PATTERN_NSHOT>;
+		adi,sysref-pattern-mode = <SYSREF_PATTERN_CONTINUOUS>;
 		adi,sysref-k-div = <512>;
+		adi,sysref-request-enable;
 		adi,sysref-nshot-mode = <SYSREF_NSHOT_4_PULSES>;
 		adi,sysref-request-trigger-mode = <SYSREF_LEVEL_HIGH>;
 
@@ -113,9 +110,6 @@
 
 		/* SPI Setup */
 		spi-max-frequency = <25000000>;
-
-		interrupt-parent = <&axi_gpio>;
-		interrupts = <51 IRQ_TYPE_EDGE_RISING>;
 
 		/* Clocks */
 		clocks = <&axi_adrv9009_rx_jesd>, <&axi_adrv9009_tx_jesd>,
