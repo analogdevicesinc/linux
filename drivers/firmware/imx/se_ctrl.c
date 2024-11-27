@@ -43,6 +43,9 @@
 
 #define IMX_SE_LOG_PATH "/var/lib/se_"
 
+static int se_log;
+static struct kobject *se_log_kobj;
+
 struct se_fw_img_name {
 	const u8 *prim_fw_nm_in_rfs;
 	const u8 *seco_fw_nm_in_rfs;
@@ -408,6 +411,58 @@ static char *get_se_if_name(u8 se_if_id)
 }
 
 /*
+ * Writing the sysfs entry se_log to enable/disable the logging
+ * echo 1 > /sys/kernel/se/se_log // enable logging
+ * echo 0 > /sys/kernel/se/se_log // disable logging
+ */
+static ssize_t se_log_store(struct kobject *kobj,
+				   struct kobj_attribute *attr,
+				   const char *buf, size_t count)
+{
+	int ret;
+
+	ret = kstrtoint(buf, 10, &se_log);
+	if (ret < 0) {
+		pr_err("Failed to convert to int\n");
+		return ret;
+	}
+	return count;
+}
+
+/*
+ * Reading the sysfs entry to know logging is enabled/disabled
+ */
+static ssize_t se_log_show(struct kobject *kobj,
+				  struct kobj_attribute *attr,
+				  char *buf)
+{
+	return sysfs_emit(buf, "%d\n", se_log);
+}
+
+struct kobj_attribute se_log_attr = __ATTR(se_log, 0664,
+					   se_log_show,
+					   se_log_store);
+
+/* Exposing the variable se_log via sysfs to enable/disable logging */
+static int  se_sysfs_log(void)
+{
+	/* Create kobject "se" located under /sys/kernel */
+	se_log_kobj = kobject_create_and_add("se", kernel_kobj);
+	if (!se_log_kobj) {
+		pr_warn("kobject creation failed\n");
+		return -ENOMEM;
+	}
+	/* Create file for the se_log attribute */
+	if (sysfs_create_file(se_log_kobj, &se_log_attr.attr)) {
+		pr_err("Failed to create se file\n");
+		kobject_put(se_log_kobj);
+		return -ENOMEM;
+	}
+
+	return 0;
+}
+
+/*
  * get_se_soc_id() - to fetch the soc_id of the platform
  *
  * @priv  : reference to the private data per SE MU interface.
@@ -662,6 +717,10 @@ int se_dump_to_logfl(struct se_if_device_ctx *dev_ctx,
 	int dump_ln_len;
 	ssize_t wret;
 	int w_ct;
+
+	/* if logging is set to be disabled, return */
+	if (!se_log)
+		return 0;
 
 	switch (caller_type) {
 	case SE_DUMP_IOCTL_BUFS:
@@ -1753,6 +1812,11 @@ static void se_if_probe_cleanup(void *plat_dev)
 	 * un-set bit.
 	 */
 	of_reserved_mem_device_release(dev);
+
+	/* Free Kobj created for logging */
+	if (se_log_kobj)
+		kobject_put(se_log_kobj);
+
 }
 
 static int se_if_probe(struct platform_device *pdev)
@@ -1912,6 +1976,14 @@ static int se_if_probe(struct platform_device *pdev)
 			dev_warn(dev, "Failed to load firmware.");
 		ret = 0;
 	}
+
+	/* exposing variable se via sysfs to enable/disable logging */
+	if (!se_log_kobj) {
+		ret = se_sysfs_log();
+		if (ret)
+			pr_warn("Warn: Creating sysfs entry for se_log: %d\n", ret);
+	}
+
 	dev_info(dev, "i.MX secure-enclave: %s%d interface to firmware, configured.\n",
 			get_se_if_name(priv->if_defs->se_if_type),
 			priv->if_defs->se_instance_id);
