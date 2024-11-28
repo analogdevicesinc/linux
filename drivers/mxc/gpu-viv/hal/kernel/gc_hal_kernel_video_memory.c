@@ -893,6 +893,11 @@ gckVIDMEM_AllocateLinear(IN gckKERNEL Kernel, IN gckVIDMEM Memory,
         }
     }
 #endif
+    if (Alignment > 0) {
+        /* Ensure the size is aligned */
+        Bytes = gcmALIGN(Bytes, Alignment);
+    }
+
     if (Bytes > Memory->freeBytes) {
         /* Not enough memory. */
         status = gcvSTATUS_OUT_OF_MEMORY;
@@ -951,9 +956,6 @@ gckVIDMEM_AllocateLinear(IN gckKERNEL Kernel, IN gckVIDMEM Memory,
 
     /* Do we have an alignment? */
     if (alignment > 0) {
-        /* Ensure the size is aligned */
-        Bytes = gcmALIGN(Bytes, alignment);
-
         /* Split the node so it is aligned. */
         if (_Split(Memory->os, node, alignment)) {
             /* Successful split, move to aligned node. */
