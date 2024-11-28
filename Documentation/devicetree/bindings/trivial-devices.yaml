@@ -43,6 +43,14 @@ properties:
           - adi,adp5585-02
             # Analog Devices ADP5589 Keypad Decoder and I/O Expansion
           - adi,adp5589
+            # Analog Devices LT7170 20A, 16V Single- or Dual-Phase Step-Down Silent Switcher
+          - adi,lt7170
+            # Analog Devices LT7170-1 20A, 16V Single- or Dual-Phase Step-Down Silent Switcher
+          - adi,lt7170-1
+            # Analog Devices LT7171 20A, 16V PolyPhase Step-Down Silent Switcher
+          - adi,lt7171
+            #  Analog Devices LT7171-1 20A, 16V PolyPhase Step-Down Silent Switcher
+          - adi,lt7171-1
             # Analog Devices LT7182S Dual Channel 6A, 20V PolyPhase Step-Down Silent Switcher
           - adi,lt7182s
             # AMS iAQ-Core VOC Sensor
