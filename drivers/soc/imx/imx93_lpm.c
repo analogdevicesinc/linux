@@ -16,6 +16,7 @@
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
 #include <linux/firmware/imx/se_api.h>
+#include <linux/thermal.h>
 
 #define FSL_SIP_DDR_DVFS                0xc2000004
 #define DDR_DFS_GET_FSP_COUNT		0x10
@@ -34,6 +35,8 @@
 #define VDD_SOC_LD_VOLTAGE		800000
 #define VDD_SOC_ND_VOLTAGE		850000
 #define VDD_SOC_OD_VOLTAGE		900000
+
+#define MAX_COOLING_LEVEL 1
 
 enum SYS_PLL_CLKS {
 	SYS_PLL_PFD0,
@@ -95,8 +98,10 @@ struct critical_clk_path {
 	}
 
 struct operating_mode {
+	bool cooling_actived;
+	bool suspend_prepared;
+	enum mode_type manual_mode;
 	enum mode_type current_mode;
-	enum mode_type resume_mode;
 	bool auto_gate_enabled;
 	unsigned int ssi_strap;
 	/* critical clocks */
@@ -186,6 +191,11 @@ static struct regmap *regmap;
 static void *se_data;
 DEFINE_MUTEX(mode_mutex);
 
+struct lpm_ctx {
+	unsigned int level;
+	struct thermal_cooling_device *cdev;
+};
+
 /* both HWFFC & SWFFC need to call this function */
 static int scaling_dram_freq(unsigned int fsp_index)
 {
@@ -226,15 +236,13 @@ static void lpm_update_all_clks(struct critical_clk_path *path,
 	}
 }
 
+/* Caller should hold mode_mutex lock */
 static void sys_freq_scaling(enum mode_type new_mode)
 {
 	struct critical_clk_path *path = system_run_mode.paths;
 
-	mutex_lock(&mode_mutex);
-
 	if (new_mode == system_run_mode.current_mode) {
 		pr_debug("System already in target mode, do nothing\n");
-		mutex_unlock(&mode_mutex);
 		return;
 	}
 
@@ -295,8 +303,27 @@ static void sys_freq_scaling(enum mode_type new_mode)
 	}
 
 	system_run_mode.current_mode = new_mode;
+}
 
-	mutex_unlock(&mode_mutex);
+/* Caller should hold mode_mutex lock */
+static void lpm_switch_to_new_mode(enum mode_type new_mode)
+{
+	/* Skip if set to the same mode */
+	if (new_mode == system_run_mode.current_mode)
+		return;
+
+	/* make sure auto clock gating is disabled before DDR frequency scaling */
+	regmap_update_bits(regmap, AUTO_CG_CTRL, AUTO_CG_EN, 0);
+
+	if ((system_run_mode.current_mode != OD_MODE && new_mode == SWFFC_MODE) ||
+	    (system_run_mode.current_mode == SWFFC_MODE && new_mode != OD_MODE))
+		sys_freq_scaling(no_od_mode ? ND_MODE : OD_MODE);
+
+	sys_freq_scaling(new_mode);
+
+	if (system_run_mode.auto_gate_enabled ||
+	    (system_run_mode.current_mode == OD_MODE && fsp_table[0] >= 3733))
+		regmap_update_bits(regmap, AUTO_CG_CTRL, AUTO_CG_EN, AUTO_CG_EN);
 }
 
 static ssize_t lpm_enable_show(struct device *dev, struct device_attribute *attr,
@@ -315,6 +342,29 @@ static ssize_t lpm_enable_show(struct device *dev, struct device_attribute *attr
 	default:
 		return sprintf(buf, "Unknown system mode\n");
 	}
+}
+
+/* Caller should hold mode_mutex lock */
+static enum mode_type lpm_get_tartget_mode(void)
+{
+	enum mode_type new_mode;
+
+	if (system_run_mode.suspend_prepared) {
+		new_mode = no_od_mode ? ND_MODE : OD_MODE;
+	} else if (!system_run_mode.cooling_actived) {
+		new_mode = system_run_mode.manual_mode;
+	} else {
+		new_mode = ld_mode_enabled ? LD_MODE : ND_MODE;
+
+		/*
+		 * manual setting mode is preferred if it makes the
+		 * system colder
+		 */
+		if (new_mode < system_run_mode.manual_mode)
+			new_mode = system_run_mode.manual_mode;
+	}
+
+	return new_mode;
 }
 
 static ssize_t lpm_enable_store(struct device *dev,
@@ -340,22 +390,13 @@ static ssize_t lpm_enable_store(struct device *dev,
 	if (new_mode == OD_MODE && no_od_mode)
 		return -EINVAL;
 
-	/* Skip if set to the same mode */
-	if (new_mode == system_run_mode.current_mode)
-		return count;
+	mutex_lock(&mode_mutex);
 
-	/* make sure auto clock gating is disabled before DDR frequency scaling */
-	regmap_update_bits(regmap, AUTO_CG_CTRL, AUTO_CG_EN, 0);
+	system_run_mode.manual_mode = new_mode;
 
-	if ((system_run_mode.current_mode != OD_MODE && new_mode == SWFFC_MODE) ||
-	    (system_run_mode.current_mode == SWFFC_MODE && new_mode != OD_MODE)) 
-		sys_freq_scaling(no_od_mode ? ND_MODE : OD_MODE);
+	lpm_switch_to_new_mode(lpm_get_tartget_mode());
 
-	sys_freq_scaling(new_mode);
-
-	if (system_run_mode.auto_gate_enabled ||
-	    (system_run_mode.current_mode == OD_MODE && fsp_table[0] >= 3733))
-		regmap_update_bits(regmap, AUTO_CG_CTRL, AUTO_CG_EN, AUTO_CG_EN);
+	mutex_unlock(&mode_mutex);
 
 	return count;
 }
@@ -410,14 +451,18 @@ static int imx93_lpm_pm_notify(struct notifier_block *nb, unsigned long event,
 	void *dummy)
 {
 	if (event == PM_SUSPEND_PREPARE) {
-		system_run_mode.resume_mode = system_run_mode.current_mode;
+		mutex_lock(&mode_mutex);
+		system_run_mode.suspend_prepared = true;
 		/* make sure auto clock gating is disabled */
 		regmap_update_bits(regmap, AUTO_CG_CTRL, AUTO_CG_EN, 0);
-		sys_freq_scaling(no_od_mode ? ND_MODE : OD_MODE);
+		sys_freq_scaling(lpm_get_tartget_mode());
 		/* save the ssi idle strap */
 		regmap_read(regmap, AUTO_CG_CTRL, &system_run_mode.ssi_strap);
+		mutex_unlock(&mode_mutex);
 	} else if (event == PM_POST_SUSPEND) {
-		sys_freq_scaling(system_run_mode.resume_mode);
+		mutex_lock(&mode_mutex);
+		system_run_mode.suspend_prepared = false;
+		sys_freq_scaling(lpm_get_tartget_mode());
 
 		/* restore the ssi idle strap */
 		regmap_update_bits(regmap, AUTO_CG_CTRL, 0xFFFF, system_run_mode.ssi_strap);
@@ -427,6 +472,7 @@ static int imx93_lpm_pm_notify(struct notifier_block *nb, unsigned long event,
 			regmap_update_bits(regmap, AUTO_CG_CTRL, HWFFC_ACG_FORCE_B | AUTO_CG_EN,
 				 HWFFC_ACG_FORCE_B | AUTO_CG_EN);
 		}
+		mutex_unlock(&mode_mutex);
 	}
 
 	return NOTIFY_OK;
@@ -435,6 +481,89 @@ static int imx93_lpm_pm_notify(struct notifier_block *nb, unsigned long event,
 static struct notifier_block imx93_lpm_pm_notifier = {
 	.notifier_call = imx93_lpm_pm_notify,
 };
+
+static int lpm_get_max_state(struct thermal_cooling_device *cdev,
+			     unsigned long *state)
+{
+	*state = MAX_COOLING_LEVEL;
+
+	return 0;
+}
+
+static int lpm_get_cur_state(struct thermal_cooling_device *cdev,
+			     unsigned long *state)
+{
+	struct lpm_ctx *ctx = cdev->devdata;
+
+	*state = ctx->level;
+
+	return 0;
+}
+
+static int lpm_set_cur_state(struct thermal_cooling_device *cdev,
+			     unsigned long state)
+{
+	struct lpm_ctx *ctx = cdev->devdata;
+
+	if (state > MAX_COOLING_LEVEL)
+		return -EINVAL;
+
+	if (state == ctx->level)
+		return 0;
+
+	mutex_lock(&mode_mutex);
+
+	if (state == 0) {
+		system_run_mode.cooling_actived = false;
+	/* cool down. */
+	} else if (state == 1) {
+		system_run_mode.cooling_actived = true;
+	} else {
+		dev_err(&cdev->device, "Unsupported cooling level: %lu\n", state);
+		return -EINVAL;
+	}
+
+	lpm_switch_to_new_mode(lpm_get_tartget_mode());
+
+	ctx->level = state;
+
+	mutex_unlock(&mode_mutex);
+
+	return 0;
+}
+
+static const struct thermal_cooling_device_ops lpm_cooling_ops = {
+	.get_max_state = lpm_get_max_state,
+	.get_cur_state = lpm_get_cur_state,
+	.set_cur_state = lpm_set_cur_state,
+};
+
+static int lpm_cooling_device_register(struct platform_device *pdev)
+{
+	int ret;
+	struct thermal_cooling_device *cdev;
+	struct device *dev = &pdev->dev;
+	struct lpm_ctx *ctx;
+
+	ctx = devm_kzalloc(dev, sizeof(*ctx), GFP_KERNEL);
+	if (!ctx)
+		return -ENOMEM;
+	platform_set_drvdata(pdev, ctx);
+
+	cdev = devm_thermal_of_cooling_device_register(dev, dev->of_node,
+						       "lpm-cooling",
+						       ctx,
+						       &lpm_cooling_ops);
+	if (IS_ERR(cdev)) {
+		ret = PTR_ERR(cdev);
+		dev_err(dev, "Failed to register lpm cooling device: %d\n",
+			ret);
+		return ret;
+	}
+	ctx->cdev = cdev;
+
+	return 0;
+}
 
 /* sysfs for user control */
 static int imx93_lpm_probe(struct platform_device *pdev)
@@ -531,6 +660,9 @@ static int imx93_lpm_probe(struct platform_device *pdev)
 
 	/* Normally, we assuming the system in boot up in OD or ND(i.MX91/P) mode */
 	system_run_mode.current_mode = no_od_mode ? ND_MODE : OD_MODE;
+	system_run_mode.manual_mode = system_run_mode.current_mode;
+
+	lpm_cooling_device_register(pdev);
 
 	/* create the sysfs file */
 	err = sysfs_create_files(&pdev->dev.kobj, imx93_lpm_attrs);
