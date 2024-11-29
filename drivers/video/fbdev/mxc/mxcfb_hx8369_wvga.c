@@ -393,8 +393,7 @@ static int mipid_bl_update_status(struct backlight_device *bl)
 	int brightness = bl->props.brightness;
 	struct mipi_dsi_info *mipi_dsi = bl_get_data(bl);
 
-	if (bl->props.power != FB_BLANK_UNBLANK ||
-	    bl->props.fb_blank != FB_BLANK_UNBLANK)
+	if (backlight_is_blank(bl))
 		brightness = 0;
 
 	buf = HX8369_CMD_WRT_DISP_BRIGHT |
@@ -444,8 +443,7 @@ static int mipid_init_backlight(struct mipi_dsi_info *mipi_dsi)
 		return PTR_ERR(bl);
 	}
 	mipi_dsi->bl = bl;
-	bl->props.power = FB_BLANK_UNBLANK;
-	bl->props.fb_blank = FB_BLANK_UNBLANK;
+	bl->props.power = BACKLIGHT_POWER_ON;
 	bl->props.brightness = HX8369BL_DEF_BRIGHT;
 
 	mipid_bl_update_status(bl);
