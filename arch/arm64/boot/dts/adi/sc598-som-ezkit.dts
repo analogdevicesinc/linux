@@ -84,14 +84,14 @@
 
 		eeprom {
 			gpio-hog;
-			gpios = <0 0x0>;
+			gpios = <0 0x1>;
 			output-low;
 			line-name = "eeprom-en";
 		};
 
 		pushbutton {
 			gpio-hog;
-			gpios = <1 0x0>;
+			gpios = <1 0x1>;
 			output-high;
 			line-name = "pushbutton-en";
 		};
@@ -133,7 +133,7 @@
 
 		octal {
 			gpio-hog;
-			gpios = <8 0x0>;
+			gpios = <8 0x1>;
 			output-low;
 			line-name = "octal-spi-cs-en";
 		};
