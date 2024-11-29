@@ -310,6 +310,24 @@
 		gpios = <5 GPIO_ACTIVE_HIGH>;
 		output-high;
 	};
+
+	ak4458-reset-hog {
+		gpio-hog;
+		gpios = <18 GPIO_ACTIVE_LOW>;
+		output-low;
+	};
+
+	ak5558-reset-hog {
+		gpio-hog;
+		gpios = <17 GPIO_ACTIVE_LOW>;
+		output-low;
+	};
+
+	ak4497-reset-hog {
+		gpio-hog;
+		gpios = <16 GPIO_ACTIVE_LOW>;
+		output-low;
+	};
 };
 
 &gpio5 {
@@ -499,7 +517,6 @@
 		sound-name-prefix = "0";
 		compatible = "asahi-kasei,ak4458";
 		reg = <0x10>;
-		reset-gpios = <&gpio3 18 GPIO_ACTIVE_LOW>;
 	};
 
 	ak4458_2: ak4458@12 {
@@ -507,21 +524,18 @@
 		sound-name-prefix = "1";
 		compatible = "asahi-kasei,ak4458";
 		reg = <0x12>;
-		reset-gpios = <&gpio3 18 GPIO_ACTIVE_LOW>;
 	};
 
 	ak5558: ak5558@13 {
 		#sound-dai-cells = <0>;
 		compatible = "asahi-kasei,ak5558";
 		reg = <0x13>;
-		reset-gpios = <&gpio3 17 GPIO_ACTIVE_LOW>;
 	};
 
 	ak4497: ak4497@11 {
 		#sound-dai-cells = <0>;
 		compatible = "asahi-kasei,ak4497";
 		reg = <0x11>;
-		reset-gpios = <&gpio3 16 GPIO_ACTIVE_LOW>;
 		dsd-path = <1>;
 	};
 
