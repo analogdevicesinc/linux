@@ -3133,7 +3133,7 @@ static ssize_t analog_test_pattern_store(struct device *dev,
 	struct sensor_data *max9286_data = subdev_to_sensor_data(sd);
 	char enabled[32];
 
-	if (sscanf(buf, "%s", enabled) > 0) {
+	if (sscanf(buf, "%31s", enabled) > 0) {
 		if (strcmp(enabled, "enable") == 0)
 			ov10635_write_reg(max9286_data, 0, 0x370A, 0x4);
 		else
