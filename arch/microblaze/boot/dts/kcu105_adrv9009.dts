@@ -139,7 +139,7 @@
 		clock-names = "conv", "div40";
 		#clock-cells = <1>;
 		clock-output-names = "tx_gt_clk", "tx_out_clk";
-		adi,sys-clk-select = <XCVR_QPLL>;
+		adi,sys-clk-select = <XCVR_CPLL>;
 		adi,out-clk-select = <XCVR_REFCLK>;
 	};
 	axi_adrv9009_rx_jesd: axi-jesd204-rx@44aa0000 {

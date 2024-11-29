@@ -476,7 +476,7 @@ static int adxcvr_clk_enable(struct clk_hw *hw)
 {
 	struct adxcvr_state *st =
 		container_of(hw, struct adxcvr_state, lane_clk_hw);
-	int ret, retry = 10;
+	int ret, retry = 200;
 	unsigned int status;
 	int bufstatus_err;
 

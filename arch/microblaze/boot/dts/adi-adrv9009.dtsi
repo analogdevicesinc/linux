@@ -71,6 +71,7 @@
 			adi,divider-phase = <0>;
 			adi,channel-divider = <5>;
 			adi,signal-source = <SOURCE_VCO>;
+			adi,output-dis = <1>;
 		};
 
 		ad9528_0_c1: channel@1 {
@@ -80,6 +81,7 @@
 			adi,divider-phase = <0>;
 			adi,channel-divider = <5>;
 			adi,signal-source = <SOURCE_VCO>;
+			adi,output-dis = <1>;
 		};
 
 		ad9528_0_c12: channel@12 {
@@ -195,16 +197,16 @@
 		/* RX */
 
 		adi,rx-profile-rx-fir-gain_db = <(-6)>;
-		adi,rx-profile-rx-fir-num-fir-coefs = <24>;
-		adi,rx-profile-rx-fir-coefs = /bits/ 16 <(-194) (-715) (777) (907) (-1163) (-1890) (2240) (3306) (-4068) (-7024) (9205) (31112) (31112) (9205) (-7024) (-4068) (3306) (2240) (-1890) (-1163) (907) (777) (-715) (-194)>;
+		adi,rx-profile-rx-fir-num-fir-coefs = <48>;
+		adi,rx-profile-rx-fir-coefs = /bits/ 16 <(-8) (-22) (32) (50) (-68) (-106) (141) (199) (-258) (-352) (430) (572) (-691) (-903) (1069) (1392) (-1644) (-2172) (2569) (3574) (-4364) (-7129) (9355) (31095) (31095) (9355) (-7129) (-4364) (3574) (2569) (-2172) (-1644) (1392) (1069) (-903) (-691) (572) (430) (-352) (-258) (199) (141) (-106) (-68) (50) (32) (-22) (-8)>;
 
 		adi,rx-profile-rx-fir-decimation = <2>;
 		adi,rx-profile-rx-dec5-decimation = <4>;
-		adi,rx-profile-rhb1-decimation = <1>;
-		adi,rx-profile-rx-output-rate_khz = <245760>;
-		adi,rx-profile-rf-bandwidth_hz = <200000000>;
-		adi,rx-profile-rx-bbf3d-bcorner_khz = <200000>;
-		adi,rx-profile-rx-adc-profile = /bits/ 16 <185 141 172 90 1280 942 1332 90 1368 46 1016 19 48 48 37 208 0 0 0 0 52 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+		adi,rx-profile-rhb1-decimation = <2>;
+		adi,rx-profile-rx-output-rate_khz = <122880>;
+		adi,rx-profile-rf-bandwidth_hz = <100000000>;
+		adi,rx-profile-rx-bbf3d-bcorner_khz = <100000>;
+		adi,rx-profile-rx-adc-profile = /bits/ 16 <265 146 181 90 1280 366 1257 27 1258 17 718 39 48 46 27 161 0 0 0 0 40 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
 		adi,rx-profile-rx-ddc-mode = <0>;
 
 		adi,rx-nco-shifter-band-a-input-band-width_khz = <0>;
@@ -230,16 +232,16 @@
 		/* ORX */
 
 		adi,orx-profile-rx-fir-gain_db = <6>;
-		adi,orx-profile-rx-fir-num-fir-coefs = <24>;
-		adi,orx-profile-rx-fir-coefs = /bits/ 16  <(-44) (22) (-18) (-1) (32) (-75) (83) (-81) (-15) (354) (-1940) (19672) (-1940) (354) (-15) (-81) (83) (-75) (32) (-1) (-18) (22) (-44) (0)>;
-		adi,orx-profile-rx-fir-decimation = <1>;
+		adi,orx-profile-rx-fir-num-fir-coefs = <48>;
+		adi,orx-profile-rx-fir-coefs = /bits/ 16  <(-9) (-18) (31) (42) (-65) (-89) (132) (168) (-240) (-298) (396) (486) (-632) (-770) (968) (1163) (-1530) (-1862) (2369) (3051) (-4066) (-5983) (9689) (29830) (29830) (9689) (-5983) (-4066) (3051) (2369) (-1862) (-1530) (1163) (968) (-770) (-632) (486) (396) (-298) (-240) (168) (132) (-89) (-65) (42) (31) (-18) (-9)>;
+		adi,orx-profile-rx-fir-decimation = <2>;
 		adi,orx-profile-rx-dec5-decimation = <4>;
-		adi,orx-profile-rhb1-decimation = <1>;
-		adi,orx-profile-orx-output-rate_khz = <491520>;
-		adi,orx-profile-rf-bandwidth_hz = <400000000>;
+		adi,orx-profile-rhb1-decimation = <2>;
+		adi,orx-profile-orx-output-rate_khz = <122880>;
+		adi,orx-profile-rf-bandwidth_hz = <100000000>;
 		adi,orx-profile-rx-bbf3d-bcorner_khz = <225000>;
-		adi,orx-profile-orx-low-pass-adc-profile = /bits/ 16  <113 171 181 90 1280 1737 1574 839 1305 297 846 74 30 41 32 193 0 0 0 0 48 0 0 0 24 0 0 0 24 0 25 27 0 0 25 27 0 0 165 44 15 905>;
-		adi,orx-profile-orx-band-pass-adc-profile = /bits/ 16  <113 171 181 90 1280 1737 1574 839 1305 297 846 74 30 41 32 193 0 0 0 0 48 0 0 0 24 0 0 0 24 0 25 27 0 0 25 27 0 0 165 44 15 905>;
+		adi,orx-profile-orx-low-pass-adc-profile = /bits/ 16  <265 146 181 90 1280 366 1257 27 1258 17 718 39 48 46 27 161 0 0 0 0 40 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
+		adi,orx-profile-orx-band-pass-adc-profile = /bits/ 16  <265 146 181 90 1280 366 1257 27 1258 17 718 39 48 46 27 161 0 0 0 0 40 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
 		adi,orx-profile-orx-ddc-mode = <0>;
 		adi,orx-profile-orx-merge-filter = /bits/ 16  <0 0 0 0 0 0 0 0 0 0 0 0>;
 
@@ -257,23 +259,23 @@
 
 		/* TX */
 
-		adi,tx-profile-tx-fir-gain_db = <0>;
-		adi,tx-profile-tx-fir-num-fir-coefs = <20>;
-		adi,tx-profile-tx-fir-coefs = /bits/ 16  <(32) (-76) (124) (-160) (176) (-121) (-145) (1031) (-3015) (20138) (-3015) (1031) (-145) (-121) (176) (-160) (124) (-76) (32) (0)>;
+		adi,tx-profile-tx-fir-gain_db = <6>;
+		adi,tx-profile-tx-fir-num-fir-coefs = <80>;
+		adi,tx-profile-tx-fir-coefs = /bits/ 16  <(0) (0) (0) (1) (0) (-3) (1) (7) (-3) (-13) (7) (25) (-14) (-42) (27) (69) (-46) (-107) (74) (160) (-115) (-229) (184) (336) (-264) (-468) (382) (653) (-538) (-904) (754) (1269) (-1056) (-1842) (1486) (2879) (-2031) (-4846) (3816) (16221) (16221) (3816) (-4846) (-2031) (2879) (1486) (-1842) (-1056) (1269) (754) (-904) (-538) (653) (382) (-468) (-264) (336) (184) (-229) (-115) (160) (74) (-107) (-46) (69) (27) (-42) (-14) (25) (7) (-13) (-3) (7) (1) (-3) (0) (1) (0) (0) (0)>;
 
 		adi,tx-profile-dac-div = <1>;
 
-		adi,tx-profile-tx-fir-interpolation = <1>;
+		adi,tx-profile-tx-fir-interpolation = <2>;
 		adi,tx-profile-thb1-interpolation = <2>;
 		adi,tx-profile-thb2-interpolation = <2>;
-		adi,tx-profile-thb3-interpolation = <1>;
+		adi,tx-profile-thb3-interpolation = <2>;
 		adi,tx-profile-tx-int5-interpolation = <1>;
-		adi,tx-profile-tx-input-rate_khz = <491520>;
-		adi,tx-profile-primary-sig-bandwidth_hz = <150000000>;
-		adi,tx-profile-rf-bandwidth_hz = <400000000>;
-		adi,tx-profile-tx-dac3d-bcorner_khz = <400000>;
-		adi,tx-profile-tx-bbf3d-bcorner_khz = <200000>;
-		adi,tx-profile-loop-back-adc-profile = /bits/ 16 <186 148 176 90 1280 901 1479 225 1401 85 995 21 48 48 36 207 0 0 0 0 52 0 0 6 24 0 0 6 24 0 25 27 0 0 25 27 0 0 165 44 15 905>;
+		adi,tx-profile-tx-input-rate_khz = <122880>;
+		adi,tx-profile-primary-sig-bandwidth_hz = <50000000>;
+		adi,tx-profile-rf-bandwidth_hz = <100000000>;
+		adi,tx-profile-tx-dac3d-bcorner_khz = <187000>;
+		adi,tx-profile-tx-bbf3d-bcorner_khz = <56000>;
+		adi,tx-profile-loop-back-adc-profile = /bits/ 16 <265 146 181 90 1280 366 1257 27 1258 17 718 39 48 46 27 161 0 0 0 0 40 0 7 6 42 0 7 6 42 0 25 27 0 0 25 27 0 0 165 44 31 905>;
 
 		adi,tx-settings-deframer-sel = <0>;
 		adi,tx-settings-tx-channels = <3>;
