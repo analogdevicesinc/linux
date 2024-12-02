@@ -514,6 +514,16 @@ config REGULATOR_LP8788
 	help
 	  This driver supports LP8788 voltage regulator chip.
 
+config REGULATOR_LT8722
+	tristate "LT8722 ultracompact full bridge driver with SPI"
+	depends on SPI && OF
+	help
+	  This driver controls an Analog Devices LT8722 ultracompact 4A, 15V,
+	  full bridge driver with SPI interface.
+
+	  Say M here if you want to include support for the regulator as a
+	  module.
+
 config REGULATOR_LTC3589
 	tristate "LTC3589 8-output voltage regulator"
 	depends on I2C
