@@ -11,6 +11,8 @@
 		reg = <EMAC_CMN_BASE 0x3004>;
 		#address-cells = <1>;
 		#size-cells = <1>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_eth_recov_clk>;
 
 		ethernet-ports {
 			#address-cells = <1>;
@@ -64,8 +66,6 @@
 		};
 
 		eth_recov_clk {
-			pinctrl-names = "default";
-			pinctrl-0 = <&pinctrl_eth_recov_clk>;
 			reg = <EMAC_RECOVERED_CLK_CTRL 0x4>;
 		};
 	};
