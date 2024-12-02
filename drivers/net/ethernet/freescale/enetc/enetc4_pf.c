@@ -1339,6 +1339,24 @@ static void enetc4_deinit_devlink(struct enetc_pf *pf)
 	enetc_devlink_params_unregister(devlink);
 }
 
+static void enetc4_get_psi_hw_features(struct enetc_si *si)
+{
+	struct enetc_hw *hw = &si->hw;
+	u32 val;
+
+	val = enetc_port_rd(hw, ENETC4_PCAPR);
+	if (val & PCAPR_TGS)
+		si->hw_features |= ENETC_SI_F_QBV;
+
+	val = enetc_port_rd(hw, ENETC4_PMCAPR);
+	if (PMCAPR_GET_FP(val) == PMCAPR_FP_SUPP)
+		si->hw_features |= ENETC_SI_F_QBU;
+
+	val = enetc_port_rd(hw, ENETC4_IPCAPR);
+	if (val & IPCAPR_ISID)
+		si->hw_features |= ENETC_SI_F_PSFP;
+}
+
 static int enetc4_pf_struct_init(struct enetc_si *si)
 {
 	struct enetc_pf *pf = enetc_si_priv(si);
@@ -1354,6 +1372,7 @@ static int enetc4_pf_struct_init(struct enetc_si *si)
 			return -ENOMEM;
 	}
 
+	enetc4_get_psi_hw_features(si);
 	enetc4_get_port_caps(pf);
 	enetc_pf_register_hw_ops(pf, &enetc4_pf_hw_ops);
 
