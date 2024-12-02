@@ -5,6 +5,7 @@
  * Copyright 2017 Analog Devices Inc.
  */
 #include <linux/bitfield.h>
+#include <linux/cleanup.h>
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/device.h>
@@ -340,20 +341,12 @@ static int ad7768_reg_access(struct iio_dev *indio_dev,
 			     unsigned int *readval)
 {
 	struct ad7768_state *st = iio_priv(indio_dev);
-	int ret;
 
-	mutex_lock(&st->lock);
-	if (readval) {
-		ret = ad7768_spi_reg_read(st, reg, readval, 1);
-		if (ret < 0)
-			goto err_unlock;
-	} else {
-		ret = ad7768_spi_reg_write(st, reg, writeval);
-	}
-err_unlock:
-	mutex_unlock(&st->lock);
+	guard(mutex)(&st->lock);
+	if (readval)
+		return ad7768_spi_reg_read(st, reg, readval, 1);
 
-	return ret;
+	return ad7768_spi_reg_write(st, reg, writeval);
 }
 
 static int ad7768_set_dig_fil(struct ad7768_state *st,
@@ -381,32 +374,24 @@ static int ad7768_set_dig_fil(struct ad7768_state *st,
 int ad7768_gpio_direction_input(struct gpio_chip *chip, unsigned int offset)
 {
 	struct ad7768_state *st = gpiochip_get_data(chip);
-	int ret;
 
-	mutex_lock(&st->lock);
-	ret = ad7768_spi_reg_write_masked(st,
+	guard(mutex)(&st->lock);
+	return ad7768_spi_reg_write_masked(st,
 					  AD7768_REG_GPIO_CONTROL,
 					  BIT(offset),
 					  AD7768_GPIO_INPUT(offset));
-	mutex_unlock(&st->lock);
-
-	return ret;
 }
 
 int ad7768_gpio_direction_output(struct gpio_chip *chip,
 				 unsigned int offset, int value)
 {
 	struct ad7768_state *st = gpiochip_get_data(chip);
-	int ret;
 
-	mutex_lock(&st->lock);
-	ret = ad7768_spi_reg_write_masked(st,
+	guard(mutex)(&st->lock);
+	return ad7768_spi_reg_write_masked(st,
 					  AD7768_REG_GPIO_CONTROL,
 					  BIT(offset),
 					  AD7768_GPIO_OUTPUT(offset));
-	mutex_unlock(&st->lock);
-
-	return ret;
 }
 
 int ad7768_gpio_get(struct gpio_chip *chip, unsigned int offset)
@@ -415,24 +400,19 @@ int ad7768_gpio_get(struct gpio_chip *chip, unsigned int offset)
 	unsigned int val;
 	int ret;
 
-	mutex_lock(&st->lock);
+	guard(mutex)(&st->lock);
 	ret = ad7768_spi_reg_read(st, AD7768_REG_GPIO_CONTROL, &val, 1);
 	if (ret < 0)
-		goto gpio_get_err;
+		return ret;
 
 	if (val & BIT(offset))
 		ret = ad7768_spi_reg_read(st, AD7768_REG_GPIO_WRITE, &val, 1);
 	else
 		ret = ad7768_spi_reg_read(st, AD7768_REG_GPIO_READ, &val, 1);
 	if (ret < 0)
-		goto gpio_get_err;
+		return ret;
 
-	ret = !!(val & BIT(offset));
-
-gpio_get_err:
-	mutex_unlock(&st->lock);
-
-	return ret;
+	return !!(val & BIT(offset));
 }
 
 void ad7768_gpio_set(struct gpio_chip *chip, unsigned int offset, int value)
@@ -441,19 +421,16 @@ void ad7768_gpio_set(struct gpio_chip *chip, unsigned int offset, int value)
 	unsigned int val;
 	int ret;
 
-	mutex_lock(&st->lock);
+	guard(mutex)(&st->lock);
 	ret = ad7768_spi_reg_read(st, AD7768_REG_GPIO_CONTROL, &val, 1);
 	if (ret < 0)
-		goto gpio_set_err;
+		return;
 
 	if (val & BIT(offset))
 		ad7768_spi_reg_write_masked(st,
 					    AD7768_REG_GPIO_WRITE,
 					    BIT(offset),
 					    (value << offset));
-
-gpio_set_err:
-	mutex_unlock(&st->lock);
 }
 
 int ad7768_gpio_request(struct gpio_chip *chip, unsigned int offset)
@@ -712,7 +689,7 @@ static irqreturn_t ad7768_trigger_handler(int irq, void *p)
 	struct ad7768_state *st = iio_priv(indio_dev);
 	int ret;
 
-	mutex_lock(&st->lock);
+	guard(mutex)(&st->lock);
 
 	ret = spi_read(st->spi, &st->data.scan.chan, 3);
 	if (ret < 0)
@@ -723,7 +700,6 @@ static irqreturn_t ad7768_trigger_handler(int irq, void *p)
 
 err_unlock:
 	iio_trigger_notify_done(indio_dev->trig);
-	mutex_unlock(&st->lock);
 
 	return IRQ_HANDLED;
 }
