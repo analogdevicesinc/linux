@@ -135,5 +135,6 @@ int nxp_sja1110_2500basex_pma_config(struct dw_xpcs *xpcs);
 int txgbe_xpcs_switch_mode(struct dw_xpcs *xpcs, phy_interface_t interface);
 void xpcs_phy_reg_lock(struct dw_xpcs *xpcs);
 int xpcs_phy_usxgmii_pma_config(struct dw_xpcs *xpcs);
+void xpcs_phy_reset(struct dw_xpcs *xpcs);
 u32 xpcs_phy_get_id(struct dw_xpcs *xpcs);
 int xpcs_phy_check_id(u32 id);

@@ -235,6 +235,21 @@ static int xpcs_phy_write_pma(struct dw_xpcs *xpcs, int reg, u16 val)
 	return xpcs_write(xpcs, MDIO_MMD_PMAPMD, XPCS_PHY_REG(reg), val);
 }
 
+void xpcs_phy_reset(struct dw_xpcs *xpcs)
+{
+	u16 val;
+
+	xpcs_write(xpcs, MDIO_MMD_PCS, XPCS_PHY_REG(PCS_CTRL1), PCS_CTRL1_RESET);
+
+	val = xpcs_phy_read_pma(xpcs, PMA_MP_12G_16G_25G_TX_GENCTRL0);
+	val |= PMA_TX_GENCTRL0_TX_RST_0;
+	xpcs_phy_write_pma(xpcs, PMA_MP_12G_16G_25G_TX_GENCTRL0, val);
+
+	val = xpcs_phy_read_pma(xpcs, PMA_MP_12G_16G_25G_RX_GENCTRL1);
+	val |= PMA_RX_GENCTRL1_RX_RST_0;
+	xpcs_phy_write_pma(xpcs, PMA_MP_12G_16G_25G_RX_GENCTRL1, val);
+}
+
 static int xpcs_phy_usxgmii_init_seq_2(struct dw_xpcs *xpcs)
 {
 	unsigned long orig_jiffies = jiffies;
