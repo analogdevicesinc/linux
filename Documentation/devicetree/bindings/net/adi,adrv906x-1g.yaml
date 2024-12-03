@@ -31,35 +31,73 @@ properties:
                  If the property is defined with any value including 0
                  then it is not updated by U-Boot.
 additionalProperties: false
-examples:
+
+Examples:
+
   - |
-    '#include "adrv906x_irq_def.h"'
-    '#include "adrv906x_def.h"'
-    // Example 1 (rgmii)
-    adi_dwmac_dev: adi_dwmac_node@EMAC_1G_BASE {
-      compatible = "adi,adrv906x-dwmac" , "snps,dwmac-5.10a";
-      reg = <EMAC_1G_BASE, 0x1168>;
-      interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_26 IRQ_TYPE_LEVEL_HIGH>;
+    // Common base:
+    emac0: ethernet@EMAC_1G_BASE_UADDR {
+      status = "okay";
+      compatible = "adi,adrv906x-dwmac", "snps,dwmac-5.10a";
+      reg = <EMAC_1G_BASE 0x1168>;
+      interrupts = <GIC_SPI EMAC_1G_SBD_INTR_PIPED IRQ_TYPE_LEVEL_HIGH>;
       interrupt-names = "macirq";
-      phy-handle = <&adi_phy0>;
+      clocks = <&emac0clk>;
+      clock-names = "stmmaceth";
       phy-mode = "rgmii";
+      snps,reset-gpio = <&gpio0 ADI_ADRV906X_PIN_88 GPIO_ACTIVE_LOW>;
+      snps,reset-delays-us = <1000 1000 1000>;
+      snps,tso;
+      pinctrl-names = "default";
+      pinctrl-0 = <&pinctrl_emac0_rgmii>;
       mac-address = [ 00 00 00 00 00 00 ]; /* will not be filled in
                                               by u-boot */
+      '#address-cells = <1>;'
+      '#size-cells = <1>;'
       clock_divider {
-        reg = <EMAC_1G_YODA>;
-          base-clk-speed = 125;
-      }
-    }
-    // Example 2 (gmii)
-    adi_dwmac_dev: adi_dwmac_node@EMAC_1G_BASE {
-      compatible = "adi,adrv906x-dwmac" , "snps,dwmac-5.10a";
-      reg = <EMAC_1G_BASE, 0x1168>;
-      interrupts = <GIC_SPI RS_TO_A55_GIC_TRU_26 IRQ_TYPE_LEVEL_HIGH>;
-      interrupt-names = "macirq";
-      phy-handle = <&adi_phy0>;
-      phy-mode = "gmii";
-      clock_divider {
-        reg = <EMAC_1G_YODA>;
-        base-clk-speed = 125;
-      }
-    }
+        reg = <EMAC_1G_DIV_CTRL 0x04>;
+        ctrl_reg = <EMAC_1G_CLK_CTRL 0x08>;
+      };
+    };
+
+    // Customization for RGMII auto-negotiation:
+    &emac0 {
+      phy-handle = <&phy0>;
+      mdio0 {
+        '#address-cells = <1>;'
+        '#size-cells = <0>;'
+        compatible = "snps,dwmac-mdio";
+        phy0: ethernet-phy@0 {
+          reg = <15>;
+        };
+      };
+    };
+
+    // Customization for RMII auto-negotiation:
+    &emac0 {
+      phy-mode = "rmii";
+      pinctrl-0 = <&pinctrl_emac0_rmii>;
+      max-speed = <100>;
+
+      phy-handle = <&phy0>;
+      mdio0 {
+        '#address-cells = <1>;'
+        '#size-cells = <0>;'
+        compatible = "snps,dwmac-mdio";
+        phy0: ethernet-phy@0 {
+          reg = <15>;
+        };
+      };
+    };
+
+    // Customization for RMII fixed-link speed:
+    &emac0 {
+      phy-mode = "rmii";
+      pinctrl-0 = <&pinctrl_emac0_rmii>;
+      max-speed = <100>;
+
+      fixed-link {
+        speed = <100>;
+        full-duplex;
+      };
+    };
