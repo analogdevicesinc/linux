@@ -109,6 +109,15 @@
 		regulator-always-on;
 	};
 
+	reg_audio_switch1: regulator-audio-switch1 {
+		compatible = "regulator-fixed";
+		regulator-name = "audio-switch1";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pcal6524 0 GPIO_ACTIVE_LOW>;
+		regulator-always-on;
+	};
+
 	reg_1p8v: regulator-1p8v {
 		compatible = "regulator-fixed";
 		regulator-max-microvolt = <1800000>;
