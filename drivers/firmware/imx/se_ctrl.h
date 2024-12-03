@@ -10,6 +10,8 @@
 #include <linux/semaphore.h>
 #include <linux/mailbox_client.h>
 
+#include "se_msg_sqfl_ctrl.h"
+
 #define MAX_FW_LOAD_RETRIES		50
 
 #define RES_STATUS(x)			FIELD_GET(0x000000ff, x)
@@ -132,6 +134,7 @@ struct se_if_priv {
 	 * command is still processing. (response is awaited)
 	 */
 	struct mutex se_if_cmd_lock;
+	struct se_msg_seq_ctrl se_msg_sq_ctl;
 
 	struct mbox_client se_mb_cl;
 	struct mbox_chan *tx_chan, *rx_chan;

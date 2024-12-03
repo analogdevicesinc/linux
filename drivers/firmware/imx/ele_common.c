@@ -5,6 +5,7 @@
 
 #include "ele_base_msg.h"
 #include "ele_common.h"
+#include "se_msg_sqfl_ctrl.h"
 
 u32 se_add_msg_crc(u32 *msg, u32 msg_len)
 {
@@ -103,6 +104,8 @@ int ele_msg_send_rcv(struct se_if_device_ctx *dev_ctx,
 {
 	int err;
 	struct se_if_priv *priv = dev_ctx->priv;
+
+	se_qualify_msg_seq_flow(&priv->se_msg_sq_ctl, tx_msg);
 
 	guard(mutex)(&priv->se_if_cmd_lock);
 

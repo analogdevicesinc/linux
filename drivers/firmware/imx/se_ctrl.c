@@ -1901,6 +1901,7 @@ static int se_if_probe(struct platform_device *pdev)
 		priv->mu_mem.dma_addr = (u64)priv->mu_mem.ptr;
 	}
 	mutex_init(&priv->se_if_cmd_lock);
+	mutex_init(&priv->se_msg_sq_ctl.se_msg_sq_lk);
 
 	init_completion(&priv->waiting_rsp_clbk_hdl.done);
 	init_completion(&priv->cmd_receiver_clbk_hdl.done);
