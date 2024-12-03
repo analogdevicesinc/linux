@@ -1,4 +1,13 @@
 # SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+
+# TODO:RobH:
+#My bot found errors running 'make dt_binding_check' on your patch:
+#[Details in the e-mail]
+
+# TODO:JONATHANC: about the patch message
+# 5G or data converter clock applications.
+# (no need to say applications twice)
+
 %YAML 1.2
 ---
 $id: http://devicetree.org/schemas/iio/frequency/adi,adf4382.yaml#
@@ -21,6 +30,8 @@ properties:
     enum:
       - adi,adf4382
       - adi,adf4382a
+# TODO:JONATHANC:
+# Description only talks about the a variant. Why is the one without the a?
 
   reg:
     maxItems: 1
@@ -31,10 +42,16 @@ properties:
   clocks:
     description: Clock to provide CLKIN reference clock signal.
     maxItems: 1
+# TODO:CONORD:
+# clocks:
+#   items:
+#     - description: foo
 
   clock-names:
     description:
       External clock that provides reference input frequency.
+# TODO:CONORD:
+# Drop the description, you have one above
     items:
       - const: ref_clk
 
@@ -46,41 +63,72 @@ properties:
 
   adi,charge-pump-microamp:
     description:
+# TODO:JAVIER:
+# These lines are a bit over 80 chars, maybe you could rearrange them.
+
+# TODO:JONATHANC:
+# Don't talk about the driver in a dt-binding. So delete last two sentences.
       The charge pump current that the external loop filter was designed for.
       If this property is not specified, then the charge pump current is set to the
       default 11100uA. The valid values are listed below. However, if the set value is
       not supported, the driver will look for the closest valid charge pump current.
     anyOf:
       - enum: [790, 990, 1190, 1380, 1590, 1980, 2390, 2790, 3180, 3970, 4770, 5570, 6330, 7910, 9510, 11100]
+# TODO:CONORD:
+# Just enum, drop the anyof.
 
   adi,ref-divider:
     description:
       Input divider of the reference frequency, cannot be lower then 1 or
       higher then 63.
+# TODO:JONATHANC:
+# Why can this not be derived by the required settings in the driver?
+# That is, why is this a characteristic of the board design?
     allOf:
+# TODO:CONORD:
+# This allof isn't required, all these can move up a level. Not entirely sure why this is actually required though, shouldn't the driver be able to compute this based on the output frequency requested?
       - $ref: /schemas/types.yaml#/definitions/uint32
       - minimum: 1
       - maximum: 63
       - default: 1
     maxItems: 1
+# TODO:JONATHANC:
+# Don't think the maxItems is needed.
+
+# TODO:CONORD:
+# drop this.
   
   adi,ref-doubler-enable:
+# TODO:JONATHANC:
+# As above. We should be able to figure out if this is necessary to meet a particular requested output.
     description:
       Enables the doubling of the reference clock.
     type: boolean
     maxItems: 1
+# TODO:CONORD:
+#type: flag
+# but same question here about why this is in the binding.
 
   adi,bleed-word:
     description:
       A small programmable constant charge pump current, known as bleed current,
       can be used to optimize the phase noise and fractional spurious signals
       in fractional mode.
+# TODO:JONATHANC:
+# Can we express this in standard units for current?
+# Also call it bleed-current.
     allOf:
       - $ref: /schemas/types.yaml#/definitions/uint32
       - minimum: 0
       - maximum: 4095
       - default: 0
     maxItems: 1
+# TODO:JONATHANC:
+# Don't think the maxItems is needed.
+
+# TODO:CONORD:
+# Same comments about allOf/maxItems here. Additionally, why is this in the binding, and not something controllable from userspace etc?
+# If it stays in the binding, why "bleed-word" and not "bleed-current-microamps" (or w/e other unit that is more appropriate)
 
   adi,power-up-frequency:
     description:
@@ -90,7 +138,13 @@ properties:
       - minimum: 687500000
       - maximum: 22000000000
       - default: 2305000000
+# TODO:JONATHANC:
+# Why does a default power up frequency make sense?
+# I'd kind of expect the device to not put anything out until software has configured it.
+
     maxItems: 1
+# TODO:CONORD:
+# Same comments here.
 
   adi,output-power-value:
     description:
@@ -102,24 +156,41 @@ properties:
       - maximum: 15
       - default: 11
     maxItems: 1
-  
+# TODO:CONORD:
+# Is this a unitless gain or a power that should have a unit?
+# Same comments as other properties about allOf/anyOf.
+
   adi,spi-3wire-enable:
     description:
+# TODO:JONATHANC:
+# Is this standard SPI 3 wire, or an ADI variant?
+# Is spi-3wire from main spi binding appropriate?
       Uses SPI in 3 wire mode, by default is uses 4 wire mode.
     type: boolean
     maxItems: 1
+# TODO:CONORD:
+# spi-3wire is a standard property
   
   adi,cmos-3v3:
     description:
+# TODO:JAVIER:
+# A nitpick I overlooked: default.
       Sets the SPI logic to 3.3V, by defautl it uses 1,8V.
+# TODO:JONATHANC:
+# spell check.
+# How do you configure it given with the wrong voltage is the SPI bus reliable?
     type: boolean
     maxItems: 1
+# TODO:CONORD:
+# type: flag. Drop the maxItems.
 
 required:
   - compatible
   - reg
   - clocks
   - clock-names
+# TODO:JONATHANC:
+# supplies usually required.
 
 additionalProperties: false
 
@@ -129,11 +200,16 @@ examples:
         #address-cells = <1>;
         #size-cells = <0>;
         frequency@0 {
+# TODO:JONATHANC:
+# Indentation is a bit random.
+# Stick to 4 spaces throughout.
           compatible = "adi,adf4382";
           reg = <0>;
           spi-max-frequency = <1000000>;
           clocks = <&adf4382_clkin>;
           clock-names = "ref_clk";
+# TODO:JAVIER:
+#Should it not be adi,charge-pump-microamp instead? dt_binding_check complains about this.
           adi,charge-pump-current = <15>;
           adi,ref-divider = <1>;
         };
