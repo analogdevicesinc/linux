@@ -517,9 +517,9 @@ static int xilinx_ai_engine_probe(struct platform_device *pdev)
 	adev->pm_node_id = pm_reg[1];
 
 	adev->clk = devm_clk_get(&pdev->dev, "aclk0");
-	if (!adev->clk) {
+	if (IS_ERR(adev->clk)) {
 		dev_err(&pdev->dev, "Failed to get device clock.\n");
-		return -EINVAL;
+		return PTR_ERR(adev->clk);
 	}
 
 	ret = xilinx_ai_engine_add_dev(adev, pdev);
@@ -811,7 +811,7 @@ static int __init xilinx_ai_engine_init(void)
 		return ret;
 	}
 
-	aie_class = class_create(THIS_MODULE, "aie");
+	aie_class = class_create("aie");
 	if (IS_ERR(aie_class)) {
 		pr_err("failed to create aie class\n");
 		unregister_chrdev_region(aie_major, AIE_DEV_MAX);
@@ -840,5 +840,5 @@ static void __exit xilinx_ai_engine_exit(void)
 module_exit(xilinx_ai_engine_exit);
 
 MODULE_AUTHOR("Xilinx, Inc.");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
 MODULE_IMPORT_NS(DMA_BUF);

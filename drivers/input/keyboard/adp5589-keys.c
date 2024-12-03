@@ -1006,9 +1006,9 @@ static int adp5589_i2c_get_driver_data(struct i2c_client *i2c,
 	return -ENODEV;
 }
 
-static int adp5589_probe(struct i2c_client *client,
-			 const struct i2c_device_id *id)
+static int adp5589_probe(struct i2c_client *client)
 {
+	const struct i2c_device_id *id = i2c_client_get_device_id(client);
 	struct adp5589_kpad *kpad;
 	const struct adp5589_kpad_platform_data *pdata =
 		adp5589_kpad_pdata_get(&client->dev);
@@ -1079,7 +1079,7 @@ static int adp5589_probe(struct i2c_client *client,
 	return 0;
 }
 
-static int __maybe_unused adp5589_suspend(struct device *dev)
+static int adp5589_suspend(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct adp5589_kpad *kpad = i2c_get_clientdata(client);
@@ -1090,7 +1090,7 @@ static int __maybe_unused adp5589_suspend(struct device *dev)
 	return 0;
 }
 
-static int __maybe_unused adp5589_resume(struct device *dev)
+static int adp5589_resume(struct device *dev)
 {
 	struct i2c_client *client = to_i2c_client(dev);
 	struct adp5589_kpad *kpad = i2c_get_clientdata(client);
@@ -1101,7 +1101,7 @@ static int __maybe_unused adp5589_resume(struct device *dev)
 	return 0;
 }
 
-static SIMPLE_DEV_PM_OPS(adp5589_dev_pm_ops, adp5589_suspend, adp5589_resume);
+static DEFINE_SIMPLE_DEV_PM_OPS(adp5589_dev_pm_ops, adp5589_suspend, adp5589_resume);
 
 static const struct of_device_id adp5589_of_match[] = {
 	{ .compatible = "adi,adp5585", .data = (void *)ADP5585_01 },
@@ -1122,7 +1122,7 @@ MODULE_DEVICE_TABLE(i2c, adp5589_id);
 static struct i2c_driver adp5589_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
-		.pm = &adp5589_dev_pm_ops,
+		.pm = pm_sleep_ptr(&adp5589_dev_pm_ops),
 		.of_match_table = adp5589_of_match,
 	},
 	.probe = adp5589_probe,

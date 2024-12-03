@@ -20,10 +20,10 @@
 #include <linux/remoteproc.h>
 #include <linux/skbuff.h>
 #include <linux/sysfs.h>
+#include <linux/delay.h>
 
 #include "remoteproc_internal.h"
 
-#define MAX_RPROCS	2 /* Support up to 2 RPU */
 #define BANK_LIST_PROP	"sram"
 #define DDR_LIST_PROP	"memory-region"
 #define PD_PROP		"power-domain"
@@ -34,8 +34,9 @@
 /* RX mailbox client buffer max length */
 #define RX_MBOX_CLIENT_BUF_MAX	(IPI_BUF_LEN_MAX + \
 				 sizeof(struct zynqmp_ipi_message))
-#define MAX_BANKS 4U
-#define MAX_BANKS_PER_CORE	3U
+#define MAX_BANKS 12U
+#define MAX_BANKS_PER_CORE	6U
+#define VERSAL_NET_CORES       4U
 
 /*
  * NOTE: The resource table size is currently hard-coded to a maximum
@@ -57,11 +58,16 @@ enum soc_type_t {
  * @tcm_bases:	collection of device addresses that SoC has for TCM banks
  * @num_tcms:	number of entries in the tcm base collection.
  *		for each core.
+ * @max_rprocs: Maximum number of remoteproc instances allowed per RPU core.
+ * max_banks:	Maximnum number of banks allowed for All Remoteproc instances
+ *		for a given SOC.
  */
 struct xlnx_rpu_soc_data {
 	enum soc_type_t soc_type;
 	unsigned int tcm_bases[MAX_BANKS_PER_CORE];
 	unsigned int num_tcms;
+	unsigned int max_rprocs;
+	unsigned int max_banks;
 };
 
 /*
@@ -176,7 +182,7 @@ static int sram_mem_release(struct rproc *rproc, struct rproc_mem_entry *mem)
 	 * zynqmp_pm_release_node should also fail so error out in this case.
 	 */
 
-	for (i = 0; i < MAX_BANKS; i++) {
+	for (i = 0; i < z_rproc->soc_data->max_banks; i++) {
 		pnode_id = sram_banks->ids[i];
 
 		if (!pnode_id)
@@ -495,13 +501,18 @@ static int sram_mem_alloc(struct rproc *rproc, struct rproc_mem_entry *mem)
 	 * Set bounds and mask here for later calculation.
 	 *
 	 * The last entry of valid_bank_bases is only used for Versal-Net
-	 * as it has a third bank at the device address 0x10000.
+	 * as it has a third bank at the device address 0x18000.
+	 *
+	 * Hold C banks here so that the device address mapping can be
+	 * handled later. There are 4 C TCM Banks.
 	 *
 	 * ZynqMP and Versal cases only have 2 TCM banks per core to handle.
 	 */
 	unsigned int versal_net[4] = { 0xEBA00000, 0x3FFFF, 0xEBAE0000, 0x8000 };
+	unsigned int vnet_c_banks[VERSAL_NET_CORES] = { 0xEBA20000, 0xEBA60000,
+							0xEBAA0000, 0xEBAE0000 };
 	unsigned int versal[4] = { 0xFFE00000, 0xFFFFF, 0xFFEB0000, 0x10000 };
-	unsigned int base, mask, high, len, bank, *sram_tbl;
+	unsigned int base, mask, high, len, bank, c_bank, i, *sram_tbl;
 	struct xlnx_rpu_rproc *z_rproc = rproc->priv;
 	struct device *dev = rproc->dev.parent;
 	void *va;
@@ -522,6 +533,18 @@ static int sram_mem_alloc(struct rproc *rproc, struct rproc_mem_entry *mem)
 	va = devm_ioremap_wc(dev, mem->da, mem->len);
 	if (!va)
 		return -ENOMEM;
+
+	/* Look for C bank as the address mapping is specific to Versal NET. */
+	c_bank = 0;
+	if (z_rproc->soc_data->soc_type == SOC_VERSAL_NET) {
+		for (i = 0; i < VERSAL_NET_CORES; i++) {
+			if (mem->da == vnet_c_banks[i]) {
+				c_bank = 1;
+				break;
+			}
+		}
+	}
+
 	/*
 	 * Handle TCM translation for R-series relative addresses. Check from
 	 * start to end of TCM banks in mapping.
@@ -533,6 +556,9 @@ static int sram_mem_alloc(struct rproc *rproc, struct rproc_mem_entry *mem)
 		 * The R5s expect their TCM banks to be at address 0x0 and 0x2000,
 		 * while on the Linux side they are at 0xffexxxxx. Zero out the high
 		 * 12 bits of the address.
+		 *
+		 * Versal-NET SOC TCM C Bank device address is not present for
+		 * other SOC's so add specific check if to see if applicable.
 		 */
 
 		/*
@@ -545,8 +571,11 @@ static int sram_mem_alloc(struct rproc *rproc, struct rproc_mem_entry *mem)
 		 * bits of the address.
 		 */
 		if ((z_rproc->soc_data->soc_type != SOC_VERSAL_NET && mem->da == 0x90000) ||
-		    mem->da == 0xB0000)
+		    mem->da == 0xB0000) {
 			mem->da -= 0x90000;
+		} else if (c_bank) {
+			mem->da = 0x18000;
+		}
 		/*
 		 * Check if one of the valid bank base addresses. If not
 		 * report error.
@@ -714,7 +743,17 @@ static int xlnx_rpu_prepare(struct rproc *rproc)
 		}
 	}
 
-	ret = parse_tcm_banks(rproc);
+	/*
+	 * R52 supports boot without TCM and OCM banks. ZynqMP and
+	 * Versal R5 require boot with vector table section in TCM bank.
+	 */
+	if (of_get_property(z_rproc->dev->of_node, BANK_LIST_PROP, &ret)) {
+		ret = parse_tcm_banks(rproc);
+	} else if (z_rproc->soc_data->soc_type != SOC_VERSAL_NET) {
+		dev_err(dev, "Missing required SRAM.\n");
+		ret = -EINVAL;
+	}
+
 	if (ret) {
 		dev_err(dev, "Unable to parse TCM banks\n");
 		return ret;
@@ -759,13 +798,6 @@ xlnx_rpu_rproc_get_loaded_rsc_table(struct rproc *rproc, size_t *table_sz)
 	return (struct resource_table *)z_rproc->rsc_va;
 }
 
-static int xlnx_rpu_rproc_detach(struct rproc *rproc)
-{
-	/* Remoteproc core sets the state to detached so don't do so here. */
-	(void)rproc;
-	return 0;
-}
-
 /*
  * xlnx_rpu_rproc_kick() - kick a firmware if mbox is provided
  * @rproc: RPU core's corresponding rproc structure
@@ -805,6 +837,18 @@ static void xlnx_rpu_rproc_kick(struct rproc *rproc, int vqid)
 		(void)ret;
 		(void)vqid;
 	}
+}
+
+static int xlnx_rpu_rproc_detach(struct rproc *rproc)
+{
+	/*
+	 * During detach op generate an interrupt via kick so firmware on
+	 * remote side can check virtio reset flag on this event and can avoid
+	 * polling.
+	 */
+	xlnx_rpu_rproc_kick(rproc, 0);
+
+	return 0;
 }
 
 static struct rproc_ops xlnx_rpu_rproc_ops = {
@@ -1137,16 +1181,6 @@ static int xlnx_rpu_remoteproc_probe(struct platform_device *pdev)
 	dev_dbg(dev, "RPU configuration: %s\n",
 		rpu_mode == PM_RPU_MODE_LOCKSTEP ? "lockstep" : "split");
 
-	/*
-	 * if 2 RPUs provided but one is lockstep, then we have an
-	 * invalid configuration.
-	 */
-
-	core_count = of_get_available_child_count(dev->of_node);
-	if ((rpu_mode == PM_RPU_MODE_LOCKSTEP && core_count != 1) ||
-	    core_count > MAX_RPROCS)
-		return -EINVAL;
-
 	cluster = devm_kzalloc(dev, sizeof(*cluster), GFP_KERNEL);
 	if (!cluster)
 		return -ENOMEM;
@@ -1168,6 +1202,16 @@ static int xlnx_rpu_remoteproc_probe(struct platform_device *pdev)
 		dev_err(dev, "SoC-specific data is not defined\n");
 		return -ENODEV;
 	}
+
+	/*
+	 * if 2 RPUs provided but one is lockstep, then we have an
+	 * invalid configuration.
+	 */
+
+	core_count = of_get_available_child_count(dev->of_node);
+	if ((rpu_mode == PM_RPU_MODE_LOCKSTEP && core_count != 1) ||
+	    core_count > data->max_rprocs)
+		return -EINVAL;
 
 	/* probe each individual RPU core's remoteproc-related info */
 	for_each_available_child_of_node(dev->of_node, nc) {
@@ -1255,18 +1299,24 @@ static const struct xlnx_rpu_soc_data zynqmp_data = {
 	.soc_type = SOC_ZYNQMP,
 	.tcm_bases = { 0x0, 0x20000 },
 	.num_tcms = 2U,
+	.max_rprocs = 2U,
+	.max_banks = 4U,
 };
 
 static const struct xlnx_rpu_soc_data versal_data = {
 	.soc_type = SOC_VERSAL,
 	.tcm_bases = { 0x0, 0x20000 },
 	.num_tcms = 2U,
+	.max_rprocs = 2U,
+	.max_banks = 4U,
 };
 
 static const struct xlnx_rpu_soc_data versal_net_data = {
 	.soc_type = SOC_VERSAL_NET,
-	.tcm_bases = { 0x0, 0x10000, 0x20000 },
+	.tcm_bases = { 0x0, 0x10000, 0x18000 },
 	.num_tcms = 3U,
+	.max_rprocs = VERSAL_NET_CORES,
+	.max_banks = 12U,
 };
 
 static const struct of_device_id xilinx_r5_of_match[] = {
@@ -1289,4 +1339,4 @@ static struct platform_driver zynqmp_r5_remoteproc_driver = {
 module_platform_driver(zynqmp_r5_remoteproc_driver);
 
 MODULE_AUTHOR("Ben Levinsky <ben.levinsky@xilinx.com>");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");

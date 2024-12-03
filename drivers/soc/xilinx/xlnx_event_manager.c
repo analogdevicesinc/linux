@@ -3,7 +3,7 @@
  * Xilinx Event Management Driver
  *
  *  Copyright (C) 2021 Xilinx, Inc.
- *  Copyright (C) 2023 Advanced Micro Devices, Inc.
+ *  Copyright (C) 2023 - 2024 Advanced Micro Devices, Inc.
  *
  *  Abhyuday Godhasara <abhyuday.godhasara@xilinx.com>
  */
@@ -22,7 +22,7 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 
-static DEFINE_PER_CPU_READ_MOSTLY(int, cpu_number1);
+static DEFINE_PER_CPU_READ_MOSTLY(int, dummy_cpu_number);
 
 static int virq_sgi;
 static int event_manager_availability = -EACCES;
@@ -81,19 +81,21 @@ struct registered_event_data {
 static bool xlnx_is_error_event(const u32 node_id)
 {
 	if (pm_sub_family_code == VERSAL_SUB_FAMILY_CODE) {
-		if (node_id == XPM_NODETYPE_VERSAL_EVENT_ERROR_PMC_ERR1 ||
-		    node_id == XPM_NODETYPE_VERSAL_EVENT_ERROR_PMC_ERR2 ||
-		    node_id == XPM_NODETYPE_VERSAL_EVENT_ERROR_PSM_ERR1 ||
-		    node_id == XPM_NODETYPE_VERSAL_EVENT_ERROR_PSM_ERR2)
+		if (node_id == VERSAL_EVENT_ERROR_PMC_ERR1 ||
+		    node_id == VERSAL_EVENT_ERROR_PMC_ERR2 ||
+		    node_id == VERSAL_EVENT_ERROR_PSM_ERR1 ||
+		    node_id == VERSAL_EVENT_ERROR_PSM_ERR2 ||
+		    node_id == VERSAL_EVENT_ERROR_SW_ERR)
 			return true;
 	} else {
-		if (node_id == XPM_NODETYPE_VERSAL_NET_EVENT_ERROR_PMC_ERR1 ||
-		    node_id == XPM_NODETYPE_VERSAL_NET_EVENT_ERROR_PMC_ERR2 ||
-		    node_id == XPM_NODETYPE_VERSAL_NET_EVENT_ERROR_PMC_ERR3 ||
-		    node_id == XPM_NODETYPE_VERSAL_NET_EVENT_ERROR_PSM_ERR1 ||
-		    node_id == XPM_NODETYPE_VERSAL_NET_EVENT_ERROR_PSM_ERR2 ||
-		    node_id == XPM_NODETYPE_VERSAL_NET_EVENT_ERROR_PSM_ERR3 ||
-		    node_id == XPM_NODETYPE_VERSAL_NET_EVENT_ERROR_PSM_ERR4)
+		if (node_id == VERSAL_NET_EVENT_ERROR_PMC_ERR1 ||
+		    node_id == VERSAL_NET_EVENT_ERROR_PMC_ERR2 ||
+		    node_id == VERSAL_NET_EVENT_ERROR_PMC_ERR3 ||
+		    node_id == VERSAL_NET_EVENT_ERROR_PSM_ERR1 ||
+		    node_id == VERSAL_NET_EVENT_ERROR_PSM_ERR2 ||
+		    node_id == VERSAL_NET_EVENT_ERROR_PSM_ERR3 ||
+		    node_id == VERSAL_NET_EVENT_ERROR_PSM_ERR4 ||
+		    node_id == VERSAL_NET_EVENT_ERROR_SW_ERR)
 			return true;
 	}
 
@@ -206,11 +208,12 @@ static int xlnx_remove_cb_for_suspend(event_cb_func_t cb_fun)
 	struct registered_event_data *eve_data;
 	struct agent_cb *cb_pos;
 	struct agent_cb *cb_next;
+	struct hlist_node *tmp;
 
 	is_need_to_unregister = false;
 
 	/* Check for existing entry in hash table for given cb_type */
-	hash_for_each_possible(reg_driver_map, eve_data, hentry, PM_INIT_SUSPEND_CB) {
+	hash_for_each_possible_safe(reg_driver_map, eve_data, tmp, hentry, PM_INIT_SUSPEND_CB) {
 		if (eve_data->cb_type == PM_INIT_SUSPEND_CB) {
 			/* Delete the list of callback */
 			list_for_each_entry_safe(cb_pos, cb_next, &eve_data->cb_list_head, list) {
@@ -242,11 +245,12 @@ static int xlnx_remove_cb_for_notify_event(const u32 node_id, const u32 event,
 	u64 key = ((u64)node_id << 32U) | (u64)event;
 	struct agent_cb *cb_pos;
 	struct agent_cb *cb_next;
+	struct hlist_node *tmp;
 
 	is_need_to_unregister = false;
 
 	/* Check for existing entry in hash table for given key id */
-	hash_for_each_possible(reg_driver_map, eve_data, hentry, key) {
+	hash_for_each_possible_safe(reg_driver_map, eve_data, tmp, hentry, key) {
 		if (eve_data->key == key) {
 			/* Delete the list of callback */
 			list_for_each_entry_safe(cb_pos, cb_next, &eve_data->cb_list_head, list) {
@@ -495,7 +499,7 @@ static void xlnx_call_notify_cb_handler(const u32 *payload)
 
 static void xlnx_get_event_callback_data(u32 *buf)
 {
-	zynqmp_pm_invoke_fn(GET_CALLBACK_DATA, 0, 0, 0, 0, 0, buf);
+	zynqmp_pm_invoke_fn(GET_CALLBACK_DATA, buf, 0);
 }
 
 static irqreturn_t xlnx_event_handler(int irq, void *dev_id)
@@ -567,7 +571,6 @@ static void xlnx_disable_percpu_irq(void *data)
 static int xlnx_event_init_sgi(struct platform_device *pdev)
 {
 	int ret = 0;
-	int cpu;
 	/*
 	 * IRQ related structures are used for the following:
 	 * for each SGI interrupt ensure its mapped by GIC IRQ domain
@@ -604,11 +607,8 @@ static int xlnx_event_init_sgi(struct platform_device *pdev)
 	sgi_fwspec.param[0] = sgi_num;
 	virq_sgi = irq_create_fwspec_mapping(&sgi_fwspec);
 
-	cpu = get_cpu();
-	per_cpu(cpu_number1, cpu) = cpu;
 	ret = request_percpu_irq(virq_sgi, xlnx_event_handler, "xlnx_event_mgmt",
-				 &cpu_number1);
-	put_cpu();
+				 &dummy_cpu_number);
 
 	WARN_ON(ret);
 	if (ret) {
@@ -624,16 +624,12 @@ static int xlnx_event_init_sgi(struct platform_device *pdev)
 
 static void xlnx_event_cleanup_sgi(struct platform_device *pdev)
 {
-	int cpu = smp_processor_id();
-
-	per_cpu(cpu_number1, cpu) = cpu;
-
 	cpuhp_remove_state(CPUHP_AP_ONLINE_DYN);
 
 	on_each_cpu(xlnx_disable_percpu_irq, NULL, 1);
 
 	irq_clear_status_flags(virq_sgi, IRQ_PER_CPU);
-	free_percpu_irq(virq_sgi, &cpu_number1);
+	free_percpu_irq(virq_sgi, &dummy_cpu_number);
 	irq_dispose_mapping(virq_sgi);
 }
 
@@ -669,11 +665,10 @@ static int xlnx_event_manager_probe(struct platform_device *pdev)
 
 	ret = zynqmp_pm_register_sgi(sgi_num, 0);
 	if (ret) {
-		if (ret == -ENOTSUPP)
-			dev_info(&pdev->dev, "PM firmware event notification not supported\n");
+		if (ret == -EOPNOTSUPP)
+			dev_err(&pdev->dev, "SGI registration not supported by TF-A or Xen\n");
 		else
-			dev_err(&pdev->dev, "SGI %d registration failed, err %d\n",
-				sgi_num, ret);
+			dev_err(&pdev->dev, "SGI %d registration failed, err %d\n", sgi_num, ret);
 
 		xlnx_event_cleanup_sgi(pdev);
 		return ret;
@@ -689,7 +684,7 @@ static int xlnx_event_manager_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int xlnx_event_manager_remove(struct platform_device *pdev)
+static void xlnx_event_manager_remove(struct platform_device *pdev)
 {
 	int i;
 	struct registered_event_data *eve_data;
@@ -714,13 +709,11 @@ static int xlnx_event_manager_remove(struct platform_device *pdev)
 	xlnx_event_cleanup_sgi(pdev);
 
 	event_manager_availability = -EACCES;
-
-	return ret;
 }
 
 static struct platform_driver xlnx_event_manager_driver = {
 	.probe = xlnx_event_manager_probe,
-	.remove = xlnx_event_manager_remove,
+	.remove_new = xlnx_event_manager_remove,
 	.driver = {
 		.name = "xlnx_event_manager",
 	},

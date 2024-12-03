@@ -718,7 +718,7 @@ static const struct iio_chan_spec_ext_info adf4159_ext_info[] = {
 			  ADF4159_FREQ_DEV_TIME, IIO_SEPARATE),
 	_ADF4159_EXT_INFO("powerdown", ADF4159_PWRDOWN, IIO_SEPARATE),
 	IIO_ENUM_AVAILABLE("ramp_mode", IIO_SHARED_BY_TYPE, &adf4159_ramp_modes_available),
-	IIO_ENUM("ramp_mode", false, &adf4159_ramp_modes_available),
+	IIO_ENUM("ramp_mode", IIO_SEPARATE, &adf4159_ramp_modes_available),
 	{ },
 };
 

@@ -349,7 +349,7 @@ static struct i2c_driver tps544_driver = {
 		.name = "tps544",
 		.of_match_table = of_match_ptr(tps544_of_match),
 	},
-	.probe_new = tps544_probe,
+	.probe = tps544_probe,
 	.remove = tps544_remove,
 	.id_table = tps544_id,
 };
@@ -358,4 +358,4 @@ module_i2c_driver(tps544_driver);
 
 MODULE_AUTHOR("Harini Katakam");
 MODULE_DESCRIPTION("PMBus regulator driver for TPS544");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");

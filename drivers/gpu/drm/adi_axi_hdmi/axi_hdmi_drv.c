@@ -21,6 +21,7 @@
 #include <drm/drm_atomic_helper.h>
 #include <drm/drm_crtc_helper.h>
 #include <drm/drm_drv.h>
+#include <drm/drm_fbdev_generic.h>
 #include <drm/drm_fb_helper.h>
 #include <drm/drm_gem_dma_helper.h>
 #include <drm/drm_gem_framebuffer_helper.h>
@@ -121,8 +122,6 @@ static struct drm_driver axi_hdmi_driver = {
 	.driver_features	= DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC,
 	.unload			= axi_hdmi_unload,
 	.lastclose		= drm_fb_helper_lastclose,
-	.prime_handle_to_fd	= drm_gem_prime_handle_to_fd,
-	.prime_fd_to_handle	= drm_gem_prime_fd_to_handle,
 	.gem_prime_import	= drm_gem_prime_import,
 	.gem_prime_import_sg_table = drm_gem_dma_prime_import_sg_table,
 	.dumb_create		= drm_gem_dma_dumb_create,

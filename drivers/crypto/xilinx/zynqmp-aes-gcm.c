@@ -10,13 +10,14 @@
 #include <crypto/gcm.h>
 #include <crypto/internal/aead.h>
 #include <crypto/scatterwalk.h>
-
 #include <linux/dma-mapping.h>
-#include <linux/module.h>
-#include <linux/of_device.h>
-#include <linux/platform_device.h>
-
+#include <linux/err.h>
 #include <linux/firmware/xlnx-zynqmp.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/mod_devicetable.h>
+#include <linux/platform_device.h>
+#include <linux/string.h>
 
 #define ZYNQMP_DMA_BIT_MASK	32U
 
@@ -27,6 +28,7 @@
 #define ZYNQMP_AES_MIN_INPUT_BLK_SIZE	4U
 #define ZYNQMP_AES_WORD_LEN		4U
 #define VERSAL_AES_QWORD_LEN		16U
+#define ZYNQMP_AES_DEVICE_LEY_LEN	1U
 
 #define ZYNQMP_AES_GCM_TAG_MISMATCH_ERR		0x01
 #define ZYNQMP_AES_WRONG_KEY_SRC_ERR		0x13
@@ -79,7 +81,6 @@ enum versal_aes_keysize {
 };
 
 struct zynqmp_aead_tfm_ctx {
-	struct crypto_engine_ctx engine_ctx;
 	struct device *dev;
 	u8 key[ZYNQMP_AES_KEY_SIZE];
 	u8 *iv;
@@ -90,7 +91,7 @@ struct zynqmp_aead_tfm_ctx {
 };
 
 struct xilinx_aead_drv_ctx {
-	struct aead_alg aead;
+	struct aead_engine_alg aead;
 	struct device *dev;
 	struct crypto_engine *engine;
 	int (*aes_aead_cipher)(struct aead_request *areq);
@@ -360,60 +361,50 @@ err:
 static int zynqmp_fallback_check(struct zynqmp_aead_tfm_ctx *tfm_ctx,
 				 struct aead_request *req)
 {
-	int need_fallback = 0;
 	struct zynqmp_aead_req_ctx *rq_ctx = aead_request_ctx(req);
 
-	if (tfm_ctx->authsize != ZYNQMP_AES_AUTH_SIZE)
-		need_fallback = 1;
+	if ((tfm_ctx->keysrc == ZYNQMP_AES_KUP_KEY &&
+	     tfm_ctx->keylen != ZYNQMP_AES_KEY_SIZE) ||
+	    (tfm_ctx->keysrc == ZYNQMP_AES_DEV_KEY &&
+	     tfm_ctx->keylen != ZYNQMP_AES_DEVICE_LEY_LEN))
+		return 1;
 
-	if (tfm_ctx->keysrc == ZYNQMP_AES_KUP_KEY &&
-	    tfm_ctx->keylen != ZYNQMP_AES_KEY_SIZE) {
-		need_fallback = 1;
-	}
 	if (req->assoclen != 0 ||
-	    req->cryptlen < ZYNQMP_AES_MIN_INPUT_BLK_SIZE) {
-		need_fallback = 1;
-	}
+	    req->cryptlen < ZYNQMP_AES_MIN_INPUT_BLK_SIZE)
+		return 1;
+
 	if ((req->cryptlen % ZYNQMP_AES_WORD_LEN) != 0)
-		need_fallback = 1;
+		return 1;
 
 	if (rq_ctx->op == ZYNQMP_AES_DECRYPT &&
-	    req->cryptlen <= ZYNQMP_AES_AUTH_SIZE) {
-		need_fallback = 1;
-	}
-	return need_fallback;
+	    req->cryptlen <= ZYNQMP_AES_AUTH_SIZE)
+		return 1;
+
+	return 0;
 }
 
 static int versal_fallback_check(struct zynqmp_aead_tfm_ctx *tfm_ctx,
 				 struct aead_request *req)
 {
-	int need_fallback = 0;
 	struct zynqmp_aead_req_ctx *rq_ctx = aead_request_ctx(req);
 
-	if (tfm_ctx->authsize != ZYNQMP_AES_AUTH_SIZE) {
-		need_fallback = 1;
-		goto fallback;
-	}
+	if (tfm_ctx->authsize != ZYNQMP_AES_AUTH_SIZE)
+		return 1;
 
 	if (tfm_ctx->keylen != XSECURE_AES_KEY_SIZE_128 &&
-	    tfm_ctx->keylen != XSECURE_AES_KEY_SIZE_256) {
-		need_fallback = 1;
-		goto fallback;
-	}
+	    tfm_ctx->keylen != XSECURE_AES_KEY_SIZE_256)
+		return 1;
 
 	if (req->cryptlen < ZYNQMP_AES_MIN_INPUT_BLK_SIZE ||
 	    req->cryptlen % ZYNQMP_AES_WORD_LEN ||
-	    req->assoclen % VERSAL_AES_QWORD_LEN) {
-		need_fallback = 1;
-		goto fallback;
-	}
+	    req->assoclen % VERSAL_AES_QWORD_LEN)
+		return 1;
+
 	if (rq_ctx->op == ZYNQMP_AES_DECRYPT &&
-	    req->cryptlen <= ZYNQMP_AES_AUTH_SIZE) {
-		need_fallback = 1;
-		goto fallback;
-	}
-fallback:
-	return need_fallback;
+	    req->cryptlen <= ZYNQMP_AES_AUTH_SIZE)
+		return 1;
+
+	return 0;
 }
 
 static int handle_aes_req(struct crypto_engine *engine, void *req)
@@ -430,7 +421,7 @@ static int handle_aes_req(struct crypto_engine *engine, void *req)
 	int need_fallback;
 	int err;
 
-	drv_ctx = container_of(alg, struct xilinx_aead_drv_ctx, aead);
+	drv_ctx = container_of(alg, struct xilinx_aead_drv_ctx, aead.base);
 	need_fallback = drv_ctx->fallback_check(tfm_ctx, areq);
 
 	if (need_fallback) {
@@ -467,6 +458,7 @@ static int zynqmp_aes_aead_setkey(struct crypto_aead *aead, const u8 *key,
 		    keysrc == ZYNQMP_AES_DEV_KEY ||
 		    keysrc == ZYNQMP_AES_PUF_KEY) {
 			tfm_ctx->keysrc = keysrc;
+			tfm_ctx->keylen = keylen;
 		}
 		return 0;
 	} else {
@@ -545,7 +537,7 @@ static int zynqmp_aes_aead_encrypt(struct aead_request *req)
 	struct zynqmp_aead_req_ctx *rq_ctx = aead_request_ctx(req);
 
 	rq_ctx->op = ZYNQMP_AES_ENCRYPT;
-	drv_ctx = container_of(alg, struct xilinx_aead_drv_ctx, aead);
+	drv_ctx = container_of(alg, struct xilinx_aead_drv_ctx, aead.base);
 
 	return crypto_transfer_aead_request_to_engine(drv_ctx->engine, req);
 }
@@ -558,7 +550,7 @@ static int zynqmp_aes_aead_decrypt(struct aead_request *req)
 	struct zynqmp_aead_req_ctx *rq_ctx = aead_request_ctx(req);
 
 	rq_ctx->op = ZYNQMP_AES_DECRYPT;
-	drv_ctx = container_of(alg, struct xilinx_aead_drv_ctx, aead);
+	drv_ctx = container_of(alg, struct xilinx_aead_drv_ctx, aead.base);
 
 	return crypto_transfer_aead_request_to_engine(drv_ctx->engine, req);
 }
@@ -571,20 +563,16 @@ static int aes_aead_init(struct crypto_aead *aead)
 	struct xilinx_aead_drv_ctx *drv_ctx;
 	struct aead_alg *alg = crypto_aead_alg(aead);
 
-	drv_ctx = container_of(alg, struct xilinx_aead_drv_ctx, aead);
+	drv_ctx = container_of(alg, struct xilinx_aead_drv_ctx, aead.base);
 	tfm_ctx->dev = drv_ctx->dev;
 
-	tfm_ctx->engine_ctx.op.do_one_request = handle_aes_req;
-	tfm_ctx->engine_ctx.op.prepare_request = NULL;
-	tfm_ctx->engine_ctx.op.unprepare_request = NULL;
-
-	tfm_ctx->fbk_cipher = crypto_alloc_aead(drv_ctx->aead.base.cra_name,
+	tfm_ctx->fbk_cipher = crypto_alloc_aead(drv_ctx->aead.base.base.cra_name,
 						0,
 						CRYPTO_ALG_NEED_FALLBACK);
 
 	if (IS_ERR(tfm_ctx->fbk_cipher)) {
 		pr_err("%s() Error: failed to allocate fallback for %s\n",
-		       __func__, drv_ctx->aead.base.cra_name);
+		       __func__, drv_ctx->aead.base.base.cra_name);
 		return PTR_ERR(tfm_ctx->fbk_cipher);
 	}
 
@@ -611,7 +599,7 @@ static void zynqmp_aes_aead_exit(struct crypto_aead *aead)
 static struct xilinx_aead_drv_ctx zynqmp_aes_drv_ctx = {
 	.fallback_check = zynqmp_fallback_check,
 	.aes_aead_cipher = zynqmp_aes_aead_cipher,
-	.aead = {
+	.aead.base = {
 		.setkey		= zynqmp_aes_aead_setkey,
 		.setauthsize	= zynqmp_aes_aead_setauthsize,
 		.encrypt	= zynqmp_aes_aead_encrypt,
@@ -633,13 +621,16 @@ static struct xilinx_aead_drv_ctx zynqmp_aes_drv_ctx = {
 		.cra_ctxsize		= sizeof(struct zynqmp_aead_tfm_ctx),
 		.cra_module		= THIS_MODULE,
 		}
-	}
+	},
+	.aead.op = {
+		.do_one_request = handle_aes_req,
+	},
 };
 
 static struct xilinx_aead_drv_ctx versal_aes_drv_ctx = {
 	.fallback_check		= versal_fallback_check,
 	.aes_aead_cipher	= versal_aes_aead_cipher,
-	.aead = {
+	.aead.base = {
 		.setkey		= versal_aes_aead_setkey,
 		.setauthsize	= zynqmp_aes_aead_setauthsize,
 		.encrypt	= zynqmp_aes_aead_encrypt,
@@ -661,7 +652,10 @@ static struct xilinx_aead_drv_ctx versal_aes_drv_ctx = {
 		.cra_ctxsize		= sizeof(struct zynqmp_aead_tfm_ctx),
 		.cra_module		= THIS_MODULE,
 		}
-	}
+	},
+	.aead.op = {
+		.do_one_request = handle_aes_req,
+	},
 };
 
 static struct xlnx_feature aes_feature_map[] = {
@@ -720,7 +714,7 @@ static int zynqmp_aes_aead_probe(struct platform_device *pdev)
 		goto err_engine;
 	}
 
-	err = crypto_register_aead(&aes_drv_ctx->aead);
+	err = crypto_engine_register_aead(&aes_drv_ctx->aead);
 	if (err < 0) {
 		dev_err(dev, "Failed to register AEAD alg.\n");
 		goto err_engine;
@@ -741,8 +735,7 @@ static int zynqmp_aes_aead_remove(struct platform_device *pdev)
 	aes_drv_ctx = platform_get_drvdata(pdev);
 
 	crypto_engine_exit(aes_drv_ctx->engine);
-
-	crypto_unregister_aead(&aes_drv_ctx->aead);
+	crypto_engine_unregister_aead(&aes_drv_ctx->aead);
 
 	return 0;
 }

@@ -13,7 +13,7 @@
 #include <linux/gpio.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/of_gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/platform_device.h>
 #include <linux/string.h>
 #include <sound/jack.h>
@@ -46,10 +46,8 @@ struct adrv936x_simple_card_data {
 		unsigned int mclk_fs;
 	} *dai_props;
 	unsigned int mclk_fs;
-	int gpio_hp_det;
-	int gpio_hp_det_invert;
-	int gpio_mic_det;
-	int gpio_mic_det_invert;
+	struct gpio_desc *hp_det;
+	struct gpio_desc *mic_det;
 	struct snd_soc_dai_link dai_link[];	/* dynamically allocated */
 };
 
@@ -204,27 +202,25 @@ static int adrv9363x_box_card_dai_init(struct snd_soc_pcm_runtime *rtd)
 	if (ret < 0)
 		return ret;
 
-	if (gpio_is_valid(priv->gpio_hp_det)) {
+	if (priv->hp_det) {
 		snd_soc_card_jack_new_pins(rtd->card, "Headphones",
 					   SND_JACK_HEADPHONE,
 					   &simple_card_hp_jack,
 					   simple_card_hp_jack_pins,
 					   ARRAY_SIZE(simple_card_hp_jack_pins));
 
-		simple_card_hp_jack_gpio.gpio = priv->gpio_hp_det;
-		simple_card_hp_jack_gpio.invert = priv->gpio_hp_det_invert;
+		simple_card_hp_jack_gpio.desc = priv->hp_det;
 		snd_soc_jack_add_gpios(&simple_card_hp_jack, 1,
 				       &simple_card_hp_jack_gpio);
 	}
 
-	if (gpio_is_valid(priv->gpio_mic_det)) {
+	if (priv->mic_det) {
 		snd_soc_card_jack_new_pins(rtd->card, "Mic Jack",
 					   SND_JACK_MICROPHONE,
 					   &simple_card_mic_jack,
 					   simple_card_mic_jack_pins,
 					   ARRAY_SIZE(simple_card_mic_jack_pins));
-		simple_card_mic_jack_gpio.gpio = priv->gpio_mic_det;
-		simple_card_mic_jack_gpio.invert = priv->gpio_mic_det_invert;
+		simple_card_mic_jack_gpio.desc = priv->mic_det;
 		snd_soc_jack_add_gpios(&simple_card_mic_jack, 1,
 				       &simple_card_mic_jack_gpio);
 	}
@@ -271,7 +267,7 @@ adrv9363x_box_card_sub_parse_of(struct device_node *np,
 		*args_count = args.args_count;
 
 	/* Get dai->name */
-	ret = snd_soc_of_get_dai_name(np, name);
+	ret = snd_soc_of_get_dai_name(np, name, 0);
 	if (ret < 0)
 		return ret;
 
@@ -466,7 +462,6 @@ static int adrv9363x_box_card_parse_of(struct device_node *node,
 				     struct adrv936x_simple_card_data *priv)
 {
 	struct device *dev = adrv936x_box_simple_priv_to_dev(priv);
-	enum of_gpio_flags flags;
 	u32 val;
 	int ret;
 
@@ -522,17 +517,15 @@ static int adrv9363x_box_card_parse_of(struct device_node *node,
 			return ret;
 	}
 
-	priv->gpio_hp_det = of_get_named_gpio_flags(node,
-				"simple-audio-card,hp-det-gpio", 0, &flags);
-	priv->gpio_hp_det_invert = !!(flags & OF_GPIO_ACTIVE_LOW);
-	if (priv->gpio_hp_det == -EPROBE_DEFER)
-		return -EPROBE_DEFER;
+	priv->hp_det = devm_gpiod_get_optional(dev, "simple-audio-card,hp-det-gpio",
+					       GPIOD_IN);
+	if (IS_ERR(priv->hp_det))
+		return PTR_ERR(priv->hp_det);
 
-	priv->gpio_mic_det = of_get_named_gpio_flags(node,
-				"simple-audio-card,mic-det-gpio", 0, &flags);
-	priv->gpio_mic_det_invert = !!(flags & OF_GPIO_ACTIVE_LOW);
-	if (priv->gpio_mic_det == -EPROBE_DEFER)
-		return -EPROBE_DEFER;
+	priv->mic_det = devm_gpiod_get_optional(dev, "simple-audio-card,mic-det-gpio",
+						GPIOD_IN);
+	if (IS_ERR(priv->mic_det))
+		return PTR_ERR(priv->mic_det);
 
 	if (!priv->snd_card.name)
 		priv->snd_card.name = priv->snd_card.dai_link->name;
@@ -633,9 +626,6 @@ static int adrv9363x_box_card_probe(struct platform_device *pdev)
 	priv->snd_card.aux_dev = &headset_dev;
 	priv->snd_card.num_aux_devs = 1;
 
-	priv->gpio_hp_det = -ENOENT;
-	priv->gpio_mic_det = -ENOENT;
-
 	/* Get room for the other properties */
 	priv->dai_props = devm_kzalloc(dev,
 			sizeof(*priv->dai_props) * num_links,
@@ -700,14 +690,6 @@ err:
 static int adrv9363x_box_card_remove(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
-	struct adrv936x_simple_card_data *priv = snd_soc_card_get_drvdata(card);
-
-	if (gpio_is_valid(priv->gpio_hp_det))
-		snd_soc_jack_free_gpios(&simple_card_hp_jack, 1,
-					&simple_card_hp_jack_gpio);
-	if (gpio_is_valid(priv->gpio_mic_det))
-		snd_soc_jack_free_gpios(&simple_card_mic_jack, 1,
-					&simple_card_mic_jack_gpio);
 
 	return adrv9363x_box_card_unref(card);
 }

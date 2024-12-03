@@ -72,8 +72,8 @@
 
 	firmware {
 		versal_net_firmware: versal-net-firmware {
-			compatible = "xlnx,versal-net-firmware";
-			u-boot,dm-pre-reloc;
+			compatible = "xlnx,versal-net-firmware", "xlnx,versal-firmware";
+			bootph-all;
 			method = "smc";
 
 			versal_net_reset: reset-controller {
@@ -131,7 +131,6 @@
 &gem1 {
 	clocks = <&clk125>, <&clk125>, <&clk125>, <&clk125>, <&clk250>;
 };
-
 
 &gpio0 {
 	clocks = <&clk100>;

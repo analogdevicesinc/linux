@@ -22,7 +22,7 @@
 
 #define DRIVER_NAME "mathworks_ip"
 
-// DMA Read/Write for use with HDL Verifier BRAM 
+// DMA Read/Write for use with HDL Verifier BRAM
 #define HDLV_BRAM_BASE_ADDR 262144
 
 /*Device structure for IPCore information*/
@@ -67,7 +67,7 @@ static int mathworks_ip_open(struct inode *inode, struct file *fp)
     struct mathworks_ip_info *thisIpcore;
     thisIpcore = container_of(inode->i_cdev, struct mathworks_ip_info, cdev);
     fp->private_data = thisIpcore;
-    
+
     return 0;
 }
 
@@ -80,43 +80,43 @@ static int mathworks_ip_close(struct inode *inode, struct file *fp)
 static int mathworks_ip_dma_alloc(struct mathworks_ip_info *thisIpcore, size_t size) {
 
 	struct mw_dma_info *dinfo = &thisIpcore->dma_info;
-	
+
 	if (dinfo->size != 0) {
-		dev_err(thisIpcore->dev, "DMA memory already allocated\n");		
+		dev_err(thisIpcore->dev, "DMA memory already allocated\n");
 		return -EEXIST;
 	}
-	
+
 	dinfo->virt = dmam_alloc_coherent(thisIpcore->dev, size,
 						&dinfo->phys, GFP_KERNEL);
 	if(!dinfo->virt){
-		dev_err(thisIpcore->dev, "failed to allocate DMA memory\n");		
+		dev_err(thisIpcore->dev, "failed to allocate DMA memory\n");
 		return -ENOMEM;
 	}
 	dinfo->size = size;
-	
+
 	return 0;
 
 }
 
 static int	mathworks_ip_dma_info(struct mathworks_ip_info *thisIpcore, void *arg)
 {
-	
+
 	struct mathworks_ip_dma_info dinfo;
-	
+
 	/* Copy the struct from user space */
 	if( copy_from_user(&dinfo, (struct mathworks_ip_dma_info *)arg, sizeof(struct mathworks_ip_dma_info)) ) {
 		return -EACCES;
 	}
-	
+
 	/* Populate the struct with information */
 	dinfo.size = thisIpcore->dma_info.size;
 	dinfo.phys = (void *)((uintptr_t)thisIpcore->dma_info.phys);
-	
+
 	/* Copy the struct back to user space */
 	if( copy_to_user((struct mathworks_ip_dma_info*)arg, &dinfo, sizeof(struct mathworks_ip_dma_info)) ) {
 		return -EACCES;
 	}
-	
+
 	return 0;
 
 }
@@ -194,18 +194,18 @@ static void mathworks_ip_mmap_dma_open(struct vm_area_struct *vma)
 {
     struct mathworks_ip_info * thisIpcore = vma->vm_private_data;
 	dev_info(thisIpcore->dev, "DMA VMA open, virt %lx, phys %lx \n", vma->vm_start, vma->vm_pgoff << PAGE_SHIFT);
-    
+
 }
 
 static void mathworks_ip_mmap_dma_close(struct vm_area_struct *vma)
 {
     struct mathworks_ip_info * thisIpcore = vma->vm_private_data;
 	dev_info(thisIpcore->dev, "DMA VMA close.\n");
-	
+
 	/* Free the memory DMA */
 	dmam_free_coherent(thisIpcore->dev,thisIpcore->dma_info.size,
 				thisIpcore->dma_info.virt, thisIpcore->dma_info.phys);
-	
+
 	/* Set the size to zero to indicate no memory is allocated */
 	thisIpcore->dma_info.size = 0;
 }
@@ -214,7 +214,7 @@ static void mathworks_ip_mmap_open(struct vm_area_struct *vma)
 {
     struct mathworks_ip_info * thisIpcore = vma->vm_private_data;
 	dev_info(thisIpcore->dev, "Simple VMA open, virt %lx, phys %lx \n", vma->vm_start, vma->vm_pgoff << PAGE_SHIFT);
-    
+
 }
 
 static void mathworks_ip_mmap_close(struct vm_area_struct *vma)
@@ -231,7 +231,7 @@ static vm_fault_t mathworks_ip_mmap_fault(struct vm_fault *vmf)
     struct page *thisPage;
     unsigned long offset;
     offset = (vmf->pgoff - vma->vm_pgoff) << PAGE_SHIFT;
-    thisPage = virt_to_page(thisIpcore->mem->start + offset);
+    thisPage = virt_to_page((void *)(thisIpcore->mem->start + offset));
     get_page(thisPage);
     vmf->page = thisPage;
     return 0;
@@ -241,12 +241,12 @@ static struct vm_operations_struct mathworks_ip_mmap_ops = {
     .open   = mathworks_ip_mmap_open,
     .close  = mathworks_ip_mmap_close,
     .fault = mathworks_ip_mmap_fault,
-}; 
+};
 
 static struct vm_operations_struct mathworks_ip_mmap_dma_ops = {
     .open   = mathworks_ip_mmap_dma_open,
     .close  = mathworks_ip_mmap_dma_close,
-}; 
+};
 
 static int mathworks_ip_mmap(struct file *fp, struct vm_area_struct *vma)
 {
@@ -254,16 +254,16 @@ static int mathworks_ip_mmap(struct file *fp, struct vm_area_struct *vma)
     size_t	size = vma->vm_end - vma->vm_start;
 	int status = 0;
 	vma->vm_private_data = thisIpcore;
-	
+
 	dev_info(thisIpcore->dev, "[MMAP] size:%X pgoff: %lx\n", (unsigned int)size, vma->vm_pgoff);
- 
+
 	switch(vma->vm_pgoff) {
-		case 0: 
+		case 0:
             if (!thisIpcore->mem) {
         		return -ENOMEM;
         	}
 			/* mmap the MMIO base address */
-			vma->vm_flags |= VM_IO | VM_DONTDUMP | VM_DONTDUMP; // may be redundant with call to remap_pfn_range below
+			vm_flags_set(vma, VM_IO | VM_DONTDUMP | VM_DONTDUMP); // may be redundant with call to remap_pfn_range below
 			vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
 			if (remap_pfn_range(vma, vma->vm_start,
 					thisIpcore->mem->start >> PAGE_SHIFT,
@@ -279,11 +279,11 @@ static int mathworks_ip_mmap(struct file *fp, struct vm_area_struct *vma)
 			status = mathworks_ip_dma_alloc(thisIpcore, size);
 			if (status != 0)
 				return status;
-						
+
 			if (thisIpcore->dma_info.size == 0 || size != thisIpcore->dma_info.size)
 				return -EINVAL;
 			/* We want to mmap the whole buffer */
-			vma->vm_pgoff = 0; 
+			vma->vm_pgoff = 0;
 			if (HDLV_BRAM_BASE_ADDR == vma->vm_pgoff) {
 				status =  dma_mmap_coherent(thisIpcore->dev,vma,
 					thisIpcore->dma_info.virt, thisIpcore->mem->start, size);
@@ -293,9 +293,9 @@ static int mathworks_ip_mmap(struct file *fp, struct vm_area_struct *vma)
 			}
 			vma->vm_ops = &mathworks_ip_mmap_dma_ops;
 			break;
-	} 
+	}
 	//vma->vm_ops->open(vma);
-	
+
 	return status;
 }
 
@@ -304,7 +304,7 @@ static long mathworks_ip_ioctl(struct file *fp, unsigned int cmd, unsigned long 
     /* struct ipcore_info *thisIpcore = fp->private_data; */
     int status;
 	struct mathworks_ip_info *thisIpcore = fp->private_data;
-    
+
     if (NULL==thisIpcore) {
         return -ENODEV;
     }
@@ -318,12 +318,12 @@ static long mathworks_ip_ioctl(struct file *fp, unsigned int cmd, unsigned long 
 		}
 
 		break;
-		
+
 	case MATHWORKS_IP_DMA_INFO:
-		
+
 		status = mathworks_ip_dma_info(thisIpcore, (void *)arg);
 		break;
-	
+
 	case MATHWORKS_IP_REG_INFO:
 
 		status = mathworks_ip_reg_info(thisIpcore, (void *)arg);
@@ -341,12 +341,10 @@ static void mathworks_ip_remove_cdev(void *opaque){
 	struct mathworks_ip_info *thisIpcore = opaque;
 
 	sysfs_remove_file(&thisIpcore->dev->kobj, &dev_attr_fpga_irq_0.attr);
-	if(&thisIpcore->cdev)
-	{
-		dev_info(thisIpcore->dev, "Destroy character dev\n");
-		device_destroy(mathworks_ip_class, thisIpcore->dev_id);
-		cdev_del(&thisIpcore->cdev);
-	}
+
+	dev_info(thisIpcore->dev, "Destroy character dev\n");
+	device_destroy(mathworks_ip_class, thisIpcore->dev_id);
+	cdev_del(&thisIpcore->cdev);
 
 	if (thisIpcore->dev_info){
 		thisIpcore->dev_info->devcnt--;
@@ -374,13 +372,13 @@ static int mathworks_ip_setup_cdev(struct mathworks_ip_info *thisIpcore)
 {
     int status = 0;
 	struct mathworks_ip_dev_info *dev_entry;
-   
+
 	if(mathworks_ip_class == NULL){
 		return -EPROBE_DEFER;
 	}
 	cdev_init(&thisIpcore->cdev, thisIpcore->ops->fops);
 	thisIpcore->cdev.owner = thisIpcore->module;
-   
+
 	/* Find the device name */
 	status = mathworks_ip_get_devinfo(thisIpcore);
 	if (status)
@@ -562,7 +560,7 @@ EXPORT_SYMBOL_GPL(devm_mathworks_ip_register);
 
 static int __init mathworks_ip_init(void)
 {
-	mathworks_ip_class = class_create(THIS_MODULE, DRIVER_NAME);
+	mathworks_ip_class = class_create(DRIVER_NAME);
 	if (IS_ERR(mathworks_ip_class))
 		return PTR_ERR(mathworks_ip_class);
 	pr_info("Registered %s class\n", DRIVER_NAME);

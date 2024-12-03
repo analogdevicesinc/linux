@@ -4,7 +4,7 @@
  *
  *  Copyright (C) 2014-2021 Xilinx, Inc.
  *
- *  Michal Simek <michal.simek@xilinx.com>
+ *  Michal Simek <michal.simek@amd.com>
  *  Davorin Mista <davorin.mista@aggios.com>
  *  Jolly Shah <jollys@xilinx.com>
  *  Rajan Vaja <rajanv@xilinx.com>
@@ -31,26 +31,18 @@ static char debugfs_buf[PAGE_SIZE];
 
 #define PM_API(id)		 {id, #id, strlen(#id)}
 static struct pm_api_info pm_api_list[] = {
-	PM_API(PM_REQUEST_SUSPEND),
-	PM_API(PM_SELF_SUSPEND),
 	PM_API(PM_FORCE_POWERDOWN),
-	PM_API(PM_ABORT_SUSPEND),
 	PM_API(PM_REQUEST_WAKEUP),
-	PM_API(PM_SET_WAKEUP_SOURCE),
 	PM_API(PM_SYSTEM_SHUTDOWN),
 	PM_API(PM_REQUEST_NODE),
 	PM_API(PM_RELEASE_NODE),
 	PM_API(PM_SET_REQUIREMENT),
-	PM_API(PM_SET_MAX_LATENCY),
 	PM_API(PM_GET_API_VERSION),
-	PM_API(PM_SET_CONFIGURATION),
 	PM_API(PM_GET_NODE_STATUS),
-	PM_API(PM_GET_OPERATING_CHARACTERISTIC),
 	PM_API(PM_REGISTER_NOTIFIER),
 	PM_API(PM_RESET_ASSERT),
 	PM_API(PM_RESET_GET_STATUS),
 	PM_API(PM_GET_CHIPID),
-	PM_API(PM_PINCTRL_GET_FUNCTION),
 	PM_API(PM_PINCTRL_SET_FUNCTION),
 	PM_API(PM_PINCTRL_CONFIG_PARAM_GET),
 	PM_API(PM_PINCTRL_CONFIG_PARAM_SET),
@@ -63,39 +55,9 @@ static struct pm_api_info pm_api_list[] = {
 	PM_API(PM_CLOCK_SETPARENT),
 	PM_API(PM_CLOCK_GETPARENT),
 	PM_API(PM_QUERY_DATA),
-	PM_API(PM_MMIO_WRITE),
-	PM_API(PM_MMIO_READ),
 };
 
 static struct dentry *firmware_debugfs_root;
-
-/**
- * zynqmp_pm_self_suspend - PM call for master to suspend itself
- * @node:	Node ID of the master or subsystem
- * @latency:	Requested maximum wakeup latency (not supported)
- * @state:	Requested state (not supported)
- *
- * Return:	Returns status, either success or error+reason
- */
-static int zynqmp_pm_self_suspend(const u32 node, const u32 latency,
-				  const u32 state)
-{
-	return zynqmp_pm_invoke_fn(PM_SELF_SUSPEND, node, latency,
-				   state, 0, 0, NULL);
-}
-
-/**
- * zynqmp_pm_abort_suspend - PM call to announce that a prior suspend request
- *				is to be aborted.
- * @reason:	Reason for the abort
- *
- * Return:	Returns status, either success or error+reason
- */
-static int zynqmp_pm_abort_suspend(const enum zynqmp_pm_abort_reason reason)
-{
-	return zynqmp_pm_invoke_fn(PM_ABORT_SUSPEND, reason, 0, 0, 0, 0,
-				   NULL);
-}
 
 /**
  * zynqmp_pm_ioctl - PM IOCTL for device control and configs
@@ -111,8 +73,7 @@ static int zynqmp_pm_abort_suspend(const enum zynqmp_pm_abort_reason reason)
 static int zynqmp_pm_ioctl(const u32 node, const u32 ioctl, const u32 arg1,
 			   const u32 arg2, const u32 arg3, u32 *out)
 {
-	return zynqmp_pm_invoke_fn(PM_IOCTL, node, ioctl, arg1, arg2, arg3,
-				   out);
+	return zynqmp_pm_invoke_fn(PM_IOCTL, out, 5, node, ioctl, arg1, arg2, arg3);
 }
 
 /**
@@ -173,36 +134,16 @@ static int process_api_request(u32 pm_id, u64 *pm_api_arg, u32 *pm_api_ret)
 		sprintf(debugfs_buf, "PM-API Version = %d.%d\n",
 			pm_api_version >> 16, pm_api_version & 0xffff);
 		break;
-	case PM_REQUEST_SUSPEND:
-		ret = zynqmp_pm_request_suspend(pm_api_arg[0],
-						pm_api_arg[1] ? pm_api_arg[1] :
-						ZYNQMP_PM_REQUEST_ACK_NO,
-						pm_api_arg[2] ? pm_api_arg[2] :
-						ZYNQMP_PM_MAX_LATENCY, 0);
-		break;
-	case PM_SELF_SUSPEND:
-		ret = zynqmp_pm_self_suspend(pm_api_arg[0],
-					     pm_api_arg[1] ? pm_api_arg[1] :
-					     ZYNQMP_PM_MAX_LATENCY, 0);
-		break;
 	case PM_FORCE_POWERDOWN:
 		ret = zynqmp_pm_force_pwrdwn(pm_api_arg[0],
 					     pm_api_arg[1] ? pm_api_arg[1] :
 					     ZYNQMP_PM_REQUEST_ACK_NO);
-		break;
-	case PM_ABORT_SUSPEND:
-		ret = zynqmp_pm_abort_suspend(pm_api_arg[0] ? pm_api_arg[0] :
-					      ZYNQMP_PM_ABORT_REASON_UNKNOWN);
 		break;
 	case PM_REQUEST_WAKEUP:
 		ret = zynqmp_pm_request_wake(pm_api_arg[0],
 					     pm_api_arg[1], pm_api_arg[2],
 					     pm_api_arg[3] ? pm_api_arg[3] :
 					     ZYNQMP_PM_REQUEST_ACK_NO);
-		break;
-	case PM_SET_WAKEUP_SOURCE:
-		ret = zynqmp_pm_set_wakeup_source(pm_api_arg[0], pm_api_arg[1],
-						  pm_api_arg[2]);
 		break;
 	case PM_SYSTEM_SHUTDOWN:
 		ret = zynqmp_pm_system_shutdown(pm_api_arg[0], pm_api_arg[1]);
@@ -227,14 +168,6 @@ static int process_api_request(u32 pm_id, u64 *pm_api_arg, u32 *pm_api_ret)
 						pm_api_arg[3] ? pm_api_arg[3] :
 						ZYNQMP_PM_REQUEST_ACK_BLOCKING);
 		break;
-	case PM_SET_MAX_LATENCY:
-		ret = zynqmp_pm_set_max_latency(pm_api_arg[0],
-						pm_api_arg[1] ? pm_api_arg[1] :
-						ZYNQMP_PM_MAX_LATENCY);
-		break;
-	case PM_SET_CONFIGURATION:
-		ret = zynqmp_pm_set_configuration(pm_api_arg[0]);
-		break;
 	case PM_GET_NODE_STATUS:
 		ret = zynqmp_pm_get_node_status(pm_api_arg[0],
 						&pm_api_ret[0],
@@ -245,17 +178,6 @@ static int process_api_request(u32 pm_id, u64 *pm_api_arg, u32 *pm_api_ret)
 				"GET_NODE_STATUS:\n\tNodeId: %llu\n\tStatus: %u\n\tRequirements: %u\n\tUsage: %u\n",
 				pm_api_arg[0], pm_api_ret[0],
 				pm_api_ret[1], pm_api_ret[2]);
-		break;
-	case PM_GET_OPERATING_CHARACTERISTIC:
-		ret = zynqmp_pm_get_operating_characteristic(pm_api_arg[0],
-							     pm_api_arg[1] ? pm_api_arg[1] :
-				ZYNQMP_PM_OPERATING_CHARACTERISTIC_POWER,
-				&pm_api_ret[0]);
-		if (!ret)
-			sprintf(debugfs_buf,
-				"GET_OPERATING_CHARACTERISTIC:\n\tNodeId: %llu\n\tType: %llu\n\tResult: %u\n",
-				pm_api_arg[0], pm_api_arg[1],
-				pm_api_ret[0]);
 		break;
 	case PM_REGISTER_NOTIFIER:
 		ret = zynqmp_pm_register_notifier(pm_api_arg[0],
@@ -280,14 +202,6 @@ static int process_api_request(u32 pm_id, u64 *pm_api_arg, u32 *pm_api_ret)
 		if (!ret)
 			sprintf(debugfs_buf, "Idcode: %#x, Version:%#x\n",
 				pm_api_ret[0], pm_api_ret[1]);
-		break;
-	case PM_PINCTRL_GET_FUNCTION:
-		ret = zynqmp_pm_pinctrl_get_function(pm_api_arg[0],
-						     &pm_api_ret[0]);
-		if (!ret)
-			sprintf(debugfs_buf,
-				"Current set function for the pin: %u\n",
-				pm_api_ret[0]);
 		break;
 	case PM_PINCTRL_SET_FUNCTION:
 		ret = zynqmp_pm_pinctrl_set_function(pm_api_arg[0],
@@ -316,7 +230,6 @@ static int process_api_request(u32 pm_id, u64 *pm_api_arg, u32 *pm_api_ret)
 			     pm_api_arg[1] == IOCTL_GET_PLL_FRAC_DATA ||
 			     pm_api_arg[1] == IOCTL_READ_GGS ||
 			     pm_api_arg[1] == IOCTL_READ_PGGS ||
-			     pm_api_arg[1] == IOCTL_PROBE_COUNTER_READ ||
 			     pm_api_arg[1] == IOCTL_READ_REG))
 			sprintf(debugfs_buf, "IOCTL return value: %u\n",
 				pm_api_ret[1]);
@@ -379,14 +292,6 @@ static int process_api_request(u32 pm_id, u64 *pm_api_arg, u32 *pm_api_ret)
 				pm_api_ret[0], pm_api_ret[1],
 				pm_api_ret[2], pm_api_ret[3]);
 		}
-		break;
-	case PM_MMIO_WRITE:
-		ret = zynqmp_pm_mmio_write(pm_api_arg[0], pm_api_arg[1],
-					   pm_api_arg[2]);
-		break;
-	case PM_MMIO_READ:
-		ret = zynqmp_pm_mmio_read(pm_api_arg[0], &pm_api_ret[0]);
-		sprintf(debugfs_buf, "REG value: 0x%x\n", pm_api_ret[0]);
 		break;
 	default:
 		sprintf(debugfs_buf, "Unsupported PM-API request\n");

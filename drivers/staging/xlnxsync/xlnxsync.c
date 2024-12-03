@@ -1453,7 +1453,7 @@ static int __init xlnxsync_init_mod(void)
 {
 	int err;
 
-	xlnxsync_class = class_create(THIS_MODULE, XLNXSYNC_DRIVER_NAME);
+	xlnxsync_class = class_create(XLNXSYNC_DRIVER_NAME);
 	if (IS_ERR(xlnxsync_class)) {
 		pr_err("%s : Unable to create xlnxsync class", __func__);
 		return PTR_ERR(xlnxsync_class);
@@ -1490,5 +1490,5 @@ module_exit(xlnxsync_cleanup_mod);
 
 MODULE_AUTHOR("Vishal Sagar");
 MODULE_DESCRIPTION("Xilinx Synchronizer IP Driver");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
 MODULE_VERSION(XLNXSYNC_DRIVER_VERSION);

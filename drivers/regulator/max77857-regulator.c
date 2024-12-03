@@ -53,7 +53,7 @@ enum max77857_id {
 
 static bool max77857_volatile_reg(struct device *dev, unsigned int reg)
 {
-	enum max77857_id id = (enum max77857_id)dev_get_drvdata(dev);
+	enum max77857_id id = (uintptr_t)dev_get_drvdata(dev);
 
 	switch (id) {
 	case ID_MAX77831:
@@ -67,10 +67,10 @@ static bool max77857_volatile_reg(struct device *dev, unsigned int reg)
 	}
 }
 
-struct regmap_config max77857_regmap_config = {
+static struct regmap_config max77857_regmap_config = {
 	.reg_bits = 8,
 	.val_bits = 8,
-	.cache_type = REGCACHE_RBTREE, /* [BACKPORT]: Mapple is still not in 6.1 REGCACHE_MAPLE */
+	.cache_type = REGCACHE_MAPLE,
 	.volatile_reg = max77857_volatile_reg,
 };
 
@@ -91,7 +91,7 @@ static int max77857_get_status(struct regulator_dev *rdev)
 
 static unsigned int max77857_get_mode(struct regulator_dev *rdev)
 {
-	enum max77857_id id = (enum max77857_id)rdev_get_drvdata(rdev);
+	enum max77857_id id = (uintptr_t)rdev_get_drvdata(rdev);
 	unsigned int regval;
 	int ret;
 
@@ -125,7 +125,7 @@ static unsigned int max77857_get_mode(struct regulator_dev *rdev)
 
 static int max77857_set_mode(struct regulator_dev *rdev, unsigned int mode)
 {
-	enum max77857_id id = (enum max77857_id)rdev_get_drvdata(rdev);
+	enum max77857_id id = (uintptr_t)rdev_get_drvdata(rdev);
 	unsigned int reg, val;
 
 	switch (id) {
@@ -206,7 +206,7 @@ static int max77859_set_voltage_sel(struct regulator_dev *rdev,
 			       MAX77859_CONT3_DVS_START);
 }
 
-int max77859_get_voltage_sel(struct regulator_dev *rdev)
+static int max77859_get_voltage_sel(struct regulator_dev *rdev)
 {
 	__be16 reg;
 	int ret;
@@ -218,7 +218,7 @@ int max77859_get_voltage_sel(struct regulator_dev *rdev)
 	return FIELD_GET(MAX77859_VOLTAGE_SEL_MASK, __be16_to_cpu(reg));
 }
 
-int max77859_set_current_limit(struct regulator_dev *rdev, int min_uA, int max_uA)
+static int max77859_set_current_limit(struct regulator_dev *rdev, int min_uA, int max_uA)
 {
 	u32 selector;
 
@@ -232,7 +232,7 @@ int max77859_set_current_limit(struct regulator_dev *rdev, int min_uA, int max_u
 	return regmap_write(rdev->regmap, MAX77859_REG_CONT5, selector);
 }
 
-int max77859_get_current_limit(struct regulator_dev *rdev)
+static int max77859_get_current_limit(struct regulator_dev *rdev)
 {
 	u32 selector;
 	int ret;
@@ -347,7 +347,7 @@ static void max77857_calc_range(struct device *dev, enum max77857_id id)
 
 static int max77857_probe(struct i2c_client *client)
 {
-	//const struct i2c_device_id *i2c_id;
+	const struct i2c_device_id *i2c_id;
 	struct device *dev = &client->dev;
 	struct regulator_config cfg = { };
 	struct regulator_dev *rdev;
@@ -356,19 +356,11 @@ static int max77857_probe(struct i2c_client *client)
 	u32 switch_freq = 0;
 	int ret;
 
-	/*
-	 * i2c_id = i2c_client_get_device_id(client);
-	 * if (!i2c_id)
-	 *	return -EINVAL;
-	 *
-	 *   id = i2c_id->driver_data;
-	 */
+	i2c_id = i2c_client_get_device_id(client);
+	if (!i2c_id)
+		return -EINVAL;
 
-	/*
-	 * [BACKPORT]: The above is the upstream code but i2c_client_get_device_id/() is not
-	 * available in 6.1.
-	 */
-	id = (enum max77857_id)device_get_match_data(dev);
+	id = i2c_id->driver_data;
 
 	dev_set_drvdata(dev, (void *)id);
 
@@ -453,13 +445,13 @@ static const struct of_device_id max77857_of_id[] = {
 };
 MODULE_DEVICE_TABLE(of, max77857_of_id);
 
-struct i2c_driver max77857_driver = {
+static struct i2c_driver max77857_driver = {
 	.driver = {
 		.name = "max77857",
 		.of_match_table = max77857_of_id,
 	},
 	.id_table = max77857_id,
-	.probe_new = max77857_probe,
+	.probe = max77857_probe,
 };
 module_i2c_driver(max77857_driver);
 

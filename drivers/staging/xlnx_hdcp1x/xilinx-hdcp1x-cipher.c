@@ -751,7 +751,7 @@ EXPORT_SYMBOL_GPL(xhdcp1x_cipher_getencryption);
  * @ref: reference to cipher instance
  * @streammap: Streammap for display Audio/video content encyption
  *
- * Return: 0 for succes, error value otherwise.
+ * Return: 0 for success, error value otherwise.
  */
 int xhdcp1x_cipher_disableencryption(void *ref, u64 streammap)
 {
@@ -783,6 +783,9 @@ int xhdcp1x_cipher_disableencryption(void *ref, u64 streammap)
 	if (value)
 		checkxor = 0;
 
+	if (cipher->is_hdmi == XHDCP1X_CIPHER_VALUE_TYPE_PROTOCOL_HDMI)
+		checkxor = true;
+
 	if (checkxor) {
 		value = xhdcp1x_cipher_read(cipher, XHDCP1X_CIPHER_REG_CIPHER_CONTROL);
 		value &= ~XHDCP1X_CIPHER_BITMASK_CIPHER_CONTROL_XOR_ENABLE;
@@ -800,9 +803,9 @@ EXPORT_SYMBOL_GPL(xhdcp1x_cipher_disableencryption);
 /**
  * xhdcp1x_cipher_setb - This function writes the contents of the B register in BM0.
  * @ref: reference to cipher instance
- * @x: is the value to be written to bx.
- * @y: is the value to be written to by.
- * @z: is the value to be written to bz.
+ * @bx: is the value to be written to bx.
+ * @by: is the value to be written to by.
+ * @bz: is the value to be written to bz.
  *
  * @return:
  *		- SUCCESS if successful.
@@ -947,3 +950,40 @@ u64 xhdcp1x_cipher_get_mo(void *ref)
 
 	return mo;
 }
+
+/**
+ * xhdcp1x_cipher_set_ri_update: This function enables the interrupt for RI updates
+ * @ref: reference to cipher instance.
+ * @is_enabled: flag to enable/disable RI updation
+ *
+ * @return: 0 for success, error value otherwise.
+ */
+int xhdcp1x_cipher_set_ri_update(void *ref, int is_enabled)
+{
+	struct xhdcp1x_cipher *cipher = (struct xhdcp1x_cipher *)ref;
+	int status = 0, value = 0;
+
+	if (!cipher)
+		return -EINVAL;
+
+	if (!xhdcp1x_cipher_is_enabled(cipher))
+		return -EINVAL;
+
+	xhdcp1x_cipher_write(cipher,
+			     XHDCP1X_CIPHER_REG_INTERRUPT_STATUS,
+			     XHDCP1X_CIPHER_BITMASK_INTERRUPT_RI_UPDATE);
+
+	value = xhdcp1x_cipher_read(cipher,
+				    XHDCP1X_CIPHER_REG_INTERRUPT_MASK);
+
+	if (is_enabled)
+		value &= ~XHDCP1X_CIPHER_BITMASK_INTERRUPT_RI_UPDATE;
+	else
+		value |= XHDCP1X_CIPHER_BITMASK_INTERRUPT_RI_UPDATE;
+
+	xhdcp1x_cipher_write(cipher,
+			     XHDCP1X_CIPHER_REG_INTERRUPT_MASK, value);
+
+	return status;
+}
+EXPORT_SYMBOL_GPL(xhdcp1x_cipher_set_ri_update);

@@ -681,12 +681,12 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{
 	 .name = "test_mode_available",
 	 .read = ad9467_testmode_mode_available,
-	 .shared = true,
+	 .shared = IIO_SHARED_BY_TYPE,
 	 },
 	{
 	 .name = "scale_available",
 	 .read = ad9467_show_scale_available,
-	 .shared = true,
+	 .shared = IIO_SHARED_BY_TYPE,
 	 },
 	{},
 };
@@ -1224,6 +1224,8 @@ static int ad9467_probe(struct spi_device *spi)
 	int ret;
 
 	info = of_device_get_match_data(&spi->dev);
+	if (!info)
+		info = (void *)spi_get_device_id(spi)->driver_data;
 	if (!info)
 		return -ENODEV;
 

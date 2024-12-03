@@ -106,7 +106,7 @@ static int xlnx_hdcp2x_loadsrm_revocation_table(struct xlnx_hdcp2x_config *xhdcp
 	const u8 *srmblock = NULL;
 	const u8 *rcv_id;
 	u32 block_size, length_field;
-	u16 num_of_devices, srm_version;
+	u16 num_of_devices;
 	int ret, i, j;
 	u8 srm_generator, srm_id;
 
@@ -117,13 +117,6 @@ static int xlnx_hdcp2x_loadsrm_revocation_table(struct xlnx_hdcp2x_config *xhdcp
 
 	if (srm_id != HDCP2X_TX_SRM_ID)
 		return -EINVAL;
-
-	/*
-	 * Byte 3-4 contains the SRM Version.
-	 * Value is in big endian format, Microblaze is little endian
-	 */
-	srm_version  = srmblock[2] << BITS_PER_BYTE;
-	srm_version |= srmblock[3];
 
 	/* Byte 5 contains the SRM Generation Number */
 	srm_generator = srmblock[4];
@@ -422,7 +415,8 @@ bool xlnx_hdcp2x_downstream_capbility(struct xlnx_hdcp2x_config *xhdcp2x_tx)
 					(void *)rxcaps,
 					HDCP_2_2_RXCAPS_LEN);
 
-	return (FIELD_GET(XHDCP2X_TX_RXCAPS_MASK, rxcaps[0]) & HDCP_2_2_RX_CAPS_VERSION_VAL);
+	return ((rxcaps[0] == HDCP_2_2_RX_CAPS_VERSION_VAL) &&
+		HDCP_2_2_DP_HDCP_CAPABLE(rxcaps[2]));
 }
 
 static u32 xlnx_hdcp2x_tx_get_timer_count(struct xlnx_hdcp2x_config *xhdcp2x_tx)
@@ -530,14 +524,14 @@ int xlnx_hdcp2x_tx_read_msg(struct xlnx_hdcp2x_config *xhdcp2x_tx, u8 msg_id)
 		xhdcp2x_tx->handlers.rd_handler(xhdcp2x_tx->interface_ref,
 						HDCP2X_TX_HDCPPORT_R_RX_OFFSET,
 						tx_msg->msg_type.ake_send_cert.r_rx,
-						HDCP2X_TX_HDCPPORT_CERT_RX_OFFSET);
+						HDCP_2_2_RRX_LEN);
 		msg_read +=
 		xhdcp2x_tx->handlers.rd_handler(xhdcp2x_tx->interface_ref,
 						HDCP2X_TX_HDCPPORT_RX_CAPS_OFFSET,
 						tx_msg->msg_type.ake_send_cert.rxcaps,
 						HDCP_2_2_RXCAPS_LEN);
 		if (msg_read == (HDCP2X_TX_CERT_SIZE +
-				 HDCP2X_TX_HDCPPORT_CERT_RX_OFFSET +
+				 HDCP_2_2_RRX_LEN +
 				 HDCP_2_2_RXCAPS_LEN))
 			status = 0;
 		break;

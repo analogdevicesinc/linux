@@ -146,9 +146,9 @@ static const struct iio_info adm1177_info = {
 	.read_raw = &adm1177_read_raw,
 };
 
-static int adm1177_probe(struct i2c_client *client,
-			const struct i2c_device_id *id)
+static int adm1177_probe(struct i2c_client *client)
 {
+	const struct i2c_device_id *id = i2c_client_get_device_id(client);
 	struct adm1177_chip_info *chip;
 	struct iio_dev *indio_dev;
 

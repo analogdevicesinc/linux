@@ -192,7 +192,7 @@ int
 devm_adis_setup_buffer_and_trigger_with_attrs(struct adis *adis, struct iio_dev *indio_dev,
 					      irq_handler_t trigger_handler,
 					      const struct iio_buffer_setup_ops *ops,
-					      const struct attribute **buffer_attrs)
+					      const struct iio_dev_attr **buffer_attrs)
 {
 	int ret;
 

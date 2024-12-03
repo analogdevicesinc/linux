@@ -6,6 +6,7 @@
  * Licensed under the GPL-2.
  */
 #include <linux/device.h>
+#include <linux/gpio/consumer.h>
 #include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/sysfs.h>
@@ -18,7 +19,6 @@
 #include <asm/div64.h>
 #include <linux/clk.h>
 #include <linux/of.h>
-#include <linux/of_gpio.h>
 #include <linux/delay.h>
 
 #include <linux/clk-provider.h>
@@ -625,11 +625,12 @@ static ssize_t adf5355_read(struct iio_dev *indio_dev,
 		val = adf5355_pll_fract_n_get_rate(st, chan->channel);
 
 		/* PLL unlocked? return error */
-		if (gpio_is_valid(st->pdata->gpio_lock_detect))
-			if (!gpio_get_value(st->pdata->gpio_lock_detect)) {
+		if (st->pdata->lock_detect) {
+			if (!gpiod_get_value_cansleep(st->pdata->lock_detect)) {
 				dev_dbg(&st->spi->dev, "PLL un-locked\n");
 				ret = -EBUSY;
 			}
+		}
 		break;
 	case ADF5355_FREQ_REFIN:
 		if (st->clk)
@@ -731,7 +732,6 @@ static struct adf5355_platform_data *adf5355_parse_dt(struct device *dev)
 	struct device_node *np = dev->of_node;
 	struct adf5355_platform_data *pdata;
 	unsigned int tmp;
-	int ret;
 
 	pdata = devm_kzalloc(dev, sizeof(*pdata), GFP_KERNEL);
 	if (!pdata)
@@ -746,12 +746,6 @@ static struct adf5355_platform_data *adf5355_parse_dt(struct device *dev)
 	if (tmp > 0)
 		tmp--;
 	pdata->ref_div_factor = tmp;
-
-	ret = of_get_gpio(np, 0);
-	if (ret < 0)
-		pdata->gpio_lock_detect = -1;
-	else
-		pdata->gpio_lock_detect = ret;
 
 	pdata->ref_doubler_en = of_property_read_bool(np,
 			"adi,reference-doubler-enable");
@@ -953,15 +947,10 @@ static int adf5355_probe(struct spi_device *spi)
 	if (ret)
 		goto error_disable_reg;
 
-	if (gpio_is_valid(pdata->gpio_lock_detect)) {
-		ret = devm_gpio_request(&spi->dev, pdata->gpio_lock_detect,
-					indio_dev->name);
-		if (ret) {
-			dev_err(&spi->dev, "fail to request lock detect GPIO-%d",
-				pdata->gpio_lock_detect);
-			goto error_disable_reg;
-		}
-		gpio_direction_input(pdata->gpio_lock_detect);
+	pdata->lock_detect = devm_gpiod_get_optional(&spi->dev, NULL, GPIOD_IN);
+	if (IS_ERR(pdata->lock_detect)) {
+		dev_err(&spi->dev, "fail to request lock detect GPIO\n");
+		return PTR_ERR(pdata->lock_detect);
 	}
 
 	if (pdata->power_up_frequency) {

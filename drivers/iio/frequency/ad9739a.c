@@ -271,9 +271,9 @@ static ssize_t ad9739a_store(struct device *dev,
 		break;
 	case AD9739A_OP_MODE:
 		if (sysfs_streq(buf, "mix-mode"))
-			ad9739a_set_op_mode(conv, true);
+			ad9739a_set_op_mode(conv, MIX_MODE_OPERATION);
 		else
-			ad9739a_set_op_mode(conv, false);
+			ad9739a_set_op_mode(conv, NORMAL_BASEBAND_OPERATION);
 		break;
 	default:
 		ret = -EINVAL;

@@ -304,7 +304,7 @@ MODULE_DEVICE_TABLE(of, adl5580_of_match);
 static struct spi_driver adl5580_driver = {
 	.driver = {
 		.name = "adl5580",
-		.of_match_table = of_match_ptr(adl5580_of_match),
+		.of_match_table = adl5580_of_match,
 	},
 	.probe = adl5580_probe,
 	.id_table = adl5580_id,

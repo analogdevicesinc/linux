@@ -117,8 +117,15 @@
 	aliases {
 		serial0 = &serial0;
 		serial1 = &serial1;
+		serial2 = &dcc;
 		mmc0 = &sdhci0;
 		mmc1 = &sdhci1;
+	};
+
+	dcc: dcc {
+		compatible = "arm,dcc";
+		status = "disabled";
+		bootph-all;
 	};
 
 	chosen {
@@ -128,23 +135,23 @@
 
 	ref_clk: ref_clk {
 		compatible = "fixed-clock";
-		u-boot,dm-pre-reloc;
+		bootph-all;
 		#clock-cells = <0>;
 		clock-frequency = <33333333>;
 	};
 
 	firmware {
 		versal_net_firmware: versal-net-firmware {
-			compatible = "xlnx,versal-net-firmware";
+			compatible = "xlnx,versal-net-firmware", "xlnx,versal-firmware";
 			interrupt-parent = <&gic>;
-			u-boot,dm-pre-reloc;
+			bootph-all;
 			method = "smc";
 			#power-domain-cells = <0x01>;
 
 			versal_net_clk: clock-controller {
-				u-boot,dm-pre-reloc;
+				bootph-all;
 				#clock-cells = <1>;
-				compatible = "xlnx,versal-net-clk";
+				compatible = "xlnx,versal-net-clk", "xlnx,versal-clk";
 				clocks = <&ref_clk>, <&ref_clk>;
 				clock-names = "ref_clk", "pl_alt_ref_clk";
 			};
@@ -196,7 +203,7 @@
 
 	amba: axi {
 		compatible = "simple-bus";
-		u-boot,dm-pre-reloc;
+		bootph-all;
 		#address-cells = <2>;
 		#size-cells = <2>;
 		ranges;
@@ -455,13 +462,10 @@
 			cdns,fifo-width = <4>;
 			cdns,is-dma = <1>;
 			cdns,trigger-address = <0xc0000000>;
-			is-dual = <0>;
-			is-stacked = <0>;
 			clocks = <&versal_net_clk OSPI_REF>;
 			#address-cells = <1>;
 			#size-cells = <0>;
 			power-domains = <&versal_net_firmware PM_DEV_OSPI>;
-			reset-gpios = <&gpio1 0xc GPIO_ACTIVE_HIGH>;
 
 			mt35xu02g: flash@0 {
 				compatible = "micron,m25p80", "jedec,spi-nor";
@@ -475,9 +479,10 @@
 				cdns,tslch-ns = <1>;
 				spi-tx-bus-width = <8>;
 				spi-rx-bus-width = <8>;
-				spi-max-frequency = <5000000>;
+				spi-max-frequency = <20000000>;
 				broken-flash-reset;
 				no-wp;
+				reset-gpios = <&gpio1 0xc GPIO_ACTIVE_LOW>;
 
 				partitions {
 					compatible = "fixed-partitions";
@@ -503,7 +508,6 @@
 			interrupts = <0 183 4>;
 			clock-names = "ref_clk", "pclk";
 			num-cs = <2>;
-			is-dual = <1>;
 			spi-rx-bus-width = <4>;
 			spi-tx-bus-width = <4>;
 			clocks = <&versal_net_clk QSPI_REF>, <&versal_net_clk LPD_LSBUS>;
@@ -570,7 +574,7 @@
 		};
 
 		serial0: serial@f1920000 {
-			u-boot,dm-pre-reloc;
+			bootph-all;
 			compatible = "arm,pl011", "arm,primecell";
 			reg = <0 0xf1920000 0 0x1000>;
 			interrupts = <0 25 4>;
@@ -584,7 +588,7 @@
 		};
 
 		serial1: serial@f1930000 {
-			u-boot,dm-pre-reloc;
+			bootph-all;
 			compatible = "arm,pl011", "arm,primecell";
 			reg = <0 0xf1930000 0 0x1000>;
 			interrupts = <0 26 4>;
@@ -689,12 +693,12 @@
 			power-domains = <&versal_net_firmware PM_DEV_USB_0>;
 			resets = <&versal_net_reset VERSAL_RST_USB_0>;
 
-			dwc3_0: dwc3@f1b00000  {
+			dwc3_0: usb@f1b00000  {
 				compatible = "snps,dwc3";
 				status = "okay";
 				reg = <0 0xf1b00000 0 0x10000>;
-				interrupt-names = "dwc_usb3","otg","usb-wakeup";
-				interrupts = <0 29 4>, <0 33 4>, <0 98 4>;
+				interrupt-names = "host", "peripheral", "otg", "wakeup";
+				interrupts = <0 29 4>, <0 29 4>, <0 33 4>, <0 98 4>;
 				snps,dis_u2_susphy_quirk;
 				snps,dis_u3_susphy_quirk;
 				snps,quirk-frame-length-adjustment = <0x20>;
@@ -717,12 +721,12 @@
 			power-domains = <&versal_net_firmware PM_DEV_USB_1>;
 			resets = <&versal_net_reset VERSAL_RST_USB_1>;
 
-			dwc3_1: dwc3@f1c00000  {
+			dwc3_1: usb@f1c00000  {
 				compatible = "snps,dwc3";
 				status = "okay";
 				reg = <0x0 0xf1c00000 0x0 0x10000>;
-				interrupt-names = "dwc_usb3","otg","usb-wakeup";
-				interrupts = <0 34 4>, <0 38 4>, <0 99 4>;
+				interrupt-names = "host", "peripheral", "otg", "wakeup";
+				interrupts = <0 34 4>, <0 34 4>, <0 38 4>, <0 99 4>;
 				snps,dis_u2_susphy_quirk;
 				snps,dis_u3_susphy_quirk;
 				snps,quirk-frame-length-adjustment = <0x20>;

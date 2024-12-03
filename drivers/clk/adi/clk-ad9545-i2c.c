@@ -53,7 +53,7 @@ static struct i2c_driver ad9545_i2c_driver = {
 		.name	= "ad9545",
 		.of_match_table = ad9545_i2c_of_match,
 	},
-	.probe_new	= ad9545_i2c_probe,
+	.probe		= ad9545_i2c_probe,
 	.id_table	= ad9545_i2c_id,
 };
 module_i2c_driver(ad9545_i2c_driver);

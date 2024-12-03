@@ -4,7 +4,7 @@
  *
  * (C) Copyright 2019, Xilinx, Inc.
  *
- * Michal Simek <michal.simek@xilinx.com>
+ * Michal Simek <michal.simek@amd.com>
  */
 /dts-v1/;
 
@@ -67,12 +67,13 @@
 
 &qspi {
 	status = "okay";
-	is-dual = <1>;
+	num-cs = <2>;
 	flash@0 {
 		compatible = "m25p80", "jedec,spi-nor"; /* 32MB */
+		reg = <0>, <1>;
+		parallel-memories = /bits/ 64 <0x4000000 0x4000000>; /* 64MB */
 		#address-cells = <1>;
 		#size-cells = <1>;
-		reg = <0x0>;
 		spi-tx-bus-width = <4>;
 		spi-rx-bus-width = <4>;
 		spi-max-frequency = <108000000>;
@@ -106,9 +107,13 @@
 	status = "okay";
 	phy-handle = <&phy0>;
 	phy-mode = "sgmii";
-	phy-reset-gpios = <&gpio 142 GPIO_ACTIVE_LOW>;
-	phy0: ethernet-phy@0 { /* marwell m88e1512 - SGMII */
-		reg = <0>;
+	mdio: mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reset-gpios = <&gpio 142 GPIO_ACTIVE_LOW>;
+		phy0: ethernet-phy@0 { /* marwell m88e1512 - SGMII */
+			reg = <0>;
+		};
 	};
 };
 

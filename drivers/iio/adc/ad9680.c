@@ -562,7 +562,7 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{
 		.name = "scale_available",
 		.read = ad9680_show_scale_available,
-		.shared = true,
+		.shared = IIO_SHARED_BY_TYPE,
 	},
 	{},
 };

@@ -110,11 +110,12 @@ static void gd25lx256e_default_init(struct spi_nor *nor)
 {
 	struct spi_nor_flash_parameter *params = spi_nor_get_params(nor, 0);
 
-	params->octal_dtr_enable = spi_nor_gigadevice_octal_dtr_enable;
+	nor->flags &= ~SNOR_F_HAS_16BIT_SR;
+	params->set_octal_dtr = spi_nor_gigadevice_octal_dtr_enable;
 	params->set_4byte_addr_mode = gd25lx256e_set_4byte_addr_mode;
 }
 
-static void gd25lx256e_post_sfdp_fixup(struct spi_nor *nor)
+static int gd25lx256e_post_sfdp_fixup(struct spi_nor *nor)
 {
 	struct spi_nor_flash_parameter *params = spi_nor_get_params(nor, 0);
 
@@ -134,6 +135,8 @@ static void gd25lx256e_post_sfdp_fixup(struct spi_nor *nor)
 	 * disable it.
 	 */
 	params->quad_enable = NULL;
+
+	return 0;
 }
 
 static void gd25b512_default_init(struct spi_nor *nor)
@@ -142,6 +145,15 @@ static void gd25b512_default_init(struct spi_nor *nor)
 
 	nor->flags &= ~SNOR_F_HAS_16BIT_SR;
 	params->set_4byte_addr_mode = gd25lx256e_set_4byte_addr_mode;
+}
+
+static int gd25lx512_late_init(struct spi_nor *nor)
+{
+	struct spi_nor_flash_parameter *params = spi_nor_get_params(nor, 0);
+
+	params->hwcaps.mask &= ~(SNOR_HWCAPS_PP_8_8_8_DTR | SNOR_HWCAPS_READ_8_8_8_DTR);
+
+	return 0;
 }
 
 static struct spi_nor_fixups gd25lx256e_fixups = {
@@ -153,21 +165,36 @@ static struct spi_nor_fixups gd25b512_fixups = {
 	.default_init = gd25b512_default_init,
 };
 
-static void gd25q256_default_init(struct spi_nor *nor)
+static struct spi_nor_fixups gd25lx512_fixups = {
+	.default_init = gd25b512_default_init,
+	.late_init = gd25lx512_late_init,
+};
+
+static int
+gd25q256_post_bfpt(struct spi_nor *nor,
+		   const struct sfdp_parameter_header *bfpt_header,
+		   const struct sfdp_bfpt *bfpt)
 {
 	struct spi_nor_flash_parameter *params = spi_nor_get_params(nor, 0);
 
 	/*
-	 * Some manufacturer like GigaDevice may use different
-	 * bit to set QE on different memories, so the MFR can't
-	 * indicate the quad_enable method for this case, we need
-	 * to set it in the default_init fixup hook.
+	 * GD25Q256C supports the first version of JESD216 which does not define
+	 * the Quad Enable methods. Overwrite the default Quad Enable method.
+	 *
+	 * GD25Q256 GENERATION | SFDP MAJOR VERSION | SFDP MINOR VERSION
+	 *      GD25Q256C      | SFDP_JESD216_MAJOR | SFDP_JESD216_MINOR
+	 *      GD25Q256D      | SFDP_JESD216_MAJOR | SFDP_JESD216B_MINOR
+	 *      GD25Q256E      | SFDP_JESD216_MAJOR | SFDP_JESD216B_MINOR
 	 */
-	params->quad_enable = spi_nor_sr1_bit6_quad_enable;
+	if (bfpt_header->major == SFDP_JESD216_MAJOR &&
+	    bfpt_header->minor == SFDP_JESD216_MINOR)
+		params->quad_enable = spi_nor_sr1_bit6_quad_enable;
+
+	return 0;
 }
 
 static const struct spi_nor_fixups gd25q256_fixups = {
-	.default_init = gd25q256_default_init,
+	.post_bfpt = gd25q256_post_bfpt,
 };
 
 static const struct flash_info gigadevice_nor_parts[] = {
@@ -214,7 +241,7 @@ static const struct flash_info gigadevice_nor_parts[] = {
 		.fixups = &gd25lx256e_fixups },
 	{ "gd25b512", INFO(0xc8471a, 0, 64 * 1024, 1024)
 		FLAGS(SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB | SPI_NOR_TB_SR_BIT6 |
-				SPI_NOR_4BIT_BP | SPI_NOR_BP3_SR_BIT5)
+		      SPI_NOR_4BIT_BP | SPI_NOR_BP3_SR_BIT5)
 		NO_SFDP_FLAGS(SECT_4K | SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ)
 		FIXUP_FLAGS(SPI_NOR_4B_OPCODES)
 		.fixups = &gd25b512_fixups},
@@ -224,21 +251,21 @@ static const struct flash_info gigadevice_nor_parts[] = {
 		NO_SFDP_FLAGS(SECT_4K | SPI_NOR_OCTAL_READ)
 		FIXUP_FLAGS(SPI_NOR_4B_OPCODES | SPI_NOR_IO_MODE_EN_VOLATILE)
 		MFR_FLAGS(USE_FSR)
-		.fixups = &gd25b512_fixups },
+		.fixups = &gd25lx512_fixups },
 	{ "gd55lx01g", INFO(0xc8681b, 0, 64 * 1024, 2048)
 		FLAGS(SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB | SPI_NOR_TB_SR_BIT6 |
 		      SPI_NOR_4BIT_BP | SPI_NOR_BP3_SR_BIT5)
 		NO_SFDP_FLAGS(SECT_4K | SPI_NOR_OCTAL_READ)
 		FIXUP_FLAGS(SPI_NOR_4B_OPCODES | SPI_NOR_IO_MODE_EN_VOLATILE)
 		MFR_FLAGS(USE_FSR)
-		.fixups = &gd25b512_fixups },
+		.fixups = &gd25lx512_fixups },
 	{ "gd55lx02g", INFO(0xc8681c, 0, 64 * 1024, 4096)
 		FLAGS(SPI_NOR_HAS_LOCK | SPI_NOR_HAS_TB | SPI_NOR_TB_SR_BIT6 |
 		      SPI_NOR_4BIT_BP | SPI_NOR_BP3_SR_BIT5)
 		NO_SFDP_FLAGS(SECT_4K | SPI_NOR_OCTAL_READ)
 		FIXUP_FLAGS(SPI_NOR_4B_OPCODES | SPI_NOR_IO_MODE_EN_VOLATILE)
 		MFR_FLAGS(USE_FSR)
-		.fixups = &gd25b512_fixups },
+		.fixups = &gd25lx512_fixups },
 };
 
 const struct spi_nor_manufacturer spi_nor_gigadevice = {

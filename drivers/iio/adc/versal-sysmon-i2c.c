@@ -91,7 +91,7 @@ static int sysmon_i2c_temp_read(struct sysmon *sysmon, int offset)
 	return regval;
 }
 
-static int sysmon_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id)
+static int sysmon_i2c_probe(struct i2c_client *client)
 {
 	struct iio_dev *indio_dev;
 	struct sysmon *sysmon;
@@ -155,6 +155,6 @@ static struct i2c_driver sysmon_i2c_driver = {
 };
 module_i2c_driver(sysmon_i2c_driver);
 
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("Xilinx Versal I2C SysMon Driver");
 MODULE_AUTHOR("Conall O Griofa <conall.ogriofa@amd.com>");

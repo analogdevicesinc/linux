@@ -804,7 +804,7 @@ int iio_dma_buffer_mmap(struct iio_buffer *buffer,
 
 	vma->vm_pgoff = 0;
 
-	vma->vm_flags |= VM_DONTEXPAND | VM_DONTDUMP;
+	vm_flags_set(vma, VM_DONTEXPAND | VM_DONTDUMP);
 	vma->vm_ops = &iio_dma_buffer_vm_ops;
 	vma->vm_private_data = block;
 

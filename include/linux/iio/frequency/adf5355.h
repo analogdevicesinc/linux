@@ -20,10 +20,7 @@
  * @ref_div_factor:	Optional, if set the driver skips dynamic calculation
  *			and uses this default value instead.
  * @ref_doubler_en:	Enables reference doubler.
- * @ref_div2_en:		Enables reference divider.
- * @gpio_lock_detect:	Optional, if set with a valid GPIO number,
- *			pll lock state is tested upon read.
- *			If not used - set to -1.
+ * @ref_div2_en:	Enables reference divider.
  * @outa_en: 		Enables or disables the primary RF output
  * @outb_en: 		Enables or disables the auxiliary/high RF output
  * @outa_power:		Set the value of the primary RF output power level
@@ -49,6 +46,7 @@
  * @clock_shift:		Defines the rate shift (scaling) between the kernel
  * 			clock framework and the driver.
  * 			(max ADF5355 rate in Hz > ULONG_MAX)
+ * @lock_detect:	Pll lock detection.
  *
  */
 
@@ -79,7 +77,7 @@
 
 	u32			clock_shift;
 
- 	int			gpio_lock_detect;
+ 	struct			gpio_desc *lock_detect;
  };
 
 #endif /* IIO_PLL_ADF5355_H_ */

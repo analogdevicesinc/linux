@@ -430,18 +430,6 @@ static inline int adis_check_status(struct adis *adis)
 	return ret;
 }
 
-/* locked version of __adis_initial_startup() */
-static inline int adis_initial_startup(struct adis *adis)
-{
-	int ret;
-
-	mutex_lock(&adis->state_lock);
-	ret = __adis_initial_startup(adis);
-	mutex_unlock(&adis->state_lock);
-
-	return ret;
-}
-
 static inline void adis_dev_lock(struct adis *adis)
 {
 	mutex_lock(&adis->state_lock);
@@ -540,7 +528,7 @@ devm_adis_setup_buffer_and_trigger_with_attrs(struct adis *adis,
 					      struct iio_dev *indio_dev,
 					      irq_handler_t trigger_handler,
 					      const struct iio_buffer_setup_ops *ops,
-					      const struct attribute **buffer_attrs);
+					      const struct iio_dev_attr **buffer_attrs);
 
 int devm_adis_probe_trigger(struct adis *adis, struct iio_dev *indio_dev);
 
@@ -554,7 +542,7 @@ devm_adis_setup_buffer_and_trigger_with_attrs(struct adis *adis,
 					      struct iio_dev *indio_dev,
 					      irq_handler_t trigger_handler,
 					      const struct iio_buffer_setup_ops *ops,
-					      const struct attribute **buffer_attrs)
+					      const struct iio_dev_attr **buffer_attrs)
 {
 	return 0;
 }

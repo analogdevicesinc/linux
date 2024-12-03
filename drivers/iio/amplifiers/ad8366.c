@@ -2,17 +2,17 @@
 /*
  * AD8366 and similar Gain Amplifiers
  * This driver supports the following gain amplifiers:
- *   AD8366: DC to 600 MHz, Dual-Digital Variable Gain Amplifiers
- *   ADA4961: Low Distortion, 3.2 GHz, RF DGA
- *   ADL5240: 100 MHz TO 4000 MHz RF/IF Digitally Controlled VGA
+ *   AD8366 Dual-Digital Variable Gain Amplifier (VGA)
+ *   ADA4961 BiCMOS RF Digital Gain Amplifier (DGA)
+ *   ADL5240 Digitally controlled variable gain amplifier (VGA)
  *   ADRF5720: 0.5 dB LSB, 6-Bit, Silicon Digital Attenuator, 9 kHz to 40 GHz
  *   ADRF5730: 0.5 dB LSB, 6-Bit, Silicon Digital Attenuator, 100 MHz to 40 GHz
  *   ADRF5731: 2 dB LSB, 4-Bit, Silicon Digital Attenuator, 100 MHz to 40 GHz
  *   HMC271A: 1dB LSB 5-Bit Digital Attenuator SMT, 0.7 - 3.7 GHz
- *   HMC792A: 0.25 dB LSB GaAs MMIC 6-BIT DIGITAL ATTENUATOR, DC - 6 GHz
+ *   HMC792A 0.25 dB LSB GaAs MMIC 6-Bit Digital Attenuator
  *   HMC1018A: 1.0 dB LSB GaAs MMIC 5-BIT DIGITAL ATTENUATOR, 0.1 - 30 GHz
  *   HMC1019A: 0.5 dB LSB GaAs MMIC 5-BIT DIGITAL ATTENUATOR, 0.1 - 30 GHz
- *   HMC1119: 0.25 dB LSB, 7-Bit, Silicon Digital Attenuator, 0.1 GHz to 6.0 GHz
+ *   HMC1119 0.25 dB LSB, 7-Bit, Silicon Digital Attenuator
  *
  * Copyright 2012-2021 Analog Devices Inc.
  */
@@ -27,6 +27,7 @@
 #include <linux/err.h>
 #include <linux/module.h>
 #include <linux/bitrev.h>
+#include <linux/of.h>
 
 #include <linux/iio/iio.h>
 #include <linux/iio/sysfs.h>
@@ -186,10 +187,10 @@ static int ad8366_read_raw(struct iio_dev *indio_dev,
 		case ID_ADRF5731:
 			gain = -1 * code * 500;
 			break;
-		case ID_HMC271:
 		case ID_HMC792:
 			gain = -1 * code * 500;
 			break;
+		case ID_HMC271:
 		case ID_HMC1018:
 			gain = -31000 + code * 1000;
 			break;
@@ -252,10 +253,10 @@ static int ad8366_write_raw(struct iio_dev *indio_dev,
 	case ID_ADRF5731:
 		code = (abs(gain) / 500) & 0x3C;
 		break;
-	case ID_HMC271:
 	case ID_HMC792:
 		code = (abs(gain) / 500) & 0x3F;
 		break;
+	case ID_HMC271:
 	case ID_HMC1018:
 		code = ((gain - 1000) / 1000) & 0x1F;
 		break;
@@ -386,7 +387,7 @@ static int ad8366_probe(struct spi_device *spi)
 	indio_dev->info = &ad8366_info;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 
-	ret = ad8366_write(indio_dev, 0 , 0);
+	ret = ad8366_write(indio_dev, 0, 0);
 	if (ret < 0)
 		goto error_disable_reg;
 

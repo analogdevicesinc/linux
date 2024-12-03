@@ -1759,7 +1759,7 @@ static struct iio_chan_spec_ext_info axidds_ext_info[] = {
 		.name = "channel_crossbar_select",
 		.read = cf_axi_dds_ext_info_read,
 		.write = cf_axi_dds_ext_info_write,
-		.shared = false,
+		.shared = IIO_SEPARATE,
 		.private = CHANNEL_XBAR,
 	},
 	{},

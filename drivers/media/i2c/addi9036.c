@@ -515,8 +515,7 @@ static const struct v4l2_subdev_ops addi9036_subdev_ops = {
 	.pad	= &addi9036_subdev_pad_ops,
 };
 
-static int addi9036_probe(struct i2c_client *client,
-			  const struct i2c_device_id *id)
+static int addi9036_probe(struct i2c_client *client)
 {
 	struct device *dev = &client->dev;
 	struct fwnode_handle *endpoint;

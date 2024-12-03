@@ -151,45 +151,43 @@ unevaluatedProperties: false
 
 examples:
   - |
-    spi0 {
+    spi {
         #address-cells = <1>;
         #size-cells = <0>;
 
         frequency@0 {
-                compatible = "adi,adf4371";
+            compatible = "adi,adf4371";
+            reg = <0>;
+            spi-max-frequency = <1000000>;
+            clocks = <&adf4371_clkin>;
+            clock-names = "clkin";
+
+            #address-cells = <1>;
+            #size-cells = <0>;
+            #clock-cells = <1>;
+
+            channel@0 {
                 reg = <0>;
+                adi,output-enable;
+                adi,power-up-frequency = /bits/ 64 <8000000000>;
+            };
 
-                #address-cells = <1>;
-                #size-cells = <0>;
-                #clock-cells = <1>;
+            channel@1 {
+                reg = <1>;
+                adi,output-enable;
+            };
 
-                spi-max-frequency = <1000000>;
-                clocks = <&adf4371_clkin>;
-                clock-names = "clkin";
-                clock-scales = <1 10>;
+            channel@2 {
+                reg = <2>;
+                adi,output-enable;
+                adi,power-up-frequency = /bits/ 64 <16000000000>;
+            };
 
-                channel@0 {
-                        reg = <0>;
-                        adi,output-enable;
-                        adi,power-up-frequency = /bits/ 64 <8000000000>;
-                };
-
-                channel@1 {
-                        reg = <1>;
-                        adi,output-enable;
-                };
-
-                channel@2 {
-                        reg = <2>;
-                        adi,output-enable;
-                        adi,power-up-frequency = /bits/ 64 <16000000000>;
-                };
-
-                channel@3 {
-                        reg = <3>;
-                        adi,output-enable;
-                        adi,power-up-frequency = /bits/ 64 <32000000000>;
-                };
+            channel@3 {
+                reg = <3>;
+                adi,output-enable;
+                adi,power-up-frequency = /bits/ 64 <32000000000>;
+            };
         };
     };
 ...

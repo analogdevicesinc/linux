@@ -44,6 +44,7 @@ enum hwmon_chip_attributes {
 	hwmon_chip_in_samples,
 	hwmon_chip_power_samples,
 	hwmon_chip_temp_samples,
+	hwmon_chip_beep_enable,
 	hwmon_chip_pec,
 };
 
@@ -59,6 +60,7 @@ enum hwmon_chip_attributes {
 #define HWMON_C_IN_SAMPLES		BIT(hwmon_chip_in_samples)
 #define HWMON_C_POWER_SAMPLES		BIT(hwmon_chip_power_samples)
 #define HWMON_C_TEMP_SAMPLES		BIT(hwmon_chip_temp_samples)
+#define HWMON_C_BEEP_ENABLE		BIT(hwmon_chip_beep_enable)
 #define HWMON_C_PEC			BIT(hwmon_chip_pec)
 
 enum hwmon_temp_attributes {
@@ -89,6 +91,7 @@ enum hwmon_temp_attributes {
 	hwmon_temp_reset_history,
 	hwmon_temp_rated_min,
 	hwmon_temp_rated_max,
+	hwmon_temp_beep,
 };
 
 #define HWMON_T_ENABLE		BIT(hwmon_temp_enable)
@@ -118,6 +121,7 @@ enum hwmon_temp_attributes {
 #define HWMON_T_RESET_HISTORY	BIT(hwmon_temp_reset_history)
 #define HWMON_T_RATED_MIN	BIT(hwmon_temp_rated_min)
 #define HWMON_T_RATED_MAX	BIT(hwmon_temp_rated_max)
+#define HWMON_T_BEEP		BIT(hwmon_temp_beep)
 
 enum hwmon_in_attributes {
 	hwmon_in_enable,
@@ -138,6 +142,7 @@ enum hwmon_in_attributes {
 	hwmon_in_crit_alarm,
 	hwmon_in_rated_min,
 	hwmon_in_rated_max,
+	hwmon_in_beep,
 };
 
 #define HWMON_I_ENABLE		BIT(hwmon_in_enable)
@@ -158,6 +163,7 @@ enum hwmon_in_attributes {
 #define HWMON_I_CRIT_ALARM	BIT(hwmon_in_crit_alarm)
 #define HWMON_I_RATED_MIN	BIT(hwmon_in_rated_min)
 #define HWMON_I_RATED_MAX	BIT(hwmon_in_rated_max)
+#define HWMON_I_BEEP		BIT(hwmon_in_beep)
 
 enum hwmon_curr_attributes {
 	hwmon_curr_enable,
@@ -178,6 +184,7 @@ enum hwmon_curr_attributes {
 	hwmon_curr_crit_alarm,
 	hwmon_curr_rated_min,
 	hwmon_curr_rated_max,
+	hwmon_curr_beep,
 };
 
 #define HWMON_C_ENABLE		BIT(hwmon_curr_enable)
@@ -198,6 +205,7 @@ enum hwmon_curr_attributes {
 #define HWMON_C_CRIT_ALARM	BIT(hwmon_curr_crit_alarm)
 #define HWMON_C_RATED_MIN	BIT(hwmon_curr_rated_min)
 #define HWMON_C_RATED_MAX	BIT(hwmon_curr_rated_max)
+#define HWMON_C_BEEP		BIT(hwmon_curr_beep)
 
 enum hwmon_power_attributes {
 	hwmon_power_enable,
@@ -314,6 +322,7 @@ enum hwmon_fan_attributes {
 	hwmon_fan_min_alarm,
 	hwmon_fan_max_alarm,
 	hwmon_fan_fault,
+	hwmon_fan_beep,
 };
 
 #define HWMON_F_ENABLE			BIT(hwmon_fan_enable)
@@ -328,6 +337,7 @@ enum hwmon_fan_attributes {
 #define HWMON_F_MIN_ALARM		BIT(hwmon_fan_min_alarm)
 #define HWMON_F_MAX_ALARM		BIT(hwmon_fan_max_alarm)
 #define HWMON_F_FAULT			BIT(hwmon_fan_fault)
+#define HWMON_F_BEEP			BIT(hwmon_fan_beep)
 
 enum hwmon_pwm_attributes {
 	hwmon_pwm_input,
@@ -432,12 +442,16 @@ struct hwmon_channel_info {
  */
 struct hwmon_chip_info {
 	const struct hwmon_ops *ops;
-	const struct hwmon_channel_info **info;
+	const struct hwmon_channel_info * const *info;
 };
 
 /* hwmon_device_register() is deprecated */
 struct device *hwmon_device_register(struct device *dev);
 
+/*
+ * hwmon_device_register_with_groups() and
+ * devm_hwmon_device_register_with_groups() are deprecated.
+ */
 struct device *
 hwmon_device_register_with_groups(struct device *dev, const char *name,
 				  void *drvdata,

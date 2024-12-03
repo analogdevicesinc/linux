@@ -16,11 +16,9 @@
 #include <linux/irq.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
-#include <linux/of_irq.h>
 #include <linux/property.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
-#include <linux/slab.h>
 #include <linux/spi/spi.h>
 #include <linux/units.h>
 
@@ -305,8 +303,7 @@ struct ad4130_state {
 	 * buffers is synchronous, all of the buffers used for DMA in this
 	 * driver may share a cache line.
 	 */
-	/* IIO_DMA_MINALIGN is not available before 6.0 */
-	u8			reset_buf[AD4130_RESET_BUF_SIZE] __aligned(ARCH_KMALLOC_MINALIGN);
+	u8			reset_buf[AD4130_RESET_BUF_SIZE] __aligned(IIO_DMA_MINALIGN);
 	u8			reg_write_tx_buf[4];
 	u8			reg_read_tx_buf[1];
 	u8			reg_read_rx_buf[3];
@@ -1383,11 +1380,11 @@ static IIO_DEVICE_ATTR_RO(hwfifo_watermark_max, 0);
 static IIO_DEVICE_ATTR_RO(hwfifo_watermark, 0);
 static IIO_DEVICE_ATTR_RO(hwfifo_enabled, 0);
 
-static const struct attribute *ad4130_fifo_attributes[] = {
-	&iio_dev_attr_hwfifo_watermark_min.dev_attr.attr,
-	&iio_dev_attr_hwfifo_watermark_max.dev_attr.attr,
-	&iio_dev_attr_hwfifo_watermark.dev_attr.attr,
-	&iio_dev_attr_hwfifo_enabled.dev_attr.attr,
+static const struct iio_dev_attr *ad4130_fifo_attributes[] = {
+	&iio_dev_attr_hwfifo_watermark_min,
+	&iio_dev_attr_hwfifo_watermark_max,
+	&iio_dev_attr_hwfifo_watermark,
+	&iio_dev_attr_hwfifo_enabled,
 	NULL
 };
 
@@ -1664,8 +1661,8 @@ static int ad4310_parse_fw(struct iio_dev *indio_dev)
 	st->int_pin_sel = AD4130_INT_PIN_INT;
 
 	for (i = 0; i < ARRAY_SIZE(ad4130_int_pin_names); i++) {
-		/* fwnode_irq_get_byname is not available before 5.18 */
-		irq = of_irq_get_byname(dev->of_node, ad4130_int_pin_names[i]);
+		irq = fwnode_irq_get_byname(dev_fwnode(dev),
+					    ad4130_int_pin_names[i]);
 		if (irq > 0) {
 			st->int_pin_sel = i;
 			break;
@@ -1820,6 +1817,11 @@ static const struct clk_ops ad4130_int_clk_ops = {
 	.unprepare = ad4130_int_clk_unprepare,
 };
 
+static void ad4130_clk_del_provider(void *of_node)
+{
+	of_clk_del_provider(of_node);
+}
+
 static int ad4130_setup_int_clk(struct ad4130_state *st)
 {
 	struct device *dev = &st->spi->dev;
@@ -1827,6 +1829,7 @@ static int ad4130_setup_int_clk(struct ad4130_state *st)
 	struct clk_init_data init;
 	const char *clk_name;
 	struct clk *clk;
+	int ret;
 
 	if (st->int_pin_sel == AD4130_INT_PIN_CLK ||
 	    st->mclk_sel != AD4130_MCLK_76_8KHZ)
@@ -1846,7 +1849,11 @@ static int ad4130_setup_int_clk(struct ad4130_state *st)
 	if (IS_ERR(clk))
 		return PTR_ERR(clk);
 
-	return of_clk_add_provider(of_node, of_clk_src_simple_get, clk);
+	ret = of_clk_add_provider(of_node, of_clk_src_simple_get, clk);
+	if (ret)
+		return ret;
+
+	return devm_add_action_or_reset(dev, ad4130_clk_del_provider, of_node);
 }
 
 static int ad4130_setup(struct iio_dev *indio_dev)

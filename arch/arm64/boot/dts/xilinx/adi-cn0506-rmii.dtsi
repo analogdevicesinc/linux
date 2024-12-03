@@ -42,6 +42,9 @@
 		 <&zynqmp_clk GEM0_RX>, <&zynqmp_clk GEM_TSU>;
 	clock-names = "pclk", "hclk", "tx_clk", "rx_clk", "tsu_clk";
 
+        #address-cells = <1>;
+	#size-cells = <0>;
+
 	ethernet_gem0_phy1: ethernet-phy@1 {
 		reg = <1>;
 		reset-gpios = <&gpio 115 GPIO_ACTIVE_HIGH>;
@@ -59,6 +62,9 @@
 	clocks = <&zynqmp_clk LPD_LSBUS>, <&fmc_mii_clk2>, <&zynqmp_clk GEM1_TX>,
 		 <&zynqmp_clk GEM1_RX>, <&zynqmp_clk GEM_TSU>;
 	clock-names = "pclk", "hclk", "tx_clk", "rx_clk", "tsu_clk";
+
+        #address-cells = <1>;
+	#size-cells = <0>;
 
 	ethernet_gem1_phy2: ethernet-phy@2 {
 		reg = <2>;

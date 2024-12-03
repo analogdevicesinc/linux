@@ -127,7 +127,7 @@ static struct i2c_driver max77503_regulator_driver = {
 		.name = "max77503",
 		.of_match_table = of_max77503_match_tbl
 	},
-	.probe_new = max77503_regulator_probe,
+	.probe = max77503_regulator_probe,
 	.id_table = max77503_regulator_id,
 };
 

@@ -10,8 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/slab.h>
-#include <linux/of_gpio.h>
-#include <linux/gpio.h>
+#include <linux/gpio/consumer.h>
 #include <linux/dmaengine.h>
 #include <linux/firmware.h>
 #include <linux/platform_device.h>
@@ -64,7 +63,7 @@ struct axi_hdmi_rx {
 
 	struct axi_hdmi_rx_stream stream;
 
-	int hotplug_gpio;
+	struct gpio_desc *hotplug_gpio;
 
 	void __iomem *base;
 
@@ -727,7 +726,7 @@ static void axi_hdmi_rx_notify(struct v4l2_subdev *sd, unsigned int notification
 
 	switch (notification) {
 	case ADV76XX_HOTPLUG:
-		gpio_set_value_cansleep(hdmi_rx->hotplug_gpio, hotplug);
+		gpiod_set_value_cansleep(hdmi_rx->hotplug_gpio, hotplug);
 		break;
 	default:
 		break;
@@ -785,7 +784,7 @@ static struct axi_hdmi_rx *notifier_to_axi_hdmi_rx(struct v4l2_async_notifier *n
 }
 
 static int axi_hdmi_rx_async_bound(struct v4l2_async_notifier *notifier,
-	struct v4l2_subdev *subdev, struct v4l2_async_subdev *asd)
+	struct v4l2_subdev *subdev, struct v4l2_async_connection *asc)
 {
 	struct axi_hdmi_rx *hdmi_rx = notifier_to_axi_hdmi_rx(notifier);
 	struct v4l2_subdev_format fmt;
@@ -865,7 +864,7 @@ static int axi_hdmi_rx_load_edid(struct platform_device *pdev,
 static int axi_hdmi_rx_probe(struct platform_device *pdev)
 {
 	struct device_node *ep_node;
-	struct v4l2_async_subdev *asd;
+	struct v4l2_async_connection *asd;
 	struct axi_hdmi_rx *hdmi_rx;
 	struct resource *res;
 	struct v4l2_fwnode_endpoint bus_cfg = { .bus_type = V4L2_MBUS_UNKNOWN };
@@ -875,14 +874,9 @@ static int axi_hdmi_rx_probe(struct platform_device *pdev)
 	if (hdmi_rx == NULL)
 		return -ENOMEM;
 
-	hdmi_rx->hotplug_gpio = of_get_gpio(pdev->dev.of_node, 0);
-	if (!gpio_is_valid(hdmi_rx->hotplug_gpio))
-		return hdmi_rx->hotplug_gpio;
-
-	ret = devm_gpio_request_one(&pdev->dev,
-		hdmi_rx->hotplug_gpio, GPIOF_OUT_INIT_LOW, "HPD");
-	if (ret < 0)
-		return ret;
+	hdmi_rx->hotplug_gpio = devm_gpiod_get(&pdev->dev, "HPD", GPIOD_OUT_LOW);
+	if (IS_ERR(hdmi_rx->hotplug_gpio))
+		return PTR_ERR(hdmi_rx->hotplug_gpio);
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	hdmi_rx->base = devm_ioremap_resource(&pdev->dev, res);
@@ -921,10 +915,10 @@ static int axi_hdmi_rx_probe(struct platform_device *pdev)
 	else
 		hdmi_rx->bus_width = 16;
 
-	v4l2_async_nf_init(&hdmi_rx->notifier);
+	v4l2_async_nf_init(&hdmi_rx->notifier, &hdmi_rx->v4l2_dev);
 	asd = v4l2_async_nf_add_fwnode_remote(&hdmi_rx->notifier,
 					      of_fwnode_handle(ep_node),
-					      struct v4l2_async_subdev);
+					      struct v4l2_async_connection);
 	of_node_put(ep_node);
 	if (IS_ERR(asd)) {
 		ret = PTR_ERR(asd);
@@ -933,8 +927,7 @@ static int axi_hdmi_rx_probe(struct platform_device *pdev)
 
 	hdmi_rx->notifier.ops = &axi_hdmi_rx_async_ops;
 
-	ret = v4l2_async_nf_register(&hdmi_rx->v4l2_dev,
-				     &hdmi_rx->notifier);
+	ret = v4l2_async_nf_register(&hdmi_rx->notifier);
 	if (ret) {
 		dev_err(&pdev->dev, "Error %d registering device nodes\n", ret);
 		goto err_device_unregister;

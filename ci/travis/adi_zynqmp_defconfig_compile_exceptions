@@ -54,3 +54,7 @@ drivers/iio/adc/adrv902x/devices/adrv9025/private/src/adrv9025_dynamic_slicer.o
 drivers/iio/adc/adrv902x/devices/adrv9025/public/src/adi_adrv9025_dfe.o
 drivers/iio/adc/adrv902x/devices/adrv9025/public/src/adi_adrv9025_dynamic_slicer.o
 drivers/iio/adc/adrv902x/platforms/adi_platform.o
+drivers/gpu/drm/tegra/fbdev.o
+sound/soc/codecs/max98363.o
+sound/soc/codecs/ssm3515.o
+

@@ -11,16 +11,16 @@
 #include <linux/hwmon.h>
 #include <linux/i2c.h>
 #include <linux/mutex.h>
+#include <linux/of_device.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
-#include <linux/of_device.h>
 
-#define MAX31827_T_REG	0x0
+#define MAX31827_T_REG			0x0
 #define MAX31827_CONFIGURATION_REG	0x2
-#define MAX31827_TH_REG	0x4
-#define MAX31827_TL_REG 0x6
-#define MAX31827_TH_HYST_REG	0x8
-#define MAX31827_TL_HYST_REG	0xA
+#define MAX31827_TH_REG			0x4
+#define MAX31827_TL_REG			0x6
+#define MAX31827_TH_HYST_REG		0x8
+#define MAX31827_TL_HYST_REG		0xA
 
 #define MAX31827_CONFIGURATION_1SHOT_MASK	BIT(0)
 #define MAX31827_CONFIGURATION_CNV_RATE_MASK	GENMASK(3, 1)
@@ -345,7 +345,7 @@ static int max31827_write(struct device *dev, enum hwmon_sensor_types type,
 		switch (attr) {
 		case hwmon_temp_enable:
 			if (val >> 1)
-				return -EOPNOTSUPP;
+				return -EINVAL;
 
 			mutex_lock(&st->lock);
 			/**
@@ -385,7 +385,7 @@ static int max31827_write(struct device *dev, enum hwmon_sensor_types type,
 		switch (attr) {
 		case hwmon_chip_update_interval:
 			if (!st->enable)
-				return -EOPNOTSUPP;
+				return -EINVAL;
 
 			/*
 			 * Convert the desired conversion rate into register
@@ -661,7 +661,7 @@ static struct i2c_driver max31827_driver = {
 		.name = "max31827",
 		.of_match_table = max31827_of_match,
 	},
-	.probe_new = max31827_probe,
+	.probe = max31827_probe,
 	.id_table = max31827_i2c_ids,
 };
 module_i2c_driver(max31827_driver);

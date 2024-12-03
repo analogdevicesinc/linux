@@ -644,7 +644,8 @@ static int rproc_handle_devmem(struct rproc *rproc, void *ptr,
 	if (!mapping)
 		return -ENOMEM;
 
-	ret = iommu_map(rproc->domain, rsc->da, rsc->pa, rsc->len, rsc->flags);
+	ret = iommu_map(rproc->domain, rsc->da, rsc->pa, rsc->len, rsc->flags,
+			GFP_KERNEL);
 	if (ret) {
 		dev_err(dev, "failed to map devmem: %d\n", ret);
 		goto out;
@@ -738,7 +739,7 @@ static int rproc_alloc_carveout(struct rproc *rproc,
 		}
 
 		ret = iommu_map(rproc->domain, mem->da, dma, mem->len,
-				mem->flags);
+				mem->flags, GFP_KERNEL);
 		if (ret) {
 			dev_err(dev, "iommu_map failed: %d\n", ret);
 			goto free_mapping;
@@ -1869,10 +1870,16 @@ static void rproc_crash_handler_work(struct work_struct *work)
 
 	mutex_lock(&rproc->lock);
 
-	if (rproc->state == RPROC_CRASHED || rproc->state == RPROC_OFFLINE) {
+	if (rproc->state == RPROC_CRASHED) {
 		/* handle only the first crash detected */
 		mutex_unlock(&rproc->lock);
 		return;
+	}
+
+	if (rproc->state == RPROC_OFFLINE) {
+		/* Don't recover if the remote processor was stopped */
+		mutex_unlock(&rproc->lock);
+		goto out;
 	}
 
 	rproc->state = RPROC_CRASHED;
@@ -1884,6 +1891,7 @@ static void rproc_crash_handler_work(struct work_struct *work)
 	if (!rproc->recovery_disabled)
 		rproc_trigger_recovery(rproc);
 
+out:
 	pm_relax(rproc->dev.parent);
 }
 
@@ -2104,7 +2112,6 @@ EXPORT_SYMBOL(rproc_detach);
 #ifdef CONFIG_OF
 struct rproc *rproc_get_by_phandle(phandle phandle)
 {
-	struct platform_device *cluster_pdev;
 	struct rproc *rproc = NULL, *r;
 	struct device_driver *driver;
 	struct device_node *np;
@@ -2115,7 +2122,7 @@ struct rproc *rproc_get_by_phandle(phandle phandle)
 
 	rcu_read_lock();
 	list_for_each_entry_rcu(r, &rproc_list, node) {
-		if (r->dev.parent && r->dev.parent->of_node == np) {
+		if (r->dev.parent && device_match_of_node(r->dev.parent, np)) {
 			/* prevent underlying implementation from being removed */
 
 			/*
@@ -2130,14 +2137,10 @@ struct rproc *rproc_get_by_phandle(phandle phandle)
 			 * look for the driver associated with the cluster.
 			 */
 			if (!driver) {
-				cluster_pdev = of_find_device_by_node(np->parent);
-				if (!cluster_pdev) {
-					dev_err(&r->dev, "can't get parent\n");
+				if (r->dev.parent->parent)
+					driver = r->dev.parent->parent->driver;
+				if (!driver)
 					break;
-				}
-
-				driver = cluster_pdev->dev.driver;
-				put_device(&cluster_pdev->dev);
 			}
 
 			if (!try_module_get(driver->owner)) {
@@ -2551,19 +2554,11 @@ EXPORT_SYMBOL(rproc_free);
  */
 void rproc_put(struct rproc *rproc)
 {
-	struct platform_device *cluster_pdev;
+	if (rproc->dev.parent->driver)
+		module_put(rproc->dev.parent->driver->owner);
+	else
+		module_put(rproc->dev.parent->parent->driver->owner);
 
-	if (rproc->dev.parent) {
-		if (rproc->dev.parent->driver) {
-			module_put(rproc->dev.parent->driver->owner);
-		} else {
-			cluster_pdev = of_find_device_by_node(rproc->dev.parent->of_node->parent);
-			if (cluster_pdev) {
-				module_put(cluster_pdev->dev.driver->owner);
-				put_device(&cluster_pdev->dev);
-			}
-		}
-	}
 	put_device(&rproc->dev);
 }
 EXPORT_SYMBOL(rproc_put);
@@ -2796,5 +2791,4 @@ static void __exit remoteproc_exit(void)
 }
 module_exit(remoteproc_exit);
 
-MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Generic Remote Processor Framework");

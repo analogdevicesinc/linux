@@ -346,9 +346,12 @@ static int admv1013_update_quad_filters(struct admv1013_state *st)
 
 static int admv1013_update_mixer_vgate(struct admv1013_state *st)
 {
-	unsigned int vcm, mixer_vgate;
+	unsigned int mixer_vgate;
+	int vcm;
 
 	vcm = regulator_get_voltage(st->reg);
+	if (vcm < 0)
+		return vcm;
 
 	if (vcm <= 1800000)
 		mixer_vgate = (2389 * vcm / 1000000 + 8100) / 100;
@@ -382,7 +385,7 @@ static const struct iio_info admv1013_info = {
 };
 
 static const char * const admv1013_vcc_regs[] = {
-	"vcc-drv", "vcc2-drv", "vcc-vva", "vcc-amp1", "vcc-amp2",
+	 "vcc-drv", "vcc2-drv", "vcc-vva", "vcc-amp1", "vcc-amp2",
 	 "vcc-env", "vcc-bg", "vcc-bg2", "vcc-mixer", "vcc-quad"
 };
 
@@ -497,11 +500,6 @@ static int admv1013_init(struct admv1013_state *st)
 					  st->input_mode);
 }
 
-static void admv1013_clk_disable(void *data)
-{
-	clk_disable_unprepare(data);
-}
-
 static void admv1013_reg_disable(void *data)
 {
 	regulator_disable(data);
@@ -575,11 +573,6 @@ static int admv1013_properties_parse(struct admv1013_state *st)
 		return ret;
 	}
 
-	st->clkin = devm_clk_get(&spi->dev, "lo_in");
-	if (IS_ERR(st->clkin))
-		return dev_err_probe(&spi->dev, PTR_ERR(st->clkin),
-				     "failed to get the LO input clock\n");
-
 	return of_clk_get_scale(spi->dev.of_node, NULL, &st->clkscale);
 }
 
@@ -617,13 +610,10 @@ static int admv1013_probe(struct spi_device *spi)
 	if (ret)
 		return ret;
 
-	ret = clk_prepare_enable(st->clkin);
-	if (ret)
-		return ret;
-
-	ret = devm_add_action_or_reset(&spi->dev, admv1013_clk_disable, st->clkin);
-	if (ret)
-		return ret;
+	st->clkin = devm_clk_get_enabled(&spi->dev, "lo_in");
+	if (IS_ERR(st->clkin))
+		return dev_err_probe(&spi->dev, PTR_ERR(st->clkin),
+				     "failed to get the LO input clock\n");
 
 	st->nb.notifier_call = admv1013_freq_change;
 	ret = devm_clk_notifier_register(&spi->dev, st->clkin, &st->nb);

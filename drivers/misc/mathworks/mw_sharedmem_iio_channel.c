@@ -392,9 +392,9 @@ static int mw_sharedmem_iio_channel_get_ip_sync_mode(struct iio_dev *indio_dev,
 	struct mw_sharedmem_iio_chandev *mwchan = iio_priv(indio_dev);
 	int mode;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&mwchan->lock);
 	mode = mwchan->ip_sync_mode;
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&mwchan->lock);
 
 	return mode;
 }
@@ -408,9 +408,9 @@ static int mw_sharedmem_iio_channel_set_ip_sync_mode(struct iio_dev *indio_dev,
 		return -EINVAL;
 	}
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&mwchan->lock);
 	mwchan->ip_sync_mode = mode;
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&mwchan->lock);
 
 	return 0;
 }
@@ -433,9 +433,9 @@ static int mw_sharedmem_iio_channel_get_base_addr_mode(struct iio_dev *indio_dev
 	struct mw_sharedmem_iio_chandev *mwchan = iio_priv(indio_dev);
 	int mode;
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&mwchan->lock);
 	mode = mwchan->base_addr_mode;
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&mwchan->lock);
 
 	return mode;
 }
@@ -445,9 +445,9 @@ static int mw_sharedmem_iio_channel_set_base_addr_mode(struct iio_dev *indio_dev
 {
 	struct mw_sharedmem_iio_chandev *mwchan = iio_priv(indio_dev);
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&mwchan->lock);
 	mwchan->base_addr_mode = mode;
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&mwchan->lock);
 
 	return 0;
 }
@@ -1021,7 +1021,7 @@ static int mw_sharedmem_iio_probe(
 		return PTR_ERR(mwregion);
 	} else {
 		/* If region size is >= 1 MB, display size as MB */
-		if (mwregion->region.size >= (2^20)){
+		if (mwregion->region.size >= BIT(20)) {
 			size_disp = mwregion->region.size >> 20;
 		}
 		/* Otherwise display as kB */

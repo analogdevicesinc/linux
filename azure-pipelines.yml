@@ -91,8 +91,8 @@ jobs:
 - job: dtb_build_test
   variables:
     BUILD_TYPE: dtb_build_test
-    DTS_FILES: "arch/arm/boot/dts/zynq-*.dts
-                arch/arm/boot/dts/socfpga_*.dts
+    DTS_FILES: "arch/arm/boot/dts/xilinx/zynq-*.dts
+                arch/arm/boot/dts/intel/socfpga/socfpga_*.dts
                 arch/arm64/boot/dts/xilinx/zynqmp-*.dts
                 arch/arm64/boot/dts/xilinx/versal-*.dts
                 arch/microblaze/boot/dts/*.dts

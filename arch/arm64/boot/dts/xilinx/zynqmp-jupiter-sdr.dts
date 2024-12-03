@@ -263,6 +263,9 @@
 	nvmem-cells = <&eth0_addr>;
 	nvmem-cell-names = "mac-address";
 
+        #address-cells = <1>;
+	#size-cells = <0>;
+
 	phy0: phy@f {
 		reg = <0xf>;
 	};

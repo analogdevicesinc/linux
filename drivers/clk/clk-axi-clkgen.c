@@ -448,23 +448,25 @@ static int axi_clkgen_set_rate(struct clk_hw *clk_hw,
 	return 0;
 }
 
-static long axi_clkgen_round_rate(struct clk_hw *hw, unsigned long rate,
-	unsigned long *parent_rate)
+static int axi_clkgen_determine_rate(struct clk_hw *hw,
+				     struct clk_rate_request *req)
 {
 	struct axi_clkgen *axi_clkgen = clk_hw_to_axi_clkgen(hw);
 	const struct axi_clkgen_limits *limits = &axi_clkgen->limits;
 	unsigned int d, m, dout;
 	unsigned long long tmp;
 
-	axi_clkgen_calc_params(limits, *parent_rate, rate, &d, &m, &dout);
+	axi_clkgen_calc_params(limits, req->best_parent_rate, req->rate,
+			       &d, &m, &dout);
 
 	if (d == 0 || dout == 0 || m == 0)
 		return -EINVAL;
 
-	tmp = (unsigned long long)*parent_rate * m;
+	tmp = (unsigned long long)req->best_parent_rate * m;
 	tmp = DIV_ROUND_CLOSEST_ULL(tmp, dout * d);
 
-	return min_t(unsigned long long, tmp, LONG_MAX);
+	req->rate = min_t(unsigned long long, tmp, LONG_MAX);
+	return 0;
 }
 
 static unsigned int axi_clkgen_get_div(struct axi_clkgen *axi_clkgen,
@@ -559,13 +561,18 @@ static u8 axi_clkgen_get_parent(struct clk_hw *clk_hw)
 
 static const struct clk_ops axi_clkgen_ops = {
 	.recalc_rate = axi_clkgen_recalc_rate,
-	.round_rate = axi_clkgen_round_rate,
+	.determine_rate = axi_clkgen_determine_rate,
 	.set_rate = axi_clkgen_set_rate,
 	.enable = axi_clkgen_enable,
 	.disable = axi_clkgen_disable,
 	.set_parent = axi_clkgen_set_parent,
 	.get_parent = axi_clkgen_get_parent,
 };
+
+static void axi_clkgen_disable_clk(void *clk)
+{
+	clk_disable_unprepare(clk);
+}
 
 static int axi_clkgen_probe(struct platform_device *pdev)
 {
@@ -590,16 +597,12 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 	if (IS_ERR(axi_clkgen->base))
 		return PTR_ERR(axi_clkgen->base);
 
-	axi_clkgen->axi_clk = devm_clk_get(&pdev->dev, "s_axi_aclk");
+	axi_clkgen->axi_clk = devm_clk_get_enabled(&pdev->dev, "s_axi_aclk");
 	if (IS_ERR(axi_clkgen->axi_clk)) {
 		if (PTR_ERR(axi_clkgen->axi_clk) != -EPROBE_DEFER)
 			dev_err(&pdev->dev, "failed to get s_axi_aclk\n");
 		return PTR_ERR(axi_clkgen->axi_clk);
 	}
-
-	ret = clk_prepare_enable(axi_clkgen->axi_clk);
-	if (ret)
-		return ret;
 
 	axi_clkgen_read(axi_clkgen, ADI_AXI_REG_VERSION,
 			&axi_clkgen->pcore_version);
@@ -614,7 +617,7 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 			continue;
 		if (IS_ERR(axi_clkgen->parent_clocks[i])) {
 			ret = PTR_ERR(axi_clkgen->parent_clocks[i]);
-			goto err_disable_axi_clk;
+			return ret;
 		}
 
 		parent_names[i] = __clk_get_name(axi_clkgen->parent_clocks[i]);
@@ -623,17 +626,18 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 
 	if (init.num_parents < 1) {
 		dev_err(&pdev->dev, "Missing input clock, see 'clkin1' and 'clkin2'\n");
-		ret = -EINVAL;
-		goto err_disable_axi_clk;
+		return -EINVAL;
 	}
 
 	for (i = 0; i < init.num_parents; i++) {
 		ret = clk_prepare_enable(axi_clkgen->parent_clocks[i]);
-		if (ret) {
-			while (--i >= 0)
-				clk_disable_unprepare(axi_clkgen->parent_clocks[i]);
-			goto err_disable_axi_clk;
-		}
+		if (ret)
+			return ret;
+
+		ret = devm_add_action_or_reset(&pdev->dev, axi_clkgen_disable_clk,
+					       axi_clkgen->parent_clocks[i]);
+		if (ret)
+			return ret;
 	}
 
 	memcpy(&axi_clkgen->limits, dflt_limits, sizeof(axi_clkgen->limits));
@@ -652,36 +656,10 @@ static int axi_clkgen_probe(struct platform_device *pdev)
 	axi_clkgen->clk_hw.init = &init;
 	ret = devm_clk_hw_register(&pdev->dev, &axi_clkgen->clk_hw);
 	if (ret)
-		goto err_disable_parent_clocks;
+		return ret;
 
-	platform_set_drvdata(pdev, axi_clkgen);
-
-	return of_clk_add_hw_provider(pdev->dev.of_node, of_clk_hw_simple_get,
-				      &axi_clkgen->clk_hw);
-
-err_disable_parent_clocks:
-	for (i = 0; i < init.num_parents; i++)
-		clk_disable_unprepare(axi_clkgen->parent_clocks[i]);
-
-err_disable_axi_clk:
-	clk_disable_unprepare(axi_clkgen->axi_clk);
-
-	return ret;
-}
-
-static int axi_clkgen_remove(struct platform_device *pdev)
-{
-	struct axi_clkgen *axi_clkgen = platform_get_drvdata(pdev);
-	int i;
-
-	of_clk_del_provider(pdev->dev.of_node);
-
-	for (i = 0; i < ARRAY_SIZE(axi_clkgen->parent_clocks); i++)
-		clk_disable_unprepare(axi_clkgen->parent_clocks[i]);
-
-	clk_disable_unprepare(axi_clkgen->axi_clk);
-
-	return 0;
+	return devm_of_clk_add_hw_provider(&pdev->dev, of_clk_hw_simple_get,
+					   &axi_clkgen->clk_hw);
 }
 
 static const struct of_device_id axi_clkgen_ids[] = {
@@ -703,7 +681,6 @@ static struct platform_driver axi_clkgen_driver = {
 		.of_match_table = axi_clkgen_ids,
 	},
 	.probe = axi_clkgen_probe,
-	.remove = axi_clkgen_remove,
 };
 module_platform_driver(axi_clkgen_driver);
 

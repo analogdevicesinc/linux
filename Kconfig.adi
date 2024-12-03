@@ -25,6 +25,7 @@ config KERNEL_ALL_ADI_DRIVERS
 	imply MEDIA_SUPPORT
 	imply MEDIA_CONTROLLER
 	imply MEDIA_CAMERA_SUPPORT
+	imply MEDIA_PLATFORM_SUPPORT
 	imply VIDEO_DEV
 	imply VIDEO_V4L2_SUBDEV_API
 	imply V4L_PLATFORM_DRIVERS
@@ -92,6 +93,8 @@ config KERNEL_ALL_ADI_DRIVERS
 	imply RTC_DRV_MAX31335
 	imply REGULATOR_MAX77503
 	imply REGULATOR_MAX77857
+	imply REGULATOR_MAX77541
+	imply MFD_MAX77541
 
 source "drivers/clk/Kconfig.adi"
 source "drivers/hwmon/Kconfig.adi"

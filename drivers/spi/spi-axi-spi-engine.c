@@ -93,7 +93,7 @@ struct spi_engine {
 	struct clk *clk;
 	struct clk *ref_clk;
 
-	struct spi_master *master;
+	struct spi_controller *ctrl;
 
 	spinlock_t lock;
 
@@ -303,7 +303,7 @@ static int spi_engine_compile_message(struct spi_engine *spi_engine,
 
 bool spi_engine_offload_supported(struct spi_device *spi)
 {
-	if (strcmp(spi->master->dev.parent->driver->name, "spi-engine") != 0)
+	if (strcmp(spi->controller->dev.parent->driver->name, "spi-engine") != 0)
 		return false;
 
 	return true;
@@ -312,8 +312,8 @@ EXPORT_SYMBOL_GPL(spi_engine_offload_supported);
 
 void spi_engine_offload_enable(struct spi_device *spi, bool enable)
 {
-	struct spi_master *master = spi->master;
-	struct spi_engine *spi_engine = spi_master_get_devdata(master);
+	struct spi_controller *host = spi->controller;
+	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
 	unsigned int reg;
 
 	reg = readl(spi_engine->base + SPI_ENGINE_REG_OFFLOAD_CTRL(0));
@@ -328,8 +328,8 @@ EXPORT_SYMBOL_GPL(spi_engine_offload_enable);
 int spi_engine_offload_load_msg(struct spi_device *spi,
 	struct spi_message *msg)
 {
-	struct spi_master *master = spi->master;
-	struct spi_engine *spi_engine = spi_master_get_devdata(master);
+	struct spi_controller *host = spi->controller;
+	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
 	struct spi_engine_program p_dry;
 	struct spi_engine_program *p;
 	struct spi_transfer *xfer;
@@ -520,9 +520,9 @@ static bool spi_engine_read_rx_fifo(struct spi_engine *spi_engine)
 	return spi_engine->rx_length != 0;
 }
 
-static void spi_engine_complete_message(struct spi_master *master, int status)
+static void spi_engine_complete_message(struct spi_controller *host, int status)
 {
-	struct spi_engine *spi_engine = spi_master_get_devdata(master);
+	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
 	struct spi_message *msg = spi_engine->msg;
 
 	kfree(spi_engine->p);
@@ -535,13 +535,13 @@ static void spi_engine_complete_message(struct spi_master *master, int status)
 	spi_engine->rx_xfer = NULL;
 	spi_engine->rx_buf = NULL;
 	spi_engine->rx_length = 0;
-	spi_finalize_current_message(master);
+	spi_finalize_current_message(host);
 }
 
 static irqreturn_t spi_engine_irq(int irq, void *devid)
 {
-	struct spi_master *master = devid;
-	struct spi_engine *spi_engine = spi_master_get_devdata(master);
+	struct spi_controller *host = devid;
+	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
 	unsigned int disable_int = 0;
 	unsigned int pending;
 
@@ -576,7 +576,7 @@ static irqreturn_t spi_engine_irq(int irq, void *devid)
 
 			del_timer(&spi_engine->watchdog_timer);
 
-			spi_engine_complete_message(master, 0);
+			spi_engine_complete_message(host, 0);
 
 			disable_int |= SPI_ENGINE_INT_SYNC;
 		}
@@ -596,21 +596,21 @@ static irqreturn_t spi_engine_irq(int irq, void *devid)
 static void spi_engine_timeout(struct timer_list *t)
 {
 	struct spi_engine *spi_engine = from_timer(spi_engine, t, watchdog_timer);
-	struct spi_master *master = spi_engine->master;
+	struct spi_controller *host = spi_engine->ctrl;
 
 	spin_lock(&spi_engine->lock);
 	if (spi_engine->msg) {
-		dev_err(&master->dev, "Timeout occured while waiting for transfer to complete. Hardware is probably broken.\n");
-		spi_engine_complete_message(master, -ETIMEDOUT);
+		dev_err(&host->dev, "Timeout occured while waiting for transfer to complete. Hardware is probably broken.\n");
+		spi_engine_complete_message(host, -ETIMEDOUT);
 	}
 	spin_unlock(&spi_engine->lock);
 }
 
-static int spi_engine_transfer_one_message(struct spi_master *master,
+static int spi_engine_transfer_one_message(struct spi_controller *host,
 	struct spi_message *msg)
 {
 	struct spi_engine_program p_dry, *p;
-	struct spi_engine *spi_engine = spi_master_get_devdata(master);
+	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
 	unsigned int int_enable = 0;
 	unsigned long flags;
 	size_t size;
@@ -662,7 +662,7 @@ static int spi_engine_transfer_one_message(struct spi_master *master,
 static int spi_engine_probe(struct platform_device *pdev)
 {
 	struct spi_engine *spi_engine;
-	struct spi_master *master;
+	struct spi_controller *host;
 	unsigned int version;
 	int irq;
 	int ret;
@@ -675,30 +675,30 @@ static int spi_engine_probe(struct platform_device *pdev)
 	if (!spi_engine)
 		return -ENOMEM;
 
-	master = spi_alloc_master(&pdev->dev, 0);
-	if (!master)
+	host = spi_alloc_host(&pdev->dev, 0);
+	if (!host)
 		return -ENOMEM;
 
-	spi_master_set_devdata(master, spi_engine);
-	spi_engine->master = master;
+	spi_controller_set_devdata(host, spi_engine);
+	spi_engine->ctrl = host;
 
 	spin_lock_init(&spi_engine->lock);
 
 	spi_engine->clk = devm_clk_get(&pdev->dev, "s_axi_aclk");
 	if (IS_ERR(spi_engine->clk)) {
 		ret = PTR_ERR(spi_engine->clk);
-		goto err_put_master;
+		goto err_put_host;
 	}
 
 	spi_engine->ref_clk = devm_clk_get(&pdev->dev, "spi_clk");
 	if (IS_ERR(spi_engine->ref_clk)) {
 		ret = PTR_ERR(spi_engine->ref_clk);
-		goto err_put_master;
+		goto err_put_host;
 	}
 
 	ret = clk_prepare_enable(spi_engine->clk);
 	if (ret)
-		goto err_put_master;
+		goto err_put_host;
 
 	ret = clk_prepare_enable(spi_engine->ref_clk);
 	if (ret)
@@ -724,48 +724,48 @@ static int spi_engine_probe(struct platform_device *pdev)
 	writel_relaxed(0xff, spi_engine->base + SPI_ENGINE_REG_INT_PENDING);
 	writel_relaxed(0x00, spi_engine->base + SPI_ENGINE_REG_INT_ENABLE);
 
-	ret = request_irq(irq, spi_engine_irq, 0, pdev->name, master);
+	ret = request_irq(irq, spi_engine_irq, 0, pdev->name, host);
 	if (ret)
 		goto err_ref_clk_disable;
 
-	master->dev.of_node = pdev->dev.of_node;
-	master->mode_bits = SPI_CPOL | SPI_CPHA | SPI_3WIRE;
-	master->max_speed_hz = clk_get_rate(spi_engine->ref_clk) / 2;
-	master->bits_per_word_mask = GENMASK(31, 0);
-	master->transfer_one_message = spi_engine_transfer_one_message;
-	master->num_chipselect = 8;
+	host->dev.of_node = pdev->dev.of_node;
+	host->mode_bits = SPI_CPOL | SPI_CPHA | SPI_3WIRE;
+	host->max_speed_hz = clk_get_rate(spi_engine->ref_clk) / 2;
+	host->bits_per_word_mask = GENMASK(31, 0);
+	host->transfer_one_message = spi_engine_transfer_one_message;
+	host->num_chipselect = 8;
 
 	timer_setup(&spi_engine->watchdog_timer, spi_engine_timeout, 0);
 
-	ret = spi_register_master(master);
+	ret = spi_register_controller(host);
 	if (ret)
 		goto err_free_irq;
 
-	platform_set_drvdata(pdev, master);
+	platform_set_drvdata(pdev, host);
 
 	return 0;
 err_free_irq:
-	free_irq(irq, master);
+	free_irq(irq, host);
 err_ref_clk_disable:
 	clk_disable_unprepare(spi_engine->ref_clk);
 err_clk_disable:
 	clk_disable_unprepare(spi_engine->clk);
-err_put_master:
-	spi_master_put(master);
+err_put_host:
+	spi_controller_put(host);
 	return ret;
 }
 
 static int spi_engine_remove(struct platform_device *pdev)
 {
-	struct spi_master *master = spi_master_get(platform_get_drvdata(pdev));
-	struct spi_engine *spi_engine = spi_master_get_devdata(master);
+	struct spi_controller *host = spi_controller_get(platform_get_drvdata(pdev));
+	struct spi_engine *spi_engine = spi_controller_get_devdata(host);
 	int irq = platform_get_irq(pdev, 0);
 
-	spi_unregister_master(master);
+	spi_unregister_controller(host);
 
-	free_irq(irq, master);
+	free_irq(irq, host);
 
-	spi_master_put(master);
+	spi_controller_put(host);
 
 	writel_relaxed(0xff, spi_engine->base + SPI_ENGINE_REG_INT_PENDING);
 	writel_relaxed(0x00, spi_engine->base + SPI_ENGINE_REG_INT_ENABLE);

@@ -70,8 +70,7 @@ static struct i2c_driver ds4520_gpio_driver = {
 		.name = "ds4520-gpio",
 		.of_match_table = ds4520_gpio_of_match_table,
 	},
-	/* backport: in 6.1 we still need .probe_new() */
-	.probe_new = ds4520_gpio_probe,
+	.probe = ds4520_gpio_probe,
 	.id_table = ds4520_gpio_id_table,
 };
 module_i2c_driver(ds4520_gpio_driver);

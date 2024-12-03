@@ -58,7 +58,10 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_gem3_default>;
 
-	phy0: phy@0 {
+        #address-cells = <1>;
+	#size-cells = <0>;
+
+        phy0: phy@0 {
 		device_type = "ethernet-phy";
 		reg = <0x0>;
 		marvell,reg-init = <3 16 0xff00 0x1e 3 17 0xfff0 0x00>;

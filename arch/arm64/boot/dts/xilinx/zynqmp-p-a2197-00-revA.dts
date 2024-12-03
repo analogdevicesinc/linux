@@ -4,7 +4,7 @@
  *
  * (C) Copyright 2019, Xilinx, Inc.
  *
- * Michal Simek <michal.simek@xilinx.com>
+ * Michal Simek <michal.simek@amd.com>
  */
 /dts-v1/;
 
@@ -43,43 +43,43 @@
 		reg = <0x0 0x0 0x0 0x80000000>;
 	};
 
-	ref_clk: ref_clk {
+	ref_clk: ref-clk {
 		status = "okay";
 		compatible = "xlnx,fclk";
 		clocks = <&si570_ref_clk>;
 	};
 
-	ddr4_dimm1_si570: ddr4_dimm1_si570 {
+	ddr4_dimm1_si570: ddr4-dimm1-si570 {
 		status = "okay";
 		compatible = "xlnx,fclk";
 		clocks = <&si570_ddr_dimm1>;
 	};
 
-	ddr4_dimm2_si570: ddr4_dimm2_si570 {
+	ddr4_dimm2_si570: ddr4-dimm2-si570 {
 		status = "okay";
 		compatible = "xlnx,fclk";
 		clocks = <&si570_ddr_dimm2>;
 	};
 
-	lpddr4_si570: lpddr4_si570 {
+	lpddr4_si570: lpddr4-si570 {
 		status = "okay";
 		compatible = "xlnx,fclk";
 		clocks = <&si570_lpddr4>;
 	};
 
-	hsdp_si570: hsdp_si570 {
+	hsdp_si570: hsdp-si570 {
 		status = "okay";
 		compatible = "xlnx,fclk";
 		clocks = <&si570_hsdp>;
 	};
 
-	si5332_1: si5332_1 { /* clk0_sgmii - u142 */
+	si5332_1: si5332-1 { /* clk0_sgmii - u142 */
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <125000000>;
 	};
 
-	si5332_2: si5332_2 { /* clk1_usb - u142 */
+	si5332_2: si5332-2 { /* clk1_usb - u142 */
 		compatible = "fixed-clock";
 		#clock-cells = <0>;
 		clock-frequency = <27000000>;
@@ -121,9 +121,13 @@
 	phy-handle = <&phy0>;
 	phy-mode = "sgmii"; /* DTG generates this properly  1512 */
 	is-internal-pcspma;
-	/* phy-reset-gpios = <&gpio 142 GPIO_ACTIVE_LOW>; */
-	phy0: ethernet-phy@0 {
-		reg = <0>;
+	mdio: mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		/* reset-gpios = <&gpio 142 GPIO_ACTIVE_LOW>; */
+		phy0: ethernet-phy@0 {
+			reg = <0>;
+		};
 	};
 };
 
@@ -558,15 +562,7 @@
 			/* u36 0xd8 or 0xde - pcie clk buf - 9ZML1241EKILF PCIe GEN 4 CLOCK BUFFER FIXME - no driver */
 			/* u37 0xd0 DNP - pcie clocking 1 - 9FGV1006BQ505LTGI - PCIe GEN 4 CLOCK GENERATOR FIXME - no linux driver */
 			/* u38 0xca - pcie clocking 2 - 9ZML1241EKILF PCIe GEN 4 CLOCK BUFFER FIXME - no driver */
-			clock_8t49n287: clock-generator@60 { /* u39 8T49N240 - pcie clocking 3 */
-				#clock-cells = <1>; /* author David Cater <david.cater@idt.com>*/
-				compatible = "idt,8t49n240", "idt,8t49n241"; /* FIXME no driver for 240 */
-				reg = <0x60>;
-				/* Documentation/devicetree/bindings/clock/idt,idt8t49n24x.txt */
-				/* FIXME there input via J241 Samtec CLK1 and CLK0 from U38 - selection PIN */
-
-			};
-
+			/* u39 8T49N240 - pcie clocking 3 */
 		};
 	};
 };

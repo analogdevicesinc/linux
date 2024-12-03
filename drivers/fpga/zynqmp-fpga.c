@@ -21,19 +21,6 @@
 #define DUMMY_PAD_BYTE		0xFF
 #define FPGA_WORD_SIZE		4
 
-/* Error Register */
-#define IXR_FPGA_ERR_CRC_ERR		BIT(0)
-#define IXR_FPGA_ERR_SECURITY_ERR	BIT(16)
-
-/* Signal Status Register */
-#define IXR_FPGA_END_OF_STARTUP		BIT(4)
-#define IXR_FPGA_GST_CFG_B		BIT(5)
-#define IXR_FPGA_INIT_B_INTERNAL	BIT(11)
-#define IXR_FPGA_DONE_INTERNAL_SIGNAL	BIT(13)
-
-#define IXR_FPGA_CONFIG_STAT_OFFSET	7U
-#define IXR_FPGA_READ_CONFIG_TYPE	0U
-
 #define XILINX_ZYNQMP_PM_FPGA_READ_BACK		BIT(6)
 #define XILINX_ZYNQMP_PM_FPGA_REG_READ_BACK	BIT(7)
 
@@ -140,7 +127,6 @@ static int zynqmp_fpga_ops_write(struct fpga_manager *mgr,
 	dma_addr_t dma_addr;
 	u32 eemi_flags = 0;
 	size_t dma_size;
-	u32 status;
 	char *kbuf;
 
 	priv = mgr->priv;
@@ -184,15 +170,11 @@ static int zynqmp_fpga_ops_write(struct fpga_manager *mgr,
 
 	if (priv->flags & FPGA_MGR_USERKEY_ENCRYPTED_BITSTREAM)
 		ret = zynqmp_pm_fpga_load(dma_addr, dma_addr + size,
-					  eemi_flags, &status);
+					  eemi_flags);
 	else
-		ret = zynqmp_pm_fpga_load(dma_addr, size,
-					  eemi_flags, &status);
+		ret = zynqmp_pm_fpga_load(dma_addr, size, eemi_flags);
 
 	dma_free_coherent(priv->dev, dma_size, kbuf, dma_addr);
-
-	if (status)
-		return status;
 
 	return ret;
 }
@@ -221,7 +203,6 @@ static int zynqmp_fpga_ops_write_sg(struct fpga_manager *mgr,
 	struct zynqmp_fpga_priv *priv;
 	unsigned long contig_size;
 	u32 eemi_flags = 0;
-	u32 status;
 	char *kbuf;
 	int ret;
 
@@ -247,16 +228,11 @@ static int zynqmp_fpga_ops_write_sg(struct fpga_manager *mgr,
 		if (!kbuf)
 			return -ENOMEM;
 		memcpy(kbuf, mgr->key, ENCRYPTED_KEY_LEN);
-		ret = zynqmp_pm_fpga_load(dma_addr, key_addr,
-					  eemi_flags, &status);
+		ret = zynqmp_pm_fpga_load(dma_addr, key_addr, eemi_flags);
 		dma_free_coherent(priv->dev, ENCRYPTED_KEY_LEN, kbuf, key_addr);
 	} else {
-		ret = zynqmp_pm_fpga_load(dma_addr, contig_size,
-					  eemi_flags, &status);
+		ret = zynqmp_pm_fpga_load(dma_addr, contig_size, eemi_flags);
 	}
-
-	if (status)
-		return status;
 
 	return ret;
 }
@@ -272,43 +248,25 @@ static enum fpga_mgr_states zynqmp_fpga_ops_state(struct fpga_manager *mgr)
 	return FPGA_MGR_STATE_UNKNOWN;
 }
 
-static u64 zynqmp_fpga_ops_status(struct fpga_manager *mgr)
+static ssize_t status_show(struct device *dev,
+			   struct device_attribute *attr, char *buf)
 {
-	unsigned int *buf, reg_val;
-	dma_addr_t dma_addr = 0;
-	u64 status = 0;
+	u32 status;
 	int ret;
 
-	buf = dma_alloc_coherent(mgr->dev.parent, READ_DMA_SIZE,
-				 &dma_addr, GFP_KERNEL);
-	if (!buf)
-		return FPGA_MGR_STATUS_FIRMWARE_REQ_ERR;
+	ret = zynqmp_pm_fpga_get_config_status(&status);
+	if (ret)
+		return ret;
 
-	ret = zynqmp_pm_fpga_read(IXR_FPGA_CONFIG_STAT_OFFSET, dma_addr,
-				  IXR_FPGA_READ_CONFIG_TYPE, &reg_val);
-	if (ret) {
-		status = FPGA_MGR_STATUS_FIRMWARE_REQ_ERR;
-		goto free_dmabuf;
-	}
-
-	if (reg_val & IXR_FPGA_ERR_CRC_ERR)
-		status |= FPGA_MGR_STATUS_CRC_ERR;
-	if (reg_val & IXR_FPGA_ERR_SECURITY_ERR)
-		status |= FPGA_MGR_STATUS_SECURITY_ERR;
-	if (!(reg_val & IXR_FPGA_INIT_B_INTERNAL))
-		status |= FPGA_MGR_STATUS_DEVICE_INIT_ERR;
-	if (!(reg_val & IXR_FPGA_DONE_INTERNAL_SIGNAL))
-		status |= FPGA_MGR_STATUS_SIGNAL_ERR;
-	if (!(reg_val & IXR_FPGA_GST_CFG_B))
-		status |= FPGA_MGR_STATUS_HIGH_Z_STATE_ERR;
-	if (!(reg_val & IXR_FPGA_END_OF_STARTUP))
-		status |= FPGA_MGR_STATUS_EOS_ERR;
-
-free_dmabuf:
-	dma_free_coherent(mgr->dev.parent, READ_DMA_SIZE, buf, dma_addr);
-
-	return status;
+	return sysfs_emit(buf, "0x%x\n", status);
 }
+static DEVICE_ATTR_RO(status);
+
+static struct attribute *zynqmp_fpga_attrs[] = {
+	&dev_attr_status.attr,
+	NULL,
+};
+ATTRIBUTE_GROUPS(zynqmp_fpga);
 
 static int zynqmp_fpga_read_cfgreg(struct fpga_manager *mgr,
 				   struct seq_file *s)
@@ -398,7 +356,6 @@ static int zynqmp_fpga_ops_read(struct fpga_manager *mgr, struct seq_file *s)
 
 static const struct fpga_manager_ops zynqmp_fpga_ops = {
 	.state = zynqmp_fpga_ops_state,
-	.status = zynqmp_fpga_ops_status,
 	.write_init = zynqmp_fpga_ops_write_init,
 	.write = zynqmp_fpga_ops_write,
 	.write_sg = zynqmp_fpga_ops_write_sg,
@@ -442,6 +399,7 @@ static struct platform_driver zynqmp_fpga_driver = {
 	.driver = {
 		.name = "zynqmp_fpga_manager",
 		.of_match_table = of_match_ptr(zynqmp_fpga_of_match),
+		.dev_groups = zynqmp_fpga_groups,
 	},
 };
 

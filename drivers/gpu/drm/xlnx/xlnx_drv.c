@@ -360,6 +360,11 @@ static int xlnx_of_component_probe(struct device *master_dev,
 			continue;
 		}
 
+		if (!of_graph_is_present(parent)) {
+			of_node_put(parent);
+			break;
+		}
+
 		for_each_endpoint_of_node(parent, ep) {
 			remote = of_graph_get_remote_port_parent(ep);
 			if (!remote || !of_device_is_available(remote) ||
@@ -530,4 +535,4 @@ module_exit(xlnx_drm_drv_exit);
 
 MODULE_AUTHOR("Xilinx, Inc.");
 MODULE_DESCRIPTION("Xilinx DRM KMS Driver");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");

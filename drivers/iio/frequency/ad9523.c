@@ -283,7 +283,6 @@ struct ad9523_outputs {
 
 struct ad9523_state {
 	struct spi_device		*spi;
-	struct regulator		*reg;
 	struct ad9523_platform_data	*pdata;
 	struct ad9523_outputs		output[AD9523_NUM_CHAN];
 	struct iio_chan_spec		ad9523_channels[AD9523_NUM_CHAN];
@@ -1473,13 +1472,6 @@ struct ad9523_platform_data *ad9523_parse_dt(struct device *dev)
 }
 #endif
 
-static void ad9523_reg_disable(void *data)
-{
-	struct regulator *reg = data;
-
-	regulator_disable(reg);
-}
-
 static int ad9523_probe(struct spi_device *spi)
 {
 	struct ad9523_platform_data *pdata;
@@ -1508,17 +1500,9 @@ static int ad9523_probe(struct spi_device *spi)
 
 	mutex_init(&st->lock);
 
-	st->reg = devm_regulator_get(&spi->dev, "vcc");
-	if (!IS_ERR(st->reg)) {
-		ret = regulator_enable(st->reg);
-		if (ret)
-			return ret;
-
-		ret = devm_add_action_or_reset(&spi->dev, ad9523_reg_disable,
-					       st->reg);
-		if (ret)
-			return ret;
-	}
+	ret = devm_regulator_get_enable(&spi->dev, "vcc");
+	if (ret)
+		return ret;
 
 	st->pwrdown_gpio = devm_gpiod_get_optional(&spi->dev, "powerdown",
 		GPIOD_OUT_HIGH);

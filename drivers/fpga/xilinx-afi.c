@@ -43,8 +43,6 @@ static int afi_fpga_probe(struct platform_device *pdev)
 	if (IS_ERR(afi_fpga->resets))
 		return PTR_ERR(afi_fpga->resets);
 
-	reset_control_deassert(afi_fpga->resets);
-
 	entries = of_property_count_u32_elems(np, "config-afi");
 	if (!entries || (entries % 2)) {
 		dev_err(&pdev->dev, "Invalid number of registers\n");
@@ -73,7 +71,7 @@ static int afi_fpga_probe(struct platform_device *pdev)
 		}
 	}
 
-	reset_control_assert(afi_fpga->resets);
+	reset_control_reset(afi_fpga->resets);
 
 	return 0;
 }
@@ -95,4 +93,4 @@ module_platform_driver(afi_fpga_driver);
 
 MODULE_DESCRIPTION("FPGA afi module");
 MODULE_AUTHOR("Shubhrajyoti Datta <shubhrajyoti.datta@xilinx.com>");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");

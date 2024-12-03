@@ -61,7 +61,7 @@ static int xhdmiphy_reset(struct phy *phy)
 	return 0;
 }
 
-static bool xhdmiphy_clk_srcsel(struct xhdmiphy_dev *priv, u8 dir, u8 clksrc)
+static int xhdmiphy_clk_srcsel(struct xhdmiphy_dev *priv, u8 dir, u8 clksrc)
 {
 	if (priv->data && !priv->data->sel_mux(dir, clksrc))
 		return 0;
@@ -71,10 +71,10 @@ static bool xhdmiphy_clk_srcsel(struct xhdmiphy_dev *priv, u8 dir, u8 clksrc)
 	return -EIO;
 }
 
-static bool xhdmiphy_set_lrate(struct xhdmiphy_dev *priv, u8 dir, u8 mode,
-			       u64 lrate)
+static int xhdmiphy_set_lrate(struct xhdmiphy_dev *priv, u8 dir, u8 mode,
+			      u64 lrate, u8 lanes)
 {
-	if (priv->data && !priv->data->set_linerate(dir, mode, lrate))
+	if (priv->data && !priv->data->set_linerate(dir, mode, lrate, lanes))
 		return 0;
 
 	dev_dbg(priv->dev, "failed to set linerate\n");
@@ -98,9 +98,11 @@ static int xhdmiphy_configure(struct phy *phy, union phy_configure_opts *opts)
 		} else if (cfg->ibufds) {
 			xhdmiphy_ibufds_en(phy_dev, XHDMIPHY_DIR_RX,
 					   cfg->ibufds_en);
+			cfg->ibufds = 0;
 		} else if (cfg->tmdsclock_ratio_flag) {
 			/* update TMDS clock ratio */
 			phy_dev->rx_tmdsclock_ratio = cfg->tmdsclock_ratio;
+			cfg->tmdsclock_ratio_flag = 0;
 		} else if (cfg->phycb) {
 			switch (cb_ptr->type) {
 			case RX_INIT_CB:
@@ -121,6 +123,7 @@ static int xhdmiphy_configure(struct phy *phy, union phy_configure_opts *opts)
 					 cb_ptr->type);
 				break;
 			}
+			cfg->phycb = 0;
 		} else if (cfg->cal_mmcm_param) {
 			ret = xhdmiphy_cal_mmcm_param(phy_dev,
 						      XHDMIPHY_CHID_CH1,
@@ -131,6 +134,7 @@ static int xhdmiphy_configure(struct phy *phy, union phy_configure_opts *opts)
 					"failed to update mmcm params\n\r");
 
 			xhdmiphy_mmcm_start(phy_dev, XHDMIPHY_DIR_RX);
+			cfg->cal_mmcm_param = 0;
 		} else if (cfg->clkout1_obuftds) {
 			xhdmiphy_clkout1_obuftds_en(phy_dev, XHDMIPHY_DIR_RX,
 						    cfg->clkout1_obuftds_en);
@@ -142,7 +146,8 @@ static int xhdmiphy_configure(struct phy *phy, union phy_configure_opts *opts)
 			xhdmiphy_clk_srcsel(phy_dev, phy_lane->direction,
 					    tmds_mode);
 			xhdmiphy_set_lrate(phy_dev, phy_lane->direction, 0,
-					   cfg->rx_refclk_hz);
+					   cfg->rx_refclk_hz, 0);
+			cfg->config_hdmi20 = 0;
 		} else if (!cfg->config_hdmi20 && cfg->config_hdmi21) {
 			/*
 			 * Phy needs to switch between rxch4 as data or
@@ -161,12 +166,15 @@ static int xhdmiphy_configure(struct phy *phy, union phy_configure_opts *opts)
 					    frl_mode);
 			xhdmiphy_clkdet_freq_reset(phy_dev, XHDMIPHY_DIR_RX);
 			xhdmiphy_set_lrate(phy_dev, phy_lane->direction, 1,
-					   cfg->rx_refclk_hz);
+					   cfg->linerate, cfg->nchannels);
+			cfg->config_hdmi21 = 0;
 		} else if (cfg->rx_get_refclk) {
 			cfg->rx_refclk_hz = phy_dev->rx_refclk_hz;
+			cfg->rx_get_refclk = 0;
 		} else if (cfg->reset_gt) {
 			xhdmiphy_rst_gt_txrx(phy_dev, XHDMIPHY_CHID_CHA,
 					     XHDMIPHY_DIR_RX, false);
+			cfg->reset_gt = 0;
 		}
 		count_rx = 0;
 	}
@@ -180,8 +188,12 @@ static int xhdmiphy_configure(struct phy *phy, union phy_configure_opts *opts)
 			xhdmiphy_ibufds_en(phy_dev, XHDMIPHY_DIR_TX,
 					   cfg->ibufds_en);
 			cfg->ibufds = 0;
+		} else if (cfg->config_hdmi20) {
+			xhdmiphy_hdmi20_conf(phy_dev, XHDMIPHY_DIR_TX);
+			cfg->config_hdmi20 = 0;
 		} else if (cfg->get_samplerate) {
 			cfg->samplerate = phy_dev->tx_samplerate;
+			cfg->get_samplerate = 0;
 		} else if (cfg->clkout1_obuftds) {
 			xhdmiphy_clkout1_obuftds_en(phy_dev, XHDMIPHY_DIR_TX,
 						    cfg->clkout1_obuftds_en);
@@ -209,17 +221,24 @@ static int xhdmiphy_configure(struct phy *phy, union phy_configure_opts *opts)
 			dev_info(phy_dev->dev,
 				 "tx_tmdsclk %lld\n", cfg->tx_tmdsclk);
 			xhdmiphy_set_lrate(phy_dev, phy_lane->direction, 0,
-					   cfg->tx_tmdsclk);
+					   cfg->tx_tmdsclk, 0);
 		} else if (cfg->config_hdmi21) {
-			xhdmiphy_clk_srcsel(phy_dev, phy_lane->direction,
-					    frl_mode);
-			usleep_range(1000, 1100);
-			xhdmiphy_set_lrate(phy_dev, phy_lane->direction, 1,
-					   cfg->tx_tmdsclk);
-			gpiod_set_value(phy_dev->rxch4_gpio, 1);
+			if (phy_dev->conf.tx_refclk_sel !=
+			    phy_dev->conf.tx_frl_refclk_sel) {
+				xhdmiphy_ibufds_en(phy_dev, XHDMIPHY_DIR_TX, 1);
+			}
 			xhdmiphy_hdmi21_conf(phy_dev, XHDMIPHY_DIR_TX,
 					     cfg->linerate, cfg->nchannels);
-			xhdmiphy_clkdet_freq_reset(phy_dev, XHDMIPHY_DIR_TX);
+			if (phy_dev->conf.tx_refclk_sel ==
+			    phy_dev->conf.tx_frl_refclk_sel) {
+				xhdmiphy_clk_srcsel(phy_dev, phy_lane->direction,
+						    frl_mode);
+				xhdmiphy_clkdet_freq_reset(phy_dev,
+							   XHDMIPHY_DIR_TX);
+				xhdmiphy_set_lrate(phy_dev, phy_lane->direction,
+						   1, cfg->linerate,
+						   cfg->nchannels);
+			}
 			cfg->config_hdmi21 = 0;
 		} else if (cfg->resetgtpll) {
 			xhdmiphy_set(phy_dev, XHDMIPHY_TX_INIT_REG,
@@ -543,10 +562,19 @@ static int xhdmiphy_parse_of(struct xhdmiphy_dev *priv)
 		return rc;
 	}
 
-	if (val < 0 && val > 6) {
-		dev_err(priv->dev, "dt rx-pll-selection %d is invalid\n",
-			val);
-		return -EINVAL;
+	if (xgtphycfg->gt_type == XHDMIPHY_GTYE5 ||
+	    xgtphycfg->gt_type == XHDMIPHY_GTYP) {
+		if (val != 7 && val != 8) {
+			dev_err(priv->dev, "dt rx-pll-selection %d is invalid\n",
+				val);
+			return -EINVAL;
+		}
+	} else {
+		if (val < 0 || val > 6) {
+			dev_err(priv->dev, "dt rx-pll-selection %d is invalid\n",
+				val);
+			return -EINVAL;
+		}
 	}
 	xgtphycfg->rx_pllclk_sel = val;
 
@@ -557,10 +585,19 @@ static int xhdmiphy_parse_of(struct xhdmiphy_dev *priv)
 		return rc;
 	}
 
-	if (val < 0 && val > 6) {
-		dev_err(priv->dev, "dt tx-pll-selection %d is invalid\n",
-			val);
-		return -EINVAL;
+	if (xgtphycfg->gt_type == XHDMIPHY_GTYE5 ||
+	    xgtphycfg->gt_type == XHDMIPHY_GTYP) {
+		if (val != 7 && val != 8) {
+			dev_err(priv->dev, "dt tx-pll-selection %d is invalid\n",
+				val);
+			return -EINVAL;
+		}
+	} else {
+		if (val < 0 || val > 6) {
+			dev_err(priv->dev, "dt tx-pll-selection %d is invalid\n",
+				val);
+			return -EINVAL;
+		}
 	}
 	xgtphycfg->tx_pllclk_sel = val;
 
@@ -734,7 +771,7 @@ static int xhdmiphy_clk_init(struct xhdmiphy_dev *priv)
 			if (err) {
 				dev_err(priv->dev,
 					"Cannot set rate : %d\n", err);
-				return err;
+				goto err_disable_dru_clk;
 			}
 			dru_clk_rate = clk_get_rate(priv->dru_clk);
 			dev_dbg(priv->dev,
@@ -747,6 +784,8 @@ static int xhdmiphy_clk_init(struct xhdmiphy_dev *priv)
 
 	return 0;
 
+err_disable_dru_clk:
+	clk_disable_unprepare(priv->dru_clk);
 err_disable_tmds_clk:
 	clk_disable_unprepare(priv->tmds_clk);
 err_disable_axiclk:
@@ -898,6 +937,6 @@ static struct platform_driver xhdmiphy_driver = {
 };
 module_platform_driver(xhdmiphy_driver);
 
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Rajesh Gugulothu <gugulothu.rajesh@xilinx.com");
 MODULE_DESCRIPTION("Xilinx HDMI PHY driver");

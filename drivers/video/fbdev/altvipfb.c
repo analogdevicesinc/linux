@@ -195,7 +195,6 @@ static int altvipfb_setup_fb_info(struct altvipfb_dev *fbdev)
 	info->fix.smem_len = info->fix.line_length * info->var.yres;
 
 	info->pseudo_palette = fbdev->pseudo_palette;
-	info->flags = FBINFO_FLAG_DEFAULT;
 
 	return 0;
 }

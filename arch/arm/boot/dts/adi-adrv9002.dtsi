@@ -49,14 +49,14 @@
 				enable-gpios = <&gpio0 103 GPIO_ACTIVE_HIGH>;
 			};
 
-			tx@0 {
+			tx0: tx@0 {
 				reg = <0>;
 				adi,port = <1>;
 				adi,dpd;
 				enable-gpios = <&gpio0 104 GPIO_ACTIVE_HIGH>;
 			};
 
-			tx@1 {
+			tx1: tx@1 {
 				reg = <1>;
 				adi,port = <1>;
 				adi,dpd;

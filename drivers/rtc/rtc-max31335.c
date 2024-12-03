@@ -609,9 +609,7 @@ static int max31335_clkout_register(struct device *dev)
 	return 0;
 }
 
-/* 6.1 probe() function still uses the second struct i2c_device_id argument */
-static int max31335_probe(struct i2c_client *client,
-			  const struct i2c_device_id *id)
+static int max31335_probe(struct i2c_client *client)
 {
 	struct max31335_data *max31335;
 #if IS_REACHABLE(HWMON)

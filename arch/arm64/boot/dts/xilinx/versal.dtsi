@@ -4,7 +4,7 @@
  *
  * (C) Copyright 2017 - 2021, Xilinx, Inc.
  *
- * Michal Simek <michal.simek@xilinx.com>
+ * Michal Simek <michal.simek@amd.com>
  */
 
 /dts-v1/;
@@ -15,12 +15,19 @@
 	#size-cells = <2>;
 	model = "Xilinx Versal";
 
+	options {
+		u-boot {
+			compatible = "u-boot,config";
+			bootscr-address = /bits/ 64 <0x20000000>;
+		};
+	};
+
 	cpus: cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
 
 		cpu0: cpu@0 {
-			compatible = "arm,cortex-a72", "arm,armv8";
+			compatible = "arm,cortex-a72";
 			device_type = "cpu";
 			enable-method = "psci";
 			operating-points-v2 = <&cpu_opp_table>;
@@ -29,7 +36,7 @@
 		};
 
 		cpu1: cpu@1 {
-			compatible = "arm,cortex-a72", "arm,armv8";
+			compatible = "arm,cortex-a72";
 			device_type = "cpu";
 			enable-method = "psci";
 			operating-points-v2 = <&cpu_opp_table>;
@@ -51,7 +58,7 @@
 		};
 	};
 
-	cpu_opp_table: cpu-opp-table {
+	cpu_opp_table: opp-table-cpu {
 		compatible = "operating-points-v2";
 		opp-shared;
 		opp00 {
@@ -79,7 +86,7 @@
 	dcc: dcc {
 		compatible = "arm,dcc";
 		status = "disabled";
-		u-boot,dm-pre-reloc;
+		bootph-all;
 	};
 
 	fpga: fpga {
@@ -119,7 +126,7 @@
 		#size-cells = <2>;
 		ranges;
 		interrupt-parent = <&gic>;
-		u-boot,dm-pre-reloc;
+		bootph-all;
 
 		gic: interrupt-controller@f9000000 {
 			compatible = "arm,gic-v3";
@@ -132,22 +139,13 @@
 			interrupt-controller;
 			interrupts = <1 9 4>;
 
-			gic_its: gic-its@f9020000 {
+			gic_its: msi-controller@f9020000 {
 				compatible = "arm,gic-v3-its";
 				status = "disabled";
 				msi-controller;
-				msi-cells = <1>;
+				#msi-cells = <1>;
 				reg = <0 0xf9020000 0 0x20000>;
 			};
-		};
-
-		apm: performance-monitor@f0920000 {
-			compatible = "xlnx,flexnoc-pm-2.7";
-			status = "disabled";
-			reg-names = "funnel", "baselpd", "basefpd";
-			reg = <0x0 0xf0920000 0x0 0x1000>,
-			      <0x0 0xf0980000 0x0 0x9000>,
-			      <0x0 0xf0b80000 0x0 0x9000>;
 		};
 
 		can0: can@ff060000 {
@@ -187,95 +185,102 @@
 					     <0 106 4>,
 					     <0 106 4>,
 					     <0 106 4>,
-					     <0 106 4>,
 					     <0 106 4>;
 			};
 		};
 
-		lpd_dma_chan0: dma@ffa80000 {
+		lpd_dma_chan0: dma-controller@ffa80000 {
 			compatible = "xlnx,zynqmp-dma-1.0";
 			status = "disabled";
 			reg = <0 0xffa80000 0 0x1000>;
 			interrupts = <0 60 4>;
 			clock-names = "clk_main", "clk_apb";
 			/* iommus = <&smmu 0x210>; */
+			#dma-cells = <1>;
 			xlnx,bus-width = <64>;
 			/* dma-coherent; */
 		};
 
-		lpd_dma_chan1: dma@ffa90000 {
+		lpd_dma_chan1: dma-controller@ffa90000 {
 			compatible = "xlnx,zynqmp-dma-1.0";
 			status = "disabled";
 			reg = <0 0xffa90000 0 0x1000>;
 			interrupts = <0 61 4>;
 			clock-names = "clk_main", "clk_apb";
 			/* iommus = <&smmu 0x212>; */
+			#dma-cells = <1>;
 			xlnx,bus-width = <64>;
 			/* dma-coherent; */
 		};
 
-		lpd_dma_chan2: dma@ffaa0000 {
+		lpd_dma_chan2: dma-controller@ffaa0000 {
 			compatible = "xlnx,zynqmp-dma-1.0";
 			status = "disabled";
 			reg = <0 0xffaa0000 0 0x1000>;
 			interrupts = <0 62 4>;
 			clock-names = "clk_main", "clk_apb";
 			/* iommus = <&smmu 0x214>; */
+			#dma-cells = <1>;
 			xlnx,bus-width = <64>;
 			/* dma-coherent; */
 		};
 
-		lpd_dma_chan3: dma@ffab0000 {
+		lpd_dma_chan3: dma-controller@ffab0000 {
 			compatible = "xlnx,zynqmp-dma-1.0";
 			status = "disabled";
 			reg = <0 0xffab0000 0 0x1000>;
 			interrupts = <0 63 4>;
 			clock-names = "clk_main", "clk_apb";
 			/* iommus = <&smmu 0x216>; */
+			#dma-cells = <1>;
 			xlnx,bus-width = <64>;
 			/* dma-coherent; */
 		};
 
-		lpd_dma_chan4: dma@ffac0000 {
+		lpd_dma_chan4: dma-controller@ffac0000 {
 			compatible = "xlnx,zynqmp-dma-1.0";
 			status = "disabled";
 			reg = <0 0xffac0000 0 0x1000>;
 			interrupts = <0 64 4>;
 			clock-names = "clk_main", "clk_apb";
 			/* iommus = <&smmu 0x218>; */
+			#dma-cells = <1>;
 			xlnx,bus-width = <64>;
 			/* dma-coherent; */
 		};
 
-		lpd_dma_chan5: dma@ffad0000 {
+		lpd_dma_chan5: dma-controller@ffad0000 {
 			compatible = "xlnx,zynqmp-dma-1.0";
 			status = "disabled";
 			reg = <0 0xffad0000 0 0x1000>;
 			interrupts = <0 65 4>;
 			clock-names = "clk_main", "clk_apb";
 			/* iommus = <&smmu 0x21a>; */
+			#dma-cells = <1>;
 			xlnx,bus-width = <64>;
 			/* dma-coherent; */
 		};
 
-		lpd_dma_chan6: dma@ffae0000 {
+		lpd_dma_chan6: dma-controller@ffae0000 {
 			compatible = "xlnx,zynqmp-dma-1.0";
 			status = "disabled";
 			reg = <0 0xffae0000 0 0x1000>;
 			interrupts = <0 66 4>;
 			clock-names = "clk_main", "clk_apb";
 			/* iommus = <&smmu 0x21c>; */
+			#dma-cells = <1>;
 			xlnx,bus-width = <64>;
 			/* dma-coherent; */
 		};
 
-		lpd_dma_chan7: dma@ffaf0000 {
+		lpd_dma_chan7: dma-controller@ffaf0000 {
 			compatible = "xlnx,zynqmp-dma-1.0";
 			status = "disabled";
 			reg = <0 0xffaf0000 0 0x1000>;
 			interrupts = <0 67 4>;
 			clock-names = "clk_main", "clk_apb";
 			/* iommus = <&smmu 0x21e>; */
+			#dma-cells = <1>;
 			xlnx,bus-width = <64>;
 			/* dma-coherent; */
 		};
@@ -357,39 +362,35 @@
 		};
 
 		mc0: memory-controller@f6150000	{
-			compatible = "xlnx,versal-ddrmc-edac";
+			compatible = "xlnx,versal-ddrmc";
 			status = "disabled";
 			reg = <0x0 0xf6150000 0x0 0x2000>, <0x0 0xf6070000 0x0 0x20000>;
-			reg-names = "ddrmc_base", "ddrmc_noc_base";
+			reg-names = "base", "noc";
 			interrupts = <0 147 4>;
-			xlnx,mc-id = <0>;
 		};
 
 		mc1: memory-controller@f62c0000 {
-			compatible = "xlnx,versal-ddrmc-edac";
+			compatible = "xlnx,versal-ddrmc";
 			status = "disabled";
 			reg = <0x0 0xf62c0000 0x0 0x2000>, <0x0 0xf6210000 0x0 0x20000>;
-			reg-names = "ddrmc_base", "ddrmc_noc_base";
+			reg-names = "base", "noc";
 			interrupts = <0 147 4>;
-			xlnx,mc-id = <1>;
 		};
 
 		mc2: memory-controller@f6430000 {
-			compatible = "xlnx,versal-ddrmc-edac";
+			compatible = "xlnx,versal-ddrmc";
 			status = "disabled";
 			reg = <0x0 0xf6430000 0x0 0x2000>, <0x0 0xf6380000 0x0 0x20000>;
-			reg-names = "ddrmc_base", "ddrmc_noc_base";
+			reg-names = "base", "noc";
 			interrupts = <0 147 4>;
-			xlnx,mc-id = <2>;
 		};
 
 		mc3: memory-controller@f65a0000 {
-			compatible = "xlnx,versal-ddrmc-edac";
+			compatible = "xlnx,versal-ddrmc";
 			status = "disabled";
 			reg = <0x0 0xf65a0000 0x0 0x2000>, <0x0 0xf64f0000 0x0 0x20000>;
-			reg-names = "ddrmc_base", "ddrmc_noc_base";
+			reg-names = "base", "noc";
 			interrupts = <0 147 4>;
-			xlnx,mc-id = <3>;
 		};
 
 		ocm: memory-controller@ff960000 {
@@ -439,7 +440,7 @@
 			reg-io-width = <4>;
 			clock-names = "uartclk", "apb_pclk";
 			current-speed = <115200>;
-			u-boot,dm-pre-reloc;
+			bootph-all;
 		};
 
 		serial1: serial@ff010000 {
@@ -450,10 +451,10 @@
 			reg-io-width = <4>;
 			clock-names = "uartclk", "apb_pclk";
 			current-speed = <115200>;
-			u-boot,dm-pre-reloc;
+			bootph-all;
 		};
 
-		smmu: smmu@fd800000 {
+		smmu: iommu@fd800000 {
 			compatible = "arm,mmu-500";
 			status = "disabled";
 			reg = <0 0xfd800000 0 0x40000>;
@@ -475,7 +476,7 @@
 			compatible = "xlnx,versal-ospi-1.0", "cadence,qspi", "cdns,qspi-nor";
 			status = "disabled";
 			reg = <0 0xf1010000 0 0x10000 0 0xc0000000 0 0x20000000>;
-			interrupts = <0 124 4>, <0 124 4>;
+			interrupts = <0 124 4>;
 			cdns,fifo-depth = <256>;
 			cdns,fifo-width = <4>;
 			cdns,is-dma = <1>;
@@ -488,7 +489,7 @@
 			compatible = "xlnx,versal-qspi-1.0";
 			status = "disabled";
 			reg = <0 0xf1030000 0 0x1000>;
-			interrupts = <0 125 4>, <0 125 4>;
+			interrupts = <0 125 4>;
 			clock-names = "ref_clk", "pclk";
 			/* iommus = <&smmu 0x244>; */
 			/* dma-coherent; */
@@ -595,8 +596,8 @@
 				compatible = "snps,dwc3";
 				status = "disabled";
 				reg = <0 0xfe200000 0 0x10000>;
-				interrupt-names = "dwc_usb3", "otg", "usb-wakeup";
-				interrupts = <0 0x16 4>, <0 0x1A 4>, <0x0 0x4a 0x4>;
+				interrupt-names = "host", "peripheral", "otg", "wakeup";
+				interrupts = <0 0x16 4>, <0 0x16 4>, <0 0x1a 4>, <0x0 0x4a 0x4>;
 				/* iommus = <&smmu 0x230>; */
 				snps,dis_u2_susphy_quirk;
 				snps,dis_u3_susphy_quirk;
@@ -669,6 +670,13 @@
 			compatible = "xlnx,versal-wwdt";
 			status = "disabled";
 			reg = <0 0xfd4d0000 0 0x10000>;
+			timeout-sec = <30>;
+		};
+
+		watchdog1: watchdog@ff120000 {
+			compatible = "xlnx,versal-wwdt";
+			status = "disabled";
+			reg = <0 0xff120000 0 0x10000>;
 			timeout-sec = <30>;
 		};
 

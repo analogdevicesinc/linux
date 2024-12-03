@@ -339,54 +339,45 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
         IF_ERR_RETURN_U32(retVal);
     }
 
-    /* If peak detect data structure is not included into project */
-    if (&rxAgcCtrl->agcPeak == NULL)
+    agcUnderRangeLowInterval = (uint32_t)DIV_U64(((uint64_t)rxAgcCtrl->agcPeak.agcUnderRangeLowInterval_ns * (uint64_t)agcClock_Hz), 1000000000);
+
+    /* performing range check for gain update time */
+    if (agcUnderRangeLowInterval & ~agcUnderRangeLowIntervalMask)
     {
         return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
-                TAL_ERR_INV_AGC_PKK_STRUCT_INIT, retVal, TALACT_ERR_CHECK_PARAM);
+                TAL_ERR_INV_AGC_RX_GAIN_UNDERRANGE_UPDATE_TIME_PARM, retVal, TALACT_ERR_CHECK_PARAM);
+    }
+
+    halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_AGC_UNDERRANGE0_0, (uint8_t)(agcUnderRangeLowInterval));
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
+
+    halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_AGC_UNDERRANGE0_1, (uint8_t)(agcUnderRangeLowInterval >> 8));
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
+
+    if (rxAgcCtrl->agcPeak.agcUnderRangeMidInterval & ~agcUnderRangeMidIntervalMask )
+    {
+        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
+                TAL_ERR_INV_AGC_RX_GAIN_UNDERRANGE_MID_INTERVAL_PARM, retVal, TALACT_ERR_CHECK_PARAM);
     }
     else
     {
-        agcUnderRangeLowInterval = (uint32_t)DIV_U64(((uint64_t)rxAgcCtrl->agcPeak.agcUnderRangeLowInterval_ns * (uint64_t)agcClock_Hz), 1000000000);
-
-        /* performing range check for gain update time */
-        if (agcUnderRangeLowInterval & ~agcUnderRangeLowIntervalMask)
-        {
-            return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
-                    TAL_ERR_INV_AGC_RX_GAIN_UNDERRANGE_UPDATE_TIME_PARM, retVal, TALACT_ERR_CHECK_PARAM);
-        }
-
-        halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_AGC_UNDERRANGE0_0, (uint8_t)(agcUnderRangeLowInterval));
+        halError = talSpiWriteField(device->devHalInfo, TALISE_ADDR_AGC_UNDERRANGE1, rxAgcCtrl->agcPeak.agcUnderRangeMidInterval, agcUnderRangeMidIntervalMask, 0);
         retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
         IF_ERR_RETURN_U32(retVal);
+    }
 
-        halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_AGC_UNDERRANGE0_1, (uint8_t)(agcUnderRangeLowInterval >> 8));
+    if (rxAgcCtrl->agcPeak.agcUnderRangeHighInterval & ~agcUnderRangeHighIntervalMask )
+    {
+        return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
+                TAL_ERR_INV_AGC_RX_GAIN_UNDERRANGE_HIGH_INTERVAL_PARM, retVal, TALACT_ERR_CHECK_PARAM);
+    }
+    else
+    {
+        halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_AGC_UNDERRANGE2, rxAgcCtrl->agcPeak.agcUnderRangeHighInterval);
         retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
         IF_ERR_RETURN_U32(retVal);
-
-        if (rxAgcCtrl->agcPeak.agcUnderRangeMidInterval & ~agcUnderRangeMidIntervalMask )
-        {
-            return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
-                    TAL_ERR_INV_AGC_RX_GAIN_UNDERRANGE_MID_INTERVAL_PARM, retVal, TALACT_ERR_CHECK_PARAM);
-        }
-        else
-        {
-            halError = talSpiWriteField(device->devHalInfo, TALISE_ADDR_AGC_UNDERRANGE1, rxAgcCtrl->agcPeak.agcUnderRangeMidInterval, agcUnderRangeMidIntervalMask, 0);
-            retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
-            IF_ERR_RETURN_U32(retVal);
-        }
-
-        if (rxAgcCtrl->agcPeak.agcUnderRangeHighInterval & ~agcUnderRangeHighIntervalMask )
-        {
-            return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
-                    TAL_ERR_INV_AGC_RX_GAIN_UNDERRANGE_HIGH_INTERVAL_PARM, retVal, TALACT_ERR_CHECK_PARAM);
-        }
-        else
-        {
-            halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_AGC_UNDERRANGE2, rxAgcCtrl->agcPeak.agcUnderRangeHighInterval);
-            retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
-            IF_ERR_RETURN_U32(retVal);
-        }
     }
 
     if ((rxAgcCtrl->agcPeak.apdHighThresh < apdHighThreshMin) ||
@@ -626,27 +617,19 @@ uint32_t TALISE_setupRxAgc(taliseDevice_t *device, taliseAgcCfg_t *rxAgcCtrl)
     retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
     IF_ERR_RETURN_U32(retVal);
 
-    if (&rxAgcCtrl->agcPower == NULL) /* Check for null power data structure pointer */
-    {
-       return (uint32_t)talApiErrHandler(device, TAL_ERRHDL_INVALID_PARAM,
-                TAL_ERR_INV_AGC_PWR_STRUCT_INIT, retVal, TALACT_ERR_CHECK_PARAM);
-    }
-    else
-    {
-        /* Power Configuration register */
-        halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_DEC_POWER_CONFIG_1, &agcRegister);
-        retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
-        IF_ERR_RETURN_U32(retVal);
+    /* Power Configuration register */
+    halError = talSpiReadByte(device->devHalInfo, TALISE_ADDR_DEC_POWER_CONFIG_1, &agcRegister);
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
 
-        agcRegister &= ~(powerEnableMeasurementBitMask | powerUseRfirOutBitMask | powerUseBBDC2BitMask);
-        agcRegister |= ((rxAgcCtrl->agcPower.powerEnableMeasurement > 0 ? 1 : 0)
-                        | ((rxAgcCtrl->agcPower.powerUseRfirOut > 0 ? 1 : 0) << 1)
-                        | ((rxAgcCtrl->agcPower.powerUseBBDC2 > 0 ? 1 : 0) << 3));
+    agcRegister &= ~(powerEnableMeasurementBitMask | powerUseRfirOutBitMask | powerUseBBDC2BitMask);
+    agcRegister |= ((rxAgcCtrl->agcPower.powerEnableMeasurement > 0 ? 1 : 0)
+                    | ((rxAgcCtrl->agcPower.powerUseRfirOut > 0 ? 1 : 0) << 1)
+                    | ((rxAgcCtrl->agcPower.powerUseBBDC2 > 0 ? 1 : 0) << 3));
 
-        halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_DEC_POWER_CONFIG_1, agcRegister);
-        retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
-        IF_ERR_RETURN_U32(retVal);
-    }
+    halError = talSpiWriteByte(device->devHalInfo, TALISE_ADDR_DEC_POWER_CONFIG_1, agcRegister);
+    retVal = talApiErrHandler(device, TAL_ERRHDL_HAL_SPI, halError, retVal, TALACT_ERR_RESET_SPI);
+    IF_ERR_RETURN_U32(retVal);
 
     if (rxAgcCtrl->agcPower.underRangeHighPowerThresh & ~underRangeHighPowerThreshBitMask)
     {

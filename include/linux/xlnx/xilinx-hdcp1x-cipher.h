@@ -150,6 +150,7 @@ int xhdcp1x_cipher_getencryption(void *ref);
 int xhdcp1x_cipher_disableencryption(void *ref, u64 streammap);
 int xhdcp1x_cipher_setb(void *ref, u32 bx, u32 by, u32 bz);
 int xhdcp1x_cipher_enable_encryption(void *ref, u64 streammap);
+int xhdcp1x_cipher_set_ri_update(void *ref, int is_enabled);
 u64 xhdcp1x_cipher_get_mi(void *ref);
 u64 xhdcp1x_cipher_get_mo(void *ref);
 #else
@@ -244,7 +245,7 @@ static inline int xhdcp1x_cipher_load_aksv(void *ref, u8 *buf)
 	return -EINVAL;
 }
 
-static inline int xhdcp1x_cipher_do_request(void *ref, xhdcp1x_cipher_request_type request)
+static inline int xhdcp1x_cipher_do_request(void *ref, enum xhdcp1x_cipher_request_type request)
 {
 	return -EINVAL;
 }
@@ -280,6 +281,11 @@ static inline u64 xhdcp1x_cipher_get_mi(void *ref)
 }
 
 static inline u64 xhdcp1x_cipher_get_mo(void *ref)
+{
+	return -EINVAL;
+}
+
+static inline int xhdcp1x_cipher_set_ri_update(void *ref, int is_enabled)
 {
 	return -EINVAL;
 }

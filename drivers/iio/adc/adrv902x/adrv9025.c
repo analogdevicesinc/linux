@@ -980,7 +980,7 @@ static const struct iio_chan_spec_ext_info adrv9025_phy_rx_ext_info[] = {
 	 */
 	IIO_ENUM_AVAILABLE("gain_control_mode", IIO_SEPARATE,
 				  &adrv9025_agc_modes_available),
-	IIO_ENUM("gain_control_mode", false, &adrv9025_agc_modes_available),
+	IIO_ENUM("gain_control_mode", IIO_SEPARATE, &adrv9025_agc_modes_available),
 	_ADRV9025_EXT_RX_INFO("rssi", RSSI),
 	_ADRV9025_EXT_RX_INFO("quadrature_tracking_en", RX_QEC),
 	_ADRV9025_EXT_RX_INFO("hd2_tracking_en",

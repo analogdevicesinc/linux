@@ -10,6 +10,7 @@
 #include <linux/mutex.h>
 #include <linux/spi/spi.h>
 #include <linux/gpio.h>
+#include <linux/gpio/driver.h>
 #include <linux/module.h>
 
 #define REG_ADC_CONTROL		0x10

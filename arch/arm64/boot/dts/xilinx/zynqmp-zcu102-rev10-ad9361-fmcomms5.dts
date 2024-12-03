@@ -22,14 +22,6 @@
 	};
 };
 
-&fclk0 {
-	status = "okay";
-};
-
-&fclk2 {
-	status = "okay";
-};
-
 / {
 	fpga_axi: fpga-axi@0 {
 		interrupt-parent = <&gic>;

@@ -1058,7 +1058,7 @@ xv_hscaler_calculate_phases(struct xilinx_scaler *scaler,
 	bool get_new_pix;
 	u64 phaseH;
 	u32 array_idx = 0;
-	int nr_rds;
+	int nr_rds = 0;
 	int nr_rds_clck;
 	unsigned int nphases = scaler->max_num_phases;
 	unsigned int nppc = scaler->pix_per_clk;
@@ -1974,4 +1974,4 @@ module_platform_driver(scaler_bridge_driver);
 
 MODULE_AUTHOR("Venkateshwar Rao <vgannava@xilinx.com>");
 MODULE_DESCRIPTION("Xilinx FPGA SCALER Bridge Driver");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");

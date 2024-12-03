@@ -22,14 +22,9 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <linux/uio.h>
-#include <linux/timer.h>
-#include <linux/time.h>
 #include <uapi/linux/xlnx-ai-engine.h>
-#include <asm/siginfo.h>
 
 #include "ai-engine-internal.h"
-
-#define AIE_CORE_STS_ENABLE_MASK 0x1U
 
 /**
  * aie_cal_loc() - calculate tile location from register offset to the AI
@@ -357,6 +352,70 @@ static void aie_part_unpin_user_region(struct aie_part_pinned_region *region)
 }
 
 /**
+ * aie_part_copy_user_region() - copy user space data to kernel space
+ * @apart: AI engine partition
+ * @region: User space region to copy data from
+ * @data: User data pointer
+ *
+ * This function replaces the previous method of pinning user pages
+ * directly and instead copies user space data to kernel space using
+ * copy_from_user(). It ensures that user space data is safely and securely
+ * copied to the kernel without directly accessing user pages.
+ *
+ * @return: 0 on success, negative error code on failure.
+ */
+static int aie_part_copy_user_region(struct aie_partition *apart,
+				     struct aie_part_pinned_region *region,
+				     void *data)
+{
+#ifdef CONFIG_ARM64_SW_TTBR0_PAN
+	if (region->len == 0)
+		return 0;
+
+	region->user_addr = (__u64)dma_alloc_coherent(&apart->dev, region->len,
+			&region->aie_dma_handle,
+			GFP_KERNEL | GFP_DMA);
+	if (!region->user_addr)
+		return -ENOMEM;
+
+	if (copy_from_user((void *)region->user_addr, (const void __user *)data,
+			   region->len)) {
+		dma_free_coherent(&apart->dev, region->len,
+				  (void *)region->user_addr,
+				  region->aie_dma_handle);
+		return -EFAULT;
+	}
+#else
+	int ret;
+
+	region->user_addr = (__u64)data;
+	ret = aie_part_pin_user_region(apart, region);
+	if (ret)
+		return ret;
+#endif
+	return 0;
+}
+
+/**
+ * aie_part_free_region() - free allocated memory
+ * @apart: AI engine partition
+ * @region: User space region structure to free
+ *
+ * This function simplifies the freeing of allocated kernel memory.
+ * It only frees the allocated memory associated with the user space region.
+ */
+static void aie_part_free_region(struct aie_partition *apart,
+				 struct aie_part_pinned_region *region)
+{
+#ifdef CONFIG_ARM64_SW_TTBR0_PAN
+	dma_free_coherent(&apart->dev, region->len, (void *)region->user_addr,
+			  region->aie_dma_handle);
+#else
+	aie_part_unpin_user_region(region);
+#endif
+}
+
+/**
  * aie_part_access_regs() - AI engine partition registers access
  * @apart: AI engine partition
  * @num_reqs: number of access requests
@@ -387,18 +446,17 @@ static int aie_part_access_regs(struct aie_partition *apart, u32 num_reqs,
 		{
 			struct aie_part_pinned_region region;
 
-			region.user_addr = args->dataptr;
 			region.len = args->len * sizeof(u32);
-			ret = aie_part_pin_user_region(apart, &region);
+			ret = aie_part_copy_user_region(apart, &region, (void *)args->dataptr);
 			if (ret)
 				break;
 
 			ret = aie_part_write_register(apart,
 						      (size_t)args->offset,
 						      sizeof(u32) * args->len,
-						      (void *)args->dataptr,
+						      (void *)region.user_addr,
 						      args->mask);
-			aie_part_unpin_user_region(&region);
+			aie_part_free_region(apart, &region);
 			break;
 		}
 		case AIE_REG_BLOCKSET:
@@ -410,29 +468,29 @@ static int aie_part_access_regs(struct aie_partition *apart, u32 num_reqs,
 		{
 			struct aie_part_pinned_region data_region;
 
-			data_region.user_addr = args->dataptr;
 			data_region.len = sizeof(struct aie_dmabuf_bd_args);
-			ret = aie_part_pin_user_region(apart, &data_region);
+			ret = aie_part_copy_user_region(apart, &data_region,
+							(void *)args->dataptr);
 			if (ret)
 				break;
 
 			ret =  aie_part_set_bd(apart,
-				(struct aie_dma_bd_args *)args->dataptr);
-			aie_part_unpin_user_region(&data_region);
+				(struct aie_dma_bd_args *)data_region.user_addr);
+			aie_part_free_region(apart, &data_region);
 			break;
 		}
 		case AIE_CONFIG_SHIMDMA_DMABUF_BD:
 		{
 			struct aie_part_pinned_region data_region;
 
-			data_region.user_addr = args->dataptr;
 			data_region.len = sizeof(struct aie_dmabuf_bd_args);
-			ret = aie_part_pin_user_region(apart, &data_region);
+			ret = aie_part_copy_user_region(apart, &data_region,
+							(void *)args->dataptr);
 			if (ret)
 				break;
 
 			ret =  aie_part_set_dmabuf_bd(apart,
-				(struct aie_dmabuf_bd_args *)args->dataptr);
+				(struct aie_dmabuf_bd_args *)data_region.user_addr);
 			aie_part_unpin_user_region(&data_region);
 			break;
 		}
@@ -472,15 +530,17 @@ static int aie_part_execute_transaction_from_user(struct aie_partition *apart,
 	if (copy_from_user(&txn_inst, user_args, sizeof(txn_inst)))
 		return -EFAULT;
 
-	region.user_addr = txn_inst.cmdsptr;
+	if (txn_inst.num_cmds == 0)
+		return 0;
+
 	region.len = txn_inst.num_cmds * sizeof(struct aie_reg_args);
-	ret = aie_part_pin_user_region(apart, &region);
+	ret = aie_part_copy_user_region(apart, &region, (void *)txn_inst.cmdsptr);
 	if (ret)
 		return ret;
 
 	ret = mutex_lock_interruptible(&apart->mlock);
 	if (ret) {
-		aie_part_unpin_user_region(&region);
+		aie_part_free_region(apart, &region);
 		return ret;
 	}
 
@@ -489,7 +549,7 @@ static int aie_part_execute_transaction_from_user(struct aie_partition *apart,
 
 	mutex_unlock(&apart->mlock);
 
-	aie_part_unpin_user_region(&region);
+	aie_part_free_region(apart, &region);
 	return ret;
 }
 
@@ -696,246 +756,6 @@ static int aie_part_mmap(struct file *fp, struct vm_area_struct *vma)
 			       vma->vm_page_prot);
 }
 
-/**
- * aie_part_capture_utilization() - callback to capture core utilization.
- * @time: Timer structure.
- * @return: None.
- */
-static void aie_part_capture_utilization(struct timer_list *time)
-{
-	struct aie_utilization_timer *util_timer = from_timer(util_timer, time,
-							timer);
-	struct aie_perfinst_args *perfinst = &util_timer->apart->adev->perfinst;
-	struct aie_partition *apart = util_timer->apart;
-	struct aie_occupancy *util = util_timer->util;
-	struct aie_device *adev = apart->adev;
-	struct kernel_siginfo signal_info;
-	struct task_struct *task;
-	u32 val, value;
-	size_t offset;
-	int ret;
-
-	/*
-	 * Captures the active cycle and the total cycle values from respective
-	 * performance counters.
-	 */
-	for (int index = 0; index < perfinst->util_size; index++) {
-		for (int cycle = 0; cycle < AIE_CORE_NUM_CYCLE; cycle++) {
-			offset = adev->core_perfcnt->regoff
-				+ util[index].perfcnt[cycle] * 4;
-
-			offset = (size_t)aie_cal_regoff(adev,
-					util[index].loc, (u32)offset);
-			value = 0;
-			ret = aie_part_read_register(apart, offset, sizeof(u32),
-						     &value);
-			if (cycle == AIE_CORE_ACTIVE_CYCLE) {
-				util[index].active_cycle = value;
-
-				/*
-				 * Stops the capture of total cycle. As to stop
-				 * active cycle capture Disable event has to be
-				 * generated which might affect the application
-				 * running, active cycle value is read before
-				 * stopping total cycle.
-				 */
-				offset = (size_t)aie_cal_regoff(adev,
-								util[index].loc,
-								(u32)adev->core_evntgen->regoff);
-				val = adev->core_util_events[AIE_EVENT_CORE_USER_EVNT_1];
-				ret = aie_part_write_register(apart, offset,
-							      sizeof(val), &val,
-							      adev->core_evntgen->mask);
-			} else if (cycle == AIE_CORE_TOTAL_CYCLE) {
-				util[index].total_cycle = value;
-			}
-		}
-	}
-
-	/*
-	 * Checks if the pid is still valid to raise the signal.
-	 */
-	task = pid_task(find_vpid(perfinst->task->pid), PIDTYPE_PID);
-	if (!task) {
-		dev_err(&apart->dev, "Capture interval exceeded application duration. Capture reporting failed!");
-		kfree(util);
-		return;
-	}
-
-	ret = copy_to_user((void __user *)perfinst->util, util,
-			   perfinst->util_size *
-			   sizeof(struct aie_occupancy));
-	if (ret)
-		dev_err(&apart->dev, "Copying memory failed: %d!\n", ret);
-
-	kfree(util);
-
-	signal_info.si_signo = SIGPERFUTIL;
-	signal_info.si_code = SI_QUEUE;
-	signal_info.si_int = 1;
-
-	if (send_sig_info(SIGPERFUTIL, &signal_info, perfinst->task) < 0)
-		dev_err(&apart->dev, "Failed to send signal!\n");
-}
-
-/**
- * aie_part_performance_utilization() - initializes the performance control
- *					 register and schedules callback to
- *					 capture core utilization.
- * @apart: AI engine partition
- * @return: Number of tiles when scanning the array on success, 0 for success
- *		when setting up the performance counter registers,
- *		and negative value for failure.
- */
-static __u32 aie_part_performance_utilization(struct aie_partition *apart)
-{
-	struct aie_perfinst_args *perfinst = &apart->adev->perfinst;
-	u32 startbit, bit, mask, shift, val, reset_val, reset_mask;
-	unsigned long status, util_jiffies;
-	struct aie_occupancy *util;
-	struct aie_device *adev;
-	struct aie_location loc;
-	size_t offset;
-	int ret;
-
-	loc.col = perfinst->range.start.col;
-	util = kmalloc_array(perfinst->range.size.col * perfinst->range.size.row,
-			     sizeof(struct aie_occupancy), GFP_KERNEL);
-	if (!util)
-		return -ENOMEM;
-
-	if (copy_from_user(util, (void __user *)perfinst->util,
-			   sizeof(struct aie_occupancy) *
-			   perfinst->range.size.col *
-			   perfinst->range.size.row)) {
-		dev_err(&apart->dev, "Copying memory failed!\n");
-		kfree(util);
-		return -EFAULT;
-	}
-
-	/*
-	 * Scanning the partition to store all the enabled and in use core tile
-	 * location. Returns number of elements in the array.
-	 */
-	if (perfinst->util_size == 0) {
-		perfinst->task = NULL;
-		for (; loc.col < perfinst->range.size.col; loc.col++) {
-			startbit = loc.col + (apart->range.size.row - 1);
-			for (loc.row = 0; (loc.row < apart->range.size.row) &&
-			     (perfinst->util_size <
-			     (perfinst->range.size.col
-			     * perfinst->range.size.row));
-			     loc.row++) {
-				if (apart->adev->ops->get_tile_type(apart->adev,
-								    &loc) ==
-								    AIE_TILE_TYPE_TILE) {
-					status = apart->adev->ops->get_core_status(apart,
-								&loc);
-					bit = startbit + loc.row - 1;
-					if ((status & AIE_CORE_STS_ENABLE_MASK) &&
-					    aie_resource_testbit(&apart->tiles_inuse,
-								 bit)) {
-						util[perfinst->util_size].loc =
-							loc;
-						perfinst->util_size++;
-					}
-				}
-			}
-		}
-		ret = perfinst->util_size;
-		if (copy_to_user((void __user *)perfinst->util, util,
-				 sizeof(struct aie_occupancy) *
-				 perfinst->util_size)) {
-			dev_err(&apart->dev, "Copying memory failed!\n");
-			kfree(util);
-			return -EFAULT;
-		}
-		kfree(util);
-
-	} else {
-		perfinst->task = get_current();
-		adev = apart->adev;
-
-		/*
-		 * Performance counter start, stop and reset event setup.
-		 */
-		for (int index = 0; index < perfinst->util_size; index++) {
-			reset_val = 0;
-			reset_mask = 0;
-			for (int cycle = 0; cycle < AIE_CORE_NUM_CYCLE; cycle++) {
-				if (cycle == AIE_CORE_ACTIVE_CYCLE) {
-					val = adev->core_util_events[AIE_EVENT_CORE_ACTIVE] |
-					       (adev->core_util_events[AIE_EVENT_CORE_DISABLED] <<
-						AIE_CORE_PERFCNT_EVNT_BITS);
-				} else if (cycle == AIE_CORE_TOTAL_CYCLE) {
-					val = adev->core_util_events[AIE_EVENT_CORE_USER_EVNT_0] |
-					     (adev->core_util_events[AIE_EVENT_CORE_USER_EVNT_1] <<
-					      AIE_CORE_PERFCNT_EVNT_BITS);
-				}
-				reset_val |= adev->core_util_events[AIE_EVENT_CORE_USER_EVNT_0]
-					<< (util[index].perfcnt[cycle]
-						* AIE_CORE_PERFCNT_EVNT_BITS);
-				reset_mask |= adev->core_perfctrl_reset->mask
-					<< (util[index].perfcnt[cycle]
-						* AIE_CORE_PERFCNT_EVNT_BITS);
-						offset = adev->core_perfctrl->regoff
-					 + (util[index].perfcnt[cycle] /
-						AIE_CORE_NUM_PERFCNT_PER_REG) *
-						AIE_CORE_PERFCNT_CTRL_IDX;
-				offset = (size_t)aie_cal_regoff(adev,
-						util[index].loc, (u32)offset);
-				shift = AIE_CORE_PERFCNT_EVNT_BITS *
-					AIE_CORE_NUM_PERFCNT_PER_REG *
-					(util[index].perfcnt[cycle] %
-					 AIE_CORE_NUM_PERFCNT_PER_REG);
-				val <<= shift;
-				mask = adev->core_perfctrl->mask << shift;
-				ret = aie_part_write_register(apart, offset,
-							      sizeof(val),
-							      &val, mask);
-			}
-				/*
-				 * Reset performance counter setup
-				 */
-				offset = adev->core_perfctrl_reset->regoff;
-				offset = (size_t)aie_cal_regoff(adev,
-						util[index].loc, (u32)offset);
-				ret = aie_part_write_register(apart, offset,
-							      sizeof(reset_val),
-							      &reset_val,
-							      reset_mask);
-		}
-
-		/*
-		 * Setting up timer structure to schedule capture callback.
-		 */
-		util_jiffies = msecs_to_jiffies(perfinst->time_interval_ms);
-		adev->util_timer.timer.function = &aie_part_capture_utilization;
-		adev->util_timer.util = util;
-		adev->util_timer.apart = apart;
-
-		for (int index = 0; index < perfinst->util_size; index++) {
-			offset = (size_t)aie_cal_regoff(adev, util[index].loc,
-					(u32)adev->core_evntgen->regoff);
-			val = adev->core_util_events[AIE_EVENT_CORE_USER_EVNT_0];
-			ret = aie_part_write_register(apart, offset, sizeof(val),
-						      &val,
-						      adev->core_evntgen->mask);
-		}
-
-		/*
-		 * Timer schedules the callback to capture core utilization
-		 * over the user defined time interval.
-		 */
-		adev->util_timer.timer.expires = jiffies + util_jiffies;
-		add_timer(&adev->util_timer.timer);
-
-		ret = 0;
-	}
-
-	return ret;
-}
-
 static long aie_part_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 {
 	struct aie_partition *apart = fp->private_data;
@@ -996,14 +816,6 @@ static long aie_part_ioctl(struct file *fp, unsigned int cmd, unsigned long arg)
 		return aie_part_rscmgr_get_statistics(apart, argp);
 	case AIE_SET_COLUMN_CLOCK_IOCTL:
 		return aie_part_set_column_clock_from_user(apart, argp);
-	case AIE_PERFORMANCE_UTILIZATION_IOCTL:
-	{
-		if (copy_from_user(&apart->adev->perfinst, argp,
-				   sizeof(struct aie_perfinst_args)))
-			return -EFAULT;
-
-		return aie_part_performance_utilization(apart);
-	}
 	default:
 		dev_err(&apart->dev, "Invalid/Unsupported ioctl command %u.\n",
 			cmd);

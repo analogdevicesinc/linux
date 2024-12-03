@@ -151,7 +151,7 @@
 
 #define XDPRX_LOCAL_EDID_REG		0x084
 #define XDPRX_DEVICE_SERVICE_IRQ	0x090
-#define XDPRX_DEVICE_SERVICE_IRQ_CP_IRQ_MASK	BIT(3)
+#define XDPRX_DEVICE_SERVICE_IRQ_CP_IRQ_MASK	BIT(2)
 #define XDPRX_VIDEO_UNSUPPORTED_REG	0x094
 #define XDPRX_VRD_BWSET_REG		0x09c
 #define XDPRX_LANE_CNT_REG		0x0a0
@@ -2106,7 +2106,7 @@ static int xdprxss_hdcp1x_keymgmt_set_key(struct xdprxss_state *state)
 		return ret;
 	xdprxss_hdcp1x_keymgmt_enable(state);
 
-	return ret;
+	return 0;
 }
 
 static int xdprxss_hdcp2x_key_write(struct xdprxss_state *xdprxss,
@@ -2421,7 +2421,7 @@ static int xdprxss_parse_of(struct xdprxss_state *xdprxss)
 		dev_err(xdprxss->dev, "xlnx,lane-count property not found\n");
 		return ret;
 	}
-	if (val < 1 && val > 4) {
+	if (val < 1 || val > 4) {
 		dev_err(xdprxss->dev, "invalid lane count\n");
 		return -EINVAL;
 	}
@@ -2945,7 +2945,7 @@ static int xdprxss_probe(struct platform_device *pdev)
 		for (i = 0; i < xdprxss->max_lanecount; i++) {
 			char phy_name[16];
 
-			snprintf(phy_name, sizeof(phy_name), "dp-phy%d", i);
+			snprintf(phy_name, sizeof(phy_name), "dp-phy%u", i);
 			xdprxss->phy[i] = devm_phy_get(xdprxss->dev, phy_name);
 			if (IS_ERR(xdprxss->phy[i])) {
 				ret = PTR_ERR(xdprxss->phy[i]);
@@ -3120,10 +3120,10 @@ static int xdprxss_probe(struct platform_device *pdev)
 			goto error;
 		}
 
-		irq = irq_of_parse_and_map(node, 2);
+		irq = platform_get_irq_byname(pdev, "dprxss_hdcp_irq");
 		ret = devm_request_irq(xdprxss->dev, irq,
 				       xdprxss_hdcp1x_irq_handler,
-				       IRQF_SHARED, "dprxss_hdcp1x", xdprxss);
+				       IRQF_SHARED, "dprxss_hdcp_irq", xdprxss);
 		if (ret) {
 			dev_err(dev, "err: hdcp1x interrupt registration failed!\n");
 			goto error;
@@ -3212,4 +3212,4 @@ module_platform_driver(xdprxss_driver);
 
 MODULE_AUTHOR("Rajesh Gugulothu <gugulothu.rajesh@xilinx.com");
 MODULE_DESCRIPTION("Xilinx DP Rx Subsystem Driver");
-MODULE_LICENSE("GPL v2");
+MODULE_LICENSE("GPL");

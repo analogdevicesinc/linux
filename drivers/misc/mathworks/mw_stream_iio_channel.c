@@ -15,6 +15,7 @@
 #include <linux/idr.h>
 #include <linux/device.h>
 #include <linux/errno.h>
+#include <linux/mutex.h>
 
 #include <linux/string.h>
 #include <linux/mathworks/mathworks_ip.h>
@@ -59,6 +60,7 @@ enum mw_stream_iio_reset_ip_mode {
 struct mw_stream_iio_chandev {
 	struct mathworks_ipcore_dev 			*mwdev;
 	struct device							dev;
+	struct mutex lock;
 	enum iio_buffer_direction 				iio_direction;
 	const char								*dmaname;
 	enum mw_stream_iio_tlast_mode			tlast_mode;
@@ -165,9 +167,9 @@ static int mw_stream_iio_channel_set_reset_ip_mode(struct iio_dev *indio_dev,
 {
 	struct mw_stream_iio_chandev *mwchan = iio_priv(indio_dev);
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&mwchan->lock);
 	mwchan->reset_ip_mode = mode;
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&mwchan->lock);
 
 	return 0;
 }
@@ -197,9 +199,9 @@ static int mw_stream_iio_channel_set_reset_tlast_mode(struct iio_dev *indio_dev,
 {
 	struct mw_stream_iio_chandev *mwchan = iio_priv(indio_dev);
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&mwchan->lock);
 	mwchan->reset_tlast_mode = mode;
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&mwchan->lock);
 
 	return 0;
 }
@@ -229,9 +231,9 @@ static int mw_stream_iio_channel_set_tlast_mode(struct iio_dev *indio_dev,
 {
 	struct mw_stream_iio_chandev *mwchan = iio_priv(indio_dev);
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&mwchan->lock);
 	mwchan->tlast_mode = mode;
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&mwchan->lock);
 
 	return 0;
 }
@@ -265,13 +267,13 @@ static int mw_stream_iio_channel_reg_access(struct iio_dev *indio_dev,
 {
 	struct mw_stream_iio_chandev *mwchan = iio_priv(indio_dev);
 
-	mutex_lock(&indio_dev->mlock);
+	mutex_lock(&mwchan->lock);
 	if (readval == NULL) {
 		mw_ip_write32(mwchan->mwdev->mw_ip_info, reg & 0xFFFF, writeval);
 	} else {
 		*readval = mw_ip_read32(mwchan->mwdev->mw_ip_info, reg & 0xFFFF);
 	}
-	mutex_unlock(&indio_dev->mlock);
+	mutex_unlock(&mwchan->lock);
 
 	return 0;
 }
@@ -511,6 +513,7 @@ static struct iio_dev *devm_mw_stream_iio_alloc(
 	mwchan = iio_priv(indio_dev);
 	mwchan->mwdev = mwdev;
 	mwchan->iio_direction = info->iio_direction;
+	mutex_init(&mwchan->lock);
 
 	/* Find the name of the DMA channel, there should only be one per node */
 	status = of_property_read_string_index(node, "dma-names", 0, &mwchan->dmaname);

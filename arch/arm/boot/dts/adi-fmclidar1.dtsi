@@ -120,7 +120,7 @@
 };
 
 &spi_adc {
-	ad9094: ad9094@1 {
+	ad9094: ad9094@0 {
 		#address-cells = <1>;
 		#size-cells = <0>;
 		#clock-cells = <1>;

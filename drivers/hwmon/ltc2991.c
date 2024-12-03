@@ -381,9 +381,7 @@ static int ltc2991_init(struct ltc2991_state *st, struct device *dev)
 			    LTC2991_T_INT_VCC_EN);
 }
 
-/* 6.1 probe() function still uses the second struct i2c_device_id argument */
-static int ltc2991_i2c_probe(struct i2c_client *client,
-			     const struct i2c_device_id *id)
+static int ltc2991_i2c_probe(struct i2c_client *client)
 {
 	int ret;
 	struct device *hwmon_dev;

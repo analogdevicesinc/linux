@@ -58,4 +58,7 @@ sound/pci/ad1889.o
 sound/pci/hda/patch_analog.o
 sound/soc/codecs/ad1980.o
 sound/soc/codecs/wm8782.o
+drivers/gpu/drm/tegra/fbdev.o
+sound/soc/codecs/max98363.o
+sound/soc/codecs/ssm3515.o
 

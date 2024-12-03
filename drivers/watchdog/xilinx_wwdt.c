@@ -9,9 +9,10 @@
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
+#include <linux/math64.h>
+#include <linux/mod_devicetable.h>
 #include <linux/module.h>
-#include <linux/of_device.h>
-#include <linux/of_address.h>
+#include <linux/platform_device.h>
 #include <linux/watchdog.h>
 
 /* Max timeout is calculated at 100MHz source clock */
@@ -34,6 +35,12 @@
 #define XWWDT_ESR_WEN_MASK	BIT(0)
 
 #define XWWDT_CLOSE_WINDOW_PERCENT	50
+
+/* Maximum count value of each 32 bit window */
+#define XWWDT_MAX_COUNT_WINDOW		GENMASK(31, 0)
+
+/* Maximum count value of closed and open window combined*/
+#define XWWDT_MAX_COUNT_WINDOW_COMBINED GENMASK_ULL(32, 1)
 
 static int wwdt_timeout;
 static int closed_window_percent;
@@ -71,7 +78,25 @@ static int xilinx_wwdt_start(struct watchdog_device *wdd)
 
 	/* Calculate timeout count */
 	time_out = xdev->freq * wdd->timeout;
-	closed_timeout = (time_out * xdev->close_percent) / 100;
+	closed_timeout = div_u64(time_out * xdev->close_percent, 100);
+
+	if (time_out > XWWDT_MAX_COUNT_WINDOW) {
+		u64 min_close_timeout = time_out - XWWDT_MAX_COUNT_WINDOW;
+		u64 max_close_timeout = XWWDT_MAX_COUNT_WINDOW;
+
+		if (closed_timeout > max_close_timeout) {
+			dev_info(xilinx_wwdt_wdd->parent,
+				 "Closed window cannot be set to %d%%. Using maximum supported value.\n",
+				 xdev->close_percent);
+			closed_timeout = max_close_timeout;
+		} else if (closed_timeout < min_close_timeout) {
+			dev_info(xilinx_wwdt_wdd->parent,
+				 "Closed window cannot be set to %d%%. Using minimum supported value.\n",
+				 xdev->close_percent);
+			closed_timeout = min_close_timeout;
+		}
+	}
+
 	open_timeout = time_out - closed_timeout;
 	wdd->min_hw_heartbeat_ms = xdev->close_percent * 10 * wdd->timeout;
 
@@ -131,6 +156,7 @@ static int xwwdt_probe(struct platform_device *pdev)
 {
 	struct watchdog_device *xilinx_wwdt_wdd;
 	struct device *dev = &pdev->dev;
+	unsigned int max_hw_heartbeat;
 	struct xwwdt_device *xdev;
 	struct clk *clk;
 	int ret;
@@ -156,12 +182,11 @@ static int xwwdt_probe(struct platform_device *pdev)
 	if (!xdev->freq)
 		return -EINVAL;
 
-	if (of_device_is_compatible(dev->of_node, "xlnx,versal-wwdt-1.0"))
-		dev_warn(dev, "Features deprecated: stop, set_timeout and set_pretimeout\n");
+	max_hw_heartbeat = div64_u64(XWWDT_MAX_COUNT_WINDOW_COMBINED, xdev->freq);
 
 	xilinx_wwdt_wdd->min_timeout = XWWDT_MIN_TIMEOUT;
 	xilinx_wwdt_wdd->timeout = XWWDT_DEFAULT_TIMEOUT;
-	xilinx_wwdt_wdd->max_hw_heartbeat_ms = 1000 * xilinx_wwdt_wdd->timeout;
+	xilinx_wwdt_wdd->max_hw_heartbeat_ms = 1000 * max_hw_heartbeat;
 
 	if (closed_window_percent == 0 || closed_window_percent >= 100)
 		xdev->close_percent = XWWDT_CLOSE_WINDOW_PERCENT;
@@ -169,6 +194,7 @@ static int xwwdt_probe(struct platform_device *pdev)
 		xdev->close_percent = closed_window_percent;
 
 	watchdog_init_timeout(xilinx_wwdt_wdd, wwdt_timeout, &pdev->dev);
+	xilinx_wwdt_wdd->timeout = min_not_zero(xilinx_wwdt_wdd->timeout, max_hw_heartbeat);
 	spin_lock_init(&xdev->spinlock);
 	watchdog_set_drvdata(xilinx_wwdt_wdd, xdev);
 	watchdog_set_nowayout(xilinx_wwdt_wdd, 1);
@@ -185,7 +211,6 @@ static int xwwdt_probe(struct platform_device *pdev)
 
 static const struct of_device_id xwwdt_of_match[] = {
 	{ .compatible = "xlnx,versal-wwdt", },
-	{ .compatible = "xlnx,versal-wwdt-1.0", },
 	{},
 };
 MODULE_DEVICE_TABLE(of, xwwdt_of_match);

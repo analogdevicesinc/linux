@@ -561,13 +561,13 @@ static struct iio_chan_spec_ext_info axiadc_ext_info[] = {
 	{
 		.name = "scale_available",
 		.read = ad9208_show_scale_available,
-		.shared = true,
+		.shared = IIO_SHARED_BY_TYPE,
 	},
 	{
 		.name = "dc_filter_enable",
 		.read = ad9208_ext_info_read,
 		.write = ad9208_ext_info_write,
-		.shared = true,
+		.shared = IIO_SHARED_BY_TYPE,
 		.private = DC_FILT,
 	},
 	{},
@@ -579,7 +579,7 @@ static struct iio_chan_spec_ext_info ad9680_ext_info[] = {
 	{
 		.name = "scale_available",
 		.read = ad9208_show_scale_available,
-		.shared = true,
+		.shared = IIO_SHARED_BY_TYPE,
 	},
 	{},
 };

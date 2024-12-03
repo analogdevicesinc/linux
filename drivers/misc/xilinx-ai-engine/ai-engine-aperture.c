@@ -315,7 +315,7 @@ int aie_aperture_remove(struct aie_aperture *aperture)
 
 	if (aperture->adev->device_name == AIE_DEV_GEN_S100 ||
 	    aperture->adev->device_name == AIE_DEV_GEN_S200) {
-		xlnx_unregister_event(PM_NOTIFY_CB, XPM_NODETYPE_VERSAL_EVENT_ERROR_PMC_ERR1,
+		xlnx_unregister_event(PM_NOTIFY_CB, VERSAL_EVENT_ERROR_PMC_ERR1,
 				      XPM_VERSAL_EVENT_ERROR_MASK_AIE_CR,
 				      aie_interrupt_callback, aperture);
 	}
@@ -373,10 +373,22 @@ struct aie_aperture *
 of_aie_aperture_probe(struct aie_device *adev, struct device_node *nc)
 {
 	struct aie_aperture *aperture, *laperture;
+	u32 regs[2], reg_len = 0, *regval;
+	struct resource *res;
 	struct device *dev;
 	struct aie_range *range;
-	u32 regs[2];
-	int ret;
+	int ret, i;
+
+	int num_elems = of_property_count_elems_of_size(nc, "reg",
+							sizeof(u32)) / 4;
+
+	regval = devm_kzalloc(&adev->dev, num_elems * 4 * sizeof(*regval), GFP_KERNEL);
+	if (!regval)
+		return ERR_PTR(-ENOMEM);
+
+	res = devm_kzalloc(&adev->dev, num_elems * sizeof(*res), GFP_KERNEL);
+	if (!res)
+		return ERR_PTR(-ENOMEM);
 
 	aperture = kzalloc(sizeof(*aperture), GFP_KERNEL);
 	if (!aperture)
@@ -462,11 +474,31 @@ of_aie_aperture_probe(struct aie_device *adev, struct device_node *nc)
 		goto put_aperture_dev;
 	}
 
-	ret = of_address_to_resource(nc, 0, &aperture->res);
+	ret = of_property_read_u32_array(nc, "reg", regval, num_elems * 4);
 	if (ret < 0) {
-		dev_err(dev, "failed to get address from device node.\n");
-		goto put_aperture_dev;
+		dev_err(dev, "Failed to get reg information\n");
+		goto aie_res_uninit;
 	}
+
+	for (i = 0; i < num_elems; i++) {
+		if (i != 0) {
+			if (regval[i * 4 + 1] != reg_len) {
+				dev_err(dev, "Memory regions are not contiguous\n");
+				ret = -EINVAL;
+				goto aie_res_uninit;
+			}
+		}
+
+		reg_len += regval[i * 4 + 3];
+		if (of_address_to_resource(nc, i, &res[i]) < 0) {
+			dev_err(dev, "failed to get address from device node\n");
+			ret = -EINVAL;
+			goto aie_res_uninit;
+		}
+	}
+
+	res[0].end = res[i - 1].end;
+	aperture->res = res[0];
 	aperture->base = devm_ioremap_resource(dev, &aperture->res);
 	if (!aperture->base) {
 		ret = -ENOMEM;
@@ -499,7 +531,7 @@ of_aie_aperture_probe(struct aie_device *adev, struct device_node *nc)
 			goto put_aperture_dev;
 		}
 
-		ret = xlnx_register_event(PM_NOTIFY_CB, XPM_NODETYPE_VERSAL_EVENT_ERROR_PMC_ERR1,
+		ret = xlnx_register_event(PM_NOTIFY_CB, VERSAL_EVENT_ERROR_PMC_ERR1,
 					  XPM_VERSAL_EVENT_ERROR_MASK_AIE_CR,
 					  false, aie_interrupt_callback, aperture);
 
@@ -556,8 +588,12 @@ of_aie_aperture_probe(struct aie_device *adev, struct device_node *nc)
 		 adev->ttype_attr[AIE_TILE_TYPE_MEMORY].start_row,
 		 adev->ttype_attr[AIE_TILE_TYPE_MEMORY].num_rows);
 
+	devm_kfree(&adev->dev, res);
+	devm_kfree(&adev->dev, regval);
 	return aperture;
 
+aie_res_uninit:
+	aie_resource_uninitialize(&aperture->cols_res);
 put_aperture_dev:
 	put_device(dev);
 	return ERR_PTR(ret);
