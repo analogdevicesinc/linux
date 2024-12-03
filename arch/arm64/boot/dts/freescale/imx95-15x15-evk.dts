@@ -200,6 +200,7 @@
 		regulator-max-microvolt = <3300000>;
 		gpio = <&pcal6524 10 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
+		regulator-always-on;
 	};
 
 	cm7: imx95-cm7 {
