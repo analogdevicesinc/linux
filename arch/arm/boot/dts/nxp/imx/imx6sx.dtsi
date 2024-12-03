@@ -54,6 +54,8 @@
 		usb2 = &usbh;
 		usbphy0 = &usbphy1;
 		usbphy1 = &usbphy2;
+		lcdif0 = &lcdif1;
+		lcdif1 = &lcdif2;
 	};
 
 	cpus {

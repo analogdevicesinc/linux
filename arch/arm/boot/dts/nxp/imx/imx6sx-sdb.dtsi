@@ -21,14 +21,15 @@
 		reg = <0x80000000 0x40000000>;
 	};
 
-	backlight_display: backlight-display {
+	backlight_display0: backlight-display0 {
 		compatible = "pwm-backlight";
 		pwms = <&pwm3 0 5000000 0>;
 		brightness-levels = <0 4 8 16 32 64 128 255>;
 		default-brightness-level = <6>;
+		fb-names = "mxs-lcdif0";
 	};
 
-	backlight2 {
+	backlight_display1: backlight-display1 {
 		compatible = "pwm-backlight";
 		pwms = <&pwm4 0 5000000>;
 		brightness-levels = <0 4 8 16 32 64 128 255>;
