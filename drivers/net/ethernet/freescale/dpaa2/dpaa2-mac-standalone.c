@@ -283,7 +283,7 @@ static const struct net_device_ops dpaa2_mac_ndo_ops = {
 	.ndo_open		= &dpaa2_mac_netdev_open,
 	.ndo_stop		= &dpaa2_mac_netdev_stop,
 	.ndo_start_xmit		= &dpaa2_mac_drop_frame,
-	.ndo_do_ioctl		= &dpaa2_mac_ioctl,
+	.ndo_eth_ioctl		= &dpaa2_mac_ioctl,
 };
 
 static const struct ethtool_ops dpaa2_mac_ethtool_ops = {
