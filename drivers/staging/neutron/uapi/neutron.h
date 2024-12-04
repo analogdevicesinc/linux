@@ -149,8 +149,8 @@ struct neutron_uapi_inference_args {
 	union {
 		__u32  args3;
 	};
-	__u32 dram_base;
-	__u32 reserve_dram_h;
+	__u32 base_ddr_l;
+	__u32 base_ddr_h;
 	__u32 firmw_id;
 	__u32 buf_id;
 	__u32 input_offset;

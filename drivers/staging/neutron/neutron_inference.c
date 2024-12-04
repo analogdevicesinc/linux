@@ -122,8 +122,8 @@ static int neutron_inference_run(struct neutron_inference *inf)
 
 	ndev = inf->ndev;
 
-	neu_dbg("job %x is started, dram_base %x\n",
-		inf->args.tensor_offset, inf->args.dram_base);
+	neu_dbg("job %x is started, base_ddr %llx\n",
+		inf->args.tensor_offset, (__u64)inf->args.base_ddr_h << 32 | inf->args.base_ddr_l);
 
 	/* Do reset when neutron is stuck.
 	 * If the previous inference job is done, the ACK register will be set to RESET_VAL.
@@ -138,13 +138,17 @@ static int neutron_inference_run(struct neutron_inference *inf)
 		mutex_unlock(&ndev->mutex);
 	}
 
+	/* set BASEDDR address */
+	writel(inf->args.base_ddr_l, inf->ndev->reg_base + BASEDDRL);
+	writel(inf->args.base_ddr_l, inf->ndev->reg_base + BASEINOUTL);
+	writel(inf->args.base_ddr_l, inf->ndev->reg_base + BASESPILLL);
+
+	writel(inf->args.base_ddr_h, inf->ndev->reg_base + BASEDDRH);
+	writel(inf->args.base_ddr_h, inf->ndev->reg_base + BASEINOUTH);
+	writel(inf->args.base_ddr_h, inf->ndev->reg_base + BASESPILLH);
+
 	/* Run neutron inference */
 	if (inf->cmd_type == NEUTRON_CMD_RUN_INFERENCE) {
-		/* set BASEDDRL address */
-		writel(inf->args.dram_base, inf->ndev->reg_base + BASEDDRL);
-		writel(inf->args.dram_base, inf->ndev->reg_base + BASEINOUTL);
-		writel(inf->args.dram_base, inf->ndev->reg_base + BASESPILLL);
-
 		neu_dbg("run inference\n");
 		msg.command = RUN;
 		msg.args[0] = inf->args.tensor_offset;
@@ -154,11 +158,6 @@ static int neutron_inference_run(struct neutron_inference *inf)
 
 	/* Load neutron kernel binary */
 	} else if (inf->cmd_type == NEUTRON_CMD_LOAD_KERNEL) {
-		/* set BASEDDRL address */
-		writel(inf->args.dram_base, inf->ndev->reg_base + BASEDDRL);
-		writel(inf->args.dram_base, inf->ndev->reg_base + BASEINOUTL);
-		writel(inf->args.dram_base, inf->ndev->reg_base + BASESPILLL);
-
 		neu_dbg("load kernel\n");
 		msg.command = KERNELS;
 		msg.args[0] = inf->args.kernel_offset;

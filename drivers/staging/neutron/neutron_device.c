@@ -499,8 +499,8 @@ static long neutron_ioctl(struct file *file,
 			break;
 
 		dev_dbg(ndev->dev,
-			"Ioctl: Inference run. dram_base=%u, kernel_offset=%u\n",
-			uapi.dram_base, uapi.kernel_offset);
+			"Ioctl: Inference run. base_ddr=%llx, kernel_offset=%x\n",
+			(__u64)uapi.base_ddr_h << 32 | uapi.base_ddr_l, uapi.kernel_offset);
 		ret = neutron_inference_create(ndev, NEUTRON_CMD_LOAD_KERNEL, &uapi);
 
 		break;
@@ -512,8 +512,8 @@ static long neutron_ioctl(struct file *file,
 			break;
 
 		dev_dbg(ndev->dev,
-			"Ioctl: Inference run. dram_base=%u, tensor_offset=%u\n",
-			uapi.dram_base, uapi.tensor_offset);
+			"Ioctl: Inference run. base_ddr=%llx, tensor_offset=%x\n",
+			(__u64)uapi.base_ddr_h << 32 | uapi.base_ddr_l, uapi.tensor_offset);
 		ret = neutron_inference_create(ndev, NEUTRON_CMD_RUN_INFERENCE, &uapi);
 
 		break;
@@ -671,7 +671,7 @@ int neutron_dev_init(struct neutron_device *ndev,
 		goto destroy_mbox;
 	}
 
-	dma_set_mask_and_coherent(ndev->dev, DMA_BIT_MASK(32));
+	dma_set_mask_and_coherent(ndev->dev, DMA_BIT_MASK(48));
 	ndev->dev->dma_coherent = true;
 
 	/* Init power state */
