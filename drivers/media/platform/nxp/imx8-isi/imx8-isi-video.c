@@ -1243,6 +1243,9 @@ static int mxc_isi_video_streamon(struct file *file, void *priv,
 	if (vb2_queue_is_busy(&video->vb2_q, file))
 		return -EBUSY;
 
+	if (video->is_streaming)
+		return 0;
+
 	/*
 	 * Get a pipeline for the video node and start it. This must be done
 	 * here and not in the queue .start_streaming() handler, so that
