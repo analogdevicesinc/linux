@@ -72,6 +72,9 @@
 #define IMX95_SID_MASK				GENMASK(5, 0)
 #define IMX95_MAX_LUT				32
 
+#define IMX95_PCIE_RST_CTRL			0x3010
+#define IMX95_PCIE_COLD_RST			BIT(0)
+
 #define to_imx_pcie(x)	dev_get_drvdata((x)->dev)
 
 enum imx_pcie_variants {
@@ -859,6 +862,31 @@ static int imx7d_pcie_core_reset(struct imx_pcie *imx_pcie, bool assert)
 		dev_warn(dev, "Unable to apply ERR010728 workaround. DT missing fsl,imx7d-pcie-phy phandle ?\n");
 	}
 	imx7d_pcie_wait_for_phy_pll_lock(imx_pcie);
+	return 0;
+}
+
+static int imx95_pcie_core_reset(struct imx_pcie *imx_pcie, bool assert)
+{
+	if (assert) {
+		/*
+		 * From i.MX95 PCIe PHY perspective, the COLD reset toggle
+		 * should be complete after power-up by the following sequence.
+		 *                 > 10us(at power-up)
+		 *                 > 10ns(warm reset)
+		 *               |<------------>|
+		 *                ______________
+		 * phy_reset ____/              \________________
+		 *                                   ____________
+		 * ref_clk_en_______________________/
+		 * Toggle COLD reset aligned with this sequence for i.MX95 PCIe.
+		 */
+		regmap_update_bits(imx_pcie->iomuxc_gpr, IMX95_PCIE_RST_CTRL,
+				   IMX95_PCIE_COLD_RST, IMX95_PCIE_COLD_RST);
+		udelay(10);
+		regmap_update_bits(imx_pcie->iomuxc_gpr, IMX95_PCIE_RST_CTRL,
+				   IMX95_PCIE_COLD_RST, 0);
+	}
+
 	return 0;
 }
 
@@ -1934,6 +1962,7 @@ static const struct imx_pcie_drvdata drvdata[] = {
 		.mode_mask[0] = IMX95_PCIE_DEVICE_TYPE,
 		.init_phy = imx95_pcie_init_phy,
 		.enable_ref_clk = imx95_pcie_enable_ref_clk,
+		.core_reset = imx95_pcie_core_reset,
 	},
 	[IMX6Q_EP] = {
 		.variant = IMX6Q_EP,
