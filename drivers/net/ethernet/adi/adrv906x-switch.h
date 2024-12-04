@@ -13,12 +13,9 @@
 #include <linux/io.h>
 
 #define SWITCH_MAX_PORT_NUM                             3
-#define SWITCH_MAX_PCP_PLANE_NUM                        4
 #define SWITCH_CPU_PORT                                 2
 
-#define SECONDS_TO_WAIT                                 2
-#define ADRV906X_NET_DEV_WAIT                           100     /* msecs */
-#define ADRV906X_SWITCH_RESET_TIMEOUT                   50      /* read count */
+#define SWITCH_MAE_TIMEOUT                              50      /* read count */
 
 #define SWITCH_PORT_CFG_PORT                            0x0004
 #define SWITCH_PORT_CFG_VLAN                            0x0008
@@ -27,7 +24,7 @@
 #define SWITCH_PORT_TRAP_PTP                            0x0084
 #define SWITCH_PORT_PCP2IPV                             0x008c
 #define SWITCH_TRAP_ENABLE                              BIT(24)
-#define SWITCH_TRAP_DSTPORT_CPU                         BIT(16 + SWITCH_CPU_PORT)
+#define SWITCH_TRAP_DSTPORT_MASK                        GENMASK(23, 16)
 #define SWITCH_DSA_TX_ENABLE_BIT                        17
 #define SWITCH_DSA_RX_ENABLE_BIT                        16
 #define SWITCH_MAC_LEARN_EN                             2
@@ -36,22 +33,36 @@
 #define SWITCH_PVID_MASK                                GENMASK(11, 0)
 
 #define SWITCH_MAS_OP_CTRL                              0x0000
+#define   SWITCH_MAS_OP_CTRL_TRIGGER                    BIT(8)
 #define   SWITCH_MAS_OP_CTRL_OPCODE_MASK                GENMASK(7, 4)
-#define   SWITCH_MAS_OP_CTRL_FLUSH_MAC_TABLE            BIT(2)
+#define   SWITCH_MAS_OP_CTRL_MAC_INSERT                 0
+#define   SWITCH_MAS_OP_CTRL_VLAN_ADD                   1
+#define   SWITCH_MAS_OP_CTRL_MAC_TABLE_SOFT_FLUSH       2
+#define   SWITCH_MAS_OP_CTRL_MAC_TABLE_HARD_FLUSH       3
+#define   SWITCH_MAS_OP_CTRL_FLUSH_MAC_TABLE_PENDING    BIT(2)
 #define SWITCH_MAS_PORT_MASK1                           0x0004
 #define SWITCH_MAS_PORT_MASK2                           0x0008
 #define SWITCH_MAS_FDB_MAC_INSERT_1                     0x000c
 #define SWITCH_MAS_FDB_MAC_INSERT_2                     0x0010
+#define   SWITCH_INSERT_MAC_ADDR_LOW_MASK               GENMASK(31, 16)
 #define   SWITCH_INSERT_VALID                           BIT(0)
 #define   SWITCH_INSERT_STATIC                          BIT(1)
 #define   SWITCH_INSERT_OVERWRITE                       BIT(3)
 #define SWITCH_MAS_VLAN_ID                              0x0014
-#define SWITCH_MAS_SOFT_RESET                           0x0020
-#define   ALL_EX_MAE                                    BIT(0)
+
+#define SWITCH_SOFT_RESET                               0x0020
+#define   SWITCH_ALL_EX_MAE                             BIT(0)
+
+#define SWITCH_PCP_REGEN_VAL                            0x77000000
+#define SWITCH_PCP_IPV_MAPPING                          0x10000000
+#define SWITCH_PVID                                     1
+
+#define EAPOL_MAC_ADDR                                  0x0180c2000003
+#define ESMC_MAC_ADDR                                   0x0180c2000002
 
 struct switch_port {
 	unsigned int config_mask;
-	void __iomem *reg_switch_port;
+	void __iomem *reg;
 };
 
 struct switch_pcp {
