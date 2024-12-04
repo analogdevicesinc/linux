@@ -16,7 +16,7 @@
 	os08a20: os08a20_mipi@36 {
 		compatible = "ovti,os08a20";
 		reg = <0x36>;
-		rst-gpios = <&i2c7_pcal6524_23 20 GPIO_ACTIVE_LOW>;
+		reset-gpios = <&i2c7_pcal6524_23 20 GPIO_ACTIVE_LOW>;
 		orientation = <2>;
 		rotation = <0>;
 		status = "okay";
