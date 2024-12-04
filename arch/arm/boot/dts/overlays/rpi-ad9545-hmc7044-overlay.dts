@@ -1,0 +1,565 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/* Overlay for AD-SYNCHRONA14-EBZ Rev. B
+ *
+ * Copyright 2021 Analog Devices Inc.
+ */
+
+/dts-v1/;
+/plugin/;
+
+/ {
+	#include <dt-bindings/clock/ad9545.h>
+	#include <dt-bindings/iio/frequency/hmc7044.h>
+	#include <dt-bindings/gpio/gpio.h>
+
+	compatible = "brcm,bcm2835", "brcm,bcm2709", "brcm,bcm2711";
+
+	fragment@0 {
+
+		target-path = "/";
+		__overlay__ {
+
+			ref_clk2: ref_clk_2 {
+				compatible = "fixed-clock";
+				#clock-cells = <1>;
+
+				clock-frequency  = <10000000>;
+				clock-output-names = "Ref-B";
+			};
+
+			ref_clk3: ref_clk_3 {
+				compatible = "fixed-clock";
+				#clock-cells = <1>;
+
+				clock-frequency  = <1>;
+				clock-output-names = "Ref-BB";
+			};
+
+			ref_m1: ref_m1_clk {
+				compatible = "fixed-clock";
+				#clock-cells = <1>;
+
+				clock-frequency  = <50000000>;
+				clock-output-names = "Ref-M1";
+			};
+
+			hmc_ref_clk0: hmc_ref_clk_0 {
+				compatible = "fixed-clock";
+				#clock-cells = <1>;
+
+				clock-frequency  = <10000000>;
+				clock-output-names = "HMC-REF_CLKIN0";
+			};
+
+			hmc_ref_clk1: hmc_ref_clk_1 {
+				compatible = "fixed-clock";
+				#clock-cells = <1>;
+
+				clock-frequency  = <10000000>;
+				clock-output-names = "HMC-REF_CLKIN1";
+			};
+
+			hmc_ref_clk3: hmc_ref_clk_3 {
+				compatible = "fixed-clock";
+				#clock-cells = <1>;
+
+				clock-frequency  = <40000000>;
+				clock-output-names = "HMC-REF_CLKIN3";
+			};
+		};
+	};
+
+	fragment@1 {
+		target = <&spidev0>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@2 {
+		target = <&spidev1>;
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+
+	fragment@3 {
+		target = <&gpio>;
+		__overlay__ {
+			gpio_overrides: gpio_overrides {
+				/* GPIO_4_HMC7044_CAR - 4
+				 * GPIO_1_HMC7044_CAR - 17
+				 * GPIO_2_HMC7044_CAR - 27
+				 * GPIO_3_HMC7044_CAR - 22
+				 * RESETB_AD9545_PI - 25
+				 * RESET_HMC7044_CAR_PI - 5
+				 * VCXO_SELECT_PI - 6
+				 * GPIO19_PI - 19
+				 * GPIO26_PI - 26
+				 * GPIO23_PI - 16 - SYNC Enable
+				 */
+
+				pin-25-reset-high {
+					pins = "gpio25";
+					function = "gpio_out";
+					bias-pull-up;
+					output-high;
+					export;
+				};
+
+				pin-5-reset-low {
+					pins = "gpio5";
+					function = "gpio_out";
+					bias-pull-down;
+				};
+
+				pin-6-vcxo-select {
+					pins = "gpio6";
+					function = "gpio_out";
+					/* GPIO 6:
+					 * 0 - For the 100 MHz VCXO to HMC7044:
+					 * bias-pull-down;
+					 *
+					 * 1 - For the 122.88 MHz VCXO to HMC7044:
+					 * bias-pull-up;
+					 * output-high;
+					 */
+
+					bias-pull-down;
+
+					export;
+				};
+
+				pin-32-red_led {
+					pins = "gpio12";
+					function = "gpio_out";
+					bias-pull-up;
+					output-high;
+					export;
+				};
+
+				pin-36-green_led {
+					pins = "gpio16";
+					function = "gpio_out";
+					bias-pull-up;
+					export;
+				};
+
+				pin-16-sync-en {
+					pins = "gpio23";
+					function = "gpio_out";
+					bias-pull-down;
+					export;
+				};
+			};
+		};
+	};
+
+	fragment@4 {
+		target = <&spi0>;
+		__overlay__ {
+			compatible = "brcm,bcm2835-spi";
+
+			#address-cells = <0x1>;
+			#size-cells = <0>;
+			status = "okay";
+
+			ad9545_clock: ad9545@0 {
+				compatible = "adi,ad9545";
+				reg = <0>;
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				/*
+				 * Bind our pinctrl state to the first clock
+				 * provider we probe so it's applied before them.
+				 */
+				pinctrl-0 = <&gpio_overrides>;
+				pinctrl-names = "default";
+
+				adi,ref-crystal;
+				adi,ref-frequency-hz = <49152000>;
+				spi-max-frequency = <1000000>;
+
+				clock-names = "Ref-B", "Ref-BB", "Ref-M1";
+				clocks = <&ref_clk2 2>, <&ref_clk3 3>, <&ref_m1 1>;
+
+				#clock-cells = <2>;
+				assigned-clocks = <&ad9545_clock AD9545_CLK_NCO AD9545_NCO0>,
+						  <&ad9545_clock AD9545_CLK_PLL AD9545_PLL0>,
+						  <&ad9545_clock AD9545_CLK_PLL AD9545_PLL1>,
+						  <&ad9545_clock AD9545_CLK_OUT AD9545_Q0A>,
+						  <&ad9545_clock AD9545_CLK_OUT AD9545_Q0B>,
+						  <&ad9545_clock AD9545_CLK_OUT AD9545_Q1A>,
+						  <&ad9545_clock AD9545_CLK_OUT AD9545_Q1B>,
+						  <&ad9545_clock AD9545_CLK_AUX_TDC AD9545_CLK_AUX_TDC0>;
+				assigned-clock-rates = <10000>,
+						       <1400000000>,
+						       <1800000000>,
+						       <10000000>,
+						       <10000000>,
+						       <10000000>,
+						       <10000000>,
+						       <200000>;
+				assigned-clock-nshot = <0>, <0>, <0>, <0>, <0>, <0>, <1>, <0>;
+
+				aux-tdc-clk@0 {
+					reg = <0>;
+					adi,pin-nr = <1>;
+				};
+
+				aux-dpll@0 {
+					reg = <0>;
+					adi,compensation-source = <4>;
+					adi,aux-dpll-bw-mhz = <50000>;
+				};
+
+				/* Ref B*/
+				ref-input-clk@2 {
+					reg = <2>;
+					adi,single-ended-mode = <DRIVER_MODE_AC_COUPLED>;
+					adi,r-divider-ratio = <50>;
+					adi,ref-dtol-pbb = <10000000>;
+					adi,ref-monitor-hysteresis-pbb = <87500>;
+					adi,ref-validation-timer-ms = <10>;
+					adi,freq-lock-threshold-ps = <2000>;
+					adi,phase-lock-threshold-ps = <2000>;
+					adi,freq-lock-fill-rate = <20>;
+					adi,freq-lock-drain-rate = <20>;
+					adi,phase-lock-fill-rate = <20>;
+					adi,phase-lock-drain-rate = <20>;
+				};
+
+				/* Ref BB*/
+				ref-input-clk@3 {
+					reg = <3>;
+					adi,single-ended-mode = <DRIVER_MODE_DC_COUPLED_1V8>;
+					adi,r-divider-ratio = <1>;
+					adi,ref-dtol-pbb = <100000>;
+					adi,ref-monitor-hysteresis-pbb = <12500>;
+					adi,ref-validation-timer-ms = <1000>;
+					adi,freq-lock-threshold-ps = <2000>;
+					adi,phase-lock-threshold-ps = <2000>;
+					adi,freq-lock-fill-rate = <100>;
+					adi,freq-lock-drain-rate = <10>;
+					adi,phase-lock-fill-rate = <100>;
+					adi,phase-lock-drain-rate = <10>;
+				};
+
+				aux-nco-clk@AD9545_NCO0 {
+					reg = <AD9545_NCO0>;
+					adi,freq-lock-threshold-ps = <0xFFFFFF>;
+					adi,phase-lock-threshold-ps = <0xFFFFFF>;
+				};
+
+				ad9545_apll0: pll-clk@AD9545_PLL0 {
+					reg = <AD9545_PLL0>;
+
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					/* Uncoment below for Internal Zero-Delay operation: */
+					/*
+					 * adi,pll-internal-zero-delay-feedback = <AD9545_Q0A>;
+					 * adi,pll-internal-zero-delay-feedback-hz = <10000000>;
+					 * adi,pll-slew-rate-limit-ps = <4000000000>;
+					 */
+					profile@0 {
+						reg = <0>;
+						adi,pll-source = <3>;
+						adi,profile-priority = <0>;
+						adi,pll-loop-bandwidth-uhz = <50000>;
+
+						adi,fast-acq-excess-bw = <8>;
+						adi,fast-acq-timeout-ms = <10000>;
+						adi,fast-acq-lock-settle-ms = <1000>;
+					};
+
+					profile@1 {
+						reg = <1>;
+						adi,pll-source = <2>;
+						adi,profile-priority = <10>;
+						adi,pll-loop-bandwidth-uhz = <200000000>;
+					};
+
+				};
+
+				ad9545_apll1: pll-clk@AD9545_PLL1 {
+					reg = <AD9545_PLL1>;
+
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					/* Uncoment below for internal zero-delay operation */
+					/*
+					 * adi,pll-internal-zero-delay-feedback = <AD9545_Q1A>;
+					 * adi,pll-internal-zero-delay-feedback-hz = <10000000>;
+					 * adi,pll-slew-rate-limit-ps = <4000000000>;
+					 */
+					profile@0 {
+						reg = <0>;
+						adi,pll-source = <3>;
+						adi,profile-priority = <0>;
+						adi,pll-loop-bandwidth-uhz = <50000>;
+
+						adi,fast-acq-excess-bw = <8>;
+						adi,fast-acq-timeout-ms = <10000>;
+						adi,fast-acq-lock-settle-ms = <1000>;
+					};
+
+					profile@1 {
+						reg = <1>;
+						adi,pll-source = <2>;
+						adi,profile-priority = <10>;
+						adi,pll-loop-bandwidth-uhz = <200000000>;
+					};
+				};
+
+				/* Output Q0A CML -> J27 J28 */
+				output-clk@AD9545_Q0A {
+					reg = <AD9545_Q0A>;
+					adi,output-mode = <DRIVER_MODE_SINGLE_DIV_DIF>;
+					adi,current-source-microamp = <15000>;
+				};
+
+				output-clk@AD9545_Q0B {
+					reg = <AD9545_Q0B>;
+					adi,output-mode = <DRIVER_MODE_SINGLE_DIV_DIF>;
+					adi,current-source-microamp = <15000>;
+				};
+
+				/* Output Q1A -> CLK_IN 2 of HMC7044 */
+				output-clk@AD9545_Q1A {
+					reg = <AD9545_Q1A>;
+					adi,output-mode = <DRIVER_MODE_SINGLE_DIV_DIF>;
+					adi,current-source-microamp = <15000>;
+				};
+
+				/* Output Q1B -> SYNC of HMC7044 */
+				output-clk@AD9545_Q1B {
+					reg = <AD9545_Q1B>;
+					adi,output-mode = <DRIVER_MODE_SINGLE_DIV_DIF>;
+					adi,current-source-microamp = <15000>;
+				};
+			};
+
+			hmc7044_fmc: hmc7044@1 {
+				reg = <0x1>;
+
+				#address-cells = <1>;
+				#size-cells = <0>;
+				#clock-cells = <1>;
+
+				compatible = "adi,hmc7044";
+				spi-max-frequency = <1000000>;
+
+				adi,pll1-clkin-frequencies = <10000000 10000000 10000000 40000000>;
+
+				/*
+				 *	HMC7044 Input Clocking Priorities:
+				 *	CLKIN2 -> CLKIN0 -> CLKIN1 -> CLKIN3
+				 *	Where:
+				 *		- CLKIN2 - AD9545
+				 *		- CLKIN0 - J23/J24
+				 *		- CLKIN1 - J25/J26
+				 *		- CLKIN3 - 40 MHz or 38.4 MHz TCXO
+				 */
+				adi,pll1-ref-prio-ctrl = <0xD2>;
+				adi,pll1-ref-autorevert-enable;
+
+				adi,pll1-loop-bandwidth-hz = <200>;
+
+				/* All HMC7044 inputs are AC Coupled */
+				adi,clkin0-buffer-mode = <0x07>;
+				adi,clkin1-buffer-mode  = <0x07>;
+				adi,clkin2-buffer-mode  = <0x07>;
+				adi,clkin3-buffer-mode  = <0x07>;
+
+				clocks = <&hmc_ref_clk0 0>,
+					 <&hmc_ref_clk1 0>,
+					 <&ad9545_clock AD9545_CLK_OUT AD9545_Q1A>,
+					 <&hmc_ref_clk3 0>,
+					 <&ad9545_clock AD9545_CLK_OUT AD9545_Q1B>;
+				clock-names = "clkin0", "clkin1", "clkin2", "clkin3", "sync_clk";
+
+				/* depends on VCXO_SELECT_PI */
+				adi,vcxo-frequency = <100000000>;
+				adi,pll2-output-frequency = <2600000000>;
+				adi,sysref-timer-divider = <1024>;
+				adi,pulse-generator-mode = <HMC7044_PULSE_GEN_CONT_PULSE>;
+
+				adi,oscin-buffer-mode = <0x15>;
+				adi,sync-pin-mode = <HMC7044_SYNC_PIN_SYNC>;
+
+				adi,gpi-controls = <0x00 0x00 0x00 0x00>;
+				adi,gpo-controls = <0x1f 0x2b 0x00 0x00>;
+
+				clock-output-names = "HMC7044_OUT0", "HMC7044_OUT1",
+						     "HMC7044_OUT2", "HMC7044_OUT3",
+						     "HMC7044_OUT4", "HMC7044_OUT5",
+						     "HMC7044_OUT6", "HMC7044_OUT7",
+						     "HMC7044_OUT8", "HMC7044_OUT9",
+						     "HMC7044_OUT10", "HMC7044_OUT11",
+						     "HMC7044_OUT12", "HMC7044_OUT13";
+
+				/*
+				 * Channels in CMOS mode should configure
+				 * adi,driver-impedance-mode to:
+				 * 0 - no output
+				 * 1 - N output
+				 * 2 - P ourput
+				 * 3 - both
+				 * Depending on the desired output pin.
+				 */
+				channel@0 {
+					reg = <0>;
+					adi,extended-name = "HMC7044_OUT0";
+					adi,divider = <260>;
+					adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+				};
+
+				channel@1 {
+					reg = <1>;
+					adi,extended-name = "HMC7044_OUT1";
+					adi,divider = <260>;
+					adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+				};
+
+				channel@2 {
+					reg = <2>;
+					adi,extended-name = "HMC7044_OUT2";
+					adi,divider = <260>;
+					adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+				};
+
+				channel@3 {
+					reg = <3>;
+					adi,extended-name = "HMC7044_OUT3";
+					adi,divider = <260>;
+					adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+				};
+
+				channel@4 {
+					reg = <4>;
+					adi,extended-name = "HMC7044_OUT4";
+					adi,divider = <260>;
+					adi,driver-mode = <HMC7044_DRIVER_MODE_CMOS>;
+					adi,driver-impedance-mode = <3>;
+				};
+
+				channel@5 {
+					reg = <5>;
+					adi,extended-name = "HMC7044_OUT5";
+					adi,divider = <260>;
+					adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+				};
+
+				channel@6 {
+					reg = <6>;
+					adi,extended-name = "HMC7044_OUT6";
+					adi,divider = <260>;
+					adi,driver-mode = <HMC7044_DRIVER_MODE_CMOS>;
+					adi,driver-impedance-mode = <3>;
+				};
+
+				channel@7 {
+					reg = <7>;
+					adi,extended-name = "HMC7044_OUT7";
+					adi,divider = <260>;
+					adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+				};
+
+				channel@8 {
+					reg = <8>;
+					adi,extended-name = "HMC7044_OUT8";
+					adi,divider = <260>;
+					adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+				};
+
+				channel@9 {
+					reg = <9>;
+					adi,extended-name = "HMC7044_OUT9";
+					adi,divider = <260>;
+					adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+				};
+
+				channel@10 {
+					reg = <10>;
+					adi,extended-name = "HMC7044_OUT10";
+					adi,divider = <260>;
+					adi,driver-mode = <HMC7044_DRIVER_MODE_LVDS>;
+				};
+
+				channel@11 {
+					reg = <11>;
+					adi,extended-name = "HMC7044_OUT11";
+					adi,divider = <260>;
+					adi,driver-mode = <HMC7044_DRIVER_MODE_CMOS>;
+					adi,driver-impedance-mode = <3>;
+				};
+
+				channel@12 {
+					reg = <12>;
+					adi,extended-name = "HMC7044_OUT12";
+					adi,divider = <260>;
+					adi,driver-mode = <HMC7044_DRIVER_MODE_LVPECL>;
+				};
+
+				channel@13 {
+					reg = <13>;
+					adi,extended-name = "HMC7044_OUT13";
+					adi,divider = <260>;
+					adi,driver-mode = <HMC7044_DRIVER_MODE_CMOS>;
+					adi,driver-impedance-mode = <3>;
+				};
+			};
+		};
+	};
+
+	fragment@5 {
+		target-path = "/";
+		__overlay__ {
+			power_ctrl: power_ctrl {
+				compatible = "gpio-poweroff";
+				gpios = <&gpio 21 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+				input;
+				force;
+			};
+		};
+	};
+
+	fragment@6 {
+		target-path = "/soc";
+		__overlay__ {
+			shutdown_button: shutdown_button@3 {
+				compatible = "gpio-keys";
+				status = "okay";
+
+				button: shutdown {
+					label = "shutdown";
+					linux,code = <116>; /* KEY_POWER */
+					gpios = <&gpio 20 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+					debounce-interval = <100>;
+				};
+			};
+		};
+	};
+
+	fragment@7 {
+		target = <&i2c1>;
+		__overlay__ {
+			compatible = "brcm,bcm2711-i2c";
+			status = "okay";
+
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* Temperature sensor that monitors HMC7044 */
+			adt7422@48 {
+				compatible = "adi,adt7422";
+				reg = <0x48>;
+			};
+		};
+	};
+};
