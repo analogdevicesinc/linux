@@ -805,9 +805,8 @@ F: include/uapi/linux/tsn.h
 F: net/tsn/
 
 net/dpaa1
-M: Camelia Groza <camelia.groza@nxp.com>
-R: Wei Fang <wei.fang@nxp.com>
-R: Clark Wang <xiaoning.wang@nxp.com>
+M: Vladimir Oltean <vladimir.oltean@nxp.com>
+M: Ioana Ciornei <ioana.ciornei@nxp.com>
 R: Madalin Bucur <madalin.bucur@oss.nxp.com>
 F: drivers/net/ethernet/freescale/sdk_dpaa/
 F: drivers/net/ethernet/freescale/sdk_fman/
@@ -820,8 +819,7 @@ F: include/uapi/linux/fmd/
 
 net/dpaa2
 M: Ioana Ciornei <ioana.ciornei@nxp.com>
-R: Wei Fang <wei.fang@nxp.com>
-R: Clark Wang <xiaoning.wang@nxp.com>
+R: Vladimir Oltean <vladimir.oltean@nxp.com>
 R: Madalin Bucur <madalin.bucur@oss.nxp.com>
 F: Documentation/ABI/stable/sysfs-bus-fsl-mc
 F: drivers/bus/fsl-mc/
