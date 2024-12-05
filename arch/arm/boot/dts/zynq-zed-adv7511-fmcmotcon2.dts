@@ -5,24 +5,9 @@
 
 #include "zynq-zed.dtsi"
 #include "zynq-zed-adv7511.dtsi"
+#include <dt-bindings/interrupt-controller/irq.h>
 
 &fpga_axi {
-	fmc_i2c: i2c@41620000 {
-		compatible = "xlnx,axi-iic-1.01.b", "xlnx,xps-iic-2.00.a";
-		reg = <0x41620000 0x10000>;
-		interrupt-parent = <&intc>;
-		interrupts = <0 55 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&clkc 15>;
-		clock-names = "pclk";
-
-		#size-cells = <0>;
-		#address-cells = <1>;
-
-		eeprom@50 {
-			compatible = "at24,24c02";
-			reg = <0x50>;
-		};
-	};
 
 	ad-mc-adc@44a00000 {
 		compatible = "xlnx,axi-ad-mc-adc-1.00.a";
