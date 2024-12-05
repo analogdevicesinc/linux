@@ -125,18 +125,18 @@ static DEVICE_ATTR_RW(adrv906x_eth_cdr_div_out_enable);
 static void adrv906x_eth_adjust_link(struct net_device *ndev)
 {
 	struct adrv906x_eth_dev *adrv906x_dev = netdev_priv(ndev);
+	struct adrv906x_eth_if *eth_if = adrv906x_dev->parent;
+	struct adrv906x_eth_switch *es = &eth_if->ethswitch;
 	struct adrv906x_mac *mac = &adrv906x_dev->mac;
+	struct adrv906x_tsu *tsu = &adrv906x_dev->tsu;
 	struct phy_device *phydev = ndev->phydev;
-	struct adrv906x_tsu *tsu;
-
-	tsu = &adrv906x_dev->tsu;
-	adrv906x_tsu_set_speed(tsu, phydev->speed);
 
 	if (!phydev->link) {
-		if (adrv906x_dev->link_speed) {
-			adrv906x_dev->link_speed = 0;
-			netdev_info(ndev, "%s: link down", ndev->name);
-		}
+		adrv906x_dev->link_speed = 0;
+		if (eth_if->ethswitch.enabled)
+			adrv906x_switch_port_enable(es, adrv906x_dev->port, false);
+
+		netdev_info(ndev, "%s: link down", ndev->name);
 		return;
 	}
 
@@ -147,6 +147,10 @@ static void adrv906x_eth_adjust_link(struct net_device *ndev)
 	adrv906x_dev->link_speed = phydev->speed;
 	adrv906x_dev->link_duplex = phydev->duplex;
 
+	if (eth_if->ethswitch.enabled)
+		adrv906x_switch_port_enable(es, adrv906x_dev->port, true);
+
+	adrv906x_tsu_set_speed(tsu, phydev->speed);
 	adrv906x_eth_cmn_mode_cfg(adrv906x_dev);
 	adrv906x_eth_cmn_recovered_clk_config(adrv906x_dev);
 	adrv906x_mac_set_path(mac, true);

@@ -18,19 +18,19 @@
 #define SWITCH_MAE_TIMEOUT                              50      /* read count */
 
 #define SWITCH_PORT_CFG_PORT                            0x0004
+#define   SWITCH_PORT_CFG_PORT_EN                       BIT(0)
 #define SWITCH_PORT_CFG_VLAN                            0x0008
+#define   SWITCH_PORT_PVID_MASK                         GENMASK(11, 0)
 #define SWITCH_PORT_CFG_QINQ                            0x000c
+#define   SWITCH_PORT_CFG_DSA_TX_EN                     BIT(17)
+#define   SWITCH_PORT_CFG_DSA_RX_EN                     BIT(16)
 #define SWITCH_PORT_PCP_REGEN                           0x0010
 #define SWITCH_PORT_TRAP_PTP                            0x0084
+#define   SWITCH_PORT_TRAP_PTP_EN                       BIT(24)
+#define   SWITCH_PORT_TRAP_DSTPORT_MASK                 GENMASK(23, 16)
 #define SWITCH_PORT_PCP2IPV                             0x008c
-#define SWITCH_TRAP_ENABLE                              BIT(24)
-#define SWITCH_TRAP_DSTPORT_MASK                        GENMASK(23, 16)
-#define SWITCH_DSA_TX_ENABLE_BIT                        17
-#define SWITCH_DSA_RX_ENABLE_BIT                        16
 #define SWITCH_MAC_LEARN_EN                             2
 #define SWITCH_MAC_FWD_EN                               1
-#define SWITCH_PORT_ENABLE_BIT                          0
-#define SWITCH_PVID_MASK                                GENMASK(11, 0)
 
 #define SWITCH_MAS_OP_CTRL                              0x0000
 #define   SWITCH_MAS_OP_CTRL_TRIGGER                    BIT(8)
@@ -97,10 +97,9 @@ struct adrv906x_eth_switch {
 	struct switch_isr_args isr_post_args;
 };
 
+int adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled);
 int adrv906x_switch_register_irqs(struct adrv906x_eth_switch *es,
 				  struct device_node *eth_switch_np);
-int adrv906x_switch_register_attr(struct adrv906x_eth_switch *es);
-void adrv906x_switch_unregister_attr(struct adrv906x_eth_switch *es);
 int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device *pdev,
 			  int (*isr_pre_func)(void *), int (*isr_post_func)(void *));
 int adrv906x_switch_init(struct adrv906x_eth_switch *es);
