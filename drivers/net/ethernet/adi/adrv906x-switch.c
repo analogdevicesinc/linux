@@ -321,7 +321,7 @@ int adrv906x_switch_register_irqs(struct adrv906x_eth_switch *es, struct device_
 }
 
 int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device *pdev,
-			  int (*isr_pre_func)(void *), int (*isr_post_func)(void *))
+			  int (*isr_pre_func)(void *), int (*isr_post_func)(void *), void *isr_arg)
 {
 	struct device *dev = &pdev->dev;
 	struct device_node *eth_switch_np, *switch_port_np;
@@ -378,9 +378,9 @@ int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device
 	}
 
 	es->isr_pre_args.func = isr_pre_func;
-	es->isr_pre_args.arg = (void *)es->pdev;
+	es->isr_pre_args.arg = isr_arg;
 	es->isr_post_args.func = isr_post_func;
-	es->isr_post_args.arg = (void *)es->pdev;
+	es->isr_post_args.arg = isr_arg;
 	/* TODO: Add de-allocation in case of error below */
 	ret = adrv906x_switch_register_irqs(es, eth_switch_np);
 	if (ret)
