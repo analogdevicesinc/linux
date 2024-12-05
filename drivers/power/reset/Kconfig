@@ -166,6 +166,15 @@ config POWER_RESET_LTC2952
 	  This driver supports an external powerdown trigger and board power
 	  down via the LTC2952. Bindings are made in the device tree.
 
+config POWER_RESET_MAX16150
+	bool "MAX16150/MAX16169 Pushbutton driver"
+	depends on OF_GPIO
+	help
+	  This driver supports the MAX16150 and MAX16169 pushbutton
+	  controllers, which are low-power devices with a switch
+	  debouncer and built-in latch. Device bindings are specified
+	  in the device tree.
+
 config POWER_RESET_MT6323
 	bool "MediaTek MT6323 power-off driver"
 	depends on MFD_MT6397
