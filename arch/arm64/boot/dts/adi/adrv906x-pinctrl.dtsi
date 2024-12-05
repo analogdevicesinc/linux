@@ -13,6 +13,9 @@
 	pinctrl_eth_recov_clk: eth-recov-clk-grp {
 	};
 
+	pinctrl_phy_leds: phy-leds-grp {
+	};
+
 	pinctrl_hog: hog-grp {
 	};
 

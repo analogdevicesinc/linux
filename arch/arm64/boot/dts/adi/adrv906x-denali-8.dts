@@ -17,12 +17,6 @@
 		stdout-path = &uart0;
 	};
 
-	pinctrl_phy_leds: phy-leds-grp {
-		adi,pins = <
-						   A55_GPIO_NS_76_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
-						   A55_GPIO_NS_77_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
-				   >;
-	};
 };
 
 /* Remove CTSIN and RTSOUT. CTSIN conflicts with GPIO 51 below */
@@ -184,6 +178,13 @@
 &pinctrl_secondary_eth_recov_clk {
 	adi,pins = <
 	ETHERNET_RECOVERED_CLK_PIN (ADI_CONFIG_NO_PULL | ADI_CONFIG_DRIVE_STRENGTH_4)
+	>;
+};
+
+&pinctrl_phy_leds {
+	adi,pins = <
+	A55_GPIO_NS_76_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_77_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	>;
 };
 
