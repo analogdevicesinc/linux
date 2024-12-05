@@ -49,6 +49,10 @@
 #define   SWITCH_INSERT_STATIC                          BIT(1)
 #define   SWITCH_INSERT_OVERWRITE                       BIT(3)
 #define SWITCH_MAS_VLAN_ID                              0x0014
+#define SWITCH_MAS_CFG_MAE                              0x0018
+#define   CFG_MAE_AGE_TIME_MASK                         GENMASK(11, 4)
+#define   AGE_TIME_5MIN_25G                             0x19
+#define   AGE_TIME_5MIN_10G                             0x0A
 
 #define SWITCH_SOFT_RESET                               0x0020
 #define   SWITCH_ALL_EX_MAE                             BIT(0)
@@ -103,5 +107,6 @@ int adrv906x_switch_register_irqs(struct adrv906x_eth_switch *es,
 int adrv906x_switch_probe(struct adrv906x_eth_switch *es, struct platform_device *pdev,
 			  int (*isr_pre_func)(void *), int (*isr_post_func)(void *), void *isr_arg);
 int adrv906x_switch_init(struct adrv906x_eth_switch *es);
+void adrv906x_switch_set_mae_age_time(struct adrv906x_eth_switch *es, u8 data);
 
 #endif /* __ADRV906X_SWITCH_H__ */
