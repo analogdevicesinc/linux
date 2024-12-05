@@ -128,15 +128,6 @@ static int max16150_probe(struct platform_device *pdev)
 	return 0;
 }
 
-static int max16150_remove(struct platform_device *pdev)
-{
-	struct max16150 *button = platform_get_drvdata(pdev);
-
-	cancel_delayed_work_sync(&button->debounce_work);
-	input_unregister_device(button->input);
-	return 0;
-}
-
 static const struct of_device_id max16150_of_match[] = {
 	{ .compatible = "adi,max16150" },
 	{ .compatible = "adi,max16169" },
@@ -146,7 +137,6 @@ MODULE_DEVICE_TABLE(of, max16150_of_match);
 
 static struct platform_driver max16150_driver = {
 	.probe = max16150_probe,
-	.remove = max16150_remove,
 	.driver = {
 		.name = "max16150",
 		.of_match_table = max16150_of_match,
