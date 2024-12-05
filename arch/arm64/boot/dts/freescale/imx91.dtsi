@@ -123,7 +123,8 @@
 				map0 {
 					trip = <&cpu_alert0>;
 					cooling-device =
-						<&A55_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+						<&A55_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+						<&lpm 0 1>;
 				};
 			};
 		};
@@ -1415,6 +1416,7 @@
 			      "a55_core", "ml_axi", "sys_pll_pfd0", "sys_pll_pfd0_div2",
 			      "sys_pll_pfd1", "sys_pll_pfd1_div2", "sys_pll_pfd2",
 			      "sys_pll_pfd2_div2";
+		#cooling-cells = <2>;
 		status = "disabled";
 	};
 
