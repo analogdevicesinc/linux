@@ -6869,6 +6869,7 @@ void pxp_get_collision_info(struct pxp_collision_info *info)
 
 	memcpy(info, &col_info, sizeof(struct pxp_collision_info));
 }
+EXPORT_SYMBOL(pxp_get_collision_info);
 
 static void dither_prefetch_config(struct pxps *pxp)
 {
