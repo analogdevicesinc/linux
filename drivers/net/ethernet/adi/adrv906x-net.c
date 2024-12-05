@@ -924,7 +924,7 @@ static int adrv906x_eth_probe(struct platform_device *pdev)
 
 	ret = adrv906x_switch_probe(&eth_if->ethswitch, pdev,
 				    &adrv906x_eth_switch_reset_soft_pre,
-				    &adrv906x_eth_switch_reset_soft_post);
+				    &adrv906x_eth_switch_reset_soft_post, eth_if);
 	if (ret)
 		dev_warn(dev, "failed to probe switch - falling back to non-switch mode");
 
