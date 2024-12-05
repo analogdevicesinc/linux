@@ -55,11 +55,11 @@ static int fsl_allocate_dma_buf(struct fsl_easrc_m2m *m2m)
 	struct dma_block *input = &m2m->dma_block[IN];
 	struct dma_block *output = &m2m->dma_block[OUT];
 
-	input->dma_vaddr = kzalloc(input->length, GFP_KERNEL);
+	input->dma_vaddr = kzalloc(input->length, GFP_KERNEL | __GFP_RETRY_MAYFAIL | __GFP_NOWARN);
 	if (!input->dma_vaddr)
 		return -ENOMEM;
 
-	output->dma_vaddr = kzalloc(output->length, GFP_KERNEL);
+	output->dma_vaddr = kzalloc(output->length, GFP_KERNEL | __GFP_RETRY_MAYFAIL | __GFP_NOWARN);
 	if (!output->dma_vaddr)
 		goto alloc_fail;
 

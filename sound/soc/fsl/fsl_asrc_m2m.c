@@ -135,13 +135,13 @@ static int fsl_allocate_dma_buf(struct fsl_asrc_pair *pair)
 	struct dma_block *output = &m2m->dma_block[OUT];
 	enum asrc_pair_index index = pair->index;
 
-	input->dma_vaddr = kzalloc(input->length, GFP_KERNEL);
+	input->dma_vaddr = kzalloc(input->length, GFP_KERNEL | __GFP_RETRY_MAYFAIL | __GFP_NOWARN);
 	if (!input->dma_vaddr) {
 		pair_err("failed to allocate input DMA buffer\n");
 		return -ENOMEM;
 	}
 
-	output->dma_vaddr = kzalloc(output->length, GFP_KERNEL);
+	output->dma_vaddr = kzalloc(output->length, GFP_KERNEL | __GFP_RETRY_MAYFAIL | __GFP_NOWARN);
 	if (!output->dma_vaddr) {
 		pair_err("failed to allocate output DMA buffer\n");
 		goto exit;
