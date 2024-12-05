@@ -147,8 +147,13 @@ static void adrv906x_eth_adjust_link(struct net_device *ndev)
 	adrv906x_dev->link_speed = phydev->speed;
 	adrv906x_dev->link_duplex = phydev->duplex;
 
-	if (eth_if->ethswitch.enabled)
+	if (eth_if->ethswitch.enabled) {
 		adrv906x_switch_port_enable(es, adrv906x_dev->port, true);
+		if (phydev->speed == SPEED_10000)
+			adrv906x_switch_set_mae_age_time(es, AGE_TIME_5MIN_10G);
+		else
+			adrv906x_switch_set_mae_age_time(es, AGE_TIME_5MIN_25G);
+	}
 
 	adrv906x_tsu_set_speed(tsu, phydev->speed);
 	adrv906x_eth_cmn_mode_cfg(adrv906x_dev);
