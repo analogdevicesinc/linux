@@ -72,7 +72,7 @@
 		reg = <0x44a70000 0x1000>;
 		#clock-cells = <0>;
 		clocks = <&clkc 15>, <&clkc 15>;
-		clock-names = "s_axi_aclk", "clkin1";
+		clock-names = "clkin1", "s_axi_aclk";
 		clock-output-names = "spi_clk";
 
 		/* needs to be high enough to allow >= 91.5MHz SCLK for turbo */
