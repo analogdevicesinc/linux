@@ -132,8 +132,8 @@
 			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x79000000 0x10000>;
 			#clock-cells = <0>;
-			clocks = <&clkc 15>, <&clkc 16>;
-			clock-names = "s_axi_aclk", "clkin1";
+			clocks = <&clkc 16>, <&clkc 15>;
+			clock-names = "clkin1", "s_axi_aclk";
 		};
 
 		axi_hdmi_core: axi-hdmi-tx@70e00000 {
