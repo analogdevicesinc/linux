@@ -57,21 +57,6 @@ static int adrv906x_switch_vlan_match_action_sync(struct adrv906x_eth_switch *es
 	return 0;
 }
 
-static void adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, bool enabled)
-{
-	u32 val;
-	int i;
-
-	for (i = 0; i < SWITCH_MAX_PORT_NUM; i++) {
-		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_CFG_PORT);
-		if (enabled)
-			val |= BIT(SWITCH_PORT_ENABLE_BIT);
-		else
-			val &= ~BIT(SWITCH_PORT_ENABLE_BIT);
-		iowrite32(val, es->switch_port[i].reg + SWITCH_PORT_CFG_PORT);
-	}
-}
-
 static void adrv906x_switch_dsa_tx_enable(struct adrv906x_eth_switch *es, bool enabled)
 {
 	int i, val;
@@ -79,9 +64,9 @@ static void adrv906x_switch_dsa_tx_enable(struct adrv906x_eth_switch *es, bool e
 	for (i = 0; i < SWITCH_MAX_PORT_NUM; i++) {
 		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_CFG_QINQ);
 		if (enabled)
-			val |= BIT(SWITCH_DSA_TX_ENABLE_BIT);
+			val |= SWITCH_PORT_CFG_DSA_TX_EN;
 		else
-			val &= ~BIT(SWITCH_DSA_TX_ENABLE_BIT);
+			val &= ~SWITCH_PORT_CFG_DSA_TX_EN;
 		iowrite32(val, es->switch_port[i].reg + SWITCH_PORT_CFG_QINQ);
 	}
 }
@@ -93,9 +78,9 @@ static void adrv906x_switch_dsa_rx_enable(struct adrv906x_eth_switch *es, bool e
 	for (i = 0; i < SWITCH_MAX_PORT_NUM; i++) {
 		val = ioread32(es->switch_port[i].reg + SWITCH_PORT_CFG_QINQ);
 		if (enabled)
-			val |= BIT(SWITCH_DSA_RX_ENABLE_BIT);
+			val |= SWITCH_PORT_CFG_DSA_RX_EN;
 		else
-			val &= ~BIT(SWITCH_DSA_RX_ENABLE_BIT);
+			val &= ~SWITCH_PORT_CFG_DSA_RX_EN;
 		iowrite32(val, es->switch_port[i].reg + SWITCH_PORT_CFG_QINQ);
 	}
 }
@@ -166,7 +151,7 @@ static int adrv906x_switch_pvid_set(struct adrv906x_eth_switch *es, u16 pvid)
 		if (ret)
 			return ret;
 		val = ioread32(es->switch_port[portid].reg + SWITCH_PORT_CFG_VLAN);
-		val &= ~SWITCH_PVID_MASK;
+		val &= ~SWITCH_PORT_PVID_MASK;
 		val |= pvid;
 		iowrite32(val, es->switch_port[portid].reg + SWITCH_PORT_CFG_VLAN);
 	}
@@ -208,10 +193,13 @@ static int adrv906x_switch_default_vlan_set(struct adrv906x_eth_switch *es)
 	return 0;
 }
 
-static int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac_addr, int port)
+static int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac_addr, int portid)
 {
 	u32 val, mac_addr_hi, mac_addr_lo;
 	int ret;
+
+	if (portid >= SWITCH_MAX_PORT_NUM)
+		return -EINVAL;
 
 	ret = adrv906x_switch_wait_for_mae_ready(es);
 	if (ret) {
@@ -222,7 +210,7 @@ static int adrv906x_switch_add_fdb_entry(struct adrv906x_eth_switch *es, u64 mac
 	mac_addr_hi = FIELD_GET(0xFFFFFFFF0000, mac_addr);
 	mac_addr_lo = FIELD_GET(0xFFFF, mac_addr);
 
-	iowrite32(BIT(port), es->reg_match_action + SWITCH_MAS_PORT_MASK1);
+	iowrite32(BIT(portid), es->reg_match_action + SWITCH_MAS_PORT_MASK1);
 	iowrite32(mac_addr_hi, es->reg_match_action + SWITCH_MAS_FDB_MAC_INSERT_1);
 	val = FIELD_PREP(SWITCH_INSERT_MAC_ADDR_LOW_MASK, mac_addr_lo) |
 	      SWITCH_INSERT_VALID | SWITCH_INSERT_STATIC;
@@ -240,7 +228,7 @@ static int adrv906x_switch_packet_trapping_set(struct adrv906x_eth_switch *es)
 	int ret;
 
 	/* Trap PTP messages from port 0 & 1 to port 2 */
-	val = SWITCH_TRAP_ENABLE | FIELD_PREP(SWITCH_TRAP_DSTPORT_MASK, SWITCH_CPU_PORT);
+	val = SWITCH_PORT_TRAP_PTP_EN | FIELD_PREP(SWITCH_PORT_TRAP_DSTPORT_MASK, SWITCH_CPU_PORT);
 	iowrite32(val, es->switch_port[0].reg + SWITCH_PORT_TRAP_PTP);
 	iowrite32(val, es->switch_port[1].reg + SWITCH_PORT_TRAP_PTP);
 
@@ -254,7 +242,7 @@ static int adrv906x_switch_packet_trapping_set(struct adrv906x_eth_switch *es)
 	return 0;
 }
 
-void adrv906x_switch_reset_soft(struct adrv906x_eth_switch *es)
+static void adrv906x_switch_reset_soft(struct adrv906x_eth_switch *es)
 {
 	int ret;
 
@@ -266,7 +254,7 @@ void adrv906x_switch_reset_soft(struct adrv906x_eth_switch *es)
 		dev_err(&es->pdev->dev, "reset of internal switch failed");
 }
 
-irqreturn_t adrv906x_switch_error_isr(int irq, void *dev_id)
+static irqreturn_t adrv906x_switch_error_isr(int irq, void *dev_id)
 {
 	struct adrv906x_eth_switch *es = (struct adrv906x_eth_switch *)dev_id;
 	int ret;
@@ -284,6 +272,23 @@ irqreturn_t adrv906x_switch_error_isr(int irq, void *dev_id)
 		return IRQ_NONE;
 
 	return IRQ_HANDLED;
+}
+
+int adrv906x_switch_port_enable(struct adrv906x_eth_switch *es, int portid, bool enabled)
+{
+	u32 val;
+
+	if (portid >= SWITCH_MAX_PORT_NUM)
+		return -EINVAL;
+
+	val = ioread32(es->switch_port[portid].reg + SWITCH_PORT_CFG_PORT);
+	if (enabled)
+		val |= SWITCH_PORT_CFG_PORT_EN;
+	else
+		val &= ~SWITCH_PORT_CFG_PORT_EN;
+	iowrite32(val, es->switch_port[portid].reg + SWITCH_PORT_CFG_PORT);
+
+	return 0;
 }
 
 int adrv906x_switch_register_irqs(struct adrv906x_eth_switch *es, struct device_node *np)
@@ -403,7 +408,7 @@ int adrv906x_switch_init(struct adrv906x_eth_switch *es)
 	ret = adrv906x_switch_packet_trapping_set(es);
 	if (ret)
 		return ret;
-	adrv906x_switch_port_enable(es, true);
+	adrv906x_switch_port_enable(es, SWITCH_CPU_PORT, true);
 
 	return 0;
 }
