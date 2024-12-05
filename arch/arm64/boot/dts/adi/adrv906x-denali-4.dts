@@ -32,12 +32,6 @@
 		reg = <NDMA_0_RX_BASE 0x9C0 NDMA_0_TX_BASE 0x14
 			   NDMA_1_RX_BASE 0x9C0 NDMA_1_TX_BASE 0x14>;
 	};
-	pinctrl_phy_leds: phy-leds-grp {
-		adi,pins = <
-		A55_GPIO_NS_76_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
-		A55_GPIO_NS_77_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
-		>;
-	};
 
 	leds: gpio-leds {
 		compatible = "gpio-leds";
@@ -223,6 +217,13 @@
 &pinctrl_eth_recov_clk {
 	adi,pins = <
 	ETHERNET_RECOVERED_CLK_PIN (ADI_CONFIG_NO_PULL | ADI_CONFIG_DRIVE_STRENGTH_4)
+	>;
+};
+
+&pinctrl_phy_leds {
+	adi,pins = <
+	A55_GPIO_NS_76_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
+	A55_GPIO_NS_77_PIN	(ADI_CONFIG_NO_PULL  | ADI_CONFIG_DRIVE_STRENGTH_4)
 	>;
 };
 
