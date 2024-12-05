@@ -3,6 +3,8 @@ config DRM_IMX95_DPU
 	select DRM_KMS_HELPER
 	select VIDEOMODE_HELPERS
 	select DRM_GEM_DMA_HELPER
+	select DRM_BRIDGE_CONNECTOR
+	select DRM_DISPLAY_HELPER
 	depends on DRM && OF && ARCH_MXC && COMMON_CLK
 	help
 	  enable NXP i.MX95 DPU graphics support

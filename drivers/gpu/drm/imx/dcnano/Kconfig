@@ -3,6 +3,8 @@ config DRM_IMX_DCNANO
 	select DRM_KMS_HELPER
 	select VIDEOMODE_HELPERS
 	select DRM_GEM_DMA_HELPER
+	select DRM_BRIDGE_CONNECTOR
+	select DRM_DISPLAY_HELPER
 	depends on DRM && OF && ARCH_MXC
 	depends on COMMON_CLK
 	help
