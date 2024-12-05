@@ -753,6 +753,9 @@ dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-os08a20-isp-lt8912.dtb
 imx95-19x19-verdin-ox05b1s-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-ox05b1s.dtbo
 dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-ox05b1s.dtb
 
+imx95-19x19-verdin-ox05b1s-combo-dtbs := imx95-19x19-verdin.dtb imx95-19x19-verdin-ox05b1s-combo.dtbo
+dtb-$(CONFIG_ARCH_MXC) += imx95-19x19-verdin-ox05b1s-combo.dtb
+
 imx95-19x19-verdin-ox05b1s-isp-lt8912-dtbs := imx95-19x19-verdin.dtb \
 					      imx95-19x19-verdin-ox05b1s.dtbo \
 					      imx95-19x19-evk-neoisp.dtbo \
