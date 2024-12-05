@@ -156,8 +156,8 @@
 			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x83c00000 0x10000>;
 			#clock-cells = <0>;
-			clocks = <&zynqmp_clk 71>, <&clk0_ad9528 1>;
-			clock-names = "s_axi_aclk", "clkin1";
+			clocks = <&clk0_ad9528 1>, <&zynqmp_clk 71>;
+			clock-names = "clkin1", "s_axi_aclk";
 			clock-output-names = "axi_tx_clkgen";
 		};
 
@@ -165,8 +165,8 @@
 			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x83c10000 0x10000>;
 			#clock-cells = <0>;
-			clocks = <&zynqmp_clk 71>, <&clk0_ad9528 1>;
-			clock-names = "s_axi_aclk", "clkin1";
+			clocks = <&clk0_ad9528 1>, <&zynqmp_clk 71>;
+			clock-names = "clkin1", "s_axi_aclk";
 			clock-output-names = "axi_rx_clkgen";
 		};
 
@@ -174,8 +174,8 @@
 			compatible = "adi,axi-clkgen-2.00.a";
 			reg = <0x83c20000 0x10000>;
 			#clock-cells = <0>;
-			clocks = <&zynqmp_clk 71>, <&clk0_ad9528 1>;
-			clock-names = "s_axi_aclk", "clkin1";
+			clocks = <&clk0_ad9528 1>, <&zynqmp_clk 71>;
+			clock-names = "clkin1", "s_axi_aclk";
 			clock-output-names = "axi_rx_os_clkgen";
 		};
 
