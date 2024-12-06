@@ -45,6 +45,13 @@ config IMX8MP_HDMI_PAVI
 	help
 	  Choose this if you want to use HDMI PAI/PVI on i.MX8MP.
 
+config DRM_IMX_DW_MIPI_DSI
+	tristate "Freescale i.MX DRM Synopsys DesignWare MIPI DSI"
+	select DRM_DW_MIPI_DSI
+	depends on DRM_IMX
+	help
+	  Choose this if you want to use Synopsys DesignWare MIPI DSI on i.MX93.
+
 config DRM_IMX_HDMI
 	tristate "Freescale i.MX DRM HDMI"
 	select DRM_DW_HDMI
