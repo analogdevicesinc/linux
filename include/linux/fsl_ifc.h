@@ -846,6 +846,11 @@ struct fsl_ifc_ctrl {
 	u32 nand_stat;
 	wait_queue_head_t nand_wait;
 	bool little_endian;
+#ifdef CONFIG_PM_SLEEP
+	/*save regs when system goes to deep sleep*/
+	struct fsl_ifc_global		*saved_gregs;
+	struct fsl_ifc_runtime		*saved_rregs;
+#endif
 };
 
 extern struct fsl_ifc_ctrl *fsl_ifc_ctrl_dev;
