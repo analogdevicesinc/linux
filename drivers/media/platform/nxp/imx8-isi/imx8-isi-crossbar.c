@@ -9,6 +9,7 @@
 #include <linux/errno.h>
 #include <linux/kernel.h>
 #include <linux/minmax.h>
+#include <linux/of_graph.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
 #include <linux/string.h>
@@ -33,6 +34,7 @@ static int mxc_isi_crossbar_gasket_enable(struct mxc_isi_crossbar *xbar,
 	const struct mxc_gasket_ops *gasket_ops = isi->pdata->gasket_ops;
 	const struct v4l2_mbus_framefmt *fmt;
 	struct v4l2_mbus_frame_desc fd;
+	unsigned int stream;
 	int ret;
 
 	if (!gasket_ops)
@@ -52,13 +54,12 @@ static int mxc_isi_crossbar_gasket_enable(struct mxc_isi_crossbar *xbar,
 		return ret;
 	}
 
-	if (fd.num_entries != 1) {
-		dev_err(isi->dev, "invalid frame descriptor for '%s':%u\n",
-			remote_sd->name, remote_pad);
-		return -EINVAL;
-	}
-
-	fmt = v4l2_subdev_state_get_format(state, port, 0);
+	/*
+	 * For single or multiple stream, only the first stream be used
+	 * since gasket enable callback be called only once.
+	 */
+	stream = fd.num_entries > 0 ? fd.entry[0].stream : 0;
+	fmt = v4l2_subdev_state_get_format(state, port, stream);
 	if (!fmt)
 		return -EINVAL;
 
@@ -160,6 +161,13 @@ mxc_isi_crossbar_xlate_streams(struct mxc_isi_crossbar *xbar,
 	}
 
 	pad = media_pad_remote_pad_first(&xbar->pads[sink_pad]);
+	if (!pad) {
+		dev_err(xbar->isi->dev,
+			"no remote pad found for sink pad %u\n",
+			sink_pad);
+		return ERR_PTR(-EPIPE);
+	}
+
 	sd = media_entity_to_v4l2_subdev(pad->entity);
 	if (!sd) {
 		dev_dbg(xbar->isi->dev,
@@ -175,29 +183,73 @@ mxc_isi_crossbar_xlate_streams(struct mxc_isi_crossbar *xbar,
 	return sd;
 }
 
+static int mxc_isi_create_default_routing(struct mxc_isi_crossbar *xbar,
+					   struct v4l2_subdev_route *routes)
+{
+	struct device *dev = xbar->isi->dev;
+	struct device_node *node;
+	unsigned int index = 0;
+	int i, j;
+
+	for_each_endpoint_of_node(dev->of_node, node) {
+		struct of_endpoint ep;
+
+		of_graph_parse_endpoint(node, &ep);
+
+		if (ep.port > xbar->isi->pdata->num_ports) {
+			dev_err(dev, "Invalid port number(%d)\n", ep.port);
+			return -EINVAL;
+		}
+
+		xbar->inputs[ep.port].connected = true;
+	}
+
+	for (i = 0; i < xbar->num_sources; ++i) {
+		struct v4l2_subdev_route *route = &routes[i];
+
+		j = index;
+		while (j < xbar->num_sinks) {
+			if (!xbar->inputs[j].connected) {
+				j = (++index) % xbar->num_sinks;
+				continue;
+			}
+
+			route->sink_pad = j;
+			route->source_pad = i + xbar->num_sinks;
+			route->flags = V4L2_SUBDEV_ROUTE_FL_ACTIVE;
+
+			index = (j + 1) % xbar->num_sinks;
+			dev_dbg(dev, "route: sink(%d) -> source(%d)\n",
+				route->sink_pad, route->source_pad);
+			break;
+		}
+	}
+
+	return 0;
+}
+
 static int mxc_isi_crossbar_init_state(struct v4l2_subdev *sd,
 				       struct v4l2_subdev_state *state)
 {
 	struct mxc_isi_crossbar *xbar = to_isi_crossbar(sd);
 	struct v4l2_subdev_krouting routing = { };
 	struct v4l2_subdev_route *routes;
-	unsigned int i;
 	int ret;
 
 	/*
-	 * Create a 1:1 mapping between pixel link inputs and outputs to
-	 * pipelines by default.
+	 * Create a 1:N mapping between pixel link inputs and outputs to
+	 * pipelines by according to the number of pixel links inputs and
+	 * ISI channels. The algorithm will divide the ISI channel equally
+	 * to each pixel link input which connect to a remote device.
 	 */
 	routes = kcalloc(xbar->num_sources, sizeof(*routes), GFP_KERNEL);
 	if (!routes)
 		return -ENOMEM;
 
-	for (i = 0; i < xbar->num_sources; ++i) {
-		struct v4l2_subdev_route *route = &routes[i];
-
-		route->sink_pad = i;
-		route->source_pad = i + xbar->num_sinks;
-		route->flags = V4L2_SUBDEV_ROUTE_FL_ACTIVE;
+	ret = mxc_isi_create_default_routing(xbar, routes);
+	if (ret < 0) {
+		kfree(routes);
+		return ret;
 	}
 
 	routing.num_routes = xbar->num_sources;
@@ -306,6 +358,81 @@ static int mxc_isi_crossbar_set_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int mxc_isi_get_frame_desc(struct v4l2_subdev *sd, unsigned int pad,
+				  struct v4l2_mbus_frame_desc *fd)
+{
+	struct mxc_isi_crossbar *xbar = to_isi_crossbar(sd);
+	struct device *dev = xbar->isi->dev;
+	struct v4l2_subdev_route *route;
+	struct v4l2_subdev_state *state;
+	int ret;
+
+	if (pad < xbar->num_sinks)
+		return -EINVAL;
+
+	memset(fd, 0, sizeof(*fd));
+
+	fd->type = V4L2_MBUS_FRAME_DESC_TYPE_CSI2;
+
+	state = v4l2_subdev_lock_and_get_active_state(sd);
+
+	for_each_active_route(&state->routing, route) {
+		struct v4l2_mbus_frame_desc_entry *source_entry = NULL;
+		struct v4l2_mbus_frame_desc source_fd;
+		struct v4l2_subdev *remote_sd = NULL;
+		struct media_pad *remote_pad;
+		unsigned int i;
+
+		if (route->source_pad != pad)
+			continue;
+
+		remote_pad = media_pad_remote_pad_first(&xbar->pads[route->sink_pad]);
+		if (remote_pad)
+			remote_sd = media_entity_to_v4l2_subdev(remote_pad->entity);
+		if (!remote_sd) {
+			dev_err(dev, "no entity connected to crossbar input %u\n",
+				route->sink_pad);
+			ret = -EPIPE;
+			goto out_unlock;
+		}
+
+		ret = v4l2_subdev_call(remote_sd, pad, get_frame_desc,
+				       remote_pad->index, &source_fd);
+		if (ret < 0) {
+			dev_err(dev, "Failed to get source frame desc from pad %u\n",
+				route->sink_pad);
+			goto out_unlock;
+		}
+
+		for (i = 0; i < source_fd.num_entries; i++) {
+			if (source_fd.entry[i].stream == route->sink_stream) {
+				source_entry = &source_fd.entry[i];
+				break;
+			}
+		}
+
+		if (!source_entry) {
+			dev_err(dev, "Failed to find stream from source frames desc, pad %u\n",
+				route->sink_pad);
+			ret = -EPIPE;
+			goto out_unlock;
+		}
+
+		fd->entry[fd->num_entries].stream = route->source_stream;
+		fd->entry[fd->num_entries].flags = source_entry->flags;
+		fd->entry[fd->num_entries].length = source_entry->length;
+		fd->entry[fd->num_entries].pixelcode = source_entry->pixelcode;
+		fd->entry[fd->num_entries].bus.csi2.vc = source_entry->bus.csi2.vc;
+		fd->entry[fd->num_entries].bus.csi2.dt = source_entry->bus.csi2.dt;
+
+		fd->num_entries++;
+	}
+
+out_unlock:
+	v4l2_subdev_unlock_state(state);
+	return ret;
+}
+
 static int mxc_isi_crossbar_set_routing(struct v4l2_subdev *sd,
 					struct v4l2_subdev_state *state,
 					enum v4l2_subdev_format_whence which,
@@ -328,6 +455,7 @@ static int mxc_isi_crossbar_enable_streams(struct v4l2_subdev *sd,
 	u64 sink_streams;
 	u32 sink_pad;
 	u32 remote_pad;
+	u8 stream_index;
 	int ret;
 
 	remote_sd = mxc_isi_crossbar_xlate_streams(xbar, state, pad, streams_mask,
@@ -342,25 +470,33 @@ static int mxc_isi_crossbar_enable_streams(struct v4l2_subdev *sd,
 	 * TODO: Track per-stream enable counts to support multiplexed
 	 * streams.
 	 */
-	if (!input->enable_count) {
+	if (!input->enabled_streams) {
 		ret = mxc_isi_crossbar_gasket_enable(xbar, state, remote_sd,
 						     remote_pad, sink_pad);
 		if (ret)
 			return ret;
-
-		ret = v4l2_subdev_enable_streams(remote_sd, remote_pad,
-						 sink_streams);
-		if (ret) {
-			dev_err(xbar->isi->dev,
-				"failed to %s streams 0x%llx on '%s':%u: %d\n",
-				"enable", sink_streams, remote_sd->name,
-				remote_pad, ret);
-			mxc_isi_crossbar_gasket_disable(xbar, sink_pad);
-			return ret;
-		}
 	}
 
-	input->enable_count++;
+	stream_index = clamp_t(u8, ffs(sink_streams), 1, xbar->num_sources);
+
+	/*
+	 * For enabled streams, increase the stream counter and return
+	 * directly to support ISI stream duplicated feature
+	 */
+	if (input->enabled_streams & sink_streams) {
+		input->enabled_count[(stream_index - 1)]++;
+		return 0;
+	}
+
+	ret = v4l2_subdev_enable_streams(remote_sd, remote_pad, sink_streams);
+	if (ret < 0) {
+		if (!input->enabled_streams)
+			mxc_isi_crossbar_gasket_disable(xbar, sink_pad);
+		return ret;
+	}
+
+	input->enabled_streams |= sink_streams;
+	input->enabled_count[(stream_index - 1)]++;
 
 	return 0;
 }
@@ -375,6 +511,7 @@ static int mxc_isi_crossbar_disable_streams(struct v4l2_subdev *sd,
 	u64 sink_streams;
 	u32 sink_pad;
 	u32 remote_pad;
+	u8 stream_index;
 	int ret = 0;
 
 	remote_sd = mxc_isi_crossbar_xlate_streams(xbar, state, pad, streams_mask,
@@ -384,20 +521,27 @@ static int mxc_isi_crossbar_disable_streams(struct v4l2_subdev *sd,
 		return PTR_ERR(remote_sd);
 
 	input = &xbar->inputs[sink_pad];
+	stream_index = clamp_t(u8, ffs(sink_streams), 1, xbar->num_sources);
 
-	input->enable_count--;
+	/*
+	 * For disabled streams or stream which counter is non-zero,
+	 * decrease the stream counter and return directly.
+	 */
+	if (!(input->enabled_streams & sink_streams) ||
+	    --input->enabled_count[(stream_index - 1)])
+		return 0;
 
-	if (!input->enable_count) {
-		ret = v4l2_subdev_disable_streams(remote_sd, remote_pad,
-						  sink_streams);
-		if (ret)
-			dev_err(xbar->isi->dev,
-				"failed to %s streams 0x%llx on '%s':%u: %d\n",
-				"disable", sink_streams, remote_sd->name,
-				remote_pad, ret);
+	ret = v4l2_subdev_disable_streams(remote_sd, remote_pad, sink_streams);
+	if (ret)
+		dev_err(xbar->isi->dev,
+			"failed to %s streams 0x%llx on '%s':%u: %d\n",
+			"disable", sink_streams, remote_sd->name,
+			remote_pad, ret);
 
+	input->enabled_streams &= ~sink_streams;
+
+	if (!input->enabled_streams)
 		mxc_isi_crossbar_gasket_disable(xbar, sink_pad);
-	}
 
 	return ret;
 }
@@ -406,6 +550,7 @@ static const struct v4l2_subdev_pad_ops mxc_isi_crossbar_subdev_pad_ops = {
 	.enum_mbus_code = mxc_isi_crossbar_enum_mbus_code,
 	.get_fmt = v4l2_subdev_get_fmt,
 	.set_fmt = mxc_isi_crossbar_set_fmt,
+	.get_frame_desc = mxc_isi_get_frame_desc,
 	.set_routing = mxc_isi_crossbar_set_routing,
 	.enable_streams = mxc_isi_crossbar_enable_streams,
 	.disable_streams = mxc_isi_crossbar_disable_streams,
@@ -428,6 +573,37 @@ static const struct media_entity_operations mxc_isi_cross_entity_ops = {
 /* -----------------------------------------------------------------------------
  * Init & cleanup
  */
+
+static int mxc_isi_input_stream_alloc(struct mxc_isi_crossbar *xbar)
+{
+	unsigned int i;
+
+	/*
+	 * Track per-stream enable counts to support multiplexed streams
+	 */
+	for (i = 0; i < xbar->num_sinks; ++i) {
+		struct mxc_isi_input *input = &xbar->inputs[i];
+
+		input->enabled_count = kcalloc(xbar->num_sources,
+					       sizeof(*input->enabled_count),
+					       GFP_KERNEL);
+		if (!input->enabled_count) {
+			dev_err(xbar->isi->dev,
+				"failed to alloc memory for ISI input(%d)\n", i);
+			return -ENOMEM;
+		}
+	}
+
+	return 0;
+}
+
+static void mxc_isi_input_stream_free(struct mxc_isi_crossbar *xbar)
+{
+	unsigned int i;
+
+	for (i = 0; i < xbar->num_sinks; ++i)
+		kfree(xbar->inputs[i].enabled_count);
+}
 
 int mxc_isi_crossbar_init(struct mxc_isi_dev *isi)
 {
@@ -453,7 +629,7 @@ int mxc_isi_crossbar_init(struct mxc_isi_dev *isi)
 	 * the memory input.
 	 */
 	xbar->num_sinks = isi->pdata->num_ports + 1;
-	xbar->num_sources = isi->pdata->num_ports;
+	xbar->num_sources = isi->pdata->num_channels;
 	num_pads = xbar->num_sinks + xbar->num_sources;
 
 	xbar->pads = kcalloc(num_pads, sizeof(*xbar->pads), GFP_KERNEL);
@@ -467,6 +643,10 @@ int mxc_isi_crossbar_init(struct mxc_isi_dev *isi)
 		goto err_free;
 	}
 
+	ret = mxc_isi_input_stream_alloc(xbar);
+	if (ret)
+		goto err_free;
+
 	for (i = 0; i < xbar->num_sinks; ++i)
 		xbar->pads[i].flags = MEDIA_PAD_FL_SINK
 				    | MEDIA_PAD_FL_MUST_CONNECT;
@@ -475,7 +655,7 @@ int mxc_isi_crossbar_init(struct mxc_isi_dev *isi)
 
 	ret = media_entity_pads_init(&sd->entity, num_pads, xbar->pads);
 	if (ret)
-		goto err_free;
+		goto err_free_cnt;
 
 	ret = v4l2_subdev_init_finalize(sd);
 	if (ret < 0)
@@ -485,6 +665,8 @@ int mxc_isi_crossbar_init(struct mxc_isi_dev *isi)
 
 err_entity:
 	media_entity_cleanup(&sd->entity);
+err_free_cnt:
+	mxc_isi_input_stream_free(xbar);
 err_free:
 	kfree(xbar->pads);
 	kfree(xbar->inputs);
@@ -494,6 +676,7 @@ err_free:
 
 void mxc_isi_crossbar_cleanup(struct mxc_isi_crossbar *xbar)
 {
+	mxc_isi_input_stream_free(xbar);
 	media_entity_cleanup(&xbar->sd.entity);
 	kfree(xbar->pads);
 	kfree(xbar->inputs);

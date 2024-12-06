@@ -1,0 +1,33 @@
+NXP Image Sensor Interface
+========================
+
+The Image Sensor Interface (ISI) is used to obtain the image data for
+processing in its pipeline channels. Each pipeline processes the image
+line from a configured source and performs one or more functions that
+are configured by software, such as down scaling, color space conversion,
+de-interlacing, alpha insertion, cropping and rotation (horizontal and
+vertical). The processed image is stored into programmable memory locations.
+
+Required properties:
+- compatible: should be "fsl,imx8-isi", where SoC can be one of imx8qxp, imx8qm
+- reg: the register base and size for the device registers
+- interrupts: the ISI interrupt, high level active
+- clock-names: should be "per"
+- clocks: the ISI AXI clock
+- interface: specify ISI input, virtual channel and output,
+             <Input MIPI_VCx Output>
+             Input : 0-DC0, 1-DC1, 2-MIPI CSI0, 3-MIPI CSI1, 4-HDMI, 5-MEM
+	     VCx   : 0-VC0, 1-VC1, 2-VC2, 3-VC3, MIPI CSI only
+	     Output: 0-DC0, 1-DC1, 2-MEM
+
+Example:
+        isi_0: isi@58100000 {
+                compatible = "fsl,imx8-isi";
+                reg = <0x58100000 0x10000>;
+                interrupts = <GIC_SPI 297 IRQ_TYPE_LEVEL_HIGH>;
+                interrupt-parent = <&gic>;
+                clocks = <&img_lpcg IMX_IMG_LPCG_PDMA0_CLK>;
+                clock-names = "per";
+                power-domains = <&pd IMX_SC_R_ISI_CH0>;
+                interface = <2 0 2>;
+        };

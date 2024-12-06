@@ -19,9 +19,9 @@
 #define CHNL_CTRL_CHAIN_BUF_NO_CHAIN				0
 #define CHNL_CTRL_CHAIN_BUF_2_CHAIN				1
 #define CHNL_CTRL_SW_RST					BIT(24)
-#define CHNL_CTRL_BLANK_PXL(n)					((n) << 16)
+#define CHNL_CTRL_VC_ID_1(n)					((n) << 16)
 #define CHNL_CTRL_BLANK_PXL_MASK				GENMASK(23, 16)
-#define CHNL_CTRL_MIPI_VC_ID(n)					((n) << 6)
+#define CHNL_CTRL_MIPI_VC_ID(n)					FIELD_PREP(GENMASK(7, 6), (n))
 #define CHNL_CTRL_MIPI_VC_ID_MASK				GENMASK(7, 6)
 #define CHNL_CTRL_SRC_TYPE(n)					((n) << 4)
 #define CHNL_CTRL_SRC_TYPE_MASK					BIT(4)
@@ -414,5 +414,26 @@
 
 /* Channel Input Buffer Extended Address Bits */
 #define CHNL_IN_BUF_XTND_ADDR					0x00b8
+
+/* Pixel Data Offset from the Main Buffer Address in case of RAW32 */
+#define PIXEL_DATA_ADDR_OFFSET					0x00c0
+
+/* Statistics Data Offset from the Main Buffer Address in case of RAW32 */
+#define STAT_DATA_ADDR_OFFSET					0x00c4
+
+/* Width of input image pixel data type 2 */
+#define CHNL_IMG_CFG2						0x00c8
+
+/* Max height of non-pixel data in case of RAW32 format */
+#define CHNL_IMG_CFG3						0x00cc
+
+/* Max size for the RGB or Y (Luma) memory location */
+#define CHNL_OUT_BUF_MAX_SIZE_Y					0x00d0
+
+/* Max size for U/Cb memory location */
+#define CHNL_OUT_BUF_MAX_SIZE_U					0x00d4
+
+/* Max size for V/Cr memory location */
+#define CHNL_OUT_BUF_MAX_SIZE_V					0x00d8
 
 #endif /* __IMX8_ISI_REGS_H__ */
