@@ -2133,6 +2133,7 @@ static int ad4170_probe(struct spi_device *spi)
 	struct device *dev = &spi->dev;
 	struct iio_dev *indio_dev;
 	struct ad4170_state *st;
+	const char *compat;
 	int ret;
 
 	indio_dev = devm_iio_device_alloc(&spi->dev, sizeof(*st));
@@ -2143,7 +2144,11 @@ static int ad4170_probe(struct spi_device *spi)
 	mutex_init(&st->lock);
 	st->spi = spi;
 
-	indio_dev->name = AD4170_NAME;
+	ret = device_property_read_string(dev, "compatible", &compat);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed read device name\n");
+
+	indio_dev->name = compat;
 	indio_dev->modes = INDIO_DIRECT_MODE;
 	indio_dev->info = &ad4170_info;
 
@@ -2207,6 +2212,7 @@ static int ad4170_probe(struct spi_device *spi)
 static const struct of_device_id ad4170_of_match[] = {
 	{
 		.compatible = "adi,ad4170",
+		.compatible = "adi,ad4190",
 	},
 	{ }
 };
