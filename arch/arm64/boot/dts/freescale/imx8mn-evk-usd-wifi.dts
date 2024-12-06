@@ -1,0 +1,33 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2022 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8mn-evk.dts"
+
+/*
+ * IW612 wifi chip needs more delay than other wifi chips to complete the host
+ * interface initialization after power up, otherwise the internal state of
+ * IW612 may be unstable, resulting in the failure of the SDIO3.0 switch
+ * voltage.
+ */
+&reg_usdhc2_vmmc {
+	startup-delay-us = <20000>;
+};
+
+&usdhc2 {
+	pinctrl-0 = <&pinctrl_usdhc2>;
+	pinctrl-1 = <&pinctrl_usdhc2_100mhz>;
+	pinctrl-2 = <&pinctrl_usdhc2_200mhz>;
+	/delete-property/ cd-gpios;
+	keep-power-in-suspend;
+	non-removable;
+	wakeup-source;
+};
+
+&usdhc1 {
+	status = "disabled";
+	/delete-node/ wifi_wake_host;
+};

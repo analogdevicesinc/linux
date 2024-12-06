@@ -1,0 +1,74 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2020 NXP.
+ */
+
+#include "imx8mn-evk.dts"
+
+/ {
+	reg_3v3_vext: regulator-3v3-vext {
+		compatible = "regulator-fixed";
+		regulator-name = "3V3_VEXT";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	sound-micfil {
+		status = "disabled";
+	};
+
+	sound-pcm512x {
+		compatible = "fsl,imx-audio-pcm512x";
+		model = "pcm512x-audio";
+		audio-widgets =
+			"Line", "Left Line Out Jack",
+			"Line", "Right Line Out Jack";
+		audio-routing =
+			"Left Line Out Jack", "OUTL",
+			"Right Line Out Jack", "OUTR";
+		dac,24db_digital_gain;
+
+		pri-dai-link {
+			link-name = "pcm512x-hifi";
+			format = "i2s";
+			cpu {
+				sound-dai = <&sai5>;
+			};
+
+			codec {
+				sound-dai = <&pcm512x>;
+			};
+		};
+	};
+};
+
+&i2c3 {
+	pcm512x: pcm512x@4c {
+		compatible = "ti,pcm5122";
+		reg = <0x4c>;
+		AVDD-supply = <&reg_3v3_vext>;
+		DVDD-supply = <&reg_3v3_vext>;
+		CPVDD-supply = <&reg_3v3_vext>;
+		#sound-dai-cells = <0>;
+	};
+};
+
+&iomuxc {
+	pinctrl_sai5: sai5grp {
+		fsl,pins = <
+			MX8MN_IOMUXC_SAI5_RXD1_SAI5_TX_SYNC	0xd6
+			MX8MN_IOMUXC_SAI5_RXD2_SAI5_TX_BCLK	0xd6
+			MX8MN_IOMUXC_SAI5_RXD3_SAI5_TX_DATA0	0xd6
+			MX8MN_IOMUXC_SAI5_RXD0_SAI5_RX_DATA0	0xd6
+		>;
+	};
+};
+
+&micfil {
+	status = "disabled";
+};
+
+&sai5 {
+	#sound-dai-cells = <0>;
+	status = "okay";
+};

@@ -1,0 +1,125 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2019-2021 NXP
+ */
+
+#include "imx8mn-ddr4-evk.dts"
+
+&{/} {
+	ivshm_rpmsg {
+		compatible = "fsl,ivshm-rpmsg";
+
+		rpmsg_console {
+			compatible = "fsl,rpmsg-console";
+			id = <2>;
+			size = <16384>;
+		};
+	};
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x28000000>;
+			alloc-ranges = <0 0x40000000 0 0x40000000>;
+			linux,cma-default;
+		};
+
+		ivshmem_reserved: ivshmem@bba00000 {
+			no-map;
+			reg = <0 0xbba00000 0x0 0x00400000>;
+		};
+
+		pci_reserved: pci@bb800000 {
+			no-map;
+			reg = <0 0xbb800000 0x0 0x00200000>;
+		};
+
+		loader_reserved: loader@bb700000 {
+			no-map;
+			reg = <0 0xbb700000 0x0 0x00100000>;
+		};
+
+		jh_reserved: jh@b7c00000 {
+			no-map;
+			reg = <0 0xb7c00000 0x0 0x00400000>;
+		};
+
+		/* 512MB */
+		inmate_reserved: inmate@93c00000 {
+			no-map;
+			reg = <0 0x93c00000 0x0 0x20000000>;
+		};
+	};
+};
+
+&clk {
+	init-on-array = <IMX8MN_CLK_NAND_USDHC_BUS
+			 IMX8MN_CLK_USDHC3_ROOT
+			 IMX8MN_CLK_UART4_ROOT>;
+};
+
+&gpio5 {
+	status = "disabled";
+};
+
+&i2c3 {
+	status = "disabled";
+};
+
+&iomuxc {
+	/*
+	 * Used for the 2nd Linux.
+	 * TODO: M4 may use these pins.
+	 */
+	pinctrl_uart4: uart4grp {
+		fsl,pins = <
+			MX8MN_IOMUXC_UART4_RXD_UART4_DCE_RX	0x140
+			MX8MN_IOMUXC_UART4_TXD_UART4_DCE_TX	0x140
+		>;
+	};
+};
+
+&micfil {
+	status = "disabled";
+};
+
+&sai3 {
+	status = "disabled";
+};
+
+&sai5 {
+	status = "disabled";
+};
+
+&sdma3 {
+	status = "disabled";
+};
+
+&usdhc3 {
+	status = "disabled";
+};
+
+&spdif1 {
+	status = "disabled";
+};
+
+&uart2 {
+	pinctrl-0 = <&pinctrl_uart2>, <&pinctrl_uart4>;
+	assigned-clocks = <&clk IMX8MN_CLK_UART4>;
+	assigned-clock-parents = <&clk IMX8MN_CLK_24M>;
+};
+
+&usdhc3 {
+	status = "disabled";
+};
+
+&usdhc2 {
+	pinctrl-0 = <&pinctrl_usdhc3>, <&pinctrl_usdhc2>, <&pinctrl_usdhc2_gpio>;
+	pinctrl-1 = <&pinctrl_usdhc3>, <&pinctrl_usdhc2_100mhz>, <&pinctrl_usdhc2_gpio>;
+	pinctrl-2 = <&pinctrl_usdhc3>, <&pinctrl_usdhc2_200mhz>, <&pinctrl_usdhc2_gpio>;
+};
