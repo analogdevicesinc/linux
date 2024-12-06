@@ -12,6 +12,11 @@ config SOC_IMX8M
 	  support, it will provide the SoC info like SoC family,
 	  ID and revision etc.
 
+config IMX8M_BUSFREQ
+	tristate "i.MX8M busfreq"
+	depends on SOC_IMX8M
+	default ARCH_MXC
+
 config SOC_IMX9
 	tristate "i.MX9 SoC family support"
 	depends on ARCH_MXC || COMPILE_TEST
@@ -19,5 +24,38 @@ config SOC_IMX9
 	select SOC_BUS
 	help
 	  If you say yes here, you get support for the NXP i.MX9 family
+
+config SECVIO_SC
+	tristate "NXP SC secvio support"
+	depends on IMX_SCU
+	default y
+	help
+	   If you say yes here you get support for the NXP SNVS security
+	   violation module. It includes the possibility to read information
+	   related to security violations and tampers. It also gives the
+	   possibility to register user callbacks when a security violation
+	   occurs.
+
+config RPMSG_LIFE_CYCLE
+	tristate "i.MX8ULP Rpmsg Life Cycle Support"
+	depends on ARCH_MXC || COMPILE_TEST
+	depends on RPMSG
+	default ARCH_MXC && ARM64
+	help
+	  If you say yes here you get supoort for the rpmsg life cycle support on
+	  i.MX8ULP for low power mode state coordination between A core & M core to
+	  make sure A core can be put into Low power mode without risk by sending
+	  notify to M core.
+
+config IMX9_LPM_CTRL
+	tristate "i.MX9 Low Power Control support"
+	depends on ARCH_MXC || COMPILE_TEST
+	depends on IMX_SEC_ENCLAVE && SOC_IMX9
+	default ARCH_MXC && ARM64
+	help
+	  If you say yes here you get support for Over driver mode, Nominal driver mode,
+	  Low driver mode (DDR HWFFC) and Low driver mode (DDR SWFFC) on i.MX9 based on
+	  user case. When voltage mode is switched, core, bus and DDR frequencies are also
+	  scaled together. The mode need to be switched manually by user.
 
 endmenu

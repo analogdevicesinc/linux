@@ -8,6 +8,7 @@
 #include <linux/regmap.h>
 #include <linux/mfd/syscon.h>
 #include <asm/mach/arch.h>
+#include <asm/mach/map.h>
 
 #include "common.h"
 #include "cpuidle.h"
@@ -16,6 +17,7 @@ static void __init imx6sx_init_machine(void)
 {
 	of_platform_default_populate(NULL, NULL, NULL);
 
+	imx6_enet_mac_init("fsl,imx6sx-fec", "fsl,imx6sx-ocotp");
 	imx_anatop_init();
 	imx6sx_pm_init();
 }
@@ -28,6 +30,13 @@ static void __init imx6sx_init_irq(void)
 	imx_src_init();
 	irqchip_init();
 	imx6_pm_ccm_init("fsl,imx6sx-ccm");
+}
+
+static void __init imx6sx_map_io(void)
+{
+	debug_ll_io_init();
+	imx6_pm_map_io();
+	imx_busfreq_map_io();
 }
 
 static void __init imx6sx_init_late(void)
@@ -46,6 +55,7 @@ static const char * const imx6sx_dt_compat[] __initconst = {
 DT_MACHINE_START(IMX6SX, "Freescale i.MX6 SoloX (Device Tree)")
 	.l2c_aux_val 	= 0,
 	.l2c_aux_mask	= ~0,
+	.map_io		= imx6sx_map_io,
 	.init_irq	= imx6sx_init_irq,
 	.init_machine	= imx6sx_init_machine,
 	.dt_compat	= imx6sx_dt_compat,
