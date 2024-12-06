@@ -5,6 +5,7 @@
  * Copyright (c) 2020 NXP.
  */
 
+#include <linux/busfreq-imx.h>
 #include <linux/cleanup.h>
 #include <linux/clk.h>
 #include <linux/interrupt.h>
@@ -129,6 +130,16 @@ static void dwc3_imx8mp_wakeup_disable(struct dwc3_imx8mp *dwc3_imx)
 	writel(val, dwc3_imx->hsio_blk_base + USB_WAKEUP_CTRL);
 }
 
+static const struct property_entry dwc3_imx8mp_properties[] = {
+	PROPERTY_ENTRY_BOOL("xhci-missing-cas-quirk"),
+	PROPERTY_ENTRY_BOOL("xhci-skip-phy-init-quirk"),
+	{},
+};
+
+static const struct software_node dwc3_imx8mp_swnode = {
+	.properties = dwc3_imx8mp_properties,
+};
+
 static irqreturn_t dwc3_imx8mp_interrupt(int irq, void *_dwc3_imx)
 {
 	struct dwc3_imx8mp	*dwc3_imx = _dwc3_imx;
@@ -148,16 +159,38 @@ static irqreturn_t dwc3_imx8mp_interrupt(int irq, void *_dwc3_imx)
 	return IRQ_HANDLED;
 }
 
-static int dwc3_imx8mp_set_software_node(struct device *dev)
+static void dwc3_imx8mp_set_role_post(struct dwc3 *dwc, u32 role)
 {
-	struct property_entry props[3] = { 0 };
-	int prop_idx = 0;
-
-	props[prop_idx++] = PROPERTY_ENTRY_BOOL("xhci-missing-cas-quirk");
-	props[prop_idx++] = PROPERTY_ENTRY_BOOL("xhci-skip-phy-init-quirk");
-
-	return device_create_managed_software_node(dev, props, NULL);
+	switch (role) {
+	case DWC3_GCTL_PRTCAP_HOST:
+		/*
+		 * For xhci host, we need disable dwc core auto
+		 * suspend, because during this auto suspend delay(5s),
+		 * xhci host RUN_STOP is cleared and wakeup is not
+		 * enabled, if device is inserted, xhci host can't
+		 * response the connection.
+		 */
+		pm_runtime_dont_use_autosuspend(dwc->dev);
+		break;
+	case DWC3_GCTL_PRTCAP_DEVICE:
+		pm_runtime_use_autosuspend(dwc->dev);
+		break;
+	default:
+		break;
+	}
 }
+
+static struct dwc3_platform_data dwc3_imx8mp_pdata = {
+	.set_role_post = dwc3_imx8mp_set_role_post,
+};
+
+static struct of_dev_auxdata dwc3_imx8mp_auxdata[] = {
+	{
+	.compatible = "snps,dwc3",
+	.platform_data = &dwc3_imx8mp_pdata,
+	},
+	{},
+};
 
 static int dwc3_imx8mp_probe(struct platform_device *pdev)
 {
@@ -215,23 +248,25 @@ static int dwc3_imx8mp_probe(struct platform_device *pdev)
 
 	imx8mp_configure_glue(dwc3_imx);
 
+	request_bus_freq(BUS_FREQ_HIGH);
+
 	pm_runtime_set_active(dev);
 	pm_runtime_enable(dev);
 	err = pm_runtime_get_sync(dev);
 	if (err < 0)
 		goto disable_rpm;
 
-	err = dwc3_imx8mp_set_software_node(dev);
+	err = device_add_software_node(dev, &dwc3_imx8mp_swnode);
 	if (err) {
 		err = -ENODEV;
-		dev_err(dev, "failed to create software node\n");
+		dev_err(dev, "failed to add software node\n");
 		goto disable_rpm;
 	}
 
-	err = of_platform_populate(node, NULL, NULL, dev);
+	err = of_platform_populate(node, NULL, dwc3_imx8mp_auxdata, dev);
 	if (err) {
 		dev_err(&pdev->dev, "failed to create dwc3 core\n");
-		goto disable_rpm;
+		goto remove_swnode;
 	}
 
 	dwc3_imx->dwc3 = of_find_device_by_node(dwc3_np);
@@ -255,9 +290,12 @@ static int dwc3_imx8mp_probe(struct platform_device *pdev)
 
 depopulate:
 	of_platform_depopulate(dev);
+remove_swnode:
+	device_remove_software_node(dev);
 disable_rpm:
 	pm_runtime_disable(dev);
 	pm_runtime_put_noidle(dev);
+	release_bus_freq(BUS_FREQ_HIGH);
 
 	return err;
 }
@@ -268,9 +306,11 @@ static void dwc3_imx8mp_remove(struct platform_device *pdev)
 
 	pm_runtime_get_sync(dev);
 	of_platform_depopulate(dev);
+	device_remove_software_node(dev);
 
 	pm_runtime_disable(dev);
 	pm_runtime_put_noidle(dev);
+	release_bus_freq(BUS_FREQ_HIGH);
 }
 
 static int dwc3_imx8mp_suspend(struct dwc3_imx8mp *dwc3_imx, pm_message_t msg)
@@ -282,6 +322,7 @@ static int dwc3_imx8mp_suspend(struct dwc3_imx8mp *dwc3_imx, pm_message_t msg)
 	if (PMSG_IS_AUTO(msg) || device_may_wakeup(dwc3_imx->dev))
 		dwc3_imx8mp_wakeup_enable(dwc3_imx, msg);
 
+	release_bus_freq(BUS_FREQ_HIGH);
 	dwc3_imx->pm_suspended = true;
 
 	return 0;
@@ -295,6 +336,7 @@ static int dwc3_imx8mp_resume(struct dwc3_imx8mp *dwc3_imx, pm_message_t msg)
 	if (!dwc3_imx->pm_suspended)
 		return 0;
 
+	request_bus_freq(BUS_FREQ_HIGH);
 	/* Wakeup disable */
 	dwc3_imx8mp_wakeup_disable(dwc3_imx);
 	dwc3_imx->pm_suspended = false;

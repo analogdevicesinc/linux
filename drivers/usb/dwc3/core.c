@@ -146,6 +146,7 @@ void dwc3_set_prtcap(struct dwc3 *dwc, u32 mode)
 static void __dwc3_set_mode(struct work_struct *work)
 {
 	struct dwc3 *dwc = work_to_dwc(work);
+	struct dwc3_platform_data *dwc3_pdata;
 	unsigned long flags;
 	int ret;
 	u32 reg;
@@ -262,6 +263,10 @@ static void __dwc3_set_mode(struct work_struct *work)
 	default:
 		break;
 	}
+
+	dwc3_pdata = (struct dwc3_platform_data *)dev_get_platdata(dwc->dev);
+	if (dwc3_pdata && dwc3_pdata->set_role_post)
+		dwc3_pdata->set_role_post(dwc, dwc->desired_dr_role);
 
 out:
 	pm_runtime_mark_last_busy(dwc->dev);
@@ -1304,6 +1309,53 @@ static void dwc3_config_threshold(struct dwc3 *dwc)
 	}
 }
 
+#ifdef CONFIG_OF
+struct dwc3_cache_type {
+	u8 transfer_type_datard;
+	u8 transfer_type_descrd;
+	u8 transfer_type_datawr;
+	u8 transfer_type_descwr;
+};
+
+static const struct dwc3_cache_type ls1088a_dwc3_cache_type = {
+	.transfer_type_datard = 2,
+	.transfer_type_descrd = 2,
+	.transfer_type_datawr = 2,
+	.transfer_type_descwr = 2,
+};
+
+/**
+ * dwc3_set_cache_type - Configure cache type registers
+ * @dwc: Pointer to our controller context structure
+ */
+static void dwc3_set_cache_type(struct dwc3 *dwc)
+{
+	u32 tmp, reg;
+	const struct dwc3_cache_type *cache_type =
+		device_get_match_data(dwc->dev);
+
+	if (cache_type) {
+		reg = dwc3_readl(dwc->regs,  DWC3_GSBUSCFG0);
+		tmp = reg;
+
+		reg &= ~DWC3_GSBUSCFG0_DATARD(~0);
+		reg |= DWC3_GSBUSCFG0_DATARD(cache_type->transfer_type_datard);
+
+		reg &= ~DWC3_GSBUSCFG0_DESCRD(~0);
+		reg |= DWC3_GSBUSCFG0_DESCRD(cache_type->transfer_type_descrd);
+
+		reg &= ~DWC3_GSBUSCFG0_DATAWR(~0);
+		reg |= DWC3_GSBUSCFG0_DATAWR(cache_type->transfer_type_datawr);
+
+		reg &= ~DWC3_GSBUSCFG0_DESCWR(~0);
+		reg |= DWC3_GSBUSCFG0_DESCWR(cache_type->transfer_type_descwr);
+
+		if (tmp != reg)
+			dwc3_writel(dwc->regs, DWC3_GSBUSCFG0, reg);
+	}
+}
+#endif
+
 /**
  * dwc3_core_init - Low-level initialization of DWC3 Core
  * @dwc: Pointer to our controller context structure
@@ -1374,6 +1426,10 @@ static int dwc3_core_init(struct dwc3 *dwc)
 	ret = dwc3_phy_power_on(dwc);
 	if (ret)
 		goto err_exit_phy;
+
+#ifdef CONFIG_OF
+	dwc3_set_cache_type(dwc);
+#endif
 
 	ret = dwc3_event_buffers_setup(dwc);
 	if (ret) {
@@ -1558,6 +1614,7 @@ static int dwc3_core_get_phy(struct dwc3 *dwc)
 
 static int dwc3_core_init_mode(struct dwc3 *dwc)
 {
+	struct dwc3_platform_data *dwc3_pdata;
 	struct device *dev = dwc->dev;
 	int ret;
 	int i;
@@ -1599,6 +1656,10 @@ static int dwc3_core_init_mode(struct dwc3 *dwc)
 		dev_err(dev, "Unsupported mode of operation %d\n", dwc->dr_mode);
 		return -EINVAL;
 	}
+
+	dwc3_pdata = (struct dwc3_platform_data *)dev_get_platdata(dwc->dev);
+	if (dwc3_pdata && dwc3_pdata->set_role_post)
+		dwc3_pdata->set_role_post(dwc, dwc->current_dr_role);
 
 	return 0;
 }
@@ -2627,12 +2688,16 @@ static const struct dev_pm_ops dwc3_dev_pm_ops = {
 
 #ifdef CONFIG_OF
 static const struct of_device_id of_dwc3_match[] = {
-	{
-		.compatible = "snps,dwc3"
-	},
-	{
-		.compatible = "synopsys,dwc3"
-	},
+	{ .compatible = "fsl,ls1012a-dwc3", .data = &ls1088a_dwc3_cache_type, },
+	{ .compatible = "fsl,ls1021a-dwc3", .data = &ls1088a_dwc3_cache_type, },
+	{ .compatible = "fsl,ls1028a-dwc3", .data = &ls1088a_dwc3_cache_type, },
+	{ .compatible = "fsl,ls1043a-dwc3", .data = &ls1088a_dwc3_cache_type, },
+	{ .compatible = "fsl,ls1046a-dwc3", .data = &ls1088a_dwc3_cache_type, },
+	{ .compatible = "fsl,ls1088a-dwc3", .data = &ls1088a_dwc3_cache_type, },
+	{ .compatible = "fsl,ls2088a-dwc3", .data = &ls1088a_dwc3_cache_type, },
+	{ .compatible = "fsl,lx2160a-dwc3", .data = &ls1088a_dwc3_cache_type, },
+	{ .compatible = "snps,dwc3" },
+	{ .compatible = "synopsys,dwc3"	},
 	{ },
 };
 MODULE_DEVICE_TABLE(of, of_dwc3_match);

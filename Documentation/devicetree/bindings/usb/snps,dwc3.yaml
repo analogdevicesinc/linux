@@ -33,6 +33,14 @@ properties:
     contains:
       oneOf:
         - const: snps,dwc3
+        - const: fsl,ls1012a-dwc3
+        - const: fsl,ls1021a-dwc3
+        - const: fsl,ls1028a-dwc3
+        - const: fsl,ls1043a-dwc3
+        - const: fsl,ls1046a-dwc3
+        - const: fsl,ls1088a-dwc3
+        - const: fsl,ls2088a-dwc3
+        - const: fsl,lx2160a-dwc3
         - const: synopsys,dwc3
           deprecated: true
 

@@ -70,6 +70,9 @@
 #define PORTSC_FPR            BIT(6)
 #define PORTSC_SUSP           BIT(7)
 #define PORTSC_HSP            BIT(9)
+#define PORTSC_LS             (BIT(11) | BIT(10))
+#define PORTSC_LS_J           BIT(11)
+#define PORTSC_LS_K           BIT(10)
 #define PORTSC_PP             BIT(12)
 #define PORTSC_PTC            (0x0FUL << 16)
 #define PORTSC_WKCN           BIT(20)
@@ -78,6 +81,7 @@
 #define PORTSC_PFSC           BIT(24)
 #define PORTSC_PTS(d)						\
 	(u32)((((d) & 0x3) << 30) | (((d) & 0x4) ? BIT(25) : 0))
+#define PORT_SPEED_LOW(d)     ((((d) >> 26) & 0x3) == 1)
 #define PORTSC_PTW            BIT(28)
 #define PORTSC_STS            BIT(29)
 
