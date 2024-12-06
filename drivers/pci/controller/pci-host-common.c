@@ -86,8 +86,10 @@ void pci_host_common_remove(struct platform_device *pdev)
 	struct pci_host_bridge *bridge = platform_get_drvdata(pdev);
 
 	pci_lock_rescan_remove();
-	pci_stop_root_bus(bridge->bus);
-	pci_remove_root_bus(bridge->bus);
+	if (bridge->bus) {
+		pci_stop_root_bus(bridge->bus);
+		pci_remove_root_bus(bridge->bus);
+	}
 	pci_unlock_rescan_remove();
 }
 EXPORT_SYMBOL_GPL(pci_host_common_remove);
