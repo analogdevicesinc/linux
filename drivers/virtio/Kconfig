@@ -188,4 +188,14 @@ config VIRTIO_DEBUG
 
 	  If unsure, say N.
 
+config VIRTIO_IVSHMEM
+	tristate "Driver for ivshmem-based virtio front-end devices"
+	depends on PCI && !HIGHMEM
+	select VIRTIO
+	help
+	  This provides virtio front-end devices via ivshmem shared memory
+	  devices.
+
+	  If unsure, say 'N'.
+
 endif # VIRTIO_MENU

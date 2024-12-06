@@ -850,6 +850,15 @@ static int uio_mmap(struct file *filep, struct vm_area_struct *vma)
 		goto out;
 	}
 
+	if (idev->info->mem[mi].readonly) {
+		if (vma->vm_flags & VM_WRITE) {
+			ret = -EINVAL;
+			goto out;
+		}
+
+		vm_flags_clear(vma, VM_MAYWRITE);
+	}
+
 	if (idev->info->mmap) {
 		ret = idev->info->mmap(idev->info, vma);
 		goto out;

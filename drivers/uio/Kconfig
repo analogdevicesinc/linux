@@ -164,4 +164,11 @@ config UIO_DFL
 	    opae-sdk/tools/libopaeuio/
 
 	  If you compile this as a module, it will be called uio_dfl.
+
+config UIO_IVSHMEM
+	tristate "Inter-VM Shared Memory driver"
+	depends on PCI
+	help
+	  Userspace I/O driver for the inter-VM shared memory PCI device
+	  as provided by QEMU and the Jailhouse hypervisor.
 endif

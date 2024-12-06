@@ -76,6 +76,7 @@ extern u32 __boot_cpu_mode[2];
 
 #define ARM64_VECTOR_TABLE_LEN	SZ_2K
 
+extern char __hyp_stub_vectors[];
 void __hyp_set_vectors(phys_addr_t phys_vector_base);
 void __hyp_reset_vectors(void);
 bool is_kvm_arm_initialised(void);
