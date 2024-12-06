@@ -55,6 +55,12 @@ properties:
   power-domains:
     maxItems: 1
 
+  nxp,fspi-individual-mode:
+    description:
+      if fspi porta and portb connect to individual devices, this property
+      inform the driver not to combine them together.
+    type: boolean
+
 required:
   - compatible
   - reg

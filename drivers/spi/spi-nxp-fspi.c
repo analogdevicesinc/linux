@@ -48,6 +48,8 @@
 #include <linux/mutex.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
+#include <linux/pinctrl/consumer.h>
+#include <linux/pm_runtime.h>
 #include <linux/pm_qos.h>
 #include <linux/regmap.h>
 #include <linux/sizes.h>
@@ -56,6 +58,9 @@
 #include <linux/mfd/syscon.h>
 #include <linux/spi/spi.h>
 #include <linux/spi/spi-mem.h>
+
+/* runtime pm timeout */
+#define FSPI_RPM_TIMEOUT 50	/* 50ms */
 
 /* Registers used by the driver */
 #define FSPI_MCR0			0x00
@@ -326,6 +331,9 @@
 /* Access flash memory using IP bus only */
 #define FSPI_QUIRK_USE_IP_ONLY	BIT(0)
 
+/* Disable DTR */
+#define FSPI_QUIRK_DISABLE_DTR	BIT(1)
+
 struct nxp_fspi_devtype_data {
 	unsigned int rxfifo;
 	unsigned int txfifo;
@@ -339,7 +347,7 @@ static struct nxp_fspi_devtype_data lx2160a_data = {
 	.rxfifo = SZ_512,       /* (64  * 64 bits)  */
 	.txfifo = SZ_1K,        /* (128 * 64 bits)  */
 	.ahb_buf_size = SZ_2K,  /* (256 * 64 bits)  */
-	.quirks = 0,
+	.quirks = FSPI_QUIRK_DISABLE_DTR,
 	.lut_num = 32,
 	.little_endian = true,  /* little-endian    */
 };
@@ -387,6 +395,7 @@ struct nxp_fspi {
 	u32 memmap_phy_size;
 	u32 memmap_start;
 	u32 memmap_len;
+	bool individual_mode;
 	struct clk *clk, *clk_en;
 	struct device *dev;
 	struct completion c;
@@ -394,6 +403,10 @@ struct nxp_fspi {
 	struct mutex lock;
 	struct pm_qos_request pm_qos_req;
 	int selected;
+#define FSPI_INITILIZED		(1 << 0)
+#define FSPI_RXCLKSRC_3		(1 << 1)
+#define FSPI_DTR_ODD_ADDR	(1 << 2)
+	int flags;
 };
 
 static inline int needs_ip_only(struct nxp_fspi *f)
@@ -552,12 +565,22 @@ static void nxp_fspi_prepare_lut(struct nxp_fspi *f,
 	u32 target_lut_reg;
 
 	/* cmd */
-	lutval[0] |= LUT_DEF(0, LUT_CMD, LUT_PAD(op->cmd.buswidth),
-			     op->cmd.opcode);
+	if (op->cmd.dtr) {
+		lutval[0] |= LUT_DEF(0, LUT_CMD_DDR, LUT_PAD(op->cmd.buswidth),
+				     op->cmd.opcode >> 8);
+		lutval[lutidx / 2] |= LUT_DEF(lutidx, LUT_CMD_DDR,
+					      LUT_PAD(op->cmd.buswidth),
+					      op->cmd.opcode & 0x00ff);
+		lutidx++;
+	} else {
+		lutval[0] |= LUT_DEF(0, LUT_CMD, LUT_PAD(op->cmd.buswidth),
+				     op->cmd.opcode);
+	}
 
 	/* addr bytes */
 	if (op->addr.nbytes) {
-		lutval[lutidx / 2] |= LUT_DEF(lutidx, LUT_ADDR,
+		lutval[lutidx / 2] |= LUT_DEF(lutidx, op->addr.dtr ?
+					      LUT_ADDR_DDR : LUT_ADDR,
 					      LUT_PAD(op->addr.buswidth),
 					      op->addr.nbytes * 8);
 		lutidx++;
@@ -565,7 +588,8 @@ static void nxp_fspi_prepare_lut(struct nxp_fspi *f,
 
 	/* dummy bytes, if needed */
 	if (op->dummy.nbytes) {
-		lutval[lutidx / 2] |= LUT_DEF(lutidx, LUT_DUMMY,
+		lutval[lutidx / 2] |= LUT_DEF(lutidx, op->dummy.dtr ?
+					      LUT_DUMMY_DDR : LUT_DUMMY,
 		/*
 		 * Due to FlexSPI controller limitation number of PAD for dummy
 		 * buswidth needs to be programmed as equal to data buswidth.
@@ -580,7 +604,8 @@ static void nxp_fspi_prepare_lut(struct nxp_fspi *f,
 	if (op->data.nbytes) {
 		lutval[lutidx / 2] |= LUT_DEF(lutidx,
 					      op->data.dir == SPI_MEM_DATA_IN ?
-					      LUT_NXP_READ : LUT_NXP_WRITE,
+					      (op->data.dtr ? LUT_READ_DDR : LUT_NXP_READ) :
+					      (op->data.dtr ? LUT_WRITE_DDR : LUT_NXP_WRITE),
 					      LUT_PAD(op->data.buswidth),
 					      0);
 		lutidx++;
@@ -627,15 +652,15 @@ static int nxp_fspi_clk_prep_enable(struct nxp_fspi *f)
 	return 0;
 }
 
-static int nxp_fspi_clk_disable_unprep(struct nxp_fspi *f)
+static void nxp_fspi_clk_disable_unprep(struct nxp_fspi *f)
 {
 	if (is_acpi_node(dev_fwnode(f->dev)))
-		return 0;
+		return;
 
 	clk_disable_unprepare(f->clk);
 	clk_disable_unprepare(f->clk_en);
 
-	return 0;
+	return;
 }
 
 static void nxp_fspi_dll_calibration(struct nxp_fspi *f)
@@ -665,6 +690,12 @@ static void nxp_fspi_dll_calibration(struct nxp_fspi *f)
 				   0, POLL_TOUT, true);
 	if (ret)
 		dev_warn(f->dev, "DLL lock failed, please fix it!\n");
+
+	/*
+	 * For ERR050272, DLL lock status bit is not accurate,
+	 * wait for 4us more as a workaround.
+	 */
+	udelay(4);
 }
 
 /*
@@ -832,14 +863,45 @@ static void nxp_fspi_read_rxfifo(struct nxp_fspi *f,
 {
 	void __iomem *base = f->iobase;
 	int i, ret;
-	int len = op->data.nbytes;
+	int len, cnt;
 	u8 *buf = (u8 *) op->data.buf.in;
+
+	/* DTR with ODD address need read one more byte */
+	len = (f->flags & FSPI_DTR_ODD_ADDR) ? op->data.nbytes + 1 : op->data.nbytes;
+
+	/* handle the DTR with ODD address case */
+	if (f->flags & FSPI_DTR_ODD_ADDR) {
+		u8 tmp[8];
+		/* Wait for RXFIFO available */
+		ret = fspi_readl_poll_tout(f, f->iobase + FSPI_INTR,
+					   FSPI_INTR_IPRXWA, 0,
+					   POLL_TOUT, true);
+		WARN_ON(ret);
+		/*
+		 * DTR read always start from 2bytes alignment address,
+		 * if read from an odd address A, it actually read from
+		 * address A-1, need to discard the first byte here
+		 */
+		*(u32 *)tmp = fspi_readl(f, base + FSPI_RFDR);
+		*(u32 *)(tmp + 4) = fspi_readl(f, base + FSPI_RFDR + 4);
+		cnt = min(len, 8);
+		/* discard the first byte */
+		memcpy(buf, tmp + 1, cnt - 1);
+		len -= cnt;
+		buf = op->data.buf.in + cnt - 1;
+		f->flags &= ~FSPI_DTR_ODD_ADDR;
+
+		/* move the FIFO pointer */
+		fspi_writel(f, FSPI_INTR_IPRXWA, base + FSPI_INTR);
+	}
 
 	/*
 	 * Default value of water mark level is 8 bytes, hence in single
 	 * read request controller can read max 8 bytes of data.
 	 */
-	for (i = 0; i < ALIGN_DOWN(len, 8); i += 8) {
+	cnt = ALIGN_DOWN(len, 8);
+
+	for (i = 0; i < cnt;) {
 		/* Wait for RXFIFO available */
 		ret = fspi_readl_poll_tout(f, f->iobase + FSPI_INTR,
 					   FSPI_INTR_IPRXWA, 0,
@@ -848,6 +910,7 @@ static void nxp_fspi_read_rxfifo(struct nxp_fspi *f,
 
 		*(u32 *)(buf + i) = fspi_readl(f, base + FSPI_RFDR);
 		*(u32 *)(buf + i + 4) = fspi_readl(f, base + FSPI_RFDR + 4);
+		i += 8;
 		/* move the FIFO pointer */
 		fspi_writel(f, FSPI_INTR_IPRXWA, base + FSPI_INTR);
 	}
@@ -856,14 +919,14 @@ static void nxp_fspi_read_rxfifo(struct nxp_fspi *f,
 		u32 tmp;
 		int size, j;
 
-		buf = op->data.buf.in + i;
+		buf += i;
+		len -= i;
 		/* Wait for RXFIFO available */
 		ret = fspi_readl_poll_tout(f, f->iobase + FSPI_INTR,
 					   FSPI_INTR_IPRXWA, 0,
 					   POLL_TOUT, true);
 		WARN_ON(ret);
 
-		len = op->data.nbytes - i;
 		for (j = 0; j < op->data.nbytes - i; j += 4) {
 			tmp = fspi_readl(f, base + FSPI_RFDR + j);
 			size = min(len, 4);
@@ -876,6 +939,7 @@ static void nxp_fspi_read_rxfifo(struct nxp_fspi *f,
 	fspi_writel(f, FSPI_IPRXFCR_CLR, base + FSPI_IPRXFCR);
 	/* move the FIFO pointer */
 	fspi_writel(f, FSPI_INTR_IPRXWA, base + FSPI_INTR);
+
 }
 
 static int nxp_fspi_do_op(struct nxp_fspi *f, const struct spi_mem_op *op)
@@ -894,16 +958,28 @@ static int nxp_fspi_do_op(struct nxp_fspi *f, const struct spi_mem_op *op)
 	init_completion(&f->c);
 
 	fspi_writel(f, op->addr.val, base + FSPI_IPCR0);
+
 	/*
 	 * Always start the sequence at the same index since we update
 	 * the LUT at each exec_op() call. And also specify the DATA
 	 * length, since it's has not been specified in the LUT.
+	 *
+	 * OCTAL DTR read always start from 2bytes alignment address,
+	 * if read from an odd address A, it actually read from
+	 * address A-1, need to read one more byte to get all
+	 * data needed.
 	 */
 	seqid_lut = f->devtype_data->lut_num - 1;
-	fspi_writel(f, op->data.nbytes |
-		 (seqid_lut << FSPI_IPCR1_SEQID_SHIFT) |
-		 (seqnum << FSPI_IPCR1_SEQNUM_SHIFT),
-		 base + FSPI_IPCR1);
+	if (f->flags & FSPI_DTR_ODD_ADDR)
+		fspi_writel(f, (op->data.nbytes + 1) |
+			 (seqid_lut << FSPI_IPCR1_SEQID_SHIFT) |
+			 (seqnum << FSPI_IPCR1_SEQNUM_SHIFT),
+			 base + FSPI_IPCR1);
+	else
+		fspi_writel(f, op->data.nbytes |
+			 (seqid_lut << FSPI_IPCR1_SEQID_SHIFT) |
+			 (seqnum << FSPI_IPCR1_SEQNUM_SHIFT),
+			 base + FSPI_IPCR1);
 
 	/* Trigger the LUT now. */
 	fspi_writel(f, FSPI_IPCMD_TRG, base + FSPI_IPCMD);
@@ -919,6 +995,50 @@ static int nxp_fspi_do_op(struct nxp_fspi *f, const struct spi_mem_op *op)
 	return err;
 }
 
+/*
+ * Sample Clock source selection for Flash Reading
+ * Four modes defined by fspi:
+ * mode 0: Dummy Read strobe generated by FlexSPI Controller
+ *         and loopback internally
+ * mode 1: Dummy Read strobe generated by FlexSPI Controller
+ *         and loopback from DQS pad
+ * mode 2: Reserved
+ * mode 3: Flash provided Read strobe and input from DQS pad
+ *
+ * fspi default use mode 0 after reset
+ */
+static void nxp_fspi_select_rx_sample_clk_source(struct nxp_fspi *f,
+						 const struct spi_mem_op *op)
+{
+	u32 reg;
+
+	/*
+	 * For 8-8-8-DTR mode, need to use mode 3 (Flash provided Read
+	 * strobe and input from DQS pad), otherwise read operaton may
+	 * meet issue.
+	 * This mode require flash device connect the DQS pad on board.
+	 * For other modes, still use mode 0, keep align with before.
+	 * spi_nor_suspend will disable 8-8-8-DTR mode, also need to
+	 * change the mode back to mode 0.
+	 */
+	if (!(f->flags & FSPI_RXCLKSRC_3) &&
+			op->cmd.dtr && op->addr.dtr &&
+			op->dummy.dtr && op->data.dtr) {
+		reg = fspi_readl(f, f->iobase + FSPI_MCR0);
+		reg |= FSPI_MCR0_RXCLKSRC(3);
+		fspi_writel(f, reg, f->iobase + FSPI_MCR0);
+		f->flags |= FSPI_RXCLKSRC_3;
+	} else if ((f->flags & FSPI_RXCLKSRC_3) &&
+			!op->cmd.dtr && !op->addr.dtr &&
+			!op->dummy.dtr && !op->data.dtr) {
+		reg = fspi_readl(f, f->iobase + FSPI_MCR0);
+		reg &= ~FSPI_MCR0_RXCLKSRC(3);	/* select mode 0 */
+		fspi_writel(f, reg, f->iobase + FSPI_MCR0);
+		f->flags &= ~FSPI_RXCLKSRC_3;
+	}
+
+}
+
 static int nxp_fspi_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 {
 	struct nxp_fspi *f = spi_controller_get_devdata(mem->spi->controller);
@@ -926,12 +1046,20 @@ static int nxp_fspi_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 
 	mutex_lock(&f->lock);
 
+	err = pm_runtime_get_sync(f->dev);
+	if (err < 0) {
+		dev_err(f->dev, "Failed to enable clock %d\n", __LINE__);
+		goto err_mutex;
+	}
+
 	/* Wait for controller being ready. */
 	err = fspi_readl_poll_tout(f, f->iobase + FSPI_STS0,
 				   FSPI_STS0_ARB_IDLE, 1, POLL_TOUT, true);
 	WARN_ON(err);
 
 	nxp_fspi_select_mem(f, mem->spi);
+
+	nxp_fspi_select_rx_sample_clk_source(f, op);
 
 	nxp_fspi_prepare_lut(f, op);
 	/*
@@ -954,8 +1082,14 @@ static int nxp_fspi_exec_op(struct spi_mem *mem, const struct spi_mem_op *op)
 	/* Invalidate the data in the AHB buffer. */
 	nxp_fspi_invalid(f);
 
-	mutex_unlock(&f->lock);
+	pm_runtime_mark_last_busy(f->dev);
+	pm_runtime_put_autosuspend(f->dev);
 
+	mutex_unlock(&f->lock);
+	return err;
+
+err_mutex:
+	mutex_unlock(&f->lock);
 	return err;
 }
 
@@ -967,17 +1101,33 @@ static int nxp_fspi_adjust_op_size(struct spi_mem *mem, struct spi_mem_op *op)
 		if (op->data.nbytes > f->devtype_data->txfifo)
 			op->data.nbytes = f->devtype_data->txfifo;
 	} else {
+		/* need to handle the OCTAL DTR read with odd dtr case */
+		if ((op->addr.val & 1) && op->cmd.dtr && op->addr.dtr &&
+			op->dummy.dtr && op->data.dtr) {
+			f->flags |= FSPI_DTR_ODD_ADDR;
+		}
+
 		if (op->data.nbytes > f->devtype_data->ahb_buf_size)
 			op->data.nbytes = f->devtype_data->ahb_buf_size;
 		else if (op->data.nbytes > (f->devtype_data->rxfifo - 4))
 			op->data.nbytes = ALIGN_DOWN(op->data.nbytes, 8);
-	}
 
-	/* Limit data bytes to RX FIFO in case of IP read only */
-	if (op->data.dir == SPI_MEM_DATA_IN &&
-	    needs_ip_only(f) &&
-	    op->data.nbytes > f->devtype_data->rxfifo)
-		op->data.nbytes = f->devtype_data->rxfifo;
+		/* Limit data bytes to RX FIFO in case of IP read only */
+		if (needs_ip_only(f) &&
+			(op->data.nbytes >= f->devtype_data->rxfifo)) {
+			/*
+			 * adjust size to odd number so the OCTAL DTR
+			 * read with odd address only triggers once, when
+			 * reading large chunks of data
+			 */
+			if (f->flags & FSPI_DTR_ODD_ADDR) {
+				op->data.nbytes = f->devtype_data->rxfifo
+							- 4 - 1;
+			} else {
+				op->data.nbytes = f->devtype_data->rxfifo;
+			}
+		}
+	}
 
 	return 0;
 }
@@ -1066,9 +1216,14 @@ static int nxp_fspi_default_setup(struct nxp_fspi *f)
 	fspi_writel(f, FSPI_DLLBCR_OVRDEN, base + FSPI_DLLBCR);
 
 	/* enable module */
-	fspi_writel(f, FSPI_MCR0_AHB_TIMEOUT(0xFF) |
-		    FSPI_MCR0_IP_TIMEOUT(0xFF) | (u32) FSPI_MCR0_OCTCOMB_EN,
-		    base + FSPI_MCR0);
+	reg = FSPI_MCR0_AHB_TIMEOUT(0xFF) | FSPI_MCR0_IP_TIMEOUT(0xFF);
+
+	/* if there are individual devices connected to each fspi port, */
+	/* please enable individual mode in DT. */
+	if (!f->individual_mode)
+		reg |= FSPI_MCR0_OCTCOMB_EN;
+
+	fspi_writel(f, reg, base + FSPI_MCR0);
 
 	/*
 	 * Disable same device enable bit and configure all target devices
@@ -1149,6 +1304,14 @@ static const struct spi_controller_mem_ops nxp_fspi_mem_ops = {
 	.get_name = nxp_fspi_get_name,
 };
 
+static const struct spi_controller_mem_caps nxp_fspi_mem_caps = {
+	.dtr = true,
+};
+
+static const struct spi_controller_mem_caps nxp_fspi_mem_caps_quirks = {
+	.dtr = false,
+};
+
 static int nxp_fspi_probe(struct platform_device *pdev)
 {
 	struct spi_controller *ctlr;
@@ -1216,12 +1379,17 @@ static int nxp_fspi_probe(struct platform_device *pdev)
 			ret = PTR_ERR(f->clk);
 			goto err_put_ctrl;
 		}
+	}
 
-		ret = nxp_fspi_clk_prep_enable(f);
-		if (ret) {
-			dev_err(dev, "can not enable the clock\n");
-			goto err_put_ctrl;
-		}
+	pm_runtime_enable(dev);
+	pm_runtime_set_autosuspend_delay(dev, FSPI_RPM_TIMEOUT);
+	pm_runtime_use_autosuspend(dev);
+
+	/* enable clock */
+	ret = pm_runtime_get_sync(f->dev);
+	if (ret < 0) {
+		dev_err(f->dev, "Failed to enable clock %d\n", __LINE__);
+		goto err_put_ctrl;
 	}
 
 	/* Clear potential interrupts */
@@ -1241,11 +1409,19 @@ static int nxp_fspi_probe(struct platform_device *pdev)
 		goto err_disable_clk;
 	}
 
+	/* check if the controller work in combination or individual mode */
+	f->individual_mode = of_property_read_bool(np,
+						   "nxp,fspi-individual-mode");
+
 	mutex_init(&f->lock);
 
 	ctlr->bus_num = -1;
 	ctlr->num_chipselect = NXP_FSPI_MAX_CHIPSELECT;
 	ctlr->mem_ops = &nxp_fspi_mem_ops;
+	if (f->devtype_data->quirks & FSPI_QUIRK_DISABLE_DTR)
+		ctlr->mem_caps = &nxp_fspi_mem_caps_quirks;
+	else
+		ctlr->mem_caps = &nxp_fspi_mem_caps;
 
 	nxp_fspi_default_setup(f);
 
@@ -1255,13 +1431,19 @@ static int nxp_fspi_probe(struct platform_device *pdev)
 	if (ret)
 		goto err_destroy_mutex;
 
+	pm_runtime_mark_last_busy(f->dev);
+	pm_runtime_put_autosuspend(f->dev);
+
+	/* indicate the controller has been initialized */
+	f->flags |= FSPI_INITILIZED;
+
 	return 0;
 
 err_destroy_mutex:
 	mutex_destroy(&f->lock);
 
 err_disable_clk:
-	nxp_fspi_clk_disable_unprep(f);
+	pm_runtime_disable(dev);
 
 err_put_ctrl:
 	spi_controller_put(ctlr);
@@ -1273,9 +1455,18 @@ err_put_ctrl:
 static void nxp_fspi_remove(struct platform_device *pdev)
 {
 	struct nxp_fspi *f = platform_get_drvdata(pdev);
+	int ret;
+
+	/* enable clock first since there is reigster access */
+	ret = pm_runtime_get_sync(&pdev->dev);
+	if (ret < 0)
+		dev_err(f->dev, "Failed to enable clock %d\n", __LINE__);
 
 	/* disable the hardware */
 	fspi_writel(f, FSPI_MCR0_MDIS, f->iobase + FSPI_MCR0);
+
+	pm_runtime_disable(&pdev->dev);
+	pm_runtime_put_noidle(&pdev->dev);
 
 	nxp_fspi_clk_disable_unprep(f);
 
@@ -1285,19 +1476,81 @@ static void nxp_fspi_remove(struct platform_device *pdev)
 		iounmap(f->ahb_addr);
 }
 
+#ifdef CONFIG_PM
+static int nxp_fspi_initialized(struct nxp_fspi *f)
+{
+	return f->flags & FSPI_INITILIZED;
+}
+
+static int nxp_fspi_need_reinit(struct nxp_fspi *f)
+{
+	/*
+	 * MCR2 SAMEDEVICEEN was set by default, so we check this
+	 * register bit to determine if the controller once lost
+	 * power, such as suspend/resume, and need to be re-init.
+	 */
+
+	return (readl(f->iobase + FSPI_MCR2) & FSPI_MCR2_SAMEDEVICEEN);
+}
+
+static int nxp_fspi_runtime_suspend(struct device *dev)
+{
+	struct nxp_fspi *f = dev_get_drvdata(dev);
+
+	nxp_fspi_clk_disable_unprep(f);
+
+	return 0;
+}
+
+static int nxp_fspi_runtime_resume(struct device *dev)
+{
+	struct nxp_fspi *f = dev_get_drvdata(dev);
+	int ret;
+
+	ret = nxp_fspi_clk_prep_enable(f);
+	if (ret)
+		return ret;
+
+	if (nxp_fspi_initialized(f) && nxp_fspi_need_reinit(f))
+		nxp_fspi_default_setup(f);
+
+	return 0;
+}
+
 static int nxp_fspi_suspend(struct device *dev)
 {
-	return 0;
+	int ret;
+
+	ret = pinctrl_pm_select_sleep_state(dev);
+	if (ret) {
+		dev_err(dev, "select flexspi sleep pinctrl failed!\n");
+		return ret;
+	}
+
+	return pm_runtime_force_suspend(dev);
 }
 
 static int nxp_fspi_resume(struct device *dev)
 {
-	struct nxp_fspi *f = dev_get_drvdata(dev);
+	int ret;
 
-	nxp_fspi_default_setup(f);
+	ret = pm_runtime_force_resume(dev);
+	if (ret)
+		return ret;
 
-	return 0;
+	ret = pinctrl_pm_select_default_state(dev);
+	if (ret)
+		dev_err(dev, "select flexspi default pinctrl failed!\n");
+
+	return ret;
 }
+
+
+static const struct dev_pm_ops nxp_fspi_pm_ops = {
+	SET_RUNTIME_PM_OPS(nxp_fspi_runtime_suspend, nxp_fspi_runtime_resume, NULL)
+	SET_SYSTEM_SLEEP_PM_OPS(nxp_fspi_suspend, nxp_fspi_resume)
+};
+#endif	/* CONFIG_PM */
 
 static const struct of_device_id nxp_fspi_dt_ids[] = {
 	{ .compatible = "nxp,lx2160a-fspi", .data = (void *)&lx2160a_data, },
@@ -1317,11 +1570,6 @@ static const struct acpi_device_id nxp_fspi_acpi_ids[] = {
 };
 MODULE_DEVICE_TABLE(acpi, nxp_fspi_acpi_ids);
 #endif
-
-static const struct dev_pm_ops nxp_fspi_pm_ops = {
-	.suspend	= nxp_fspi_suspend,
-	.resume		= nxp_fspi_resume,
-};
 
 static struct platform_driver nxp_fspi_driver = {
 	.driver = {
