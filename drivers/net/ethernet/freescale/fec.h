@@ -393,6 +393,7 @@ struct bufdesc_ex {
 #define FEC_DEFAULT_IMASK (FEC_ENET_TXF | FEC_ENET_RXF)
 #define FEC_RX_DISABLED_IMASK (FEC_DEFAULT_IMASK & (~FEC_ENET_RXF))
 
+#define FEC_ENET_ETHEREN	((uint)0x00000002)
 #define FEC_ENET_TXC_DLY	((uint)0x00010000)
 #define FEC_ENET_RXC_DLY	((uint)0x00020000)
 
@@ -633,6 +634,7 @@ struct fec_enet_private {
 	bool	rgmii_txc_dly;
 	bool	rgmii_rxc_dly;
 	bool	rpm_active;
+	bool	mii_bus_share;
 	int	link;
 	int	full_duplex;
 	int	speed;
