@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2021 NXP
+ */
+
+#include "imx8ulp-evk.dts"
+
+/ {
+	imx8ulp-lpm {
+		sys-dvfs-enabled;
+	};
+};
+
+&gpu3d {
+	assigned-clock-rates = <396000000>, <198000000>, <198000000>;
+};
+
+&gpu2d {
+	assigned-clock-rates = <396000000>, <198000000>, <198000000>;
+};
+
+&dcnano {
+	/* Place Holder */
+};
+
+&epdc {
+	/* Place Holder */
+};
+
+&mipi_csi {
+	assigned-clock-rates =  <105600000>,
+				<46000000>,
+				<79200000>;
+};
+
+&dsp {
+	assigned-clocks = <&cgc2 IMX8ULP_CLK_HIFI_SEL>, <&cgc2 IMX8ULP_CLK_HIFI_DIVCORE>;
+	assigned-clock-parents = <&cgc2 IMX8ULP_CLK_PLL4_PFD0>;
+	assigned-clock-rates = <0>, <264000000>;
+};
+
+&flexspi2 {
+	assigned-clocks = <&pcc4 IMX8ULP_CLK_FLEXSPI2>, <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV2>;
+	assigned-clock-parents = <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV2>;
+	assigned-clock-rates = <0>, <96000000>;
+};
+
+&mx25uw51345gxdi00 {
+	spi-max-frequency = <96000000>;
+};
+
+&i3c2 {
+	assigned-clock-rates = <24000000>;
+};
+
+&usdhc0 {
+	assigned-clocks = <&cgc1 IMX8ULP_CLK_SPLL3_PFD3_DIV1>, <&pcc4 IMX8ULP_CLK_USDHC0>;
+	assigned-clock-parents = <0>, <&cgc1 IMX8ULP_CLK_SPLL3_PFD3_DIV1>;
+	assigned-clock-rates = <194641920>, <194641920>;
+};
+
+&usdhc1 {
+	assigned-clocks = <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV1>, <&pcc4 IMX8ULP_CLK_USDHC1>;
+	assigned-clock-parents = <0>, <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV1>;
+	assigned-clock-rates = <96000000>, <96000000>;
+};
+
+&usdhc2 {
+	assigned-clocks = <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV1>, <&pcc4 IMX8ULP_CLK_USDHC2>;
+	assigned-clock-parents = <0>, <&cgc1 IMX8ULP_CLK_SPLL3_PFD2_DIV1>;
+	assigned-clock-rates = <96000000>, <96000000>;
+};
