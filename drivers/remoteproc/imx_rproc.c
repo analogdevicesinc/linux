@@ -6,7 +6,9 @@
 #include <dt-bindings/firmware/imx/rsrc.h>
 #include <linux/arm-smccc.h>
 #include <linux/clk.h>
+#include <linux/delay.h>
 #include <linux/err.h>
+#include <linux/firmware.h>
 #include <linux/firmware/imx/sci.h>
 #include <linux/interrupt.h>
 #include <linux/kernel.h>
@@ -23,8 +25,10 @@
 #include <linux/remoteproc.h>
 #include <linux/workqueue.h>
 
-#include "imx_rproc.h"
+#include "remoteproc_elf_helpers.h"
 #include "remoteproc_internal.h"
+
+#include "imx_rproc.h"
 
 #define IMX7D_SRC_SCR			0x0C
 #define IMX7D_ENABLE_M4			BIT(3)
@@ -102,6 +106,7 @@ struct imx_rproc {
 	const struct imx_rproc_dcfg	*dcfg;
 	struct imx_rproc_mem		mem[IMX_RPROC_MEM_MAX];
 	struct clk			*clk;
+	struct clk			*clk_audio;
 	struct mbox_client		cl;
 	struct mbox_chan		*tx_ch;
 	struct mbox_chan		*rx_ch;
@@ -115,6 +120,19 @@ struct imx_rproc {
 	u32				entry;		/* cpu start address */
 	u32				core_index;
 	struct dev_pm_domain_list	*pd_list;
+	u32				startup_delay;
+};
+
+static const struct imx_rproc_att imx_rproc_att_imx95_m7[] = {
+	/* dev addr , sys addr  , size	    , flags */
+	/* TCM CODE NON-SECURE */
+	{ 0x00000000, 0x203C0000, 0x00040000, ATT_OWN | ATT_IOMEM },
+
+	/* TCM SYS NON-SECURE*/
+	{ 0x20000000, 0x20400000, 0x00040000, ATT_OWN | ATT_IOMEM },
+
+	/* DDR */
+	{ 0x80000000, 0x80000000, 0x50000000, 0 },
 };
 
 static const struct imx_rproc_att imx_rproc_att_imx93[] = {
@@ -363,6 +381,12 @@ static const struct imx_rproc_dcfg imx_rproc_cfg_imx93 = {
 	.method		= IMX_RPROC_SMC,
 };
 
+static const struct imx_rproc_dcfg imx_rproc_cfg_imx95_m7 = {
+	.att		= imx_rproc_att_imx95_m7,
+	.att_size	= ARRAY_SIZE(imx_rproc_att_imx95_m7),
+	.method		= IMX_RPROC_SMC,
+};
+
 static int imx_rproc_start(struct rproc *rproc)
 {
 	struct imx_rproc *priv = rproc->priv;
@@ -387,7 +411,11 @@ static int imx_rproc_start(struct rproc *rproc)
 		}
 		break;
 	case IMX_RPROC_SMC:
-		arm_smccc_smc(IMX_SIP_RPROC, IMX_SIP_RPROC_START, 0, 0, 0, 0, 0, 0, &res);
+		ret = clk_prepare_enable(priv->clk_audio);
+		if (ret)
+			dev_err(dev, "Failed to enable audio clk!\n");
+		arm_smccc_smc(IMX_SIP_RPROC, IMX_SIP_RPROC_START, rproc->bootaddr,
+			      0, 0, 0, 0, 0, &res);
 		ret = res.a0;
 		break;
 	case IMX_RPROC_SCU_API:
@@ -399,6 +427,9 @@ static int imx_rproc_start(struct rproc *rproc)
 
 	if (ret)
 		dev_err(dev, "Failed to enable remote core!\n");
+
+	if (priv->startup_delay)
+		msleep(priv->startup_delay);
 
 	return ret;
 }
@@ -431,6 +462,7 @@ static int imx_rproc_stop(struct rproc *rproc)
 		ret = res.a0;
 		if (res.a1)
 			dev_info(dev, "Not in wfi, force stopped\n");
+		clk_disable_unprepare(priv->clk_audio);
 		break;
 	case IMX_RPROC_SCU_API:
 		ret = imx_sc_pm_cpu_start(priv->ipc_handle, priv->rsrc_id, false, priv->entry);
@@ -673,6 +705,44 @@ imx_rproc_elf_find_loaded_rsc_table(struct rproc *rproc, const struct firmware *
 	return rproc_elf_find_loaded_rsc_table(rproc, fw);
 }
 
+static u64 imx_rproc_get_boot_addr(struct rproc *rproc, const struct firmware *fw)
+{
+	struct imx_rproc *priv = rproc->priv;
+	struct device *dev = priv->dev;
+	const void *shdr, *name_shdr;
+	int i;
+	const char *name_interrupts;
+	const u8 *elf_data = (void *)fw->data;
+	u8 class = fw_elf_get_class(fw);
+	const void *ehdr = elf_data;
+	u16 shnum = elf_hdr_get_e_shnum(class, ehdr);
+	u32 elf_shdr_get_size = elf_size_of_shdr(class);
+	u16 shstrndx = elf_hdr_get_e_shstrndx(class, ehdr);
+	u64 sh_addr;
+
+	if (!of_device_is_compatible(dev->of_node, "fsl,imx93-cm33")
+	    && !of_device_is_compatible(dev->of_node, "fsl,imx95-cm7"))
+		return rproc_elf_get_boot_addr(rproc, fw);
+
+	/* First, get the section header according to the elf class */
+	shdr = elf_data + elf_hdr_get_e_shoff(class, ehdr);
+	/* Compute section header entry in shdr array */
+	name_shdr = shdr + (shstrndx * elf_shdr_get_size);
+	/* Finally, compute section address in elf */
+	name_interrupts = elf_data + elf_shdr_get_sh_offset(class, name_shdr);
+
+	for (i = 0; i < shnum; i++, shdr += elf_shdr_get_size) {
+		u32 name = elf_shdr_get_sh_name(class, shdr);
+
+		if (!strcmp(name_interrupts + name, ".interrupts")) {
+			sh_addr = elf_shdr_get_sh_addr(class, shdr);
+			return sh_addr;
+		}
+	}
+
+	return 0;
+}
+
 static const struct rproc_ops imx_rproc_ops = {
 	.prepare	= imx_rproc_prepare,
 	.attach		= imx_rproc_attach,
@@ -686,7 +756,7 @@ static const struct rproc_ops imx_rproc_ops = {
 	.find_loaded_rsc_table = imx_rproc_elf_find_loaded_rsc_table,
 	.get_loaded_rsc_table = imx_rproc_get_loaded_rsc_table,
 	.sanity_check	= rproc_elf_sanity_check,
-	.get_boot_addr	= rproc_elf_get_boot_addr,
+	.get_boot_addr	= imx_rproc_get_boot_addr,
 };
 
 static int imx_rproc_addr_init(struct imx_rproc *priv,
@@ -1033,7 +1103,17 @@ static int imx_rproc_clk_enable(struct imx_rproc *priv)
 	if (dcfg->method == IMX_RPROC_NONE)
 		return 0;
 
-	priv->clk = devm_clk_get(dev, NULL);
+	if (priv->rproc->state != RPROC_DETACHED) {
+		priv->clk_audio = devm_clk_get_optional(dev, "audio");
+		if (IS_ERR(priv->clk_audio)) {
+			dev_err(dev, "Failed to get audio clock\n");
+			return PTR_ERR(priv->clk_audio);
+		}
+	} else {
+		priv->clk_audio = NULL;
+	}
+
+	priv->clk = devm_clk_get_optional(dev, NULL);
 	if (IS_ERR(priv->clk)) {
 		dev_err(dev, "Failed to get clock\n");
 		return PTR_ERR(priv->clk);
@@ -1146,6 +1226,10 @@ static int imx_rproc_probe(struct platform_device *pdev)
 		}
 	}
 
+	ret = of_property_read_u32(dev->of_node, "fsl,startup-delay-ms", &priv->startup_delay);
+	if (ret)
+		priv->startup_delay = 0;
+
 	ret = rproc_add(rproc);
 	if (ret) {
 		dev_err(dev, "rproc_add failed\n");
@@ -1192,6 +1276,7 @@ static const struct of_device_id imx_rproc_of_match[] = {
 	{ .compatible = "fsl,imx8qm-cm4", .data = &imx_rproc_cfg_imx8qm },
 	{ .compatible = "fsl,imx8ulp-cm33", .data = &imx_rproc_cfg_imx8ulp },
 	{ .compatible = "fsl,imx93-cm33", .data = &imx_rproc_cfg_imx93 },
+	{ .compatible = "fsl,imx95-cm7", .data = &imx_rproc_cfg_imx95_m7 },
 	{},
 };
 MODULE_DEVICE_TABLE(of, imx_rproc_of_match);
