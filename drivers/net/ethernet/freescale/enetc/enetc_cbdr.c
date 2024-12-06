@@ -3,8 +3,8 @@
 
 #include "enetc.h"
 
-int enetc_setup_cbdr(struct device *dev, struct enetc_hw *hw, int bd_count,
-		     struct enetc_cbdr *cbdr)
+static int enetc_setup_cbdr(struct device *dev, struct enetc_hw *hw,
+			    int bd_count, struct enetc_cbdr *cbdr)
 {
 	int size = bd_count * sizeof(struct enetc_cbd);
 
@@ -44,9 +44,44 @@ int enetc_setup_cbdr(struct device *dev, struct enetc_hw *hw, int bd_count,
 
 	return 0;
 }
-EXPORT_SYMBOL_GPL(enetc_setup_cbdr);
 
-void enetc_teardown_cbdr(struct enetc_cbdr *cbdr)
+static int enetc4_setup_cbdr(struct enetc_si *si)
+{
+	struct netc_cbdrs *cbdrs = &si->ntmp.cbdrs;
+	struct device *dev = &si->pdev->dev;
+	struct enetc_hw *hw = &si->hw;
+	struct netc_cbdr_regs regs;
+
+	cbdrs->cbdr_num = 1;
+	cbdrs->cbdr_size = NETC_CBDR_BD_NUM;
+	cbdrs->dma_dev = dev;
+	cbdrs->ring = devm_kcalloc(dev, cbdrs->cbdr_num,
+				   sizeof(struct netc_cbdr), GFP_KERNEL);
+	if (!cbdrs->ring)
+		return -ENOMEM;
+
+	regs.pir = hw->reg + ENETC_SICBDRPIR;
+	regs.cir = hw->reg + ENETC_SICBDRCIR;
+	regs.mr = hw->reg + ENETC_SICBDRMR;
+	regs.bar0 = hw->reg + ENETC_SICBDRBAR0;
+	regs.bar1 = hw->reg + ENETC_SICBDRBAR1;
+	regs.lenr = hw->reg + ENETC_SICBDRLENR;
+
+	return netc_setup_cbdr(dev, cbdrs->cbdr_size, &regs, cbdrs->ring);
+}
+
+int enetc_init_cbdr(struct enetc_si *si)
+{
+	if (is_enetc_rev1(si))
+		return enetc_setup_cbdr(&si->pdev->dev, &si->hw,
+					ENETC_CBDR_DEFAULT_SIZE,
+					&si->cbd_ring);
+	else
+		return enetc4_setup_cbdr(si);
+}
+EXPORT_SYMBOL_GPL(enetc_init_cbdr);
+
+static void enetc_teardown_cbdr(struct enetc_cbdr *cbdr)
 {
 	int size = cbdr->bd_count * sizeof(struct enetc_cbd);
 
@@ -58,7 +93,21 @@ void enetc_teardown_cbdr(struct enetc_cbdr *cbdr)
 	cbdr->bd_base = NULL;
 	cbdr->dma_dev = NULL;
 }
-EXPORT_SYMBOL_GPL(enetc_teardown_cbdr);
+
+static void enetc4_teardown_cbdr(struct netc_cbdrs *cbdrs)
+{
+	netc_teardown_cbdr(cbdrs->dma_dev, cbdrs->ring);
+	cbdrs->dma_dev = NULL;
+}
+
+void enetc_free_cbdr(struct enetc_si *si)
+{
+	if (is_enetc_rev1(si))
+		enetc_teardown_cbdr(&si->cbd_ring);
+	else
+		enetc4_teardown_cbdr(&si->ntmp.cbdrs);
+}
+EXPORT_SYMBOL_GPL(enetc_free_cbdr);
 
 static void enetc_clean_cbdr(struct enetc_cbdr *ring)
 {
