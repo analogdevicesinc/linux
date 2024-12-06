@@ -83,6 +83,17 @@ if TRUSTED_KEYS
 source "security/keys/trusted-keys/Kconfig"
 endif
 
+config SECURE_KEYS
+	tristate "SECURE_KEYS"
+	depends on KEYS && CRYPTO_DEV_FSL_CAAM && CRYPTO_DEV_FSL_CAAM_JR
+	help
+	  This option provide support for creating secure-type key and blobs
+	  in kernel. Secure keys are random number symmetric keys generated
+	  from CAAM. The CAAM creates the blobs for the random key.
+	  Userspace will only be able to see the blob.
+
+	  If you are unsure as to whether this is required, answer N.
+
 config ENCRYPTED_KEYS
 	tristate "ENCRYPTED KEYS"
 	depends on KEYS

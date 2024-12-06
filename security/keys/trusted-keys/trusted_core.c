@@ -82,6 +82,8 @@ static int datablob_parse(char **datablob, struct trusted_key_payload *p)
 	int key_cmd;
 	char *c;
 
+	p->is_hw_bound = !HW_BOUND_KEY;
+
 	/* main command */
 	c = strsep(datablob, " \t");
 	if (!c)
@@ -97,6 +99,13 @@ static int datablob_parse(char **datablob, struct trusted_key_payload *p)
 		if (ret < 0 || keylen < MIN_KEY_SIZE || keylen > MAX_KEY_SIZE)
 			return -EINVAL;
 		p->key_len = keylen;
+		do {
+			/* Second argument onwards,
+			 * determine if tied to HW */
+			c = strsep(datablob, " \t");
+			if ((c != NULL) && (strcmp(c, "hw") == 0))
+				p->is_hw_bound = HW_BOUND_KEY;
+		} while (c != NULL);
 		ret = Opt_new;
 		break;
 	case Opt_load:
@@ -110,6 +119,13 @@ static int datablob_parse(char **datablob, struct trusted_key_payload *p)
 		ret = hex2bin(p->blob, c, p->blob_len);
 		if (ret < 0)
 			return -EINVAL;
+		do {
+			/* Second argument onwards,
+			 * determine if tied to HW */
+			c = strsep(datablob, " \t");
+			if ((c != NULL) && (strcmp(c, "hw") == 0))
+				p->is_hw_bound = HW_BOUND_KEY;
+		} while (c != NULL);
 		ret = Opt_load;
 		break;
 	case Opt_update:

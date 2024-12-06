@@ -7,6 +7,7 @@
 #ifndef _KEYS_TRUSTED_TYPE_H
 #define _KEYS_TRUSTED_TYPE_H
 
+#include <linux/hw_bound_key.h>
 #include <linux/key.h>
 #include <linux/rcupdate.h>
 #include <linux/tpm.h>
@@ -22,6 +23,7 @@
 #define MAX_BLOB_SIZE			512
 #define MAX_PCRINFO_SIZE		64
 #define MAX_DIGEST_SIZE			64
+#define HW_BOUND_KEY                    1
 
 struct trusted_key_payload {
 	struct rcu_head rcu;
@@ -29,6 +31,8 @@ struct trusted_key_payload {
 	unsigned int blob_len;
 	unsigned char migratable;
 	unsigned char old_format;
+	unsigned char is_hw_bound;
+	struct hw_bound_key_info hbk_info;
 	unsigned char key[MAX_KEY_SIZE + 1];
 	unsigned char blob[MAX_BLOB_SIZE];
 };

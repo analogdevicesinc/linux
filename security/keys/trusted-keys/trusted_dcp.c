@@ -319,11 +319,8 @@ static int trusted_dcp_init(void)
 		pr_info("Using DCP OTP key\n");
 
 	ret = test_for_zero_key();
-	if (ret) {
-		pr_warn("Test for zero'ed keys failed: %i\n", ret);
-
-		return -EINVAL;
-	}
+	if (ret)
+		pr_warn("Using insecure test key, enable HAB to use unique device key!\n");
 
 	return register_key_type(&key_type_trusted);
 }
