@@ -1,6 +1,6 @@
 /*
  * Copyright 2013 Freescale
- * Copyright 2017 NXP
+ * Copyright 2017, 2023, 2024 NXP
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -50,9 +50,9 @@ struct async_op {
 	int err;
 };
 
-static void tls_async_op_done(struct crypto_async_request *req, int err)
+static void tls_async_op_done(void *data, int err)
 {
-	struct async_op *areq = req->data;
+	struct async_op *areq = data;
 
 	if (err == -EINPROGRESS)
 		return;
@@ -192,17 +192,6 @@ static int crypto_tls_encrypt(struct aead_request *req)
 	unsigned int cryptlen, phashlen;
 	u8 *hash = treq_ctx->tail;
 	int err;
-
-	/*
-	 * The hash result is saved at the beginning of the tls request ctx
-	 * and is aligned as required by the hash transform. Enough space was
-	 * allocated in crypto_tls_init_tfm to accommodate the difference. The
-	 * requests themselves start later at treq_ctx->tail + ctx->reqoff so
-	 * the result is not overwritten by the second (cipher) request.
-	 */
-	hash = (u8 *)ALIGN((unsigned long)hash +
-			   crypto_ahash_alignmask(ctx->auth),
-			   crypto_ahash_alignmask(ctx->auth) + 1);
 
 	/*
 	 * STEP 1: create ICV together with necessary padding
@@ -357,13 +346,6 @@ static int crypto_tls_decrypt(struct aead_request *req)
 
 	/*
 	 * Step 3 - Verify hash
-	 * Align the digest result as required by the hash transform. Enough
-	 * space was allocated in crypto_tls_init_tfm
-	 */
-	hash = (u8 *)ALIGN((unsigned long)hash +
-			   crypto_ahash_alignmask(ctx->auth),
-			   crypto_ahash_alignmask(ctx->auth) + 1);
-	/*
 	 * Two bytes at the end of the associated data make the length field.
 	 * It must be updated with the length of the cleartext message before
 	 * the hash is calculated.
@@ -431,9 +413,7 @@ static int crypto_tls_init_tfm(struct crypto_aead *tfm)
 	 * and the other will be calculated. For encryption, one digest is
 	 * padded (up to a cipher blocksize) and chained with the payload
 	 */
-	ctx->reqoff = ALIGN(crypto_ahash_digestsize(auth) +
-			    crypto_ahash_alignmask(auth),
-			    crypto_ahash_alignmask(auth) + 1) +
+	ctx->reqoff = crypto_ahash_digestsize(auth) +
 			    max(crypto_ahash_digestsize(auth),
 				crypto_skcipher_blocksize(enc));
 
@@ -479,7 +459,7 @@ static int crypto_tls_create(struct crypto_template *tmpl, struct rtattr **tb)
 	struct aead_instance *inst;
 	struct hash_alg_common *auth;
 	struct crypto_alg *auth_base;
-	struct skcipher_alg *enc;
+	struct skcipher_alg_common *enc;
 	struct tls_instance_ctx *ctx;
 	u32 mask;
 	int err;
@@ -511,7 +491,7 @@ static int crypto_tls_create(struct crypto_template *tmpl, struct rtattr **tb)
 				   crypto_attr_alg_name(tb[2]), 0, mask);
 	if (err)
 		goto err_free_inst;
-	enc = crypto_spawn_skcipher_alg(&ctx->enc);
+	enc = crypto_spawn_skcipher_alg_common(&ctx->enc);
 
 	err = -ENAMETOOLONG;
 	if (snprintf(inst->alg.base.cra_name, CRYPTO_MAX_ALG_NAME,
@@ -533,8 +513,8 @@ static int crypto_tls_create(struct crypto_template *tmpl, struct rtattr **tb)
 					enc->base.cra_alignmask;
 	inst->alg.base.cra_ctxsize = sizeof(struct crypto_tls_ctx);
 
-	inst->alg.ivsize = crypto_skcipher_alg_ivsize(enc);
-	inst->alg.chunksize = crypto_skcipher_alg_chunksize(enc);
+	inst->alg.ivsize = enc->ivsize;
+	inst->alg.chunksize = enc->chunksize;
 	inst->alg.maxauthsize = auth->digestsize;
 
 	inst->alg.init = crypto_tls_init_tfm;

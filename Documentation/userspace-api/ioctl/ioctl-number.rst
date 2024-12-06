@@ -165,7 +165,8 @@ Code  Seq#    Include File                                           Comments
 'I'   all    linux/isdn.h                                            conflict!
 'I'   00-0F  drivers/isdn/divert/isdn_divert.h                       conflict!
 'I'   40-4F  linux/mISDNif.h                                         conflict!
-'K'   all    linux/kd.h
+'K'   all    linux/kd.h                                              conflict!
+'K'   00-01  linux/caam_keygen.h                                     conflict! caam driver
 'L'   00-1F  linux/loop.h                                            conflict!
 'L'   10-1F  drivers/scsi/mpt3sas/mpt3sas_ctl.h                      conflict!
 'L'   E0-FF  linux/ppdd.h                                            encrypted disk device driver

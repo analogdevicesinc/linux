@@ -97,12 +97,16 @@ struct caam_ctl_state {
  * Driver-private storage for a single CAAM block instance
  */
 struct caam_drv_private {
+	struct device *smdev;
+
 	/* Physical-presence section */
 	struct caam_ctrl __iomem *ctrl; /* controller region */
 	struct caam_deco __iomem *deco; /* DECO/CCB views */
 	struct caam_assurance __iomem *assure;
 	struct caam_queue_if __iomem *qi; /* QI control region */
 	struct caam_job_ring __iomem *jr[4];	/* JobR's register space */
+	dma_addr_t __iomem *sm_base;	/* Secure memory storage base */
+	phys_addr_t sm_phy;		/* Secure memory storage physical */
 
 	struct iommu_domain *domain;
 
@@ -113,10 +117,11 @@ struct caam_drv_private {
 	u8 total_jobrs;		/* Total Job Rings in device */
 	u8 qi_present;		/* Nonzero if QI present in device */
 	u8 blob_present;	/* Nonzero if BLOB support present in device */
+	u8 sm_present;		/* Nonzero if Secure Memory is supported */
 	u8 mc_en;		/* Nonzero if MC f/w is active */
+	u8 scu_en;		/* Nonzero if SCU f/w is active */
 	u8 optee_en;		/* Nonzero if OP-TEE f/w is active */
 	bool pr_support;        /* RNG prediction resistance available */
-	int secvio_irq;		/* Security violation interrupt number */
 	int virt_en;		/* Virtualization enabled in CAAM */
 	int era;		/* CAAM Era (internal HW revision) */
 
@@ -243,6 +248,42 @@ static inline void caam_qi_algapi_exit(void)
 }
 
 #endif /* CONFIG_CAAM_QI */
+
+#ifdef CONFIG_CRYPTO_DEV_FSL_CAAM_SM
+
+int caam_sm_startup(struct device *dev);
+void caam_sm_shutdown(struct device *dev);
+
+#else
+
+static inline int caam_sm_startup(struct device *dev)
+{
+	return 0;
+}
+
+static inline void caam_sm_shutdown(struct device *dev)
+{
+}
+
+#endif /* CONFIG_CRYPTO_DEV_FSL_CAAM_SM */
+
+#ifdef CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API
+
+int caam_keygen_init(void);
+void caam_keygen_exit(void);
+
+#else
+
+static inline int caam_keygen_init(void)
+{
+	return 0;
+}
+
+static inline void caam_keygen_exit(void)
+{
+}
+
+#endif /* CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API */
 
 static inline u64 caam_get_dma_mask(struct device *dev)
 {

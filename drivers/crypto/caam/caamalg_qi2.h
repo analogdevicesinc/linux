@@ -117,6 +117,28 @@ struct aead_edesc {
 };
 
 /*
+ * tls_edesc - s/w-extended tls descriptor
+ * @src_nents: number of segments in input scatterlist
+ * @dst_nents: number of segments in output scatterlist
+ * @iv_dma: dma address of iv for checking continuity and link table
+ * @qm_sg_bytes: length of dma mapped h/w link table
+ * @qm_sg_dma: bus physical mapped address of h/w link table
+ * @tmp: array of scatterlists used by 'scatterwalk_ffwd'
+ * @dst: pointer to output scatterlist, usefull for unmapping
+ * @sgt: the h/w link table, followed by IV
+ */
+struct tls_edesc {
+	int src_nents;
+	int dst_nents;
+	dma_addr_t iv_dma;
+	int qm_sg_bytes;
+	dma_addr_t qm_sg_dma;
+	struct scatterlist tmp[2];
+	struct scatterlist *dst;
+	struct dpaa2_sg_entry sgt[0];
+};
+
+/*
  * skcipher_edesc - s/w-extended skcipher descriptor
  * @src_nents: number of segments in input scatterlist
  * @dst_nents: number of segments in output scatterlist

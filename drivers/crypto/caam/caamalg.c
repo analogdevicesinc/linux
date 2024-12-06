@@ -69,6 +69,10 @@
 #include <linux/slab.h>
 #include <linux/string.h>
 
+#ifdef CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API
+#include "tag_object.h"
+#endif /* CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API */
+
 /*
  * crypto alg
  */
@@ -95,6 +99,7 @@ struct caam_alg_entry {
 	bool rfc3686;
 	bool geniv;
 	bool nodkp;
+	bool support_tagged_key;
 };
 
 struct caam_aead_alg {
@@ -748,12 +753,19 @@ static int skcipher_setkey(struct crypto_skcipher *skcipher, const u8 *key,
 	u32 *desc;
 	const bool is_rfc3686 = alg->caam.rfc3686;
 
-	print_hex_dump_debug("key in @"__stringify(__LINE__)": ",
-			     DUMP_PREFIX_ADDRESS, 16, 4, key, keylen, 1);
+	/*
+	 * If the algorithm has support for tagged key,
+	 * this is already set in tk_skcipher_setkey().
+	 * Otherwise, set here the algorithm details.
+	 */
+	if (!alg->caam.support_tagged_key) {
+		ctx->cdata.keylen = keylen;
+		ctx->cdata.key_virt = key;
+		ctx->cdata.key_inline = true;
+	}
 
-	ctx->cdata.keylen = keylen;
-	ctx->cdata.key_virt = key;
-	ctx->cdata.key_inline = true;
+	print_hex_dump_debug("key in @" __stringify(__LINE__) ": ",
+			     DUMP_PREFIX_ADDRESS, 16, 4, key, keylen, 1);
 
 	/* skcipher_encrypt shared descriptor */
 	desc = ctx->sh_desc_enc;
@@ -824,6 +836,63 @@ static int ctr_skcipher_setkey(struct crypto_skcipher *skcipher,
 
 	return skcipher_setkey(skcipher, key, keylen, ctx1_iv_off);
 }
+
+
+#ifdef CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API
+static int tk_skcipher_setkey(struct crypto_skcipher *skcipher,
+			      const u8 *key, unsigned int keylen)
+{
+	struct caam_ctx *ctx = crypto_skcipher_ctx_dma(skcipher);
+	struct device *jrdev = ctx->jrdev;
+	struct header_conf *header;
+	struct tagged_object *tag_obj;
+	int ret;
+
+	ctx->cdata.key_inline = true;
+
+	/* Check if one can retrieve the tag object header configuration */
+	if (keylen <= TAG_OVERHEAD_SIZE)
+		return -EINVAL;
+
+	/* Retrieve the tag object */
+	tag_obj = (struct tagged_object *)key;
+
+	/*
+	 * Check tag object header configuration
+	 * and retrieve the tag object header configuration
+	 */
+	if (is_valid_header_conf(&tag_obj->header)) {
+		header = &tag_obj->header;
+	} else {
+		dev_err(jrdev,
+			"unable to get tag object header configuration\n");
+		return -EINVAL;
+	}
+
+	/* Check if the tag object header is a black key */
+	if (!is_black_key(header)) {
+		dev_err(jrdev,
+			"tagged key provided is not a black key\n");
+		return -EINVAL;
+	}
+
+	/* Retrieve the black key configuration */
+	get_key_conf(header,
+		     &ctx->cdata.key_real_len,
+		     &ctx->cdata.keylen,
+		     &ctx->cdata.key_cmd_opt);
+
+	/* Retrieve the address of the data of the tagged object */
+	ctx->cdata.key_virt = tag_obj->object;
+
+	/* Validate key length for AES algorithms */
+	ret = aes_check_keylen(ctx->cdata.key_real_len);
+	if (ret)
+		return ret;
+
+	return skcipher_setkey(skcipher, NULL, 0, 0);
+}
+#endif /* CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API */
 
 static int des_skcipher_setkey(struct crypto_skcipher *skcipher,
 			       const u8 *key, unsigned int keylen)
@@ -980,7 +1049,7 @@ static void aead_crypt_done(struct device *jrdev, u32 *desc, u32 err,
 			    void *context)
 {
 	struct aead_request *req = context;
-	struct caam_aead_req_ctx *rctx = aead_request_ctx(req);
+	struct caam_aead_req_ctx *rctx = aead_request_ctx_dma(req);
 	struct caam_drv_private_jr *jrp = dev_get_drvdata(jrdev);
 	struct aead_edesc *edesc;
 	int ecode = 0;
@@ -1020,7 +1089,7 @@ static void skcipher_crypt_done(struct device *jrdev, u32 *desc, u32 err,
 {
 	struct skcipher_request *req = context;
 	struct skcipher_edesc *edesc;
-	struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx(req);
+	struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx_dma(req);
 	struct crypto_skcipher *skcipher = crypto_skcipher_reqtfm(req);
 	struct caam_drv_private_jr *jrp = dev_get_drvdata(jrdev);
 	int ivsize = crypto_skcipher_ivsize(skcipher);
@@ -1309,7 +1378,7 @@ static struct aead_edesc *aead_edesc_alloc(struct aead_request *req,
 	struct crypto_aead *aead = crypto_aead_reqtfm(req);
 	struct caam_ctx *ctx = crypto_aead_ctx_dma(aead);
 	struct device *jrdev = ctx->jrdev;
-	struct caam_aead_req_ctx *rctx = aead_request_ctx(req);
+	struct caam_aead_req_ctx *rctx = aead_request_ctx_dma(req);
 	gfp_t flags = (req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) ?
 		       GFP_KERNEL : GFP_ATOMIC;
 	int src_nents, mapped_src_nents, dst_nents = 0, mapped_dst_nents = 0;
@@ -1445,7 +1514,7 @@ static struct aead_edesc *aead_edesc_alloc(struct aead_request *req,
 static int aead_enqueue_req(struct device *jrdev, struct aead_request *req)
 {
 	struct caam_drv_private_jr *jrpriv = dev_get_drvdata(jrdev);
-	struct caam_aead_req_ctx *rctx = aead_request_ctx(req);
+	struct caam_aead_req_ctx *rctx = aead_request_ctx_dma(req);
 	struct aead_edesc *edesc = rctx->edesc;
 	u32 *desc = edesc->hw_desc;
 	int ret;
@@ -1541,7 +1610,7 @@ static int aead_do_one_req(struct crypto_engine *engine, void *areq)
 {
 	struct aead_request *req = aead_request_cast(areq);
 	struct caam_ctx *ctx = crypto_aead_ctx_dma(crypto_aead_reqtfm(req));
-	struct caam_aead_req_ctx *rctx = aead_request_ctx(req);
+	struct caam_aead_req_ctx *rctx = aead_request_ctx_dma(req);
 	u32 *desc = rctx->edesc->hw_desc;
 	int ret;
 
@@ -1614,7 +1683,7 @@ static struct skcipher_edesc *skcipher_edesc_alloc(struct skcipher_request *req,
 {
 	struct crypto_skcipher *skcipher = crypto_skcipher_reqtfm(req);
 	struct caam_ctx *ctx = crypto_skcipher_ctx_dma(skcipher);
-	struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx(req);
+	struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx_dma(req);
 	struct device *jrdev = ctx->jrdev;
 	gfp_t flags = (req->base.flags & CRYPTO_TFM_REQ_MAY_SLEEP) ?
 		       GFP_KERNEL : GFP_ATOMIC;
@@ -1778,7 +1847,7 @@ static int skcipher_do_one_req(struct crypto_engine *engine, void *areq)
 {
 	struct skcipher_request *req = skcipher_request_cast(areq);
 	struct caam_ctx *ctx = crypto_skcipher_ctx_dma(crypto_skcipher_reqtfm(req));
-	struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx(req);
+	struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx_dma(req);
 	u32 *desc = rctx->edesc->hw_desc;
 	int ret;
 
@@ -1828,7 +1897,7 @@ static inline int skcipher_crypt(struct skcipher_request *req, bool encrypt)
 
 	if (ctx->fallback && ((ctrlpriv->era <= 8 && xts_skcipher_ivsize(req)) ||
 			      ctx->xts_key_fallback)) {
-		struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx(req);
+		struct caam_skcipher_req_ctx *rctx = skcipher_request_ctx_dma(req);
 
 		skcipher_request_set_tfm(&rctx->fallback_req, ctx->fallback);
 		skcipher_request_set_callback(&rctx->fallback_req,
@@ -1904,6 +1973,28 @@ static struct caam_skcipher_alg driver_algs[] = {
 		},
 		.caam.class1_alg_type = OP_ALG_ALGSEL_AES | OP_ALG_AAI_CBC,
 	},
+#ifdef CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API
+	{
+		.skcipher.base = {
+			.base = {
+				.cra_name = "tk(cbc(aes))",
+				.cra_driver_name = "tk-cbc-aes-caam",
+				.cra_blocksize = AES_BLOCK_SIZE,
+			},
+			.setkey = tk_skcipher_setkey,
+			.encrypt = skcipher_encrypt,
+			.decrypt = skcipher_decrypt,
+			.min_keysize = TAG_MIN_SIZE,
+			.max_keysize = CAAM_MAX_KEY_SIZE,
+			.ivsize = AES_BLOCK_SIZE,
+		},
+		.skcipher.op = {
+			.do_one_request = skcipher_do_one_req,
+		},
+		.caam.class1_alg_type = OP_ALG_ALGSEL_AES | OP_ALG_AAI_CBC,
+		.caam.support_tagged_key = true,
+	},
+#endif /* CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API */
 	{
 		.skcipher.base = {
 			.base = {
@@ -2045,6 +2136,27 @@ static struct caam_skcipher_alg driver_algs[] = {
 		},
 		.caam.class1_alg_type = OP_ALG_ALGSEL_AES | OP_ALG_AAI_ECB,
 	},
+#ifdef CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API
+	{
+		.skcipher.base = {
+			.base = {
+				.cra_name = "tk(ecb(aes))",
+				.cra_driver_name = "tk-ecb-aes-caam",
+				.cra_blocksize = AES_BLOCK_SIZE,
+			},
+			.setkey = tk_skcipher_setkey,
+			.encrypt = skcipher_encrypt,
+			.decrypt = skcipher_decrypt,
+			.min_keysize = TAG_MIN_SIZE,
+			.max_keysize = CAAM_MAX_KEY_SIZE,
+		},
+		.skcipher.op = {
+			.do_one_request = skcipher_do_one_req,
+		},
+		.caam.class1_alg_type = OP_ALG_ALGSEL_AES | OP_ALG_AAI_ECB,
+		.caam.support_tagged_key = true,
+	},
+#endif /* CONFIG_CRYPTO_DEV_FSL_CAAM_TK_API */
 	{
 		.skcipher.base = {
 			.base = {
@@ -3639,10 +3751,10 @@ static int caam_cra_init(struct crypto_skcipher *tfm)
 		}
 
 		ctx->fallback = fallback;
-		crypto_skcipher_set_reqsize(tfm, sizeof(struct caam_skcipher_req_ctx) +
+		crypto_skcipher_set_reqsize_dma(tfm, sizeof(struct caam_skcipher_req_ctx) +
 					    crypto_skcipher_reqsize(fallback));
 	} else {
-		crypto_skcipher_set_reqsize(tfm, sizeof(struct caam_skcipher_req_ctx));
+		crypto_skcipher_set_reqsize_dma(tfm, sizeof(struct caam_skcipher_req_ctx));
 	}
 
 	ret = caam_init_common(ctx, &caam_alg->caam, false);
@@ -3659,7 +3771,7 @@ static int caam_aead_init(struct crypto_aead *tfm)
 		 container_of(alg, struct caam_aead_alg, aead.base);
 	struct caam_ctx *ctx = crypto_aead_ctx_dma(tfm);
 
-	crypto_aead_set_reqsize(tfm, sizeof(struct caam_aead_req_ctx));
+	crypto_aead_set_reqsize_dma(tfm, sizeof(struct caam_aead_req_ctx));
 
 	return caam_init_common(ctx, &caam_alg->caam, !caam_alg->caam.nodkp);
 }

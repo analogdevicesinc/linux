@@ -7,6 +7,7 @@
  */
 
 #include <linux/device.h>
+#include <linux/dma-map-ops.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/platform_device.h>
@@ -20,6 +21,7 @@
 #include "jr.h"
 #include "desc_constr.h"
 #include "ctrl.h"
+#include "sm.h"
 
 bool caam_dpaa2;
 EXPORT_SYMBOL(caam_dpaa2);
@@ -619,6 +621,11 @@ static void caam_remove_debugfs(void *root)
 	debugfs_remove_recursive(root);
 }
 
+static void caam_dma_dev_unregister(void *data)
+{
+	platform_device_unregister(data);
+}
+
 #ifdef CONFIG_FSL_MC_BUS
 static bool check_version(struct fsl_mc_version *mc_version, u32 major,
 			  u32 minor, u32 revision)
@@ -650,7 +657,8 @@ static int caam_ctrl_rng_init(struct device *dev)
 {
 	struct caam_drv_private *ctrlpriv = dev_get_drvdata(dev);
 	struct caam_ctrl __iomem *ctrl = ctrlpriv->ctrl;
-	int ret, gen_sk, ent_delay = RTSDCTL_ENT_DLY_MIN;
+	int ret, gen_sk;
+	u32 ent_delay = RTSDCTL_ENT_DLY_MIN;
 	u8 rng_vid;
 
 	if (ctrlpriv->era < 10) {
@@ -671,6 +679,16 @@ static int caam_ctrl_rng_init(struct device *dev)
 
 		rng_vid = (rd_reg32(&vreg->rng) & CHA_VER_VID_MASK) >>
 			  CHA_VER_VID_SHIFT;
+	}
+
+	/*
+	 * Read entropy-delay property from device tree. If property is not
+	 * available or missing, update the entropy delay value only for imx6sx.
+	 */
+	if (device_property_read_u32(dev, "entropy-delay", &ent_delay)) {
+		dev_dbg(dev, "entropy-delay property missing in DT\n");
+		if (needs_entropy_delay_adjustment())
+			ent_delay = 12000;
 	}
 
 	/*
@@ -700,8 +718,6 @@ static int caam_ctrl_rng_init(struct device *dev)
 			 * Also, if a handle was instantiated, do not change
 			 * the TRNG parameters.
 			 */
-			if (needs_entropy_delay_adjustment())
-				ent_delay = 12000;
 			if (!(ctrlpriv->rng4_sh_init || inst_handles)) {
 				dev_info(dev,
 					 "Entropy delay = %u\n",
@@ -830,7 +846,8 @@ static int caam_ctrl_suspend(struct device *dev)
 {
 	const struct caam_drv_private *ctrlpriv = dev_get_drvdata(dev);
 
-	if (ctrlpriv->caam_off_during_pm && !ctrlpriv->optee_en)
+	if (ctrlpriv->caam_off_during_pm && !ctrlpriv->optee_en &&
+	    !ctrlpriv->scu_en)
 		caam_state_save(dev);
 
 	return 0;
@@ -841,7 +858,8 @@ static int caam_ctrl_resume(struct device *dev)
 	struct caam_drv_private *ctrlpriv = dev_get_drvdata(dev);
 	int ret = 0;
 
-	if (ctrlpriv->caam_off_during_pm && !ctrlpriv->optee_en) {
+	if (ctrlpriv->caam_off_during_pm && !ctrlpriv->optee_en &&
+	    !ctrlpriv->scu_en) {
 		caam_state_restore(dev);
 
 		/* HW and rng will be reset so deinstantiation can be removed */
@@ -860,8 +878,14 @@ static int caam_probe(struct platform_device *pdev)
 	int ret, ring;
 	u64 caam_id;
 	const struct soc_device_attribute *imx_soc_match;
+	static struct platform_device_info caam_dma_pdev_info = {
+		.name = "caam-dma",
+		.id = PLATFORM_DEVID_NONE
+	};
+	static struct platform_device *caam_dma_dev;
 	struct device *dev;
 	struct device_node *nprop, *np;
+	struct resource res_regs;
 	struct caam_ctrl __iomem *ctrl;
 	struct caam_drv_private *ctrlpriv;
 	struct caam_perfmon __iomem *perfmon;
@@ -889,6 +913,23 @@ static int caam_probe(struct platform_device *pdev)
 	ctrlpriv->caam_off_during_pm = caam_imx && caam_off_during_pm();
 
 	if (imx_soc_match) {
+		np = of_find_compatible_node(NULL, NULL, "fsl,imx-scu");
+
+		if (!np)
+			np = of_find_compatible_node(NULL, NULL, "fsl,imx8ulp-se-fw");
+
+		ctrlpriv->scu_en = !!np;
+		of_node_put(np);
+
+		reg_access = !ctrlpriv->scu_en;
+
+		/*
+		 * CAAM clocks cannot be controlled from kernel.
+		 * They are automatically turned on by SCU f/w.
+		 */
+		if (ctrlpriv->scu_en)
+			goto iomap_ctrl;
+
 		/*
 		 * Until Layerscape and i.MX OP-TEE get in sync,
 		 * only i.MX OP-TEE use cases disallow access to
@@ -898,7 +939,7 @@ static int caam_probe(struct platform_device *pdev)
 		ctrlpriv->optee_en = !!np;
 		of_node_put(np);
 
-		reg_access = !ctrlpriv->optee_en;
+		reg_access = reg_access && !ctrlpriv->optee_en;
 
 		if (!imx_soc_match->data) {
 			dev_err(dev, "No clock data provided for i.MX SoC");
@@ -1006,8 +1047,6 @@ iomap_ctrl:
 			 BLOCK_OFFSET * DECO_BLOCK_NUMBER
 			 );
 
-	/* Get the IRQ of the controller (for security violations only) */
-	ctrlpriv->secvio_irq = irq_of_parse_and_map(nprop, 0);
 	np = of_find_compatible_node(NULL, NULL, "fsl,qoriq-mc");
 	ctrlpriv->mc_en = !!np;
 	of_node_put(np);
@@ -1025,9 +1064,37 @@ iomap_ctrl:
 	}
 #endif
 
+	/* Only i.MX SoCs have sm */
+	if (!imx_soc_match)
+		goto mc_fw;
+
+	/* Get CAAM-SM node and of_iomap() and save */
+	np = of_find_compatible_node(NULL, NULL, "fsl,imx6q-caam-sm");
+	if (!np)
+		return -ENODEV;
+
+	/* Get CAAM SM registers base address from device tree */
+	ret = of_address_to_resource(np, 0, &res_regs);
+	if (ret) {
+		dev_err(dev, "failed to retrieve registers base from device tree\n");
+		of_node_put(np);
+		return -ENODEV;
+	}
+
+	ctrlpriv->sm_phy = res_regs.start;
+	ctrlpriv->sm_base = devm_ioremap_resource(dev, &res_regs);
+	if (IS_ERR(ctrlpriv->sm_base)) {
+		of_node_put(np);
+		return PTR_ERR(ctrlpriv->sm_base);
+	}
+
+	ctrlpriv->sm_present = 1;
+	of_node_put(np);
+
 	if (!reg_access)
 		goto set_dma_mask;
 
+mc_fw:
 	/*
 	 * Enable DECO watchdogs and, if this is a PHYS_ADDR_T_64BIT kernel,
 	 * long pointers in master configuration register.
@@ -1108,6 +1175,20 @@ set_dma_mask:
 	if ((!ctrlpriv->qi_present) && (!ctrlpriv->total_jobrs)) {
 		dev_err(dev, "no queues configured, terminating\n");
 		return -ENOMEM;
+	}
+
+	caam_dma_pdev_info.parent = dev;
+	caam_dma_pdev_info.dma_mask = dma_get_mask(dev);
+	caam_dma_dev = platform_device_register_full(&caam_dma_pdev_info);
+	if (IS_ERR(caam_dma_dev)) {
+		dev_err(dev, "Unable to create and register caam-dma dev\n");
+		return PTR_ERR(caam_dma_dev);
+	} else {
+		set_dma_ops(&caam_dma_dev->dev, get_dma_ops(dev));
+		ret = devm_add_action_or_reset(dev, caam_dma_dev_unregister,
+					       caam_dma_dev);
+		if (ret)
+			return ret;
 	}
 
 	comp_params = rd_reg32(&perfmon->comp_parms_ls);
