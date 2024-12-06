@@ -9,6 +9,11 @@ config DRM_IMX
 	help
 	  enable i.MX graphics support
 
+config DRM_IMX_LCDIF_MUX_DISPLAY
+	tristate "Support for LCDIF mux displays"
+	select DRM_PANEL_BRIDGE
+	depends on DRM_IMX && OF && MFD_SYSCON
+
 config DRM_IMX_PARALLEL_DISPLAY
 	tristate "Support for parallel displays"
 	select DRM_PANEL
