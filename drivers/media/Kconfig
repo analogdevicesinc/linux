@@ -42,7 +42,7 @@ config MEDIA_SUBDRV_AUTOSELECT
 	depends on HAS_IOMEM
 	select I2C
 	select I2C_MUX
-	default y if MEDIA_SUPPORT_FILTER
+	default n
 	help
 	  By default, a media driver auto-selects all possible ancillary
 	  devices such as tuners, sensors, video encoders/decoders and
