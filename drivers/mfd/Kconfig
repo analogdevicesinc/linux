@@ -546,6 +546,14 @@ config MFD_MX25_TSADC
 	  i.MX25 processors. They consist of a conversion queue for general
 	  purpose ADC and a queue for Touchscreens.
 
+config MFD_IMX_FLEXIO
+	tristate "NXP i.MX FlexIO core driver support"
+	depends on OF
+	select MFD_CORE
+	select REGMAP_MMIO
+	help
+	  Enable FlexIO core driver support.
+
 config MFD_HI6421_PMIC
 	tristate "HiSilicon Hi6421 PMU/Codec IC"
 	depends on OF
