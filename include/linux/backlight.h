@@ -13,7 +13,6 @@
 #include <linux/fb.h>
 #include <linux/mutex.h>
 #include <linux/notifier.h>
-#include <linux/types.h>
 
 /**
  * enum backlight_update_reason - what method was used to update backlight
@@ -111,6 +110,7 @@ enum backlight_scale {
 };
 
 struct backlight_device;
+struct fb_info;
 
 /**
  * struct backlight_ops - backlight operations
@@ -160,18 +160,18 @@ struct backlight_ops {
 	int (*get_brightness)(struct backlight_device *);
 
 	/**
-	 * @controls_device: Check against the display device
+	 * @check_fb: Check the framebuffer device.
 	 *
-	 * Check if the backlight controls the given display device. This
-	 * operation is optional and if not implemented it is assumed that
-	 * the display is always the one controlled by the backlight.
+	 * Check if given framebuffer device is the one bound to this backlight.
+	 * This operation is optional and if not implemented it is assumed that the
+	 * fbdev is always the one bound to the backlight.
 	 *
 	 * RETURNS:
 	 *
-	 * If display_dev is NULL or display_dev matches the device controlled by
-	 * the backlight, return true. Otherwise return false.
+	 * If info is NULL or the info matches the fbdev bound to the backlight return true.
+	 * If info does not match the fbdev bound to the backlight return false.
 	 */
-	bool (*controls_device)(struct backlight_device *bd, struct device *display_dev);
+	int (*check_fb)(struct backlight_device *bd, struct fb_info *info);
 };
 
 /**
