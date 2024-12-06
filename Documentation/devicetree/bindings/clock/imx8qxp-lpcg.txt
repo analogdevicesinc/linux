@@ -1,0 +1,57 @@
+* NXP i.MX8QXP LPCG (Low-Power Clock Gating) Clock bindings
+
+The Low-Power Clock Gate (LPCG) modules contain a local programming
+model to control the clock gates for the peripherals. An LPCG module
+is used to locally gate the clocks for the associated peripheral.
+
+Note:
+This level of clock gating is provided after the clocks are generated
+by the SCU resources and clock controls. Thus even if the clock is
+enabled by these control bits, it might still not be running based
+on the base resource.
+
+Required properties:
+- compatible:		Should be one of:
+			  "fsl,imx8qxp-lpcg"
+			  "fsl,imx8qm-lpcg" followed by "fsl,imx8qxp-lpcg".
+- reg:			Address and length of the register set.
+- #clock-cells:		Should be 1. One LPCG supports multiple clocks.
+- clocks:		Input parent clocks phandle array for each clock.
+- bit-offset:		An integer array indicating the bit offset for each clock.
+- hw-autogate:		Boolean array indicating whether supports HW autogate for
+			each clock.
+- clock-output-names:	Shall be the corresponding names of the outputs.
+			NOTE this property must be specified in the same order
+			as the clock bit-offset and hw-autogate property.
+- power-domains:	Should contain the power domain used by this clock.
+
+The clock consumer should specify the desired clock by having the clock
+ID in its "clocks" phandle cell.
+
+Examples:
+
+#include <dt-bindings/clock/imx8qxp-clock.h>
+
+sdhc0_lpcg: clock-controller@5b200000 {
+	compatible = "fsl,imx8qxp-lpcg";
+	reg = <0x5b200000 0x10000>;
+	#clock-cells = <1>;
+	clocks = <&sdhc0_clk IMX_SC_PM_CLK_PER>,
+		 <&conn_ipg_clk>, <&conn_axi_clk>;
+	bit-offset = <0 16 20>;
+	clock-output-names = "sdhc0_lpcg_per_clk",
+			     "sdhc0_lpcg_ipg_clk",
+			     "sdhc0_lpcg_ahb_clk";
+	power-domains = <&pd IMX_SC_R_SDHC_0>;
+};
+
+usdhc1: mmc@5b010000 {
+	compatible = "fsl,imx8qxp-usdhc", "fsl,imx7d-usdhc";
+	interrupt-parent = <&gic>;
+	interrupts = <GIC_SPI 232 IRQ_TYPE_LEVEL_HIGH>;
+	reg = <0x5b010000 0x10000>;
+	clocks = <&sdhc0_lpcg 1>,
+		 <&sdhc0_lpcg 0>,
+		 <&sdhc0_lpcg 2>;
+	clock-names = "ipg", "per", "ahb";
+};

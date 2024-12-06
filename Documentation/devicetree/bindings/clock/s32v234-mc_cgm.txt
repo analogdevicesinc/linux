@@ -1,0 +1,31 @@
+* NXP S32V234 Clock Generation Modules (MC_CGMs)
+
+The SoC supports four Clock Generation Modules, which provide registers for
+system and peripherals clock source selection and division. See chapters 22
+("Clocking"), 23 ("Clock Generation Module (MC_CGM)") and 69 ("Mode Entry
+Module (MC_ME)") in the reference manual[1].
+
+This binding uses the common clock binding:
+    Documentation/devicetree/bindings/clock/clock-bindings.txt
+
+Required properties:
+- compatible:
+	Should be:
+	- "fsl,s32v234-mc_cgm0" for MC_CGM_0
+	- "fsl,s32v234-mc_cgm1" for MC_CGM_1
+	- "fsl,s32v234-mc_cgm2" for MC_CGM_2
+	- "fsl,s32v234-mc_cgm3" for MC_CGM_3
+- reg:
+	Location and length of the register set
+- #clock-cells (only for MC_CGM_0):
+	Should be <1>. See dt-bindings/clock/s32v234-clock.h for the clock
+	specifiers allowed in the clocks property of consumers.
+
+Example:
+clks: mc_cgm0@4003c000 {
+	compatible = "fsl,s32v234-mc_cgm0";
+	reg = <0x0 0x4003C000 0x0 0x1000>;
+	#clock-cells = <1>;
+};
+
+[1] https://www.nxp.com/webapp/Download?colCode=S32V234RM

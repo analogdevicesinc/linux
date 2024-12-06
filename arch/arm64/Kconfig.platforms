@@ -231,6 +231,7 @@ config HAVE_IMX_BUSFREQ
 
 config ARCH_S32
 	bool "NXP S32 SoC Family"
+	select ARCH_S32_CLK
 	help
 	  This enables support for the NXP S32 family of processors.
 

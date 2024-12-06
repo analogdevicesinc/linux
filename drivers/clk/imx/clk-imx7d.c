@@ -15,6 +15,7 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #include <linux/types.h>
+#include <soc/imx/src.h>
 
 #include "clk.h"
 
@@ -24,6 +25,7 @@ static u32 share_count_sai3;
 static u32 share_count_nand;
 static u32 share_count_enet1;
 static u32 share_count_enet2;
+static u32 share_count_pxp;
 
 static const struct clk_div_table test_div_table[] = {
 	{ .val = 3, .div = 1, },
@@ -790,7 +792,6 @@ static void __init imx7d_clocks_init(struct device_node *ccm_node)
 	hws[IMX7D_PCIE_PHY_ROOT_CLK] = imx_clk_hw_gate4("pcie_phy_root_clk", "pcie_phy_post_div", base + 0x4600, 0);
 	hws[IMX7D_EPDC_PIXEL_ROOT_CLK] = imx_clk_hw_gate4("epdc_pixel_root_clk", "epdc_pixel_post_div", base + 0x44a0, 0);
 	hws[IMX7D_LCDIF_PIXEL_ROOT_CLK] = imx_clk_hw_gate4("lcdif_pixel_root_clk", "lcdif_pixel_post_div", base + 0x44b0, 0);
-	hws[IMX7D_PXP_CLK] = imx_clk_hw_gate4("pxp_clk", "main_axi_root_clk", base + 0x44c0, 0);
 	hws[IMX7D_MIPI_DSI_ROOT_CLK] = imx_clk_hw_gate4("mipi_dsi_root_clk", "mipi_dsi_post_div", base + 0x4650, 0);
 	hws[IMX7D_MIPI_CSI_ROOT_CLK] = imx_clk_hw_gate4("mipi_csi_root_clk", "mipi_csi_post_div", base + 0x4640, 0);
 	hws[IMX7D_MIPI_DPHY_ROOT_CLK] = imx_clk_hw_gate4("mipi_dphy_root_clk", "mipi_dphy_post_div", base + 0x4660, 0);
@@ -853,6 +854,8 @@ static void __init imx7d_clocks_init(struct device_node *ccm_node)
 	hws[IMX7D_USB_PHY1_CLK] = imx_clk_hw_gate4("usb_phy1_clk", "pll_usb1_main_clk", base + 0x46a0, 0);
 	hws[IMX7D_USB_PHY2_CLK] = imx_clk_hw_gate4("usb_phy2_clk", "pll_usb_main_clk", base + 0x46b0, 0);
 	hws[IMX7D_ADC_ROOT_CLK] = imx_clk_hw_gate4("adc_root_clk", "ipg_root_clk", base + 0x4200, 0);
+	hws[IMX7D_PXP_IPG_CLK] = imx_clk_hw_gate2_shared2("pxp_ipg_clk", "ipg_root_clk", base + 0x44c0, 0, &share_count_pxp);
+	hws[IMX7D_PXP_AXI_CLK] = imx_clk_hw_gate2_shared2("pxp_axi_clk", "main_axi_root_clk", base + 0x44c0, 0, &share_count_pxp);
 
 	hws[IMX7D_GPT_3M_CLK] = imx_clk_hw_fixed_factor("gpt_3m", "osc", 1, 8);
 
@@ -875,6 +878,12 @@ static void __init imx7d_clocks_init(struct device_node *ccm_node)
 
 	clk_set_parent(hws[IMX7D_MIPI_CSI_ROOT_SRC]->clk, hws[IMX7D_PLL_SYS_PFD3_CLK]->clk);
 
+	if (imx_src_is_m4_enabled()) {
+		clk_set_parent(hws[IMX7D_ARM_M4_ROOT_SRC]->clk, hws[IMX7D_PLL_SYS_MAIN_240M_CLK]->clk);
+		clk_prepare_enable(hws[IMX7D_ARM_M4_ROOT_CLK]->clk);
+		clk_prepare_enable(hws[IMX7D_UART2_ROOT_CLK]->clk);
+	}
+
 	/* use old gpt clk setting, gpt1 root clk must be twice as gpt counter freq */
 	clk_set_parent(hws[IMX7D_GPT1_ROOT_SRC]->clk, hws[IMX7D_OSC_24M_CLK]->clk);
 
@@ -882,7 +891,9 @@ static void __init imx7d_clocks_init(struct device_node *ccm_node)
 	hws[IMX7D_USB1_MAIN_480M_CLK] = imx_clk_hw_fixed_factor("pll_usb1_main_clk", "osc", 20, 1);
 	hws[IMX7D_USB_MAIN_480M_CLK] = imx_clk_hw_fixed_factor("pll_usb_main_clk", "osc", 20, 1);
 
-	imx_register_uart_clocks();
+	/* set parent of EPDC pixel clock */
+	clk_set_parent(hws[IMX7D_EPDC_PIXEL_ROOT_SRC]->clk, hws[IMX7D_PLL_SYS_MAIN_CLK]->clk);
 
+	imx_register_uart_clocks();
 }
 CLK_OF_DECLARE(imx7d, "fsl,imx7d-ccm", imx7d_clocks_init);

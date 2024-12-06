@@ -7,6 +7,10 @@
 #define __DT_BINDINGS_CLOCK_IMX8ULP_H
 
 #define IMX8ULP_CLK_DUMMY			0
+#define IMX8ULP_CLK_ROSC			1
+#define IMX8ULP_CLK_FROSC			2
+#define IMX8ULP_CLK_LPOSC			3
+#define IMX8ULP_CLK_SOSC			4
 
 /* CGC1 */
 #define IMX8ULP_CLK_SPLL2			5

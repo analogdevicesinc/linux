@@ -6,9 +6,11 @@
 
 #include <linux/clk-provider.h>
 #include <linux/export.h>
+#include <linux/imx_sema4.h>
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <linux/err.h>
+#include <soc/imx/src.h>
 #include "clk.h"
 
 /**
@@ -33,20 +35,57 @@ struct clk_pfd {
 #define CLR	0x8
 #define OTG	0xc
 
-static int clk_pfd_enable(struct clk_hw *hw)
+static void clk_pfd_do_hardware(struct clk_pfd *pfd, bool enable)
+{
+	if (enable)
+		writel_relaxed(1 << ((pfd->idx + 1) * 8 - 1), pfd->reg + CLR);
+	else
+		writel_relaxed(1 << ((pfd->idx + 1) * 8 - 1), pfd->reg + SET);
+}
+
+static void clk_pfd_do_shared_clks(struct clk_hw *hw, bool enable)
 {
 	struct clk_pfd *pfd = to_clk_pfd(hw);
 
-	writel_relaxed(1 << ((pfd->idx + 1) * 8 - 1), pfd->reg + CLR);
+	if (imx_src_is_m4_enabled() && clk_on_imx6sx()) {
+#ifdef CONFIG_SOC_IMX6SX
+		if (!amp_power_mutex || !shared_mem) {
+			if (enable)
+				clk_pfd_do_hardware(pfd, enable);
+			return;
+		}
+
+		imx_sema4_mutex_lock(amp_power_mutex);
+		if (shared_mem->ca9_valid != SHARED_MEM_MAGIC_NUMBER ||
+			shared_mem->cm4_valid != SHARED_MEM_MAGIC_NUMBER) {
+			imx_sema4_mutex_unlock(amp_power_mutex);
+			return;
+		}
+
+		if (!imx_update_shared_mem(hw, enable)) {
+			imx_sema4_mutex_unlock(amp_power_mutex);
+			return;
+		}
+
+		clk_pfd_do_hardware(pfd, enable);
+
+		imx_sema4_mutex_unlock(amp_power_mutex);
+#endif
+	} else {
+		clk_pfd_do_hardware(pfd, enable);
+	}
+}
+
+static int clk_pfd_enable(struct clk_hw *hw)
+{
+	clk_pfd_do_shared_clks(hw, true);
 
 	return 0;
 }
 
 static void clk_pfd_disable(struct clk_hw *hw)
 {
-	struct clk_pfd *pfd = to_clk_pfd(hw);
-
-	writel_relaxed(1 << ((pfd->idx + 1) * 8 - 1), pfd->reg + SET);
+	clk_pfd_do_shared_clks(hw, false);
 }
 
 static unsigned long clk_pfd_recalc_rate(struct clk_hw *hw,
