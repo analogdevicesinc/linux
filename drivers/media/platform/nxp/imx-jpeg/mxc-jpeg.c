@@ -275,6 +275,14 @@ static const struct of_device_id mxc_jpeg_match[] = {
 		.compatible = "nxp,imx8qxp-jpgenc",
 		.data       = &mxc_encode_mode,
 	},
+	{
+		.compatible = "fsl,imx9-jpgdec",
+		.data       = &mxc_decode_mode,
+	},
+	{
+		.compatible = "fsl,imx9-jpgenc",
+		.data       = &mxc_encode_mode,
+	},
 	{ },
 };
 
@@ -574,6 +582,10 @@ static inline struct mxc_jpeg_src_buf *vb2_to_mxc_buf(struct vb2_buffer *vb)
 static unsigned int debug;
 module_param(debug, int, 0644);
 MODULE_PARM_DESC(debug, "Debug level (0-3)");
+
+static unsigned int sw_reset = 1;
+module_param(sw_reset, int, 0644);
+MODULE_PARM_DESC(sw_reset, "SW reset every frame (0=no reset, 1=do reset)");
 
 static unsigned int hw_timeout = 2000;
 module_param(hw_timeout, int, 0644);
@@ -979,7 +991,7 @@ static irqreturn_t mxc_jpeg_dec_irq(int irq, void *priv)
 	buf_state = VB2_BUF_STATE_DONE;
 
 buffers_done:
-	mxc_jpeg_job_finish(ctx, buf_state, false);
+	mxc_jpeg_job_finish(ctx, buf_state, sw_reset);
 	spin_unlock(&jpeg->hw_lock);
 	cancel_delayed_work(&ctx->task_timer);
 	v4l2_m2m_job_finish(jpeg->m2m_dev, ctx->fh.m2m_ctx);
@@ -2679,6 +2691,8 @@ static void mxc_jpeg_detach_pm_domains(struct mxc_jpeg_dev *jpeg)
 	int i;
 
 	for (i = 0; i < jpeg->num_domains; i++) {
+		if (jpeg->pd_dev[i] && !pm_runtime_suspended(jpeg->pd_dev[i]))
+			pm_runtime_force_suspend(jpeg->pd_dev[i]);
 		if (jpeg->pd_link[i] && !IS_ERR(jpeg->pd_link[i]))
 			device_link_del(jpeg->pd_link[i]);
 		if (jpeg->pd_dev[i] && !IS_ERR(jpeg->pd_dev[i]))
@@ -2842,6 +2856,7 @@ static int mxc_jpeg_probe(struct platform_device *pdev)
 	jpeg->dec_vdev->vfl_dir = VFL_DIR_M2M;
 	jpeg->dec_vdev->device_caps = V4L2_CAP_STREAMING |
 					V4L2_CAP_VIDEO_M2M_MPLANE;
+	video_set_drvdata(jpeg->dec_vdev, jpeg);
 	if (mode == MXC_JPEG_ENCODE) {
 		v4l2_disable_ioctl(jpeg->dec_vdev, VIDIOC_DECODER_CMD);
 		v4l2_disable_ioctl(jpeg->dec_vdev, VIDIOC_TRY_DECODER_CMD);
@@ -2854,7 +2869,6 @@ static int mxc_jpeg_probe(struct platform_device *pdev)
 		dev_err(dev, "failed to register video device\n");
 		goto err_vdev_register;
 	}
-	video_set_drvdata(jpeg->dec_vdev, jpeg);
 	if (mode == MXC_JPEG_ENCODE)
 		v4l2_info(&jpeg->v4l2_dev,
 			  "encoder device registered as /dev/video%d (%d,%d)\n",
