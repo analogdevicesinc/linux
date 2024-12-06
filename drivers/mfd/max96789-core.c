@@ -403,6 +403,25 @@ static void max96789_finish_link_setup(void *data)
 	max96789->link_setup_finished = true;
 }
 
+static void max96789_power_cycle(struct max96789 *max96789)
+{
+	gpiod_set_value_cansleep(max96789->reset, 1);
+	/*
+	 * Minimum time to reset the chip is 1ms but, if we have power regulators on the board that
+	 * provide power to a deserializer chip, it's safer to wait a little more in order for the
+	 * regulator power to go down.
+	 */
+	msleep(20);
+	gpiod_set_value_cansleep(max96789->reset, 0);
+
+	/*
+	 * Power-up completes in approx 2-3ms, according to specifications, but I2C access is
+	 * available after 3-4ms. In reality, we need to wait around 10ms to be able to communicate
+	 * with the chip on I2C.
+	 */
+	fsleep(10000);
+}
+
 int max96789_dev_init(struct max96789 *max96789, ulong expected_dev_id)
 {
 	struct device *dev = max96789->dev;
@@ -415,8 +434,14 @@ int max96789_dev_init(struct max96789 *max96789, ulong expected_dev_id)
 	if (ret < 0 && ret != -ENODEV)
 		return ret;
 
-	/* power-up completes in approx 2ms, according to specifications */
-	usleep_range(2000, 2500);
+	max96789->reset = devm_gpiod_get_optional(dev, "reset", GPIOD_OUT_LOW);
+	if (IS_ERR(max96789->reset)) {
+		ret = PTR_ERR(max96789->reset);
+		dev_err(dev, "Failed to get reset gpio (%d)\n", ret);
+		return ret;
+	}
+
+	max96789_power_cycle(max96789);
 
 	ret = regmap_read(max96789->regmap, MAX96789_DEV_ID, &max96789->id);
 	if (ret) {

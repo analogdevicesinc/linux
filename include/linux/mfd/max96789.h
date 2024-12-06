@@ -1500,6 +1500,8 @@ struct max96789 {
 	unsigned int id;
 	unsigned int rev;
 
+	struct gpio_desc *reset;
+
 	unsigned int gmsl_link_mask;
 	unsigned int gmsl_links_used;
 	enum max96789_gmsl_link_type gmsl_links_types[GMSL_MAX_LINKS];
