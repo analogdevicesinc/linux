@@ -1,0 +1,143 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/bridge/nxp,imx95-mipi-dsi.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP i.MX95 specific extensions to Synopsys Designware MIPI DSI
+
+maintainers:
+  - Liu Ying <victor.liu@nxp.com>
+
+description: |
+  There is a Synopsys Designware MIPI DSI Host Controller and a Synopsys
+  Designware MIPI DPHY embedded in NXP i.MX95 SoC.  Some configurations
+  and extensions to them are controlled by i.MX95 CSRs.
+
+allOf:
+  - $ref: snps,dw-mipi-dsi.yaml#
+
+properties:
+  compatible:
+    const: nxp,imx95-mipi-dsi
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    items:
+      - description: cfg clock
+      - description: pll bypass clock
+      - description: PHY reference clock
+      - description: apb clock
+      - description: pixel clock
+
+  clock-names:
+    items:
+      - const: cfg
+      - const: bypass
+      - const: ref
+      - const: pclk
+      - const: pix
+
+  mux-controls:
+    maxItems: 1
+    description:
+      mux controller node to use for operating the input mux
+
+  power-domains:
+    maxItems: 1
+
+  nxp,disp-master-csr:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description:
+      i.MX95 display master CSR, as a syscon, controls misc configurations
+      for the MIPI DSI controller including some MIPI DPHY configurations
+      and clock configurations.
+
+  nxp,disp-stream-csr:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description:
+      i.MX95 display stream CSR, as a syscon, controls misc configurations
+      for the MIPI DSI controller including some MIPI DSI host configurations
+      and MIPI DSI parity error configurations.
+
+  nxp,mipi-combo-phy-csr:
+    $ref: /schemas/types.yaml#/definitions/phandle
+    description:
+      i.MX95 display stream CSR, as a syscon, controls some MIPI DPHY
+      configurations.
+
+required:
+  - compatible
+  - interrupts
+  - mux-controls
+  - power-domains
+  - nxp,disp-master-csr
+  - nxp,disp-stream-csr
+  - nxp,mipi-combo-phy-csr
+
+unevaluatedProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/fsl,imx95-clock.h>
+    #include <dt-bindings/gpio/gpio.h>
+    #include <dt-bindings/power/fsl,imx95-power.h>
+    dsi@4acf0000 {
+      compatible = "nxp,imx95-mipi-dsi";
+      reg = <0x4acf0000 0x10000>;
+      interrupt-parent = <&displaymix_irqsteer>;
+      interrupts = <48>;
+      clocks = <&scmi_clk IMX95_CLK_MIPIPHYCFG>,
+               <&scmi_clk IMX95_CLK_MIPIPHYPLLBYPASS>,
+               <&scmi_clk IMX95_CLK_MIPIPHYPLLREF>,
+               <&scmi_clk IMX95_CLK_CAMAPB>,
+               <&scmi_clk IMX95_CLK_DISP1PIX>;
+      clock-names = "cfg", "bypass", "ref", "pclk", "pix";
+      mux-controls = <&mux 0>;
+      power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+      nxp,disp-master-csr = <&display_master_csr>;
+      nxp,disp-stream-csr = <&display_stream_csr>;
+      nxp,mipi-combo-phy-csr = <&mipi_combo_phy_csr>;
+      #address-cells = <1>;
+      #size-cells = <0>;
+
+      panel@0 {
+        compatible = "raydium,rm67191";
+        reg = <0>;
+        reset-gpios = <&adp5585gpio 6 GPIO_ACTIVE_LOW>;
+        dsi-lanes = <4>;
+        video-mode = <2>;
+
+        port {
+          panel_in: endpoint {
+            remote-endpoint = <&dsi_out>;
+          };
+        };
+      };
+
+      ports {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        port@0 {
+          #address-cells = <1>;
+          #size-cells = <0>;
+          reg = <0>;
+
+          mipi_dsi_to_display_pixel_link0: endpoint@0 {
+            reg = <0>;
+            remote-endpoint = <&display_pixel_link0_to_mipi_dsi>;
+          };
+        };
+
+        port@1 {
+          reg = <1>;
+
+          dsi_out: endpoint {
+            remote-endpoint = <&panel_in>;
+          };
+        };
+      };
+    };

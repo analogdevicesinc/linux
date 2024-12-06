@@ -4,15 +4,15 @@
 $id: http://devicetree.org/schemas/display/bridge/fsl,imx8qxp-ldb.yaml#
 $schema: http://devicetree.org/meta-schemas/core.yaml#
 
-title: Freescale i.MX8qm/qxp LVDS Display Bridge
+title: Freescale i.MX8qm/qxp and i.MX95 LVDS Display Bridge
 
 maintainers:
   - Liu Ying <victor.liu@nxp.com>
 
 description: |
-  The Freescale i.MX8qm/qxp LVDS Display Bridge(LDB) has two channels.
+  The Freescale i.MX8qm/qxp and i.MX95 LVDS Display Bridge(LDB) have two channels.
 
-  The i.MX8qm/qxp LDB is controlled by Control and Status Registers(CSR) module.
+  The i.MX8qm/qxp and i.MX95 LDB are controlled by Control and Status Registers(CSR) module.
   The CSR module, as a system controller, contains the LDB's configuration
   registers.
 
@@ -30,7 +30,13 @@ description: |
   data.  In split mode, channel0 outputs odd pixels and channel1 outputs even
   pixels.
 
-  A side note is that i.MX8qm/qxp LDB is officially called pixel mapper in
+  For i.MX95 LDB, each channel supports up to 24bpp parallel input color
+  format and can map the input to VESA or JEIDA standards.  The two channels
+  can be used simultaneously, either in dual mode or split mode. The channel indexes
+  have to be different.  Channel0 outputs odd pixels and channel1 outputs
+  even pixels.
+
+  A side note is that i.MX8qm/qxp LDB and i.MX95 are officially called pixel mapper in
   the SoC reference manuals.  The pixel mapper uses logic of LDBs embedded in
   i.MX6qdl/sx SoCs, i.e., it is essentially based on them.  To keep the naming
   consistency, this binding calls it LDB.
@@ -40,6 +46,7 @@ properties:
     enum:
       - fsl,imx8qm-ldb
       - fsl,imx8qxp-ldb
+      - fsl,imx95-ldb
 
   "#address-cells":
     const: 1
@@ -51,11 +58,19 @@ properties:
     items:
       - description: pixel clock
       - description: bypass clock
+      - description: pixel mapper DI0 clock gate
+      - description: pixel mapper DI1 clock gate
+      - description: serializer channel0 gate
+      - description: serializer channel1 gate
 
   clock-names:
     items:
       - const: pixel
       - const: bypass
+      - const: ldb_di0
+      - const: ldb_di1
+      - const: ldb_ch0
+      - const: ldb_ch1
 
   power-domains:
     maxItems: 1
@@ -120,10 +135,44 @@ allOf:
       properties:
         compatible:
           contains:
-            const: fsl,imx8qm-ldb
+            enum:
+              - fsl,imx8qm-ldb
+              - fsl,imx95-ldb
     then:
       properties:
         fsl,companion-ldb: false
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            enum:
+              - fsl,imx8qm-ldb
+              - fsl,imx8qxp-ldb
+    then:
+      properties:
+        clocks:
+          maxItems: 2
+        clock-names:
+          items:
+            - const: pixel
+            - const: bypass
+
+  - if:
+      properties:
+        compatible:
+          contains:
+            const: fsl,imx95-ldb
+    then:
+      properties:
+        clocks:
+          maxItems: 4
+        clock-names:
+          items:
+            - const: ldb_di0
+            - const: ldb_di1
+            - const: ldb_ch0
+            - const: ldb_ch1
 
 additionalProperties: false
 

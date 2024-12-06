@@ -1,8 +1,5 @@
 if ARCH_MXC || COMPILE_TEST
 
-config DRM_IMX_LDB_HELPER
-	tristate
-
 config DRM_IMX8MP_DW_HDMI_BRIDGE
 	tristate "Freescale i.MX8MP HDMI-TX bridge support"
 	depends on OF
@@ -21,25 +18,8 @@ config DRM_IMX8MP_HDMI_PVI
 	  Choose this to enable support for the internal HDMI TX Parallel
 	  Video Interface found on the Freescale i.MX8MP SoC.
 
-config DRM_IMX8QM_LDB
-	tristate "Freescale i.MX8QM LVDS display bridge"
-	depends on OF
-	depends on COMMON_CLK
-	select DRM_IMX_LDB_HELPER
-	select DRM_KMS_HELPER
-	help
-	  Choose this to enable the internal LVDS Display Bridge(LDB) found in
-	  Freescale i.MX8qm processor.  Official name of LDB is pixel mapper.
-
-config DRM_IMX8QXP_LDB
-	tristate "Freescale i.MX8QXP LVDS display bridge"
-	depends on OF
-	depends on COMMON_CLK
-	select DRM_IMX_LDB_HELPER
-	select DRM_KMS_HELPER
-	help
-	  Choose this to enable the internal LVDS Display Bridge(LDB) found in
-	  Freescale i.MX8qxp processor.  Official name of LDB is pixel mapper.
+config DRM_IMX_LDB_HELPER
+	tristate
 
 config DRM_IMX8QXP_PIXEL_COMBINER
 	tristate "Freescale i.MX8QM/QXP pixel combiner"
@@ -77,5 +57,44 @@ config DRM_IMX93_MIPI_DSI
 	help
 	  Choose this to enable MIPI DSI controller found in Freescale i.MX93
 	  processor.
+
+config DRM_IMX95_LDB
+	tristate "Freescale i.MX95 LVDS display bridge"
+	depends on OF
+	depends on COMMON_CLK
+	select DRM_IMX_LDB_HELPER
+	select DRM_KMS_HELPER
+	help
+	  Choose this to enable the internal LVDS Display Bridge(LDB) found in
+	  Freescale i.MX95 processor.
+
+config DRM_IMX95_MIPI_DSI
+	tristate "NXP i.MX95 specific extensions for Synopsys DW MIPI DSI"
+	depends on OF && MFD_SYSCON && COMMON_CLK
+	select DRM_DW_MIPI_DSI
+	select DRM_KMS_HELPER
+	select MULTIPLEXER
+	select REGMAP_MMIO
+	help
+	  Choose this to enable Synopsys DesignWare MIPI DSI found in NXP
+	  i.MX95 processor.
+
+config DRM_IMX95_PIXEL_INTERLEAVER
+	tristate "NXP i.MX95 pixel interleaver"
+	depends on OF && MFD_SYSCON && COMMON_CLK
+	select DRM_KMS_HELPER
+	select REGMAP_MMIO
+	help
+	  Choose this to enable pixel interleaver found in NXP i.MX95
+	  processors.
+
+config DRM_IMX95_PIXEL_LINK
+	tristate "NXP i.MX95 display pixel link"
+	depends on OF && MFD_SYSCON
+	select DRM_KMS_HELPER
+	select REGMAP_MMIO
+	help
+	  Choose this to enable display pixel link found in NXP i.MX95
+	  processors.
 
 endif # ARCH_MXC || COMPILE_TEST
