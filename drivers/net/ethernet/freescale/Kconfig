@@ -35,6 +35,14 @@ config FEC
 	  Say Y here if you want to use the built-in 10/100 Fast ethernet
 	  controller on some Motorola ColdFire and Freescale i.MX/S32 processors.
 
+config FEC_UIO
+	tristate "FEC_UIO ethernet controller (i.MX 8M Mini CPU)"
+	default n
+	select UIO
+	help
+	  Say Y here if you want to use the built-in 10/100 Fast ethernet
+	  controller on Freescale i.MX 8M Mini processor.
+
 config FEC_MPC52xx
 	tristate "FEC MPC52xx driver"
 	depends on PPC_MPC52xx && PPC_BESTCOMM
