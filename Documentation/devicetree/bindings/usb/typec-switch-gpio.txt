@@ -1,0 +1,31 @@
+Typec orientation switch via a GPIO
+-----------------------------------
+
+Required properties:
+- compatible: should be set one of following:
+	- "nxp,ptn36043" or "nxp,cbtl04gp" for NXP Type-C SuperSpeed
+	  active switch.
+
+- gpios: the GPIO used to switch the super speed active channel,
+		GPIO_ACTIVE_HIGH: GPIO state high for cc1;
+		GPIO_ACTIVE_LOW:  GPIO state low for cc1.
+- orientation-switch: must be present.
+
+Required sub-node:
+- port: specify the remote endpoint of typec switch consumer.
+
+Example:
+
+ptn36043 {
+	compatible = "nxp,ptn36043";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ss_sel>;
+	gpios = <&gpio3 15 GPIO_ACTIVE_HIGH>;
+	orientation-switch;
+
+	port {
+		usb3_data_ss: endpoint {
+			remote-endpoint = <&typec_con_ss>;
+		};
+	};
+};
