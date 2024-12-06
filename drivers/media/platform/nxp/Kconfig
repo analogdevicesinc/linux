@@ -28,6 +28,16 @@ config VIDEO_IMX8MQ_MIPI_CSI2
 	  Video4Linux2 driver for the MIPI CSI-2 receiver found on the i.MX8MQ
 	  SoC.
 
+config VIDEO_IMX_CSI_FORMATTER
+	tristate "NXP i.MX95 CSI Pixel Formatter Driver"
+	depends on ARCH_MXC || COMPILE_TEST
+	depends on VIDEO_DEV
+	select MEDIA_CONTROLLER
+	select V4L2_FWNODE
+	select VIDEO_V4L2_SUBDEV_API
+	help
+	  Video4Linux2 sub-device driver for iMX95 CSI pixel formatter
+
 config VIDEO_IMX_MIPI_CSIS
 	tristate "NXP MIPI CSI-2 CSIS receiver found on i.MX7 and i.MX8 models"
 	depends on ARCH_MXC || COMPILE_TEST
@@ -38,6 +48,28 @@ config VIDEO_IMX_MIPI_CSIS
 	help
 	  Video4Linux2 sub-device driver for the MIPI CSI-2 CSIS receiver
 	  v3.3/v3.6.3 found on some i.MX7 and i.MX8 SoCs.
+
+config VIDEO_DWC_MIPI_CSIS
+       tristate "DesignWare Cores MIPI CSI-2 receiver found on i.MX93"
+       depends on ARCH_MXC || COMPILE_TEST
+       depends on VIDEO_DEV
+       select MEDIA_CONTROLLER
+       select V4L2_FWNODE
+       select VIDEO_V4L2_SUBDEV_API
+       help
+         Video4Linux2 sub-device driver for the DesignWare Cores MIPI
+         CSI-2 receiver used on i.MX93.
+
+config VIDEO_IMX_PARALLEL_CSI
+	tristate "NXP i.MX9/i.MX8 Parallel CSI Driver"
+	depends on ARCH_MXC || COMPILE_TEST
+	depends on VIDEO_DEV
+	select MEDIA_CONTROLLER
+	select V4L2_FWNODE
+	select VIDEO_V4L2_SUBDEV_API
+	help
+	  Video4Linux2 sub-device driver for PARALLEL CSI receiver found
+	  on some iMX8 and iMX9 SoCs.
 
 source "drivers/media/platform/nxp/imx8-isi/Kconfig"
 
@@ -67,3 +99,4 @@ config VIDEO_MX2_EMMAPRP
 
 source "drivers/media/platform/nxp/dw100/Kconfig"
 source "drivers/media/platform/nxp/imx-jpeg/Kconfig"
+source "drivers/media/platform/nxp/neoisp/Kconfig"

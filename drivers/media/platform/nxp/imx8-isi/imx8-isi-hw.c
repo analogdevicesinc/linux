@@ -80,6 +80,18 @@ void mxc_isi_channel_set_outbuf(struct mxc_isi_pipe *pipe,
 	mxc_isi_write(pipe, CHNL_OUT_BUF_CTRL, val);
 }
 
+void mxc_isi_channel_set_max_size(struct mxc_isi_pipe *pipe,
+				  const struct vb2_v4l2_buffer *v4l2_buf,
+				  const bool buf_max_size)
+{
+	if (!buf_max_size)
+		return;
+
+	mxc_isi_write(pipe, CHNL_OUT_BUF_MAX_SIZE_Y, v4l2_buf->planes[0].length);
+	mxc_isi_write(pipe, CHNL_OUT_BUF_MAX_SIZE_U, v4l2_buf->planes[1].length);
+	mxc_isi_write(pipe, CHNL_OUT_BUF_MAX_SIZE_V, v4l2_buf->planes[2].length);
+}
+
 void mxc_isi_channel_m2m_start(struct mxc_isi_pipe *pipe)
 {
 	u32 val;
@@ -112,7 +124,13 @@ static u32 mxc_isi_channel_scaling_ratio(unsigned int from, unsigned int to,
 	else
 		*dec = 8;
 
-	return min_t(u32, from * 0x1000 / (to * *dec), ISI_DOWNSCALE_THRESHOLD);
+	/*
+	 * As mentioned in reference manual, ISI actual output line
+	 * value will be rounded up to an integer, so in some cases,
+	 * its output line value will bigger than the value set by
+	 * user. So adjust scale factor to make them equal.
+	 */
+	return min_t(u32, DIV_ROUND_UP(from * 0x1000, to * *dec), ISI_DOWNSCALE_THRESHOLD);
 }
 
 static void mxc_isi_channel_set_scaling(struct mxc_isi_pipe *pipe,
@@ -323,8 +341,6 @@ static void mxc_isi_channel_set_control(struct mxc_isi_pipe *pipe,
 	if (pipe->chained)
 		val |= CHNL_CTRL_CHAIN_BUF(CHNL_CTRL_CHAIN_BUF_2_CHAIN);
 
-	val |= CHNL_CTRL_BLANK_PXL(0xff);
-
 	/* Input source (including VC configuration for CSI-2) */
 	if (input == MXC_ISI_INPUT_MEM) {
 		/*
@@ -340,7 +356,8 @@ static void mxc_isi_channel_set_control(struct mxc_isi_pipe *pipe,
 	} else {
 		val |= CHNL_CTRL_SRC_TYPE(CHNL_CTRL_SRC_TYPE_DEVICE);
 		val |= CHNL_CTRL_SRC_INPUT(input);
-		val |= CHNL_CTRL_MIPI_VC_ID(0); /* FIXME: For CSI-2 only */
+		val |= CHNL_CTRL_MIPI_VC_ID(pipe->vc & 0x3);
+		val |= CHNL_CTRL_VC_ID_1((pipe->vc >> 2) & 0x1);
 	}
 
 	mxc_isi_write(pipe, CHNL_CTRL, val);
@@ -363,6 +380,10 @@ void mxc_isi_channel_config(struct mxc_isi_pipe *pipe,
 	mxc_isi_write(pipe, CHNL_IMG_CFG,
 		      CHNL_IMG_CFG_HEIGHT(in_size->height) |
 		      CHNL_IMG_CFG_WIDTH(in_size->width));
+
+	/* temp, will verify with imx95 */
+	if (pipe->isi->pdata->raw32_chan_cfg)
+		mxc_isi_write(pipe, CHNL_IMG_CFG2, in_size->width);
 
 	/* Scaling */
 	mxc_isi_channel_set_scaling(pipe, in_encoding, in_size, scale,

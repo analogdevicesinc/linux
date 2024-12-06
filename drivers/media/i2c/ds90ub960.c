@@ -469,6 +469,8 @@ struct ub960_rxport {
 	} eq;
 
 	const struct i2c_client *aliased_clients[UB960_MAX_PORT_ALIASES];
+
+	u32 bc_gpio;
 };
 
 struct ub960_asd {
@@ -511,6 +513,7 @@ struct ub960_data {
 
 	struct v4l2_ctrl_handler   ctrl_handler;
 	struct v4l2_async_notifier notifier;
+	struct v4l2_fract interval;
 
 	u32 tx_data_rate;		/* Nominal data rate (Gb/s) */
 	s64 tx_link_freq[1];
@@ -524,6 +527,7 @@ struct ub960_data {
 	} reg_current;
 
 	bool streaming;
+	bool fsync_enabled;
 
 	u8 stored_fwd_ctl;
 
@@ -578,6 +582,11 @@ static const struct ub960_format_info ub960_formats[] = {
 	{ .code = MEDIA_BUS_FMT_SGBRG12_1X12, .bpp = 12, .datatype = MIPI_CSI2_DT_RAW12, },
 	{ .code = MEDIA_BUS_FMT_SGRBG12_1X12, .bpp = 12, .datatype = MIPI_CSI2_DT_RAW12, },
 	{ .code = MEDIA_BUS_FMT_SRGGB12_1X12, .bpp = 12, .datatype = MIPI_CSI2_DT_RAW12, },
+
+	{ .code = MEDIA_BUS_FMT_SBGGR16_1X16, .bpp = 16, .datatype = MIPI_CSI2_DT_RAW16, },
+	{ .code = MEDIA_BUS_FMT_SGBRG16_1X16, .bpp = 16, .datatype = MIPI_CSI2_DT_RAW16, },
+	{ .code = MEDIA_BUS_FMT_SGRBG16_1X16, .bpp = 16, .datatype = MIPI_CSI2_DT_RAW16, },
+	{ .code = MEDIA_BUS_FMT_SRGGB16_1X16, .bpp = 16, .datatype = MIPI_CSI2_DT_RAW16, },
 };
 
 static const struct ub960_format_info *ub960_find_format(u32 code)
@@ -1907,6 +1916,11 @@ static void ub960_init_rx_port_ub960(struct ub960_data *priv,
 	/* Configure EQ related settings */
 	ub960_rxport_config_eq(priv, nport);
 
+	/* Back channel GPIOx Select FrameSync signal */
+	ub960_rxport_write(priv, nport,
+			   UB960_RR_BC_GPIO_CTL(rxport->bc_gpio / 2),
+			   (rxport->bc_gpio & BIT(0)) ? 0xa0 : 0x0a);
+
 	/* Enable RX port */
 	ub960_update_bits(priv, UB960_SR_RX_PORT_CTL, BIT(nport), BIT(nport));
 }
@@ -2540,6 +2554,110 @@ static int ub960_configure_ports_for_streaming(struct ub960_data *priv,
 	return 0;
 }
 
+static void ub960_set_fsync_period(struct ub960_data *priv)
+{
+	struct ub960_rxport *rxport = priv->rxports[0];
+	struct v4l2_fract *interval = &priv->interval;
+	struct device *dev = &priv->client->dev;
+	u32 frame_period;
+	u32 fsync;
+	u8 fs_htime_0, fs_ltime_0, fs_ltime_1;
+
+	if (priv->fsync_enabled)
+		return;
+
+	/*
+	 * FrameSync Mode
+	 * [7:4] = 0000 : Internal Generated FrameSync,
+	 *		  use Back-channel frame clock from port 0
+	 * [7:4] = 0001 : Internal Generated FrameSync,
+	 *		  use Back-channel frame clock from port 1
+	 * [7:4] = 0010 : Internal Generated FrameSync,
+	 *		  use Back-channel frame clock from port 2
+	 * [7:4] = 0011 : Internal Generated FrameSync,
+	 *		  use Back-channel frame clock from port 3
+	 * [7:4] = 01xx : Internal Generated FrameSync, use 25MHz clock
+	 * [7:4] = 1000 : External FrameSync from GPIO0
+	 * [7:4] = 1001 : External FrameSync from GPIO1
+	 * [7:4] = 1010 : External FrameSync from GPIO2
+	 * [7:4] = 1011 : External FrameSync from GPIO3
+	 * [7:4] = 1100 : External FrameSync from GPIO4
+	 * [7:4] = 1101 : External FrameSync from GPIO5
+	 * [7:4] = 1110 : External FrameSync from GPIO6
+	 * [7:4] = 1111 : External FrameSync from GPIO7
+	 */
+	ub960_update_bits(priv, UB960_SR_FS_CTL, GENMASK(7, 4), 0);
+
+	/*
+	 * Initial State
+	 * [2] = 0 : FrameSync initial state is 0
+	 * [2] = 1 : FrameSync initial state is 1
+	 */
+	ub960_update_bits(priv, UB960_SR_FS_CTL, BIT(2), 0);
+
+	switch (rxport->rx_mode) {
+	case RXPORT_MODE_RAW10:
+	case RXPORT_MODE_RAW12_HF:
+	case RXPORT_MODE_RAW12_LF:
+		frame_period = 12000;
+		break;
+
+	case RXPORT_MODE_CSI2_NONSYNC:
+		frame_period = 100;
+		break;
+
+	case RXPORT_MODE_CSI2_SYNC:
+		frame_period = 600;
+		break;
+	default:
+		dev_warn(dev, "Invalid rx mode(%u)\n", rxport->rx_mode);
+		frame_period = 600;
+		break;
+	}
+
+	/* 1s/fps/frame_period(ns) */
+	fsync = div_u64((u64)interval->numerator * 1000 * 1000 * 1000,
+			interval->denominator * frame_period);
+
+	dev_dbg(dev, "fsync period %u (frame period %u)\n", fsync, frame_period);
+
+	fs_htime_0 = (fsync >> 16) & 0xff;
+	fs_ltime_1 = (fsync >> 8) & 0xff;
+	fs_ltime_0 = (fsync >> 0) & 0xff;
+
+	ub960_write(priv, UB960_SR_FS_HIGH_TIME_0, fs_htime_0);
+	ub960_write(priv, UB960_SR_FS_LOW_TIME_1, fs_ltime_1);
+	ub960_write(priv, UB960_SR_FS_LOW_TIME_0, fs_ltime_0);
+
+	/*
+	 * FrameSync Generation Enable
+	 * [0] = 0 : FrameSync disabled
+	 * [0] = 1 : FrameSync enabled
+	 *
+	 * FrameSync Generation Mode
+	 * [1] = 0: Hi/Lo
+	 *	    In Hi/Lo mode, the FrameSync generator will use the
+	 *	    FS_HIGH_TIME[15:0] and FS_LOW_TIME[15:0] register
+	 *	    values to separately control the High and Low periods
+	 *	    for the generated FrameSync signal
+	 * [1] = 1: 50/50
+	 *	    In 50/50 mode, the FrameSync generator will use the
+	 *	    values in the FS_HIGH_TIME_0, FS_LOW_TIME_1 and
+	 *	    FS_LOW_TIME_0 registers as a 24-bit value for both
+	 *	    the High and Low periods of the generated FrameSync
+	 *	    signal.
+
+	 */
+	ub960_update_bits(priv, UB960_SR_FS_CTL, BIT(0) | BIT(1), 0x3);
+	priv->fsync_enabled = true;
+}
+
+static void ub960_fsync_disabled(struct ub960_data *priv)
+{
+	ub960_write(priv, UB960_SR_FS_CTL, 0);
+	priv->fsync_enabled = false;
+}
+
 static void ub960_update_streaming_status(struct ub960_data *priv)
 {
 	unsigned int i;
@@ -2570,6 +2688,8 @@ static int ub960_enable_streams(struct v4l2_subdev *sd,
 		if (ret)
 			return ret;
 	}
+
+	ub960_set_fsync_period(priv);
 
 	/* Enable TX port if not yet enabled */
 	if (!priv->stream_enable_mask[source_pad]) {
@@ -2713,9 +2833,11 @@ static int ub960_disable_streams(struct v4l2_subdev *sd,
 
 	priv->stream_enable_mask[source_pad] &= ~source_streams_mask;
 
-	if (!priv->stream_enable_mask[source_pad])
+	if (!priv->stream_enable_mask[source_pad]) {
 		ub960_disable_tx_port(priv,
 				      ub960_pad_to_port(priv, source_pad));
+		ub960_fsync_disabled(priv);
+	}
 
 	ub960_update_streaming_status(priv);
 
@@ -2906,6 +3028,34 @@ static int ub960_set_fmt(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int ub960_get_frame_interval(struct v4l2_subdev *sd,
+				    struct v4l2_subdev_state *state,
+				    struct v4l2_subdev_frame_interval *fi)
+{
+	struct ub960_data *priv = sd_to_ub960(sd);
+
+	if (ub960_pad_is_sink(priv, fi->pad))
+		return -EINVAL;
+
+	fi->interval = priv->interval;
+
+	return 0;
+}
+
+static int ub960_set_frame_interval(struct v4l2_subdev *sd,
+				    struct v4l2_subdev_state *state,
+				    struct v4l2_subdev_frame_interval *fi)
+{
+	struct ub960_data *priv = sd_to_ub960(sd);
+
+	if (ub960_pad_is_sink(priv, fi->pad))
+		return -EINVAL;
+
+	priv->interval = fi->interval;
+
+	return 0;
+}
+
 static int ub960_init_state(struct v4l2_subdev *sd,
 			    struct v4l2_subdev_state *state)
 {
@@ -2938,6 +3088,9 @@ static const struct v4l2_subdev_pad_ops ub960_pad_ops = {
 
 	.get_fmt = v4l2_subdev_get_fmt,
 	.set_fmt = ub960_set_fmt,
+
+	.get_frame_interval = ub960_get_frame_interval,
+	.set_frame_interval = ub960_set_frame_interval,
 };
 
 static int ub960_log_status(struct v4l2_subdev *sd)
@@ -3201,6 +3354,7 @@ ub960_parse_dt_rxport_link_properties(struct ub960_data *priv,
 	s32 strobe_pos;
 	u32 eq_level;
 	u32 ser_i2c_alias;
+	u32 bc_gpio;
 	int ret;
 
 	cdr_mode = RXPORT_CDR_FPD3;
@@ -3305,6 +3459,14 @@ ub960_parse_dt_rxport_link_properties(struct ub960_data *priv,
 		return ret;
 	}
 	rxport->ser.alias = ser_i2c_alias;
+
+	ret = fwnode_property_read_u32(link_fwnode, "ti,bc-gpio", &bc_gpio);
+	if (ret) {
+		dev_err(dev, "rx%u: failed to read '%s': %d\n", nport,
+			"ti,bc-gpio", ret);
+		return ret;
+	}
+	rxport->bc_gpio = bc_gpio;
 
 	rxport->ser.fwnode = fwnode_get_named_child_node(link_fwnode, "serializer");
 	if (!rxport->ser.fwnode) {
@@ -3905,6 +4067,9 @@ static int ub960_probe(struct i2c_client *client)
 	priv->reg_current.indirect_target = 0xff;
 	priv->reg_current.rxport = 0xff;
 	priv->reg_current.txport = 0xff;
+
+	priv->interval.numerator = 1;
+	priv->interval.denominator = 30;
 
 	ret = ub960_get_hw_resources(priv);
 	if (ret)

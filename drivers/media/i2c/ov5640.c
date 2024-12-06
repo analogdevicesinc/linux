@@ -545,6 +545,7 @@ static const struct v4l2_mbus_framefmt ov5640_dvp_default_fmt = {
 
 static const struct reg_value ov5640_init_setting[] = {
 	{0x3103, 0x11, 0, 0},
+	{0x3008, 0x82, 0, 3}, {0x3008, 0x42, 0, 5},
 	{0x3103, 0x03, 0, 0}, {0x3630, 0x36, 0, 0},
 	{0x3631, 0x0e, 0, 0}, {0x3632, 0xe2, 0, 0}, {0x3633, 0x12, 0, 0},
 	{0x3621, 0xe0, 0, 0}, {0x3704, 0xa0, 0, 0}, {0x3703, 0x5a, 0, 0},
@@ -2726,6 +2727,11 @@ power_off:
 	return ret;
 }
 
+static int ov5640_s_power(struct v4l2_subdev *sd, int on)
+{
+	return 0;
+}
+
 static int ov5640_sensor_suspend(struct device *dev)
 {
 	struct v4l2_subdev *sd = dev_get_drvdata(dev);
@@ -2801,10 +2807,10 @@ static int ov5640_get_fmt(struct v4l2_subdev *sd,
 	else
 		fmt = &sensor->fmt;
 
+	fmt->reserved[1] = (sensor->current_fr == OV5640_30_FPS) ? 30 : 15;
 	format->format = *fmt;
 
 	mutex_unlock(&sensor->lock);
-
 	return 0;
 }
 
@@ -3780,6 +3786,7 @@ static int ov5640_init_state(struct v4l2_subdev *sd,
 }
 
 static const struct v4l2_subdev_core_ops ov5640_core_ops = {
+	.s_power = ov5640_s_power,
 	.log_status = v4l2_ctrl_subdev_log_status,
 	.subscribe_event = v4l2_ctrl_subdev_subscribe_event,
 	.unsubscribe_event = v4l2_event_subdev_unsubscribe,
@@ -3808,6 +3815,17 @@ static const struct v4l2_subdev_ops ov5640_subdev_ops = {
 
 static const struct v4l2_subdev_internal_ops ov5640_internal_ops = {
 	.init_state = ov5640_init_state,
+};
+
+static int ov5640_link_setup(struct media_entity *entity,
+			   const struct media_pad *local,
+			   const struct media_pad *remote, u32 flags)
+{
+	return 0;
+}
+
+static const struct media_entity_operations ov5640_sd_media_ops = {
+	.link_setup = ov5640_link_setup,
 };
 
 static int ov5640_get_regulators(struct ov5640_dev *sensor)
@@ -3929,6 +3947,7 @@ static int ov5640_probe(struct i2c_client *client)
 	sensor->sd.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE |
 			    V4L2_SUBDEV_FL_HAS_EVENTS;
 	sensor->pad.flags = MEDIA_PAD_FL_SOURCE;
+	sensor->sd.entity.ops = &ov5640_sd_media_ops;
 	sensor->sd.entity.function = MEDIA_ENT_F_CAM_SENSOR;
 	ret = media_entity_pads_init(&sensor->sd.entity, 1, &sensor->pad);
 	if (ret)

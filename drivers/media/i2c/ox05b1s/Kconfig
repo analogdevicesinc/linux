@@ -1,0 +1,11 @@
+config VIDEO_OX05B1S
+	tristate "OmniVision raw sensor support OX05B1S"
+	depends on OF
+	depends on GPIOLIB && VIDEO_V4L2_I2C && VIDEO_V4L2_SUBDEV_API
+	depends on MEDIA_CAMERA_SUPPORT
+	select V4L2_FWNODE
+	help
+	  This is a Video4Linux2 sensor driver for the Omnivision OX05B1S RGB-IR sensor.
+	  This is a 1/2.5-Inch CMOS image sensor with an active array size of 2592 x 1944.
+	  It is programmable through I2C interface.
+	  The output is on MIPI CSI-2 interface.
