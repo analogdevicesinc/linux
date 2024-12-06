@@ -204,6 +204,7 @@
 #define IMX93_CLK_A55_SEL		199
 #define IMX93_CLK_A55_CORE		200
 #define IMX93_CLK_PDM_IPG		201
-#define IMX93_CLK_END			202
+#define IMX93_CLK_SPDIF_IPG		202
+#define IMX93_CLK_END			203
 
 #endif

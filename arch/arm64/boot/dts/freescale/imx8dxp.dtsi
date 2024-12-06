@@ -8,9 +8,6 @@
 
 #include "imx8qxp.dtsi"
 
-/delete-node/ &A35_2;
-/delete-node/ &A35_3;
-
 &thermal_zones {
 	cpu0-thermal {
 		cooling-maps {
@@ -21,4 +18,9 @@
 			};
 		};
 	};
+};
+
+&cpus {
+	/delete-node/ cpu@2;
+	/delete-node/ cpu@3;
 };

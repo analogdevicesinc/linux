@@ -1,0 +1,192 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/nxp,imx95-clock.h>
+#include <dt-bindings/gpio/gpio.h>
+
+&{/} {
+	reg_dvdd_1v2: regulator-dvdd {
+		compatible = "regulator-fixed";
+		regulator-name = "DVDD_1V2";
+		gpio = <&adp5585_isp 7 GPIO_ACTIVE_HIGH>;
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		enable-active-high;
+	};
+
+	reg_vddio_1v8: regulator-vddo {
+		compatible = "regulator-fixed";
+		regulator-name = "VDDIO_1V8";
+		gpio = <&adp5585_isp 6 GPIO_ACTIVE_HIGH>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		enable-active-high;
+	};
+
+	reg_avdd_2v8: regulator-avdd {
+		compatible = "regulator-fixed";
+		regulator-name = "AVDD_2V8";
+		gpio = <&adp5585_isp 8 GPIO_ACTIVE_HIGH>;
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+		enable-active-high;
+	};
+
+	reg_hmisc_vddio: regulator-hmisc-vddio {
+		compatible = "regulator-fixed";
+		regulator-name = "HMISC_VDDIO_1V8";
+		gpio = <&adp5585_isp 10 GPIO_ACTIVE_HIGH>;
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		enable-active-high;
+	};
+};
+
+&pcal6524 {
+	mipi-csi-minisas-sel-hog {
+		gpio-hog;
+		gpios = <16 GPIO_ACTIVE_HIGH>;
+		output-low;
+		status = "okay";
+	};
+};
+
+&lpi2c4 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	adp5585_isp: io-expander-isp@34 {
+		compatible = "adi,adp5585-01", "adi,adp5585";
+		reg = <0x34>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		#pwm-cells = <3>;
+	};
+
+	ap1302: ap1302_mipi@3c {
+		compatible = "onnn,ap1302";
+		reg = <0x3c>;
+		clocks = <&osc_24m>;
+		reset-gpios   = <&pcal6524 17 GPIO_ACTIVE_LOW>;
+		isp_en-gpios  = <&adp5585_isp 2 GPIO_ACTIVE_HIGH>;
+		orientation = <2>;
+		rotation = <0>;
+		DVDD-supply   = <&reg_dvdd_1v2>;
+		VDDIO_HMISC-supply  = <&reg_hmisc_vddio>;
+		VDDIO_SMISC-supply   = <&reg_hmisc_vddio>;
+		status = "okay";
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+			};
+
+			port@1 {
+				reg = <1>;
+			};
+
+			port@2 {
+				reg = <2>;
+				isp_out: endpoint {
+					remote-endpoint = <&mipi_csi0_ep>;
+					data-lanes = <1 2 3 4>;
+				};
+			};
+		};
+
+		sensors {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			onnn,model = "onnn,ar0144";
+
+			sensor@0 {
+				reg = <0>;
+
+				vdd-supply = <&reg_dvdd_1v2>;
+				vddio-supply = <&reg_vddio_1v8>;
+				vaa-supply = <&reg_avdd_2v8>;
+			};
+		};
+	};
+};
+
+&dphy_rx {
+	status = "okay";
+};
+
+&mipi_csi0 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			mipi_csi0_ep: endpoint {
+				remote-endpoint = <&isp_out>;
+				data-lanes = <1 2 3 4>;
+				clock-lanes = <0>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+				mipi_csi0_out: endpoint {
+				remote-endpoint = <&formatter_0_in>;
+			};
+		};
+	};
+};
+
+&csi_pixel_formatter_0 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			formatter_0_in: endpoint {
+				remote-endpoint = <&mipi_csi0_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			formatter_0_out: endpoint {
+				remote-endpoint = <&isi_in_2>;
+			};
+		};
+	};
+};
+
+&isi {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@2 {
+			reg = <2>;
+
+			isi_in_2: endpoint {
+				remote-endpoint = <&formatter_0_out>;
+			};
+		};
+	};
+};

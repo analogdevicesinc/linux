@@ -1,0 +1,25 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+#include "imx8ulp-9x9-evk.dts"
+
+/ {
+	cpus {
+		idle-states {
+			cpu_sleep: cpu-sleep {
+				/delete-property/ local-timer-stop;
+			};
+		};
+	};
+};
+
+&tpm5 {
+	timer-rating = <410>;
+};
+
+&tpm6 {
+	timer-rating = <410>;
+	status = "okay";
+};

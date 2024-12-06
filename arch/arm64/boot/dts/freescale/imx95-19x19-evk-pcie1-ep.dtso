@@ -1,0 +1,22 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 NXP
+ */
+
+/dts-v1/;
+/plugin/;
+
+&smmu {
+       status = "disabled";
+};
+
+
+&pcie1 {
+	status = "disabled";
+};
+
+&pcie1_ep {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pcie1>;
+	status = "okay";
+};

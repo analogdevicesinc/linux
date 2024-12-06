@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+#include "imx91-11x11-evk.dts"
+
+/* Unbind lpuart5 from Bluetooth, use it for lpuart test. */
+&lpuart5 {
+	/delete-node/ bluetooth;
+};
+
+&lpuart6 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart6>;
+	status = "okay";
+};
+
+/*
+ * uart test port1. Note: don't use Bluetooth at the sametime.
+ * J1001: Pin27--TX Pin28--RX Pin3--CTS Pin5--RTS
+ */
+&pinctrl_uart5 {
+	fsl,pins = <
+		MX91_PAD_GPIO_IO00__LPUART5_TX      0x31e
+		MX91_PAD_GPIO_IO01__LPUART5_RX      0x31e
+		MX91_PAD_GPIO_IO02__LPUART5_CTS_B   0x31e
+		MX91_PAD_GPIO_IO03__LPUART5_RTS_B   0x31e
+	>;
+};
+
+&iomuxc {
+/* uart test port2: J1001: Pin7--TX Pin29--RX Pin31--CTS Pin26--RTS */
+	pinctrl_uart6: uart6grp {
+		fsl,pins = <
+			MX91_PAD_GPIO_IO04__LPUART6_TX		0x31e
+			MX91_PAD_GPIO_IO05__LPUART6_RX		0x31e
+			MX91_PAD_GPIO_IO06__LPUART6_CTS_B	0x31e
+			MX91_PAD_GPIO_IO07__LPUART6_RTS_B	0x31e
+		>;
+	};
+};

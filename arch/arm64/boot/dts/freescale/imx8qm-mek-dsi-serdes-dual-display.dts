@@ -1,0 +1,240 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2018-2019 NXP
+ *	Dong Aisheng <aisheng.dong@nxp.com>
+ */
+
+/dts-v1/;
+
+#include "imx8qm-mek.dts"
+
+/delete-node/ &adv_bridge0;
+/delete-node/ &adv_bridge1;
+
+&mipi0_dphy {
+	status = "okay";
+};
+
+&mipi0_dsi_host {
+	status = "okay";
+
+	ports {
+		port@1 {
+			reg = <1>;
+			mipi0_out: endpoint {
+				remote-endpoint = <&max96789_dsi_a_in>;
+			};
+		};
+	};
+};
+
+&i2c0_mipi0 {
+	clock-frequency = <1000000>;
+	status = "okay";
+
+	max96789: mipi_dsi_serializer@40 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		compatible = "maxim,max96789";
+		reg = <0x40>;
+		status = "okay";
+
+		maxim,gmsl-links-types = <2 2>;
+		maxim,gmsl2-link-speed = <6>;
+
+		max96789_dsi_bridge@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			reg = <0>;
+
+			compatible = "maxim,max96789-dsi";
+
+			port {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				max96789_dsi_a_in: endpoint@0 {
+					reg = <0>;
+
+					remote-endpoint = <&mipi0_out>;
+					data-lanes = <1 2 3 4>;
+				};
+
+				max96789_video_a_out: endpoint@1 {
+					reg = <1>;
+
+					remote-endpoint = <&max96752_1_video_in>;
+				};
+			};
+		};
+
+		max96789_dsi_bridge@1 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			reg = <1>;
+
+			compatible = "maxim,max96789-dsi";
+
+			port {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				max96789_dsi_b_in: endpoint@0 {
+					reg = <0>;
+
+					remote-endpoint = <&mipi1_out>;
+					data-lanes = <1 2 3 4>;
+				};
+
+				max96789_video_b_out: endpoint@1 {
+					reg = <1>;
+
+					remote-endpoint = <&max96752_2_video_in>;
+				};
+			};
+		};
+
+		i2c-mux {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* gmsl a */
+			i2c@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				reg = <0>;
+
+				max96752_1: mipi_dsi_deserializer@48 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					compatible = "maxim,max96752";
+					reg = <0x48>;
+					status = "okay";
+
+					maxim,gmsl2-link-speed = <6>;
+
+					max96752_lvds_bridge {
+						#address-cells = <1>;
+						#size-cells = <0>;
+
+						compatible = "maxim,max96752-lvds";
+
+						port {
+							#address-cells = <1>;
+							#size-cells = <0>;
+
+							max96752_1_video_in: endpoint@0 {
+								reg = <0>;
+
+								remote-endpoint = <&max96789_video_a_out>;
+							};
+
+							max96752_1_lvds_a_out: endpoint@1 {
+								reg = <1>;
+
+								remote-endpoint = <&it6263_a_in>;
+							};
+						};
+					};
+
+					i2c-gate {
+						#address-cells = <1>;
+						#size-cells = <0>;
+
+						lvds-to-hdmi-bridge@4c {
+							compatible = "ite,it6263";
+							reg = <0x4c>;
+
+							port {
+								it6263_a_in: endpoint {
+									remote-endpoint = <&max96752_1_lvds_a_out>;
+								};
+							};
+						};
+					};
+				};
+			};
+
+			/* gmsl b */
+			i2c@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				reg = <1>;
+
+				max96752_2: mipi_dsi_deserializer@48 {
+					#address-cells = <1>;
+					#size-cells = <0>;
+
+					compatible = "maxim,max96752";
+					reg = <0x48>, <0x49>;
+					status = "okay";
+
+					maxim,gmsl2-link-speed = <6>;
+
+					max96752_lvds_bridge {
+						#address-cells = <1>;
+						#size-cells = <0>;
+
+						compatible = "maxim,max96752-lvds";
+
+						port {
+							#address-cells = <1>;
+							#size-cells = <0>;
+
+							max96752_2_video_in: endpoint@0 {
+								reg = <0>;
+
+								remote-endpoint = <&max96789_video_b_out>;
+							};
+
+							max96752_2_lvds_a_out: endpoint@1 {
+								reg = <1>;
+
+								remote-endpoint = <&it6263_b_in>;
+							};
+						};
+					};
+
+					i2c-gate {
+						#address-cells = <1>;
+						#size-cells = <0>;
+
+						lvds-to-hdmi-bridge@4c {
+							compatible = "ite,it6263";
+							reg = <0x4c>;
+
+							port {
+								it6263_b_in: endpoint {
+									remote-endpoint = <&max96752_2_lvds_a_out>;
+								};
+							};
+						};
+					};
+				};
+			};
+		};
+	};
+};
+
+&mipi1_dphy {
+	status = "okay";
+};
+
+&mipi1_dsi_host {
+	status = "okay";
+
+	ports {
+		port@1 {
+			reg = <1>;
+			mipi1_out: endpoint {
+				remote-endpoint = <&max96789_dsi_b_in>;
+			};
+		};
+	};
+};

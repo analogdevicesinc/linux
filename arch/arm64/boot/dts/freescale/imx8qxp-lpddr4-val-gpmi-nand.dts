@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2017 NXP
+ */
+
+#include "imx8qxp-lpddr4-val.dts"
+
+&iomuxc {
+	pinctrl_gpmi_nand_1: gpmi-nand-1 {
+		fsl,pins = <
+			IMX8QXP_EMMC0_CLK_CONN_NAND_READY_B	0x0e00004c
+			IMX8QXP_EMMC0_DATA0_CONN_NAND_DATA00	0x0e00004c
+			IMX8QXP_EMMC0_DATA1_CONN_NAND_DATA01	0x0e00004c
+			IMX8QXP_EMMC0_DATA2_CONN_NAND_DATA02	0x0e00004c
+			IMX8QXP_EMMC0_DATA3_CONN_NAND_DATA03	0x0e00004c
+			IMX8QXP_EMMC0_DATA4_CONN_NAND_DATA04	0x0e00004c
+			IMX8QXP_EMMC0_DATA5_CONN_NAND_DATA05	0x0e00004c
+			IMX8QXP_EMMC0_DATA6_CONN_NAND_DATA06	0x0e00004c
+			IMX8QXP_EMMC0_DATA7_CONN_NAND_DATA07	0x0e00004c
+			IMX8QXP_EMMC0_STROBE_CONN_NAND_CLE		0x0e00004c
+			IMX8QXP_EMMC0_RESET_B_CONN_NAND_WP_B	0x0e00004c
+
+			IMX8QXP_USDHC1_DATA0_CONN_NAND_CE1_B	0x0e00004c
+			IMX8QXP_USDHC1_DATA2_CONN_NAND_WE_B	0x0e00004c
+			IMX8QXP_USDHC1_DATA3_CONN_NAND_ALE		0x0e00004c
+			IMX8QXP_USDHC1_CMD_CONN_NAND_CE0_B		0x0e00004c
+
+			/* i.MX8QXP NAND use nand_re_dqs_pins */
+			IMX8QXP_USDHC1_CD_B_CONN_NAND_DQS	0x0e00004c
+			IMX8QXP_USDHC1_VSELECT_CONN_NAND_RE_B	0x0e00004c
+
+		>;
+	};
+};
+
+&gpmi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_gpmi_nand_1>;
+	status = "okay";
+	nand-on-flash-bbt;
+	fsl,use-minimum-ecc;
+};
+
+/* Disabled the usdhc1/usdhc2 since pin conflict */
+&usdhc1 {
+	status = "disabled";
+};
+
+&usdhc2 {
+	status = "disabled";
+};

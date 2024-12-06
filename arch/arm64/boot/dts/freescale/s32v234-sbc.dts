@@ -1,0 +1,187 @@
+/*
+ * Copyright 2015-2016 Freescale Semiconductor, Inc.
+ * Copyright 2017 MicroSys Electronics GmbH
+ * Copyright 2018-2019 NXP
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ */
+
+/dts-v1/;
+
+#include "s32v234.dtsi"
+
+/ {
+	model = "Freescale S32V234";
+	compatible = "fsl,s32v234-sbc", "fsl,s32v234";
+
+	chosen {
+		stdout-path = "serial0:115200n8";
+	};
+};
+
+&can0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can0>;
+	status = "okay";
+};
+
+&can1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can1>;
+	status = "okay";
+};
+
+&edma {
+	status = "okay";
+};
+
+&fec {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_enet>;
+	phy-mode = "rgmii-id";
+	phy-handle = <&phy0>;
+	status = "okay";
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		phy0: ethernet-phy@1 {
+			reg = <1>;
+		};
+	};
+};
+
+&siul2 {
+	status = "okay";
+
+	s32v234-sbc {
+		/* Format of pins: MSCR_IDX PAD_CONFIGURATION If you know the
+		 * IMCR_IDX instead of MSCR_IDX, add 512 to it as the Reference
+		 * Manual states.
+		 */
+
+		pinctrl_can0: can0grp {
+			fsl,pins = <
+				S32V234_PAD_PA2__CAN_FD0_TXD
+				S32V234_PAD_PA3__CAN_FD0_RXD_OUT
+				S32V234_PAD_PA3__CAN_FD0_RXD_IN
+				/*
+				 * Configure pin C12 as GPIO[6] in MSCR#6.
+				 * Effect: the S-pin at CAN is not longer
+				 * flowting at ~0.75V, but driven to low ~0.0V.
+				 */
+				S32V234_MSCR_PA6 (PAD_CTL_MUX_MODE_ALT0 \
+							| PAD_CTL_OBE \
+							| PAD_CTL_DSE_34 \
+							| PAD_CTL_PUS_33K_UP)
+			>;
+		};
+
+		pinctrl_can1: can1grp {
+			fsl,pins = <
+				S32V234_PAD_PA4__CAN_FD1_TXD
+				S32V234_PAD_PA5__CAN_FD1_RXD_OUT
+				S32V234_PAD_PA5__CAN_FD1_RXD_IN
+				/*
+				 * Configure pin C11 as GPIO[7] in MSCR#7.
+				 * Effect: the S-pin at CAN is not longer
+				 * flowting at ~0.39V, but driven to low ~0.0V.
+				 */
+				S32V234_MSCR_PA7 (PAD_CTL_MUX_MODE_ALT0 \
+							| PAD_CTL_OBE \
+							| PAD_CTL_DSE_34 \
+							| PAD_CTL_PUS_33K_UP)
+			>;
+		};
+
+		pinctrl_enet: enetgrp {
+			fsl,pins = <
+				S32V234_PAD_PC13__MDC
+				S32V234_PAD_PC14__MDIO_OUT
+				S32v234_PAD_PC14__MDIO_IN
+				S32V234_PAD_PC15__TXCLK_OUT
+				S32V234_PAD_PC15__TXCLK_IN
+				S32V234_PAD_PD0__RXCLK_OUT
+				S32V234_PAD_PD0__RXCLK_IN
+				S32V234_PAD_PD1__RX_D0_OUT
+				S32V234_PAD_PD1__RX_D0_IN
+				S32V234_PAD_PD2__RX_D1_OUT
+				S32V234_PAD_PD2__RX_D1_IN
+				S32V234_PAD_PD3__RX_D2_OUT
+				S32V234_PAD_PD3__RX_D2_IN
+				S32V234_PAD_PD4__RX_D3_OUT
+				S32V234_PAD_PD4__RX_D3_IN
+				S32V234_PAD_PD4__RX_DV_OUT
+				S32V234_PAD_PD4__RX_DV_IN
+				S32V234_PAD_PD7__TX_D0_OUT
+				S32V234_PAD_PD8__TX_D1_OUT
+				S32V234_PAD_PD9__TX_D2_OUT
+				S32V234_PAD_PD10__TX_D3_OUT
+				S32V234_PAD_PD11__TX_EN_OUT
+			>;
+		};
+
+		pinctrl_uart0: uart0grp {
+			fsl,pins = <
+				S32V234_PAD_PA12__UART0_TXD
+				S32V234_PAD_PA11__UART0_RXD_OUT
+				S32V234_PAD_PA11__UART0_RXD_IN
+			>;
+		};
+
+		pinctrl_uart1: uart1grp {
+			fsl,pins = <
+				S32V234_PAD_PA14__UART1_TXD
+				S32V234_PAD_PA13__UART1_RXD_OUT
+				S32V234_PAD_PA13__UART1_RXD_IN
+			>;
+		};
+
+		pinctrl_usdhc0: usdhc0grp {
+			fsl,pins = <
+				S32V234_PAD_PK6__USDHC_CLK_OUT
+				S32V234_PAD_PK6__USDHC_CLK_IN
+				S32V234_PAD_PK7__USDHC_CMD_OUT
+				S32V234_PAD_PK7__USDHC_CMD_IN
+				S32V234_PAD_PK8__USDHC_DAT0_OUT
+				S32V234_PAD_PK8__USDHC_DAT0_IN
+				S32V234_PAD_PK9__USDHC_DAT1_OUT
+				S32V234_PAD_PK9__USDHC_DAT1_IN
+				S32V234_PAD_PK10__USDHC_DAT2_OUT
+				S32V234_PAD_PK10__USDHC_DAT2_IN
+				S32V234_PAD_PK11__USDHC_DAT3_OUT
+				S32V234_PAD_PK11__USDHC_DAT3_IN
+				S32V234_PAD_PK15__USDHC_DAT4_OUT
+				S32V234_PAD_PK15__USDHC_DAT4_IN
+				S32V234_PAD_PL0__USDHC_DAT5_OUT
+				S32V234_PAD_PL0__USDHC_DAT5_IN
+				S32V234_PAD_PL1__USDHC_DAT6_OUT
+				S32V234_PAD_PL1__USDHC_DAT6_IN
+				S32V234_PAD_PL2__USDHC_DAT7_OUT
+				S32V234_PAD_PL2__USDHC_DAT7_IN
+			>;
+		};
+	};
+};
+
+&uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart0>;
+	status = "okay";
+};
+
+&uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart1>;
+	status = "okay";
+};
+
+&usdhc0 {
+	no-1-8-v;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usdhc0>;
+	status = "okay";
+};

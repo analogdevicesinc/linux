@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2022 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8qxp-mek-rpmsg.dts"
+#include "imx8qxp-mek-dsi-rm67191.dtsi"
+
+&mipi0_dsi_host {
+	panel@0 {
+		compatible = "raydium,rm67199";
+	};
+};
+
+&mipi1_dsi_host {
+	panel@0 {
+		compatible = "raydium,rm67199";
+	};
+};

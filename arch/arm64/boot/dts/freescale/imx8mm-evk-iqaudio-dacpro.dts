@@ -1,0 +1,12 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2020 NXP.
+ */
+
+#include "imx8mm-evk-iqaudio-dacplus.dts"
+
+&i2c3 {
+	pcm512x: pcm512x@4c {
+		compatible = "ti,pcm5142";
+	};
+};

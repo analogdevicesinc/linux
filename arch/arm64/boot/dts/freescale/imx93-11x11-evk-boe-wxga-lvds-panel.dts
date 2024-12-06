@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2022,2024 NXP
+ */
+
+#include "imx93-11x11-evk.dts"
+
+/ {
+	lvds_panel {
+		compatible = "boe,ev121wxm-n10-1850";
+		backlight = <&backlight_lvds>;
+
+		port {
+			panel_lvds_in: endpoint {
+				remote-endpoint = <&lvds_out>;
+			};
+		};
+	};
+};
+
+&adv7535 {
+	status = "disabled";
+};
+
+&backlight_lvds {
+	status = "okay";
+};
+
+&dphy {
+	status = "disabled";
+};
+
+&dsi {
+	status = "disabled";
+};
+
+&lcdif {
+	assigned-clock-rates = <498000000>, <71142857>, <400000000>, <133333333>;
+};
+
+&ldb {
+	status = "okay";
+
+	lvds-channel@0 {
+		status = "okay";
+
+		port@1 {
+			reg = <1>;
+
+			lvds_out: endpoint {
+				remote-endpoint = <&panel_lvds_in>;
+			};
+		};
+	};
+};
+
+&ldb_phy {
+	status = "okay";
+};
+
+&lpi2c1 {
+	exc80h60: touch@2a {
+		compatible = "eeti,exc80h60";
+		reg = <0x2a>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_ctp_int>;
+		/*
+		 * Need to do hardware rework here:
+		 * remove R131, short R181
+		 */
+		interrupt-parent = <&gpio2>;
+		interrupts = <21 IRQ_TYPE_LEVEL_LOW>;
+		reset-gpios = <&pcal6524 17 GPIO_ACTIVE_HIGH>;
+		status = "okay";
+	};
+};
+
+&iomuxc {
+	pinctrl_ctp_int: ctp_int_grp {
+		fsl,pins = <
+			MX93_PAD_GPIO_IO21__GPIO2_IO21          0x31e
+		>;
+	};
+};

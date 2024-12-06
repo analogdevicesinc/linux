@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0
+//
+// Copyright (C) 2015 Freescale Semiconductor, Inc.
+
+#include "imx6ul-14x14-evk.dts"
+
+
+&csi {
+	status = "okay";
+};
+
+&ov5640 {
+	status = "okay";
+};
+
+&sim2 {
+	status = "disabled";
+};

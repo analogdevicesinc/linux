@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019, 2024 NXP
+ */
+
+#include <dt-bindings/firmware/imx/rsrc.h>
+
+security_subsys: bus@31400000 {
+	compatible = "simple-bus";
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges = <0x31400000 0x0 0x31400000 0x410000>;
+
+	crypto: crypto@31400000 {
+		compatible = "fsl,sec-v4.0";
+		reg = <0x31400000 0x90000>;
+		interrupts = <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0 0x31400000 0x90000>;
+		fsl,sec-era = <9>;
+		power-domains = <&pd IMX_SC_R_CAAM_JR2>;
+		power-domain-names = "jr";
+
+		sec_jr2: jr@30000 {
+			compatible = "fsl,sec-v4.0-job-ring";
+			reg = <0x30000 0x10000>;
+			interrupts = <GIC_SPI 453 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&pd IMX_SC_R_CAAM_JR2>;
+			power-domain-names = "jr";
+		};
+
+		sec_jr3: jr@40000 {
+			compatible = "fsl,sec-v4.0-job-ring";
+			reg = <0x40000 0x10000>;
+			interrupts = <GIC_SPI 454 IRQ_TYPE_LEVEL_HIGH>;
+			power-domains = <&pd IMX_SC_R_CAAM_JR3>;
+			power-domain-names = "jr";
+		};
+	};
+
+	caam_sm: caam-sm@31800000 {
+		compatible = "fsl,imx6q-caam-sm";
+		reg = <0x31800000 0x10000>;
+	};
+
+	sec_mu2: mu@31560000 {
+		compatible = "fsl,imx8-mu-seco";
+		reg = <0x31560000 0x10000>;
+		interrupts = <GIC_SPI 448 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <2>;
+		power-domains = <&pd IMX_SC_R_SECO_MU_2>;
+		status = "okay";
+	};
+
+	sec_mu3: mu@31570000 {
+		compatible = "fsl,imx8-mu-seco";
+		reg = <0x31570000 0x10000>;
+		interrupts = <GIC_SPI 449 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <2>;
+		power-domains = <&pd IMX_SC_R_SECO_MU_3>;
+		status = "okay";
+	};
+
+	sec_mu4: mu@31580000 {
+		compatible = "fsl,imx8-mu-seco";
+		reg = <0x31580000 0x10000>;
+		interrupts = <GIC_SPI 450 IRQ_TYPE_LEVEL_HIGH>;
+		#mbox-cells = <2>;
+		power-domains = <&pd IMX_SC_R_SECO_MU_4>;
+		status = "disabled";
+	};
+};
+
+seco_mu1: secure-enclave-0 {
+	compatible = "fsl,imx8dxl-se";
+	mbox-names = "txdb", "rxdb";
+	mboxes = <&sec_mu2 2 0
+		  &sec_mu2 3 0>;
+};
+
+seco_mu2: secure-envlave-1{
+	compatible = "fsl,imx8dxl-se";
+	mbox-names = "txdb", "rxdb";
+	mboxes = <&sec_mu3 2 0
+		  &sec_mu3 3 0>;
+	nvmem = <&ocotp>;
+};
+
+seco_mu3: seco_mu3 {
+	compatible = "fsl,imx-seco-mu";
+	mbox-names = "txdb", "rxdb";
+	mboxes = <&sec_mu4 2 0
+		  &sec_mu4 3 0>;
+
+	fsl,seco_mu_id = <3>;
+	fsl,seco_max_users = <4>;
+	status = "disabled";
+};

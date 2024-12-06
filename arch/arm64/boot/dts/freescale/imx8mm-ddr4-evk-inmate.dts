@@ -1,0 +1,164 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2019 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8mm.dtsi"
+
+/ {
+	model = "Freescale i.MX8MM EVK";
+	compatible = "fsl,imx8mm-evk", "fsl,imx8mm";
+	interrupt-parent = <&gic>;
+
+	timer {
+		compatible = "arm,armv8-timer";
+		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>, /* Physical Secure */
+			     <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>, /* Physical Non-Secure */
+			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>, /* Virtual */
+			     <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(6) | IRQ_TYPE_LEVEL_LOW)>; /* Hypervisor */
+		clock-frequency = <8333333>;
+	};
+
+	clk_dummy: clock@7 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <0>;
+		clock-output-names = "clk_dummy";
+	};
+
+	/* The clocks are configured by 1st OS */
+	clk_266m: clock@9 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <266000000>;
+		clock-output-names = "266m";
+	};
+	clk_80m: clock@10 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <80000000>;
+		clock-output-names = "80m";
+	};
+	clk_100m: clock@11 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <100000000>;
+		clock-output-names = "100m";
+	};
+
+	display-subsystem {
+		/delete-property/ compatible;
+	};
+
+	pci@bb800000 {
+		compatible = "pci-host-ecam-generic";
+		device_type = "pci";
+		bus-range = <0 0>;
+		#address-cells = <3>;
+		#size-cells = <2>;
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 7>;
+		interrupt-map = <0 0 0 1 &gic GIC_SPI 76 IRQ_TYPE_EDGE_RISING>;
+		reg = <0x0 0xbb800000 0x0 0x100000>;
+		ranges = <0x02000000 0x00 0x10000000 0x0 0x10000000 0x00 0x10000>;
+	};
+};
+
+/delete-node/ &{/reserved-memory};
+/delete-node/ &{/busfreq};
+/delete-node/ &{/soc@0/ddr-pmu@3d800000};
+
+&gpc {
+	status = "disabled";
+};
+
+&gpio1 {
+	status = "disabled";
+};
+&gpio2 {
+	status = "disabled";
+};
+&gpio3 {
+	status = "disabled";
+};
+&gpio4 {
+	status = "disabled";
+};
+&gpio5 {
+	status = "disabled";
+};
+
+/delete-node/ &tmu;
+/delete-node/ &{/thermal-zones};
+&iomuxc {
+	status = "disabled";
+};
+
+&gpr {
+	/delete-property/ compatible;
+};
+
+/delete-node/ &anatop;
+/delete-node/ &snvs;
+
+&clk {
+	/delete-property/ compatible;
+};
+
+&src {
+	/delete-property/ compatible;
+};
+
+/delete-node/ &system_counter;
+
+&ocotp {
+	/delete-property/ compatible;
+	status = "disabled";
+};
+
+&sdma1 {
+	status = "disabled";
+};
+
+&sdma2 {
+	status = "disabled";
+};
+
+&sdma3 {
+	status = "disabled";
+};
+
+/*/delete-node/ &{/imx_ion};*/
+/delete-node/ &pcie0;
+/delete-node/ &crypto;
+/delete-node/ &caam_sm;
+/delete-node/ &caam_snvs;
+/delete-node/ &irq_sec_vio;
+
+/delete-node/ &{/cpus/cpu@0};
+/delete-node/ &{/cpus/cpu@1};
+/delete-node/ &{/pmu};
+
+&uart4 {
+	clocks = <&osc_24m>,
+		<&osc_24m>;
+	clock-names = "ipg", "per";
+	/delete-property/ dmas;
+	/delete-property/ dmas-names;
+	status = "okay";
+};
+
+&dma_apbh {
+	clocks = <&clk_266m>;
+	status = "okay";
+};
+
+&gpmi {
+	clocks = <&clk_100m>,
+		<&clk_266m>;
+	status = "okay";
+	nand-on-flash-bbt;
+	fsl,use-minimum-ecc;
+};

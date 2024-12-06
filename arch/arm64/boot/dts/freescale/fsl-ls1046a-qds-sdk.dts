@@ -1,0 +1,264 @@
+/*
+ * Device Tree Include file for Freescale Layerscape-1046A family SoC.
+ *
+ * Copyright 2014-2015 Freescale Semiconductor, Inc.
+ *
+ * Mingkai Hu <Mingkai.hu@freescale.com>
+ *
+ * This file is dual-licensed: you can use it either under the terms
+ * of the GPLv2 or the X11 license, at your option. Note that this dual
+ * licensing only applies to this file, and not this project as a
+ * whole.
+ *
+ *  a) This library is free software; you can redistribute it and/or
+ *     modify it under the terms of the GNU General Public License as
+ *     published by the Free Software Foundation; either version 2 of the
+ *     License, or (at your option) any later version.
+ *
+ *     This library is distributed in the hope that it will be useful,
+ *     but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *     GNU General Public License for more details.
+ *
+ * Or, alternatively,
+ *
+ *  b) Permission is hereby granted, free of charge, to any person
+ *     obtaining a copy of this software and associated documentation
+ *     files (the "Software"), to deal in the Software without
+ *     restriction, including without limitation the rights to use,
+ *     copy, modify, merge, publish, distribute, sublicense, and/or
+ *     sell copies of the Software, and to permit persons to whom the
+ *     Software is furnished to do so, subject to the following
+ *     conditions:
+ *
+ *     The above copyright notice and this permission notice shall be
+ *     included in all copies or substantial portions of the Software.
+ *
+ *     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ *     EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ *     OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ *     NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ *     HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ *     WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ *     FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ *     OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+#include "fsl-ls1046a-qds.dts"
+#include "qoriq-qman-portals-sdk.dtsi"
+#include "qoriq-bman-portals-sdk.dtsi"
+
+&bman_fbpr {
+	compatible = "fsl,bman-fbpr";
+	alloc-ranges = <0 0 0x10000 0>;
+};
+&qman_fqd {
+	compatible = "fsl,qman-fqd";
+	alloc-ranges = <0 0 0x10000 0>;
+};
+&qman_pfdr {
+	compatible = "fsl,qman-pfdr";
+	alloc-ranges = <0 0 0x10000 0>;
+};
+
+&soc {
+/delete-property/ dma-coherent;
+
+#include "qoriq-dpaa-eth.dtsi"
+#include "qoriq-fman3-0-6oh.dtsi"
+
+pcie@3400000 {
+       /delete-property/ iommu-map;
+};
+
+pcie@3500000 {
+       /delete-property/ iommu-map;
+};
+
+pcie@3600000 {
+       /delete-property/ iommu-map;
+};
+
+/delete-node/ iommu@9000000;
+};
+
+&fsldpaa {
+	ethernet@9 {
+		compatible = "fsl,dpa-ethernet";
+		fsl,fman-mac = <&enet7>;
+		dma-coherent;
+	};
+};
+
+&fman0 {
+	compatible = "fsl,fman", "simple-bus";
+	dma-coherent;
+};
+
+&clockgen {
+	dma-coherent;
+};
+
+&scfg {
+	dma-coherent;
+};
+
+&crypto {
+	dma-coherent;
+};
+
+&dcfg {
+	dma-coherent;
+};
+
+&ifc {
+	dma-coherent;
+};
+
+&qspi {
+	dma-coherent;
+};
+
+&esdhc {
+	dma-coherent;
+};
+
+&ddr {
+	dma-coherent;
+};
+
+&tmu {
+	dma-coherent;
+};
+
+&qman {
+	dma-coherent;
+};
+
+&bman {
+	dma-coherent;
+};
+
+&bportals {
+	dma-coherent;
+};
+
+&qportals {
+	dma-coherent;
+};
+
+&dspi {
+	dma-coherent;
+};
+
+&i2c0 {
+	dma-coherent;
+};
+
+&i2c1 {
+	dma-coherent;
+};
+
+&i2c2 {
+	dma-coherent;
+};
+
+&i2c3 {
+	dma-coherent;
+};
+
+&duart0 {
+	dma-coherent;
+};
+
+&duart1 {
+	dma-coherent;
+};
+
+&duart2 {
+	dma-coherent;
+};
+
+&duart3 {
+	dma-coherent;
+};
+
+&gpio0 {
+	dma-coherent;
+};
+
+&gpio1 {
+	dma-coherent;
+};
+
+&gpio2 {
+	dma-coherent;
+};
+
+&gpio3 {
+	dma-coherent;
+};
+
+&lpuart0 {
+	dma-coherent;
+};
+
+&lpuart1 {
+	dma-coherent;
+};
+
+&lpuart2 {
+	dma-coherent;
+};
+
+&lpuart3 {
+	dma-coherent;
+};
+
+&lpuart4 {
+	dma-coherent;
+};
+
+&lpuart5 {
+	dma-coherent;
+};
+
+&ftm_alarm0 {
+	dma-coherent;
+};
+
+&wdog0 {
+	dma-coherent;
+};
+
+&edma0 {
+	dma-coherent;
+};
+
+&sata {
+	dma-coherent;
+};
+
+&qdma {
+	dma-coherent;
+};
+
+&msi1 {
+	dma-coherent;
+};
+
+&msi2 {
+	dma-coherent;
+};
+
+&msi3 {
+	dma-coherent;
+};
+
+&ptp_timer0 {
+	dma-coherent;
+};
+
+&fsldpaa {
+	dma-coherent;
+};

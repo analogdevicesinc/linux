@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright 2020 NXP.
+ */
+
+#include "imx8mq-evk-lcdif-adv7535.dts"
+
+/ {
+	sound-hdmi {
+		status = "okay";
+	};
+};
+
+&irqsteer {
+	status = "okay";
+};
+
+&dcss {
+	status = "okay";
+};
+
+&hdmi {
+	status = "okay";
+};

@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8dxl-evk.dts"
+
+&imx8dxl_cm4 {
+	/* Assume you have partitioned M4, so M4 is ont controled by Linux */
+	/delete-property/ power-domains;
+	status = "okay";
+};
+
+&flexcan2 {
+	status = "disabled";
+};
+
+&flexcan3 {
+	status = "disabled";
+};
+
+&flexspi0 {
+	status = "disabled";
+};
+
+&cm40_lpuart {
+	status = "disabled";
+};

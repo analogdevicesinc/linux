@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2023 NXP
+ */
+
+&mac9 { /* DTSEC9/10GEC1 */
+	phy-connection-type = "10gbase-kr";
+	pcsphy-handle = <&pcsphy6>;
+	pcs-handle-names = "c73";
+	managed = "c73";
+	phys = <&serdes1 3>;
+	phy-names = "serdes";
+};

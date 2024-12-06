@@ -1,0 +1,69 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ *
+ * Need to use AUD-HAT Board to support BT HFP.
+ */
+
+#include "imx91-9x9-qsb-aud-hat.dts"
+
+/ {
+	wm8524: audio-codec {
+		status = "disabled";
+	};
+
+	sound-wm8524 {
+		status = "disabled";
+	};
+
+	bt_sco_codec: bt_sco_codec {
+		#sound-dai-cells = <1>;
+		compatible = "linux,bt-sco";
+	};
+
+	sound-bt-sco {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "bt-sco-audio";
+		simple-audio-card,format = "dsp_a";
+		simple-audio-card,bitclock-inversion;
+		simple-audio-card,frame-master = <&btcpu>;
+		simple-audio-card,bitclock-master = <&btcpu>;
+
+		btcpu: simple-audio-card,cpu {
+			sound-dai = <&sai1>;
+			dai-tdm-slot-num = <2>;
+			dai-tdm-slot-width = <16>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&bt_sco_codec 1>;
+		};
+	};
+};
+
+&pcal6524 {
+	/* SW select the SAI1 pins for M.2. Or set SW4[2] to 1 on board */
+	m2-sai1-sel-hog {
+		/delete-property/ output-low;
+		output-high;
+	};
+
+	m2-pcm-level-shifter-hog {
+		gpio-hog;
+		gpios = <19 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
+
+&sai1 {
+	assigned-clock-rates = <12288000>;
+};
+
+&pinctrl_sai1 {
+	fsl,pins = <
+		MX91_PAD_SAI1_TXC__SAI1_TX_BCLK			0x31e
+		MX91_PAD_SAI1_TXFS__SAI1_TX_SYNC		0x31e
+		MX91_PAD_SAI1_TXD0__SAI1_TX_DATA0		0x31e
+		MX91_PAD_SAI1_RXD0__SAI1_RX_DATA0		0x31e
+	>;
+};

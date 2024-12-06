@@ -1,0 +1,45 @@
+/*
+ * Copyright 2019 NXP
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "imx7ulp-evkb.dts"
+
+/ {
+	regulators {
+		reg_vsd_3v3b: regulator@2 {
+			compatible = "regulator-fixed";
+			regulator-name = "VSD_3V3B";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&gpio_pte 11 GPIO_ACTIVE_HIGH>;
+			off-on-delay-us = <20000>;
+			enable-active-high;
+		};
+	};
+};
+
+&lpuart6 {
+	status = "disabled";
+};
+
+&usdhc1 {
+	pinctrl-names = "default", "state_100mhz", "state_200mhz", "sleep";
+	pinctrl-0 = <&pinctrl_usdhc1 &pinctrl_usdhc1_rst>;
+	pinctrl-1 = <&pinctrl_usdhc1 &pinctrl_usdhc1_rst>;
+	pinctrl-2 = <&pinctrl_usdhc1 &pinctrl_usdhc1_rst>;
+	pinctrl-3 = <&pinctrl_usdhc1 &pinctrl_usdhc1_rst>;
+	cd-gpios = <&gpio_pte 13 GPIO_ACTIVE_LOW>;
+	wp-gpios = <&gpio_pte 12 GPIO_ACTIVE_HIGH>;
+	fsl,delay-line = <15>;
+	vmmc-supply = <&reg_vsd_3v3b>;
+	/delete-property/non-removable;
+	/delete-property/pm-ignore-notify;
+	/delete-property/keep-power-in-suspend;
+	/delete-property/non-removable;
+	/delete-property/no-1-8-v;
+	status = "okay";
+};

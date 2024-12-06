@@ -41,6 +41,7 @@ properties:
               - fsl,imx8mm-iomuxc-gpr
               - fsl,imx8mn-iomuxc-gpr
               - fsl,imx8mp-iomuxc-gpr
+              - fsl,imx95-serdes-syscfg
           - const: syscon
 
   reg:

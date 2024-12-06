@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2021 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8mm-evk.dts"
+#include "imx8mm-ab2.dtsi"
+
+/ {
+	model = "FSL i.MX8MM Audio board 2.0";
+	compatible = "fsl,imx8mm-ab2", "fsl,imx8mm";
+};

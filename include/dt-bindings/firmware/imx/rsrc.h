@@ -267,7 +267,6 @@
 #define IMX_SC_R_SDHC_2			250
 #define IMX_SC_R_ENET_0			251
 #define IMX_SC_R_ENET_1			252
-#define IMX_SC_R_MLB_0			253
 #define IMX_SC_R_DMA_2_CH0		254
 #define IMX_SC_R_DMA_2_CH1		255
 #define IMX_SC_R_DMA_2_CH2		256

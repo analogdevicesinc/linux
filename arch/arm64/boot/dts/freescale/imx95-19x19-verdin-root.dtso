@@ -1,0 +1,36 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+/dts-v1/;
+/plugin/;
+
+&linux_cma {
+	alloc-ranges = <0 0x80000000 0 0x70000000>;
+	size = <0 0x3c000000>;
+};
+
+&smmu {
+	status = "disabled";
+};
+
+&edma3 {
+	status = "disabled";
+};
+
+&pcie_4ca00000 {
+	linux,pci-domain = <2>;
+};
+
+&pcie_4cb00000 {
+	linux,pci-domain = <3>;
+};
+
+&usdhc1 {
+	status = "disabled";
+};
+
+&usdhc2 {
+	status = "okay";
+};

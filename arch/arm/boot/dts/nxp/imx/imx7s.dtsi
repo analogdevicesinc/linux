@@ -55,19 +55,6 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
-		idle-states {
-			entry-method = "psci";
-
-			cpu_sleep_wait: cpu-sleep-wait {
-				compatible = "arm,idle-state";
-				arm,psci-suspend-param = <0x0010000>;
-				local-timer-stop;
-				entry-latency-us = <100>;
-				exit-latency-us = <50>;
-				min-residency-us = <1000>;
-			};
-		};
-
 		cpu0: cpu@0 {
 			compatible = "arm,cortex-a7";
 			device_type = "cpu";
@@ -75,23 +62,6 @@
 			clock-frequency = <792000000>;
 			clock-latency = <61036>; /* two CLK32 periods */
 			clocks = <&clks IMX7D_CLK_ARM>;
-			cpu-idle-states = <&cpu_sleep_wait>;
-			operating-points-v2 = <&cpu0_opp_table>;
-			#cooling-cells = <2>;
-			nvmem-cells = <&fuse_grade>;
-			nvmem-cell-names = "speed_grade";
-		};
-	};
-
-	cpu0_opp_table: opp-table {
-		compatible = "operating-points-v2";
-		opp-shared;
-
-		opp-792000000 {
-			opp-hz = /bits/ 64 <792000000>;
-			opp-microvolt = <1000000>;
-			clock-latency-ns = <150000>;
-			opp-supported-hw = <0xf>, <0xf>;
 		};
 	};
 
@@ -166,31 +136,12 @@
 		};
 	};
 
-	timer {
-		compatible = "arm,armv7-timer";
-		arm,cpu-registers-not-fw-configured;
-		interrupt-parent = <&intc>;
-		interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(1) | IRQ_TYPE_LEVEL_LOW)>,
-			     <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(1) | IRQ_TYPE_LEVEL_LOW)>,
-			     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(1) | IRQ_TYPE_LEVEL_LOW)>,
-			     <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(1) | IRQ_TYPE_LEVEL_LOW)>;
-	};
-
 	soc: soc {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "simple-bus";
 		interrupt-parent = <&gpc>;
 		ranges;
-
-		ocram: sram@900000 {
-			compatible = "mmio-sram";
-			reg = <0x00900000 0x20000>;
-			ranges = <0 0x00900000 0x20000>;
-			#address-cells = <1>;
-			#size-cells = <1>;
-			clocks = <&clks IMX7D_OCRAM_CLK>;
-		};
 
 		funnel@30041000 {
 			compatible = "arm,coresight-dynamic-funnel", "arm,primecell";
@@ -236,6 +187,11 @@
 					};
 				};
 			};
+		};
+
+		caam_sm: caam-sm@100000 {
+			 compatible = "fsl,imx7d-caam-sm", "fsl,imx6q-caam-sm";
+			 reg = <0x100000 0x8000>;
 		};
 
 		funnel@30083000 {
@@ -336,6 +292,17 @@
 			      <0x31002000 0x2000>,
 			      <0x31004000 0x2000>,
 			      <0x31006000 0x2000>;
+		};
+
+		timer {
+			compatible = "arm,armv7-timer";
+			arm,cpu-registers-not-fw-configured;
+			interrupt-parent = <&intc>;
+			interrupts = <GIC_PPI 13 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
+				     <GIC_PPI 14 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
+				     <GIC_PPI 11 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>,
+				     <GIC_PPI 10 (GIC_CPU_MASK_SIMPLE(4) | IRQ_TYPE_LEVEL_LOW)>;
+			clock-frequency = <8000000>;
 		};
 
 		aips1: bus@30000000 {
@@ -471,8 +438,9 @@
 				reg = <0x302d0000 0x10000>;
 				interrupts = <GIC_SPI 55 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clks IMX7D_GPT1_ROOT_CLK>,
-					 <&clks IMX7D_GPT1_ROOT_CLK>;
-				clock-names = "ipg", "per";
+					<&clks IMX7D_GPT1_ROOT_CLK>,
+					<&clks IMX7D_GPT_3M_CLK>;
+				clock-names = "ipg", "per", "osc_per";
 			};
 
 			gpt2: timer@302e0000 {
@@ -622,6 +590,20 @@
 				};
 			};
 
+			irq_sec_vio: caam_secvio {
+				compatible = "fsl,imx6q-caam-secvio";
+				interrupts = <GIC_SPI 20 IRQ_TYPE_LEVEL_HIGH>;
+				jtag-tamper = "disabled";
+				watchdog-tamper = "enabled";
+				internal-boot-tamper = "enabled";
+				external-pin-tamper = "disabled";
+			};
+
+			caam_snvs: caam-snvs@30370000 {
+				compatible = "fsl,imx6q-caam-snvs";
+				reg = <0x30370000 0x10000>;
+			};
+
 			snvs: snvs@30370000 {
 				compatible = "fsl,sec-v4.0-mon", "syscon", "simple-mfd";
 				reg = <0x30370000 0x10000>;
@@ -681,6 +663,7 @@
 				interrupts = <GIC_SPI 87 IRQ_TYPE_LEVEL_HIGH>;
 				#interrupt-cells = <3>;
 				interrupt-parent = <&intc>;
+				fsl,mf-mix-wakeup-irq = <0x54410000 0xc00 0x0 0x1040640>;
 
 				pgc {
 					#address-cells = <1>;
@@ -836,12 +819,15 @@
 			};
 
 			lcdif: lcdif@30730000 {
-				compatible = "fsl,imx7d-lcdif", "fsl,imx6sx-lcdif";
+				compatible = "fsl,imx7d-lcdif", "fsl,imx28-lcdif";
 				reg = <0x30730000 0x10000>;
 				interrupts = <GIC_SPI 5 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clks IMX7D_LCDIF_PIXEL_ROOT_CLK>,
-					<&clks IMX7D_LCDIF_PIXEL_ROOT_CLK>;
-				clock-names = "pix", "axi";
+					 <&clks IMX7D_CLK_DUMMY>,
+					 <&clks IMX7D_CLK_DUMMY>;
+				assigned-clocks = <&clks IMX7D_LCDIF_PIXEL_ROOT_SRC>;
+				assigned-clock-parents = <&clks IMX7D_PLL_VIDEO_POST_DIV>;
+				clock-names = "pix", "axi", "disp_axi";
 				status = "disabled";
 			};
 
@@ -876,24 +862,9 @@
 				};
 			};
 
-			mipi_dsi: dsi@30760000 {
-				compatible = "fsl,imx7d-mipi-dsim", "fsl,imx8mm-mipi-dsim";
-				#address-cells = <1>;
-				#size-cells = <0>;
-				reg = <0x30760000 0x400>;
-				clocks = <&clks IMX7D_MIPI_DSI_ROOT_CLK>,
-					 <&clks IMX7D_MIPI_DPHY_ROOT_CLK>;
-				clock-names = "bus_clk", "sclk_mipi";
-				assigned-clocks = <&clks IMX7D_MIPI_DSI_ROOT_SRC>,
-						  <&clks IMX7D_PLL_SYS_PFD5_CLK>;
-				assigned-clock-parents = <&clks IMX7D_PLL_SYS_PFD5_CLK>;
-				assigned-clock-rates = <0>, <333000000>;
-				power-domains = <&pgc_mipi_phy>;
-				interrupts = <GIC_SPI 41 IRQ_TYPE_LEVEL_HIGH>;
-				samsung,burst-clock-frequency = <891000000>;
-				samsung,esc-clock-frequency = <20000000>;
-				samsung,pll-clock-frequency = <24000000>;
-				status = "disabled";
+			ddrc: ddrc@307a0000 {
+				compatible = "fsl,imx7-ddrc";
+				reg = <0x307a0000 0x10000>;
 			};
 		};
 
@@ -972,6 +943,8 @@
 					clocks = <&clks IMX7D_UART2_ROOT_CLK>,
 						<&clks IMX7D_UART2_ROOT_CLK>;
 					clock-names = "ipg", "per";
+					dmas = <&sdma 24 4 0>, <&sdma 25 4 0>;
+					dma-names = "rx", "tx";
 					status = "disabled";
 				};
 
@@ -983,6 +956,8 @@
 					clocks = <&clks IMX7D_UART3_ROOT_CLK>,
 						<&clks IMX7D_UART3_ROOT_CLK>;
 					clock-names = "ipg", "per";
+					dmas = <&sdma 26 4 0>, <&sdma 27 4 0>;
+					dma-names = "rx", "tx";
 					status = "disabled";
 				};
 
@@ -1087,7 +1062,7 @@
 			i2c1: i2c@30a20000 {
 				#address-cells = <1>;
 				#size-cells = <0>;
-				compatible = "fsl,imx7d-i2c", "fsl,imx21-i2c";
+				compatible = "fsl,imx7s-i2c", "fsl,imx21-i2c";
 				reg = <0x30a20000 0x10000>;
 				interrupts = <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clks IMX7D_I2C1_ROOT_CLK>;
@@ -1097,7 +1072,7 @@
 			i2c2: i2c@30a30000 {
 				#address-cells = <1>;
 				#size-cells = <0>;
-				compatible = "fsl,imx7d-i2c", "fsl,imx21-i2c";
+				compatible = "fsl,imx7s-i2c", "fsl,imx21-i2c";
 				reg = <0x30a30000 0x10000>;
 				interrupts = <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clks IMX7D_I2C2_ROOT_CLK>;
@@ -1107,7 +1082,7 @@
 			i2c3: i2c@30a40000 {
 				#address-cells = <1>;
 				#size-cells = <0>;
-				compatible = "fsl,imx7d-i2c", "fsl,imx21-i2c";
+				compatible = "fsl,imx7s-i2c", "fsl,imx21-i2c";
 				reg = <0x30a40000 0x10000>;
 				interrupts = <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clks IMX7D_I2C3_ROOT_CLK>;
@@ -1117,7 +1092,7 @@
 			i2c4: i2c@30a50000 {
 				#address-cells = <1>;
 				#size-cells = <0>;
-				compatible = "fsl,imx7d-i2c", "fsl,imx21-i2c";
+				compatible = "fsl,imx7s-i2c", "fsl,imx21-i2c";
 				reg = <0x30a50000 0x10000>;
 				interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clks IMX7D_I2C4_ROOT_CLK>;
@@ -1132,6 +1107,8 @@
 				clocks = <&clks IMX7D_UART4_ROOT_CLK>,
 					<&clks IMX7D_UART4_ROOT_CLK>;
 				clock-names = "ipg", "per";
+				dmas = <&sdma 28 4 0>, <&sdma 29 4 0>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -1143,6 +1120,8 @@
 				clocks = <&clks IMX7D_UART5_ROOT_CLK>,
 					<&clks IMX7D_UART5_ROOT_CLK>;
 				clock-names = "ipg", "per";
+				dmas = <&sdma 30 4 0>, <&sdma 31 4 0>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -1154,6 +1133,8 @@
 				clocks = <&clks IMX7D_UART6_ROOT_CLK>,
 					<&clks IMX7D_UART6_ROOT_CLK>;
 				clock-names = "ipg", "per";
+				dmas = <&sdma 32 4 0>, <&sdma 33 4 0>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -1165,6 +1146,8 @@
 				clocks = <&clks IMX7D_UART7_ROOT_CLK>,
 					<&clks IMX7D_UART7_ROOT_CLK>;
 				clock-names = "ipg", "per";
+				dmas = <&sdma 34 4 0>, <&sdma 35 4 0>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -1301,7 +1284,7 @@
 					<&clks IMX7D_ENET_AXI_ROOT_CLK>,
 					<&clks IMX7D_ENET1_TIME_ROOT_CLK>,
 					<&clks IMX7D_PLL_ENET_MAIN_125M_CLK>,
-					<&clks IMX7D_ENET_PHY_REF_ROOT_CLK>;
+					<&clks IMX7D_ENET_PHY_REF_ROOT_DIV>;
 				clock-names = "ipg", "ahb", "ptp",
 					"enet_clk_ref", "enet_out";
 				fsl,num-tx-queues = <3>;

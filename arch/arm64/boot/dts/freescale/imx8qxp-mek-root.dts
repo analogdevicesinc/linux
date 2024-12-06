@@ -1,0 +1,98 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright NXP 2019
+
+#include "imx8qxp-mek-rpmsg.dts"
+
+/ {
+	domu {
+		/*
+		 * There are 5 MUs, 0A is used by root cell, 1A is used
+		 * by ATF, so for non-root cell, 2A/3A/4A could be used.
+		 * SC_R_MU_0A
+		 * SC_R_MU_1A
+		 * SC_R_MU_2A
+		 * SC_R_MU_3A
+		 * SC_R_MU_4A
+		 * The rsrcs and pads will be configured by uboot scu_rm cmd
+		 */
+		#address-cells = <1>;
+		#size-cells = <0>;
+		doma {
+			/*
+			 * This is not for domu, this is just reuse
+			 * the method for jailhouse inmate non root cell
+			 * Linux.
+			 */
+			compatible = "xen,domu";
+			/*
+			 * The reg property will be updated by U-Boot to
+			 * reflect the partition id.
+			 */
+			reg = <0>;
+			init_on_rsrcs = <
+				IMX_SC_R_MU_2A
+			>;
+			rsrcs = <
+				IMX_SC_R_SDHC_0
+				IMX_SC_R_UART_2
+				IMX_SC_R_MU_2A
+			>;
+			pads = <
+				/* emmc */
+				IMX8QXP_EMMC0_CLK
+				IMX8QXP_EMMC0_CMD
+				IMX8QXP_EMMC0_DATA0
+				IMX8QXP_EMMC0_DATA1
+				IMX8QXP_EMMC0_DATA2
+				IMX8QXP_EMMC0_DATA3
+				IMX8QXP_EMMC0_DATA4
+				IMX8QXP_EMMC0_DATA5
+				IMX8QXP_EMMC0_DATA6
+				IMX8QXP_EMMC0_DATA7
+				IMX8QXP_EMMC0_STROBE
+				/* lpuart2 */
+				IMX8QXP_UART2_TX
+				IMX8QXP_UART2_RX
+			>;
+		};
+	};
+
+};
+
+&{/reserved-memory} {
+
+	jh_reserved: jh@fdc00000 {
+		no-map;
+		reg = <0x0 0xfdc00000 0x0 0x400000>;
+	};
+
+	loader_reserved: loader@fdb00000 {
+		no-map;
+		reg = <0x0 0xfdb00000 0x0 0x00100000>;
+	};
+
+	ivshmem_reserved: ivshmem@fd900000 {
+		no-map;
+		reg = <0x0 0xfd900000 0x0 0x00200000>;
+	};
+
+	pci_reserved: pci@fd700000 {
+		no-map;
+		reg = <0x0 0xfd700000 0x0 0x00200000>;
+	};
+
+	/* Decrease if no need such big memory */
+	inmate_reserved: inmate@df7000000 {
+		no-map;
+		reg = <0x0 0xdf700000 0x0 0x1e000000>;
+	};
+};
+
+&usdhc1 {
+	/delete-property/ compatible;
+};
+
+&lpuart2 {
+	/* Let inmate linux use this for console */
+	status = "disabled";
+};

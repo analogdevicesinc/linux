@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8dm.dtsi"
+#include "imx8q-val.dtsi"
+
+/ {
+        model = "Freescale i.MX8DM Validation Board";
+        compatible = "fsl,imx8dm-val", "fsl,imx8dm", "fsl,imx8qm";
+};
+
+&gpu_3d1 {
+    status = "disabled";
+};
+
+&dc1_prg1 {
+    status = "disabled";
+};
+
+&dc1_prg2 {
+    status = "disabled";
+};

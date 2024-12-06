@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+#include "imx91-11x11-evk-flexspi-m2.dts"
+
+&flexspi1 {
+	/delete-node/ mt25qu512abb8e12;
+
+	/*
+	 * This M.2 card contain two spi-nand chip
+	 * and a switch S1.
+	 * S1 = OFF, select Winbond W25N02KWZEIR
+	 * S1 = ON, select GigaDevice winbond
+	 */
+	spinand: flash@0 {
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "spi-nand";
+		spi-max-frequency = <104000000>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+	};
+};

@@ -23,45 +23,95 @@ fman0: fman@1a00000 {
 	ptimer-handle = <&ptp_timer0>;
 	dma-coherent;
 
+	cc {
+		compatible = "fsl,fman-cc";
+	};
+
 	muram@0 {
 		compatible = "fsl,fman-muram";
 		reg = <0x0 0x60000>;
+	};
+
+	bmi@80000 {
+		compatible = "fsl,fman-bmi";
+		reg = <0x80000 0x400>;
+	};
+
+	qmi@80400 {
+		compatible = "fsl,fman-qmi";
+		reg = <0x80400 0x400>;
 	};
 
 	fman0_oh_0x2: port@82000 {
 		cell-index = <0x2>;
 		compatible = "fsl,fman-v3-port-oh";
 		reg = <0x82000 0x1000>;
+		fsl,qman-channel-id = <0x809>;
 	};
 
 	fman0_oh_0x3: port@83000 {
 		cell-index = <0x3>;
 		compatible = "fsl,fman-v3-port-oh";
 		reg = <0x83000 0x1000>;
+		fsl,qman-channel-id = <0x80a>;
 	};
 
 	fman0_oh_0x4: port@84000 {
 		cell-index = <0x4>;
 		compatible = "fsl,fman-v3-port-oh";
 		reg = <0x84000 0x1000>;
+		fsl,qman-channel-id = <0x80b>;
 	};
 
 	fman0_oh_0x5: port@85000 {
 		cell-index = <0x5>;
 		compatible = "fsl,fman-v3-port-oh";
 		reg = <0x85000 0x1000>;
+		fsl,qman-channel-id = <0x80c>;
 	};
 
 	fman0_oh_0x6: port@86000 {
 		cell-index = <0x6>;
 		compatible = "fsl,fman-v3-port-oh";
 		reg = <0x86000 0x1000>;
+		fsl,qman-channel-id = <0x80d>;
 	};
 
 	fman0_oh_0x7: port@87000 {
 		cell-index = <0x7>;
 		compatible = "fsl,fman-v3-port-oh";
 		reg = <0x87000 0x1000>;
+		fsl,qman-channel-id = <0x80e>;
+	};
+
+	policer@c0000 {
+		compatible = "fsl,fman-policer";
+		reg = <0xc0000 0x1000>;
+	};
+
+	keygen@c1000 {
+		compatible = "fsl,fman-keygen";
+		reg = <0xc1000 0x1000>;
+	};
+
+	dma@c2000 {
+		compatible = "fsl,fman-dma";
+		reg = <0xc2000 0x1000>;
+	};
+
+	fpm@c3000 {
+		compatible = "fsl,fman-fpm";
+		reg = <0xc3000 0x1000>;
+	};
+
+	parser@c7000 {
+		compatible = "fsl,fman-parser";
+		reg = <0xc7000 0x1000>;
+	};
+
+	vsps@dc000 {
+		compatible = "fsl,fman-vsps";
+		reg = <0xdc000 0x1000>;
 	};
 
 	mdio0: mdio@fc000 {
@@ -80,7 +130,7 @@ fman0: fman@1a00000 {
 };
 
 ptp_timer0: ptp-timer@1afe000 {
-	compatible = "fsl,fman-ptp-timer";
+	compatible = "fsl,fman-ptp-timer", "fsl,fman-rtc";
 	reg = <0x0 0x1afe000 0x0 0x1000>;
 	interrupts = <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>;
 	clocks = <&clockgen QORIQ_CLK_FMAN 0>;

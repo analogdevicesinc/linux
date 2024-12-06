@@ -8,11 +8,22 @@
 #include "imx6ul-14x14-evk.dtsi"
 
 / {
-	model = "Freescale i.MX6 UltraLiteLite 14x14 EVK Board";
+	model = "Freescale i.MX6 ULL 14x14 EVK Board";
 	compatible = "fsl,imx6ull-14x14-evk", "fsl,imx6ull";
 };
 
 &clks {
-	assigned-clocks = <&clks IMX6UL_CLK_PLL3_PFD2>;
-	assigned-clock-rates = <320000000>;
+	assigned-clocks = <&clks IMX6UL_CLK_PLL3_PFD2>,
+			  <&clks IMX6UL_CLK_PLL4_AUDIO_DIV>;
+	assigned-clock-rates = <320000000>, <786432000>;
 };
+
+&csi {
+	status = "okay";
+};
+
+&ov5640 {
+	status = "okay";
+};
+
+/delete-node/ &sim2;

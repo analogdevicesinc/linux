@@ -1,0 +1,93 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright 2019 NXP.
+ */
+
+#include "imx8mq-evk.dts"
+
+/ {
+	sound-hdmi {
+		status = "disabled";
+	};
+};
+
+&irqsteer {
+	status = "okay";
+};
+
+&hdmi {
+	status = "disabled";
+};
+
+&dcss {
+	status = "disabled";
+};
+
+&lcdif {
+	status = "okay";
+	max-memory-bandwidth = <221184000>; /* 1280x720-32@60 */
+
+	assigned-clocks = <&clk IMX8MQ_CLK_LCDIF_PIXEL>,
+			  <&clk IMX8MQ_VIDEO_PLL1_BYPASS>,
+			  <&clk IMX8MQ_VIDEO_PLL1_REF_SEL>,
+			  <&clk IMX8MQ_VIDEO_PLL1>;
+	assigned-clock-parents = <&clk IMX8MQ_VIDEO_PLL1_OUT>,
+				 <&clk IMX8MQ_VIDEO_PLL1>,
+				 <&clk IMX8MQ_CLK_27M>;
+	assigned-clock-rate = <126000000>, <0>, <0>, <1134000000>;
+
+	port {
+		lcdif_out: endpoint {
+			remote-endpoint = <&mipi_dsi_in>;
+		};
+	};
+};
+
+&adv_bridge {
+	status = "okay";
+
+	port@0 {
+		adv7535_in: endpoint {
+			remote-endpoint = <&mipi_dsi_out>;
+		};
+	};
+};
+
+&mipi_dsi {
+	status = "okay";
+	/delete-node/ panel@0;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0>;
+			mipi_dsi_in: endpoint@0 {
+				reg = <0>;
+				remote-endpoint = <&lcdif_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+			mipi_dsi_out: endpoint {
+				remote-endpoint = <&adv7535_in>;
+			};
+		};
+	};
+};
+
+&dphy {
+	status = "okay";
+};
+
+&iomuxc {
+	pinctrl_mipi_dsi_en: mipi_dsi_en {
+		fsl,pins = <
+			MX8MQ_IOMUXC_ECSPI1_SCLK_GPIO5_IO6	0x16
+		>;
+	};
+};

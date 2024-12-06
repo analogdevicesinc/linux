@@ -1,0 +1,127 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2020 NXP
+ */
+
+#include "imx8mq-evk.dts"
+
+/ {
+	usdhc2_pwrseq: usdhc2_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_usdhc2_pwrseq>;
+		reset-gpios = <&gpio2 19 GPIO_ACTIVE_LOW>;
+	};
+};
+
+&iomuxc {
+	pinctrl_usdhc2_pwrseq: usdhc2pwrseq {
+		fsl,pins = <
+			MX8MQ_IOMUXC_SD2_RESET_B_GPIO2_IO19		0x46
+		>;
+	};
+
+	pinctrl_usdhc2_vsel: usdhc2vselgrp {
+		fsl,pins = <
+			MX8MQ_IOMUXC_GPIO1_IO04_GPIO1_IO4		0x49
+		>;
+	};
+};
+
+&pinctrl_reg_usdhc2 {
+	fsl,pins = <
+		MX8MQ_IOMUXC_ECSPI2_SCLK_GPIO5_IO10             0x46
+	>;
+};
+
+&pinctrl_usdhc2 {
+	fsl,pins = <
+		MX8MQ_IOMUXC_SD2_CLK_USDHC2_CLK			0x83
+		MX8MQ_IOMUXC_SD2_CMD_USDHC2_CMD			0xc3
+		MX8MQ_IOMUXC_SD2_DATA0_USDHC2_DATA0		0xc3
+		MX8MQ_IOMUXC_SD2_DATA1_USDHC2_DATA1		0xc3
+		MX8MQ_IOMUXC_SD2_DATA2_USDHC2_DATA2		0xc3
+		MX8MQ_IOMUXC_SD2_DATA3_USDHC2_DATA3		0xc3
+		MX8MQ_IOMUXC_SD2_WP_GPIO2_IO20			0x41
+	>;
+};
+
+&pinctrl_usdhc2_100mhz {
+	fsl,pins = <
+		MX8MQ_IOMUXC_SD2_CLK_USDHC2_CLK			0x85
+		MX8MQ_IOMUXC_SD2_CMD_USDHC2_CMD			0xc5
+		MX8MQ_IOMUXC_SD2_DATA0_USDHC2_DATA0		0xc5
+		MX8MQ_IOMUXC_SD2_DATA1_USDHC2_DATA1		0xc5
+		MX8MQ_IOMUXC_SD2_DATA2_USDHC2_DATA2		0xc5
+		MX8MQ_IOMUXC_SD2_DATA3_USDHC2_DATA3		0xc5
+		MX8MQ_IOMUXC_SD2_WP_GPIO2_IO20			0x41
+	>;
+};
+
+&pinctrl_usdhc2_200mhz {
+	fsl,pins = <
+		MX8MQ_IOMUXC_SD2_CLK_USDHC2_CLK			0x87
+		MX8MQ_IOMUXC_SD2_CMD_USDHC2_CMD			0xc7
+		MX8MQ_IOMUXC_SD2_DATA0_USDHC2_DATA0		0xc7
+		MX8MQ_IOMUXC_SD2_DATA1_USDHC2_DATA1		0xc7
+		MX8MQ_IOMUXC_SD2_DATA2_USDHC2_DATA2		0xc7
+		MX8MQ_IOMUXC_SD2_DATA3_USDHC2_DATA3		0xc7
+		MX8MQ_IOMUXC_SD2_WP_GPIO2_IO20			0x41
+	>;
+};
+
+&reg_pcie1{
+	status = "disabled";
+};
+
+&pcie0{
+	status = "disabled";
+};
+
+&pcie1{
+	status = "disabled";
+	/delete-property/ host-wake-gpio;
+};
+
+&reg_usdhc2_vmmc {
+	gpio = <&gpio5 10 GPIO_ACTIVE_HIGH>;
+	/delete-property/ off-on-delay-us;
+};
+
+&usdhc2 {
+	/delete-property/ cd-gpios;
+	keep-power-in-suspend;
+	non-removable;
+	wakeup-source;
+	mmc-pwrseq = <&usdhc2_pwrseq>;
+
+	wifi_wake_host {
+		compatible = "nxp,wifi-wake-host";
+		interrupt-parent = <&gpio2>;
+		interrupts = <20 IRQ_TYPE_LEVEL_LOW>;
+		interrupt-names = "host-wake";
+	};
+};
+
+&gpio1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usdhc2_vsel>;
+
+	usdhc2-vsel-hog {
+		gpio-hog;
+		gpios = <4 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
+
+&gpio3 {
+	/* enable the M.2 BT */
+	bt-reg-on-hog {
+		/delete-property/ output-high;
+		output-low;
+	};
+};
+
+&gpio5 {
+	/delete-node/ wl-reg-on-hog; /* disable the on-board wifi */
+};

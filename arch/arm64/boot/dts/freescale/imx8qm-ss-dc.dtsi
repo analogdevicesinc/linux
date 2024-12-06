@@ -1,0 +1,77 @@
+// SPDX-License-Identifier: GPL-2.0+
+
+/*
+ * Copyright 2019 NXP
+ */
+
+&dpu1 {
+	compatible = "fsl,imx8qm-dpu";
+
+	dpu1_disp0: port@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0>;
+
+		dpu1_disp0_hdmi: endpoint@0 {
+			reg = <0>;
+			remote-endpoint = <&hdmi_disp>;
+		};
+
+		dpu1_disp0_mipi0: endpoint@1 {
+			reg = <1>;
+			remote-endpoint = <&mipi0_dsi_in>;
+		};
+	};
+
+	dpu1_disp1: port@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <1>;
+
+		dpu1_disp1_ldb1_ch0: endpoint@0 {
+			remote-endpoint = <&ldb1_ch0>;
+		};
+
+		dpu1_disp1_ldb1_ch1: endpoint@1 {
+			remote-endpoint = <&ldb1_ch1>;
+		};
+	};
+};
+
+&dpu2 {
+	compatible = "fsl,imx8qm-dpu";
+
+	dpu2_disp0: port@0 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <0>;
+
+		dpu2_disp0_mipi1: endpoint@0 {
+			reg = <0>;
+			remote-endpoint = <&mipi1_dsi_in>;
+		};
+
+	};
+
+	dpu2_disp1: port@1 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		reg = <1>;
+
+		dpu2_disp1_ldb2_ch0: endpoint@0 {
+			remote-endpoint = <&ldb2_ch0>;
+		};
+
+		dpu2_disp1_ldb2_ch1: endpoint@1 {
+			remote-endpoint = <&ldb2_ch1>;
+		};
+	};
+};
+
+/ {
+	display-subsystem {
+		compatible = "fsl,imx-display-subsystem";
+		ports = <&dpu1_disp0>, <&dpu1_disp1>,
+			<&dpu2_disp0>, <&dpu2_disp1>;
+	};
+};

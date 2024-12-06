@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: GPL-2.0+ OR MIT
+//
+// Copyright NXP 2021
+
+#include "imx7d-sdb.dts"
+
+/ {
+	mqs: mqs {
+		#sound-dai-cells = <0>;
+		compatible = "fsl,imx6sx-mqs";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_mqs>;
+		clocks = <&clks IMX7D_SAI1_ROOT_CLK>;
+		clock-names = "mclk";
+		gpr = <&gpr>;
+		status = "okay";
+	};
+
+	sound {
+		status = "disabled";
+	};
+
+	sound-mqs {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "simple-mqs-audio";
+
+		simple-audio-card,dai-link@0 {
+			format = "left_j";
+			bitclock-master = <&sndcpu>;
+			frame-master = <&sndcpu>;
+
+			sndcpu: cpu {
+				sound-dai = <&sai1 0>;
+			};
+			codec {
+				sound-dai = <&mqs 0>;
+			};
+		};
+	};
+};
+
+&i2c4 {
+	status = "disabled";
+};
+
+&iomuxc {
+	pinctrl_mqs: mqsgrp {
+		fsl,pins = <
+			MX7D_PAD_SAI1_RX_SYNC__MQS_RIGHT	0x120b0
+			MX7D_PAD_SAI1_RX_BCLK__MQS_LEFT		0x120b0
+		>;
+	};
+};
+
+&mipi_csi {
+	status = "disabled";
+};
+
+&sai1 {
+	#sound-dai-cells = <0>;
+	assigned-clocks = <&clks IMX7D_SAI1_ROOT_SRC>,
+		<&clks IMX7D_PLL_AUDIO_POST_DIV>,
+		<&clks IMX7D_SAI1_ROOT_CLK>;
+	assigned-clock-parents = <&clks IMX7D_PLL_AUDIO_POST_DIV>;
+	assigned-clock-rates = <0>, <884736000>, <24576000>;
+	status = "okay";
+};

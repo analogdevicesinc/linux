@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2022 NXP
+ */
+
+#include "imx93-9x9-qsb.dts"
+
+/{
+	reg_can1_stby: regulator-can1-stby {
+		compatible = "regulator-fixed";
+		regulator-name = "can1-stby";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pcal6524 23 GPIO_ACTIVE_LOW>;
+		enable-active-low;
+	};
+};
+
+&flexcan1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexcan1>;
+	xceiver-supply = <&reg_can1_stby>;
+	/* config the MIC/CAN_SEL to high, chose B port */
+	pinctrl-assert-gpios = <&pcal6524 17 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+};
+
+/* micfi1 use the A port, conflict with can1 */
+&micfil {
+	status = "disabled";
+};
+
+&iomuxc {
+	pinctrl_flexcan1: flexcan1grp {
+		fsl,pins = <
+			MX93_PAD_PDM_CLK__CAN1_TX                       0x139e
+			MX93_PAD_PDM_BIT_STREAM0__CAN1_RX               0x139e
+		>;
+	};
+};

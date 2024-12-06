@@ -1,0 +1,99 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 NXP
+ */
+
+/ {
+	panel {
+		compatible = "sii,43wvf1g";
+		backlight = <&lcdif_backlight>;
+		status = "okay";
+
+		port {
+			lcd_panel_in: endpoint {
+				remote-endpoint = <&lcd_display_out>;
+			};
+		};
+	};
+
+	display@disp1 {
+		compatible = "fsl,imx-lcdif-mux-display";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_lcdif>;
+		clocks = <&clk IMX_SC_R_LCD_0 IMX_SC_PM_CLK_BYPASS>,
+			 <&clk IMX_SC_R_LCD_0 IMX_SC_PM_CLK_MISC0>;
+		clock-names = "bypass_div", "pixel";
+		assigned-clocks = <&clk IMX_SC_R_LCD_0 IMX_SC_PM_CLK_MISC0>;
+		assigned-clock-parents = <&clk IMX_SC_R_LCD_0 IMX_SC_PM_CLK_BYPASS>;
+		fsl,lcdif-mux-regs = <&lcdif_mux_regs>;
+		fsl,interface-pix-fmt = "rgb666";
+		power-domains = <&pd IMX_SC_R_LCD_0>;
+		status = "okay";
+
+		port@0 {
+			reg = <0>;
+
+			lcd_display_in: endpoint {
+				remote-endpoint = <&dpu_disp1_lcdif>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			lcd_display_out: endpoint {
+				remote-endpoint = <&lcd_panel_in>;
+			};
+		};
+	};
+
+	lcdif_backlight: lcdif-backlight {
+		compatible = "pwm-backlight";
+		pwms = <&adma_pwm 0 100000 0>;
+
+		brightness-levels = < 0  1  2  3  4  5  6  7  8  9
+				     10 11 12 13 14 15 16 17 18 19
+				     20 21 22 23 24 25 26 27 28 29
+				     30 31 32 33 34 35 36 37 38 39
+				     40 41 42 43 44 45 46 47 48 49
+				     50 51 52 53 54 55 56 57 58 59
+				     60 61 62 63 64 65 66 67 68 69
+				     70 71 72 73 74 75 76 77 78 79
+				     80 81 82 83 84 85 86 87 88 89
+				     90 91 92 93 94 95 96 97 98 99
+				    100>;
+		default-brightness-level = <80>;
+	};
+};
+
+&dpu_disp1_lcdif {
+	remote-endpoint = <&lcd_display_in>;
+};
+
+&iomuxc {
+	pinctrl_hog: hoggrp {
+		fsl,pins = <
+			IMX8QXP_COMP_CTL_GPIO_1V8_3V3_GPIORHB_PAD	0x40000000
+		>;
+	};
+};
+
+&sai1 {
+	status = "disabled";
+};
+
+&esai0 {
+	status = "disabled";
+};
+
+&lpuart1 {
+	status = "disabled";
+};
+
+&adma_pwm {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lcdifpwm>;
+	status = "okay";
+};

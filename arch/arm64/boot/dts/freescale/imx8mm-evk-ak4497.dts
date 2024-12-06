@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2019 NXP
+ */
+
+#include "imx8mm-evk.dts"
+
+/ {
+	sound-ak4458 {
+		status = "disabled";
+	};
+
+	sound-ak4497 {
+		status = "okay";
+	};
+};
+
+&iomuxc {
+	pinctrl_sai1_pcm: sai1grp_pcm {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI1_MCLK_SAI1_MCLK	0xd6
+			MX8MM_IOMUXC_SAI1_TXFS_SAI1_TX_SYNC	0xd6
+			MX8MM_IOMUXC_SAI1_RXD7_SAI1_TX_SYNC	0xd6
+			MX8MM_IOMUXC_SAI1_TXC_SAI1_TX_BCLK	0xd6
+			MX8MM_IOMUXC_SAI1_TXD0_SAI1_TX_DATA0	0xd6
+			MX8MM_IOMUXC_SAI1_TXD1_SAI1_TX_DATA1	0xd6
+			MX8MM_IOMUXC_SAI1_TXD2_SAI1_TX_DATA2	0xd6
+			MX8MM_IOMUXC_SAI1_TXD3_SAI1_TX_DATA3	0xd6
+			MX8MM_IOMUXC_SAI1_TXD4_SAI1_TX_DATA4	0xd6
+			MX8MM_IOMUXC_SAI1_TXD5_SAI1_TX_DATA5	0xd6
+			MX8MM_IOMUXC_SAI1_TXD6_SAI1_TX_DATA6	0xd6
+			MX8MM_IOMUXC_SAI1_TXD7_SAI1_TX_DATA7	0xd6
+		>;
+	};
+
+	pinctrl_sai1_dsd: sai1grp_dsd {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI1_MCLK_SAI1_MCLK	0xd6
+			MX8MM_IOMUXC_SAI1_TXFS_SAI1_TX_SYNC	0xd6
+			MX8MM_IOMUXC_SAI1_RXD7_SAI1_TX_DATA4	0xd6
+			MX8MM_IOMUXC_SAI1_TXC_SAI1_TX_BCLK	0xd6
+			MX8MM_IOMUXC_SAI1_TXD0_SAI1_TX_DATA0	0xd6
+			MX8MM_IOMUXC_SAI1_TXD1_SAI1_TX_DATA1	0xd6
+			MX8MM_IOMUXC_SAI1_TXD2_SAI1_TX_DATA2	0xd6
+			MX8MM_IOMUXC_SAI1_TXD3_SAI1_TX_DATA3	0xd6
+			MX8MM_IOMUXC_SAI1_TXD4_SAI1_TX_DATA4	0xd6
+			MX8MM_IOMUXC_SAI1_TXD5_SAI1_TX_DATA5	0xd6
+			MX8MM_IOMUXC_SAI1_TXD6_SAI1_TX_DATA6	0xd6
+			MX8MM_IOMUXC_SAI1_TXD7_SAI1_TX_DATA7	0xd6
+		>;
+	};
+};
+
+&sai1 {
+	pinctrl-names = "default", "dsd";
+	pinctrl-0 = <&pinctrl_sai1_pcm>;
+	pinctrl-1 = <&pinctrl_sai1_dsd>;
+	assigned-clocks = <&clk IMX8MM_CLK_SAI1>;
+	assigned-clock-parents = <&clk IMX8MM_AUDIO_PLL2_OUT>;
+	assigned-clock-rates = <22579200>;
+	fsl,sai-multi-lane;
+	fsl,dataline = <2 0xff 0x11>;
+	dmas = <&sdma2 0 25 0>, <&sdma2 1 25 0>;
+	status = "okay";
+};
+

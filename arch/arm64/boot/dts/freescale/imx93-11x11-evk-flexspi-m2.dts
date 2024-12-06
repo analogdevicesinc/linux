@@ -1,0 +1,62 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2022 NXP
+ */
+
+#include "imx93-11x11-evk.dts"
+
+&reg_m2_pwr {
+	status = "disabled";
+};
+
+&reg_usdhc3_vmmc {
+	status = "disabled";
+};
+
+&usdhc3_pwrseq {
+	status = "disabled";
+};
+
+&usdhc3 {
+	status = "disabled";
+};
+
+&flexspi1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexspi1>;
+	/*
+	 * For this spi-nor on M.2 card, need first enable the VPCIe_3.3v.
+	 * Note, VPCIe_3.3v need about 1.74ms to change from 0v to 3.3v.
+	 * U-boot already enable VPCIe_3.3v, so in linux, can ignore this
+	 * 1.7ms, if u-boot do not eanble VPCIe_3.3v first, then need to
+	 * take care of the 1.74ms delay, better to build the flexspi driver
+	 * as module in driver to avoid spi-nor probe fail.
+	 */
+	pinctrl-assert-gpios = <&pcal6524 13 GPIO_ACTIVE_HIGH>,  /* enable VPCIe_3v3 */
+			       <&pcal6524 20 GPIO_ACTIVE_HIGH>,  /* enable SPI-NOR VCC 1.8v */
+			       <&pcal6524 12 GPIO_ACTIVE_HIGH>;  /* put SPI-NOR RST pin to 1.8v */
+	status = "okay";
+
+	mt25qu512abb8e12: flash@0 {
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor";
+		spi-max-frequency = <133000000>;
+		spi-tx-bus-width = <4>;
+		spi-rx-bus-width = <4>;
+	};
+};
+
+&iomuxc {
+	pinctrl_flexspi1: flexspi1grp {
+		fsl,pins = <
+			MX93_PAD_SD3_CLK__FLEXSPI1_A_SCLK	0x3fe
+			MX93_PAD_SD3_CMD__FLEXSPI1_A_SS0_B	0x3fe
+			MX93_PAD_SD3_DATA0__FLEXSPI1_A_DATA00	0x3fe
+			MX93_PAD_SD3_DATA1__FLEXSPI1_A_DATA01	0x3fe
+			MX93_PAD_SD3_DATA2__FLEXSPI1_A_DATA02	0x3fe
+			MX93_PAD_SD3_DATA3__FLEXSPI1_A_DATA03	0x3fe
+		>;
+	};
+};

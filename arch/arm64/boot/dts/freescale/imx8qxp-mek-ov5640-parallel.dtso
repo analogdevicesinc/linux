@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+&ov5640_pi {
+	status = "okay";
+
+	port {
+		ov5640_pi_ep: endpoint {
+			remote-endpoint = <&parallel_csi_in>;
+			data-lanes = <1 2>;
+			clocks-lanes = <0>;
+			bus-type = <5>;
+			bus-width = <8>;
+			vsync-active = <0>;
+			hsync-active = <1>;
+			pclk-sample = <1>;
+		};
+	};
+};
+
+&parallel_csi {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			parallel_csi_in: endpoint {
+				remote-endpoint = <&ov5640_pi_ep>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			parallel_csi_out: endpoint {
+				remote-endpoint = <&isi_in_4>;
+			};
+		};
+	};
+};
+
+&isi {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@4 {
+			reg = <4>;
+
+			isi_in_4: endpoint {
+				remote-endpoint = <&parallel_csi_out>;
+			};
+		};
+	};
+};

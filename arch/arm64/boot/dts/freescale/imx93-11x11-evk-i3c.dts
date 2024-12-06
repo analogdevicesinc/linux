@@ -1,0 +1,68 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2022 NXP
+ */
+
+#include "imx93-11x11-evk.dts"
+#include <dt-bindings/i3c/i3c.h>
+
+/{
+	aliases {
+		/delete-property/ i2c0;
+	};
+};
+
+/delete-node/&lpi2c1;
+
+&i3c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i3c1>;
+	i2c-scl-hz = <400000>;
+	status = "okay";
+
+	adv7535: hdmi@3d {
+		compatible = "adi,adv7535";
+		reg = <0x3d 0x00 (I2C_FM | I2C_NO_FILTER_LOW_FREQUENCY)>;
+		adi,addr-cec = <0x3b>;
+		adi,dsi-lanes = <4>;
+		status = "okay";
+
+		port {
+			adv7535_to_dsi: endpoint {
+				remote-endpoint = <&dsi_to_adv7535>;
+			};
+		};
+	};
+
+	/* i2c devices */
+	codec: wm8962@1a {
+		compatible = "wlf,wm8962";
+		reg = <0x1a 0x00 (I2C_FM | I2C_NO_FILTER_LOW_FREQUENCY)>;
+		clocks = <&clk IMX93_CLK_SAI3_GATE>;
+		DCVDD-supply = <&reg_audio_pwr>;
+		DBVDD-supply = <&reg_audio_pwr>;
+		AVDD-supply = <&reg_audio_pwr>;
+		CPVDD-supply = <&reg_audio_pwr>;
+		MICVDD-supply = <&reg_audio_pwr>;
+		PLLVDD-supply = <&reg_audio_pwr>;
+		SPKVDD1-supply = <&reg_audio_pwr>;
+		SPKVDD2-supply = <&reg_audio_pwr>;
+		gpio-cfg = <
+			0x0000 /* 0:Default */
+			0x0000 /* 1:Default */
+			0x0000 /* 2:FN_DMICCLK */
+			0x0000 /* 3:Default */
+			0x0000 /* 4:FN_DMICCDAT */
+			0x0000 /* 5:Default */
+		>;
+	};
+};
+
+&iomuxc {
+	pinctrl_i3c1: i3c1grp {
+		fsl,pins = <
+			MX93_PAD_I2C1_SCL__I3C1_SCL	0x40000186
+			MX93_PAD_I2C1_SDA__I3C1_SDA	0x40000186
+		>;
+	};
+};

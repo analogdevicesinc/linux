@@ -15,4 +15,7 @@
 #define MATRIX_KEY(row, col, code)	\
 	((((row) & 0xFF) << 24) | (((col) & 0xFF) << 16) | ((code) & 0xFFFF))
 
+#define FT5416		0x54160002
+#define FT5426		0x54260002
+
 #endif /* _DT_BINDINGS_INPUT_INPUT_H */

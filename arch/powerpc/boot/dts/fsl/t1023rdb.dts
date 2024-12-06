@@ -142,23 +142,23 @@
 		};
 
 		fman@400000 {
-			fm1mac1: ethernet@e0000 {
+			enet0: ethernet@e0000 {
 				phy-handle = <&sgmii_rtk_phy2>;
 				phy-connection-type = "sgmii";
 				sleep = <&rcpm 0x80000000>;
 			};
 
-			fm1mac2: ethernet@e2000 {
+			enet1: ethernet@e2000 {
 				sleep = <&rcpm 0x40000000>;
 			};
 
-			fm1mac3: ethernet@e4000 {
+			enet2: ethernet@e4000 {
 				phy-handle = <&sgmii_aqr_phy3>;
 				phy-connection-type = "2500base-x";
 				sleep = <&rcpm 0x20000000>;
 			};
 
-			fm1mac4: ethernet@e6000 {
+			enet3: ethernet@e6000 {
 				phy-handle = <&rgmii_rtk_phy1>;
 				phy-connection-type = "rgmii";
 				sleep = <&rcpm 0x10000000>;

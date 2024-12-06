@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: GPL-2.0
+//
+// Copyright 2020 NXP
+
+#include "imx8mm-evk.dts"
+
+/delete-node/&spidev0;
+
+&ecspi2 {
+	#address-cells = <0>;
+	/delete-property/cs-gpios;
+	spi-slave;
+};
+
+&pinctrl_ecspi2_cs {
+	fsl,pins = <
+		MX8MM_IOMUXC_ECSPI2_SS0_ECSPI2_SS0		0x82
+	>;
+};

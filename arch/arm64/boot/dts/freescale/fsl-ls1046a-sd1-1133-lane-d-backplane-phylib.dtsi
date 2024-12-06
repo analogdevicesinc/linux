@@ -1,0 +1,20 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2023 NXP
+ *
+ * Enables the phylib wrapper over the mtip_backplane phylink_pcs layer. To be
+ * used if the network driver (e.g. sdk_dpaa) is not integrated with phylink.
+ */
+
+&mac9 { /* DTSEC9/10GEC1 */
+	phy-connection-type = "10gbase-kr";
+	phy-handle = <&pcsphy6>;
+	/delete-property/ pcsphy-handle;
+	/delete-property/ pcs-handle-names;
+};
+
+&pcsphy6 {
+	compatible = "ethernet-phy-ieee802.3-c45";
+	phys = <&serdes1 3>;
+	phy-names = "serdes";
+};

@@ -1,0 +1,309 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2023 NXP
+ */
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "imx95-pinfunc.h"
+
+&lpi2c2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	max96724_2@27 {
+		compatible = "maxim,max96724";
+		reg = <0x27>;
+		status = "okay";
+
+		rst-gpios = <&gpio3 27 GPIO_ACTIVE_LOW>;
+
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				max96724_2_gmsl_a_in: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&mx95mbcam_gmsl_a_out>;
+				};
+
+				max96724_2_pipe_0_out: endpoint@1 {
+					reg = <1>;
+					remote-endpoint = <&max96724_2_csi_1_in_0>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				max96724_2_gmsl_b_in: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&mx95mbcam_gmsl_b_out>;
+				};
+
+				max96724_2_pipe_1_out: endpoint@1 {
+					reg = <1>;
+					remote-endpoint = <&max96724_2_csi_1_in_1>;
+				};
+			};
+
+			port@2 {
+				reg = <2>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				max96724_2_gmsl_c_in: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&mx95mbcam_gmsl_c_out>;
+				};
+
+				max96724_2_pipe_2_out: endpoint@1 {
+					reg = <1>;
+					remote-endpoint = <&max96724_2_csi_1_in_2>;
+				};
+			};
+
+			port@3 {
+				reg = <3>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				max96724_2_gmsl_d_in: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&mx95mbcam_gmsl_d_out>;
+				};
+
+				max96724_2_pipe_3_out: endpoint@1 {
+					reg = <1>;
+					remote-endpoint = <&max96724_2_csi_1_in_3>;
+				};
+			};
+
+			port@4 {
+				reg = <4>;
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				max96724_2_csi_1_in_0: endpoint@0 {
+					reg = <0>;
+					remote-endpoint = <&max96724_2_pipe_0_out>;
+				};
+
+				max96724_2_csi_1_in_1: endpoint@1 {
+					reg = <1>;
+					remote-endpoint = <&max96724_2_pipe_1_out>;
+				};
+
+				max96724_2_csi_1_in_2: endpoint@2 {
+					reg = <2>;
+					remote-endpoint = <&max96724_2_pipe_2_out>;
+				};
+
+				max96724_2_csi_1_in_3: endpoint@3 {
+					reg = <3>;
+					remote-endpoint = <&max96724_2_pipe_3_out>;
+				};
+
+				max96724_2_csi_1_out: endpoint@4 {
+					reg = <4>;
+					data-lanes = <1 2 3 4>;
+					remote-endpoint = <&mipi_csi1_ep>;
+				};
+			};
+		};
+
+		i2c-mux {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			i2c@0 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <0>;
+
+				mx95mbcam@40 {
+					compatible = "nxp,mx95mbcam";
+					reg = <0x40>;
+					nxp,camera_sensor_reset_pin = <8>;
+					nxp,camera_sensor_clock_pin = <4>;
+
+					orientation = <2>;
+					rotation = <0>;
+
+					port {
+						mx95mbcam_gmsl_a_out: endpoint {
+							remote-endpoint = <&max96724_2_gmsl_a_in>;
+						};
+					};
+				};
+			};
+
+			i2c@1 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <1>;
+
+				mx95mbcam@40 {
+					compatible = "nxp,mx95mbcam";
+					reg = <0x40>;
+					nxp,camera_sensor_reset_pin = <8>;
+					nxp,camera_sensor_clock_pin = <4>;
+
+					orientation = <2>;
+					rotation = <0>;
+
+					port {
+						mx95mbcam_gmsl_b_out: endpoint {
+							remote-endpoint = <&max96724_2_gmsl_b_in>;
+						};
+					};
+				};
+			};
+
+			i2c@2 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <2>;
+
+				mx95mbcam@40 {
+					compatible = "nxp,mx95mbcam";
+					reg = <0x40>;
+					nxp,camera_sensor_reset_pin = <8>;
+					nxp,camera_sensor_clock_pin = <4>;
+
+					orientation = <2>;
+					rotation = <0>;
+
+					port {
+						mx95mbcam_gmsl_c_out: endpoint {
+							remote-endpoint = <&max96724_2_gmsl_c_in>;
+						};
+					};
+				};
+			};
+
+			i2c@3 {
+				#address-cells = <1>;
+				#size-cells = <0>;
+				reg = <3>;
+
+
+				mx95mbcam@40 {
+					compatible = "nxp,mx95mbcam";
+					reg = <0x40>;
+					nxp,camera_sensor_reset_pin = <8>;
+					nxp,camera_sensor_clock_pin = <4>;
+
+					orientation = <2>;
+					rotation = <0>;
+
+					port {
+						mx95mbcam_gmsl_d_out: endpoint {
+							remote-endpoint = <&max96724_2_gmsl_d_in>;
+						};
+					};
+				};
+			};
+		};
+	};
+};
+
+&display_stream_csr {
+	status = "disabled";
+};
+
+&display_master_csr {
+	status = "disabled";
+};
+
+&mipi_tx_phy_csr {
+	status = "disabled";
+};
+
+&mipi_dsi_intf {
+	status = "okay";
+};
+
+&combo_rx {
+	status = "okay";
+};
+
+&mipi_csi1 {
+	status = "okay";
+	virtual-channel;
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			mipi_csi1_ep: endpoint {
+				remote-endpoint = <&max96724_2_csi_1_out>;
+				data-lanes = <1 2 3 4>;
+				clock-lanes = <0>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+				mipi_csi1_out: endpoint {
+				remote-endpoint = <&formatter_1_in>;
+			};
+		};
+	};
+};
+
+&csi_pixel_formatter_1 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			formatter_1_in: endpoint {
+				remote-endpoint = <&mipi_csi1_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			formatter_1_out: endpoint {
+				remote-endpoint = <&isi_in_3>;
+			};
+		};
+	};
+};
+
+&isi {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@3 {
+			reg = <3>;
+
+			isi_in_3: endpoint {
+				remote-endpoint = <&formatter_1_out>;
+			};
+		};
+	};
+};

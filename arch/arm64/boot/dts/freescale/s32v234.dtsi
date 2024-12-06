@@ -5,6 +5,8 @@
  */
 
 #include <dt-bindings/interrupt-controller/arm-gic.h>
+#include <dt-bindings/clock/s32v234-clock.h>
+#include <dt-bindings/pinctrl/s32v234-pinctrl.h>
 
 /memreserve/ 0x80000000 0x00010000;
 
@@ -15,8 +17,26 @@
 	#size-cells = <2>;
 
 	aliases {
+		can0 = &can0;
+		can1 = &can1;
 		serial0 = &uart0;
 		serial1 = &uart1;
+	};
+
+	clocks {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		firc {
+			compatible = "fixed-clock";
+			clock-frequency = <48000000>;
+			#clock-cells = <0>;
+		};
+		fxosc {
+			compatible = "fixed-clock";
+			clock-frequency = <40000000>;
+			#clock-cells = <0>;
+		};
 	};
 
 	cpus {
@@ -116,11 +136,116 @@
 			reg = <0x0 0x40000000 0x0 0x7d000>;
 			ranges;
 
+			edma: dma-controller@40002000 {
+				#dma-cells = <2>;
+				compatible = "fsl,s32v234-edma";
+				reg = <0x0 0x40002000 0x0 0x2000>,
+				      <0x0 0x40031000 0x0 0x1000>,
+				      <0x0 0x400A1000 0x0 0x1000>;
+				dma-channels = <32>;
+				interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 9 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 10 IRQ_TYPE_LEVEL_HIGH>;
+				interrupt-names = "edma-tx_0-15",
+						  "edma-tx_16-31",
+						  "edma-err";
+				clock-names = "dmamux0", "dmamux1";
+				clocks = <&clks S32V234_CLK_SYS6>,
+					 <&clks S32V234_CLK_SYS6>;
+				status = "disabled";
+			};
+
+			fec: ethernet@40032000 {
+				compatible = "fsl,s32v234-fec";
+				reg = <0x0 0x40032000 0x0 0x1000>;
+				interrupt-names = "int0", "int1", "int2", "pps";
+				interrupts = <GIC_SPI 38 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 37 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 36 IRQ_TYPE_LEVEL_HIGH>,
+					     <GIC_SPI 35 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clks S32V234_CLK_SYS6>,
+					 <&clks S32V234_CLK_SYS3>,
+					 <&clks S32V234_CLK_ENET_TIME>,
+					 <&clks S32V234_CLK_ENET>,
+					 <&clks S32V234_CLK_ENET_TIME>;
+				clock-names = "ipg", "ahb", "ptp",
+					      "enet_clk_ref",
+					      "enet_out";
+				fsl,num-tx-queues = <3>;
+				fsl,num-rx-queues = <3>;
+				status = "disabled";
+			};
+
+			clks: mc_cgm0@4003c000 {
+				compatible = "fsl,s32v234-mc_cgm0";
+				reg = <0x0 0x4003C000 0x0 0x1000>;
+				#clock-cells = <1>;
+			};
+
+			mc_cgm1: mc_cgm1@4003F000 {
+				compatible = "fsl,s32v234-mc_cgm1";
+				reg = <0x0 0x4003F000 0x0 0x1000>;
+			};
+
+			mc_cgm2: mc_cgm2@40042000 {
+				compatible = "fsl,s32v234-mc_cgm2";
+				reg = <0x0 0x40042000 0x0 0x1000>;
+			};
+
+			mc_cgm3: mc_cgm3@40045000 {
+				compatible = "fsl,s32v234-mc_cgm3";
+				reg = <0x0 0x40045000 0x0 0x1000>;
+			};
+
+			mc_me: mc_me@4004a000 {
+				compatible = "fsl,s32v234-mc_me";
+				reg = <0x0 0x4004A000 0x0 0x1000>;
+			};
+
 			uart0: serial@40053000 {
 				compatible = "fsl,s32v234-linflexuart";
 				reg = <0x0 0x40053000 0x0 0x1000>;
 				interrupts = <GIC_SPI 59 IRQ_TYPE_EDGE_RISING>;
+				clocks = <&clks S32V234_CLK_LIN>;
+				clock-names = "lin";
+				dmas = <&edma 0 20>,
+				       <&edma 0 19>;
+				dma-names = "rx", "tx";
 				status = "disabled";
+			};
+
+			can0: flexcan@40055000 {
+				compatible = "fsl,s32v234-flexcan";
+				reg = <0x0 0x40055000 0x0 0x1000>;
+				interrupts = <GIC_SPI 42 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clks S32V234_CLK_CAN>,
+					 <&clks S32V234_CLK_CAN>;
+				clock-names = "ipg", "per";
+				status = "disabled";
+			};
+
+			usdhc0: usdhc@4005d000 {
+				compatible = "fsl,s32v234-usdhc";
+				reg = <0x0 0x4005D000 0x0 0x1000>;
+				interrupts = <0 28 4>;
+				clocks = <&clks S32V234_CLK_SDHC>,
+					 <&clks S32V234_CLK_SDHC>,
+					 <&clks S32V234_CLK_SDHC>;
+				clock-names = "ipg", "ahb", "per";
+				bus-width = <8>;
+				status = "disabled";
+			};
+
+			siul2: siul@4006c000 {
+				compatible = "fsl,s32v234-siul2";
+				reg = <0x0 0x4006C000 0x0 0x1794>;
+				status = "disabled";
+			};
+
+			src: src@4007c000 {
+				compatible = "fsl,s32v234-src";
+				reg = <0x0 0x4007C000 0x0 0x1000>;
+				#reset-cells = <1>;
 			};
 		};
 
@@ -136,6 +261,21 @@
 				compatible = "fsl,s32v234-linflexuart";
 				reg = <0x0 0x400bc000 0x0 0x1000>;
 				interrupts = <GIC_SPI 60 IRQ_TYPE_EDGE_RISING>;
+				clocks = <&clks S32V234_CLK_LIN>;
+				clock-names = "lin";
+				dmas = <&edma 1 13>,
+				       <&edma 1 12>;
+				dma-names = "rx", "tx";
+				status = "disabled";
+			};
+
+			can1: flexcan@400be000 {
+				compatible = "fsl,s32v234-flexcan";
+				reg = <0x0 0x400be000 0x0 0x1000>;
+				interrupts = <GIC_SPI 44 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clks S32V234_CLK_CAN>,
+					 <&clks S32V234_CLK_CAN>;
+				clock-names = "ipg", "per";
 				status = "disabled";
 			};
 		};

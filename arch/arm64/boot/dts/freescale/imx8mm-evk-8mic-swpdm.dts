@@ -1,0 +1,48 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2020 NXP
+ */
+
+#include "imx8mm-evk-8mic-revE.dts"
+
+/ {
+	sound-micfil {
+		status = "disabled";
+	};
+
+	dmic: dmic {
+		#sound-dai-cells = <0>;
+		compatible = "dmic-codec";
+		wakeup-delay-ms = <250>;
+	};
+
+	sound-swpdm {
+		compatible = "fsl,imx-audio-card";
+		model = "imx-swpdm-audio";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_swpdm_mute_irq>;
+		pri-dai-link {
+			link-name = "PDM PCM";
+			format = "pdm";
+			cpu {
+				sound-dai = <&sai5>;
+			};
+			codec {
+				sound-dai = <&dmic>;
+			};
+		};
+	};
+};
+
+&micfil {
+	status = "disabled";
+};
+
+&sai5 {
+	/delete-property/ fsl,sai-multi-lane;
+	dmas = <&sdma2 8 24 0>, <&sdma2 9 24 0>;
+	assigned-clock-rates = <24576000>;
+	fsl,dataline = <2 0xf 0xf>;
+	fsl,sai-mclk-direction-output;
+	status = "okay";
+};

@@ -113,18 +113,24 @@
 	};
 };
 
-&i2c2 {
-	hdmi@3d {
-		avdd-supply = <&buck5>;
-		dvdd-supply = <&buck5>;
-		pvdd-supply = <&buck5>;
-		a2vdd-supply = <&buck5>;
-		v1p2-supply = <&buck5>;
-	};
-};
-
 &i2c3 {
 	camera@3c {
 		DOVDD-supply = <&buck5>;
 	};
 };
+
+&aips4 {
+	/delete-node/ display-subsystem;
+};
+
+&{/thermal-zones/cpu-thermal/cooling-maps/map0} {
+	cooling-device =
+					<&A53_0 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&A53_1 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&A53_2 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>,
+					<&A53_3 THERMAL_NO_LIMIT THERMAL_NO_LIMIT>;
+};
+/delete-node/ &adv_bridge;
+/delete-node/ &gpu;
+/delete-node/ &lcdif;
+/delete-node/ &mipi_dsi;

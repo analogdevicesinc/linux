@@ -1,0 +1,26 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+#include "imx95-19x19-evk.dts"
+
+&lpspi7 {
+	#address-cells = <0>;
+	pinctrl-0 = <&pinctrl_lpspi7>;
+	pinctrl-1 = <&pinctrl_lpspi7>;
+	spi-slave;
+	/delete-property/ cs-gpios;
+	/delete-node/ spi@0;
+};
+
+&scmi_iomuxc {
+	pinctrl_lpspi7: lpspi7grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO04__LPSPI7_PCS0	0x3fe
+			IMX95_PAD_GPIO_IO05__LPSPI7_SIN		0x3fe
+			IMX95_PAD_GPIO_IO06__LPSPI7_SOUT	0x3fe
+			IMX95_PAD_GPIO_IO07__LPSPI7_SCK		0x3fe
+		>;
+	};
+};

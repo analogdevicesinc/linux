@@ -1,0 +1,91 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2023 NXP
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include "imx95-clock.h"
+
+&{/} {
+	reg_audio_slot8: regulator-audio-slot8 {
+		compatible = "regulator-fixed";
+		regulator-name = "audio-slot8-switch";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&i2c6_gpio_expander_21 11 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	sound-cs42888 {
+		compatible = "fsl,imx-audio-card";
+		model = "imx-cs42888";
+		pri-dai-link {
+			link-name = "cs42888";
+			format = "i2s";
+			fsl,mclk-equal-bclk;
+			cpu {
+				sound-dai = <&sai2>;
+			};
+			codec {
+				sound-dai = <&cs42888>;
+			};
+		};
+	};
+};
+
+&lpi2c6 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	cs42888: codec@48 {
+		compatible = "cirrus,cs42888";
+		#sound-dai-cells = <0>;
+		reg = <0x48>;
+		clocks = <&scmi_clk IMX95_CLK_SAI2>;
+		clock-names = "mclk";
+		VA-supply = <&reg_3p3v>;
+		VD-supply = <&reg_3p3v>;
+		VLS-supply = <&reg_3p3v>;
+		VLC-supply = <&reg_3p3v>;
+		reset-gpio = <&i2c6_gpio_expander_21 8 GPIO_ACTIVE_LOW>;
+		assigned-clocks = <&scmi_clk IMX95_CLK_AUDIOPLL1_VCO>,
+				  <&scmi_clk IMX95_CLK_AUDIOPLL2_VCO>,
+				  <&scmi_clk IMX95_CLK_AUDIOPLL1>,
+				  <&scmi_clk IMX95_CLK_AUDIOPLL2>,
+				  <&scmi_clk IMX95_CLK_SAI2>;
+		assigned-clock-parents = <0>, <0>, <0>, <0>,
+					 <&scmi_clk IMX95_CLK_AUDIOPLL1>;
+		assigned-clock-rates = <3932160000>,
+				       <3612672000>, <393216000>,
+				       <361267200>, <12288000>;
+	};
+};
+
+&sai2 {
+	#sound-dai-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai2>;
+	clocks = <&scmi_clk IMX95_CLK_BUSNETCMIX>, <&dummy>,
+		 <&scmi_clk IMX95_CLK_SAI2>, <&dummy>,
+		 <&dummy>, <&scmi_clk IMX95_CLK_AUDIOPLL1>,
+		 <&scmi_clk IMX95_CLK_AUDIOPLL2>;
+	clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3", "pll8k", "pll11k";
+	assigned-clocks = <&scmi_clk IMX95_CLK_AUDIOPLL1_VCO>,
+			  <&scmi_clk IMX95_CLK_AUDIOPLL2_VCO>,
+			  <&scmi_clk IMX95_CLK_AUDIOPLL1>,
+			  <&scmi_clk IMX95_CLK_AUDIOPLL2>,
+			  <&scmi_clk IMX95_CLK_SAI2>;
+	assigned-clock-parents = <0>, <0>, <0>, <0>,
+				 <&scmi_clk IMX95_CLK_AUDIOPLL1>;
+	assigned-clock-rates = <3932160000>,
+			       <3612672000>, <393216000>,
+			       <361267200>, <12288000>;
+	fsl,sai-mclk-direction-output;
+	fsl,sai-asynchronous;
+	status = "okay";
+};

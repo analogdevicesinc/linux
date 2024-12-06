@@ -1,0 +1,54 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2022 NXP
+ */
+
+/dts-v1/;
+
+#include "imx93-11x11-evk.dts"
+
+/{
+	interrupt-parent = <&gic>;
+
+	resmem: reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+	};
+};
+
+&clk {
+	init-on-array = <IMX93_CLK_LPUART2_GATE
+			 IMX93_CLK_USDHC1_GATE>;
+};
+
+&iomuxc {
+	pinctrl_uart2: uart2grp {
+		fsl,pins = <
+			MX93_PAD_UART2_TXD__LPUART2_TX			0x31e
+			MX93_PAD_UART2_RXD__LPUART2_RX			0x31e
+		>;
+	};
+};
+
+&lpuart2 {
+	/delete-property/ dmas;
+	/delete-property/ dma-names;
+	status = "disabled";
+};
+
+&lpuart1 {
+	pinctrl-0 = <&pinctrl_uart1>, <&pinctrl_uart2>;
+	assigned-clocks = <&clk IMX93_CLK_LPUART2>;
+	assigned-clock-parents = <&clk IMX93_CLK_24M>;
+};
+
+&usdhc1 {
+	status = "disabled";
+};
+
+&usdhc2 {
+	pinctrl-0 = <&pinctrl_usdhc2>, <&pinctrl_usdhc2_gpio>, <&pinctrl_usdhc1>;
+	pinctrl-1 = <&pinctrl_usdhc2_100mhz>, <&pinctrl_usdhc2_gpio>, <&pinctrl_usdhc1_100mhz>;
+	pinctrl-2 = <&pinctrl_usdhc2_200mhz>, <&pinctrl_usdhc2_gpio>, <&pinctrl_usdhc1_200mhz>;
+};

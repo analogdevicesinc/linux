@@ -1,0 +1,143 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+#include "imx91-9x9-qsb.dts"
+#include <dt-bindings/i2c/i2c.h>
+
+/*
+ * When you need to use the Raspberry Pi interface to connect two
+ * IMX91-9x9-QSB boards, one is master board and another one is
+ * target board, you can refer to the following configuration and
+ * pad connection.
+ */
+
+/* enable lpspi3 and lpspi5 pads on RPI */
+&pcal6524 {
+	sai3-en-hog {
+		gpio-hog;
+		gpios = <23 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+
+	sai3-tx-rx-sel-hog {
+		gpio-hog;
+		gpios = <14 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+
+	/* EXP_SEL selects pins between board and RPi */
+	exp-sel-hog {
+		gpio-hog;
+		gpios = <22 GPIO_ACTIVE_HIGH>;
+		output-low;
+	};
+};
+
+/*
+ * LPI2C pad connection on board:
+ * I2C3 as master and I2C4 as target:
+ * SDA: J4.3 <--> J4.27
+ * SCL：J4.5 <--> J4.28
+ * GND: GND  <-->  GND
+ */
+
+/* lpi2c3 work as a lpi2c master bus */
+&lpi2c3 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c3>;
+	status = "okay";
+};
+
+/*
+ * lpi2c4 work as a lpi2c slave bus.
+ * The simulated 256 bytes-size slave-eeprom is instantiated
+ * at 7 bit address 0x64 on lpi2c6.
+ */
+&lpi2c4 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c4>;
+	status = "okay";
+
+	eeprom@64 {
+		compatible = "linux,slave-24c02";
+		reg = <(0x64 | I2C_OWN_SLAVE_ADDRESS)>;
+	};
+};
+
+/*
+ * LPSPI pad connection on board:
+ * SPI3 as master and SPI5 as target.
+ * SOUT: J4.19 <--> J4.38
+ * SIN:  J4.21 <--> J4.35
+ * SCK:  J4.23 <--> J4.40
+ * CS:   J4.24 <--> J4.12
+ * GND:   GND  <-->  GND
+ */
+
+/* lpspi3 work as a lpspi master bus */
+&lpspi3 {
+	fsl,spi-num-chipselects = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpspi3>;
+	cs-gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;
+	status = "okay";
+
+	spidev0: spi@0 {
+		reg = <0>;
+		compatible = "lwn,bk4";
+		spi-max-frequency = <1000000>;
+	};
+};
+
+/* lpspi5 work as a lpspi slave bus */
+&lpspi5 {
+	#address-cells = <0>;
+	fsl,spi-num-chipselects = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpspi5>;
+	spi-slave;
+	status = "okay";
+
+	slave {
+		compatible = "lwn,bk4";
+		spi-max-frequency = <1000000>;
+	};
+};
+
+&iomuxc {
+	pinctrl_lpi2c3: lpi2c3grp {
+		fsl,pins = <
+			MX91_PAD_GPIO_IO00__LPI2C3_SDA			0x40000b9e
+			MX91_PAD_GPIO_IO01__LPI2C3_SCL			0x40000b9e
+		>;
+	};
+
+	pinctrl_lpi2c4: lpi2c4grp {
+		fsl,pins = <
+			MX91_PAD_GPIO_IO02__LPI2C4_SDA			0x40000b9e
+			MX91_PAD_GPIO_IO03__LPI2C4_SCL			0x40000b9e
+		>;
+	};
+
+	pinctrl_lpspi3: lpspi3grp {
+		fsl,pins = <
+			MX91_PAD_GPIO_IO08__GPIO2_IO8		0x3fe
+			MX91_PAD_GPIO_IO09__LPSPI3_SIN		0x3fe
+			MX91_PAD_GPIO_IO10__LPSPI3_SOUT		0x3fe
+			MX91_PAD_GPIO_IO11__LPSPI3_SCK		0x3fe
+		>;
+	};
+
+	pinctrl_lpspi5: lpspi5grp {
+		fsl,pins = <
+			MX91_PAD_GPIO_IO18__LPSPI5_PCS0		0x3fe
+			MX91_PAD_GPIO_IO19__LPSPI5_SIN		0x3fe
+			MX91_PAD_GPIO_IO20__LPSPI5_SOUT		0x3fe
+			MX91_PAD_GPIO_IO21__LPSPI5_SCK		0x3fe
+		>;
+	};
+};

@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2022 NXP
+ */
+
+#include "imx93-14x14-evk.dts"
+
+&adv7535 {
+	status = "disabled";
+};
+
+/delete-node/ &dsi_to_adv7535;
+/delete-node/ &adv7535_to_dsi;
+
+&dsi {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	panel@0 {
+		compatible = "raydium,rm67199";
+		reg = <0>;
+		reset-gpio = <&pcal6524_2 4 GPIO_ACTIVE_LOW>;
+		dsi-lanes = <4>;
+		video-mode = <2>;	/* 0: burst mode
+					 * 1: non-burst mode with sync event
+					 * 2: non-burst mode with sync pulse
+					 */
+		width-mm = <68>;
+		height-mm = <121>;
+		status = "okay";
+
+		port {
+			panel_in: endpoint {
+				remote-endpoint = <&dsi_out>;
+			};
+		};
+	};
+
+	ports {
+		port@1 {
+			reg = <1>;
+
+			dsi_out: endpoint {
+				remote-endpoint = <&panel_in>;
+			};
+		};
+	};
+};
+
+&lcdif {
+	assigned-clock-rates = <484000000>, <121000000>, <400000000>, <133333333>;
+};
+
+&lpi2c1 {
+	touchscreen@14 {
+		compatible = "goodix,gt1151";
+		reg = <0x14>;
+		interrupt-parent = <&pcal6524>;
+		interrupts = <7 IRQ_TYPE_EDGE_FALLING>;
+		irq-gpios = <&pcal6524 7 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&pcal6524_2 7 GPIO_ACTIVE_HIGH>;
+		edge-failling-trigger;
+		touchscreen-size-x = <1080>;
+		touchscreen-size-y = <1920>;
+	};
+};

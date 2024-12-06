@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright 2015-2016 Freescale Semiconductor, Inc.
- * Copyright 2016-2017 NXP
+ * Copyright 2016-2017,2019 NXP
  */
 
 /dts-v1/;
@@ -16,10 +16,105 @@
 	};
 };
 
+&can0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can0>;
+	status = "okay";
+};
+
+&can1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_can1>;
+	status = "okay";
+};
+
+&edma {
+	status = "okay";
+};
+
+&siul2 {
+	status = "okay";
+	s32v234-evb {
+
+		/* Format of pins: MSCR_IDX PAD_CONFIGURATION If you know the
+		 * IMCR_IDX instead of MSCR_IDX, add 512 to it as the Reference
+		 * Manual states.
+		 */
+
+		pinctrl_can0: can0grp {
+			fsl,pins = <
+				S32V234_PAD_PA2__CAN_FD0_TXD
+				S32V234_PAD_PA3__CAN_FD0_RXD_OUT
+				S32V234_PAD_PA3__CAN_FD0_RXD_IN
+			>;
+		};
+
+		pinctrl_can1: can1grp {
+			fsl,pins = <
+				S32V234_PAD_PA4__CAN_FD1_TXD
+				S32V234_PAD_PA5__CAN_FD1_RXD_OUT
+				S32V234_PAD_PA5__CAN_FD1_RXD_IN
+			>;
+		};
+
+		pinctrl_uart0: uart0grp {
+			fsl,pins = <
+				S32V234_PAD_PA12__UART0_TXD
+				S32V234_PAD_PA11__UART0_RXD_OUT
+				S32V234_PAD_PA11__UART0_RXD_IN
+			>;
+		};
+
+		pinctrl_uart1: uart1grp {
+			fsl,pins = <
+				S32V234_PAD_PA14__UART1_TXD
+				S32V234_PAD_PA13__UART1_RXD_OUT
+				S32V234_PAD_PA13__UART1_RXD_IN
+			>;
+		};
+
+		pinctrl_usdhc0: usdhc0grp {
+			fsl,pins = <
+				S32V234_PAD_PK6__USDHC_CLK_OUT
+				S32V234_PAD_PK6__USDHC_CLK_IN
+				S32V234_PAD_PK7__USDHC_CMD_OUT
+				S32V234_PAD_PK7__USDHC_CMD_IN
+				S32V234_PAD_PK8__USDHC_DAT0_OUT
+				S32V234_PAD_PK8__USDHC_DAT0_IN
+				S32V234_PAD_PK9__USDHC_DAT1_OUT
+				S32V234_PAD_PK9__USDHC_DAT1_IN
+				S32V234_PAD_PK10__USDHC_DAT2_OUT
+				S32V234_PAD_PK10__USDHC_DAT2_IN
+				S32V234_PAD_PK11__USDHC_DAT3_OUT
+				S32V234_PAD_PK11__USDHC_DAT3_IN
+				S32V234_PAD_PK15__USDHC_DAT4_OUT
+				S32V234_PAD_PK15__USDHC_DAT4_IN
+				S32V234_PAD_PL0__USDHC_DAT5_OUT
+				S32V234_PAD_PL0__USDHC_DAT5_IN
+				S32V234_PAD_PL1__USDHC_DAT6_OUT
+				S32V234_PAD_PL1__USDHC_DAT6_IN
+				S32V234_PAD_PL2__USDHC_DAT7_OUT
+				S32V234_PAD_PL2__USDHC_DAT7_IN
+			>;
+		};
+	};
+};
+
 &uart0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart0>;
 	status = "okay";
 };
 
 &uart1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart1>;
+	status = "okay";
+};
+
+&usdhc0 {
+	no-1-8-v;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_usdhc0>;
 	status = "okay";
 };

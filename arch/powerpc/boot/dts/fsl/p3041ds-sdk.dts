@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Copyright 2017-2018 NXP
+ */
+
+/include/ "p3041ds.dts"
+
+/include/ "qoriq-fman-0-sdk.dtsi"
+/include/ "qoriq-dpaa-eth.dtsi"
+/include/ "qoriq-bman-portals-sdk.dtsi"
+/include/ "qoriq-qman1-portals-sdk.dtsi"
+
+&soc {
+	fsldpaa: fsl,dpaa {
+		compatible = "simple-bus", "fsl,dpaa";
+		ethernet@2 {
+			status = "disabled";
+		};
+	};
+};
+

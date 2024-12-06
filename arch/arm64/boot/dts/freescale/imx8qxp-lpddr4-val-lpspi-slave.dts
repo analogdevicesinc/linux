@@ -1,0 +1,24 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2017~2019 NXP
+ */
+
+#include "imx8qxp-lpddr4-val-lpspi.dts"
+
+/delete-node/&spidev0;
+
+&pinctrl_lpspi2 {
+	fsl,pins = <
+		IMX8QXP_SPI2_SCK_ADMA_SPI2_SCK		0x6000040
+		IMX8QXP_SPI2_SDO_ADMA_SPI2_SDO		0x6000040
+		IMX8QXP_SPI2_SDI_ADMA_SPI2_SDI		0x6000040
+		IMX8QXP_SPI2_CS0_ADMA_SPI2_CS0		0x6000040
+	>;
+};
+
+&lpspi2 {
+	#address-cells = <0>;
+	pinctrl-0 = <&pinctrl_lpspi2>;
+	/delete-property/ cs-gpios;
+	spi-slave;
+};

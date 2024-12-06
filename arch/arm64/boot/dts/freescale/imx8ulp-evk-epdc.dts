@@ -1,0 +1,152 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2021 NXP
+ */
+
+#include "imx8ulp-evk-rk055hdmipi4m.dts"
+
+/ {
+	sound-spdif {
+		status = "disabled";
+	};
+};
+
+&i2c_rpbus_1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	fp9931: fp9931@18 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pf9931>;
+		compatible = "fitipower,fp9931";
+		reg = <0x18>;
+		status = "okay";
+
+		/* power up and down timings in mseconds */
+		vgl-pwrup = <1>;
+		vneg-pwrup = <1>;
+		vgh-pwrup = <1>;
+		vpos-pwrup = <1>;
+		ss-time = <3>;
+		gpio-pmic-pwrgood = <&gpioe 17 0>;
+		gpio-pmic-wakeup = <&gpioe 18 0>;
+
+		/* enable sequence for panel VB3300:
+		 *
+		 * V3P3->VGL->VNEG->VGH->VPOS->VCOM
+		 */
+		regulators {
+			/* fifth enabe VPOS */
+			vpos_reg: VPOS-LDO {
+				regulator-name = "VPOS";
+				regulator-min-microvolt = <7040000>;
+				regulator-max-microvolt = <15060000>;
+			};
+
+			/* third enable VNEG */
+			vneg_reg: VNEG-LDO {
+				regulator-name = "VNEG";
+				/* Real max value: -7040000 uV */
+				regulator-min-microvolt = <7040000>;
+				/* Real min value: -15060000 uV */
+				regulator-max-microvolt = <15060000>;
+			};
+
+			/* fourth enable VGH */
+			vgh_reg: VGH-CHARGE-PUMP {
+				/* 15V to 30V with External Dividual Resistor */
+				regulator-name = "VGH";
+			};
+
+			/* second enable VGL */
+			vgl_reg: VGL-CHARGE-PUMP {
+				/* -15V to -25V with External Dividual Resistor */
+				regulator-name = "VGL";
+			};
+
+			/* last enable VCOM */
+			vcom_reg: VCOM {
+				regulator-name = "VCOM";
+				/* Real max value:  -19608 uV */
+				regulator-min-microvolt = <19608>;
+				/* Real min value: -5000000 uV */
+				regulator-max-microvolt = <5000000>;
+			};
+
+			/* V3P3 is the first power need to be enabled
+			 * according to VB3300 panel spec.
+			 */
+			v3p3_reg: V3P3 {
+				regulator-name = "V3P3";
+			};
+		};
+	};
+};
+
+&iomuxc1 {
+	pinctrl_pf9931: pf9931grp-1 {
+		fsl,pins = <
+			MX8ULP_PAD_PTE17__PTE17		0x80000000  /* pwrgood */
+			MX8ULP_PAD_PTE18__EPDC0_PWRWAKE		0x80000000  /* wakeup */
+		>;
+	};
+
+	pinctrl_epdc0: epdcgrp0 {
+		fsl,pins = <
+			MX8ULP_PAD_PTF23__EPDC0_D0	0x43
+			MX8ULP_PAD_PTF22__EPDC0_D1	0x43
+			MX8ULP_PAD_PTF21__EPDC0_D2	0x43
+			MX8ULP_PAD_PTF20__EPDC0_D3	0x43
+			MX8ULP_PAD_PTF19__EPDC0_D4	0x43
+			MX8ULP_PAD_PTF18__EPDC0_D5	0x43
+			MX8ULP_PAD_PTF17__EPDC0_D6	0x43
+			MX8ULP_PAD_PTF16__EPDC0_D7	0x43
+			MX8ULP_PAD_PTF24__EPDC0_SDCLK	0x43
+			MX8ULP_PAD_PTF25__EPDC0_GDSP	0x43
+			MX8ULP_PAD_PTF26__EPDC0_SDLE	0x43
+			MX8ULP_PAD_PTF27__EPDC0_SDCE0	0x43
+
+			MX8ULP_PAD_PTF0__EPDC0_SDOE	0x43
+			MX8ULP_PAD_PTE19__EPDC0_GDCLK	0x43
+			MX8ULP_PAD_PTE20__EPDC0_GDOE	0x43
+			MX8ULP_PAD_PTE21__EPDC0_GDRL	0x43
+
+		>;
+	};
+};
+
+&epdc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_epdc0>;
+	en-gpios = <&pca6416_1 10 GPIO_ACTIVE_HIGH>; /* switch */
+	V3P3-supply = <&v3p3_reg>;
+	VCOM-supply = <&vcom_reg>;
+	VPOS-supply = <&vpos_reg>;
+	VNEG-supply = <&vneg_reg>;
+	status = "okay";
+};
+
+&epxp {
+	status = "okay";
+};
+
+&fec {
+	status = "disabled";
+};
+
+&sai5 {	/* conflict PAD_PTF23 */
+	status = "disabled";
+};
+
+&spdif {/* conflict PAD_PTF25 */
+	status = "disabled";
+};
+
+&lpspi5 {/* conflict PAD_PTF19 */
+	status = "disabled";
+};
+
+&lpuart7 {/* conflict PAD_PTF23 */
+	status = "disabled";
+};

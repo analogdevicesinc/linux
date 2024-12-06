@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2023 NXP
+ */
+
+/dts-v1/;
+
+#include "imx93-9x9-qsb-rpmsg.dts"
+
+&rpmsg_audio {
+	/delete-property/ fsl,enable-lpa;
+	/delete-property/ fsl,rpmsg-in;
+};

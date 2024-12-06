@@ -1,17 +1,20 @@
 // SPDX-License-Identifier: (GPL-2.0 OR MIT)
 //
-// Copyright 2018 NXP.
+// Copyright 2018-2021 NXP.
 
 /dts-v1/;
 
 #include "imx6ulz.dtsi"
 #include "imx6ul-14x14-evk.dtsi"
 
+/delete-node/ &csi;
 /delete-node/ &fec1;
 /delete-node/ &fec2;
 /delete-node/ &can1;
 /delete-node/ &can2;
 /delete-node/ &lcdif;
+/delete-node/ &ov5640;
+/delete-node/ &pxp;
 /delete-node/ &tsc;
 
 / {
@@ -19,4 +22,22 @@
 	compatible = "fsl,imx6ulz-14x14-evk", "fsl,imx6ull", "fsl,imx6ulz";
 
 	/delete-node/ panel;
+	/delete-node/ pxp_v4l2;
 };
+
+&iomuxc {
+	pinctrl_usdhc1: usdhc1grp {
+		fsl,pins = <
+			MX6UL_PAD_SD1_CMD__USDHC1_CMD     	0x17059
+			MX6UL_PAD_SD1_CLK__USDHC1_CLK     	0x10071
+			MX6UL_PAD_SD1_DATA0__USDHC1_DATA0 	0x17059
+			MX6UL_PAD_SD1_DATA1__USDHC1_DATA1 	0x17059
+			MX6UL_PAD_SD1_DATA2__USDHC1_DATA2 	0x17059
+			MX6UL_PAD_SD1_DATA3__USDHC1_DATA3 	0x17059
+			MX6UL_PAD_UART1_RTS_B__GPIO1_IO19       0x17059 /* SD1 CD */
+			MX6UL_PAD_GPIO1_IO05__USDHC1_VSELECT    0x17059 /* SD1 VSELECT */
+			MX6UL_PAD_GPIO1_IO09__GPIO1_IO09        0x17059 /* SD1 RESET */
+		>;
+	};
+};
+

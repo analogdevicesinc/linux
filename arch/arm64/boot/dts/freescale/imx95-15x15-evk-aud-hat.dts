@@ -1,0 +1,258 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+#include "imx95-15x15-evk.dts"
+
+/ {
+	mic_leds {
+		compatible = "gpio-leds";
+		mic0 {
+			label = "mic0";
+			gpios = <&pca9555 5 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+		mic1 {
+			label = "mic1";
+			gpios = <&pca9555 7 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+		mic2 {
+			label = "mic2";
+			gpios = <&pca9555 6 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+		mic3 {
+			label = "mic3";
+			gpios = <&pca9555 2 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+		mic4 {
+			label = "mic4";
+			gpios = <&pca9555 1 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+		mic5 {
+			label = "mic5";
+			gpios = <&pca9555 0 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+		mic6 {
+			label = "mic6";
+			gpios = <&pca9555 4 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+		mic7 {
+			label = "mic7";
+			gpios = <&pca9555 3 GPIO_ACTIVE_LOW>;
+			default-state = "off";
+		};
+	};
+
+	sw_keys {
+		compatible = "gpio-keys";
+
+		sw4: volume_down {
+			label = "Volume Down";
+			gpios = <&pca9555 15 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOLUMEDOWN>;
+			interrupt-parent = <&pca9555>;
+			interrupts = <15 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		sw3: volume_up {
+			label = "Volume Up";
+			gpios = <&pca9555 14 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOLUMEUP>;
+			interrupt-parent = <&pca9555>;
+			interrupts = <14 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		sw2: volume_mute {
+			label = "Volume Mute";
+			gpios = <&pca9555 13 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_MUTE>;
+			interrupt-parent = <&pca9555>;
+			interrupts = <13 IRQ_TYPE_LEVEL_LOW>;
+		};
+
+		sw1: key_act {
+			label = "Key Act";
+			gpios = <&pca9555 12 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_F9>;
+			interrupt-parent = <&pca9555>;
+			interrupts = <12 IRQ_TYPE_LEVEL_LOW>;
+		};
+	};
+
+	reg_vddext_3v3: regulator-vddext {
+		compatible = "regulator-fixed";
+		regulator-name = "VDDEXT_3V3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	reg_audio_switch1: regulator-audio-switch1 {
+		compatible = "regulator-fixed";
+		regulator-name = "audio-switch1";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pcal6524 0 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-always-on;
+	};
+
+	reg_audio_pwr: regulator-audio-pwr {
+		compatible = "regulator-fixed";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_audio_pwr>;
+		regulator-name = "cs42448-supply";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio2 1 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-always-on;
+	};
+
+	sound-wm8962 {
+		status = "disabled";
+	};
+
+	sound-cs42448 {
+		compatible = "fsl,imx-audio-card";
+		model = "imx-cs42448";
+		status = "okay";
+		pri-dai-link {
+			link-name = "cs42448";
+			format = "dsp_a";
+			dai-tdm-slot-num = <8>;
+			dai-tdm-slot-width = <32>;
+			fsl,mclk-equal-bclk;
+			cpu {
+				sound-dai = <&sai3>;
+			};
+			codec {
+				sound-dai = <&cs42448>;
+			};
+		};
+	};
+
+};
+
+&sai3 {
+	#sound-dai-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai3audhat>;
+	clocks = <&scmi_clk IMX95_CLK_BUSWAKEUP>, <&dummy>,
+		 <&scmi_clk IMX95_CLK_SAI3>, <&dummy>,
+		 <&dummy>,
+		 <&scmi_clk IMX95_CLK_AUDIOPLL1>,
+		 <&scmi_clk IMX95_CLK_AUDIOPLL2>;
+	clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3",
+		      "pll8k", "pll11k";
+	assigned-clocks = <&scmi_clk IMX95_CLK_AUDIOPLL1_VCO>,
+			  <&scmi_clk IMX95_CLK_AUDIOPLL2_VCO>,
+			  <&scmi_clk IMX95_CLK_AUDIOPLL1>,
+			  <&scmi_clk IMX95_CLK_AUDIOPLL2>,
+			  <&scmi_clk IMX95_CLK_SAI3>;
+	assigned-clock-parents = <0>, <0>, <0>, <0>,
+				 <&scmi_clk IMX95_CLK_AUDIOPLL1>;
+	assigned-clock-rates = <3932160000>,
+			       <3612672000>, <393216000>,
+			       <361267200>, <12288000>;
+	fsl,sai-asynchronous;
+	fsl,sai-mclk-direction-output;
+	status = "okay";
+};
+
+&flexcan2 {
+	status = "disabled";
+};
+
+&micfil {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pdm2>;
+	status = "okay";
+};
+
+&lpi2c6 {
+	pca9555: gpio@21 {
+		compatible = "nxp,pca9555";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pushbutton_irq>;
+		reg = <0x21>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		interrupt-controller;
+		#interrupt-cells = <2>;
+		interrupt-parent = <&gpio2>;
+		interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
+		vcc-supply = <&reg_vddext_3v3>;
+		status = "okay";
+	};
+
+	cs42448: cs42448@48 {
+		#sound-dai-cells = <0>;
+		compatible = "cirrus,cs42448";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_codec_reset>;
+		reg = <0x48>;
+		clocks = <&scmi_clk IMX95_CLK_SAI3>;
+		clock-names = "mclk";
+		VA-supply = <&reg_audio_pwr>;
+		VD-supply = <&reg_audio_pwr>;
+		VLS-supply = <&reg_audio_pwr>;
+		VLC-supply = <&reg_audio_switch1>;
+		reset-gpio = <&gpio2 25 GPIO_ACTIVE_LOW>;
+		status = "okay";
+	};
+};
+
+&scmi_iomuxc {
+	pinctrl_swpdm_mute_irq: swpdm_mute_grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO00__GPIO2_IO_BIT0			0x31e
+		>;
+	};
+
+	pinctrl_pushbutton_irq: pushbutton_grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO27__GPIO2_IO_BIT27			0x31e
+		>;
+	};
+
+	pinctrl_pdm2: pdm2grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO04__AONMIX_TOP_PDM_CLK			0x31e
+			IMX95_PAD_GPIO_IO05__AONMIX_TOP_PDM_BIT_STREAM_BIT0	0x31e
+			IMX95_PAD_GPIO_IO06__AONMIX_TOP_PDM_BIT_STREAM_BIT1	0x31e
+			IMX95_PAD_GPIO_IO12__AONMIX_TOP_PDM_BIT_STREAM_BIT2	0x31e
+			IMX95_PAD_GPIO_IO13__AONMIX_TOP_PDM_BIT_STREAM_BIT3	0x31e
+		>;
+	};
+
+	pinctrl_sai3audhat: sai3audhat {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO17__SAI3_MCLK			0x31e
+			IMX95_PAD_GPIO_IO16__SAI3_TX_BCLK		0x31e
+			IMX95_PAD_GPIO_IO18__SAI3_RX_BCLK		0x31e
+			IMX95_PAD_GPIO_IO19__SAI3_RX_SYNC		0x31e
+			IMX95_PAD_GPIO_IO20__SAI3_RX_DATA_BIT0		0x31e
+			IMX95_PAD_GPIO_IO21__SAI3_TX_DATA_BIT0		0x31e
+			IMX95_PAD_GPIO_IO26__SAI3_TX_SYNC		0x31e
+		>;
+	};
+
+	pinctrl_audio_pwr: audiopwrgrp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO01__GPIO2_IO_BIT1		0x31e
+		>;
+	};
+
+	pinctrl_codec_reset: codecresetgrp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO25__GPIO2_IO_BIT25		0x31e
+		>;
+	};
+};

@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2022 NXP
+ */
+
+#include "imx8ulp-9x9-evk.dts"
+#include "imx8ulp-evk-rk055hdmipi4m.dtsi"
+
+&dsi {
+	panel@0 {
+		reset-gpios = <&gpiof 21 GPIO_ACTIVE_LOW>;
+	};
+};

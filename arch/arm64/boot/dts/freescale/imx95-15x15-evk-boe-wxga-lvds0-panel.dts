@@ -1,0 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2024 NXP
+ */
+
+#include "imx95-15x15-evk.dts"
+#include "imx95-15x15-evk-boe-wxga-lvds0-panel.dtsi"

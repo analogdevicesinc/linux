@@ -1,0 +1,139 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2020 NXP
+ */
+
+#include "imx8mn-ddr3l-evk.dts"
+
+/ {
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		/* global autoconfigured region for contiguous allocations */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x14000000>;
+			alloc-ranges = <0 0x40000000 0 0x40000000>;
+			linux,cma-default;
+		};
+
+		m_core_reserved: m_core@77000000 {
+			no-map;
+			reg = <0 0x77000000 0 0x1000000>;
+		};
+
+		vdev0vring0: vdev0vring0@78000000 {
+			reg = <0 0x78000000 0 0x8000>;
+			no-map;
+		};
+
+		vdev0vring1: vdev0vring1@78008000 {
+			reg = <0 0x78008000 0 0x8000>;
+			no-map;
+		};
+
+		rsc_table: rsc-table@780ff000 {
+			reg = <0 0x780ff000 0 0x1000>;
+			no-map;
+		};
+
+		vdevbuffer: vdevbuffer@78400000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0x78400000 0 0x100000>;
+			no-map;
+		};
+	};
+
+	bt_sco_codec: bt_sco_codec {
+		status = "disabled";
+	};
+
+	sound-bt-sco {
+		status = "disabled";
+	};
+
+	sound-wm8524 {
+		status = "disabled";
+	};
+
+	wm8524: audio-codec {
+		clocks = <&clk IMX8MN_CLK_SAI3_ROOT>;
+	};
+
+	rpmsg_audio: rpmsg_audio {
+		compatible = "fsl,imx8mn-rpmsg-audio";
+		model = "wm8524-audio";
+		fsl,enable-lpa;
+		fsl,rpmsg-out;
+		assigned-clocks = <&clk IMX8MN_CLK_SAI3>;
+		assigned-clock-parents = <&clk IMX8MN_AUDIO_PLL1_OUT>;
+		assigned-clock-rates = <24576000>;
+		clocks = <&clk IMX8MN_CLK_SAI3_IPG>,
+			 <&clk IMX8MN_CLK_SAI3_ROOT>,
+			 <&clk IMX8MN_CLK_SDMA3_ROOT>,
+			 <&clk IMX8MN_AUDIO_PLL1_OUT>,
+			 <&clk IMX8MN_AUDIO_PLL2_OUT>;
+		clock-names = "ipg", "mclk", "dma", "pll8k", "pll11k";
+		audio-codec = <&wm8524>;
+		status = "okay";
+	};
+
+	imx8mn-cm7 {
+		compatible = "fsl,imx8mn-cm7";
+		rsc-da = <0xb8000000>;
+		clocks = <&clk IMX8MN_CLK_DUMMY>;
+		mbox-names = "tx", "rx", "rxdb";
+		mboxes = <&mu 0 1
+			  &mu 1 1
+			  &mu 3 1>;
+		memory-region = <&vdev0vring0>, <&vdev0vring1>, <&vdevbuffer>, <&rsc_table>;
+		status = "okay";
+		fsl,startup-delay-ms = <500>;
+	};
+};
+
+&clk {
+	init-on-array = <
+	IMX8MN_CLK_UART4_ROOT
+	>;
+};
+
+/*
+ * ATTENTION: M core may use IPs like below
+ * ECSPI2, GPIO1/GPIO5, GPT1, I2C3, I2S3, UART4, PWM3, SDMA1/3 and PDM
+ */
+
+&ecspi2 {
+	status = "disabled";
+};
+
+&flexspi {
+	status = "disabled";
+};
+
+&i2c3 {
+	status = "disabled";
+};
+
+&pwm3 {
+	status = "disabled";
+};
+
+&sai2 {
+	status = "disabled";
+};
+
+&sai3 {
+	status = "disabled";
+};
+
+&uart4 {
+	status = "disabled";
+};
+
+&sdma3 {
+	status = "disabled";
+};

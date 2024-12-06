@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2023 NXP
+ */
+
+/dts-v1/;
+
+#include "imx95-19x19-evk.dts"
+
+/{
+	interrupt-parent = <&gic>;
+
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		linux_cma: linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x3c000000>;
+			alloc-ranges = <0 0x80000000 0 0x70000000>;
+			linux,cma-default;
+		};
+
+	};
+};
+
+&smmu {
+	status = "disabled";
+};
+
+&edma3 {
+	status = "disabled";
+};
+
+&pcie_4ca00000 {
+	linux,pci-domain = <2>;
+};
+
+&pcie_4cb00000 {
+	linux,pci-domain = <3>;
+};
+
+&usdhc1 {
+	status = "disabled";
+};
+
+&usdhc2 {
+	status = "okay";
+};

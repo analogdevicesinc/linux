@@ -1,0 +1,7 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright 2020 NXP.
+ */
+
+#include "imx8qxp-mek-rpmsg.dts"
+#include "imx8x-mek-lcdif.dtsi"

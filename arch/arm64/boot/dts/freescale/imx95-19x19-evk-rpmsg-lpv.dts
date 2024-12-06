@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+/dts-v1/;
+
+#include "imx95-19x19-evk-rpmsg.dts"
+
+&rpmsg_audio {
+	/delete-property/ fsl,enable-lpa;
+	/delete-property/ fsl,rpmsg-in;
+};

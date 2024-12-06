@@ -1,0 +1,29 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright 2020 NXP.
+ */
+
+#include "imx8mq-evk-lcdif-rm67191.dts"
+
+/delete-node/ &synaptics_dsx_ts;
+
+&mipi_dsi {
+	panel@0 {
+		compatible = "raydium,rm67199";
+	};
+};
+
+&i2c3 {
+	touchscreen@14 {
+		compatible = "goodix,gt1151";
+		reg = <0x14>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_i2c3_dsi_ts_int>;
+		interrupt-parent = <&gpio5>;
+		interrupts = <7 IRQ_TYPE_EDGE_FALLING>;
+		irq-gpios = <&gpio5 7 GPIO_ACTIVE_HIGH>;
+		edge-failling-trigger;
+		touchscreen-size-x = <1080>;
+		touchscreen-size-y = <1920>;
+	};
+};

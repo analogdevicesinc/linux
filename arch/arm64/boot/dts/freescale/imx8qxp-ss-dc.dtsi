@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: GPL-2.0+
+
+/*
+ * Copyright 2019 NXP
+ */
+
+&dpu1 {
+	compatible = "fsl,imx8qxp-dpu";
+
+	dpu_disp0: port@0 {
+		reg = <0>;
+
+		dpu_disp0_ldb1_ch0: endpoint@0 {
+			remote-endpoint = <&ldb1_ch0>;
+		};
+
+		dpu_disp0_ldb1_ch1: endpoint@1 {
+			remote-endpoint = <&ldb1_ch1>;
+		};
+
+		dpu_disp0_mipi_dsi: endpoint@2 {
+			remote-endpoint = <&mipi0_dsi_in>;
+		};
+	};
+
+	dpu_disp1: port@1 {
+		reg = <1>;
+
+		dpu_disp1_ldb2_ch0: endpoint@0 {
+			remote-endpoint = <&ldb2_ch0>;
+		};
+
+		dpu_disp1_ldb2_ch1: endpoint@1 {
+			remote-endpoint = <&ldb2_ch1>;
+		};
+
+		dpu_disp1_mipi_dsi: endpoint@2 {
+			remote-endpoint = <&mipi1_dsi_in>;
+		};
+
+		dpu_disp1_lcdif: endpoint@3 {
+		};
+	};
+};
+
+/ {
+	display-subsystem {
+		compatible = "fsl,imx-display-subsystem";
+		ports = <&dpu_disp0>, <&dpu_disp1>;
+	};
+};

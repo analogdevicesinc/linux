@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+#include "imx95-15x15-evk.dts"
+
+/ {
+	reg_mqs_switch: regulator-mqs-switch {
+		compatible = "regulator-fixed";
+		regulator-name = "audio-switch";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pcal6524 20 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-always-on;
+	};
+
+	sound-micfil {
+		status = "disabled";
+	};
+
+	sound-bt-sco {
+		status = "disabled";
+	};
+
+	sound-mqs {
+		compatible = "fsl,imx-audio-mqs";
+		model = "mqs-audio";
+		audio-cpu = <&sai1>;
+		audio-codec = <&mqs1>;
+	};
+};
+
+&sai1 {
+	#sound-dai-cells = <0>;
+	assigned-clocks = <&scmi_clk IMX95_CLK_AUDIOPLL1_VCO>,
+			<&scmi_clk IMX95_CLK_AUDIOPLL2_VCO>,
+			<&scmi_clk IMX95_CLK_AUDIOPLL1>,
+			<&scmi_clk IMX95_CLK_AUDIOPLL2>,
+			<&scmi_clk IMX95_CLK_SAI1>;
+	assigned-clock-parents = <0>, <0>, <0>, <0>,
+			<&scmi_clk IMX95_CLK_AUDIOPLL1>;
+	assigned-clock-rates = <3932160000>,
+			<3612672000>, <393216000>,
+			<361267200>, <24576000>;
+	fsl,sai-mclk-direction-output;
+	status = "okay";
+};
+
+&mqs1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_mqs1>;
+	clocks = <&scmi_clk IMX95_CLK_SAI1>;
+	clock-names = "mclk";
+	status = "okay";
+};
+
+&micfil {
+	status = "disabled";
+};
+
+&scmi_iomuxc {
+	pinctrl_mqs1: mqs1grp {
+		fsl,pins = <
+			IMX95_PAD_PDM_CLK__AONMIX_TOP_MQS1_LEFT			0x31e
+			IMX95_PAD_PDM_BIT_STREAM0__AONMIX_TOP_MQS1_RIGHT	0x31e
+		>;
+	};
+};

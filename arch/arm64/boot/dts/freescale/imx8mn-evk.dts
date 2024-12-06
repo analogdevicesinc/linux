@@ -47,6 +47,7 @@
 				regulator-boot-on;
 				regulator-always-on;
 				regulator-ramp-delay = <3125>;
+				nxp,dvs-run-voltage = <950000>;
 				nxp,dvs-standby-voltage = <750000>;
 			};
 
@@ -126,14 +127,8 @@
 	};
 };
 
-&i2c2 {
-	hdmi@3d {
-		avdd-supply = <&buck5>;
-		dvdd-supply = <&buck5>;
-		pvdd-supply = <&buck5>;
-		a2vdd-supply = <&buck5>;
-		v1p2-supply = <&buck5>;
-	};
+&gpu {
+	status= "okay";
 };
 
 &i2c3 {

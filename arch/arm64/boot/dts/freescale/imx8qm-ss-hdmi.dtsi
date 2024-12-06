@@ -1,0 +1,226 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019 NXP
+ * Sandor Yu <Sandor.yu@nxp.com>
+ */
+
+#include <dt-bindings/firmware/imx/rsrc.h>
+
+/ {
+	hdmi_subsys: bus@56260000 {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges = <0x56260000 0x0 0x56260000 0x10000>;
+
+		irqsteer_hdmi: irqsteer@56260000 {
+			compatible = "fsl,imx-irqsteer";
+			reg = <0x56260000 0x1000>;
+			interrupt-controller;
+			interrupt-parent = <&gic>;
+			#interrupt-cells = <1>;
+			interrupts = <GIC_SPI 61 IRQ_TYPE_LEVEL_HIGH>;
+			fsl,channel = <0>;
+			fsl,num-irqs = <32>;
+			clocks = <&hdmi_lpcg_lis_ipg 0>;
+			clock-names = "ipg";
+			assigned-clocks = <&clk IMX_SC_R_HDMI_PLL_0 IMX_SC_PM_CLK_PLL>,
+							<&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC4>;
+			assigned-clock-rates = <800000000>, <84375000>;
+			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
+		};
+
+		hdmi_lpcg_i2c0: clock-controller@56263000 {
+			compatible = "fsl,imx8qxp-lpcg";
+			reg = <0x56263000 0x4>;
+			#clock-cells = <1>;
+			clocks = <&clk IMX_SC_R_HDMI_I2C_0 IMX_SC_PM_CLK_MISC2>,
+					<&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC4>;
+			bit-offset = <0 16>;
+			clock-output-names = "hdmi_lpcg_i2c0_clk",
+								"hdmi_lpcg_i2c0_ipg_clk";
+			power-domains = <&pd IMX_SC_R_HDMI_I2C_0>;
+			status = "disabled";
+		};
+
+		hdmi_lpcg_lis_ipg: clock-controller@56263004 {
+			compatible = "fsl,imx8qxp-lpcg";
+			reg = <0x56263004 0x4>;
+			#clock-cells = <1>;
+			clocks = <&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC4>;
+			bit-offset = <16>;
+			clock-output-names = "hdmi_lpcg_lis_ipg_clk";
+			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
+		};
+
+		hdmi_lpcg_pwm_ipg: clock-controller@56263008 {
+			compatible = "fsl,imx8qxp-lpcg";
+			reg = <0x56263008 0x4>;
+			#clock-cells = <1>;
+			clocks = <&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC4>;
+			bit-offset = <16>;
+			clock-output-names = "hdmi_lpcg_pwm_ipg_clk";
+			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
+		};
+
+		hdmi_lpcg_i2s: clock-controller@5626300c {
+			compatible = "fsl,imx8qxp-lpcg";
+			reg = <0x5626300c 0x4>;
+			#clock-cells = <1>;
+			clocks = <&clk IMX_SC_R_HDMI_I2S IMX_SC_PM_CLK_MISC0>;
+			bit-offset = <0>;
+			clock-output-names = "hdmi_lpcg_i2s_clk";
+			power-domains = <&pd IMX_SC_R_HDMI_I2S>;
+			status = "disabled";
+		};
+
+		hdmi_lpcg_gpio_ipg: clock-controller@56263010 {
+			compatible = "fsl,imx8qxp-lpcg";
+			reg = <0x56263010 0x4>;
+			#clock-cells = <1>;
+			clocks = <&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC4>;
+			bit-offset = <16>;
+			clock-output-names = "hdmi_lpcg_gpio_ipg_clk";
+			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
+		};
+
+		hdmi_lpcg_msi_hclk: clock-controller@56263014 {
+			compatible = "fsl,imx8qxp-lpcg";
+			reg = <0x56263014 0x4>;
+			#clock-cells = <1>;
+			clocks = <&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC4>;
+			bit-offset = <0>;
+			clock-output-names = "hdmi_lpcg_msi_hclk_clk";
+			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
+		};
+
+		hdmi_lpcg_pxl: clock-controller@56263018 {
+			compatible = "fsl,imx8qxp-lpcg";
+			reg = <0x56263018 0x4>;
+			#clock-cells = <1>;
+			clocks = <&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC0>;
+			bit-offset = <0>;
+			clock-output-names = "hdmi_lpcg_pxl_clk";
+			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
+		};
+
+		hdmi_lpcg_phy: clock-controller@5626301c {
+			compatible = "fsl,imx8qxp-lpcg";
+			reg = <0x5626301c 0x4>;
+			#clock-cells = <1>;
+			clocks = <&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC0>,
+					<&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC4>;
+			bit-offset = <0 16>;
+			clock-output-names = "hdmi_lpcg_phy_vif_clk",
+							"hdmi_lpcg_phy_pclk";
+			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
+		};
+
+		hdmi_lpcg_apb_mux_csr: clock-controller@56263020 {
+			compatible = "fsl,imx8qxp-lpcg";
+			reg = <0x56263020 0x4>;
+			#clock-cells = <1>;
+			clocks = <&hdmi_lpcg_apb 0>;
+			bit-offset = <16>;
+			clock-output-names = "hdmi_lpcg_apb_mux_csr_clk";
+			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
+		};
+
+		hdmi_lpcg_apb_mux_ctrl: clock-controller@56263024 {
+			compatible = "fsl,imx8qxp-lpcg";
+			reg = <0x56263024 0x4>;
+			#clock-cells = <1>;
+			clocks = <&hdmi_lpcg_apb 0>;
+			bit-offset = <16>;
+			clock-output-names = "hdmi_lpcg_apb_mux_ctrl_clk";
+			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
+		};
+
+		hdmi_lpcg_apb: clock-controller@56263028 {
+			compatible = "fsl,imx8qxp-lpcg";
+			reg = <0x56263028 0x4>;
+			#clock-cells = <1>;
+			clocks = <&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC4>;
+			bit-offset = <16>;
+			clock-output-names = "hdmi_lpcg_apb_clk";
+			power-domains = <&pd IMX_SC_R_HDMI>;
+			status = "disabled";
+		};
+
+		i2c0_hdmi: i2c@56266000 {
+			compatible = "fsl,imx8qm-lpi2c";
+			reg = <0x56266000 0x1000>;
+			interrupts = <8 IRQ_TYPE_LEVEL_HIGH>;
+			interrupt-parent = <&irqsteer_hdmi>;
+			clocks = <&hdmi_lpcg_i2c0 0>,
+					<&hdmi_lpcg_i2c0 1>;
+			clock-names = "per", "ipg";
+			assigned-clocks = <&clk IMX_SC_R_HDMI_I2C_0 IMX_SC_PM_CLK_MISC2>;
+			assigned-clock-rates = <24000000>;
+			power-domains = <&pd IMX_SC_R_HDMI_I2C_0>;
+			status = "disabled";
+		};
+
+		hdmi:hdmi@56268000 {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			reg = <0x56268000 0x1000>,
+					<0x56261000 0x1000>;
+			interrupt-parent = <&irqsteer_hdmi>;
+			interrupts = <10>, <13>;
+			interrupt-names = "plug_in", "plug_out";
+			firmware-name = "hdmitxfw.bin";
+			status = "disabled";
+
+			clocks = <&clk IMX_SC_R_HDMI_PLL_0 IMX_SC_PM_CLK_PLL>,
+					<&clk IMX_SC_R_HDMI_PLL_1 IMX_SC_PM_CLK_PLL>,
+					<&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC4>,
+					<&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC2>,
+					<&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC3>,
+					<&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC0>,
+					<&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC1>,
+					<&hdmi_lpcg_phy 1>,
+					<&hdmi_lpcg_msi_hclk 0>,
+					<&hdmi_lpcg_pxl 0>,
+					<&hdmi_lpcg_phy 0>,
+					<&hdmi_lpcg_lis_ipg 0>,
+					<&hdmi_lpcg_apb 0>,
+					<&hdmi_lpcg_apb_mux_csr 0>,
+					<&hdmi_lpcg_apb_mux_ctrl 0>,
+					<&clk IMX_SC_R_HDMI_I2S IMX_SC_PM_CLK_BYPASS>,
+					<&hdmi_lpcg_i2s 0>;
+			clock-names = "dig_pll", "av_pll", "clk_ipg",
+							"clk_core", "clk_pxl", "clk_pxl_mux",
+							"clk_pxl_link",	"lpcg_hdp", "lpcg_msi",
+							"lpcg_pxl", "lpcg_vif", "lpcg_lis",
+							"lpcg_apb",	"lpcg_apb_csr", "lpcg_apb_ctrl",
+							"clk_i2s_bypass", "lpcg_i2s";
+			assigned-clocks = <&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC3>,
+							<&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC0>,
+							<&clk IMX_SC_R_HDMI IMX_SC_PM_CLK_MISC1>;
+			assigned-clock-parents = <&clk IMX_SC_R_HDMI_PLL_1 IMX_SC_PM_CLK_PLL>,
+								<&clk IMX_SC_R_HDMI_PLL_1 IMX_SC_PM_CLK_PLL>,
+								<&clk IMX_SC_R_HDMI_PLL_1 IMX_SC_PM_CLK_PLL>;
+			power-domains = <&pd IMX_SC_R_HDMI>,
+							<&pd IMX_SC_R_HDMI_PLL_0>,
+							<&pd IMX_SC_R_HDMI_PLL_1>;
+			power-domain-names = "hdmi", "pll0", "pll1";
+
+			port@0 {
+				reg = <0>;
+				hdmi_disp: endpoint {
+					remote-endpoint = <&dpu1_disp0_hdmi>;
+				};
+			};
+	    };
+	};
+};

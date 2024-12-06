@@ -35,13 +35,13 @@
 fman@500000 {
 	fman1_rx_0x0c: port@8c000 {
 		cell-index = <0xc>;
-		compatible = "fsl,fman-v2-port-rx";
+		compatible = "fsl,fman-v2-port-rx","fsl,fman-port-1g-rx";
 		reg = <0x8c000 0x1000>;
 	};
 
 	fman1_tx_0x2c: port@ac000 {
 		cell-index = <0x2c>;
-		compatible = "fsl,fman-v2-port-tx";
+		compatible = "fsl,fman-v2-port-tx","fsl,fman-port-1g-tx";
 		reg = <0xac000 0x1000>;
 	};
 

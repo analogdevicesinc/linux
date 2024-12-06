@@ -1,0 +1,171 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2023 NXP
+ */
+
+#include "imx8qxp-mek-enet2.dts"
+
+/ {
+	clock_sja1105: clock-sja1105 {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <25000000>;
+	};
+};
+
+&iomuxc {
+	pinctrl_lpspi3: pinctrl_lpspi3grp {
+		fsl,pins = <
+			IMX8QXP_SPI3_SDO_ADMA_SPI3_SDO		0x6000040
+			IMX8QXP_SPI3_SDI_ADMA_SPI3_SDI          0x6000040
+			IMX8QXP_SPI3_SCK_ADMA_SPI3_SCK          0x6000040
+			IMX8QXP_SPI3_CS0_LSIO_GPIO0_IO16        0x0000021
+		>;
+	};
+};
+
+&pinctrl_fec2 {
+	fsl,pins = <
+		IMX8QXP_COMP_CTL_GPIO_1V8_3V3_ENET_ENETB0_PAD	0x000014a0
+		IMX8QXP_COMP_CTL_GPIO_1V8_3V3_ENET_ENETB1_PAD	0x000014a0
+		IMX8QXP_ENET0_MDC_CONN_ENET1_MDC		0x06000020
+		IMX8QXP_ENET0_MDIO_CONN_ENET1_MDIO		0x06000020
+		IMX8QXP_ESAI0_SCKR_CONN_ENET1_RGMII_TX_CTL	0x06000020
+		IMX8QXP_ESAI0_FSR_CONN_ENET1_RGMII_TXC		0x06000020
+		IMX8QXP_ESAI0_TX4_RX1_CONN_ENET1_RGMII_TXD0	0x06000020
+		IMX8QXP_ESAI0_TX5_RX0_CONN_ENET1_RGMII_TXD1	0x06000020
+		IMX8QXP_ESAI0_FST_CONN_ENET1_RGMII_TXD2		0x06000020
+		IMX8QXP_ESAI0_SCKT_CONN_ENET1_RGMII_TXD3	0x06000020
+		IMX8QXP_ESAI0_TX0_CONN_ENET1_RGMII_RXC		0x06000020
+		IMX8QXP_SPDIF0_TX_CONN_ENET1_RGMII_RX_CTL	0x06000020
+		IMX8QXP_SPDIF0_RX_CONN_ENET1_RGMII_RXD0		0x06000020
+		IMX8QXP_ESAI0_TX3_RX2_CONN_ENET1_RGMII_RXD1	0x06000020
+		IMX8QXP_ESAI0_TX2_RX3_CONN_ENET1_RGMII_RXD2	0x06000020
+		IMX8QXP_ESAI0_TX1_CONN_ENET1_RGMII_RXD3		0x06000020
+	>;
+};
+
+&fec1 {
+	status = "disabled";
+};
+
+&reg_fec2_supply {
+	/delete-property/ enable-active-high;
+	gpio = <&max7322 0 GPIO_ACTIVE_LOW>;
+	regulator-always-on;
+};
+
+&lpspi3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpspi3>;
+	assigned-clocks = <&clk IMX_SC_R_SPI_3 IMX_SC_PM_CLK_PER>;
+	assigned-clock-rates = <100000000>;
+	cs-gpios = <&lsio_gpio0 16 GPIO_ACTIVE_LOW>;
+	fsl,spi-num-chipselects = <1>;
+	spi-cpha;
+	status = "okay";
+
+	sja1105@0 {
+		reg = <0x0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "nxp,sja1105q";
+		reset-gpios = <&pca9557_a 3 GPIO_ACTIVE_LOW>;
+		spi-max-frequency = <12500000>;
+		spi-cpha;
+		clocks = <&clock_sja1105>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+			port@0 {
+				reg = <0>;
+				label = "cpu";
+				ethernet = <&fec2>;
+				phy-mode = "rgmii-id";
+				tx-internal-delay-ps = <2000>;
+
+				fixed-link {
+					speed = <1000>;
+					full-duplex;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+				label = "swp1";
+				phy-handle = <&phy0>;
+				phy-mode = "mii";
+			};
+
+			port@2 {
+				reg = <2>;
+				label = "swp2";
+				phy-handle = <&phy1>;
+				phy-mode = "mii";
+			};
+
+			port@3 {
+				reg = <3>;
+				label = "swp3";
+				phy-handle = <&phy2>;
+				phy-mode = "rmii";
+			};
+
+			port@4 {
+				reg = <4>;
+				label = "swp4";
+				phy-handle = <&phy3>;
+				phy-mode = "rmii";
+			};
+		};
+	};
+};
+
+&fec2 {
+	phy-mode = "rgmii";
+	/delete-property/ phy-handle;
+	/delete-property/ rx-internal-delay-ps;
+	tx-internal-delay-ps = <2000>;
+	status = "okay";
+
+	fixed-link {
+		speed=<1000>;
+		full-duplex;
+	};
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		phy0: ethernet-phy@8 {
+			reg = <0x8>;
+			max-speed = <100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			phy1: ethernet-phy@9 {
+				reg = <0x9>;
+				max-speed = <100>;
+			};
+
+		};
+
+		phy2: ethernet-phy@e {
+			reg = <0xe>;
+			max-speed = <100>;
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			phy3: ethernet-phy@f {
+				reg = <0xf>;
+				max-speed = <100>;
+			};
+		};
+
+	};
+};
+
+&ethphy1 {
+	status = "disabled";
+};

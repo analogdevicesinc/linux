@@ -1,0 +1,116 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019 NXP
+ *	Sandor Yu <Sandor.yu@nxp.com>
+ */
+ /* HDMI, LVDS1 and MIPI DSI1. LVDS0 and MIPI0 are disabled */
+
+/dts-v1/;
+
+#include "imx8qm-mek-rpmsg.dts"
+
+/ {
+    sound-hdmi-tx {
+        compatible = "fsl,imx-audio-hdmi";
+        model = "imx-audio-hdmi-tx";
+        audio-cpu = <&sai5>;
+        protocol = <1>;
+        hdmi-out;
+    };
+
+	sound-hdmi-arc {
+		compatible = "fsl,imx-audio-spdif";
+		model = "imx-hdmi-arc";
+		spdif-controller = <&spdif1>;
+		spdif-in;
+		spdif-out;
+	};
+};
+
+&sai5 {
+	status = "okay";
+};
+
+&sai5_lpcg {
+	status = "okay";
+};
+
+&ldb1_phy {
+	status = "disabled";
+};
+
+&ldb1 {
+	status = "disabled";
+};
+
+&mipi0_dsi_host {
+	status = "disabled";
+};
+
+&mipi0_dphy {
+	status = "disabled";
+};
+
+&irqsteer_hdmi {
+	status = "okay";
+};
+
+&hdmi_lpcg_i2c0 {
+	status = "okay";
+};
+
+&hdmi_lpcg_lis_ipg {
+	status = "okay";
+};
+
+&hdmi_lpcg_pwm_ipg {
+	status = "okay";
+};
+
+&hdmi_lpcg_i2s {
+	status = "okay";
+};
+
+&hdmi_lpcg_gpio_ipg {
+	status = "okay";
+};
+
+&hdmi_lpcg_msi_hclk {
+	status = "okay";
+};
+
+&hdmi_lpcg_pxl {
+	status = "okay";
+};
+
+&hdmi_lpcg_phy {
+	status = "okay";
+};
+
+&hdmi_lpcg_apb_mux_csr {
+	status = "okay";
+};
+
+&hdmi_lpcg_apb_mux_ctrl {
+	status = "okay";
+};
+
+&hdmi_lpcg_apb {
+	status = "okay";
+};
+
+&hdmi {
+	compatible = "cdn,imx8qm-hdmi";
+	firmware-name = "hdmitxfw.bin";
+	lane-mapping = <0x93>;
+	hdcp-config = <0x3>;
+	status = "okay";
+};
+
+&spdif1 {
+	status = "okay";
+};
+
+&spdif1_lpcg {
+	status = "okay";
+};

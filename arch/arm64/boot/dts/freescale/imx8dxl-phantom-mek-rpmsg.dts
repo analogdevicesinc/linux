@@ -1,0 +1,76 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8dxl-phantom-mek.dtsi"
+
+/delete-node/ &cm40_i2c;
+
+&i2c_rpbus_5 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	wm8960: wm8960@1a {
+		compatible = "wlf,wm8960";
+		reg = <0x1a>;
+		clocks = <&mclkout0_lpcg 0>;
+		clock-names = "mclk";
+		wlf,shared-lrclk;
+		assigned-clocks = <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_SLV_BUS>,
+				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MST_BUS>,
+				<&mclkout0_lpcg 0>;
+		assigned-clock-rates = <786432000>, <49152000>, <12288000>, <12288000>;
+	};
+
+	pca6416: gpio@20 {
+		compatible = "ti,tca6416";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+&cm40_i2c_lpcg {
+	status = "disabled";
+};
+
+&can0_lpcg {
+	status = "disabled";
+};
+
+&reg_can0_en {
+	status = "disabled";
+};
+
+&reg_can0_stby {
+	status = "disabled";
+};
+
+&reg_can1_en {
+	status = "disabled";
+};
+
+&reg_can1_stby {
+	status = "disabled";
+};
+
+&cm40_intmux {
+	status = "disabled";
+};
+
+&flexcan1 {
+	status = "disabled";
+};
+
+&flexcan2 {
+	status = "disabled";
+};
+
+&flexspi0 {
+	status = "disabled";
+};
