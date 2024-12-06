@@ -1,0 +1,15 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 NXP
+ */
+
+#include "imx8dx-mek.dts"
+#include "imx8qxp-enet2-tja1100.dtsi"
+
+&esai0 {
+	status = "disabled";
+};
+
+&fec2 {
+	status = "okay";
+};

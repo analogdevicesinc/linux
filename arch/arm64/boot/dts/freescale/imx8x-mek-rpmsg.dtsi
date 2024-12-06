@@ -1,0 +1,244 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright NXP 2019
+
+
+/delete-node/ &cm40_i2c;
+/delete-node/ &i2c1;
+
+/ {
+	aliases {
+		i2c1 = &i2c_rpbus_1;
+	};
+};
+
+&i2c_rpbus_1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	ptn5110: tcpc@50 {
+		compatible = "nxp,ptn5110";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_typec>;
+		reg = <0x50>;
+		interrupt-parent = <&lsio_gpio1>;
+		interrupts = <3 IRQ_TYPE_LEVEL_LOW>;
+		status = "okay";
+
+		port {
+			typec_dr_sw: endpoint {
+				remote-endpoint = <&usb3_drd_sw>;
+			};
+		};
+
+		usb_con1: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			power-role = "source";
+			data-role = "dual";
+			source-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
+
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@1 {
+					reg = <1>;
+					typec_con_ss: endpoint {
+						remote-endpoint = <&usb3_data_ss>;
+					};
+				};
+			};
+		};
+	};
+};
+
+&i2cvmux {
+	i2c-parent = <&i2c_rpbus_5>;
+};
+
+&i2c_rpbus_5 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	pca6416: gpio@20 {
+		compatible = "ti,tca6416";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	cs42888: cs42888@48 {
+		compatible = "cirrus,cs42888";
+		reg = <0x48>;
+		clocks = <&mclkout0_lpcg 0>;
+		clock-names = "mclk";
+		VA-supply = <&reg_audio>;
+		VD-supply = <&reg_audio>;
+		VLS-supply = <&reg_audio>;
+		VLC-supply = <&reg_audio>;
+		reset-gpio = <&pca9557_b 1 GPIO_ACTIVE_LOW>;
+		assigned-clocks = <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_SLV_BUS>,
+				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MST_BUS>,
+				<&mclkout0_lpcg 0>;
+		assigned-clock-rates = <786432000>, <49152000>, <12288000>, <12288000>;
+		fsl,txs-rxm;
+	};
+
+	ov5640_pi: ov5640@3c {
+		compatible = "ovti,ov5640";
+		reg = <0x3c>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_parallel_csi>;
+		clocks = <&pi0_misc_lpcg 0>;
+		assigned-clocks = <&pi0_misc_lpcg 0>;
+		assigned-clock-rates = <24000000>;
+		clock-names = "xclk";
+		powerdown-gpios = <&lsio_gpio3 2 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&lsio_gpio3 3 GPIO_ACTIVE_LOW>;
+		csi_id = <0>;
+		mclk = <24000000>;
+		mclk_source = <0>;
+		status = "disabled";
+	};
+};
+
+&i2c_rpbus_12 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	max7322: gpio@68 {
+		compatible = "maxim,max7322";
+		reg = <0x68>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+&i2c_rpbus_14 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	fxos8700@1e {
+		compatible = "nxp,fxos8700";
+		reg = <0x1e>;
+		interrupt-open-drain;
+	};
+
+	fxas2100x@21 {
+		compatible = "nxp,fxas21002c";
+		reg = <0x21>;
+		interrupt-open-drain;
+	};
+
+	pressure-sensor@60 {
+		compatible = "fsl,mpl3115";
+		reg = <0x60>;
+		interrupt-open-drain;
+	};
+
+	/* WCPU boards SCH-54536 */
+	ms5611@77 {
+		compatible = "meas,ms5611";
+		reg = <0x77>;
+	};
+
+	icm20602@68 {
+		compatible = "invensense,icm20602";
+		reg = <0x68>;
+	};
+
+	iam20380@69 {
+		compatible = "invensense,iam20380";
+		reg = <0x69>;
+	};
+};
+
+&i2c_rpbus_15 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	pca9557_a: gpio@1a {
+		compatible = "nxp,pca9557";
+		reg = <0x1a>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	pca9557_b: gpio@1d {
+		compatible = "nxp,pca9557";
+		reg = <0x1d>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	isl29023@44 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_isl29023>;
+		compatible = "isil,isl29023";
+		reg = <0x44>;
+		rext = <499>;
+		interrupt-parent = <&lsio_gpio1>;
+		interrupts = <2 2>;
+	};
+
+	/* WCPU boards SCH-54536 */
+	vcnl4035@60 {
+		compatible = "vishay,vcnl4035";
+		reg = <0x60>;
+	};
+};
+
+&cm40_i2c_lpcg {
+	status = "disabled";
+};
+
+&i2c1_lpcg {
+	status = "disabled";
+};
+
+&can0_lpcg {
+	status = "disabled";
+};
+
+&reg_can_en {
+	status = "disabled";
+};
+
+&reg_can_stby {
+	status = "disabled";
+};
+
+&flexcan1 {
+	status = "disabled";
+};
+
+&flexcan2 {
+	status = "disabled";
+};
+
+&cm40_intmux {
+	status = "disabled";
+};
+
+&flexspi0 {
+	status = "disabled";
+};
+
+&lpuart3 {
+	status = "disabled";
+};
+
+&uart3_lpcg {
+	status = "disabled";
+};
+
+&imx8x_cm4 {
+	/* Assume you have partitioned M4, so M4 is ont controled by Linux */
+	/delete-property/ power-domains;
+};

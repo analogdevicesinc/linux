@@ -1,0 +1,32 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019 NXP
+ *	Dong Aisheng <aisheng.dong@nxp.com>
+ */
+
+&gpu_3d0 {
+	assigned-clock-rates = <800000000>, <1000000000>;
+	fsl,sc_gpu_pid = <IMX_SC_R_GPU_0_PID0>;
+};
+
+&gpu1_subsys {
+	imx8_gpu_ss: imx8_gpu1_ss {
+		compatible = "fsl,imx8qm-gpu", "fsl,imx8-gpu-ss";
+		cores = <&gpu_3d0>, <&gpu_3d1>;
+		reg = <0x80000000 0x80000000>, <0x0 0x10000000>;
+		reg-names = "phys_baseaddr", "contiguous_mem";
+		depth-compression = <0>;
+		/*<freq-kHz vol-uV>*/
+		operating-points = <
+			/*overdrive*/  800000  0  /*The first tuple is for core clock frequency*/
+				1000000 0  /*The second tuple is for shader clock frequency*/
+			/*nominal*/    650000  0
+				700000  0
+			/*underdrive*/ 400000  0  /*core/shader clock share the same frequency on underdrive mode*/
+		>;
+		status = "disabled";
+
+		throttle,max_state = <1>;
+		#cooling-cells = <2>;
+	};
+};

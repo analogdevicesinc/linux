@@ -1,0 +1,34 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2022-2023 NXP
+ */
+
+#include "imx8dxl-orangebox.dts"
+
+&fec1_select_hog {
+	gpios = <13 GPIO_ACTIVE_HIGH>;
+};
+
+&pcal6524_i2c0_x22 {
+	V2X_PMIC_STANBY {
+		gpio-hog;
+		gpios = <6 GPIO_ACTIVE_HIGH>;
+		output-high;
+		line-name = "v2x active";
+	};
+};
+
+&usdhc2 {
+	status = "okay";
+};
+
+&usdhc3 {
+	/delete-property/ no-sd;
+	/delete-property/ non-removable;
+	cd-gpios = <&pca6408_i2c0_x21 0 GPIO_ACTIVE_LOW>;
+	status = "okay";
+};
+
+&fec1 {
+	status = "disabled";
+};

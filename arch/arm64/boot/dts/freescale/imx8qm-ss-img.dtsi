@@ -10,3 +10,20 @@
 &jpegenc {
 	compatible = "nxp,imx8qm-jpgenc", "nxp,imx8qxp-jpgenc";
 };
+
+&pi0_pxl_lpcg {
+	status = "disabled";
+};
+
+&pi0_ipg_lpcg {
+	status = "disabled";
+};
+
+&pi0_misc_lpcg {
+	status = "disabled";
+};
+
+&isi {
+	compatible = "fsl,imx8qm-isi";
+};
+

@@ -5,13 +5,30 @@
  */
 
 &dma_subsys {
+	lpuart4: serial@5a0a0000 {
+		compatible = "fsl,imx8qm-lpuart", "fsl,imx8qxp-lpuart";
+		reg = <0x5a0a0000 0x1000>;
+		interrupts = <GIC_SPI 349 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gic>;
+		clocks = <&uart4_lpcg 1>, <&uart4_lpcg 0>;
+		clock-names = "ipg", "baud";
+		assigned-clocks = <&clk IMX_SC_R_UART_4 IMX_SC_PM_CLK_PER>;
+		assigned-clock-rates = <80000000>;
+		power-domains = <&pd IMX_SC_R_UART_4>;
+		power-domain-names = "uart";
+		dma-names = "tx","rx";
+		dmas = <&edma2 21 0 0>,
+		       <&edma2 20 0 1>;
+		status = "disabled";
+	};
+
 	uart4_lpcg: clock-controller@5a4a0000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x5a4a0000 0x10000>;
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_UART_4 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>;
+		bit-offset = <0 16>;
 		clock-output-names = "uart4_lpcg_baud_clk",
 				     "uart4_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_UART_4>;
@@ -37,7 +54,7 @@
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_I2C_4 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>;
+		bit-offset = <0 16>;
 		clock-output-names = "i2c4_lpcg_clk",
 				     "i2c4_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_I2C_4>;
@@ -49,7 +66,7 @@
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_CAN_1 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>, <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>, <IMX_LPCG_CLK_5>;
+		bit-offset = <0 16 20>;
 		clock-output-names = "can1_lpcg_pe_clk",
 				     "can1_lpcg_ipg_clk",
 				     "can1_lpcg_chi_clk";
@@ -62,7 +79,7 @@
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_CAN_2 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>, <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>, <IMX_LPCG_CLK_5>;
+		bit-offset = <0 16 20>;
 		clock-output-names = "can2_lpcg_pe_clk",
 				     "can2_lpcg_ipg_clk",
 				     "can2_lpcg_chi_clk";
@@ -70,6 +87,29 @@
 	};
 };
 
+&flexcan1 {
+	fsl,clk-source = /bits/ 8 <1>;
+};
+
+&flexcan2 {
+	clocks = <&can1_lpcg 1>,
+		 <&can1_lpcg 0>;
+	assigned-clocks = <&clk IMX_SC_R_CAN_1 IMX_SC_PM_CLK_PER>;
+	fsl,clk-source = /bits/ 8 <1>;
+};
+
+&flexcan3 {
+	clocks = <&can2_lpcg 1>,
+		 <&can2_lpcg 0>;
+	assigned-clocks = <&clk IMX_SC_R_CAN_2 IMX_SC_PM_CLK_PER>;
+	fsl,clk-source = /bits/ 8 <1>;
+};
+
+&lpspi2 {
+	compatible = "fsl,imx8qm-lpspi", "fsl,imx7ulp-spi";
+};
+
+/* edma0 called in imx8qm RM with the same address in edma2 of imx8qxp */
 &edma2 {
 	reg = <0x5a1f0000 0x170000>;
 	#dma-cells = <3>;
@@ -96,7 +136,8 @@
 		     <GIC_SPI 440 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 441 IRQ_TYPE_LEVEL_HIGH>,
 		     <GIC_SPI 442 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 443 IRQ_TYPE_LEVEL_HIGH>;
+		     <GIC_SPI 443 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
 	power-domains = <&pd IMX_SC_R_DMA_0_CH0>,
 			<&pd IMX_SC_R_DMA_0_CH1>,
 			<&pd IMX_SC_R_DMA_0_CH2>,
@@ -122,71 +163,38 @@
 	status = "okay";
 };
 
-/* It is eDMA1 in 8QM RM, but 8QXP it is eDMA3 */
 &edma3 {
-	reg = <0x5a9f0000 0x210000>;
-	dma-channels = <10>;
-	interrupts = <GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 427 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 428 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 429 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 430 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 431 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 432 IRQ_TYPE_LEVEL_HIGH>,
-		     <GIC_SPI 433 IRQ_TYPE_LEVEL_HIGH>;
 	power-domains = <&pd IMX_SC_R_DMA_1_CH0>,
-			<&pd IMX_SC_R_DMA_1_CH1>,
-			<&pd IMX_SC_R_DMA_1_CH2>,
-			<&pd IMX_SC_R_DMA_1_CH3>,
-			<&pd IMX_SC_R_DMA_1_CH4>,
-			<&pd IMX_SC_R_DMA_1_CH5>,
-			<&pd IMX_SC_R_DMA_1_CH6>,
-			<&pd IMX_SC_R_DMA_1_CH7>,
-			<&pd IMX_SC_R_DMA_1_CH8>,
-			<&pd IMX_SC_R_DMA_1_CH9>;
-};
-
-&flexcan1 {
-	fsl,clk-source = /bits/ 8 <1>;
-};
-
-&flexcan2 {
-	clocks = <&can1_lpcg IMX_LPCG_CLK_4>,
-		 <&can1_lpcg IMX_LPCG_CLK_0>;
-	assigned-clocks = <&clk IMX_SC_R_CAN_1 IMX_SC_PM_CLK_PER>;
-	fsl,clk-source = /bits/ 8 <1>;
-};
-
-&flexcan3 {
-	clocks = <&can2_lpcg IMX_LPCG_CLK_4>,
-		 <&can2_lpcg IMX_LPCG_CLK_0>;
-	assigned-clocks = <&clk IMX_SC_R_CAN_2 IMX_SC_PM_CLK_PER>;
-	fsl,clk-source = /bits/ 8 <1>;
+		     <&pd IMX_SC_R_DMA_1_CH1>,
+		     <&pd IMX_SC_R_DMA_1_CH2>,
+		     <&pd IMX_SC_R_DMA_1_CH3>,
+		     <&pd IMX_SC_R_DMA_1_CH4>,
+		     <&pd IMX_SC_R_DMA_1_CH5>,
+		     <&pd IMX_SC_R_DMA_1_CH6>,
+		     <&pd IMX_SC_R_DMA_1_CH7>;
 };
 
 &lpuart0 {
 	compatible = "fsl,imx8qm-lpuart", "fsl,imx8qxp-lpuart";
-	dmas = <&edma2 13 0 0>, <&edma2 12 0 1>;
+	dmas = <&edma2 12 0 1>, <&edma2 13 0 0>;
 	dma-names = "rx","tx";
 };
 
 &lpuart1 {
 	compatible = "fsl,imx8qm-lpuart", "fsl,imx8qxp-lpuart";
-	dmas = <&edma2 15 0 0>, <&edma2 14 0 1>;
+	dmas = <&edma2 14 0 1>, <&edma2 15 0 0>;
 	dma-names = "rx","tx";
 };
 
 &lpuart2 {
 	compatible = "fsl,imx8qm-lpuart", "fsl,imx8qxp-lpuart";
-	dmas = <&edma2 17 0 0>, <&edma2 16 0 1>;
+	dmas = <&edma2 16 0 1>, <&edma2 17 0 0>;
 	dma-names = "rx","tx";
 };
 
 &lpuart3 {
 	compatible = "fsl,imx8qm-lpuart", "fsl,imx8qxp-lpuart";
-	dmas = <&edma2 19 0 0>, <&edma2 18 0 1>;
+	dmas = <&edma2 18 0 1>, <&edma2 19 0 0>;
 	dma-names = "rx","tx";
 };
 

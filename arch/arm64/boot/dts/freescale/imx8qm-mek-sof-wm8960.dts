@@ -1,0 +1,186 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright NXP 2018
+
+#include "imx8qm-mek-rpmsg.dts"
+
+/ {
+	reserved-memory {
+		/delete-node/ dsp_reserved;
+		/delete-node/ dsp_reserved_heap;
+		/delete-node/ dsp_vdev0vring0;
+		/delete-node/ dsp_vdev0vring1;
+		/delete-node/ dsp_vdev0buffer;
+
+		dsp_reserved: dsp@92400000 {
+			reg = <0 0x92400000 0 0x2000000>;
+			no-map;
+		};
+	};
+
+	sound-cs42888 {
+		status = "disabled";
+	};
+
+	sound-wm8960 {
+		status = "disabled";
+	};
+
+	sof-sound-wm8960 {
+		compatible = "audio-graph-card2";
+		links = <&cpu>;
+		label = "wm8960-audio";
+		hp-det-gpio = <&lsio_gpio0 31 GPIO_ACTIVE_HIGH>;
+		widgets =
+			"Headphone", "Headphones",
+			"Speaker", "Ext Spk",
+			"Microphone", "Mic Jack";
+		routing =
+			"Headphones", "HP_L",
+			"Headphones", "HP_R",
+			"Ext Spk", "SPK_LP",
+			"Ext Spk", "SPK_LN",
+			"Ext Spk", "SPK_RP",
+			"Ext Spk", "SPK_RN",
+			"LINPUT1", "Mic Jack",
+			"Mic Jack", "MICB";
+	};
+};
+
+&edma0 {
+	reg = <0x591f0000 0x190000>;
+	dma-channels = <24>;
+	dma-channel-mask = <0x5fccff>;
+	interrupts = <GIC_SPI 0 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 457 IRQ_TYPE_LEVEL_HIGH>, /* spdif0 */
+			<GIC_SPI 459 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>, /* sai0 */
+			<GIC_SPI 315 IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 391 IRQ_TYPE_LEVEL_HIGH>, /* 21 gpt5 */
+			<GIC_SPI 0   IRQ_TYPE_LEVEL_HIGH>,
+			<GIC_SPI 393 IRQ_TYPE_LEVEL_HIGH>, /* 23 gpt7 */
+			<GIC_SPI 369 IRQ_TYPE_LEVEL_HIGH>;
+	power-domains = <&pd IMX_SC_R_DMA_2_CH0>,
+			<&pd IMX_SC_R_DMA_2_CH1>,
+			<&pd IMX_SC_R_DMA_2_CH2>,
+			<&pd IMX_SC_R_DMA_2_CH3>,
+			<&pd IMX_SC_R_DMA_2_CH4>,
+			<&pd IMX_SC_R_DMA_2_CH5>,
+			<&pd IMX_SC_R_DMA_2_CH6>,
+			<&pd IMX_SC_R_DMA_2_CH7>,
+			<&pd IMX_SC_R_DMA_2_CH8>,
+			<&pd IMX_SC_R_DMA_2_CH9>,
+			<&pd IMX_SC_R_DMA_2_CH10>,
+			<&pd IMX_SC_R_DMA_2_CH11>,
+			<&pd IMX_SC_R_DMA_2_CH12>,
+			<&pd IMX_SC_R_DMA_2_CH13>,
+			<&pd IMX_SC_R_DMA_2_CH14>,
+			<&pd IMX_SC_R_DMA_2_CH15>,
+			<&pd IMX_SC_R_DMA_2_CH16>,
+			<&pd IMX_SC_R_DMA_2_CH17>,
+			<&pd IMX_SC_R_DMA_2_CH18>,
+			<&pd IMX_SC_R_DMA_2_CH19>,
+			<&pd IMX_SC_R_DMA_2_CH20>,
+			<&pd IMX_SC_R_DMA_2_CH21>,
+			<&pd IMX_SC_R_DMA_2_CH22>,
+			<&pd IMX_SC_R_DMA_2_CH23>;
+};
+
+&dsp {
+	compatible = "fsl,imx8qm-dsp";
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai1>;
+
+	power-domains = <&pd IMX_SC_R_MU_13A>,
+			<&pd IMX_SC_R_MU_13B>,
+			<&pd IMX_SC_R_DSP>,
+			<&pd IMX_SC_R_DSP_RAM>,
+			<&pd IMX_SC_R_IRQSTR_DSP>,
+			<&pd IMX_SC_R_SAI_1>,
+			<&pd IMX_SC_R_DMA_2_CH14>,
+			<&pd IMX_SC_R_DMA_2_CH15>,
+			<&pd IMX_SC_R_AUDIO_CLK_0>,
+			<&pd IMX_SC_R_AUDIO_CLK_1>,
+			<&pd IMX_SC_R_AUDIO_PLL_0>,
+			<&pd IMX_SC_R_AUDIO_PLL_1>,
+			<&pd IMX_SC_R_MU_2A>;
+
+	clock-names = "ipg", "ocram", "core",
+		"sai1_bus", "sai1_mclk0", "sai1_mclk1", "sai1_mclk2", "sai1_mclk3";
+	clocks = <&clk_dummy>, <&clk_dummy>, <&clk_dummy>,
+		<&sai1_lpcg 1>, <&clk_dummy>, <&sai1_lpcg 0>,
+		<&clk_dummy>, <&clk_dummy>;
+	assigned-clocks = <&acm IMX_ADMA_ACM_SAI1_MCLK_SEL>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC0>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MISC1>,
+			<&sai1_lpcg 0>; /* FIXME: should be sai1, original code is 0 */
+	assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
+	assigned-clock-rates = <0>, <786432000>, <49152000>, <12288000>, <49152000>;
+
+	mbox-names = "txdb0", "txdb1", "rxdb0", "rxdb1";
+	mboxes = <&lsio_mu13 2 0>,
+		<&lsio_mu13 2 1>,
+		<&lsio_mu13 3 0>,
+		<&lsio_mu13 3 1>;
+	memory-region = <&dsp_reserved>;
+	/delete-property/ firmware-name;
+
+	tplg-name = "sof-imx8-wm8960.tplg";
+	machine-drv-name = "asoc-audio-graph-card2";
+
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		port@0 { reg = <0>; endpoint { /* not used */ }; };
+		cpu: port@1 { reg = <1>; cpu_ep: endpoint { remote-endpoint = <&codec_ep>; }; };
+       };
+
+};
+
+&wm8960 {
+	status = "okay";
+	port {
+		bitclock-master;
+		frame-master;
+		codec_ep: endpoint { remote-endpoint = <&cpu_ep>; };
+	};
+};
+
+&amix {
+	status = "disabled";
+};
+
+&esai0 {
+	status = "disabled";
+};
+
+&asrc0 {
+	status = "disabled";
+};
+
+&sai1 {
+	status = "disabled";
+};
+
+&cs42888 {
+	status = "disabled";
+};

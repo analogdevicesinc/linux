@@ -1,0 +1,141 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2018 NXP
+ *	Richard Zhu <hongxing.zhu@nxp.com>
+ */
+#include <dt-bindings/phy/phy.h>
+
+xtal100m: clock-xtal100m {
+	compatible = "fixed-clock";
+	#clock-cells = <0>;
+	clock-frequency = <100000000>;
+	clock-output-names = "xtal_100MHz";
+};
+
+hsio_refa_clk: clock-hsio-refa {
+	compatible = "gpio-gate-clock";
+	clocks = <&xtal100m>;
+	#clock-cells = <0>;
+	enable-gpios = <&lsio_gpio4 27 GPIO_ACTIVE_LOW>;
+};
+
+hsio_refb_clk: clock-hsio-refb {
+	compatible = "gpio-gate-clock";
+	clocks = <&xtal100m>;
+	#clock-cells = <0>;
+	enable-gpios = <&lsio_gpio4 1 GPIO_ACTIVE_LOW>;
+};
+
+hsio_axi_clk: clock-hsio-axi {
+	compatible = "fixed-clock";
+	#clock-cells = <0>;
+	clock-frequency = <400000000>;
+	clock-output-names = "hsio_axi_clk";
+};
+
+hsio_per_clk: clock-hsio-per {
+	compatible = "fixed-clock";
+	#clock-cells = <0>;
+	clock-frequency = <133333333>;
+	clock-output-names = "hsio_per_clk";
+};
+
+hsio_subsys: bus@5f000000 {
+	compatible = "simple-bus";
+	#address-cells = <1>;
+	#size-cells = <1>;
+	/* Only supports up to 32bits DMA, map all possible DDR as inbound ranges */
+	dma-ranges = <0x80000000 0 0x80000000 0x80000000>;
+	ranges = <0x5f000000 0x0 0x5f000000 0x21000000>;
+
+	pcieb: pcie@5f010000 {
+		compatible = "fsl,imx8q-pcie","snps,dw-pcie";
+		reg = <0x5f010000 0x10000>, /* Controller reg */
+		      <0x7ff00000 0x80000>; /* PCI cfg space */
+		reg-names = "dbi", "config";
+		#address-cells = <3>;
+		#size-cells = <2>;
+		device_type = "pci";
+		bus-range = <0x00 0xff>;
+		ranges = <0x81000000 0 0x00000000 0x7ff80000 0 0x00010000>,
+			 <0x82000000 0 0x80000000 0x70000000 0 0x0ff00000>;
+		num-lanes = <1>;
+		num-viewport = <4>;
+		interrupts = <GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "msi";
+		#interrupt-cells = <1>;
+		interrupt-map-mask = <0 0 0 0x7>;
+		interrupt-map =  <0 0 0 1 &gic 0 105 4>,
+				 <0 0 0 2 &gic 0 106 4>,
+				 <0 0 0 3 &gic 0 107 4>,
+				 <0 0 0 4 &gic 0 108 4>;
+		clocks = <&pcieb_lpcg 2>,
+			 <&pcieb_lpcg 0>,
+			 <&pcieb_lpcg 1>;
+		clock-names = "dbi", "mstr", "slv";
+		power-domains = <&pd IMX_SC_R_PCIE_B>;
+		fsl,max-link-speed = <3>;
+		status = "disabled";
+	};
+
+	pcieb_ep: pcie-ep@5f010000 {
+		compatible = "fsl,imx8q-pcie-ep";
+		reg = <0x5f010000 0x00010000>,
+		      <0x70000000 0x10000000>;
+		reg-names = "dbi", "addr_space";
+		num-lanes = <1>;
+		interrupts = <GIC_SPI 104 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "dma";
+		clocks = <&pcieb_lpcg 2>,
+			 <&pcieb_lpcg 0>,
+			 <&pcieb_lpcg 1>;
+		clock-names = "dbi", "mstr", "slv";
+		power-domains = <&pd IMX_SC_R_PCIE_B>;
+		fsl,max-link-speed = <3>;
+		num-ib-windows = <6>;
+		num-ob-windows = <6>;
+		status = "disabled";
+	};
+
+	pcieb_lpcg: clock-controller@5f060000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5f060000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&hsio_axi_clk>, <&hsio_axi_clk>, <&hsio_axi_clk>;
+		bit-offset = <16 20 24>;
+		clock-output-names = "hsio_pcieb_mstr_axi_clk",
+				     "hsio_pcieb_slv_axi_clk",
+				     "hsio_pcieb_dbi_axi_clk";
+		power-domains = <&pd IMX_SC_R_PCIE_B>;
+	};
+
+	phyx1_crr1_lpcg: clock-controller@5f0b0000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5f0b0000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&hsio_per_clk>;
+		bit-offset = <16>;
+		clock-output-names = "hsio_phyx1_per_clk";
+		power-domains = <&pd IMX_SC_R_SERDES_1>;
+	};
+
+	pcieb_crr3_lpcg: clock-controller@5f0d0000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5f0d0000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&hsio_per_clk>;
+		bit-offset = <16>;
+		clock-output-names = "hsio_pcieb_per_clk";
+		power-domains = <&pd IMX_SC_R_PCIE_B>;
+	};
+
+	misc_crr5_lpcg: clock-controller@5f0f0000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5f0f0000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&hsio_per_clk>;
+		bit-offset = <16>;
+		clock-output-names = "hsio_misc_per_clk";
+		power-domains = <&pd IMX_SC_R_HSIO_GPIO>;
+	};
+};

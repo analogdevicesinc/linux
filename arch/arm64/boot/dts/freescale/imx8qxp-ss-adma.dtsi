@@ -4,6 +4,14 @@
  *	Dong Aisheng <aisheng.dong@nxp.com>
  */
 
+&dma_ipg_clk {
+	clock-frequency = <160000000>;
+};
+
+&audio_ipg_clk {
+	clock-frequency = <160000000>;
+};
+
 &lpuart0 {
 	compatible = "fsl,imx8qxp-lpuart";
 };
@@ -34,4 +42,42 @@
 
 &i2c3 {
 	compatible = "fsl,imx8qxp-lpi2c", "fsl,imx7ulp-lpi2c";
+};
+
+&asrc0 {
+	compatible = "fsl,imx8qxp-asrc";
+};
+
+&asrc1 {
+	compatible = "fsl,imx8qxp-asrc";
+};
+
+&audio_subsys {
+
+	dsp: dsp@596e8000 {
+		compatible = "fsl,imx8qxp-hifi4";
+		reg = <0x596e8000 0x88000>;
+		clocks = <&clk_dummy>,
+			 <&clk_dummy>,
+			 <&clk_dummy>;
+		clock-names = "core", "ipg", "ocram";
+		firmware-name = "imx/dsp/hifi4.bin";
+		power-domains = <&pd IMX_SC_R_MU_13B>,
+				<&pd IMX_SC_R_DSP>,
+				<&pd IMX_SC_R_DSP_RAM>,
+				<&pd IMX_SC_R_IRQSTR_DSP>,
+				<&pd IMX_SC_R_MU_2A>;
+		mbox-names = "tx", "rx", "rxdb";
+		mboxes = <&lsio_mu13 0 0>,
+			 <&lsio_mu13 1 0>,
+			 <&lsio_mu13 3 0>;
+		status = "disabled";
+	};
+};
+
+&dma_subsys {
+	lcdif_mux_regs: mux-regs@5a170000 {
+		compatible = "fsl,imx8qxp-lcdif-mux-regs", "syscon";
+		reg = <0x5a170000 0x4>;
+	};
 };

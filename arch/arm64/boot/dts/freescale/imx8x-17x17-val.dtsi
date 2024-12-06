@@ -1,0 +1,156 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019 NXP
+ */
+
+#include "imx8x-val.dtsi"
+
+/ {
+	reserved-memory {
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x14000000>;
+			alloc-ranges = <0 0xc0000000 0 0x14000000>;
+			linux,cma-default;
+		};
+	};
+
+	regulators {
+		epdev_on: fixedregulator@100 {
+			compatible = "regulator-fixed";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-name = "epdev_on";
+			gpio = <&pca9557_a 0 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
+
+		reg_pcieb: regulator-pcie {
+			compatible = "regulator-fixed";
+			regulator-name = "mpcie_3v3";
+			regulator-min-microvolt = <3300000>;
+			regulator-max-microvolt = <3300000>;
+			gpio = <&pca9557_a 5 GPIO_ACTIVE_HIGH>;
+			enable-active-high;
+		};
+	};
+};
+
+&iomuxc {
+	imx8qxp-lpddr4-arm2 {
+		pinctrl_flexspi0: flexspi0grp {
+			fsl,pins = <
+				IMX8QXP_QSPI0A_DATA0_LSIO_QSPI0A_DATA0	0x06000021
+				IMX8QXP_QSPI0A_DATA1_LSIO_QSPI0A_DATA1	0x06000021
+				IMX8QXP_QSPI0A_DATA2_LSIO_QSPI0A_DATA2	0x06000021
+				IMX8QXP_QSPI0A_DATA3_LSIO_QSPI0A_DATA3	0x06000021
+				IMX8QXP_QSPI0A_SS0_B_LSIO_QSPI0A_SS0_B	0x06000021
+				IMX8QXP_QSPI0A_SCLK_LSIO_QSPI0A_SCLK	0x06000021
+			>;
+		};
+	};
+};
+
+&i2c1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c1>;
+	status = "okay";
+
+	/delete-node/ gpio@68;
+	/delete-node/ typec@3d;
+
+	pca9557_a: gpio@18 {
+		compatible = "nxp,pca9557";
+		reg = <0x18>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	pca9557_b: gpio@19 {
+		compatible = "nxp,pca9557";
+		reg = <0x19>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+&i2c2 {
+	status = "disabled";
+};
+
+&i2c3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	clock-frequency = <100000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c3>;
+	status = "okay";
+
+	/delete-node/ gpio@18;
+	/delete-node/ gpio@19;
+
+	max7322: gpio@68 {
+		compatible = "maxim,max7322";
+		reg = <0x68>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+};
+
+&i2c_mipi_csi0 {
+	status = "disabled";
+};
+
+&mipi_csi_0 {
+	status = "disabled";
+};
+
+&gpio0_mipi_csi0 {
+	status = "disabled";
+};
+
+&pcieb{
+	ext_osc = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_pcieb>;
+	clkreq-gpio = <&lsio_gpio4 1 GPIO_ACTIVE_LOW>;
+	reset-gpio = <&lsio_gpio4 0 GPIO_ACTIVE_LOW>;
+	epdev_on-supply = <&epdev_on>;
+	vpcie-supply = <&reg_pcieb>;
+	status = "okay";
+};
+
+&usdhc2 {
+	status = "disabled";
+};
+
+&flexspi0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexspi0>;
+	status = "okay";
+
+	/delete-node/ mt35xu512aba@0;
+
+	flash0: mt25qu512abb@0 {
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor";
+		spi-max-frequency = <133000000>;
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <8>;
+	};
+};
+
+&adc0 {
+	status = "disabled";
+};
+
+&usbotg1 {
+	/delete-property/ pinctrl-names;
+	/delete-property/ pinctrl-0;
+};

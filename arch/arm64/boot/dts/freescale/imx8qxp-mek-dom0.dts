@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8qxp-mek-rpmsg.dts"
+
+/ {
+	chosen {
+		#address-cells = <2>;
+		#size-cells = <2>;
+
+		stdout-path = &lpuart0;
+
+		module@0 {
+			bootargs = "earlycon=xen console=hvc0 root=/dev/mmcblk1p2 rootwait rw";
+			compatible = "xen,linux-zimage", "xen,multiboot-module";
+			/* The size will be override by uboot command */
+			reg = <0x00000000 0x80a00000 0x00000000 0xf93a00>;
+		};
+
+	};
+
+	reserved-memory {
+		/* global autoconfigured region for contiguous allocations */
+		linux,cma {
+			compatible = "shared-dma-pool";
+			reusable;
+			size = <0 0x30000000>;
+			alloc-ranges = <0 0xc0000000 0 0x40000000>;
+			linux,cma-default;
+		};
+	};
+
+	rtc0: rtc@23000000 {
+		interrupts = <GIC_SPI 1 IRQ_TYPE_LEVEL_HIGH>;
+		xen,passthrough;
+	};
+};
+
+&imx8_gpu_ss {
+	reg = <0xa8000000 0x58000000>, <0x0 0x10000000>;
+	status = "okay";
+};
+
+&lsio_mu1 {
+	/* not map for dom0, dom0 will mmio trap to xen */
+	xen,no-map;
+};

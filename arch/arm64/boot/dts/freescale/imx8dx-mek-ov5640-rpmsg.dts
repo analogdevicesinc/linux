@@ -1,0 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright NXP 2020
+#include "imx8dx-mek-ov5640.dts"
+#include "imx8x-mek-rpmsg.dtsi"

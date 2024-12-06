@@ -5,7 +5,6 @@
  */
 
 #include <dt-bindings/clock/imx8-lpcg.h>
-#include <dt-bindings/dma/fsl-edma.h>
 #include <dt-bindings/firmware/imx/rsrc.h>
 
 dma_ipg_clk: clock-dma-ipg {
@@ -28,14 +27,14 @@ dma_subsys: bus@5a000000 {
 		#size-cells = <0>;
 		interrupts = <GIC_SPI 336 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&gic>;
-		clocks = <&spi0_lpcg IMX_LPCG_CLK_0>,
-			 <&spi0_lpcg IMX_LPCG_CLK_4>;
+		clocks = <&spi0_lpcg 0>,
+			 <&spi0_lpcg 1>;
 		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX_SC_R_SPI_0 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <60000000>;
 		power-domains = <&pd IMX_SC_R_SPI_0>;
-		dmas = <&edma2 1 0 0>, <&edma2 0 0 FSL_EDMA_RX>;
-		dma-names = "tx", "rx";
+		dma-names = "tx","rx";
+		dmas = <&edma2 1 0 0>, <&edma2 0 0 1>;
 		status = "disabled";
 	};
 
@@ -46,14 +45,14 @@ dma_subsys: bus@5a000000 {
 		#size-cells = <0>;
 		interrupts = <GIC_SPI 337 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&gic>;
-		clocks = <&spi1_lpcg IMX_LPCG_CLK_0>,
-			 <&spi1_lpcg IMX_LPCG_CLK_4>;
+		clocks = <&spi1_lpcg 0>,
+			 <&spi1_lpcg 1>;
 		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX_SC_R_SPI_1 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <60000000>;
 		power-domains = <&pd IMX_SC_R_SPI_1>;
-		dmas = <&edma2 3 0 0>, <&edma2 2 0 FSL_EDMA_RX>;
-		dma-names = "tx", "rx";
+		dma-names = "tx","rx";
+		dmas = <&edma2 3 0 0>, <&edma2 2 0 1>;
 		status = "disabled";
 	};
 
@@ -64,14 +63,14 @@ dma_subsys: bus@5a000000 {
 		#size-cells = <0>;
 		interrupts = <GIC_SPI 338 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&gic>;
-		clocks = <&spi2_lpcg IMX_LPCG_CLK_0>,
-			 <&spi2_lpcg IMX_LPCG_CLK_4>;
+		clocks = <&spi2_lpcg 0>,
+			 <&spi2_lpcg 1>;
 		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX_SC_R_SPI_2 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <60000000>;
 		power-domains = <&pd IMX_SC_R_SPI_2>;
-		dmas = <&edma2 5 0 0>, <&edma2 4 0 FSL_EDMA_RX>;
-		dma-names = "tx", "rx";
+		dma-names = "tx","rx";
+		dmas = <&edma2 5 0 0>, <&edma2 4 0 1>;
 		status = "disabled";
 	};
 
@@ -82,70 +81,69 @@ dma_subsys: bus@5a000000 {
 		#size-cells = <0>;
 		interrupts = <GIC_SPI 339 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&gic>;
-		clocks = <&spi3_lpcg IMX_LPCG_CLK_0>,
-			 <&spi3_lpcg IMX_LPCG_CLK_4>;
+		clocks = <&spi3_lpcg 0>,
+			 <&spi3_lpcg 1>;
 		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX_SC_R_SPI_3 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <60000000>;
 		power-domains = <&pd IMX_SC_R_SPI_3>;
-		dmas = <&edma2 7 0 0>, <&edma2 6 0 FSL_EDMA_RX>;
-		dma-names = "tx", "rx";
+		dma-names = "tx","rx";
+		dmas = <&edma2 7 0 0>, <&edma2 6 0 1>;
 		status = "disabled";
 	};
 
 	lpuart0: serial@5a060000 {
 		reg = <0x5a060000 0x1000>;
 		interrupts = <GIC_SPI 345 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&uart0_lpcg IMX_LPCG_CLK_4>,
-			 <&uart0_lpcg IMX_LPCG_CLK_0>;
+		clocks = <&uart0_lpcg 1>, <&uart0_lpcg 0>;
 		clock-names = "ipg", "baud";
 		assigned-clocks = <&clk IMX_SC_R_UART_0 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <80000000>;
 		power-domains = <&pd IMX_SC_R_UART_0>;
-		dma-names = "rx", "tx";
-		dmas = <&edma2 8 0 FSL_EDMA_RX>, <&edma2 9 0 0>;
+		dma-names = "rx","tx";
+		dmas = <&edma2 8 0 1>, <&edma2 9 0 0>;
 		status = "disabled";
 	};
 
 	lpuart1: serial@5a070000 {
 		reg = <0x5a070000 0x1000>;
 		interrupts = <GIC_SPI 346 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&uart1_lpcg IMX_LPCG_CLK_4>,
-			 <&uart1_lpcg IMX_LPCG_CLK_0>;
+		clocks = <&uart1_lpcg 1>, <&uart1_lpcg 0>;
 		clock-names = "ipg", "baud";
 		assigned-clocks = <&clk IMX_SC_R_UART_1 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <80000000>;
 		power-domains = <&pd IMX_SC_R_UART_1>;
-		dma-names = "rx", "tx";
-		dmas = <&edma2 10 0 FSL_EDMA_RX>, <&edma2 11 0 0>;
+		power-domain-names = "uart";
+		dma-names = "rx","tx";
+		dmas = <&edma2 10 0 1>, <&edma2 11 0 0>;
 		status = "disabled";
 	};
 
 	lpuart2: serial@5a080000 {
 		reg = <0x5a080000 0x1000>;
 		interrupts = <GIC_SPI 347 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&uart2_lpcg IMX_LPCG_CLK_4>,
-			 <&uart2_lpcg IMX_LPCG_CLK_0>;
+		clocks = <&uart2_lpcg 1>, <&uart2_lpcg 0>;
 		clock-names = "ipg", "baud";
 		assigned-clocks = <&clk IMX_SC_R_UART_2 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <80000000>;
 		power-domains = <&pd IMX_SC_R_UART_2>;
-		dma-names = "rx", "tx";
-		dmas = <&edma2 12 0 FSL_EDMA_RX>, <&edma2 13 0 0>;
+		power-domain-names = "uart";
+		dma-names = "rx","tx";
+		dmas = <&edma2 12 0 1>, <&edma2 13 0 0>;
 		status = "disabled";
 	};
 
 	lpuart3: serial@5a090000 {
 		reg = <0x5a090000 0x1000>;
 		interrupts = <GIC_SPI 348 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&uart3_lpcg IMX_LPCG_CLK_4>,
-			 <&uart3_lpcg IMX_LPCG_CLK_0>;
+		clocks = <&uart3_lpcg 1>, <&uart3_lpcg 0>;
 		clock-names = "ipg", "baud";
 		assigned-clocks = <&clk IMX_SC_R_UART_3 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <80000000>;
 		power-domains = <&pd IMX_SC_R_UART_3>;
-		dma-names = "rx", "tx";
-		dmas = <&edma2 14 0 FSL_EDMA_RX>, <&edma2 15 0 0>;
+		power-domain-names = "uart";
+		dma-names = "rx","tx";
+		dmas = <&edma2 14 0 1>, <&edma2 15 0 0>;
 		status = "disabled";
 	};
 
@@ -153,12 +151,12 @@ dma_subsys: bus@5a000000 {
 		compatible = "fsl,imx8qxp-pwm", "fsl,imx27-pwm";
 		reg = <0x5a190000 0x1000>;
 		interrupts = <GIC_SPI 127 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&adma_pwm_lpcg IMX_LPCG_CLK_4>,
-			 <&adma_pwm_lpcg IMX_LPCG_CLK_0>;
+		clocks = <&adma_pwm_lpcg 1>,
+			 <&adma_pwm_lpcg 0>;
 		clock-names = "ipg", "per";
 		assigned-clocks = <&clk IMX_SC_R_LCD_0_PWM_0 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <24000000>;
-		#pwm-cells = <3>;
+		#pwm-cells = <2>;
 		power-domains = <&pd IMX_SC_R_LCD_0_PWM_0>;
 	};
 
@@ -182,7 +180,8 @@ dma_subsys: bus@5a000000 {
 			     <GIC_SPI 438 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 439 IRQ_TYPE_LEVEL_HIGH>,
 			     <GIC_SPI 440 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 441 IRQ_TYPE_LEVEL_HIGH>;
+			     <GIC_SPI 441 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 67 IRQ_TYPE_LEVEL_HIGH>;
 		power-domains = <&pd IMX_SC_R_DMA_2_CH0>,
 				<&pd IMX_SC_R_DMA_2_CH1>,
 				<&pd IMX_SC_R_DMA_2_CH2>,
@@ -201,13 +200,52 @@ dma_subsys: bus@5a000000 {
 				<&pd IMX_SC_R_DMA_2_CH15>;
 	};
 
+	edma3: dma-controller@5a9f0000 {
+		compatible = "fsl,imx8qm-edma";
+		reg = <0x5a9f0000 0x90000>;
+		#dma-cells = <3>;
+		dma-channels = <8>;
+		interrupts = <GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 427 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 428 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 429 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 430 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 431 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 69 IRQ_TYPE_LEVEL_HIGH>;
+		power-domains = <&pd IMX_SC_R_DMA_3_CH0>,
+				<&pd IMX_SC_R_DMA_3_CH1>,
+				<&pd IMX_SC_R_DMA_3_CH2>,
+				<&pd IMX_SC_R_DMA_3_CH3>,
+				<&pd IMX_SC_R_DMA_3_CH4>,
+				<&pd IMX_SC_R_DMA_3_CH5>,
+				<&pd IMX_SC_R_DMA_3_CH6>,
+				<&pd IMX_SC_R_DMA_3_CH7>;
+	};
+
+	emvsim0: sim0@5a0d0000 {
+		compatible = "fsl,imx8-emvsim";
+		reg = <0x5a0d0000 0x10000>;
+		interrupts = <GIC_SPI 230 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-parent = <&gic>;
+		clocks = <&emvsim0_lpcg 0>,
+			 <&emvsim0_lpcg 1>;
+		clock-names = "sim", "ipg";
+		assigned-clocks = <&clk IMX_SC_R_EMVSIM_0 IMX_SC_PM_CLK_PER>;
+		assigned-clock-rates = <24000000>;
+		power-domains = <&pd IMX_SC_R_EMVSIM_0>, <&pd IMX_SC_R_BOARD_R2>;
+		power-domain-names = "sim_pd", "sim_aux_pd";
+		status = "disabled";
+	};
+
 	spi0_lpcg: clock-controller@5a400000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x5a400000 0x10000>;
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_SPI_0 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>;
+		bit-offset = <0 16>;
 		clock-output-names = "spi0_lpcg_clk",
 				     "spi0_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_SPI_0>;
@@ -219,7 +257,7 @@ dma_subsys: bus@5a000000 {
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_SPI_1 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>;
+		bit-offset = <0 16>;
 		clock-output-names = "spi1_lpcg_clk",
 				     "spi1_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_SPI_1>;
@@ -231,7 +269,7 @@ dma_subsys: bus@5a000000 {
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_SPI_2 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>;
+		bit-offset = <0 16>;
 		clock-output-names = "spi2_lpcg_clk",
 				     "spi2_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_SPI_2>;
@@ -243,7 +281,7 @@ dma_subsys: bus@5a000000 {
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_SPI_3 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>;
+		bit-offset = <0 16>;
 		clock-output-names = "spi3_lpcg_clk",
 				     "spi3_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_SPI_3>;
@@ -255,7 +293,7 @@ dma_subsys: bus@5a000000 {
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_UART_0 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>;
+		bit-offset = <0 16>;
 		clock-output-names = "uart0_lpcg_baud_clk",
 				     "uart0_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_UART_0>;
@@ -267,7 +305,7 @@ dma_subsys: bus@5a000000 {
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_UART_1 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>;
+		bit-offset = <0 16>;
 		clock-output-names = "uart1_lpcg_baud_clk",
 				     "uart1_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_UART_1>;
@@ -279,7 +317,7 @@ dma_subsys: bus@5a000000 {
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_UART_2 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>;
+		bit-offset = <0 16>;
 		clock-output-names = "uart2_lpcg_baud_clk",
 				     "uart2_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_UART_2>;
@@ -291,7 +329,7 @@ dma_subsys: bus@5a000000 {
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_UART_3 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>;
+		bit-offset = <0 16>;
 		clock-output-names = "uart3_lpcg_baud_clk",
 				     "uart3_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_UART_3>;
@@ -309,13 +347,23 @@ dma_subsys: bus@5a000000 {
 		power-domains = <&pd IMX_SC_R_LCD_0_PWM_0>;
 	};
 
+	emvsim0_lpcg: clock-controller@5a4d0000 {
+		compatible = "fsl,imx8qxp-lpcg";
+		reg = <0x5a4d0000 0x10000>;
+		#clock-cells = <1>;
+		clocks = <&clk IMX_SC_R_EMVSIM_0 IMX_SC_PM_CLK_PER>,
+			 <&dma_ipg_clk>;
+		bit-offset = <0 16>;
+		clock-output-names = "emvsim0_lpcg_clk",
+				     "emvsim0_lpcg_ipg_clk";
+		power-domains = <&pd IMX_SC_R_EMVSIM_0>;
+	};
+
 	i2c0: i2c@5a800000 {
 		reg = <0x5a800000 0x4000>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		interrupts = <GIC_SPI 220 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&i2c0_lpcg IMX_LPCG_CLK_0>,
-			 <&i2c0_lpcg IMX_LPCG_CLK_4>;
+		interrupts = <GIC_SPI 340 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&i2c0_lpcg 0>,
+			 <&i2c0_lpcg 1>;
 		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX_SC_R_I2C_0 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <24000000>;
@@ -325,11 +373,9 @@ dma_subsys: bus@5a000000 {
 
 	i2c1: i2c@5a810000 {
 		reg = <0x5a810000 0x4000>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		interrupts = <GIC_SPI 221 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&i2c1_lpcg IMX_LPCG_CLK_0>,
-			 <&i2c1_lpcg IMX_LPCG_CLK_4>;
+		interrupts = <GIC_SPI 341 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&i2c1_lpcg 0>,
+			 <&i2c1_lpcg 1>;
 		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX_SC_R_I2C_1 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <24000000>;
@@ -339,11 +385,9 @@ dma_subsys: bus@5a000000 {
 
 	i2c2: i2c@5a820000 {
 		reg = <0x5a820000 0x4000>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		interrupts = <GIC_SPI 222 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&i2c2_lpcg IMX_LPCG_CLK_0>,
-			 <&i2c2_lpcg IMX_LPCG_CLK_4>;
+		interrupts = <GIC_SPI 342 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&i2c2_lpcg 0>,
+			 <&i2c2_lpcg 1>;
 		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX_SC_R_I2C_2 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <24000000>;
@@ -353,11 +397,9 @@ dma_subsys: bus@5a000000 {
 
 	i2c3: i2c@5a830000 {
 		reg = <0x5a830000 0x4000>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		interrupts = <GIC_SPI 223 IRQ_TYPE_LEVEL_HIGH>;
-		clocks = <&i2c3_lpcg IMX_LPCG_CLK_0>,
-			 <&i2c3_lpcg IMX_LPCG_CLK_4>;
+		interrupts = <GIC_SPI 343 IRQ_TYPE_LEVEL_HIGH>;
+		clocks = <&i2c3_lpcg 0>,
+			 <&i2c3_lpcg 1>;
 		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX_SC_R_I2C_3 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <24000000>;
@@ -371,14 +413,14 @@ dma_subsys: bus@5a000000 {
 		reg = <0x5a880000 0x10000>;
 		interrupts = <GIC_SPI 240 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&gic>;
-		clocks = <&adc0_lpcg IMX_LPCG_CLK_0>,
-			 <&adc0_lpcg IMX_LPCG_CLK_4>;
+		clocks = <&adc0_lpcg 0>,
+			 <&adc0_lpcg 1>;
 		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX_SC_R_ADC_0 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <24000000>;
 		power-domains = <&pd IMX_SC_R_ADC_0>;
 		status = "disabled";
-	};
+	 };
 
 	adc1: adc@5a890000 {
 		compatible = "nxp,imx8qxp-adc";
@@ -386,8 +428,8 @@ dma_subsys: bus@5a000000 {
 		reg = <0x5a890000 0x10000>;
 		interrupts = <GIC_SPI 241 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&gic>;
-		clocks = <&adc1_lpcg IMX_LPCG_CLK_0>,
-			 <&adc1_lpcg IMX_LPCG_CLK_4>;
+		clocks = <&adc1_lpcg 0>,
+			 <&adc1_lpcg 1>;
 		clock-names = "per", "ipg";
 		assigned-clocks = <&clk IMX_SC_R_ADC_1 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <24000000>;
@@ -400,8 +442,8 @@ dma_subsys: bus@5a000000 {
 		reg = <0x5a8d0000 0x10000>;
 		interrupts = <GIC_SPI 235 IRQ_TYPE_LEVEL_HIGH>;
 		interrupt-parent = <&gic>;
-		clocks = <&can0_lpcg IMX_LPCG_CLK_4>,
-			 <&can0_lpcg IMX_LPCG_CLK_0>;
+		clocks = <&can0_lpcg 1>,
+			 <&can0_lpcg 0>;
 		clock-names = "ipg", "per";
 		assigned-clocks = <&clk IMX_SC_R_CAN_0 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <40000000>;
@@ -421,8 +463,8 @@ dma_subsys: bus@5a000000 {
 		 * CAN1 shares CAN0's clock and to enable CAN0's clock it
 		 * has to be powered on.
 		 */
-		clocks = <&can0_lpcg IMX_LPCG_CLK_4>,
-			 <&can0_lpcg IMX_LPCG_CLK_0>;
+		clocks = <&can0_lpcg 1>,
+			 <&can0_lpcg 0>;
 		clock-names = "ipg", "per";
 		assigned-clocks = <&clk IMX_SC_R_CAN_0 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <40000000>;
@@ -442,8 +484,8 @@ dma_subsys: bus@5a000000 {
 		 * CAN2 shares CAN0's clock and to enable CAN0's clock it
 		 * has to be powered on.
 		 */
-		clocks = <&can0_lpcg IMX_LPCG_CLK_4>,
-			 <&can0_lpcg IMX_LPCG_CLK_0>;
+		clocks = <&can0_lpcg 1>,
+			 <&can0_lpcg 0>;
 		clock-names = "ipg", "per";
 		assigned-clocks = <&clk IMX_SC_R_CAN_0 IMX_SC_PM_CLK_PER>;
 		assigned-clock-rates = <40000000>;
@@ -454,36 +496,13 @@ dma_subsys: bus@5a000000 {
 		status = "disabled";
 	};
 
-	edma3: dma-controller@5a9f0000 {
-		compatible = "fsl,imx8qm-edma";
-		reg = <0x5a9f0000 0x90000>;
-		#dma-cells = <3>;
-		dma-channels = <8>;
-		interrupts = <GIC_SPI 424 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 425 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 426 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 427 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 428 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 429 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 430 IRQ_TYPE_LEVEL_HIGH>,
-			     <GIC_SPI 431 IRQ_TYPE_LEVEL_HIGH>;
-		power-domains = <&pd IMX_SC_R_DMA_3_CH0>,
-				<&pd IMX_SC_R_DMA_3_CH1>,
-				<&pd IMX_SC_R_DMA_3_CH2>,
-				<&pd IMX_SC_R_DMA_3_CH3>,
-				<&pd IMX_SC_R_DMA_3_CH4>,
-				<&pd IMX_SC_R_DMA_3_CH5>,
-				<&pd IMX_SC_R_DMA_3_CH6>,
-				<&pd IMX_SC_R_DMA_3_CH7>;
-	};
-
 	i2c0_lpcg: clock-controller@5ac00000 {
 		compatible = "fsl,imx8qxp-lpcg";
 		reg = <0x5ac00000 0x10000>;
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_I2C_0 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>;
+		bit-offset = <0 16>;
 		clock-output-names = "i2c0_lpcg_clk",
 				     "i2c0_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_I2C_0>;
@@ -495,7 +514,7 @@ dma_subsys: bus@5a000000 {
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_I2C_1 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>;
+		bit-offset = <0 16>;
 		clock-output-names = "i2c1_lpcg_clk",
 				     "i2c1_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_I2C_1>;
@@ -507,7 +526,7 @@ dma_subsys: bus@5a000000 {
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_I2C_2 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>;
+		bit-offset = <0 16>;
 		clock-output-names = "i2c2_lpcg_clk",
 				     "i2c2_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_I2C_2>;
@@ -519,7 +538,7 @@ dma_subsys: bus@5a000000 {
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_I2C_3 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>;
+		bit-offset = <0 16>;
 		clock-output-names = "i2c3_lpcg_clk",
 				     "i2c3_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_I2C_3>;
@@ -531,7 +550,7 @@ dma_subsys: bus@5a000000 {
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_ADC_0 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>;
+		bit-offset = <0 16>;
 		clock-output-names = "adc0_lpcg_clk",
 				     "adc0_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_ADC_0>;
@@ -543,7 +562,7 @@ dma_subsys: bus@5a000000 {
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_ADC_1 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>;
+		bit-offset = <0 16>;
 		clock-output-names = "adc1_lpcg_clk",
 				     "adc1_lpcg_ipg_clk";
 		power-domains = <&pd IMX_SC_R_ADC_1>;
@@ -555,10 +574,45 @@ dma_subsys: bus@5a000000 {
 		#clock-cells = <1>;
 		clocks = <&clk IMX_SC_R_CAN_0 IMX_SC_PM_CLK_PER>,
 			 <&dma_ipg_clk>, <&dma_ipg_clk>;
-		clock-indices = <IMX_LPCG_CLK_0>, <IMX_LPCG_CLK_4>, <IMX_LPCG_CLK_5>;
+		bit-offset = <0 16 20>;
 		clock-output-names = "can0_lpcg_pe_clk",
 				     "can0_lpcg_ipg_clk",
 				     "can0_lpcg_chi_clk";
 		power-domains = <&pd IMX_SC_R_CAN_0>;
+	};
+
+	i2c_rpbus_0: i2c-rpbus-0 {
+		compatible = "fsl,i2c-rpbus";
+		status = "disabled";
+	};
+
+	i2c_rpbus_1: i2c-rpbus-1 {
+		compatible = "fsl,i2c-rpbus";
+		status = "disabled";
+	};
+
+	i2c_rpbus_5: i2c-rpbus-5 {
+		compatible = "fsl,i2c-rpbus";
+		status = "disabled";
+	};
+
+	i2c_rpbus_12: i2c-rpbus-12 {
+		compatible = "fsl,i2c-rpbus";
+		status = "disabled";
+	};
+
+	i2c_rpbus_13: i2c-rpbus-13 {
+		compatible = "fsl,i2c-rpbus";
+		status = "disabled";
+	};
+
+	i2c_rpbus_14: i2c-rpbus-14 {
+		compatible = "fsl,i2c-rpbus";
+		status = "disabled";
+	};
+
+	i2c_rpbus_15: i2c-rpbus-15 {
+		compatible = "fsl,i2c-rpbus";
+		status = "disabled";
 	};
 };

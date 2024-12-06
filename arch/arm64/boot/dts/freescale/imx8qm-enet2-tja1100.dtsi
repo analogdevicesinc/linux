@@ -1,0 +1,77 @@
+/*
+ * Copyright 2019 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+/* fec1 cannot attach to ethphy0 since the PHY address
+ * conflict with ethphy2. So eth0 should not work.
+ * There still enable fec1 to share the MDIO bus for fec2 due
+ * to board limitation.
+ */
+&fec1 {
+	/* PHY address should rework to 3 */
+	phy-handle = <&ethphy3>;
+
+	mdio {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		ethphy2: ethernet-phy@2 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <5>;
+			nxp,rmii-refclk-in;
+			/delete-property/ qca,disable-smarteee;
+			/delete-property/ vddio-supply;
+		};
+
+		ethphy3: ethernet-phy@3 {
+			compatible = "ethernet-phy-ieee802.3-c22";
+			reg = <3>;
+			qca,disable-smarteee;
+			vddio-supply = <&vddio3>;
+
+			vddio3: vddio-regulator {
+				regulator-min-microvolt = <1800000>;
+				regulator-max-microvolt = <1800000>;
+			};
+		};
+	};
+};
+
+&fec2 {
+	pinctrl-0 = <&pinctrl_fec2_rmii>;
+	clocks = <&enet1_lpcg 4>,
+		 <&enet1_lpcg 2>,
+		 <&clk IMX_SC_R_ENET_1 IMX_SC_C_DISABLE_50>,
+		 <&enet1_lpcg 0>,
+		 <&enet1_lpcg 1>;
+	phy-mode = "rmii";
+	phy-handle = <&ethphy2>;
+	/delete-property/ phy-supply;
+	/delete-property/ rx-internal-delay-ps;
+	/delete-property/ tx-internal-delay-ps;
+};
+
+&iomuxc {
+	pinctrl_fec2_rmii: fec2rmiigrp {
+		fsl,pins = <
+			IMX8QM_ENET1_RGMII_TXC_CONN_ENET1_RCLK50M_OUT		0x06000020
+			IMX8QM_ENET1_RGMII_RXD0_CONN_ENET1_RGMII_RXD0		0x06000020
+			IMX8QM_ENET1_RGMII_RXD1_CONN_ENET1_RGMII_RXD1		0x06000020
+			IMX8QM_ENET1_RGMII_RXD2_CONN_ENET1_RMII_RX_ER		0x06000020
+			IMX8QM_ENET1_RGMII_RX_CTL_CONN_ENET1_RGMII_RX_CTL	0x06000020
+			IMX8QM_ENET1_RGMII_TXD0_CONN_ENET1_RGMII_TXD0		0x06000020
+			IMX8QM_ENET1_RGMII_TXD1_CONN_ENET1_RGMII_TXD1		0x06000020
+			IMX8QM_ENET1_RGMII_TX_CTL_CONN_ENET1_RGMII_TX_CTL	0x06000020
+		>;
+	};
+};

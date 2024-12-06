@@ -1,0 +1,347 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2019 NXP
+ */
+
+&usdhc1 {
+	/delete-property/ iommus;
+};
+
+&usdhc2 {
+	/delete-property/ iommus;
+};
+
+&usdhc3 {
+	/delete-property/ iommus;
+};
+
+&fec1 {
+	/delete-property/ iommus;
+};
+
+&fec2 {
+	/delete-property/ iommus;
+};
+
+&sata {
+	/delete-property/ iommus;
+};
+
+&usbotg3 {
+	/delete-property/ iommus;
+};
+
+&usbotg3_cdns3 {
+	/delete-property/ iommus;
+};
+
+&smmu {
+	/* xen only supports legacy bindings for now */
+	#iommu-cells = <0>;
+};
+
+&dpu1 {
+	fsl,sc_rsrc_id = <IMX_SC_R_DC_0_BLIT0>,
+			 <IMX_SC_R_DC_0_BLIT1>,
+			 <IMX_SC_R_DC_0_BLIT2>,
+			 <IMX_SC_R_DC_0_BLIT_OUT>,
+			 <IMX_SC_R_DC_0_WARP>,
+			 <IMX_SC_R_DC_0_VIDEO0>,
+			 <IMX_SC_R_DC_0_VIDEO1>,
+			 <IMX_SC_R_DC_0_FRAC0>,
+			 <IMX_SC_R_DC_0>;
+};
+
+&dpu2 {
+	fsl,sc_rsrc_id = <IMX_SC_R_DC_1_BLIT0>,
+			 <IMX_SC_R_DC_1_BLIT1>,
+			 <IMX_SC_R_DC_1_BLIT2>,
+			 <IMX_SC_R_DC_1_BLIT_OUT>,
+			 <IMX_SC_R_DC_1_WARP>,
+			 <IMX_SC_R_DC_1_VIDEO0>,
+			 <IMX_SC_R_DC_1_VIDEO1>,
+			 <IMX_SC_R_DC_1_FRAC0>,
+			 <IMX_SC_R_DC_1>;
+};
+
+/* edma2 called in imx8qm RM with the same address in edma0 of imx8qxp */
+&edma0{
+	fsl,sc_rsrc_id = <IMX_SC_R_DMA_2_CH0>,
+			 <IMX_SC_R_DMA_2_CH1>,
+			 <IMX_SC_R_DMA_2_CH2>,
+			 <IMX_SC_R_DMA_2_CH3>,
+			 <IMX_SC_R_DMA_2_CH4>,
+			 <IMX_SC_R_DMA_2_CH5>,
+			 <IMX_SC_R_DMA_2_CH6>,
+			 <IMX_SC_R_DMA_2_CH7>,
+			 <IMX_SC_R_DMA_2_CH8>,
+			 <IMX_SC_R_DMA_2_CH9>,
+			 <IMX_SC_R_DMA_2_CH10>,
+			 <IMX_SC_R_DMA_2_CH11>,
+			 <IMX_SC_R_DMA_2_CH12>,
+			 <IMX_SC_R_DMA_2_CH13>,
+			 <IMX_SC_R_DMA_2_CH14>,
+			 <IMX_SC_R_DMA_2_CH15>,
+			 <IMX_SC_R_DMA_2_CH16>,
+			 <IMX_SC_R_DMA_2_CH17>,
+			 <IMX_SC_R_DMA_2_CH18>,
+			 <IMX_SC_R_DMA_2_CH19>;
+};
+
+&edma1 {
+	xen,passthrough;
+};
+
+&acm {
+	xen,passthrough;
+};
+
+&asrc0 {
+	xen,passthrough;
+};
+
+&esai0 {
+	xen,passthrough;
+};
+
+&spdif0 {
+	xen,passthrough;
+};
+
+&spdif1 {
+	xen,passthrough;
+};
+
+&sai0 {
+	xen,passthrough;
+};
+
+&sai1 {
+	xen,passthrough;
+};
+
+&sai2 {
+	xen,passthrough;
+};
+
+&sai3 {
+	xen,passthrough;
+};
+
+&asrc1 {
+	xen,passthrough;
+};
+
+&amix {
+	xen,passthrough;
+};
+
+&asrc0_lpcg {
+	xen,passthrough;
+};
+
+&esai0_lpcg {
+	xen,passthrough;
+};
+
+&spdif0_lpcg {
+	xen,passthrough;
+};
+
+&spdif1_lpcg {
+	xen,passthrough;
+};
+
+&sai0_lpcg {
+	xen,passthrough;
+};
+
+&sai1_lpcg {
+	xen,passthrough;
+};
+
+&sai2_lpcg {
+	xen,passthrough;
+};
+
+&sai3_lpcg {
+	xen,passthrough;
+};
+
+&asrc1_lpcg {
+	xen,passthrough;
+};
+
+&mqs0_lpcg {
+	xen,passthrough;
+};
+
+&dsp_lpcg {
+	xen,passthrough;
+};
+
+&dsp_ram_lpcg {
+	xen,passthrough;
+};
+
+&sai4 {
+	xen,passthrough;
+};
+
+&sai5 {
+	xen,passthrough;
+};
+
+&esai1 {
+	xen,passthrough;
+};
+
+&sai6 {
+	xen,passthrough;
+};
+
+&sai7 {
+	xen,passthrough;
+};
+
+&sai4_lpcg {
+	xen,passthrough;
+};
+
+&sai5_lpcg {
+	xen,passthrough;
+};
+
+&esai1_lpcg {
+	xen,passthrough;
+};
+
+&sai6_lpcg {
+	xen,passthrough;
+};
+
+&sai7_lpcg {
+	xen,passthrough;
+};
+
+&amix_lpcg {
+	xen,passthrough;
+};
+
+&aud_rec0_lpcg {
+	xen,passthrough;
+};
+
+&aud_rec1_lpcg {
+	xen,passthrough;
+};
+
+&aud_pll_div0_lpcg {
+	xen,passthrough;
+};
+
+&aud_pll_div1_lpcg {
+	xen,passthrough;
+};
+
+&mclkout0_lpcg {
+	xen,passthrough;
+};
+
+&mclkout1_lpcg {
+	xen,passthrough;
+};
+
+/ {
+
+dma_subsys: bus@5a000000 {
+	compatible = "simple-bus";
+	#address-cells = <1>;
+	#size-cells = <1>;
+	ranges = <0x5a000000 0x0 0x5a000000 0x1000000>;
+
+	/* edma0 called in imx8qm RM with the same address in edma2 of imx8qxp */
+	edma214: dma-controller@5a2e0000 {
+		compatible = "fsl,imx8qm-edma";
+		reg = <0x5a1f0000 0x10000>,
+		      <0x5a2e0000 0x10000>, /* channel14 UART1 rx */
+		      <0x5a2f0000 0x10000>; /* channel15 UART1 tx */
+		#dma-cells = <3>;
+		dma-channels = <2>;
+		interrupts = <GIC_SPI 436 IRQ_TYPE_LEVEL_HIGH>,
+			     <GIC_SPI 437 IRQ_TYPE_LEVEL_HIGH>;
+		interrupt-names = "edma0-chan14-rx", "edma0-chan15-tx";
+		power-domains = <&pd IMX_SC_R_DMA_0_CH14>,
+				<&pd IMX_SC_R_DMA_0_CH15>;
+		power-domain-names = "edma0-chan14", "edma0-chan15";
+		status = "okay";
+		fsl,sc_rsrc_id = <IMX_SC_R_DMA_0_CH14>,
+				 <IMX_SC_R_DMA_0_CH15>;
+	};
+};
+};
+
+&edma2 {
+	reg = <0x5a1f0000 0x10000>,
+	      <0x5a200000 0x10000>, /* channel0 LPSPI0 rx */
+	      <0x5a210000 0x10000>, /* channel1 LPSPI0 tx */
+	      <0x5a260000 0x10000>, /* channel6 LPSPI3 rx */
+	      <0x5a270000 0x10000>, /* channel7 LPSPI3 tx */
+	      <0x5a2c0000 0x10000>, /* channel12 UART0 rx */
+	      <0x5a2d0000 0x10000>, /* channel13 UART0 tx */
+	      <0x5a300000 0x10000>, /* channel16 UART2 rx */
+	      <0x5a310000 0x10000>, /* channel17 UART2 tx */
+	      <0x5a320000 0x10000>, /* channel18 UART3 rx */
+	      <0x5a330000 0x10000>, /* channel19 UART3 tx */
+	      <0x5a340000 0x10000>, /* channel20 UART4 rx */
+	      <0x5a350000 0x10000>; /* channel21 UART4 tx */
+	#dma-cells = <3>;
+	dma-channels = <12>;
+	interrupts = <GIC_SPI 416 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 417 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 422 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 423 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 434 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 435 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 438 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 439 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 440 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 441 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 442 IRQ_TYPE_LEVEL_HIGH>,
+		     <GIC_SPI 443 IRQ_TYPE_LEVEL_HIGH>;
+	interrupt-names = "edma0-chan0-rx", "edma0-chan1-tx",
+			  "edma0-chan6-rx", "edma0-chan7-tx",
+			  "edma0-chan12-rx", "edma0-chan13-tx",
+			  "edma0-chan16-rx", "edma0-chan17-tx",
+			  "edma0-chan18-rx", "edma0-chan19-tx",
+			  "edma0-chan20-rx", "edma0-chan21-tx";
+	power-domains = <&pd IMX_SC_R_DMA_0_CH0>,
+			<&pd IMX_SC_R_DMA_0_CH1>,
+			<&pd IMX_SC_R_DMA_0_CH6>,
+			<&pd IMX_SC_R_DMA_0_CH7>,
+			<&pd IMX_SC_R_DMA_0_CH12>,
+			<&pd IMX_SC_R_DMA_0_CH13>,
+			<&pd IMX_SC_R_DMA_0_CH16>,
+			<&pd IMX_SC_R_DMA_0_CH17>,
+			<&pd IMX_SC_R_DMA_0_CH18>,
+			<&pd IMX_SC_R_DMA_0_CH19>,
+			<&pd IMX_SC_R_DMA_0_CH20>,
+			<&pd IMX_SC_R_DMA_0_CH21>;
+	power-domain-names = "edma0-chan0", "edma0-chan1",
+			     "edma0-chan6", "edma0-chan7",
+			     "edma0-chan12", "edma0-chan13",
+			     "edma0-chan16", "edma0-chan17",
+			     "edma0-chan18", "edma0-chan19",
+			     "edma0-chan20", "edma0-chan21";
+	status = "okay";
+};
+
+&lpspi0 {
+};
+
+&lpuart1 {
+	dmas = <&edma214 15 0 0>, <&edma214 14 0 1>;
+};
+
+&lpuart2 {
+};

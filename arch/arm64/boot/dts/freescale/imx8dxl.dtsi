@@ -4,8 +4,6 @@
  */
 
 #include <dt-bindings/clock/imx8-clock.h>
-#include <dt-bindings/dma/fsl-edma.h>
-#include <dt-bindings/clock/imx8-lpcg.h>
 #include <dt-bindings/firmware/imx/rsrc.h>
 #include <dt-bindings/gpio/gpio.h>
 #include <dt-bindings/interrupt-controller/arm-gic.h>
@@ -19,6 +17,9 @@
 	#size-cells = <2>;
 
 	aliases {
+		can0 = &flexcan1;
+		can1 = &flexcan2;
+		can2 = &flexcan3;
 		ethernet0 = &fec1;
 		ethernet1 = &eqos;
 		gpio0 = &lsio_gpio0;
@@ -29,7 +30,16 @@
 		gpio5 = &lsio_gpio5;
 		gpio6 = &lsio_gpio6;
 		gpio7 = &lsio_gpio7;
+		i2c2 = &i2c2;
+		i2c3 = &i2c3;
+		mmc0 = &usdhc1;
+		mmc1 = &usdhc2;
 		mu1 = &lsio_mu1;
+		serial0 = &lpuart0;
+		serial1 = &lpuart1;
+		serial2 = &lpuart2;
+		serial3 = &lpuart3;
+		serial4 = &cm40_lpuart;
 	};
 
 	cpus: cpus {
@@ -84,6 +94,26 @@
 		};
 	};
 
+	cm4 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "simple-bus";
+
+		imx8dxl_cm4: imx8dxl_cm4@0 {
+			compatible = "fsl,imx8qxp-cm4";
+			rsc-da = <0x90000000>;
+			mbox-names = "tx", "rx", "rxdb";
+			mboxes = <&lsio_mu5 0 1
+				  &lsio_mu5 1 1
+				  &lsio_mu5 3 1>;
+			fsl,resource-id = <IMX_SC_R_M4_0_PID0>;
+			fsl,entry-address = <0x34fe0000>;
+			status = "disabled";
+			power-domains = <&pd IMX_SC_R_M4_0_PID0>,
+					<&pd IMX_SC_R_M4_0_MU_1A>;
+		};
+	};
+
 	gic: interrupt-controller@51a00000 {
 		compatible = "arm,gic-v3";
 		reg = <0x0 0x51a00000 0 0x10000>, /* GIC Dist */
@@ -105,7 +135,7 @@
 	};
 
 	pmu {
-		compatible = "arm,cortex-a35-pmu";
+		compatible = "arm,armv8-pmuv3";
 		interrupts = <GIC_PPI 7 IRQ_TYPE_LEVEL_HIGH>;
 	};
 
@@ -144,7 +174,7 @@
 		};
 
 		ocotp: ocotp {
-			compatible = "fsl,imx8qxp-scu-ocotp";
+			compatible = "fsl,imx8dxl-scu-ocotp", "fsl,imx8qxp-scu-ocotp";
 			#address-cells = <1>;
 			#size-cells = <1>;
 
@@ -159,6 +189,11 @@
 
 		rtc: rtc {
 			compatible = "fsl,imx8qxp-sc-rtc";
+		};
+
+		secvio: secvio {
+			compatible = "fsl,imx-sc-secvio";
+			nvmem = <&ocotp>;
 		};
 
 		sc_pwrkey: keys {
@@ -231,18 +266,29 @@
 		clock-output-names = "xtal_24MHz";
 	};
 
+	imx_ion {
+		compatible = "fsl,mxc-ion";
+		fsl,heap-id = <0>;
+	};
+
 	/* sorted in register address */
+	#include "imx8-ss-v2x.dtsi"
+	#include "imx8-ss-security.dtsi"
 	#include "imx8-ss-cm40.dtsi"
 	#include "imx8-ss-adma.dtsi"
 	#include "imx8-ss-conn.dtsi"
 	#include "imx8-ss-ddr.dtsi"
 	#include "imx8-ss-lsio.dtsi"
+	#include "imx8-ss-hsio.dtsi"
+	#include "imx8-ss-lcdif.dtsi"
 };
 
 #include "imx8dxl-ss-adma.dtsi"
 #include "imx8dxl-ss-conn.dtsi"
 #include "imx8dxl-ss-lsio.dtsi"
+#include "imx8dxl-ss-hsio.dtsi"
 #include "imx8dxl-ss-ddr.dtsi"
+#include "imx8dxl-ss-security.dtsi"
 
 &cm40_intmux {
 	interrupts = <GIC_SPI 8 IRQ_TYPE_LEVEL_HIGH>,

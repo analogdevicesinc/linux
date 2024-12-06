@@ -1,0 +1,60 @@
+/*
+ * Copyright 2017 NXP
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include "imx8qxp-lpddr4-val.dts"
+
+/ {
+	sound-cs42888 {
+		status = "disabled";
+	};
+
+	sound-mqs {
+		compatible = "fsl,imx8qxp-lpddr4-arm2-mqs",
+				"fsl,imx-audio-mqs";
+		model = "mqs-audio";
+		audio-cpu = <&sai1>;
+		audio-codec = <&mqs>;
+		audio-asrc = <&asrc1>;
+	};
+};
+
+&esai0 {
+	status = "disabled";
+};
+
+&iomuxc {
+	pinctrl_mqs: mqsgrp {
+		fsl,pins = <
+			IMX8QXP_SPDIF0_TX_ADMA_MQS_L	0xc6000061
+			IMX8QXP_SPDIF0_RX_ADMA_MQS_R	0xc6000061
+		>;
+	};
+};
+
+&mqs {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_mqs>;
+	status = "okay";
+};
+
+&sai1 {
+	assigned-clocks = <&acm IMX_ADMA_ACM_SAI0_MCLK_SEL>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_SLV_BUS>,
+			<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MST_BUS>,
+			<&sai0_lpcg 0>;
+	assigned-clock-parents = <&aud_pll_div0_lpcg 0>;
+	assigned-clock-rates = <0>, <786432000>, <49152000>, <24576000>, <49152000>;
+	status = "okay";
+};

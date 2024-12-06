@@ -1,0 +1,108 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright NXP 2019
+
+#include "imx8qm-mek.dts"
+
+/delete-node/ &cm41_i2c;
+
+&i2c_rpbus_1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	pca6416: gpio@20 {
+		compatible = "ti,tca6416";
+		reg = <0x20>;
+		gpio-controller;
+		#gpio-cells = <2>;
+	};
+
+	cs42888: cs42888@48 {
+		compatible = "cirrus,cs42888";
+		reg = <0x48>;
+		clocks = <&mclkout0_lpcg 0>;
+		clock-names = "mclk";
+		VA-supply = <&reg_audio>;
+		VD-supply = <&reg_audio>;
+		VLS-supply = <&reg_audio>;
+		VLC-supply = <&reg_audio>;
+		reset-gpio = <&lsio_gpio4 25 GPIO_ACTIVE_LOW>;
+		assigned-clocks = <&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_PLL>,
+				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_SLV_BUS>,
+				<&clk IMX_SC_R_AUDIO_PLL_0 IMX_SC_PM_CLK_MST_BUS>,
+				<&mclkout0_lpcg 0>;
+		assigned-clock-rates = <786432000>, <49152000>, <12288000>, <12288000>;
+		fsl,txs-rxm;
+		status = "okay";
+	};
+};
+
+&cm41_i2c_lpcg {
+	status = "disabled";
+};
+
+&reg_can01_en {
+	status = "disabled";
+};
+
+&reg_can2_en {
+	status = "disabled";
+};
+
+&reg_can01_stby {
+	status = "disabled";
+};
+
+&reg_can2_stby {
+	status = "disabled";
+};
+
+&cm41_intmux {
+	status = "disabled";
+};
+
+&can0_lpcg {
+	status = "disabled";
+};
+
+&can1_lpcg {
+	status = "disabled";
+};
+
+&can2_lpcg {
+	status = "disabled";
+};
+
+&flexcan1 {
+	status = "disabled";
+};
+
+&flexcan2 {
+	status = "disabled";
+};
+
+&flexcan3 {
+	status = "disabled";
+};
+
+&flexspi0 {
+	status = "disabled";
+};
+
+&lpuart2 {
+	status = "disabled";
+};
+
+&uart2_lpcg {
+	status = "disabled";
+};
+
+&imx8qm_cm40 {
+	/* Assume you have partitioned M4, so M4 is ont controled by Linux */
+	/delete-property/ power-domains;
+};
+
+&imx8qm_cm41 {
+	/* Assume you have partitioned M4, so M4 is ont controled by Linux */
+	/delete-property/ power-domains;
+};
