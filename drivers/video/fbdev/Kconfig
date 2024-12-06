@@ -1765,6 +1765,18 @@ config FB_BROADSHEET
 	  and could also have been called by other names when coupled with
 	  a bridge adapter.
 
+config FB_MXS
+	tristate "MXS LCD framebuffer support"
+	depends on FB && (ARCH_MXS || ARCH_MXC)
+	select FB_MXC_DISP_FRAMEWORK
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	select FB_MODE_HELPERS
+	select VIDEOMODE_HELPERS
+	help
+	  Framebuffer support for the MXS SoC.
+
 config FB_HYPERV
 	tristate "Microsoft Hyper-V Synthetic Video support"
 	depends on FB && HYPERV
@@ -1814,5 +1826,6 @@ config FB_SM712
 source "drivers/video/fbdev/omap/Kconfig"
 source "drivers/video/fbdev/omap2/Kconfig"
 source "drivers/video/fbdev/mmp/Kconfig"
+source "drivers/video/fbdev/mxc/Kconfig"
 
 source "drivers/video/fbdev/core/Kconfig"
