@@ -1394,6 +1394,17 @@ int adrv9002_parse_dt(struct adrv9002_rf_phy *phy)
 	if (ret)
 		return ret;
 
+	phy->mcs_pulse_external = of_property_read_bool(parent, "adi,mcs-pulse-external");
+	phy->mcs_trigger_external = of_property_read_bool(parent, "adi,mcs-trigger-external");
+
+	/*
+	 * The below settings don't make sense but everything should still be fully functional...
+	 * Hence, just spit out a Warning and move on...
+	 */
+	if (phy->mcs_trigger_external && phy->mcs_pulse_external)
+		dev_warn(&phy->spi->dev,
+			 "MCS trigger set to external but the MCS pulses are also external. Ignoring...\n");
+
 	ret = adrv9002_parse_port_switch(phy, parent);
 	if (ret)
 		return ret;
