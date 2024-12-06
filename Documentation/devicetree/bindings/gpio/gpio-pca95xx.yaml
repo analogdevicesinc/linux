@@ -104,6 +104,10 @@ properties:
   wakeup-source:
     $ref: /schemas/types.yaml#/definitions/flag
 
+  out-default:
+    description:
+      set the output IO default voltage. Exp: out-default = /bits/ 16 <mask val>;
+
 patternProperties:
   "^(hog-[0-9]+|.+-hog(-[0-9]+)?)$":
     type: object

@@ -11,6 +11,7 @@
 #include <linux/err.h>
 #include <linux/gpio/driver.h>
 #include <linux/init.h>
+#include <linux/module.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
 #include <linux/ioport.h>
@@ -414,3 +415,4 @@ static struct platform_driver vf610_gpio_driver = {
 };
 
 builtin_platform_driver(vf610_gpio_driver);
+MODULE_LICENSE("GPL");

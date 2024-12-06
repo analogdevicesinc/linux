@@ -1040,9 +1040,15 @@ static int pca953x_get_and_enable_regulator(struct pca953x_chip *chip)
 	struct regulator *reg = chip->regulator;
 	int ret;
 
-	reg = devm_regulator_get(dev, "vcc");
-	if (IS_ERR(reg))
-		return dev_err_probe(dev, PTR_ERR(reg), "reg get err\n");
+	reg = devm_regulator_get_optional(dev, "vcc");
+	if (IS_ERR(reg)) {
+		if (PTR_ERR(reg) == -ENODEV) {
+			chip->regulator = NULL;
+			return 0;
+		} else {
+			return dev_err_probe(dev, PTR_ERR(reg), "reg get err\n");
+		}
+	}
 
 	ret = regulator_enable(reg);
 	if (ret)
@@ -1240,11 +1246,20 @@ static int pca953x_suspend(struct device *dev)
 {
 	struct pca953x_chip *chip = dev_get_drvdata(dev);
 
-	pca953x_save_context(chip);
+	/*
+	 * Only save context when regulator exist, if no
+	 * regulator, power keeps on, can also handle
+	 * gpio related operation.
+	 * e.g. PCIe RC needs to toggle the RST pin in
+	 * NOIRQ resume stage, so can't open regmap
+	 * cache if there is no regulator.
+	 */
+	if (chip->regulator)
+		pca953x_save_context(chip);
 
 	if (atomic_read(&chip->wakeup_path))
 		device_set_wakeup_path(dev);
-	else
+	else if (chip->regulator)
 		regulator_disable(chip->regulator);
 
 	return 0;
@@ -1255,7 +1270,7 @@ static int pca953x_resume(struct device *dev)
 	struct pca953x_chip *chip = dev_get_drvdata(dev);
 	int ret;
 
-	if (!atomic_read(&chip->wakeup_path)) {
+	if (!atomic_read(&chip->wakeup_path) && chip->regulator) {
 		ret = regulator_enable(chip->regulator);
 		if (ret) {
 			dev_err(dev, "Failed to enable regulator: %d\n", ret);
@@ -1263,9 +1278,11 @@ static int pca953x_resume(struct device *dev)
 		}
 	}
 
-	ret = pca953x_restore_context(chip);
-	if (ret)
-		dev_err(dev, "Failed to restore register map: %d\n", ret);
+	if (chip->regulator) {
+		ret = pca953x_restore_context(chip);
+		if (ret)
+			dev_err(dev, "Failed to restore register map: %d\n", ret);
+	}
 
 	return ret;
 }
