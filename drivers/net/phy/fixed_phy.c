@@ -6,6 +6,7 @@
  *         Anton Vorontsov <avorontsov@ru.mvista.com>
  *
  * Copyright (c) 2006-2007 MontaVista Software, Inc.
+ * Copyright (c) 2020 Puresoftware Ltd.
  */
 
 #include <linux/kernel.h>
@@ -222,6 +223,78 @@ static struct gpio_desc *fixed_phy_get_gpiod(struct device_node *np)
 	return NULL;
 }
 #endif
+
+struct phy_device *fwnode_fixed_phy_register(struct fwnode_handle *fwnode_np,
+					     struct fixed_phy_status *status)
+{
+	struct fixed_mdio_bus *fmb = &platform_fmb;
+	struct phy_device *phy;
+	int phy_addr;
+	int ret;
+
+	if (!fmb->mii_bus || fmb->mii_bus->state != MDIOBUS_REGISTERED)
+		return ERR_PTR(-EPROBE_DEFER);
+
+	phy_addr = ida_simple_get(&phy_fixed_ida, 0, PHY_MAX_ADDR, GFP_KERNEL);
+	if (phy_addr < 0)
+		return ERR_PTR(phy_addr);
+
+	ret = fixed_phy_add_gpiod(PHY_POLL, phy_addr, status, NULL);
+	if (ret < 0) {
+		ida_simple_remove(&phy_fixed_ida, phy_addr);
+		return ERR_PTR(ret);
+	}
+
+	phy = get_phy_device(fmb->mii_bus, phy_addr, false);
+	if (IS_ERR(phy)) {
+		fixed_phy_del(phy_addr);
+		return ERR_PTR(-EINVAL);
+	}
+
+	phy->link = status->link;
+	if (status->link) {
+		phy->speed = status->speed;
+		phy->duplex = status->duplex;
+		phy->pause = status->pause;
+		phy->asym_pause = status->asym_pause;
+	}
+
+	phy->mdio.dev.fwnode = fwnode_np;
+	phy->is_pseudo_fixed_link = true;
+
+	switch (status->speed) {
+	case SPEED_1000:
+		linkmode_set_bit(ETHTOOL_LINK_MODE_1000baseT_Half_BIT,
+				 phy->supported);
+		linkmode_set_bit(ETHTOOL_LINK_MODE_1000baseT_Full_BIT,
+				 phy->supported);
+		fallthrough;
+	case SPEED_100:
+		linkmode_set_bit(ETHTOOL_LINK_MODE_100baseT_Half_BIT,
+				 phy->supported);
+		linkmode_set_bit(ETHTOOL_LINK_MODE_100baseT_Full_BIT,
+				 phy->supported);
+		fallthrough;
+	case SPEED_10:
+	default:
+		linkmode_set_bit(ETHTOOL_LINK_MODE_10baseT_Half_BIT,
+				 phy->supported);
+		linkmode_set_bit(ETHTOOL_LINK_MODE_10baseT_Full_BIT,
+				 phy->supported);
+	}
+
+	phy_advertise_supported(phy);
+
+	ret = phy_device_register(phy);
+	if (ret) {
+		phy_device_free(phy);
+		fixed_phy_del(phy_addr);
+		return ERR_PTR(ret);
+	}
+
+	return phy;
+}
+EXPORT_SYMBOL_GPL(fwnode_fixed_phy_register);
 
 static struct phy_device *__fixed_phy_register(unsigned int irq,
 					       struct fixed_phy_status *status,

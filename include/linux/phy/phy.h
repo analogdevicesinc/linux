@@ -17,6 +17,7 @@
 #include <linux/regulator/consumer.h>
 
 #include <linux/phy/phy-dp.h>
+#include <linux/phy/phy-ethernet.h>
 #include <linux/phy/phy-lvds.h>
 #include <linux/phy/phy-mipi-dphy.h>
 
@@ -39,6 +40,7 @@ enum phy_mode {
 	PHY_MODE_UFS_HS_B,
 	PHY_MODE_PCIE,
 	PHY_MODE_ETHERNET,
+	PHY_MODE_ETHERNET_LINKMODE,
 	PHY_MODE_MIPI_DPHY,
 	PHY_MODE_SATA,
 	PHY_MODE_LVDS,
@@ -51,6 +53,67 @@ enum phy_media {
 	PHY_MEDIA_DAC,
 };
 
+enum phy_status_type {
+	/* Valid for PHY_MODE_ETHERNET and PHY_MODE_ETHERNET_LINKMODE */
+	PHY_STATUS_CDR_LOCK,
+	PHY_STATUS_PCVT_COUNT,
+	PHY_STATUS_PCVT_ADDR,
+};
+
+/* enum phy_pcvt_type - PHY protocol converter type
+ *
+ * @PHY_PCVT_ETHERNET_PCS: Ethernet Physical Coding Sublayer, top-most layer of
+ *			   an Ethernet PHY. Connects through MII to the MAC,
+ *			   and handles link status detection and the conversion
+ *			   of MII signals to link-specific code words (8b/10b,
+ *			   64b/66b etc).
+ * @PHY_PCVT_ETHERNET_ANLT: Ethernet Auto-Negotiation and Link Training,
+ *			    bottom-most layer of an Ethernet PHY, beneath the
+ *			    PMA and PMD. Its activity is only visible on the
+ *			    physical medium, and it is responsible for
+ *			    selecting the most adequate PCS/PMA/PMD set that
+ *			    can operate on that medium.
+ */
+enum phy_pcvt_type {
+	PHY_PCVT_ETHERNET_PCS,
+	PHY_PCVT_ETHERNET_ANLT,
+};
+
+struct phy_status_opts_pcvt {
+	enum phy_pcvt_type type;
+	size_t index;
+	union {
+		unsigned int mdio;
+	} addr;
+};
+
+struct phy_status_opts_pcvt_count {
+	enum phy_pcvt_type type;
+	size_t num_pcvt;
+};
+
+/* If the CDR (Clock and Data Recovery) block is able to lock onto the RX bit
+ * stream, it means that the stream contains valid bit transitions for the
+ * configured protocol. This indicates that a link partner is physically
+ * present and powered on.
+ */
+struct phy_status_opts_cdr {
+	bool cdr_locked;
+};
+
+/**
+ * union phy_status_opts - Opaque generic phy status
+ *
+ * @cdr:	Configuration set applicable for PHY_STATUS_CDR_LOCK.
+ * @pcvt_count:	Configuration set applicable for PHY_STATUS_PCVT_COUNT.
+ * @pcvt:	Configuration set applicable for PHY_STATUS_PCVT_ADDR.
+ */
+union phy_status_opts {
+	struct phy_status_opts_cdr		cdr;
+	struct phy_status_opts_pcvt_count	pcvt_count;
+	struct phy_status_opts_pcvt		pcvt;
+};
+
 /**
  * union phy_configure_opts - Opaque generic phy configuration
  *
@@ -60,11 +123,14 @@ enum phy_media {
  *		the DisplayPort protocol.
  * @lvds:	Configuration set applicable for phys supporting
  *		the LVDS phy mode.
+ * @ethernet:	Configuration set applicable for phys supporting
+ *		the ethernet and ethtool phy mode.
  */
 union phy_configure_opts {
 	struct phy_configure_opts_mipi_dphy	mipi_dphy;
 	struct phy_configure_opts_dp		dp;
 	struct phy_configure_opts_lvds		lvds;
+	struct phy_configure_opts_ethernet	ethernet;
 };
 
 /**
@@ -78,6 +144,7 @@ union phy_configure_opts {
  * @set_speed: set the speed of the phy (optional)
  * @reset: resetting the phy
  * @calibrate: calibrate the phy
+ * @get_status: get the mode-specific status of the phy
  * @release: ops to be performed while the consumer relinquishes the PHY
  * @owner: the module owner containing the ops
  */
@@ -127,6 +194,19 @@ struct phy_ops {
 	int	(*connect)(struct phy *phy, int port);
 	int	(*disconnect)(struct phy *phy, int port);
 
+	/**
+	 * @get_status:
+	 *
+	 * Optional.
+	 *
+	 * Used to query the mode-specific status of the phy. Must have no side
+	 * effects.
+	 *
+	 * Returns: 0 if the operation was successful, negative error code
+	 * otherwise.
+	 */
+	int	(*get_status)(struct phy *phy, enum phy_status_type type,
+			      union phy_status_opts *opts);
 	void	(*release)(struct phy *phy);
 	struct module *owner;
 };
@@ -241,6 +321,8 @@ int phy_set_speed(struct phy *phy, int speed);
 int phy_configure(struct phy *phy, union phy_configure_opts *opts);
 int phy_validate(struct phy *phy, enum phy_mode mode, int submode,
 		 union phy_configure_opts *opts);
+int phy_get_status(struct phy *phy, enum phy_status_type type,
+		   union phy_status_opts *opts);
 
 static inline enum phy_mode phy_get_mode(struct phy *phy)
 {
@@ -428,6 +510,15 @@ static inline int phy_configure(struct phy *phy,
 
 static inline int phy_validate(struct phy *phy, enum phy_mode mode, int submode,
 			       union phy_configure_opts *opts)
+{
+	if (!phy)
+		return 0;
+
+	return -ENOSYS;
+}
+
+static inline int phy_get_status(struct phy *phy, enum phy_status_type type,
+				 union phy_status_opts *opts)
 {
 	if (!phy)
 		return 0;

@@ -825,15 +825,6 @@ static void graceful_stop(struct fman_mac *dtsec)
 	}
 }
 
-static int dtsec_enable(struct fman_mac *dtsec)
-{
-	return 0;
-}
-
-static void dtsec_disable(struct fman_mac *dtsec)
-{
-}
-
 static int dtsec_set_tx_pause_frames(struct fman_mac *dtsec,
 				     u8 __maybe_unused priority,
 				     u16 pause_time,
@@ -1398,7 +1389,6 @@ err_dtsec:
 }
 
 int dtsec_initialization(struct mac_device *mac_dev,
-			 struct device_node *mac_node,
 			 struct fman_mac_params *params)
 {
 	int			err;
@@ -1416,8 +1406,6 @@ int dtsec_initialization(struct mac_device *mac_dev,
 	mac_dev->set_allmulti		= dtsec_set_allmulti;
 	mac_dev->set_tstamp		= dtsec_set_tstamp;
 	mac_dev->set_multi		= fman_set_multi;
-	mac_dev->enable			= dtsec_enable;
-	mac_dev->disable		= dtsec_disable;
 
 	mac_dev->fman_mac = dtsec_config(mac_dev, params);
 	if (!mac_dev->fman_mac) {
@@ -1429,7 +1417,7 @@ int dtsec_initialization(struct mac_device *mac_dev,
 	dtsec->dtsec_drv_param->maximum_frame = fman_get_max_frm();
 	dtsec->dtsec_drv_param->tx_pad_crc = true;
 
-	phy_node = of_parse_phandle(mac_node, "tbi-handle", 0);
+	phy_node = of_parse_phandle(mac_dev->dev->of_node, "tbi-handle", 0);
 	if (!phy_node || !of_device_is_available(phy_node)) {
 		of_node_put(phy_node);
 		err = -EINVAL;

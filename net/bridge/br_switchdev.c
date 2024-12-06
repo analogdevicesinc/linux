@@ -345,6 +345,7 @@ br_switchdev_fdb_replay(const struct net_device *br_dev, const void *ctx,
 	return err;
 }
 
+#ifdef CONFIG_BRIDGE_VLAN_FILTERING
 static int br_switchdev_vlan_attr_replay(struct net_device *br_dev,
 					 const void *ctx,
 					 struct notifier_block *nb,
@@ -408,7 +409,8 @@ br_switchdev_vlan_replay_one(struct notifier_block *nb,
 	return notifier_to_errno(err);
 }
 
-static int br_switchdev_vlan_replay_group(struct notifier_block *nb,
+static int br_switchdev_vlan_replay_group(struct net_bridge *br,
+					  struct notifier_block *nb,
 					  struct net_device *dev,
 					  struct net_bridge_vlan_group *vg,
 					  const void *ctx, unsigned long action,
@@ -434,20 +436,34 @@ static int br_switchdev_vlan_replay_group(struct notifier_block *nb,
 		if (!br_vlan_should_use(v))
 			continue;
 
+		/* Migrate VLANs that were installed on non-offloaded
+		 * intermediate bridge ports (bonding) from the 8021q filters
+		 * to switchdev if an offloading driver has appeared in the
+		 * meantime.
+		 */
+		if (!(v->priv_flags & BR_VLFLAG_ADDED_BY_SWITCHDEV))
+			vlan_vid_del(dev, br->vlan_proto, v->vid);
+
 		err = br_switchdev_vlan_replay_one(nb, dev, &vlan, ctx,
 						   action, extack);
-		if (err)
+		if (err) {
+			vlan_vid_add(dev, br->vlan_proto, v->vid);
 			return err;
+		}
+
+		v->priv_flags |= BR_VLFLAG_ADDED_BY_SWITCHDEV;
 	}
 
 	return 0;
 }
+#endif
 
 static int br_switchdev_vlan_replay(struct net_device *br_dev,
 				    const void *ctx, bool adding,
 				    struct notifier_block *nb,
 				    struct netlink_ext_ack *extack)
 {
+#ifdef CONFIG_BRIDGE_VLAN_FILTERING
 	struct net_bridge *br = netdev_priv(br_dev);
 	struct net_bridge_port *p;
 	unsigned long action;
@@ -466,7 +482,7 @@ static int br_switchdev_vlan_replay(struct net_device *br_dev,
 	else
 		action = SWITCHDEV_PORT_OBJ_DEL;
 
-	err = br_switchdev_vlan_replay_group(nb, br_dev, br_vlan_group(br),
+	err = br_switchdev_vlan_replay_group(br, nb, br_dev, br_vlan_group(br),
 					     ctx, action, extack);
 	if (err)
 		return err;
@@ -474,7 +490,7 @@ static int br_switchdev_vlan_replay(struct net_device *br_dev,
 	list_for_each_entry(p, &br->port_list, list) {
 		struct net_device *dev = p->dev;
 
-		err = br_switchdev_vlan_replay_group(nb, dev,
+		err = br_switchdev_vlan_replay_group(br, nb, dev,
 						     nbp_vlan_group(p),
 						     ctx, action, extack);
 		if (err)
@@ -486,6 +502,7 @@ static int br_switchdev_vlan_replay(struct net_device *br_dev,
 		if (err)
 			return err;
 	}
+#endif
 
 	return 0;
 }

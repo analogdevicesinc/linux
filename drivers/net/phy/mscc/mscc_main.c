@@ -2202,6 +2202,24 @@ static int vsc85xx_read_status(struct phy_device *phydev)
 	return genphy_read_status(phydev);
 }
 
+static int vsc8514_validate_inband_aneg(struct phy_device *phydev,
+					phy_interface_t interface)
+{
+	return PHY_INBAND_ANEG_OFF | PHY_INBAND_ANEG_ON;
+}
+
+static int vsc8514_config_inband_aneg(struct phy_device *phydev, bool enabled)
+{
+	int reg_val = 0;
+
+	if (enabled)
+		reg_val = MSCC_PHY_SERDES_ANEG;
+
+	return phy_modify_paged(phydev, MSCC_PHY_PAGE_EXTENDED_3,
+				MSCC_PHY_SERDES_PCS_CTRL, MSCC_PHY_SERDES_ANEG,
+				reg_val);
+}
+
 static int vsc8514_probe(struct phy_device *phydev)
 {
 	struct vsc8531_private *vsc8531;
@@ -2432,6 +2450,8 @@ static struct phy_driver vsc85xx_driver[] = {
 	.get_sset_count = &vsc85xx_get_sset_count,
 	.get_strings    = &vsc85xx_get_strings,
 	.get_stats      = &vsc85xx_get_stats,
+	.validate_inband_aneg = vsc8514_validate_inband_aneg,
+	.config_inband_aneg = vsc8514_config_inband_aneg,
 },
 {
 	.phy_id		= PHY_ID_VSC8530,

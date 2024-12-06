@@ -1,4 +1,5 @@
 /* Copyright (c) 2009 - 2016 Freescale Semiconductor, Inc.
+ * Copyright 2020 Puresoftware Ltd.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,6 +30,7 @@
  */
 
 #include "bman_priv.h"
+#include <linux/acpi.h>
 
 u16 bman_ip_rev;
 EXPORT_SYMBOL(bman_ip_rev);
@@ -231,7 +233,8 @@ static int fsl_bman_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	ret = qbman_init_private_mem(dev, 0, "fsl,bman-fbpr", &fbpr_a, &fbpr_sz);
+	ret = qbman_init_private_mem(dev, 0, "fsl,bman-fbpr", &fbpr_a, &fbpr_sz,
+				     DPAA_BMAN_DEV);
 	if (ret) {
 		dev_err(dev, "qbman_init_private_mem() failed 0x%x\n",
 			ret);
@@ -281,6 +284,7 @@ static int fsl_bman_probe(struct platform_device *pdev)
 
 	__bman_probed = 1;
 
+	dev_dbg(dev, "Bman probed successfully [%d]\n", __bman_probed);
 	return 0;
 };
 
@@ -291,10 +295,15 @@ static const struct of_device_id fsl_bman_ids[] = {
 	{}
 };
 
+static const struct acpi_device_id fsl_bman_acpi_ids[] = {
+	{"NXP0021", 0}
+};
+
 static struct platform_driver fsl_bman_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
 		.of_match_table = fsl_bman_ids,
+		.acpi_match_table = ACPI_PTR(fsl_bman_acpi_ids),
 		.suppress_bind_attrs = true,
 	},
 	.probe = fsl_bman_probe,

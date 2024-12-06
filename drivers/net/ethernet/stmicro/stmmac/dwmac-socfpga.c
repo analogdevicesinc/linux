@@ -415,7 +415,7 @@ static int socfpga_dwmac_pcs_init(struct stmmac_priv *priv)
 	if (IS_ERR(pcs_bus))
 		return PTR_ERR(pcs_bus);
 
-	pcs = lynx_pcs_create_mdiodev(pcs_bus, 0);
+	pcs = lynx_pcs_create_mdiodev(pcs_bus, 0, NULL, 0);
 	if (IS_ERR(pcs))
 		return PTR_ERR(pcs);
 

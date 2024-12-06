@@ -183,3 +183,53 @@ clean_pse:
 	return rc;
 }
 EXPORT_SYMBOL(fwnode_mdiobus_register_phy);
+
+bool fwnode_mdiobus_child_is_phy(struct fwnode_handle *child)
+{
+	u32 phy_id;
+
+	if (fwnode_get_phy_id(child, &phy_id) != -EINVAL)
+		return true;
+
+	if (fwnode_property_match_string(child, "compatible",
+					 "ethernet-phy-ieee802.3-c45") >= 0)
+		return true;
+
+	if (fwnode_property_match_string(child, "compatible",
+					 "ethernet-phy-ieee802.3-c22") >= 0)
+		return true;
+
+	if (!fwnode_property_present(child, "compatible"))
+		return true;
+
+	return false;
+}
+EXPORT_SYMBOL(fwnode_mdiobus_child_is_phy);
+
+int fwnode_mdiobus_register_device(struct mii_bus *bus,
+				   struct fwnode_handle *child, u32 addr)
+{
+	struct mdio_device *mdiodev;
+	int rc;
+
+	mdiodev = mdio_device_create(bus, addr);
+	if (IS_ERR(mdiodev))
+		return PTR_ERR(mdiodev);
+
+	fwnode_handle_get(child);
+	device_set_node(&mdiodev->dev, child);
+
+	/* All data is now stored in the mdiodev struct; register it. */
+	rc = mdio_device_register(mdiodev);
+	if (rc) {
+		device_set_node(&mdiodev->dev, NULL);
+		fwnode_handle_put(child);
+		mdio_device_free(mdiodev);
+		return rc;
+	}
+
+	dev_err(&mdiodev->dev, "registered mdio device %p fwnode at address %i\n",
+		child, addr);
+	return 0;
+}
+EXPORT_SYMBOL(fwnode_mdiobus_register_device);

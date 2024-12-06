@@ -1,0 +1,10 @@
+config PHY_INPHI_IN112525_RETIMER
+	bool "Inphi IN112525 Retimer PHY support"
+	depends on OF
+	select GENERIC_PHY
+	help
+	  Enable this to add support for configuration and runtime management
+	  of Inphi IN112525 S03 Retimer PHY. The retimer is modeled as a
+	  Generic PHY and supports both 10G and 25G link speeds.
+	  The driver will configure the retimer at probe time to function in
+	  25Gbps but another configuration can be requested dynamically.

@@ -138,6 +138,9 @@
 #define MACACCESS_CMD_READ                     6
 #define MACACCESS_CMD_WRITE                    7
 
+#define MACACCESS_ENTRY_TYPE_NORMAL		0
+#define MACACCESS_ENTRY_TYPE_LOCKED		1
+
 #define ANA_TABLES_VLANACCESS_VLAN_PORT_MASK(x)           (((x) << 2) & GENMASK(13, 2))
 #define ANA_TABLES_VLANACCESS_VLAN_PORT_MASK_M            GENMASK(13, 2)
 #define ANA_TABLES_VLANACCESS_VLAN_PORT_MASK_X(x)         (((x) & GENMASK(13, 2)) >> 2)
@@ -271,6 +274,9 @@
 
 #define ANA_SG_GCL_GS_CONFIG_IPS(x)                       ((x) & GENMASK(3, 0))
 #define ANA_SG_GCL_GS_CONFIG_IPS_M                        GENMASK(3, 0)
+#define ANA_SG_GCL_GS_CONFIG_IPV_VALID                    BIT(3)
+#define ANA_SG_GCL_GS_CONFIG_IPV(x)                       ((x) & GENMASK(2, 0))
+#define ANA_SG_GCL_GS_CONFIG_IPV_M                        GENMASK(2, 0)
 #define ANA_SG_GCL_GS_CONFIG_GATE_STATE                   BIT(4)
 
 #define ANA_SG_GCL_TI_CONFIG_RSZ                          0x4
@@ -281,6 +287,10 @@
 #define ANA_SG_STATUS_REG_3_IPS(x)                        (((x) << 20) & GENMASK(23, 20))
 #define ANA_SG_STATUS_REG_3_IPS_M                         GENMASK(23, 20)
 #define ANA_SG_STATUS_REG_3_IPS_X(x)                      (((x) & GENMASK(23, 20)) >> 20)
+#define ANA_SG_STATUS_REG_3_IPV_VALID                     BIT(23)
+#define ANA_SG_STATUS_REG_3_IPV(x)                        (((x) << 20) & GENMASK(22, 20))
+#define ANA_SG_STATUS_REG_3_IPV_M                         GENMASK(22, 20)
+#define ANA_SG_STATUS_REG_3_IPV_X(x)                      (((x) & GENMASK(22, 20)) >> 20)
 #define ANA_SG_STATUS_REG_3_CONFIG_PENDING                BIT(24)
 
 #define ANA_PORT_VLAN_CFG_GSZ                             0x100

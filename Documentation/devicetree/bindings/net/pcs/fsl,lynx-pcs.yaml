@@ -16,7 +16,9 @@ description: |
 
 properties:
   compatible:
-    const: fsl,lynx-pcs
+    enum:
+      - fsl,lx2160a-lynx-pcs
+      - fsl,lynx-pcs
 
   reg:
     maxItems: 1

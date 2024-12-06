@@ -155,8 +155,8 @@ const struct nla_policy ethnl_mm_set_policy[ETHTOOL_A_MM_MAX + 1] = {
 	[ETHTOOL_A_MM_TX_MIN_FRAG_SIZE]	= NLA_POLICY_RANGE(NLA_U32, 60, 252),
 };
 
-static void mm_state_to_cfg(const struct ethtool_mm_state *state,
-			    struct ethtool_mm_cfg *cfg)
+void mm_state_to_cfg(const struct ethtool_mm_state *state,
+		     struct ethtool_mm_cfg *cfg)
 {
 	/* We could also compare state->verify_status against
 	 * ETHTOOL_MM_VERIFY_STATUS_DISABLED, but state->verify_enabled
@@ -171,6 +171,7 @@ static void mm_state_to_cfg(const struct ethtool_mm_state *state,
 	cfg->pmac_enabled = state->pmac_enabled;
 	cfg->tx_min_frag_size = state->tx_min_frag_size;
 }
+EXPORT_SYMBOL_GPL(mm_state_to_cfg);
 
 static int
 ethnl_set_mm_validate(struct ethnl_req_info *req_info, struct genl_info *info)

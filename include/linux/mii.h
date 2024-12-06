@@ -13,6 +13,46 @@
 #include <linux/linkmode.h>
 #include <uapi/linux/mii.h>
 
+/* 802.3-2018 clause 73.6 Link codeword encoding */
+#define C73_BASE_PAGE_SELECTOR(x)		((x) & GENMASK(4, 0))
+#define C73_BASE_PAGE_ECHOED_NONCE(x)		(((x) << 5) & GENMASK(9, 5))
+#define C73_BASE_PAGE_ECHOED_NONCE_X(x)		(((x) & GENMASK(9, 5)) >> 5)
+#define C73_BASE_PAGE_ECHOED_NONCE_MSK		GENMASK(9, 5)
+#define C73_BASE_PAGE_PAUSE			BIT(10)
+#define C73_BASE_PAGE_ASM_DIR			BIT(11)
+#define C73_BASE_PAGE_RF			BIT(13)
+#define C73_BASE_PAGE_ACK			BIT(14)
+#define C73_BASE_PAGE_NP			BIT(15)
+#define C73_BASE_PAGE_TRANSMITTED_NONCE(x)	(((x) << 16) & GENMASK(20, 16))
+#define C73_BASE_PAGE_TRANSMITTED_NONCE_X(x)	(((x) & GENMASK(20, 16)) >> 16)
+#define C73_BASE_PAGE_TRANSMITTED_NONCE_MSK	GENMASK(20, 16)
+#define C73_BASE_PAGE_A(x)			BIT(21 + (x))
+#define C73_BASE_PAGE_TECH_ABL_1000BASEKX	C73_BASE_PAGE_A(0)
+#define C73_BASE_PAGE_TECH_ABL_10GBASEKX4	C73_BASE_PAGE_A(1)
+#define C73_BASE_PAGE_TECH_ABL_10GBASEKR	C73_BASE_PAGE_A(2)
+#define C73_BASE_PAGE_TECH_ABL_40GBASEKR4	C73_BASE_PAGE_A(3)
+#define C73_BASE_PAGE_TECH_ABL_40GBASECR4	C73_BASE_PAGE_A(4)
+#define C73_BASE_PAGE_TECH_ABL_100GBASECR10	C73_BASE_PAGE_A(5)
+#define C73_BASE_PAGE_TECH_ABL_100GBASEKP4	C73_BASE_PAGE_A(6)
+#define C73_BASE_PAGE_TECH_ABL_100GBASEKR4	C73_BASE_PAGE_A(7)
+#define C73_BASE_PAGE_TECH_ABL_100GBASECR4	C73_BASE_PAGE_A(8)
+#define C73_BASE_PAGE_TECH_ABL_25GBASEKRS	C73_BASE_PAGE_A(9)
+#define C73_BASE_PAGE_TECH_ABL_25GBASEKR	C73_BASE_PAGE_A(10)
+#define C73_BASE_PAGE_25G_RS_FEC_REQ		BIT_ULL(44)
+#define C73_BASE_PAGE_25G_BASER_FEC_REQ		BIT_ULL(45)
+#define C73_BASE_PAGE_10G_BASER_FEC_ABL		BIT_ULL(46)
+#define C73_BASE_PAGE_10G_BASER_FEC_REQ		BIT_ULL(47)
+
+#define C73_NEXT_PAGE_MESSAGE_CODE(x)		((x) & GENMASK(10, 0))
+#define C73_NEXT_PAGE_TOGGLE			BIT(11)
+#define C73_NEXT_PAGE_ACK2			BIT(12)
+#define C73_NEXT_PAGE_MP			BIT(13)
+#define C73_NEXT_PAGE_ACK			BIT(14)
+#define C73_NEXT_PAGE_NP			BIT(15)
+#define C73_NEXT_PAGE_U_MSK			GENMASK(47, 16)
+#define C73_NEXT_PAGE_U_X(x)			(((x) & C73_NEXT_PAGE_U_MSK) >> 16)
+#define C73_NEXT_PAGE_U(x)			(((x) << 16) & C73_NEXT_PAGE_U_MSK)
+
 struct ethtool_cmd;
 
 struct mii_if_info {
@@ -46,6 +86,11 @@ extern unsigned int mii_check_media (struct mii_if_info *mii,
 extern int generic_mii_ioctl(struct mii_if_info *mii_if,
 			     struct mii_ioctl_data *mii_data, int cmd,
 			     unsigned int *duplex_changed);
+
+extern int
+linkmode_c73_priority_resolution(const unsigned long *modes,
+				 enum ethtool_link_mode_bit_indices *resolved);
+extern void linkmode_support_c73(unsigned long *modes);
 
 
 static inline struct mii_ioctl_data *if_mii(struct ifreq *rq)
@@ -505,6 +550,77 @@ static inline u16 linkmode_adv_to_mii_adv_x(const unsigned long *linkmodes,
 		adv |= ADVERTISE_1000XPSE_ASYM;
 
 	return adv;
+}
+
+static inline u64 linkmode_adv_to_c73_base_page(const unsigned long *advertising)
+{
+	u64 result = 0;
+
+	if (linkmode_test_bit(ETHTOOL_LINK_MODE_1000baseKX_Full_BIT,
+			      advertising))
+		result |= C73_BASE_PAGE_TECH_ABL_1000BASEKX;
+	if (linkmode_test_bit(ETHTOOL_LINK_MODE_10000baseKX4_Full_BIT,
+			      advertising))
+		result |= C73_BASE_PAGE_TECH_ABL_10GBASEKX4;
+	if (linkmode_test_bit(ETHTOOL_LINK_MODE_10000baseKR_Full_BIT,
+			      advertising))
+		result |= C73_BASE_PAGE_TECH_ABL_10GBASEKR;
+	if (linkmode_test_bit(ETHTOOL_LINK_MODE_40000baseKR4_Full_BIT,
+			      advertising))
+		result |= C73_BASE_PAGE_TECH_ABL_40GBASEKR4;
+	if (linkmode_test_bit(ETHTOOL_LINK_MODE_40000baseCR4_Full_BIT,
+			      advertising))
+		result |= C73_BASE_PAGE_TECH_ABL_40GBASECR4;
+	if (linkmode_test_bit(ETHTOOL_LINK_MODE_100000baseKR4_Full_BIT,
+			      advertising))
+		result |= C73_BASE_PAGE_TECH_ABL_100GBASEKR4;
+	if (linkmode_test_bit(ETHTOOL_LINK_MODE_100000baseCR4_Full_BIT,
+			      advertising))
+		result |= C73_BASE_PAGE_TECH_ABL_100GBASECR4;
+	if (linkmode_test_bit(ETHTOOL_LINK_MODE_25000baseKR_Full_BIT,
+			      advertising))
+		result |= C73_BASE_PAGE_TECH_ABL_25GBASEKR;
+
+	if (linkmode_test_bit(ETHTOOL_LINK_MODE_Pause_BIT, advertising))
+		result |= C73_BASE_PAGE_PAUSE;
+	if (linkmode_test_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT, advertising))
+		result |= C73_BASE_PAGE_ASM_DIR;
+
+	return result;
+}
+
+static inline void mii_c73_mod_linkmode_lpa_t(unsigned long *advertising,
+					      u64 base_page)
+{
+	linkmode_mod_bit(ETHTOOL_LINK_MODE_1000baseKX_Full_BIT, advertising,
+			 base_page & C73_BASE_PAGE_TECH_ABL_1000BASEKX);
+
+	linkmode_mod_bit(ETHTOOL_LINK_MODE_10000baseKX4_Full_BIT, advertising,
+			 base_page & C73_BASE_PAGE_TECH_ABL_10GBASEKX4);
+
+	linkmode_mod_bit(ETHTOOL_LINK_MODE_10000baseKR_Full_BIT, advertising,
+			 base_page & C73_BASE_PAGE_TECH_ABL_10GBASEKR);
+
+	linkmode_mod_bit(ETHTOOL_LINK_MODE_40000baseKR4_Full_BIT, advertising,
+			 base_page & C73_BASE_PAGE_TECH_ABL_40GBASEKR4);
+
+	linkmode_mod_bit(ETHTOOL_LINK_MODE_40000baseCR4_Full_BIT, advertising,
+			 base_page & C73_BASE_PAGE_TECH_ABL_40GBASECR4);
+
+	linkmode_mod_bit(ETHTOOL_LINK_MODE_100000baseKR4_Full_BIT, advertising,
+			 base_page & C73_BASE_PAGE_TECH_ABL_100GBASEKR4);
+
+	linkmode_mod_bit(ETHTOOL_LINK_MODE_100000baseCR4_Full_BIT, advertising,
+			 base_page & C73_BASE_PAGE_TECH_ABL_100GBASECR4);
+
+	linkmode_mod_bit(ETHTOOL_LINK_MODE_25000baseKR_Full_BIT, advertising,
+			 base_page & C73_BASE_PAGE_TECH_ABL_25GBASEKR);
+
+	linkmode_mod_bit(ETHTOOL_LINK_MODE_Pause_BIT, advertising,
+			 base_page & C73_BASE_PAGE_PAUSE);
+
+	linkmode_mod_bit(ETHTOOL_LINK_MODE_Asym_Pause_BIT, advertising,
+			 base_page & C73_BASE_PAGE_ASM_DIR);
 }
 
 /**

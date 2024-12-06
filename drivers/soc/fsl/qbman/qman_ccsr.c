@@ -1,4 +1,5 @@
 /* Copyright 2008 - 2016 Freescale Semiconductor, Inc.
+ * Copyright 2020 Puresoftware Ltd.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,6 +29,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <linux/acpi.h>
 #include "qman_priv.h"
 
 u16 qman_ip_rev;
@@ -252,10 +254,18 @@ static const struct qman_error_info_mdata error_mdata[] = {
 	{ 0x01FF, 24, "FQD cache tag memory 3" },
 	{ 0x0FFF, 512, "FQD cache memory" },
 	{ 0x07FF, 128, "SFDR memory" },
-	{ 0x01FF, 72, "WQ context memory" },
+	{ 0x01FF, 84, "WQ context memory" },
 	{ 0x00FF, 240, "CGR memory" },
 	{ 0x00FF, 302, "Internal Order Restoration List memory" },
-	{ 0x01FF, 256, "SW portal ring memory" },
+	{ 0x7FFF, 256, "SW portal ring memory" },
+	{ 0x07FF, 181, "CEETM class queue descriptor memory" },
+	{ 0x0FFF, 140, "CEETM extended SFDR memory" },
+	{ 0x0FFF, 25, "CEETM logical FQ mapping memory" },
+	{ 0x0FFF, 96, "CEETM dequeue context memory" },
+	{ 0x07FF, 396, "CEETM ccgr memory" },
+	{ 0x00FF, 146, "CEETM CQ channel shaping memory" },
+	{ 0x007F, 256, "CEETM CQ channel scheduling memory" },
+	{ 0x01FF, 88, "CEETM dequeue statistics memory" },
 };
 
 #define QMAN_ERRS_TO_DISABLE (QM_EIRQ_PLWI | QM_EIRQ_PEBI)
@@ -744,6 +754,9 @@ static int fsl_qman_probe(struct platform_device *pdev)
 			node);
 		return -ENXIO;
 	}
+	dev_dbg(dev, "Qman IORESOURCE [%llx] of size [%llx]\n",
+		res->start, resource_size(res));
+
 	qm_ccsr_start = devm_ioremap(dev, res->start, resource_size(res));
 	if (!qm_ccsr_start)
 		return -ENXIO;
@@ -773,13 +786,15 @@ static int fsl_qman_probe(struct platform_device *pdev)
 		qm_channel_pool1 = QMAN_CHANNEL_POOL1_REV3;
 		qm_channel_caam = QMAN_CHANNEL_CAAM_REV3;
 	}
+	dev_dbg(dev, "Qman version:%04x,%02x,%02x\n", id, major, minor);
 
 	/*
 	* Order of memory regions is assumed as FQD followed by PFDR
 	* in order to ensure allocations from the correct regions the
 	* driver initializes then allocates each piece in order
 	*/
-	ret = qbman_init_private_mem(dev, 0, "fsl,qman-fqd", &fqd_a, &fqd_sz);
+	ret = qbman_init_private_mem(dev, 0, "fsl,qman-fqd", &fqd_a, &fqd_sz,
+				     DPAA_QMAN_DEV);
 	if (ret) {
 		dev_err(dev, "qbman_init_private_mem() for FQD failed 0x%x\n",
 			ret);
@@ -795,7 +810,8 @@ static int fsl_qman_probe(struct platform_device *pdev)
 	dev_dbg(dev, "Allocated FQD 0x%llx 0x%zx\n", fqd_a, fqd_sz);
 
 	/* Setup PFDR memory */
-	ret = qbman_init_private_mem(dev, 1, "fsl,qman-pfdr", &pfdr_a, &pfdr_sz);
+	ret = qbman_init_private_mem(dev, 1, "fsl,qman-pfdr", &pfdr_a, &pfdr_sz,
+				     DPAA_QMAN_DEV);
 	if (ret) {
 		dev_err(dev, "qbman_init_private_mem() for PFDR failed 0x%x\n",
 			ret);
@@ -865,6 +881,7 @@ static int fsl_qman_probe(struct platform_device *pdev)
 		return ret;
 
 	__qman_probed = 1;
+	dev_dbg(dev, "Qman probed successfully [%d]\n", __qman_probed);
 
 	return 0;
 }
@@ -876,10 +893,16 @@ static const struct of_device_id fsl_qman_ids[] = {
 	{}
 };
 
+static const struct acpi_device_id fsl_qman_acpi_ids[] = {
+	{"NXP0028", 0}
+};
+MODULE_DEVICE_TABLE(acpi, fsl_qman_acpi_ids);
+
 static struct platform_driver fsl_qman_driver = {
 	.driver = {
 		.name = KBUILD_MODNAME,
 		.of_match_table = fsl_qman_ids,
+		.acpi_match_table = ACPI_PTR(fsl_qman_acpi_ids),
 		.suppress_bind_attrs = true,
 	},
 	.probe = fsl_qman_probe,

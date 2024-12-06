@@ -1010,6 +1010,19 @@ static void stmmac_mac_link_down(struct phylink_config *config,
 		stmmac_fpe_link_state_handle(priv, false);
 }
 
+static void stmmac_wait_wol_resume_reset(struct stmmac_priv *priv)
+{
+	unsigned long orig_jiffies = jiffies;
+
+	while (!priv->wol_resume_reset) {
+		if (time_after(jiffies, orig_jiffies + msecs_to_jiffies(100))) {
+			netdev_dbg(priv->dev, "wait wol resume reset timeout\n");
+			break;
+		}
+		schedule();
+	}
+}
+
 static void stmmac_mac_link_up(struct phylink_config *config,
 			       struct phy_device *phy,
 			       unsigned int mode, phy_interface_t interface,
@@ -1022,6 +1035,8 @@ static void stmmac_mac_link_up(struct phylink_config *config,
 	if ((priv->plat->flags & STMMAC_FLAG_SERDES_UP_AFTER_PHY_LINKUP) &&
 	    priv->plat->serdes_powerup)
 		priv->plat->serdes_powerup(priv->dev, priv->plat->bsp_priv);
+
+	stmmac_wait_wol_resume_reset(priv);
 
 	old_ctrl = readl(priv->ioaddr + MAC_CTRL_REG);
 	ctrl = old_ctrl & ~priv->hw->link.speed_mask;
@@ -3979,6 +3994,7 @@ static int __stmmac_open(struct net_device *dev,
 	phylink_start(priv->phylink);
 	/* We may have called phylink_speed_down before */
 	phylink_speed_up(priv->phylink);
+	priv->is_phy_started = true;
 
 	ret = stmmac_request_irq(dev);
 	if (ret)
@@ -4038,6 +4054,7 @@ static int stmmac_release(struct net_device *dev)
 	/* Stop and disconnect the PHY */
 	phylink_stop(priv->phylink);
 	phylink_disconnect_phy(priv->phylink);
+	priv->is_phy_started = false;
 
 	stmmac_disable_all_queues(priv);
 
@@ -6685,7 +6702,15 @@ static int stmmac_vlan_rx_kill_vid(struct net_device *ndev, __be16 proto, u16 vi
 	clear_bit(vid, priv->active_vlans);
 
 	if (priv->hw->num_vlan) {
-		ret = stmmac_del_hw_vlan_rx_fltr(priv, ndev, priv->hw, proto, vid);
+		if (priv->is_phy_started == false) {
+			stmmac_init_phy(ndev);
+			phylink_start(priv->phylink);
+			ret = stmmac_del_hw_vlan_rx_fltr(priv, ndev, priv->hw, proto, vid);
+			phylink_stop(priv->phylink);
+			phylink_disconnect_phy(priv->phylink);
+		} else {
+			ret = stmmac_del_hw_vlan_rx_fltr(priv, ndev, priv->hw, proto, vid);
+		}
 		if (ret)
 			goto del_vlan_error;
 	}
@@ -7495,6 +7520,8 @@ int stmmac_dvr_probe(struct device *device,
 	priv->device = device;
 	priv->dev = ndev;
 
+	priv->wol_resume_reset = true;
+
 	for (i = 0; i < MTL_MAX_RX_QUEUES; i++)
 		u64_stats_init(&priv->xstats.rxq_stats[i].napi_syncp);
 	for (i = 0; i < MTL_MAX_TX_QUEUES; i++) {
@@ -7785,6 +7812,8 @@ error_phy_setup:
 error_pcs_setup:
 	stmmac_mdio_unregister(ndev);
 error_mdio_register:
+	pm_runtime_put_sync(device);
+	pm_runtime_disable(device);
 	stmmac_napi_del(ndev);
 error_hw_init:
 	destroy_workqueue(priv->wq);
@@ -7876,7 +7905,6 @@ int stmmac_suspend(struct device *dev)
 		priv->irq_wake = 1;
 	} else {
 		stmmac_mac_set(priv, priv->ioaddr, false);
-		pinctrl_pm_select_sleep_state(priv->device);
 	}
 
 	mutex_unlock(&priv->lock);
@@ -7888,6 +7916,7 @@ int stmmac_suspend(struct device *dev)
 		if (device_may_wakeup(priv->device))
 			phylink_speed_down(priv->phylink, false);
 		phylink_suspend(priv->phylink, false);
+		pinctrl_pm_select_sleep_state(priv->device);
 	}
 	rtnl_unlock();
 
@@ -7931,8 +7960,10 @@ static void stmmac_reset_queues_param(struct stmmac_priv *priv)
 	for (queue = 0; queue < rx_cnt; queue++)
 		stmmac_reset_rx_queue(priv, queue);
 
-	for (queue = 0; queue < tx_cnt; queue++)
+	for (queue = 0; queue < tx_cnt; queue++) {
 		stmmac_reset_tx_queue(priv, queue);
+		stmmac_clear_tx_descriptors(priv, &priv->dma_conf, queue);
+	}
 }
 
 /**
@@ -7964,7 +7995,7 @@ int stmmac_resume(struct device *dev)
 	} else {
 		pinctrl_pm_select_default_state(priv->device);
 		/* reset the phy so that it's ready */
-		if (priv->mii)
+		if (priv->mii && priv->mdio_rst_after_resume)
 			stmmac_mdio_reset(priv->mii);
 	}
 
@@ -7979,8 +8010,10 @@ int stmmac_resume(struct device *dev)
 
 	rtnl_lock();
 	if (device_may_wakeup(priv->device) && priv->plat->pmt) {
+		priv->wol_resume_reset = false;
 		phylink_resume(priv->phylink);
 	} else {
+		priv->wol_resume_reset = true;
 		phylink_resume(priv->phylink);
 		if (device_may_wakeup(priv->device))
 			phylink_speed_up(priv->phylink);
@@ -7993,9 +8026,9 @@ int stmmac_resume(struct device *dev)
 	stmmac_reset_queues_param(priv);
 
 	stmmac_free_tx_skbufs(priv);
-	stmmac_clear_descriptors(priv, &priv->dma_conf);
 
 	stmmac_hw_setup(ndev, false);
+	priv->wol_resume_reset = true;
 	stmmac_init_coalesce(priv);
 	stmmac_set_rx_mode(ndev);
 

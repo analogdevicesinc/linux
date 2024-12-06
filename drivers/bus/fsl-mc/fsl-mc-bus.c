@@ -456,17 +456,24 @@ static int fsl_mc_driver_remove(struct device *dev)
 	struct fsl_mc_driver *mc_drv = to_fsl_mc_driver(dev->driver);
 	struct fsl_mc_device *mc_dev = to_fsl_mc_device(dev);
 
-	mc_drv->remove(mc_dev);
+	if (mc_drv->remove)
+		mc_drv->remove(mc_dev);
 
 	return 0;
 }
 
 static void fsl_mc_driver_shutdown(struct device *dev)
 {
-	struct fsl_mc_driver *mc_drv = to_fsl_mc_driver(dev->driver);
 	struct fsl_mc_device *mc_dev = to_fsl_mc_device(dev);
+	struct fsl_mc_driver *mc_drv;
 
-	mc_drv->shutdown(mc_dev);
+	if (!dev->driver)
+		return;
+
+	mc_drv = to_fsl_mc_driver(dev->driver);
+
+	if (mc_drv->shutdown)
+		mc_drv->shutdown(mc_dev);
 }
 
 /*
@@ -905,8 +912,10 @@ int fsl_mc_device_add(struct fsl_mc_obj_desc *obj_desc,
 
 error_cleanup_dev:
 	kfree(mc_dev->regions);
-	kfree(mc_bus);
-	kfree(mc_dev);
+	if (mc_bus)
+		kfree(mc_bus);
+	else
+		kfree(mc_dev);
 
 	return error;
 }
@@ -1164,16 +1173,18 @@ error_cleanup_mc_io:
 }
 
 /*
- * fsl_mc_bus_remove - callback invoked when the root MC bus is being
- * removed
+ * fsl_mc_bus_shutdown - callback invoked when the root MC bus is being
+ * shutdown
  */
-static void fsl_mc_bus_remove(struct platform_device *pdev)
+static void fsl_mc_bus_shutdown(struct platform_device *pdev)
 {
 	struct fsl_mc *mc = platform_get_drvdata(pdev);
 	struct fsl_mc_io *mc_io;
 
+	if (!fsl_mc_is_root_dprc(&mc->root_mc_bus_dev->dev))
+		return;
+
 	mc_io = mc->root_mc_bus_dev->mc_io;
-	fsl_mc_device_remove(mc->root_mc_bus_dev);
 	fsl_destroy_mc_io(mc_io);
 
 	bus_unregister_notifier(&fsl_mc_bus_type, &fsl_mc_nb);
@@ -1187,6 +1198,22 @@ static void fsl_mc_bus_remove(struct platform_device *pdev)
 		       (GCR1_P1_STOP | GCR1_P2_STOP),
 		       mc->fsl_mc_regs + FSL_MC_GCR1);
 	}
+}
+
+/*
+ * fsl_mc_bus_remove - callback invoked when the root MC bus is being
+ * removed
+ */
+static void fsl_mc_bus_remove(struct platform_device *pdev)
+{
+	struct fsl_mc *mc = platform_get_drvdata(pdev);
+
+	if (!fsl_mc_is_root_dprc(&mc->root_mc_bus_dev->dev))
+		return;
+
+	fsl_mc_device_remove(mc->root_mc_bus_dev);
+
+	fsl_mc_bus_shutdown(pdev);
 }
 
 static const struct of_device_id fsl_mc_bus_match_table[] = {
@@ -1211,7 +1238,7 @@ static struct platform_driver fsl_mc_bus_driver = {
 		   },
 	.probe = fsl_mc_bus_probe,
 	.remove_new = fsl_mc_bus_remove,
-	.shutdown = fsl_mc_bus_remove,
+	.shutdown = fsl_mc_bus_shutdown,
 };
 
 static int fsl_mc_bus_notifier(struct notifier_block *nb,

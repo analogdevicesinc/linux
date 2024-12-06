@@ -1190,6 +1190,12 @@ ethtool_params_from_link_mode(struct ethtool_link_ksettings *link_ksettings,
 			      enum ethtool_link_mode_bit_indices link_mode);
 
 /**
+ * ethtool_link_mode_str - Get name of a given link mode, in string format
+ * @link_mode: the link mode represented in integer format
+ */
+const char *ethtool_link_mode_str(enum ethtool_link_mode_bit_indices link_mode);
+
+/**
  * ethtool_get_phc_vclocks - Derive phc vclocks information, and caller
  *                           is responsible to free memory of vclock_index
  * @dev: pointer to net_device structure

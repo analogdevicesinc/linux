@@ -1744,9 +1744,16 @@ static int ocelot_port_phylink_create(struct ocelot *ocelot, int port,
 
 	ocelot_port->phy_mode = phy_mode;
 
-	err = ocelot_port_configure_serdes(ocelot, port, portnp);
-	if (err)
-		return err;
+	if (phy_mode != PHY_INTERFACE_MODE_INTERNAL) {
+		ocelot_port->serdes = devm_of_phy_get(dev, portnp, NULL);
+		if (IS_ERR(ocelot_port->serdes)) {
+			err = PTR_ERR(ocelot_port->serdes);
+			dev_err_probe(dev, err,
+				      "missing SerDes phys for port %d\n",
+				      port);
+			return err;
+		}
+	}
 
 	priv = container_of(ocelot_port, struct ocelot_port_private, port);
 

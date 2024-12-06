@@ -350,14 +350,15 @@ static struct iommu_domain fsl_pamu_platform_domain = {
 };
 
 /* Set the domain stash attribute */
-int fsl_pamu_configure_l1_stash(struct iommu_domain *domain, u32 cpu)
+int fsl_pamu_configure_cache_stash(struct iommu_domain *domain, u32 cpu,
+				   enum pamu_stash_target stash_dest)
 {
 	struct fsl_dma_domain *dma_domain = to_fsl_dma_domain(domain);
 	unsigned long flags;
 	int ret;
 
 	spin_lock_irqsave(&dma_domain->domain_lock, flags);
-	dma_domain->stash_id = get_stash_id(PAMU_ATTR_CACHE_L1, cpu);
+	dma_domain->stash_id = get_stash_id(stash_dest, cpu);
 	if (dma_domain->stash_id == ~(u32)0) {
 		pr_debug("Invalid stash attributes\n");
 		spin_unlock_irqrestore(&dma_domain->domain_lock, flags);
@@ -367,6 +368,11 @@ int fsl_pamu_configure_l1_stash(struct iommu_domain *domain, u32 cpu)
 	spin_unlock_irqrestore(&dma_domain->domain_lock, flags);
 
 	return ret;
+}
+
+int fsl_pamu_configure_l1_stash(struct iommu_domain *domain, u32 cpu)
+{
+	return fsl_pamu_configure_cache_stash(domain, cpu, PAMU_ATTR_CACHE_L1);
 }
 
 static  bool check_pci_ctl_endpt_part(struct pci_controller *pci_ctl)

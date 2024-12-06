@@ -1,0 +1,16 @@
+config TSN
+	tristate "802.1 Time-Sensitive Networking support using tsntool"
+	depends on NET_SCH_TAPRIO || NET_SCH_TAPRIO=n
+	depends on VLAN_8021Q && PTP_1588_CLOCK
+	help
+	  This enables support for the configuration of TSN (Time Sensitive
+	  Networking) hardware features through the NXP tsntool genetlink
+	  interface. TSN features include:
+	    - IEEE 802.1Qav: Forwarding and Queuing Enhancements for Time
+	      Sensitive Streams
+	    - IEEE 802.1Qbv: Enhancements for Scheduled Traffic
+	    - IEEE 802.1Qci: Per-Stream Filtering and Policing
+	    - IEEE 802.1Qbu: Frame Preemption
+	    - IEEE 802.1CB: Frame Replication and Elimination for Reliability
+
+	  If unsure, say N.

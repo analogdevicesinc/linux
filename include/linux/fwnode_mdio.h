@@ -16,6 +16,11 @@ int fwnode_mdiobus_phy_device_register(struct mii_bus *mdio,
 int fwnode_mdiobus_register_phy(struct mii_bus *bus,
 				struct fwnode_handle *child, u32 addr);
 
+int fwnode_mdiobus_register_device(struct mii_bus *bus,
+				   struct fwnode_handle *child, u32 addr);
+
+bool fwnode_mdiobus_child_is_phy(struct fwnode_handle *child);
+
 #else /* CONFIG_FWNODE_MDIO */
 int fwnode_mdiobus_phy_device_register(struct mii_bus *mdio,
 				       struct phy_device *phy,
@@ -29,6 +34,18 @@ static inline int fwnode_mdiobus_register_phy(struct mii_bus *bus,
 					      u32 addr)
 {
 	return -EINVAL;
+}
+
+static inline int fwnode_mdiobus_register_device(struct mii_bus *bus,
+						 struct fwnode_handle *child,
+						 u32 addr)
+{
+	return -EINVAL;
+}
+
+bool fwnode_mdiobus_child_is_phy(struct fwnode_handle *child)
+{
+	return false;
 }
 #endif
 

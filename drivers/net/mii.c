@@ -648,6 +648,46 @@ int generic_mii_ioctl(struct mii_if_info *mii_if,
 	return rc;
 }
 
+static const enum ethtool_link_mode_bit_indices c73_linkmodes[] = {
+	ETHTOOL_LINK_MODE_100000baseCR4_Full_BIT,
+	ETHTOOL_LINK_MODE_100000baseKR4_Full_BIT,
+	/* ETHTOOL_LINK_MODE_100000baseKP4_Full_BIT not supported */
+	/* ETHTOOL_LINK_MODE_100000baseCR10_Full_BIT not supported */
+	ETHTOOL_LINK_MODE_40000baseCR4_Full_BIT,
+	ETHTOOL_LINK_MODE_40000baseKR4_Full_BIT,
+	ETHTOOL_LINK_MODE_25000baseKR_Full_BIT,
+	ETHTOOL_LINK_MODE_25000baseCR_Full_BIT,
+	ETHTOOL_LINK_MODE_25000baseKR_S_Full_BIT,
+	ETHTOOL_LINK_MODE_25000baseCR_S_Full_BIT,
+	ETHTOOL_LINK_MODE_10000baseKR_Full_BIT,
+	ETHTOOL_LINK_MODE_10000baseKX4_Full_BIT,
+	ETHTOOL_LINK_MODE_1000baseKX_Full_BIT,
+};
+
+int
+linkmode_c73_priority_resolution(const unsigned long *modes,
+				 enum ethtool_link_mode_bit_indices *resolved)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(c73_linkmodes); i++) {
+		if (linkmode_test_bit(c73_linkmodes[i], modes)) {
+			*resolved = c73_linkmodes[i];
+			return 0;
+		}
+	}
+
+	return -ENOPROTOOPT;
+}
+
+void linkmode_support_c73(unsigned long *modes)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(c73_linkmodes); i++)
+		linkmode_set_bit(c73_linkmodes[i], modes);
+}
+
 MODULE_AUTHOR ("Jeff Garzik <jgarzik@pobox.com>");
 MODULE_DESCRIPTION ("MII hardware support library");
 MODULE_LICENSE("GPL");
@@ -662,4 +702,5 @@ EXPORT_SYMBOL(mii_check_link);
 EXPORT_SYMBOL(mii_check_media);
 EXPORT_SYMBOL(mii_check_gmii_support);
 EXPORT_SYMBOL(generic_mii_ioctl);
-
+EXPORT_SYMBOL(linkmode_c73_priority_resolution);
+EXPORT_SYMBOL(linkmode_support_c73);

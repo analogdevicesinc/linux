@@ -58,10 +58,16 @@ source "drivers/staging/greybus/Kconfig"
 
 source "drivers/staging/vc04_services/Kconfig"
 
+source "drivers/staging/fsl_qbman/Kconfig"
+
+source "drivers/staging/fsl-dpaa2/Kconfig"
+
 source "drivers/staging/axis-fifo/Kconfig"
 
 source "drivers/staging/fieldbus/Kconfig"
 
 source "drivers/staging/vme_user/Kconfig"
+
+source "drivers/staging/fsl_ppfe/Kconfig"
 
 endif # STAGING

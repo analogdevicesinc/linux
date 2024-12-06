@@ -13,6 +13,7 @@
 
 #include <linux/types.h>
 #include <linux/io.h>
+#include <linux/phy/phy-fsl-lynx.h>
 
 /*
  * Global Utility Registers.
@@ -91,9 +92,9 @@ struct ccsr_guts {
 	u32	iovselsr;	/* 0x.00c0 - I/O voltage select status register
 					     Called 'elbcvselcr' on 86xx SOCs */
 	u8	res0c4[0x100 - 0xc4];
-	u32	rcwsr[16];	/* 0x.0100 - Reset Control Word Status registers
-					     There are 16 registers */
-	u8	res140[0x224 - 0x140];
+	u32	rcwsr[32];	/* 0x.0100 - Reset Control Word Status registers */
+				/*           There are 32 registers */
+	u8	res140[0x224 - 0x180];
 	u32	iodelay1;	/* 0x.0224 - IO delay control register 1 */
 	u32	iodelay2;	/* 0x.0228 - IO delay control register 2 */
 	u8	res22c[0x604 - 0x22c];
@@ -130,6 +131,27 @@ struct ccsr_guts {
 	u32	srds2cr0;	/* 0x.0f40 - SerDes2 Control Register 0 */
 	u32	srds2cr1;	/* 0x.0f44 - SerDes2 Control Register 0 */
 } __attribute__ ((packed));
+
+/*
+ * Notify the initial / at boot time lane mode of a specific SerDes lane.
+ * On the LS208xA SoC it's necessary since the RCW override procedure needs to
+ * be aware of all link modes which are configured on a SerDes block.
+ */
+void fsl_guts_lane_init(int serdes_idx, int lane, enum lynx_lane_mode lane_mode);
+
+/*
+ * Used to validate that changing the protocol on a specific lane is
+ * implemented and supported on the SoC. Should be called before actually
+ * requesting the RCW override procedure to be applied using
+ * fsl_guts_lane_set_mode() function
+ */
+int fsl_guts_lane_validate(int serdes_idx, int lane, enum lynx_lane_mode lane_mode);
+
+/*
+ * Apply the RCW override procedure on a specific SerDes lane [0, #lanes - 1]
+ * from a specific SerDes block [1, #blocks]
+ */
+int fsl_guts_lane_set_mode(int serdes_idx, int lane, enum lynx_lane_mode lane_mode);
 
 /* Alternate function signal multiplex control */
 #define MPC85xx_PMUXCR_QE(x) (0x8000 >> (x))

@@ -21,12 +21,6 @@
 
 #define OCELOT_RSV_VLAN_RANGE_START 4000
 
-struct ocelot_mact_entry {
-	u8 mac[ETH_ALEN];
-	u16 vid;
-	enum macaccess_entry_type type;
-};
-
 /* Caller must hold &ocelot->mact_lock */
 static inline u32 ocelot_mact_read_macaccess(struct ocelot *ocelot)
 {
@@ -977,50 +971,37 @@ static int ocelot_port_flush(struct ocelot *ocelot, int port)
 	return err;
 }
 
-int ocelot_port_configure_serdes(struct ocelot *ocelot, int port,
-				 struct device_node *portnp)
+static void ocelot_port_configure_serdes(struct ocelot *ocelot, int port,
+					 phy_interface_t intf)
 {
 	struct ocelot_port *ocelot_port = ocelot->ports[port];
 	struct device *dev = ocelot->dev;
 	int err;
 
 	/* Ensure clock signals and speed are set on all QSGMII links */
-	if (ocelot_port->phy_mode == PHY_INTERFACE_MODE_QSGMII)
+	if (intf == PHY_INTERFACE_MODE_QSGMII)
 		ocelot_port_rmwl(ocelot_port, 0,
 				 DEV_CLOCK_CFG_MAC_TX_RST |
 				 DEV_CLOCK_CFG_MAC_RX_RST,
 				 DEV_CLOCK_CFG);
 
-	if (ocelot_port->phy_mode != PHY_INTERFACE_MODE_INTERNAL) {
-		struct phy *serdes = of_phy_get(portnp, NULL);
-
-		if (IS_ERR(serdes)) {
-			err = PTR_ERR(serdes);
-			dev_err_probe(dev, err,
-				      "missing SerDes phys for port %d\n",
-				      port);
-			return err;
-		}
-
-		err = phy_set_mode_ext(serdes, PHY_MODE_ETHERNET,
-				       ocelot_port->phy_mode);
-		of_phy_put(serdes);
+	if (intf != PHY_INTERFACE_MODE_INTERNAL) {
+		err = phy_set_mode_ext(ocelot_port->serdes, PHY_MODE_ETHERNET,
+				       intf);
 		if (err) {
 			dev_err(dev, "Could not SerDes mode on port %d: %pe\n",
 				port, ERR_PTR(err));
-			return err;
 		}
 	}
-
-	return 0;
 }
-EXPORT_SYMBOL_GPL(ocelot_port_configure_serdes);
 
 void ocelot_phylink_mac_config(struct ocelot *ocelot, int port,
 			       unsigned int link_an_mode,
 			       const struct phylink_link_state *state)
 {
 	struct ocelot_port *ocelot_port = ocelot->ports[port];
+
+	ocelot_port_configure_serdes(ocelot, port, state->interface);
 
 	/* Disable HDX fast control */
 	ocelot_port_writel(ocelot_port, DEV_PORT_MISC_HDX_FAST_DIS,
@@ -1514,10 +1495,10 @@ int ocelot_fdb_del(struct ocelot *ocelot, int port, const unsigned char *addr,
 EXPORT_SYMBOL(ocelot_fdb_del);
 
 /* Caller must hold &ocelot->mact_lock */
-static int ocelot_mact_read(struct ocelot *ocelot, int port, int row, int col,
-			    struct ocelot_mact_entry *entry)
+int ocelot_mact_read(struct ocelot *ocelot, int row, int col, int *dst,
+		     struct ocelot_mact_entry *entry)
 {
-	u32 val, dst, macl, mach;
+	u32 val, macl, mach;
 	char mac[ETH_ALEN];
 
 	/* Set row and column to read from */
@@ -1537,12 +1518,9 @@ static int ocelot_mact_read(struct ocelot *ocelot, int port, int row, int col,
 	if (!(val & ANA_TABLES_MACACCESS_VALID))
 		return -EINVAL;
 
-	/* If the entry read has another port configured as its destination,
-	 * do not report it.
-	 */
-	dst = (val & ANA_TABLES_MACACCESS_DEST_IDX_M) >> 3;
-	if (dst != port)
-		return -EINVAL;
+	*dst = (val & ANA_TABLES_MACACCESS_DEST_IDX_M) >> 3;
+
+	entry->type = ANA_TABLES_MACACCESS_ENTRYTYPE_X(val);
 
 	/* Get the entry's MAC address and VLAN id */
 	macl = ocelot_read(ocelot, ANA_TABLES_MACLDATA);
@@ -1560,6 +1538,7 @@ static int ocelot_mact_read(struct ocelot *ocelot, int port, int row, int col,
 
 	return 0;
 }
+EXPORT_SYMBOL(ocelot_mact_read);
 
 int ocelot_mact_flush(struct ocelot *ocelot, int port)
 {
@@ -1614,15 +1593,17 @@ int ocelot_fdb_dump(struct ocelot *ocelot, int port,
 		for (j = 0; j < 4; j++) {
 			struct ocelot_mact_entry entry;
 			bool is_static;
+			int dst;
 
-			err = ocelot_mact_read(ocelot, port, i, j, &entry);
-			/* If the entry is invalid (wrong port, invalid...),
-			 * skip it.
-			 */
+			err = ocelot_mact_read(ocelot, i, j, &dst, &entry);
+			/* If the entry is invalid, skip it. */
 			if (err == -EINVAL)
 				continue;
 			else if (err)
 				break;
+
+			if (dst != port)
+				continue;
 
 			is_static = (entry.type == ENTRYTYPE_LOCKED);
 
@@ -1816,7 +1797,12 @@ u32 ocelot_get_bridge_fwd_mask(struct ocelot *ocelot, int src_port)
 		if (!ocelot_port)
 			continue;
 
-		if (ocelot_port->stp_state == BR_STATE_FORWARDING &&
+		/* Keep the bridge port in the forwarding mask if the port
+		 * is in the forwarding state, or in forced forwarding mode.
+		 * The latter is needed for 802.1CB.
+		 */
+		if ((ocelot_port->stp_state == BR_STATE_FORWARDING ||
+		     ocelot_port->force_forward) &&
 		    ocelot_port->bridge == bridge)
 			mask |= BIT(port);
 	}
@@ -1975,6 +1961,42 @@ void ocelot_port_unassign_dsa_8021q_cpu(struct ocelot *ocelot, int port)
 	mutex_unlock(&ocelot->fwd_domain_lock);
 }
 EXPORT_SYMBOL_GPL(ocelot_port_unassign_dsa_8021q_cpu);
+
+void ocelot_bridge_force_forward_port(struct ocelot *ocelot, int port, bool en)
+{
+	struct ocelot_port *ocelot_port = ocelot->ports[port];
+	u32 mask;
+	int i;
+
+	mutex_lock(&ocelot->fwd_domain_lock);
+
+	if (!en) {
+		if (ocelot_port->force_forward) {
+			ocelot_apply_bridge_fwd_mask(ocelot, false);
+			ocelot_port->force_forward = 0;
+		}
+		mutex_unlock(&ocelot->fwd_domain_lock);
+		return;
+	}
+
+	if (ocelot_port->force_forward) {
+		mutex_unlock(&ocelot->fwd_domain_lock);
+		return;
+	}
+
+	ocelot_port->force_forward = 1;
+	for (i = 0; i < ocelot->num_phys_ports; i++) {
+		if (i == port)
+			continue;
+
+		mask = ocelot_read_rix(ocelot, ANA_PGID_PGID, PGID_SRC + i);
+		mask |= BIT(port);
+		ocelot_write_rix(ocelot, mask, ANA_PGID_PGID, PGID_SRC + i);
+	}
+
+	mutex_unlock(&ocelot->fwd_domain_lock);
+}
+EXPORT_SYMBOL(ocelot_bridge_force_forward_port);
 
 void ocelot_bridge_stp_state_set(struct ocelot *ocelot, int port, u8 state)
 {
@@ -2988,7 +3010,9 @@ int ocelot_port_mqprio(struct ocelot *ocelot, int port,
 	if (err)
 		goto err_reset_tc;
 
-	ocelot_port_change_fp(ocelot, port, mqprio->preemptible_tcs);
+	err = ocelot_port_change_fp(ocelot, port, mqprio->preemptible_tcs);
+	if (err)
+		goto err_reset_tc;
 
 	return 0;
 

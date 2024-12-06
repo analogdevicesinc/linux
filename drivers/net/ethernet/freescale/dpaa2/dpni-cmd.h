@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
 /* Copyright 2013-2016 Freescale Semiconductor Inc.
- * Copyright 2016 NXP
- * Copyright 2020 NXP
+ * Copyright 2016, 2020, 2024 NXP
  */
 #ifndef _FSL_DPNI_CMD_H
 #define _FSL_DPNI_CMD_H
@@ -29,6 +28,7 @@
 #define DPNI_CMDID_ENABLE				DPNI_CMD(0x002)
 #define DPNI_CMDID_DISABLE				DPNI_CMD(0x003)
 #define DPNI_CMDID_GET_ATTR				DPNI_CMD(0x004)
+#define DPNI_CMDID_GET_ATTR_V2				DPNI_CMD_V2(0x004)
 #define DPNI_CMDID_RESET				DPNI_CMD(0x005)
 #define DPNI_CMDID_IS_ENABLED				DPNI_CMD(0x006)
 
@@ -76,7 +76,9 @@
 #define DPNI_CMDID_REMOVE_FS_ENT			DPNI_CMD(0x245)
 #define DPNI_CMDID_CLR_FS_ENT				DPNI_CMD(0x246)
 
-#define DPNI_CMDID_GET_STATISTICS			DPNI_CMD(0x25D)
+#define DPNI_CMDID_SET_TX_PRIORITIES			DPNI_CMD_V2(0x250)
+#define DPNI_CMDID_GET_STATISTICS			DPNI_CMD_V2(0x25D)
+#define DPNI_CMDID_RESET_STATISTICS			DPNI_CMD(0x25E)
 #define DPNI_CMDID_GET_QUEUE				DPNI_CMD(0x25F)
 #define DPNI_CMDID_SET_QUEUE				DPNI_CMD(0x260)
 #define DPNI_CMDID_GET_TAILDROP				DPNI_CMD(0x261)
@@ -101,6 +103,30 @@
 
 #define DPNI_CMDID_SET_SINGLE_STEP_CFG			DPNI_CMD(0x279)
 #define DPNI_CMDID_GET_SINGLE_STEP_CFG			DPNI_CMD_V2(0x27a)
+
+#define DPNI_CMDID_IS_MACSEC_CAPABLE			DPNI_CMD(0x2a0)
+#define DPNI_CMDID_ADD_SECY				DPNI_CMD(0x2a1)
+#define DPNI_CMDID_REMOVE_SECY				DPNI_CMD(0x2a2)
+#define DPNI_CMDID_SECY_SET_STATE			DPNI_CMD(0x2a3)
+#define DPNI_CMDID_SECY_SET_PROTECT			DPNI_CMD(0x2a4)
+#define DPNI_CMDID_SECY_SET_REPLAY_PROTECT		DPNI_CMD(0x2a5)
+#define DPNI_CMDID_SECY_ADD_TX_SA			DPNI_CMD(0x2a6)
+#define DPNI_CMDID_SECY_REMOVE_TX_SA			DPNI_CMD(0x2a7)
+#define DPNI_CMDID_SECY_SET_ACTIVE_TX_SA		DPNI_CMD(0x2a8)
+#define DPNI_CMDID_SECY_ADD_RX_SC			DPNI_CMD(0x2a9)
+#define DPNI_CMDID_SECY_REMOVE_RX_SC			DPNI_CMD(0x2aa)
+#define DPNI_CMDID_SECY_SET_RX_SC_STATE			DPNI_CMD(0x2ab)
+#define DPNI_CMDID_SECY_ADD_RX_SA			DPNI_CMD(0x2ac)
+#define DPNI_CMDID_SECY_REMOVE_RX_SA			DPNI_CMD(0x2ad)
+#define DPNI_CMDID_SECY_SET_RX_SA_NEXT_PN		DPNI_CMD(0x2ae)
+#define DPNI_CMDID_SECY_SET_RX_SA_STATE			DPNI_CMD(0x2af)
+
+#define DPNI_CMDID_SECY_GET_STATS			DPNI_CMD(0x2b0)
+#define DPNI_CMDID_SECY_GET_TX_SC_STATS			DPNI_CMD(0x2b1)
+#define DPNI_CMDID_SECY_GET_TX_SA_STATS			DPNI_CMD(0x2b2)
+#define DPNI_CMDID_SECY_GET_RX_SC_STATS			DPNI_CMD(0x2b3)
+#define DPNI_CMDID_SECY_GET_RX_SA_STATS			DPNI_CMD(0x2b4)
+#define DPNI_CMDID_GET_MACSEC_STATS			DPNI_CMD(0x2b5)
 
 /* Macros for accessing command fields smaller than 1byte */
 #define DPNI_MASK(field)	\
@@ -199,9 +225,9 @@ struct dpni_rsp_get_attr {
 	/* response word 0 */
 	__le32 options;
 	u8 num_queues;
-	u8 num_tcs;
+	u8 num_rx_tcs;
 	u8 mac_filter_entries;
-	u8 pad0;
+	u8 num_tx_tcs;
 	/* response word 1 */
 	u8 vlan_filter_entries;
 	u8 pad1;
@@ -300,6 +326,7 @@ struct dpni_rsp_get_tx_data_offset {
 
 struct dpni_cmd_get_statistics {
 	u8 page_number;
+	u8 param;
 };
 
 struct dpni_rsp_get_statistics {
@@ -389,6 +416,24 @@ struct dpni_cmd_remove_mac_addr {
 struct dpni_cmd_clear_mac_filters {
 	/* from LSB: unicast:1, multicast:1 */
 	u8 flags;
+};
+
+#define DPNI_SEPARATE_GRP_SHIFT 0
+#define DPNI_SEPARATE_GRP_SIZE  1
+#define DPNI_MODE_1_SHIFT		0
+#define DPNI_MODE_1_SIZE		4
+#define DPNI_MODE_2_SHIFT		4
+#define DPNI_MODE_2_SIZE		4
+
+struct dpni_cmd_set_tx_priorities {
+	__le16 flags;
+	u8 prio_group_A;
+	u8 prio_group_B;
+	__le32 pad0;
+	u8 modes[4];
+	__le32 pad1;
+	__le64 pad2;
+	__le16 delta_bandwidth[8];
 };
 
 #define DPNI_DIST_MODE_SHIFT		0
@@ -688,6 +733,160 @@ struct dpni_cmd_vlan_id {
 	u8 flow_id;
 	u8 pad;
 	__le16 vlan_id;
+};
+
+#define DPNI_MACSEC_SHIFT	0
+#define DPNI_MACSEC_SIZE	1
+
+struct dpni_rsp_is_macsec_capable {
+	u8 en;
+};
+
+#define DPNI_SECY_CIPHER_SUITE_SIZE		1
+#define DPNI_SECY_CIPHER_SUITE_SHIFT		0
+
+#define DPNI_SECY_CONFIDENTIALITY_SIZE		1
+#define DPNI_SECY_CONFIDENTIALITY_SHIFT		1
+
+#define DPNI_SECY_IS_PTP_SIZE			1
+#define DPNI_SECY_IS_PTP_SHIFT			2
+
+#define DPNI_SECY_VALIDATION_MODE_SIZE		2
+#define DPNI_SECY_VALIDATION_MODE_SHIFT		3
+
+struct dpni_cmd_add_secy {
+	__le64 tx_sci;
+	u8 flags;
+	u8 co_offset;
+	u8 max_rx_sc;
+};
+
+struct dpni_rsp_add_secy {
+	u8 secy_id;
+};
+
+struct dpni_cmd_remove_secy {
+	u8 secy_id;
+};
+
+#define DPNI_SECY_ACTIVE_SIZE		1
+#define DPNI_SECY_ACTIVE_SHIFT		0
+
+struct dpni_cmd_secy_set_state {
+	u8 secy_id;
+	u8 flags;
+};
+
+#define DPNI_SECY_TX_PROTECT_SIZE	1
+#define DPNI_SECY_TX_PROTECT_SHIFT	0
+
+struct dpni_cmd_secy_set_protect {
+	u8 secy_id;
+	u8 flags;
+};
+
+#define DPNI_SECY_REPLAY_PROTECT_EN_SIZE	1
+#define DPNI_SECY_REPLAY_PROTECT_EN_SHIFT	0
+
+struct dpni_cmd_secy_set_replay_protect {
+	u8 secy_id;
+	u8 flags;
+	__le16 res;
+	__le32 replay_window;
+};
+
+struct dpni_cmd_secy_add_tx_sa {
+	u8 key[32];
+	__le32 next_pn;
+	u8 secy_id;
+	u8 an;
+};
+
+struct dpni_cmd_secy_remove_tx_sa {
+	u8 secy_id;
+	u8 an;
+};
+
+struct dpni_cmd_secy_set_tx_sa {
+	u8 secy_id;
+	u8 an;
+};
+
+struct dpni_cmd_secy_rx_sc {
+	u8 secy_id;
+	u8 res[7];
+	__le64 sci;
+};
+
+struct dpni_cmd_secy_set_rx_sc_state {
+	u8 secy_id;
+	u8 en;
+	u8 res[6];
+	__le64 sci;
+};
+
+struct dpni_cmd_secy_add_rx_sa {
+	u8 key[32];
+	__le32 lowest_pn;
+	u8 secy_id;
+	u8 an;
+	__le16 res;
+	__le64 sci;
+};
+
+struct dpni_cmd_secy_remove_rx_sa {
+	u8 secy_id;
+	u8 an;
+	u8 res[6];
+	__le64 sci;
+};
+
+struct dpni_cmd_secy_set_rx_sa_next_pn {
+	u8 secy_id;
+	u8 an;
+	__le16 res;
+	__le32 next_pn;
+	__le64 sci;
+};
+
+struct dpni_cmd_secy_set_rx_sa_state {
+	u8 secy_id;
+	u8 an;
+	u8 en;
+	u8 res[5];
+	__le64 sci;
+};
+
+struct dpni_cmd_secy_get_stats {
+	u8 secy_id;
+	u8 page;
+};
+
+struct dpni_cmd_secy_get_tx_sc_stats {
+	u8 secy_id;
+};
+
+struct dpni_cmd_secy_get_tx_sa_stats {
+	u8 secy_id;
+	u8 an;
+};
+
+struct dpni_rsp_stats32 {
+	__le32 counter[DPNI_STATISTICS_32_CNT];
+};
+
+struct dpni_cmd_secy_get_rx_sc_stats {
+	u8 secy_id;
+	u8 page;
+	u8 res[6];
+	__le64 sci;
+};
+
+struct dpni_cmd_secy_get_rx_sa_stats {
+	u8 secy_id;
+	u8 an;
+	u8 res[6];
+	__le64 sci;
 };
 
 #endif /* _FSL_DPNI_CMD_H */

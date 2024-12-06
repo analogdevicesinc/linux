@@ -6,6 +6,7 @@
  *
  */
 
+#include <linux/busfreq-imx.h>
 #include <linux/clk.h>
 #include <linux/gpio/consumer.h>
 #include <linux/kernel.h>
@@ -22,6 +23,9 @@
 
 #include "stmmac_platform.h"
 
+#include <dt-bindings/firmware/imx/rsrc.h>
+#include <linux/firmware/imx/sci.h>
+
 #define GPR_ENET_QOS_INTF_MODE_MASK	GENMASK(21, 16)
 #define GPR_ENET_QOS_INTF_SEL_MII	(0x0 << 16)
 #define GPR_ENET_QOS_INTF_SEL_RMII	(0x4 << 16)
@@ -36,6 +40,8 @@
 #define MX93_GPR_ENET_QOS_INTF_SEL_RMII		(0x4 << 1)
 #define MX93_GPR_ENET_QOS_INTF_SEL_RGMII	(0x1 << 1)
 #define MX93_GPR_ENET_QOS_CLK_GEN_EN		(0x1 << 0)
+#define MX93_GPR_ENET_QOS_CLK_SEL_MASK		BIT_MASK(0)
+#define MX93_GPR_CLK_SEL_OFFSET			(4)
 
 #define DMA_BUS_MODE			0x00001000
 #define DMA_BUS_MODE_SFT_RESET		(0x1 << 0)
@@ -56,6 +62,7 @@ struct imx_priv_data {
 	struct device *dev;
 	struct clk *clk_tx;
 	struct clk *clk_mem;
+	int clk_en_cnt;
 	struct regmap *intf_regmap;
 	u32 intf_reg_off;
 	bool rmii_refclk_ext;
@@ -102,19 +109,59 @@ imx8dxl_set_intf_mode(struct plat_stmmacenet_data *plat_dat)
 	int ret = 0;
 
 	/* TBD: depends on imx8dxl scu interfaces to be upstreamed */
+	struct imx_sc_ipc *ipc_handle;
+	int val;
+
+	ret = imx_scu_get_handle(&ipc_handle);
+	if (ret)
+		return ret;
+
+	switch (plat_dat->mac_interface) {
+	case PHY_INTERFACE_MODE_MII:
+		val = GPR_ENET_QOS_INTF_SEL_MII;
+		break;
+	case PHY_INTERFACE_MODE_RMII:
+		val = GPR_ENET_QOS_INTF_SEL_RMII;
+		break;
+	case PHY_INTERFACE_MODE_RGMII:
+	case PHY_INTERFACE_MODE_RGMII_ID:
+	case PHY_INTERFACE_MODE_RGMII_RXID:
+	case PHY_INTERFACE_MODE_RGMII_TXID:
+		val = GPR_ENET_QOS_INTF_SEL_RGMII;
+		break;
+	default:
+		pr_debug("imx dwmac doesn't support %d interface\n",
+			 plat_dat->mac_interface);
+		return -EINVAL;
+	}
+
+	ret = imx_sc_misc_set_control(ipc_handle, IMX_SC_R_ENET_1,
+				      IMX_SC_C_INTF_SEL, val >> 16);
+	ret |= imx_sc_misc_set_control(ipc_handle, IMX_SC_R_ENET_1,
+				       IMX_SC_C_CLK_GEN_EN, 0x1);
+
 	return ret;
 }
 
 static int imx93_set_intf_mode(struct plat_stmmacenet_data *plat_dat)
 {
 	struct imx_priv_data *dwmac = plat_dat->bsp_priv;
-	int val;
+	int val, ret;
 
 	switch (plat_dat->mac_interface) {
 	case PHY_INTERFACE_MODE_MII:
 		val = MX93_GPR_ENET_QOS_INTF_SEL_MII;
 		break;
 	case PHY_INTERFACE_MODE_RMII:
+		if (dwmac->rmii_refclk_ext) {
+			ret = regmap_update_bits(dwmac->intf_regmap,
+						 dwmac->intf_reg_off +
+						 MX93_GPR_CLK_SEL_OFFSET,
+						 MX93_GPR_ENET_QOS_CLK_SEL_MASK,
+						 0);
+			if (ret)
+				return ret;
+		}
 		val = MX93_GPR_ENET_QOS_INTF_SEL_RMII;
 		break;
 	case PHY_INTERFACE_MODE_RGMII:
@@ -143,6 +190,8 @@ static int imx_dwmac_clks_config(void *priv, bool enabled)
 		ret = clk_prepare_enable(dwmac->clk_mem);
 		if (ret) {
 			dev_err(dwmac->dev, "mem clock enable failed\n");
+			dwmac->clk_en_cnt = dwmac->clk_en_cnt ?
+					    dwmac->clk_en_cnt - 1 : 0;
 			return ret;
 		}
 
@@ -150,11 +199,19 @@ static int imx_dwmac_clks_config(void *priv, bool enabled)
 		if (ret) {
 			dev_err(dwmac->dev, "tx clock enable failed\n");
 			clk_disable_unprepare(dwmac->clk_mem);
+			dwmac->clk_en_cnt = dwmac->clk_en_cnt ?
+					    dwmac->clk_en_cnt - 1 : 0;
 			return ret;
 		}
+		request_bus_freq(BUS_FREQ_HIGH);
+		dwmac->clk_en_cnt++;
 	} else {
-		clk_disable_unprepare(dwmac->clk_tx);
-		clk_disable_unprepare(dwmac->clk_mem);
+		if (dwmac->clk_en_cnt > 0) {
+			release_bus_freq(BUS_FREQ_HIGH);
+			clk_disable_unprepare(dwmac->clk_tx);
+			clk_disable_unprepare(dwmac->clk_mem);
+			dwmac->clk_en_cnt--;
+		}
 	}
 
 	return ret;
@@ -287,7 +344,8 @@ imx_dwmac_parse_dt(struct imx_priv_data *dwmac, struct device *dev)
 	dwmac->clk_mem = NULL;
 
 	if (of_machine_is_compatible("fsl,imx8dxl") ||
-	    of_machine_is_compatible("fsl,imx93")) {
+	    of_machine_is_compatible("fsl,imx93") ||
+	    of_machine_is_compatible("fsl,imx91")) {
 		dwmac->clk_mem = devm_clk_get(dev, "mem");
 		if (IS_ERR(dwmac->clk_mem)) {
 			dev_err(dev, "failed to get mem clock\n");
@@ -296,7 +354,8 @@ imx_dwmac_parse_dt(struct imx_priv_data *dwmac, struct device *dev)
 	}
 
 	if (of_machine_is_compatible("fsl,imx8mp") ||
-	    of_machine_is_compatible("fsl,imx93")) {
+	    of_machine_is_compatible("fsl,imx93") ||
+	    of_machine_is_compatible("fsl,imx91")) {
 		/* Binding doc describes the propety:
 		 * is required by i.MX8MP, i.MX93.
 		 * is optinoal for i.MX8DXL.
@@ -363,8 +422,10 @@ static int imx_dwmac_probe(struct platform_device *pdev)
 	plat_dat->clks_config = imx_dwmac_clks_config;
 	plat_dat->fix_mac_speed = imx_dwmac_fix_speed;
 	plat_dat->bsp_priv = dwmac;
+	plat_dat->flags |= STMMAC_FLAG_RX_CLK_RUNS_IN_LPI;
 	dwmac->plat_dat = plat_dat;
 	dwmac->base_addr = stmmac_res.addr;
+	dwmac->clk_en_cnt = 0;
 
 	ret = imx_dwmac_clks_config(dwmac, true);
 	if (ret)

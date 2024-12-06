@@ -1412,7 +1412,7 @@ static int altera_tse_probe(struct platform_device *pdev)
 		goto err_init_pcs;
 	}
 
-	priv->pcs = lynx_pcs_create_mdiodev(pcs_bus, 0);
+	priv->pcs = lynx_pcs_create_mdiodev(pcs_bus, 0, NULL, 0);
 	if (IS_ERR(priv->pcs)) {
 		ret = PTR_ERR(priv->pcs);
 		goto err_init_pcs;

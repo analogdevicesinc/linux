@@ -1,23 +1,42 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /* Copyright 2019 NXP */
 #include <linux/fsl/enetc_mdio.h>
+#include <linux/fsl/netc_global.h>
 #include <linux/of_mdio.h>
+#include <linux/of_platform.h>
+#include <linux/pinctrl/consumer.h>
 #include "enetc_pf.h"
+#include <linux/regulator/consumer.h>
 
 #define ENETC_MDIO_DEV_ID	0xee01
 #define ENETC_MDIO_DEV_NAME	"FSL PCIe IE Central MDIO"
 #define ENETC_MDIO_BUS_NAME	ENETC_MDIO_DEV_NAME " Bus"
 #define ENETC_MDIO_DRV_NAME	ENETC_MDIO_DEV_NAME " driver"
 
+DEFINE_STATIC_KEY_FALSE(enetc_has_err050089);
+EXPORT_SYMBOL_GPL(enetc_has_err050089);
+
+static void netc_mdio_supplier_register(struct pci_dev *pdev,
+					struct device *dev)
+{
+	struct device_node *node = pdev->dev.of_node;
+
+	if (of_device_is_compatible(node, "fsl,imx95-netc-emdio"))
+		netc_emdio_supplier_register(dev);
+}
+
 static int enetc_pci_mdio_probe(struct pci_dev *pdev,
 				const struct pci_device_id *ent)
 {
+	struct device_node *node = pdev->dev.of_node;
 	struct enetc_mdio_priv *mdio_priv;
 	struct device *dev = &pdev->dev;
 	void __iomem *port_regs;
 	struct enetc_hw *hw;
 	struct mii_bus *bus;
 	int err;
+
+	pinctrl_pm_select_default_state(dev);
 
 	port_regs = pci_iomap(pdev, 0, 0);
 	if (!port_regs) {
@@ -49,6 +68,22 @@ static int enetc_pci_mdio_probe(struct pci_dev *pdev,
 	mdio_priv->mdio_base = ENETC_EMDIO_BASE;
 	snprintf(bus->id, MII_BUS_ID_SIZE, "%s", dev_name(dev));
 
+	mdio_priv->regulator = devm_regulator_get_optional(dev, "phy");
+	if (IS_ERR(mdio_priv->regulator)) {
+		err = PTR_ERR(mdio_priv->regulator);
+		if (err == -EPROBE_DEFER)
+			goto err_get_regulator;
+		mdio_priv->regulator = NULL;
+	}
+
+	if (mdio_priv->regulator) {
+		err = regulator_enable(mdio_priv->regulator);
+		if (err) {
+			dev_err(dev, "fail to enable phy-supply\n");
+			goto err_en_regulator;
+		}
+	}
+
 	pcie_flr(pdev);
 	err = pci_enable_device_mem(pdev);
 	if (err) {
@@ -62,11 +97,18 @@ static int enetc_pci_mdio_probe(struct pci_dev *pdev,
 		goto err_pci_mem_reg;
 	}
 
-	err = of_mdiobus_register(bus, dev->of_node);
+	if (pdev->vendor == PCI_VENDOR_ID_FREESCALE &&
+	    pdev->device == ENETC_MDIO_DEV_ID) {
+		static_branch_inc(&enetc_has_err050089);
+		dev_info(&pdev->dev, "Enabled ERR050089 workaround\n");
+	}
+
+	err = of_mdiobus_register(bus, node);
 	if (err)
 		goto err_mdiobus_reg;
 
 	pci_set_drvdata(pdev, bus);
+	netc_mdio_supplier_register(pdev, dev);
 
 	return 0;
 
@@ -75,10 +117,14 @@ err_mdiobus_reg:
 err_pci_mem_reg:
 	pci_disable_device(pdev);
 err_pci_enable:
+err_en_regulator:
+err_get_regulator:
 err_mdiobus_alloc:
 err_hw_alloc:
 	iounmap(port_regs);
 err_ioremap:
+	netc_mdio_supplier_register(pdev, ERR_PTR(err));
+
 	return err;
 }
 
@@ -87,8 +133,19 @@ static void enetc_pci_mdio_remove(struct pci_dev *pdev)
 	struct mii_bus *bus = pci_get_drvdata(pdev);
 	struct enetc_mdio_priv *mdio_priv;
 
+	netc_mdio_supplier_register(pdev, NULL);
 	mdiobus_unregister(bus);
+
+	if (pdev->vendor == PCI_VENDOR_ID_FREESCALE &&
+	    pdev->device == ENETC_MDIO_DEV_ID) {
+		static_branch_dec(&enetc_has_err050089);
+		if (!static_key_enabled(&enetc_has_err050089.key))
+			dev_info(&pdev->dev, "Disabled ERR050089 workaround\n");
+	}
+
 	mdio_priv = bus->priv;
+	if (mdio_priv->regulator)
+		regulator_disable(mdio_priv->regulator);
 	iounmap(mdio_priv->hw->port);
 	pci_release_region(pdev, 0);
 	pci_disable_device(pdev);
@@ -96,6 +153,7 @@ static void enetc_pci_mdio_remove(struct pci_dev *pdev)
 
 static const struct pci_device_id enetc_pci_mdio_id_table[] = {
 	{ PCI_DEVICE(PCI_VENDOR_ID_FREESCALE, ENETC_MDIO_DEV_ID) },
+	{ PCI_DEVICE(PCI_VENDOR_ID_NXP2, PCI_DEVICE_ID_NXP2_NETC_EMDIO) },
 	{ 0, } /* End of table. */
 };
 MODULE_DEVICE_TABLE(pci, enetc_pci_mdio_id_table);

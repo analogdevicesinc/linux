@@ -235,6 +235,15 @@ static int bcm84881_read_status(struct phy_device *phydev)
 	return genphy_c45_read_mdix(phydev);
 }
 
+/* The Broadcom BCM84881 in the Methode DM7052 is unable to provide a SGMII
+ * or 802.3z control word, so inband will not work.
+ */
+static int bcm84881_validate_inband_aneg(struct phy_device *phydev,
+					 phy_interface_t interface)
+{
+	return PHY_INBAND_ANEG_OFF;
+}
+
 static struct phy_driver bcm84881_drivers[] = {
 	{
 		.phy_id		= 0xae025150,
@@ -246,6 +255,7 @@ static struct phy_driver bcm84881_drivers[] = {
 		.config_aneg	= bcm84881_config_aneg,
 		.aneg_done	= bcm84881_aneg_done,
 		.read_status	= bcm84881_read_status,
+		.validate_inband_aneg = bcm84881_validate_inband_aneg,
 	},
 };
 

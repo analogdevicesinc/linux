@@ -50,7 +50,10 @@ int __acpi_mdiobus_register(struct mii_bus *mdio, struct fwnode_handle *fwnode,
 		if (ret || addr >= PHY_MAX_ADDR)
 			continue;
 
-		ret = fwnode_mdiobus_register_phy(mdio, child, addr);
+		if (fwnode_mdiobus_child_is_phy(child))
+			ret = fwnode_mdiobus_register_phy(mdio, child, addr);
+		else
+			ret = fwnode_mdiobus_register_device(mdio, child, addr);
 		if (ret == -ENODEV)
 			dev_err(&mdio->dev,
 				"MDIO device at address %d is missing.\n",

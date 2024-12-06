@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /* Copyright 2019 NXP */
 
-#include "enetc.h"
+#include "enetc_pf.h"
 
 #include <net/pkt_sched.h>
 #include <linux/math64.h>
@@ -9,43 +9,25 @@
 #include <net/pkt_cls.h>
 #include <net/tc_act/tc_gate.h>
 
+static const struct netc_flower enetc_flower[] = {
+	{
+		BIT_ULL(FLOW_ACTION_GATE),
+		BIT_ULL(FLOW_ACTION_POLICE),
+		BIT_ULL(FLOW_DISSECTOR_KEY_ETH_ADDRS) |
+		BIT_ULL(FLOW_DISSECTOR_KEY_VLAN),
+		FLOWER_TYPE_PSFP
+	},
+};
+
 static u16 enetc_get_max_gcl_len(struct enetc_hw *hw)
 {
 	return enetc_rd(hw, ENETC_PTGCAPR) & ENETC_PTGCAPR_MAX_GCL_LEN_MASK;
 }
 
-void enetc_sched_speed_set(struct enetc_ndev_priv *priv, int speed)
-{
-	struct enetc_hw *hw = &priv->si->hw;
-	u32 old_speed = priv->speed;
-	u32 pspeed, tmp;
-
-	if (speed == old_speed)
-		return;
-
-	switch (speed) {
-	case SPEED_1000:
-		pspeed = ENETC_PMR_PSPEED_1000M;
-		break;
-	case SPEED_2500:
-		pspeed = ENETC_PMR_PSPEED_2500M;
-		break;
-	case SPEED_100:
-		pspeed = ENETC_PMR_PSPEED_100M;
-		break;
-	case SPEED_10:
-	default:
-		pspeed = ENETC_PMR_PSPEED_10M;
-	}
-
-	priv->speed = speed;
-	tmp = enetc_port_rd(hw, ENETC_PMR);
-	enetc_port_wr(hw, ENETC_PMR, (tmp & ~ENETC_PMR_PSPEED_MASK) | pspeed);
-}
-
 static int enetc_setup_taprio(struct enetc_ndev_priv *priv,
 			      struct tc_taprio_qopt_offload *admin_conf)
 {
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
 	struct enetc_hw *hw = &priv->si->hw;
 	struct enetc_cbd cbd = {.cmd = 0};
 	struct tgs_gcl_conf *gcl_config;
@@ -55,14 +37,11 @@ static int enetc_setup_taprio(struct enetc_ndev_priv *priv,
 	u16 data_size;
 	u16 gcl_len;
 	void *tmp;
-	u32 tge;
 	int err;
 	int i;
 
-	/* TSD and Qbv are mutually exclusive in hardware */
-	for (i = 0; i < priv->num_tx_rings; i++)
-		if (priv->tx_ring[i]->tsd_enable)
-			return -EBUSY;
+	if (!pf->hw_ops->set_time_gating || !pf->hw_ops->set_tc_msdu)
+		return -EOPNOTSUPP;
 
 	if (admin_conf->num_entries > enetc_get_max_gcl_len(hw))
 		return -EINVAL;
@@ -109,22 +88,64 @@ static int enetc_setup_taprio(struct enetc_ndev_priv *priv,
 	cbd.cls = BDCR_CMD_PORT_GCL;
 	cbd.status_flags = 0;
 
-	tge = enetc_rd(hw, ENETC_PTGCR);
-	enetc_wr(hw, ENETC_PTGCR, tge | ENETC_PTGCR_TGE);
+	pf->hw_ops->set_time_gating(hw, true);
 
 	err = enetc_send_cmd(priv->si, &cbd);
 	if (err)
-		enetc_wr(hw, ENETC_PTGCR, tge & ~ENETC_PTGCR_TGE);
+		pf->hw_ops->set_time_gating(hw, false);
 
 	enetc_cbd_free_data_mem(priv->si, data_size, tmp, &dma);
 
 	if (err)
 		return err;
 
-	enetc_set_ptcmsdur(hw, admin_conf->max_sdu);
+	pf->hw_ops->set_tc_msdu(hw, admin_conf->max_sdu);
 	priv->active_offloads |= ENETC_F_QBV;
 
 	return 0;
+}
+
+static int enetc4_setup_taprio(struct enetc_ndev_priv *priv,
+			       struct tc_taprio_qopt_offload *admin_conf)
+{
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
+	struct enetc_si *si = priv->si;
+	struct enetc_hw *hw = &si->hw;
+	bool tge_enable;
+	int port, err;
+
+	if (!pf->hw_ops->set_time_gating || !pf->hw_ops->get_time_gating ||
+	    !pf->hw_ops->set_tc_msdu)
+		return -EINVAL;
+
+	port = enetc4_pf_to_port(si->pdev);
+	if (port < 0)
+		return -EINVAL;
+
+	/* Set the maximum frame size for each traffic class */
+	pf->hw_ops->set_tc_msdu(hw, admin_conf->max_sdu);
+
+	tge_enable = pf->hw_ops->get_time_gating(hw);
+	if (!tge_enable)
+		pf->hw_ops->set_time_gating(hw, true);
+
+	err = netc_setup_taprio(&si->ntmp, port, admin_conf);
+	if (err)
+		goto disable_tge;
+
+	priv->active_offloads |= ENETC_F_QBV;
+
+	return 0;
+
+disable_tge:
+	/* We should disable tge if its initial state is disabled */
+	if (!tge_enable)
+		pf->hw_ops->set_time_gating(hw, false);
+
+	if (pf->hw_ops->reset_tc_msdu)
+		pf->hw_ops->reset_tc_msdu(hw);
+
+	return err;
 }
 
 static void enetc_reset_taprio_stats(struct enetc_ndev_priv *priv)
@@ -137,12 +158,14 @@ static void enetc_reset_taprio_stats(struct enetc_ndev_priv *priv)
 
 static void enetc_reset_taprio(struct enetc_ndev_priv *priv)
 {
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
 	struct enetc_hw *hw = &priv->si->hw;
-	u32 val;
 
-	val = enetc_rd(hw, ENETC_PTGCR);
-	enetc_wr(hw, ENETC_PTGCR, val & ~ENETC_PTGCR_TGE);
-	enetc_reset_ptcmsdur(hw);
+	if (pf->hw_ops->set_time_gating)
+		pf->hw_ops->set_time_gating(hw, false);
+
+	if (pf->hw_ops->reset_tc_msdu)
+		pf->hw_ops->reset_tc_msdu(hw);
 
 	priv->active_offloads &= ~ENETC_F_QBV;
 }
@@ -183,13 +206,22 @@ static int enetc_taprio_replace(struct net_device *ndev,
 				struct tc_taprio_qopt_offload *offload)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
-	int err;
+	struct enetc_si *si = priv->si;
+	int i, err;
 
 	err = enetc_setup_tc_mqprio(ndev, &offload->mqprio);
 	if (err)
 		return err;
 
-	err = enetc_setup_taprio(priv, offload);
+	/* TSD and Qbv are mutually exclusive in hardware */
+	for (i = 0; i < priv->num_tx_rings; i++)
+		if (priv->tx_ring[i]->tsd_enable)
+			return -EBUSY;
+
+	if (is_enetc_rev1(si))
+		err = enetc_setup_taprio(priv, offload);
+	else
+		err = enetc4_setup_taprio(priv, offload);
 	if (err)
 		enetc_reset_tc_mqprio(ndev);
 
@@ -231,7 +263,7 @@ static u8 enetc_get_cbs_bw(struct enetc_hw *hw, u8 tc)
 	return enetc_port_rd(hw, ENETC_PTCCBSR0(tc)) & ENETC_CBS_BW_MASK;
 }
 
-int enetc_setup_tc_cbs(struct net_device *ndev, void *type_data)
+static int enetc_configure_tc_cbs(struct net_device *ndev, void *type_data)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
 	struct tc_cbs_qopt_offload *cbs = type_data;
@@ -347,28 +379,214 @@ int enetc_setup_tc_cbs(struct net_device *ndev, void *type_data)
 	return 0;
 }
 
+static inline u32 enetc4_get_cbs_enable(struct enetc_hw *hw, int tc)
+{
+	return enetc_port_rd(hw, ENETC4_PTCCBSR0(tc)) & PTCCBSR0_CBSE;
+}
+
+static void enetc4_set_tc_cbs_params(struct enetc_hw *hw, int tc,
+				     bool en, u32 bw, u32 hi_credit)
+{
+	if (en) {
+		u32 val = PTCCBSR0_CBSE;
+
+		val |= (bw / 10) & PTCCBSR0_BW;
+		val |= (bw % 10) << 16;
+
+		enetc_port_wr(hw, ENETC4_PTCCBSR1(tc), hi_credit);
+		enetc_port_wr(hw, ENETC4_PTCCBSR0(tc), val);
+
+	} else {
+		enetc_port_wr(hw, ENETC4_PTCCBSR1(tc), 0);
+		enetc_port_wr(hw, ENETC4_PTCCBSR0(tc), 0);
+	}
+}
+
+static u32 enetc4_get_cbs_bw(struct enetc_hw *hw, int tc)
+{
+	u32 val, bw;
+
+	val = enetc_port_rd(hw, ENETC4_PTCCBSR0(tc));
+	bw = (val & PTCCBSR0_BW) * 10 + PTCCBSR0_GET_FRACT(val);
+
+	return bw;
+}
+
+static inline u32 enetc4_get_tc_msdu(struct enetc_hw *hw, int tc)
+{
+	return enetc_port_rd(hw, ENETC4_PTCTMSDUR(tc)) & PTCTMSDUR_MAXSDU;
+}
+
+static int enetc4_configure_tc_cbs(struct net_device *ndev, void *type_data)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct tc_cbs_qopt_offload *cbs = type_data;
+	u32 port_transmit_rate = priv->speed;
+	u8 tc_nums = netdev_get_num_tc(ndev);
+	u32 hi_credit_bit, hi_credit_reg;
+	u8 high_prio_tc, second_prio_tc;
+	struct enetc_si *si = priv->si;
+	struct enetc_hw *hw = &si->hw;
+	u32 max_interference_size;
+	u32 port_frame_max_size;
+	u32 bw, bw_sum;
+	u8 tc;
+
+	high_prio_tc = tc_nums - 1;
+	second_prio_tc = tc_nums - 2;
+
+	tc = netdev_txq_to_tc(ndev, cbs->queue);
+
+	/* Support highest prio and second prio tc in cbs mode */
+	if (tc != high_prio_tc && tc != second_prio_tc)
+		return -EOPNOTSUPP;
+
+	if (!cbs->enable) {
+		/* Make sure the other TC that are numerically
+		 * lower than this TC have been disabled.
+		 */
+		if (tc == high_prio_tc &&
+		    enetc4_get_cbs_enable(hw, second_prio_tc)) {
+			dev_err(&ndev->dev,
+				"Disable TC%d before disable TC%d\n",
+				second_prio_tc, tc);
+			return -EINVAL;
+		}
+
+		enetc4_set_tc_cbs_params(hw, tc, false, 0, 0);
+
+		return 0;
+	}
+
+	/* The unit of idleslope and sendslope is kbps. And the sendslope should be
+	 * a negative number, it can be calculated as follows, IEEE 802.1Q-2014
+	 * Section 8.6.8.2 item g):
+	 * sendslope = idleslope - port_transmit_rate
+	 */
+	if (cbs->idleslope - cbs->sendslope != port_transmit_rate * 1000L ||
+	    cbs->idleslope < 0 || cbs->sendslope > 0)
+		return -EOPNOTSUPP;
+
+	port_frame_max_size = ndev->mtu + VLAN_ETH_HLEN + ETH_FCS_LEN;
+
+	/* The unit of port_transmit_rate is Mbps, the unit of bw is 1/1000 */
+	bw = cbs->idleslope / port_transmit_rate;
+	bw_sum = bw;
+
+	/* Make sure the credit-based shaper of highest priority TC has been enabled
+	 * before the secondary priority TC.
+	 */
+	if (tc == second_prio_tc) {
+		if (!enetc4_get_cbs_enable(hw, high_prio_tc)) {
+			dev_err(&ndev->dev,
+				"Enable TC%d first before enable TC%d\n",
+				high_prio_tc, second_prio_tc);
+			return -EINVAL;
+		}
+		bw_sum += enetc4_get_cbs_bw(hw, high_prio_tc);
+	}
+
+	if (bw_sum >= 1000) {
+		dev_err(&ndev->dev,
+			"The sum of all CBS Bandwidth can't exceed 1000\n");
+		return -EINVAL;
+	}
+
+	/* For the AVB Class A (highest priority TC), the max_interfrence_size is
+	 * maximum sized frame for the port.
+	 * For the AVB Class B (second highest priority TC), the max_interfrence_size
+	 * is calculated as below:
+	 *
+	 *      max_interference_size = (Ra * M0) / (R0 - Ra) + MA + M0
+	 *
+	 *	- RA: idleSlope for AVB Class A
+	 *	- R0: port transmit rate
+	 *	- M0: maximum sized frame for the port
+	 *	- MA: maximum sized frame for AVB Class A
+	 */
+
+	if (tc == high_prio_tc) {
+		max_interference_size = port_frame_max_size * 8;
+	} else {
+		u32 m0, ma;
+		u64 ra, r0;
+
+		m0 = port_frame_max_size * 8;
+		ma = enetc4_get_tc_msdu(hw, high_prio_tc) * 8;
+		ra = enetc4_get_cbs_bw(hw, high_prio_tc) *
+		     port_transmit_rate * 1000ULL;
+		r0 = port_transmit_rate * 1000000ULL;
+		max_interference_size = m0 + ma + (u32)div_u64(ra * m0, r0 - ra);
+	}
+
+	/* hiCredit bits calculate by:
+	 *
+	 * max_interference_size * (idleslope / port_transmit_rate)
+	 */
+	hi_credit_bit = max_interference_size * bw / 1000;
+
+	/* Number of credits per bit is calculated as follows:
+	 *
+	 * (enetClockFrequency / port_transmit_rate) * 100
+	 */
+	hi_credit_reg = (u32)div_u64((ENETC4_CLK * 1000ULL) * hi_credit_bit,
+				     port_transmit_rate * 1000000ULL);
+
+	enetc4_set_tc_cbs_params(hw, tc, true, bw, hi_credit_reg);
+
+	return 0;
+}
+
+int enetc_setup_tc_cbs(struct net_device *ndev, void *type_data)
+{
+	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+
+	if (is_enetc_rev1(priv->si))
+		return enetc_configure_tc_cbs(ndev, type_data);
+	else
+		return enetc4_configure_tc_cbs(ndev, type_data);
+}
+
 int enetc_setup_tc_txtime(struct net_device *ndev, void *type_data)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
+	struct enetc_pf *pf = enetc_si_priv(priv->si);
 	struct tc_etf_qopt_offload *qopt = type_data;
 	u8 tc_nums = netdev_get_num_tc(ndev);
-	struct enetc_hw *hw = &priv->si->hw;
-	int tc;
+	struct enetc_hw *hw = &pf->si->hw;
+	int i, tc;
 
-	if (!tc_nums)
+	if (!tc_nums || !pf->hw_ops->set_tc_tsd)
 		return -EOPNOTSUPP;
 
-	tc = qopt->queue;
-
-	if (tc < 0 || tc >= priv->num_tx_rings)
+	if (qopt->queue < 0 || qopt->queue >= ndev->real_num_tx_queues)
 		return -EINVAL;
 
 	/* TSD and Qbv are mutually exclusive in hardware */
-	if (enetc_rd(hw, ENETC_PTGCR) & ENETC_PTGCR_TGE)
+	if (pf->hw_ops->get_time_gating && pf->hw_ops->get_time_gating(hw))
 		return -EBUSY;
 
-	priv->tx_ring[tc]->tsd_enable = qopt->enable;
-	enetc_port_wr(hw, ENETC_PTCTSDR(tc), qopt->enable ? ENETC_TSDE : 0);
+	tc = netdev_txq_to_tc(ndev, qopt->queue);
+	/* According to the NETC block guide, time specific departure operation
+	 * should only be used on the highest priority traffic class.
+	 */
+	if (tc != tc_nums - 1) {
+		dev_err(&ndev->dev,
+			"TSD should be used on the highest priority TC:%d!\n",
+			tc_nums - 1);
+		return -EINVAL;
+	}
+
+	/* Accordiing to the NETC block guide, all traffic on the traffic class
+	 * should use time specific departure operation.
+	 */
+	for (i = 0; i < ndev->tc_to_txq[tc].count; i++) {
+		u16 offset = ndev->tc_to_txq[tc].offset + i;
+
+		priv->tx_ring[offset]->tsd_enable = qopt->enable;
+	}
+
+	pf->hw_ops->set_tc_tsd(hw, tc, qopt->enable);
 
 	return 0;
 }
@@ -684,25 +902,28 @@ static int enetc_streamcounter_hw_get(struct enetc_ndev_priv *priv,
 	if (err)
 		goto exit;
 
-	cnt->matching_frames_count = ((u64)data_buf->matchh << 32) +
-				     data_buf->matchl;
+	cnt->matching_frames_count =
+		((u64)le32_to_cpu(data_buf->matchh) << 32) +
+		le32_to_cpu(data_buf->matchl);
 
-	cnt->not_passing_sdu_count = ((u64)data_buf->msdu_droph << 32) +
-				     data_buf->msdu_dropl;
+	cnt->not_passing_sdu_count =
+		((u64)le32_to_cpu(data_buf->msdu_droph) << 32) +
+		le32_to_cpu(data_buf->msdu_dropl);
 
-	cnt->passing_sdu_count = cnt->matching_frames_count
-				- cnt->not_passing_sdu_count;
+	cnt->passing_sdu_count =
+		cnt->matching_frames_count - cnt->not_passing_sdu_count;
 
 	cnt->not_passing_frames_count =
-				((u64)data_buf->stream_gate_droph << 32) +
-				data_buf->stream_gate_dropl;
+		((u64)le32_to_cpu(data_buf->stream_gate_droph) << 32) +
+		le32_to_cpu(data_buf->stream_gate_dropl);
 
 	cnt->passing_frames_count = cnt->matching_frames_count -
 				    cnt->not_passing_sdu_count -
 				    cnt->not_passing_frames_count;
 
-	cnt->red_frames_count =	((u64)data_buf->flow_meter_droph << 32)	+
-				data_buf->flow_meter_dropl;
+	cnt->red_frames_count =
+		((u64)le32_to_cpu(data_buf->flow_meter_droph) << 32) +
+		le32_to_cpu(data_buf->flow_meter_dropl);
 
 exit:
 	enetc_cbd_free_data_mem(priv->si, data_size, tmp, &dma);
@@ -804,8 +1025,8 @@ static int enetc_streamgate_hw_set(struct enetc_ndev_priv *priv,
 
 	sgcl_config->agtst = 0x80;
 
-	sgcl_data->ct = sgi->cycletime;
-	sgcl_data->cte = sgi->cycletimext;
+	sgcl_data->ct = cpu_to_le32(sgi->cycletime);
+	sgcl_data->cte = cpu_to_le32(sgi->cycletimext);
 
 	if (sgi->init_ipv >= 0)
 		sgcl_config->aipv = (sgi->init_ipv & 0x7) | 0x8;
@@ -827,7 +1048,7 @@ static int enetc_streamgate_hw_set(struct enetc_ndev_priv *priv,
 			to->msdu[2] = (from->maxoctets >> 16) & 0xFF;
 		}
 
-		to->interval = from->interval;
+		to->interval = cpu_to_le32(from->interval);
 	}
 
 	/* If basetime is less than now, calculate start time */
@@ -839,15 +1060,15 @@ static int enetc_streamgate_hw_set(struct enetc_ndev_priv *priv,
 		err = get_start_ns(now, sgi->cycletime, &start);
 		if (err)
 			goto exit;
-		sgcl_data->btl = lower_32_bits(start);
-		sgcl_data->bth = upper_32_bits(start);
+		sgcl_data->btl = cpu_to_le32(lower_32_bits(start));
+		sgcl_data->bth = cpu_to_le32(upper_32_bits(start));
 	} else {
 		u32 hi, lo;
 
 		hi = upper_32_bits(sgi->basetime);
 		lo = lower_32_bits(sgi->basetime);
-		sgcl_data->bth = hi;
-		sgcl_data->btl = lo;
+		sgcl_data->bth = cpu_to_le32(hi);
+		sgcl_data->btl = cpu_to_le32(lo);
 	}
 
 	err = enetc_send_cmd(priv->si, &cbd);
@@ -1511,6 +1732,153 @@ static int enetc_setup_tc_cls_flower(struct enetc_ndev_priv *priv,
 	}
 }
 
+static const struct netc_flower *enetc4_parse_tc_flower(u64 actions, u64 keys)
+{
+	u64 key_acts, all_acts;
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(enetc_flower); i++) {
+		key_acts = enetc_flower[i].key_acts;
+		all_acts = enetc_flower[i].key_acts |
+			   enetc_flower[i].opt_acts;
+
+		/* key_acts must be matched */
+		if ((actions & key_acts) == key_acts &&
+		    (actions & all_acts) == actions &&
+		    keys & enetc_flower[i].keys)
+			return &enetc_flower[i];
+	}
+
+	return NULL;
+}
+
+static int enetc4_config_clsflower(struct enetc_ndev_priv *priv,
+				   struct flow_cls_offload *f)
+{
+	struct flow_rule *rule = flow_cls_offload_flow_rule(f);
+	struct netlink_ext_ack *extack = f->common.extack;
+	struct flow_action *action = &rule->action;
+	struct flow_dissector *dissector;
+	const struct netc_flower *flower;
+	struct flow_action_entry *entry;
+	u64 actions = 0;
+	int i;
+
+	dissector = rule->match.dissector;
+
+	if (!flow_action_has_entries(action)) {
+		NL_SET_ERR_MSG_MOD(extack, "At least one action is needed");
+		return -EINVAL;
+	}
+
+	if (!flow_action_basic_hw_stats_check(action, extack))
+		return -EOPNOTSUPP;
+
+	flow_action_for_each(i, entry, action)
+		actions |= BIT_ULL(entry->id);
+
+	flower = enetc4_parse_tc_flower(actions, dissector->used_keys);
+	if (!flower) {
+		NL_SET_ERR_MSG_MOD(extack, "Unsupported actions or keys");
+		return -EOPNOTSUPP;
+	}
+
+	switch (flower->type) {
+	case FLOWER_TYPE_PSFP:
+		return netc_setup_psfp(&priv->si->ntmp, 0, f);
+	default:
+		NL_SET_ERR_MSG_MOD(extack, "Unsupported flower type");
+		return -EOPNOTSUPP;
+	}
+}
+
+static void enetc4_destroy_flower_rule(struct ntmp_priv *ntmp,
+				       struct netc_flower_rule *rule)
+{
+	switch (rule->flower_type) {
+	case FLOWER_TYPE_PSFP:
+		netc_delete_psfp_flower_rule(ntmp, rule);
+		break;
+	default:
+		break;
+	}
+}
+
+static int enetc4_destroy_clsflower(struct enetc_ndev_priv *priv,
+				    struct flow_cls_offload *f)
+{
+	struct netlink_ext_ack *extack = f->common.extack;
+	struct ntmp_priv *ntmp = &priv->si->ntmp;
+	unsigned long cookie = f->cookie;
+	struct netc_flower_rule *rule;
+
+	guard(mutex)(&ntmp->flower_lock);
+	rule = netc_find_flower_rule_by_cookie(ntmp, 0, cookie);
+	if (!rule) {
+		NL_SET_ERR_MSG_MOD(extack, "Cannot find the rule");
+		return -EINVAL;
+	}
+
+	enetc4_destroy_flower_rule(ntmp, rule);
+
+	return 0;
+}
+
+static int enetc4_get_cls_flower_stats(struct enetc_ndev_priv *priv,
+				       struct flow_cls_offload *f)
+{
+	struct netlink_ext_ack *extack = f->common.extack;
+	struct ntmp_priv *ntmp = &priv->si->ntmp;
+	unsigned long cookie = f->cookie;
+	struct netc_flower_rule *rule;
+	u64 pkt_cnt, drop_cnt;
+	u64 byte_cnt = 0;
+	int err;
+
+	guard(mutex)(&ntmp->flower_lock);
+	rule = netc_find_flower_rule_by_cookie(ntmp, 0, cookie);
+	if (!rule) {
+		NL_SET_ERR_MSG_MOD(extack, "Cannot find the rule");
+		return -EINVAL;
+	}
+
+	switch (rule->flower_type) {
+	case FLOWER_TYPE_PSFP:
+		err = netc_psfp_flower_stat(ntmp, rule, &byte_cnt,
+					    &pkt_cnt, &drop_cnt);
+		if (err) {
+			NL_SET_ERR_MSG_MOD(extack,
+					   "Failed to get statistics of PSFP");
+			return err;
+		}
+		break;
+	default:
+		NL_SET_ERR_MSG_MOD(extack, "Unknown flower type");
+		return -EINVAL;
+	}
+
+	flow_stats_update(&f->stats, byte_cnt, pkt_cnt, drop_cnt,
+			  rule->lastused, FLOW_ACTION_HW_STATS_IMMEDIATE);
+	rule->lastused = jiffies;
+
+	return 0;
+}
+
+static int enetc4_setup_tc_cls_flower(struct enetc_ndev_priv *priv,
+				      struct flow_cls_offload *f)
+{
+	switch (f->command) {
+	case FLOW_CLS_REPLACE:
+		return enetc4_config_clsflower(priv, f);
+	case FLOW_CLS_DESTROY:
+		return enetc4_destroy_clsflower(priv, f);
+	case FLOW_CLS_STATS:
+		return enetc4_get_cls_flower_stats(priv, f);
+	default:
+		return -EOPNOTSUPP;
+	}
+}
+
 static inline void clean_psfp_sfi_bitmap(void)
 {
 	bitmap_free(epsfp.psfp_sfi_bitmap);
@@ -1560,29 +1928,83 @@ static void clean_psfp_all(void)
 	clean_psfp_sfi_bitmap();
 }
 
-int enetc_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
-			    void *cb_priv)
+static int enetc_setup_tc_block_cb(enum tc_setup_type type, void *type_data,
+				   void *cb_priv)
 {
 	struct net_device *ndev = cb_priv;
+	struct enetc_ndev_priv *priv;
 
 	if (!tc_can_offload(ndev))
 		return -EOPNOTSUPP;
 
+	priv = netdev_priv(ndev);
 	switch (type) {
 	case TC_SETUP_CLSFLOWER:
-		return enetc_setup_tc_cls_flower(netdev_priv(ndev), type_data);
+		if (is_enetc_rev1(priv->si))
+			return enetc_setup_tc_cls_flower(priv, type_data);
+		else
+			return enetc4_setup_tc_cls_flower(priv, type_data);
 	default:
 		return -EOPNOTSUPP;
 	}
 }
 
-int enetc_set_psfp(struct net_device *ndev, bool en)
+void enetc4_clear_flower_list(struct enetc_si *si)
+{
+	struct ntmp_priv *ntmp = &si->ntmp;
+	struct netc_flower_rule *rule;
+	struct hlist_node *tmp;
+
+	guard(mutex)(&ntmp->flower_lock);
+	hlist_for_each_entry_safe(rule, tmp, &ntmp->flower_list, node)
+		enetc4_destroy_flower_rule(ntmp, rule);
+}
+
+static int enetc4_tc_flower_destory(struct enetc_ndev_priv *priv)
+{
+	if (!list_empty(&enetc_block_cb_list))
+		return -EBUSY;
+
+	enetc4_clear_flower_list(priv->si);
+
+	return 0;
+}
+
+static int enetc_tc_flower_enable(struct enetc_ndev_priv *priv)
+{
+	struct enetc_hw *hw = &priv->si->hw;
+	int err;
+
+	if (is_enetc_rev1(priv->si)) {
+		enetc_get_max_cap(priv);
+
+		err = enetc_psfp_init(priv);
+		if (err)
+			return err;
+
+		enetc_wr(hw, ENETC_PPSFPMR, enetc_rd(hw, ENETC_PPSFPMR) |
+			ENETC_PPSFPMR_PSFPEN | ENETC_PPSFPMR_VS |
+			ENETC_PPSFPMR_PVC | ENETC_PPSFPMR_PVZC);
+	}
+
+	return 0;
+}
+
+static int enetc_tc_flower_disable(struct enetc_ndev_priv *priv)
+{
+	if (is_enetc_rev1(priv->si))
+		return enetc_psfp_disable(priv);
+	else
+		return enetc4_tc_flower_destory(priv);
+}
+
+int enetc_set_tc_flower(struct net_device *ndev, bool en)
 {
 	struct enetc_ndev_priv *priv = netdev_priv(ndev);
 	int err;
 
 	if (en) {
-		err = enetc_psfp_enable(priv);
+		err = enetc_tc_flower_enable(priv);
 		if (err)
 			return err;
 
@@ -1590,7 +2012,7 @@ int enetc_set_psfp(struct net_device *ndev, bool en)
 		return 0;
 	}
 
-	err = enetc_psfp_disable(priv);
+	err = enetc_tc_flower_disable(priv);
 	if (err)
 		return err;
 
@@ -1638,6 +2060,9 @@ int enetc_setup_tc_psfp(struct net_device *ndev, void *type_data)
 					 ndev, ndev, true);
 	if (err)
 		return err;
+
+	if (!is_enetc_rev1(priv->si))
+		return 0;
 
 	switch (f->command) {
 	case FLOW_BLOCK_BIND:

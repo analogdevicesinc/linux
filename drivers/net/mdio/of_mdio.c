@@ -401,7 +401,7 @@ bool of_phy_is_fixed_link(struct device_node *np)
 	}
 
 	err = of_property_read_string(np, "managed", &managed);
-	if (err == 0 && strcmp(managed, "auto") != 0)
+	if (err == 0 && strcmp(managed, "in-band-status") == 0)
 		return true;
 
 	/* Old binding */
