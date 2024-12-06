@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2023 NXP
+ */
+
+&dpmac2 {
+	managed = "c73";
+	phys = <&serdes1 6>;
+	phy-names = "serdes";
+};
+
+&pcs_mdio2 {
+	status = "okay";
+};

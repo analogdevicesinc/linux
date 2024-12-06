@@ -1,0 +1,241 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Device Tree Include file for Freescale Layerscape-1046A family SoC.
+ *
+ * Copyright 2019 NXP.
+ *
+ */
+
+#include "fsl-ls1046a-frwy.dts"
+#include "qoriq-qman-portals-sdk.dtsi"
+#include "qoriq-bman-portals-sdk.dtsi"
+
+&bman_fbpr {
+	compatible = "fsl,bman-fbpr";
+	alloc-ranges = <0 0 0x10000 0>;
+};
+&qman_fqd {
+	compatible = "fsl,qman-fqd";
+	alloc-ranges = <0 0 0x10000 0>;
+};
+&qman_pfdr {
+	compatible = "fsl,qman-pfdr";
+	alloc-ranges = <0 0 0x10000 0>;
+};
+
+&soc {
+/delete-property/ dma-coherent;
+
+#include "qoriq-dpaa-eth.dtsi"
+#include "qoriq-fman3-0-6oh.dtsi"
+
+	pcie@3400000 {
+		/delete-property/ iommu-map;
+	};
+
+	pcie@3500000 {
+		/delete-property/ iommu-map;
+	};
+
+	pcie@3600000 {
+		/delete-property/ iommu-map;
+	};
+
+	/delete-node/ iommu@9000000;
+};
+
+&fsldpaa {
+	ethernet@1 {
+		status = "disabled";
+	};
+	ethernet@2 {
+		status = "disabled";
+	};
+	ethernet@3 {
+		status = "disabled";
+	};
+	ethernet@6 {
+		status = "disabled";
+	};
+	ethernet@9 {
+		compatible = "fsl,dpa-ethernet";
+		fsl,fman-mac = <&enet7>;
+		dma-coherent;
+	};
+};
+
+&fman0 {
+	compatible = "fsl,fman", "simple-bus";
+};
+
+&clockgen {
+	dma-coherent;
+};
+
+&scfg {
+	dma-coherent;
+};
+
+&crypto {
+	dma-coherent;
+};
+
+&dcfg {
+	dma-coherent;
+};
+
+&ifc {
+	dma-coherent;
+};
+
+&qspi {
+	dma-coherent;
+};
+
+&esdhc {
+	dma-coherent;
+};
+
+&ddr {
+	dma-coherent;
+};
+
+&tmu {
+	dma-coherent;
+};
+
+&qman {
+	dma-coherent;
+};
+
+&bman {
+	dma-coherent;
+};
+
+&bportals {
+	dma-coherent;
+};
+
+&qportals {
+	dma-coherent;
+};
+
+&dspi {
+	dma-coherent;
+};
+
+&i2c0 {
+	dma-coherent;
+};
+
+&i2c1 {
+	dma-coherent;
+};
+
+&i2c2 {
+	dma-coherent;
+};
+
+&i2c3 {
+	dma-coherent;
+};
+
+&duart0 {
+	dma-coherent;
+};
+
+&duart1 {
+	dma-coherent;
+};
+
+&duart2 {
+	dma-coherent;
+};
+
+&duart3 {
+	dma-coherent;
+};
+
+&gpio0 {
+	dma-coherent;
+};
+
+&gpio1 {
+	dma-coherent;
+};
+
+&gpio2 {
+	dma-coherent;
+};
+
+&gpio3 {
+	dma-coherent;
+};
+
+&lpuart0 {
+	dma-coherent;
+};
+
+&lpuart1 {
+	dma-coherent;
+};
+
+&lpuart2 {
+	dma-coherent;
+};
+
+&lpuart3 {
+	dma-coherent;
+};
+
+&lpuart4 {
+	dma-coherent;
+};
+
+&lpuart5 {
+	dma-coherent;
+};
+
+&ftm_alarm0 {
+	dma-coherent;
+};
+
+&wdog0 {
+	dma-coherent;
+};
+
+&edma0 {
+	dma-coherent;
+};
+
+&sata {
+	dma-coherent;
+};
+
+&qdma {
+	dma-coherent;
+};
+
+&msi1 {
+	dma-coherent;
+};
+
+&msi2 {
+	dma-coherent;
+};
+
+&msi3 {
+	dma-coherent;
+};
+
+&fman0 {
+	dma-coherent;
+};
+
+&ptp_timer0 {
+	dma-coherent;
+};
+
+&fsldpaa {
+	dma-coherent;
+};

@@ -1,0 +1,95 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * Copyright 2017-2018 NXP
+ */
+
+&fman1 {
+	compatible = "fsl,fman", "simple-bus";
+
+	/* tx - 1g - 0 */
+	port@a8000 {
+		fsl,qman-channel-id = <0x822>;
+	};
+	/* tx - 1g - 1 */
+	port@a9000 {
+		fsl,qman-channel-id = <0x823>;
+	};
+	/* tx - 1g - 2 */
+	port@aa000 {
+		fsl,qman-channel-id = <0x824>;
+	};
+	/* tx - 1g - 3 */
+	port@ab000 {
+		fsl,qman-channel-id = <0x825>;
+	};
+	/* tx - 1g - 4 */
+	port@ac000 {
+		fsl,qman-channel-id = <0x826>;
+	};
+	/* tx - 1g - 5 */
+	port@ad000 {
+		fsl,qman-channel-id = <0x827>;
+	};
+	/* tx - 10g - 0 */
+	port@b0000 {
+		fsl,qman-channel-id = <0x820>;
+	};
+	/* tx - 10g - 1 */
+	port@b1000 {
+		fsl,qman-channel-id = <0x821>;
+	};
+	/* offline - 1 */
+	port@82000 {
+		fsl,qman-channel-id = <0x829>;
+	};
+	/* offline - 2 */
+	port@83000 {
+		fsl,qman-channel-id = <0x82a>;
+	};
+	/* offline - 3 */
+	port@84000 {
+		fsl,qman-channel-id = <0x82b>;
+	};
+	/* offline - 4 */
+	port@85000 {
+		fsl,qman-channel-id = <0x82c>;
+	};
+	/* offline - 5 */
+	port@86000 {
+		fsl,qman-channel-id = <0x82d>;
+	};
+	/* offline - 6 */
+	port@87000 {
+		fsl,qman-channel-id = <0x82e>;
+	};
+
+	policer@c0000 {
+		compatible = "fsl,fman-policer";
+		reg = <0xc0000 0x1000>;
+	};
+
+	keygen@c1000 {
+		compatible = "fsl,fman-keygen";
+		reg = <0xc1000 0x1000>;
+	};
+
+	dma@c2000 {
+		compatible = "fsl,fman-dma";
+		reg = <0xc2000 0x1000>;
+	};
+
+	fpm@c3000 {
+		compatible = "fsl,fman-fpm";
+		reg = <0xc3000 0x1000>;
+	};
+
+	parser@c7000 {
+		compatible = "fsl,fman-parser";
+		reg = <0xc7000 0x1000>;
+	};
+
+	vsps@dc000 {
+		compatible = "fsl,fman-vsps";
+		reg = <0xdc000 0x1000>;
+	};
+};

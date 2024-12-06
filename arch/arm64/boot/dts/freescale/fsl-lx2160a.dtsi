@@ -622,14 +622,21 @@
 		dma-ranges = <0x0 0x0 0x0 0x0 0x10000 0x00000000>;
 
 		serdes_1: phy@1ea0000 {
-			compatible = "fsl,lynx-28g";
+			compatible = "fsl,lx2160a-serdes1", "fsl,lynx-28g";
 			reg = <0x0 0x1ea0000 0x0 0x1e30>;
 			#phy-cells = <1>;
 		};
 
 		serdes_2: phy@1eb0000 {
-			compatible = "fsl,lynx-28g";
+			compatible = "fsl,lx2160a-serdes2", "fsl,lynx-28g";
 			reg = <0x0 0x1eb0000 0x0 0x1e30>;
+			#phy-cells = <1>;
+			status = "disabled";
+		};
+
+		serdes_3: phy@1ec0000 {
+			compatible = "fsl,lx2160a-serdes3", "fsl,lynx-28g";
+			reg = <0x0 0x1ec0000 0x0 0x1e30>;
 			#phy-cells = <1>;
 			status = "disabled";
 		};
@@ -1094,7 +1101,7 @@
 		};
 
 		usb0: usb@3100000 {
-			compatible = "snps,dwc3";
+			compatible = "fsl,lx2160a-dwc3", "snps,dwc3";
 			reg = <0x0 0x3100000 0x0 0x10000>;
 			interrupts = <GIC_SPI 80 IRQ_TYPE_LEVEL_HIGH>;
 			dr_mode = "host";
@@ -1102,11 +1109,12 @@
 			usb3-lpm-capable;
 			snps,dis_rxdet_inp3_quirk;
 			snps,incr-burst-type-adjustment = <1>, <4>, <8>, <16>;
+			dma-coherent;
 			status = "disabled";
 		};
 
 		usb1: usb@3110000 {
-			compatible = "snps,dwc3";
+			compatible = "fsl,lx2160a-dwc3", "snps,dwc3";
 			reg = <0x0 0x3110000 0x0 0x10000>;
 			interrupts = <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>;
 			dr_mode = "host";
@@ -1114,6 +1122,7 @@
 			usb3-lpm-capable;
 			snps,dis_rxdet_inp3_quirk;
 			snps,incr-burst-type-adjustment = <1>, <4>, <8>, <16>;
+			dma-coherent;
 			status = "disabled";
 		};
 
@@ -1472,9 +1481,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs1: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
@@ -1485,9 +1498,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs2: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
@@ -1498,9 +1515,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs3: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
@@ -1511,9 +1532,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs4: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
@@ -1524,9 +1549,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs5: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
@@ -1537,9 +1566,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs6: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
@@ -1550,9 +1583,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs7: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
@@ -1563,9 +1600,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs8: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
@@ -1576,9 +1617,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs9: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
@@ -1589,9 +1634,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs10: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
@@ -1602,9 +1651,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs11: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
@@ -1615,9 +1668,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs12: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
@@ -1628,9 +1685,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs13: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
@@ -1641,9 +1702,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs14: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
@@ -1654,9 +1719,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs15: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
@@ -1667,9 +1736,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs16: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
@@ -1680,9 +1753,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs17: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
@@ -1693,9 +1770,13 @@
 			little-endian;
 			#address-cells = <1>;
 			#size-cells = <0>;
+			clock-frequency = <40000000>;
+			clocks = <&clockgen QORIQ_CLK_PLATFORM_PLL
+					    QORIQ_CLK_PLL_DIV(2)>;
 			status = "disabled";
 
 			pcs18: ethernet-phy@0 {
+				compatible = "fsl,lx2160a-lynx-pcs";
 				reg = <0>;
 			};
 		};
