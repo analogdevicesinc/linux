@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/net/wireless/nxp,wifi-wake-host.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP 89xx wireless devices
+
+maintainers:
+  - Sherry Sun <sherry.sun@nxp.com>
+
+description:
+  This node provides properties for controlling the NXP 89XX wireless device.
+  The node is expected to be specified as a child node to the PCIE/SDIO
+  controller that connects the device to the system.
+
+properties:
+  compatible:
+    const: nxp,wifi-wake-host
+
+  interrupts:
+    maxItems: 1
+    description: |
+      Specifies attributes for the out-of-band interrupt (host-wake).
+
+  interrupt-names:
+    const: host-wake
+    description: |
+      Name of the out-of-band interrupt, which must be set to "host-wake".
+
+required:
+  - compatible
+  - interrupts
+  - interrupt-names
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/imx8mq-clock.h>
+
+    pcie1 {
+      pinctrl-names = "default";
+      pinctrl-0 = <&pinctrl_pcie1>;
+      disable-gpio = <&gpio5 10 1>;
+      reset-gpio = <&gpio5 12 1>;
+      clocks = <&clk IMX8MQ_CLK_PCIE2_ROOT>,
+               <&clk IMX8MQ_CLK_PCIE2_AUX>,
+               <&clk IMX8MQ_CLK_PCIE2_PHY>,
+               <&pcie1_refclk>;
+      clock-names = "pcie", "pcie_aux", "pcie_phy", "pcie_bus";
+      assigned-clocks = <&clk IMX8MQ_CLK_PCIE2_AUX>,
+                        <&clk IMX8MQ_CLK_PCIE1_PHY>,
+                        <&clk IMX8MQ_CLK_PCIE1_CTRL>;
+      assigned-clock-rates = <10000000>, <100000000>, <250000000>;
+      assigned-clock-parents = <&clk IMX8MQ_SYS2_PLL_50M>,
+                               <&clk IMX8MQ_SYS2_PLL_100M>,
+                               <&clk IMX8MQ_SYS2_PLL_250M>;
+      vph-supply = <&vgen5_reg>;
+      status = "okay";
+
+      wifi_wake_host {
+        compatible = "nxp,wifi-wake-host";
+        interrupt-parent = <&gpio5>;
+        interrupts = <11 8>;
+        interrupt-names = "host-wake";
+      };
+    };
