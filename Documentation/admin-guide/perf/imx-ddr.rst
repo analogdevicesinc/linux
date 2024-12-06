@@ -2,6 +2,8 @@
 Freescale i.MX8 DDR Performance Monitoring Unit (PMU)
 =====================================================
 
+1. PMU in DRC (DDR Controller)
+
 There are no performance counters inside the DRAM controller, so performance
 signals are brought out to the edge of the controller where a set of 4 x 32 bit
 counters is implemented. This is controlled by the CSV modes programmed in counter
@@ -98,3 +100,15 @@ un-supported, and value 1 for supported.
       automatically. So that users do not need specify axi_channel if want to
       monitor data channel from DDR transactions, since data channel is more
       meaningful.
+
+2. PMU in DB (DRAM Block)
+
+   There is a performance counter function included in the DB which allows
+   statistics to be captured for the various ports. The module is similar to
+   the one deployed in the DRC but has the ability to select one of the incoming
+   ports to gather statistics on it. The AXI IDs used is the one seen at one PORT.
+
+   .. code-block:: bash
+
+       perf stat -a -e imx8_db0/axid-read,axi_mask=0xMMMM,axi_id=0xDDDD,axi_port=0xPP,axi_channel=0xH/ cmd
+       perf stat -a -e imx8_db0/axid-write,axi_mask=0xMMMM,axi_id=0xDDDD,axi_port=0xPP,axi_channel=0xH/ cmd

@@ -1,0 +1,770 @@
+[
+    {
+	"BriefDescription": "bandwidth usage for lpddr4 evk board",
+	"MetricName": "imx8dxl_bandwidth_usage.lpddr4",
+	"MetricExpr": "(( imx8_ddr0@axid\\-read\\,axi_mask\\=0xffff\\,axi_id\\=0x0000\\,axi_channel\\=0x0@ + imx8_ddr0@axid\\-write\\,axi_mask\\=0xffff\\,axi_id\\=0x0000\\,axi_channel\\=0x0@ ) * 4 * 2 / duration_time) / (600 * 1000000 * 4 * 2)",
+	"ScaleUnit": "1e2%",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": "bandwidth usage for ddr3l evk board",
+	"MetricName": "imx8dxl_bandwidth_usage.ddr3l",
+	"MetricExpr": "(( imx8_ddr0@axid\\-read\\,axi_mask\\=0xffff\\,axi_id\\=0x0000\\,axi_channel\\=0x0@ + imx8_ddr0@axid\\-write\\,axi_mask\\=0xffff\\,axi_id\\=0x0000\\,axi_channel\\=0x0@ ) * 4 * 2 / duration_time) / (467 * 1000000 * 4 * 2)",
+	"ScaleUnit": "1e2%",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of all masters read from ddr",
+	"MetricName": "imx8dxl_ddr_read.all",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0xffff\\,axi_id\\=0x0000\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of all masters write to ddr",
+	"MetricName": "imx8dxl_ddr_write.all",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0xffff\\,axi_id\\=0x0000\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of scu cortex-m4 read from ddr",
+	"MetricName": "imx8dxl_ddr_read.scu_m4",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0000\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of scu cortex-m4 write to ddr",
+	"MetricName": "imx8dxl_ddr_write.scu_m4",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0000\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of dap read from ddr",
+	"MetricName": "imx8dxl_ddr_read.dap",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0010\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of dap write to ddr",
+	"MetricName": "imx8dxl_ddr_write.dap",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0010\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of atb read from ddr",
+	"MetricName": "imx8dxl_ddr_read.atb",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0018\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of atb write to ddr",
+	"MetricName": "imx8dxl_ddr_write.atb",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0018\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of caam read from ddr",
+	"MetricName": "imx8dxl_ddr_read.caam",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0f00\\,axi_id\\=0x0060\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of caam write to ddr",
+	"MetricName": "imx8dxl_ddr_write.caam",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0f00\\,axi_id\\=0x0060\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of test port read from ddr",
+	"MetricName": "imx8dxl_ddr_read.test_port",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0028\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of test port write to ddr",
+	"MetricName": "imx8dxl_ddr_write.test_port",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0028\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of general cortex-m4 read from ddr",
+	"MetricName": "imx8dxl_ddr_read.general_m4",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0001\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of general cortex-m4 write to ddr",
+	"MetricName": "imx8dxl_ddr_write.general_m4",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0001\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of edma0 read from ddr",
+	"MetricName": "imx8dxl_ddr_read.edma0",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0002\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of edma0 write to ddr",
+	"MetricName": "imx8dxl_ddr_write.edma0",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0002\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of edma2 read from ddr",
+	"MetricName": "imx8dxl_ddr_read.edma2",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x1812\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of edma2 write to ddr",
+	"MetricName": "imx8dxl_ddr_write.edma2",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x1812\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of edma3 read from ddr",
+	"MetricName": "imx8dxl_ddr_read.edma3",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x201a\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of edma3 write to ddr",
+	"MetricName": "imx8dxl_ddr_write.edma3",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x201a\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of lcdif regular channel read from ddr",
+	"MetricName": "imx8dxl_ddr_read.lcdif_regular",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x2802\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of lcdif regular channel write to ddr",
+	"MetricName": "imx8dxl_ddr_write.lcdif_regular",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x2802\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of lcdif alpha channel read from ddr",
+	"MetricName": "imx8dxl_ddr_read.lcdif_alpha",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x2842\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of lcdif alpha channel write to ddr",
+	"MetricName": "imx8dxl_ddr_write.lcdif_alpha",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x2842\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of raw nand (gpmi dma) read from ddr",
+	"MetricName": "imx8dxl_ddr_read.gpmi_dma",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0003\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of raw nand (gpmi dma) write to ddr",
+	"MetricName": "imx8dxl_ddr_write.gpmi_dma",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0003\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of raw nand (bch) read from ddr",
+	"MetricName": "imx8dxl_ddr_read.bch",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x000b\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of raw nand (bch) write to ddr",
+	"MetricName": "imx8dxl_ddr_write.bch",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x000b\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of enet rx read from ddr",
+	"MetricName": "imx8dxl_ddr_read.enet_rx",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0803\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of enet rx write to ddr",
+	"MetricName": "imx8dxl_ddr_write.enet_rx",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0803\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of enet tx read from ddr",
+	"MetricName": "imx8dxl_ddr_read.enet_tx",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x080b\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of enet tx write to ddr",
+	"MetricName": "imx8dxl_ddr_write.enet_tx",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x080b\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of eqis rx read from ddr",
+	"MetricName": "imx8dxl_ddr_read.eqis_rx",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0813\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of eqis rx write to ddr",
+	"MetricName": "imx8dxl_ddr_write.eqis_rx",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0813\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of usb2.0 read from ddr",
+	"MetricName": "imx8dxl_ddr_read.usb",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x00b0\\,axi_id\\=0x040b\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of usb2.0 write to ddr",
+	"MetricName": "imx8dxl_ddr_write.usb",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x00b0\\,axi_id\\=0x040b\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of usdhc0 read from ddr",
+	"MetricName": "imx8dxl_ddr_read.usdhc0",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x001b\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of usdhc0 write to ddr",
+	"MetricName": "imx8dxl_ddr_write.usdhc0",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x001b\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of usdhc1 read from ddr",
+	"MetricName": "imx8dxl_ddr_read.usdhc1",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0023\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of usdhc1 write to ddr",
+	"MetricName": "imx8dxl_ddr_write.usdhc1",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0023\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of usdhc2 read from ddr",
+	"MetricName": "imx8dxl_ddr_read.usdhc2",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x002b\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of usdhc2 write to ddr",
+	"MetricName": "imx8dxl_ddr_write.usdhc2",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x002b\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of hsio read from ddr",
+	"MetricName": "imx8dxl_ddr_read.hsio",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0xfff8\\,axi_id\\=0x0004\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of hsio write to ddr",
+	"MetricName": "imx8dxl_ddr_write.hsio",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0xfff8\\,axi_id\\=0x0004\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of lsio read from ddr",
+	"MetricName": "imx8dxl_ddr_read.lsio",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0xfff8\\,axi_id\\=0x0005\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of lsio write to ddr",
+	"MetricName": "imx8dxl_ddr_write.lsio",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0xfff8\\,axi_id\\=0x0005\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of cortex-a35 read from ddr",
+	"MetricName": "imx8dxl_ddr_read.a35",
+	"MetricExpr": "( imx8_ddr0@axid\\-read\\,axi_mask\\=0xfff8\\,axi_id\\=0x0006\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of cortex-a35 write to ddr",
+	"MetricName": "imx8dxl_ddr_write.a35",
+	"MetricExpr": "( imx8_ddr0@axid\\-write\\,axi_mask\\=0xfff8\\,axi_id\\=0x0006\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of scu cortex-m4 read from db",
+	"MetricName": "imx8dxl_db_read.scu_m4",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0000\\,axi_port\\=0x0\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of scu cortex-m4 write to db",
+	"MetricName": "imx8dxl_db_write.scu_m4",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0000\\,axi_port\\=0x0\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of dap read from db",
+	"MetricName": "imx8dxl_db_read.dap",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0002\\,axi_port\\=0x0\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of dap write to db",
+	"MetricName": "imx8dxl_db_write.dap",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0002\\,axi_port\\=0x0\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of atb read from db",
+	"MetricName": "imx8dxl_db_read.atb",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0003\\,axi_port\\=0x0\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of atb write to db",
+	"MetricName": "imx8dxl_db_write.atb",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0003\\,axi_port\\=0x0\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of caam read from db",
+	"MetricName": "imx8dxl_db_read.caam",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x01e0\\,axi_id\\=0x000c\\,axi_port\\=0x0\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of caam write to db",
+	"MetricName": "imx8dxl_db_write.caam",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x01e0\\,axi_id\\=0x000c\\,axi_port\\=0x0\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of test port read from db",
+	"MetricName": "imx8dxl_db_read.test_port",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0005\\,axi_port\\=0x0\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of test port write to db",
+	"MetricName": "imx8dxl_db_write.test_port",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0005\\,axi_port\\=0x0\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of general cortex-m4 read from db",
+	"MetricName": "imx8dxl_db_read.general_m4",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0xffff\\,axi_id\\=0x0000\\,axi_port\\=0x1\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of general cortex-m4 write to db",
+	"MetricName": "imx8dxl_db_write.general_m4",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0xffff\\,axi_id\\=0x0000\\,axi_port\\=0x1\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of edma0 read from db",
+	"MetricName": "imx8dxl_db_read.edma0",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0000\\,axi_port\\=0x2\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of edma0 write to db",
+	"MetricName": "imx8dxl_db_write.edma0",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0000\\,axi_port\\=0x2\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of edma2 read from db",
+	"MetricName": "imx8dxl_db_read.edma2",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0302\\,axi_port\\=0x2\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of edma2 write to db",
+	"MetricName": "imx8dxl_db_write.edma2",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0302\\,axi_port\\=0x2\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of edma3 read from db",
+	"MetricName": "imx8dxl_db_read.edma3",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0403\\,axi_port\\=0x2\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of edma3 write to db",
+	"MetricName": "imx8dxl_db_write.edma3",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0403\\,axi_port\\=0x2\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of lcdif regular channel read from db",
+	"MetricName": "imx8dxl_db_read.lcdif_regular",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0500\\,axi_port\\=0x2\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of lcdif regular channel write to db",
+	"MetricName": "imx8dxl_db_write.lcdif_regular",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0500\\,axi_port\\=0x2\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of lcdif alpha channel read from db",
+	"MetricName": "imx8dxl_db_read.lcdif_alpha",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0508\\,axi_port\\=0x2\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of lcdif alpha channel write to db",
+	"MetricName": "imx8dxl_db_write.lcdif_alpha",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0508\\,axi_port\\=0x2\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of raw nand (gpmi dma) read from db",
+	"MetricName": "imx8dxl_db_read.gpmi_dma",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0000\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of raw nand (gpmi dma) write to db",
+	"MetricName": "imx8dxl_db_write.gpmi_dma",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0000\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of raw nand (bch) read from db",
+	"MetricName": "imx8dxl_db_read.bch",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0001\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of raw nand (bch) write to db",
+	"MetricName": "imx8dxl_db_write.bch",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0001\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of enet rx read from db",
+	"MetricName": "imx8dxl_db_read.enet_rx",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0100\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of enet rx write to db",
+	"MetricName": "imx8dxl_db_write.enet_rx",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0100\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of enet tx read from db",
+	"MetricName": "imx8dxl_db_read.enet_tx",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0101\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of enet tx write to db",
+	"MetricName": "imx8dxl_db_write.enet_tx",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0101\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of eqis rx read from db",
+	"MetricName": "imx8dxl_db_read.eqis_rx",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0102\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of eqis rx write to db",
+	"MetricName": "imx8dxl_db_write.eqis_rx",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0102\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of usb2.0 read from db",
+	"MetricName": "imx8dxl_db_read.usb",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0018\\,axi_id\\=0x0081\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of usb2.0 write to db",
+	"MetricName": "imx8dxl_db_write.usb",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x0018\\,axi_id\\=0x0081\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of usdhc0 read from db",
+	"MetricName": "imx8dxl_db_read.usdhc0",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0003\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of usdhc0 write to db",
+	"MetricName": "imx8dxl_db_write.usdhc0",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0003\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of usdhc1 read from db",
+	"MetricName": "imx8dxl_db_read.usdhc1",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0004\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of usdhc1 write to db",
+	"MetricName": "imx8dxl_db_write.usdhc1",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0004\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of usdhc2 read from db",
+	"MetricName": "imx8dxl_db_read.usdhc2",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0x0000\\,axi_id\\=0x0005\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of usdhc2 write to db",
+	"MetricName": "imx8dxl_db_write.usdhc2",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0x0000\\,axi_id\\=0x0005\\,axi_port\\=0x3\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of hsio read from db",
+	"MetricName": "imx8dxl_db_read.hsio",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0xffff\\,axi_id\\=0x0000\\,axi_port\\=0x4\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of hsio write to db",
+	"MetricName": "imx8dxl_db_write.hsio",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0xffff\\,axi_id\\=0x0000\\,axi_port\\=0x4\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of lsio read from db",
+	"MetricName": "imx8dxl_db_read.lsio",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0xffff\\,axi_id\\=0x0000\\,axi_port\\=0x5\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of lsio write to db",
+	"MetricName": "imx8dxl_db_write.lsio",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0xffff\\,axi_id\\=0x0000\\,axi_port\\=0x5\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of cortex-a35 read from db",
+	"MetricName": "imx8dxl_db_read.a35",
+	"MetricExpr": "( imx8_db0@axid\\-read\\,axi_mask\\=0xffff\\,axi_id\\=0x0000\\,axi_port\\=0x6\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    },
+    {
+	"BriefDescription": " bytes of cortex-a35 write to db",
+	"MetricName": "imx8dxl_db_write.a35",
+	"MetricExpr": "( imx8_db0@axid\\-write\\,axi_mask\\=0xffff\\,axi_id\\=0x0000\\,axi_port\\=0x6\\,axi_channel\\=0x0@ ) * 4 * 2",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8DXL"
+    }
+]

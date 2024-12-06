@@ -1,0 +1,26 @@
+[
+    {
+	"BriefDescription": "bandwidth usage for lpddr4 mek board",
+	"MetricName": "imx8qxp_bandwidth_usage.lpddr4",
+	"MetricExpr": "(( imx8_ddr0@read\\-cycles@ + imx8_ddr0@write\\-cycles@ ) * 4 * 4 / duration_time) / (600 * 1000000 * 4 * 4)",
+	"ScaleUnit": "1e2%",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8QXP"
+    },
+    {
+	"BriefDescription": "bytes all masters read from ddr based on read-cycles event",
+	"MetricName": "imx8qxp_ddr_read.all",
+	"MetricExpr": "imx8_ddr0@read\\-cycles@ * 4 * 4",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8QXP"
+    },
+    {
+	"BriefDescription": "bytes all masters wirte to ddr based on write-cycles event",
+	"MetricName": "imx8qxp_ddr_write.all",
+	"MetricExpr": "imx8_ddr0@write\\-cycles@ * 4 * 4",
+	"ScaleUnit": "9.765625e-4KB",
+	"Unit": "imx8_ddr",
+	"Compat": "i.MX8QXP"
+    }
+]

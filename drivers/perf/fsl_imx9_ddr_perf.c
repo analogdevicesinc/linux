@@ -752,8 +752,15 @@ static int ddr_perf_probe(struct platform_device *pdev)
 	void __iomem *base;
 	int ret, irq;
 	char *name;
+	struct resource *r;
 
-	base = devm_platform_ioremap_resource(pdev, 0);
+	r = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!r) {
+		dev_err(&pdev->dev, "platform_get_resource() failed\n");
+		return -ENOMEM;
+	}
+
+	base = devm_ioremap(&pdev->dev, r->start, resource_size(r));
 	if (IS_ERR(base))
 		return PTR_ERR(base);
 

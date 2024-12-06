@@ -1,5 +1,21 @@
 [
    {
+	    "BriefDescription": "bandwidth usage for lpddr4 evk board",
+	    "MetricName": "imx8mm_bandwidth_usage.lpddr4",
+	    "MetricExpr": "(( imx8_ddr0@read\\-cycles@ + imx8_ddr0@write\\-cycles@ ) * 4 * 4 / duration_time) / (750 * 1000000 * 4 * 4)",
+	    "ScaleUnit": "1e2%",
+	    "Unit": "imx8_ddr",
+	    "Compat": "i.MX8MM"
+   },
+   {
+	    "BriefDescription": "bandwidth usage for ddr4 evk board",
+	    "MetricName": "imx8mm_bandwidth_usage.ddr4",
+	    "MetricExpr": "(( imx8_ddr0@read\\-cycles@ + imx8_ddr0@write\\-cycles@ ) * 4 * 4 / duration_time) / (600 * 1000000 * 4 * 4)",
+	    "ScaleUnit": "1e2%",
+	    "Unit": "imx8_ddr",
+	    "Compat": "i.MX8MM"
+   },
+   {
 	    "BriefDescription": "bytes all masters read from ddr based on read-cycles event",
 	    "MetricName": "imx8mm_ddr_read.all",
 	    "MetricExpr": "imx8mm_ddr.read_cycles * 4 * 4",
