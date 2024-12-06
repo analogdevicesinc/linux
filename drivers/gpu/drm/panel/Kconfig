@@ -582,6 +582,15 @@ config DRM_PANEL_RAYDIUM_RM68200
 	  Say Y here if you want to enable support for Raydium RM68200
 	  720x1280 DSI video mode panel.
 
+config DRM_PANEL_RAYDIUM_RM692C9
+	tristate "Raydium RM692C9 FHD 1080x2340 DSI video mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for Raydium RM692C9 FHD
+	  (1080x2340) DSI panel.
+
 config DRM_PANEL_RAYDIUM_RM692E5
 	tristate "Raydium RM692E5-based DSI panel"
 	depends on OF
@@ -604,6 +613,17 @@ config DRM_PANEL_RAYDIUM_RM69380
 
 	  This panel controller can be found in the Lenovo Xiaoxin Pad Pro 2021
 	  in combination with an EDO OLED panel.
+
+config DRM_PANEL_ROCKTECK_HIMAX8394F
+	tristate "Rocktech Himax8394f 720x1280 DSI video mode panel"
+	depends on OF
+	depends on DRM_MIPI_DSI
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for Rocktech Himax8394f
+	  TFT-LCD modules. The panel has a 720x1280 resolution and uses
+	  24 bit RGB per pixel. It provides a MIPI DSI interface to the host
+	  and has a built-in LED backlight.
 
 config DRM_PANEL_RONBO_RB070D30
 	tristate "Ronbo Electronics RB070D30 panel"
@@ -909,6 +929,14 @@ config DRM_PANEL_TDO_TL070WSH30
 	  24 bit RGB per pixel. It provides a MIPI DSI interface to
 	  the host, a built-in LED backlight and touch controller.
 
+config DRM_PANEL_TIANMA_TM050RDH03
+	tristate "Tianma TM050RDH03 panel"
+	depends on OF
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  Say Y here if you want to enable support for Tianma TM050RDH03 5.0"
+	  WVGA TFT LCD panel.
+
 config DRM_PANEL_TPO_TD028TTEC1
 	tristate "Toppoly (TPO) TD028TTEC1 panel driver"
 	depends on OF && SPI
@@ -988,4 +1016,13 @@ config DRM_PANEL_XINPENG_XPP055C272
 	  Say Y here if you want to enable support for the Xinpeng
 	  XPP055C272 controller for 720x1280 LCD panels with MIPI/RGB/SPI
 	  system interfaces.
+config DRM_PANEL_WKS_101WX001
+	tristate "WKS 101WX001 parallel LCD"
+	depends on OF
+	depends on BACKLIGHT_CLASS_DEVICE
+	select VIDEOMODE_HELPERS
+	help
+	  Say Y here if you want to enable support for the WKS
+	  101WX001 controller for 1280x800 LCD panel
+
 endmenu

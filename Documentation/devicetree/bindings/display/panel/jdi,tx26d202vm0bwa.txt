@@ -1,0 +1,9 @@
+Japan Display Inc. 10.1" WUXGA (1920x1200) TFT LCD panel
+
+The panel has dual LVDS channels.
+
+Required properties:
+- compatible: should be "jdi,tx26d202vm0bwa"
+
+This binding is compatible with the simple-panel binding, which is specified
+in simple-panel.txt in this directory.

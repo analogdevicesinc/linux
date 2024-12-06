@@ -1,0 +1,62 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/panel/wks,101wx001.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: WKS 101WX001 10.1" WXGA TFT LCD panel
+
+description:
+  The WKS 101WX001 is a 10.1" WXGA (1280 x 800) TFT LCD panel with a 24-bit RGB
+  parallel data interface.
+
+maintainers:
+  - Robert Chiras <robert.chiras@nxp.com>
+
+allOf:
+  - $ref: panel-common.yaml#
+
+properties:
+  compatible:
+    const: wks,101wx001
+
+  label: false
+  port: true
+
+  vcc-supply:
+    description: 5v analog power regulator
+
+  blctr-gpios:
+    description: GPIO used for BL_CNTR pin, controlling the panel backlight
+                 (this is not a pwm backlight, it's only a GPIO controlled
+                 backlight)
+    maxItems: 1
+
+  pinctrl-assert-gpios:
+    description: Default states for various gpios used as selectors for on-board
+                 muxes
+
+required:
+  - compatible
+  - port
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+    panel {
+      compatible = "wks,101wx001";
+      blctr-gpios = <&gpioa 5 GPIO_ACTIVE_HIGH>;
+      pinctrl-assert-gpios = <&gpiob 3 GPIO_ACTIVE_LOW>,
+                             <&gpiob 4 GPIO_ACTIVE_LOW>,
+                             <&gpiob 6 GPIO_ACTIVE_LOW>,
+                             <&gpiob 7 GPIO_ACTIVE_LOW>,
+                             <&gpiob 8 GPIO_ACTIVE_LOW>;
+
+      port {
+        panel_in: endpoint {
+          remote-endpoint = <&lcdif_out>;
+        };
+      };
+    };
