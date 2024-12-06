@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
 /* Copyright 2013-2016 Freescale Semiconductor Inc.
- * Copyright 2016 NXP
- * Copyright 2020 NXP
+ * Copyright 2016, 2020, 2024 NXP
  */
 #ifndef __FSL_DPNI_H
 #define __FSL_DPNI_H
@@ -213,7 +212,8 @@ int dpni_clear_irq_status(struct fsl_mc_io	*mc_io,
 struct dpni_attr {
 	u32 options;
 	u8 num_queues;
-	u8 num_tcs;
+	u8 num_rx_tcs;
+	u8 num_tx_tcs;
 	u8 mac_filter_entries;
 	u8 vlan_filter_entries;
 	u8 qos_entries;
@@ -226,7 +226,8 @@ struct dpni_attr {
 int dpni_get_attributes(struct fsl_mc_io	*mc_io,
 			u32			cmd_flags,
 			u16			token,
-			struct dpni_attr	*attr);
+			struct dpni_attr	*attr,
+			u16 cmdid);
 
 /* DPNI errors */
 
@@ -404,6 +405,7 @@ int dpni_get_tx_data_offset(struct fsl_mc_io	*mc_io,
 			    u16			*data_offset);
 
 #define DPNI_STATISTICS_CNT		7
+#define DPNI_STATISTICS_32_CNT		14
 
 /**
  * union dpni_statistics - Union describing the DPNI statistics
@@ -503,7 +505,12 @@ int dpni_get_statistics(struct fsl_mc_io	*mc_io,
 			u32			cmd_flags,
 			u16			token,
 			u8			page,
+			u8			param,
 			union dpni_statistics	*stat);
+
+int dpni_reset_statistics(struct fsl_mc_io	*mc_io,
+			  u32			cmd_flags,
+			  u16			token);
 
 #define DPNI_LINK_OPT_AUTONEG		0x0000000000000001ULL
 #define DPNI_LINK_OPT_HALF_DUPLEX	0x0000000000000002ULL
@@ -647,6 +654,61 @@ struct dpni_fs_tbl_cfg {
 
 int dpni_prepare_key_cfg(const struct dpkg_profile_cfg *cfg,
 			 u8 *key_cfg_buf);
+
+/**
+ * enum dpni_tx_schedule_mode - DPNI Tx scheduling mode
+ * @DPNI_TX_SCHED_STRICT_PRIORITY: strict priority
+ * @DPNI_TX_SCHED_WEIGHTED_A: weighted based scheduling in group A
+ * @DPNI_TX_SCHED_WEIGHTED_B: weighted based scheduling in group B
+ */
+enum dpni_tx_schedule_mode {
+	DPNI_TX_SCHED_STRICT_PRIORITY = 0,
+	DPNI_TX_SCHED_WEIGHTED_A,
+	DPNI_TX_SCHED_WEIGHTED_B,
+};
+
+/**
+ * struct dpni_tx_schedule_cfg - Structure representing Tx scheduling conf
+ * @mode:		Scheduling mode
+ * @delta_bandwidth:	Bandwidth represented in weights from 100 to 10000;
+ *	not applicable for 'strict-priority' mode;
+ */
+struct dpni_tx_schedule_cfg {
+	enum dpni_tx_schedule_mode mode;
+	u16 delta_bandwidth;
+};
+
+/**
+ * struct dpni_tx_priorities_cfg - Structure representing transmission
+ *					priorities for DPNI TCs
+ * @tc_sched: An array of traffic-classes which should be used in the
+ * following way:
+ *   - If max_tx_tcs <= 8: the tc_sched[n] struct will host the configuration
+ *   requested for TC#n
+ *   - If max_tx_tcs > 8: the tc_sched[n] struct will host the configuration
+ *   requeted for TC#(8 + n). In this case, the first 8 TCs are configured by
+ *   MC in strict priority order and cannot be changed.
+ *   The only accepted configuration in this case is:
+ *    - TCs [8-12) will be part of WEIGHTED_A group
+ *    - TCs [12-16) will be part of WEIGHTED_B group
+ *   Any other configuration will get rejected by the MC firmware. The
+ *   delta_bandwidth for each TC can be used as usual.
+ * @prio_group_A: Priority of group A
+ * @prio_group_B: Priority of group B
+ * @separate_groups: Treat A and B groups as separate
+ * @ceetm_ch_idx: ceetm channel index to apply the changes
+ */
+struct dpni_tx_priorities_cfg {
+	struct dpni_tx_schedule_cfg tc_sched[DPNI_MAX_TC];
+	u8 prio_group_A;
+	u8 prio_group_B;
+	u8 separate_groups;
+};
+
+int dpni_set_tx_priorities(struct fsl_mc_io *mc_io,
+			   u32 cmd_flags,
+			   u16 token,
+			   const struct dpni_tx_priorities_cfg *cfg);
 
 /**
  * struct dpni_rx_tc_dist_cfg - Rx traffic class distribution configuration
@@ -921,6 +983,12 @@ struct dpni_congestion_notification_cfg {
 	u16 notification_mode;
 };
 
+/** Compose TC parameter for function dpni_set_congestion_notification()
+ * and dpni_get_congestion_notification().
+ */
+#define DPNI_BUILD_CH_TC(ceetm_ch_idx, tc) \
+	((((ceetm_ch_idx) & 0x0F) << 4) | ((tc) & 0x0F))
+
 int dpni_set_congestion_notification(
 			struct fsl_mc_io *mc_io,
 			u32 cmd_flags,
@@ -1116,4 +1184,334 @@ int dpni_add_vlan_id(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
 int dpni_remove_vlan_id(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
 			u16 vlan_id);
 
+int dpni_is_macsec_capable(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			   int *macsec_capable);
+
+/**
+ * enum macsec_validation_mode - validation function for received frames
+ *
+ * @MACSEC_SECY_VALIDATION_DISABLE: disable the validation function
+ * @MACSEC_SECY_VALIDATION_CHECK: enable the validation function but only for
+ *      checking without filtering out invalid frames
+ * @MACSEC_SECY_VALIDATION_STRICT: enable the validation function and also
+ *      strictly filter out those invalid frames
+ */
+enum macsec_validation_mode {
+	MACSEC_SECY_VALIDATION_DISABLE = 0x00,
+	MACSEC_SECY_VALIDATION_CHECK = 0x01,
+	MACSEC_SECY_VALIDATION_STRICT = 0x02
+};
+
+/* enum macsec_cipher_suite - Cipher Suite used for protecting transmitted
+ *      frames and decrypting received frames
+ *
+ * @MACSEC_CIPHER_SUITE_GCM_AES_128: GCM-AES-128
+ * @MACSEC_CIPHER_SUITE_GCM_AES_256: GCM-AES-256
+ */
+enum macsec_cipher_suite {
+	MACSEC_CIPHER_SUITE_GCM_AES_128 = 0x00,
+	MACSEC_CIPHER_SUITE_GCM_AES_256 = 0x01
+};
+
+/**
+ *struct macsec_cipher_suite_cfg - Cipher Suite configuration
+ *
+ *@cipher_suite                         Cipher Suite
+ *@confidentiality:                     '1' for enabling confidentiality
+ *                                      protection; 0 for disabling
+ *@confidentiality_offset:              Number of bytes from the frame data
+ *                                      start that are not confidentiality
+ *                                      protected
+ */
+struct macsec_cipher_suite_cfg {
+	enum macsec_cipher_suite cipher_suite;
+	int confidentiality;
+	u8 co_offset;
+};
+
+/**
+ * struct macsec_secy_cfg - SecY configuration
+ *
+ * @cs: Cipher Suite configuration
+ * @tx_sci: SCI of transmitting channel. It should be composed of 48-bytes
+ *          source MAC address concatenated with 16-bit port id.  In case of
+ *          point-to-point mode, this field has no meaning.
+ * @is_ptp: Point-to-Point mode. In this mode the SCI is not presented in the
+ *          outgoing frame; Instead, the second end-point should be configured
+ *          to point-to-point mode as well and be set with the same key.
+ * @validation_mode: Validation mode for received frames.
+ * @max_rx_sc: Maximum number of receiving-SC that can be created on this SecY.
+ *             Ignored in point-to-point mode.
+ */
+struct macsec_secy_cfg {
+	struct macsec_cipher_suite_cfg cs;
+	u64 tx_sci;
+	int is_ptp;
+	enum macsec_validation_mode validation_mode;
+	u8 max_rx_sc;
+};
+
+int dpni_add_secy(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+		  const struct macsec_secy_cfg *cfg, u8 *secy_id);
+
+int dpni_remove_secy(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token, u8 secy_id);
+
+int dpni_secy_set_state(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 secy_id, bool active);
+
+int dpni_secy_set_tx_protection(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+				u8 secy_id, bool protect);
+
+int dpni_secy_set_replay_protection(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+				    u8 secy_id, bool en, u32 window);
+
+/**
+ * struct macsec_tx_sa_cfg - transmitting-SA configuration
+ *
+ * @an: Association Number (AN). 2-bits value (0-3)
+ * @key: Key used for protecting outgoing frames
+ * @next_pn: The PN field value for the first outgoing frame from this SA
+ */
+struct macsec_tx_sa_cfg {
+	u8 key[32];
+	u32 next_pn;
+	u8 an;
+};
+
+int dpni_secy_add_tx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 secy_id, struct macsec_tx_sa_cfg *cfg);
+
+int dpni_secy_remove_tx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			   u8 secy_id, u8 an);
+
+int dpni_secy_set_active_tx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			       u8 secy_id, u8 assoc_num);
+
+int dpni_secy_add_rx_sc(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 secy_id, u64 sci);
+
+int dpni_secy_remove_rx_sc(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			   u8 secy_id, u64 sci);
+
+int dpni_secy_set_rx_sc_state(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u64 sci, bool active);
+
+/**
+ * struct macsec_rx_sa_cfg - receiving-SA configuration
+ *
+ * @key: Key used for decrypting received frames
+ * @lowest_pn: Initial lowest PN field allowed for received frames
+ * @an: Association Number (AN). 2-bits value (0-3)
+ */
+struct macsec_rx_sa_cfg {
+	u8 key[32];
+	u32 lowest_pn;
+	u8 an;
+};
+
+int dpni_secy_add_rx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token, u8 secy_id,
+			u64 sci, struct macsec_rx_sa_cfg *cfg);
+
+int dpni_secy_remove_rx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			   u8 secy_id, u64 sci, u8 an);
+
+int dpni_secy_set_rx_sa_next_pn(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+				u8 secy_id, u64 sci, u8 an, u32 next_pn);
+
+int dpni_secy_set_rx_sa_state(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u64 sci, u8 an, bool active);
+
+/**
+ * union macsec_secy_stats - per SecY statistics
+ *
+ * @page_0: Page_0 statistics structure
+ * @page_0.cnt_ing_bytes: Count ingress bytes on the controlled port
+ * @page_0.cnt_ing_ucast_frames: Count ingress unicast-frames on the controlled port
+ * @page_0.cnt_ing_mcast_frames: Count ingress multicast-frames on the controlled port
+ * @page_0.cnt_ing_bcast_frames: Count ingress broadcast-frames on the controlled port
+ * @page_0.cnt_egr_bytes: Count egress bytes
+ * @page_0.cnt_egr_ucast_frames: Count egress unicast-frames
+ * @page_0.cnt_egr_mcast_frames: Count egress multicast-frames
+ *
+ * @page_1: Page_1 statistics structure
+ * @page_1.cnt_egr_bcast_frames: Count egress broadcast-frames
+ *
+ */
+union macsec_secy_stats {
+	struct {
+		u64 cnt_ing_bytes;
+		u64 cnt_ing_ucast_frames;
+		u64 cnt_ing_mcast_frames;
+		u64 cnt_ing_bcast_frames;
+		u64 cnt_egr_bytes;
+		u64 cnt_egr_ucast_frames;
+		u64 cnt_egr_mcast_frames;
+	} page_0;
+	struct {
+		u64 cnt_egr_bcast_frames;
+	} page_1;
+	struct {
+		u64 counter[DPNI_STATISTICS_CNT];
+	} raw;
+};
+
+int dpni_secy_get_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 secy_id, u8 page, union macsec_secy_stats *stats);
+
+/**
+ * union macsec_secy_tx_sc_stats - per Tx SC statistics
+ *
+ * @page_0: Page_0 statistics structure
+ * @page_0.protected_frames: Count protected frames.
+ * @page_0.encrypted_frames: Count encrypted frames.
+ * @page_0.protected_bytes: Count total bytes of all protected frames.
+ * @page_0.encrypted_bytes: Count total bytes of all encrypted frames.
+ */
+union macsec_secy_tx_sc_stats {
+	struct {
+		u64 protected_frames;
+		u64 encrypted_frames;
+		u64 protected_bytes;
+		u64 encrypted_bytes;
+	} page_0;
+	struct {
+		u64 counter[DPNI_STATISTICS_CNT];
+	} raw;
+};
+
+int dpni_secy_get_tx_sc_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, union macsec_secy_tx_sc_stats *stats);
+
+/**
+ * union macsec_secy_tx_sa_stats - per Tx SA statistics
+ *
+ * @page_0: Page_0 statistics structure
+ * @page_0.protected_frames: Count protected frames.
+ * @page_0.encrypted_frames: Count encrypted frames.
+ */
+union macsec_secy_tx_sa_stats {
+	struct {
+		u32 protected_frames;
+		u32 encrypted_frames;
+	} page_0;
+	struct {
+		u32 counter[DPNI_STATISTICS_32_CNT];
+	} raw;
+};
+
+int dpni_secy_get_tx_sa_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u8 an, union macsec_secy_tx_sa_stats *stats);
+
+/**
+ * union macsec_secy_rx_sc_stats - per Rx SC statistics
+ *
+ * @page_0: Page_0 statistics structure
+ * @page_0.unused_frames: Count frames received on the SC's disabled SAs where
+ *                        the SecY validateFrame property is not 'Strict' and
+ *                        the frame C bit is not set
+ * @page_0.not_using_sa_frames: Count frames received on the SC's disabled SAs
+ *                              where the SecY validateFrame property is
+ *                              'Strict' or the frame C bit is set
+ * @page_0.invalid_frames: Count frames that failed integrity check where the
+ *                         SecY validateFrame property is 'Check'
+ * @page_0.not_valid_frames: Count frames that failed integrity check where the
+ *                           SecY validateFrame property is 'Strict' or the
+ *                           frame C bit is set
+ * @page_0.late_frames: Count frames discarded on the SC's SA due to PN field
+ *                      value lower then the SA lowestPN property where the
+ *                      SecY replay protection is enabled
+ * @page_0.delayed_frames: Count frames discarded on the SC's SA due to PN
+ *                         field value lower then the SA lowestPN property
+ *                         where the SecY replay protection is disabled and
+ *                         where the frame does not satisfying the conditions
+ *                         for increasing MACSEC_SECY_CNT_RX_SC_INVALID_FRAME
+ *                         or MACSEC_SECY_CNT_RX_SC_NOT_VALID_FRAME counters
+ * @page_0.unchecked_frames: Count frames that failed integrity check having C
+ *                           bit not set where the SecY validateFrame property
+ *                           is 'Disabled'
+ *
+ * @page_1: Page_1 statistics structure
+ * @page_1.ok_frames: Count frames that passed integrity check having PN field
+ *                    value above the SA lowestPN property
+ * @page_1.validated_bytes: Count bytes of frames that passed integrity check
+ *                          having E bit not set where the SecY validateFrame
+ *                          property is not 'Disabled'
+ * @page_1.decrypted_bytes: Count bytes of frames that passed integrity check
+ *                          having E bit set where the SecY validateFrame
+ *                          property is not 'Disabled'
+ */
+union macsec_secy_rx_sc_stats {
+	struct {
+		u64 unused_frames;
+		u64 not_using_sa_frames;
+		u64 invalid_frames;
+		u64 not_valid_frames;
+		u64 late_frames;
+		u64 delayed_frames;
+		u64 unchecked_frames;
+	} page_0;
+	struct {
+		u64 ok_frames;
+		u64 validated_bytes;
+		u64 decrypted_bytes;
+	} page_1;
+	struct {
+		u64 counter[DPNI_STATISTICS_CNT];
+	} raw;
+};
+
+int dpni_secy_get_rx_sc_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u64 sci, u8 page,
+			      union macsec_secy_rx_sc_stats *stats);
+
+/**
+ * enum macsec_secy_rx_sa_counter - per Rx SA statistics
+ *
+ * @page_0.unused_sa_frames: Count frames received when the SA is disabled
+ *                           where the SecY validateFrame property is not
+ *                           'Strict' and the frame C bit is not set
+ * @page_0.not_using_sa_frames: Count frames received when the SA is disabled
+ *                              where the SecY validateFrame property is
+ *                              'Strict' or the frame C bit is set
+ * @page_0.invalid_frames: Count frames that failed integrity check where the
+ *                         SecY validateFrame property is 'Check'
+ * @page_0.not_valid_frames: Count frames that failed integrity check where the
+ *                           SecY validateFrame property is 'Strict' or the
+ *                           frame C bit is set
+ * @page_0.ok_frames: Count frames that passed integrity check having PN field
+ *                    value above the SA lowestPN property
+ */
+union macsec_secy_rx_sa_stats {
+	struct {
+		u32 unused_sa_frames;
+		u32 not_using_sa_frames;
+		u32 invalid_frames;
+		u32 not_valid_frames;
+		u32 ok_frames;
+	} page_0;
+	struct {
+		u32 counter[DPNI_STATISTICS_32_CNT];
+	} raw;
+};
+
+int dpni_secy_get_rx_sa_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u64 sci, u8 an, union macsec_secy_rx_sa_stats *stats);
+
+union macsec_global_stats {
+	struct {
+		u32 in_without_tag_frames;
+		u32 in_kay_frames;
+		u32 in_bag_tag_frames;
+		u32 in_sci_not_found_frames;
+		u32 in_unsupported_ec_frames;
+		u32 in_too_long_frames;
+		u32 out_discarded_frames;
+	} page_0;
+	struct {
+		u32 counter[DPNI_STATISTICS_32_CNT];
+	} raw;
+};
+
+int dpni_get_macsec_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			  union macsec_global_stats *stats);
 #endif /* __FSL_DPNI_H */

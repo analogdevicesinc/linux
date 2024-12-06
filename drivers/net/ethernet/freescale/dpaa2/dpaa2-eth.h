@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause) */
 /* Copyright 2014-2016 Freescale Semiconductor Inc.
- * Copyright 2016-2022 NXP
+ * Copyright 2016-2022, 2024 NXP
  */
 
 #ifndef __DPAA2_ETH_H
@@ -13,6 +13,8 @@
 #include <linux/net_tstamp.h>
 #include <net/devlink.h>
 #include <net/xdp.h>
+#include <net/dst_metadata.h>
+#include <net/macsec.h>
 
 #include <soc/fsl/dpaa2-io.h>
 #include <soc/fsl/dpaa2-fd.h>
@@ -76,7 +78,7 @@
  * taildrop kicks in
  */
 #define DPAA2_ETH_CG_TAILDROP_THRESH(priv)				\
-	(1024 * dpaa2_eth_queue_count(priv) / dpaa2_eth_tc_count(priv))
+	(1024 * dpaa2_eth_queue_count(priv) / dpaa2_eth_rx_tc_count(priv))
 
 /* Congestion group notification threshold: when this many frames accumulate
  * on the Rx queues belonging to the same TC, the MAC is instructed to send
@@ -262,9 +264,11 @@ struct dpaa2_faead {
 
 #define DPAA2_FAEAD_A2V			0x20000000
 #define DPAA2_FAEAD_A4V			0x08000000
+#define DPAA2_FAEAD_MCVV		0x00004000
 #define DPAA2_FAEAD_UPDV		0x00001000
 #define DPAA2_FAEAD_EBDDV		0x00002000
 #define DPAA2_FAEAD_UPD			0x00000010
+#define DPAA2_FAEAD_MCV			0x00000040
 
 struct ptp_tstamp {
 	u16 sec_msb;
@@ -356,6 +360,9 @@ static inline struct dpaa2_faead *dpaa2_get_faead(void *buf_addr, bool swa)
 					 DPAA2_FAS_L3CE		| \
 					 DPAA2_FAS_L4CE)
 
+/* TCP indication in Frame Annotation Parse Results */
+#define DPAA2_FAF_HI_TCP_PRESENT	BIT(23)
+
 /* Time in milliseconds between link state updates */
 #define DPAA2_ETH_LINK_STATE_REFRESH	1000
 
@@ -371,7 +378,7 @@ static inline struct dpaa2_faead *dpaa2_get_faead(void *buf_addr, bool swa)
  * hardware becomes unresponsive, but not give up too easily if
  * the portal really is busy for valid reasons
  */
-#define DPAA2_ETH_SWP_BUSY_RETRIES	1000
+#define DPAA2_ETH_SWP_BUSY_RETRIES	10000
 
 /* Driver statistics, other than those in struct rtnl_link_stats64.
  * These are usually collected per-CPU and aggregated by ethtool.
@@ -420,17 +427,19 @@ struct dpaa2_eth_ch_stats {
 #define DPAA2_ETH_CH_STATS	7
 
 /* Maximum number of queues associated with a DPNI */
-#define DPAA2_ETH_MAX_TCS		8
+#define DPAA2_ETH_MAX_RX_TCS		8
+#define DPAA2_ETH_MAX_TX_TCS		16
 #define DPAA2_ETH_MAX_RX_QUEUES_PER_TC	16
 #define DPAA2_ETH_MAX_RX_QUEUES		\
-	(DPAA2_ETH_MAX_RX_QUEUES_PER_TC * DPAA2_ETH_MAX_TCS)
+	(DPAA2_ETH_MAX_RX_QUEUES_PER_TC * DPAA2_ETH_MAX_RX_TCS)
 #define DPAA2_ETH_MAX_TX_QUEUES		16
 #define DPAA2_ETH_MAX_RX_ERR_QUEUES	1
 #define DPAA2_ETH_MAX_QUEUES		(DPAA2_ETH_MAX_RX_QUEUES + \
 					DPAA2_ETH_MAX_TX_QUEUES + \
 					DPAA2_ETH_MAX_RX_ERR_QUEUES)
-#define DPAA2_ETH_MAX_NETDEV_QUEUES	\
-	(DPAA2_ETH_MAX_TX_QUEUES * DPAA2_ETH_MAX_TCS)
+#define DPAA2_ETH_MAX_NETDEV_TX_QUEUES	\
+	(DPAA2_ETH_MAX_TX_QUEUES * DPAA2_ETH_MAX_TX_TCS)
+#define DPAA2_ETH_MAX_NETDEV_RX_QUEUES	DPAA2_ETH_MAX_RX_QUEUES
 
 #define DPAA2_ETH_MAX_DPCONS		16
 
@@ -457,7 +466,7 @@ typedef void dpaa2_eth_consume_cb_t(struct dpaa2_eth_priv *priv,
 struct dpaa2_eth_fq {
 	u32 fqid;
 	u32 tx_qdbin;
-	u32 tx_fqid[DPAA2_ETH_MAX_TCS];
+	u32 tx_fqid[DPAA2_ETH_MAX_TX_TCS];
 	u16 flowid;
 	u8 tc;
 	int target_cpu;
@@ -543,6 +552,10 @@ struct dpaa2_eth_trap_data {
 #define DPAA2_ETH_ENQUEUE_MAX_FDS	256
 struct dpaa2_eth_fds {
 	struct dpaa2_fd array[DPAA2_ETH_ENQUEUE_MAX_FDS];
+};
+
+struct dpaa2_eth_macsec {
+	struct macsec_secy *secy;
 };
 
 /* Driver private data */
@@ -636,6 +649,11 @@ struct dpaa2_eth_priv {
 	u32 rx_copybreak;
 
 	struct dpaa2_eth_fds __percpu *fd;
+	bool ceetm_en;
+
+	struct dpaa2_eth_macsec sec;
+	u8 secy_id;
+	struct metadata_dst *md_dst;
 };
 
 struct dpaa2_eth_devlink_priv {
@@ -690,8 +708,11 @@ static inline int dpaa2_eth_cmp_dpni_ver(struct dpaa2_eth_priv *priv,
 #define dpaa2_eth_fs_count(priv)        \
 	((priv)->dpni_attrs.fs_entries)
 
-#define dpaa2_eth_tc_count(priv)	\
-	((priv)->dpni_attrs.num_tcs)
+#define dpaa2_eth_rx_tc_count(priv)	\
+	((priv)->dpni_attrs.num_rx_tcs)
+
+#define dpaa2_eth_tx_tc_count(priv)	\
+	((priv)->dpni_attrs.num_tx_tcs)
 
 /* We have exactly one {Rx, Tx conf} queue per channel */
 #define dpaa2_eth_queue_count(priv)     \
@@ -716,7 +737,7 @@ enum dpaa2_eth_rx_dist {
 
 #define DPNI_PTP_ONESTEP_VER_MAJOR 8
 #define DPNI_PTP_ONESTEP_VER_MINOR 2
-#define DPAA2_ETH_FEATURE_ONESTEP_CFG_DIRECT BIT(0)
+
 #define DPAA2_PTP_SINGLE_STEP_ENABLE	BIT(31)
 #define DPAA2_PTP_SINGLE_STEP_CH	BIT(7)
 #define DPAA2_PTP_SINGLE_CORRECTION_OFF(v) ((v) << 8)
@@ -726,6 +747,23 @@ enum dpaa2_eth_rx_dist {
 #define dpaa2_eth_has_pause_support(priv)			\
 	(dpaa2_eth_cmp_dpni_ver((priv), DPNI_PAUSE_VER_MAJOR,	\
 				DPNI_PAUSE_VER_MINOR) >= 0)
+
+#define DPNI_NUM_TX_TCS_VER_MAJOR	7
+#define DPNI_NUM_TX_TCS_VER_MINOR	3
+
+#define DPNI_MACSEC_VER_MAJOR		8
+#define DPNI_MACSEC_VER_MINOR		5
+
+#define DPAA2_ETH_FEATURE_ONESTEP_CFG_DIRECT	BIT(0)
+#define DPAA2_ETH_FEATURE_GET_NUM_TX_TCS	BIT(1)
+#define DPAA2_ETH_FEATURE_MACSEC		BIT(2)
+
+static inline bool dpaa2_macsec_skb_is_offload(struct sk_buff *skb)
+{
+	struct metadata_dst *md_dst = skb_metadata_dst(skb);
+
+	return md_dst && (md_dst->type == METADATA_MACSEC);
+}
 
 static inline bool dpaa2_eth_tx_pause_enabled(u64 link_options)
 {
@@ -754,8 +792,10 @@ static inline unsigned int dpaa2_eth_needed_headroom(struct sk_buff *skb)
 	if (skb_is_nonlinear(skb))
 		return 0;
 
-	/* If we have Tx timestamping, need 128B hardware annotation */
-	if (skb->cb[0])
+	/* If we have Tx timestamping or this is a MACSec offload skb, we need
+	 * 128B hardware annotation.
+	 */
+	if (skb->cb[0] || dpaa2_macsec_skb_is_offload(skb))
 		headroom += DPAA2_ETH_TX_HWA_SIZE;
 
 	return headroom;
@@ -781,6 +821,11 @@ static inline bool dpaa2_eth_has_mac(struct dpaa2_eth_priv *priv)
 	lockdep_assert_held(&priv->mac_lock);
 
 	return priv->mac ? true : false;
+}
+
+static inline int dpaa2_eth_ch_count(struct dpaa2_eth_priv *priv)
+{
+	return 1;
 }
 
 int dpaa2_eth_set_hash(struct net_device *net_dev, u64 flags);
@@ -857,5 +902,8 @@ bool dpaa2_xsk_tx(struct dpaa2_eth_priv *priv,
 void *dpaa2_eth_sgt_get(struct dpaa2_eth_priv *priv);
 
 void dpaa2_eth_sgt_recycle(struct dpaa2_eth_priv *priv, void *sgt_buf);
+
+int dpaa2_eth_macsec_init(struct dpaa2_eth_priv *priv);
+void dpaa2_eth_macsec_deinit(struct dpaa2_eth_priv *priv);
 
 #endif	/* __DPAA2_H */

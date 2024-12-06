@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
 /* Copyright 2013-2016 Freescale Semiconductor Inc.
- * Copyright 2016 NXP
- * Copyright 2020 NXP
+ * Copyright 2016, 2020, 2024 NXP
  */
 #include <linux/kernel.h>
 #include <linux/errno.h>
@@ -532,13 +531,15 @@ int dpni_clear_irq_status(struct fsl_mc_io *mc_io,
  * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
  * @token:	Token of DPNI object
  * @attr:	Object's attributes
+ * @cmdid:	Command ID to be used
  *
  * Return:	'0' on Success; Error code otherwise.
  */
 int dpni_get_attributes(struct fsl_mc_io *mc_io,
 			u32 cmd_flags,
 			u16 token,
-			struct dpni_attr *attr)
+			struct dpni_attr *attr,
+			u16 cmdid)
 {
 	struct fsl_mc_command cmd = { 0 };
 	struct dpni_rsp_get_attr *rsp_params;
@@ -546,7 +547,7 @@ int dpni_get_attributes(struct fsl_mc_io *mc_io,
 	int err;
 
 	/* prepare command */
-	cmd.header = mc_encode_cmd_header(DPNI_CMDID_GET_ATTR,
+	cmd.header = mc_encode_cmd_header(cmdid,
 					  cmd_flags,
 					  token);
 
@@ -559,7 +560,8 @@ int dpni_get_attributes(struct fsl_mc_io *mc_io,
 	rsp_params = (struct dpni_rsp_get_attr *)cmd.params;
 	attr->options = le32_to_cpu(rsp_params->options);
 	attr->num_queues = rsp_params->num_queues;
-	attr->num_tcs = rsp_params->num_tcs;
+	attr->num_rx_tcs = rsp_params->num_rx_tcs;
+	attr->num_tx_tcs = rsp_params->num_tx_tcs;
 	attr->mac_filter_entries = rsp_params->mac_filter_entries;
 	attr->vlan_filter_entries = rsp_params->vlan_filter_entries;
 	attr->qos_entries = rsp_params->qos_entries;
@@ -1417,6 +1419,55 @@ int dpni_clear_mac_filters(struct fsl_mc_io *mc_io,
 }
 
 /**
+ * dpni_set_tx_priorities() - Set transmission TC priority configuration
+ * @mc_io:	Pointer to MC portal's I/O object
+ * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:	Token of DPNI object
+ * @cfg:	Transmission selection configuration
+ *
+ * warning:	Allowed only when DPNI is disabled
+ *
+ * Return:	'0' on Success; Error code otherwise.
+ */
+int dpni_set_tx_priorities(struct fsl_mc_io *mc_io,
+			   u32 cmd_flags,
+			   u16 token,
+			   const struct dpni_tx_priorities_cfg *cfg)
+{
+	struct dpni_cmd_set_tx_priorities *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+	int i;
+
+	/* prepare command */
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SET_TX_PRIORITIES,
+					  cmd_flags,
+					  token);
+	cmd_params = (struct dpni_cmd_set_tx_priorities *)cmd.params;
+	dpni_set_field(cmd_params->flags,
+		       SEPARATE_GRP,
+		       cfg->separate_groups);
+	cmd_params->prio_group_A = cfg->prio_group_A;
+	cmd_params->prio_group_B = cfg->prio_group_B;
+
+	for (i = 0; i + 1 < DPNI_MAX_TC; i += 2) {
+		dpni_set_field(cmd_params->modes[i / 2],
+			       MODE_1,
+			       cfg->tc_sched[i].mode);
+		dpni_set_field(cmd_params->modes[i / 2],
+			       MODE_2,
+			       cfg->tc_sched[i + 1].mode);
+	}
+
+	for (i = 0; i < DPNI_MAX_TC; i++) {
+		cmd_params->delta_bandwidth[i] =
+				cpu_to_le16(cfg->tc_sched[i].delta_bandwidth);
+	}
+
+	/* send command to mc*/
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
  * dpni_set_rx_tc_dist() - Set Rx traffic class distribution configuration
  * @mc_io:	Pointer to MC portal's I/O object
  * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
@@ -1461,7 +1512,10 @@ int dpni_set_rx_tc_dist(struct fsl_mc_io *mc_io,
  * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
  * @token:	Token of DPNI object
  * @qtype:	Type of queue - Rx, Tx and Tx confirm types are supported
- * @tc_id:	Traffic class selection (0-7)
+ * @tc_id:	bits 7-4 contain ceetm channel index (valid only for TX);
+ *		bits 3-0 contain traffic class.
+ *		Use macro DPNI_BUILD_CH_TC() to build correct value for
+ *		tc_id parameter
  * @cfg:	Congestion notification configuration
  *
  * Return:	'0' on Success; error code otherwise.
@@ -1617,6 +1671,8 @@ int dpni_get_queue(struct fsl_mc_io *mc_io,
  * @token:	Token of DPNI object
  * @page:	Selects the statistics page to retrieve, see
  *		DPNI_GET_STATISTICS output. Pages are numbered 0 to 6.
+ * @param:	Custom parameter for some pages used to select a certain
+ *		statistic source, for example the TC.
  * @stat:	Structure containing the statistics
  *
  * Return:	'0' on Success; Error code otherwise.
@@ -1625,6 +1681,7 @@ int dpni_get_statistics(struct fsl_mc_io *mc_io,
 			u32 cmd_flags,
 			u16 token,
 			u8 page,
+			u8 param,
 			union dpni_statistics *stat)
 {
 	struct fsl_mc_command cmd = { 0 };
@@ -1638,6 +1695,7 @@ int dpni_get_statistics(struct fsl_mc_io *mc_io,
 					  token);
 	cmd_params = (struct dpni_cmd_get_statistics *)cmd.params;
 	cmd_params->page_number = page;
+	cmd_params->param = param;
 
 	/* send command to mc */
 	err = mc_send_command(mc_io, &cmd);
@@ -1653,6 +1711,29 @@ int dpni_get_statistics(struct fsl_mc_io *mc_io,
 }
 
 /**
+ * dpni_reset_statistics() - Clears DPNI statistics
+ * @mc_io:		Pointer to MC portal's I/O object
+ * @cmd_flags:		Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:		Token of DPNI object
+ *
+ * Return:  '0' on Success; Error code otherwise.
+ */
+int dpni_reset_statistics(struct fsl_mc_io *mc_io,
+			  u32 cmd_flags,
+			  u16 token)
+{
+	struct fsl_mc_command cmd = { 0 };
+
+	/* prepare command */
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_RESET_STATISTICS,
+					  cmd_flags,
+					  token);
+
+	/* send command to mc*/
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
  * dpni_set_taildrop() - Set taildrop per queue or TC
  * @mc_io:	Pointer to MC portal's I/O object
  * @cmd_flags:	Command flags; one or more of 'MC_CMD_FLAG_'
@@ -1660,7 +1741,10 @@ int dpni_get_statistics(struct fsl_mc_io *mc_io,
  * @cg_point:	Congestion point
  * @qtype:	Queue type on which the taildrop is configured.
  *		Only Rx queues are supported for now
- * @tc:		Traffic class to apply this taildrop to
+ * @tc:		bits 7-4 contain ceetm channel index (valid only for TX);
+ *		bits 3-0 contain traffic class.
+ *		Use macro DPNI_BUILD_CH_TC() to build correct value for
+ *		tc parameter.
  * @index:	Index of the queue if the DPNI supports multiple queues for
  *		traffic distribution. Ignored if CONGESTION_POINT is not 0.
  * @taildrop:	Taildrop structure
@@ -1704,7 +1788,10 @@ int dpni_set_taildrop(struct fsl_mc_io *mc_io,
  * @cg_point:	Congestion point
  * @qtype:	Queue type on which the taildrop is configured.
  *		Only Rx queues are supported for now
- * @tc:		Traffic class to apply this taildrop to
+ * @tc:		bits 7-4 contain ceetm channel index (valid only for TX);
+ *		bits 3-0 contain traffic class.
+ *		Use macro DPNI_BUILD_CH_TC() to build correct value for
+ *		tc parameter.
  * @index:	Index of the queue if the DPNI supports multiple queues for
  *		traffic distribution. Ignored if CONGESTION_POINT is not 0.
  * @taildrop:	Taildrop structure
@@ -2182,4 +2269,655 @@ int dpni_set_single_step_cfg(struct fsl_mc_io *mc_io,
 
 	/* send command to mc*/
 	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_is_macsec_capable() - Verify is a specific DPNI is MACSec capable which
+ *  is only true if the DPNI is connected to a DPMAC with MACSec offload
+ *  capabilities.
+ * @mc_io:          Pointer to opaque I/O object
+ * @cmd_flags:      Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:          Token of dpni object
+ * @macsec_capable: 1 if the DPNI supports MACSec offload, 0 otherwise
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_is_macsec_capable(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			   int *macsec_capable)
+{
+	struct dpni_rsp_is_macsec_capable *rsp_params;
+	struct fsl_mc_command cmd = { 0 };
+	int err;
+
+	/* prepare command */
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_IS_MACSEC_CAPABLE,
+					  cmd_flags,
+					  token);
+
+	/* send command to mc*/
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	/* retrieve response parameters */
+	rsp_params = (struct dpni_rsp_is_macsec_capable *)cmd.params;
+	*macsec_capable = dpni_get_field(rsp_params->en, MACSEC);
+
+	return 0;
+}
+
+/**
+ * dpni_add_secy() - Add a new SecY to the MACsec block of the connected MAC
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @cfg:        Configuration parameters for the new SeCy
+ * @secy_id:    unique ID of the SeCy
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_add_secy(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+		  const struct macsec_secy_cfg *cfg, u8 *secy_id)
+{
+	struct dpni_cmd_add_secy *cmd_params;
+	struct dpni_rsp_add_secy *rsp_params;
+	struct fsl_mc_command cmd = { 0 };
+	int err;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_ADD_SECY, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_add_secy *)cmd.params;
+	cmd_params->tx_sci = cpu_to_le64(cfg->tx_sci);
+	cmd_params->co_offset = cfg->cs.co_offset;
+	cmd_params->max_rx_sc = cfg->max_rx_sc;
+	dpni_set_field(cmd_params->flags, SECY_CIPHER_SUITE, cfg->cs.cipher_suite);
+	dpni_set_field(cmd_params->flags, SECY_CONFIDENTIALITY, cfg->cs.confidentiality);
+	dpni_set_field(cmd_params->flags, SECY_IS_PTP, cfg->is_ptp);
+	dpni_set_field(cmd_params->flags, SECY_VALIDATION_MODE, cfg->validation_mode);
+
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	rsp_params = (struct dpni_rsp_add_secy *)cmd.params;
+	*secy_id = rsp_params->secy_id;
+
+	return 0;
+}
+
+/**
+ * dpni_remove_secy() - Remove a SecY
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_remove_secy(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token, u8 secy_id)
+{
+	struct dpni_cmd_remove_secy *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+	int err;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_REMOVE_SECY, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_remove_secy *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	return 0;
+}
+
+/**
+ * dpni_secy_set_state() - Change the state of a specific SecY
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @active:     Required state
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_secy_set_state(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 secy_id, bool active)
+{
+	struct dpni_cmd_secy_set_state *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_SET_STATE, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_set_state *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	dpni_set_field(cmd_params->flags, SECY_ACTIVE, active ? 1 : 0);
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_secy_set_tx_protection() - Change the state of a specific SecY
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @active:     Required state
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+
+int dpni_secy_set_tx_protection(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+				u8 secy_id, bool protect)
+{
+	struct dpni_cmd_secy_set_protect *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_SET_PROTECT, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_set_protect *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	dpni_set_field(cmd_params->flags, SECY_TX_PROTECT, protect ? 1 : 0);
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_secy_set_replay_protection - Enable/disable the replay protection on a SeCy
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @en:         Required state for the replay protection
+ * @window:     Replay window size
+ *
+ * This APIs needs to be used only when all the RX SCs are disabled. It will
+ * return an error otherwise.
+ * Return:      '0' on Success; Error code otherwise.
+ */
+
+int dpni_secy_set_replay_protection(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+				    u8 secy_id, bool en, u32 window)
+{
+	struct dpni_cmd_secy_set_replay_protect *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_SET_REPLAY_PROTECT, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_set_replay_protect *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->replay_window = cpu_to_le32(window);
+	dpni_set_field(cmd_params->flags, SECY_REPLAY_PROTECT_EN, en ? 1 : 0);
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_secy_add_tx_sa() - Add a Tx Secure Association to a specific SeCy
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @cfg:        Configuration parameters for the new Tx SA
+ * @secy_id:    unique ID of the SeCy
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_secy_add_tx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 secy_id, struct macsec_tx_sa_cfg *cfg)
+{
+	struct dpni_cmd_secy_add_tx_sa *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+	int i;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_ADD_TX_SA, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_add_tx_sa *)cmd.params;
+	for (i = 0; i < 32; i++)
+		cmd_params->key[i] = cfg->key[i];
+	cmd_params->next_pn = cpu_to_le32(cfg->next_pn);
+	cmd_params->secy_id = secy_id;
+	cmd_params->an = cfg->an;
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_secy_remove_tx_sa() - Remove a Tx Secure Association for a specific SeCy
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @an:    Association number
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_secy_remove_tx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			   u8 secy_id, u8 an)
+{
+	struct dpni_cmd_secy_remove_tx_sa *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_REMOVE_TX_SA, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_remove_tx_sa *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->an = an;
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_secy_set_active_tx_sa() - Set the active SA used by the SecY's
+ *                                 transmitting-SC to send frames
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @cfg:        Configuration parameters for the new Tx SA
+ * @secy_id:    unique ID of the SeCy
+ * @assoc_num:  association number of the Tx SA
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_secy_set_active_tx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			       u8 secy_id, u8 assoc_num)
+{
+	struct dpni_cmd_secy_set_tx_sa *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_SET_ACTIVE_TX_SA, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_set_tx_sa *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->an = assoc_num;
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_secy_add_rx_sc() - Add a new RX SC associated with a specific SeCy
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @sci:        SCI for the Rx channel
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_secy_add_rx_sc(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 secy_id, u64 sci)
+{
+	struct dpni_cmd_secy_rx_sc *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_ADD_RX_SC, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_rx_sc *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->sci = cpu_to_le64(sci);
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_secy_remove_rx_sc() - Remove a RX SC associated with a specific SeCy
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @sci:        SCI for the Rx channel
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_secy_remove_rx_sc(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			   u8 secy_id, u64 sci)
+{
+	struct dpni_cmd_secy_rx_sc *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_REMOVE_RX_SC, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_rx_sc *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->sci = cpu_to_le64(sci);
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_secy_set_rx_sc_state() - Enable/disable a RX SC
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @sci:        SCI for the Rx channel
+ * @active:     Desired state of the Rx channel
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_secy_set_rx_sc_state(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u64 sci, bool active)
+{
+	struct dpni_cmd_secy_set_rx_sc_state *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_SET_RX_SC_STATE, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_set_rx_sc_state *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->sci = cpu_to_le64(sci);
+	cmd_params->en = active ? 1 : 0;
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_secy_add_rx_sa() - Add a new RX Secure Association
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @sci:        SCI for the Rx channel
+ * @cfg:        Configuration for the new SA
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_secy_add_rx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token, u8 secy_id,
+			u64 sci, struct macsec_rx_sa_cfg *cfg)
+{
+	struct dpni_cmd_secy_add_rx_sa *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+	int i;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_ADD_RX_SA, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_add_rx_sa *)cmd.params;
+	for (i = 0; i < 32; i++)
+		cmd_params->key[i] = cfg->key[i];
+	cmd_params->lowest_pn = cpu_to_le32(cfg->lowest_pn);
+	cmd_params->secy_id = secy_id;
+	cmd_params->an = cfg->an;
+	cmd_params->sci = cpu_to_le64(sci);
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_secy_remove_rx_sa() - Remove a RX Secure Association
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @sci:        SCI for the Rx channel
+ * @an:		Association number
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_secy_remove_rx_sa(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			   u8 secy_id, u64 sci, u8 an)
+{
+	struct dpni_cmd_secy_remove_rx_sa *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_REMOVE_RX_SA, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_remove_rx_sa *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->an = an;
+	cmd_params->sci = cpu_to_le64(sci);
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_secy_set_rx_sa_next_pn() - Set the next PN for a specific SA
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @sci:        SCI for the Rx channel
+ * @an:         Association number of the SA
+ * @next_pn:    Next packet number
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_secy_set_rx_sa_next_pn(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+				u8 secy_id, u64 sci, u8 an, u32 next_pn)
+{
+	struct dpni_cmd_secy_set_rx_sa_next_pn *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_SET_RX_SA_NEXT_PN, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_set_rx_sa_next_pn *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->an = an;
+	cmd_params->sci = cpu_to_le64(sci);
+	cmd_params->next_pn = cpu_to_le32(next_pn);
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_secy_set_rx_sa_state() - Enable/disable a RX Secure Association
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @sci:        SCI for the Rx channel
+ * @an:         Association number of the SA
+ * @active:     Desired state of the SA
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_secy_set_rx_sa_state(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u64 sci, u8 an, bool active)
+{
+	struct dpni_cmd_secy_set_rx_sa_state *cmd_params;
+	struct fsl_mc_command cmd = { 0 };
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_SET_RX_SA_STATE, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_set_rx_sa_state *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->an = an;
+	cmd_params->sci = cpu_to_le64(sci);
+	cmd_params->en = active ? 1 : 0;
+
+	return mc_send_command(mc_io, &cmd);
+}
+
+/**
+ * dpni_secy_get_stats() - Get per SeCy statistics
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @page:       Page number of the inquired statistics
+ * @stats:      Union holding the statistics
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+int dpni_secy_get_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			u8 secy_id, u8 page, union macsec_secy_stats *stats)
+{
+	struct dpni_cmd_secy_get_stats *cmd_params;
+	struct dpni_rsp_get_statistics *rsp_params;
+	struct fsl_mc_command cmd = { 0 };
+	int i, err;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_GET_STATS, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_get_stats *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->page = page;
+
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	rsp_params = (struct dpni_rsp_get_statistics *)cmd.params;
+	for (i = 0; i < DPNI_STATISTICS_CNT; i++)
+		stats->raw.counter[i] = le64_to_cpu(rsp_params->counter[i]);
+
+	return 0;
+}
+
+/**
+ * dpni_secy_get_tx_sc_stats() - Get per Tx SC statistics
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @stats:      Union holding the statistics
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+
+int dpni_secy_get_tx_sc_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, union macsec_secy_tx_sc_stats *stats)
+{
+	struct dpni_cmd_secy_get_tx_sc_stats *cmd_params;
+	struct dpni_rsp_get_statistics *rsp_params;
+	struct fsl_mc_command cmd = { 0 };
+	int i, err;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_GET_TX_SC_STATS, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_get_tx_sc_stats *)cmd.params;
+	cmd_params->secy_id = secy_id;
+
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	rsp_params = (struct dpni_rsp_get_statistics *)cmd.params;
+	for (i = 0; i < DPNI_STATISTICS_CNT; i++)
+		stats->raw.counter[i] = le64_to_cpu(rsp_params->counter[i]);
+
+	return 0;
+}
+
+/**
+ * dpni_secy_get_tx_sa_stats() - Get per Tx SA statistics
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @an:         Association number of the SA
+ * @stats:      Union holding the statistics
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+
+int dpni_secy_get_tx_sa_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u8 an, union macsec_secy_tx_sa_stats *stats)
+{
+	struct dpni_cmd_secy_get_tx_sa_stats *cmd_params;
+	struct dpni_rsp_stats32 *rsp_params;
+	struct fsl_mc_command cmd = { 0 };
+	int i, err;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_GET_TX_SA_STATS, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_get_tx_sa_stats *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->an = an;
+
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	rsp_params = (struct dpni_rsp_stats32 *)cmd.params;
+	for (i = 0; i < DPNI_STATISTICS_32_CNT; i++)
+		stats->raw.counter[i] = le32_to_cpu(rsp_params->counter[i]);
+
+	return 0;
+}
+
+/**
+ * dpni_secy_get_rx_sc_stats() - Get per Rx SC statistics
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @sci:        SCI for the Rx channel
+ * @page:       Page number of the inquired statistics
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+
+int dpni_secy_get_rx_sc_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u64 sci, u8 page,
+			      union macsec_secy_rx_sc_stats *stats)
+{
+	struct dpni_cmd_secy_get_rx_sc_stats *cmd_params;
+	struct dpni_rsp_get_statistics *rsp_params;
+	struct fsl_mc_command cmd = { 0 };
+	int i, err;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_GET_RX_SC_STATS, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_get_rx_sc_stats *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->sci = cpu_to_le64(sci);
+	cmd_params->page = page;
+
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	rsp_params = (struct dpni_rsp_get_statistics *)cmd.params;
+	for (i = 0; i < DPNI_STATISTICS_CNT; i++)
+		stats->raw.counter[i] = le64_to_cpu(rsp_params->counter[i]);
+
+	return 0;
+}
+
+/**
+ * dpni_secy_get_rx_sa_stats() - Get per Rx SA statistics
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @secy_id:    unique ID of the SeCy
+ * @sci:        SCI for the Rx channel
+ * @an:         Association number of the SA
+ * @stats:      Union holding the statistics
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+
+int dpni_secy_get_rx_sa_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			      u8 secy_id, u64 sci, u8 an, union macsec_secy_rx_sa_stats *stats)
+{
+	struct dpni_cmd_secy_get_rx_sa_stats *cmd_params;
+	struct dpni_rsp_stats32 *rsp_params;
+	struct fsl_mc_command cmd = { 0 };
+	int i, err;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_SECY_GET_RX_SA_STATS, cmd_flags, token);
+	cmd_params = (struct dpni_cmd_secy_get_rx_sa_stats *)cmd.params;
+	cmd_params->secy_id = secy_id;
+	cmd_params->sci = cpu_to_le64(sci);
+	cmd_params->an = an;
+
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	rsp_params = (struct dpni_rsp_stats32 *)cmd.params;
+	for (i = 0; i < DPNI_STATISTICS_32_CNT; i++)
+		stats->raw.counter[i] = le32_to_cpu(rsp_params->counter[i]);
+
+	return 0;
+}
+
+/**
+ * dpni_get_macsec_stats() - Get MACSec global statistics
+ * @mc_io:      Pointer to opaque I/O object
+ * @cmd_flags:  Command flags; one or more of 'MC_CMD_FLAG_'
+ * @token:      Token of dpni object
+ * @stats:      Union holding the statistics
+ *
+ * Return:      '0' on Success; Error code otherwise.
+ */
+
+int dpni_get_macsec_stats(struct fsl_mc_io *mc_io, u32 cmd_flags, u16 token,
+			  union macsec_global_stats *stats)
+{
+	struct dpni_rsp_stats32 *rsp_params;
+	struct fsl_mc_command cmd = { 0 };
+	int i, err;
+
+	cmd.header = mc_encode_cmd_header(DPNI_CMDID_GET_MACSEC_STATS, cmd_flags, token);
+
+	err = mc_send_command(mc_io, &cmd);
+	if (err)
+		return err;
+
+	rsp_params = (struct dpni_rsp_stats32 *)cmd.params;
+	for (i = 0; i < DPNI_STATISTICS_32_CNT; i++)
+		stats->raw.counter[i] = le32_to_cpu(rsp_params->counter[i]);
+
+	return 0;
 }
