@@ -1,0 +1,16 @@
+/* SPDX-License-Identifier: GPL-2.0+ */
+
+/*
+ * Copyright 2021 NXP
+ */
+
+#ifndef DT_BINDING_RESET_IMX8ULP_SIM_H
+#define DT_BINDING_RESET_IMX8ULP_SIM_H
+
+#define IMX8ULP_SIM_RESET_MIPI_DSI_RST_DPI_N	0
+#define IMX8ULP_SIM_RESET_MIPI_DSI_RST_ESC_N	1
+#define IMX8ULP_SIM_RESET_MIPI_DSI_RST_BYTE_N	2
+
+#define IMX8ULP_SIM_RESET_NUM			3
+
+#endif

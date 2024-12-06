@@ -89,6 +89,15 @@ config RESET_GPIO
 
 	  If compiled as module, it will be called reset-gpio.
 
+config RESET_DISPMIX
+	tristate "IMX Display Mix reset support"
+	default y
+	select REGMAP_MMIO
+	depends on ARCH_MXC
+	help
+	  This driver provides support for Display Mix reset that is controlled
+	  by dispmix GPR registers.
+
 config RESET_HSDK
 	bool "Synopsys HSDK Reset Driver"
 	depends on HAS_IOMEM
@@ -112,6 +121,19 @@ config RESET_IMX8MP_AUDIOMIX
 	default CLK_IMX8MP
 	help
 	  This enables the reset controller driver for i.MX8MP AudioMix
+config RESET_IMX8ULP_CSR
+	tristate "i.MX8ULP MIPI CSI CSR module Reset Driver"
+	depends on ARCH_MXC
+	help
+	  This enables the MIPI CSI CSR module reset driver for
+	  i.MX8ULP SoC.
+
+config RESET_IMX8ULP_SIM
+	tristate "i.MX8ULP SIM Reset Driver"
+	depends on ARCH_MXC
+	help
+	  This enables the SIM (System Integration Module) reset driver
+	  for i.MX8ulp SoC.
 
 config RESET_INTEL_GW
 	bool "Intel Reset Controller Driver"
@@ -138,6 +160,14 @@ config RESET_LANTIQ
 	default SOC_TYPE_XWAY
 	help
 	  This enables the reset controller driver for Lantiq / Intel XWAY SoCs.
+
+config RESET_GPIO
+	tristate "GPIO reset controller support"
+	default y
+	depends on GPIOLIB && OF
+	help
+	  This driver provides support for reset lines that are controlled
+	  directly by GPIOs.
 
 config RESET_LPC18XX
 	bool "LPC18xx/43xx Reset Driver" if COMPILE_TEST
