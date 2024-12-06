@@ -1,0 +1,33 @@
+Device-Tree bindings for input/keyboard/rpmsg-keys.c keys driver over
+rpmsg. On i.mx7ULP keys are connected on M4 side, so rpmsg-keys driver
+needed to get the key status from M4 side by rpmsg.
+
+Required properties:
+	- compatible = "fsl,rpmsg-keys";
+
+Each button/key looked as the sub node:
+Required properties:
+	- label: the key name
+	- linux,code: the key value defined in
+		include/dt-bindings/input/input.h
+Optional property:
+	- rpmsg-key,wakeup: wakeup feature, the keys can wakeup from
+	suspend if the keys with this property pressed.
+
+Example nodes:
+	rpmsg_keys: rpmsg-keys {
+		compatible = "fsl,rpmsg-keys";
+
+		volume-up {
+			label = "Volume Up";
+			rpmsg-key,wakeup;
+			linux,code = <KEY_VOLUMEUP>;
+		};
+
+		volume-down {
+			label = "Volume Down";
+			rpmsg-key,wakeup;
+			linux,code = <KEY_VOLUMEDOWN>;
+		};
+	};
+
