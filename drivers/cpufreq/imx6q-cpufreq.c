@@ -3,6 +3,7 @@
  * Copyright (C) 2013 Freescale Semiconductor, Inc.
  */
 
+#include <linux/busfreq-imx.h>
 #include <linux/clk.h>
 #include <linux/cpu.h>
 #include <linux/cpufreq.h>
@@ -16,14 +17,27 @@
 #include <linux/regulator/consumer.h>
 #include <linux/mfd/syscon.h>
 #include <linux/regmap.h>
+#include <linux/suspend.h>
 
 #define PU_SOC_VOLTAGE_NORMAL	1250000
 #define PU_SOC_VOLTAGE_HIGH	1275000
 #define FREQ_1P2_GHZ		1200000000
+#define FREQ_396_MHZ		396000
 
-static struct regulator *arm_reg;
-static struct regulator *pu_reg;
-static struct regulator *soc_reg;
+#define PU_SOC_VOLTAGE_NORMAL	1250000
+#define PU_SOC_VOLTAGE_HIGH	1275000
+#define DC_VOLTAGE_MIN		1300000
+#define DC_VOLTAGE_MAX		1400000
+#define FREQ_1P2_GHZ		1200000000
+#define FREQ_396_MHZ		396000
+#define FREQ_528_MHZ		528000
+#define FREQ_198_MHZ		198000
+#define FREQ_24_MHZ		24000
+
+struct regulator *arm_reg;
+struct regulator *pu_reg;
+struct regulator *soc_reg;
+struct regulator *dc_reg;
 
 enum IMX6_CPUFREQ_CLKS {
 	ARM,
@@ -31,12 +45,15 @@ enum IMX6_CPUFREQ_CLKS {
 	STEP,
 	PLL1_SW,
 	PLL2_PFD2_396M,
+	PLL1,
+	PLL1_BYPASS,
+	PLL1_BYPASS_SRC,
 	/* MX6UL requires two more clks */
 	PLL2_BUS,
 	SECONDARY_SEL,
 };
-#define IMX6Q_CPUFREQ_CLK_NUM		5
-#define IMX6UL_CPUFREQ_CLK_NUM		7
+#define IMX6Q_CPUFREQ_CLK_NUM		8
+#define IMX6UL_CPUFREQ_CLK_NUM		10
 
 static int num_clks;
 static struct clk_bulk_data clks[] = {
@@ -45,6 +62,9 @@ static struct clk_bulk_data clks[] = {
 	{ .id = "step" },
 	{ .id = "pll1_sw" },
 	{ .id = "pll2_pfd2_396m" },
+	{ .id = "pll1" },
+	{ .id = "pll1_bypass" },
+	{ .id = "pll1_bypass_src" },
 	{ .id = "pll2_bus" },
 	{ .id = "secondary_sel" },
 };
@@ -57,6 +77,9 @@ static unsigned int transition_latency;
 static u32 *imx6_soc_volt;
 static u32 soc_opp_count;
 
+static bool ignore_dc_reg;
+static bool low_power_run_support;
+
 static int imx6q_set_target(struct cpufreq_policy *policy, unsigned int index)
 {
 	struct dev_pm_opp *opp;
@@ -67,7 +90,16 @@ static int imx6q_set_target(struct cpufreq_policy *policy, unsigned int index)
 
 	new_freq = freq_table[index].frequency;
 	freq_hz = new_freq * 1000;
-	old_freq = clk_get_rate(clks[ARM].clk) / 1000;
+	old_freq = policy->cur;
+
+	/*
+	 * ON i.MX6ULL, the 24MHz setpoint is not seen by cpufreq
+	 * so we neet to prevent the cpufreq change frequency
+	 * from 24MHz to 198Mhz directly. busfreq will handle this
+	 * when exit from low bus mode.
+	 */
+	if (old_freq == FREQ_24_MHZ && new_freq == FREQ_198_MHZ)
+		return 0;
 
 	opp = dev_pm_opp_find_freq_ceil(cpu_dev, &freq_hz);
 	if (IS_ERR(opp)) {
@@ -83,6 +115,13 @@ static int imx6q_set_target(struct cpufreq_policy *policy, unsigned int index)
 	dev_dbg(cpu_dev, "%u MHz, %ld mV --> %u MHz, %ld mV\n",
 		old_freq / 1000, volt_old / 1000,
 		new_freq / 1000, volt / 1000);
+
+	if (low_power_run_support) {
+		if (old_freq == freq_table[0].frequency)
+			request_bus_freq(BUS_FREQ_HIGH);
+	} else if (old_freq <= FREQ_396_MHZ && new_freq > FREQ_396_MHZ) {
+		request_bus_freq(BUS_FREQ_HIGH);
+	}
 
 	/* scaling up?  scale voltage before frequency */
 	if (new_freq > old_freq) {
@@ -144,11 +183,18 @@ static int imx6q_set_target(struct cpufreq_policy *policy, unsigned int index)
 		clk_set_parent(clks[STEP].clk, clks[PLL2_PFD2_396M].clk);
 		clk_set_parent(clks[PLL1_SW].clk, clks[STEP].clk);
 		if (freq_hz > clk_get_rate(clks[PLL2_PFD2_396M].clk)) {
+			/* Ensure that pll1_bypass is set back to
+			 * pll1. We have to do this first so that the
+			 * change rate done to pll1_sys_clk done below
+			 * can propagate up to pll1.
+			 */
+			clk_set_parent(clks[PLL1_BYPASS].clk, clks[PLL1].clk);
 			clk_set_rate(clks[PLL1_SYS].clk, new_freq * 1000);
 			clk_set_parent(clks[PLL1_SW].clk, clks[PLL1_SYS].clk);
 		} else {
 			/* pll1_sys needs to be enabled for divider rate change to work. */
 			pll1_sys_temp_enabled = true;
+			clk_set_parent(clks[PLL1_BYPASS].clk, clks[PLL1_BYPASS_SRC].clk);
 			clk_prepare_enable(clks[PLL1_SYS].clk);
 		}
 	}
@@ -186,14 +232,32 @@ static int imx6q_set_target(struct cpufreq_policy *policy, unsigned int index)
 		}
 	}
 
+	/*
+	 * If CPU is dropped to the lowest level, release the need
+	 * for a high bus frequency.
+	 */
+	if (low_power_run_support) {
+		if (new_freq == freq_table[0].frequency)
+			release_bus_freq(BUS_FREQ_HIGH);
+	} else if (old_freq > FREQ_396_MHZ && new_freq <= FREQ_396_MHZ) {
+		release_bus_freq(BUS_FREQ_HIGH);
+	}
+
 	return 0;
 }
 
 static int imx6q_cpufreq_init(struct cpufreq_policy *policy)
 {
 	policy->clk = clks[ARM].clk;
+	policy->cur = clk_get_rate(policy->clk) / 1000;
 	cpufreq_generic_init(policy, freq_table, transition_latency);
 	policy->suspend_freq = max_freq;
+
+	if (low_power_run_support && policy->cur > freq_table[0].frequency) {
+		request_bus_freq(BUS_FREQ_HIGH);
+	} else if (policy->cur > FREQ_396_MHZ) {
+		request_bus_freq(BUS_FREQ_HIGH);
+	}
 
 	return 0;
 }
@@ -322,6 +386,43 @@ static int imx6ul_opp_check_speed_grading(struct device *dev)
 	return ret;
 }
 
+static int imx6_cpufreq_pm_notify(struct notifier_block *nb,
+	unsigned long event, void *dummy)
+{
+	int ret;
+
+	switch (event) {
+	case PM_SUSPEND_PREPARE:
+		if (!IS_ERR(dc_reg) && !ignore_dc_reg) {
+			ret = regulator_set_voltage_tol(dc_reg, DC_VOLTAGE_MAX, 0);
+			if (ret) {
+				dev_err(cpu_dev,
+					"failed to scale dc_reg to max: %d\n", ret);
+				return ret;
+			}
+		}
+		break;
+	case PM_POST_SUSPEND:
+		if (!IS_ERR(dc_reg) && !ignore_dc_reg) {
+			ret = regulator_set_voltage_tol(dc_reg, DC_VOLTAGE_MIN, 0);
+			if (ret) {
+				dev_err(cpu_dev,
+					"failed to scale dc_reg to min: %d\n", ret);
+				return ret;
+			}
+		}
+		break;
+	default:
+		break;
+	}
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block imx6_cpufreq_pm_notifier = {
+	.notifier_call = imx6_cpufreq_pm_notify,
+};
+
 static int imx6q_cpufreq_probe(struct platform_device *pdev)
 {
 	struct device_node *np;
@@ -370,6 +471,11 @@ static int imx6q_cpufreq_probe(struct platform_device *pdev)
 		goto put_reg;
 	}
 
+	dc_reg = devm_regulator_get_optional(cpu_dev, "dc");
+
+	/* On i.MX6ULL, check the 24MHz low power run mode support */
+	low_power_run_support = of_property_read_bool(np, "fsl,low-power-run");
+
 	ret = dev_pm_opp_of_add_table(cpu_dev);
 	if (ret < 0) {
 		dev_err(cpu_dev, "failed to init OPP table: %d\n", ret);
@@ -398,6 +504,21 @@ static int imx6q_cpufreq_probe(struct platform_device *pdev)
 	if (ret) {
 		dev_err(cpu_dev, "failed to init cpufreq table: %d\n", ret);
 		goto out_free_opp;
+	}
+
+	/*
+	 * On i.MX6UL/ULL EVK board, if the SOC is run in overide frequency,
+	 * the dc_regulator voltage should not be touched.
+	 */
+	if (freq_table[num - 1].frequency > FREQ_528_MHZ)
+		ignore_dc_reg = true;
+	if (!IS_ERR(dc_reg) && !ignore_dc_reg) {
+		ret = regulator_set_voltage_tol(dc_reg, DC_VOLTAGE_MIN, 0);
+		if (ret) {
+			dev_err(cpu_dev,
+				"failed to scale dc_reg to min: %d\n", ret);
+			return ret;
+		}
 	}
 
 	/* Make imx6_soc_volt array's size same as arm opp number */
@@ -481,6 +602,8 @@ soc_opp_out:
 		dev_err(cpu_dev, "failed register driver: %d\n", ret);
 		goto free_freq_table;
 	}
+
+	register_pm_notifier(&imx6_cpufreq_pm_notifier);
 
 	of_node_put(np);
 	return 0;
