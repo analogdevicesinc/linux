@@ -214,6 +214,7 @@ config ARCH_MXC
 	bool "NXP i.MX SoC family"
 	select ARM64_ERRATUM_843419
 	select ARM64_ERRATUM_845719 if COMPAT
+	select GPIOLIB
 	select IMX_GPCV2
 	select IMX_GPCV2_PM_DOMAINS
 	select PM
@@ -223,6 +224,10 @@ config ARCH_MXC
 	help
 	  This enables support for the ARMv8 based SoCs in the
 	  NXP i.MX family.
+
+config HAVE_IMX_BUSFREQ
+	bool "i.MX8 busfreq"
+	default ARCH_MXC
 
 config ARCH_S32
 	bool "NXP S32 SoC Family"

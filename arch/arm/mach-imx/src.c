@@ -6,7 +6,6 @@
 
 #include <linux/init.h>
 #include <linux/io.h>
-#include <linux/iopoll.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
@@ -17,9 +16,7 @@
 #include "hardware.h"
 
 #define SRC_SCR				0x000
-#define SRC_GPR1_V1			0x020
-#define SRC_GPR1_V2			0x074
-#define SRC_GPR1(gpr_v2)		((gpr_v2) ? SRC_GPR1_V2 : SRC_GPR1_V1)
+#define SRC_GPR1			0x020
 #define BP_SRC_SCR_WARM_RESET_ENABLE	0
 #define BP_SRC_SCR_SW_GPU_RST		1
 #define BP_SRC_SCR_SW_VPU_RST		2
@@ -29,17 +26,17 @@
 #define BP_SRC_SCR_CORE1_RST		14
 #define BP_SRC_SCR_CORE1_ENABLE		22
 /* below is for i.MX7D */
+#define SRC_GPR1_V2			0x074
+#define SRC_A7RCR0			0x004
 #define SRC_A7RCR1			0x008
-#define BP_SRC_A7RCR1_A7_CORE1_ENABLE	1
-#define GPC_CPU_PGC_SW_PUP_REQ		0xf0
-#define GPC_CPU_PGC_SW_PDN_REQ		0xfc
-#define GPC_PGC_C1			0x840
-#define BM_CPU_PGC_SW_PDN_PUP_REQ_CORE1_A7	0x2
+#define SRC_M4RCR			0x00C
+
+#define BP_SRC_A7RCR0_A7_CORE_RESET0   0
+#define BP_SRC_A7RCR1_A7_CORE1_ENABLE  1
 
 static void __iomem *src_base;
-static DEFINE_SPINLOCK(scr_lock);
-static bool gpr_v2;
-static void __iomem *gpc_base;
+static DEFINE_SPINLOCK(src_lock);
+static bool m4_is_enabled;
 
 static const int sw_reset_bits[5] = {
 	BP_SRC_SCR_SW_GPU_RST,
@@ -48,6 +45,11 @@ static const int sw_reset_bits[5] = {
 	BP_SRC_SCR_SW_OPEN_VG_RST,
 	BP_SRC_SCR_SW_IPU2_RST
 };
+
+bool imx_src_is_m4_enabled(void)
+{
+	return m4_is_enabled;
+}
 
 static int imx_src_reset_module(struct reset_controller_dev *rcdev,
 		unsigned long sw_reset_idx)
@@ -62,11 +64,11 @@ static int imx_src_reset_module(struct reset_controller_dev *rcdev,
 
 	bit = 1 << sw_reset_bits[sw_reset_idx];
 
-	spin_lock_irqsave(&scr_lock, flags);
+	spin_lock_irqsave(&src_lock, flags);
 	val = readl_relaxed(src_base + SRC_SCR);
 	val |= bit;
 	writel_relaxed(val, src_base + SRC_SCR);
-	spin_unlock_irqrestore(&scr_lock, flags);
+	spin_unlock_irqrestore(&src_lock, flags);
 
 	timeout = jiffies + msecs_to_jiffies(1000);
 	while (readl(src_base + SRC_SCR) & bit) {
@@ -82,50 +84,14 @@ static const struct reset_control_ops imx_src_ops = {
 	.reset = imx_src_reset_module,
 };
 
-static void imx_gpcv2_set_m_core_pgc(bool enable, u32 offset)
-{
-	writel_relaxed(enable, gpc_base + offset);
-}
-
-/*
- * The motivation for bringing up the second i.MX7D core inside the kernel
- * is that legacy vendor bootloaders usually do not implement PSCI support.
- * This is a significant blocker for systems in the field that are running old
- * bootloader versions to upgrade to a modern mainline kernel version, as only
- * one CPU of the i.MX7D would be brought up.
- * Bring up the second i.MX7D core inside the kernel to make the migration
- * path to mainline kernel easier for the existing iMX7D users.
- */
-void imx_gpcv2_set_core1_pdn_pup_by_software(bool pdn)
-{
-	u32 reg = pdn ? GPC_CPU_PGC_SW_PDN_REQ : GPC_CPU_PGC_SW_PUP_REQ;
-	u32 val, pup;
-	int ret;
-
-	imx_gpcv2_set_m_core_pgc(true, GPC_PGC_C1);
-	val = readl_relaxed(gpc_base + reg);
-	val |= BM_CPU_PGC_SW_PDN_PUP_REQ_CORE1_A7;
-	writel_relaxed(val, gpc_base + reg);
-
-	ret = readl_relaxed_poll_timeout_atomic(gpc_base + reg, pup,
-				!(pup & BM_CPU_PGC_SW_PDN_PUP_REQ_CORE1_A7),
-				5, 1000000);
-	if (ret < 0) {
-		pr_err("i.MX7D: CORE1_A7 power up timeout\n");
-		val &= ~BM_CPU_PGC_SW_PDN_PUP_REQ_CORE1_A7;
-		writel_relaxed(val, gpc_base + reg);
-	}
-
-	imx_gpcv2_set_m_core_pgc(false, GPC_PGC_C1);
-}
-
 void imx_enable_cpu(int cpu, bool enable)
 {
 	u32 mask, val;
 
 	cpu = cpu_logical_map(cpu);
-	spin_lock(&scr_lock);
-	if (gpr_v2) {
+	spin_lock(&src_lock);
+	if (cpu_is_imx7d()) {
+		/* enable core */
 		if (enable)
 			imx_gpcv2_set_core1_pdn_pup_by_software(false);
 
@@ -140,26 +106,42 @@ void imx_enable_cpu(int cpu, bool enable)
 		val |= 1 << (BP_SRC_SCR_CORE1_RST + cpu - 1);
 		writel_relaxed(val, src_base + SRC_SCR);
 	}
-	spin_unlock(&scr_lock);
+		spin_unlock(&src_lock);
 }
 
 void imx_set_cpu_jump(int cpu, void *jump_addr)
 {
+	spin_lock(&src_lock);
 	cpu = cpu_logical_map(cpu);
-	writel_relaxed(__pa_symbol(jump_addr),
-		       src_base + SRC_GPR1(gpr_v2) + cpu * 8);
+	if (cpu_is_imx7d())
+		writel_relaxed(__pa_symbol(jump_addr),
+			src_base + SRC_GPR1_V2 + cpu * 8);
+	else
+		writel_relaxed(__pa_symbol(jump_addr),
+			src_base + SRC_GPR1 + cpu * 8);
+	spin_unlock(&src_lock);
 }
 
 u32 imx_get_cpu_arg(int cpu)
 {
 	cpu = cpu_logical_map(cpu);
-	return readl_relaxed(src_base + SRC_GPR1(gpr_v2) + cpu * 8 + 4);
+	if (cpu_is_imx7d())
+		return readl_relaxed(src_base + SRC_GPR1_V2
+			+ cpu * 8 + 4);
+	else
+		return readl_relaxed(src_base + SRC_GPR1
+			+ cpu * 8 + 4);
 }
 
 void imx_set_cpu_arg(int cpu, u32 arg)
 {
 	cpu = cpu_logical_map(cpu);
-	writel_relaxed(arg, src_base + SRC_GPR1(gpr_v2) + cpu * 8 + 4);
+	if (cpu_is_imx7d())
+		writel_relaxed(arg, src_base + SRC_GPR1_V2
+			+ cpu * 8 + 4);
+	else
+		writel_relaxed(arg, src_base + SRC_GPR1
+			+ cpu * 8 + 4);
 }
 
 void __init imx_src_init(void)
@@ -168,43 +150,41 @@ void __init imx_src_init(void)
 	u32 val;
 
 	np = of_find_compatible_node(NULL, NULL, "fsl,imx51-src");
-	if (!np)
-		return;
+	if (!np) {
+		np = of_find_compatible_node(NULL, NULL, "fsl,imx7d-src");
+		if (!np)
+			return;
+	}
+
 	src_base = of_iomap(np, 0);
 	WARN_ON(!src_base);
+
+	if (cpu_is_imx7d()) {
+		val = readl_relaxed(src_base + SRC_M4RCR);
+		if (((val & BIT(3)) == BIT(3)) && !(val & BIT(0)))
+			m4_is_enabled = true;
+		else
+			m4_is_enabled = false;
+		return;
+	}
 
 	/*
 	 * force warm reset sources to generate cold reset
 	 * for a more reliable restart
 	 */
-	spin_lock(&scr_lock);
+	spin_lock(&src_lock);
 	val = readl_relaxed(src_base + SRC_SCR);
+
+	/* bit 4 is m4c_non_sclr_rst on i.MX6SX */
+	if (cpu_is_imx6sx() && ((val &
+		(1 << BP_SRC_SCR_SW_OPEN_VG_RST)) == 0))
+		m4_is_enabled = true;
+	else
+		m4_is_enabled = false;
+
 	val &= ~(1 << BP_SRC_SCR_WARM_RESET_ENABLE);
 	writel_relaxed(val, src_base + SRC_SCR);
-	spin_unlock(&scr_lock);
-}
-
-void __init imx7_src_init(void)
-{
-	struct device_node *np;
-
-	gpr_v2 = true;
-
-	np = of_find_compatible_node(NULL, NULL, "fsl,imx7d-src");
-	if (!np)
-		return;
-
-	src_base = of_iomap(np, 0);
-	if (!src_base)
-		return;
-
-	np = of_find_compatible_node(NULL, NULL, "fsl,imx7d-gpc");
-	if (!np)
-		return;
-
-	gpc_base = of_iomap(np, 0);
-	if (!gpc_base)
-		return;
+	spin_unlock(&src_lock);
 }
 
 static const struct of_device_id imx_src_dt_ids[] = {

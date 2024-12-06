@@ -3,8 +3,10 @@
  * Copyright 2019 NXP.
  */
 
+#include <linux/arm-smccc.h>
 #include <linux/init.h>
 #include <linux/io.h>
+#include <linux/module.h>
 #include <linux/of_address.h>
 #include <linux/slab.h>
 #include <linux/sys_soc.h>
@@ -13,6 +15,9 @@
 #include <linux/of.h>
 #include <linux/clk.h>
 
+#include <soc/imx/soc.h>
+#include <soc/imx/src.h>
+
 #define REV_B1				0x21
 
 #define IMX8MQ_SW_INFO_B1		0x40
@@ -20,10 +25,20 @@
 
 #define IMX_SIP_GET_SOC_INFO		0xc2000006
 
+#define IMX_SIP_NOC			0xc2000008
+#define IMX_SIP_NOC_LCDIF		0x0
+#define IMX_SIP_NOC_PRIORITY		0x1
+#define NOC_GPU_PRIORITY		0x10
+#define NOC_DCSS_PRIORITY		0x11
+#define NOC_VPU_PRIORITY		0x12
+#define NOC_CPU_PRIORITY		0x13
+#define NOC_MIX_PRIORITY		0x14
+
 #define OCOTP_UID_LOW			0x410
 #define OCOTP_UID_HIGH			0x420
 
 #define IMX8MP_OCOTP_UID_OFFSET		0x10
+#define IMX8MP_OCOTP_UID_HIGH		0xE00
 
 /* Same as ANADIG_DIGPROG_IMX7D */
 #define ANADIG_DIGPROG_IMX8MM	0x800
@@ -34,6 +49,7 @@ struct imx8_soc_data {
 };
 
 static u64 soc_uid;
+static u64 soc_uid_h;
 
 #ifdef CONFIG_HAVE_ARM_SMCCC
 static u32 imx8mq_soc_revision_from_atf(void)
@@ -122,8 +138,15 @@ static void __init imx8mm_soc_uid(void)
 	soc_uid <<= 32;
 	soc_uid |= readl_relaxed(ocotp_base + OCOTP_UID_LOW + offset);
 
+	if (offset) {
+		soc_uid_h = readl_relaxed(ocotp_base + IMX8MP_OCOTP_UID_HIGH + 0x10);
+		soc_uid_h <<= 32;
+		soc_uid_h |= readl_relaxed(ocotp_base + IMX8MP_OCOTP_UID_HIGH);
+	}
+
 	clk_disable_unprepare(clk);
 	clk_put(clk);
+
 	iounmap(ocotp_base);
 	of_node_put(np);
 }
@@ -179,6 +202,23 @@ static __maybe_unused const struct of_device_id imx8_soc_match[] = {
 	{ }
 };
 
+static void imx8mq_noc_init(void)
+{
+	struct arm_smccc_res res;
+
+	pr_info("Config NOC for VPU and CPU\n");
+
+	arm_smccc_smc(IMX_SIP_NOC, IMX_SIP_NOC_PRIORITY, NOC_CPU_PRIORITY,
+			0x80000300, 0, 0, 0, 0, &res);
+	if (res.a0)
+		pr_err("Config NOC for CPU fail!\n");
+
+	arm_smccc_smc(IMX_SIP_NOC, IMX_SIP_NOC_PRIORITY, NOC_VPU_PRIORITY,
+			0x80000300, 0, 0, 0, 0, &res);
+	if (res.a0)
+		pr_err("Config NOC for VPU fail!\n");
+}
+
 #define imx8_revision(soc_rev) \
 	soc_rev ? \
 	kasprintf(GFP_KERNEL, "%d.%d", (soc_rev >> 4) & 0xf,  soc_rev & 0xf) : \
@@ -222,7 +262,12 @@ static int __init imx8_soc_init(void)
 		goto free_soc;
 	}
 
-	soc_dev_attr->serial_number = kasprintf(GFP_KERNEL, "%016llX", soc_uid);
+	if (soc_uid_h) {
+		soc_dev_attr->serial_number = kasprintf(GFP_KERNEL, "%016llX%016llX",
+							soc_uid_h, soc_uid);
+	} else {
+		soc_dev_attr->serial_number = kasprintf(GFP_KERNEL, "%016llX", soc_uid);
+	}
 	if (!soc_dev_attr->serial_number) {
 		ret = -ENOMEM;
 		goto free_rev;
@@ -240,6 +285,9 @@ static int __init imx8_soc_init(void)
 	if (IS_ENABLED(CONFIG_ARM_IMX_CPUFREQ_DT))
 		platform_device_register_simple("imx-cpufreq-dt", -1, NULL, 0);
 
+	if (of_machine_is_compatible("fsl,imx8mq"))
+		imx8mq_noc_init();
+
 	return 0;
 
 free_serial_number:
@@ -251,6 +299,37 @@ free_soc:
 	kfree(soc_dev_attr);
 	return ret;
 }
+
 device_initcall(imx8_soc_init);
 MODULE_DESCRIPTION("NXP i.MX8M SoC driver");
 MODULE_LICENSE("GPL");
+
+#define FSL_SIP_SRC                    0xc2000005
+#define FSL_SIP_SRC_M4_START           0x00
+#define FSL_SIP_SRC_M4_STARTED         0x01
+
+/* To indicate M4 enabled or not on i.MX8MQ */
+static bool m4_is_enabled;
+bool imx_src_is_m4_enabled(void)
+{
+	return m4_is_enabled;
+}
+EXPORT_SYMBOL_GPL(imx_src_is_m4_enabled);
+
+int check_m4_enabled(void)
+{
+	struct arm_smccc_res res;
+
+	arm_smccc_smc(FSL_SIP_SRC, FSL_SIP_SRC_M4_STARTED, 0,
+		      0, 0, 0, 0, 0, &res);
+		      m4_is_enabled = !!res.a0;
+
+	if (m4_is_enabled)
+		printk("M4 is started\n");
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(check_m4_enabled);
+
+MODULE_DESCRIPTION("i.MX8M SoC driver");
+MODULE_LICENSE("GPL v2");
