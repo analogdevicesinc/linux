@@ -358,6 +358,18 @@ config TOUCHSCREEN_EXC3000
 	  To compile this driver as a module, choose M here: the
 	  module will be called exc3000.
 
+config TOUCHSCREEN_ELAN_TS
+	tristate "ELAN touchscreen input driver"
+	depends on I2C
+	help
+	  Say Y here if you have an I2C ELAN touchscreen
+	  attached.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called elan-touch.
+
 config TOUCHSCREEN_FUJITSU
 	tristate "Fujitsu serial touchscreen"
 	select SERIO
@@ -1388,4 +1400,17 @@ config TOUCHSCREEN_HIMAX_HX83112B
 	  To compile this driver as a module, choose M here: the
 	  module will be called himax_hx83112b.
 
+config TOUCHSCREEN_FTS
+	tristate "Focaltech Touchscreen FT3518U"
+	depends on I2C
+	help
+	  Say Y here to enable support for Focaltech touch FT3518U
+	  panel.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called fts_ts.
 endif
+
+source "drivers/input/touchscreen/synaptics_dsx/Kconfig"

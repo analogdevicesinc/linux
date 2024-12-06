@@ -82,9 +82,10 @@ struct exc3000_data {
 	struct touchscreen_properties prop;
 	struct gpio_desc *reset;
 	struct timer_list timer;
-	u8 buf[2 * EXC3000_LEN_FRAME];
+	u8 buf[EXC3000_LEN_FRAME];
 	struct completion wait_event;
 	struct mutex query_lock;
+	u8 slots_in_second_frame;
 };
 
 static void exc3000_report_slots(struct input_dev *input,
@@ -149,40 +150,37 @@ static int exc3000_read_frame(struct exc3000_data *data, u8 *buf)
 static int exc3000_handle_mt_event(struct exc3000_data *data)
 {
 	struct input_dev *input = data->input;
-	int ret, total_slots;
+	int ret, slots, total_slots;
 	u8 *buf = data->buf;
 
 	total_slots = buf[3];
-	if (!total_slots || total_slots > EXC3000_NUM_SLOTS) {
+	if (total_slots > EXC3000_NUM_SLOTS) {
 		ret = -EINVAL;
 		goto out_fail;
 	}
 
-	if (total_slots > EXC3000_SLOTS_PER_FRAME) {
-		/* Read 2nd frame to get the rest of the contacts. */
-		ret = exc3000_read_frame(data, buf + EXC3000_LEN_FRAME);
-		if (ret)
-			goto out_fail;
-
-		/* 2nd chunk must have number of contacts set to 0. */
-		if (buf[EXC3000_LEN_FRAME + 3] != 0) {
-			ret = -EINVAL;
-			goto out_fail;
-		}
-	}
+	/*
+	 * If the total slots is larger than 5, which means there
+	 * is a second frame need to read in the next interrupt.
+	 */
+	if (total_slots > EXC3000_SLOTS_PER_FRAME)
+		data->slots_in_second_frame = total_slots - EXC3000_SLOTS_PER_FRAME;
 
 	/*
 	 * We read full state successfully, no contacts will be "stuck".
 	 */
 	del_timer_sync(&data->timer);
 
-	while (total_slots > 0) {
-		int slots = min(total_slots, EXC3000_SLOTS_PER_FRAME);
+	/*
+	 * For the second frame, the number of contact must be 0, so
+	 * need to use the contacts saved in the previous first frame.
+	 */
+	if (total_slots == 0)
+		slots = data->slots_in_second_frame;
+	else
+		slots = min(total_slots, EXC3000_SLOTS_PER_FRAME);
 
-		exc3000_report_slots(input, &data->prop, buf + 4, slots);
-		total_slots -= slots;
-		buf += EXC3000_LEN_FRAME;
-	}
+	exc3000_report_slots(input, &data->prop, buf + 4, slots);
 
 	input_mt_sync_frame(input);
 	input_sync(input);
