@@ -25,7 +25,12 @@ properties:
       - items:
           - enum:
               - fsl,ls1043a-qspi
+              - fsl,ls1012a-qspi
           - const: fsl,ls1021a-qspi
+      - items:
+          - enum:
+              - fsl,ls1088a-qspi
+          - const: fsl,ls2080a-qspi
       - items:
           - enum:
               - fsl,imx8mq-qspi

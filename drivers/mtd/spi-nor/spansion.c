@@ -827,9 +827,9 @@ static const struct flash_info spansion_nor_parts[] = {
 		.name = "s25fs512s",
 		.size = SZ_64M,
 		.sector_size = SZ_256K,
-		.no_sfdp_flags = SPI_NOR_DUAL_READ | SPI_NOR_QUAD_READ,
 		.mfr_flags = USE_CLSR,
 		.fixups = &s25fs_s_nor_fixups,
+		.fixup_flags = SPI_NOR_4B_OPCODES,
 	}, {
 		.id = SNOR_ID(0x01, 0x20, 0x18, 0x03, 0x00),
 		.name = "s25sl12800",
