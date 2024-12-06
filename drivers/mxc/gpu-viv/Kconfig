@@ -1,0 +1,11 @@
+menu "MXC Vivante GPU support"
+
+config MXC_GPU_VIV
+	tristate "MXC Vivante GPU support"
+	depends on DRM
+	default n
+
+	help
+         Say Y to get the GPU driver support.
+
+endmenu
