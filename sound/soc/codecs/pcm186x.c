@@ -36,6 +36,7 @@ struct pcm186x_priv {
 	struct regmap *regmap;
 	struct regulator_bulk_data supplies[PCM186x_NUM_SUPPLIES];
 	unsigned int sysclk;
+	unsigned int bclk_ratio;
 	unsigned int tdm_offset;
 	bool is_tdm_mode;
 	bool is_provider_mode;
@@ -309,7 +310,10 @@ static int pcm186x_hw_params(struct snd_pcm_substream *substream,
 			    PCM186X_PCM_CFG_TX_WLEN_MASK,
 			    pcm_cfg);
 
-	div_lrck = width * channels;
+	if (priv->bclk_ratio)
+		div_lrck = priv->bclk_ratio;
+	else
+		div_lrck = width * channels;
 
 	if (priv->is_tdm_mode) {
 		/* Select TDM transmission data */
@@ -366,8 +370,9 @@ static int pcm186x_set_fmt(struct snd_soc_dai *dai, unsigned int format)
 	switch (format & SND_SOC_DAIFMT_CLOCK_PROVIDER_MASK) {
 	case SND_SOC_DAIFMT_CBP_CFP:
 		if (!priv->sysclk) {
-			dev_err(component->dev, "operating in provider mode requires sysclock to be configured\n");
-			return -EINVAL;
+			dev_warn(component->dev, "operating in provider mode requires sysclock to be configured\n");
+			priv->is_provider_mode = false;
+			break;
 		}
 		clk_ctrl |= PCM186X_CLK_CTRL_MST_MODE;
 		priv->is_provider_mode = true;
@@ -473,8 +478,22 @@ static int pcm186x_set_dai_sysclk(struct snd_soc_dai *dai, int clk_id,
 	return 0;
 }
 
+static int pcm186x_set_bclk_ratio(struct snd_soc_dai *dai, unsigned int ratio)
+{
+	struct snd_soc_component *component = dai->component;
+	struct pcm186x_priv *priv = snd_soc_component_get_drvdata(component);
+
+	if (ratio > 256)
+		return -EINVAL;
+
+	priv->bclk_ratio = ratio;
+
+	return 0;
+}
+
 static const struct snd_soc_dai_ops pcm186x_dai_ops = {
 	.set_sysclk = pcm186x_set_dai_sysclk,
+	.set_bclk_ratio = pcm186x_set_bclk_ratio,
 	.set_tdm_slot = pcm186x_set_tdm_slot,
 	.set_fmt = pcm186x_set_fmt,
 	.hw_params = pcm186x_hw_params,
