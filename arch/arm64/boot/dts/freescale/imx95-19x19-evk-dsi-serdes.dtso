@@ -7,6 +7,7 @@
 /plugin/;
 
 #include "imx95-clock.h"
+#include <dt-bindings/gpio/gpio.h>
 
 &{/} {
 	hdmi-connector {
@@ -45,6 +46,8 @@
 		compatible = "maxim,max96789";
 		reg = <0x40>;
 		status = "okay";
+
+		reset-gpios = <&adp5585 4 GPIO_ACTIVE_LOW>;
 
 		maxim,gmsl-links-types = <2 2>;
 		maxim,gmsl2-link-speed = <6>;
