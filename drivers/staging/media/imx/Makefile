@@ -14,3 +14,4 @@ obj-$(CONFIG_VIDEO_IMX_MEDIA) += imx6-media-csi.o
 obj-$(CONFIG_VIDEO_IMX_MEDIA) += imx6-mipi-csi2.o
 
 obj-$(CONFIG_IMX8_MIPI_CSI2_SAM)  += imx8-mipi-csi2-sam.o
+obj-y += hdmirx/
