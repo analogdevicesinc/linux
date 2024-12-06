@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/i2c/ovti,ox03c10.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Omnivision OX03C10 CMOS Sensor
+
+maintainers:
+  - G.N. Zhou <guoniu.zhou@nxp.com>
+
+description: |
+  The OX03C10 is a 1/26" optical format, 1920x1280 stacked-chip, 3.0
+  um split-diode DCG pixel, digital high dynamic range sensor. It can
+  output 24-bit HDR combined video featuring LED flicker mitigation(LFM)
+  triple exposure HDR, 20-bit HDR combined video featuring LFM, and dual
+  exposure staggered HDR.
+
+allOf:
+  - $ref: /schemas/media/video-interface-devices.yaml#
+
+properties:
+  compatible:
+    const: ovti,ox03c10
+
+  reg:
+    maxItems: 1
+
+  clocks:
+    maxItems: 1
+
+  fsin-gpios:
+    description:
+      Frame sync input. It can be driven by another sensor's VSYNC or
+      from the host GPIO.
+    maxItems: 1
+
+  port:
+    $ref: /schemas/graph.yaml#/properties/port
+    description: Digital Output Port
+
+    properties:
+      endpoint:
+        $ref: /schemas/media/video-interfaces.yaml#
+        unevaluatedProperties: false
+
+required:
+  - compatible
+  - reg
+  - clocks
+  - fsin-gpios
+  - port
+
+additionalProperties: false
+
+examples:
+  - |
+      #include <dt-bindings/clock/fsl,imx95-clock.h>
+      #include <dt-bindings/gpio/gpio.h
+
+      i2c {
+          #address-cells = <1>;
+          #size-cells = <0>;
+
+          camera@36 {
+              compatible = "ovti,ox03c10";
+	      reg = <0x36>;
+	      clocks = <&serializer1>;
+	      fsin-gpios = <&serializer1 0 GPIO_ACTIVE_HIGH>;
+
+	      port {
+                  ox03c10_to_mipi_csi2: endpoint {
+                      remote-endpoint = <&mipi_csi2_from_ox03c10>;
+		  };
+	      };
+	  };
+      };
+
+...
