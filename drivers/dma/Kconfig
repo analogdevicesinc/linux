@@ -134,6 +134,24 @@ config BCM_SBA_RAID
 	  has the capability to offload memcpy, xor and pq computation
 	  for raid5/6.
 
+config CRYPTO_DEV_FSL_CAAM_DMA
+	tristate "CAAM DMA engine support"
+	depends on CRYPTO_DEV_FSL_CAAM_JR
+	default n
+	select DMA_ENGINE
+	select ASYNC_CORE
+	select ASYNC_TX_ENABLE_CHANNEL_SWITCH
+	help
+	  Selecting this will offload the DMA operations for users of
+	  the scatter gather memcopy API to the CAAM via job rings. The
+	  CAAM is a hardware module that provides hardware acceleration to
+	  cryptographic operations. It has a built-in DMA controller that can
+	  be programmed to read/write cryptographic data. This module defines
+	  a DMA driver that uses the DMA capabilities of the CAAM.
+
+	  To compile this as a module, choose M here: the module
+	  will be called caam_dma.
+
 config DMA_BCM2835
 	tristate "BCM2835 DMA engine support"
 	depends on ARCH_BCM2835
