@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: GPL-2.0-only
+
+comment "Wave6 drivers"
+
+config MXC_VIDEO_WAVE6_CTRL
+	tristate "WAVE6 VPU Ctrl"
+	help
+	  Wave6 VPU Ctrl is to handle the global region.
+	  It help load the firmware and boot the vcpu,
+	  It also help manage the vpu power domain and clock,
+	  To compile this driver as a module choose m here.
+
+config MXC_VIDEO_WAVE6
+	tristate "WAVE6 VPU (Video Processing Unit) Codec IP"
+	depends on V4L_MEM2MEM_DRIVERS
+	depends on ARCH_MXC || COMPILE_TEST
+	depends on MEDIA_SUPPORT
+	depends on VIDEO_DEV
+	select MEDIA_CONTROLLER
+	select V4L2_MEM2MEM_DEV
+	select VIDEOBUF2_DMA_CONTIG
+	select MXC_VIDEO_WAVE6_CTRL
+	help
+	  Wave6 VPU Codec IP contains decoders and encoders.
+	  To compile this driver as a module choose m here.
