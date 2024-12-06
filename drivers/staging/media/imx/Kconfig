@@ -71,6 +71,14 @@ config GMSL_MAX9286
 	help
 	  Enable support for video4linux camera sensor driver for GMSL MAX9286
 
+config IMX8_MEDIA_DEVICE
+	tristate "IMX8 Media Device Driver"
+	select V4L2_FWNODE
+	default y
+	help
+	  This media device is a virtual device which used to manage
+	  all modules in image subsystem of imx8qxp/qm platform.
+
 source "drivers/staging/media/imx/hdmirx/Kconfig"
 
 endmenu
