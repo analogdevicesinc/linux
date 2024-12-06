@@ -747,6 +747,7 @@
 #define IMX8QXP_QSPI0B_SS1_B_LSIO_QSPI1A_SS1_B                     IMX8QXP_QSPI0B_SS1_B                  1
 #define IMX8QXP_QSPI0B_SS1_B_LSIO_KPP0_ROW3                        IMX8QXP_QSPI0B_SS1_B                  2
 #define IMX8QXP_QSPI0B_SS1_B_LSIO_GPIO3_IO24                       IMX8QXP_QSPI0B_SS1_B                  4
+#define IMX8QXP_COMP_CTL_GPIO_1V8_3V3_GPIORHB_PAD                  IMX8QXP_COMP_CTL_GPIO_1V8_3V3_GPIORHB 0
 
 /*!
  * @name Fake Pad Mux Definitions

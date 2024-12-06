@@ -231,8 +231,16 @@ config HAVE_IMX_BUSFREQ
 config ARCH_S32
 	bool "NXP S32 SoC Family"
 	select ARCH_S32_CLK
+	select PINCTRL
 	help
 	  This enables support for the NXP S32 family of processors.
+
+if ARCH_S32
+menu "S32 SOC selection"
+	config SOC_S32V234
+		bool "S32V234 SOC"
+endmenu
+endif
 
 endif
 

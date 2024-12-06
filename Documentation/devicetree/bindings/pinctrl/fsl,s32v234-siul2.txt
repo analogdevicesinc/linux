@@ -1,0 +1,19 @@
+* Freescale SIUL2 iomux controller
+
+See chapter 20 ("System Integration Unit Lite2 (SIUL2)") in the reference
+manual[1].
+
+Based on fsl,imx-pincontrol implementation.
+
+Required properties:
+- compatible: "fsl,s32v234-siul2"
+- fsl,pins: two integers array, represents a group of pins mux and config
+  setting. The format is fsl,pins = <PIN_FUNC_ID CONFIG>
+  PIN_FUNC_ID - id of MSCR to be modified
+  CONFIG - configuration to be written in the MSCR/IMCR register
+
+  Even though IMCR register should be used as input register, it can be
+  set and addressed in the same way as MSCR, only instead of passing the
+  IMCR index, IMCR_IDX + 512 is passed[1].
+
+[1] https://www.nxp.com/webapp/Download?colCode=S32V234RM
