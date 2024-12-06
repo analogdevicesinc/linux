@@ -87,20 +87,30 @@ void ocelot_port_update_active_preemptible_tcs(struct ocelot *ocelot, int port)
 		       QSYS_PREEMPTION_CFG, port);
 }
 
-void ocelot_port_change_fp(struct ocelot *ocelot, int port,
-			   unsigned long preemptible_tcs)
+int ocelot_port_change_fp(struct ocelot *ocelot, int port,
+			  unsigned long preemptible_tcs)
 {
+	struct ocelot_port *ocelot_port = ocelot->ports[port];
 	struct ocelot_mm_state *mm = &ocelot->mm[port];
 
 	lockdep_assert_held(&ocelot->fwd_domain_lock);
 
+	if (ocelot_port->cut_thru_selected_by_user & preemptible_tcs) {
+		dev_err(ocelot->dev,
+			"A traffic class cannot be preemptible and cut-through at the same time.\n");
+		return -EBUSY;
+	}
+
 	if (mm->preemptible_tcs == preemptible_tcs)
-		return;
+		return 0;
 
 	mm->preemptible_tcs = preemptible_tcs;
 
 	ocelot_port_update_active_preemptible_tcs(ocelot, port);
+
+	return 0;
 }
+EXPORT_SYMBOL_GPL(ocelot_port_change_fp);
 
 static void ocelot_mm_update_port_status(struct ocelot *ocelot, int port)
 {

@@ -918,7 +918,7 @@ static int vsc9953_mdio_bus_alloc(struct ocelot *ocelot)
 		struct phylink_pcs *phylink_pcs;
 		int addr = dp->index + 4;
 
-		if (ocelot_port->phy_mode == PHY_INTERFACE_MODE_INTERNAL)
+		if (dp->index == 8 || dp->index == 9)
 			continue;
 
 		phylink_pcs = lynx_pcs_create_mdiodev(felix->imdio, addr,

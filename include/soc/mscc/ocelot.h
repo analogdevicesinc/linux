@@ -54,6 +54,7 @@ struct tc_mqprio_qopt_offload;
  */
 
 /* Reserve some destination PGIDs at the end of the range:
+ * PGID_FRER: Destinations for multicast traffic in 802.1CB redundant network.
  * PGID_BLACKHOLE: used for not forwarding the frames
  * PGID_CPU: used for whitelisting certain MAC addresses, such as the addresses
  *           of the switch port net devices, towards the CPU port module.
@@ -63,6 +64,7 @@ struct tc_mqprio_qopt_offload;
  * PGID_MCIPV6: the flooding destinations for IPv6 multicast traffic.
  * PGID_BC: the flooding destinations for broadcast traffic.
  */
+#define PGID_FRER			56
 #define PGID_BLACKHOLE			57
 #define PGID_CPU			58
 #define PGID_UC				59
@@ -78,7 +80,7 @@ struct tc_mqprio_qopt_offload;
 
 #define for_each_nonreserved_multicast_dest_pgid(ocelot, pgid)	\
 	for ((pgid) = (ocelot)->num_phys_ports + 1;		\
-	     (pgid) < PGID_BLACKHOLE;				\
+	     (pgid) < PGID_FRER;				\
 	     (pgid)++)
 
 #define for_each_aggr_pgid(ocelot, pgid)			\
@@ -732,6 +734,12 @@ enum macaccess_entry_type {
 	ENTRYTYPE_MACv6,
 };
 
+struct ocelot_mact_entry {
+	u8 mac[ETH_ALEN];
+	u16 vid;
+	enum macaccess_entry_type type;
+};
+
 enum ocelot_proto {
 	OCELOT_PROTO_PTP_L2 = BIT(0),
 	OCELOT_PROTO_PTP_L4 = BIT(1),
@@ -800,6 +808,10 @@ struct ocelot_port {
 	bool				lag_tx_active;
 
 	int				bridge_num;
+
+	bool				force_forward;
+	u8				cut_thru;
+	u8				cut_thru_selected_by_user;
 
 	int				speed;
 };
@@ -897,6 +909,22 @@ struct ocelot_policer {
 	u32 rate; /* kilobit per second */
 	u32 burst; /* bytes */
 };
+
+int ocelot_mact_read(struct ocelot *ocelot, int row, int col, int *dst,
+		     struct ocelot_mact_entry *entry);
+int ocelot_mact_learn(struct ocelot *ocelot, int port,
+		      const unsigned char mac[ETH_ALEN],
+		      unsigned int vid, enum macaccess_entry_type type);
+int ocelot_mact_forget(struct ocelot *ocelot, const unsigned char mac[ETH_ALEN],
+		       unsigned int vid);
+int ocelot_mact_lookup(struct ocelot *ocelot, int *dst_idx,
+		       const unsigned char mac[ETH_ALEN],
+		       unsigned int vid, enum macaccess_entry_type *type);
+int ocelot_mact_learn_streamdata(struct ocelot *ocelot, int dst_idx,
+				 const unsigned char mac[ETH_ALEN],
+				 unsigned int vid,
+				 enum macaccess_entry_type type,
+				 int sfid, int ssid);
 
 #define ocelot_bulk_read(ocelot, reg, buf, count) \
 	__ocelot_bulk_read_ix(ocelot, reg, 0, buf, count)
@@ -1032,6 +1060,7 @@ int ocelot_get_ts_info(struct ocelot *ocelot, int port,
 void ocelot_set_ageing_time(struct ocelot *ocelot, unsigned int msecs);
 int ocelot_port_vlan_filtering(struct ocelot *ocelot, int port, bool enabled,
 			       struct netlink_ext_ack *extack);
+void ocelot_bridge_force_forward_port(struct ocelot *ocelot, int port, bool en);
 void ocelot_bridge_stp_state_set(struct ocelot *ocelot, int port, u8 state);
 u32 ocelot_get_bridge_fwd_mask(struct ocelot *ocelot, int src_port);
 int ocelot_port_pre_bridge_flags(struct ocelot *ocelot, int port,
@@ -1174,6 +1203,8 @@ int ocelot_port_get_mm(struct ocelot *ocelot, int port,
 		       struct ethtool_mm_state *state);
 int ocelot_port_mqprio(struct ocelot *ocelot, int port,
 		       struct tc_mqprio_qopt_offload *mqprio);
+int ocelot_port_change_fp(struct ocelot *ocelot, int port,
+			  unsigned long preemptible_tcs);
 
 #if IS_ENABLED(CONFIG_BRIDGE_MRP)
 int ocelot_mrp_add(struct ocelot *ocelot, int port,

@@ -105,5 +105,7 @@ int felix_register_switch(struct device *dev, resource_size_t switch_base,
 			  const struct felix_info *info);
 struct net_device *felix_port_to_netdev(struct ocelot *ocelot, int port);
 int felix_netdev_to_port(struct net_device *dev);
+void vsc9959_new_base_time(struct ocelot *ocelot, ktime_t base_time,
+			   u64 cycle_time, struct timespec64 *new_base_ts);
 
 #endif
