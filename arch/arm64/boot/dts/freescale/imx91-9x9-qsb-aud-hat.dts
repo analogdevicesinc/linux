@@ -87,6 +87,16 @@
 		};
 	};
 
+	exp_sel_switch: regulator-sel-switch {
+		compatible = "regulator-fixed";
+		regulator-name = "exp-sel-switch";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pcal6524 22 GPIO_ACTIVE_HIGH>;
+		enable-active-low;
+		regulator-always-on;
+	};
+
 	reg_audio_pwr: regulator-audio-pwr {
 		compatible = "regulator-fixed";
 		pinctrl-names = "default";
@@ -190,7 +200,7 @@
 		VA-supply = <&reg_exp_3v3>;
 		VD-supply = <&reg_exp_5v>;
 		VLS-supply = <&reg_audio_pwr>;
-		VLC-supply = <&reg_audio_pwr>;
+		VLC-supply = <&exp_sel_switch>;
 		reset-gpio = <&pcal6524 6 GPIO_ACTIVE_LOW>;
 		status = "okay";
 	};
