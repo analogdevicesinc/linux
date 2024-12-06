@@ -1,0 +1,123 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2019-2021 NXP
+ */
+
+#include "imx8mm-evk.dts"
+
+/ {
+	interrupt-parent = <&gic>;
+
+	ivshm_rpmsg {
+		compatible = "fsl,ivshm-rpmsg";
+
+		rpmsg_console {
+			compatible = "fsl,rpmsg-console";
+			id = <2>;
+			size = <16384>;
+		};
+	};
+};
+
+&cpu_pd_wait {
+	/delete-property/ compatible;
+	/*arm,psci-suspend-param = <0x0>;*/
+};
+
+&clk {
+	init-on-array = <IMX8MM_CLK_USDHC3_ROOT
+			 IMX8MM_CLK_NAND_USDHC_BUS
+			 IMX8MM_CLK_UART4_ROOT>;
+};
+
+&gpio5 {
+	status = "disabled";
+};
+
+&i2c3 {
+	status = "disabled";
+};
+
+&iomuxc {
+	/*
+	 * Used for the 2nd Linux.
+	 * TODO: M4 may use these pins.
+	 */
+	pinctrl_uart4: uart4grp {
+		fsl,pins = <
+			MX8MM_IOMUXC_UART4_RXD_UART4_DCE_RX	0x140
+			MX8MM_IOMUXC_UART4_TXD_UART4_DCE_TX	0x140
+		>;
+	};
+};
+
+&{/busfreq} {
+	/* Disable busfreq, to avoid 1st Linux busfreq crash other inmates */
+	status = "disabled";
+};
+
+&{/reserved-memory} {
+	ivshmem_reserved: ivshmem@bba00000 {
+		no-map;
+		reg = <0 0xbba00000 0x0 0x00400000>;
+	};
+
+	pci_reserved: pci@bb800000 {
+		no-map;
+		reg = <0 0xbb800000 0x0 0x00200000>;
+	};
+
+	loader_reserved: loader@bb700000 {
+		no-map;
+		reg = <0 0xbb700000 0x0 0x00100000>;
+	};
+
+	jh_reserved: jh@b7c00000 {
+		no-map;
+		reg = <0 0xb7c00000 0x0 0x00400000>;
+	};
+
+	/* 512MB */
+	inmate_reserved: inmate@93c00000 {
+		no-map;
+		reg = <0 0x93c00000 0x0 0x20000000>;
+	};
+};
+
+&sai3 {
+	status = "disabled";
+};
+
+&sai5 {
+	status = "disabled";
+};
+
+&sdma3 {
+	status = "disabled";
+};
+
+&spdif1 {
+	status = "disabled";
+};
+
+&{/reserved-memory/linux,cma} {
+	alloc-ranges = <0 0x40000000 0 0x60000000>;
+};
+
+&uart2 {
+	/* uart2 is used by the 2nd OS, so configure pin and clk */
+	pinctrl-0 = <&pinctrl_uart2>, <&pinctrl_uart4>;
+	assigned-clocks = <&clk IMX8MM_CLK_UART4>;
+	assigned-clock-parents = <&clk IMX8MM_CLK_24M>;
+};
+
+&usdhc3 {
+	status = "disabled";
+};
+
+&usdhc2 {
+	/* sdhc3 is used by 2nd linux, configure the pin */
+	pinctrl-0 = <&pinctrl_usdhc3>, <&pinctrl_usdhc2>, <&pinctrl_usdhc2_gpio>;
+	pinctrl-1 = <&pinctrl_usdhc3>, <&pinctrl_usdhc2_100mhz>, <&pinctrl_usdhc2_gpio>;
+	pinctrl-2 = <&pinctrl_usdhc3>, <&pinctrl_usdhc2_200mhz>, <&pinctrl_usdhc2_gpio>;
+};

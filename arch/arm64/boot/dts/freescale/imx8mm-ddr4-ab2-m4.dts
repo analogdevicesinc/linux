@@ -1,0 +1,81 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2020 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8mm-ddr4-ab2.dts"
+
+/ {
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		m4_reserved: m4@80000000 {
+			reg = <0 0x80000000 0 0x0101E400>;
+			no-map;
+		};
+
+		vdev0vring0: vdev0vring0@b8000000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0xb8000000 0 0x8000>;
+			no-map;
+		};
+
+		vdev0vring1: vdev0vring1@b8008000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0xb8008000 0 0x8000>;
+			no-map;
+		};
+
+		rsc-table {
+			reg = <0 0xb80ff000 0 0x1000>;
+			no-map;
+		};
+
+		vdevbuffer: vdevbuffer@b8400000 {
+			compatible = "shared-dma-pool";
+			reg = <0 0xb8400000 0 0x100000>;
+			no-map;
+		};
+	};
+
+	leds {
+		panel {
+			status = "disabled";
+		};
+	};
+
+	imx8mm-cm4 {
+		compatible = "fsl,imx8mm-cm4";
+		rsc-da = <0xb8000000>;
+		clocks = <&clk IMX8MM_CLK_M4_DIV>;
+		mbox-names = "tx", "rx", "rxdb";
+		mboxes = <&mu 0 1
+			  &mu 1 1
+			  &mu 3 1>;
+		memory-region = <&vdev0vring0>, <&vdev0vring1>, <&vdevbuffer>;
+		syscon = <&src>;
+	};
+};
+
+&clk {
+	init-on-array = <
+		IMX8MM_CLK_UART4_ROOT
+		IMX8MM_CLK_AHB IMX8MM_CLK_DRAM_CORE
+		IMX8MM_CLK_NOC IMX8MM_CLK_NOC_APB
+		IMX8MM_CLK_MAIN_AXI IMX8MM_CLK_AUDIO_AHB
+		IMX8MM_CLK_DRAM_APB IMX8MM_CLK_A53_DIV
+		IMX8MM_ARM_PLL_OUT
+	>;
+};
+
+&i2c2 {
+	status = "disabled";
+};
+
+&uart4 {
+	status = "disabled";
+};

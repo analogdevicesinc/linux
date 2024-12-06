@@ -1,0 +1,117 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2020 NXP.
+ */
+
+#include "imx8mm-evk.dts"
+
+/ {
+	ext_osc_22m: ext-osc-22m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <22579200>;
+		clock-output-names = "sclk0";
+	};
+
+	ext_osc_24m: ext-osc-24m {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <24576000>;
+		clock-output-names = "sclk1";
+	};
+
+	reg_3v3_vext: regulator-3v3-vext {
+		compatible = "regulator-fixed";
+		regulator-name = "3V3_VEXT";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+	};
+
+	sound-ak4458 {
+		status = "disabled";
+	};
+
+	sound-micfil {
+		status = "disabled";
+	};
+
+	sound-pcm512x {
+		compatible = "fsl,imx-audio-pcm512x";
+		model = "pcm512x-audio";
+		audio-widgets =
+			"Line", "Left Line Out Jack",
+			"Line", "Right Line Out Jack";
+		audio-routing =
+			"Left Line Out Jack", "OUTL",
+			"Right Line Out Jack", "OUTR";
+		dac,24db_digital_gain;
+		dac,led_status;
+		dac,sclk;
+
+		pri-dai-link {
+			link-name = "pcm512x-hifi";
+			format = "i2s";
+			bitclock-master = <&sndcodec>;
+			frame-master = <&sndcodec>;
+			cpu {
+				sound-dai = <&sai5>;
+			};
+			sndcodec: codec {
+				sound-dai = <&pcm512x>;
+			};
+		};
+	};
+};
+
+&i2c3 {
+	ak4458_1: ak4458@10 {
+		status = "disabled";
+	};
+
+	ak4458_2: ak4458@12 {
+		status = "disabled";
+	};
+
+	ak5558: ak5558@13 {
+		status = "disabled";
+	};
+
+	ak4497: ak4497@11 {
+		status = "disabled";
+	};
+
+	pcm512x: pcm512x@4d {
+		compatible = "ti,pcm5122";
+		reg = <0x4d>;
+		AVDD-supply = <&reg_3v3_vext>;
+		DVDD-supply = <&reg_3v3_vext>;
+		CPVDD-supply = <&reg_3v3_vext>;
+		clocks = <&ext_osc_22m>, <&ext_osc_24m>;
+		clock-names = "sclk0", "sclk1";
+		#sound-dai-cells = <0>;
+	};
+};
+
+&iomuxc {
+	pinctrl_sai5: sai5grp {
+		fsl,pins = <
+			MX8MM_IOMUXC_SAI5_RXD1_SAI5_TX_SYNC	0xd6
+			MX8MM_IOMUXC_SAI5_RXD2_SAI5_TX_BCLK	0xd6
+			MX8MM_IOMUXC_SAI5_RXD3_SAI5_TX_DATA0	0xd6
+			MX8MM_IOMUXC_SAI5_RXD0_SAI5_RX_DATA0	0xd6
+		>;
+	};
+};
+
+&micfil {
+	status = "disabled";
+};
+
+&sai5 {
+	#sound-dai-cells = <0>;
+	/delete-property/ fsl,sai-asynchronous;
+	/delete-property/ fsl,sai-multi-lane;
+	dmas = <&sdma2 8 2 0>, <&sdma2 9 2 0>;
+	assigned-clock-rates = <24576000>;
+	status = "okay";
+};
