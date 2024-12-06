@@ -20,6 +20,7 @@
 #include <sound/pcm_params.h>
 #include <linux/mfd/syscon.h>
 #include <linux/mfd/syscon/imx6q-iomuxc-gpr.h>
+#include <linux/busfreq-imx.h>
 
 #include "fsl_sai.h"
 #include "fsl_utils.h"
@@ -885,7 +886,7 @@ static int fsl_sai_startup(struct snd_pcm_substream *substream,
 					   sai->dma_params_rx.maxburst);
 
 	ret = snd_pcm_hw_constraint_list(substream->runtime, 0,
-			SNDRV_PCM_HW_PARAM_RATE, &fsl_sai_rate_constraints);
+			SNDRV_PCM_HW_PARAM_RATE, &sai->constraint_rates);
 
 	return ret;
 }
@@ -1166,6 +1167,14 @@ static bool fsl_sai_volatile_reg(struct device *dev, unsigned int reg)
 	case FSL_SAI_RDR5:
 	case FSL_SAI_RDR6:
 	case FSL_SAI_RDR7:
+	case FSL_SAI_TTCTN:
+	case FSL_SAI_TTCTL:
+	case FSL_SAI_TBCTN:
+	case FSL_SAI_TTCAP:
+	case FSL_SAI_RTCTN:
+	case FSL_SAI_RTCTL:
+	case FSL_SAI_RBCTN:
+	case FSL_SAI_RTCAP:
 		return true;
 	default:
 		return false;
@@ -1385,6 +1394,8 @@ static int fsl_sai_probe(struct platform_device *pdev)
 	char tmp[8];
 	int irq, ret, i;
 	int index;
+	int j, k = 0;
+	u64 clk_rate[2];
 	u32 dmas[4];
 
 	sai = devm_kzalloc(dev, sizeof(*sai), GFP_KERNEL);
@@ -1441,6 +1452,27 @@ static int fsl_sai_probe(struct platform_device *pdev)
 
 	fsl_asoc_get_pll_clocks(&pdev->dev, &sai->pll8k_clk,
 				&sai->pll11k_clk);
+
+	sai->constraint_rates = fsl_sai_rate_constraints;
+	if (sai->pll8k_clk || sai->pll11k_clk) {
+		sai->constraint_rates.list = sai->constraint_rates_list;
+		sai->constraint_rates.count = 0;
+		for (i = 0; i < FAL_SAI_NUM_RATES; i++) {
+			clk_rate[0] = clk_get_rate(sai->pll8k_clk);
+			clk_rate[1] = clk_get_rate(sai->pll11k_clk);
+			for (j = 0; j < 2; j++) {
+				if (clk_rate[j] != 0 &&
+				    do_div(clk_rate[j], fsl_sai_rates[i]) == 0) {
+					sai->constraint_rates_list[k++] = fsl_sai_rates[i];
+					sai->constraint_rates.count++;
+				}
+			}
+		}
+
+		/* protection for if there is no proper rate found*/
+		if (!sai->constraint_rates.count)
+			sai->constraint_rates = fsl_sai_rate_constraints;
+	}
 
 	/* Use Multi FIFO mode depending on the support from SDMA script */
 	ret = of_property_read_u32_array(np, "dmas", dmas, 4);
@@ -1550,6 +1582,28 @@ static int fsl_sai_probe(struct platform_device *pdev)
 	if (ret < 0 && ret != -ENOSYS)
 		goto err_pm_get_sync;
 
+	if (sai->verid.feature & FSL_SAI_VERID_TSTMP_EN) {
+		if (of_find_property(np, "fsl,sai-monitor-spdif", NULL) &&
+		    of_device_is_compatible(np, "fsl,imx8mm-sai")) {
+			sai->regmap_gpr = syscon_regmap_lookup_by_compatible("fsl,imx8mm-iomuxc-gpr");
+			if (IS_ERR(sai->regmap_gpr))
+				dev_warn(&pdev->dev, "cannot find iomuxc registers\n");
+
+			sai->gpr_idx = of_alias_get_id(np, "sai");
+			if (sai->gpr_idx < 0)
+				dev_warn(&pdev->dev, "cannot find sai alias id\n");
+
+			if (sai->gpr_idx > 0 && !IS_ERR(sai->regmap_gpr))
+				sai->monitor_spdif = true;
+		}
+
+		ret = sysfs_create_group(&pdev->dev.kobj, fsl_sai_get_dev_attribute_group(sai->monitor_spdif));
+		if (ret) {
+			dev_err(&pdev->dev, "fail to create sys group\n");
+			goto err_pm_get_sync;
+		}
+	}
+
 	/*
 	 * Register platform component before registering cpu dai for there
 	 * is not defer probe for platform component in snd_soc_add_pcm_runtime().
@@ -1560,23 +1614,27 @@ static int fsl_sai_probe(struct platform_device *pdev)
 			dev_err_probe(dev, ret, "PCM DMA init failed\n");
 			if (!IS_ENABLED(CONFIG_SND_SOC_IMX_PCM_DMA))
 				dev_err(dev, "Error: You must enable the imx-pcm-dma support!\n");
-			goto err_pm_get_sync;
+			goto err_component_register;
 		}
 	} else {
 		ret = devm_snd_dmaengine_pcm_register(dev, NULL, 0);
 		if (ret) {
 			dev_err_probe(dev, ret, "Registering PCM dmaengine failed\n");
-			goto err_pm_get_sync;
+			goto err_component_register;
 		}
 	}
 
 	ret = devm_snd_soc_register_component(dev, &fsl_component,
 					      sai->cpu_dai_drv, ARRAY_SIZE(fsl_sai_dai_template));
 	if (ret)
-		goto err_pm_get_sync;
+		goto err_component_register;
 
 	return ret;
 
+err_component_register:
+	if (sai->verid.feature & FSL_SAI_VERID_TSTMP_EN)
+		sysfs_remove_group(&pdev->dev.kobj,
+				   fsl_sai_get_dev_attribute_group(sai->monitor_spdif));
 err_pm_get_sync:
 	if (!pm_runtime_status_suspended(dev))
 		fsl_sai_runtime_suspend(dev);
@@ -1588,9 +1646,14 @@ err_pm_disable:
 
 static void fsl_sai_remove(struct platform_device *pdev)
 {
+	struct fsl_sai *sai = dev_get_drvdata(&pdev->dev);
+
 	pm_runtime_disable(&pdev->dev);
 	if (!pm_runtime_status_suspended(&pdev->dev))
 		fsl_sai_runtime_suspend(&pdev->dev);
+
+	if (sai->verid.feature & FSL_SAI_VERID_TSTMP_EN)
+		sysfs_remove_group(&pdev->dev.kobj,  fsl_sai_get_dev_attribute_group(sai->monitor_spdif));
 }
 
 static const struct fsl_sai_soc_data fsl_sai_vf610_data = {
@@ -1738,6 +1801,8 @@ static int fsl_sai_runtime_suspend(struct device *dev)
 {
 	struct fsl_sai *sai = dev_get_drvdata(dev);
 
+	release_bus_freq(BUS_FREQ_AUDIO);
+
 	if (sai->mclk_streams & BIT(SNDRV_PCM_STREAM_CAPTURE))
 		clk_disable_unprepare(sai->mclk_clk[sai->mclk_id[0]]);
 
@@ -1780,6 +1845,8 @@ static int fsl_sai_runtime_resume(struct device *dev)
 
 	if (sai->soc_data->flags & PMQOS_CPU_LATENCY)
 		cpu_latency_qos_add_request(&sai->pm_qos_req, 0);
+
+	request_bus_freq(BUS_FREQ_AUDIO);
 
 	regcache_cache_only(sai->regmap, false);
 	regcache_mark_dirty(sai->regmap);
