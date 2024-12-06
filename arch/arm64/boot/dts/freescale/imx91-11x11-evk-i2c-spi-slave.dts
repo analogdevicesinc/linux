@@ -1,0 +1,144 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+#include "imx91-11x11-evk.dts"
+#include <dt-bindings/i2c/i2c.h>
+
+/*
+ * There is a pad conflict on sai3 and lpspi5 so it should be disabled.
+ * And sound-wm8962 relies on sai3 so it should be disabled.
+ * There is a pad conflict on lpuart7 and lpspi3 so it should be disabled.
+ * Because of the 4-channel analog switch, flexcan2 can not work with lpspi3
+ * at the same time. So it should be disabled.
+ */
+/{
+	aliases {
+		sound-wm8962 {
+			status = "disabled";
+		};
+	};
+};
+
+&flexcan2 {
+	status = "disabled";
+};
+
+&lpuart7 {
+	status = "disabled";
+};
+
+&sai3 {
+	status = "disabled";
+};
+
+&adp5585 {
+	/* EXP_SEL RPi */
+	exp-sel-hog {
+		/delete-property/ output-low;
+		output-high;
+	};
+};
+
+&tpm3 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_tpm3>;
+	status = "okay";
+};
+
+/* lpi2c4 work as a lpi2c master bus */
+&lpi2c4 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c4>;
+	status = "okay";
+};
+
+/*
+ * lpi2c6 work as a lpi2c slave bus.
+ * The simulated 256 bytes-size slave-eeprom is instantiated
+ * at 7 bit address 0x64 on lpi2c6.
+ */
+&lpi2c6 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c6>;
+	status = "okay";
+
+	eeprom@64 {
+		compatible = "linux,slave-24c02";
+		reg = <(0x64 | I2C_OWN_SLAVE_ADDRESS)>;
+	};
+};
+
+/* lpspi3 work as a lpspi master bus */
+&lpspi3 {
+	fsl,spi-num-chipselects = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpspi3>;
+	cs-gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;
+	status = "okay";
+
+	spidev0: spi@0 {
+		reg = <0>;
+		compatible = "lwn,bk4";
+		spi-max-frequency = <1000000>;
+	};
+};
+
+/* lpspi5 work as a lpspi slave bus */
+&lpspi5 {
+	#address-cells = <0>;
+	fsl,spi-num-chipselects = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpspi5>;
+	status = "okay";
+
+	spi-slave;
+
+	slave {
+		compatible = "lwn,bk4";
+		spi-max-frequency = <1000000>;
+	};
+};
+
+&iomuxc {
+	pinctrl_tpm3: tpm3grp {
+		fsl,pins = <
+			MX91_PAD_GPIO_IO12__TPM3_CH2  0x02
+		>;
+	};
+
+	pinctrl_lpi2c4: lpi2c4grp {
+		fsl,pins = <
+			MX91_PAD_GPIO_IO02__LPI2C4_SDA			0x40000b9e
+			MX91_PAD_GPIO_IO03__LPI2C4_SCL			0x40000b9e
+		>;
+	};
+
+	pinctrl_lpi2c6: lpi2c6grp {
+		fsl,pins = <
+			MX91_PAD_GPIO_IO04__LPI2C6_SDA			0x40000b9e
+			MX91_PAD_GPIO_IO05__LPI2C6_SCL			0x40000b9e
+		>;
+	};
+
+	pinctrl_lpspi3: lpspi3grp {
+		fsl,pins = <
+			MX91_PAD_GPIO_IO08__GPIO2_IO8		0x3fe
+			MX91_PAD_GPIO_IO09__LPSPI3_SIN		0x3fe
+			MX91_PAD_GPIO_IO10__LPSPI3_SOUT		0x3fe
+			MX91_PAD_GPIO_IO11__LPSPI3_SCK		0x3fe
+		>;
+	};
+
+	pinctrl_lpspi5: lpspi5grp {
+		fsl,pins = <
+			MX91_PAD_GPIO_IO18__LPSPI5_PCS0		0x3fe
+			MX91_PAD_GPIO_IO19__LPSPI5_SIN		0x3fe
+			MX91_PAD_GPIO_IO20__LPSPI5_SOUT		0x3fe
+			MX91_PAD_GPIO_IO21__LPSPI5_SCK		0x3fe
+		>;
+	};
+};

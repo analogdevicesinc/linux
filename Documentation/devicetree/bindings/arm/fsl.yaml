@@ -1302,9 +1302,16 @@ properties:
               - fsl,imx93-14x14-evk       # i.MX93 14x14 EVK Board
           - const: fsl,imx93
 
+      - description: i.MX91 Quick Start Boards
+        items:
+          - enum:
+              - fsl,imx91-9x9-qsb       # i.MX91 9x9 QSB Board
+          - const: fsl,imx91
+
       - description: i.MX95 based Boards
         items:
           - enum:
+              - fsl,imx95-15x15-evk       # i.MX95 15x15 EVK Board
               - fsl,imx95-19x19-evk       # i.MX95 19x19 EVK Board
           - const: fsl,imx95
 

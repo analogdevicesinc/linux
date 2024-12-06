@@ -40,6 +40,7 @@ properties:
           - fsl,p1021-memory-controller
           - fsl,p2020-memory-controller
           - fsl,qoriq-memory-controller
+          - nxp,imx9-memory-controller
 
   interrupts:
     maxItems: 1

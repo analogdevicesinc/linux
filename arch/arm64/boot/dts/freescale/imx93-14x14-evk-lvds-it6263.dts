@@ -1,0 +1,67 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2023 NXP
+ */
+
+#include "imx93-14x14-evk.dts"
+
+&adv7535 {
+	status = "disabled";
+};
+
+&dphy {
+	status = "disabled";
+};
+
+&dsi {
+	status = "disabled";
+};
+
+
+&lcdif {
+	status = "okay";
+	assigned-clock-rates = <1039500000>, <148444444>, <400000000>, <133333333>;
+};
+
+&lpi2c1 {
+	lvds_bridge: lvds-to-hdmi-bridge@4c {
+		compatible = "ite,it6263";
+		reg = <0x4c>;
+		reset-gpio = <&pcal6524_2 6 GPIO_ACTIVE_LOW>;
+		status = "okay";
+
+		port {
+			it6263_0_in: endpoint {
+				remote-endpoint = <&ldb_out>;
+			};
+		};
+	};
+};
+
+&ldb {
+	status = "okay";
+
+	lvds-channel@0 {
+		status = "okay";
+
+		port@1 {
+			reg = <1>;
+
+			ldb_out: endpoint {
+				remote-endpoint = <&it6263_0_in>;
+			};
+		};
+	};
+};
+
+&ldb_phy {
+	status = "okay";
+};
+
+&iomuxc {
+	pinctrl_ctp_int: ctp_int_grp {
+		fsl,pins = <
+			MX93_PAD_GPIO_IO21__GPIO2_IO21          0x31e
+		>;
+	};
+};

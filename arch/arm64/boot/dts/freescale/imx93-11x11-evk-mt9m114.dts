@@ -1,0 +1,185 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2022 NXP
+ */
+
+#include "imx93-11x11-evk.dts"
+#include <dt-bindings/media/video-interfaces.h>
+
+/delete-node/ &mipi_csi;
+/delete-node/ &dphy_rx;
+/delete-node/ &ap1302;
+
+/ {
+	reg_mt9m114_dovdd: regulator-mt9m114-dovdd {
+		compatible = "regulator-fixed";
+		regulator-name = "mt9m114-dovdd";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		startup-delay-us = <0>;
+		off-on-delay-us  = <1000>;
+		gpio = <&pca9538 0 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	reg_mt9m114_avdd: regulator-mt9m114-avdd {
+		compatible = "regulator-fixed";
+		regulator-name = "mt9m114-avdd";
+		regulator-min-microvolt = <2800000>;
+		regulator-max-microvolt = <2800000>;
+		startup-delay-us = <200>;
+		off-on-delay-us  = <500>;
+		gpio = <&pca9538 1 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	reg_mt9m114_dvdd: regulator-mt9m114-dvdd {
+		compatible = "regulator-fixed";
+		regulator-name = "mt9m114-dvdd";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <1800000>;
+		startup-delay-us = <500>;
+		off-on-delay-us  = <200>;
+		gpio = <&pca9538 2 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	reg_mt9m114_extclk: regulator-mt9m114-extclk {
+		compatible = "regulator-fixed";
+		regulator-name = "mt9m114-extclk";
+		startup-delay-us = <10000>;
+		off-on-delay-us  = <200>;
+		gpio = <&pca9538 3 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	reg_mt9m114_ctrl_9509: regulator-mt9m114-ctrl-9509 {
+		compatible = "regulator-fixed";
+		regulator-name = "mt9m114-ctrl-9509";
+		gpio = <&pca9538 4 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-always-on;
+	};
+
+	reg_mt9m114_ctrl_4t245: regulator-mt9m114-ctrl-4t245 {
+		compatible = "regulator-fixed";
+		regulator-name = "mt9m114-ctrl-4t245";
+		startup-delay-us = <10000>;
+		off-on-delay-us  = <200>;
+		gpio = <&pca9538 5 GPIO_ACTIVE_HIGH>;
+		enable-active-low;
+	};
+
+	reg_mt9m114_ctrl_16t245: regulator-mt9m114-ctrl-16t245 {
+		compatible = "regulator-fixed";
+		regulator-name = "mt9m114-ctrl-16t245";
+		gpio = <&pca9538 6 GPIO_ACTIVE_HIGH>;
+		enable-active-low;
+		regulator-always-on;
+	};
+};
+
+&iomuxc {
+	pinctrl_parallel_csi: ci_pi {
+		fsl,pins = <
+			MX93_PAD_GPIO_IO01__MEDIAMIX_CAM_DATA00		0xb9e
+			MX93_PAD_GPIO_IO07__MEDIAMIX_CAM_DATA01		0xb9e
+			MX93_PAD_GPIO_IO08__MEDIAMIX_CAM_DATA02		0xb9e
+			MX93_PAD_GPIO_IO09__MEDIAMIX_CAM_DATA03		0xb9e
+			MX93_PAD_GPIO_IO10__MEDIAMIX_CAM_DATA04		0xb9e
+			MX93_PAD_GPIO_IO11__MEDIAMIX_CAM_DATA05		0xb9e
+			MX93_PAD_GPIO_IO14__MEDIAMIX_CAM_DATA06		0xb9e
+			MX93_PAD_GPIO_IO15__MEDIAMIX_CAM_DATA07		0xb9e
+			MX93_PAD_GPIO_IO17__MEDIAMIX_CAM_DATA08		0xb9e
+			MX93_PAD_GPIO_IO18__MEDIAMIX_CAM_DATA09		0xb9e
+
+			MX93_PAD_GPIO_IO00__MEDIAMIX_CAM_CLK		0xb9e
+			MX93_PAD_GPIO_IO02__MEDIAMIX_CAM_VSYNC		0xb9e
+			MX93_PAD_GPIO_IO03__MEDIAMIX_CAM_HSYNC		0xb9e
+			MX93_PAD_GPIO_IO05__GPIO2_IO05			0x31e
+			MX93_PAD_GPIO_IO04__GPIO2_IO04			0x31e
+		>;
+	};
+
+	pinctrl_lpi2c8: lpi2c8grp {
+		fsl,pins = <
+			MX93_PAD_GPIO_IO12__LPI2C8_SDA		0x40000b9e
+			MX93_PAD_GPIO_IO13__LPI2C8_SCL		0x40000b9e
+		>;
+	};
+};
+
+&isi{
+	status = "okay";
+
+	port {
+		isi_in: endpoint {
+			remote-endpoint = <&parallel_csi_out>;
+		};
+	};
+};
+
+&parallel_csi {
+	status = "okay";
+
+	ports {
+		port@0 {
+			reg = <0>;
+
+			parallel_csi_in: endpoint {
+				remote-endpoint = <&mt9m114_ep>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			parallel_csi_out: endpoint {
+				remote-endpoint = <&isi_in>;
+			};
+		};
+	};
+};
+
+&lpi2c8 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c8>;
+	pinctrl-assert-gpios = <&adp5585 4 GPIO_ACTIVE_HIGH>;
+	status = "okay";
+
+	pca9538: gpio@70 {
+		compatible = "nxp,pca9538";
+		reg = <0x70>;
+		gpio-controller;
+		#gpio-cells = <2>;
+		status = "okay";
+	};
+
+	mt9m114: mt9m114@48 {
+		compatible = "on,mt9m114";
+		reg = <0x48>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_parallel_csi>;
+		reset-gpios = <&gpio2 4 GPIO_ACTIVE_HIGH>;
+		powerdown-gpios = <&gpio2 5 GPIO_ACTIVE_HIGH>;
+		DOVDD-supply = <&reg_mt9m114_dovdd>;
+		AVDD-supply = <&reg_mt9m114_avdd>;
+		DVDD-supply = <&reg_mt9m114_dvdd>;
+		EXTCLK-supply = <&reg_mt9m114_extclk>;
+		CTRL_4T245-supply = <&reg_mt9m114_ctrl_4t245>;
+		mclk = <27000000>;
+		status = "okay";
+
+		port {
+			mt9m114_ep: endpoint {
+				remote-endpoint = <&parallel_csi_in>;
+				bus-type = <MEDIA_BUS_TYPE_PARALLEL>;
+				bus-width = <8>;
+				vsync-active = <1>;
+				hsync-active = <1>;
+				pclk-sample = <1>;
+			};
+		};
+	};
+};

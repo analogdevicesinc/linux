@@ -1,0 +1,402 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/clock/nxp,imx95-clock.h>
+#include <dt-bindings/gpio/gpio.h>
+
+&{/} {
+	clk_ref: clock-ref {
+		compatible = "fixed-clock";
+		#clock-cells = <0>;
+		clock-frequency = <25000000>;
+		clock-output-names = "clk_ref";
+	};
+};
+
+&lpi2c3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	status = "okay";
+
+	deser@30 {
+		compatible = "ti,ds90ub960-q1";
+		reg = <0x30>;
+		clocks = <&clk_ref>;
+		clock-names = "refclk";
+		powerdown-gpios = <&i2c7_pcal6524_23 20 GPIO_ACTIVE_LOW>;
+		i2c-alias-pool = <0x48 0x49 0x4a 0x4b>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				ub960_fpd3_1_in: endpoint {
+					remote-endpoint = <&ub953_1_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				ub960_fpd3_2_in: endpoint {
+					remote-endpoint = <&ub953_2_out>;
+				};
+			};
+
+			port@2 {
+				reg = <2>;
+
+				ub960_fpd3_3_in: endpoint {
+					remote-endpoint = <&ub953_3_out>;
+				};
+			};
+
+			port@3 {
+				reg = <3>;
+
+				ub960_fpd3_4_in: endpoint {
+					remote-endpoint = <&ub953_4_out>;
+				};
+			};
+
+			port@4 {
+				reg = <4>;
+
+				ds90ub960_0_csi_out: endpoint {
+					remote-endpoint = <&mipi_csi0_ep>;
+					data-lanes = <1 2 3 4>;
+					link-frequencies = /bits/ 64 <800000000>;
+				};
+			};
+
+			/* Port 5, unconnected */
+			port@5 {
+				reg = <5>;
+			};
+		};
+
+		links {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			/* Link 0 has DS90UB953 serializer and OX03C10 sensor */
+
+			link@0 {
+				reg = <0>;
+				i2c-alias = <0x44>;
+
+				ti,rx-mode = <3>;
+				ti,bc-gpio = <0>;
+
+				serializer1: serializer {
+					compatible = "ti,ds90ub953-q1";
+
+					gpio-controller;
+					#gpio-cells = <2>;
+
+					#clock-cells = <0>;
+
+					ports {
+						#address-cells = <1>;
+						#size-cells = <0>;
+
+						port@0 {
+							reg = <0>;
+
+							ub953_1_in: endpoint {
+								data-lanes = <1 2 3 4>;
+								remote-endpoint = <&ox03c10_1_out>;
+							};
+						};
+
+						port@1 {
+							reg = <1>;
+
+							ub953_1_out: endpoint {
+								remote-endpoint = <&ub960_fpd3_1_in>;
+							};
+						};
+					};
+
+					i2c {
+						#address-cells = <1>;
+						#size-cells = <0>;
+
+						sensor@36 {
+							compatible = "ovti,ox03c10";
+							reg = <0x36>;
+
+							clocks = <&serializer1>;
+							fsin-gpios = <&serializer1 0 GPIO_ACTIVE_HIGH>;
+
+							port {
+								ox03c10_1_out: endpoint {
+									remote-endpoint = <&ub953_1_in>;
+								};
+							};
+						};
+					};
+				};
+			};
+
+			/* Link 1 has DS90UB953 serializer and OX03C10 sensor */
+
+			link@1 {
+				reg = <1>;
+				i2c-alias = <0x45>;
+
+				ti,rx-mode = <3>;
+				ti,bc-gpio = <0>;
+
+				serializer2: serializer {
+					compatible = "ti,ds90ub953-q1";
+
+					gpio-controller;
+					#gpio-cells = <2>;
+
+					#clock-cells = <0>;
+
+					ports {
+						#address-cells = <1>;
+						#size-cells = <0>;
+
+						port@0 {
+							reg = <0>;
+
+							ub953_2_in: endpoint {
+								data-lanes = <1 2 3 4>;
+								remote-endpoint = <&ox03c10_2_out>;
+							};
+						};
+
+						port@1 {
+							reg = <1>;
+
+							ub953_2_out: endpoint {
+								remote-endpoint = <&ub960_fpd3_2_in>;
+							};
+						};
+					};
+
+					i2c {
+						#address-cells = <1>;
+						#size-cells = <0>;
+
+						sensor@36 {
+							compatible = "ovti,ox03c10";
+							reg = <0x36>;
+
+							clocks = <&serializer2>;
+							fsin-gpios = <&serializer2 0 GPIO_ACTIVE_HIGH>;
+
+							port {
+								ox03c10_2_out: endpoint {
+									remote-endpoint = <&ub953_2_in>;
+								};
+							};
+						};
+					};
+				};
+			};
+
+			/* Link 2 has DS90UB953 serializer and OX03C10 sensor */
+
+			link@2 {
+				reg = <2>;
+				i2c-alias = <0x46>;
+
+				ti,rx-mode = <3>;
+				ti,bc-gpio = <0>;
+
+				serializer3: serializer {
+					compatible = "ti,ds90ub953-q1";
+
+					gpio-controller;
+					#gpio-cells = <2>;
+
+					#clock-cells = <0>;
+
+					ports {
+						#address-cells = <1>;
+						#size-cells = <0>;
+
+						port@0 {
+							reg = <0>;
+
+							ub953_3_in: endpoint {
+								data-lanes = <1 2 3 4>;
+								remote-endpoint = <&ox03c10_3_out>;
+							};
+						};
+
+						port@1 {
+							reg = <1>;
+
+							ub953_3_out: endpoint {
+								remote-endpoint = <&ub960_fpd3_3_in>;
+							};
+						};
+					};
+
+					i2c {
+						#address-cells = <1>;
+						#size-cells = <0>;
+
+						sensor@36 {
+							compatible = "ovti,ox03c10";
+							reg = <0x36>;
+
+							clocks = <&serializer3>;
+							fsin-gpios = <&serializer3 0 GPIO_ACTIVE_HIGH>;
+
+							port {
+								ox03c10_3_out: endpoint {
+									remote-endpoint = <&ub953_3_in>;
+								};
+							};
+						};
+					};
+				};
+			};
+
+			/* Link 3 has DS90UB953 serializer and OX03C10 sensor */
+
+			link@3 {
+				reg = <3>;
+				i2c-alias = <0x47>;
+
+				ti,rx-mode = <3>;
+				ti,bc-gpio = <0>;
+
+				serializer4: serializer {
+					compatible = "ti,ds90ub953-q1";
+
+					gpio-controller;
+					#gpio-cells = <2>;
+
+					#clock-cells = <0>;
+
+					ports {
+						#address-cells = <1>;
+						#size-cells = <0>;
+
+						port@0 {
+							reg = <0>;
+
+							ub953_4_in: endpoint {
+								data-lanes = <1 2 3 4>;
+								remote-endpoint = <&ox03c10_4_out>;
+							};
+						};
+
+						port@1 {
+							reg = <1>;
+
+							ub953_4_out: endpoint {
+								remote-endpoint = <&ub960_fpd3_4_in>;
+							};
+						};
+					};
+
+					i2c {
+						#address-cells = <1>;
+						#size-cells = <0>;
+
+						sensor@36 {
+							compatible = "ovti,ox03c10";
+							reg = <0x36>;
+
+							clocks = <&serializer4>;
+							fsin-gpios = <&serializer4 0 GPIO_ACTIVE_HIGH>;
+
+							port {
+								ox03c10_4_out: endpoint {
+									remote-endpoint = <&ub953_4_in>;
+								};
+							};
+						};
+					};
+				};
+			};
+		};
+	};
+};
+
+&dphy_rx {
+	status = "okay";
+};
+
+&mipi_csi0 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+			mipi_csi0_ep: endpoint {
+				remote-endpoint = <&ds90ub960_0_csi_out>;
+				data-lanes = <1 2 3 4>;
+				clock-lanes = <0>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+				mipi_csi0_out: endpoint {
+				remote-endpoint = <&formatter_0_in>;
+			};
+		};
+	};
+};
+
+&csi_pixel_formatter_0 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@0 {
+			reg = <0>;
+
+			formatter_0_in: endpoint {
+				remote-endpoint = <&mipi_csi0_out>;
+			};
+		};
+
+		port@1 {
+			reg = <1>;
+
+			formatter_0_out: endpoint {
+				remote-endpoint = <&isi_in_2>;
+			};
+		};
+	};
+};
+
+&isi {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		port@2 {
+			reg = <2>;
+
+			isi_in_2: endpoint {
+				remote-endpoint = <&formatter_0_out>;
+			};
+		};
+	};
+};

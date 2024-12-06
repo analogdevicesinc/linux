@@ -1,0 +1,140 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2024 NXP
+ */
+
+#include "imx95-15x15-evk.dts"
+#include <dt-bindings/i2c/i2c.h>
+/*
+ * There is a pad conflict on sai3 and lpspi5 so it should be disabled.
+ * And sound-wm8962 relies on sai3 so it should be disabled.
+ * There is a pad conflict on lpuart7 and lpspi3 so it should be disabled.
+ * Because of the 4-channel analog switch, flexcan2 pad can not be switched
+ * when pinctrl-assert-gpios is asserted as HIGH. So it should be disabled.
+ */
+
+/{
+	sound-wm8962 {
+		status = "disabled";
+	};
+};
+
+&sai3 {
+	status = "disabled";
+};
+
+&flexcan2 {
+	status = "disabled";
+};
+
+&lpuart7 {
+	status = "disabled";
+};
+
+/*
+ * lpspi3 PCS0 pad conflicts with TPM. So we have to disable it and
+ * leave the GPIO_IO08 pad for lpspi3. Importantly, because of the
+ * board design, we need to switch SW10 to choose GPIO_IO08 and
+ * disable TMP in the same time.
+ */
+&tpm6 {
+	status = "disabled";
+};
+
+&pcal6524 {
+	lpspi-select-hog {
+		gpio-hog;
+		gpios = <0 GPIO_ACTIVE_HIGH>;
+		output-high;
+	};
+};
+
+/* lpi2c7 work as a lpi2c master bus */
+&lpi2c5 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c5>;
+	status = "okay";
+};
+
+/*
+ * lpi2c7 work as a lpi2c slave bus.
+ * The simulated 256 bytes-size slave-eeprom is instantiated
+ * at 7 bit address 0x64 on lpi2c6.
+ */
+&lpi2c7 {
+	clock-frequency = <400000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpi2c7>;
+	status = "okay";
+
+	eeprom@64 {
+		compatible = "linux,slave-24c02";
+		reg = <(0x64 | I2C_OWN_SLAVE_ADDRESS)>;
+	};
+};
+
+/* lpspi3 work as a master bus */
+&lpspi3 {
+	fsl,spi-num-chipselects = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpspi3>;
+	cs-gpios = <&gpio2 8 GPIO_ACTIVE_LOW>;
+	status = "okay";
+
+	spidev0: spi@0 {
+		reg = <0>;
+		compatible = "lwn,bk4";
+		spi-max-frequency = <1000000>;
+	};
+};
+
+/* lpspi5 work as a slave bus */
+&lpspi5 {
+	#address-cells = <0>;
+	fsl,spi-num-chipselects = <1>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lpspi5>;
+	status = "okay";
+
+	spi-slave;
+
+	slave {
+		compatible = "lwn,bk4";
+		spi-max-frequency = <1000000>;
+	};
+};
+
+&scmi_iomuxc {
+	pinctrl_lpi2c5: lpi2c5grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO00__LPI2C5_SDA			0x40000b9e
+			IMX95_PAD_GPIO_IO01__LPI2C5_SCL			0x40000b9e
+		>;
+	};
+
+	pinctrl_lpi2c7: lpi2c7grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO06__LPI2C7_SDA			0x40000b9e
+			IMX95_PAD_GPIO_IO07__LPI2C7_SCL			0x40000b9e
+		>;
+	};
+
+	pinctrl_lpspi3: lpspi3grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO08__GPIO2_IO_BIT8	0x3fe
+			IMX95_PAD_GPIO_IO09__LPSPI3_SIN		0x3fe
+			IMX95_PAD_GPIO_IO10__LPSPI3_SOUT	0x3fe
+			IMX95_PAD_GPIO_IO11__LPSPI3_SCK		0x3fe
+		>;
+	};
+
+	pinctrl_lpspi5: lpspi5grp {
+		fsl,pins = <
+			IMX95_PAD_GPIO_IO18__LPSPI5_PCS0	0x3fe
+			IMX95_PAD_GPIO_IO19__LPSPI5_SIN		0x3fe
+			IMX95_PAD_GPIO_IO20__LPSPI5_SOUT	0x3fe
+			IMX95_PAD_GPIO_IO21__LPSPI5_SCK		0x3fe
+		>;
+	};
+};

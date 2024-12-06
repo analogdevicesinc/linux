@@ -1,0 +1,46 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2023 NXP
+ */
+
+#include "imx93-14x14-evk.dts"
+#include <dt-bindings/i3c/i3c.h>
+
+/{
+	aliases {
+		/delete-property/ i2c0;
+	};
+};
+
+/delete-node/&lpi2c1;
+
+&i3c1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i3c1>;
+	i2c-scl-hz = <400000>;
+	status = "okay";
+
+	/* i2c device */
+	adv7535: hdmi@3d {
+		compatible = "adi,adv7535";
+		reg = <0x3d 0x00 (I2C_FM | I2C_NO_FILTER_LOW_FREQUENCY)>;
+		adi,addr-cec = <0x3b>;
+		adi,dsi-lanes = <4>;
+		status = "okay";
+
+		port {
+			adv7535_to_dsi: endpoint {
+				remote-endpoint = <&dsi_to_adv7535>;
+			};
+		};
+	};
+};
+
+&iomuxc {
+	pinctrl_i3c1: i3c1grp {
+		fsl,pins = <
+			MX93_PAD_I2C1_SCL__I3C1_SCL	0x40000186
+			MX93_PAD_I2C1_SDA__I3C1_SDA	0x40000186
+		>;
+	};
+};

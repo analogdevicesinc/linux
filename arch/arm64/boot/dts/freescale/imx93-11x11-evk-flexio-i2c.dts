@@ -1,0 +1,66 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2022 NXP
+ */
+
+#include "imx93-11x11-evk.dts"
+
+/{
+	aliases {
+		i2c8 = &flexio_i2c;
+	};
+};
+
+&lpi2c3 {
+	status = "disabled";
+	/delete-node/ tcpc@51;
+};
+
+&flexio1 {
+	status = "okay";
+};
+
+&flexio_i2c {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_flexio_i2c_master>;
+	pinctrl-1 = <&pinctrl_flexio_i2c_master>;
+	sda = /bits/ 8 <0x6>;
+	scl = /bits/ 8 <0x5>;
+	status = "okay";
+
+	ptn5110_2: tcpc@51 {
+		compatible = "nxp,ptn5110";
+		reg = <0x51>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <27 IRQ_TYPE_LEVEL_LOW>;
+		status = "okay";
+
+		port {
+			typec2_dr_sw: endpoint {
+				remote-endpoint = <&usb2_drd_sw>;
+			};
+		};
+
+		typec2_con: connector {
+			compatible = "usb-c-connector";
+			label = "USB-C";
+			power-role = "dual";
+			data-role = "dual";
+			try-power-role = "sink";
+			source-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)>;
+			sink-pdos = <PDO_FIXED(5000, 3000, PDO_FIXED_USB_COMM)
+				     PDO_VAR(5000, 20000, 3000)>;
+			op-sink-microwatt = <15000000>;
+			self-powered;
+		};
+	};
+};
+
+&iomuxc {
+	pinctrl_flexio_i2c_master: flexiogrp {
+		fsl,pins = <
+			MX93_PAD_GPIO_IO05__FLEXIO1_FLEXIO05    0xb9e
+			MX93_PAD_GPIO_IO06__FLEXIO1_FLEXIO06    0xb9e
+		>;
+	};
+};
