@@ -32,7 +32,7 @@ static enum drm_mode_status malidp_crtc_mode_valid(struct drm_crtc *crtc,
 	 * check that the hardware can drive the required clock rate,
 	 * but skip the check if the clock is meant to be disabled (req_rate = 0)
 	 */
-	long rate, req_rate = mode->crtc_clock * 1000;
+	long rate, req_rate = mode->clock * 1000;
 
 	if (req_rate) {
 		rate = clk_round_rate(hwdev->pxlclk, req_rate);
