@@ -35,6 +35,7 @@ properties:
               - fsl,imx7ulp-ocotp
               - fsl,imx8mq-ocotp
               - fsl,imx8mm-ocotp
+              - fsl,imx8ulp-ocotp
               - fsl,imx93-ocotp
               - fsl,imx95-ocotp
           - const: syscon
