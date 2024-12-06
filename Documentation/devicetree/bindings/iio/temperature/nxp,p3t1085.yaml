@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/iio/temperature/nxp,p3t1085.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP P3T1085UK I3C/I2C temperature sensor
+
+maintainers:
+  - Clark Wang <xiaoning.wang@nxp.com>
+
+description: |
+  https://www.nxp.com/docs/en/data-sheet/P3T1085UK.pdf
+
+  P3T1085UK is a temperature-to-digital converter with a -40 °C
+  to +125 °C range. The device can be communicated by a controller
+  via the 2-wire serial I3C (up to 12.5 MHz) and I2C (up to 3.4 MHz)
+  interface.
+
+  The I2C interface supports up to four target addresses and an
+  alert function which becomes active when the temperature exceeds
+  the programmed limits.
+
+  The I3C interface supports IBI (In Band Interrupt) where P3T1085UK
+  emits its address into the arbitrated address header on the I3C bus
+  to notify the controller of an interrupt. It does not require an
+  additional interrupt pin.
+
+  P3T1085UK can be configured for different operation conditions.
+  It can be set in normal mode to periodically monitor the ambient
+  temperature, or in shut-down mode to minimize power consumption.
+  The temperature register always stores a 12 bit two's complement
+  data, giving a temperature resolution of 0.0625 °C
+
+properties:
+  compatible:
+    const: nxp,p3t1085
+
+  reg:
+    maxItems: 1
+    description: supports up to four target addresses.
+
+required:
+  - compatible
+  - reg
+
+additionalProperties: false
+
+examples:
+  - |
+    i2c {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        temp-sensor@48 {
+            compatible = "nxp,p3t1085";
+            reg = <0x48>;
+        };
+    };

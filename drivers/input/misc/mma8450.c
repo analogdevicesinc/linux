@@ -2,7 +2,7 @@
 /*
  *  Driver for Freescale's 3-Axis Accelerometer MMA8450
  *
- *  Copyright (C) 2011 Freescale Semiconductor, Inc. All Rights Reserved.
+ *  Copyright (C) 2011-2015 Freescale Semiconductor, Inc. All Rights Reserved.
  */
 
 #include <linux/kernel.h>
@@ -38,6 +38,8 @@
 
 #define MMA8450_CTRL_REG1	0x38
 #define MMA8450_CTRL_REG2	0x39
+#define MMA8450_ID		0xC6
+#define MMA8450_WHO_AM_I	0x0F
 
 static int mma8450_read(struct i2c_client *c, unsigned int off)
 {
@@ -149,7 +151,24 @@ static void mma8450_close(struct input_dev *input)
 static int mma8450_probe(struct i2c_client *c)
 {
 	struct input_dev *input;
-	int err;
+	int err, client_id;
+	struct i2c_adapter *adapter = NULL;
+
+	adapter = to_i2c_adapter(c->dev.parent);
+	err = i2c_check_functionality(adapter,
+					 I2C_FUNC_SMBUS_BYTE |
+					 I2C_FUNC_SMBUS_BYTE_DATA);
+	if (!err)
+		return err;
+
+	client_id = i2c_smbus_read_byte_data(c, MMA8450_WHO_AM_I);
+
+	if (MMA8450_ID != client_id) {
+		dev_err(&c->dev,
+			"read chip ID 0x%x is not equal to 0x%x!\n", client_id,
+			MMA8450_ID);
+		return -EINVAL;
+	}
 
 	input = devm_input_allocate_device(&c->dev);
 	if (!input)
