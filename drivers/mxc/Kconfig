@@ -4,6 +4,12 @@ if ARCH_MXC
 
 menu "MXC support drivers"
 
+config MXC_SIM
+	tristate "MXC SIM support"
+	default n
+	help
+	Say Y to get MXC SIM support.
+
 config MXC_IPU
 	bool "Image Processing Unit Driver"
 	select MXC_IPU_V3
@@ -12,6 +18,7 @@ config MXC_IPU
 	  Y here. IPU is needed by Framebuffer and V4L2 drivers.
 
 source "drivers/mxc/gpu-viv/Kconfig"
+source "drivers/mxc/sim/Kconfig"
 source "drivers/mxc/mlb/Kconfig"
 source "drivers/mxc/ipu3/Kconfig"
 source "drivers/mxc/hdmi-cec/Kconfig"
