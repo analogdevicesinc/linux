@@ -642,6 +642,19 @@ config VIDEO_OV9734
 	  To compile this driver as a module, choose M here: the
 	  module's name is ov9734.
 
+config VIDEO_AP1302
+       tristate "ON Semiconductor AP130X ISP"
+       depends on I2C && VIDEO_DEV
+       select VIDEO_V4L2_SUBDEV_API
+       select V4L2_FWNODE
+
+       help
+         This is a Video4Linux2 sensor-level driver for the ON Semiconductor
+         AP1302 ISP.
+
+         To compile this driver as a module, choose M here: the
+         module will be called ap1302.
+
 config VIDEO_RDACM20
 	tristate "IMI RDACM20 camera support"
 	select VIDEO_MAX9271_LIB
