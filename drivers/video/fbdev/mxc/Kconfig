@@ -1,0 +1,127 @@
+config FB_MXC
+	tristate "MXC Framebuffer support"
+	depends on FB
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	select FB_MODE_HELPERS
+	select FB_IOMEM_FOPS
+	default y
+	help
+	  This is a framebuffer device for the MXC LCD Controller.
+	  See <http://www.linux-fbdev.org/> for information on framebuffer
+	  devices.
+
+	  If you plan to use the LCD display with your MXC system, say
+	  Y here.
+
+config FB_MXC_DISP_FRAMEWORK
+	tristate "Display driver framework"
+	help
+	  This is a framework that helps with registration and data handling
+	  between fb drivers and display drivers.
+
+	  It is selected by drivers which use this framework as linkage code
+	  between display controllers and panels.
+
+config FB_MXC_SYNC_PANEL
+	depends on FB_MXC && !FB_IMX64
+	depends on MXC_IPU_V3
+	select FB_MXC_DISP_FRAMEWORK
+	tristate "Synchronous Panel Framebuffer"
+
+config FB_MXC_OVERLAY
+	depends on FB_MXC
+	tristate "Overlay Framebuffer"
+	default n
+	help
+	  Enhanced LCD controller of MXC has overlay function.
+
+config FB_MXC_MIPI_DSI_NORTHWEST
+	tristate "MXC MIPI_DSI_NORTHWEST"
+	depends on FB_MXC_DISP_FRAMEWORK
+	depends on FB_MXS
+	select BACKLIGHT_CLASS_DEVICE
+
+config FB_MXC_EDID
+	depends on FB_MXC && I2C
+	tristate "MXC EDID support"
+	default y
+
+config FB_MXC_ADV7535
+	tristate "ADI ADV7535 support"
+	depends on I2C
+	depends on FB_MXC_MIPI_DSI_NORTHWEST
+	help
+	  Driver support for the ADV7535 DSI-to-HDMI module
+
+config FB_MXC_TRULY_PANEL_TFT3P5581E
+	tristate "TRULY Panel TFT3P5581E"
+	depends on FB_MXC_DISP_FRAMEWORK
+	depends on FB_MXC_MIPI_DSI_NORTHWEST
+
+config FB_MXC_TRULY_WVGA_SYNC_PANEL
+	tristate "TRULY WVGA Panel"
+	depends on FB_MXC_DISP_FRAMEWORK
+	depends on FB_MXC_MIPI_DSI || FB_MXC_MIPI_DSI_SAMSUNG || FB_MXC_MIPI_DSI_NORTHWEST
+	select BACKLIGHT_CLASS_DEVICE
+
+config FB_MXC_RK_PANEL_RK055AHD042
+	tristate "ROCKTECH Panel RK055AHD042"
+	depends on FB_MXC_DISP_FRAMEWORK
+	depends on FB_MXC_MIPI_DSI_NORTHWEST
+
+config FB_MXC_RK_PANEL_RK055IQH042
+	tristate "ROCKTECH Panel RK055IQH042"
+	depends on FB_MXC_DISP_FRAMEWORK
+	depends on FB_MXC_MIPI_DSI_NORTHWEST
+
+config FB_MXC_MIPI_DSI_SAMSUNG
+	tristate "MXC MIPI_DSI_SAMSUNG"
+	depends on FB_MXS
+	select BACKLIGHT_CLASS_DEVICE
+
+config FB_MXC_MIPI_DSI
+	tristate "MXC MIPI_DSI"
+	depends on FB_MXS
+
+config FB_MXC_LDB
+	tristate "MXC LDB"
+	depends on FB_MXC_SYNC_PANEL
+	depends on MXC_IPU_V3 || FB_MXS
+	select VIDEOMODE_HELPERS
+
+config FB_MXC_EINK_PANEL
+	depends on FB_MXC
+	depends on DMA_ENGINE
+	select FB_DEFERRED_IO
+	tristate "E-Ink Panel Framebuffer"
+
+config FB_MXC_EINK_V2_PANEL
+	depends on FB_MXC
+	depends on DMA_ENGINE
+	select FB_DEFERRED_IO
+	tristate "E-Ink Panel Framebuffer based on EPDC V2"
+
+config FB_MXC_EINK_AUTO_UPDATE_MODE
+	bool "E-Ink Auto-update Mode Support"
+	depends on FB_MXC_EINK_PANEL
+
+config FB_MXC_HDMI
+	depends on FB_MXC_SYNC_PANEL
+	depends on MXC_IPU_V3
+	depends on I2C
+	tristate "MXC HDMI driver support"
+	select MFD_MXC_HDMI
+	help
+	  Driver for the on-chip MXC HDMI controller.
+
+config FB_MXS_SII902X
+	tristate "Si Image SII9022 DVI/HDMI Interface Chip"
+	depends on FB_MXS && I2C
+
+config FB_MXC_DCIC
+	tristate "MXC DCIC"
+	depends on FB_MXC_SYNC_PANEL
+	depends on MXC_IPU_V3 || FB_MXS
+	select VIDEOMODE_HELPERS

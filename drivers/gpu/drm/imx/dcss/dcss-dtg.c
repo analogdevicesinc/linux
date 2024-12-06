@@ -83,6 +83,7 @@ struct dcss_dtg {
 	u32 ctx_id;
 
 	bool in_use;
+	bool hdmi_output;
 
 	u32 dis_ulc_x;
 	u32 dis_ulc_y;
@@ -159,6 +160,7 @@ int dcss_dtg_init(struct dcss_dev *dcss, unsigned long dtg_base)
 	dcss->dtg = dtg;
 	dtg->dev = dcss->dev;
 	dtg->ctxld = dcss->ctxld;
+	dtg->hdmi_output = dcss->hdmi_output;
 
 	dtg->base_reg = devm_ioremap(dtg->dev, dtg_base, SZ_4K);
 	if (!dtg->base_reg) {
@@ -205,6 +207,15 @@ void dcss_dtg_sync_set(struct dcss_dtg *dtg, struct videomode *vm)
 		    vm->vactive - 1;
 
 	clk_disable_unprepare(dcss->pix_clk);
+	if (dcss->hdmi_output) {
+		int err;
+
+		clk_disable_unprepare(dcss->pll_src_clk);
+		err = clk_set_parent(dcss->pll_src_clk, dcss->pll_phy_ref_clk);
+		if (err < 0)
+			dev_warn(dcss->dev, "clk_set_parent() returned %d", err);
+		clk_prepare_enable(dcss->pll_src_clk);
+	}
 	clk_set_rate(dcss->pix_clk, vm->pixelclock);
 	clk_prepare_enable(dcss->pix_clk);
 
@@ -288,8 +299,14 @@ void dcss_dtg_plane_alpha_set(struct dcss_dtg *dtg, int ch_num,
 	dtg->alpha = alpha;
 }
 
-void dcss_dtg_css_set(struct dcss_dtg *dtg)
+void dcss_dtg_css_set(struct dcss_dtg *dtg,
+		      enum dcss_pixel_pipe_output output_encoding)
 {
+	dtg->control_status &= ~CSS_PIX_COMP_SWAP_MASK;
+
+	if (output_encoding != DCSS_PIPE_OUTPUT_RGB)
+		return;
+
 	dtg->control_status |=
 			(0x5 << CSS_PIX_COMP_SWAP_POS) & CSS_PIX_COMP_SWAP_MASK;
 }

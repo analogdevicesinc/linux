@@ -169,6 +169,15 @@ config DRM_ITE_IT66121
 	help
 	  Support for ITE IT66121 HDMI bridge.
 
+config DRM_FSL_IMX_LVDS_BRIDGE
+	tristate "Freescale i.MX LVDS display bridge"
+	depends on MFD_SYSCON
+	depends on OF
+	select DRM_PANEL_BRIDGE
+	help
+	  Support Freescale i.MX parallel to LVDS Display Bridge (LDB).
+	  This bridge is embedded in a SoC.
+
 config DRM_LVDS_CODEC
 	tristate "Transparent LVDS encoders and decoders support"
 	depends on OF
@@ -177,6 +186,21 @@ config DRM_LVDS_CODEC
 	help
 	  Support for transparent LVDS encoders and decoders that don't
 	  require any configuration.
+
+config DRM_MAX96752_LVDS
+	tristate "Analog Devices MAX96752 deserializer LVDS bridge"
+	depends on DRM && OF && MFD_MAX96752
+	select DRM_KMS_HELPER
+	help
+	  This adds LVDS bridge support for the MAX96752 deserializer chip.
+
+config DRM_MAX96789_DSI
+	tristate "Analog Devices MAX96789 serializer DSI bridge"
+	depends on DRM && OF && MFD_MAX96789
+	select DRM_KMS_HELPER
+	select DRM_MIPI_DSI
+	help
+	  This adds MIPI-DSI bridge support for the MAX96789 serializer chip.
 
 config DRM_MEGACHIPS_STDPXXXX_GE_B850V3_FW
 	tristate "MegaChips stdp4028-ge-b850v3-fw and stdp2690-ge-b850v3-fw"
@@ -212,6 +236,20 @@ config DRM_NWL_MIPI_DSI
 	help
 	  This enables the Northwest Logic MIPI DSI Host controller as
 	  for example found on NXP's i.MX8 Processors.
+
+config DRM_SEC_MIPI_DSIM
+	tristate "Samsung MIPI DSIM Bridge"
+	depends on OF
+	select DRM_KMS_HELPER
+	select DRM_MIPI_DSI
+	select DRM_PANEL
+	help
+	  The Samsung MPI DSIM Bridge driver.
+
+config DRM_NXP_SEIKO_43WVFIG
+	tristate "Legacy Freescale Seiko 43WVFIG panel DPI adapter bridge"
+	select DRM_KMS_HELPER
+	select DRM_PANEL
 
 config DRM_NXP_PTN3460
 	tristate "NXP PTN3460 DP/LVDS bridge"
@@ -417,5 +455,21 @@ source "drivers/gpu/drm/bridge/cadence/Kconfig"
 source "drivers/gpu/drm/bridge/imx/Kconfig"
 
 source "drivers/gpu/drm/bridge/synopsys/Kconfig"
+
+config DRM_ITE_IT6263
+	tristate "ITE IT6263 LVDS/HDMI bridge"
+	depends on OF
+	select DRM_KMS_HELPER
+	select REGMAP_I2C
+	help
+	  ITE IT6263 bridge chip driver.
+
+config DRM_ITE_IT6161
+	tristate "ITE IT6161 MIPI/HDMI bridge"
+	depends on OF
+	select DRM_KMS_HELPER
+	select REGMAP_I2C
+	help
+	  ITE IT6161 bridge chip driver.
 
 endmenu

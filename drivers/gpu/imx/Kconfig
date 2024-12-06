@@ -1,0 +1,20 @@
+config IMX8_PC
+	tristate
+	default y if IMX_DPU_CORE=y
+	default m if IMX_DPU_CORE=m
+
+config IMX8_PRG
+	tristate
+	default y if IMX_DPU_CORE=y
+	default m if IMX_DPU_CORE=m
+
+config IMX8_DPRC
+	tristate
+	default y if IMX_DPU_CORE=y
+	default m if IMX_DPU_CORE=m
+
+source "drivers/gpu/imx/ipu-v3/Kconfig"
+source "drivers/gpu/imx/dpu/Kconfig"
+source "drivers/gpu/imx/dpu-blit/Kconfig"
+source "drivers/gpu/imx/lcdif/Kconfig"
+source "drivers/gpu/imx/lcdifv3/Kconfig"

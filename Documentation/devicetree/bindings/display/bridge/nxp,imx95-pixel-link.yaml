@@ -1,0 +1,95 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/bridge/nxp,imx95-pixel-link.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP i.MX95 Display Pixel Link
+
+maintainers:
+  - Liu Ying <victor.liu@nxp.com>
+
+description: |
+  Pixel link is designed to transport 1 pixel per clock.
+
+properties:
+  compatible:
+    const: nxp,imx95-dc-pixel-link
+
+  reg:
+    maxItems: 1
+
+  ports:
+    $ref: /schemas/graph.yaml#/properties/ports
+
+    properties:
+      port@0:
+        $ref: /schemas/graph.yaml#/properties/port
+        description: |
+          The pixel link input port node from display controller display
+          stream0.
+
+      port@1:
+        $ref: /schemas/graph.yaml#/properties/port
+        description: |
+          The pixel link input port node from display controller display
+          stream1.
+
+      port@2:
+        $ref: /schemas/graph.yaml#/properties/port
+        description: |
+          The pixel link output port node from port@0.
+
+      port@3:
+        $ref: /schemas/graph.yaml#/properties/port
+        description: |
+          The pixel link output port node from port@1.
+
+    required:
+      - port@0
+      - port@1
+      - port@2
+      - port@3
+
+required:
+  - compatible
+  - reg
+  - ports
+
+additionalProperties: false
+
+examples:
+  - |
+    bridge@8 {
+      compatible = "nxp,imx95-dc-pixel-link";
+      reg = <0x8 0x4>;
+
+      ports {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        port@0 {
+          reg = <0>;
+
+          display_pixel_link0_to_pixel_interleaver_disp0: endpoint {
+            remote-endpoint = <&pixel_interleaver_disp0_to_display_pixel_link0>;
+          };
+        };
+
+        port@1 {
+          reg = <1>;
+
+          display_pixel_link1_to_pixel_interleaver_disp1: endpoint {
+            remote-endpoint = <&pixel_interleaver_disp1_to_display_pixel_link1>;
+          };
+        };
+
+        port@2 {
+          reg = <2>;
+        };
+
+        port@3 {
+          reg = <3>;
+        };
+      };
+    };

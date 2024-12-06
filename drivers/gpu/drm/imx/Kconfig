@@ -1,5 +1,118 @@
 # SPDX-License-Identifier: GPL-2.0-only
+config DRM_IMX
+	tristate "DRM Support for Freescale i.MX"
+	select DRM_KMS_HELPER
+	select VIDEOMODE_HELPERS
+	select DRM_GEM_DMA_HELPER
+	depends on DRM && (ARCH_MXC || ARCH_MULTIPLATFORM || COMPILE_TEST)
+	depends on IMX_IPUV3_CORE || IMX_DPU_CORE || IMX8MM_LCDIF_CORE
+	help
+	  enable i.MX graphics support
 
+config DRM_IMX_LCDIF_MUX_DISPLAY
+	tristate "Support for LCDIF mux displays"
+	select DRM_PANEL_BRIDGE
+	depends on DRM_IMX && OF && MFD_SYSCON
+
+config DRM_IMX_PARALLEL_DISPLAY
+	tristate "Support for parallel displays"
+	select DRM_PANEL
+	depends on DRM_IMX
+	select VIDEOMODE_HELPERS
+
+config DRM_IMX_TVE
+	tristate "Support for TV and VGA displays"
+	depends on DRM_IMX
+	depends on COMMON_CLK
+	select REGMAP_MMIO
+	help
+	  Choose this to enable the internal Television Encoder (TVe)
+	  found on i.MX53 processors.
+
+config DRM_IMX_LDB
+	tristate "Support for LVDS displays"
+	depends on DRM_IMX && MFD_SYSCON
+	depends on COMMON_CLK
+	select DRM_PANEL
+	help
+	  Choose this to enable the internal LVDS Display Bridge (LDB)
+	  found on i.MX53 and i.MX6 processors.
+
+config DRM_IMX8QM_LDB
+	tristate "Support for i.MX8qm LVDS displays"
+	depends on DRM_IMX && DRM_FSL_IMX_LVDS_BRIDGE
+	depends on PHY_MIXEL_LVDS
+	help
+	  Choose this to enable the internal LVDS Display Bridge (LDB)
+	  found on i.MX8qm processors.
+
+config DRM_IMX8QXP_LDB
+	tristate "Support for i.MX8qxp LVDS displays"
+	depends on DRM_IMX && DRM_FSL_IMX_LVDS_BRIDGE
+	depends on PHY_MIXEL_LVDS_COMBO
+	help
+	  Choose this to enable the internal LVDS Display Bridge (LDB)
+	  found on i.MX8qxp processors.
+
+config DRM_IMX8MP_LDB
+	tristate "Support for i.MX8mp LVDS displays"
+	depends on DRM_IMX && DRM_FSL_IMX_LVDS_BRIDGE
+	depends on PHY_FSL_IMX8MP_LVDS
+	help
+	  Choose this to enable the internal LVDS Display Bridge (LDB)
+	  found on i.MX8mp processors.
+
+config DRM_IMX93_LDB
+	tristate "Support for i.MX93 LVDS displays"
+	depends on DRM_IMX && DRM_FSL_IMX_LVDS_BRIDGE
+	depends on PHY_FSL_IMX8MP_LVDS
+	help
+	  Choose this to enable the internal LVDS Display Bridge (LDB)
+	  found on i.MX93 processors.
+
+config IMX8MP_HDMI_PAVI
+	tristate "NXP i.MX8MP HDMI Audio Video (PVI/PAI)"
+	help
+	  Choose this if you want to use HDMI PAI/PVI on i.MX8MP.
+
+config DRM_IMX_DW_MIPI_DSI
+	tristate "Freescale i.MX DRM Synopsys DesignWare MIPI DSI"
+	select DRM_DW_MIPI_DSI
+	depends on DRM_IMX
+	help
+	  Choose this if you want to use Synopsys DesignWare MIPI DSI on i.MX93.
+
+config DRM_IMX93_PARALLEL_DISPLAY_FORMAT
+	tristate "Support for i.MX93 parallel display format"
+	select DRM_PANEL_BRIDGE
+	depends on DRM_IMX && OF && MFD_SYSCON
+	help
+	  Choose this to enable the internal parallel display format
+	  configuration found on i.MX93 processors.
+
+config DRM_IMX_HDMI
+	tristate "Freescale i.MX DRM HDMI"
+	select DRM_DW_HDMI
+	select IMX8MP_HDMI_PAVI
+	depends on DRM_IMX && OF
+	help
+	  Choose this if you want to use HDMI on i.MX6/i.MX8.
+
+config DRM_IMX_SEC_DSIM
+	tristate "Support for Samsung MIPI DSIM displays"
+	depends on DRM_IMX
+	select MFD_SYSCON
+	select DRM_SEC_MIPI_DSIM
+	help
+	  Choose this to enable the internal SEC MIPI DSIM controller
+	  found on i.MX platform.
+
+source "drivers/gpu/drm/imx/dcnano/Kconfig"
+source "drivers/gpu/drm/imx/dpu/Kconfig"
+source "drivers/gpu/drm/imx/dpu95/Kconfig"
 source "drivers/gpu/drm/imx/dcss/Kconfig"
+source "drivers/gpu/drm/imx/mhdp/Kconfig"
 source "drivers/gpu/drm/imx/ipuv3/Kconfig"
+source "drivers/gpu/drm/imx/lcdif/Kconfig"
+source "drivers/gpu/drm/imx/lcdifv3/Kconfig"
 source "drivers/gpu/drm/imx/lcdc/Kconfig"

@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: GPL-2.0
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/display/panel/raydium,rm692c9.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: Raydium RM692c9 OLED LCD panel with MIPI-DSI protocol
+
+maintainers:
+  - Praveen Adi <praveen.adi@nxp.com>
+  - Liu Ying <victor.liu@nxp.com>
+
+allOf:
+  - $ref: panel-common.yaml#
+
+properties:
+  compatible:
+    const: raydium,rm692c9
+
+  reg: true
+  port: true
+  reset-gpios: true
+  width-mm: true
+  height-mm: true
+
+  dsi-lanes:
+    description: Number of DSI lanes to be used must be <2> or <3> or <4>
+    $ref: /schemas/types.yaml#/definitions/uint32
+    enum: [2, 3, 4]
+
+  v3p3-supply:
+    description: phandle to 3.3V regulator that powers the VDD_3V3 pin
+
+  v1p8-supply:
+    description: phandle to 1.8V regulator that powers the VDD_1V8 pin
+
+required:
+  - compatible
+  - reg
+  - dsi-lanes
+  - port
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/gpio/gpio.h>
+
+    dsi {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        panel@0 {
+            compatible = "raydium,rm692c9";
+            reg = <0>;
+            reset-gpios = <&gpio1 7 GPIO_ACTIVE_LOW>;
+            dsi-lanes = <4>;
+
+            port {
+                panel_in: endpoint {
+                    remote-endpoint = <&mipi_out>;
+                };
+            };
+        };
+    };
+
+...

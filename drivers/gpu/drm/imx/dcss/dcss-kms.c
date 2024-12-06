@@ -3,8 +3,10 @@
  * Copyright 2019 NXP.
  */
 
+#include <drm/bridge/cdns-mhdp.h>
 #include <drm/drm_atomic.h>
 #include <drm/drm_atomic_helper.h>
+#include <drm/drm_blend.h>
 #include <drm/drm_bridge_connector.h>
 #include <drm/drm_drv.h>
 #include <drm/drm_fbdev_dma.h>
@@ -13,21 +15,43 @@
 #include <drm/drm_of.h>
 #include <drm/drm_probe_helper.h>
 #include <drm/drm_vblank.h>
+#include <linux/component.h>
 
 #include "dcss-dev.h"
 #include "dcss-kms.h"
 
 DEFINE_DRM_GEM_DMA_FOPS(dcss_cma_fops);
 
+static int dcss_kms_atomic_check(struct drm_device *dev,
+				 struct drm_atomic_state *state)
+{
+	int ret;
+
+	ret = drm_atomic_helper_check_modeset(dev, state);
+	if (ret)
+		return ret;
+
+	ret = drm_atomic_normalize_zpos(dev, state);
+	if (ret)
+		return ret;
+
+	ret = dcss_crtc_setup_opipe(dev, state);
+	if (ret)
+		return ret;
+
+	return drm_atomic_helper_check_planes(dev, state);
+}
+
 static const struct drm_mode_config_funcs dcss_drm_mode_config_funcs = {
 	.fb_create = drm_gem_fb_create,
-	.atomic_check = drm_atomic_helper_check,
+	.atomic_check = dcss_kms_atomic_check,
 	.atomic_commit = drm_atomic_helper_commit,
 };
 
 static const struct drm_driver dcss_kms_driver = {
 	.driver_features	= DRIVER_MODESET | DRIVER_GEM | DRIVER_ATOMIC,
 	DRM_GEM_DMA_DRIVER_OPS,
+	.gem_prime_import	= drm_gem_prime_import,
 	.fops			= &dcss_cma_fops,
 	.name			= "imx-dcss",
 	.desc			= "i.MX8MQ Display Subsystem",
@@ -106,7 +130,7 @@ static int dcss_kms_bridge_connector_init(struct dcss_kms_dev *kms)
 	return 0;
 }
 
-struct dcss_kms_dev *dcss_kms_attach(struct dcss_dev *dcss)
+struct dcss_kms_dev *dcss_kms_attach(struct dcss_dev *dcss, bool componentized)
 {
 	struct dcss_kms_dev *kms;
 	struct drm_device *drm;
@@ -129,15 +153,25 @@ struct dcss_kms_dev *dcss_kms_attach(struct dcss_dev *dcss)
 	if (ret)
 		goto cleanup_mode_config;
 
-	ret = dcss_kms_bridge_connector_init(kms);
-	if (ret)
-		goto cleanup_mode_config;
+	if (!componentized) {
+		ret = dcss_kms_bridge_connector_init(kms);
+		if (ret)
+			goto cleanup_mode_config;
+	}
 
 	ret = dcss_crtc_init(crtc, drm);
 	if (ret)
 		goto cleanup_mode_config;
 
+	if (componentized) {
+		ret = component_bind_all(dcss->dev, kms);
+		if (ret)
+			goto cleanup_crtc;
+	}
+
 	drm_mode_config_reset(drm);
+
+	dcss_crtc_attach_color_mgmt_properties(crtc);
 
 	drm_kms_helper_poll_init(drm);
 
@@ -160,9 +194,10 @@ cleanup_mode_config:
 	return ERR_PTR(ret);
 }
 
-void dcss_kms_detach(struct dcss_kms_dev *kms)
+void dcss_kms_detach(struct dcss_kms_dev *kms, bool componentized)
 {
 	struct drm_device *drm = &kms->base;
+	struct dcss_dev *dcss = drm->dev_private;
 
 	drm_dev_unregister(drm);
 	drm_kms_helper_poll_fini(drm);
@@ -170,6 +205,8 @@ void dcss_kms_detach(struct dcss_kms_dev *kms)
 	drm_crtc_vblank_off(&kms->crtc.base);
 	drm_mode_config_cleanup(drm);
 	dcss_crtc_deinit(&kms->crtc, drm);
+	if (componentized)
+		component_unbind_all(dcss->dev, drm);
 	drm->dev_private = NULL;
 }
 

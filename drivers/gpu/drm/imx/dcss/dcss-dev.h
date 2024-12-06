@@ -6,6 +6,7 @@
 #ifndef __DCSS_PRV_H__
 #define __DCSS_PRV_H__
 
+#include <drm/drm_atomic.h>
 #include <drm/drm_fourcc.h>
 #include <drm/drm_plane.h>
 #include <linux/io.h>
@@ -59,6 +60,13 @@ enum dcss_ctxld_ctx_type {
 	CTX_SB_LP, /* low-priority  */
 };
 
+enum dcss_pixel_pipe_output {
+	DCSS_PIPE_OUTPUT_RGB = 0,
+	DCSS_PIPE_OUTPUT_YUV444,
+	DCSS_PIPE_OUTPUT_YUV422,
+	DCSS_PIPE_OUTPUT_YUV420,
+};
+
 struct dcss_dev {
 	struct device *dev;
 	const struct dcss_type_data *devtype;
@@ -94,6 +102,7 @@ struct dcss_dev {
 
 struct dcss_dev *dcss_drv_dev_to_dcss(struct device *dev);
 struct drm_device *dcss_drv_dev_to_drm(struct device *dev);
+bool dcss_drv_is_componentized(struct device *dev);
 struct dcss_dev *dcss_dev_create(struct device *dev, bool hdmi_output);
 void dcss_dev_destroy(struct dcss_dev *dcss);
 void dcss_enable_dtg_and_ss(struct dcss_dev *dcss);
@@ -120,6 +129,9 @@ int dcss_ctxld_enable(struct dcss_ctxld *ctxld);
 void dcss_ctxld_register_completion(struct dcss_ctxld *ctxld,
 				    struct completion *dis_completion);
 void dcss_ctxld_assert_locked(struct dcss_ctxld *ctxld);
+void dcss_ctxld_register_dtrc_cb(struct dcss_ctxld *ctxld,
+				 bool (*cb)(void *),
+				 void *data);
 
 /* DPR */
 int dcss_dpr_init(struct dcss_dev *dcss, unsigned long dpr_base);
@@ -140,7 +152,8 @@ bool dcss_dtg_vblank_irq_valid(struct dcss_dtg *dtg);
 void dcss_dtg_vblank_irq_enable(struct dcss_dtg *dtg, bool en);
 void dcss_dtg_vblank_irq_clear(struct dcss_dtg *dtg);
 void dcss_dtg_sync_set(struct dcss_dtg *dtg, struct videomode *vm);
-void dcss_dtg_css_set(struct dcss_dtg *dtg);
+void dcss_dtg_css_set(struct dcss_dtg *dtg,
+		      enum dcss_pixel_pipe_output output_encoding);
 void dcss_dtg_enable(struct dcss_dtg *dtg);
 void dcss_dtg_shutoff(struct dcss_dtg *dtg);
 bool dcss_dtg_is_enabled(struct dcss_dtg *dtg);
@@ -157,7 +170,8 @@ int dcss_ss_init(struct dcss_dev *dcss, unsigned long subsam_base);
 void dcss_ss_exit(struct dcss_ss *ss);
 void dcss_ss_enable(struct dcss_ss *ss);
 void dcss_ss_shutoff(struct dcss_ss *ss);
-void dcss_ss_subsam_set(struct dcss_ss *ss);
+void dcss_ss_subsam_set(struct dcss_ss *ss,
+			enum dcss_pixel_pipe_output output_encoding);
 void dcss_ss_sync_set(struct dcss_ss *ss, struct videomode *vm,
 		      bool phsync, bool pvsync);
 
@@ -174,5 +188,167 @@ void dcss_scaler_ch_enable(struct dcss_scaler *scl, int ch_num, bool en);
 int dcss_scaler_get_min_max_ratios(struct dcss_scaler *scl, int ch_num,
 				   int *min, int *max);
 void dcss_scaler_write_sclctrl(struct dcss_scaler *scl);
+
+/* DEC400D */
+
+#define VIV_VIDMEM_METADATA_MAGIC fourcc_code('v', 'i', 'v', 'm')
+
+/* Compressed format now was defined same as dec400d, should be general. */
+typedef enum _VIV_COMPRESS_FMT
+{
+    _VIV_CFMT_ARGB8 = 0,
+    _VIV_CFMT_XRGB8,
+    _VIV_CFMT_AYUV,
+    _VIV_CFMT_UYVY,
+    _VIV_CFMT_YUY2,
+    _VIV_CFMT_YUV_ONLY,
+    _VIV_CFMT_UV_MIX,
+    _VIV_CFMT_ARGB4,
+    _VIV_CFMT_XRGB4,
+    _VIV_CFMT_A1R5G5B5,
+    _VIV_CFMT_X1R5G5B5,
+    _VIV_CFMT_R5G6B5,
+    _VIV_CFMT_Z24S8,
+    _VIV_CFMT_Z24,
+    _VIV_CFMT_Z16,
+    _VIV_CFMT_A2R10G10B10,
+    _VIV_CFMT_BAYER,
+    _VIV_CFMT_SIGNED_BAYER,
+    _VIV_CFMT_VAA16,
+    _VIV_CFMT_S8,
+
+    _VIV_CFMT_MAX,
+} _VIV_COMPRESS_FMT;
+
+/* Metadata for cross-device fd share with additional (ts) info. */
+typedef struct _VIV_VIDMEM_METADATA
+{
+    uint32_t magic;
+
+    int32_t  ts_fd;
+    void *   ts_dma_buf;
+
+    uint32_t fc_enabled;
+    uint32_t fc_value;
+    uint32_t fc_value_upper;
+
+    uint32_t compressed;
+    uint32_t compress_format;
+} _VIV_VIDMEM_METADATA;
+
+int dcss_dec400d_init(struct dcss_dev *dcss, unsigned long dec400d_base);
+void dcss_dec400d_exit(struct dcss_dec400d *dec400d);
+void dcss_dec400d_bypass(struct dcss_dec400d *dec400d);
+void dcss_dec400d_shadow_trig(struct dcss_dec400d *dec400d);
+void dcss_dec400d_enable(struct dcss_dec400d *dec400d);
+void dcss_dec400d_fast_clear_config(struct dcss_dec400d *dec400d,
+				    u32 fc_value,
+				    bool enable);
+void dcss_dec400d_read_config(struct dcss_dec400d *dec400d,
+			      u32 read_id,
+			      bool compress_en,
+			      u32 compress_format);
+void dcss_dec400d_addr_set(struct dcss_dec400d *dec400d, u32 baddr, u32 caddr);
+
+/* HDR10 */
+enum dcss_hdr10_nonlinearity {
+	NL_REC2084,
+	NL_REC709,
+	NL_BT1886,
+	NL_2100HLG,
+	NL_SRGB,
+};
+
+enum dcss_hdr10_pixel_range {
+	PR_LIMITED,
+	PR_FULL,
+};
+
+enum dcss_hdr10_gamut {
+	G_REC2020,
+	G_REC709,
+	G_REC601_NTSC,
+	G_REC601_PAL,
+	G_ADOBE_ARGB,
+};
+
+struct dcss_hdr10_pipe_cfg {
+	bool is_yuv;
+	enum dcss_hdr10_nonlinearity nl;
+	enum dcss_hdr10_pixel_range pr;
+	enum dcss_hdr10_gamut g;
+};
+
+int dcss_hdr10_init(struct dcss_dev *dcss, unsigned long hdr10_base);
+void dcss_hdr10_exit(struct dcss_hdr10 *hdr10);
+bool dcss_hdr10_pipe_cfg_is_supported(struct dcss_hdr10 *hdr10,
+				      struct dcss_hdr10_pipe_cfg *ipipe_cfg,
+				      struct dcss_hdr10_pipe_cfg *opipe_cfg);
+void dcss_hdr10_setup(struct dcss_hdr10 *hdr10, int ch_num,
+		      struct dcss_hdr10_pipe_cfg *ipipe_cfg,
+		      struct dcss_hdr10_pipe_cfg *opipe_cfg);
+
+/* enums common to both WRSCL and RDSRC */
+enum dcss_wrscl_rdsrc_psize {
+	PSIZE_64,
+	PSIZE_128,
+	PSIZE_256,
+	PSIZE_512,
+	PSIZE_1024,
+	PSIZE_2048,
+	PSIZE_4096,
+};
+
+enum dcss_wrscl_rdsrc_tsize {
+	TSIZE_64,
+	TSIZE_128,
+	TSIZE_256,
+	TSIZE_512,
+};
+
+enum dcss_wrscl_rdsrc_fifo_size {
+	FIFO_512,
+	FIFO_1024,
+	FIFO_2048,
+	FIFO_4096,
+};
+
+enum dcss_wrscl_rdsrc_bpp {
+	BPP_38, /* 38 bit unpacked components */
+	BPP_32_UPCONVERT,
+	BPP_32_10BIT_OUTPUT,
+	BPP_20, /* 10-bit YUV422 */
+	BPP_16, /* 8-bit YUV422 */
+};
+
+/* WRSCL */
+int dcss_wrscl_init(struct dcss_dev *dcss, unsigned long wrscl_base);
+void dcss_wrscl_exit(struct dcss_wrscl *wrscl);
+u32 dcss_wrscl_setup(struct dcss_wrscl *wrscl, u32 pix_format, u32 pix_clk_hz,
+		     u32 dst_xres, u32 dst_yres);
+void dcss_wrscl_enable(struct dcss_wrscl *wrscl);
+void dcss_wrscl_disable(struct dcss_wrscl *wrscl);
+
+/* RDSRC */
+int dcss_rdsrc_init(struct dcss_dev *dcss, unsigned long rdsrc_base);
+void dcss_rdsrc_exit(struct dcss_rdsrc *rdsrc);
+void dcss_rdsrc_setup(struct dcss_rdsrc *rdsrc, u32 pix_format, u32 dst_xres,
+		      u32 dst_yres, u32 base_addr);
+void dcss_rdsrc_enable(struct dcss_rdsrc *rdsrc);
+void dcss_rdsrc_disable(struct dcss_rdsrc *rdsrc);
+
+/* DTRC */
+int dcss_dtrc_init(struct dcss_dev *dcss, unsigned long dtrc_base);
+void dcss_dtrc_exit(struct dcss_dtrc *dtrc);
+void dcss_dtrc_bypass(struct dcss_dtrc *dtrc, int ch_num);
+void dcss_dtrc_set_format_mod(struct dcss_dtrc *dtrc, int ch_num, u64 modifier);
+void dcss_dtrc_addr_set(struct dcss_dtrc *dtrc, int ch_num,
+			u32 p1_ba, u32 p2_ba, uint64_t dec_table_ofs);
+bool dcss_dtrc_ch_running(struct dcss_dtrc *dtrc, int ch_num);
+bool dcss_dtrc_is_running(struct dcss_dtrc *dtrc);
+void dcss_dtrc_enable(struct dcss_dtrc *dtrc, int ch_num, bool enable);
+void dcss_dtrc_set_res(struct dcss_dtrc *dtrc, int ch_num,
+		       struct drm_plane_state *state, u32 *dtrc_w, u32 *dtrc_h);
+void dcss_dtrc_switch_banks(struct dcss_dtrc *dtrc);
 
 #endif /* __DCSS_PRV_H__ */

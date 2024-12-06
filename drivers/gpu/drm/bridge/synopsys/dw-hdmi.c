@@ -2989,6 +2989,9 @@ static const struct drm_edid *dw_hdmi_bridge_edid_read(struct drm_bridge *bridge
 {
 	struct dw_hdmi *hdmi = bridge->driver_private;
 
+	if (!connector)
+		return dw_hdmi_edid_read(hdmi, &hdmi->connector);
+
 	return dw_hdmi_edid_read(hdmi, connector);
 }
 

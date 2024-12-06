@@ -110,6 +110,307 @@ prg@21cc000 {
 	fsl,pres = <&pre1>, <&pre2>, <&pre3>;
 };
 
+Freescale i.MX DPU
+====================
+
+Required properties:
+- compatible: Should be "fsl,<chip>-dpu"
+- reg: should be register base and length as documented in the
+  datasheet
+- interrupt-parent: phandle pointing to the parent interrupt controller.
+- interrupts, interrupt-names: Should contain interrupts and names as
+  documented in the datasheet.
+- clocks, clock-names: phandles to the DPU clocks described in
+  Documentation/devicetree/bindings/clock/clock-bindings.txt
+  The following clocks are expected on i.MX8qxp:
+           "pll0" - PLL clock for display interface 0
+           "pll1" - PLL clock for display interface 1
+           "disp0" - pixel clock for display interface 0
+           "disp1" - pixel clock for display interface 1
+  The needed clock numbers for each are documented in
+  Documentation/devicetree/bindings/clock/imx8qxp-lpcg.txt.
+- power-domains: phandles pointing to power domain.
+- power-domain-names: power domain names relevant to power-domains phandles.
+- fsl,dpr-channels: phandles to the DPR channels attached to this DPU,
+  sorted by memory map addresses.
+- fsl,pixel-combiner: phandle to the pixel combiner unit attached to this DPU.
+Optional properties:
+- port@[0-1]: Port nodes with endpoint definitions as defined in
+  Documentation/devicetree/bindings/media/video-interfaces.txt.
+  ports 0 and 1 should correspond to display interface 0 and
+  display interface 1, respectively.
+
+example:
+
+dpu: dpu@56180000 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	compatible = "fsl,imx8qxp-dpu";
+	reg = <0x56180000 0x40000>;
+	interrupt-parent = <&irqsteer_dpu>;
+	interrupts = <448>, <449>, <450>,  <64>,
+		      <65>,  <66>,  <67>,  <68>,
+		      <69>,  <70>, <193>, <194>,
+		     <195>, <196>, <197>,  <72>,
+		      <73>,  <74>,  <75>,  <76>,
+		      <77>,  <78>,  <79>,  <80>,
+		      <81>, <199>, <200>, <201>,
+		     <202>, <203>, <204>, <205>,
+		     <206>, <207>, <208>,   <0>,
+		       <1>,   <2>,   <3>,   <4>,
+		      <82>,  <83>,  <84>,  <85>,
+		     <209>, <210>, <211>, <212>;
+	interrupt-names = "store9_shdload",
+			  "store9_framecomplete",
+			  "store9_seqcomplete",
+			  "extdst0_shdload",
+			  "extdst0_framecomplete",
+			  "extdst0_seqcomplete",
+			  "extdst4_shdload",
+			  "extdst4_framecomplete",
+			  "extdst4_seqcomplete",
+			  "extdst1_shdload",
+			  "extdst1_framecomplete",
+			  "extdst1_seqcomplete",
+			  "extdst5_shdload",
+			  "extdst5_framecomplete",
+			  "extdst5_seqcomplete",
+			  "disengcfg_shdload0",
+			  "disengcfg_framecomplete0",
+			  "disengcfg_seqcomplete0",
+			  "framegen0_int0",
+			  "framegen0_int1",
+			  "framegen0_int2",
+			  "framegen0_int3",
+			  "sig0_shdload",
+			  "sig0_valid",
+			  "sig0_error",
+			  "disengcfg_shdload1",
+			  "disengcfg_framecomplete1",
+			  "disengcfg_seqcomplete1",
+			  "framegen1_int0",
+			  "framegen1_int1",
+			  "framegen1_int2",
+			  "framegen1_int3",
+			  "sig1_shdload",
+			  "sig1_valid",
+			  "sig1_error",
+			  "cmdseq_error",
+			  "comctrl_sw0",
+			  "comctrl_sw1",
+			  "comctrl_sw2",
+			  "comctrl_sw3",
+			  "framegen0_primsync_on",
+			  "framegen0_primsync_off",
+			  "framegen0_secsync_on",
+			  "framegen0_secsync_off",
+			  "framegen1_primsync_on",
+			  "framegen1_primsync_off",
+			  "framegen1_secsync_on",
+			  "framegen1_secsync_off";
+	clocks = <&dc_lpcg IMX_DC0_PLL0_CLK>,
+		 <&dc_lpcg IMX_DC0_PLL1_CLK>,
+		 <&dc_lpcg IMX_DC0_DISP0_CLK>,
+		 <&dc_lpcg IMX_DC0_DISP1_CLK>;
+	clock-names = "pll0", "pll1", "disp0", "disp1";
+	power-domains = <&pd IMX_SC_R_DC_0>,
+			<&pd IMX_SC_R_DC_0_PLL_0>,
+			<&pd IMX_SC_R_DC_0_PLL_1>;
+	power-domain-names = "dc", "pll0", "pll1";
+	fsl,dpr-channels = <&dc0_dpr1_channel1>, <&dc0_dpr1_channel2>,
+			   <&dc0_dpr1_channel3>, <&dc0_dpr2_channel1>,
+			   <&dc0_dpr2_channel2>, <&dc0_dpr2_channel3>;
+	fsl,pixel-combiner = <&dc0_pc>;
+
+	dpu_disp0: port@0 {
+		reg = <0>;
+
+		dpu_disp0_lvds0_ch0: endpoint@0 {
+			remote-endpoint = <&ldb1_ch0>;
+		};
+
+		dpu_disp0_lvds0_ch1: endpoint@1 {
+			remote-endpoint = <&ldb1_ch1>;
+		};
+
+		dpu_disp0_mipi_dsi: endpoint@2 {
+		};
+	};
+
+	dpu_disp1: port@1 {
+		reg = <1>;
+
+		dpu_disp1_lvds1_ch0: endpoint@0 {
+			remote-endpoint = <&ldb2_ch0>;
+		};
+
+		dpu_disp1_lvds1_ch1: endpoint@1 {
+			remote-endpoint = <&ldb2_ch1>;
+		};
+
+		dpu_disp1_mipi_dsi: endpoint@2 {
+		};
+	};
+};
+
+Freescale i.MX8 PC (Pixel Combiner)
+=============================================
+Required properties:
+- compatible: should be "fsl,<chip>-pixel-combiner"
+- reg: should be register base and length as documented in the
+  datasheet
+- power-domains: phandle pointing to power domain
+
+example:
+
+pixel-combiner@56020000 {
+	compatible = "fsl,imx8qm-pixel-combiner";
+	reg = <0x56020000 0x10000>;
+	power-domains = <&pd IMX_SC_R_DC_0>;
+};
+
+Freescale i.MX8 PRG (Prefetch Resolve Gasket)
+=============================================
+Required properties:
+- compatible: should be "fsl,<chip>-prg"
+- reg: should be register base and length as documented in the
+  datasheet
+- clocks: phandles to the PRG apb and rtram clocks, as described in
+  Documentation/devicetree/bindings/clock/clock-bindings.txt and
+  Documentation/devicetree/bindings/clock/imx8qxp-lpcg.txt.
+- clock-names: should be "apb" and "rtram"
+- power-domains: phandle pointing to power domain
+
+example:
+
+prg@56040000 {
+	compatible = "fsl,imx8qm-prg";
+	reg = <0x56040000 0x10000>;
+	clocks = <&dc0_prg0_lpcg 0>, <&dc0_prg0_lpcg 1>;
+	clock-names = "apb", "rtram";
+	power-domains = <&pd IMX_SC_R_DC_0>;
+};
+
+Freescale i.MX8 DPRC (Display Prefetch Resolve Channel)
+=======================================================
+Required properties:
+- compatible: should be "fsl,<chip>-dpr-channel"
+- reg: should be register base and length as documented in the
+  datasheet
+- fsl,sc-resource: SCU resource number as defined in
+  include/dt-bindings/firmware/imx/rsrc.h
+- fsl,prgs: phandles to the PRG unit(s) attached to this DPRC, the first one
+  is the primary PRG and the second one(if available) is the auxiliary PRG
+  which is used to fetch luma chunk of a YUV frame with 2 planars.
+- clocks: phandles to the DPRC apb, b and rtram clocks, as described in
+  Documentation/devicetree/bindings/clock/clock-bindings.txt and
+  Documentation/devicetree/bindings/clock/imx8qxp-lpcg.txt.
+- clock-names: should be "apb", "b" and "rtram"
+- power-domains: phandle pointing to power domain
+
+example:
+
+dpr-channel@560e0000 {
+	compatible = "fsl,imx8qm-dpr-channel";
+	reg = <0x560e0000 0x10000>;
+	fsl,sc-resource = <IMX_SC_R_DC_0_BLIT1>;
+	fsl,prgs = <&dc0_prg2>, <&dc0_prg1>;
+	clocks = <&dc0_dpr0_lpcg 0>,
+		 <&dc0_dpr0_lpcg 1>,
+		 <&dc0_rtram0_lpcg 0>;
+	clock-names = "apb", "b", "rtram";
+	power-domains = <&pd IMX_SC_R_DC_0>;
+};
+
+Freescale i.MX93 parallel display format
+========================================
+Required properties:
+- compatible: should be "fsl,imx93-parallel-display-format"
+- power-domains: phandle pointing to power domain
+- ports: It contains port nodes with endpoint definitions as defined in
+  Documentation/devicetree/bindings/media/video-interfaces.txt.
+  Port 0 is the input port connected to the display controller,
+  port 1 is the output port connected to a panel or a bridge.
+- pinctrl-names: Must contain a "default" entry and an optional "gpio" entry.
+		 The "gpio" entry is used to select state for certain display
+		 pins to GPIO to avoid power leakage from them.
+- pinctrl-0: a phandle pointing to the pin settings for the "default" entry.
+Optional properties:
+- fsl,interface-pix-fmt: How this display is connected to the
+  display interface, can be "rgb565", "rgb666" and "rgb888".
+- pinctrl-1: a phandle pointing to the pin settings for the "gpio" entry.
+
+LCDIF mux display support
+=========================
+
+Required properties:
+- compatible: Should be "fsl,imx-lcdif-mux-display"
+- #address-cells : should be <1>
+- #size-cells : should be <0>
+- pinctrl-names : should be "default"
+- pinctrl-0 : phandle pointing to parallel display pin settings
+- clocks : phandle to the LCD pixel bypass divider clock and the LCD pixel clock
+  as described in Documentation/devicetree/bindings/clock/clock-bindings.txt and
+  Documentation/devicetree/bindings/clock/imx8qxp-clock.txt.
+- clock-names: should be "bypass_div" and "pixel"
+- assigned-clocks: phandle to the LCD pixel selector clock
+- assigned-clock-parents: phandle to the LCD pixel bypass divider clock
+- fsl,lcdif-mux-regs: should be <&lcdif_mux_regs> on i.MX8qxp.
+                      The phandle points to a syscon region containing
+                      LCDIF mux control register.
+- power-domains: phandle pointing to power domain
+- port@[0-1]: Port nodes with endpoint definitions as defined in
+  Documentation/devicetree/bindings/media/video-interfaces.txt.
+  Port 0 is the input port connected to the DPU display interface,
+  port 1 is the output port connected to a panel or a bridge.
+Optional properties:
+- fsl,interface-pix-fmt: How this display is connected to the
+  display interface, can be "rgb565", "rgb666" and "rgb888".
+
+example:
+
+display@disp1 {
+	compatible = "fsl,imx-lcdif-mux-display";
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_lcdif>;
+	clocks = <&clk IMX_SC_R_LCD_0 IMX_SC_PM_CLK_BYPASS>,
+		 <&clk IMX_SC_R_LCD_0 IMX_SC_PM_CLK_MISC0>;
+	clock-names = "bypass_div", "pixel";
+	assigned-clocks = <&clk IMX_SC_R_LCD_0 IMX_SC_PM_CLK_MISC0>;
+	assigned-clock-parents = <&clk IMX_SC_R_LCD_0 IMX_SC_PM_CLK_BYPASS>;
+	fsl,lcdif-mux-regs = <&lcdif_mux_regs>;
+	fsl,interface-pix-fmt = "rgb666";
+	power-domains = <&pd IMX_SC_R_LCD_0>;
+
+	port@0 {
+		reg = <0>;
+
+		lcd_display_in: endpoint {
+			remote-endpoint = <&dpu_disp1_lcdif>;
+		};
+	};
+
+	port@1 {
+		reg = <1>;
+
+		lcd_display_out: endpoint {
+			remote-endpoint = <&lcd_panel_in>;
+		};
+	};
+};
+
+panel {
+	...
+
+	port {
+		lcd_panel_in: endpoint {
+			remote-endpoint = <&lcd_display_out>;
+		};
+	};
+};
+
 Parallel display support
 ========================
 

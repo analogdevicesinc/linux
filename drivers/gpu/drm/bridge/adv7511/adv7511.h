@@ -227,6 +227,9 @@
 #define ADV7511_REG_CEC_SOFT_RESET	0x50
 
 #define ADV7533_REG_CEC_OFFSET		0x70
+#define FORMAT_RATIO(x, y) (((x) * 100) / (y))
+#define RATIO_16_9 FORMAT_RATIO(16, 9)
+#define RATIO_4_3  FORMAT_RATIO(4, 3)
 
 enum adv7511_input_clock {
 	ADV7511_INPUT_CLOCK_1X,
@@ -351,6 +354,10 @@ struct adv7511 {
 	struct i2c_client *i2c_packet;
 	struct i2c_client *i2c_cec;
 
+	u32 addr_cec;
+	u32 addr_edid;
+	u32 addr_pkt;
+
 	struct regmap *regmap;
 	struct regmap *regmap_cec;
 	enum drm_connector_status status;
@@ -386,6 +393,7 @@ struct adv7511 {
 	struct device_node *host_node;
 	struct mipi_dsi_device *dsi;
 	u8 num_dsi_lanes;
+	u8 channel_id;
 	bool use_timing_gen;
 
 	const struct adv7511_chip_info *info;
