@@ -106,6 +106,14 @@ void gic_dist_config(void __iomem *base, int gic_irqs, u8 priority)
 		writel_relaxed(REPEAT_BYTE_U32(priority),
 			       base + GIC_DIST_PRI + i);
 
+#ifndef CONFIG_GIC_GENTLE_CONFIG
+	/*
+	 * eCockpit: do not deactivate all SPIs as this would erase the other
+	 * cluster's GIC configuration.
+	 * This is now done in function gic_set_type() (called by request_irq)
+	 * which allows to limit this to the interrupts registered by the
+	 * cluster.
+	 */
 	/*
 	 * Deactivate and disable all SPIs. Leave the PPI and SGIs
 	 * alone as they are in the redistributor registers on GICv3.
@@ -116,6 +124,7 @@ void gic_dist_config(void __iomem *base, int gic_irqs, u8 priority)
 		writel_relaxed(GICD_INT_EN_CLR_X32,
 			       base + GIC_DIST_ENABLE_CLEAR + i / 8);
 	}
+#endif
 }
 
 void gic_cpu_config(void __iomem *base, int nr, u8 priority)
