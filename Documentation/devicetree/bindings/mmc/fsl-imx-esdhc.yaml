@@ -106,6 +106,10 @@ properties:
       boolean, if present, indicate to use controller internal write protection.
     type: boolean
 
+  fsl,cd-gpio-wakeup-disable:
+    description: |
+      boolean, if present, indicate this card detect gpio pin is NOT a wakeup source.
+
   fsl,delay-line:
     $ref: /schemas/types.yaml#/definitions/uint32
     description: |
