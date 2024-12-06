@@ -1,0 +1,102 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2023 NXP
+ */
+
+/dts-v1/;
+
+#include "imx8mq-evk.dts"
+
+/ {
+	reg_pcie0: regulator-pcie0 {
+		compatible = "regulator-fixed";
+		regulator-name = "MPCIE_3V3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&pca6416 0 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-always-on;
+	};
+};
+
+&iomuxc {
+	pinctrl_pca6416_rst: pca6416grp {
+		fsl,pins = <
+			MX8MQ_IOMUXC_GPIO1_IO14_GPIO1_IO14	0x19
+		>;
+	};
+};
+
+&pinctrl_pcie0 {
+	fsl,pins = <
+		MX8MQ_IOMUXC_I2C4_SCL_PCIE1_CLKREQ_B		0x76
+		MX8MQ_IOMUXC_UART4_RXD_GPIO5_IO28		0x16
+		MX8MQ_IOMUXC_NAND_DQS_GPIO3_IO14		0x41
+	>;
+};
+
+&i2c3 {
+	pca6416: gpio@20 {
+		compatible = "nxp,pca6416";
+		reg = <0x20>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_pca6416_rst>;
+		reset-gpios = <&gpio1 14 GPIO_ACTIVE_LOW>;
+		gpio-controller;
+		#gpio-cells = <2>;
+
+		m2-bt-level-shifter-hog {
+			gpio-hog;
+			gpios = <5 GPIO_ACTIVE_LOW>;
+			output-low;
+		};
+	};
+};
+
+&gpio3 {
+	/* enable the M.2 BT */
+	bt-reg-on-hog {
+		/delete-property/ output-high;
+		output-low;
+	};
+};
+
+&gpio5 {
+	/delete-node/ wl-reg-on-hog; /* This pin is not used on wevk board */
+};
+
+&pcie0 {
+	vpcie-supply = <&reg_pcie0>;
+	host-wake-gpio = <&gpio3 14 GPIO_ACTIVE_LOW>;
+};
+
+&pcie1 {
+	/delete-property/ host-wake-gpio;
+};
+
+&ethphy0 {
+	/delete-property/ qca,disable-smarteee;
+	/delete-property/ vddio-supply;
+	reset-deassert-us = <80000>;
+	realtek,aldps-enable;
+	realtek,clkout-disable;
+
+	/delete-node/ vddh-regulator;
+};
+
+&qspi0 {
+	assigned-clocks = <&clk IMX8MQ_CLK_QSPI>;
+	assigned-clock-parents = <&clk IMX8MQ_SYS1_PLL_266M>;
+	assigned-clock-rates = <266000000>;
+	pinctrl-assert-gpios = <&pca6416 4 GPIO_ACTIVE_HIGH>;	/* QSPIA_RESET */
+
+	w25q256jv: flash@0 {
+		reg = <0>;
+		#address-cells = <1>;
+		#size-cells = <1>;
+		compatible = "jedec,spi-nor";
+		spi-tx-bus-width = <1>;
+		spi-rx-bus-width = <4>;
+		spi-max-frequency = <33250000>;   /* driver will x4 = 133MHz */
+	};
+};
