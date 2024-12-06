@@ -805,12 +805,7 @@ static int adrv9002_mcs_run(struct adrv9002_rf_phy *phy, const char *buf)
 	}
 
 	if (phy->mcs_run) {
-		/*
-		 * !\FIXME: Ugly hack but MCS only runs successful once and then always fails
-		 * (get's stuck). Hence let's just not allow running more than once and print
-		 * something so people can see this is a known thing.
-		 */
-		dev_err(&phy->spi->dev, "Multi chip sync can only run once for now...\n");
+		dev_err(&phy->spi->dev, "Multi chip sync can only run once...\n");
 		return -EPERM;
 	}
 
@@ -827,10 +822,13 @@ static int adrv9002_mcs_run(struct adrv9002_rf_phy *phy, const char *buf)
 	if (ret)
 		return ret;
 
+	adrv9002_axi_mcs_run(phy);
 	tmp = read_poll_timeout(adi_adrv9001_Radio_State_Get, ret,
 				ret || (radio.mcsState == ADI_ADRV9001_ARMMCSSTATES_DONE),
 				20 * USEC_PER_MSEC, 10 * USEC_PER_SEC, false, phy->adrv9001,
 				&radio);
+	/* still clean things up in the cores in case MCS failed to run */
+	adrv9002_axi_mcs_done(phy);
 	if (ret)
 		return __adrv9002_dev_err(phy, __func__, __LINE__);
 	if (tmp)
