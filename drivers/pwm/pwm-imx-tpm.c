@@ -34,6 +34,7 @@
 #define PWM_IMX_TPM_CnV(n)	(0x24 + (n) * 0x8)
 
 #define PWM_IMX_TPM_PARAM_CHAN			GENMASK(7, 0)
+#define PWM_IMX_TPM_GLOBAL_RST			BIT(1)
 
 #define PWM_IMX_TPM_SC_PS			GENMASK(2, 0)
 #define PWM_IMX_TPM_SC_CMOD			GENMASK(4, 3)
@@ -338,6 +339,7 @@ static const struct pwm_ops imx_tpm_pwm_ops = {
 
 static int pwm_imx_tpm_probe(struct platform_device *pdev)
 {
+	struct device_node *np = pdev->dev.of_node;
 	struct pwm_chip *chip;
 	struct imx_tpm_pwm_chip *tpm;
 	struct clk *clk;
@@ -370,6 +372,12 @@ static int pwm_imx_tpm_probe(struct platform_device *pdev)
 	tpm->clk = clk;
 
 	chip->ops = &imx_tpm_pwm_ops;
+
+	if (of_property_read_bool(np, "pwm-rst")) {
+		/* Resets all internal logic and registers */
+		writel(PWM_IMX_TPM_GLOBAL_RST, tpm->base + PWM_IMX_TPM_GLOBAL);
+		writel(0, tpm->base + PWM_IMX_TPM_GLOBAL);
+	}
 
 	mutex_init(&tpm->lock);
 
