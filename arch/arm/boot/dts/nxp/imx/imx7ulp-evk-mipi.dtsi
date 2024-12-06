@@ -1,0 +1,23 @@
+/*
+ * Copyright 2018 NXP.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+&adv7535 {
+	status = "disabled";
+
+	/delete-node/ port;
+};
+
+&mipi_dsi {
+	pinctrl-names = "default", "sleep";
+	pinctrl-0 = <&pinctrl_mipi_dsi_reset>;
+	pinctrl-1 = <&pinctrl_mipi_dsi_reset>;
+	lcd_panel = "TRULY-WVGA-TFT3P5581E";
+	resets = <&mipi_dsi_reset>;
+
+	/delete-node/ port;
+};

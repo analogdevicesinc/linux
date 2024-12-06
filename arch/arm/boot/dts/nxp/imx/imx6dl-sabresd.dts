@@ -12,7 +12,163 @@
 	compatible = "fsl,imx6dl-sabresd", "fsl,imx6dl";
 };
 
+&battery {
+	offset-charger = <1485>;
+	offset-discharger = <1464>;
+	offset-usb-charger = <1285>;
+};
+
+&iomuxc {
+	epdc {
+		pinctrl_epdc_elan_touch: epdc_elan_touch_grp {
+			fsl,pins = <
+				MX6QDL_PAD_EIM_D28__GPIO3_IO28 0x80000000
+				MX6QDL_PAD_EIM_DA8__GPIO3_IO08 0x80000000
+				MX6QDL_PAD_EIM_A20__GPIO2_IO18 0x80000000
+			>;
+		};
+
+		pinctrl_epdc_0: epdcgrp-0 {
+			fsl,pins = <
+				MX6QDL_PAD_EIM_A16__EPDC_DATA00    0x80000000
+				MX6QDL_PAD_EIM_DA10__EPDC_DATA01   0x80000000
+				MX6QDL_PAD_EIM_DA12__EPDC_DATA02   0x80000000
+				MX6QDL_PAD_EIM_DA11__EPDC_DATA03   0x80000000
+				MX6QDL_PAD_EIM_LBA__EPDC_DATA04    0x80000000
+				MX6QDL_PAD_EIM_EB2__EPDC_DATA05    0x80000000
+				MX6QDL_PAD_EIM_CS0__EPDC_DATA06    0x80000000
+				MX6QDL_PAD_EIM_RW__EPDC_DATA07     0x80000000
+				MX6QDL_PAD_EIM_A21__EPDC_GDCLK     0x80000000
+				MX6QDL_PAD_EIM_A22__EPDC_GDSP      0x80000000
+				MX6QDL_PAD_EIM_A23__EPDC_GDOE      0x80000000
+				MX6QDL_PAD_EIM_A24__EPDC_GDRL      0x80000000
+				MX6QDL_PAD_EIM_D31__EPDC_SDCLK_P   0x80000000
+				MX6QDL_PAD_EIM_D27__EPDC_SDOE      0x80000000
+				MX6QDL_PAD_EIM_DA1__EPDC_SDLE      0x80000000
+				MX6QDL_PAD_EIM_EB1__EPDC_SDSHR     0x80000000
+				MX6QDL_PAD_EIM_DA2__EPDC_BDR0      0x80000000
+				MX6QDL_PAD_EIM_DA4__EPDC_SDCE0     0x80000000
+				MX6QDL_PAD_EIM_DA5__EPDC_SDCE1     0x80000000
+				MX6QDL_PAD_EIM_DA6__EPDC_SDCE2     0x80000000
+				>;
+		};
+	};
+};
+
+&epdc {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_epdc_0>;
+	V3P3-supply = <&V3P3_reg>;
+	VCOM-supply = <&VCOM_reg>;
+	DISPLAY-supply = <&DISPLAY_reg>;
+	status = "okay";
+};
+
+&i2c3 {
+	elan@10 {
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_epdc_elan_touch>;
+		compatible = "elan,elan-touch";
+		reg = <0x10>;
+		interrupt-parent = <&gpio3>;
+		interrupts = <28 IRQ_TYPE_EDGE_FALLING>;
+		gpio_elan_cs = <&gpio2 18 0>;
+		gpio_elan_rst = <&gpio3 8 0>;
+		gpio_intr = <&gpio3 28 0>;
+		status = "okay";
+	};
+
+        max17135@48 {
+                compatible = "maxim,max17135";
+                reg = <0x48>;
+                vneg_pwrup = <1>;
+                gvee_pwrup = <1>;
+                vpos_pwrup = <2>;
+                gvdd_pwrup = <1>;
+                gvdd_pwrdn = <1>;
+                vpos_pwrdn = <2>;
+                gvee_pwrdn = <1>;
+                vneg_pwrdn = <1>;
+                SENSOR-supply = <&reg_sensors>;
+                gpio_pmic_pwrgood = <&gpio2 21 0>;
+                gpio_pmic_vcom_ctrl = <&gpio3 17 0>;
+                gpio_pmic_wakeup = <&gpio3 20 0>;
+                gpio_pmic_v3p3 = <&gpio2 20 0>;
+                gpio_pmic_intr = <&gpio2 25 0>;
+
+                regulators {
+                        DISPLAY_reg: DISPLAY {
+                                regulator-name = "DISPLAY";
+                        };
+
+                        GVDD_reg: GVDD {
+                                /* 20v */
+                                regulator-name = "GVDD";
+                        };
+
+                        GVEE_reg: GVEE {
+                                /* -22v */
+                                regulator-name = "GVEE";
+                        };
+
+                        HVINN_reg: HVINN {
+                                /* -22v */
+                                regulator-name = "HVINN";
+                        };
+
+                        HVINP_reg: HVINP {
+                                /* 20v */
+                                regulator-name = "HVINP";
+                        };
+
+                        VCOM_reg: VCOM {
+                                regulator-name = "VCOM";
+                                /* Real max: -500000 */
+                                regulator-max-microvolt = <4325000>;
+                                /* Real min: -4325000 */
+                                regulator-min-microvolt = <500000>;
+                        };
+
+                        VNEG_reg: VNEG {
+                                /* -15v */
+                                regulator-name = "VNEG";
+                        };
+
+                        VPOS_reg: VPOS {
+                                /* 15v */
+                                regulator-name = "VPOS";
+                        };
+
+                        V3P3_reg: V3P3 {
+                                regulator-name = "V3P3";
+                        };
+                };
+        };
+};
+
 &ipu1_csi1_from_ipu1_csi1_mux {
 	clock-lanes = <0>;
 	data-lanes = <1 2>;
+};
+
+&ldb {
+	lvds-channel@0 {
+		crtc = "ipu1-di0";
+	};
+
+	lvds-channel@1 {
+		crtc = "ipu1-di1";
+	};
+};
+
+&mxcfb1 {
+	status = "okay";
+};
+
+&mxcfb2 {
+	status = "okay";
+};
+
+&pxp {
+	status = "okay";
 };

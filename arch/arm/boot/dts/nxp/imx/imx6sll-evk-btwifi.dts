@@ -1,0 +1,66 @@
+/*
+ * Copyright (C) 2016 Freescale Semiconductor, Inc.
+ * Copyright 2019 NXP
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "imx6sll-evk.dts"
+
+/ {
+	usdhc1_pwrseq: usdhc1_pwrseq {
+		compatible = "mmc-pwrseq-simple";
+		reset-gpios = <&gpio3 24 GPIO_ACTIVE_LOW>;
+	};
+};
+
+&epdc {
+	status = "disabled";
+};
+
+&iomuxc {
+	pinctrl_wifi: wifigrp {
+		fsl,pins = <
+			MX6SLL_PAD_SD3_CMD__SD3_CMD     0x170b9
+			MX6SLL_PAD_SD3_CLK__SD3_CLK     0x130b9
+			MX6SLL_PAD_SD3_DATA0__SD3_DATA0 0x170b9
+			MX6SLL_PAD_SD3_DATA1__SD3_DATA1 0x170b9
+			MX6SLL_PAD_SD3_DATA2__SD3_DATA2 0x170b9
+			MX6SLL_PAD_SD3_DATA3__SD3_DATA3 0x170b9
+
+			MX6SLL_PAD_KEY_COL0__GPIO3_IO24 0x17059 /* WL_REG_ON */
+		>;
+	};
+};
+
+&lcdif {
+	status = "disabled";
+};
+
+&reg_sd3_vmmc {
+	regulator-always-on;
+};
+
+&uart5 {
+	status = "okay";
+
+	bluetooth {
+		compatible = "nxp,88w8987-bt";
+	};
+};
+
+&usdhc3 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_wifi>;
+	bus-width = <4>;
+	no-1-8-v;
+	non-removable;
+	mmc-pwrseq = <&usdhc1_pwrseq>;
+	/delete-property/ cd-gpios;
+	/delete-property/ vmmc-supply;
+	/delete-property/ enable-sdio-wakeup;
+};

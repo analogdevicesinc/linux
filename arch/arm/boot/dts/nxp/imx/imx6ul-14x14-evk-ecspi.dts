@@ -1,0 +1,42 @@
+// SPDX-License-Identifier: GPL-2.0
+//
+// Copyright (C) 2018 NXP
+
+/*
+ * DTS file for ECSPI Certification at i.mx6ul 14x14 evk board.
+ * NOTE: Because Ethernet2 use the same pins with ecspi4, so disable
+ *       fec1/fec2 for ECSPI4 test.
+ */
+
+#include "imx6ul-14x14-evk.dts"
+
+&iomuxc {
+	pinctrl_ecspi4: ecspi4grp {
+		fsl,pins = <
+			MX6UL_PAD_ENET2_TX_DATA1__ECSPI4_SCLK	0x70a1
+			MX6UL_PAD_ENET2_TX_EN__ECSPI4_MOSI	0x70a1
+			MX6UL_PAD_ENET2_TX_CLK__ECSPI4_MISO	0x70a1
+			MX6UL_PAD_ENET2_RX_ER__ECSPI4_SS0	0x70a1
+		>;
+	};
+};
+
+&ecspi4 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_ecspi4>;
+	status = "okay";
+
+	spidev0: spi@0 {
+		reg = <0>;
+		compatible = "rohm,dh2228fv";
+		spi-max-frequency = <20000000>;
+	};
+};
+
+&fec1 {
+	status = "disabled";
+};
+
+&fec2 {
+	status = "disabled";
+};

@@ -1,0 +1,82 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2020 NXP
+ */
+
+#include "imx7d-sdb.dts"
+
+/ {
+	reg_sd2_vmmc: regulator-sd2-vmmc {
+		compatible = "regulator-fixed";
+		regulator-name = "VDD_SD2";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_brcm_reg>;
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
+		gpio = <&gpio4 21 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+		regulator-always-on;
+	};
+
+	reg_sd1_io_sel: regulator-sd1-vsel {
+		compatible = "regulator-gpio";
+		regulator-name = "SD1 VSEL";
+		regulator-min-microvolt = <1800000>;
+		regulator-max-microvolt = <3300000>;
+		gpios = <&gpio1 8 GPIO_ACTIVE_HIGH>;
+		gpios-states = <1>;
+		states = <3300000 0>, <1800000 1>;
+	};
+};
+
+&reg_sd1_vmmc {
+	regulator-always-on;
+};
+
+&iomuxc {
+	pinctrl_usdhc1_vsel_gpio: usdhc1_gpiovselgrp {
+		fsl,pins = <
+			MX7D_PAD_SD1_CD_B__GPIO5_IO0		0x59 /* CD */
+			MX7D_PAD_SD1_WP__GPIO5_IO1		0x59 /* WP */
+			MX7D_PAD_SD1_RESET_B__GPIO5_IO2		0x59 /* vmmc */
+			MX7D_PAD_GPIO1_IO08__GPIO1_IO8		0x59 /* VSELECT */
+		>;
+	};
+};
+
+&usdhc1 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+	pinctrl-0 = <&pinctrl_usdhc1>, <&pinctrl_usdhc1_vsel_gpio>;
+	pinctrl-1 = <&pinctrl_usdhc1_100mhz>, <&pinctrl_usdhc1_vsel_gpio>;
+	pinctrl-2 = <&pinctrl_usdhc1_200mhz>, <&pinctrl_usdhc1_vsel_gpio>;
+	/delete-property/ cd-gpios;
+	/delete-property/ wp-gpios;
+	/*
+	 * Here config the vsel pad as an normal gpio, and use
+	 * the vqmmc(gpio-regulator) method to do the IO voltage switch.
+	 * set gpio to low level select 3.3v, and high level select 1.8v
+	 * If not, when config this pin as vsel specific function,
+	 * though work normal when sdio boot up and in SDIO 3.0 mode,
+	 * but will meet issue after system resume back from mem
+	 * mode, because after system suspend in mem mode, usdhc
+	 * will lost power, so when resume back, all register
+	 * return to default state, need driver to re-config.
+	 * But for sdio wifi device, we config this device with
+	 * flag keep-power-in-suspend, so sdio wifi do nothing
+	 * during system PM, only mark re-tuning flag. When
+	 * system resume back, the original vsel bit lost, which
+	 * means the IO voltage change to 3.3v, but sdio wifi still
+	 * in SDIO3.0 mode, expect the IO voltage in 1.8v, IO
+	 * voltage mismatch happened, data transfer in this time
+	 * will meet CRC/Timeout issue.
+	 */
+	vqmmc-supply = <&reg_sd1_io_sel>;
+	keep-power-in-suspend;
+	non-removable;
+	wakeup-source;
+};
+
+&usdhc2 {
+	status = "disabled";
+};

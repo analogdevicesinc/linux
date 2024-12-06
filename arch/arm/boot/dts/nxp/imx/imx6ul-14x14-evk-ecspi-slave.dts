@@ -1,0 +1,18 @@
+// SPDX-License-Identifier: GPL-2.0
+//
+// Copyright (C) 2018 NXP
+
+/*
+ * DTS file for ECSPI Slave Certification at i.mx6ul 14x14 evk board.
+ * NOTE: Because Ethernet2 use the same pins with ecspi4, so disable
+ *       fec1/fec2 for ECSPI4 test.
+ */
+
+#include "imx6ul-14x14-evk-ecspi.dts"
+
+/delete-node/&spidev0;
+
+&ecspi4 {
+	#address-cells = <0>;
+	spi-slave;
+};

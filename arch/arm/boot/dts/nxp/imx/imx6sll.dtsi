@@ -65,13 +65,18 @@
 				<198000		1175000>;
 			clock-latency = <61036>; /* two CLK32 periods */
 			#cooling-cells = <2>;
+			fsl,low-power-run;
 			clocks = <&clks IMX6SLL_CLK_ARM>,
 				 <&clks IMX6SLL_CLK_PLL2_PFD2>,
 				 <&clks IMX6SLL_CLK_STEP>,
 				 <&clks IMX6SLL_CLK_PLL1_SW>,
-				 <&clks IMX6SLL_CLK_PLL1_SYS>;
+				 <&clks IMX6SLL_CLK_PLL1_SYS>,
+				 <&clks IMX6SLL_CLK_PLL1>,
+				 <&clks IMX6SLL_PLL1_BYPASS>,
+				 <&clks IMX6SLL_PLL1_BYPASS_SRC>;
 			clock-names = "arm", "pll2_pfd2_396m", "step",
-				      "pll1_sw", "pll1_sys";
+				      "pll1_sw", "pll1_sys", "pll1", "pll1_bypass",
+				      "pll1_bypass_src";
 			nvmem-cells = <&cpu_speed_grade>;
 			nvmem-cell-names = "speed_grade";
 		};
@@ -112,12 +117,48 @@
 		interrupt-parent = <&gpc>;
 		ranges;
 
-		ocram: sram@900000 {
+		busfreq {
+			compatible = "fsl,imx_busfreq";
+			clocks = <&clks IMX6SLL_CLK_PLL2_PFD2>, <&clks IMX6SLL_CLK_PLL2_198M>,
+				 <&clks IMX6SLL_CLK_PLL2_BUS>, <&clks IMX6SLL_CLK_ARM>,
+				 <&clks IMX6SLL_CLK_PLL3_USB_OTG>, <&clks IMX6SLL_CLK_PERIPH>,
+				 <&clks IMX6SLL_CLK_PERIPH_PRE>, <&clks IMX6SLL_CLK_PERIPH_CLK2>,
+				 <&clks IMX6SLL_CLK_PERIPH_CLK2_SEL>, <&clks IMX6SLL_CLK_OSC>,
+				 <&clks IMX6SLL_CLK_AHB>, <&clks IMX6SLL_CLK_AXI_PODF>,
+				 <&clks IMX6SLL_CLK_PERIPH2>, <&clks IMX6SLL_CLK_PERIPH2_PRE>,
+				 <&clks IMX6SLL_CLK_PERIPH2_CLK2>, <&clks IMX6SLL_CLK_PERIPH2_CLK2_SEL>,
+				 <&clks IMX6SLL_CLK_STEP>, <&clks IMX6SLL_CLK_MMDC_P0_FAST>, <&clks IMX6SLL_PLL1_BYPASS_SRC>,
+				 <&clks IMX6SLL_PLL1_BYPASS>, <&clks IMX6SLL_CLK_PLL1_SYS>, <&clks IMX6SLL_CLK_PLL1_SW>,
+				 <&clks IMX6SLL_CLK_PLL1>;
+			clock-names = "pll2_pfd2_396m", "pll2_198m", "pll2_bus", "arm", "pll3_usb_otg",
+				      "periph", "periph_pre", "periph_clk2", "periph_clk2_sel", "osc",
+				      "ahb", "ocram", "periph2", "periph2_pre", "periph2_clk2", "periph2_clk2_sel",
+				      "step", "mmdc", "pll1_bypass_src", "pll1_bypass", "pll1_sys", "pll1_sw", "pll1";
+			fsl,max_ddr_freq = <400000000>;
+		};
+
+		ocrams: sram@900000 {
+			compatible = "fsl,lpm-sram";
+			reg = <0x900000 0x4000>;
+		};
+
+		ocrams_ddr: sram@904000 {
+			compatible = "fsl,ddr-lpm-sram";
+			reg = <0x904000 0x1000>;
+		};
+
+		ocram: sram@905000 {
 			compatible = "mmio-sram";
-			reg = <0x00900000 0x20000>;
-			ranges = <0 0x00900000 0x20000>;
+			reg = <0x905000 0x1B000>;
+			ranges = <0 0x905000 0x1B000>;
 			#address-cells = <1>;
 			#size-cells = <1>;
+		};
+
+		ocram_optee: sram@918000 {
+			compatible = "fsl,optee-lpm-sram";
+			reg = <0x918000 0x8000>;
+			overw_reg = <&ocram 0x905000 0x13000>;
 		};
 
 		intc: interrupt-controller@a01000 {
@@ -178,7 +219,7 @@
 				};
 
 				ecspi1: spi@2008000 {
-					compatible = "fsl,imx6ul-ecspi", "fsl,imx51-ecspi";
+					compatible ="fsl,imx6ul-ecspi";
 					reg = <0x02008000 0x4000>;
 					interrupts = <GIC_SPI 31 IRQ_TYPE_LEVEL_HIGH>;
 					dmas = <&sdma 3 7 1>, <&sdma 4 7 2>;
@@ -190,7 +231,7 @@
 				};
 
 				ecspi2: spi@200c000 {
-					compatible = "fsl,imx6ul-ecspi", "fsl,imx51-ecspi";
+					compatible = "fsl,imx6ul-ecspi";
 					reg = <0x0200c000 0x4000>;
 					interrupts = <GIC_SPI 32 IRQ_TYPE_LEVEL_HIGH>;
 					dmas = <&sdma 5 7 1>, <&sdma 6 7 2>;
@@ -202,7 +243,7 @@
 				};
 
 				ecspi3: spi@2010000 {
-					compatible = "fsl,imx6ul-ecspi", "fsl,imx51-ecspi";
+					compatible = "fsl,imx6ul-ecspi";
 					reg = <0x02010000 0x4000>;
 					interrupts = <GIC_SPI 33 IRQ_TYPE_LEVEL_HIGH>;
 					dmas = <&sdma 7 7 1>, <&sdma 8 7 2>;
@@ -214,7 +255,7 @@
 				};
 
 				ecspi4: spi@2014000 {
-					compatible = "fsl,imx6ul-ecspi", "fsl,imx51-ecspi";
+					compatible = "fsl,imx6ul-ecspi";
 					reg = <0x02014000 0x4000>;
 					interrupts = <GIC_SPI 34 IRQ_TYPE_LEVEL_HIGH>;
 					dmas = <&sdma 9 7 1>, <&sdma 10 7 2>;
@@ -601,6 +642,7 @@
 				#interrupt-cells = <3>;
 				interrupts = <GIC_SPI 89 IRQ_TYPE_LEVEL_HIGH>;
 				interrupt-parent = <&intc>;
+				fsl,mf-mix-wakeup-irq = <0x7c00000 0x7d00 0x0 0x1400640>;
 			};
 
 			iomuxc: pinctrl@20e0000 {
@@ -626,7 +668,7 @@
 			};
 
 			sdma: dma-controller@20ec000 {
-				compatible = "fsl,imx6sll-sdma", "fsl,imx6ul-sdma";
+				compatible = "fsl,imx6ul-sdma", "fsl,imx35-sdma";
 				reg = <0x020ec000 0x4000>;
 				interrupts = <GIC_SPI 2 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clks IMX6SLL_CLK_IPG>,
@@ -638,12 +680,25 @@
 			};
 
 			pxp: pxp@20f0000 {
-				compatible = "fsl,imx6sll-pxp", "fsl,imx6ull-pxp";
+				compatible = "fsl,imx6ull-pxp-dma", "fsl,imx7d-pxp-dma";
 				reg = <0x20f0000 0x4000>;
 				interrupts = <GIC_SPI 98 IRQ_TYPE_LEVEL_HIGH>,
 					<GIC_SPI 102 IRQ_TYPE_LEVEL_HIGH>;
-				clocks = <&clks IMX6SLL_CLK_PXP>;
-				clock-names = "axi";
+				clocks = <&clks IMX6SLL_CLK_DUMMY>,
+					 <&clks IMX6SLL_CLK_PXP>;
+				clock-names = "pxp_ipg", "pxp_axi";
+				status = "disabled";
+			};
+
+			epdc: epdc@20f4000 {
+				compatible = "fsl,imx6sll-epdc", "fsl,imx7d-epdc";
+				reg = <0x20f4000 0x4000>;
+				interrupts = <GIC_SPI 97 IRQ_TYPE_LEVEL_HIGH>;
+				clocks = <&clks IMX6SLL_CLK_EPDC_AXI>,
+					 <&clks IMX6SLL_CLK_EPDC_PIX>,
+					 <&clks IMX6SLL_CLK_DUMMY>;
+				clock-names = "epdc_axi", "epdc_pix", "epdc_ahb";
+				status = "disabled";
 			};
 
 			lcdif: lcd-controller@20f8000 {
@@ -711,7 +766,7 @@
 			};
 
 			usdhc1: mmc@2190000 {
-				compatible = "fsl,imx6sll-usdhc", "fsl,imx6sx-usdhc";
+				compatible = "fsl,imx6sll-usdhc", "fsl,imx7d-usdhc";
 				reg = <0x02190000 0x4000>;
 				interrupts = <GIC_SPI 22 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clks IMX6SLL_CLK_USDHC1>,
@@ -725,7 +780,7 @@
 			};
 
 			usdhc2: mmc@2194000 {
-				compatible = "fsl,imx6sll-usdhc", "fsl,imx6sx-usdhc";
+				compatible = "fsl,imx6sll-usdhc", "fsl,imx7d-usdhc";
 				reg = <0x02194000 0x4000>;
 				interrupts = <GIC_SPI 23 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clks IMX6SLL_CLK_USDHC2>,
@@ -739,7 +794,7 @@
 			};
 
 			usdhc3: mmc@2198000 {
-				compatible = "fsl,imx6sll-usdhc", "fsl,imx6sx-usdhc";
+				compatible = "fsl,imx6sll-usdhc", "fsl,imx7d-usdhc";
 				reg = <0x02198000 0x4000>;
 				interrupts = <GIC_SPI 24 IRQ_TYPE_LEVEL_HIGH>;
 				clocks = <&clks IMX6SLL_CLK_USDHC3>,

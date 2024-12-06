@@ -1,0 +1,25 @@
+/*
+ * Copyright 2018 NXP.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation.
+ */
+
+#include "imx7ulp-evkb.dts"
+#include "imx7ulp-evk-mipi.dtsi"
+
+&lpi2c7 {
+	focaltech@38 {
+		status = "disabled";
+	};
+
+	goodix@14 {
+		compatible = "goodix,gt911";
+		reg = <0x14>;
+		interrupt-parent = <&gpio_ptf>;
+		interrupts = <0 IRQ_TYPE_EDGE_FALLING>;
+		irq-gpios = <&gpio_ptf 0 GPIO_ACTIVE_HIGH>;
+		reset-gpios = <&gpio_ptf 1 GPIO_ACTIVE_HIGH>;
+	};
+};
