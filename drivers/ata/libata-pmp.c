@@ -12,6 +12,7 @@
 #include <linux/slab.h>
 #include "libata.h"
 #include "libata-transport.h"
+#include "ahci.h"
 
 const struct ata_port_operations sata_pmp_port_ops = {
 	.inherits		= &sata_port_ops,
@@ -253,8 +254,40 @@ static const char *sata_pmp_spec_rev_str(const u32 *gscr)
 	return "<unknown>";
 }
 
-#define PMP_GSCR_SII_POL 129
+#ifdef CONFIG_AHCI_IMX_PMP
+struct hotplug_priv {
+	struct ata_port *ap;
+	void __iomem *port_mmio;
+	struct mutex mutex;
+	bool poll_thread_created;
+};
+static struct hotplug_priv hpriv;
 
+static int poll_thread(void *t)
+{
+	u32 rc;
+
+	for (;;) {
+		struct ata_port *ap = hpriv.ap;
+		rc = ata_wait_register(ap, hpriv.port_mmio + PORT_SCR_NTF,
+					0x8000, 0, 1, 2);
+
+		if (rc == 0)
+			continue;
+
+		ata_port_info(ap, "i.MX8QM PMP SNotification detected.\n");
+
+		mutex_lock(&(hpriv.mutex));
+		hpriv.ap->flags |= (1 << 31);
+		sata_async_notification(hpriv.ap);
+		mutex_unlock(&(hpriv.mutex));
+	}
+
+	return 0;
+}
+#endif
+
+#define PMP_GSCR_SII_POL 129
 static int sata_pmp_configure(struct ata_device *dev, int print_info)
 {
 	struct ata_port *ap = dev->link->ap;
@@ -323,6 +356,23 @@ static int sata_pmp_configure(struct ata_device *dev, int print_info)
 				"Asynchronous notification not supported, "
 				"hotplug won't work on fan-out ports. Use warm-plug instead.\n");
 	}
+
+#ifdef CONFIG_AHCI_IMX_PMP
+	/* create a polling thread for hotplug */
+	if (hpriv.poll_thread_created) {
+		mutex_lock(&(hpriv.mutex));
+		hpriv.ap = ap;
+		hpriv.port_mmio = ahci_port_base(ap);
+		mutex_unlock(&(hpriv.mutex));
+	} else {
+		mutex_init(&(hpriv.mutex));
+		hpriv.ap = ap;
+		hpriv.port_mmio = ahci_port_base(ap);
+		ata_port_info(ap, "i.MX8QM PMP SNotification polling thread created.\n");
+		kernel_thread(poll_thread, NULL, CLONE_SIGHAND | SIGCHLD);
+		hpriv.poll_thread_created = true;
+	}
+#endif
 
 	return 0;
 
@@ -1093,6 +1143,10 @@ static int sata_pmp_eh_recover(struct ata_port *ap)
  */
 void sata_pmp_error_handler(struct ata_port *ap)
 {
+#ifdef CONFIG_AHCI_IMX_PMP
+	if (system_state >= SYSTEM_RUNNING)
+		ap->flags |= (1 << 31);
+#endif
 	ata_eh_autopsy(ap);
 	ata_eh_report(ap);
 	sata_pmp_eh_recover(ap);

@@ -205,6 +205,18 @@ config AHCI_IMX
 
 	  If unsure, say N.
 
+if AHCI_IMX
+
+config AHCI_IMX_PMP
+	bool "SATA Port Multiplier support on I.MX"
+	depends on SATA_PMP
+	default N
+	help
+	  This option enables support for the PMP on Freescale i.MX SoC's.
+
+	  If unsure, say N.
+endif # AHCI_IMX
+
 config AHCI_CEVA
 	tristate "CEVA AHCI SATA support"
 	depends on OF

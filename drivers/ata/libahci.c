@@ -1515,6 +1515,14 @@ int ahci_do_softreset(struct ata_link *link, unsigned int *class,
 	if (fbs_disabled)
 		ahci_enable_fbs(ap);
 
+#ifdef CONFIG_AHCI_IMX_PMP
+	if (ap->flags & (1 << 31)) {
+		if (ap->flags & (1 << 29))
+			ap->flags |= (1 << 30);
+		ata_msleep(ap, 40);
+	}
+#endif
+
 	return 0;
 
  fail:
@@ -1896,6 +1904,11 @@ static void ahci_handle_port_interrupt(struct ata_port *ap,
 	if (unlikely(ap->pflags & ATA_PFLAG_RESETTING))
 		status &= ~PORT_IRQ_BAD_PMP;
 
+#ifdef CONFIG_AHCI_IMX_PMP
+	status &= ~PORT_IRQ_BAD_PMP;
+	status &= ~PORT_IRQ_IF_ERR;
+#endif
+
 	if (sata_lpm_ignore_phy_events(&ap->link)) {
 		status &= ~PORT_IRQ_PHYRDY;
 		ahci_scr_write(&ap->link, SCR_ERROR, SERR_PHYRDY_CHG);
@@ -1952,6 +1965,12 @@ static void ahci_port_intr(struct ata_port *ap)
 {
 	void __iomem *port_mmio = ahci_port_base(ap);
 	u32 status;
+
+#ifdef CONFIG_AHCI_IMX_PMP
+	status = readl(port_mmio + PORT_SCR_NTF);
+	if (status)
+		ap->flags |= (1 << 31);
+#endif
 
 	status = readl(port_mmio + PORT_IRQ_STAT);
 	writel(status, port_mmio + PORT_IRQ_STAT);
@@ -2074,9 +2093,21 @@ static void ahci_qc_fill_rtf(struct ata_queued_cmd *qc)
 {
 	struct ahci_port_priv *pp = qc->ap->private_data;
 	u8 *rx_fis = pp->rx_fis;
+#ifdef CONFIG_AHCI_IMX_PMP
+	u8 *fis;
+#endif
 
 	if (pp->fbs_enabled)
 		rx_fis += qc->dev->link->pmp * AHCI_RX_FIS_SZ;
+
+#ifdef CONFIG_AHCI_IMX_PMP
+	if (qc->ap->flags & (1 << 31)) {
+		if (!(qc->ap->flags & (1 << 30))) {
+			fis = pp->rx_fis + RX_FIS_D2H_REG;
+			memcpy(rx_fis + RX_FIS_D2H_REG, fis, 0x14);
+		}
+	}
+#endif
 
 	/*
 	 * After a successful execution of an ATA PIO data-in command,

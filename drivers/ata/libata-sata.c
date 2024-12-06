@@ -1421,6 +1421,9 @@ int sata_async_notification(struct ata_port *ap)
 		 * downstream ports has changed, schedule EH.
 		 */
 		if (sntf & (1 << SATA_PMP_CTRL_PORT)) {
+#ifdef CONFIG_AHCI_IMX_PMP
+			ap->flags |= (1 << 31);
+#endif
 			ata_port_schedule_eh(ap);
 			return 1;
 		}
