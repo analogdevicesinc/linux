@@ -73,12 +73,12 @@ enum pm_domain {
 };
 
 enum camss_version {
+	CAMSS_660,
 	CAMSS_8x16,
 	CAMSS_8x96,
-	CAMSS_660,
-	CAMSS_845,
 	CAMSS_8250,
 	CAMSS_8280XP,
+	CAMSS_845,
 };
 
 enum icc_count {
