@@ -200,13 +200,15 @@
 	cs42448: audio-codec@48 {
 		#sound-dai-cells = <0>;
 		compatible = "cirrus,cs42448";
+		pinctrl-names = "default";
+		pinctrl-0 = <&pinctrl_codec_rst>;
 		reg = <0x48>;
 		clocks = <&clk IMX93_CLK_SAI3_GATE>;
 		clock-names = "mclk";
 		VA-supply = <&reg_audio_pwr>;
 		VD-supply = <&reg_audio_pwr>;
 		VLS-supply = <&reg_audio_pwr>;
-		VLC-supply = <&reg_audio_pwr>;
+		VLC-supply = <&reg_exp_sel>;
 		reset-gpio = <&gpio2 25 GPIO_ACTIVE_LOW>;
 		status = "okay";
 	};
@@ -257,6 +259,12 @@
 	pinctrl_audio_pwr: audiopwrgrp {
 		fsl,pins = <
 			MX93_PAD_GPIO_IO01__GPIO2_IO01		0x31e
+		>;
+	};
+
+	pinctrl_codec_rst: codecrstgrp {
+		fsl,pins = <
+			MX93_PAD_GPIO_IO25__GPIO2_IO25		0x31e
 		>;
 	};
 };
