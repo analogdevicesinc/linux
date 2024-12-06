@@ -13,6 +13,8 @@
 #include <linux/of_platform.h>
 #include <linux/dma/imx-dma.h>
 #include <linux/pm_runtime.h>
+#include <linux/miscdevice.h>
+#include <linux/sched/signal.h>
 #include <sound/dmaengine_pcm.h>
 #include <sound/pcm_params.h>
 
@@ -767,6 +769,8 @@ static int fsl_asrc_dai_trigger(struct snd_pcm_substream *substream, int cmd,
 	case SNDRV_PCM_TRIGGER_RESUME:
 	case SNDRV_PCM_TRIGGER_PAUSE_RELEASE:
 		fsl_asrc_start_pair(pair);
+		/* Output enough data to content the DMA burstsize of BE */
+		mdelay(1);
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
@@ -968,6 +972,8 @@ static const struct regmap_config fsl_asrc_regmap_config = {
 	.cache_type = REGCACHE_FLAT,
 };
 
+#include "fsl_asrc_m2m.c"
+
 /**
  * fsl_asrc_init - Initialize ASRC registers with a default configuration
  * @asrc: ASRC context
@@ -1150,9 +1156,13 @@ static int fsl_asrc_probe(struct platform_device *pdev)
 	if (of_device_is_compatible(np, "fsl,imx35-asrc")) {
 		asrc_priv->clk_map[IN] = input_clk_map_imx35;
 		asrc_priv->clk_map[OUT] = output_clk_map_imx35;
+		strncpy(asrc_priv->name, "mxc_asrc",
+				sizeof(asrc_priv->name) - 1);
 	} else if (of_device_is_compatible(np, "fsl,imx53-asrc")) {
 		asrc_priv->clk_map[IN] = input_clk_map_imx53;
 		asrc_priv->clk_map[OUT] = output_clk_map_imx53;
+		strncpy(asrc_priv->name, "mxc_asrc",
+				sizeof(asrc_priv->name) - 1);
 	} else if (of_device_is_compatible(np, "fsl,imx8qm-asrc") ||
 		   of_device_is_compatible(np, "fsl,imx8qxp-asrc")) {
 		ret = of_property_read_u32(np, "fsl,asrc-clk-map", &map_idx);
@@ -1171,6 +1181,14 @@ static int fsl_asrc_probe(struct platform_device *pdev)
 		} else {
 			asrc_priv->clk_map[IN] = clk_map_imx8qxp[map_idx];
 			asrc_priv->clk_map[OUT] = clk_map_imx8qxp[map_idx];
+		}
+
+		if (map_idx == 0) {
+			strncpy(asrc_priv->name, "mxc_asrc",
+				sizeof(asrc_priv->name) - 1);
+		} else {
+			strncpy(asrc_priv->name, "mxc_asrc1",
+				sizeof(asrc_priv->name) - 1);
 		}
 	}
 
@@ -1242,6 +1260,12 @@ static int fsl_asrc_probe(struct platform_device *pdev)
 		goto err_pm_get_sync;
 	}
 
+	ret = fsl_asrc_m2m_init(asrc);
+	if (ret) {
+		dev_err(&pdev->dev, "failed to init m2m device %d\n", ret);
+		return ret;
+	}
+
 	return 0;
 
 err_pm_get_sync:
@@ -1254,6 +1278,8 @@ err_pm_disable:
 
 static void fsl_asrc_remove(struct platform_device *pdev)
 {
+	fsl_asrc_m2m_remove(pdev);
+
 	pm_runtime_disable(&pdev->dev);
 	if (!pm_runtime_status_suspended(&pdev->dev))
 		fsl_asrc_runtime_suspend(&pdev->dev);
@@ -1355,10 +1381,36 @@ static int fsl_asrc_runtime_suspend(struct device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_PM_SLEEP
+static int fsl_asrc_suspend(struct device *dev)
+{
+	struct fsl_asrc *asrc = dev_get_drvdata(dev);
+	int ret;
+
+	fsl_asrc_m2m_suspend(asrc);
+
+	ret = pm_runtime_force_suspend(dev);
+
+	return ret;
+}
+
+static int fsl_asrc_resume(struct device *dev)
+{
+	struct fsl_asrc *asrc = dev_get_drvdata(dev);
+	int ret;
+
+	ret = pm_runtime_force_resume(dev);
+
+	fsl_asrc_m2m_resume(asrc);
+
+	return ret;
+}
+#endif /* CONFIG_PM_SLEEP */
+
 static const struct dev_pm_ops fsl_asrc_pm = {
 	SET_RUNTIME_PM_OPS(fsl_asrc_runtime_suspend, fsl_asrc_runtime_resume, NULL)
-	SET_SYSTEM_SLEEP_PM_OPS(pm_runtime_force_suspend,
-				pm_runtime_force_resume)
+	SET_SYSTEM_SLEEP_PM_OPS(fsl_asrc_suspend,
+				fsl_asrc_resume)
 };
 
 static const struct fsl_asrc_soc_data fsl_asrc_imx35_data = {

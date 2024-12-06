@@ -24,6 +24,8 @@
 
 /* 192kHz/32bit/2ch/60s size is 0x574e00 */
 #define LPA_LARGE_BUFFER_SIZE  (0x6000000)
+/* 16kHz/32bit/8ch/1s size is 0x7D000 */
+#define RPMSG_CAPTURE_BUFFER_SIZE (0x100000)
 
 static const unsigned int fsl_rpmsg_rates[] = {
 	8000, 11025, 16000, 22050, 44100,
@@ -219,6 +221,21 @@ static int fsl_rpmsg_probe(struct platform_device *pdev)
 		dai_drv->capture.rates = rpmsg->soc_data->rates;
 		dai_drv->playback.formats = rpmsg->soc_data->formats;
 		dai_drv->capture.formats = rpmsg->soc_data->formats;
+
+		/* setup rpmsg-micfil channels and rates */
+		if (of_node_name_eq(np, "rpmsg_micfil")) {
+			rpmsg->buffer_size[SNDRV_PCM_STREAM_CAPTURE] = RPMSG_CAPTURE_BUFFER_SIZE;
+			dai_drv->capture.channels_min = 1;
+			dai_drv->capture.channels_max = 8;
+			dai_drv->capture.rates = SNDRV_PCM_RATE_8000_48000;
+			dai_drv->capture.formats = SNDRV_PCM_FMTBIT_S32_LE;
+			if (of_device_is_compatible(np, "fsl,imx8mm-rpmsg-audio"))
+				dai_drv->capture.formats = SNDRV_PCM_FMTBIT_S16_LE;
+
+			if (of_device_is_compatible(np, "fsl,imx8ulp-rpmsg-audio") ||
+			    of_device_is_compatible(np, "fsl,imx93-rpmsg-audio"))
+				dai_drv->capture.rates = SNDRV_PCM_RATE_16000;
+		}
 	}
 
 	/* Use rpmsg channel name as cpu dai name */
@@ -235,9 +252,11 @@ static int fsl_rpmsg_probe(struct platform_device *pdev)
 
 	if (of_property_read_bool(np, "fsl,enable-lpa")) {
 		rpmsg->enable_lpa = 1;
-		rpmsg->buffer_size = LPA_LARGE_BUFFER_SIZE;
+		rpmsg->buffer_size[SNDRV_PCM_STREAM_PLAYBACK] = LPA_LARGE_BUFFER_SIZE;
+		rpmsg->buffer_size[SNDRV_PCM_STREAM_CAPTURE] = RPMSG_CAPTURE_BUFFER_SIZE;
 	} else {
-		rpmsg->buffer_size = IMX_DEFAULT_DMABUF_SIZE;
+		rpmsg->buffer_size[SNDRV_PCM_STREAM_PLAYBACK] = IMX_DEFAULT_DMABUF_SIZE;
+		rpmsg->buffer_size[SNDRV_PCM_STREAM_CAPTURE] = IMX_DEFAULT_DMABUF_SIZE;
 	}
 
 	/* Get the optional clocks */

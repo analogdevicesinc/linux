@@ -324,7 +324,7 @@ static void ak5558_reset(struct ak5558_priv *ak5558, bool active)
 		return;
 
 	gpiod_set_value_cansleep(ak5558->reset_gpiod, active);
-	usleep_range(1000, 2000);
+	usleep_range(5000, 6000);
 }
 
 static int ak5558_probe(struct snd_soc_component *component)
@@ -372,7 +372,14 @@ static int __maybe_unused ak5558_runtime_resume(struct device *dev)
 	regcache_cache_only(ak5558->regmap, false);
 	regcache_mark_dirty(ak5558->regmap);
 
-	return regcache_sync(ak5558->regmap);
+	ret = regcache_sync(ak5558->regmap);
+	if (ret) {
+		regulator_bulk_disable(ARRAY_SIZE(ak5558->supplies),
+				       ak5558->supplies);
+		return ret;
+	}
+
+	return 0;
 }
 
 static const struct dev_pm_ops ak5558_pm = {
@@ -424,7 +431,7 @@ static int ak5558_i2c_probe(struct i2c_client *i2c)
 	struct ak5558_priv *ak5558;
 	int ret = 0;
 	int dev_id;
-	int i;
+	int i, reg;
 
 	ak5558 = devm_kzalloc(&i2c->dev, sizeof(*ak5558), GFP_KERNEL);
 	if (!ak5558)
@@ -472,6 +479,15 @@ static int ak5558_i2c_probe(struct i2c_client *i2c)
 		dev_err(&i2c->dev, "failed to register component: %d\n", ret);
 		return ret;
 	}
+
+	/* tog the reset gpio */
+	ak5558_reset(ak5558, true);
+	ak5558_reset(ak5558, false);
+
+	/* Check if first register can be read or not */
+	ret = regmap_read_bypassed(ak5558->regmap, AK5558_02_CONTROL1, &reg);
+	if (ret < 0)
+		return -ENODEV;
 
 	pm_runtime_enable(&i2c->dev);
 	regcache_cache_only(ak5558->regmap, true);

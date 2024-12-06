@@ -630,12 +630,19 @@ static struct snd_soc_dai_driver ak4497_dai = {
 
 static void ak4458_reset(struct ak4458_priv *ak4458, bool active)
 {
+	int ret;
+
 	if (!IS_ERR_OR_NULL(ak4458->reset)) {
-		if (active)
+		if (active) {
 			reset_control_assert(ak4458->reset);
-		else
+			read_poll_timeout(reset_control_status, ret, ret == 1, 100, 100000,
+				  false, ak4458->reset);
+		} else {
 			reset_control_deassert(ak4458->reset);
-		usleep_range(1000, 2000);
+			read_poll_timeout(reset_control_status, ret, ret == 0, 100, 100000,
+				  false, ak4458->reset);
+		}
+		usleep_range(5000, 6000);
 	}
 }
 
@@ -676,7 +683,13 @@ static int __maybe_unused ak4458_runtime_resume(struct device *dev)
 	regcache_cache_only(ak4458->regmap, false);
 	regcache_mark_dirty(ak4458->regmap);
 
-	return regcache_sync(ak4458->regmap);
+	ret = regcache_sync(ak4458->regmap);
+	if (ret) {
+		regulator_bulk_disable(ARRAY_SIZE(ak4458->supplies),
+				       ak4458->supplies);
+		return ret;
+	}
+	return 0;
 }
 #endif /* CONFIG_PM */
 
@@ -736,6 +749,7 @@ static int ak4458_i2c_probe(struct i2c_client *i2c)
 {
 	struct ak4458_priv *ak4458;
 	int ret, i;
+	int reg;
 
 	ak4458 = devm_kzalloc(&i2c->dev, sizeof(*ak4458), GFP_KERNEL);
 	if (!ak4458)
@@ -784,14 +798,21 @@ static int ak4458_i2c_probe(struct i2c_client *i2c)
 	regcache_cache_only(ak4458->regmap, true);
 	ak4458_reset(ak4458, false);
 
+	/* Check if first register can be read or not */
+	ret = regmap_read_bypassed(ak4458->regmap, AK4458_00_CONTROL1, &reg);
+	if (ret < 0) {
+		ak4458_reset(ak4458, true);
+		pm_runtime_disable(&i2c->dev);
+		return -ENODEV;
+	}
+
+	ak4458_reset(ak4458, true);
+
 	return 0;
 }
 
 static void ak4458_i2c_remove(struct i2c_client *i2c)
 {
-	struct ak4458_priv *ak4458 = i2c_get_clientdata(i2c);
-
-	ak4458_reset(ak4458, true);
 	pm_runtime_disable(&i2c->dev);
 }
 
