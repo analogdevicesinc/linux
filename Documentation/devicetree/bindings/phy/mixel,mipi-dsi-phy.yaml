@@ -22,6 +22,7 @@ properties:
     enum:
       - fsl,imx8mq-mipi-dphy
       - fsl,imx8qxp-mipi-dphy
+      - fsl,imx8ulp-mipi-dphy
 
   reg:
     maxItems: 1

@@ -1,0 +1,39 @@
+Mixel LVDS PHY
+
+This LVDS PHY supports two LVDS channels.
+
+Required properties:
+- compatible: must be "mixel,lvds-phy".
+- reg: offset and length of the register block.
+- #address-cells: number of address cells for the LVDS channel subnodes, must
+		  be <1>.
+- #size-cells: number of size cells for the LVDS channel subnodes, must be <0>.
+- clocks: clock phandle and specifier pair.
+- clock-names: string, clock input name, must be "phy".
+- power-domains: phandle pointing to power domain.
+
+The LVDS PHY device tree node should have the subnodes corresponding to the two
+LVDS channels. These subnodes must contain the following properties:
+- reg: the PHY ID.
+- #phy-cells: see phy-bindings.txt in the same directory, must be <0>.
+
+Example:
+	ldb_phy@56241000 {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		compatible = "mixel,lvds-phy";
+		reg = <0x0 0x56241000 0x0 0x100>;
+		clocks = <&clk IMX_LVDS0_PHY_CLK>;
+		clock-names = "phy";
+		power-domains = <&pd IMX_SC_R_LVDS_0>;
+
+		ldb1_phy1: port@0 {
+			reg = <0>;
+			#phy-cells = <0>;
+		};
+
+		ldb1_phy2: port@1 {
+			reg = <1>;
+			#phy-cells = <0>;
+		};
+	};

@@ -521,9 +521,9 @@ static int fsl_samsung_hdmi_phy_configure(struct fsl_samsung_hdmi_phy *phy,
 	ret = readb_poll_timeout(phy->regs + PHY_REG_34, val,
 				 val & REG34_PLL_LOCK, 50, 20000);
 	if (ret)
-		dev_err(phy->dev, "PLL failed to lock\n");
+		dev_dbg(phy->dev, "PLL failed to lock\n");
 
-	return ret;
+	return 0;
 }
 
 static unsigned long phy_clk_recalc_rate(struct clk_hw *hw,
@@ -689,9 +689,9 @@ static int __maybe_unused fsl_samsung_hdmi_phy_resume(struct device *dev)
 
 }
 
-static DEFINE_RUNTIME_DEV_PM_OPS(fsl_samsung_hdmi_phy_pm_ops,
-				 fsl_samsung_hdmi_phy_suspend,
-				 fsl_samsung_hdmi_phy_resume, NULL);
+static UNIVERSAL_DEV_PM_OPS(fsl_samsung_hdmi_phy_pm_ops,
+			    fsl_samsung_hdmi_phy_suspend,
+			    fsl_samsung_hdmi_phy_resume, NULL);
 
 static const struct of_device_id fsl_samsung_hdmi_phy_of_match[] = {
 	{
