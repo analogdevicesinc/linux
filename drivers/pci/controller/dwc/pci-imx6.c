@@ -135,6 +135,7 @@ struct imx_pcie_drvdata {
 	int (*init_phy)(struct imx_pcie *pcie);
 	int (*enable_ref_clk)(struct imx_pcie *pcie, bool enable);
 	int (*core_reset)(struct imx_pcie *pcie, bool assert);
+	void (*post_config)(struct imx_pcie *pcie);
 	const struct dw_pcie_host_ops *ops;
 };
 
@@ -1081,6 +1082,29 @@ static void imx_pcie_stop_link(struct dw_pcie *pci)
 	imx_pcie_ltssm_disable(dev);
 }
 
+static void imx95_pcie_post_config(struct imx_pcie *imx_pcie)
+{
+	u32 val;
+	struct dw_pcie *pci = imx_pcie->pci;
+
+	/*
+	 * Workaround for ERR051586: Compliance with 8GT/s Receiver
+	 * Impedance ECN
+	 *
+	 * The default value of GEN3_RELATED_OFF[GEN3_ZRXDC_NONCOMPL] is
+	 * 1 which makes receiver non-compliant with the ZRX-DC
+	 * parameter for 2.5 GT/s when operating at 8 GT/s or higher. It
+	 * causes unnecessary timeout in L1.
+	 *
+	 * Workaround: Program GEN3_RELATED_OFF[GEN3_ZRXDC_NONCOMPL] to 0.
+	 */
+	dw_pcie_dbi_ro_wr_en(pci);
+	val = dw_pcie_readl_dbi(pci, GEN3_RELATED_OFF);
+	val &= ~GEN3_RELATED_OFF_GEN3_ZRXDC_NONCOMPL;
+	dw_pcie_writel_dbi(pci, GEN3_RELATED_OFF, val);
+	dw_pcie_dbi_ro_wr_dis(pci);
+}
+
 static int imx_pcie_host_init(struct dw_pcie_rp *pp)
 {
 	struct dw_pcie *pci = to_dw_pcie_from_pp(pp);
@@ -1141,6 +1165,9 @@ static int imx_pcie_host_init(struct dw_pcie_rp *pp)
 	}
 
 	imx_setup_phy_mpll(imx_pcie);
+
+	if (imx_pcie->drvdata->post_config)
+		imx_pcie->drvdata->post_config(imx_pcie);
 
 	return 0;
 
@@ -1978,6 +2005,7 @@ static const struct imx_pcie_drvdata drvdata[] = {
 		.init_phy = imx95_pcie_init_phy,
 		.enable_ref_clk = imx95_pcie_enable_ref_clk,
 		.core_reset = imx95_pcie_core_reset,
+		.post_config = imx95_pcie_post_config,
 	},
 	[IMX6Q_EP] = {
 		.variant = IMX6Q_EP,
