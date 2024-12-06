@@ -36,6 +36,8 @@
 		v12p0-supply = <&reg_vdd_12v>;
 		status = "okay";
 
+		reset-gpios = <&pcal6524_2 4 GPIO_ACTIVE_LOW>;
+
 		maxim,gmsl-links-types = <2 2>;
 		maxim,gmsl2-link-speed = <6>;
 		maxim,gmsl2-dual-link;
