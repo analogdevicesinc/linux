@@ -207,6 +207,8 @@ source "drivers/thunderbolt/Kconfig"
 
 source "drivers/android/Kconfig"
 
+source "drivers/gpu/arm/Kconfig"
+
 source "drivers/gpu/trace/Kconfig"
 
 source "drivers/nvdimm/Kconfig"
@@ -245,4 +247,5 @@ source "drivers/cdx/Kconfig"
 
 source "drivers/dpll/Kconfig"
 
+source "drivers/mxc/Kconfig"
 endmenu

@@ -1,0 +1,14 @@
+#
+# Codec configuration
+#
+
+menu "MXC HANTRO(Video Processing Unit) support"
+	depends on ARCH_MXC
+
+config MXC_HANTRO
+	tristate "Support for MXC HANTRO(Video Processing Unit)"
+	default y
+	help
+	  VPU codec device.
+
+endmenu

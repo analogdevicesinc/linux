@@ -1,0 +1,27 @@
+#
+# SIM configuration
+#
+
+menu "MXC SIM Support"
+
+config MXC_SIMv2
+	tristate "MXC SIMv2 support"
+	depends on ARCH_MXC && MXC_SIM
+	default n
+	help
+	Say Y if you want to use the SIMv2 on NXP i.MX6/7 processors.
+
+	This driver can also be built as a module. If so, the module
+	will be called imx_sim.
+
+config MXC_EMVSIM
+	tristate "MXC EMVSIM support"
+	depends on ARCH_MXC && MXC_SIM
+	default n
+	help
+	Say Y here if you want to use the EMVSIM on NXP i.MX8 processors.
+
+	This driver can also be built as a module. If so, the module
+	will be called imx_emvsim.
+
+endmenu
