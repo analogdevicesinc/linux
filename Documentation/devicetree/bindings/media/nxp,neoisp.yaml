@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/media/nxp,neoisp.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP NEOISP Image Signal Processing Pipeline
+
+maintainers:
+  - Aymen Sghaier <aymen.sghaier@nxp.com>
+  - Julien Vuillaumier <julien.vuillaumier@nxp.com>
+
+description: |-
+  The NXP NEOISP performs a set of image processing tasks on the RAW camera stream,
+  where the input camera stream and NEOISP processed output image are stored in DDR
+  or any system memory fast enough to keep up with NEOISP processing.
+
+properties:
+  compatible:
+    enum:
+      - nxp,neosip
+
+  reg:
+    maxItems: 2
+
+  reg-names:
+    items:
+      - const: registers
+      - const: stats
+
+  interrupts:
+    maxItems: 1
+
+  clocks:
+    maxItems: 4
+
+  clock-names:
+    items:
+      - const: camblk_isp_axi
+      - const: camblk_isp_pixel
+      - const: camblk_isp
+      - const: camcm0
+
+  power-domains:
+    maxItems: 1
+
+required:
+  - compatible
+  - reg
+  - interrupts
+  - clocks
+  - power-domains
+
+additionalProperties: false
+
+examples:
+  - |
+    #include <dt-bindings/clock/fsl,imx95-clock.h>
+    #include <dt-bindings/interrupt-controller/arm-gic.h>
+    #include <dt-bindings/power/fsl,imx95-power.h>
+    neosip0: isp@4ae00000 {
+        compatible = "nxp,imx95-a0-neoisp";
+        #address-cells = <2>;
+        #size-cells = <2>;
+        reg = <0x0 0x4ae00000 0x0 0x8000>, <0x0 0x4afe0000 0x0 0x10000>;
+        reg-names = "registers", "stats";
+        interrupts = <GIC_SPI 222 IRQ_TYPE_LEVEL_HIGH>;
+        interrupt-parent = <&gic>;
+        clocks = <&cameramix_csr IMX95_CLK_CAMBLK_ISP_AXI>,
+                 <&cameramix_csr IMX95_CLK_CAMBLK_ISP_PIXEL>,
+                 <&cameramix_csr IMX95_CLK_CAMBLK_ISP>;
+        clock-names = "camblk_isp_axi", "camblk_isp_pixel", "camblk_isp";
+        power-domains = <&scmi_devpd IMX95_PD_CAMERA>;
+    };
