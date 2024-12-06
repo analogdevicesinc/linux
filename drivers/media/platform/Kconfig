@@ -74,7 +74,7 @@ config VIDEO_MXC_OUTPUT
 	depends on VIDEO_DEV && ARCH_MXC && FB_MXC
 	select VIDEOBUF_DMA_CONTIG
 	help
-	This is the video4linux2 output driver based on MXC module.
+	  This is the video4linux2 output driver based on MXC module.
 
 source "drivers/media/platform/mxc/output/Kconfig"
 
