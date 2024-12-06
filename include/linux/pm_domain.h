@@ -18,6 +18,7 @@
 #include <linux/spinlock.h>
 #include <linux/cpumask_types.h>
 #include <linux/time64.h>
+#include <linux/clk.h>
 
 /*
  * Flags to control the behaviour when attaching a device to its PM domains.
@@ -96,6 +97,8 @@ struct dev_pm_domain_list {
  * GENPD_FLAG_DEV_NAME_FW:	Instructs genpd to generate an unique device name
  *				using ida. It is used by genpd providers which
  *				get their genpd-names directly from FW.
+ * GENPD_FLAG_PM_PD_CLK:	Instructs genpd to enable/disable PD clocks when
+ *				powering on/off domain.
  */
 #define GENPD_FLAG_PM_CLK	 (1U << 0)
 #define GENPD_FLAG_IRQ_SAFE	 (1U << 1)
@@ -106,6 +109,7 @@ struct dev_pm_domain_list {
 #define GENPD_FLAG_MIN_RESIDENCY (1U << 6)
 #define GENPD_FLAG_OPP_TABLE_FW	 (1U << 7)
 #define GENPD_FLAG_DEV_NAME_FW	 (1U << 8)
+#define GENPD_FLAG_PM_PD_CLK	 (1U << 9)
 
 enum gpd_status {
 	GENPD_STATE_ON = 0,	/* PM domain is on */
@@ -209,6 +213,10 @@ struct generic_pm_domain {
 			unsigned long raw_lock_flags;
 		};
 	};
+
+	unsigned int state_idx_saved; /* saved power state for recovery after system suspend/resume */
+	struct clk_bulk_data *clks;
+	int num_clks;
 };
 
 static inline struct generic_pm_domain *pd_to_genpd(struct dev_pm_domain *pd)
@@ -273,6 +281,7 @@ int pm_genpd_remove_subdomain(struct generic_pm_domain *genpd,
 			      struct generic_pm_domain *subdomain);
 int pm_genpd_init(struct generic_pm_domain *genpd,
 		  struct dev_power_governor *gov, bool is_off);
+int pm_genpd_of_add_clks(struct generic_pm_domain *genpd, struct device *dev);
 int pm_genpd_remove(struct generic_pm_domain *genpd);
 struct device *dev_to_genpd_dev(struct device *dev);
 int dev_pm_genpd_set_performance_state(struct device *dev, unsigned int state);
@@ -318,6 +327,12 @@ static inline int pm_genpd_init(struct generic_pm_domain *genpd,
 				struct dev_power_governor *gov, bool is_off)
 {
 	return -ENOSYS;
+}
+static inline int pm_genpd_of_add_clks(struct generic_pm_domain *genpd,
+				       struct device *dev)
+{
+	return 0;
+
 }
 static inline int pm_genpd_remove(struct generic_pm_domain *genpd)
 {

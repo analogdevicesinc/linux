@@ -1381,7 +1381,7 @@ static const struct supplier_bindings of_supplier_bindings[] = {
 		.get_con_dev = of_graph_get_port_parent,
 	},
 	{ .parse_prop = parse_pwms, },
-	{ .parse_prop = parse_resets, },
+	{ .parse_prop = parse_resets, .optional = true, },
 	{ .parse_prop = parse_leds, },
 	{ .parse_prop = parse_backlight, },
 	{ .parse_prop = parse_panel, },

@@ -317,7 +317,7 @@ int vmap_page_range(unsigned long addr, unsigned long end,
 {
 	int err;
 
-	err = vmap_range_noflush(addr, end, phys_addr, pgprot_nx(prot),
+	err = vmap_range_noflush(addr, end, phys_addr, prot,
 				 ioremap_max_page_shift);
 	flush_cache_vmap(addr, end);
 	if (!err)
@@ -345,6 +345,7 @@ int ioremap_page_range(unsigned long addr, unsigned long end,
 	}
 	return vmap_page_range(addr, end, phys_addr, prot);
 }
+EXPORT_SYMBOL_GPL(ioremap_page_range);
 
 static void vunmap_pte_range(pmd_t *pmd, unsigned long addr, unsigned long end,
 			     pgtbl_mod_mask *mask)
