@@ -1,0 +1,116 @@
+// SPDX-License-Identifier: GPL-2.0+
+// Copyright NXP 2021
+
+#include "imx8mp-evk.dts"
+
+/ {
+	reg_audio_pwr: regulator-audio-pwr {
+		regulator-always-on;
+	};
+
+	sound-wm8960 {
+		status = "disabled";
+	};
+};
+
+&iomuxc {
+	pinctrl_i2c3: i2c3grp {
+		fsl,pins = <
+			MX8MP_IOMUXC_I2C3_SCL__I2C3_SCL		0x40000026
+			MX8MP_IOMUXC_I2C3_SDA__I2C3_SDA		0x40000026
+		>;
+	};
+
+	pinctrl_sai3: sai3grp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SAI3_TXFS__AUDIOMIX_SAI3_TX_SYNC	0xd6
+			MX8MP_IOMUXC_SAI3_TXC__AUDIOMIX_SAI3_TX_BCLK	0xd6
+			MX8MP_IOMUXC_SAI3_RXD__AUDIOMIX_SAI3_RX_DATA00	0xd6
+			MX8MP_IOMUXC_SAI3_TXD__AUDIOMIX_SAI3_TX_DATA00	0xd6
+			MX8MP_IOMUXC_SAI3_MCLK__AUDIOMIX_SAI3_MCLK	0xd6
+		>;
+	};
+
+	pinctrl_uart4: uart4grp {
+		fsl,pins = <
+			MX8MP_IOMUXC_UART4_RXD__UART4_DCE_RX    0x140
+			MX8MP_IOMUXC_UART4_TXD__UART4_DCE_TX    0x140
+		>;
+	};
+	pinctrl_pdm: pdmgrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SAI5_RXC__AUDIOMIX_PDM_CLK		0xd6
+			MX8MP_IOMUXC_SAI5_RXD0__AUDIOMIX_PDM_BIT_STREAM00	0xd6
+			MX8MP_IOMUXC_SAI5_RXD1__AUDIOMIX_PDM_BIT_STREAM01	0xd6
+			MX8MP_IOMUXC_SAI5_RXD2__AUDIOMIX_PDM_BIT_STREAM02	0xd6
+			MX8MP_IOMUXC_SAI5_RXD3__AUDIOMIX_PDM_BIT_STREAM03	0xd6
+		>;
+	};
+
+};
+
+&dsp {
+	compatible = "fsl,imx8mp-hifi4";
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai3>, <&pinctrl_i2c3>, <&pinctrl_uart4>, <&pinctrl_pdm>;
+	assigned-clocks = <&clk IMX8MP_CLK_SAI3>;
+	assigned-clock-parents = <&clk IMX8MP_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <12288000>;
+	clocks = <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_OCRAMA_IPG>,
+			 <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_DSP_ROOT>,
+			 <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_DSPDBG_ROOT>,
+			 <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI3_IPG>,
+			 <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI3_MCLK1>,
+			 <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SDMA3_ROOT>,
+			 <&clk IMX8MP_CLK_I2C3_ROOT>,
+			 <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_ASRC_IPG>,
+			 <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI3_MCLK1>,
+			 <&clk IMX8MP_CLK_UART4_ROOT>,
+			 <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_PDM_IPG>,
+			 <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_PDM_SEL>;
+	clock-names = "ocram", "core", "debug",
+				  "per_clk1", "per_clk2", "per_clk3", "per_clk4", "per_clk5", "per_clk6",
+				  "per_clk7", "per_clk8", "per_clk9";
+	firmware-name = "imx/dsp/hifi4.bin";
+	power-domains = <&audiomix_pd>;
+	mbox-names = "tx", "rx", "rxdb";
+	mboxes = <&mu2 0 0>,
+			 <&mu2 1 0>,
+			 <&mu2 3 0>;
+	memory-region = <&dsp_vdev0buffer>, <&dsp_vdev0vring0>,
+					<&dsp_vdev0vring1>, <&dsp_reserved>;
+	syscon = <&audio_blk_ctrl>;
+	status = "okay";
+};
+
+&i2c3 {
+	status = "disabled";
+};
+
+&easrc {
+	status = "disabled";
+};
+
+&wm8960 {
+	status = "disabled";
+};
+
+&sai3 {
+	status = "disabled";
+};
+
+&sdma3 {
+	status = "disabled";
+};
+
+&uart4 {
+	status = "disabled";
+};
+
+&uart3 {
+	status = "disabled";
+};
+
+&micfil {
+	status = "disabled";
+};

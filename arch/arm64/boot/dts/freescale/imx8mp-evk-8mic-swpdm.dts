@@ -1,0 +1,72 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2020 NXP
+ */
+
+#include "imx8mp-evk.dts"
+
+/ {
+	sound-micfil {
+		status = "disabled";
+	};
+
+	dmic: dmic {
+		#sound-dai-cells = <0>;
+		compatible = "dmic-codec";
+		wakeup-delay-ms = <250>;
+	};
+
+	sound-swpdm {
+		compatible = "fsl,imx-audio-card";
+		model = "imx-swpdm-audio";
+		pri-dai-link {
+			link-name = "PDM PCM";
+			format = "pdm";
+			cpu {
+				sound-dai = <&sai5>;
+			};
+			codec {
+				sound-dai = <&dmic>;
+			};
+		};
+	};
+};
+
+&iomuxc {
+	pinctrl_sai5:sai5grp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SAI5_RXC__AUDIOMIX_SAI5_RX_BCLK		0xd6
+			MX8MP_IOMUXC_SAI5_RXD0__AUDIOMIX_SAI5_RX_DATA00		0xd6
+			MX8MP_IOMUXC_SAI5_RXD1__AUDIOMIX_SAI5_RX_DATA01		0xd6
+			MX8MP_IOMUXC_SAI5_RXD2__AUDIOMIX_SAI5_RX_DATA02		0xd6
+			MX8MP_IOMUXC_SAI5_RXD3__AUDIOMIX_SAI5_RX_DATA03		0xd6
+		>;
+	};
+};
+
+&micfil {
+	status = "disabled";
+};
+
+&sai5 {
+	#sound-dai-cells = <0>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_sai5>;
+	dmas = <&sdma2 8 24 0>, <&sdma2 9 24 0>;
+	assigned-clocks = <&clk IMX8MP_CLK_SAI5>;
+	assigned-clock-parents = <&clk IMX8MP_AUDIO_PLL1_OUT>;
+	assigned-clock-rates = <24576000>;
+	clocks = <&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI5_IPG>, <&clk IMX8MP_CLK_DUMMY>,
+		<&audio_blk_ctrl IMX8MP_CLK_AUDIOMIX_SAI5_MCLK1>, <&clk IMX8MP_CLK_DUMMY>,
+		<&clk IMX8MP_CLK_DUMMY>, <&clk IMX8MP_AUDIO_PLL1_OUT>,
+		<&clk IMX8MP_AUDIO_PLL2_OUT>;
+	clock-names = "bus", "mclk0", "mclk1", "mclk2", "mclk3", "pll8k", "pll11k";
+	fsl,sai-asynchronous;
+	fsl,sai-mclk-direction-output;
+	fsl,dataline = <2 0xf 0xf>;
+	status = "okay";
+};
+
+&uart3 {
+    status = "disabled";
+};

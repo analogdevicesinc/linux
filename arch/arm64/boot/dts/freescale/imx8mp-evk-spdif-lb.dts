@@ -1,0 +1,38 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2020 NXP
+ *
+ * This DTB showcase SPDIF loop back setup on i.MX8MP EVK.
+ * The signal path used to route SPDIF signal in loopback mode is:
+ *
+ * SPDIF_TX -> I2C5_SCL -> I2C5_SCL_3V3 -> J22 pin 3 ->
+ * J22 pin 5 -> I2C5_SDA_3V3 -> I2C5_SDA -> SPDIF_RX
+ */
+
+#include "imx8mp-evk.dts"
+
+/ {
+	/delete-node/ regulator-can1-stby;
+};
+
+/delete-node/ &flexcan1;
+
+&xcvr {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_xcvr>;
+	pinctrl-assert-gpios = <&pca6416 2 GPIO_ACTIVE_HIGH>;
+};
+
+&iomuxc {
+
+	/delete-node/ flexcan1grp;
+	/delete-node/ flexcan1reggrp;
+
+	pinctrl_xcvr: xcvrgrp {
+		fsl,pins = <
+			MX8MP_IOMUXC_SPDIF_RX__AUDIOMIX_SPDIF1_IN	0xd6
+			MX8MP_IOMUXC_SPDIF_TX__AUDIOMIX_SPDIF1_OUT	0xd6
+		>;
+	};
+};
+

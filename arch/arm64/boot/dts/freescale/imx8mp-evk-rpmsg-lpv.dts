@@ -1,0 +1,11 @@
+// SPDX-License-Identifier: (GPL-2.0 OR MIT)
+/*
+ * Copyright 2022 NXP
+ */
+
+#include "imx8mp-evk-rpmsg.dts"
+
+&rpmsg_audio {
+	/delete-property/ fsl,enable-lpa;
+	/delete-property/ fsl,rpmsg-in;
+};

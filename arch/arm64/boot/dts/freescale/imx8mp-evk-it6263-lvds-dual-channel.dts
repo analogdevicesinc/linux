@@ -1,0 +1,14 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * Copyright 2020 NXP
+ */
+
+#include "imx8mp-evk.dts"
+
+&lvds_bridge {
+	split-mode;
+};
+
+&ldb {
+	fsl,dual-channel;
+};

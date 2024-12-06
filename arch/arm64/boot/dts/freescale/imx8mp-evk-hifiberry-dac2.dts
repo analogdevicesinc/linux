@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2022 NXP.
+ */
+
+#include "imx8mp-evk-hifiberry-dacplus.dts"
+
+/ {
+	sound-pcm512x {
+		audio-widgets =
+			"Headphone", "Headphone Jack",
+			"Line", "Left Line Out Jack",
+			"Line", "Right Line Out Jack";
+		audio-routing =
+			"Headphone Jack", "HPLEFT",
+			"Headphone Jack", "HPRIGHT",
+			"Left Line Out Jack", "OUTL",
+			"Right Line Out Jack", "OUTR";
+		aux-devs= <&headphone_amp>;
+	};
+};
+
+&i2c3 {
+	headphone_amp: amp@60 {
+		compatible = "ti,tpa6130a2";
+		Vdd-supply = <&reg_3v3_vext>;
+		reg = <0x60>;
+		status = "okay";
+	};
+};

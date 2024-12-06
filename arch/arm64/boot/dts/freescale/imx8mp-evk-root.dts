@@ -1,0 +1,102 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * Copyright 2019 NXP
+ */
+
+#include "imx8mp-evk.dts"
+
+/ {
+	interrupt-parent = <&gic>;
+
+	resmem: reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+	};
+};
+
+&cpu_pd_wait {
+	/delete-property/ compatible;
+};
+
+&clk {
+	init-on-array = <IMX8MP_CLK_USDHC3_ROOT
+			 IMX8MP_CLK_NAND_USDHC_BUS
+			 IMX8MP_CLK_HSIO_ROOT
+			 IMX8MP_CLK_UART4_ROOT>;
+};
+
+&{/busfreq} {
+	status = "disabled";
+};
+
+&{/reserved-memory} {
+	jh_reserved: jh@fdc00000 {
+		no-map;
+		reg = <0 0xfdc00000 0x0 0x400000>;
+	};
+
+	loader_reserved: loader@fdb00000 {
+		no-map;
+		reg = <0 0xfdb00000 0x0 0x00100000>;
+	};
+
+	ivshmem_reserved: ivshmem@fda00000 {
+		no-map;
+		reg = <0 0xfda00000 0x0 0x00100000>;
+	};
+
+	ivshmem2_reserved: ivshmem2@fd900000 {
+		no-map;
+		reg = <0 0xfd900000 0x0 0x00100000>;
+	};
+
+	pci_reserved: pci@fd700000 {
+		no-map;
+		reg = <0 0xfd700000 0x0 0x00200000>;
+	};
+
+	inmate_reserved: inmate@c0000000 {
+		no-map;
+		reg = <0 0xc0000000 0x0 0x3d700000>;
+	};
+};
+
+&{/reserved-memory/linux,cma} {
+	size = <0 0x28000000>;
+	alloc-ranges = <0 0x40000000 0 0x60000000>;
+};
+
+&iomuxc {
+	pinctrl_uart4: uart4grp {
+		fsl,pins = <
+			MX8MP_IOMUXC_UART4_RXD__UART4_DCE_RX	0x140
+			MX8MP_IOMUXC_UART4_TXD__UART4_DCE_TX	0x140
+		>;
+	};
+};
+
+&usdhc3 {
+	status = "disabled";
+};
+
+&uart4 {
+	/delete-property/ dmas;	
+	/delete-property/ dma-names;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_uart4>;
+	status = "disabled";
+};
+
+&uart2 {
+	/* uart4 is used by the 2nd OS, so configure pin and clk */
+	pinctrl-0 = <&pinctrl_uart2>, <&pinctrl_uart4>;
+	assigned-clocks = <&clk IMX8MP_CLK_UART4>;
+	assigned-clock-parents = <&clk IMX8MP_CLK_24M>;
+};
+
+&usdhc2 {
+	pinctrl-0 = <&pinctrl_usdhc3>, <&pinctrl_usdhc2>, <&pinctrl_usdhc2_gpio>;
+	pinctrl-1 = <&pinctrl_usdhc3>, <&pinctrl_usdhc2_100mhz>, <&pinctrl_usdhc2_gpio>;
+	pinctrl-2 = <&pinctrl_usdhc3>, <&pinctrl_usdhc2_200mhz>, <&pinctrl_usdhc2_gpio>;
+};
