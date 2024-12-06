@@ -8,13 +8,14 @@
 #include <linux/clk.h>
 #include <linux/clk-provider.h>
 #include <linux/device.h>
-#include <linux/interconnect.h>
 #include <linux/module.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/pm_domain.h>
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
+#include <linux/mfd/syscon.h>
+#include <soc/imx/gpcv2.h>
 
 #include <dt-bindings/power/imx8mp-power.h>
 
@@ -40,32 +41,45 @@ struct imx8mp_blk_ctrl {
 	struct notifier_block power_nb;
 	struct device *bus_power_dev;
 	struct regmap *regmap;
+	struct regmap *noc_regmap;
 	struct imx8mp_blk_ctrl_domain *domains;
 	struct genpd_onecell_data onecell_data;
 	void (*power_off) (struct imx8mp_blk_ctrl *bc, struct imx8mp_blk_ctrl_domain *domain);
 	void (*power_on) (struct imx8mp_blk_ctrl *bc, struct imx8mp_blk_ctrl_domain *domain);
 };
 
+struct imx8m_blk_ctrl_hurry_data {
+	u32 off;
+	u32 hurry_mask;
+};
+
+struct imx8mp_blk_ctrl_noc_data {
+	u32 off;
+	u32 priority;
+	u32 mode;
+	u32 extctrl;
+};
+
+#define DOMAIN_MAX_NOC	3
+
 struct imx8mp_blk_ctrl_domain_data {
 	const char *name;
 	const char * const *clk_names;
 	int num_clks;
-	const char * const *path_names;
-	int num_paths;
 	const char *gpc_name;
+	const struct imx8m_blk_ctrl_hurry_data *hurry_data;
+	const struct imx8mp_blk_ctrl_noc_data *noc_data[DOMAIN_MAX_NOC];
+	const unsigned int flags;
 };
 
 #define DOMAIN_MAX_CLKS 3
-#define DOMAIN_MAX_PATHS 3
 
 struct imx8mp_blk_ctrl_domain {
 	struct generic_pm_domain genpd;
 	const struct imx8mp_blk_ctrl_domain_data *data;
 	struct clk_bulk_data clks[DOMAIN_MAX_CLKS];
-	struct icc_bulk_data paths[DOMAIN_MAX_PATHS];
 	struct device *power_dev;
 	struct imx8mp_blk_ctrl *bc;
-	int num_paths;
 	int id;
 };
 
@@ -171,6 +185,33 @@ static int imx8mp_hsio_blk_ctrl_probe(struct imx8mp_blk_ctrl *bc)
 	return devm_of_clk_add_hw_provider(bc->dev, of_clk_hw_simple_get, hw);
 }
 
+static int imx8mp_qos_set(struct imx8mp_blk_ctrl_domain *domain)
+{
+	const struct imx8mp_blk_ctrl_domain_data *data = domain->data;
+	struct imx8mp_blk_ctrl *bc = domain->bc;
+	struct regmap *regmap = bc->noc_regmap;
+	int i;
+
+	if (!data)
+		return 0;
+
+	if (data->hurry_data)
+		regmap_set_bits(bc->regmap, data->hurry_data->off, data->hurry_data->hurry_mask);
+
+	if (!regmap)
+		return 0;
+
+	for (i = 0; i < DOMAIN_MAX_NOC; i++) {
+		if (!data->noc_data[i])
+			continue;
+		regmap_write(regmap, data->noc_data[i]->off + 0x8, data->noc_data[i]->priority);
+		regmap_write(regmap, data->noc_data[i]->off + 0xc, data->noc_data[i]->mode);
+		regmap_write(regmap, data->noc_data[i]->off + 0x18, data->noc_data[i]->extctrl);
+	}
+
+	return 0;
+}
+
 static void imx8mp_hsio_blk_ctrl_power_on(struct imx8mp_blk_ctrl *bc,
 					  struct imx8mp_blk_ctrl_domain *domain)
 {
@@ -188,6 +229,8 @@ static void imx8mp_hsio_blk_ctrl_power_on(struct imx8mp_blk_ctrl *bc,
 	default:
 		break;
 	}
+
+	imx8mp_qos_set(domain);
 }
 
 static void imx8mp_hsio_blk_ctrl_power_off(struct imx8mp_blk_ctrl *bc,
@@ -252,30 +295,60 @@ static int imx8mp_hsio_power_notifier(struct notifier_block *nb,
 	return NOTIFY_OK;
 }
 
+#define IMX8MP_HSIOBLK_NOC_PCIE	0
+#define IMX8MP_HSIOBLK_USB1	1
+#define IMX8MP_HSIOBLK_USB2	2
+#define IMX8MP_HSIOBLK_PCIE	3
+
+static const struct imx8mp_blk_ctrl_noc_data imx8mp_hsio_noc_data[] = {
+	[IMX8MP_HSIOBLK_NOC_PCIE] = {
+		.off = 0x780,
+		.priority = 0x80000303,
+	},
+	[IMX8MP_HSIOBLK_USB1] = {
+		.off = 0x800,
+		.priority = 0x80000303,
+	},
+	[IMX8MP_HSIOBLK_USB2] = {
+		.off = 0x880,
+		.priority = 0x80000303,
+	},
+	[IMX8MP_HSIOBLK_PCIE] = {
+		.off = 0x900,
+		.priority = 0x80000303,
+	},
+};
+
 static const struct imx8mp_blk_ctrl_domain_data imx8mp_hsio_domain_data[] = {
 	[IMX8MP_HSIOBLK_PD_USB] = {
 		.name = "hsioblk-usb",
 		.clk_names = (const char *[]){ "usb" },
 		.num_clks = 1,
 		.gpc_name = "usb",
-		.path_names = (const char *[]){"usb1", "usb2"},
-		.num_paths = 2,
+		.noc_data = {
+			&imx8mp_hsio_noc_data[IMX8MP_HSIOBLK_USB1],
+			&imx8mp_hsio_noc_data[IMX8MP_HSIOBLK_USB2]
+		},
 	},
 	[IMX8MP_HSIOBLK_PD_USB_PHY1] = {
 		.name = "hsioblk-usb-phy1",
 		.gpc_name = "usb-phy1",
+		.flags = GENPD_FLAG_ACTIVE_WAKEUP,
 	},
 	[IMX8MP_HSIOBLK_PD_USB_PHY2] = {
 		.name = "hsioblk-usb-phy2",
 		.gpc_name = "usb-phy2",
+		.flags = GENPD_FLAG_ACTIVE_WAKEUP,
 	},
 	[IMX8MP_HSIOBLK_PD_PCIE] = {
 		.name = "hsioblk-pcie",
 		.clk_names = (const char *[]){ "pcie" },
 		.num_clks = 1,
 		.gpc_name = "pcie",
-		.path_names = (const char *[]){"noc-pcie", "pcie"},
-		.num_paths = 2,
+		.noc_data = {
+			&imx8mp_hsio_noc_data[IMX8MP_HSIOBLK_NOC_PCIE],
+			&imx8mp_hsio_noc_data[IMX8MP_HSIOBLK_PCIE]
+		},
 	},
 	[IMX8MP_HSIOBLK_PD_PCIE_PHY] = {
 		.name = "hsioblk-pcie-phy",
@@ -320,13 +393,13 @@ static void imx8mp_hdmi_blk_ctrl_power_on(struct imx8mp_blk_ctrl *bc,
 		regmap_set_bits(bc->regmap, HDMI_TX_CONTROL0,
 				FIELD_PREP(HDMI_LCDIF_NOC_HURRY_MASK, 7));
 		break;
-	case IMX8MP_HDMIBLK_PD_PAI:
-		regmap_set_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(17));
-		regmap_set_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(18));
-		break;
 	case IMX8MP_HDMIBLK_PD_PVI:
 		regmap_set_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(28));
 		regmap_set_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(22));
+		fallthrough;
+	case IMX8MP_HDMIBLK_PD_PAI:
+		regmap_set_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(17));
+		regmap_set_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(18));
 		break;
 	case IMX8MP_HDMIBLK_PD_TRNG:
 		regmap_set_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(27) | BIT(30));
@@ -358,58 +431,20 @@ static void imx8mp_hdmi_blk_ctrl_power_on(struct imx8mp_blk_ctrl *bc,
 	default:
 		break;
 	}
+
+	imx8mp_qos_set(domain);
+
 }
 
 static void imx8mp_hdmi_blk_ctrl_power_off(struct imx8mp_blk_ctrl *bc,
 					   struct imx8mp_blk_ctrl_domain *domain)
 {
 	switch (domain->id) {
-	case IMX8MP_HDMIBLK_PD_IRQSTEER:
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL0, BIT(9));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(16));
-		break;
-	case IMX8MP_HDMIBLK_PD_LCDIF:
-		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0,
-				  BIT(4) | BIT(5) | BIT(6));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(11));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL0,
-				  BIT(16) | BIT(17) | BIT(18) |
-				  BIT(19) | BIT(20));
-		break;
-	case IMX8MP_HDMIBLK_PD_PAI:
-		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(18));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(17));
-		break;
-	case IMX8MP_HDMIBLK_PD_PVI:
-		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(22));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(28));
-		break;
-	case IMX8MP_HDMIBLK_PD_TRNG:
-		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(20));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(27) | BIT(30));
-		break;
 	case IMX8MP_HDMIBLK_PD_HDMI_TX:
 		regmap_clear_bits(bc->regmap, HDMI_TX_CONTROL0, BIT(1));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0,
-				  BIT(7) | BIT(10) | BIT(11));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL1,
-				  BIT(12) | BIT(13) | BIT(14) | BIT(15) | BIT(16) |
-				  BIT(18) | BIT(19) | BIT(20) | BIT(21));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL0,
-				  BIT(2) | BIT(4) | BIT(5));
 		break;
 	case IMX8MP_HDMIBLK_PD_HDMI_TX_PHY:
 		regmap_set_bits(bc->regmap, HDMI_TX_CONTROL0, BIT(3));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(12));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL0, BIT(7));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(22) | BIT(24));
-		break;
-	case IMX8MP_HDMIBLK_PD_HDCP:
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL0, BIT(11));
-		break;
-	case IMX8MP_HDMIBLK_PD_HRV:
-		regmap_clear_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(15));
-		regmap_clear_bits(bc->regmap, HDMI_RTX_CLK_CTL1, BIT(3) | BIT(4) | BIT(5));
 		break;
 	default:
 		break;
@@ -422,21 +457,34 @@ static int imx8mp_hdmi_power_notifier(struct notifier_block *nb,
 	struct imx8mp_blk_ctrl *bc = container_of(nb, struct imx8mp_blk_ctrl,
 						 power_nb);
 
+	if (action == IMX_GPCV2_NOTIFY_ON_CLK_ENABLED) {
+		regmap_write(bc->regmap, HDMI_RTX_RESET_CTL0, 0x0);
+		regmap_write(bc->regmap, HDMI_RTX_CLK_CTL0, 0xFFFFFFFF);
+		regmap_write(bc->regmap, HDMI_RTX_CLK_CTL1, 0x7ffff87e);
+
+		return NOTIFY_OK;
+	}
+
+	if (action == IMX_GPCV2_NOTIFY_ON_ADB400) {
+		/* wait for memory repair done */
+		udelay(20);
+
+		regmap_write(bc->regmap, HDMI_RTX_CLK_CTL0, 0);
+		regmap_write(bc->regmap, HDMI_RTX_CLK_CTL1, 0);
+		regmap_write(bc->regmap, HDMI_RTX_RESET_CTL0, 0xffffffff);
+		regmap_write(bc->regmap, HDMI_RTX_CLK_CTL0, 0xFFFFFFFF);
+		regmap_write(bc->regmap, HDMI_RTX_CLK_CTL1, 0x7ffff87e);
+
+		return NOTIFY_OK;
+	}
+
+	if (action == IMX_GPCV2_NOTIFY_OFF_ADB400) {
+		regmap_write(bc->regmap, HDMI_RTX_CLK_CTL0, 0);
+		regmap_write(bc->regmap, HDMI_RTX_CLK_CTL1, 0);
+	}
+
 	if (action != GENPD_NOTIFY_ON)
 		return NOTIFY_OK;
-
-	/*
-	 * Contrary to other blk-ctrls the reset and clock don't clear when the
-	 * power domain is powered down. To ensure the proper reset pulsing,
-	 * first clear them all to asserted state, then enable the bus clocks
-	 * and then release the ADB reset.
-	 */
-	regmap_write(bc->regmap, HDMI_RTX_RESET_CTL0, 0x0);
-	regmap_write(bc->regmap, HDMI_RTX_CLK_CTL0, 0x0);
-	regmap_write(bc->regmap, HDMI_RTX_CLK_CTL1, 0x0);
-	regmap_set_bits(bc->regmap, HDMI_RTX_CLK_CTL0,
-			BIT(0) | BIT(1) | BIT(10));
-	regmap_set_bits(bc->regmap, HDMI_RTX_RESET_CTL0, BIT(0));
 
 	/*
 	 * On power up we have no software backchannel to the GPC to
@@ -447,6 +495,41 @@ static int imx8mp_hdmi_power_notifier(struct notifier_block *nb,
 
 	return NOTIFY_OK;
 }
+
+#define IMX8MP_HDMIBLK_NOC_HRV		0
+#define IMX8MP_HDMIBLK_NOC_LCDIFHDMI	1
+#define IMX8MP_HDMIBLK_NOC_HDCP		2
+
+static const struct imx8mp_blk_ctrl_noc_data imx8mp_hdmi_noc_data[] = {
+	[IMX8MP_HDMIBLK_NOC_HRV] = {
+		.off = 0x600,
+		.priority = 0x80000202,
+		.extctrl = 1,
+	},
+	[IMX8MP_HDMIBLK_NOC_LCDIFHDMI] = {
+		.off = 0x680,
+		.priority = 0x80000202,
+		.extctrl = 1,
+	},
+	[IMX8MP_HDMIBLK_NOC_HDCP] = {
+		.off = 0x700,
+		.priority = 0x80000505,
+	}
+};
+
+#define IMX8MP_HDMIBLK_LCDIF	0
+#define IMX8MP_HDMIBLK_HRV	1
+
+static const struct imx8m_blk_ctrl_hurry_data imx8mp_hdmi_hurry_data[] = {
+	[IMX8MP_HDMIBLK_LCDIF] = {
+		.off = HDMI_TX_CONTROL0,
+		.hurry_mask = GENMASK(14, 12),
+	},
+	[IMX8MP_HDMIBLK_HRV] = {
+		.off = HDMI_TX_CONTROL0,
+		.hurry_mask = GENMASK(18, 16),
+	}
+};
 
 static const struct imx8mp_blk_ctrl_domain_data imx8mp_hdmi_domain_data[] = {
 	[IMX8MP_HDMIBLK_PD_IRQSTEER] = {
@@ -460,8 +543,10 @@ static const struct imx8mp_blk_ctrl_domain_data imx8mp_hdmi_domain_data[] = {
 		.clk_names = (const char *[]){ "axi", "apb", "fdcc" },
 		.num_clks = 3,
 		.gpc_name = "lcdif",
-		.path_names = (const char *[]){"lcdif-hdmi"},
-		.num_paths = 1,
+		.hurry_data = &imx8mp_hdmi_hurry_data[IMX8MP_HDMIBLK_LCDIF],
+		.noc_data = {
+			&imx8mp_hdmi_noc_data[IMX8MP_HDMIBLK_NOC_LCDIFHDMI],
+		},
 	},
 	[IMX8MP_HDMIBLK_PD_PAI] = {
 		.name = "hdmiblk-pai",
@@ -498,16 +583,19 @@ static const struct imx8mp_blk_ctrl_domain_data imx8mp_hdmi_domain_data[] = {
 		.clk_names = (const char *[]){ "axi", "apb" },
 		.num_clks = 2,
 		.gpc_name = "hrv",
-		.path_names = (const char *[]){"hrv"},
-		.num_paths = 1,
+		.hurry_data = &imx8mp_hdmi_hurry_data[IMX8MP_HDMIBLK_HRV],
+		.noc_data = {
+			&imx8mp_hdmi_noc_data[IMX8MP_HDMIBLK_NOC_HRV],
+		},
 	},
 	[IMX8MP_HDMIBLK_PD_HDCP] = {
 		.name = "hdmiblk-hdcp",
 		.clk_names = (const char *[]){ "axi", "apb" },
 		.num_clks = 2,
 		.gpc_name = "hdcp",
-		.path_names = (const char *[]){"hdcp"},
-		.num_paths = 1,
+		.noc_data = {
+			&imx8mp_hdmi_noc_data[IMX8MP_HDMIBLK_NOC_HDCP],
+		},
 	},
 };
 
@@ -550,10 +638,6 @@ static int imx8mp_blk_ctrl_power_on(struct generic_pm_domain *genpd)
 		dev_err(bc->dev, "failed to power up peripheral domain\n");
 		goto clk_disable;
 	}
-
-	ret = icc_bulk_set_bw(domain->num_paths, domain->paths);
-	if (ret)
-		dev_err(bc->dev, "failed to set icc bw\n");
 
 	clk_bulk_disable_unprepare(data->num_clks, domain->clks);
 
@@ -601,6 +685,7 @@ static int imx8mp_blk_ctrl_probe(struct platform_device *pdev)
 	const struct imx8mp_blk_ctrl_data *bc_data;
 	struct device *dev = &pdev->dev;
 	struct imx8mp_blk_ctrl *bc;
+	struct regmap *regmap;
 	void __iomem *base;
 	int num_domains, i, ret;
 
@@ -608,6 +693,7 @@ static int imx8mp_blk_ctrl_probe(struct platform_device *pdev)
 		.reg_bits	= 32,
 		.val_bits	= 32,
 		.reg_stride	= 4,
+		.disable_debugfs = true,
 	};
 
 	bc = devm_kzalloc(dev, sizeof(*bc), GFP_KERNEL);
@@ -650,34 +736,19 @@ static int imx8mp_blk_ctrl_probe(struct platform_device *pdev)
 	bc->power_off = bc_data->power_off;
 	bc->power_on = bc_data->power_on;
 
+	regmap = syscon_regmap_lookup_by_compatible("fsl,imx8m-noc");
+	if (!IS_ERR(regmap))
+		bc->noc_regmap = regmap;
+
 	for (i = 0; i < num_domains; i++) {
 		const struct imx8mp_blk_ctrl_domain_data *data = &bc_data->domains[i];
 		struct imx8mp_blk_ctrl_domain *domain = &bc->domains[i];
 		int j;
 
 		domain->data = data;
-		domain->num_paths = data->num_paths;
 
 		for (j = 0; j < data->num_clks; j++)
 			domain->clks[j].id = data->clk_names[j];
-
-		for (j = 0; j < data->num_paths; j++) {
-			domain->paths[j].name = data->path_names[j];
-			/* Fake value for now, just let ICC could configure NoC mode/priority */
-			domain->paths[j].avg_bw = 1;
-			domain->paths[j].peak_bw = 1;
-		}
-
-		ret = devm_of_icc_bulk_get(dev, data->num_paths, domain->paths);
-		if (ret) {
-			if (ret != -EPROBE_DEFER) {
-				dev_warn_once(dev, "Could not get interconnect paths, NoC will stay unconfigured!\n");
-				domain->num_paths = 0;
-			} else {
-				dev_err_probe(dev, ret, "failed to get noc entries\n");
-				goto cleanup_pds;
-			}
-		}
 
 		ret = devm_clk_bulk_get(dev, data->num_clks, domain->clks);
 		if (ret) {
@@ -701,6 +772,7 @@ static int imx8mp_blk_ctrl_probe(struct platform_device *pdev)
 		domain->genpd.name = data->name;
 		domain->genpd.power_on = imx8mp_blk_ctrl_power_on;
 		domain->genpd.power_off = imx8mp_blk_ctrl_power_off;
+		domain->genpd.flags = data->flags;
 		domain->bc = bc;
 		domain->id = i;
 
@@ -725,6 +797,9 @@ static int imx8mp_blk_ctrl_probe(struct platform_device *pdev)
 				  &blk_ctrl_genpd_lock_class);
 
 		bc->onecell_data.domains[i] = &domain->genpd;
+
+		if (data->flags & GENPD_FLAG_ACTIVE_WAKEUP)
+			device_set_wakeup_capable(domain->power_dev, true);
 	}
 
 	ret = of_genpd_add_provider_onecell(dev->of_node, &bc->onecell_data);

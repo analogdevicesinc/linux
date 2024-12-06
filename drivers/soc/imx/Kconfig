@@ -17,6 +17,13 @@ config IMX8M_BUSFREQ
 	depends on SOC_IMX8M
 	default ARCH_MXC
 
+config IMX8M_PM_DOMAINS
+	tristate "i.MX8M PM domains"
+	default ARCH_MXC
+	depends on ARCH_MXC || (COMPILE_TEST && OF)
+	depends on PM
+	select PM_GENERIC_DOMAINS
+
 config SOC_IMX9
 	tristate "i.MX9 SoC family support"
 	depends on ARCH_MXC || COMPILE_TEST
@@ -58,4 +65,12 @@ config IMX9_LPM_CTRL
 	  user case. When voltage mode is switched, core, bus and DDR frequencies are also
 	  scaled together. The mode need to be switched manually by user.
 
+config IMX8ULP_LPM_CTRL
+	tristate "i.MX8ULP DDR Low Power Control support"
+	depends on ARCH_MXC || COMPILE_TEST
+	default ARCH_MXC && ARM64
+	help
+	  If you say yes here you get supoort for DDR frequency scaling support on
+	  i.MX8ULP for scaling the DDR frequency based on user case. The DDR frequency
+	  need to be switched manually by user.
 endmenu

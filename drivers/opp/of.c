@@ -1353,7 +1353,7 @@ int dev_pm_opp_of_get_sharing_cpus(struct device *cpu_dev,
 	if (!of_property_read_bool(np, "opp-shared"))
 		goto put_cpu_node;
 
-	for_each_possible_cpu(cpu) {
+	for_each_present_cpu(cpu) {
 		if (cpu == cpu_dev->id)
 			continue;
 

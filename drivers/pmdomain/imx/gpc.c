@@ -40,6 +40,11 @@
 
 #define PGC_DOMAIN_FLAG_NO_PD		BIT(0)
 
+#define GPC_PGC_DOMAIN_ARM	0
+#define GPC_PGC_DOMAIN_PU	1
+#define GPC_PGC_DOMAIN_DISPLAY	2
+#define GPC_PGC_DOMAIN_PCI	3
+
 struct imx_pm_domain {
 	struct generic_pm_domain base;
 	struct regmap *regmap;
@@ -177,6 +182,8 @@ static int imx_pgc_parse_dt(struct device *dev, struct imx_pm_domain *domain)
 	return imx_pgc_get_clocks(dev, domain);
 }
 
+static void imx_gpc_handle_ldobypass(struct platform_device *pdev);
+
 static int imx_pgc_power_domain_probe(struct platform_device *pdev)
 {
 	struct imx_pm_domain *domain = pdev->dev.platform_data;
@@ -202,6 +209,10 @@ static int imx_pgc_power_domain_probe(struct platform_device *pdev)
 	}
 
 	device_link_add(dev, dev->parent, DL_FLAG_AUTOREMOVE_CONSUMER);
+
+	/* Mark PU regulator as bypass */
+	if (pdev->id == GPC_PGC_DOMAIN_PU)
+		imx_gpc_handle_ldobypass(pdev);
 
 	return 0;
 
@@ -237,11 +248,6 @@ static struct platform_driver imx_pgc_power_domain_driver = {
 	.id_table = imx_pgc_power_domain_id,
 };
 builtin_platform_driver(imx_pgc_power_domain_driver)
-
-#define GPC_PGC_DOMAIN_ARM	0
-#define GPC_PGC_DOMAIN_PU	1
-#define GPC_PGC_DOMAIN_DISPLAY	2
-#define GPC_PGC_DOMAIN_PCI	3
 
 static struct genpd_power_state imx6_pm_domain_pu_state = {
 	.power_off_latency_ns = 25000,
@@ -400,6 +406,22 @@ clk_err:
 	return ret;
 }
 
+static void imx_gpc_handle_ldobypass(struct platform_device *pdev)
+{
+	struct imx_pm_domain *domain = pdev->dev.platform_data;
+	struct regulator *pu_reg = domain->supply;
+	u32 bypass = 0;
+	int ret;
+
+	ret = of_property_read_u32(pdev->dev.parent->of_node, "fsl,ldo-bypass", &bypass);
+	if (ret && ret != -EINVAL)
+		dev_warn(pdev->dev.parent, "failed to read fsl,ldo-bypass property: %d\n", ret);
+
+	/* We only bypass pu since arm and soc has been set in u-boot */
+	if (pu_reg && bypass)
+		regulator_allow_bypass(pu_reg, true);
+}
+
 static int imx_gpc_probe(struct platform_device *pdev)
 {
 	const struct imx_gpc_dt_data *of_id_data = device_get_match_data(&pdev->dev);
@@ -452,6 +474,8 @@ static int imx_gpc_probe(struct platform_device *pdev)
 					  of_id_data->num_domains);
 		if (ret)
 			return ret;
+
+		imx_gpc_handle_ldobypass(pdev);
 	} else {
 		struct imx_pm_domain *domain;
 		struct platform_device *pd_pdev;
