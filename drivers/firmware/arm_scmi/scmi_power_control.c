@@ -239,6 +239,7 @@ static void scmi_request_graceful_transition(struct scmi_syspower_conf *sc,
 		sc->required_transition, timeout_ms, adj_timeout_ms);
 
 	switch (sc->required_transition) {
+	case SCMI_IMX_SYSTEM_FULL_SHUTDOWN:
 	case SCMI_SYSTEM_SHUTDOWN:
 		/*
 		 * When triggered early at boot-time the 'orderly' call will
@@ -248,10 +249,12 @@ static void scmi_request_graceful_transition(struct scmi_syspower_conf *sc,
 		 */
 		orderly_poweroff(true);
 		break;
+	case SCMI_IMX_SYSTEM_FULL_RESET:
 	case SCMI_SYSTEM_COLDRESET:
 	case SCMI_SYSTEM_WARMRESET:
 		orderly_reboot();
 		break;
+	case SCMI_IMX_SYSTEM_FULL_SUSPEND:
 	case SCMI_SYSTEM_SUSPEND:
 		schedule_work(&sc->suspend_work);
 		break;
@@ -283,8 +286,10 @@ static int scmi_userspace_notifier(struct notifier_block *nb,
 	struct scmi_system_power_state_notifier_report *er = data;
 	struct scmi_syspower_conf *sc = userspace_nb_to_sconf(nb);
 
-	if (er->system_state >= SCMI_SYSTEM_MAX ||
-	    er->system_state == SCMI_SYSTEM_POWERUP) {
+	if ((er->system_state >= SCMI_SYSTEM_MAX &&
+	    er->system_state <= SCMI_IMX_SYSTEM_WAKE) ||
+	    er->system_state == SCMI_SYSTEM_POWERUP ||
+	    er->system_state >= SCMI_IMX_SYSTEM_FULL_WAKE) {
 		dev_err(sc->dev, "Ignoring unsupported system_state: 0x%X\n",
 			er->system_state);
 		return NOTIFY_DONE;
@@ -314,7 +319,7 @@ static int scmi_userspace_notifier(struct notifier_block *nb,
 	sc->required_transition = er->system_state;
 
 	/* Leaving a trace in logs of who triggered the shutdown/reboot. */
-	dev_info(sc->dev, "Serving shutdown/reboot request: %d\n",
+	dev_info(sc->dev, "Serving shutdown/reboot request: 0x%x\n",
 		 sc->required_transition);
 
 	scmi_request_graceful_transition(sc, er->timeout);

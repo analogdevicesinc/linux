@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0+ */
 /*
- * Copyright 2018 NXP
+ * Copyright 2018,2020 NXP
  *
  * Header file for the IPC implementation.
  */
@@ -25,6 +25,8 @@ enum imx_sc_rpc_svc {
 	IMX_SC_RPC_SVC_PAD = 6,
 	IMX_SC_RPC_SVC_MISC = 7,
 	IMX_SC_RPC_SVC_IRQ = 8,
+	IMX_SC_RPC_SVC_SECO = 9,
+	IMX_SC_RPC_SVC_ABORT = 10,
 };
 
 struct imx_sc_rpc_msg {

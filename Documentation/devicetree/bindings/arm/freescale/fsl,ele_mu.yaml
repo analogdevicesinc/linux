@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: (GPL-2.0 OR BSD-2-Clause)
+%YAML 1.2
+---
+$id: http://devicetree.org/schemas/arm/freescale/fsl,ele_mu.yaml#
+$schema: http://devicetree.org/meta-schemas/core.yaml#
+
+title: NXP i.MX8ULP EdgeLock Enclave MU driver
+
+maintainers:
+  - Pankaj Gupta <pankaj.gupta@nxp.com>
+
+description: |
+  Create char devices in /dev as channels of the form /dev/ele_muXchY with X
+  the id of the driver and Y for each users. It allows to send and receive
+  messages to the EdgeLock Enclave.
+
+properties:
+  compatible:
+    enum:
+      - fsl,imx-ele-mu
+
+  mboxes:
+    description:
+      List of <&phandle type channel> - 4 channels for TX, 4 channels for RX,
+      1 channel for TXDB (see mailbox/fsl,mu.txt)
+    maxItems: 9
+
+  mbox-names:
+    items:
+      - const: tx
+      - const: rx
+
+  fsl,ele_mu_did:
+    description:
+      Identify the owner of mu(msg unit) with id mentioned at ele_mu_id
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32
+      - enum: [0,1,2,3,4,5,6,7]
+
+  fsl,ele_mu_id:
+    description:
+      Identify the driver instance, used to create the channels, default to 1
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32
+      - enum: [0,1,2,3]
+
+  fsl,ele_max_users:
+    description:
+      Number of channels to create, default to 4
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint32
+      - enum: [0,1,2,3,4,5,6,7,8,9]
+
+  fsl,cmd_tag:
+    description:
+      Tag in message header for commands on this MU, default to 0x17
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint8
+      - enum: [0x17,0x18,0x19,0x1a,0x1b,0x1c,0x1d,0x1e]
+
+  fsl,rsp_tag:
+    description:
+      Tag in message header for responses on this MU, default to 0xe1
+    allOf:
+      - $ref: /schemas/types.yaml#/definitions/uint8
+      - enum: [0xe1,0xe2,0xe3,0xe4,0xe5,0xe6,0xe7,0xe8]
+
+required:
+  - compatible
+  - mboxes
+  - mbox-names
+
+examples:
+  - |
+    ele_mu: ele_mu {
+      compatible = "fsl,imx-ele-mu";
+      mbox-names = "tx", "rx";
+      mboxes = <&s4muap 2 0
+          &s4muap 3 0>;
+
+      fsl,ele_mu_id = <1>;
+      fsl,ele_max_users = <4>;
+      fsl,cmd_tag = /bits/ 8 <0x17>;
+      fsl,rsp_tag = /bits/ 8 <0xe1>;
+    };

@@ -37,18 +37,15 @@ static int imx_scu_soc_uid(u64 *soc_uid)
 {
 	struct imx_sc_msg_misc_get_soc_uid msg;
 	struct imx_sc_rpc_msg *hdr = &msg.hdr;
-	int ret;
+
+	memset(&msg, 0, sizeof(msg));
 
 	hdr->ver = IMX_SC_RPC_VERSION;
 	hdr->svc = IMX_SC_RPC_SVC_MISC;
 	hdr->func = IMX_SC_MISC_FUNC_UNIQUE_ID;
 	hdr->size = 1;
 
-	ret = imx_scu_call_rpc(imx_sc_soc_ipc_handle, &msg, true);
-	if (ret) {
-		pr_err("%s: get soc uid failed, ret %d\n", __func__, ret);
-		return ret;
-	}
+	imx_scu_call_rpc(imx_sc_soc_ipc_handle, &msg, true);
 
 	*soc_uid = msg.uid_high;
 	*soc_uid <<= 32;

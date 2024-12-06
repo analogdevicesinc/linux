@@ -18,6 +18,13 @@ struct imx_sc_msg_req_misc_set_ctrl {
 	u16 resource;
 } __packed __aligned(4);
 
+
+struct imx_sc_msg_req_misc_set_dma_group {
+	struct imx_sc_rpc_msg hdr;
+	u16 resource;
+	u8 val;
+} __packed __aligned(4);
+
 struct imx_sc_msg_req_cpu_start {
 	struct imx_sc_rpc_msg hdr;
 	u32 address_hi;
@@ -66,6 +73,24 @@ int imx_sc_misc_set_control(struct imx_sc_ipc *ipc, u32 resource,
 	return imx_scu_call_rpc(ipc, &msg, true);
 }
 EXPORT_SYMBOL(imx_sc_misc_set_control);
+
+int imx_sc_misc_set_dma_group(struct imx_sc_ipc *ipc, u32 resource,
+			    u32 val)
+{
+	struct imx_sc_msg_req_misc_set_dma_group msg;
+	struct imx_sc_rpc_msg *hdr = &msg.hdr;
+
+	hdr->ver = IMX_SC_RPC_VERSION;
+	hdr->svc = (uint8_t)IMX_SC_RPC_SVC_MISC;
+	hdr->func = (uint8_t)IMX_SC_MISC_FUNC_SET_DMA_GROUP;
+	hdr->size = 2;
+
+	msg.val = val;
+	msg.resource = resource;
+
+	return imx_scu_call_rpc(ipc, &msg, true);
+}
+EXPORT_SYMBOL(imx_sc_misc_set_dma_group);
 
 /*
  * This function gets a miscellaneous control value.
