@@ -34,6 +34,22 @@ properties:
   interrupts:
     maxItems: 1
 
+  clocks:
+    maxItems: 1
+
+  clock-names:
+    const: lin
+
+  dmas:
+    items:
+      - description: DMA controller phandle and request line for RX
+      - description: DMA controller phandle and request line for TX
+
+  dma-names:
+    items:
+      - const: rx
+      - const: tx
+
 required:
   - compatible
   - reg
@@ -47,4 +63,9 @@ examples:
         compatible = "fsl,s32v234-linflexuart";
         reg = <0x40053000 0x1000>;
         interrupts = <0 59 4>;
+        clocks = <&clks S32V234_CLK_LIN>;
+        clock-names = "lin";
+        dmas = <&edma 0 20>,
+               <&edma 0 19>;
+        dma-names = "rx", "tx";
     };

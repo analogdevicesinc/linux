@@ -32,6 +32,8 @@
 
 #include <asm/irq.h>
 #include <linux/dma/imx-dma.h>
+#include <linux/busfreq-imx.h>
+#include <linux/pm_qos.h>
 
 #include "serial_mctrl_gpio.h"
 
@@ -233,6 +235,8 @@ struct imx_port {
 	enum imx_tx_state	tx_state;
 	struct hrtimer		trigger_start_tx;
 	struct hrtimer		trigger_stop_tx;
+
+	struct pm_qos_request   pm_qos_req;
 };
 
 struct imx_port_ucrs {
@@ -1358,6 +1362,9 @@ static void imx_uart_dma_exit(struct imx_port *sport)
 		dma_release_channel(sport->dma_chan_tx);
 		sport->dma_chan_tx = NULL;
 	}
+
+	cpu_latency_qos_remove_request(&sport->pm_qos_req);
+	release_bus_freq(BUS_FREQ_HIGH);
 }
 
 static int imx_uart_dma_init(struct imx_port *sport)
@@ -1366,6 +1373,10 @@ static int imx_uart_dma_init(struct imx_port *sport)
 	struct device *dev = sport->port.dev;
 	struct dma_chan *chan;
 	int ret;
+
+	/* request high bus for DMA mode */
+	request_bus_freq(BUS_FREQ_HIGH);
+	cpu_latency_qos_add_request(&sport->pm_qos_req, 0);
 
 	/* Prepare for RX : */
 	chan = dma_request_chan(dev, "rx");
@@ -1428,9 +1439,9 @@ static void imx_uart_enable_dma(struct imx_port *sport)
 
 	imx_uart_setup_ufcr(sport, TXTL_DMA, RXTL_DMA);
 
-	/* set UCR1 */
+	/* set UCR1 except TXDMAEN which would be enabled in imx_uart_dma_tx */
 	ucr1 = imx_uart_readl(sport, UCR1);
-	ucr1 |= UCR1_RXDMAEN | UCR1_TXDMAEN | UCR1_ATDMAEN;
+	ucr1 |= UCR1_RXDMAEN | UCR1_ATDMAEN;
 	imx_uart_writel(sport, ucr1, UCR1);
 
 	sport->dma_is_enabled = 1;
@@ -1548,8 +1559,9 @@ static int imx_uart_startup(struct uart_port *port)
 	imx_uart_enable_ms(&sport->port);
 
 	if (dma_is_inited) {
-		imx_uart_enable_dma(sport);
+		/* Note: enable dma request after transfer start! */
 		imx_uart_start_rx_dma(sport);
+		imx_uart_enable_dma(sport);
 	} else {
 		ucr1 = imx_uart_readl(sport, UCR1);
 		ucr1 |= UCR1_RRDYEN;
