@@ -23,30 +23,51 @@ int ele_msg_rcv(struct se_if_device_ctx *dev_ctx,
 		struct se_clbk_handle *se_clbk_hdl)
 {
 	struct se_if_priv *priv = dev_ctx->priv;
+	bool wait_timeout_enabled = true;
+	unsigned int wait;
 	int err;
 
 	do {
-		/* If callback is executed before entrying to wait state,
-		 * it will immediately come out after entering the wait state,
-		 * but completion_done(&se_clbk_hdl->done), will return false
-		 * after exiting the wait state, with err = 0.
-		 */
-		err = wait_for_completion_interruptible(&se_clbk_hdl->done);
+		if (priv->cmd_receiver_clbk_hdl.dev_ctx == dev_ctx) {
+			/* For NVM-D that are slaves of SE-FW, are waiting indefinitly
+			 * to receive the command from SE-FW.
+			 */
+			wait_timeout_enabled = false;
+
+			/* If callback is executed before entrying to wait state,
+			 * it will immediately come out after entering the wait state,
+			 * but completion_done(&se_clbk_hdl->done), will return false
+			 * after exiting the wait state, with err = 0.
+			 */
+			err = wait_for_completion_interruptible(&se_clbk_hdl->done);
+		} else {
+			/* FW must send the message response to application in a finite
+			 * time.
+			 */
+			wait = msecs_to_jiffies(10000);
+			err = wait_for_completion_interruptible_timeout(&se_clbk_hdl->done, wait);
+		}
 		if (err == -ERESTARTSYS) {
 			if (priv->waiting_rsp_clbk_hdl.dev_ctx) {
 				priv->waiting_rsp_clbk_hdl.signal_rcvd = true;
 				continue;
 			}
-			dev_err(priv->dev,
-				"%s: Err[0x%x]:Interrupted by signal.\n",
-				se_clbk_hdl->dev_ctx->devname,
-				err);
 			err = -EINTR;
 			break;
 		}
-	} while (err != 0);
+		if (err == 0) {
+			if (wait_timeout_enabled) {
+				err = -ETIMEDOUT;
+				dev_err(priv->dev,
+					"Fatal Error: SE interface: %s%d, hangs indefinitely.\n",
+					get_se_if_name(priv->if_defs->se_if_type),
+					priv->if_defs->se_instance_id);
+			}
+			break;
+		}
+	} while (err < 0);
 
-	if (!err) {
+	if (err >= 0) {
 		se_dump_to_logfl(dev_ctx,
 				 SE_DUMP_MU_RCV_BUFS,
 				 se_clbk_hdl->rx_msg_sz,
@@ -124,6 +145,10 @@ int ele_msg_send_rcv(struct se_if_device_ctx *dev_ctx,
 	if (priv->waiting_rsp_clbk_hdl.signal_rcvd) {
 		err = -EINTR;
 		priv->waiting_rsp_clbk_hdl.signal_rcvd = false;
+		dev_err(priv->dev,
+			"%s: Err[0x%x]:Interrupted by signal.\n",
+			dev_ctx->devname,
+			err);
 	}
 	priv->waiting_rsp_clbk_hdl.dev_ctx = NULL;
 
@@ -272,7 +297,7 @@ int se_val_rsp_hdr_n_status(struct se_if_priv *priv,
 
 	status = RES_STATUS(msg->data[0]);
 	if (status != priv->if_defs->success_tag) {
-		dev_err(priv->dev, "Command Id[%d], Response Failure = 0x%x",
+		dev_err(priv->dev, "Command Id[%x], Response Failure = 0x%x",
 			header->command, status);
 		return -EPERM;
 	}
