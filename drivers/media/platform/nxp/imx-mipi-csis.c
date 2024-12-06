@@ -360,6 +360,12 @@ static const struct csis_pix_format mipi_csis_formats[] = {
 		.data_type = MIPI_CSI2_DATA_TYPE_YUV422_8,
 		.width = 16,
 	},
+	{
+		.code = MEDIA_BUS_FMT_YUYV8_1X16,
+		.output = MEDIA_BUS_FMT_YUYV8_1X16,
+		.data_type = MIPI_CSI2_DATA_TYPE_YUV422_8,
+		.width = 16,
+	},
 	/* RGB formats. */
 	{
 		.code = MEDIA_BUS_FMT_RGB565_1X16,
@@ -716,7 +722,7 @@ static int mipi_csis_clk_get(struct mipi_csis_device *csis)
 	for (i = 0; i < csis->info->num_clocks; i++)
 		csis->clks[i].id = mipi_csis_clk_id[i];
 
-	ret = devm_clk_bulk_get(csis->dev, csis->info->num_clocks,
+	ret = devm_clk_bulk_get_optional(csis->dev, csis->info->num_clocks,
 				csis->clks);
 	if (ret < 0)
 		return ret;
@@ -738,12 +744,10 @@ static void mipi_csis_start_stream(struct mipi_csis_device *csis,
 	mipi_csis_sw_reset(csis);
 	mipi_csis_set_params(csis, format, csis_fmt);
 	mipi_csis_system_enable(csis, true);
-	mipi_csis_enable_interrupts(csis, true);
 }
 
 static void mipi_csis_stop_stream(struct mipi_csis_device *csis)
 {
-	mipi_csis_enable_interrupts(csis, false);
 	mipi_csis_system_enable(csis, false);
 }
 
@@ -968,6 +972,7 @@ static int mipi_csis_s_stream(struct v4l2_subdev *sd, int enable)
 		v4l2_subdev_disable_streams(csis->source.sd,
 					    csis->source.pad->index, BIT(0));
 
+		mipi_csis_enable_interrupts(csis, false);
 		mipi_csis_stop_stream(csis);
 		if (csis->debug.enable)
 			mipi_csis_log_counters(csis, true);
@@ -999,6 +1004,7 @@ static int mipi_csis_s_stream(struct v4l2_subdev *sd, int enable)
 	if (ret < 0)
 		goto err_stop;
 
+	mipi_csis_enable_interrupts(csis, true);
 	mipi_csis_log_counters(csis, true);
 
 	v4l2_subdev_unlock_state(state);
